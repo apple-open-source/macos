@@ -83,6 +83,26 @@ enum
 	kAlbumTrackNumber	= 0
 };
 
+// For pre-Panther systems
+#ifndef VOL_CAP_FMT_JOURNAL
+#define VOL_CAP_FMT_JOURNAL			0x00000008
+#define VOL_CAP_FMT_JOURNAL_ACTIVE	0x00000010
+#define VOL_CAP_FMT_NO_ROOT_TIMES	0x00000020
+#define VOL_CAP_FMT_SPARSE_FILES	0x00000040
+#define VOL_CAP_FMT_ZERO_RUNS		0x00000080
+#define VOL_CAP_FMT_CASE_SENSITIVE	0x00000100
+#define VOL_CAP_FMT_CASE_PRESERVING 0x00000200
+#define VOL_CAP_FMT_FAST_STATFS		0x00000400
+#endif
+
+#ifndef VOL_CAP_INT_EXCHANGEDATA
+#define VOL_CAP_INT_EXCHANGEDATA	0x00000010
+#define VOL_CAP_INT_COPYFILE		0x00000020
+#define VOL_CAP_INT_ALLOCATE		0x00000040
+#define VOL_CAP_INT_VOL_RENAME		0x00000080
+#define VOL_CAP_INT_ADVLOCK			0x00000100
+#endif
+
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Static Function Prototypes
@@ -206,7 +226,7 @@ DisposeCDDANode ( struct vnode * vNodePtr,
 			
 		}
 		
-		else if ( cddaNodePtr->nodeType == kAppleCDDXMLFileType )
+		else if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 		{
 			
 			FREE ( cddaNodePtr->u.xmlFile.fileDataPtr, M_TEMP );
@@ -340,7 +360,7 @@ CreateNewXMLFile ( 	struct mount * mountPtr,
 	vNodePtr->v_type = VREG;
 	
 	// Fill in the miscellaneous fields for the cddaNode
-	cddaNodePtr->nodeType 				= kAppleCDDXMLFileType;
+	cddaNodePtr->nodeType 				= kAppleCDDAXMLFileType;
 	cddaNodePtr->blockDeviceVNodePtr	= parentCDDANodePtr->blockDeviceVNodePtr;
 	
 	// Point the xmlData to the correct place
@@ -1298,7 +1318,7 @@ PackVolumeAttributes ( 	struct attrlist * attrListPtr,
 	if ( ( a = attrListPtr->volattr ) != 0 )
 	{
 		
-		off_t		blocksize = ( off_t ) kAppleCDDABlockSize;
+		off_t	blocksize = ( off_t ) kPhysicalMediaBlockSize;
 		
 		if ( a & ATTR_VOL_FSTYPE )
 		{
@@ -1396,6 +1416,24 @@ PackVolumeAttributes ( 	struct attrlist * attrListPtr,
 			
 		}
 		
+		if ( a & ATTR_VOL_MOUNTPOINT )
+		{
+			
+			DebugLog ( ( "ATTR_VOL_MOUNTPOINT : %s\n", cddaNodePtr->vNodePtr->v_mount->mnt_stat.f_mntonname ) );
+			( ( struct attrreference * ) attrbufptr )->attr_dataoffset = ( UInt8 * ) varbufptr - ( UInt8 * ) attrbufptr;
+			( ( struct attrreference * ) attrbufptr )->attr_length = strlen ( cddaNodePtr->vNodePtr->v_mount->mnt_stat.f_mntonname ) + 1;
+			attrlength = ( ( struct attrreference * ) attrbufptr )->attr_length;
+			
+			// round up to the next 4-byte boundary:
+			attrlength = attrlength + ( ( 4 - ( attrlength & 3 ) ) & 3 );
+			( void ) bcopy ( cddaNodePtr->vNodePtr->v_mount->mnt_stat.f_mntonname, varbufptr, attrlength );
+			
+			// Advance beyond the space just allocated:
+			( UInt8 * ) varbufptr += attrlength;
+			++( ( struct attrreference * ) attrbufptr );
+			
+		}
+		
 		if ( a & ATTR_VOL_NAME )
 		{
 			
@@ -1422,7 +1460,7 @@ PackVolumeAttributes ( 	struct attrlist * attrListPtr,
 		if ( a & ATTR_VOL_MOUNTEDDEVICE )
 		{
 			
-			DebugLog ( ( "ATTR_VOL_MOUNTFLAGS : %s\n", cddaNodePtr->vNodePtr->v_mount->mnt_stat.f_mntfromname ) );
+			DebugLog ( ( "ATTR_VOL_MOUNTEDDEVICE : %s\n", cddaNodePtr->vNodePtr->v_mount->mnt_stat.f_mntfromname ) );
 			
 			( ( struct attrreference * ) attrbufptr )->attr_dataoffset = ( UInt8 * ) varbufptr - ( UInt8 * ) attrbufptr;
 			( ( struct attrreference * ) attrbufptr )->attr_length = strlen ( cddaNodePtr->vNodePtr->v_mount->mnt_stat.f_mntfromname ) + 1;
@@ -1450,15 +1488,46 @@ PackVolumeAttributes ( 	struct attrlist * attrListPtr,
 		{
 			
 			DebugLog ( ( "ATTR_VOL_CAPABILITIES\n" ) );
-			( ( vol_capabilities_attr_t * ) attrbufptr )->capabilities[VOL_CAPABILITIES_FORMAT] 	= VOL_CAP_FMT_PERSISTENTOBJECTIDS;
-			( ( vol_capabilities_attr_t * ) attrbufptr )->capabilities[VOL_CAPABILITIES_INTERFACES] = VOL_CAP_INT_ATTRLIST;
-			( ( vol_capabilities_attr_t * ) attrbufptr )->capabilities[VOL_CAPABILITIES_RESERVED1] 	= 0;
-			( ( vol_capabilities_attr_t * ) attrbufptr )->capabilities[VOL_CAPABILITIES_RESERVED2] 	= 0;
 			
-			( ( vol_capabilities_attr_t * ) attrbufptr )->valid[VOL_CAPABILITIES_FORMAT] 			= VOL_CAP_FMT_PERSISTENTOBJECTIDS;
-			( ( vol_capabilities_attr_t * ) attrbufptr )->valid[VOL_CAPABILITIES_INTERFACES] 		= VOL_CAP_INT_ATTRLIST;
-			( ( vol_capabilities_attr_t * ) attrbufptr )->valid[VOL_CAPABILITIES_RESERVED1] 		= 0;
-			( ( vol_capabilities_attr_t * ) attrbufptr )->valid[VOL_CAPABILITIES_RESERVED2] 		= 0;
+			vol_capabilities_attr_t *	capabilities = ( vol_capabilities_attr_t * ) attrbufptr;
+			
+			// We understand the following.
+			capabilities->valid[VOL_CAPABILITIES_FORMAT] 			= VOL_CAP_FMT_PERSISTENTOBJECTIDS |
+																	  VOL_CAP_FMT_SYMBOLICLINKS |
+																	  VOL_CAP_FMT_HARDLINKS |
+																	  VOL_CAP_FMT_JOURNAL |
+																	  VOL_CAP_FMT_JOURNAL_ACTIVE |
+																	  VOL_CAP_FMT_NO_ROOT_TIMES |
+																	  VOL_CAP_FMT_SPARSE_FILES |
+																	  VOL_CAP_FMT_ZERO_RUNS |
+																	  VOL_CAP_FMT_CASE_SENSITIVE |
+																	  VOL_CAP_FMT_CASE_PRESERVING |
+																	  VOL_CAP_FMT_FAST_STATFS;
+
+			// We understand the following interfaces.
+			capabilities->valid[VOL_CAPABILITIES_INTERFACES] 		= VOL_CAP_INT_SEARCHFS |
+																	  VOL_CAP_INT_ATTRLIST |
+																	  VOL_CAP_INT_NFSEXPORT |
+																	  VOL_CAP_INT_READDIRATTR |
+																	  VOL_CAP_INT_EXCHANGEDATA |
+																	  VOL_CAP_INT_COPYFILE |
+																	  VOL_CAP_INT_ALLOCATE |
+																	  VOL_CAP_INT_VOL_RENAME |
+																	  VOL_CAP_INT_ADVLOCK;
+
+			// We only support these bits of the above recognized things.
+			capabilities->capabilities[VOL_CAPABILITIES_FORMAT] 	= VOL_CAP_FMT_PERSISTENTOBJECTIDS |
+																	  VOL_CAP_FMT_FAST_STATFS |
+																	  VOL_CAP_FMT_NO_ROOT_TIMES;
+			
+			// We only support this one thing of the above recognized ones.
+			capabilities->capabilities[VOL_CAPABILITIES_INTERFACES] = VOL_CAP_INT_ATTRLIST;
+			
+			// Reserved. Zero them.
+			capabilities->capabilities[VOL_CAPABILITIES_RESERVED1] 	= 0;
+			capabilities->capabilities[VOL_CAPABILITIES_RESERVED2] 	= 0;
+			capabilities->valid[VOL_CAPABILITIES_RESERVED1] 		= 0;
+			capabilities->valid[VOL_CAPABILITIES_RESERVED2] 		= 0;
 			
 			++( ( vol_capabilities_attr_t * ) attrbufptr );
 			
@@ -1530,7 +1599,7 @@ PackCommonAttributes (  struct attrlist * attrListPtr,
 			}
 			
 			// Special case the XMLFileNode
-			else if ( cddaNodePtr->nodeType == kAppleCDDXMLFileType )
+			else if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 			{
 				
 				DebugLog ( ( "ATTR_CMN_NAME : %s\n", ".TOC.plist" ) );
@@ -1607,7 +1676,7 @@ PackCommonAttributes (  struct attrlist * attrListPtr,
 			}
 			
 			// Special case the XMLFileNode
-			else if ( cddaNodePtr->nodeType == kAppleCDDXMLFileType )
+			else if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 			{
 				
 				DebugLog ( ( "ATTR_CMN_OBJID: kAppleCDDAXMLFileID\n" ) );
@@ -1645,7 +1714,7 @@ PackCommonAttributes (  struct attrlist * attrListPtr,
 			}
 			
 			// Special case the XMLFileNode
-			else if ( cddaNodePtr->nodeType == kAppleCDDXMLFileType )
+			else if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 			{
 				
 				DebugLog ( ( "ATTR_CMN_OBJPERMANENTID: kAppleCDDAXMLFileID\n" ) );
@@ -1962,7 +2031,7 @@ PackFileAttributes ( struct attrlist * 	attrListPtr,
 		{
 			
 			DebugLog ( ( "ATTR_FILE_IOBLOCKSIZE\n" ) );
-			*( ( UInt32 * ) attrbufptr )++ = kAppleCDDABlockSize;
+			*( ( UInt32 * ) attrbufptr )++ = kPhysicalMediaBlockSize;
 			
 		}
 		
@@ -1970,7 +2039,7 @@ PackFileAttributes ( struct attrlist * 	attrListPtr,
 		{
 			
 			DebugLog ( ( "ATTR_FILE_CLUMPSIZE\n" ) );
-			*( ( UInt32 * ) attrbufptr )++ = kAppleCDDABlockSize;
+			*( ( UInt32 * ) attrbufptr )++ = kPhysicalMediaBlockSize;
 			
 		}
 		

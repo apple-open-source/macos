@@ -222,7 +222,7 @@ struct rawarc_order {
  *      name (the file name dyld loaded this image from)
  */
 #define GMONTYPE_DYLD_STATE     5
-#endif !ASSEMBLER
+#endif /* !ASSEMBLER */
 
 /*
  * general rounding functions.

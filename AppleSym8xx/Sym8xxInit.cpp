@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -158,11 +155,13 @@ bool Sym8xxSCSIController::configure( IOService *forProvider, SCSIControllerInfo
  *-----------------------------------------------------------------------------*/
 bool Sym8xxSCSIController::Sym8xxInit()
 {
+    // IOLog( "Sym8xxSCSIController::Sym8xxInit entered\n" );
     /*
      * Perform PCI related initialization
      */
     if ( Sym8xxInitPCI() == false )
-    { 
+    {
+	IOLog( "Sym8xxSCSIController::Sym8xxInitPCI returned FALSE\n" );
         return false;
     }
 
@@ -171,6 +170,7 @@ bool Sym8xxSCSIController::Sym8xxInit()
      */
     if ( Sym8xxInitVars() == false )
     {
+	IOLog( "Sym8xxSCSIController::Sym8xxInitVars returned FALSE\n" );
         return false;
     }
 
@@ -179,6 +179,7 @@ bool Sym8xxSCSIController::Sym8xxInit()
      */
     if ( Sym8xxInitChip() == false )
     {
+	IOLog( "Sym8xxSCSIController::Sym8xxInitChip returned FALSE\n" );
         return false;
     }
 
@@ -187,6 +188,7 @@ bool Sym8xxSCSIController::Sym8xxInit()
      */
     if ( Sym8xxInitScript() == false )
     {
+	IOLog( "Sym8xxSCSIController::Sym8xxInitScript returned FALSE\n" );
         return false;
     }
 
@@ -362,6 +364,16 @@ bool Sym8xxSCSIController::Sym8xxInitVars()
         return false;
     }
     bzero( adapter, page_size );
+
+    // create a pool of IOMemoryDescriptors, the memory of which is size of an SRB
+    for( i = 0; i < MAX_SCSI_IOMDS; i++ )
+    {
+	SCSI_IOMDs[i]  = IOMemoryDescriptor::withAddress( this, sizeof( SRB ), kIODirectionInOut );
+	// we set the address to 'this' for no reason other than we want to provide a non-zero
+	// address that IOMemoryDescriptor will use to create itself.  The ACTUAL address that will
+	// get used in these IOMemoryDescriptors will be dynamically reinitialized with ::initWithAddress()
+	// as necessary.
+    }
 
     /*
      * We keep two copies of the Nexus pointer array. One contains physical addresses and

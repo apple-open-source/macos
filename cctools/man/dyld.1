@@ -1,4 +1,4 @@
-.TH DYLD 1 "March 27, 2002" "Apple Computer, Inc."
+.TH DYLD 1 "October 3, 2002" "Apple Computer, Inc."
 .SH NAME
 dyld \- the dynamic link editor
 .SH SYNOPSIS
@@ -17,8 +17,6 @@ DYLD_FORCE_FLAT_NAMESPACE
 DYLD_IMAGE_SUFFIX
 .br
 DYLD_PRINT_LIBRARIES
-.br
-DYLD_MEM_PROTECT
 .br
 DYLD_EBADEXEC_ONLY
 .br
@@ -133,18 +131,6 @@ standard error) the filenames of the libraries the program is using.
 This is useful to make sure that the use of
 .SM DYLD_LIBRARY_PATH
 is getting what you want.
-.TP
-.B DYLD_MEM_PROTECT
-When this is set, the dynamic linker changes the protection of
-the memory it uses for its data structures when it is not operating on them.
-This helps track down the point where a program does an inappropriate write.
-It is possible for an errant program to mistakenly write on the data structures
-of dynamic linker. This variable causes the program to crash at the first
-occurrence of the write making the error easier to track down.  Unfortunately,
-this can't be done in the debugger as the debugger's interface to the dynamic
-linker will cause the dynamic link editor's memory to remain writable. But
-setting this variable can produce a very useful core file, which you can debug
-later.
 .TP
 .B DYLD_EBADEXEC_ONLY
 When this is set, the dynamic linker does all of the work needed

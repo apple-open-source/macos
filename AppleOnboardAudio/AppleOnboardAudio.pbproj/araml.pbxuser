@@ -1,0 +1,1279 @@
+// !$*UTF8*$!
+{
+	017D8EFD0032206011CE16D4 = {
+		activeExec = 0;
+	};
+	017EA98300C2DA887F000001 = {
+		activeExec = 0;
+	};
+	018F9560FFDDC63011CA29EB = {
+		activeExec = 0;
+	};
+	0325496CFFDDCAD711CA29EB = {
+		activeExec = 0;
+	};
+	03254978FFDDCCFB11CA29EB = {
+		activeExec = 0;
+	};
+	03254995FFDDD25B11CA29EB = {
+		activeExec = 0;
+	};
+	089C1669FE841209C02AAC07 = {
+		activeBuildStyle = 06AA1266FFB2107B11CA28AA;
+		activeTarget = F5A720E803FD6B9501CD2541;
+		perUserDictionary = {
+			PBXPerProjectTemplateStateSaveDate = 81380120;
+			PBXWorkspaceContents = (
+				{
+					LeftSlideOut = {
+						Split0 = {
+							Split0 = {
+								NavContent0 = {
+									bookmark = F5078AF204D9C81A01CD2550;
+									history = (
+										9418C4E30486ACB900CD2551,
+										9418C4E50486ACB900CD2551,
+										9418C5070487B80000CD2551,
+										9418C597048814C500CD2551,
+										9418C598048814C500CD2551,
+										9418C599048814C500CD2551,
+										9418C64A048BBFD300CD2551,
+										9418C64B048BBFD300CD2551,
+										9418C64C048BBFD300CD2551,
+										9418C64D048BBFD300CD2551,
+										9418C64E048BBFD300CD2551,
+										9418C64F048BBFD300CD2551,
+										9418C650048BBFD300CD2551,
+										9418C652048BBFD300CD2551,
+										9418C653048BBFD300CD2551,
+										9418C655048BBFD300CD2551,
+										9418C658048BBFD300CD2551,
+										9418C659048BBFD300CD2551,
+										9418C65A048BBFD300CD2551,
+										9481A11104954D2300CD2551,
+										9481A11D049555E200CD2551,
+										94C3655204BF560100CD2551,
+										94C3656E04BF5B5100CD2551,
+										94C3656F04BF5B5100CD2551,
+										94C366B404C38A5500CD2551,
+										94C366B604C38A5500CD2551,
+										94C366B704C38A5500CD2551,
+										94C366B804C38A5500CD2551,
+										94C366B904C38A5500CD2551,
+										94C366BA04C38A5500CD2551,
+										9450E8DA04C4CA3800CD2551,
+										F5078AF004D9C81A01CD2550,
+										94C366BB04C38A5500CD2551,
+									);
+									prevStack = (
+										9418C4E80486ACB900CD2551,
+										9418C4E90486ACB900CD2551,
+										9418C4EB0486ACB900CD2551,
+										9418C4EC0486ACB900CD2551,
+										9418C4ED0486ACB900CD2551,
+										9418C50B0487B80000CD2551,
+										9418C50D0487B80000CD2551,
+										9418C59F048814C500CD2551,
+										9418C5A0048814C500CD2551,
+										9418C5A1048814C500CD2551,
+										9418C5A2048814C500CD2551,
+										9418C5A3048814C500CD2551,
+										9418C5A4048814C500CD2551,
+										9418C5A5048814C500CD2551,
+										9418C5A6048814C500CD2551,
+										9418C5A7048814C500CD2551,
+										9418C5A8048814C500CD2551,
+										9418C5A9048814C500CD2551,
+										9418C65C048BBFD300CD2551,
+										9418C65D048BBFD300CD2551,
+										9418C65E048BBFD300CD2551,
+										9418C65F048BBFD300CD2551,
+										9418C660048BBFD300CD2551,
+										9418C661048BBFD300CD2551,
+										9418C662048BBFD300CD2551,
+										9418C663048BBFD300CD2551,
+										9418C664048BBFD300CD2551,
+										9418C665048BBFD300CD2551,
+										9418C666048BBFD300CD2551,
+										9418C667048BBFD300CD2551,
+										9418C668048BBFD300CD2551,
+										9418C669048BBFD300CD2551,
+										9418C66B048BBFD300CD2551,
+										9418C66C048BBFD300CD2551,
+										9418C66D048BBFD300CD2551,
+										9418C66E048BBFD300CD2551,
+										9418C66F048BBFD300CD2551,
+										9418C670048BBFD300CD2551,
+										9418C671048BBFD300CD2551,
+										9418C672048BBFD300CD2551,
+										9418C673048BBFD300CD2551,
+										9418C674048BBFD300CD2551,
+										9418C675048BBFD300CD2551,
+										9418C676048BBFD300CD2551,
+										9418C677048BBFD300CD2551,
+										9418C678048BBFD300CD2551,
+										9481A11504954D2300CD2551,
+										9481A11704954D2300CD2551,
+										9481A11804954D2300CD2551,
+										9481A11E049555E200CD2551,
+										9481A1230496452A00CD2551,
+										94967B5F04AA350100CD2551,
+										94565FD804BCAE8700CD2551,
+										94C3655304BF560100CD2551,
+										94C3655504BF560100CD2551,
+										94C3655604BF560100CD2551,
+										94C3655704BF560100CD2551,
+										94C3657104BF5B5100CD2551,
+										94C3657204BF5B5200CD2551,
+										94C3657304BF5B5200CD2551,
+										94C3657404BF5B5200CD2551,
+										94C366BD04C38A5500CD2551,
+										94C366BE04C38A5500CD2551,
+										94C366BF04C38A5500CD2551,
+										94C366C004C38A5500CD2551,
+										94C366C104C38A5500CD2551,
+										94C366C204C38A5500CD2551,
+										94C366C304C38A5500CD2551,
+										94C366C404C38A5500CD2551,
+										94C366C504C38A5500CD2551,
+										9450E8DB04C4CA3800CD2551,
+										F5078AF104D9C81A01CD2550,
+									);
+								};
+								NavCount = 1;
+								NavGeometry0 = {
+									Frame = "{{0, 0}, {932, 683}}";
+									NavBarVisible = YES;
+								};
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Debugger = {
+									Split0 = {
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									TabCount = 2;
+								};
+								LauncherConfigVersion = 7;
+							};
+							Tab1 = {
+								LauncherConfigVersion = 3;
+								Runner = {
+								};
+							};
+							TabCount = 4;
+						};
+						SplitCount = 1;
+						Tab1 = {
+							OptionsSetName = "Hierarchy, all classes";
+						};
+						TabCount = 5;
+					};
+				},
+			);
+			PBXWorkspaceGeometries = (
+				{
+					ContentSize = "{1196, 856}";
+					LeftSlideOut = {
+						ActiveTab = 3;
+						Collapsed = NO;
+						Frame = "{{0, 23}, {1196, 833}}";
+						Split0 = {
+							ActiveTab = 2;
+							Collapsed = NO;
+							Frame = "{{264, 0}, {932, 833}}";
+							Split0 = {
+								Frame = "{{0, 150}, {932, 683}}";
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Debugger = {
+									Collapsed = NO;
+									Frame = "{{0, 0}, {572, 214}}";
+									Split0 = {
+										Frame = "{{0, 24}, {572, 190}}";
+										Split0 = {
+											Frame = "{{0, 0}, {279, 190}}";
+										};
+										Split1 = {
+											DebugVariablesTableConfiguration = (
+												Name,
+												123,
+												Value,
+												85,
+												Summary,
+												62.123,
+											);
+											Frame = "{{288, 0}, {284, 190}}";
+										};
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									Tab0 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									Tab1 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									TabCount = 2;
+									TabsVisible = YES;
+								};
+								Frame = "{{0, 0}, {572, 214}}";
+								LauncherConfigVersion = 7;
+							};
+							Tab1 = {
+								Frame = "{{0, 0}, {572, 125}}";
+								LauncherConfigVersion = 3;
+								Runner = {
+									Frame = "{{0, 0}, {572, 125}}";
+								};
+							};
+							Tab2 = {
+								BuildMessageFrame = "{{0, 0}, {934, 84}}";
+								BuildTranscriptFrame = "{{0, 93}, {934, 35}}";
+								Frame = "{{0, 0}, {932, 126}}";
+							};
+							Tab3 = {
+								Frame = "{{0, 0}, {932, 142}}";
+							};
+							TabCount = 4;
+							TabsVisible = YES;
+						};
+						SplitCount = 1;
+						Tab0 = {
+							Frame = "{{0, 0}, {282, 833}}";
+							GroupTreeTableConfiguration = (
+								SCMStatusColumn,
+								22,
+								TargetStatusColumn,
+								18,
+								MainColumn,
+								227,
+							);
+						};
+						Tab1 = {
+							ClassesFrame = "{{0, 0}, {247, 330}}";
+							ClassesTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXClassColumnIdentifier,
+								204,
+							);
+							Frame = "{{0, 0}, {245, 549}}";
+							MembersFrame = "{{0, 339}, {247, 210}}";
+							MembersTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXMethodColumnIdentifier,
+								203,
+							);
+						};
+						Tab2 = {
+							Frame = "{{0, 0}, {226, 549}}";
+						};
+						Tab3 = {
+							Frame = "{{0, 0}, {240, 833}}";
+							TargetTableConfiguration = (
+								ActiveObject,
+								16,
+								ObjectNames,
+								207.296,
+							);
+						};
+						Tab4 = {
+							BreakpointsTreeTableConfiguration = (
+								breakpointColumn,
+								138,
+								enabledColumn,
+								31,
+							);
+							Frame = "{{0, 0}, {191, 549}}";
+						};
+						TabCount = 5;
+						TabsVisible = YES;
+					};
+					StatusViewVisible = YES;
+					Template = F5F68CF101725D4C0D7A8F4C;
+					ToolbarVisible = YES;
+					WindowLocation = "{103, 45}";
+				},
+			);
+			PBXWorkspaceStateSaveDate = 81380120;
+		};
+		perUserProjectItems = {
+			9418C4E30486ACB900CD2551 = 9418C4E30486ACB900CD2551;
+			9418C4E50486ACB900CD2551 = 9418C4E50486ACB900CD2551;
+			9418C4E80486ACB900CD2551 = 9418C4E80486ACB900CD2551;
+			9418C4E90486ACB900CD2551 = 9418C4E90486ACB900CD2551;
+			9418C4EB0486ACB900CD2551 = 9418C4EB0486ACB900CD2551;
+			9418C4EC0486ACB900CD2551 = 9418C4EC0486ACB900CD2551;
+			9418C4ED0486ACB900CD2551 = 9418C4ED0486ACB900CD2551;
+			9418C5070487B80000CD2551 = 9418C5070487B80000CD2551;
+			9418C50B0487B80000CD2551 = 9418C50B0487B80000CD2551;
+			9418C50D0487B80000CD2551 = 9418C50D0487B80000CD2551;
+			9418C597048814C500CD2551 = 9418C597048814C500CD2551;
+			9418C598048814C500CD2551 = 9418C598048814C500CD2551;
+			9418C599048814C500CD2551 = 9418C599048814C500CD2551;
+			9418C59F048814C500CD2551 = 9418C59F048814C500CD2551;
+			9418C5A0048814C500CD2551 = 9418C5A0048814C500CD2551;
+			9418C5A1048814C500CD2551 = 9418C5A1048814C500CD2551;
+			9418C5A2048814C500CD2551 = 9418C5A2048814C500CD2551;
+			9418C5A3048814C500CD2551 = 9418C5A3048814C500CD2551;
+			9418C5A4048814C500CD2551 = 9418C5A4048814C500CD2551;
+			9418C5A5048814C500CD2551 = 9418C5A5048814C500CD2551;
+			9418C5A6048814C500CD2551 = 9418C5A6048814C500CD2551;
+			9418C5A7048814C500CD2551 = 9418C5A7048814C500CD2551;
+			9418C5A8048814C500CD2551 = 9418C5A8048814C500CD2551;
+			9418C5A9048814C500CD2551 = 9418C5A9048814C500CD2551;
+			9418C64A048BBFD300CD2551 = 9418C64A048BBFD300CD2551;
+			9418C64B048BBFD300CD2551 = 9418C64B048BBFD300CD2551;
+			9418C64C048BBFD300CD2551 = 9418C64C048BBFD300CD2551;
+			9418C64D048BBFD300CD2551 = 9418C64D048BBFD300CD2551;
+			9418C64E048BBFD300CD2551 = 9418C64E048BBFD300CD2551;
+			9418C64F048BBFD300CD2551 = 9418C64F048BBFD300CD2551;
+			9418C650048BBFD300CD2551 = 9418C650048BBFD300CD2551;
+			9418C652048BBFD300CD2551 = 9418C652048BBFD300CD2551;
+			9418C653048BBFD300CD2551 = 9418C653048BBFD300CD2551;
+			9418C655048BBFD300CD2551 = 9418C655048BBFD300CD2551;
+			9418C658048BBFD300CD2551 = 9418C658048BBFD300CD2551;
+			9418C659048BBFD300CD2551 = 9418C659048BBFD300CD2551;
+			9418C65A048BBFD300CD2551 = 9418C65A048BBFD300CD2551;
+			9418C65C048BBFD300CD2551 = 9418C65C048BBFD300CD2551;
+			9418C65D048BBFD300CD2551 = 9418C65D048BBFD300CD2551;
+			9418C65E048BBFD300CD2551 = 9418C65E048BBFD300CD2551;
+			9418C65F048BBFD300CD2551 = 9418C65F048BBFD300CD2551;
+			9418C660048BBFD300CD2551 = 9418C660048BBFD300CD2551;
+			9418C661048BBFD300CD2551 = 9418C661048BBFD300CD2551;
+			9418C662048BBFD300CD2551 = 9418C662048BBFD300CD2551;
+			9418C663048BBFD300CD2551 = 9418C663048BBFD300CD2551;
+			9418C664048BBFD300CD2551 = 9418C664048BBFD300CD2551;
+			9418C665048BBFD300CD2551 = 9418C665048BBFD300CD2551;
+			9418C666048BBFD300CD2551 = 9418C666048BBFD300CD2551;
+			9418C667048BBFD300CD2551 = 9418C667048BBFD300CD2551;
+			9418C668048BBFD300CD2551 = 9418C668048BBFD300CD2551;
+			9418C669048BBFD300CD2551 = 9418C669048BBFD300CD2551;
+			9418C66B048BBFD300CD2551 = 9418C66B048BBFD300CD2551;
+			9418C66C048BBFD300CD2551 = 9418C66C048BBFD300CD2551;
+			9418C66D048BBFD300CD2551 = 9418C66D048BBFD300CD2551;
+			9418C66E048BBFD300CD2551 = 9418C66E048BBFD300CD2551;
+			9418C66F048BBFD300CD2551 = 9418C66F048BBFD300CD2551;
+			9418C670048BBFD300CD2551 = 9418C670048BBFD300CD2551;
+			9418C671048BBFD300CD2551 = 9418C671048BBFD300CD2551;
+			9418C672048BBFD300CD2551 = 9418C672048BBFD300CD2551;
+			9418C673048BBFD300CD2551 = 9418C673048BBFD300CD2551;
+			9418C674048BBFD300CD2551 = 9418C674048BBFD300CD2551;
+			9418C675048BBFD300CD2551 = 9418C675048BBFD300CD2551;
+			9418C676048BBFD300CD2551 = 9418C676048BBFD300CD2551;
+			9418C677048BBFD300CD2551 = 9418C677048BBFD300CD2551;
+			9418C678048BBFD300CD2551 = 9418C678048BBFD300CD2551;
+			9450E8DA04C4CA3800CD2551 = 9450E8DA04C4CA3800CD2551;
+			9450E8DB04C4CA3800CD2551 = 9450E8DB04C4CA3800CD2551;
+			94565FD804BCAE8700CD2551 = 94565FD804BCAE8700CD2551;
+			9481A11104954D2300CD2551 = 9481A11104954D2300CD2551;
+			9481A11504954D2300CD2551 = 9481A11504954D2300CD2551;
+			9481A11704954D2300CD2551 = 9481A11704954D2300CD2551;
+			9481A11804954D2300CD2551 = 9481A11804954D2300CD2551;
+			9481A11D049555E200CD2551 = 9481A11D049555E200CD2551;
+			9481A11E049555E200CD2551 = 9481A11E049555E200CD2551;
+			9481A1230496452A00CD2551 = 9481A1230496452A00CD2551;
+			94967B5F04AA350100CD2551 = 94967B5F04AA350100CD2551;
+			94C3655204BF560100CD2551 = 94C3655204BF560100CD2551;
+			94C3655304BF560100CD2551 = 94C3655304BF560100CD2551;
+			94C3655504BF560100CD2551 = 94C3655504BF560100CD2551;
+			94C3655604BF560100CD2551 = 94C3655604BF560100CD2551;
+			94C3655704BF560100CD2551 = 94C3655704BF560100CD2551;
+			94C3656E04BF5B5100CD2551 = 94C3656E04BF5B5100CD2551;
+			94C3656F04BF5B5100CD2551 = 94C3656F04BF5B5100CD2551;
+			94C3657104BF5B5100CD2551 = 94C3657104BF5B5100CD2551;
+			94C3657204BF5B5200CD2551 = 94C3657204BF5B5200CD2551;
+			94C3657304BF5B5200CD2551 = 94C3657304BF5B5200CD2551;
+			94C3657404BF5B5200CD2551 = 94C3657404BF5B5200CD2551;
+			94C366B404C38A5500CD2551 = 94C366B404C38A5500CD2551;
+			94C366B604C38A5500CD2551 = 94C366B604C38A5500CD2551;
+			94C366B704C38A5500CD2551 = 94C366B704C38A5500CD2551;
+			94C366B804C38A5500CD2551 = 94C366B804C38A5500CD2551;
+			94C366B904C38A5500CD2551 = 94C366B904C38A5500CD2551;
+			94C366BA04C38A5500CD2551 = 94C366BA04C38A5500CD2551;
+			94C366BB04C38A5500CD2551 = 94C366BB04C38A5500CD2551;
+			94C366BD04C38A5500CD2551 = 94C366BD04C38A5500CD2551;
+			94C366BE04C38A5500CD2551 = 94C366BE04C38A5500CD2551;
+			94C366BF04C38A5500CD2551 = 94C366BF04C38A5500CD2551;
+			94C366C004C38A5500CD2551 = 94C366C004C38A5500CD2551;
+			94C366C104C38A5500CD2551 = 94C366C104C38A5500CD2551;
+			94C366C204C38A5500CD2551 = 94C366C204C38A5500CD2551;
+			94C366C304C38A5500CD2551 = 94C366C304C38A5500CD2551;
+			94C366C404C38A5500CD2551 = 94C366C404C38A5500CD2551;
+			94C366C504C38A5500CD2551 = 94C366C504C38A5500CD2551;
+			F5078AF004D9C81A01CD2550 = F5078AF004D9C81A01CD2550;
+			F5078AF104D9C81A01CD2550 = F5078AF104D9C81A01CD2550;
+			F5078AF204D9C81A01CD2550 = F5078AF204D9C81A01CD2550;
+		};
+		projectwideBuildSettings = {
+		};
+		wantsIndex = 1;
+		wantsSCM = -1;
+	};
+	089C1673FE841209C02AAC07 = {
+		activeExec = 0;
+	};
+	4D81053D03F4396500CD2599 = {
+		activeExec = 0;
+	};
+	4DE28EFA04055CA300CD2599 = {
+		activeExec = 0;
+	};
+	4DE28F0204055CAF00CD2599 = {
+		activeExec = 0;
+	};
+	4DE28F1A0405895500CD2599 = {
+		activeExec = 0;
+	};
+	4DE28F2304058A3500CD2599 = {
+		activeExec = 0;
+	};
+	9418C4E30486ACB900CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28F2304058A3500CD2599;
+	};
+	9418C4E50486ACB900CD2551 = {
+		fRef = F5A720EF03FD718101CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleTAS3004Audio.cpp: __GNUC__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 974;
+		vrLoc = 1295;
+	};
+	9418C4E80486ACB900CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28F1A0405895500CD2599;
+	};
+	9418C4E90486ACB900CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = AD440DB0017FA6A304CE15E3;
+	};
+	9418C4EB0486ACB900CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28F2304058A3500CD2599;
+	};
+	9418C4EC0486ACB900CD2551 = {
+		fRef = 3DEBC6160421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.cpp: 221";
+		rLen = 3;
+		rLoc = 7365;
+		rType = 0;
+		vrLen = 1106;
+		vrLoc = 6692;
+	};
+	9418C4ED0486ACB900CD2551 = {
+		fRef = F5A720EF03FD718101CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleTAS3004Audio.cpp: __GNUC__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 974;
+		vrLoc = 1295;
+	};
+	9418C5070487B80000CD2551 = {
+		fRef = F5A720F303FD71D001CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleTAS3004Audio.h: 12";
+		rLen = 0;
+		rLoc = 468;
+		rType = 0;
+		vrLen = 387;
+		vrLoc = 1084;
+	};
+	9418C50B0487B80000CD2551 = {
+		fRef = F5A720F303FD71D001CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleTAS3004Audio.h: 12";
+		rLen = 0;
+		rLoc = 468;
+		rType = 0;
+		vrLen = 387;
+		vrLoc = 1084;
+	};
+	9418C50D0487B80000CD2551 = {
+		fRef = 3DEBC6160421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.cpp: 1059";
+		rLen = 0;
+		rLoc = 43359;
+		rType = 0;
+		vrLen = 1227;
+		vrLoc = 5304;
+	};
+	9418C597048814C500CD2551 = {
+		fRef = F55A7124041FC56301CD2540;
+		isa = PBXTextBookmark;
+		name = "TransportInterface.h: 21";
+		rLen = 22;
+		rLoc = 384;
+		rType = 0;
+		vrLen = 1152;
+		vrLoc = 0;
+	};
+	9418C598048814C500CD2551 = {
+		fRef = 94ABC022041FBAA800CD2551;
+		isa = PBXTextBookmark;
+		name = "K2Platform.cpp: 1034";
+		rLen = 27;
+		rLoc = 44294;
+		rType = 0;
+		vrLen = 2383;
+		vrLoc = 42777;
+	};
+	9418C599048814C500CD2551 = {
+		fRef = 3DEBC6150421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.h: kCLOCK_UNLOCK_ERROR_TERMINAL_COUNT";
+		rLen = 34;
+		rLoc = 707;
+		rType = 0;
+		vrLen = 1448;
+		vrLoc = 0;
+	};
+	9418C59F048814C500CD2551 = {
+		fRef = 3DEBC6160421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.cpp: 440";
+		rLen = 11;
+		rLoc = 17626;
+		rType = 0;
+		vrLen = 2759;
+		vrLoc = 16434;
+	};
+	9418C5A0048814C500CD2551 = {
+		fRef = 3DEBC6150421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.h: breakClockSelect";
+		rLen = 11;
+		rLoc = 2042;
+		rType = 0;
+		vrLen = 2340;
+		vrLoc = 807;
+	};
+	9418C5A1048814C500CD2551 = {
+		fRef = 3DEBC6160421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.cpp: 629";
+		rLen = 1932;
+		rLoc = 26007;
+		rType = 0;
+		vrLen = 2455;
+		vrLoc = 25330;
+	};
+	9418C5A2048814C500CD2551 = {
+		fRef = 3DEBC6150421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.h: 112";
+		rLen = 0;
+		rLoc = 3815;
+		rType = 0;
+		vrLen = 1726;
+		vrLoc = 2198;
+	};
+	9418C5A3048814C500CD2551 = {
+		fRef = 3DEBC6160421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.cpp: 670";
+		rLen = 315;
+		rLoc = 27935;
+		rType = 0;
+		vrLen = 2277;
+		vrLoc = 25700;
+	};
+	9418C5A4048814C500CD2551 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 888";
+		rLen = 41;
+		rLoc = 33411;
+		rType = 0;
+		vrLen = 2157;
+		vrLoc = 31701;
+	};
+	9418C5A5048814C500CD2551 = {
+		fRef = 94ABC022041FBAA800CD2551;
+		isa = PBXTextBookmark;
+		name = "K2Platform.cpp: 1034";
+		rLen = 27;
+		rLoc = 44294;
+		rType = 0;
+		vrLen = 2383;
+		vrLoc = 42777;
+	};
+	9418C5A6048814C500CD2551 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 587";
+		rLen = 18;
+		rLoc = 21853;
+		rType = 0;
+		vrLen = 2322;
+		vrLoc = 20408;
+	};
+	9418C5A7048814C500CD2551 = {
+		fRef = 3DEBC6160421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.cpp: 650";
+		rLen = 81;
+		rLoc = 26916;
+		rType = 0;
+		vrLen = 2353;
+		vrLoc = 25641;
+	};
+	9418C5A8048814C500CD2551 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 884";
+		rLen = 19;
+		rLoc = 33124;
+		rType = 0;
+		vrLen = 2112;
+		vrLoc = 32040;
+	};
+	9418C5A9048814C500CD2551 = {
+		fRef = 3DEBC6160421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.cpp: 414";
+		rLen = 7;
+		rLoc = 16377;
+		rType = 0;
+		vrLen = 2448;
+		vrLoc = 14281;
+	};
+	9418C64A048BBFD300CD2551 = {
+		fRef = 3DEBC6160421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.cpp: 504";
+		rLen = 0;
+		rLoc = 21459;
+		rType = 0;
+		vrLen = 2776;
+		vrLoc = 20365;
+	};
+	9418C64B048BBFD300CD2551 = {
+		fRef = 4DE28EBC0402EF8600CD2599;
+		isa = PBXTextBookmark;
+		name = "AudioHardwareObjectInterface.h: 154";
+		rLen = 12;
+		rLoc = 6286;
+		rType = 0;
+		vrLen = 2897;
+		vrLoc = 1839;
+	};
+	9418C64C048BBFD300CD2551 = {
+		fRef = 03254973FFDDCC5211CA29EB;
+		isa = PBXTextBookmark;
+		name = "Apple02Audio.cpp: 19";
+		rLen = 0;
+		rLoc = 394;
+		rType = 0;
+		vrLen = 261;
+		vrLoc = 0;
+	};
+	9418C64D048BBFD300CD2551 = {
+		fRef = 03254964FFDDCA0611CA29EB;
+		isa = PBXTextBookmark;
+		name = "Apple02DBDMAAudioDMAEngine.cpp: 2035";
+		rLen = 0;
+		rLoc = 85476;
+		rType = 0;
+		vrLen = 765;
+		vrLoc = 9449;
+	};
+	9418C64E048BBFD300CD2551 = {
+		fRef = 942BE03E03E8A3B600CD2551;
+		isa = PBXTextBookmark;
+		name = "AppleLegacyDBDMAAudioFloatLib.h: 12";
+		rLen = 0;
+		rLoc = 391;
+		rType = 0;
+		vrLen = 1642;
+		vrLoc = 0;
+	};
+	9418C64F048BBFD300CD2551 = {
+		fRef = 942BE03D03E8A3B600CD2551;
+		isa = PBXTextBookmark;
+		name = "Apple02DBDMAAudioClip.h: 7";
+		rLen = 0;
+		rLoc = 134;
+		rType = 0;
+		vrLen = 970;
+		vrLoc = 0;
+	};
+	9418C650048BBFD300CD2551 = {
+		fRef = 03254965FFDDCA0611CA29EB;
+		isa = PBXTextBookmark;
+		name = "Apple02DBDMAAudioClip.c: __REGISTER_PREFIX__";
+		rLen = 0;
+		rLoc = 57;
+		rType = 0;
+		vrLen = 1406;
+		vrLoc = 0;
+	};
+	9418C652048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 0325496CFFDDCAD711CA29EB;
+	};
+	9418C653048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 03254995FFDDD25B11CA29EB;
+	};
+	9418C655048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 03254978FFDDCCFB11CA29EB;
+	};
+	9418C658048BBFD300CD2551 = {
+		fRef = 089C167EFE841241C02AAC07;
+		isa = PBXTextBookmark;
+		name = "English: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 281;
+		vrLoc = 0;
+	};
+	9418C659048BBFD300CD2551 = {
+		fRef = F6AB4FE80188A93E01CE1665;
+		isa = PBXTextBookmark;
+		name = "Localizable.strings: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 895;
+		vrLoc = 0;
+	};
+	9418C65A048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 018F9560FFDDC63011CA29EB;
+	};
+	9418C65C048BBFD300CD2551 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 606";
+		rLen = 0;
+		rLoc = 22811;
+		rType = 0;
+		vrLen = 1978;
+		vrLoc = 21162;
+	};
+	9418C65D048BBFD300CD2551 = {
+		fRef = 3DEBC6160421585200CD2549;
+		isa = PBXTextBookmark;
+		name = "AppleTopazAudio.cpp: 504";
+		rLen = 0;
+		rLoc = 21459;
+		rType = 0;
+		vrLen = 2776;
+		vrLoc = 20365;
+	};
+	9418C65E048BBFD300CD2551 = {
+		fRef = 4DE28EBC0402EF8600CD2599;
+		isa = PBXTextBookmark;
+		name = "AudioHardwareObjectInterface.h: 154";
+		rLen = 12;
+		rLoc = 6286;
+		rType = 0;
+		vrLen = 2897;
+		vrLoc = 1839;
+	};
+	9418C65F048BBFD300CD2551 = {
+		fRef = 03254973FFDDCC5211CA29EB;
+		isa = PBXTextBookmark;
+		name = "Apple02Audio.cpp: 19";
+		rLen = 0;
+		rLoc = 394;
+		rType = 0;
+		vrLen = 261;
+		vrLoc = 0;
+	};
+	9418C660048BBFD300CD2551 = {
+		fRef = 03254964FFDDCA0611CA29EB;
+		isa = PBXTextBookmark;
+		name = "Apple02DBDMAAudioDMAEngine.cpp: 2035";
+		rLen = 0;
+		rLoc = 85476;
+		rType = 0;
+		vrLen = 765;
+		vrLoc = 9449;
+	};
+	9418C661048BBFD300CD2551 = {
+		fRef = 942BE03E03E8A3B600CD2551;
+		isa = PBXTextBookmark;
+		name = "AppleLegacyDBDMAAudioFloatLib.h: 2";
+		rLen = 0;
+		rLoc = 32;
+		rType = 0;
+		vrLen = 407;
+		vrLoc = 0;
+	};
+	9418C662048BBFD300CD2551 = {
+		fRef = 942BE03D03E8A3B600CD2551;
+		isa = PBXTextBookmark;
+		name = "AppleLegacyDBDMAAudioClip.h: 2";
+		rLen = 0;
+		rLoc = 28;
+		rType = 0;
+		vrLen = 248;
+		vrLoc = 0;
+	};
+	9418C663048BBFD300CD2551 = {
+		fRef = 03254965FFDDCA0611CA29EB;
+		isa = PBXTextBookmark;
+		name = "AppleLegacyDBDMAAudioClip.c: __VERSION__";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 313;
+		vrLoc = 0;
+	};
+	9418C664048BBFD300CD2551 = {
+		fRef = 942BE03D03E8A3B600CD2551;
+		isa = PBXTextBookmark;
+		name = "AppleLegacyDBDMAAudioClip.h: 7";
+		rLen = 0;
+		rLoc = 134;
+		rType = 0;
+		vrLen = 255;
+		vrLoc = 0;
+	};
+	9418C665048BBFD300CD2551 = {
+		fRef = 03254965FFDDCA0611CA29EB;
+		isa = PBXTextBookmark;
+		name = "AppleLegacyDBDMAAudioClip.c: __REGISTER_PREFIX__";
+		rLen = 0;
+		rLoc = 57;
+		rType = 0;
+		vrLen = 1016;
+		vrLoc = 0;
+	};
+	9418C666048BBFD300CD2551 = {
+		fRef = 942BE03E03E8A3B600CD2551;
+		isa = PBXTextBookmark;
+		name = "AppleLegacyDBDMAAudioFloatLib.h: 12";
+		rLen = 0;
+		rLoc = 391;
+		rType = 0;
+		vrLen = 1642;
+		vrLoc = 0;
+	};
+	9418C667048BBFD300CD2551 = {
+		fRef = 03254965FFDDCA0611CA29EB;
+		isa = PBXTextBookmark;
+		name = "AppleLegacyDBDMAAudioClip.c: __REGISTER_PREFIX__";
+		rLen = 0;
+		rLoc = 57;
+		rType = 0;
+		vrLen = 1016;
+		vrLoc = 0;
+	};
+	9418C668048BBFD300CD2551 = {
+		fRef = 942BE03D03E8A3B600CD2551;
+		isa = PBXTextBookmark;
+		name = "Apple02DBDMAAudioClip.h: 7";
+		rLen = 0;
+		rLoc = 134;
+		rType = 0;
+		vrLen = 970;
+		vrLoc = 0;
+	};
+	9418C669048BBFD300CD2551 = {
+		fRef = 03254965FFDDCA0611CA29EB;
+		isa = PBXTextBookmark;
+		name = "Apple02DBDMAAudioClip.c: __REGISTER_PREFIX__";
+		rLen = 0;
+		rLoc = 57;
+		rType = 0;
+		vrLen = 1406;
+		vrLoc = 0;
+	};
+	9418C66B048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 018F9560FFDDC63011CA29EB;
+	};
+	9418C66C048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = F6AB50530188E72D01CE1665;
+	};
+	9418C66D048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+	};
+	9418C66E048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 018F9560FFDDC63011CA29EB;
+	};
+	9418C66F048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 0325496CFFDDCAD711CA29EB;
+	};
+	9418C670048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = AD440DB0017FA6A304CE15E3;
+	};
+	9418C671048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 03254995FFDDD25B11CA29EB;
+	};
+	9418C672048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = F6AB50530188E72D01CE1665;
+	};
+	9418C673048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 03254978FFDDCCFB11CA29EB;
+	};
+	9418C674048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = F6635A27017C7E0C01CE1665;
+	};
+	9418C675048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = AD440DB0017FA6A304CE15E3;
+	};
+	9418C676048BBFD300CD2551 = {
+		fRef = 089C167EFE841241C02AAC07;
+		isa = PBXTextBookmark;
+		name = "English: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 281;
+		vrLoc = 0;
+	};
+	9418C677048BBFD300CD2551 = {
+		fRef = F6AB4FE80188A93E01CE1665;
+		isa = PBXTextBookmark;
+		name = "Localizable.strings: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 895;
+		vrLoc = 0;
+	};
+	9418C678048BBFD300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 018F9560FFDDC63011CA29EB;
+	};
+	9450E8DA04C4CA3800CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28EFA04055CA300CD2599;
+	};
+	9450E8DB04C4CA3800CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28EFA04055CA300CD2599;
+	};
+	94565FD804BCAE8700CD2551 = {
+		fRef = F5A720F803FD778001CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAAudio.cpp: 911";
+		rLen = 0;
+		rLoc = 31776;
+		rType = 0;
+		vrLen = 2551;
+		vrLoc = 31392;
+	};
+	9481A11104954D2300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28F1A0405895500CD2599;
+	};
+	9481A11504954D2300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+	};
+	9481A11704954D2300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+	};
+	9481A11804954D2300CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28F1A0405895500CD2599;
+	};
+	9481A11D049555E200CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 017EA98300C2DA887F000001;
+	};
+	9481A11E049555E200CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 017EA98300C2DA887F000001;
+	};
+	9481A1230496452A00CD2551 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 991";
+		rLen = 15;
+		rLoc = 36844;
+		rType = 0;
+		vrLen = 1523;
+		vrLoc = 37021;
+	};
+	94967B5F04AA350100CD2551 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 1000";
+		rLen = 0;
+		rLoc = 37114;
+		rType = 0;
+		vrLen = 1705;
+		vrLoc = 35182;
+	};
+	94C3655204BF560100CD2551 = {
+		fRef = F5A720F603FD776E01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAAudio.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 1459;
+		vrLoc = 0;
+	};
+	94C3655304BF560100CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28F0204055CAF00CD2599;
+	};
+	94C3655504BF560100CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28EFA04055CA300CD2599;
+	};
+	94C3655604BF560100CD2551 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 3130";
+		rLen = 0;
+		rLoc = 114707;
+		rType = 0;
+		vrLen = 1999;
+		vrLoc = 114112;
+	};
+	94C3655704BF560100CD2551 = {
+		fRef = F5A720F603FD776E01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAAudio.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 1459;
+		vrLoc = 0;
+	};
+	94C3656E04BF5B5100CD2551 = {
+		fRef = F55A7127041FCF4D01CD2540;
+		isa = PBXTextBookmark;
+		name = "I2STransportInterface.cpp: 467";
+		rLen = 5;
+		rLoc = 20673;
+		rType = 0;
+		vrLen = 797;
+		vrLoc = 20236;
+	};
+	94C3656F04BF5B5100CD2551 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 1661";
+		rLen = 5;
+		rLoc = 60800;
+		rType = 0;
+		vrLen = 1086;
+		vrLoc = 60333;
+	};
+	94C3657104BF5B5100CD2551 = {
+		fRef = F5A720F803FD778001CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAAudio.cpp: 749";
+		rLen = 0;
+		rLoc = 26195;
+		rType = 0;
+		vrLen = 1498;
+		vrLoc = 30239;
+	};
+	94C3657204BF5B5200CD2551 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 1661";
+		rLen = 5;
+		rLoc = 60800;
+		rType = 0;
+		vrLen = 1037;
+		vrLoc = 59705;
+	};
+	94C3657304BF5B5200CD2551 = {
+		fRef = F55A7127041FCF4D01CD2540;
+		isa = PBXTextBookmark;
+		name = "I2STransportInterface.cpp: 467";
+		rLen = 5;
+		rLoc = 20673;
+		rType = 0;
+		vrLen = 797;
+		vrLoc = 20236;
+	};
+	94C3657404BF5B5200CD2551 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 1661";
+		rLen = 5;
+		rLoc = 60800;
+		rType = 0;
+		vrLen = 1086;
+		vrLoc = 60333;
+	};
+	94C366B404C38A5500CD2551 = {
+		fRef = F5A720F803FD778001CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAAudio.cpp: 2551";
+		rLen = 0;
+		rLoc = 104420;
+		rType = 0;
+		vrLen = 2826;
+		vrLoc = 103548;
+	};
+	94C366B604C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+	};
+	94C366B704C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = F6D4F701031C193801CD2599;
+	};
+	94C366B804C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = F6AB50530188E72D01CE1665;
+	};
+	94C366B904C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = F6635A27017C7E0C01CE1665;
+	};
+	94C366BA04C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = AD440DB0017FA6A304CE15E3;
+	};
+	94C366BB04C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28F0204055CAF00CD2599;
+	};
+	94C366BD04C38A5500CD2551 = {
+		fRef = F5A720F803FD778001CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAAudio.cpp: 2551";
+		rLen = 0;
+		rLoc = 104420;
+		rType = 0;
+		vrLen = 2826;
+		vrLoc = 103548;
+	};
+	94C366BE04C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = F5A720E803FD6B9501CD2541;
+	};
+	94C366BF04C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+	};
+	94C366C004C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = F6D4F701031C193801CD2599;
+	};
+	94C366C104C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = F6AB50530188E72D01CE1665;
+	};
+	94C366C204C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = F6635A27017C7E0C01CE1665;
+	};
+	94C366C304C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = AD440DB0017FA6A304CE15E3;
+	};
+	94C366C404C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28EFA04055CA300CD2599;
+	};
+	94C366C504C38A5500CD2551 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28F0204055CAF00CD2599;
+	};
+	AD440DB0017FA6A304CE15E3 = {
+		activeExec = 0;
+	};
+	C5A7C7FB0270994A05CD254B = {
+		activeExec = 0;
+	};
+	C5A7C80A027099CE05CD254B = {
+		activeExec = 0;
+	};
+	F5078AF004D9C81A01CD2550 = {
+		isa = PBXTargetBookmark;
+		trg = F5A720E803FD6B9501CD2541;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {638, 514}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {255, 629}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
+	};
+	F5078AF104D9C81A01CD2550 = {
+		isa = PBXTargetBookmark;
+		trg = F5A720E803FD6B9501CD2541;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {638, 514}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {255, 629}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
+	};
+	F5078AF204D9C81A01CD2550 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28F0204055CAF00CD2599;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {638, 514}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {255, 629}}";
+			TOCViewSelectedItems = (
+				PBXInfoPlistExpertSettingsEditorModule,
+			);
+		};
+	};
+	F5A720E803FD6B9501CD2541 = {
+		activeExec = 0;
+	};
+	F6635A27017C7E0C01CE1665 = {
+		activeExec = 0;
+	};
+	F6635A3C017C901C01CE1665 = {
+		activeExec = 0;
+	};
+	F6AB50530188E72D01CE1665 = {
+		activeExec = 0;
+	};
+	F6D4F701031C193801CD2599 = {
+		activeExec = 0;
+	};
+}

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -67,7 +70,14 @@ enum {
 	kKeyLargoCounterLoOffset				= 0x15038,
 	kKeyLargoCounterHiOffset				= 0x1503C,
 	kKeyLargoWatchDogEnableOffset			= 0x15048,
-  
+
+    // I2S serial format register (for tracking selected clock)
+    kKeyLargoI2S0SerialFormat				= 0x10010,
+    kKeyLargoI2S1SerialFormat				= 0x11010,
+    kKeylargoI2SClockSelect					= (1<<31) | (1<<30),
+    kKeylargoI2SSelect45Mhz					= 1 << 30,
+    kKeylargoI2SSelect49Mhz					= 1 << 31,
+
 	// MediaBay Register Definitions (KeyLargo only)
 	kKeyLargoMB0DevEnable					= 1 << 12,			// MB0_Dev1_Enable_h
 	kKeyLargoMB0DevPower					= 1 << 10,			// MB0_Power_l
@@ -394,17 +404,14 @@ enum {
 	// Feature Control Register 0 Sleep Settings for Intrepid
     kIntrepidFCR0SleepBitsSet		=	0,
 	
-    kIntrepidFCR0SleepBitsClear		=	kKeyLargoFCR0USB1CellEnable |
-										kKeyLargoFCR0USB0CellEnable |
-										kKeyLargoFCR0SccCellEnable |
+    kIntrepidFCR0SleepBitsClear		=	kKeyLargoFCR0SccCellEnable |
 										kKeyLargoFCR0SccBEnable |
 										kKeyLargoFCR0SccAEnable,
 
     // Feature Control Register 1 Sleep Settings
     kIntrepidFCR1SleepBitsSet		=	0,
 	
-    kIntrepidFCR1SleepBitsClear		=	kIntrepidFCR1USB2CellEnable |
-										kKeyLargoFCR1I2S1Enable |
+    kIntrepidFCR1SleepBitsClear		=	kKeyLargoFCR1I2S1Enable |
 										kKeyLargoFCR1I2S1ClkEnable |
 										kKeyLargoFCR1I2S1CellEnable |
 										kKeyLargoFCR1I2S0Enable |
@@ -413,7 +420,7 @@ enum {
 										kKeyLargoFCR1EIDE0Enable,
                                                 
     // Feature Control Register 2 Sleep Settings
-    kIntrepidFCR2SleepBitsSet		=	kKeyLargoFCR2AltDataOut,
+    kIntrepidFCR2SleepBitsSet		=	0,
 	
     kIntrepidFCR2SleepBitsClear		=	0,
 
@@ -430,10 +437,8 @@ enum {
 
 	kIntrepidFCR3USB2SleepBitsClear		= 0,
 
-    kIntrepidFCR3SleepBitsSet		=	//kIntrepidFCR3USB2SleepBitsSet | 
-										kIntrepidFCR3ShutdownPLL3 |
-										kIntrepidFCR3ShutdownPLL2 |
-										kIntrepidFCR3ShutdownPLL1,
+	// [3321432] Don't shut down PLLs.  Intrepid will do this automatically at sleep
+    kIntrepidFCR3SleepBitsSet		=	0,
 										
     kIntrepidFCR3SleepBitsClear		=	//kIntrepidFCR2SleepBitsClear |
 										kKeyLargoFCR3ViaClk16Enable |
@@ -457,6 +462,56 @@ enum {
     // Feature Control Register 4 Sleep Settings    
     kIntrepidFCR4SleepBitsSet		=	0,
 	kIntrepidFCR4SleepBitsClear		=	0
+};
+
+// As far as I can tell the clock stop status registers are Intrepid only.  The clock
+// stop registers live in the UniN address space and can be read through the UniN driver
+// via readIntrepidClockStopStatus
+enum {
+	// ClockStopStatus 0 bits
+	kIntrepidIsStopped49			= (1 << (31 - 31)),
+	kIntrepidIsStopped45			= (1 << (31 - 30)),
+	kIntrepidIsStopped32			= (1 << (31 - 29)),
+	kIntrepidIsStoppedUSB2			= (1 << (31 - 28)),
+	kIntrepidIsStoppedUSB1			= (1 << (31 - 27)),
+	kIntrepidIsStoppedUSB0			= (1 << (31 - 26)),
+	kIntrepidIsStoppedVEO1			= (1 << (31 - 25)),
+	kIntrepidIsStoppedVEO0			= (1 << (31 - 24)),
+	kIntrepidIsStoppedPCI_FB_CLK_OUT = (1 << (31 - 23)),
+	kIntrepidIsStoppedSlot2			= (1 << (31 - 22)),
+	kIntrepidIsStoppedSlot1			= (1 << (31 - 21)),
+	kIntrepidIsStoppedSlot0			= (1 << (31 - 20)),
+	kIntrepidIsStoppedVIA32			= (1 << (31 - 19)),
+	kIntrepidIsStoppedSCC_RTClk32or45 = (1 << (31 - 18)),
+	kIntrepidIsStoppedSCC_RTClk18	= (1 << (31 - 17)),
+	kIntrepidIsStoppedTimer			= (1 << (31 - 16)),
+	kIntrepidIsStoppedI2S1_18		= (1 << (31 - 15)),
+	kIntrepidIsStoppedI2S1_45or49	= (1 << (31 - 14)),
+	kIntrepidIsStoppedI2S0_18		= (1 << (31 - 13)),
+	kIntrepidIsStoppedI2S0_45or49	= (1 << (31 - 12)),
+	kIntrepidIsStoppedAGPDel		= (1 << (31 - 11)),
+	kIntrepidIsStoppedExtAGP		= (1 << (31 - 10)),
+	
+	// ClockStopStatus 1 bits
+	kIntrepidIsStopped18			= (1 << (31 - 31)),
+	kIntrepidIsStoppedPCI0			= (1 << (31 - 30)),
+	kIntrepidIsStoppedAGP			= (1 << (31 - 29)),
+	kIntrepidIsStopped7PCI1			= (1 << (31 - 28)),
+	kIntrepidIsStoppedUSB2PCI		= (1 << (31 - 26)),
+	kIntrepidIsStoppedUSB1PCI		= (1 << (31 - 25)),
+	kIntrepidIsStoppedUSB0PCI		= (1 << (31 - 24)),
+	kIntrepidIsStoppedKLPCI			= (1 << (31 - 23)),
+	kIntrepidIsStoppedPCI1			= (1 << (31 - 22)),
+	kIntrepidIsStoppedMAX			= (1 << (31 - 21)),
+	kIntrepidIsStoppedATA100		= (1 << (31 - 20)),
+	kIntrepidIsStoppedATA66			= (1 << (31 - 19)),
+	kIntrepidIsStoppedGB			= (1 << (31 - 18)),
+	kIntrepidIsStoppedFW			= (1 << (31 - 17)),
+	kIntrepidIsStoppedPCI2			= (1 << (31 - 16)),
+	kIntrepidIsStoppedBUF_REF_CLK_OUT = (1 << (31 - 15)),
+	kIntrepidIsStoppedCPU			= (1 << (31 - 14)),
+	kIntrepidIsStoppedCPUDel		= (1 << (31 - 13)),
+	kIntrepidIsStoppedPLL4Ref		= (1 << (31 - 12))
 };
 
 	// Offsets for the registers we wish to save.
@@ -562,161 +617,18 @@ class KeyLargo : public AppleMacIO
 {
 	OSDeclareDefaultStructors(KeyLargo);
   
-private:
+protected:
 	IOLogicalAddress	keyLargoBaseAddress;
 	UInt32				keyLargoVersion;
 	UInt32				keyLargoDeviceId;
-	UInt32				keyLargoCPUVCoreSelectGPIO;
+	IOService *			keyLargoService;
  
-	// Remember if the media bay needs to be turnedOn:
-	bool		   	mediaIsOn;
-	
-	// remember if we need to keep the SCC enabled during sleep
-	bool			keepSCCenabledInSleep;
-	
-	void			EnableSCC(bool state, UInt8 device, bool type);
-	void			PowerModem(bool state);
-	void 			ModemResetLow();
-	void 			ModemResetHigh();
-	void			PowerI2S (bool powerOn, UInt32 cellNum);
-	IOReturn		SetPowerSupply (bool powerHi);
-	void			AdjustBusSpeeds ( void );
+	virtual	void		AdjustBusSpeeds ( void );
+	virtual	void 		saveVIAState(UInt8* savedK2ViaState);
+	virtual	void 		restoreVIAState(UInt8* savedK2ViaState);
   
 	KeyLargoWatchDogTimer	*watchDogTimer;
 
-	// ***Added for outputting the FCR values to the IORegistry
-	IOService 		*keyLargoService;
-	const OSSymbol	*keyLargo_FCRNode;
-	const OSObject	*fcrs[kPangeaFCRCount];  
-	const OSArray	*fcrArray;
-  
-	// callPlatformFunction symbols
-	const OSSymbol 	*keyLargo_resetUniNEthernetPhy;
-	const OSSymbol 	*keyLargo_restoreRegisterState;
-	const OSSymbol 	*keyLargo_syncTimeBase;
-	const OSSymbol 	*keyLargo_recalibrateBusSpeeds;
-	const OSSymbol 	*keyLargo_saveRegisterState;
-	const OSSymbol 	*keyLargo_turnOffIO;
-	const OSSymbol 	*keyLargo_writeRegUInt8;
-	const OSSymbol 	*keyLargo_safeWriteRegUInt8;
-	const OSSymbol 	*keyLargo_safeReadRegUInt8;
-	const OSSymbol 	*keyLargo_safeWriteRegUInt32;
-	const OSSymbol 	*keyLargo_safeReadRegUInt32;
-	const OSSymbol 	*keyLargo_powerMediaBay;
-	const OSSymbol 	*keyLargo_getHostKeyLargo;
-	const OSSymbol 	*keyLargo_powerI2S;
-	const OSSymbol 	*keyLargo_setPowerSupply;
-  
-	// Power Management support functions and data structures:
-	// These come (almost) unchanged from the MacOS9 Power
-	// Manager plug-in (p99powerplugin.c)
-
-	struct MPICTimers {
-		UInt32			currentCountRegister;
-		UInt32			baseCountRegister;
-		UInt32			vectorPriorityRegister;
-		UInt32			destinationRegister;
-	};
-	typedef struct MPICTimers MPICTimers;
-	typedef volatile MPICTimers *MPICTimersPtr;
-
-	struct KeyLargoMPICState {
-		UInt32 			mpicIPI[kKeyLargoMPICIPICount];
-		UInt32 			mpicSpuriousVector;
-		UInt32 			mpicTimerFrequencyReporting;
-		MPICTimers 		mpicTimers[kKeyLargoMPICTimerCount];
-		UInt32 			mpicInterruptSourceVectorPriority[kKeyLargoMPICVectorsCount];
-		UInt32 			mpicInterruptSourceDestination[kKeyLargoMPICVectorsCount];
-		UInt32			mpicCurrentTaskPriorities[kKeyLargoMPICTaskPriorityCount];
-	};
-	typedef struct KeyLargoMPICState KeyLargoMPICState;
-	typedef volatile KeyLargoMPICState *KeyLargoMPICStatePtr;
-
-	struct KeyLargoGPIOState {
-		UInt32 			gpioLevels[2];
-		UInt8 			extIntGPIO[18];
-		UInt8 			gpio[17];
-	};
-	typedef struct KeyLargoGPIOState KeyLargoGPIOState;
-	typedef volatile KeyLargoGPIOState *KeyLargoGPIOStatePtr;
-
-	struct KeyLargoConfigRegistersState {
-		UInt32 			mediaBay;
-		UInt32 			featureControl[kPangeaFCRCount];		// Allow for worst case - Pangea
-	};
-	typedef struct KeyLargoConfigRegistersState KeyLargoConfigRegistersState;
-	typedef volatile KeyLargoConfigRegistersState *KeyLargoConfigRegistersStatePtr;
-
-	// This is a short version of the IODBDMAChannelRegisters which includes only
-	// the registers we actually mean to save
-	struct DBDMAChannelRegisters {
-		UInt32			commandPtrLo;
-		UInt32			interruptSelect;
-		UInt32			branchSelect;
-		UInt32			waitSelect;
-	};
-	typedef struct DBDMAChannelRegisters DBDMAChannelRegisters;
-	typedef volatile DBDMAChannelRegisters *DBDMAChannelRegistersPtr;
-
-	struct KeyLargoDBDMAState {
-		DBDMAChannelRegisters 	dmaChannel[kKeyLargoDBDMAChannelCount];
-	};
-	typedef struct KeyLargoDBDMAState KeyLargoDBDMAState;
-	typedef volatile KeyLargoDBDMAState *KeyLargoDBDMAStatePtr;
-
-
-	struct KeyLargoAudioState {
-		UInt32					audio[kKeyLargoAudioRegisterCount];
-	};
-	typedef struct KeyLargoAudioState KeyLargoAudioState;
-	typedef volatile KeyLargoAudioState *KeyLargoAudioStateStatePtr;
-
-
-	struct KeyLargoI2SState {
-		UInt32					i2s[kKeyLargoI2SRegisterCount * kKeyLargoI2SChannelCount];
-	};
-	typedef struct KeyLargoI2SState KeyLargoI2SState;
-	typedef volatile KeyLargoI2SState *KeyLargoI2SStateStatePtr;
-
-	struct KeyLargoState {
-		bool							thisStateIsValid;
-		KeyLargoMPICState				savedMPICState;
-		KeyLargoGPIOState				savedGPIOState;
-		KeyLargoConfigRegistersState	savedConfigRegistersState;
-		KeyLargoDBDMAState				savedDBDMAState;
-		KeyLargoAudioState				savedAudioState;
-		KeyLargoI2SState				savedI2SState;
-		UInt8							savedVIAState[9];
-	};
-	typedef struct KeyLargoState KeyLargoState;
-
-	// These are actually the buffers where we save keylargo's state (above there
-	// are only definitions).
-	KeyLargoState savedKeyLargoState;
-  
-	// This is instead only for the wireless slot:
-	typedef struct WirelessPower {
-		bool		cardPower;				// Keeps track of the power in the wireless card.
-		UInt8		wirelessCardReg[5];		// A backup of the registers we are overwriting.
-	} WirelessPower;
-	WirelessPower cardStatus;
-	
-
-	// the two USB busses - Intrepid has three:
-	enum {
-		kMaxNumUSB 			= 3,
-		kKeyLargoNumUSB 	= 2,
-		kIntrepidNumUSB 	= 3
-	};
-	USBKeyLargo *usbBus[kMaxNumUSB];
-	
-	UInt32 fNumUSB;
-
-	// Methods to save and restore the state:
-	void saveKeyLargoState();
-	void restoreKeyLargoState();
-	void saveVIAState();
-	void restoreVIAState();
 
 	// this is to ensure mutual exclusive access to
 	// the keylargo registers:
@@ -725,62 +637,43 @@ private:
 	// Remember the bus speed:
 	long long busSpeed;
   
-	// Reference counts for shared hardware
-	long clk31RefCount;			// 31.3 MHz clock - SCC & VIA
-	long clk45RefCount;			// 45.1 MHz clock - Audio, I2S & SCC
-	long clk49RefCount;			// 49.1 MHz clock - Audio & I2S
-	long clk32RefCount;			// 32.0 MHz clock - SCC & VIA (Pangea only)
-  
 	// true for PowerBooks/iBooks
 	bool hostIsMobile;
 
-	void resetUniNEthernetPhy(void);
-  
+    // Number of USB cells in the chip
+	// the two USB busses - Intrepid has three:
+	enum {
+		kMaxNumUSB 			= 3,
+	};
+	
+	UInt32 fNumUSB;
+	USBKeyLargo *usbBus[kMaxNumUSB];
+    UInt8 fBaseUSBID;
+    
 public:
-	virtual bool      init(OSDictionary *);
 	virtual bool      start(IOService *provider);
-	virtual void      stop(IOService *provider);
-  
-	virtual IOReturn callPlatformFunction(const OSSymbol *functionName,
-					bool waitForFunction, void *param1, void *param2,
-					void *param3, void *param4);
-  
-	virtual IOReturn callPlatformFunction( const char * functionName,
-					  bool waitForFunction, void *param1, void *param2,
-					  void *param3, void *param4);
 					  
 	virtual long long syncTimeBase(void);
 	virtual void	  recalibrateBusSpeeds(void);
 
-	virtual void      turnOffKeyLargoIO(bool restart);
-	virtual void      turnOffPangeaIO(bool restart);
-	virtual void      turnOffIntrepidIO(bool restart);
-
-	virtual void      powerWireless(bool powerOn);
-
-	virtual void	  setReferenceCounts (void);
-	virtual void      saveRegisterState(void);
-	virtual void      restoreRegisterState(void);
-	virtual void      enableCells();
-  
 	virtual UInt8     readRegUInt8(unsigned long offset);
 	virtual void      writeRegUInt8(unsigned long offset, UInt8 data);
 	virtual UInt32    readRegUInt32(unsigned long offset);
 	virtual void      writeRegUInt32(unsigned long offset, UInt32 data);
   
-	// Remember if the media bay needs to be turnedOn:
-	virtual void      powerMediaBay(bool powerOn, UInt8 whichDevice);  
-
 	// share register access:
-	void safeWriteRegUInt8(unsigned long offset, UInt8 mask, UInt8 data);
-	UInt8 safeReadRegUInt8(unsigned long offset);
-	void safeWriteRegUInt32(unsigned long offset, UInt32 mask, UInt32 data);
-	UInt32 safeReadRegUInt32(unsigned long offset);
+	virtual void safeWriteRegUInt8(unsigned long offset, UInt8 mask, UInt8 data);
+	virtual UInt8 safeReadRegUInt8(unsigned long offset);
+    
+    // Pure virtual so derived classes can save their FCRs
+	virtual void safeWriteRegUInt32(unsigned long offset, UInt32 mask, UInt32 data) = 0;
+    
+	virtual UInt32 safeReadRegUInt32(unsigned long offset);
+    
+    virtual bool publishChildren(IOService * driver, IOService *(*createChildNub)(IORegistryEntry *) = 0);
+    virtual bool publishChild(IOService * driver, IORegistryEntry * child,
+                                                IOService *(*createChildNub)(IORegistryEntry *) = 0);
 
-	// Power handling methods:
-	void initForPM (IOService *provider);
-	IOReturn setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
-  
 };
 
 #endif /* ! _IOKIT_KEYLARGO_H */

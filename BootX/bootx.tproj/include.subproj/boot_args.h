@@ -25,7 +25,7 @@
 /*
  *  boot_args.h - Data stuctures for the information passed to the kernel.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2003 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -59,7 +59,8 @@ typedef struct DRAMBank DRAMBank, *DRAMBankPtr;
 // Boot argument structure - passed into kernel at boot time.
 
 #define kBootArgsRevision (1)
-#define kBootArgsVersion  (1)
+#define kBootArgsVersion1 (1)
+#define kBootArgsVersion2 (2)
 
 #define BOOT_LINE_LENGTH  (256)
 

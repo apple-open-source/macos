@@ -50,10 +50,8 @@ extern "C" {
 #include <sys/socket.h>
 #include <net/bpf.h>
 #include <net/if.h>
-#include <netinet/if_ether.h>
 #include <net/dlil.h>
 #include <sys/sockio.h>
-void ether_ifattach(struct ifnet * ifp);   // FIXME
 }
 
 #include <IOKit/assert.h>
@@ -645,7 +643,7 @@ void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif )
     // it is not necessary to wait until all protocols have detached
     // from the ifnet before commencing the driver stack teardown.
 
-    dlil_if_detach( ifp );
+    netif->detachFromDataLinkLayer( 0, 0 );
 
     // DLIL may still call the following ifnet functions if
     // DLIL_WAIT_FOR_FREE is returned from the detach call.
@@ -668,13 +666,6 @@ void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif )
     thread_funnel_set( network_flock, funnel_state );
 
     bsdInterfaceWasUnregistered( netif->getIfnet() );
-
-#if 0 // The original detach call left for future reference.
-    if ( dlil_if_detach(netif->getIfnet()) != DLIL_WAIT_FOR_FREE )
-    {
-        bsdInterfaceWasUnregistered( netif->getIfnet() );
-    }
-#endif
 }
 
 //---------------------------------------------------------------------------
@@ -872,8 +863,11 @@ void IONetworkStack::registerBSDInterface( IONetworkInterface * netif )
 
     // Attach the (Ethernet) interface to DLIL.
 
-    ether_ifattach( netif->getIfnet() );
-    bpfattach( netif->getIfnet(), DLT_EN10MB, sizeof(struct ether_header) );
+    if ( netif->attachToDataLinkLayer( 0, 0 ) != kIOReturnSuccess )
+    {
+        thread_funnel_set( network_flock, funnel_state );
+        return;  // interface attach failed
+    }
 
     // Hack to sync up the interface flags. The UP flag may already
     // be set, and this will issue an SIOCSIFFLAGS to the interface.

@@ -13,6 +13,13 @@ StartService ()
     ConsoleMessage "Checking disks"
     /sbin/autodiskmount -va
 
+	while true
+	do
+		disktool -r | awk '/FAIL/ { exit 1 }' > /dev/null && break
+		echo "Waiting for autodiskmount..."
+		sleep 1
+	done
+
     if [ "${Uninitialized_VSDB:=-NO-}" = "-YES-" ]; then vsdbutil -i; fi
 }
 

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -89,85 +92,6 @@ OSDefineMetaClassAndStructors( IOUSBMassStorageUFISubclass, IOUSBMassStorageClas
 #pragma mark -
 
 OSDefineMetaClassAndStructors( IOUSBMassStorageUFIDevice, IOSCSIPrimaryCommandsDevice )
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ free - Called by IOKit to free any resources.					   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-void
-IOUSBMassStorageUFIDevice::free ( void )
-{
-	
-	// Check first that fIOUSBMassStorageUFIDeviceReserved is not NULL
-	// so that we don't dereference it when we shouldn't when we
-	// check if fKeySwitchNotifier is NULL since fKeySwitchNotifier is
-	// defined to be fIOUSBMassStorageUFIDeviceReserved->fKeySwitchNotifier
-	if ( fIOUSBMassStorageUFIDeviceReserved != NULL )
-	{
-		
-		if ( fKeySwitchNotifier != NULL )
-		{
-			
-			fKeySwitchNotifier->remove ( );
-			fKeySwitchNotifier = NULL;
-			
-		}
-		
-		IOFree ( fIOUSBMassStorageUFIDeviceReserved,
-				 sizeof ( IOUSBMassStorageUFIDeviceExpansionData ) );
-		fIOUSBMassStorageUFIDeviceReserved = NULL;
-		
-	}
-	
-	// Make sure to call our super
-	IOSCSIPrimaryCommandsDevice::free ( );
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ message - Called by IOKit to deliver messages.				   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-IOReturn
-IOUSBMassStorageUFIDevice::message( UInt32 type, IOService * provider, void * argument )
-{
-	
-	IOReturn	result;
-	
-	switch( type )
-	{
-		
-		case kIOMessageServiceIsRequestingClose:
-		{
-			// Check first that fIOUSBMassStorageUFIDeviceReserved is not NULL
-			// so that we don't dereference it when we shouldn't when we
-			// check if fKeySwitchNotifier is NULL since fKeySwitchNotifier is
-			// defined to be fIOUSBMassStorageUFIDeviceReserved->fKeySwitchNotifier
-			if ( fIOUSBMassStorageUFIDeviceReserved != NULL )
-			{
-				if ( fKeySwitchNotifier != NULL )
-				{
-					
-					fKeySwitchNotifier->remove ( );
-					fKeySwitchNotifier = NULL;
-					
-				}
-			}
-			result = IOSCSIPrimaryCommandsDevice::message( type, provider, argument );
-		}
-		break;
-		
-		default:
-		{
-			result = IOSCSIPrimaryCommandsDevice::message( type, provider, argument );
-		}
-	}
-	
-	return result;
-	
-}
 
 
 #pragma mark -
@@ -325,23 +249,15 @@ IOUSBMassStorageUFIDevice::InitializeDeviceSupport( void )
 					( thread_call_param_t ) this );
 	
 	require_nonzero( fPollingThread, ERROR_EXIT );
-	
+#if 0	
 	fIOUSBMassStorageUFIDeviceReserved = ( IOUSBMassStorageUFIDeviceExpansionData * )
 			IOMalloc ( sizeof ( IOUSBMassStorageUFIDeviceExpansionData ) );
 	
 	require_nonzero ( fIOUSBMassStorageUFIDeviceReserved, ERROR_EXIT );
 	
 	bzero ( fIOUSBMassStorageUFIDeviceReserved,
-			sizeof ( IOUSBMassStorageUFIDeviceExpansionData ) );
-	
-	// Add a notification for the Apple KeySwitch on the server.
-	fKeySwitchNotifier = addNotification (
-			gIOMatchedNotification,
-			nameMatching ( kAppleKeySwitchProperty ),
-			( IOServiceNotificationHandler ) &IOUSBMassStorageUFIDevice::ServerKeyswitchCallback,
-			this,
-			0 );
-
+			sizeof ( IOUSBMassStorageUFIDeviceExpansionData ) );	
+#endif
 	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::InitializeDeviceSupport setupSuccessful = %d\n", setupSuccessful ) );
 	
 	setupSuccessful = true;
@@ -358,8 +274,29 @@ ERROR_EXIT:
 void
 IOUSBMassStorageUFIDevice::StartDeviceSupport( void )
 {
-	// This is only here to keep the compiler happy since
-	// the method is pure virtual.  We don't need it for UFI.
+	
+	OSBoolean *		shouldNotPoll = NULL;
+		
+	shouldNotPoll = OSDynamicCast (	OSBoolean,
+									getProperty ( kAppleKeySwitchProperty ) );
+	
+	if ( shouldNotPoll != NULL )
+	{
+		
+		// See if we should not poll.
+		require ( shouldNotPoll->isFalse ( ), Exit );
+		
+	}
+	
+	// Start polling
+	EnablePolling ( );
+	
+	
+Exit:
+	
+	
+	CreateStorageServiceNub ( );
+	
 }
 
 
@@ -789,7 +726,7 @@ IOUSBMassStorageUFIDevice::CreateStorageServiceNub( void )
 {
     STATUS_LOG( ( "IOUSBMassStorageUFIDevice::CreateStorageServiceNub entering.\n" ) );
 
-	IOService * 	nub = new IOUFIStorageServices;
+	IOService * 	nub = OSTypeAlloc ( IOUFIStorageServices );
 	if( nub == NULL )
 	{
 		ERROR_LOG( ( "IOUSBMassStorageUFIDevice::CreateStorageServiceNub failed\n" ) );
@@ -3037,11 +2974,8 @@ IOUSBMassStorageUFIDevice::WRITE_AND_VERIFY(
 bool
 IOUSBMassStorageUFISubclass::BeginProvidedServices( void )
 {
-	// Call our superclass
-	IOUSBMassStorageClass::BeginProvidedServices( );
-	
 	// Create the IOUSBMassStorageUFIDevice object
-	IOUSBMassStorageUFIDevice * 	ufiDevice = new IOUSBMassStorageUFIDevice;
+	IOUSBMassStorageUFIDevice * 	ufiDevice = OSTypeAlloc ( IOUSBMassStorageUFIDevice );
 	if( ufiDevice == NULL )
 	{
 		ERROR_LOG( ( "IOUSBMassStorageUFISubclass::BeginProvidedServices failed\n" ) );
@@ -3058,7 +2992,11 @@ IOUSBMassStorageUFISubclass::BeginProvidedServices( void )
 		return false;
 	}
 	
-	ufiDevice->registerService();
+	if ( ufiDevice->start( this ) == false )
+	{
+		ufiDevice->detach( this );
+	}
+	
 	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::BeginProvidedServices exiting.\n" ) );
 	
 	ufiDevice->release();

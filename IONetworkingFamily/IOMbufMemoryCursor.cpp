@@ -31,7 +31,7 @@ __BEGIN_DECLS
 
 #include <sys/param.h>
 #include <sys/mbuf.h>
-#include <architecture/byte_order.h>
+struct mbuf * m_getpackets(int num_needed, int num_with_pkthdrs, int how);
 __END_DECLS
 
 #include <IOKit/network/IOMbufMemoryCursor.h>
@@ -41,7 +41,13 @@ __END_DECLS
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
 
-#define next_page(x) trunc_page(x + PAGE_SIZE)
+#define next_page(x) trunc_page_32(x + PAGE_SIZE)
+
+#if 0 
+#define ERROR_LOG(args...)  IOLog(args)
+#else
+#define ERROR_LOG(args...)
+#endif
 
 /* Define the meta class stuff for the entire file here */
 OSDefineMetaClassAndStructors(IOMbufMemoryCursor, IOMemoryCursor)
@@ -190,7 +196,7 @@ static inline bool analyseSegments(
     //
     MGET(newPacket, M_DONTWAIT, MT_DATA);
     if (!newPacket) {
-        IOLog("analyseSegments: MGET() 1 error\n");
+        ERROR_LOG("analyseSegments: MGET() 1 error\n");
         return false;
     }
 
@@ -221,7 +227,7 @@ static inline bool analyseSegments(
 
                 MCLGET(out, M_DONTWAIT);
                 if ( !(out->m_flags & M_EXT) ) {
-                    IOLog("analyseSegments: MCLGET() error\n");
+                    ERROR_LOG("analyseSegments: MCLGET() error\n");
                     goto bombAnalysis;
                 }
                 
@@ -232,7 +238,7 @@ static inline bool analyseSegments(
             
             vmo = mtod(out, vm_offset_t);
             out->m_len = MCLBYTES;  /* Fill in target copy size */
-            doneSegs += (round_page(vmo + MCLBYTES) - trunc_page(vmo))
+            doneSegs += (round_page_32(vmo + MCLBYTES) - trunc_page_32(vmo))
                      /   PAGE_SIZE;
 
             // If the number of segments of the output chain, plus
@@ -240,14 +246,14 @@ static inline bool analyseSegments(
             // than maxSegs, then abort.
             //
             if (doneSegs + 1 > (int) maxSegs) {
-                IOLog("analyseSegments: maxSegs limit 1 reached! %ld %ld\n",
-                    doneSegs, maxSegs);
+                ERROR_LOG("analyseSegments: maxSegs limit 1 reached! %ld %ld\n",
+                          doneSegs, maxSegs);
                 goto bombAnalysis;
             }
 
             MGET(out->m_next, M_DONTWAIT, MT_DATA);
             if (!out->m_next) {
-                IOLog("analyseSegments: MGET() error\n");
+                ERROR_LOG("analyseSegments: MGET() error\n");
                 goto bombAnalysis;
             }
             
@@ -258,10 +264,10 @@ static inline bool analyseSegments(
 
         // Compute number of segment in current outgoing mbuf.
         vmo = mtod(out, vm_offset_t);
-        outSegs = (round_page(vmo + outLen) - trunc_page(vmo)) / PAGE_SIZE;
+        outSegs = (round_page_32(vmo + outLen) - trunc_page_32(vmo)) / PAGE_SIZE;
         if (doneSegs + outSegs > (int) maxSegs) {
-            IOLog("analyseSegments: maxSegs limit 2 reached! %ld %ld %ld\n",
-                doneSegs, outSegs, maxSegs);
+            ERROR_LOG("analyseSegments: maxSegs limit 2 reached! %ld %ld %ld\n",
+                      doneSegs, outSegs, maxSegs);
             goto bombAnalysis;
         }
 
@@ -328,7 +334,7 @@ bombAnalysis:
 }
                                
 UInt32 IOMbufMemoryCursor::genPhysicalSegments(struct mbuf *packet, void *vector,
-                                       UInt32 maxSegs, bool doCoalesce)
+                                               UInt32 maxSegs, bool doCoalesce)
 {
     bool doneCoalesce = false;
 
@@ -336,59 +342,60 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(struct mbuf *packet, void *vector
         return 0;
 
     if (!maxSegs)
+    {
         maxSegs = maxNumSegments;
-    if (!maxSegs)
-        return 0;
+        if (!maxSegs) return 0;
+    }
 
     if ( packet->m_next == 0 )
     {
-        vm_offset_t         src;
-        struct IOPhysicalSegment    physSeg;
-        /*
-     * the packet consists of only 1 mbuf
-     * so if the data buffer doesn't span a page boundary
-     * we can take the simple way out
-     */
-        src = mtod(packet, vm_offset_t);
-            
-    if ( trunc_page(src) == trunc_page(src+packet->m_len-1) )
-    {
-        if ((physSeg.location = 
-            (IOPhysicalAddress)mcl_to_paddr((char *)src)) == 0)
-            physSeg.location = (IOPhysicalAddress)pmap_extract(kernel_pmap, src);
-        if (!physSeg.location)
-            return 0;
-        physSeg.length = packet->m_len;
-        (*outSeg)(physSeg, vector, 0);
+        vm_offset_t               src;
+        struct IOPhysicalSegment  physSeg;
 
-        return 1; 
-    }
+        /*
+         * the packet consists of only 1 mbuf
+         * so if the data buffer doesn't span a page boundary
+         * we can take the simple way out
+         */
+        src = mtod(packet, vm_offset_t);
+
+        if ( trunc_page_32(src) == trunc_page_32(src + packet->m_len - 1) )
+        {
+            physSeg.location = (IOPhysicalAddress) mcl_to_paddr((char *)src);
+            if ( physSeg.location )
+            {
+                physSeg.length = packet->m_len;
+                (*outSeg)(physSeg, vector, 0);
+                return 1;
+            }
+            
+            maxSegs = 1;
+            if ( doCoalesce == false ) return 0;
+        }
     }
 
     if ( doCoalesce == true && maxSegs == 1 )
     {
-        vm_offset_t         src;
-        vm_offset_t                     dst;
-        struct mbuf         *m;
-        struct mbuf         *mnext;
-        struct mbuf         *out;
-        UInt32              len = 0;
-        struct IOPhysicalSegment    physSeg;
+        vm_offset_t               src;
+        vm_offset_t               dst;
+        struct mbuf               *m;
+        struct mbuf               *mnext;
+        struct mbuf               *out;
+        UInt32                    len = 0;
+        struct IOPhysicalSegment  physSeg;
+
+        if ( packet->m_pkthdr.len > MCLBYTES ) return 0;
 
         m = packet;
-        
-    MGET(out, M_DONTWAIT, MT_DATA);
+
+        // Allocate a non-header mbuf + cluster.
+    
+        out = m_getpackets( 1, 0, M_DONTWAIT );
         if ( out == 0 ) return 0;
 
-        MCLGET(out, M_DONTWAIT);
-        if ( !(out->m_flags & M_EXT) )
-        {
-            m_free( out ); 
-            return 0;
-        }
         dst = mtod(out, vm_offset_t);
 
-        do 
+        do
         {
             src = mtod(m, vm_offset_t);
             BCOPY( src, dst, m->m_len );
@@ -399,31 +406,32 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(struct mbuf *packet, void *vector
         out->m_len = len;
 
         dst = mtod(out, vm_offset_t);
-    if ((physSeg.location = (IOPhysicalAddress)mcl_to_paddr((char *)dst)) == 0)
-        physSeg.location = (IOPhysicalAddress)pmap_extract(kernel_pmap, dst);
-    if (!physSeg.location)
-        return 0;
+        physSeg.location = (IOPhysicalAddress) mcl_to_paddr((char *)dst);
+        if (!physSeg.location)
+        {
+            m_free(out);
+            return 0;
+        }
         physSeg.length = out->m_len;
         (*outSeg)(physSeg, vector, 0);
 
-    m = packet->m_next;
-    while (m != 0)
+        m = packet->m_next;
+        while (m != 0)
         {
             mnext = m->m_next;
-        m_free(m);
+            m_free(m);
             m = mnext;
         }
 
-    // The initial header mbuf is preserved, its length set to zero, and
-    // linked to the new packet chain.
-        
-    packet->m_len  = 0;
-    packet->m_next = out;
-    out->m_next    = 0;
+        // The initial header mbuf is preserved, its length set to zero,
+        // and linked to the new packet chain.
 
-        return 1;             
+        packet->m_len  = 0;
+        packet->m_next = out;
+        out->m_next    = 0;
+
+        return 1;
     }
-
 
     //
     // Iterate over the mbuf, translating segments were allowed.  When we
@@ -436,13 +444,13 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(struct mbuf *packet, void *vector
 
 tryAgain:
     UInt32 curMBufIndex = 0;
-    UInt32 curSegIndex = 0;
+    UInt32 curSegIndex  = 0;
     UInt32 lastSegCount = 0;
     struct mbuf *m = packet;
 
     // For each mbuf in incoming packet.
     do {
-        vm_size_t mbufLen, thisLen = 0;
+        vm_size_t   mbufLen, thisLen = 0;
         vm_offset_t src;
 
         // Step through each segment in the current mbuf
@@ -460,17 +468,19 @@ tryAgain:
             if (curSegIndex < maxSegs) {
                 struct IOPhysicalSegment physSeg;
 
-        if ((physSeg.location =
-            (IOPhysicalAddress)mcl_to_paddr((char *)src)) == 0)
-            physSeg.location = (IOPhysicalAddress)pmap_extract(kernel_pmap, src);
-                if (!physSeg.location)
-                    return 0;
+                physSeg.location = (IOPhysicalAddress) mcl_to_paddr((char *)src);
+                if ( physSeg.location == 0 )
+                {
+                    return doCoalesce ?
+                           genPhysicalSegments(packet, vector, 1, true) : 0;
+                }
                 physSeg.length = thisLen;
                 (*outSeg)(physSeg, vector, curSegIndex);
             }
+
             // Count segments if we are coalescing. 
             curSegIndex++;
-        } 
+        }
 
         // Cache the segment count data if room is available.
         if (curMBufIndex < kMBufDataCacheSize) {
@@ -488,7 +498,6 @@ tryAgain:
         return curSegIndex;
     if (!doCoalesce)
         return 0;   // if !coalescing we've got a problem.
-
 
     // If we are coalescing and it is possible then attempt coalesce, 
     if (!doneCoalesce

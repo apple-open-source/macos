@@ -503,7 +503,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 1.5.3f1;
+				MODULE_VERSION = 1.5.4f1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -541,11 +541,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.3</string>
+	<string>1.5.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.3f1</string>
+	<string>1.5.4f1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>

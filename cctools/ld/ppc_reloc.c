@@ -24,7 +24,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines to do relocation for the ppc.
  */
@@ -99,7 +99,7 @@ struct section_map *section_map)
 	pair_r_symbolnum = 0;
 	pair_r_value = 0;
 	pair_local_map = NULL;
-#endif defined(DEBUG) || defined(RLD)
+#endif /* defined(DEBUG) || defined(RLD) */
 
 	for(i = 0; i < section_map->s->nreloc; i++){
 	    br14_disp_sign = 0;
@@ -219,7 +219,7 @@ struct section_map *section_map)
 			pair_reloc  = NULL;
 			pair_r_type = (enum reloc_type_ppc)spair_reloc->r_type;
 			if(r_type == PPC_RELOC_JBSR)
-			    other_half  = spair_reloc->r_address;
+			    other_half  = spair_reloc->r_value;
 			else
 			    other_half  = spair_reloc->r_address & 0xffff;
 		    }
@@ -391,13 +391,13 @@ struct section_map *section_map)
 		/*
 		 * If the symbol is undefined (or common) or a global coalesced 
 		 * symbol where we need to force an external relocation entry
-		 * and we are not prebinding no relocation is done.
-		 * Or if the output file is MH_DYLIB no relocation is done
+		 * and we are not prebinding no relocation is done.  Or if the
+		 * output file is a multi module MH_DYLIB no relocation is done
 		 * unless the symbol is a private extern or we are prebinding.
 		 */
 		if(((merged_symbol->nlist.n_type & N_TYPE) == N_UNDF) ||
 		   (force_extern_reloc == TRUE && prebinding == FALSE) ||
-		   (filetype == MH_DYLIB &&
+		   ((filetype == MH_DYLIB && multi_module_dylib == TRUE) &&
 		    (((merged_symbol->nlist.n_type & N_PEXT) != N_PEXT) &&
 		     prebinding == FALSE) ) )
 		    value = 0;
@@ -473,12 +473,6 @@ struct section_map *section_map)
 			    break;
 			case PPC_RELOC_JBSR:
 			    offset = other_half;
-			    if((merged_symbol->nlist.n_type & N_TYPE) ==
-				N_SECT){
-				other_half = value - output_sections[
-					merged_symbol->nlist.n_sect]->s.addr +
-					offset;
-			    }
 			    break;
 			default:
 			    /* the error check is catched below */
@@ -631,17 +625,7 @@ struct section_map *section_map)
 				    value |= 0xfc000000;
 				break;
 			    case PPC_RELOC_JBSR:
-			        value = local_map->s->addr + other_half;
-				if(r_scattered == 0)
-				    other_half = fine_reloc_output_offset(
-							local_map, other_half);
-				else{
-				    other_half = fine_reloc_output_offset(
-						 local_map,
-						 r_value - local_map->s->addr) +
-						 other_half -
-						 (r_value - local_map->s->addr);
-				}
+			        value = other_half;
 			        break;
 			    default:
 				/* the error check is catched below */
@@ -825,8 +809,8 @@ struct section_map *section_map)
 					"multiple of 4 bytes)", i,
 					section_map->s->segname,
 					section_map->s->sectname);
-				if((value & 0xfffe0000) != 0xfffe0000 &&
-				   (value & 0xfffe0000) != 0x00000000)
+				if((value & 0xffff8000) != 0xffff8000 &&
+				   (value & 0xffff8000) != 0x00000000)
 				    error_with_cur_obj("relocation overflow "
 					"for relocation entry %lu in section "
 					"(%.16s,%.16s) (displacement too large)"
@@ -854,6 +838,8 @@ struct section_map *section_map)
 					      (value & 0x03fffffc);
 				break;
 			    case PPC_RELOC_JBSR:
+				other_half = value;
+
 				if(section_map->nfine_relocs == 0)
 				    value -= section_map->output_section->s.addr
 					     + section_map->offset + r_address;
@@ -862,7 +848,9 @@ struct section_map *section_map)
 					     + fine_reloc_output_offset(
 						    section_map, r_address);
 				if(save_reloc == 0 &&
-				   (filetype != MH_DYLIB || (r_extern == 1 &&
+				   ((filetype != MH_DYLIB ||
+			             multi_module_dylib == FALSE) ||
+				    (r_extern == 1 &&
 				    (merged_symbol->nlist.n_type & N_PEXT) ==
 								N_PEXT)) &&
 				   (output_for_dyld == FALSE || r_extern == 0 ||
@@ -1006,8 +994,8 @@ struct section_map *section_map)
 			    "entry %lu in section (%.16s,%.16s) (displacement "
 			    "not a multiple of 4 bytes)", i,
 			    section_map->s->segname, section_map->s->sectname);
-		    if((immediate & 0xfffe0000) != 0xfffe0000 &&
-		       (immediate & 0xfffe0000) != 0x00000000)
+		    if((immediate & 0xffff8000) != 0xffff8000 &&
+		       (immediate & 0xffff8000) != 0x00000000)
 			error_with_cur_obj("relocation overflow for relocation "
 			    "entry %lu in section (%.16s,%.16s) (displacement "
 			    "too large)", i, section_map->s->segname,
@@ -1035,12 +1023,8 @@ struct section_map *section_map)
 		    		  (immediate & 0x03fffffc);
 		    break;
 		case PPC_RELOC_JBSR:
-		    if(r_extern)
-			value += offset;
-		    else{
-			value += local_map->s->addr + other_half;
-			other_half = local_map->offset + other_half;
-		    }
+		    value += other_half;
+		    other_half = value;
 		    if(section_map->nfine_relocs == 0)
 			value += - (section_map->output_section->s.addr +
 				    section_map->offset + r_address);
@@ -1049,7 +1033,8 @@ struct section_map *section_map)
 				    fine_reloc_output_offset(section_map,
 							     r_address));
 		    if(save_reloc == 0 &&
-		       (filetype != MH_DYLIB || (r_extern == 1 &&
+		       ((filetype != MH_DYLIB || multi_module_dylib == FALSE) ||
+			(r_extern == 1 &&
 			(merged_symbol->nlist.n_type & N_PEXT) == N_PEXT)) &&
 		       (output_for_dyld == FALSE || r_extern == 0 ||
 			(merged_symbol->nlist.n_type & N_TYPE) != N_UNDF) &&
@@ -1100,18 +1085,19 @@ update_reloc:
 		     * For external relocation entries that the symbol is
 		     * defined (not undefined or common) but not when we are
 		     * forcing an external relocation entry for a global
-		     * coalesced symbol and if the output file is not MH_DYLIB
-		     * or the symbol is a private extern it is changed to a
-		     * local relocation entry using the section that symbol is
-		     * defined in.  If still undefined or forcing an external
-		     * relocation entry for a global coalesced symbol then the
-		     * index of the symbol in the output file is set into
-		     * r_symbolnum.
+		     * coalesced symbol and if the output file is not a multi
+		     * module MH_DYLIB or the symbol is a private extern, it is
+		     * changed to a local relocation entry using the section
+		     * that symbol is defined in.  If still undefined or forcing
+		     * an external relocation entry for a global coalesced
+		     * symbol, then the index of the symbol in the output file
+		     * is set into r_symbolnum.
 		     */
 		    else if((merged_symbol->nlist.n_type & N_TYPE) != N_UNDF &&
 		            (merged_symbol->nlist.n_type & N_TYPE) != N_PBUD &&
 		            force_extern_reloc == FALSE &&
-		            (filetype != MH_DYLIB ||
+		            ((filetype != MH_DYLIB ||
+			      multi_module_dylib == FALSE) ||
 			     (merged_symbol->nlist.n_type & N_PEXT) == N_PEXT)){
 			reloc->r_extern = 0;
 			/*
@@ -1237,8 +1223,29 @@ update_reloc:
 		 * paired relocation entry.
 		 */
 		if(pair_r_type == PPC_RELOC_PAIR){
-		    if(pair_reloc != NULL)
-			pair_reloc->r_address = other_half;
+		    if(pair_reloc != NULL){
+			/*
+			 * For a PPC_RELOC_JBSR if the high bit of the "true
+			 * target" address is set we need to use scattered
+			 * relocation entry.  Then place the "true target"
+			 * address in the r_value field.
+			 */
+			if(r_type == PPC_RELOC_JBSR &&
+			   (other_half & 0x80000000) == 0x80000000){
+			    sreloc = (struct scattered_relocation_info *)
+				pair_reloc;
+			    r_scattered = 1;
+			    sreloc->r_scattered = r_scattered;
+			    sreloc->r_address = 0;
+			    sreloc->r_pcrel = r_pcrel;
+			    sreloc->r_length = r_length;
+			    sreloc->r_type = PPC_RELOC_PAIR;
+			    sreloc->r_value = other_half;
+			}
+			else{
+			    pair_reloc->r_address = other_half;
+			}
+		    }
 		    else if(spair_reloc != NULL){
 			if(r_type == PPC_RELOC_SECTDIFF ||
 			   r_type == PPC_RELOC_HI16_SECTDIFF ||
@@ -1265,7 +1272,10 @@ update_reloc:
 				spair_reloc->r_address = other_half;
 			}
 			else{
-			    spair_reloc->r_address = other_half;
+			    if(r_type == PPC_RELOC_JBSR)
+				spair_reloc->r_value = other_half;
+			    else
+				spair_reloc->r_address = other_half;
 			}
 		    }
 		    else{
@@ -1275,7 +1285,7 @@ update_reloc:
 		    }
 		}
 	    }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 	    /*
 	     * If their was a paired relocation entry then it has been processed
 	     * so skip it by incrementing the index of the relocation entry that

@@ -128,6 +128,7 @@ L1:	popl	%eax			#  where we started executing at and
 
 	pushl	$0		# push a zero for debugger end of frames marker
 	movl	%esp,%ebp	# pointer to base of kernel frame
+	andl	$-16,%esp	# force SSE alignment
 	subl	$16,%esp	# room for new mh, argc, argv, & envp
 	movl	4(%ebp),%ebx	# pickup mh in %ebx
 	movl	%ebx,0(%esp)	# mh to reserved stack word
@@ -149,8 +150,8 @@ L1:	popl	%eax			#  where we started executing at and
 	call	_mach_init	# call mach_init() so we can make mach calls
 
 	call	__dyld_init	# _dyld_init(mh, argc, argv, envp)
-	addl	$24,%esp	# deallocate room for new mh, argc, argv, & envp
-				#  and remove the mh argument, and debugger end
+	movl	%ebp,%esp	# restore the unaligned stack pointer
+	addl	$8,%esp		# remove the mh argument, and debugger end
 				#  frame marker
 	movl	$0,%ebp		# restore ebp back to zero
 	jmp	%eax		# jump to the entry point

@@ -24,6 +24,7 @@
 			refType = 4;
 		};
 		0119F4B200753D057F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskLib.h;
 			path = UserClientLib/SCSITaskLib.h;
@@ -42,24 +43,28 @@
 			refType = 4;
 		};
 		0119F4BA00753D057F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskUserClient.h;
 			path = UserClient/SCSITaskUserClient.h;
 			refType = 4;
 		};
 		0119F4BB00753D057F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskUserClient.cpp;
 			path = UserClient/SCSITaskUserClient.cpp;
 			refType = 4;
 		};
 		0119F4BC00753D057F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskUserClientIniter.h;
 			path = UserClient/SCSITaskUserClientIniter.h;
 			refType = 4;
 		};
 		0119F4BD00753D057F000001 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskUserClientIniter.cpp;
 			path = UserClient/SCSITaskUserClientIniter.cpp;
@@ -87,7 +92,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.SCSITaskUserClient;
-				MODULE_VERSION = 1.2.4;
+				MODULE_VERSION = 1.2.5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -112,7 +117,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.4, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.2.5, Copyright Apple Computer, Inc. 1999-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -124,11 +129,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>CDIniter</key>
@@ -213,7 +218,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0119F4C400753D057F000001 = {
 			buildActionMask = 2147483647;
@@ -328,7 +332,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.4, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.2.5, Copyright Apple Computer, Inc. 1999-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -340,11 +344,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -366,7 +370,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0119F4D400753D9B7F000001 = {
 			buildActionMask = 2147483647;
@@ -467,6 +470,7 @@
 				018D4AB800CF0C1711CE15BF,
 				5C96CFC200E172E805CE15C0,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 0143F20BFFE0C65311CE15BF;
 			productRefGroup = 0143F272FFE0C65311CE15BF;
@@ -543,51 +547,61 @@
 			refType = 2;
 		};
 		0143F232FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOBlockStorageServices.cpp;
 			refType = 4;
 		};
 		0143F233FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIBlockCommandsDevice.cpp;
 			refType = 4;
 		};
 		0143F234FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIPeripheralDeviceType00.cpp;
 			refType = 4;
 		};
 		0143F235FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = SCSIBlockCommands.cpp;
 			refType = 4;
 		};
 		0143F236FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIPeripheralDeviceType07.cpp;
 			refType = 4;
 		};
 		0143F238FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOBlockStorageServices.h;
 			refType = 4;
 		};
 		0143F239FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIBlockCommandsDevice.h;
 			refType = 4;
 		};
 		0143F23AFFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIPeripheralDeviceType00.h;
 			refType = 4;
 		};
 		0143F23BFFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = SCSIBlockCommands.h;
 			refType = 4;
 		};
 		0143F23CFFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIPeripheralDeviceType07.h;
 			refType = 4;
@@ -612,48 +626,56 @@
 			refType = 2;
 		};
 		0143F253FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSIMultimediaCommands.cpp;
 			path = IOSCSIMultimediaCommands/SCSIMultimediaCommands.cpp;
 			refType = 2;
 		};
 		0143F254FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIMultimediaCommandsDevice.cpp;
 			path = IOSCSIMultimediaCommands/IOSCSIMultimediaCommandsDevice.cpp;
 			refType = 2;
 		};
 		0143F255FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIPeripheralDeviceType05.cpp;
 			path = IOSCSIMultimediaCommands/IOSCSIPeripheralDeviceType05.cpp;
 			refType = 2;
 		};
 		0143F256FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOCompactDiscServices.cpp;
 			path = IOSCSIMultimediaCommands/IOCompactDiscServices.cpp;
 			refType = 2;
 		};
 		0143F258FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSIMultimediaCommands.h;
 			path = IOSCSIMultimediaCommands/SCSIMultimediaCommands.h;
 			refType = 2;
 		};
 		0143F259FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIMultimediaCommandsDevice.h;
 			path = IOSCSIMultimediaCommands/IOSCSIMultimediaCommandsDevice.h;
 			refType = 2;
 		};
 		0143F25AFFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIPeripheralDeviceType05.h;
 			path = IOSCSIMultimediaCommands/IOSCSIPeripheralDeviceType05.h;
 			refType = 2;
 		};
 		0143F25BFFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOCompactDiscServices.h;
 			path = IOSCSIMultimediaCommands/IOCompactDiscServices.h;
@@ -677,41 +699,49 @@
 			refType = 2;
 		};
 		0143F263FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOReducedBlockServices.cpp;
 			refType = 4;
 		};
 		0143F264FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIPeripheralDeviceType0E.cpp;
 			refType = 4;
 		};
 		0143F265FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIReducedBlockCommandsDevice.cpp;
 			refType = 4;
 		};
 		0143F266FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = SCSIReducedBlockCommands.cpp;
 			refType = 4;
 		};
 		0143F268FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOReducedBlockServices.h;
 			refType = 4;
 		};
 		0143F269FFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIPeripheralDeviceType0E.h;
 			refType = 4;
 		};
 		0143F26AFFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIReducedBlockCommandsDevice.h;
 			refType = 4;
 		};
 		0143F26BFFE0C65311CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = SCSIReducedBlockCommands.h;
 			refType = 4;
@@ -766,7 +796,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIArchitectureModelFamily;
-				MODULE_VERSION = 1.2.4;
+				MODULE_VERSION = 1.2.5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -796,7 +826,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIArchitectureModelFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.4, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.2.5, Copyright Apple Computer, Inc. 1999-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -808,11 +838,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceNub</key>
@@ -841,7 +871,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0143F29DFFE0C65311CE15BF = {
 			isa = PBXTargetDependency;
@@ -864,7 +893,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIBlockCommandsDevice;
-				MODULE_VERSION = 1.2.4;
+				MODULE_VERSION = 1.2.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -888,7 +917,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.4, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.2.5, Copyright Apple Computer, Inc. 1999-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -900,11 +929,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType00</key>
@@ -944,7 +973,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0143F29FFFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1122,7 +1150,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIMultimediaCommandsDevice;
-				MODULE_VERSION = 1.2.4;
+				MODULE_VERSION = 1.2.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1146,7 +1174,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIMultimediaCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.4, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.2.5, Copyright Apple Computer, Inc. 1999-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1158,11 +1186,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType05</key>
@@ -1197,7 +1225,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0143F2C2FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1363,7 +1390,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIReducedBlockCommandsDevice;
-				MODULE_VERSION = 1.2.4;
+				MODULE_VERSION = 1.2.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1387,7 +1414,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIReducedBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.4, Copyright Apple Computer, Inc. 1999-2003</string>
+	<string>1.2.5, Copyright Apple Computer, Inc. 1999-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1399,11 +1426,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.2.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType0E</key>
@@ -1432,7 +1459,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0143F2D3FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1679,6 +1705,7 @@
 			refType = 0;
 		};
 		01473FDE00CE990F11CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskLibPriv.h;
 			path = UserClientLib/SCSITaskLibPriv.h;
@@ -1691,12 +1718,14 @@
 			};
 		};
 		01481DF000AB6A1111CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskDeviceClass.h;
 			path = UserClientLib/SCSITaskDeviceClass.h;
 			refType = 4;
 		};
 		01481DF100AB6A1111CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskDeviceClass.cpp;
 			path = UserClientLib/SCSITaskDeviceClass.cpp;
@@ -1831,12 +1860,14 @@
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		017A6212FFE0DF3E11CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IODVDServices.h;
 			path = IOSCSIMultimediaCommands/IODVDServices.h;
 			refType = 2;
 		};
 		017A6213FFE0DF3E11CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IODVDServices.cpp;
 			path = IOSCSIMultimediaCommands/IODVDServices.cpp;
@@ -1968,12 +1999,14 @@
 			name = "Architecture Debugging";
 		};
 		019DFCD000A8A23B11CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskClass.h;
 			path = UserClientLib/SCSITaskClass.h;
 			refType = 4;
 		};
 		019DFCD100A8A23B11CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskClass.cpp;
 			path = UserClientLib/SCSITaskClass.cpp;
@@ -2002,12 +2035,14 @@
 //033
 //034
 		0376270B002A4E2911CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIProtocolInterface.cpp;
 			path = IOSCSIArchitectureModel/IOSCSIProtocolInterface.cpp;
 			refType = 2;
 		};
 		0376270C002A4E2911CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIProtocolInterface.h;
 			path = IOSCSIArchitectureModel/IOSCSIProtocolInterface.h;
@@ -2144,17 +2179,20 @@
 //073
 //074
 		070FC9DF002AABCE11CE15C0 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIBlockCommandsDevicePM.cpp;
 			path = IOSCSIBlockCommands/IOSCSIBlockCommandsDevicePM.cpp;
 			refType = 2;
 		};
 		070FC9E0002AABCE11CE15C0 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIReducedBlockCommandsDevicePM.cpp;
 			refType = 4;
 		};
 		070FC9E1002AABCE11CE15C0 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIMultimediaCommandsDevicePM.cpp;
 			refType = 4;
@@ -2211,7 +2249,6 @@
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/scsi-commands";
 			productName = InstallHeaders;
 			productReference = 071C63C4FFF0984511CE15B4;
-			shouldUseHeadermap = 0;
 		};
 		071C63C6FFF0984511CE15B4 = {
 			buildActionMask = 2147483647;
@@ -2348,84 +2385,98 @@
 //083
 //084
 		084398BD002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIPeripheralDeviceNub.cpp;
 			path = IOSCSIArchitectureModel/IOSCSIPeripheralDeviceNub.cpp;
 			refType = 2;
 		};
 		084398BE002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIPeripheralDeviceNub.h;
 			path = IOSCSIArchitectureModel/IOSCSIPeripheralDeviceNub.h;
 			refType = 2;
 		};
 		084398BF002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIPrimaryCommandsDevice.cpp;
 			path = IOSCSIArchitectureModel/IOSCSIPrimaryCommandsDevice.cpp;
 			refType = 2;
 		};
 		084398C0002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIPrimaryCommandsDevice.h;
 			path = IOSCSIArchitectureModel/IOSCSIPrimaryCommandsDevice.h;
 			refType = 2;
 		};
 		084398C1002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIProtocolServices.cpp;
 			path = IOSCSIArchitectureModel/IOSCSIProtocolServices.cpp;
 			refType = 2;
 		};
 		084398C2002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOSCSIProtocolServices.h;
 			path = IOSCSIArchitectureModel/IOSCSIProtocolServices.h;
 			refType = 2;
 		};
 		084398C3002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSICmds_INQUIRY_Definitions.h;
 			path = IOSCSIArchitectureModel/SCSICmds_INQUIRY_Definitions.h;
 			refType = 2;
 		};
 		084398C4002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSICmds_REQUEST_SENSE_Defs.h;
 			path = IOSCSIArchitectureModel/SCSICmds_REQUEST_SENSE_Defs.h;
 			refType = 2;
 		};
 		084398C5002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSICommandDefinitions.h;
 			path = IOSCSIArchitectureModel/SCSICommandDefinitions.h;
 			refType = 2;
 		};
 		084398C6002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSICommandOperationCodes.h;
 			path = IOSCSIArchitectureModel/SCSICommandOperationCodes.h;
 			refType = 2;
 		};
 		084398C7002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSIPrimaryCommands.cpp;
 			path = IOSCSIArchitectureModel/SCSIPrimaryCommands.cpp;
 			refType = 2;
 		};
 		084398C8002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSIPrimaryCommands.h;
 			path = IOSCSIArchitectureModel/SCSIPrimaryCommands.h;
 			refType = 2;
 		};
 		084398C9002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITask.cpp;
 			path = IOSCSIArchitectureModel/SCSITask.cpp;
 			refType = 2;
 		};
 		084398CA002809C411CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITask.h;
 			path = IOSCSIArchitectureModel/SCSITask.h;
@@ -2494,12 +2545,14 @@
 			refType = 0;
 		};
 		0EC44BFD00A73A5A11CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = MMCDeviceUserClientClass.h;
 			path = UserClientLib/MMCDeviceUserClientClass.h;
 			refType = 4;
 		};
 		0EC44BFE00A73A5A11CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = MMCDeviceUserClientClass.cpp;
 			path = UserClientLib/MMCDeviceUserClientClass.cpp;
@@ -2627,6 +2680,7 @@
 			};
 		};
 		5C405449011E259A05CE1791 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOStorageDeviceCharacteristics.h;
 			refType = 2;
@@ -2697,6 +2751,7 @@
 			name = Development;
 		};
 		5C9C0FA7026F72FF05CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIArchitectureModelFamilyDebugging.h;
 			refType = 4;
@@ -2708,6 +2763,7 @@
 			};
 		};
 		5C9C0FAA026F731605CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIPrimaryCommandsBuilder.cpp;
 			refType = 4;
@@ -2719,6 +2775,7 @@
 			};
 		};
 		5C9C0FAC026F732805CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIBlockCommandsBuilder.cpp;
 			refType = 4;
@@ -2730,6 +2787,7 @@
 			};
 		};
 		5C9C0FAE026F734005CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIReducedBlockCommandsBuilder.cpp;
 			refType = 4;
@@ -2741,6 +2799,7 @@
 			};
 		};
 		5C9C0FB0026F734F05CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSIMultimediaCommandsBuilder.cpp;
 			refType = 4;
@@ -2794,12 +2853,14 @@
 			};
 		};
 		5CC2E11601F793AD05CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskIUnknown.h;
 			path = UserClientLib/SCSITaskIUnknown.h;
 			refType = 4;
 		};
 		5CC2E11701F793AD05CE15BF = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = SCSITaskIUnknown.cpp;
 			path = UserClientLib/SCSITaskIUnknown.cpp;
@@ -2882,6 +2943,7 @@
 			};
 		};
 		F5D31BB7032D52C301CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = SCSITaskDefinition.h;
 			refType = 4;
@@ -2893,11 +2955,13 @@
 			};
 		};
 		F5F7E61102FB10BD01CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSITargetDevice.cpp;
 			refType = 4;
 		};
 		F5F7E61202FB10BD01CE15B4 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOSCSITargetDevice.h;
 			refType = 4;

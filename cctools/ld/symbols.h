@@ -79,7 +79,8 @@ struct merged_symbol {
 				   /*  only in the undefined list as a two- */
 				   /*  level namespace reference from a dylib.*/
 	weak_reference_mismatch:1, /* seen both a weak and non-weak reference */
-	reserved:1,
+	define_a_way:1,		   /* set if this symbol was defined as a */
+				   /*  result of -undefined define_a_way */
 	output_index:23;	/* the symbol table index this symbol will */
 				/*  have in the output file. */
     int undef_order;		/* if the symbol was undefined the order it */
@@ -107,7 +108,7 @@ struct merged_symbol {
 #define NSYMBOLS 2001
 #else
 #define NSYMBOLS 201
-#endif RLD
+#endif /* RLD */
 /* The number of size of the hash table in a merged_symbol_list */
 #define SYMBOL_LIST_HASH_SIZE	(NSYMBOLS * 2)
 
@@ -139,7 +140,7 @@ struct string_block {
 #ifdef RLD
     long set_num;		/* the object file set number these strings */
 				/*  come from. */
-#endif RLD
+#endif /* RLD */
     struct string_block *next;	/* the next block */
 };
 
@@ -185,6 +186,12 @@ __private_extern__ unsigned long nmerged_private_symbols;
 __private_extern__ unsigned long nmerged_symbols_referenced_only_from_dylibs;
 
 /*
+ * nstripped_merged_symbols is set to the number of merged symbol being stripped
+ * out when the strip_level is STRIP_DYNAMIC_EXECUTABLE.
+ */
+__private_extern__ unsigned long nstripped_merged_symbols;
+
+/*
  * The head of the list of the blocks that store the strings for the merged
  * symbols and the total size of all the strings.  The size of the strings for
  * the private externals is included in the the merge string size.
@@ -211,9 +218,6 @@ __private_extern__ struct common_load_map common_load_map;
  * The object file that is created for the common symbols to be allocated in.
  */
 __private_extern__
-#if defined(RLD) && !defined(__DYNAMIC__)
-const 
-#endif
 struct object_file link_edit_common_object;
 
 /*
@@ -256,6 +260,7 @@ struct localsym_block {
     unsigned long index;
     unsigned long count;
     enum localsym_block_state state;
+    unsigned long input_N_BINCL_n_value;
     unsigned long sum;
     struct localsym_block *next;
 };
@@ -324,6 +329,8 @@ __private_extern__ void free_undefined_list(
     void);
 __private_extern__ void define_common_symbols(
     void);
+__private_extern__ void define_undefined_symbols_a_way(
+    void);
 __private_extern__ void define_link_editor_execute_symbols(
     unsigned long header_address);
 __private_extern__ void setup_link_editor_symbols(
@@ -370,6 +377,8 @@ void output_rld_symfile_merged_symbols(
 #endif /* defined(RLD) && !defined(SA_RLD) */
 __private_extern__ enum bool is_output_local_symbol(
     unsigned char n_type,
+    unsigned char n_sect,
+    struct object_file *obj,
     char *symbol_name);
 __private_extern__ unsigned long merged_symbol_output_index(
     struct merged_symbol *merged_symbol);
@@ -385,7 +394,7 @@ __private_extern__ void free_multiple_defs(
     void);
 __private_extern__ void remove_merged_symbols(
     void);
-#endif RLD
+#endif /* RLD */
 
 __private_extern__ struct section *get_output_section(
     unsigned long sect);
@@ -396,4 +405,4 @@ __private_extern__ void print_symbol_list(
     enum bool input_based);
 __private_extern__ void print_undefined_list(
     void);
-#endif DEBUG
+#endif /* DEBUG */

@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -22,9 +25,7 @@
  
  /*
  * This is a basic HID driver to provide support for USB class 3
- * (HID) devices. The initial design allows the original OSX
- * drivers for the Apple USB mouse and keyboard to be used for
- * those devices instead of this driver.
+ * (HID) devices.
  */
 
 #include <libkern/OSByteOrder.h>
@@ -54,16 +55,8 @@ IOUSBHIDDriver::init(OSDictionary *properties)
         return false;
     }
 
-    _interface = NULL;
-    _buffer = 0;
     _retryCount = kHIDDriverRetryCount;
-    _outstandingIO = 0;
-    _needToClose = false;
     _maxReportSize = kMaxHIDReportSize;
-    _maxOutReportSize = kMaxHIDReportSize;
-    _outBuffer = 0;
-    _deviceUsage = 0;
-    _deviceUsagePage = 0;
 
     return true;
 }
@@ -79,13 +72,8 @@ IOUSBHIDDriver::init(OSDictionary *properties)
 bool 
 IOUSBHIDDriver::handleStart(IOService * provider)
 {
-    HIDPreparsedDataRef parseData;
-    HIDCapabilities	myHIDCaps;
-    UInt8 * 		myHIDDesc;
-    UInt32 			hidDescSize;
-    IOReturn 		err = kIOReturnSuccess;
-
     USBLog(7, "%s[%p]::handleStart", getName(), this);
+
     if( !super::handleStart(provider))
     {
         return false;
@@ -110,51 +98,6 @@ IOUSBHIDDriver::handleStart(IOService * provider)
         return false;
     }
 
-    // Get the size of the HID descriptor.
-    hidDescSize = 0;
-    err = GetHIDDescriptor(kUSBReportDesc, 0, NULL, &hidDescSize);
-    if ((err != kIOReturnSuccess) || (hidDescSize == 0))
-    {
-        return false;		// Won't be able to set last properties.
-    }
-    
-    myHIDDesc = (UInt8 *)IOMalloc(hidDescSize);
-    if (myHIDDesc == NULL)
-    {
-        return false;
-    }
-    
-    // Get the real report descriptor.
-    err = GetHIDDescriptor(kUSBReportDesc, 0, myHIDDesc, &hidDescSize);
-    if (err == kIOReturnSuccess) 
-    {
-        err = HIDOpenReportDescriptor(myHIDDesc, hidDescSize, &parseData, 0);
-        if (err == kIOReturnSuccess) 
-        {
-            err = HIDGetCapabilities(parseData, &myHIDCaps);
-            if (err == kIOReturnSuccess)
-            {
-                // Just get these values!
-                _deviceUsage = myHIDCaps.usage;
-                _deviceUsagePage = myHIDCaps.usagePage;
-                
-                _maxOutReportSize = myHIDCaps.outputReportByteLength;
-                _maxReportSize = (myHIDCaps.inputReportByteLength > myHIDCaps.featureReportByteLength) ?
-                    myHIDCaps.inputReportByteLength : myHIDCaps.featureReportByteLength;
-            }
-
-            HIDCloseReportDescriptor(parseData);
-        }
-    }
-
-    if (myHIDDesc)
-    {
-        IOFree(myHIDDesc, hidDescSize);
-    }
-
-    // Set HID Manager properties in IO registry.
-	// Will now be done by IOHIDDevice::start calling newTransportString, etc.
-//    SetProperties();
     return true;
 }
 
@@ -186,6 +129,15 @@ IOUSBHIDDriver::handleStop(IOService * provider)
     {
         thread_call_cancel(_clearFeatureEndpointHaltThread);
         thread_call_free(_clearFeatureEndpointHaltThread);
+    }
+
+    if (_gate)
+    {
+        IOWorkLoop	*wl = getWorkLoop();
+        if (wl)
+            wl->removeEventSource(_gate);
+        _gate->release();
+        _gate = NULL;
     }
 
     super::handleStop(provider);
@@ -231,7 +183,7 @@ IOUSBHIDDriver::getReport(	IOMemoryDescriptor * report,
     IOUSBDevRequestDesc requestPB;
     
     IncrementOutstandingIO();
-    
+
     // Get the reportID from the lower 8 bits of options
     //
     reportID = (UInt8) ( options & 0x000000ff);
@@ -239,7 +191,10 @@ IOUSBHIDDriver::getReport(	IOMemoryDescriptor * report,
     // And now save the report type
     //
     usbReportType = HIDMgr2USBReportType(reportType);
-    
+
+#if ENABLE_HIDREPORT_LOGGING
+    USBLog(3, "%s[%p]::getReport (%d, %p)", getName(), this, reportID, usbReportType);
+#endif
     //--- Fill out device request form
     //
     requestPB.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBClass, kUSBInterface);
@@ -255,6 +210,9 @@ IOUSBHIDDriver::getReport(	IOMemoryDescriptor * report,
             USBLog(3, "%s[%p]::getReport request failed; err = 0x%x)", getName(), this, ret);
            
     DecrementOutstandingIO();
+#if ENABLE_HIDREPORT_LOGGING
+    USBLog(3, "%s[%p]::getReport returning", getName(), this);
+#endif
     return ret;
 }
 
@@ -328,6 +286,9 @@ IOUSBHIDDriver::setReport( IOMemoryDescriptor * 	report,
             USBLog(3, "%s[%p]::setReport request failed; err = 0x%x)", getName(), this, ret);
         
     DecrementOutstandingIO();
+#if ENABLE_HIDREPORT_LOGGING
+    USBLog(3, "%s[%p]::setReport returning", getName(), this);
+#endif
     return ret;
 }
 
@@ -522,21 +483,6 @@ IOUSBHIDDriver::newTransportString() const
     return OSString::withCString("USB");
 }
 
-
-OSNumber * 
-IOUSBHIDDriver::newPrimaryUsageNumber() const
-{
-    return OSNumber::withNumber(_deviceUsage, 32);
-}
-
-
-OSNumber * 
-IOUSBHIDDriver::newPrimaryUsagePageNumber() const
-{
-    return OSNumber::withNumber(_deviceUsagePage, 32);
-}
-
-
 OSNumber * 
 IOUSBHIDDriver::newVendorIDNumber() const
 {
@@ -576,7 +522,19 @@ IOUSBHIDDriver::newVersionNumber() const
 UInt32 
 IOUSBHIDDriver::getMaxReportSize()
 {
-    return _maxReportSize;
+    UInt32	maxInputReportSize = 0;
+    UInt32	maxFeatureReportSize = 0;
+
+    OSNumber * inputReportSize = (OSNumber *)getProperty(kIOHIDMaxInputReportSizeKey);
+    if ( inputReportSize )
+        maxInputReportSize = inputReportSize->unsigned32BitValue();
+
+    OSNumber * featureReportSize = (OSNumber *)getProperty(kIOHIDMaxFeatureReportSizeKey);
+    if ( featureReportSize )
+        maxFeatureReportSize = featureReportSize->unsigned32BitValue();
+
+    return ( (maxInputReportSize > maxFeatureReportSize) ? maxInputReportSize : maxFeatureReportSize);
+
 }
 
 
@@ -733,16 +691,12 @@ IOReturn
 IOUSBHIDDriver::message( UInt32 type, IOService * provider,  void * argument )
 {
     IOReturn	err = kIOReturnSuccess;
-    
+
     err = super::message (type, provider, argument);
     
     switch ( type )
     {
-        case kIOMessageServiceIsTerminated:
-	    USBLog(5, "%s[%p]: service is terminated - ignoring", getName(), this);
-	    break;
-
-      case kIOUSBMessagePortHasBeenReset:
+        case kIOUSBMessagePortHasBeenReset:
 	    USBLog(3, "%s[%p]: received kIOUSBMessagePortHasBeenReset", getName(), this);
             _retryCount = kHIDDriverRetryCount;
             _deviceIsDead = FALSE;
@@ -757,12 +711,12 @@ IOUSBHIDDriver::message( UInt32 type, IOService * provider,  void * argument )
                 // _interface->close(this); will be done in didTerminate
             }
             break;
-  
-        default:
-            break;
+
+      default:
+          break;
     }
     
-    return kIOReturnSuccess;
+    return err;
 }
 
 
@@ -803,6 +757,8 @@ IOUSBHIDDriver::start(IOService *provider)
 {
     IOReturn 		err = kIOReturnSuccess;
     IOWorkLoop		*wl = NULL;
+    OSNumber		*locationIDProperty;
+    UInt32		locationID = 0;
     
     USBLog(7, "%s[%p]::start", getName(), this);
     IncrementOutstandingIO();			// make sure that once we open we don't close until start is open
@@ -836,9 +792,24 @@ IOUSBHIDDriver::start(IOService *provider)
         }
 
         // Errata for ALL Saitek devices.  Do a SET_IDLE 0 call
+        //
         if ( (_device->GetVendorID()) == 0x06a3 )
             SetIdleMillisecs(0);
 
+        // For Keyboards, set the idle millecs to 24 or to 0 if from Apple
+        //
+        if ( (_interface->GetInterfaceClass() == kUSBHIDClass) && (_interface->GetInterfaceSubClass() == kUSBHIDBootInterfaceSubClass) && (_interface->GetInterfaceProtocol() == kHIDKeyboardInterfaceProtocol) )
+        {
+            if (_device->GetVendorID() == kIOUSBVendorIDAppleComputer)
+            {
+                SetIdleMillisecs(0);
+            }
+            else
+            {
+                SetIdleMillisecs(24);
+            }
+        }
+        
         request.type = kUSBInterrupt;
         request.direction = kUSBOut;
         _interruptOutPipe = _interface->FindNextPipe(NULL, &request);
@@ -854,7 +825,7 @@ IOUSBHIDDriver::start(IOService *provider)
         }
 
         _maxReportSize = getMaxReportSize();
-        if (_maxReportSize)
+        if (_maxReportSize != 0)
         {
             _buffer = IOBufferMemoryDescriptor::withCapacity(_maxReportSize, kIODirectionIn);
             if ( !_buffer )
@@ -863,6 +834,8 @@ IOUSBHIDDriver::start(IOService *provider)
                 break;
             }
         }
+        else
+            USBError(1,"%s[%p]::start Input and Feature report sizes are 0!",getName(), this);
 
 
         // allocate a thread_call structure
@@ -882,7 +855,12 @@ IOUSBHIDDriver::start(IOService *provider)
             break;
         }
 
-        USBError(1, "%s[%p]::start -  USB HID Device @ %d (0x%x)", getName(), this, _device->GetAddress(), strtol(_device->getLocation(), (char **)NULL, 16));
+        locationIDProperty = (OSNumber *) provider->getProperty(kUSBDevicePropertyLocationID);
+        if ( locationIDProperty )
+        {
+            locationID = locationIDProperty->unsigned32BitValue();
+        }
+        USBLog(1, "[%p]::start -  USB HID Interface #%d of device %s @ %d (0x%x)",this, _interface->GetInterfaceNumber(), _device->getName(), _device->GetAddress(), locationID );
         
         DecrementOutstandingIO();		// release the hold we put on at the beginning
 	return true;
@@ -971,7 +949,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 
             // Handle the data
             //
-#if ENABLE_HIDREPORT_LOGGING
+#if ENABLE_HIDREPORT_LOGGING 
             USBLog(6, "%s[%p]::InterruptReadHandler report came in:", getName(), this);
             LogMemReport(_buffer);
 #endif
@@ -1112,13 +1090,12 @@ IOUSBHIDDriver::CheckForDeadDevice()
 {
     IOReturn			err = kIOReturnSuccess;
 
-    // Are we still connected?  Don't check again if we're already
-    // checking
-    //
-    if ( _interface && _device && !_deviceDeadThreadActive)
-    {
-        _deviceDeadThreadActive = TRUE;
+    _deviceDeadThreadActive = TRUE;
 
+    // Are we still connected?
+    //
+    if ( _interface && _device )
+    {
         err = _device->message(kIOUSBMessageHubIsDeviceConnected, NULL, 0);
     
         if ( kIOReturnSuccess == err )
@@ -1135,20 +1112,20 @@ IOUSBHIDDriver::CheckForDeadDevice()
 
                 // OK, let 'er rip.  Let's do the reset thing
                 //
-                    _device->ResetDevice();
+                _device->ResetDevice();
                     
             }
         }
         else
         {
-            // Device is not connected -- our device has gone away.  The message kIOServiceIsTerminated
-            // will take care of shutting everything down.  
+            // Device is not connected -- our device has gone away.
             //
             _deviceHasBeenDisconnected = TRUE;
-            USBLog(5, "%s[%p]: CheckForDeadDevice: device has been unplugged", getName(), this);
+
+            USBLog(5, "%s[%p]: CheckForDeadDevice: device %s has been unplugged", getName(), this, _device->getName() );
         }
-        _deviceDeadThreadActive = FALSE;
     }
+    _deviceDeadThreadActive = FALSE;
 }
 
 

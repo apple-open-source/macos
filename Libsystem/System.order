@@ -317,7 +317,7 @@ printf.o:_printf
 scalable_malloc.o:_large_entries_free_no_lock
 vm_mapUser.o:_vm_copy
 vm_mapUser.o:_vm_msync
-memcmp.o:_memcmp
+memcmp.o:.section_all
 host_privUser.o:_kmod_control
 pthread_cond.o:_pthread_cond_signal
 pthread_cond.o:_pthread_cond_signal_thread_np
@@ -522,7 +522,6 @@ dup.o:_dup
 setsockopt.o:_setsockopt
 recv.o:_recv
 recvfrom.o:_recvfrom
-bcmp.o:_bcmp
 mach_traps.o:_mk_timer_cancel
 select.o:_select
 inet_addr.o:_inet_aton

@@ -201,6 +201,7 @@ protected:
 	sInt32				GetAttributeValue			(	sGetAttributeValue *inData );
 	uInt32				CalcCRC						(	char *inStr );
     static sInt32		CleanContextData			(	sPSContextData *inContext );
+	static void			EndServerSession			(	sPSContextData *inContext );
     sPSContextData	   *MakeContextData				(	void );
 	sInt32				CloseAttributeList			(	sCloseAttributeList *inData );
 	sInt32				CloseAttributeValueList		(	sCloseAttributeValueList *inData );
@@ -258,6 +259,7 @@ protected:
 private:
 	uInt32				fState;
 	uInt32				fSignature;
+	sInt32				fOpenNodeCount;
     bool				fHasInitializedSASL;
 
 };

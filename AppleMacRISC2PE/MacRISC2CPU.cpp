@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -64,7 +67,7 @@ bool MacRISC2CPU::start(IOService *provider)
     OSArray              *tmpArray;
     UInt32               maxCPUs, uniNVersion, physCPU;
     ml_processor_info_t  processor_info;
-	
+    
     // callPlatformFunction symbols
     mpic_getProvider = OSSymbol::withCString("mpic_getProvider");
     mpic_getIPIVector= OSSymbol::withCString("mpic_getIPIVector");
@@ -110,6 +113,7 @@ bool MacRISC2CPU::start(IOService *provider)
     }
 	
 	doSleep = false;
+	topLevelPCIBridgeCount = 0;
   
     // Get the "flush-on-lock" property from the first cpu node.
     flushOnLock = false;
@@ -249,32 +253,6 @@ bool MacRISC2CPU::start(IOService *provider)
         provider->joinPMtree(this);
     }
 
-	if (macRISC2PE->ioPMonNub) {
-		
-		// Find the platform monitor, if present
-		service = waitForService(resourceMatching("IOPlatformMonitor"));
-		ioPMon = OSDynamicCast (IOPlatformMonitor, service->getProperty("IOPlatformMonitor"));
-		if (!ioPMon) 
-			return false;
-		
-		ioPMonDict = OSDictionary::withCapacity(2);
-		if (!ioPMonDict) {
-			ioPMon = NULL;
-		} else {
-			ioPMonDict->setObject (kIOPMonTypeKey, OSSymbol::withCString (kIOPMonTypeCPUCon));
-			ioPMonDict->setObject (kIOPMonCPUIDKey, OSNumber::withNumber ((long long)getCPUNumber(), 32));
-
-			if (messageClient (kIOPMonMessageRegister, ioPMon, (void *)ioPMonDict) != kIOReturnSuccess) {
-				// IOPMon doesn't need to know about us, so don't bother with it
-				IOLog ("MacRISC2CPU::start - failed to register cpu with IOPlatformMonitor\n");
-				ioPMonDict->release();
-				ioPMon = NULL;
-			}
-		}
-	}
-
-    registerService();
-  
     // Finds PMU and UniN so in quiesce we can put the machine to sleep.
     // I can not put these calls there because quiesce runs in interrupt
     // context and waitForService may block.
@@ -286,6 +264,33 @@ bool MacRISC2CPU::start(IOService *provider)
 	// Call UniN to prepare for that, if necessary
 	uniN->callPlatformFunction ("setupUATAforSleep", false, (void *)0, (void *)0, (void *)0, (void *)0);
 
+
+
+    if (macRISC2PE->hasPMon) {
+            // Find the platform monitor, if present
+            service = waitForService(resourceMatching("IOPlatformMonitor"));
+            ioPMon = OSDynamicCast (IOPlatformMonitor, service->getProperty("IOPlatformMonitor"));
+            if (!ioPMon) 
+                    return false;
+            
+            ioPMonDict = OSDictionary::withCapacity(2);
+            if (!ioPMonDict) {
+                    ioPMon = NULL;
+            } else {
+                    ioPMonDict->setObject (kIOPMonTypeKey, OSSymbol::withCString (kIOPMonTypeCPUCon));
+                    ioPMonDict->setObject (kIOPMonCPUIDKey, OSNumber::withNumber ((long long)getCPUNumber(), 32));
+
+                    if (messageClient (kIOPMonMessageRegister, ioPMon, (void *)ioPMonDict) != kIOReturnSuccess) {
+                            // IOPMon doesn't need to know about us, so don't bother with it
+                            IOLog ("MacRISC2CPU::start - failed to register cpu with IOPlatformMonitor\n");
+                            ioPMonDict->release();
+                            ioPMon = NULL;
+                    }
+            }
+    }
+
+    registerService();
+  
     return true;
 }
 
@@ -427,10 +432,9 @@ IOReturn MacRISC2CPU::setAggressiveness(UInt32 selector, UInt32 newLevel)
 			if (doChange) 
 				performPMUSpeedChange (newLevel);
 		} 
-		
-		if (macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange && doChange) {
+		if ((macRISC2PE->processorSpeedChangeFlags & kProcessorBasedSpeedChange) && doChange && ! (macRISC2PE->processorSpeedChangeFlags & kBusSlewBasedSpeedChange)) {
 			IOReturn cpfResult = kIOReturnSuccess;
-                        
+			
 			if (newLevel == 0)
 				cpfResult = keyLargo->callPlatformFunction (keyLargo_setPowerSupply, false,
 					(void *)1, (void *)0, (void *)0, (void *)0);
@@ -483,10 +487,8 @@ void MacRISC2CPU::performPMUSpeedChange (UInt32 newLevel)
 
 void MacRISC2CPU::initCPU(bool boot)
 {
-	OSIterator 		*childIterator;
-	IORegistryEntry *childEntry, *childDriver;
 	IOPCIBridge		*pciDriver;
-	OSData			*deviceTypeString;
+	UInt32			i;
 
     if (!boot && bootCPU) {
 		// Tell Uni-N to enter normal mode.
@@ -494,26 +496,12 @@ void MacRISC2CPU::initCPU(bool boot)
 			(void *)0, (void *)0, (void *)0);
     
         if (!processorSpeedChange) {
-			// Notify our pci children to restore their state
-			if ((childIterator = macRISC2PE->getChildIterator (gIOServicePlane)) != NULL) {
-				while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
-					deviceTypeString = OSDynamicCast( OSData, childEntry->getProperty( "device_type" ));
-					if (deviceTypeString) {
-						if (!strcmp((const char *)deviceTypeString->getBytesNoCopy(), "pci")) {
-							childDriver = childEntry->copyChildEntry(gIOServicePlane);
-							if (childDriver) {
-								pciDriver = OSDynamicCast( IOPCIBridge, childDriver );
-								if (pciDriver)
-									// Got the driver - send the message
-									pciDriver->setDevicePowerState (NULL, 3);
 
-								childDriver->release();
-							}
-						}
-					}
-				}
-				childIterator->release();
-			}
+			// Notify our pci children to restore their state
+			for (i = 0; i < topLevelPCIBridgeCount; i++)
+				if (pciDriver = topLevelPCIBridges[i])
+					// Got the driver - send the message
+					pciDriver->setDevicePowerState (NULL, 3);
 
 			keyLargo->callPlatformFunction(keyLargo_restoreRegisterState, false, 0, 0, 0, 0);
 	
@@ -629,6 +617,7 @@ void MacRISC2CPU::haltCPU(void)
 	IORegistryEntry *childEntry, *childDriver;
 	IOPCIBridge		*pciDriver;
 	OSData			*deviceTypeString;
+	UInt32			i;
 
   
     setCPUState(kIOCPUStateStopped);
@@ -636,25 +625,35 @@ void MacRISC2CPU::haltCPU(void)
     if (bootCPU)
     {
 		// Notify our pci children to save their state
-		if ((childIterator = macRISC2PE->getChildIterator (gIOServicePlane)) != NULL) {
-			while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
-				deviceTypeString = OSDynamicCast( OSData, childEntry->getProperty( "device_type" ));
-				if (deviceTypeString) {
-					if (!strcmp((const char *)deviceTypeString->getBytesNoCopy(), "pci")) {
-						childDriver = childEntry->copyChildEntry(gIOServicePlane);
-						if (childDriver) {
-							pciDriver = OSDynamicCast( IOPCIBridge, childDriver );
-							if (pciDriver)
-								// Got the driver - send the message
-								pciDriver->setDevicePowerState (NULL, 2);
-								
-							childDriver->release();
+		if (!topLevelPCIBridgeCount) {
+			// First build list of top level bridges - only need to do once as these don't change
+			if ((childIterator = macRISC2PE->getChildIterator (gIOServicePlane)) != NULL) {
+				while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
+					deviceTypeString = OSDynamicCast( OSData, childEntry->getProperty( "device_type" ));
+					if (deviceTypeString) {
+						if (!strcmp((const char *)deviceTypeString->getBytesNoCopy(), "pci")) {
+							childDriver = childEntry->copyChildEntry(gIOServicePlane);
+							if (childDriver) {
+								pciDriver = OSDynamicCast( IOPCIBridge, childDriver );
+								if (pciDriver)
+									if (topLevelPCIBridgeCount < kMaxPCIBridges)
+										// Remember this driver
+										topLevelPCIBridges[topLevelPCIBridgeCount++] = pciDriver;
+									else
+										kprintf ("MacRISC2CPU::haltCPU - warning, more than %ld PCI bridges - cannot save/restore them all\n");
+								childDriver->release();
+							}
 						}
 					}
 				}
+				childIterator->release();
 			}
-			childIterator->release();
 		}
+		for (i = 0; i < topLevelPCIBridgeCount; i++)
+			if (pciDriver = topLevelPCIBridges[i]) {
+				// Got the driver - send the message
+				pciDriver->setDevicePowerState (NULL, 2);
+			}
     }
 
    kprintf("MacRISC2CPU::haltCPU %d Here!\n", getCPUNumber());

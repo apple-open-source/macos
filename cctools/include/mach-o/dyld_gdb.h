@@ -9,7 +9,7 @@
 /*
  * gdb_dyld_version is the version of gdb interface that dyld is currently
  * exporting.  For the interface described in this header file gdb_dyld_version
- * is 1.  As the gdb/dyld interface changes this number will be incremented and
+ * is 2.  As the gdb/dyld interface changes this number will be incremented and
  * comments will be added as to what are the are changes for the various
  * versions.
  */
@@ -48,12 +48,21 @@ extern void gdb_dyld_state_changed(void);
  * start with a structure containing the following fields:
  *
  *  struct image {   
- *      char *name;                 image name for reporting errors
+ *      char *physical_name;        physical image name (file name)
  *      unsigned long vmaddr_slide; the slide from the staticly linked address
  *      struct mach_header *mh;     address of the mach header of the image
  *	unsigned long valid;        TRUE if this is struct is valid
+ *      char *name;                 image name for reporting errors
  *      ...
  *  };
+ *
+ * In gdb_dyld_version 1 the first field was "name".  In gdb_dyld_version 2 the
+ * first field was changed to "physical_name" and a new fifth field "name" was
+ * added.  These two fields are set to the same values except in the case of
+ * zero-link.  In zero-link the NSLinkModule() option
+ * NSLINKMODULE_OPTION_TRAILING_PHYS_NAME is used and then the physical_name is
+ * the file name of the module zero-link loaded that is part of the logical
+ * image "name".
  */
 
 /* object_images is the global object_images structure */

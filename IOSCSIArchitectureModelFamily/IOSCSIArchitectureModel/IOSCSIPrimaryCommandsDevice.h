@@ -121,8 +121,13 @@ protected:
 	{
 		IONotifier *		fKeySwitchNotifier;
 		UInt8				fANSIVersion;
+		UInt32				fReadTimeoutDuration;
+		UInt32				fWriteTimeoutDuration;
 	};
 	IOSCSIPrimaryCommandsDeviceExpansionData * fIOSCSIPrimaryCommandsDeviceReserved;
+	
+	#define	fReadTimeoutDuration	fIOSCSIPrimaryCommandsDeviceReserved->fReadTimeoutDuration
+	#define	fWriteTimeoutDuration	fIOSCSIPrimaryCommandsDeviceReserved->fWriteTimeoutDuration
 	
 	UInt8							fDefaultInquiryCount;
 	OSDictionary *					fDeviceCharacteristicsDictionary;

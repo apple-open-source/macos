@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -33,6 +34,8 @@
 */
 
 #include "Scavenger.h"
+#include <unistd.h>
+#include <sys/stat.h>
 
 enum {
 	clearBlocks,
@@ -59,7 +62,9 @@ static	OSErr	FixLinkCount( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	FixBSDInfo( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	DeleteUnlinkedFile( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	FixOrphanedExtent( SGlobPtr GPtr );
-static OSErr	FixFileSize(SGlobPtr GPtr, RepairOrderPtr p);
+static 	OSErr	FixFileSize(SGlobPtr GPtr, RepairOrderPtr p);
+static  OSErr 	VolumeObjectFixVHBorMDB( Boolean * fixedIt );
+static 	OSErr 	VolumeObjectRestoreWrapper( void );
 
 extern	OSErr	FindExtentRecord( const SVCB *vcb, UInt8 forkType, UInt32 fileID, UInt32 startBlock, Boolean allowPrevious, HFSPlusExtentKey *foundKey, HFSPlusExtentRecord foundData, UInt32 *foundHint);
 extern	OSErr	DeleteExtentRecord( const SVCB *vcb, UInt8 forkType, UInt32 fileID, UInt32 startBlock );
@@ -72,33 +77,20 @@ static	OSErr	FixEmbededVolDescription( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	FixWrapperExtents( SGlobPtr GPtr, RepairOrderPtr p );
 static  OSErr	FixIllegalNames( SGlobPtr GPtr, RepairOrderPtr roPtr );
 static HFSCatalogNodeID GetObjectID( CatalogRecord * theRecPtr );
+static UInt32	CreateLostAndFoundDir( SGlob *GPtr );
 static int		BuildThreadRec( CatalogKey * theKeyPtr, CatalogRecord * theRecPtr, 
 								Boolean isHFSPlus, Boolean isDirectory );
+static int		BuildFolderRec( u_int16_t theMode, UInt32 theObjID, Boolean isHFSPlus, 
+								CatalogRecord * theRecPtr );
+static OSErr	FixMissingDirectory( SGlob *GPtr, UInt32 theObjID, UInt32 theParID );
 
 
 OSErr	RepairVolume( SGlobPtr GPtr )
 {
 	OSErr			err;
-	OSErr			unmountResult;
-	Boolean			volumeMounted;
 	
 	SetDFAStage( kAboutToRepairStage );											//	Notify callers repair is starting...
  	err = CheckForStop( GPtr ); ReturnIfError( err );							//	Permit the user to interrupt
-
-	volumeMounted = ( GPtr->volumeFeatures & volumeIsMountedMask );
-	unmountResult = fBsyErr;
-
-	if ( volumeMounted )														//	If the volume is mounted
-	{
-		unmountResult = fBsyErr;
-		err = GetVolumeFeatures( GPtr );										//	Sets up GPtr->volumeFeatures and GPtr->realVCB
-		
-		//	If the volume cannot be unmounted, it may be the boot volume
-		if ( unmountResult != noErr )
-		{
-			SetDFAStage( kRepairStage );										//	Stops GNE from being called, and changes behavior of MountCheck
-		}
-	}
 	
 	//
 	//	Do the repair
@@ -122,9 +114,9 @@ int MRepair( SGlobPtr GPtr )
 {
 	OSErr			err;
 	SVCB			*calculatedVCB	= GPtr->calculatedVCB;
-	Boolean			isHFSPlus		= GPtr->isHFSPlus;
+	Boolean			isHFSPlus;
 
-#if 1 // turn on catalog B-Tree rebuild magic
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 
 	if ( GPtr->CBTStat & S_RebuildBTree )
 	{
@@ -134,8 +126,6 @@ int MRepair( SGlobPtr GPtr )
 		err = RebuildCatalogBTree( GPtr );
 		return( err );
 	}
-#endif 
-
  
 	//  Handle repair orders.  Note that these must be done *BEFORE* the MDB is updated.
 	err = DoMinorOrders( GPtr );
@@ -143,7 +133,7 @@ int MRepair( SGlobPtr GPtr )
   	err = CheckForStop( GPtr ); ReturnIfError( err );
 
 	/* Clear Catalog status for things repaired by DoMinorOrders */
-	GPtr->CatStat &= ~(S_FileAllocation | S_Permissions | S_UnlinkedFile | S_LinkCount);
+	GPtr->CatStat &= ~(S_FileAllocation | S_Permissions | S_UnlinkedFile | S_LinkCount | S_IllName);
 
 	/*
 	 * Fix missing thread records
@@ -280,21 +270,48 @@ int MRepair( SGlobPtr GPtr )
 	}
 
 	//
+	//	Fix missing Primary or Alternate VHB or MDB
+	//
+
+ 	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
+				
+	if ( (GPtr->VIStat & S_MDB) != 0 )		//	fix MDB / VolumeHeader
+	{
+		Boolean		fixedIt = false;
+		err = VolumeObjectFixVHBorMDB( &fixedIt );
+		ReturnIfError( err );
+		// don't call FlushAlternateVolumeControlBlock if we fixed it since that would 
+		// mean our calculated VCB has not been completely set up.
+		if ( fixedIt ) {
+			GPtr->VIStat &= ~S_MDB; 
+			MarkVCBClean( calculatedVCB );
+		}
+	}
+
+ 	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
+				
+	if ( (GPtr->VIStat & S_WMDB) != 0  )		//	fix wrapper MDB
+	{
+		err = VolumeObjectRestoreWrapper();
+		ReturnIfError( err );
+	}
+
+	//
 	//	Update the MDB / VolumeHeader
 	//
 	// Note, moved MDB / VolumeHeader update to end 
-	// after all other repairs have been completed
+	// after all other repairs have been completed.
 	//
+
  	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
 				
-	if ( ((GPtr->VIStat & S_MDB) != 0) || IsVCBDirty(calculatedVCB) )		//	update MDB / VolumeHeader
+	if ( (GPtr->VIStat & S_MDB) != 0 || IsVCBDirty(calculatedVCB) ) //	update MDB / VolumeHeader
 	{
 		MarkVCBDirty(calculatedVCB);								// make sure its dirty
 		calculatedVCB->vcbAttributes |= kHFSVolumeUnmountedMask;
 		err = FlushAlternateVolumeControlBlock( calculatedVCB, isHFSPlus );	//	Writes real & alt blocks
 		ReturnIfError( err );
 	}
-
 
  	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
 	
@@ -306,6 +323,158 @@ int MRepair( SGlobPtr GPtr )
 //
 //	Internal Routines
 //
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Routine:	VolumeObjectFixVHBorMDB
+//
+//	Function:	When the primary or alternate Volume Header Block or Master 
+//				Directory Block is damaged or missing use the undamaged one to 
+//				restore the other.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+static OSErr VolumeObjectFixVHBorMDB( Boolean* fixedItPtr )
+{
+	OSErr				err;
+	OSErr				err2;
+	VolumeObjectPtr		myVOPtr;
+	BlockDescriptor  	myPrimary;
+	BlockDescriptor  	myAlternate;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	myPrimary.buffer = NULL;
+	myAlternate.buffer = NULL;
+	err = noErr;
+	
+	// bail if both are OK
+	if ( VolumeObjectIsHFS() ) {
+		if ( (myVOPtr->flags & kVO_PriMDBOK) != 0 &&
+			 (myVOPtr->flags & kVO_AltMDBOK) != 0 )
+			goto ExitThisRoutine;
+	}
+	else {
+		if ( (myVOPtr->flags & kVO_PriVHBOK) != 0 &&
+			 (myVOPtr->flags & kVO_AltVHBOK) != 0 )
+			goto ExitThisRoutine;
+	}
+			
+	// it's OK if one of the primary or alternate is invalid
+	err = GetVolumeObjectPrimaryBlock( &myPrimary );
+	if ( !(err == noErr || err == badMDBErr || err == noMacDskErr) )
+		goto ExitThisRoutine;
+
+	// invalidate if we have not marked the primary as OK
+	if ( VolumeObjectIsHFS( ) ) {
+		if ( (myVOPtr->flags & kVO_PriMDBOK) == 0 )
+			err = badMDBErr;
+	}
+	else if ( (myVOPtr->flags & kVO_PriVHBOK) == 0 ) {
+		err = badMDBErr;
+	}
+
+	err2 = GetVolumeObjectAlternateBlock( &myAlternate );
+	if ( !(err2 == noErr || err2 == badMDBErr || err2 == noMacDskErr) )
+		goto ExitThisRoutine;
+
+	// invalidate if we have not marked the alternate as OK
+	if ( VolumeObjectIsHFS( ) ) {
+		if ( (myVOPtr->flags & kVO_AltMDBOK) == 0 )
+			err2 = badMDBErr;
+	}
+	else if ( (myVOPtr->flags & kVO_AltVHBOK) == 0 ) {
+		err2 = badMDBErr;
+	}
+		
+	// primary is OK so use it to restore alternate
+	if ( err == noErr ) {
+		CopyMemory( myPrimary.buffer, myAlternate.buffer, Blk_Size );
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myAlternate, kForceWriteBlock );		
+		myAlternate.buffer = NULL;
+		*fixedItPtr = true;
+		if ( VolumeObjectIsHFS( ) )
+			myVOPtr->flags |= kVO_AltMDBOK;
+		else
+			myVOPtr->flags |= kVO_AltVHBOK;
+	}
+	// alternate is OK so use it to restore the primary
+	else if ( err2 == noErr ) {
+		CopyMemory( myAlternate.buffer, myPrimary.buffer, Blk_Size );
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myPrimary, kForceWriteBlock );		
+		myPrimary.buffer = NULL;
+		*fixedItPtr = true;
+		if ( VolumeObjectIsHFS( ) )
+			myVOPtr->flags |= kVO_PriMDBOK;
+		else
+			myVOPtr->flags |= kVO_PriVHBOK;
+		err = noErr;
+	}
+	else
+		err = noMacDskErr;
+
+ExitThisRoutine:
+	if ( myPrimary.buffer != NULL )
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myPrimary, kReleaseBlock );
+	if ( myAlternate.buffer != NULL )
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myAlternate, kReleaseBlock );
+
+	return( err );
+	
+} /* VolumeObjectFixVHBorMDB */
+		
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Routine:	VolumeObjectRestoreWrapper
+//
+//	Function:	When the primary or alternate Master Directory Block is damaged 
+//				or missing use the undamaged one to restore the other.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+static OSErr VolumeObjectRestoreWrapper( void )
+{
+	OSErr				err;
+	OSErr				err2;
+	VolumeObjectPtr		myVOPtr;
+	BlockDescriptor  	myPrimary;
+	BlockDescriptor  	myAlternate;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	myPrimary.buffer = NULL;
+	myAlternate.buffer = NULL;
+				
+	// it's OK if one of the MDB is invalid
+	err = GetVolumeObjectPrimaryMDB( &myPrimary );
+	if ( !(err == noErr || err == badMDBErr || err == noMacDskErr) )
+		goto ExitThisRoutine;
+	err2 = GetVolumeObjectAlternateMDB( &myAlternate );
+	if ( !(err2 == noErr || err2 == badMDBErr || err2 == noMacDskErr) )
+		goto ExitThisRoutine;
+
+	// primary is OK so use it to restore alternate
+	if ( err == noErr && (myVOPtr->flags & kVO_PriMDBOK) != 0 ) {
+		CopyMemory( myPrimary.buffer, myAlternate.buffer, Blk_Size );
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myAlternate, kForceWriteBlock );		
+		myAlternate.buffer = NULL;
+		myVOPtr->flags |= kVO_AltMDBOK;
+	}
+	// alternate is OK so use it to restore the primary
+	else if ( err2 == noErr && (myVOPtr->flags & kVO_AltMDBOK) != 0 ) {
+		CopyMemory( myAlternate.buffer, myPrimary.buffer, Blk_Size );
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myPrimary, kForceWriteBlock );		
+		myPrimary.buffer = NULL;
+		myVOPtr->flags |= kVO_PriMDBOK;
+		err = noErr;
+	}
+	else
+		err = noMacDskErr;
+
+ExitThisRoutine:
+	if ( myPrimary.buffer != NULL )
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myPrimary, kReleaseBlock );
+	if ( myAlternate.buffer != NULL )
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myAlternate, kReleaseBlock );
+
+	return( err );
+	
+} /* VolumeObjectRestoreWrapper */
 		
 
 /*------------------------------------------------------------------------------
@@ -595,9 +764,12 @@ static	int	DelFThd( SGlobPtr GPtr, UInt32 fid )				//	the file ID
 	UInt32				hint;								//	as returned by CBTSearch
 	OSErr				result;								//	status return
 	UInt16				recSize;
+	Boolean				isHFSPlus;
 	ExtentRecord		zeroExtents;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	
-	BuildCatalogKey( fid, (const CatalogName*) nil, GPtr->isHFSPlus, &key );
+	BuildCatalogKey( fid, (const CatalogName*) nil, isHFSPlus, &key );
 	result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint, &foundKey, &record, &recSize, &hint );
 	
 	if ( result )	return ( IntError( GPtr, result ) );
@@ -658,10 +830,11 @@ static	OSErr	FixDirThread( SGlobPtr GPtr, UInt32 did )	//	the dir ID
 	NodeRec				node;
 	NodeDescPtr			nodeDescP;
 	UInt32				newParDirID		= 0;			//	the parent ID where the dir record is really located
-	Boolean				isHFSPlus		= GPtr->isHFSPlus;
+	Boolean				isHFSPlus;
 	BTreeControlBlock	*calculatedBTCB	= GetBTreeControlBlock( kCalculatedCatalogRefNum );
-	
-	
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+
 	BuildCatalogKey( did, (const CatalogName*) nil, isHFSPlus, &key );
 	result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint, &foundKey, &record, &recSize, &hint );
 	
@@ -754,13 +927,16 @@ Output:		UpdVal			- 	function result:
 static	OSErr	UpdVal( SGlobPtr GPtr, RepairOrderPtr p )					//	the valence repair order
 {
 	OSErr				result;						//	status return
+	Boolean				isHFSPlus;
 	UInt32				hint;						//	as returned by CBTSearch
 	UInt16				recSize;
 	CatalogRecord		record;
 	CatalogKey			foundKey;
 	CatalogKey			key;
-	SVCB			*calculatedVCB = GPtr->calculatedVCB;
-	
+	SVCB				*calculatedVCB = GPtr->calculatedVCB;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+
 	switch( p->type )
 	{
 		case E_RtDirCnt: //	invalid count of Dirs in Root
@@ -792,7 +968,7 @@ static	OSErr	UpdVal( SGlobPtr GPtr, RepairOrderPtr p )					//	the valence repair
 			break;
 	
 		case E_DirVal:
-			BuildCatalogKey( p->parid, (CatalogName *)&p->name, GPtr->isHFSPlus, &key );
+			BuildCatalogKey( p->parid, (CatalogName *)&p->name, isHFSPlus, &key );
 			result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint,
 					&foundKey, &record, &recSize, &hint );
 			if ( result )
@@ -843,8 +1019,11 @@ static	OSErr	FixFinderFlags( SGlobPtr GPtr, RepairOrderPtr p )				//	the repair 
 	UInt32				hint;												//	as returned by CBTSearch
 	OSErr				result;												//	status return
 	UInt16				recSize;
-	
-	BuildCatalogKey( p->parid, (CatalogName *)&p->name, GPtr->isHFSPlus, &key );
+	Boolean				isHFSPlus;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+
+	BuildCatalogKey( p->parid, (CatalogName *)&p->name, isHFSPlus, &key );
 
 	result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint, &foundKey, &record, &recSize, &hint );
 	if ( result )
@@ -853,34 +1032,34 @@ static	OSErr	FixFinderFlags( SGlobPtr GPtr, RepairOrderPtr p )				//	the repair 
 	if ( record.recordType == kHFSPlusFolderRecord )
 	{
 		HFSPlusCatalogFolder	*largeCatalogFolderP	= (HFSPlusCatalogFolder *) &record;	
-		if ( (UInt16) p->incorrect != largeCatalogFolderP->userInfo.frFlags )
+		if ( (UInt16) p->incorrect != SWAP_BE16(largeCatalogFolderP->userInfo.frFlags) )
 		{
 			//	Another repar order may have affected the flags
 			if ( p->correct < p->incorrect )
-				largeCatalogFolderP->userInfo.frFlags &= ~((UInt16)p->maskBit);
+				largeCatalogFolderP->userInfo.frFlags &= SWAP_BE16(~((UInt16)p->maskBit));
 			else
-				largeCatalogFolderP->userInfo.frFlags |= (UInt16)p->maskBit;
+				largeCatalogFolderP->userInfo.frFlags |= SWAP_BE16((UInt16)p->maskBit);
 		}
 		else
 		{
-			largeCatalogFolderP->userInfo.frFlags = (UInt16)p->correct;
+			largeCatalogFolderP->userInfo.frFlags = SWAP_BE16((UInt16)p->correct);
 		}
 	//	largeCatalogFolderP->contentModDate = timeStamp;
 	}
 	else
 	{
 		HFSCatalogFolder	*smallCatalogFolderP	= (HFSCatalogFolder *) &record;	
-		if ( p->incorrect != smallCatalogFolderP->userInfo.frFlags )		//	do we know what we're doing?
+		if ( p->incorrect != SWAP_BE16(smallCatalogFolderP->userInfo.frFlags) )		//	do we know what we're doing?
 		{
 			//	Another repar order may have affected the flags
 			if ( p->correct < p->incorrect )
-				smallCatalogFolderP->userInfo.frFlags &= ~((UInt16)p->maskBit);
+				smallCatalogFolderP->userInfo.frFlags &= SWAP_BE16(~((UInt16)p->maskBit));
 			else
-				smallCatalogFolderP->userInfo.frFlags |= (UInt16)p->maskBit;
+				smallCatalogFolderP->userInfo.frFlags |= SWAP_BE16((UInt16)p->maskBit);
 		}
 		else
 		{
-			smallCatalogFolderP->userInfo.frFlags = (UInt16)p->correct;
+			smallCatalogFolderP->userInfo.frFlags = SWAP_BE16((UInt16)p->correct);
 		}
 		
 	//	smallCatalogFolderP->modifyDate = timeStamp;						// also update the modify date! -DJB
@@ -909,8 +1088,10 @@ FixLinkCount(SGlobPtr GPtr, RepairOrderPtr p)
 	size_t len;
 	OSErr result;
 	UInt16 recSize;
+	Boolean				isHFSPlus;
 
-	if (!GPtr->isHFSPlus)
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	if (!isHFSPlus)
 		return (0);
 	fcb = GPtr->calculatedCatalogFCB;
 
@@ -975,7 +1156,7 @@ FixIllegalNames( SGlobPtr GPtr, RepairOrderPtr roPtr )
 	CatalogKey			key;
 	CatalogKey			newKey;
 
-	isHFSPlus = GPtr->isHFSPlus;
+	isHFSPlus = VolumeObjectIsHFSPlus( );
  	fcbPtr = GPtr->calculatedCatalogFCB;
     
 	oldNamePtr = (CatalogName *) &roPtr->name;
@@ -1060,16 +1241,18 @@ FixBSDInfo:  Reset or repair BSD info
 static OSErr
 FixBSDInfo(SGlobPtr GPtr, RepairOrderPtr p)
 {
-	SFCB *fcb;
-	CatalogRecord rec;
-	FSBufferDescriptor btRecord;
-	BTreeIterator btIterator;
-	OSErr result;
-	UInt16 recSize;
-	size_t namelen;
-	unsigned char filename[256];
+	SFCB 						*fcb;
+	CatalogRecord 				rec;
+	FSBufferDescriptor 			btRecord;
+	BTreeIterator 				btIterator;
+	Boolean						isHFSPlus;
+	OSErr 						result;
+	UInt16 						recSize;
+	size_t 						namelen;
+	unsigned char 				filename[256];
 
-	if (!GPtr->isHFSPlus)
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	if (!isHFSPlus)
 		return (0);
 	fcb = GPtr->calculatedCatalogFCB;
 
@@ -1133,11 +1316,13 @@ DeleteUnlinkedFile:  Delete orphaned data node (BSD unlinked file)
 static OSErr
 DeleteUnlinkedFile(SGlobPtr GPtr, RepairOrderPtr p)
 {
-	CatalogName name;
-	CatalogName *cNameP;
-	size_t len;
+	CatalogName 		name;
+	CatalogName 		*cNameP;
+	Boolean				isHFSPlus;
+	size_t 				len;
 
-	if (!GPtr->isHFSPlus)
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	if (!isHFSPlus)
 		return (0);
 
 	if (p->name[0] > 0) {
@@ -1170,12 +1355,14 @@ FixFileSize(SGlobPtr GPtr, RepairOrderPtr p)
 	FSBufferDescriptor btRecord;
 	BTreeIterator btIterator;
 	size_t len;
+	Boolean	isHFSPlus;
 	Boolean replace;
 	OSErr result;
 	UInt16 recSize;
 	UInt64 bytes;
 
-	if (!GPtr->isHFSPlus)
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	if (!isHFSPlus)
 		return (0);
 	fcb = GPtr->calculatedCatalogFCB;
 	replace = false;
@@ -1259,9 +1446,10 @@ FixFileSize(SGlobPtr GPtr, RepairOrderPtr p)
 
 Routine:	FixEmbededVolDescription
 
-Function:	If the "mdb->drAlBlSt" field has been modified, i.e. Norton Disk Doctor 3.5 tried to "Fix" an HFS+ volume, it
-			reduces the value in the "mdb->drAlBlSt" field.  If this field is changed, the file system can no longer find
-			the VolumeHeader or AltVolumeHeader.
+Function:	If the "mdb->drAlBlSt" field has been modified, i.e. Norton Disk Doctor
+			3.5 tried to "Fix" an HFS+ volume, it reduces the value in the 
+			"mdb->drAlBlSt" field.  If this field is changed, the file system can 
+			no longer find the VolumeHeader or AltVolumeHeader.
 			
 Input:		GPtr			-	pointer to scavenger global area
 			p				- 	pointer to the repair order
@@ -1273,22 +1461,19 @@ Output:		FixMDBdrAlBlSt	- 	function result:
 
 static	OSErr	FixEmbededVolDescription( SGlobPtr GPtr, RepairOrderPtr p )
 {
-	OSErr			err;
-	UInt64			totalSectors;
-	UInt32			sectorSize;
+	OSErr					err;
 	HFSMasterDirectoryBlock	*mdb;
 	EmbededVolDescription	*desc;
-	SVCB			*vcb = GPtr->calculatedVCB;
-	BlockDescriptor  block;
+	SVCB					*vcb = GPtr->calculatedVCB;
+	BlockDescriptor  		block;
 
 	desc = (EmbededVolDescription *) &(p->name);
+	block.buffer = NULL;
 	
 	/* Fix the Alternate MDB */
-	err = GetDeviceSize( vcb->vcbDriveNumber, &totalSectors, &sectorSize );
-	ReturnIfError( err );
-	
-	err = GetVolumeBlock(vcb, totalSectors - 2, kGetBlock, &block);
-	ReturnIfError( err );
+	err = GetVolumeObjectAlternateMDB( &block );
+	if ( err != noErr )
+		goto ExitThisRoutine;
 	mdb = (HFSMasterDirectoryBlock *) block.buffer;
 	
 	mdb->drAlBlSt			= desc->drAlBlSt;
@@ -1296,20 +1481,27 @@ static	OSErr	FixEmbededVolDescription( SGlobPtr GPtr, RepairOrderPtr p )
 	mdb->drEmbedExtent.startBlock	= desc->drEmbedExtent.startBlock;
 	mdb->drEmbedExtent.blockCount	= desc->drEmbedExtent.blockCount;
 	
-	err = ReleaseVolumeBlock(vcb, &block, kForceWriteBlock);
-	ReturnIfError( err );
+	err = ReleaseVolumeBlock( vcb, &block, kForceWriteBlock );
+	block.buffer = NULL;
+	if ( err != noErr )
+		goto ExitThisRoutine;
 	
 	/* Fix the MDB */
-	err = GetVolumeBlock(vcb, 2, kGetBlock, &block);
-	ReturnIfError( err );
+	err = GetVolumeObjectPrimaryMDB( &block );
+	if ( err != noErr )
+		goto ExitThisRoutine;
 	mdb = (HFSMasterDirectoryBlock *) block.buffer;
 	
 	mdb->drAlBlSt			= desc->drAlBlSt;
 	mdb->drEmbedSigWord		= desc->drEmbedSigWord;
 	mdb->drEmbedExtent.startBlock	= desc->drEmbedExtent.startBlock;
 	mdb->drEmbedExtent.blockCount	= desc->drEmbedExtent.blockCount;
+	err = ReleaseVolumeBlock( vcb, &block, kForceWriteBlock );
+	block.buffer = NULL;
 	
-	err = ReleaseVolumeBlock(vcb, &block, kForceWriteBlock);
+ExitThisRoutine:
+	if ( block.buffer != NULL )
+		err = ReleaseVolumeBlock( vcb, &block, kReleaseBlock );
 	
 	return( err );
 }
@@ -1339,19 +1531,16 @@ static	OSErr	FixWrapperExtents( SGlobPtr GPtr, RepairOrderPtr p )
 {
 #pragma unused (p)
 
-	OSErr			err;
-	UInt64			totalSectors;
-	UInt32			sectorSize;
-	HFSMasterDirectoryBlock	*mdb;
-	SVCB			*vcb = GPtr->calculatedVCB;
-	BlockDescriptor  block;
+	OSErr						err;
+	HFSMasterDirectoryBlock		*mdb;
+	SVCB						*vcb = GPtr->calculatedVCB;
+	BlockDescriptor  			block;
 
 	/* Get the Alternate MDB */
-	err = GetDeviceSize( vcb->vcbDriveNumber, &totalSectors, &sectorSize );
-	ReturnIfError( err );
-	
-	err = GetVolumeBlock(vcb, totalSectors - 2, kGetBlock, &block);
-	ReturnIfError( err );
+	block.buffer = NULL;
+	err = GetVolumeObjectAlternateMDB( &block );
+	if ( err != noErr )
+		goto ExitThisRoutine;
 	mdb = (HFSMasterDirectoryBlock	*) block.buffer;
 
 	/* Fix the wrapper catalog's first (and only) extent */
@@ -1359,18 +1548,25 @@ static	OSErr	FixWrapperExtents( SGlobPtr GPtr, RepairOrderPtr p )
 	                                mdb->drXTExtRec[0].blockCount;
 	
 	err = ReleaseVolumeBlock(vcb, &block, kForceWriteBlock);
-	ReturnIfError( err );
-
+	block.buffer = NULL;
+	if ( err != noErr )
+		goto ExitThisRoutine;
 	
 	/* Fix the MDB */
-	err = GetVolumeBlock(vcb, 2, kGetBlock, &block);
-	ReturnIfError( err );
+	err = GetVolumeObjectPrimaryMDB( &block );
+	if ( err != noErr )
+		goto ExitThisRoutine;
 	mdb = (HFSMasterDirectoryBlock	*) block.buffer;
 	
 	mdb->drCTExtRec[0].startBlock = mdb->drXTExtRec[0].startBlock +
 	                                mdb->drXTExtRec[0].blockCount;
 	
 	err = ReleaseVolumeBlock(vcb, &block, kForceWriteBlock);
+	block.buffer = NULL;
+
+ExitThisRoutine:
+	if ( block.buffer != NULL )
+		(void) ReleaseVolumeBlock( vcb, &block, kReleaseBlock );
 	
 	return( err );
 }
@@ -1402,12 +1598,13 @@ static	OSErr	FixOrphanedExtent( SGlobPtr GPtr )
 	HFSCatalogNodeID	lastFileID			= -1;
 	UInt32			recordsFound		= 0;
 	Boolean			mustRebuildBTree	= false;
-	Boolean			isHFSPlus			= GPtr->isHFSPlus;
+	Boolean			isHFSPlus;
 	SVCB			*calculatedVCB		= GPtr->calculatedVCB;
 	UInt32			**dataHandle		= GPtr->validFilesList;
 	SFCB *			fcb = GPtr->calculatedExtentsFCB;
 
 	//	Set Up
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	//
 	//	Use the BTree scanner since we use MountCheck to find orphaned extents, and MountCheck uses the scanner
 	err = BTScanInitialize( fcb, 0, 0, 0, gFSBufferPtr, gFSBufferSize, &scanState );
@@ -1518,11 +1715,11 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 	OSErr				err;
 	UInt16				recordSize;
 	SInt16				recordType;
-	SInt16				threadRecordType = 0;
 	SInt16				selCode				= 0x8001;
-	Boolean				isHFSPlus			= GPtr->isHFSPlus;
+	Boolean				isHFSPlus;
 	BTreeControlBlock	*btcb				= GetBTreeControlBlock( kCalculatedCatalogRefNum );
-	
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	CopyMemory( &btcb->lastIterator, &savedIterator, sizeof(BTreeIterator) );
 
 	do
@@ -1565,49 +1762,30 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 				//-- Build the key for the file thread
 				BuildCatalogKey( cNodeID, nil, isHFSPlus, &key );
 
-				err = SearchBTreeRecord ( GPtr->calculatedCatalogFCB, &key, kNoHint, &foundKey, &threadRecord, &recordSize, &hint2 );
-
+				err = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint, 
+										 &foundKey, &threadRecord, &recordSize, &hint2 );
 				if ( err != noErr )
 				{
 					//	For missing thread records, just create the thread
 					if ( err == btNotFound )
 					{
 						//	Create the missing thread record.
+						Boolean		isDirectory;
+						
+						isDirectory = false;
 						switch( recordType )
 						{
-							case kHFSFolderRecord:		threadRecordType	= kHFSFolderThreadRecord;		break;
-							case kHFSFileRecord:		threadRecordType	= kHFSFileThreadRecord;			break;
-							case kHFSPlusFolderRecord:	threadRecordType	= kHFSPlusFolderThreadRecord;	break;
-							case kHFSPlusFileRecord:	threadRecordType	= kHFSPlusFileThreadRecord;		break;
+							case kHFSFolderRecord:
+							case kHFSPlusFolderRecord:	
+								isDirectory = true;		
+								break;
 						}
 
 						//-- Fill out the data for the new file thread
-						
-						if ( isHFSPlus )
-						{
-							HFSPlusCatalogThread		threadData;
-							UInt16 recSize;
-							
-							ClearMemory( (Ptr)&threadData, sizeof(HFSPlusCatalogThread) );
-							threadData.recordType	= threadRecordType;
-							threadData.parentID		= parentID;
-							CopyCatalogName( (CatalogName *)&foundKey.hfsPlus.nodeName,
-										(CatalogName *)&threadData.nodeName, isHFSPlus );
-							recSize = 10 + (foundKey.hfsPlus.nodeName.length * 2);
-							err = InsertBTreeRecord( GPtr->calculatedCatalogFCB, &key,
-										&threadData, recSize, &threadHint );
-
-						}
-						else
-						{
-							HFSCatalogThread		threadData;
-							
-							ClearMemory( (Ptr)&threadData, sizeof(HFSCatalogThread) );
-							threadData.recordType	= threadRecordType;
-							threadData.parentID		= parentID;
-							CopyCatalogName( (CatalogName *)&foundKey.hfs.nodeName, (CatalogName *)&threadData.nodeName, isHFSPlus );
-							err = InsertBTreeRecord( GPtr->calculatedCatalogFCB, &key, &threadData, sizeof(HFSCatalogThread), &threadHint );
-						}
+						recordSize = BuildThreadRec( &foundKey, &threadRecord, isHFSPlus, 
+													 isDirectory );
+						err = InsertBTreeRecord( GPtr->calculatedCatalogFCB, &key,
+												 &threadRecord, recordSize, &threadHint );
 					}
 					else
 					{
@@ -1951,15 +2129,45 @@ static	OSErr	FixBloatedThreadRecords( SGlob *GPtr )
 static OSErr
 FixMissingThreadRecords( SGlob *GPtr )
 {
-	struct MissingThread *mtp;
-	FSBufferDescriptor    btRecord;
-	BTreeIterator         iterator;
-	OSStatus              result;
-	UInt16                dataSize;
+	struct MissingThread *	mtp;
+	FSBufferDescriptor    	btRecord;
+	BTreeIterator         	iterator;
+	OSStatus           		result;
+	UInt16              	dataSize;
+	Boolean					headsUp;
+	UInt32					lostAndFoundDirID;
 
+	lostAndFoundDirID = 0;
+	headsUp = false;
 	for (mtp = GPtr->missingThreadList; mtp != NULL; mtp = mtp->link) {
-		if (mtp->threadID == 0 || mtp->thread.parentID == 0)
+		if ( mtp->threadID == 0 )
 			continue;
+
+		// if the thread record information in the MissingThread struct is not there
+		// then we have a missing directory in addition to a missing thread record 
+		// for that directory.  We will recreate the missing directory in our 
+		// lost+found directory.
+		if ( mtp->thread.parentID == 0 ) {
+			char 	myString[32];
+			if ( lostAndFoundDirID == 0 )
+				lostAndFoundDirID = CreateLostAndFoundDir( GPtr );
+			if ( lostAndFoundDirID == 0 ) {
+				if ( GPtr->logLevel >= kDebugLog )
+					printf( "\tCould not create lost+found directory \n" );
+				return( R_RFail );
+			}
+			sprintf( myString, "%ld", (long)mtp->threadID );
+			PrintError( GPtr, E_NoDir, 1, myString );
+			result = FixMissingDirectory( GPtr, mtp->threadID, lostAndFoundDirID );
+			if ( result != 0 ) {
+				if ( GPtr->logLevel >= kDebugLog )
+					printf( "\tCould not recreate a missing directory \n" );
+				return( R_RFail );
+			}
+			else
+				headsUp = true;
+			continue;
+		}
 
 		dataSize = 10 + (mtp->thread.nodeName.length * 2);
 		btRecord.bufferAddress = (void *)&mtp->thread;
@@ -1973,9 +2181,109 @@ FixMissingThreadRecords( SGlob *GPtr )
 			return (IntError(GPtr, R_IntErr));
 		mtp->threadID = 0;
 	}
+	if ( headsUp )
+		PrintStatus( GPtr, M_Look, 0 );
 
 	return (0);
 }
+
+
+static OSErr
+FixMissingDirectory( SGlob *GPtr, UInt32 theObjID, UInt32 theParID )
+{
+	Boolean				isHFSPlus;
+	UInt16				recSize;
+	OSErr				result;		
+	int					nameLen;
+	UInt32				hint;		
+	UInt32				myItemsCount;		
+	char 				myString[ 32 ];
+	CatalogName			myName;
+	CatalogRecord		catRec;
+	CatalogKey			myKey, myThreadKey;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	
+	// we will use the object ID of the missing directory as the name since we have
+	// no way to find the original name and this should make it unique within our
+	// lost+found directory.
+	sprintf( myString, "%ld", (long)theObjID );
+	nameLen = strlen( myString );
+
+    if ( isHFSPlus )
+    {
+        int		i;
+        myName.ustr.length = nameLen;
+        for ( i = 0; i < myName.ustr.length; i++ )
+            myName.ustr.unicode[ i ] = (u_int16_t) myString[ i ];
+    }
+    else
+    {
+        myName.pstr[0] = nameLen;
+        memcpy( &myName.pstr[1], &myString[0], nameLen );
+    }
+
+	// make sure the name is not already used 
+	BuildCatalogKey( theParID, &myName, isHFSPlus, &myKey );
+	result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &myKey, kNoHint, 
+								NULL, &catRec, &recSize, &hint );
+	if ( result == noErr )
+		return( R_IntErr );
+	
+    // insert new directory and thread record into the catalog
+	recSize = BuildThreadRec( &myKey, &catRec, isHFSPlus, true );
+	BuildCatalogKey( theObjID, NULL, isHFSPlus, &myThreadKey );
+	result	= InsertBTreeRecord( GPtr->calculatedCatalogFCB, &myThreadKey, &catRec, recSize, &hint );
+	if ( result != noErr )
+		return( result );
+
+	// need to look up all objects in the directory so we can set the valance
+	result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &myThreadKey, kNoHint, 
+								NULL, &catRec, &recSize, &hint );
+	if ( result != noErr )
+		return( result );
+
+	myItemsCount = 0;
+	for ( ;; ) {
+		CatalogKey		foundKey;
+		result = GetBTreeRecord( GPtr->calculatedCatalogFCB, 1, &foundKey, &catRec, &recSize, &hint );
+		if ( result != noErr )
+			break;
+		if ( isHFSPlus )
+			if ( foundKey.hfsPlus.parentID != theObjID )
+				break;
+		else
+			if ( foundKey.hfs.parentID != theObjID )
+				break;
+		if ( catRec.recordType == kHFSPlusFolderRecord || catRec.recordType == kHFSPlusFileRecord ||
+			 catRec.recordType == kHFSFolderRecord || catRec.recordType == kHFSFileRecord ) {
+			myItemsCount++;
+		}
+	}
+
+	recSize = BuildFolderRec( 01777, theObjID, isHFSPlus, &catRec );
+	if ( isHFSPlus )
+		catRec.hfsPlusFolder.valence = myItemsCount;
+	else
+		catRec.hfsFolder.valence = myItemsCount;
+	result	= InsertBTreeRecord( GPtr->calculatedCatalogFCB, &myKey, &catRec, recSize, &hint );
+	if ( result != noErr )
+		return( result );
+	
+	/* update parent directory to reflect addition of new directory */
+	result = UpdateFolderCount( GPtr->calculatedVCB, theParID, NULL, 
+								((isHFSPlus) ? kHFSPlusFolderRecord : kHFSFolderRecord), 
+								kNoHint, 1 );
+
+	/* update our header node on disk from our BTreeControlBlock */
+	UpdateBTreeHeader( GPtr->calculatedCatalogFCB );
+
+	if ( result == 0 )
+		GPtr->scanAgain = true;
+		
+	return( result );
+	
+} /* FixMissingDirectory */
 
 
 static HFSCatalogNodeID 
@@ -2003,6 +2311,151 @@ GetObjectID( CatalogRecord * theRecPtr )
     return( myObjID );
     
 } /* GetObjectID */
+
+
+/*
+ *	Create a lost and found directory at the root of the volume we are checking.
+ *
+ *  Returns directory ID of the new (or existing) lost+found directory or 0 on error.
+ */
+
+static UInt32
+CreateLostAndFoundDir( SGlob *GPtr )
+{
+	Boolean				isHFSPlus;
+	UInt16				recSize;
+	UInt16				myMode;
+	int					result;		
+	int					nameLen;
+	UInt32				hint;		
+	UInt32				nextCNID;		
+	SFCB *				fcbPtr;
+	u_char				lostAndFoundDirName[] = "lost+found";
+	CatalogKey			myKey;
+	CatalogName			myName;
+	CatalogRecord		catRec;
+	
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+  	fcbPtr = GPtr->calculatedCatalogFCB;
+	nameLen = strlen( lostAndFoundDirName );
+
+    if ( isHFSPlus )
+    {
+        int		i;
+        myName.ustr.length = nameLen;
+        for ( i = 0; i < myName.ustr.length; i++ )
+            myName.ustr.unicode[ i ] = (u_int16_t) lostAndFoundDirName[ i ];
+    }
+    else
+    {
+        myName.pstr[0] = nameLen;
+        memcpy( &myName.pstr[1], &lostAndFoundDirName[0], nameLen );
+    }
+
+	// see if we already have a lost and found directory
+	BuildCatalogKey( kHFSRootFolderID, &myName, isHFSPlus, &myKey );
+	result = SearchBTreeRecord( fcbPtr, &myKey, kNoHint, NULL, &catRec, &recSize, &hint );
+	if ( result == noErr ) {
+		if ( isHFSPlus ) {
+			if ( catRec.recordType == kHFSPlusFolderRecord )
+				return( catRec.hfsPlusFolder.folderID ); 
+		}
+		else if ( catRec.recordType == kHFSFolderRecord )
+			return( catRec.hfsFolder.folderID ); 	
+        return( 0 );  // something already there but not a directory
+	}
+  
+    // insert new directory and thread record into the catalog
+	nextCNID = GPtr->calculatedVCB->vcbNextCatalogID;
+	if ( !isHFSPlus && nextCNID == 0xFFFFFFFF )
+		return( 0 );
+
+	recSize = BuildThreadRec( &myKey, &catRec, isHFSPlus, true );
+	for (;;) {
+		CatalogKey			key;
+		
+		BuildCatalogKey( nextCNID, NULL, isHFSPlus, &key );
+		result	= InsertBTreeRecord( fcbPtr, &key, &catRec, recSize, &hint );
+		if ( result == fsBTDuplicateRecordErr && isHFSPlus ) {
+			/*
+			 * Allow CNIDs on HFS Plus volumes to wrap around
+			 */
+			++nextCNID;
+			if ( nextCNID < kHFSFirstUserCatalogNodeID ) {
+				GPtr->calculatedVCB->vcbAttributes |= kHFSCatalogNodeIDsReusedMask;
+				MarkVCBDirty( GPtr->calculatedVCB );
+				nextCNID = kHFSFirstUserCatalogNodeID;
+			}
+			continue;
+		}
+		break;
+	}
+	if ( result != 0 )
+		return( 0 ); 	
+	
+	myMode = ( GPtr->lostAndFoundMode == 0 ) ? 01777 : GPtr->lostAndFoundMode;
+	recSize = BuildFolderRec( myMode, nextCNID, isHFSPlus, &catRec );
+    result	= InsertBTreeRecord( fcbPtr, &myKey, &catRec, recSize, &hint );
+	if ( result != 0 )
+		return( 0 );
+
+	/* Update volume header */
+	GPtr->calculatedVCB->vcbNextCatalogID = nextCNID + 1;
+	if ( GPtr->calculatedVCB->vcbNextCatalogID < kHFSFirstUserCatalogNodeID ) {
+		GPtr->calculatedVCB->vcbAttributes |= kHFSCatalogNodeIDsReusedMask;
+		GPtr->calculatedVCB->vcbNextCatalogID = kHFSFirstUserCatalogNodeID;
+	}
+	MarkVCBDirty( GPtr->calculatedVCB );
+	
+	/* update parent directory to reflect addition of new directory */
+	result = UpdateFolderCount( GPtr->calculatedVCB, kHFSRootFolderID, NULL, kHFSPlusFolderRecord, kNoHint, 1 );
+
+	/* update our header node on disk from our BTreeControlBlock */
+	UpdateBTreeHeader( GPtr->calculatedCatalogFCB );
+
+	return( nextCNID );
+
+} /* CreateLostAndFoundDir */
+
+
+/*
+ * Build a catalog node folder record with the given input.
+ */
+static int
+BuildFolderRec( u_int16_t theMode, UInt32 theObjID, Boolean isHFSPlus, CatalogRecord * theRecPtr )
+{
+	UInt16				recSize;
+	UInt32 				createTime;
+	
+	ClearMemory( (Ptr)theRecPtr, sizeof(*theRecPtr) );
+	
+	if ( isHFSPlus ) {
+		createTime = GetTimeUTC();
+		theRecPtr->hfsPlusFolder.recordType = kHFSPlusFolderRecord;
+		theRecPtr->hfsPlusFolder.folderID = theObjID;
+		theRecPtr->hfsPlusFolder.createDate = createTime;
+		theRecPtr->hfsPlusFolder.contentModDate = createTime;
+		theRecPtr->hfsPlusFolder.attributeModDate = createTime;
+		theRecPtr->hfsPlusFolder.backupDate = createTime;
+		theRecPtr->hfsPlusFolder.bsdInfo.ownerID = getuid( );
+		theRecPtr->hfsPlusFolder.bsdInfo.groupID = getgid( );
+		theRecPtr->hfsPlusFolder.bsdInfo.fileMode = S_IFDIR;
+		theRecPtr->hfsPlusFolder.bsdInfo.fileMode |= theMode;
+		recSize= sizeof(HFSPlusCatalogFolder);
+	}
+	else {
+		createTime = GetTimeLocal( true );
+		theRecPtr->hfsFolder.recordType = kHFSFolderRecord;
+		theRecPtr->hfsFolder.folderID = theObjID;
+		theRecPtr->hfsFolder.createDate = createTime;
+		theRecPtr->hfsFolder.modifyDate = createTime;
+		theRecPtr->hfsFolder.backupDate = createTime;
+		recSize= sizeof(HFSCatalogFolder);
+	}
+
+	return( recSize );
+	
+} /* BuildFolderRec */
 
 
 /*
@@ -2050,3 +2503,4 @@ BuildThreadRec( CatalogKey * theKeyPtr, CatalogRecord * theRecPtr,
 	return (size);
 	
 } /* BuildThreadRec */
+

@@ -52,8 +52,8 @@ bool IOMedia::init(UInt64         base,
                    bool           isEjectable,
                    bool           isWhole,
                    bool           isWritable,
-                   const char *   contentHint = 0,
-                   OSDictionary * properties  = 0)
+                   const char *   contentHint,
+                   OSDictionary * properties)
 {
     //
     // Initialize this object's minimal state.
@@ -797,8 +797,8 @@ bool IOMedia::init(UInt64               base,
                    IOMediaAttributeMask attributes,
                    bool                 isWhole,
                    bool                 isWritable,
-                   const char *         contentHint = 0,
-                   OSDictionary *       properties  = 0)
+                   const char *         contentHint,
+                   OSDictionary *       properties)
 {
     //
     // Initialize this object's minimal state.

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -53,9 +56,10 @@ class IOFWPseudoAddressSpaceAux : public IOFWAddressSpaceAux
 
 	friend class IOFWAddressSpace;
 	friend class IOFWPseudoAddressSpace;
-	
+	friend class IOFireWireController;
+		
 protected:
-
+	
     struct MemberVariables 
 	{ 		
 		IOFWARxReqIntCompleteHandler		fARxReqIntCompleteHandler;
@@ -63,21 +67,25 @@ protected:
 	};
 	  
     MemberVariables * fMembers;
-		
-public:
 
-    virtual bool init( IOFWAddressSpace * primary );
+public:
+     
+	virtual bool init( IOFWAddressSpace * primary );
 	virtual	void free();
 
 protected:
 
-	virtual void handleARxReqIntComplete();
-
-public:
+	bool createMemberVariables( void );
+	void destroyMemberVariables( void );
 	
+	virtual void handleARxReqIntComplete();
+	
+public:
+
 	virtual void setARxReqIntCompleteHandler( void * refcon, IOFWARxReqIntCompleteHandler handler );
 	
 private:
+
     OSMetaClassDeclareReservedUsed(IOFWPseudoAddressSpaceAux, 0);
     OSMetaClassDeclareReservedUsed(IOFWPseudoAddressSpaceAux, 1);
     OSMetaClassDeclareReservedUnused(IOFWPseudoAddressSpaceAux, 2);
@@ -103,6 +111,7 @@ class IOFWPseudoAddressSpace : public IOFWAddressSpace
 	friend class IOFireWireController;
 	
 protected:
+
     IOMemoryDescriptor*	fDesc;
     void *				fRefCon;
     FWReadCallback		fReader;
@@ -122,6 +131,9 @@ protected:
     static	OSData *	allocatedAddresses; // unused
     
     virtual	void 					free();
+	
+public:
+
     static 	UInt32 					simpleReader(
 											void*					refcon,
 											UInt16 					nodeID,
@@ -140,6 +152,7 @@ protected:
 											UInt32 					len,
 											const void*				buf,
                                             IOFWRequestRefCon		reqrefcon);
+protected:
 
     // Get a unique address range
     IOReturn						allocateAddress(
@@ -151,6 +164,7 @@ protected:
 											UInt32 					len);
 
 public:
+
     static IOFWPseudoAddressSpace*	readWrite(
 											FWAddress 				addr,
 											UInt32 					len, 
@@ -230,8 +244,9 @@ protected:
 public:
 	inline void setARxReqIntCompleteHandler( void * refcon, IOFWARxReqIntCompleteHandler handler )
 		{ ((IOFWPseudoAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->setARxReqIntCompleteHandler( refcon, handler ); }
-    	
+			
 private:
+
     OSMetaClassDeclareReservedUnused(IOFWPseudoAddressSpace, 0);
     OSMetaClassDeclareReservedUnused(IOFWPseudoAddressSpace, 1);
     

@@ -208,6 +208,54 @@ static struct hash_control *reg_hash = (struct hash_control *) 0;
 /* hash table for prefix lookup */
 static struct hash_control *prefix_hash = (struct hash_control *) 0;
 
+/*
+ * These are built in macros because they are trivial to implement as macros
+ * which otherwise would be less obvious to do as special entries for them.
+ */
+struct macros {
+    char *name;
+    char *body;
+};
+static const struct macros i386_macros[] = {
+    { "cmpeqps\n",      "cmpps $$0x0,$0,$1\n" },
+    { "cmpltps\n",      "cmpps $$0x1,$0,$1\n" },
+    { "cmpleps\n",      "cmpps $$0x2,$0,$1\n" },
+    { "cmpunordps\n",   "cmpps $$0x3,$0,$1\n" },
+    { "cmpneqps\n",     "cmpps $$0x4,$0,$1\n" },
+    { "cmpnltps\n",     "cmpps $$0x5,$0,$1\n" },
+    { "cmpnleps\n",     "cmpps $$0x6,$0,$1\n" },
+    { "cmpordps\n",     "cmpps $$0x7,$0,$1\n" },
+
+    { "cmpeqpd\n",      "cmppd $$0x0,$0,$1\n" },
+    { "cmpltpd\n",      "cmppd $$0x1,$0,$1\n" },
+    { "cmplepd\n",      "cmppd $$0x2,$0,$1\n" },
+    { "cmpunordpd\n",   "cmppd $$0x3,$0,$1\n" },
+    { "cmpneqpd\n",     "cmppd $$0x4,$0,$1\n" },
+    { "cmpnltpd\n",     "cmppd $$0x5,$0,$1\n" },
+    { "cmpnlepd\n",     "cmppd $$0x6,$0,$1\n" },
+    { "cmpordpd\n",     "cmppd $$0x7,$0,$1\n" },
+
+    { "cmpeqsd\n",      "cmpsd $$0x0,$0,$1\n" },
+    { "cmpltsd\n",      "cmpsd $$0x1,$0,$1\n" },
+    { "cmplesd\n",      "cmpsd $$0x2,$0,$1\n" },
+    { "cmpunordsd\n",   "cmpsd $$0x3,$0,$1\n" },
+    { "cmpneqsd\n",     "cmpsd $$0x4,$0,$1\n" },
+    { "cmpnltsd\n",     "cmpsd $$0x5,$0,$1\n" },
+    { "cmpnlesd\n",     "cmpsd $$0x6,$0,$1\n" },
+    { "cmpordsd\n",     "cmpsd $$0x7,$0,$1\n" },
+
+    { "cmpeqss\n",      "cmpss $$0x0,$0,$1\n" },
+    { "cmpltss\n",      "cmpss $$0x1,$0,$1\n" },
+    { "cmpless\n",      "cmpss $$0x2,$0,$1\n" },
+    { "cmpunordss\n",   "cmpss $$0x3,$0,$1\n" },
+    { "cmpneqss\n",     "cmpss $$0x4,$0,$1\n" },
+    { "cmpnltss\n",     "cmpss $$0x5,$0,$1\n" },
+    { "cmpnless\n",     "cmpss $$0x6,$0,$1\n" },
+    { "cmpordss\n",     "cmpss $$0x7,$0,$1\n" },
+
+    {  "", "" } /* end of table marker */
+};
+
 void
 md_begin(
 void)
@@ -314,6 +362,18 @@ void)
       if (c == ' ' || c == '\t') space_chars[c] = c;
     }
   }
+  
+  /* load the builtin macros for pseudo-ops */
+  {
+    register unsigned int i;
+
+    for (i = 0; *i386_macros[i].name != '\0'; i++) {
+      input_line_pointer = i386_macros[i].name;
+      s_macro(0);
+      add_to_macro_definition(i386_macros[i].body);
+      s_endmacro(0);
+    }
+  }
 }
 
 void
@@ -355,7 +415,7 @@ i386_insn *x)
     fprintf (stdout, "    #%d:  ", i+1);
     pt (x->types[i]);
     fprintf (stdout, "\n");
-    if (x->types[i] & Reg) fprintf (stdout, "%s\n", x->regs[i]->reg_name);
+    if (x->types[i] & RegALL) fprintf (stdout, "%s\n", x->regs[i]->reg_name);
     if (x->types[i] & Imm) pe (x->imms[i]);
     if (x->types[i] & (Disp|Abs)) pe (x->disps[i]);
   }
@@ -430,7 +490,8 @@ static struct type_name {
   uint mask;
   char *tname;
 } type_names[] = {
-  { Reg8, "r8" }, { Reg16, "r16" }, { Reg32, "r32" }, { Imm8, "i8" },
+  { Reg8, "r8" }, { Reg16, "r16" }, { Reg32, "r32" }, {RegMM, "r64"}
+  {RegXMM, "r128"}, { Imm8, "i8" },
   { Imm8S, "i8s" },
   { Imm16, "i16" }, { Imm32, "i32" }, { Mem8, "Mem8"}, { Mem16, "Mem16"},
   { Mem32, "Mem32"}, { BaseIndex, "BaseIndex" },
@@ -519,7 +580,7 @@ char *line)
 	}
 	RESTORE_END_STRING (l);
 	/* check for repeated prefix */
-	for (q = 0; q < i.prefixes; q++)
+	for (q = 0; q < (int)i.prefixes; q++)
 	  if (i.prefix[q] == (char)prefix->prefix_code) {
 	    as_bad ("same prefix used twice; you don't really want this!");
 	    return;
@@ -693,9 +754,9 @@ char *line)
 	    operand type overlap:  (t0 & t1 & m0 & m1 & Reg).
      */
 #define CONSISTENT_REGISTER_MATCH(m0, m1, t0, t1) \
-    ( ((m0 & (Reg)) && (m1 & (Reg))) ? \
-      ( ((t0 & t1 & (Reg)) == 0 && (m0 & m1 & (Reg)) == 0) || \
-        ((t0 & t1) & (m0 & m1) & (Reg)) \
+    ( ((m0 & (RegALL)) && (m1 & (RegALL))) ? \
+      ( ((t0 & t1 & (RegALL)) == 0 && (m0 & m1 & (RegALL)) == 0) || \
+        ((t0 & t1) & (m0 & m1) & (RegALL)) \
        ) : 1)
   {
     register uint overlap0, overlap1;
@@ -859,9 +920,14 @@ string_instruction_bad_match:
 	      (md_cpusubtype != CPU_SUBTYPE_PENT && /* same as 586 */
 	       md_cpusubtype != CPU_SUBTYPE_PENTPRO &&
 	       md_cpusubtype != CPU_SUBTYPE_PENTII_M3 &&
-	       md_cpusubtype != CPU_SUBTYPE_PENTII_M5))
+	       md_cpusubtype != CPU_SUBTYPE_PENTII_M5)){
 	if(md_cpusubtype != CPU_SUBTYPE_486SX)
 	   md_cpusubtype = CPU_SUBTYPE_486;
+      }
+      else if(*(t->cpus) == 'O'){
+	    as_bad("instruction is optional for the i386 (not "
+		   "allowed without -force_cpusubtype_ALL option)");
+      }
     }
 #endif /* NeXT_MOD */
 
@@ -877,12 +943,12 @@ string_instruction_bad_match:
 	 operand. */
       int o;
       for (o = 0; o < MAX_OPERANDS; o++)
-	if (i.types[o] & Reg) {
+	if (i.types[o] & RegALL) {
 #ifdef NeXT_MOD
 	  /* Need to and with `Reg' because %al and %ax have `Acc' in their
 	     types and they were coming up with a 'l' suffix. */
-	  i.suffix = ((i.types[o] & Reg) == Reg8) ? BYTE_OPCODE_SUFFIX :
-	    ((i.types[o] & Reg) == Reg16) ? WORD_OPCODE_SUFFIX :
+	  i.suffix = ((i.types[o] & RegALL) == Reg8) ? BYTE_OPCODE_SUFFIX :
+	    ((i.types[o] & RegALL) == Reg16) ? WORD_OPCODE_SUFFIX :
 	      DWORD_OPCODE_SUFFIX;
 #else /* !defined(NeXT_MOD) */
 	  i.suffix = (i.types[o] == Reg8) ? BYTE_OPCODE_SUFFIX :
@@ -1007,7 +1073,7 @@ string_instruction_bad_match:
 	 and i.rm.regmem fields.  We accomplish this by faking that the
 	 two register operands were given in the reverse order. */
       if ((t->opcode_modifier & ReverseRegRegmem) && i.reg_operands == 2) {
-	uint first_reg_operand = (i.types[0] & Reg) ? 0 : 1;
+	uint first_reg_operand = (i.types[0] & RegALL) ? 0 : 1;
 	uint second_reg_operand = first_reg_operand + 1;
 	reg_entry *tmp = i.regs[first_reg_operand];
 	i.regs[first_reg_operand] = i.regs[second_reg_operand];
@@ -1016,7 +1082,7 @@ string_instruction_bad_match:
 
       if (t->opcode_modifier & ShortForm) {
 	/* The register or float register operand is in operand 0 or 1. */
-	uint o = (i.types[0] & (Reg|FloatReg)) ? 0 : 1;
+	uint o = (i.types[0] & (RegALL|FloatReg)) ? 0 : 1;
 	/* Register goes in low 3 bits of opcode. */
 	t->base_opcode |= i.regs[o]->reg_num;
       } else if (t->opcode_modifier & ShortFormW) {
@@ -1048,7 +1114,7 @@ string_instruction_bad_match:
 	   implicit registers do not count. */
 	if (i.reg_operands == 2) {
 	  uint source, dest;
-	  source = (i.types[0] & (Reg|SReg2|SReg3|Control|Debug|Test)) ? 0 : 1;
+	  source = (i.types[0] & (RegALL|SReg2|SReg3|Control|Debug|Test)) ? 0 : 1;
 	  dest = source + 1;
 	  i.rm.mode = 3;
 	  /* We must be careful to make sure that all segment/control/test/
@@ -1175,8 +1241,8 @@ string_instruction_bad_match:
 	     into the i.rm.reg field. */
 	  if (i.reg_operands) {
 	    uint o =
-	      (i.types[0] & (Reg|SReg2|SReg3|Control|Debug|Test)) ? 0 :
-		(i.types[1] & (Reg|SReg2|SReg3|Control|Debug|Test)) ? 1 : 2;
+	      (i.types[0] & (RegALL|SReg2|SReg3|Control|Debug|Test)) ? 0 :
+		(i.types[1] & (RegALL|SReg2|SReg3|Control|Debug|Test)) ? 1 : 2;
 	    /* If there is an extension opcode to put here, the register number
 	       must be put into the regmem field. */
 	    if (t->extension_opcode != None)
@@ -1453,7 +1519,7 @@ string_instruction_bad_match:
       if (i.disp_operands) {
 	register int n;
 	
-	for (n = 0; n < i.operands; n++) {
+	for (n = 0; n < (int)i.operands; n++) {
 	  if (i.disps[n]) {
 	    if (i.disps[n]->X_seg == SEG_ABSOLUTE) {
 	      if (i.types[n] & (Disp8|Abs8)) {
@@ -1481,7 +1547,7 @@ string_instruction_bad_match:
       if (i.imm_operands) {
 	register int n;
 	
-	for (n = 0; n < i.operands; n++) {
+	for (n = 0; n < (int)i.operands; n++) {
 	  if (i.imms[n]) {
 	    if (i.imms[n]->X_seg == SEG_ABSOLUTE) {
 	      if (i.types[n] & (Imm8|Imm8S)) {
@@ -1871,7 +1937,7 @@ char *operand_string)
 
     /* Make sure the memory operand we've been dealt is valid. */
     if (i.base_reg && i.index_reg &&
-	! (i.base_reg->reg_type & i.index_reg->reg_type & Reg)) {
+	! (i.base_reg->reg_type & i.index_reg->reg_type & RegALL)) {
       as_bad ("register size mismatch in (base,index,scale) expression");
       return 0;
     }

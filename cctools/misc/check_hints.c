@@ -317,7 +317,7 @@ char **envp)
 		printf("%s(%s) module %lu defines %s\n", hints[i].library_name,
 		       hints[i].module_name, hints[i].module_index,
 		       hints[i].symbol_name);
-#endif DEBUG
+#endif /* DEBUG */
 	}
 	if(errors != 0)
 	    return(EXIT_FAILURE);
@@ -454,7 +454,7 @@ unsigned long *size)
 	    printf("library_name = %s symbol_name %s\n",
 		   (*hints)[i].library_name, (*hints)[i].symbol_name);
 	}
-#endif DEBUG
+#endif /* DEBUG */
 }
 
 /*
@@ -493,7 +493,8 @@ void *cookie)
 	if(hint->module_name != NULL)
 	    return;
 
-	if(ofile->mh->filetype != MH_DYLIB){
+	if(ofile->mh->filetype != MH_DYLIB ||
+	   ofile->mh->filetype != MH_DYLIB_STUB){
 	    error("is not a dynamic library (hint for symbol %s failed)",
 		  hint->symbol_name);
 	    return;
@@ -725,7 +726,7 @@ void *cookie)
 		if(symbols[i].n_un.n_strx == 0)
 		    symbols[i].n_un.n_name = "";
 		else if(symbols[i].n_un.n_strx < 0 ||
-			symbols[i].n_un.n_strx > st->strsize)
+			(unsigned long)symbols[i].n_un.n_strx > st->strsize)
 		    symbols[i].n_un.n_name = "bad string index";
 		else
 		    symbols[i].n_un.n_name = symbols[i].n_un.n_strx + strings;
@@ -891,7 +892,7 @@ unsigned long *nsymbols)
 	    for( ; i < st->nsyms; i++){
 		if(all_symbols[i].n_type == N_BINCL &&
 		   all_symbols[i].n_un.n_strx != 0 &&
-		   all_symbols[i].n_un.n_strx < st->strsize &&
+		   (unsigned long)all_symbols[i].n_un.n_strx < st->strsize &&
 		   strcmp(cmd_flags->bincl_name,
 			  strings + all_symbols[i].n_un.n_strx) == 0){
 		    selected_symbols[(*nsymbols)++] = all_symbols[i];
@@ -995,7 +996,7 @@ char *arch_name)
 		       (unsigned int)(symbols[i].n_desc & 0xffff));
 		if(symbols[i].n_un.n_strx == 0)
 		    printf("%08x (null)", (unsigned int)symbols[i].n_un.n_strx);
-		else if(symbols[i].n_un.n_strx > strsize)
+		else if((unsigned long)symbols[i].n_un.n_strx > strsize)
 		    printf("%08x (bad string index)",
 			   (unsigned int)symbols[i].n_un.n_strx);
 		else
@@ -1178,7 +1179,7 @@ struct value_diff *value_diffs)
 		       (unsigned int)(symbols[i].n_desc & 0xffff));
 		if(symbols[i].n_un.n_strx == 0)
 		    printf("%08x (null)", (unsigned int)symbols[i].n_un.n_strx);
-		else if(symbols[i].n_un.n_strx > strsize)
+		else if((unsigned long)symbols[i].n_un.n_strx > strsize)
 		    printf("%08x (bad string index)",
 			   (unsigned int)symbols[i].n_un.n_strx);
 		else
@@ -1386,7 +1387,8 @@ struct nlist *p2)
 	}
 
 	if(cmd_flags.x == TRUE){
-	    if(p1->n_un.n_strx > strsize || p2->n_un.n_strx > strsize){
+	    if((unsigned long)p1->n_un.n_strx > strsize ||
+	       (unsigned long)p2->n_un.n_strx > strsize){
 		if(p1->n_un.n_strx > strsize)
 		    r = -1;
 		else if(p2->n_un.n_strx > strsize)

@@ -41,6 +41,8 @@ struct fix {
     char	 fx_pcrel_reloc;/* force a pc-relative relocatation entry */
     char	 fx_r_type;	/* relocation type */
     long	 fx_value;	/* the relocated value placed in the frag */
+    char	*file;		/* the file name this came from for errors */
+    unsigned int line;		/* the line number this came from for errors */
 };
 typedef struct fix fixS;
 

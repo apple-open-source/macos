@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -466,7 +469,7 @@ tcp_input(m, off0)
 		}
 	} else
 #endif /* INET6 */
-	{
+      {
 	/*
 	 * Get IP and TCP header together in first mbuf.
 	 * Note: IP leaves IP header in first mbuf.
@@ -496,20 +499,10 @@ tcp_input(m, off0)
 	if (m->m_pkthdr.csum_flags & CSUM_DATA_VALID) {
 		if (apple_hwcksum_rx && (m->m_pkthdr.csum_flags & CSUM_TCP_SUM16)) {
 			u_short pseudo;
-			char b[9];
-			*(uint32_t*)&b[0] = *(uint32_t*)&ipov->ih_x1[0];
-			*(uint32_t*)&b[4] = *(uint32_t*)&ipov->ih_x1[4];
-			*(uint8_t*)&b[8] = *(uint8_t*)&ipov->ih_x1[8];
-			
 			bzero(ipov->ih_x1, sizeof(ipov->ih_x1));
 			ipov->ih_len = (u_short)tlen;
 			HTONS(ipov->ih_len);
 			pseudo = in_cksum(m, sizeof (struct ip));
-			
-			*(uint32_t*)&ipov->ih_x1[0] = *(uint32_t*)&b[0];
-			*(uint32_t*)&ipov->ih_x1[4] = *(uint32_t*)&b[4];
-			*(uint8_t*)&ipov->ih_x1[8] = *(uint8_t*)&b[8];
-			
 			th->th_sum = in_addword(pseudo, (m->m_pkthdr.csum_data & 0xFFFF));
 		} else {
 			if (m->m_pkthdr.csum_flags & CSUM_PSEUDO_HDR)
@@ -521,23 +514,14 @@ tcp_input(m, off0)
 		}
 		th->th_sum ^= 0xffff;
 	} else {
-		char b[9];
 		/*
 		 * Checksum extended TCP header and data.
 		 */
-		*(uint32_t*)&b[0] = *(uint32_t*)&ipov->ih_x1[0];
-		*(uint32_t*)&b[4] = *(uint32_t*)&ipov->ih_x1[4];
-		*(uint8_t*)&b[8] = *(uint8_t*)&ipov->ih_x1[8];
-		
 		len = sizeof (struct ip) + tlen;
 		bzero(ipov->ih_x1, sizeof(ipov->ih_x1));
 		ipov->ih_len = (u_short)tlen;
 		HTONS(ipov->ih_len);
 		th->th_sum = in_cksum(m, len);
-		
-		*(uint32_t*)&ipov->ih_x1[0] = *(uint32_t*)&b[0];
-		*(uint32_t*)&ipov->ih_x1[4] = *(uint32_t*)&b[4];
-		*(uint8_t*)&ipov->ih_x1[8] = *(uint8_t*)&b[8];
 	}
 	if (th->th_sum) {
 		tcpstat.tcps_rcvbadsum++;
@@ -547,7 +531,7 @@ tcp_input(m, off0)
 	/* Re-initialization for later version check */
 	ip->ip_v = IPVERSION;
 #endif
-	}
+      }
 
 	/*
 	 * Check that TCP offset makes sense,

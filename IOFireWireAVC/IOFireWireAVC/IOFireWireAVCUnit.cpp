@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -261,23 +264,30 @@ bool IOFireWireAVCUnit::start(IOService *provider)
     IOReturn res;
     UInt32 size;
     UInt8 cmd[8],response[8];
-
+	UInt32 unitInfoRetryCount = 0;
+	
     cmd[kAVCCommandResponse] = kAVCStatusInquiryCommand;
     cmd[kAVCAddress] = kAVCUnitAddress;
     cmd[kAVCOpcode] = kAVCUnitInfoOpcode;
     cmd[3] = cmd[4] = cmd[5] = cmd[6] = cmd[7] = 0xff;
     size = 8;
     res = AVCCommand(cmd, 8, response, &size);
-    if(kIOReturnSuccess != res) {
-        IOSleep(2000);	// two seconds, give device time to get it's act together
-        size = 8;
-        res = AVCCommand(cmd, 8, response, &size);
+	if(kIOReturnSuccess != res)
+	{
+		do
+		{
+			unitInfoRetryCount++;
+			IOSleep(2000);	// two seconds, give device time to get it's act together
+			size = 8;
+			res = AVCCommand(cmd, 8, response, &size);
+		}while((kIOReturnSuccess != res) && (unitInfoRetryCount <= 4));
     }
+	
     if(kIOReturnSuccess != res || response[kAVCCommandResponse] != kAVCImplementedStatus)
         type = kAVCVideoCamera;	// Anything that doesn't implement AVC properly is probably a camcorder!
     else
         type = IOAVCType(response[kAVCOperand1]);
-
+	
     // Copy over matching properties from FireWire Unit
     prop = provider->getProperty(gFireWireVendor_ID);
     if(prop)

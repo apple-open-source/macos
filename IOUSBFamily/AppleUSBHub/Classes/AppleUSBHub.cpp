@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -56,8 +59,12 @@ firmwarestatus will be higher than 05.
 
 #define errataListLength (sizeof(errataList)/sizeof(ErrataListEntry))
 
-
 OSDefineMetaClassAndStructors(AppleUSBHub, IOService)
+
+enum
+{
+	kWatchdogTimerPeriod	=	30000
+};
 
 bool 
 AppleUSBHub::init( OSDictionary * propTable )
@@ -92,9 +99,9 @@ AppleUSBHub::start(IOService * provider)
     IOReturn			err = 0;
     IOUSBRootHubDevice		*rootHub;
     OSDictionary		*providerDict;
-    IOWorkLoop 			*workLoop = NULL;    
     OSNumber 			* errataProperty;
     const IORegistryPlane	*usbPlane = NULL;
+    OSNumber			*locationIDProperty;
     
     _inStartMethod = true;
     IncrementOutstandingIO();		// make sure we don't close until start is done
@@ -112,9 +119,9 @@ AppleUSBHub::start(IOService * provider)
     {
         USBError(1, "%s::start Couldn't allocate timer event source", getName());
         goto ErrorExit;
-       // return kIOReturnInternalError;
     }
 
+    
     _gate = IOCommandGate::commandGate(this);
 
     if(!_gate)
@@ -123,20 +130,24 @@ AppleUSBHub::start(IOService * provider)
         goto ErrorExit;
     }
 
-   workLoop = getWorkLoop();
-    if ( !workLoop )
+   _workLoop = getWorkLoop();
+    if ( !_workLoop )
     {
         USBError(1, "%s::start Couldn't get provider's workloop", getName());
         goto ErrorExit;
     }
-   
-    if ( workLoop->addEventSource( _timerSource ) != kIOReturnSuccess )
+
+    // Keep a reference to our workloop
+    //
+    _workLoop->retain();
+
+    if ( _workLoop->addEventSource( _timerSource ) != kIOReturnSuccess )
     {
         USBError(1, "%s::start Couldn't add timer event source", getName());
         goto ErrorExit;
     }
-    
-    if ( workLoop->addEventSource( _gate ) != kIOReturnSuccess )
+
+    if ( _workLoop->addEventSource( _gate ) != kIOReturnSuccess )
     {
         USBError(1, "%s::start Couldn't add gate event source", getName());
         goto ErrorExit;
@@ -202,12 +213,17 @@ AppleUSBHub::start(IOService * provider)
         
         if ( !_workThread || !_resetPortZeroThread || !_hubDeadCheckThread || !_clearFeatureEndpointHaltThread )
         {
-            USBError(1, "[%p] %s could not allocate all thread functions.  Aborting start", this, getName());
+            USBError(1, "%s[%p] could not allocate all thread functions.  Aborting start", getName(), this);
             goto ErrorExit;
         }
-   
-        USBError(1, "[%p] USB Generic Hub @ %d (0x%x)", this, _address, strtol(_device->getLocation(), (char **)NULL, 16));
 
+        locationIDProperty = (OSNumber *) provider->getProperty(kUSBDevicePropertyLocationID);
+        if ( locationIDProperty )
+        {
+            _locationID = locationIDProperty->unsigned32BitValue();
+        }
+        USBLog(1, "[%p] USB Generic Hub @ %d (0x%x)", this, _address, _locationID);
+        
 	_inStartMethod = false;
         DecrementOutstandingIO();
 	err = RearmInterruptRead();
@@ -217,31 +233,37 @@ AppleUSBHub::start(IOService * provider)
     else
     {
     
-        USBError(1,"%s [%p]::start Aborting startup of hub at 0x%x: error 0x%x", getName(), this, strtol(_device->getLocation(), (char **)NULL, 16), err);
+        USBError(1,"%s[%p]::start Aborting startup: error 0x%x", getName(), this, err);
         if ( _device && _device->isOpen(this) )
             _device->close(this);
         stop(provider);
     }
 
 ErrorExit:
-    
+
     if ( _timerSource )
     {
-        if ( workLoop )
-            workLoop->removeEventSource(_timerSource);
+        if ( _workLoop )
+            _workLoop->removeEventSource(_timerSource);
         _timerSource->release();
         _timerSource = NULL;
     }
 
     if (_gate)
     {
-	if (workLoop)
-	    workLoop->removeEventSource(_gate);
+	if (_workLoop)
+	    _workLoop->removeEventSource(_gate);
 	    
 	_gate->release();
 	_gate = NULL;
     }
-    
+
+    if ( _workLoop != NULL )
+    {
+        _workLoop->release();
+        _workLoop = NULL;
+    }
+
     _inStartMethod = false;
     DecrementOutstandingIO();
     return false;
@@ -252,8 +274,6 @@ ErrorExit:
 void 
 AppleUSBHub::stop(IOService * provider)
 {
-    IOWorkLoop * workLoop = getWorkLoop();
-   
     if (_buffer) 
     {
         _buffer->release();
@@ -265,24 +285,16 @@ AppleUSBHub::stop(IOService * provider)
         _hubInterface->release();
         _hubInterface = NULL;
     }
+    
     if (_timerSource)
     {
-        if ( workLoop )
-            workLoop->removeEventSource(_timerSource);
-            
+        if ( _workLoop )
+            _workLoop->removeEventSource(_timerSource);
+
         _timerSource->release();
         _timerSource = NULL;
     }
-    
-    if (_gate)
-    {
-	if (workLoop)
-	    workLoop->removeEventSource(_gate);
-	    
-	_gate->release();
-	_gate = NULL;
-    }
-    
+        
     if (_workThread)
     {
         thread_call_cancel(_workThread);
@@ -335,7 +347,7 @@ AppleUSBHub::ConfigureHub()
     // Find the first config/interface
     if (_device->GetNumConfigurations() < 1)
     {
-        USBError(1,"[%p] %s::ConfigureHub No hub configurations", this, getName());
+        USBError(1,"%s[%p]::ConfigureHub No hub configurations", getName(), this);
         err = kIOReturnNoResources;		// Need better error
         goto ErrorExit;
     }
@@ -344,7 +356,7 @@ AppleUSBHub::ConfigureHub()
     cd = _device->GetFullConfigurationDescriptor(0);
     if (!cd)
     {
-        USBError(1,"[%p] %s::ConfigureHub No config descriptor", this, getName());
+        USBError(1,"%s[%p]::ConfigureHub No config descriptor", getName(), this);
         err = kIOUSBConfigNotFound;
         goto ErrorExit;
     }
@@ -353,7 +365,7 @@ AppleUSBHub::ConfigureHub()
     
     if (err)
     {
-        USBError(1,"[%p] %s::ConfigureHub SetConfiguration failed. Error 0x%x", this, getName(), err);
+        USBError(1,"%s[%p]::ConfigureHub SetConfiguration failed. Error 0x%x", getName(), this, err);
         goto ErrorExit;
     }
         
@@ -361,10 +373,10 @@ AppleUSBHub::ConfigureHub()
     //
     if (cd->bmAttributes & kUSBAtrRemoteWakeup)
     {
-        USBLog(3,"%s[%p] Setting kUSBFeatureDeviceRemoteWakeup for Hub device (%p)", getName(), this, _device);
+        USBLog(3,"%s[%p]::ConfigureHub Setting kUSBFeatureDeviceRemoteWakeup for Hub device (%p)", getName(), this, _device);
         err = _device->SetFeature(kUSBFeatureDeviceRemoteWakeup);
         if ( err)
-            USBError(1,"[%p] %s::ConfigureHub SetFeature(kUSBFeatureDeviceRemoteWakeup) failed. Error 0x%x", this, getName(), err);
+            USBError(1,"%s[%p]::ConfigureHub SetFeature(kUSBFeatureDeviceRemoteWakeup) failed. Error 0x%x", getName(), this, err);
     }
 
     // Find the interface for our hub -- there's only one
@@ -375,7 +387,7 @@ AppleUSBHub::ConfigureHub()
     req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
     if ((_hubInterface = _device->FindNextInterface(NULL, &req)) == 0)
     {
-        USBError(1,"[%p] %s::ConfigureHub no interface found", this, getName());
+        USBError(1,"%s[%p]::ConfigureHub no interface found", getName(), this);
         err = kIOUSBInterfaceNotFound;
         goto ErrorExit;
     }
@@ -388,7 +400,7 @@ AppleUSBHub::ConfigureHub()
 
     if( !(_busPowered || _selfPowered) )
     {
-        USBError(1,"[%p] %s::ConfigureHub illegal device config - no power", this, getName());
+        USBError(1,"%s[%p]::ConfigureHub illegal device config - no power", getName(), this);
         err = kIOReturnNoPower;		// Need better error code here.
         goto ErrorExit;
     }
@@ -396,17 +408,17 @@ AppleUSBHub::ConfigureHub()
     // Get the hub descriptor
     if ( (err = GetHubDescriptor(&_hubDescriptor)) )
     {
-        USBError(1,"[%p] %s::ConfigureHub could not get hub descriptor (0x%x)", this, getName(), err);
+        USBError(1,"%s[%p]::ConfigureHub could not get hub descriptor (0x%x)", getName(), this, err);
         goto ErrorExit;
     }
     
     if(_hubDescriptor.numPorts < 1)
     {
-        USBLog(1,"[%p] %s::start there are no ports on this hub", this, getName());
+        USBLog(1,"%s[%p]::ConfigureHub there are no ports on this hub", getName(), this);
     }
     if(_hubDescriptor.numPorts > 7)
     {
-        USBLog(1,"[%p] %s::start there are an aweful lot of ports (%d) on this hub", this, getName(), _hubDescriptor.numPorts);
+        USBLog(1,"%s[%p]::ConfigureHub there are an awful lot of ports (%d) on this hub", getName(), this, _hubDescriptor.numPorts);
     }
     _readBytes = ((_hubDescriptor.numPorts + 1) / 8) + 1;
     
@@ -415,7 +427,7 @@ AppleUSBHub::ConfigureHub()
 
     if (!_hubInterface->open(this))
     {
-        USBError(1," %s[%p]::ConfigureHub could not open hub interface", this, getName());
+        USBError(1," %s[%p]::ConfigureHub could not open hub interface", getName(), this);
         err = kIOReturnNotOpen;
         goto ErrorExit;
     }
@@ -424,23 +436,22 @@ AppleUSBHub::ConfigureHub()
     // capabale hub, and if so, we need to set the multiTT status if possible
     if (_device->GetbcdUSB() >= 0x200)
     {
-	USBLog(1, "Hub driver - found USB 2.0 compliant hub");
 	v2Bus = OSDynamicCast(IOUSBControllerV2, _device->GetBus());
 	if (v2Bus)
 	{
 	    switch (_device->GetProtocol())
 	    {
 		case 0:
-		    USBLog(3, "Hub driver - found FS/LS only hub");
+                    USBLog(5, "%s[%p]::ConfigureHub - found FS/LS only hub", getName(), this);
 		    break;
 		    
 		case 1:
-		    USBLog(3, "Hub driver - found single TT hub");
+                    USBLog(5, "%s[%p]::ConfigureHub - found single TT hub", getName(), this);
 		    v2Bus->AddHSHub(_address, 0);
 		    break;
 		    
 		case 2:
-		    USBLog(3, "Hub driver - found multi TT hub");
+                    USBLog(5, "%s[%p]::ConfigureHub - found multi TT hub", getName(), this);
 		    if ((err = _hubInterface->SetAlternateInterface(this, 1))) 		// pick the multi-TT setting
 		    {
 			USBError(1, "%s[%p]::ConfigureHub - err (%x) setting alt interface", getName(), this, err);
@@ -457,11 +468,9 @@ AppleUSBHub::ConfigureHub()
 	}
 	else
 	{
-	    USBLog(3, "Configure hub - not on a V2 controller");
+            USBLog(5, "%s[%p]::ConfigureHub - not on a V2 controller", getName(), this);
 	}
     }
-    else
-	USBLog(3, "Hub Driver - found non USB 2 compliant hub");
     
 
     IOUSBFindEndpointRequest request;
@@ -471,7 +480,7 @@ AppleUSBHub::ConfigureHub()
 
     if(!_interruptPipe)
     {
-        USBError(1,"[%p] %s::ConfigureHub could not find interrupt pipe", this, getName());
+        USBError(1,"%s[%p]::ConfigureHub could not find interrupt pipe", getName(), this);
         err = kIOUSBNotEnoughPipesErr;		// Need better error code here.
         goto ErrorExit;
     } 
@@ -482,31 +491,29 @@ AppleUSBHub::ConfigureHub()
     err = CheckPortPowerRequirements();
     if ( err != kIOReturnSuccess )
     {
-        USBError(1,"[%p] %s::ConfigureHub CheckPortPowerRequirements failed with 0x%x", this, getName(), err);
+        USBError(1,"%s[%p]::ConfigureHub CheckPortPowerRequirements failed with 0x%x", getName(), this, err);
         goto ErrorExit;
     }
     
     err = AllocatePortMemory();
     if ( err != kIOReturnSuccess )
     {
-        USBError(1,"[%p] %s::ConfigureHub AllocatePortMemory failed with 0x%x", this, getName(), err);
+        USBError(1,"%s[%p]::ConfigureHub AllocatePortMemory failed with 0x%x", getName(), this, err);
         goto ErrorExit;
     }
         
     err = StartPorts();
     if ( err != kIOReturnSuccess )
     {
-        USBError(1,"[%p] %s::ConfigureHub StartPorts failed with 0x%x", this, getName(), err);
+        USBError(1,"%s[%p]::ConfigureHub StartPorts failed with 0x%x", getName(), this, err);
         goto ErrorExit;
     }
-        
     // Start the timeout Timer
     if (_timerSource)
     {
         // retain();
-        _timerSource->setTimeoutMS(12000); 
+        _timerSource->setTimeoutMS(kWatchdogTimerPeriod); 
     }
-
     // start an async read
     //
     _hubIsDead = FALSE;
@@ -563,15 +570,17 @@ AppleUSBHub::CountCaptivePorts(void)
 
 
 /*
- ExtPower   Good      off
+                ExtPower   ExtPower
+                Good       off
 
 Bus  Self
 
-0     0     Illegal config
-1     0     Always 100mA per port
-0     1     500mA     0 (dead)
-1     1     500      100
+0     0     	Illegal config
+1     0     	Always 100mA per port
+0     1     	500mA     0 (dead)
+1     1     	500       100
 */
+
 IOReturn 
 AppleUSBHub::CheckPortPowerRequirements(void)
 {
@@ -587,10 +596,11 @@ AppleUSBHub::CheckPortPowerRequirements(void)
     {
         if (hubPower > busPower)
         {
-            USBLog(3, "%s [%p] Hub needs more power (%d > %d) than available", getName(), this, hubPower, busPower);
+            // Don't put up an alert here.  The Adaptec 2.0 Hub claims that it needs 250mA. We will catch this later
+            //
+            USBLog(3, "%s [%p] Hub claims to need more power (%d > %d) than available", getName(), this, hubPower, busPower);
             _busPowerGood = false;
             _powerForCaptive = 0;
-            err = kIOReturnNoPower;
         }
         else
         {
@@ -607,17 +617,21 @@ AppleUSBHub::CheckPortPowerRequirements(void)
                 else
                     _powerForCaptive = powerAvailForPorts / _numCaptive;
             }
-    
+
             if( (_errataBits & kErrataCaptiveOKBit) != 0)
                 _powerForCaptive = kUSB100mAAvailable;
         }
         
         _selfPowerGood = false;
         
-        if(_selfPowered)
+        if (_selfPowered)
         {
+            // Check the status of the power source
+            //
             USBStatus	status = 0;
             IOReturn	localErr;
+
+            _powerForCaptive = kUSB100mAAvailable;
 
             localErr = _device->GetDeviceStatus(&status);
             if ( localErr != kIOReturnSuccess )
@@ -636,11 +650,11 @@ AppleUSBHub::CheckPortPowerRequirements(void)
             
             if(_selfPowerGood)
             {
-                USBLog(3,"[%p] %s Hub attached - Self/Bus powered, power supply good", this, getName());
+                USBLog(3,"%s[%p] Hub attached - Self/Bus powered, power supply good", getName(), this);
             }
             else
             {
-                USBLog(3,"[%p] %s Hub attached - Self/Bus powered, no external power", this, getName());
+                USBLog(3,"%s[%p] Hub attached - Self/Bus powered, no external power", getName(), this);
             }
         }
         else
@@ -650,16 +664,16 @@ AppleUSBHub::CheckPortPowerRequirements(void)
             {
                 if(_selfPowerGood)
                 {
-                    USBLog(3,"[%p] %s Hub attached - Self powered, power supply good", this, getName());
+                    USBLog(3,"%s[%p] Hub attached - Self powered, power supply good", getName(), this);
                 }
                 else
                 {
-                    USBLog(3,"[%p] %s Hub attached - Self powered, no external power", this, getName());
+                    USBLog(3,"%s[%p] Hub attached - Self powered, no external power", getName(), this);
                 }
             }
             else
             {
-                USBLog(3,"[%p] %s Hub attached - Bus powered", this, getName());
+                USBLog(3,"%s[%p] Hub attached - Bus powered", getName(), this);
             }
 
         }
@@ -667,8 +681,9 @@ AppleUSBHub::CheckPortPowerRequirements(void)
         if( !startExternal )
         {	/* not plugged in or bus powered on a bus powered hub */
             err = kIOReturnNoPower;
-	    DisplayNotEnoughPowerNotice();            
-            USBLog(1,"[%p] %s: insufficient power to turn on ports", this, getName());
+            _device->DisplayUserNotification(kUSBNotEnoughPowerNotificationType);
+            IOLog("USB Low Power Notice:  The hub \"%s\" cannot be used because there is not enough power for all its ports\n",_device->getName());
+            USBLog(1,"%s[%p]: insufficient power to turn on ports", getName(), this);
             if(!_busPowered)
             {
                 /* may be able to turn on compound devices */
@@ -804,7 +819,7 @@ AppleUSBHub::HubStatusChanged(void)
 
         if (_hubStatus.changeFlags & kHubLocalPowerStatusChange)
         {
-            USBLog(3, "%s [%p]: Hub Local Power Status Change detected", getName(), this);
+            USBLog(3, "%s [%p]: Local Power Status Change detected", getName(), this);
             if ((err = ClearHubFeature(kUSBHubLocalPowerChangeFeature)))
             {
                 FatalError(err, "clear hub power status feature");
@@ -821,7 +836,7 @@ AppleUSBHub::HubStatusChanged(void)
 
         if (_hubStatus.changeFlags & kHubOverCurrentIndicatorChange)
         {
-            USBLog(3, "%s [%p]: Hub OverCurrent Indicator Change detected", getName(), this);
+            USBLog(3, "%s [%p]: OverCurrent Indicator Change detected", getName(), this);
             if ((err =
                  ClearHubFeature(kUSBHubOverCurrentChangeFeature)))
             {
@@ -843,12 +858,14 @@ AppleUSBHub::HubStatusChanged(void)
     OSBoolean * boolObj = OSDynamicCast( OSBoolean, getProperty("kResetOnPowerStatusChange") );
     if ( boolObj && boolObj->isTrue() )
     { 
-        // Reset our hub, as the overcurrent and power status changes might disable the ports downstream
+        // Reset our hub, as the overcurrent and power status chagnes might disable the ports downstream
         //
         _hubIsDead = TRUE;
-        
+
+        retain();
         ResetMyPort();
-    
+        release();
+        
         // Set an error so we return false, which will cause us to NOT rearm the interrupt thread.  The reset
         // will take care of reconfiguring the hub and rearming the interrupt.
         //
@@ -890,7 +907,7 @@ AppleUSBHub::GetHubErrataBits()
 void 
 AppleUSBHub::FatalError(IOReturn err, char *str)
 {
-    USBError(1, "[%p] %s::FatalError 0x%x: %s", this, getName(), err, str);
+    USBError(1, "%s[%p]::FatalError 0x%x: %s", getName(), this, err, str);
 }
 
 
@@ -919,7 +936,7 @@ AppleUSBHub::GetHubDescriptor(IOUSBHubDescriptor *desc)
          * to get their device descriptor.  This is a bug, but it's actually
          * spec'd out in the USB 1.1 docs.
          */
-        USBLog(5,"[%p] %s: GetHubDescriptor w/ type = %X returned error: 0x%x",this, getName(), kUSBHubDescriptorType, err);
+        USBLog(5,"%s[%p]: GetHubDescriptor w/ type = %X returned error: 0x%x",this, getName(), kUSBHubDescriptorType, err);
         request.wValue = 0;
         request.wLength = sizeof(IOUSBHubDescriptor);
         err = DoDeviceRequest(&request);
@@ -1354,6 +1371,7 @@ AppleUSBHub::ProcessStatusChangedEntry(OSObject *target)
 }
 
 
+
 void 
 AppleUSBHub::ProcessStatusChanged()
 {
@@ -1377,15 +1395,13 @@ AppleUSBHub::ProcessStatusChanged()
     }
     else
     {
-        USBLog(5,"%s[%p]::ProcessStatusChanged found (0x%x) in statusChangedBitmap", getName(), this, statusChangedBitmapPtr[0]);
-
-        if ((statusChangedBitmapPtr[0] & 1) != 0)
+        if ( statusChangedBitmapPtr[0] == 0xff)
         {
-            hubStatusSuccess = HubStatusChanged();
+            USBLog(5,"%s[%p]::ProcessStatusChanged found (0x%8.8x) in statusChangedBitmap", getName(), this, statusChangedBitmapPtr[0]);
         }
-
-        if ( hubStatusSuccess )
+        else
         {
+            USBLog(5,"%s[%p]::ProcessStatusChanged found (0x%8.8x) in statusChangedBitmap", getName(), this, statusChangedBitmapPtr[0]);
             for (portIndex = 1; portIndex <= _hubDescriptor.numPorts; portIndex++)
             {
                 if ((statusChangedBitmapPtr[portByte] & portMask) != 0)
@@ -1406,23 +1422,29 @@ AppleUSBHub::ProcessStatusChanged()
                     portByte++;
                 }
             }
-
-            // now re-arm the read
-            (void) RearmInterruptRead();
+            
+        // hub status changed
+            if ((statusChangedBitmapPtr[0] & 1) != 0)
+            {
+                hubStatusSuccess = HubStatusChanged();
+            }
         }
     }
+    
+    if ( hubStatusSuccess )
+    {
+        // now re-arm the read 
+        (void) RearmInterruptRead();
+    }
+    
 }
 
- 
 IOReturn
 AppleUSBHub::RearmInterruptRead()
 {
     IOReturn		err = kIOReturnSuccess;
     IOUSBCompletion	comp;
 
-    if ( (_buffer == NULL) || ( _interruptPipe == NULL ) )
-         return err;
-         
     IncrementOutstandingIO();			// retain myself for the callback
     comp.target = this;
     comp.action = (IOUSBCompletionAction) InterruptReadHandlerEntry;
@@ -1467,25 +1489,6 @@ AppleUSBHub::PrintHubDescriptor(IOUSBHubDescriptor *desc)
     IOLog("\tpwrCtlPortFlags    = %lx %lx\n", (UInt32)&desc->pwrCtlPortFlags[1], (UInt32)&desc->removablePortFlags[0]);
 }
 
-
-
-// This method is in here as well as in the device class, because one day we might want to get fancy
-// about hubs with captive devices (like keyboards) - we could turn on some of the hub and not all..
-// for now, this is never actually called.
-void
-AppleUSBHub::DisplayNotEnoughPowerNotice()
-{
-    KUNCUserNotificationDisplayNotice(
-	0,		// Timeout in seconds
-	0,		// Flags (for later usage)
-	"",		// iconPath (not supported yet)
-	"",		// soundPath (not supported yet)
-	"/System/Library/Extensions/IOUSBFamily.kext",		// localizationPath
-	"Low Power Header",		// the header
-	"Low Power Notice",		// the notice - look in Localizable.strings
-	"OK"); 
-    return;
-}
 
 
 
@@ -1560,7 +1563,7 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
 	    {
 		_inStartMethod = true;
 		IncrementOutstandingIO();		// make sure we don't close until start is done
-		USBLog(4, "%s[%p]  Received kIOUSBMessagePortHasBeenReset -- reconfiguring hub", getName(), this);
+		USBLog(3, "%s[%p]  Received kIOUSBMessagePortHasBeenReset -- reconfiguring hub", getName(), this);
 		
                 // Abort any transactions (should not have any pending at this point)
                 //
@@ -1587,7 +1590,7 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
 		}
                 else
                 {
-                    USBError(1, "[%p] (Reset) USB Generic Hub @ %d (0x%x)", this, _address, strtol(_device->getLocation(), (char **)NULL, 16));
+                    USBError(1, "[%p] (Reset) USB Generic Hub @ %d (0x%x)", this, _address, _locationID);
                 }
                 
 		_inStartMethod = false;
@@ -1703,7 +1706,7 @@ AppleUSBHub::TimeoutOccurred(OSObject *owner, IOTimerEventSource *sender)
     if (me->_timerSource && !me->isInactive() )
     {
         // me->retain();
-        me->_timerSource->setTimeoutMS(12000);
+        me->_timerSource->setTimeoutMS(kWatchdogTimerPeriod);
     }
     // me->release();
 
@@ -1742,11 +1745,11 @@ AppleUSBHub::CheckForDeadHub()
     
     // Are we still connected?
     //
-    if ( _device && !_hubIsDead )
+    if ( _device && !_hubIsDead)
     {
         err = _device->message(kIOUSBMessageHubIsDeviceConnected, NULL, 0);
     
-        if ( kIOReturnSuccess == err )
+        if ( kIOReturnSuccess == err)
         {
             _hubIsDead = TRUE;
             USBLog(3, "%s[%p]: Detected an kIONotResponding error but still connected.  Resetting port", getName(), this);
@@ -1764,6 +1767,10 @@ AppleUSBHub::CheckForDeadHub()
             _hubHasBeenDisconnected = TRUE;
             USBLog(3, "%s[%p]: CheckForDeadHub: device has been unplugged", getName(), this);
         }
+    }
+    else
+    {
+        USBLog(3,"%s[%p]: CheckForDeadHub -- already resetting hub",getName(), this);
     }
 
 }
@@ -1827,7 +1834,6 @@ AppleUSBHub::ClearFeatureEndpointHalt( )
 void 
 AppleUSBHub::ResetMyPort()
 {
-    // IOSleep(500);
     // Abort any pending transactions in the interrupt pipe.  Null the pipe because the
     // device reset is going to end up terminating the interface from under us.  (Need 
     // to review that once we change device reset to not terminate interfaces)
@@ -1927,6 +1933,23 @@ void
 AppleUSBHub::free( void )
 {
     USBLog(5, "%s[%p]::free isInactive = %d", getName(), this, isInactive());
+
+    if (_gate)
+    {
+        if (_workLoop)
+        {
+            (void) _workLoop->removeEventSource(_gate);
+            _workLoop->release();
+            _workLoop = NULL;
+        }
+        else
+        {
+            USBError(1, "%s[%p]::free - have gate, but no valid workloop (%p)!", getName(), this, _workLoop);
+        }
+        _gate->release();
+        _gate = NULL;
+    }
+    
     super::free();
 }
 

@@ -56,7 +56,7 @@
 *                                                                              *
 *     April     14 1997: added this file to mathlib v3 and included mathlibÕs  *
 *                        nan code.                                             *
-*     July      23 2001: replaced __setflm with fegetenvd/fesetenvd.           *
+*     July      23 2001: replaced __setflm with FEGETENVD/FESETENVD.           *
 *     August    28 2001: added #ifdef __ppc__.                                 *
 *                        replaced DblInHex typedef with hexdouble.             *
 *                        used standard exception symbols from fenv.h.          *
@@ -129,7 +129,8 @@ const unsigned short SqrtTable[256] =
       26732, 26732, 26987, 27242 };
 
 //    There are flag and rounding errors being generated in this file
-double sqrt ( double x )
+#ifdef notdef
+double __sqrt ( double x )
       {
       register int index;
       hexdouble xInHex, yInHex, gInHex;
@@ -138,8 +139,8 @@ double sqrt ( double x )
             
       xInHex.d = x;
       xhead = xInHex.i.hi;                         // high 32 bits of x
-      fegetenvd( OldEnvironment );               // save environment, set default
-      fesetenvd( 0.0 );
+      FEGETENVD( OldEnvironment );               // save environment, set default
+      FESETENVD( 0.0 );
     
 /*******************************************************************************
 *     ° > x ³ 0.0.  This section includes +0.0, but not -0.0.                  *
@@ -189,7 +190,7 @@ double sqrt ( double x )
                   e = upHalfOfAnULP - y * g;
                   d = x - g * g;
                   y = y + e * y2;                  //   64-bit y
-                  fesetenvd( OldEnvironment );   //   restore caller's environment
+                  FESETENVD( OldEnvironment );   //   restore caller's environment
                   return ( g + y * d );            //   final step
                   }
 
@@ -238,7 +239,7 @@ double sqrt ( double x )
                   y = y + e * y2;                  //   64-bit y
                   g *= twoToMinus256;              //   undo scaling
                   d *= twoToMinus256;
-                  fesetenvd( OldEnvironment );   //   restore caller's environment
+                  FESETENVD( OldEnvironment );   //   restore caller's environment
                   return ( g + y * d );            //   final step            
                   }
 
@@ -248,7 +249,7 @@ double sqrt ( double x )
 
             else 
                   {                                // x = +0.0
-                  fesetenvd( OldEnvironment );   //   restore caller's environment
+                  FESETENVD( OldEnvironment );   //   restore caller's environment
                   return ( x );
                   }
             }
@@ -257,7 +258,7 @@ double sqrt ( double x )
 *     Fourth section: special cases: argument is +INF, NaN, -0.0, or <0.       *
 *******************************************************************************/
    
-      fesetenvd( OldEnvironment );               //   restore caller's environment
+      FESETENVD( OldEnvironment );               //   restore caller's environment
 
       if ( xhead < 0x80000000 )                    // x is +NaN or +INF
             return ( x );
@@ -270,10 +271,234 @@ double sqrt ( double x )
             x = nan ( SQRT_NAN );
             env.d = OldEnvironment;
             env.i.lo |= SET_INVALID;
-            fesetenvd( env.d );         //   restore caller's environment
+            FESETENVD( env.d );         //   restore caller's environment
             return ( x );                          // return NAN
             }
       }
+#else
+
+static const hexdouble Two911   = HEXDOUBLE( 0x07000000, 0x00000000 );
+static const hexdouble infinity = HEXDOUBLE( 0x7ff00000, 0x00000000 );
+static const double twoTo128    = 0.340282366920938463463e39;
+static const double twoToM128   = 0.293873587705571876992e-38;
+
+double __sqrt ( double x )
+{
+      register int index;
+      hexdouble xInHex, yInHex, gInHex;
+      register double OldEnvironment, g, y, y2, d, e;
+      register unsigned long int xhead, ghead, yhead;
+      
+      register double FPR_z, FPR_Two911, FPR_TwoM128, FPR_Two128, FPR_inf, FPR_HalfULP;
+      
+      xInHex.d = x;					FPR_z = 0.0;
+      FPR_inf = infinity.d;				FPR_Two911 = Two911.d;
+      FPR_TwoM128 = twoToM128;				FPR_Two128 = twoTo128;
+      gInHex.i.lo = 0UL;				yInHex.i.lo = 0UL;
+      FPR_HalfULP = upHalfOfAnULP;
+      
+      FEGETENVD( OldEnvironment );               	// save environment, set default
+      
+      __ORI_NOOP;
+      __ENSURE( FPR_z, FPR_inf, FPR_Two911 );    	__ENSURE( FPR_TwoM128, FPR_Two128, FPR_HalfULP );
+      
+       FESETENVD( FPR_z );
+    
+/*******************************************************************************
+*     Special case for GPUL: storing and loading floats avoids L/S hazard  
+*******************************************************************************/
+      __ORI_NOOP;
+      if (  FPR_TwoM128 < x &&  x < FPR_Two128 ) // Can float hold initial guess?
+      {
+            hexsingle GInHex, YInHex;
+            register unsigned long GPR_t, GPR_foo;
+
+/*******************************************************************************
+*     Calculate initial estimates for g and y from x and SqrtTable[].          *
+*******************************************************************************/
+            
+            xhead = xInHex.i.hi;			// high 32 bits of x
+            index = ( xhead >> 13 ) & 0xffUL; 		// table index
+            GPR_t = SqrtTable[index];
+  
+            // Form *single* precision exponent estimate from double argument:
+            // (((((xhead - bias1024) >> 1) + bias128) << 3) & 0x7f800000) =
+            // (((((xhead - bias1024 + bias128 + bias128) >> 1) << 3) & 0x7f800000))
+            
+            ghead = ( ( xhead + 0x07f00000 + 0x07f00000 - 0x3ff00000 ) << 2 ) & 0x7f800000;
+            GInHex.lval = ghead + ( ( 0xff00UL & GPR_t ) << 7 );
+
+            // Force GInHex.lval to memory. Then load it into g in the FPU register file
+            // on the *following* cycle. This avoids a Store/Load hazard.
+            asm volatile ( "add %0, %1, %2" : "=r" (GPR_foo) : "b" (&GInHex), "b" (&YInHex) : "memory" ); /* NOOP */
+            g = GInHex.fval;
+
+            yhead = 0x7e000000UL - ghead;
+            YInHex.lval = yhead + ( ( 0xffUL & GPR_t ) << 15 ); 
+            
+            // Force YInHex.lval to memory. Then load it into y in the FPU register file
+            // on the *following* cycle. This avoids a Store/Load hazard.
+            asm volatile ( "add %0, %1, %2" : "=r" (GPR_foo) : "b" (&GInHex), "b" (&YInHex) : "memory" ); /* NOOP */
+            __ORI_NOOP;
+            __ORI_NOOP;
+            y = YInHex.fval;
+            
+/*******************************************************************************
+*     Iterate to refine both g and y.                                          *
+*******************************************************************************/
+
+            d = __FNMSUB( g, g, x );			y2 = y + y;
+            
+            g = __FMADD(y, d, g );                 				//   16-bit g
+            
+            e = __FNMSUB( y, g, FPR_HalfULP );		d = __FNMSUB( g, g, x );
+            
+            y = __FMADD( e, y2, y );             				//   16-bit y
+            
+            y2 = y + y;					g = __FMADD(y, d, g);   //   32-bit g
+            
+            e = __FNMSUB( y, g, FPR_HalfULP );		d = __FNMSUB( g, g, x );
+            
+            y = __FMADD( e, y2, y );                  				//   32-bit y
+            
+            y2 = y + y;                  		g = __FMADD(y, d, g );  //   64-bit g before rounding
+            
+            e = __FNMSUB( y, g, FPR_HalfULP );		d = __FNMSUB( g, g, x );
+                                
+            y = __FMADD( e, y2, y );                  				//   64-bit y
+            
+             FESETENVD( OldEnvironment );   					//   restore caller's environment
+            
+            __ORI_NOOP;
+            return (  __FMADD( y, d, g ) );            				//   final step
+      }
+        
+      if ( FPR_z < x && x < FPR_inf ) 
+      {
+
+/*******************************************************************************
+*     First and most common section: argument > 2.0^(-911), about 5.77662E-275.*
+*******************************************************************************/
+            
+            if ( FPR_Two911 < x ) 
+            {
+                  register unsigned long GPR_t;
+
+/*******************************************************************************
+*     Calculate initial estimates for g and y from x and SqrtTable[].          *
+*******************************************************************************/
+                  xhead = xInHex.i.hi;                         	// high 32 bits of x
+                  index = ( xhead >> 13 ) & 0xffUL; 		// table index
+                  GPR_t = SqrtTable[index];
+                  
+                  ghead = ( ( xhead + 0x3ff00000 ) >> 1 ) & 0x7ff00000;
+                  yhead = 0x7fc00000UL - ghead;
+                
+                  gInHex.i.hi = ghead + ( ( 0xff00UL & GPR_t ) << 4 );
+                  g = gInHex.d;
+                
+                  yInHex.i.hi = yhead + ( ( 0xffUL & GPR_t ) << 12 ); 
+                  y = yInHex.d;
+/*******************************************************************************
+*     Iterate to refine both g and y.                                          *
+*******************************************************************************/
+
+                  d = __FNMSUB( g, g, x );		y2 = y + y;
+                  
+                  g = __FMADD(y, d, g );                 			//   16-bit g
+                  
+                  e = __FNMSUB( y, g, FPR_HalfULP );	d = __FNMSUB( g, g, x );
+                  
+                  y = __FMADD( e, y2, y );             				//   16-bit y
+                  
+                  y2 = y + y;				g = __FMADD(y, d, g);   //   32-bit g
+                  
+                  e = __FNMSUB( y, g, FPR_HalfULP );	d = __FNMSUB( g, g, x );
+                  
+                  y = __FMADD( e, y2, y );                  			//   32-bit y
+                  
+                  y2 = y + y;                  		g = __FMADD(y, d, g );  //   64-bit g before rounding
+                  
+                  e = __FNMSUB( y, g, FPR_HalfULP );	d = __FNMSUB( g, g, x );
+                  			
+                  y = __FMADD( e, y2, y );                  			//   64-bit y
+                  
+                  FESETENVD( OldEnvironment );   				//   restore caller's environment
+                  return ( __FMADD( y, d, g ) );            			//   final step
+            }
+
+/*******************************************************************************
+*     Second section: 0.0 < argument < 2.0^(-911) which is about 5.77662E-275. *
+*     Identical to the previous segment aside from 2^512 scale factor.         *
+*******************************************************************************/
+            else
+            { 
+                  xInHex.d = x * twoTo512;         //   scale up by 2^512
+                  xhead = xInHex.i.hi;
+
+/*******************************************************************************
+*     Calculate initial estimates for g and y from x and SqrtTable[].          *
+*******************************************************************************/
+
+                  ghead = ( ( xhead + 0x3ff00000 ) >> 1) & 0x7ff00000;
+                  index = ( xhead >> 13) & 0xffUL; // table index
+                  yhead = 0x7fc00000UL - ghead;
+                  gInHex.i.hi = ghead + ( ( 0xff00UL & SqrtTable[index] ) << 4 );
+                  yInHex.i.hi = yhead + ( ( 0xffUL & SqrtTable[index] ) << 12 );
+                  x = xInHex.d;
+                  g = gInHex.d;
+                  y = yInHex.d;
+
+/*******************************************************************************
+*     Iterate to refine both g and y.                                          *
+*******************************************************************************/
+            
+                  d = __FNMSUB( g, g, x );		y2 = y + y;
+                  
+                  g = __FMADD(y, d, g );                 			 //   16-bit g
+                  
+                  e = __FNMSUB( y, g, FPR_HalfULP );	d = __FNMSUB( g, g, x );
+                  
+                  y = __FMADD( e, y2, y );             				//   16-bit y
+                  
+                  y2 = y + y;				g = __FMADD(y, d, g);   //   32-bit g
+                  
+                  e = __FNMSUB( y, g, FPR_HalfULP );	d = __FNMSUB( g, g, x );
+                  
+                  y = __FMADD( e, y2, y );                  			//   32-bit y
+                  
+                  y2 = y + y;                  		g = __FMADD(y, d, g );  //   64-bit g before rounding
+                  
+                  e = __FNMSUB( y, g, FPR_HalfULP );	d = __FNMSUB( g, g, x );
+                  			
+                  d *= twoToMinus256;			g *= twoToMinus256;     //   undo scaling
+                  
+                  y = __FMADD( e, y2, y );                  			//   64-bit y
+                  
+                  FESETENVD( OldEnvironment );   				//   restore caller's environment
+                  return ( __FMADD( y, d, g ) );            			//   final step
+            }
+      }
+
+/*******************************************************************************
+*     Fourth section: special cases: argument is +INF, NaN, +/-0.0, or <0.     *
+*******************************************************************************/
+   
+      FESETENVD( OldEnvironment );       		//   restore caller's environment
+
+      if ( x < FPR_z && x == x  )			// < 0.0 and not NAN 
+      {
+            hexdouble env;
+            x = nan ( SQRT_NAN );
+            env.d = OldEnvironment;
+            env.i.lo |= SET_INVALID;
+            FESETENVD( env.d );         		//   restore caller's environment
+            return ( x );               		// return NAN
+      }
+      else return ( x );				// NANs and +/-0.0
+}
+
+#endif
 
 #ifdef notdef
 /*******************************************************************************
@@ -294,11 +519,11 @@ float sqrtf ( float x )
       hexsingle xInHex, yInHex, gInHex;
       register float g, y, y2, d, e;
       register unsigned long int xhead, ghead, yhead;
-      
+            
       xInHex.fval = x;
       xhead = xInHex.lval;                         // 32 bits of x
-      fegetenvd( OldEnvironment.d );               // save environment, set default
-      fesetenvd( 0.0 );
+      FEGETENVD( OldEnvironment.d );               // save environment, set default
+      FESETENVD( 0.0 );
     
 /*******************************************************************************
 *     ° > x ³ 0.0.  This section includes +0.0, but not -0.0.                  *
@@ -341,7 +566,7 @@ float sqrtf ( float x )
                   e = upHalfOfAnULP - y * g;
                   d = x - g * g;
                   y = y + e * y2;                  //   32-bit y
-                  fesetenvd( OldEnvironment.d );   //   restore caller's environment
+                  FESETENVD( OldEnvironment.d );   //   restore caller's environment
                   return ( g + y * d );            //   final step
                   }
 
@@ -385,7 +610,7 @@ float sqrtf ( float x )
                   y = y + e * y2;                  //   32-bit y
                   g *= twoToMinus32;               //   undo scaling
                   d *= twoToMinus32;
-                  fesetenvd( OldEnvironment.d );   //   restore caller's environment
+                  FESETENVD( OldEnvironment.d );   //   restore caller's environment
                   return ( g + y * d );            //   final step            
                   }
 
@@ -395,7 +620,7 @@ float sqrtf ( float x )
 
             else 
                   {                                // x = +0.0
-                  fesetenvd( OldEnvironment.d );   //   restore caller's environment
+                  FESETENVD( OldEnvironment.d );   //   restore caller's environment
                   return ( x );
                   }
             }
@@ -403,7 +628,7 @@ float sqrtf ( float x )
 *     Fourth section: special cases: argument is +INF, NaN, -0.0, or <0.       *
 *******************************************************************************/
    
-      fesetenvd( OldEnvironment.d );               //   restore caller's environment
+      FESETENVD( OldEnvironment.d );               //   restore caller's environment
 
       if ( xhead < 0x80000000 )                    // x is +NaN or +INF
             return ( x );
@@ -414,7 +639,7 @@ float sqrtf ( float x )
             {
             x = nan ( SQRT_NAN );
             OldEnvironment.i.lo |= SET_INVALID;
-            fesetenvd( OldEnvironment.d );         //   restore caller's environment
+            FESETENVD( OldEnvironment.d );         //   restore caller's environment
             return ( x );                          // return NAN
             }
       }

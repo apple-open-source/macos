@@ -54,6 +54,7 @@
 				014CEA520018CE5811CA2923,
 				014CEA530018CE5811CA2923,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 08FB7794FE84155DC02AAC07;
 			projectDirPath = "";
@@ -72,6 +73,7 @@
 				70CAC4B7022DCA1905CA29A8,
 				70CAC52F022DCA3605CA29A8,
 				F568AEB201B0B89F01CA2DA8,
+				7019EDCD0336551305CA29A8,
 				08FB779FFE84155DC02AAC07,
 				7031F35802427B9205CA29A8,
 			);
@@ -117,7 +119,6 @@
 				PRODUCT_NAME = LibmTestHarness;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
@@ -126,7 +127,6 @@
 			name = LibmTestHarness;
 			productName = LibmTestHarness;
 			productReference = 034768E8FF38A79811DB9C8B;
-			shouldUseHeadermap = 1;
 		};
 		08FB77A0FE84155DC02AAC07 = {
 			buildActionMask = 2147483647;
@@ -137,6 +137,7 @@
 				70125EDC01E3E38505CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		08FB77A1FE84155DC02AAC07 = {
 			buildActionMask = 2147483647;
@@ -144,18 +145,21 @@
 				705A14AF01EA867C05CA29A8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		08FB77A3FE84155DC02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		08FB77A5FE84155DC02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 //080
 //081
@@ -184,6 +188,7 @@
 				70CAC4B6022DC9EA05CA29A8,
 				70CAC52E022DCA1905CA29A8,
 				70CAC543022DCA3605CA29A8,
+				7019EDDC0336551305CA29A8,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -194,12 +199,35 @@
 //1A2
 //1A3
 //1A4
+//6E0
+//6E1
+//6E2
+//6E3
+//6E4
+		6EDE018A04705260002E3BFD = {
+			fileRef = F523F5FD0341410B0150C405;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6EEB6D8A0472CB9500B2EFE4 = {
+			fileRef = D2F2DF77040DD28300407873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//6E0
+//6E1
+//6E2
+//6E3
+//6E4
 //700
 //701
 //702
 //703
 //704
 		70087B3701E3C6F305CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "test-fenv.c";
 			path = "noship.subproj/test-fenv.c";
@@ -230,28 +258,158 @@
 			};
 		};
 		7017604B01D16A5B05CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = nearbyint.s;
 			path = i386.subproj/nearbyint.s;
 			refType = 4;
 		};
 		7017604D01D1708905CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = nearbyintf.s;
 			path = i386.subproj/nearbyintf.s;
 			refType = 4;
 		};
 		7017604F01D175E305CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "test-float.c";
 			path = "noship.subproj/test-float.c";
 			refType = 4;
 		};
 		701922FB01CEE4B705CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = llrint.c;
 			path = i386.subproj/llrint.c;
 			refType = 4;
+		};
+		7019EDCD0336551305CA29A8 = {
+			buildPhases = (
+				7019EDCE0336551305CA29A8,
+				7019EDD50336551305CA29A8,
+				7019EDD90336551305CA29A8,
+				7019EDDB0336551305CA29A8,
+			);
+			buildSettings = {
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O1";
+				OTHER_CFLAGS = "-Wno-long-double";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = VectorTest;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = "VectorTest x86";
+			productInstallPath = /usr/local/bin;
+			productName = VectorTest;
+			productReference = 7019EDDC0336551305CA29A8;
+		};
+		7019EDCE0336551305CA29A8 = {
+			buildActionMask = 2147483647;
+			files = (
+				7019EDE0033655C205CA29A8,
+				7019EDDF033655B305CA29A8,
+				7019EDDE033655AD05CA29A8,
+				7042DA410336582105CA29A8,
+				7019EDD20336551305CA29A8,
+				7019EDD30336551305CA29A8,
+				7019EDD40336551305CA29A8,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7019EDD20336551305CA29A8 = {
+			fileRef = F568AEB901B0BAD501CA2DA8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7019EDD30336551305CA29A8 = {
+			fileRef = F568AEC001B0BD9901CA2DA8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7019EDD40336551305CA29A8 = {
+			fileRef = F568AEC401B0BDE501CA2DA8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7019EDD50336551305CA29A8 = {
+			buildActionMask = 2147483647;
+			files = (
+				7019EDD60336551305CA29A8,
+				7019EDD70336551305CA29A8,
+				7019EDD80336551305CA29A8,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7019EDD60336551305CA29A8 = {
+			fileRef = F568AEB001B0B88501CA2DA8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7019EDD70336551305CA29A8 = {
+			fileRef = F568AEBC01B0BCA301CA2DA8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7019EDD80336551305CA29A8 = {
+			fileRef = F568AEC801B0C06D01CA2DA8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7019EDD90336551305CA29A8 = {
+			buildActionMask = 2147483647;
+			files = (
+				7042DA420336586305CA29A8,
+				7042DA430336586405CA29A8,
+				F523F6CE0341410C0150C405,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7019EDDB0336551305CA29A8 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7019EDDC0336551305CA29A8 = {
+			isa = PBXExecutableFileReference;
+			path = VectorTest;
+			refType = 3;
+		};
+		7019EDDE033655AD05CA29A8 = {
+			fileRef = F55B9CF501C965D701CA2DD2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7019EDDF033655B305CA29A8 = {
+			fileRef = F56E673E01C54C670122BB70;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7019EDE0033655C205CA29A8 = {
+			fileRef = F55B9CFD01C97C5401CA2DD2;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		702F82DA020605CE05CA29A8 = {
 			buildActionMask = 8;
@@ -262,6 +420,7 @@
 				702F82DD020605CE05CA29A8,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		702F82DB020605CE05CA29A8 = {
 			fileRef = F50BFF8601A38F5701CA2DA8;
@@ -284,6 +443,7 @@
 				702F82E1020605CE05CA29A8,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		702F82DF020605CE05CA29A8 = {
 			fileRef = F55B9CF501C965D701CA2DD2;
@@ -298,16 +458,19 @@
 			};
 		};
 		702F82E20206078005CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = fenv.h;
 			refType = 4;
 		};
 		702F82E30206087305CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = float.h;
 			refType = 4;
 		};
 		702F82E40206089C05CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = math.h;
 			refType = 4;
@@ -321,6 +484,7 @@
 				702F82E80206090705CA29A8,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		702F82E60206090705CA29A8 = {
 			fileRef = 702F82E20206078005CA29A8;
@@ -351,13 +515,14 @@
 			);
 			isa = PBXLegacyTarget;
 			name = publicHeaders;
+			passBuildSettingsInEnvironment = 1;
 			productName = publicHeaders;
 			settingsToExpand = 6;
 			settingsToPassInEnvironment = 287;
 			settingsToPassOnCommandLine = 280;
-			shouldUseHeadermap = 0;
 		};
 		7031F35A02427C2A05CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = publicHeaders.make;
 			refType = 4;
@@ -366,19 +531,40 @@
 			isa = PBXTargetDependency;
 			target = 7031F35802427B9205CA29A8;
 		};
+		7042DA410336582105CA29A8 = {
+			fileRef = F50FFE0301C46D2A014D9427;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7042DA420336586305CA29A8 = {
+			fileRef = F50FFDE201C4658A014D9427;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7042DA430336586405CA29A8 = {
+			fileRef = 70CAC421022DC90305CA29A8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		705704B701CEC60E05CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "libm-test.c";
 			path = "noship.subproj/libm-test.c";
 			refType = 4;
 		};
 		705704BC01CEC6C805CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "libm-test-ulps.h";
 			path = "noship.subproj/libm-test-ulps.h";
 			refType = 4;
 		};
 		705704BE01CEC70905CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "test-double.c";
 			path = "noship.subproj/test-double.c";
@@ -426,7 +612,6 @@
 				PURE_JAVA = YES;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
@@ -448,7 +633,6 @@
 			name = libm;
 			productName = libm.a;
 			productReference = 705B205A0200F56F05CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		705B20620200F64205CA29A8 = {
 			buildActionMask = 2147483647;
@@ -459,16 +643,44 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/mkdir -p ${DSTROOT}/usr/lib/system/\n/bin/mkdir -p ${DSTROOT}/usr/local/lib/system/\n#\n/usr/bin/libtool -static -o ${DSTROOT}/usr/local/lib/system/libm.a ${SYMROOT}/libm_ppc.a ${SYMROOT}/libm_i386.a\n#\n/usr/bin/libtool -static -o ${DSTROOT}/usr/local/lib/system/libm_debug.a ${SYMROOT}/libm_ppc_debug.a ${SYMROOT}/libm_i386_debug.a\n#\n/usr/bin/libtool -static -o ${DSTROOT}/usr/local/lib/system/libm_profile.a ${SYMROOT}/libm_ppc_profile.a ${SYMROOT}/libm_i386_profile.a\n#\n/usr/bin/lipo -create -arch ppc ${SYMROOT}/libmCommon_ppc.dylib -arch i386 ${SYMROOT}/libmCommon_i386.dylib -output ${DSTROOT}/usr/lib/system/libmathCommon.A.dylib\n#\n/usr/bin/lipo -create -arch ppc ${SYMROOT}/libmCommon_ppc_debug.dylib -arch i386 ${SYMROOT}/libmCommon_i386_debug.dylib -output ${DSTROOT}/usr/lib/system/libmathCommon.A_debug.dylib\n#\n/usr/bin/lipo -create -arch ppc ${SYMROOT}/libmCommon_ppc_profile.dylib -arch i386 ${SYMROOT}/libmCommon_i386_profile.dylib -output ${DSTROOT}/usr/lib/system/libmathCommon.A_profile.dylib\n#\nln -s libmathCommon.A.dylib ${DSTROOT}/usr/lib/system/libmathCommon.dylib\nln -s libmathCommon.A_debug.dylib ${DSTROOT}/usr/lib/system/libmathCommon_debug.dylib\nln -s libmathCommon.A_profile.dylib ${DSTROOT}/usr/lib/system/libmathCommon_profile.dylib\n";
+			shellScript = "/bin/mkdir -p ${DSTROOT}/usr/lib/system/\n/bin/mkdir -p ${DSTROOT}/usr/local/lib/system/\n#\n/usr/bin/libtool -static -o ${DSTROOT}/usr/local/lib/system/libm.a ${SYMROOT}/libm_ppc.a ${SYMROOT}/libm_i386.a \n#\n/usr/bin/libtool -static -o ${DSTROOT}/usr/local/lib/system/libm_debug.a ${SYMROOT}/libm_ppc_debug.a ${SYMROOT}/libm_i386_debug.a \n#\n/usr/bin/libtool -static -o ${DSTROOT}/usr/local/lib/system/libm_profile.a ${SYMROOT}/libm_ppc_profile.a ${SYMROOT}/libm_i386_profile.a\n##\n/usr/bin/libtool -static -o ${DSTROOT}/usr/local/lib/system/libmCommon.a ${OBJROOT}/LibmV5.build/libmCommon_i386.dylib.build/Objects-normal/i386/*.o ${OBJROOT}/LibmV5.build/libmCommon_ppc.dylib.build/Objects-normal/ppc/*.o \n#\n/usr/bin/libtool -static -o ${DSTROOT}/usr/local/lib/system/libmCommon_debug.a ${OBJROOT}/LibmV5.build/libmCommon_i386_debug.dylib.build/Objects-normal/i386/*.o ${OBJROOT}/LibmV5.build/libmCommon_ppc_debug.dylib.build/Objects-normal/ppc/*.o\n#\n/usr/bin/lipo -create -arch ppc ${SYMROOT}/libmCommon_ppc.dylib -arch i386 ${SYMROOT}/libmCommon_i386.dylib -output ${DSTROOT}/usr/lib/system/libmathCommon.A.dylib\n#\n/usr/bin/lipo -create -arch ppc ${SYMROOT}/libmCommon_ppc_debug.dylib -arch i386 ${SYMROOT}/libmCommon_i386_debug.dylib -output ${DSTROOT}/usr/lib/system/libmathCommon.A_debug.dylib\n#\n/usr/bin/lipo -create -arch ppc ${SYMROOT}/libmCommon_ppc_profile.dylib -arch i386 ${SYMROOT}/libmCommon_i386_profile.dylib -output ${DSTROOT}/usr/lib/system/libmathCommon.A_profile.dylib\n#\nln -s libmathCommon.A.dylib ${DSTROOT}/usr/lib/system/libmathCommon.dylib\nln -s libmathCommon.A_debug.dylib ${DSTROOT}/usr/lib/system/libmathCommon_debug.dylib\nln -s libmathCommon.A_profile.dylib ${DSTROOT}/usr/lib/system/libmathCommon_profile.dylib\n";
+		};
+		7069618A0332C3A005CA29A8 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = logb_priv.s;
+			path = i386.subproj/logb_priv.s;
+			refType = 4;
+		};
+		7069618B0332C3A005CA29A8 = {
+			fileRef = 7069618A0332C3A005CA29A8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7069618C0332C3A005CA29A8 = {
+			fileRef = 7069618A0332C3A005CA29A8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7069618D0332C3A005CA29A8 = {
+			fileRef = 7069618A0332C3A005CA29A8;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 		7084A1E70211E61B05CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_nextafterd.c;
 			path = ppc.subproj/w_nextafterd.c;
 			refType = 4;
 		};
 		7084A1E90211E87605CA29A8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_nextafterd.c;
 			path = i386.subproj/w_nextafterd.c;
@@ -832,17 +1044,16 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 40.1;
+				DYLIB_CURRENT_VERSION = 40.11;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
-				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
+				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fno-schedule-insns -fno-schedule-insns2 -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes -Wall";
 				OTHER_LDFLAGS = "-Wl,-S -nostdlib -lcc_dynamic -install_name /usr/lib/system/libmathCommon.A.dylib";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = libmCommon_ppc.dylib;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = NO;
 				ppc = YES;
@@ -854,7 +1065,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = m;
 			productReference = 70CAC292022DC69805CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		70CAC25A022DC69805CA29A8 = {
 			buildActionMask = 2147483647;
@@ -867,6 +1077,7 @@
 				70CAC260022DC69805CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC25B022DC69805CA29A8 = {
 			fileRef = F50BFF8601A38F5701CA2DA8;
@@ -920,18 +1131,21 @@
 				70CAC29F022DC71E05CA29A8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC290022DC69805CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC291022DC69805CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC292022DC69805CA29A8 = {
 			isa = PBXLibraryReference;
@@ -1016,14 +1230,13 @@
 				DYLIB_CURRENT_VERSION = 1;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-O3";
-				OTHER_CFLAGS = "-fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
+				OTHER_CFLAGS = "-fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes -force_cpusubtype_ALL";
 				OTHER_LDFLAGS = "";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = libm_ppc_debug.a;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = NO;
 				ppc = YES;
@@ -1035,7 +1248,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = m;
 			productReference = 70CAC2D9022DC79405CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		70CAC2A1022DC79405CA29A8 = {
 			buildActionMask = 2147483647;
@@ -1048,6 +1260,7 @@
 				70CAC2A7022DC79405CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC2A2022DC79405CA29A8 = {
 			fileRef = F50BFF8601A38F5701CA2DA8;
@@ -1131,8 +1344,10 @@
 				70CAC2D4022DC79405CA29A8,
 				70CAC2D5022DC79405CA29A8,
 				70CAC2D6022DC79405CA29A8,
+				D2F2DF7A040DD28300407873,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC2AC022DC79405CA29A8 = {
 			fileRef = F525858801AB33C00100010C;
@@ -1397,12 +1612,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC2D8022DC79405CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC2D9022DC79405CA29A8 = {
 			isa = PBXLibraryReference;
@@ -1418,7 +1635,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 40.1;
+				DYLIB_CURRENT_VERSION = 40.11;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -1428,7 +1645,6 @@
 				PRODUCT_NAME = libmCommon_ppc_debug.dylib;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = NO;
 				ppc = YES;
@@ -1440,7 +1656,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = m;
 			productReference = 70CAC2F0022DC7C805CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		70CAC2DB022DC7C805CA29A8 = {
 			buildActionMask = 2147483647;
@@ -1453,6 +1668,7 @@
 				70CAC2E1022DC7C805CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC2DC022DC7C805CA29A8 = {
 			fileRef = F50BFF8601A38F5701CA2DA8;
@@ -1506,6 +1722,7 @@
 				70CAC2ED022DC7C805CA29A8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC2E3022DC7C805CA29A8 = {
 			fileRef = F525859401AB3D9D0100010C;
@@ -1578,12 +1795,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC2EF022DC7C805CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC2F0022DC7C805CA29A8 = {
 			isa = PBXLibraryReference;
@@ -1603,7 +1822,7 @@
 				DYLIB_CURRENT_VERSION = 1;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-O3";
-				OTHER_CFLAGS = "-fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
+				OTHER_CFLAGS = "-fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes -force_cpusubtype_ALL";
 				OTHER_LDFLAGS = "";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1611,7 +1830,6 @@
 				PROFILING_CODE = YES;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = NO;
 				ppc = YES;
@@ -1623,7 +1841,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = m;
 			productReference = 70CAC32A022DC80405CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		70CAC2F2022DC80405CA29A8 = {
 			buildActionMask = 2147483647;
@@ -1636,6 +1853,7 @@
 				70CAC2F8022DC80405CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC2F3022DC80405CA29A8 = {
 			fileRef = F50BFF8601A38F5701CA2DA8;
@@ -1719,8 +1937,10 @@
 				70CAC325022DC80405CA29A8,
 				70CAC326022DC80405CA29A8,
 				70CAC327022DC80405CA29A8,
+				D2F2DF7B040DD28300407873,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC2FD022DC80405CA29A8 = {
 			fileRef = F525858801AB33C00100010C;
@@ -1985,12 +2205,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC329022DC80405CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC32A022DC80405CA29A8 = {
 			isa = PBXLibraryReference;
@@ -2007,7 +2229,7 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 40.1;
+				DYLIB_CURRENT_VERSION = 40.11;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -2018,7 +2240,6 @@
 				PROFILING_CODE = YES;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = NO;
 				ppc = YES;
@@ -2030,7 +2251,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = m;
 			productReference = 70CAC341022DC83C05CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		70CAC32C022DC83C05CA29A8 = {
 			buildActionMask = 2147483647;
@@ -2043,6 +2263,7 @@
 				70CAC332022DC83C05CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC32D022DC83C05CA29A8 = {
 			fileRef = F50BFF8601A38F5701CA2DA8;
@@ -2096,6 +2317,7 @@
 				70CAC33E022DC83C05CA29A8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC334022DC83C05CA29A8 = {
 			fileRef = F525859401AB3D9D0100010C;
@@ -2168,12 +2390,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC340022DC83C05CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC341022DC83C05CA29A8 = {
 			isa = PBXLibraryReference;
@@ -2808,7 +3032,7 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 40.1;
+				DYLIB_CURRENT_VERSION = 40.11;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -2818,7 +3042,6 @@
 				PRODUCT_NAME = libmCommon_i386.dylib;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = YES;
 				ppc = NO;
@@ -2830,7 +3053,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = libm386.a;
 			productReference = 70CAC421022DC90305CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		70CAC3AB022DC90305CA29A8 = {
 			buildActionMask = 2147483647;
@@ -2844,6 +3066,7 @@
 				70CAC3B2022DC90305CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC3AC022DC90305CA29A8 = {
 			fileRef = F55B9CF501C965D701CA2DD2;
@@ -2900,20 +3123,24 @@
 				70CAC429022DC94C05CA29A8,
 				70BAF63B02380A7105CA29A8,
 				70BAF63C023816A205CA29A8,
+				7069618D0332C3A005CA29A8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC41F022DC90305CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC420022DC90305CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC421022DC90305CA29A8 = {
 			isa = PBXLibraryReference;
@@ -2987,7 +3214,6 @@
 				PRODUCT_NAME = libm_i386_debug.a;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = YES;
 				ppc = NO;
@@ -2999,7 +3225,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = libm386.a;
 			productReference = 70CAC4A1022DC9B905CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		70CAC42B022DC9B905CA29A8 = {
 			buildActionMask = 2147483647;
@@ -3013,6 +3238,7 @@
 				70CAC432022DC9B905CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC42C022DC9B905CA29A8 = {
 			fileRef = F55B9CF501C965D701CA2DD2;
@@ -3167,6 +3393,7 @@
 				70BAF64802381E5705CA29A8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC437022DC9B905CA29A8 = {
 			fileRef = F56E66E301C54B3E0122BB70;
@@ -3791,12 +4018,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC4A0022DC9B905CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC4A1022DC9B905CA29A8 = {
 			isa = PBXLibraryReference;
@@ -3812,7 +4041,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 40.1;
+				DYLIB_CURRENT_VERSION = 40.11;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -3822,7 +4051,6 @@
 				PRODUCT_NAME = libmCommon_i386_debug.dylib;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = YES;
 				ppc = NO;
@@ -3834,7 +4062,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = libm386.a;
 			productReference = 70CAC4B6022DC9EA05CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		70CAC4A3022DC9EA05CA29A8 = {
 			buildActionMask = 2147483647;
@@ -3848,6 +4075,7 @@
 				70CAC4AA022DC9EA05CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC4A4022DC9EA05CA29A8 = {
 			fileRef = F55B9CF501C965D701CA2DD2;
@@ -3904,14 +4132,17 @@
 				70CAC4B4022DC9EA05CA29A8,
 				70BAF63D023816BA05CA29A8,
 				70BAF63F023816D305CA29A8,
+				7069618B0332C3A005CA29A8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC4AC022DC9EA05CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC4AD022DC9EA05CA29A8 = {
 			fileRef = F55B9CF901C9799301CA2DD2;
@@ -3966,6 +4197,7 @@
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC4B6022DC9EA05CA29A8 = {
 			isa = PBXLibraryReference;
@@ -3994,7 +4226,6 @@
 				PROFILING_CODE = YES;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = YES;
 				ppc = NO;
@@ -4006,7 +4237,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = libm386.a;
 			productReference = 70CAC52E022DCA1905CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		70CAC4B8022DCA1905CA29A8 = {
 			buildActionMask = 2147483647;
@@ -4020,6 +4250,7 @@
 				70CAC4BF022DCA1905CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC4B9022DCA1905CA29A8 = {
 			fileRef = F55B9CF501C965D701CA2DD2;
@@ -4072,6 +4303,7 @@
 				70CAC4C2022DCA1905CA29A8,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		70CAC4C1022DCA1905CA29A8 = {
 			fileRef = F55B9CF501C965D701CA2DD2;
@@ -4196,6 +4428,7 @@
 				70BAF64902381E5D05CA29A8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC4C4022DCA1905CA29A8 = {
 			fileRef = F56E66E301C54B3E0122BB70;
@@ -4820,12 +5053,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC52D022DCA1905CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC52E022DCA1905CA29A8 = {
 			isa = PBXLibraryReference;
@@ -4842,7 +5077,7 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 40.1;
+				DYLIB_CURRENT_VERSION = 40.11;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -4853,7 +5088,6 @@
 				PROFILING_CODE = YES;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = YES;
 				ppc = NO;
@@ -4865,7 +5099,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = libm386.a;
 			productReference = 70CAC543022DCA3605CA29A8;
-			shouldUseHeadermap = 0;
 		};
 		70CAC530022DCA3605CA29A8 = {
 			buildActionMask = 2147483647;
@@ -4879,6 +5112,7 @@
 				70CAC537022DCA3605CA29A8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC531022DCA3605CA29A8 = {
 			fileRef = F55B9CF501C965D701CA2DD2;
@@ -4935,14 +5169,17 @@
 				70CAC541022DCA3605CA29A8,
 				70BAF63E023816C305CA29A8,
 				70BAF640023816DB05CA29A8,
+				7069618C0332C3A005CA29A8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC539022DCA3605CA29A8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC53A022DCA3605CA29A8 = {
 			fileRef = F55B9CF901C9799301CA2DD2;
@@ -4997,6 +5234,7 @@
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		70CAC543022DCA3605CA29A8 = {
 			isa = PBXLibraryReference;
@@ -5051,17 +5289,59 @@
 			isa = PBXTargetDependency;
 			target = 70CAC52F022DCA3605CA29A8;
 		};
-		70CEE8830242E43505CA29A8 = {
-			fileRef = F50BFF7001A344D401CA2DA8;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 //700
 //701
 //702
 //703
 //704
+//D20
+//D21
+//D22
+//D23
+//D24
+		D26FD7D403EB0B8900B09E3C = {
+			fileRef = F50BFF7001A344D401CA2DA8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D26FD7D503EB0B8A00B09E3C = {
+			fileRef = 70CAC292022DC69805CA29A8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2F2DF77040DD28300407873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = sqrt970.s;
+			path = ppc.subproj/sqrt970.s;
+			refType = 4;
+		};
+		D2F2DF7A040DD28300407873 = {
+			fileRef = D2F2DF77040DD28300407873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2F2DF7B040DD28300407873 = {
+			fileRef = D2F2DF77040DD28300407873;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D2F2DF7C040FF71C00407873 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = icacheinval.s;
+			path = ppc.subproj/icacheinval.s;
+			refType = 4;
+		};
+//D20
+//D21
+//D22
+//D23
+//D24
 //F50
 //F51
 //F52
@@ -5086,14 +5366,13 @@
 				DYLIB_CURRENT_VERSION = 1;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-O3";
-				OTHER_CFLAGS = "-fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
+				OTHER_CFLAGS = "-fno-schedule-insns -fno-schedule-insns2 -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes -Wall -force_cpusubtype_ALL";
 				OTHER_LDFLAGS = "";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = libm_ppc.a;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = NO;
 				ppc = YES;
@@ -5105,7 +5384,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = m;
 			productReference = F50BFF7001A344D401CA2DA8;
-			shouldUseHeadermap = 0;
 		};
 		F50BFF7201A344D401CA2DA8 = {
 			buildActionMask = 2147483647;
@@ -5118,6 +5396,7 @@
 				F50FFDDB01C15C84014D9427,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F50BFF7301A344D401CA2DA8 = {
 			buildActionMask = 2147483647;
@@ -5165,20 +5444,24 @@
 				70CAC256022DC65F05CA29A8,
 				70CAC257022DC65F05CA29A8,
 				70CAC258022DC65F05CA29A8,
+				6EEB6D8A0472CB9500B2EFE4,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F50BFF7401A344D401CA2DA8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F50BFF7501A344D401CA2DA8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F50BFF7601A3471A01CA2DA8 = {
 			children = (
@@ -5220,6 +5503,8 @@
 				F50BFF8201A38A9C01CA2DA8,
 				F50BFF8401A38B2D01CA2DA8,
 				F50FFDC301C13C9E014D9427,
+				D2F2DF77040DD28300407873,
+				D2F2DF7C040FF71C00407873,
 			);
 			isa = PBXGroup;
 			name = PPC;
@@ -5227,6 +5512,7 @@
 			refType = 4;
 		};
 		F50BFF7701A3471A01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = float.h;
 			path = ppc.subproj/float.h;
@@ -5341,6 +5627,7 @@
 				F5BD2E2B01C6D3DF0181EC27,
 				F55B9CF701C9688B01CA2DD2,
 				701922FB01CEE4B705CA29A8,
+				7069618A0332C3A005CA29A8,
 				F55B9D0301CA92FE01CA2DD2,
 				F55B9D0501CA93B301CA2DD2,
 				F5BD2E2901C5CC6E0181EC27,
@@ -5362,12 +5649,14 @@
 			refType = 4;
 		};
 		F50BFF8001A38A0601CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fenv.c;
 			path = ppc.subproj/fenv.c;
 			refType = 4;
 		};
 		F50BFF8201A38A9C01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fenv_private.h;
 			path = ppc.subproj/fenv_private.h;
@@ -5380,6 +5669,7 @@
 			};
 		};
 		F50BFF8401A38B2D01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fp_private.h;
 			path = ppc.subproj/fp_private.h;
@@ -5392,30 +5682,35 @@
 			};
 		};
 		F50BFF8601A38F5701CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fenv.h;
 			path = ppc.subproj/fenv.h;
 			refType = 4;
 		};
 		F50E272C01D013DD0163BB86 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_scalb.c;
 			path = i386.subproj/e_scalb.c;
 			refType = 4;
 		};
 		F50E272E01D014B00163BB86 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_scalbf.c;
 			path = i386.subproj/e_scalbf.c;
 			refType = 4;
 		};
 		F50E273001D015310163BB86 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_scalbn.c;
 			path = i386.subproj/s_scalbn.c;
 			refType = 4;
 		};
 		F50E273201D015770163BB86 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_scalbnf.c;
 			path = i386.subproj/s_scalbnf.c;
@@ -5444,54 +5739,63 @@
 			refType = 4;
 		};
 		F50FFDC401C13CA5014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_cabs.c;
 			path = ppc.subproj/w_cabs.c;
 			refType = 4;
 		};
 		F50FFDC701C13D12014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_drem.c;
 			path = ppc.subproj/w_drem.c;
 			refType = 4;
 		};
 		F50FFDCA01C1435A014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = finite.c;
 			path = ppc.subproj/finite.c;
 			refType = 4;
 		};
 		F50FFDCD01C14493014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = rndtol.c;
 			path = ppc.subproj/rndtol.c;
 			refType = 4;
 		};
 		F50FFDD001C145CC014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_scalb.c;
 			path = ppc.subproj/w_scalb.c;
 			refType = 4;
 		};
 		F50FFDD301C1468F014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = significand.c;
 			path = ppc.subproj/significand.c;
 			refType = 4;
 		};
 		F50FFDD601C15532014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = libversion.c;
 			path = ppc.subproj/libversion.c;
 			refType = 4;
 		};
 		F50FFDD801C158F3014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = matherr.c;
 			path = ppc.subproj/matherr.c;
 			refType = 4;
 		};
 		F50FFDDA01C15C84014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = math_private.h;
 			path = ppc.subproj/math_private.h;
@@ -5504,18 +5808,21 @@
 			};
 		};
 		F50FFDDC01C15D19014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_j0.c;
 			path = ppc.subproj/e_j0.c;
 			refType = 4;
 		};
 		F50FFDDE01C15DA5014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_j1.c;
 			path = ppc.subproj/e_j1.c;
 			refType = 4;
 		};
 		F50FFDE001C15DEC014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_jn.c;
 			path = ppc.subproj/e_jn.c;
@@ -5547,7 +5854,6 @@
 				PRODUCT_NAME = libm_i386.a;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				i386 = YES;
 				ppc = NO;
@@ -5559,7 +5865,6 @@
 			productInstallPath = /usr/local/lib;
 			productName = libm386.a;
 			productReference = F50FFDE201C4658A014D9427;
-			shouldUseHeadermap = 0;
 		};
 		F50FFDE401C4658A014D9427 = {
 			buildActionMask = 2147483647;
@@ -5573,6 +5878,7 @@
 				F56E66F401C54B3E0122BB70,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F50FFDE501C4658A014D9427 = {
 			buildActionMask = 2147483647;
@@ -5685,20 +5991,24 @@
 				70BAF64702381E5005CA29A8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F50FFDE601C4658A014D9427 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F50FFDE701C4658A014D9427 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F50FFE0301C46D2A014D9427 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = float.h;
 			path = i386.subproj/float.h;
@@ -5711,12 +6021,14 @@
 			};
 		};
 		F51F6D2201C9594401CA2DD2 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = gamma9.c;
 			path = ppc.subproj/gamma9.c;
 			refType = 4;
 		};
 		F520045401B4265501CA2DA8 = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			name = erfcerf.c;
@@ -5726,24 +6038,28 @@
 			usesTabs = 0;
 		};
 		F520045601B42D8B01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = hypot.c;
 			path = ppc.subproj/hypot.c;
 			refType = 4;
 		};
 		F520045801B431FE01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = gamma.c;
 			path = ppc.subproj/gamma.c;
 			refType = 4;
 		};
 		F520045A01B434CA01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = lgamma.c;
 			path = ppc.subproj/lgamma.c;
 			refType = 4;
 		};
 		F520045C01B43A3701CA2DA8 = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			name = power.c;
@@ -5753,150 +6069,193 @@
 			usesTabs = 0;
 		};
 		F520045E01B441B301CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fpmacros.c;
 			path = ppc.subproj/fpmacros.c;
 			refType = 4;
 		};
 		F52211E501AC27AA01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = copysign.c;
 			path = ppc.subproj/copysign.c;
 			refType = 4;
 		};
 		F52211E701AC334701CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = nextafter.c;
 			path = ppc.subproj/nextafter.c;
 			refType = 4;
 		};
 		F52211E901AC39BD01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = remmod.c;
 			path = ppc.subproj/remmod.c;
 			refType = 4;
 		};
 		F52211EB01AC4CA501CA2DA8 = {
+			fileEncoding = 30;
+			indentWidth = 4;
 			isa = PBXFileReference;
 			name = rndint.c;
 			path = ppc.subproj/rndint.c;
 			refType = 4;
+			tabWidth = 4;
+			usesTabs = 0;
 		};
 		F52211ED01AC6BB501CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = minmaxdim.c;
 			path = ppc.subproj/minmaxdim.c;
 			refType = 4;
 		};
+		F523F5FD0341410B0150C405 = {
+			isa = PBXFrameworkReference;
+			name = CoreServices.framework;
+			path = /System/Library/Frameworks/CoreServices.framework;
+			refType = 0;
+		};
+		F523F6CE0341410C0150C405 = {
+			fileRef = F523F5FD0341410B0150C405;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		F525857E01AA2AE10100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = nan.c;
 			path = ppc.subproj/nan.c;
 			refType = 4;
 		};
 		F525858001AAFCBF0100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fabs.c;
 			path = ppc.subproj/fabs.c;
 			refType = 4;
 		};
 		F525858201AB2A4C0100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = asinacos.c;
 			path = ppc.subproj/asinacos.c;
 			refType = 4;
 		};
 		F525858401AB318C0100010C = {
+			fileEncoding = 30;
+			indentWidth = 4;
 			isa = PBXFileReference;
 			name = arctg.c;
 			path = ppc.subproj/arctg.c;
 			refType = 4;
+			tabWidth = 8;
+			usesTabs = 0;
 		};
 		F525858601AB329B0100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = atan2.c;
 			path = ppc.subproj/atan2.c;
 			refType = 4;
 		};
 		F525858801AB33C00100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = FastSinCos.c;
 			path = ppc.subproj/FastSinCos.c;
 			refType = 4;
 		};
 		F525858A01AB34A00100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = tg.c;
 			path = ppc.subproj/tg.c;
 			refType = 4;
 		};
 		F525858C01AB35F30100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ashachath.c;
 			path = ppc.subproj/ashachath.c;
 			refType = 4;
 		};
 		F525858E01AB37340100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = shchth.c;
 			path = ppc.subproj/shchth.c;
 			refType = 4;
 		};
 		F525859001AB398E0100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = tanatantable.c;
 			path = ppc.subproj/tanatantable.c;
 			refType = 4;
 		};
 		F525859201AB3CFB0100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = tableExpD.c;
 			path = ppc.subproj/tableExpD.c;
 			refType = 4;
 		};
 		F525859401AB3D9D0100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = expTable.c;
 			path = ppc.subproj/expTable.c;
 			refType = 4;
 		};
 		F525859601AB51180100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = tableLogD.c;
 			path = ppc.subproj/tableLogD.c;
 			refType = 4;
 		};
 		F525859801AB51530100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = logTable.c;
 			path = ppc.subproj/logTable.c;
 			refType = 4;
 		};
 		F525859A01AB565B0100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = frexpldexp.c;
 			path = ppc.subproj/frexpldexp.c;
 			refType = 4;
 		};
 		F525859C01AB5A6F0100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = scalb.c;
 			path = ppc.subproj/scalb.c;
 			refType = 4;
 		};
 		F525859E01AB62AF0100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = logb.c;
 			path = ppc.subproj/logb.c;
 			refType = 4;
 		};
 		F52585A001AB74420100010C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ceilfloor.c;
 			path = ppc.subproj/ceilfloor.c;
 			refType = 4;
 		};
 		F5392A6401A59F1A01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = math.h;
 			path = ppc.subproj/math.h;
@@ -5909,6 +6268,7 @@
 			};
 		};
 		F55B9CF501C965D701CA2DD2 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fenv.h;
 			path = i386.subproj/fenv.h;
@@ -5921,18 +6281,21 @@
 			};
 		};
 		F55B9CF701C9688B01CA2DD2 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = gamma9.c;
 			path = i386.subproj/gamma9.c;
 			refType = 4;
 		};
 		F55B9CF901C9799301CA2DD2 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fenv.c;
 			path = i386.subproj/fenv.c;
 			refType = 4;
 		};
 		F55B9CFD01C97C5401CA2DD2 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fp_private.h;
 			path = i386.subproj/fp_private.h;
@@ -5945,30 +6308,35 @@
 			};
 		};
 		F55B9CFF01CA8CA601CA2DD2 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = exp2.s;
 			path = i386.subproj/exp2.s;
 			refType = 4;
 		};
 		F55B9D0101CA8D9301CA2DD2 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = exp2f.s;
 			path = i386.subproj/exp2f.s;
 			refType = 4;
 		};
 		F55B9D0301CA92FE01CA2DD2 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = log2.s;
 			path = i386.subproj/log2.s;
 			refType = 4;
 		};
 		F55B9D0501CA93B301CA2DD2 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = log2f.s;
 			path = i386.subproj/log2f.s;
 			refType = 4;
 		};
 		F55D9D7201E68A3B0197218C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_exceptflags.c;
 			path = ppc.subproj/w_exceptflags.c;
@@ -5996,6 +6364,7 @@
 				F568AEC801B0C06D01CA2DA8,
 				F5BB115101F682E201F7F8FC,
 				F5BB119401F684D001F7F8FC,
+				F523F5FD0341410B0150C405,
 			);
 			isa = PBXGroup;
 			name = vectortest;
@@ -6003,6 +6372,7 @@
 			refType = 4;
 		};
 		F568AEB001B0B88501CA2DA8 = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			name = ieeetestnew.c;
@@ -6027,13 +6397,11 @@
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-O1";
 				OTHER_CFLAGS = "-Wno-long-double";
-				OTHER_LDFLAGS = "build/LibmV5.build/libmCommon_ppc.dylib.build/Objects-normal/ProjectBuilderMasterObjectFile.o";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = VectorTest;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
@@ -6043,7 +6411,6 @@
 			productInstallPath = /usr/local/bin;
 			productName = VectorTest;
 			productReference = F568AEB101B0B89E01CA2DA8;
-			shouldUseHeadermap = 0;
 		};
 		F568AEB301B0B89F01CA2DA8 = {
 			buildActionMask = 2147483647;
@@ -6052,19 +6419,18 @@
 				F568AED801B2EE8B01CA2DA8,
 				F568AED901B2EE8B01CA2DA8,
 				F568AEBE01B0BD4301CA2DA8,
-				F568AEC601B0BDE501CA2DA8,
-				F568AEC701B0BE0101CA2DA8,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F568AEB401B0B89F01CA2DA8 = {
 			buildActionMask = 2147483647;
 			files = (
 				F568AEB501B0B89F01CA2DA8,
-				F568AEBF01B0BD4301CA2DA8,
 				F568AECA01B0C0B501CA2DA8,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F568AEB501B0B89F01CA2DA8 = {
 			fileRef = F568AEB001B0B88501CA2DA8;
@@ -6075,23 +6441,29 @@
 		F568AEB601B0B89F01CA2DA8 = {
 			buildActionMask = 2147483647;
 			files = (
-				70CEE8830242E43505CA29A8,
+				D26FD7D403EB0B8900B09E3C,
+				D26FD7D503EB0B8A00B09E3C,
+				6EDE018A04705260002E3BFD,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F568AEB701B0B89F01CA2DA8 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F568AEB901B0BAD501CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = bcd.h;
 			path = noship.subproj/bcd.h;
 			refType = 4;
 		};
 		F568AEBC01B0BCA301CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = bcd.c;
 			path = noship.subproj/bcd.c;
@@ -6103,37 +6475,22 @@
 			settings = {
 			};
 		};
-		F568AEBF01B0BD4301CA2DA8 = {
-			fileRef = F568AEBC01B0BCA301CA2DA8;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F568AEC001B0BD9901CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = MyStdLib.h;
 			path = noship.subproj/MyStdLib.h;
 			refType = 4;
 		};
 		F568AEC401B0BDE501CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = MyString.h;
 			path = noship.subproj/MyString.h;
 			refType = 4;
 		};
-		F568AEC601B0BDE501CA2DA8 = {
-			fileRef = F568AEC001B0BD9901CA2DA8;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F568AEC701B0BE0101CA2DA8 = {
-			fileRef = F568AEC401B0BDE501CA2DA8;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F568AEC801B0C06D01CA2DA8 = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			name = buildnum.c;
@@ -6167,102 +6524,119 @@
 			};
 		};
 		F568AEE601B3149E01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_cbrt.c;
 			path = ppc.subproj/s_cbrt.c;
 			refType = 4;
 		};
 		F56E66E201C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = abi.h;
 			path = i386.subproj/abi.h;
 			refType = 4;
 		};
 		F56E66E301C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_acos.s;
 			path = i386.subproj/e_acos.s;
 			refType = 4;
 		};
 		F56E66E401C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_asin.s;
 			path = i386.subproj/e_asin.s;
 			refType = 4;
 		};
 		F56E66E501C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_atan2.s;
 			path = i386.subproj/e_atan2.s;
 			refType = 4;
 		};
 		F56E66E601C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_atan2f.s;
 			path = i386.subproj/e_atan2f.s;
 			refType = 4;
 		};
 		F56E66E701C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_exp.s;
 			path = i386.subproj/e_exp.s;
 			refType = 4;
 		};
 		F56E66E801C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_expf.s;
 			path = i386.subproj/e_expf.s;
 			refType = 4;
 		};
 		F56E66E901C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_fmod.s;
 			path = i386.subproj/e_fmod.s;
 			refType = 4;
 		};
 		F56E66EA01C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_log.s;
 			path = i386.subproj/e_log.s;
 			refType = 4;
 		};
 		F56E66EB01C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_log10.s;
 			path = i386.subproj/e_log10.s;
 			refType = 4;
 		};
 		F56E66EC01C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_log10f.s;
 			path = i386.subproj/e_log10f.s;
 			refType = 4;
 		};
 		F56E66ED01C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_logf.s;
 			path = i386.subproj/e_logf.s;
 			refType = 4;
 		};
 		F56E66EE01C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_remainder.s;
 			path = i386.subproj/e_remainder.s;
 			refType = 4;
 		};
 		F56E66EF01C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_remainderf.s;
 			path = i386.subproj/e_remainderf.s;
 			refType = 4;
 		};
 		F56E66F201C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_sqrt.s;
 			path = i386.subproj/e_sqrt.s;
 			refType = 4;
 		};
 		F56E66F301C54B3E0122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_sqrtf.s;
 			path = i386.subproj/e_sqrtf.s;
@@ -6275,162 +6649,189 @@
 			};
 		};
 		F56E670601C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_atan.s;
 			path = i386.subproj/s_atan.s;
 			refType = 4;
 		};
 		F56E670701C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_atanf.s;
 			path = i386.subproj/s_atanf.s;
 			refType = 4;
 		};
 		F56E670801C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_ceil.s;
 			path = i386.subproj/s_ceil.s;
 			refType = 4;
 		};
 		F56E670901C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_ceilf.s;
 			path = i386.subproj/s_ceilf.s;
 			refType = 4;
 		};
 		F56E670A01C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_copysign.s;
 			path = i386.subproj/s_copysign.s;
 			refType = 4;
 		};
 		F56E670B01C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_copysignf.s;
 			path = i386.subproj/s_copysignf.s;
 			refType = 4;
 		};
 		F56E670C01C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_cos.s;
 			path = i386.subproj/s_cos.s;
 			refType = 4;
 		};
 		F56E670D01C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_cosf.s;
 			path = i386.subproj/s_cosf.s;
 			refType = 4;
 		};
 		F56E670E01C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_finite.s;
 			path = i386.subproj/s_finite.s;
 			refType = 4;
 		};
 		F56E670F01C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_finitef.s;
 			path = i386.subproj/s_finitef.s;
 			refType = 4;
 		};
 		F56E671001C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_floor.s;
 			path = i386.subproj/s_floor.s;
 			refType = 4;
 		};
 		F56E671101C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_floorf.s;
 			path = i386.subproj/s_floorf.s;
 			refType = 4;
 		};
 		F56E671201C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_ilogb.s;
 			path = i386.subproj/s_ilogb.s;
 			refType = 4;
 		};
 		F56E671301C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_ilogbf.s;
 			path = i386.subproj/s_ilogbf.s;
 			refType = 4;
 		};
 		F56E671401C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_log1p.s;
 			path = i386.subproj/s_log1p.s;
 			refType = 4;
 		};
 		F56E671501C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_log1pf.s;
 			path = i386.subproj/s_log1pf.s;
 			refType = 4;
 		};
 		F56E671601C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_logb.s;
 			path = i386.subproj/s_logb.s;
 			refType = 4;
 		};
 		F56E671701C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_logbf.s;
 			path = i386.subproj/s_logbf.s;
 			refType = 4;
 		};
 		F56E671801C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_rint.s;
 			path = i386.subproj/s_rint.s;
 			refType = 4;
 		};
 		F56E671901C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_rintf.s;
 			path = i386.subproj/s_rintf.s;
 			refType = 4;
 		};
 		F56E671C01C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_significand.s;
 			path = i386.subproj/s_significand.s;
 			refType = 4;
 		};
 		F56E671D01C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_significandf.s;
 			path = i386.subproj/s_significandf.s;
 			refType = 4;
 		};
 		F56E671E01C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_sin.s;
 			path = i386.subproj/s_sin.s;
 			refType = 4;
 		};
 		F56E671F01C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_sinf.s;
 			path = i386.subproj/s_sinf.s;
 			refType = 4;
 		};
 		F56E672001C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_tan.s;
 			path = i386.subproj/s_tan.s;
 			refType = 4;
 		};
 		F56E672101C54B560122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_tanf.s;
 			path = i386.subproj/s_tanf.s;
 			refType = 4;
 		};
 		F56E673E01C54C670122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = math.h;
 			path = i386.subproj/math.h;
@@ -6443,6 +6844,7 @@
 			};
 		};
 		F56E674001C54CD60122BB70 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = asm.h;
 			path = i386.subproj/machine/asm.h;
@@ -6455,12 +6857,14 @@
 			};
 		};
 		F571C68B01CDAD8A01CAAF8D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = rndint.c;
 			path = i386.subproj/rndint.c;
 			refType = 4;
 		};
 		F571C68D01CE71D201CAAF8D = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = remquo.c;
 			path = i386.subproj/remquo.c;
@@ -6478,6 +6882,7 @@
 			refType = 4;
 		};
 		F5B5EBE001A9C42B01CA2DA8 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = sqrt.c;
 			path = ppc.subproj/sqrt.c;
@@ -6888,24 +7293,28 @@
 			refType = 4;
 		};
 		F5BB119401F684D001F7F8FC = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ieeetestresults;
 			path = noship.subproj/ieeetestresults;
 			refType = 4;
 		};
 		F5BD2DB701C574AC0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_acosh.c;
 			path = i386.subproj/e_acosh.c;
 			refType = 4;
 		};
 		F5BD2DB801C574AC0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_acoshf.c;
 			path = i386.subproj/e_acoshf.c;
 			refType = 4;
 		};
 		F5BD2DBB01C575AA0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = math_private.h;
 			path = i386.subproj/math_private.h;
@@ -6918,330 +7327,385 @@
 			};
 		};
 		F5BD2DBD01C576750181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_atanh.c;
 			path = i386.subproj/e_atanh.c;
 			refType = 4;
 		};
 		F5BD2DBE01C576750181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_atanhf.c;
 			path = i386.subproj/e_atanhf.c;
 			refType = 4;
 		};
 		F5BD2DC101C5779E0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_cosh.c;
 			path = i386.subproj/e_cosh.c;
 			refType = 4;
 		};
 		F5BD2DC201C5779E0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_coshf.c;
 			path = i386.subproj/e_coshf.c;
 			refType = 4;
 		};
 		F5BD2DC501C579070181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_hypot.c;
 			path = i386.subproj/e_hypot.c;
 			refType = 4;
 		};
 		F5BD2DC601C579070181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_hypotf.c;
 			path = i386.subproj/e_hypotf.c;
 			refType = 4;
 		};
 		F5BD2DC901C57A410181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_j0.c;
 			path = i386.subproj/e_j0.c;
 			refType = 4;
 		};
 		F5BD2DCA01C57A410181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_j0f.c;
 			path = i386.subproj/e_j0f.c;
 			refType = 4;
 		};
 		F5BD2DCB01C57A410181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_j1.c;
 			path = i386.subproj/e_j1.c;
 			refType = 4;
 		};
 		F5BD2DCC01C57A410181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_j1f.c;
 			path = i386.subproj/e_j1f.c;
 			refType = 4;
 		};
 		F5BD2DCD01C57A410181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_jn.c;
 			path = i386.subproj/e_jn.c;
 			refType = 4;
 		};
 		F5BD2DCE01C57A410181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_jnf.c;
 			path = i386.subproj/e_jnf.c;
 			refType = 4;
 		};
 		F5BD2DCF01C57A410181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_lgamma_r.c;
 			path = i386.subproj/e_lgamma_r.c;
 			refType = 4;
 		};
 		F5BD2DD001C57A410181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_lgammaf_r.c;
 			path = i386.subproj/e_lgammaf_r.c;
 			refType = 4;
 		};
 		F5BD2DD901C57EE20181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_pow.c;
 			path = i386.subproj/e_pow.c;
 			refType = 4;
 		};
 		F5BD2DDA01C57EE20181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_powf.c;
 			path = i386.subproj/e_powf.c;
 			refType = 4;
 		};
 		F5BD2DDD01C57FD40181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_sinh.c;
 			path = i386.subproj/e_sinh.c;
 			refType = 4;
 		};
 		F5BD2DDE01C57FD40181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = e_sinhf.c;
 			path = i386.subproj/e_sinhf.c;
 			refType = 4;
 		};
 		F5BD2DE101C580570181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_asinh.c;
 			path = i386.subproj/s_asinh.c;
 			refType = 4;
 		};
 		F5BD2DE201C580570181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_asinhf.c;
 			path = i386.subproj/s_asinhf.c;
 			refType = 4;
 		};
 		F5BD2DE501C5812B0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_cbrt.c;
 			path = i386.subproj/s_cbrt.c;
 			refType = 4;
 		};
 		F5BD2DE601C5812B0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_cbrtf.c;
 			path = i386.subproj/s_cbrtf.c;
 			refType = 4;
 		};
 		F5BD2DE901C581C50181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_erf.c;
 			path = i386.subproj/s_erf.c;
 			refType = 4;
 		};
 		F5BD2DEA01C581C50181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_erff.c;
 			path = i386.subproj/s_erff.c;
 			refType = 4;
 		};
 		F5BD2DED01C582710181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_expm1.c;
 			path = i386.subproj/s_expm1.c;
 			refType = 4;
 		};
 		F5BD2DEE01C582710181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_expm1f.c;
 			path = i386.subproj/s_expm1f.c;
 			refType = 4;
 		};
 		F5BD2DF101C582F70181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_fabs.c;
 			path = i386.subproj/s_fabs.c;
 			refType = 4;
 		};
 		F5BD2DF301C583250181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_fabsf.c;
 			path = i386.subproj/s_fabsf.c;
 			refType = 4;
 		};
 		F5BD2DF501C583910181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_frexp.c;
 			path = i386.subproj/s_frexp.c;
 			refType = 4;
 		};
 		F5BD2DF601C583910181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_frexpf.c;
 			path = i386.subproj/s_frexpf.c;
 			refType = 4;
 		};
 		F5BD2DF901C5840A0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_infinity.c;
 			path = i386.subproj/s_infinity.c;
 			refType = 4;
 		};
 		F5BD2DFB01C588EF0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_tanh.c;
 			path = i386.subproj/s_tanh.c;
 			refType = 4;
 		};
 		F5BD2DFC01C588EF0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_tanhf.c;
 			path = i386.subproj/s_tanhf.c;
 			refType = 4;
 		};
 		F5BD2DFF01C589570181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_ldexp.c;
 			path = i386.subproj/s_ldexp.c;
 			refType = 4;
 		};
 		F5BD2E0101C5897F0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_ldexpf.c;
 			path = i386.subproj/s_ldexpf.c;
 			refType = 4;
 		};
 		F5BD2E0301C589FC0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_modf.c;
 			path = i386.subproj/s_modf.c;
 			refType = 4;
 		};
 		F5BD2E0401C589FC0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_modff.c;
 			path = i386.subproj/s_modff.c;
 			refType = 4;
 		};
 		F5BD2E0701C58AE50181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_lgamma.c;
 			path = i386.subproj/w_lgamma.c;
 			refType = 4;
 		};
 		F5BD2E0801C58AE50181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_lgammaf.c;
 			path = i386.subproj/w_lgammaf.c;
 			refType = 4;
 		};
 		F5BD2E0D01C58E0E0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_lib_version.c;
 			path = i386.subproj/s_lib_version.c;
 			refType = 4;
 		};
 		F5BD2E0F01C58F310181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_matherr.c;
 			path = i386.subproj/s_matherr.c;
 			refType = 4;
 		};
 		F5BD2E1101C58FDE0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_nextafter.c;
 			path = i386.subproj/s_nextafter.c;
 			refType = 4;
 		};
 		F5BD2E1201C58FDE0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = s_nextafterf.c;
 			path = i386.subproj/s_nextafterf.c;
 			refType = 4;
 		};
 		F5BD2E1501C590510181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_cabs.c;
 			path = i386.subproj/w_cabs.c;
 			refType = 4;
 		};
 		F5BD2E1601C590510181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_cabsf.c;
 			path = i386.subproj/w_cabsf.c;
 			refType = 4;
 		};
 		F5BD2E1901C5A2B20181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_drem.c;
 			path = i386.subproj/w_drem.c;
 			refType = 4;
 		};
 		F5BD2E1A01C5A2B20181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_dremf.c;
 			path = i386.subproj/w_dremf.c;
 			refType = 4;
 		};
 		F5BD2E1D01C5A3B80181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = rndtol.c;
 			path = i386.subproj/rndtol.c;
 			refType = 4;
 		};
 		F5BD2E1F01C5A5460181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = scalbln.c;
 			path = i386.subproj/scalbln.c;
 			refType = 4;
 		};
 		F5BD2E2101C5A73A0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = minmaxdim.c;
 			path = i386.subproj/minmaxdim.c;
 			refType = 4;
 		};
 		F5BD2E2301C5A9F40181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = nan.c;
 			path = i386.subproj/nan.c;
 			refType = 4;
 		};
 		F5BD2E2901C5CC6E0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = lrint.c;
 			path = i386.subproj/lrint.c;
 			refType = 4;
 		};
 		F5BD2E2B01C6D3DF0181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = gamma.c;
 			path = i386.subproj/gamma.c;
 			refType = 4;
 		};
 		F5BD2E2D01C6D6D30181EC27 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = fpmacros.c;
 			path = i386.subproj/fpmacros.c;
 			refType = 4;
 		};
 		F5FB41BE01E6B3C80153140E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = w_exceptflags.c;
 			path = i386.subproj/w_exceptflags.c;

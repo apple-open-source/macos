@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -31,14 +32,18 @@
 	Copyright:	© 1997-1999 by Apple Computer, Inc., all rights reserved.
 */
 
+#include <sys/ioctl.h>
+#include <sys/disk.h>
+
 #include "BTree.h"
 #include "BTreePrivate.h"
 
 #include "Scavenger.h"
 
+
 //	Prototypes for internal subroutines
 static int BTKeyChk( SGlobPtr GPtr, NodeDescPtr nodeP, BTreeControlBlock *btcb );
-		
+	
 
 /*------------------------------------------------------------------------------
 
@@ -56,6 +61,7 @@ Output:		ChkExtRec	-	function result:
 OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents )
 {
 	short		i;
+	Boolean		isHFSPlus;
 	UInt32		numABlks;
 	UInt32		maxNABlks;
 	UInt32		extentBlockCount;
@@ -63,10 +69,11 @@ OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents )
 
 	maxNABlks = GPtr->calculatedVCB->vcbTotalBlocks;
 	numABlks = 1;
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 
 	for ( i=0 ; i<GPtr->numExtents ; i++ )
 	{
-		if ( GPtr->isHFSPlus )
+		if ( isHFSPlus )
 		{
 			extentBlockCount = ((HFSPlusExtentDescriptor *)extents)[i].blockCount;
 			extentStartBlock = ((HFSPlusExtentDescriptor *)extents)[i].startBlock;
@@ -644,20 +651,46 @@ OSErr	CmpBTH( SGlobPtr GPtr, SInt16 fileRefNum )
 		sprintf(goodStr, "%ld", (long)calculatedBTCB->leafRecords);
 		sprintf(badStr, "%ld", (long)bTreeHeader.leafRecords);
 		PrintError(GPtr, E_BadValue, 2, goodStr, badStr);
-	} else if (
-	    (calculatedBTCB->treeDepth	   != bTreeHeader.treeDepth)	 ||
-	    (calculatedBTCB->rootNode	   != bTreeHeader.rootNode)	 ||
-	    (calculatedBTCB->firstLeafNode != bTreeHeader.firstLeafNode) ||
-	    (calculatedBTCB->lastLeafNode  != bTreeHeader.lastLeafNode)  ||
-	    (calculatedBTCB->nodeSize	   != bTreeHeader.nodeSize)	 ||
-	    (calculatedBTCB->maxKeyLength  != bTreeHeader.maxKeyLength)  ||
-	    (calculatedBTCB->totalNodes    != bTreeHeader.totalNodes)	 ||
-	    (calculatedBTCB->freeNodes	   != bTreeHeader.freeNodes) ) {
+        return( noErr );
+	} 
+    
+	if ( calculatedBTCB->treeDepth != bTreeHeader.treeDepth ) {
+        if ( GPtr->logLevel >= kDebugLog ) 
+            printf("\tinvalid tree depth - calculated %d header %d \n", 
+                    calculatedBTCB->treeDepth, bTreeHeader.treeDepth);
+    } else if ( calculatedBTCB->rootNode != bTreeHeader.rootNode ) {
+        if ( GPtr->logLevel >= kDebugLog ) 
+            printf("\tinvalid root node - calculated %d header %d \n", 
+                    calculatedBTCB->rootNode, bTreeHeader.rootNode);
+    } else if ( calculatedBTCB->firstLeafNode != bTreeHeader.firstLeafNode ) {
+        if ( GPtr->logLevel >= kDebugLog ) 
+            printf("\tinvalid first leaf node - calculated %d header %d \n", 
+                    calculatedBTCB->firstLeafNode, bTreeHeader.firstLeafNode);
+    } else if ( calculatedBTCB->lastLeafNode != bTreeHeader.lastLeafNode ) {
+        if ( GPtr->logLevel >= kDebugLog ) 
+            printf("\tinvalid last leaf node - calculated %d header %d \n", 
+                    calculatedBTCB->lastLeafNode, bTreeHeader.lastLeafNode);
+    } else if ( calculatedBTCB->nodeSize != bTreeHeader.nodeSize ) {
+        if ( GPtr->logLevel >= kDebugLog ) 
+            printf("\tinvalid node size - calculated %d header %d \n", 
+                    calculatedBTCB->nodeSize, bTreeHeader.nodeSize);
+    } else if ( calculatedBTCB->maxKeyLength != bTreeHeader.maxKeyLength ) {
+        if ( GPtr->logLevel >= kDebugLog ) 
+            printf("\tinvalid max key length - calculated %d header %d \n", 
+                    calculatedBTCB->maxKeyLength, bTreeHeader.maxKeyLength);
+    } else if ( calculatedBTCB->totalNodes != bTreeHeader.totalNodes ) {
+        if ( GPtr->logLevel >= kDebugLog ) 
+            printf("\tinvalid total nodes - calculated %d header %d \n", 
+                    calculatedBTCB->totalNodes, bTreeHeader.totalNodes);
+    } else if ( calculatedBTCB->freeNodes != bTreeHeader.freeNodes ) {
+        if ( GPtr->logLevel >= kDebugLog ) 
+            printf("\tinvalid free nodes - calculated %d header %d \n", 
+                    calculatedBTCB->freeNodes, bTreeHeader.freeNodes);
+	} else
+        return( noErr );
 
-		*statP = *statP | S_BTH;
-		PrintError(GPtr, E_InvalidBTreeHeader, 0);
-	}
-	
+    *statP = *statP | S_BTH;
+    PrintError(GPtr, E_InvalidBTreeHeader, 0);
 	return( noErr );
 }
 
@@ -759,8 +792,8 @@ int CmpBTM( SGlobPtr GPtr, short fileRefNum )
 		if ( result != noErr )
 		{ 	
 			*statP = *statP | S_BTM;	/* didn't match, mark it damaged */
-                        RcdError(GPtr, E_BadMapN);
-                        result = 0;			/* mismatch isn't fatal; let us continue */
+			RcdError(GPtr, E_BadMapN);
+			result = 0;			/* mismatch isn't fatal; let us continue */
 			goto exit;
 		}
 	
@@ -937,44 +970,101 @@ int CmpMDB( SGlobPtr GPtr,  HFSMasterDirectoryBlock * mdbP)
 	/* 
 	 * compare VCB info with MDB
 	 */
-	if ( mdbP->drSigWord	!= vcb->vcbSignature )		goto MDBDamaged;
-	if ( mdbP->drCrDate	!= vcb->vcbCreateDate )		goto MDBDamaged;
-	if ( mdbP->drLsMod	!= vcb->vcbModifyDate )		goto MDBDamaged;
-	if ( mdbP->drAtrb	!= (UInt16)vcb->vcbAttributes )	goto MDBDamaged;
-	if ( mdbP->drVBMSt	!= vcb->vcbVBMSt )			goto MDBDamaged;
-	if ( mdbP->drNmAlBlks	!= vcb->vcbTotalBlocks )		goto MDBDamaged;
-	if ( mdbP->drClpSiz	!= vcb->vcbDataClumpSize )		goto MDBDamaged;
-	if ( mdbP->drAlBlSt	!= vcb->vcbAlBlSt )			goto MDBDamaged;
-	if ( mdbP->drNxtCNID	!= vcb->vcbNextCatalogID )		goto MDBDamaged;
-	if ( CmpBlock( mdbP->drVN, vcb->vcbVN, mdbP->drVN[0]+1 ) )	goto MDBDamaged;
-	goto ContinueChecking;
-
-MDBDamaged:
-	{
-		GPtr->VIStat = GPtr->VIStat | S_MDB;
-		WriteError ( GPtr, E_MDBDamaged, 1, 0 );
-		return( noErr );
-	}
-	
-ContinueChecking:
-	if ((mdbP->drVolBkUp	!= vcb->vcbBackupDate)		||
-	    (mdbP->drVSeqNum	!= vcb->vcbVSeqNum)			||
-	    (mdbP->drWrCnt	!= vcb->vcbWriteCount)		||
-	    (mdbP->drXTClpSiz	!= vcb->vcbExtentsFile->fcbClumpSize)	||
-	    (mdbP->drCTClpSiz	!= vcb->vcbCatalogFile->fcbClumpSize)	||
-	    (mdbP->drNmRtDirs	!= vcb->vcbNmRtDirs)			||
-	    (mdbP->drFilCnt	!= vcb->vcbFileCount)			||
-	    (mdbP->drDirCnt	!= vcb->vcbFolderCount)		||
-	    (CmpBlock(mdbP->drFndrInfo, vcb->vcbFinderInfo, 32 ))	//||
-	//  (mdbP->drEmbedSigWord		!= vcb->vcbEmbedSigWord)		||
-	//  (mdbP->drEmbedExtent.startBlock	!= vcb->vcbEmbedExtent.startBlock)	||
-	//  (mdbP->drEmbedExtent.blockCount	!= vcb->vcbEmbedExtent.blockCount)
-	   )
-	{ 
-		GPtr->VIStat = GPtr->VIStat | S_MDB;
-		WriteError ( GPtr, E_MDBDamaged, 2, 0 );
-		return( noErr );
-	}
+	if ( mdbP->drSigWord	!= vcb->vcbSignature ) {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drSigWord \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drCrDate	!= vcb->vcbCreateDate )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drCrDate \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drLsMod	!= vcb->vcbModifyDate )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drLsMod \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drAtrb	!= (UInt16)vcb->vcbAttributes )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drAtrb \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drVBMSt	!= vcb->vcbVBMSt )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drVBMSt \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drNmAlBlks	!= vcb->vcbTotalBlocks ) {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drNmAlBlks \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drClpSiz	!= vcb->vcbDataClumpSize )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drClpSiz \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drAlBlSt	!= vcb->vcbAlBlSt )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drAlBlSt \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drNxtCNID	!= vcb->vcbNextCatalogID )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drNxtCNID \n" );
+		goto MDBDamaged;
+	}	
+	if ( CmpBlock( mdbP->drVN, vcb->vcbVN, mdbP->drVN[0]+1 ) )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drVN \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drVolBkUp	!= vcb->vcbBackupDate )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drVolBkUp \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drVSeqNum	!= vcb->vcbVSeqNum )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drVSeqNum \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drWrCnt	!= vcb->vcbWriteCount )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drWrCnt \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drXTClpSiz	!= vcb->vcbExtentsFile->fcbClumpSize )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drXTClpSiz \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drCTClpSiz	!= vcb->vcbCatalogFile->fcbClumpSize )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drCTClpSiz \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drNmRtDirs	!= vcb->vcbNmRtDirs )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drNmRtDirs \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drFilCnt	!= vcb->vcbFileCount )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drFilCnt \n" );
+		goto MDBDamaged;
+	}	
+	if ( mdbP->drDirCnt	!= vcb->vcbFolderCount )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drDirCnt \n" );
+		goto MDBDamaged;
+	}	
+	if ( CmpBlock(mdbP->drFndrInfo, vcb->vcbFinderInfo, 32 ) )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid MDB drFndrInfo \n" );
+		goto MDBDamaged;
+	}	
 
 	/* 
 	 * compare extent file allocation info with MDB
@@ -1019,6 +1109,12 @@ ContinueChecking:
 	}
 	
 	return( noErr );
+	
+MDBDamaged:
+	GPtr->VIStat = GPtr->VIStat | S_MDB;
+	WriteError ( GPtr, E_MDBDamaged, 1, 0 );
+	return( noErr );
+	
 } /* end CmpMDB */
 
 
@@ -1037,14 +1133,15 @@ Output:		CmpMDB			- 	function result:
 			GPtr->VIStat	-	S_MDB flag set in VIStat if MDB is damaged.
 ------------------------------------------------------------------------------*/
 
-OSErr CompareVolumeHeader( SGlobPtr GPtr, HFSPlusVolumeHeader *volumeHeader)
+OSErr CompareVolumeHeader( SGlobPtr GPtr, HFSPlusVolumeHeader *volumeHeader )
 {
-	SInt16					i;
-	SVCB				*vcb;
-	SFCB						*fcbP;
-	UInt32					hfsPlusIOPosOffset;
-	UInt32 goodValue, badValue;
-	short errID;
+	SInt16			i;
+	SVCB			*vcb;
+	SFCB			*fcbP;
+	UInt32			hfsPlusIOPosOffset;
+	UInt32 			goodValue, badValue;
+	int				isWriteable;
+	short 			errID;
 
 	vcb = GPtr->calculatedVCB;
 	GPtr->TarID = MDB_FNum;
@@ -1053,12 +1150,20 @@ OSErr CompareVolumeHeader( SGlobPtr GPtr, HFSPlusVolumeHeader *volumeHeader)
 
 	errID = 0;
 	goodValue = badValue = 0;
-	if (volumeHeader->fileCount != vcb->vcbFileCount) {
+	
+	// CatHChk will flag valence errors and display the good and bad values for
+	// our file and folder counts.  It will set S_Valence in CatStat when this
+	// problem is detected.  We do NOT want to flag the error here in that case
+	// since the volume header counts cannot be trusted and it will lead to 
+	// confusing messages.
+	if ( volumeHeader->fileCount != vcb->vcbFileCount && 
+		 (GPtr->CatStat & S_Valence) == 0 ) {
 		errID = E_FilCnt;
 		goodValue = vcb->vcbFileCount;
 		badValue = volumeHeader->fileCount;
 	}
-	if (volumeHeader->folderCount != vcb->vcbFolderCount) {
+	if ( volumeHeader->folderCount != vcb->vcbFolderCount && 
+		 (GPtr->CatStat & S_Valence) == 0 ) {
 		errID = E_DirCnt;
 		goodValue = vcb->vcbFolderCount;
 		badValue = volumeHeader->folderCount;
@@ -1067,6 +1172,20 @@ OSErr CompareVolumeHeader( SGlobPtr GPtr, HFSPlusVolumeHeader *volumeHeader)
 		errID = E_FreeBlocks;
 		goodValue = vcb->vcbFreeBlocks;
 		badValue = volumeHeader->freeBlocks;
+	}
+	
+	/* 
+	 * some Finder burned CDs will have very small clump sizes, but since 
+	 * clump size for read-only media is irrelevant we skip the clump size 
+	 * check to avoid non useful warnings. 
+	 */
+	isWriteable = 0;
+	ioctl( GPtr->DrvNum, DKIOCISWRITABLE, &isWriteable );
+	if ( isWriteable != 0 && 
+		 volumeHeader->catalogFile.clumpSize != vcb->vcbCatalogFile->fcbClumpSize ) {
+		errID = E_InvalidClumpSize;
+		goodValue = vcb->vcbCatalogFile->fcbClumpSize;
+		badValue = volumeHeader->catalogFile.clumpSize;
 	}
 
 	if (errID) {
@@ -1079,35 +1198,105 @@ OSErr CompareVolumeHeader( SGlobPtr GPtr, HFSPlusVolumeHeader *volumeHeader)
 		goto VolumeHeaderDamaged;
 	}
 
-	if ( kHFSPlusSigWord				!= vcb->vcbSignature )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->encodingsBitmap		!= vcb->vcbEncodingsBitmap )	goto VolumeHeaderDamaged;
-	if ( (UInt16) (hfsPlusIOPosOffset/512)		!= vcb->vcbAlBlSt )		goto VolumeHeaderDamaged;
-	if ( volumeHeader->createDate			!= vcb->vcbCreateDate )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->modifyDate			!= vcb->vcbModifyDate )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->backupDate			!= vcb->vcbBackupDate )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->checkedDate			!= vcb->vcbCheckedDate )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->rsrcClumpSize		!= vcb->vcbRsrcClumpSize )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->dataClumpSize		!= vcb->vcbDataClumpSize )	goto VolumeHeaderDamaged;
+	if ( volumeHeader->signature != kHFSPlusSigWord ) {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB signature \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->encodingsBitmap		!= vcb->vcbEncodingsBitmap )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB encodingsBitmap \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( (UInt16) (hfsPlusIOPosOffset/512)		!= vcb->vcbAlBlSt ) {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB AlBlSt \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->createDate			!= vcb->vcbCreateDate )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB createDate \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->modifyDate			!= vcb->vcbModifyDate )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB modifyDate \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->backupDate			!= vcb->vcbBackupDate )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB backupDate \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->checkedDate			!= vcb->vcbCheckedDate ) {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB checkedDate \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->rsrcClumpSize		!= vcb->vcbRsrcClumpSize ) {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB rsrcClumpSize \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->dataClumpSize		!= vcb->vcbDataClumpSize ) {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB dataClumpSize \n" );
+		goto VolumeHeaderDamaged;
+	}
 	if ( volumeHeader->nextCatalogID		!= vcb->vcbNextCatalogID &&
-	     (volumeHeader->attributes & kHFSCatalogNodeIDsReused) == 0)  goto VolumeHeaderDamaged;
-	if ( volumeHeader->writeCount			!= vcb->vcbWriteCount )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->nextAllocation		!= vcb->vcbNextAllocation )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->totalBlocks			!= vcb->vcbTotalBlocks )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->blockSize			!= vcb->vcbBlockSize )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->attributes			!= vcb->vcbAttributes )	goto VolumeHeaderDamaged;
-
-	if ( volumeHeader->extentsFile.clumpSize	!= vcb->vcbExtentsFile->fcbClumpSize )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->catalogFile.clumpSize	!= vcb->vcbCatalogFile->fcbClumpSize )	goto VolumeHeaderDamaged;
-	if ( volumeHeader->allocationFile.clumpSize	!= vcb->vcbAllocationFile->fcbClumpSize )	goto VolumeHeaderDamaged;
-
-	if ( CmpBlock( volumeHeader->finderInfo, vcb->vcbFinderInfo, sizeof(vcb->vcbFinderInfo) ) )	goto VolumeHeaderDamaged;
+	     (volumeHeader->attributes & kHFSCatalogNodeIDsReused) == 0)  {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB nextCatalogID \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->writeCount			!= vcb->vcbWriteCount )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB writeCount \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->nextAllocation		!= vcb->vcbNextAllocation )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB nextAllocation \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->totalBlocks			!= vcb->vcbTotalBlocks ) {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB totalBlocks \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->blockSize			!= vcb->vcbBlockSize )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB blockSize \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->attributes			!= vcb->vcbAttributes )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB attributes \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->extentsFile.clumpSize	!= vcb->vcbExtentsFile->fcbClumpSize ) {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB extentsFile.clumpSize \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( volumeHeader->allocationFile.clumpSize	!= vcb->vcbAllocationFile->fcbClumpSize ) {
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB allocationFile.clumpSize \n" );
+		goto VolumeHeaderDamaged;
+	}
+	if ( CmpBlock( volumeHeader->finderInfo, vcb->vcbFinderInfo, sizeof(vcb->vcbFinderInfo) ) )	{
+		if ( GPtr->logLevel >= kDebugLog ) 
+			printf( "\tinvalid VHB finderInfo \n" );
+		goto VolumeHeaderDamaged;
+	}
+	
 	goto ContinueChecking;
 	
 		
 VolumeHeaderDamaged:
 		GPtr->VIStat = GPtr->VIStat | S_MDB;
 		if (errID == 0)
-			WriteError ( GPtr, E_VolumeHeaderDamaged, 1, 0 );
+			WriteError ( GPtr, E_VolumeHeaderDamaged, 2, 0 );
 		return( noErr );
 
 ContinueChecking:
@@ -1178,3 +1367,4 @@ ContinueChecking:
 
 	return( noErr );
 }
+

@@ -96,11 +96,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.4</string>
+	<string>1.5.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.4</string>
+	<string>1.5.5</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -120,7 +120,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		004E44F201B5901100DD2B59 = {
 			buildActionMask = 2147483647;
@@ -360,6 +359,7 @@
 				35CE43FCFFA5082F11DD2B59,
 				35CE43FDFFA5082F11DD2B59,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 0C49BDE7FEA7C34911DD2B58;
 			productRefGroup = 6947FB4002383C900ADD2B8D;

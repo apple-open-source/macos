@@ -193,8 +193,8 @@ double tgamma ( double x )
 	                denominator, ysquared, sum; 
       hexdouble OldEnvironment;
     
-      fegetenvd( OldEnvironment.d );               // save environment, set default
-      fesetenvd( 0.0 );
+      FEGETENVD( OldEnvironment.d );               // save environment, set default
+      FESETENVD( 0.0 );
 	
 /*******************************************************************************
 *     The next switch will decipher what sort of argument we have. If argument *
@@ -205,12 +205,12 @@ double tgamma ( double x )
             {
             case FP_NAN:
                   x *= 2.0;                  /* quiets NaN */
-                  fesetenvd( OldEnvironment.d ); //   restore caller's environment
+                  FESETENVD( OldEnvironment.d ); //   restore caller's environment
                   return x;
                   
             case FP_ZERO:
                   OldEnvironment.i.lo |= FE_DIVBYZERO;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return copysign( Huge.d, x);
 
              case FP_INFINITE:
@@ -222,7 +222,7 @@ double tgamma ( double x )
                         OldEnvironment.i.lo |= SET_INVALID;
                         }
 
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return x;
                   
             default:                  /*      NORMALNUM and DENORMALNUM      */
@@ -252,7 +252,7 @@ double tgamma ( double x )
             else
                   {
                   OldEnvironment.i.lo |= SET_INVALID;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return nan ( GAMMA_NAN );
                   }
             }
@@ -268,7 +268,7 @@ double tgamma ( double x )
             else                          /* othewise, x is in [0,MinimumX).  */
                   {
                   OldEnvironment.i.lo |= FE_OVERFLOW;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return Huge.d;
                   }
             }
@@ -320,13 +320,13 @@ double tgamma ( double x )
             else
                   {
                   OldEnvironment.i.lo |= FE_OVERFLOW;
-                  fesetenvd( OldEnvironment.d );         //   restore caller's environment
+                  FESETENVD( OldEnvironment.d );         //   restore caller's environment
                   return Huge.d;
                   }
             }
       if ( parity ) result = - result;
       if ( fact != 1.0 ) result = fact / result;
-      fesetenvd( OldEnvironment.d );         //   restore caller's environment
+      FESETENVD( OldEnvironment.d );         //   restore caller's environment
       return result;
       }
       

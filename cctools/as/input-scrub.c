@@ -94,9 +94,12 @@ int doing_include = FALSE; /* TRUE when we are processing a .include */
 
 char *physical_input_file = NULL;
 char *logical_input_file = NULL;
+char *layout_file = NULL;
+char *input_dir = NULL;
 
 line_numberT physical_input_line = 0;
 line_numberT logical_input_line = 0;
+line_numberT layout_line = 0;
 
 
 void
@@ -135,10 +138,40 @@ char *filename)
   physical_input_file = filename[0] ? filename : "{standard input}";
   physical_input_line = 0;
 
+  if (filename[0])
+    {
+      char *p;
+      int len;
+
+      p = strrchr(filename, '/');
+      if (p != NULL && p[1] != '\0')
+	{
+	  len = p - filename + 1;
+	  input_dir = xmalloc(len + 1);
+	  strncpy(input_dir, filename, len);
+	}
+    }
+
   partial_size = 0;
   return (buffer_start + BEFORE_SIZE);
 }
 
+/*
+ * input_scrub_next_buffer()
+ *
+ * The input parameter **bufp is used to return the address of a new or the
+ * previous buffer containing the characters to parse.
+ *
+ * This uses the static variables declared in this file (previouly set up by
+ * input_scrub_begin() and previous calls to itself).  The buffer is created
+ * with twice the buffer_length plus the "BEFORE" and "AFTER" bytes.
+ * So there maybe some characters from a partial line following the last
+ * newline in the buffer.
+ *
+ * It returns a pointer into the buffer as the buffer_limit to the last
+ * character of the last line in the buffer (before the last newline, where the
+ * parsing stops).
+ */
 char *
 input_scrub_next_buffer(
 char **bufp)
@@ -150,6 +183,7 @@ char **bufp)
       memcpy(buffer_start + BEFORE_SIZE, partial_where, (int)partial_size);
       memcpy(buffer_start + BEFORE_SIZE, save_source, (int)AFTER_SIZE);
     }
+get_more:
   limit = input_file_give_next_buffer (buffer_start + BEFORE_SIZE + partial_size);
   if (limit)
     {
@@ -161,7 +195,16 @@ char **bufp)
       ++ p;
       if (p <= buffer_start + BEFORE_SIZE)
 	{
-	  as_fatal ("Source line too long. Please change file %s then rebuild assembler.", __FILE__);
+	  int new;
+	
+	  new = limit - (buffer_start + BEFORE_SIZE + partial_size);
+	  partial_size += new;
+  	  buffer_length = buffer_length * 2;
+  	  buffer_start = xrealloc (buffer_start,
+				   (long)(BEFORE_SIZE + buffer_length +
+					  buffer_length + AFTER_SIZE));
+	  *bufp = buffer_start + BEFORE_SIZE;
+	  goto get_more;
 	}
       partial_where = p;
       partial_size = limit - p;
@@ -251,11 +294,33 @@ void)
 	{
 	p = logical_input_file ? logical_input_file : physical_input_file;
 	line = logical_input_line ? logical_input_line : physical_input_line;
-	fprintf (stderr,"%s:unknown:", p);
+	if(layout_line != 0)
+	    fprintf (stderr,"%s:%u:", layout_file, layout_line);
+	else
+	    fprintf (stderr,"%s:unknown:", p);
 	}
     }
   else
     {
+    }
+}
+
+void
+as_file_and_line(
+char **file_ret,
+unsigned int *line_ret)
+{
+  *file_ret = NULL;
+  *line_ret = 0;
+  if (physical_input_file)
+    {				/* we tried to read SOME source */
+      *file_ret = logical_input_file ? 
+		  logical_input_file : physical_input_file;
+      if (input_file_is_open())
+	{			/* we can still read lines from source */
+	   *line_ret = logical_input_line ?
+		       logical_input_line : physical_input_line;
+	}
     }
 }
 
@@ -345,6 +410,7 @@ char *no_path_name)
   char	 	      			* last_physical_input_file;
   line_numberT				  last_physical_input_line;
   char	 				  last_save_source [AFTER_SIZE];
+  int					  last_buffer_length;
 #if 0
   char					* last_save_buffer;
 #endif
@@ -360,6 +426,18 @@ char *no_path_name)
   if (access(whole_file_name, R_OK))
     {
       whole_file_name = name_buffer;
+      if (no_path_name[0] != '/' && input_dir != NULL)
+	{
+	  if (strlen (input_dir) + strlen (no_path_name) >= MAXPATHLEN)
+	    as_warn ("include file name too long: \"%s%s\"", input_dir, no_path_name);
+	  else
+	    {
+	      strcpy (whole_file_name, input_dir);
+	      strcat (whole_file_name, no_path_name);
+	      if (!access(whole_file_name, R_OK))
+	        goto found;
+	    }
+        }
       the_path_pointer = include;
       while (the_path_pointer)
         {
@@ -412,6 +490,7 @@ found:
   last_physical_input_file = physical_input_file;
   last_physical_input_line = physical_input_line;
   memcpy(last_save_source, save_source, sizeof (save_source));
+  last_buffer_length = buffer_length;
   save_scrub_context (&scrub_context);
  /*
   * set up for another file
@@ -440,6 +519,7 @@ found:
   physical_input_file = last_physical_input_file;
   physical_input_line = last_physical_input_line;
   memcpy(save_source, last_save_source, sizeof (save_source));
+  buffer_length = last_buffer_length;
   restore_scrub_context (&scrub_context);
 } /* read_an_include_file */
 #endif /* NeXT_MOD .include feature */

@@ -39,7 +39,7 @@
 *                        signaling nans.  sane rom code behaves the same.      *
 *     September 24 1992: took the “#include support.h” out.                    *
 *     Dcember   02 1992: PowerPC port.                                         *
-*     July      20 1994: __fabs added                                          *
+*     July      20 1994: __FABS added                                          *
 *     July      21 1994: deleted unnecessary functions: neg, COPYSIGNnew,      *
 *                        and SIGNNUMnew.                                       *
 *     April     11 2001: first port to os x using gcc.                         *
@@ -80,7 +80,7 @@
 *      recommendation of the IEEE-754 floating-point standard,  which is the   *
 *      opposite from SANE's copysign function.                                 *
 *******************************************************************************/
-
+#ifdef notdef
 double copysign ( double x, double y )
 {
       hexdouble hx, hy;
@@ -114,6 +114,61 @@ float copysignf ( float x, float y )
       
       return hx.fval;
 }
+#else
+double copysign ( double x, double y )
+{
+      hexdouble hx, hy;
+      register unsigned long GPR_7f, GPR_80, GPR_x, GPR_y;
+      register double result;
+
+/*******************************************************************************
+*     No need to flush NaNs out.                                               *
+*******************************************************************************/
+      
+      hx.d = x;					hy.d = y;
+      GPR_7f = 0x7fffffff;			GPR_80 = 0x80000000;
+      __ORI_NOOP; // gaurantees next instruction is in different issue group, so allows store-fwd.
+
+      GPR_x = hx.i.hi;
+      GPR_x &= GPR_7f;
+      GPR_y = hy.i.hi;
+      GPR_x |= GPR_y & GPR_80;
+      hx.i.hi = GPR_x;
+      __ORI_NOOP;
+      __ORI_NOOP;
+      __ORI_NOOP;
+      
+      result = hx.d;
+      return result;
+}
+
+float copysignf ( float x, float y )
+{
+      hexsingle hx, hy;
+      register unsigned long GPR_7f, GPR_80, GPR_x, GPR_y;
+      register float result;
+
+/*******************************************************************************
+*     No need to flush NaNs out.                                               *
+*******************************************************************************/
+      
+      hx.fval = x;				hy.fval = y;
+      GPR_7f = 0x7fffffff;			GPR_80 = 0x80000000;
+      __ORI_NOOP; // gaurantees next instruction is in different issue group, so allows store-fwd.
+      
+      GPR_x = hx.lval;
+      GPR_x &= GPR_7f;
+      GPR_y = hy.lval;
+      GPR_x |= GPR_y & GPR_80;
+      hx.lval = GPR_x;
+      __ORI_NOOP;
+      __ORI_NOOP;
+      __ORI_NOOP;
+      
+      result = hx.fval;
+      return result;
+}
+#endif
 
     
 #else       /* __APPLE_CC__ version */

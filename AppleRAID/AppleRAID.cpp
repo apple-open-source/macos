@@ -2,21 +2,24 @@
  * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -46,7 +49,7 @@ void AppleRAID::free(void)
     
     if (arLogicalSliceNumbers != 0) IODelete(arLogicalSliceNumbers, UInt32, arSliceCount);
     if (arSliceMediaStates != 0) IODelete(arSliceMediaStates, UInt32, arSliceCount); 
-    if (arSliceRequestTermiates != 0) IODelete(arSliceRequestTermiates, bool, arSliceCount);
+    if (arSliceRequestTerminates != 0) IODelete(arSliceRequestTerminates, bool, arSliceCount);
     if (arSliceMediaErrors != 0) IODelete(arSliceMediaErrors, IOReturn, arSliceCount);
     if (arSliceMedias != 0) IODelete(arSliceMedias, IOMedia *, arSliceCount);
     if (_arSetDTParents != 0) IODelete(_arSetDTParents, IORegistryEntry *, arSliceCount);
@@ -55,7 +58,13 @@ void AppleRAID::free(void)
     
     if (_arSliceCloseThreadCall) thread_call_free(_arSliceCloseThreadCall);
     if (_arUpdateHeadersThreadCall) thread_call_free(_arUpdateHeadersThreadCall);
-    if (_arSyncronizeCacheThreadCall) thread_call_free(_arSyncronizeCacheThreadCall);
+
+    if (_arSyncronizeCacheThreadCall != 0) {
+	for (UInt32 cnt = 0; cnt < arSliceCount; cnt++) {
+	    if (_arSyncronizeCacheThreadCall[cnt]) thread_call_free(_arSyncronizeCacheThreadCall[cnt]);
+	}
+	IODelete(_arSyncronizeCacheThreadCall, thread_call_t, arSliceCount);
+    }
     
     if (_arStorageRequestPool != 0) {
         while (1) {
@@ -222,7 +231,7 @@ IOService *AppleRAID::probe(IOService *provider, SInt32 *score)
             // Allocate some needed arrays.
             arLogicalSliceNumbers 	= IONew(UInt32, arSliceCount);
             arSliceMediaStates		= IONew(UInt32, arSliceCount);
-            arSliceRequestTermiates	= IONew(bool, arSliceCount);
+            arSliceRequestTerminates	= IONew(bool, arSliceCount);
             arSliceMediaErrors	 	= IONew(IOReturn, arSliceCount);
             arSliceMedias		= IONew(IOMedia *, arSliceCount);
             _arSetDTParents		= IONew(IORegistryEntry *, arSliceCount);
@@ -232,7 +241,7 @@ IOService *AppleRAID::probe(IOService *provider, SInt32 *score)
             // Clear the new arrays.
             bzero(arLogicalSliceNumbers, sizeof(UInt32) * arSliceCount);
             bzero(arSliceMediaStates, sizeof(UInt32) * arSliceCount);
-            bzero(arSliceRequestTermiates, sizeof(bool) * arSliceCount);
+            bzero(arSliceRequestTerminates, sizeof(bool) * arSliceCount);
             bzero(arSliceMediaErrors, sizeof(bool) * arSliceCount);
             bzero(arSliceMedias, sizeof(IOMedia *) * arSliceCount);
             bzero(_arSetDTParents, sizeof(IORegistryEntry *) * arSliceCount);
@@ -270,7 +279,7 @@ IOService *AppleRAID::probe(IOService *provider, SInt32 *score)
             _arController = gAppleRAIDGlobals.getAppleRAIDController();
             
             if ((arSliceMediaStates != 0) && (arSliceMedias != 0) &&
-                (arSliceRequestTermiates != 0) && (arSliceMediaErrors != 0) &&
+                (arSliceRequestTerminates != 0) && (arSliceMediaErrors != 0) &&
                 (_arSetDTParents != 0) && (_arSetDTLocations != 0) &&
                 (_arController != 0) && (_arSliceCloseThreadCall != 0) && (getWorkLoop() != 0) &&
                 (_arSetTimerEventSource != 0) && (_arSetCommandGate != 0) && (arSetEventSource != 0)) {
@@ -460,7 +469,7 @@ IOReturn AppleRAID::addSliceMedia(IOMedia *media)
     // Set the slice's state to closed.
     arSliceMediaStates[sliceNumber] = kAppleRAIDSliceMediaStateClosed;
     
-    arSliceRequestTermiates[sliceNumber] = false;
+    arSliceRequestTerminates[sliceNumber] = false;
     
     // Set the first slice number.
     if (sliceNumber < _arFirstSlice) _arFirstSlice = sliceNumber;
@@ -504,7 +513,7 @@ IOReturn AppleRAID::removeSliceMedia(IOMedia *media)
     _arSlicesStarted--;
     
     // If this slice's media is terminating, mark it's termination as complete.
-    if (arSliceRequestTermiates[sliceNumber]) {
+    if (arSliceRequestTerminates[sliceNumber]) {
         _arSliceTerminatesActive--;
     }
     
@@ -532,7 +541,7 @@ IOReturn AppleRAID::degradeSliceMedia(IOMedia *media, AppleRAIDStorageRequest *s
 {
     UInt32	sliceNumber;
     IOReturn	result = kIOReturnSuccess;
-    
+
     if (media != 0) {
         if (!getSliceNumberForMedia(media, &sliceNumber)) return kIOReturnError;
         
@@ -656,10 +665,15 @@ IOReturn AppleRAID::initRAIDSet(void)
                                     (thread_call_param_t)this);
         if (_arUpdateHeadersThreadCall == 0) return kIOReturnNoMemory;
         
-        _arSyncronizeCacheThreadCall = thread_call_allocate(
-                                       (thread_call_func_t)&AppleRAID::synchronizeCacheSliceMedias,
-                                       (thread_call_param_t)this);
+        _arSyncronizeCacheThreadCall = IONew(thread_call_t, arSliceCount);
         if (_arSyncronizeCacheThreadCall == 0) return kIOReturnNoMemory;
+	bzero(_arSyncronizeCacheThreadCall, sizeof(thread_call_t) * arSliceCount);
+	for (cnt = 0; cnt < arSliceCount; cnt++) {
+	    _arSyncronizeCacheThreadCall[cnt] = thread_call_allocate(
+		(thread_call_func_t)&AppleRAID::synchronizeCacheSlice,
+		(thread_call_param_t)this);
+	    if (_arSyncronizeCacheThreadCall[cnt] == 0) return kIOReturnNoMemory;
+	}
         
         // Create and populate the storage request pool.
         _arStorageRequestPool = IOCommandPool::withWorkLoop(getWorkLoop());
@@ -894,7 +908,7 @@ IOReturn AppleRAID::updateRAIDHeaders(void)
 IOReturn AppleRAID::updateRAIDHeadersDone(void)
 {
     _arSetUpdatePending = false;
-    _arSetCommandGate->commandWakeup(&_arSetUpdatePending);
+    _arSetCommandGate->commandWakeup(&_arSetUpdatePending, false);
     
     return kIOReturnSuccess;
 }
@@ -981,16 +995,19 @@ void AppleRAID::completeRAIDRequest(AppleRAIDStorageRequest *storageRequest)
     }
     
     // Return an underrun error if the byte count is not complete.
-    // This can happen if on or more slices reported a smaller byte count.
+    // This can happen if one or more slices reported a smaller byte count.
     if ((status == kIOReturnSuccess) && (byteCount != storageRequest->srByteCount)) {
         status = kIOReturnUnderrun;
         byteCount = 0;
     }
     
     // If an error has been reported, and the set is a mirror, and the error is reported
-    // against an active slice, try to degrate the given slice.
+    // against an active slice, try to degrade the given slice.
     if ((status != kIOReturnSuccess) && isMirror && (cnt < arSliceCount)) {
-        storageRequest->_srStatus = status;
+
+	IOLog("AppleRAID::completeRAIDRequest - error detected, status = 0x%x\n", status);
+
+	storageRequest->_srStatus = status;
         storageRequest->_srByteCount = byteCount;
         
         if (degradeSliceMedia(arSliceMedias[cnt], storageRequest, status) == kIOReturnSuccess) shouldCompleteErrors = true;
@@ -1033,7 +1050,7 @@ IOReturn AppleRAID::requestSliceTerminate(IOMedia *media)
     
     if (getSliceNumberForMedia(media, &sliceNumber)) {
         _arSliceTerminatesPending++;
-        arSliceRequestTermiates[sliceNumber] = true;
+        arSliceRequestTerminates[sliceNumber] = true;
         
         if ((_arSliceTerminatesPending + _arSliceTerminatesActive) == _arSlicesStarted) {
             _arSetIsTerminating = true;
@@ -1076,7 +1093,7 @@ bool AppleRAID::changeSliceMediaState(UInt32 sliceNumber, UInt32 newState)
         
         case kAppleRAIDSliceMediaStateClosed :
             if (*state == kAppleRAIDSliceMediaStateClosing) {
-                _arSetCommandGate->commandWakeup(state);
+                _arSetCommandGate->commandWakeup(state, false);
                 setState = true;
             }
             break;
@@ -1149,31 +1166,28 @@ IOReturn AppleRAID::closeSliceMedias(IOOptionBits options)
 
 IOReturn AppleRAID::requestSynchronizeCache(void)
 {
-    if (_arSetIsSyncing) {
+    while (_arSetIsSyncing) {
         _arSetCommandGate->commandSleep(&_arSetIsSyncing, THREAD_UNINT);
     }
     
     _arSetIsSyncing = true;
     _arSetIsPaused = true;
-    
-    thread_call_enter(_arSyncronizeCacheThreadCall);
-    
-    return kIOReturnSuccess;
-}
 
-IOReturn AppleRAID::synchronizeCacheSliceMedias(void)
-{
-    UInt32	cnt;
-    IOReturn	tmp, result = kIOReturnSuccess;
-    
-    for (cnt = 0; cnt < arSliceCount; cnt++) {
-        if (arSliceMediaStates[cnt] >= kAppleRAIDSliceMediaStateStopping) continue;
-        if (arSliceMedias[cnt] == 0) continue;
+    // kick off a thread for each slice
+    for (UInt32 cnt = 0; cnt < arSliceCount; cnt++) {
+	if (arSliceMediaStates[cnt] >= kAppleRAIDSliceMediaStateStopping) continue;
+	if (arSliceMedias[cnt] == 0) continue;
         
-        tmp = arSliceMedias[cnt]->synchronizeCache(this);
-        if (tmp != kIOReturnSuccess) result = tmp;
+	_arSetIsSyncingCount++;
+	thread_call_enter1(_arSyncronizeCacheThreadCall[cnt], (thread_call_param_t)arSliceMedias[cnt]);
     }
     
+    // wait for slices to complete
+    while (_arSetIsSyncingCount) {
+	_arSetCommandGate->commandSleep(&_arSetIsSyncingCount, THREAD_UNINT);
+    }
+    
+    // clean up
     _arSetIsSyncing = false;
     if (!_arSetIsDegrading) {
         _arSetIsPaused = false;
@@ -1182,7 +1196,27 @@ IOReturn AppleRAID::synchronizeCacheSliceMedias(void)
     
     _arSetCommandGate->commandWakeup(&_arSetIsSyncing, false);
     
+    return kIOReturnSuccess;
+}
+
+IOReturn AppleRAID::synchronizeCacheSlice(IOMedia * slice)
+{
+    IOReturn	result = kIOReturnSuccess;
+        
+    // XXX check the return value somewhere?
+    result = slice->synchronizeCache(this);
+
+    _arSetCommandGate->runAction((IOCommandGate::Action)&AppleRAID::completeSynchronizeCacheSlice);
+    
     return result;
+}
+
+void AppleRAID::completeSynchronizeCacheSlice(void)
+{
+    _arSetIsSyncingCount--;
+    if (_arSetIsSyncingCount == 0) {
+	_arSetCommandGate->commandWakeup(&_arSetIsSyncingCount, false);
+    }
 }
 
 bool AppleRAID::handleOpen(IOService *client, IOOptionBits options, void *argument)

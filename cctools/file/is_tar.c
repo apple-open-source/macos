@@ -65,7 +65,7 @@ int nbytes;
 	register int	sum, recsum;
 	register char	*p;
 
-	if (nbytes < sizeof(union record))
+	if (nbytes < (int)sizeof(union record))
 		return 0;
 
 	recsum = from_oct(8,  header->header.chksum);

@@ -1,4 +1,4 @@
-.TH LIBTOOL 1 "May 23, 2002" "Apple Computer, Inc."
+.TH LIBTOOL 1 "December 11, 2002" "Apple Computer, Inc."
 .SH NAME
 libtool \- create libraries
 .br
@@ -201,7 +201,7 @@ must be a positive non-zero number less than or equal to 65535, and
 .I .Y
 and
 .I .Z
-are optional and if present must be positive non-zero numbers less than or
+are optional and if present must be non-negative numbers less than or
 equal to 255.
 If this is not specified then it has a
 value of 0 and no checking is done when the library is used.
@@ -221,7 +221,7 @@ must be a positive non-zero number less than or equal to 65535, and
 .I .Y
 and
 .I .Z
-are optional and if present must be positive non-zero numbers less than or
+are optional and if present must be non-negative numbers less than or
 equal to 255.
 If this is not specified then it has a
 value of 0.
@@ -234,7 +234,7 @@ option is used by the GNU compiler driver,
 when used with it's
 .B -dynamiclib
 option.  This is done to allow selective loading of the GNU's compiler's runtime
-support library, libcc_dyanmic.a .
+support library, libcc_dynamic.a .
 .TP
 .I "link editor flags"
 For a dynamic shared library the following
@@ -243,6 +243,7 @@ flags are accepted and passed through:
 .BI \-l x,
 .BI \-L dir,
 .BI \-y sym,
+.BI \-u sym,
 .BI \-init sym,
 .BI \-i definition:indirect,
 .B \-seg1addr,
@@ -273,6 +274,7 @@ flags are accepted and passed through:
 .B \-Si,
 .B \-S,
 .B \-X,
+.B \-x,
 .B \-whyload,
 .B \-all_load.
 .B \-arch_errors_fatal,
@@ -288,7 +290,12 @@ flags are accepted and passed through:
 .B \-headerpad,
 .B \-headerpad_max_install_names,
 .B \-weak_reference_mismatches,
-.B \-M.
+.B \-M,
+.B \-no_arch_warnings,
+.B \-single_module,
+.B \-multi_module,
+.B \-exported_symbols_list,
+.B \-unexported_symbols_list.
 See the
 .IR ld (1)
 man page for details on these flags.

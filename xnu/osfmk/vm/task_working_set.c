@@ -4,19 +4,22 @@ int	startup_miss = 0;
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -290,8 +293,8 @@ tws_hash_line_clear(
 							&& (dump_pmap == 1)) {
 						pmap_remove_some_phys((pmap_t)
 							vm_map_pmap(
-								hash_ele->map),
-							p->phys_addr);
+								current_map()),
+							p->phys_page);
 					}
 				   }
 				   local_off += PAGE_SIZE_64;
@@ -579,7 +582,7 @@ printf("cache_lookup, result = 0x%x, addr = 0x%x, object 0x%x, offset 0x%x%x\n",
 			pmap_remove(map->pmap, 0, GLOBAL_SHARED_TEXT_SEGMENT);
 			pmap_remove(map->pmap, 
 				GLOBAL_SHARED_DATA_SEGMENT 
-				+ SHARED_DATA_REGION_SIZE, 0xFFFFF000);
+				+ SHARED_DATA_REGION_SIZE, 0xFFFFFFFFFFFFF000);
 	}
 
 	/* This next bit of code, the and alternate hash */
@@ -1036,8 +1039,8 @@ tws_build_cluster(
 	int			age_of_cache;
 	int			pre_heat_size;
 	unsigned int		ele_cache;
-	unsigned int		end_cache = NULL;
-	unsigned int		start_cache = NULL;
+	unsigned int		end_cache = 0;
+	unsigned int		start_cache = 0;
 
 	if((object->private) || !(object->pager))
 		return;
@@ -1083,7 +1086,7 @@ tws_build_cluster(
 			*start = *start & TWS_HASH_OFF_MASK;
 			*end = *start + (32 * PAGE_SIZE_64);
 			if(*end > object_size) {
-				*end = trunc_page(object_size);
+				*end = trunc_page_64(object_size);
 				max_length = 0;
 				if(before >= *end) {
 					*end = after;
@@ -1106,7 +1109,7 @@ tws_build_cluster(
 					*end = after + 
 						(32 * PAGE_SIZE_64);
 					if(*end > object_size) {
-						*end = trunc_page(object_size);
+						*end = trunc_page_64(object_size);
 						max_length = 0;
 						if(*start >= *end) {
 							*end = after;
@@ -1130,7 +1133,7 @@ tws_build_cluster(
 					break;
 			}
 
-			if(start_cache != NULL) {
+			if(start_cache != 0) {
 				unsigned int mask;
 
 				for (mask = 1; mask != 0; mask = mask << 1) {
@@ -1142,7 +1145,7 @@ tws_build_cluster(
 						break;
 				}
 			}
-			if(end_cache != NULL) {
+			if(end_cache != 0) {
 				unsigned int mask;
 
 				for (mask = 0x80000000; 

@@ -182,6 +182,14 @@ struct arch_flag *specific_arch_flag)
 		if(specific_arch_flag != NULL)
 		    specific_arch_flag->name = "ppc7450";
 		return(1);
+	    case CPU_SUBTYPE_POWERPC_970:
+		if(family_arch_flag != NULL){
+		    family_arch_flag->name = "ppc";
+		    family_arch_flag->cpusubtype = CPU_SUBTYPE_POWERPC_ALL;
+		}
+		if(specific_arch_flag != NULL)
+		    specific_arch_flag->name = "ppc970";
+		return(1);
 	    default:
 		if(family_arch_flag != NULL){
                     family_arch_flag->name = "ppc";
@@ -193,6 +201,39 @@ struct arch_flag *specific_arch_flag)
                     if(specific_arch_flag->name != NULL)
 			sprintf(specific_arch_flag->name,
 				"PowerPC cpusubtype %u", 
+				host_basic_info.cpu_subtype);
+		}
+                return(1);
+	    }
+	    break;
+	case CPU_TYPE_VEO:
+	    switch(host_basic_info.cpu_subtype){
+	    case CPU_SUBTYPE_VEO_1:
+		if(family_arch_flag != NULL){
+		    family_arch_flag->name = "veo";
+		    family_arch_flag->cpusubtype = CPU_SUBTYPE_VEO_ALL;
+		}
+		if(specific_arch_flag != NULL)
+		    specific_arch_flag->name = "veo1";
+		return(1);
+	    case CPU_SUBTYPE_VEO_2:
+		if(family_arch_flag != NULL){
+		    family_arch_flag->name = "veo";
+		    family_arch_flag->cpusubtype = CPU_SUBTYPE_VEO_ALL;
+		}
+		if(specific_arch_flag != NULL)
+		    specific_arch_flag->name = "veo2";
+		return(1);
+	    default:
+		if(family_arch_flag != NULL){
+                    family_arch_flag->name = "veo";
+                    family_arch_flag->cpusubtype = CPU_SUBTYPE_VEO_ALL;
+                }
+                if(specific_arch_flag != NULL){
+                    specific_arch_flag->name = 
+			savestr("VEO cpusubtype 1234567890");
+		    sprintf(specific_arch_flag->name,
+				"VEO cpusubtype %u", 
 				host_basic_info.cpu_subtype);
 		}
                 return(1);

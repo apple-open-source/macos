@@ -11,6 +11,7 @@
 
 
 #include "CPSPlugIn.h"
+#include <netinet/tcp.h>
 
 using namespace std;
 
@@ -112,35 +113,64 @@ void writeToServer( FILE *out, char *buf )
 PWServerError readFromServer( int fd, char *buf, unsigned long bufLen );
 PWServerError readFromServer( int fd, char *buf, unsigned long bufLen )
 {
-	char readChar = '\0';
-	char *tstr = buf;
-	PWServerError result = {0, kPolicyError};
-	int byteCount = 0;
+    char readChar = '\0';
+    char *tstr = NULL;
+    PWServerError result = {0, kPolicyError};
+	ssize_t byteCount = 0;
 	int compareLen;
-
-	if ( buf == nil || bufLen < 2 ) {
+	
+	if ( buf == NULL || bufLen < 3 ) {
         result.err = -1;
         return result;
     }
     
-	*buf = '\0';
-	do
-	{
-		byteCount = ::recvfrom( fd, &readChar, sizeof(readChar), MSG_WAITALL, NULL, NULL );
-		if ( byteCount == 0 )
-		{
-			*tstr = '\0';
-			result.err = -1;
-			result.type = kConnectionError;
-			return result;
-		}
-		
-		if ( (unsigned long)(tstr - buf) < bufLen - 1 )
-			*tstr++ = readChar;
-	}
-	while ( readChar != '\n' );
+	buf[0] = '\0';
 	
-    *tstr = '\0';
+	// wait for the first character to arrive
+	byteCount = ::recvfrom( fd, &readChar, sizeof(readChar), (MSG_WAITALL | MSG_PEEK), NULL, NULL );
+	if ( byteCount == 0 || byteCount == -1 )
+	{
+		result.err = -1;
+		result.type = kConnectionError;
+		return result;
+	}
+	
+	// peek the buffer to get the length
+	byteCount = ::recvfrom( fd, buf, bufLen - 1, (MSG_DONTWAIT | MSG_PEEK), NULL, NULL );
+	DEBUGLOG( "byteCount (peek): %l\n", byteCount);
+	
+	// pull to EOL or available data
+	if ( byteCount >= 2 )
+	{
+		buf[byteCount] = '\0';
+		tstr = strstr( buf, "\r\n" );
+		byteCount = ::recvfrom( fd, buf, (tstr != NULL) ? (tstr - buf + 2) : byteCount, MSG_DONTWAIT, NULL, NULL );
+		DEBUGLOG( "byteCount: %l\n", byteCount);
+		buf[byteCount] = '\0';
+	}
+	
+	// if not at EOL, pull by character until one arrives 
+	if ( tstr == NULL && byteCount < (ssize_t)bufLen - 1 )
+	{
+		tstr = buf + byteCount;
+		do
+		{
+			byteCount = ::recvfrom( fd, &readChar, sizeof(readChar), MSG_WAITALL, NULL, NULL );
+			if ( byteCount == 0 || byteCount == -1 )
+			{
+				*tstr = '\0';
+				result.err = -1;
+				result.type = kConnectionError;
+				return result;
+			}
+			
+			if ( (unsigned long)(tstr - buf) < bufLen - 1 )
+				*tstr++ = readChar;
+		}
+		while ( readChar != '\n' );
+		*tstr = '\0';
+	}
+	
     DEBUGLOG( "received: %s\n", buf);
     
     tstr = buf;
@@ -157,8 +187,23 @@ PWServerError readFromServer( int fd, char *buf, unsigned long bufLen )
         }
         
         sscanf( tstr, "%d", &result.err );
+		if ( result.err == 0 )
+			result.err = -1;
     }
-    
+	/*
+    else
+	{
+		compareLen = strlen(kPasswordServerAuthErrPrefixStr);
+		if ( strncmp( tstr, kPasswordServerAuthErrPrefixStr, compareLen ) == 0 )
+		{
+			tstr += compareLen;
+			sscanf( tstr, "%d", &result.err );
+			if ( result.err == 0 )
+				result.err = -1;
+		}
+	}
+	*/
+	
     return result;
 }
 
@@ -397,8 +442,10 @@ sInt32 getconn(const char *host, const char *port, int *outSocket)
 	struct in_addr inetAddr;
 	char *endPtr = NULL;
 	struct timeval timeoutVal = { 30, 0 };
+	struct linger lingerVal = { 0, 0 };
+	int tcp_nodelay = 1;
 	
-    if ( host==NULL || port==NULL || outSocket==NULL )
+	if ( host==NULL || port==NULL || outSocket==NULL )
         return eParameterError;
     
     try
@@ -439,9 +486,19 @@ sInt32 getconn(const char *host, const char *port, int *outSocket)
         
 		if ( setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeoutVal, sizeof(timeoutVal) ) == -1 )
 		{
-			DEBUGLOG("setsockopt");
+			DEBUGLOG("setsockopt SO_RCVTIMEO");
 			throw((sInt32)eDSServiceUnavailable);
 		}
+		
+		/*	If one were to check SO_LINGER with getsockopt, it would look off, but the documentation
+			implies that setting it explicitly changes the behavior from "return immediately but wait" to
+			"no waiting" */
+		if ( setsockopt(sock, SOL_SOCKET, SO_LINGER, &lingerVal, sizeof(lingerVal) ) == -1 )
+			DEBUGLOG("setsockopt SO_LINGER err");
+		
+		/* turn off 1/5 sec acks */
+		if ( setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &tcp_nodelay, sizeof(tcp_nodelay) ) == -1 )
+			DEBUGLOG("setsockopt TCP_NODELAY err");
 		
         if (connect(sock, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
             DEBUGLOG("connect");
@@ -474,6 +531,7 @@ CDSServerModule::tCreator CDSServerModule::sCreator = _Creator;
 CPSPlugIn::CPSPlugIn ( void )
 {        
 	fState = kUnknownState;
+	fOpenNodeCount = 0;
     fHasInitializedSASL = false;
     
     try
@@ -903,6 +961,8 @@ sInt32 CPSPlugIn::OpenDirNode ( sOpenDirNode *inData )
                 if ( siResult != eDSNoErr )
                     throw( siResult );
                 
+				fOpenNodeCount++;
+				
                 // set ip addresses
                 salen = sizeof(local_ip);
                 if (getsockname(pContext->fd, (struct sockaddr *)&local_ip, &salen) < 0) {
@@ -1019,11 +1079,22 @@ sInt32 CPSPlugIn::CloseDirNode ( sCloseDirNode *inData )
         Throw_NULL( pContext, eDSBadContextData );
 		
 		// do whatever to close out the context
-        writeToServer(pContext->serverOut, "QUIT\r\n");
-        readFromServer( pContext->fd, buf, kOneKBuffer );
-        
+		if ( Connected( pContext ) )
+		{
+			int result;
+			struct timeval recvTimeoutVal = { 0, 150000 };
+			
+			result = setsockopt( pContext->fd, SOL_SOCKET, SO_RCVTIMEO, &recvTimeoutVal, sizeof(recvTimeoutVal) );
+			
+			writeToServer(pContext->serverOut, "QUIT\r\n");
+			readFromServer( pContext->fd, buf, kOneKBuffer );
+        }
+		
 		this->CleanContextData( pContext );
         
+		if ( fOpenNodeCount > 0 )
+			fOpenNodeCount--;
+		
 		gPSContextTable->RemoveItem( inData->fInNodeRef );
         gContinue->RemoveItems( inData->fInNodeRef );
 	}
@@ -1047,6 +1118,9 @@ sInt32 CPSPlugIn::ConnectToServer( sPSContextData *inContext )
     sInt32 siResult = eDSNoErr;
     char buf[kOneKBuffer];
     
+	// clean up if there is an old descriptor
+	EndServerSession( inContext );
+	
 	// connect to remote server
     siResult = getconn(inContext->psName, inContext->psPort, &inContext->fd);
     if ( siResult != eDSNoErr )
@@ -1072,7 +1146,7 @@ Boolean CPSPlugIn::Connected ( sPSContextData *inContext )
 	int		bytesReadable = 0;
 	char	temp[1];
 
-	if ( inContext->fd == 0 )
+	if ( inContext->fd <= 0 )
 		return false;
 	
 	bytesReadable = ::recvfrom( inContext->fd, temp, sizeof (temp), (MSG_DONTWAIT | MSG_PEEK), NULL, NULL );
@@ -1317,25 +1391,9 @@ sInt32 CPSPlugIn::CleanContextData ( sPSContextData *inContext )
             inContext->conn = NULL;
         }
         
-		if (inContext->fd != NULL)
-		{
-			close(inContext->fd);
-			inContext->fd = NULL;
-		}
+		EndServerSession( inContext );
         
-        if (inContext->serverIn != NULL)
-        {
-            fclose(inContext->serverIn);
-            inContext->serverIn = NULL;
-        }
-        
-        if (inContext->serverOut != NULL)
-        {
-            fclose(inContext->serverOut);
-            inContext->serverOut = NULL;
-        }
-        
-		if (inContext->rsaPublicKeyStr != NULL)
+        if (inContext->rsaPublicKeyStr != NULL)
 		{
 			free(inContext->rsaPublicKeyStr);
 			inContext->rsaPublicKeyStr = NULL;
@@ -1381,6 +1439,33 @@ sInt32 CPSPlugIn::CleanContextData ( sPSContextData *inContext )
     return( siResult );
 
 } // CleanContextData
+
+
+//------------------------------------------------------------------------------------
+//	* EndServerSession
+//------------------------------------------------------------------------------------
+
+void CPSPlugIn::EndServerSession ( sPSContextData *inContext )
+{
+	if (inContext->serverIn != NULL)
+	{
+		fpurge(inContext->serverIn);
+		fclose(inContext->serverIn);
+		inContext->serverIn = NULL;
+	}
+	
+	if (inContext->serverOut != NULL)
+	{
+		fpurge(inContext->serverOut);
+		fclose(inContext->serverOut);
+		inContext->serverOut = NULL;
+	}
+	
+	if (inContext->fd > 0)
+		close(inContext->fd);
+	inContext->fd = -1;
+}
+
 
 //------------------------------------------------------------------------------------
 //	* GetAttributeEntry
@@ -2910,8 +2995,23 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 					break;
             }
         }
+		
+		if ( fOpenNodeCount >= 90 && inData->fInDirNodeAuthOnlyFlag == true )
+		{
+			if ( uiAuthMethod == kAuthClearText ||
+				 uiAuthMethod == kAuthNativeClearTextOK ||
+				 uiAuthMethod == kAuthNativeNoClearText ||
+				 uiAuthMethod == kAuthAPOP ||
+				 uiAuthMethod == kAuthSMB_NT_Key ||
+				 uiAuthMethod == kAuthSMB_LM_Key ||
+				 uiAuthMethod == kAuthDIGEST_MD5 ||
+				 uiAuthMethod == kAuthCRAM_MD5 )
+			{
+				EndServerSession( pContext );
+			}
+		}
 	}
-
+	
 	catch ( sInt32 err )
 	{
 		siResult = err;

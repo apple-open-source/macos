@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -72,7 +75,7 @@ void i82557eeprom::dumpContents()
 
 	for (int i = 0; i < NUM_PHYS; i++) {
 		const char * s = (i == PRIMARY_PHY) ? "primary" : "secondary";
-		UInt16 phy = OSReadLE16(&eeprom_p->phys[i]);
+		UInt16 phy = ReadLE16(&eeprom_p->phys[i]);
 
 		IOLog("%s PHY: %s\n", s,
 			PHYDeviceNames(CSR_VALUE(EEPROM_PHY_DEVICE, phy)));
@@ -90,7 +93,7 @@ void i82557eeprom::dumpContents()
 	  eeprom_p->PWANumber[0], eeprom_p->PWANumber[3],
 	  eeprom_p->PWANumber[2]);
 
-    IOLog("Checksum: 0x%x\n", OSReadLE16(&eeprom_p->checkSum));
+    IOLog("Checksum: 0x%x\n", ReadLE16(&eeprom_p->checkSum));
 #if 0
     if (eeprom_p->checkSum != image.words[NUM_EEPROM_WORDS - 1])
 		IOLog("the checksum in the struct doesn't match that in the array\n");
@@ -133,7 +136,7 @@ bool i82557eeprom::initWithAddress(volatile eeprom_control_t * p)
 
     do {
 		EEPROMWriteBit(ee_p, 0);
-		if ((OSReadLE16(ee_p) & EEPROM_CONTROL_EEDO) == 0)
+		if ((ReadLE16(ee_p) & EEPROM_CONTROL_EEDO) == 0)
 	    	break;
 		nbits++;
     } while (nbits <= 32);
@@ -149,7 +152,7 @@ bool i82557eeprom::initWithAddress(volatile eeprom_control_t * p)
 		UInt16 w = readWord(i);
 		sum += w;
         if (i < NUM_EEPROM_WORDS)
-            OSWriteLE16(&image.words[i], w);
+            WriteLE16(&image.words[i], w);
     }
     if (sum != EEPROM_CHECKSUM_VALUE) {
 		IOLog("i82557eeprom: checksum %x incorrect\n", sum);

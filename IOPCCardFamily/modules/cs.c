@@ -526,6 +526,8 @@ static void setup_socket(u_long i)
 	DEBUG(1, "cs: setup_socket(%ld): applying power\n", i);
 	s->state |= SOCKET_PRESENT;
 	s->socket.flags = 0;
+	// MACOSXXX this is cool for now, we don't have chips that support 
+	// "X" or "Y" voltages, currently "Y" voltages are mapped to "X"
 	if (val & SS_3VCARD)
 	    s->socket.Vcc = s->socket.Vpp = 33;
 	else if (!(val & SS_XVCARD))

@@ -32,6 +32,7 @@
  * and notations on errors should be printed.
  */
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
@@ -76,9 +77,9 @@ static void print_relocs(
     char *object_addr,
     unsigned long object_size,
     struct nlist *symbols,
-    long nsymbols,
+    unsigned long nsymbols,
     char *strings,
-    long strings_size,
+    unsigned long strings_size,
     enum bool verbose);
 static void print_r_type(
     cpu_type_t cputype,
@@ -89,8 +90,8 @@ static void print_literal4(
     unsigned long l,
     float f);
 static void print_literal8(
-    long l0,
-    long l1,
+    unsigned long l0,
+    unsigned long l1,
     double d);
 static int rel_bsearch(
     unsigned long *address,
@@ -108,7 +109,7 @@ struct fat_arch *fat_archs,
 unsigned long size,
 enum bool verbose)
 {
-    long i, j;
+    unsigned long i, j;
 
 	if(verbose){
 	    if(fat_header->magic == FAT_MAGIC)
@@ -280,6 +281,21 @@ struct fat_arch *fat_arch)
 		break;
 	    case CPU_SUBTYPE_POWERPC_7450:
 		printf("ppc7450\n");
+		break;
+	    case CPU_SUBTYPE_POWERPC_970:
+		printf("ppc970\n");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }
+	    break;
+	case CPU_TYPE_VEO:
+	    switch(fat_arch->cpusubtype){
+	    case CPU_SUBTYPE_VEO_1:
+		printf("veo1\n");
+		break;
+	    case CPU_SUBTYPE_VEO_2:
+		printf("veo2\n");
 		break;
 	    default:
 		goto print_arch_unknown;
@@ -468,6 +484,24 @@ cpu_subtype_t cpusubtype)
 	    case CPU_SUBTYPE_POWERPC_7450:
 		printf("    cputype CPU_TYPE_POWERPC\n"
 		       "    cpusubtype CPU_SUBTYPE_POWERPC_7450\n");
+		break;
+	    case CPU_SUBTYPE_POWERPC_970:
+		printf("    cputype CPU_TYPE_POWERPC\n"
+		       "    cpusubtype CPU_SUBTYPE_POWERPC_970\n");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }
+	    break;
+	case CPU_TYPE_VEO:
+	    switch(cpusubtype){
+	    case CPU_SUBTYPE_VEO_1:
+		printf("    cputype CPU_TYPE_VEO\n"
+		       "    cpusubtype CPU_SUBTYPE_VEO_1\n");
+		break;
+	    case CPU_SUBTYPE_VEO_2:
+		printf("    cputype CPU_TYPE_VEO\n"
+		       "    cpusubtype CPU_SUBTYPE_VEO_2\n");
 		break;
 	    default:
 		goto print_arch_unknown;
@@ -1060,6 +1094,23 @@ NS32:
 		case CPU_SUBTYPE_POWERPC_7450:
 		    printf("    ppc7450");
 		    break;
+		case CPU_SUBTYPE_POWERPC_970:
+		    printf("     ppc970");
+		    break;
+		default:
+		    printf(" %10d", mh->cpusubtype);
+		    break;
+		}
+		break;
+	    case CPU_TYPE_VEO:
+		printf("     VEO");
+		switch(mh->cpusubtype){
+		case CPU_SUBTYPE_VEO_1:
+		    printf("       veo1");
+		    break;
+		case CPU_SUBTYPE_VEO_2:
+		    printf("       veo2");
+		    break;
 		default:
 		    printf(" %10d", mh->cpusubtype);
 		    break;
@@ -1112,6 +1163,9 @@ NS32:
 		break;
 	    case MH_DYLIB:
 		printf("      DYLIB");
+		break;
+	    case MH_DYLIB_STUB:
+		printf(" DYLIB_STUB");
 		break;
 	    case MH_DYLINKER:
 		printf("   DYLINKER");
@@ -2402,7 +2456,7 @@ enum byte_sex thread_states_byte_sex)
 	    struct m68k_thread_state_user_reg user_reg;
 
 	    while(begin < end){
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -2412,7 +2466,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 		if(swapped)
 		    flavor = SWAP_LONG(flavor);
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&count, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -2531,7 +2585,7 @@ enum byte_sex thread_states_byte_sex)
 	}
 	if(mh->cputype == CPU_TYPE_HPPA){
 	    while(begin < end){
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -2541,7 +2595,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 		if(swapped)
 		    flavor = SWAP_LONG(flavor);
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&count, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -2679,7 +2733,7 @@ enum byte_sex thread_states_byte_sex)
 	}
 	if(mh->cputype == CPU_TYPE_SPARC){
 	    while(begin < end){
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -2689,7 +2743,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 		if(swapped)
 		    flavor = SWAP_LONG(flavor);
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&count, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -2798,13 +2852,14 @@ enum byte_sex thread_states_byte_sex)
 		}
 	    }
 	}
-	if(mh->cputype == CPU_TYPE_POWERPC){
+	if(mh->cputype == CPU_TYPE_POWERPC ||
+	   mh->cputype == CPU_TYPE_VEO){
 	    ppc_thread_state_t cpu;
 	    ppc_float_state_t fpu;
 	    ppc_exception_state_t except;
 
 	    while(begin < end){
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -2814,7 +2869,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 		if(swapped)
 		    flavor = SWAP_LONG(flavor);
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&count, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -2963,7 +3018,7 @@ enum byte_sex thread_states_byte_sex)
 	    m88110_thread_state_impl_t spu;
 
 	    while(begin < end){
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -2973,7 +3028,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 		if(swapped)
 		    flavor = SWAP_LONG(flavor);
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&count, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -3251,7 +3306,7 @@ enum byte_sex thread_states_byte_sex)
 	    struct i860_thread_state_regs cpu;
 
 	    while(begin < end){
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -3261,7 +3316,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 		if(swapped)
 		    flavor = SWAP_LONG(flavor);
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&count, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -3344,7 +3399,7 @@ enum byte_sex thread_states_byte_sex)
 	    const char *tags[] = { "VALID", "ZERO", "SPEC", "EMPTY" };
 
 	    while(begin < end){
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -3354,7 +3409,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 		if(swapped)
 		    flavor = SWAP_LONG(flavor);
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&count, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -3625,7 +3680,7 @@ enum byte_sex thread_states_byte_sex)
 	}
 	else{
 	    while(begin < end){
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -3635,7 +3690,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 		if(swapped)
 		    flavor = SWAP_LONG(flavor);
-		if(end - begin > sizeof(unsigned long)){
+		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&count, begin, sizeof(unsigned long));
 		    begin += sizeof(unsigned long);
 		}
@@ -3926,9 +3981,9 @@ struct mach_header *mh,
 char *object_addr,
 unsigned long object_size,
 struct nlist *symbols,
-long nsymbols,
+unsigned long nsymbols,
 char *strings,
-long strings_size,
+unsigned long strings_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
@@ -3964,7 +4019,8 @@ enum bool verbose)
 			sr->r_type == GENERIC_RELOC_PAIR) ||
 		       (mh->cputype == CPU_TYPE_MC88000 &&
 			sr->r_type == M88K_RELOC_PAIR) ||
-		       (mh->cputype == CPU_TYPE_POWERPC &&
+		       ((mh->cputype == CPU_TYPE_POWERPC ||
+		         mh->cputype == CPU_TYPE_VEO) &&
 			sr->r_type == PPC_RELOC_PAIR) ||
 		       (mh->cputype == CPU_TYPE_HPPA &&
 			sr->r_type == HPPA_RELOC_PAIR) ||
@@ -4009,14 +4065,15 @@ enum bool verbose)
 				 sr->r_type == HPPA_RELOC_PAIR)
 			    printf(" other_part = 0x%06x ",
 				   (unsigned int)sr->r_address);
-			else if((mh->cputype == CPU_TYPE_POWERPC &&
+			else if(((mh->cputype == CPU_TYPE_POWERPC ||
+				  mh->cputype == CPU_TYPE_VEO) &&
 				 sr->r_type == PPC_RELOC_PAIR)){
 			    if(previous_ppc_jbsr == FALSE)
 				printf(" half = 0x%04x ",
 				       (unsigned int)reloc.r_address);
-			    else
-				printf(" other_part = 0x%08x ",
-				       (unsigned int)reloc.r_address);
+			    else{
+				printf(" <- other_part ");
+			    }
 			}
 		    }
 		    else if(mh->cputype == CPU_TYPE_HPPA &&
@@ -4031,7 +4088,8 @@ enum bool verbose)
 			    printf(" other_part = 0x%06x ",
 				   (unsigned int)sr->r_address);
 		    }
-		    else if(mh->cputype == CPU_TYPE_POWERPC &&
+		    else if((mh->cputype == CPU_TYPE_POWERPC ||
+			     mh->cputype == CPU_TYPE_VEO) &&
 			    (sectdiff_r_type == PPC_RELOC_HI16_SECTDIFF ||
 			     sectdiff_r_type == PPC_RELOC_LO16_SECTDIFF ||
 			     sectdiff_r_type == PPC_RELOC_HA16_SECTDIFF)){
@@ -4044,7 +4102,8 @@ enum bool verbose)
 			sr->r_type == GENERIC_RELOC_SECTDIFF) ||
 		       (mh->cputype == CPU_TYPE_MC88000 &&
 			sr->r_type == M88K_RELOC_SECTDIFF) ||
-		       (mh->cputype == CPU_TYPE_POWERPC &&
+		       ((mh->cputype == CPU_TYPE_POWERPC ||
+		         mh->cputype == CPU_TYPE_VEO) &&
 			(sr->r_type == PPC_RELOC_SECTDIFF ||
 			 sr->r_type == PPC_RELOC_HI16_SECTDIFF ||
 			 sr->r_type == PPC_RELOC_LO16_SECTDIFF ||
@@ -4064,7 +4123,8 @@ enum bool verbose)
 		    }
 		    else
 			previous_sectdiff = FALSE;
-		    if((mh->cputype == CPU_TYPE_POWERPC &&
+		    if(((mh->cputype == CPU_TYPE_POWERPC ||
+		         mh->cputype == CPU_TYPE_VEO) &&
 			 sr->r_type == PPC_RELOC_JBSR))
 			previous_ppc_jbsr = TRUE;
 		    else
@@ -4082,7 +4142,8 @@ enum bool verbose)
 		if(verbose){
 		    if((mh->cputype == CPU_TYPE_MC88000 &&
 			reloc.r_type == M88K_RELOC_PAIR) ||
-		       (mh->cputype == CPU_TYPE_POWERPC &&
+		       ((mh->cputype == CPU_TYPE_POWERPC ||
+		         mh->cputype == CPU_TYPE_VEO) &&
 			reloc.r_type == PPC_RELOC_PAIR) ||
 		       (mh->cputype == CPU_TYPE_HPPA &&
 			reloc.r_type == HPPA_RELOC_PAIR) ||
@@ -4117,8 +4178,8 @@ enum bool verbose)
 			printf("False     ");
 			if(symbols == NULL || strings == NULL ||
 			   reloc.r_symbolnum > nsymbols ||
-			   symbols[reloc.r_symbolnum].n_un.n_strx >
-							       strings_size)
+			   (unsigned long)symbols[reloc.r_symbolnum].
+				n_un.n_strx > strings_size)
 			    printf("?(%d)\n", reloc.r_symbolnum);
 			else{
 			    printf("%s\n", strings +
@@ -4143,7 +4204,8 @@ enum bool verbose)
 			    printf(" other_part = 0x%06x\n",
 				   (unsigned int)reloc.r_address);
 			}
-			else if((mh->cputype == CPU_TYPE_POWERPC &&
+			else if(((mh->cputype == CPU_TYPE_POWERPC ||
+				  mh->cputype == CPU_TYPE_VEO) &&
 				 reloc.r_type == PPC_RELOC_PAIR)){
 			    if(previous_ppc_jbsr == FALSE)
 				printf("half = 0x%04x\n",
@@ -4166,7 +4228,8 @@ enum bool verbose)
 			    }
 			}
 		    }
-		    if((mh->cputype == CPU_TYPE_POWERPC &&
+		    if(((mh->cputype == CPU_TYPE_POWERPC ||
+		         mh->cputype == CPU_TYPE_VEO) &&
 			 reloc.r_type == PPC_RELOC_JBSR))
 			previous_ppc_jbsr = TRUE;
 		    else
@@ -4237,6 +4300,7 @@ unsigned long r_type)
 	    printf("%s", i860_r_types[r_type]);
 	    break;
 	case CPU_TYPE_POWERPC:
+	case CPU_TYPE_VEO:
 	    printf("%s", ppc_r_types[r_type]);
 	    break;
 	case CPU_TYPE_HPPA:
@@ -4265,9 +4329,9 @@ unsigned long ntocs,
 struct dylib_module *mods,
 unsigned long nmods,
 struct nlist *symbols,
-long nsymbols,
+unsigned long nsymbols,
 char *strings,
-long strings_size,
+unsigned long strings_size,
 enum bool verbose)
 {
    unsigned long i;
@@ -4292,8 +4356,8 @@ enum bool verbose)
 		if(tocs[i].symbol_index > nsymbols)
 		    printf("%lu (past the end of the symbol table)\n",
 			   tocs[i].symbol_index);
-		else if(symbols[tocs[i].symbol_index].n_un.n_strx >
-			strings_size)
+		else if((unsigned long)symbols[tocs[i].symbol_index].
+			n_un.n_strx > strings_size)
 		    printf("%lu (string index past the end of the string "
 			   "table)\n", tocs[i].symbol_index);
 		else{
@@ -4325,9 +4389,9 @@ unsigned long object_size,
 struct dylib_module *mods,
 unsigned long nmods,
 struct nlist *symbols,
-long nsymbols,
+unsigned long nsymbols,
 char *strings,
-long strings_size,
+unsigned long strings_size,
 enum bool verbose)
 {
    unsigned long i;
@@ -4385,9 +4449,9 @@ unsigned long nrefs,
 struct dylib_module *mods,
 unsigned long nmods,
 struct nlist *symbols,
-long nsymbols,
+unsigned long nsymbols,
 char *strings,
-long strings_size,
+unsigned long strings_size,
 enum bool verbose)
 {
    unsigned long i, j;
@@ -4427,8 +4491,8 @@ enum bool verbose)
 			if(refs[j].isym > nsymbols)
 			    printf("\t%u (past the end of the symbol table) ",
 				   refs[j].isym);
-			else if(symbols[refs[j].isym].n_un.n_strx >
-				strings_size)
+			else if((unsigned long)symbols[refs[j].isym].
+				n_un.n_strx > strings_size)
 			    printf("\t%u (string index past the end of the "
 				   "string table) ", refs[j].isym);
 			else
@@ -4482,9 +4546,9 @@ unsigned long object_size,
 unsigned long *indirect_symbols,
 unsigned long nindirect_symbols,
 struct nlist *symbols,
-long nsymbols,
+unsigned long nsymbols,
 char *strings,
-long strings_size,
+unsigned long strings_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
@@ -4612,8 +4676,8 @@ enum bool verbose)
 		if(verbose){
 		    if(symbols == NULL || strings == NULL ||
 		       indirect_symbols[j + n] >= nsymbols ||
-		       symbols[indirect_symbols[j+n]].n_un.n_strx >=
-							   strings_size)
+		       (unsigned long)symbols[indirect_symbols[j+n]].
+				n_un.n_strx >= strings_size)
 			printf("?\n");
 		    else
 			printf("%s\n", strings +
@@ -4635,9 +4699,9 @@ unsigned long object_size,
 struct twolevel_hint *hints,
 unsigned long nhints,
 struct nlist *symbols,
-long nsymbols,
+unsigned long nsymbols,
 char *strings,
-long strings_size,
+unsigned long strings_size,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
@@ -4730,7 +4794,8 @@ enum bool verbose)
 	    if(verbose){
 		if(dyst_cmd != ULONG_MAX &&
 		   dyst.iundefsym + i < nsymbols){
-		    if(symbols[dyst.iundefsym + i].n_un.n_strx > strings_size)
+		    if((unsigned long)symbols[dyst.iundefsym + i].n_un.n_strx >
+		       strings_size)
 			printf(" (bad string index in symbol %lu)\n",
 			       dyst.iundefsym + i);
 		    else{
@@ -4899,8 +4964,8 @@ enum bool print_addresses)
 static
 void
 print_literal8(
-long l0,
-long l1,
+unsigned long l0,
+unsigned long l1,
 double d)
 {
 	printf("0x%08x 0x%08x", (unsigned int)l0, (unsigned int)l1);
@@ -5060,7 +5125,8 @@ enum bool print_addresses)
 		printf("external relocation entry for symbol:");
 		if(reloc->r_symbolnum < nsymbols &&
 		   symbols[reloc->r_symbolnum].n_un.n_strx > 0 &&
-		   symbols[reloc->r_symbolnum].n_un.n_strx < strings_size){
+		   (unsigned long)symbols[reloc->r_symbolnum].n_un.n_strx <
+			strings_size){
 		    if(l != 0)
 			printf("%s+0x%x\n", strings +
 				symbols[reloc->r_symbolnum].n_un.n_strx,
@@ -5238,7 +5304,7 @@ enum bool verbose)
     unsigned long i, offset;
     struct scattered_relocation_info *sreloc, *pair;
     unsigned int r_symbolnum;
-    long n_strx;
+    unsigned long n_strx;
     const char *name, *add, *sub;
 
 	if(verbose == FALSE)
@@ -5298,7 +5364,7 @@ enum bool verbose)
 		    if(sub != NULL)
 			printf("-%s", sub);
 		    else{
-			if(pair->r_value == dot_value)
+			if((unsigned long)pair->r_value == dot_value)
 			    printf("-.");
 			else
 			    printf("-0x%x", (unsigned int)pair->r_value);
@@ -5309,7 +5375,7 @@ enum bool verbose)
 		}
 	    }
 	    else{
-		if(relocs[i].r_address == r_address){
+		if((unsigned long)relocs[i].r_address == r_address){
 		    r_symbolnum = relocs[i].r_symbolnum;
 		    if(relocs[i].r_extern){
 		        if(r_symbolnum >= nsymbols)
@@ -5435,8 +5501,8 @@ const unsigned long strings_size)
 			if(index < nindirect_symbols &&
 		    	   symbols != NULL && strings != NULL &&
 		           indirect_symbols[index] < nsymbols &&
-		           symbols[indirect_symbols[index]].n_un.n_strx <
-							   strings_size)
+		           (unsigned long)symbols[indirect_symbols[index]].
+				n_un.n_strx < strings_size)
 			    return(strings +
 				symbols[indirect_symbols[index]].n_un.n_strx);
 			else

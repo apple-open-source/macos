@@ -24,7 +24,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines that drives pass1 of the link-editor.  In
  * pass1 the objects needed from archives are selected for loading and all of
@@ -113,7 +113,7 @@ __private_extern__ char *standard_framework_dirs[] = {
 
 /* the pointer to the head of the base object file's segments */
 __private_extern__ struct merged_segment *base_obj_segments = NULL;
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 #if !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__))
 /*
@@ -265,7 +265,7 @@ static void add_base_obj_segment(
 static char *mkstr(
 	const char *args,
 	...);
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 #if !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__))
 /*
@@ -302,7 +302,7 @@ enum bool bundle_loader)
     char *file_name;
 #ifndef RLD
     char *p, *type;
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
     kern_return_t r;
     unsigned long file_size;
     char *file_addr;
@@ -318,7 +318,7 @@ enum bool bundle_loader)
 	/* The compiler "warning: `file_name' may be used uninitialized in */
 	/* this function" can safely be ignored */
 	file_name = NULL;
-#endif DEBUG
+#endif /* DEBUG */
 
 	fd = -1;
 #ifndef RLD
@@ -374,7 +374,7 @@ enum bool bundle_loader)
 	    }
 	}
 	else
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 	{
 	    if((fd = open(name, O_RDONLY, 0)) == -1){
 		system_error("can't open: %s", name);
@@ -443,7 +443,7 @@ enum bool bundle_loader)
 	{
 #ifdef RLD
 	    new_archive_or_fat(file_name, file_addr, file_size);
-#endif RLD
+#endif /* RLD */
 	    pass1_fat(file_name, file_addr, file_size, base_name, FALSE,
 		      bundle_loader);
 	}
@@ -877,7 +877,7 @@ enum bool bundle_loader)
     struct ar_hdr *ar_hdr;
     unsigned long length;
     struct dynamic_library *p;
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
     struct ar_hdr *symdef_ar_hdr;
     char *symdef_ar_name, *ar_name;
     unsigned long symdef_length, nranlibs, string_size, ar_name_size;
@@ -1160,7 +1160,7 @@ down:
 	    }
 	    return;
 	}
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	/*
 	 * If there are no undefined symbols then the archive doesn't have
@@ -1173,7 +1173,7 @@ down:
 #ifdef RLD
 	if(from_fat_file == FALSE)
 	    new_archive_or_fat(file_name, file_addr, file_size);
-#endif RLD
+#endif /* RLD */
 	/*
 	 * The file is an archive so get the symdef file
 	 */
@@ -1272,7 +1272,7 @@ down:
 	if(toc_byte_sex != host_byte_sex)
 	    swap_ranlib(ranlibs, nranlibs, host_byte_sex);
 	for(i = 0; i < nranlibs; i++){
-	    if(ranlibs[i].ran_un.ran_strx >= (long)string_size){
+	    if(ranlibs[i].ran_un.ran_strx >= string_size){
 		error("malformed table of contents in: %s (ranlib struct %lu "
 		      "has bad string index, can't load from it)", file_name,i);
 		return;
@@ -1431,7 +1431,7 @@ down:
 	    p->ranlib_strings = bsearch_strings;
 	    return;
 	}
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	/*
 	 * Two possible algorithms are used to determine which members from the
@@ -1481,7 +1481,7 @@ down:
 		    cur_obj->from_fat_file = from_fat_file;
 #else
 		    cur_obj->file_name = file_name;
-#endif RLD
+#endif /* RLD */
 		    cur_obj->ar_hdr = (struct ar_hdr *)(file_addr +
 							ranlib->ran_off);
 		    if(strncmp(cur_obj->ar_hdr->ar_name, AR_EFMT1,
@@ -1577,7 +1577,7 @@ down:
 			    cur_obj->from_fat_file = from_fat_file;
 #else
 			    cur_obj->file_name = file_name;
-#endif RLD
+#endif /* RLD */
 			    cur_obj->ar_hdr = (struct ar_hdr *)(file_addr +
 							ranlibs[i].ran_off);
 			    if(strncmp(cur_obj->ar_hdr->ar_name, AR_EFMT1,
@@ -1747,9 +1747,10 @@ unsigned long file_size)
 	    length = round(obj_size, sizeof(short));
 	    offset += length;
 	}
-	if(no_arch_warnings == FALSE &&
-	   arch_flag.cputype != 0 && mixed_types == FALSE &&
+	if(arch_flag.cputype != 0 && mixed_types == FALSE &&
 	   arch_flag.cputype != cputype && cputype != 0){
+	    if(no_arch_warnings == TRUE)
+		return(FALSE);
 	    new_arch = get_arch_name_from_types(cputype, cpusubtype);
 	    prev_arch = get_arch_name_from_types(arch_flag.cputype,
 						 arch_flag.cpusubtype);
@@ -1843,7 +1844,7 @@ enum bool bundle_loader)
 	cur_obj->from_fat_file = from_fat_file;
 #else
 	cur_obj->file_name = file_name;
-#endif RLD
+#endif /* RLD */
 	cur_obj->obj_addr = file_addr;
 	cur_obj->obj_size = file_size;
 #ifndef RLD
@@ -1853,7 +1854,7 @@ enum bool bundle_loader)
 	 */
 	if(base_name == TRUE)
 	    base_obj = cur_obj;
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	merge(dylib_only, bundle_loader);
 
@@ -1864,7 +1865,7 @@ enum bool bundle_loader)
 	 */
 	if(base_name == TRUE)
 	    collect_base_obj_segments();
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 	return;
 }
 
@@ -2349,6 +2350,18 @@ void)
 				    undefined->merged_symbol->nlist.n_desc);
 		if(library_ordinal == SELF_LIBRARY_ORDINAL)
 		    p = undefined->merged_symbol->referencing_library;
+		/*
+		 * Note that if library_ordinal was DYNAMIC_LOOKUP_ORDINAL then
+		 * merge_dylib_module_symbols() in symbols.c would not have
+		 * set the twolevel_reference field to TRUE in the merged_symbol
+		 * and if we get here it with this it is an internal error.
+		 */
+		else if(library_ordinal == DYNAMIC_LOOKUP_ORDINAL)
+		    fatal("internal error: search_dynamic_libs() with a "
+			  "merged_symbol (%s) on the undefined list with "
+			  "twolevel_reference == TRUE and library_ordinal == "
+			  "DYNAMIC_LOOKUP_ORDINAL", undefined->merged_symbol->
+			  nlist.n_un.n_name);
 		else
 		    p = undefined->merged_symbol->referencing_library->
 			    dependent_images[library_ordinal - 1];
@@ -3470,6 +3483,8 @@ struct dynamic_library *p)
 	    pass1_object(file_name, file_addr, file_size, FALSE, FALSE, TRUE,
 			 FALSE);
 	}
+	if(errors)
+	    return(FALSE);
 	if(cur_obj == NULL || cur_obj->dylib == FALSE)
 	    return(FALSE);
 
@@ -3843,13 +3858,13 @@ enum bool bundle_loader)
 	    merge_fvmlibs();
 	    if(errors)
 		goto merge_return;
-#else defined(RLD)
+#else /* defined(RLD) */
 	    if(cur_obj != base_obj){
 		error_with_cur_obj("can't dynamicly load fixed VM shared "
 				   "library");
 		goto merge_return;
 	    }
-#endif defined(RLD)
+#endif /* defined(RLD) */
 	}
 
 	/* if this object has any dynamic shared library stuff merge it */
@@ -3862,13 +3877,13 @@ enum bool bundle_loader)
 		goto merge_return;
 	    if(cur_obj->dylinker)
 		goto merge_return;
-#else defined(RLD)
+#else /* defined(RLD) */
 	    if(cur_obj != base_obj){
 		error_with_cur_obj("can't used dynamic libraries or dynamic "
 		    "linker with rld based interfaces");
 		goto merge_return;
 	    }
-#endif defined(RLD)
+#endif /* defined(RLD) */
 	}
 
 	/* merged it's sections */
@@ -3896,9 +3911,9 @@ merge_return:
  * the dysymtab field, the section_maps and nsection_maps fields (this routine 
  * allocates the section_map structures and fills them in too), the fvmlib_
  * stuff field is set if any SG_FVMLIB segments or LC_LOADFVMLIB commands are
- * seen and the dylib_stuff field is set if the file is a MH_DYLIB type and
- * has a LC_ID_DYLIB command or a LC_LOAD_DYLIB or LC_LOAD_WEAK_DLIB command is 
- * seen.
+ * seen and the dylib_stuff field is set if the file is a MH_DYLIB or
+ * MH_DYLIB_STUB type and has a LC_ID_DYLIB command or a LC_LOAD_DYLIB or
+ * LC_LOAD_WEAK_DLIB command is seen.
  */
 static
 void
@@ -4159,17 +4174,20 @@ enum bool bundle_loader)
 	    return;
 	}
 	if((mh->flags & MH_DYLDLINK) != 0 && 
-	   (mh->filetype != MH_DYLIB && mh->filetype != MH_DYLINKER) &&
+	   (mh->filetype != MH_DYLIB &&
+	    mh->filetype != MH_DYLIB_STUB &&
+	    mh->filetype != MH_DYLINKER) &&
 	   bundle_loader == FALSE){
 	    error_with_cur_obj("is input for the dynamic link editor, is not "
 			       "relocatable by the static link editor again");
 	    return;
 	}
 	/*
-	 * If this is a MH_DYLIB file then a single LC_ID_DYLIB command must be
-	 * seen to identify the library.
+	 * If this is a MH_DYLIB or MH_DYLIB_STUB file then a single LC_ID_DYLIB
+	 * command must be seen to identify the library.
 	 */
-	cur_obj->dylib = (enum bool)(mh->filetype == MH_DYLIB);
+	cur_obj->dylib = (enum bool)(mh->filetype == MH_DYLIB ||
+				     mh->filetype == MH_DYLIB_STUB);
 	dlid = NULL;
 	dylib_id_name = NULL;
 	if(cur_obj->dylib == TRUE && dynamic == FALSE){
@@ -4346,7 +4364,8 @@ enum bool bundle_loader)
 			return;
 		    }
 		    /* check the size and offset of the contents if it has any*/
-		    if(section_type != S_ZEROFILL){
+		    if(mh->filetype != MH_DYLIB_STUB &&
+		       section_type != S_ZEROFILL){
 			check_size_offset_sect(s->size, s->offset, sizeof(char),
 			    "size", "offset", i, j, s->segname, s->sectname);
 			if(errors)
@@ -4567,14 +4586,16 @@ enum bool bundle_loader)
 			filetype == MH_FVMLIB ? "MH_FVMLIB" : "MH_DYLINKER");
 		    return;
 		}
-		if(mh->filetype != MH_DYLIB){
+		if(mh->filetype != MH_DYLIB && mh->filetype != MH_DYLIB_STUB){
 		    error_with_cur_obj("LC_ID_DYLIB load command in non-"
-			"MH_DYLIB filetype");
+			"%s filetype", mh->filetype == MH_DYLIB ? "MH_DYLIB" :
+			"MH_DYLIB_STUB");
 		    return;
 		}
 		if(dlid != NULL){
 		    error_with_cur_obj("malformed object (more than one "
-			"LC_ID_DYLIB load command in MH_DYLIB file)");
+			"LC_ID_DYLIB load command in %s file)", mh->filetype ==
+			MH_DYLIB ? "MH_DYLIB" : "MH_DYLIB_STUB");
 		    return;
 		}
 		dl = (struct dylib_command *)lc;
@@ -4653,14 +4674,17 @@ enum bool bundle_loader)
 			filetype == MH_FVMLIB ? "MH_FVMLIB" : "MH_DYLINKER");
 		    return;
 		}
-		if(mh->filetype != MH_DYLIB){
+		if(mh->filetype != MH_DYLIB && mh->filetype != MH_DYLIB_STUB){
 		    error_with_cur_obj("LC_SUB_FRAMEWORK load command in non-"
-			"MH_DYLIB filetype");
+			"%s filetype", mh->filetype == MH_DYLIB ? "MH_DYLIB" :
+			"MH_DYLIB_STUB");
 		    return;
 		}
 		if(sub != NULL){
 		    error_with_cur_obj("malformed object (more than one "
-			"LC_SUB_FRAMEWORK load command in MH_DYLIB file)");
+			"LC_SUB_FRAMEWORK load command in %s file)",
+			mh->filetype == MH_DYLIB ? "MH_DYLIB" :
+			"MH_DYLIB_STUB");
 		    return;
 		}
 		sub = (struct sub_framework_command *)lc;
@@ -4697,9 +4721,10 @@ enum bool bundle_loader)
 			filetype == MH_FVMLIB ? "MH_FVMLIB" : "MH_DYLINKER");
 		    return;
 		}
-		if(mh->filetype != MH_DYLIB){
+		if(mh->filetype != MH_DYLIB && mh->filetype != MH_DYLIB_STUB){
 		    error_with_cur_obj("LC_SUB_UMBRELLA load command in non-"
-			"MH_DYLIB filetype");
+			"%s filetype", mh->filetype == MH_DYLIB ? "MH_DYLIB" :
+			"MH_DYLIB_STUB");
 		    return;
 		}
 		usub = (struct sub_umbrella_command *)lc;
@@ -4736,9 +4761,10 @@ enum bool bundle_loader)
 			filetype == MH_FVMLIB ? "MH_FVMLIB" : "MH_DYLINKER");
 		    return;
 		}
-		if(mh->filetype != MH_DYLIB){
+		if(mh->filetype != MH_DYLIB && mh->filetype != MH_DYLIB_STUB){
 		    error_with_cur_obj("LC_SUB_LIBRARY load command in non-"
-			"MH_DYLIB filetype");
+			"%s filetype", mh->filetype == MH_DYLIB ? "MH_DYLIB" :
+			"MH_DYLIB_STUB");
 		    return;
 		}
 		lsub = (struct sub_library_command *)lc;
@@ -4775,9 +4801,10 @@ enum bool bundle_loader)
 			filetype == MH_FVMLIB ? "MH_FVMLIB" : "MH_DYLINKER");
 		    return;
 		}
-		if(mh->filetype != MH_DYLIB){
+		if(mh->filetype != MH_DYLIB && mh->filetype != MH_DYLIB_STUB){
 		    error_with_cur_obj("LC_SUB_CLIENT load command in non-"
-			"MH_DYLIB filetype");
+			"%s filetype", mh->filetype == MH_DYLIB ? "MH_DYLIB" :
+			"MH_DYLIB_STUB");
 		    return;
 		}
 		csub = (struct sub_client_command *)lc;
@@ -5090,12 +5117,14 @@ enum bool bundle_loader)
 	    }
 	}
 	/*
-	 * If this is a MH_DYLIB file then a single LC_ID_DYLIB command must be
-	 * seen to identify the library.
+	 * If this is a MH_DYLIB or MH_DYLIB_STUB file then a single
+	 * LC_ID_DYLIB command must be seen to identify the library.
 	 */
-	if(mh->filetype == MH_DYLIB && dlid == NULL){
+	if((mh->filetype == MH_DYLIB || mh->filetype == MH_DYLIB_STUB) &&
+	   dlid == NULL){
 	    error_with_cur_obj("malformed object (no LC_ID_DYLIB load command "
-			       "in MH_DYLIB file)");
+			       "in %s file)", mh->filetype == MH_DYLIB ?
+			       "MH_DYLIB" : "MH_DYLIB_STUB");
 	    return;
 	}
 	/*
@@ -5444,7 +5473,7 @@ unsigned long strsize)
 	/* merged the base program's symbols */
 	merge_symbols();
 }
-#endif RLD
+#endif /* RLD */
 
 /*
  * check_size_offset() is used by check_cur_obj() to check a pair of sizes,
@@ -5470,10 +5499,10 @@ unsigned long cmd)
 		 */
 		warning_with_cur_obj("%s in load command %lu not aligned on %lu"
 				     " byte boundary", offset_str, cmd, align);
-#else !defined(mc68000)
+#else /* !defined(mc68000) */
 		error_with_cur_obj("%s in load command %lu not aligned on %lu "
 				   "byte boundary", offset_str, cmd, align);
-#endif mc68000
+#endif /* mc68000 */
 		return;
 	    }
 	    if(offset > cur_obj->obj_size){
@@ -5518,11 +5547,11 @@ char *sectname)
 		warning_with_cur_obj("%s of section %lu (%.16s,%.16s) in load "
 		    "command %lu not aligned on %lu byte boundary", offset_str,
 		    sect, segname, sectname, cmd, align);
-#else !defined(mc68000)
+#else /* !defined(mc68000) */
 		error_with_cur_obj("%s of section %lu (%.16s,%.16s) in load "
 		    "command %lu not aligned on %lu byte boundary", offset_str,
 		    sect, segname, sectname, cmd, align);
-#endif mc68000
+#endif /* mc68000 */
 		return;
 	    }
 	    if(offset > cur_obj->obj_size){
@@ -5638,4 +5667,4 @@ const char *args,
 	}
 	return(s);
 }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */

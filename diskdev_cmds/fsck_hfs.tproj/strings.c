@@ -19,7 +19,11 @@ char * stat_msg[] =
 	"The volume %s needs to be repaired.",
 	"The volume %s appears to be OK.",
 	"The volume %s was repaired successfully.",
-	"The volume %s could not be repaired."
+	"The volume %s could not be repaired.",
+	"Volume check failed.",
+	"Rechecking volume.",
+	"Look for missing items in lost+found directory.",
+	"Cannot repair volume when it is mounted with write access.",
 };
 
 
@@ -30,7 +34,7 @@ char * err_msg[] =
 	"Incorrect block count for file %s",
 	"Incorrect size for file %s",
 	"Invalid directory item count",
-	"Invalid file name",
+	"Invalid length for file name",
 	"Invalid node height",
 	"Missing file record for file thread",
 	"Invalid allocation block size",
@@ -67,7 +71,7 @@ char * err_msg[] =
 	"Invalid file record length",
 	"Missing thread record for root dir",
 	"Missing thread record (id = %s)",
-	"Missing directory record",
+	"Missing directory record (id = %s)",
 	"Invalid key for thread record",
 	"Invalid parent CName in thread record",
 	"Invalid catalog record length",
@@ -105,7 +109,7 @@ char * err_msg[] =
 	"Internal files overlap (file %s)",
 	"Invalid Volume Header",
 	"HFS Wrapper volume needs repair",
-	"HFS Wrapper volume needs repair",
+	"Wrapper catalog file location needs repair",
 	"Indirect node %s needs link count adjustment",
 	"Orphaned indirect node %s",
 	"Invalid BSD file type",

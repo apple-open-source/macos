@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -32,9 +33,6 @@
 
 */
 
-//#include <MacTypes.h>
-//#include <Errors.h>
-
 #include "Scavenger.h"
 
 //	internal routine prototypes
@@ -43,23 +41,14 @@ static	int	RcdValErr( SGlobPtr GPtr, OSErr type, UInt32 correct, UInt32 incorrec
 		
 static	int	RcdNameLockedErr( SGlobPtr GPtr, OSErr type, UInt32 incorrect );
 	
-//static	OSErr	RcdOrphanedExtentErr ( SGlobPtr GPtr, SInt16 type, void *theKey );
-
 static	OSErr	RcdMDBEmbededVolDescriptionErr( SGlobPtr GPtr, OSErr type, HFSMasterDirectoryBlock *mdb );
-
-static	OSErr	RcdInvalidWrapperExtents( SGlobPtr GPtr, OSErr type );
 
 static	OSErr	CheckNodesFirstOffset( SGlobPtr GPtr, BTreeControlBlock *btcb );
 
 static	Boolean	ExtentInfoExists( ExtentsTable **extentsTableH, ExtentInfo *extentInfo );
 
-static	OSErr	CheckWrapperExtents( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb );
-
-static OSErr  GetVolumeHeaderBlock(SVCB *vcb, HFSMasterDirectoryBlock *mdb, BlockDescriptor *block,
-			UInt64 *idSector, UInt32 *hfsPlusIOPosOffset);
-
-OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt16 *volumeType );
-OSErr	SeekVolumeHeader( SGlobPtr GPtr, UInt64 startSector, UInt32 numSectors, UInt64 *vHSector );
+static OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt32 *volumeType );
+static OSErr	SeekVolumeHeader( SGlobPtr GPtr, UInt64 startSector, UInt32 numSectors, UInt64 *vHSector );
 
 /*
  * Check if a volume is journaled.  
@@ -145,63 +134,59 @@ CheckIfJournaled(SGlobPtr GPtr)
 int
 CheckForClean(SGlobPtr GPtr, Boolean markClean)
 {
-#define kIDSector 2
-
 	OSErr err;
 	int result = -1;
 	HFSMasterDirectoryBlock	*mdbp;
 	HFSPlusVolumeHeader *vhp;
 	SVCB *vcb = GPtr->calculatedVCB;
+	VolumeObjectPtr myVOPtr;
 	ReleaseBlockOptions rbOptions;
+	UInt64			blockNum;
 	BlockDescriptor block;
 
 	vhp = (HFSPlusVolumeHeader *) NULL;
 	rbOptions = kReleaseBlock;
-
-	err = GetVolumeBlock(vcb, kIDSector, kGetBlock, &block);
-	if (err) return (-1);
-
-	mdbp = (HFSMasterDirectoryBlock	*) block.buffer;
-
-	if (mdbp->drSigWord == kHFSPlusSigWord) {
-		vhp = (HFSPlusVolumeHeader *) block.buffer;
-
-	} else if (mdbp->drSigWord == kHFSSigWord) {
-
-		if (mdbp->drEmbedSigWord == kHFSPlusSigWord) {
-			UInt32 vhSector;
-			UInt32 blkSectors;
-			
-			blkSectors = mdbp->drAlBlkSiz / 512;
-			vhSector  = mdbp->drAlBlSt;
-			vhSector += blkSectors * mdbp->drEmbedExtent.startBlock;
-			vhSector += kIDSector;
+	myVOPtr = GetVolumeObjectPtr( );
+	block.buffer = NULL;
 	
-			(void) ReleaseVolumeBlock(vcb, &block, kReleaseBlock);
-			err = GetVolumeBlock(vcb, vhSector, kGetBlock, &block);
-			if (err) return (-1);
-
-			vhp = (HFSPlusVolumeHeader *) block.buffer;
-			mdbp = (HFSMasterDirectoryBlock	*) NULL;
-
-		} else /* plain old HFS */ {
-			result = (mdbp->drAtrb & kHFSVolumeUnmountedMask) != 0;
-			if (markClean && (result == 0)) {
-				mdbp->drAtrb |= kHFSVolumeUnmountedMask;
-				rbOptions = kForceWriteBlock;
-			}
-		}
+	GetVolumeObjectBlockNum( &blockNum );
+	if ( blockNum == 0 ) {
+		if ( GPtr->logLevel >= kDebugLog )
+			printf( "\t%s - unknown volume type \n", __FUNCTION__ );
+		return (-1);
+	}
+	
+	// get the VHB or MDB (depending on type of volume)
+	err = GetVolumeObjectPrimaryBlock( &block );
+	if (err) {
+		if ( GPtr->logLevel >= kDebugLog )
+			printf( "\t%s - could not get VHB/MDB at block %qd \n", __FUNCTION__, blockNum );
+		err = -1;
+		goto ExitThisRoutine;
 	}
 
-	if ((vhp != NULL) && (ValidVolumeHeader(vhp) == noErr)) {
+	if ( VolumeObjectIsHFSPlus( ) ) {
+		vhp = (HFSPlusVolumeHeader *) block.buffer;
+		
 		result = (vhp->attributes & kHFSVolumeUnmountedMask) != 0;
 		if (markClean && (result == 0)) {
 			vhp->attributes |= kHFSVolumeUnmountedMask;
 			rbOptions = kForceWriteBlock;
 		}
 	}
+	else if ( VolumeObjectIsHFS( ) ) {
+		mdbp = (HFSMasterDirectoryBlock	*) block.buffer;
+		
+		result = (mdbp->drAtrb & kHFSVolumeUnmountedMask) != 0;
+		if (markClean && (result == 0)) {
+			mdbp->drAtrb |= kHFSVolumeUnmountedMask;
+			rbOptions = kForceWriteBlock;
+		}
+	}
 
-	(void) ReleaseVolumeBlock(vcb, &block, rbOptions);
+ExitThisRoutine:
+	if ( block.buffer != NULL )
+		(void) ReleaseVolumeBlock(vcb, &block, rbOptions);
 
 	return (result);
 }
@@ -219,305 +204,238 @@ Output:		IVChk	-	function result:
 								0	= no error
 								n 	= error code
 ------------------------------------------------------------------------------*/
+#define					kBitsPerSector	4096
 
 OSErr IVChk( SGlobPtr GPtr )
 {
-	#define					kBitsPerSector	4096
-	UInt32					bitMapSizeInSectors;
-	OSErr					err;
-	HFSMasterDirectoryBlock	*alternateMDB;
-	HFSPlusVolumeHeader		*alternateVolumeHeader;
-	BlockDescriptor			block_VH;
-	BlockDescriptor			block_MDB;
+	OSErr						err;
+	HFSMasterDirectoryBlock *	myMDBPtr;
+	HFSPlusVolumeHeader *		myVHBPtr;
 	UInt32					numABlks;
-	UInt64					alternateBlockLocation;
 	UInt32					minABlkSz;
-	UInt64					totalSectors;
-	UInt32					sectorSize;
 	UInt32					maxNumberOfAllocationBlocks;
 	UInt32					realAllocationBlockSize;
 	UInt32					realTotalBlocks;
 	UInt32					i;
-	UInt32					hfsPlusIOPosOffset;
 	BTreeControlBlock		*btcb;
 	SVCB					*vcb	= GPtr->calculatedVCB;
+	VolumeObjectPtr 		myVOPtr;
+	UInt64					blockNum;
+	UInt64					totalSectors;
+	BlockDescriptor			myBlockDescriptor;
 	
 	//  Set up
-
 	GPtr->TarID = AMDB_FNum;	//	target = alt MDB
 	GPtr->TarBlock	= 0;
+	maxNumberOfAllocationBlocks	= 0xFFFFFFFF;
+	realAllocationBlockSize = 0;
+	realTotalBlocks = 0;
 	
-	alternateVolumeHeader = NULL;
-	block_VH.buffer = block_MDB.buffer = NULL;
+	myBlockDescriptor.buffer = NULL;
+	myVOPtr = GetVolumeObjectPtr( );
 		
-	// Determine volume size
-	err = GetDeviceSize(vcb->vcbDriveNumber, &totalSectors, &sectorSize);
-	if ( (totalSectors < 3) || (err != noErr) )
+	// check volume size
+	if ( myVOPtr->totalDeviceSectors < 3 ) {
+		if ( GPtr->logLevel >= kDebugLog )
+			printf("\tinvalid device information for volume - total sectors = %qd sector size = %d \n",
+				myVOPtr->totalDeviceSectors, myVOPtr->sectorSize);
 		return( 123 );
+	}
 	
-	//	Get the Alternate MDB, 2nd to last block on disk
-	//	On HFS+ disks this is still the HFS wrapper altMDB
-	//	On HFS+ wrapperless disks, it's the AltVH
-	alternateBlockLocation = totalSectors - 2;
-again:
-	err = GetVolumeBlock(vcb, alternateBlockLocation, kGetBlock, &block_MDB);
-	ReturnIfError( err );
+	GetVolumeObjectBlockNum( &blockNum );
+	if ( blockNum == 0 || myVOPtr->volumeType == kUnknownVolumeType ) {
+		if ( GPtr->logLevel >= kDebugLog )
+			printf( "\t%s - unknown volume type \n", __FUNCTION__ );
+		err = R_BadSig;  /* doesn't bear the HFS signature */
+		goto ReleaseAndBail;
+	}
 
-	alternateMDB = (HFSMasterDirectoryBlock	*) block_MDB.buffer;
-	if ( alternateMDB->drSigWord == kHFSPlusSigWord )
-	{
-		alternateVolumeHeader	= (HFSPlusVolumeHeader *)alternateMDB;
-		GPtr->volumeType		= kPureHFSPlusVolumeType;
-		GPtr->isHFSPlus			= true;
-		WriteMsg( GPtr, M_CheckingHFSPlusVolume, kStatusMessage );
+	// get Volume Header (HFS+) or Master Directory (HFS) block
+	err = GetVolumeObjectVHBorMDB( &myBlockDescriptor );
+	if ( err != noErr ) {
+		if ( GPtr->logLevel >= kDebugLog )
+			printf( "\t%s - bad volume header - err %d \n", __FUNCTION__, err );
+		goto ReleaseAndBail;
 	}
-	else if ( alternateMDB->drSigWord == kHFSSigWord )
-	{
-		//	Volume Type is constant, weather we are examining wrapper or HFS+ volume.
-		//	Detect if this is a wrapped HFS+ volume.
-		err = ScavengeVolumeType( GPtr, alternateMDB, &GPtr->volumeType );
-	
-		/* Wrappered HFS+ volume */
-		if ( ((GPtr->inputFlags & examineWrapperMask) == 0) && (alternateMDB->drEmbedSigWord == kHFSPlusSigWord) )
-		{
-			WriteMsg( GPtr, M_CheckingHFSPlusVolume, kStatusMessage );
-			GPtr->isHFSPlus	= true;
-		}
-		else /* Plain HFS */
-		{
-			WriteMsg( GPtr, M_CheckingHFSVolume, kStatusMessage );
-			GPtr->isHFSPlus	= false;
-		//	vcb->allocationsRefNum	= 0;
-		//	vcb->attributesRefNum		= 0;
-		}
-				
+	myMDBPtr = (HFSMasterDirectoryBlock	*) myBlockDescriptor.buffer;
+
+	// if this is an HFS (kHFSVolumeType) volume and the MDB indicates this
+	// might contain an embedded HFS+ volume then we need to scan
+	// for an embedded HFS+ volume.  I'm told there were some old problems
+	// where we could lose track of the embedded volume.
+	if ( VolumeObjectIsHFS( ) && 
+		 (myMDBPtr->drEmbedSigWord != 0 || 
+		  myMDBPtr->drEmbedExtent.blockCount != 0 || 
+		  myMDBPtr->drEmbedExtent.startBlock != 0) ) {
+
+		err = ScavengeVolumeType( GPtr, myMDBPtr, &myVOPtr->volumeType );
 		if ( err == E_InvalidMDBdrAlBlSt )
-			err = RcdMDBEmbededVolDescriptionErr( GPtr, E_InvalidMDBdrAlBlSt, alternateMDB );
-	}
-	else
-	{
-		/*
-		 * There was no valid alternate MDB so try the primary MDB
-		 */
-		if (alternateBlockLocation == MDB_BlkN) {
-			err = R_BadSig;  /* doesn't bear the HFS signature */
-			goto ReleaseAndBail;
+			err = RcdMDBEmbededVolDescriptionErr( GPtr, E_InvalidMDBdrAlBlSt, myMDBPtr );
+		
+		if ( VolumeObjectIsEmbeddedHFSPlus( ) ) {
+			// we changed volume types so let's get the VHB
+			(void) ReleaseVolumeBlock( vcb, &myBlockDescriptor, kReleaseBlock );
+			myBlockDescriptor.buffer = NULL;
+			myMDBPtr = NULL;
+			err = GetVolumeObjectVHB( &myBlockDescriptor );
+			if ( err != noErr ) {
+				if ( GPtr->logLevel >= kDebugLog )
+					printf( "\t%s - bad volume header - err %d \n", __FUNCTION__, err );
+				WriteError( GPtr, E_InvalidVolumeHeader, 1, 0 );
+				err = E_InvalidVolumeHeader;
+				goto ReleaseAndBail;
+			}
+
+			GetVolumeObjectBlockNum( &blockNum ); // get the new Volume header block number
 		}
-		alternateBlockLocation = MDB_BlkN;
-		(void) ReleaseVolumeBlock(vcb, &block_MDB, kReleaseBlock);
-		block_MDB.buffer = NULL;
-		goto again;
 	}
-	
-	
-	//
-	//	If we're checking an HFS+ volume's wrapper, check for bad extents
-	//
-	
-	if ( ((GPtr->inputFlags & examineWrapperMask) != 0) && (alternateMDB->drEmbedSigWord == kHFSPlusSigWord) )
-	{
-		err = CheckWrapperExtents( GPtr, alternateMDB );
-		if (err != noErr)
-			goto ReleaseAndBail;
-	}
-	
-	//
-	//	If this is an HFS+ disk
-	//
-	
-	if ( GPtr->isHFSPlus == true )
-	{	
+
+	totalSectors = ( VolumeObjectIsEmbeddedHFSPlus( ) ) ? myVOPtr->totalEmbeddedSectors : myVOPtr->totalDeviceSectors;
+
+	// indicate what type of volume we are dealing with
+	if ( VolumeObjectIsHFSPlus( ) ) {
+
+		myVHBPtr = (HFSPlusVolumeHeader	*) myBlockDescriptor.buffer;
+		WriteMsg( GPtr, M_CheckingHFSPlusVolume, kStatusMessage );
 		GPtr->numExtents = kHFSPlusExtentDensity;
 		vcb->vcbSignature = kHFSPlusSigWord;
-		
-		//	Read the HFS+ VolumeHeader
-		if ( GPtr->volumeType == kPureHFSPlusVolumeType )
-		{
-			hfsPlusIOPosOffset	=	0;			//	alternateBlockLocation is already set up
-		}
-		else
-		{
-			totalSectors	= (UInt64)alternateMDB->drEmbedExtent.blockCount * ( alternateMDB->drAlBlkSiz / Blk_Size );
 
-			err = GetVolumeHeaderBlock(vcb, alternateMDB, &block_VH, &alternateBlockLocation, &hfsPlusIOPosOffset);
-			if (err)
-				goto ReleaseAndBail;
-			alternateVolumeHeader = (HFSPlusVolumeHeader*) block_VH.buffer;
-		}
-		
-		err = ValidVolumeHeader( alternateVolumeHeader );
-		
-		//	If the alternate VolumeHeader is bad, just use the real VolumeHeader
-		if ( err != noErr )
-		{
-			WriteError( GPtr, E_InvalidVolumeHeader, 1, 0 );
-			err = E_InvalidVolumeHeader;								//	doesn't bear the HFS signature
-			goto ReleaseAndBail;
-		}
-	
 		//	Further populate the VCB with VolumeHeader info
-		vcb->vcbAlBlSt = hfsPlusIOPosOffset / 512;
-		vcb->vcbEmbeddedOffset = hfsPlusIOPosOffset;
+		vcb->vcbAlBlSt = myVOPtr->embeddedOffset / 512;
+		vcb->vcbEmbeddedOffset = myVOPtr->embeddedOffset;
+		realAllocationBlockSize		= myVHBPtr->blockSize;
+		realTotalBlocks				= myVHBPtr->totalBlocks;
+		vcb->vcbNextCatalogID	= myVHBPtr->nextCatalogID;
+		vcb->vcbCreateDate	= myVHBPtr->createDate;
+		vcb->vcbAttributes = myVHBPtr->attributes & kHFSCatalogNodeIDsReused;
 
-		maxNumberOfAllocationBlocks	= 0xFFFFFFFF;
-		realAllocationBlockSize		= alternateVolumeHeader->blockSize;
-		realTotalBlocks				= alternateVolumeHeader->totalBlocks;
-		vcb->vcbNextCatalogID	= alternateVolumeHeader->nextCatalogID;
-		vcb->vcbCreateDate	= alternateVolumeHeader->createDate;
-		vcb->vcbAttributes = alternateVolumeHeader->attributes & kHFSCatalogNodeIDsReused;
-		
-		if ( alternateVolumeHeader->attributesFile.totalBlocks == 0 )
+		if ( myVHBPtr->attributesFile.totalBlocks == 0 )
 			vcb->vcbAttributesFile = NULL;	/* XXX memory leak ? */
 
-		//	Make sure the Extents B-Tree is set to use 16-bit key lengths.  We access it before completely setting
-		//	up the control block.
+		//	Make sure the Extents B-Tree is set to use 16-bit key lengths.  
+		//	We access it before completely setting up the control block.
 		btcb = (BTreeControlBlock *) vcb->vcbExtentsFile->fcbBtree;
 		btcb->attributes |= kBTBigKeysMask;
+		
+		// catch the case where the volume allocation block count is greater than 
+		// maximum number of device allocation blocks. - bug 2916021
+		numABlks = myVOPtr->totalDeviceSectors / ( myVHBPtr->blockSize / Blk_Size );
+		if ( myVHBPtr->totalBlocks > numABlks ) {
+			RcdError( GPtr, E_NABlks );
+			err = E_NABlks;					
+			if ( GPtr->logLevel >= kDebugLog ) {
+				printf( "\t%s - volume header total allocation blocks is greater than device size \n", __FUNCTION__ );
+				printf( "\tvolume allocation block count %d device allocation block count %d \n", 
+						myVHBPtr->totalBlocks, numABlks );
+			}
+			goto ReleaseAndBail;
+		}
 	}
-	else	//	It's an HFS disk
-	{
-		GPtr->numExtents			= kHFSExtentDensity;
-		vcb->vcbSignature	= alternateMDB->drSigWord;
-		totalSectors				= alternateBlockLocation;
-		maxNumberOfAllocationBlocks	= 0xFFFF;
-		vcb->vcbNextCatalogID	= alternateMDB->drNxtCNID;			//	set up next file ID, CheckBTreeKey makse sure we are under this value
-		vcb->vcbCreateDate	= alternateMDB->drCrDate;
+	else if ( VolumeObjectIsHFS( ) ) {
 
-		realAllocationBlockSize		= alternateMDB->drAlBlkSiz;
-		realTotalBlocks				= alternateMDB->drNmAlBlks;
+		WriteMsg( GPtr, M_CheckingHFSVolume, kStatusMessage );
+		GPtr->numExtents			= kHFSExtentDensity;
+		vcb->vcbSignature			= myMDBPtr->drSigWord;
+		maxNumberOfAllocationBlocks	= 0xFFFF;
+		//	set up next file ID, CheckBTreeKey makse sure we are under this value
+		vcb->vcbNextCatalogID		= myMDBPtr->drNxtCNID;			
+		vcb->vcbCreateDate			= myMDBPtr->drCrDate;
+
+		realAllocationBlockSize		= myMDBPtr->drAlBlkSiz;
+		realTotalBlocks				= myMDBPtr->drNmAlBlks;
 	}
-	
-	
-	GPtr->idSector	= alternateBlockLocation;							//	Location of ID block, AltMDB, MDB, AltVH or VH
-	GPtr->TarBlock	= alternateBlockLocation;							//	target block = alt MDB
+
+	GPtr->TarBlock	= blockNum;							//	target block
 
 	//  verify volume allocation info
 	//	Note: i is the number of sectors per allocation block
- 	numABlks = totalSectors;
- 	minABlkSz = Blk_Size;												//	init minimum ablock size
-	for( i = 2; numABlks > maxNumberOfAllocationBlocks; i++ )			//	loop while #ablocks won't fit
-	{
-		minABlkSz = i * Blk_Size;										//	jack up minimum
-		numABlks  = alternateBlockLocation / i;							//	recompute #ablocks, assuming this size
+	numABlks = totalSectors;
+	minABlkSz = Blk_Size;							//	init minimum ablock size
+	//	loop while #ablocks won't fit
+	for( i = 2; numABlks > maxNumberOfAllocationBlocks; i++ ) {
+		minABlkSz = i * Blk_Size;					//	jack up minimum
+		numABlks  = totalSectors / i;				//	recompute #ablocks, assuming this size
+	 }
+
+	vcb->vcbBlockSize = realAllocationBlockSize;
+	numABlks = totalSectors / ( realAllocationBlockSize / Blk_Size );
+	if ( VolumeObjectIsHFSPlus( ) ) {
+		// HFS Plus allocation block size must be power of 2
+		if ( (realAllocationBlockSize < minABlkSz) || 
+			 (realAllocationBlockSize & (realAllocationBlockSize - 1)) != 0 )
+			realAllocationBlockSize = 0;
+	}
+	else {
+		if ( (realAllocationBlockSize < minABlkSz) || 
+			 (realAllocationBlockSize > Max_ABSiz) || 
+			 ((realAllocationBlockSize % Blk_Size) != 0) )
+			realAllocationBlockSize = 0;
 	}
 	
-	if ((realAllocationBlockSize >= minABlkSz) && (realAllocationBlockSize <= Max_ABSiz) && ((realAllocationBlockSize % Blk_Size) == 0))
-	{
-		vcb->vcbBlockSize = realAllocationBlockSize;
-		numABlks = totalSectors / ( realAllocationBlockSize / Blk_Size );	//	max # of alloc blks
-	}
-	else
-	{
+	if ( realAllocationBlockSize == 0 ) {
 		RcdError( GPtr, E_ABlkSz );
-		err = E_ABlkSz;													//	bad allocation block size
+		err = E_ABlkSz;	  //	bad allocation block size
 		goto ReleaseAndBail;
 	}
 	
 	vcb->vcbTotalBlocks	= realTotalBlocks;
 	vcb->vcbFreeBlocks	= 0;
+	
 	//	Only do these tests on HFS volumes, since they are either 
 	//	or, getting the VolumeHeader would have already failed.
+	if ( VolumeObjectIsHFS( ) ) {
+		UInt32					bitMapSizeInSectors;
 
-	if ( GPtr->isHFSPlus == false )
-	{
 		// Calculate the volume bitmap size
 		bitMapSizeInSectors = ( numABlks + kBitsPerSector - 1 ) / kBitsPerSector;			//	VBM size in blocks
 
-	//¥¥	Calculate the validaty of HFS+ Allocation blocks, I think realTotalBlocks == numABlks
+		//¥¥	Calculate the validaty of HFS Allocation blocks, I think realTotalBlocks == numABlks
 		numABlks = (totalSectors - 3 - bitMapSizeInSectors) / (realAllocationBlockSize / Blk_Size);	//	actual # of alloc blks
 
-		if ( realTotalBlocks > numABlks )
-		{
+		if ( realTotalBlocks > numABlks ) {
 			RcdError( GPtr, E_NABlks );
 			err = E_NABlks;								//	invalid number of allocation blocks
 			goto ReleaseAndBail;
 		}
 
-		if ( alternateMDB->drVBMSt <= MDB_BlkN )
-		{
+		if ( myMDBPtr->drVBMSt <= MDB_BlkN ) {
 			RcdError(GPtr,E_VBMSt);
 			err = E_VBMSt;								//	invalid VBM start block
 			goto ReleaseAndBail;
 		}	
-		vcb->vcbVBMSt = alternateMDB->drVBMSt;
+		vcb->vcbVBMSt = myMDBPtr->drVBMSt;
 		
-		if (alternateMDB->drAlBlSt < (alternateMDB->drVBMSt + bitMapSizeInSectors))
-		{
+		if (myMDBPtr->drAlBlSt < (myMDBPtr->drVBMSt + bitMapSizeInSectors)) {
 			RcdError(GPtr,E_ABlkSt);
 			err = E_ABlkSt;								//	invalid starting alloc block
 			goto ReleaseAndBail;
 		}
-		vcb->vcbAlBlSt = alternateMDB->drAlBlSt;
+		vcb->vcbAlBlSt = myMDBPtr->drAlBlSt;
 	}
-	
 
 ReleaseAndBail:
-	if (block_MDB.buffer != NULL)
-		(void) ReleaseVolumeBlock(vcb, &block_MDB, kReleaseBlock);
-
-	if (block_VH.buffer != NULL)
-		(void) ReleaseVolumeBlock(vcb, &block_VH, kReleaseBlock);
+	if (myBlockDescriptor.buffer != NULL)
+		(void) ReleaseVolumeBlock(vcb, &myBlockDescriptor, kReleaseBlock);
 	
 	return( err );		
 }
 
-/*
- * Note: GetVolumeHeaderBlock does not need to be 64 bit clean
- * since we don't support HFS Wrappers on TB volumes.
- */
-static OSErr
-GetVolumeHeaderBlock(SVCB *vcb, HFSMasterDirectoryBlock *mdb, BlockDescriptor *block,
-			UInt64 *idSector, UInt32 *hfsPlusIOPosOffset)
-{
-	OSErr  err;
-	HFSPlusVolumeHeader *  altVH;
-	UInt32  totalHFSPlusSectors;
-	
-	totalHFSPlusSectors = (mdb->drAlBlkSiz / 512) * mdb->drEmbedExtent.blockCount;
-	*hfsPlusIOPosOffset = (mdb->drEmbedExtent.startBlock * mdb->drAlBlkSiz) + (mdb->drAlBlSt * 512);
-	/* always 2nd to last sector */
-	*idSector = mdb->drAlBlSt + ((mdb->drAlBlkSiz / 512) * mdb->drEmbedExtent.startBlock) + totalHFSPlusSectors - 2;
-	
-	err = GetVolumeBlock(vcb, *idSector, kGetBlock, block);
-	altVH = (HFSPlusVolumeHeader*) block->buffer;
 
-	if ( err == noErr )
-		err = ValidVolumeHeader(altVH);
-	
-	/*
-	 * If the alternate VolumeHeader is bad, just use the real VolumeHeader
-	 */
-	if ( err != noErr ) {
-		/* VH is always 3rd sector of HFS+ partition */
-		*idSector = (mdb->drEmbedExtent.startBlock * mdb->drAlBlkSiz / 512) + mdb->drAlBlSt + 2;
-
-		err = GetVolumeBlock(vcb, *idSector, kGetBlock, block);
-		altVH = (HFSPlusVolumeHeader*) block->buffer;
-
-		if ( err == noErr )
-			err = ValidVolumeHeader(altVH);
-	}
-	
-	return (err);
-}
-
-
-OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt16 *volumeType  )
+static OSErr ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt32 *volumeType  )
 {
 	UInt64					vHSector;
-	UInt64					totalSectors;
-	UInt32					sectorSize;
 	UInt64					startSector;
 	UInt64					altVHSector;
-	UInt32					sectorsPerBlock;
 	UInt64					hfsPlusSectors = 0;
+	UInt32					sectorsPerBlock;
 	UInt32					numSectorsToSearch;
 	OSErr					err;
 	HFSPlusVolumeHeader 	*volumeHeader;
 	HFSExtentDescriptor		embededExtent;
-	SVCB				*calculatedVCB			= GPtr->calculatedVCB;
+	SVCB					*calculatedVCB			= GPtr->calculatedVCB;
+	VolumeObjectPtr			myVOPtr;
 	UInt16					embedSigWord			= mdb->drEmbedSigWord;
-	BlockDescriptor block;
+	BlockDescriptor 		block;
 
 	/*
 	 * If all of the embedded volume information is zero, then assume
@@ -534,6 +452,7 @@ OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt16 *v
 		return noErr;
 	}
 	
+	myVOPtr = GetVolumeObjectPtr( );
 	*volumeType	= kEmbededHFSPlusVolumeType;		//	Assume HFS+
 	
 	//
@@ -541,49 +460,55 @@ OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt16 *v
 	//
 	if ( embedSigWord == kHFSPlusSigWord )
 	{
-		/* 2nd to last sector */
+		/* look for primary volume header */
 		vHSector = (UInt64)mdb->drAlBlSt +
-			((UInt64)(mdb->drAlBlkSiz / 512) * (UInt64)mdb->drEmbedExtent.startBlock) + 2;
+			((UInt64)(mdb->drAlBlkSiz / Blk_Size) * (UInt64)mdb->drEmbedExtent.startBlock) + 2;
 
 		err = GetVolumeBlock(calculatedVCB, vHSector, kGetBlock, &block);
 		volumeHeader = (HFSPlusVolumeHeader *) block.buffer;
 		if ( err != noErr ) goto AssumeHFS;
 
+		myVOPtr->primaryVHB = vHSector;
 		err = ValidVolumeHeader( volumeHeader );
 		(void) ReleaseVolumeBlock(calculatedVCB, &block, kReleaseBlock);
-		if ( err == noErr )
+		if ( err == noErr ) {
+			myVOPtr->flags |= kVO_PriVHBOK;
 			return( noErr );
+		}
 	}
 	
-
-	sectorsPerBlock = mdb->drAlBlkSiz / 512;
+	sectorsPerBlock = mdb->drAlBlkSiz / Blk_Size;
 
 	//	Search the end of the disk to see if a Volume Header is present at all
 	if ( embedSigWord != kHFSPlusSigWord )
 	{
-		err = GetDeviceSize( GPtr->calculatedVCB->vcbDriveNumber, &totalSectors, &sectorSize );
-		if ( err != noErr ) goto AssumeHFS;
-		
-		numSectorsToSearch = mdb->drAlBlkSiz / sectorSize;
-		startSector = totalSectors - 4 - numSectorsToSearch;
+		numSectorsToSearch = mdb->drAlBlkSiz / Blk_Size;
+		startSector = myVOPtr->totalDeviceSectors - 4 - numSectorsToSearch;
 		
 		err = SeekVolumeHeader( GPtr, startSector, numSectorsToSearch, &altVHSector );
 		if ( err != noErr ) goto AssumeHFS;
 		
 		//	We found the Alt VH, so this must be a damaged embeded HFS+ volume
-		//	Now Scavenge for the VolumeHeader
+		//	Now Scavenge for the Primary VolumeHeader
+		myVOPtr->alternateVHB = altVHSector;
+		myVOPtr->flags |= kVO_AltVHBOK;
 		startSector = mdb->drAlBlSt + (4 * sectorsPerBlock);		// Start looking at 4th HFS allocation block
 		numSectorsToSearch = 10 * sectorsPerBlock;			// search for VH in next 10 allocation blocks
 		
 		err = SeekVolumeHeader( GPtr, startSector, numSectorsToSearch, &vHSector );
 		if ( err != noErr ) goto AssumeHFS;
 	
+		myVOPtr->primaryVHB = vHSector;
+		myVOPtr->flags |= kVO_PriVHBOK;
 		hfsPlusSectors	= altVHSector - vHSector + 1 + 2 + 1;	// numSectors + BB + end
 		
 		//	Fix the embeded extent
 		embededExtent.blockCount	= hfsPlusSectors / sectorsPerBlock;
 		embededExtent.startBlock	= (vHSector - 2 - mdb->drAlBlSt ) / sectorsPerBlock;
 		embedSigWord				= kHFSPlusSigWord;
+		
+		myVOPtr->embeddedOffset = 
+			(embededExtent.startBlock * mdb->drAlBlkSiz) + (mdb->drAlBlSt * Blk_Size);
 	}
 	else
 	{
@@ -595,28 +520,34 @@ OSErr	ScavengeVolumeType( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, UInt16 *v
 	if ( embedSigWord == kHFSPlusSigWord )
 	{
 		startSector = 2 + mdb->drAlBlSt +
-			((UInt64)embededExtent.startBlock * (mdb->drAlBlkSiz / 512));
+			((UInt64)embededExtent.startBlock * (mdb->drAlBlkSiz / Blk_Size));
 			
-		err = SeekVolumeHeader( GPtr, startSector, mdb->drAlBlkSiz / 512, &vHSector );
+		err = SeekVolumeHeader( GPtr, startSector, mdb->drAlBlkSiz / Blk_Size, &vHSector );
 		if ( err != noErr ) goto AssumeHFS;
 	
 		//	Now replace the bad fields and mark the error
-		mdb->drEmbedExtent.blockCount	= hfsPlusSectors / sectorsPerBlock;
-		mdb->drEmbedExtent.startBlock	= (vHSector - 2 - mdb->drAlBlSt ) / sectorsPerBlock;
+		mdb->drEmbedExtent.blockCount	= embededExtent.blockCount;
+		mdb->drEmbedExtent.startBlock	= embededExtent.startBlock;
 		mdb->drEmbedSigWord				= kHFSPlusSigWord;
 		mdb->drAlBlSt					+= vHSector - startSector;								//	Fix the bad field
+		myVOPtr->totalEmbeddedSectors = (mdb->drAlBlkSiz / Blk_Size) * mdb->drEmbedExtent.blockCount;
+		myVOPtr->embeddedOffset =
+			(mdb->drEmbedExtent.startBlock * mdb->drAlBlkSiz) + (mdb->drAlBlSt * Blk_Size);
+		myVOPtr->primaryVHB = vHSector;
+		myVOPtr->flags |= kVO_PriVHBOK;
+
 		GPtr->VIStat = GPtr->VIStat | S_MDB;													//	write out our MDB
 		return( E_InvalidMDBdrAlBlSt );
 	}
 	
-	
 AssumeHFS:
 	*volumeType	= kHFSVolumeType;
 	return( noErr );
-}
+	
+} /* ScavengeVolumeType */
 
 
-OSErr	SeekVolumeHeader( SGlobPtr GPtr, UInt64 startSector, UInt32 numSectors, UInt64 *vHSector )
+static OSErr SeekVolumeHeader( SGlobPtr GPtr, UInt64 startSector, UInt32 numSectors, UInt64 *vHSector )
 {
 	OSErr  err;
 	HFSPlusVolumeHeader  *volumeHeader;
@@ -640,6 +571,7 @@ OSErr	SeekVolumeHeader( SGlobPtr GPtr, UInt64 startSector, UInt32 numSectors, UI
 }
 
 
+#if 0 // not used at this time
 static OSErr CheckWrapperExtents( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb )
 {
 	OSErr	err = noErr;
@@ -655,7 +587,7 @@ static OSErr CheckWrapperExtents( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb )
 	
 	return err;
 }
-
+#endif
 
 /*------------------------------------------------------------------------------
 
@@ -675,22 +607,26 @@ OSErr	CreateExtentsBTreeControlBlock( SGlobPtr GPtr )
 	SInt32					size;
 	UInt32					numABlks;
 	BTHeaderRec				header;
-	BTreeControlBlock *  btcb;
-	SVCB *  vcb;
-	BlockDescriptor  block;
+	BTreeControlBlock *  	btcb;
+	SVCB *  				vcb;
+	BlockDescriptor 	 	block;
+	Boolean					isHFSPlus;
 
 	//	Set up
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	GPtr->TarID = kHFSExtentsFileID;	// target = extent file
 	GPtr->TarBlock	= kHeaderNodeNum;	// target block = header node
 	vcb = GPtr->calculatedVCB;
 	btcb = GPtr->calculatedExtentsBTCB;
-	
-	err = GetVolumeBlock(vcb, GPtr->idSector, kGetBlock, &block);
-	ReturnIfError(err);
+	block.buffer = NULL;
+
+	// get Volume Header (HFS+) or Master Directory (HFS) block
+	err = GetVolumeObjectVHBorMDB( &block );
+	if (err) goto exit;
 	//
 	//	check out allocation info for the Extents File 
 	//
-	if (GPtr->isHFSPlus)
+	if (isHFSPlus)
 	{
 		HFSPlusVolumeHeader *volumeHeader;
 
@@ -699,6 +635,7 @@ OSErr	CreateExtentsBTreeControlBlock( SGlobPtr GPtr )
 		CopyMemory(volumeHeader->extentsFile.extents, GPtr->calculatedExtentsFCB->fcbExtents32, sizeof(HFSPlusExtentRecord) );
 		
 		err = CheckFileExtents( GPtr, kHFSExtentsFileID, 0, (void *)GPtr->calculatedExtentsFCB->fcbExtents32, &numABlks );	//	check out extent info
+
 		if (err) goto exit;
 
 		if ( volumeHeader->extentsFile.totalBlocks != numABlks )				//	check out the PEOF
@@ -823,7 +760,8 @@ OSErr	CreateExtentsBTreeControlBlock( SGlobPtr GPtr )
 	((BTreeExtensionsRec*)btcb->refCon)->BTCBMSize = size;				//	remember how long it is
 	((BTreeExtensionsRec*)btcb->refCon)->realFreeNodeCount = header.freeNodes;//	keep track of real free nodes for progress
 exit:
-	(void) ReleaseVolumeBlock(vcb, &block, kReleaseBlock);
+	if ( block.buffer != NULL )
+		(void) ReleaseVolumeBlock(vcb, &block, kReleaseBlock);
 	
 	return (err);
 }
@@ -889,8 +827,8 @@ OSErr ExtBTChk( SGlobPtr GPtr )
 	OSErr					err;
 
 	//	Set up
-	GPtr->TarID		= kHFSExtentsFileID;										//	target = extent file
-	GPtr->TarBlock	= GPtr->idSector;											//	target block = ID sector
+	GPtr->TarID		= kHFSExtentsFileID;				//	target = extent file
+	GetVolumeObjectBlockNum( &GPtr->TarBlock );			//	target block = VHB/MDB
  
 	//
 	//	check out the BTree structure
@@ -942,18 +880,23 @@ OSErr ExtFlChk( SGlobPtr GPtr )
 	UInt32			attributes;
 	void			*p;
 	OSErr			result;
-	SVCB *  vcb;
+	SVCB 			*vcb;
+	Boolean			isHFSPlus;
 	BlockDescriptor  block;
 
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	block.buffer = NULL;
+	
 	//
 	//	process the bad block extents (created by the disk init pkg to hide badspots)
 	//
 	vcb = GPtr->calculatedVCB;
-	result = GetVolumeBlock(vcb, GPtr->idSector, kGetBlock, &block);
-	ReturnIfError( result );									//	error, could't get it
-	p = (void *) block.buffer;
 
-	attributes = GPtr->isHFSPlus == true ? ((HFSPlusVolumeHeader*)p)->attributes : ((HFSMasterDirectoryBlock*)p)->drAtrb;
+	result = GetVolumeObjectVHBorMDB( &block );
+	if ( result != noErr ) goto ExitThisRoutine;		//	error, could't get it
+
+	p = (void *) block.buffer;
+	attributes = isHFSPlus == true ? ((HFSPlusVolumeHeader*)p)->attributes : ((HFSMasterDirectoryBlock*)p)->drAtrb;
 
 	//¥¥ Does HFS+ honnor the same mask?
 	if ( attributes & kHFSVolumeSparedBlocksMask )				//	if any badspots
@@ -964,8 +907,10 @@ OSErr ExtFlChk( SGlobPtr GPtr )
 		ClearMemory ( zeroXdr, sizeof( HFSPlusExtentRecord ) );
 		result = CheckFileExtents( GPtr, kHFSBadBlockFileID, 0, (void *)zeroXdr, &numBadBlocks );	//	check and mark bitmap
 	}
- 
-	(void) ReleaseVolumeBlock(vcb, &block, kReleaseBlock);
+
+ExitThisRoutine:
+	if ( block.buffer != NULL )
+		(void) ReleaseVolumeBlock(vcb, &block, kReleaseBlock);
 
 	return (result);
 }
@@ -975,7 +920,7 @@ OSErr ExtFlChk( SGlobPtr GPtr )
 
 Function:	CreateCatalogBTreeControlBlock
 
-Function:	Create the calculated ExtentsBTree Control Block
+Function:	Create the calculated CatalogBTree Control Block
 			
 Input:		GPtr	-	pointer to scavenger global area
 
@@ -988,23 +933,25 @@ OSErr	CreateCatalogBTreeControlBlock( SGlobPtr GPtr )
 	SInt32					size;
 	UInt32					numABlks;
 	BTHeaderRec				header;
-	BTreeControlBlock *  btcb;
-	SVCB *  vcb;
-	BlockDescriptor  block;
+	BTreeControlBlock *  	btcb;
+	SVCB *  				vcb;
+	BlockDescriptor  		block;
+	Boolean					isHFSPlus;
 
 	//	Set up
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	GPtr->TarID		= kHFSCatalogFileID;
 	GPtr->TarBlock	= kHeaderNodeNum;
 	vcb = GPtr->calculatedVCB;
 	btcb = GPtr->calculatedCatalogBTCB;
- 
-	err = GetVolumeBlock(vcb, GPtr->idSector, kGetBlock, &block);
-	ReturnIfError(err);
+ 	block.buffer = NULL;
+
+	err = GetVolumeObjectVHBorMDB( &block );
+	if ( err != noErr ) goto ExitThisRoutine;		//	error, could't get it
 	//
 	//	check out allocation info for the Catalog File 
 	//
-
-	if (GPtr->isHFSPlus)
+	if (isHFSPlus)
 	{
 		HFSPlusVolumeHeader * volumeHeader;
 
@@ -1141,8 +1088,36 @@ OSErr	CreateCatalogBTreeControlBlock( SGlobPtr GPtr )
 	((BTreeExtensionsRec*)btcb->refCon)->BTCBMSize			= size;						//	remember how long it is
 	((BTreeExtensionsRec*)btcb->refCon)->realFreeNodeCount	= header.freeNodes;		//	keep track of real free nodes for progress
 
+    /* it should be OK at this point to get volume name and stuff it into our global */
+    {
+        OSErr				result;
+        UInt16				recSize;
+        CatalogKey			key;
+        CatalogRecord		record;
+    
+        BuildCatalogKey( kHFSRootFolderID, NULL, isHFSPlus, &key );
+        result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint, NULL, &record, &recSize, NULL );
+        if ( result == noErr ) {
+            if ( isHFSPlus ) {
+                size_t 						len;
+                HFSPlusCatalogThread *		recPtr = &record.hfsPlusThread;
+                (void) utf_encodestr( recPtr->nodeName.unicode,
+                                      recPtr->nodeName.length * 2,
+                                      GPtr->volumeName, &len );
+                GPtr->volumeName[len] = '\0';
+            }
+            else {
+                HFSCatalogThread *		recPtr = &record.hfsThread;
+                bcopy( &recPtr->nodeName[1], GPtr->volumeName, recPtr->nodeName[0] );
+                GPtr->volumeName[ recPtr->nodeName[0] ] = '\0';
+           }
+        }
+    }
+
 exit:
-	(void) ReleaseVolumeBlock(vcb, &block, kReleaseBlock);
+ExitThisRoutine:
+	if ( block.buffer != NULL )
+		(void) ReleaseVolumeBlock(vcb, &block, kReleaseBlock);
 
 	return (err);
 }
@@ -1163,12 +1138,14 @@ OSErr	CreateExtendedAllocationsFCB( SGlobPtr GPtr )
 {
 	OSErr					err = 0;
 	UInt32					numABlks;
-	SVCB * vcb;
-	BlockDescriptor block;
+	SVCB * 					vcb;
+	Boolean					isHFSPlus;
+	BlockDescriptor 		block;
 
 	//	Set up
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	GPtr->TarID = kHFSAllocationFileID;
-	GPtr->TarBlock = GPtr->idSector;
+	GetVolumeObjectBlockNum( &GPtr->TarBlock );			//	target block = VHB/MDB
  	vcb = GPtr->calculatedVCB;
 	block.buffer = NULL;
  
@@ -1176,13 +1153,14 @@ OSErr	CreateExtendedAllocationsFCB( SGlobPtr GPtr )
 	//	check out allocation info for the allocation File 
 	//
 
-	if ( GPtr->isHFSPlus )
+	if ( isHFSPlus )
 	{
 		SFCB * fcb;
 		HFSPlusVolumeHeader *volumeHeader;
 		
-		err = GetVolumeBlock(vcb, GPtr->idSector, kGetBlock, &block);
-		ReturnIfError(err);
+		err = GetVolumeObjectVHB( &block );
+		if ( err != noErr )
+			goto exit;
 		volumeHeader = (HFSPlusVolumeHeader *) block.buffer;
 
 		fcb = GPtr->calculatedAllocationsFCB;
@@ -1251,7 +1229,7 @@ OSErr CatHChk( SGlobPtr GPtr )
 	UInt32					filCnt;
 	SInt16					rtdirCnt;
 	SInt16					rtfilCnt;
-	SVCB				*calculatedVCB;
+	SVCB					*calculatedVCB;
 	SDPR					*dprP;
 	SDPR					*dprP1;
 	CatalogKey				foundKey;
@@ -1267,9 +1245,10 @@ OSErr CatHChk( SGlobPtr GPtr )
 	UInt32					valence;
 	CatalogRecord			threadRecord;
 	HFSCatalogNodeID		parID;
-	Boolean					isHFSPlus		= GPtr->isHFSPlus;
+	Boolean					isHFSPlus;
 
 	//	set up
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	calculatedVCB	= GPtr->calculatedVCB;
 	GPtr->TarID		= kHFSCatalogFileID;						/* target = catalog file */
 	GPtr->TarBlock	= 0;										/* no target block yet */
@@ -1411,8 +1390,9 @@ OSErr CatHChk( SGlobPtr GPtr )
 							/* Reposition to the first child of target directory */
 							result = SearchBTreeRecord(GPtr->calculatedCatalogFCB, &mtp->nextKey,
 							                           kNoHint, &foundKey, &threadRecord, &recSize, &hint);
-							if (result)
+							if (result) {
 								return (E_NoThd);
+							}
 							selCode = 0; /* use current record instead of next */
 							break;
 						}
@@ -1606,12 +1586,14 @@ OSErr	CreateAttributesBTreeControlBlock( SGlobPtr GPtr )
 	OSErr					err = 0;
 	SInt32					size;
 	UInt32					numABlks;
+	BTreeControlBlock *  	btcb;
+	SVCB *  				vcb;
+	Boolean					isHFSPlus;
 	BTHeaderRec				header;
-	BTreeControlBlock *  btcb;
-	SVCB *  vcb;
-	BlockDescriptor  block;
+	BlockDescriptor  		block;
 
 	//	Set up
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	GPtr->TarID		= kHFSAttributesFileID;
 	GPtr->TarBlock	= kHeaderNodeNum;
 	block.buffer = NULL;
@@ -1622,12 +1604,13 @@ OSErr	CreateAttributesBTreeControlBlock( SGlobPtr GPtr )
 	//	check out allocation info for the Attributes File 
 	//
 
-	if (GPtr->isHFSPlus)
+	if (isHFSPlus)
 	{
 		HFSPlusVolumeHeader *volumeHeader;
 
-		err = GetVolumeBlock(vcb, GPtr->idSector, kGetBlock, &block);
-		ReturnIfError(err);
+		err = GetVolumeObjectVHB( &block );
+		if ( err != noErr )
+			goto exit;
 		volumeHeader = (HFSPlusVolumeHeader *) block.buffer;
 
 		CopyMemory( volumeHeader->attributesFile.extents, GPtr->calculatedAttributesFCB->fcbExtents32, sizeof(HFSPlusExtentRecord) );
@@ -1710,7 +1693,6 @@ OSErr	CreateAttributesBTreeControlBlock( SGlobPtr GPtr )
 		btcb->firstLeafNode	= 0;
 		btcb->lastLeafNode	= 0;
 			
-	//	GPtr->calculatedVCB->attributesRefNum = 0;
 		GPtr->calculatedVCB->vcbAttributesFile = NULL;
 	}
 
@@ -1783,8 +1765,8 @@ OSErr AttrBTChk( SGlobPtr GPtr )
 	WriteMsg( GPtr, M_AttrBTChk, kStatusMessage );
 
 	//	Set up
-	GPtr->TarID		= kHFSAttributesFileID;										//	target = attributes file
-	GPtr->TarBlock	= GPtr->idSector;											//	target block = ID Block
+	GPtr->TarID		= kHFSAttributesFileID;				//	target = attributes file
+	GetVolumeObjectBlockNum( &GPtr->TarBlock );			//	target block = VHB/MDB
  
 	//
 	//	check out the BTree structure
@@ -1817,78 +1799,6 @@ OSErr AttrBTChk( SGlobPtr GPtr )
 }
 
 
-
-#if 0
-/*------------------------------------------------------------------------------
-
-Name:		RcdFThdErr - (record file thread error)
-
-Function:	Allocates a RepairOrder node describing a dangling file thread record,
-			most likely caused by discarding a file with system 6 (or less) that
-			had an alias created by system 7 (or greater).  System 6 isn't aware
-			of aliases, and so won't remove the accompanying thread record.
-
-Input:		GPtr 		- the scavenger globals
-			fid			- the File ID in the thread record key
-
-Output:		0 			- no error
-			R_NoMem		- not enough mem to allocate the record
-------------------------------------------------------------------------------*/
-
-static int RcdFThdErr( SGlobPtr	GPtr, UInt32 fid )			//	the dangling file ID
-{
-	RepairOrderPtr	p;										//	the node we compile
-	
-	RcdError( GPtr, E_NoFile );								//	first, record the error
-	
-	p = AllocMinorRepairOrder( GPtr, 0 );					//	then get a repair order node (std size)
-	if ( p==NULL )											//	quit if out of room
-		return( R_NoMem );
-	
-	p->type = E_NoFile;										//	repair type
-	p->parid = fid;											//	this is the only info we need
-	GPtr->CatStat |= S_FThd;								//	set flag to trigger repair
-	
-	return( noErr );										//	successful return
-}
-
-
-/*------------------------------------------------------------------------------
-
-Name:		RcdNoDirErr - (record missing direcotury record error)
-
-Function:	Allocates a RepairOrder node describing a missing directory record,
-			most likely caused by disappearing folder bug.  This bug causes some
-			folders to jump to Desktop from the root window.  The catalog directory
-			record for such a folder has the Desktop folder as the parent but its
-			thread record still the root directory as its parent.
-
-Input:		GPtr 		- the scavenger globals
-			did			- the directory ID in the thread record key
-
-Output:		0 			- no error
-			R_NoMem		- not enough mem to allocate the record
-------------------------------------------------------------------------------*/
-
-static int RcdNoDirErr( SGlobPtr GPtr, UInt32 did )			//	the directory ID in the thread record key
-{
-	RepairOrderPtr	p;										//	the node we compile
-	
-	RcdError( GPtr, E_NoDir );								//	first, record the error
-	
-	p = AllocMinorRepairOrder( GPtr, 0 );					//	then get a repair order node (std size)
-	if ( p==NULL )											//	quit if out of room
-		return ( R_NoMem );
-	
-	p->type = E_NoDir;										//	repair type
-	p->parid = did;											//	this is the only info we need
-	GPtr->CatStat |= S_NoDir;								//	set flag to trigger repair
-	
-	return( noErr );										//	successful return
-}
-#endif
-
-
 /*------------------------------------------------------------------------------
 
 Name:		RcdValErr - (Record Valence Error)
@@ -1906,19 +1816,21 @@ Output:		0 			- no error
 			R_NoMem		- not enough mem to allocate record
 ------------------------------------------------------------------------------*/
 
-static int RcdValErr( SGlobPtr GPtr, OSErr type, UInt32 correct, UInt32 incorrect, HFSCatalogNodeID parid )										/* the ParID, if needed */
+static int RcdValErr( SGlobPtr GPtr, OSErr type, UInt32 correct, UInt32 incorrect, HFSCatalogNodeID parid )	 /* the ParID, if needed */
 {
 	RepairOrderPtr	p;										/* the new node we compile */
 	SInt16			n;										/* size of node we allocate */
+	Boolean			isHFSPlus;
 	char goodStr[32], badStr[32];
 
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	PrintError(GPtr, type, 0);
 	sprintf(goodStr, "%d", correct);
 	sprintf(badStr, "%d", incorrect);
 	PrintError(GPtr, E_BadValue, 2, goodStr, badStr);
 	
 	if (type == E_DirVal)									/* if normal directory valence error */
-		n = CatalogNameSize( &GPtr->CName, GPtr->isHFSPlus);
+		n = CatalogNameSize( &GPtr->CName, isHFSPlus); 
 	else
 		n = 0;												/* other errors don't need the name */
 	
@@ -1932,7 +1844,7 @@ static int RcdValErr( SGlobPtr GPtr, OSErr type, UInt32 correct, UInt32 incorrec
 	p->parid		= parid;
 	
 	if ( n != 0 ) 											/* if name needed */
-		CopyCatalogName( (const CatalogName *) &GPtr->CName, (CatalogName*)&p->name, GPtr->isHFSPlus );
+		CopyCatalogName( (const CatalogName *) &GPtr->CName, (CatalogName*)&p->name, isHFSPlus ); 
 	
 	GPtr->CatStat |= S_Valence;								/* set flag to trigger repair */
 	
@@ -1979,6 +1891,7 @@ static	OSErr	RcdMDBEmbededVolDescriptionErr( SGlobPtr GPtr, OSErr type, HFSMaste
 }
 
 
+#if 0 // not used at this time
 /*------------------------------------------------------------------------------
 
 Name:		RcdInvalidWrapperExtents - (Record Invalid Wrapper Extents)
@@ -2010,6 +1923,7 @@ static	OSErr	RcdInvalidWrapperExtents( SGlobPtr GPtr, OSErr type )
 	
 	return( noErr );													//	successful return
 }
+#endif
 
 
 #if(0)	//	We just check and fix them in SRepair.c
@@ -2032,10 +1946,12 @@ static OSErr RcdOrphanedExtentErr ( SGlobPtr GPtr, SInt16 type, void *theKey )
 {
 	RepairOrderPtr	p;										/* the new node we compile */
 	SInt16			n;										/* size of node we allocate */
-	
+	Boolean			isHFSPlus;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	RcdError( GPtr,type );									/* first, record the error */
 	
-	if ( GPtr->isHFSPlus )
+	if ( isHFSPlus ) 
 		n = sizeof( HFSPlusExtentKey );
 	else
 		n = sizeof( HFSExtentKey );
@@ -2071,19 +1987,22 @@ Output:		VInfoChk	-	function result:
 OSErr VInfoChk( SGlobPtr GPtr )
 {
 	OSErr					result;
+	UInt16					recSize;
+	Boolean					isHFSPlus;
 	UInt32					hint;
 	UInt32					maxClump;
-	SVCB				*vcb;
+	SVCB					*vcb;
+	VolumeObjectPtr			myVOPtr;
 	CatalogRecord			record;
 	CatalogKey				foundKey;
-	UInt16					recSize;
-	Boolean					isHFSPlus = GPtr->isHFSPlus;
-	BlockDescriptor  altBlock;
-	BlockDescriptor  priBlock;
+	BlockDescriptor  		altBlock;
+	BlockDescriptor  		priBlock;
 
 	vcb = GPtr->calculatedVCB;
 	altBlock.buffer = priBlock.buffer = NULL;
-
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	myVOPtr = GetVolumeObjectPtr( );
+	
 	// locate the catalog record for the root directoryÉ
 	result = GetBTreeRecord( GPtr->calculatedCatalogFCB, 0x8001, &foundKey, &record, &recSize, &hint );
 	GPtr->TarID = kHFSCatalogFileID;							/* target = catalog */
@@ -2093,30 +2012,81 @@ OSErr VInfoChk( SGlobPtr GPtr )
 		result = IntError( GPtr, result );
 		return( result );
 	}
-	result = GetVolumeBlock(vcb, GPtr->idSector, kGetBlock, &altBlock);
-	ReturnIfError(result);
+
+	GPtr->TarID		= AMDB_FNum;								//	target = alternate MDB or VHB
+	GetVolumeObjectAlternateBlockNum( &GPtr->TarBlock );
+	result = GetVolumeObjectAlternateBlock( &altBlock );
+
+	// invalidate if we have not marked the alternate as OK
+	if ( isHFSPlus ) {
+		if ( (myVOPtr->flags & kVO_AltVHBOK) == 0 )
+			result = badMDBErr;
+	}
+	else if ( (myVOPtr->flags & kVO_AltMDBOK) == 0 ) {
+		result = badMDBErr;
+	}
+	if ( result != noErr ) {
+		GPtr->VIStat = GPtr->VIStat | S_MDB;
+		if ( VolumeObjectIsHFS( ) ) {
+			WriteError( GPtr, E_MDBDamaged, 0, 0 );
+			if ( GPtr->logLevel >= kDebugLog ) 
+				printf("\tinvalid alternate MDB at %qd result %d \n", GPtr->TarBlock, result);
+		}
+		else {
+			WriteError( GPtr, E_VolumeHeaderDamaged, 0, 0 );
+			if ( GPtr->logLevel >= kDebugLog ) 
+				printf("\tinvalid alternate VHB at %qd result %d \n", GPtr->TarBlock, result);
+		}
+		result = noErr;
+		goto exit;
+	}
+
+	GPtr->TarID		= MDB_FNum;								// target = primary MDB or VHB 
+	GetVolumeObjectPrimaryBlockNum( &GPtr->TarBlock );
+	result = GetVolumeObjectPrimaryBlock( &priBlock );
+
+	// invalidate if we have not marked the primary as OK
+	if ( isHFSPlus ) {
+		if ( (myVOPtr->flags & kVO_PriVHBOK) == 0 )
+			result = badMDBErr;
+	}
+	else if ( (myVOPtr->flags & kVO_PriMDBOK) == 0 ) {
+		result = badMDBErr;
+	}
+	if ( result != noErr ) {
+		GPtr->VIStat = GPtr->VIStat | S_MDB;
+		if ( VolumeObjectIsHFS( ) ) {
+			WriteError( GPtr, E_MDBDamaged, 1, 0 );
+			if ( GPtr->logLevel >= kDebugLog )
+				printf("\tinvalid primary MDB at %qd result %d \n", GPtr->TarBlock, result);
+		}
+		else {
+			WriteError( GPtr, E_VolumeHeaderDamaged, 1, 0 );
+			if ( GPtr->logLevel >= kDebugLog )
+				printf("\tinvalid primary VHB at %qd result %d \n", GPtr->TarBlock, result);
+		}
+		result = noErr;
+		goto exit;
+	}
+	
+	// check to see that embedded HFS plus volumes still have both (alternate and primary) MDBs 
+	if ( VolumeObjectIsEmbeddedHFSPlus( ) && 
+		 ( (myVOPtr->flags & kVO_PriMDBOK) == 0 || (myVOPtr->flags & kVO_AltMDBOK) == 0 ) ) 
+	{
+		GPtr->VIStat |= S_WMDB;
+		WriteError( GPtr, E_MDBDamaged, 0, 0 );
+		if ( GPtr->logLevel >= kDebugLog )
+			printf("\tinvalid wrapper MDB \n");
+	}
 	
 	if ( isHFSPlus )
 	{
-		HFSPlusVolumeHeader *volumeHeader;
-		HFSPlusVolumeHeader *alternateVolumeHeader;
+		HFSPlusVolumeHeader *	volumeHeader;
+		HFSPlusVolumeHeader *	alternateVolumeHeader;
+		UInt64					totalSectors;
 			
-		GPtr->TarID		= AMDB_FNum;								//	target = alternate MDB
-		GPtr->TarBlock	= GPtr->idSector;							//	target block =  ID block (Alternate VolumeHeader)
-
 		alternateVolumeHeader = (HFSPlusVolumeHeader *) altBlock.buffer;
-
-		GPtr->TarID		= MDB_FNum;								/* target = MDB */
-		GPtr->TarBlock	= MDB_BlkN;								/* target block = MDB */
-
-		if ( GPtr->idSector == (vcb->vcbEmbeddedOffset/512)+2) {
-			volumeHeader = alternateVolumeHeader;
-		} else {
-			/* VH is 3rd sector in */
-			result = GetVolumeBlock(vcb, (vcb->vcbEmbeddedOffset/512)+2, kGetBlock, &priBlock);
-			if (result) goto exit;	
-			volumeHeader = (HFSPlusVolumeHeader *) priBlock.buffer;
-		}
+		volumeHeader = (HFSPlusVolumeHeader *) priBlock.buffer;
 	
 		maxClump = (vcb->vcbTotalBlocks / 4) * vcb->vcbBlockSize; /* max clump = 1/4 volume size */
 
@@ -2137,11 +2107,14 @@ OSErr VInfoChk( SGlobPtr GPtr )
 		else
 			vcb->vcbNextAllocation = 0;
 
-		
 		//	verify default clump sizes
-		if ( (volumeHeader->rsrcClumpSize > 0) && (volumeHeader->rsrcClumpSize <= kMaxClumpSize) && ((volumeHeader->rsrcClumpSize % vcb->vcbBlockSize) == 0) )
+		if ( (volumeHeader->rsrcClumpSize > 0) && 
+			 (volumeHeader->rsrcClumpSize <= kMaxClumpSize) && 
+			 ((volumeHeader->rsrcClumpSize % vcb->vcbBlockSize) == 0) )
 			vcb->vcbRsrcClumpSize = volumeHeader->rsrcClumpSize;
-		else if ( (alternateVolumeHeader->rsrcClumpSize > 0) && (alternateVolumeHeader->rsrcClumpSize <= kMaxClumpSize) && ((alternateVolumeHeader->rsrcClumpSize % vcb->vcbBlockSize) == 0) )
+		else if ( (alternateVolumeHeader->rsrcClumpSize > 0) && 
+				  (alternateVolumeHeader->rsrcClumpSize <= kMaxClumpSize) && 
+				  ((alternateVolumeHeader->rsrcClumpSize % vcb->vcbBlockSize) == 0) )
 			vcb->vcbRsrcClumpSize = alternateVolumeHeader->rsrcClumpSize;
 		else
 			vcb->vcbRsrcClumpSize = 4 * vcb->vcbBlockSize;
@@ -2149,10 +2122,12 @@ OSErr VInfoChk( SGlobPtr GPtr )
 		if ( vcb->vcbRsrcClumpSize > kMaxClumpSize )
 			vcb->vcbRsrcClumpSize = vcb->vcbBlockSize;	/* for very large volumes, just use 1 allocation block */
 
-
-		if ( (volumeHeader->dataClumpSize > 0) && (volumeHeader->dataClumpSize <= kMaxClumpSize) && ((volumeHeader->dataClumpSize % vcb->vcbBlockSize) == 0) )
+		if ( (volumeHeader->dataClumpSize > 0) && (volumeHeader->dataClumpSize <= kMaxClumpSize) && 
+			 ((volumeHeader->dataClumpSize % vcb->vcbBlockSize) == 0) )
 			vcb->vcbDataClumpSize = volumeHeader->dataClumpSize;
-		else if ( (alternateVolumeHeader->dataClumpSize > 0) && (alternateVolumeHeader->dataClumpSize <= kMaxClumpSize) && ((alternateVolumeHeader->dataClumpSize % vcb->vcbBlockSize) == 0) )
+		else if ( (alternateVolumeHeader->dataClumpSize > 0) && 
+				  (alternateVolumeHeader->dataClumpSize <= kMaxClumpSize) && 
+				  ((alternateVolumeHeader->dataClumpSize % vcb->vcbBlockSize) == 0) )
 			vcb->vcbDataClumpSize = alternateVolumeHeader->dataClumpSize;
 		else
 			vcb->vcbDataClumpSize = 4 * vcb->vcbBlockSize;
@@ -2160,9 +2135,9 @@ OSErr VInfoChk( SGlobPtr GPtr )
 		if ( vcb->vcbDataClumpSize > kMaxClumpSize )
 			vcb->vcbDataClumpSize = vcb->vcbBlockSize;	/* for very large volumes, just use 1 allocation block */
 
-
 		//	verify next CNode ID
-		if ( (volumeHeader->nextCatalogID > vcb->vcbNextCatalogID) && (volumeHeader->nextCatalogID <= (vcb->vcbNextCatalogID + 4096)) )
+		if ( (volumeHeader->nextCatalogID > vcb->vcbNextCatalogID) && 
+			 (volumeHeader->nextCatalogID <= (vcb->vcbNextCatalogID + 4096)) )
 			vcb->vcbNextCatalogID = volumeHeader->nextCatalogID;
 			
 		//¥¥TBD location and unicode? volumename
@@ -2170,46 +2145,61 @@ OSErr VInfoChk( SGlobPtr GPtr )
 		result = ChkCName( GPtr, (const CatalogName*) &foundKey.hfsPlus.nodeName, isHFSPlus );
 
 		//	verify last backup date and backup seqence number
-		vcb->vcbBackupDate = volumeHeader->backupDate;					/* don't change last backup date */
+		vcb->vcbBackupDate = volumeHeader->backupDate;  /* don't change last backup date */
 		
 		//	verify write count
 		vcb->vcbWriteCount = volumeHeader->writeCount;	/* don't change write count */
 
-
 		//	check out extent file clump size
-		if ( ((volumeHeader->extentsFile.clumpSize % vcb->vcbBlockSize) == 0) && (volumeHeader->extentsFile.clumpSize <= maxClump) )
+		if ( ((volumeHeader->extentsFile.clumpSize % vcb->vcbBlockSize) == 0) && 
+			 (volumeHeader->extentsFile.clumpSize <= maxClump) )
 			vcb->vcbExtentsFile->fcbClumpSize = volumeHeader->extentsFile.clumpSize;
-		else if ( ((alternateVolumeHeader->extentsFile.clumpSize % vcb->vcbBlockSize) == 0) && (alternateVolumeHeader->extentsFile.clumpSize <= maxClump) )
+		else if ( ((alternateVolumeHeader->extentsFile.clumpSize % vcb->vcbBlockSize) == 0) && 
+				  (alternateVolumeHeader->extentsFile.clumpSize <= maxClump) )
 			vcb->vcbExtentsFile->fcbClumpSize = alternateVolumeHeader->extentsFile.clumpSize;
 		else		
-			vcb->vcbExtentsFile->fcbClumpSize = (alternateVolumeHeader->extentsFile.extents[0].blockCount * vcb->vcbBlockSize);
+			vcb->vcbExtentsFile->fcbClumpSize = 
+			(alternateVolumeHeader->extentsFile.extents[0].blockCount * vcb->vcbBlockSize);
 			
-		//	check out extent file clump size
-		if ( ((volumeHeader->catalogFile.clumpSize % vcb->vcbBlockSize) == 0) && (volumeHeader->catalogFile.clumpSize <= maxClump) )
+		//	check out catalog file clump size
+		if ( ((volumeHeader->catalogFile.clumpSize % vcb->vcbBlockSize) == 0) && 
+			 (volumeHeader->catalogFile.clumpSize <= maxClump) )
 			vcb->vcbCatalogFile->fcbClumpSize = volumeHeader->catalogFile.clumpSize;
-		else if ( ((alternateVolumeHeader->catalogFile.clumpSize % vcb->vcbBlockSize) == 0) && (alternateVolumeHeader->catalogFile.clumpSize <= maxClump) )
+		else if ( ((alternateVolumeHeader->catalogFile.clumpSize % vcb->vcbBlockSize) == 0) && 
+				  (alternateVolumeHeader->catalogFile.clumpSize <= maxClump) )
 			vcb->vcbCatalogFile->fcbClumpSize = alternateVolumeHeader->catalogFile.clumpSize;
 		else
-			vcb->vcbCatalogFile->fcbClumpSize = (alternateVolumeHeader->catalogFile.extents[0].blockCount * vcb->vcbBlockSize);
+			vcb->vcbCatalogFile->fcbClumpSize = 
+			(alternateVolumeHeader->catalogFile.extents[0].blockCount * vcb->vcbBlockSize);
+			
+		// make sure clump size is at least 1MB for volumes greater than 500MB
+		totalSectors = ( VolumeObjectIsEmbeddedHFSPlus( ) ) ? myVOPtr->totalEmbeddedSectors 
+															: myVOPtr->totalDeviceSectors;
+		if ( (totalSectors * myVOPtr->sectorSize) > (1024 * 1024 * 500) ) 
+		{
+			if ( vcb->vcbCatalogFile->fcbClumpSize < (1024 * 1024) )
+				vcb->vcbCatalogFile->fcbClumpSize = (1024 * 1024);
+		}
 	
 		//	check out allocations file clump size
-		if ( ((volumeHeader->allocationFile.clumpSize % vcb->vcbBlockSize) == 0) && (volumeHeader->allocationFile.clumpSize <= maxClump) )
+		if ( ((volumeHeader->allocationFile.clumpSize % vcb->vcbBlockSize) == 0) && 
+			 (volumeHeader->allocationFile.clumpSize <= maxClump) )
 			vcb->vcbAllocationFile->fcbClumpSize = volumeHeader->allocationFile.clumpSize;
-		else if ( ((alternateVolumeHeader->allocationFile.clumpSize % vcb->vcbBlockSize) == 0) && (alternateVolumeHeader->allocationFile.clumpSize <= maxClump) )
+		else if ( ((alternateVolumeHeader->allocationFile.clumpSize % vcb->vcbBlockSize) == 0) && 
+				  (alternateVolumeHeader->allocationFile.clumpSize <= maxClump) )
 			vcb->vcbAllocationFile->fcbClumpSize = alternateVolumeHeader->allocationFile.clumpSize;
 		else
-			vcb->vcbAllocationFile->fcbClumpSize = (alternateVolumeHeader->allocationFile.extents[0].blockCount * vcb->vcbBlockSize);
+			vcb->vcbAllocationFile->fcbClumpSize = 
+			(alternateVolumeHeader->allocationFile.extents[0].blockCount * vcb->vcbBlockSize);
 	
-
 		CopyMemory( volumeHeader->finderInfo, vcb->vcbFinderInfo, sizeof(vcb->vcbFinderInfo) );
-	
-		//	just copy cache parameters for now
-	//	vcb->vcbEmbedSigWord			= 0;
-	//	vcb->vcbEmbedExtent.startBlock	= 0;
-	//	vcb->vcbEmbedExtent.blockCount	= 0;
-	
-		//	Now compare verified MDB info with MDB info on disk
+		
+		//	Now compare verified Volume Header info (in the form of a vcb) with Volume Header info on disk
 		result = CompareVolumeHeader( GPtr, volumeHeader );
+		
+		// check to see that embedded volume info is correct in both wrapper MDBs 
+		CheckEmbeddedVolInfoInMDBs( GPtr );
+
 	}
 	else		//	HFS
 	{
@@ -2220,21 +2210,8 @@ OSErr VInfoChk( SGlobPtr GPtr )
 		//	get volume name from BTree Key
 		// 
 		
-		GPtr->TarID		= AMDB_FNum;								/* target = alternate MDB */
-		GPtr->TarBlock	= GPtr->idSector;							/* target block =  alt MDB */
-
 		alternateMDB = (HFSMasterDirectoryBlock	*) altBlock.buffer;
-	 
-		GPtr->TarID		= MDB_FNum;								/* target = MDB */
-		GPtr->TarBlock	= MDB_BlkN;								/* target block = MDB */
-
-		if (GPtr->idSector == MDB_BlkN) {
-			mdbP = alternateMDB;
-		} else {
-			result = GetVolumeBlock(vcb, MDB_BlkN, kGetBlock, &priBlock);
-			if (result) goto exit;
-			mdbP = (HFSMasterDirectoryBlock	*) priBlock.buffer;
-		}
+		mdbP = (HFSMasterDirectoryBlock	*) priBlock.buffer;
 
 		maxClump = (vcb->vcbTotalBlocks / 4) * vcb->vcbBlockSize; /* max clump = 1/4 volume size */
 
@@ -2255,9 +2232,13 @@ OSErr VInfoChk( SGlobPtr GPtr )
 			vcb->vcbNextAllocation = 0;
 
 		//	verify default clump size
-		if ( (mdbP->drClpSiz > 0) && (mdbP->drClpSiz <= maxClump) && ((mdbP->drClpSiz % vcb->vcbBlockSize) == 0) )
+		if ( (mdbP->drClpSiz > 0) && 
+			 (mdbP->drClpSiz <= maxClump) && 
+			 ((mdbP->drClpSiz % vcb->vcbBlockSize) == 0) )
 			vcb->vcbDataClumpSize = mdbP->drClpSiz;
-		else if ( (alternateMDB->drClpSiz > 0) && (alternateMDB->drClpSiz <= maxClump) && ((alternateMDB->drClpSiz % vcb->vcbBlockSize) == 0) )
+		else if ( (alternateMDB->drClpSiz > 0) && 
+				  (alternateMDB->drClpSiz <= maxClump) && 
+				  ((alternateMDB->drClpSiz % vcb->vcbBlockSize) == 0) )
 			vcb->vcbDataClumpSize = alternateMDB->drClpSiz;
 		else
 			vcb->vcbDataClumpSize = 4 * vcb->vcbBlockSize;
@@ -2299,12 +2280,7 @@ OSErr VInfoChk( SGlobPtr GPtr )
 	
 		//	just copy Finder info for now
 		CopyMemory(mdbP->drFndrInfo, vcb->vcbFinderInfo, sizeof(mdbP->drFndrInfo));
-	
-		//	just copy cache parameters for now
-	//	vcb->vcbEmbedSigWord			= alternateMDB->drEmbedSigWord;
-	//	vcb->vcbEmbedExtent.startBlock	= alternateMDB->drEmbedExtent.startBlock;
-	//	vcb->vcbEmbedExtent.blockCount	= alternateMDB->drEmbedExtent.blockCount;
-	
+		
 		//	now compare verified MDB info with MDB info on disk
 		result = CmpMDB( GPtr, mdbP);
 	}
@@ -2343,9 +2319,12 @@ OSErr	VLockedChk( SGlobPtr GPtr )
 	UInt16				recSize;
 	OSErr				result;
 	UInt16				frFlags;
-	Boolean				isHFSPlus		= GPtr->isHFSPlus;
-	SVCB			*calculatedVCB	= GPtr->calculatedVCB;
-	
+	Boolean				isHFSPlus;
+	SVCB				*calculatedVCB	= GPtr->calculatedVCB;
+	VolumeObjectPtr		myVOPtr;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	GPtr->TarID		= kHFSCatalogFileID;								/* target = catalog file */
 	GPtr->TarBlock	= 0;												/* no target block yet */
 	
@@ -2360,29 +2339,33 @@ OSErr	VLockedChk( SGlobPtr GPtr )
 		return( E_EntryNotFound );
 	}
 
-	//	put the vloume name in the VCB
+	//	put the volume name in the VCB
 	if ( isHFSPlus == false )
 	{
 		CopyMemory( foundKey.hfs.nodeName, calculatedVCB->vcbVN, sizeof(calculatedVCB->vcbVN) );
 	}
-	else if ( GPtr->volumeType != kPureHFSPlusVolumeType )
+	else if ( myVOPtr->volumeType != kPureHFSPlusVolumeType )
 	{
 		HFSMasterDirectoryBlock	*mdbP;
 		BlockDescriptor  block;
 		
-		result = GetVolumeBlock(calculatedVCB, MDB_BlkN, kGetBlock, &block);
+		block.buffer = NULL;
+		if ( (myVOPtr->flags & kVO_PriMDBOK) != 0 )
+			result = GetVolumeObjectPrimaryMDB( &block );
+		else
+			result = GetVolumeObjectAlternateMDB( &block );
+		if ( result == noErr ) {
+			mdbP = (HFSMasterDirectoryBlock	*) block.buffer;
+			CopyMemory( mdbP->drVN, calculatedVCB->vcbVN, sizeof(mdbP->drVN) );
+		}
+		if ( block.buffer != NULL )
+			(void) ReleaseVolumeBlock(calculatedVCB, &block, kReleaseBlock );
 		ReturnIfError(result);
-
-		mdbP = (HFSMasterDirectoryBlock	*) block.buffer;
-		CopyMemory( mdbP->drVN, calculatedVCB->vcbVN, sizeof(mdbP->drVN) );
-
-		(void) ReleaseVolumeBlock(calculatedVCB, &block, kReleaseBlock);
 	}
 	else		//	Because we don't have the unicode converters, just fill it with a dummy name.
 	{
 		CopyMemory( "\x0dPure HFS Plus", calculatedVCB->vcbVN, sizeof(Str27) );
 	}
-	
 		
 	GPtr->TarBlock = hint;
 	if ( isHFSPlus )
@@ -2392,7 +2375,9 @@ OSErr	VLockedChk( SGlobPtr GPtr )
 	
 	if ( (record.recordType == kHFSPlusFolderRecord) || (record.recordType == kHFSFolderRecord) )
 	{
-		frFlags = record.recordType == kHFSPlusFolderRecord ? record.hfsPlusFolder.userInfo.frFlags : record.hfsFolder.userInfo.frFlags;
+		frFlags = record.recordType == kHFSPlusFolderRecord ?
+			SWAP_BE16(record.hfsPlusFolder.userInfo.frFlags) :
+			SWAP_BE16(record.hfsFolder.userInfo.frFlags);
 	
 		if ( frFlags & fNameLocked )												// name locked bit set?
 			RcdNameLockedErr( GPtr, E_LockedDirName, frFlags );
@@ -2421,16 +2406,18 @@ static int RcdNameLockedErr( SGlobPtr GPtr, SInt16 type, UInt32 incorrect )					
 {
 	RepairOrderPtr	p;										/* the new node we compile */
 	int				n;										/* size of node we allocate */
-	
+	Boolean			isHFSPlus;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	RcdError( GPtr, type );									/* first, record the error */
 	
-	n = CatalogNameSize( &GPtr->CName, GPtr->isHFSPlus );
+	n = CatalogNameSize( &GPtr->CName, isHFSPlus );
 	
 	p = AllocMinorRepairOrder( GPtr, n );					/* get the node */
 	if ( p==NULL ) 											/* quit if out of room */
 		return ( R_NoMem );
 	
-	CopyCatalogName( (const CatalogName *) &GPtr->CName, (CatalogName*)&p->name, GPtr->isHFSPlus );
+	CopyCatalogName( (const CatalogName *) &GPtr->CName, (CatalogName*)&p->name, isHFSPlus );
 	
 	p->type				= type;								/* save error info */
 	p->correct			= incorrect & ~fNameLocked;			/* mask off the name locked bit */
@@ -2478,7 +2465,7 @@ OSErr	CheckFileExtents( SGlobPtr GPtr, UInt32 fileNumber, UInt8 forkType,
 	Boolean				firstRecord;
 	Boolean				isHFSPlus;
 
-	isHFSPlus	= GPtr->isHFSPlus;
+	isHFSPlus = VolumeObjectIsHFSPlus( );
 	firstRecord	= true;
 	err			= noErr;
 	blockCount	= 0;
@@ -2507,8 +2494,9 @@ OSErr	CheckFileExtents( SGlobPtr GPtr, UInt32 fileNumber, UInt8 forkType,
 				break;
 
 			err = CaptureBitmapBits(extentStartBlock, extentBlockCount);
-			if (err == E_OvlExt)
+			if (err == E_OvlExt) {
 				err = AddExtentToOverlapList(GPtr, fileNumber, extentStartBlock, extentBlockCount, forkType);
+			}
 			
 			blockCount += extentBlockCount;
 		}

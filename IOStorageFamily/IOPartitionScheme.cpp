@@ -43,7 +43,7 @@ IOMedia * IOPartitionScheme::getProvider() const
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOPartitionScheme::init(OSDictionary * properties = 0)
+bool IOPartitionScheme::init(OSDictionary * properties)
 {
     //
     // Initialize this object's minimal state.

@@ -2197,7 +2197,7 @@ IOATAController::scanForDrives( void )
 	}
 
 	// spun on BSY for too long, declare bus empty
-	if( ! (milsSpent < 31000) )
+	if( ! (milsSpent < 3100) )
 		goto AllDone;
 		
 	

@@ -400,9 +400,9 @@ IOSCSIProtocolInterface::InitializePowerManagement ( IOService * provider )
 {
 	
 	PMinit ( );
-	provider->joinPMtree ( this );
 	setIdleTimerPeriod ( 5 * 60 ); 	// set 5 minute idle timer until system sends us
 									// new values via setAggressiveness()
+	provider->joinPMtree ( this );
 	
 	// Call makeUsable here to tell the power manager to put us in our
 	// highest power state when we call registerPowerDriver().
@@ -463,7 +463,8 @@ IOSCSIProtocolInterface::HandleCheckPowerState ( UInt32 maxPowerState )
 	// this scenario by looping and verifying that the state does indeed go to
 	// active.
 	while ( ( fCurrentPowerState != maxPowerState ) &&
-			( isInactive ( ) == false ) )
+			( isInactive ( ) == false ) &&
+			( getWorkLoop ( )->onThread ( ) == false ) )
 	{
 		
 		fCommandGate->commandSleep ( &fCurrentPowerState, THREAD_UNINT );
@@ -744,38 +745,38 @@ IOSCSIArchitectureModelFamilyDebugAssert (	const char * componentNameString,
 #pragma mark -
 #endif
 
-OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 1 );
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolInterface, 1 );
 // Used by the abstract member routine:
-// virtual SCSIServiceResponse		AbortTask( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag ) = 0;
+// virtual SCSIServiceResponse		AbortTask ( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag ) = 0;
 
-OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 2 );
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolInterface, 2 );
 // Used by the abstract member routine:
-// virtual SCSIServiceResponse		AbortTaskSet( UInt8 theLogicalUnit ) = 0;
+// virtual SCSIServiceResponse		AbortTaskSet ( UInt8 theLogicalUnit ) = 0;
 
-OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 3 );
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolInterface, 3 );
 // Used by the abstract member routine:
-// virtual SCSIServiceResponse		ClearACA( UInt8 theLogicalUnit ) = 0;
+// virtual SCSIServiceResponse		ClearACA ( UInt8 theLogicalUnit ) = 0;
 
-OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 4 );
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolInterface, 4 );
 // Used by the abstract member routine:
-// virtual SCSIServiceResponse		ClearTaskSet( UInt8 theLogicalUnit ) = 0;
+// virtual SCSIServiceResponse		ClearTaskSet ( UInt8 theLogicalUnit ) = 0;
 
-OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 5 );
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolInterface, 5 );
 // Used by the abstract member routine:
-// virtual SCSIServiceResponse		LogicalUnitReset( UInt8 theLogicalUnit ) = 0;
+// virtual SCSIServiceResponse		LogicalUnitReset ( UInt8 theLogicalUnit ) = 0;
 
-OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 6 );
+OSMetaClassDefineReservedUsed ( IOSCSIProtocolInterface, 6 );
 // Used by the abstract member routine:
-// virtual SCSIServiceResponse		TargetReset( void ) = 0;
+// virtual SCSIServiceResponse		TargetReset ( void ) = 0;
 
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 7 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 8 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 9 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 10 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 11 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 12 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 13 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 14 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 15 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 16 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolInterface, 7 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolInterface, 8 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolInterface, 9 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolInterface, 10 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolInterface, 11 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolInterface, 12 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolInterface, 13 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolInterface, 14 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolInterface, 15 );
+OSMetaClassDefineReservedUnused ( IOSCSIProtocolInterface, 16 );

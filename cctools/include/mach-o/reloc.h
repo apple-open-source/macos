@@ -175,7 +175,7 @@ struct scattered_relocation_info {
 
 /*
  * Relocation types used in a generic implementation.  Relocation entries for
- * nornal things use the generic relocation as discribed above and their r_type
+ * normal things use the generic relocation as discribed above and their r_type
  * is GENERIC_RELOC_VANILLA (a value of zero).
  *
  * Another type of generic relocation, GENERIC_RELOC_SECTDIFF, is to support

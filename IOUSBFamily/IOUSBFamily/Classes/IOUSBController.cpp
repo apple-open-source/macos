@@ -3,24 +3,33 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include <libkern/OSByteOrder.h>
 
+//================================================================================================
+//
+//   Headers
+//
+//================================================================================================
+//
+#include <libkern/OSByteOrder.h>
 #include <libkern/c++/OSDictionary.h>
 #include <libkern/c++/OSData.h>
 
@@ -39,6 +48,17 @@
 #include <IOKit/usb/IOUSBWorkLoop.h>
 #include <IOKit/pccard/IOPCCard.h>
 
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+#define kUSBSetup 		kUSBNone
+#define kAppleCurrentAvailable	"AAPL,current-available"
+#define kUSBBusID		"AAPL,bus-id"
+
+#define super IOUSBBus
+
 enum {
     kSetupSent  = 0x01,
     kDataSent   = 0x02,
@@ -56,17 +76,29 @@ enum {
     
 };
 
+//================================================================================================
+//
+//   Globals (static member variables)
+//
+//================================================================================================
 #define kUSBSetup 		kUSBNone
 #define kAppleCurrentAvailable	"AAPL,current-available"
 #define kUSBBusID		"AAPL,bus-id"
+#define	kMaxNumberUSBBusses	256
 
 // These are really a static member variable (system wide global)
 //
 IOUSBLog		*IOUSBController::_log;				
 const IORegistryPlane	*IOUSBController::gIOUSBPlane = 0;
 UInt32			IOUSBController::_busCount;
-bool			IOUSBController::gUsedBusIDs[16];
+bool			IOUSBController::gUsedBusIDs[kMaxNumberUSBBusses];
 
+//================================================================================================
+//
+//   Syncer routines to implement synchronous requests
+//
+//================================================================================================
+//
 void IOUSBSyncCompletion(void *	target,
                     void * 	parameter,
                     IOReturn	status,
@@ -90,15 +122,22 @@ void IOUSBSyncIsoCompletion(void *target, void * 	parameter,
 }
 
 
-#define super IOUSBBus
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
+//================================================================================================
+//
+//   IOKit Constructors and Destructors
+//
+//================================================================================================
+//
 OSDefineMetaClass( IOUSBController, IOUSBBus )
 OSDefineAbstractStructors(IOUSBController, IOUSBBus)
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+//================================================================================================
+//
+//   IOUSBController Methods
+//
+//================================================================================================
+//
 bool 
 IOUSBController::init(OSDictionary * propTable)
 {
@@ -113,7 +152,6 @@ IOUSBController::init(OSDictionary * propTable)
 	bzero(_expansionData, sizeof(ExpansionData));
     }
 
-    _controllerTerminating = false;
     _watchdogTimerActive = false;
     _pcCardEjected = false;
     
@@ -190,6 +228,14 @@ IOUSBController::start( IOService * provider )
             break;
         }
 
+        // allocate a thread_call structure
+        //
+        _terminatePCCardThread = thread_call_allocate((thread_call_func_t)TerminatePCCard, (thread_call_param_t)this);
+        if ( !_terminatePCCardThread )
+        {
+            USBError(1, "[%p] %s could not allocate thread functions.  Aborting start", this, getName());
+        }
+        
         for (i = 1; i < kUSBMaxDevices; i++)
         {
             _addressPending[i] = false;
@@ -413,6 +459,8 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
     UInt16		wLength = request->wLength;
     IOReturn		err = kIOReturnSuccess;
     IOUSBCompletion	completion;
+    IOMemoryDescriptor	*requestMemoryDescriptor;
+    IOMemoryDescriptor	*bufferMemoryDescriptor = NULL;
     
     do
     {
@@ -427,18 +475,43 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
 	request->wIndex = HostToUSBWord(request->wIndex);
 	request->wLength = HostToUSBWord(request->wLength);
 	
+	// set up the memory descriptor for the request
+	requestMemoryDescriptor = IOMemoryDescriptor::withAddress(request, 8, kIODirectionOut);
+	if (!requestMemoryDescriptor)
+	{
+	    err = kIOReturnNoMemory;
+	    break;
+	}
+	    
+	requestMemoryDescriptor->prepare();
+	
+	// set up the memory descriptor (if needed) for the buffer
+	if (wLength && (request->pData != NULL) && (command->GetSelector() != DEVICE_REQUEST_DESC))
+	{
+	    bufferMemoryDescriptor = IOMemoryDescriptor::withAddress(request->pData, wLength, (direction == kUSBIn) ? kIODirectionIn : kIODirectionOut);
+	    if (!bufferMemoryDescriptor)
+	    {
+		err = kIOReturnNoMemory;
+		break;
+	    }
+	    bufferMemoryDescriptor->prepare();
+	}
+
         command->SetDataRemaining(wLength);
         command->SetStage(kSetupSent);
         command->SetUSLCompletion(completion);
 	command->SetStatus(kIOReturnSuccess);
-	
+	command->SetRequestMemoryDescriptor(requestMemoryDescriptor);
+	command->SetBufferMemoryDescriptor(bufferMemoryDescriptor);
+	command->SetMultiTransferTransaction(true);
+	command->SetFinalTransferInTransaction(false);
         USBLog(7,"\tQueueing Setup TD (dir=%d) packet=0x%08lx%08lx",
               direction, *(UInt32*)request, *((UInt32*)request+1));
         err = UIMCreateControlTransfer(
                     command->GetAddress(),	// functionAddress
                     endpoint,	 		// endpointNumber
                     command,   			// command
-                    request,			// packet
+                    requestMemoryDescriptor,	// descriptor
                     true,			// bufferRounding
                     8,				// packet size
                     kUSBSetup);			// direction
@@ -449,7 +522,7 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
         }
 
         // Data Stage
-        if ((wLength != 0) && (request->pData != 0))
+        if (wLength && (request->pData != NULL))
         {
             USBLog(7,"\tQueueing Data TD (dir=%d, wLength=0x%x, pData=%lx)", 
 		direction, wLength, (UInt32)request->pData);
@@ -459,7 +532,7 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
 			command->GetAddress(),		// functionAddress
 			endpoint,	 		// endpointNumber
 			command,   			// command
-			command->GetBuffer(),		// buffer
+			command->GetBuffer(),		// buffer (already a memory desc)
 			true,				// bufferRounding
 			wLength,			// buffer size
 			direction);			// direction
@@ -468,7 +541,7 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
 			command->GetAddress(),		// functionAddress
 			endpoint,	 		// endpointNumber
 			command,   			// command
-			request->pData,			// buffer
+			bufferMemoryDescriptor,		// buffer
 			true,				// bufferRounding
 			wLength,			// buffer size
 			direction);			// direction
@@ -489,11 +562,12 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
         // Status Stage
         USBLog(7,"\tQueueing Status TD (dir=%d)", direction);
         command->SetStage(command->GetStage() | kStatusSent);
+	command->SetFinalTransferInTransaction(true);
         err = UIMCreateControlTransfer(
 			command->GetAddress(),		// functionAddress
 			endpoint,	 		// endpointNumber
 			command,   			// command
-			(void *)0,			// buffer
+			(IOMemoryDescriptor *)NULL,	// buffer
 			true,				// bufferRounding
 			0,				// buffer size
 			direction);			// direction
@@ -546,13 +620,13 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
     todo = sent ^ back; /* thats xor */
 
     if ( status != kIOReturnSuccess )
-        USBLog(5, "%s[%p]::ControlPacketHandler: Error: 0x%x, stage: 0x%x, todo: 0x%x",me->getName(), me, status, command->GetAddress(), command->GetEndpoint(), command->GetStage(), todo );
+        USBLog(5, "%s[%p]::ControlPacketHandler(FN: %d, EP:%d): Error: 0x%x, stage: 0x%x, todo: 0x%x", me->getName(), me, command->GetAddress(), command->GetEndpoint(), status, command->GetStage(), todo );
 
     if((todo & kSetupBack) != 0)
         command->SetStage(command->GetStage() | kSetupBack);
     else if((todo & kDataBack) != 0)
     {
-        /* This is the data transport phase, so this is the interesting one */
+        // This is the data transport phase, so this is the interesting one
         command->SetStage(command->GetStage() | kDataBack);
         command->SetDataRemaining(bufferSizeRemaining);
     }
@@ -593,6 +667,21 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
     if (todo == 0)
     {
         USBLog(7,"ControlPacketHandler: transaction complete status=0x%x", status);
+    
+	// release my memory descriptors as needed
+	if (command->GetRequestMemoryDescriptor())
+	{
+	    command->GetRequestMemoryDescriptor()->complete();
+	    command->GetRequestMemoryDescriptor()->release();
+	    command->SetRequestMemoryDescriptor(NULL);
+	}
+	
+	if (command->GetBufferMemoryDescriptor())
+	{
+	    command->GetBufferMemoryDescriptor()->complete();
+	    command->GetBufferMemoryDescriptor()->release();
+	    command->SetBufferMemoryDescriptor(NULL);
+	}
 
         // Don't report a status on a short packet
         //
@@ -609,6 +698,9 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
 	// Free/give back the command 
 	me->_freeUSBCommandPool->returnCommand(command);
     }
+    else
+        USBLog(7,"ControlPacketHandler: still more to come: todo=0x%x", todo);
+        
 }
 
 
@@ -1221,7 +1313,7 @@ IOUSBController::MakeDevice(USBDeviceAddress *	address)
         return NULL;
 
     *address = GetNewAddress();
-    if(*address == NULL) 
+    if(*address == 0) 
     {
         USBError(1, "%s[%p]::MakeDevice error getting address - releasing newDev", getName(), this);
 	newDev->release();
@@ -1298,23 +1390,11 @@ IOUSBController::message( UInt32 type, IOService * provider,  void * argument )
 {
     IOReturn err = kIOReturnSuccess;
     cs_event_t	pccardevent;
-    bool ok;
     
     switch ( type )
     {
         case kIOMessageServiceIsTerminated:
-            USBLog(5,"%s[%p]: Received kIOMessageServiceIsTerminated",getName(),this);
-            _controllerTerminating = true;
-            if ( _rootHubDevice )
-            {
-                USBLog(5,"%s[%p]: Terminating RootHub",getName(),this);
-                ok = _rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
-                if ( !ok )
-                    USBLog(3,"%s: Could not terminate RootHub device",getName());
-                _rootHubDevice->detachAll(gIOUSBPlane);
-                _rootHubDevice->release();
-                _rootHubDevice = NULL;
-            }
+            USBLog(6,"%s[%p]: Received kIOMessageServiceIsTerminated - ignoring",getName(),this);
             break;
             
         // Do we really need to return success from the following two messages?
@@ -1325,22 +1405,17 @@ IOUSBController::message( UInt32 type, IOService * provider,  void * argument )
         case kIOPCCardCSEventMessage:
             pccardevent = (UInt32) argument;
             
-            USBLog(5,"%s[%p]: Received kIOPCCardCSEventMessage event %d",getName(),this, (UInt32) pccardevent);
+            USBLog(5,"+%s[%p]: Received kIOPCCardCSEventMessage event %d",getName(),this, (UInt32) pccardevent);
             if ( pccardevent == CS_EVENT_CARD_REMOVAL )
             {
                 _pcCardEjected = true;
                 
                 if ( _rootHubDevice )
                 {
-                    USBLog(5,"%s[%p]: Terminating RootHub",getName(),this);
-                    ok = _rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
-                    if ( !ok )
-                        USBLog(3,"%s: Could not terminate RootHub device",getName());
-                    _rootHubDevice->detachAll(gIOUSBPlane);
-                    _rootHubDevice->release();
-                    _rootHubDevice = NULL;
+                    thread_call_enter(_terminatePCCardThread);
                 }
             }
+            USBLog(5,"-%s[%p]: Received kIOPCCardCSEventMessage event %d",getName(),this, (UInt32) pccardevent);
             break;
              
         default:
@@ -1409,6 +1484,12 @@ IOUSBController::stop( IOService * provider )
         command = (IOUSBCommand *)_freeUSBIsocCommandPool->getCommand(false);  
         if ( command )
             command->release();
+    }
+
+    if (_terminatePCCardThread)
+    {
+        thread_call_cancel(_terminatePCCardThread);
+        thread_call_free(_terminatePCCardThread);
     }
 
     // Remove our workloop related stuff
@@ -1505,6 +1586,90 @@ IOCommandGate *
 IOUSBController::GetCommandGate(void) 
 { 
     return _commandGate; 
+}
+
+
+void
+IOUSBController::TerminatePCCard(OSObject *target)
+{
+    IOUSBController *	me = OSDynamicCast(IOUSBController, target);
+    bool	ok;
+    
+    if (!me)
+        return;
+
+    USBLog(5,"%s[%p]: Terminating RootHub", me->getName(),me);
+    ok = me->_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
+    if ( !ok )
+        USBLog(3,"%s: Could not terminate RootHub device",me->getName());
+    me->_rootHubDevice->detachAll(gIOUSBPlane);
+    me->_rootHubDevice->release();
+    me->_rootHubDevice = NULL;
+}
+
+//=============================================================================================
+//
+//  ParsePCILocation and ValueOfHexDigit
+//
+//	ParsePCILocation is used to get the device number and function number of our PCI device
+//      from its IOKit location.  It takes a string formated in hex as XXXX,YYYY and will get
+//      the device number from XXXX and function number from YYYY.  Ideally one would use sscanf
+//	for this, but the kernel's sscanf is severly limited.
+//
+//=============================================================================================
+//
+#define ISDIGIT(c)	((c >= '0') && (c <= '9'))
+#define ISHEXDIGIT(c)	(ISDIGIT(c) || ((c >= 'A') && (c <= 'F')) || ((c >= 'a') && (c <= 'f')))
+
+int
+IOUSBController::ValueOfHexDigit(char c)
+{
+    if ( ISDIGIT(c) )
+        return c - '0';
+    else
+        if ( ( c >= 'A' && c <= 'F') )
+            return c - 'A' + 0x0A;
+    else
+        return c - 'a' + 0xA;
+}
+
+void
+IOUSBController::ParsePCILocation(const char *str, int *deviceNum, int *functionNum)
+{
+    int value;
+    int i;
+
+    *deviceNum = *functionNum = 0;
+    
+    for ( i = 0; i < 2; i++)
+    {
+        // If the first character is not a hex digit, then
+        // we will just return;
+        if ( !ISHEXDIGIT(*str) )
+            break;
+
+        // Parse through the string until we find a non-hex digit
+        //
+        value = 0;
+        do {
+            value = (value * 16) - ValueOfHexDigit(*str);
+            str++;
+        } while (ISHEXDIGIT(*str));
+
+        if ( i == 0)
+            *deviceNum = -value;
+        else
+            *functionNum = -value;
+
+        // If there is no functionNum, just return
+        //
+        if ( *str == '\0')
+            break;
+
+        // There should be a "," between the two #'s, so skip it
+        //
+        str++;
+    }
 }
 
 
@@ -1754,6 +1919,10 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     IOReturn			err = kIOReturnSuccess;
     OSNumber * 			busNumberProp;
     UInt32			bus;
+    const char *		parentLocation;
+    int				deviceNum = 0, functionNum = 0;
+    UInt32			busIndex;
+
     
     /*
      * Create the root hub device
@@ -1780,6 +1949,12 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     // in any order), but for all intents and purposes it will be the same.  This was changed from using the provider's
     // location for part of the locationID because of problems with multifunction PC and PCI cards.
     //
+
+    parentLocation = provider->getLocation();
+    if ( parentLocation )
+    {
+        ParsePCILocation( parentLocation, &deviceNum, &functionNum );
+    }
     
     // If our provider already has a "busNumber" property, then use that one for our location ID
     // if it hasn't been used already
@@ -1791,12 +1966,25 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     }
     else
     {
-        // Find the next empty busID and use that for our USBBusNumber
+        // Take the PCI device number and function number and combine to make an 8 bit
+        // quantity, in binary:  fffd dddd.  If the bus already exists, then just look for the next
+        // available bus entry after that.
         //
-        for ( bus = 0; bus < 16; bus++ )
+        bus = ( ((functionNum & 0x7) << 5) | (deviceNum & 0x1f) );
+
+        if ( gUsedBusIDs[bus] )
         {
-            if ( !gUsedBusIDs[bus] )
-                break;
+            //
+            USBError(1,"Bus %d already taken",bus);
+            
+            for ( busIndex = kMaxNumberUSBBusses - 1; busIndex >= 0; busIndex-- )
+            {
+                if ( !gUsedBusIDs[busIndex] )
+                {
+                    bus = busIndex;
+                    break;
+                }
+            }
         }
     }
     

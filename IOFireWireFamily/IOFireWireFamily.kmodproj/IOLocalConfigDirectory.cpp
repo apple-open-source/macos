@@ -2,21 +2,24 @@
  * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -24,6 +27,9 @@
 #import <IOKit/firewire/IOFireWireFamilyCommon.h>
 #import <IOKit/firewire/IOLocalConfigDirectory.h>
 #import <IOKit/firewire/IOFWUtils.h>
+
+// private
+#import "IOConfigEntry.h"
 
 // system
 #import <libkern/c++/OSIterator.h>
@@ -33,139 +39,14 @@
 #import <libkern/c++/OSString.h>
 #import <IOKit/IOLib.h>
 
-
-class IOConfigEntry : public OSObject
-{
-    OSDeclareDefaultStructors(IOConfigEntry);
-protected:
-    virtual void free();
-    
-public:
-    UInt32 fKey;
-    IOConfigKeyType fType;
-    OSObject *fData;
-    FWAddress fAddr;
-    UInt32 fValue;
-
-    unsigned int totalSize();
-
-    static IOConfigEntry* create(UInt32 key, IOConfigKeyType type, OSObject *obj);
-    static IOConfigEntry* create(UInt32 key, UInt32 value);
-    static IOConfigEntry* create(UInt32 key, FWAddress address);
-};
-
-OSDefineMetaClassAndStructors(IOConfigEntry, OSObject);
-
-void IOConfigEntry::free()
-{
-    if (fData) {
-        fData->release();
-        fData = NULL;
-    }
-
-    OSObject::free();
-}
-
-IOConfigEntry* IOConfigEntry::create(UInt32 key, IOConfigKeyType type, OSObject *obj)
-{
-    IOConfigEntry* entry;
-    entry = new IOConfigEntry;
-    if(!entry)
-        return NULL;
-    if(!entry->init()) {
-        entry->release();
-        return NULL;
-    }
-    assert(type == kConfigLeafKeyType ||
-           type == kConfigDirectoryKeyType);
-    entry->fKey = key;
-    entry->fType = type;
-
-	obj->retain() ;
-    entry->fData = obj;
-	
-    return entry;
-}
-
-IOConfigEntry* IOConfigEntry::create(UInt32 key, UInt32 value)
-{
-    IOConfigEntry* entry;
-
-    if(value > kConfigEntryValue)
-        return NULL;	// Too big to fit!!
-    entry = new IOConfigEntry;
-    if(!entry)
-        return NULL;
-    if(!entry->init()) {
-        entry->release();
-        return NULL;
-    }
-    entry->fKey = key;
-    entry->fType = kConfigImmediateKeyType;
-    entry->fValue = value;
-    return entry;
-}
-
-IOConfigEntry* IOConfigEntry::create(UInt32 key, FWAddress address)
-{
-    IOConfigEntry* entry;
-    entry = new IOConfigEntry;
-    if(!entry)
-        return NULL;
-    if(!entry->init()) {
-        entry->release();
-        return NULL;
-    }
-    entry->fKey = key;
-    entry->fType = kConfigOffsetKeyType;
-    entry->fAddr = address;
-    return entry;
-}
-
-unsigned int IOConfigEntry::totalSize()
-{
-    unsigned int size = 0;
-    switch(fType) {
-	default:
-            break;
-        case kConfigLeafKeyType:
-        {
-            OSData *data = OSDynamicCast(OSData, fData);
-            if(!data)
-                return 0;
-            // Round up size to multiple of 4, plus header
-            size = (data->getLength()-1) / sizeof(UInt32) + 2;
-            break;
-            
-        }
-        case kConfigDirectoryKeyType:
-        {
-            IOLocalConfigDirectory *dir = OSDynamicCast(IOLocalConfigDirectory,
-                                                            fData);
-            if(!dir)
-                return 0;	// Oops!
-            const OSArray *entries = dir->getEntries();
-            unsigned int i;
-            size = 1 + entries->getCount();
-            for(i=0; i<entries->getCount(); i++) {
-                IOConfigEntry *entry = OSDynamicCast(IOConfigEntry, entries->getObject(i));
-                if(!entry)
-                    return 0;	// Oops!
-                size += entry->totalSize();
-            }
-            break;
-        }
-    }
-    return size;
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 OSDefineMetaClassAndStructors(IOLocalConfigDirectory, IOConfigDirectory);
 OSMetaClassDefineReservedUsed(IOLocalConfigDirectory, 0);
 OSMetaClassDefineReservedUnused(IOLocalConfigDirectory, 1);
 OSMetaClassDefineReservedUnused(IOLocalConfigDirectory, 2);
 
+// init
+//
+//
 
 bool IOLocalConfigDirectory::init()
 {
@@ -177,6 +58,10 @@ bool IOLocalConfigDirectory::init()
     return true;
 }
 
+// free
+//
+//
+
 void IOLocalConfigDirectory::free()
 {
     if(fEntries)
@@ -186,6 +71,10 @@ void IOLocalConfigDirectory::free()
 IOConfigDirectory::free();
 }
 
+// getBase
+//
+//
+
 const UInt32 *IOLocalConfigDirectory::getBase()
 {
     if(fROM)
@@ -194,15 +83,27 @@ const UInt32 *IOLocalConfigDirectory::getBase()
         return &fHeader;
 }
 
+// lockData
+//
+//
+
 const UInt32 * IOLocalConfigDirectory::lockData( void )
 {
 	return getBase();
 }
 
+// unlockData
+//
+//
+
 void IOLocalConfigDirectory::unlockData( void )
 {
 	// nothing to do
 }
+
+// getSubDir
+//
+//
 
 IOConfigDirectory *IOLocalConfigDirectory::getSubDir(int start, int type)
 {
@@ -212,6 +113,10 @@ IOConfigDirectory *IOLocalConfigDirectory::getSubDir(int start, int type)
         subDir->retain();
     return subDir;
 }
+
+// create
+//
+//
 
 IOLocalConfigDirectory *IOLocalConfigDirectory::create()
 {
@@ -226,6 +131,10 @@ IOLocalConfigDirectory *IOLocalConfigDirectory::create()
     }
     return dir;
 }
+
+// update
+//
+//
 
 IOReturn IOLocalConfigDirectory::update(UInt32 offset, const UInt32 *&romBase)
 {
@@ -262,6 +171,10 @@ IOReturn IOLocalConfigDirectory::checkROMState( void )
 {
 	return kIOReturnSuccess;
 }
+
+// compile
+//
+//
 	
 IOReturn IOLocalConfigDirectory::compile(OSData *rom)
 {
@@ -376,6 +289,10 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
     return kIOReturnSuccess;                           
 }
 
+// addEntry
+//
+//
+
 IOReturn IOLocalConfigDirectory::addEntry(int key, UInt32 value, OSString* desc )
 {
     IOReturn res;
@@ -393,6 +310,11 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, UInt32 value, OSString* desc 
     }
     return res;
 }
+
+// addEntry
+//
+//
+
 IOReturn IOLocalConfigDirectory::addEntry( int key, IOLocalConfigDirectory *value, OSString* desc )
 {
     IOReturn res;
@@ -410,6 +332,10 @@ IOReturn IOLocalConfigDirectory::addEntry( int key, IOLocalConfigDirectory *valu
     }
     return res;
 }
+
+// addEntry
+//
+//
 
 IOReturn IOLocalConfigDirectory::addEntry(int key, OSData *value, OSString* desc )
 {
@@ -429,6 +355,10 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, OSData *value, OSString* desc
     return res;
 }
 
+// addEntry
+//
+//
+
 IOReturn IOLocalConfigDirectory::addEntry( int key, FWAddress value, OSString* desc )
 {
     IOReturn res;
@@ -446,6 +376,10 @@ IOReturn IOLocalConfigDirectory::addEntry( int key, FWAddress value, OSString* d
     }
     return res;
 }
+
+// addEntry
+//
+//
 
 IOReturn IOLocalConfigDirectory::addEntry(OSString *desc)
 {
@@ -479,6 +413,10 @@ IOReturn IOLocalConfigDirectory::addEntry(OSString *desc)
 
     return res;
 }
+
+// removeSubDir
+//
+//
 
 IOReturn IOLocalConfigDirectory::removeSubDir(IOLocalConfigDirectory *value)
 {

@@ -38,6 +38,8 @@
 #include "BMacEnetPrivate.h"
 #include <IOKit/IOLib.h>
 
+#include <mach/vm_param.h>		// for round_page_32
+
 /*****************************************************************************
  *
  * Hacks.
@@ -56,23 +58,6 @@ _IOGetTimestamp(ns_time_t *nsp)
 	*nsp = ((ns_time_t)now.tv_sec * NSEC_PER_SEC) + now.tv_nsec;
 }
 
-/*
- * Find a physical address (if any) for the specified virtual address.
- *
- * Note: what about vm_offset_t kvtophys(vm_offset_t va) 
- */
-static IOReturn _IOPhysicalFromVirtual(
-	vm_address_t virtualAddress,
-	unsigned *physicalAddress)
-{
-	*physicalAddress = pmap_extract(kernel_pmap, virtualAddress);
-	if(*physicalAddress == 0) {
-		return kIOReturnBadArgument;
-	}
-	else {
-		return kIOReturnSuccess;
-	}
-}
 
 /****************************************************************************/
 
@@ -100,94 +85,54 @@ static u_int8_t reverseBitOrder(u_int8_t data )
 	return( val );
 }
 
-/*
- * Function: IOMallocPage
- *
- * Purpose:
- *   Returns a pointer to a page-aligned memory block of size >= PAGE_SIZE
- *
- * Return:
- *   Actual pointer and size of block returned in actual_ptr and actual_size.
- *   Use these as arguments to kfree: kfree(*actual_ptr, *actual_size);
- */
-static void *
-IOMallocPage(int request_size, void ** actual_ptr, u_int * actual_size)
-{
-    void * mem_ptr;
-    
-	*actual_size = round_page(request_size) + PAGE_SIZE;
-	mem_ptr = IOMalloc(*actual_size);
-	if (mem_ptr == NULL)
-		return NULL;
-	*actual_ptr = mem_ptr;
-	return ((void *)round_page(mem_ptr));
-}
 
-/*
- * Private functions
- */
 bool BMacEnet::_allocateMemory()
 {
-    u_int32_t			i, n;
-    unsigned char *		virtAddr;
-    u_int32_t			physBase;
-    u_int32_t	 		physAddr;
-	u_int32_t			dbdmaSize;
- 
-    /* 
-     * Calculate total space for DMA channel commands
-     */
-    dbdmaSize = round_page(
-		RX_RING_LENGTH * sizeof(enet_dma_cmd_t) + 
-		TX_RING_LENGTH * sizeof(enet_txdma_cmd_t) +
-		2 * sizeof(IODBDMADescriptor) );
+	IOReturn	ior;
 
-    /*
-     * Allocate required memory
-     */
-	dmaMemory.size = dbdmaSize;
-	dmaMemory.ptr = (void *)IOMallocPage(
-                                dmaMemory.size,
-                                &dmaMemory.ptrReal,
-                                &dmaMemory.sizeReal
-                                );
 
-	dmaCommands = (unsigned char *) dmaMemory.ptr;
-	if (dmaCommands == NULL) {
-		IOLog( "Ethernet(BMac): Cant allocate channel DBDMA commands\n\r" );
+		/* Calculate total space for DMA channel commands:	*/
+
+    dmaCommandsSize	= round_page_32(
+					  RX_RING_LENGTH * sizeof( enet_dma_cmd_t )
+					+ TX_RING_LENGTH * sizeof (enet_txdma_cmd_t )
+					+ 2 * sizeof( IODBDMADescriptor ) );
+
+	dmaCommands	= (UInt8*)IOMallocContiguous( dmaCommandsSize, PAGE_SIZE, 0 );
+
+	if ( dmaCommands == NULL )
+	{
+		IOLog( "Ethernet(BMac): Cant allocate channel DBDMA commands\n" );
 		return false;
 	}
 
-    /*
-     * If we needed more than one page, then make sure we received
-	 * contiguous memory.
-     */
-    n = (dbdmaSize - PAGE_SIZE) / PAGE_SIZE;
-    _IOPhysicalFromVirtual( (vm_address_t) dmaCommands, &physBase );
-
-    virtAddr = (unsigned char *) dmaCommands;
-    for( i=0; i < n; i++, virtAddr += PAGE_SIZE )
+	dmaCommandsDesc = IOMemoryDescriptor::withAddress(	(vm_address_t)dmaCommands,
+														dmaCommandsSize,
+														kIODirectionOutIn,
+														kernel_task );
+	dmaCommandsPhys = dmaCommandsDesc->getPhysicalAddress();
+    if ( dmaCommandsPhys == 0 )
 	{
-		_IOPhysicalFromVirtual( (vm_address_t) virtAddr, &physAddr );
-		if (physAddr != (physBase + i * PAGE_SIZE) )
-		{
-			IOLog( "Ethernet(BMac): Cannot allocate contiguous memory"
-				" for DBDMA commands\n\r" );
-			return false;
-		}
-	}           
+        IOLog( "BMacEnet::_allocateMemory - Cannot get DBDMA commands physical address.\n" );
+		return false;
+	}
+	ior = dmaCommandsDesc->prepare( kIODirectionOutIn );
 
     /* 
      * Setup the receive ring pointers
      */
-    rxDMACommands = (enet_dma_cmd_t *)dmaCommands;
-    rxMaxCommand  = RX_RING_LENGTH;
+    rxDMACommands		= (enet_dma_cmd_t *)dmaCommands;
+	rxDMACommandsPhys	= dmaCommandsPhys;
+    rxMaxCommand		= RX_RING_LENGTH;
 
     /*
      * Setup the transmit ring pointers
      */
     txDMACommands = (enet_txdma_cmd_t *)(dmaCommands +
 		RX_RING_LENGTH * sizeof(enet_dma_cmd_t) + sizeof(IODBDMADescriptor));
+	txDMACommandsPhys	= dmaCommandsPhys
+						+ RX_RING_LENGTH * sizeof( enet_dma_cmd_t )
+						+ sizeof( IODBDMADescriptor );
     txMaxCommand  = TX_RING_LENGTH;
 
     /*
@@ -250,7 +195,8 @@ bool BMacEnet::_allocateMemory()
                             0);
 
     return true;
-}
+}/* end _allocateMemory */
+
 
 /*-------------------------------------------------------------------------
  *
@@ -266,7 +212,6 @@ bool BMacEnet::_allocateMemory()
 
 bool BMacEnet::_initTxRing()
 {
-    bool		kr;
 	u_int32_t	i;
 	IODBDMADescriptor	dbdmaCmd, dbdmaCmdInt;
 
@@ -309,13 +254,6 @@ bool BMacEnet::_initTxRing()
      */
     txDMACommands[txMaxCommand].desc_seg[0] = dbdmaCmd_Branch; 
 
-    kr = _IOPhysicalFromVirtual( (vm_address_t) txDMACommands,
-		(u_int32_t *)&txDMACommandsPhys );
-	if ( kr != kIOReturnSuccess )
-	{
-		IOLog( "Ethernet(BMac): Bad DBDMA command buf - %08x\n\r", 
-			(u_int32_t)txDMACommands );
-    }
 	IOSetCCCmdDep( &txDMACommands[txMaxCommand].desc_seg[0],
 		txDMACommandsPhys );
  
@@ -344,21 +282,11 @@ bool BMacEnet::_initRxRing()
 {
     u_int32_t 		i;
     bool			status;
-    IOReturn    	kr;
     
     /*
      * Clear the receive DMA command memory
      */
     bzero((void *)rxDMACommands, sizeof(enet_dma_cmd_t) * rxMaxCommand);
-
-    kr = _IOPhysicalFromVirtual( (vm_address_t) rxDMACommands,
-		(u_int32_t *)&rxDMACommandsPhys );
-    if ( kr != kIOReturnSuccess )
-    {
-		IOLog( "Ethernet(BMac): Bad DBDMA command buf - %08x\n\r",
-			(u_int32_t)rxDMACommands );
-		return false;
-    }
 
     /*
      * Allocate a receive buffer for each entry in the Receive ring
@@ -1584,26 +1512,26 @@ void BMacEnet::_dump_srom()
     }
 }
 
-void BMacEnet::_dumpDesc(void * addr, u_int32_t size)
+
+void BMacEnet::_dumpDesc( void* addr, UInt32 physAddr, UInt32 size )
 {
     u_int32_t		i;
     unsigned long	*p;
-    vm_offset_t		paddr;
 
-    _IOPhysicalFromVirtual( (vm_offset_t) addr, (vm_offset_t *)&paddr );
 
-    p = (unsigned long *)addr;
+    p = (UInt32*)addr;
 
-    for ( i=0; i < size/sizeof(IODBDMADescriptor); i++, p+=4, 
-		paddr+=sizeof(IODBDMADescriptor) )
+    for ( i = 0; i < size/sizeof( IODBDMADescriptor ); i++, p+=4, physAddr+=sizeof( IODBDMADescriptor ) )
     {
         IOLog("Ethernet(BMac): %08x(v) %08x(p):  %08x %08x %08x %08x\n\r",
               (int)p,
-              (int)paddr,
+              (int)physAddr,
               (int)OSReadSwapInt32(p, 0),   (int)OSReadSwapInt32(p, 4),
               (int)OSReadSwapInt32(p, 8),   (int)OSReadSwapInt32(p, 12) );
     }
-}
+	return;
+}/* end _dumpDesc */
+
 
 void BMacEnet::_dumpRegisters()
 {

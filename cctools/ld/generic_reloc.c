@@ -24,7 +24,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines to do generic relocation.  Which can be used
  * for such machines that have simple 1, 2, and 4 byte relocation lengths.
@@ -91,7 +91,7 @@ long pcrel_at_end_of_disp)
 	pair_r_symbolnum = 0;
 	pair_r_value = 0;
 	pair_local_map = 0;
-#endif DEBUG
+#endif /* DEBUG */
 
 	for(i = 0; i < section_map->s->nreloc; i++){
 	    force_extern_reloc = FALSE;
@@ -352,13 +352,13 @@ long pcrel_at_end_of_disp)
 		/*
 		 * If the symbol is undefined (or common) or a global coalesced 
 		 * symbol where we need to force an external relocation entry
-		 * and we are not prebinding no relocation is done.
-		 * Or if the output file is MH_DYLIB no relocation is done
+		 * and we are not prebinding no relocation is done.  Or if the
+		 * output file is a multi module MH_DYLIB no relocation is done
 		 * unless the symbol is a private extern or we are prebinding.
 		 */
 		if(((merged_symbol->nlist.n_type & N_TYPE) == N_UNDF) ||
 		   (force_extern_reloc == TRUE && prebinding == FALSE) ||
-		   (filetype == MH_DYLIB &&
+		   ((filetype == MH_DYLIB && multi_module_dylib == TRUE) &&
 		    (((merged_symbol->nlist.n_type & N_PEXT) != N_PEXT) &&
 		     prebinding == FALSE) ) )
 		    value = 0;
@@ -729,18 +729,19 @@ update_reloc:
 		     * For external relocation entries that the symbol is
 		     * defined (not undefined or common) but not when we are
 		     * forcing an external relocation entry for a global
-		     * coalesced symbol and if the output file is not MH_DYLIB
-		     * or the symbol is a private extern it is changed to a
-		     * local relocation entry using the section that symbol is
-		     * defined in.  If still undefined or forcing an external
-		     * relocation entry for a global coalesced symbol then the
-		     * index of the symbol in the output file is set into
-		     * r_symbolnum.
+		     * coalesced symbol and if the output file is not a multi
+		     * module MH_DYLIB or the symbol is a private extern, it is
+		     * changed to a local relocation entry using the section
+		     * that symbol is defined in.  If still undefined or forcing
+		     * an external relocation entry for a global coalesced
+		     * symbol, then the index of the symbol in the output file
+		     * is set into r_symbolnum.
 		     */
 		    else if((merged_symbol->nlist.n_type & N_TYPE) != N_UNDF &&
 		            (merged_symbol->nlist.n_type & N_TYPE) != N_PBUD &&
 		            force_extern_reloc == FALSE &&
-		            (filetype != MH_DYLIB ||
+		            ((filetype != MH_DYLIB ||
+			      multi_module_dylib == FALSE) ||
 			     (merged_symbol->nlist.n_type & N_PEXT) == N_PEXT)){
 			reloc->r_extern = 0;
 			/*
@@ -887,7 +888,7 @@ update_reloc:
 		    }
 		}
 	    }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 	    /*
 	     * If their was a paired relocation entry then it has been processed
 	     * so skip it by incrementing the index of the relocation entry that

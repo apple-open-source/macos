@@ -19,6 +19,8 @@ MACHINE_ARCH = ppc
 CFLAGS += -faltivec -DALTIVEC
 .endif
 CFLAGS += -DNOID -DALL_STATE -I${.CURDIR}/include  -I${.CURDIR}/include/objc
+PRIVINC = ${NEXT_ROOT}/System/Library/Frameworks/System.framework/PrivateHeaders
+CFLAGS += -I${PRIVINC}
 CFLAGS += -DLIBC_MAJOR=${SHLIB_MAJOR} -no-cpp-precomp -force_cpusubtype_ALL
 CFLAGS += -arch ${MACHINE_ARCH} -fno-common -pipe -Wmost -g
 CFLAGS += -finline-limit=5000

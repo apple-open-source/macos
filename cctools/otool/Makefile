@@ -14,7 +14,7 @@ STATIC = -static
 ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g -I../include -I$(SRCROOT)
 else
-  CFLAGS = $(STATIC) $(OFLAG) -g -Wall -Wno-precomp -I../include -I$(SRCROOT) \
+  CFLAGS = $(STATIC) $(OFLAG) -g -Wall -I../include -I$(SRCROOT) \
 	   $(X_CFLAGS)
 endif
 

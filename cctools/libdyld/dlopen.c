@@ -197,8 +197,8 @@ int mode)
 	if(module == NULL){
 	    NSLinkEditError(&NSLinkEditError_errorClass,
 			    &NSLinkEditError_errorNumber,
-    			    &NSLinkEditError_fileName,
-			    &NSLinkEditError_errorString);
+    			    (const char **)&NSLinkEditError_fileName,
+			    (const char **)&NSLinkEditError_errorString);
 	    if(NSLinkEditError_errorClass == NSLinkEditUnixResourceError)
 		errno = NSLinkEditError_errorNumber;
 	    dlerror_pointer = NSLinkEditError_errorString;

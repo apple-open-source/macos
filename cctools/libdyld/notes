@@ -1,6 +1,52 @@
 TODO:
 - Test dlopen() with Apache, perl, and tcl.
 
+Changes for the 5.12 release (the cctools-464 release):
+- Added the SPI NSHasModInitObjectFileImage() to ofi.c .  Radar bug #3196951.
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile
+  - Fixed warning for "comparison between signed and unsigned" in debug.c .
+
+Changes for the 5.12 release (the cctools-463 release):
+- Added real implementation for NSGetSectionDataInObjectFileImage() in ofi.c .
+  Radar bug #3194204.
+
+Changes for the 5.12 release (the cctools-461 release):
+- Change the Makefile to run ranlib(1) after each install(1) command to make
+  sure the archive table of contents is up todate.  Radar bug #3183053.
+
+Changes for the 5.12 release (the cctools-460 release):
+- Added real implementations for the following API's in ofi.c :
+    NSSymbolDefinitionCountInObjectFileImage
+    NSSymbolDefinitionNameInObjectFileImage
+    NSSymbolReferenceCountInObjectFileImage
+    NSSymbolReferenceNameInObjectFileImage
+    NSIsSymbolDefinedInObjectFileImage
+  Radar bug #3179011.
+
+Changes for the 5.12 release (the cctools-457 release):
+- Added a real implementation for the NSCreateObjectFileImageFromMemory() api
+  in ofi.c.  Changed NSCreateImageFromFile() to NSCreateImageFromFileOrMemory()
+  and used the newly added ofile_map_from_memory() to create an ofile from
+  mapped memory.  Radar bug #3131622.
+
+Changes for the 5.12 release (the cctools-448 release):
+- Added the _dyld_get_image_header_containing_address() SPI to images.c 
+  (Radar bug #2967928).
+
+Changes for the 5.12 release (the cctools-447 release):
+- Added the _dyld_all_twolevel_modules_prebound() SPI to images.c
+  (Radar bug #3055372).
+
+Changes for the 5.11 release (the cctools-440 release):
+- Fixed the warnings about extra tokens at end of #endif directive in debug.c 
+  (Radar bug #3072042).
+
+Changes for the 5.11 release (the cctools-439 release):
+- Changed make_dyld_image_data_writable() in debug.c to use 0x8fe00000 instead
+  of 0x41100000 as the place to start looking in the address space for dyld.
+  Radar bug #3042819.
+
 Changes for the 5.10 release (the cctools-415 release):
 - Changed the incomplete implementation of dlopen() to have the dlsym() function
   append the needed underbar for symbol name lookups.  Radar bug #2908831.

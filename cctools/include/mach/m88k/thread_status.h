@@ -281,4 +281,4 @@ typedef struct _m88110_thread_state_impl {
 #define	M88110_THREAD_STATE_IMPL_COUNT	\
 	(sizeof(m88110_thread_state_impl_t)/sizeof(int))
 
-#endif	_MACH_M88K_THREAD_STATE_
+#endif	/* _MACH_M88K_THREAD_STATE_ */

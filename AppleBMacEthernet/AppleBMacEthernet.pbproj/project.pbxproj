@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 36;
+	objectVersion = 38;
 	objects = {
 		01833DA1FFD2F31611CA2B4D = {
 			fileRef = 020A3990FFB0FA9711CA2B4D;
@@ -184,7 +184,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleBMacEthernet;
-				MODULE_VERSION = 1.1.1;
+				MODULE_VERSION = "\U00011.1.2f1";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -202,8 +202,8 @@
 			productName = AppleBMacEthernet;
 			productReference = 01EE1BD3FFC9F1AA11CA2B4D;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
@@ -218,11 +218,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1</string>
+	<string>1.1.2f1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Name Matching</key>
@@ -269,6 +269,7 @@
 				01833DA1FFD2F31611CA2B4D,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -276,6 +277,7 @@
 				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -286,18 +288,21 @@
 				020A399AFFB0FA9711CA2B4D,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (

@@ -36,19 +36,24 @@
 
 // Public Functions
 
-long DecodeElf(void)
+long ThinFatBinaryElf(void **binary, unsigned long *length)
+{
+  return -1;
+}
+
+long DecodeElf(void *binary)
 {
   ElfHeaderPtr     ehPtr;
   ProgramHeaderPtr phPtr;
   long             cnt, paddr, offset, memsz, filesz, entry, *tmp;
   
-  ehPtr = (ElfHeaderPtr)kLoadAddr;
+  ehPtr = (ElfHeaderPtr)binary;
   if (ehPtr->signature != kElfSignature) return 0;
   
   entry = ehPtr->entry & kElfAddressMask;
   
   for (cnt = 0; cnt < ehPtr->phnum; cnt++) { 
-    phPtr = (ProgramHeaderPtr)(kLoadAddr+ehPtr->phoff+cnt*ehPtr->phentsize);
+    phPtr = (ProgramHeaderPtr)((unsigned long)binary + ehPtr->phoff + cnt * ehPtr->phentsize);
     
     if (phPtr->type == kElfProgramTypeLoad) {
       paddr = phPtr->paddr & kElfAddressMask;
@@ -58,7 +63,7 @@ long DecodeElf(void)
       
       // Get the actual entry if it is in this program.
       if ((entry >= paddr) && (entry < (paddr + filesz))) {
-	tmp = (long *)(kLoadAddr + offset + entry);
+	tmp = (long *)((unsigned long)binary + offset + entry);
 	if (tmp[2] == 0) entry +=  tmp[0];
 	
       }
@@ -72,7 +77,7 @@ long DecodeElf(void)
       
       if (paddr < kImageAddr) {
 	// Copy the Vectors out of the way.
-	bcopy((char *)(kLoadAddr + offset), gVectorSaveAddr,
+	bcopy((char *)((unsigned long)binary + offset), gVectorSaveAddr,
 	      kVectorSize - paddr);
 	
 	offset += kImageAddr - paddr;
@@ -81,7 +86,7 @@ long DecodeElf(void)
       }
       
       // Move the program.
-      bcopy((char *)(kLoadAddr + offset), (char *)paddr, filesz);
+      bcopy((char *)((unsigned long)binary + offset), (char *)paddr, filesz);
     }
   }
   

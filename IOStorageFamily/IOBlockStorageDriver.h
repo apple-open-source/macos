@@ -32,6 +32,8 @@
 #ifndef _IOBLOCKSTORAGEDRIVER_H
 #define _IOBLOCKSTORAGEDRIVER_H
 
+#include <IOKit/IOTypes.h>
+
 /*!
  * @defined kIOBlockStorageDriverClass
  * @abstract

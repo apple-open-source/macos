@@ -45,7 +45,8 @@ cpu_subtype_t cpusubtype,
 struct fat_arch *fat_archs,
 unsigned long nfat_archs)
 {
-    unsigned long i, lowest_family, lowest_model, lowest_index;
+    unsigned long i;
+    long lowest_family, lowest_model, lowest_index;
 
 	/*
 	 * Look for the first exact match.
@@ -184,14 +185,21 @@ unsigned long nfat_archs)
 	     * An exact match as not found.  So for all the PowerPC subtypes
 	     * pick the subtype from the following order starting from a subtype
 	     * that will work (contains altivec if needed):
-	     *	7450, 7400, 750, 604e, 604, 603ev, 603e, 603, ALL
+	     *	790, 7450, 7400, 750, 604e, 604, 603ev, 603e, 603, ALL
 	     * Note the 601 is NOT in the list above.  It is only picked via
 	     * an exact match.  For an unknown subtype pick only the ALL type if
 	     * it exists.
 	     */
 	    switch(cpusubtype){
+	    case CPU_SUBTYPE_POWERPC_970:
 	    case CPU_SUBTYPE_POWERPC_7450:
 	    case CPU_SUBTYPE_POWERPC_7400:
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_970)
+			return(fat_archs + i);
+		}
 		for(i = 0; i < nfat_archs; i++){
 		    if(fat_archs[i].cputype != cputype)
 			continue;
@@ -251,6 +259,22 @@ unsigned long nfat_archs)
 		    if(fat_archs[i].cputype != cputype)
 			continue;
 		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_ALL)
+			return(fat_archs + i);
+		}
+	    }
+	    break;
+	case CPU_TYPE_VEO:
+	    /*
+	     * An exact match was not found.  So for the VEO subtypes if VEO1
+	     * is wanted then VEO2 can be used.  But if VEO2 is wanted only
+	     * VEO2 can be used.  Any unknown values don't match.
+	     */
+	    switch(cpusubtype){
+	    case CPU_SUBTYPE_VEO_1:
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_VEO_2)
 			return(fat_archs + i);
 		}
 	    }
@@ -409,6 +433,20 @@ cpu_subtype_t cpusubtype2)
 		return(cpusubtype1);
 	    else
 		return(cpusubtype2);
+	    break; /* logically can't get here */
+
+	case CPU_TYPE_VEO:
+	    /*
+	     * Combining VEO1 with VEO2 returns VEO1.  Any unknown values don't
+	     * combine.
+	     */
+	    if(cpusubtype1 == CPU_SUBTYPE_VEO_1 &&
+	       cpusubtype2 == CPU_SUBTYPE_VEO_2)
+		return(CPU_SUBTYPE_VEO_1);
+	    if(cpusubtype1 == CPU_SUBTYPE_VEO_2 &&
+	       cpusubtype2 == CPU_SUBTYPE_VEO_1)
+		return(CPU_SUBTYPE_VEO_1);
+	    return((cpu_subtype_t)-1);
 	    break; /* logically can't get here */
 
 	case CPU_TYPE_MC88000:

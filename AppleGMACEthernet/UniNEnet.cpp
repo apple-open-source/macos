@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -37,12 +40,12 @@
 #include "UniNEnetMII.h"
 #include <libkern/OSByteOrder.h>
 
+#ifdef NOT_ANY_MORE
 extern "C"
 {
 	extern boolean_t	ml_probe_read( vm_offset_t physAddr, unsigned int *val );
 }
-
-
+#endif // NOT_ANY_MORE
 
 
 		/* The GMAC registers are grouped in discontiguous sets.		*/
@@ -92,6 +95,9 @@ void UniNEnet::AllocateEventLog( UInt32 size )
 		kprintf( "AllocateEventLog - UniNEnet evLog allocation failed " );
 		return;
 	}
+
+	fpELGMemDesc = IOMemoryDescriptor::withAddress( (UInt32)fpELG, kEvLogSize, kIODirectionOutIn, kernel_task );
+
 #ifdef OPEN_FIRMWARE
 ///	IOUnmapPages( kernel_map, (vm_offset_t)fpELG, size );
 	IOSetProcessorCacheMode(	kernel_task,
@@ -128,7 +134,10 @@ void UniNEnet::EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 
 
 	if ( pe->evLogFlag == 0 )
+	{
+		pe->lostEvents++;				/* count this as a lost event	*/
 		return;
+	}
 
 	IOGetTime( &time );
 
@@ -172,6 +181,7 @@ void UniNEnet::EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 	*lp	  = ascii;
 
 //	IOFlushProcessorCache( kernel_task, (IOVirtualAddress)(lp - 3), 0x10 );
+//	IOFlushProcessorCache( kernel_task, (IOVirtualAddress)pe, sizeof( elg ) );
 
 #ifdef STEPPABLE
 	if ( pe->evLogFlag == 'step' )
@@ -233,7 +243,8 @@ UInt32 UniNEnet::Alrt( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 	*bp++ = ' ';
 
 	for ( i = sizeof( work ) - (int)(bp - work) - 1; i && (*bp++ = *str++); --i )	;
-	*bp++ = '\n';
+	bp[ -1 ] = '\n';	// insert new line character
+	*bp = 0;			// add C string terminator
 
 	fpELG->alertCount++;	// trigger anybody watching
 
@@ -243,13 +254,13 @@ UInt32 UniNEnet::Alrt( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 
 //	fpELG->evLogFlag = 0;	// stop logging but alertCount can continue increasing.
 
-///if ( fpELG->evLogFlag == 0xfeedbeef )
+///if ( fpELG->evLogFlag == 0xFEEDBEEF	 )
 ///	 fpELG->evLogFlag = 100;	// cruise to see what happens next.
 
 //	kprintf( work );
 ///	panic( work );
 //	Debugger( work );
-///	IOLog( work );
+	IOLog( work );
 
 	return 0xDEADBEEF;
 }/* end Alrt */
@@ -276,6 +287,7 @@ bool UniNEnet::init( OSDictionary *properties )
 
 	fCellClockEnabled	= true;
 	fMediumType			= kIOMediumEthernetAuto;	// default to autoNegotiation
+	txRingIndexLast		= ~0;
 
     return true;
 }/* end init */
@@ -297,7 +309,8 @@ bool UniNEnet::start( IOService *provider )
         ALRT( 0, 0, 'Mat-', "UniNEnet::start: Cannot obtain matching property." );
         return false;
     }
-	fBuiltin = matchEntry->isEqualTo( "gmac" );
+	fBuiltin	= matchEntry->isEqualTo( "gmac" ) || matchEntry->isEqualTo( "K2-GMAC" );
+    fK2			= matchEntry->isEqualTo( "K2-GMAC" );
 
     	// ensure that our provider is an IOPCIDevice
 
@@ -313,8 +326,11 @@ bool UniNEnet::start( IOService *provider )
 			// Wait for KeyLargo to show up.
 			// KeyLargo is used by hardwareResetPHY.
 	
-		keyLargo = waitForService( serviceMatching( "KeyLargo" ) );
-		if ( keyLargo == 0 )	return false;
+		if ( matchEntry->isEqualTo( "gmac" ) )
+			 keyLargo = waitForService( serviceMatching( "KeyLargo" ) );
+		else keyLargo = waitForService( serviceMatching( "AppleK2" ) );
+		if ( keyLargo == 0 )
+				return false;
 		keyLargo_resetUniNEthernetPhy = OSSymbol::withCString( "keyLargo_resetUniNEthernetPhy" );
 		ELG( IOThreadSelf(), keyLargo, 'KeyL', "UniNEnet::start - KeyLargo" );
 	}
@@ -344,6 +360,15 @@ bool UniNEnet::start( IOService *provider )
     debugQueue = IOPacketQueue::withCapacity( (UInt)-1 );
     if ( !debugQueue )
         return false;
+
+		/* Allocate IOMbufBigMemoryCursor instances:	*/
+
+    fTxMbufCursor = IOMbufBigMemoryCursor::withSpecification( NETWORK_BUFSIZE, MAX_SEGS_PER_TX_MBUF );
+    if ( !fTxMbufCursor ) 
+    {
+        ALRT( 0, 0, 'tMC-', "UniNEnet::start - Tx IOMbufBigMemoryCursor allocation failure" );
+        return false;
+    }
 
 	phyId = 0xFF;
 	fLinkStatus = kLinkStatusUnknown;
@@ -384,15 +409,14 @@ bool UniNEnet::start( IOService *provider )
         return false;
     }     
 
-		/* allocate KDB buffer:	 */
+		/* Allocate a KDB buffer (also used by tx timeout code):	*/
 
-		/// talk to Joe about using allocatePacket()
-    MGETHDR( txDebuggerPkt, M_DONTWAIT, MT_DATA );
-
+	txDebuggerPkt = allocatePacket( NETWORK_BUFSIZE );
     if ( !txDebuggerPkt )
-    {	IOLog( "UniNEnet::start - Couldn't allocate KDB buffer\n" );
+    {	ALRT( 0, NETWORK_BUFSIZE, 'KDP-', "UniNEnet::start - Couldn't allocate KDB buffer." );
         return false;
     }
+	txDebuggerPkt->m_next = 0;
 
 		/* Cache my MAC address:	*/
 
@@ -502,7 +526,6 @@ bool UniNEnet::start( IOService *provider )
 
 	ELG( IOThreadSelf(), 0, 'RegS', "UniNEnet::start - networkInterface->registerService" );
     networkInterface->registerService();
-	ELG( IOThreadSelf(), 0, 'Exit', "UniNEnet::start - exiting" );
     return true;
 }/* end start */
 
@@ -553,8 +576,18 @@ void UniNEnet::free()
 	if ( transmitQueue )	transmitQueue->release();
 	if ( debugQueue )		debugQueue->release();
 	if ( networkInterface )	networkInterface->release();
+	if ( fTxMbufCursor )	fTxMbufCursor->release();
 	if ( fMediumDict )		fMediumDict->release();
 	if ( ioMapEnet )		ioMapEnet->release();
+
+	if ( fTxRingMemDesc )
+	{	fTxRingMemDesc->complete(  kIODirectionOutIn );
+		fTxRingMemDesc->release();
+	}
+	if ( fRxRingMemDesc )
+	{	fRxRingMemDesc->complete(  kIODirectionOutIn );
+		fRxRingMemDesc->release();
+	}
 	if ( fTxDescriptorRing )IOFreeContiguous( (void*)fTxDescriptorRing, fTxRingElements * sizeof( TxDescriptor ) );
 	if ( fRxDescriptorRing )IOFreeContiguous( (void*)fRxDescriptorRing, fRxRingElements * sizeof( RxDescriptor ) );
 	if ( fTxMbuf )			IOFree( fTxMbuf, sizeof( mbuf* ) * fTxRingElements );
@@ -600,7 +633,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 {
     IODebuggerLockState	lockState;
 	UInt32				interruptStatus;
-	UInt32				mifStatus;
+	UInt32				rxMACStatus;
 	bool				doFlushQueue;
 	bool				doService;
 
@@ -614,74 +647,68 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 		return;
 	}
 
-///	do
-///	{
-		lockState = IODebuggerLock( this );
+	if ( fBuiltin )	lockState = IODebuggerLock( this );
 
-        interruptStatus = READ_REGISTER( Status );
-		ELG( READ_REGISTER( RxCompletion ), interruptStatus, 'Int+', "interruptOccurred - got status" );
+	interruptStatus = READ_REGISTER( Status );
+	ELG( READ_REGISTER( RxCompletion ), interruptStatus, 'Int+', "interruptOccurred - got status" );
 
-#ifdef LOG_RX_BACKUP
-{
-	UInt32	fifoCtr		= READ_REGISTER( RxFIFOPacketCounter );
-	UInt32	rxMACStatus	= READ_REGISTER( RxMACStatus );	// Auto-clear register
+		/* Bump statistics if either the Rx ring or the Rx FIFO overflowed:	*/
+
+	rxMACStatus	= READ_REGISTER( RxMACStatus );				/* NB: Auto-clear register	*/
+	fRxMACStatus |= rxMACStatus;							/* save for timeout routine	*/
 	if ( interruptStatus & kStatus_Rx_Buffer_Not_Available
-	  || rxMACStatus & kRX_MAC_Status_Rx_Overflow		// see if FIFO overflowed
-	  || fifoCtr > 5 )
-	{
-		ELG( fifoCtr, rxMACStatus, 'Rx--', "interruptOccurred - Rx overflow" );
-		fRxMACStatus |= rxMACStatus;					// save for timeout routine
+		|| rxMACStatus & kRX_MAC_Status_Rx_Overflow )
+	{		/* If either overflowed:	*/
+		ELG( 0, rxMACStatus, 'Rx--', "interruptOccurred - Rx overflow" );
+		if ( interruptStatus & kStatus_Rx_Buffer_Not_Available )
+			 ETHERNET_STAT_ADD( dot3RxExtraEntry.watchdogTimeouts );
+		else ETHERNET_STAT_ADD( dot3RxExtraEntry.overruns );
+		NETWORK_STAT_ADD( inputErrors );
 	}
-}
-#endif // LOG_RX_BACKUP
 
-	///	interruptStatus &= kStatus_TX_INT_ME
-	///					 | kStatus_RX_DONE
-	///					 | kStatus_MIF_Interrupt;
-		fIntStatusForTO |= interruptStatus;	// accumulate Tx & Rx int bits for timer code
+	fIntStatusForTO |= interruptStatus;	// accumulate Tx & Rx int bits for timer code
 
-        doService  = false;
+	doService  = false;
 
-		if ( interruptStatus & kStatus_TX_INT_ME )
-        {
-		///	txWDInterrupts++;
-            KERNEL_DEBUG( DBG_GEM_TXIRQ | DBG_FUNC_START, 0, 0, 0, 0, 0 );
-            doService = transmitInterruptOccurred();
-            KERNEL_DEBUG( DBG_GEM_TXIRQ | DBG_FUNC_END,   0, 0, 0, 0, 0 );
-			ETHERNET_STAT_ADD( dot3TxExtraEntry.interrupts );
-        }
+	if ( interruptStatus & kStatus_TX_INT_ME )
+	{
+		KERNEL_DEBUG( DBG_GEM_TXIRQ | DBG_FUNC_START, 0, 0, 0, 0, 0 );
+		doService = transmitInterruptOccurred();
+		KERNEL_DEBUG( DBG_GEM_TXIRQ | DBG_FUNC_END,   0, 0, 0, 0, 0 );
+		ETHERNET_STAT_ADD( dot3TxExtraEntry.interrupts );
+	}
 
-        doFlushQueue = false;
+	doFlushQueue = false;
 
-	///	if ( interruptStatus & kStatus_RX_DONE )
-        {
-		///	rxWDInterrupts++;
-            KERNEL_DEBUG( DBG_GEM_RXIRQ | DBG_FUNC_START, 0, 0, 0, 0, 0 );
-            doFlushQueue = receivePackets( false );
-            KERNEL_DEBUG( DBG_GEM_RXIRQ | DBG_FUNC_END,   0, 0, 0, 0, 0 );
-			ETHERNET_STAT_ADD( dot3RxExtraEntry.interrupts );
-        }
+///	if ( interruptStatus & kStatus_RX_DONE )
+	{
+		KERNEL_DEBUG( DBG_GEM_RXIRQ | DBG_FUNC_START, 0, 0, 0, 0, 0 );
+		doFlushQueue = receivePackets( false );
+		KERNEL_DEBUG( DBG_GEM_RXIRQ | DBG_FUNC_END,   0, 0, 0, 0, 0 );
+		ETHERNET_STAT_ADD( dot3RxExtraEntry.interrupts );
+	}
 
-
-		if ( interruptStatus & kStatus_MIF_Interrupt )
-		{
-			mifStatus = READ_REGISTER( MIFStatus );		// clear the interrupt
-			ELG( 0, mifStatus, '*MIF', "interruptOccurred - MIF interrupt" );
-		}
+#ifdef LATER
+	UInt32				mifStatus;
+	if ( interruptStatus & kStatus_MIF_Interrupt )
+	{
+		mifStatus = READ_REGISTER( MIFStatus );		// clear the interrupt
+		ELG( 0, mifStatus, '*MIF', "interruptOccurred - MIF interrupt" );
+	}
+#endif // LATER
 
 
-		IODebuggerUnlock( lockState );
+	if ( fBuiltin )	IODebuggerUnlock( lockState );
 
-			/* Submit all received packets queued up by receivePackets() to the network stack.	*/
-			/* The up call is performed without holding the debugger lock.						*/
+		/* Submit all received packets queued up by receivePackets() to the network stack.	*/
+		/* The up call is performed without holding the debugger lock.						*/
 
-		if ( doFlushQueue )
-	    	networkInterface->flushInputQueue();
+	if ( doFlushQueue )
+		networkInterface->flushInputQueue();
 
-			/* Make sure the output queue is not stalled.	*/
-		if ( doService && netifEnabled )
-	   	 transmitQueue->service();
-///	} while ( interruptStatus );
+		/* Make sure the output queue is not stalled.	*/
+	if ( doService && netifEnabled )
+		transmitQueue->service();
 
 	return;
 }/* end interruptOccurred */
@@ -689,17 +716,19 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 
 UInt32 UniNEnet::outputPacket( struct mbuf *pkt, void *param )
 {
-    UInt32		ret = kIOReturnOutputSuccess;
+	IODebuggerLockState	lockState;
+	UInt32				ret = kIOReturnOutputSuccess;
 
 		/*** Caution - this method runs on the client's	***/
 		/*** thread not the workloop thread.			***/
 
     KERNEL_DEBUG( DBG_GEM_TXQUEUE | DBG_FUNC_NONE, (int)pkt, (int)pkt->m_pkthdr.len, 0, 0, 0 );
 
-    reserveDebuggerLock();/* Hold debugger lock so debugger can't interrupt us	*/
-
-	ELG( pkt, fLinkStatus, 'OutP', "outputPacket" );
+	ELG( READ_REGISTER( TxCompletion ), pkt->m_pkthdr.len, 'OutP', "outputPacket" );
 ///	ELG( pkt, READ_REGISTER( StatusAlias ), 'OutP', "outputPacket" );
+
+		/* Hold debugger lock so debugger can't interrupt us:	*/
+	if ( fBuiltin )	lockState = IODebuggerLock( this );
 
     if ( fLinkStatus != kLinkStatusUp )
     {
@@ -713,16 +742,16 @@ UInt32 UniNEnet::outputPacket( struct mbuf *pkt, void *param )
         ret = kIOReturnOutputStall;
     }
 
-    releaseDebuggerLock();
-
+	if ( fBuiltin )		IODebuggerUnlock( lockState );
     return ret;
 }/* end outputPacket */
 
 
 void UniNEnet::putToSleep( bool sleepCellClockOnly )
 {
-	IOMediumType    mediumType	= kIOMediumEthernetNone;
-	IONetworkMedium	*medium;
+	IOMediumType		mediumType	= kIOMediumEthernetNone;
+	IONetworkMedium		*medium;
+	IODebuggerLockState	lockState;
 
 
 	ELG( fCellClockEnabled, sleepCellClockOnly, 'Slep', "UniNEnet::putToSleep" );
@@ -743,7 +772,7 @@ void UniNEnet::putToSleep( bool sleepCellClockOnly )
 		fCellClockEnabled = true;
     }
 
-	reserveDebuggerLock();
+	if ( fBuiltin )	lockState = IODebuggerLock( this );
 
 	fReady = false;
 
@@ -755,10 +784,9 @@ void UniNEnet::putToSleep( bool sleepCellClockOnly )
 	if ( getWorkLoop() )
 		 getWorkLoop()->disableAllInterrupts();
 
-
-
-medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
-setLinkStatus( kIONetworkLinkValid, medium, 0 ); // Link status is Valid and inactive.
+	medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
+	setLinkStatus( kIONetworkLinkValid, medium, 0 ); // Link status is Valid and inactive.
+	
 	if ( sleepCellClockOnly )
 	{
 ///		setLinkStatus( kIONetworkLinkValid ); // Link status is Valid and inactive.
@@ -788,26 +816,26 @@ setLinkStatus( kIONetworkLinkValid, medium, 0 ); // Link status is Valid and ina
     if ( sleepCellClockOnly )
         timerSource->setTimeoutMS( WATCHDOG_TIMER_MS );
 
-    releaseDebuggerLock();
-
+	if ( fBuiltin )		IODebuggerUnlock( lockState );
     return;
 }/* end putToSleep */
 
 
 bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 {
-	bool			rc = false;
-	bool			regAvail;
-	UInt32			gemReg = 0;
-	IOMediumType    mediumType	= kIOMediumEthernetNone;
-	IONetworkMedium	*medium;
+	bool				rc = false;
+//	bool				regAvail;
+	UInt32				gemReg = 0;
+	IOMediumType		mediumType	= kIOMediumEthernetNone;
+	IONetworkMedium		*medium;
+	IODebuggerLockState	lockState;
 
 
 /// fpELG->evLogFlag = 0xDEBEEFED;		/// clear and reset the log buffer.
 
 	ELG( this, wakeCellClockOnly, 'Wake', "UniNEnet::wakeUp" );
 
-    reserveDebuggerLock();
+	if ( fBuiltin )	lockState = IODebuggerLock( this );
 
     fReady = false;
 	
@@ -830,29 +858,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 
 		ELG( 0, 0, '+Clk', "UniNEnet::wakeUp - turning on cell clock!!!" );
 		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, (void*)nub, 0, 0 );
-		IODelay( 3 );
-
-		if ( ioMapEnet )			// Probe register access if able:
-		{
-			IOSleep( 10 );
-	
-			regAvail = ml_probe_read(	(vm_offset_t)&fpRegsPhys->Status,
-										&(unsigned int)gemReg );
-
-			if ( !regAvail )		// try again if cell clock disabled: 
-			{
-				ALRT( 0, 0, 'wk1-', "UniNEnet::wakeUp - ethernet cell's clock is disabled." );
-				callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, (void*)nub, 0, 0 );
-				IOSleep( 10 );
-				regAvail = ml_probe_read(	(vm_offset_t)&fpRegsPhys->Status,
-											&(unsigned int)gemReg );
-				if ( !regAvail )	// return FALSE if cell clock still disabled. 
-				{
-					ALRT( 0, 0, 'wk2-', "UniNEnet::wakeUp - ethernet cell's clock is still disabled." );
-					goto wakeUp_exit;	
-				}/* end IF still disabled */
-			}/* end IF need to try again. */ 
-		}/* end IF can probe UniN register access */
+		IODelay( 3 );				// Give cell some cycles before accessing it.
         fCellClockEnabled = true;
 	}/* end IF builtin ethernet */
 
@@ -871,7 +877,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 			fpRegs	= (GMAC_Registers*)ioMapEnet->getVirtualAddress();
 			ELG( ioMapEnet, fpRegs, 'Adrs', "start - base eNet addr" );
 				// for ml_probe_read on Wake:
-			fpRegsPhys	= (GMAC_Registers*)ioMapEnet->getPhysicalAddress();
+		//	fpRegsPhys	= (GMAC_Registers*)ioMapEnet->getPhysicalAddress();
 		}
 	}
 
@@ -897,7 +903,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 	
 			if ( phyId == 0xFF )
 			{
-				if ( miiFindPHY( &phyId ) == false )
+				if ( miiFindPHY() == false )
 					goto wakeUp_exit;
 			}
 		}
@@ -913,7 +919,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 		startPHY();						// Bring up the PHY and the MAC.
 
 		if ( fBuiltin )
-			miiInitializePHY( phyId );
+			miiInitializePHY();
 	}
 
 	timerSource->setTimeoutMS( WATCHDOG_TIMER_MS );
@@ -930,8 +936,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 
 wakeUp_exit:
 
-    releaseDebuggerLock();
-
+	if ( fBuiltin )		IODebuggerUnlock( lockState );
     return rc;
 }/* end wakeUp */
 
@@ -1107,6 +1112,9 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 
 	ELG( txCommandHead << 16 | txCommandTail, fCellClockEnabled, 'Time', "UniNEnet::timeoutOccurred" );
 
+	if ( fLoopback )
+		return;
+
 		/* If the ethernet cell clock is disabled, monitorLinkStatus	*/
 		/* is called, and the rest of this function is skipped.			*/
     if ( fCellClockEnabled == false )
@@ -1185,56 +1193,75 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 	{ 
 		putToSleep( true );
 		timerSource->setTimeoutMS( WATCHDOG_TIMER_MS );
+		IODebuggerUnlock( lockState );
 		return;
 	} 
 
 		/* If there are pending entries on the Tx ring:	*/
 
-///	if ( txCommandHead != txCommandTail )
 	if ( (fIntStatusForTO & kStatus_TX_DONE) )
 	{
-		txWDCount = 0;
+		txWDCount = 0;			/* All's well, reset the watchdog count	*/
 	}
 	else
 	{		/* If the hardware Tx pointer did not move since	*/
 			/* the last check, increment the txWDCount.			*/
 		txRingIndex = READ_REGISTER( TxCompletion );
 		if ( txRingIndex == txRingIndexLast )
-		{
-			txWDCount++;			/* bump the watchdog count */
+		{							/* Transmitter may be stuck.	*/
+			txWDCount++;			/* bump the watchdog count.		*/
 		}
 		else
-        {
-            txWDCount = 0;			/* reset the watchdog count */
+        {							/* Transmitter moved; it's ok.	*/
+            txWDCount = 0;			/* reset the watchdog count.	*/
             txRingIndexLast = txRingIndex;
         }
 
-        if ( txWDCount > 2 )
-        {
-            /* We take interrupts every 32 or so tx completions, so we may be here just
-             * to do normal clean-up of tx packets. We check if the hardware tx pointer
-             * points to the next available tx slot. This indicates that we transmitted all
-             * packets that were scheduled vs rather than the hardware tx being stalled.
-             */
-            if ( txRingIndex != txCommandTail )
+		if ( txWDCount >= 2 )			/* The transmitter hasn't moved in a while:	*/
+		{
+			transmitInterruptOccurred();
+			doService = true;			/* make sure network stack not blocked.		*/
+
+				/* We take interrupts every 32 or so Tx descriptor completions, so	*/
+				/* we may be here just to do clean-up of Tx packets. We check		*/
+				/* if the hardware Tx pointer points to the next available Tx slot.	*/
+				/* This indicates that we transmitted all packets that were			*/
+				/* scheduled vs rather than the hardware Tx being stalled.			*/
+
+			if ( txCommandHead != txCommandTail )
             {
-                UInt32        intStatus, compReg, kickReg;
+				UInt32		intStatus, compReg, kickReg;
+ 
+					/* This is bad - the transmitter has work to do but	*/
+					/* is not progressing.								*/
  
 				intStatus		= READ_REGISTER( StatusAlias );	// don't use auto-clear reg
 				compReg			= READ_REGISTER( TxCompletion );
 				kickReg			= READ_REGISTER( TxKick );
-                ALRT( intStatus, kickReg << 16 | compReg, 'Tx--', "UniNEnet::timeoutOccurred - Tx Int Timeout" );
+
+				if ( compReg != kickReg )
+				{
+					ALRT( intStatus, kickReg << 16 | compReg, 'Tx--', "UniNEnet::timeoutOccurred - Tx Int Timeout" );
+	
+						/* Kicking it again with a zero-length packet makes it go.	*/
+						/* Borrow the Tx debugger packet if it's available:			*/
+	
+					if ( txDebuggerPktInUse == false )
+					{
+						txDebuggerPktInUse =  true;
+		
+						*(UInt32*)txDebuggerPkt->m_data = 0xcefecefe;
+						txDebuggerPkt->m_len = 0;
+						transmitQueue->enqueue( txDebuggerPkt, 0 );
+					}
+				}
             }
 
-			transmitInterruptOccurred();
-
-            doService = true;
-
             txRingIndexLast = txRingIndex;
-            txWDCount = 0;
-        }
-    }
-    
+			txWDCount = 0;
+        }/* end IF txWDCount > 2 periods	*/
+    }/* end ELSE no transmissions completed this period	*/
+
 		/* Check for Rx deafness.										*/
 		/* IF no Rx interrupts have occurred in the past few timeouts	*/
 		/* AND the FIFO overflowed,										*/
@@ -1243,7 +1270,6 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
     if ( fIntStatusForTO & kStatus_RX_DONE )
 	{
 		rxWDCount      = 0;			// Reset watchdog timer count
-	///	rxWDInterrupts = 0;			// Reset watchdog interrupt count
 	}
 	else if ( rxWDCount++ >= 2 )	// skip 1st timer period
     {
@@ -1305,9 +1331,12 @@ const OSString* UniNEnet::newRevisionString() const
 
 IOReturn UniNEnet::setPromiscuousMode( bool active )
 {
+	IODebuggerLockState		lockState;
+
+
 	ELG( 0, active, 'SetP', "setPromiscuousMode" );
 
-	reserveDebuggerLock();
+	if ( fBuiltin )	lockState = IODebuggerLock( this );
 
 	fIsPromiscuous = active;
 
@@ -1329,8 +1358,7 @@ IOReturn UniNEnet::setPromiscuousMode( bool active )
 		WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
 	}
 
-	releaseDebuggerLock();
-
+	if ( fBuiltin )		IODebuggerUnlock( lockState );
 	return kIOReturnSuccess;
 }/* end setPromiscuousMode */
 
@@ -1352,13 +1380,16 @@ IOReturn UniNEnet::setMulticastMode( bool active )
 
 IOReturn UniNEnet::setMulticastList(IOEthernetAddress *addrs, UInt32 count)
 {
+	IODebuggerLockState		lockState;
+
+
 	ELG( addrs, count, 'SetL', "setMulticastList" );
     
 	if ( fCellClockEnabled == false )
 		return kIOReturnSuccess;
 	
-	reserveDebuggerLock();
-    
+	if ( fBuiltin )	lockState = IODebuggerLock( this );
+
     resetHashTableMask();
     for (UInt32 i = 0; i < count; i++) 
     {
@@ -1367,7 +1398,7 @@ IOReturn UniNEnet::setMulticastList(IOEthernetAddress *addrs, UInt32 count)
     }
     updateHashTableMask();
     
-    releaseDebuggerLock();
+	if ( fBuiltin )		IODebuggerUnlock( lockState );
     return kIOReturnSuccess;
 }/* end setMulticastList */
 
@@ -1415,8 +1446,8 @@ bool UniNEnet::createMediumTables()
 
 IOReturn UniNEnet::selectMedium( const IONetworkMedium *medium )
 {
-	IOMediumType	mType		= medium->getType();
-	UInt16			controlReg	= 0;
+	IOMediumType	mType = medium->getType();
+	UInt16			controlReg;					// 00 - control register
 	IOReturn		ior;
 	bool			gotReg;
 
@@ -1427,9 +1458,7 @@ IOReturn UniNEnet::selectMedium( const IONetworkMedium *medium )
     if ( fCellClockEnabled == false )
 		wakeUp( true );
 
-///fpELG->evLogFlag = 0xDEBEEFED;	/// ???
-
-	gotReg = miiReadWord( &controlReg, MII_CONTROL, phyId );
+	gotReg = miiReadWord( &controlReg, MII_CONTROL );
 	ALRT( controlReg, mType, 'sMed', "selectMedium" );
 
 	if ( !gotReg || controlReg == 0xFFFF )
@@ -1446,39 +1475,60 @@ IOReturn UniNEnet::selectMedium( const IONetworkMedium *medium )
 
 	fMediumType = mType;
 
-	ior = negotiateSpeedDuplex( controlReg );		
+		/* Kill network if Loopback is changing:	*/
+
+	if ( (mType & kIOMediumOptionLoopback) ^ (controlReg & MII_CONTROL_LOOPBACK) )
+	{
+		setLinkStatus( kIONetworkLinkValid );	/* Link status is Valid and inactive	*/
+		fPHYStatus	= 0;
+		fLinkStatus	= kLinkStatusUnknown;
+		ELG( 0, mType & kIOMediumOptionLoopback, 'LpBk', "UniNEnet::selectMedium - changing loopback mode." );
+	}
+
+	if ( mType & kIOMediumOptionLoopback )
+	{	fLoopback = true;
+		ior = kIOReturnIOError;		/* bypass negotiateSpeedDuplex and fake an error	*/
+	}
+	else
+	{	fLoopback = false;
+		ior = negotiateSpeedDuplex();		
+	}
+
 	if ( ior != kIOReturnSuccess )
 	{
-			/* Negotiation failed - just force the user's desires on the PHY:	*/
-		ior = forceSpeedDuplex( controlReg );
+			/* Negotiation failed or loopback - just force the user's desires on the PHY:	*/
+		ior = forceSpeedDuplex();
 		if ( ior != kIOReturnSuccess )
 			return ior;
 	}
-	
-	setSelectedMedium( medium );
-	ELG( fXIFConfiguration, controlReg, 'sMe+', "UniNEnet::selectMedium - returning kIOReturnSuccess" );
 
-	monitorLinkStatus( true );				// force Link change notification
+	setSelectedMedium( medium );
+	ELG( 0, fXIFConfiguration, 'sMe+', "UniNEnet::selectMedium - returning kIOReturnSuccess" );
+
+	monitorLinkStatus( true );				/* force Link change notification	*/
 
 	return kIOReturnSuccess;
 }/* end selectMedium */
 
 
-IOReturn UniNEnet::negotiateSpeedDuplex( UInt16 controlReg )
+IOReturn UniNEnet::negotiateSpeedDuplex()
 {
-	UInt16			anar;		// 04 - AutoNegotiation Advertisement Register
-	UInt16			gigReg;		// Vendor specific register
-	IOMediumType	mType;
-	bool			br;
+	UInt16			controlReg;			// 00 - control register
+	UInt16			statusReg;			// 01 - status register
+	UInt16			anar;				// 04 - AutoNegotiation Advertisement Register
+	UInt16			gigReg;				// Vendor specific register
+	IOMediumType	mType, mtyp;		// mtyp is mType without loopback and flow control bits
+	bool			br;					// boolean return value
 
 
-	mType =  fMediumType & (kIOMediumNetworkTypeMask | kIOMediumSubTypeMask | kIOMediumCommonOptionsMask);
+	mType	=  fMediumType & (kIOMediumNetworkTypeMask | kIOMediumSubTypeMask | kIOMediumCommonOptionsMask);
+	mtyp	= mType & ~(kIOMediumOptionLoopback | kIOMediumOptionFlowControl);
 
-	controlReg |= MII_CONTROL_AUTONEGOTIATION | MII_CONTROL_RESTART_NEGOTIATION;
+	ELG( 0, mType, 'n SD', "UniNEnet::negotiateSpeedDuplex" );
 
-	ELG( mType, controlReg, 'n SD', "UniNEnet::negotiateSpeedDuplex" );
+	controlReg = MII_CONTROL_AUTONEGOTIATION | MII_CONTROL_RESTART_NEGOTIATION;
 
-	br = miiReadWord( &anar, MII_ADVERTISEMENT, phyId );
+	br = miiReadWord( &anar, MII_ADVERTISEMENT );
 
 	anar &= ~(	MII_ANAR_100BASET4			/* turn off all speed/duplex bits	*/
 			  | MII_ANAR_100BASETX_FD		/* This register has only  10/100	*/
@@ -1488,7 +1538,7 @@ IOReturn UniNEnet::negotiateSpeedDuplex( UInt16 controlReg )
 
 		/* Set the Speed/Duplex bit that we need:	*/
 
-	switch ( mType )
+	switch ( mtyp )
 	{
 	case kIOMediumEthernetAuto:
 		anar |=	(	MII_ANAR_100BASETX_FD	/* turn on all speed/duplex bits	*/
@@ -1522,7 +1572,7 @@ IOReturn UniNEnet::negotiateSpeedDuplex( UInt16 controlReg )
 		break;
 	}/* end SWITCH on speed/duplex */
 
-	miiWriteWord( anar, MII_ADVERTISEMENT, phyId );
+	miiWriteWord( anar, MII_ADVERTISEMENT );
 
 
 		/* Do vendor specific stuff:	*/
@@ -1538,9 +1588,9 @@ IOReturn UniNEnet::negotiateSpeedDuplex( UInt16 controlReg )
 
 	case 0x1011:									// Marvell:
 			/* Enable Automatic Crossover:	*/
-		br = miiReadWord( &gigReg, MII_MARVELL_PHY_SPECIFIC_CONTROL, phyId );
+		br = miiReadWord( &gigReg, MII_MARVELL_PHY_SPECIFIC_CONTROL );
 		gigReg |= MII_MARVELL_PHY_SPECIFIC_CONTROL_AUTOL_MDIX;
-		miiWriteWord( gigReg, MII_1000BASETCONTROL, phyId );
+		miiWriteWord( gigReg, MII_MARVELL_PHY_SPECIFIC_CONTROL );
 		controlReg |= MII_CONTROL_RESET;
 
 		// fall through to generic gigabit code.
@@ -1548,13 +1598,13 @@ IOReturn UniNEnet::negotiateSpeedDuplex( UInt16 controlReg )
 	case 0x5401:
 	case 0x5411:
 	case 0x5421:
-		br = miiReadWord( &gigReg, MII_1000BASETCONTROL, phyId );
+		br = miiReadWord( &gigReg, MII_1000BASETCONTROL );
 			// Turn off gig/Half and gig/Full bits:
 		gigReg &= ~(MII_1000BASETCONTROL_FULLDUPLEXCAP | MII_1000BASETCONTROL_HALFDUPLEXCAP);
 
 			/* Turn on gig/Full or gig/Half as appropriate:	*/
 
-		switch ( mType )
+		switch ( mtyp )
 		{					// gig/Full:
 		case kIOMediumEthernetAuto:
 		case kIOMediumEthernet1000BaseTX | kIOMediumOptionFullDuplex:
@@ -1566,7 +1616,7 @@ IOReturn UniNEnet::negotiateSpeedDuplex( UInt16 controlReg )
 			break;
 		}/* end SWITCH on Marvell gig/Full or gig/Half */
 
-		miiWriteWord( gigReg, MII_1000BASETCONTROL, phyId );
+		miiWriteWord( gigReg, MII_1000BASETCONTROL );
 
 		break;
 
@@ -1575,26 +1625,33 @@ IOReturn UniNEnet::negotiateSpeedDuplex( UInt16 controlReg )
 		break;
 	}/* end SWITCH on PHY type */
 
-	miiWriteWord( controlReg, MII_CONTROL, phyId );
+	miiWriteWord( controlReg, MII_CONTROL );
 
-	br = miiWaitForAutoNegotiation( phyId );
-	if ( br )
-		 return kIOReturnSuccess;
-	return kIOReturnIOError;
+	br = miiWaitForAutoNegotiation();
+	if ( br == false )
+		return kIOReturnIOError;
+
+
+	miiReadWord( &statusReg, MII_STATUS );
+	if ( !(statusReg & MII_STATUS_LINK_STATUS) )
+		return kIOReturnIOError;
+
+	return kIOReturnSuccess;
 }/* end negotiateSpeedDuplex */
 
 
-IOReturn UniNEnet::forceSpeedDuplex( UInt16 controlReg )
+IOReturn UniNEnet::forceSpeedDuplex()
 {
 	IOMediumType	mType;
-	UInt16			statusReg;
-	UInt16			gigReg;		// Vendor specific register
+	UInt16			controlReg	= 0;	// 00 - control register
+	UInt16			statusReg;			// 01 - status register
+	UInt16			gigReg;				// Vendor specific register
 	bool			br;
 
 
 	mType = fMediumType & (kIOMediumNetworkTypeMask | kIOMediumSubTypeMask | kIOMediumCommonOptionsMask);
 
-	ELG( mType, controlReg, 'f SD', "UniNEnet::forceSpeedDuplex" );
+	ELG( 0, mType, 'f SD', "UniNEnet::forceSpeedDuplex" );
 
 	switch ( mType & (kIOMediumNetworkTypeMask | kIOMediumSubTypeMask) )
 	{
@@ -1622,10 +1679,10 @@ IOReturn UniNEnet::forceSpeedDuplex( UInt16 controlReg )
 	{
 	case 0x1011:										// Marvell:
 			/* Disable Crossover cable:	*/
-		br = miiReadWord( &gigReg, MII_MARVELL_PHY_SPECIFIC_CONTROL, phyId );
+		br = miiReadWord( &gigReg, MII_MARVELL_PHY_SPECIFIC_CONTROL );
 		gigReg &= ~(MII_MARVELL_PHY_SPECIFIC_CONTROL_AUTOL_MDIX
 				  | MII_MARVELL_PHY_SPECIFIC_CONTROL_MANUAL_MDIX);
-		miiWriteWord( gigReg, MII_1000BASETCONTROL, phyId );
+		miiWriteWord( gigReg, MII_MARVELL_PHY_SPECIFIC_CONTROL );
 		controlReg |= MII_CONTROL_RESET;
 		break;
 
@@ -1638,23 +1695,29 @@ IOReturn UniNEnet::forceSpeedDuplex( UInt16 controlReg )
 	case 0x5421:
 	case ' GEM':
 	default:		// first, reset the PHY:
-		miiWriteWord( MII_CONTROL_RESET, MII_CONTROL, phyId );
+		miiWriteWord( MII_CONTROL_RESET, MII_CONTROL );
 		IOSleep( 3 );
 		break;
 	}/* end SWITCH on PHY type */
 
 //	if ( mType & kIOMediumOptionFlowControl )	/// touch up the MAC
 
-	miiWriteWord( controlReg, MII_CONTROL, phyId );
+	miiWriteWord( controlReg, MII_CONTROL );
 
 	if ( controlReg & MII_CONTROL_SPEED_SELECTION_2 )
 		 fXIFConfiguration |= kXIFConfiguration_GMIIMODE;	// set MAC to GIG:
 	else fXIFConfiguration &= kXIFConfiguration_GMIIMODE;	// set MAC to nonGIG:
 	WRITE_REGISTER( XIFConfiguration, fXIFConfiguration );	// So order.
 
-	for ( int i = 0; i < 5000; i+= 10 )
+	if ( fLoopback )
 	{
-		miiReadWord( &statusReg, MII_STATUS, phyId );
+		IOSleep( 5 );				/* PHY status won't show link UP	*/
+		return kIOReturnSuccess;	/* So, just pretend it is.			*/
+	}
+
+	for ( int i = 0; i < 5000; i+= 10 )	/* 5 seconds in 10 ms chunks	*/
+	{
+		miiReadWord( &statusReg, MII_STATUS );
 		if ( statusReg & MII_STATUS_LINK_STATUS )
 			return kIOReturnSuccess;		// Link is UP, return
 		IOSleep( 10 );
@@ -1712,7 +1775,7 @@ IOReturn UniNEnet::newUserClient(	task_t			owningTask,
 	if ( type != 'GMAC' )
 	{		/// ??? don't return error - call superclass and return its code.
 		ELG( 0, type, 'Usr-', "UniNEnet::newUserClient - unlucky." );
-		return 0x333;
+		return kIOReturnError;
 	}
 
 		// Instantiate a new client for the requesting task:
@@ -1721,14 +1784,14 @@ IOReturn UniNEnet::newUserClient(	task_t			owningTask,
 	if ( !client )
 	{
 		ELG( 0, 0, 'usr-', "UniNEnet::newUserClient: Can't create user client" );
-		return 0x334;
+		return kIOReturnError;
 	}
 
 	if ( ior == kIOReturnSuccess )
 	{		// Attach ourself to the client so that this client instance can call us.
 		if ( client->attach( this ) == false )
 		{
-			ior = 0x335;
+			ior = kIOReturnError;
 			ELG( 0, 0, 'USR-', "UniNEnet::newUserClient: Can't attach user client" );
 		}
 	}
@@ -1737,7 +1800,7 @@ IOReturn UniNEnet::newUserClient(	task_t			owningTask,
 	{		// Start the client so it can accept requests.
 		if ( client->start( this ) == false )
 		{
-			ior = 0x336;
+			ior = kIOReturnError;
 			ELG( 0, 0, 'USR-', "UniNEnet::newUserClient: Can't start user client" );
 		}
 	}
@@ -1780,15 +1843,14 @@ UniNEnetUserClient* UniNEnetUserClient::withTask( task_t owningTask )
 }/* end UniNEnetUserClient::withTask */
 
 
-bool UniNEnetUserClient::start( IOService * provider )
+bool UniNEnetUserClient::start( IOService *provider )
 {
-	fProvider = (UniNEnet*)provider;
-	UC_ELG( 0, 0, 'UC S', "UniNEnetUserClient::start" );
-
 	if ( super::start( provider ) == false )	return false;
 	if ( provider->open( this )   == false )	return false;
 
 	fProvider = (UniNEnet*)provider;
+
+	UC_ELG( 0, provider, 'UC S', "UniNEnetUserClient::start" );
 
 		/* Initialize the call structure:	*/
 
@@ -1809,6 +1871,8 @@ IOReturn UniNEnetUserClient::clientClose()
 	{
 		UC_ELG( 0, 0, 'UC C', "UniNEnetUserClient::clientClose" );
 
+		if ( fmap )	{ fmap-> release(); fmap = 0; }
+
 		if ( fProvider->isOpen( this ) )
 			fProvider->close( this );
 
@@ -1822,15 +1886,18 @@ IOReturn UniNEnetUserClient::clientClose()
 IOReturn UniNEnetUserClient::clientDied()
 {
 	if ( fProvider )
-		UC_ELG( 0, 0, 'UC D', "UniNEnetUserClient::clientDied" );
-	
+	{
+		UC_ELG( 0, fProvider, 'UC D', "UniNEnetUserClient::clientDied" );
+		if ( fmap )	{ fmap-> release(); fmap = 0; }
+	}
+
 	return clientClose();
 }/* end UniNEnetUserClient::clientDied */
 
 
 IOReturn UniNEnetUserClient::connectClient( IOUserClient *client )
 {
-	UC_ELG( 0, 0, 'uCon', "connectClient - connect client" );
+	UC_ELG( 0, 0, 'uCon', "UniNEnetUserClient::connectClient - connect client" );
     return kIOReturnSuccess;
 }/* end connectClient */
 
@@ -1847,122 +1914,95 @@ IOExternalMethod* UniNEnetUserClient::getExternalMethodForIndex( UInt32 index )
     IOExternalMethod	*result = NULL;
 
 
-	UC_ELG( 0, index, 'uXMi', "getExternalMethodForIndex - get external method" );
+	if ( index == 0 )
+		result = &fMethods[0];
 
-    if ( index == 0 )
-        result = &fMethods[0];
+	UC_ELG( result, index, 'uXMi', "UniNEnetUserClient::getExternalMethodForIndex - get external method" );
 
     return result;
 }/* end getExternalMethodForIndex */
 
 
-IOReturn UniNEnetUserClient::doRequest(
-								void		*pIn,		void		*pOut,
-								IOByteCount	inputSize,	IOByteCount	*pOutPutSize )
+IOReturn UniNEnetUserClient::doRequest(	void		*pIn,		void		*pOut,
+										IOByteCount	inputSize,	IOByteCount	*pOutPutSize )
 {
-	UInt8	*input;
+	UInt32		reqID;
+	IOReturn	ior;
 
 
-	UC_ELG( *pOutPutSize, (UInt32)pIn, 'uReq', "doRequest - get external method" );
+	UC_ELG( inputSize,   (UInt32)pIn,  'uRqI', "UniNEnetUserClient::doRequest - input parameters" );
+	UC_ELG( pOutPutSize, (UInt32)pOut, 'uRqO', "UniNEnetUserClient::doRequest - output parameters" );
 
-		// check first byte of input data for a command code
-	if ( pIn && pOut && (inputSize > 0) )
+		/* validate parameters:	*/
+
+	if ( !pIn  || (inputSize < sizeof( UCRequest )) )
+		return kIOReturnBadArgument;
+
+	reqID = *(UInt32*)pIn;
+
+	switch ( reqID )					/* switch on request ID	*/
 	{
-		input = (UInt8*)pIn;
+	case kGMACUserCmd_GetLog:		ior = getGMACLog(		pIn, pOut, inputSize, pOutPutSize );	break;
+	case kGMACUserCmd_GetRegs:		ior = getGMACRegs(		pIn, pOut, inputSize, pOutPutSize );	break;
 
-		switch( *input )	// 1st byte of input has request ID
-		{
-		case kGMACUserCmd_GetLog:	return getGMACLog(		pIn, pOut, inputSize, pOutPutSize );
-		case kGMACUserCmd_GetRegs:	return getGMACRegs(		pIn, pOut, inputSize, pOutPutSize );
+	case kGMACUserCmd_GetTxRing:	ior = getGMACTxRing(	pIn, pOut, inputSize, pOutPutSize );	break;
+	case kGMACUserCmd_GetRxRing:	ior = getGMACRxRing(	pIn, pOut, inputSize, pOutPutSize );	break;
 
-		case kGMACUserCmd_GetTxRing:	return getGMACTxRing(	pIn, pOut, inputSize, pOutPutSize );
-		case kGMACUserCmd_GetRxRing:	return getGMACRxRing(	pIn, pOut, inputSize, pOutPutSize );
+	case kGMACUserCmd_ReadAllMII:	ior = readAllMII(	pIn, pOut, inputSize, pOutPutSize );	break;
+	case kGMACUserCmd_ReadMII:		ior = readMII(		pIn, pOut, inputSize, pOutPutSize );	break;
+	case kGMACUserCmd_WriteMII:		ior = writeMII(		pIn, pOut, inputSize, pOutPutSize );	break;
 
-		case kGMACUserCmd_ReadAllMII:return readAllMII(	pIn, pOut, inputSize, pOutPutSize );
-		case kGMACUserCmd_ReadMII:	return readMII(		pIn, pOut, inputSize, pOutPutSize );
-		case kGMACUserCmd_WriteMII:	return writeMII(    pIn, pOut, inputSize, pOutPutSize );
-
-		default:
-			IOLog( "UniNEnetUserClient - Bad command to doRequest, %x\n", *input );
-		}
+	default:
+	///	IOLog( "UniNEnetUserClient::doRequest - Bad command, %lx\n", reqID );
+		UC_ELG( 0, reqID, 'uRq?', "UniNEnetUserClient::doRequest - unknown" );
+		ior = kIOReturnBadArgument;
+		break;
 	}
-	else IOLog( "UniNEnetUserClient - pin/pout,size error\n" );
 
-	return kIOReturnBadArgument;
+	return ior;
 }/* end doRequest */
 
 
 #if USE_ELG
-	/* getGMACLog - Get UniNEnet event log.		*/
-	/*											*/
-	/* input is 9 bytes:						*/
-	/*		command code (kGMACUserCmd_GetLog)	*/
-	/*		four bytes of buffer address		*/
-	/*		four bytes of buffer size			*/
-	/*											*/
-	/* output set to GMACLogInfo record			*/
-	/*		and buffer filled with log data		*/
+	/* getGMACLog - Get UniNEnet event log.			*/
+	/*												*/
+	/* input is struct:								*/
+	/*		command code (kGMACUserCmd_GetLog)		*/
+	/*		buffer address (unused)					*/
+	/*		buffer size    (unused)					*/
+	/* output is struct:							*/
+	/*		command code (copied)					*/
+	/*		address of buffer mapped in user space	*/
+	/*		buffer size								*/
 
-IOReturn UniNEnetUserClient::getGMACLog(
-							void		*pIn,		void		*pOut,
-							IOByteCount	inputSize,	IOByteCount	*pOutPutSize )
+IOReturn UniNEnetUserClient::getGMACLog(	void		*pIn,		void		*pOut,
+											IOByteCount	inputSize,	IOByteCount	*pOutPutSize )
 {
-	IOMemoryDescriptor	*md;	// make a memory descriptor for the client's big buffer
-	UInt8				*input = (UInt8*)pIn;
-	vm_address_t		bigaddr;
-	IOByteCount			biglen;
-	IOByteCount			bc;
-	IOReturn 			ior;
+	UCRequest			*req = (UCRequest*)pIn;
+	IOVirtualAddress	clientAddr;
 
 
 	UC_ELG( (UInt32)pIn,  inputSize,    'UgLg', "UniNEnetUserClient::getGMACLog" );
-	UC_ELG( (UInt32)pOut, *pOutPutSize, 'UgL2', "UniNEnetUserClient::getGMACLog" );
 
-//	require( inputSize == 9, Fail );
-//	require( pOutPutSize, Fail );
-//	require( *pOutPutSize == sizeof( GMACLogInfo ), Fail );
+		/* map in the buffer to kernel space:	*/
 
-		// Skip Req ID and get following buffer addr and buffer size:
+	fmap = fProvider->fpELGMemDesc->map( fTask, 0, kIOMapAnywhere );
 
-	bigaddr = input[1] << 24 | input[2] << 16 | input[3] << 8 | input[4];
-	biglen	= input[5] << 24 | input[6] << 16 | input[7] << 8 | input[8];
+	clientAddr = fmap->getVirtualAddress();
+	req->pLogBuffer	= (UInt8*)clientAddr;
+	req->bufSize	= (fProvider->fpELG->evLogBufe - fProvider->fpELG->evLogBuf + PAGE_SIZE) & ~PAGE_SIZE;
 
-	UC_ELG( bigaddr, biglen, '=uBf', "UniNEnetUserClient::getGMACLog - user buffer" );
+	UC_ELG( req->bufSize, req->pLogBuffer, '=uBf', "UniNEnetUserClient::getGMACLog - user buffer" );
 
-		// Allocate and init the memory descriptor:
+	bcopy( req, pOut, sizeof( UCRequest ) );
+	*pOutPutSize = sizeof( UCRequest );
 
-	md = IOMemoryDescriptor::withAddress( bigaddr, biglen, kIODirectionOutIn, fTask );	// REVIEW direction
-	if ( !md )	goto Fail;
-
-		// copy the buffer over now:
-
-	ior = md->prepare( kIODirectionNone );
-	if ( ior )  {	UC_ELG( -1, ior, 'prp-', "UniNEnetUserClient::getGMACLog - prepare failed" ); }
-
-#ifdef JUST_FOR_TESTING	/// don't execute until Alrt is called.
-	while( fProvider->fpELG->alertCount == 0 )	IOSleep( 100 );
-#endif // JUST_FOR_TESTING
-
-	bc = md->writeBytes( 0, fProvider->fpELG, kEvLogSize );
-	if ( bc != kEvLogSize )
-		UC_ELG( 0, bc, 'Ubc-', "UniNEnetUserClient::getGMACLog - write failed" );
-
-	ior = md->complete( kIODirectionNone );
-	if ( ior )	{ UC_ELG( 0, ior, 'gLg-', "UniNEnetUserClient::getGMACLog - complete failed" ); }
-	else   		{ UC_ELG( 0,   0, 'gLg+', "UniNEnetUserClient::getGMACLog - complete worked" ); }
-
-	md->release();			// free it
-	fProvider->fpELG->evLogFlag = 0xFEEDBEEF;	/// Let 'er rip again.
-
+	fProvider->fpELG->evLogFlag = 0xFEEDBEEF;	// restart logging in case it stopped
     return kIOReturnSuccess;
-
-Fail:
-
-	return kIOReturnBadArgument;
 }/* end getGMACLog */
 
-#else // no event logging buffer:
-IOReturn UniNEnetUserClient::getGMACLog( void *, void *, IOByteCount, IOByteCount* )
+#else // Production driver - no event logging buffer:
+IOReturn UniNEnetUserClient::getGMACLog( void*, void*, IOByteCount, IOByteCount* )
 {
 	return kIOReturnBadArgument;
 }/* end getGMACLog */
@@ -1971,62 +2011,41 @@ IOReturn UniNEnetUserClient::getGMACLog( void *, void *, IOByteCount, IOByteCoun
 
 	/* getGMACRegs - Get UniNEnet registers.	*/
 	/*											*/
-	/* input is 9 bytes:						*/
+	/* input is bytes:							*/
 	/*		command code (kGMACUserCmd_GetRegs)	*/
-	/*		four bytes of buffer address		*/
-	/*		four bytes of buffer size			*/
+	/*		buffer address						*/
+	/*		buffer size							*/
 	/*											*/
 	/* output set to Length/Type/Value records	*/
 
-IOReturn UniNEnetUserClient::getGMACRegs(
-							void		*pIn,		void		*pOut,
-							IOByteCount	inputSize,	IOByteCount	*pOutPutSize )
+IOReturn UniNEnetUserClient::getGMACRegs(	void		*pIn,		void		*pOut,
+											IOByteCount	inputSize,	IOByteCount	*pOutPutSize )
 {
-	IOMemoryDescriptor	*md;	// make a memory descriptor for the client's big buffer
-	UInt8				*input = (UInt8*)pIn;
-	vm_address_t		bigaddr;
-	IOByteCount			biglen;
 	LengthOffset		*pTemplate;
 	UInt8				*src;
-	UInt32				dest = 0;
+	UInt8				*dest = (UInt8*)pOut;
 	UInt32				len;
-	IOByteCount			bc;
 	UInt32				lowRegs[ 8 ];
 	UInt32				*pl;	// pointer to a Long
-	IOReturn 			ior;
 
-//	require( inputSize == 9, Fail );
-//	require( pOutPutSize, Fail );
-//	require( *pOutPutSize == sizeof( GMACLogInfo ), Fail );
 
-		// Skip Req ID and get following buffer addr and buffer size:
+	if ( !pOut || (*pOutPutSize < PAGE_SIZE) )	// actual size unknown
+		return kIOReturnBadArgument;
 
-	bigaddr = input[1] << 24 | input[2] << 16 | input[3] << 8 | input[4];
-	biglen	= input[5] << 24 | input[6] << 16 | input[7] << 8 | input[8];
-
-		// Allocate and init the memory descriptor:
-
-	md = IOMemoryDescriptor::withAddress( bigaddr, biglen, kIODirectionOutIn, fTask );	// REVIEW direction
-	if ( !md )	goto Fail;
-
-		// copy the buffer over now:
-
-	ior = md->prepare( kIODirectionNone );
-	if ( ior )  {	UC_ELG( -1, ior, 'prp-', "UniNEnetUserClient::getGMACRegs - prepare failed" ); }
-
-	for ( pTemplate = gGMACRegisterTemplate; ; pTemplate++ )
+	for ( pTemplate = gGMACRegisterTemplate; true; pTemplate++ )
 	{
-		bc = md->writeBytes( dest, pTemplate, sizeof( LengthOffset ) );
+		bcopy( pTemplate, dest, sizeof( LengthOffset ) );
 		dest += sizeof( LengthOffset );
 
 		len = pTemplate->setLength;
 		if ( len == 0 )
 			break;
 
-			/* 0x000C Status Register autoclears and	*/
-			/* must be special cased:					*/
-
-		if ( pTemplate->setOffset == 0 )
+		if ( pTemplate->setOffset != 0 )
+		{
+			src	= (UInt8*)fProvider->fpRegs + pTemplate->setOffset;
+		}
+		else		/* 0x000C Status Register autoclears and must be special cased.	*/
 		{	pl = (UInt32*)fProvider->fpRegs;
 			lowRegs[ 0 ] = pl[ 0 ];
 			lowRegs[ 1 ] = pl[ 1 ];
@@ -2036,249 +2055,163 @@ IOReturn UniNEnetUserClient::getGMACRegs(
 			lowRegs[ 5 ] = pl[ 5 ];
 			lowRegs[ 6 ] = pl[ 6 ];
 			lowRegs[ 7 ] = pl[ 7 ];
-			src	= (UInt8*)lowRegs;		
-			bc	= md->writeBytes( dest, src, len );
-		}
-		else
-		{
-			src	= (UInt8*)fProvider->fpRegs + pTemplate->setOffset;		
-			bc	= md->writeBytes( dest, src, len );
+			src	= (UInt8*)lowRegs;
 		}
 
-		if ( bc != len )
-		{
-			UC_ELG( len, bc, 'Ubc-', "UniNEnetUserClient::getGMACRegs - write failed" );
-			break;
-		}
+		UInt32		i;
+		UInt32* 	d32 = (UInt32*)dest;
+		UInt32*		s32 = (UInt32*)src;
+		for ( i = 0; i < len / 4; i++ )
+			*d32++ = *s32++;
+
 		dest += len;
 	}/* end FOR */
 
-	ior = md->complete( kIODirectionNone );
-	if ( ior )	{ UC_ELG( 0, ior, 'gLg-', "UniNEnetUserClient::getGMACRegs - complete failed" ); }
-	else   		{ UC_ELG( 0,   0, 'gLg+', "UniNEnetUserClient::getGMACRegs - complete worked" ); }
-	md->release();			// free it
+	*pOutPutSize = dest - (UInt8*)pOut;
+	UC_ELG( 0, *pOutPutSize, 'gReg', "UniNEnetUserClient::getGMACRegs - done" );
     return kIOReturnSuccess;
-
-Fail:
-
-	return kIOReturnBadArgument;
 }/* end getGMACRegs */
 
 
 	/* getGMACTxRing - Get Tx ring elements.		*/
 	/*												*/
-	/* input is 9 bytes:							*/
+	/* input is:									*/
 	/*		command code (kGMACUserCmd_GetTxRing)	*/
-	/*		four bytes of buffer address			*/
-	/*		four bytes of buffer size				*/
+	/*		buffer address							*/
+	/*		buffer size								*/
 	/*												*/
-	/* output set to Length/Type/Value records		*/
+	/* output set to ring elements					*/
 
-IOReturn UniNEnetUserClient::getGMACTxRing(
-							void		*pIn,		void		*pOut,
-							IOByteCount	inputSize,	IOByteCount	*pOutPutSize )
+IOReturn UniNEnetUserClient::getGMACTxRing(	void		*pIn,		void		*pOut,
+											IOByteCount	inputSize,	IOByteCount	*pOutPutSize )
 {
-	IOMemoryDescriptor	*md;	// make a memory descriptor for the client's big buffer
-	UInt8				*input = (UInt8*)pIn;
-	vm_address_t		bigaddr;
-	IOByteCount			biglen;
 	UInt8				*src;
-	UInt32				dest;
+	UInt8				*dest;
 	UInt32				len;
-	IOByteCount			bc;
-	IOReturn 			ior;
 
 
-		/* Skip Req ID and get following buffer addr and buffer size:	*/
-
-	bigaddr = input[1] << 24 | input[2] << 16 | input[3] << 8 | input[4];
-	biglen	= input[5] << 24 | input[6] << 16 | input[7] << 8 | input[8];
-
-		/* Allocate and init the memory descriptor:	*/
-
-	md = IOMemoryDescriptor::withAddress( bigaddr, biglen, kIODirectionOutIn, fTask );	// REVIEW direction
-	if ( !md )	return kIOReturnBadArgument;
-
-		/* copy the Tx ring elements over now:	*/
-
-	ior = md->prepare( kIODirectionNone );
-	if ( ior )  {	UC_ELG( -1, ior, 'prp-', "UniNEnetUserClient::getGMACTxRing - prepare failed" ); }
-
-	dest	= 0;
 	src		= (UInt8*)fProvider->fTxDescriptorRing;
+	dest	= (UInt8*)pOut;
 	len		= fProvider->fTxRingElements * sizeof( TxDescriptor );
 
-	bc = md->writeBytes( dest, src, len );
+	bcopy( src, dest, len );
+	*pOutPutSize = len;
 
-	ior = md->complete( kIODirectionNone );
-	if ( ior )	{ UC_ELG( 0, ior, 'gLg-', "UniNEnetUserClient::getGMACTxRing - complete failed" ); }
-	else   		{ UC_ELG( 0, 0,  'gLg+', "UniNEnetUserClient::getGMACTxRing - complete worked" ); }
-	md->release();			// free it
+	UC_ELG( 0,  len, 'gTxR', "UniNEnetUserClient::getGMACTxRing - done" );
     return kIOReturnSuccess;
 }/* end getGMACTxRing */
 
 
 	/* getGMACRxRing - Get Rx ring elements.		*/
 	/*												*/
-	/* input is 9 bytes:							*/
+	/* input is bytes:								*/
 	/*		command code (kGMACUserCmd_GetRxRing)	*/
-	/*		four bytes of buffer address			*/
-	/*		four bytes of buffer size				*/
+	/*		buffer address							*/
+	/*		buffer size								*/
 	/*												*/
-	/* output set to Length/Type/Value records		*/
+	/* output set to ring elements					*/
 
-IOReturn UniNEnetUserClient::getGMACRxRing(
-							void		*pIn,		void		*pOut,
-							IOByteCount	inputSize,	IOByteCount	*pOutPutSize )
+IOReturn UniNEnetUserClient::getGMACRxRing(	void		*pIn,		void		*pOut,
+											IOByteCount	inputSize,	IOByteCount	*pOutPutSize )
 {
-	IOMemoryDescriptor	*md;	// make a memory descriptor for the client's big buffer
-	UInt8				*input = (UInt8*)pIn;
-	vm_address_t		bigaddr;
-	IOByteCount			biglen;
 	UInt8				*src;
-	UInt32				dest;
+	UInt8				*dest;
 	UInt32				len;
-	IOByteCount			bc;
-	IOReturn 			ior;
 
 
-		// Skip Req ID and get following buffer addr and buffer size:
-
-	bigaddr = input[1] << 24 | input[2] << 16 | input[3] << 8 | input[4];
-	biglen	= input[5] << 24 | input[6] << 16 | input[7] << 8 | input[8];
-
-		// Allocate and init the memory descriptor:
-
-	md = IOMemoryDescriptor::withAddress( bigaddr, biglen, kIODirectionOutIn, fTask );	// REVIEW direction
-	if ( !md )	return kIOReturnBadArgument;
-
-		// copy the Rx ring elements over now:
-
-	ior = md->prepare( kIODirectionNone );
-	if ( ior )  {	UC_ELG( -1, ior, 'prp-', "UniNEnetUserClient::getGMACRxRing - prepare failed" ); }
-
-	dest	= 0;
 	src		= (UInt8*)fProvider->fRxDescriptorRing;
+	dest	= (UInt8*)pOut;
 	len		= fProvider->fRxRingElements * sizeof( RxDescriptor );
-	bc = md->writeBytes( dest, src, len );
+	bcopy( src, dest, len );
+	*pOutPutSize = len;
 
-	ior = md->complete( kIODirectionNone );
-	if ( ior )	{ UC_ELG( 0, ior, 'gLg-', "UniNEnetUserClient::getGMACRxRing - complete failed" ); }
-	else   		{ UC_ELG( 0, 0,  'gLg+', "UniNEnetUserClient::getGMACRxRing - complete worked" ); }
-	md->release();			// free it
+	UC_ELG( 0,  len, 'gRxR', "UniNEnetUserClient::getGMACRxRing - done" );
     return kIOReturnSuccess;
 }/* end getGMACRxRing */
 
-
-	// readAllMII - return all 32 MII registers
-	//  (todo: check to see if all HW works with this)
 
 IOReturn UniNEnetUserClient::readAllMII(	void		*pIn,
 											void		*pOut,
 											IOByteCount	inputSize,
 											IOByteCount	*outPutSize )
 {
-	bool		result;
-	UInt16		*reg_value;		// 32 shorts are small enough to go directly out to user
-	UInt16		i;
+	UInt16				*reg_value;		// 32 shorts are small enough to go directly out to user
+	UInt16				i;
+	bool				result;
 
-
-	IOLog( "Hello from readAllMII\n" );
 	
-	if ( pOut && outPutSize && *outPutSize >= (32 * sizeof( UInt16 )) )
-	{
-		reg_value	= (UInt16*)pOut;
-		*outPutSize	= 0;						// init returned byte count
+	if ( !(pOut && outPutSize && *outPutSize >= (32 * sizeof( UInt16 ))) )
+		return kIOReturnBadArgument;
 
-		for ( i = 0 ; i < 32; i++ )
+	reg_value	= (UInt16*)pOut;
+	*outPutSize	= 0;						// init returned byte count
+
+	for ( i = 0 ; i < 32; i++ )
+	{
+		result = fProvider->miiReadWord( reg_value, i );
+		if ( result )
 		{
-			result = fProvider->miiReadWord( reg_value, i, kPHYAddr0 );
-			if ( result )
-			{
-				IOLog( "read mii %d, 0x%x\n",	i, *reg_value );
-				reg_value++;					// incr to next short in the output buffer
-				*outPutSize += sizeof( UInt16 );// incr returned byte count
-			}
-			else
-			{
-				IOLog( "read of mii %d failed\n", i );
-				return kIOReturnError;			// todo - see if more robust 'read all' is in order
-			}
-		}/* end FOR */
-		return kIOReturnSuccess;
-	}
-	return kIOReturnBadArgument;
+			reg_value++;					// incr to next short in the output buffer
+			*outPutSize += sizeof( UInt16 );// incr returned byte count
+		}
+		else
+		{
+			IOLog( "Read of PHY register %d failed.\n", i );
+			return kIOReturnError;
+		}
+	}/* end FOR */
+	return kIOReturnSuccess;
 }/* end readAllMII */
 
 
-IOReturn UniNEnetUserClient::readMII(	void		*pIn,
-										void		*pOut,
-										IOByteCount	inputSize,
-										IOByteCount	*outPutSize )
+IOReturn UniNEnetUserClient::readMII(	void		*pIn,		void		*pOut,
+										IOByteCount	inputSize,	IOByteCount	*outPutSize )
 {
+	UCRequest	*req = (UCRequest*)pIn;
+	UInt16		*reg_value = (UInt16*)pOut;
+	UInt32 		reg_num;
 	bool		result;
-	UInt16		*reg_value	= (UInt16*)pOut;	// 32 shorts are small enough to go directly out to user
-	UInt16 		reg_num		= *((UInt8*)pIn+1);	// single byte of register number after command byte
 
 
-	IOLog( "hello from readMII\n" );
-	if ( pIn && inputSize == 2 && pOut && outPutSize && *outPutSize >= (1 * sizeof(UInt16))) {
-		
-		if ( reg_num < 32 )
-		{
-			*outPutSize	= 0;						// init returned byte count
-			result		= fProvider->miiReadWord( reg_value, reg_num, kPHYAddr0 );
-			if ( result )
-			{
-				IOLog( "read mii %d, 0x%x\n", reg_num, *reg_value );
-				*outPutSize += sizeof( UInt16 );	// incr returned byte count
-			}
-			else
-			{
-				IOLog( "read of mii %d failed\n", reg_num );
-				return kIOReturnError;			// todo - see if more robust 'read all' is in order
-			}
-			return kIOReturnSuccess;
-		}
+	*outPutSize	= 0;							// init returned byte count
+	reg_num		= (UInt32)req->pLogBuffer;		// use the input struct's bufSize for the reg #
+	if ( reg_num > 31 )
+		return kIOReturnError;
+
+	result = fProvider->miiReadWord( reg_value, reg_num );
+	if ( !result )
+	{
+		IOLog( "Read of PHY register %ld failed.\n", reg_num );
+		return kIOReturnError;			// todo - see if more robust 'read all' is in order
 	}
-	return kIOReturnBadArgument;
+
+///	IOLog( "Read of PHY register %d, 0x%x\n", reg_num, *reg_value );
+	*outPutSize = sizeof( UInt16 );		// returned byte count
+
+	return kIOReturnSuccess;
 }/* end readMII */
 
 
-IOReturn UniNEnetUserClient::writeMII(	void		*pIn,
-										void		*pOut,
-										IOByteCount	inputSize,
-										IOByteCount	*outPutSize )
+IOReturn UniNEnetUserClient::writeMII(	void		*pIn,		void		*pOut,
+										IOByteCount	inputSize,	IOByteCount	*outPutSize )
 {
-	UInt8		*input_bytes = (UInt8*)pIn;
-	UInt16		reg_num = input_bytes[1];
-	UInt16		reg_val = input_bytes[2] << 8 | input_bytes[3];
+	UCRequest	*req = (UCRequest*)pIn;
+	UInt32		reg_num, reg_val;
 	bool		result;
 
 
-	IOLog( "hello from writeMII\n" );
-	
-	if ( outPutSize )
-		*outPutSize = 0;		// not returning any data, zero the byte count
-	
-		// input: command byte, byte of register number, two bytes of value to write
-		// output: ignored
-	if ( pIn && inputSize == 4 )
-	{	
-		if ( reg_num < 32 )
-		{
-			result = fProvider->miiWriteWord( reg_val, reg_num, kPHYAddr0 );
-			if ( result )
-			{
-				IOLog( "wrote mii %d with 0x%x\n", reg_num, reg_val );
-			}
-			else
-			{
-				IOLog( "write of mii %d failed\n", reg_num );
-				return kIOReturnError;			// todo - see if more robust 'read all' is in order
-			}
-			return kIOReturnSuccess;
-		}
+	reg_num = (UInt32)req->pLogBuffer;
+	reg_val = req->bufSize;
+
+	if ( reg_num > 31 || reg_val > 0xFFFF )
+		return kIOReturnBadArgument;
+
+	result = fProvider->miiWriteWord( reg_val, reg_num );
+	if ( !result )
+	{
+		IOLog( "Write of PHY register %ld failed.\n", reg_num );
+		return kIOReturnError;			// todo - see if more robust 'read all' is in order
 	}
-	return kIOReturnBadArgument;
+
+	return kIOReturnSuccess;
 }/* end writeMII */

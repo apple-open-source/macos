@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -35,18 +38,6 @@ extern "C" {
 }
 
 //---------------------------------------------------------------------------
-// Function: IOPhysicalFromVirtual
-//
-// Hack, remove ASAP.
-
-static inline IOReturn
-IOPhysicalFromVirtual(vm_address_t vaddr, IOPhysicalAddress * paddr)
-{
-	*paddr = pmap_extract(kernel_pmap, vaddr);
-	return (*paddr == 0) ? kIOReturnBadArgument : kIOReturnSuccess;
-}
-
-//---------------------------------------------------------------------------
 // Function: _intrACK
 //
 // Purpose:
@@ -60,10 +51,16 @@ IOPhysicalFromVirtual(vm_address_t vaddr, IOPhysicalAddress * paddr)
 
 static inline scb_status_t _intrACK(CSR_t * CSR_p)
 {
-	scb_status_t stat_irq = OSReadLE16(&CSR_p->status) & SCB_STATUS_INT_MASK;
-	if (stat_irq)
-		OSWriteLE16(&CSR_p->status, stat_irq);	// ack pending interrupts.
-    return (stat_irq);
+    UInt32 cmdstatus = ReadLE32(&CSR_p->status);
+    UInt16 status;
+
+    if (cmdstatus == C_CSR_BAD) cmdstatus = 0;
+
+    status = cmdstatus & SCB_STATUS_INT_MASK;
+    if (status)
+        WriteLE16(&CSR_p->status, status);   // ack pending interrupts.
+
+    return status;
 }
 
 //---------------------------------------------------------------------------
@@ -84,8 +81,8 @@ static inline bool
 _waitSCBCommandClear(CSR_t * CSR_p)
 {
     for (int i = 0; i < SPIN_TIMEOUT; i++) {
-		if (!OSReadLE8(&CSR_p->command))
-	    	return true;
+        if (ReadLE32(&CSR_p->status) == C_CSR_BAD) break;
+		if (!ReadLE8(&CSR_p->command)) return true;
 		IODelay(SPIN_COUNT);
     }
     return false;	// hardware is not responding.
@@ -107,13 +104,29 @@ _waitSCBCommandClear(CSR_t * CSR_p)
 static inline bool
 _waitCUNonActive(CSR_t * CSR_p)
 {
+    UInt32 cmdstatus;
+
     for (int i = 0; i < SPIN_TIMEOUT; i++) {
-		if (CSR_VALUE(SCB_STATUS_CUS, OSReadLE16(&CSR_p->status)) != 
-			SCB_CUS_ACTIVE)
+        cmdstatus = ReadLE32(&CSR_p->status);
+        if (cmdstatus == C_CSR_BAD) break;
+		if (CSR_VALUE(SCB_STATUS_CUS, cmdstatus) != SCB_CUS_ACTIVE)
 			return true;
 		IODelay(SPIN_COUNT);
 	}
 	return false;
+}
+
+//---------------------------------------------------------------------------
+// Function: isCSRValid
+
+bool Intel82557::isCSRValid()
+{
+    // Returns false to indicate that the CSR is no longer valid by
+    // checking for all 1's in the CSR status and command word.
+    // Certain bits are defined to never return zero. There shouldn't
+    // be any side effects from reading this register.
+
+    return ( ReadLE32(&CSR_p->status) != C_CSR_BAD );
 }
 
 //---------------------------------------------------------------------------
@@ -125,34 +138,34 @@ _waitCUNonActive(CSR_t * CSR_p)
 bool Intel82557::_polledCommand(cbHeader_t * hdr_p, IOPhysicalAddress paddr)
 {
     if (!_waitSCBCommandClear(CSR_p)) {
-		IOLog("%s: _polledCommand:(%s): _waitSCBCommandClear failed\n",
-			CUCommandString(CSR_VALUE(CB_CMD, OSReadLE16(&hdr_p->command))),
-			getName());
+		VPRINT("%s: _polledCommand:(%s): _waitSCBCommandClear failed\n",
+               CUCommandString(CSR_VALUE(CB_CMD, ReadLE16(&hdr_p->command))),
+			   getName());
 		return false;
     }
 
     if (!_waitCUNonActive(CSR_p)) {
-		IOLog("%s: _polledCommand:(%s): _waitCUNonActive failed\n",
-			CUCommandString(CSR_VALUE(CB_CMD, OSReadLE16(&hdr_p->command))),
-			getName());
+		VPRINT("%s: _polledCommand:(%s): _waitCUNonActive failed\n",
+               CUCommandString(CSR_VALUE(CB_CMD, ReadLE16(&hdr_p->command))),
+			   getName());
 		return false;
     }
 
 	// Set the physical address of the command block, and issue a
 	// command unit start.
-	//
-	OSWriteLE32(&CSR_p->pointer, paddr);
-	OSWriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_START));
+
+	WriteLE32(&CSR_p->pointer, paddr);
+	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_START));
 
 	prevCUCommand = SCB_CUC_START;
 
-    for (int i = 0; i < SPIN_TIMEOUT; i++) {
-		if (OSReadLE16(&hdr_p->status) & CB_STATUS_C) {
+    for (int i = 0; (i < SPIN_TIMEOUT) && isCSRValid(); i++) {
+		if (ReadLE16(&hdr_p->status) & CB_STATUS_C) {
             
             // If EL bit is set, then assume the CU engine is now in idle
             // state.
 
-            if ( OSReadLE16(&hdr_p->command) & CB_EL )
+            if ( ReadLE16(&hdr_p->command) & CB_EL )
                 cuIsIdle = true;
             
             return true;
@@ -171,20 +184,19 @@ bool Intel82557::_polledCommand(cbHeader_t * hdr_p, IOPhysicalAddress paddr)
 bool Intel82557::_abortReceive()
 {
     if (!_waitSCBCommandClear(CSR_p)) {
-		IOLog("%s: _abortReceive: _waitSCBCommandClear failed\n", getName());
+		VPRINT("%s: _abortReceive: _waitSCBCommandClear failed\n", getName());
 		return false;
     }
 
-	OSWriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_RUC, SCB_RUC_ABORT));
+	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_RUC, SCB_RUC_ABORT));
 
-    for (int i = 0; i < SPIN_TIMEOUT; i++) {
-		if (CSR_VALUE(SCB_STATUS_RUS, OSReadLE16(&CSR_p->status)) == 
-			SCB_RUS_IDLE)
+    for (int i = 0; (i < SPIN_TIMEOUT) && isCSRValid(); i++) {
+		if (CSR_VALUE(SCB_STATUS_RUS, ReadLE16(&CSR_p->status)) == SCB_RUS_IDLE)
 			return true;
 		IODelay(SPIN_COUNT);
     }
 
-	IOLog("%s: _abortReceive: timeout\n", getName());	
+	VPRINT("%s: _abortReceive: timeout\n", getName());	
     return false;
 }
 
@@ -197,24 +209,23 @@ bool Intel82557::_abortReceive()
 bool Intel82557::_startReceive()
 {
     if (!_waitSCBCommandClear(CSR_p)) {
-		IOLog("%s: _startReceive: _waitSCBCommandClear failed\n", getName());
+		VPRINT("%s: _startReceive: _waitSCBCommandClear failed\n", getName());
 		return false;
     }
 
 	// Make sure the initial RFD has a link to its RBD
-	OSWriteLE32(&headRfd->rbdAddr, headRfd->_rbd._paddr);
+	WriteLE32(&headRfd->rbdAddr, headRfd->_rbd._paddr);
 
-	OSWriteLE32(&CSR_p->pointer, headRfd->_paddr);
-	OSWriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_RUC, SCB_RUC_START));
+	WriteLE32(&CSR_p->pointer, headRfd->_paddr);
+	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_RUC, SCB_RUC_START));
 
-    for (int i = 0; i < SPIN_TIMEOUT; i++) {
-		if (CSR_VALUE(SCB_STATUS_RUS, OSReadLE16(&CSR_p->status)) == 
-			SCB_RUS_READY)
-			return true;
+    for (int i = 0; (i < SPIN_TIMEOUT) && isCSRValid(); i++) {
+		if (CSR_VALUE(SCB_STATUS_RUS, ReadLE16(&CSR_p->status)) == 
+			SCB_RUS_READY) return true;
 		IODelay(SPIN_COUNT);
     }
 
-	IOLog("%s: _startReceive: timeout\n", getName());		
+	VPRINT("%s: _startReceive: timeout\n", getName());		
     return false;
 }
 
@@ -234,7 +245,7 @@ void Intel82557::_resetChip()
 	sendPortCommand(portSelectiveReset_e, 0);
     do {
 		IOSleep(1);
-    } while (OSReadLE32(&CSR_p->port) && ++i < 100);
+    } while (isCSRValid() && ReadLE32(&CSR_p->port) && (++i < 100));
 
 	sendPortCommand(portReset_e, 0);
     IOSleep(1);
@@ -249,13 +260,13 @@ void Intel82557::_resetChip()
 
 void Intel82557::issueReset()
 {
-    IOLog("%s: resetting adapter\n", getName());
+    VPRINT("%s: resetting adapter\n", getName());
 
 	etherStats->dot3RxExtraEntry.resets++;
 
 	setActivationLevel(kActivationLevel0);
 	if (!setActivationLevel(currentLevel)) {
-		IOLog("%s: Reset attempt unsuccessful\n", getName());
+		VPRINT("%s: Reset attempt unsuccessful\n", getName());
 	}
 }
 
@@ -278,7 +289,7 @@ bool Intel82557::updateRFDFromMbuf(rfd_t * rfd_p, struct mbuf * m)
 	// Start modifying RFD
 	//
 	rfd_p->_rbd.buffer = vector.location;	// cursor is little-endian
-//	OSWriteLE32(&rfd_p->_rbd.size, CSR_FIELD(RBD_SIZE, vector.length));
+//	WriteLE32(&rfd_p->_rbd.size, CSR_FIELD(RBD_SIZE, vector.length));
 
 	rfd_p->_rbd._mbuf = m;
 	
@@ -292,7 +303,7 @@ bool Intel82557::updateRFDFromMbuf(rfd_t * rfd_p, struct mbuf * m)
 //   Initialize the transmit control block queue.  Create a circularly
 //   linked list of tcbs.
 
-bool Intel82557::_initTcbQ(bool enable = false)
+bool Intel82557::_initTcbQ( bool enable )
 {
     int i;
 
@@ -312,29 +323,27 @@ bool Intel82557::_initTcbQ(bool enable = false)
 
     for (i = 0; i < tcbQ.numTcbs; i++) {
 		IOPhysicalAddress paddr;
-		
-		IOReturn result = IOPhysicalFromVirtual((vm_address_t) &tcbList_p[i],
-                                                &tcbList_p[i]._paddr);
-		if (result != kIOReturnSuccess) {
-			IOLog("i82557(tcbQ): Invalid TCB address\n");
-			return false;
-		}
 
-		result = IOPhysicalFromVirtual((vm_address_t) &tcbList_p[i]._tbds,
-                                       &paddr);
-		if (result != kIOReturnSuccess) {
-			IOLog("i82557(tcbQ): Invalid TBD address\n");
-			return false;
-		}
-		OSWriteLE32(&tcbList_p[i].tbdAddr, paddr);
+        if (!getPhysAddress(&txRing, &tcbList_p[i], &tcbList_p[i]._paddr))
+        {
+            IOLog("i82557(tcbQ): Invalid TCB address\n");
+            return false;
+        }
 
-		if (i == (tcbQ.numTcbs - 1))
-			tcbList_p[i]._next = &tcbList_p[0];
-		else
-			tcbList_p[i]._next = &tcbList_p[i + 1];
+        if (!getPhysAddress(&txRing, &tcbList_p[i]._tbds, &paddr))
+        {
+            IOLog("i82557(tcbQ): Invalid TBD address\n");
+            return false;
+        }
+        WriteLE32(&tcbList_p[i].tbdAddr, paddr);
+    
+        if (i == (tcbQ.numTcbs - 1))
+            tcbList_p[i]._next = &tcbList_p[0];
+        else
+            tcbList_p[i]._next = &tcbList_p[i + 1];
     }
     for (i = 0; i < tcbQ.numTcbs; i++) /* make physical links */
-		OSWriteLE32(&tcbList_p[i].link, tcbList_p[i]._next->_paddr);
+		WriteLE32(&tcbList_p[i].link, tcbList_p[i]._next->_paddr);
 	
 	return true;
 }
@@ -347,9 +356,9 @@ static void _setupRfd(rfd_t * rfdList_p)
     for (int i = 0; i < NUM_RECEIVE_FRAMES; i++) {
 		if (i == (NUM_RECEIVE_FRAMES - 1)) {
 			/* mark tails and link the lists circularly */
-			OSSetLE16(&rfdList_p[i].command, RFD_COMMAND_EL);
+			SetLE16(&rfdList_p[i].command, RFD_COMMAND_EL);
 			rfdList_p[i]._next = &rfdList_p[0];
-			OSSetLE32(&rfdList_p[i]._rbd.size, RBD_SIZE_EL);
+			SetLE32(&rfdList_p[i]._rbd.size, RBD_SIZE_EL);
 			rfdList_p[i]._rbd._next = &rfdList_p[0]._rbd;
 		}
 		else {
@@ -357,12 +366,12 @@ static void _setupRfd(rfd_t * rfdList_p)
 			rfdList_p[i]._rbd._next = &rfdList_p[i + 1]._rbd;
 		}
 
-		OSWriteLE32(&rfdList_p[i].link, rfdList_p[i]._next->_paddr);
-		OSWriteLE32(&rfdList_p[i].rbdAddr,
-                    (i == 0) ? rfdList_p[0]._rbd._paddr : C_NULL);
+		WriteLE32(&rfdList_p[i].link, rfdList_p[i]._next->_paddr);
+		WriteLE32(&rfdList_p[i].rbdAddr,
+                  (i == 0) ? rfdList_p[0]._rbd._paddr : C_NULL);
 		
-		OSWriteLE32(&rfdList_p[i]._rbd.link, rfdList_p[i]._rbd._next->_paddr);
-		OSSetLE32(&rfdList_p[i]._rbd.size, CSR_FIELD(RBD_SIZE, MAX_BUF_SIZE));
+		WriteLE32(&rfdList_p[i]._rbd.link, rfdList_p[i]._rbd._next->_paddr);
+		SetLE32(&rfdList_p[i]._rbd.size, CSR_FIELD(RBD_SIZE, MAX_BUF_SIZE));
 	}
 }
 
@@ -373,10 +382,9 @@ static void _setupRfd(rfd_t * rfdList_p)
 //   Create a circularly linked list of receive frame descriptors, and 
 //   populate them with receive buffers allocated from our special pool.
 
-bool Intel82557::_initRfdList(bool enable = false)
+bool Intel82557::_initRfdList( bool enable )
 {
-    int			i;
-    IOReturn 	result;
+    int  i;
 
     /* free allocated packet buffers */
 	for (i = 0; i < NUM_RECEIVE_FRAMES; i++) {
@@ -392,20 +400,19 @@ bool Intel82557::_initRfdList(bool enable = false)
 		return true;
 
 	for (i = 0; i < NUM_RECEIVE_FRAMES; i++) {
-		OSSetLE16(&rfdList_p[i].command, RFD_COMMAND_SF);
-		
-		result = IOPhysicalFromVirtual((vm_address_t) &rfdList_p[i],
-				                       &rfdList_p[i]._paddr);
-		if (result != kIOReturnSuccess) {
-			IOLog("%s: Invalid RFD address\n", getName());
-			return false;
-		}
-		result = IOPhysicalFromVirtual((vm_address_t) &rfdList_p[i]._rbd,
-                                       &rfdList_p[i]._rbd._paddr);
-		if (result != kIOReturnSuccess) {
-			IOLog("%s: Invalid RBD address\n", getName());
-			return false;
-		}
+        SetLE16(&rfdList_p[i].command, RFD_COMMAND_SF);
+        
+        if (!getPhysAddress(&rxRing, &rfdList_p[i], &rfdList_p[i]._paddr))
+        {
+            IOLog("%s: Invalid RFD address\n", getName());
+            return false;
+        }
+        if (!getPhysAddress(&rxRing, &rfdList_p[i]._rbd,
+                            &rfdList_p[i]._rbd._paddr))
+        {
+            IOLog("%s: Invalid RBD address\n", getName());
+            return false;
+        }
     }
 
 	_setupRfd(rfdList_p);
@@ -465,7 +472,7 @@ bool Intel82557::_resetRfdList()
     bzero(rfdList_p, sizeof(rfd_t) * NUM_RECEIVE_FRAMES);
 
 	for (i = 0; i < NUM_RECEIVE_FRAMES; i++) {
-		OSSetLE16(&rfdList_p[i].command, RFD_COMMAND_SF);
+		SetLE16(&rfdList_p[i].command, RFD_COMMAND_SF);
 		rfdList_p[i]._paddr = cache_p[i].rfd_paddr;
 		rfdList_p[i]._rbd._paddr = cache_p[i].rbd_paddr;
     }
@@ -498,23 +505,23 @@ Intel82557::_mdiReadPHY(UInt8 phyAddress, UInt8 regAddress, UInt16 * data_p)
 	      CSR_FIELD(MDI_CONTROL_REGADDR, regAddress) |
 		  CSR_FIELD(MDI_CONTROL_OPCODE,  MDI_CONTROL_OP_READ);
 	
-	OSWriteLE32(&CSR_p->mdiControl, mdi);
-	IODelay(20);
-    
+	WriteLE32(&CSR_p->mdiControl, mdi);
+	IODelay(1);
+
 	bool ready = false;
-	for (int i = 0; i < SPIN_TIMEOUT; i++) {
-		if (OSReadLE32(&CSR_p->mdiControl) & MDI_CONTROL_READY) {
+	for (int i = 0; (i < SPIN_TIMEOUT) && isCSRValid(); i++) {
+		if (ReadLE32(&CSR_p->mdiControl) & MDI_CONTROL_READY) {
 			ready = true;
-			break;
+            break;
 		}
-	    IODelay(20);
+	    IODelay(1);
 	}
 	if (ready == false) {
-	    IOLog("%s: _mdiReadPHYRegisterSuccess timeout\n", getName());
+	    VPRINT("%s: _mdiReadPHYRegisterSuccess timeout\n", getName());
 	    return false;
 	}
 
-	*data_p = CSR_VALUE(MDI_CONTROL_DATA, OSReadLE32(&CSR_p->mdiControl));
+	*data_p = CSR_VALUE(MDI_CONTROL_DATA, ReadLE32(&CSR_p->mdiControl));
     return true;
 }
 
@@ -533,19 +540,19 @@ bool Intel82557::_mdiWritePHY(UInt8 phyAddress, UInt8 regAddress, UInt16 data)
 		  CSR_FIELD(MDI_CONTROL_OPCODE,  MDI_CONTROL_OP_WRITE) |
 		  CSR_FIELD(MDI_CONTROL_DATA,    data);
 
-    OSWriteLE32(&CSR_p->mdiControl, mdi);
-    IODelay(20);
+    WriteLE32(&CSR_p->mdiControl, mdi);
+    IODelay(1);
 
 	bool ready = false;
-	for (int i = 0; i < SPIN_TIMEOUT; i++) {
-		if (OSReadLE32(&CSR_p->mdiControl) & MDI_CONTROL_READY) {
+	for (int i = 0; (i < SPIN_TIMEOUT) && isCSRValid(); i++) {
+		if (ReadLE32(&CSR_p->mdiControl) & MDI_CONTROL_READY) {
 			ready = true;
 			break;
 		}
-	    IODelay(20);
+	    IODelay(1);
 	}
 	if (ready == false) {
-	    IOLog("%s: _mdiWritePHYRegisterData timeout\n", getName());
+	    VPRINT("%s: _mdiWritePHYRegisterData timeout\n", getName());
 	    return false;
 	}
     return true;
@@ -562,8 +569,8 @@ bool Intel82557::nop()
 	cbHeader_t * nop_p = &overlay_p->nop;
 
     bzero(nop_p, sizeof(*nop_p));
-	OSWriteLE16(&nop_p->command, CSR_FIELD(CB_CMD, CB_CMD_NOP) | CB_EL);
-	OSWriteLE32(&nop_p->link, C_NULL);
+	WriteLE16(&nop_p->command, CSR_FIELD(CB_CMD, CB_CMD_NOP) | CB_EL);
+	WriteLE32(&nop_p->link, C_NULL);
 
     return _polledCommand(nop_p, overlay_paddr);
 }
@@ -584,9 +591,9 @@ bool Intel82557::config()
      */
     bzero(cfg_p, sizeof(*cfg_p));
 	
-	OSWriteLE16(&cfg_p->header.command,
-		CSR_FIELD(CB_CMD, CB_CMD_CONFIGURE) | CB_EL);
-	OSWriteLE32(&cfg_p->header.link, C_NULL);
+	WriteLE16(&cfg_p->header.command, CSR_FIELD(CB_CMD, CB_CMD_CONFIGURE) |
+              CB_EL);
+	WriteLE32(&cfg_p->header.link, C_NULL);
 	
 	cb_p = cfg_p->byte;
 	cb_p[0] = CSR_FIELD(CB_CB0_BYTE_COUNT, CB_CONFIG_BYTE_COUNT);
@@ -622,7 +629,7 @@ bool Intel82557::config()
 	cb_p[16] = CSR_FIELD(CB_CB16_FC_DELAY_LSB, CB_CB16_FC_DELAY_LSB_DEF);
 	cb_p[17] = CSR_FIELD(CB_CB17_FC_DELAY_MSB, CB_CB17_FC_DELAY_MSB_DEF);
 	
-	cb_p[18] = CB_CB18_PADDING | CB_CB18_STRIPPING;
+	cb_p[18] = CB_CB18_PADDING;
 
 #if 0	// XXX - need to fix this
     /* 
@@ -644,8 +651,6 @@ bool Intel82557::config()
 
 	cb_p[20] = CSR_FIELD(CB_CB20_FC_ADDR_LSB, CB_CB20_FC_ADDR_LSB_DEF);
 
-	IOSync();
-
     return _polledCommand((cbHeader_t *) cfg_p, overlay_paddr);
 }
 
@@ -664,9 +669,9 @@ bool Intel82557::iaSetup()
      */
     bzero(iaSetup_p, sizeof(*iaSetup_p));
 
-    OSWriteLE16(&iaSetup_p->header.command, CSR_FIELD(CB_CMD, CB_CMD_IASETUP) | 
-	                                        CB_EL);
-	OSWriteLE32(&iaSetup_p->header.link, C_NULL);
+    WriteLE16(&iaSetup_p->header.command, CSR_FIELD(CB_CMD, CB_CMD_IASETUP) | 
+                                          CB_EL);
+	WriteLE32(&iaSetup_p->header.link, C_NULL);
     iaSetup_p->addr = myAddress;
 
     return _polledCommand((cbHeader_t *) iaSetup_p, overlay_paddr);
@@ -681,82 +686,86 @@ bool Intel82557::iaSetup()
 //   multicast address list property in our interface client object.
 
 bool Intel82557::mcSetup(IOEthernetAddress * addrs,
-                         UInt                count,
-                         bool                fromData = false)
+                         UInt32              count,
+                         bool                update)
 {
-	cb_mcsetup_t *      mcSetup_p;
-    bool                cmdResult;
-    IOReturn            result;
-    IOPhysicalAddress	mcSetup_paddr;
+    bool                       cmdResult;
+    cb_mcsetup_t *             mcSetup_ptr;
+    IOPhysicalAddress          mcSetup_paddr;
+    IOByteCount                mcSetup_len;
+    IOBufferMemoryDescriptor * mcSetup_mem;
 
-	if (fromData) {
-		// mcSetup() was not called by the setMulticastList() function.
-		// We should get the multicast list stored in the interface
-		// object's property table.
-		//
-		// mcSetup() is always executed by the default workloop thread,
-		// thus we don't have to worry about the address list being
-		// changed while we go through it.
-		//
-		addrs = 0;
-		count = 0;
-	
-		if (netif) {
-			OSData * mcData = OSDynamicCast(OSData, 
-            	              netif->getProperty(kIOMulticastFilterData));
-			if (mcData) {
-				addrs = (IOEthernetAddress *) mcData->getBytesNoCopy();
-				count = mcData->getLength() / sizeof(IOEthernetAddress);
-				assert(addrs && count);
-			}
-		}
-	}
+	if ( update )
+    {
+        //
+        // mcSetup() was not called by the setMulticastList() function.
+        // We should get the multicast list stored in the interface
+        // object's property table.
+        //
+        // mcSetup() is always executed by the default workloop thread,
+        // thus we don't have to worry about the address list being
+        // changed while we go through it.
+        //
 
-    mcSetup_p = (cb_mcsetup_t *) IOMallocAligned(PAGE_SIZE, PAGE_SIZE);
-    if (!mcSetup_p) {
-		IOLog("%s: mcSetup:IOMallocAligned return NULL\n", getName());
+        addrs = 0;
+        count = 0;
+
+        if (netif) {
+            OSData * mcData = OSDynamicCast(OSData, 
+                              netif->getProperty(kIOMulticastFilterData));
+            if (mcData) {
+                addrs = (IOEthernetAddress *) mcData->getBytesNoCopy();
+                count = mcData->getLength() / sizeof(IOEthernetAddress);
+                assert(addrs && count);
+            }
+        }
+    }
+
+    mcSetup_mem = IOBufferMemoryDescriptor::withOptions(
+                                                kIOMemoryUnshared,
+                                                PAGE_SIZE, PAGE_SIZE);
+    if (!mcSetup_mem) {
+		IOLog("%s: mcSetup memory allocation error\n", getName());
 		return false;
     }
+
+    mcSetup_ptr   = (cb_mcsetup_t *) mcSetup_mem->getBytesNoCopy();
+    mcSetup_paddr = mcSetup_mem->getPhysicalSegment(0, &mcSetup_len);
+    count         = min(count, (PAGE_SIZE - sizeof(cb_mcsetup_t)) /
+                                sizeof(IOEthernetAddress));
 
 	reserveDebuggerLock();
 
 	do {
 		cmdResult = false;
 
-		OSWriteLE16(&mcSetup_p->header.status, 0);
-		OSWriteLE16(&mcSetup_p->header.command,
-		            CSR_FIELD(CB_CMD, CB_CMD_MCSETUP) | CB_EL);
-		OSWriteLE32(&mcSetup_p->header.link, C_NULL);
+		WriteLE16(&mcSetup_ptr->header.status, 0);
+		WriteLE16(&mcSetup_ptr->header.command,
+                  CSR_FIELD(CB_CMD, CB_CMD_MCSETUP) | CB_EL);
+		WriteLE32(&mcSetup_ptr->header.link, C_NULL);
 
 		/* fill in the addresses (count may be zero) */
 		for (UInt i = 0; i < count; i++)
-			mcSetup_p->addrs[i] = addrs[i];
-	
+			mcSetup_ptr->addrs[i] = addrs[i];
+
 		/* Set the number of bytes in the MC list, if the count is zero,
 		 * it is equivalent to disabling the multicast filtering mechanism.
 		 */
-		OSWriteLE16(&mcSetup_p->count, count * sizeof(IOEthernetAddress));
-	
-		result = IOPhysicalFromVirtual((vm_address_t) mcSetup_p,
-									   &mcSetup_paddr);
-		if (result != kIOReturnSuccess) {
-			IOLog("%s: Invalid MC-setup command block address\n", getName());
-			break;
-    	}
+		WriteLE16(&mcSetup_ptr->count, count * sizeof(IOEthernetAddress));
 
-		if (!_polledCommand((cbHeader_t *) mcSetup_p, mcSetup_paddr)) {
-			IOLog("%s: MC-setup command failed 0x%x\n", getName(),
-			      OSReadLE16(&mcSetup_p->header.status));
+		if (!_polledCommand((cbHeader_t *) mcSetup_ptr, mcSetup_paddr)) {
+			VPRINT("%s: MC-setup command failed 0x%x\n", getName(),
+                   ReadLE16(&mcSetup_ptr->header.status));
 			break;
 		}
 
-		cmdResult = (OSReadLE16(&mcSetup_p->header.status) & CB_STATUS_OK) ?
+		cmdResult = (ReadLE16(&mcSetup_ptr->header.status) & CB_STATUS_OK) ?
                     true : false;
 	} while (0);
 	
 	releaseDebuggerLock();
 
-    IOFreeAligned(mcSetup_p, PAGE_SIZE);
+    mcSetup_mem->release();
 
     return cmdResult;
 }
@@ -772,16 +781,16 @@ bool Intel82557::_selfTest()
     port_selftest_t * test_p = (port_selftest_t *) overlay_p;
 	UInt32	results;
 
-    OSWriteLE32(&test_p->signature, 0);
-    OSWriteLE32(&test_p->results, ~0);
+    WriteLE32(&test_p->signature, 0);
+    WriteLE32(&test_p->results, ~0);
 	sendPortCommand(portSelfTest_e, overlay_paddr);
     IOSleep(20);
-    if (OSReadLE32(&test_p->signature) == 0) {
+    if (ReadLE32(&test_p->signature) == 0) {
 		IOLog("%s: Self test timed out\n", getName());
 		return false;
     }
 
-	results = OSReadLE32(&test_p->results);
+	results = ReadLE32(&test_p->results);
     if (results) {		/* report errors from self test */
     	if (results & PORT_SELFTEST_ROM)
 	    	IOLog("%s: Self test reports invalid ROM contents\n",
@@ -807,8 +816,8 @@ bool Intel82557::_selfTest()
 //
 void Intel82557::sendPortCommand(port_command_t command, UInt arg)
 {
-	OSWriteLE32(&CSR_p->port, (arg & PORT_ADDRESS_MASK) |
-                              CSR_FIELD(PORT_FUNCTION, command));
+	WriteLE32(&CSR_p->port, (arg & PORT_ADDRESS_MASK) |
+                            CSR_FIELD(PORT_FUNCTION, command));
     return;
 }
 
@@ -825,7 +834,7 @@ void Intel82557::enableAdapterInterrupts()
 	 */
 	UInt8	interruptByte;
 	interruptByte = SCB_INTERRUPT_ER | SCB_INTERRUPT_FCP;
-    OSWriteLE8(&CSR_p->interrupt, interruptByte);
+    WriteLE8(&CSR_p->interrupt, interruptByte);
 	interruptEnabled = true;
     return;
 }
@@ -834,7 +843,7 @@ void Intel82557::disableAdapterInterrupts()
 {
 	UInt8	interruptByte;
 	interruptByte = SCB_INTERRUPT_M;
-	OSWriteLE8(&CSR_p->interrupt, interruptByte);
+	WriteLE8(&CSR_p->interrupt, interruptByte);
 	interruptEnabled = false;
     return;
 }
@@ -851,51 +860,51 @@ _logCounters(errorCounters_t * errorCounters_p)
 {
     if (errorCounters_p->tx_good_frames)
 		IOLog("tx_good_frames %ld\n",
-			OSReadLE32(&errorCounters_p->tx_good_frames));
+			ReadLE32(&errorCounters_p->tx_good_frames));
     if (errorCounters_p->tx_maxcol_errors)
 		IOLog("tx_maxcol_errors %ld\n",
-			OSReadLE32(&errorCounters_p->tx_maxcol_errors));
+			ReadLE32(&errorCounters_p->tx_maxcol_errors));
     if (errorCounters_p->tx_late_collision_errors)
 		IOLog("tx_late_collision_errors %ld\n", 
-			OSReadLE32(&errorCounters_p->tx_late_collision_errors));
+			ReadLE32(&errorCounters_p->tx_late_collision_errors));
     if (errorCounters_p->tx_underrun_errors)
 		IOLog("tx_underrun_errors %ld\n",
-			OSReadLE32(&errorCounters_p->tx_underrun_errors));
+			ReadLE32(&errorCounters_p->tx_underrun_errors));
     if (errorCounters_p->tx_lost_carrier_sense_errors)
 		IOLog("tx_lost_carrier_sense_errors %ld\n", 
-			OSReadLE32(&errorCounters_p->tx_lost_carrier_sense_errors));
+			ReadLE32(&errorCounters_p->tx_lost_carrier_sense_errors));
     if (errorCounters_p->tx_deferred)
-		IOLog("tx_deferred %ld\n", OSReadLE32(&errorCounters_p->tx_deferred));
+		IOLog("tx_deferred %ld\n", ReadLE32(&errorCounters_p->tx_deferred));
     if (errorCounters_p->tx_single_collisions)
 		IOLog("tx_single_collisions %ld\n", 
-			OSReadLE32(&errorCounters_p->tx_single_collisions));
+			ReadLE32(&errorCounters_p->tx_single_collisions));
     if (errorCounters_p->tx_multiple_collisions)
 		IOLog("tx_multiple_collisions %ld\n", 
-			OSReadLE32(&errorCounters_p->tx_multiple_collisions));
+			ReadLE32(&errorCounters_p->tx_multiple_collisions));
     if (errorCounters_p->tx_total_collisions)
 		IOLog("tx_total_collisions %ld\n", 
-			OSReadLE32(&errorCounters_p->tx_total_collisions));
+			ReadLE32(&errorCounters_p->tx_total_collisions));
 	if (errorCounters_p->rx_good_frames)
 		IOLog("rx_good_frames %ld\n", 
-			OSReadLE32(&errorCounters_p->rx_good_frames));
+			ReadLE32(&errorCounters_p->rx_good_frames));
 	if (errorCounters_p->rx_crc_errors)
 		IOLog("rx_crc_errors %ld\n",
-			OSReadLE32(&errorCounters_p->rx_crc_errors));
+			ReadLE32(&errorCounters_p->rx_crc_errors));
 	if (errorCounters_p->rx_alignment_errors)
 		IOLog("rx_alignment_errors %ld\n", 
-			OSReadLE32(&errorCounters_p->rx_alignment_errors));
+			ReadLE32(&errorCounters_p->rx_alignment_errors));
 	if (errorCounters_p->rx_resource_errors)
 		IOLog("rx_resource_errors %ld\n",
-			OSReadLE32(&errorCounters_p->rx_resource_errors));
+			ReadLE32(&errorCounters_p->rx_resource_errors));
 	if (errorCounters_p->rx_overrun_errors)
 		IOLog("rx_overrun_errors %ld\n",
-			OSReadLE32(&errorCounters_p->rx_overrun_errors));
+			ReadLE32(&errorCounters_p->rx_overrun_errors));
 	if (errorCounters_p->rx_collision_detect_errors)
 		IOLog("rx_collision_detect_errors %ld\n", 
-			OSReadLE32(&errorCounters_p->rx_collision_detect_errors));
+			ReadLE32(&errorCounters_p->rx_collision_detect_errors));
 	if (errorCounters_p->rx_short_frame_errors)
 		IOLog("rx_short_frame_errors %ld\n", 
-			OSReadLE32(&errorCounters_p->rx_short_frame_errors));
+			ReadLE32(&errorCounters_p->rx_short_frame_errors));
     return;
 }
 
@@ -913,12 +922,11 @@ bool Intel82557::_dumpStatistics()
 	reserveDebuggerLock();
 
     if (!_waitSCBCommandClear(CSR_p)) {
-		IOLog("%s: _dumpStatistics: _waitSCBCommandClear failed\n", getName());
+		VPRINT("%s: _dumpStatistics: _waitSCBCommandClear failed\n", getName());
 		return false;
     }
 
-	OSWriteLE8(&CSR_p->command,
-	           CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_DUMP_RESET_STAT));
+	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_DUMP_RESET_STAT));
 
 	prevCUCommand = SCB_CUC_DUMP_RESET_STAT;
 
@@ -935,52 +943,52 @@ bool Intel82557::_dumpStatistics()
 
 void Intel82557::_updateStatistics()
 {
-    if (OSReadLE32(&errorCounters_p->_status) != DUMP_STATUS) {
+    if (ReadLE32(&errorCounters_p->_status) != DUMP_STATUS) {
 		if (verbose)
 			_logCounters(errorCounters_p);
 
 		// Ethernet transmitter stats.
 		//
 		etherStats->dot3StatsEntry.singleCollisionFrames += 
-			OSReadLE32(&errorCounters_p->tx_single_collisions);
+			ReadLE32(&errorCounters_p->tx_single_collisions);
 		
 		etherStats->dot3StatsEntry.multipleCollisionFrames += 
-			OSReadLE32(&errorCounters_p->tx_multiple_collisions);
+			ReadLE32(&errorCounters_p->tx_multiple_collisions);
 		
 		etherStats->dot3StatsEntry.lateCollisions += 
-			OSReadLE32(&errorCounters_p->tx_late_collision_errors);
+			ReadLE32(&errorCounters_p->tx_late_collision_errors);
 		
 		etherStats->dot3StatsEntry.excessiveCollisions += 
-			OSReadLE32(&errorCounters_p->tx_maxcol_errors);
+			ReadLE32(&errorCounters_p->tx_maxcol_errors);
 
 		etherStats->dot3StatsEntry.deferredTransmissions += 
-			OSReadLE32(&errorCounters_p->tx_deferred);
+			ReadLE32(&errorCounters_p->tx_deferred);
 
 		etherStats->dot3StatsEntry.carrierSenseErrors += 
-			OSReadLE32(&errorCounters_p->tx_lost_carrier_sense_errors);
+			ReadLE32(&errorCounters_p->tx_lost_carrier_sense_errors);
 
 		etherStats->dot3TxExtraEntry.underruns += 
-			OSReadLE32(&errorCounters_p->tx_underrun_errors);
+			ReadLE32(&errorCounters_p->tx_underrun_errors);
 
 		// Ethernet receiver stats.
 		//
 		etherStats->dot3StatsEntry.alignmentErrors += 
-			OSReadLE32(&errorCounters_p->rx_alignment_errors);
+			ReadLE32(&errorCounters_p->rx_alignment_errors);
 
 		etherStats->dot3StatsEntry.fcsErrors += 
-			OSReadLE32(&errorCounters_p->rx_crc_errors);
+			ReadLE32(&errorCounters_p->rx_crc_errors);
 
 		etherStats->dot3RxExtraEntry.resourceErrors += 
-			OSReadLE32(&errorCounters_p->rx_resource_errors);
+			ReadLE32(&errorCounters_p->rx_resource_errors);
 
 		etherStats->dot3RxExtraEntry.overruns += 
-			OSReadLE32(&errorCounters_p->rx_overrun_errors);
+			ReadLE32(&errorCounters_p->rx_overrun_errors);
 
 		etherStats->dot3RxExtraEntry.collisionErrors += 
-			OSReadLE32(&errorCounters_p->rx_collision_detect_errors);			
+			ReadLE32(&errorCounters_p->rx_collision_detect_errors);			
 
 		etherStats->dot3RxExtraEntry.frameTooShorts += 
-			OSReadLE32(&errorCounters_p->rx_short_frame_errors);			
+			ReadLE32(&errorCounters_p->rx_short_frame_errors);			
 		
 		// Generic network stats. For the error counters, we assume
 		// the Ethernet stats will never be cleared. Thus we derive the
@@ -1002,43 +1010,123 @@ void Intel82557::_updateStatistics()
 			+ etherStats->dot3RxExtraEntry.frameTooShorts);
 
 		netStats->collisions += 
-			OSReadLE32(&errorCounters_p->tx_total_collisions);
+			ReadLE32(&errorCounters_p->tx_total_collisions);
 
-		OSWriteLE32(&errorCounters_p->_status, DUMP_STATUS);
+		WriteLE32(&errorCounters_p->_status, DUMP_STATUS);
 		_dumpStatistics();
     }
 }
 
 //---------------------------------------------------------------------------
-// Function: _allocateMemPage
+// Function: allocatePageBlock
 //
 // Purpose:
 //   Allocate a page of memory.
 
-bool Intel82557::_allocateMemPage(pageBlock_t * p)
+bool Intel82557::allocatePageBlock( pageBlock_t * p )
 {
-    p->memSize = PAGE_SIZE;
-    p->memPtr  = IOMallocAligned(p->memSize, PAGE_SIZE);
+    UInt32 size = PAGE_SIZE;
 
-    if (!p->memPtr)
-		return false;
+    p->memory = IOBufferMemoryDescriptor::withOptions(kIOMemoryUnshared,
+                                                      size, PAGE_SIZE);
 
-	bzero(p->memPtr, p->memSize);
-	p->memAllocPtr = p->memPtr;		/* initialize for allocation routine */
-	p->memAvail    = p->memSize;
+    if (p->memory == 0) return false;
+
+    if (p->memory->prepare() != kIOReturnSuccess)
+    {
+        p->memory->release();
+        p->memory = 0;
+        return false;
+    }
+
+	p->freeStart = p->memory->getBytesNoCopy();
+	p->freeBytes = p->memory->getCapacity();
+	bzero(p->freeStart, p->freeBytes);
 
 	return true;
 }
 
 //---------------------------------------------------------------------------
-// Function: _freeMemPage
+// Function: freePageBlock
 //
 // Purpose:
 //   Deallocate a page of memory.
 //
-void Intel82557::_freeMemPage(pageBlock_t * p)
+void Intel82557::freePageBlock( pageBlock_t * p )
 {
-	IOFreeAligned(p->memPtr, p->memSize);
+    if ( p->memory )
+    {
+        p->memory->complete();
+        p->memory->release();
+        p->memory = 0;
+    }
+}
+
+//---------------------------------------------------------------------------
+// Function: allocateMemoryFrom
+//
+// Purpose:
+//   Allocate the next aligned chunk of memory in a page block.
+
+void * Intel82557::allocateMemoryFrom( pageBlock_t *       p,
+                                       UInt32              size,
+                                       UInt32              align,
+                                       IOPhysicalAddress * paddr )
+{
+    void *      allocPtr;
+    IOByteCount segLength;
+
+	if (align == 0)
+		return 0;
+
+	// Locate next alignment boundary.
+
+	allocPtr = (void *)(((UInt32)p->freeStart + (align - 1)) & ~(align - 1));
+
+	// Add alignment padding to the allocation size.
+
+    size += (UInt32) allocPtr - (UInt32) p->freeStart;
+
+    if (size > p->freeBytes)
+		return 0;
+
+    p->freeStart  = (void *)((UInt32) p->freeStart + size);
+    p->freeBytes -= size;
+
+    if ( paddr )
+    {
+        *paddr = p->memory->getPhysicalSegment(
+                 (UInt32) allocPtr - (UInt32) p->memory->getBytesNoCopy(),
+                 &segLength);
+    }
+
+    return allocPtr;
+}
+
+//---------------------------------------------------------------------------
+// Function: getPhysAddress
+//
+// Purpose:
+//   Get the physical address for a location described by a pageBlock.
+//
+bool Intel82557::getPhysAddress( pageBlock_t *       pageBlock,
+                                 void *              virtAddress,
+                                 IOPhysicalAddress * physAddress )
+{
+    IOPhysicalAddress paddr = 0;
+    IOByteCount       segLength;
+
+    if ( pageBlock && pageBlock->memory )
+    {
+        paddr = pageBlock->memory->getPhysicalSegment(
+                    (UInt32) virtAddress -
+                    (UInt32) pageBlock->memory->getBytesNoCopy(),
+                    &segLength);
+    }
+
+    *physAddress = paddr;
+
+    return (paddr != 0);
 }
 
 //---------------------------------------------------------------------------
@@ -1063,45 +1151,42 @@ bool Intel82557::hwInit( bool resetOnly )
     }
 
 	/* disable early RX interrupt */
-	OSWriteLE8(&CSR_p->earlyRxInterrupt, 0);
+	WriteLE8(&CSR_p->earlyRxInterrupt, 0);
 
     /* load command unit base address */
     if (!_waitSCBCommandClear(CSR_p)) {
-		IOLog("%s: hwInit: CU _waitSCBCommandClear failed\n", getName());
+		VPRINT("%s: hwInit: CU _waitSCBCommandClear failed\n", getName());
 		return false;
     }
-    OSWriteLE32(&CSR_p->pointer, 0);	
-	OSWriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_LOAD_BASE));
+    WriteLE32(&CSR_p->pointer, 0);	
+	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_LOAD_BASE));
 	prevCUCommand = SCB_CUC_LOAD_BASE;
 
     /* load receive unit base address */
     if (!_waitSCBCommandClear(CSR_p)) {
-		IOLog("%s: hwInit: RU _waitSCBCommandClear failed\n", getName());
+		VPRINT("%s: hwInit: RU _waitSCBCommandClear failed\n", getName());
 		return false;
     }
-    OSWriteLE32(&CSR_p->pointer, 0);	
-	OSWriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_RUC, SCB_RUC_LOAD_BASE));
+    WriteLE32(&CSR_p->pointer, 0);	
+	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_RUC, SCB_RUC_LOAD_BASE));
 
     if (!_waitSCBCommandClear(CSR_p)) {
-		IOLog("%s: hwInit: before LOAD_DUMP_COUNTERS_ADDRESS:"
-			" _waitSCBCommandClear failed\n", getName());
+		VPRINT("%s: hwInit: LOAD_DUMP_ADDR _waitSCBCommandClear failed\n",
+               getName());
 		return false;
     }
-    OSWriteLE32(&errorCounters_p->_status, DUMP_STATUS);
-	OSWriteLE32(&CSR_p->pointer, errorCounters_paddr);	
-	OSWriteLE8(&CSR_p->command,
-		CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_LOAD_DUMP_ADDR));
+    WriteLE32(&errorCounters_p->_status, DUMP_STATUS);
+	WriteLE32(&CSR_p->pointer, errorCounters_paddr);	
+	WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_LOAD_DUMP_ADDR));
 	prevCUCommand = SCB_CUC_LOAD_DUMP_ADDR;
 
     if (!_waitSCBCommandClear(CSR_p)) {
-		IOLog("%s: hwInit: before intrACK _waitSCBCommandClear failed\n",
-			getName());
+		VPRINT("%s: hwInit: intrACK _waitSCBCommandClear failed\n", getName());
 		return false;
     }
 
 	/* Setup flow-control threshold */
-	OSWriteLE8(&CSR_p->flowControlThreshold,
-	           CSR_FIELD(FC_THRESHOLD, FC_THRESHOLD_512));
+	WriteLE8(&CSR_p->flowControlThreshold, CSR_FIELD(FC_THRESHOLD, FC_THRESHOLD_512));
 
 	_intrACK(CSR_p); /* ack any pending interrupts */
 
@@ -1124,36 +1209,6 @@ bool Intel82557::hwInit( bool resetOnly )
 }
 
 //---------------------------------------------------------------------------
-// Function: _memAlloc
-//
-// Purpose:
-//   Return the next aligned chunk of memory in our shared memory page.
-
-void * Intel82557::_memAllocFrom(pageBlock_t * p, UInt allocSize, UInt align)
-{
-    void *	allocPtr;
-	UInt 	sizeReal;
-
-	if (align == 0)
-		return 0;
-	
-	// Advance allocPtr to next aligned boundary.
-	allocPtr =
-	(void *)((UInt)((UInt) p->memAllocPtr + (align - 1)) & (~(align - 1)));
-	
-	// Actual size of required storage. We need to take the alignment padding
-	// into account.
-	sizeReal = allocSize + ((UInt) allocPtr - (UInt) p->memAllocPtr);
-
-    if (sizeReal > p->memAvail)
-		return 0;
-	
-    p->memAllocPtr = (void *)((UInt) p->memAllocPtr + sizeReal);
-    p->memAvail = p->memSize - ((UInt) p->memAllocPtr - (UInt) p->memPtr);
-    return allocPtr;
-}
-
-//---------------------------------------------------------------------------
 // Function: coldInit
 //
 // Purpose:
@@ -1162,97 +1217,81 @@ void * Intel82557::_memAllocFrom(pageBlock_t * p, UInt allocSize, UInt align)
 
 bool Intel82557::coldInit()
 {
-    IOReturn 			result;
-	IOPhysicalAddress	paddr;
+	IOPhysicalAddress paddr;
 
 	disableAdapterInterrupts();
 
     /* allocate and initialize shared memory pointers */
-	if (!_allocateMemPage(&shared)) {
+	if (!allocatePageBlock(&shared)) {
 		IOLog("%s: Can't allocate shared memory page\n", getName());
-		return false;
+		goto failed;
     }
-	if (!_allocateMemPage(&txRing)) {
+	if (!allocatePageBlock(&txRing)) {
 		IOLog("%s: Can't allocate memory page for TX ring\n", getName());
-		return false;
+		goto failed;
     }
-	if (!_allocateMemPage(&rxRing)) {
+	if (!allocatePageBlock(&rxRing)) {
 		IOLog("%s: Can't allocate memory page for RX ring\n", getName());
-		return false;
+		goto failed;
     }
 
     /* allocate memory for shared data structures
 	 * self test needs to be
 	 * 16 byte aligned
 	 */	 
-    overlay_p = (overlay_t *) _memAllocFrom(&shared, sizeof(overlay_t), 
-                                            PARAGRAPH_ALIGNMENT);
-	if (!overlay_p)
-		return false;
-    result = IOPhysicalFromVirtual((vm_address_t) overlay_p, &overlay_paddr);
-    if (result != kIOReturnSuccess) {
-    	IOLog("%s: Invalid command block address\n", getName());
-		return false;
-    }
+    overlay_p = (overlay_t *) allocateMemoryFrom( &shared,
+                                                  sizeof(overlay_t), 
+                                                  PARAGRAPH_ALIGNMENT,
+                                                  &overlay_paddr );
+    if (!overlay_p || !overlay_paddr)
+        goto failed;
 
-    tcbList_p = (tcb_t *) _memAllocFrom(&txRing,
-                                        sizeof(tcb_t) * NUM_TRANSMIT_FRAMES,
-                                        CACHE_ALIGNMENT);
+    tcbList_p = (tcb_t *) allocateMemoryFrom( &txRing, sizeof(tcb_t) *
+                                              NUM_TRANSMIT_FRAMES,
+                                              CACHE_ALIGNMENT );
 	if (!tcbList_p)
-		return false;
+        goto failed;
 
-	KDB_tcb_p = (tcb_t *) _memAllocFrom(&shared,
-                                        sizeof(tcb_t),
-                                        CACHE_ALIGNMENT);
-	if (!KDB_tcb_p)
-		return false;
-    result = IOPhysicalFromVirtual((vm_address_t) KDB_tcb_p,
-				                   &KDB_tcb_p->_paddr);
-    if (result != kIOReturnSuccess) {
-		IOLog("%s: Invalid TCB address\n", getName());
-		return false;
-    }
-    
-	result = IOPhysicalFromVirtual((vm_address_t) &KDB_tcb_p->_tbds, &paddr);
-    if (result != kIOReturnSuccess) {
-		IOLog("%s: Invalid TCB->_TBD address\n", getName());
-		return false;
-    }
-	OSWriteLE32(&KDB_tcb_p->tbdAddr, paddr);
-	
-    KDB_buf_p = _memAllocFrom(&shared, kIOEthernetMaxPacketSize, DWORD_ALIGNMENT);
-	if (!KDB_buf_p)
-		return false;
-    result = IOPhysicalFromVirtual((vm_address_t) KDB_buf_p,  &KDB_buf_paddr);
-    if (result != kIOReturnSuccess) {
-		IOLog("%s: Invalid address\n", getName());
-		return false;
-    }
+    KDB_tcb_p = (tcb_t *) allocateMemoryFrom( &shared, sizeof(tcb_t),
+                                              CACHE_ALIGNMENT,
+                                              &paddr );
+    if (!KDB_tcb_p || !paddr)
+        goto failed;
+    KDB_tcb_p->_paddr = paddr;
 
-    errorCounters_p = (errorCounters_t *) _memAllocFrom(&shared, 
-	                                      sizeof(errorCounters_t),
-	                                      DWORD_ALIGNMENT);
-	if (!errorCounters_p)
-		return false;
-    result = IOPhysicalFromVirtual((vm_address_t) errorCounters_p,
-                                   &errorCounters_paddr);
-    if (result != kIOReturnSuccess) {
-    	IOLog("%s: Invalid errorCounters address\n", getName());
-		return false;
-    }
+    if (!getPhysAddress(&shared, &KDB_tcb_p->_tbds, &paddr))
+        goto failed;
+	WriteLE32(&KDB_tcb_p->tbdAddr, paddr);
 
-    rfdList_p = (rfd_t *) _memAllocFrom(&rxRing,
-                                        sizeof(rfd_t) * NUM_RECEIVE_FRAMES,
-                                        CACHE_ALIGNMENT);
+    KDB_buf_p = allocateMemoryFrom( &shared, kIOEthernetMaxPacketSize,
+                                    DWORD_ALIGNMENT, &KDB_buf_paddr );
+	if (!KDB_buf_p || !KDB_buf_paddr)
+        goto failed;
+
+    errorCounters_p = (errorCounters_t *) allocateMemoryFrom(
+                                          &shared, 
+                                          sizeof(errorCounters_t),
+                                          DWORD_ALIGNMENT,
+                                          &errorCounters_paddr );
+
+	if (!errorCounters_p || !errorCounters_paddr)
+        goto failed;
+
+    rfdList_p = (rfd_t *) allocateMemoryFrom( &rxRing, sizeof(rfd_t) *
+                                              NUM_RECEIVE_FRAMES,
+                                              CACHE_ALIGNMENT );
 	if (!rfdList_p)
-		return false;
+        goto failed;
 
     if (!_selfTest())
-		return false;
+        goto failed;
 
     myAddress = eeprom->getContents()->addr;
 
     return true;
+
+failed:
+    return false;
 }
 
 //---------------------------------------------------------------------------
@@ -1265,12 +1304,12 @@ bool Intel82557::receiveInterruptOccurred()
 {
 	bool packetsQueued = false;
 
-    while (OSReadLE16(&headRfd->status) & RFD_STATUS_C) {
-		rbd_count_t rbd_count = OSReadLE32(&headRfd->_rbd.count);
+    while (ReadLE16(&headRfd->status) & RFD_STATUS_C) {
+		rbd_count_t rbd_count = ReadLE32(&headRfd->_rbd.count);
 
 		// rxCount does NOT include the Ethernet CRC (FCS).
 		//
-		UInt rxCount = CSR_VALUE(RBD_COUNT, rbd_count);
+		UInt32 rxCount = CSR_VALUE(RBD_COUNT, rbd_count);
 
 #if 0
 		// When the receive unit runs out of resources, it will
@@ -1285,14 +1324,14 @@ bool Intel82557::receiveInterruptOccurred()
 	    	IOLog("%s: more than 1 rbd, frame size %d\n", getName(), rxCount);
 			
 			IOLog("%s: RFD status: %04x\n", getName(), 
-				OSReadLE16(&headRfd->status));
+				ReadLE16(&headRfd->status));
 			
 			issueReset();
 			return;
 		}
 #endif
 
-		if ((!(OSReadLE16(&headRfd->status) & RFD_STATUS_OK)) ||
+		if ((!(ReadLE16(&headRfd->status) & RFD_STATUS_OK)) ||
 			(rxCount < (kIOEthernetMinPacketSize - kIOEthernetCRCSize)) ||
 			!enabledForNetif) {
 			; /* bad or unwanted packet */
@@ -1318,26 +1357,29 @@ bool Intel82557::receiveInterruptOccurred()
 				goto RX_INTR_ABORT;
 			}
 
-			netif->inputPacket(m_in, rxCount, true);
+            netif->inputPacket(m_in, rxCount,
+                               IONetworkInterface::kInputOptionQueuePacket);
+
 			packetsQueued = true;
 			netStats->inputPackets++;
 	    }
 
 RX_INTR_ABORT:
 		/* clear fields in rfd */
-		OSWriteLE16(&headRfd->status, 0);
-		OSWriteLE16(&headRfd->command, (RFD_COMMAND_SF | RFD_COMMAND_EL));
-		OSWriteLE32(&headRfd->rbdAddr, C_NULL);
-		OSWriteLE32(&headRfd->misc, 0);
+		WriteNoSyncLE16(&headRfd->status, 0);
+		WriteNoSyncLE16(&headRfd->command, (RFD_COMMAND_SF | RFD_COMMAND_EL));
+
+        WriteNoSyncLE32(&headRfd->rbdAddr, C_NULL);
+		WriteNoSyncLE32(&headRfd->misc, 0);
 
 		/* clear fields in rbd */
-		OSWriteLE32(&headRfd->_rbd.count, 0);
-		OSWriteLE32(&headRfd->_rbd.size, CSR_FIELD(RBD_SIZE, MAX_BUF_SIZE) | 
-		                                 RBD_SIZE_EL);
+		WriteNoSyncLE32(&headRfd->_rbd.count, 0);
+		WriteLE32(&headRfd->_rbd.size,
+                  CSR_FIELD(RBD_SIZE, MAX_BUF_SIZE) | RBD_SIZE_EL);
 
 		/* adjust tail markers */
-		OSWriteLE32(&tailRfd->_rbd.size, CSR_FIELD(RBD_SIZE, MAX_BUF_SIZE));
-		OSWriteLE16(&tailRfd->command, RFD_COMMAND_SF);
+		WriteNoSyncLE32(&tailRfd->_rbd.size, CSR_FIELD(RBD_SIZE, MAX_BUF_SIZE));
+		WriteLE16(&tailRfd->command, RFD_COMMAND_SF);
 
 		tailRfd = headRfd;			// new tail
 		headRfd = headRfd->_next;	// new head
@@ -1359,9 +1401,9 @@ void Intel82557::transmitInterruptOccurred()
 
 	head = tcbQ_p->activeHead_p;
     while (tcbQ_p->numFree < tcbQ_p->numTcbs &&
-          (OSReadLE16(&head->status) & TCB_STATUS_C))
+          (ReadLE16(&head->status) & TCB_STATUS_C))
 	{
-		OSWriteLE16(&head->status, 0);
+		WriteNoSyncLE16(&head->status, 0);
 		if (head->_mbuf) {
 	    	freePacket(head->_mbuf);
 	    	head->_mbuf = 0;
@@ -1419,7 +1461,7 @@ void Intel82557::interruptOccurred(IOInterruptEventSource * src, int /*count*/)
 				_resetRfdList();
 
 				if (!_startReceive()) {
-					IOLog("%s: Unable to restart receiver\n", getName());
+					VPRINT("%s: Unable to restart receiver\n", getName());
 					// issueReset();	/* shouldn't need to do this. */
 				}
 			}
@@ -1462,22 +1504,19 @@ Intel82557::updateTCBForMbuf(tcb_t * tcb_p, struct mbuf * m)
 {
 	// Set the invariant TCB fields.
 	//
-	OSWriteLE16(&tcb_p->status, 0);
+	WriteNoSyncLE16(&tcb_p->status, 0);
 
     if (++txCount == TRANSMIT_INT_DELAY) {
-		OSWriteLE16(&tcb_p->command, CSR_FIELD(TCB_COMMAND, CB_CMD_TRANSMIT) |
-                     TCB_COMMAND_S  |
-                     TCB_COMMAND_SF |
-					 TCB_COMMAND_I);
+		WriteNoSyncLE16(&tcb_p->command, CSR_FIELD(TCB_COMMAND, CB_CMD_TRANSMIT) |
+                        TCB_COMMAND_S  | TCB_COMMAND_SF | TCB_COMMAND_I);
 		txCount = 0;
     }
 	else
-		OSWriteLE16(&tcb_p->command, CSR_FIELD(TCB_COMMAND, CB_CMD_TRANSMIT) |
-                     TCB_COMMAND_S  |
-                     TCB_COMMAND_SF);
+		WriteNoSyncLE16(&tcb_p->command, CSR_FIELD(TCB_COMMAND, CB_CMD_TRANSMIT) |
+                        TCB_COMMAND_S | TCB_COMMAND_SF);
 
-	OSWriteLE8(&tcb_p->threshold, TCB_TX_THRESHOLD);
-	OSWriteLE16(&tcb_p->count, 0);	// all data are in the TBD's, none in TxCB
+	WriteNoSyncLE8(&tcb_p->threshold, txThreshold8);
+	WriteNoSyncLE16(&tcb_p->count, 0);	// all data are in the TBD's, none in TxCB
 
 	// Since the format of a TBD closely matches the structure of an
 	// 'struct IOPhysicalSegment', we shall have the cursor update the TBD list
@@ -1488,14 +1527,14 @@ Intel82557::updateTCBForMbuf(tcb_t * tcb_p, struct mbuf * m)
                     TBDS_PER_TCB);
 
 	if (!segments) {
-		IOLog("%s: getPhysicalSegments error, pkt len = %d\n",
-			getName(), m->m_pkthdr.len);
+		VPRINT("%s: getPhysicalSegments error, pkt len = %d\n", 
+               getName(), m->m_pkthdr.len);
 		return 0;
 	}
 
 	// Update the TBD array size count.
 	//
-	OSWriteLE8(&tcb_p->number, segments);
+	WriteLE8(&tcb_p->number, segments);
 
 	return m;
 }
@@ -1535,7 +1574,7 @@ UInt32 Intel82557::outputPacket(struct mbuf * m, void * param)
 		etherStats->dot3TxExtraEntry.resourceErrors++;
 		goto fail;
 	}
-	
+
     /* update the queue */
     tcbQ.numFree--;
     tcbQ.freeHead_p = tcbQ.freeHead_p->_next;
@@ -1544,7 +1583,7 @@ UInt32 Intel82557::outputPacket(struct mbuf * m, void * param)
 	 * suspend bit of the previous TCB.
 	 */
     if (tcbQ.activeTail_p != tcb_p)
-		OSClearLE16(&tcbQ.activeTail_p->command, TCB_COMMAND_S);
+		ClearLE16(&tcbQ.activeTail_p->command, TCB_COMMAND_S);
     tcbQ.activeTail_p = tcb_p;
 
     /*
@@ -1555,25 +1594,24 @@ UInt32 Intel82557::outputPacket(struct mbuf * m, void * param)
 	if ( cuIsIdle ) 
 	{
 		if (!_waitSCBCommandClear(CSR_p)) {
-	    	IOLog("%s: outputPacket: _waitSCBCommandClear error\n", getName());
+	    	VPRINT("%s: outputPacket: _waitSCBCommandClear error\n", getName());
 			etherStats->dot3TxExtraEntry.timeouts++;
 	    	goto fail;
 		}
-		OSWriteLE32(&CSR_p->pointer, tcb_p->_paddr);
-		OSWriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_START));
+		WriteLE32(&CSR_p->pointer, tcb_p->_paddr);
+		WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_START));
 		prevCUCommand = SCB_CUC_START;
         cuIsIdle = false;
     }
     else {
 		if (prevCUCommand != SCB_CUC_RESUME) {
 	    	if (!_waitSCBCommandClear(CSR_p)) {
-				IOLog("%s: outputPacket: _waitSCBCommandClear error\n",
-					getName());
+				VPRINT("%s: outputPacket: _waitSCBCommandClear error\n", getName());
 				etherStats->dot3TxExtraEntry.timeouts++;
 				goto fail;
 	    	}
 		}
-		OSWriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC,SCB_CUC_RESUME));
+		WriteLE8(&CSR_p->command, CSR_FIELD(SCB_COMMAND_CUC, SCB_CUC_RESUME));
 		prevCUCommand = SCB_CUC_RESUME;
     }
 	releaseDebuggerLock();
@@ -1595,13 +1633,13 @@ fail:
 //
 bool Intel82557::_receivePacket(void * pkt, UInt * len, UInt timeout)
 {
-	bool          processPacket = true;
-	bool          ret           = false;
-	scb_status_t  status;
+	bool    processPacket = true;
+	bool    ret           = false;
+	UInt32  cmdstatus;
 
     timeout *= 1000;
 
-    while ((OSReadLE16(&headRfd->status) & RFD_STATUS_C) == 0) {
+    while ((ReadLE16(&headRfd->status) & RFD_STATUS_C) == 0) {
 		if ((int) timeout <= 0) {
 			processPacket = false;
 			break;
@@ -1611,12 +1649,12 @@ bool Intel82557::_receivePacket(void * pkt, UInt * len, UInt timeout)
     }
 
 	if (processPacket) {
-		if ((OSReadLE16(&headRfd->status) & RFD_STATUS_OK) &&
-		    (OSReadLE32(&headRfd->_rbd.count) & RBD_COUNT_EOF))
+		if ((ReadLE16(&headRfd->status) & RFD_STATUS_OK) &&
+		    (ReadLE32(&headRfd->_rbd.count) & RBD_COUNT_EOF))
 	    {
 			// Pass up good frames.
 			//
-			*len = CSR_VALUE(RBD_COUNT, OSReadLE32(&headRfd->_rbd.count));
+			*len = CSR_VALUE(RBD_COUNT, ReadLE32(&headRfd->_rbd.count));
 			*len = MIN(*len, kIOEthernetMaxPacketSize - kIOEthernetCRCSize);
 			bcopy(mtod(headRfd->_rbd._mbuf, void *), pkt, *len);
 			ret = true;
@@ -1624,43 +1662,45 @@ bool Intel82557::_receivePacket(void * pkt, UInt * len, UInt timeout)
 
 		/* the head becomes the new tail */
 		/* clear fields in rfd */
-		OSWriteLE16(&headRfd->status, 0);
-		OSWriteLE16(&headRfd->command, (RFD_COMMAND_SF | RFD_COMMAND_EL));
-		OSWriteLE32(&headRfd->rbdAddr, C_NULL);
-		OSWriteLE32(&headRfd->misc, 0);
+		WriteNoSyncLE16(&headRfd->status, 0);
+		WriteNoSyncLE16(&headRfd->command, (RFD_COMMAND_SF | RFD_COMMAND_EL));
+		WriteNoSyncLE32(&headRfd->rbdAddr, C_NULL);
+		WriteNoSyncLE32(&headRfd->misc, 0);
 	
 		/* clear fields in rbd */
-		OSWriteLE32(&headRfd->_rbd.count, 0);
-		OSWriteLE32(&headRfd->_rbd.size, CSR_FIELD(RBD_SIZE, MAX_BUF_SIZE) | 
-		                                 RBD_SIZE_EL);
+		WriteNoSyncLE32(&headRfd->_rbd.count, 0);
+		WriteLE32(&headRfd->_rbd.size, CSR_FIELD(RBD_SIZE, MAX_BUF_SIZE) | 
+                                       RBD_SIZE_EL);
 
 		/* adjust tail markers */
-		OSWriteLE32(&tailRfd->_rbd.size, CSR_FIELD(RBD_SIZE, MAX_BUF_SIZE));
-		OSWriteLE16(&tailRfd->command, RFD_COMMAND_SF);
+		WriteNoSyncLE32(&tailRfd->_rbd.size, CSR_FIELD(RBD_SIZE, MAX_BUF_SIZE));
+		WriteLE16(&tailRfd->command, RFD_COMMAND_SF);
 
 		tailRfd = headRfd;			// new tail
 		headRfd = headRfd->_next;	// new head
 	}
 
-	status = OSReadLE16(&CSR_p->status) & SCB_STATUS_RNR;
-	if (status) {
-		OSWriteLE16(&CSR_p->status, status);	// ack RNR interrupt
+    cmdstatus = ReadLE32(&CSR_p->status);
 
-		IOLog("Intel82557::%s restarting receiver\n", __FUNCTION__);
+	if ( (cmdstatus != C_CSR_BAD) && (cmdstatus & SCB_STATUS_RNR) )
+    {
+		WriteLE16(&CSR_p->status, SCB_STATUS_RNR);	// ack RNR interrupt
 
+#if DEBUG_KDP
 		IOLog("%s::%s RUS:0x%x Index:%d\n", getName(), __FUNCTION__, 
-			  CSR_VALUE(SCB_STATUS_RUS, OSReadLE16(&CSR_p->status)),
-			  tailRfd - rfdList_p);
-		
+			  CSR_VALUE(SCB_STATUS_RUS, ReadLE16(&CSR_p->status)),
+              tailRfd - rfdList_p);
+#endif
+
 		_abortReceive();
 
-#if 0	// Display RFD/RBD fields
+#if DEBUG_KDP	// Display RFD/RBD fields
 		for (int i = 0; i < NUM_RECEIVE_FRAMES; i++) {
 			IOLog("   %02d: %04x %04x - %08x %08x\n", i,
-				OSReadLE16(&rfdList_p[i].command),
-				OSReadLE16(&rfdList_p[i].status),
-				OSReadLE32(&rfdList_p[i]._rbd.size),
-				OSReadLE32(&rfdList_p[i].misc));
+				ReadLE16(&rfdList_p[i].command),
+				ReadLE16(&rfdList_p[i].status),
+				ReadLE32(&rfdList_p[i]._rbd.size),
+				ReadLE32(&rfdList_p[i].misc));
 		}
 #endif
 
@@ -1684,14 +1724,13 @@ bool Intel82557::_sendPacket(void * pkt, UInt len)
 
     // Set up the TCB and issue the command
 	//
-    OSWriteLE16(&KDB_tcb_p->status, 0);
-	OSWriteLE32(&KDB_tcb_p->link, C_NULL);
-	OSWriteLE8(&KDB_tcb_p->threshold, TCB_TX_THRESHOLD);
-	OSWriteLE16(&KDB_tcb_p->command, CSR_FIELD(TCB_COMMAND, CB_CMD_TRANSMIT) |
-                TCB_COMMAND_EL |
-                TCB_COMMAND_SF );
-	OSWriteLE16(&KDB_tcb_p->count, 0);	// all data are in the TBD's.
-	OSWriteLE8(&KDB_tcb_p->number, 1);	// 1 TBD only.
+    WriteNoSyncLE16(&KDB_tcb_p->status, 0);
+	WriteNoSyncLE32(&KDB_tcb_p->link, C_NULL);
+	WriteNoSyncLE8( &KDB_tcb_p->threshold, txThreshold8);
+	WriteNoSyncLE16(&KDB_tcb_p->command, CSR_FIELD(TCB_COMMAND, CB_CMD_TRANSMIT) |
+                    TCB_COMMAND_EL | TCB_COMMAND_SF );
+	WriteNoSyncLE16(&KDB_tcb_p->count, 0);	// all data are in the TBD's.
+	WriteNoSyncLE8( &KDB_tcb_p->number, 1);	// 1 TBD only.
 
 	// Copy the debugger packet to the pre-allocated buffer area.
 	//
@@ -1702,8 +1741,8 @@ bool Intel82557::_sendPacket(void * pkt, UInt len)
 	// Update the TBD.
 	//
 	tbd_p = &KDB_tcb_p->_tbds[0];
-	OSWriteLE32(&tbd_p->addr, KDB_buf_paddr);
-	OSWriteLE32(&tbd_p->size, CSR_FIELD(TBD_SIZE, len));
+	WriteNoSyncLE32(&tbd_p->addr, KDB_buf_paddr);
+	WriteNoSyncLE32(&tbd_p->size, CSR_FIELD(TBD_SIZE, len));
 
 	// Start up the command unit to send the packet.
 	//

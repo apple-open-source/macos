@@ -65,15 +65,23 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
 			targets = (
+				8C228A3B03B7CF0004CE206E,
 				089C1673FE841209C02AAC07,
+				8C50543903AE4C3804CE206E,
+				8C228A2A03B7B58104CE206E,
+				8C28BA91043B779404CE206E,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
 			children = (
+				8C28BA94043B78AF04CE206E,
+				8C228A2303B7B52304CE206E,
+				8C50542E03AE4BE604CE206E,
 				247142CAFF3F8F9811CA285C,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
@@ -100,7 +108,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleKeyLargo;
-				MODULE_VERSION = 1.3.5d1;
+				MODULE_VERSION = 1.4.0d21;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -126,7 +134,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleKeyLargo</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleKeyLargo version 1.3.5, Copyright 2002 Apple Computer, Inc.</string>
+	<string>AppleKeyLargo version 1.4.0, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -138,11 +146,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.5</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.5d1</string>
+	<string>1.4.0d21</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleKeyLargo</key>
@@ -150,7 +158,7 @@
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleKeyLargo</string>
 			<key>IOClass</key>
-			<string>KeyLargo</string>
+			<string>AppleKeyLargo</string>
 			<key>IONameMatch</key>
 			<string>Keylargo</string>
 			<key>IOProviderClass</key>
@@ -161,6 +169,8 @@
 	<string>1.0</string>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.iokit.IOKeyLargo</key>
+		<string>1.0.0</string>
 		<key>com.apple.kernel.iokit</key>
 		<string>1.1</string>
 		<key>com.apple.kernel.libkern</key>
@@ -173,7 +183,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -181,6 +190,7 @@
 				73D52289FFE5D05111CA2A1B,
 				73D5228AFFE5D05111CA2A1B,
 				B05AB27A018A0F5D05CE0D9E,
+				8C228A3003B7C0CE04CE206E,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -196,10 +206,7 @@
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				73D5228BFFE5D05111CA2A1B,
-				73D5228CFFE5D05111CA2A1B,
-				B03E150801778A6305CE0D9E,
-				B05AB27B018A0F5D05CE0D9E,
+				8C228A2E03B7C0AC04CE206E,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -275,6 +282,9 @@
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				0B81C263FFB7832611CA28AA,
+				8C50543A03AE4C3804CE206E,
+				8C228A2B03B7B58104CE206E,
+				8C28BA92043B779404CE206E,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -301,7 +311,7 @@
 				B03E150701778A6305CE0D9E,
 			);
 			isa = PBXGroup;
-			name = Source;
+			name = KeyLargo;
 			path = "";
 			refType = 4;
 		};
@@ -316,6 +326,7 @@
 //733
 //734
 		73D52285FFE5D05111CA2A1B = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = KeyLargo.cpp;
@@ -324,11 +335,13 @@
 			usesTabs = 1;
 		};
 		73D52286FFE5D05111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = KeyLargo.h;
 			refType = 4;
 		};
 		73D52287FFE5D05111CA2A1B = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = USBKeyLargo.cpp;
@@ -337,6 +350,7 @@
 			usesTabs = 1;
 		};
 		73D52288FFE5D05111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = USBKeyLargo.h;
 			refType = 4;
@@ -353,61 +367,720 @@
 			settings = {
 			};
 		};
-		73D5228BFFE5D05111CA2A1B = {
-			fileRef = 73D52285FFE5D05111CA2A1B;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		73D5228CFFE5D05111CA2A1B = {
-			fileRef = 73D52287FFE5D05111CA2A1B;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
 //730
 //731
 //732
 //733
 //734
+//8C0
+//8C1
+//8C2
+//8C3
+//8C4
+		8C228A2303B7B52304CE206E = {
+			children = (
+				8C228A2D03B7C0AC04CE206E,
+				8C228A2F03B7C0CE04CE206E,
+			);
+			isa = PBXGroup;
+			name = AppleKeyLargo;
+			path = "";
+			refType = 4;
+		};
+		8C228A2403B7B58104CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		8C228A2503B7B58104CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+				8C228A3203B7C0D404CE206E,
+				8C228A3403B7C0D504CE206E,
+				8C228A3603B7C0D704CE206E,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C228A2603B7B58104CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+				8C228A3103B7C0D304CE206E,
+				8C228A3303B7C0D504CE206E,
+				8C228A3503B7C0D604CE206E,
+				8C228A3703B7C0D804CE206E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C228A2703B7B58104CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C228A2803B7B58104CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C228A2903B7B58104CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		8C228A2A03B7B58104CE206E = {
+			buildPhases = (
+				8C228A2403B7B58104CE206E,
+				8C228A2503B7B58104CE206E,
+				8C228A2603B7B58104CE206E,
+				8C228A2703B7B58104CE206E,
+				8C228A2803B7B58104CE206E,
+				8C228A2903B7B58104CE206E,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOKeyLargo;
+				MODULE_VERSION = 1.4.0d21;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOKeyLargo;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOKeyLargo;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOKeyLargo;
+			productReference = 8C228A2B03B7B58104CE206E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOKeyLargo</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOKeyLargo</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOKeyLargo</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOKeyLargo</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.0d21</string>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+		};
+		8C228A2B03B7B58104CE206E = {
+			isa = PBXBundleReference;
+			path = IOKeyLargo.kext;
+			refType = 3;
+		};
+		8C228A2D03B7C0AC04CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleKeyLargo.cpp;
+			refType = 4;
+		};
+		8C228A2E03B7C0AC04CE206E = {
+			fileRef = 8C228A2D03B7C0AC04CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C228A2F03B7C0CE04CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleKeyLargo.h;
+			refType = 4;
+		};
+		8C228A3003B7C0CE04CE206E = {
+			fileRef = 8C228A2F03B7C0CE04CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C228A3103B7C0D304CE206E = {
+			fileRef = 73D52285FFE5D05111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C228A3203B7C0D404CE206E = {
+			fileRef = 73D52286FFE5D05111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C228A3303B7C0D504CE206E = {
+			fileRef = B05AB278018A0F5D05CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C228A3403B7C0D504CE206E = {
+			fileRef = B05AB279018A0F5D05CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C228A3503B7C0D604CE206E = {
+			fileRef = 73D52287FFE5D05111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C228A3603B7C0D704CE206E = {
+			fileRef = 73D52288FFE5D05111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C228A3703B7C0D804CE206E = {
+			fileRef = B03E150701778A6305CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C228A3B03B7CF0004CE206E = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				8C228A3E03B7CF0D04CE206E,
+				8C228A3D03B7CF0B04CE206E,
+				8C28BA93043B78A004CE206E,
+				8C228A3C03B7CF0804CE206E,
+			);
+			isa = PBXAggregateTarget;
+			name = all;
+			productName = all;
+		};
+		8C228A3C03B7CF0804CE206E = {
+			isa = PBXTargetDependency;
+			target = 8C228A2A03B7B58104CE206E;
+		};
+		8C228A3D03B7CF0B04CE206E = {
+			isa = PBXTargetDependency;
+			target = 8C50543903AE4C3804CE206E;
+		};
+		8C228A3E03B7CF0D04CE206E = {
+			isa = PBXTargetDependency;
+			target = 089C1673FE841209C02AAC07;
+		};
+		8C28BA8B043B779404CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		8C28BA8C043B779404CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+				8C28BA96043B78CB04CE206E,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C28BA8D043B779404CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+				8C28BA95043B78CA04CE206E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C28BA8E043B779404CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C28BA8F043B779404CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C28BA90043B779404CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		8C28BA91043B779404CE206E = {
+			buildPhases = (
+				8C28BA8B043B779404CE206E,
+				8C28BA8C043B779404CE206E,
+				8C28BA8D043B779404CE206E,
+				8C28BA8E043B779404CE206E,
+				8C28BA8F043B779404CE206E,
+				8C28BA90043B779404CE206E,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleK2Driver;
+				MODULE_VERSION = 1.4.0d21;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleK2Driver;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleK2Driver;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleK2Driver;
+			productReference = 8C28BA92043B779404CE206E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleK2Driver</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleK2Driver version 1.4.0, Copyright Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleK2Driver</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleK2Driver</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.0d21</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleK2Driver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleK2Driver</string>
+			<key>IOClass</key>
+			<string>AppleK2Driver</string>
+			<key>IOProbeScore</key>
+			<integer>0</integer>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>preserveIODeviceTree</key>
+				<true/>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>AppleK2Device</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+		};
+		8C28BA92043B779404CE206E = {
+			isa = PBXBundleReference;
+			path = AppleK2Driver.kext;
+			refType = 3;
+		};
+		8C28BA93043B78A004CE206E = {
+			isa = PBXTargetDependency;
+			target = 8C28BA91043B779404CE206E;
+		};
+		8C28BA94043B78AF04CE206E = {
+			children = (
+				8C9E0B0003D5F77504CE206E,
+				8C9E0B0103D5F77504CE206E,
+			);
+			isa = PBXGroup;
+			name = AppleK2Driver;
+			path = "";
+			refType = 4;
+		};
+		8C28BA95043B78CA04CE206E = {
+			fileRef = 8C9E0B0003D5F77504CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C28BA96043B78CB04CE206E = {
+			fileRef = 8C9E0B0103D5F77504CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C489A210415330504CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOPlatformFunction.h;
+			refType = 4;
+		};
+		8C489A220415330504CE206E = {
+			fileRef = 8C489A210415330504CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C50542E03AE4BE604CE206E = {
+			children = (
+				8C50542F03AE4C0804CE206E,
+				8C50543003AE4C0804CE206E,
+				8C489A210415330504CE206E,
+			);
+			isa = PBXGroup;
+			name = AppleK2;
+			path = "";
+			refType = 4;
+		};
+		8C50542F03AE4C0804CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleK2.cpp;
+			refType = 4;
+		};
+		8C50543003AE4C0804CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleK2.h;
+			refType = 4;
+		};
+		8C50543303AE4C3804CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		8C50543403AE4C3804CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+				8C50543C03AE4E1C04CE206E,
+				8C50543F03AE4E2404CE206E,
+				8C50544103AE4E2604CE206E,
+				8C50544203AE4E2B04CE206E,
+				8C489A220415330504CE206E,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C50543503AE4C3804CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+				8C50543B03AE4E1B04CE206E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C50543603AE4C3804CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C50543703AE4C3804CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C50543803AE4C3804CE206E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		8C50543903AE4C3804CE206E = {
+			buildPhases = (
+				8C50543303AE4C3804CE206E,
+				8C50543403AE4C3804CE206E,
+				8C50543503AE4C3804CE206E,
+				8C50543603AE4C3804CE206E,
+				8C50543703AE4C3804CE206E,
+				8C50543803AE4C3804CE206E,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleK2;
+				MODULE_VERSION = 1.4.0d21;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleK2;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleK2;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleK2;
+			productReference = 8C50543A03AE4C3804CE206E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleK2</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleK2 version 1.4.0, Copyright Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleK2</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleK2</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.0d21</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleK2</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleK2</string>
+			<key>IOClass</key>
+			<string>AppleK2</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>K2-KeyLargo</string>
+				<string>K2-Keylargo</string>
+			</array>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.IOPlatformFunction</key>
+		<string>1.0.0</string>
+		<key>com.apple.iokit.IOKeyLargo</key>
+		<string>1.0.0</string>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+		};
+		8C50543A03AE4C3804CE206E = {
+			isa = PBXBundleReference;
+			path = AppleK2.kext;
+			refType = 3;
+		};
+		8C50543B03AE4E1B04CE206E = {
+			fileRef = 8C50542F03AE4C0804CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C50543C03AE4E1C04CE206E = {
+			fileRef = 8C50543003AE4C0804CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C50543F03AE4E2404CE206E = {
+			fileRef = B05AB279018A0F5D05CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C50544103AE4E2604CE206E = {
+			fileRef = 73D52288FFE5D05111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C50544203AE4E2B04CE206E = {
+			fileRef = 73D52286FFE5D05111CA2A1B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8C9E0B0003D5F77504CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleK2Driver.cpp;
+			refType = 4;
+		};
+		8C9E0B0103D5F77504CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleK2Driver.h;
+			refType = 4;
+		};
+//8C0
+//8C1
+//8C2
+//8C3
+//8C4
 //B00
 //B01
 //B02
 //B03
 //B04
 		B03E150701778A6305CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = BusTimings.s;
 			refType = 4;
 		};
-		B03E150801778A6305CE0D9E = {
-			fileRef = B03E150701778A6305CE0D9E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		B05AB278018A0F5D05CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = KeyLargoWatchDogTimer.cpp;
 			refType = 4;
 		};
 		B05AB279018A0F5D05CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = KeyLargoWatchDogTimer.h;
 			refType = 4;
 		};
 		B05AB27A018A0F5D05CE0D9E = {
 			fileRef = B05AB279018A0F5D05CE0D9E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B05AB27B018A0F5D05CE0D9E = {
-			fileRef = B05AB278018A0F5D05CE0D9E;
 			isa = PBXBuildFile;
 			settings = {
 			};

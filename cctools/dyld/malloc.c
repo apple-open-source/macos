@@ -56,7 +56,7 @@
 #undef _malloc_fork_child
 #undef _malloc_fork_parent
 #undef _malloc_fork_prepare
-#endif SHLIB
+#endif /* SHLIB */
 
 #ifdef TESTING
 #define valloc _new_valloc

@@ -30,6 +30,241 @@ TODO for MacOS X:
 TODO:
 - For hppa cache flushing use FDC and FIC on the written instruction address.
 
+Changes for the 5.12 release (the cctools-466 release):
+- Made the changes to support dynamic flat namespace lookups in two-level
+  namespace images for undefined symbols with the new DYNAMIC_LOOKUP_ORDINAL
+  library ordinal.  Radar bug #3210803.
+  - Changed get_primary_image() in symbols.c to return NULL for when the
+    library ordinal is DYNAMIC_LOOKUP_ORDINAL.
+  - Changed relocate_symbol_pointers_in_object_image() and
+    relocate_symbol_pointers_in_library_image() in symbols.c to check the
+    library ordinal for DYNAMIC_LOOKUP_ORDINAL and if so use the
+    image in the symbol_list for the primary_image.
+
+Changes for the 5.12 release (the cctools-465 release):
+- Changed the i386 __dyld_start code in dyld_start.s to force SSE alignment.
+  Radar bug #3204580.
+
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile
+  - Fixed warnings for "comparison between signed and unsigned" in symbols.c,
+    getsecbyname.c, trace.c and entry_point.c .
+
+Changes for the 5.12 release (the cctools-462 release):
+- Added the support for the new NSLINKMODULE_OPTION_TRAILING_PHYS_NAME option to
+  NSLinkModule().  Radar bug #3190599.
+  - Added code in load_executable_image() and map_library_image() in images.c to
+    set the physical_name field of the image structure to the same value as
+    the name field.
+  - Added code to unload_bundle_image() in images.c to call unsave_string() on
+    the physical_name if it is not the same as the name field. 
+  - Changed map_bundle_image() in images.c to take the new physical_name
+    parameter and if it is not the same as the name parameter call save_string()
+    before saving it into the physical_name field of the image structure.
+  - Added the new physical_name parameter to map_bundle_image() prototype in
+    images.h .
+  - Changed _dyld_link_module() in dyld_libfuncs.c to test for the 
+    LINK_OPTION_TRAILING_PHYS_NAME option and set the new variable physical_name
+    to the trailing name or the moduleName.  Then changed the call to
+    map_bundle_image() to pass the new physical_name parameter.
+  - Added the new constant LINK_OPTION_TRAILING_PHYS_NAME to dyld_libfuncs.c .
+  - Changed the first field of the image struct in image.h to be physical_name
+    and moved the name field after the first four fields known to gdb for
+    gdb_dyld_version 1.  The new fifth field is part of gdb_dyld_version 2
+    interface.
+  - Changed the value of gdb_dyld_version from 1 to 2 in debug.c .
+- Fixed a bug in the displacement overflow checking of a PPC_RELOC_BR14
+  relocation entry in ppc_reloc.c .  Radar bug #3190434.
+
+Changes for the 5.12 release (the cctools-461 release):
+- Added the support for the new NSLINKMODULE_OPTION_DONT_CALL_MOD_INIT_ROUTINES
+  option to NSLinkModule().  Radar bug #3183011.
+  - Added a the new bit field dont_call_mod_init in the image struct in
+    images.h.
+  - Added the new constant LINK_OPTION_DONT_CALL_MOD_INIT to dyld_libfuncs.c .
+  - Added setting the new bit field dont_call_mod_init in the image struct
+    in _dyld_link_module() in dyld_libfuncs.c if the option bit
+    LINK_OPTION_DONT_CALL_MOD_INIT is set in the options parameter.
+  - Added a test of the dont_call_mod_init bit field being FALSE around the
+    code in call_module_initializers_for_objects() in mod_init_funcs.c that
+    calls the module initializers for object images.
+
+Changes for the 5.12 release (the cctools-460 release):
+- Added code to the Makefile to build dyld when RC_RELEASE is Tachyon into:
+    /System/Library/PrivateFrameworks/ZeroLink.framework/Versions/A/Resources
+  Radar bug #3180833.
+- Fix the code in check_and_report_undefineds() in errors.c that checks 
+  user_undefined_handler (not user_multiple_handler) and after a user undefined
+  error the missing code was added that checks to see it there are no more
+  undefined symbols and returns(TRUE).  Radar bug #3178607.
+
+Changes for the 5.12 release (the cctools-456 release):
+- Ifdef'ed out the changes to force the module to be fully bound if it
+  has a module initialization or termination routines that was done for Radar
+  bug #3016816 again.  There are preformance regressions for programs not built
+  with -prebind_all_twolevel_modules.  This will soon become the default and
+  then once again this change will be put back in.
+  The macro FULLY_BIND_MOD_INIT_ROUTINES is used which is not defined
+  around the code in the routines setup_initial_undefined_list(),
+  link_library_module() and link_object_module() in symbols.c to force the
+  module to be fully bound.  Radar bug #3158070.
+- Fixed a bug when trying use prebound libraries post launch.  The test of
+  tried_to_use_prebinding_post_launch and calls to 
+  find_twolevel_prebound_lib_subtrees() and undo_prebound_images() in
+  link_in_need_modules() in symbols.c were incorrectly done after the call to
+  relocate_modules_being_linked().  The call to undo_prebound_images() is what
+  sets the module states for the prebound libraries post launch.  But since
+  it was done too late the module states were wrong when
+  relocate_modules_being_linked() was called.  The module state defaulted to
+  0 (UNKINKED) and that cause the prebound modules in the library to be
+  relocated.  Since the addresses of the prebound symbols were not backed out
+  this ended up getting totally wrong relocated values.  This showed up as
+  relocated values for the ___CFConstantStringClassReference symbol in CFstrings
+  being wrong and code crashing in the Objective-C runtime.  Bug #3148967.
+
+Changes for the 5.12 release (the cctools-454 release):
+- Put back in the change to force the module to be fully bound if it
+  has a module initialization or termination routines which was the original
+  fix for Radar #3016816.  The to a preformance regression when loading
+  libraries at runtime that was noted in Radar bug #3101666 when this fix was
+  initially tried is now address by the using the prebound state of two-level
+  namespace that are loaded post launch, Radar bug #3055389.
+
+  The change was to removed the ifdef's for the macro
+  FULLY_BIND_MOD_INIT_ROUTINES which was used to remove the original change
+  around the code in the routines setup_initial_undefined_list(),
+  link_library_module() and link_object_module() in symbols.c to force the
+  module to be fully bound.  Radar bug #3016816.
+
+  Also needed in this change is a small fix to validate_library() in images.c
+  that does not set all_twolevel_modules_prebound to FALSE if the library is
+  being loaded via runtime call.  This is needed to fix a bug in the code
+  that trys to used the prebound state of two-level namespace libraries
+  that are loaded post launch Radar bug #3055389.  The reason this change is
+  needed is that this feature is needed to avoid the performance regression
+  that showed up in Radar bug #3101666.
+
+Changes for the 5.12 release (the cctools-453 release):
+- In dyld_mach_thread_self() in lock.c a test of cached_thread not being 
+  MACH_PORT_NULL was added before the port is deallocated.  This is needed to
+  match the changes in libSystem.  Radar bug #3133910.
+
+Changes for the 5.12 release (the cctools-449 release):
+- Added the code to try to used the prebound state of two-level namespace
+  libraries that are loaded post launch.  Radar bug #3055389.
+  - Added the trying_to_use_prebinding_post_launch variable to dyld_init.[ch]
+  - Added the trying_to_use_prebinding_post_launch field to the image struct
+    in images.h .
+  - Removed the code map_library_image() in images.c for the first cut at
+    maintaining the state if all libraries being used are two-level, prebound
+    and all modules linked.  And replaced it with code that sets
+    all_twolevel_modules_prebound to FALSE when prebinding gets blown off.
+    Then when a library is prebound but we have already launched we check
+    all_twolevel_modules_prebound to see if it is TRUE and if the library is
+    two-level we try to use the prebinding and don't call
+    undo_prebinding_for_library().  Instead the variable
+    trying_to_use_prebinding_post_launch is set to true and the
+    trying_to_use_prebinding_post_launch field in the image is set to TRUE.
+  - For the 4 ways that a library can be loaded post launch, _dyld_NSAddLibrary,
+    _dyld_NSAddLibraryWithSearching, _dyld_NSAddImage, and _dyld_link_module
+    via load_dependent_libraries() code was added in the path to deal with
+    libraries that have their prebinding used post launch.  The changes are
+    the same in the first three places in dyld_libfuncs.c.  The changes for
+    the path through _dyld_link_module was made in link_in_need_modules()
+    in symbols.c.  The changes are as follows, after the libraries have been
+    successfully loaded the trying_to_use_prebinding_post_launch variable is
+    checked and cached into a local variable.  Then two calls are made:
+	find_twolevel_prebound_lib_subtrees()
+	undo_prebound_images(TRUE);
+	- The new post_launch_libraries_only parameter to undo_prebound_images()
+	  was added to only undo or set the modules to fully bound for library
+	  images that have the trying_to_use_prebinding_post_launch field set to
+	  TRUE.  The existing call to it in dyld_init() in dyld_init.c had the
+	  new parameter passed a FALSE.
+    Then after the exising call to call_registered_funcs_for_add_images() a
+    test of the local cached trying_to_use_prebinding_post_launch variable
+    is done and the following sequence of calls is done to cause the init
+    stuff to get run:
+	call_registered_funcs_for_linked_modules();
+	call_image_init_routines(FALSE);
+	call_module_initializers(FALSE, FALSE, TRUE);
+	- The new third post_launch_libraries_only parameter to
+	  call_module_initializers() was added to cause only post launch
+	  prebound libraies routines to be run.  This is in turn passed along
+	  to call_module_initializers_for_library() to deal with the
+	  link_state not being REGISTERING but FULLY_LINKED.
+	  The existing call to call_module_initializers() in debug.c added
+	  passing this as FALSE.
+	clear_trying_to_use_prebinding_post_launch();
+	- This is a new routine added in images.c to clear the
+	  trying_to_use_prebinding_post_launch variable and the
+	  trying_to_use_prebinding_post_launch field on the images.
+	
+- Fixed a memory leak of the object_image name for bundles.  The new routine
+  unsave_string() to match save_string() was added to images.c and the TODO
+  call to it in unload_bundle_image() that was commented out was added in.
+  Radar bug #3073359.
+
+Changes for the 5.12 release (the cctools-448 release):
+- Ifdef'ed out the change to force the module to be fully bound if it
+  has a module initialization or termination routines that was done for Radar
+  bug #3016816 due to a preformance regression when loading libraries at
+  runtime.  The macro FULLY_BIND_MOD_INIT_ROUTINES is used which is not defined
+  around the code in the routines setup_initial_undefined_list(),
+  link_library_module() and link_object_module() in symbols.c to force the
+  module to be fully bound.  Radar bug #3101666.
+- Added four temporary local variables to relocate_symbol_pointers() in
+  symbols.c to help improve the performance of the inter loop.  Radar bug
+  3102491.
+- Added _dyld_get_image_header_containing_address() to dyld_libfuncs.c which
+  returns the mach header of image and changed _dyld_image_containing_address()
+  to call it and test its return value.  Radar bug #2967928.
+- Fixed a small memory leak when a malformed library is loaded via a search
+  path.  The change was in load_library_image() in images.c just after the
+  first call to map_library_image().  A test of the return value of
+  map_library_image() was added and if it fail the code it now jumps to the
+  load_library_image_cleanup3 label for clean up.  This is the same fix as in
+  Radar bug #2914747 but for the other call to map_library_image().  Radar bug
+  #2956804.
+
+Changes for the 5.12 release (the cctools-447 release):
+- Added three temporary local variables to dyld_image_containing_address() in
+  dyld_libfuncs.c to help improve the performance of the inter loop.  Radar bug
+  #3096691.
+- Added the code to maintain the boolean state to reflect if all libraries
+  loaded are being used as two-level, prebound with all modules bound.  And
+  a new SPI to return this state.  (Radar bug #3055372).
+  - Added the global boolean variable all_twolevel_modules_prebound to
+    dyld_init.[ch] to be TRUE when all libraries loaded are two-level, prebound,
+    and and all modules in them are bound.
+  - Added the all_modules_linked field to the image structure in images.h .
+  - Added code to set the all_modules_linked field in the image structure in
+    set_prebound_state() in images.c .
+  - Set the all_modules_linked field in the image structure to TRUE in 
+    undo_prebinding_for_library() in images.c in the subtrees_twolevel_prebound
+    == TRUE case. 
+  - Added the set_all_twolevel_modules_prebound() routine to images.c and call
+    it in dyld_init() it set the variable all_twolevel_modules_prebound.
+  - Added code in map_library_image() in images.c to set
+    all_twolevel_modules_prebound to FALSE if a library was loaded after launch.
+  - Added the routine _dyld_all_twolevel_modules_prebound() to dyld_libfuncs.c
+    to return the value of all_twolevel_modules_prebound.
+- Changed where notify_prebinding_agent() is called in images.c to not call it
+  if the image that caused the prebinding to be blown off is not prebound
+  (Radar bug #3091026).
+- Changed the routines setup_initial_undefined_list(), link_library_module() and
+  link_object_module() in symbols.c to force the module to be fully bound if it
+  has a module initialization or termination routines (Radar bug #3016816).
+
+Changes for the 5.11 release (the cctools-440 release):
+- Fixed the warnings about extra tokens at end of #endif directive in
+  malloc.c, mig_support.c and cthread_internals.h (Radar bug #3072042).
+
+Changes for the 5.11 release (the cctools-439 release):
+- Disabled DYLD_MEM_PROTECT because NXProtectZone() currently does not work
+  anymore.  Radar bug #3035901.
+
 Changes for the 5.10 release (the cctools-433 release):
 - Changed setup_prebound_coalesed_symbols() in symbols.c to skip looking for
   global coalesed symbols if flat_reference is FALSE.  Then a count of global

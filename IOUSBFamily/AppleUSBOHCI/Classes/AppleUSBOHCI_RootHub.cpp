@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -56,7 +59,7 @@ IOReturn AppleUSBOHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
         8,				// UInt8 maxPacketSize;
         USB_CONSTANT16(kAppleVendorID),	// UInt16 vendor:  Use the Apple Vendor ID from USB-IF
         USB_CONSTANT16(kPrdRootHubApple),	// UInt16 product:  All our root hubs are the same
-        USB_CONSTANT16(0x0198),		// UInt16 bcdDevice
+        USB_CONSTANT16(0x0190),		// UInt16 bcdDevice
         2,				// UInt8 manuIdx;
         1,				// UInt8 prodIdx;
         0,				// UInt8 serialIdx;
@@ -85,11 +88,12 @@ IOReturn AppleUSBOHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
     hubDesc.numPorts = ((descriptorA & kOHCIHcRhDescriptorA_NDP)
                           >> kOHCIHcRhDescriptorA_NDPPhase);
     // Characteristics
-    pps  = descriptorA & kOHCIHcRhDescriptorA_PSM;
-    nps  = descriptorA & kOHCIHcRhDescriptorA_NPS;
-    cd   = descriptorA & kOHCIHcRhDescriptorA_DT;
-    ppoc = descriptorA & kOHCIHcRhDescriptorA_OCPM;
-    noc  = descriptorA & kOHCIHcRhDescriptorA_NOCP;
+    pps  = (descriptorA & kOHCIHcRhDescriptorA_PSM) ? 1 : 0;
+    nps  = (descriptorA & kOHCIHcRhDescriptorA_NPS) ? 1 : 0;
+    cd   = (descriptorA & kOHCIHcRhDescriptorA_DT) ? 1 : 0;
+    ppoc = (descriptorA & kOHCIHcRhDescriptorA_OCPM) ? 1 : 0;
+    noc  = (descriptorA & kOHCIHcRhDescriptorA_NOCP) ? 1 : 0;
+    
     hubDesc.characteristics = 0;
     hubDesc.characteristics |= (pps  ? kPerPortSwitchingBit   : 0);
     hubDesc.characteristics |= (nps  ? kNoPowerSwitchingBit   : 0);
@@ -185,7 +189,7 @@ IOReturn AppleUSBOHCI::GetRootHubConfDescriptor(OSData *desc)
 
 IOReturn AppleUSBOHCI::SetRootHubDescriptor(OSData * /*buffer*/)
 {
-    USBLog(3,"%s: unimplemented set root hub descriptor", getName());
+
     return(kIOReturnSuccess);
 }
 
@@ -196,7 +200,7 @@ IOReturn AppleUSBOHCI::GetRootHubStatus(IOUSBHubStatus *status)
 
     *(UInt32*)status = _pOHCIRegisters->hcRhStatus;
 
-    return(kIOReturnSuccess);
+    return kIOReturnSuccess;
 }
 
 IOReturn AppleUSBOHCI::SetRootHubFeature(UInt16 wValue)
@@ -245,20 +249,21 @@ IOReturn AppleUSBOHCI::ClearRootHubFeature(UInt16 wValue)
 
 IOReturn AppleUSBOHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
 {
-    if (port < 1 || port > 15)
-        return(kIOReturnBadArgument);  // FIXME change error code
-
     if ( _ohciBusState == kOHCIBusStateSuspended )
         return kIOReturnNotResponding;
 
+    if (port < 1 || port > 15)
+        return(kIOReturnBadArgument);
+    
     *(UInt32*)status = _pOHCIRegisters->hcRhPortStatus[port-1];
-
-    return(kIOReturnSuccess);
+    
+    return kIOReturnSuccess;
 }
 
 IOReturn AppleUSBOHCI::SetRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
 {
     // in the code below port is a port INDEX (0 based), whereas wIndex is the port NUMBER (1 based)
+    //
     UInt16	port = wIndex-1;
     IOReturn	err = kIOReturnSuccess;
     
@@ -521,13 +526,13 @@ OSMetaClassDefineReservedUsed(IOUSBController,  10);
 void 
 AppleUSBOHCI::UIMRootHubStatusChange(bool abort)
 {
-    UInt32 		testStatus, hubStatus, portStatus, statusBit;
+    UInt32 		tempStatus, hubStatus, portStatus, statusBit;
     UInt16 		statusChangedBitmap;   /* only have 15 ports in OHCI */
     UInt8		numPorts = 0;
     unsigned int      	index, port, move;
     struct InterruptTransaction last;
     UInt32		descriptorA;
-
+    
     /* turn off RHSC interrupt */
     _pOHCIRegisters->hcInterruptDisable = HostToUSBLong(kOHCIHcInterrupt_RHSC);
     IOSync();
@@ -544,33 +549,38 @@ AppleUSBOHCI::UIMRootHubStatusChange(bool abort)
     statusChangedBitmap = 0;
     statusBit = 1;
 
-	if (!abort && GetRootHubStatus((IOUSBHubStatus *)&testStatus) == kIOReturnSuccess)
-	{
-            hubStatus = USBToHostLong(testStatus);
-            
-	    if ((hubStatus & kOHCIHcRhStatus_Change ) != 0)
-	    {
-	        statusChangedBitmap |= statusBit; /* Hub status change bit */
-		}
-		
-		// Find the numPorts for this root hub
-		//
-	    descriptorA = USBToHostLong(_pOHCIRegisters->hcRhDescriptorA);
-	    numPorts = ((descriptorA & kOHCIHcRhDescriptorA_NDP)
-	                >> kOHCIHcRhDescriptorA_NDPPhase);
+    if (!abort && GetRootHubStatus((IOUSBHubStatus *)&tempStatus) == kIOReturnSuccess)
+    {
+        // GetRootHubStatus does NOT swap bits, so we need to do it here
+        //
+        hubStatus = USBToHostLong( tempStatus );
+        if ((hubStatus & kOHCIHcRhStatus_Change ) != 0)
+        {
+            statusChangedBitmap |= statusBit;
+        }
 
-	    for (port = 1; port <= numPorts; port++)
-	    {
-	        statusBit <<= 1;    /* Next bit */
+        // Find the numPorts for this root hub
+        //
+        descriptorA = USBToHostLong(_pOHCIRegisters->hcRhDescriptorA);
+        numPorts = ((descriptorA & kOHCIHcRhDescriptorA_NDP)
+                    >> kOHCIHcRhDescriptorA_NDPPhase);
 
-	        GetRootHubPortStatus((IOUSBHubPortStatus *)&testStatus, port);
-                portStatus = USBToHostLong(testStatus);
-                
-	       	if ((portStatus & kOHCIHcRhPortStatus_Change) != 0)
-	            statusChangedBitmap |= statusBit; /* Hub status change bit */
-	    }
-	}
-	
+        for (port = 1; port <= numPorts; port++)
+        {
+            statusBit <<= 1;    /* Next bit */
+
+            GetRootHubPortStatus((IOUSBHubPortStatus *)&tempStatus, port);
+
+            // GetRootHubPortStatus does NOT swap bits, so we need to do ti here
+            //
+            portStatus = USBToHostLong( tempStatus);
+            if ((portStatus & kOHCIHcRhPortStatus_Change) != 0)
+            {
+                statusChangedBitmap |= statusBit;
+            }
+        }
+    }
+    
     /*
      * If a transaction is queued, handle it
      */
@@ -584,13 +594,13 @@ AppleUSBOHCI::UIMRootHubStatusChange(bool abort)
             if (_outstandingTrans[index].completion.action == NULL)
             {
                 break;
-      		}
+            }
         }
 
         // Update the time stamp for a root hub status change
         //
         clock_get_uptime( &_lastRootHubStatusChanged );
-        
+
         move = last.bufLen;
         if (move > sizeof(statusChangedBitmap))
             move = sizeof(statusChangedBitmap);
@@ -600,7 +610,20 @@ AppleUSBOHCI::UIMRootHubStatusChange(bool abort)
         statusChangedBitmap = HostToUSBWord(statusChangedBitmap);
         last.buf->writeBytes(0,&statusChangedBitmap, move);
         IOUnlock(_intLock); /* Unlock the queue */
+        
         Complete(last.completion, (abort ? kIOReturnAborted : kIOReturnSuccess), last.bufLen - move);
+
+    }
+
+    // If we are aborting, we do not need to enable the RHSC.  If there is a transaction pending in the queue,
+    // or the RHSC did not involve a status change, we need to enable the RHSC interrupt
+    //
+    if ( !abort && ((_outstandingTrans[0].completion.action != NULL) || (statusChangedBitmap == 0)) )
+    {
+        // Turn on RHSC interrupt
+        //
+        _pOHCIRegisters->hcInterruptEnable = HostToUSBLong(kOHCIHcInterrupt_RHSC);
+        IOSync();
     }
 }
 
@@ -639,7 +662,7 @@ void AppleUSBOHCI::SimulateRootHubInt(
             IOUnlock(_intLock); /* Unlock the queue */
 
             /* turn on RHSC interrupt */
-            _pOHCIRegisters->hcInterruptEnable = _pOHCIRegisters->hcInterruptEnable | HostToUSBLong(kOHCIHcInterrupt_RHSC);
+            _pOHCIRegisters->hcInterruptEnable = HostToUSBLong(kOHCIHcInterrupt_RHSC);
             IOSync();
 
             return;

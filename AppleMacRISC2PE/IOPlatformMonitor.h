@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -43,18 +46,21 @@
 //#define IOPFMDEBUG 1
 
 #ifdef IOPFMDEBUG
-#define DLOG(fmt, args...)  kprintf(fmt, ## args)
+ #define DLOG(fmt, args...)  kprintf(fmt, ## args)
+ #define debug_msg( msg ) IOLog(msg)
 #else
-#define DLOG(fmt, args...)
+ #define DLOG(fmt, args...)
+ #define debug_msg( msg )
 #endif
 
 #define kIOPMonTypeKey 				"sensor-type"
+#define kIOPMonControlTypeKey		"control-type"
 #define kIOPMonTypePowerSens		"power-sensor"
 #define kIOPMonTypeThermalSens		"temp-sensor"
 #define kIOPMonTypeClamshellSens	"clamshell-sensor"
 #define kIOPMonTypeCPUCon			"cpu-controller"
 #define kIOPMonTypeGPUCon			"gpu-controller"
-#define kIOPMonTypeSlewCon			"slew-controller"
+#define kIOPMonTypeSlewCon			"slew"
 #define kIOPMonTypeFanCon			"fan-controller"
 #define kIOPMonIDKey				"sensor-id"
 #define kIOPMonCPUIDKey				"cpu-index"
@@ -70,7 +76,8 @@ enum {
 	kIOPMonMessageHighThresholdHit	= 4,
 	kIOPMonMessageCurrentValue		= 5,
 	kIOPMonMessageStateChanged		= 6,
-	kIOPMonMessagePowerMonitor		= 7
+	kIOPMonMessagePowerMonitor		= 7,
+	kIOPMonMessageError			= 8, 
 };
 
 // Thermal sensor values and thresholds are 16.16 fixed point format
@@ -158,6 +165,7 @@ enum {
 
 	//	Common symbols
 	const OSSymbol 		*gIOPMonTypeKey;
+        const OSSymbol 		*gIOPMonConTypeKey;
 	const OSSymbol 		*gIOPMonTypePowerSens;
 	const OSSymbol 		*gIOPMonTypeThermalSens;
 	const OSSymbol		*gIOPMonTypeClamshellSens;

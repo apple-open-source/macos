@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -70,6 +73,7 @@ bool MacRISC2PE::start(IOService *provider)
     IORegistryEntry 		*powerMgtEntry;
     UInt32			   		*primInfo;
 	UInt32					stepType, bitsSet, bitsClear;
+	bool					result;
 	
     setChipSetType(kChipSetTypeCore2001);
 	
@@ -99,6 +103,8 @@ bool MacRISC2PE::start(IOService *provider)
     tmpData = OSDynamicCast(OSData, provider->getProperty("clock-frequency"));
     if (tmpData == 0) return false;
     macRISC2Speed[0] = *(unsigned long *)tmpData->getBytesNoCopy();
+    
+    hasPMon = ((!strcmp (provider_name, "PowerBook5,1")) || (!strcmp (provider_name, "PowerBook5,2")) || (!strcmp (provider_name, "PowerBook5,3")));
    	
 	// get uni-N version for use by platformAdjustService
 	uniNRegEntry = provider->childFromPath("uni-n", gIODTPlane);
@@ -208,8 +214,47 @@ bool MacRISC2PE::start(IOService *provider)
 		}
 	}
 	
+	// Create PlatformFunction nub
+	OSDictionary *dict = OSDictionary::withCapacity(2);
+	if (dict) {
+		const OSSymbol *nameKey, *compatKey, *nameValueSymbol;
+		const OSData *nameValueData, *compatValueData;
+		char tmpName[32], tmpCompat[128];
+		
+		nameKey = OSSymbol::withCStringNoCopy("name");
+		strcpy(tmpName, "IOPlatformFunction");
+		nameValueSymbol = OSSymbol::withCString(tmpName);
+		nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
+		dict->setObject (nameKey, nameValueData);
+		compatKey = OSSymbol::withCStringNoCopy("compatible");
+		strcpy (tmpCompat, "IOPlatformFunctionNub");
+		compatValueData = OSData::withBytes(tmpCompat, strlen(tmpCompat)+1);
+		dict->setObject (compatKey, compatValueData);
+		if (plFuncNub = IOPlatformExpert::createNub (dict)) {
+			if (!plFuncNub->attach( this ))
+				IOLog ("NUB ATTACH FAILED for IOPlatformFunctionNub\n");
+			plFuncNub->setName (nameValueSymbol);
+
+			plFuncNub->registerService();
+		}
+		dict->release();
+		nameValueSymbol->release();
+		nameKey->release();
+		nameValueData->release();
+		compatKey->release();
+		compatValueData->release();
+	}
+	
+	/*
+	 * Call super::start *before* we create specialized child nubs.  Child drivers for these nubs
+	 * want to call publishResource and publishResource needs the IOResources node to exist 
+	 * if not we'll get a message like "not registry member at registerService()"
+	 * super::start() takes care of creating IOResources
+	 */
+	result = super::start(provider);
+	
 	// Create PlatformMonitor nub
-	if ((!strcmp (provider_name, "PowerBook6,1")) || (!strcmp (provider_name, "PowerBook5,1"))) {
+	if (hasPMon) {
 		OSDictionary *dict = OSDictionary::withCapacity(2);
 		
 		if (dict) {
@@ -223,7 +268,12 @@ bool MacRISC2PE::start(IOService *provider)
 			nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
 			dict->setObject (nameKey, nameValueData);
 			compatKey = OSSymbol::withCStringNoCopy("compatible");
-			strcpy (tmpCompat, provider_name);
+                        if ((!strcmp(provider_name, "PowerBook5,2")) || 	// Q16
+                            (!strcmp(provider_name, "PowerBook5,3"))) { 	// Q41
+                            strcpy (tmpCompat, "Portable2003");
+                        } else {
+                            strcpy (tmpCompat, provider_name);
+                        }
 			strcat (tmpCompat, "_PlatformMonitor");
 			compatValueData = OSData::withBytes(tmpCompat, strlen(tmpCompat)+1);
 			dict->setObject (compatKey, compatValueData);
@@ -289,7 +339,7 @@ bool MacRISC2PE::start(IOService *provider)
 		powerMonClamshellClosed.bitsMask = ~0L;
 	}
 
-    return super::start(provider);
+    return result;
 }
 
 IORegistryEntry * MacRISC2PE::retrievePowerMgtEntry (void)
@@ -323,16 +373,16 @@ IORegistryEntry * MacRISC2PE::retrievePowerMgtEntry (void)
 
 bool MacRISC2PE::platformAdjustService(IOService *service)
 {
-bool		result;
-
+    bool           result;
+  
     if (IODTMatchNubWithKeys(service, "open-pic"))
     {
 	const OSSymbol	* keySymbol;
-	OSSymbol	* tmpSymbol;
+	OSSymbol 	* tmpSymbol;
 
         keySymbol = OSSymbol::withCStringNoCopy("InterruptControllerName");
         tmpSymbol = (OSSymbol *)IODTInterruptControllerName(service);
-        result = service->setProperty(keySymbol, tmpSymbol);
+        result    = service->setProperty(keySymbol, tmpSymbol);
         return true;
     }
 
@@ -387,8 +437,7 @@ bool		result;
 	 * correct and we now use 0x0011 for uni-n 1.5.
 	 */
 	if ((uniNVersion == kUniNVersion150) && IODTMatchNubWithKeys(service, "('pci', 'uni-north')") && 
-		(service->childFromPath("mac-io", gIODTPlane) != NULL))
-	{
+		(service->childFromPath("mac-io", gIODTPlane) != NULL)) {
 			service->setProperty ("DisableRDG", true);
 			return true;
 	}
@@ -398,9 +447,8 @@ bool		result;
 	 */
 	if (((uniNVersion >= kUniNVersion150) && (uniNVersion <= kUniNVersion200) || (uniNVersion == kUniNVersionPangea)) &&
 		(!strcmp(service->getName(gIODTPlane), "firewire")) &&
-		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')"))
-	{
-		char data;
+		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')")) {
+			char data;
 			
 			data = 0x08;		// 32 byte cache line
 			service->setProperty (kIOPCICacheLineSize, &data, 1);
@@ -414,16 +462,14 @@ bool		result;
 	 */
 	if ((uniNVersion == kUniNVersion200) &&
 		IODTMatchNubWithKeys(service, "('ethernet', 'gmac')") &&
-		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')"))
-	{
-		char 	data;
-		long	cacheSize;
-		OSData 	*cacheData;
+		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')")) {
+			char 	data;
+			long	cacheSize;
+			OSData 	*cacheData;
 			
 			data = 0x08; 	// assume default of 32 byte cache line
 			cacheData = OSDynamicCast( OSData, service->getProperty( "cache-line-size" ) );
-			if (cacheData)
-			{
+			if (cacheData) {
 				cacheSize = *(long *)cacheData->getBytesNoCopy();
 				data = (cacheSize >> 2);
 			}
@@ -436,22 +482,18 @@ bool		result;
 	// For usb@18 on PowerBook4,x machines add an "AAPL,SuspendablePorts" property if it doesn't exist
 	if (!strcmp(service->getName(), "usb") && 
 		(0 == strncmp(provider_name, "PowerBook4,", strlen("PowerBook4,"))) &&
-		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')"))
-	{
+		IODTMatchNubWithKeys(service->getParentEntry(gIODTPlane), "('pci', 'uni-north')")) {
 		
-		OSData			* regProp;
-		IOPCIAddressSpace	* pciAddress;
-		UInt32			ports;
+		OSData				*regProp;
+		IOPCIAddressSpace	*pciAddress;
+		UInt32				ports;
 	
-		if( (regProp = (OSData *) service->getProperty("reg")))
-		{
+		if( (regProp = (OSData *) service->getProperty("reg"))) {
 			pciAddress = (IOPCIAddressSpace *) regProp->getBytesNoCopy();
 			// Only for usb@18
-			if (pciAddress->s.deviceNum == 0x18)
-			{
+			if (pciAddress->s.deviceNum == 0x18) {
 				// If property doesn't exist, create it
-				if(!((OSData *) service->getProperty(kAAPLSuspendablePorts)))
-				{
+				if(!((OSData *) service->getProperty(kAAPLSuspendablePorts))) {
 					ports = 4;
 					service->setProperty (kAAPLSuspendablePorts, &ports, sizeof(UInt32));
 				}
@@ -467,10 +509,10 @@ bool		result;
 	//    address.  The failure of that access causes hwmond to not return temperature information
 	//    about the CPU to Server Monitor.
 	if ( ( strcmp( "temp-monitor", service->getName() ) == 0 ) &&
-	     ( strcmp( "RackMac1,1"  , provider_name      ) == 0 ) )	// ALL P69s, regardless of BootROM
+	     ( strcmp( "RackMac1,1"  , provider_name      ) == 0 ) )    // ALL P69s, regardless of BootROM
 	{
-	OSData	* deviceType;
-	UInt32	newRegPropertyValue;
+	OSData  * deviceType;
+	UInt32  newRegPropertyValue;
 
 		deviceType = OSDynamicCast( OSData, service->getProperty( "device_type" ) );
 		if ( deviceType && ( strcmp( "ds1775", (char *)deviceType->getBytesNoCopy() ) == 0 ) )
@@ -480,11 +522,12 @@ bool		result;
 			// "reg" property to be 0x00000092 (bus 0, device address 0x92).
 			newRegPropertyValue = 0x92;
 			service->setProperty( "reg", &newRegPropertyValue, sizeof( UInt32 ) );
-            // return true;		// handled by the default 'return true' at the bottom of the routine
+
+			// return true;             // handled by the default 'return true' at the bottom of the routine
 		}
 	}
-    
-    return true;
+
+	return true;
 }
 
 IOReturn MacRISC2PE::callPlatformFunction(const OSSymbol *functionName,
@@ -528,10 +571,6 @@ IOReturn MacRISC2PE::callPlatformFunction(const OSSymbol *functionName,
 		return platformPowerMonitor ((UInt32 *) param1);
     }
 	
-    if (functionName->isEqualTo("InstantiatePlatformFunctions")) {
-		return instantiatePlatformFunctions ((IOService *) param1, (OSArray **)param2);
-    }
-
     if (functionName->isEqualTo("PerformPMUSpeedChange")) {
 		if (!macRISC2CPU)
 			macRISC2CPU = OSDynamicCast (MacRISC2CPU, waitForService (serviceMatching("MacRISC2CPU")));
@@ -738,83 +777,6 @@ IOReturn MacRISC2PE::platformPowerMonitor(UInt32 *powerFlags)
 }
 
 //*********************************************************************************
-// instantiatePlatformFunctions
-//
-// A call platform function call invoked by other drivers to tap into 
-// IOPlatformFunction services.  They provide us their nub, which we search for
-// available platform-do-xxx functions.  Any we find we parse and return to the
-// caller in the pfArray parameter.
-//*********************************************************************************
-IOReturn MacRISC2PE::instantiatePlatformFunctions (IOService *nub, OSArray **pfArray)
-{
-	OSDictionary			*propTable;
-	OSCollectionIterator	*propIter;
-	OSSymbol				*propKey;
-	OSData					*propData, *moreData;
-	OSArray					*tempArray;
-	IOPlatformFunction		*platformFunction;
-	IOReturn				result;
-	
-	result = kIOReturnSuccess;
-
-	if ( ((propTable = nub->dictionaryWithProperties()) == 0) ||
-	     ((propIter = OSCollectionIterator::withCollection(propTable)) == 0) ) {
-		if (propTable) propTable->release();
-		// Nothing to do, go home
-		return result;
-	}
-
-	*pfArray = tempArray = NULL;
-	
-	/*
-	 * Iterate through all the properties looking for any "platform-do-xxx" property names.  When we find
-	 * one, we create one (or more) IOPlatformFunction objects based on the data and add the objects
-	 * to an OSArray of IOPlatformFunction objects.  We do this for every "platform-do-xxx" property
-	 * we find.
-	 */
-	while ((propKey = OSDynamicCast(OSSymbol, propIter->getNextObject())) != 0) {
-		if (strncmp(kFunctionProvidedPrefix,
-		            propKey->getCStringNoCopy(),
-		            strlen(kFunctionProvidedPrefix)) == 0) {
-			propData = OSDynamicCast(OSData, propTable->getObject(propKey));
-
-			/*
-			 * OK, we have a platform-do-xxx function property and create an IOPlatformFunction object based
-			 * on the data.  Note that the data may indicate more than on action assigned to the function.
-			 * For example, you might have a function named "platform-do-set-power" that requires
-			 * different actions going down to sleep than waking from sleep.  In such a case, the additional
-			 * data is returned as a new OSData object in moreData and we create separate objects based on 
-			 * this data.
-			 */
-			do {
-				moreData = NULL;
-				if (platformFunction = IOPlatformFunction::withPlatformDoFunction(propKey, propData, &moreData)) {
-					if (!tempArray) {
-						tempArray = OSArray::withCapacity (1);
-						if (!tempArray) {
-							result =  kIOReturnNoMemory;
-							break;
-						}
-					}
-					// Add object to array, which will retain object
-					tempArray->setObject(platformFunction);
-					platformFunction->release();
-					
-					// If there's more data, loop and create additional platform function object(s) with remaining data
-					propData = moreData;
-				}
-			} while (moreData);
-		}
-    }
-	
-	if (propTable) propTable->release();
-	if (propIter) propIter->release();
-	
-	*pfArray = tempArray;
-	return result;
-}
-
-//*********************************************************************************
 // PMInstantiatePowerDomains
 //
 // This overrides the vanilla implementation in IOPlatformExpert.  It instantiates
@@ -825,27 +787,25 @@ IOReturn MacRISC2PE::instantiatePlatformFunctions (IOService *nub, OSArray **pfA
 
 void MacRISC2PE::PMInstantiatePowerDomains ( void )
 {    
-    OSString * errorStr = new OSString;
-    OSObject * obj;
+	const OSSymbol *desc = OSSymbol::withCString("powertreedesc");
     IOPMUSBMacRISC2 * usbMacRISC2;
 
-    obj = OSUnserializeXML (gIOMacRISC2PMTree, &errorStr);
+	// Move our power tree description from our driver (where it's a property in the driver)
+	// to our provider
+	kprintf ("MacRISC2PE::PMInstantiatePowerDomains - getting pmtree property\n");
+    thePowerTree = OSDynamicCast(OSArray, getProperty(desc));
 
-    if( 0 == (thePowerTree = ( OSArray * ) obj) )
+    if( 0 == thePowerTree)
     {
-        kprintf ("error parsing power tree: %s", errorStr->getCStringNoCopy());
+        kprintf ("error retrieving power tree\n");
+		return;
     }
+	kprintf ("MacRISC2PE::PMInstantiatePowerDomains - got pmtree property\n");
 
-    getProvider()->setProperty ("powertreedesc", thePowerTree);
-
-#if CREATE_PLEXUS
-   plexus = new IOPMPagingPlexus;
-   if ( plexus ) {
-        plexus->init();
-        plexus->attach(this);
-        plexus->start(this);
-    }
-#endif
+    getProvider()->setProperty (desc, thePowerTree);
+	
+	// No need to keep original around
+	removeProperty(desc);
          
     root = IOPMrootDomain::construct();
     root->attach(this);

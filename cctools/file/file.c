@@ -403,7 +403,7 @@ int wid;
 #ifdef BUILTIN_FAT
 		memcpy(&magic, buf, sizeof(unsigned long));
 #ifdef __BIG_ENDIAN__
-		if(nbytes >= sizeof(unsigned long) && magic == FAT_MAGIC)
+		if(nbytes >= (int)sizeof(unsigned long) && magic == FAT_MAGIC)
 #endif /* __BIG_ENDIAN__ */
 #ifdef __LITTLE_ENDIAN__
 		if(nbytes >= sizeof(unsigned long) && magic == FAT_CIGAM)

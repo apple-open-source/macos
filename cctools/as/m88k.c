@@ -53,7 +53,7 @@ static char *cmpslot[] = { "**", "**", "eq", "ne", "gt", "le", "lt", "ge",
 			   "hi", "ls", "lo", "hs",
 #ifdef m88110
 			   "be", "nb", "he", "nh",
-#endif m88110
+#endif /* m88110 */
 			    NULL };
 
 static struct {
@@ -122,7 +122,7 @@ static char *parse_xreg(
     struct m88k_insn *insn,
     struct m88k_opcode *format,
     int parcnt);
-#endif m88110
+#endif /* m88110 */
 static char *parse_pcr(
     char *param,
     struct m88k_insn *insn,
@@ -715,7 +715,7 @@ struct m88k_insn *insn)
 			case XREG:
 				param = parse_xreg(param, insn, format, parcnt);
 				break;
-#endif m88110
+#endif /* m88110 */
 			case BF:
 				param = parse_bf(param, insn, format, parcnt);
 				break;
@@ -985,7 +985,7 @@ int parcnt)
 
 	return NULL;
 }
-#endif m88110
+#endif /* m88110 */
 
 static
 char *
@@ -1338,7 +1338,7 @@ struct m88k_opcode *format,
 int parcnt)
 {
 	char c, *saveptr, *saveparam;
-	unsigned int val, nohilo = 0;
+	int val, nohilo = 0;
 	segT seg;
         expressionS exp;
 

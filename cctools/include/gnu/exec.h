@@ -65,9 +65,9 @@ struct exec {
 #if	sun || NeXT_MOD
 unsigned short  a_machtype;     /* machine type */
 unsigned short  a_magic;        /* magic number */
-#else	sun || NeXT_MOD
+#else	/* sun || NeXT_MOD */
 	long	a_magic;	/* magic number */
-#endif	sun || NeXT_MOD
+#endif	/* sun || NeXT_MOD */
 unsigned long	a_text;		/* size of text segment */
 unsigned long	a_data;		/* size of initialized data */
 unsigned long	a_bss;		/* size of uninitialized data */
@@ -87,6 +87,6 @@ unsigned long	a_drsize;	/* size of data relocation */
 #define M_OLDSUN2	0	/* old sun-2 executable files */
 #define M_68010		1	/* runs on either 68010 or 68020 */
 #define M_68020		2	/* runs only on 68020 */
-#endif sun
+#endif /* sun */
 
-#endif	_EXEC_
+#endif	/* _EXEC_ */

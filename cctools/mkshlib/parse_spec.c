@@ -54,10 +54,10 @@
  * the library shared library specification file.
  */
 char *target_name = (char *)0;	/* shared library target name */
-long minor_version = 0;		/* shared library minor version number */
-long image_version = 0;		/* shared library image version number */
-long text_addr = BAD_ADDRESS;	/* shared library __TEXT segment addr */
-long data_addr = BAD_ADDRESS;	/* shared library __DATA segment addr */
+unsigned long minor_version = 0;/* shared library minor version number */
+unsigned long image_version = 0;/* shared library image version number */
+unsigned long text_addr = BAD_ADDRESS;	/* shared library __TEXT segment addr */
+unsigned long data_addr = BAD_ADDRESS;	/* shared library __DATA segment addr */
 
 /*
  * Hash table for branch slots, filled in here used in creating the host library
@@ -84,9 +84,9 @@ static long noddball_list;		/* number of oddballs in oddball_list */
 /* hash table for objects, fixed size */
 static struct object **object_hash;
 
-struct object **object_list; /* list of objects in order to be loaded */
-static long object_list_size;     /* size of object_list */
-long nobject_list;		  /* number of objects in object_list */
+struct object **object_list;	      /* list of objects in order to be loaded*/
+static unsigned long object_list_size;/* size of object_list */
+unsigned long nobject_list;	      /* number of objects in object_list */
 
 /* The list of alias structures */
 struct alias *aliases;
@@ -332,7 +332,7 @@ parse_spec(void)
 		   oddball_list[i]->name, oddball_list[i]->private,
 		   oddball_list[i]->nobranch, oddball_list[i]->undefined);
 	}
-#endif SPEC_DEBUG
+#endif /* SPEC_DEBUG */
 	free(oddball_list);
 
 	/*

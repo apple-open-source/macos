@@ -7,24 +7,33 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
 	$Log: IOFireWireLocalNode.cpp,v $
+	Revision 1.6  2003/02/20 02:00:12  collin
+	*** empty log message ***
+	
+	Revision 1.5  2003/02/17 21:47:52  collin
+	*** empty log message ***
+	
 	Revision 1.4  2002/10/31 18:53:13  wgulland
 	Fix kernel panic when unloading family while reading ROMs
 	
@@ -44,7 +53,50 @@
 #import "IOFireWireMagicMatchingNub.h"
 #import "IOFireWireLocalNode.h"
 
+OSDefineMetaClassAndStructors(IOFireWireLocalNodeAux, IOFireWireNubAux);
+OSMetaClassDefineReservedUnused(IOFireWireLocalNodeAux, 0);
+OSMetaClassDefineReservedUnused(IOFireWireLocalNodeAux, 1);
+OSMetaClassDefineReservedUnused(IOFireWireLocalNodeAux, 2);
+OSMetaClassDefineReservedUnused(IOFireWireLocalNodeAux, 3);
+
+#pragma mark -
+
+// init
+//
+//
+
+bool IOFireWireLocalNodeAux::init( IOFireWireLocalNode * primary )
+{
+	bool success = true;		// assume success
+	
+	// init super
+	
+    if( !IOFireWireNubAux::init( primary ) )
+        success = false;
+	
+	if( success )
+	{
+	}
+	
+	return success;
+}
+
+// free
+//
+//
+
+void IOFireWireLocalNodeAux::free()
+{	    
+	IOFireWireNubAux::free();
+}
+
+#pragma mark -
+
 OSDefineMetaClassAndStructors(IOFireWireLocalNode, IOFireWireNub)
+
+// init
+//
+//
 
 bool IOFireWireLocalNode::init(OSDictionary * propTable)
 {
@@ -55,6 +107,30 @@ bool IOFireWireLocalNode::init(OSDictionary * propTable)
     fMaxWritePackLog = 11;
     return true;
 }
+
+// createAuxiliary
+//
+// virtual method for creating auxiliary object.  subclasses needing to subclass 
+// the auxiliary object can override this.
+
+IOFireWireNubAux * IOFireWireLocalNode::createAuxiliary( void )
+{
+	IOFireWireLocalNodeAux * auxiliary;
+    
+	auxiliary = new IOFireWireLocalNodeAux;
+
+    if( auxiliary != NULL && !auxiliary->init(this) ) 
+	{
+        auxiliary->release();
+        auxiliary = NULL;
+    }
+	
+    return auxiliary;
+}
+
+// attach
+//
+//
 
 bool IOFireWireLocalNode::attach(IOService * provider )
 {
@@ -67,6 +143,9 @@ bool IOFireWireLocalNode::attach(IOService * provider )
     return(true);
 }
 
+// setNodeProperties
+//
+//
 
 void IOFireWireLocalNode::setNodeProperties(UInt32 gen, UInt16 nodeID,
                                         UInt32 *selfIDs, int numSelfIDs)
@@ -90,6 +169,22 @@ void IOFireWireLocalNode::setNodeProperties(UInt32 gen, UInt16 nodeID,
     prop->release();
 }
 
+IOReturn IOFireWireLocalNode::message( UInt32 mess, IOService * provider,
+                                    void * argument )
+{
+	if( kIOFWMessagePowerStateChanged == mess )
+	{
+		messageClients( mess );
+		return kIOReturnSuccess;
+	}
+	    
+    return IOService::message(mess, provider, argument );
+}
+
+// handleOpen
+//
+//
+
 bool IOFireWireLocalNode::handleOpen( 	IOService *	  forClient,
                             IOOptionBits	  options,
                             void *		  arg )
@@ -105,6 +200,10 @@ bool IOFireWireLocalNode::handleOpen( 	IOService *	  forClient,
     return ok;
 }
 
+// handleClose
+//
+//
+
 void IOFireWireLocalNode::handleClose(   IOService *	  forClient,
                             IOOptionBits	  options )
 {
@@ -116,10 +215,18 @@ void IOFireWireLocalNode::handleClose(   IOService *	  forClient,
 	}
 }
 
+// handleIsOpen
+//
+//
+
 bool IOFireWireLocalNode::handleIsOpen( const IOService * forClient ) const
 {
 	return (fOpenCount > 0 ) ;
 }
+
+// setProperties
+//
+//
 
 IOReturn IOFireWireLocalNode::setProperties( OSObject * properties )
 {

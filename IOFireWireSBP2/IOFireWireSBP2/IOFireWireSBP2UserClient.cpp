@@ -2,21 +2,24 @@
  * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -461,8 +464,8 @@ IOReturn IOFireWireSBP2UserClient::clientClose( void )
 {
     FWKLOG(( "IOFireWireSBP2UserClient : clientClose\n" ));
 
-	IOFireWireController * control = (fProviderLUN->getFireWireUnit())->getController();
-
+	bool has_provider = (getProvider() != NULL);
+	
     if( fLogin )
     {
 		// releasing the login flushes all orbs
@@ -472,18 +475,26 @@ IOReturn IOFireWireSBP2UserClient::clientClose( void )
 
     if( fOpened )
     {
-		flushAllManagementORBs();
-        fProviderLUN->close(this);
-        fOpened = false;
+		if( has_provider )
+		{
+			flushAllManagementORBs();
+			fProviderLUN->close(this);
+        }
+		
+		fOpened = false;
     }
     
 	fStarted = false;
 	
-    //detach( fProviderLUN );
-	terminate( kIOServiceRequired );
+    terminate( kIOServiceRequired );
 	
-	// reset bus - aborts orbs and forces FW to remove unused object
-	control->resetBus();
+	if( has_provider )
+	{
+		IOFireWireController * control = (fProviderLUN->getFireWireUnit())->getController();
+
+		// reset bus - aborts orbs and forces FW to remove unused object
+		control->resetBus();
+	}
 	
 	return kIOReturnSuccess;
 }
@@ -1357,6 +1368,11 @@ IOReturn IOFireWireSBP2UserClient::setPassword( IOFireWireSBP2Login * loginRef, 
         if( !memory )
             status = kIOReturnNoMemory;
     }
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = memory->prepare();
+	}
 
     if( status == kIOReturnSuccess )
     {
@@ -1364,8 +1380,11 @@ IOReturn IOFireWireSBP2UserClient::setPassword( IOFireWireSBP2Login * loginRef, 
     }
 
     if( memory )
-        memory->release();
-
+    {
+		memory->complete();
+	    memory->release();
+	}
+	
     return status;
 }
 
@@ -1583,6 +1602,7 @@ IOReturn IOFireWireSBP2UserClient::setCommandBuffersAsRanges
 	
  	IOMemoryDescriptor * 	rangeDesc = NULL;
 	IOFireWireSBP2ORB * 	orb = NULL;
+	IOVirtualRange * 		rangeBytes = NULL;
 	
     FWKLOG(( "IOFireWireSBP2UserClient : setCommandBuffersAsRanges\n" ));
 
@@ -1597,28 +1617,46 @@ IOReturn IOFireWireSBP2UserClient::setCommandBuffersAsRanges
 	{
 		rangeDesc = IOMemoryDescriptor::withAddress( ranges, 
 													(sizeof(IOVirtualRange) * withCount),
-													 kIODirectionNone, fTask );
+													 kIODirectionOut, fTask );
 		if( !rangeDesc )
             status = kIOReturnNoMemory;
 	}
 	
+	if( status == kIOReturnSuccess )
+	{
+		status = rangeDesc->prepare();
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		rangeBytes = (IOVirtualRange*)IOMalloc( sizeof(IOVirtualRange) * withCount );
+		if( rangeBytes == NULL )
+			status = kIOReturnNoMemory;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		rangeDesc->readBytes( 0, rangeBytes, sizeof(IOVirtualRange) * withCount );
+	}
+	
     if( status == kIOReturnSuccess )
     {
-		IOByteCount rangeTableLength = 0;
-		IOVirtualRange * rangeBytes = (IOVirtualRange *)
-						rangeDesc->getVirtualSegment( 0, &rangeTableLength );
-						 
-		// memory is mapped in until next call to getVirtualSegment
 		status = orb->setCommandBuffersAsRanges(rangeBytes,
                                                 withCount,
-												withDirection,
+												kIODirectionOutIn,
 												fTask,
 												offset,
 												length );
     }
-    
+
+	if( rangeBytes )
+	{
+		IOFree( rangeBytes, sizeof(IOVirtualRange) * withCount );
+	}
+	    
 	if( rangeDesc )
 	{
+		rangeDesc->complete();
 		rangeDesc->release();
 	}
 
@@ -1671,6 +1709,11 @@ IOReturn IOFireWireSBP2UserClient::setCommandBlock
         if( !memory )
             status = kIOReturnNoMemory;
     }
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = memory->prepare();
+	}
 
     if( status == kIOReturnSuccess )
     {
@@ -1678,8 +1721,11 @@ IOReturn IOFireWireSBP2UserClient::setCommandBlock
     }
 
     if( memory )
+	{
+		memory->complete();
         memory->release();
-
+	}
+	
     return status;
 }
 
@@ -1692,6 +1738,7 @@ IOReturn IOFireWireSBP2UserClient::LSIWorkaroundSetCommandBuffersAsRanges
 	IOFireWireSBP2ORB * orb = NULL;
 	
 	IOMemoryDescriptor * 	rangeDesc = NULL;
+	IOVirtualRange * 		rangeBytes = NULL;
 	IOMemoryDescriptor *	memoryDesc = NULL;
     IOFireWireSBP2LSIWorkaroundDescriptor *	workaroundDesc = NULL;
 	
@@ -1707,39 +1754,63 @@ IOReturn IOFireWireSBP2UserClient::LSIWorkaroundSetCommandBuffersAsRanges
 	if( status == kIOReturnSuccess )
 	{
 		rangeDesc = IOMemoryDescriptor::withAddress( ranges, sizeof(IOVirtualRange) * withCount,
-													 kIODirectionNone, fTask );
+													 kIODirectionOut, fTask );
 		if( !rangeDesc )
             status = kIOReturnNoMemory;
 	}
 	
+	if( status == kIOReturnSuccess )
+	{
+		status = rangeDesc->prepare();
+	}
+
+	if( status == kIOReturnSuccess )
+	{
+		rangeBytes = (IOVirtualRange*)IOMalloc( sizeof(IOVirtualRange) * withCount );
+		if( rangeBytes == NULL )
+			status = kIOReturnNoMemory;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		rangeDesc->readBytes( 0, rangeBytes, sizeof(IOVirtualRange) * withCount );
+	}
+	
     if( status == kIOReturnSuccess )
     {
-		IOByteCount rangeTableLength = 0;
-		IOVirtualRange * rangeBytes = (IOVirtualRange*) rangeDesc->getVirtualSegment
-																	( 0, &rangeTableLength ); 
-		// memory is mapped in until next call to getVirtualSegment
-        memoryDesc = IOMemoryDescriptor::withRanges( rangeBytes, withCount,
-														withDirection, fTask );
+		memoryDesc = IOMemoryDescriptor::withRanges( rangeBytes, withCount,
+														kIODirectionOutIn, fTask );
         if( !memoryDesc )
             status = kIOReturnNoMemory;
     }
-    
+
+	if( rangeBytes )
+	{
+		IOFree( rangeBytes, sizeof(IOVirtualRange) * withCount );
+	}
+	    
 	if( rangeDesc )
 	{
+		rangeDesc->complete();
 		rangeDesc->release();
 	}
 	
     if( status == kIOReturnSuccess )
     {
-        status = memoryDesc->prepare( withDirection );
+        status = memoryDesc->prepare();
     }
 
     if( status == kIOReturnSuccess )
     {
 		workaroundDesc = IOFireWireSBP2LSIWorkaroundDescriptor::withDescriptor
-													( memoryDesc, offset, length, withDirection ); 	   
+													( memoryDesc, offset, length, kIODirectionOutIn ); 	   
 		if( !workaroundDesc )
 			status = kIOReturnError;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = workaroundDesc->prepare();
 	}
 	
 	if( status == kIOReturnSuccess )
@@ -2048,6 +2119,11 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBResponseBuffer
             status = kIOReturnNoMemory;
     }
 
+	if( status == kIOReturnSuccess )
+	{
+		status = memory->prepare();
+	}
+	
     if( status == kIOReturnSuccess )
     {
          status = orb->setResponseBuffer( memory );

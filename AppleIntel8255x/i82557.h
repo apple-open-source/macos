@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -42,6 +45,7 @@
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IODeviceMemory.h>
 #include <IOKit/IOInterruptEventSource.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/assert.h>
 
 #include "i82557Inline.h"
@@ -104,10 +108,9 @@ typedef union {
  *   Track a page sized memory block.
  */
 typedef struct {
-    void *	memPtr;
-    UInt	memSize;
-    void *	memAllocPtr;
-    UInt	memAvail;
+    IOBufferMemoryDescriptor * memory;
+    void *                     freeStart;
+    UInt32                     freeBytes;
 } pageBlock_t;
 
 /*
@@ -161,6 +164,7 @@ public:
     UInt8                          phyAddr;
 	UInt32                         phyID;
     UInt16                         phyStatusPrev;
+    UInt8                          txThreshold8;
 
     /* descriptor and control block data structures */
 	pageBlock_t                    shared;
@@ -261,25 +265,27 @@ public:
 	void enableAdapterInterrupts();
 	bool hwInit( bool resetOnly = false );
 	bool iaSetup();
-	bool mcSetup(IOEthernetAddress * addrs, UInt count, bool fromData = false);
+	bool mcSetup(IOEthernetAddress * addrs, UInt32 count, bool update = false);
 	bool nop();
 	void sendPortCommand(port_command_t command, UInt arg);
 	bool getDefaultSettings();
 	void issueReset();
+    bool isCSRValid();
+    bool allocatePageBlock(pageBlock_t * p);
+    void freePageBlock(pageBlock_t * p);
+    bool getPhysAddress(pageBlock_t * p, void * va, IOPhysicalAddress * pa);
+    void * allocateMemoryFrom(pageBlock_t * p, UInt32 size, UInt32 align,
+                              IOPhysicalAddress * paddr = 0);
 
 	bool _selfTest();
-	bool _allocateMemPage(pageBlock_t * p);
-	void _freeMemPage(pageBlock_t * p);
 	void _updateStatistics();
 	bool _dumpStatistics();
 	bool _mdiWritePHY(UInt8 phyAddress, UInt8 regAddress, UInt16 data);
 	bool _mdiReadPHY(UInt8 phyAddress, UInt8 regAddress, UInt16 * data_p);
-	void * _memAllocFrom(pageBlock_t * p, UInt allocSize, UInt align);
 	bool _polledCommand(cbHeader_t * hdr_p, IOPhysicalAddress paddr);
 	bool _abortReceive();
 	bool _startReceive();
 	void _resetChip();
-
 	bool _initTcbQ(bool enable = false);
 	bool _initRfdList(bool enable = false);
 	bool _resetRfdList();

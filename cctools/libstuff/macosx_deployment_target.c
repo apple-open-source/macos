@@ -12,6 +12,7 @@ static const struct macosx_deployment_target_pair
     macosx_deployment_target_pairs[] = {
     { "10.1", MACOSX_DEPLOYMENT_TARGET_10_1 },
     { "10.2", MACOSX_DEPLOYMENT_TARGET_10_2 },
+    { "10.3", MACOSX_DEPLOYMENT_TARGET_10_3 },
     { NULL, 0 }
 };
 

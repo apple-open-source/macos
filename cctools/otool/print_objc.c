@@ -614,7 +614,9 @@ print_objc_class:
 				   "of " SECT_OBJC_SYMBOLS " section\n");
 			printf("\t\t       ivar_count %d\n", 
 				    objc_ivar_list.ivar_count);
-			for(j = 0; j < objc_ivar_list.ivar_count; j++){
+			for(j = 0;
+			    j < (unsigned long)objc_ivar_list.ivar_count;
+			    j++){
 			    if((j + 1) * sizeof(struct objc_ivar) >
 			       ivar_list_left){
 				printf("\t\t remaining ivar's extend past "
@@ -1246,7 +1248,7 @@ enum bool verbose)
 	printf("\t\t     method_count %d\n",
 	       method_list.method_count);
 	
-	for(i = 0; i < method_list.method_count; i++){
+	for(i = 0; i < (unsigned long)method_list.method_count; i++){
 	    if((i + 1) * sizeof(struct objc_method) > methods_left){
 		printf("\t\t remaining method's extend past the of the "
 		       "section\n");
@@ -1326,7 +1328,7 @@ enum bool verbose)
 	printf("        count %d\n",
 	       protocol_list.count);
 	
-	for(i = 0; i < protocol_list.count; i++){
+	for(i = 0; i < (unsigned long)protocol_list.count; i++){
 	    if((i + 1) * sizeof(struct objc_protocol *) > list_left){
 		print_indent(indent);
 		printf(" remaining list entries extend past the of the "
@@ -1451,7 +1453,7 @@ enum bool verbose)
 	print_indent(indent);
 	printf("        count %d\n", mdl.count);
 	
-	for(i = 0; i < mdl.count; i++){
+	for(i = 0; i < (unsigned long)mdl.count; i++){
 	    if((i + 1) * sizeof(struct objc_method_description) > list_left){
 		print_indent(indent);
 		printf(" remaining list entries extend past the of the "

@@ -160,7 +160,11 @@ FWDVIDHCloseDevice(IsochComponentInstancePtr ih);
 
 static OSStatus doAVCTransaction(DeviceDescriptionPtr deviceDescriptionPtr,
                 DVCTransactionParams* inTransaction);
-                
+
+static OSStatus disableRead(DeviceDescription *deviceDescriptionPtr);
+static void disableWrite(DeviceDescription *deviceDescriptionPtr);
+
+
 /* Globals */
 static IsochComponentGlobals globals;
 
@@ -896,6 +900,12 @@ static void deviceMessage(void * refcon, UInt32 messageType, void *messageArgume
                                                                                 kIDHInvalidDeviceID);
         }
         if(deviceDescriptionPtr->fDevice) {
+
+			if(deviceDescriptionPtr->fRead != NULL)
+				disableRead(deviceDescriptionPtr);
+			if(deviceDescriptionPtr->fWrite != NULL)
+				disableWrite(deviceDescriptionPtr);
+
             DVDeviceTerminate(deviceDescriptionPtr->fDevice);
             deviceDescriptionPtr->fDevice = NULL;
         }

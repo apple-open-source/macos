@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -39,15 +42,6 @@
 #include <IOKit/firewire/IOFireWireLib.h>
 
 // === [CFPlugIn support constants] ========================================
-
-//
-// v4 interfaces
-//
-
-//	uuid string: FECAA2F6-4E84-11D7-B6FD-0003938BEB0A
-#define kIOFireWireLocalIsochPortInterfaceID_v4 CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault \
-											,0xFE, 0xCA, 0xA2, 0xF6, 0x4E, 0x84, 0x11, 0xD7\
-											,0xB6, 0xFD, 0x00, 0x03, 0x93, 0x8B, 0xEB, 0x0A )
 
 //
 //	v3 interfaces
@@ -109,8 +103,6 @@ typedef IOReturn	(*IOFireWireLibIsochPortGetSupportedCallback)(
 	IOFireWireLibIsochPortRef		interface,
 	IOFWSpeed*						outMaxSpeed,
 	UInt64*							outChanSupported) ;
-
-typedef IOReturn	(*IOFireWireLibIsochPortFinalizeCallback)( void* refcon ) ;
 
 // ============================================================
 //
@@ -353,31 +345,6 @@ public:
 			[buffer, buffer+size] is not in the range of memory locked
 			down for this program.*/
 	IOReturn	(*ModifyTransferPacketDCL)( IOFireWireLibLocalIsochPortRef self, DCLTransferPacket* inDCL, void* buffer, IOByteCount size ) ;
-
-	//
-	// v4
-	// 
-	
-	/*!	@function SetFinalizeCallback
-		@abstract Set the finalize callback for a local isoch port
-		@discussion When Stop() is called on a LocalIsochPortInterface, there may or
-			may not be isoch callbacks still pending for this isoch port. The port must be allowed
-			to handle any pending callbacks, so the isoch runloop should not be stopped until a port 
-			has handled all pending callbacks. The finalize callback is called after the final 
-			callback has been made on the isoch runloop. After this callback is sent, it is safe
-			to stop the isoch runloop.
-			
-			You should not access the isoch port after the finalize callback has been made; it may
-			be released immediately after this callback is sent.
-						
-			Availability: IOFireWireLocalIsochPortInterface_v4 and newer.
-			
-		@param self The local isoch port interface to use.
-		@param finalizeCalback The finalize callback.
-		@result Returns true if this isoch port has no more pending callbacks and does not
-			need any more runloop time.*/
-	IOReturn		(*SetFinalizeCallback)( IOFireWireLibLocalIsochPortRef self, IOFireWireLibIsochPortFinalizeCallback finalizeCallback ) ;
-	
 } IOFireWireLocalIsochPortInterface ;
 
 // ============================================================

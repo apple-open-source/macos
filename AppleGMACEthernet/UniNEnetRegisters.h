@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -36,16 +39,13 @@
 
 #define TX_DESC_PER_INT         32
 
+#define MAX_SEGS_PER_TX_MBUF	32		// maximum number of segments per Transmit mbuf
 #define NETWORK_BUFSIZE         ((kIOEthernetMaxPacketSize + 7) & ~7)
 
 #define TRANSMIT_QUEUE_SIZE     256		// Overridden by IORegistry value
 
 #define WATCHDOG_TIMER_MS       300
 #define TX_KDB_TIMEOUT          1000
-
-#define PCI_PERIOD_33MHz        30
-#define PCI_PERIOD_66MHz        15
-#define RX_INT_LATENCY_uS       250             
 
 #define kRxHwCksumStartOffset	34 	/* have hardware start Rx checksumming at byte 34	*/
 
@@ -253,7 +253,9 @@
 	};	/* end GMAC_Registers	*/
 
 
-#define kConfiguration_Infinite_Burst	0x00000001
+#define kConfiguration_Infinite_Burst	0x00000001	// for Tx only
+#define kConfiguration_RonPaulBit		0x00000800	// for pci reads at end of infinite burst, next command is memory read multiple
+#define kConfiguration_EnableBug2Fix	0x00001000	// fix Rx hang after overflow
 #define kConfiguration_TX_DMA_Limit		(0x1F << 1)
 #define kConfiguration_RX_DMA_Limit		(0x1F << 6)
 
@@ -316,14 +318,16 @@
 #define kPauseThresholds_OFF_Threshold_Shift	0	// 9 bit fields
 #define kPauseThresholds_ON_Threshold_Shift		12
 
-#define FACTOR33 ((RX_INT_LATENCY_uS * 1000) / (2048 * PCI_PERIOD_33MHz))
-#define FACTOR66 ((RX_INT_LATENCY_uS * 1000) / (2048 * PCI_PERIOD_66MHz))
+	/* 4108 - RxBlanking values:											*/
+	/* The RX_INTR_PACKETS is set to 10.									*/
+	/* The RX_INTR_TIME value is based on the PCI bus speed.				*/
+	/* RX_INTR_TIME = FACTOR33 * 2048 / Bus Speed 	 						*/
+	/* If FACTOR33 is 2, then 2 * 2048 / 33333333 yields 122.8 microseconds	*/
+#define FACTOR33	2			/* for a 33 MHz PCI bus.	*/
+#define FACTOR66	4			/* for a 66 MHz PCI bus.	*/
 
-#define F33 (FACTOR33 << kPauseThresholds_ON_Threshold_Shift )
-#define F66 (FACTOR66 << kPauseThresholds_ON_Threshold_Shift )
-
-#define kRxBlanking_default_33	(F33 | 5)	// 5 pkts since last RX_DONE int
-#define kRxBlanking_default_66	(F66 | 5)
+#define kRxBlanking_default_33	(FACTOR33<<12 | 10)	// 10 pkts since last RX_DONE int
+#define kRxBlanking_default_66	(FACTOR66<<12 | 10)
 
 #define kTxMACSoftwareResetCommand_Reset	1	// 1 bit register
 #define kRxMACSoftwareResetCommand_Reset	1

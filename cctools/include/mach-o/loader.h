@@ -93,9 +93,11 @@ struct mach_header {
 #define	MH_FVMLIB	0x3		/* fixed VM shared library file */
 #define	MH_CORE		0x4		/* core file */
 #define	MH_PRELOAD	0x5		/* preloaded executable file */
-#define	MH_DYLIB	0x6		/* dynamicly bound shared library file*/
+#define	MH_DYLIB	0x6		/* dynamically bound shared library */
 #define	MH_DYLINKER	0x7		/* dynamic link editor */
-#define	MH_BUNDLE	0x8		/* dynamicly bound bundle file */
+#define	MH_BUNDLE	0x8		/* dynamically bound bundle file */
+#define	MH_DYLIB_STUB	0x9		/* shared library stub for static */
+					/*  linking only, no section contents */
 
 /* Constants for the flags field of the mach_header */
 #define	MH_NOUNDEFS	0x1		/* the object file has no undefined
@@ -124,7 +126,7 @@ struct mach_header {
 #define MH_NOMULTIDEFS	0x200		/* this umbrella guarantees no multiple
 					   defintions of symbols in its
 					   sub-images so the two-level namespace
-					   hints can alwasys be used. */
+					   hints can always be used. */
 #define MH_NOFIXPREBINDING 0x400	/* do not have dyld notify the
 					   prebinding agent about this
 					   executable */
@@ -172,11 +174,11 @@ struct load_command {
 #define LC_FVMFILE	0x9	/* fixed VM file inclusion (internal use) */
 #define LC_PREPAGE      0xa     /* prepage command (internal use) */
 #define	LC_DYSYMTAB	0xb	/* dynamic link-edit symbol table info */
-#define	LC_LOAD_DYLIB	0xc	/* load a dynamicly linked shared library */
-#define	LC_ID_DYLIB	0xd	/* dynamicly linked shared lib identification */
+#define	LC_LOAD_DYLIB	0xc	/* load a dynamically linked shared library */
+#define	LC_ID_DYLIB	0xd	/* dynamically linked shared lib ident */
 #define LC_LOAD_DYLINKER 0xe	/* load a dynamic linker */
 #define LC_ID_DYLINKER	0xf	/* dynamic linker identification */
-#define	LC_PREBOUND_DYLIB 0x10	/* modules prebound for a dynamicly */
+#define	LC_PREBOUND_DYLIB 0x10	/* modules prebound for a dynamically */
 				/*  linked shared library */
 #define	LC_ROUTINES	0x11	/* image routines */
 #define	LC_SUB_FRAMEWORK 0x12	/* sub framework */
@@ -185,7 +187,10 @@ struct load_command {
 #define	LC_SUB_LIBRARY  0x15	/* sub library */
 #define	LC_TWOLEVEL_HINTS 0x16	/* two-level namespace lookup hints */
 #define	LC_PREBIND_CKSUM  0x17	/* prebind checksum */
-/* load a dynamicly linked shared library that is allowed to be missing (weak)*/
+/*
+ * load a dynamically linked shared library that is allowed to be missing
+ * (all symbols are weak imported).
+ */
 #define	LC_LOAD_WEAK_DYLIB (0x18 | LC_REQ_DYLD)
 
 /*
@@ -439,9 +444,9 @@ struct dylib {
 };
 
 /*
- * A dynamicly linked shared library (filetype == MH_DYLIB in the mach header)
+ * A dynamically linked shared library (filetype == MH_DYLIB in the mach header)
  * contains a dylib_command (cmd == LC_ID_DYLIB) to identify the library.
- * An object that uses a dynamicly linked shared library also contains a
+ * An object that uses a dynamically linked shared library also contains a
  * dylib_command (cmd == LC_LOAD_DYLIB or cmd == LC_LOAD_WEAK_DYLIB) for each
  * library it uses.
  */
@@ -619,7 +624,7 @@ struct symtab_command {
 
 /*
  * This is the second set of the symbolic information which is used to support
- * the data structures for the dynamicly link editor.
+ * the data structures for the dynamically link editor.
  *
  * The original set of symbolic information in the symtab_command which contains
  * the symbol and string tables must also be present when this load command is
@@ -640,7 +645,7 @@ struct symtab_command {
  *	reference symbol table
  *	indirect symbol table
  * The first three tables above (the table of contents, module table and
- * reference symbol table) are only present if the file is a dynamicly linked
+ * reference symbol table) are only present if the file is a dynamically linked
  * shared library.  For executable and object modules, which are files
  * containing only one module, the information that would be in these three
  * tables is determined as follows:
@@ -649,7 +654,7 @@ struct symtab_command {
  *		       file is part of the module.
  *	reference symbol table - is the defined and undefined external symbols
  *
- * For dynamicly linked shared library files this load command also contains
+ * For dynamically linked shared library files this load command also contains
  * offsets and sizes to the pool of relocation entries for all sections
  * separated into two groups:
  *	external relocation entries
@@ -674,7 +679,7 @@ struct dysymtab_command {
      *
      * The last two groups are used by the dynamic binding process to do the
      * binding (indirectly through the module table and the reference symbol
-     * table when this is a dynamicly linked shared library file).
+     * table when this is a dynamically linked shared library file).
      */
     unsigned long ilocalsym;	/* index to local symbols */
     unsigned long nlocalsym;	/* number of local symbols */
@@ -689,7 +694,7 @@ struct dysymtab_command {
      * For the for the dynamic binding process to find which module a symbol
      * is defined in the table of contents is used (analogous to the ranlib
      * structure in an archive) which maps defined external symbols to modules
-     * they are defined in.  This exists only in a dynamicly linked shared
+     * they are defined in.  This exists only in a dynamically linked shared
      * library file.  For executable and object modules the defined external
      * symbols are sorted by name and is use as the table of contents.
      */
@@ -701,7 +706,7 @@ struct dysymtab_command {
      * table must reflect the modules that the file was created from.  This is
      * done by having a module table that has indexes and counts into the merged
      * tables for each module.  The module structure that these two entries
-     * refer to is described below.  This exists only in a dynamicly linked
+     * refer to is described below.  This exists only in a dynamically linked
      * shared library file.  For executable and object modules the file only
      * contains one module so everything in the file belongs to the module.
      */
@@ -713,7 +718,7 @@ struct dysymtab_command {
      * indicates the external references (defined and undefined) each module
      * makes.  For each module there is an offset and a count into the
      * reference symbol table for the symbols that the module references.
-     * This exists only in a dynamicly linked shared library file.  For
+     * This exists only in a dynamically linked shared library file.  For
      * executable and object modules the defined external symbols and the
      * undefined external symbols indicates the external references.
      */
@@ -921,4 +926,4 @@ struct fvmfile_command {
 	unsigned long	header_addr;	/* files virtual address */
 };
 
-#endif _MACHO_LOADER_H_
+#endif /* _MACHO_LOADER_H_ */

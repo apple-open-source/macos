@@ -1,3 +1,7 @@
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes in preparation to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile and added RC_OS = macos
+
 Changes for the 5.10 release (the cctools-400 release):
 - Changed the Makefile back to again use the -dependency-file with gcc.
 

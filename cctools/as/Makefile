@@ -11,7 +11,7 @@ ifeq "macos" "$(RC_OS)"
 endif
 
 ifneq "mwccppc" "$(notdir $(CC))"
-  GCC_FLAGS = -Wall -Wno-precomp $(X_CFLAGS)
+  GCC_FLAGS = -Wall $(X_CFLAGS)
 endif
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
@@ -363,9 +363,9 @@ installsrc installGASsrc:
 install: all $(RC_OS)_install
 
 macos_install: common_install xcommon_install
-	$(MKDIRS) $(DSTROOT)$(LOCLIBDIR)/i386
+	$(MKDIRS) $(DSTROOT)$(LIBDIR)/i386
 	install -c -s -m 555 $(SYMROOT)/a386_dir/as \
-		$(DSTROOT)$(LOCLIBDIR)/i386/as
+		$(DSTROOT)$(LIBDIR)/i386/as
 
 teflon_install: common_install xcommon_install
 	$(MKDIRS) $(DSTROOT)$(LIBDIR)/i386

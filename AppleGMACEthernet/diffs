@@ -1,0 +1,77 @@
+? diffs
+Index: UniNEnetPrivate.cpp
+===================================================================
+RCS file: /cvs/root/IO/Drivers/Ethernet/AppleGMACEthernet/UniNEnetPrivate.cpp,v
+retrieving revision 1.50
+retrieving revision 1.51
+diff -u -d -b -w -r1.50 -r1.51
+--- UniNEnetPrivate.cpp	2003/03/21 22:55:28	1.50
++++ UniNEnetPrivate.cpp	2003/04/07 18:13:20	1.51
+@@ -418,8 +418,6 @@
+ 
+ 		IODelay( 100 );   
+ 					
+-		miiResetPHY();
+-
+ 		miiReadWord( &phyWord, MII_BCM5400_AUXCONTROL );
+ 		phyWord &= ~MII_BCM5400_AUXCONTROL_PWR10BASET;
+ 		miiWriteWord( phyWord, MII_BCM5400_AUXCONTROL );
+@@ -462,8 +460,6 @@
+ 
+ 		IODelay( 10 );
+ 
+-		miiResetPHY();			// reset PHY to renegotiate link speed with partner
+-
+ 		fpgMediumTable		= gMediumTableGigabit;
+ 		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
+ 	}/* end else IF 5401 */
+@@ -486,8 +482,6 @@
+ 		miiWriteWord( phyWord, MII_1000BASETCONTROL );
+ 
+ 		IODelay( 10 );
+-
+-		miiResetPHY();
+ 
+ 		fpgMediumTable		= gMediumTableGigabit;
+ 		fMediumTableCount	=  sizeof( gMediumTableGigabit ) / sizeof( MediumTable ) ;
+Index: UniNPowerSaver.cpp
+===================================================================
+RCS file: /cvs/root/IO/Drivers/Ethernet/AppleGMACEthernet/UniNPowerSaver.cpp,v
+retrieving revision 1.18
+diff -u -d -b -w -r1.18 UniNPowerSaver.cpp
+--- UniNPowerSaver.cpp	2003/03/21 22:55:28	1.18
++++ UniNPowerSaver.cpp	2003/04/07 18:15:50
+@@ -380,6 +380,7 @@
+ ///	if ( result != kIOReturnSuccess )
+ ///		return false;
+ 
++	phyId = fK2 ? 1 : 0;
+ 	if ( phyId != 0xFF )
+ 	{		// If PHY location is known, clear Powerdown and reset:
+ 		miiWriteWord( MII_CONTROL_RESET, MII_CONTROL );
+Index: AppleGMACEthernet.pbproj/project.pbxproj
+===================================================================
+RCS file: /cvs/root/IO/Drivers/Ethernet/AppleGMACEthernet/AppleGMACEthernet.pbproj/project.pbxproj,v
+retrieving revision 1.44
+retrieving revision 1.46
+diff -u -d -b -w -r1.44 -r1.46
+--- project.pbxproj	2003/03/21 22:55:29	1.44
++++ project.pbxproj	2003/04/07 18:13:20	1.46
+@@ -146,7 +146,7 @@
+ 				LIBRARY_SEARCH_PATHS = "";
+ 				MODULE_IOKIT = YES;
+ 				MODULE_NAME = com.apple.iokit.AppleGMACEthernet;
+-				MODULE_VERSION = 1.3.0b8;
++				MODULE_VERSION = 1.3.0b10;
+ 				OTHER_CFLAGS = "";
+ 				OTHER_LDFLAGS = "";
+ 				OTHER_REZFLAGS = "";
+@@ -185,7 +185,7 @@
+ 	<key>CFBundleSignature</key>
+ 	<string>????</string>
+ 	<key>CFBundleVersion</key>
+-	<string>1.3.0b8</string>
++	<string>1.3.0b10</string>
+ 	<key>IOKitPersonalities</key>
+ 	<dict>
+ 		<key>PCI Matching</key>

@@ -235,6 +235,7 @@ int argc,
 char **argv,
 char **envp)
 {
+    int a;
     unsigned long i, j, used, max, size;
     char *endp, *user, *dylib_table_name, *base_name, *short_name,
 	 *image_file_name;
@@ -316,9 +317,9 @@ char **envp)
 
 	info.release_name = NULL;
 
-	for(i = 1; i < argc; i++){
-	    if(argv[i][0] == '-'){
-		if(strcmp(argv[i], "-relayout") == 0){
+	for(a = 1; a < argc; a++){
+	    if(argv[a][0] == '-'){
+		if(strcmp(argv[a], "-relayout") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -326,7 +327,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    relayout = TRUE;
 		}
-		else if(strcmp(argv[i], "-update") == 0){
+		else if(strcmp(argv[a], "-update") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -334,7 +335,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    update = TRUE;
 		}
-		else if(strcmp(argv[i], "-checkonly") == 0){
+		else if(strcmp(argv[a], "-checkonly") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -342,7 +343,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    checkonly = TRUE;
 		}
-		else if(strcmp(argv[i], "-update_overlaps") == 0){
+		else if(strcmp(argv[a], "-update_overlaps") == 0){
 		    if(operation_specified == TRUE &&
 		       relayout_nonsplit == FALSE){
 			error("more than one operation specified");
@@ -351,7 +352,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    update_overlaps = TRUE;
 		}
-		else if(strcmp(argv[i], "-create") == 0){
+		else if(strcmp(argv[a], "-create") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -359,7 +360,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    create = TRUE;
 		}
-		else if(strcmp(argv[i], "-relayout_nonsplit") == 0){
+		else if(strcmp(argv[a], "-relayout_nonsplit") == 0){
 		    if(operation_specified == TRUE && update_overlaps == FALSE){
 			error("more than one operation specified");
 			usage();
@@ -367,7 +368,7 @@ char **envp)
 		    operation_specified = TRUE;
 	 	    relayout_nonsplit = TRUE;
 		}
-		else if(strcmp(argv[i], "-from_dylib_table") == 0){
+		else if(strcmp(argv[a], "-from_dylib_table") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -375,7 +376,7 @@ char **envp)
 		    operation_specified = TRUE;
 		    from_dylib_table = TRUE;
 		}
-		else if(strcmp(argv[i], "-create_dylib_table") == 0){
+		else if(strcmp(argv[a], "-create_dylib_table") == 0){
 		    if(operation_specified == TRUE){
 			error("more than one operation specified");
 			usage();
@@ -383,172 +384,172 @@ char **envp)
 		    operation_specified = TRUE;
 		    create_dylib_table = TRUE;
 		}
-		else if(strcmp(argv[i], "-seg_addr_table") == 0){
-		    if(i + 1 == argc){
-			error("missing argument(s) to %s option", argv[i]);
+		else if(strcmp(argv[a], "-seg_addr_table") == 0){
+		    if(a + 1 == argc){
+			error("missing argument(s) to %s option", argv[a]);
 			usage();
 		    }
 		    if(info.seg_addr_table != NULL){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
-		    info.seg_addr_table_name = argv[i+1];
-		    info.seg_addr_table = parse_seg_addr_table(argv[i+1],
-					  argv[i], argv[i+1], &info.table_size);
-		    i++;
+		    info.seg_addr_table_name = argv[a+1];
+		    info.seg_addr_table = parse_seg_addr_table(argv[a+1],
+					  argv[a], argv[a+1], &info.table_size);
+		    a++;
 		}
-		else if(strcmp(argv[i], "-dylib_table") == 0){
-		    if(i + 1 == argc){
-			error("missing argument(s) to %s option", argv[i]);
+		else if(strcmp(argv[a], "-dylib_table") == 0){
+		    if(a + 1 == argc){
+			error("missing argument(s) to %s option", argv[a]);
 			usage();
 		    }
 		    if(dylib_table_name != NULL){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
-		    dylib_table_name = argv[i+1];
-		    dylib_table = parse_dylib_table(argv[i+1], argv[i],
-						    argv[i+1]);
-		    i++;
+		    dylib_table_name = argv[a+1];
+		    dylib_table = parse_dylib_table(argv[a+1], argv[a],
+						    argv[a+1]);
+		    a++;
 		}
 		/* specify the address (in hex) of the first segment
 		   -seg1addr <address> */
-		else if(strcmp(argv[i], "-seg1addr") == 0){
-		    if(i + 1 >= argc){
-			error("%s: argument missing", argv[i]);
+		else if(strcmp(argv[a], "-seg1addr") == 0){
+		    if(a + 1 >= argc){
+			error("%s: argument missing", argv[a]);
 			usage();
 		    }
 		    if(seg1addr_specified == TRUE){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
-		    info.seg1addr = strtoul(argv[i+1], &endp, 16);
+		    info.seg1addr = strtoul(argv[a+1], &endp, 16);
 		    if(*endp != '\0')
 			fatal("address for %s %s not a proper "
-			      "hexadecimal number", argv[i], argv[i+1]);
+			      "hexadecimal number", argv[a], argv[a+1]);
 		    seg1addr_specified = TRUE;
-		    i++;
+		    a++;
 		}
 		/* specify which way to allocate flat libraries
 		   -allocate_flat increasing
 			or
 		   -allocate_flat decreasing */
-		else if(strcmp(argv[i], "-allocate_flat") == 0){
-		    if(i + 1 >= argc){
-			error("%s: argument missing", argv[i]);
+		else if(strcmp(argv[a], "-allocate_flat") == 0){
+		    if(a + 1 >= argc){
+			error("%s: argument missing", argv[a]);
 			usage();
 		    }
 		    if(allocate_flat_specified == TRUE){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
-		    if(strcmp(argv[i+1], "increasing") == 0)
+		    if(strcmp(argv[a+1], "increasing") == 0)
 			info.allocate_flat_increasing = TRUE;
-		    else if(strcmp(argv[i+1], "decreasing") == 0)
+		    else if(strcmp(argv[a+1], "decreasing") == 0)
 			info.allocate_flat_increasing = FALSE;
 		    else
 			fatal("argument: %s for %s not valid (can be either "
-			      "increasing or decreasing)", argv[i+1], argv[i]);
+			      "increasing or decreasing)", argv[a+1], argv[a]);
 		    allocate_flat_specified = TRUE;
-		    i++;
+		    a++;
 		}
 		/* specify the address (in hex) of the read-only segments
 		   -segs_read_only_addr <address> */
-		else if(strcmp(argv[i], "-segs_read_only_addr") == 0){
-		    if(i + 1 >= argc){
-			error("%s: argument missing", argv[i]);
+		else if(strcmp(argv[a], "-segs_read_only_addr") == 0){
+		    if(a + 1 >= argc){
+			error("%s: argument missing", argv[a]);
 			usage();
 		    }
 		    if(segs_read_only_addr_specified == TRUE){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
 		    info.segs_read_only_addr =
-			strtoul(argv[i+1], &endp, 16);
+			strtoul(argv[a+1], &endp, 16);
 		    info.start_segs_read_only_addr = info.segs_read_only_addr;
 		    if(*endp != '\0')
 			fatal("address for %s %s not a proper "
-			      "hexadecimal number", argv[i], argv[i+1]);
+			      "hexadecimal number", argv[a], argv[a+1]);
 		    segs_read_only_addr_specified = TRUE;
-		    i++;
+		    a++;
 		}
 		/* specify the address (in hex) of the read-write segments
 		   -segs_read_write_addr <address> */
-		else if(strcmp(argv[i], "-segs_read_write_addr") == 0){
-		    if(i + 1 >= argc){
-			error("%s: argument missing", argv[i]);
+		else if(strcmp(argv[a], "-segs_read_write_addr") == 0){
+		    if(a + 1 >= argc){
+			error("%s: argument missing", argv[a]);
 			usage();
 		    }
 		    if(segs_read_write_addr_specified == TRUE){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
 		    info.segs_read_write_addr =
-			strtoul(argv[i+1], &endp, 16);
+			strtoul(argv[a+1], &endp, 16);
 		    info.start_segs_read_write_addr = info.segs_read_write_addr;
 		    if(*endp != '\0')
 			fatal("address for %s %s not a proper "
-			      "hexadecimal number", argv[i], argv[i+1]);
+			      "hexadecimal number", argv[a], argv[a+1]);
 		    segs_read_write_addr_specified = TRUE;
-		    i++;
+		    a++;
 		}
-		else if(strcmp(argv[i], "-arch") == 0){
-		    if(i + 1 == argc){
-			error("missing argument(s) to %s option", argv[i]);
+		else if(strcmp(argv[a], "-arch") == 0){
+		    if(a + 1 == argc){
+			error("missing argument(s) to %s option", argv[a]);
 			usage();
 		    }
-		    if(strcmp("all", argv[i+1]) == 0){
+		    if(strcmp("all", argv[a+1]) == 0){
 			info.all_archs = TRUE;
 		    }
 		    else{
 			info.arch_flags = reallocate(info.arch_flags,
 						     (info.narch_flags + 1) *
 						     sizeof(struct arch_flag));
-			if(get_arch_from_flag(argv[i+1],
+			if(get_arch_from_flag(argv[a+1],
 				      info.arch_flags + info.narch_flags) == 0){
 			    error("unknown architecture specification flag: "
-				  "%s %s", argv[i], argv[i+1]);
+				  "%s %s", argv[a], argv[a+1]);
 			    arch_usage();
 			    usage();
 			}
 			info.narch_flags++;
 		    }
-		    i++;
+		    a++;
 		}
-		else if(strcmp(argv[i], "-o") == 0){
-		    if(i + 1 == argc){
-			error("missing argument(s) to %s option", argv[i]);
+		else if(strcmp(argv[a], "-o") == 0){
+		    if(a + 1 == argc){
+			error("missing argument(s) to %s option", argv[a]);
 			usage();
 		    }
 		    if(info.output_file_name != NULL){
-			error("more than one: %s %s option", argv[i],argv[i+1]);
+			error("more than one: %s %s option", argv[a],argv[a+1]);
 			usage();
 		    }
-		    info.output_file_name = argv[i+1];
-		    i++;
+		    info.output_file_name = argv[a+1];
+		    a++;
 		}
-		else if(strcmp(argv[i], "-release") == 0){
-		    if(i + 1 == argc){
-			error("missing argument(s) to %s option", argv[i]);
+		else if(strcmp(argv[a], "-release") == 0){
+		    if(a + 1 == argc){
+			error("missing argument(s) to %s option", argv[a]);
 			usage();
 		    }
 		    if(info.release_name != NULL){
-			error("more than one: %s option", argv[i]);
+			error("more than one: %s option", argv[a]);
 			usage();
 		    }
-		    info.release_name = argv[i+1];
-		    i++;
+		    info.release_name = argv[a+1];
+		    a++;
 		}
-		else if(strcmp(argv[i], "-disablewarnings") == 0){
+		else if(strcmp(argv[a], "-disablewarnings") == 0){
 		    info.disablewarnings = TRUE;
 		}
 		else{
-		    error("unknown option: %s\n", argv[i]);
+		    error("unknown option: %s\n", argv[a]);
 		    usage();
 		}
 	    }
 	    else{
-		error("unknown argument: %s\n", argv[i]);
+		error("unknown argument: %s\n", argv[a]);
 		usage();
 	    }
 	}
@@ -1191,7 +1192,7 @@ char **envp)
 		    info.segs_read_write_addr += size;
 		    if((info.layout_info[i]->segs_read_only_addr &
 			SPLIT_OVERFLOW_MASK) !=
-		       (info.segs_read_only_addr & SPLIT_OVERFLOW_MASK))
+		       (info.default_read_only_addr & SPLIT_OVERFLOW_MASK))
 			error("read-only address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1200,7 +1201,7 @@ char **envp)
 			      entry->install_name);
 		    if((info.layout_info[i]->segs_read_write_addr &
 			SPLIT_OVERFLOW_MASK) !=
-		       (info.segs_read_write_addr & SPLIT_OVERFLOW_MASK))
+		       (info.default_read_write_addr & SPLIT_OVERFLOW_MASK))
 			error("read-write address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1352,7 +1353,7 @@ char **envp)
 		    info.segs_read_write_addr += size;
 		    if((info.layout_info[i]->segs_read_only_addr &
 			SPLIT_OVERFLOW_MASK) !=
-		       (info.segs_read_only_addr & SPLIT_OVERFLOW_MASK))
+		       (info.default_read_only_addr & SPLIT_OVERFLOW_MASK))
 			error("read-only address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1361,7 +1362,7 @@ char **envp)
 			      entry->install_name);
 		    if((info.layout_info[i]->segs_read_write_addr &
 			SPLIT_OVERFLOW_MASK) !=
-		       (info.segs_read_write_addr & SPLIT_OVERFLOW_MASK))
+		       (info.default_read_write_addr & SPLIT_OVERFLOW_MASK))
 			error("read-write address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1661,7 +1662,7 @@ struct info *info,
 unsigned long size)
 {
     unsigned long seg1addr, start, end;
-    long i;
+    unsigned long i;
 
 	if(info->allocate_flat_increasing == TRUE){
 	    seg1addr = info->seg1addr;

@@ -3,6 +3,11 @@
 SRCS +=                   pthread_cond.c pthread_tsd.c pthread.c \
         pthread_mutex.c    thread_setup.c lock.s   stack.s pthread_rwlock.c
 
+# machine-dependent pthreads sources
+.if exists(${.CURDIR}/${MACHINE_ARCH}/pthreads/Makefile.inc)
+.include "${.CURDIR}/${MACHINE_ARCH}/pthreads/Makefile.inc"
+.endif
+
 PTHREADS_INSTHDRS += pthread.h pthread_impl.h sched.h
 PTHREADS_INSTHDRS := ${PTHREADS_INSTHDRS:S/^/${.CURDIR}\/pthreads\//}
 INSTHDRS += ${PTHREADS_INSTHDRS}

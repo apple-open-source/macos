@@ -122,7 +122,7 @@ IOPCCard16Enabler::attach(IOPCCard16Device *provider)
     device->retain();
 
     handle = device->getCardServicesHandle();
-    state = DEV_PRESENT | DEV_CONFIG_PENDING;
+    state = DEV_PRESENT;
 
     return true;
 }
@@ -193,9 +193,9 @@ if (CardServices(fn, args) != 0) goto next_entry
 
 
 bool
-IOPCCard16Enabler::configure(UInt32 index = 0)
+IOPCCard16Enabler::configure(UInt32 index /* = 0 */)
 {
-    bool success;
+    bool success, success2;
     IOPCCardBridge * bridge;
     IODeviceMemory * ioMemory;
 
@@ -205,10 +205,13 @@ IOPCCard16Enabler::configure(UInt32 index = 0)
     if (success = !array) goto exit;
 
     /* Configure card */
-    state |= DEV_CONFIG | DEV_CONFIG_PENDING;
+    state |= DEV_CONFIG_PENDING;
 
     success = getConfigurations();
-    if (!success) goto exit;
+    if (!success) {
+	state &= ~DEV_CONFIG_PENDING;
+	goto exit;
+    }
 
     if (index) {
 	success = tryConfiguration(index);
@@ -220,14 +223,21 @@ IOPCCard16Enabler::configure(UInt32 index = 0)
 	    if (success) break;
 	}
     }
-    if (!success) goto exit;
+    if (!success) {
+	state &= ~DEV_CONFIG_PENDING;
+	goto exit;
+    }
     
     // go for it
+    state |= DEV_CONFIG;
     bridge = (IOPCCardBridge *)device->getProvider();
-    success = bridge->configureSocket((IOService *)device, &configuration) == 0;
-    if (!success) goto exit;
 
+    success = bridge->configureSocket((IOService *)device, &configuration) == 0;
     state &= ~DEV_CONFIG_PENDING;
+    if (!success) {
+	state &= ~DEV_CONFIG;
+	goto exit;
+    }
 
     /* Finally, report what we've done */
     printk(KERN_INFO "IOPCCard16Enabler::configure using index 0x%02x: Vcc %d.%d",
@@ -239,6 +249,9 @@ IOPCCard16Enabler::configure(UInt32 index = 0)
     if (configuration.Attributes & CONF_ENABLE_IRQ)
 	printk(", irq %d", irq.AssignedIRQ);
 	
+    extern IORangeAllocator * gSharedMemoryRange;
+    extern IORangeAllocator * gSharedIORange;
+
     memoryWindowCount = 0;
     for (int i=0; i < CISTPL_MEM_MAX_WIN; i++) {
 	if (win[i]) {
@@ -246,11 +259,14 @@ IOPCCard16Enabler::configure(UInt32 index = 0)
 
 	    IODeviceMemory * range = IODeviceMemory::withRange(req[i].Base, req[i].Size);
 	    if (success = !range) goto exit;
-	    range->setTag(req[i].Attributes);
+	    range->setTag(IOPCCARD16_MEMORY_WINDOW);
 	    success = array->setObject(range);
 	    range->release();
 	    if (!success) goto exit;
 
+	    success2 = gSharedMemoryRange->allocateRange(req[i].Base, req[i].Size);
+	    if (!success2) IOLog("\nIOPCCard16Enabler: bad mem range %d(%08lx:%08lx)\n",
+				req[i].Attributes, req[i].Base, req[i].Size);
 	    memoryWindowCount++;
 	}
     }
@@ -264,11 +280,14 @@ IOPCCard16Enabler::configure(UInt32 index = 0)
 
 	IODeviceMemory * range = IODeviceMemory::withSubRange(ioMemory, io.BasePort1, io.NumPorts1);
 	if (!range) goto exit;
-	range->setTag(io.Attributes1);
+	range->setTag(IOPCCARD16_IO_WINDOW);
 	success = array->setObject(range);
 	range->release();
 	if (!success) goto exit;
 
+	success2 = gSharedIORange->allocateRange(io.BasePort1, io.NumPorts1);
+        if (!success2) IOLog("\nIOPCCard16Enabler: bad io range %d(%08lx:%08lx)\n",
+			    io.Attributes1, io.BasePort1, io.NumPorts1);
 	ioWindowCount++;
     }
     if (io.NumPorts2) {
@@ -276,11 +295,14 @@ IOPCCard16Enabler::configure(UInt32 index = 0)
 
 	IODeviceMemory * range = IODeviceMemory::withSubRange(ioMemory, io.BasePort2, io.NumPorts2);
 	if (!range) goto exit;
-	range->setTag(io.Attributes2);
+	range->setTag(IOPCCARD16_IO_WINDOW);
 	success = array->setObject(range);
 	range->release();
 	if (!success) goto exit;
 
+	success2 = gSharedIORange->allocateRange(io.BasePort2, io.NumPorts2);
+        if (!success2) IOLog("\nIOPCCard16Enabler: bad io range %d(%08lx:%08lx)\n",
+			    io.Attributes2, io.BasePort2, io.NumPorts2);
 	ioWindowCount++;
     }
     printk("\n");
@@ -302,12 +324,12 @@ IOPCCard16Enabler::unconfigure()
 {
     DEBUG(0, "IOPCCard16Enabler::unconfigure\n");
 
-    if (!(state & DEV_CONFIG)) return true;
-
-    if (!(state & DEV_CONFIG_PENDING)) {
+    if (state & DEV_CONFIG) {
 	IOPCCardBridge * bridge = (IOPCCardBridge *)device->getProvider();
 	(void)bridge->unconfigureSocket((IOService *)device);
     }
+
+    if (!(state & (DEV_CONFIG | DEV_CONFIG_PENDING))) return true;
 
     if (io.NumPorts1) CardServices(ReleaseIO, handle, &io);
 
@@ -458,7 +480,7 @@ IOPCCard16Enabler::tryConfiguration(UInt32 index)
     int last_fn, last_ret;
     config_info_t conf;
 
-    DEBUG(1, "IOPCCard16Enabler::tryConfiguration(0x%d)\n", index);
+    DEBUG(1, "IOPCCard16Enabler::tryConfiguration(0x%x)\n", index);
     if (!(state & DEV_CONFIG_PENDING)) return false;
     if (!index) return false;
 
@@ -473,7 +495,7 @@ IOPCCard16Enabler::tryConfiguration(UInt32 index)
 	}
     }
     if (!cfg) {
-	    DEBUG(1, "IOPCCard16Enabler::tryConfiguration() - can't find index 0x%x?\n", index);
+	    DEBUG(1, "IOPCCard16Enabler::tryConfiguration(?) - can't find index 0x%x?\n", index);
 	    return false;
     }
 
@@ -490,16 +512,28 @@ IOPCCard16Enabler::tryConfiguration(UInt32 index)
     CS_CHECK(GetConfigurationInfo, handle, &conf);
     configuration.Vcc = conf.Vcc;
 
-#ifndef __MACOSX__
+    // MACOSXXX - changing the voltage like this doesn't work and
+    // ignoring configuration entries with voltages that differ from
+    // what the sense pins claim doesn't work either, some cards
+    // really want to change.  for now, just ignore the whole issue.
+    // whatever the power sense pins claim is what the card gets.
+    // see radars 2776059 and 3239499
+
     /* Use power settings for Vcc and Vpp if present */
-    /*  Note that the CIS values need to be rescaled */
+    /* Note that the CIS values need to be rescaled */
     if (cfg->vcc.present & (1<<CISTPL_POWER_VNOM)) {
 	if (conf.Vcc != cfg->vcc.param[CISTPL_POWER_VNOM]/10000) {
-	    DEBUG(1, "IOPCCard16Enabler::tryConfiguration() - invalid power request in index 0x%x?\n", index);
+	    DEBUG(1, "IOPCCard16Enabler::tryConfiguration(0x%x): requested Vcc %d != voltage sense pins %d\n",
+		  index, cfg->vcc.param[CISTPL_POWER_VNOM]/10000, conf.Vcc);
+#ifdef NOTNOW
+#ifdef __MACOSX__
+	    configuration.Vcc = cfg->vcc.param[CISTPL_POWER_VNOM]/10000;
+#else
 	    return false;
+#endif
+#endif    
 	}
     }
-#endif
 	    
     if (cfg->vpp1.present & (1<<CISTPL_POWER_VNOM)) {
 	configuration.Vpp1 = configuration.Vpp2 = 
@@ -523,7 +557,7 @@ IOPCCard16Enabler::tryConfiguration(UInt32 index)
 	    io.BasePort2 = io_tpl->win[1].base;
 	    io.NumPorts2 = io_tpl->win[1].len;
 	}
- 
+
 	/* This reserves IO space but doesn't actually enable it */
 	CS_CHECK(RequestIO, handle, &io);
 
@@ -558,11 +592,11 @@ IOPCCard16Enabler::tryConfiguration(UInt32 index)
     }
 	
     /* If we got this far, we're cool! */
-    DEBUG(1, "IOPCCard16Enabler::tryConfiguration(%d) was successful, \n", index);
+    DEBUG(1, "IOPCCard16Enabler::tryConfiguration(0x%x) was successful, \n", index);
     return true;
 	
  cs_failed:
-    DEBUG(1, "IOPCCard16Enabler::tryConfiguration(%d) had problems, \n", index);
+    DEBUG(1, "IOPCCard16Enabler::tryConfiguration(0x%x) had problems, \n", index);
     cs_error(handle, last_fn, last_ret);
 
     unconfigure();

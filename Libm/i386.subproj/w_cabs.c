@@ -12,7 +12,7 @@ __RCSID("$NetBSD: w_cabs.c,v 1.4 2001/01/06 00:15:00 christos Exp $");
 
 #include <math.h>
 
-double cabs ( _complex z )
+double cabs ( __complex_t z )
 {
 	return hypot(z.Real, z.Imag);
 }

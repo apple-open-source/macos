@@ -26,6 +26,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* HP-PA support for Mach-O ... USV */
 
 #include <stdio.h>
+#include <stddef.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -1367,7 +1368,7 @@ the_insn.exp.X_add_symbol->sy_nlist.n_un.n_name,"L0\001") == 0 ) {
 		if (match == FALSE)
 		{
 		/* Args don't match.  */
-			if (&insn[1] - pa_opcodes < NUMOPCODES
+			if (&insn[1] - pa_opcodes < (ptrdiff_t)NUMOPCODES
 				&& !strcmp(insn->name, insn[1].name))
 			{
 				++insn;

@@ -16,6 +16,7 @@
             Makefile.preamble, 
             Makefile, 
             Makefile.postamble, 
+            fsck_hfs.8, 
             makestrings
         ); 
         SUBPROJECTS = (); 

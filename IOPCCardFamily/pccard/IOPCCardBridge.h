@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -32,7 +35,6 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 
-#include <IOKit/IOCommandGate.h>
 #include <IOKit/IODeviceMemory.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOInterruptEventSource.h>
@@ -51,8 +53,9 @@
 #define kIOPCCardFunctionExtensionMatchKey	"FunctionExtension"
 #define kIOPCCardMemoryDeviceNameMatchKey	"MemoryDeviceName"
 
-// used to pass CS calls thru the command gate
-extern IOCommandGate	*gIOPCCardCommandGate; 
+// used to syncronize CS calls thru the work loop
+extern IOWorkLoop *		gIOPCCardWorkLoop;
+extern void *			gCardServicesGate;
 
 // extra calls into the command gate
 // anything >= 0 is assumed to be a CS call
@@ -89,18 +92,15 @@ class IOPCCardBridge : public IOPCI2PCIBridge
 private:
     IOMemoryMap *		cardBusRegisterMap;
     IOPCIDevice *		bridgeDevice;
-    IODeviceMemory * 		dynamicBridgeSpace;
-    IODeviceMemory *		dynamicBridgeIOSpace;
 
     IOPCCardInterruptController * interruptController;
     OSSymbol * 			interruptControllerName;
-
     IOInterruptEventSource *	interruptSource;
-
     interrupt_handler_t *	interruptHandlers;
 
-    bool			pciExpansionChassis;		// OF has scanned and configured this card and its subordinates
-
+    bool			pciExpansionChassis;		// OF has already scanned and configured
+								// this card and its subordinates
+    bool			bridgeStateSaved;
     UInt32			bridgeConfig[kIOPCCardBridgeRegCount];	// backup of config space registers
 
     struct ExpansionData 	{ };
@@ -118,9 +118,8 @@ protected:
     virtual bool 		getModuleParameters(void);
     virtual bool		getOFConfigurationSettings(OSArray **ioRanges, OSArray **memRanges);
     virtual bool 		getConfigurationSettings(void);
-    virtual bool 		configureDynamicBridgeSpace(void);
-    virtual IODeviceMemory *	getDynamicBridgeSpace(void);
-    virtual IODeviceMemory *	getDynamicBridgeIOSpace(void);
+    virtual bool 		configureBridgeRanges(void);
+    virtual bool 		configureInterruptController(void);
 
     virtual bool 		initializeSocketServices(void);
     virtual bool 		initializeDriverServices(void);
@@ -131,6 +130,7 @@ protected:
     virtual void           	addNubInterruptProperties(OSDictionary * propTable);
     virtual bool	   	publishPCCard16Nub(IOPCCard16Device * nub, UInt32 socketIndex, UInt32 functionIndex);
     virtual bool	   	publishCardBusNub(IOCardBusDevice * nub, UInt32 socketIndex, UInt32 functionIndex);
+    static bool			releaseBridgeRanges(IOService * nub);
 
     static int			cardEventHandler(cs_event_t event, int priority, event_callback_args_t * args);
     static void			cardRemovalHandler(u_long sn);
@@ -154,22 +154,22 @@ public:
 public:
     virtual IOService *		probe(IOService * provider, SInt32 * score);
     virtual bool		start(IOService * provider);
-    virtual bool		configure(IOService * provider);		// noop
+    virtual bool		configure(IOService * provider);
     virtual void		stop(IOService * provider);
 
     virtual IOReturn		setPowerState(unsigned long powerState,
 					      IOService * whatDevice);
+    virtual void		saveBridgeState(void);
+    virtual void		restoreBridgeState(void);
 					      
     virtual int			configureSocket(IOService * nub, config_req_t * configuration);
     virtual int			unconfigureSocket(IOService * nub);
 
     virtual IOWorkLoop *	getWorkLoop() const;
 
-    // original end methods
+    static int			requestCardEjection(IOService * bridgeDevice);
 
-    static int			requestCardEjection(IOService * bridgeDevice);	// slot 0
-
-    OSMetaClassDeclareReservedUsed(IOPCCardBridge,  0);
+    OSMetaClassDeclareReservedUnused(IOPCCardBridge,  0);
     OSMetaClassDeclareReservedUnused(IOPCCardBridge,  1);
     OSMetaClassDeclareReservedUnused(IOPCCardBridge,  2);
     OSMetaClassDeclareReservedUnused(IOPCCardBridge,  3);

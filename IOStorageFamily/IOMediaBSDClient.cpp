@@ -254,7 +254,7 @@ static IOMediaBSDClientGlobals gIOMediaBSDClientGlobals;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOMediaBSDClient::init(OSDictionary * properties = 0)
+bool IOMediaBSDClient::init(OSDictionary * properties)
 {
     //
     // Initialize this object's minimal state.
@@ -379,8 +379,8 @@ void IOMediaBSDClient::stop(IOService * provider)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IOMedia * IOMediaBSDClient::getWholeMedia( IOMedia * media,
-                                           UInt32 *  slicePathSize = 0,
-                                           char *    slicePath     = 0 )
+                                           UInt32 *  slicePathSize,
+                                           char *    slicePath )
 {
     //
     // Find the whole media that roots this media tree.  A null return value
@@ -1489,15 +1489,16 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype)
 
         if ( (bp->b_flags & B_VECTORLIST) )
         {
-            assert(sizeof(IOPhysicalRange         ) == sizeof(iovec          ));
-            assert(sizeof(IOPhysicalRange::address) == sizeof(iovec::iov_base));
-            assert(sizeof(IOPhysicalRange::length ) == sizeof(iovec::iov_len ));
+            IOOptionBits mdopts = kIOMemoryTypeUPL | kIOMemoryAsReference;
 
-            return IOMemoryDescriptor::withPhysicalRanges(   // (multiple-range)
-              (IOPhysicalRange *) bp->b_vectorlist,
-              (UInt32)            bp->b_vectorcount,
-              (bp->b_flags & B_READ) ? kIODirectionIn : kIODirectionOut,
-              true );
+            mdopts |= (bp->b_flags & B_READ) ? kIODirectionIn : kIODirectionOut;
+
+            return IOMemoryDescriptor::withOptions(          // (multiple-range)
+                bp->b_pagelist,
+                bp->b_bcount,
+                bp->b_uploffset,
+                0,
+                mdopts );
         }
 
         return IOMemoryDescriptor::withAddress(                // (single-range)

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOFireWireFamily ;
-export deferred SRCROOT = /Users/cpieper/Desktop/plaidfix/projects/IOFireWireFamily ;
+export deferred SRCROOT = /Users/cpieper/Desktop/Builds/firewire_smeagol_termination/projects/IOFireWireFamily ;
 
 # User-defined project-wide settings for project
 
@@ -19,7 +19,7 @@ export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOFir
 
 # Implicitly computed build settings for target "IOFireWireLib.plugin"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = IOFireWireLib.plugin ;
 
@@ -108,6 +108,12 @@ ProcessFrameworksAndLibraries "<IOFireWireLib>IOFireWireLib.plugin" : "$(FRAMEWO
 # Rez Files
 REZ_FILES = ;
 ProcessRezFiles "<IOFireWireLib>IOFireWireLib.plugin" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<IOFireWireLib>IOFireWireLib.plugin" ;
 
 EndBundle "<IOFireWireLib>IOFireWireLib.plugin" ;
 

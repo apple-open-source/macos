@@ -120,6 +120,18 @@ __private_extern__ enum bool ofile_map(
     const char *object_name,		/* can be NULL */
     struct ofile *ofile,
     enum bool archives_with_fat_objects);
+#ifdef OFI
+__private_extern__ NSObjectFileImageReturnCode ofile_map_from_memory(
+#else
+__private_extern__ enum bool ofile_map_from_memory(
+#endif
+    char *addr,
+    unsigned long size,
+    const char *file_name,
+    const struct arch_flag *arch_flag,	/* can be NULL */
+    const char *object_name,		/* can be NULL */
+    struct ofile *ofile,
+    enum bool archives_with_fat_objects);
 __private_extern__ void ofile_unmap(
     struct ofile *ofile);
 __private_extern__ enum bool ofile_first_arch(

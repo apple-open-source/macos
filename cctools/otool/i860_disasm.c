@@ -98,7 +98,7 @@ enum bool verbose)
     enum bool swapped;
     unsigned long opcode;
     int isdual;
-    int i;
+    unsigned long i;
     struct i860_opcode *op;
 
 	host_byte_sex = get_host_byte_sex();
@@ -391,7 +391,7 @@ enum bool verbose)
 			    "%lu\n", i);
 		    continue;
 		}
-		if(relocs[i].r_address == addr - sect_addr){
+		if((unsigned long)relocs[i].r_address == addr - sect_addr){
 		    rp = &relocs[i];
 		    if(rp->r_type == I860_RELOC_HIGH ||
 		       rp->r_type == I860_RELOC_HIGHADJ ||

@@ -144,7 +144,7 @@ char *gmon_out)
 	phdr->ncnt = (int)size;
 	if((fd = open(gmon_out, O_WRONLY | O_CREAT | O_TRUNC, 0777)) == -1)
 	    system_fatal("can't create gmon.out file: %s", gmon_out);
-	if(write(fd, pcsample_buffer, size) != size)
+	if(write(fd, pcsample_buffer, size) != (int)size)
 	    system_fatal("can't write gmon.out file: %s", gmon_out);
 	if(close(fd) == -1)
 	    system_fatal("can't close gmon.out file: %s", gmon_out);

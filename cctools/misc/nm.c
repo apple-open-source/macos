@@ -202,7 +202,8 @@ int argc,
 char **argv,
 char **envp)
 {
-    unsigned long i, j;
+    int i;
+    unsigned long j;
     struct arch_flag *arch_flags;
     unsigned long narch_flags;
     enum bool all_archs;
@@ -357,8 +358,8 @@ char **envp)
 	    files[cmd_flags.nfiles++] = argv[i];
 	}
 
-	for(i = 0; i < cmd_flags.nfiles; i++)
-	    ofile_process(files[i], arch_flags, narch_flags, all_archs, FALSE,
+	for(j = 0; j < cmd_flags.nfiles; j++)
+	    ofile_process(files[j], arch_flags, narch_flags, all_archs, FALSE,
 			  cmd_flags.f, TRUE, nm, &cmd_flags);
 	if(cmd_flags.nfiles == 0)
 	    ofile_process("a.out",  arch_flags, narch_flags, all_archs, FALSE,
@@ -521,12 +522,13 @@ void *cookie)
 		if(symbols[i].n_un.n_strx == 0)
 		    symbols[i].n_un.n_name = "";
 		else if(symbols[i].n_un.n_strx < 0 ||
-			symbols[i].n_un.n_strx > st->strsize)
+			(unsigned long)symbols[i].n_un.n_strx > st->strsize)
 		    symbols[i].n_un.n_name = "bad string index";
 		else
 		    symbols[i].n_un.n_name = symbols[i].n_un.n_strx + strings;
 
-		if((symbols[i].n_type & N_TYPE) == N_INDR){
+		if((symbols[i].n_type & N_STAB) == 0 &&
+		   (symbols[i].n_type & N_TYPE) == N_INDR){
 		    if(symbols[i].n_value == 0)
 			symbols[i].n_value = (long)"";
 		    else if(symbols[i].n_value > st->strsize)
@@ -537,7 +539,7 @@ void *cookie)
 		}
 	    }
 	    if(cmd_flags->l == TRUE &&
-	       process_flags.nsect != -1 &&
+	       (long)process_flags.nsect != -1 &&
 	       process_flags.sect_start_symbol == FALSE &&
 	       process_flags.sect_size != 0){
 		symbols = reallocate(symbols,(nsymbols+1)*sizeof(struct nlist));
@@ -687,7 +689,7 @@ unsigned long *nsymbols)
 	    for( ; i < st->nsyms; i++){
 		if(all_symbols[i].n_type == N_BINCL &&
 		   all_symbols[i].n_un.n_strx != 0 &&
-		   all_symbols[i].n_un.n_strx < st->strsize &&
+		   (unsigned long)all_symbols[i].n_un.n_strx < st->strsize &&
 		   strcmp(cmd_flags->bincl_name,
 			  strings + all_symbols[i].n_un.n_strx) == 0){
 		    selected_symbols[(*nsymbols)++] = all_symbols[i];
@@ -791,13 +793,14 @@ char *arch_name)
 		       (unsigned int)(symbols[i].n_desc & 0xffff));
 		if(symbols[i].n_un.n_strx == 0)
 		    printf("%08x (null)", (unsigned int)symbols[i].n_un.n_strx);
-		else if(symbols[i].n_un.n_strx > strsize)
+		else if((unsigned long)symbols[i].n_un.n_strx > strsize)
 		    printf("%08x (bad string index)",
 			   (unsigned int)symbols[i].n_un.n_strx);
 		else
 		    printf("%08x %s", (unsigned int)symbols[i].n_un.n_strx,
 			   symbols[i].n_un.n_strx + strings);
-		if((symbols[i].n_type & N_TYPE) == N_INDR){
+		if((symbols[i].n_type & N_STAB) == 0 &&
+		   (symbols[i].n_type & N_TYPE) == N_INDR){
 		    if(symbols[i].n_value == 0)
 			printf(" (indirect for %08lx (null))\n",
 			       symbols[i].n_value);
@@ -946,6 +949,9 @@ char *arch_name)
 		if(library_ordinal != 0){
 		    if(library_ordinal == EXECUTABLE_ORDINAL)
 			printf(" (from executable)");
+		    else if(process_flags->nlibs != DYNAMIC_LOOKUP_ORDINAL &&
+			    library_ordinal == DYNAMIC_LOOKUP_ORDINAL)
+			printf(" (dynamically looked up)");
 		    else if(library_ordinal-1 >= process_flags->nlibs)
 			printf(" (from bad library ordinal %lu)",
 			       library_ordinal);
@@ -986,13 +992,14 @@ struct value_diff *value_diffs)
 		       (unsigned int)(symbols[i].n_desc & 0xffff));
 		if(symbols[i].n_un.n_strx == 0)
 		    printf("%08x (null)", (unsigned int)symbols[i].n_un.n_strx);
-		else if(symbols[i].n_un.n_strx > strsize)
+		else if((unsigned long)symbols[i].n_un.n_strx > strsize)
 		    printf("%08x (bad string index)",
 			   (unsigned int)symbols[i].n_un.n_strx);
 		else
 		    printf("%08x %s", (unsigned int)symbols[i].n_un.n_strx,
 			   symbols[i].n_un.n_strx + strings);
-		if((symbols[i].n_type & N_TYPE) == N_INDR){
+		if((symbols[i].n_type & N_STAB) == 0 &&
+		   (symbols[i].n_type & N_TYPE) == N_INDR){
 		    if(symbols[i].n_value == 0)
 			printf(" (indirect for %08lx (null))\n",
 			       symbols[i].n_value);
@@ -1132,6 +1139,7 @@ static const struct stabnames stabnames[] = {
     { N_STSYM, "STSYM" },
     { N_LCSYM, "LCSYM" },
     { N_BNSYM, "BNSYM" },
+    { N_OPT,   "OPT" },
     { N_RSYM,  "RSYM" },
     { N_SLINE, "SLINE" },
     { N_ENSYM, "ENSYM" },
@@ -1140,6 +1148,9 @@ static const struct stabnames stabnames[] = {
     { N_LSYM,  "LSYM" },
     { N_BINCL, "BINCL" },
     { N_SOL,   "SOL" },
+    { N_PARAMS,"PARAM" },
+    { N_VERSION,"VERS" },
+    { N_OLEVEL,"OLEV" },
     { N_PSYM,  "PSYM" },
     { N_EINCL, "EINCL" },
     { N_ENTRY, "ENTRY" },
@@ -1194,10 +1205,11 @@ struct nlist *p2)
 	}
 
 	if(cmd_flags.x == TRUE){
-	    if(p1->n_un.n_strx > strsize || p2->n_un.n_strx > strsize){
-		if(p1->n_un.n_strx > strsize)
+	    if((unsigned long)p1->n_un.n_strx > strsize ||
+	       (unsigned long)p2->n_un.n_strx > strsize){
+		if((unsigned long)p1->n_un.n_strx > strsize)
 		    r = -1;
-		else if(p2->n_un.n_strx > strsize)
+		else if((unsigned long)p2->n_un.n_strx > strsize)
 		    r = 1;
 	    }
 	    else

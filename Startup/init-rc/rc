@@ -190,7 +190,7 @@ else
     rm -rf ${swapdir}/swap*
 fi
 		    
-dynamic_pager -H 40000000 -L 160000000 -S 80000000 -F ${swapdir}/swapfile
+dynamic_pager -F ${swapdir}/swapfile
 
 
 ##

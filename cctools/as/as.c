@@ -455,6 +455,17 @@ char **envp)
 				archflag_cpusubtype =
 				    CPU_SUBTYPE_POWERPC_7450;
 			    }
+			    else if(strcmp(*work_argv,
+					   "ppc970") == 0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_POWERPC_970)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_POWERPC_970;
+			    }
 			    else if(strcmp(*work_argv, "ppc") != 0 &&
 			    	    strcmp(*work_argv, "m98k") != 0)
 				as_fatal("I expected 'ppc' after "
@@ -517,6 +528,16 @@ char **envp)
 				archflag_cpusubtype =
 				    CPU_SUBTYPE_PENTPRO;
 			    }
+			    else if(strcmp(*work_argv, "i686") ==0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_PENTPRO)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_PENTPRO;
+			    }
 			    else if(strcmp(*work_argv, "pentIIm3") ==0){
 				if(archflag_cpusubtype != -1 &&
 				   archflag_cpusubtype !=
@@ -539,9 +560,9 @@ char **envp)
 			    }
 			    else if(strcmp(*work_argv, "i386") != 0)
 				as_fatal("I expected 'i386', 'i486', 'i486SX', "
-				   "'i586', 'pentium', 'pentpro', 'pentIIm3', "
-				   "or 'pentIIm5' after -arch for this "
-				   "assembler.");
+				   "'i586', 'pentium', 'i686', 'pentpro', "
+				   "'pentIIm3', or 'pentIIm5' after -arch "
+				   "for this assembler.");
 #endif
 #ifdef HPPA
 			    if(strcmp(*work_argv, "hppa") != 0)

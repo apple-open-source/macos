@@ -37,10 +37,7 @@ extern "C" {
 enum
 {
 	kPhysicalMediaBlockSize		= 2352,
-	kAppleCDDABlockSize			= 16 	// We use 16 bytes as our addressability
-										// because it divides integrally into the
-										// size of the CDAIFFHeader and it divides
-										// integrally into 4096 (PAGE_SIZE)
+	kMaxBlocksPerRead			= 1		// Max blocks to read per bread()
 };
 
 #ifdef __cplusplus

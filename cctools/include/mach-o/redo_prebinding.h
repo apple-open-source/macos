@@ -38,6 +38,21 @@ const char *file_name,
 const char *program_name,
 char **error_message);
 
+/*
+ * install_name() takes a file_name of a binary and returns a malloc(3)'ed
+ * pointer to a NULL terminated string containing the install_name value for
+ * the binary. If unsuccessful install_name() returns NULL.  In particular,
+ * NULL is returned if the binary is not a dylib and there is no error_message
+ * set.  If the all of the arch's are dylibs but all the install names don't
+ * match NULL is returned and a error_message is set.  If some but not all of
+ * the archs are dylibs NULL is returned and a error_message is set.
+ */ 
+extern
+char *
+install_name(
+const char *file_name,
+const char *program_name,
+char **error_message);
 
 /* return values for redo_prebinding() */
 enum redo_prebinding_retval {

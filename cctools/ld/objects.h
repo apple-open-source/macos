@@ -295,9 +295,9 @@ __private_extern__ void clean_objects(
     void);
 __private_extern__ void remove_objects(
     void);
-#endif RLD
+#endif /* RLD */
 
 #ifdef DEBUG
 void print_object_list(
     void);
-#endif DEBUG
+#endif /* DEBUG */

@@ -123,6 +123,7 @@
 				247142CAFF3F8F9811CA285C,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
+				F55CF24303A0167D01CE1498,
 			);
 			isa = PBXGroup;
 			name = AppleGMACEthernet;
@@ -137,14 +138,15 @@
 				089C1679FE841209C02AAC07,
 			);
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
+				BUILD_SETTING = "";
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks\"";
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.AppleGMACEthernet;
-				MODULE_VERSION = 1.2.4b3;
+				MODULE_VERSION = 1.3.0b10;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -179,11 +181,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4b3</string>
+	<string>1.3.0b10</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PCI Matching</key>
@@ -196,6 +198,7 @@
 			<string>IODefaultMatchCategory</string>
 			<key>IONameMatch</key>
 			<array>
+				<string>K2-GMAC</string>
 				<string>gmac</string>
 				<string>SUNW,pci-gem</string>
 			</array>
@@ -382,6 +385,53 @@
 			isa = PBXGroup;
 			name = Source;
 			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//F50
+//F51
+//F52
+//F53
+//F54
+		F55CF24303A0167D01CE1498 = {
+			children = (
+				F55CF24503A0167D01CE1498,
+				F55CF24603A0167D01CE1498,
+				F55CF24703A0167D01CE1498,
+				F55CF24803A0167D01CE1498,
+				F55CF24903A0167D01CE1498,
+			);
+			isa = PBXGroup;
+			path = Tools;
+			refType = 4;
+		};
+		F55CF24503A0167D01CE1498 = {
+			isa = PBXFileReference;
+			path = gmacLog.c;
+			refType = 4;
+		};
+		F55CF24603A0167D01CE1498 = {
+			isa = PBXFileReference;
+			path = gmacPHYregs.c;
+			refType = 4;
+		};
+		F55CF24703A0167D01CE1498 = {
+			isa = PBXFileReference;
+			path = gmacRegs.c;
+			refType = 4;
+		};
+		F55CF24803A0167D01CE1498 = {
+			isa = PBXFileReference;
+			path = gmacRings.c;
+			refType = 4;
+		};
+		F55CF24903A0167D01CE1498 = {
+			isa = PBXFileReference;
+			path = Makefile;
 			refType = 4;
 		};
 	};

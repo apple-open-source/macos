@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -37,6 +40,45 @@
 #include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/firewire/IOConfigDirectory.h>
 
+OSDefineMetaClassAndStructors(IOFireWireUnitAux, IOFireWireNubAux);
+OSMetaClassDefineReservedUnused(IOFireWireUnitAux, 0);
+OSMetaClassDefineReservedUnused(IOFireWireUnitAux, 1);
+OSMetaClassDefineReservedUnused(IOFireWireUnitAux, 2);
+OSMetaClassDefineReservedUnused(IOFireWireUnitAux, 3);
+
+#pragma mark -
+
+// init
+//
+//
+
+bool IOFireWireUnitAux::init( IOFireWireUnit * primary )
+{
+	bool success = true;		// assume success
+	
+	// init super
+	
+    if( !IOFireWireNubAux::init( primary ) )
+        success = false;
+	
+	if( success )
+	{
+	}
+	
+	return success;
+}
+
+// free
+//
+//
+
+void IOFireWireUnitAux::free()
+{	    
+	IOFireWireNubAux::free();
+}
+
+#pragma mark -
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 OSDefineMetaClassAndStructors(IOFireWireUnit, IOFireWireNub)
@@ -46,7 +88,11 @@ OSMetaClassDefineReservedUnused(IOFireWireUnit, 1);
 #pragma mark -
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-bool IOFireWireUnit::init(OSDictionary *propTable, IOConfigDirectory *directory)
+// init
+//
+//
+
+bool IOFireWireUnit::init( OSDictionary *propTable, IOConfigDirectory *directory )
 {
     if(!IOFireWireNub::init(propTable))
         return false;
@@ -56,11 +102,36 @@ bool IOFireWireUnit::init(OSDictionary *propTable, IOConfigDirectory *directory)
     return true;
 }
 
-bool IOFireWireUnit::attach(IOService *provider)
+// createAuxiliary
+//
+// virtual method for creating auxiliary object.  subclasses needing to subclass 
+// the auxiliary object can override this.
+
+IOFireWireNubAux * IOFireWireUnit::createAuxiliary( void )
+{
+	IOFireWireUnitAux * auxiliary;
+    
+	auxiliary = new IOFireWireUnitAux;
+
+    if( auxiliary != NULL && !auxiliary->init(this) ) 
+	{
+        auxiliary->release();
+        auxiliary = NULL;
+    }
+	
+    return auxiliary;
+}
+
+// attach
+//
+//
+
+bool IOFireWireUnit::attach( IOService *provider )
 {
     fDevice = OSDynamicCast(IOFireWireDevice, provider);
     if(!fDevice)
 	return false;
+	fDevice->retain();
     if( !IOFireWireNub::attach(provider))
         return (false);
     fControl = fDevice->getController();
@@ -70,26 +141,59 @@ bool IOFireWireUnit::attach(IOService *provider)
     return(true);
 }
 
-IOReturn IOFireWireUnit::message( UInt32 mess, IOService * provider,
-                                void * argument )
+// free
+//
+//
+
+void IOFireWireUnit::free()
+{
+	if( fDevice != NULL )
+	{
+		fDevice->release();
+		fDevice = NULL;
+	}
+	
+    IOFireWireNub::free();
+}
+
+// message
+//
+//
+
+IOReturn IOFireWireUnit::message( 	UInt32 		mess, 
+									IOService *	provider,
+									void * 		argument )
 {
     // Propagate bus reset start/end messages
     if(provider == fDevice &&
        (kIOMessageServiceIsResumed == mess ||
         kIOMessageServiceIsSuspended == mess ||
         kIOMessageServiceIsRequestingClose == mess ||
-        kIOFWMessageServiceIsRequestingClose == mess)) {
+        kIOFWMessageServiceIsRequestingClose == mess)) 
+	{
         fDevice->getNodeIDGeneration(fGeneration, fNodeID, fLocalNodeID);
-	messageClients( mess );
+		messageClients( mess );
         return kIOReturnSuccess;
     }
+	
+	if( kIOFWMessagePowerStateChanged == mess )
+	{
+		messageClients( mess );
+		return kIOReturnSuccess;
+	}
+	
     return IOService::message(mess, provider, argument );
 }
 
 /**
  ** Matching methods
  **/
-bool IOFireWireUnit::matchPropertyTable(OSDictionary * table)
+
+// matchPropertyTable
+//
+//
+
+bool IOFireWireUnit::matchPropertyTable( OSDictionary * table )
 {
     //
     // If the service object wishes to compare some of its properties in its
@@ -115,9 +219,13 @@ bool IOFireWireUnit::matchPropertyTable(OSDictionary * table)
 // open / close
 //
 
-bool IOFireWireUnit::handleOpen( 	IOService *	  forClient,
-                            IOOptionBits	  options,
-                            void *		  arg )
+// handleOpen
+//
+//
+
+bool IOFireWireUnit::handleOpen(	IOService *	  	forClient,
+									IOOptionBits	options,
+									void *		  	arg )
 {
 	if ( isOpen() )
 		return false ;
@@ -129,8 +237,12 @@ bool IOFireWireUnit::handleOpen( 	IOService *	  forClient,
     return ok;
 }
 
-void IOFireWireUnit::handleClose(   IOService *	  forClient,
-                            IOOptionBits	  options )
+// handleClose
+//
+//
+
+void IOFireWireUnit::handleClose(   IOService *	  	forClient,
+									IOOptionBits	options )
 {
     IOFireWireNub::handleClose(forClient, options);
     fDevice->close(this, options);
@@ -142,17 +254,29 @@ void IOFireWireUnit::handleClose(   IOService *	  forClient,
 // node flags
 //
 
+// setNodeFlags
+//
+//
+
 void IOFireWireUnit::setNodeFlags( UInt32 flags )
 {
 	if( fDevice )
 		fDevice->setNodeFlags( flags );
 }
 
+// clearNodeFlags
+//
+//
+
 void IOFireWireUnit::clearNodeFlags( UInt32 flags )
 {
 	if( fDevice )
 		fDevice->clearNodeFlags( flags );
 }
+
+// getNodeFlags
+//
+//
 
 UInt32 IOFireWireUnit::getNodeFlags( void )
 {
@@ -172,7 +296,11 @@ UInt32 IOFireWireUnit::getNodeFlags( void )
  * Create local FireWire address spaces for the device to access
  */
 
-IOFWPhysicalAddressSpace * IOFireWireUnit::createPhysicalAddressSpace(IOMemoryDescriptor *mem)
+// createPhysicalAddressSpace
+//
+//
+
+IOFWPhysicalAddressSpace * IOFireWireUnit::createPhysicalAddressSpace( IOMemoryDescriptor *mem )
 {
     IOFWPhysicalAddressSpace * space = fControl->createPhysicalAddressSpace(mem);
 	
@@ -184,8 +312,15 @@ IOFWPhysicalAddressSpace * IOFireWireUnit::createPhysicalAddressSpace(IOMemoryDe
 	return space;
 }
 
-IOFWPseudoAddressSpace * IOFireWireUnit::createPseudoAddressSpace(FWAddress *addr, UInt32 len, 
-				FWReadCallback reader, FWWriteCallback writer, void *refcon)
+// createPseudoAddressSpace
+//
+//
+
+IOFWPseudoAddressSpace * IOFireWireUnit::createPseudoAddressSpace( 	FWAddress *		addr, 
+																	UInt32 			len, 
+																	FWReadCallback 	reader, 
+																	FWWriteCallback writer, 
+																	void *			refcon )
 {
     IOFWPseudoAddressSpace * space = fControl->createPseudoAddressSpace(addr, len, reader, writer, refcon);
 

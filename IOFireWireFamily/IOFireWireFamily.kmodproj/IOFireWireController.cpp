@@ -1,21 +1,24 @@
 /*
  * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@ 
+ * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -35,6 +38,7 @@
 #import <IOKit/firewire/IOFireWireDevice.h>
 #import <IOKit/firewire/IOFWLocalIsochPort.h>
 #import <IOKit/firewire/IOFWDCLProgram.h>
+#include <IOKit/firewire/IOFireWirePowerManager.h>
 
 // protected
 #import <IOKit/firewire/IOFWWorkLoop.h>
@@ -48,25 +52,42 @@
 #import "IOFireWireIRM.h"
 
 // system
-#import <IOKit/IOTimerEventSource.h>
 #import <IOKit/IOKitKeys.h>
 #import <IOKit/IOBufferMemoryDescriptor.h>
 #import <IOKit/IODeviceTreeSupport.h>
 #import <IOKit/IOMessage.h>
+#import <IOKit/IOTimerEventSource.h>
 
+///////////////////////////////////////////////////////////////////////////////////
+// timing constants
+//
 
 // 100 mSec delay after bus reset before scanning bus
+// to make first generation Sony cameras happy
+#define kScanBusDelay				100	
+
 // 1000 mSec delay before pruning devices
+// this will end up being kNormalDevicePruneDelay + kRepeatResetDelay because of gap count optimization
+#define kNormalDevicePruneDelay		1000
+
+// 2000 mSec delay between bus resets
+// from the 1394a spec
+#define kRepeatResetDelay			2000
+
+// 3000 mSec delay before pruning last device 
+// should generally equal kNormalDevicePruneDelay + kRepeatResetDelay
+#define kOnlyNodeDevicePruneDelay	3000
+
 // 15000 mSec delay before pruning devices after wake
-// 2000 mSec delay between bus resets (1394a)
-#define kScanBusDelay			100	
-#define kNormalDevicePruneDelay	1000
-#define kWakeDevicePruneDelay	15000
-#define kRepeatResetDelay		2000
+// needs to be at least long enough for the iPod to reboot into disk mode
+#define kWakeDevicePruneDelay		15000
+
+///////////////////////////////////////////////////////////////////////////////////
 
 #define FWAddressToID(addr) (addr & 63)
 
-enum requestRefConBits {
+enum requestRefConBits 
+{
     kRequestLabel = kFWAsynchTTotal-1,	// 6 bits
     kRequestExtTCodeShift = 6,
     kRequestExtTCodeMask = 0x3fffc0,	// 16 bits
@@ -92,10 +113,46 @@ const IORegistryPlane * IOFireWireBus::gIOFireWirePlane = NULL;
 #define number_of_power_states 2
 
 // Note: This defines two states. off and on.
-static IOPMPowerState ourPowerStates[number_of_power_states] = {
-  {1,0,0,0,0,0,0,0,0,0,0,0},
-{1,IOPMDeviceUsable,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0}
+static IOPMPowerState ourPowerStates[number_of_power_states] = 
+{
+	{1,0,0,0,0,0,0,0,0,0,0,0},
+	{1,IOPMDeviceUsable,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0}
 };
+
+OSDefineMetaClassAndStructors(IOFireWireControllerAux, IOFireWireBusAux);
+OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 0);
+OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 1);
+OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 2);
+OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 3);
+OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 4);
+OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 5);
+OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 6);
+OSMetaClassDefineReservedUnused(IOFireWireControllerAux, 7);
+
+#pragma mark -
+
+// init
+//
+//
+
+bool IOFireWireControllerAux::init( IOFireWireController * primary )
+{
+	bool success = true;		// assume success
+	
+	fPrimary = primary;
+	
+	return success;
+}
+
+// free
+//
+//
+
+void IOFireWireControllerAux::free()
+{	    
+}
+
+#pragma mark -
 
 OSDefineMetaClassAndStructors( IOFireWireController, IOFireWireBus )
 OSMetaClassDefineReservedUnused(IOFireWireController, 0);
@@ -116,10 +173,15 @@ OSMetaClassDefineReservedUnused(IOFireWireController, 8);
 //
 //
 
-bool IOFireWireController::init(IOFireWireLink *fwim)
+bool IOFireWireController::init( IOFireWireLink *fwim )
 {
-    if(!IOFireWireBus::init())
+    if( !IOFireWireBus::init() )
         return false;
+
+	fAuxiliary = createAuxiliary();
+	if( fAuxiliary == NULL )
+		return false;
+		
     fFWIM = fwim;
     
     // Create firewire symbols.
@@ -134,7 +196,8 @@ bool IOFireWireController::init(IOFireWireLink *fwim)
     gFireWireVendor_Name = OSSymbol::withCString("FireWire Vendor Name");
     gFireWireProduct_Name = OSSymbol::withCString("FireWire Product Name");
 
-    if(NULL == gIOFireWirePlane) {
+    if(NULL == gIOFireWirePlane) 
+	{
         gIOFireWirePlane = IORegistryEntry::makePlane( kIOFireWirePlane );
     }
 
@@ -157,11 +220,42 @@ bool IOFireWireController::init(IOFireWireLink *fwim)
 
 	fBusResetStateChangeCmd = createDelayedCmd(1000 * kRepeatResetDelay, resetStateChange, NULL);
 
+	//
+	// create the bus power manager
+	//
+	
+	fBusPowerManager = IOFireWirePowerManager::createWithController( this );
+	if( fBusPowerManager == NULL )
+	{
+		IOLog( "IOFireWireController::start - failed to create bus power manager!\n" );
+		return false;
+	}
+	
     return (gFireWireROM != NULL &&  gFireWireNodeID != NULL &&
         gFireWireUnit_Spec_ID != NULL && gFireWireUnit_SW_Version != NULL && 
 	fLocalAddresses != NULL && fSpaceIterator != NULL &&
             fAllocatedChannels != NULL && fAllocChannelIterator != NULL &&
             fBadReadResponse != NULL);
+}
+
+// createAuxiliary
+//
+// virtual method for creating auxiliary object.  subclasses needing to subclass 
+// the auxiliary object can override this.
+
+IOFireWireBusAux * IOFireWireController::createAuxiliary( void )
+{
+	IOFireWireControllerAux * auxiliary;
+    
+	auxiliary = new IOFireWireControllerAux;
+
+    if( auxiliary != NULL && !auxiliary->init(this) ) 
+	{
+        auxiliary->release();
+        auxiliary = NULL;
+    }
+	
+    return auxiliary;
 }
 
 // free
@@ -176,6 +270,12 @@ void IOFireWireController::free()
 	{
 		fIRM->release();
 		fIRM = NULL;
+	}
+	
+	if( fBusPowerManager != NULL )
+	{
+		fBusPowerManager->release();
+		fBusPowerManager = NULL;
 	}
 	
     if(fROMAddrSpace) {
@@ -208,12 +308,9 @@ void IOFireWireController::free()
     if(fAllocatedChannels)
         fAllocatedChannels->release();
     
-    fWorkLoop->removeEventSource(fTimer);
-    fTimer->release();
-    fWorkLoop->removeEventSource(fPendingQ.fSource);
-
-    fPendingQ.fSource->release();
-
+	destroyTimeoutQ();
+	destroyPendingQ();
+	
     fWorkLoop->release();
     IOFireWireBus::free();
 }
@@ -262,27 +359,14 @@ bool IOFireWireController::start(IOService *provider)
             children->release();
         }
     }
-    
-    // Create Timer Event source and queue event source,
-    // do before power management so the PM code can access the workloop
-    fTimer = IOTimerEventSource::timerEventSource(this, clockTick);
-    if(!fTimer)
-	{
-		return false;
-	}
-	
-    fTimeoutQ.fTimer = fTimer;
-
-    IOFWQEventSource *q;
-    q = new IOFWQEventSource;
-    fPendingQ.fSource = q;
-    q->init(this);
 
     fWorkLoop = fFWIM->getFireWireWorkLoop();
     fWorkLoop->retain();	// make sure workloop lives at least as long as we do.
-    fWorkLoop->addEventSource(fTimer);
-    fWorkLoop->addEventSource(fPendingQ.fSource);
 
+	// workloop must be set up before creating queues
+	createPendingQ();
+	createTimeoutQ();
+	
 	//
 	// setup initial security mode and state change notification
 	//
@@ -437,7 +521,7 @@ bool IOFireWireController::requestTerminate( IOService * provider, IOOptionBits 
         while( (child = childIterator->getNextObject()) ) 
 		{
             IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-            if(found && !found->isInactive() && found->isOpen()) 
+            if(found && !found->isTerminated() && found->isOpen()) 
 			{
                 // send our custom requesting close message
                 messageClient( kIOFWMessageServiceIsRequestingClose, found );
@@ -495,7 +579,14 @@ IOReturn IOFireWireController::setPowerState( unsigned long powerStateOrdinal,
     
     // Reset bus if we're sleeping, before turning hw off.
     if(powerStateOrdinal == 0)
+    {
+        fFWIM->setContender(false); 
+		fFWIM->setRootHoldOff(false); 
         fFWIM->resetBus();
+ 		IOSleep(10);		// Reset bus may not be instantaneous anymore. Wait a bit to be sure
+ 							// it happened before turning off hardware.
+ 							// zzz how long to wait?
+ 	}  	
         
     res = fFWIM->setLinkPowerState(powerStateOrdinal);
     
@@ -615,18 +706,39 @@ void IOFireWireController::resetStateChange(void *refcon, IOReturn status,
 
 void IOFireWireController::doBusReset( void )
 {
-	IOReturn status = kIOReturnSuccess;
-
+	IOReturn 	status = kIOReturnSuccess;
+	bool		useIBR = false;
+	
 	if( fDelayedPhyPacket )
 	{
 		fFWIM->sendPHYPacket( fDelayedPhyPacket );
 		fDelayedPhyPacket = 0x00000000;
+
+		// If the gap counts were mismatched and we're optimizing the
+		// gap count, use in IBR instead of an ISBR
+		
+		// This works around a problem with certain devices when they
+		// see an ISBR followed by an IBR due to ISBR promotion.
+		
+		// When this occurs the device is supposed to throw out the IBR.
+		// Devices that don't do this latch the gap count with the ISBR
+		// and then reset it with the subsequent IBR.
+		
+		// This gets us into a loop where we keep trying to optimize the
+		// gap count only to find it reset on the next bus generation
+		
+		// Using an IBR avoids the problem.
+		
+		if( fGapCountMismatch )
+		{
+			useIBR = true;
+		}
 	}
 
 	FWKLOG(( "IOFireWireController::doBusReset\n" ));
 
 	fBusResetState = kResetStateResetting;
-	status = fFWIM->resetBus();
+	status = fFWIM->resetBus( useIBR );
 }
 
 // disableSoftwareBusResets
@@ -723,6 +835,10 @@ void IOFireWireController::enableSoftwareBusResets( void )
 	openGate();
 }
 
+// delayedStateChange
+//
+//
+
 void IOFireWireController::delayedStateChange(void *refcon, IOReturn status,
                                 IOFireWireBus *bus, IOFWBusCommand *fwCmd)
 {
@@ -795,7 +911,7 @@ void IOFireWireController::processBusReset()
             OSObject * child;
             while( (child = childIterator->getNextObject())) {
                 IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-                if(found && !found->isInactive())
+                if(found && !found->isTerminated())
                     found->setNodeROM(oldgen, kFWBadNodeID, NULL);
                 else if(OSDynamicCast(IOFireWireLocalNode, child)) {
                     ((IOFireWireLocalNode *)child)->messageClients(kIOMessageServiceIsSuspended);
@@ -810,7 +926,8 @@ void IOFireWireController::processBusReset()
         // Invalidate current topology and speed map
 //IOLog("FireWire Bus Generation now %d\n", fBusGeneration);
         bzero(fSpeedCodes, sizeof(fSpeedCodes));
-
+		bzero(fHopCounts, sizeof(fHopCounts));
+		
         // Zap all outstanding async requests
         for(i=0; i<kMaxPendingTransfers; i++) {
             AsyncPendingTrans *t = &fTrans[i];
@@ -836,8 +953,10 @@ void IOFireWireController::processBusReset()
     }
 }
 
+// processSelfIDs
 //
-// SelfID packets received after reset.
+//
+
 void IOFireWireController::processSelfIDs(UInt32 *IDs, int numIDs, UInt32 *ownIDs, int numOwnIDs)
 {
     int i;
@@ -866,6 +985,8 @@ for(i=0; i<numOwnIDs; i++)
     fRootNodeID = ourID = (*ownIDs & kFWPhyPacketPhyID) >> kFWPhyPacketPhyIDPhase;
     fLocalNodeID = ourID | (kFWLocalBusAddress>>kCSRNodeIDPhase);
 
+	fGapCountMismatch = false;
+
     // check for mismatched gap counts
     UInt32 gap_count = (*ownIDs & kFWSelfID0GapCnt) >> kFWSelfID0GapCntPhase;
     for( i = 0; i < numIDs; i++ )
@@ -876,7 +997,9 @@ for(i=0; i<numOwnIDs; i++)
         {
             // set the gap counts to 0x3F, if any gap counts are mismatched
             fFWIM->sendPHYPacket( (kFWConfigurationPacketID << kFWPhyPacketIDPhase) |
-                                  (0x3f << kFWPhyConfigurationGapCntPhase) | kFWPhyConfigurationT );            
+                                  (0x3f << kFWPhyConfigurationGapCntPhase) | kFWPhyConfigurationT );
+			
+			fGapCountMismatch = true;
             break;
         }
     }
@@ -969,7 +1092,7 @@ for(i=0; i<numOwnIDs; i++)
     prop->release();
     
     buildTopology(false);
-
+	
 #if (DEBUGGING_LEVEL > 0)
     for(i=0; i<numIDs; i++) {
         id = IDs[2*i];
@@ -1017,7 +1140,12 @@ for(i=0; i<numOwnIDs; i++)
 	FWKLOG(( "IOFireWireController::processSelfIDs exited\n" ));
 }
 
-void IOFireWireController::startBusScan() {
+// startBusScan
+//
+//
+
+void IOFireWireController::startBusScan() 
+{
     int i;
 
 	FWKLOG(( "IOFireWireController::startBusScan entered\n" ));
@@ -1079,12 +1207,20 @@ void IOFireWireController::startBusScan() {
 	FWKLOG(( "IOFireWireController::startBusScan exited\n" ));	
 }
 
+// readROMGlue
+//
+//
+
 void IOFireWireController::readROMGlue(void *refcon, IOReturn status,
 			IOFireWireNub *device, IOFWCommand *fwCmd)
 {
     IOFWNodeScan *scan = (IOFWNodeScan *)refcon;
     scan->fControl->readDeviceROM(scan, status);
 }
+
+// readDeviceROM
+//
+//
 
 void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 {
@@ -1217,7 +1353,7 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
                 while( (child = childIterator->getNextObject())) 
 				{
                     IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-                    if(found && found->fUniqueID == guid && !found->isInactive()) 
+                    if(found && found->fUniqueID == guid && !found->isTerminated()) 
 					{
                         newDevice = found;
                         break;
@@ -1340,6 +1476,10 @@ IORegistryEntry * IOFireWireController::createDummyRegistryEntry( IOFWNodeScan *
 	return newPhy;
 }
 
+// finishedBusScan
+//
+//
+
 void IOFireWireController::finishedBusScan()
 {
 	FWKLOG(( "IOFireWireController::finishedBusScan entered\n" ));
@@ -1432,17 +1572,26 @@ void IOFireWireController::finishedBusScan()
 			while( (child = childIterator->getNextObject())) 
 			{
 				IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-				if( found && !found->isInactive() && found->fNodeID == kFWBadNodeID ) 
+				if( found && !found->isTerminated() && found->fNodeID == kFWBadNodeID ) 
 				{
 					wouldTerminateDevice = true;
 				}
 			}
 			childIterator->release();
 		}
-		
+
 		//
 		// if we found all of our devices, set the prune delay to normal
 		//
+
+		if( (fRootNodeID == 0) && (fDevicePruneDelay < kOnlyNodeDevicePruneDelay) )
+		{
+			// if we're the only node increase the prune delay
+			// because we won't be causing a bus reset for gap 
+			// count optimization.  
+			
+			fDevicePruneDelay = kOnlyNodeDevicePruneDelay;
+		}
 		
 		if( !wouldTerminateDevice )
 		{
@@ -1474,6 +1623,85 @@ void IOFireWireController::finishedBusScan()
 	FWKLOG(( "IOFireWireController::finishedBusScan exited\n" ));
 }
 
+// countNodeIDChildren
+//
+//
+
+UInt32 IOFireWireController::countNodeIDChildren( UInt16 nodeID )
+{
+	UInt32 id0, idn;
+	UInt32 *idPtr;
+	int i;
+	int children = 0;
+	int ports;
+	UInt32 port;
+	int mask, shift;
+	
+	// get type 0 self id
+	i = nodeID & 63;
+	idPtr = fNodeIDs[i];
+	id0 = *idPtr++;
+	mask = kFWSelfID0P0;
+	shift = kFWSelfID0P0Phase;
+	
+	// count children
+	// 3 ports in type 0 self id
+	for(ports=0; ports<3; ports++) 
+	{
+		port = (id0 & mask) >> shift;
+		if(port == kFWSelfIDPortStatusChild)
+			children++;
+		mask >>= 2;
+		shift -= 2;
+	}
+
+	// any more self ids for this node?
+	if(fNodeIDs[i+1] > idPtr) 
+	{
+		// get type 1 self id
+		idn = *idPtr++;
+		mask = kFWSelfIDNPa;
+		shift = kFWSelfIDNPaPhase;
+		
+		// count children
+		// 8 ports in type 1 self id
+		for(ports=0; ports<8; ports++) 
+		{
+			port = (idn & mask) >> shift;
+			if(port == kFWSelfIDPortStatusChild)
+				children++;
+			mask >>= 2;
+			shift -= 2;
+		}
+		
+		// any more self ids for this node?
+		if(fNodeIDs[i+1] > idPtr) 
+		{
+			// get type 2 self id
+			idn = *idPtr++;
+			mask = kFWSelfIDNPa;
+			shift = kFWSelfIDNPaPhase;
+			
+			// count children
+			// 5 ports in type 2 self id
+			for(ports=0; ports<5; ports++) 
+			{
+				port = (idn & mask) >> shift;
+				if(port == kFWSelfIDPortStatusChild)
+					children++;
+				mask >>= 2;
+				shift -= 2;
+			}
+		}
+	}
+	
+	return children;
+}
+
+// buildTopology
+//
+//
+
 void IOFireWireController::buildTopology(bool doFWPlane)
 {
     int i, maxDepth;
@@ -1491,55 +1719,17 @@ void IOFireWireController::buildTopology(bool doFWPlane)
     level = scanList;
 
     // First build the topology.
-    for(i=fRootNodeID; i>=0; i--) {
-        UInt32 id0, idn;
-        UInt32 *idPtr;
+	
+	// iterate over all self ids starting with root id
+	for(i=fRootNodeID; i>=0; i--) 
+	{
+        UInt32 id0;
         UInt8 speedCode;
         IORegistryEntry *node = fNodes[i];
         int children = 0;
-        int ports;
-        UInt32 port;
-        int mask, shift;
-
-        idPtr = fNodeIDs[i];
-        id0 = *idPtr++;
-        mask = kFWSelfID0P0;
-        shift = kFWSelfID0P0Phase;
-        for(ports=0; ports<3; ports++) {
-            port = (id0 & mask) >> shift;
-            if(port == kFWSelfIDPortStatusChild)
-                children++;
-            mask >>= 2;
-            shift -= 2;
-        }
-
-        if(fNodeIDs[i+1] > idPtr) {
-            // More selfIDs. 8 ports in ID1
-            idn = *idPtr++;
-            mask = kFWSelfIDNPa;
-            shift = kFWSelfIDNPaPhase;
-            for(ports=0; ports<8; ports++) {
-                port = (idn & mask) >> shift;
-                if(port == kFWSelfIDPortStatusChild)
-                    children++;
-                mask >>= 2;
-                shift -= 2;
-            }
-            if(fNodeIDs[i+1] > idPtr) {
-                // More selfIDs. 5 ports in ID2
-                idn = *idPtr++;
-                mask = kFWSelfIDNPa;
-                shift = kFWSelfIDNPaPhase;
-                for(ports=0; ports<5; ports++) {
-                    port = (idn & mask) >> shift;
-                    if(port == kFWSelfIDPortStatusChild)
-                        children++;
-                    mask >>= 2;
-                    shift -= 2;
-                }
-
-            }
-        }
+    
+		// count the children for this self id
+		children = countNodeIDChildren( i );
 
         // Add node to bottom of tree
         level->nodeID = i;
@@ -1547,7 +1737,8 @@ void IOFireWireController::buildTopology(bool doFWPlane)
         level->node = node;
 
         // Add node's self speed to speedmap
-        speedCode = (id0 & kFWSelfID0SP) >> kFWSelfID0SPPhase;
+        id0 = *fNodeIDs[i];
+		speedCode = (id0 & kFWSelfID0SP) >> kFWSelfID0SPPhase;
                 
         if( !doFWPlane )
         {
@@ -1556,13 +1747,15 @@ void IOFireWireController::buildTopology(bool doFWPlane)
         }
         
         fSpeedCodes[(kFWMaxNodesPerBus + 1)*i + i] = speedCode;
-
+		fHopCounts[(kFWMaxNodesPerBus + 1)*i + i] = 0;
+		
         // Add to parent
         // Compute rest of this node's speed map entries unless it's the root.
         // We only need to compute speeds between this node and all higher node numbers.
         // These speeds will be the minimum of this node's speed and the speed between
         // this node's parent and the other higher numbered nodes.
-        if (i != fRootNodeID) {
+        if (i != fRootNodeID) 
+		{
             int parentNodeNum, scanNodeNum;
             parentNodeNum = (level-1)->nodeID;
             if(doFWPlane)
@@ -1574,30 +1767,47 @@ void IOFireWireController::buildTopology(bool doFWPlane)
 				for (scanNodeNum = i + 1; scanNodeNum <= fRootNodeID; scanNodeNum++)
 				{
 					UInt8 scanSpeedCode;
+					
 					// Get speed code between parent and scan node.
-					scanSpeedCode =
-							fSpeedCodes[(kFWMaxNodesPerBus + 1)*parentNodeNum + scanNodeNum];
-	
+					scanSpeedCode = fSpeedCodes[(kFWMaxNodesPerBus + 1)*parentNodeNum + scanNodeNum];
+					
 					// Set speed map entry to minimum of scan speed and node's speed.
 					if ( (speedCode & ~kFWSpeedUnknownMask) < (scanSpeedCode & ~kFWSpeedUnknownMask) )
 					{
 						scanSpeedCode = speedCode;
 					}
+					
 					if( (speedCode & kFWSpeedUnknownMask) || (scanSpeedCode & kFWSpeedUnknownMask) )
 					{
 						scanSpeedCode |= kFWSpeedUnknownMask;
 					}
+					
 					fSpeedCodes[(kFWMaxNodesPerBus + 1)*i + scanNodeNum] = scanSpeedCode;
 					fSpeedCodes[(kFWMaxNodesPerBus + 1)*scanNodeNum + i] = scanSpeedCode;
+					
+					// calculate hop counts
+					
+					UInt8 hops;
+					
+					// Get the hop count parent and scan node.
+					hops = fHopCounts[(kFWMaxNodesPerBus + 1)*parentNodeNum + scanNodeNum];
+					
+					fHopCounts[(kFWMaxNodesPerBus + 1)*i + scanNodeNum] = hops + 1;
+					fHopCounts[(kFWMaxNodesPerBus + 1)*scanNodeNum + i] = hops + 1;
+
 				}
 			}
         }
+		
         // Find next child port.
-        if (i > 0) {
-            while (level->childrenRemaining == 0) {
+        if (i > 0) 
+		{
+            while (level->childrenRemaining == 0) 
+			{
                 // Go up one level in tree.
                 level--;
-                if(level < scanList) {
+                if(level < scanList) 
+				{
                     IOLog("SelfIDs don't build a proper tree (missing selfIDS?)!!\n");
                     return;
                 }
@@ -1606,7 +1816,8 @@ void IOFireWireController::buildTopology(bool doFWPlane)
             }
             // Go down one level in tree.
             level++;
-            if(level - scanList > maxDepth) {
+            if(level - scanList > maxDepth) 
+			{
                 maxDepth = level - scanList;
             }
         }
@@ -1626,10 +1837,30 @@ void IOFireWireController::buildTopology(bool doFWPlane)
         }
     }
 #endif
+#if 0
+    if( doFWPlane ) 
+	{
+        IOLog( "FireWire Hop Counts:\n" );
+        for( i=0; i <= fRootNodeID; i++ ) 
+		{
+            int j;
+            for( j=0; j <= i; j++ ) 
+			{
+                IOLog( "%d ", fHopCounts[(kFWMaxNodesPerBus + 1)*i + j] );
+            }
+            IOLog( "\n" );
+        }
+    }
+#endif
+
     // Finally attach the full topology into the IOKit registry
     if(doFWPlane)
         root->attachToParent(IORegistryEntry::getRegistryRoot(), gIOFireWirePlane);
 }
+
+// updatePlane
+//
+//
 
 void IOFireWireController::updatePlane()
 {
@@ -1642,7 +1873,7 @@ void IOFireWireController::updatePlane()
         OSObject *child;
         while( (child = childIterator->getNextObject())) {
             IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-            if(found && !found->isInactive() && found->fNodeID == kFWBadNodeID) {
+            if(found && !found->isTerminated() && found->fNodeID == kFWBadNodeID) {
                 if( found->isOpen() )
                 {
                     //IOLog( "IOFireWireController : message request close device object %p\n", found);
@@ -1651,6 +1882,7 @@ void IOFireWireController::updatePlane()
                 }
                 else
                 {	
+					found->setTerminated( true );
 					IOFireWireDevice::terminateDevice( found );
                 }
             }
@@ -1697,7 +1929,7 @@ void IOFireWireController::setPhysicalAccessMode( IOFWPhysicalAccessMode mode )
 		while( (child = iterator->getNextObject()) ) 
 		{
 			IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
-			if( found && !found->isInactive() )
+			if( found && !found->isTerminated() )
 			{
 				// if we found an active device, ask it to reconfigure it's
 				// physical filter settings
@@ -1995,6 +2227,10 @@ IOLocalConfigDirectory * IOFireWireController::getRootDir() const
 	return fRootDir; 
 }
 
+// AddUnitDirectory
+//
+//
+
 IOReturn IOFireWireController::AddUnitDirectory(IOLocalConfigDirectory *unitDir)
 {
     IOReturn res;
@@ -2011,6 +2247,10 @@ IOReturn IOFireWireController::AddUnitDirectory(IOLocalConfigDirectory *unitDir)
     
 	return res;
 }
+
+// RemoveUnitDirectory
+//
+//
 
 IOReturn IOFireWireController::RemoveUnitDirectory(IOLocalConfigDirectory *unitDir)
 {
@@ -2100,6 +2340,10 @@ IOReturn IOFireWireController::UpdateROM()
 // async request transmit
 //
 
+// allocTrans
+//
+//
+
 AsyncPendingTrans *IOFireWireController::allocTrans(IOFWAsyncCommand *cmd)
 {
     unsigned int i;
@@ -2120,9 +2364,13 @@ AsyncPendingTrans *IOFireWireController::allocTrans(IOFWAsyncCommand *cmd)
             return t;
         }
     }
-    IOLog("Out of FireWire transaction codes!\n");
+    IOLog("Out of FireWire transaction labels!\n");
     return NULL;
 }
+
+// freeTrans
+//
+//
 
 void IOFireWireController::freeTrans(AsyncPendingTrans *trans)
 {
@@ -2136,30 +2384,76 @@ void IOFireWireController::freeTrans(AsyncPendingTrans *trans)
 //
 
 // Route packet sending to FWIM if checks out OK
-IOReturn IOFireWireController::asyncRead(UInt32 generation, UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
-                            int speed, int label, int size, IOFWAsyncCommand *cmd)
+IOReturn IOFireWireController::asyncRead(	UInt32 				generation, 
+											UInt16 				nodeID, 
+											UInt16 				addrHi, 
+											UInt32 				addrLo,
+											int 				speed, 
+											int 				label, 
+											int 				size, 
+											IOFWAsyncCommand *	cmd)
 {
-    if(!checkGeneration(generation)) {
-        return (kIOFireWireBusReset);
+    if( !checkGeneration(generation) ) 
+	{
+        return kIOFireWireBusReset;
     }
 
     // Check if local node
 
-    if(nodeID == fLocalNodeID) {
+    if( nodeID == fLocalNodeID ) 
+	{
         UInt32 rcode;
         IOMemoryDescriptor *buf;
-        IOByteCount offset, lengthOfSegment;
+        IOByteCount offset;
         IOFWSpeed temp = (IOFWSpeed)speed;
-        rcode = doReadSpace(nodeID, temp, FWAddress(addrHi, addrLo), size,
-                              &buf, &offset, (IOFWRequestRefCon)label);
+        
+		rcode = doReadSpace(	nodeID, 
+								temp, 
+								FWAddress(addrHi, addrLo), 
+								size,
+								&buf, 
+								&offset, 
+								(IOFWRequestRefCon)label );
+								
         if(rcode == kFWResponseComplete)
-            cmd->gotPacket(rcode, buf->getVirtualSegment(offset, &lengthOfSegment), size);
-        else
-            cmd->gotPacket(rcode, NULL, 0);
-        return kIOReturnSuccess;
+		{
+			void * bytes = IOMalloc( size );
+			
+			buf->readBytes( offset, bytes, size );
+            
+			cmd->gotPacket( rcode, bytes, size );
+			
+			IOFree( bytes, size );
+        }
+		else
+        {
+		    cmd->gotPacket( rcode, NULL, 0 );
+        }
+		
+		return kIOReturnSuccess;
     }
     else
-        return fFWIM->asyncRead(nodeID, addrHi, addrLo, speed, label, size, cmd);
+	{
+        return fFWIM->asyncRead( nodeID, addrHi, addrLo, speed, label, size, cmd );
+	}
+}
+
+// asyncWrite
+//
+// DEPRECATED
+
+IOReturn IOFireWireController::asyncWrite(	UInt32 				generation, 
+											UInt16 				nodeID, 
+											UInt16 				addrHi, 
+											UInt32 				addrLo,
+											int 				speed, 
+											int 				label, 
+											void *				data, 
+											int 				size, 
+											IOFWAsyncCommand *	cmd)
+{
+	IOLog( "IOFireWireController::asyncWrite : DEPRECATED API\n" );
+	return kIOReturnUnsupported;
 }
 
 // asyncWrite
@@ -2206,128 +2500,149 @@ IOReturn IOFireWireController::asyncWrite(	UInt32 					generation,
 											IOFWAsyncCommand *		cmd,
 											IOFWWriteFlags 			flags )
 {
-    if(!checkGeneration(generation)) {
-        return (kIOFireWireBusReset);
+//	IOLog( "IOFireWireController::asyncWrite\n" );
+
+    if( !checkGeneration(generation) ) 
+	{
+        return kIOFireWireBusReset;
     }
 
     // Check if local node
-    if(nodeID == fLocalNodeID) {
+    if( nodeID == fLocalNodeID ) 
+	{
         UInt32 rcode;
-        IOByteCount lengthOfSegment;
         IOFWSpeed temp = (IOFWSpeed)speed;
-        rcode = doWriteSpace(nodeID, temp, FWAddress(addrHi, addrLo), size,
-                             buf->getVirtualSegment(offset, &lengthOfSegment), (IOFWRequestRefCon)label);
-        cmd->gotPacket(rcode, NULL, 0);
-        return kIOReturnSuccess;
+        
+		void * bytes = IOMalloc( size );
+			
+		buf->readBytes( offset, bytes, size );
+            
+		rcode = doWriteSpace(	nodeID, 
+								temp, 
+								FWAddress( addrHi, addrLo ), 
+								size,
+								bytes, 
+								(IOFWRequestRefCon)label );
+        
+		IOFree( bytes, size );
+			
+		cmd->gotPacket(rcode, NULL, 0);
+        
+		return kIOReturnSuccess;
     }
     else
-        return fFWIM->asyncWrite(nodeID, addrHi, addrLo, speed, label, buf, offset, size, cmd, flags);
+	{
+        return fFWIM->asyncWrite( 	nodeID, 
+									addrHi, 
+									addrLo, 
+									speed, 
+									label, 
+									buf, 
+									offset, 
+									size, 
+									cmd,
+									flags );
+	}
 }
 
-// asyncWrite
+// asyncLock
 //
-//
+// DEPRECATED
 
-IOReturn IOFireWireController::asyncWrite(	UInt32 				generation, 
+IOReturn IOFireWireController::asyncLock(	UInt32 				generation, 
 											UInt16 				nodeID, 
 											UInt16 				addrHi, 
 											UInt32 				addrLo,
 											int 				speed, 
 											int 				label, 
+											int 				type, 
 											void *				data, 
 											int 				size, 
-											IOFWAsyncCommand *	cmd)
+											IOFWAsyncCommand *	cmd )
 {
-	return asyncWrite(	generation,
-						nodeID,
-						addrHi,
-						addrLo,
-						speed,
-						label,
-						data,
-						size,
-						cmd,
-						kIOFWWriteFlagsNone );
+	IOLog( "IOFireWireController::asyncLock : DEPRECATED API\n" );
+	return kIOReturnUnsupported;
 }
 
-// asyncWrite
+// asyncLock
 //
 //
 
-IOReturn IOFireWireController::asyncWrite(	UInt32 				generation, 
-											UInt16 				nodeID, 
-											UInt16 				addrHi, 
-											UInt32 				addrLo,
-											int 				speed, 
-											int 				label, 
-											void *				data, 
-											int 				size, 
-											IOFWAsyncCommand *	cmd,
-											IOFWWriteFlags 		flags )
+IOReturn IOFireWireController::asyncLock(	UInt32 					generation, 
+											UInt16 					nodeID, 
+											UInt16 					addrHi, 
+											UInt32 					addrLo,
+											int 					speed, 
+											int 					label, 
+											int 					type, 
+											IOMemoryDescriptor *	buf, 
+											IOByteCount 			offset,
+											int 					size, 
+											IOFWAsyncCommand *		cmd )
+					
 {
-    if(!checkGeneration(generation)) {
-        return (kIOFireWireBusReset);
+    if( !checkGeneration(generation) ) 
+	{
+        return kIOFireWireBusReset;
     }
 
     // Check if local node
-    if(nodeID == fLocalNodeID) {
-        UInt32 rcode;
-        IOFWSpeed temp = (IOFWSpeed)speed;
-        rcode = doWriteSpace(nodeID, temp, FWAddress(addrHi, addrLo), size,
-                             data, (IOFWRequestRefCon)label);
-        cmd->gotPacket(rcode, NULL, 0);
-        return kIOReturnSuccess;
-    }
-    else
-        return fFWIM->asyncWrite(nodeID, addrHi, addrLo, speed, label, data, size, cmd, flags);
-}
-
-IOReturn IOFireWireController::asyncLock(UInt32 generation, UInt16 nodeID, UInt16 addrHi, UInt32 addrLo,
-                    int speed, int label, int type, void *data, int size, IOFWAsyncCommand *cmd)
-{
-    if(!checkGeneration(generation)) {
-        return (kIOFireWireBusReset);
-    }
-
-    // Check if local node
-    if(nodeID == fLocalNodeID) {
+    if( nodeID == fLocalNodeID ) 
+	{
         UInt32 rcode;
         UInt32 retVals[2];
         UInt32 retSize = sizeof(retVals);
-        IOFWSpeed temp = (IOFWSpeed)speed;
+        
+		IOFWSpeed temp = (IOFWSpeed)speed;
         IOFWRequestRefCon refcon = (IOFWRequestRefCon)(label | kRequestIsLock | (type << kRequestExtTCodeShift));
-        rcode = doLockSpace(nodeID, temp, FWAddress(addrHi, addrLo), size,
-                             (const UInt32 *)data, retSize, retVals, type, refcon);
-        cmd->gotPacket(rcode, retVals, retSize);
-        return kIOReturnSuccess;
+        
+		void * bytes = IOMalloc( size );
+			
+		buf->readBytes( offset, bytes, size );
+            
+		rcode = doLockSpace(	nodeID, 
+								temp, 
+								FWAddress(addrHi, addrLo), 
+								size,
+								(const UInt32*)bytes, 
+								retSize, 
+								retVals, 
+								type, 
+								refcon );
+		
+		IOFree( bytes, size );
+								
+        cmd->gotPacket( rcode, retVals, retSize );
+        
+		return kIOReturnSuccess;
     }
     else
-        return fFWIM->asyncLock(nodeID, addrHi, addrLo, speed, label, type, data, size, cmd);
-}
-
-// handleARxReqIntComplete
-//
-//
-
-void IOFireWireController::handleARxReqIntComplete( void )
-{
-    IOFWAddressSpace * found;
-
-    fSpaceIterator->reset();
-    while( (found = (IOFWAddressSpace *) fSpaceIterator->getNextObject()) ) 
 	{
-		IOFWPseudoAddressSpace * space = OSDynamicCast( IOFWPseudoAddressSpace, found );
-		if( space != NULL )
-		{
-			space->handleARxReqIntComplete();
-		}
-    }
+        return fFWIM->asyncLock(	nodeID, 
+									addrHi, 
+									addrLo, 
+									speed, 
+									label, 
+									type, 
+									buf,
+									offset,
+									size, 
+									cmd );
+	}
 }
+
+// handleAsyncTimeout
+//
+//
 
 IOReturn IOFireWireController::handleAsyncTimeout(IOFWAsyncCommand *cmd)
 {
     return fFWIM->handleAsyncTimeout(cmd);
 }
+
+// asyncStreamWrite
+//
+//
 
 IOReturn IOFireWireController::asyncStreamWrite(UInt32 generation,
                     int speed, int tag, int sync, int channel,
@@ -2341,15 +2656,16 @@ IOReturn IOFireWireController::asyncStreamWrite(UInt32 generation,
 	return fFWIM->asyncStreamTransmit((UInt32)channel, speed, (UInt32) sync, (UInt32) tag, buf, offset, size, cmd);
 }
 
+// createAsyncStreamCommand
+//
+//
 
 IOFWAsyncStreamCommand * IOFireWireController::createAsyncStreamCommand( UInt32 generation,
     			UInt32 channel, UInt32 sync, UInt32 tag, IOMemoryDescriptor *hostMem,
     			UInt32 size, int speed, FWAsyncStreamCallback completion, void *refcon)
 {
     IOFWAsyncStreamCommand * cmd;
-    IOFWWriteCommand * cmd1;
 
-    cmd1 = new IOFWWriteCommand;
     cmd = new IOFWAsyncStreamCommand;
     if(cmd) {
         if(!cmd->initAll(this, generation, channel, sync, tag, hostMem,size,speed,
@@ -2431,22 +2747,27 @@ kprintf("Received packet 0x%x size %d\n", data, size);
 #endif
             {
                 UInt32 ret;
-                FWAddress addr((data[1] & kFWAsynchDestinationOffsetHigh) >>
-                                        kFWAsynchDestinationOffsetHighPhase, data[2]);
+                FWAddress addr((data[1] & kFWAsynchDestinationOffsetHigh) >>  kFWAsynchDestinationOffsetHighPhase, data[2]);
                 IOFWSpeed speed = FWSpeed(sourceID);
                 IOMemoryDescriptor *buf = NULL;
-		IOByteCount offset;
-                ret = doReadSpace(sourceID, speed, addr, 4,
+				IOByteCount offset;
+                
+				ret = doReadSpace(sourceID, speed, addr, 4,
                                     &buf, &offset, (IOFWRequestRefCon)(tLabel | kRequestIsQuad));
                
                 if(ret == kFWResponsePending)
                     break;
-                if(NULL != buf) {
-                    IOByteCount lengthOfSegment;
-                    fFWIM->asyncReadQuadResponse(sourceID, speed, tLabel, ret,
-			*(UInt32 *)buf->getVirtualSegment(offset, &lengthOfSegment));
+                
+				if( NULL != buf ) 
+				{
+					UInt32 quad = 0xdeadbeef;
+						
+					buf->readBytes( offset, &quad, 4 );
+						
+					fFWIM->asyncReadQuadResponse(sourceID, speed, tLabel, ret, quad );
                 }
-                else {
+                else 
+				{
                     fFWIM->asyncReadQuadResponse(sourceID, speed, tLabel, ret, 0xdeadbeef);
                 }
             }
@@ -2484,8 +2805,21 @@ kprintf("Received packet 0x%x size %d\n", data, size);
         case kFWTCodeReadQuadletResponse :
             if(fTrans[tLabel].fHandler) {
                 IOFWAsyncCommand * cmd = fTrans[tLabel].fHandler;
-		cmd->gotPacket((data[1] & kFWAsynchRCode)>>kFWAsynchRCodePhase,
-									(const void*)(data+3), 4);
+				FWAddress commandAddress = cmd->getAddress();
+				
+            	if( sourceID == commandAddress.nodeID )
+            	{
+            	
+					cmd->gotPacket((data[1] & kFWAsynchRCode)>>kFWAsynchRCodePhase,
+										(const void*)(data+3), 4);
+				}
+				else
+				{
+#if (DEBUGGING_LEVEL > 0)
+					DEBUGLOG( "Response from wrong node ID!\n" );
+#endif
+				}
+				
             }
             else {
 #if (DEBUGGING_LEVEL > 0)
@@ -2497,13 +2831,26 @@ kprintf("Received packet 0x%x size %d\n", data, size);
         case kFWTCodeReadBlockResponse :
         case kFWTCodeLockResponse :
             if(fTrans[tLabel].fHandler) {
-                IOFWAsyncCommand * cmd = fTrans[tLabel].fHandler;
-		cmd->gotPacket((data[1] & kFWAsynchRCode)>>kFWAsynchRCodePhase,
-                 (const void*)(data+4), (data[3] & kFWAsynchDataLength)>>kFWAsynchDataLengthPhase);
+            	
+				IOFWAsyncCommand * cmd = fTrans[tLabel].fHandler;
+				FWAddress commandAddress = cmd->getAddress();
+				
+            	if( sourceID == commandAddress.nodeID )
+            	{
+            	
+					cmd->gotPacket((data[1] & kFWAsynchRCode)>>kFWAsynchRCodePhase,
+					(const void*)(data+4), (data[3] & kFWAsynchDataLength)>>kFWAsynchDataLengthPhase);
+				}
+				else
+				{
+#if (DEBUGGING_LEVEL > 0)
+					DEBUGLOG( "Response from wrong node ID!\n" );
+#endif
+				}
             }
             else {
 #if (DEBUGGING_LEVEL > 0)
-		DEBUGLOG("ReadBlock/LockResponse: label %d isn't in use!!\n", tLabel);
+				DEBUGLOG("ReadBlock/LockResponse: label %d isn't in use!!\n", tLabel);
 #endif
             }
             break;
@@ -2538,9 +2885,9 @@ kprintf("Received packet 0x%x size %d\n", data, size);
 // async request receive
 //
 
-/*
- * Create local FireWire address spaces for devices to access
- */
+// createPhysicalAddressSpace
+//
+//
 
 IOFWPhysicalAddressSpace *
 IOFireWireController::createPhysicalAddressSpace(IOMemoryDescriptor *mem)
@@ -2556,6 +2903,10 @@ IOFireWireController::createPhysicalAddressSpace(IOMemoryDescriptor *mem)
     return space;
 }
 
+// createPseudoAddressSpace
+//
+//
+
 IOFWPseudoAddressSpace *
 IOFireWireController::createPseudoAddressSpace(FWAddress *addr, UInt32 len,
                             FWReadCallback reader, FWWriteCallback writer, void *refcon)
@@ -2570,6 +2921,10 @@ IOFireWireController::createPseudoAddressSpace(FWAddress *addr, UInt32 len,
     }
     return space;
 }
+
+// createInitialAddressSpace
+//
+//
 
 IOFWPseudoAddressSpace *
 IOFireWireController::createInitialAddressSpace(UInt32 addressLo, UInt32 len,
@@ -2587,6 +2942,10 @@ IOFireWireController::createInitialAddressSpace(UInt32 addressLo, UInt32 len,
     return space;
 }
 
+// getAddressSpace
+//
+//
+
 IOFWAddressSpace *
 IOFireWireController::getAddressSpace(FWAddress address)
 {
@@ -2603,6 +2962,10 @@ IOFireWireController::getAddressSpace(FWAddress address)
     
 	return found;
 }
+
+// allocAddress
+//
+//
 
 IOReturn IOFireWireController::allocAddress(IOFWAddressSpace *space)
 {
@@ -2625,6 +2988,10 @@ IOReturn IOFireWireController::allocAddress(IOFWAddressSpace *space)
     
 	return res;
 }
+
+// freeAddress
+//
+//
 
 void IOFireWireController::freeAddress(IOFWAddressSpace *space)
 {
@@ -2759,6 +3126,10 @@ void IOFireWireController::processLockRequest(UInt16 sourceID, UInt32 tLabel,
     }
 }
 
+// doReadSpace
+//
+//
+
 UInt32 IOFireWireController::doReadSpace(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
                                                 IOMemoryDescriptor **buf, IOByteCount * offset,
                                                 IOFWRequestRefCon refcon)
@@ -2775,6 +3146,10 @@ UInt32 IOFireWireController::doReadSpace(UInt16 nodeID, IOFWSpeed &speed, FWAddr
     return ret;
 }
 
+// doWriteSpace
+//
+//
+
 UInt32 IOFireWireController::doWriteSpace(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
                                             const void *buf, IOFWRequestRefCon refcon)
 {
@@ -2788,6 +3163,10 @@ UInt32 IOFireWireController::doWriteSpace(UInt16 nodeID, IOFWSpeed &speed, FWAdd
     }
     return ret;
 }
+
+// doLockSpace
+//
+//
 
 UInt32 IOFireWireController::doLockSpace(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 inLen,
                                          const UInt32 *newVal,  UInt32 &outLen, UInt32 *oldVal, UInt32 type,
@@ -2809,20 +3188,55 @@ UInt32 IOFireWireController::doLockSpace(UInt16 nodeID, IOFWSpeed &speed, FWAddr
     return ret;
 }
 
+// handleARxReqIntComplete
+//
+//
+
+void IOFireWireController::handleARxReqIntComplete( void )
+{
+    IOFWAddressSpace * found;
+
+    fSpaceIterator->reset();
+    while( (found = (IOFWAddressSpace *) fSpaceIterator->getNextObject()) ) 
+	{
+		IOFWPseudoAddressSpace * space = OSDynamicCast( IOFWPseudoAddressSpace, found );
+		if( space != NULL )
+		{
+			space->handleARxReqIntComplete();
+		}
+    }
+}
+
+// isLockRequest
+//
+//
+
 bool IOFireWireController::isLockRequest(IOFWRequestRefCon refcon)
 {
     return ((UInt32)refcon) & kRequestIsLock;
 }
+
+// isQuadRequest
+//
+//
 
 bool IOFireWireController::isQuadRequest(IOFWRequestRefCon refcon)
 {
     return ((UInt32)refcon) & kRequestIsQuad;
 }
 
+// isCompleteRequest
+//
+//
+
 bool IOFireWireController::isCompleteRequest(IOFWRequestRefCon refcon)
 {
     return ((UInt32)refcon) & kRequestIsComplete;
 }
+
+// getExtendedTCode
+//
+//
 
 UInt32 IOFireWireController::getExtendedTCode(IOFWRequestRefCon refcon)
 {
@@ -2833,37 +3247,69 @@ UInt32 IOFireWireController::getExtendedTCode(IOFWRequestRefCon refcon)
 // async response transmit
 //
 
+// asyncReadResponse
+//
 // Send async read response packets
 // useful for pseudo address spaces that require servicing outside the FireWire work loop.
-IOReturn IOFireWireController::asyncReadResponse(UInt32 generation, UInt16 nodeID, int speed,
-                                   IOMemoryDescriptor *buf, IOByteCount offset, int size,
-                                                 IOFWRequestRefCon refcon)
+
+IOReturn IOFireWireController::asyncReadResponse(	UInt32 					generation, 
+													UInt16 					nodeID, 
+													int 					speed,
+													IOMemoryDescriptor *	buf, 
+													IOByteCount 			offset, 
+													int 					size,
+													IOFWRequestRefCon 		refcon )
 {
     IOReturn result;
     UInt32 params = (UInt32)refcon;
     UInt32 label = params & kRequestLabel;
-    IOByteCount lengthOfSegment;
 
     closeGate();
     
-	if(!checkGeneration(generation))
+	if( !checkGeneration(generation) )
+	{
         result = kIOFireWireBusReset;
-    else if(params & kRequestIsQuad)
-        result = fFWIM->asyncReadQuadResponse(nodeID, speed, label, kFWResponseComplete,
-                                    *(UInt32 *)buf->getVirtualSegment(offset, &lengthOfSegment));
-    else
-        result = fFWIM->asyncReadResponse(nodeID, speed, label, kFWResponseComplete, buf, offset, size);
-    
+    }
+	else if( params & kRequestIsQuad )
+	{
+		UInt32 quad = 0xdeadbeef;
+								
+		buf->readBytes( offset, &quad, 4 );
+
+		result = fFWIM->asyncReadQuadResponse(	nodeID, 
+												speed, 
+												label, 
+												kFWResponseComplete,
+												quad );
+    }
+	else
+    {
+	    result = fFWIM->asyncReadResponse(	nodeID, 
+											speed, 
+											label, 
+											kFWResponseComplete, 
+											buf, 
+											offset, 
+											size );
+    }
+	
 	openGate();
 
     return result;
 }
 
+// asyncLockResponse
+//
 // Send async lock response packets
 // useful for pseudo address spaces that require servicing outside the FireWire work loop.
-IOReturn IOFireWireController::asyncLockResponse( UInt32 generation, UInt16 nodeID, int speed,
-                                        IOMemoryDescriptor *buf, IOByteCount offset, int size,
-                                        IOFWRequestRefCon refcon )
+
+IOReturn IOFireWireController::asyncLockResponse( 	UInt32 					generation, 
+													UInt16 					nodeID, 
+													int 					speed,
+													IOMemoryDescriptor *	buf, 
+													IOByteCount 			offset, 
+													int 					size,
+													IOFWRequestRefCon 		refcon )
 {
     IOReturn result;
     UInt32 params = (UInt32)refcon;
@@ -2871,13 +3317,26 @@ IOReturn IOFireWireController::asyncLockResponse( UInt32 generation, UInt16 node
 
     closeGate();
     
-	if(!checkGeneration(generation))
+	if( !checkGeneration(generation) )
+	{
         result = kIOFireWireBusReset;
-    else
-    {
-        IOByteCount	dataSize = size ;
-        void*	data = buf->getVirtualSegment( offset, & dataSize ) ;
-        result = fFWIM->asyncLockResponse(nodeID, speed, label, kFWResponseComplete, getExtendedTCode(refcon), data, size);
+    }
+	else
+    {	
+		void * bytes = IOMalloc( size );
+			
+		buf->readBytes( offset, bytes, size );
+    
+		result = fFWIM->asyncLockResponse(	nodeID, 
+											speed, 
+											label, 
+											kFWResponseComplete, 
+											getExtendedTCode(refcon), 
+											bytes, 
+											size );
+
+		IOFree( bytes, size );
+
     }
     
     openGate();
@@ -2889,8 +3348,11 @@ IOReturn IOFireWireController::asyncLockResponse( UInt32 generation, UInt16 node
 // timer command
 //
 
-IOFWDelayCommand *
-IOFireWireController::createDelayedCmd(UInt32 uSecDelay, FWBusCallback func, void *refcon)
+// createDelayedCmd
+//
+//
+
+IOFWDelayCommand * IOFireWireController::createDelayedCmd(UInt32 uSecDelay, FWBusCallback func, void *refcon)
 {
     IOFWDelayCommand *delay;
     //IOLog("Creating delay of %d\n", uSecDelay);
@@ -2898,10 +3360,12 @@ IOFireWireController::createDelayedCmd(UInt32 uSecDelay, FWBusCallback func, voi
     if(!delay)
         return NULL;
 
-    if(!delay->initWithDelay(this, uSecDelay, func, refcon)) {
-	delay->release();
+    if(!delay->initWithDelay(this, uSecDelay, func, refcon)) 
+	{
+		delay->release();
         return NULL;
     }
+	
     return delay;
 }
 
@@ -2910,9 +3374,15 @@ IOFireWireController::createDelayedCmd(UInt32 uSecDelay, FWBusCallback func, voi
 // isoch
 //
 
-IOFWIsochChannel *IOFireWireController::createIsochChannel(
-	bool doIRM, UInt32 bandwidth, IOFWSpeed prefSpeed,
-	FWIsochChannelForceStopNotificationProc stopProc, void *stopRefCon)
+// createIsochChannel
+//
+//
+
+IOFWIsochChannel *IOFireWireController::createIsochChannel(	bool 		doIRM, 
+															UInt32 		bandwidth, 
+															IOFWSpeed 	prefSpeed,
+															FWIsochChannelForceStopNotificationProc	stopProc, 
+															void *		stopRefCon )
 {
 	// NOTE: if changing this code, must also change IOFireWireUserClient::isochChannelAllocate()
 
@@ -2920,39 +3390,56 @@ IOFWIsochChannel *IOFireWireController::createIsochChannel(
 
     channel = new IOFWIsochChannel;
     if(!channel)
-	return NULL;
-
-    if(!channel->init(this, doIRM, bandwidth, prefSpeed, stopProc, stopRefCon)) {
-	channel->release();
-	channel = NULL;
+	{
+		return NULL;
+	}
+	
+    if( !channel->init(this, doIRM, bandwidth, prefSpeed, stopProc, stopRefCon) ) 
+	{
+		channel->release();
+		channel = NULL;
     }
+	
     return channel;
 }
 
-IOFWLocalIsochPort *IOFireWireController::createLocalIsochPort(bool talking,
-        DCLCommand* opcodes, DCLTaskInfo *info,
-	UInt32 startEvent, UInt32 startState, UInt32 startMask)
+// createLocalIsochPort
+//
+//
+
+IOFWLocalIsochPort *IOFireWireController::createLocalIsochPort(	bool 			talking,
+																DCLCommand *	opcodes, 
+																DCLTaskInfo *	info,
+																UInt32 			startEvent, 
+																UInt32 			startState, 
+																UInt32 			startMask )
 {
     IOFWLocalIsochPort *port;
     IODCLProgram *program;
-
-    program = fFWIM->createDCLProgram(talking, opcodes, info, startEvent, startState, startMask);
+	
+    program = fFWIM->createDCLProgram( talking, opcodes, info, startEvent, startState, startMask );
     if(!program)
-	return NULL;
+		return NULL;
 
     port = new IOFWLocalIsochPort;
-    if(!port) {
-	program->release();
-	return NULL;
+    if( !port ) 
+	{
+		program->release();
+		return NULL;
     }
 
-    if(!port->init(program, this)) {
-	port->release();
-	port = NULL;
+    if(!port->init(program, this)) 
+	{
+		port->release();
+		port = NULL;
     }
 
     return port;
 }
+
+// addAllocatedChannel
+//
+//
 
 void IOFireWireController::addAllocatedChannel(IOFWIsochChannel *channel)
 {
@@ -2962,6 +3449,10 @@ void IOFireWireController::addAllocatedChannel(IOFWIsochChannel *channel)
     
 	openGate();
 }
+
+// removeAllocatedChannel
+//
+//
 
 void IOFireWireController::removeAllocatedChannel(IOFWIsochChannel *channel)
 {
@@ -2997,11 +3488,20 @@ IOFireWireLocalNode * IOFireWireController::getLocalNode(IOFireWireController *c
     return localNode;
 }
 
+// getBusPowerManager
+//
+//
+
+IOFireWirePowerManager * IOFireWireController::getBusPowerManager( void )
+{
+	return fBusPowerManager;
+}
+
 // getWorkLoop
 //
 //
 
-IOWorkLoop *IOFireWireController::getWorkLoop() const
+IOWorkLoop * IOFireWireController::getWorkLoop() const
 {
     return fWorkLoop;
 }
@@ -3014,6 +3514,10 @@ IOFireWireLink * IOFireWireController::getLink() const
 { 
 	return fFWIM;
 }
+
+// getCycleTime
+//
+//
 
 IOReturn IOFireWireController::getCycleTime(UInt32 &cycleTime)
 {
@@ -3029,6 +3533,10 @@ IOReturn IOFireWireController::getCycleTime(UInt32 &cycleTime)
     
 	return res;
 }
+
+// getBusCycleTime
+//
+//
 
 IOReturn IOFireWireController::getBusCycleTime(UInt32 &busTime, UInt32 &cycleTime)
 {
@@ -3057,6 +3565,38 @@ IOReturn IOFireWireController::getBusCycleTime(UInt32 &busTime, UInt32 &cycleTim
     return res;
 }
 
+// hopCount
+//
+//
+
+UInt32 IOFireWireController::hopCount(UInt16 nodeAAddress, UInt16 nodeBAddress )
+{	
+	closeGate();
+	
+	UInt32 hops = fHopCounts[(kFWMaxNodesPerBus+1)*(nodeAAddress & 63)+(nodeBAddress & 63)];
+
+//	IOLog( "IOFireWireController::hopCount - nodeIDA = 0x%04x, nodeIDB = 0x%04x, hops = %d\n", nodeAAddress & 63, nodeBAddress & 63, hops );
+	
+	openGate();
+	
+	return hops;
+}
+
+// hopCount
+//
+//
+
+UInt32 IOFireWireController::hopCount( UInt16 nodeA )
+{
+	closeGate();
+	
+	UInt32 hops = hopCount( nodeA, fLocalNodeID );
+	
+	openGate();
+	
+	return hops;
+}
+
 // FWSpeed
 //
 //
@@ -3075,7 +3615,10 @@ IOFWSpeed IOFireWireController::FWSpeed(UInt16 nodeA, UInt16 nodeB) const
 	return (IOFWSpeed)fSpeedCodes[(kFWMaxNodesPerBus+1)*(nodeA & 63)+(nodeB & 63)];
 }
 
+// maxPackLog
+//
 // How big (as a power of two) can packets sent to/received from the node be?
+
 int IOFireWireController::maxPackLog(bool forSend, UInt16 nodeAddress) const
 {
     int log;
@@ -3089,11 +3632,18 @@ int IOFireWireController::maxPackLog(bool forSend, UInt16 nodeAddress) const
     return log;
 }
 
+// maxPackLog
+//
 // How big (as a power of two) can packets sent from A to B be?
+
 int IOFireWireController::maxPackLog(UInt16 nodeA, UInt16 nodeB) const
 {
     return 9+FWSpeed(nodeA, nodeB);
 }
+
+// nodeIDtoDevice
+//
+//
 
 IOFireWireDevice * IOFireWireController::nodeIDtoDevice(UInt32 generation, UInt16 nodeID)
 {
@@ -3109,7 +3659,7 @@ IOFireWireDevice * IOFireWireController::nodeIDtoDevice(UInt32 generation, UInt1
         OSObject *child;
         while( (child = childIterator->getNextObject())) {
             found = OSDynamicCast(IOFireWireDevice, child);
-            if(found && !found->isInactive() && found->fNodeID == nodeID)
+            if(found && !found->isTerminated() && found->fNodeID == nodeID)
 		break;
         }
         childIterator->release();
@@ -3155,6 +3705,10 @@ IOReturn IOFireWireController::getIRMNodeID(UInt32 &generation, UInt16 &id) cons
 	id = fIRMNodeID; 
 	return kIOReturnSuccess;
 }
+
+// makeRoot
+//
+//
 
 IOReturn IOFireWireController::makeRoot(UInt32 generation, UInt16 nodeID)
 {
@@ -3245,125 +3799,4 @@ IOFWCmdQ &IOFireWireController::getAfterResetHandledQ()
 	return fAfterResetHandledQ;
 }
 
-void IOFireWireController::clockTick(OSObject *obj, IOTimerEventSource *src)
-{
-    IOFireWireController *me = (IOFireWireController *)obj;
 
-    // Check the list of pending commands
-    me->processTimeout(src);
-}
-
-void IOFireWireController::processTimeout(IOTimerEventSource *src)
-{
-    // complete() might take significant time, enough to cause
-    // a later command to timeout too, so we loop here until there is no timeout.
-    while (fTimeoutQ.fHead) {
-        AbsoluteTime now, dead;
-        clock_get_uptime(&now);
-#if 0
-        IOLog("processTimeout, time is %lx:%lx\n", now.hi, now.lo);
-        {
-            IOFWCommand *t = fTimeoutQ.fHead;
-            while(t) {
-                AbsoluteTime d = t->getDeadline();
-                IOLog("%s:%p deadline %lx:%lx\n",
-                    t->getMetaClass()->getClassName(), t, d.hi, d.lo);
-                t = t->getNext();
-            }
-        }
-#endif
-        dead = fTimeoutQ.fHead->getDeadline();
-        if(CMP_ABSOLUTETIME(&dead, &now) == 1)
-            break;	// Command with earliest deadline is OK.
-        // Make sure there isn't a packet waiting.
-        fFWIM->flushWaitingPackets();
-        // Which may have changed the queue - see if earliest deadline has changed.
-        if(!fTimeoutQ.fHead)
-            break;
-        if(CMP_ABSOLUTETIME(&dead, &fTimeoutQ.fHead->getDeadline()) != 0)
-            continue;
-        //IOLog("Cmd 0x%x timing out\r", fTimeoutQ.fHead);
-        fTimeoutQ.fHead->cancel(kIOReturnTimeout);
-    };
-    if(fTimeoutQ.fHead) {
-        src->wakeAtTime(fTimeoutQ.fHead->getDeadline());
-        //AbsoluteTime now;
-        //clock_get_uptime(&now);
-        //IOLog("processTimeout, timeoutQ waketime %lx:%lx (now %lx:%lx)\n",
-        //        fTimeoutQ.fHead->getDeadline().hi, fTimeoutQ.fHead->getDeadline().lo, now.hi, now.lo);
-    }
-    else {
-        //IOLog("processTimeout, timeoutQ empty\n");
-        src->cancelTimeout();
-    }
-}
-
-void IOFireWireController::timeoutQ::headChanged(IOFWCommand *oldHead)
-{
-#if 0
-    {
-        IOFWCommand *t = fHead;
-        if(oldHead)
-            IOLog("IOFireWireController::timeoutQ::headChanged(%s:%p)\n",
-                oldHead->getMetaClass()->getClassName(), oldHead);
-        else
-            IOLog("IOFireWireController::timeoutQ::headChanged(0)\n");
-            
-        while(t) {
-            AbsoluteTime d = t->getDeadline();
-            IOLog("%s:%p deadline %lx:%lx\n",
-                t->getMetaClass()->getClassName(), t, d.hi, d.lo);
-            t = t->getNext();
-        }
-    }
-#endif
-    if(!fHead) {
-        //IOLog("timeoutQ empty\n");
-        fTimer->cancelTimeout();
-    }
-    else {
-        fTimer->wakeAtTime(fHead->getDeadline());
-        //AbsoluteTime now;
-        //clock_get_uptime(&now);
-        //IOLog("timeoutQ waketime %lx:%lx (now %lx:%lx)\n",
-        //        fHead->getDeadline().hi, fHead->getDeadline().lo, now.hi, now.lo);
-    }
-}
-void IOFireWireController::timeoutQ::busReset()
-{
-#if 0
-    {
-        IOFWCommand *t = fHead;
-        if(oldHead)
-            IOLog("IOFireWireController::timeoutQ::headChanged(%s:%p)\n",
-                oldHead->getMetaClass()->getClassName(), oldHead);
-        else
-            IOLog("IOFireWireController::timeoutQ::headChanged(0)\n");
-            
-        while(t) {
-            AbsoluteTime d = t->getDeadline();
-            IOLog("%s:%p deadline %lx:%lx\n",
-                t->getMetaClass()->getClassName(), t, d.hi, d.lo);
-            t = t->getNext();
-        }
-    }
-#endif
-    IOFWCommand *cmd;
-    cmd = fHead;
-    while(cmd) {
-        IOFWCommand *next;
-        next = cmd->getNext();
-        if(cmd->cancelOnReset()) {
-            cmd->cancel(kIOFireWireBusReset);
-        }
-        cmd = next;
-    }
-}
-
-
-void IOFireWireController::pendingQ::headChanged(IOFWCommand *oldHead)
-{
-    if(fHead) {
-        fSource->signalWorkAvailable();
-    }
-}

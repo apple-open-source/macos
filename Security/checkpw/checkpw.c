@@ -103,6 +103,10 @@ int checkpw( const char* userName, const char* password )
 {
 	struct passwd* pw = NULL;
     int status;
+
+	// Check username, NULL can crash in getpwnam
+	if (!userName)
+		return CHECKPW_UNKNOWNUSER;
     
     pw = getpwnam( userName );
 	if (pw == NULL)
@@ -138,6 +142,12 @@ int checkpw_internal( const char* userName, const char* password, const struct p
 			break;
 		}
 
+		// check password, NULL crashes crypt()
+		if (!password)
+		{
+			siResult = CHECKPW_BADPASSWORD;
+			break;
+		}
 		// Correct password hash
 		if (strcmp(crypt(password, pw->pw_passwd), pw->pw_passwd) == 0) {
 			siResult = CHECKPW_SUCCESS;
@@ -179,6 +189,11 @@ int checkpw_internal( const char* userName, const char* password, const struct p
 
 		// User Name
 		len = strlen( userName );
+		if (curr + len + sizeof(unsigned long) > kIPCMsgLen)
+		{
+			siResult = CHECKPW_FAILURE;
+			break;
+		}
 		memcpy( &(msg->fData[ curr ]), &len, sizeof( unsigned long ) );
 		curr += sizeof( unsigned long );
 		memcpy( &(msg->fData[ curr ]), userName, len );
@@ -186,6 +201,11 @@ int checkpw_internal( const char* userName, const char* password, const struct p
 
 		// Password
 		len = strlen( password );
+		if (curr + len + sizeof(unsigned long) > kIPCMsgLen)
+		{
+			siResult = CHECKPW_FAILURE;
+			break;
+		}
 		memcpy( &(msg->fData[ curr ]), &len, sizeof( unsigned long ) );
 		curr += sizeof ( unsigned long );
 		memcpy( &(msg->fData[ curr ]), password, len );

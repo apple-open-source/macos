@@ -1,0 +1,347 @@
+// !$*UTF8*$!
+{
+	06F44E3CFFE7037511CA29EB = {
+		activeExec = 0;
+	};
+	06F44E44FFE7050C11CA29EB = {
+		activeExec = 0;
+		executables = (
+			12C0D15B046ABFA206CD259A,
+		);
+	};
+	089C1669FE841209C02AAC07 = {
+		activeBuildStyle = 06AA1266FFB2107B11CA28AA;
+		activeExecutable = 12C0D15B046ABFA206CD259A;
+		activeTarget = 089C1673FE841209C02AAC07;
+		executables = (
+			12C0D15B046ABFA206CD259A,
+		);
+		perUserDictionary = {
+			PBXPerProjectTemplateStateSaveDate = 79479669;
+			PBXWorkspaceContents = (
+				{
+					LeftSlideOut = {
+						Split0 = {
+							Split0 = {
+								NavContent0 = {
+									bookmark = 129C6F0604BCC58706CD259A;
+									history = (
+										1218816404A234CE06CD259A,
+										1218816604A234CE06CD259A,
+										1218816704A234CE06CD259A,
+										129C6F0304BCC58706CD259A,
+										129C6F0404BCC58706CD259A,
+									);
+									prevStack = (
+										1218816904A234CE06CD259A,
+										1218816A04A234CE06CD259A,
+										1218816B04A234CE06CD259A,
+										129C6F0504BCC58706CD259A,
+									);
+								};
+								NavCount = 1;
+								NavGeometry0 = {
+									Frame = "{{0, 0}, {944, 758}}";
+									NavBarVisible = YES;
+								};
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Debugger = {
+									Split0 = {
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									TabCount = 2;
+								};
+								LauncherConfigVersion = 7;
+							};
+							Tab1 = {
+								LauncherConfigVersion = 3;
+								Runner = {
+								};
+							};
+							TabCount = 4;
+						};
+						SplitCount = 1;
+						Tab1 = {
+							OptionsSetName = "Hierarchy, all classes";
+						};
+						TabCount = 5;
+					};
+				},
+			);
+			PBXWorkspaceGeometries = (
+				{
+					ContentSize = "{1228, 805}";
+					LeftSlideOut = {
+						ActiveTab = 0;
+						Collapsed = NO;
+						Frame = "{{0, 23}, {1228, 782}}";
+						Split0 = {
+							Collapsed = NO;
+							Frame = "{{284, 0}, {944, 782}}";
+							Split0 = {
+								Frame = "{{0, 24}, {944, 758}}";
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Debugger = {
+									Collapsed = NO;
+									Frame = "{{0, 0}, {572, 214}}";
+									Split0 = {
+										Frame = "{{0, 24}, {572, 190}}";
+										Split0 = {
+											Frame = "{{0, 0}, {279, 190}}";
+										};
+										Split1 = {
+											DebugVariablesTableConfiguration = (
+												Name,
+												123,
+												Value,
+												85,
+												Summary,
+												62.123,
+											);
+											Frame = "{{288, 0}, {284, 190}}";
+										};
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									Tab0 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									Tab1 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									TabCount = 2;
+									TabsVisible = YES;
+								};
+								Frame = "{{0, 0}, {572, 214}}";
+								LauncherConfigVersion = 7;
+							};
+							Tab1 = {
+								Frame = "{{0, 0}, {572, 125}}";
+								LauncherConfigVersion = 3;
+								Runner = {
+									Frame = "{{0, 0}, {572, 125}}";
+								};
+							};
+							Tab2 = {
+								BuildMessageFrame = "{{0, 0}, {946, 120}}";
+								BuildTranscriptFrame = "{{0, 129}, {946, 0}}";
+								Frame = "{{0, 0}, {944, 127}}";
+							};
+							Tab3 = {
+								Frame = "{{0, 0}, {572, 265}}";
+							};
+							TabCount = 4;
+							TabsVisible = YES;
+						};
+						SplitCount = 1;
+						Tab0 = {
+							Frame = "{{0, 0}, {260, 782}}";
+							GroupTreeTableConfiguration = (
+								SCMStatusColumn,
+								22,
+								TargetStatusColumn,
+								18,
+								MainColumn,
+								205,
+							);
+						};
+						Tab1 = {
+							ClassesFrame = "{{0, 0}, {247, 330}}";
+							ClassesTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXClassColumnIdentifier,
+								204,
+							);
+							Frame = "{{0, 0}, {245, 549}}";
+							MembersFrame = "{{0, 339}, {247, 210}}";
+							MembersTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXMethodColumnIdentifier,
+								203,
+							);
+						};
+						Tab2 = {
+							Frame = "{{0, 0}, {226, 549}}";
+						};
+						Tab3 = {
+							Frame = "{{0, 0}, {191, 782}}";
+							TargetTableConfiguration = (
+								ActiveObject,
+								16,
+								ObjectNames,
+								202.296,
+							);
+						};
+						Tab4 = {
+							BreakpointsTreeTableConfiguration = (
+								breakpointColumn,
+								138,
+								enabledColumn,
+								31,
+							);
+							Frame = "{{0, 0}, {191, 549}}";
+						};
+						TabCount = 5;
+						TabsVisible = YES;
+					};
+					StatusViewVisible = YES;
+					Template = F5F68CF101725D4C0D7A8F4C;
+					ToolbarVisible = YES;
+					WindowLocation = "{272, 246}";
+				},
+			);
+			PBXWorkspaceStateSaveDate = 79479669;
+		};
+		perUserProjectItems = {
+			1218816404A234CE06CD259A = 1218816404A234CE06CD259A;
+			1218816604A234CE06CD259A = 1218816604A234CE06CD259A;
+			1218816704A234CE06CD259A = 1218816704A234CE06CD259A;
+			1218816904A234CE06CD259A = 1218816904A234CE06CD259A;
+			1218816A04A234CE06CD259A = 1218816A04A234CE06CD259A;
+			1218816B04A234CE06CD259A = 1218816B04A234CE06CD259A;
+			129C6F0304BCC58706CD259A = 129C6F0304BCC58706CD259A;
+			129C6F0404BCC58706CD259A = 129C6F0404BCC58706CD259A;
+			129C6F0504BCC58706CD259A = 129C6F0504BCC58706CD259A;
+			129C6F0604BCC58706CD259A = 129C6F0604BCC58706CD259A;
+		};
+		projectwideBuildSettings = {
+		};
+		wantsIndex = 1;
+		wantsSCM = -1;
+	};
+	089C1673FE841209C02AAC07 = {
+		activeExec = 0;
+	};
+	1218816404A234CE06CD259A = {
+		fRef = 06F44E0CFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioDevice.cpp: 331";
+		rLen = 0;
+		rLoc = 9925;
+		rType = 0;
+		vrLen = 1148;
+		vrLoc = 9205;
+	};
+	1218816604A234CE06CD259A = {
+		fRef = 06F44E22FFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioTypes.h: 42";
+		rLen = 0;
+		rLoc = 1788;
+		rType = 0;
+		vrLen = 1856;
+		vrLoc = 373;
+	};
+	1218816704A234CE06CD259A = {
+		fRef = 06F44E0FFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioEngineUserClient.cpp: 699";
+		rLen = 0;
+		rLoc = 20781;
+		rType = 0;
+		vrLen = 1365;
+		vrLoc = 20155;
+	};
+	1218816904A234CE06CD259A = {
+		fRef = 06F44E0CFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioDevice.cpp: 331";
+		rLen = 0;
+		rLoc = 9925;
+		rType = 0;
+		vrLen = 1148;
+		vrLoc = 9205;
+	};
+	1218816A04A234CE06CD259A = {
+		fRef = 06F44E22FFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioTypes.h: 42";
+		rLen = 0;
+		rLoc = 1788;
+		rType = 0;
+		vrLen = 1856;
+		vrLoc = 373;
+	};
+	1218816B04A234CE06CD259A = {
+		fRef = 06F44E0FFFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioEngineUserClient.cpp: 699";
+		rLen = 0;
+		rLoc = 20781;
+		rType = 0;
+		vrLen = 1365;
+		vrLoc = 20155;
+	};
+	129C6F0304BCC58706CD259A = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {647, 233}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {258, 704}}";
+			TOCViewSelectedItems = (
+				PBXTargetSummarySettingsModule,
+			);
+		};
+	};
+	129C6F0404BCC58706CD259A = {
+		fRef = 06F44E15FFE702AD11CA29EB;
+		isa = PBXBookmark;
+	};
+	129C6F0504BCC58706CD259A = {
+		isa = PBXTargetBookmark;
+		trg = 089C1673FE841209C02AAC07;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {647, 233}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {258, 704}}";
+			TOCViewSelectedItems = (
+				PBXTargetSummarySettingsModule,
+			);
+		};
+	};
+	129C6F0604BCC58706CD259A = {
+		fRef = 06F44E15FFE702AD11CA29EB;
+		isa = PBXTextBookmark;
+		name = "IOAudioStream.cpp: 134";
+		rLen = 0;
+		rLoc = 5380;
+		rType = 0;
+		vrLen = 2063;
+		vrLoc = 3646;
+	};
+	12C0D15B046ABFA206CD259A = {
+		activeArgIndex = 2147483647;
+		argumentStrings = (
+		);
+		debuggerPlugin = GDBDebugging;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		isa = PBXExecutable;
+		name = InstallHeaders;
+		shlibInfoDictList = (
+		);
+		sourceDirectories = (
+		);
+	};
+}

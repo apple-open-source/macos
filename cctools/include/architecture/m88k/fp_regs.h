@@ -166,7 +166,7 @@ static __inline__ void m88k_set_fpcr(m88k_fpcr_t fpcr_val)
 	__asm__ volatile ("fstcr	 %0,fcr63	; set_fpcr()"
 	  : : "r" (CONTENTS(fpcr_val)));
 }
-#endif	__STRICT_ANSI__
+#endif /* __STRICT_ANSI__ */
 #endif /* m88k */
 
-#endif	_ARCH_M88K_FP_REGS_H_
+#endif	/* _ARCH_M88K_FP_REGS_H_ */

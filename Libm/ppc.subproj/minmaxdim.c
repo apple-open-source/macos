@@ -176,12 +176,12 @@ float fminf ( float x, float y )
 
 double fma ( double x, double y, double z )
 {
-    return __fmadd(x, y, z);
+    return __FMADD(x, y, z);
 }
 
 float fmaf ( float x, float y, float z )
 {
-    return __fmaddf(x, y, z);
+    return __FMADDS(x, y, z);
 }
 #endif /* !BUILDING_FOR_CARBONCORE_LEGACY */
 

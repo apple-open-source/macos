@@ -1,3 +1,22 @@
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile and setting RC_OS = macos
+  - Fixed warnings for "comparison between signed and unsigned" in arch.c,
+    getsecbyname.c and getsegbyname.c.
+
+Changes for the 5.12 release (the cctools-449 release):
+- Added the arch flag i686 to be the same as pentpro in arch.c. Radar bug
+  #3111977.
+
+Changes for the 5.12 release (the cctools-447 release):
+- Added the VEO entries in the ArchInfoTable[] in arch.c so
+  NXGetArchInfoFromName() will work for VEO binaries.  No changes where made
+  to NXFindBestFatArch() or NXCombineCpuSubtypes().  Radar bug #3096745.
+
+Changes for the 5.11 release (the cctools-440 release):
+- Fixed the warnings about extra tokens at end of #endif directive in
+  getsecbyname.c (Radar bug #3072042).
+
 Changes for the 5.10 release (the cctools-414 release):
 - Changed the calls to mach_host_self() in NXGetLocalArchInfo() in arch.c to
   call mach_port_deallocate() on the port after the call.  Radar bug #2895931.

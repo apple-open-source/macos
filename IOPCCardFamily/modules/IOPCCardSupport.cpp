@@ -207,7 +207,8 @@ IOPCCardIOUnmap(void *vaddr)
 static void
 timerFunnel(void *arg0, void *arg1)
 {
-    gIOPCCardCommandGate->runCommand((void *)kCSGateTimerCallout, arg0, NULL, NULL);
+    gIOPCCardWorkLoop->runAction((IOWorkLoop::Action)gCardServicesGate, NULL,
+				 (void *)kCSGateTimerCallout, arg0, NULL, NULL);
 }
 
 void

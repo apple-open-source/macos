@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -120,20 +123,20 @@ namespace IOFireWireLib {
 			case kDCLSendPacketOp:
 			case kDCLReceivePacketStartOp:
 			case kDCLReceivePacketOp:
-				result = sizeof(DCLTransferPacketStruct) ;
+				result = sizeof(DCLTransferPacket) ;
 				break ;
 				
 			case kDCLSendBufferOp:
 			case kDCLReceiveBufferOp:
-				result = sizeof(DCLTransferBufferStruct) ;
+				result = sizeof(DCLTransferBuffer) ;
 				break ;
 	
 			case kDCLCallProcOp:
-				result = sizeof(DCLCallProcStruct) ;
+				result = sizeof(DCLCallProc) ;
 				break ;
 				
 			case kDCLLabelOp:
-				result = sizeof(DCLLabelStruct) ;
+				result = sizeof(DCLLabel) ;
 				break ;
 				
 			case kDCLJumpOp:
@@ -141,11 +144,11 @@ namespace IOFireWireLib {
 				break ;
 				
 			case kDCLSetTagSyncBitsOp:
-				result = sizeof(DCLSetTagSyncBitsStruct) ;
+				result = sizeof(DCLSetTagSyncBits) ;
 				break ;
 				
 			case kDCLUpdateDCLListOp:
-				result = sizeof(DCLUpdateDCLListStruct) ;
+				result = sizeof(DCLUpdateDCLList) ;
 				break ;
 	
 			case kDCLPtrTimeStampOp:
@@ -668,8 +671,7 @@ namespace IOFireWireLib {
 		& LocalIsochPortCOM::SPrintDCLProgram,
 		& LocalIsochPortCOM::SModifyTransferPacketDCLSize,
 		& LocalIsochPortCOM::SModifyTransferPacketDCLBuffer,
-		& LocalIsochPortCOM::SModifyTransferPacketDCL,
-		& LocalIsochPortCOM::S_SetFinalizeCallback
+		& LocalIsochPortCOM::SModifyTransferPacketDCL
 	} ;
 	
 	LocalIsochPort::LocalIsochPort( IUnknownVTbl* interface, Device& userclient, bool talking, DCLCommand* inDCLProgram, 
@@ -681,8 +683,7 @@ namespace IOFireWireLib {
 	  mStartState(inStartState),
 	  mStartMask(inStartMask),
 	  mExpectedStopTokens(0),
-	  mDeferredReleaseCount(0),
-	  mFinalizeCallback(nil)
+	  mDeferredRelease(false)
 	{
 		if ( !inDCLProgram )
 		{
@@ -786,7 +787,7 @@ namespace IOFireWireLib {
 		
 		{
 			mach_msg_type_number_t 	outputSize = 0 ;
-			io_scalar_inband_t		params = { (int)mKernPortRef, (int)& S_DCLCallProcHandler, (int)this } ;
+			io_scalar_inband_t		params = { (int)mKernPortRef, (int)& DCLCallProcHandler, (int)this } ;
 			
 	//		params[0]	= (UInt32) mKernPortRef ;
 	//		params[1]	= (UInt32) & DCLCallProcHandler ;
@@ -815,7 +816,7 @@ namespace IOFireWireLib {
 		if ( mExpectedStopTokens > 0 )
 		{
 			Unlock() ;
-			++mDeferredReleaseCount ;
+			mDeferredRelease = true ;
 			return mRefCount ;
 		}
 	
@@ -829,7 +830,7 @@ namespace IOFireWireLib {
 	{
 		Lock() ;
 		++mExpectedStopTokens ;
-		IOFireWireLibLog_("now waiting for %lu stop tokens\n", mExpectedStopTokens) ;
+		IOFireWireLibLog_("waiting for %lu stop tokens\n", mExpectedStopTokens) ;
 		Unlock() ;
 		
 		return IsochPortCOM::Stop() ;	// call superclass Stop()
@@ -855,42 +856,31 @@ namespace IOFireWireLib {
 	}
 
 	void
-	LocalIsochPort::DCLCallProcHandler( void* refcon, IOReturn result )
+	LocalIsochPort::DCLCallProcHandler(
+		void*				inRefCon,
+		IOReturn			result,
+		LocalIsochPort*		me )
 	{
-		if ( mExpectedStopTokens > 0 )
+		if ( me->mExpectedStopTokens > 0 )
 		{
-			if ( result == kIOFireWireLastDCLToken && refcon==(void*)0xFFFFFFFF )
-			{		
-				Lock() ;
-				mExpectedStopTokens-- ;
-				Unlock() ;
-
-				if ( mExpectedStopTokens == 0 )
-				{
-					if ( mFinalizeCallback )
-						(*mFinalizeCallback)(mRefCon) ;
-					while ( mDeferredReleaseCount > 0 )
-					{
-						Release() ;
-						--mDeferredReleaseCount ;
-					}
-				}
+			if ( result == kIOFireWireLastDCLToken && inRefCon==(void*)0xFFFFFFFF )
+			{			
+				me->Lock() ;
+				me->mExpectedStopTokens-- ;
+				me->Unlock() ;
+	
+				if ( me->mExpectedStopTokens == 0 && me->mDeferredRelease )
+					me->Release() ;
 			}
 			return ;		
 		}
 		
 		if ( result == kIOReturnSuccess )
 		{
-			DCLCallProcStruct*	callProcDCL = (DCLCallProcStruct*)refcon ;
+			DCLCallProcStruct*	callProcDCL = (DCLCallProcStruct*)inRefCon ;
 			
-			(*callProcDCL->proc)((DCLCommand*)refcon) ;
+			(*callProcDCL->proc)((DCLCommand*)inRefCon) ;
 		}
-	}
-	
-	void
-	LocalIsochPort::S_DCLCallProcHandler( void* refcon, IOReturn result, LocalIsochPort* me )
-	{
-		me->DCLCallProcHandler( refcon, result ) ;
 	}
 	
 	void
@@ -970,7 +960,6 @@ namespace IOFireWireLib {
 #if 0
 				|| CFEqual( interfaceID, kIOFireWireLocalIsochPortInterfaceID_v3 )	// don't support this yet...
 #endif
-				|| CFEqual( interfaceID, kIOFireWireLocalIsochPortInterfaceID_v4 )
 			)
 		{
 			*ppv = & GetInterface() ;
@@ -1034,18 +1023,5 @@ namespace IOFireWireLib {
 	LocalIsochPortCOM::SModifyTransferPacketDCL( PortRef self, DCLTransferPacket* dcl, void* newBuffer, IOByteCount newSize )
 	{
 		return kIOReturnUnsupported ;
-	}
-
-	//
-	// v4
-	//
-	
-	IOReturn
-	LocalIsochPortCOM::S_SetFinalizeCallback( IOFireWireLibLocalIsochPortRef self, IOFireWireLibIsochPortFinalizeCallback finalizeCallback )
-	{
-		LocalIsochPortCOM* me = IOFireWireIUnknown::InterfaceMap<LocalIsochPortCOM>::GetThis(self) ;
-		me->mFinalizeCallback = finalizeCallback ;
-		
-		return kIOReturnSuccess ;
 	}
 }

@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -78,7 +81,7 @@ IOUSBInterface::withDescriptors(const IOUSBConfigurationDescriptor *cfdesc,
         
     if (!me->init(cfdesc, ifdesc)) 
     {
-        me->free();
+        me->release();
         return NULL;
     }
 
@@ -225,7 +228,6 @@ IOUSBInterface::CreatePipes(void)
         if(_pipeList[i] == NULL) 
         {
             makePipeFailed = true;
-            break;
         }
             
         i++;
@@ -246,11 +248,9 @@ IOUSBInterface::CreatePipes(void)
     if ( makePipeFailed )
     {
         USBLog(3,"%s[%p]: Failed to create all pipes.", getName(), this);
-        
-        // What error do we return here?  All we know is that MakePipe() failed, but we don't know why.  It can either
-        // be kIOReturnNoMemory, kIOReturnBadArgument, or, for isoc ep's, kIOReturnNoBandwidth.
-        //
-        res = kIOReturnNoResources;
+
+        // We don't set an error here so that we allow those pipes that were successfully created to coexist with some that were not
+        // This is true for some devices that incorrectly specify an interrupt pipe with a polling interval of 0ms along with their other pipes
     }
     
     return res;

@@ -65,6 +65,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -100,7 +101,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleRAID;
-				MODULE_VERSION = 1.3.2;
+				MODULE_VERSION = 1.3.3;
 				OTHER_CFLAGS = "-fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -124,20 +125,24 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleRAID</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleRAID 1.3.3, , Copyright 2000-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.driver.AppleRAID</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleRAID</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.2</string>
+	<string>1.3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.2</string>
+	<string>1.3.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleRAID</key>
@@ -175,7 +180,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -192,7 +196,6 @@
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				089C1680FE841241C02AAC07,
 				239CC7D00118692111CA295E,
 			);
 			isa = PBXResourcesBuildPhase;
@@ -225,33 +228,11 @@
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
-				089C167DFE841241C02AAC07,
 				239CC7CF0118692111CA295E,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
-		};
-		089C167DFE841241C02AAC07 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-		};
-		089C167EFE841241C02AAC07 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
-			refType = 4;
-		};
-		089C1680FE841241C02AAC07 = {
-			fileRef = 089C167DFE841241C02AAC07;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //080
 //081
@@ -297,11 +278,13 @@
 //1A3
 //1A4
 		1A224C3EFF42367911CA2CB7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleRAID.h;
 			refType = 4;
 		};
 		1A224C3FFF42367911CA2CB7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleRAID.cpp;
 			refType = 4;
@@ -346,6 +329,7 @@
 //243
 //244
 		24484B9800A31C3B11CA295E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleRAIDHeader.h;
 			refType = 4;
@@ -400,6 +384,7 @@
 //493
 //494
 		49267F530275CC6603CA295E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleRAIDEventSource.h;
 			refType = 4;
@@ -411,6 +396,7 @@
 			};
 		};
 		49267F550275CC7603CA295E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleRAIDEventSource.cpp;
 			refType = 4;
@@ -422,11 +408,13 @@
 			};
 		};
 		49CBF47C0250F98203CA295E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleRAIDController.h;
 			refType = 4;
 		};
 		49CBF47D0250F98203CA295E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleRAIDController.cpp;
 			refType = 4;
@@ -444,11 +432,13 @@
 			};
 		};
 		49CBF4800250FD3A03CA295E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleRAIDGlobals.h;
 			refType = 4;
 		};
 		49CBF4810250FD3A03CA295E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleRAIDGlobals.cpp;
 			refType = 4;

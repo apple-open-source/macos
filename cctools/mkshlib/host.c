@@ -118,8 +118,8 @@ static struct lib_object {
  * calculated in build_ref_obj() and then used in write_ref_obj().
  */
 static struct ref_object {
-    long object_size;		/* size of the object file */
-    long string_size;		/* the size of the string table */
+    unsigned long object_size;		/* size of the object file */
+    unsigned long string_size;		/* the size of the string table */
 } ref_object = { 0 };
 
 /*
@@ -129,10 +129,10 @@ static struct ref_object {
  * their string are set in build_archive() .
  */
 static struct toc_object {
-    long object_size;		/* size of the object file */
-    long nranlibs;		/* number of ranlib structs */
+    unsigned long object_size;	/* size of the object file */
+    unsigned long nranlibs;	/* number of ranlib structs */
     struct ranlib *ranlibs;	/* the ranlib structs */
-    long ranlib_string_size;	/* size of the strings for the ranlib structs */
+    unsigned long ranlib_string_size;/* size of the strings for the structs */
     char *ranlib_strings;	/* the strings for the ranlib structs */
 } toc_object = { 0 };
 
@@ -222,7 +222,7 @@ void
 make_exthash(void)
 {
     struct ofile ofile;
-    int string_size, hash_key, i, nsyms;
+    unsigned int string_size, hash_key, i, nsyms;
     struct nlist *symbols;
     char *strings, *p;
     struct ext *extp, *bextp;
@@ -282,7 +282,7 @@ make_exthash(void)
 	    if((symbols[i].n_type & N_EXT) == 0)
 		continue;
 	    if(symbols[i].n_un.n_strx < 0 ||
-	       symbols[i].n_un.n_strx > string_size)
+	       (unsigned long)symbols[i].n_un.n_strx > string_size)
 		fatal("bad string index for symbol %d in target shared "
 		      "library: %s", i, target_filename);
 	    symbols[i].n_un.n_name = strings + symbols[i].n_un.n_strx;
@@ -425,7 +425,7 @@ make_exthash(void)
 		extp = extp->next;
 	    }
 	}
-#endif HOST_DEBUG
+#endif /* HOST_DEBUG */
 }
 
 /*
@@ -453,7 +453,7 @@ struct ofile *ofile,
 char *arch_name,
 void *cookie)
 {
-    long i, j, k, l, nsyms, string_size, hash_key;
+    unsigned long i, j, k, l, nsyms, string_size, hash_key;
     struct load_command *lc;
     struct symtab_command *st;
     struct nlist *symbols;
@@ -504,7 +504,7 @@ printf("processing object = %s\n", ofile->file_name);
 	    if((symbols[j].n_type & N_EXT) == 0)
 		continue;
 	    if(symbols[j].n_un.n_strx < 0 ||
-	       symbols[j].n_un.n_strx > string_size)
+	       (unsigned long)symbols[j].n_un.n_strx > string_size)
 		fatal("bad string index for symbol %ld in object file: %s ",
 		      j, ofile->file_name);
 	    symbols[j].n_un.n_name = strings + symbols[j].n_un.n_strx;
@@ -634,7 +634,7 @@ object_list[i]->pu_symbols[l].n_value);
 			object_list[i]->pu_symbols[j].n_value);
 	    }
 	}
-#endif HOST_DEBUG
+#endif /* HOST_DEBUG */
 }
 
 /*
@@ -649,7 +649,7 @@ static
 void
 make_references(void)
 {
-    long i, j, hash_key;
+    unsigned long i, j, hash_key;
     struct ext *extp;
     struct ref *refp;
     char *p;
@@ -668,7 +668,7 @@ make_references(void)
 		extp = extp->next;
 	    }
 	}
-#endif HOST_DEBUG
+#endif /* HOST_DEBUG */
 
 	/*
 	 * Create a file definition symbol name for each host object file.
@@ -783,7 +783,7 @@ make_references(void)
 		refp = refp->next;
 	    }
 	}
-#endif HOST_DEBUG
+#endif /* HOST_DEBUG */
 }
 
 /*
@@ -794,7 +794,7 @@ static
 void
 build_archive(void)
 {
-    long ran_index, ran_strx, ran_off, i, j;
+    unsigned long ran_index, ran_strx, ran_off, i, j;
     struct object *op;
     char *symbol_name;
 
@@ -924,7 +924,7 @@ static
 void
 build_lib_object(void)
 {
-    long i;
+    unsigned long i;
     struct load_command *lc;
 
 	/*
@@ -977,7 +977,7 @@ static
 void
 build_ref_object(void)
 {
-    long i;
+    unsigned long i;
 
 	/*
 	 * This object file has one defined symbol.  It is the defining
@@ -1018,7 +1018,7 @@ static
 void
 build_host_objects(void)
 {
-    long i, j, strx, hash_key, len, new_symbols, new_string_size;
+    unsigned long i, j, strx, hash_key, len, new_symbols, new_string_size;
     char *p;
     struct object *op;
     struct ref *refp;
@@ -1332,13 +1332,13 @@ write_archive(void)
     int fd;
     kern_return_t r;
     char *buffer;
-    long offset;
+    unsigned long offset;
     struct stat stat;
     long mtime, symdef_mtime, mode;
     uid_t uid;
     gid_t gid;
     struct ar_hdr ar_hdr;
-    long i, l;
+    unsigned long i, l;
     struct object *op;
     struct ranlib *ranlibs;
 
@@ -1529,7 +1529,7 @@ void
 write_lib_obj(
 char *buffer)
 {
-    long offset, i;
+    unsigned long offset, i;
     struct mach_header *mh;
     struct load_command *lc, *lib_obj_load_commands;
     struct segment_command *sg;
@@ -1644,7 +1644,7 @@ void
 write_ref_obj(
 char *buffer)
 {
-    long offset, strx, i;
+    unsigned long offset, strx, i;
     struct mach_header *mh;
     struct symtab_command *st;
     struct nlist *symbols, *first_symbol;

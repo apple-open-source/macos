@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -33,6 +34,17 @@
 
 #include "Scavenger.h"
 
+static void 	CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
+											VolumeObjectPtr theVOPtr, 
+											HFSPlusVolumeHeader * thePriVHPtr, 
+											HFSPlusVolumeHeader * theAltVHPtr );
+static void 	GetEmbeddedVolumeHeaders( 	SGlobPtr GPtr, 
+											HFSMasterDirectoryBlock * myMDBPtr,
+											Boolean isPrimaryMDB );
+static OSErr 	GetVolumeObjectBlock( VolumeObjectPtr theVOPtr,
+									  UInt64 theBlockNum,
+								      BlockDescriptor * theBlockDescPtr );
+static OSErr 	VolumeObjectFixPrimaryBlock( void );
 		
 /*
  * utf_encodestr
@@ -261,9 +273,9 @@ int AllocBTN( SGlobPtr GPtr, SInt16 fileRefNum, UInt32 nodeNumber )
 OSErr	GetBTreeHeader( SGlobPtr GPtr, SFCB *fcb, BTHeaderRec *header )
 {
 	OSErr err;
-	Ptr headerPtr;
+	BTHeaderRec *headerRec;
 	BlockDescriptor block;
-	
+
 	GPtr->TarBlock = kHeaderNodeNum;
 
 	if (fcb->fcbBlockSize == 0)
@@ -272,8 +284,14 @@ OSErr	GetBTreeHeader( SGlobPtr GPtr, SFCB *fcb, BTHeaderRec *header )
 	err = GetFileBlock(fcb, kHeaderNodeNum, kGetBlock, &block);
 	ReturnIfError(err);
 
-	headerPtr = (char*)block.buffer + sizeof(BTNodeDescriptor);
-	CopyMemory(headerPtr, header, sizeof(BTHeaderRec));
+	SWAP_BT_NODE(&block, (fcb->fcbVolume->vcbSignature == kHFSPlusSigWord),
+		fcb->fcbFileID, 3);
+
+	headerRec = (BTHeaderRec *)((char*)block.buffer + sizeof(BTNodeDescriptor));
+	CopyMemory(headerRec, header, sizeof(BTHeaderRec));
+
+	SWAP_BT_NODE(&block, (fcb->fcbVolume->vcbSignature == kHFSPlusSigWord),
+		fcb->fcbFileID, 3);
 	
 	err = ReleaseFileBlock (fcb, &block, kReleaseBlock);
 	ReturnIfError(err);
@@ -326,6 +344,8 @@ RepairOrderPtr AllocMinorRepairOrder( SGlobPtr GPtr, int n )						/* #extra byte
 		p->link = GPtr->MinorRepairsP;			//	then link into list of repairs
 		GPtr->MinorRepairsP = p;
 	}
+    else if ( GPtr->logLevel >= kDebugLog )
+        printf( "\t%s - AllocateClearMemory failed to allocate %d bytes \n", __FUNCTION__, n);
 	
 	if ( GPtr->RepLevel == repairLevelNoProblemsFound )
 		GPtr->RepLevel = repairLevelVolumeRecoverable;
@@ -562,14 +582,14 @@ UInt32	CatalogNameSize( const CatalogName *name, Boolean isHFSPlus)
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//******************************************************************************
 //	Routine:	BuildCatalogKey
 //
 //	Function: 	Constructs a catalog key record (ckr) given the parent
 //				folder ID and CName.  Works for both classic and extended
 //				HFS volumes.
 //
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//******************************************************************************
 
 void
 BuildCatalogKey(HFSCatalogNodeID parentID, const CatalogName *cName, Boolean isHFSPlus, CatalogKey *key)
@@ -639,13 +659,1059 @@ UpdateVolumeEncodings(SVCB *volume, TextEncoding encoding)
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//******************************************************************************
+//	Routine:	VolumeObjectFixPrimaryBlock
+//
+//	Function:	Use the alternate Volume Header or Master Directory block (depending
+//				on the type of volume) to restore the primary block.  This routine
+//				depends upon our intialization code to set up where are blocks are
+//				located.  
+//
+// 	Result:		0 if all is well, noMacDskErr when we do not have a primary block 
+//				number or whatever GetVolumeObjectAlternateBlock returns.
+//******************************************************************************
+
+static OSErr VolumeObjectFixPrimaryBlock( void )
+{
+	OSErr				err;
+	VolumeObjectPtr		myVOPtr;
+	UInt64				myPrimaryBlockNum;
+	BlockDescriptor  	myPrimary;
+	BlockDescriptor  	myAlternate;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	myPrimary.buffer = NULL;
+	myAlternate.buffer = NULL;
+		
+	GetVolumeObjectPrimaryBlockNum( &myPrimaryBlockNum );
+	if ( myPrimaryBlockNum == 0 )
+		return( noMacDskErr );
+		
+	// we don't care if this is a valid primary block since we're
+	// about to write over it
+	err = GetVolumeObjectPrimaryBlock( &myPrimary );
+	if ( !(err == noErr || err == badMDBErr || err == noMacDskErr) )
+		goto ExitThisRoutine;
+
+	// restore the primary block from the alternate
+	err = GetVolumeObjectAlternateBlock( &myAlternate );
+	
+	// invalidate if we have not marked the alternate as OK
+	if ( VolumeObjectIsHFS( ) ) {
+		if ( (myVOPtr->flags & kVO_AltMDBOK) == 0 )
+			err = badMDBErr;
+	}
+	else if ( (myVOPtr->flags & kVO_AltVHBOK) == 0 ) {
+		err = badMDBErr;
+	}
+	
+	if ( err == noErr ) {
+		CopyMemory( myAlternate.buffer, myPrimary.buffer, Blk_Size );
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myPrimary, kForceWriteBlock );		
+		myPrimary.buffer = NULL;
+		if ( myVOPtr->volumeType == kHFSVolumeType )
+			myVOPtr->flags |= kVO_PriMDBOK;
+		else
+			myVOPtr->flags |= kVO_PriVHBOK;
+	}
+
+ExitThisRoutine:
+	if ( myPrimary.buffer != NULL )
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myPrimary, kReleaseBlock );
+	if ( myAlternate.buffer != NULL )
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myAlternate, kReleaseBlock );
+
+	return( err );
+	
+} /* VolumeObjectFixPrimaryBlock */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectVHBorMDB
+//
+//	Function:	Get the Volume Header block or Master Directory block (depending
+//				on type of volume).  This will normally return the alternate, but
+//				it may return the primary when the alternate is damaged or cannot
+//				be found.
+//
+// 	Result:		returns 0 when all is well.
+//******************************************************************************
+OSErr GetVolumeObjectVHBorMDB( BlockDescriptor * theBlockDescPtr )
+{
+	UInt64				myBlockNum;
+	VolumeObjectPtr		myVOPtr;
+	OSErr  				err;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	GetVolumeObjectBlockNum( &myBlockNum );
+
+	err = GetVolumeObjectBlock( myVOPtr, myBlockNum, theBlockDescPtr );
+	if ( err == noErr ) 
+	{
+		if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType || 
+			 myVOPtr->volumeType == kPureHFSPlusVolumeType )
+		{
+			err = ValidVolumeHeader( (HFSPlusVolumeHeader*) theBlockDescPtr->buffer );
+		}
+		else if ( myVOPtr->volumeType == kHFSVolumeType ) 
+		{
+			HFSMasterDirectoryBlock *	myMDBPtr;
+			myMDBPtr = (HFSMasterDirectoryBlock	*) theBlockDescPtr->buffer;
+			if ( myMDBPtr->drSigWord != kHFSSigWord )
+				err = noMacDskErr;
+		}
+		else
+			err = noMacDskErr;
+	}
+
+	return( err );
+
+} /* GetVolumeObjectVHBorMDB */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectAlternateBlock
+//
+//	Function:	Get the alternate Volume Header block or Master Directory block
+//				(depending on type of volume).
+// 	Result:		returns 0 when all is well.
+//******************************************************************************
+OSErr GetVolumeObjectAlternateBlock( BlockDescriptor * theBlockDescPtr )
+{
+	UInt64				myBlockNum;
+	VolumeObjectPtr		myVOPtr;
+	OSErr  				err;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	GetVolumeObjectAlternateBlockNum( &myBlockNum );
+
+	err = GetVolumeObjectBlock( myVOPtr, myBlockNum, theBlockDescPtr );
+	if ( err == noErr ) 
+	{
+		if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType || 
+			 myVOPtr->volumeType == kPureHFSPlusVolumeType )
+		{
+			err = ValidVolumeHeader( (HFSPlusVolumeHeader*) theBlockDescPtr->buffer );
+		}
+		else if ( myVOPtr->volumeType == kHFSVolumeType ) 
+		{
+			HFSMasterDirectoryBlock *	myMDBPtr;
+			myMDBPtr = (HFSMasterDirectoryBlock	*) theBlockDescPtr->buffer;
+			if ( myMDBPtr->drSigWord != kHFSSigWord )
+				err = noMacDskErr;
+		}
+		else
+			err = noMacDskErr;
+	}
+
+	return( err );
+
+} /* GetVolumeObjectAlternateBlock */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectPrimaryBlock
+//
+//	Function:	Get the primary Volume Header block or Master Directory block
+//				(depending on type of volume).
+// 	Result:		returns 0 when all is well.
+//******************************************************************************
+OSErr GetVolumeObjectPrimaryBlock( BlockDescriptor * theBlockDescPtr )
+{
+	UInt64				myBlockNum;
+	VolumeObjectPtr		myVOPtr;
+	OSErr  				err;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	GetVolumeObjectPrimaryBlockNum( &myBlockNum );
+
+	err = GetVolumeObjectBlock( myVOPtr, myBlockNum, theBlockDescPtr );
+	if ( err == noErr ) 
+	{
+		if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType || 
+			 myVOPtr->volumeType == kPureHFSPlusVolumeType )
+		{
+			err = ValidVolumeHeader( (HFSPlusVolumeHeader*) theBlockDescPtr->buffer );
+		}
+		else if ( myVOPtr->volumeType == kHFSVolumeType ) 
+		{
+			HFSMasterDirectoryBlock *	myMDBPtr;
+			myMDBPtr = (HFSMasterDirectoryBlock	*) theBlockDescPtr->buffer;
+			if ( myMDBPtr->drSigWord != kHFSSigWord )
+				err = noMacDskErr;
+		}
+		else
+			err = noMacDskErr;
+	}
+
+	return( err );
+
+} /* GetVolumeObjectPrimaryBlock */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectVHB
+//
+//	Function:	Get the Volume Header block using either the primary or alternate
+//				block number as set up by InitializeVolumeObject.  This will normally
+//				return the alternate, but it may return the primary when the
+//				alternate is damaged or cannot be found.
+//
+// 	Result:		returns 0 when all is well or passes results of GetVolumeBlock or
+//				ValidVolumeHeader.
+//******************************************************************************
+OSErr GetVolumeObjectVHB( BlockDescriptor * theBlockDescPtr )
+{
+	UInt64				myBlockNum;
+	VolumeObjectPtr		myVOPtr;
+	OSErr  				err;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	myBlockNum = ((myVOPtr->flags & kVO_AltVHBOK) != 0) ? myVOPtr->alternateVHB : myVOPtr->primaryVHB;
+	err = GetVolumeObjectBlock( myVOPtr, myBlockNum, theBlockDescPtr );
+	if ( err == noErr )
+		err = ValidVolumeHeader( (HFSPlusVolumeHeader*) theBlockDescPtr->buffer );
+
+	return( err );
+
+} /* GetVolumeObjectVHB */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectAlternateMDB
+//
+//	Function:	Get the Master Directory Block using the alternate master directory
+//				block number as set up by InitializeVolumeObject.
+//
+// 	Result:		returns 0 when all is well.
+//******************************************************************************
+OSErr GetVolumeObjectAlternateMDB( BlockDescriptor * theBlockDescPtr )
+{
+	VolumeObjectPtr		myVOPtr;
+	OSErr  				err;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	err = GetVolumeObjectBlock( NULL, myVOPtr->alternateMDB, theBlockDescPtr );
+	if ( err == noErr ) 
+	{
+		HFSMasterDirectoryBlock *	myMDBPtr;
+		myMDBPtr = (HFSMasterDirectoryBlock	*) theBlockDescPtr->buffer;
+		if ( myMDBPtr->drSigWord != kHFSSigWord )
+			err = noMacDskErr;
+	}
+
+	return( err );
+
+} /* GetVolumeObjectAlternateMDB */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectPrimaryMDB
+//
+//	Function:	Get the Master Directory Block using the primary master directory
+//				block number as set up by InitializeVolumeObject.
+//
+// 	Result:		returns 0 when all is well.
+//******************************************************************************
+OSErr GetVolumeObjectPrimaryMDB( BlockDescriptor * theBlockDescPtr )
+{
+	VolumeObjectPtr		myVOPtr;
+	OSErr  				err;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	err = GetVolumeObjectBlock( NULL, myVOPtr->primaryMDB, theBlockDescPtr );
+	if ( err == noErr ) 
+	{
+		HFSMasterDirectoryBlock *	myMDBPtr;
+		myMDBPtr = (HFSMasterDirectoryBlock	*) theBlockDescPtr->buffer;
+		if ( myMDBPtr->drSigWord != kHFSSigWord )
+			err = noMacDskErr;
+	}
+
+	return( err );
+
+} /* GetVolumeObjectPrimaryMDB */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectBlock
+//
+//	Function:	Get the Volume Header block or Master Directory block using the
+//				given block number.
+// 	Result:		returns 0 when all is well or passes results of GetVolumeBlock or
+//				ValidVolumeHeader.
+//******************************************************************************
+static OSErr GetVolumeObjectBlock( VolumeObjectPtr theVOPtr,
+								   UInt64 theBlockNum,
+								   BlockDescriptor * theBlockDescPtr )
+{
+	OSErr  			err;
+
+	if ( theVOPtr == NULL )
+		theVOPtr = GetVolumeObjectPtr( );
+		
+	err = GetVolumeBlock( theVOPtr->vcbPtr, theBlockNum, kGetBlock, theBlockDescPtr );
+
+	return( err );
+
+} /* GetVolumeObjectBlock */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectBlockNum
+//
+//	Function:	Extract the appropriate block number for the volume header or
+//				master directory (depanding on volume type) from the VolumeObject.
+//				NOTE - this routine may return the primary or alternate block
+//				depending on which one is valid.  Preference is always given to
+//				the alternate.
+//
+// 	Result:		returns block number of MDB or VHB or 0 if none are valid or
+//				if volume type is unknown.
+//******************************************************************************
+void GetVolumeObjectBlockNum( UInt64 * theBlockNumPtr )
+{
+	VolumeObjectPtr				myVOPtr;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	*theBlockNumPtr = 0;	// default to none
+
+	// NOTE - we use alternate volume header or master directory
+	// block before the primary because it is less likely to be damaged.
+	if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType ||
+	     myVOPtr->volumeType == kPureHFSPlusVolumeType ) {
+		if ( (myVOPtr->flags & kVO_AltVHBOK) != 0 )
+			*theBlockNumPtr = myVOPtr->alternateVHB;
+		else
+			*theBlockNumPtr = myVOPtr->primaryVHB;
+	}
+	else if ( myVOPtr->volumeType == kHFSVolumeType ) {
+		if ( (myVOPtr->flags & kVO_AltMDBOK) != 0 )
+			*theBlockNumPtr = myVOPtr->alternateMDB;
+		else
+			*theBlockNumPtr = myVOPtr->primaryMDB;
+	}
+
+	return;
+
+} /* GetVolumeObjectBlockNum */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectAlternateBlockNum
+//
+//	Function:	Extract the alternate block number for the volume header or
+//				master directory (depanding on volume type) from the VolumeObject.
+//
+// 	Result:		returns block number of alternate MDB or VHB or 0 if none are 
+//				valid or if volume type is unknown.
+//******************************************************************************
+void GetVolumeObjectAlternateBlockNum( UInt64 * theBlockNumPtr )
+{
+	VolumeObjectPtr				myVOPtr;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	*theBlockNumPtr = 0;	// default to none
+	
+	if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType ||
+	     myVOPtr->volumeType == kPureHFSPlusVolumeType ) {
+		*theBlockNumPtr = myVOPtr->alternateVHB;
+	}
+	else if ( myVOPtr->volumeType == kHFSVolumeType ) {
+		*theBlockNumPtr = myVOPtr->alternateMDB;
+	}
+
+	return;
+
+} /* GetVolumeObjectAlternateBlockNum */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectPrimaryBlockNum
+//
+//	Function:	Extract the primary block number for the volume header or
+//				master directory (depanding on volume type) from the VolumeObject.
+//
+// 	Result:		returns block number of primary MDB or VHB or 0 if none are valid
+//				or if volume type is unknown.
+//******************************************************************************
+void GetVolumeObjectPrimaryBlockNum( UInt64 * theBlockNumPtr )
+{
+	VolumeObjectPtr				myVOPtr;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	*theBlockNumPtr = 0;	// default to none
+	
+	if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType ||
+	     myVOPtr->volumeType == kPureHFSPlusVolumeType ) {
+		*theBlockNumPtr = myVOPtr->primaryVHB;
+	}
+	else if ( myVOPtr->volumeType == kHFSVolumeType ) {
+		*theBlockNumPtr = myVOPtr->primaryMDB;
+	}
+
+	return;
+
+} /* GetVolumeObjectPrimaryBlockNum */
+
+
+//******************************************************************************
+//	Routine:	InitializeVolumeObject
+//
+//	Function:	Locate volume headers and / or master directory blocks for this
+//				volume and fill where they are located on the volume and the type
+//				of volume we are dealing with.  We have three types of HFS volumes:
+//				¥ HFS - standard (old format) where primary MDB is 2nd block into
+//					the volume and alternate MDB is 2nd to last block on the volume.
+//				¥ pure HFS+ - where primary volume header is 2nd block into
+//					the volume and alternate volume header is 2nd to last block on
+//					the volume.
+//				¥ wrapped HFS+ - where primary MDB is 2nd block into the volume and 
+//					alternate MDB is 2nd to last block on the volume.   The embedded 
+//					HFS+ volume header locations are calculated from drEmbedExtent 
+//					(in the MDB).
+//
+// 	Result:		returns nothing.  Will fill in SGlob.VolumeObject data
+//******************************************************************************
+void	InitializeVolumeObject( SGlobPtr GPtr )
+{
+	OSErr						err;
+	HFSMasterDirectoryBlock *	myMDBPtr;
+	HFSPlusVolumeHeader *		myVHPtr;
+	VolumeObjectPtr				myVOPtr;
+	HFSPlusVolumeHeader			myPriVolHeader;
+	BlockDescriptor				myBlockDescriptor;
+
+	myBlockDescriptor.buffer = NULL;
+	myVOPtr = GetVolumeObjectPtr( );
+	myVOPtr->flags |= kVO_Inited;
+	myVOPtr->vcbPtr = GPtr->calculatedVCB;
+
+	// Determine volume size in sectors
+	err = GetDeviceSize( 	GPtr->calculatedVCB->vcbDriveNumber, 
+							&myVOPtr->totalDeviceSectors, 
+							&myVOPtr->sectorSize );
+	if ( (myVOPtr->totalDeviceSectors < 3) || (err != noErr) ) {
+		if ( GPtr->logLevel >= kDebugLog ) {
+			printf("\tinvalid device information for volume - total sectors = %qd sector size = %d \n",
+				myVOPtr->totalDeviceSectors, myVOPtr->sectorSize);
+		}
+		goto ExitRoutine;
+	}
+	
+	// get the primary volume header or master directory block (depending on volume type)
+	// should always be block 2 (relative to 0) into the volume.
+	err = GetVolumeObjectBlock( myVOPtr, MDB_BlkN, &myBlockDescriptor );
+	if ( err == noErr ) {
+		myMDBPtr = (HFSMasterDirectoryBlock	*) myBlockDescriptor.buffer;
+		if ( myMDBPtr->drSigWord == kHFSPlusSigWord) {
+			myVHPtr	= (HFSPlusVolumeHeader *) myMDBPtr;
+			
+			myVOPtr->primaryVHB = MDB_BlkN;								// save location
+			myVOPtr->alternateVHB = myVOPtr->totalDeviceSectors - 2;	// save location
+			err = ValidVolumeHeader( myVHPtr );
+			if ( err == noErr ) {
+				myVOPtr->flags |= kVO_PriVHBOK;
+				bcopy( myVHPtr, &myPriVolHeader, sizeof( *myVHPtr ) );
+			}
+			else {
+				if ( GPtr->logLevel >= kDebugLog ) {
+					printf( "\tInvalid primary volume header - error %d \n", err );
+				}
+			}
+		}
+		else if ( myMDBPtr->drSigWord == kHFSSigWord ) {
+			// we could have an HFS or wrapped HFS+ volume
+			myVOPtr->primaryMDB = MDB_BlkN;								// save location
+			myVOPtr->alternateMDB = myVOPtr->totalDeviceSectors - 2;	// save location
+			myVOPtr->flags |= kVO_PriMDBOK;
+		}
+		else {
+			if ( GPtr->logLevel >= kDebugLog ) {
+				printf( "\tBlock %d is not an MDB or Volume Header \n", MDB_BlkN );
+			}
+		}
+		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
+	} 
+	else {
+		if ( GPtr->logLevel >= kDebugLog ) {
+			printf( "\tcould not get volume block %d, err %d \n", MDB_BlkN, err );
+		}
+	}
+	
+	// get the alternate volume header or master directory block (depending on volume type)
+	// should always be 2nd to last sector.
+	err = GetVolumeObjectBlock( myVOPtr, myVOPtr->totalDeviceSectors - 2, &myBlockDescriptor );
+	if ( err == noErr ) {
+		myMDBPtr = (HFSMasterDirectoryBlock	*) myBlockDescriptor.buffer;
+		if ( myMDBPtr->drSigWord == kHFSPlusSigWord ) {
+			myVHPtr	= (HFSPlusVolumeHeader *) myMDBPtr;
+			
+			myVOPtr->primaryVHB = MDB_BlkN;								// save location
+			myVOPtr->alternateVHB = myVOPtr->totalDeviceSectors - 2;	// save location
+			err = ValidVolumeHeader( myVHPtr );
+			if ( err == noErr ) {
+				// check to see if the primary and alternates are in sync.  3137809
+				myVOPtr->flags |= kVO_AltVHBOK;
+				CompareVolHeaderBTreeSizes( GPtr, myVOPtr, &myPriVolHeader, myVHPtr );
+			}
+			else {
+				if ( GPtr->logLevel >= kDebugLog ) {
+					printf( "\tInvalid alternate volume header - error %d \n", err );
+				}
+			}
+		}
+		else if ( myMDBPtr->drSigWord == kHFSSigWord ) {
+			myVOPtr->primaryMDB = MDB_BlkN;								// save location
+			myVOPtr->alternateMDB = myVOPtr->totalDeviceSectors - 2;	// save location
+			myVOPtr->flags |= kVO_AltMDBOK;
+		}
+		else {
+			if ( GPtr->logLevel >= kDebugLog ) {
+				printf( "\tBlock %qd is not an MDB or Volume Header \n", myVOPtr->totalDeviceSectors - 2 );
+			}
+		}
+
+		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
+	}
+	else {
+		if ( GPtr->logLevel >= kDebugLog ) {
+			printf( "\tcould not get alternate volume header at %qd, err %d \n", 
+					myVOPtr->totalDeviceSectors - 2, err );
+		}
+	}
+
+	// get the embedded volume header (if applicable).
+	if ( (myVOPtr->flags & kVO_AltMDBOK) != 0 ) {
+		err = GetVolumeObjectBlock( myVOPtr, myVOPtr->alternateMDB, &myBlockDescriptor );
+		if ( err == noErr ) {
+			myMDBPtr = (HFSMasterDirectoryBlock	*) myBlockDescriptor.buffer;
+			GetEmbeddedVolumeHeaders( GPtr, myMDBPtr, false );
+			(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
+		}
+	}
+	
+	// Now we will look for embedded HFS+ volume headers using the primary MDB if 
+	// we haven't already located them.
+	if ( (myVOPtr->flags & kVO_PriMDBOK) != 0 && 
+		 ((myVOPtr->flags & kVO_PriVHBOK) == 0 || (myVOPtr->flags & kVO_AltVHBOK) == 0) ) {
+		err = GetVolumeObjectBlock( myVOPtr, myVOPtr->primaryMDB, &myBlockDescriptor );
+		if ( err == noErr ) {
+			myMDBPtr = (HFSMasterDirectoryBlock	*) myBlockDescriptor.buffer;
+			GetEmbeddedVolumeHeaders( GPtr, myMDBPtr, true );
+			(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
+		}
+		else {
+			if ( GPtr->logLevel >= kDebugLog ) {
+				printf( "\tcould not get primary MDB at block %qd, err %d \n", myVOPtr->primaryMDB, err );
+			}
+		}
+	}
+
+ExitRoutine:
+	// set the type of volume using the flags we set as we located the various header / master
+	// blocks.  
+	if ( ((myVOPtr->flags & kVO_PriVHBOK) != 0 || (myVOPtr->flags & kVO_AltVHBOK) != 0)  &&
+		 ((myVOPtr->flags & kVO_PriMDBOK) != 0 || (myVOPtr->flags & kVO_AltMDBOK) != 0) ) {
+		myVOPtr->volumeType = kEmbededHFSPlusVolumeType;
+	}
+	else if ( ((myVOPtr->flags & kVO_PriVHBOK) != 0 || (myVOPtr->flags & kVO_AltVHBOK) != 0) &&
+			  (myVOPtr->flags & kVO_PriMDBOK) == 0 && (myVOPtr->flags & kVO_AltMDBOK) == 0 ) {
+		myVOPtr->volumeType = kPureHFSPlusVolumeType;
+	}
+	else if ( (myVOPtr->flags & kVO_PriVHBOK) == 0 && (myVOPtr->flags & kVO_AltVHBOK) == 0 &&
+			  ((myVOPtr->flags & kVO_PriMDBOK) != 0 || (myVOPtr->flags & kVO_AltMDBOK) != 0) ) {
+		myVOPtr->volumeType = kHFSVolumeType;
+	}
+	else
+		myVOPtr->volumeType = kUnknownVolumeType;
+
+	return;
+	
+} /* InitializeVolumeObject */
+
+
+//******************************************************************************
+//	Routine:	PrintVolumeObject
+//
+//	Function:	Print out some helpful info about the state of our VolumeObject.
+//
+// 	Result:		returns nothing. 
+//******************************************************************************
+void PrintVolumeObject( void )
+{
+	VolumeObjectPtr				myVOPtr;
+
+	myVOPtr = GetVolumeObjectPtr( );
+
+	if ( myVOPtr->volumeType == kHFSVolumeType )
+		printf( "\tvolume type is HFS \n" );
+	else if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType )
+		printf( "\tvolume type is embedded HFS+ \n" );
+	else if ( myVOPtr->volumeType == kPureHFSPlusVolumeType )
+		printf( "\tvolume type is pure HFS+ \n" );
+	else
+		printf( "\tunknown volume type \n" );
+	
+	printf( "\tprimary MDB is at block %qd 0x%02qx \n", myVOPtr->primaryMDB, myVOPtr->primaryMDB );
+	printf( "\talternate MDB is at block %qd 0x%02qx \n", myVOPtr->alternateMDB, myVOPtr->alternateMDB );
+	printf( "\tprimary VHB is at block %qd 0x%02qx \n", myVOPtr->primaryVHB, myVOPtr->primaryVHB );
+	printf( "\talternate VHB is at block %qd 0x%02qx \n", myVOPtr->alternateVHB, myVOPtr->alternateVHB );
+	printf( "\tsector size = %d 0x%02x \n", myVOPtr->sectorSize, myVOPtr->sectorSize );
+	printf( "\tVolumeObject flags = 0x%02X \n", myVOPtr->flags );
+	printf( "\ttotal sectors for volume = %qd 0x%02qx \n", 
+			myVOPtr->totalDeviceSectors, myVOPtr->totalDeviceSectors );
+	printf( "\ttotal sectors for embedded volume = %qd 0x%02qx \n", 
+			myVOPtr->totalEmbeddedSectors, myVOPtr->totalEmbeddedSectors );
+	
+	return;
+	
+} /* PrintVolumeObject */
+
+
+//******************************************************************************
+//	Routine:	GetEmbeddedVolumeHeaders
+//
+//	Function:	Given a MDB (Master Directory Block) from an HFS volume, check
+//				to see if there is an embedded HFS+ volume.  If we find an 
+//				embedded HFS+ volume fill in relevant SGlob.VolumeObject data.
+//
+// 	Result:		returns nothing.  Will fill in VolumeObject data
+//******************************************************************************
+
+static void GetEmbeddedVolumeHeaders( 	SGlobPtr GPtr, 
+										HFSMasterDirectoryBlock * theMDBPtr,
+										Boolean isPrimaryMDB )
+{
+	OSErr						err;
+	HFSPlusVolumeHeader *		myVHPtr;
+	VolumeObjectPtr				myVOPtr;
+	UInt64  					myHFSPlusSectors;
+	UInt64  					myPrimaryBlockNum;
+	UInt64  					myAlternateBlockNum;
+	HFSPlusVolumeHeader			myAltVolHeader;
+	BlockDescriptor				myBlockDescriptor;
+
+	myBlockDescriptor.buffer = NULL;
+	myVOPtr = GetVolumeObjectPtr( );
+
+	// NOTE - If all of the embedded volume information is zero, then assume
+	// this really is a plain HFS disk like it says.  There could be ghost
+	// volume headers left over when someone reinitializes a large HFS Plus 
+	// volume as HFS.  The original embedded primary volume header and 
+	// alternate volume header are not zeroed out.
+	if ( theMDBPtr->drEmbedSigWord == 0 && 
+		 theMDBPtr->drEmbedExtent.blockCount == 0 && 
+		 theMDBPtr->drEmbedExtent.startBlock == 0 ) {
+		 goto ExitRoutine;
+	}
+	
+	// number of sectors in our embedded HFS+ volume
+	myHFSPlusSectors = (theMDBPtr->drAlBlkSiz / Blk_Size) * theMDBPtr->drEmbedExtent.blockCount;
+		
+	// offset of embedded HFS+ volume (in bytes) into HFS wrapper volume
+	// NOTE - UInt32 is OK since we don't support HFS Wrappers on TB volumes
+	myVOPtr->embeddedOffset = 
+		(theMDBPtr->drEmbedExtent.startBlock * theMDBPtr->drAlBlkSiz) + 
+		(theMDBPtr->drAlBlSt * Blk_Size);
+
+	// Embedded alternate volume header is always 2nd to last sector
+	myAlternateBlockNum =
+		theMDBPtr->drAlBlSt + 
+		((theMDBPtr->drAlBlkSiz / Blk_Size) * theMDBPtr->drEmbedExtent.startBlock) + 
+		myHFSPlusSectors - 2;
+
+	// Embedded primary volume header should always be block 2 (relative to 0) 
+	// into the embedded volume
+	myPrimaryBlockNum = (theMDBPtr->drEmbedExtent.startBlock * theMDBPtr->drAlBlkSiz / Blk_Size) + 
+						theMDBPtr->drAlBlSt + 2;
+
+	// get the embedded alternate volume header
+	err = GetVolumeObjectBlock( myVOPtr, myAlternateBlockNum, &myBlockDescriptor );
+	if ( err == noErr ) {
+		myVHPtr = (HFSPlusVolumeHeader	*) myBlockDescriptor.buffer;
+		if ( myVHPtr->signature == kHFSPlusSigWord ) {
+
+			myVOPtr->alternateVHB = myAlternateBlockNum;	// save location
+			myVOPtr->primaryVHB = myPrimaryBlockNum;		// save location
+			err = ValidVolumeHeader( myVHPtr );
+			if ( err == noErr ) {
+				myVOPtr->flags |= kVO_AltVHBOK;
+				myVOPtr->totalEmbeddedSectors = myHFSPlusSectors;
+				bcopy( myVHPtr, &myAltVolHeader, sizeof( *myVHPtr ) );
+			}
+			else {
+				if ( GPtr->logLevel >= kDebugLog ) {
+					printf( "\tInvalid embedded alternate volume header at block %qd - error %d \n", myAlternateBlockNum, err );
+				}
+			}
+		}
+		else {
+			if ( GPtr->logLevel >= kDebugLog ) {
+				printf( "\tBlock number %qd is not embedded alternate volume header \n", myAlternateBlockNum );
+			}
+		}
+		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
+	}
+	else {
+		if ( GPtr->logLevel >= kDebugLog ) {
+			printf( "\tcould not get embedded alternate volume header at %qd, err %d \n", 
+					myAlternateBlockNum, err );
+		}
+	}
+	
+	// get the embedded primary volume header
+	err = GetVolumeObjectBlock( myVOPtr, myPrimaryBlockNum, &myBlockDescriptor );
+	if ( err == noErr ) {
+		myVHPtr = (HFSPlusVolumeHeader	*) myBlockDescriptor.buffer;
+		if ( myVHPtr->signature == kHFSPlusSigWord ) {
+
+			myVOPtr->primaryVHB = myPrimaryBlockNum;  		// save location
+			myVOPtr->alternateVHB = myAlternateBlockNum;	// save location
+			err = ValidVolumeHeader( myVHPtr );
+			if ( err == noErr ) {
+				myVOPtr->flags |= kVO_PriVHBOK;
+				myVOPtr->totalEmbeddedSectors = myHFSPlusSectors;
+
+				// check to see if the primary and alternates are in sync.  3137809
+				CompareVolHeaderBTreeSizes( GPtr, myVOPtr, myVHPtr, &myAltVolHeader );
+			}
+			else {
+				if ( GPtr->logLevel >= kDebugLog ) {
+					printf( "\tInvalid embedded primary volume header at block %qd - error %d \n", myPrimaryBlockNum, err );
+				}
+			}
+		}
+		else {
+			if ( GPtr->logLevel >= kDebugLog ) {
+				printf( "\tBlock number %qd is not embedded primary volume header \n", myPrimaryBlockNum );
+			}
+		}
+		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
+	}
+	else {
+		if ( GPtr->logLevel >= kDebugLog ) {
+			printf( "\tcould not get embedded primary volume header at %qd, err %d \n", 
+					myPrimaryBlockNum, err );
+		}
+	}
+
+ExitRoutine:
+	return;
+	
+} /* GetEmbeddedVolumeHeaders */
+
+
+//******************************************************************************
+//	Routine:	CompareVolHeaderBTreeSizes
+//
+//	Function:	checks to see if the primary and alternate volume headers are in
+//				sync with regards to the catalog and extents btree file size.  If
+//				we find an anomaly we will give preference to the volume header 
+//				with the larger of the btree files since these files never shrink.
+//				Added for radar #3137809.
+//
+// 	Result:		returns nothing. 
+//******************************************************************************
+static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
+										VolumeObjectPtr theVOPtr, 
+										HFSPlusVolumeHeader * thePriVHPtr, 
+										HFSPlusVolumeHeader * theAltVHPtr )
+{
+	int			weDisagree;
+	int			usePrimary;
+	int			useAlternate;
+	
+	weDisagree = usePrimary = useAlternate = 0;
+	
+	// we only check if both volume headers appear to be OK
+	if ( (theVOPtr->flags & kVO_PriVHBOK) == 0 || (theVOPtr->flags & kVO_AltVHBOK) == 0  )
+		return;
+
+	if ( thePriVHPtr->catalogFile.totalBlocks != theAltVHPtr->catalogFile.totalBlocks ) {
+		// only continue if the B*Tree files both start at the same block number
+		if ( thePriVHPtr->catalogFile.extents[0].startBlock == theAltVHPtr->catalogFile.extents[0].startBlock ) {
+			weDisagree = 1;
+			if ( thePriVHPtr->catalogFile.totalBlocks > theAltVHPtr->catalogFile.totalBlocks )
+				usePrimary = 1;
+			else
+				useAlternate = 1;
+			if ( GPtr->logLevel >= kDebugLog ) {
+				printf( "\tvolume headers disagree on catalog file total blocks - primary %d alternate %d \n", 
+						thePriVHPtr->catalogFile.totalBlocks, theAltVHPtr->catalogFile.totalBlocks );
+			}
+		}
+	}
+
+	if ( thePriVHPtr->extentsFile.totalBlocks != theAltVHPtr->extentsFile.totalBlocks ) {
+		// only continue if the B*Tree files both start at the same block number
+		if ( thePriVHPtr->extentsFile.extents[0].startBlock == theAltVHPtr->extentsFile.extents[0].startBlock ) {
+			weDisagree = 1;
+			if ( thePriVHPtr->extentsFile.totalBlocks > theAltVHPtr->extentsFile.totalBlocks )
+				usePrimary = 1;
+			else
+				useAlternate = 1;
+			if ( GPtr->logLevel >= kDebugLog ) {
+				printf( "\tvolume headers disagree on extents file total blocks - primary %d alternate %d \n", 
+						thePriVHPtr->extentsFile.totalBlocks, theAltVHPtr->extentsFile.totalBlocks );
+			}
+		}
+	}
+	
+	if ( weDisagree == 0 )
+		return;
+		
+	// we have a disagreement.  we resolve the issue by using the larger of the two.
+	if ( usePrimary == 1 && useAlternate == 1 ) {
+		// this should never happen, but if it does, bail without choosing a preference
+		if ( GPtr->logLevel >= kDebugLog ) {
+			printf( "\tvolume headers disagree but there is confusion on which to use \n" );
+		}
+		return; 
+	}
+	
+	if ( usePrimary == 1 ) {
+		// mark alternate as bogus
+		theVOPtr->flags &= ~kVO_AltVHBOK;
+	}
+	else if ( useAlternate == 1 ) {
+		// mark primary as bogus
+		theVOPtr->flags &= ~kVO_PriVHBOK;
+	}
+
+	return;
+
+} /* CompareVolHeaderBTreeSizes */
+
+
+//******************************************************************************
+//	Routine:	VolumeObjectIsHFSPlus
+//
+//	Function:	determine if the volume represented by our VolumeObject is an
+//				HFS+ volume (pure or embedded).
+//
+// 	Result:		returns true if volume is pure HFS+ or embedded HFS+ else false.
+//******************************************************************************
+Boolean VolumeObjectIsHFSPlus( void )
+{
+	VolumeObjectPtr				myVOPtr;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	
+	if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType ||
+	     myVOPtr->volumeType == kPureHFSPlusVolumeType ) {
+		return( true );
+	}
+
+	return( false );
+
+} /* VolumeObjectIsHFSPlus */
+
+
+//******************************************************************************
+//	Routine:	VolumeObjectIsHFS
+//
+//	Function:	determine if the volume represented by our VolumeObject is an
+//				HFS (standard) volume.
+//
+// 	Result:		returns true if HFS (standard) volume.
+//******************************************************************************
+Boolean VolumeObjectIsHFS( void )
+{
+	VolumeObjectPtr				myVOPtr;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	
+	if ( myVOPtr->volumeType == kHFSVolumeType )
+		return( true );
+
+	return( false );
+
+} /* VolumeObjectIsHFS */
+
+
+//******************************************************************************
+//	Routine:	VolumeObjectIsEmbeddedHFSPlus
+//
+//	Function:	determine if the volume represented by our VolumeObject is an
+//				embedded HFS plus volume.
+//
+// 	Result:		returns true if embedded HFS plus volume.
+//******************************************************************************
+Boolean VolumeObjectIsEmbeddedHFSPlus( void )
+{
+	VolumeObjectPtr				myVOPtr;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	
+	if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType )
+		return( true );
+
+	return( false );
+
+} /* VolumeObjectIsEmbeddedHFSPlus */
+
+
+//******************************************************************************
+//	Routine:	VolumeObjectIsPureHFSPlus
+//
+//	Function:	determine if the volume represented by our VolumeObject is an
+//				pure HFS plus volume.
+//
+// 	Result:		returns true if pure HFS plus volume.
+//******************************************************************************
+Boolean VolumeObjectIsPureHFSPlus( void )
+{
+	VolumeObjectPtr				myVOPtr;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	
+	if ( myVOPtr->volumeType == kPureHFSPlusVolumeType )
+		return( true );
+
+	return( false );
+
+} /* VolumeObjectIsPureHFSPlus */
+
+
+//******************************************************************************
+//	Routine:	GetVolumeObjectPtr
+//
+//	Function:	Accessor routine to get a pointer to our VolumeObject structure.
+//
+// 	Result:		returns pointer to our VolumeObject.
+//******************************************************************************
+VolumeObjectPtr GetVolumeObjectPtr( void )
+{
+	static VolumeObject		myVolumeObject;
+	static int				myInited = 0;
+	
+	if ( myInited == 0 ) {
+		myInited++;
+		bzero( &myVolumeObject, sizeof(myVolumeObject) );
+	}
+	
+	return( &myVolumeObject );
+	 
+} /* GetVolumeObjectPtr */
+
+
+//******************************************************************************
+//	Routine:	CheckEmbeddedVolInfoInMDBs
+//
+//	Function:	Check the primary and alternate MDB to see if the embedded volume
+//				information (drEmbedSigWord and drEmbedExtent) match.
+//
+// 	Result:		NA
+//******************************************************************************
+void CheckEmbeddedVolInfoInMDBs( SGlobPtr GPtr )
+{
+	OSErr						err;
+	Boolean						primaryIsDamaged = false;
+	Boolean						alternateIsDamaged = false;
+	VolumeObjectPtr				myVOPtr;
+	HFSMasterDirectoryBlock *	myPriMDBPtr;
+	HFSMasterDirectoryBlock *	myAltMDBPtr;
+	UInt64						myOffset;
+	UInt64						mySectors;
+	BlockDescriptor  			myPrimary;
+	BlockDescriptor  			myAlternate;
+
+	myVOPtr = GetVolumeObjectPtr( );
+	myPrimary.buffer = NULL;
+	myAlternate.buffer = NULL;
+
+	// we only check this if primary and alternate are OK at this point.  OK means
+	// that the primary and alternate MDBs have the correct signature and at least
+	// one of them points to a valid embedded HFS+ volume.
+	if ( VolumeObjectIsEmbeddedHFSPlus( ) == false || 
+		 (myVOPtr->flags & kVO_PriMDBOK) == 0 || (myVOPtr->flags & kVO_AltMDBOK) == 0 )
+		return;
+
+	err = GetVolumeObjectPrimaryMDB( &myPrimary );
+	if ( err != noErr ) {
+		if ( GPtr->logLevel >= kDebugLog ) {
+			printf( "\tcould not get primary MDB \n" );
+		}
+		goto ExitThisRoutine;
+	}
+	myPriMDBPtr = (HFSMasterDirectoryBlock	*) myPrimary.buffer;
+	err = GetVolumeObjectAlternateMDB( &myAlternate );
+	if ( err != noErr ) {
+		if ( GPtr->logLevel >= kDebugLog ) {
+			printf( "\tcould not get alternate MDB \n" );
+		}
+		goto ExitThisRoutine;
+	}
+	myAltMDBPtr = (HFSMasterDirectoryBlock	*) myAlternate.buffer;
+
+	// bail if everything looks good.  NOTE - we can bail if drEmbedExtent info
+	// is the same in the primary and alternate MDB because we know one of them is
+	// valid (or VolumeObjectIsEmbeddedHFSPlus would be false and we would not be
+	// here).
+	if ( myPriMDBPtr->drEmbedSigWord == kHFSPlusSigWord && 
+		 myAltMDBPtr->drEmbedSigWord == kHFSPlusSigWord &&
+		 myPriMDBPtr->drEmbedExtent.blockCount == myAltMDBPtr->drEmbedExtent.blockCount &&
+		 myPriMDBPtr->drEmbedExtent.startBlock == myAltMDBPtr->drEmbedExtent.startBlock )
+		goto ExitThisRoutine;
+
+	// we know that VolumeObject.embeddedOffset and VolumeObject.totalEmbeddedSectors 
+	// are correct so we will verify the info in each MDB calculates to these values.
+	myOffset = (myPriMDBPtr->drEmbedExtent.startBlock * myPriMDBPtr->drAlBlkSiz) + 
+			   (myPriMDBPtr->drAlBlSt * Blk_Size);
+	mySectors = (myPriMDBPtr->drAlBlkSiz / Blk_Size) * myPriMDBPtr->drEmbedExtent.blockCount;
+
+	if ( myOffset != myVOPtr->embeddedOffset || mySectors != myVOPtr->totalEmbeddedSectors ) 
+		primaryIsDamaged = true;
+	
+	myOffset = (myAltMDBPtr->drEmbedExtent.startBlock * myAltMDBPtr->drAlBlkSiz) + 
+			   (myAltMDBPtr->drAlBlSt * Blk_Size);
+	mySectors = (myAltMDBPtr->drAlBlkSiz / Blk_Size) * myAltMDBPtr->drEmbedExtent.blockCount;
+
+	if ( myOffset != myVOPtr->embeddedOffset || mySectors != myVOPtr->totalEmbeddedSectors ) 
+		alternateIsDamaged = true;
+	
+	// now check drEmbedSigWord if everything else is OK
+	if ( primaryIsDamaged == false && alternateIsDamaged == false ) {
+		if ( myPriMDBPtr->drEmbedSigWord != kHFSPlusSigWord )
+			primaryIsDamaged = true;
+		else if ( myAltMDBPtr->drEmbedSigWord != kHFSPlusSigWord )
+			alternateIsDamaged = true;
+	}
+
+	if ( primaryIsDamaged || alternateIsDamaged ) {
+		GPtr->VIStat |= S_WMDB;
+		WriteError( GPtr, E_MDBDamaged, 7, 0 );
+		if ( primaryIsDamaged ) {
+			myVOPtr->flags &= ~kVO_PriMDBOK; // mark the primary MDB as damaged
+			if ( GPtr->logLevel >= kDebugLog )
+				printf("\tinvalid primary wrapper MDB \n");
+		}
+		else {
+			myVOPtr->flags &= ~kVO_AltMDBOK; // mark the alternate MDB as damaged
+			if ( GPtr->logLevel >= kDebugLog )
+				printf("\tinvalid alternate wrapper MDB \n");
+		}
+	}
+		
+ExitThisRoutine:
+	if ( myPrimary.buffer != NULL )
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myPrimary, kReleaseBlock );
+	if ( myAlternate.buffer != NULL )
+		(void) ReleaseVolumeBlock( myVOPtr->vcbPtr, &myAlternate, kReleaseBlock );
+
+	return;
+
+} /* CheckEmbeddedVolInfoInMDBs */
+
+
+//******************************************************************************
 //	Routine:	ValidVolumeHeader
 //
 //	Function:	Run some sanity checks to make sure the HFSPlusVolumeHeader is valid
 //
 // 	Result:		error
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//******************************************************************************
 OSErr	ValidVolumeHeader( HFSPlusVolumeHeader *volumeHeader )
 {
 	OSErr	err;
@@ -775,11 +1841,13 @@ Output:		number of items
 void	CalculateItemCount( SGlob *GPtr, UInt64 *itemCount, UInt64 *onePercent )
 {
 	BTreeControlBlock	*btcb;
+	VolumeObjectPtr		myVOPtr;
 	UInt64				items;
 	UInt32				realFreeNodes;
-	SVCB*		vcb				= GPtr->calculatedVCB;
+	SVCB				*vcb  = GPtr->calculatedVCB;
 	
 	/* each bitmap segment is an item */
+	myVOPtr = GetVolumeObjectPtr( );
 	items = GPtr->calculatedVCB->vcbTotalBlocks / 1024;
 	
 	//
@@ -811,8 +1879,9 @@ void	CalculateItemCount( SGlob *GPtr, UInt64 *itemCount, UInt64 *onePercent )
 	//	we pretend the wrapper has 100 times as many items as it really does.  This means the progress will
 	//	never exceed 1% for the wrapper.
 	//
-	if ( (GPtr->volumeType == kEmbededHFSPlusVolumeType) && (GPtr->inputFlags & examineWrapperMask) )
-		items *= 100;
+/* fsck_hfs doesn't deal wih the wrapper at this time (8.29.2002)
+	if ( (myVOPtr->volumeType == kEmbededHFSPlusVolumeType) && (GPtr->inputFlags & examineWrapperMask) )
+		items *= 100; */
 	
 	//	Add en extra Å 5% to smooth the progress
 	items += *onePercent * 5;
@@ -827,11 +1896,11 @@ SFCB* ResolveFCB(short fileRefNum)
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//******************************************************************************
 //	Routine:	SetupFCB fills in the FCB info
 //
 //	Returns:	The filled up FCB
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//******************************************************************************
 void	SetupFCB( SVCB *vcb, SInt16 refNum, UInt32 fileID, UInt32 fileClumpSize )
 {
 	SFCB *fcb;
@@ -898,19 +1967,36 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 	if ( ! IsVCBDirty( vcb ) )			//	if it's not dirty
 		return( noErr );
 
+	block.buffer = NULL;
+	err = GetVolumeObjectPrimaryBlock( &block );
+	if ( err != noErr )
+	{
+		// attempt to fix the primary with alternate
+		if ( block.buffer != NULL ) {
+			(void) ReleaseVolumeBlock( vcb, &block, kReleaseBlock );
+			block.buffer = NULL;
+		}
+			
+		err = VolumeObjectFixPrimaryBlock( );
+		ReturnIfError( err );
+		
+		// should be able to get it now
+		err = GetVolumeObjectPrimaryBlock( &block );
+		ReturnIfError( err );
+	}
+
 	if ( vcb->vcbSignature == kHFSPlusSigWord )
 	{		
-		err = GetVolumeBlock(vcb, (vcb->vcbEmbeddedOffset / 512) + 2, kGetBlock, &block);
-		ReturnIfError( err );
 		volumeHeader = (HFSPlusVolumeHeader *) block.buffer;
 		
 		// 2005507, Keep the MDB creation date and HFSPlusVolumeHeader creation date in sync.
 		if ( vcb->vcbEmbeddedOffset != 0 )  // It's a wrapped HFS+ volume
 		{
-			HFSMasterDirectoryBlock	*mdb;
-			BlockDescriptor  mdb_block;
+			HFSMasterDirectoryBlock		*mdb;
+			BlockDescriptor  			mdb_block;
 
-			err = GetVolumeBlock(vcb, 2, kGetBlock, &mdb_block);
+			mdb_block.buffer = NULL;
+			err = GetVolumeObjectPrimaryMDB( &mdb_block );
 			if ( err == noErr )
 			{
 				mdb = (HFSMasterDirectoryBlock	*) mdb_block.buffer;
@@ -918,12 +2004,11 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 				{
 					mdb->drCrDate = vcb->vcbCreateDate;
 					(void) ReleaseVolumeBlock(vcb, &mdb_block, kForceWriteBlock);
-				}
-				else
-				{
-					(void) ReleaseVolumeBlock(vcb, &mdb_block, kReleaseBlock);
+					mdb_block.buffer = NULL;
 				}
 			}
+			if ( mdb_block.buffer != NULL )
+				(void) ReleaseVolumeBlock(vcb, &mdb_block, kReleaseBlock);
 		}
 
 		volumeHeader->attributes		= vcb->vcbAttributes;
@@ -974,18 +2059,11 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 			volumeHeader->attributesFile.clumpSize = fcb->fcbClumpSize;
 			volumeHeader->attributesFile.totalBlocks = fcb->fcbPhysicalSize / vcb->vcbBlockSize;
 		}
-		
-		//--	Write the MDB out by releasing the block dirty
-		
-		err = ReleaseVolumeBlock(vcb, &block, kForceWriteBlock);		
-		MarkVCBClean( vcb );
 	}
 	else
 	{
 		HFSMasterDirectoryBlock	*mdbP;
 
-		err = GetVolumeBlock(vcb, MDB_BlkN, kGetBlock, &block);
-		ReturnIfError(err);
 		mdbP = (HFSMasterDirectoryBlock	*) block.buffer;
 
 		mdbP->drCrDate    = vcb->vcbCreateDate;
@@ -1007,10 +2085,14 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 
 		fcb = vcb->vcbCatalogFile;
 		CopyMemory( fcb->fcbExtents16, mdbP->drCTExtRec, sizeof( mdbP->drCTExtRec ) );
-
-		err = ReleaseVolumeBlock(vcb, &block, kForceWriteBlock);		
-		MarkVCBClean( vcb );
 	}
+		
+	//--	Write the VHB/MDB out by releasing the block dirty
+	if ( block.buffer != NULL ) {
+		err = ReleaseVolumeBlock(vcb, &block, kForceWriteBlock);	
+		block.buffer = NULL;
+	}
+	MarkVCBClean( vcb );
 
 	return( err );
 }
@@ -1031,59 +2113,45 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 
 OSErr	FlushAlternateVolumeControlBlock( SVCB *vcb, Boolean isHFSPlus )
 {
-	BlockDescriptor  pri_block, alt_block;
-	UInt64 	sectors;
-	UInt64  primaryBlockLocation;
-	UInt64  alternateBlockLocation;
-	UInt32 	sectorSize;
-	OSErr  	err;
+	OSErr  				err;
+	VolumeObjectPtr		myVOPtr;
+	UInt64				myBlockNum;
+	BlockDescriptor  	pri_block, alt_block;
 	
-	err = GetDeviceSize( vcb->vcbDriveNumber, &sectors, &sectorSize );
-	ReturnIfError(err);
+	pri_block.buffer = NULL;
+	alt_block.buffer = NULL;
+	myVOPtr = GetVolumeObjectPtr( );
 
 	err = FlushVolumeControlBlock( vcb );
+	err = GetVolumeObjectPrimaryBlock( &pri_block );
 	
-	alternateBlockLocation = sectors - 2; // use this for HFS and pure HFS+
-	if ( isHFSPlus ) {
-		HFSMasterDirectoryBlock 	*mdb;		
-		BlockDescriptor				block_MDB;
+	// invalidate if we have not marked the primary as OK
+	if ( VolumeObjectIsHFS( ) ) {
+		if ( (myVOPtr->flags & kVO_PriMDBOK) == 0 )
+			err = badMDBErr;
+	}
+	else if ( (myVOPtr->flags & kVO_PriVHBOK) == 0 ) {
+		err = badMDBErr;
+	}
+	if ( err != noErr )
+		goto ExitThisRoutine;
 
-		primaryBlockLocation = (vcb->vcbEmbeddedOffset / 512) + 2;
-		
-		//	Get the Alternate MDB, 2nd to last block on disk
-		//	On HFS+ disks this is still the HFS wrapper altMDB
-		//	On HFS+ wrapperless disks, it's the AltVH
-		block_MDB.buffer = NULL;
-		err = GetVolumeBlock(vcb, sectors - 2, kGetBlock, &block_MDB);
-		ReturnIfError( err );
-
-		mdb = (HFSMasterDirectoryBlock	*) block_MDB.buffer;
-		if ( mdb->drSigWord == kHFSSigWord )
-		{
-			UInt64 		totalHFSPlusSectors;
-			
-			// this is a wrapped HFS+ volume. get the location of the 
-			// alternate volume header
-			totalHFSPlusSectors = (mdb->drAlBlkSiz / 512) * mdb->drEmbedExtent.blockCount;
-			alternateBlockLocation = mdb->drAlBlSt + ((mdb->drAlBlkSiz / 512) * 
-				mdb->drEmbedExtent.startBlock) + totalHFSPlusSectors - 2;
+	GetVolumeObjectAlternateBlockNum( &myBlockNum );
+	if ( myBlockNum != 0 ) {
+		// we don't care if this is an invalid MDB / VHB since we will write over it
+		err = GetVolumeObjectAlternateBlock( &alt_block );
+		if ( err == noErr || err == badMDBErr || err == noMacDskErr ) {
+			CopyMemory( pri_block.buffer, alt_block.buffer, Blk_Size );
+			(void) ReleaseVolumeBlock(vcb, &alt_block, kForceWriteBlock);		
+			alt_block.buffer = NULL;
 		}
-
-		(void) ReleaseVolumeBlock(vcb, &block_MDB, kReleaseBlock);
-	} else {
-		primaryBlockLocation = 2;
-	}
-	
-	err = GetVolumeBlock(vcb, primaryBlockLocation, kGetBlock, &pri_block);
-	ReturnIfError(err);
-
-	err = GetVolumeBlock(vcb, alternateBlockLocation, kGetBlock, &alt_block);
-	if (err == noErr) {
-		CopyMemory(pri_block.buffer, alt_block.buffer, 512);
-		(void) ReleaseVolumeBlock(vcb, &alt_block, kForceWriteBlock);		
 	}
 
-	(void) ReleaseVolumeBlock(vcb, &pri_block, kReleaseBlock);
+ExitThisRoutine:
+	if ( pri_block.buffer != NULL )
+		(void) ReleaseVolumeBlock( vcb, &pri_block, kReleaseBlock );
+	if ( alt_block.buffer != NULL )
+		(void) ReleaseVolumeBlock( vcb, &alt_block, kReleaseBlock );
 
 	return( err );
 }

@@ -59,7 +59,7 @@ int argc,
 char **argv,
 char **envp)
 {
-    unsigned long i;
+    int i;
     char *input, *output;
     struct arch *archs;
     unsigned long narchs;

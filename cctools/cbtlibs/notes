@@ -1,0 +1,14 @@
+Changes for the 5.12 release (the cctools-466 release):
+- Fixed the incorrect casts on the comparison of the nlist struct's n_strx field
+  where the value being compared to was casted to a long.  The correct fix was
+  to cast n_strx to an unsigned long.
+- Changed nm() in libsyminfo.c to handle DYNAMIC_LOOKUP_ORDINAL.  Radar bug
+  #3210803.
+
+Changes for the 5.12 release (the cctools-464 release):
+- Made changes to build cleanly with gcc3.3
+  - Removed -Wno-precomp from the Makefile
+  - Fixed warning for "comparison between signed and unsigned" in libsyminfo.c
+
+Changes for the 5.12 release (the cctools-456 release):
+- Picked up the initial implementation.  Radar bug #3145742.

@@ -53,12 +53,6 @@
 			path = MacRISC2CPU.h;
 			refType = 4;
 		};
-		067D03BBFFF08CF111CA2A1B = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = MacRISC2PowerTree.cpp;
-			refType = 4;
-		};
 		067D03BCFFF08CF111CA2A1B = {
 			fileRef = 067D03B4FFF08CF111CA2A1B;
 			isa = PBXBuildFile;
@@ -109,14 +103,6 @@
 		};
 		067D03C3FFF08CF111CA2A1B = {
 			fileRef = 067D03B9FFF08CF111CA2A1B;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		067D03C4FFF08CF111CA2A1B = {
-			fileRef = 067D03BBFFF08CF111CA2A1B;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -188,6 +174,11 @@
 			projectDirPath = "";
 			targets = (
 				089C1673FE841209C02AAC07,
+				B088C5B303E5BABE05CE0DA1,
+				B00EEA8D0416BED705CE0DA1,
+				0995030C0434DB2B0BCE29CA,
+				099503100434FD1F0BCE29CA,
+				09E4E3FD043BA0B90BCE29CA,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -208,6 +199,7 @@
 				089C1676FE841209C02AAC07,
 				089C1677FE841209C02AAC07,
 				089C1679FE841209C02AAC07,
+				09E4E3E9043B96180BCE29CA,
 				06AA1264FFB2107B11CA28AA,
 			);
 			buildSettings = {
@@ -218,8 +210,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
-				MODULE_VERSION = 1.3.4f1;
-				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
+				MODULE_VERSION = 1.4.0d22;
+				OTHER_CFLAGS = "\U0001-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleMacRISC2PE;
@@ -229,6 +221,10 @@
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
+				B088C5CA03E5E91105CE0DA1,
+				09E4E3F0043B96510BCE29CA,
+				09E4E3EF043B964F0BCE29CA,
+				09E4E407043BA0C50BCE29CA,
 			);
 			isa = PBXBundleTarget;
 			name = AppleMacRISC2PE;
@@ -244,7 +240,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC2PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC2PE version 1.3.4, Copyright 2002-2003 Apple Computer, Inc.</string>
+	<string>AppleMacRISC2PE version 1.4.0, Copyright 2002-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -256,11 +252,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.4</string>
+	<string>1.4.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.4f1</string>
+	<string>1.4.0d22</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC2CPU</key>
@@ -291,28 +287,417 @@
 			<integer>5000</integer>
 			<key>IOProviderClass</key>
 			<string>IOPlatformExpertDevice</string>
-		</dict>
-		<key>PB5_1_PlatformMonitor</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleMacRISC2PE</string>
-			<key>IOClass</key>
-			<string>PB5_1_PlatformMonitor</string>
-			<key>IONameMatch</key>
-			<string>PowerBook5,1_PlatformMonitor</string>
-			<key>IOProviderClass</key>
-			<string>IOPlatformDevice</string>
-		</dict>
-		<key>PB6_1_PlatformMonitor</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleMacRISC2PE</string>
-			<key>IOClass</key>
-			<string>PB6_1_PlatformMonitor</string>
-			<key>IONameMatch</key>
-			<string>PowerBook6,1_PlatformMonitor</string>
-			<key>IOProviderClass</key>
-			<string>IOPlatformDevice</string>
+			<key>powertreedesc</key>
+			<array>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>0</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb0u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>AAPL,clock-id</key>
+								<string>usb0u048</string>
+								<key>name</key>
+								<string>usb</string>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>1</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb1u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>AAPL,clock-id</key>
+								<string>usb1u148</string>
+								<key>name</key>
+								<string>usb</string>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>2</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb2u248</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>AAPL,clock-id</key>
+								<string>usb2u248</string>
+								<key>name</key>
+								<string>usb</string>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>IOPMUSBMacRISC2</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>0</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb0u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>1</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb1u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>2</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb2u248</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>2</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb2u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb3u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb4u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb5u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb6u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb7u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb8u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb9u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+			</array>
 		</dict>
 		<key>UniN</key>
 		<dict>
@@ -330,6 +715,8 @@
 	<string>1.0.0</string>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.driver.IOPlatformFunction</key>
+		<string>1.0.0</string>
 		<key>com.apple.iokit.IOPCIFamily</key>
 		<string>1.1</string>
 		<key>com.apple.kernel.iokit</key>
@@ -353,11 +740,8 @@
 				067D03BDFFF08CF111CA2A1B,
 				067D03BEFFF08CF111CA2A1B,
 				067D03BFFFF08CF111CA2A1B,
-				B099E3C002DFBBE205CE0D9B,
 				B03B6DF402F9DA0605CE0D9E,
 				B0AEE84603732BF305CE0D9E,
-				B0AEE84A037337E705CE0D9E,
-				632003E503D342CB0FCE15D6,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -377,12 +761,8 @@
 				067D03C1FFF08CF111CA2A1B,
 				067D03C2FFF08CF111CA2A1B,
 				067D03C3FFF08CF111CA2A1B,
-				067D03C4FFF08CF111CA2A1B,
 				B03B6DF502F9DA0605CE0D9E,
-				B031E7530327ED1A05CE0D9E,
-				B0AEE848037337D005CE0D9E,
 				B0AEE84E03788C4105CE0D9E,
-				632003E603D342CB0FCE15D6,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -435,6 +815,548 @@
 //082
 //083
 //084
+//090
+//091
+//092
+//093
+//094
+		099503060434DB2B0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		099503070434DB2B0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+				0995030E0434DB370BCE29CA,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		099503080434DB2B0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+				0995030F0434DB380BCE29CA,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		099503090434DB2B0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0995030A0434DB2B0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0995030B0434DB2B0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		0995030C0434DB2B0BCE29CA = {
+			buildPhases = (
+				099503060434DB2B0BCE29CA,
+				099503070434DB2B0BCE29CA,
+				099503080434DB2B0BCE29CA,
+				099503090434DB2B0BCE29CA,
+				0995030A0434DB2B0BCE29CA,
+				0995030B0434DB2B0BCE29CA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.PB6_1_PlatformMonitor;
+				MODULE_VERSION = 1.0.0d2;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PB6_1_PlatformMonitor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = PB6_1_PlatformMonitor;
+			productName = PB6_1_PlatformMonitor;
+			productReference = 0995030D0434DB2B0BCE29CA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PB6_1_PlatformMonitor</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.PB6_1_PlatformMonitor</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PB6_1_PlatformMonitor</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d2</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>PB6_1_PlatformMonitor</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.PB6_1_PlatformMonitor</string>
+			<key>IOClass</key>
+			<string>PB6_1_PlatformMonitor</string>
+			<key>IONameMatch</key>
+			<string>PowerBook6,1_PlatformMonitor</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleMacRISC2PE</key>
+		<string>1.3.4</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		0995030D0434DB2B0BCE29CA = {
+			isa = PBXBundleReference;
+			path = PB6_1_PlatformMonitor.kext;
+			refType = 3;
+		};
+		0995030E0434DB370BCE29CA = {
+			fileRef = B0AEE849037337E705CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0995030F0434DB380BCE29CA = {
+			fileRef = B0AEE847037337D005CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		099503100434FD1F0BCE29CA = {
+			buildPhases = (
+				099503110434FD1F0BCE29CA,
+				099503120434FD1F0BCE29CA,
+				099503140434FD1F0BCE29CA,
+				099503160434FD1F0BCE29CA,
+				099503170434FD1F0BCE29CA,
+				099503180434FD1F0BCE29CA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.PB5_1_PlatformMonitor;
+				MODULE_VERSION = 1.0.0d2;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PB5_1_PlatformMonitor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = PB5_1_PlatformMonitor;
+			productName = PB6_1_PlatformMonitor;
+			productReference = 099503190434FD1F0BCE29CA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PB5_1_PlatformMonitor</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.PB5_1_PlatformMonitor</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>PB5_1_PlatformMonitor</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d2</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>PB5_1_PlatformMonitor</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.PB5_1_PlatformMonitor</string>
+			<key>IOClass</key>
+			<string>PB5_1_PlatformMonitor</string>
+			<key>IONameMatch</key>
+			<string>PowerBook5,1_PlatformMonitor</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleMacRISC2PE</key>
+		<string>1.3.4</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		099503110434FD1F0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		099503120434FD1F0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+				0995031A0434FD3E0BCE29CA,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		099503140434FD1F0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+				0995031B0434FD3E0BCE29CA,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		099503160434FD1F0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		099503170434FD1F0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		099503180434FD1F0BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		099503190434FD1F0BCE29CA = {
+			isa = PBXBundleReference;
+			path = PB5_1_PlatformMonitor.kext;
+			refType = 3;
+		};
+		0995031A0434FD3E0BCE29CA = {
+			fileRef = 632003E303D342CB0FCE15D6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0995031B0434FD3E0BCE29CA = {
+			fileRef = 632003E403D342CB0FCE15D6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		09E4E3E9043B96180BCE29CA = {
+			buildActionMask = 12;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				09E4E3ED043B963F0BCE29CA,
+				09E4E3EE043B963F0BCE29CA,
+				09E4E553043D24E90BCE29CA,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		09E4E3ED043B963F0BCE29CA = {
+			fileRef = 0995030D0434DB2B0BCE29CA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		09E4E3EE043B963F0BCE29CA = {
+			fileRef = 099503190434FD1F0BCE29CA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		09E4E3EF043B964F0BCE29CA = {
+			isa = PBXTargetDependency;
+			target = 0995030C0434DB2B0BCE29CA;
+		};
+		09E4E3F0043B96510BCE29CA = {
+			isa = PBXTargetDependency;
+			target = 099503100434FD1F0BCE29CA;
+		};
+		09E4E3FD043BA0B90BCE29CA = {
+			buildPhases = (
+				09E4E3FE043BA0B90BCE29CA,
+				09E4E3FF043BA0B90BCE29CA,
+				09E4E401043BA0B90BCE29CA,
+				09E4E403043BA0B90BCE29CA,
+				09E4E404043BA0B90BCE29CA,
+				09E4E405043BA0B90BCE29CA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.Portable2003_PlatformMonitor;
+				MODULE_VERSION = 1.0.0d11;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Portable2003_PlatformMonitor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = Portable2003_PlatformMonitor;
+			productName = PB6_1_PlatformMonitor;
+			productReference = 09E4E406043BA0B90BCE29CA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>Portable2003_PlatformMonitor</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.Portable2003_PlatformMonitor</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Portable2003_PlatformMonitor</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d11</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>Portable2003_PlatformMonitor</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.Portable2003_PlatformMonitor</string>
+			<key>IOClass</key>
+			<string>Portable2003_PlatformMonitor</string>
+			<key>IONameMatch</key>
+			<string>Portable2003_PlatformMonitor</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleMacRISC2PE</key>
+		<string>1.3.4</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		09E4E3FE043BA0B90BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		09E4E3FF043BA0B90BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+				09E4E40B043BA0E90BCE29CA,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		09E4E401043BA0B90BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+				09E4E40A043BA0E90BCE29CA,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		09E4E403043BA0B90BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		09E4E404043BA0B90BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		09E4E405043BA0B90BCE29CA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		09E4E406043BA0B90BCE29CA = {
+			isa = PBXBundleReference;
+			path = Portable2003_PlatformMonitor.kext;
+			refType = 3;
+		};
+		09E4E407043BA0C50BCE29CA = {
+			isa = PBXTargetDependency;
+			target = 09E4E3FD043BA0B90BCE29CA;
+		};
+		09E4E408043BA0E90BCE29CA = {
+			isa = PBXFileReference;
+			path = Portable2003_PlatformMonitor.cpp;
+			refType = 4;
+		};
+		09E4E409043BA0E90BCE29CA = {
+			isa = PBXFileReference;
+			path = Portable2003_PlatformMonitor.h;
+			refType = 4;
+		};
+		09E4E40A043BA0E90BCE29CA = {
+			fileRef = 09E4E408043BA0E90BCE29CA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		09E4E40B043BA0E90BCE29CA = {
+			fileRef = 09E4E409043BA0E90BCE29CA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		09E4E553043D24E90BCE29CA = {
+			fileRef = 09E4E406043BA0B90BCE29CA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//090
+//091
+//092
+//093
+//094
 //0B0
 //0B1
 //0B2
@@ -458,6 +1380,11 @@
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				0B81C263FFB7832611CA28AA,
+				B088C5B403E5BABE05CE0DA1,
+				B00EEA8E0416BED705CE0DA1,
+				0995030D0434DB2B0BCE29CA,
+				099503190434FD1F0BCE29CA,
+				09E4E406043BA0B90BCE29CA,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -483,17 +1410,17 @@
 				067D03B7FFF08CF111CA2A1B,
 				067D03BAFFF08CF111CA2A1B,
 				067D03B9FFF08CF111CA2A1B,
-				067D03BBFFF08CF111CA2A1B,
 				B03B6DF302F9DA0605CE0D9E,
 				B03B6DF202F9DA0605CE0D9E,
-				B099E3BF02DFBBE205CE0D9B,
-				B031E7520327ED1A05CE0D9E,
 				B0AEE84503732BF305CE0D9E,
 				B0AEE84D03788C4105CE0D9E,
 				B0AEE849037337E705CE0D9E,
 				B0AEE847037337D005CE0D9E,
 				632003E303D342CB0FCE15D6,
 				632003E403D342CB0FCE15D6,
+				09E4E409043BA0E90BCE29CA,
+				09E4E408043BA0E90BCE29CA,
+				B088C5B903E5BD8505CE0DA1,
 			);
 			isa = PBXGroup;
 			name = Source;
@@ -520,18 +1447,6 @@
 			path = PB5_1_PlatformMonitor.cpp;
 			refType = 4;
 		};
-		632003E503D342CB0FCE15D6 = {
-			fileRef = 632003E303D342CB0FCE15D6;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		632003E603D342CB0FCE15D6 = {
-			fileRef = 632003E403D342CB0FCE15D6;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 //630
 //631
 //632
@@ -542,17 +1457,97 @@
 //B02
 //B03
 //B04
-		B031E7520327ED1A05CE0D9E = {
-			fileEncoding = 30;
+		B00EEA890416BED705CE0DA1 = {
+			buildActionMask = 2147483647;
+			files = (
+				B00EEA930416BF3C05CE0DA1,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B00EEA8A0416BED705CE0DA1 = {
+			buildActionMask = 2147483647;
+			files = (
+				B00EEA910416BF3005CE0DA1,
+				B00EEA920416BF3B05CE0DA1,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B00EEA8B0416BED705CE0DA1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B00EEA8C0416BED705CE0DA1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B00EEA8D0416BED705CE0DA1 = {
+			buildPhases = (
+				B00EEA890416BED705CE0DA1,
+				B00EEA8A0416BED705CE0DA1,
+				B00EEA8B0416BED705CE0DA1,
+				B00EEA8C0416BED705CE0DA1,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "-DPFPARSE";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = PFParse;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = PFParse;
+			productInstallPath = /usr/local/bin;
+			productName = PFParse;
+			productReference = B00EEA8E0416BED705CE0DA1;
+			shouldUseHeadermap = 0;
+		};
+		B00EEA8E0416BED705CE0DA1 = {
+			isa = PBXExecutableFileReference;
+			path = PFParse;
+			refType = 3;
+		};
+		B00EEA900416BF3005CE0DA1 = {
 			isa = PBXFileReference;
-			path = IOPlatformFunction.cpp;
+			name = PFParse.c;
+			path = IOPlatformFunction/PFParse.c;
 			refType = 4;
 		};
-		B031E7530327ED1A05CE0D9E = {
+		B00EEA910416BF3005CE0DA1 = {
+			fileRef = B00EEA900416BF3005CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B00EEA920416BF3B05CE0DA1 = {
 			fileRef = B031E7520327ED1A05CE0D9E;
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		B00EEA930416BF3C05CE0DA1 = {
+			fileRef = B099E3BF02DFBBE205CE0D9B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B031E7520327ED1A05CE0D9E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOPlatformFunction.cpp;
+			path = IOPlatformFunction/IOPlatformFunction.cpp;
+			refType = 4;
 		};
 		B03B6DF202F9DA0605CE0D9E = {
 			fileEncoding = 30;
@@ -578,17 +1573,243 @@
 			settings = {
 			};
 		};
-		B099E3BF02DFBBE205CE0D9B = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = IOPlatformFunction.h;
+		B088C5AD03E5BABE05CE0DA1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		B088C5AE03E5BABE05CE0DA1 = {
+			buildActionMask = 2147483647;
+			files = (
+				B088C5BE03E5BF0605CE0DA1,
+				B088C5C303E5E1C405CE0DA1,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B088C5AF03E5BABE05CE0DA1 = {
+			buildActionMask = 2147483647;
+			files = (
+				B088C5BD03E5BF0505CE0DA1,
+				B088C5C503E5E1DE05CE0DA1,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B088C5B003E5BABE05CE0DA1 = {
+			buildActionMask = 2147483647;
+			files = (
+				B088C5BF03E5BF0605CE0DA1,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B088C5B103E5BABE05CE0DA1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B088C5B203E5BABE05CE0DA1 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		B088C5B303E5BABE05CE0DA1 = {
+			buildPhases = (
+				B088C5AD03E5BABE05CE0DA1,
+				B088C5AE03E5BABE05CE0DA1,
+				B088C5AF03E5BABE05CE0DA1,
+				B088C5B003E5BABE05CE0DA1,
+				B088C5B103E5BABE05CE0DA1,
+				B088C5B203E5BABE05CE0DA1,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOPlatformFunction;
+				MODULE_VERSION = 1.0.1d4;
+				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPlatformFunction;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOPlatformFunction;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOPlatformFunction;
+			productReference = B088C5B403E5BABE05CE0DA1;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOPlatformFunction</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IOPlatformVersion version 1.0.1, Copyright 2003 Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.IOPlatformFunction</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOPlatformFunction</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.1d4</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOPlatformFunctionDriver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.IOPlatformFunction</string>
+			<key>IOClass</key>
+			<string>IOPlatformFunctionDriver</string>
+			<key>IONameMatch</key>
+			<string>IOPlatformFunctionNub</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		B088C5B403E5BABE05CE0DA1 = {
+			isa = PBXBundleReference;
+			path = IOPlatformFunction.kext;
+			refType = 3;
+		};
+		B088C5B903E5BD8505CE0DA1 = {
+			children = (
+				B088C5C203E5E1C405CE0DA1,
+				B088C5C403E5E1DE05CE0DA1,
+				B099E3BF02DFBBE205CE0D9B,
+				B031E7520327ED1A05CE0D9E,
+				B00EEA900416BF3005CE0DA1,
+				B088C5BA03E5BDBC05CE0DA1,
+			);
+			isa = PBXGroup;
+			name = IOPlatformFunction;
+			path = "";
 			refType = 4;
 		};
-		B099E3C002DFBBE205CE0D9B = {
+		B088C5BA03E5BDBC05CE0DA1 = {
+			children = (
+				B088C5BB03E5BE4D05CE0DA1,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		B088C5BB03E5BE4D05CE0DA1 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = InfoPlist.strings;
+			path = IOPlatformFunction/Resources/InfoPlist.strings;
+			refType = 4;
+		};
+		B088C5BD03E5BF0505CE0DA1 = {
+			fileRef = B031E7520327ED1A05CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B088C5BE03E5BF0605CE0DA1 = {
 			fileRef = B099E3BF02DFBBE205CE0D9B;
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		B088C5BF03E5BF0605CE0DA1 = {
+			fileRef = B088C5BB03E5BE4D05CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B088C5C203E5E1C405CE0DA1 = {
+			isa = PBXFileReference;
+			name = IOPlatformFunctionDriver.h;
+			path = IOPlatformFunction/IOPlatformFunctionDriver.h;
+			refType = 4;
+		};
+		B088C5C303E5E1C405CE0DA1 = {
+			fileRef = B088C5C203E5E1C405CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B088C5C403E5E1DE05CE0DA1 = {
+			isa = PBXFileReference;
+			name = IOPlatformFunctionDriver.cpp;
+			path = IOPlatformFunction/IOPlatformFunctionDriver.cpp;
+			refType = 4;
+		};
+		B088C5C503E5E1DE05CE0DA1 = {
+			fileRef = B088C5C403E5E1DE05CE0DA1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B088C5CA03E5E91105CE0DA1 = {
+			isa = PBXTargetDependency;
+			target = B088C5B303E5BABE05CE0DA1;
+		};
+		B099E3BF02DFBBE205CE0D9B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOPlatformFunction.h;
+			path = IOPlatformFunction/IOPlatformFunction.h;
+			refType = 4;
 		};
 		B0AEE84503732BF305CE0D9E = {
 			fileEncoding = 30;
@@ -608,23 +1829,11 @@
 			path = PB6_1_PlatformMonitor.cpp;
 			refType = 4;
 		};
-		B0AEE848037337D005CE0D9E = {
-			fileRef = B0AEE847037337D005CE0D9E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		B0AEE849037337E705CE0D9E = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = PB6_1_PlatformMonitor.h;
 			refType = 4;
-		};
-		B0AEE84A037337E705CE0D9E = {
-			fileRef = B0AEE849037337E705CE0D9E;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		B0AEE84D03788C4105CE0D9E = {
 			fileEncoding = 30;

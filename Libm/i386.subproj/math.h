@@ -51,7 +51,11 @@ typedef long double	double_t;
 
 #define INFINITY	HUGE_VALF
 
+#if defined(__APPLE_CC__) && (__APPLE_CC__ >= 1345)
+#define NAN		__builtin_nanf("0x7fc00000") /* Constant expression, can be used as initializer. */
+#else
 #define NAN		__nan( )
+#endif
 
 /******************************************************************************
 *      Taxonomy of floating point data types                                  *
@@ -126,74 +130,74 @@ extern unsigned int __math_errhandling ( void );
 
 #define __TYPE_LONGDOUBLE_IS_DOUBLE 0
                               
-extern long  __fpclassifyd( double x );
-extern long  __fpclassifyf( float x );
-extern long  __fpclassify( long double x );
+extern long  __fpclassifyd( double );
+extern long  __fpclassifyf( float );
+extern long  __fpclassify( long double );
 #if __TYPE_LONGDOUBLE_IS_DOUBLE
-  #ifdef __cplusplus
+#ifdef __cplusplus
     inline long __fpclassify( long double x ) { return __fpclassifyd((double)( x )); }
-  #else
-    #define __fpclassify( x ) (__fpclassifyd((double)( x )))
-  #endif
+#else
+#define __fpclassify( x ) (__fpclassifyd((double)( x )))
+#endif
 #endif
 
 
-extern long  __isnormald( double x );
-extern long  __isnormalf( float x );
-extern long  __isnormal( long double x );
+extern long  __isnormald( double );
+extern long  __isnormalf( float );
+extern long  __isnormal( long double );
 #if __TYPE_LONGDOUBLE_IS_DOUBLE
-  #ifdef __cplusplus
+#ifdef __cplusplus
     inline long __isnormal( long double x ) { return __isnormald((double)( x )); }
-  #else
-    #define __isnormal( x ) (__isnormald((double)( x )))
-  #endif
+#else
+#define __isnormal( x ) (__isnormald((double)( x )))
+#endif
 #endif
 
-extern long  __isfinited( double x );
-extern long  __isfinitef( float x );
-extern long  __isfinite( long double x );
+extern long  __isfinited( double );
+extern long  __isfinitef( float );
+extern long  __isfinite( long double );
 #if __TYPE_LONGDOUBLE_IS_DOUBLE
-  #ifdef __cplusplus
+#ifdef __cplusplus
     inline long __isfinite( long double x ) { return __isfinited((double)( x )); }
-  #else
-    #define __isfinite( x ) (__isfinited((double)( x )))
-  #endif
+#else
+#define __isfinite( x ) (__isfinited((double)( x )))
+#endif
 #endif
 
 
-extern long  __isinfd( double x );
-extern long  __isinff( float x );
-extern long  __isinf( long double x );
+extern long  __isinfd( double );
+extern long  __isinff( float );
+extern long  __isinf( long double );
 #if __TYPE_LONGDOUBLE_IS_DOUBLE
-  #ifdef __cplusplus
+#ifdef __cplusplus
     inline long __isinf( long double x ) { return __isinfd((double)( x )); }
-  #else
-    #define __isinf( x ) (__isinfd((double)( x )))
-  #endif
+#else
+#define __isinf( x ) (__isinfd((double)( x )))
+#endif
 #endif
 
 
-extern long  __isnand( double x );
-extern long  __isnanf( float x );
-extern long  __isnan( long double x );
+extern long  __isnand( double );
+extern long  __isnanf( float );
+extern long  __isnan( long double );
 #if __TYPE_LONGDOUBLE_IS_DOUBLE
-  #ifdef __cplusplus
+#ifdef __cplusplus
     inline long __isnan( long double x ) { return __isnand((double)( x )); }
-  #else
-    #define __isnan( x ) (__isnand((double)( x )))
-  #endif
+#else
+#define __isnan( x ) (__isnand((double)( x )))
+#endif
 #endif
 
 
-extern long  __signbitd( double x );
-extern long  __signbitf( float x );
-extern long  __signbitl( long double x );
+extern long  __signbitd( double );
+extern long  __signbitf( float );
+extern long  __signbitl( long double );
 #if __TYPE_LONGDOUBLE_IS_DOUBLE
-  #ifdef __cplusplus
+#ifdef __cplusplus
     inline long __signbitl( long double x ) { return __signbitd((double)( x )); }
-  #else
-    #define __signbitl( x ) (__signbitd((double)( x )))
-  #endif
+#else
+#define __signbitl( x ) (__signbitd((double)( x )))
+#endif
 #endif
 
 /********************************************************************************
@@ -202,173 +206,173 @@ extern long  __signbitl( long double x );
 *                                                                               *
 ********************************************************************************/
 
-extern double  acos( double x );
-extern float  acosf( float x );
+extern double  acos( double );
+extern float  acosf( float );
 
-extern double  asin( double x );
-extern float  asinf( float x );
+extern double  asin( double );
+extern float  asinf( float );
 
-extern double  atan( double x );
-extern float  atanf( float x );
+extern double  atan( double );
+extern float  atanf( float );
 
-extern double  atan2( double y, double x );
-extern float  atan2f( float y, float x );
+extern double  atan2( double, double );
+extern float  atan2f( float, float );
 
-extern double  cos( double x );
-extern float  cosf( float x );
+extern double  cos( double );
+extern float  cosf( float );
 
-extern double  sin( double x );
-extern float  sinf( float x );
+extern double  sin( double );
+extern float  sinf( float );
 
-extern double  tan( double x );
-extern float  tanf( float x );
+extern double  tan( double );
+extern float  tanf( float );
 
-extern double  acosh( double x );
-extern float  acoshf( float x );
+extern double  acosh( double );
+extern float  acoshf( float );
 
-extern double  asinh( double x );
-extern float  asinhf( float x );
+extern double  asinh( double );
+extern float  asinhf( float );
 
-extern double  atanh( double x );
-extern float  atanhf( float x );
+extern double  atanh( double );
+extern float  atanhf( float );
 
-extern double  cosh( double x );
-extern float  coshf( float x );
+extern double  cosh( double );
+extern float  coshf( float );
 
-extern double  sinh( double x );
-extern float  sinhf( float x );
+extern double  sinh( double );
+extern float  sinhf( float );
 
-extern double  tanh( double x );
-extern float  tanhf( float x );
+extern double  tanh( double );
+extern float  tanhf( float );
 
-extern double exp ( double x );
-extern float expf ( float x );
+extern double exp ( double );
+extern float expf ( float );
 
-extern double exp2 ( double x ); 
-extern float exp2f ( float x );
+extern double exp2 ( double ); 
+extern float exp2f ( float );
 
-extern double expm1 ( double x ); 
-extern float expm1f ( float x );
+extern double expm1 ( double ); 
+extern float expm1f ( float );
 
-extern double log ( double x );
-extern float logf ( float x );
+extern double log ( double );
+extern float logf ( float );
 
-extern double log10 ( double x );
-extern float log10f ( float x );
+extern double log10 ( double );
+extern float log10f ( float );
 
-extern double log2 ( double x );
-extern float log2f ( float x );
+extern double log2 ( double );
+extern float log2f ( float );
 
-extern double log1p ( double x );
-extern float log1pf ( float x );
+extern double log1p ( double );
+extern float log1pf ( float );
 
-extern double logb ( double x );
-extern float logbf ( float x );
+extern double logb ( double );
+extern float logbf ( float );
 
-extern double modf ( double x, double *iptr );
-extern float modff ( float x, float *iptr );
+extern double modf ( double, double * );
+extern float modff ( float, float * );
 
-extern double ldexp ( double value, int exp );
-extern float ldexpf ( float value, int exp );
+extern double ldexp ( double, int );
+extern float ldexpf ( float, int );
 
-extern double frexp ( double value, int *eptr );
-extern float frexpf ( float value, int *eptr );
+extern double frexp ( double, int * );
+extern float frexpf ( float, int * );
 
-extern int ilogb ( double x );
-extern int ilogbf ( float x );
+extern int ilogb ( double );
+extern int ilogbf ( float );
 
-extern double scalbn ( double x, int n );
-extern float scalbnf ( float x, int n );
+extern double scalbn ( double, int );
+extern float scalbnf ( float, int );
 
-extern double scalbln ( double x, long int n );
-extern float scalblnf ( float x, long int n );
+extern double scalbln ( double, long int );
+extern float scalblnf ( float, long int );
 
-extern double  fabs( double x );
-extern float  fabsf( float x );
+extern double  fabs( double );
+extern float  fabsf( float );
 
-extern double  cbrt( double x );
-extern float  cbrtf( float x );
+extern double  cbrt( double );
+extern float  cbrtf( float );
 
-extern double hypot ( double x, double y );
-extern float hypotf ( float x, float y );
+extern double hypot ( double, double );
+extern float hypotf ( float, float );
 
-extern double pow ( double x, double y );
-extern float powf ( float x, float y );
+extern double pow ( double, double );
+extern float powf ( float, float );
 
-extern double  sqrt( double x );
-extern float  sqrtf( float x );
+extern double  sqrt( double );
+extern float  sqrtf( float );
 
-extern double  erf( double x );
-extern float  erff( float x );
+extern double  erf( double );
+extern float  erff( float );
 
-extern double  erfc( double x );
-extern float  erfcf( float x );
+extern double  erfc( double );
+extern float  erfcf( float );
 
-extern double  lgamma( double x );
-extern float  lgammaf( float x );
+extern double  lgamma( double );
+extern float  lgammaf( float );
 
-extern double  tgamma( double x );
-extern float  tgammaf( float x );
+extern double  tgamma( double );
+extern float  tgammaf( float );
 
-extern double ceil ( double x );
-extern float ceilf ( float x );
+extern double ceil ( double );
+extern float ceilf ( float );
 
-extern double floor ( double x );
-extern float floorf ( float x );
+extern double floor ( double );
+extern float floorf ( float );
 
-extern double nearbyint ( double x );
-extern float nearbyintf ( float x );
+extern double nearbyint ( double );
+extern float nearbyintf ( float );
 
-extern double rint ( double x );
-extern float rintf ( float x );
+extern double rint ( double );
+extern float rintf ( float );
 
-extern long int lrint ( double x );
-extern long int lrintf ( float x );
+extern long int lrint ( double );
+extern long int lrintf ( float );
 
-extern long long int llrint ( double x );
-extern long long int llrintf ( float x );
+extern long long int llrint ( double );
+extern long long int llrintf ( float );
 
-extern double round ( double x );
-extern float roundf ( float x );
+extern double round ( double );
+extern float roundf ( float );
 
-extern long int lround ( double x );
-extern long int lroundf ( float x );
+extern long int lround ( double );
+extern long int lroundf ( float );
 
-extern long long int llround ( double x );
-extern long long int llroundf ( float x );
+extern long long int llround ( double );
+extern long long int llroundf ( float );
 
-extern double trunc ( double x );
-extern float truncf ( float x );
+extern double trunc ( double );
+extern float truncf ( float );
 
-extern double fmod ( double x, double y );
-extern float fmodf ( float x, float y );
+extern double fmod ( double, double );
+extern float fmodf ( float, float );
 
-extern double remainder ( double x, double y );
-extern float remainderf ( float x, float y );
+extern double remainder ( double, double );
+extern float remainderf ( float, float );
 
-extern double remquo ( double x, double y, int *quo );
-extern float remquof ( float x, float y, int *quo );
+extern double remquo ( double, double, int * );
+extern float remquof ( float, float, int * );
 
-extern double copysign ( double x, double y );
-extern float copysignf ( float x, float y );
+extern double copysign ( double, double );
+extern float copysignf ( float, float );
 
-extern double nan( const char *tagp );
-extern float nanf( const char *tagp );
+extern double nan( const char * );
+extern float nanf( const char * );
 
-extern double nextafter ( double x, double y );
-extern float nextafterf ( float x, float y );
+extern double nextafter ( double, double );
+extern float nextafterf ( float, float );
 
-extern double fdim ( double x, double y );
-extern float fdimf ( float x, float y );
+extern double fdim ( double, double );
+extern float fdimf ( float, float );
 
-extern double fmax ( double x, double y );
-extern float fmaxf ( float x, float y );
+extern double fmax ( double, double );
+extern float fmaxf ( float, float );
 
-extern double fmin ( double x, double y );
-extern float fminf ( float x, float y );
+extern double fmin ( double, double );
+extern float fminf ( float, float );
 
-extern double fma ( double x, double y, double z );
-extern float fmaf ( float x, float y, float z );
+extern double fma ( double, double, double );
+extern float fmaf ( float, float, float );
 
 #define isgreater(x, y) __builtin_isgreater (x, y)
 #define isgreaterequal(x, y) __builtin_isgreaterequal (x, y)
@@ -380,26 +384,26 @@ extern float fmaf ( float x, float y, float z );
 extern double  		__inf( void );
 extern float  		__inff( void );
 extern long double  	__infl( void );
-extern float  		__nan( void );
+extern float  		__nan( void ); /* 10.3 (and later) must retain in ABI for backward compatability */
 
 #ifndef __NOEXTENSIONS__
 
 #define FP_SNAN		FP_NAN
 #define FP_QNAN		FP_NAN
 
-extern long int rinttol ( double x );
+extern long int rinttol ( double );
 
-extern long int roundtol ( double x );
+extern long int roundtol ( double );
 
-typedef struct _complx {
+typedef struct __complex_s {
         double Real;
         double Imag;
-} _complex;
+} __complex_t;
 
-typedef struct _complxf {
+typedef struct __complexf_s {
         float Real;
         float Imag;
-} _complexf;
+} __complexf_t;
 
 /*
  * XOPEN/SVID
@@ -472,34 +476,34 @@ struct exception {
 #endif /* !_ANSI_SOURCE && !_POSIX_SOURCE */
 
 #if !defined(_ANSI_SOURCE) && !defined(_POSIX_SOURCE)
-extern int finite ( double x );
-extern int finitef ( float x );
+extern int finite ( double );
+extern int finitef ( float );
 
-extern double gamma ( double x );
-extern float gammaf ( float x );
+extern double gamma ( double );
+extern float gammaf ( float );
 
-extern double j0 ( double x );
-extern float j0f ( float x );
+extern double j0 ( double );
+extern float j0f ( float );
 
-extern double j1 ( double x );
-extern float j1f ( float x );
+extern double j1 ( double );
+extern float j1f ( float );
 
-extern double jn ( int n, double x );
-extern float jnf ( int n, float x );
+extern double jn ( int, double );
+extern float jnf ( int, float );
 
-extern double y0 ( double x );
-extern float y0f ( float x );
+extern double y0 ( double );
+extern float y0f ( float );
 
-extern double y1 ( double x );
-extern float y1f ( float x );
+extern double y1 ( double );
+extern float y1f ( float );
 
-extern double yn ( int n, double x );
-extern float ynf ( int n, float x );
+extern double yn ( int, double );
+extern float ynf ( int, float );
 
 #if !defined(_XOPEN_SOURCE)
 
-extern double scalb ( double x, int n );
-extern float scalbf ( float x, int n );
+extern double scalb ( double, int );
+extern float scalbf ( float, int );
 
 #if !defined(__cplusplus)
 extern int matherr ( struct exception * );
@@ -508,27 +512,27 @@ extern int matherr ( struct exception * );
 /*
  * IEEE Test Vector
  */
-extern double significand ( double x );
+extern double significand ( double );
 
 /*
  * BSD math library entry points
  */
-extern double cabs ( _complex z );
-extern float cabsf ( _complexf z );
+extern double cabs ( __complex_t );
+extern float cabsf ( __complexf_t );
 
-extern double drem ( double x, double y );
-extern float dremf ( float x, float y );
+extern double drem ( double, double );
+extern float dremf ( float, float );
 
 /*
  * Reentrant version of gamma & lgamma; passes signgam back by reference
  * as the second argument; user must allocate space for signgam.
  */
 #ifdef _REENTRANT
-extern double gamma_r ( double x, int *psigngam );
-extern float gammaf_r ( float x, int *psigngam );
+extern double gamma_r ( double, int * );
+extern float gammaf_r ( float, int * );
 
-extern double lgamma_r ( double x, int *psigngam );
-extern float lgammaf_r ( float x, int *psigngam );
+extern double lgamma_r ( double, int * );
+extern float lgammaf_r ( float, int * );
 #endif /* _REENTRANT */
 #endif /* !_XOPEN_SOURCE */
 #endif /* !_ANSI_SOURCE && !_POSIX_SOURCE */

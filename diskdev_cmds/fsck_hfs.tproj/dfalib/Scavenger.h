@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -33,6 +34,7 @@
 #include "BTreePrivate.h"
 #include "CheckHFS.h"
 #include "BTreeScanner.h"
+#include "hfs_endian.h"
 
 #ifdef __cplusplus
 extern	"C" {
@@ -48,10 +50,6 @@ enum {
 
 enum {
 	kNoHint						= 0
-};
-
-enum {
-	kHFSRepairCatalogFileID = (kHFSBogusExtentFileID - 1) /* used to repair catalog file */
 };
 
 //
@@ -257,7 +255,6 @@ enum {
 enum
 {
 	ignoreRunningProcessesMask		= 0x00000001,	//	Assumes caller has shut down processes
-	examineWrapperMask				= 0x00000002,	//	PRIVATE, used internally
 	checkDiskVersionMask			= 0x00000004	//	Will just return back the version in repairInfo.
 };
 
@@ -285,6 +282,7 @@ enum {
 
 //	Type of volume
 enum {
+	kUnknownVolumeType 	= 0,
 	kHFSVolumeType,
 	kEmbededHFSPlusVolumeType,
 	kPureHFSPlusVolumeType
@@ -574,6 +572,39 @@ typedef pascal void (*UserMessageProcPtr)(StringPtr message, SInt16 messageType,
 
 #endif
 
+/* 	
+	VolumeObject encapsulates all infomration about the multiple volume anchor blocks (VHB and MSD) 
+	on HFS and HFS+ volumes.  An HFS volume will have two MDBs (primary and alternate HFSMasterDirectoryBlock), 
+	a pure HFS+ volume will have two VHBs (primary and alternate HFSPlusVolumeHeader), and a wrapped HFS+ 
+	volume will have two MDBs and two VHBs.
+*/
+
+/* values for VolumeObject.flags */
+enum {
+	kVO_Inited			= 0x00000001,	   	// this structured has been initialized
+	kVO_PriVHBOK		= 0x00000002,	   	// the primary Volume Header Block is valid
+	kVO_AltVHBOK		= 0x00000004,	   	// the alternate Volume Header Block is valid
+	kVO_PriMDBOK		= 0x00000008,	   	// the primary Master Directory Block is valid
+	kVO_AltMDBOK		= 0x00000010,	   	// the alternate Master Directory Block is valid
+};
+
+typedef struct VolumeObject {
+	UInt32			flags;
+	SVCB * 			vcbPtr;				// pointer to VCB used for this volume
+	UInt32			volumeType;			// (kHFSVolumeType or kEmbededHFSPlusVolumeType or kPureHFSPlusVolumeType)
+	UInt32			embeddedOffset;		// offset of embedded HFS+ (in bytes) volume into HFS wrapper volume
+										//   NOTE - UInt32 is OK since we don't support HFS Wrappers on TB volumes
+	UInt32			sectorSize;			// size of a sector for this device
+	UInt64			totalDeviceSectors;	// total number of sectors for this volume (from GetDeviceSize)
+	UInt64			totalEmbeddedSectors; // total number of sectors for embedded volume
+	// location of all possible volume anchor blocks (MDB and VHB) on this volume.  These locations
+	// are the sector offset into the volume.  Only wrapped HFS+ volumes use all 4 of these.
+	UInt64			primaryVHB;			// not used for HFS volumes
+	UInt64			alternateVHB;		// not used for HFS volumes
+	UInt64			primaryMDB;			// not used for pure HFS+ volumes
+	UInt64			alternateMDB;		// not used for pure HFS+ volumes
+} VolumeObject, *VolumeObjectPtr;
+
 
 typedef struct SGlob {
 	SInt16				DrvNum;					//	drive number of target drive
@@ -588,9 +619,8 @@ typedef struct SGlob {
 	UInt16				CatStat;				//	scavenge status flags for catalog file
 	UInt16				VeryMinorErrorsStat;	//	scavenge status flags for very minor errors
 	DrvQElPtr			DrvPtr;					//	pointer to driveQ element for target drive
-	UInt64				idSector;				//	location of id block alt MDB or VH
 	UInt32				TarID;					//	target ID (CNID of data structure being verified)
-	UInt32				TarBlock;				//	target block/node number being verified
+	UInt64				TarBlock;				//	target block/node number being verified
 	SInt16				BTLevel;				//	current BTree enumeration level
 	SBTPT				*BTPTPtr;				//	BTree path table pointer
 	SInt16				DirLevel;				//	current directory enumeration level
@@ -609,15 +639,12 @@ typedef struct SGlob {
 	UInt32				inputFlags;				//	Caller can specify some DFA behaviors
 
 	UInt32				volumeFeatures;			//	bit vector of volume and OS features
-	Boolean				isHFSPlus;
-	UInt16				volumeType;
 	Boolean				usersAreConnected;		//	true if user are connected
 	Boolean				fileSharingOn;			//	true if file sharing is on
 	UInt32				altBlockLocation;
 	Boolean				checkingWrapper;
 	SInt16				numExtents;				//	Number of memory resident extents.  3 or 8
 	OSErr				volumeErrorCode;
-	//ProcessSerialNumber	parentProcess;
 	
 	UserCancelUPP		userCancelProc;
 	UserMessageUPP		userMessageProc;
@@ -649,7 +676,10 @@ typedef struct SGlob {
 	Boolean			guiControl;
 	int				logLevel;
 	int				chkLevel;
-	int             repairLevel;   // from 
+	int             repairLevel;
+	Boolean			scanAgain;	//	used to force another scan of the volume (max of 2 scans)
+	int				canWrite;  	// we can safely write to the block device
+	int				lostAndFoundMode;  // used when creating lost+found directory
 	BTScanState		scanState;
 
 	char			volumeName[256]; /* volume name in ASCII or UTF-8 */
@@ -667,9 +697,10 @@ enum
 	
 /* volume info status flags (contents of VIStat) */
 
-#define	S_MDB					0x8000	//	MDB damaged
+#define	S_MDB					0x8000	//	MDB/VHB damaged
 #define	S_AltMDB				0x4000	//	Unused	/* alternate MDB damaged */
 #define	S_VBM					0x2000	//	volume bit map damaged
+#define	S_WMDB					0x1000	//	wrapper MDB is damaged
 #define	S_OverlappingExtents	0x0800	//	Overlapping extents found
 #define	S_BadMDBdrAlBlSt		0x0400	//	Invalid drAlBlSt field in MDB
 #define S_InvalidWrapperExtents	0x0200	//	Invalid catalog extent start in MDB
@@ -692,11 +723,11 @@ enum
 #define	S_Valence			0x4000	/* a directory valence is out of sync */
 #define	S_FThd				0x2000	/* dangling file thread records exist */
 #define	S_DFCorruption		0x1000	/* disappearing folder corruption detected */
-#define	S_NoDir			0x0800	/* missing directory record */
+#define	S_NoDir				0x0800	/* missing directory record */
 #define S_LockedDirName		0x0400  // locked dir name
 #define S_MissingThread		0x0200  /* missing thread record */
 #define S_UnlinkedFile		0x0100	/* orphaned link node */
-#define S_LinkCount		0x0080	/* data node link count needs repair */
+#define S_LinkCount			0x0080	/* data node link count needs repair */
 #define S_Permissions		0x0040	/* BSD permissions need repair */
 #define S_FileAllocation	0x0020	/* peof or leof needs adjustment */
 
@@ -758,34 +789,17 @@ enum {
 	M_AllOK                     = 16,
 	M_RepairOK                  = 17,
 	M_RepairFailed              = 18,
+	M_CheckFailed               = 19,
+	M_Rescan	               	= 20,
+	M_Look		               	= 21,
+	M_OtherWriters		       	= 22,
 
-	M_LastMessage               = 18
+	M_LastMessage               = 22
 };
 
 /*------------------------------------------------------------------------------
  Scavenger Result/Error Codes
 ------------------------------------------------------------------------------*/
-
-/* scavenge result codes (reported to user) */
-#if 0
-enum {
-	R_NoMem			= 1,	/* not enough memory to do scavenge */
-	R_IntErr		= 2,	/* internal Scavenger error */
-	R_NoVol			= 3,	/* no volume in drive */
-	R_RdErr			= 4,	/* unable to read from disk */
-	R_WrErr			= 5,	/* unable to write to disk */
-	R_BadSig		= 6,	/* not HFS/HFS+ signature */
-	R_VFail			= 7,	/* verify failed */
-	R_RFail			= 8,	/* repair failed */
-	R_UInt			= 9,	/* user interrupt */
-	R_Modified		= 10,	/* volume modifed by another app */
-	R_BadVolumeHeader	= 11,	/* Invalid VolumeHeader */
-	R_FileSharingIsON	= 12,	/* File Sharing is on */
-	R_Dirty			= 13,	/* Dirty, but no checks were done */
-
-	Max_RCode		= 13	/* maximum result code */
-};
-#endif
 
 /*
  * Scavenger errors.
@@ -833,7 +847,7 @@ enum {
 	E_LenFil		= -531,	/* Invalid file record length */
 	E_NoRtThd		= -532,	/* Missing thread record for root directory */
 	E_NoThd			= -533,	/* Missing thread record */
-	E_NoDir			= -534,	/* Missing directory record */
+	E_NoDir			= 534,	/* Missing directory record */
 	E_ThdKey		= -535,	/* Invalid key for thread record */
 	E_ThdCN			= -536,	/* Invalid  parent CName in thread record */
 	E_LenCDR		= -537,	/* Invalid catalog record length */
@@ -928,7 +942,7 @@ enum {
 
 
 extern	void	WriteMsg( SGlobPtr GPtr, short messageID, short messageType );
-extern	void	WriteError( SGlobPtr GPtr, short msgID, UInt32 tarID, UInt32 tarBlock );
+extern	void	WriteError( SGlobPtr GPtr, short msgID, UInt32 tarID, UInt64 tarBlock );
 extern	short	CheckPause( void );
 
 extern void	PrintError(SGlobPtr GPtr, short error, int vargc, ...);
@@ -964,6 +978,24 @@ extern	RepairOrderPtr AllocMinorRepairOrder( SGlobPtr GPtr, int extraBytes );
 
 extern	void	SetDFAStage( UInt32 stage );
 extern	UInt32	GetDFAGlobals( void );
+
+extern void		InitializeVolumeObject( SGlobPtr GPtr );
+extern void 	CheckEmbeddedVolInfoInMDBs( SGlobPtr GPtr );
+extern VolumeObjectPtr  GetVolumeObjectPtr( void );
+extern OSErr	GetVolumeObjectVHB( BlockDescriptor * theBlockDescPtr );
+extern void 	GetVolumeObjectBlockNum( UInt64 * theBlockNumPtr );
+extern OSErr 	GetVolumeObjectAlternateBlock( BlockDescriptor * theBlockDescPtr );
+extern OSErr 	GetVolumeObjectPrimaryBlock( BlockDescriptor * theBlockDescPtr );
+extern void 	GetVolumeObjectAlternateBlockNum( UInt64 * theBlockNumPtr );
+extern void 	GetVolumeObjectPrimaryBlockNum( UInt64 * theBlockNumPtr );
+extern OSErr	GetVolumeObjectAlternateMDB( BlockDescriptor * theBlockDescPtr );
+extern OSErr 	GetVolumeObjectPrimaryMDB( BlockDescriptor * theBlockDescPtr );
+extern OSErr 	GetVolumeObjectVHBorMDB( BlockDescriptor * theBlockDescPtr );
+extern void 	PrintVolumeObject( void );
+extern Boolean 	VolumeObjectIsHFSPlus( void );
+extern Boolean 	VolumeObjectIsHFS( void );
+extern Boolean 	VolumeObjectIsEmbeddedHFSPlus( void );
+extern Boolean 	VolumeObjectIsPureHFSPlus( void );
 
 extern	void	InvalidateCalculatedVolumeBitMap( SGlobPtr GPtr );
 
@@ -1005,8 +1037,6 @@ extern	int		cmpLongs (const void *a, const void *b);
 
 extern	OSErr	AddExtentToOverlapList( SGlobPtr GPtr, HFSCatalogNodeID fileNumber, UInt32 extentStartBlock, UInt32 extentBlockCount, UInt8 forkType );
 
-extern	OSErr	GetVolumeHeader( SGlobPtr GPtr, HFSMasterDirectoryBlock *mdb, HFSPlusVolumeHeader **alternateVolumeHeader, UInt32 *idSector, UInt32 *hfsPlusIOPosOffset );
-
 /* ------------------------------- From SVerify2.c -------------------------------- */
 
 typedef int (* CheckLeafRecordProcPtr)(void *key, void *record, UInt16 recordLen);
@@ -1034,6 +1064,15 @@ extern	OSErr	ChkExtRec ( SGlobPtr GPtr, const void *extents );
 
 extern	OSErr 	RebuildCatalogBTree( SGlobPtr theSGlobPtr );
 
+
+/* -------------------------- From SCatalog.c ------------------------- */
+
+extern OSErr	UpdateFolderCount( 	SVCB *vcb, 
+									HFSCatalogNodeID pid, 
+									const CatalogName *name, 
+									SInt16 newType,
+									UInt32 hint, 
+									SInt16 valenceDelta );
 
 /* ------------------------------- From SExtents.c -------------------------------- */
 OSErr	ZeroFileBlocks( SVCB *vcb, SFCB *fcb, UInt32 startingSector, UInt32 numberOfSectors );
@@ -1098,8 +1137,6 @@ extern	void	CalculateItemCount( SGlob *GPtr, UInt64 *itemCount, UInt64 *onePerce
 extern		BTreeControlBlock*	GetBTreeControlBlock( short refNum );
 #define		GetBTreeControlBlock(refNum)	((BTreeControlBlock*) ResolveFCB((refNum))->fcbBtree)
 
-extern		Boolean	IsWrapperVolume( UInt16 volumeType, UInt32 inputFlags );
-#define		IsWrapperVolume( volumeType, inputFlags )	( (volumeType==kEmbededHFSPlusVolumeType) && (inputFlags & examineWrapperMask) )
 /*	The following macro marks a VCB as dirty by setting the upper 8 bits of the flags*/
 EXTERN_API_C( void )
 MarkVCBDirty					(SVCB *			vcb);

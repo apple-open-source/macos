@@ -70,11 +70,11 @@
 #include <sys/unpcb.h>
 #include <sys/errno.h>
 #include <sys/ubc.h>
-
 #include <vfs/vfs_support.h>
 
 #include <miscfs/specfs/specdev.h>
 
+extern int		strcmp __P  	( ( const char *, const char * ) );					// Kernel already includes a copy
 extern int		strncmp __P  	( ( const char *, const char *, size_t length ) );	// Kernel already includes a copy
 extern char *	strcpy __P  	( ( char *, const char * ) );						// Kernel already includes a copy
 extern char *	strncpy __P 	( ( char *, const char *, size_t length ) );		// Kernel already includes a copy
@@ -90,9 +90,6 @@ extern int		atoi __P		( ( const char * ) );								// Kernel already includes a 
 
 static SInt32
 AddDirectoryEntry ( UInt32 nodeID, UInt8 type, const char * name, struct uio * uio );
-
-static void
-CDDA_IODone ( struct buf * bufferPtr );
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -558,6 +555,11 @@ struct vop_open_args {
 		
 	}
 	
+	// Turn off speculative read-ahead for our vnodes. The cluster
+	// code can't possibly do the right thing when we have possible
+	// loss of streaming on CD media.
+	vNodePtr->v_flag |= VRAOFF;
+	
 	
 ERROR:
 
@@ -622,8 +624,6 @@ struct vop_read_args {
 	register struct vnode * 	vNodePtr 			= NULL;
 	register struct uio *		uio 				= NULL;
 	AppleCDDANodePtr			cddaNodePtr			= NULL;
-	UInt32						devBlockSize		= 0;
-	UInt32						numBytes			= 0;
 	int							error				= 0;
 	
 	DebugLog ( ( "CDDA_Read: Entering.\n" ) );
@@ -669,60 +669,138 @@ struct vop_read_args {
 		
 	}
 
-	if ( cddaNodePtr->nodeType == kAppleCDDXMLFileType )
+	if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 	{
 		
+		off_t		offset			= uio->uio_offset;
+		UInt32		amountToCopy	= 0;
+		UInt32		numBytes		= 0;
+		
 		numBytes = cddaNodePtr->u.xmlFile.fileSize;
-				
+		
+		// Check to make sure we don't read past EOF
+		if ( uio->uio_offset > numBytes )
+		{
+			
+			DebugLog ( ( "CDDA_Read: Can't read past end of file..." ) );
+			return ( 0 );
+			
+		}
+		
+		amountToCopy = ulmin ( uio->uio_resid, numBytes - offset );
+		
+		uiomove ( ( caddr_t ) &cddaNodePtr->u.xmlFile.fileDataPtr[offset],
+				  amountToCopy,
+				  uio );
+		
+		return ( 0 );
+		
 	}
 	
 	else if ( cddaNodePtr->nodeType == kAppleCDDATrackType )
 	{
 		
-		numBytes = cddaNodePtr->u.file.nodeInfoPtr->numBytes;
+		UInt32			headerSize		= 0;
+		UInt32			count			= 0;
+		UInt32			blockNumber 	= 0;
+		off_t			offset			= 0;
+		off_t			sectorOffset	= 0;
+		struct buf *	bufPtr			= NULL;
 		
-	}
-	
-	// Check to make sure we don't read past EOF
-	if ( uio->uio_offset > numBytes )
-	{
+		offset	= uio->uio_offset;
 		
-		DebugLog ( ( "CDDA_Read: Can't read past end of file..." ) );
-		return ( 0 );
+		// Check to make sure we don't read past EOF
+		if ( offset > cddaNodePtr->u.file.nodeInfoPtr->numBytes )
+		{
+			
+			DebugLog ( ( "CDDA_Read: Can't read past end of file..." ) );
+			return ( 0 );
+			
+		}
 		
-	}
-	
-	// Workaround for ".TOC.plist" file
-	if ( cddaNodePtr->nodeType == kAppleCDDXMLFileType )
-	{
+		headerSize = sizeof ( cddaNodePtr->u.file.aiffHeader );
 		
-		UInt32		address 		= uio->uio_offset;
-		UInt32		amountToCopy	= 0;
-		
-		amountToCopy = ulmin ( uio->uio_resid, numBytes - address );
-		
-		uiomove ( ( caddr_t ) &cddaNodePtr->u.xmlFile.fileDataPtr[address],
+		// Copy any part of the header that we need to copy.
+		if ( offset < headerSize )
+		{
+			
+			UInt32	amountToCopy = 0;
+			
+			amountToCopy = ulmin ( uio->uio_resid, headerSize - offset );
+			
+			uiomove ( ( caddr_t ) &cddaNodePtr->u.file.aiffHeader.u.alignedHeader.filler[offset],
 				  amountToCopy,
 				  uio );
+			
+			offset += amountToCopy;
+			
+		}
 		
-		return ( 0 );
-				
-	}
+		// Adjust offset by the header size so we have a true offset into the media.
+		offset -= headerSize;
+		sectorOffset = offset % kPhysicalMediaBlockSize;
+		
+		if ( sectorOffset != 0 )
+		{
+			
+			count = ( kPhysicalMediaBlockSize - sectorOffset );
+			count += ( kMaxBlocksPerRead - 1 ) * kPhysicalMediaBlockSize;
+			
+		}
+		
+		else
+		{
+			count = kMaxBlocksPerRead * kPhysicalMediaBlockSize;
+		}
+		
+		blockNumber = ( offset / kPhysicalMediaBlockSize ) + cddaNodePtr->u.file.nodeInfoPtr->LBA;
 
-	
-	// Get the device's block size
-	VOP_DEVBLOCKSIZE ( cddaNodePtr->blockDeviceVNodePtr, ( register_t * ) &devBlockSize );
-	
-	DebugLog ( ( "CDDA_Read: devBlockSize = %d.\n", devBlockSize ) );
-	
-	error = cluster_read ( vNodePtr,
-						   uio,
-						   ( off_t ) numBytes,
-						   devBlockSize,
-						   0 );
+		// We always want to read on block aligned boundaries. Always read block multiples
+		// as well.
 		
-	DebugLog ( ( "CDDA_Read: cluster_read returned error = %d.\n", error ) );
+		while ( uio->uio_resid > 0 )
+		{
+			
+			// Clip to requested data transfer
+			count = ulmin ( uio->uio_resid, count );
+			
+			// bread kMaxBlocksPerRead blocks and put them in the cache.
+			error = bread ( cddaNodePtr->blockDeviceVNodePtr,
+							blockNumber,
+							kMaxBlocksPerRead * kPhysicalMediaBlockSize,
+							NOCRED,
+							&bufPtr );
+			
+			if ( error != 0 )
+			{
 				
+				brelse ( bufPtr );
+				return ( error );
+				
+			}
+			
+			// Move the data from the block into the buffer
+			uiomove ( bufPtr->b_data + sectorOffset, count, uio );
+			
+			// Make sure we mark any intermediate buffers as invalid as we don't need
+			// to keep them. We only need to keep the tail (for the beginning
+			// of the next I/O).
+			if ( uio->uio_resid > ( kMaxBlocksPerRead * kPhysicalMediaBlockSize ) )
+				SET ( bufPtr->b_flags, B_INVAL );
+			
+			// Release this buffer back into the buffer pool. 
+			brelse ( bufPtr );
+			
+			// Update offset
+			blockNumber += kMaxBlocksPerRead;
+			
+			count = kMaxBlocksPerRead * kPhysicalMediaBlockSize;
+			sectorOffset = 0;
+			
+		}
+		
+	}
+	
 	DebugLog ( ( "CDDA_Read: exiting.\n" ) );
 	
 	return ( error );
@@ -857,7 +935,7 @@ struct vop_readdir_args {
 	if ( uio->uio_offset == direntSize * kAppleCDDARootFileID )
 	{
 		
-		offsetValue += AddDirectoryEntry ( kAppleCDDAXMLFileID, kAppleCDDXMLFileType, ".TOC.plist", uio );
+		offsetValue += AddDirectoryEntry ( kAppleCDDAXMLFileID, kAppleCDDAXMLFileType, ".TOC.plist", uio );
 		if ( offsetValue == 0 )
 		{
 		
@@ -948,7 +1026,6 @@ struct vop_pagein_args {
 	
 	register struct vnode *		vNodePtr		= NULL;
 	AppleCDDANodePtr			cddaNodePtr		= NULL;
-	SInt32						devBlockSize 	= 0;
 	int 		   				error			= 0;
 	int							nocommit 		= 0;
 	UInt32						numBytes		= 0;
@@ -968,7 +1045,7 @@ struct vop_pagein_args {
 	if ( vNodePtr->v_type != VREG )
 		panic ( "CDDA_PageIn: vNodePtr not UBC type.\n" );
 	
-	if ( cddaNodePtr->nodeType == kAppleCDDXMLFileType )
+	if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 	{
 		
 		numBytes = cddaNodePtr->u.xmlFile.fileSize;
@@ -1040,7 +1117,7 @@ struct vop_pagein_args {
 	}
 	
 	// Workaround for faked ".TOC.plist" file
-	if ( cddaNodePtr->nodeType == kAppleCDDXMLFileType )
+	if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 	{
 				
 		kern_return_t		kret			= 0;
@@ -1048,7 +1125,7 @@ struct vop_pagein_args {
 		off_t				amountToCopy	= 0;
 					
 		// Map the physical page into the kernel address space
-		kret = kernel_upl_map ( kernel_map, pageInArgsPtr->a_pl, &vmOffsetPtr );
+		kret = ubc_upl_map ( pageInArgsPtr->a_pl, &vmOffsetPtr );
 		
 		// If we got an error or the vmOffsetPtr is zero, panic for now
 		if ( kret != KERN_SUCCESS || vmOffsetPtr == 0 )
@@ -1058,10 +1135,8 @@ struct vop_pagein_args {
 		
 		}
 		
-		
 		// Zero fill the page
-		bzero ( ( caddr_t )( vmOffsetPtr + pageInArgsPtr->a_pl_offset ),
-				PAGE_SIZE );
+		bzero ( ( caddr_t )( vmOffsetPtr + pageInArgsPtr->a_pl_offset ), PAGE_SIZE );
 		
 		amountToCopy = ulmin ( PAGE_SIZE, numBytes - pageInArgsPtr->a_f_offset );
 		
@@ -1071,7 +1146,7 @@ struct vop_pagein_args {
 				amountToCopy );
 		
 		// Unmap the physical page from the kernel address space
-		kret = kernel_upl_unmap ( kernel_map, pageInArgsPtr->a_pl );
+		kret = ubc_upl_unmap ( pageInArgsPtr->a_pl );
 		
 		// If we got an error, panic for now
 		if ( kret != KERN_SUCCESS )
@@ -1081,38 +1156,162 @@ struct vop_pagein_args {
 		
 		}
 		
-		// Commit the page to the vm subsystem
-		kernel_upl_commit_range ( 	pageInArgsPtr->a_pl,
+		if ( !nocommit )
+		{
+			
+			// Commit the page to the vm subsystem
+			ubc_upl_commit_range ( 	pageInArgsPtr->a_pl,
 									pageInArgsPtr->a_pl_offset,
 									PAGE_SIZE,
-									UPL_COMMIT_FREE_ON_EMPTY | UPL_COMMIT_CLEAR_DIRTY,
-									UPL_GET_INTERNAL_PAGE_LIST(pageInArgsPtr->a_pl),
-									MAX_UPL_TRANSFER );
+									UPL_COMMIT_FREE_ON_EMPTY | UPL_COMMIT_CLEAR_DIRTY );
+			
+		}
 		
-				
 		return 0;
 			
 	}
 	
-	// Get the device's block size
-	VOP_DEVBLOCKSIZE ( cddaNodePtr->blockDeviceVNodePtr, ( register_t * ) &devBlockSize );
-	
-	// Issue the read
-	error = cluster_pagein ( vNodePtr,
-							 pageInArgsPtr->a_pl,
-							 pageInArgsPtr->a_pl_offset,
-							 pageInArgsPtr->a_f_offset,
-							 pageInArgsPtr->a_size,
-							 ( off_t ) cddaNodePtr->u.file.nodeInfoPtr->numBytes,
-							 devBlockSize,
-							 pageInArgsPtr->a_flags
-							);
-	
-	if ( error != 0 )
+	else if ( cddaNodePtr->nodeType == kAppleCDDATrackType )
 	{
 		
-		DebugLog ( ( "CDDA_PageIn: error = %d returned from cluster_pagein.\n", error ) );
-	
+		UInt32			headerSize		= 0;
+		UInt32			blockNumber 	= 0;
+		UInt32			count			= 0;
+		off_t			offset			= 0;
+		off_t			sectorOffset	= 0;
+		off_t			residual		= 0;
+		kern_return_t	kret			= 0;
+		vm_offset_t		vmOffsetPtr		= 0;
+		struct buf *	bufPtr			= NULL;
+		
+		residual	= pageInArgsPtr->a_size;
+		offset		= pageInArgsPtr->a_f_offset;
+		
+		// Check to make sure we don't read past EOF
+		if ( offset > cddaNodePtr->u.file.nodeInfoPtr->numBytes )
+		{
+			
+			DebugLog ( ( "CDDA_PageIn: Can't read past end of file..." ) );
+			return ( 0 );
+			
+		}
+		
+		headerSize = sizeof ( cddaNodePtr->u.file.aiffHeader );
+
+		// Map the physical page into the kernel address space
+		kret = ubc_upl_map ( pageInArgsPtr->a_pl, &vmOffsetPtr );
+		
+		// If we got an error or the vmOffsetPtr is zero, panic for now
+		if ( kret != KERN_SUCCESS || vmOffsetPtr == 0 )
+		{
+		
+			panic ( "CDDA_PageIn: error mapping buffer into kernel space!" );
+		
+		}
+		
+		// Copy any part of the header that we need to copy.
+		if ( offset < headerSize )
+		{
+			
+			off_t	amountToCopy	= 0;
+			
+			amountToCopy = ulmin ( pageInArgsPtr->a_size, headerSize - offset );			
+			
+			// Copy the header data
+			bcopy ( &cddaNodePtr->u.file.aiffHeader.u.alignedHeader.filler[pageInArgsPtr->a_f_offset],
+					( void * ) vmOffsetPtr,
+					amountToCopy );
+			
+			offset += amountToCopy;
+			residual -= amountToCopy;
+			
+		}
+		
+		// Adjust offset by the header size so we have a true offset into the media.
+		offset -= headerSize;
+		sectorOffset = offset % kPhysicalMediaBlockSize;
+		
+		if ( sectorOffset != 0 )
+		{
+			count = ( kPhysicalMediaBlockSize - sectorOffset );
+			count += ( kMaxBlocksPerRead - 1 ) * kPhysicalMediaBlockSize;
+		}
+		
+		else
+		{
+			count = kMaxBlocksPerRead * kPhysicalMediaBlockSize;
+		}
+		
+		blockNumber = ( offset / kPhysicalMediaBlockSize ) + cddaNodePtr->u.file.nodeInfoPtr->LBA;
+		
+		// We always want to read on block aligned boundaries. Always read block multiples
+		// as well.
+		
+		while ( residual > 0 )
+		{
+			
+			// Clip to requested data transfer
+			count = ulmin ( residual, count );
+			
+			// bread kMaxBlocksPerRead blocks and put them in the cache.
+			error = bread ( cddaNodePtr->blockDeviceVNodePtr,
+							blockNumber,
+							kMaxBlocksPerRead * kPhysicalMediaBlockSize,
+							NOCRED,
+							&bufPtr );
+			
+			if ( error != 0 )
+			{
+				
+				brelse ( bufPtr );
+				return ( error );
+				
+			}
+			
+			// Copy the data
+			bcopy ( bufPtr->b_data + sectorOffset, ( void * ) vmOffsetPtr + offset + headerSize, count );
+			
+			// Make sure we mark any intermediate buffers as invalid as we don't need
+			// to keep them. We only need to keep the tail (for the beginning
+			// of the next I/O).
+			if ( residual > ( kMaxBlocksPerRead * kPhysicalMediaBlockSize ) )
+				SET ( bufPtr->b_flags, B_INVAL );
+			
+			// Release this buffer back into the buffer pool. 
+			brelse ( bufPtr );
+			
+			// Update offset
+			offset += count;
+			residual -= count;
+			blockNumber += kMaxBlocksPerRead;
+			
+			count = kMaxBlocksPerRead * kPhysicalMediaBlockSize;
+			sectorOffset = 0;
+			
+		}
+		
+		// Unmap the physical page from the kernel address space
+		kret = ubc_upl_unmap ( pageInArgsPtr->a_pl );
+		
+		// If we got an error, panic for now
+		if ( kret != KERN_SUCCESS )
+		{
+			
+			panic ( "CDDA_PageIn: error unmapping buffer from kernel space!" );
+			
+		}
+		
+		if ( !nocommit )
+		{
+			
+			// Commit the page to the vm subsystem
+			ubc_upl_commit_range ( 	pageInArgsPtr->a_pl,
+									pageInArgsPtr->a_pl_offset,
+									pageInArgsPtr->a_size,
+									UPL_COMMIT_FREE_ON_EMPTY | UPL_COMMIT_CLEAR_DIRTY );
+			
+		}
+		
 	}
 	
 	DebugLog ( ( "CDDA_PageIn: exiting...\n" ) );
@@ -1167,7 +1366,7 @@ struct vop_getattr_args {
 	
 	attributesPtr->va_fileid 	= cddaNodePtr->nodeID;		// Set the nodeID
 	attributesPtr->va_type		= vNodePtr->v_type;			// Set the VNode type (e.g. VREG, VDIR)
-	attributesPtr->va_blocksize = PAGE_SIZE;				// Set preferred block size for I/O requests
+	attributesPtr->va_blocksize = kPhysicalMediaBlockSize;	// Set preferred block size for I/O requests
 	
 	// Set all the time fields
 	attributesPtr->va_atime		= cddaMountPtr->mountTime;	// Last accessed time
@@ -1214,7 +1413,7 @@ struct vop_getattr_args {
 		}
 		
 		// Is it the ".TOC.plist" file?
-		else if ( cddaNodePtr->nodeType == kAppleCDDXMLFileType )
+		else if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 		{
 			
 			// Set file size in bytes
@@ -1296,15 +1495,6 @@ struct vop_getattrlist_args {
 	{
 		
 		DebugLog ( ( "CDDA_GetAttributesList: conflicting information requested\n" ) );
-		return EINVAL;
-		
-	}
-	
-	// Reject requests for unsupported options for now:
-	if ( attributesListPtr->volattr & ATTR_VOL_MOUNTPOINT )
-	{
-		
-		DebugLog ( ( "CDDA_GetAttributesList: illegal bits for volattr\n" ) );
 		return EINVAL;
 		
 	}
@@ -1512,10 +1702,10 @@ struct vop_rename_args {
 		
 	}
 	
-	if ( sourceCDDANodePtr->nodeType == kAppleCDDXMLFileType )
+	if ( sourceCDDANodePtr->nodeType == kAppleCDDAXMLFileType )
 	{
 		
-		DebugLog ( ( "CDDA_Rename: sourceCDDANodePtr->nodeType == kAppleCDDXMLFileType.\n" ) );
+		DebugLog ( ( "CDDA_Rename: sourceCDDANodePtr->nodeType == kAppleCDDAXMLFileType.\n" ) );
 		retval = EPERM;
 		goto Exit;
 		
@@ -1872,7 +2062,7 @@ struct vop_offtoblk_args {
 };
 */
 {
-		
+
 	DebugLog ( ( "CDDA_OffsetToBlock: Entering.\n" ) );
 
 	DebugAssert ( ( offsetToBlockArgsPtr != NULL ) );
@@ -1890,280 +2080,6 @@ struct vop_offtoblk_args {
 	DebugLog ( ( "CDDA_OffsetToBlock: exiting...\n" ) );
 
 	return ( 0 );
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_CMap - This routine finds how many contiguous blocks can be read-in
-//				by UBC's cluster_io
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-int
-CDDA_CMap ( struct vop_cmap_args * cmapArgsPtr )
-/*
-struct vop_cmap_args {
-	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	off_t a_foffset;
-	size_t a_size;
-	daddr_t *a_bpn;
-	size_t *a_run;
-	void *a_poff;
-};
-*/
-{
-	
-	AppleCDDANodePtr	cddaNodePtr 	= NULL;
-	int					error 			= 0;
-	UInt32				bytesContAvail 	= 0;
-	UInt32				fileOffset		= 0;
-	UInt32				trackLBN		= 0;	// Track Logical Block Number
-	UInt32				LBA				= 0;	// Logical Block Address
-
-	DebugLog ( ( "CDDA_CMap: Entering.\n" ) );
-	
-	DebugAssert ( ( cmapArgsPtr != NULL ) );
-	
-	cddaNodePtr = VTOCDDA ( cmapArgsPtr->a_vp );
-	
-	DebugAssert ( ( cddaNodePtr != NULL ) );
-	
-	// Get the file offset in bytes
-	fileOffset = cmapArgsPtr->a_foffset;
-	
-	if ( cmapArgsPtr->a_bpn == NULL )
-	{
-	
-		return ( 0 );
-	
-	}
-		
-	// Convert the frames offset of the file (from the TOC) to the LBA of the device
-	// NB: this is a workaround because the first 2 seconds of a CD are unreadable
-	// and defined as off-limits. So we convert our absolute MSF to an actual logical
-	// block which can be addressed through the BSD layer.
-	LBA = cddaNodePtr->u.file.nodeInfoPtr->LBA;
-
-	// Get the trackLBN (which is in 2352 byte blocks) into an LBN in 16 byte blocks
-	trackLBN = ( LBA * kPhysicalMediaBlockSize ) / kAppleCDDABlockSize;
-		
-	// trackLBN is a count of 16 byte blocks
-	*( cmapArgsPtr->a_bpn ) = trackLBN + ( fileOffset / kAppleCDDABlockSize );
-	
-	DebugLog ( ( "CDDA_CMap: cmapArgsPtr->a_bpn = %ld.\n", *( cmapArgsPtr->a_bpn ) ) );
-	
-	// Make sure we aren't beyond the end of the file
-	if ( fileOffset > cddaNodePtr->u.file.nodeInfoPtr->numBytes )
-	{
-		
-		return ( EINVAL );
-	
-	}
-	
-	// Compute number of bytes remaining in file
-	bytesContAvail = cddaNodePtr->u.file.nodeInfoPtr->numBytes - fileOffset;	
-	
-	// Do they want to know how many read ahead blocks there are?
-	if ( cmapArgsPtr->a_run != NULL )
-	{
-		
-		// Yes, set the run to be the number of contiguous bytes available unless
-		// it is greater than the requested size passed in.
-		*( cmapArgsPtr->a_run ) = ( bytesContAvail > cmapArgsPtr->a_size ) ?
-										cmapArgsPtr->a_size : bytesContAvail;
-		
-		DebugLog ( ( "CDDA_CMap: cmapArgsPtr->a_run = %ld.\n", cmapArgsPtr->a_run ) );
-		
-	}
-		
-	if ( cmapArgsPtr->a_poff )
-	{
-	
-		*( int * ) cmapArgsPtr->a_poff = 0;
-	
-	}
-	
-	DebugLog ( ( "CDDA_CMap: exiting...\n" ) );
-	
-	return ( error );
-
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Strategy - This routine does the actual reading of data. If the
-//					logical block number is zero, then it moves the AIFF header
-//					data into the buffer and then calls through to the device's
-//					vop_strategy() routine to get the rest of the data
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-int
-CDDA_Strategy ( struct vop_strategy_args * strategyArgsPtr )
-/*
-struct vop_strategy_args {
-	struct vnodeop_desc *a_desc;
-	struct buf *a_bp;
-};
-*/
-{
-	
-	register struct buf *		bufferPtr 			= NULL;
-	register struct vnode *		vNodePtr 			= NULL;
-	register AppleCDDANodePtr	cddaNodePtr			= NULL;
-	struct iovec *				ioVectorPtr			= NULL;
-	UInt32						headerSize			= 0;
-	int 						error 				= 0;
-	
-	DebugLog ( ( "CDDA_Strategy: Entering.\n" ) );
-	
-	DebugAssert ( ( strategyArgsPtr != NULL ) );
-	
-	bufferPtr = strategyArgsPtr->a_bp;
-	DebugAssert ( ( bufferPtr != NULL ) );
-	
-	vNodePtr = bufferPtr->b_vp;
-	DebugAssert ( ( vNodePtr != NULL ) );
-	
-	cddaNodePtr = VTOCDDA ( vNodePtr );
-	DebugAssert ( ( cddaNodePtr != NULL ) );
-	
-	if ( !( bufferPtr->b_flags & B_VECTORLIST ) )
-	{
-		
-		panic ( "CDDA_Strategy: vectorlist not set!" );
-		
-	}	
-	
-	headerSize 	= sizeof ( cddaNodePtr->u.file.aiffHeader );
-	
-	DebugLog ( ( "CDDA_Strategy: headerSize = %ld.\n", headerSize ) );
-	DebugLog ( ( "CDDA_Strategy: bufferPtr->b_lblkno = %ld.\n", bufferPtr->b_lblkno ) );
-	
-	// Are we looking at the first PAGE_SIZE chunk? If so, we need to move the
-	// AIFF-C header into the page before we move any audio data
-	if ( bufferPtr->b_lblkno == 0 )
-	{
-		
-		kern_return_t		kret			= 0;
-		vm_offset_t			vmOffsetPtr		= 0;
-		struct buf *		newBufferPtr	= NULL;
-		
-		// Map the physical page into the kernel address space
-		kret = kernel_upl_map ( kernel_map, bufferPtr->b_pagelist, &vmOffsetPtr );
-		
-		// If we got an error or the vmOffsetPtr is zero, panic for now
-		if ( ( kret != KERN_SUCCESS ) || ( vmOffsetPtr == 0 ) )
-		{
-			
-			panic ( "CDDA_Strategy: error mapping buffer into kernel space!" );
-			
-		}
-		
-		// Copy the header data
-		bcopy ( &cddaNodePtr->u.file.aiffHeader.u.alignedHeader.filler,
-				( void * ) vmOffsetPtr,
-				headerSize );
-		
-		// Unmap the physical page from the kernel address space
-		kret = kernel_upl_unmap ( kernel_map, bufferPtr->b_pagelist );
-		
-		// If we got an error, panic for now
-		if ( kret != KERN_SUCCESS )
-		{
-			
-			panic ( "CDDA_Strategy: error unmapping buffer from kernel space!" );
-			
-		}
-		
-		// Make our own buf.
-		MALLOC ( newBufferPtr, struct buf *, sizeof ( struct buf ), M_TEMP, M_WAITOK );
-		
-		// Copy over the contents of the original buf
-		bcopy ( bufferPtr, newBufferPtr, sizeof ( struct buf ) );
-		
-		// adjust the count since we just moved some data into the page
-		newBufferPtr->b_bcount 	-= headerSize;
-		
-		// Set ioVectorPtr to the address of the first vector
-		ioVectorPtr 			= ( struct iovec * ) newBufferPtr->b_vectorlist;
-		ioVectorPtr->iov_base	+= headerSize;	// Adjust the base pointer
-		ioVectorPtr->iov_len	-= headerSize;	// Adjust the length of the buffer
-		
-		// Set the completion routine
-		newBufferPtr->b_iodone = ( void * ) CDDA_IODone;
-		
-		// Make sure to set the B_CALL and B_ASYNC flags
-		newBufferPtr->b_flags |= (B_CALL | B_ASYNC);
-		
-		// Set the original bp in the real_bp field
-		newBufferPtr->b_real_bp = bufferPtr;
-		
-		// Get the block device
-		vNodePtr 				= cddaNodePtr->blockDeviceVNodePtr;
-		newBufferPtr->b_dev 	= vNodePtr->v_specinfo->si_rdev;	
-		
-		// Use the new buffer for the I/O
-		strategyArgsPtr->a_bp = newBufferPtr;
-		
-	}
-	
-	else
-	{
-		
-		// If we get here, they weren't lookin at the first logical block (PAGE_SIZE), so we know that
-		// we've already handled the header. Adjust the physical block to account for the
-		// header's size (the first few physical blocks were faked by the AIFF-C header)
-		bufferPtr->b_blkno -= headerSize / kAppleCDDABlockSize;
-		
-		// Get the block device
-		vNodePtr 			= cddaNodePtr->blockDeviceVNodePtr;
-		bufferPtr->b_dev 	= vNodePtr->v_specinfo->si_rdev;
-		
-	}
-	
-	// At this point, we've either moved the header data and need to fill the rest of one
-	// page, or we haven't moved any data, but we've adjusted the physical block number so
-	// that we grab the correct physical block from the disc. Whichever is the case, all
-	// we do is pass it along to the device's strategy routine to fill whatever data needs
-	// to be filled in the page.	
-	
-	// Call the strategy routine on the block device
-	error = VOCALL ( vNodePtr->v_op, VOFFSET ( vop_strategy ), strategyArgsPtr );
-	
-	DebugLog ( ( "CDDA_Strategy: exiting with error = %d.\n", error ) );
-	
-	return error;
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_IODone - I/O completion routine
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-static void
-CDDA_IODone ( struct buf * bufferPtr )
-{
-	
-	struct buf * 	originalBufferPtr 	= NULL;
-	
-	originalBufferPtr = bufferPtr->b_real_bp;
-	
-	if ( bufferPtr->b_flags & B_ERROR )
-	{
-		
-		originalBufferPtr->b_error	= bufferPtr->b_error;
-		originalBufferPtr->b_flags	|= B_ERROR;
-		
-	}
-	
-	originalBufferPtr->b_resid = bufferPtr->b_resid;
-	
-	biodone ( originalBufferPtr );
-		
-	// Free our own buf.
-	FREE ( bufferPtr, M_TEMP );
 	
 }
 
@@ -2450,7 +2366,7 @@ struct vnodeopv_entry_desc gCDDA_VNodeOperationEntries[] =
 	{ &vop_select_desc, 		( VOPFUNC ) err_select },				// select
 	{ &vop_exchange_desc, 		( VOPFUNC ) err_exchange },				// exchange
 	{ &vop_mmap_desc, 			( VOPFUNC ) err_mmap },					// mmap
-	{ &vop_fsync_desc, 			( VOPFUNC ) err_fsync },				// fsync
+	{ &vop_fsync_desc, 			( VOPFUNC ) nop_fsync },				// fsync
 	{ &vop_seek_desc, 			( VOPFUNC ) err_seek },					// seek
 	{ &vop_remove_desc, 		( VOPFUNC ) CDDA_Remove },				// remove
 	{ &vop_link_desc, 			( VOPFUNC ) err_link },					// link
@@ -2470,7 +2386,7 @@ struct vnodeopv_entry_desc gCDDA_VNodeOperationEntries[] =
 	{ &vop_lock_desc, 			( VOPFUNC ) CDDA_Lock },				// lock
 	{ &vop_unlock_desc, 		( VOPFUNC ) CDDA_Unlock },				// unlock
 	{ &vop_bmap_desc, 			( VOPFUNC ) err_bmap },					// bmap
-	{ &vop_strategy_desc, 		( VOPFUNC ) CDDA_Strategy },			// strategy
+	{ &vop_strategy_desc, 		( VOPFUNC ) err_strategy },				// strategy
 	{ &vop_print_desc, 			( VOPFUNC ) CDDA_Print },				// print
 	{ &vop_islocked_desc, 		( VOPFUNC ) CDDA_IsLocked },			// islocked
 	{ &vop_pathconf_desc, 		( VOPFUNC ) CDDA_Pathconf },			// pathconf
@@ -2484,7 +2400,7 @@ struct vnodeopv_entry_desc gCDDA_VNodeOperationEntries[] =
 	{ &vop_pageout_desc, 		( VOPFUNC ) err_pageout },				// pageout
 	{ &vop_blktooff_desc, 		( VOPFUNC ) CDDA_BlockToOffset },		// blktoff
 	{ &vop_offtoblk_desc,		( VOPFUNC ) CDDA_OffsetToBlock },		// offtoblk
-	{ &vop_cmap_desc,			( VOPFUNC ) CDDA_CMap },				// cmap
+	{ &vop_cmap_desc,			( VOPFUNC ) err_cmap },					// cmap
 	{ NULL, 					( VOPFUNC ) NULL }
 };
 

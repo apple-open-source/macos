@@ -73,4 +73,4 @@ struct i860_thread_state_regs {
 #define	I860_THREAD_STATE_REGS_COUNT \
 	(sizeof (struct i860_thread_state_regs) / sizeof (int))
 
-#endif	_I860_THREAD_STATE_
+#endif	/* _I860_THREAD_STATE_ */

@@ -18,10 +18,6 @@ fix rsrc_mgr.c it should be rewritten in terms of IOKit, ie IORangeAllocator
 write and call a new macosx version of exit_pcmcia_cs()
 	- the pccard card family doesn't unload yet
 	
-write a code to support pci 2 cardbus add-in cards for desktop machines
-	- it works, but it must be configured by hand
-	- sleep is broken on new machines (need to save config space state?)
-
 write funky cis tuple code
 	- look for specific tuple and match against its data
 	- default enabler should check for card match and then
@@ -39,8 +35,6 @@ write a simple sram driver
 	- ApplePCCardSRAMDevice -> IOBlockStorageDevice -> IOMedia
 
 fix the Zoom Video code, it is not tested/complete.
-
-fix intel need to be tested/debugged, known holes
 
 -------------------------------------------------------------------------------
 possible code enhancements - later (much later)

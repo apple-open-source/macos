@@ -40,15 +40,16 @@
  *
  */
 
-#import <stdio.h>
-#import <stdlib.h>
-#import <string.h>
-#import <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <limits.h>
 
-#import <mach/mach.h>
-#import "stuff/openstep_mach.h"
-#import <mach-o/fat.h>
-#import <mach-o/arch.h>
+#include "mach/machine.h"
+#include "mach/mach.h"
+#include "stuff/openstep_mach.h"
+#include <mach-o/fat.h>
+#include <mach-o/arch.h>
 
 /* The array of all currently know architecture flags (terminated with an entry
  * with all zeros).  Pointer to this returned with NXGetAllArchInfos().
@@ -89,6 +90,8 @@ static const NXArchInfo ArchInfoTable[] = {
     {"i586",   CPU_TYPE_I386,    CPU_SUBTYPE_586,	   NX_LittleEndian,
 	 "Intel 80586"},
     {"pentpro", CPU_TYPE_I386, CPU_SUBTYPE_PENTPRO,	   NX_LittleEndian,
+	 "Intel Pentium Pro"}, /* same as 686 */
+    {"i686",    CPU_TYPE_I386, CPU_SUBTYPE_PENTPRO,	   NX_LittleEndian,
 	 "Intel Pentium Pro"},
     {"pentIIm3", CPU_TYPE_I386, CPU_SUBTYPE_PENTII_M3, NX_LittleEndian,
 	 "Intel Pentium II Model 3" },
@@ -112,6 +115,8 @@ static const NXArchInfo ArchInfoTable[] = {
 	 "PowerPC 7400" },
     {"ppc7450",CPU_TYPE_POWERPC, CPU_SUBTYPE_POWERPC_7450,  NX_BigEndian,
 	 "PowerPC 7450" },
+    {"ppc970", CPU_TYPE_POWERPC, CPU_SUBTYPE_POWERPC_970,  NX_BigEndian,
+	 "PowerPC 970" },
     {"little", CPU_TYPE_ANY,     CPU_SUBTYPE_LITTLE_ENDIAN, NX_LittleEndian,
          "Little Endian"},
     {"big",    CPU_TYPE_ANY,     CPU_SUBTYPE_BIG_ENDIAN,   NX_BigEndian,
@@ -262,7 +267,8 @@ cpu_subtype_t cpusubtype,
 struct fat_arch *fat_archs,
 unsigned long nfat_archs)
 {
-    unsigned long i, lowest_family, lowest_model, lowest_index;
+    unsigned long i;
+    int lowest_family, lowest_model, lowest_index;
 
 	/*
 	 * Look for the first exact match.
@@ -401,12 +407,13 @@ unsigned long nfat_archs)
 	     * An exact match as not found.  So for all the PowerPC subtypes
 	     * pick the subtype from the following order starting from a subtype
 	     * that will work (contains altivec if needed):
-	     *	7450, 7400, 750, 604e, 604, 603ev, 603e, 603, ALL
+	     *	970, 7450, 7400, 750, 604e, 604, 603ev, 603e, 603, ALL
 	     * Note the 601 is NOT in the list above.  It is only picked via
 	     * an exact match.  For an unknown subtype pick obly the ALL type if
 	     * it exists.
 	     */
 	    switch(cpusubtype){
+	    case CPU_SUBTYPE_POWERPC_970:
 	    case CPU_SUBTYPE_POWERPC_7450:
 	    case CPU_SUBTYPE_POWERPC_7400:
 		for(i = 0; i < nfat_archs; i++){

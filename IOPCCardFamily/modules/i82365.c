@@ -709,8 +709,6 @@ static u_int __init ti113x_set_opts(socket_info_t *s, char *buf)
     case 1:
 	p->irqmux |= 0x70;	// enable zoom video
 	break;
-    default:
-	// do nothing
     }
 #endif
     if (p->cardctl & TI113X_CCR_RIENB) {
@@ -1728,12 +1726,12 @@ static void __init add_cb_bridge(int type, u_short v, u_short d0)
 	/* Set up CardBus register mapping */
 	pci_writel(s, CB_LEGACY_MODE_BASE, 0);
 	pci_readl(s, PCI_BASE_ADDRESS_0, &s->cb_phys);
-#ifndef __MACOSX__
 	if (s->cb_phys == 0) {
 	    printk("\n" KERN_NOTICE "  Bridge register mapping failed:"
 		   " check cb_mem_base setting\n");
 	    break;
 	}
+#ifndef __MACOSX__
 	s->cb_virt = ioremap(s->cb_phys, 0x1000);
 	if (check_cb_mapping(s) != 0) {
 	    printk("\n" KERN_NOTICE "  Bad bridge mapping at "
@@ -1750,7 +1748,8 @@ static void __init add_cb_bridge(int type, u_short v, u_short d0)
 	// it is easier to map cardbus registers from the shim.
 	// lets make sure we did it right
 	if (check_cb_mapping(s) != 0) {
-	    printk(KERN_NOTICE "  Bad bridge mapping!\n");
+	    printk("\n" KERN_NOTICE "  Bad bridge mapping at "
+		   "0x%08x!\n", s->cb_phys);
 	    return;
 	}
 
@@ -1995,7 +1994,8 @@ pcic_enable_functional_interrupt(u_int socket_index)
 	pci_writeb(s, TI113X_CARD_CONTROL, cardctl);
     } else if (s->type == IS_TI1210 || 
 	       s->type == IS_TI1211 || 
-	       s->type == IS_TI1410 || 
+	       s->type == IS_TI1410 ||
+	       s->type == IS_TI1420 ||
 	       s->type == IS_TI1510) {
     	u_short bcr;
 	pci_readw(s, CB_BRIDGE_CONTROL, &bcr);
@@ -2018,7 +2018,8 @@ pcic_disable_functional_interrupt(u_int socket_index)
 	pci_writeb(s, TI113X_CARD_CONTROL, cardctl);
     } else if (s->type == IS_TI1210 || 
 	       s->type == IS_TI1211 || 
-	       s->type == IS_TI1410 || 
+	       s->type == IS_TI1410 ||
+	       s->type == IS_TI1420 ||
 	       s->type == IS_TI1510) {
     	u_short bcr;
 	pci_readw(s, CB_BRIDGE_CONTROL, &bcr);
@@ -2151,8 +2152,22 @@ static int i365_get_status(socket_info_t *s, u_int *value)
     if (s->flags & IS_CARDBUS) {
 	status = cb_readl(s, CB_SOCKET_STATE);
 	*value |= (status & CB_SS_32BIT) ? SS_CARDBUS : 0;
+#ifdef __MACOSX__
+	// MACOSXXX the current code assumes that we always can
+	// always support 5V, that may change in the future!
+	if ((status & CB_SS_5VSOCKET) == 0)
+	    panic("ss: controller doesn't support 5V cards\n");
+	if (status & CB_SS_3VSOCKET) 
+	    *value |= (status & CB_SS_3VCARD) ? SS_3VCARD : 0;
+	if (status & CB_SS_XVSOCKET) 
+	    *value |= (status & CB_SS_XVCARD) ? SS_XVCARD : 0;
+	// set this to XV for now, we are running out bits
+	if (status & CB_SS_YVSOCKET) 
+	    *value |= (status & CB_SS_YVCARD) ? SS_XVCARD : 0;
+#else
 	*value |= (status & CB_SS_3VCARD) ? SS_3VCARD : 0;
 	*value |= (status & CB_SS_XVCARD) ? SS_XVCARD : 0;
+#endif
 	*value |= (status & CB_SS_VSENSE) ? 0 : SS_PENDING;
     } else if (s->flags & IS_O2MICRO) {
 	status = i365_get(s, O2_MODE_B);

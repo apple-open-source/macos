@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -486,7 +489,7 @@ ErrorExit:
 IOReturn 
 IOUSBInterfaceUserClient::open(bool seize)
 {
-    IOOptionBits	options = seize ?  (IOOptionBits)kIOServiceSeize : 0;
+    IOOptionBits	options = seize ? (IOOptionBits)kIOServiceSeize : 0;
 
     USBLog(7, "+%s[%p]::open(%p)", getName(), this);
     
@@ -494,8 +497,11 @@ IOUSBInterfaceUserClient::open(bool seize)
         return kIOReturnNotAttached;
         
     if (!fOwner->open(this, options))
-	return kIOReturnExclusiveAccess;
-
+    {
+        USBLog(3, "+%s[%p]::open(%p) failed", getName(), this);
+        return kIOReturnExclusiveAccess;
+    }
+    
     fNeedToClose = false;
     
     return kIOReturnSuccess;
@@ -545,7 +551,7 @@ IOUSBInterfaceUserClient::close()
 // clientClose - my client on the user side has released the mach port, so I will no longer
 // be talking to him
 //
-IOReturn 
+IOReturn  
 IOUSBInterfaceUserClient::clientClose( void )
 {
     USBLog(7, "+%s[%p]::clientClose(%p)", getName(), this, fUserClientBufferInfoListHead);
@@ -636,6 +642,7 @@ IOUSBInterfaceUserClient::IsoReqComplete(void *obj, void *param, IOReturn res, I
     pb->countMem->writeBytes(0, pb->frames, pb->frameLen);
     pb->dataMem->complete();
     pb->dataMem->release();
+    pb->countMem->complete();
     pb->countMem->release();
     if (!me->fDead)
 	sendAsyncResult(pb->fAsyncRef, res, args, 1);
@@ -1567,7 +1574,7 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
             USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not malloc buffer info (size = %d)!", getName(), this, sizeof(LowLatencyUserClientBufferInfo) );
             return kIOReturnNoMemory;
         }
-
+        
         bzero(kernelDataBuffer, sizeof(LowLatencyUserClientBufferInfo));
         
         // Set the known fields
@@ -1628,13 +1635,14 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
                 ret = kIOReturnNoMemory;
                 goto ErrorExit;
             }
+            
 
             // Map it into the kernel
             //
             frameListMap = aDescriptor->map();
             if (!frameListMap) 
             {
-                USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not prepare the frame list memory descriptor!", getName(), this );
+                USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not map the frame list memory descriptor!", getName(), this );
                 ret = kIOReturnNoMemory;
                 aDescriptor->complete();
                 goto ErrorExit;
@@ -1652,13 +1660,14 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
             kernelDataBuffer->frameListMap = frameListMap;
 
             USBLog(3, "%s[%p]::LowLatencyPrepareBuffer  finished preparing frame list buffer: %p, size %d, desc: %p, map %p, kernel address: %p, cookie: %ld", getName(), this,
-                    kernelDataBuffer->bufferAddress, kernelDataBuffer->bufferSize, kernelDataBuffer->frameListDescriptor, kernelDataBuffer->frameListMap,
+                    kernelDataBuffer->bufferAddress, kernelDataBuffer->bufferSize, kernelDataBuffer->bufferDescriptor, kernelDataBuffer->frameListMap,
                     kernelDataBuffer->frameListKernelAddress,  kernelDataBuffer->cookie);
         }
 
         // Cool, we have a good buffer, add it to our list
         //
         AddDataBufferToList( kernelDataBuffer );
+        
     }
     else
         ret = kIOReturnNotAttached;
@@ -2049,6 +2058,8 @@ IOUSBInterfaceUserClient::DoIsochPipeAsync(OSAsyncReference asyncRef, IOUSBIsocS
     IOMemoryDescriptor *	countMem = NULL;
     int				frameLen = 0;	// In bytes
     IsoAsyncPB * 		pb = NULL;
+    bool			countMemPrepared = false;
+    bool			dataMemPrepared = false;
 
     USBLog(7, "+%s[%p]::DoIsochPipeAsync", getName(), this);
     retain();
@@ -2064,28 +2075,44 @@ IOUSBInterfaceUserClient::DoIsochPipeAsync(OSAsyncReference asyncRef, IOUSBIsocS
 		dataMem = IOMemoryDescriptor::withAddress((vm_address_t)stuff->fBuffer, stuff->fBufSize, direction, fTask);
 		if(!dataMem) 
 		{
+                    USBLog(1, "%s[%p]::DoIsochPipeAsync could not create dataMem descriptor", getName(), this);
 		    ret = kIOReturnNoMemory;
 		    break;
 		}
 		ret = dataMem->prepare();
-		if(ret != kIOReturnSuccess)
+		if (ret != kIOReturnSuccess)
+                {
+                    USBLog(1, "%s[%p]::DoIsochPipeAsync could not prepare dataMem descriptor (0x%x)", getName(), this, ret);
 		    break;
-	
+                }
+
+                dataMemPrepared = true;
+                
 		countMem = IOMemoryDescriptor::withAddress((vm_address_t)stuff->fFrameCounts, frameLen, kIODirectionOutIn, fTask);
 		if(!countMem) 
 		{
+                    USBLog(1, "%s[%p]::DoIsochPipeAsync could not create countMem descriptor", getName(), this);
 		    ret = kIOReturnNoMemory;
 		    break;
 		}
-		// Copy in requested transfers, we'll copy out result in completion routine
+
+                ret = countMem->prepare();
+                if (ret != kIOReturnSuccess)
+                {
+                    USBLog(1, "%s[%p]::DoIsochPipeAsync could not prepare dataMem descriptor (0x%x)", getName(), this, ret);
+                    break;
+                }
+                countMemPrepared = true;
+
+                // Copy in requested transfers, we'll copy out result in completion routine
 		pb = (IsoAsyncPB *)IOMalloc(sizeof(IsoAsyncPB) + frameLen);
 		if(!pb) 
 		{
 		    ret = kIOReturnNoMemory;
 		    break;
 		}
-	
-		bcopy(asyncRef, pb->fAsyncRef, sizeof(OSAsyncReference));
+                
+                bcopy(asyncRef, pb->fAsyncRef, sizeof(OSAsyncReference));
 		pb->frameLen = frameLen;
 		pb->frameBase = stuff->fFrameCounts;
 		pb->dataMem = dataMem;
@@ -2111,9 +2138,19 @@ IOUSBInterfaceUserClient::DoIsochPipeAsync(OSAsyncReference asyncRef, IOUSBIsocS
     {
 	USBLog(3, "%s[%p]::DoIsochPipeAsync err 0x%x", getName(), this, ret);
 	if(dataMem)
+        {
+            if ( dataMemPrepared )
+                dataMem->complete();
 	    dataMem->release();
+        }
+        
 	if(countMem)
+        {
+            if ( countMemPrepared )
+                countMem->complete();
 	    countMem->release();
+        }
+        
 	if(pb)
 	    IOFree(pb, sizeof(*pb) + frameLen);
 	DecrementOutstandingIO();
@@ -2438,7 +2475,7 @@ void
 IOUSBInterfaceUserClient::stop(IOService * provider)
 {
     
-    USBLog(7, "+%s[%p]::stop(%p)", getName(), this, provider);
+    USBLog(5, "+%s[%p]::stop(%p)", getName(), this, provider);
 
     // If we have any kernelDataBuffer pointers, then release them now
     //
@@ -2449,7 +2486,7 @@ IOUSBInterfaceUserClient::stop(IOService * provider)
 
     super::stop(provider);
 
-    USBLog(7, "-%s[%p]::stop(%p)", getName(), this, provider);
+    USBLog(5, "-%s[%p]::stop(%p)", getName(), this, provider);
 
 }
 
@@ -2493,11 +2530,11 @@ IOUSBInterfaceUserClient::finalize( IOOptionBits options )
 {
     bool ret;
 
-    USBLog(7, "+%s[%p]::finalize(%08x)", getName(), this, (int)options);
+    USBLog(5, "+%s[%p]::finalize(%08x)", getName(), this, (int)options);
     
     ret = super::finalize(options);
     
-    USBLog(7, "-%s[%p]::finalize(%08x) - returning %s", getName(), this, (int)options, ret ? "true" : "false");
+    USBLog(5, "-%s[%p]::finalize(%08x) - returning %s", getName(), this, (int)options, ret ? "true" : "false");
     return ret;
 }
 

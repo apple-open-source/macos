@@ -94,10 +94,8 @@ struct pt_regs {};
 
 #define HZ		100
 
-extern void delay_for_interval(natural_t interval, natural_t scale_factor);
-
-#define mdelay(i)	delay_for_interval((i), kMillisecondScale)
-#define udelay(i)	delay_for_interval((i), kMicrosecondScale)
+#define mdelay(i)	IODelay( i * 1000 )
+#define udelay(i)	IODelay( i )
 
 struct timer_list {
         unsigned long expires;

@@ -93,4 +93,35 @@
 #define debug8IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8 ) ;
 #endif
 
+#ifdef DEBUGLOG
+#define debugIrqIOLog( message ) \
+	{IOLog( message );}
+#define debug2IrqIOLog( message, arg2 ) \
+	{IOLog( message, arg2 );}
+#define debug3IrqIOLog( message, arg2, arg3 ) \
+	{IOLog( message, arg2, arg3 );}
+#define debug4IrqIOLog( message, arg2, arg3, arg4 ) \
+	{IOLog( message, arg2, arg3, arg4 );}
+#define debug5IrqIOLog( message, arg2, arg3, arg4, arg5 ) \
+	{IOLog( message, arg2, arg3, arg4, arg5 );}
+#define debug6IrqIOLog( message, arg2, arg3, arg4, arg5, arg6 ) \
+	{IOLog( message, arg2, arg3, arg4, arg5, arg6 );}
+#define debug7IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7 ) \
+	{IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7 );}
+#define debug8IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8 ) \
+	{IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8 );}
+#define debug9IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 ) \
+    {IOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 );}
+#else
+#define debugIrqIOLog( message ) ;
+#define debug2IrqIOLog( message, arg2 ) ;
+#define debug3IrqIOLog( message, arg2, arg3 ) ;
+#define debug4IrqIOLog( message, arg2, arg3, arg4 ) ;
+#define debug5IrqIOLog( message, arg2, arg3, arg4, arg5 ) ;
+#define debug6IrqIOLog( message, arg2, arg3, arg4, arg5, arg6 ) ;
+#define debug7IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7 ) ;
+#define debug8IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8 ) ;
+#define debug9IrqIOLog( message, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 ) ;
+#endif
+
 #endif /* _AUDIODEBUG_H_ */

@@ -6,7 +6,7 @@ ifeq "macos" "$(RC_OS)"
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double -no-cpp-precomp ; \
+	     echo -Wno-long-double -no-cpp-precomp; \
 	     fi; )
 endif
 
@@ -14,7 +14,7 @@ ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g \
 	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 else
-  CFLAGS = $(OFLAG) -g -Wall -Wno-precomp $(X_CFLAGS) \
+  CFLAGS = $(OFLAG) -g -Wall $(X_CFLAGS) \
 	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 endif
 
@@ -68,8 +68,7 @@ nextstep_all: $(PROGS) atom.NEW ar.NEW file.NEW
 
 all:	$(OFILE_DIR) $(SYMROOT) $(RC_OS)_all lib_ofiles
 
-lib_ofiles: $(OFILE_DIR) $(SYMROOT) \
-	libredo_prebinding.dylib libredo_prebinding.a
+lib_ofiles: $(OFILE_DIR) $(SYMROOT) libredo_prebinding.a
 
 vers.c:
 	vers_string -c $(VERS_STRING_FLAGS) cctools_misc > $(OFILE_DIR)/$@
@@ -84,24 +83,12 @@ else
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
 endif
 
-libredo_prebinding_dynamic.o: redo_prebinding.c
+libredo_prebinding.o: redo_prebinding.c
 ifeq "NO" "$(USE_DEPENDENCY_FILE)"
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -dynamic \
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c \
 		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
 else
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -dynamic \
-		-MD -dependency-file $(OFILE_DIR)/$*.d \
-		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
-
-libredo_prebinding_static.o: redo_prebinding.c
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -static \
-		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
-else
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -static \
-		-MD -dependency-file $(OFILE_DIR)/$*.d \
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
 endif
@@ -177,19 +164,10 @@ redo_prebinding.NEW: redo_prebinding.o vers.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/redo_prebinding.NEW \
 		$(OFILE_DIR)/redo_prebinding.private.o
 
-libredo_prebinding.dylib: libredo_prebinding_dynamic.o
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r -dynamic \
-		-o $(OBJROOT)/libredo_dynamic.o \
-		libredo_prebinding_dynamic.o $(LIBSTUFF)
-	libtool -static -o $(SYMROOT)/libredo_prebinding.dylib \
-		$(OBJROOT)/libredo_dynamic.o
-
-libredo_prebinding.a: libredo_prebinding_static.o
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r -static \
-		-o $(OBJROOT)/libredo_static.o \
-		libredo_prebinding_static.o $(LIBSTUFF)
-	libtool -static -o $(SYMROOT)/libredo_prebinding.a \
-		$(OBJROOT)/libredo_static.o
+libredo_prebinding.a: libredo_prebinding.o
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r -o $(OBJROOT)/libredo.o \
+		libredo_prebinding.o $(LIBSTUFF)
+	libtool -static -o $(SYMROOT)/libredo_prebinding.a $(OBJROOT)/libredo.o
 
 seg_addr_table.NEW: seg_addr_table.o vers.o
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
@@ -351,7 +329,6 @@ clean: shlib_clean
 	$(SYMROOT)/dylib_pcsampler.NEW \
 	$(SYMROOT)/pagestuff.NEW \
 	$(SYMROOT)/redo_prebinding.NEW \
-	$(SYMROOT)/libredo_prebinding.dylib \
 	$(SYMROOT)/libredo_prebinding.a \
 	$(SYMROOT)/kern_tool.NEW \
 	$(SYMROOT)/cmpdylib.NEW
@@ -381,10 +358,8 @@ shlib_clean:
 	$(OFILE_DIR)/dylib_pcsampler.o \
 	$(OFILE_DIR)/pagestuff.o \
 	$(OFILE_DIR)/redo_prebinding.o \
-	$(OFILE_DIR)/libredo_prebinding_dynamic.o \
-	$(OFILE_DIR)/libredo_prebinding_static.o \
-	$(OFILE_DIR)/libredo_dynamic.o \
-	$(OFILE_DIR)/libredo_static.o \
+	$(OFILE_DIR)/libredo_prebinding.o \
+	$(OFILE_DIR)/libredo.o \
 	$(OFILE_DIR)/seg_addr_table.o \
 	$(OFILE_DIR)/check_dylib.o \
 	$(OFILE_DIR)/kern_tool.o \
@@ -484,12 +459,8 @@ common_install:
 
 lib_ofiles_install: lib_ofiles
 	$(MKDIRS) $(DSTROOT)$(LOCLIBDIR)
-	install -p -c -m 444 $(SYMROOT)/libredo_prebinding.dylib \
-		 $(DSTROOT)$(LOCLIBDIR)/libredo_prebinding.dylib
-	ranlib $(DSTROOT)$(LOCLIBDIR)/libredo_prebinding.dylib
 	install -p -c -m 444 $(SYMROOT)/libredo_prebinding.a \
 		 $(DSTROOT)$(LOCLIBDIR)/libredo_prebinding.a
-	ranlib $(DSTROOT)$(LOCLIBDIR)/libredo_prebinding.a
 
 installsrc:
 	$(MKDIRS) $(SRCROOT)

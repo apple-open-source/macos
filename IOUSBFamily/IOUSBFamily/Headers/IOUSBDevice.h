@@ -3,18 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  
- * Please see the License for the specific language governing rights and 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
@@ -86,21 +89,13 @@ protected:
         bool			_portHasBeenReset;
         bool			_deviceterminating;
         IORecursiveLock*	_getConfigLock;
-    
+        bool			_doneWaiting;
+        bool			_notifiedWhileBooting;
+        IOWorkLoop *		_workLoop;
+        IOTimerEventSource *	_notifierHandlerTimer;
+        UInt32			_notificationType;
     };
     ExpansionData * _expansionData;
-    #define _portNumber			_expansionData->_portNumber
-    #define _doPortResetThread		_expansionData->_doPortResetThread
-    #define _usbPlaneParent		_expansionData->_usbPlaneParent
-    #define _portResetThreadActive	_expansionData->_portResetThreadActive
-    #define _allowConfigValueOfZero	_expansionData->_allowConfigValueOfZero
-    #define _doPortSuspendThread	_expansionData->_doPortSuspendThread
-    #define _portSuspendThreadActive	_expansionData->_portSuspendThreadActive
-    #define _doPortReEnumerateThread	_expansionData->_doPortReEnumerateThread
-    #define _resetInProgress		_expansionData->_resetInProgress
-    #define _portHasBeenReset		_expansionData->_portHasBeenReset
-    #define _deviceterminating		_expansionData->_deviceterminating
-    #define _getConfigLock		_expansionData->_getConfigLock
 
    virtual void free();	
 
@@ -375,7 +370,14 @@ public:
     */
     virtual IOReturn ReEnumerateDevice( UInt32 options );
     
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  4);
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  4);
+    /*!
+        @function DisplayUserNotification
+        @abstract  Will use the KUNCUserNotification mechanism to display a notification to the user.
+        @param notificationType Which notification to display.
+     */
+    virtual void	DisplayUserNotification(UInt32 notificationType);
+    
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  5);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  6);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  7);
@@ -405,8 +407,8 @@ private:
     static void 	ProcessPortReEnumerateEntry(OSObject *target, thread_call_param_t options);
     void 		ProcessPortReEnumerate(UInt32 options);
 
-
-
+    static void 	DisplayUserNotificationForDeviceEntry (OSObject *owner, IOTimerEventSource *sender);
+    void		DisplayUserNotificationForDevice( );
 };
 
 #endif /* _IOKIT_IOUSBDEVICE_H */

@@ -3,25 +3,29 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <IOKit/platform/ApplePlatformExpert.h>
 
 #include "UniN.h"
+#include "MacRISC2.h"
 
 #include <sys/cdefs.h>
 
@@ -45,10 +49,13 @@ bool AppleUniN::start ( IOService * nub )
     UInt32			   		uniNArbCtrl, uniNBaseAddressTemp, uniNMPCIMemTimeout;
 	IOInterruptState 		intState;
 	IOPlatformFunction		*func;
-	const OSSymbol			*functionSymbol = OSSymbol::withCString("InstantiatePlatformFunctions");
+	const OSSymbol			*functionSymbol = OSSymbol::withCString(kInstantiatePlatformFunctions);
 	SInt32					retval;
 
 	provider = nub;
+	
+	// If our PE isn't MacRISC2PE, we shouldn't be here
+	if (!OSDynamicCast (MacRISC2PE, getPlatform())) return false;
 
 	tmpData = OSDynamicCast(OSData, provider->getProperty("reg"));
     if (tmpData == 0) return false;
@@ -100,7 +107,7 @@ bool AppleUniN::start ( IOService * nub )
 			hostIsMobile = false;
 
 	// Identify any platform-do-functions
-	retval = provider->getPlatform()->callPlatformFunction (functionSymbol, false, (void *)provider, 
+	retval = provider->getPlatform()->callPlatformFunction (functionSymbol, true, (void *)provider, 
 		(void *)&platformFuncArray, (void *)0, (void *)0);
 	if (retval == kIOReturnSuccess && (platformFuncArray != NULL)) {
 		unsigned int i;
@@ -111,6 +118,12 @@ bool AppleUniN::start ( IOService * nub )
 				if (func->getCommandFlags() & kIOPFFlagOnDemand)
 					func->publishPlatformFunction (this);
 	}
+	
+	if (uniNVersion == kUniNVersionIntrepid) {
+		symReadIntrepidClockStopStatus = OSSymbol::withCString("readIntrepidClockStopStatus");
+		publishResource(symReadIntrepidClockStopStatus, this);
+	}
+	
 		
 	// Create our friends
 	createNubs(this, provider->getChildIterator( gIODTPlane ));
@@ -131,6 +144,8 @@ void AppleUniN::free ()
 
 	if (mutex != NULL)
 		IOSimpleLockFree( mutex );
+	
+	super::free();
 
 	return;
 }
@@ -163,6 +178,9 @@ IOReturn AppleUniN::callPlatformFunction(const OSSymbol *functionName, bool wait
 	
 	if (functionName->isEqualTo ("setupUATAforSleep"))
 		return setupUATAforSleep();
+
+	if (functionName == symReadIntrepidClockStopStatus)
+		return readIntrepidClockStopStatus((UInt32 *)param1, (UInt32 *)param2);
 
 	if (platformFuncArray) {
 		UInt32 i;
@@ -211,12 +229,6 @@ IOReturn AppleUniN::setupUATAforSleep ()
 	if ((uniNVersion == kUniNVersionIntrepid) && hostIsMobile) {
 		uATANub = OSDynamicCast (IOService, provider->fromPath("/pci@F4000000/ata-6@D", gIODTPlane));
 		if (uATANub) {
-			char path[256];
-			int length;
-			
-			length = 256;
-			*path = '\0';
-			uATANub->getPath (path, &length, gIOServicePlane);
 			if (uATABaseAddressMap = uATANub->mapDeviceMemoryWithIndex(0)) {
 				uATABaseAddress = (volatile UInt32 *) uATABaseAddressMap->getVirtualAddress();
 				result = kIOReturnSuccess;
@@ -226,6 +238,34 @@ IOReturn AppleUniN::setupUATAforSleep ()
 	
 	return result;
 }
+
+// **********************************************************************************
+// readIntrepidClockStopStatus
+//
+// **********************************************************************************
+IOReturn AppleUniN::readIntrepidClockStopStatus (UInt32 *status0, UInt32 *status1)
+{
+	if ((uniNVersion == kUniNVersionIntrepid) && (status0 || status1)) {
+		IOInterruptState intState;
+	
+		if ( mutex  != NULL )
+			intState = IOSimpleLockLockDisableInterrupt(mutex);
+	
+		if (status0)
+			*status0 = readUniNReg(kUniNClockStopStatus0);
+		if (status1)
+			*status1 = readUniNReg(kUniNClockStopStatus1);
+	
+		if ( mutex  != NULL )
+			IOSimpleLockUnlockEnableInterrupt(mutex, intState);
+
+		return kIOReturnSuccess;
+	}
+	
+	return kIOReturnUnsupported;
+}
+
+
 // **********************************************************************************
 // readUniNReg
 //

@@ -117,7 +117,7 @@ __private_extern__ unsigned long (
     *address_func)(
 	unsigned long size,
 	unsigned long header_address);
-#endif RLD
+#endif /* RLD */
 
 #ifdef DEBUG
 __private_extern__ void print_mach_header(
@@ -126,4 +126,4 @@ __private_extern__ void print_symtab_info(
     void);
 __private_extern__ void print_thread_info(
     void);
-#endif DEBUG
+#endif /* DEBUG */

@@ -62,7 +62,7 @@ struct operand ops[] = {
     { "a3@(0x12:b,a5:l:1)",	Ad8Xn },
     { "a3@(0x12:b,a5:l:2)",	Ad8Xn },
     { "a3@(0x12:b,a5:l:4)",	Ad8Xn },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "a3@(0x12:b,a5:l:8)",	Ad8Xn },
 /* An@(bd,Xn) "Address Register Indirect with Index (Base Displacement)",
    uses Full Format Extension Word(s) (bd,An,Xn) */
@@ -119,7 +119,7 @@ struct operand ops[] = {
     { "a3@(0x1234abcd:l,a5:l:1)",	AbdXn },
     { "a3@(0x1234abcd:l,a5:l:2)",	AbdXn },
     { "a3@(0x1234abcd:l,a5:l:4)",	AbdXn },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "a3@(0x1234abcd:l,a5:l:8)",	AbdXn },
 #ifdef ALL_OPERANDS
     { "@(0)",				AbdXn },
@@ -171,7 +171,7 @@ struct operand ops[] = {
     { "@(0x1234abcd:l,a5:l:2)",			AbdXn },
     { "@(0x1234abcd:l,a5:l:4)",			AbdXn },
     { "@(0x1234abcd:l,a5:l:8)",			AbdXn },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
 /* An@(bd,Xn)@(od) "Memory Indirect with Preindexed" ([bd,An,Xn],od)
    uses Full Format Extension Word(s) */
 #ifdef ALL_OPERANDS
@@ -419,7 +419,7 @@ struct operand ops[] = {
     { "a3@(0x1234abcd:l,a5:l:1)@(0xfeedface:l)",	MIPRE },
     { "a3@(0x1234abcd:l,a5:l:2)@(0xfeedface:l)",	MIPRE },
     { "a3@(0x1234abcd:l,a5:l:4)@(0xfeedface:l)",	MIPRE },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "a3@(0x1234abcd:l,a5:l:8)@(0xfeedface:l)",	MIPRE },
 #ifdef ALL_OPERANDS
     { "@(0)@(0xfeedface:l)",	MIPRE },
@@ -471,7 +471,7 @@ struct operand ops[] = {
     { "@(0x1234abcd:l,a5:l:2)@(0xfeedface:l)",	MIPRE },
     { "@(0x1234abcd:l,a5:l:4)@(0xfeedface:l)",	MIPRE },
     { "@(0x1234abcd:l,a5:l:8)@(0xfeedface:l)",	MIPRE },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
 /* An@(bd)@(od,Xn) "Memory Indirect with Postindexed" ([bd,An],Xn,od)
    uses Full Format Extension Word(s) */
 #ifdef ALL_OPERANDS
@@ -719,7 +719,7 @@ struct operand ops[] = {
     { "a3@(0x1234abcd:l)@(0xfeedface:l,a5:l:1)",	MIPOST },
     { "a3@(0x1234abcd:l)@(0xfeedface:l,a5:l:2)",	MIPOST },
     { "a3@(0x1234abcd:l)@(0xfeedface:l,a5:l:4)",	MIPOST },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "a3@(0x1234abcd:l)@(0xfeedface:l,a5:l:8)",	MIPOST },
 #ifdef ALL_OPERANDS
     { "@(0)@(0xfeedface:l)",	MIPOST },
@@ -771,7 +771,7 @@ struct operand ops[] = {
     { "@(0x1234abcd:l)@(0xfeedface:l,a5:l:2)",	MIPOST },
     { "@(0x1234abcd:l)@(0xfeedface:l,a5:l:4)",	MIPOST },
     { "@(0x1234abcd:l)@(0xfeedface:l,a5:l:8)",	MIPOST },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
 
 /* xxx:w "Absolute Short" (xxx).W */
     { "0x1bad:w",	ABSW },
@@ -800,7 +800,7 @@ struct operand ops[] = {
     { "pc@(0x12:b,a5:l:1)",	PCd8Xn },
     { "pc@(0x12:b,a5:l:2)",	PCd8Xn },
     { "pc@(0x12:b,a5:l:4)",	PCd8Xn },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "pc@(0x12:b,a5:l:8)",	PCd8Xn },
 
 /* pc@(bd,Xn) "Program Counter Indirect with Index (Base Displacement)"
@@ -858,7 +858,7 @@ struct operand ops[] = {
     { "pc@(0x1234abcd:l,a5:l:1)",	PCbdXn },
     { "pc@(0x1234abcd:l,a5:l:2)",	PCbdXn },
     { "pc@(0x1234abcd:l,a5:l:4)",	PCbdXn },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "pc@(0x1234abcd:l,a5:l:8)",	PCbdXn },
 #ifdef ALL_OPERANDS
     { "zpc@(0)",				PCbdXn },
@@ -909,7 +909,7 @@ struct operand ops[] = {
     { "zpc@(0x1234abcd:l,a5:l:1)",			PCbdXn },
     { "zpc@(0x1234abcd:l,a5:l:2)",			PCbdXn },
     { "zpc@(0x1234abcd:l,a5:l:4)",			PCbdXn },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "zpc@(0x1234abcd:l,a5:l:8)",			PCbdXn },
 /* pc@(bd,Xn)@(od) "Program Counter Memory Indirect with Preindexed"
    uses Full Format Extension Word(s) ([bd,PC,Xn],od) */
@@ -1158,7 +1158,7 @@ struct operand ops[] = {
     { "pc@(0x1234abcd:l,a5:l:1)@(0xfeedface:l)",	PCMIPRE },
     { "pc@(0x1234abcd:l,a5:l:2)@(0xfeedface:l)",	PCMIPRE },
     { "pc@(0x1234abcd:l,a5:l:4)@(0xfeedface:l)",	PCMIPRE },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "pc@(0x1234abcd:l,a5:l:8)@(0xfeedface:l)",	PCMIPRE },
 #ifdef ALL_OPERANDS
     { "zpc@(0)@(0xfeedface:l)",	PCMIPRE },
@@ -1209,7 +1209,7 @@ struct operand ops[] = {
     { "zpc@(0x1234abcd:l,a5:l:1)@(0xfeedface:l)",	PCMIPRE },
     { "zpc@(0x1234abcd:l,a5:l:2)@(0xfeedface:l)",	PCMIPRE },
     { "zpc@(0x1234abcd:l,a5:l:4)@(0xfeedface:l)",	PCMIPRE },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "zpc@(0x1234abcd:l,a5:l:8)@(0xfeedface:l)",	PCMIPRE },
 /* pc@(bd)@(od,Xn) "Program Counter Memory Indirect with Postindexed"
    uses Full Format Extension Word(s) ([bd,PC],Xn,od) */
@@ -1458,7 +1458,7 @@ struct operand ops[] = {
     { "pc@(0x1234abcd:l)@(0xfeedface:l,a5:l:1)",	PCMIPOST },
     { "pc@(0x1234abcd:l)@(0xfeedface:l,a5:l:2)",	PCMIPOST },
     { "pc@(0x1234abcd:l)@(0xfeedface:l,a5:l:4)",	PCMIPOST },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "pc@(0x1234abcd:l)@(0xfeedface:l,a5:l:8)",	PCMIPOST },
 #ifdef ALL_OPERANDS
     { "zpc@(0)@(0xfeedface:l)",	PCMIPOST },
@@ -1509,7 +1509,7 @@ struct operand ops[] = {
     { "zpc@(0x1234abcd:l)@(0xfeedface:l,a5:l:1)",	PCMIPOST },
     { "zpc@(0x1234abcd:l)@(0xfeedface:l,a5:l:2)",	PCMIPOST },
     { "zpc@(0x1234abcd:l)@(0xfeedface:l,a5:l:4)",	PCMIPOST },
-#endif ALL_OPERANDS
+#endif /* ALL_OPERANDS */
     { "zpc@(0x1234abcd:l)@(0xfeedface:l,a5:l:8)",	PCMIPOST },
 
 /* These are used by the movec instruction */
@@ -1932,7 +1932,7 @@ char end_char)
 	/* S  List of system control registers for floating point coprocessor.*/
 	    printf("fpc/fps/fpi");
 	    break;
-#endif 0
+#endif /* 0 */
 
 	case 'J':
 	/* J  Misc register for movec instruction, stored in 'j' format. */

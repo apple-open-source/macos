@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,8 +63,7 @@
 #include <sys/un.h>
 #include <sys/ubc.h>
 #include <sys/vnode.h>
-
-#include <dev/disk.h>
+#include <sys/disk.h>
 
 // To get funnel prototypes
 #include <kern/thread.h>
@@ -75,8 +74,8 @@
 // Declarations
 typedef int (*PFI)();
 
-extern char *   strncpy __P ( ( char *, const char *, size_t ) );	// Kernel already includes a copy
-extern int      strcmp __P  ( ( const char *, const char * ) );		// Kernel already includes a copy
+extern char *	strncpy __P ( ( char *, const char *, size_t ) );	// Kernel already includes a copy
+extern int		strcmp __P	( ( const char *, const char * ) );		// Kernel already includes a copy
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -84,18 +83,18 @@ extern int      strcmp __P  ( ( const char *, const char * ) );		// Kernel alrea
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 
-struct slock 	gCDDANumberOfInstancesLock;
+struct slock	gCDDANumberOfInstancesLock;
 UInt32			gCDDANumberOfInstances = 0;
 
 // CDDA File System globals
 static char gAppleCDDAName[MFSNAMELEN] = "cddafs";
 
 // Global variables defined in other modules
-extern struct vnodeopv_desc     gCDDA_VNodeOperationsDesc;
+extern struct vnodeopv_desc		gCDDA_VNodeOperationsDesc;
 
 // The following refer to kernel global variables used in the loading/initialization:
-extern int  maxvfsconf;			// The highest fs type number [old-style ID] in use [despite its name]
-extern int  vfs_opv_numops;		// The total number of defined vnode operations
+extern int	maxvfsconf;			// The highest fs type number [old-style ID] in use [despite its name]
+extern int	vfs_opv_numops;		// The total number of defined vnode operations
 
 // vfsops
 struct vfsops gCDDA_VFSOps =
@@ -116,7 +115,7 @@ struct vfsops gCDDA_VFSOps =
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Init -	This routine is responsible for all the initialization for
+//	CDDA_Init - This routine is responsible for all the initialization for
 //				this instance of the filesystem
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
@@ -124,12 +123,12 @@ int
 CDDA_Init ( struct vfsconf * vfsConfPtr )
 {
 
-    DebugLog ( ( "CDDA_Init: Entering.\n" ) );
+	DebugLog ( ( "CDDA_Init: Entering.\n" ) );
 
 	DebugAssert ( ( vfsConfPtr != NULL ) );
 		
-    DebugLog ( ( "CDDA_Init: exiting...\n" ) );
-    
+	DebugLog ( ( "CDDA_Init: exiting...\n" ) );
+	
 	return ( 0 );
 
 }
@@ -144,24 +143,23 @@ int
 CDDA_Mount ( struct mount * mountPtr,
 			 char * path,
 			 caddr_t data,
-             struct nameidata * nameiDataPtr,
-             struct proc * theProcPtr )
+			 struct nameidata * nameiDataPtr,
+			 struct proc * theProcPtr )
 {
 	
 	AppleCDDAMountPtr		cddaMountPtr			= NULL;
 	AppleCDDAArguments		cddaArgs;
 	AppleCDDANodePtr		cddaNodePtr				= NULL;
 	struct vnode *			blockDeviceVNodePtr		= NULL;
-	size_t 					size					= 0;
-	int 					error					= 0;
-	UInt32 					blockSize				= 0;
+	size_t					size					= 0;
+	int						error					= 0;
 	struct ucred *			credPtr					= NULL;
-	struct timeval 			now;
+	struct timeval			now;
 	struct timespec			timespec;
 	void *					xmlData					= NULL;
 	
-    DebugLog ( ( "CDDA_Mount: Entering.\n" ) );
-    
+	DebugLog ( ( "CDDA_Mount: Entering.\n" ) );
+	
 	DebugAssert ( ( mountPtr != NULL ) );
 	DebugAssert ( ( path != NULL ) );
 	DebugAssert ( ( nameiDataPtr != NULL ) );
@@ -186,17 +184,17 @@ CDDA_Mount ( struct mount * mountPtr,
 	
 	// Update is a no-op
 	if ( mountPtr->mnt_flag & MNT_UPDATE )
-    {
+	{
 
 		DebugLog ( ( "Returning EOPNOTSUPP...\n" ) );
 		error = EOPNOTSUPP;
 		goto ERROR;
 
-    }
-    
-    DebugLog ( ( "CDDA_Mount: cddaArgs.device = %s.\n", cddaArgs.device ) );	
+	}
 	
-    // Not an update, or updating the name: look up the name
+	DebugLog ( ( "CDDA_Mount: cddaArgs.device = %s.\n", cddaArgs.device ) );	
+	
+	// Not an update, or updating the name: look up the name
 	// and verify that it refers to a sensible block device.
 	NDINIT ( nameiDataPtr, LOOKUP | LOCKLEAF, FOLLOW, UIO_USERSPACE, cddaArgs.device, theProcPtr );
 	error = namei ( nameiDataPtr );
@@ -257,41 +255,21 @@ CDDA_Mount ( struct mount * mountPtr,
 	// Set the credentials
 	credPtr = ( theProcPtr != NULL ) ? theProcPtr->p_ucred : NOCRED;
 	
-	// Set the blocksize to our block size (16 bytes)
-	blockSize = kAppleCDDABlockSize;
-	error = VOP_IOCTL ( blockDeviceVNodePtr, DKIOCSETBLOCKSIZE, ( caddr_t ) &blockSize, FREAD,
-						credPtr, theProcPtr );
-	
-	if ( error != 0 )
-	{
-	
-		DebugLog ( ( "CDDA_Mount: VOP_IOCTL on block device returned an error = %d.\n", error ) );
-		goto RELEASE_DEV_NODE_ERROR;
-		
-	}
-	
-	else
-	{
-		
-		blockDeviceVNodePtr->v_specsize = blockSize;
-		
-	}
-		
 	// Allocate memory for private mount data
 	MALLOC ( cddaMountPtr, AppleCDDAMountPtr, sizeof ( AppleCDDAMount ), M_TEMP, M_WAITOK );
 	
 	// Zero the structure
 	bzero ( cddaMountPtr, sizeof ( AppleCDDAMount ) );
-
+	
 	// initialize the lock
 	lockinit ( &cddaMountPtr->nodeInfoLock, PINOD, "cddamountlock", 0, 0 );
-
+	
 	// Save the number of audio tracks
 	cddaMountPtr->numTracks = cddaArgs.numTracks;
 	
 	// Save file TYPE/CREATOR
-	cddaMountPtr->fileType 		= cddaArgs.fileType;
-	cddaMountPtr->fileCreator 	= cddaArgs.fileCreator;
+	cddaMountPtr->fileType		= cddaArgs.fileType;
+	cddaMountPtr->fileCreator	= cddaArgs.fileCreator;
 	
 	DebugLog ( ( "fileType = 0x%08x, fileCreator = 0x%08x\n", cddaMountPtr->fileType, cddaMountPtr->fileCreator ) );
 	
@@ -313,7 +291,7 @@ CDDA_Mount ( struct mount * mountPtr,
 	// Fill in the mount time
 	now = time;
 	TIMEVAL_TO_TIMESPEC ( &now, &timespec );
-	cddaMountPtr->mountTime	= timespec;
+	cddaMountPtr->mountTime = timespec;
 
 	// Allocate memory for CD Track Names data
 	MALLOC ( cddaMountPtr->nameData, UInt8 *, cddaArgs.nameDataSize, M_TEMP, M_WAITOK );
@@ -334,13 +312,13 @@ CDDA_Mount ( struct mount * mountPtr,
 									 &cddaMountPtr->root );
 	
 	if ( error != 0 )
-    {
+	{
 		
 		//Ê¥¥¥ fix error to return a valid error number here
 		DebugLog ( ( "Returning error = %d after CreateNewCDDADirectory.\n", error ) );
 		goto FREE_TRACK_NAMES;
 		
-    }
+	}
 	
 	// Tell the system that this is the root directory
 	cddaMountPtr->root->v_flag |= VROOT;
@@ -381,14 +359,14 @@ CDDA_Mount ( struct mount * mountPtr,
 	
 	DebugLog ( ( "CDDA_Mount: Exiting CDDA_Mount.\n" ) );
 	
-    // Grab the lock so nothing else touches are global while we do
-    simple_lock ( &gCDDANumberOfInstancesLock );
-    
-    // Increment the number of instances of this filesystem since we are successfully
-    // mounting here
-    gCDDANumberOfInstances++;
+	// Grab the lock so nothing else touches our global while we do
+	simple_lock ( &gCDDANumberOfInstancesLock );
+	
+	// Increment the number of instances of this filesystem since we are successfully
+	// mounting here
+	gCDDANumberOfInstances++;
  
- 	// Unlock our lock
+	// Unlock our lock
 	simple_unlock ( &gCDDANumberOfInstancesLock );	
 	
 	return ( 0 );
@@ -413,7 +391,7 @@ FREE_TRACK_NAMES:
 		
 		FREE ( ( caddr_t ) cddaMountPtr->nameData, M_TEMP );
 		cddaMountPtr->nameData		= NULL;
-		cddaMountPtr->nameDataSize 	= 0;
+		cddaMountPtr->nameDataSize	= 0;
 		
 	}
 	
@@ -462,16 +440,16 @@ CDDA_Start ( struct mount * mountPtr,
 			 struct proc * theProcPtr )
 {
 
-    DebugLog ( ( "CDDA_Start: Entering.\n" ) );
+	DebugLog ( ( "CDDA_Start: Entering.\n" ) );
 
 	DebugAssert ( ( mountPtr != NULL ) );
 	DebugAssert ( ( theProcPtr != NULL ) );
 
 	// Stub code for use when necessary
 
-    DebugLog ( ( "CDDA_Start: exiting...\n" ) );
+	DebugLog ( ( "CDDA_Start: exiting...\n" ) );
 
-    return ( 0 );
+	return ( 0 );
 
 }
 
@@ -486,14 +464,14 @@ CDDA_Unmount ( struct mount * mountPtr,
 			   int theFlags,
 			   struct proc * theProcPtr )
 {
-    
-	struct vnode *      	rootVNodePtr 		= NULL;
+	
+	struct vnode *			rootVNodePtr		= NULL;
 	struct vnode *			xmlVNodePtr			= NULL;
 	AppleCDDAMountPtr		cddaMountPtr		= NULL;
 	AppleCDDANodePtr		cddaNodePtr			= NULL;
 	AppleCDDANodeInfoPtr	nodeInfoArrayPtr	= NULL;
-	int                 	error   			= 0;
-	int                 	flags   			= 0;
+	int						error				= 0;
+	int						flags				= 0;
 	
 	DebugLog ( ( "CDDA_Unmount: Entering.\n" ) );
 	
@@ -506,7 +484,7 @@ CDDA_Unmount ( struct mount * mountPtr,
 	rootVNodePtr = cddaMountPtr->root;
 	DebugAssert ( ( rootVNodePtr != NULL ) );
 	
-	cddaNodePtr	= VTOCDDA ( rootVNodePtr );
+	cddaNodePtr = VTOCDDA ( rootVNodePtr );
 	DebugAssert ( ( cddaNodePtr != NULL ) );
 	
 	xmlVNodePtr = cddaMountPtr->xmlFileVNodePtr;
@@ -557,12 +535,12 @@ CDDA_Unmount ( struct mount * mountPtr,
 	}
 	
 	if ( rootVNodePtr->v_usecount > 1 && ( flags & FORCECLOSE != FORCECLOSE ) )
-    {
+	{
 	
 		DebugLog ( ( "CDDA_Unmount: Returning error = %d.\n", EBUSY ) );
 		return ( EBUSY );
-    
-    }
+	
+	}
 
 	DebugLog ( ( "CDDA_Unmount: Closing block device.\n" ) );
 	
@@ -575,23 +553,23 @@ CDDA_Unmount ( struct mount * mountPtr,
 	
 	// Release the underlying device vnode
 	vrele ( cddaNodePtr->blockDeviceVNodePtr );
-
+	
 	DebugLog ( ( "CDDA_Unmount: Killing the XML file.\n" ) );
 	
 	// Release the xml file vnode ( we got a refcount
 	// to it when we called getnewvnode )
 	vrele ( xmlVNodePtr );
-
+	
 	DebugLog ( ( "CDDA_Unmount: released the XML file.\n" ) );
-
+	
 	// Release the underlying root vnode
 	vrele ( rootVNodePtr );
-
+	
 	DebugLog ( ( "CDDA_Unmount: released the root vnode.\n" ) );
-
+	
 	// Reduce, Reuse, Recycle!
 	vgone ( rootVNodePtr );
-
+	
 	DebugLog ( ( "CDDA_Unmount: All vnodes killed!\n" ) );
 	
 	// Get a pointer to the NodeInfo Array	
@@ -628,7 +606,7 @@ CDDA_Unmount ( struct mount * mountPtr,
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Root -	This routine is called to get a vnode pointer to the root
+//	CDDA_Root - This routine is called to get a vnode pointer to the root
 //				vnode of the filesystem
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
@@ -637,59 +615,21 @@ CDDA_Root ( struct mount * mountPtr,
 			struct vnode ** vNodeHandle )
 {
 	
-	struct proc *		theProcPtr   	= NULL;
-	struct vnode *		rootVNodePtr 	= NULL;
-	int					error			= 0;
+	int		error	= 0;
+	SInt32	inode	= kAppleCDDARootFileID;
 	
-    DebugLog ( ( "CDDA_Root: Entering.\n" ) );
+	DebugLog ( ( "CDDA_Root: Entering.\n" ) );
 
 	DebugAssert ( ( mountPtr != NULL ) );
 	DebugAssert ( ( vNodeHandle != NULL ) );
 	
-	theProcPtr = current_proc ( );
-	DebugAssert ( ( theProcPtr != NULL ) );
+	error = CDDA_VGet ( mountPtr, ( void * ) &inode, vNodeHandle );
 	
-	// Get the root vnode pointer
-	rootVNodePtr = VFSTOCDDA ( mountPtr )->root;
-	DebugAssert ( ( rootVNodePtr != NULL ) );
+	DebugLog ( ( "CDDA_Root: exiting...\n" ) );
 	
-	// Lock it
-	error = vn_lock ( rootVNodePtr, LK_EXCLUSIVE | LK_RETRY, theProcPtr );
-	if ( error != 0 )
-	{
-		return error;
-	}
-	
-	// Check if unmount in progress
-	if ( mountPtr->mnt_kern_flag & MNTK_UNMOUNT )
-	{
-
-		DebugLog ( ( "CDDA_Root: Unmount already in progress.\n" ) );
-		*vNodeHandle = NULL;
-		
-		// Make sure to unlock the vnode before returning
-		error = VOP_UNLOCK ( rootVNodePtr, 0, theProcPtr ); 
-		if ( error != 0 )
-		{
-			return error;
-		}
-		
-		return ( EPERM );
-		
-	}
-	
-	// Increment the refcount
-	VREF ( rootVNodePtr );
-	
-	// Stuff it into the passed in handle
-	*vNodeHandle = rootVNodePtr;
-	
-    DebugLog ( ( "CDDA_Root: exiting...\n" ) );
-	
-	return ( 0 );
+	return ( error );
 	
 }
-
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -703,9 +643,9 @@ CDDA_Statfs ( struct mount * mountPtr,
 {
 	
 	AppleCDDAMountPtr	cddaMountPtr	= NULL;
-	AppleCDDANodePtr	rootCDDANodePtr	= NULL;
+	AppleCDDANodePtr	rootCDDANodePtr = NULL;
 	
-    DebugLog ( ( "CDDA_Statfs: Entering.\n" ) );
+	DebugLog ( ( "CDDA_Statfs: Entering.\n" ) );
 	
 	DebugAssert ( ( mountPtr != NULL ) );
 	DebugAssert ( ( statFSPtr != NULL ) );
@@ -714,19 +654,19 @@ CDDA_Statfs ( struct mount * mountPtr,
 	cddaMountPtr = VFSTOCDDA ( mountPtr );
 	DebugAssert ( ( cddaMountPtr != NULL ) );
 	
-	rootCDDANodePtr	= VTOCDDA ( cddaMountPtr->root );
+	rootCDDANodePtr = VTOCDDA ( cddaMountPtr->root );
 	DebugAssert ( ( rootCDDANodePtr != NULL ) );
 	
 	DebugAssert ( ( rootCDDANodePtr->nodeType == kAppleCDDADirectoryType ) );
 	
 	statFSPtr->f_flags	= 0;
 	statFSPtr->f_bsize	= kPhysicalMediaBlockSize;
-	statFSPtr->f_iosize	= PAGE_SIZE;	// Lie to system and tell it we like 4K I/Os
+	statFSPtr->f_iosize = PAGE_SIZE;	// Lie to system and tell it we like 4K I/Os
 	statFSPtr->f_bfree	= 0;			// No free blocks since we're a CD-ROM
-	statFSPtr->f_bavail	= 0;			// No available blocks since we're a CD-ROM
+	statFSPtr->f_bavail = 0;			// No available blocks since we're a CD-ROM
 	statFSPtr->f_ffree	= 0;
 	statFSPtr->f_files	= rootCDDANodePtr->u.directory.entryCount;
-	statFSPtr->f_blocks	= rootCDDANodePtr->u.directory.directorySize / kPhysicalMediaBlockSize;
+	statFSPtr->f_blocks = rootCDDANodePtr->u.directory.directorySize / kPhysicalMediaBlockSize;
 	
 	DebugLog ( ( "CDDA_Statfs: f_files = %ld.\n", statFSPtr->f_files ) );
 	DebugLog ( ( "CDDA_Statfs: f_blocks = %ld.\n", statFSPtr->f_blocks ) );
@@ -749,7 +689,7 @@ CDDA_Statfs ( struct mount * mountPtr,
 	strncpy ( statFSPtr->f_fstypename, mountPtr->mnt_vfc->vfc_name, ( MFSNAMELEN - 1 ) );
 	statFSPtr->f_fstypename[( MFSNAMELEN - 1 )] = '\0';
 	
-    DebugLog ( ( "CDDA_Statfs: Exiting...\n" ) );
+	DebugLog ( ( "CDDA_Statfs: Exiting...\n" ) );
 	
 	return ( 0 );
 	
@@ -757,9 +697,8 @@ CDDA_Statfs ( struct mount * mountPtr,
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_VGet -	This routine is responsible for getting the desired vnode.
+//	CDDA_VGet - This routine is responsible for getting the desired vnode.
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
 
 int
 CDDA_VGet ( struct mount * mountPtr,
@@ -767,8 +706,8 @@ CDDA_VGet ( struct mount * mountPtr,
 			struct vnode ** vNodeHandle )
 {
 	
-	SInt32					nodeID 				= 0;
-	AppleCDDAMountPtr		cddaMountPtr 		= NULL;
+	SInt32					nodeID				= 0;
+	AppleCDDAMountPtr		cddaMountPtr		= NULL;
 	AppleCDDANodePtr		parentCDDANodePtr	= NULL;
 	struct proc *			theProcPtr			= NULL;
 	AppleCDDANodeInfoPtr	nodeInfoArrayPtr	= NULL;
@@ -782,20 +721,39 @@ CDDA_VGet ( struct mount * mountPtr,
 	DebugAssert ( ( ino != NULL ) );
 	DebugAssert ( ( vNodeHandle != NULL ) );
 	
-	cddaMountPtr 		= VFSTOCDDA ( mountPtr );
-	parentCDDANodePtr	= VTOCDDA ( cddaMountPtr->root );
+	cddaMountPtr = VFSTOCDDA ( mountPtr );
 	
 	DebugAssert ( ( cddaMountPtr != NULL ) );
 
 	theProcPtr = current_proc ( );
 	DebugAssert ( ( theProcPtr != NULL ) );
 	
-	nodeID = *( SInt32 *) ino;
+	// Check if unmount in progress
+	if ( mountPtr->mnt_kern_flag & MNTK_UNMOUNT )
+	{
+		
+		*vNodeHandle = NULL;
+		return ( EPERM );
+		
+	}
+			
+	nodeID = *( SInt32 * ) ino;
 	if ( nodeID == kAppleCDDARootFileID )
 	{
 		
 		DebugLog ( ( "Root vnode asked for!\n" ) );
-		panic ( "CDDA_VGet: Root vnode asked for!" );
+		
+		error = vget ( cddaMountPtr->root, LK_EXCLUSIVE | LK_RETRY, theProcPtr );
+		if ( error != 0 )
+		{
+			
+			DebugLog ( ( "CDDA_VGet: exiting with error = %d after vget.\n", error ) );
+			goto Exit;
+			
+		}
+		
+		// Get the root vnode pointer
+		*vNodeHandle = cddaMountPtr->root;
 		
 	}
 	
@@ -803,7 +761,7 @@ CDDA_VGet ( struct mount * mountPtr,
 	{
 		
 		DebugLog ( ( "XML vnode asked for!\n" ) );
-		error = vget ( cddaMountPtr->xmlFileVNodePtr, LK_EXCLUSIVE, theProcPtr );
+		error = vget ( cddaMountPtr->xmlFileVNodePtr, LK_EXCLUSIVE | LK_RETRY, theProcPtr );
 		if ( error != 0 )
 		{
 			
@@ -818,6 +776,8 @@ CDDA_VGet ( struct mount * mountPtr,
 	
 	else
 	{
+		
+		parentCDDANodePtr = VTOCDDA ( cddaMountPtr->root );
 		
 		// subtract our file offset to get to the real nodeID
 		nodeID -= kOffsetForFiles;
@@ -944,15 +904,15 @@ Exit:
 	if ( *vNodeHandle == NULL )
 		panic ( "*vNodeHandle == NULL" );
 	
-    DebugLog ( ( "CDDA_VGet: exiting...\n" ) );
-    
+	DebugLog ( ( "CDDA_VGet: exiting...\n" ) );
+	
 	return ( error );
 	
 }
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_FileHandleToVNodePtr -	This routine is responsible for converting
+//	CDDA_FileHandleToVNodePtr - This routine is responsible for converting
 //								a file handle to a vnode pointer. It is not
 //								supported because this is not a UFS or NFS
 //								volume.
@@ -980,7 +940,7 @@ CDDA_FileHandleToVNodePtr ( struct mount * mountPtr,
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_QuotaControl -	This routine is responsible for handling quotas.
+//	CDDA_QuotaControl - This routine is responsible for handling quotas.
 //						It is not supported by this filesystem.
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
@@ -1050,7 +1010,7 @@ CDDA_SystemControl ( int * name,
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_VNodePtrToFileHandle -	This routine is responsible for converting
+//	CDDA_VNodePtrToFileHandle - This routine is responsible for converting
 //								vnode pointer a to a file handle. It is not
 //								supported because this is not a UFS or NFS
 //								volume.
@@ -1082,10 +1042,10 @@ Apple_CDDA_FS_Module_Start ( int loadArgument )
 
 	#pragma unused ( loadArgument )
 
-	struct vfsconf *                newVFSConf  			= NULL;
-	int                             error       			= 0;
-	int                             index					= 0;
-	struct vnodeopv_entry_desc *    opVectorEntryDescPtr	= NULL;
+	struct vfsconf *				newVFSConf				= NULL;
+	int								error					= 0;
+	int								index					= 0;
+	struct vnodeopv_entry_desc *	opVectorEntryDescPtr	= NULL;
 	boolean_t						funnel_state;
 	
 	int ( ***opv_desc_vector_p ) ( );
@@ -1093,7 +1053,7 @@ Apple_CDDA_FS_Module_Start ( int loadArgument )
 	
 	funnel_state = thread_funnel_set ( kernel_flock, TRUE );
 	
-    DebugLog ( ( "Apple_CDDA_FS_Module_Start: Entering...\n" ) );
+	DebugLog ( ( "Apple_CDDA_FS_Module_Start: Entering...\n" ) );
 	
 	// Create the vfs config structure
 	MALLOC ( newVFSConf, void * , sizeof ( struct vfsconf ), M_TEMP, M_WAITOK );
@@ -1111,18 +1071,18 @@ Apple_CDDA_FS_Module_Start ( int loadArgument )
 	strncpy ( &newVFSConf->vfc_name[0], gAppleCDDAName, MFSNAMELEN );
 	
 	// Fill in the rest of the structure
-	newVFSConf->vfc_typenum     = maxvfsconf++; // ¥¥¥ Bad to use a system global here!!
-	newVFSConf->vfc_refcount    = 0;
-	newVFSConf->vfc_flags       = 0;
-	newVFSConf->vfc_mountroot   = NULL;			// Can't mount as root
-	newVFSConf->vfc_next        = NULL;
+	newVFSConf->vfc_typenum		= maxvfsconf++; // ¥¥¥ Bad to use a system global here!!
+	newVFSConf->vfc_refcount	= 0;
+	newVFSConf->vfc_flags		= 0;
+	newVFSConf->vfc_mountroot	= NULL;			// Can't mount as root
+	newVFSConf->vfc_next		= NULL;
 	
 	// set the operations vector description vector pointer
 	opv_desc_vector_p = gCDDA_VNodeOperationsDesc.opv_desc_vector_p;
 		
 	// Allocate and init the vector. Also handle backwards compatibility
 	MALLOC ( *opv_desc_vector_p, PFI *, vfs_opv_numops * sizeof ( PFI ), M_TEMP,
-    		 M_WAITOK );
+			 M_WAITOK );
 	
 	// Zero the structure
 	bzero ( *opv_desc_vector_p, vfs_opv_numops * sizeof ( PFI ) );
@@ -1135,7 +1095,7 @@ Apple_CDDA_FS_Module_Start ( int loadArgument )
 		
 		opVectorEntryDescPtr = &( gCDDA_VNodeOperationsDesc.opv_desc_ops[index] );
 		
-		//  Sanity check:  is this operation listed in the list of operations? We check this
+		//	Sanity check:  is this operation listed in the list of operations? We check this
 		//	by seeing if its offest is zero. Since the default routine should always be listed
 		//	first, it should be the only one with a zero offset. Any other operation with a
 		//	zero offset is probably not listed in vfs_op_descs, and so is probably an error.
@@ -1147,8 +1107,8 @@ Apple_CDDA_FS_Module_Start ( int loadArgument )
 			 opVectorEntryDescPtr->opve_op->vdesc_offset != VOFFSET ( vop_default ) )
 		{
 
-            DebugLog ( ( "Apple_CDDA_FS_Module_Start: operation %s not listed in %s.\n",
-					 	opVectorEntryDescPtr->opve_op->vdesc_name, "vfs_op_descs" ) );
+			DebugLog ( ( "Apple_CDDA_FS_Module_Start: operation %s not listed in %s.\n",
+						opVectorEntryDescPtr->opve_op->vdesc_name, "vfs_op_descs" ) );
 			panic ( "Apple_CDDA_FS_Module_Start: bad operation" );
 			
 		}
@@ -1214,9 +1174,8 @@ Apple_CDDA_FS_Module_Start ( int loadArgument )
 }
 
 
-
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	Apple_CDDA_FS_Module_Stop -	This routine is responsible for stopping
+//	Apple_CDDA_FS_Module_Stop - This routine is responsible for stopping
 //								filesystem services
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
@@ -1253,7 +1212,7 @@ Apple_CDDA_FS_Module_Stop ( int unloadArgument )
 	simple_unlock ( &gCDDANumberOfInstancesLock );	
 	
 	// Delete us from the vfs config table
-    error = vfsconf_del ( gAppleCDDAName );
+	error = vfsconf_del ( gAppleCDDAName );
 	if ( error != 0 )
 	{
 		
@@ -1265,7 +1224,7 @@ Apple_CDDA_FS_Module_Stop ( int unloadArgument )
 	FREE ( *gCDDA_VNodeOperationsDesc.opv_desc_vector_p, M_TEMP );
 	
 	DebugLog ( ( "Apple_CDDA_FS_Module_Stop: exiting...\n" ) );
-    
+	
 	( void ) thread_funnel_set ( kernel_flock, funnel_state );
 	
 	return ( error );
