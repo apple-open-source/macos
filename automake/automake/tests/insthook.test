@@ -1,0 +1,19 @@
+#! /bin/sh
+
+# Test to make sure install-exec-hook works.
+# Report from Tim Goodwin.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+install-exec-hook:
+	@echo nothing
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+test "`grep install-exec-hook Makefile.in | wc -l`" -gt 1 || exit 1
+# install-exec-hook must appear in the install-exec-am rule.
+sed -n '/^install-exec-am:/,/^[^	]/p' Makefile.in | \
+  grep install-exec-hook

@@ -1,0 +1,36 @@
+#! /bin/sh
+
+# Test to make sure rules to invoke all compilers are selected with
+# mixed source objects.
+# Matthew D. Langston <langston@SLAC.Stanford.EDU>
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_F77
+AC_F77_LIBRARY_LDFLAGS
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = foo
+foo_SOURCES  = foo.f bar.c baz.cc
+foo_LDADD    = @FLIBS@
+END
+
+: > foo.f
+: > bar.c
+: > baz.cc
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+
+# Look for the macros at the beginning of rules.  Be careful, as there
+# are literal tabs at the beginning of the search strings.
+grep '	\$(COMPILE)'     Makefile.in  || exit 1
+grep '	\$(CXXCOMPILE)'  Makefile.in  || exit 1
+grep '	\$(F77COMPILE)'  Makefile.in  || exit 1
+
+exit 0

@@ -20,20 +20,25 @@
 # include <config.h>
 #endif
 
-#include <stdio.h>
-#include <ctype.h>
-#include <sys/types.h>
-#include <sys/time.h>
-#include <netdb.h>
-#include <signal.h>
-#include <errno.h>
-
+#include "ntp_machine.h"
 #include "ntpd.h"
-#include "ntp_select.h"
 #include "ntp_io.h"
 #include "ntp_request.h"
 #include "ntp_stdlib.h"
 #include "ntp_syslog.h"
+
+#include <stdio.h>
+#include <ctype.h>
+#include <netdb.h>
+#include <signal.h>
+
+/**/
+#include <netinet/in.h>
+#include <arpa/inet.h>
+/**/
+#ifdef HAVE_SYS_PARAM_H
+# include <sys/param.h>		/* MAXHOSTNAMELEN (often) */
+#endif
 
 #define	STREQ(a, b)	(*(a) == *(b) && strcmp((a), (b)) == 0)
 
@@ -54,6 +59,7 @@ struct conf_entry {
 #define	ce_flags	ce_config.flags
 #define ce_ttl		ce_config.ttl
 #define	ce_keyid	ce_config.keyid
+#define ce_keystr	ce_config.keystr
 
 /*
  * confentries is a pointer to the list of configuration entries
@@ -75,7 +81,6 @@ static struct conf_entry *confentries = NULL;
 #define	MAXRESOLVE	32
 #define	CONFIG_TIME	2
 #define	ALARM_TIME	30
-
 #define	SLEEPTIME	2
 
 static	volatile int config_timer = 0;
@@ -109,7 +114,8 @@ static	int resolve_value;	/* next value of resolve timer */
 #define	TOK_FLAGS	5
 #define TOK_TTL		6
 #define	TOK_KEYID	7
-#define	NUMTOK		8
+#define TOK_KEYSTR	8
+#define	NUMTOK		9
 
 #define	MAXLINESIZE	512
 
@@ -122,7 +128,7 @@ static	int sockfd = -1;
 
 /* stuff to be filled in by caller */
 
-u_long req_keyid;	/* request keyid */
+keyid_t req_keyid;	/* request keyid */
 char *req_file;		/* name of the file with configuration info */
 
 /* end stuff to be filled in */
@@ -131,7 +137,8 @@ char *req_file;		/* name of the file with configuration info */
 static	RETSIGTYPE bong		P((int));
 static	void	checkparent	P((void));
 static	void	removeentry	P((struct conf_entry *));
-static	void	addentry	P((char *, int, int, int, int, int, int, u_long));
+static	void	addentry	P((char *, int, int, int, int, u_int,
+				   int, keyid_t, char *));
 static	int	findhostaddr	P((struct conf_entry *));
 static	void	openntp		P((void));
 static	int	request		P((struct conf_peer *));
@@ -139,10 +146,48 @@ static	char *	nexttoken	P((char **));
 static	void	readconf	P((FILE *, char *));
 static	void	doconfigure	P((int));
 
+struct ntp_res_t_pkt {		/* Tagged packet: */
+	void *tag;		/* For the caller */
+	u_int32 paddr;		/* IP to look up, or 0 */
+	char name[MAXHOSTNAMELEN]; /* Name to look up (if 1st byte is not 0) */
+};
+
+struct ntp_res_c_pkt {		/* Control packet: */
+	char name[MAXHOSTNAMELEN];
+	u_int32 paddr;
+	int mode;
+	int version;
+	int minpoll;
+	int maxpoll;
+	u_int flags;
+	int ttl;
+	keyid_t keyid;
+	u_char keystr[MAXFILENAME];
+};
+
+
 /*
- * assumes:  req_key, req_keyid, conffile valid
- *  syslog still open
+ * ntp_res_recv: Process an answer from the resolver
  */
+
+void
+ntp_res_recv(void)
+{
+	/*
+	  We have data ready on our descriptor.
+	  It may be an EOF, meaning the resolver process went away.
+	  Otherwise, it will be an "answer".
+	*/
+}
+
+
+/*
+ * ntp_intres needs;
+ *
+ *	req_key(???), req_keyid, req_file valid
+ *	syslog still open
+ */
+
 void
 ntp_intres(void)
 {
@@ -151,10 +196,10 @@ ntp_intres(void)
 	sigset_t set;
 
 	sigemptyset(&set);
-#endif /* NTP_POSIX_SOURCE */
+#endif /* HAVE_SIGSUSPEND */
 
 #ifdef DEBUG
-	if (debug) {
+	if (debug > 1) {
 		msyslog(LOG_INFO, "NTP_INTRES running");
 	}
 #endif
@@ -162,7 +207,7 @@ ntp_intres(void)
 	/* check out auth stuff */
 	if (sys_authenticate) {
 		if (!authistrusted(req_keyid)) {
-			msyslog(LOG_ERR, "invalid request keyid %lu",
+			msyslog(LOG_ERR, "invalid request keyid %08x",
 			    req_keyid );
 			exit(1);
 		}
@@ -182,7 +227,7 @@ ntp_intres(void)
 	(void) fclose(in);
 
 	if (!debug )
-	    (void) unlink(req_file);
+		(void) unlink(req_file);
 
 	/*
 	 * Sleep a little to make sure the server is completely up
@@ -194,12 +239,13 @@ ntp_intres(void)
 	 * Make a first cut at resolving the bunch
 	 */
 	doconfigure(1);
-	if (confentries == NULL)
+	if (confentries == NULL) {
 #if defined SYS_WINNT
-		ExitThread(0); /* Don't want to kill whole NT process */
+		ExitThread(0);	/* Don't want to kill whole NT process */
 #else
-	    exit(0);		/* done that quick */
+		exit(0);	/* done that quick */
 #endif
+	}
 	
 	/*
 	 * Here we've got some problem children.  Set up the timer
@@ -223,7 +269,8 @@ ntp_intres(void)
 			    resolve_value <<= 1;
 			resolve_timer = resolve_value;
 #ifdef DEBUG
-			msyslog(LOG_INFO, "resolve_timer: 0->%d", resolve_timer);
+			if (debug > 2)
+				msyslog(LOG_INFO, "resolve_timer: 0->%d", resolve_timer);
 #endif
 			config_timer = CONFIG_TIME;
 			doconfigure(1);
@@ -231,7 +278,8 @@ ntp_intres(void)
 		} else if (config_timer == 0) {
 			config_timer = CONFIG_TIME;
 #ifdef DEBUG
-			msyslog(LOG_INFO, "config_timer: 0->%d", config_timer);
+			if (debug > 2)
+				msyslog(LOG_INFO, "config_timer: 0->%d", config_timer);
 #endif
 			doconfigure(0);
 			continue;
@@ -241,11 +289,11 @@ ntp_intres(void)
 		 * There is a race in here.  Is okay, though, since
 		 * all it does is delay things by 30 seconds.
 		 */
-#ifdef HAVE_SIGSUSPEND
+# ifdef HAVE_SIGSUSPEND
 		sigsuspend(&set);
-#else
+# else
 		sigpause(0);
-#endif /* HAVE_SIGSUSPEND */
+# endif /* HAVE_SIGSUSPEND */
 #else
 		if (config_timer > 0)
 		    config_timer--;
@@ -338,17 +386,25 @@ addentry(
 	int version,
 	int minpoll,
 	int maxpoll,
-	int flags,
+	u_int flags,
 	int ttl,
-	u_long keyid
+	keyid_t keyid,
+	char *keystr
 	)
 {
 	register char *cp;
 	register struct conf_entry *ce;
 	unsigned int len;
 
+#ifdef DEBUG
+	if (debug > 1)
+		msyslog(LOG_INFO, 
+		    "intres: <%s> %d %d %d %d %x %d %x %s\n", name,
+		    mode, version, minpoll, maxpoll, flags, ttl, keyid,
+		    keystr);
+#endif
 	len = strlen(name) + 1;
-	cp = (char*)emalloc(len);
+	cp = (char *)emalloc(len);
 	memmove(cp, name, len);
 
 	ce = (struct conf_entry *)emalloc(sizeof(struct conf_entry));
@@ -361,6 +417,7 @@ addentry(
 	ce->ce_flags = (u_char)flags;
 	ce->ce_ttl = (u_char)ttl;
 	ce->ce_keyid = keyid;
+	strncpy((char *)ce->ce_keystr, keystr, MAXFILENAME);
 	ce->ce_next = NULL;
 
 	if (confentries == NULL) {
@@ -377,12 +434,12 @@ addentry(
 
 
 /*
- * findhostaddr - resolve a host name into an address
+ * findhostaddr - resolve a host name into an address (Or vice-versa)
  *
- * The routine sticks the address into the entry's ce_peeraddr if it
- * gets one.  It returns 1 for "success" and 0 for an uncorrectable
- * failure.  Note that "success" includes try again errors.  You can
- * tell that you got a try again since ce_peeraddr will still be zero.
+ * Given one of {ce_peeraddr,ce_name}, find the other one.
+ * It returns 1 for "success" and 0 for an uncorrectable failure.
+ * Note that "success" includes try again errors.  You can tell that you
+ *  got a "try again" since {ce_peeraddr,ce_name} will still be zero.
  */
 static int
 findhostaddr(
@@ -390,31 +447,80 @@ findhostaddr(
 	)
 {
 	struct hostent *hp;
+	struct in_addr in;
 
 	checkparent();		/* make sure our guy is still running */
 
-	hp = gethostbyname(entry->ce_name);
+	if (entry->ce_name && entry->ce_peeraddr) {
+		/* HMS: Squawk? */
+		msyslog(LOG_ERR, "findhostaddr: both ce_name and ce_peeraddr are defined...");
+		return 1;
+	}
+
+	if (!entry->ce_name && !entry->ce_peeraddr) {
+		msyslog(LOG_ERR, "findhostaddr: both ce_name and ce_peeraddr are undefined!");
+		return 0;
+	}
+
+	if (entry->ce_name) {
+#ifdef DEBUG
+		if (debug > 2)
+			msyslog(LOG_INFO, "findhostaddr: Resolving <%s>",
+				entry->ce_name);
+#endif /* DEBUG */
+		hp = gethostbyname(entry->ce_name);
+	} else {
+#ifdef DEBUG
+		if (debug > 2)
+			msyslog(LOG_INFO, "findhostaddr: Resolving %x>",
+				entry->ce_peeraddr);
+#endif
+		in.s_addr = entry->ce_peeraddr;
+		hp = gethostbyaddr((const char *)&in,
+				   sizeof entry->ce_peeraddr,
+				   AF_INET);
+	}
 
 	if (hp == NULL) {
-#ifndef NODNS
 		/*
 		 * If the resolver is in use, see if the failure is
 		 * temporary.  If so, return success.
 		 */
 		if (h_errno == TRY_AGAIN)
 		    return (1);
-#endif
 		return (0);
 	}
 
-	/*
-	 * Use the first address.  We don't have any way to
-	 * tell preferences and older gethostbyname() implementations
-	 * only return one.
-	 */
-	memmove((char *)&(entry->ce_peeraddr),
-		(char *)hp->h_addr,
-		sizeof(struct in_addr));
+	if (entry->ce_name) {
+#ifdef DEBUG
+		if (debug > 2)
+			msyslog(LOG_INFO, "findhostaddr: name resolved.");
+#endif
+		/*
+		 * Use the first address.  We don't have any way to tell
+		 * preferences and older gethostbyname() implementations
+		 * only return one.
+		 */
+		memmove((char *)&(entry->ce_peeraddr),
+			(char *)hp->h_addr,
+			sizeof(struct in_addr));
+		if (entry->ce_keystr[0] == '*')
+			strncpy((char *)&(entry->ce_keystr), hp->h_name,
+				MAXFILENAME);
+	} else {
+		char *cp;
+		size_t s;
+
+#ifdef DEBUG
+		if (debug > 2)
+			msyslog(LOG_INFO, "findhostaddr: address resolved.");
+#endif
+		s = strlen(hp->h_name) + 1;
+		cp = (char *)emalloc(s);
+		strcpy(cp, hp->h_name);
+		entry->ce_name = cp;
+	}
+		   
 	return (1);
 }
 
@@ -462,7 +568,7 @@ openntp(void)
 #endif /* O_NONBLOCK */
 #else  /* SYS_WINNT */
 	{
-		int on=1;
+		int on = 1;
 		if (ioctlsocket(sockfd,FIONBIO,(u_long *) &on) == SOCKET_ERROR) {
 			msyslog(LOG_ERR, "ioctlsocket(FIONBIO) fails: %m");
 			exit(1); /* Windows NT - set socket in non-blocking mode */
@@ -472,7 +578,7 @@ openntp(void)
 
 
 	if (connect(sockfd, (struct sockaddr *)&saddr, sizeof(saddr)) == -1) {
-		msyslog(LOG_ERR, "connect() failed: %m");
+		msyslog(LOG_ERR, "openntp: connect() failed: %m");
 		exit(1);
 	}
 }
@@ -533,6 +639,11 @@ request(
 	reqpkt.request = REQ_CONFIG;		/* configure a new peer */
 	reqpkt.err_nitems = ERR_NITEMS(0, 1);	/* one item */
 	reqpkt.mbz_itemsize = MBZ_ITEMSIZE(sizeof(struct conf_peer));
+	/* Make sure mbz_itemsize <= sizeof reqpkt.data */
+	if (sizeof(struct conf_peer) > sizeof (reqpkt.data)) {
+		msyslog(LOG_ERR, "Bletch: conf_peer is too big for reqpkt.data!");
+		exit(1);
+	}
 	memmove(reqpkt.data, (char *)conf, sizeof(struct conf_peer));
 	reqpkt.keyid = htonl(req_keyid);
 
@@ -547,14 +658,14 @@ request(
 	 * Done.  Send it.
 	 */
 #ifndef SYS_WINNT
-	n = send(sockfd, (char *)&reqpkt, (int)(REQ_LEN_NOMAC + n), 0);
+	n = send(sockfd, (char *)&reqpkt, (unsigned)(REQ_LEN_NOMAC + n), 0);
 	if (n < 0) {
 		msyslog(LOG_ERR, "send to NTP server failed: %m");
 		return 0;	/* maybe should exit */
 	}
 #else
 	/* In the NT world, documentation seems to indicate that there
-	 * exist _write and _read routines that can be used to so blocking
+	 * exist _write and _read routines that can be used to do blocking
 	 * I/O on sockets. Problem is these routines require a socket
 	 * handle obtained through the _open_osf_handle C run-time API
 	 * of which there is no explanation in the documentation. We need
@@ -605,8 +716,8 @@ request(
 		}
 		else if (n == 0)
 		{
-			if(debug)
-			    msyslog(LOG_DEBUG, "select() returned 0.");
+			if (debug)
+			    msyslog(LOG_INFO, "select() returned 0.");
 			return 0;
 		}
 
@@ -816,7 +927,7 @@ readconf(
 	register int i;
 	char *token[NUMTOK];
 	u_long intval[NUMTOK];
-	int flags;
+	u_int flags;
 	char buf[MAXLINESIZE];
 	char *bp;
 
@@ -832,7 +943,7 @@ readconf(
 			}
 		}
 
-		for (i = 1; i < NUMTOK; i++) {
+		for (i = 1; i < NUMTOK - 1; i++) {
 			if (!atouint(token[i], &intval[i])) {
 				msyslog(LOG_ERR,
 					"format error for integer token `%s', file `%s', quitting",
@@ -870,7 +981,7 @@ readconf(
 		}
 
 		if ((intval[TOK_FLAGS] & ~(FLAG_AUTHENABLE | FLAG_PREFER |
-					   FLAG_BURST | FLAG_SKEY))
+		    FLAG_NOSELECT | FLAG_BURST | FLAG_IBURST | FLAG_SKEY))
 		    != 0) {
 			msyslog(LOG_ERR, "invalid flags (%ld) in file %s",
 				intval[TOK_FLAGS], name);
@@ -882,8 +993,12 @@ readconf(
 		    flags |= CONF_FLAG_AUTHENABLE;
 		if (intval[TOK_FLAGS] & FLAG_PREFER)
 		    flags |= CONF_FLAG_PREFER;
+		if (intval[TOK_FLAGS] & FLAG_NOSELECT)
+		    flags |= CONF_FLAG_NOSELECT;
 		if (intval[TOK_FLAGS] & FLAG_BURST)
 		    flags |= CONF_FLAG_BURST;
+		if (intval[TOK_FLAGS] & FLAG_IBURST)
+		    flags |= CONF_FLAG_IBURST;
 		if (intval[TOK_FLAGS] & FLAG_SKEY)
 		    flags |= CONF_FLAG_SKEY;
 
@@ -893,7 +1008,7 @@ readconf(
 		addentry(token[TOK_HOSTNAME], (int)intval[TOK_HMODE],
 			 (int)intval[TOK_VERSION], (int)intval[TOK_MINPOLL],
 			 (int)intval[TOK_MAXPOLL], flags, (int)intval[TOK_TTL],
-			 intval[TOK_KEYID]);
+			 intval[TOK_KEYID], token[TOK_KEYSTR]);
 	}
 }
 
@@ -909,16 +1024,12 @@ doconfigure(
 	register struct conf_entry *ce;
 	register struct conf_entry *ceremove;
 
-#ifdef DEBUG
-	if (debug > 1)
-	    msyslog(LOG_INFO, "doconfigure(%d)", dores);
-#endif
-
 	ce = confentries;
 	while (ce != NULL) {
 #ifdef DEBUG
 		if (debug > 1)
-		    msyslog(LOG_INFO, "doconfigure: <%s> has peeraddr %#x",
+			msyslog(LOG_INFO,
+			    "doconfigure: <%s> has peeraddr %#x",
 			    ce->ce_name, ce->ce_peeraddr);
 #endif
 		if (dores && ce->ce_peeraddr == 0) {
@@ -931,28 +1042,10 @@ doconfigure(
 				removeentry(ceremove);
 				continue;
 			}
-#ifdef DEBUG
-			if (debug > 1) {
-				msyslog(LOG_INFO,
-					"doconfigure:findhostaddr() worked");
-			}
-#endif
 		}
 
 		if (ce->ce_peeraddr != 0) {
-#ifdef DEBUG
-			if (debug > 1) {
-				msyslog(LOG_INFO,
-					"doconfigure: calling request()");
-			}
-#endif
 			if (request(&ce->ce_config)) {
-#ifdef DEBUG
-				if (debug > 1) {
-					msyslog(LOG_INFO,
-						"doconfigure: request() OK, removing this entry");
-				}
-#endif
 				ceremove = ce;
 				ce = ceremove->ce_next;
 				removeentry(ceremove);
@@ -961,7 +1054,7 @@ doconfigure(
 #ifdef DEBUG
 			if (debug > 1) {
 				msyslog(LOG_INFO,
-					"doconfigure: request() FAILED, maybe next time.");
+				    "doconfigure: request() FAILED, maybe next time.");
 			}
 #endif
 		}

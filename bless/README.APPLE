@@ -1,0 +1,9 @@
+To export this project for Darwin:
+
+1) Open the project and delete the "files" group
+2) Delete them on-disk
+3) Run "./EXPORT.APPLE"
+
+
+/tmp/bless-XXX will contain a "darwinized" project, which
+has certain code stripped out.

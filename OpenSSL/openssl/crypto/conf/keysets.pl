@@ -158,7 +158,7 @@ print <<"EOF";
 
 EOF
 
-print "static unsigned short CONF_type_default[128]={";
+print "static const unsigned short CONF_type_default[128]={";
 
 for ($i=0; $i<128; $i++)
 	{
@@ -168,7 +168,7 @@ for ($i=0; $i<128; $i++)
 
 print "\n\t};\n\n";
 
-print "static unsigned short CONF_type_win32[128]={";
+print "static const unsigned short CONF_type_win32[128]={";
 
 for ($i=0; $i<128; $i++)
 	{

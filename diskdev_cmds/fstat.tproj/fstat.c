@@ -69,6 +69,7 @@
 #include <sys/filedesc.h>
 #define	KERNEL
 #include <sys/file.h>
+#include <hfs/hfs_cnode.h>
 #include <ufs/ufs/quota.h>
 #include <ufs/ufs/inode.h>
 //#undef KERNEL
@@ -82,8 +83,6 @@
 #undef KERNEL
 #include <nfs/nfsnode.h>
 #undef NFS
-#include <hfs/hfs.h>
-#undef  offsetof
 #define time t1         /* hack, hack, hack */
 #include <miscfs/devfs/devfsdefs.h>
 #undef  time
@@ -573,29 +572,39 @@ hfs_filestat(vp, fsp)
 	struct vnode *vp;
 	struct filestat *fsp;
 {
-	struct hfsnode hfsnode;
-	struct hfsfilemeta hfsnode_meta;
+	struct cnode cnode;
+	struct filefork fork = {0};
+	struct filefork *activefork;
 
-	if (!KVM_READ(VTOH(vp), &hfsnode, sizeof (hfsnode))) {
-		dprintf(stderr, "can't read hfsnode at %x for pid %d\n",
-			VTOH(vp), Pid);
+	if (!KVM_READ(vp->v_data, &cnode, sizeof (cnode))) {
+		dprintf(stderr, "can't read cnode at %x for pid %d\n",
+			vp->v_data, Pid);
 		return 0;
 	}
 
-	if (!KVM_READ(hfsnode.h_meta, &hfsnode_meta, sizeof (hfsnode_meta))) {
-		dprintf(stderr, "can't read hfsnode_meta at %x for pid %d\n",
-			hfsnode.h_meta, Pid);
+	if (vp->v_type == VDIR)
+		activefork = NULL;
+	else if (cnode.c_rsrc_vp == vp)
+		activefork = cnode.c_rsrcfork;
+	else
+		activefork = cnode.c_datafork;
+
+	if (activefork && !KVM_READ(activefork, &fork, sizeof (fork))) {
+		dprintf(stderr, "can't read file fork at %x for pid %d\n",
+			activefork, Pid);
 		return 0;
 	}
 
-	fsp->fsid = hfsnode_meta.h_dev & 0xffff;
-	fsp->fileid = (long)hfsnode_meta.h_nodeID;
-	fsp->mode = (mode_t)hfsnode_meta.h_mode;
+	fsp->fsid = cnode.c_dev & 0xffff;
+	fsp->fileid = (long)cnode.c_fileid;
+	fsp->mode = (mode_t)cnode.c_mode;
 	fsp->size = (vp->v_type == VDIR)
-			? (u_long)hfsnode_meta.h_size
-			: (u_long)hfsnode.fcbEOF;
-	fsp->rdev = hfsnode_meta.h_rdev;
-
+			? (u_long)cnode.c_nlink * 128
+			: (u_long)fork.ff_size;
+	if (vp->v_type == VBLK || vp->v_type == VCHR)
+		fsp->rdev = cnode.c_rdev;
+	else
+		fsp->rdev = 0;
 	return 1;
 }
 

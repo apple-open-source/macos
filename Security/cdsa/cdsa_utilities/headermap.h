@@ -37,19 +37,19 @@ namespace Security {
 //
 class HeaderMap {
     static const int maxKeyLength = 80;
-    typedef map<string, string> Map;
+    typedef std::map<std::string, std::string> Map;
 public:
     HeaderMap() { }
     virtual ~HeaderMap() { }
     
-    virtual void merge(string key, string &old, string newValue);
+    virtual void merge(std::string key, std::string &old, std::string newValue);
     
     void add(const char *key, const char *value);
     void add(const char *line);		// Key: value
     void remove(const char *key);
 
     const char *find(const char *key, const char *def = NULL) const;
-    string &operator [] (const char *key);
+    std::string &operator [] (const char *key);
     
     typedef Map::const_iterator ConstIterator;
     ConstIterator begin() const	{ return mMap.begin(); }
@@ -59,7 +59,7 @@ public:
     Iterator begin()			{ return mMap.begin(); }
     Iterator end()				{ return mMap.end(); }    
     
-    string collect(const char *lineEnding = "\r\n") const;
+    std::string collect(const char *lineEnding = "\r\n") const;
     size_t collectLength(const char *lineEnding = "\r\n") const;
     
 private:
@@ -69,7 +69,7 @@ private:
     struct CanonicalKey {
         CanonicalKey(const char *key, char end = '\0');
         operator const char *() const { return mValue; }
-        operator string () const { return mValue; }
+        operator std::string () const { return mValue; }
     private:
         char mValue[maxKeyLength];
     };

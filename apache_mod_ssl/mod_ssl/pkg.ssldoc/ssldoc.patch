@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: ssldoc.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 23-Feb-2002
+## Created on: 24-Jun-2002
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -200,9 +200,9 @@ Index: htdocs/manual/mod/index-bytype.html.en
 | documented inside the mod_ssl document.
 +---------------------------------------------------------------------------
 Index: htdocs/manual/mod/directives.html.en
---- htdocs/manual/mod/directives.html.en	28 Jan 2002 19:21:43 -0000	1.1.1.2
-+++ htdocs/manual/mod/directives.html.en	28 Jan 2002 19:40:56 -0000	1.3
-@@ -528,6 +530,28 @@
+--- htdocs/manual/mod/directives.html.en	27 Mar 2002 15:23:17 -0000	1.1.1.3
++++ htdocs/manual/mod/directives.html.en	27 Mar 2002 15:30:01 -0000	1.4
+@@ -534,6 +536,28 @@
        href="mod_setenvif.html#SetEnvIfNoCase">SetEnvIfNoCase</a></li>
  
        <li><a href="mod_mime.html#sethandler">SetHandler</a></li>

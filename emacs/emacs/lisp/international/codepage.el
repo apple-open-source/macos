@@ -1,10 +1,10 @@
-;;; codepage.el --- MS-DOS specific coding systems.
+;;; codepage.el --- MS-DOS/MS-Windows specific coding systems
 
 ;; Copyright (C) 1998 Free Software Foundation, Inc.
 
 ;; Author: Eli Zaretskii
 ;; Maintainer: FSF
-;; Keywords: i18n ms-dos codepage
+;; Keywords: i18n ms-dos ms-windows codepage
 
 ;; This file is part of GNU Emacs.
 
@@ -25,16 +25,16 @@
 
 ;;; Commentary:
 
-;; Special coding systems for DOS codepage support.
+;; Special coding systems for DOS/Windows codepage support.
 ;;
-;; These coding systems perform conversion from the DOS codepage encoding
-;; to one of the ISO-8859 character sets.  Each codepage has its corresponding
-;; ISO-8859 charset, chosen so as to be able to convert all (or most) of the
-;; characters.  The idea is that Emacs internally works with the usual MULE
-;; charsets, and the conversion to and from the DOS codepage is performed
-;; on I/O only.
-;; See term/internal.el for the complementary setup of the DOS terminal
-;; display and input methods.
+;; These coding systems perform conversion from the DOS/Windows
+;; codepage encoding to one of the ISO-8859 character sets.  Each
+;; codepage has its corresponding ISO-8859 charset, chosen so as to be
+;; able to convert all (or most) of the characters.  The idea is that
+;; Emacs internally works with the usual MULE charsets, and the
+;; conversion to and from the DOS codepage is performed on I/O only.
+;; See term/internal.el for the complementary setup of the DOS
+;; terminal display and input methods.
 ;;
 ;; Thanks to Ken'ichi Handa <handa@etl.go.jp> for writing the CCL
 ;; encoders/decoders, and for help in debugging this code. 
@@ -50,12 +50,7 @@ codepage.
 DECODER is a translation table for converting characters in the DOS codepage
 encoding to Emacs multibyte characters.
 ENCODER is a translation table for encoding Emacs multibyte characters into
-external DOS codepage codes.
-
-Note that the coding systems created by this function support automatic
-detection of the EOL format.  However, the decoders and encoders created
-for these coding systems only support DOS and Unix style EOLs (the -mac
-variety is actually just an alias for the -unix variety)."
+external DOS codepage codes."
   (save-match-data
     (let* ((coding-name (symbol-name coding))
 	   (undef (if (eq system-type 'ms-dos)
@@ -63,81 +58,52 @@ variety is actually just an alias for the -unix variety)."
 			  (logand dos-unsupported-char-glyph 255)
 			127)
 		    ??))
-	   (ccl-decoder-dos
+	   (safe-chars (make-char-table 'safe-chars))
+	   (ccl-decoder
 	    (ccl-compile
-	     `(4 (loop (read r1)
-		       (if (r1 != ?\r)
-			   (if (r1 >= 128)
-			       ((r0 = ,(charset-id 'ascii))
-				(translate-character ,decoder r0 r1)
-				(if (r0 == ,(charset-id 'ascii))
-				    (write r1)
-				  (write-multibyte-character r0 r1)))
-			     (write r1)))
-		       (repeat)))))
-	   (ccl-decoder-unix
-	    (ccl-compile
+	     ;; The 4 here supplies the buf_magnification parameter
+	     ;; for the CCL program.  A multibyte character may take
+	     ;; at most 4-bytes.
 	     `(4 (loop (read r1)
 		       (if (r1 >= 128)
 			   ((r0 = ,(charset-id 'ascii))
 			    (translate-character ,decoder r0 r1)
-			    (if (r0 == ,(charset-id 'ascii))
-				(write r1)
-			      (write-multibyte-character r0 r1)))
+			    (write-multibyte-character r0 r1))
 			 (write r1))
 		       (repeat)))))
-	   (ccl-encoder-dos
+	   (ccl-encoder
 	    (ccl-compile
 	     ;; The 2 here supplies the buf_magnification parameter for
 	     ;; the CCL program.  Since the -dos coding system generates
 	     ;; \r\n for each \n, a factor of 2 covers even the worst case
 	     ;; of empty lines with a single \n.
 	     `(2 (loop (read-multibyte-character r0 r1)
-		       (if (r1 == ?\n)
-			   (write ?\r)
-			 (if (r0 != ,(charset-id 'ascii))
-			     ((translate-character ,encoder r0 r1)
-			      (if (r0 == ,(charset-id 'japanese-jisx0208))
-				  ((r1 = ,undef)
-				   (write r1))))))
-		       (write-repeat r1)))))
-	   (ccl-encoder-unix
-	    (ccl-compile
-	     `(1 (loop (read-multibyte-character r0 r1)
 		       (if (r0 != ,(charset-id 'ascii))
 			   ((translate-character ,encoder r0 r1)
 			    (if (r0 == ,(charset-id 'japanese-jisx0208))
 				((r1 = ,undef)
 				 (write r1)))))
 		       (write-repeat r1))))))
-      (if (memq coding coding-system-list)
-	  (setq coding-system-list (delq coding coding-system-list)))
+
+      ;; Set elements of safe multibyte characters for this codepage
+      ;; to t in the char-table safe-chars.
+      (let ((tbl (get decoder 'translation-table))
+	    (i 128)
+	    ch)
+	(while (< i 256)
+	  (setq ch (aref tbl i))
+	  (if ch (aset safe-chars ch t))
+	  (setq i (1+ i))))
 
       ;; Make coding system CODING.
       (make-coding-system
        coding 4 mnemonic
        (concat "8-bit encoding of " (symbol-name iso-name)
 	       " characters using IBM codepage " coding-name)
-       (cons ccl-decoder-unix ccl-encoder-unix)
-       `((safe-charsets ascii ,iso-name)
-	 (valid-codes (0 . 255))
-	 (charset-origin-alist ,(list iso-name (symbol-name coding) encoder))))
-      ;;; Make coding systems CODING-unix, CODING-dos, CODING-mac.
-      (make-subsidiary-coding-system coding)
-      (put coding 'eol-type (vector (intern (format "%s-unix" coding))
-				    (intern (format "%s-dos" coding))
-				    (intern (format "%s-mac" coding))))
-      ;; Change CCL code for CODING-dos.
-      (let ((coding-spec (copy-sequence (get coding 'coding-system))))
-	(aset coding-spec 4
-	      (cons (check-ccl-program
-		     ccl-decoder-dos
-		     (intern (format "%s-dos-decoder" coding)))
-		    (check-ccl-program
-		     ccl-encoder-dos
-		     (intern (format "%s-dos-encoder" coding)))))
-	(put (intern (concat coding-name "-dos")) 'coding-system
-	     coding-spec)))))
+       (cons ccl-decoder ccl-encoder)
+       `((safe-charsets ascii eight-bit-control eight-bit-graphic ,iso-name)
+	 (safe-chars . ,safe-chars)
+	 (valid-codes (0 . 255)))))))
 
 (defun cp-decoding-vector-for-codepage (table charset offset)
   "Create a vector for decoding IBM PC characters using conversion table
@@ -152,7 +118,7 @@ character is generated by (make-char CHARSET OFFSET)."
 	    32))
 	 (vec1 (make-vector 256 undefined-char))
 	 (i 0))
-    (while (< i offset)
+    (while (< i 256)
       (aset vec1 i i)
       (setq i (1+ i)))
     (setq i 0)
@@ -341,7 +307,7 @@ character is generated by (make-char CHARSET OFFSET)."
 (defvar cp862-decode-table
   ;; Nth element is the code of a cp862 glyph for the multibyte
   ;; character created by (make-char 'hebrew-iso8859-8 (+ N 160)).
-  ;; The element nil means there's no corresponding cp850 glyph.
+  ;; The element nil means there's no corresponding cp862 glyph.
   [
    255 173 155 156 nil 157 179 nil nil nil nil 174 170 196 nil nil
    248 241 253 nil nil 230 nil 249 nil nil 246 175 172 171 nil nil
@@ -377,9 +343,25 @@ character is generated by (make-char CHARSET OFFSET)."
    208 209 210 188 189 190 235 215 216 223 238 nil nil nil nil nil
    224 247 248 252 251 239 242 243 232 233 253 nil nil nil nil nil
    nil 241 nil nil nil nil nil nil nil nil nil nil nil nil nil nil]
-  "Table for converting ISO-8859-1 characters into codepage 863 glyphs.")
+  "Table for converting ISO-8859-6 characters into codepage 864 glyphs.")
 (setplist 'cp864-decode-table
 	  '(charset arabic-iso8859-6 language nil offset 160))
+
+;; Arabic OEM codepage used by Windows
+;; FIXME: Emacs doesn't seem to support the "Arabic" language
+;; environment yet.  So this is only partially usable, for now
+(defvar cp720-decode-table
+  [
+   255 nil nil nil 148 nil nil nil nil nil nil nil nil 196 nil nil
+   nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil
+   nil 152 153 154 155 157 158 159 160 161 162 163 164 165 166 167
+   168 169 170 171 172 173 224 225 226 227 228 nil nil nil nil nil
+   149 229 231 232 233 234 235 236 237 238 239 241 242 243 244 245
+   246 145 146 nil nil nil nil nil nil nil nil nil nil nil nil nil]
+  "Table for converting ISO-8859-6 characters into codepage 720 glyphs.")
+(setplist 'cp720-decode-table
+	  '(charset arabic-iso8859-6 language nil offset 160))
+
 
 ;; Nordic (Norwegian/Danish)
 (defvar cp865-decode-table
@@ -394,6 +376,20 @@ character is generated by (make-char CHARSET OFFSET)."
 (setplist 'cp865-decode-table
 	  '(charset latin-iso8859-1 language "Latin-1" offset 160))
 
+;; Russian (Yes, another one!  This one's supposed to be used
+;; on Windows as the Russian OEM code page.)
+(defvar cp866-decode-table
+  [
+   255 240 nil nil 242 nil nil 244 nil nil nil nil nil nil 246 nil
+   128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143
+   144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159
+   160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175
+   223 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238
+   252 241 nil nil 243 nil nil 245 nil nil nil nil nil nil 247 nil]
+  "Table for converting ISO-8859-5 characters into codepage 866 glyphs.")
+(setplist 'cp866-decode-table
+	  '(charset cyrillic-iso8859-5 language "Cyrillic-ISO" offset 160))
+
 ;; Greek (yes, another one!)
 (defvar cp869-decode-table
   [
@@ -407,15 +403,65 @@ character is generated by (make-char CHARSET OFFSET)."
 (setplist 'cp869-decode-table
 	  '(charset greek-iso8859-7 language "Greek" offset 160))
 
-;; Conversion from codepage 775 to Latin-4 for Baltic countries.
+;; Greek OEM codepage used by Windows
+(defvar cp737-decode-table
+  [
+   255 nil nil nil nil nil 179 nil nil nil nil nil nil 196 nil nil
+   248 241 253 nil nil nil 234 250 235 236 237 nil 238 nil 239 240
+   nil 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142
+   143 144 nil 145 146 147 148 149 150 151 244 245 225 226 227 229
+   nil 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166
+   167 168 170 169 171 172 173 174 175 224 228 232 230 231 233 nil]
+  "Table for converting ISO-8859-7 characters into codepage 737 glyphs.")
+(setplist 'cp737-decode-table
+	  '(charset greek-iso8859-7 language "Greek" offset 160))
+
+;; Conversion from codepages 770-775 to Latin-4 for Baltic countries.
+;; FIXME: Once we support Latin-7, these should be remapped into it.
+(defvar cp770-decode-table
+  [
+   255 143 nil nil 155 nil 156 nil 157 159 137 168 nil 196 146 nil
+   248 133 nil nil nil nil 134 nil nil 158 136 152 nil nil 145 nil
+   160 nil nil nil 142 nil nil 173 128 nil 139 nil 144 nil nil 161
+   nil nil nil 163 nil 149 153 nil nil 167 nil nil 154 nil 166 225
+   131 nil nil nil 132 nil nil 141 135 nil 138 nil 130 nil nil 140
+   nil nil nil 162 nil 147 148 247 nil 151 nil nil 129 nil 150 nil]
+  "Table for converting ISO-8859-4 characters into codepage 770 glyphs.")
+(setplist 'cp770-decode-table
+	  '(charset latin-iso8859-4 language "Latin-4" offset 160))
+
+(defvar cp773-decode-table
+  [
+   255 220 nil 138 150 nil 234 190 166 246 237 149 173 196 252 nil
+   208 nil nil 139 239 nil 235 nil nil 247 137 133 136 nil 253 nil
+   160 nil nil nil 142 143 146 244 222 144 240 nil 242 nil nil 161
+   nil 238 226 232 nil 229 153 158 157 248 nil nil 154 nil 250 225
+   131 nil nil nil 132 134 145 245 223 130 241 nil 243 nil nil 140
+   nil 236 147 233 nil 228 148 198 155 249 nil nil 129 nil 251 nil]
+  "Table for converting ISO-8859-4 characters into codepage 773 glyphs.")
+(setplist 'cp773-decode-table
+	  '(charset latin-iso8859-4 language "Latin-4" offset 160))
+
+(defvar cp774-decode-table
+  [
+   255 181 nil nil 155 nil nil nil 245 190 nil nil nil 196 207 nil
+   248 208 nil nil nil nil nil nil nil 213 nil nil nil nil 216 nil
+   nil nil nil nil 142 143 146 189 182 144 183 nil 184 nil nil nil
+   nil nil nil nil nil nil 153 nil nil 198 nil nil 154 nil 199 225
+   nil 160 nil nil 132 134 145 212 209 130 210 137 211 161 140 nil
+   nil nil nil nil 147 nil 148 246 237 214 163 150 129 nil 215 248]
+  "Table for converting ISO-8859-4 characters into codepage 774 glyphs.")
+(setplist 'cp774-decode-table
+	  '(charset latin-iso8859-4 language "Latin-4" offset 160))
+
 (defvar cp775-decode-table
   [
    255 181 nil 138 150 nil 234 245 166 190 237 149 173 240 207 nil
-   248 208 nil 139 239 nil 235 nil nil 213 137 133 nil nil 216 nil
+   248 208 nil 139 239 nil 235 nil nil 213 137 133 136 nil 216 nil
    160 nil nil nil 142 143 146 189 182 144 183 nil 184 nil nil 161
    nil 238 226 232 nil 229 153 158 157 198 nil nil 154 nil 199 225
    131 nil nil nil 132 134 145 212 209 130 210 nil 211 nil nil 140
-   nil 236 147 233 nil 228 148 nil 155 214 nil nil 129 nil 215 nil]
+   nil 236 147 233 nil 228 148 247 155 214 nil nil 129 nil 215 nil]
   "Table for converting ISO-8859-4 characters into codepage 775 glyphs.")
 (setplist 'cp775-decode-table
 	  '(charset latin-iso8859-4 language "Latin-4" offset 160))
@@ -424,7 +470,7 @@ character is generated by (make-char CHARSET OFFSET)."
 ;; butchered from the ISO-8859 specs. This does not add support for
 ;; the extended characters that MS has added in the 128 - 159 coding
 ;; range, only translates those characters that can be expressed in
-;; the corresponding iso-8859 codepage.
+;; the corresponding iso-8859 charset.
 
 ;; Codepage Mapping:
 ;;
@@ -515,8 +561,8 @@ decoder and encoder created by this function."
 	   (symbol-value decode-table) iso-name offset)))
     (define-translation-table encode-translation
       (char-table-extra-slot (symbol-value nonascii-table) 0))
-    ;; For charsets other than ascii and ISO-NAME, set `?' for
-    ;; one-column charsets, and some Japanese character for
+    ;; For charsets other than ascii, eight-bit-* and ISO-NAME, set
+    ;; `?' for one-column charsets, and some Japanese character for
     ;; wide-column charsets.  CCL encoder convert that Japanese
     ;; character to either dos-unsupported-char-glyph or "??".
     (let ((tbl (char-table-extra-slot (symbol-value nonascii-table) 0))
@@ -525,8 +571,11 @@ decoder and encoder created by this function."
 			 (logand dos-unsupported-char-glyph 255)
 		       127)
 		   ??))
-	  (charsets (delq 'ascii (delq iso-name
-				       (copy-sequence charset-list))))
+	  (charsets (delq 'ascii
+			  (delq 'eight-bit-control
+				(delq 'eight-bit-graphic
+				      (delq iso-name
+					    (copy-sequence charset-list))))))
 	  (wide-column-char (make-char 'japanese-jisx0208 32 32)))
       (while charsets
 	(aset tbl (make-char (car charsets))
@@ -616,4 +665,4 @@ read/written by MS-DOS software, or for display on the MS-DOS terminal."
 
 (provide 'codepage)
 
-;; codepage.el ends here
+;;; codepage.el ends here

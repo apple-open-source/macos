@@ -23,9 +23,14 @@ fi
 cd $1
 echo foo > xyzzyTestingAVeryLongFileName.foo
 x=`echo xyzzyTe*`
+echo foo > xyzzyTestingaverylongfilename.foo
+y=`echo xyzzyTestingav*`
 rm xyzzyTe*
 if test "$x" != "xyzzyTestingAVeryLongFileName.foo"; then
     exit
+fi
+if test "$y" != "xyzzyTestingaverylongfilename.foo"; then
+    CASEINSENSITIVEFS=1
 fi
 
 if test -r Access.3; then
@@ -324,8 +329,10 @@ fi
 if test -r DetachPids.3; then
     rm -f Tcl_DetachPids.3
     rm -f Tcl_ReapDetachedProcs.3
+    rm -f Tcl_WaitPid.3
     ln DetachPids.3 Tcl_DetachPids.3
     ln DetachPids.3 Tcl_ReapDetachedProcs.3
+    ln DetachPids.3 Tcl_WaitPid.3
     rm -f DetachPids.3
 fi
 if test -r DoOneEvent.3; then
@@ -940,6 +947,10 @@ if test -r StringObj.3; then
     ln StringObj.3 Tcl_ConcatObj.3
     rm -f StringObj.3
 fi
+if test -r Tcl_Main.3; then
+    rm -f Tcl_SetMainLoop.3
+    ln Tcl_Main.3 Tcl_SetMainLoop.3
+fi
 if test -r Thread.3; then
     rm -f Tcl_ConditionNotify.3
     rm -f Tcl_ConditionWait.3
@@ -1041,10 +1052,12 @@ if test -r WrongNumArgs.3; then
     ln WrongNumArgs.3 Tcl_WrongNumArgs.3
     rm -f WrongNumArgs.3
 fi
+if test "${CASEINSENSITIVEFS:-}" != "1"; then
 if test -r http.n; then
     rm -f Http.n
     ln http.n Http.n
     rm -f http.n
+fi
 fi
 if test -r library.n; then
     rm -f auto_execok.n
@@ -1092,9 +1105,10 @@ if test -r safe.n; then
     ln safe.n SafeBase.n
     rm -f safe.n
 fi
+if test "${CASEINSENSITIVEFS:-}" != "1"; then
 if test -r tcltest.n; then
     rm -f Tcltest.n
     ln tcltest.n Tcltest.n
-    rm -f tcltest.n
+fi
 fi
 exit 0

@@ -15,7 +15,7 @@ PROJECT_TYPE = Aggregate
 TOOLS = migcom.tproj config.tproj relpath.tproj decomment.tproj
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
-            vers_string.sh
+            vers_string.sh vers_string.1
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

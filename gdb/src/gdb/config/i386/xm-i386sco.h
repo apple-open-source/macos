@@ -1,5 +1,5 @@
 /* Macro defintions for i386, running SCO Unix System V/386 3.2.
-   Copyright (C) 1989 Free Software Foundation, Inc.
+   Copyright 1989, 1993, 1995 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -38,6 +38,3 @@
    So we use dots instead.  This item must be coordinated with G++. */
 #undef CPLUS_MARKER
 #define CPLUS_MARKER '.'
-
-/* Use setpgid instead of setpgrp on SCO */
-#define NEED_POSIX_SETPGID

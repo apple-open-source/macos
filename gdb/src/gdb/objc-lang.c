@@ -23,9 +23,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "expression.h"
 #include "parser-defs.h"
 #include "language.h"
+#include "c-lang.h"
 #include "objc-lang.h"
 #include "complaints.h"
 #include "value.h"
+#include "gdb_regex.h"
 #include "symfile.h"
 #include "objfiles.h"
 #include "string.h"		/* for strchr */
@@ -33,6 +35,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "gdbcore.h"
 #include "gdbcmd.h"
 #include "frame.h"
+#include "regcache.h"
 
 #include <ctype.h>
 
@@ -72,6 +75,9 @@ static struct complaint noclass_lookup_complaint =
 static struct complaint nosel_lookup_complaint = 
   {"no way to lookup Objective-C selectors", 0, 0};
 
+/* Should we lookup ObjC Classes as part of ordinary symbol resolution? */
+int lookup_objc_class_p = 1;
+
 /* Lookup a structure type named "struct NAME",
    visible in lexical block BLOCK.  
    If NOERR is nonzero, return zero if NAME is not suitably defined.  */
@@ -107,8 +113,8 @@ CORE_ADDR
 lookup_objc_class (classname)
      char *classname;
 {
-  static cached_value_ptr function = NULL;
-  value_ptr classval;
+  static struct cached_value *function = NULL;
+  struct value *classval;
   
   if (! target_has_execution)
     {
@@ -138,8 +144,8 @@ int
 lookup_child_selector (selname)
      char *selname;
 {
-  static cached_value_ptr function = NULL;
-  value_ptr selstring;
+  static struct cached_value *function = NULL;
+  struct value *selstring;
 
   if (! target_has_execution)
     {
@@ -164,13 +170,11 @@ lookup_child_selector (selname)
   return value_as_long (call_function_by_hand (lookup_cached_function (function), 1, &selstring));
 }
 
-value_ptr 
-value_nsstring (ptr, len)
-     char *ptr;
-     int len;
+struct value * 
+value_nsstring (char *ptr, int len)
 {
-  value_ptr stringValue[3];
-  value_ptr function, nsstringValue;
+  struct value *stringValue[3];
+  struct value *function, *nsstringValue;
   struct symbol *sym;
   struct type *type;
 
@@ -239,7 +243,7 @@ objc_demangle (mangled)
 
       if (!(cp = strchr(cp, '_')))	/* find first non-initial underbar */
 	{
-	  free(demangled);	/* not mangled name */
+	  xfree(demangled);	/* not mangled name */
 	  return NULL;
 	}
       if (cp[1] == '_') {	/* easy case: no category name     */
@@ -250,7 +254,7 @@ objc_demangle (mangled)
 	*cp++ = '(';		/* less easy case: category name */
 	if (!(cp = strchr(cp, '_')))
 	  {
-	    free(demangled);	/* not mangled name */
+	    xfree(demangled);	/* not mangled name */
 	    return NULL;
 	  }
 	*cp++ = ')';
@@ -644,8 +648,36 @@ const struct language_defn objc_language_defn = {
   range_check_off,
   type_check_off,
   case_sensitive_on,
-  objc_parse,
-  objc_error,
+  c_parse,
+  c_error,
+  evaluate_subexp_standard,
+  objc_printchar,		/* Print a character constant */
+  objc_printstr,		/* Function to print string constant */
+  objc_emit_char,
+  objc_create_fundamental_type,	/* Create fundamental type in this language */
+  c_print_type,			/* Print a type using appropriate syntax */
+  c_val_print,			/* Print a value using appropriate syntax */
+  c_value_print,		/* Print a top-level value */
+  {"",     "",    "",  ""},	/* Binary format info */
+  {"0%lo",  "0",   "o", ""},	/* Octal format info */
+  {"%ld",   "",    "d", ""},	/* Decimal format info */
+  {"0x%lx", "0x",  "x", ""},	/* Hex format info */
+  objc_op_print_tab,		/* expression operators for printing */
+  1,				/* c-style arrays */
+  0,				/* String lower bound */
+  &builtin_type_char,		/* Type of string elements */
+  LANG_MAGIC
+};
+
+const struct language_defn objcplus_language_defn = {
+  "objective-c++",				/* Language name */
+  language_objcplus,
+  objc_builtin_types,
+  range_check_off,
+  type_check_off,
+  case_sensitive_on,
+  c_parse,
+  c_error,
   evaluate_subexp_standard,
   objc_printchar,		/* Print a character constant */
   objc_printstr,		/* Function to print string constant */
@@ -719,7 +751,7 @@ add_msglist(str, addcolon)
   s = (char *)xmalloc(len);
   strcpy(s, msglist_sel);
   strncat(s, p, plen);
-  free(msglist_sel);
+  xfree(msglist_sel);
   msglist_sel = s;
   if (addcolon) {
     s[len-2] = ':';
@@ -744,9 +776,9 @@ end_msglist()
   if (!selid)
     error("Can't find selector \"%s\"", p);
   write_exp_elt_longcst (selid);
-  free(p);
+  xfree(p);
   write_exp_elt_longcst (val);/* Number of args */
-  free(sel);
+  xfree(sel);
 
   return val;
 }
@@ -1485,7 +1517,7 @@ void print_object_command (args, from_tty)
      char *args;
      int from_tty;
 {
-  value_ptr object, function, description;
+  struct value *object, *function, *description;
   CORE_ADDR string_addr;
   int i = 0;
   char c = -1;
@@ -1498,7 +1530,7 @@ void print_object_command (args, from_tty)
     register struct cleanup *old_chain = make_cleanup (free_current_contents, &expr);
     int pc = 0;
 
-    object = evaluate_subexp (builtin_type_ptr, expr, &pc, EVAL_NORMAL);
+    object = evaluate_subexp (builtin_type_void_func_ptr, expr, &pc, EVAL_NORMAL);
 
     do_cleanups (old_chain);
   }
@@ -1531,15 +1563,15 @@ void print_object_command (args, from_tty)
 
 struct objc_methcall {
   char *name;
-  CORE_ADDR (*stop_at) (CORE_ADDR); /* should return instance method to be called */
+  int (*stop_at) (CORE_ADDR, CORE_ADDR *); /* should return instance method to be called */
   CORE_ADDR begin;		    /* start of pc range corresponding to method invocation */
   CORE_ADDR end;		    /* end of pc range corresponding to method invocation */
 };
 
-static int resolve_msgsend PARAMS ((CORE_ADDR pc, CORE_ADDR *new_pc));
-static int resolve_msgsend_stret PARAMS ((CORE_ADDR pc, CORE_ADDR *new_pc));
-static int resolve_msgsend_super PARAMS ((CORE_ADDR pc, CORE_ADDR *new_pc));
-static int resolve_msgsend_super_stret PARAMS ((CORE_ADDR pc, CORE_ADDR *new_pc));
+static int resolve_msgsend (CORE_ADDR pc, CORE_ADDR *new_pc);
+static int resolve_msgsend_stret (CORE_ADDR pc, CORE_ADDR *new_pc);
+static int resolve_msgsend_super (CORE_ADDR pc, CORE_ADDR *new_pc);
+static int resolve_msgsend_super_stret (CORE_ADDR pc, CORE_ADDR *new_pc);
 
 static struct objc_methcall methcalls[] = {
   { "_objc_msgSend", resolve_msgsend, 0, 0},
@@ -1662,6 +1694,7 @@ void
 _initialize_objc_language ()
 {
   add_language (&objc_language_defn);
+  add_language (&objcplus_language_defn);
   add_info ("selectors", selectors_info, 	/* INFO SELECTORS command */
 	    "All Objective C selectors, or those matching REGEXP.");
   add_info ("classes", classes_info, 		/* INFO CLASSES   command */
@@ -1672,23 +1705,23 @@ _initialize_objc_language ()
 }
 
 #if defined (__powerpc__) || defined (__ppc__)
-static unsigned long FETCH_ARGUMENT (int i)
+static ULONGEST FETCH_ARGUMENT (int i)
 {
   return read_register (3 + i);
 }
 #elif defined (__i386__)
-static unsigned long FETCH_ARGUMENT (int i)
+static ULONGEST FETCH_ARGUMENT (int i)
 {
   CORE_ADDR stack = read_register (SP_REGNUM);
   return read_memory_unsigned_integer (stack + (4 * (i + 1)), 4);
 }
 #elif defined (__sparc__)
-static unsigned long FETCH_ARGUMENT (int i)
+static ULONGEST FETCH_ARGUMENT (int i)
 {
   return read_register (O0_REGNUM + i);
 }
 #elif defined (__hppa__) || defined (__hppa)
-static unsigned long FETCH_ARGUMENT (int i)
+static ULONGEST FETCH_ARGUMENT (int i)
 {
   return read_register (R0_REGNUM + 26 - i);
 }
@@ -1906,4 +1939,22 @@ resolve_msgsend_super_stret (pc, new_pc)
   if (new_pc != 0) { *new_pc = res; }
   if (res == 0) { return 1; }
   return 0;
+}
+
+int
+should_lookup_objc_class ()
+{
+  return lookup_objc_class_p;
+}
+
+void
+_initialize_objc_lang ()
+{
+    add_show_from_set
+    (add_set_boolean_cmd ("lookup_objc_class", no_class, &lookup_objc_class_p,
+			  "Set whether we should attempt to lookup ObjC"
+			  " classes when we resolve symbols.",
+			  &setlist),
+     &showlist);
+
 }

@@ -1,0 +1,21 @@
+#! /bin/sh
+
+# Test to make sure empty _SOURCES suppresses assumption about default
+# name.  Report from Pavel Roskin.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = pavel
+pavel_SOURCES =
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep 'pavel\.[co]' Makefile.in && exit 1
+exit 0

@@ -1,5 +1,5 @@
 /*
-     File:       DeviceControl.h
+     File:       DVComponentGlue/DeviceControl.h
  
      Contains:   Component API for doing AVC transactions.
  
@@ -7,11 +7,14 @@
  
      DRI:        Jed (George) Wilson
  
-     Copyright:  (c) 1999-2000 by Apple Computer, Inc., all rights reserved.
+     Copyright:  © 1999-2001 by Apple Computer, Inc., all rights reserved.
+ 
+     Warning:    *** APPLE INTERNAL USE ONLY ***
+                 This file may contain unreleased API's
  
      BuildInfo:  Built by:            wgulland
-                 On:                  Thu Sep 21 14:47:22 2000
-                 With Interfacer:     3.0d20e4 (Mac OS X for PowerPC)
+                 On:                  Tue Mar 12 16:49:01 2002
+                 With Interfacer:     3.0d35   (Mac OS X for PowerPC)
                  From:                DeviceControl.i
                      Revision:        3
                      Dated:           6/16/99
@@ -25,15 +28,9 @@
 #ifndef __DEVICECONTROL__
 #define __DEVICECONTROL__
 
-#ifndef __MACTYPES__
-#include <MacTypes.h>
+#ifndef __CORESERVICES__
+#include <CoreServices/CoreServices.h>
 #endif
-
-#ifndef __COMPONENTS__
-#include <Components.h>
-#endif
-
-
 
 
 
@@ -45,10 +42,6 @@
 extern "C" {
 #endif
 
-#if PRAGMA_IMPORT
-#pragma import on
-#endif
-
 #if PRAGMA_STRUCT_ALIGN
     #pragma options align=mac68k
 #elif PRAGMA_STRUCT_PACKPUSH
@@ -58,18 +51,27 @@ extern "C" {
 #endif
 
 typedef CALLBACK_API_C( UInt32 , DCResponseHandler )(UInt32 fwCommandObjectID, Ptr responseBuffer, UInt32 responseLength);
-
 struct DVCTransactionParams {
-    Ptr                             commandBufferPtr;
-    UInt32                          commandLength;
-    Ptr                             responseBufferPtr;
-    UInt32                          responseBufferSize;
-    DCResponseHandler *             responseHandler;
+  Ptr                 commandBufferPtr;
+  UInt32              commandLength;
+  Ptr                 responseBufferPtr;
+  UInt32              responseBufferSize;
+  DCResponseHandler * responseHandler;
 };
 typedef struct DVCTransactionParams     DVCTransactionParams;
-EXTERN_API( ComponentResult )
-DeviceControlDoAVCTransaction   (ComponentInstance      instance,
-                                 DVCTransactionParams * params)                             FIVEWORDINLINE(0x2F3C, 0x0004, 0x0001, 0x7000, 0xA82A);
+/*
+ *  DeviceControlDoAVCTransaction()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        not available
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
+DeviceControlDoAVCTransaction(
+  ComponentInstance       instance,
+  DVCTransactionParams *  params);
+
 
 
 
@@ -84,12 +86,6 @@ enum {
     #pragma pack(pop)
 #elif PRAGMA_STRUCT_PACK
     #pragma pack()
-#endif
-
-#ifdef PRAGMA_IMPORT_OFF
-#pragma import off
-#elif PRAGMA_IMPORT
-#pragma import reset
 #endif
 
 #ifdef __cplusplus

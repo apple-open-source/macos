@@ -267,7 +267,7 @@ enum {
 	kReleaseBlock	 = 0x00000000,
 	kForceWriteBlock = 0x00000001,
 	kMarkBlockDirty	 = 0x00000002,
-	kTrashBlock	 = 0x00000004
+	kTrashBlock	 	 = 0x00000004
 };
 typedef OptionBits  ReleaseBlockOptions;
 

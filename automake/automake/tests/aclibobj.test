@@ -1,0 +1,34 @@
+#! /bin/sh
+
+# Make sure AC_LIBOBJ and friends work.
+
+. $srcdir/defs || exit 1
+
+cat > X << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_PROG_CC
+AC_PROG_RANLIB
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+noinst_LIBRARIES = libtu.a
+libtu_a_SOURCES =
+libtu_a_LIBADD = @LIBOBJS@
+END
+
+: > maude.c
+: > liver.c
+
+$ACLOCAL
+
+set -e
+
+cp X configure.in
+echo 'AC_LIBSOURCE(maude.c)' >> configure.in
+$AUTOMAKE
+
+cp X configure.in
+echo 'AC_LIBSOURCES([maude.c, liver.c])' >> configure.in
+$AUTOMAKE

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,31 +50,29 @@ ENTRY(TimeSystemBusKeyLargo, TAG_NO_FRAME_USED)
 			
 			lis		r4, 0x000F
 			ori		r4, r4, 0xFFFF		; Load decrementer tick count (1,048,575)
-			li		r8, 0				; Load KeyLargo start time (zero)
 			lis		r6, kKeyLargoCounterLoOffset >> 16
 			ori		r6, r6, kKeyLargoCounterLoOffset & 0xFFFF ; Counter lo offset
 			lis		r7, kKeyLargoCounterHiOffset >> 16
 			ori		r7, r7, kKeyLargoCounterHiOffset & 0xFFFF ; Counter hi offset
-			stwbrx	r8, r6, r3			; Set low 32-bits to zero (latches all 64 bits)
-			eieio
-			stwbrx	r8, r7, r3			; Set high 32-bits to zero
-			eieio
+			lwbrx	r8, r6, r3			; Read low 32-bits of counter
+			lwbrx	r9, r7, r3			; Read hi 32-bits of counter
 			
 			; Set up decrementer and wait for it to tick down
 			
 			mtdec	r4					; Set decrementer to 1,048,575
 			isync
 			
-DecrementerLoop:
+NewDecrementerLoop:
 			mfdec	r5					; Read current decrementer value
 			cmpwi	r5, 0				; Check if decrementer is zero
-			bgt+	DecrementerLoop		; If not yet to zero, keep looping
+			bgt+	NewDecrementerLoop		; If not yet to zero, keep looping
 			sync
 			
 			; Read current value of KeyLargo to get delta time
 			
-			lwbrx	r5, r6, r3			; Load low 32-bits of timer (latches all 64 bits)
-			lwbrx	r10, r7, r3			; Load high 32-bits of timer
-			mr		r3, r5				; Copy timing result to output
+			lwbrx	r4, r6, r3			; Load low 32-bits of timer (latches all 64 bits)
+			lwbrx	r5, r7, r3			; Load high 32-bits of timer (clear latch)
 			
+			; Calculate difference
+			subf	r3, r8, r4			; Subtract low bits (ignore wrap)
 			blr							; Return

@@ -8,8 +8,8 @@
 
 /* -*-C-*-
  *
- * 1.1.1.2
- *     1999/11/02 04:44:26
+ * 1.2
+ *     2001/06/29 01:19:23
  *
  */
 #ifndef angsd_hostchan_h
@@ -21,6 +21,13 @@
 #ifndef __CYGWIN__
 #define __CYGWIN__
 #endif
+#endif
+
+/* A temporary sop to older compilers */
+#if defined (__NetBSD__) || defined (unix)
+#  ifndef __unix              /* (good for long-term portability?)  */
+#    define __unix    1
+#  endif
 #endif
 
 /* struct timeval */

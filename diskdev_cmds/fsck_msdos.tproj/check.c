@@ -73,7 +73,7 @@ checkfilesys(fname)
 	int dosfs;
 	struct bootblock boot;
 	struct fatEntry *fat = NULL;
-	int i, finish_dosdirsection=0;
+	int finish_dosdirsection=0;
 	int mod = 0;
 	int ret = 8;
 	int tryFatalAgain = 1;
@@ -105,37 +105,43 @@ checkfilesys(fname)
 		return 8;
 	}
 
+       if (quick) {
+               if (isdirty(dosfs, &boot, boot.ValidFat >= 0 ? boot.ValidFat : 0)) {
+                       pwarn("FILESYSTEM DIRTY; SKIPPING CHECKS\n");
+                       ret = FSDIRTY;
+               }
+               else {
+                       pwarn("FILESYSTEM CLEAN; SKIPPING CHECKS\n");
+                       ret = 0;
+               }
+
+               close(dosfs);
+               return ret;
+       }
+
 Again:
-	mod = 0;	/* make sure its reset */
+	mod = 0;		/* make sure its reset */
+        boot.NumFiles = 0;	/* Reset file count in case we loop back here */
 	
-	if (!preen)  {
-		if (boot.ValidFat < 0)
-			printf("** Phase 1 - Read and Compare FATs\n");
-		else
-			printf("** Phase 1 - Read FAT\n");
-	}
-
-
+	/*
+	 * [2771127] When there was no active FAT, this code used to
+	 * compare FAT #0 with all the other FATs.  That doubled the
+	 * already large memory usage, and doesn't seem very useful.
+	 * Microsoft's specification says the purpose of the alternate
+	 * FATs is in case a sector goes bad in the main FAT.  In fact,
+	 * a Windows 2000 system never even notices the FATs have
+	 * different values.  Besides, the filesystem itself only ever
+	 * uses FAT #0.
+	 */
+	if (!preen) {
+		printf("** Phase 1 - Read FAT\n");
+        }
+        
 	mod |= readfat(dosfs, &boot, boot.ValidFat >= 0 ? boot.ValidFat : 0, &fat);
 	if (mod & FSFATAL) {
 		close(dosfs);
 		return 8;
 	}
-
-	if (boot.ValidFat < 0)
-		for (i = 1; i < boot.FATs; i++) {
-			struct fatEntry *currentFat;
-
-			mod |= readfat(dosfs, &boot, i, &currentFat);
-
-			if (mod & FSFATAL)
-				goto out;
-
-			mod |= comparefat(&boot, fat, currentFat, i);
-			free(currentFat);
-			if (mod & FSFATAL)
-				goto out;
-		}
 
 	if (!preen)
 		printf("** Phase 2 - Check Cluster Chains\n");
@@ -204,7 +210,7 @@ Again:
 		goto Again;
 	if ((mod & FSERROR) && (--tryErrorAgain > 0))
 		goto Again;
-	if ((mod & (FSFIXFAT | FSDIRTY)) && (--tryOthersAgain > 0))
+	if ((mod & FSFIXFAT) && (--tryOthersAgain > 0))
 		goto Again;
 		
 	if (mod & (FSFATAL | FSERROR))

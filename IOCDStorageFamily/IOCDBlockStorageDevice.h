@@ -19,30 +19,56 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * IOCDBlockStorageDevice.h
- *
- * This class is the protocol for generic CDROM functionality, independent of
- * the physical connection protocol (e.g. SCSI, ATA, USB).
- *
- * The APIs are the union of CDROM (block storage) data APIs and all
- * necessary low-level CD APIs.
- *
- * A subclass implements relay methods that translate our requests into
- * calls to a protocol- and device-specific provider.
+
+/*!
+ * @header IOCDBlockStorageDevice
+ * @abstract
+ * This header contains the IOCDBlockStorageDevice class definition.
  */
 
-#ifndef	_IOCDBLOCKSTORAGEDEVICE_H
-#define	_IOCDBLOCKSTORAGEDEVICE_H
+#ifndef _IOCDBLOCKSTORAGEDEVICE_H
+#define _IOCDBLOCKSTORAGEDEVICE_H
 
-#include <IOKit/IOTypes.h>
 #include <IOKit/storage/IOCDTypes.h>
+
+/*!
+ * @defined kIOCDBlockStorageDeviceClass
+ * @abstract
+ * kIOCDBlockStorageDeviceClass is the name of the IOCDBlockStorageDevice class.
+ * @discussion
+ * kIOCDBlockStorageDeviceClass is the name of the IOCDBlockStorageDevice class.
+ */
+
+#define kIOCDBlockStorageDeviceClass "IOCDBlockStorageDevice"
+
+#ifdef KERNEL
+#ifdef __cplusplus
+
+/*
+ * Kernel
+ */
+
 #include <IOKit/storage/IOBlockStorageDevice.h>
 
 /* Property used for matching, so the generic driver gets the nub it wants. */
 #define	kIOBlockStorageDeviceTypeCDROM	"CDROM"
 
-class IOMemoryDescriptor;
+/*!
+ * @class
+ * IOCDBlockStorageDevice : public IOBlockStorageDevice
+ * @abstract
+ * The IOCDBlockStorageDevice class is a generic CD block storage device
+ * abstraction.
+ * @discussion
+ * This class is the protocol for generic CD functionality, independent of
+ * the physical connection protocol (e.g. SCSI, ATA, USB).
+ *
+ * The APIs are the union of CD (block storage) data APIs and all
+ * necessary low-level CD APIs.
+ *
+ * A subclass implements relay methods that translate our requests into
+ * calls to a protocol- and device-specific provider.
+ */
 
 class IOCDBlockStorageDevice : public IOBlockStorageDevice {
 
@@ -126,4 +152,7 @@ public:
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice, 14);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDevice, 15);
 };
-#endif
+
+#endif /* __cplusplus */
+#endif /* KERNEL */
+#endif /* !_IOCDBLOCKSTORAGEDEVICE_H */

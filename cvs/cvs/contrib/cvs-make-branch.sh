@@ -14,8 +14,7 @@
 #  into either or both the release branch and the trunk depending on your
 #  change control policy, then you need this.
 ##
-# Wilfredo Sanchez Jr. | wsanchez@apple.com
-# Copyright 1998 Apple Computer, Inc.
+# Copyright 1998-2002 Apple Computer, Inc.
 ##
 
 ##

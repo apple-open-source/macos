@@ -1,10 +1,46 @@
-/*
-   ** tuiCommand.c
-   **     This module contains functions specific to command window processing.
- */
+/* Specific command window processing.
 
+   Copyright 1998, 1999, 2000, 2001, 2002 Free Software Foundation,
+   Inc.
+
+   Contributed by Hewlett-Packard Company.
+
+   This file is part of GDB.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
+
+/* FIXME: cagney/2002-02-28: The GDB coding standard indicates that
+   "defs.h" should be included first.  Unfortunatly some systems
+   (currently Debian GNU/Linux) include the <stdbool.h> via <curses.h>
+   and they clash with "bfd.h"'s definiton of true/false.  The correct
+   fix is to remove true/false from "bfd.h", however, until that
+   happens, hack around it by including "config.h" and <curses.h>
+   first.  */
+
+#include "config.h"
+#ifdef HAVE_NCURSES_H       
+#include <ncurses.h>
+#else
+#ifdef HAVE_CURSES_H
+#include <curses.h>
+#endif
+#endif
 
 #include "defs.h"
+#include <ctype.h>
 #include "tui.h"
 #include "tuiData.h"
 #include "tuiWin.h"
@@ -26,15 +62,10 @@
    **        Dispatch the correct tui function based upon the control character.
  */
 unsigned int
-#ifdef __STDC__
-tuiDispatchCtrlChar (
-		      unsigned int ch)
-#else
-tuiDispatchCtrlChar (ch)
-     unsigned int ch;
-#endif
+tuiDispatchCtrlChar (unsigned int ch)
 {
   TuiWinInfoPtr winInfo = tuiWinWithFocus ();
+  WINDOW *w = cmdWin->generic.handle;
 
   /*
      ** If the command window has the logical focus, or no-one does
@@ -63,13 +94,21 @@ tuiDispatchCtrlChar (ch)
 	  tmpChar = 0;
 	  while (!m_isEndSequence (tmpChar))
 	    {
-	      tmpChar = (int) wgetch (cmdWin->generic.handle);
+	      tmpChar = (int) wgetch (w);
+	      if (tmpChar == ERR)
+		{
+		  return ch;
+		}
 	      if (!tmpChar)
 		break;
 	      if (tmpChar == 53)
 		pageCh = KEY_PPAGE;
 	      else if (tmpChar == 54)
 		pageCh = KEY_NPAGE;
+	      else
+		{
+		  return 0;
+		}
 	    }
 	  chCopy = pageCh;
 	}
@@ -105,111 +144,4 @@ tuiDispatchCtrlChar (ch)
 	}
       return c;
     }
-}				/* tuiDispatchCtrlChar */
-
-
-/*
-   ** tuiIncrCommandCharCountBy()
-   **     Increment the current character count in the command window,
-   **     checking for overflow.  Returns the new value of the char count.
- */
-int
-#ifdef __STDC__
-tuiIncrCommandCharCountBy (
-			    int count)
-#else
-tuiIncrCommandCharCountBy (count)
-     int count;
-#endif
-{
-  if (tui_version)
-    {
-      if ((count + cmdWin->detail.commandInfo.curch) >= cmdWin->generic.width)
-	cmdWin->detail.commandInfo.curch =
-	  (count + cmdWin->detail.commandInfo.curch) - cmdWin->generic.width;
-      else
-	cmdWin->detail.commandInfo.curch += count;
-    }
-
-  return cmdWin->detail.commandInfo.curch;
-}				/* tuiIncrCommandCharCountBy */
-
-
-/*
-   ** tuiDecrCommandCharCountBy()
-   **     Decrement the current character count in the command window,
-   **     checking for overflow.  Returns the new value of the char count.
- */
-int
-#ifdef __STDC__
-tuiDecrCommandCharCountBy (
-			    int count)
-#else
-tuiDecrCommandCharCountBy (count)
-     int count;
-#endif
-{
-  if (tui_version)
-    {
-      if ((cmdWin->detail.commandInfo.curch - count) < 0)
-	cmdWin->detail.commandInfo.curch =
-	  cmdWin->generic.width + (cmdWin->detail.commandInfo.curch - count);
-      else
-	cmdWin->detail.commandInfo.curch -= count;
-    }
-
-  return cmdWin->detail.commandInfo.curch;
-}				/* tuiDecrCommandCharCountBy */
-
-
-/*
-   ** tuiSetCommandCharCountTo()
-   **     Set the character count to count.
- */
-int
-#ifdef __STDC__
-tuiSetCommandCharCountTo (
-			   int count)
-#else
-tuiSetCommandCharCountTo (count)
-     int count;
-#endif
-{
-  if (tui_version)
-    {
-      if (count > cmdWin->generic.width - 1)
-	{
-	  cmdWin->detail.commandInfo.curch = 0;
-	  tuiIncrCommandCharCountBy (count);
-	}
-      else
-	cmdWin->detail.commandInfo.curch -= count;
-    }
-
-  return cmdWin->detail.commandInfo.curch;
-}				/* tuiSetCommandCharCountTo */
-
-
-
-/*
-   ** tuiClearCommandCharCount()
-   **     Clear the character count to count.
- */
-int
-#ifdef __STDC__
-tuiClearCommandCharCount (void)
-#else
-tuiClearCommandCharCount ()
-#endif
-{
-  if (tui_version)
-    cmdWin->detail.commandInfo.curch = 0;
-
-  return cmdWin->detail.commandInfo.curch;
-}				/* tuiClearCommandCharCount */
-
-
-
-/*****************************************
-** STATIC LOCAL FUNCTIONS                 **
-******************************************/
+}

@@ -2,6 +2,9 @@
 {
 	00FE5D8DFEF9EE7911CA2CB3 = {
 		activeExec = 0;
+		executables = (
+			26EFAFA800D6E87E08CA2CE9,
+		);
 	};
 	00FE5D97FEF9EFA211CA2CB3 = {
 		activeExec = 0;
@@ -16,97 +19,43 @@
 		environmentEntries = (
 		);
 		isa = PBXExecutable;
+		name = jam;
+		shlibInfoDictList = (
+		);
+		sourceDirectories = (
+		);
+	};
+	26EFAFA800D6E87E08CA2CE9 = {
+		activeArgIndex = 2147483647;
+		argumentStrings = (
+		);
+		debuggerPlugin = GDBDebugging;
+		dylibVariantSuffix = "";
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		isa = PBXExecutable;
+		name = mkjambase;
+		shlibInfoDictList = (
+		);
 		sourceDirectories = (
 		);
 	};
 	3C561387FEEF59C211CA2CB3 = {
 		activeBuildStyle = 07B3C7DFFFA7A65311CA2CEA;
+		activeExecutable = 26EFAFA800D6E87E08CA2CE9;
 		activeTarget = 3C5613D6FEEF59C211CA2CB3;
-		perUserDictionary = {
-			PBXWorkspaceConfiguration = {
-				ContentSize = "{1182, 809}";
-				LeftSlideOut = {
-					ActiveTab = 0;
-					Frame = "{{0, 23}, {1182, 786}}";
-					Split0 = {
-						Frame = "{{297, 0}, {885, 786}}";
-						Split0 = {
-							Frame = "{{0, 25}, {885, 761}}";
-						};
-						SplitCount = 1;
-						Tab0 = {
-							Debugger = {
-								Frame = "{{0, 0}, {785, 422}}";
-								Split0 = {
-									Frame = "{{0, 120}, {785, 302}}";
-									Split0 = {
-										Frame = "{{0, 0}, {380, 302}}";
-									};
-									Split1 = {
-										Frame = "{{389, 0}, {396, 302}}";
-									};
-									SplitCount = 2;
-								};
-								SplitCount = 1;
-								Tab0 = {
-									Frame = "{{0, 0}, {100, 50}}";
-								};
-								Tab1 = {
-									Frame = "{{0, 0}, {100, 50}}";
-								};
-								TabCount = 2;
-							};
-							Frame = "{{0, 0}, {785, 422}}";
-							LauncherConfigVersion = 4;
-						};
-						Tab1 = {
-							Frame = "{{0, 0}, {785, 139}}";
-							LauncherConfigVersion = 3;
-							Runner = {
-								Frame = "{{0, 0}, {785, 139}}";
-							};
-						};
-						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {789, 138}}";
-							BuildTranscriptFrame = "{{0, 147}, {789, 146}}";
-							Frame = "{{0, 0}, {785, 291}}";
-						};
-						Tab3 = {
-							Frame = "{{0, 0}, {785, 295}}";
-						};
-						TabCount = 4;
-					};
-					SplitCount = 1;
-					Tab0 = {
-						Frame = "{{0, 0}, {272, 786}}";
-					};
-					Tab1 = {
-						Frame = "{{0, 0}, {200, 758}}";
-					};
-					Tab2 = {
-						Frame = "{{0, 0}, {200, 758}}";
-						Split0 = {
-							Frame = "{{0, 0}, {200, 370}}";
-						};
-						Split1 = {
-							Frame = "{{0, 379}, {200, 379}}";
-						};
-						SplitCount = 2;
-					};
-					Tab3 = {
-						Frame = "{{0, 0}, {235, 758}}";
-					};
-					TabCount = 4;
-				};
-			};
-		};
+		executables = (
+			26EFAFA800D6E87E08CA2CE9,
+			0A8198BE00571E3511CA2CEA,
+		);
+		wantsIndex = 1;
+		wantsSCM = -1;
 	};
 	3C5613D6FEEF59C211CA2CB3 = {
 		activeExec = 0;
-		targetExecs = {
-			macosx = (
-				0A8198BE00571E3511CA2CEA,
-			);
-		};
+		executables = (
+			0A8198BE00571E3511CA2CEA,
+		);
 	};
 }

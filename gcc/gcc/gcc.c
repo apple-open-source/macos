@@ -3542,7 +3542,7 @@ process_command (argc, argv)
 		}
 #endif /* NEXT_SEMANTICS */
 #endif /* NEXT_FAT_OUTPUT || NEXT_SEMANTICS */
-
+	    	
 	    case 'c':
 #ifdef NEXT_SEMANTICS
               if (!strcmp (p, "current_version"))
@@ -4090,6 +4090,8 @@ size_t input_filename_length;
 static int basename_length;
 static const char *input_basename;
 static const char *input_suffix;
+static struct stat input_stat;
+static int input_stat_set;
 
 /* These are variables used within do_spec and do_spec_1.  */
 
@@ -4478,12 +4480,6 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	  case 'g':
 	  case 'u':
 	  case 'U':
-	    if (save_temps_flag)
-	      {
-		obstack_grow (&obstack, input_basename, basename_length);
-		delete_this_arg = 0;
-	      }
-	    else
 	      {
 #ifdef MKTEMP_EACH_FILE
 		/* ??? This has a problem: the total number of
@@ -4508,6 +4504,46 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		    while (*p == '.' || ISALPHA ((unsigned char)*p))
 		      p++;
 		    suffix_length = p - suffix;
+		  }
+		
+		if (save_temps_flag)
+		  {
+		    temp_filename_length = basename_length + suffix_length;
+		    temp_filename = alloca (temp_filename_length + 1);
+		    strncpy ((char *) temp_filename, input_basename, basename_length);
+		    strncpy ((char *) temp_filename + basename_length, suffix,
+		    	     suffix_length);
+		    *((char *) temp_filename + temp_filename_length) = '\0';
+		    if (strcmp (temp_filename, input_filename) != 0)
+		      {
+		      	struct stat st_temp;
+		      	
+		      	/* Note, input_stat_set to 0 for each new file.  */
+		      	if (input_stat_set == 0)
+		      	  {
+		      	    input_stat_set = stat (input_filename, &input_stat);
+		      	    if (input_stat_set >= 0)
+		      	      input_stat_set = 1;
+		      	  }
+		      	  
+		      	/* If we have the stat for the input_filename
+		      	   and we can do the stat for the temp_filename
+		      	   then the they could still refer to the same
+		      	   file if st_dev/st_ino's are the same.  */
+		      	
+			if (input_stat_set != 1
+			    || stat (temp_filename, &st_temp) < 0
+			    || input_stat.st_dev != st_temp.st_dev
+			    || input_stat.st_ino != st_temp.st_ino)
+ 		      	  {
+			    temp_filename = save_string (temp_filename,
+							 temp_filename_length + 1);
+			    obstack_grow (&obstack, temp_filename,
+			    			    temp_filename_length);
+			    arg_going = 1;
+			    break;
+			  }
+		      }
 		  }
 
 		/* See if we already have an association of %g/%u/%U and
@@ -4585,6 +4621,30 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 #endif
 	    }
 	    break;
+
+	    /* APPLE LOCAL begin cpp-precomp */
+	  case 'y':
+	    {
+		  char *tmpstr = xmalloc (strlen (STANDARD_EXEC_PREFIX) 
+			+ strlen (DEFAULT_TARGET_VERSION) 
+			+ strlen (DEFAULT_TARGET_MACHINE) + 25);
+		  do_spec_1 ("-isystem", 1, NULL);
+		  /* Make this a separate argument.  */
+		  do_spec_1 (" ", 0, NULL);
+		  sprintf (tmpstr, "/usr/include/gcc/darwin/%s", 
+			DEFAULT_TARGET_VERSION);
+		  do_spec_1 (tmpstr, 1, NULL);
+		  do_spec_1 (" ", 0, NULL);		/* fh */
+		  sprintf (tmpstr, 
+			"-ispecs=/usr/libexec/gcc/darwin/%s/%s/specs",  
+			arch_array[current_arch]->name, 
+			DEFAULT_TARGET_VERSION);
+		  do_spec_1 (tmpstr, 1, NULL);
+		  do_spec_1 (" ", 0, NULL);		/* fh */
+		  free (tmpstr);
+ 	    }
+	    break;
+	    /* APPLE LOCAL end cpp-precomp */
 
 	  case 'o':
 	    {
@@ -5863,7 +5923,7 @@ main (argc, argv)
 	}
     }
   multi_arch = (arch_count > 1);
-  arch_merge_files = (char **) xmalloc (arch_count * sizeof (char *));
+  arch_merge_files = (const char **) xmalloc (arch_count * sizeof (char *));
   machine_suffix = concat (arch_family[0], dir_separator_str,
 			   spec_version, dir_separator_str, NULL);
   just_machine_suffix = concat (arch_family[0], dir_separator_str, NULL_PTR);
@@ -6181,7 +6241,12 @@ main (argc, argv)
 	    }
 	  else
 	    input_suffix = "";
-
+	  
+	  /* If a spec for 'g', 'u', or 'U' is seen with -save-temps then
+	     we will need to do a stat on the input_filename.  The
+	     INPUT_STAT_SET signals that the stat is needed.  */
+	  input_stat_set = 0;
+    
 	  len = 0;
 	  for (j = 0; j < sizeof cp->spec / sizeof cp->spec[0]; j++)
 	    if (cp->spec[j])
@@ -6320,7 +6385,7 @@ main (argc, argv)
 			     (multi_arch ? "Linking %s for %s" : "Linking %s"),
 			     link_output, arch_array[current_arch]->name, 0);
 #endif
-	  machine_suffix = concat (arch_family[current_arch],
+	  machine_suffix = concat (spec_version,
 				   dir_separator_str, NULL);
 	  value = do_spec (link_command_spec);
 	  if (value < 0)

@@ -31,7 +31,7 @@ Boston, MA 02111-1307, USA. */
    from the system, or return core.  This allows mmalloc() to provide
    backwards compatibility with the non-mmap'd version. */
 
-static struct mdesc *__mmalloc_default_mdp;
+struct mdesc *__mmalloc_default_mdp = NULL;
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>	/* Prototypes for lseek, sbrk (maybe) */
@@ -40,15 +40,15 @@ static struct mdesc *__mmalloc_default_mdp;
 #include "mcalloc.c"
 #include "mfree.c"
 #include "mmalloc.c"
-#include "mmcheck.c"
 #include "mmemalign.c"
 #include "mmstats.c"
 #include "mmtrace.c"
 #include "mrealloc.c"
 #include "mvalloc.c"
-#include "mmap-sup.c"
-#include "malloc-sup.c"
 #include "attach.c"
 #include "detach.c"
 #include "keys.c"
 #include "sbrk-sup.c"
+#include "mmap-sup.c"
+#include "malloc-sup.c"
+#include "check-sup.c"

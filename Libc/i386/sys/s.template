@@ -1,0 +1,7 @@
+/*
+ * Copyright (c) 1998 Apple Computer, Inc. All Rights Reserved
+ */
+#include "SYS.h"
+
+UNIX_SYSCALL($FILENAMESANSEXTENSION$, 0)
+	ret

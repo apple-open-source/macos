@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,15 +20,28 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 #ifndef _IOKIT_IO_SCSI_PROTOCOL_SERVICES_H_
 #define _IOKIT_IO_SCSI_PROTOCOL_SERVICES_H_
 
 #if defined(KERNEL) && defined(__cplusplus)
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// General IOKit headers
 #include <IOKit/IOLib.h>
 #include <IOKit/IOCommandGate.h>
 
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/IOSCSIProtocolInterface.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // Power Management values
 enum
@@ -37,6 +50,11 @@ enum
 	kSCSIProtocolLayerPowerStateOn				= 1,
 	kSCSIProtocolLayerNumDefaultStates			= 2
 };
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class IOSCSIProtocolServices : public IOSCSIProtocolInterface
 {
@@ -57,10 +75,10 @@ private:
 	bool			fAllowServiceRequests;
 	
 protected:
-
-    // Reserve space for future expansion.
-    struct IOSCSIProtocolServicesExpansionData { };
-    IOSCSIProtocolServicesExpansionData *fIOSCSIProtocolServicesReserved;
+	
+	// Reserve space for future expansion.
+	struct IOSCSIProtocolServicesExpansionData { };
+	IOSCSIProtocolServicesExpansionData * fIOSCSIProtocolServicesReserved;
 	
 	// ---- Protocol transport methods overridden by each subclass ----
 	
@@ -98,8 +116,8 @@ protected:
 									SCSITaskState newTaskState );
 	SCSITaskState	GetTaskState ( 	SCSITaskIdentifier request );
 	
-	UInt8			GetLogicalUnitNumber( SCSITaskIdentifier request );
-
+	UInt8			GetLogicalUnitNumber ( SCSITaskIdentifier request );
+	
 	// Method to determine the size of the command descriptor block.
 	UInt8	GetCommandDescriptorBlockSize ( SCSITaskIdentifier request );
 	
@@ -123,13 +141,18 @@ protected:
 	IOMemoryDescriptor *	GetDataBuffer ( SCSITaskIdentifier request );
 	
 	UInt64	GetDataBufferOffset ( SCSITaskIdentifier request );
-
+	
 	UInt32	GetTimeoutDuration ( SCSITaskIdentifier request );
 	
 	// Set the auto sense data that was returned for the SCSI Task.
 	// A return value of true indicates that the data was copied to the member 
 	// sense data structure, false indicates that the data could not be copied.
-	bool	SetAutoSenseData ( SCSITaskIdentifier request, SCSI_Sense_Data * senseData );
+	bool	SetAutoSenseData ( SCSITaskIdentifier	request,
+							   SCSI_Sense_Data *	senseData ); // DEPRECATED, use the one on the line below.
+	
+	bool	SetAutoSenseData ( SCSITaskIdentifier	request,
+							   SCSI_Sense_Data *	senseData,
+							   UInt8				senseDataSize );
 	
 	bool	SetProtocolLayerReference ( 
 				SCSITaskIdentifier 		request, 
@@ -173,7 +196,7 @@ protected:
 	void	ProcessCompletedTask ( 	SCSITaskIdentifier 	request, 
 									SCSIServiceResponse serviceResponse,
 									SCSITaskStatus		taskStatus );
-	void	RejectTask ( SCSITaskIdentifier 	request );
+	void	RejectTask ( SCSITaskIdentifier		request );
 	
 	// ------ Power Management Support ------
 	
@@ -182,7 +205,7 @@ protected:
 	// to initialize power management state variables and then registers the protocol
 	// layer driver with the power manager with two(2) states, ON and OFF.	
 	virtual void		InitializePowerManagement ( IOService * provider );
-
+	
 	// The GetInitialPowerState method is called once, right after InitializePowerManagement()
 	// in order to determine what state the device is initially in at startup time (usually
 	// the highest power mode).
@@ -214,47 +237,96 @@ protected:
 	
 public:
 	
-	bool			init	( OSDictionary * propTable );
+	virtual bool	init	( OSDictionary * propTable );
 	virtual bool	start	( IOService * provider );
 	virtual void	stop	( IOService *  provider );
+	virtual void	free	( void );
 	
-	// -- The SCSI Protocol Interface methods	--
+	
+	// ------- SCSI Architecture Model Task Management Functions ------
 	// The ExecuteCommand method will take a SCSI Task and transport
 	// it across the physical wire(s) to the device
-	virtual void	ExecuteCommand ( SCSITaskIdentifier	request );
+	void					ExecuteCommand ( SCSITaskIdentifier	request );
 	
-	// The AbortCommand method will abort the indicated SCSI Task,
-	// if it is possible and the task has not already completed.
+	// The Task Management function to allow the SCSI Application Layer client to request
+	// that a specific task be aborted.
+	SCSIServiceResponse		AbortTask ( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag );
+
+	// The Task Management function to allow the SCSI Application Layer client to request
+	// that a all tasks curerntly in the task set be aborted.
+	SCSIServiceResponse		AbortTaskSet ( UInt8 theLogicalUnit );
+
+	SCSIServiceResponse		ClearACA ( UInt8 theLogicalUnit );
+
+	SCSIServiceResponse		ClearTaskSet ( UInt8 theLogicalUnit );
+    
+	SCSIServiceResponse		LogicalUnitReset ( UInt8 theLogicalUnit );
+
+	SCSIServiceResponse		TargetReset ( void );
+	
+    // ************* Obsoleted Member Routine ****************
+    // The AbortCommand method is replaced by the AbortTask Management function and
+    // should no longer be called.
 	virtual SCSIServiceResponse		AbortCommand ( SCSITaskIdentifier	request );
+
 	
 	// ---- Method used for determining protocol or physical interconnect characteristics. ----
 	// The IsProtocolServiceSupported will return true if the specified
 	// feature is supported by the protocol layer.  If the service has a value that must be
 	// returned, it will be returned in the serviceValue output parameter.
-	virtual bool	IsProtocolServiceSupported( SCSIProtocolFeature feature, void * serviceValue ) = 0;
+	virtual bool	IsProtocolServiceSupported ( SCSIProtocolFeature feature, void * serviceValue ) = 0;
 
 	// The HandleProtocolServiceFeature instructs the Protocol Services driver to perform the necessary 
-	// tasks for the indicated p
-	virtual bool	HandleProtocolServiceFeature( SCSIProtocolFeature feature, void * serviceValue ) = 0;
+	// tasks for the indicated feature.
+	virtual bool	HandleProtocolServiceFeature ( SCSIProtocolFeature feature, void * serviceValue ) = 0;
+
+protected:
 	
+	// ----- Protocol Services Driver request handlers for Task Management functions -----
+	// These should be abstract so that every Protocol Services Driver would have to
+	// override them, but since they are new member routines, this class will provide
+	// a default implementation.
+    OSMetaClassDeclareReservedUsed ( IOSCSIProtocolServices, 1 );
+	virtual SCSIServiceResponse		HandleAbortTask ( 
+											UInt8 						theLogicalUnit, 
+											SCSITaggedTaskIdentifier 	theTag );
+    
+    OSMetaClassDeclareReservedUsed ( IOSCSIProtocolServices, 2 );
+	virtual SCSIServiceResponse		HandleAbortTaskSet ( 
+											UInt8 						theLogicalUnit );
+	
+    OSMetaClassDeclareReservedUsed ( IOSCSIProtocolServices, 3 );
+	virtual SCSIServiceResponse		HandleClearACA ( 
+											UInt8 						theLogicalUnit );
+	
+    OSMetaClassDeclareReservedUsed ( IOSCSIProtocolServices, 4 );
+	virtual SCSIServiceResponse		HandleClearTaskSet (
+											UInt8 						theLogicalUnit );
+	
+    OSMetaClassDeclareReservedUsed ( IOSCSIProtocolServices, 5 );
+	virtual SCSIServiceResponse		HandleLogicalUnitReset (
+											UInt8 						theLogicalUnit );
+											
+    OSMetaClassDeclareReservedUsed ( IOSCSIProtocolServices, 6 );
+    // The HandleTargetReset member routine requests that the Protocol Services Driver
+    // perform the necessary steps detailed in the specification that defines the 
+    // protocol the driver represents for the TargetReset management function.
+	virtual SCSIServiceResponse		HandleTargetReset ( void );
+
 private:
+	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 1 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 2 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 3 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 4 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 5 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 6 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 7 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 8 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 9 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 10 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 11 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 12 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 13 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 14 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 15 );
-    OSMetaClassDeclareReservedUnused( IOSCSIProtocolServices, 16 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices,  7 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices,  8 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices, 	9 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices, 10 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices, 11 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices, 12 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices, 13 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices, 14 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices, 15 );
+    OSMetaClassDeclareReservedUnused ( IOSCSIProtocolServices, 16 );
+    
 };
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */

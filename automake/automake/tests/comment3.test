@@ -1,0 +1,17 @@
+#! /bin/sh
+
+# Make sure that `#' after a tab is a failure.
+# The Tru64 Unix V5.1 system make will pass these to the
+# shell, which in turn can't find `#' as a command.
+# Sigh.  Some vendors must be destroyed.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+install-data-local:
+	# Tru64 Unix must die
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE && exit 1
+exit 0

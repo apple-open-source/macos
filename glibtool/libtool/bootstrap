@@ -1,0 +1,38 @@
+#! /bin/sh
+
+# helps bootstrapping libtool, when checked out from CVS
+# requires GNU autoconf and GNU automake
+
+find . \( -name autom4te.cache -o -name libtool \) -print | xargs rm -r
+
+file=Makefile.in
+
+: ${ACLOCAL=aclocal}
+: ${AUTOMAKE=automake}
+: ${AUTOCONF=autoconf}
+: ${AUTOHEADER=autoheader}
+
+rm -f acinclude.m4
+ln -s libtool.m4 acinclude.m4
+# fake the libtool scripts
+touch ltmain.sh
+touch libtoolize
+$ACLOCAL
+$AUTOMAKE --gnu --add-missing --copy
+$AUTOCONF
+
+for sub in libltdl demo depdemo mdemo cdemo; do
+  cd $sub
+  rm -f acinclude.m4 Makefile
+  cat ../libtool.m4 > acinclude.m4
+  test "$sub" = libltdl && cat ../ltdl.m4 >> acinclude.m4
+  $ACLOCAL
+  test "$sub" = libltdl && $AUTOHEADER
+  $AUTOMAKE --gnits --add-missing
+  $AUTOCONF
+  cd ..
+done
+
+rm -f ltmain.sh libtoolize Makefile
+
+exit 0

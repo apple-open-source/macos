@@ -17,8 +17,14 @@
 ** Written by Greg Stein, gstein@lyra.org, http://www.lyra.org/
 */
 
+#include "config.h"
+
 /* James Clark's Expat parser */
+#ifdef HAVE_EXPAT_2
+#include <expat.h>
+#else
 #include <xmlparse.h>
+#endif
 
 #include "httpd.h"
 #include "http_protocol.h"
@@ -29,6 +35,7 @@
 
 /* errors related to namespace processing */
 #define DAV_NS_ERROR_UNKNOWN_PREFIX	(DAV_NS_ERROR_BASE)
+#define DAV_NS_ERROR_INVALID_DECL	(DAV_NS_ERROR_BASE + 1)
 
 /* test for a namespace prefix that begins with [Xx][Mm][Ll] */
 #define DAV_NS_IS_RESERVED(name) \
@@ -169,8 +176,15 @@ static void dav_start_handler(void *userdata, const char *name, const char **att
 	    dav_xml_ns_scope *ns_scope;
 
 	    /* test for xmlns:foo= form and xmlns= form */
-	    if (*prefix == ':')
+	    if (*prefix == ':') {
+		/* a namespace prefix declaration must have a
+		 * non-empty value. */
+		if (attr->value[0] == '\0') {
+		    ctx->error = DAV_NS_ERROR_INVALID_DECL;
+		    return;
+		}
 		++prefix;
+	    } 
 	    else if (*prefix != '\0') {
 		/* advance "prev" since "attr" is still present */
 		prev = attr;
@@ -395,6 +409,11 @@ int dav_parse_input(request_rec * r, dav_xml_doc **pdoc)
 	    ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, r,
 			  "An undefined namespace prefix was used.");
 	    break;
+
+	case DAV_NS_ERROR_INVALID_DECL:
+	    ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, r,
+			  "A namespace prefix was defined with an empty URI.");
+	    break;	    
 
 	default:
 	    ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, r,

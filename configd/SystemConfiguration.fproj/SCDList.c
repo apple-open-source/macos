@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -46,12 +46,10 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	CFDataRef			xmlPattern;	/* serialized pattern */
 	xmlData_t			myPatternRef;
 	CFIndex				myPatternLen;
-	CFDataRef			xmlData;	/* data (XML serialized) */
 	xmlDataOut_t			xmlDataRef;	/* serialized data */
 	int				xmlDataLen;
 	int				sc_status;
 	CFArrayRef			allKeys;
-	CFStringRef			xmlError;
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyKeyList:"));
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  pattern = %@"), pattern);
@@ -68,9 +66,10 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	}
 
 	/* serialize the pattern */
-	xmlPattern = CFPropertyListCreateXMLData(NULL, pattern);
-	myPatternRef = (xmlData_t)CFDataGetBytePtr(xmlPattern);
-	myPatternLen = CFDataGetLength(xmlPattern);
+	if (!_SCSerialize(pattern, &xmlPattern, (void **)&myPatternRef, &myPatternLen)) {
+		_SCErrorSet(kSCStatusFailed);
+		return NULL;
+	}
 
 	/* send the pattern & fetch the associated data from the server */
 	status = configlist(storePrivate->server,
@@ -104,24 +103,7 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	}
 
 	/* un-serialize the list of keys */
-	xmlData = CFDataCreate(NULL, xmlDataRef, xmlDataLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	allKeys = CFPropertyListCreateFromXMLData(NULL,
-						  xmlData,
-						  kCFPropertyListImmutable,
-						  &xmlError);
-	CFRelease(xmlData);
-	if (!allKeys) {
-		if (xmlError) {
-			SCLog(_sc_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() list: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	if (!_SCUnserialize((CFPropertyListRef *)&allKeys, xmlDataRef, xmlDataLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}

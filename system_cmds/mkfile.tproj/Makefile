@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = mkfile.c
 
-OTHERSRCS = Makefile.preamble
+OTHERSRCS = Makefile.preamble Makefile.postamble mkfile.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

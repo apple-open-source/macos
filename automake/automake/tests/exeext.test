@@ -1,0 +1,34 @@
+#! /bin/sh
+
+# Test to make sure `.' in an exe name doesn't fool us.
+# Report from Robert Collins.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_EXEEXT
+END
+
+cat > Makefile.am << 'END'
+## Use a different dir for each to make grep easy.
+bin_PROGRAMS = maude 
+sbin_PROGRAMS = maude.static
+## We don't define this one for now.  Probably it is an error.
+## noinst_PROGRAMS = maude2.exe
+check_PROGRAMS = maude3$(EXEEXT)
+END
+
+set -e
+
+$ACLOCAL
+$AUTOMAKE
+
+grep '^maude$(EXEEXT):' Makefile.in
+grep 'bin_PROGRAMS =.*maude$(EXEEXT)' Makefile.in
+
+grep '^maude\.static$(EXEEXT):' Makefile.in
+grep 'sbin_PROGRAMS =.*maude\.static$(EXEEXT)' Makefile.in
+
+grep '^maude3$(EXEEXT):' Makefile.in
+grep 'check_PROGRAMS =.*maude3$(EXEEXT)' Makefile.in

@@ -644,7 +644,7 @@ void *cookie)
 		process_flags.nsects += sg->nsects;
 	    }
 	    else if((ofile->mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
-		    lc->cmd == LC_LOAD_DYLIB){
+		    (lc->cmd == LC_LOAD_DYLIB || lc->cmd == LC_LOAD_WEAK_DYLIB){
 		process_flags.nlibs++;
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -697,7 +697,7 @@ void *cookie)
 	    j = 0;
 	    lc = ofile->load_commands;
 	    for (i = 0; i < ofile->mh->ncmds; i++){
-		if(lc->cmd == LC_LOAD_DYLIB){
+		if(lc->cmd == LC_LOAD_DYLIB || lc->cmd == LC_LOAD_WEAK_DYLIB){
 		    dl = (struct dylib_command *)lc;
 		    process_flags.lib_names[j] =
 			(char *)dl + dl->dylib.name.offset;

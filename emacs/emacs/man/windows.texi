@@ -1,5 +1,5 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985, 86, 87, 93, 94, 95, 1997 Free Software Foundation, Inc.
+@c Copyright (C) 1985,86,87,93,94,95,97,2000,2001 Free Software Foundation, Inc.
 @c See file emacs.texi for copying conditions.
 @node Windows, Frames, Buffers, Top
 @chapter Multiple Windows
@@ -20,6 +20,7 @@ one frame.
 * Force Same Window::   Forcing certain buffers to appear in the selected
                           window rather than in another window.
 * Change Window::       Deleting windows and changing their sizes.
+* Window Convenience::  Convenience functions for window handling.
 @end menu
 
 @node Basic Window
@@ -37,14 +38,14 @@ buffer this window is displaying is the current buffer.  The terminal's
 cursor shows the location of point in this window.  Each other window
 has a location of point as well, but since the terminal has only one
 cursor there is no way to show where those locations are.  When multiple
-frames are visible in X Windows, each frame has a cursor which appears
-in the frame's selected window.  The cursor in the selected frame is
-solid; the cursor in other frames is a hollow box.
+frames are visible in X, each frame has a cursor which appears in the
+frame's selected window.  The cursor in the selected frame is solid; the
+cursor in other frames is a hollow box.
 
   Commands to move point affect the value of point for the selected Emacs
 window only.  They do not change the value of point in any other Emacs
 window, even one showing the same buffer.  The same is true for commands
-such as @kbd{C-x b} to change the selected buffer in the selected window;
+such as @kbd{C-x b} to change the current buffer in the selected window;
 they do not affect other windows at all.  However, there are other commands
 such as @kbd{C-x 4 b} that select a different window and switch buffers in
 it.  Also, all commands that display information in a window, including
@@ -100,10 +101,11 @@ not appear in inverse video.
 
 @kindex C-Mouse-2 @r{(scroll bar)}
   You can split a window horizontally or vertically by clicking
-@kbd{C-Mouse-2} in the mode line or the scroll bar.  The line of
-splitting goes through the place where you click: if you click on the
-mode line, the new scroll bar goes above the spot; if you click in the
-scroll bar, the mode line of the split window is side by side with your
+@kbd{C-Mouse-2} in the mode line or the scroll bar.  (This does not
+work in scroll bars implemented by X toolkits.)  The line of splitting
+goes through the place where you click: if you click on the mode line,
+the new scroll bar goes above the spot; if you click in the scroll
+bar, the mode line of the split window is side by side with your
 click.
 
 @vindex truncate-partial-width-windows
@@ -118,14 +120,15 @@ independent of the buffer being displayed and its value for
 @xref{Display}.
 
 @vindex split-window-keep-point
-  If @code{split-window-keep-point} is non-@code{nil}, the default, both
-of the windows resulting from @kbd{C-x 2} inherit the value of point
-from the window that was split.  This means that scrolling is
+  If @code{split-window-keep-point} is non-@code{nil}, the default,
+both of the windows resulting from @kbd{C-x 2} inherit the value of
+point from the window that was split.  This means that scrolling is
 inevitable.  If this variable is @code{nil}, then @kbd{C-x 2} tries to
-avoid shifting any text the screen, by putting point in each window at a
-position already visible in the window.  It also selects whichever
-window contain the screen line that the cursor was previously on.  Some
-users prefer the latter mode on slow terminals.
+avoid scrolling the text currently visible on the screen, by putting
+point in each window at a position already visible in the window.  It
+also selects whichever window contain the screen line that the cursor
+was previously on.  Some users prefer the latter mode on slow
+terminals.
 
 @node Other Window
 @section Using Other Windows
@@ -147,7 +150,7 @@ but does not move point in it (@code{mouse-select-window}).
 @findex other-window
   To select a different window, click with @kbd{Mouse-1} on its mode
 line.  With the keyboard, you can switch windows by typing @kbd{C-x o}
-(@code{other-window}).  That is an @kbd{o}, for `other', not a zero.
+(@code{other-window}).  That is an @kbd{o}, for ``other,'' not a zero.
 When there are more than two windows, this command moves through all the
 windows in a cyclic order, generally top to bottom and left to right.
 After the rightmost and bottommost window, it goes back to the one at
@@ -281,7 +284,9 @@ window heights.
 (@code{mouse-delete-other-windows}).
 @item Mouse-3
 @kbd{Mouse-3} in a window's mode line deletes that window
-(@code{mouse-delete-window}).
+(@code{mouse-delete-window}), unless the frame has only one window, in
+which case it buries the current buffer instead and switches to another
+buffer.
 @end table
 
 @kindex C-x 0
@@ -349,6 +354,44 @@ gives the extra lines to other windows in the frame.
   You can also use @kbd{C-x +} (@code{balance-windows}) to even out the
 heights of all the windows in the selected frame.
 
-  @xref{Minibuffer Edit}, for information about the Resize-Minibuffer
-mode, which automatically changes the size of the minibuffer window to
-fit the text in the minibuffer.
+@node Window Convenience
+@section Window Handling Convenience Features and Customization
+
+@findex winner-mode
+@cindex Winner mode
+@cindex mode, Winner
+@cindex undoing window configuration changes
+@cindex window configuration changes, undoing
+  @kbd{M-x winner-mode} is a global minor mode that records the
+changes in the window configuration (i.e. how the frames are
+partitioned into windows), so that you can ``undo'' them.  To undo,
+use @kbd{C-x left} (@code{winner-undo}).  If you change your mind
+while undoing, you can redo the changes you had undone using @kbd{C-x
+right} (@code{M-x winner-redo}).  Another way to enable Winner mode is
+by customizing the variable @code{winner-mode}.
+
+@cindex Windmove package
+@cindex directional window selection
+@findex windmove-right
+@findex windmove-default-keybindings
+  The Windmove commands move directionally between neighboring windows in
+a frame.  @kbd{M-x windmove-right} selects the window immediately to the
+right of the currently selected one, and similarly for the ``left,'' ``up,''
+and ``down'' counterparts.  @kbd{M-x windmove-default-keybindings} binds
+these commands to @kbd{S-right} etc.  (Not all terminals support shifted
+arrow keys, however.)
+
+  Follow minor mode (@kbd{M-x follow-mode}) synchronizes several
+windows on the same buffer so that they always display adjacent
+sections of that buffer.  @xref{Follow Mode}.
+
+@vindex scroll-all-mode
+@cindex scrolling windows together
+@cindex Scroll-all mode
+@cindex mode, Scroll-all
+  @kbd{M-x scroll-all-mode} provides commands to scroll all visible
+windows together.  You can also turn it on by customizing the variable
+@code{scroll-all-mode}.  The commands provided are @kbd{M-x
+scroll-all-scroll-down-all}, @kbd{M-x scroll-all-page-down-all} and
+their corresponding ``up'' equivalents.  To make this mode useful,
+you should bind these commands to appropriate keys.

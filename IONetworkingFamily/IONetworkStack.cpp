@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -40,18 +43,9 @@
  * object will interact directly with DLIL to send and to receive packets.
  */
 
-#include <IOKit/assert.h>
-#include <IOKit/IOLib.h>
-#include <IOKit/IOBSD.h>
-#include <IOKit/IOMessage.h>
-#include <IOKit/IOKitKeys.h>
-#include <IOKit/network/IONetworkInterface.h>
-#include <IOKit/network/IOEthernetController.h>  // for setAggressiveness()
-#include "IONetworkStack.h"
-#include <libkern/c++/OSDictionary.h>
-
 extern "C" {
 #include <sys/param.h>
+#include <sys/systm.h>
 #include <sys/mbuf.h>
 #include <sys/socket.h>
 #include <net/bpf.h>
@@ -62,6 +56,16 @@ extern "C" {
 void ether_ifattach(struct ifnet * ifp);   // FIXME
 }
 
+#include <IOKit/assert.h>
+#include <IOKit/IOLib.h>
+#include <IOKit/IOBSD.h>
+#include <IOKit/IOMessage.h>
+#include <IOKit/IOKitKeys.h>
+#include <IOKit/network/IONetworkInterface.h>
+#include <IOKit/network/IOEthernetController.h>  // for setAggressiveness()
+#include "IONetworkStack.h"
+#include <libkern/c++/OSDictionary.h>
+
 #define super IOService
 OSDefineMetaClassAndStructors( IONetworkStack, IOService )
 OSMetaClassDefineReservedUnused( IONetworkStack,  0);
@@ -69,7 +73,7 @@ OSMetaClassDefineReservedUnused( IONetworkStack,  1);
 OSMetaClassDefineReservedUnused( IONetworkStack,  2);
 OSMetaClassDefineReservedUnused( IONetworkStack,  3);
 
-#ifdef  DEBUG_XXX
+#ifdef  DEBUG
 #define __LOG(class, fn, fmt, args...)   IOLog(class "::%s " fmt, fn, ## args)
 #define DLOG(fmt, args...) __LOG("IONetworkStack", __FUNCTION__, fmt, ## args)
 #else
@@ -77,6 +81,7 @@ OSMetaClassDefineReservedUnused( IONetworkStack,  3);
 #endif
 
 #define NETIF_FLAGS(n)           ((n)->_clientVar[0])
+#define NETIF_IOCTLS(n)          ((n)->_clientVar[1])
 #define SET_NETIF_FLAGS(n, x)    (NETIF_FLAGS(n) |= (x))
 #define CLR_NETIF_FLAGS(n, x)    (NETIF_FLAGS(n) &= ~(x))
 
@@ -570,6 +575,12 @@ IOReturn IONetworkStack::message( UInt32      type,
             // Need to unregister the interface. Do this asynchronously.
             // The interface will be waiting for a close before advancing
             // to the next stage in the termination process.
+            //
+            // This message is called from IOService::actionDidTerminate()
+            // which will close the gate on the provider's work loop. Must
+            // not take the network funnel to avoid a potential deadlock.
+            // But since the thread holding the funnel will release it when
+            // it blocks, this may not be an issue.
 
             thread_call_func( (thread_call_func_t) unregisterBSDInterface,
                               netif,
@@ -584,11 +595,39 @@ IOReturn IONetworkStack::message( UInt32      type,
 }
 
 //---------------------------------------------------------------------------
+// dummy ifnet functions.
+
+static int nop_if_ioctl( struct ifnet *, u_long, void * )
+{
+    return ENODEV;
+}
+
+static int nop_if_bpf( struct ifnet *, int, BPF_FUNC )
+{
+    return ENODEV;
+}
+
+static int nop_if_free( struct ifnet * )
+{
+    return 0;
+}
+
+static int nop_if_output( struct ifnet * ifp, struct mbuf * m )
+{
+    if ( m ) m_freem_list( m );
+    return 0;
+}
+
+//---------------------------------------------------------------------------
 // Detach an inactive interface that is currently registered with BSD.
 
 void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif ) 
 {
+    struct ifnet * ifp;
+
     assert( netif );
+
+    ifp = netif->getIfnet();
 
     // Interface is about to detach from DLIL.
 
@@ -600,10 +639,42 @@ void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif )
 
     DLOG("%p\n", netif);
 
+    boolean_t funnel_state = thread_funnel_set( network_flock, TRUE );
+
+    // I/O Kit network interface relies on DLIL ifnet recycling, thus
+    // it is not necessary to wait until all protocols have detached
+    // from the ifnet before commencing the driver stack teardown.
+
+    dlil_if_detach( ifp );
+
+    // DLIL may still call the following ifnet functions if
+    // DLIL_WAIT_FOR_FREE is returned from the detach call.
+    // Install dummy handlers to trap those calls before the
+    // ifnet is recycled.
+
+    ifp->if_output      = nop_if_output;
+    ifp->if_ioctl       = nop_if_ioctl;
+    ifp->if_set_bpf_tap = nop_if_bpf;
+    ifp->if_free        = nop_if_free;
+
+    // Wait until all pending ioctl are complete on the netif.
+
+    while ( NETIF_IOCTLS( netif ) )
+    {
+        assert_wait( (event_t) netif, THREAD_UNINT );
+        thread_block( THREAD_CONTINUE_NULL );
+    }
+
+    thread_funnel_set( network_flock, funnel_state );
+
+    bsdInterfaceWasUnregistered( netif->getIfnet() );
+
+#if 0 // The original detach call left for future reference.
     if ( dlil_if_detach(netif->getIfnet()) != DLIL_WAIT_FOR_FREE )
     {
         bsdInterfaceWasUnregistered( netif->getIfnet() );
     }
+#endif
 }
 
 //---------------------------------------------------------------------------
@@ -640,14 +711,21 @@ int IONetworkStack::bsdInterfaceWasUnregistered( struct ifnet * ifp )
 
     gIONetworkStack->unlockForArbitration();
 
+#if 0
+    // Do not bring the interface down after detaching from DLIL.
+    // If the interface was up before detaching, then it shall stay up.
+    // Is it up to each interface object to disable the controller prior
+    // to termination, without relying on the ifnet flag change.
+
     // Make sure the interface is brought down before it is closed.
 
     netif->setFlags( 0, IFF_UP );  // clear IFF_UP flag.
     (*ifp->if_ioctl)(ifp, SIOCSIFFLAGS, 0);
+#endif
 
     // Close interface and allow it to proceed with termination.
 
-    netif->close(gIONetworkStack);
+    netif->close( gIONetworkStack );
 
     return 0;
 }
@@ -665,7 +743,7 @@ bool IONetworkStack::preRegisterInterface( IONetworkInterface * netif,
     bool   success = false;
     UInt32 inUnit  = unit;
 
-    DLOG("%p %s %d\n", netif, prefix ? prefix : "", unit);
+    DLOG("%p %s %ld\n", netif, prefix ? prefix : "", unit);
 
     assert( netif && array );
 
@@ -779,15 +857,30 @@ IONetworkStack::completeRegistrationUsingArray( OSArray * array )
 
 void IONetworkStack::registerBSDInterface( IONetworkInterface * netif )
 {
-    char  ifname[20];
-    bool  doTermination = false;
+    char      ifname[20];
+    bool      doTermination = false;
+    boolean_t funnel_state;
 
     assert( netif );
 
-    // Attach the interface to DLIL.
+    funnel_state = thread_funnel_set( network_flock, TRUE );
 
-    bpfattach( netif->getIfnet(), DLT_EN10MB, sizeof(struct ether_header) );
+    // Filter interface ioctls.
+
+    netif->getIfnet()->if_ioctl = filter_if_ioctl;
+    netif->getIfnet()->if_free  = nop_if_free;
+
+    // Attach the (Ethernet) interface to DLIL.
+
     ether_ifattach( netif->getIfnet() );
+    bpfattach( netif->getIfnet(), DLT_EN10MB, sizeof(struct ether_header) );
+
+    // Hack to sync up the interface flags. The UP flag may already
+    // be set, and this will issue an SIOCSIFFLAGS to the interface.
+
+    (*netif->getIfnet()->if_ioctl)( netif->getIfnet(), SIOCSIFFLAGS, 0 );
+
+    thread_funnel_set( network_flock, funnel_state );
 
     // Interface is now registered with DLIL.
 
@@ -1109,6 +1202,34 @@ IOReturn IONetworkStack::setProperties( OSObject * properties )
 }
 
 //---------------------------------------------------------------------------
+// filter_if_ioctl
+
+int
+IONetworkStack::filter_if_ioctl(struct ifnet * ifp, u_long cmd, void * data)
+{
+    int ret = ENODEV;
+
+    if ( ifp && ifp->if_private )
+    {
+        IONetworkInterface * netif = (IONetworkInterface *) ifp->if_private;
+
+        ++NETIF_IOCTLS( netif );
+
+        ret = netif->ioctl_shim( ifp, cmd, data );
+
+        --NETIF_IOCTLS( netif );
+
+        if ( ( ifp->if_ioctl != filter_if_ioctl ) &&
+             ( NETIF_IOCTLS( netif ) == 0 ) )
+        {
+            thread_wakeup( (void *) netif );
+        }
+    }
+
+    return ret;
+}
+
+//---------------------------------------------------------------------------
 // IONetworkStackUserClient implementation.
 
 #undef  super
@@ -1157,8 +1278,6 @@ IOReturn IONetworkStackUserClient::clientDied()
 
 IOReturn IONetworkStackUserClient::setProperties( OSObject * properties )
 {
-
-
     return ( _provider ) ? _provider->setProperties( properties )
                          : kIOReturnNotReady;
 }

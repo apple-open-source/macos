@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 #include <mach-o/ppc/reloc.h>
 #include "ppc-opcode.h"
 #include "as.h"
@@ -15,8 +16,15 @@
 #include "input-scrub.h"
 #include "sections.h"
 
-/* relocation type for internal assembler use only */
+/* relocation type for internal assembler use only for LIKELY_{,NOT_}TAKEN */
 #define PPC_RELOC_BR14_predicted (127)
+enum branch_prediction {
+    BRANCH_PREDICTION_NONE,
+    BRANCH_PREDICTION_LIKELY_TAKEN,
+    BRANCH_PREDICTION_LIKELY_NOT_TAKEN,
+    BRANCH_PREDICTION_VERY_LIKELY_TAKEN,
+    BRANCH_PREDICTION_VERY_LIKELY_NOT_TAKEN
+};
 
 /*
  * Set if -no_ppc601 is specified or .no_pcc601 is seen.  It flags all 601
@@ -340,7 +348,7 @@ static int calcop(
     char *param,
     struct ppc_insn *insn,
     char *op,
-    char prediction);
+    enum branch_prediction prediction);
 static char *parse_jbsr(
     char *param,
     struct ppc_insn *insn,
@@ -613,7 +621,8 @@ void
 md_assemble(
 char *op)
 {
-    char *param, *thisfrag, prediction;
+    char *param, *thisfrag, *start_op, *end_op;
+    enum branch_prediction prediction;
     struct ppc_opcode *format;
     struct ppc_insn insn;
     unsigned long i, val, retry;
@@ -623,15 +632,33 @@ char *op)
 
 	/*
 	 * Pick up the instruction and any trailing branch prediction character
-	 * (a trailing '+' or '-' on the instruction).
+	 * (a trailing '+', '-' on the instruction).
   	 */
-	prediction = '\0';
+	prediction = BRANCH_PREDICTION_NONE;
+	start_op = op;
+	end_op = op;
 	for(param = op; !isspace(*param) && *param != '\0' ; param++)
-	    prediction = *param;
-	if(prediction == '+' || prediction == '-')
-	    param[-1] = '\0';
-	else
-	    prediction = '\0';
+	    end_op = param;
+	if(*end_op == '+'){
+	    if(end_op != start_op && end_op[-1] == '+'){
+		prediction = BRANCH_PREDICTION_VERY_LIKELY_TAKEN;
+		end_op[-1] = '\0';
+	    }
+	    else{
+		prediction = BRANCH_PREDICTION_LIKELY_TAKEN;
+		*end_op = '\0';
+	    }
+	}
+	else if(*end_op == '-'){
+	    if(end_op != start_op && end_op[-1] == '-'){
+		prediction = BRANCH_PREDICTION_VERY_LIKELY_NOT_TAKEN;
+		end_op[-1] = '\0';
+	    }
+	    else{
+		prediction = BRANCH_PREDICTION_LIKELY_NOT_TAKEN;
+		*end_op = '\0';
+	    }
+	}
 	if(*param != '\0')
 	    *param++ = '\0';
 
@@ -760,15 +787,6 @@ char *op)
 			"as RB)");
 	}
 	/*
-	 * The "branch conditional to count register" (bcctr and bcctrl) can't 
-	 * use the "decrement and test CTR" option.
-	 */
-	if((insn.opcode & 0xfc0007fe) == 0x4c000420 &&
-	   (insn.opcode & 0x00400000) == 0x00400000){
-	    as_warn("Invalid form of the instruction (branch conditional to "
-		    "count register can't use the decrement and test count "			    "register option)");
-	}
-	/*
 	 * The 64-bit compares are invalid on 32-bit implementations.  Since
 	 * we don't expect to ever use the 620 all 64-bit instructions require
 	 * the -force_cpusubtype_ALL option to not be flagged as invalid.
@@ -796,11 +814,8 @@ char *op)
 	     * is not specified.  So check for reserved BO fields where the z
 	     * bits should be zero.
 	     */
-	    if((insn.opcode & 0x03c00000) == 0x00c00000 || /* 001zy */
-	       (insn.opcode & 0x03c00000) == 0x01c00000 || /* 011zy */
-	       (insn.opcode & 0x03800000) == 0x03000000 || /* 1z00y and 1z01y */
-	      ((insn.opcode & 0x02800000) == 0x02800000 && /* 1z1zz */
-	       (insn.opcode & 0x01600000) != 0x00000000)){
+	    if((insn.opcode & 0x02800000) == 0x02800000 && /* 1z1zz */
+	       (insn.opcode & 0x01600000) != 0x00000000){
 		as_warn("Invalid form of the instruction (reserved bits in the "
 			"BO field must be zero without -force_cpusubtype_ALL "
 			"option)");
@@ -973,9 +988,9 @@ struct ppc_opcode *format,
 char *param,
 struct ppc_insn *insn,
 char *op,
-char prediction)
+enum branch_prediction prediction)
 {
-    unsigned long parcnt;
+    unsigned long parcnt, bo;
 
 	/* initial the passed structure */
 	memset(insn, '\0', sizeof(struct ppc_insn));
@@ -1056,28 +1071,67 @@ char prediction)
 	    if (param == NULL)
 		return(0);
 	}
-	if(format->ops[0].type == NONE && *param != '\0'){
+	if((parcnt == 5 && *param != '\0') ||
+	   (format->ops[0].type == NONE && *param != '\0')){
 	    error_param_message = "too many parameters";
 	    return(0);
 	}
 
 	if(IS_BRANCH_CONDITIONAL(insn->opcode)){
-	    if(prediction != '\0'){
-		/*
-		 * Set the Y_BIT assuming the displacement is non-negitive.
-		 * If the displacement is negitive then the Y_BIT is flipped
-		 * in md_number_to_imm() if the reloc is
-		 * PPC_RELOC_BR14_predicted.
-		 */
-		insn->reloc = PPC_RELOC_BR14_predicted;
-		if(prediction == '+')
-		    insn->opcode |= Y_BIT;
-		else{ /* prediction == '-' */
-		    if((insn->opcode & Y_BIT) != 0)
-			as_warn("branch prediction ('-') ignored (specified "
-				"operand has prediction bit set)");
-		    else
-			insn->opcode &= ~(Y_BIT);
+	    if(prediction != BRANCH_PREDICTION_NONE){
+		if(prediction == BRANCH_PREDICTION_LIKELY_TAKEN ||
+		   prediction == BRANCH_PREDICTION_LIKELY_NOT_TAKEN){
+		    /*
+		     * Set the Y_BIT assuming the displacement is non-negitive.
+		     * If the displacement is negitive then the Y_BIT is flipped
+		     * in md_number_to_imm() if the reloc is
+		     * PPC_RELOC_BR14_predicted.
+		     */
+		    insn->reloc = PPC_RELOC_BR14_predicted;
+		    if(prediction == BRANCH_PREDICTION_LIKELY_TAKEN)
+			insn->opcode |= Y_BIT;
+		    else{ /* prediction == BRANCH_PREDICTION_LIKELY_NOT_TAKEN */
+			if((insn->opcode & Y_BIT) != 0)
+			    as_warn("branch prediction ('-') ignored (specified"
+				    " operand has prediction bit set)");
+			else
+			    insn->opcode &= ~(Y_BIT);
+		    }
+		}
+		if(prediction == BRANCH_PREDICTION_VERY_LIKELY_TAKEN ||
+		   prediction == BRANCH_PREDICTION_VERY_LIKELY_NOT_TAKEN){
+		    bo = (insn->opcode >> 21) & 0x1f;
+		    /*
+		     * For 'branch if the condition is FALSE or TRUE' the AT
+		     * bits are the lower 2 bits of the BO field (xxxAT).
+		     */
+		    if(bo == 0x04 || bo == 0x0c){
+			if(prediction == BRANCH_PREDICTION_VERY_LIKELY_TAKEN)
+			    insn->opcode |= 0x00600000; /* AT == 11 */
+			else
+			    insn->opcode |= 0x00400000; /* AT == 10 */
+		    }
+		    else if(bo == 0x04 || bo == 0x14){
+			/*
+			 * For 'decrement the CTR, then branch if the
+			 * decremented CTR is non-zero or zero' the AT bits are
+			 * the xAxxT bits of the BO field.
+			 */
+			if(prediction == BRANCH_PREDICTION_VERY_LIKELY_TAKEN)
+			    insn->opcode |= 0x01200000;	/* AT == 11 */
+			else
+			    insn->opcode |= 0x01000000;	/* AT == 10 */
+		    }
+		    else{
+			if(prediction == BRANCH_PREDICTION_VERY_LIKELY_TAKEN)
+			    as_warn("branch prediction ('++') ignored "
+				    "(specified operand has does not allow this"
+				    " prediction)");
+			else
+			    as_warn("branch prediction ('--') ignored "
+				    "(specified operand has does not allow this"
+				    " prediction)");
+		    }
 		}
 	    }
 	}
@@ -2112,6 +2166,8 @@ int nsect)
 
 	case PPC_RELOC_BR14:
 	case PPC_RELOC_BR14_predicted:
+	    if(fixP->fx_pcrel)
+		val += 4;
 	    if((val & 0xffff8000) && ((val & 0xffff8000) != 0xffff8000))
 		as_warn("Fixup of %ld too large for field width of 16 bits",
                         val);
@@ -2144,8 +2200,6 @@ int nsect)
 		    buf[3] = opcode;
 		}
 	    }
-	    if(fixP->fx_pcrel)
-		val += 4;
 	    buf[2] = val >> 8;
 	    buf[3] |= val & 0xfc;
 	    /* change any PPC_RELOC_BR14_predicted back to PPC_RELOC_BR14
@@ -2154,13 +2208,13 @@ int nsect)
 	    break;
 
 	case PPC_RELOC_BR24:
+	    if(fixP->fx_pcrel)
+		val += 4;
 	    if((val & 0xfc000000) && ((val & 0xfc000000) != 0xfc000000))
 		as_warn("Fixup of %ld too large for field width of 26 bits",
                         val);
 	    if((val & 0x3) != 0)
 		as_warn("Fixup of %ld is not to a 4 byte address", val);
-	    if(fixP->fx_pcrel)
-		val += 4;
 	    buf[0] |= (val >> 24) & 0x03;
 	    buf[1] = val >> 16;
 	    buf[2] = val >> 8;

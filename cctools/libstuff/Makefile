@@ -1,14 +1,21 @@
+RC_OS = macos
 OFLAG = -O
 ifeq "macos" "$(RC_OS)"
   X_CFLAGS := $(shell if [ "$(RC_RELEASE)" != "Beaker" ] &&    \
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double ; \
+	     echo -Wno-long-double -no-cpp-precomp ; \
 	     fi; )
 endif
-ifeq "mwcc" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include
+
+
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+	     echo YES ; else echo NO ; \
+	     fi; )
+	
+ifeq "mwccppc" "$(notdir $(CC))"
+  CFLAGS = $(OFLAG) -g -gccinc -I$(SRCROOT)/../include
 else
   CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -Wall -Wno-precomp $(X_CFLAGS)
 endif
@@ -29,19 +36,19 @@ VPATH = $(OFILE_DIR)
 
 CFILES = allocate.c errors.c arch.c execute.c bytesex.c round.c hppa.c \
 	  swap_headers.c reloc.c version_number.c get_toc_byte_sex.c \
-	  best_arch.c fatals.c arch_usage.c ofile.c print.c \
+	  best_arch.c fatals.c arch_usage.c ofile.c ofile_error.c print.c \
 	  set_arch_flag_name.c seg_addr_table.c dylib_table.c \
 	  breakout.c writeout.c checkout.c fatal_arch.c ofile_get_word.c \
 	  vm_flush_cache.c hash_string.c dylib_roots.c guess_short_name.c \
-	  SymLoc.c get_arch_from_host.c
+	  SymLoc.c get_arch_from_host.c crc32.c macosx_deployment_target.c
 OBJS = $(CFILES:.c=.o)
 INSTALL_FILES = $(CFILES) Makefile notes
+
+all: $(OFILE_DIRS) $(SYMROOT) static dynamic profile $(RC_OS)
 
 teflon macos:
 
 nextstep: shlib
-
-all: $(OFILE_DIRS) $(SYMROOT) static dynamic profile $(RC_OS)
 
 static: $(OBJROOT)/static_obj
 	@if [ $(SRCROOT) = . ];						\
@@ -162,7 +169,7 @@ shlib: $(OBJROOT)/shlib_obj
 $(PRODUCT):	$(OFILE_DIR) $(SYMROOT) $(OBJS)
 	libtool -static -o $(SYMROOT)/$(PRODUCT) $(OBJS)
 
-ifeq "mwcc" "$(notdir $(CC))"
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c -o $(OFILE_DIR)/$*.o $<
 else

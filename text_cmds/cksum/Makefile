@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 HFILES = extern.h
 
-CFILES = cksum.c crc.c print.c sum1.c sum2.c
+CFILES = cksum.c crc.c print.c sum1.c sum2.c crc32.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble cksum.1\
             sum.1

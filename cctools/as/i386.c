@@ -841,12 +841,19 @@ string_instruction_bad_match:
 
 #ifdef NeXT_MOD
     if(t->cpus && !force_cpusubtype_ALL){
-      if(*(t->cpus) == '5'){
+      if(*(t->cpus) == '6'){
+	if(archflag_cpusubtype == CPU_SUBTYPE_486 ||
+	   archflag_cpusubtype == CPU_SUBTYPE_486SX)
+	  as_bad("pentium pro instruction not allowed with -arch i486 or "
+		 "-arch i486SX");
+	md_cpusubtype = CPU_SUBTYPE_PENTPRO;
+      }
+      else if(*(t->cpus) == '5'){
 	if(archflag_cpusubtype == CPU_SUBTYPE_486 ||
 	   archflag_cpusubtype == CPU_SUBTYPE_486SX)
 	  as_bad("pentium instruction not allowed with -arch i486 or "
 		 "-arch i486SX");
-	  md_cpusubtype = CPU_SUBTYPE_PENT;
+	md_cpusubtype = CPU_SUBTYPE_PENT;
       }
       else if(*(t->cpus) == '4' &&
 	      (md_cpusubtype != CPU_SUBTYPE_PENT && /* same as 586 */

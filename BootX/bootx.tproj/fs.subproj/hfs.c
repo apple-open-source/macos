@@ -22,28 +22,13 @@
 /*
  *  hfs.c - File System Module for HFS and HFS+.
  *
- *  Copyright (c) 1999-2000 Apple Computer, Inc.
+ *  Copyright (c) 1999-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
 
 #include <sl.h>
-
-#if kMacOSXServer
-#define _LONG_LONG
-#include <bsd/hfs/hfscommon/headers/HFSBtreesPriv.h>
-#include <bsd/hfs/hfscommon/headers/system/MacOSTypes.h>
-#include <bsd/hfs/hfscommon/headers/system/MacOSStubs.h>
-#include <bsd/hfs/hfscommon/headers/HFSVolumes.h>
-#define kBTIndexNode kIndexNode
-#define BTHeaderRec HeaderRec
-#define GetNodeType(node) (node->type)
-#else
-#define GetNodeType(node) (node->kind)
-#include <bsd/hfs/hfs_format.h>
-#endif
-
-
+#include <hfs/hfs_format.h>
 
 #define kBlockSize (0x200)
 
@@ -66,6 +51,7 @@ static char                    gLinkTemp[64];
 
 
 static long ReadFile(void *file, long *length);
+static long GetCatalogEntryInfo(void *entry, long *flags, long *time);
 static long ResolvePathToCatalogEntry(char *filePath, long *flags,
 				      void *entry, long dirID, long *dirIndex);
 
@@ -194,7 +180,10 @@ long HFSLoadFile(CICell ih, char *filePath)
   }
   
   result = ResolvePathToCatalogEntry(filePath, &flags, entry, dirID, 0);
-  if ((result == -1) || (flags != kFlatFileType)) return -1;
+  if ((result == -1) || ((flags & kFileTypeMask) != kFileTypeFlat)) return -1;
+  
+  // Check file owner and permissions.
+  if (flags & (kOwnerNotRoot | kPermGroupWrite | kPermOtherWrite)) return -1;
   
   result = ReadFile(entry, &length);
   if (result == -1) return -1;
@@ -227,12 +216,12 @@ long HFSGetDirEntry(CICell ih, char *dirPath, long *dirIndex, char **name,
   if (*dirIndex == 0) {
     ResolvePathToCatalogEntry(dirPath, &dirFlags, entry, dirID, dirIndex);
     if (*dirIndex == 0) *dirIndex = -1;
-    if (dirFlags != kUnknownFileType) return -1;
+    if ((dirFlags & kFileTypeMask) != kFileTypeUnknown) return -1;
   }
   
   GetCatalogEntry(dirIndex, name, flags, time);
   if (*dirIndex == 0) *dirIndex = -1;
-  if (*flags == kUnknownFileType) return -1;
+  if ((*flags & kFileTypeMask) == kFileTypeUnknown) return -1;
   
   return 0;
 }
@@ -268,17 +257,61 @@ static long ReadFile(void *file, long *length)
   return 0;
 }
 
+static long GetCatalogEntryInfo(void *entry, long *flags, long *time)
+{
+  long tmpTime;
+  
+  // Get information about the file.
+  switch (*(short *)entry) {
+  case kHFSFolderRecord           :
+    *flags = kFileTypeDirectory;
+    tmpTime = ((HFSCatalogFolder *)entry)->modifyDate;
+    break;
+    
+  case kHFSPlusFolderRecord       :
+    *flags = kFileTypeDirectory |
+      (((HFSPlusCatalogFolder *)entry)->bsdInfo.fileMode & kPermMask);
+    if (((HFSPlusCatalogFolder *)entry)->bsdInfo.ownerID != 0)
+      *flags |= kOwnerNotRoot;
+    tmpTime = ((HFSPlusCatalogFolder *)entry)->contentModDate;
+    break;
+    
+  case kHFSFileRecord             :
+    *flags = kFileTypeFlat;
+    tmpTime = ((HFSCatalogFile *)entry)->modifyDate;
+    break;
+    
+  case kHFSPlusFileRecord         :
+    *flags = kFileTypeFlat |
+      (((HFSPlusCatalogFile *)entry)->bsdInfo.fileMode & kPermMask);
+    if (((HFSPlusCatalogFile *)entry)->bsdInfo.ownerID != 0)
+      *flags |= kOwnerNotRoot;
+    tmpTime = ((HFSPlusCatalogFile *)entry)->contentModDate;
+    break;
+    
+  case kHFSFileThreadRecord       :
+  case kHFSPlusFileThreadRecord   :
+  case kHFSFolderThreadRecord     :
+  case kHFSPlusFolderThreadRecord :
+    *flags = kFileTypeUnknown;
+    tmpTime = 0;
+    break;
+  }
+  
+  if (time != 0) {
+    // Convert base time from 1904 to 1970.
+    *time = tmpTime - 2082844800;
+  }
+  
+  return 0;
+}
+
 static long ResolvePathToCatalogEntry(char *filePath, long *flags,
 				      void *entry, long dirID, long *dirIndex)
 {
   char                 *restPath;
   long                 result, cnt, subFolderID, tmpDirIndex;
-  HFSCatalogFolder     *hfsFolder;
-  HFSPlusCatalogFolder *hfsPlusFolder;
   HFSPlusCatalogFile   *hfsPlusFile;
-  
-  hfsFolder     = (HFSCatalogFolder *)entry;
-  hfsPlusFolder = (HFSPlusCatalogFolder *)entry;
   
   // Copy the file name to gTempStr
   cnt = 0;
@@ -295,31 +328,18 @@ static long ResolvePathToCatalogEntry(char *filePath, long *flags,
   result = ReadCatalogEntry(gTempStr, dirID, entry, dirIndex);
   if (result == -1) return -1;
   
-  if (gIsHFSPlus) {
-    if (hfsPlusFolder->recordType == kHFSPlusFolderRecord) {
-      *flags = kDirectoryFileType;
-      subFolderID = hfsPlusFolder->folderID;
-    } else if (hfsPlusFolder->recordType == kHFSPlusFileRecord) {
-      *flags = kFlatFileType;
-    } else if (hfsPlusFolder->recordType == kHFSPlusFolderThreadRecord) {
-      *flags = kUnknownFileType;
-    } else return -1;
-  } else {
-    if (hfsFolder->recordType == kHFSFolderRecord) {
-      *flags = kDirectoryFileType;
-      subFolderID = hfsFolder->folderID;
-    } else if (hfsFolder->recordType == kHFSFileRecord) {
-      *flags = kFlatFileType;
-    } else if (hfsFolder->recordType == kHFSFolderThreadRecord) {
-      *flags = kUnknownFileType;
-    } else return -1;
+  GetCatalogEntryInfo(entry, flags, 0);
+  
+  if ((*flags & kFileTypeMask) == kFileTypeDirectory) {
+    if (gIsHFSPlus) subFolderID = ((HFSPlusCatalogFolder *)entry)->folderID;
+    else subFolderID = ((HFSCatalogFolder *)entry)->folderID;
   }
   
-  if (*flags == kDirectoryFileType)
+  if ((*flags & kFileTypeMask) == kFileTypeDirectory)
     result = ResolvePathToCatalogEntry(restPath, flags, entry,
 				       subFolderID, dirIndex);
   
-  if (gIsHFSPlus && (*flags == kFlatFileType)) {
+  if (gIsHFSPlus && ((*flags & kFileTypeMask) == kFileTypeFlat)) {
     hfsPlusFile = (HFSPlusCatalogFile *)entry;
     if ((hfsPlusFile->userInfo.fdType == kHardLinkFileType) &&
 	(hfsPlusFile->userInfo.fdCreator == kHFSPlusCreator)) {
@@ -336,9 +356,9 @@ static long ResolvePathToCatalogEntry(char *filePath, long *flags,
 static long GetCatalogEntry(long *dirIndex, char **name,
 			    long *flags, long *time)
 {
-  long              extentSize, nodeSize, curNode, index, tmpTime;
+  long              extentSize, nodeSize, curNode, index;
   void              *extent;
-  char              *nodeBuf, *testKey, *recordData;
+  char              *nodeBuf, *testKey, *entry;
   BTNodeDescriptor  *node;
   
   if (gIsHFSPlus) {
@@ -359,41 +379,9 @@ static long GetCatalogEntry(long *dirIndex, char **name,
   // Read the BTree node and get the record for index.
   ReadExtent(extent, extentSize, kHFSCatalogFileID,
 	     curNode * nodeSize, nodeSize, nodeBuf, 1);
-  GetBTreeRecord(index, nodeBuf, nodeSize, &testKey, &recordData);
+  GetBTreeRecord(index, nodeBuf, nodeSize, &testKey, &entry);
   
-  // Get the kind of file.
-  switch (*(short *)recordData) {
-  case kHFSFolderRecord           :
-    *flags = kDirectoryFileType;
-    tmpTime = ((HFSCatalogFolder *)recordData)->modifyDate;
-    break;
-    
-  case kHFSPlusFolderRecord       :
-    *flags = kDirectoryFileType;
-    tmpTime = ((HFSPlusCatalogFolder *)recordData)->contentModDate;
-    break;
-    
-  case kHFSFileRecord             :
-    *flags = kFlatFileType;
-    tmpTime = ((HFSCatalogFile *)recordData)->modifyDate;
-    break;
-    
-  case kHFSPlusFileRecord         :
-    *flags = kFlatFileType;
-    tmpTime = ((HFSPlusCatalogFile *)recordData)->contentModDate;
-    break;
-    
-  case kHFSFileThreadRecord       :
-  case kHFSPlusFileThreadRecord   :
-  case kHFSFolderThreadRecord     :
-  case kHFSPlusFolderThreadRecord :
-    *flags = kUnknownFileType;
-    tmpTime = 0;
-    break;
-  }
-  
-  // Convert base time from 1904 to 1970.
-  *time = tmpTime - 2082844800;
+  GetCatalogEntryInfo(entry, flags, time);
   
   // Get the file name.
   if (gIsHFSPlus) {
@@ -550,7 +538,7 @@ static long ReadBTreeEntry(long btree, void *key, char *entry, long *dirIndex)
     }
     
     // Found the closest key... Recurse on it if this is an index node.
-    if (GetNodeType(node) == kBTIndexNode) {
+    if (node->kind == kBTIndexNode) {
       curNode = *((long *)recordData);
     } else break;
   }

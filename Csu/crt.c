@@ -88,6 +88,7 @@ asm(".comm _clock_alarm_reply, 4");
 asm(".desc _clock_alarm_reply, 0x10");
 asm(".comm _receive_samples, 4");
 asm(".desc _receive_samples, 0x10");
+asm(".desc ___progname, 0x10");
 #endif /* CRT1 */
 
 /*
@@ -101,22 +102,26 @@ asm(".desc _receive_samples, 0x10");
  * external function.  The common symbol is declared with an asm() and the code
  * casts the function name to a pointer to an int and then indirects through
  * the pointer to see if the value is not zero to know the function got linked
- * in.
+ * in.  Then the code uses a pointer in the data area to the function to call
+ * the function.  The pointer in the data area is needed on various RISC
+ * architectutes like the PowerPC to avoid a relocation overflow error when
+ * linking programs with large data area.
  */
 int (*mach_init_routine)(void);
 int (*_cthread_init_routine)(void);
 asm(".comm __objcInit, 4");
 asm(".comm __cplus_init, 4");
-asm(".comm __carbon_init, 4");
+asm(".comm ___darwin_gcc3_preregister_frame_info, 4");
 extern void _objcInit(void);
 #ifndef POSTSCRIPT
 static void (*pointer_to_objcInit)(void) = _objcInit;
 #endif /* !defined(POSTSCRIPT) */
 extern void _cplus_init(void);
-extern void _carbon_init(int argc, char **argv);
-static void (*pointer_to_carbon_init)(int argc, char **argv) = _carbon_init;
-
-#define CARBON	1
+extern void __darwin_gcc3_preregister_frame_info (void);
+#ifdef CRT1
+static void (*pointer_to__darwin_gcc3_preregister_frame_info)(void) =
+	__darwin_gcc3_preregister_frame_info;
+#endif
 
 /*
  * Prototypes for routines that are called.
@@ -172,7 +177,7 @@ char **argv,
 char **envp)
 {
     int i;
-    char *p, **apple, *dummy_apple[1];
+    char *p, **apple;
 #if defined(__ppc__) || defined(__i386__)
     char **q;
 #endif
@@ -195,6 +200,12 @@ char **envp)
 
 #ifdef CRT1
 	__keymgr_dwarf2_register_sections ();
+
+       /* Call a GCC 3.x-specific function (in libgcc.a) to
+          "preregister" exception frame info, meaning to set up the
+          dyld hooks that do the actual registration.  */
+       if(*((int *)pointer_to__darwin_gcc3_preregister_frame_info) != 0)
+           pointer_to__darwin_gcc3_preregister_frame_info ();
 #endif
 
 #ifdef CRT0
@@ -206,14 +217,9 @@ char **envp)
 	_call_mod_init_funcs();
 #endif
 
-#ifndef	POSTSCRIPT
-       if(*((int *)pointer_to_objcInit) != 0)
-           pointer_to_objcInit();
-#endif
-
-#ifdef CARBON
-        if(*((int *)pointer_to_carbon_init) != 0)
-            pointer_to_carbon_init(argc, argv);
+#ifndef        POSTSCRIPT
+	if(*((int *)pointer_to_objcInit) != 0)
+		pointer_to_objcInit();
 #endif
 
 #ifdef GCRT
@@ -245,9 +251,6 @@ char **envp)
 		__progname = argv[0];
 	}
 
-	dummy_apple[0] = (char *)0;
-	apple = dummy_apple;
-
 #if defined(__ppc__) || defined(__i386__)
 	/*
 	 * Pickup the pointer to the array that contains as its first pointer a
@@ -258,20 +261,7 @@ char **envp)
 	 */
 	for(q = envp; *q != (char *)0; q++)
 	    ;
-	/*
-	 * This feature was added to MacOS X PR2.  So in case we are running
-	 * with a kernel that does not set this we do a few checks on the
-	 * address of the pointer and the value of the pointer.  These checks
-	 * are temporary hacks and only work on PowerPC and i386 knowing the
-	 * address of the top of the stack (0xc0000000) and the stack grows
-	 * to lower addresses and that the bytes of the exec path should be
-	 * on the stack above the pointer.
-	 */
-	if((unsigned long)(q + 1) < 0xc0000000 &&
-	   (unsigned long)(q[1]) > (unsigned long)(q + 1) &&
-	   (unsigned long)(q[1]) < 0xc0000000){
-	    apple = q + 1;
-	}
+	apple = q + 1;
 #endif
 
 	exit(main(argc, argv, envp, apple));

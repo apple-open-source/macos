@@ -1,23 +1,49 @@
 #!/bin/sh
 
+##
+# Sendmail
+##
+
 . /etc/rc.common
 
-##
-# Start mail server
-##
+StartService ()
+{
+    if [ "${MAILSERVER:=-NO-}" = "-YES-" ]; then
+        if ! pid=$(GetPID sendmail); then
+            ConsoleMessage "Starting mail services"
 
-if [ "${MAILSERVER:=-NO-}" = "-YES-" ]; then
+            ##
+            # Remove junk from the outbound mail queue directory and start up
+            # the sendmail daemon. /usr/spool/mqueue is assumed here even though
+            # it can be changed in the sendmail configuration file.
+            ##
+            queue=/var/spool/mqueue
+            rm -f ${queue}/nf* ${queue}/lf*
 
-    ConsoleMessage "Starting mail services"
+            /usr/sbin/sendmail -bd -q1h
+            /usr/sbin/sendmail -C /etc/mail/submit.cf -q1h
+        fi
+    fi
+}
 
-    ##
-    # Remove junk from the outbound mail queue directory and start up
-    # the sendmail daemon. /usr/spool/mqueue is assumed here even though
-    # it can be changed in the sendmail configuration file.
-    ##
-    queue=/var/spool/mqueue
-    rm -f ${queue}/nf* ${queue}/lf*
+StopService ()
+{
+    if pid=$(GetPID sendmail); then
+        ConsoleMessage "Stopping mail services"
+        kill -TERM "${pid}"
+    else
+        echo "sendmail is not running."
+    fi
+}
 
-    /usr/sbin/sendmail -bd -q1h 
+RestartService ()
+{
+    if pid=$(GetPID sendmail); then
+        ConsoleMessage "Restarting mail services"
+        kill -HUP "${pid}"
+    else
+        StartService
+    fi
+}
 
-fi
+RunService "$1"

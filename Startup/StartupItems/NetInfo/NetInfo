@@ -1,0 +1,76 @@
+#!/bin/sh
+
+##
+# NetInfo
+##
+
+. /etc/rc.common
+
+StartService ()
+{
+    ##
+    # NetInfo
+    ##
+    ConsoleMessage "Starting NetInfo"
+
+    # Create local NetInfo database if it doesn't exist
+    if [ ! -d /var/db/netinfo/local.nidb ]; then
+        ConsoleMessage "Creating local NetInfo database"
+        mkdir -p /var/db/netinfo
+        /usr/libexec/create_nidb
+        rm -f /var/db/.AppleSetupDone
+    fi
+
+    # nibindd is required if there are NetInfo domains other than "local", or
+    # if the local domain has any non-loopback values for "trusted_networks".
+    if [ "${NETINFOSERVER:=-AUTOMATIC-}" = "-AUTOMATIC-" ]; then
+        NETINFOSERVER=-YES-
+        ni_not_local=$(/bin/ls -1d /var/db/netinfo/*.nidb | sed 's:/var/db/netinfo/local.nidb::' | wc -w)
+        ni_local_export=$(nicl -raw /var/db/netinfo/local.nidb -read / trusted_networks 2>&1 | sed 's/trusted_networks://' | sed 's/127[^ ]*//g' | wc -w)
+        total=$(($ni_not_local + $ni_local_export))
+        if [ "${total}" -eq 0 ]; then
+            NETINFOSERVER=-NO-
+        fi
+    fi
+
+    # If nibindd is not required, we just start the local NetInfo daemon.
+    if [ "${NETINFOSERVER}" = "-YES-" ]; then
+        if ! pid=$(GetPID nibindd); then
+            nibindd
+        fi
+    else
+        if ! pid=$(GetPID netinfo_local); then
+            cd /var/db/netinfo
+            netinfod -s local
+            cd /
+        fi
+    fi
+
+}
+
+StopService ()
+{
+    if pid=$(GetPID nibindd); then
+        ConsoleMessage "Stopping NetInfo binder"
+        kill -TERM "${pid}"
+    elif pid=$(GetPID netinfo_local); then
+        ConsoleMessage "Stopping local NetInfo daemon"
+        kill -TERM "${pid}"
+    fi
+}
+
+RestartService ()
+{
+    if pid=$(GetPID nibindd); then
+        ConsoleMessage "Rebinding NetInfo domain hierarchy"
+        kill -HUP "${pid}"
+    elif pid=$(GetPID netinfo_local); then
+        ConsoleMessage "Restarting NetInfo daemon"
+        kill -TERM "${pid}"
+        StartService
+    else
+        StartService
+    fi
+}
+
+RunService "$1"

@@ -7,11 +7,14 @@
  
      DRI:        xxx put dri here xxx
  
-     Copyright:  (c) 1999-2000 by Apple Computer, Inc., all rights reserved.
+     Copyright:  © 1999-2001 by Apple Computer, Inc., all rights reserved.
+ 
+     Warning:    *** APPLE INTERNAL USE ONLY ***
+                 This file contains unreleased SPI's
  
      BuildInfo:  Built by:            wgulland
-                 On:                  Thu Sep 21 14:47:23 2000
-                 With Interfacer:     3.0d20e4 (Mac OS X for PowerPC)
+                 On:                  Tue Mar 12 16:49:01 2002
+                 With Interfacer:     3.0d35   (Mac OS X for PowerPC)
                  From:                DeviceControlPriv.i
                      Revision:        3
                      Dated:           6/15/99
@@ -26,7 +29,7 @@
 #define __DEVICECONTROLPRIV__
 
 #ifndef __DEVICECONTROL__
-#include "DeviceControl.h"
+#include <DeviceControl.h>
 #endif
 
 
@@ -56,8 +59,8 @@ extern "C" {
 
 typedef UInt32                          DeviceConnectionID;
 enum {
-    kDeviceControlComponentType = FOUR_CHAR_CODE('devc'),       /* Component type */
-    kDeviceControlSubtypeFWDV   = FOUR_CHAR_CODE('fwdv')        /* Component subtype */
+  kDeviceControlComponentType   = FOUR_CHAR_CODE('devc'), /* Component type */
+  kDeviceControlSubtypeFWDV     = FOUR_CHAR_CODE('fwdv') /* Component subtype */
 };
 
 
@@ -66,18 +69,24 @@ enum {
 /* Private calls made by the Isoc component */
 
 EXTERN_API( ComponentResult )
-DeviceControlEnableAVCTransactions (ComponentInstance   instance)                           FIVEWORDINLINE(0x2F3C, 0x0000, 0x0100, 0x7000, 0xA82A);
+DeviceControlEnableAVCTransactions(ComponentInstance instance) FIVEWORDINLINE(0x2F3C, 0x0000, 0x0100, 0x7000, 0xA82A);
+
 
 EXTERN_API( ComponentResult )
-DeviceControlDisableAVCTransactions (ComponentInstance  instance)                           FIVEWORDINLINE(0x2F3C, 0x0000, 0x0101, 0x7000, 0xA82A);
+DeviceControlDisableAVCTransactions(ComponentInstance instance) FIVEWORDINLINE(0x2F3C, 0x0000, 0x0101, 0x7000, 0xA82A);
+
 
 EXTERN_API( ComponentResult )
-DeviceControlSetDeviceConnectionID (ComponentInstance   instance,
-                                 DeviceConnectionID     connectionID)                       FIVEWORDINLINE(0x2F3C, 0x0004, 0x0102, 0x7000, 0xA82A);
+DeviceControlSetDeviceConnectionID(
+  ComponentInstance    instance,
+  DeviceConnectionID   connectionID)                          FIVEWORDINLINE(0x2F3C, 0x0004, 0x0102, 0x7000, 0xA82A);
+
 
 EXTERN_API( ComponentResult )
-DeviceControlGetDeviceConnectionID (ComponentInstance   instance,
-                                 DeviceConnectionID *   connectionID)                       FIVEWORDINLINE(0x2F3C, 0x0004, 0x0103, 0x7000, 0xA82A);
+DeviceControlGetDeviceConnectionID(
+  ComponentInstance     instance,
+  DeviceConnectionID *  connectionID)                         FIVEWORDINLINE(0x2F3C, 0x0004, 0x0103, 0x7000, 0xA82A);
+
 
 
 /* selectors for component calls */

@@ -10,6 +10,7 @@
 #include <mach/error.h>
 #include <servers/bootstrap.h>
 #include <limits.h>
+#include <errno.h>
 
 #define MAX_STRING_LENGTH PATH_MAX
 #define MAX_STRING_COUNT 16
@@ -64,6 +65,7 @@ struct __UNCUserNotification {
     double _timeout;
     unsigned _requestFlags;
     unsigned _responseFlags;
+    mach_msg_base_t *_response;
     char **_responseContents;
 };
 
@@ -120,9 +122,27 @@ static unsigned UNCPackContents(char *buffer, char **contents, int token, int it
     return b - buffer;
 }
 
+static void convertEscapes(char *str) {
+    char *p = str, *q = str;
+    for (p = q = str; 0 != (*q = *p); p++, q++) {
+        if ('&' == *p) {
+            if ('g' == *(p+1) && 't' == *(p+2) && ';' == *(p+3)) {
+                *q = '>';
+                p += 3;
+            } else if ('l' == *(p+1) && 't' == *(p+2) && ';' == *(p+3)) {
+                *q = '<';
+                p += 3;
+            } else if ('a' == *(p+1) && 'm' == *(p+2) && 'p' == *(p+3) && ';' == *(p+4)) {
+                *q = '&';
+                p += 4;
+            }
+        }
+    }
+}
+
 static unsigned UNCUnpackContents(char *buffer, char **contents) {
     // if contents is non-null, unpack XML buffer into it; if contents is null, return required size
-    // if contents is non-null, as side effect, insert null string terminators in buffer
+    // if contents is non-null, as side effect, insert null string terminators in buffer and convert some escapes in place
     char **p = contents, *key = NULL, *keyEnd = NULL, *previousKey = NULL, *value = NULL, *valueEnd = NULL, *b = buffer;
     
     while (b) {
@@ -156,6 +176,7 @@ static unsigned UNCUnpackContents(char *buffer, char **contents) {
                     if (contents) {
                         *p = value;
                         *valueEnd = '\0';
+                        convertEscapes(value);
                     }
                     b = valueEnd + strlen(kUNCStringEpilogue);
                 }
@@ -184,7 +205,7 @@ static int UNCSendRequest(mach_port_t replyPort, int token, double timeout, unsi
     if (ERR_SUCCESS == retval && MACH_PORT_NULL != bootstrapPort) retval = bootstrap_look_up(bootstrapPort, NOTIFICATION_PORT_NAME, &serverPort);
     if (ERR_SUCCESS == retval && MACH_PORT_NULL != serverPort) {
         while (*p) if ('/' == *p++) source = p;
-        size = sizeof(mach_msg_base_t) + (UNCPackContents(NULL, contents, token, itimeout, source) + 3) & ~0x3;
+        size = sizeof(mach_msg_base_t) + ((UNCPackContents(NULL, contents, token, itimeout, source) + 3) & (~0x3));
         msg = (mach_msg_base_t *)malloc(size);
         if (msg) {
             bzero(msg, size);
@@ -198,7 +219,7 @@ static int UNCSendRequest(mach_port_t replyPort, int token, double timeout, unsi
             retval = mach_msg((mach_msg_header_t *)msg, MACH_SEND_MSG|MACH_SEND_TIMEOUT, size, 0, MACH_PORT_NULL, MESSAGE_TIMEOUT, MACH_PORT_NULL);
             free(msg);
         } else {
-            retval = ERR_RED;
+            retval = unix_err(ENOMEM);
         }
     }
     return retval;
@@ -222,9 +243,10 @@ extern UNCUserNotificationRef UNCUserNotificationCreate(double timeout, unsigned
             userNotification->_timeout = timeout;
             userNotification->_requestFlags = flags;
             userNotification->_responseFlags = 0;
+            userNotification->_response = NULL;
             userNotification->_responseContents = NULL;
         } else {
-            retval = ERR_RED;
+            retval = unix_err(ENOMEM);
         }
     }
     if (ERR_SUCCESS != retval && MACH_PORT_NULL != replyPort) mach_port_destroy(mach_task_self(), replyPort);
@@ -250,6 +272,7 @@ extern int UNCUserNotificationReceiveResponse(UNCUserNotificationRef userNotific
             }
             if (ERR_SUCCESS == retval) {
                 if (responseFlags) *responseFlags = msg->header.msgh_id;
+                userNotification->_response = msg;
                 contentSize = UNCUnpackContents((char *)msg + sizeof(mach_msg_base_t), NULL);
                 if (0 < contentSize) {
                     userNotification->_responseContents = (char **)malloc(contentSize * sizeof(char **));
@@ -259,10 +282,11 @@ extern int UNCUserNotificationReceiveResponse(UNCUserNotificationRef userNotific
                 }
                 mach_port_destroy(mach_task_self(), userNotification->_replyPort);
                 userNotification->_replyPort = MACH_PORT_NULL;
+            } else {
+                free(msg);
             }
-            free(msg);
         } else {
-            retval = ERR_RED;
+            retval = unix_err(ENOMEM);
         }
     }
     return retval;
@@ -304,6 +328,7 @@ extern void UNCUserNotificationFree(UNCUserNotificationRef userNotification) {
     if (userNotification) {
         if (MACH_PORT_NULL != userNotification->_replyPort) mach_port_destroy(mach_task_self(), userNotification->_replyPort);
         if (userNotification->_responseContents) free(userNotification->_responseContents);
+        if (userNotification->_response) free(userNotification->_response);
         free(userNotification);
     }
 }

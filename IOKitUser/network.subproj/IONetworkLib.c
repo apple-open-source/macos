@@ -288,9 +288,9 @@ IONetworkGetPacketFiltersMask( io_connect_t    connect,
 
         // Create an array of keys to the value.
 
-        keys[0] = CFSTR( (kIONetworkSupportedPacketFilters & options) ?
-                         kIOPacketFilters :
-                         kIORequiredPacketFilters );
+        keys[0] = (kIONetworkSupportedPacketFilters & options) ?
+                         CFSTR( kIOPacketFilters ) :
+                         CFSTR( kIORequiredPacketFilters );
         keys[1] = group;
 
         keysArray = CFArrayCreate( NULL, (void *)keys, 2, &kCFTypeArrayCallBacks );

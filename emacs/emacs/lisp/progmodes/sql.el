@@ -1,11 +1,12 @@
 ;;; sql.el --- specialized comint.el for SQL interpreters
 
-;; Copyright (C) 1998, 1999  Free Software Foundation, Inc.
+;; Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation, Inc.
 
-;; Author: Alex Schroeder <a.schroeder@bsiag.ch>
-;; Maintainer: Alex Schroeder <a.schroeder@bsiag.ch>
-;; Version: 1.4.5
+;; Author: Alex Schroeder <alex@gnu.org>
+;; Maintainer: Alex Schroeder <alex@gnu.org>
+;; Version: 1.6.2
 ;; Keywords: comm languages processes
+;; URL: http://www.emacswiki.org/cgi-bin/wiki.pl?SqlMode
 
 ;; This file is part of GNU Emacs.
 
@@ -27,19 +28,16 @@
 ;;; Commentary:
 
 ;; Please send bug reports and bug fixes to the mailing list at
-;; sql.el@gnu.org so that I can merge them into the master source.  If
-;; you want to subscribe to the mailing list, send mail to
-;; sql.el-request@gnu.org with 'subscribe' in the subject line.
-
-;; You can get the latest version of this file from my homepage
-;; <URL:http://www.geocities.com/TimesSquare/6120/emacs.html>.
+;; sql.el@gnu.org.  If you want to subscribe to the mailing list, send
+;; mail to sql.el-request@gnu.org with `subscribe sql.el FIRSTNAME
+;; LASTNAME' in the mail body.
 
 ;; This file provides a sql-mode and a sql-interactive-mode.  My goals
 ;; were two simple modes providing syntactic hilighting.  The
 ;; interactive mode had to provide a command-line history; the other
 ;; mode had to provide "send region/buffer to SQL interpreter"
 ;; functions.  "simple" in this context means easy to use, easy to
-;; maintain and little or no bells and whistles.  
+;; maintain and little or no bells and whistles.
 
 ;; If anybody feels like extending this sql mode, take a look at the
 ;; above mentioned modes and write a sqlx-mode on top of this one.  If
@@ -61,15 +59,14 @@
 ;; modes derived from comint mode.  This makes these modes easier to
 ;; use.
 
-;; sql-mode can be used to enable syntactic hilighting for SQL
-;; statements in another buffer.  SQL statements can then be sent to
-;; the SQL process in the SQLi buffer.  sql-mode has already been
-;; used as a template to a simple PL/SQL mode.
+;; sql-mode can be used to keep editing SQL statements.  The SQL
+;; statements can be sent to the SQL process in the SQLi buffer.
 
 ;; For documentation on the functionality provided by comint mode, and
-;; the hooks available for customising it, see the file `comint.el'.
+;; the hooks available for customizing it, see the file `comint.el'.
 
-;; Hint for newbies: take a look at `dabbrev-expand' and `abbrev-mode'.
+;; Hint for newbies: take a look at `dabbrev-expand', `abbrev-mode', and
+;; `imenu-add-menubar-index'.
 
 ;;; Requirements for Emacs 19.34:
 
@@ -86,6 +83,8 @@
 ;; This happens in stored procedures for example.  The server messages
 ;; only appear after the process is exited.  This makes things
 ;; somewhat unreliable.
+
+;; ChangeLog available on request.
 
 ;;; To Do:
 
@@ -105,6 +104,7 @@
 ;; Yair Friedman <yfriedma@JohnBryce.Co.Il>
 ;; Gregor Zych <zych@pool.informatik.rwth-aachen.de>
 ;; nino <nino@inform.dk>
+;; Berend de Boer <berend@pobox.com>
 
 
 
@@ -147,6 +147,22 @@ Customizing your password will store it in your ~/.emacs file."
   :type 'string
   :group 'SQL)
 
+;; misc customization of sql.el behaviour
+
+(defcustom sql-electric-stuff nil
+  "Treat some input as electric.
+If set to the symbol `semicolon', then hitting `;' will send current
+input in the SQLi buffer to the process.
+If set to the symbol `go', then hitting `go' on a line by itself will
+send current input in the SQLi buffer to the process.
+If set to nil, then you must use \\[comint-send-input] in order to send
+current input in the SQLi buffer to the process."
+  :type '(choice (const :tag "Nothing" nil)
+		 (const :tag "The semikolon `;'" semicolon)
+		 (const :tag "The string `go' by itself" go))
+  :version "20.8"
+  :group 'SQL)
+
 (defcustom sql-pop-to-buffer-after-send-region nil
   "*If t, pop to the buffer SQL statements are sent to.
 
@@ -158,6 +174,20 @@ buffer is shown using `display-buffer'."
   :type 'boolean
   :group 'SQL)
 
+;; imenu support for sql-mode.
+
+(defvar sql-imenu-generic-expression
+  '(("Tables" "^\\s-*create\\s-+table\\s-+\\(\\w+\\)" 1)
+    ("Indexes" "^\\s-*create\\s-+index\\s-+\\(\\w+\\)" 1))
+  "Define interesting points in the SQL buffer for `imenu'.
+
+This is used to set `imenu-generic-expression' when SQL mode is
+entered.  Subsequent changes to sql-imenu-generic-expression will not
+affect existing SQL buffers because imenu-generic-expression is a
+local variable.")
+
+;; history file
+
 (defcustom sql-input-ring-file-name nil
   "*If non-nil, name of the file to read/write input history.
 
@@ -167,8 +197,10 @@ exiting the SQL interpreter in an SQLi buffer will write the input
 history to the specified file.  Starting a new process in a SQLi buffer
 will read the input history from the specified file.
 
-This is used to locally set `comint-input-ring-file-name' when reading
-or writing the input history."
+This is used to initialize `comint-input-ring-file-name'.
+
+Note that the size of the input history is determined by the variable
+`comint-input-ring-size'."
   :type '(choice (const :tag "none" nil)
 		 (file))
   :group 'SQL)
@@ -180,27 +212,24 @@ If set to \"\\n\", each line in the history file will be interpreted as
 one command.  Multi-line commands are split into several commands when
 the input ring is initialized from a history file.
 
-This variable used to locally set `comint-input-ring-separator' when
-reading or writing the history file.  `comint-input-ring-separator' is
-not yet part of Emacs; if your Emacs does not have it, setting
-`sql-input-ring-separator' will have no effect.  In that case multiline
-commands will be split into several commands when the input history is
-read, as if you had set `sql-input-ring-separator' to \"\\n\".
-
-The source code contains a link to a homepage that might have a patch
-for comint.el to download."
+This variable used to initialize `comint-input-ring-separator'.
+`comint-input-ring-separator' is part of Emacs 21; if your Emacs
+does not have it, setting `sql-input-ring-separator' will have no
+effect.  In that case multiline commands will be split into several
+commands when the input history is read, as if you had set
+`sql-input-ring-separator' to \"\\n\"."
   :type 'string
   :group 'SQL)
 
 ;; The usual hooks
 
 (defcustom sql-interactive-mode-hook '()
-  "*Hook for customising `sql-interactive-mode'."
+  "*Hook for customizing `sql-interactive-mode'."
   :type 'hook
   :group 'SQL)
 
 (defcustom sql-mode-hook '()
-  "*Hook for customising `sql-mode'."
+  "*Hook for customizing `sql-mode'."
   :type 'hook
   :group 'SQL)
 
@@ -212,7 +241,7 @@ is changed."
   :type 'hook
   :group 'SQL)
 
-;; Customisation for Oracle
+;; Customization for Oracle
 
 (defcustom sql-oracle-program "sqlplus"
   "*Command to start sqlplus by Oracle.
@@ -227,7 +256,13 @@ The program can also specify a TCP connection.  See `make-comint'."
   :type 'file
   :group 'SQL)
 
-;; Customisation for MySql
+(defcustom sql-oracle-options nil
+  "*List of additional options for `sql-oracle-program'."
+  :type '(repeat string)
+  :version "20.8"
+  :group 'SQL)
+
+;; Customization for MySql
 
 (defcustom sql-mysql-program "mysql"
   "*Command to start mysql by TcX.
@@ -238,7 +273,15 @@ The program can also specify a TCP connection.  See `make-comint'."
   :type 'file
   :group 'SQL)
 
-;; Customisation for Solid
+(defcustom sql-mysql-options nil
+  "*List of additional options for `sql-mysql-program'.
+The following list of options is reported to make things work
+on Windows: \"-C\" \"-t\" \"-f\" \"-n\"."
+  :type '(repeat string)
+  :version "20.8"
+  :group 'SQL)
+
+;; Customization for Solid
 
 (defcustom sql-solid-program "solsql"
   "*Command to start SOLID SQL Editor.
@@ -249,10 +292,10 @@ The program can also specify a TCP connection.  See `make-comint'."
   :type 'file
   :group 'SQL)
 
-;; Customisation for SyBase
+;; Customization for SyBase
 
 (defcustom sql-sybase-program "isql"
-  "*Command to start isql by SyBase.  
+  "*Command to start isql by SyBase.
 
 Starts `sql-interactive-mode' after doing some setup.
 
@@ -260,10 +303,17 @@ The program can also specify a TCP connection.  See `make-comint'."
   :type 'file
   :group 'SQL)
 
-;; Customisation for Informix
+(defcustom sql-sybase-options nil
+  "*List of additional options for `sql-sybase-program'.
+Some versions of isql might require the -n option in order to work."
+  :type '(repeat string)
+  :version "20.8"
+  :group 'SQL)
+
+;; Customization for Informix
 
 (defcustom sql-informix-program "dbaccess"
-  "*Command to start dbaccess by Informix.  
+  "*Command to start dbaccess by Informix.
 
 Starts `sql-interactive-mode' after doing some setup.
 
@@ -271,10 +321,10 @@ The program can also specify a TCP connection.  See `make-comint'."
   :type 'file
   :group 'SQL)
 
-;; Customisation for Ingres
+;; Customization for Ingres
 
 (defcustom sql-ingres-program "sql"
-  "*Command to start sql by Ingres.  
+  "*Command to start sql by Ingres.
 
 Starts `sql-interactive-mode' after doing some setup.
 
@@ -282,10 +332,10 @@ The program can also specify a TCP connection.  See `make-comint'."
   :type 'file
   :group 'SQL)
 
-;; Customisation for Microsoft
+;; Customization for Microsoft
 
 (defcustom sql-ms-program "isql"
-  "*Command to start isql by Microsoft.  
+  "*Command to start isql by Microsoft.
 
 Starts `sql-interactive-mode' after doing some setup.
 
@@ -293,15 +343,61 @@ The program can also specify a TCP connection.  See `make-comint'."
   :type 'file
   :group 'SQL)
 
-;; Customisation for Postgres
+;; Customization for Postgres
 
 (defcustom sql-postgres-program "psql"
-  "Command to start psql by Postgres.  
+  "Command to start psql by Postgres.
 
 Starts `sql-interactive-mode' after doing some setup.
 
 The program can also specify a TCP connection.  See `make-comint'."
   :type 'file
+  :group 'SQL)
+
+(defcustom sql-postgres-options '("-P" "pager=off")
+  "*List of additional options for `sql-postgres-program'.
+The default setting includes the -P option which breaks older versions
+of the psql client (such as version 6.5.3).  The -P option is equivalent
+to the --pset option.  If you want the psql to prompt you for a user
+name, add the string \"-u\" to the list of options.  If you want to
+provide a user name on the command line (newer versions such as 7.1),
+add your name with a \"-U\" prefix (such as \"-Umark\") to the list."
+  :type '(repeat string)
+  :version "20.8"
+  :group 'SQL)
+
+;; Customization for Interbase
+
+(defcustom sql-interbase-program "isql"
+  "*Command to start isql by Interbase.
+
+Starts `sql-interactive-mode' after doing some setup.
+
+The program can also specify a TCP connection.  See `make-comint'."
+  :type 'file
+  :group 'SQL)
+
+(defcustom sql-interbase-options nil
+  "*List of additional options for `sql-interbase-program'."
+  :type '(repeat string)
+  :version "20.8"
+  :group 'SQL)
+
+;; Customization for DB2
+
+(defcustom sql-db2-program "db2"
+  "*Command to start db2 by IBM.
+
+Starts `sql-interactive-mode' after doing some setup.
+
+The program can also specify a TCP connection.  See `make-comint'."
+  :type 'file
+  :group 'SQL)
+
+(defcustom sql-db2-options nil
+  "*List of additional options for `sql-db2-program'."
+  :type '(repeat string)
+  :version "20.8"
   :group 'SQL)
 
 
@@ -343,59 +439,63 @@ You can change it on `sql-interactive-mode-hook'.")
 
 Used by `sql-rename-buffer'.")
 
-;; Keymap for sql-interactive-mode, based on comint-mode-map.
+;; Keymap for sql-interactive-mode.
 
-(if (not (string-match "XEmacs\\|Lucid" emacs-version))
-    (defvar sql-interactive-mode-map 
-      (let ((map (nconc (make-sparse-keymap) comint-mode-map)))
-	(define-key map "\C-j" 'sql-accumulate-and-indent)
-	(define-key map "\C-c\C-w" 'sql-copy-column)
-	map)
-      "Mode map used for `sql-interactive-mode'.")
-  ;; XEmacs
-  (defvar sql-interactive-mode-map nil)
-  (if (not sql-interactive-mode-map)
-      (let ((map (make-keymap)))
-	(set-keymap-parents map (list comint-mode-map))
-	(set-keymap-name map 'sql-interactive-mode-map)
-	(define-key map "\C-j" 'sql-accumulate-and-indent)
-	(define-key map "\C-c\C-w" 'sql-copy-column)
-	(setq sql-interactive-mode-map map))))
+(defvar sql-interactive-mode-map 
+  (let ((map (make-sparse-keymap)))
+    (if (functionp 'set-keymap-parent)
+	(set-keymap-parent map comint-mode-map); Emacs
+      (set-keymap-parents map (list comint-mode-map))); XEmacs
+    (if (functionp 'set-keymap-name)
+	(set-keymap-name map 'sql-interactive-mode-map)); XEmacs
+    (define-key map (kbd "C-j") 'sql-accumulate-and-indent)
+    (define-key map (kbd "C-c C-w") 'sql-copy-column)
+    (define-key map (kbd "O") 'sql-magic-go)
+    (define-key map (kbd "o") 'sql-magic-go)
+    (define-key map (kbd ";") 'sql-magic-semicolon)
+    map)
+  "Mode map used for `sql-interactive-mode'.
+Based on `comint-mode-map'.")
 
 ;; Keymap for sql-mode.
 
 (defvar sql-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "\C-c\C-c" 'sql-send-paragraph)
-    (define-key map "\C-c\C-r" 'sql-send-region)
-    (define-key map "\C-c\C-b" 'sql-send-buffer)
-    (define-key map "\t" 'indent-relative)
+    (define-key map (kbd "C-c C-c") 'sql-send-paragraph)
+    (define-key map (kbd "C-c C-r") 'sql-send-region)
+    (define-key map (kbd "C-c C-b") 'sql-send-buffer)
     map)
   "Mode map used for `sql-mode'.")
 
 ;; easy menu for sql-mode.
 
-(easy-menu-define 
- sql-mode-menu sql-mode-map 
+(easy-menu-define
+ sql-mode-menu sql-mode-map
  "Menu for `sql-mode'."
  '("SQL"
    ["Send Paragraph" sql-send-paragraph (and (buffer-live-p sql-buffer)
 					     (get-buffer-process sql-buffer))]
-   ["Send Region" sql-send-region (and mark-active 
+   ["Send Region" sql-send-region (and (or (and (boundp 'mark-active); Emacs
+						mark-active)
+					   (mark)); XEmacs
 				       (buffer-live-p sql-buffer)
 				       (get-buffer-process sql-buffer))]
    ["Send Buffer" sql-send-buffer (and (buffer-live-p sql-buffer)
 				       (get-buffer-process sql-buffer))]
    ["Show SQLi buffer" sql-show-sqli-buffer t]
    ["Set SQLi buffer" sql-set-sqli-buffer t]
-   ["Pop to SQLi buffer after send" 
+   ["Pop to SQLi buffer after send"
     sql-toggle-pop-to-buffer-after-send-region
     :style toggle
-    :selected sql-pop-to-buffer-after-send-region]))
+    :selected sql-pop-to-buffer-after-send-region]
+   ("Highlighting"
+    ["ANSI SQL keywords" sql-highlight-ansi-keywords t]
+    ["Oracle keywords" sql-highlight-oracle-keywords t]
+    ["Postgres keywords" sql-highlight-postgres-keywords t])))
 
 ;; easy menu for sql-interactive-mode.
 
-(easy-menu-define 
+(easy-menu-define
  sql-interactive-mode-menu sql-interactive-mode-map
  "Menu for `sql-interactive-mode'."
  '("SQL"
@@ -417,7 +517,7 @@ Used by `sql-rename-buffer'.")
 
 ;; Syntax Table
 
-(defvar sql-mode-syntax-table 
+(defvar sql-mode-syntax-table
   (let ((table (make-syntax-table)))
     ;; C-style comments /**/ (see elisp manual "Syntax Flags"))
     (modify-syntax-entry ?/ ". 14" table)
@@ -451,7 +551,7 @@ add functions and PL/SQL keywords.")
 				 (regexp-opt '(
 "authorization" "avg" "begin" "close" "cobol" "commit"
 "continue" "count" "declare" "double" "end" "escape"
-"exec" "fetch" "foreign" "fortran" "found" "go" "goto" "indicator" 
+"exec" "fetch" "foreign" "fortran" "found" "go" "goto" "indicator"
 "key" "language" "max" "min" "module" "numeric" "open" "pascal" "pli"
 "precision" "primary" "procedure" "references" "rollback"
 "schema" "section" "some" "sqlcode" "sqlerror" "sum" "work") t) "\\b")))
@@ -467,8 +567,8 @@ add functions and PL/SQL keywords.")
 	(ansi-types (eval-when-compile
 		      (concat "\\b"
 			      (regexp-opt '(
-;; ANSI Keywords that look like types					  
-"character" "cursor" "dec" "int" "real" 
+;; ANSI Keywords that look like types
+"character" "cursor" "dec" "int" "real"
 ;; ANSI Reserved Word that look like types
 "char" "integer" "smallint" ) t) "\\b"))))
     (setq sql-mode-ansi-font-lock-keywords
@@ -493,21 +593,31 @@ to add functions and PL/SQL keywords.")
 "become" "before" "block" "body" "cache" "cancel" "cascade" "change"
 "checkpoint" "compile" "constraint" "constraints" "contents"
 "controlfile" "cycle" "database" "datafile" "dba" "disable" "dismount"
-"dump" "each" "enable" "events" "except" "exceptions" "execute"
-"explain" "extent" "externally" "flush" "force" "freelist" "freelists"
-"function" "groups" "including" "initrans" "instance" "layer" "link"
-"lists" "logfile" "manage" "manual" "maxdatafiles" "maxinistances"
-"maxlogfiles" "maxloghistory" "maxlogmembers" "maxtrans" "maxvalue"
-"minextents" "minvalue" "mount" "new" "next" "noarchivelog" "nocache"
-"nocycle" "nomaxvalue" "nominvalue" "none" "noorder" "noresetlogs"
-"normal" "nosort" "off" "old" "only" "optimal" "own" "package"
-"parallel" "pctincrease" "pctused" "plan" "private" "profile" "quota"
-"read" "recover" "referencing" "resetlogs" "restricted" "reuse" "role"
-"roles" "savepoint" "scn" "segment" "sequence" "shared" "snapshot"
-"sort" "statement_id" "statistics" "stop" "storage" "switch" "system"
+"dump" "each" "else" "elsif" "enable" "events" "except" "exceptions"
+"execute" "exit" "explain" "extent" "externally" "false" "flush" "force"
+"freelist" "freelists" "function" "groups" "if" "including" "initrans"
+"instance" "layer" "link" "lists" "logfile" "loop" "manage" "manual"
+"maxdatafiles" "maxinistances" "maxlogfiles" "maxloghistory"
+"maxlogmembers" "maxtrans" "maxvalue" "minextents" "minvalue" "mount"
+"new" "next" "noarchivelog" "nocache" "nocycle" "nomaxvalue"
+"nominvalue" "none" "noorder" "noresetlogs" "normal" "nosort" "off"
+"old" "only" "optimal" "others" "out" "own" "package" "parallel"
+"pctincrease" "pctused" "plan" "pragma" "private" "profile" "quota"
+"raise" "read" "recover" "referencing" "resetlogs" "restrict_references"
+"restricted" "return" "returning" "reuse" "rnds" "rnps" "role" "roles"
+"savepoint" "scn" "segment" "sequence" "shared" "snapshot" "sort"
+"statement_id" "statistics" "stop" "storage" "subtype" "switch" "system"
 "tables" "tablespace" "temporary" "thread" "time" "tracing"
-"transaction" "triggers" "truncate" "under" "unlimited" "until" "use"
-"using" "when" "write") t) "\\b")))
+"transaction" "triggers" "true" "truncate" "type" "under" "unlimited"
+"until" "use" "using" "when" "while" "wnds" "wnps" "write") t) "\\b")))
+	(oracle-warning-words (eval-when-compile
+				 (concat "\\b"
+					 (regexp-opt '(
+"cursor_already_open" "dup_val_on_index" "exception" "invalid_cursor"
+"invalid_number" "login_denied" "no_data_found" "not_logged_on"
+"notfound" "others" "pragma" "program_error" "storage_error"
+"timeout_on_resource" "too_many_rows" "transaction_backed_out"
+"value_error" "zero_divide") t) "\\b")))
 	(oracle-reserved-words (eval-when-compile
 				 (concat "\\b"
 					 (regexp-opt '(
@@ -524,7 +634,8 @@ to add functions and PL/SQL keywords.")
 				(regexp-opt '(
 ;; Oracle Keywords that look like types
 ;; Oracle Reserved Words that look like types
-"date" "decimal" "rowid" "varchar" "varchar2") t) "\\b")))
+"binary_integer" "blob" "boolean" "constant" "date" "decimal" "rowid"
+"varchar" "varchar2") t) "\\b")))
 	(oracle-builtin-functions (eval-when-compile
 			(concat "\\b"
 				(regexp-opt '(
@@ -539,10 +650,11 @@ to add functions and PL/SQL keywords.")
 "rtrim" "sign" "sin" "sinh" "soundex" "sqlcode" "sqlerrm" "sqrt"
 "stddev" "sum" "substr" "substrb" "tan" "tanh" "to_char"
 "to_date" "to_label" "to_multi_byte" "to_number" "to_single_byte"
-"translate" "trunc" "uid" "upper" "userenv" "variance" "vsize") t) "\\b"))))
+"translate" "trim" "trunc" "uid" "upper" "userenv" "variance" "vsize") t) "\\b"))))
     (setq sql-mode-oracle-font-lock-keywords
 	  (append sql-mode-ansi-font-lock-keywords
 		  (list (cons oracle-keywords 'font-lock-function-name-face)
+			(cons oracle-warning-words 'font-lock-warning-face)
 			(cons oracle-reserved-words 'font-lock-keyword-face)
 			;; XEmacs doesn't have font-lock-builtin-face
 			(if (string-match "XEmacs\\|Lucid" emacs-version)
@@ -569,11 +681,11 @@ you define your own sql-mode-postgres-font-lock-keywords.")
 					 (regexp-opt '(
 "language"
 ) t) "\\b")))
-	(postgres-types (eval-when-compile 
-			  (concat "\\b" 
-				  (regexp-opt '( 
-"bool" "box" "circle" "char" "char2" "char4" "char8" "char16" "date" 
-"float4" "float8" "int2" "int4" "int8" "line" "lseg" "money" "path" 
+	(postgres-types (eval-when-compile
+			  (concat "\\b"
+				  (regexp-opt '(
+"bool" "box" "circle" "char" "char2" "char4" "char8" "char16" "date"
+"float4" "float8" "int2" "int4" "int8" "line" "lseg" "money" "path"
 "point" "polygon" "serial" "text" "time" "timespan" "timestamp" "varchar"
 ) t)"\\b")))
 	(postgres-builtin-functions (eval-when-compile
@@ -608,19 +720,75 @@ can be changed by some entry functions to provide more hilighting.")
 
 
 
+;;; Functions to switch highlighting
+
+(defun sql-highlight-oracle-keywords ()
+  "Highlight Oracle keywords.
+Basically, this just sets `font-lock-keywords' appropriately."
+  (interactive)
+  (setq font-lock-keywords sql-mode-oracle-font-lock-keywords)
+  (font-lock-fontify-buffer))
+
+(defun sql-highlight-postgres-keywords ()
+  "Highlight Postgres keywords.
+Basically, this just sets `font-lock-keywords' appropriately."
+  (interactive)
+  (setq font-lock-keywords sql-mode-postgres-font-lock-keywords)
+  (font-lock-fontify-buffer))
+
+(defun sql-highlight-ansi-keywords ()
+  "Highlight ANSI SQL keywords.
+Basically, this just sets `font-lock-keywords' appropriately."
+  (interactive)
+  (setq font-lock-keywords sql-mode-ansi-font-lock-keywords)
+  (font-lock-fontify-buffer))
+
+
+
+;;; Compatibility functions
+
+(if (not (fboundp 'comint-line-beginning-position))
+    ;; comint-line-beginning-position is defined in Emacs 21
+    (defun comint-line-beginning-position ()
+      "Returns the buffer position of the beginning of the line, after any prompt.
+The prompt is assumed to be any text at the beginning of the line matching
+the regular expression `comint-prompt-regexp', a buffer local variable."
+      (save-excursion (comint-bol nil) (point))))
+
+
+
 ;;; Small functions
+
+(defun sql-magic-go (arg)
+  "Insert \"o\" and call `comint-send-input'.
+`sql-electric-stuff' must be the symbol `go'."
+  (interactive "P")
+  (self-insert-command (prefix-numeric-value arg))
+  (if (and (equal sql-electric-stuff 'go)
+	   (save-excursion
+	     (comint-bol nil)
+	     (looking-at "go\\b")))
+      (comint-send-input)))
+
+(defun sql-magic-semicolon (arg)
+  "Insert semicolon and call `comint-send-input'.
+`sql-electric-stuff' must be the symbol `semicolon'."
+  (interactive "P")
+  (self-insert-command (prefix-numeric-value arg))
+  (if (equal sql-electric-stuff 'semicolon)
+       (comint-send-input)))
 
 (defun sql-accumulate-and-indent ()
   "Continue SQL statement on the next line."
   (interactive)
-  ;; comint-accumulate is a Emacs 20.X thingie
-  (if (not (string-match "XEmacs\\|Lucid\\|GNU Emacs 19" emacs-version))
-      (comint-accumulate))
+  (if (fboundp 'comint-accumulate) 
+      (comint-accumulate)
+    (newline))
   (indent-according-to-mode))
 
 ;;;###autoload
 (defun sql-help ()
-  "Shows short help for the SQL modes.
+  "Show short help for the SQL modes.
 
 Use an entry function to open an interactive SQL buffer.  This buffer is
 usually named `*SQL*'.  The name of the major mode is SQLi.
@@ -638,6 +806,7 @@ Other non-free SQL implementations are also supported:
     Sybase: \\[sql-sybase]
     Ingres: \\[sql-ingres]
     Microsoft: \\[sql-ms]
+    Interbase: \\[sql-interbase]
 
 But we urge you to choose a free implementation instead of these.
 
@@ -645,11 +814,6 @@ Once you have the SQLi buffer, you can enter SQL statements in the
 buffer.  The output generated is appended to the buffer and a new prompt
 is generated.  See the In/Out menu in the SQLi buffer for some functions
 that help you navigate through the buffer, the input history, etc.
-
-Put a line with a call to autoload into your `~/.emacs' file for each
-entry function you want to use regularly:
-
-\(autoload 'sql-postgres \"sql\" \"Interactive SQL mode.\" t)
 
 If you have a really complex SQL statement or if you are writing a
 procedure, you can do this in a separate buffer.  Put the new buffer in
@@ -678,7 +842,7 @@ even in old versions of Emacs."
   "Get username, password and database from the user.
 
 The variables `sql-user', `sql-password', `sql-server', and
-`sql-database' can be customised.  They are used as the default values.
+`sql-database' can be customized.  They are used as the default values.
 Usernames, servers and databases are stored in `sql-user-history',
 `sql-server-history' and `database-history'.  Passwords are not stored
 in a history.
@@ -693,20 +857,64 @@ In order to ask the user for username, password and database, call the
 function like this: (sql-get-login 'user 'password 'database)."
   (interactive)
   (if (memq 'user what)
-      (setq sql-user 
+      (setq sql-user
 	    (read-from-minibuffer "User: " sql-user nil nil
 				  sql-user-history)))
   (if (memq 'password what)
-      (setq sql-password 
+      (setq sql-password
 	    (sql-read-passwd "Password: " sql-password)))
   (if (memq 'server what)
-      (setq sql-server 
+      (setq sql-server
 	    (read-from-minibuffer "Server: " sql-server nil nil
 				  sql-server-history)))
   (if (memq 'database what)
-      (setq sql-database 
+      (setq sql-database
 	    (read-from-minibuffer "Database: " sql-database nil nil
 				  sql-database-history))))
+
+(defun sql-find-sqli-buffer ()
+  "Return the current default SQLi buffer or nil.
+In order to qualify, the SQLi buffer must be alive,
+be in `sql-interactive-mode' and have a process."
+  (let ((default-buffer (default-value 'sql-buffer)))
+    (if (and (buffer-live-p default-buffer)
+	     (get-buffer-process default-buffer))
+	default-buffer
+      (save-excursion
+	(let ((buflist (buffer-list))
+	      (found))
+	  (while (not (or (null buflist)
+			  found))
+	    (let ((candidate (car buflist)))
+	      (set-buffer candidate)
+	      (if (and (equal major-mode 'sql-interactive-mode)
+		       (get-buffer-process candidate))
+		  (setq found candidate))
+	      (setq buflist (cdr buflist))))
+	  found)))))
+
+(defun sql-set-sqli-buffer-generally ()
+  "Set SQLi buffer for all SQL buffers that have none.  
+This function checks all SQL buffers for their SQLi buffer.  If their
+SQLi buffer is nonexistent or has no process, it is set to the current
+default SQLi buffer.  The current default SQLi buffer is determined
+using `sql-find-sqli-buffer'.  If `sql-buffer' is set,
+`sql-set-sqli-hook' is run."
+  (interactive)
+  (save-excursion
+    (let ((buflist (buffer-list))
+	  (default-sqli-buffer (sql-find-sqli-buffer)))
+      (setq-default sql-buffer default-sqli-buffer)
+      (while (not (null buflist))
+	(let ((candidate (car buflist)))
+	  (set-buffer candidate)
+	  (if (and (equal major-mode 'sql-mode)
+		   (not (buffer-live-p sql-buffer)))
+	      (progn
+		(setq sql-buffer default-sqli-buffer)
+		(run-hooks 'sql-set-sqli-hook))))
+	(setq buflist (cdr buflist))))))
+
 (defun sql-set-sqli-buffer ()
   "Set the SQLi buffer SQL strings are sent to.
 
@@ -715,16 +923,27 @@ strings are sent to.  Calling this function sets `sql-buffer' and runs
 `sql-set-sqli-hook'.
 
 If you call it from a SQL buffer, this sets the local copy of
-`sql-buffer'.  
+`sql-buffer'.
 
 If you call it from anywhere else, it sets the global copy of
 `sql-buffer'."
   (interactive)
-  (let ((new-buffer (get-buffer (read-buffer "New SQLi buffer: " nil t))))
-    (if new-buffer
-	(progn 
-	  (setq sql-buffer new-buffer)
-	  (run-hooks 'sql-set-sqli-hook)))))
+  (let ((default-buffer (sql-find-sqli-buffer)))
+    (if (null default-buffer)
+	(error "There is no suitable SQLi buffer"))
+    (let ((new-buffer
+	   (get-buffer
+	    (read-buffer "New SQLi buffer: " default-buffer t))))
+      (if (null (get-buffer-process new-buffer))
+	  (error "Buffer %s has no process" (buffer-name new-buffer)))
+      (if (null (save-excursion
+		  (set-buffer new-buffer)
+		  (equal major-mode 'sql-interactive-mode)))
+	  (error "Buffer %s is no SQLi buffer" (buffer-name new-buffer)))
+      (if new-buffer
+	  (progn
+	    (setq sql-buffer new-buffer)
+	    (run-hooks 'sql-set-sqli-hook))))))
 
 (defun sql-show-sqli-buffer ()
   "Show the name of current SQLi buffer.
@@ -744,13 +963,13 @@ variable `sql-buffer'.  See `sql-help' on how to create such a buffer."
 This is used to set `sql-alternate-buffer-name' within
 `sql-interactive-mode'."
   (concat (if (string= "" sql-user)
-	      (if (string= "" user-login-name)
+	      (if (string= "" (user-login-name))
 		  ()
-		(concat user-login-name "/"))
+		(concat (user-login-name) "/"))
 	    (concat sql-user "/"))
 	  (if (string= "" sql-database)
 	      (if (string= "" sql-server)
-		  system-name
+		  (system-name)
 		sql-server)
 	    sql-database)))
 
@@ -769,24 +988,63 @@ Inserts SELECT or commas if appropriate."
 		  (progn (forward-char 1) (backward-sexp 1) (point))
 		  (progn (forward-sexp 1) (point))))
       (goto-char (point-max))
-      (cond
-       ;; if empty command line, insert SELECT
-       ((save-excursion (beginning-of-line) 
-			(looking-at (concat comint-prompt-regexp "$")))
-	(insert "SELECT "))
-       ;; else if appending to SELECT or ORDER BY, insert a comma
-       ((save-excursion 
-	  (re-search-backward "\\b\\(select\\|order by\\) .+"
-			      (save-excursion (beginning-of-line) (point)) t))
-	(insert ", "))
-       ;; else insert a space
-       (t
-	(if (eq (preceding-char) ? )
-	    nil
-	  (insert " "))))
+      (let ((bol (comint-line-beginning-position)))
+	(cond
+	 ;; if empty command line, insert SELECT
+	 ((= bol (point))
+	  (insert "SELECT "))
+	 ;; else if appending to INTO .* (, SELECT or ORDER BY, insert a comma
+	 ((save-excursion
+	    (re-search-backward "\\b\\(\\(into\\s-+\\S-+\\s-+(\\)\\|select\\|order by\\) .+"
+				bol t))
+	  (insert ", "))
+	 ;; else insert a space
+	 (t
+	  (if (eq (preceding-char) ? )
+	      nil
+	    (insert " ")))))
       ;; in any case, insert the column
       (insert column)
       (message "%s" column))))
+
+;; On NT, SQL*Plus for Oracle turns on full buffering for stdout if it
+;; is not attached to a character device; therefore placeholder
+;; replacement by SQL*Plus is fully buffered.  The workaround lets
+;; Emacs query for the placeholders.
+
+(defvar sql-placeholder-history nil
+  "History of placeholder values used.")
+
+(defun sql-query-placeholders-and-send (proc string)
+  "Send to PROC input STRING, maybe replacing placeholders.
+Placeholders are words starting with and ampersand like &this.
+This function is used for `comint-input-sender' if using `sql-oracle' on NT."
+  (while (string-match "&\\(\\sw+\\)" string)
+    (setq string (replace-match 
+		  (read-from-minibuffer
+		   (format "Enter value for %s: " (match-string 1 string))
+		   nil nil nil sql-placeholder-history)
+		  t t string)))
+  (comint-send-string proc string)
+  (comint-send-string proc "\n"))
+
+;; Using DB2 interactively, newlines must be escaped with " \".
+;; The space before the backslash is relevant.
+(defun sql-escape-newlines-and-send (proc string)
+  "Send to PROC input STRING, escaping newlines if necessary.
+Every newline in STRING will be preceded with a space and a backslash."
+  (let ((result "") (start 0) mb me)
+    (while (string-match "\n" string start)
+      (setq mb (match-beginning 0)
+	    me (match-end 0))
+      (if (and (> mb 1)
+	       (string-equal " \\" (substring string (- mb 2) mb)))
+	  (setq result (concat result (substring string start me)))
+	(setq result (concat result (substring string start mb) " \\\n")))
+      (setq start me))
+    (setq result (concat result (substring string start)))
+    (comint-send-string proc result)
+    (comint-send-string proc "\n")))
 
 
 
@@ -802,7 +1060,7 @@ Inserts SELECT or commas if appropriate."
 	    ()
 	  (comint-send-string sql-buffer "\n"))
 	(message "Sent string to buffer %s." (buffer-name sql-buffer))
-	(if sql-pop-to-buffer-after-send-region 
+	(if sql-pop-to-buffer-after-send-region
 	    (pop-to-buffer sql-buffer)
 	  (display-buffer sql-buffer)))
     (message "No SQL process started.")))
@@ -831,7 +1089,7 @@ sql-toggle-pop-to-buffer-after-send-region to VALUE."
   (interactive "P")
   (if value
       (setq sql-pop-to-buffer-after-send-region value)
-    (setq sql-pop-to-buffer-after-send-region 
+    (setq sql-pop-to-buffer-after-send-region
 	  (null sql-pop-to-buffer-after-send-region ))))
 
 
@@ -846,7 +1104,7 @@ You can send SQL statements to the SQLi buffer using
 \\[sql-send-region].  Such a buffer must exist before you can do this.
 See `sql-help' on how to create SQLi buffers.
 
-\\{sql-mode-map} 
+\\{sql-mode-map}
 Customization: Entry to this mode runs the `sql-mode-hook'.
 
 When you put a buffer in SQL mode, the buffer stores the last SQLi
@@ -863,22 +1121,39 @@ For information on how to create multiple SQLi buffers, see
   (setq major-mode 'sql-mode)
   (setq mode-name "SQL")
   (use-local-map sql-mode-map)
+  (if sql-mode-menu
+      (easy-menu-add sql-mode-menu)); XEmacs
   (set-syntax-table sql-mode-syntax-table)
   (make-local-variable 'font-lock-defaults)
-  (setq font-lock-defaults '(sql-mode-font-lock-keywords 
-			     nil t ((95 . "w") (46 . "w"))))
+  ;; Note that making KEYWORDS-ONLY nil will cause havoc if you try
+  ;; SELECT 'x' FROM DUAL with SQL*Plus, because the title of the column
+  ;; will have just one quote.  Therefore syntactic hilighting is
+  ;; disabled for interactive buffers.  `_' and `.' are considered part
+  ;; of words.
+  (setq font-lock-defaults '(sql-mode-font-lock-keywords
+			     nil t ((?_ . "w") (?. . "w"))))
   (make-local-variable 'comment-start)
   (setq comment-start "--")
-  ;; Make each buffer in sql-mode remeber the "current" SQLi buffer.
+  ;; Make each buffer in sql-mode remember the "current" SQLi buffer.
   (make-local-variable 'sql-buffer)
+  ;; Add imenu support for sql-mode.  Note that imenu-generic-expression
+  ;; is buffer-local, so we don't need a local-variable for it.  SQL is
+  ;; case-insensitive, that's why we have to set imenu-case-fold-search.
+  ;; imenu-syntax-alist makes sure that `_' is considered part of object
+  ;; names.
+  (setq imenu-generic-expression sql-imenu-generic-expression
+	imenu-case-fold-search t
+	imenu-syntax-alist '(("_" . "w")))
   ;; Make `sql-send-paragraph' work on paragraphs that contain indented
   ;; lines.
   (make-local-variable 'paragraph-separate)
   (make-local-variable 'paragraph-start)
   (setq paragraph-separate "[\f]*$"
 	paragraph-start "[\n\f]")
+  ;; Abbrevs
   (setq local-abbrev-table sql-mode-abbrev-table)
   (setq abbrev-all-caps 1)
+  ;; Run hook
   (run-hooks 'sql-mode-hook))
 
 
@@ -933,8 +1208,7 @@ interpreter output, the hooks on `comint-output-filter-functions' are
 run.
 
 Variable `sql-input-ring-file-name' controls the initialisation of the
-input ring history.  `comint-input-ring-file-name' is temporarily bound
-to `sql-input-ring-file-name' when reading the input history.
+input ring history.
 
 Variables `comint-output-filter-functions', a hook, and
 `comint-scroll-to-bottom-on-input' and
@@ -954,7 +1228,7 @@ certain length.
 Here is another example.  It will always put point back to the statement
 you entered, right above the output it created.
 
-\(setq comint-output-filter-functions 
+\(setq comint-output-filter-functions
        \(function (lambda (STR) (comint-show-output))))"
   (comint-mode)
   (setq comint-prompt-regexp sql-prompt-regexp)
@@ -962,14 +1236,17 @@ you entered, right above the output it created.
   (setq major-mode 'sql-interactive-mode)
   (setq mode-name "SQLi")
   (use-local-map sql-interactive-mode-map)
+  (if sql-interactive-mode-menu
+      (easy-menu-add sql-interactive-mode-menu)); XEmacs
   (set-syntax-table sql-mode-syntax-table)
   (make-local-variable 'font-lock-defaults)
   ;; Note that making KEYWORDS-ONLY nil will cause havoc if you try
-  ;; SELECT 'x' FROM DUAL with SQL*Plus, because the title of the
-  ;; column will have just one quote.  Therefore syntactic hilighting
-  ;; is disabled for interactive buffers.
-  (setq font-lock-defaults '(sql-mode-font-lock-keywords 
-			     t t ((95 . "w") (46 . "w"))))
+  ;; SELECT 'x' FROM DUAL with SQL*Plus, because the title of the column
+  ;; will have just one quote.  Therefore syntactic hilighting is
+  ;; disabled for interactive buffers.  `_' and `.' are considered part
+  ;; of words.
+  (setq font-lock-defaults '(sql-mode-font-lock-keywords
+			     t t ((?_ . "w") (?. . "w"))))
   ;; Enable commenting and uncommenting of the region.
   (make-local-variable 'comment-start)
   (setq comment-start "--")
@@ -979,11 +1256,11 @@ you entered, right above the output it created.
   (setq abbrev-all-caps 1)
   ;; Exiting the process will call sql-stop.
   (set-process-sentinel (get-buffer-process sql-buffer) 'sql-stop)
-  ;; Make input-ring stuff buffer local so that people who want a
-  ;; different history file for each buffer/process/client/whatever can
-  ;; change separator and file-name on the sql-interactive-mode-hook.
-  (make-local-variable 'sql-input-ring-separator)
-  (make-local-variable 'sql-input-ring-file-name)
+  ;; People wanting a different history file for each
+  ;; buffer/process/client/whatever can change separator and file-name
+  ;; on the sql-interactive-mode-hook.
+  (setq comint-input-ring-separator sql-input-ring-separator
+	comint-input-ring-file-name sql-input-ring-file-name)
   ;; Create a usefull name for renaming this buffer later.
   (make-local-variable 'sql-alternate-buffer-name)
   (setq sql-alternate-buffer-name (sql-make-alternate-buffer-name))
@@ -991,33 +1268,27 @@ you entered, right above the output it created.
   (run-hooks 'sql-interactive-mode-hook)
   ;; Calling the hook before calling comint-read-input-ring allows users
   ;; to set comint-input-ring-file-name in sql-interactive-mode-hook.
-  ;; While reading the history, file-name and history are rebound...
-  (let ((comint-input-ring-file-name sql-input-ring-file-name)
-	(comint-input-ring-separator sql-input-ring-separator))
-    (comint-read-input-ring t)))
+  (comint-read-input-ring t))
 
 (defun sql-stop (process event)
   "Called when the SQL process is stopped.
 
 Writes the input history to a history file using
 `comint-write-input-ring' and inserts a short message in the SQL buffer.
-`comint-comint-input-ring-file-name' is temporarily bound to
-`sql-input-ring-file-name'.
 
 This function is a sentinel watching the SQL interpreter process.
 Sentinels will always get the two parameters PROCESS and EVENT."
-  ;; Write history.
-  ;; While reading the history, file-name and history are rebound...
-  (let ((comint-input-ring-file-name sql-input-ring-file-name)
-	(comint-input-ring-separator sql-input-ring-separator))
-    (comint-write-input-ring))
-  (if (buffer-live-p sql-buffer)
-      (insert (format "\nProcess %s %s\n" process event))))
+  (comint-write-input-ring)
+  (if (and (eq (current-buffer) sql-buffer)
+	   (not buffer-read-only))
+      (insert (format "\nProcess %s %s\n" process event))
+    (message "Process %s %s" process event)))
 
 
 
 ;;; Entry functions for different SQL interpreters.
 
+;;;###autoload
 (defun sql-oracle ()
   "Run sqlplus by Oracle as an inferior process.
 
@@ -1027,7 +1298,8 @@ If buffer exists and a process is running, just switch to buffer
 
 Interpreter used comes from variable `sql-oracle-program'.  Login uses
 the variables `sql-user', `sql-password', and `sql-database' as
-defaults, if set.
+defaults, if set.  Additional command line parameters can be stored in
+the list `sql-oracle-options'.
 
 The buffer is put in sql-interactive-mode, giving commands for sending
 input.  See `sql-interactive-mode'.
@@ -1057,7 +1329,11 @@ The default comes from `process-coding-system-alist' and
       (if (and parameter (not (string= "" sql-database)))
 	  (setq parameter (concat parameter "@" sql-database)))
       (if parameter
-	  (set-buffer (make-comint "SQL" sql-oracle-program nil parameter))
+	  (setq parameter (nconc (list parameter) sql-oracle-options))
+	(setq parameter sql-oracle-options))
+      (if parameter
+	  (set-buffer (apply 'make-comint "SQL" sql-oracle-program nil 
+			     parameter))
 	(set-buffer (make-comint "SQL" sql-oracle-program nil))))
     (setq sql-prompt-regexp "^SQL> ")
     (setq sql-prompt-length 5)
@@ -1066,11 +1342,17 @@ The default comes from `process-coding-system-alist' and
     ;; calling sql-interactive-mode.
     (setq sql-mode-font-lock-keywords sql-mode-oracle-font-lock-keywords)
     (sql-interactive-mode)
+    ;; If running on NT, make sure we do placeholder replacement
+    ;; ourselves.  This must come after sql-interactive-mode because all
+    ;; local variables will be killed, there.
+    (if (eq window-system 'w32)
+	(setq comint-input-sender 'sql-query-placeholders-and-send))
     (message "Login...done")
     (pop-to-buffer sql-buffer)))
 
 
 
+;;;###autoload
 (defun sql-sybase ()
   "Run isql by SyBase as an inferior process.
 
@@ -1079,8 +1361,9 @@ If buffer exists and a process is running, just switch to buffer
 `*SQL*'.
 
 Interpreter used comes from variable `sql-sybase-program'.  Login uses
-the variables `sql-user', `sql-password', and `sql-database' as
-defaults, if set.
+the variables `sql-server', `sql-user', `sql-password', and
+`sql-database' as defaults, if set.  Additional command line parameters
+can be stored in the list `sql-sybase-options'.
 
 The buffer is put in sql-interactive-mode, giving commands for sending
 input.  See `sql-interactive-mode'.
@@ -1096,20 +1379,20 @@ The default comes from `process-coding-system-alist' and
   (interactive)
   (if (comint-check-proc "*SQL*")
       (pop-to-buffer "*SQL*")
-    (sql-get-login 'user 'password 'database)
+    (sql-get-login 'server 'user 'password 'database)
     (message "Login...")
     ;; Put all parameters to the program (if defined) in a list and call
     ;; make-comint.
-    (let ((params '("-w" "2048" "-n")))
-      ;; I had a zillion versions of this using nconc and mapcar,
-      ;; mixtures of eval, list and quotes -- you have been warned.
+    (let ((params sql-sybase-options))
+      (if (not (string= "" sql-server))
+	  (setq params (append (list "-S" sql-server) params)))
       (if (not (string= "" sql-database))
-	  (setq params (append (list "-S" sql-database) params)))
+	  (setq params (append (list "-D" sql-database) params)))
       (if (not (string= "" sql-password))
 	  (setq params (append (list "-P" sql-password) params)))
       (if (not (string= "" sql-user))
 	  (setq params (append (list "-U" sql-user) params)))
-      (set-buffer (apply 'make-comint "SQL" sql-sybase-program 
+      (set-buffer (apply 'make-comint "SQL" sql-sybase-program
 			 nil params)))
     (setq sql-prompt-regexp "^SQL> ")
     (setq sql-prompt-length 5)
@@ -1120,6 +1403,7 @@ The default comes from `process-coding-system-alist' and
 
 
 
+;;;###autoload
 (defun sql-informix ()
   "Run dbaccess by Informix as an inferior process.
 
@@ -1149,7 +1433,7 @@ The default comes from `process-coding-system-alist' and
     ;; username and password are ignored.
     (if (string= "" sql-database)
 	(set-buffer (make-comint "SQL" sql-informix-program nil))
-      (set-buffer (make-comint "SQL" sql-informix-program nil sql-database)))
+      (set-buffer (make-comint "SQL" sql-informix-program nil sql-database "-")))
     (setq sql-prompt-regexp "^SQL> ")
     (setq sql-prompt-length 5)
     (setq sql-buffer (current-buffer))
@@ -1159,6 +1443,7 @@ The default comes from `process-coding-system-alist' and
 
 
 
+;;;###autoload
 (defun sql-mysql ()
   "Run mysql by TcX as an inferior process.
 
@@ -1171,7 +1456,8 @@ If buffer exists and a process is running, just switch to buffer
 
 Interpreter used comes from variable `sql-mysql-program'.  Login uses
 the variables `sql-user', `sql-password', `sql-database', and
-`sql-server' as defaults, if set.
+`sql-server' as defaults, if set.  Additional command line parameters
+can be stored in the list `sql-mysql-options'.
 
 The buffer is put in sql-interactive-mode, giving commands for sending
 input.  See `sql-interactive-mode'.
@@ -1200,7 +1486,9 @@ The default comes from `process-coding-system-alist' and
 	  (setq params (append (list (concat "--password=" sql-password)) params)))
       (if (not (string= "" sql-user))
 	  (setq params (append (list (concat "--user=" sql-user)) params)))
-      (set-buffer (apply 'make-comint "SQL" sql-mysql-program 
+      (if (not (null sql-mysql-options))
+          (setq params (append sql-mysql-options params)))
+      (set-buffer (apply 'make-comint "SQL" sql-mysql-program
 			 nil params)))
     (setq sql-prompt-regexp "^mysql>")
     (setq sql-prompt-length 6)
@@ -1211,6 +1499,7 @@ The default comes from `process-coding-system-alist' and
 
 
 
+;;;###autoload
 (defun sql-solid ()
   "Run solsql by Solid as an inferior process.
 
@@ -1247,7 +1536,7 @@ The default comes from `process-coding-system-alist' and
 	  (setq params (append (list sql-user sql-password) params)))
       (if (not (string= "" sql-server))
 	  (setq params (append (list sql-server) params)))
-      (set-buffer (apply 'make-comint "SQL" sql-solid-program 
+      (set-buffer (apply 'make-comint "SQL" sql-solid-program
 			 nil params)))
     (setq sql-prompt-regexp "^")
     (setq sql-prompt-length 0)
@@ -1258,6 +1547,7 @@ The default comes from `process-coding-system-alist' and
 
 
 
+;;;###autoload
 (defun sql-ingres ()
   "Run sql by Ingres as an inferior process.
 
@@ -1297,6 +1587,7 @@ The default comes from `process-coding-system-alist' and
 
 
 
+;;;###autoload
 (defun sql-ms ()
   "Run isql by Microsoft as an inferior process.
 
@@ -1347,7 +1638,6 @@ The default comes from `process-coding-system-alist' and
     (message "Login...done")
     (pop-to-buffer sql-buffer)))
 
-
 
 
 ;;;###autoload
@@ -1360,6 +1650,8 @@ If buffer exists and a process is running, just switch to buffer
 
 Interpreter used comes from variable `sql-postgres-program'.  Login uses
 the variables `sql-database' and `sql-server' as default, if set.
+Additional command line parameters can be stored in the list
+`sql-postgres-options'.
 
 The buffer is put in sql-interactive-mode, giving commands for sending
 input.  See `sql-interactive-mode'.
@@ -1369,7 +1661,7 @@ in the input and output to the process, use \\[universal-coding-system-argument]
 before \\[sql-postgres].  You can also specify this with \\[set-buffer-process-coding-system]
 in the SQL buffer, after you start the process.
 The default comes from `process-coding-system-alist' and
-`default-process-coding-system'.  If your output lines end with ^M, 
+`default-process-coding-system'.  If your output lines end with ^M,
 your might try undecided-dos as a coding system.  If this doesn't help,
 Try to set `comint-output-filter-functions' like this:
 
@@ -1382,24 +1674,123 @@ Try to set `comint-output-filter-functions' like this:
       (pop-to-buffer "*SQL*")
     (sql-get-login 'database 'server)
     (message "Login...")
-    ;; username and password are ignored.
-    (let ((params))
+    ;; username and password are ignored.  Mark Stosberg suggest to add
+    ;; the database at the end.  Jason Beegan suggest using --pset and
+    ;; pager=off instead of \\o|cat.  The later was the solution by
+    ;; Gregor Zych.  Jason's suggestion is the default value for
+    ;; sql-postgres-options.
+    (let ((params sql-postgres-options))
       (if (not (string= "" sql-database))
-	  (setq params (append (list sql-database) params)))
+	  (setq params (append params (list sql-database))))
       (if (not (string= "" sql-server))
 	  (setq params (append (list "-h" sql-server) params)))
-      (set-buffer (apply 'make-comint "SQL" sql-postgres-program 
+      (set-buffer (apply 'make-comint "SQL" sql-postgres-program
 			 nil params)))
     (setq sql-prompt-regexp "^.*> *")
     (setq sql-prompt-length 5)
     ;; This is a lousy hack to prevent psql from truncating it's output
-    ;; and giving stupid warnings. If s.o. knows a way to prevent psql 
+    ;; and giving stupid warnings. If s.o. knows a way to prevent psql
     ;; from acting this way, then I would be very thankful to
     ;; incorporate this (Gregor Zych <zych@pool.informatik.rwth-aachen.de>)
-    (comint-send-string "*SQL*" "\\o \| cat\n")
+    ;; (comint-send-string "*SQL*" "\\o \| cat\n")
     (setq sql-mode-font-lock-keywords sql-mode-postgres-font-lock-keywords)
     (setq sql-buffer (current-buffer))
     (sql-interactive-mode)
+    (message "Login...done")
+    (pop-to-buffer sql-buffer)))
+
+
+
+;;;###autoload
+(defun sql-interbase ()
+  "Run isql by Interbase as an inferior process.
+
+If buffer `*SQL*' exists but no process is running, make a new process.
+If buffer exists and a process is running, just switch to buffer
+`*SQL*'.
+
+Interpreter used comes from variable `sql-interbase-program'.  Login
+uses the variables `sql-user', `sql-password', and `sql-database' as
+defaults, if set.
+
+The buffer is put in sql-interactive-mode, giving commands for sending
+input.  See `sql-interactive-mode'.
+
+To specify a coding system for converting non-ASCII characters
+in the input and output to the process, use \\[universal-coding-system-argument]
+before \\[sql-interbase].  You can also specify this with \\[set-buffer-process-coding-system]
+in the SQL buffer, after you start the process.
+The default comes from `process-coding-system-alist' and
+`default-process-coding-system'.
+
+\(Type \\[describe-mode] in the SQL buffer for a list of commands.)"
+  (interactive)
+  (if (comint-check-proc "*SQL*")
+      (pop-to-buffer "*SQL*")
+    (sql-get-login 'user 'password 'database)
+    (message "Login...")
+    ;; Put all parameters to the program (if defined) in a list and call
+    ;; make-comint.
+    (let ((params sql-interbase-options))
+      (if (not (string= "" sql-user))
+	  (setq params (append (list "-u" sql-user) params)))
+      (if (not (string= "" sql-password))
+	  (setq params (append (list "-p" sql-password) params)))
+      (if (not (string= "" sql-database))
+        (setq params (cons sql-database params))); add to the front!
+      (set-buffer (apply 'make-comint "SQL" sql-interbase-program
+			 nil params)))
+    (setq sql-prompt-regexp "^SQL> ")
+    (setq sql-prompt-length 5)
+    (setq sql-buffer (current-buffer))
+    (sql-interactive-mode)
+    (message "Login...done")
+    (pop-to-buffer sql-buffer)))
+
+
+
+;;;###autoload
+(defun sql-db2 ()
+  "Run db2 by IBM as an inferior process.
+
+If buffer `*SQL*' exists but no process is running, make a new process.
+If buffer exists and a process is running, just switch to buffer
+`*SQL*'.
+
+Interpreter used comes from variable `sql-db2-program'.  There is not
+automatic login.
+
+The buffer is put in sql-interactive-mode, giving commands for sending
+input.  See `sql-interactive-mode'.
+
+If you use \\[sql-accumulate-and-indent] to send multiline commands to
+db2, newlines will be escaped if necessary.  If you don't want that, set
+`comint-input-sender' back to `comint-simple-send' by writing an after
+advice.  See the elisp manual for more information.
+
+To specify a coding system for converting non-ASCII characters
+in the input and output to the process, use \\[universal-coding-system-argument]
+before \\[sql-db2].  You can also specify this with \\[set-buffer-process-coding-system]
+in the SQL buffer, after you start the process.
+The default comes from `process-coding-system-alist' and
+`default-process-coding-system'.
+
+\(Type \\[describe-mode] in the SQL buffer for a list of commands.)"
+  (interactive)
+  (if (comint-check-proc "*SQL*")
+      (pop-to-buffer "*SQL*")
+    (message "Login...")
+    ;; Put all parameters to the program (if defined) in a list and call
+    ;; make-comint.
+    (set-buffer (apply 'make-comint "SQL" sql-db2-program
+		       nil sql-db2-options))
+    (setq sql-prompt-regexp "^db2 => ")
+    (setq sql-prompt-length 7)
+    (setq sql-buffer (current-buffer))
+    (sql-interactive-mode)
+    ;; Escape newlines.  This must come after sql-interactive-mode
+    ;; because all local variables will be killed, there.
+    (setq comint-input-sender 'sql-escape-newlines-and-send)
     (message "Login...done")
     (pop-to-buffer sql-buffer)))
 

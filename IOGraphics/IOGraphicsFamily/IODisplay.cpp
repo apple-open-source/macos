@@ -19,17 +19,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1997-1998 Apple Computer, Inc.
- *
- *
- * HISTORY
- *
- * sdouglas  22 Oct 97 - first checked in.
- * sdouglas  18 May 98 - make loadable.
- * sdouglas  23 Jul 98 - start IOKit
- * sdouglas  08 Dec 98 - start cpp
- */
+
 
 #include <libkern/OSAtomic.h>
 #include <IOKit/graphics/IODisplay.h>
@@ -69,6 +59,18 @@ const OSSymbol * gIODisplayParametersDefaultKey;
 enum {
     kIODisplayMaxUsableState  = kIODisplayMaxPowerState - 1
 };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#if 0
+#warning **LOGS**
+#define DEBG(fmt, args...)  do { kprintf(fmt, ## args); } while( false )
+#elif 0
+#warning **LOGS**
+#define DEBG(fmt, args...)  do { IOLog(fmt, ## args); } while( false )
+#else
+#define DEBG(fmt, args...)  {}
+#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -195,7 +197,7 @@ bool IODisplay::start( IOService * provider )
     if( edidData) do {
 
         edid = (EDID *) edidData->getBytesNoCopy();
-        IOLog("%s EDID Version %d.%d\n", framebuffer->getName(),
+        DEBG("%s EDID Version %d.%d\n", framebuffer->getName(),
             edid->version, edid->revision );
 
         if( edid->version != 1)
@@ -205,14 +207,14 @@ bool IODisplay::start( IOService * provider )
         // product
         product = (edid->vendorProduct[3] << 8) | edid->vendorProduct[2];
 #if 1
-        IOLog("Vendor/product 0x%02lx/0x%02lx, ", vendor, product );
-        IOLog("Est: ");
+        DEBG("Vendor/product 0x%02lx/0x%02lx, ", vendor, product );
+        DEBG("Est: ");
         for( index = 0; index < 3; index++)
-            IOLog(" 0x%02x,", edid->establishedTimings[ index ] );
-        IOLog("\nStd: " );
+            DEBG(" 0x%02x,", edid->establishedTimings[ index ] );
+        DEBG("\nStd: " );
         for( index = 0; index < 8; index++)
-            IOLog(" 0x%04x,", edid->standardTimings[ index ] );
-        IOLog("\n");
+            DEBG(" 0x%04x,", edid->standardTimings[ index ] );
+        DEBG("\n");
 #endif
     } while( false );
 
@@ -306,6 +308,7 @@ IOReturn IODisplay::readFramebufferEDID( void )
     OSData *		data;
     IOByteCount		length;
     EDID 		readEDID;
+    UInt8		edidBlock[128];
     UInt32		index;
     UInt32		numExts;
 
@@ -337,12 +340,14 @@ IOReturn IODisplay::readFramebufferEDID( void )
 
         numExts = readEDID.extension;
         for( index = 2; index < (2 + numExts); index++) {
-            length = sizeof( EDID);
+            length = sizeof(EDID);
             err = framebuffer->getDDCBlock( fConnection->getConnection(),
-                    index, kIODDCBlockTypeEDID, 0, (UInt8 *) &readEDID, &length );
-            if( err || (length != sizeof( EDID)))
+                    index, kIODDCBlockTypeEDID, 0, edidBlock, &length );
+            if( err || (length != sizeof(EDID)))
                 break;
-            if( !data->appendBytes( &readEDID, sizeof( EDID ) ))
+            if( 0 == bcmp( edidBlock, &readEDID, sizeof(EDID) ))
+                break;
+            if( !data->appendBytes( edidBlock, sizeof(EDID) ))
                 break;
         }
 
@@ -469,13 +474,13 @@ IOReturn IODisplay::setProperties( OSObject * properties )
     if( dict2)
         dict = dict2;
 
-    if( !(dict = OSDynamicCast(OSDictionary, properties)))
-        return( kIOReturnUnsupported );
-
     if( dict->getObject(gIODisplayParametersDefaultKey)) {
-        doIntegerSet( 0, gIODisplayParametersDefaultKey, 0 );
+	params = OSDynamicCast( OSDictionary,
+		fDisplayParams->getObject(gIODisplayParametersDefaultKey));
+        doIntegerSet( params, gIODisplayParametersDefaultKey, 0 );
         doUpdate();
-        setProperties( fDisplayParams );
+	if( 0 == params)
+	    setProperties( fDisplayParams );
     }
 
     iter = OSCollectionIterator::withCollection( dict );
@@ -524,7 +529,8 @@ IOReturn IODisplay::setProperties( OSObject * properties )
     }
 
     if( doCommit)
-        doIntegerSet( 0, gIODisplayParametersCommitKey, 0 );
+        doIntegerSet( OSDynamicCast( OSDictionary, fDisplayParams->getObject(gIODisplayParametersCommitKey)),
+                        gIODisplayParametersCommitKey, 0 );
 
     return( allOK ? err : kIOReturnError );
 }
@@ -877,3 +883,48 @@ OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 6);
 OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 7);
 OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 8);
 OSMetaClassDefineReservedUnused(IODisplayParameterHandler, 9);
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#ifdef kIOIconKey
+
+static IOReturn
+AppleCudaIIC( const OSSymbol * sym, UInt8 address, UInt8 * buffer, IOByteCount * count )
+{
+    static IOService * cuda;
+    IOReturn ret = kIOReturnError;
+
+    // Wait for Cuda to show up:
+    if( !cuda)
+        cuda = IOService::waitForService(IOService::serviceMatching("AppleCuda"));
+    if( cuda)
+        ret = cuda->callPlatformFunction( sym, false, (void *) (UInt32) address, buffer, count, 0 );
+
+    return( ret );
+}
+
+IOReturn
+AppleCudaWriteIIC( UInt8 address, const UInt8 * buffer, IOByteCount * count )
+{
+    static const OSSymbol * sym;
+    
+    if( !sym)
+        sym = OSSymbol::withCString("write_iic");
+        
+    return( AppleCudaIIC( sym, address, (UInt8 *) buffer, count ));
+}
+
+IOReturn
+AppleCudaReadIIC( UInt8 address, UInt8 * buffer, IOByteCount * count )
+{
+    static const OSSymbol * sym;
+    
+    if( !sym)
+        sym = OSSymbol::withCString("read_iic");
+        
+    return( AppleCudaIIC( sym, address, buffer, count ));
+}
+
+#endif
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

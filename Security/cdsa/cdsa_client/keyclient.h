@@ -34,7 +34,7 @@ namespace CssmClient
 //
 // Key
 //
-class KeyImpl : public ObjectImpl, public AclClient, public CssmKey
+class KeyImpl : public ObjectImpl, public AclBearer, public CssmKey
 {
 public:
 	KeyImpl(const CSP &csp);
@@ -44,16 +44,18 @@ public:
 	
 	CSP csp() const { return parent<CSP>(); }
 	void deleteKey(const CSSM_ACCESS_CREDENTIALS *cred);
+    
+    CssmKeySize sizeInBits() const;
 
 	// Acl manipulation
-	void getAcl(const char *selectionTag, AutoAclEntryInfoList &aclInfos) const;
-	void changeAcl(const CSSM_ACCESS_CREDENTIALS *accessCred,
-				   const CSSM_ACL_EDIT &aclEdit);
+	void getAcl(AutoAclEntryInfoList &aclInfos, const char *selectionTag = NULL) const;
+	void changeAcl(const CSSM_ACL_EDIT &aclEdit,
+		const CSSM_ACCESS_CREDENTIALS *accessCred);
 
 	// Acl owner manipulation
 	void getOwner(AutoAclOwnerPrototype &owner) const;
-	void changeOwner(const CSSM_ACCESS_CREDENTIALS *accessCred,
-					 const CSSM_ACL_OWNER_PROTOTYPE &newOwner);
+	void changeOwner(const CSSM_ACL_OWNER_PROTOTYPE &newOwner,
+		const CSSM_ACCESS_CREDENTIALS *accessCred = NULL);
 
 	// Call this after completing the CSSM API call after having called Key::makeNewKey()
 	void activate();
@@ -84,6 +86,9 @@ public:
 
 	// Creates an inactive key, client must call activate() after this.
 	CssmKey *makeNewKey(const CSP &csp) { (*this) = Key(csp); return &(**this); }
+    
+    // inquiries
+    CssmKeySize sizeInBits() const		{ return (*this)->sizeInBits(); }
 };
 
 

@@ -53,6 +53,7 @@ install-sendmail:
 	chmod 4555 $(DSTROOT)/usr/sbin/sendmail
 	echo "# sample access file" > $(DSTROOT)/private/etc/mail/access
 	makemap hash $(DSTROOT)/private/etc/mail/access < $(DSTROOT)/private/etc/mail/access
+	rm -f $(DSTROOT)/etc $(DSTROOT)/var
 
 
 DATADIR       = $(SHAREDIR)/sendmail

@@ -112,15 +112,13 @@ ThresholdAclSubject *ThresholdAclSubject::Maker::make(const TypedList &list) con
 	return new ThresholdAclSubject(totalSubjects, minimumNeeded, elements);
 }
 
-ThresholdAclSubject *ThresholdAclSubject::Maker::make(Reader &pub, Reader &priv) const
+ThresholdAclSubject *ThresholdAclSubject::Maker::make(Version, Reader &pub, Reader &priv) const
 {
     uint32 totalSubjects; pub(totalSubjects);
     uint32 minimumNeeded; pub(minimumNeeded);
     AclSubjectVector subSubjects(totalSubjects);
-    for (uint32 n = 0; n < totalSubjects; n++) {
-        CSSM_ACL_SUBJECT_TYPE type; pub(type);
-        subSubjects[n] = ObjectAcl::make(type, pub, priv);
-    }
+    for (uint32 n = 0; n < totalSubjects; n++)
+		subSubjects[n] = ObjectAcl::importSubject(pub, priv);
 	return new ThresholdAclSubject(totalSubjects, minimumNeeded, subSubjects);
 }
 
@@ -140,12 +138,8 @@ void ThresholdAclSubject::exportBlobForm(Action &pub, Action &priv)
 {
     pub(totalSubjects);
     pub(minimumNeeded);
-    for (uint32 n = 0; n < totalSubjects; n++) {
-        AclSubjectPointer &subSubject = elements[n];
-        CSSM_ACL_SUBJECT_TYPE type = subSubject->type();
-        pub(type);
-        subSubject->exportBlob(pub, priv);
-    }
+    for (uint32 n = 0; n < totalSubjects; n++)
+		ObjectAcl::exportSubject(elements[n], pub, priv);
 }
 
 void ThresholdAclSubject::exportBlob(Writer::Counter &pub, Writer::Counter &priv)
@@ -162,6 +156,8 @@ void ThresholdAclSubject::debugDump() const
 	Debug::dump("Threshold(%ld of %ld)", minimumNeeded, totalSubjects);
 	for (unsigned int n = 0; n < elements.size(); n++) {
 		Debug::dump(" [");
+		if (Version v = elements[n]->version())
+			Debug::dump("V=%d ", v);
 		elements[n]->debugDump();
 		Debug::dump("]");
 	}

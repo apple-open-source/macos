@@ -23,6 +23,7 @@
 #define _CPP_CSSMMDS
 #endif
 #include "cssmmds.h"
+#include <ctype.h>
 
 
 ModuleNexus<MdsComponent::MDS> MdsComponent::mds;
@@ -55,7 +56,7 @@ void MdsComponent::getInfo() const
 		try {
 			if (Guid(guid) != mMyGuid)
 				continue;	// no match this line
-		} catch (CssmCommonError &error) {
+		} catch (const CssmCommonError &error) {
 			if (error.cssmError() == CSSM_ERRCODE_INVALID_GUID)
 				CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);	// invalid file guid => MDS error
 			throw;	// pass all other errors

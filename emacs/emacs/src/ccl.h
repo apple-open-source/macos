@@ -19,8 +19,8 @@ along with GNU Emacs; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef _CCL_H
-#define _CCL_H
+#ifndef EMACS_CCL_H
+#define EMACS_CCL_H
 
 /* Macros for exit status of CCL program.  */
 #define CCL_STAT_SUCCESS	0 /* Terminated successfully.  */
@@ -42,8 +42,8 @@ struct ccl_program {
 				   condition flag of relational
 				   operations.  */
   int private_state;            /* CCL instruction may use this
-				   for private use, mainly for preservation
-				   internal states for suspending.
+				   for private use, mainly for saving
+				   internal states on suspending.
 				   This variable is set to 0 when ccl is 
 				   set up.  */
   int last_block;		/* Set to 1 while processing the last
@@ -53,6 +53,20 @@ struct ccl_program {
 				   many times bigger the output buffer
 				   should be than the input buffer.  */
   int stack_idx;		/* How deep the call of CCL_Call is nested.  */
+  int eol_type;			/* When the CCL program is used for
+				   encoding by a coding system, set to
+				   the eol_type of the coding system.
+				   In other cases, always
+				   CODING_EOL_LF.  */
+  int multibyte;		/* 1 if the source text is multibyte.  */
+  int cr_consumed;		/* Flag for encoding DOS-like EOL
+				   format when the CCL program is used
+				   for encoding by a coding
+				   system.  */
+  int suppress_error;		/* If nonzero, don't insert error
+				   message in the output.  */
+  int eight_bit_control;	/* Set to nonzero if CCL_WRITE_CHAR
+				   writes eight-bit-control char.  */
 };
 
 /* This data type is used for the spec field of the structure
@@ -62,14 +76,16 @@ struct ccl_spec {
   struct ccl_program decoder;
   struct ccl_program encoder;
   unsigned char valid_codes[256];
+  int cr_carryover;		/* CR carryover flag.  */
+  unsigned char eight_bit_carryover[MAX_MULTIBYTE_LENGTH];
 };
 
 /* Alist of fontname patterns vs corresponding CCL program.  */
 extern Lisp_Object Vfont_ccl_encoder_alist;
 
 /* Setup fields of the structure pointed by CCL appropriately for the
-   execution of compiled CCL code in VEC (vector of integer).  */
-extern void setup_ccl_program P_ ((struct ccl_program *, Lisp_Object));
+   execution of ccl program CCL_PROG (symbol or vector).  */
+extern int setup_ccl_program P_ ((struct ccl_program *, Lisp_Object));
 
 extern int ccl_driver P_ ((struct ccl_program *, unsigned char *,
 			   unsigned char *, int, int, int *));
@@ -81,4 +97,4 @@ extern Lisp_Object Vccl_program_table;
    is an index for Vccl_protram_table. */
 extern Lisp_Object Qccl_program_idx;
 
-#endif /* _CCL_H */
+#endif /* EMACS_CCL_H */

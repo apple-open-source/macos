@@ -42,29 +42,20 @@ mmalloc_detach (md)
      PTR md;
 {
   struct mdesc mtemp;
+  struct mdesc *mdp;
 
-  if (md != NULL)
-    {
+  if (md == NULL)
+    return md;
 
-      mtemp = *(struct mdesc *) md;
+  mdp = MD_TO_MDP (md);
       
-      /* Now unmap all the pages associated with this region by asking for a
-	 negative increment equal to the current size of the region. */
-      
-      if ((mtemp.morecore (&mtemp, mtemp.base - mtemp.breakval)) == NULL)
-	{
-	  /* Deallocating failed.  Update the original malloc descriptor
-	     with any changes */
-	  *(struct mdesc *) md = mtemp;
-	}
-      else
-	{
-	  if (mtemp.flags & MMALLOC_DEVZERO)
-	    close (mtemp.fd);
-	  close (mtemp.fd);
-	  md = NULL;
-	}
-    }
+  if (mdp->child != NULL)
+    return mmalloc_detach (mdp->child);
 
-  return (md);
+  if (! (mdp->flags & MMALLOC_SHARED))
+    abort ();
+
+  mtemp = *mdp;
+
+  return NULL;
 }

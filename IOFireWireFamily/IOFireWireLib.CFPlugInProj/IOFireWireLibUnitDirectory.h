@@ -28,94 +28,72 @@
  *
  */
 
-#ifndef _IOKIT_IOFireWireLibUnitDirectory_H_
-#define _IOKIT_IOFireWireLibUnitDirectory_H_
+#import "IOFireWireLib.h"
+#import "IOFireWireLibPriv.h"
 
-#include "IOFireWireLib.h"
-#include "IOFireWireLibPriv.h"
+namespace IOFireWireLib {
 
-class IOFireWireLocalUnitDirectoryImp: public IOFireWireIUnknown
-{
- public:
- 	struct InterfaceMap
- 	{
- 		IUnknownVTbl*						pseudoVTable ;
- 		IOFireWireLocalUnitDirectoryImp*	obj ;
- 	} ;
- 
-	static IOFireWireLocalUnitDirectoryInterface	sInterface ;
- 	InterfaceMap									mInterface ;
+	class LocalUnitDirectory: public IOFireWireIUnknown
+	{
+		public:
+			typedef ::IOFireWireLocalUnitDirectoryInterface 	Interface ;
+			typedef ::IOFireWireLibLocalUnitDirectoryRef		DirRef ;
 
- 	// GetThis()
- 	inline static IOFireWireLocalUnitDirectoryImp* GetThis(IOFireWireLibLocalUnitDirectoryRef self)
-	 	{ return ((InterfaceMap*)self)->obj ;}
+			HRESULT					QueryInterface(
+											REFIID				iid, 
+											void **				ppv ) ;		
+		public:
+			// --- constructor/destructor ----------
+									LocalUnitDirectory( Device& inUserClient ) ;
+			virtual					~LocalUnitDirectory() ;
+		
+			// --- adding to ROM -------------------
+			IOReturn				AddEntry(
+											int 				key,
+											void*				inBuffer,
+											size_t				inLen,
+											CFStringRef			inDesc = NULL) ;
+			IOReturn				AddEntry(
+											int					key,
+											UInt32				value,
+											CFStringRef			inDesc = NULL) ;
+			IOReturn				AddEntry(
+											int					key,
+											const FWAddress &	value,
+											CFStringRef			inDesc = NULL) ;
+											
+			IOReturn				Publish() ;
+			IOReturn				Unpublish() ;
 
-	// --- IUNKNOWN support ----------------
-	static IUnknownVTbl**	Alloc(
-									IOFireWireDeviceInterfaceImp& inUserClient) ;
+			// --- IUNKNOWN support ----------------
+			static Interface**		Alloc( Device& userclient ) ;
 
-	HRESULT					QueryInterface(
-									REFIID				iid, 
-									void **				ppv ) ;
-
-	// --- adding to ROM -------------------
-	static IOReturn			SAddEntry_Ptr(
-									IOFireWireLibLocalUnitDirectoryRef self,
-									int 				key,
-									void*				inBuffer,
-									size_t				inLen,
-									CFStringRef			inDesc = NULL) ;
-	static IOReturn			SAddEntry_UInt32(
-									IOFireWireLibLocalUnitDirectoryRef self,
-									int					key,
-									UInt32				value,
-									CFStringRef			inDesc = NULL) ;
-	static IOReturn			SAddEntry_FWAddress(
-									IOFireWireLibLocalUnitDirectoryRef self,
-									int					key,
-									const FWAddress*	value,
-									CFStringRef			inDesc = NULL) ;
-
-	// Use this function to cause your unit directory to appear in the Mac's config ROM.
-	static	IOReturn		SPublish(IOFireWireLibLocalUnitDirectoryRef	self) ;
-	static	IOReturn		SUnpublish(IOFireWireLibLocalUnitDirectoryRef self) ;
-
- public:
-	// --- constructor/destructor ----------
-							IOFireWireLocalUnitDirectoryImp(IOFireWireDeviceInterfaceImp& inUserClient) ;
-	virtual					~IOFireWireLocalUnitDirectoryImp() ;
-
-	IOFireWireLibLocalUnitDirectoryRef	CreateRef() ;
-	
-	// --- adding to ROM -------------------
-	virtual IOReturn		AddEntry(
-									int 				key,
-									void*				inBuffer,
-									size_t				inLen,
-									CFStringRef			inDesc = NULL) ;
-	virtual IOReturn		AddEntry(
-									int					key,
-									UInt32				value,
-									CFStringRef			inDesc = NULL) ;
-	virtual IOReturn		AddEntry(
-									int					key,
-									const FWAddress &	value,
-									CFStringRef			inDesc = NULL) ;
-									
-	virtual IOReturn		Publish() ;
-	virtual IOReturn		Unpublish() ;
-
-	// callback management
-	virtual IOFireWireDeviceAddedCallback		SetDeviceAddedCallback(
-													IOFireWireDeviceAddedCallback	 /*inDeviceAddedHandler*/) {return mDeviceAddedCallback; }
-	virtual IOFireWireDeviceRemovedCallback		SetDeviceRemovedCallback(
-													IOFireWireDeviceRemovedCallback	/*inDeviceRemovedHandler*/) { return mDeviceRemovedCallback; }
-
- protected:
-	FWKernUnitDirRef					mKernUnitDirRef ;
-	IOFireWireDeviceInterfaceImp&		mUserClient ;
-	IOFireWireDeviceAddedCallback		mDeviceAddedCallback ;
-	IOFireWireDeviceRemovedCallback		mDeviceRemovedCallback ;
-	Boolean								mPublished ;
-} ;
-#endif //_IOKIT_IOFireWireLibUnitDirectory_H_
+			// --- adding to ROM -------------------
+			static IOReturn			SAddEntry_Ptr(
+											DirRef self,
+											int 				key,
+											void*				inBuffer,
+											size_t				inLen,
+											CFStringRef			inDesc = NULL) ;
+			static IOReturn			SAddEntry_UInt32(
+											DirRef self,
+											int					key,
+											UInt32				value,
+											CFStringRef			inDesc = NULL) ;
+			static IOReturn			SAddEntry_FWAddress(
+											DirRef self,
+											int					key,
+											const FWAddress*	value,
+											CFStringRef			inDesc = NULL) ;
+		
+			// Use this function to cause your unit directory to appear in the Mac's config ROM.
+			static IOReturn			SPublish( DirRef self ) ;
+			static IOReturn			SUnpublish( DirRef self ) ;
+		
+		protected:
+			static Interface		sInterface ;		
+			FWKernUnitDirRef		mKernUnitDirRef ;
+			Device&					mUserClient ;
+			bool					mPublished ;
+	} ;
+}

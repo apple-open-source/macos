@@ -1,5 +1,5 @@
 /* Target-dependent code for the Matsushita MN10200 for GDB, the GNU debugger.
-   Copyright 1997 Free Software Foundation, Inc.
+   Copyright 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -28,6 +28,7 @@
 #include "gdb_string.h"
 #include "gdbcore.h"
 #include "symfile.h"
+#include "regcache.h"
 
 
 /* Should call_function allocate stack space for a struct return?  */
@@ -113,7 +114,7 @@ static CORE_ADDR
 mn10200_analyze_prologue (struct frame_info *fi, CORE_ADDR pc)
 {
   CORE_ADDR func_addr, func_end, addr, stop;
-  CORE_ADDR stack_size;
+  CORE_ADDR stack_size = 0;
   unsigned char buf[4];
   int status;
   char *name;
@@ -643,7 +644,7 @@ mn10200_frame_chain (struct frame_info *fi)
   memset (dummy_frame.fsr.regs, '\000', sizeof dummy_frame.fsr.regs);
   dummy_frame.status = 0;
   dummy_frame.stack_size = 0;
-  mn10200_analyze_prologue (&dummy_frame);
+  mn10200_analyze_prologue (&dummy_frame, 0);
 
   if (dummy_frame.status & MY_FRAME_IN_FP)
     {
@@ -717,7 +718,7 @@ mn10200_pop_frame (struct frame_info *frame)
    order on the stack.  */
 
 CORE_ADDR
-mn10200_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+mn10200_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 			unsigned char struct_return, CORE_ADDR struct_addr)
 {
   int argnum = 0;

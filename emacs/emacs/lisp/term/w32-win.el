@@ -1,4 +1,4 @@
-;;; w32-win.el --- parse switches controlling interface with W32 window system.
+;;; w32-win.el --- parse switches controlling interface with W32 window system
 
 ;; Copyright (C) 1993, 1994 Free Software Foundation, Inc.
 
@@ -79,12 +79,16 @@
 (if (fboundp 'new-fontset)
     (require 'fontset))
 
+;; FIXME: this is temporary for v21.1, since many redisplay problems
+;; happen if redisplay-dont-pause is nil.
+(setq redisplay-dont-pause t)
+
 ;; Because Windows scrollbars look and act quite differently compared
 ;; with the standard X scroll-bars, we don't try to use the normal
 ;; scroll bar routines.
 
 (defun w32-handle-scroll-bar-event (event)
-  "Handle W32 scroll bar events to do normal Window style scrolling."
+  "Handle W32 scroll bar EVENT to do normal Window style scrolling."
   (interactive "e")
   (let ((old-window (selected-window)))
     (unwind-protect
@@ -121,7 +125,7 @@
   "*Number of lines to scroll per click of the mouse wheel.")
 
 (defun mouse-wheel-scroll-line (event)
-  "Scroll the current buffer by `mouse-wheel-scroll-amount'."
+  "Scroll the window in which EVENT occurred by `mouse-wheel-scroll-amount'."
   (interactive "e")
   (condition-case nil
       (if (< (car (cdr (cdr event))) 0)
@@ -134,7 +138,7 @@
 (setq scroll-command-groups (list '(mouse-wheel-scroll-line)))
 
 (defun mouse-wheel-scroll-screen (event)
-  "Scroll the current buffer by `mouse-wheel-scroll-amount'."
+  "Scroll the window in which EVENT occurred by `mouse-wheel-scroll-amount'."
   (interactive "e")
   (condition-case nil
       (if (< (car (cdr (cdr event))) 0)
@@ -146,13 +150,13 @@
 (global-set-key [mouse-wheel] 'mouse-wheel-scroll-line)
 (global-set-key [C-mouse-wheel] 'mouse-wheel-scroll-screen)
 
-(defun w32-drag-n-drop-debug (event) 
-  "Print the drag-n-drop event in a readable form."
-  (interactive "e") 
+(defun w32-drag-n-drop-debug (event)
+  "Print the drag-n-drop EVENT in a readable form."
+  (interactive "e")
   (princ event))
 
 (defun w32-drag-n-drop (event)
-  "Edit the files listed in the drag-n-drop event.
+  "Edit the files listed in the drag-n-drop EVENT.
 Switch to a buffer editing the last file dropped."
   (interactive "e")
   (save-excursion
@@ -165,11 +169,11 @@ Switch to a buffer editing the last file dropped."
 	   (y (cdr coords)))
       (if (and (> x 0) (> y 0))
 	  (set-frame-selected-window nil window))
-      (mapcar 'find-file (car (cdr (cdr event)))))
+    (mapcar 'find-file (car (cdr (cdr event)))))
   (raise-frame)))
 
 (defun w32-drag-n-drop-other-frame (event)
-  "Edit the files listed in the drag-n-drop event, in other frames.
+  "Edit the files listed in the drag-n-drop EVENT, in other frames.
 May create new frames, or reuse existing ones.  The frame editing
 the last file dropped is selected."
   (interactive "e")
@@ -259,8 +263,9 @@ the last file dropped is selected."
     ("-bd" border-color)
     ("-bw" border-width)))
 
-;; Handler for switches of the form "-switch value" or "-switch".
+
 (defun x-handle-switch (switch)
+  "Handle SWITCH of the form \"-switch value\" or \"-switch\"."
   (let ((aelt (assoc switch x-switch-definitions)))
     (if aelt
 	(if (nth 2 aelt)
@@ -273,13 +278,14 @@ the last file dropped is selected."
 		      default-frame-alist)
 		x-invocation-args (cdr x-invocation-args))))))
 
-;; Make -iconic apply only to the initial frame!
 (defun x-handle-iconic (switch)
+  "Make \"-iconic\" SWITCH apply only to the initial frame."
   (setq initial-frame-alist
 	(cons '(visibility . icon) initial-frame-alist)))
 
-;; Handler for switches of the form "-switch n"
+
 (defun x-handle-numeric-switch (switch)
+  "Handle SWITCH of the form \"-switch n\"."
   (let ((aelt (assoc switch x-switch-definitions)))
     (if aelt
 	(setq default-frame-alist
@@ -289,15 +295,15 @@ the last file dropped is selected."
 	      x-invocation-args
 	      (cdr x-invocation-args)))))
 
-;; Handle the -xrm option.
 (defun x-handle-xrm-switch (switch)
+  "Handle the \"-xrm\" SWITCH."
   (or (consp x-invocation-args)
       (error "%s: missing argument to `%s' option" (invocation-name) switch))
   (setq x-command-line-resources (car x-invocation-args))
   (setq x-invocation-args (cdr x-invocation-args)))
 
-;; Handle the geometry option
 (defun x-handle-geometry (switch)
+  "Handle the \"-geometry\" SWITCH."
   (let ((geo (x-parse-geometry (car x-invocation-args))))
     (setq initial-frame-alist
 	  (append initial-frame-alist
@@ -308,10 +314,11 @@ the last file dropped is selected."
 		  geo)
 	  x-invocation-args (cdr x-invocation-args))))
 
+(defun x-handle-name-rn-switch (switch)
+  "Handle a \"-name\" or \"-rn\" SWITCH."
 ;; Handle the -name and -rn options.  Set the variable x-resource-name
 ;; to the option's operand; if the switch was `-name', set the name of
 ;; the initial frame, too.
-(defun x-handle-name-rn-switch (switch)
   (or (consp x-invocation-args)
       (error "%s: missing argument to `%s' option" (invocation-name) switch))
   (setq x-resource-name (car x-invocation-args)
@@ -324,6 +331,7 @@ the last file dropped is selected."
   "The display name specifying server and frame.")
 
 (defun x-handle-display (switch)
+  "Handle the \"-display\" SWITCH."
   (setq x-display-name (car x-invocation-args)
 	x-invocation-args (cdr x-invocation-args)))
 
@@ -336,7 +344,6 @@ x-invocation args from which the X-related things are extracted, first
 the switch (e.g., \"-fg\") in the following code, and possible values
 \(e.g., \"black\") in the option handler code (e.g., x-handle-switch).
 This returns ARGS with the arguments that have been processed removed."
-  (message "%s" args)
   (setq x-invocation-args args
 	args nil)
   (while x-invocation-args
@@ -377,150 +384,763 @@ This returns ARGS with the arguments that have been processed removed."
 ;; Available colors
 ;;
 
-(defvar x-colors '("aquamarine"
-		   "Aquamarine"
-		   "medium aquamarine"
-		   "MediumAquamarine"
-		   "black"
-		   "Black"
-		   "blue"
-		   "Blue"
-		   "cadet blue"
-		   "CadetBlue"
-		   "cornflower blue"
-		   "CornflowerBlue"
-		   "dark slate blue"
-		   "DarkSlateBlue"
-		   "light blue"
-		   "LightBlue"
-		   "light steel blue"
-		   "LightSteelBlue"
-		   "medium blue"
-		   "MediumBlue"
-		   "medium slate blue"
-		   "MediumSlateBlue"
-		   "midnight blue"
-		   "MidnightBlue"
-		   "navy blue"
-		   "NavyBlue"
-		   "navy"
-		   "Navy"
-		   "sky blue"
-		   "SkyBlue"
-		   "slate blue"
-		   "SlateBlue"
-		   "steel blue"
-		   "SteelBlue"
-		   "coral"
-		   "Coral"
-		   "cyan"
-		   "Cyan"
-		   "firebrick"
-		   "Firebrick"
-		   "brown"
-		   "Brown"
-		   "gold"
-		   "Gold"
-		   "goldenrod"
-		   "Goldenrod"
-		   "green"
-		   "Green"
-		   "dark green"
-		   "DarkGreen"
-		   "dark olive green"
-		   "DarkOliveGreen"
-		   "forest green"
-		   "ForestGreen"
-		   "lime green"
-		   "LimeGreen"
-		   "medium sea green"
-		   "MediumSeaGreen"
-		   "medium spring green"
-		   "MediumSpringGreen"
-		   "pale green"
-		   "PaleGreen"
-		   "sea green"
-		   "SeaGreen"
-		   "spring green"
-		   "SpringGreen"
-		   "yellow green"
-		   "YellowGreen"
-		   "dark slate grey"
-		   "DarkSlateGrey"
-		   "dark slate gray"
-		   "DarkSlateGray"
-		   "dim grey"
-		   "DimGrey"
-		   "dim gray"
-		   "DimGray"
-		   "light grey"
-		   "LightGrey"
-		   "light gray"
-		   "LightGray"
-		   "gray"
-		   "grey"
-		   "Gray"
-		   "Grey"
-		   "khaki"
-		   "Khaki"
-		   "magenta"
-		   "Magenta"
-		   "maroon"
-		   "Maroon"
-		   "orange"
-		   "Orange"
-		   "orchid"
-		   "Orchid"
-		   "dark orchid"
-		   "DarkOrchid"
-		   "medium orchid"
-		   "MediumOrchid"
-		   "pink"
-		   "Pink"
-		   "plum"
-		   "Plum"
-		   "red"
-		   "Red"
-		   "indian red"
-		   "IndianRed"
-		   "medium violet red"
-		   "MediumVioletRed"
-		   "orange red"
-		   "OrangeRed"
-		   "violet red"
-		   "VioletRed"
-		   "salmon"
-		   "Salmon"
-		   "sienna"
-		   "Sienna"
-		   "tan"
-		   "Tan"
+(defvar x-colors '("LightGreen"
+		   "light green"
+		   "DarkRed"
+		   "dark red"
+		   "DarkMagenta"
+		   "dark magenta"
+		   "DarkCyan"
+		   "dark cyan"
+		   "DarkBlue"
+		   "dark blue"
+		   "DarkGray"
+		   "dark gray"
+		   "DarkGrey"
+		   "dark grey"
+		   "grey100"
+		   "gray100"
+		   "grey99"
+		   "gray99"
+		   "grey98"
+		   "gray98"
+		   "grey97"
+		   "gray97"
+		   "grey96"
+		   "gray96"
+		   "grey95"
+		   "gray95"
+		   "grey94"
+		   "gray94"
+		   "grey93"
+		   "gray93"
+		   "grey92"
+		   "gray92"
+		   "grey91"
+		   "gray91"
+		   "grey90"
+		   "gray90"
+		   "grey89"
+		   "gray89"
+		   "grey88"
+		   "gray88"
+		   "grey87"
+		   "gray87"
+		   "grey86"
+		   "gray86"
+		   "grey85"
+		   "gray85"
+		   "grey84"
+		   "gray84"
+		   "grey83"
+		   "gray83"
+		   "grey82"
+		   "gray82"
+		   "grey81"
+		   "gray81"
+		   "grey80"
+		   "gray80"
+		   "grey79"
+		   "gray79"
+		   "grey78"
+		   "gray78"
+		   "grey77"
+		   "gray77"
+		   "grey76"
+		   "gray76"
+		   "grey75"
+		   "gray75"
+		   "grey74"
+		   "gray74"
+		   "grey73"
+		   "gray73"
+		   "grey72"
+		   "gray72"
+		   "grey71"
+		   "gray71"
+		   "grey70"
+		   "gray70"
+		   "grey69"
+		   "gray69"
+		   "grey68"
+		   "gray68"
+		   "grey67"
+		   "gray67"
+		   "grey66"
+		   "gray66"
+		   "grey65"
+		   "gray65"
+		   "grey64"
+		   "gray64"
+		   "grey63"
+		   "gray63"
+		   "grey62"
+		   "gray62"
+		   "grey61"
+		   "gray61"
+		   "grey60"
+		   "gray60"
+		   "grey59"
+		   "gray59"
+		   "grey58"
+		   "gray58"
+		   "grey57"
+		   "gray57"
+		   "grey56"
+		   "gray56"
+		   "grey55"
+		   "gray55"
+		   "grey54"
+		   "gray54"
+		   "grey53"
+		   "gray53"
+		   "grey52"
+		   "gray52"
+		   "grey51"
+		   "gray51"
+		   "grey50"
+		   "gray50"
+		   "grey49"
+		   "gray49"
+		   "grey48"
+		   "gray48"
+		   "grey47"
+		   "gray47"
+		   "grey46"
+		   "gray46"
+		   "grey45"
+		   "gray45"
+		   "grey44"
+		   "gray44"
+		   "grey43"
+		   "gray43"
+		   "grey42"
+		   "gray42"
+		   "grey41"
+		   "gray41"
+		   "grey40"
+		   "gray40"
+		   "grey39"
+		   "gray39"
+		   "grey38"
+		   "gray38"
+		   "grey37"
+		   "gray37"
+		   "grey36"
+		   "gray36"
+		   "grey35"
+		   "gray35"
+		   "grey34"
+		   "gray34"
+		   "grey33"
+		   "gray33"
+		   "grey32"
+		   "gray32"
+		   "grey31"
+		   "gray31"
+		   "grey30"
+		   "gray30"
+		   "grey29"
+		   "gray29"
+		   "grey28"
+		   "gray28"
+		   "grey27"
+		   "gray27"
+		   "grey26"
+		   "gray26"
+		   "grey25"
+		   "gray25"
+		   "grey24"
+		   "gray24"
+		   "grey23"
+		   "gray23"
+		   "grey22"
+		   "gray22"
+		   "grey21"
+		   "gray21"
+		   "grey20"
+		   "gray20"
+		   "grey19"
+		   "gray19"
+		   "grey18"
+		   "gray18"
+		   "grey17"
+		   "gray17"
+		   "grey16"
+		   "gray16"
+		   "grey15"
+		   "gray15"
+		   "grey14"
+		   "gray14"
+		   "grey13"
+		   "gray13"
+		   "grey12"
+		   "gray12"
+		   "grey11"
+		   "gray11"
+		   "grey10"
+		   "gray10"
+		   "grey9"
+		   "gray9"
+		   "grey8"
+		   "gray8"
+		   "grey7"
+		   "gray7"
+		   "grey6"
+		   "gray6"
+		   "grey5"
+		   "gray5"
+		   "grey4"
+		   "gray4"
+		   "grey3"
+		   "gray3"
+		   "grey2"
+		   "gray2"
+		   "grey1"
+		   "gray1"
+		   "grey0"
+		   "gray0"
+		   "thistle4"
+		   "thistle3"
+		   "thistle2"
+		   "thistle1"
+		   "MediumPurple4"
+		   "MediumPurple3"
+		   "MediumPurple2"
+		   "MediumPurple1"
+		   "purple4"
+		   "purple3"
+		   "purple2"
+		   "purple1"
+		   "DarkOrchid4"
+		   "DarkOrchid3"
+		   "DarkOrchid2"
+		   "DarkOrchid1"
+		   "MediumOrchid4"
+		   "MediumOrchid3"
+		   "MediumOrchid2"
+		   "MediumOrchid1"
+		   "plum4"
+		   "plum3"
+		   "plum2"
+		   "plum1"
+		   "orchid4"
+		   "orchid3"
+		   "orchid2"
+		   "orchid1"
+		   "magenta4"
+		   "magenta3"
+		   "magenta2"
+		   "magenta1"
+		   "VioletRed4"
+		   "VioletRed3"
+		   "VioletRed2"
+		   "VioletRed1"
+		   "maroon4"
+		   "maroon3"
+		   "maroon2"
+		   "maroon1"
+		   "PaleVioletRed4"
+		   "PaleVioletRed3"
+		   "PaleVioletRed2"
+		   "PaleVioletRed1"
+		   "LightPink4"
+		   "LightPink3"
+		   "LightPink2"
+		   "LightPink1"
+		   "pink4"
+		   "pink3"
+		   "pink2"
+		   "pink1"
+		   "HotPink4"
+		   "HotPink3"
+		   "HotPink2"
+		   "HotPink1"
+		   "DeepPink4"
+		   "DeepPink3"
+		   "DeepPink2"
+		   "DeepPink1"
+		   "red4"
+		   "red3"
+		   "red2"
+		   "red1"
+		   "OrangeRed4"
+		   "OrangeRed3"
+		   "OrangeRed2"
+		   "OrangeRed1"
+		   "tomato4"
+		   "tomato3"
+		   "tomato2"
+		   "tomato1"
+		   "coral4"
+		   "coral3"
+		   "coral2"
+		   "coral1"
+		   "DarkOrange4"
+		   "DarkOrange3"
+		   "DarkOrange2"
+		   "DarkOrange1"
+		   "orange4"
+		   "orange3"
+		   "orange2"
+		   "orange1"
+		   "LightSalmon4"
+		   "LightSalmon3"
+		   "LightSalmon2"
+		   "LightSalmon1"
+		   "salmon4"
+		   "salmon3"
+		   "salmon2"
+		   "salmon1"
+		   "brown4"
+		   "brown3"
+		   "brown2"
+		   "brown1"
+		   "firebrick4"
+		   "firebrick3"
+		   "firebrick2"
+		   "firebrick1"
+		   "chocolate4"
+		   "chocolate3"
+		   "chocolate2"
+		   "chocolate1"
+		   "tan4"
+		   "tan3"
+		   "tan2"
+		   "tan1"
+		   "wheat4"
+		   "wheat3"
+		   "wheat2"
+		   "wheat1"
+		   "burlywood4"
+		   "burlywood3"
+		   "burlywood2"
+		   "burlywood1"
+		   "sienna4"
+		   "sienna3"
+		   "sienna2"
+		   "sienna1"
+		   "IndianRed4"
+		   "IndianRed3"
+		   "IndianRed2"
+		   "IndianRed1"
+		   "RosyBrown4"
+		   "RosyBrown3"
+		   "RosyBrown2"
+		   "RosyBrown1"
+		   "DarkGoldenrod4"
+		   "DarkGoldenrod3"
+		   "DarkGoldenrod2"
+		   "DarkGoldenrod1"
+		   "goldenrod4"
+		   "goldenrod3"
+		   "goldenrod2"
+		   "goldenrod1"
+		   "gold4"
+		   "gold3"
+		   "gold2"
+		   "gold1"
+		   "yellow4"
+		   "yellow3"
+		   "yellow2"
+		   "yellow1"
+		   "LightYellow4"
+		   "LightYellow3"
+		   "LightYellow2"
+		   "LightYellow1"
+		   "LightGoldenrod4"
+		   "LightGoldenrod3"
+		   "LightGoldenrod2"
+		   "LightGoldenrod1"
+		   "khaki4"
+		   "khaki3"
+		   "khaki2"
+		   "khaki1"
+		   "DarkOliveGreen4"
+		   "DarkOliveGreen3"
+		   "DarkOliveGreen2"
+		   "DarkOliveGreen1"
+		   "OliveDrab4"
+		   "OliveDrab3"
+		   "OliveDrab2"
+		   "OliveDrab1"
+		   "chartreuse4"
+		   "chartreuse3"
+		   "chartreuse2"
+		   "chartreuse1"
+		   "green4"
+		   "green3"
+		   "green2"
+		   "green1"
+		   "SpringGreen4"
+		   "SpringGreen3"
+		   "SpringGreen2"
+		   "SpringGreen1"
+		   "PaleGreen4"
+		   "PaleGreen3"
+		   "PaleGreen2"
+		   "PaleGreen1"
+		   "SeaGreen4"
+		   "SeaGreen3"
+		   "SeaGreen2"
+		   "SeaGreen1"
+		   "DarkSeaGreen4"
+		   "DarkSeaGreen3"
+		   "DarkSeaGreen2"
+		   "DarkSeaGreen1"
+		   "aquamarine4"
+		   "aquamarine3"
+		   "aquamarine2"
+		   "aquamarine1"
+		   "DarkSlateGray4"
+		   "DarkSlateGray3"
+		   "DarkSlateGray2"
+		   "DarkSlateGray1"
+		   "cyan4"
+		   "cyan3"
+		   "cyan2"
+		   "cyan1"
+		   "turquoise4"
+		   "turquoise3"
+		   "turquoise2"
+		   "turquoise1"
+		   "CadetBlue4"
+		   "CadetBlue3"
+		   "CadetBlue2"
+		   "CadetBlue1"
+		   "PaleTurquoise4"
+		   "PaleTurquoise3"
+		   "PaleTurquoise2"
+		   "PaleTurquoise1"
+		   "LightCyan4"
+		   "LightCyan3"
+		   "LightCyan2"
+		   "LightCyan1"
+		   "LightBlue4"
+		   "LightBlue3"
+		   "LightBlue2"
+		   "LightBlue1"
+		   "LightSteelBlue4"
+		   "LightSteelBlue3"
+		   "LightSteelBlue2"
+		   "LightSteelBlue1"
+		   "SlateGray4"
+		   "SlateGray3"
+		   "SlateGray2"
+		   "SlateGray1"
+		   "LightSkyBlue4"
+		   "LightSkyBlue3"
+		   "LightSkyBlue2"
+		   "LightSkyBlue1"
+		   "SkyBlue4"
+		   "SkyBlue3"
+		   "SkyBlue2"
+		   "SkyBlue1"
+		   "DeepSkyBlue4"
+		   "DeepSkyBlue3"
+		   "DeepSkyBlue2"
+		   "DeepSkyBlue1"
+		   "SteelBlue4"
+		   "SteelBlue3"
+		   "SteelBlue2"
+		   "SteelBlue1"
+		   "DodgerBlue4"
+		   "DodgerBlue3"
+		   "DodgerBlue2"
+		   "DodgerBlue1"
+		   "blue4"
+		   "blue3"
+		   "blue2"
+		   "blue1"
+		   "RoyalBlue4"
+		   "RoyalBlue3"
+		   "RoyalBlue2"
+		   "RoyalBlue1"
+		   "SlateBlue4"
+		   "SlateBlue3"
+		   "SlateBlue2"
+		   "SlateBlue1"
+		   "azure4"
+		   "azure3"
+		   "azure2"
+		   "azure1"
+		   "MistyRose4"
+		   "MistyRose3"
+		   "MistyRose2"
+		   "MistyRose1"
+		   "LavenderBlush4"
+		   "LavenderBlush3"
+		   "LavenderBlush2"
+		   "LavenderBlush1"
+		   "honeydew4"
+		   "honeydew3"
+		   "honeydew2"
+		   "honeydew1"
+		   "ivory4"
+		   "ivory3"
+		   "ivory2"
+		   "ivory1"
+		   "cornsilk4"
+		   "cornsilk3"
+		   "cornsilk2"
+		   "cornsilk1"
+		   "LemonChiffon4"
+		   "LemonChiffon3"
+		   "LemonChiffon2"
+		   "LemonChiffon1"
+		   "NavajoWhite4"
+		   "NavajoWhite3"
+		   "NavajoWhite2"
+		   "NavajoWhite1"
+		   "PeachPuff4"
+		   "PeachPuff3"
+		   "PeachPuff2"
+		   "PeachPuff1"
+		   "bisque4"
+		   "bisque3"
+		   "bisque2"
+		   "bisque1"
+		   "AntiqueWhite4"
+		   "AntiqueWhite3"
+		   "AntiqueWhite2"
+		   "AntiqueWhite1"
+		   "seashell4"
+		   "seashell3"
+		   "seashell2"
+		   "seashell1"
+		   "snow4"
+		   "snow3"
+		   "snow2"
+		   "snow1"
 		   "thistle"
-		   "Thistle"
-		   "turquoise"
-		   "Turquoise"
-		   "dark turquoise"
-		   "DarkTurquoise"
-		   "medium turquoise"
-		   "MediumTurquoise"
-		   "violet"
-		   "Violet"
-		   "blue violet"
+		   "MediumPurple"
+		   "medium purple"
+		   "purple"
 		   "BlueViolet"
+		   "blue violet"
+		   "DarkViolet"
+		   "dark violet"
+		   "DarkOrchid"
+		   "dark orchid"
+		   "MediumOrchid"
+		   "medium orchid"
+		   "orchid"
+		   "plum"
+		   "violet"
+		   "magenta"
+		   "VioletRed"
+		   "violet red"
+		   "MediumVioletRed"
+		   "medium violet red"
+		   "maroon"
+		   "PaleVioletRed"
+		   "pale violet red"
+		   "LightPink"
+		   "light pink"
+		   "pink"
+		   "DeepPink"
+		   "deep pink"
+		   "HotPink"
+		   "hot pink"
+		   "red"
+		   "OrangeRed"
+		   "orange red"
+		   "tomato"
+		   "LightCoral"
+		   "light coral"
+		   "coral"
+		   "DarkOrange"
+		   "dark orange"
+		   "orange"
+		   "LightSalmon"
+		   "light salmon"
+		   "salmon"
+		   "DarkSalmon"
+		   "dark salmon"
+		   "brown"
+		   "firebrick"
+		   "chocolate"
+		   "tan"
+		   "SandyBrown"
+		   "sandy brown"
 		   "wheat"
-		   "Wheat"
-		   "white"
-		   "White"
+		   "beige"
+		   "burlywood"
+		   "peru"
+		   "sienna"
+		   "SaddleBrown"
+		   "saddle brown"
+		   "IndianRed"
+		   "indian red"
+		   "RosyBrown"
+		   "rosy brown"
+		   "DarkGoldenrod"
+		   "dark goldenrod"
+		   "goldenrod"
+		   "LightGoldenrod"
+		   "light goldenrod"
+		   "gold"
 		   "yellow"
-		   "Yellow"
+		   "LightYellow"
+		   "light yellow"
+		   "LightGoldenrodYellow"
+		   "light goldenrod yellow"
+		   "PaleGoldenrod"
+		   "pale goldenrod"
+		   "khaki"
+		   "DarkKhaki"
+		   "dark khaki"
+		   "OliveDrab"
+		   "olive drab"
+		   "ForestGreen"
+		   "forest green"
+		   "YellowGreen"
+		   "yellow green"
+		   "LimeGreen"
+		   "lime green"
+		   "GreenYellow"
 		   "green yellow"
-		   "GreenYellow")
-  "The full list of X colors from the `rgb.text' file.")
+		   "MediumSpringGreen"
+		   "medium spring green"
+		   "chartreuse"
+		   "green"
+		   "LawnGreen"
+		   "lawn green"
+		   "SpringGreen"
+		   "spring green"
+		   "PaleGreen"
+		   "pale green"
+		   "LightSeaGreen"
+		   "light sea green"
+		   "MediumSeaGreen"
+		   "medium sea green"
+		   "SeaGreen"
+		   "sea green"
+		   "DarkSeaGreen"
+		   "dark sea green"
+		   "DarkOliveGreen"
+		   "dark olive green"
+		   "DarkGreen"
+		   "dark green"
+		   "aquamarine"
+		   "MediumAquamarine"
+		   "medium aquamarine"
+		   "CadetBlue"
+		   "cadet blue"
+		   "LightCyan"
+		   "light cyan"
+		   "cyan"
+		   "turquoise"
+		   "MediumTurquoise"
+		   "medium turquoise"
+		   "DarkTurquoise"
+		   "dark turquoise"
+		   "PaleTurquoise"
+		   "pale turquoise"
+		   "PowderBlue"
+		   "powder blue"
+		   "LightBlue"
+		   "light blue"
+		   "LightSteelBlue"
+		   "light steel blue"
+		   "SteelBlue"
+		   "steel blue"
+		   "LightSkyBlue"
+		   "light sky blue"
+		   "SkyBlue"
+		   "sky blue"
+		   "DeepSkyBlue"
+		   "deep sky blue"
+		   "DodgerBlue"
+		   "dodger blue"
+		   "blue"
+		   "RoyalBlue"
+		   "royal blue"
+		   "MediumBlue"
+		   "medium blue"
+		   "LightSlateBlue"
+		   "light slate blue"
+		   "MediumSlateBlue"
+		   "medium slate blue"
+		   "SlateBlue"
+		   "slate blue"
+		   "DarkSlateBlue"
+		   "dark slate blue"
+		   "CornflowerBlue"
+		   "cornflower blue"
+		   "NavyBlue"
+		   "navy blue"
+		   "navy"
+		   "MidnightBlue"
+		   "midnight blue"
+		   "LightGray"
+		   "light gray"
+		   "LightGrey"
+		   "light grey"
+		   "grey"
+		   "gray"
+		   "LightSlateGrey"
+		   "light slate grey"
+		   "LightSlateGray"
+		   "light slate gray"
+		   "SlateGrey"
+		   "slate grey"
+		   "SlateGray"
+		   "slate gray"
+		   "DimGrey"
+		   "dim grey"
+		   "DimGray"
+		   "dim gray"
+		   "DarkSlateGrey"
+		   "dark slate grey"
+		   "DarkSlateGray"
+		   "dark slate gray"
+		   "black"
+		   "white"
+		   "MistyRose"
+		   "misty rose"
+		   "LavenderBlush"
+		   "lavender blush"
+		   "lavender"
+		   "AliceBlue"
+		   "alice blue"
+		   "azure"
+		   "MintCream"
+		   "mint cream"
+		   "honeydew"
+		   "seashell"
+		   "LemonChiffon"
+		   "lemon chiffon"
+		   "ivory"
+		   "cornsilk"
+		   "moccasin"
+		   "NavajoWhite"
+		   "navajo white"
+		   "PeachPuff"
+		   "peach puff"
+		   "bisque"
+		   "BlanchedAlmond"
+		   "blanched almond"
+		   "PapayaWhip"
+		   "papaya whip"
+		   "AntiqueWhite"
+		   "antique white"
+		   "linen"
+		   "OldLace"
+		   "old lace"
+		   "FloralWhite"
+		   "floral white"
+		   "gainsboro"
+		   "WhiteSmoke"
+		   "white smoke"
+		   "GhostWhite"
+		   "ghost white"
+		   "snow")
+  "The list of X colors from the `rgb.txt' file.
+XConsortium: rgb.txt,v 10.41 94/02/20 18:39:36 rws Exp")
 
-(defun x-defined-colors (&optional frame)
-  "Return a list of colors supported for a particular frame.
-The argument FRAME specifies which frame to try.
-The value may be different for frames on different X displays."
+(defun xw-defined-colors (&optional frame)
+  "Internal function called by `defined-colors', which see."
   (or frame (setq frame (selected-frame)))
   (let* ((color-map-colors (mapcar (lambda (clr) (car clr)) w32-color-map))
 	 (all-colors (or color-map-colors x-colors))
@@ -530,7 +1150,7 @@ The value may be different for frames on different X displays."
     (while all-colors
       (setq this-color (car all-colors)
 	    all-colors (cdr all-colors))
-      (and (face-color-supported-p frame this-color t)
+      (and (color-supported-p this-color frame t)
 	   (setq defined-colors (cons this-color defined-colors))))
     defined-colors))
 
@@ -551,51 +1171,6 @@ The value may be different for frames on different X displays."
 
 (substitute-key-definition 'suspend-emacs 'iconify-or-deiconify-frame
 			   global-map)
-
-
-;;;; Selections and cut buffers
-
-;;; We keep track of the last text selected here, so we can check the
-;;; current selection against it, and avoid passing back our own text
-;;; from x-cut-buffer-or-selection-value.
-(defvar x-last-selected-text nil)
-
-;;; It is said that overlarge strings are slow to put into the cut buffer.
-;;; Note this value is overridden below.
-(defvar x-cut-buffer-max 20000
-  "Max number of characters to put in the cut buffer.")
-
-(defvar x-select-enable-clipboard t
-  "Non-nil means cutting and pasting uses the clipboard.
-This is in addition to the primary selection.")
-
-(defun x-select-text (text &optional push)
-  (if x-select-enable-clipboard 
-      (w32-set-clipboard-data text))
-  (setq x-last-selected-text text))
-    
-;;; Return the value of the current selection.
-;;; Consult the selection, then the cut buffer.  Treat empty strings
-;;; as if they were unset.
-(defun x-get-selection-value ()
-  (if x-select-enable-clipboard 
-      (let (text)
-	;; Don't die if x-get-selection signals an error.
-	(condition-case c
-	    (setq text (w32-get-clipboard-data))
-	  (error (message "w32-get-clipboard-data:%s" c)))
-	(if (string= text "") (setq text nil))
-	(cond
-	 ((not text) nil)
-	 ((eq text x-last-selected-text) nil)
-	 ((string= text x-last-selected-text)
-	  ;; Record the newer string, so subsequent calls can use the 'eq' test.
-	  (setq x-last-selected-text text)
-	  nil)
-	 (t
-	  (setq x-last-selected-text text))))))
-
-(defalias 'x-cut-buffer-or-selection-value 'x-get-selection-value)
 
 
 ;;; Do the actual Windows setup here; the above code just defines
@@ -637,91 +1212,43 @@ This is in addition to the primary selection.")
 ;; we define our own standard fontset here.
 (defvar w32-standard-fontset-spec
  "-*-Courier New-normal-r-*-*-13-*-*-*-c-*-fontset-standard"
- "String of fontset spec of the standard fontset. This defines a
-fontset consisting of the Courier New variations for European
-languages which are distributed with Windows as \"Multilanguage Support\".
+ "String of fontset spec of the standard fontset.
+This defines a fontset consisting of the Courier New variations for
+European languages which are distributed with Windows as
+\"Multilanguage Support\".
 
 See the documentation of `create-fontset-from-fontset-spec for the format.")
 
 (if (fboundp 'new-fontset)
     (progn
-      (defun w32-create-initial-fontsets ()
-        "Create fontset-startup, fontset-standard and any fontsets
-specified in X resources."
-        ;; Create the standard fontset.
-        (create-fontset-from-fontset-spec w32-standard-fontset-spec t)
+      ;; Create the standard fontset.
+      (create-fontset-from-fontset-spec w32-standard-fontset-spec t)
+      ;; Create fontset specified in X resources "Fontset-N" (N is 0, 1,...).
+      (create-fontset-from-x-resource)
+      ;; Try to create a fontset from a font specification which comes
+      ;; from initial-frame-alist, default-frame-alist, or X resource.
+      ;; A font specification in command line argument (i.e. -fn XXXX)
+      ;; should be already in default-frame-alist as a `font'
+      ;; parameter.  However, any font specifications in site-start
+      ;; library, user's init file (.emacs), and default.el are not
+      ;; yet handled here.
 
-        ;; Create fontset specified in X resources "Fontset-N" (N is 0, 1,...).
-        (create-fontset-from-x-resource)
-
-        ;; Try to create a fontset from a font specification which comes
-        ;; from initial-frame-alist, default-frame-alist, or X resource.
-        ;; A font specification in command line argument (i.e. -fn XXXX)
-        ;; should be already in default-frame-alist as a `font'
-        ;; parameter.  However, any font specifications in site-start
-        ;; library, user's init file (.emacs), and default.el are not
-        ;; yet handled here.
-
-        (let ((font (or (cdr (assq 'font initial-frame-alist))
-                        (cdr (assq 'font default-frame-alist))
-                        (x-get-resource "font" "Font")))
-              xlfd-fields resolved-name)
-          (if (and font
-                   (not (query-fontset font))
-                   (setq resolved-name (x-resolve-font-name font))
-                   (setq xlfd-fields (x-decompose-font-name font)))
-              (if (string= "fontset"
-                           (aref xlfd-fields xlfd-regexp-registry-subnum))
-                  (new-fontset font
-                               (x-complement-fontset-spec xlfd-fields nil))
-                ;; Create a fontset from FONT.  The fontset name is
-                ;; generated from FONT.  Create style variants of the
-                ;; fontset too.  Font names in the variants are
-                ;; generated automatially unless X resources
-                ;; XXX.attribyteFont explicitly specify them.
-                (let ((styles (mapcar 'car x-style-funcs-alist))
-                      (faces '(bold italic bold-italic))
-                      face face-font fontset fontset-spec)
-                  (while faces
-                    (setq face (car faces))
-                    (setq face-font (x-get-resource (concat (symbol-name face)
-                                                            ".attributeFont")
-                                                    "Face.AttributeFont"))
-                    (if face-font
-                        (setq styles (cons (cons face face-font)
-                                           (delq face styles))))
-                    (setq faces (cdr faces)))
-                  (aset xlfd-fields xlfd-regexp-foundry-subnum nil)
-                  (aset xlfd-fields xlfd-regexp-family-subnum nil)
-                  (aset xlfd-fields xlfd-regexp-registry-subnum "fontset")
-                  (aset xlfd-fields xlfd-regexp-encoding-subnum "startup")
-                  ;; The fontset name should have concrete values in
-                  ;; weight and slant field.
-                  (let ((weight (aref xlfd-fields xlfd-regexp-weight-subnum))
-                        (slant (aref xlfd-fields xlfd-regexp-slant-subnum))
-                        xlfd-temp)
-                    (if (or (not weight) (string-match "[*?]*" weight))
-                        (progn
-                          (setq xlfd-temp
-                                (x-decompose-font-name resolved-name))
-                          (aset xlfd-fields xlfd-regexp-weight-subnum
-                                (aref xlfd-temp xlfd-regexp-weight-subnum))))
-                    (if (or (not slant) (string-match "[*?]*" slant))
-                        (progn
-                          (or xlfd-temp
-                              (setq xlfd-temp
-                                    (x-decompose-font-name resolved-name)))
-                          (aset xlfd-fields xlfd-regexp-slant-subnum
-                                (aref xlfd-temp xlfd-regexp-slant-subnum)))))
-                  (setq fontset (x-compose-font-name xlfd-fields))
-                  (create-fontset-from-fontset-spec
-                   (concat fontset ", ascii:" font) styles)
-                  )))))
-      ;; This cannot be run yet, as creating fontsets requires a
-      ;; Window to be initialised so the fonts can be listed.
-      ;; Add it to a hook so it gets run later.
-      (add-hook 'before-init-hook 'w32-create-initial-fontsets)
-      ))
+      (let ((font (or (cdr (assq 'font initial-frame-alist))
+                      (cdr (assq 'font default-frame-alist))
+                      (x-get-resource "font" "Font")))
+            xlfd-fields resolved-name)
+        (if (and font
+                 (not (query-fontset font))
+                 (setq resolved-name (x-resolve-font-name font))
+                 (setq xlfd-fields (x-decompose-font-name font)))
+            (if (string= "fontset"
+                         (aref xlfd-fields xlfd-regexp-registry-subnum))
+                (new-fontset font
+                             (x-complement-fontset-spec xlfd-fields nil))
+              ;; Create a fontset from FONT.  The fontset name is
+              ;; generated from FONT.
+              (create-fontset-from-ascii-font font
+					      resolved-name "startup"))))))
 
 ;; Apply a geometry resource to the initial frame.  Put it at the end
 ;; of the alist, so that anything specified on the command line takes
@@ -756,20 +1283,10 @@ specified in X resources."
 	(setq default-frame-alist
 	      (cons '(reverse . t) default-frame-alist)))))
 
-;; Set x-selection-timeout, measured in milliseconds.
-(let ((res-selection-timeout
-       (x-get-resource "selectionTimeout" "SelectionTimeout")))
-  (setq x-selection-timeout 20000)
-  (if res-selection-timeout
-      (setq x-selection-timeout (string-to-number res-selection-timeout))))
-
 (defun x-win-suspend-error ()
-  (error "Suspending an emacs running under W32 makes no sense"))
+  "Report an error when a suspend is attempted."
+  (error "Suspending an Emacs running under W32 makes no sense"))
 (add-hook 'suspend-hook 'x-win-suspend-error)
-
-;;; Arrange for the kill and yank functions to set and check the clipboard.
-(setq interprogram-cut-function 'x-select-text)
-(setq interprogram-paste-function 'x-get-selection-value)
 
 ;;; Turn off window-splitting optimization; w32 is usually fast enough
 ;;; that this is only annoying.
@@ -785,8 +1302,8 @@ specified in X resources."
 
 (defun internal-face-interactive (what &optional bool)
   (let* ((fn (intern (concat "face-" what)))
-	 (prompt (concat "Set " what " of face"))
-	 (face (read-face-name (concat prompt ": ")))
+	 (prompt (concat "Set " what " of face "))
+	 (face (read-face-name prompt))
 	 (default (if (fboundp fn)
 		      (or (funcall fn face (selected-frame))
 			  (funcall fn 'default (selected-frame)))))
@@ -811,8 +1328,9 @@ specified in X resources."
 
 ;; Redefine the font selection to use the standard W32 dialog
 (defvar w32-use-w32-font-dialog t
-  "*Use the standard font dialog if 't' - otherwise pop up a menu of
-some standard fonts like X does - including fontsets")
+  "*Use the standard font dialog if 't'.
+Otherwise pop up a menu of some standard fonts like X does - including
+fontsets.")
 
 (defvar w32-fixed-font-alist
   '("Font menu"
@@ -887,57 +1405,39 @@ some standard fonts like X does - including fontsets")
      ("11 bold italic" "-*-Courier New-bold-i-*-*-15-*-*-*-c-*-iso8859-1")
      ("12 bold italic" "-*-Courier New-bold-i-*-*-16-*-*-*-c-*-iso8859-1")
      ))
-    "Fonts suitable for use in Emacs. Initially this is a list of some
-fixed width fonts that most people will have like Terminal and
-Courier. These fonts are used in the font menu if the variable
-`w32-use-w32-font-dialog' is nil.")
+    "Fonts suitable for use in Emacs.
+Initially this is a list of some fixed width fonts that most people
+will have like Terminal and Courier. These fonts are used in the font
+menu if the variable `w32-use-w32-font-dialog' is nil.")
 
 ;;; Enable Japanese fonts on Windows to be used by default.
-(put-charset-property 'katakana-jisx0201 'x-charset-registry "JISX0208-SJIS")
-(put-charset-property 'latin-jisx0201 'x-charset-registry "JISX0208-SJIS")
-(put-charset-property 'japanese-jisx0208 'x-charset-registry "JISX0208-SJIS")
-(put-charset-property 'japanese-jisx0208-1978 'x-charset-registry
-                      "JISX0208-SJIS")
+(set-fontset-font t (make-char 'katakana-jisx0201) '("*" . "JISX0208-SJIS"))
+(set-fontset-font t (make-char 'latin-jisx0201) '("*" . "JISX0208-SJIS"))
+(set-fontset-font t (make-char 'japanese-jisx0208) '("*" . "JISX0208-SJIS"))
+(set-fontset-font t (make-char 'japanese-jisx0208-1978) '("*" . "JISX0208-SJIS"))
 
 (defun mouse-set-font (&rest fonts)
-  "Select a font. If `w32-use-w32-font-dialog' is non-nil (the default),
-use the Windows font dialog. Otherwise use a pop-up menu (like Emacs
-on other platforms) initialized with the fonts in
-`w32-fixed-font-alist'. Emacs will attempt to create a fontset from
-the font chosen, covering all the charsets that can be fully represented
-with the font."
+  "Select a font.
+If `w32-use-w32-font-dialog' is non-nil (the default), use the Windows
+font dialog to get the matching FONTS. Otherwise use a pop-up menu
+\(like Emacs on other platforms) initialized with the fonts in
+`w32-fixed-font-alist'."
   (interactive
    (if w32-use-w32-font-dialog
-       (list (w32-select-font))
+       (let ((chosen-font (w32-select-font)))
+	 (and chosen-font (list chosen-font)))
      (x-popup-menu
       last-nonmenu-event
     ;; Append list of fontsets currently defined.
       (if (fboundp 'new-fontset)
       (append w32-fixed-font-alist (list (generate-fontset-menu)))))))
   (if fonts
-      (let (font fontset xlfd resolved-font)
+      (let (font)
 	(while fonts
 	  (condition-case nil
 	      (progn
                 (setq font (car fonts))
-                (if (fontset-name-p font)
-                    (setq fontset font)
-                  (condition-case nil
-                      (setq resolved-font (x-resolve-font-name font)
-                            xlfd (x-decompose-font-name resolved-font)
-                            fontset
-                              (create-fontset-from-ascii-font
-                               font resolved-font
-                               (format "%s_%s_%s_%s"
-                                       (aref xlfd xlfd-regexp-family-subnum)
-                                       (aref xlfd xlfd-regexp-registry-subnum)
-                                       (aref xlfd xlfd-regexp-encoding-subnum)
-                                       (aref xlfd
-                                             xlfd-regexp-pixelsize-subnum))))
-                    (error nil)))
-                (if fontset
-                    (set-default-font fontset)
-                  (set-default-font font))
+		(set-default-font font)
                 (setq fonts nil))
 	    (error (setq fonts (cdr fonts)))))
 	(if (null font)

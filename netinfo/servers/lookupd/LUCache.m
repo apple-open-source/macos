@@ -299,4 +299,21 @@
 	return NO;
 }
 
+- (unsigned int)memorySize
+{
+	unsigned int size, i;
+
+	size = [super memorySize];
+
+	size += 8;
+
+	for (i = 0; i < count; i++)
+	{
+		size += 4;
+		if (node[i].key != NULL) size += (strlen(node[i].key) + 1);
+	}
+
+	return size;
+}
+
 @end

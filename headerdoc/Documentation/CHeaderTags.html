@@ -3,6 +3,7 @@
 	<head>
 		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
 		<title>Tags for C Headers</title>
+		<meta http-equiv="expires" content="Sun, 31 Dec 2000 00:00:00 GMT">
 	</head>
 
 	<body bgcolor="white">
@@ -89,12 +90,7 @@
   @result A pointer to a Sandwich structure. Caller is responsible for 
           disposing of this structure.
 */
-Sandwich *ConstructBLT (
-    Ingredient b;
-    Ingredient l;
-    Ingredient t;
-    Boolean mayo;
-);</pre>
+Sandwich *ConstructBLT(Ingredient b, Ingredient l, Ingredient t, Boolean mayo);</pre>
 		<h2><a name="Anchor-Struct-38219"></a>Struct and Union Tags</h2>
 		<p>
 		<table border="1" cellpadding="0" cellspacing="2" width="92%">
@@ -347,6 +343,10 @@ typedef struct _someTag {
   #define TRUE 1
   </pre>
 		<p>&nbsp;
+<hr>
+<center>
+For more usage examples, see the <b>ExampleHeaders</b> folder that accompanies the HeaderDoc distribution.
+</center>
 	</body>
 
 </html>

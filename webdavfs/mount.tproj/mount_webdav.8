@@ -1,0 +1,203 @@
+.\" 
+.\" Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+.\" 
+.\" @APPLE_LICENSE_HEADER_START@
+.\" 
+.\" The contents of this file constitute Original Code as defined in and
+.\" are subject to the Apple Public Source License Version 1.1 (the
+.\" "License").  You may not use this file except in compliance with the
+.\" License.  Please obtain a copy of the License at
+.\" http://www.apple.com/publicsource and read it before using this file.
+.\" 
+.\" This Original Code and all software distributed under the License are
+.\" distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+.\" License for the specific language governing rights and limitations
+.\" under the License.
+.\"
+.\" @APPLE_LICENSE_HEADER_END@
+.\"
+.\" ********************************************************************
+.\" *
+.\" *  mount_webdav [-a<fd>] [-o options] host[:port][/path] node
+.\" *
+.\" ********************************************************************
+.\"
+.\" ********************************************************************
+.\" *  Required macros
+.\" ********************************************************************
+.Dd March 6, 2002
+.Dt MOUNT_WEBDAV 8
+.Os Mac\ OS\ X
+.\"
+.\" ********************************************************************
+.\" *  NAME section
+.\" ********************************************************************
+.Sh NAME
+.Nm mount_webdav
+.Nd mount a WebDAV filesystem
+.\"
+.\" ********************************************************************
+.\" *  SYNOPSIS section
+.\" ********************************************************************
+.Sh SYNOPSIS
+.Nm
+.Op Fl a<fd>
+.Op Fl o Ar options
+.Ar host[:port][/path]
+.Ar node
+.\"
+.\" ********************************************************************
+.\" *  DESCRIPTION section
+.\" ********************************************************************
+.Sh DESCRIPTION
+The
+.Nm
+command mounts a WebDAV-enabled server directory at
+.Ar host[:port][/path]
+at the mount point indicated by
+.Ar node.
+.Pp
+The user and group IDs for all files and directories are set to unknown,
+and the permissions default to read, write and execute for user, group
+and other.
+.Pp
+The arguments and options are:
+.Bl -tag -width indent
+.It Fl a<fd>
+A file descriptor which identifies a file containing the username and
+the password. mount_webdav reads the username and password from the
+file, zeros the file's contents, and then closes the file. mount_webdav
+does not delete the file after closing it, so the file should be
+unlinked before passing it to mount_webdav. See the FILES section of
+this man page for more details.
+.It Fl o
+Options passed to
+.Xr mount 2
+are specified with the
+.Fl o
+option followed by a comma separated string of options. See the
+.Xr mount 8
+man page for possible options and their meanings. If connecting to a
+Class 1 compliant WebDAV server, the rdonly option will be set even if
+it was not specified because mount_webdav will not allow files to be
+opened with write access on servers which do not support the DAV LOCK
+method.
+.It Ar host[:port][/path]
+The WebDAV-enabled server directory to mount as a volume. If port is not
+specified, then port 80 is used. If path is not specified, then the path
+"/" is used.
+.It Ar node
+Path to mount point.
+.El
+.\"
+.\" ********************************************************************
+.\" *  EXAMPLES section
+.\" ********************************************************************
+.Sh EXAMPLES
+The following example illustrates how to mount the WebDAV-enabled server
+directory
+.Pa idisk.mac.com/membername/
+at the mount point
+.Pa /Volumes/mntpnt/
+.Bd -literal -offset indent
+mount_webdav idisk.mac.com/membername/ /Volumes/mntpnt/
+.Ed
+.\"
+.\" ********************************************************************
+.\" *  FILES section
+.\" ********************************************************************
+.Sh FILES
+The username/password file passed to the
+.Nm
+command as the
+.Fl a<fd>
+option has the following format:
+.Bd -literal
+u_int32_t   length of username
+char[]      username
+u_int32_t   length of password
+char[]      password
+.Ed
+.Pp
+The
+.Fl a<fd>
+option string is created with code similar to this:
+.Bd -literal
+#define WEBDAV_TEMPLATE "/tmp/webdav.XXXXXX"
+int ok;
+int fd;
+u_int32_t length;
+char fd_str[20];
+char template[sizeof(WEBDAV_TEMPLATE)+1];
+ok = 0;
+strcpy(template, WEBDAV_TEMPLATE);
+fd = mkstemp(template);
+if (fd != -1) {
+    if (!unlink(template)) {
+        length = strlen(username);
+        if (write(fd, &length, sizeof(u_int32_t)) > 0) {
+            if (write(fd, username, length) > 0) {
+                length = strlen(password);
+                if (write(fd, &length, sizeof(u_int32_t)) > 0) {
+                    if (write(fd, password, length) > 0) {
+                        ok = 1;
+                    }
+                }
+            }
+        }
+    } else {
+        (void)close(fd);
+        fd = -1;
+    }
+}
+if (ok) {
+    (void)fsync(fd);
+    sprintf(fd_str, "-a%d", fd);
+} else {
+    *fd_str = 0;
+    if (fd != -1) {
+        (void)close(fd);
+    }
+}
+.Ed
+.\"
+.\" ********************************************************************
+.\" *  SEE ALSO section
+.\" ********************************************************************
+.Sh SEE ALSO
+.Xr mount 2 ,
+.Xr unmount 2 ,
+.Xr mount 8
+.\"
+.\" ********************************************************************
+.\" *  HISTORY section
+.\" ********************************************************************
+.Sh HISTORY
+The
+.Nm
+command first appeared Mac OS X Version 10.0. Support for Digest Access
+authentication was added in Mac OS X Version 10.1.1.
+.\"
+.\" ********************************************************************
+.\" * RETURN VALUES section
+.\" ********************************************************************
+.Sh RETURN VALUES
+.Bl -tag -width Er
+.It 0
+.Nm
+successfully mounted the server directory. 
+.It Bq Er ENODEV
+The server directory could not be mounted by
+.Nm
+because it is not WebDAV-enabled or because it does not exist, or
+because node does not have proper access.
+.It Bq Er EACCES
+The server directory could not be mounted by
+.Nm
+because the user did not provide proper authentication credentials.
+.El
+.\"
+.\" ********************************************************************

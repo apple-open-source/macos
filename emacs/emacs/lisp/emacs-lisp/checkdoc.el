@@ -1,6 +1,6 @@
-;;; checkdoc --- Check documentation strings for style requirements
+;;; checkdoc.el --- check documentation strings for style requirements
 
-;;;  Copyright (C) 1997, 1998  Free Software Foundation
+;;;  Copyright (C) 1997, 1998, 2001  Free Software Foundation
 
 ;; Author: Eric M. Ludlam <zappo@gnu.org>
 ;; Version: 0.6.2
@@ -233,19 +233,6 @@ it indicates that a modifying clause follows."
   :group 'checkdoc
   :type 'boolean)
 
-(defcustom checkdoc-triple-semi-comment-check-flag t
-  "*Non-nil means to check for multiple adjacent occurrences of ;;; comments.
-According to the style of Emacs code in the Lisp libraries, a block
-comment can look like this:
-;;; Title
-;;  text
-;;  text
-But when inside a function, code can be commented out using the ;;;
-construct for all lines.  When this variable is nil, the ;;; construct
-is ignored regardless of its location in the code."
-  :group 'checkdoc
-  :type 'boolean)
-
 (defcustom checkdoc-spellcheck-documentation-flag nil
   "*Non-nil means run Ispell on text based on value.
 This is automatically set to nil if Ispell does not exist on your
@@ -353,6 +340,7 @@ This should be set in an Emacs Lisp file's local variables."
     ("changes" . "change")
     ("checks" . "check")
     ("contains" . "contain")
+    ("converts" . "convert")
     ("creates" . "create")
     ("destroys" . "destroy")
     ("disables" . "disable")
@@ -382,6 +370,7 @@ This should be set in an Emacs Lisp file's local variables."
     ("makes" . "make")
     ("marks" . "mark")
     ("matches" . "match")
+    ("moves" . "move")
     ("notifies" . "notify")
     ("offers" . "offer")
     ("parses" . "parse")
@@ -541,13 +530,14 @@ the users will view as each check is completed."
   "Display and update the status buffer for the current checkdoc mode.
 CHECK is a vector stating the current status of each test as an
 element is the status of that level of teset."
-  (with-output-to-temp-buffer " *Checkdoc Status*"
-    (princ-list
-     "Buffer comments and tags:  " (nth 0 check) "\n"
-     "Documentation style:       " (nth 1 check) "\n"
-     "Message/Query text style:  " (nth 2 check) "\n"
-     "Unwanted Spaces:           " (nth 3 check)
-     ))
+  (let (temp-buffer-setup-hook)
+    (with-output-to-temp-buffer " *Checkdoc Status*"
+      (princ-list
+       "Buffer comments and tags:  " (nth 0 check) "\n"
+       "Documentation style:       " (nth 1 check) "\n"
+       "Message/Query text style:  " (nth 2 check) "\n"
+       "Unwanted Spaces:           " (nth 3 check)
+       )))
   (shrink-window-if-larger-than-buffer
    (get-buffer-window " *Checkdoc Status*"))
   (message nil)
@@ -624,17 +614,17 @@ style."
 	      (checkdoc-overlay-put cdo 'face 'highlight)
 	      ;; Make sure the whole doc string is visible if possible.
 	      (sit-for 0)
-	      (if (not (pos-visible-in-window-p
-			(save-excursion (forward-sexp 1) (point))
-			(selected-window)))
-		  (if (looking-at "\"")
-		      (let ((l (count-lines (point)
-					    (save-excursion
-					      (forward-sexp 1) (point)))))
-			(if (> l (window-height))
-			    (recenter 1)
-			  (recenter (/ (- (window-height) l) 2))))
-		    (recenter)))
+	      (if (and (looking-at "\"")
+		       (not (pos-visible-in-window-p
+			     (save-excursion (forward-sexp 1) (point))
+			     (selected-window))))
+		  (let ((l (count-lines (point)
+					(save-excursion
+					  (forward-sexp 1) (point)))))
+		    (if (> l (window-height))
+			(recenter 1)
+		      (recenter (/ (- (window-height) l) 2))))
+		(recenter))
 	      (message "%s (C-h,%se,n,p,q)" (checkdoc-error-text
 					      (car (car err-list)))
 		       (if (checkdoc-error-unfixable (car (car err-list)))
@@ -909,7 +899,7 @@ Return nil if there are no more doc strings."
     (skip-chars-forward " \n\t")
     t))
 
-;;; ###autoload
+;;;###autoload
 (defun checkdoc-comments (&optional take-notes)
   "Find missing comment sections in the current Emacs Lisp file.
 Prefix argument TAKE-NOTES non-nil means to save warnings in a
@@ -923,9 +913,6 @@ if there is one."
 	  (member checkdoc-spellcheck-documentation-flag
 		  '(buffer t)))
 	 (checkdoc-autofix-flag (if take-notes 'never checkdoc-autofix-flag))
-	 ;; This is just irritating when taking notes.
-	 (checkdoc-triple-semi-comment-check-flag
-	  (if take-notes nil checkdoc-triple-semi-comment-check-flag))
 	 (e (checkdoc-file-comments-engine))
 	(checkdoc-generate-compile-warnings-flag
 	 (or take-notes checkdoc-generate-compile-warnings-flag)))
@@ -1146,13 +1133,8 @@ generating a buffered list of errors."
 
 ;;; Minor Mode specification
 ;;
-(defvar checkdoc-minor-mode nil
-  "Non-nil in `emacs-lisp-mode' for automatic documentation checking.")
-(make-variable-buffer-local 'checkdoc-minor-mode)
 
-(checkdoc-add-to-list 'minor-mode-alist '(checkdoc-minor-mode " CDoc"))
-
-(defvar checkdoc-minor-keymap
+(defvar checkdoc-minor-mode-map
   (let ((map (make-sparse-keymap))
 	(pmap (make-sparse-keymap)))
     ;; Override some bindings
@@ -1184,63 +1166,54 @@ generating a buffered list of errors."
     map)
   "Keymap used to override evaluation key-bindings for documentation checking.")
 
+(defvar checkdoc-minor-keymap checkdoc-minor-mode-map
+  "Obsolete!  Use `checkdoc-minor-mode-map'.")
+
 ;; Add in a menubar with easy-menu
 
-(if checkdoc-minor-keymap
-    (easy-menu-define
-     checkdoc-minor-menu checkdoc-minor-keymap "Checkdoc Minor Mode Menu"
-     '("CheckDoc"
-       ["Interactive Buffer Style Check" checkdoc t]
-       ["Interactive Buffer Style and Spelling Check" checkdoc-ispell t]
-       ["Check Buffer" checkdoc-current-buffer t]
-       ["Check and Spell Buffer" checkdoc-ispell-current-buffer t]
-       "---"
-       ["Interactive Style Check" checkdoc-interactive t]
-       ["Interactive Style and Spelling Check" checkdoc-ispell-interactive t]
-       ["Find First Style Error" checkdoc-start t]
-       ["Find First Style or Spelling  Error" checkdoc-ispell-start t]
-       ["Next Style Error" checkdoc-continue t]
-       ["Next Style or Spelling  Error" checkdoc-ispell-continue t]
-       ["Interactive Message Text Style Check" checkdoc-message-interactive t]
-       ["Interactive Message Text Style and Spelling Check"
-	checkdoc-ispell-message-interactive t]
-       ["Check Message Text" checkdoc-message-text t]
-       ["Check and Spell Message Text" checkdoc-ispell-message-text t]
-       ["Check Comment Style" checkdoc-comments buffer-file-name]
-       ["Check Comment Style and Spelling" checkdoc-ispell-comments
-	buffer-file-name]
-       ["Check for Rogue Spaces" checkdoc-rogue-spaces t]
-       "---"
-       ["Check Defun" checkdoc-defun t]
-       ["Check and Spell Defun" checkdoc-ispell-defun t]
-       ["Check and Evaluate Defun" checkdoc-eval-defun t]
-       ["Check and Evaluate Buffer" checkdoc-eval-current-buffer t]
-       )))
+(easy-menu-define
+ checkdoc-minor-menu checkdoc-minor-mode-map "Checkdoc Minor Mode Menu"
+ '("CheckDoc"
+   ["Interactive Buffer Style Check" checkdoc t]
+   ["Interactive Buffer Style and Spelling Check" checkdoc-ispell t]
+   ["Check Buffer" checkdoc-current-buffer t]
+   ["Check and Spell Buffer" checkdoc-ispell-current-buffer t]
+   "---"
+   ["Interactive Style Check" checkdoc-interactive t]
+   ["Interactive Style and Spelling Check" checkdoc-ispell-interactive t]
+   ["Find First Style Error" checkdoc-start t]
+   ["Find First Style or Spelling  Error" checkdoc-ispell-start t]
+   ["Next Style Error" checkdoc-continue t]
+   ["Next Style or Spelling  Error" checkdoc-ispell-continue t]
+   ["Interactive Message Text Style Check" checkdoc-message-interactive t]
+   ["Interactive Message Text Style and Spelling Check"
+    checkdoc-ispell-message-interactive t]
+   ["Check Message Text" checkdoc-message-text t]
+   ["Check and Spell Message Text" checkdoc-ispell-message-text t]
+   ["Check Comment Style" checkdoc-comments buffer-file-name]
+   ["Check Comment Style and Spelling" checkdoc-ispell-comments
+    buffer-file-name]
+   ["Check for Rogue Spaces" checkdoc-rogue-spaces t]
+   "---"
+   ["Check Defun" checkdoc-defun t]
+   ["Check and Spell Defun" checkdoc-ispell-defun t]
+   ["Check and Evaluate Defun" checkdoc-eval-defun t]
+   ["Check and Evaluate Buffer" checkdoc-eval-current-buffer t]
+   ))
 ;; XEmacs requires some weird stuff to add this menu in a minor mode.
 ;; What is it?
 
-;; Allow re-insertion of a new keymap
-(let ((a (assoc 'checkdoc-minor-mode minor-mode-map-alist)))
-  (if a
-      (setcdr a checkdoc-minor-keymap)
-    (checkdoc-add-to-list 'minor-mode-map-alist (cons 'checkdoc-minor-mode
-						      checkdoc-minor-keymap))))
-
 ;;;###autoload
-(defun checkdoc-minor-mode (&optional arg)
+(easy-mmode-define-minor-mode checkdoc-minor-mode
   "Toggle Checkdoc minor mode, a mode for checking Lisp doc strings.
 With prefix ARG, turn Checkdoc minor mode on iff ARG is positive.
 
 In Checkdoc minor mode, the usual bindings for `eval-defun' which is
-bound to \\<checkdoc-minor-keymap> \\[checkdoc-eval-defun] and `checkdoc-eval-current-buffer' are overridden to include
+bound to \\<checkdoc-minor-mode-map> \\[checkdoc-eval-defun] and `checkdoc-eval-current-buffer' are overridden to include
 checking of documentation strings.
 
-\\{checkdoc-minor-keymap}"
-  (interactive "P")
-  (setq checkdoc-minor-mode
-	(not (or (and (null arg) checkdoc-minor-mode)
-		 (<= (prefix-numeric-value arg) 0))))
-  (checkdoc-mode-line-update))
+\\{checkdoc-minor-mode-map}"
+  nil " CDoc" nil)
 
 ;;; Subst utils
 ;;
@@ -1311,7 +1284,8 @@ See the style guide in the Emacs Lisp manual for more details."
 	 ;; Sometimes old code has comments where the documentation should
 	 ;; be.  Let's see if we can find the comment, and offer to turn it
 	 ;; into documentation for them.
-	 (let ((have-comment nil))
+	 (let ((have-comment nil)
+	       (comment-start ";"))	; in case it's not default
 	   (condition-case nil
 	       (progn
 		 (forward-sexp -1)
@@ -1400,6 +1374,17 @@ regexp short cuts work.  FP is the function defun information."
 	      "Second line should not have indentation"
 	      (match-beginning 1)
 	      (match-end 1)))))
+     ;; * Check for '(' in column 0.
+     (save-excursion
+       (when (re-search-forward "^(" e t)
+	 (if (checkdoc-autofix-ask-replace (match-beginning 0)
+					   (match-end 0)
+					   "Escape this '('? "
+					   "\\(")
+	     nil
+	   (checkdoc-create-error
+	    "Open parenthesis in column 0 should be escaped"
+	    (match-beginning 0) (match-end 0)))))
      ;; * Do not start or end a documentation string with whitespace.
      (let (start end)
        (if (or (if (looking-at "\"\\([ \t\n]+\\)")
@@ -1621,7 +1606,7 @@ function,command,variable,option or symbol." ms1))))))
 	     (if (and (string-match "-flag$" (car fp))
 		      (not (looking-at "\"\\*?Non-nil\\s-+means\\s-+")))
 		 (checkdoc-create-error
-		  "Flag variable doc strings should start: Non-nil means"
+		  "Flag variable doc strings should usually start: Non-nil means"
 		  s (marker-position e) t))
 	     ;; If the doc string starts with "Non-nil means"
 	     (if (and (looking-at "\"\\*?Non-nil\\s-+means\\s-+")
@@ -1636,7 +1621,7 @@ function,command,variable,option or symbol." ms1))))))
 			(concat "\\<" (regexp-quote (car fp)) "\\>")
 			(concat (car fp) "-flag")))
 		   (checkdoc-create-error
-		    "Flag variables should end in `-flag'" s
+		    "Flag variable names should normally end in `-flag'" s
 		    (marker-position e))))
 	     ;; Done with variables
 	     ))
@@ -1687,7 +1672,7 @@ function,command,variable,option or symbol." ms1))))))
 			     (if (checkdoc-autofix-ask-replace
 				  (match-beginning 1) (match-end 1)
 				  (format
-				   "Argument `%s' should appear as `%s'.  Fix? "
+				   "If this is the argument `%s', it should appear as %s.  Fix? "
 				   (car args) (upcase (car args)))
 				  (upcase (car args)) t)
 				 (setq found (match-beginning 1))))))
@@ -1713,7 +1698,7 @@ function,command,variable,option or symbol." ms1))))))
 			 nil)
 		     (checkdoc-create-error
 		      (format
-		       "Argument `%s' should appear (as `%s') in the doc string"
+		       "Argument `%s' should appear (as %s) in the doc string"
 		       (car args) (upcase (car args)))
 		      s (marker-position e)))
 		 (if (or (and order (eq order 'yes))
@@ -1723,8 +1708,8 @@ function,command,variable,option or symbol." ms1))))))
 			  "Arguments occur in the doc string out of order"
 			  s (marker-position e) t)))))
 	     ;; * For consistency, phrase the verb in the first sentence of a
-	     ;;   documentation string for functions as an infinitive with
-	     ;;   "to" omitted.  For instance, use `Return the cons of A and
+	     ;;   documentation string for functions as an imperative.
+	     ;;   For instance, use `Return the cons of A and
 	     ;;   B.' in preference to `Returns the cons of A and B.'
 	     ;;   Usually it looks good to do likewise for the rest of the
 	     ;;   first paragraph.  Subsequent paragraphs usually look better
@@ -1760,15 +1745,15 @@ function,command,variable,option or symbol." ms1))))))
 					    (cdr rs)))))
 			(if (checkdoc-autofix-ask-replace
 			     (match-beginning 1) (match-end 1)
-			     (format "Use the infinitive for `%s'.  \
-Replace with `%s'? " original replace)
+			     (format "Use the imperative for \"%s\".  \
+Replace with \"%s\"? " original replace)
 			     replace t)
 			    (setq rs nil)))
 		      (if rs
 			  ;; there was a match, but no replace
 			  (checkdoc-create-error
 			   (format
-			    "Infinitive `%s' should be replaced with `%s'"
+			    "Probably \"%s\" should be imperative \"%s\""
 			    original replace)
 			   (match-beginning 1) (match-end 1))))))
 	     ;; Done with functions
@@ -1782,7 +1767,7 @@ Replace with `%s'? " original replace)
        (let ((found nil) (start (point)) (msg nil) (ms nil))
 	 (while (and (not msg)
 		     (re-search-forward
-		      "[^([`':a-zA-Z]\\(\\w+[:-]\\(\\w\\|\\s_\\)+\\)[^]']"
+		      "[^-([`':a-zA-Z]\\(\\w+[:-]\\(\\w\\|\\s_\\)+\\)[^]']"
 		      e t))
 	   (setq ms (match-string 1))
 	   (save-match-data
@@ -1821,7 +1806,7 @@ Replace with `%s'? " original replace)
 		(match-string 2) t)
 	       nil
 	     (checkdoc-create-error
-	      "Symbols t and nil should not appear in `quotes'"
+	      "Symbols t and nil should not appear in `...' quotes"
 	      (match-beginning 1) (match-end 1)))))
      ;; Here is some basic sentence formatting
      (checkdoc-sentencespace-region-engine (point) e)
@@ -1868,7 +1853,7 @@ from the comment."
 	;; Interactive
 	(save-excursion
 	  (setq ret (cons
-		     (re-search-forward "(interactive"
+		     (re-search-forward "^\\s-*(interactive"
 					(save-excursion (end-of-defun) (point))
 					t)
 		     ret)))
@@ -2313,39 +2298,6 @@ Code:, and others referenced in the style guide."
 		 (1- (point-max)) (point-max)))))
 	err))
       ;; The below checks will not return errors if the user says NO
-      
-      ;; Ok, now let's look for multiple occurrences of ;;;, and offer
-      ;; to remove the extra ";" if applicable.  This pre-supposes
-      ;; that the user has semiautomatic fixing on to be useful.
-      
-      ;; In the info node (elisp)Library Headers a header is three ;
-      ;; (the header) followed by text of only two ;
-      ;; In (elisp)Comment Tips, however it says this:
-      ;; * Another use for triple-semicolon comments is for commenting out
-      ;;   lines within a function.  We use triple-semicolons for this
-      ;;   precisely so that they remain at the left margin.
-      (let ((msg nil))
-	(goto-char (point-min))
-	(while (and checkdoc-triple-semi-comment-check-flag
-		    (not msg) (re-search-forward "^;;;[^;]" nil t))
-	  ;; We found a triple, let's check all following lines.
-	  (if (not (bolp)) (progn (beginning-of-line) (forward-line 1)))
-	  (let ((complex-replace t)
-		(dont-replace nil))
-	    (while (looking-at ";;\\(;\\)[^;#]")
-	      (if (and (not dont-replace)
-		       (checkdoc-outside-major-sexp) ;in code is ok.
-		       (checkdoc-autofix-ask-replace
-			(match-beginning 1) (match-end 1)
-			"Multiple occurrences of ;;; found.  Use ;; instead? "
-			"" complex-replace))
-		  ;; Learn that, yea, the user did want to do this a
-		  ;; whole bunch of times.
-		  (setq complex-replace nil)
-		;; In this case, skip all this crap
-		(setq dont-replace t))
-	      (beginning-of-line)
-	      (forward-line 1)))))
 
       ;; Let's spellcheck the commentary section.  This is the only
       ;; section that is easy to pick out, and it is also the most
@@ -2494,22 +2446,22 @@ Argument TYPE specifies the type of question, such as `error or `y-or-n-p."
 	       ;; If we see a ?, then replace with "? ".
 	       (if (checkdoc-autofix-ask-replace
 		    (match-beginning 0) (match-end 0)
-		    "y-or-n-p text should end with \"? \".  Fix? "
+		    "`y-or-n-p' argument should end with \"? \".  Fix? "
 		    "? " t)
 		   nil
 		 (checkdoc-create-error
-		  "y-or-n-p text should end with \"? \""
+		  "`y-or-n-p' argument should end with \"? \""
 		  (match-beginning 0) (match-end 0)))
 	     (if (save-excursion (forward-sexp 1)
 				 (forward-char -2)
 				 (looking-at " "))
 		 (if (checkdoc-autofix-ask-replace
 		      (match-beginning 0) (match-end 0)
-		      "y-or-n-p text should end with \"? \".  Fix? "
+		      "`y-or-n-p' argument should end with \"? \".  Fix? "
 		      "? " t)
 		     nil
 		   (checkdoc-create-error
-		    "y-or-n-p text should end with \"? \""
+		    "`y-or-n-p' argument should end with \"? \""
 		    (match-beginning 0) (match-end 0)))
 	       (if (and ;; if this isn't true, we have a problem.
 		    (save-excursion (forward-sexp 1)
@@ -2517,11 +2469,11 @@ Argument TYPE specifies the type of question, such as `error or `y-or-n-p."
 				    (looking-at "\""))
 		    (checkdoc-autofix-ask-replace
 		     (match-beginning 0) (match-end 0)
-		     "y-or-n-p text should end with \"? \".  Fix? "
+		     "`y-or-n-p' argument should end with \"? \".  Fix? "
 		     "? \"" t))
 		   nil
 		 (checkdoc-create-error
-		  "y-or-n-p text should end with \"? \""
+		  "`y-or-n-p' argument should end with \"? \""
 		  (match-beginning 0) (match-end 0)))))))
      ;; Now, let's just run the spell checker on this guy.
      (checkdoc-ispell-docstring-engine (save-excursion (forward-sexp 1)
@@ -2700,6 +2652,9 @@ function called to create the messages."
 
 (custom-add-option 'emacs-lisp-mode-hook
 		   (lambda () (checkdoc-minor-mode 1)))
+
+(add-to-list 'debug-ignored-errors
+	     "Argument `.*' should appear (as .*) in the doc string")
 
 (provide 'checkdoc)
 

@@ -212,6 +212,7 @@ enum ataFlags{
 	bATAFlagByteSwap			= 14,							/* bit number of byte swap flag*/
 	bATAFlagIORead				= 13,							/* bit number of I/O read flag*/
 	bATAFlagIOWrite				= 12,							/* bit number of I/O write flag*/
+	bATAFlagTFAccessResult 		= 8,							/* bit number of get register results on command completion.*/
 	bATAFlagUseDMA				= 7,							/* bit number of use DMA flag*/
 	bATAFlagProtocolATAPI		= 5,							/* bit number of ATAPI protocol*/
 	bATAFlagImmediate			= 1,							/* bit number of immediate flag */
@@ -225,6 +226,7 @@ enum ataFlags{
 	mATAFlagByteSwap			= 1 << bATAFlagByteSwap,		/* Swap data bytes (read - after; write - before)*/
 	mATAFlagIORead				= 1 << bATAFlagIORead,			/* Read (in) operation*/
 	mATAFlagIOWrite				= 1 << bATAFlagIOWrite,			/* Write (out) operation*/
+	mATAFlagTFAccessResult		= 1 << bATAFlagTFAccessResult,  /* get contents of TaskFile registers indicated in TFMask on command completion, even if no error*/
 	mATAFlagUseDMA				= 1 << bATAFlagUseDMA,
 	mATAFlagProtocolATAPI		= 1 << bATAFlagProtocolATAPI,	/* ATAPI protocol indicator*/
 	mATAFlagImmediate			= 1 << bATAFlagImmediate,		/* Put command at head of queue */

@@ -75,9 +75,7 @@
 #import <netinet/ip.h>
 #import <netinet/udp.h>
 #import <netinet/bootp.h>
-#ifndef MOSX
-#import <net/etherdefs.h>
-#endif MOSX
+#import <net/ethernet.h>
 #import <netinet/if_ether.h>
 #import <net/if_arp.h>
 #import <mach/boolean.h>
@@ -805,21 +803,6 @@ compare_ni_entry(const void * val1, const void * val2)
     return (0);
 }
 
-static __inline__ int
-ether_cmp(struct ether_addr * e1, struct ether_addr * e2)
-{
-    int i;
-    u_char * c1 = e1->octet;
-    u_char * c2 = e2->octet;
-
-    for (i = 0; i < sizeof(e1->octet); i++, c1++, c2++) {
-	if (*c1 == *c2)
-	    continue;
-	return ((int)*c1 - (int)*c2);
-    }
-    return (0);
-}
-
 int
 compare_en_binding(const void * val1, const void * val2)
 {
@@ -1188,7 +1171,7 @@ NIHostCache_lookup_hw(NIHostCache_t * cache, struct timeval * tv_p,
     PLCacheEntry_t *	scan;
     boolean_t		some_binding = FALSE;
 
-    if (hwtype != ARPHRD_ETHER || hwlen != NUM_EN_ADDR_BYTES)
+    if (hwtype != ARPHRD_ETHER || hwlen != ETHER_ADDR_LEN)
 	return (NULL);
 
     /* refresh the cache if necessary */

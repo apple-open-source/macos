@@ -59,7 +59,7 @@ public:
 	public:
 		Maker() : AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_COMMENT) { }
 		CommentAclSubject *make(const TypedList &list) const;
-    	CommentAclSubject *make(Reader &pub, Reader &priv) const;
+    	CommentAclSubject *make(Version, Reader &pub, Reader &priv) const;
 	};
 	
 private:

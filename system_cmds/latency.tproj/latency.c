@@ -24,7 +24,7 @@
 
 
 /* 
-   cc -I. -DKERNEL_PRIVATE -O -o latency latency.c
+   cc -I. -DKERNEL_PRIVATE -O -o latency latency.c -lncurses
 */
 
 #include <mach/mach.h>
@@ -42,7 +42,7 @@
 
 #include <libc.h>
 #include <termios.h>
-#include <bsd/curses.h>
+#include <curses.h>
 #include <sys/ioctl.h>
 
 #ifndef KERNEL_PRIVATE
@@ -124,6 +124,8 @@ char       pcstring[128];
 double   divisor;
 int      gotSIGWINCH = 0;
 int      trace_enabled = 0;
+struct host_basic_info  hi;
+
 
 #define SAMPLE_SIZE 300000
 
@@ -204,6 +206,9 @@ static kern_return_t	set_standard_policy(void);
 
 int decrementer_val = 0;     /* Value used to reset decrementer */
 int set_remove_flag = 1;     /* By default, remove trace buffer */
+
+kd_buf **last_decrementer_kd;   /* last DECR_TRAP per cpu */
+#define MAX_LOG_COUNT  30       /* limits the number of entries dumped in log_decrementer */
 
 int
 quit(s)
@@ -434,7 +439,7 @@ void sigintr()
         exit(1);
 }
 
-void sigquit()
+void leave()    /* exit under normal conditions -- signal handler */
 {
         set_enable(0);
 	set_pidexclude(getpid(), 0);
@@ -443,17 +448,6 @@ void sigquit()
 	
         exit(1);
 }
-
-void sigterm()
-{
-        set_enable(0);
-	set_pidexclude(getpid(), 0);
-	set_rtcdec(0);
-	set_remove();
-	
-        exit(1);
-}
-
 
 void
 screen_update(FILE *fp)
@@ -695,6 +689,10 @@ char *argv[];
 	double   nanosecs_to_sleep;
 	int      loop_cnt, sample_sc_now;
 	int      decrementer_usec = 0;
+        kern_return_t           ret;
+        int                     size;
+        int                     i, count;
+        host_name_port_t        host;
 	void     getdivisor();
 	void     sample_sc();
 	void     init_code_file();
@@ -792,6 +790,18 @@ char *argv[];
 	getdivisor();
 	decrementer_val = decrementer_usec * divisor;
 
+	/* get the cpu count for the DECR_TRAP array */
+        host = mach_host_self();
+	size = sizeof(hi)/sizeof(int);
+        ret = host_info(host, HOST_BASIC_INFO, (host_info_t)&hi, &size);
+        if (ret != KERN_SUCCESS) {
+            mach_error(argv[0], ret);
+            exit(EXIT_FAILURE);
+	}
+
+	if ((last_decrementer_kd = (kd_buf **)malloc(hi.avail_cpus * sizeof(kd_buf *))) == (kd_buf **)0)
+	        quit("can't allocate memory for decrementer tracing info\n");
+
 	nanosecs_to_sleep = (double)(num_of_usecs_to_sleep * 1000);
 	fdelay = nanosecs_to_sleep * (divisor /1000);
 	adelay = (uint64_t)fdelay;
@@ -805,13 +815,19 @@ char *argv[];
 	*/
 	set_rtcdec(decrementer_val);
 
-	initscr();
+	if (initscr() == (WINDOW *) 0)
+	  {
+	    printf("Unrecognized TERM type, try vt100\n");
+	    exit(1);
+	  }
+
 	clear();
 	refresh();
 	signal(SIGWINCH, sigwinch);
 	signal(SIGINT, sigintr);
-	signal(SIGQUIT, sigquit);
-	signal(SIGTERM, sigterm);
+	signal(SIGQUIT, leave);
+	signal(SIGTERM, leave);
+	signal(SIGHUP, leave);
 
 
 	if ((my_buffer = malloc(SAMPLE_SIZE * sizeof(kd_buf))) == (char *)0)
@@ -904,7 +920,11 @@ char *argv[];
 			}
 		}
 	        if (gotSIGWINCH) {
-		        initscr();
+		        /*
+			  No need to check for initscr error return.
+			  We won't get here if it fails on the first call.
+			*/
+		        endwin();
 			clear();
 			refresh();
 
@@ -1135,9 +1155,9 @@ char *find_code(type)
 
 void sample_sc(uint64_t start, uint64_t stop)
 {
-	kd_buf   *kd, *last_mach_sched, *last_decrementer_kd, *start_kd, *end_of_sample;
+	kd_buf   *kd, *last_mach_sched, *start_kd, *end_of_sample;
 	uint64_t now;
-	int count;
+	int count, i;
 	int first_entry = 1;
 	char   command[32];
 	double timestamp, last_timestamp, delta, start_bias;
@@ -1171,8 +1191,6 @@ void sample_sc(uint64_t start, uint64_t stop)
 	count = needed;
 
 	if (bufinfo.flags & KDBG_WRAPPED) {
-	        int i;
-
 	        for (i = 0; i < cur_max; i++) {
 			th_state[i].thread = 0;
 			th_state[i].type = -1;
@@ -1196,7 +1214,11 @@ void sample_sc(uint64_t start, uint64_t stop)
 		}
 	}
 	end_of_sample = &((kd_buf *)my_buffer)[count];
-	last_decrementer_kd = (kd_buf *)my_buffer;
+
+	/* Always reinitialize the DECR_TRAP array */
+	for (i=0; i < hi.avail_cpus; i++)
+	      last_decrementer_kd[i] = (kd_buf *)my_buffer;
+
 	last_mach_sched = (kd_buf *)0;
 
 	for (kd = (kd_buf *)my_buffer; kd < end_of_sample; kd++) {
@@ -1205,6 +1227,7 @@ void sample_sc(uint64_t start, uint64_t stop)
 		int len;
 		char *p;
 		long *sargptr;
+		kd_buf *cur_kd;
 		double i_latency;
 		struct th_info *ti;
 		char   command1[32];
@@ -1240,21 +1263,27 @@ void sample_sc(uint64_t start, uint64_t stop)
 			else if (debugid & DBG_FUNC_END)
 			        exit_syscall(log_fp, kd, thread, type, command, timestamp, delta, start_bias, 0);
 			else if (type == DECR_TRAP) {
+				cur_kd = kd;
 			        if (log_fp && i_thresh_hold && (int)i_latency > i_thresh_hold) {
-				        start_kd = last_decrementer_kd;
+				        start_kd = last_decrementer_kd[cpunum];
 				        kd = log_decrementer(start_kd, kd, end_of_sample, i_latency);
-
 					if (kd >= end_of_sample)
 					        break;
 				}
-				last_decrementer_kd = kd;
+				if ((kd->debugid & DBG_FUNC_MASK) == DECR_TRAP)
+				  {
+				    cpunum =  (kd->arg5 & KDBG_CPU_MASK) ? 1: 0;
+				    last_decrementer_kd[cpunum] = kd;
+				  }
+				else
+				  last_decrementer_kd[cpunum] = cur_kd;
 			}
 		        continue;
 		}
 		if (first_entry) {
 		        double latency;
-			char buf1[128];
-			char buf2[128];
+			char buf1[132];
+			char buf2[132];
 
 		        latency = (double)(stop - start) / divisor;
 			latency -= (double)num_of_usecs_to_sleep;
@@ -1323,7 +1352,7 @@ void sample_sc(uint64_t start, uint64_t stop)
 		    break;
 
 		case DECR_TRAP:
-		    last_decrementer_kd = kd;
+		    last_decrementer_kd[cpunum] = kd;
 
 		    if (i_thresh_hold && (int)i_latency > i_thresh_hold)
 		            p = "*";
@@ -1401,7 +1430,9 @@ void sample_sc(uint64_t start, uint64_t stop)
 			    ti->pathptr = (long *)0;
 			    ti->child_thread = 0;
 		    }
-		    if (!ti->pathptr) {
+		    while ( (kd < end_of_sample) && ((kd->debugid & DBG_FUNC_MASK) == VFS_LOOKUP))
+		      {
+			if (!ti->pathptr) {
 			    ti->arg1 = kd->arg1;
 			    memset(&ti->pathname[0], 0, (PATHLENGTH + 1));
 			    sargptr = (long *)&ti->pathname[0];
@@ -1411,7 +1442,7 @@ void sample_sc(uint64_t start, uint64_t stop)
 			    *sargptr++ = kd->arg4;
 			    ti->pathptr = sargptr;
 
-		    } else {
+			} else {
 		            sargptr = ti->pathptr;
 
 			    /*
@@ -1420,28 +1451,50 @@ void sample_sc(uint64_t start, uint64_t stop)
                                handle.
 			    */
 
-                            if ((long *)sargptr < (long *)&ti->pathname[PATHLENGTH])
+                            if ((long *)sargptr >= (long *)&ti->pathname[PATHLENGTH])
+			      {
+				kd++;
+				continue;
+			      }
+
+                            /*
+                              We need to detect consecutive vfslookup entries.
+                              So, if we get here and find a START entry,
+                              fake the pathptr so we can bypass all further
+                              vfslookup entries.
+			    */
+
+                            if (kd->debugid & DBG_FUNC_START)
+                              {
+                                (long *)ti->pathptr = (long *)&ti->pathname[PATHLENGTH];
+                              }
+			    else
 			      {
 				*sargptr++ = kd->arg1;
 				*sargptr++ = kd->arg2;
 				*sargptr++ = kd->arg3;
 				*sargptr++ = kd->arg4;
 				ti->pathptr = sargptr;
+			      }
+			}
+			kd++;
+		    }
+
+		    kd--;
 
 				/* print the tail end of the pathname */
-				len = strlen(ti->pathname);
-				if (len > 28)
-				  len -= 28;
-				else
-				  len = 0;
+		    len = strlen(ti->pathname);
+		    if (len > 42)
+		      len -= 42;
+		    else
+		      len = 0;
 			    
-				if (log_fp) {
-				  fprintf(log_fp, "%9.1f %8.1f\t\t%-28.28s %-28s    %-8x   %-8x  %d  %s\n",
-					  timestamp - start_bias, delta, "VFS_LOOKUP", 
-					  &ti->pathname[len], ti->arg1, thread, cpunum, command);
-				}
-			    }
+		    if (log_fp) {
+		      fprintf(log_fp, "%9.1f %8.1f\t\t%-14.14s %-42s    %-8x   %-8x  %d  %s\n",
+			      timestamp - start_bias, delta, "VFS_LOOKUP", 
+			      &ti->pathname[len], ti->arg1, thread, cpunum, command);
 		    }
+
 		    last_timestamp = timestamp;
 		    break;
 
@@ -1664,6 +1717,7 @@ check_for_thread_update(int thread, int type, kd_buf *kd)
 kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double i_latency)
 {
         kd_buf *kd, *kd_start, *kd_stop;
+	int kd_count;     /* Limit the boundary of kd_start */
 	double timestamp, last_timestamp, delta, start_bias;
 	int thread, cpunum;
 	int debugid, type, clen;
@@ -1690,18 +1744,39 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 	fprintf(log_fp, "RelTime(Us)  Delta              debugid                      arg1       arg2       arg3      arg4       thread   cpu   command\n\n");
 
 	thread = kd_beg->arg5 & KDBG_THREAD_MASK;
+	cpunum =  (kd_end->arg5 & KDBG_CPU_MASK) ? 1: 0;
 
-	for (kd_start = kd_beg - 1; (kd_start >= (kd_buf *)my_buffer) && (kd_start->arg5 & KDBG_THREAD_MASK) == thread; kd_start--) {
-	        if ((kd_start->debugid & DBG_FUNC_MASK) == DECR_TRAP)
+	for (kd_count = 0, kd_start = kd_beg - 1; (kd_start >= (kd_buf *)my_buffer); kd_start--, kd_count++) {
+	        if (kd_count == MAX_LOG_COUNT)
+		        break;
+
+		if((kd_start->arg5 & KDBG_CPU_MASK) != cpunum)
+		        continue;
+										     
+		if ((kd_start->debugid & DBG_FUNC_MASK) == DECR_TRAP)
+		        break;
+
+		if((kd_start->arg5 & KDBG_THREAD_MASK) != thread)
 		        break;
 	}
+
 	if (kd_start < (kd_buf *)my_buffer)
 	        kd_start = (kd_buf *)my_buffer;
 
-	for (kd_stop = kd_end + 1; kd_stop < end_of_sample && (kd_start->arg5 & KDBG_THREAD_MASK) == thread; kd_stop++) {
-	        if ((kd_stop->debugid & DBG_FUNC_MASK) == DECR_TRAP)
+	thread = kd_end->arg5 & KDBG_THREAD_MASK;
+
+	for (kd_stop = kd_end + 1; kd_stop < end_of_sample; kd_stop++) {
+										     
+		if ((kd_stop->debugid & DBG_FUNC_MASK) == DECR_TRAP)
+		        break;
+
+		if((kd_stop->arg5 & KDBG_CPU_MASK) != cpunum)
+		        continue;
+
+		if((kd_stop->arg5 & KDBG_THREAD_MASK) != thread)
 		        break;
 	}
+
 	if (kd_stop >= end_of_sample)
 	        kd_stop = end_of_sample - 1;
 
@@ -1825,7 +1900,10 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 			    ti->pathptr = (long *)0;
 			    ti->child_thread = 0;
 		    }
-		    if (!ti->pathptr) {
+
+		    while ( (kd <= kd_stop) && (kd->debugid & DBG_FUNC_MASK) == VFS_LOOKUP)
+		      {
+			if (!ti->pathptr) {
 			    ti->arg1 = kd->arg1;
 			    memset(&ti->pathname[0], 0, (PATHLENGTH + 1));
 			    sargptr = (long *)&ti->pathname[0];
@@ -1835,7 +1913,7 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 			    *sargptr++ = kd->arg4;
 			    ti->pathptr = sargptr;
 
-		    } else {
+			} else {
   		            sargptr = ti->pathptr;
 
 			    /*
@@ -1844,25 +1922,47 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
                                handle.
 			    */
 
-                            if ((long *)sargptr < (long *)&ti->pathname[PATHLENGTH])
+                            if ((long *)sargptr >= (long *)&ti->pathname[PATHLENGTH])
+			      {
+				kd++;
+				continue;
+			      }
+
+                            /*
+                              We need to detect consecutive vfslookup entries.
+                              So, if we get here and find a START entry,
+                              fake the pathptr so we can bypass all further
+                              vfslookup entries.
+			    */
+
+                            if (kd->debugid & DBG_FUNC_START)
+                              {
+                                (long *)ti->pathptr = (long *)&ti->pathname[PATHLENGTH];
+                              }
+			    else
 			      {
 				*sargptr++ = kd->arg1;
 				*sargptr++ = kd->arg2;
 				*sargptr++ = kd->arg3;
 				*sargptr++ = kd->arg4;
-
-				/* print the tail end of the pathname */
-				len = strlen(ti->pathname);
-				if (len > 28)
-				  len -= 28;
-				else
-				  len = 0;
-			    
-				fprintf(log_fp, "%9.1f %8.1f\t\t%-28.28s %-28s    %-8x   %-8x  %d  %s\n",
-					timestamp - start_bias, delta, "VFS_LOOKUP", 
-					&ti->pathname[len], ti->arg1, thread, cpunum, command);
+				ti->pathptr = sargptr;
 			      }
+			}
+			kd++;
 		    }
+
+		    kd--;
+		    /* print the tail end of the pathname */
+		    len = strlen(ti->pathname);
+		    if (len > 42)
+		      len -= 42;
+		    else
+		      len = 0;
+		    
+		    fprintf(log_fp, "%9.1f %8.1f\t\t%-14.14s %-42s    %-8x   %-8x  %d  %s\n",
+			    timestamp - start_bias, delta, "VFS_LOOKUP", 
+			    &ti->pathname[len], ti->arg1, thread, cpunum, command);
+
 		    last_timestamp = timestamp;
 		    break;
 

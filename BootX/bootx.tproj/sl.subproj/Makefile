@@ -12,11 +12,9 @@ NAME = sl
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = bad_system.h clut.h elf.h GetSymbolFromPEF.h happy_foot.h\
-         happy_mac.h images.h
+HFILES = appleboot.h clut.h elf.h failedboot.h netboot.h
 
-CFILES = main.c macho.c device_tree.c display.c drivers.c\
-         PEFSupport.c elf.c
+CFILES = main.c macho.c device_tree.c display.c drivers.c elf.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

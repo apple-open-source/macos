@@ -402,31 +402,36 @@ void IOFireWireSBP2ORB::deallocateTimer( void )
 //
 
 void IOFireWireSBP2ORB::startTimer( void )
-{
+{	
     //
     // set timeout if necessary
     //
 
-    if( fTimeoutDuration != 0 )
-    {
-        IOReturn ORBtimeoutSubmitStatus;
-        
-        FWKLOG( ( "IOFireWireSBP2ORB : set timeout\n" ) );
-        
-		fTimeoutTimerSet = true;
-        ORBtimeoutSubmitStatus = fTimeoutCommand->submit();
-    
-        FWPANICASSERT( ORBtimeoutSubmitStatus == kIOReturnSuccess );
-    }
+    if( fCommandFlags & kFWSBP2CommandCompleteNotify )
+	{
+		fInProgress = true;
+		
+		if( fTimeoutDuration != 0 )
+		{
+			IOReturn ORBtimeoutSubmitStatus;
+			
+			FWKLOG( ( "IOFireWireSBP2ORB : set timeout\n" ) );
+			
+			fTimeoutTimerSet = true;
+			ORBtimeoutSubmitStatus = fTimeoutCommand->submit();
+		
+			FWPANICASSERT( ORBtimeoutSubmitStatus == kIOReturnSuccess );
+		}
+	}
 }
 
 // isTimerSet
 //
-//
+// 
 
 bool IOFireWireSBP2ORB::isTimerSet( void )
 {
-    return fTimeoutTimerSet;
+    return fInProgress;
 }
 
 // cancelTimer
@@ -436,10 +441,16 @@ bool IOFireWireSBP2ORB::isTimerSet( void )
 void IOFireWireSBP2ORB::cancelTimer( void )
 {
     FWKLOG( ( "IOFireWireSBP2ORB : cancel timer\n" ) );
-    
+	
     // cancel timer
     if( fTimeoutTimerSet )
+	{
         fTimeoutCommand->cancel( kIOReturnAborted );
+	}
+	else
+	{
+		fInProgress = false;
+	}
 }
 
 // orb timeout handler
@@ -454,7 +465,8 @@ void IOFireWireSBP2ORB::orbTimeoutStatic( void *refcon, IOReturn status, IOFireW
 void IOFireWireSBP2ORB::orbTimeout( IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd )
 {
     fTimeoutTimerSet = false;
-    
+    fInProgress = false;
+	
     if( status == kIOReturnTimeout )
     {
         FWKLOG( ( "IOFireWireSBP2ORB : orb timeout\n" ) );
@@ -1053,6 +1065,16 @@ void IOFireWireSBP2ORB::setToDummy( void )
 {
     // set rq_fmt to 3 (NOP) in case it wasn't fetched yet
     fORBBuffer->options |= 0x6000;
+}
+
+bool IOFireWireSBP2ORB::isAppended( void )
+{
+	return fIsAppended;
+}
+
+void IOFireWireSBP2ORB::setIsAppended( bool state )
+{
+	fIsAppended = state;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

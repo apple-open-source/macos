@@ -18,6 +18,9 @@
 #include "rtl.h" 
 #include "cp-tree.h"   
 
+/* get Objective-C stuff also */
+#include "obcp/objc-act.h"
+
 #define fn_1(name,rt,pt)       rt (name) (pt a)           { return name(a); }
 #define fn_2(name,rt,p1,p2)    rt (name) (p1 a,p2 b)      { return name(a,b); }
 #define fn_3(name,rt,p1,p2,p3) rt (name) (p1 a,p2 b,p3 c) { return name(a,b,c); }
@@ -225,13 +228,13 @@ fn_noden(HANDLER_BODY)
 fn_noden(HANDLER_PARMS)
 fn_noden(IDENTIFIER_AS_DESC)
 fn_noden(IDENTIFIER_AS_LIST)
+fn_noden(IDENTIFIER_BINDING)
 fn_noden(IDENTIFIER_CLASS_VALUE)
 fn_noden(IDENTIFIER_ERROR_LOCUS)
 fn_noden(IDENTIFIER_GLOBAL_VALUE)
 fn_nodei(IDENTIFIER_HAS_TYPE_VALUE)
 fn_noden(IDENTIFIER_IMPLICIT_DECL)
 fn_noden(IDENTIFIER_LABEL_VALUE)
-fn_noden(IDENTIFIER_LOCAL_VALUE)
 fn_noden(IDENTIFIER_NAMESPACE_BINDINGS)
 fn_noden(IDENTIFIER_NAMESPACE_VALUE)
 fn_nodei(IDENTIFIER_OPNAME_P)
@@ -380,5 +383,36 @@ fn_2( DERIVED_FROM_P, int, tree, tree )
 fn_2( IS_AGGR_TYPE_2, int, tree, tree )
 fn_2( PROMOTES_TO_AGGR_TYPE, int, tree, int )
 fn_2( UNIQUELY_DERIVED_FROM_P, int, tree, tree )
+
+/* Objective-C specific stuff */
+
+fn_noden(KEYWORD_KEY_NAME)
+fn_noden(KEYWORD_ARG_NAME)
+fn_noden(METHOD_SEL_NAME)
+fn_noden(METHOD_SEL_ARGS)
+fn_noden(METHOD_ADD_ARGS)
+fn_noden(METHOD_DEFINITION)
+fn_noden(METHOD_ENCODING)
+fn_noden(CLASS_NAME)
+fn_noden(CLASS_SUPER_NAME)   
+fn_noden(CLASS_IVARS)
+fn_noden(CLASS_RAW_IVARS)
+fn_noden(CLASS_NST_METHODS)
+fn_noden(CLASS_CLS_METHODS)
+fn_noden(CLASS_OWN_IVARS)
+fn_noden(CLASS_STATIC_TEMPLATE)
+fn_noden(CLASS_CATEGORY_LIST)
+fn_noden(CLASS_PROTOCOL_LIST)
+fn_noden(PROTOCOL_NAME)
+fn_noden(PROTOCOL_LIST)
+fn_noden(PROTOCOL_NST_METHODS)
+fn_noden(PROTOCOL_CLS_METHODS)
+fn_noden(PROTOCOL_FORWARD_DECL)
+fn_nodei(PROTOCOL_DEFINED)
+fn_noden(TYPE_PROTOCOL_LIST)
+fn_nodei(TREE_STATIC_TEMPLATE)
+fn_nodei(IS_ID)
+fn_nodei(IS_PROTOCOL_QUALIFIED_ID)
+fn_nodei(IS_SUPER)
 
 /* End of obcp/cp-internal_debug.c */

@@ -40,6 +40,7 @@ struct IOHIDElementStruct
     long		max;
     long		usage;
     long		usagePage;
+    long		bytes;
 #if IOHID_PSEUDODEVICE
     long		currentValue;
     long		pauseCount;
@@ -56,6 +57,7 @@ class IOHIDDeviceClass : public IOHIDIUnknown
 private:
     // friends with queue class
     friend class IOHIDQueueClass;
+    friend class IOHIDOutputTransactionClass;
 
     // Disable copy constructors
     IOHIDDeviceClass(IOHIDDeviceClass &src);
@@ -88,13 +90,32 @@ protected:
     HRESULT queryInterfaceQueue (void **ppv);
     HRESULT queryInterfaceOutputTransaction (void **ppv);
     
+    // helper function for get/query ElementValue
+    IOReturn fillElementValue(IOHIDElementCookie		elementCookie,
+                                IOHIDEventStruct *		valueEvent);    
+                                
+    void convertByteToWord( const UInt8 * src,
+                        UInt32 *      dst,
+                        UInt32        bitsToCopy);
+    
+    void convertWordToByte( const UInt32 * src,
+                        UInt8 *        dst,
+                        UInt32         bitsToCopy);
+                           
 public:
     // add/remove a queue 
     HRESULT attachQueue (IOHIDQueueClass * iohidQueue);
     HRESULT detachQueue (IOHIDQueueClass * iohidQueue);
     
-    // get an element's type
+    // add/remove a queue 
+    HRESULT attachOutputTransaction (IOHIDOutputTransactionClass * iohidOutputTrans);
+    HRESULT detachOutputTransaction (IOHIDOutputTransactionClass * iohidOutputTrans);
+
+    
+    // get an element info
+    bool getElement(IOHIDElementCookie elementCookie, IOHIDElementStruct *element);
     IOHIDElementType getElementType (IOHIDElementCookie elementCookie);
+    UInt32 getElementByteSize (IOHIDElementCookie elementCookie);
 
     // IOCFPlugin stuff
     static IOCFPlugInInterface **alloc();
@@ -117,7 +138,7 @@ public:
     virtual IOReturn close();
 
     virtual IOReturn setRemovalCallback(
-                                   IOHIDCallbackFunction *	removalCallback,
+                                   IOHIDCallbackFunction	removalCallback,
                                    void *			removalTarget,
                                    void *			removalRefcon);
 
@@ -127,10 +148,11 @@ public:
     virtual IOReturn setElementValue(
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
-                                UInt32 				timeoutMS,
-                                IOHIDElementCallbackFunction *	callback,
-                                void * 				callbackTarget,
-                                void *				callbackRefcon);
+                                UInt32 				timeoutMS = 0,
+                                IOHIDElementCallbackFunction *	callback = NULL,
+                                void * 				callbackTargetm = NULL,
+                                void *				callbackRefcon = NULL,
+                                bool				pushToDevice = false);
 
     virtual IOReturn queryElementValue(
                                 IOHIDElementCookie		elementCookie,
@@ -181,7 +203,7 @@ protected:
     /* removalCallback is called if the device is removed. */
     /* removeTarget and removalRefcon are passed to the callback. */
     static IOReturn deviceSetRemovalCallback(void * 		self,
-                                   IOHIDCallbackFunction *	removalCallback,
+                                   IOHIDCallbackFunction	removalCallback,
                                    void *			removalTarget,
                                    void *			removalRefcon);
 

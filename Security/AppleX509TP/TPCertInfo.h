@@ -28,6 +28,15 @@
 #include <Security/cssmtype.h>
 #include <Security/utilities.h>
 #include <Security/cssmalloc.h>
+#include <Security/threading.h>
+#include <Security/globalizer.h>
+
+/*** Interim hack, disable not before/not after checking during cert chain processing ***/
+/*** code #ifdef'd with this gets ripped out later ***/
+#define TP_CERT_CURRENT_CHECK_INLINE		0
+
+/* protects TP-wide access to time() and gmtime() */
+extern ModuleNexus<Mutex> tpTimeLock;
 
 /*
  * Class representing one certificate. The raw cert data usually comes from
@@ -50,6 +59,7 @@ public:
 	TPCertInfo(
 		const CSSM_DATA		*certData,
 		CSSM_CL_HANDLE		clHand,
+		const char 			*cssmTimeStr = NULL,	// NULL ==> time base = right now
 		bool				copyCertData = false);	// true: we copy, we free
 													// false - caller owns
 		
@@ -77,8 +87,25 @@ public:
 	const CSSM_DATA *subjectName();
 	const CSSM_DATA *issuerName();				
 
-	bool isSelfSigned();						// i.e., subject == issuer
-	
+	bool 		isSelfSigned()			{ return mIsRoot; }				
+	bool 		isExpired() 			{ return mExpired; }
+	bool 		isNotValidYet()			{ return mNotValidYet; }
+
+	unsigned 	index()					{ return mIndex; }	
+	void 		index(unsigned dex)		{ mIndex = dex; }
+	bool		isAnchor()				{ return mIsAnchor; }
+	void		isAnchor(bool a)		{ mIsAnchor = a; }
+	unsigned	numStatusCodes()		{ return mNumStatusCodes; }
+	CSSM_RETURN	*statusCodes()			{ return mStatusCodes; }
+	void		addStatusCode(CSSM_RETURN code);
+	CSSM_DL_DB_HANDLE dlDbHandle()		{ return mDlDbHandle; }
+	void dlDbHandle(CSSM_DL_DB_HANDLE hand)
+										{ mDlDbHandle = hand; }
+	CSSM_DB_UNIQUE_RECORD_PTR uniqueRecord()
+										{ return mUniqueRecord; }
+	void uniqueRecord(CSSM_DB_UNIQUE_RECORD_PTR rec)
+										{ mUniqueRecord = rec; }
+										
 	/* 
 	 * Verify validity (not before/after). Returns 
 	 * 		CSSMERR_TP_CERT_NOT_VALID_YET
@@ -97,9 +124,24 @@ private:
 	CSSM_DATA_PTR			mSubjectName;		// always valid
 	CSSM_DATA_PTR			mIssuerName;		// always valid
 	
-	void releaseResources();
+	/* maintained by caller, default at constructor 0/false */
+	unsigned				mIndex;
+	bool					mIsAnchor;
+	bool					mIsFromDb;
+	unsigned				mNumStatusCodes;
+	CSSM_RETURN				*mStatusCodes;
+	CSSM_DL_DB_HANDLE		mDlDbHandle;
+	CSSM_DB_UNIQUE_RECORD_PTR mUniqueRecord;
 	
-	/* other field accessors here */
+	/* calculated implicitly at construction */
+	bool					mExpired;
+	bool					mNotValidYet;
+	bool					mIsRoot;		// i.e., subject == issuer
+
+	void releaseResources();
+	void calculateCurrent(
+		const char *cssmTimeStr = NULL);	// set mExpired, mNotValidYet
+	
 };
 
 /*
@@ -137,14 +179,28 @@ public:
 	 * Convenience accessors for first and last cert, only valid when we have
 	 * at least one cert.
 	 */
-	TPCertInfo 
-		*firstCert();
-	TPCertInfo
-		*lastCert();
+	TPCertInfo *firstCert();
+	TPCertInfo *lastCert();
 		
 	/* build a CSSM_CERTGROUP corresponding with our mCertInfo */
-	CSSM_CERTGROUP_PTR		
-		buildCssmCertGroup();
+	CSSM_CERTGROUP_PTR buildCssmCertGroup();
+
+	/* build a CSSM_TP_APPLE_EVIDENCE_INFO array corresponding with our
+	 * mCertInfo */
+	CSSM_TP_APPLE_EVIDENCE_INFO *buildCssmEvidenceInfo();
+		
+	/* Given a status for basic construction of a cert group and a status
+	 * of (optional) policy verification, plus the implicit notBefore/notAfter
+	 * status in the certs, calculate a global return code. This just 
+	 * encapsulates a policy for CertGroupeConstruct and CertGroupVerify.
+	 */
+	CSSM_RETURN getReturnCode(
+		CSSM_RETURN constructStatus,
+		CSSM_BOOL	allowExpired,
+		CSSM_RETURN policyStatus = CSSM_OK);
+	 
+	CssmAllocator
+		&alloc() {return mAlloc; }
 	
 private:
 	CssmAllocator			&mAlloc;

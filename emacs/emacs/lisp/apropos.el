@@ -1,4 +1,4 @@
-;;; apropos.el --- apropos commands for users and programmers.
+;;; apropos.el --- apropos commands for users and programmers
 
 ;; Copyright (C) 1989, 1994, 1995 Free Software Foundation, Inc.
 
@@ -59,7 +59,7 @@
 
 (defgroup apropos nil
   "Apropos commands for users and programmers"
-  :group 'Help
+  :group 'help
   :prefix "apropos")
 
 ;; I see a degradation of maybe 10-20% only.
@@ -71,36 +71,32 @@ Slows them down more or less.  Set this non-nil if you have a fast machine."
   :type 'boolean)
 
 
-(defcustom apropos-symbol-face (if window-system 'bold)
-  "*Face for symbol name in apropos output or `nil'.
-This looks good, but slows down the commands several times."
+(defcustom apropos-symbol-face 'bold
+  "*Face for symbol name in Apropos output, or nil for none."
   :group 'apropos
   :type 'face)
 
-(defcustom apropos-keybinding-face (if window-system 'underline)
-  "*Face for keybinding display in apropos output or `nil'.  
-This looks good, but slows down the commands several times."
+(defcustom apropos-keybinding-face 'underline
+  "*Face for lists of keybinding in Apropos output, or nil for none."
   :group 'apropos
   :type 'face)
 
-(defcustom apropos-label-face (if window-system 'italic)
-  "*Face for label (Command, Variable ...) in apropos output or `nil'.
-If this is `nil' no mouse highlighting occurs.
-This looks good, but slows down the commands several times.
-When this is a face name, as it is initially, it gets transformed to a
-text-property list for efficiency."
+(defcustom apropos-label-face 'italic
+  "*Face for label (`Command', `Variable' ...) in Apropos output.
+A value of nil means don't use any special font for them, and also
+turns off mouse highlighting."
   :group 'apropos
   :type 'face)
 
-(defcustom apropos-property-face (if window-system 'bold-italic)
-  "*Face for property name in apropos output or `nil'.  
-This looks good, but slows down the commands several times."
+(defcustom apropos-property-face 'bold-italic
+  "*Face for property name in apropos output, or nil for none."
   :group 'apropos
   :type 'face)
 
-(defcustom apropos-match-face (if window-system 'secondary-selection)
-  "*Face for matching part in apropos-documentation/value output or `nil'.  
-This looks good, but slows down the commands several times."
+(defcustom apropos-match-face 'secondary-selection
+  "*Face for matching text in Apropos documentation/value, or nil for none.
+This applies when you look for matches in the documentation or variable value
+for the regexp; the part that matches gets displayed in this font."
   :group 'apropos
   :type 'face)
 
@@ -116,6 +112,8 @@ This looks good, but slows down the commands several times."
     map)
   "Keymap used in Apropos mode.")
 
+(defvar apropos-mode-hook nil
+  "*Hook run when mode is turned on.")
 
 (defvar apropos-regexp nil
   "Regexp used in current apropos run.")
@@ -127,22 +125,18 @@ This looks good, but slows down the commands several times."
   "Alist of symbols already found in current apropos run.")
 
 (defvar apropos-item ()
-  "Current item in or for apropos-accumulator.")
+  "Current item in or for `apropos-accumulator'.")
 
-(defun apropos-mode ()
+;;;###autoload
+(define-derived-mode apropos-mode fundamental-mode "Apropos"
   "Major mode for following hyperlinks in output of apropos commands.
 
-\\{apropos-mode-map}"
-  (interactive)
-  (kill-all-local-variables)
-  (use-local-map apropos-mode-map)
-  (setq major-mode 'apropos-mode
-	mode-name "Apropos"))
+\\{apropos-mode-map}")
 
 ;;;###autoload
 (defun apropos-variable (regexp &optional do-all)
   "Show user variables that match REGEXP.
-With optional prefix ARG or if `apropos-do-all' is non-nil, also show
+With optional prefix DO-ALL or if `apropos-do-all' is non-nil, also show
 normal variables."
   (interactive (list (read-string
                       (concat "Apropos "
@@ -163,8 +157,8 @@ normal variables."
 (fset 'command-apropos 'apropos-command)
 ;;;###autoload
 (defun apropos-command (apropos-regexp &optional do-all var-predicate)
-  "Show commands (interactively callable functions) that match REGEXP.
-With optional prefix ARG, or if `apropos-do-all' is non-nil, also show
+  "Show commands (interactively callable functions) that match APROPOS-REGEXP.
+With optional prefix DO-ALL, or if `apropos-do-all' is non-nil, also show
 noninteractive functions.
 
 If VAR-PREDICATE is non-nil, show only variables, and only those that
@@ -213,10 +207,10 @@ satisfy the predicate VAR-PREDICATE."
 
 ;;;###autoload
 (defun apropos (apropos-regexp &optional do-all)
-  "Show all bound symbols whose names match REGEXP.
-With optional prefix ARG or if `apropos-do-all' is non-nil, also show unbound
-symbols and key bindings, which is a little more time-consuming.
-Returns list of symbols and documentation found."
+  "Show all bound symbols whose names match APROPOS-REGEXP.
+With optional prefix DO-ALL or if `apropos-do-all' is non-nil, also
+show unbound symbols and key bindings, which is a little more
+time-consuming.  Returns list of symbols and documentation found."
   (interactive "sApropos symbol (regexp): \nP")
   (setq apropos-accumulator
 	(apropos-internal apropos-regexp
@@ -280,8 +274,8 @@ Returns list of symbols and documentation found."
 
 ;;;###autoload
 (defun apropos-value (apropos-regexp &optional do-all)
-  "Show all symbols whose value's printed image matches REGEXP.
-With optional prefix ARG or if `apropos-do-all' is non-nil, also looks
+  "Show all symbols whose value's printed image matches APROPOS-REGEXP.
+With optional prefix DO-ALL or if `apropos-do-all' is non-nil, also looks
 at the function and at the names and values of properties.
 Returns list of symbols and values found."
   (interactive "sApropos value (regexp): \nP")
@@ -305,8 +299,8 @@ Returns list of symbols and values found."
 
 ;;;###autoload
 (defun apropos-documentation (apropos-regexp &optional do-all)
-  "Show symbols whose documentation contain matches for REGEXP.
-With optional prefix ARG or if `apropos-do-all' is non-nil, also use
+  "Show symbols whose documentation contain matches for APROPOS-REGEXP.
+With optional prefix DO-ALL or if `apropos-do-all' is non-nil, also use
 documentation that is not stored in the documentation file and show key
 bindings.
 Returns list of symbols and documentation found."
@@ -471,7 +465,7 @@ Returns list of symbols and documentation found."
 
 
 (defun apropos-safe-documentation (function)
-  "Like documentation, except it avoids calling `get_doc_string'.
+  "Like `documentation', except it avoids calling `get_doc_string'.
 Will return nil instead."
   (while (and function (symbolp function))
     (setq function (if (fboundp function)
@@ -494,6 +488,10 @@ Will return nil instead."
 
 
 
+(defvar apropos-label-properties nil
+  "List of face properties to use for a label.
+Bound by `apropos-print' for use by `apropos-print-doc'.")
+
 (defun apropos-print (do-keys spacing)
   "Output result of apropos searching into buffer `*Apropos*'.
 The value of `apropos-accumulator' is the list of items to output.
@@ -506,22 +504,26 @@ alphabetically by symbol name; but this function also sets
     (setq apropos-accumulator
 	  (sort apropos-accumulator (lambda (a b)
 				      (string-lessp (car a) (car b)))))
-    (and apropos-label-face
-	 (symbolp apropos-label-face)
-	 (setq apropos-label-face `(face ,apropos-label-face
-					 mouse-face highlight)))
+    (setq apropos-label-properties
+	  (if (and apropos-label-face
+		   (symbolp apropos-label-face))
+	      `(face ,apropos-label-face
+		     mouse-face highlight
+		     help-echo "mouse-2: display help on this item")))
     (with-output-to-temp-buffer "*Apropos*"
       (let ((p apropos-accumulator)
 	    (old-buffer (current-buffer))
 	    symbol item point1 point2)
 	(set-buffer standard-output)
 	(apropos-mode)
-	(if window-system
-	    (insert "If you move the mouse over text that changes color,\n"
+	(if (display-mouse-p)
+	    (insert "If moving the mouse over text changes the text's color,\n"
 		    (substitute-command-keys
-		     "you can click \\[apropos-mouse-follow] to get more information.\n")))
-	(insert (substitute-command-keys
-		 "In this buffer, type \\[apropos-follow] to get full documentation.\n\n"))
+		     "you can click \\[apropos-mouse-follow] on that text to get more information.\n")))
+	(insert "In this buffer, go to the name of the command, or function,"
+		" or variable,\n"
+		(substitute-command-keys
+		 "and type \\[apropos-follow] to get full documentation.\n\n"))
 	(while (consp p)
 	  (or (not spacing) (bobp) (terpri))
 	  (setq apropos-item (car p)
@@ -558,7 +560,7 @@ alphabetically by symbol name; but this function also sets
 		   (insert
 		    (mapconcat
 		     (lambda (key)
-		       (setq key (condition-case () 
+		       (setq key (condition-case ()
 				     (key-description key)
 				   (error)))
 		       (if apropos-keybinding-face
@@ -589,14 +591,15 @@ alphabetically by symbol name; but this function also sets
 				   "Macro"
 				 "Function"))
 			     t)
-	  ;; We used to use customize-variable-other-window instead
+	  ;; We used to use `customize-variable-other-window' instead
 	  ;; for a customizable variable, but that is slow.
 	  ;; It is better to show an ordinary help buffer
 	  ;; and let the user click on the customization button
 	  ;; in that buffer, if he wants to.
+	  ;; Likewise for `customize-face-other-window'.
 	  (apropos-print-doc 'describe-variable 2 "Variable" t)
 	  (apropos-print-doc 'customize-group-other-window 6 "Group" t)
-	  (apropos-print-doc 'customize-face-other-window 5 "Face" t)
+	  (apropos-print-doc 'describe-face 5 "Face" t)
 	  (apropos-print-doc 'widget-browse-other-window 4 "Widget" t)
 	  (apropos-print-doc 'apropos-describe-plist 3
 			     "Plist" nil))
@@ -623,10 +626,10 @@ alphabetically by symbol name; but this function also sets
 	(put-text-property (- (point) 2) (1- (point))
 			   'action action)
 	(insert str ": ")
-	(if apropos-label-face
+	(if apropos-label-properties
 	    (add-text-properties (- (point) (length str) 2)
 				 (1- (point))
-				 apropos-label-face))
+				 apropos-label-properties))
 	(insert (if do-keys (substitute-command-keys i) i))
 	(or (bolp) (terpri)))))
 

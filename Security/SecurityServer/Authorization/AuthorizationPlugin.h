@@ -74,6 +74,14 @@ enum
 typedef const AuthorizationString AuthorizationMechanismId;
 
 /*!
+@typedef AuthorizationPluginId
+	@@@ Not used by plugin writers
+ */
+typedef const AuthorizationString AuthorizationPluginId;
+
+
+
+/*!
 	@typedef AuthorizationPluginRef
 	An instance of a plugin (even though there will probably only be one).
 */

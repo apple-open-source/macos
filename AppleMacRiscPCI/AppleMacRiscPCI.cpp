@@ -160,9 +160,15 @@ bool AppleMacRiscPCI::start( IOService * provider )
 
 bool AppleMacRiscPCI::configure( IOService * provider )
 {
-    UInt32	addressSelects;
+    UInt32	modeSelects, addressSelects;
     UInt32	index;
     bool	ok;
+
+    if( getProvider()->getProperty( "DisableRDG") != 0 ) {
+      modeSelects = configRead32( getBridgeSpace(), kMacRISCModeSelect );
+      modeSelects |= kMacRISCModeSelectRDGBit;
+      configWrite32( getBridgeSpace(), kMacRISCModeSelect, modeSelects );
+    }
 
     addressSelects = configRead32( getBridgeSpace(), kMacRISCAddressSelect );
 
@@ -421,6 +427,11 @@ bool AppleMacRiscAGP::configure( IOService * provider )
     if( !findPCICapability( getBridgeSpace(), kIOPCIAGPCapability, &targetAGPRegisters ))
 	return( false );
 
+    if( false && (uniNVersion >= 0x10)) {
+	// causes problems with nv25 SBA
+	gartCtrl |= kGART_DISSBADET;
+    }
+
     return( super::configure( provider));
 }
 
@@ -437,7 +448,7 @@ IOPCIDevice * AppleMacRiscAGP::createNub( OSDictionary * from )
 	    && findPCICapability( space, kIOPCIAGPCapability, &masterAGPRegisters ));
 
     // more of P58/P69 AGP disable code from start
-    if (uniNVersion == 0x20)
+    if( isAGP && (uniNVersion == 0x20))
     {
         isAGP = false;
         IOLog("AGP mode disabled on this machine\n");
@@ -471,6 +482,28 @@ IOReturn AppleMacRiscAGP::createAGPSpace( IOAGPDevice * master,
     enum { alignLen = 4 * 1024 * 1024 - 1 };
 
     destroyAGPSpace( master );
+
+    agpCommandMask = 0xffffffff;
+    agpCommandMask &= ~kIOAGPFastWrite;
+//  agpCommandMask &= ~kIOAGPSideBandAddresssing;
+
+    {
+	// There's an nVidia NV11 ROM (revision 1017) that says that it can do fast writes,
+	// but can't, and can often lock the machine up when fast writes are enabled.
+	
+	#define kNVIDIANV11EntryName	"NVDA,NVMac"
+	#define kNVROMRevPropertyName 	"rom-revision"
+	#define kNVBadRevision			'1017'
+
+	const UInt32    badRev = kNVBadRevision;
+	OSData *	data;
+
+	if( (0 == strcmp( kNVIDIANV11EntryName, master->getName()))
+	 && (data = OSDynamicCast(OSData, master->getProperty(kNVROMRevPropertyName)))
+	 && (data->isEqualTo( &badRev, sizeof(badRev) )))
+
+	    agpCommandMask &= ~kIOAGPFastWrite;
+    }
 
     agpLength = *length;
     if( !agpLength)
@@ -585,7 +618,7 @@ IORangeAllocator * AppleMacRiscAGP::getAGPRangeAllocator(
 }
 
 IOOptionBits AppleMacRiscAGP::getAGPStatus( IOAGPDevice * master,
-					    IOOptionBits options = 0 )
+					    IOOptionBits options )
 {
     IOPCIAddressSpace 	target = getBridgeSpace();
 
@@ -595,18 +628,20 @@ IOOptionBits AppleMacRiscAGP::getAGPStatus( IOAGPDevice * master,
 IOReturn AppleMacRiscAGP::commitAGPMemory( IOAGPDevice * master, 
 				      IOMemoryDescriptor * memory,
 				      IOByteCount agpOffset,
-				      IOOptionBits options = 0 )
+				      IOOptionBits options )
 {
     IOPCIAddressSpace 	target = getBridgeSpace();
     IOReturn		err = kIOReturnSuccess;
     UInt32		offset = 0;
     IOPhysicalAddress	physAddr;
     IOByteCount		len;
+    IOByteCount         agpFlushStart, flushLength;
 
 //    ok = agpRange->allocate( memory->getLength(), &agpOffset );
 
     assert( agpOffset < systemLength );
     agpOffset /= (page_size / 4);
+    agpFlushStart = agpOffset;
     while( (physAddr = memory->getPhysicalSegment( offset, &len ))) {
 
 	offset += len;
@@ -619,18 +654,31 @@ IOReturn AppleMacRiscAGP::commitAGPMemory( IOAGPDevice * master,
 	    len -= page_size;
 	}
     }
-#if 1
-    flush_dcache( (vm_offset_t) gartArray, gartLength, false);
+
+    // Just to be paranoid, I want to feed nice happy values to flush_dcache.
+    // I want the start address to be cache line aligned, and I want the size
+    // to be a multiple of cache line size.  For now I'm going to assume that
+    // any CPU hooked to an AGP chipset using this driver has a 32-byte cache
+    // line size.  Ugh.
+    agpFlushStart &= ~31; // Round down to cache line boundary
+    flushLength = (agpOffset - agpFlushStart);
+    // Round up to 32 bytes, which hopefully is safe since we pushed the start
+    // down to a 32-byte boundary first.
+    flushLength = (flushLength + 31) & ~31;
+    sync();
+    isync();
+    flush_dcache( ((vm_offset_t) gartArray)+agpFlushStart, flushLength, false);
+    sync();
+    isync();
     len = OSReadLittleInt32( gartArray, agpOffset - 4 );
     sync();
     isync();
-#endif
-
+    
     if( kIOAGPGartInvalidate & options) {
-        configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, kGART_EN );
-        configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_2xRESET);
-        configWrite32( target, kUniNGART_CTRL, kGART_EN );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_2xRESET);
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
     }
 
     return( err );
@@ -644,6 +692,7 @@ IOReturn AppleMacRiscAGP::releaseAGPMemory( IOAGPDevice * master,
     IOPCIAddressSpace 	target = getBridgeSpace();
     IOReturn		err = kIOReturnSuccess;
     IOByteCount		length;
+    IOByteCount         agpFlushStart, flushLength;
 
     if( !memory)
 	return( kIOReturnBadArgument );
@@ -657,22 +706,33 @@ IOReturn AppleMacRiscAGP::releaseAGPMemory( IOAGPDevice * master,
 
     length = (length + 0xfff) & ~0xfff;
     agpOffset /= page_size;
+    agpFlushStart = agpOffset;
     while( length > 0) {
 	gartArray[ agpOffset++ ] = 0;
 	length -= page_size;
     }
-#if 1
-    flush_dcache( (vm_offset_t) gartArray, gartLength, false);
+    
+    agpFlushStart *= 4;
+    agpOffset *= 4;
+    agpFlushStart &= ~31;
+    flushLength = (agpOffset - agpFlushStart);  // Flush full cache lines
+    // Round up to 32 bytes, which hopefully is safe since we pushed the start
+    // down to a 32-byte boundary first.
+    flushLength = (flushLength + 31) & ~31;
+    sync();
+    isync();
+    flush_dcache( ((vm_offset_t) gartArray)+agpFlushStart, flushLength, false);
+    sync();
+    isync();
     length = OSReadLittleInt32( gartArray, 4 * (agpOffset - 1) );
     sync();
     isync();
-#endif
 
     if( kIOAGPGartInvalidate & options) {
-        configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, kGART_EN );
-        configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_2xRESET);
-        configWrite32( target, kUniNGART_CTRL, kGART_EN );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_2xRESET);
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
     }
 
     return( err );
@@ -689,6 +749,8 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
     UInt8		masterAGPRegisters = _master->masterAGPRegisters;
 
     if( enable) {
+
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | 0);
 
 	targetStatus = configRead32( target,
                                      targetAGPRegisters + kIOPCIConfigAGPStatusOffset );
@@ -715,7 +777,7 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
             return( kIOReturnUnsupported );
 
 	command |= kIOAGPEnable;
-        command &= ~kIOAGPFastWrite;
+        command &= agpCommandMask;
 
 	if( targetStatus > masterStatus)
 	    targetStatus = masterStatus;
@@ -723,12 +785,10 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
 
         _master->setProperty(kIOAGPCommandValueKey, &command, sizeof(command));
 
-#if 1
-        configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, kGART_EN );
-        configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_2xRESET);
-        configWrite32( target, kUniNGART_CTRL, kGART_EN );
-#endif
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+
 	do {
 	    configWrite32( target, targetAGPRegisters + kIOPCIConfigAGPCommandOffset, command );
 	} while( (command & kIOAGPEnable) != 
@@ -742,10 +802,10 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
                             masterAGPRegisters + kIOPCIConfigAGPCommandOffset)));
 
 #if 0
-        configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, kGART_EN );
-        configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_2xRESET);
-        configWrite32( target, kUniNGART_CTRL, kGART_EN );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_2xRESET);
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN );
 #endif
 
         _master->masterState |= kIOAGPStateEnabled;
@@ -754,16 +814,18 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
 
 	while( 0 == (kIOAGPIdle & configRead32( getBridgeSpace(),
 					kUniNINTERNAL_STATUS )))
-	    {}
+		{}
 
         configWrite32( master, masterAGPRegisters + kIOPCIConfigAGPCommandOffset, 0 );
         configWrite32( target, targetAGPRegisters + kIOPCIConfigAGPCommandOffset, 0 );
 #if 0
-        configWrite32( target, kUniNGART_CTRL, kGART_EN | kGART_INV );
-        configWrite32( target, kUniNGART_CTRL, 0 );
-        configWrite32( target, kUniNGART_CTRL, kGART_2xRESET);
-        configWrite32( target, kUniNGART_CTRL, 0 );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_EN | kGART_INV );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | 0 );
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_2xRESET);
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | 0 );
 #endif
+        configWrite32( target, kUniNGART_CTRL, gartCtrl | kGART_2xRESET );
+
         _master->masterState &= ~kIOAGPStateEnabled;
     }
 
@@ -771,7 +833,7 @@ IOReturn AppleMacRiscAGP::setAGPEnable( IOAGPDevice * _master,
 }
 
 IOReturn AppleMacRiscAGP::resetAGPDevice( IOAGPDevice * master,
-                                          IOOptionBits options = 0 )
+                                          IOOptionBits options )
 {
     IOReturn ret;
 
@@ -786,12 +848,11 @@ IOReturn AppleMacRiscAGP::resetAGPDevice( IOAGPDevice * master,
 #endif
         ret = kIOReturnSuccess;
     }
-
     return( ret );
 }
 
 IOReturn AppleMacRiscAGP::saveDeviceState( IOPCIDevice * device,
-                                           IOOptionBits options = 0 )
+                                           IOOptionBits options )
 {
     IOReturn		ret;
     IOAGPDevice *	agpDev;
@@ -818,7 +879,7 @@ IOReturn AppleMacRiscAGP::saveDeviceState( IOPCIDevice * device,
 }
 
 IOReturn AppleMacRiscAGP::restoreDeviceState( IOPCIDevice * device,
-                                              IOOptionBits options = 0 )
+                                              IOOptionBits options )
 {
     IOReturn		ret;
     IOAGPDevice *	agpDev;

@@ -193,7 +193,7 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
  
 #ifndef lint
 static char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Commands/GNU/flex/flex/MISC/MVS/initscan-mvs.c,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ (LBL)";
+    "@(#) $Header: /cvs/Darwin/flex/flex/MISC/MVS/initscan-mvs.c,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ (LBL)";
 #endif
  
 #undef yywrap

@@ -1,5 +1,6 @@
 /* Handle HP SOM shared libraries for GDB, the GNU Debugger.
-   Copyright 1993, 1996, 1999 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -39,6 +40,7 @@
 #include "gdbcmd.h"
 #include "assert.h"
 #include "language.h"
+#include "regcache.h"
 
 #include <fcntl.h>
 
@@ -159,11 +161,10 @@ static struct so_list *so_list_head;
    shared objects on the so_list_head list.  (When we say size, here
    we mean of the information before it is brought into memory and
    potentially expanded by GDB.)  When adding a new shlib, this value
-   is compared against the threshold size, held by auto_solib_add
+   is compared against the threshold size, held by auto_solib_limit
    (in megabytes).  If adding symbols for the new shlib would cause
-   the total size to exceed the threshold, then the new shlib's symbols
-   are not loaded.
- */
+   the total size to exceed the threshold, then the new shlib's
+   symbols are not loaded.  */
 static LONGEST som_solib_total_st_size;
 
 /* When the threshold is reached for any shlib, we refuse to add
@@ -230,7 +231,7 @@ som_solib_sizeof_symbol_table (char *filename)
   if (!abfd)
     {
       close (desc);
-      make_cleanup (free, filename);
+      make_cleanup (xfree, filename);
       error ("\"%s\": can't open to read symbols: %s.", filename,
 	     bfd_errmsg (bfd_get_error ()));
     }
@@ -238,7 +239,7 @@ som_solib_sizeof_symbol_table (char *filename)
   if (!bfd_check_format (abfd, bfd_object))	/* Reads in section info */
     {
       bfd_close (abfd);		/* This also closes desc */
-      make_cleanup (free, filename);
+      make_cleanup (xfree, filename);
       error ("\"%s\": can't read symbols: %s.", filename,
 	     bfd_errmsg (bfd_get_error ()));
     }
@@ -256,7 +257,7 @@ som_solib_sizeof_symbol_table (char *filename)
     st_size += (LONGEST) bfd_section_size (abfd, sect);
 
   bfd_close (abfd);		/* This also closes desc */
-  free (filename);
+  xfree (filename);
 
   /* Unfortunately, just summing the sizes of various debug info
      sections isn't a very accurate measurement of how much heap
@@ -283,14 +284,30 @@ som_solib_add_solib_objfile (struct so_list *so, char *name, int from_tty,
 			     CORE_ADDR text_addr)
 {
   obj_private_data_t *obj_private;
-  struct section_addr_info section_addrs;
+  struct obj_section *s;
 
-  memset (&section_addrs, 0, sizeof (section_addrs));
-  section_addrs.other[0].name = ".text";
-  section_addrs.other[0].addr = text_addr;
-  so->objfile = symbol_file_add (name, from_tty, &section_addrs, 0, OBJF_SHARED);
+  so->objfile = symbol_file_add (name, from_tty, NULL, 0, OBJF_SHARED);
   so->abfd = so->objfile->obfd;
 
+  /* syms_from_objfile has bizarre section offset code,
+     so I do my own right here.  */
+  for (s = so->objfile->sections; s < so->objfile->sections_end; s++)
+    {
+      flagword aflag = bfd_get_section_flags(so->abfd, s->the_bfd_section);
+      if (aflag & SEC_CODE)
+	{
+	  s->addr    += so->som_solib.text_addr - so->som_solib.text_link_addr;
+	  s->endaddr += so->som_solib.text_addr - so->som_solib.text_link_addr;
+	}
+      else if (aflag & SEC_DATA)
+	{
+	  s->addr    += so->som_solib.data_start;
+	  s->endaddr += so->som_solib.data_start;
+	}
+      else
+	;
+    }
+   
   /* Mark this as a shared library and save private data.
    */
   so->objfile->flags |= OBJF_SHARED;
@@ -385,11 +402,11 @@ som_solib_load_symbols (struct so_list *so, char *name, int from_tty,
 
 
 /* Add symbols from shared libraries into the symtab list, unless the
-   size threshold (specified by auto_solib_add, in megabytes) would
+   size threshold specified by auto_solib_limit (in megabytes) would
    be exceeded.  */
 
 void
-som_solib_add (char *arg_string, int from_tty, struct target_ops *target)
+som_solib_add (char *arg_string, int from_tty, struct target_ops *target, int readsyms)
 {
   struct minimal_symbol *msymbol;
   struct so_list *so_list_tail;
@@ -697,7 +714,8 @@ som_solib_add (char *arg_string, int from_tty, struct target_ops *target)
       if (status != 0)
 	goto err;
 
-      new_so->som_solib.next = (void *) extract_unsigned_integer (buf, 4);
+      new_so->som_solib.next =
+	address_to_host_pointer (extract_unsigned_integer (buf, 4));
 
       /* Note that we don't re-set "addr" to the next pointer
        * until after we've read the trailing data.
@@ -759,12 +777,14 @@ som_solib_add (char *arg_string, int from_tty, struct target_ops *target)
       st_size = som_solib_sizeof_symbol_table (name);
       som_solib_st_size_threshold_exceeded =
 	!from_tty &&
-	((st_size + som_solib_total_st_size) > (auto_solib_add * (LONGEST) 1000000));
+	auto_solib_limit > 0 &&
+	readsyms &&
+	((st_size + som_solib_total_st_size) > (auto_solib_limit * (LONGEST) (1024 * 1024)));
 
       if (som_solib_st_size_threshold_exceeded)
 	{
 	  if (!threshold_warning_given)
-	    warning ("Symbols for some libraries have not been loaded, because\ndoing so would exceed the size threshold specified by auto-solib-add.\nTo manually load symbols, use the 'sharedlibrary' command.\nTo raise the threshold, set auto-solib-add to a larger value and rerun\nthe program.\n");
+	    warning ("Symbols for some libraries have not been loaded, because\ndoing so would exceed the size threshold specified by auto-solib-limit.\nTo manually load symbols, use the 'sharedlibrary' command.\nTo raise the threshold, set auto-solib-limit to a larger value and rerun\nthe program.\n");
 	  threshold_warning_given = 1;
 
 	  /* We'll still make note of this shlib, even if we don't
@@ -849,18 +869,18 @@ som_solib_create_inferior_hook (void)
     return;
 
   have_endo = 0;
-  /* Slam the pid of the process into __d_pid; failing is only a warning!  */
+  /* Slam the pid of the process into __d_pid.
+
+     We used to warn when this failed, but that warning is only useful
+     on very old HP systems (hpux9 and older).  The warnings are an
+     annoyance to users of modern systems and foul up the testsuite as
+     well.  As a result, the warnings have been disabled.  */
   msymbol = lookup_minimal_symbol ("__d_pid", NULL, symfile_objfile);
   if (msymbol == NULL)
-    {
-      warning ("Unable to find __d_pid symbol in object file.");
-      warning ("Suggest linking with /opt/langtools/lib/end.o.");
-      warning ("GDB will be unable to track shl_load/shl_unload calls");
-      goto keep_going;
-    }
+    goto keep_going;
 
   anaddr = SYMBOL_VALUE_ADDRESS (msymbol);
-  store_unsigned_integer (buf, 4, inferior_pid);
+  store_unsigned_integer (buf, 4, PIDGET (inferior_ptid));
   status = target_write_memory (anaddr, buf, 4);
   if (status != 0)
     {
@@ -1007,19 +1027,11 @@ keep_going:
       struct so_list *temp;
 
       temp = so_list_head;
-      free (so_list_head);
+      xfree (so_list_head);
       so_list_head = temp->next;
     }
   clear_symtab_users ();
 }
-
-
-static void
-reset_inferior_pid (int saved_inferior_pid)
-{
-  inferior_pid = saved_inferior_pid;
-}
-
 
 /* This operation removes the "hook" between GDB and the dynamic linker,
    which causes the dld to notify GDB of shared library events.
@@ -1039,11 +1051,10 @@ som_solib_remove_inferior_hook (int pid)
   int status;
   char dld_flags_buffer[TARGET_INT_BIT / TARGET_CHAR_BIT];
   unsigned int dld_flags_value;
-  int saved_inferior_pid = inferior_pid;
-  struct cleanup *old_cleanups = make_cleanup (reset_inferior_pid, saved_inferior_pid);
+  struct cleanup *old_cleanups = save_inferior_ptid ();
 
   /* Ensure that we're really operating on the specified process. */
-  inferior_pid = pid;
+  inferior_ptid = pid_to_ptid (pid);
 
   /* We won't bother to remove the solib breakpoints from this process.
 
@@ -1254,8 +1265,10 @@ som_solib_desire_dynamic_linker_symbols (void)
       }
 
     /* Did we find everything we were looking for?  If so, stop. */
-    if ((dld_cache.load.address != NULL) && (dld_cache.load_stub.address != NULL)
-	&& (dld_cache.unload.address != NULL) && (dld_cache.unload_stub.address != NULL))
+    if ((dld_cache.load.address != 0)
+	&& (dld_cache.load_stub.address != 0)
+	&& (dld_cache.unload.address != 0)
+	&& (dld_cache.unload_stub.address != 0))
       {
 	dld_cache.is_valid = 1;
 	break;
@@ -1458,7 +1471,7 @@ static void
 som_solib_sharedlibrary_command (char *args, int from_tty)
 {
   dont_repeat ();
-  som_solib_add (args, from_tty, (struct target_ops *) 0);
+  som_solib_add (args, from_tty, (struct target_ops *) 0, 1);
 }
 
 
@@ -1500,7 +1513,7 @@ som_solib_restart (void)
   while (sl)
     {
       struct so_list *next_sl = sl->next;
-      free (sl);
+      xfree (sl);
       sl = next_sl;
     }
   so_list_head = NULL;
@@ -1533,6 +1546,24 @@ som_solib_restart (void)
 }
 
 
+/* LOCAL FUNCTION
+
+   no_shared_libraries -- handle command to explicitly discard symbols
+   from shared libraries.
+
+   DESCRIPTION
+
+   Implements the command "nosharedlibrary", which discards symbols
+   that have been auto-loaded from shared libraries.  Symbols from
+   shared libraries that were added by explicit request of the user
+   are not discarded.  Also called from remote.c.  */
+
+void
+no_shared_libraries (char *ignored, int from_tty)
+{
+  /* FIXME */
+}
+
 
 void
 _initialize_som_solib (void)
@@ -1541,28 +1572,37 @@ _initialize_som_solib (void)
 	   "Load shared object library symbols for files matching REGEXP.");
   add_info ("sharedlibrary", som_sharedlibrary_info_command,
 	    "Status of loaded shared object libraries.");
+
   add_show_from_set
-    (add_set_cmd ("auto-solib-add", class_support, var_zinteger,
+    (add_set_cmd ("auto-solib-add", class_support, var_boolean,
 		  (char *) &auto_solib_add,
-		  "Set autoloading size threshold (in megabytes) of shared library symbols.\n\
-If nonzero, symbols from all shared object libraries will be loaded\n\
-automatically when the inferior begins execution or when the dynamic linker\n\
-informs gdb that a new library has been loaded, until the symbol table\n\
-of the program and libraries exceeds this threshold.\n\
-Otherwise, symbols must be loaded manually, using `sharedlibrary'.",
+		  "Set autoloading of shared library symbols.\n\
+If \"on\", symbols from all shared object libraries will be loaded\n\
+automatically when the inferior begins execution, when the dynamic linker\n\
+informs gdb that a new library has been loaded, or when attaching to the\n\
+inferior.  Otherwise, symbols must be loaded manually, using `sharedlibrary'.",
 		  &setlist),
      &showlist);
 
-  /* ??rehrauer: On HP-UX, the kernel parameter MAXDSIZ limits how much
-     data space a process can use.  We ought to be reading MAXDSIZ and
-     setting auto_solib_add to some large fraction of that value.  If
-     not that, we maybe ought to be setting it smaller than the default
-     for MAXDSIZ (that being 64Mb, I believe).  However, [1] this threshold
-     is only crudely approximated rather than actually measured, and [2]
-     50 Mbytes is too small for debugging gdb itself.  Thus, the arbitrary
-     100 figure.
-   */
-  auto_solib_add = 100;		/* Megabytes */
+  add_show_from_set
+    (add_set_cmd ("auto-solib-limit", class_support, var_zinteger,
+		  (char *) &auto_solib_limit,
+		  "Set threshold (in Mb) for autoloading shared library symbols.\n\
+When shared library autoloading is enabled, new libraries will be loaded\n\
+only until the total size of shared library symbols exceeds this\n\
+threshold in megabytes.  Is ignored when using `sharedlibrary'.",
+		  &setlist),
+     &showlist);
+
+  /* ??rehrauer: On HP-UX, the kernel parameter MAXDSIZ limits how
+     much data space a process can use.  We ought to be reading
+     MAXDSIZ and setting auto_solib_limit to some large fraction of
+     that value.  If not that, we maybe ought to be setting it smaller
+     than the default for MAXDSIZ (that being 64Mb, I believe).
+     However, [1] this threshold is only crudely approximated rather
+     than actually measured, and [2] 50 Mbytes is too small for
+     debugging gdb itself.  Thus, the arbitrary 100 figure.  */
+  auto_solib_limit = 100;	/* Megabytes */
 
   som_solib_restart ();
 }

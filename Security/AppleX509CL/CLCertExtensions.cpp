@@ -805,7 +805,7 @@ bool getFieldAuthorityKeyId(
 	if(snaccObj->authorityCertIssuer != NULL) {
 		/* GeneralNames, the hard one */
 		cdsaObj->generalNamesPresent = CSSM_TRUE;
-		cdsaObj->generalNames = (CE_GeneralNames *)alloc.malloc(sizeof(CE_GeneralName));
+		cdsaObj->generalNames = (CE_GeneralNames *)alloc.malloc(sizeof(CE_GeneralNames));
 			CL_snaccGeneralNamesToCdsa(*snaccObj->authorityCertIssuer, 
 				*cdsaObj->generalNames,
 				alloc);
@@ -833,6 +833,7 @@ static void freeFieldGeneralNames(
 	}
 	if(cdsaObj->numNames) {
 		memset(cdsaObj->generalName, 0, cdsaObj->numNames * sizeof(CE_GeneralName));
+		alloc.free(cdsaObj->generalName);
 	}
 	memset(cdsaObj, 0, sizeof(CE_GeneralNames));
 }
@@ -845,6 +846,7 @@ void freeFieldAuthorityKeyId (
 	CE_AuthorityKeyID *cdsaObj = (CE_AuthorityKeyID *)cssmExt->value.parsedValue;
 	alloc.free(cdsaObj->keyIdentifier.Data);
 	freeFieldGeneralNames(cdsaObj->generalNames, alloc);
+	alloc.free(cdsaObj->generalNames);
 	alloc.free(cdsaObj->serialNumber.Data);
 	memset(cdsaObj, 0, sizeof(CE_AuthorityKeyID));
 	freeFieldExtenCommon(cssmExt, alloc);		// frees extnId, parsedValue, BERvalue

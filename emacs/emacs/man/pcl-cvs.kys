@@ -1,0 +1,56 @@
+\initial {%}
+\entry {\code {%\r {--mark files matching regexp}}}{9}
+\initial {=}
+\entry {\code {=\r {--run \samp {cvs diff}}}}{12}
+\initial {?}
+\entry {\code {?\r {--help}}}{13}
+\initial {A}
+\entry {\code {a\r {--add a file}}}{10}
+\entry {\code {A\r {--add \file {ChangeLog} entry}}}{10}
+\initial {C}
+\entry {\code {c\r {--commit files}}}{9}
+\entry {\code {C\r {--commit files with \file {ChangeLog} message}}}{9}
+\entry {\code {C-k\r {--remove selected entries}}}{11}
+\initial {D}
+\entry {\code {d=\r {--run \samp {cvs diff}}}}{12}
+\entry {\code {db\r {--diff against base version}}}{12}
+\entry {\code {DEL\r {--unmark previous file}}}{9}
+\entry {\code {dh\r {--diff against head of repository}}}{12}
+\entry {\code {dv\r {--diff against vendor branch}}}{12}
+\initial {E}
+\entry {\code {e\r {--invoke \samp {ediff}}}}{12}
+\entry {\code {ESC DEL\r {--unmark all files}}}{9}
+\initial {F}
+\entry {\code {f\r {--find file or directory}}}{10}
+\initial {H}
+\entry {\code {h\r {--help}}}{13}
+\initial {I}
+\entry {\code {i\r {--ignoring files}}}{11}
+\initial {L}
+\entry {\code {l\r {--run \samp {cvs log}}}}{10}
+\initial {M}
+\entry {\code {m\r {--marking a file}}}{9}
+\entry {\code {M\r {--marking all files}}}{9}
+\entry {\code {M-t\r {--repository tag files}}}{12}
+\initial {N}
+\entry {\code {n\r {--Move down one file}}}{9}
+\initial {O}
+\entry {\code {o\r {--find file in other window}}}{10}
+\entry {\code {O\r {--update files}}}{12}
+\initial {P}
+\entry {\code {p\r {--Move up one file}}}{9}
+\initial {Q}
+\entry {\code {q\r {--quit PCL-CVS}}}{13}
+\initial {R}
+\entry {\code {r\r {--remove a file}}}{10}
+\initial {S}
+\entry {\code {s\r {--run \samp {cvs status}}}}{10}
+\entry {\code {SPC\r {--Move down one file}}}{9}
+\initial {T}
+\entry {\code {t\r {--tag files}}}{12}
+\entry {\code {T\r {--toggle marks}}}{9}
+\initial {U}
+\entry {\code {U\r {--undo changes}}}{11}
+\entry {\code {u\r {--unmark a file}}}{9}
+\initial {X}
+\entry {\code {x\r {--remove processed entries}}}{11}

@@ -1,93 +1,124 @@
 This is ../info/ccmode, produced by makeinfo version 4.0 from
 cc-mode.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
-* CC mode: (ccmode).	The GNU Emacs mode for editing C, C++, Objective-C
-			  and Java code.
+* CC Mode: (ccmode).   Emacs mode for editing C, C++, Objective-C,
+                          Java, Pike, and IDL code.
 END-INFO-DIR-ENTRY
 
-   Copyright (C) 1995,96,97,98 Free Software Foundation, Inc.
+   Copyright (C) 1995, 96, 97, 98, 99, 2000, 2001 Free Software
+Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual", and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License" in the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 Indirect:
-ccmode-1: 298
-ccmode-2: 49306
-ccmode-3: 98049
+ccmode-1: 1329
+ccmode-2: 46553
+ccmode-3: 86613
+ccmode-4: 134881
 
 Tag Table:
 (Indirect)
-Node: Top298
-Node: Introduction873
-Ref: Introduction-Footnote-13254
-Node: Getting Connected3325
-Node: New Indentation Engine4432
-Node: Syntactic Analysis5244
-Ref: Syntactic Analysis-Footnote-18401
-Ref: Syntactic Analysis-Footnote-28577
-Ref: Syntactic Analysis-Footnote-38678
-Ref: Syntactic Analysis-Footnote-48808
-Node: Indentation Calculation9016
-Node: Minor Modes12149
-Ref: Minor Modes-Footnote-114204
-Node: Auto-newline insertion14289
-Ref: Auto-newline insertion-Footnote-115265
-Node: Hanging Braces15468
-Node: Hanging Colons18750
-Node: Hanging Semi-colons and commas19615
-Node: Other electric commands20124
-Node: Clean-ups21774
-Ref: Clean-ups-Footnote-125197
-Node: Hungry-deletion of whitespace25396
-Ref: Hungry-deletion of whitespace-Footnote-127197
-Node: Auto-fill mode interaction27735
-Ref: Auto-fill mode interaction-Footnote-128998
-Node: Commands29279
-Node: Indentation Commands29447
-Ref: Indentation Commands-Footnote-132596
-Ref: Indentation Commands-Footnote-232831
-Ref: Indentation Commands-Footnote-333165
-Node: Other Commands33253
-Ref: Other Commands-Footnote-139123
-Ref: Other Commands-Footnote-239272
-Ref: Other Commands-Footnote-339362
-Ref: Other Commands-Footnote-439484
-Node: Customizing Indentation39529
-Node: Interactive Customization42485
-Ref: Interactive Customization-Footnote-145034
-Node: Permanent Customization45171
-Ref: Permanent Customization-Footnote-148064
-Node: Styles48423
-Node: Built-in Styles49306
-Ref: Built-in Styles-Footnote-152727
-Ref: Built-in Styles-Footnote-252792
-Node: Adding Styles52938
-Node: File Styles53911
-Node: Advanced Customizations55123
-Node: Custom Indentation Functions56882
-Ref: Custom Indentation Functions-Footnote-162199
-Ref: Custom Indentation Functions-Footnote-262343
-Node: Custom Brace and Colon Hanging62487
-Node: Customizing Semi-colons and Commas65816
-Node: Other Special Indentations68096
-Node: Syntactic Symbols70060
-Ref: Syntactic Symbols-Footnote-189438
-Ref: Syntactic Symbols-Footnote-289661
-Ref: Syntactic Symbols-Footnote-389925
-Node: Performance Issues89972
-Ref: Performance Issues-Footnote-193670
-Ref: Performance Issues-Footnote-293710
-Ref: Performance Issues-Footnote-393786
-Ref: Performance Issues-Footnote-493847
-Ref: Performance Issues-Footnote-593911
-Node: Frequently Asked Questions93979
-Node: Getting the latest CC Mode release96467
-Node: Sample .emacs File98049
-Node: Limitations and Known Bugs100456
-Node: Mailing Lists and Submitting Bug Reports101154
-Node: Concept Index102535
-Node: Command Index112995
-Node: Key Index121042
-Node: Variable Index123601
+Node: Top1329
+Node: Introduction3006
+Ref: Introduction-Footnote-15587
+Ref: Introduction-Footnote-25658
+Node: Getting Connected5786
+Node: New Indentation Engine6827
+Node: Syntactic Analysis7639
+Ref: Syntactic Analysis-Footnote-110795
+Ref: Syntactic Analysis-Footnote-210884
+Ref: Syntactic Analysis-Footnote-310985
+Ref: Syntactic Analysis-Footnote-411115
+Node: Indentation Calculation11323
+Node: Minor Modes14465
+Ref: Minor Modes-Footnote-116511
+Node: Auto-newline Insertion16620
+Ref: Auto-newline Insertion-Footnote-117596
+Node: Hanging Braces17799
+Ref: Hanging Braces-Footnote-121948
+Ref: Hanging Braces-Footnote-222218
+Node: Hanging Colons22366
+Node: Hanging Semi-colons and Commas23234
+Node: Other Electric Commands23743
+Node: Clean-ups25600
+Ref: Clean-ups-Footnote-130366
+Node: Hungry-deletion of Whitespace30565
+Ref: Hungry-deletion of Whitespace-Footnote-132828
+Ref: Hungry-deletion of Whitespace-Footnote-233366
+Ref: Hungry-deletion of Whitespace-Footnote-333422
+Node: Text Filling and Line Breaking33582
+Ref: Text Filling and Line Breaking-Footnote-140949
+Ref: Text Filling and Line Breaking-Footnote-241169
+Ref: Text Filling and Line Breaking-Footnote-341450
+Ref: Text Filling and Line Breaking-Footnote-441628
+Node: Commands41810
+Node: Indentation Commands42106
+Ref: Indentation Commands-Footnote-146315
+Node: Movement Commands46553
+Node: Other Commands51725
+Node: Customizing Indentation52767
+Ref: Customizing Indentation-Footnote-156669
+Ref: Customizing Indentation-Footnote-256738
+Ref: Customizing Indentation-Footnote-356836
+Ref: Customizing Indentation-Footnote-457194
+Node: Interactive Customization57291
+Ref: Interactive Customization-Footnote-159789
+Node: Permanent Customization59927
+Node: Hooks62416
+Node: Styles64460
+Ref: Styles-Footnote-167439
+Ref: Styles-Footnote-267837
+Node: Built-in Styles67882
+Ref: Built-in Styles-Footnote-171920
+Ref: Built-in Styles-Footnote-272025
+Node: Adding Styles72169
+Node: File Styles73142
+Node: Advanced Customizations74279
+Node: Custom Indentation Functions75203
+Ref: Custom Indentation Functions-Footnote-178766
+Node: Custom Brace and Colon Hanging78910
+Node: Customizing Semi-colons and Commas82250
+Node: Other Special Indentations84459
+Node: Syntactic Symbols86613
+Ref: Syntactic Symbols-Footnote-1110565
+Ref: Syntactic Symbols-Footnote-2110788
+Ref: Syntactic Symbols-Footnote-3111057
+Ref: Syntactic Symbols-Footnote-4111370
+Node: Indentation Functions111417
+Ref: Indentation Functions-Footnote-1122752
+Node: Performance Issues122896
+Ref: Performance Issues-Footnote-1127649
+Ref: Performance Issues-Footnote-2127689
+Ref: Performance Issues-Footnote-3127765
+Ref: Performance Issues-Footnote-4127829
+Node: Limitations and Known Bugs127897
+Node: Frequently Asked Questions129200
+Ref: Frequently Asked Questions-Footnote-1132040
+Node: Getting the Latest CC Mode Release132316
+Node: Mailing Lists and Submitting Bug Reports133215
+Node: Sample .emacs File134881
+Node: Concept Index137297
+Node: Command Index147653
+Node: Key Index157548
+Node: Variable Index160064
 
 End Tag Table

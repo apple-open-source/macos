@@ -1,6 +1,6 @@
-;;; cal-islam.el --- calendar functions for the Islamic calendar.
+;;; cal-islam.el --- calendar functions for the Islamic calendar
 
-;; Copyright (C) 1995, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1997, 2001 Free Software Foundation, Inc.
 
 ;; Author: Edward M. Reingold <reingold@cs.uiuc.edu>
 ;; Keywords: calendar

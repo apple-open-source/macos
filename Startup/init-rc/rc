@@ -3,8 +3,7 @@
 ##
 # Multi-user startup script.
 #
-# Wilfredo Sanchez | wsanchez@opensource.apple.com
-# Copyright 1997-2001 Apple Computer, Inc.
+# Copyright 1997-2002 Apple Computer, Inc.
 #
 # Customize system startup by adding scripts to the startup 
 # directory, rather than editing this file.
@@ -12,7 +11,7 @@
 
 ##
 # Set shell to ignore Control-C, etc.
-# Prevent lusers from shooting themselves in the foot.
+# Prevent inadvertent problems caused by interrupting the shell during boot.
 ##
 
 stty intr  undef
@@ -86,6 +85,8 @@ if [ -d /System/Installation ] && [ -f /etc/rc.cdrom ]; then
 
 fi
 
+netboot=$(/usr/sbin/sysctl kern.netboot | /usr/bin/sed -e 's/^[^0-9]*//')
+
 ##
 # Mount essential local filesystems (according to /etc/fstab).
 ##
@@ -96,6 +97,22 @@ mount -vat hfs
 mount -vat ufs
 mount -t fdesc -o union stdin /dev
 mkdir -p -m 0555 /.vol && chmod 0555 /.vol && mount_volfs /.vol
+
+##
+# Does the installer need to do some early boot cleanup?
+##
+
+if [ -f /etc/rc.installer_cleanup ]; then
+    /etc/rc.installer_cleanup ${BootType}
+fi
+
+##
+# Start BootCache
+##
+BootCacheControl=/System/Library/Extensions/BootCache.kext/Contents/Resources/BootCacheControl
+if [  "${SafeBoot}" != "-x" -a -x "${BootCacheControl}" ]; then
+    ${BootCacheControl} start
+fi
 
 ##
 # Create mach symbol file
@@ -132,30 +149,16 @@ fi
 # boots slightly faster.
 ##
 
-if [ ! -f /System/Library/Extensions.mkext -o \
+if [ ! "${netboot}" = "1" ] ; then
+    if [ ! -f /System/Library/Extensions.mkext -o \
      /System/Library/Extensions.mkext -ot /System/Library/Extensions ]; then
 
-    if [ "${SafeBoot}" != "-x" ]; then
-        ConsoleMessage "Updating kernel extensions cache"
-        rm -f /System/Library/Extensions.mkext
-        /usr/sbin/mkextcache -l -t `arch` -o /System/Library/Extensions.mkext \
-            -d /System/Library/Extensions
+	if [ "${SafeBoot}" != "-x" ]; then
+	    ConsoleMessage "Updating kernel extensions cache"
+	    rm -f /System/Library/Extensions.mkext
+	    /usr/sbin/kextcache -elF -a `arch`
+	fi
     fi
-fi
-
-##
-# Startup the ATS Server
-## 
-
-if [ -x /System/Library/CoreServices/StartATSServer ]; then
-    ConsoleMessage "Starting ATS Server"
-    /System/Library/CoreServices/StartATSServer
-fi
-
-if [ -z "${VerboseFlag}" ] &&
-   [ -x /System/Library/CoreServices/WindowServer ]; then
-    ConsoleMessage "Starting Window Server"
-    /System/Library/CoreServices/WindowServer ${SafeBoot}
 fi
 
 ##
@@ -173,6 +176,9 @@ update
 ConsoleMessage "Starting virtual memory"
 
 swapdir=/private/var/vm
+if [ "${netboot}" = "1" ]; then
+    sh /etc/rc.netboot setup_vm ${swapdir}
+fi
 
 # Make sure the swapfile exists
 if [ ! -d ${swapdir} ]; then
@@ -186,6 +192,50 @@ fi
 		    
 dynamic_pager -H 40000000 -L 160000000 -S 80000000 -F ${swapdir}/swapfile
 
+
+##
+# Start daemon to fix incorrectly-prebound binaries
+##
+    if [ -x /usr/libexec/fix_prebinding ]; then
+        /usr/libexec/fix_prebinding
+    fi
+
+
+##
+# Clean up and reset files and devices.
+##
+. /etc/rc.cleanup
+
+
+##
+# Early start for any startup items for performance reasons
+##
+configd
+
+
+##
+# pre-heat support for working set profiles
+##
+appprofiledir=/private/var/vm/app_profile
+
+if [ ! -d ${appprofiledir} ]; then
+	if [ -f  ${appprofiledir} ]; then
+		mv -f ${appprofiledir} "${appprofiledir}_" 
+	fi
+	mkdir -p -m 711 ${appprofiledir}
+	chown root:wheel ${appprofiledir}
+fi
+
+
+##
+# Insert BootCache prefetch tag
+##
+if [  "${SafeBoot}" != "-x" -a -x "${BootCacheControl}" ]; then
+    ${BootCacheControl} tag
+fi
+
+
+
 ##
 # Start System Services
 ##
@@ -194,6 +244,6 @@ dynamic_pager -H 40000000 -L 160000000 -S 80000000 -F ${swapdir}/swapfile
 . /var/log/CDIS.custom 
 export LANGUAGE
 
-SystemStarter ${VerboseFlag}
+SystemStarter -g ${VerboseFlag} ${SafeBoot}
 
 exit 0

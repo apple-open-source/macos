@@ -22,13 +22,14 @@
 /*
  *  macho-to-xcoff.c - Converts a Mach-O file an XCOFF.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <mach-o/loader.h>
 #include <mach/thread_status.h>
 #include <mach/ppc/thread_status.h>
@@ -196,7 +197,7 @@ static void copyMachOSectionToXCOFF (UInt32 machoOffset, UInt32 sectionSize)
 }
 
 
-void main (int argc, char **argv)
+int main (int argc, char **argv)
 {
   int n;
   char *cmdsP, *cp;
@@ -226,35 +227,34 @@ void main (int argc, char **argv)
   n = fread (cmdsP, SWAPL(mhead.sizeofcmds), 1, machoF);
   if (n != 1) perror ("error reading mach-o commands");
 
-  printf ("Mach-o file has magic=0x%08X, %d commands\n", SWAPL(mhead.magic), SWAPL(mhead.ncmds));
+  printf("Mach-o file has magic=0x%08lX, %ld commands\n", SWAPL(mhead.magic), SWAPL(mhead.ncmds));
 
   for (n = 0, cp = cmdsP; n < SWAPL(mhead.ncmds); ++n, cp += SWAPL(LCP->cmdsize)) {
     
     switch (SWAPL(LCP->cmd)) {
     case LC_SEGMENT:
-      printf ("segment: %s: 0x%08X of 0x%08X bytes\n",
+      printf ("segment: %s: 0x%08lX of 0x%08lX bytes\n",
 	      SCP->segname, SWAPL(SCP->vmaddr), SWAPL(SCP->vmsize));
       
       if (strncmp (SCP->segname, SEG_TEXT, sizeof (SCP->segname)) == 0) {
 	textFileOffset = SWAPL(SCP->fileoff);
 	textSize = SWAPL(SCP->filesize);
-	printf ("__TEXT size = 0x%08X\n", textSize);
+	printf ("__TEXT size = 0x%08lX\n", textSize);
 	xHead.text.pAddr = xHead.text.vAddr = SCP->vmaddr;
 	xHead.text.size = SCP->vmsize;
       } else
 	if (strncmp (SCP->segname, SEG_DATA, sizeof (SCP->segname)) == 0) {
 	  dataFileOffset = SWAPL(SCP->fileoff);
 	  dataSize = SWAPL(SCP->filesize);
-	  printf ("__DATA size = 0x%08X\n", dataSize);
+	  printf ("__DATA size = 0x%08lX\n", dataSize);
 	  bssSize = SWAPL(SCP->vmsize) - SWAPL(SCP->filesize);
-	  printf ("__BSS  size = 0x%08X\n", bssSize);
+	  printf ("__BSS  size = 0x%08lX\n", bssSize);
 	  xHead.data.pAddr = xHead.data.vAddr = SCP->vmaddr;
 	  
 	  /* Use just FILE part -- rest is BSS */
 	  xHead.data.size = SCP->filesize;
 	} else {
-	  printf ("ignoring mach-o section \"%.*s\"\n",
-		  sizeof (SCP->segname), SCP->segname);
+	  printf ("ignoring mach-o section \"%s\"\n", SCP->segname);
 	}
       break;
       
@@ -263,7 +263,7 @@ void main (int argc, char **argv)
       xHead.opt.entryPoint = ((ppc_saved_state_t *) 
 			      (cp + sizeof(struct thread_command)
 			       + 2 * sizeof(unsigned long)) )->srr0;
-      printf("Entry point %x\n\n", SWAPL(xHead.opt.entryPoint));
+      printf("Entry point %lx\n\n", SWAPL(xHead.opt.entryPoint));
       break;
     }
   }
@@ -282,7 +282,7 @@ void main (int argc, char **argv)
   xHead.opt.textSize = xHead.text.size;
   xHead.opt.dataSize = xHead.data.size;
   xHead.opt.BSSSize = xHead.BSS.size;
-  if (argc == 4) sscanf(argv[3],"%x",&xHead.opt.entryPoint);
+  if (argc == 4) sscanf(argv[3],"%lx",&xHead.opt.entryPoint);
 
   /* Write out the XCOFF file, copying the relevant mach-o file sections */
   fwrite (&xHead, sizeof (xHead), 1, xcoffF);
@@ -292,4 +292,6 @@ void main (int argc, char **argv)
 
   fclose (machoF);
   fclose (xcoffF);
+
+  return 0;
 }

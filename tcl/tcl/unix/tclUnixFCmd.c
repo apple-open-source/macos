@@ -10,7 +10,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclUnixFCmd.c,v 1.1.1.4 2000/12/06 23:03:15 wsanchez Exp $
+ * RCS: @(#) $Id: tclUnixFCmd.c,v 1.1.1.5 2002/04/05 16:14:08 jevans Exp $
  *
  * Portions of this code were derived from NetBSD source code which has
  * the following copyright notice:
@@ -1090,7 +1090,7 @@ GetGroupAttribute(interp, objIndex, fileName, attributePtrPtr)
 
     groupPtr = getgrgid(statBuf.st_gid);		/* INTL: Native. */
     if (groupPtr == NULL) {
-	*attributePtrPtr = Tcl_NewIntObj(statBuf.st_gid);
+	*attributePtrPtr = Tcl_NewIntObj((int) statBuf.st_gid);
     } else {
 	Tcl_DString ds;
 	CONST char *utf;
@@ -1141,7 +1141,7 @@ GetOwnerAttribute(interp, objIndex, fileName, attributePtrPtr)
 
     pwPtr = getpwuid(statBuf.st_uid);			/* INTL: Native. */
     if (pwPtr == NULL) {
-	*attributePtrPtr = Tcl_NewIntObj(statBuf.st_uid);
+	*attributePtrPtr = Tcl_NewIntObj((int) statBuf.st_uid);
     } else {
 	Tcl_DString ds;
 	CONST char *utf;

@@ -8,9 +8,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <iokit/IOKitLib.h>
+#include <iokit/avc/IOFireWireAVCConsts.h>
 
 #include <DVComponentGlue/IsochronousDataHandler.h>
 #include <DVComponentGlue/DeviceControl.h>
+
+#define PAGE_SIZE 4096
 
 static int done = 0;
 static int file = 0;
@@ -20,6 +23,9 @@ static IDHNotificationID notificationID;
 static int frameSize = 120000;	// NTSC 144000 PAL
 static char *sFile;
 static int sSDL;
+
+static char diskBuffer[PAGE_SIZE];
+static int diskBufferEnd;
 
 static void printP(const char *s)
 {
@@ -39,6 +45,11 @@ static OSStatus notificationProc(IDHGenericEvent* event, void* userData)
     printf("Got notification for device 0x%x, notification 0x%x, event 0x%x, userdata 0x%x\n",
         event->eventHeader.deviceID, event->eventHeader.notificationID, event->eventHeader.event,
         userData);
+    if(event->eventHeader.event == kIDHEventFrameDropped) {
+        IDHDeviceFrameDroppedEvent *drop = (IDHDeviceFrameDroppedEvent *)event;
+        printf("Just dropped %d frames, total %d\n",
+                                        drop->newlyDropped, drop->totalDropped);
+    }
         
         // Reenable notification
    IDHNotifyMeWhen(theInst, event->eventHeader.notificationID, kIDHEventEveryEvent);
@@ -46,18 +57,110 @@ static OSStatus notificationProc(IDHGenericEvent* event, void* userData)
     return noErr;
 }
 
+// write to disk in 4k chunks.  This keeps the FS from having to read into memory
+// a partial page to append new data onto.  this keeps disk latencies down, however
+// it is not a full solution as we can't guarantee disk latencies especially on
+// a heavily loaded machine. we should really put this on a separate thread.
+
+static void bufferedWrite( char * file, char * buffer, ByteCount length )
+{
+	ByteCount writeLength = length;
+	ByteCount buffer1Length = 0;
+	ByteCount buffer2Length = 0;
+	
+	// assumes length of write is > PAGE_SIZE
+	
+	if( diskBufferEnd != 0 )
+	{
+		buffer1Length = PAGE_SIZE - diskBufferEnd;
+		
+		// fill up our buffer
+		bcopy( buffer, diskBuffer + diskBufferEnd, buffer1Length );
+		
+		// flush it to disk
+		if(file)
+            write(file, diskBuffer, PAGE_SIZE);
+        
+		diskBufferEnd = 0;
+		writeLength -= buffer1Length;
+	}
+	
+	// buffer is now empty and totalLength is how much we have left to write
+
+	buffer2Length = writeLength % PAGE_SIZE;
+	writeLength -= buffer2Length;
+	
+	// write bulk
+	
+	if(file)
+		write(file, buffer + buffer1Length, writeLength);
+    
+	// buffer remainder
+	
+	if( buffer2Length != 0 )
+	{
+		bcopy( buffer + buffer1Length + writeLength, diskBuffer, buffer2Length );
+		diskBufferEnd = buffer2Length;
+	}
+	
+//	printf( "flush with %d bytes, write %d bytes, buffer %d bytes\n", buffer1Length, writeLength, buffer2Length );
+	
+}
+
+static void flushDiskBuffer( void )
+{
+	// flush it to disk
+	if(file)
+		write(file, diskBuffer, diskBufferEnd);
+}
+
 // called when a new isoch read is received
+static UInt32 lastCall;
 static OSStatus DVIsochComponentReadCallback( IDHGenericEvent *eventRecord, void *userData)
 {
-        OSErr 					result = noErr;
+        OSStatus				result = noErr;
         IDHParameterBlock		*pb = (IDHParameterBlock *) eventRecord;
 
+    
 #if 1
+    SInt32 delta, deltaCall;
         ComponentInstance	theInst = userData;
+    TimeRecord time1;
+    IDHGetDeviceTime(theInst, &time1);
+    
+    delta = (time1.value.lo % 8000) - (pb->reserved1 % 8000);
+    if(delta < 0)
+        delta += 8000;
+    deltaCall = (time1.value.lo % 8000) - (lastCall % 8000);
+    if(deltaCall < 0)
+        deltaCall += 8000;
+#if 0
+    printf("frame %p was received at %x, time now is %x:%x, delta %d, delta from last time %d\n",
+        pb->buffer, pb->reserved1, time1.value.hi, time1.value.lo, delta, deltaCall);
+#endif
+        lastCall = time1.value.lo;
 
-        if(file)
+#if 0
+	{
+		CFAbsoluteTime cstart, cend;
+		cstart = CFAbsoluteTimeGetCurrent();
+#endif
+
+		bufferedWrite( file, pb->buffer, pb->actualCount );
+
+#if 0
+		if(file)
             write(file, pb->buffer, pb->actualCount);
             //write(file, pb->buffer, frameSize);
+#endif
+
+#if 0
+			cend = CFAbsoluteTimeGetCurrent();
+			printf( "write(file) %d bytes took %8.3f\n", pb->actualCount, cend-cstart );
+	}
+#endif
+
+   
        
         result = IDHReleaseBuffer( theInst, pb);
         // fill out structure
@@ -111,8 +214,8 @@ static void doControlTest(ComponentInstance theInst, QTAtomSpec *currentIsochCon
 
 
         // fill up the avc frame
-        in[0]	= 0x00; //kAVCControlCommand;
-        in[1] 	= 0x20;						// for now
+        in[0]	= kAVCControlCommand;
+        in[1] 	= IOAVCAddress(kAVCTapeRecorder, 0);
         in[2] 	= op1;
         in[3] 	= op2;
 
@@ -147,12 +250,12 @@ Exit:
                 printf("Control error %d(%x)\n", result, result);
 }
 
-static OSErr doTimeTest(ComponentInstance theInst)
+static OSStatus doTimeTest(ComponentInstance theInst)
 {
     Ptr myBuffer;
     IDHParameterBlock isochParamBlock;
     TimeRecord time1, time2;
-    OSErr err;
+    OSStatus err;
     
     // open the DV device for reading
     err = IDHOpenDevice( theInst, kIDHOpenForReadTransactions);
@@ -186,11 +289,11 @@ error:
     return err;
 }
 
-static OSErr startReadTest(ComponentInstance theInst, char *fileName, IDHParameterBlock *isochParamBlock)
+static OSStatus startReadTest(ComponentInstance theInst, char *fileName, IDHParameterBlock *isochParamBlock)
 {
     Ptr myBuffer;
     TimeRecord time;
-    OSErr err;
+    OSStatus err;
     
     // open the DV device for reading
     err = IDHOpenDevice( theInst, kIDHOpenForReadTransactions);
@@ -210,7 +313,15 @@ static OSErr startReadTest(ComponentInstance theInst, char *fileName, IDHParamet
     printf("read device time, scale: %d, time 0x%x:0x%x\n",
         time.scale, time.value.hi, time.value.lo);
 
+	diskBufferEnd = 0;
     file = open(fileName, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+	
+	// non-cached IOs will stream to the disk more smoothly, while
+	// cached IOs will be more bursty as the cache is periodically 
+	// flushed to disk.
+	
+	fcntl( file, F_NOCACHE );
+	
 #if 0
     {
         int i;
@@ -260,14 +371,13 @@ error:
     return err;
 }
 
-static OSErr stopReadTest(ComponentInstance theInst)
+static OSStatus stopReadTest(ComponentInstance theInst)
 {
     Ptr myBuffer;
     IDHParameterBlock isochParamBlock;
     TimeRecord time;
-    OSErr err;
-    
-    printf("Did %d frames\n", done);
+    OSStatus err;
+    	
 //    err = IDHReleaseBuffer( theInst, &isochParamBlock);
     err = IDHGetDeviceTime(theInst, &time);
     if( err != noErr)
@@ -279,13 +389,21 @@ static OSErr stopReadTest(ComponentInstance theInst)
         0xc4, //kAVCWindOpcode
         0x60 //kAVCWindStop
     );
+	
     // close the DV device
     err = IDHCloseDevice( theInst);
     if( err != noErr)
         goto error;
 
-    printf("Closed device\n");
+    err = IDHGetDeviceTime(theInst, &time);
+    if( err != noErr)
+            goto error;
+    printf("Closed device, time 0x%x:0x%x\n", time.value.hi, time.value.lo);
+    printf("Did %d frames\n", done);
 
+	flushDiskBuffer();
+	close( file );
+	
 error:
     return err;
 }
@@ -302,7 +420,7 @@ static void OpenDV()
     UInt32 isoversion;
     long size;
     UInt32 format;
-    OSErr err;
+    OSStatus err;
     
     theInst = OpenDefaultComponent('ihlr', 'dv  ');
     printf("Instance is 0x%x\n", theInst);
@@ -466,10 +584,6 @@ static void OpenDV()
     if( videoConfig.atom == nil)	// no good configs found
             goto error;
 
-    QTUnlockContainer( deviceList);
-    deviceList = NULL;
-
-
     printf("setting config\n");
     // set isoch to use this config
     err = IDHSetDeviceConfiguration( theInst, &videoConfig);
@@ -494,7 +608,7 @@ static void OpenDV()
     //        goto error;
     
     while(done < 300)
-        sleep(10);
+        sleep((300-done)/30);
 
     err = IDHDisposeNotification(theInst, notificationID);
     if( err != noErr)
@@ -507,12 +621,13 @@ error:
     if( err != noErr)
         printf("error %d(0x%x)\n", err, err);
     if(deviceList) {
-            QTUnlockContainer( deviceList);
+        QTUnlockContainer( deviceList);
+        QTDisposeAtomContainer(deviceList);
     }
 
     //usleep(200000);
 
-    CallComponentClose(theInst, 0);
+    //CloseComponent(theInst);
 
 }
 
@@ -552,7 +667,7 @@ int main(int argc, char **argv)
 	aComponent = 0;
 	aName = NewHandleClear(200);
 	while (aComponent = FindNextComponent(aComponent, &desc)) {
-		OSErr oops;
+		OSStatus oops;
 		printf("Found component 0x%x:", aComponent);
 		oops = GetComponentInfo(aComponent, &aDesc, aName,
                                          NULL, NULL);
@@ -577,6 +692,7 @@ int main(int argc, char **argv)
 	OpenDV();
     iters++;
     printf("======== Iteration %d done ==========\n", iters);
+    done = 200;
     }
     while (0);
 }

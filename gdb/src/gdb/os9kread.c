@@ -1,5 +1,6 @@
 /* Read os9/os9k symbol tables and convert to internal format, for GDB.
-   Copyright 1986, 87, 88, 89, 90, 91, 92, 93, 94, 96, 1998
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
+   1996, 1997, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -35,6 +36,7 @@
 
 #include "defs.h"
 #include "gdb_string.h"
+#include "gdb_assert.h"
 #include <stdio.h>
 
 #if defined(USG) || defined(__CYGNUSCLIB__)
@@ -44,7 +46,6 @@
 
 #include "obstack.h"
 #include "gdb_stat.h"
-#include <ctype.h>
 #include "symtab.h"
 #include "breakpoint.h"
 #include "command.h"
@@ -93,9 +94,6 @@ static int psymfile_depth = 0;
 
 /* keep symbol table file nested depth */
 static int symfile_depth = 0;
-
-/* Nonzero means give verbose info on gdb action.  From main.c.  */
-extern int info_verbose;
 
 extern int previous_stab_code;
 
@@ -319,8 +317,9 @@ os9k_symfile_read (struct objfile *objfile, int mainline)
 
   sym_bfd = objfile->obfd;
   /* If we are reinitializing, or if we have never loaded syms yet, init */
-  if (mainline || objfile->global_psymbols.size == 0 ||
-      objfile->static_psymbols.size == 0)
+  if (mainline
+      || (objfile->global_psymbols.size == 0
+	  && objfile->static_psymbols.size == 0))
     init_psymbol_list (objfile, DBX_SYMCOUNT (objfile));
 
   free_pending_blocks ();
@@ -416,7 +415,7 @@ os9k_symfile_finish (struct objfile *objfile)
 {
   if (objfile->sym_stab_info != NULL)
     {
-      mfree (objfile->md, objfile->sym_stab_info);
+      xmfree (objfile->md, objfile->sym_stab_info);
     }
 /*
    free_header_files ();
@@ -1509,6 +1508,7 @@ os9k_process_one_symbol (int type, int desc, CORE_ADDR valu, char *name,
       /* Relocate for dynamic loading and for ELF acc fn-relative syms.  */
       valu += ANOFFSET (section_offsets, SECT_OFF_TEXT (objfile));
       /* FIXME: loses if sizeof (char *) > sizeof (int) */
+      gdb_assert (sizeof (name) <= sizeof (int));
       record_line (current_subfile, (int) name, valu);
       break;
 

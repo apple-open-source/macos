@@ -20,7 +20,9 @@
 // passphrases - canonical code to obtain passphrases
 //
 #include "agentquery.h"
+#include "authority.h"
 #include "server.h"
+#include "session.h"
 
 using namespace SecurityAgent;
 
@@ -28,16 +30,43 @@ using namespace SecurityAgent;
 //
 // Construct a query object
 //
-SecurityAgentQuery::SecurityAgentQuery()
+SecurityAgentQuery::SecurityAgentQuery(uid_t clientUID,
+                                       Session &clientSession) :
+    SecurityAgent::Client(clientUID, clientSession.bootstrapPort()),
+	mClientSession(clientSession)
 {
-	// this may take a while
-	Server::active().longTermActivity();
-	Server::connection().useAgent(this);
 }
 
 SecurityAgentQuery::~SecurityAgentQuery()
 {
+	// SecurityAgent::Client::~SecurityAgent already calls terminate().
+}
+
+void
+SecurityAgentQuery::activate(const char *bootstrapName = NULL)
+{
+	if (isActive())
+		return;
+
+	// Before popping up an agent: is UI session allowed?
+	if (!(mClientSession.attributes() & sessionHasGraphicAccess))
+		CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
+
+	// this may take a while
+	Server::active().longTermActivity();
+	Server::connection().useAgent(this);
+
+	SecurityAgent::Client::activate(bootstrapName);
+}
+
+void
+SecurityAgentQuery::terminate()
+{
+	if (!isActive())
+		return;
+
 	Server::connection(true).useAgent(NULL);
+	SecurityAgent::Client::terminate();
 }
 
 
@@ -49,7 +78,7 @@ void QueryKeychainUse::operator () (const char *database, const char *descriptio
 {
 	queryKeychainAccess(Server::connection().process.clientCode(),
         Server::connection().process.pid(),
-		database, description, action, *this);
+		database, description, action, needPassphrase, *this);
 }
 
 
@@ -172,6 +201,11 @@ void QueryNewPassphrase::retryInteractive(CssmOwnedData &passphrase, Reason reas
 //
 // Authorize by group membership
 //
+QueryAuthorizeByGroup::QueryAuthorizeByGroup(uid_t clientUID, const AuthorizationToken &auth) :
+  SecurityAgentQuery(clientUID, auth.session),
+  authorization(auth), mActive(false) { }
+
+
 void QueryAuthorizeByGroup::cancel(Reason reason)
 {
     if (mActive) {
@@ -199,9 +233,27 @@ bool QueryAuthorizeByGroup::operator () (const char *group, const char *candidat
     if (mActive) {
         return retryAuthorizationAuthenticate(reason, username, passphrase);
     } else {
-        bool result = authorizationAuthenticate(Server::connection().process.clientCode(),
+        bool result = authorizationAuthenticate(authorization.creatorCode(),
             Server::connection().process.pid(), group, candidateUser, username, passphrase);
         mActive = true;
         return result;
     }
 }
+
+QueryInvokeMechanism::QueryInvokeMechanism(uid_t clientUID, const AuthorizationToken &auth) :
+	SecurityAgentQuery(clientUID, auth.session) {}
+
+bool QueryInvokeMechanism::operator () (const string &inPluginId, const string &inMechanismId, const AuthorizationValueVector *inArguments, const AuthItemSet &inHints, const AuthItemSet &inContext, AuthorizationResult *outResult, AuthorizationItemSet *&outHintsPtr, AuthorizationItemSet *&outContextPtr)
+{
+    bool result = invokeMechanism(inPluginId, inMechanismId, inArguments, inHints, inContext, outResult, outHintsPtr, outContextPtr);
+        return result;
+}
+
+QueryTerminateAgent::QueryTerminateAgent(uid_t clientUID, const AuthorizationToken &auth) :
+  SecurityAgentQuery(clientUID, auth.session) {}
+
+void QueryTerminateAgent::operator () ()
+{
+    terminateAgent(); 
+}
+

@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 HFILES = extern.h mtree.h
 
-CFILES = compare.c create.c misc.c mtree.c spec.c verify.c
+CFILES = compare.c create.c excludes.c misc.c mtree.c spec.c verify.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble mtree.8
 

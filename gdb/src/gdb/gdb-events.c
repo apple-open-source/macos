@@ -1,5 +1,6 @@
 /* User Interface Events.
-   Copyright 1999 Free Software Foundation, Inc.
+
+   Copyright 1999, 2001, 2002 Free Software Foundation, Inc.
 
    Contributed by Cygnus Solutions.
 
@@ -37,9 +38,6 @@
 #include "defs.h"
 #include "gdb-events.h"
 #include "gdbcmd.h"
-
-#undef XMALLOC
-#define XMALLOC(TYPE) ((TYPE*) xmalloc (sizeof (TYPE)))
 
 #if WITH_GDB_EVENTS
 static struct gdb_events null_event_hooks;
@@ -81,6 +79,46 @@ breakpoint_modify_event (int b)
   current_event_hooks->breakpoint_modify (b);
 }
 
+void
+tracepoint_create_event (int number)
+{
+  if (gdb_events_debug)
+    fprintf_unfiltered (gdb_stdlog, "tracepoint_create_event\n");
+  if (!current_event_hooks->tracepoint_create)
+    return;
+  current_event_hooks->tracepoint_create (number);
+}
+
+void
+tracepoint_delete_event (int number)
+{
+  if (gdb_events_debug)
+    fprintf_unfiltered (gdb_stdlog, "tracepoint_delete_event\n");
+  if (!current_event_hooks->tracepoint_delete)
+    return;
+  current_event_hooks->tracepoint_delete (number);
+}
+
+void
+tracepoint_modify_event (int number)
+{
+  if (gdb_events_debug)
+    fprintf_unfiltered (gdb_stdlog, "tracepoint_modify_event\n");
+  if (!current_event_hooks->tracepoint_modify)
+    return;
+  current_event_hooks->tracepoint_modify (number);
+}
+
+void
+architecture_changed_event (void)
+{
+  if (gdb_events_debug)
+    fprintf_unfiltered (gdb_stdlog, "architecture_changed_event\n");
+  if (!current_event_hooks->architecture_changed)
+    return;
+  current_event_hooks->architecture_changed ();
+}
+
 #endif
 
 #if WITH_GDB_EVENTS
@@ -101,6 +139,10 @@ enum gdb_event
   breakpoint_create,
   breakpoint_delete,
   breakpoint_modify,
+  tracepoint_create,
+  tracepoint_delete,
+  tracepoint_modify,
+  architecture_changed,
   nr_gdb_events
 };
 
@@ -119,6 +161,21 @@ struct breakpoint_modify
     int b;
   };
 
+struct tracepoint_create
+  {
+    int number;
+  };
+
+struct tracepoint_delete
+  {
+    int number;
+  };
+
+struct tracepoint_modify
+  {
+    int number;
+  };
+
 struct event
   {
     enum gdb_event type;
@@ -128,6 +185,9 @@ struct event
 	struct breakpoint_create breakpoint_create;
 	struct breakpoint_delete breakpoint_delete;
 	struct breakpoint_modify breakpoint_modify;
+	struct tracepoint_create tracepoint_create;
+	struct tracepoint_delete tracepoint_delete;
+	struct tracepoint_modify tracepoint_modify;
       }
     data;
   };
@@ -171,6 +231,41 @@ queue_breakpoint_modify (int b)
   append (event);
 }
 
+static void
+queue_tracepoint_create (int number)
+{
+  struct event *event = XMALLOC (struct event);
+  event->type = tracepoint_create;
+  event->data.tracepoint_create.number = number;
+  append (event);
+}
+
+static void
+queue_tracepoint_delete (int number)
+{
+  struct event *event = XMALLOC (struct event);
+  event->type = tracepoint_delete;
+  event->data.tracepoint_delete.number = number;
+  append (event);
+}
+
+static void
+queue_tracepoint_modify (int number)
+{
+  struct event *event = XMALLOC (struct event);
+  event->type = tracepoint_modify;
+  event->data.tracepoint_modify.number = number;
+  append (event);
+}
+
+static void
+queue_architecture_changed (void)
+{
+  struct event *event = XMALLOC (struct event);
+  event->type = architecture_changed;
+  append (event);
+}
+
 void
 gdb_events_deliver (struct gdb_events *vector)
 {
@@ -179,7 +274,7 @@ gdb_events_deliver (struct gdb_events *vector)
     {
       struct event *event = delivering_events;
       delivering_events = event->next;
-      free (event);
+      xfree (event);
     }
   /* Process any pending events.  Because one of the deliveries could
      bail out we move everything off of the pending queue onto an
@@ -204,9 +299,24 @@ gdb_events_deliver (struct gdb_events *vector)
 	  vector->breakpoint_modify
 	    (event->data.breakpoint_modify.b);
 	  break;
+	case tracepoint_create:
+	  vector->tracepoint_create
+	    (event->data.tracepoint_create.number);
+	  break;
+	case tracepoint_delete:
+	  vector->tracepoint_delete
+	    (event->data.tracepoint_delete.number);
+	  break;
+	case tracepoint_modify:
+	  vector->tracepoint_modify
+	    (event->data.tracepoint_modify.number);
+	  break;
+	case architecture_changed:
+	  vector->architecture_changed ();
+	  break;
 	}
       delivering_events = event->next;
-      free (event);
+      xfree (event);
     }
 }
 
@@ -219,6 +329,10 @@ _initialize_gdb_events (void)
   queue_event_hooks.breakpoint_create = queue_breakpoint_create;
   queue_event_hooks.breakpoint_delete = queue_breakpoint_delete;
   queue_event_hooks.breakpoint_modify = queue_breakpoint_modify;
+  queue_event_hooks.tracepoint_create = queue_tracepoint_create;
+  queue_event_hooks.tracepoint_delete = queue_tracepoint_delete;
+  queue_event_hooks.tracepoint_modify = queue_tracepoint_modify;
+  queue_event_hooks.architecture_changed = queue_architecture_changed;
 #endif
 
   c = add_set_cmd ("eventdebug", class_maintenance, var_zinteger,

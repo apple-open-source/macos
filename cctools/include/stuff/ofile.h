@@ -22,6 +22,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /* ofile.h */
+#ifndef _STUFF_OFILE_H_
+#define _STUFF_OFILE_H_
 
 #if defined(__MWERKS__) && !defined(__private_extern__)
 #define __private_extern__ __declspec(private_extern)
@@ -104,6 +106,7 @@ __private_extern__ void ofile_process(
     enum bool all_archs,
     enum bool process_non_objects,
     enum bool dylib_flat,
+    enum bool use_member_syntax,
     void (*processor)(struct ofile *ofile, char *arch_name, void *cookie),
     void *cookie);
 #ifdef OFI
@@ -144,3 +147,26 @@ __private_extern__ long ofile_get_word(
     unsigned long addr,
     unsigned long *word,
     void *get_word_data /* struct ofile *ofile */);
+__private_extern__ void archive_error(
+    struct ofile *ofile,
+    const char *format, ...)
+#ifndef __MWERKS__
+    __attribute__ ((format (printf, 2, 3)))
+#endif
+    ;
+__private_extern__ void archive_member_error(
+    struct ofile *ofile,
+    const char *format, ...)
+#ifndef __MWERKS__
+    __attribute__ ((format (printf, 2, 3)))
+#endif
+    ;
+__private_extern__ void Mach_O_error(
+    struct ofile *ofile,
+    const char *format, ...)
+#ifndef __MWERKS__
+    __attribute__ ((format (printf, 2, 3)))
+#endif
+    ;
+
+#endif /* _STUFF_OFILE_H_ */

@@ -59,6 +59,7 @@
 #define DOSFS_H
 
 #define DOSBOOTBLOCKSIZE 512
+#define MAX_SECTOR_SIZE 4096
 
 typedef	u_int32_t	cl_t;	/* type holding a cluster number */
 
@@ -109,9 +110,8 @@ struct bootblock {
 
 struct fatEntry {
 	cl_t	next;			/* pointer to next cluster */
-	cl_t	head;			/* pointer to start of chain */
-	u_int32_t length;		/* number of clusters on chain */
-	int	flags;			/* see below */
+	unsigned in_use:1;		/* set if this chain is used by a file or directory (valid for head only) */
+	unsigned head:31;		/* pointer to start of chain (really only 28 bits max) */
 };
 
 #define	CLUST_FREE	0		/* 0 means cluster is free */
@@ -127,8 +127,6 @@ struct fatEntry {
 #define	CLUST12_MASK	0xfff
 #define	CLUST16_MASK	0xffff
 #define	CLUST32_MASK	0xfffffff
-
-#define	FAT_USED	1		/* This fat chain is used in a file */
 
 #define	DOSLONGNAMELEN	256		/* long name maximal length */
 #define LRFIRST		0x40		/* first long name record */

@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: composer.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $";
+static char rcsid[] = "$Id: composer.c,v 1.2 2002/01/03 22:16:39 jevans Exp $";
 #endif
 /*
  * Program:	Pine composer routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: composer.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Ex
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -75,11 +75,14 @@ static char rcsid[] = "$Id: composer.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Ex
 
 
 #ifdef	ANSI
-    int InitEntryText(char *, int);
+    int InitEntryText(char *, struct headerentry *);
     int HeaderOffset(int);
     int HeaderFocus(int, int);
     int LineEdit(int);
-    int FormatLines(struct hdr_line *, char *, int, int);
+    int header_downline(int);
+    int header_upline(int);
+    int FormatLines(struct hdr_line *, char *, int, int, int);
+    char *strqchr(char *, int, int *);
     int PaintBody(int);
     int ComposerHelp(int);
     int NewTop(void);
@@ -88,20 +91,25 @@ static char rcsid[] = "$Id: composer.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Ex
     int partial_entries(void);
     int physical_line(struct hdr_line *);
     int strend(char *, int);
-    char *strqchr(char *, int);
     int KillHeaderLine(struct hdr_line *, int);
     int SaveHeaderLines(void);
-    char *break_point(char *, int, int);
+    char *break_point(char *, int, int, int *);
     int hldelete(struct hdr_line *);
     int is_blank(int, int, int);
     int zotentry(struct hdr_line *);
     void zotcomma(char *);
+    struct hdr_line *first_hline(int *);
+    struct hdr_line *next_hline(int *, struct hdr_line *);
+    struct hdr_line *prev_hline(int *, struct hdr_line *);
 #else
     int InitEntryText();
     int HeaderOffset();
     int HeaderFocus();
     int LineEdit();
+    int header_downline();
+    int header_upline();
     int FormatLines();
+    char *strqchr();
     int PaintBody();
     int ComposerHelp();
     int NewTop();
@@ -110,7 +118,6 @@ static char rcsid[] = "$Id: composer.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Ex
     int partial_entries();
     int physical_line();
     int strend();
-    char *strqchr();
     int KillHeaderLine();
     int SaveHeaderLines();
     char *break_point();
@@ -118,13 +125,16 @@ static char rcsid[] = "$Id: composer.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Ex
     int is_blank();
     int zotentry();
     void zotcomma();
+    struct hdr_line *first_hline();
+    struct hdr_line *next_hline();
+    struct hdr_line *prev_hline();
 #endif
 
 
 /*
  * definition header field array, structures defined in pico.h
  */
-struct headerentry headents[LASTHDR+1];
+struct headerentry *headents;
 
 
 /*
@@ -140,7 +150,8 @@ struct on_display ods;				/* global on_display struct */
 #define	HALLOC()	(struct hdr_line *)malloc(sizeof(struct hdr_line))
 #define	LINELEN()	(term.t_ncol - headents[ods.cur_e].prlen)
 #define	BOTTOM()	(term.t_nrow - 2)
-#define	HALF_SCR()	((term.t_nrow-5)/2)
+#define	FULL_SCR()	(term.t_nrow-5)
+#define	HALF_SCR()	(FULL_SCR()/2)
 
 
 /*
@@ -148,13 +159,23 @@ struct on_display ods;				/* global on_display struct */
  */
 static int     last_key;			/* last keystroke  */
 
+
+static KEYMENU menu_header[] = {
+    {"^G", "Get Help"},		{"^X", "Send"}, 	{"^R", "Rich Hdr"},
+    {"^Y", "PrvPg/Top"},	{"^K", "Cut Line"},	{"^O", "Postpone"},
+    {"^C", "Cancel"},		{"^D", "Del Char"},	{"^J", "Attach"},
+    {"^V", "NxtPg/End"},	{"^U", "UnDel Line"},	{NULL, NULL}
+};
+#define	TO_KEY		11
+
+
 /*
  * function key mappings for header editor
  */
 static int ckm[12][2] = {
     { F1,  (CTRL|'G')},
-    { F2,  (CTRL|'X')},
-    { F3,  (CTRL|'C')},
+    { F2,  (CTRL|'C')},
+    { F3,  (CTRL|'X')},
     { F4,  (CTRL|'D')},
     { F5,  (CTRL|'R')},
     { F6,  (CTRL|'J')},
@@ -177,124 +198,63 @@ static int ckm[12][2] = {
 InitMailHeader(mp)
 PICO  *mp;
 {
-    int	i;
     char *addrbuf;
-    static  char  toprmt[]  = "To      : ";
-    static  char  ccprmt[]  = "Cc      : ";
-    static  char  bccprmt[] = "Bcc     : ";
-    static  char  fccprmt[] = "Fcc     : ";
-#ifdef	ATTACHMENTS
-    static  char  attprmt[] = "Attchmnt: ";
-#endif
-    static  char  subprmt[] = "Subject : ";
+    struct headerentry *he;
 
     /*
-     * initialize on_display structure
+     * initialize some of on_display structure, others below...
      */
-    ods.p_off = 0;
-    ods.top_e = ods.cur_e = TOHDR;
-    ods.top_l = ods.cur_l = NULL;
+    ods.p_off  = 0;
     ods.p_line = COMPOSER_TOP_LINE;
+    ods.top_l = ods.cur_l = NULL;
 
-    for(i=0;i<=LASTHDR;i++){
-	headents[i].hd_text = NULL;
-	headents[i].display_it = TRUE;
-	switch(i){
-	    case TOHDR :
-		headents[i].prompt = toprmt;
-		headents[i].name   = "To";
-		headents[i].help   = mp->to_help;
-		headents[i].prlen  = 10;
-		headents[i].maxlen = mp->tolen;
-		headents[i].realaddr = &(mp->tobuf);
-		addrbuf = mp->tobuf;
-		break;
-	    case CCHDR :
-		headents[i].prompt = ccprmt;
-		headents[i].name   = "Cc";
-		headents[i].help   = mp->cc_help;
-		headents[i].prlen  = 10;
-		headents[i].maxlen = mp->cclen;
-		headents[i].realaddr = &(mp->ccbuf);
-		addrbuf = mp->ccbuf;
-		break;
-	    case BCCHDR :
-		headents[i].prompt = bccprmt;
-		headents[i].name   = "Bcc";
-		headents[i].help   = mp->bcc_help;
-		headents[i].prlen  = 10;
-		headents[i].maxlen = mp->bcclen;
-		headents[i].realaddr = &(mp->bccbuf);
-	        headents[i].display_it = FALSE;
-		addrbuf = mp->bccbuf;
-		break;
-	    case FCCHDR :
-		headents[i].prompt = fccprmt;
-		headents[i].name   = "Fcc";
-		headents[i].help   = mp->fcc_help;
-		headents[i].prlen  = 10;
-		headents[i].maxlen = mp->fcclen;
-		headents[i].realaddr = &(mp->fccbuf);
-	        headents[i].display_it = FALSE;
-		addrbuf = mp->fccbuf;
-		break;
-#ifdef	ATTACHMENTS
-	    case ATTCHDR :
-		headents[i].prompt = attprmt;
-		headents[i].name   = "Attchmnt";
-		headents[i].help   = mp->attachment_help;
-		headents[i].prlen  = 10;
-		headents[i].maxlen = 0;
-
-		/* build entries: one to a line then feed to initializer */
-		if(mp->attachments != NULL){
-		    int   x = 0;
-		    PATMT *ap = mp->attachments;
-
-		    addrbuf = (char *)malloc((size_t)1024);
-		    addrbuf[0] = '\0';
-		    s[0] = '\0';
-		    while(ap){
-			if(ap->filename){
-			    sprintf(s, "%d. %s %s%s%s\"%s\"%s",
-				    ++x,
-				    ap->filename,
-				    ap->size ? "(" : "",
-				    ap->size ? ap->size : "",
-				    ap->size ? ") " : "",
-				    ap->description ? ap->description : "", 
-				    ap->next ? "," : "");
-			    strcat(addrbuf, s);
-			}
-			ap = ap->next;
-		    }
-		    InitEntryText(addrbuf, i);
-		    free((char *)addrbuf);
-		}
-		else
-		  InitEntryText("", i);
-		headents[i].realaddr = NULL;
-		continue;
-#endif
-	    case SUBJHDR :
-		headents[i].prompt = subprmt;
-		headents[i].name   = "Subject";
-		headents[i].help   = mp->subject_help;
-		headents[i].prlen  = 10;
-		headents[i].maxlen = mp->sublen;
-		headents[i].realaddr = &(mp->subbuf);
-		addrbuf = mp->subbuf;
-		break;
-	    default :
-		break;
-        }
-	InitEntryText(addrbuf, i);
+    headents = mp->headents;
+    /*--- initialize the fields in the headerent structure ----*/
+    for(he = headents; he->name != NULL; he++){
+	he->hd_text    = NULL;
+	he->display_it = he->display_it ? he->display_it : !he->rich_header;
+        if(he->is_attach) {
+            /*--- A lot of work to do since attachments are special ---*/
+            he->maxlen = 0;
+	    if(mp->attachments != NULL){
+		char   buf[NLINE];
+                int    x = 0;
+                PATMT *ap = mp->attachments;
+ 
+                addrbuf = (char *)malloc((size_t)1024);
+                addrbuf[0] = '\0';
+                buf[0] = '\0';
+                while(ap){
+                 if(ap->filename){
+                     sprintf(buf, "%d. %s %s%s%s\"%s\"%s",
+                             ++x,
+                             ap->filename,
+                             ap->size ? "(" : "",
+                             ap->size ? ap->size : "",
+                             ap->size ? ") " : "",
+                             ap->description ? ap->description : "", 
+                             ap->next ? "," : "");
+                     strcat(addrbuf, buf);
+                 }
+                 ap = ap->next;
+                }
+                InitEntryText(addrbuf, he);
+                free((char *)addrbuf);
+            } else {
+                InitEntryText("", he);
+            }
+            he->realaddr = NULL;
+        } else {
+            addrbuf = *(he->realaddr);
+            InitEntryText(addrbuf, he);
+	}
     }
 
     /*
      * finish initialization and then figure out display layout...
      */
-    ods.top_l = ods.cur_l = headents[TOHDR].hd_text;
+    ods.top_l = ods.cur_l = first_hline(&ods.cur_e);
+    ods.top_e = ods.cur_e;
     UpdateHeader();
 }
 
@@ -304,9 +264,9 @@ PICO  *mp;
  * InitEntryText - Add the given header text into the header entry 
  *		   line structure.
  */
-InitEntryText(address, h)
+InitEntryText(address, e)
 char	*address;
-int	h;
+struct headerentry *e;
 {
     struct  hdr_line	*curline;
     register  int	longest;
@@ -318,13 +278,13 @@ int	h;
         emlwrite("Unable to make room for full Header.", NULL);
         return(FALSE);
     }
-    longest = term.t_ncol - headents[h].prlen - 1;
+    longest = term.t_ncol - e->prlen - 1;
     curline->text[0] = '\0';
     curline->next = NULL;
     curline->prev = NULL;
-    headents[h].hd_text = curline;		/* tie it into the list */
+    e->hd_text = curline;		/* tie it into the list */
 
-    if(FormatLines(curline, address, longest, h) == -1)
+    if(FormatLines(curline, address, longest, e->break_on_comma, 0) == -1)
       return(FALSE);
     else
       return(TRUE);
@@ -341,22 +301,25 @@ int	h;
  */
 ResizeHeader()
 {
-    register int i;
+    register struct headerentry *i;
     register int offset;
 
     offset = (ComposerEditing) ? HeaderOffset(ods.cur_e) : 0;
 
-    for(i=TOHDR; i <= LASTHDR; i++){		/* format each entry */
-	if(FormatLines(headents[i].hd_text, "",
-		       (term.t_ncol-headents[i].prlen), i) == -1){
+    for(i=headents; i->name; i++){		/* format each entry */
+	if(FormatLines(i->hd_text, "", (term.t_ncol - i->prlen),
+		       i->break_on_comma, 0) == -1){
 	    return(-1);
 	}
     }
 
     if(ComposerEditing)				/* restart at the top */
       HeaderFocus(ods.cur_e, offset);		/* fix cur_l and p_off */
-    else
-      HeaderFocus(SUBJHDR, -1);			/* put focus on last line */
+    else {
+      for(i = headents; i->name != NULL; i++);  /* Find last line */
+      i--;
+      HeaderFocus(i - headents, -1);		/* put focus on last line */
+    }
 
     if(ComposerTopLine != COMPOSER_TOP_LINE)
       UpdateHeader();
@@ -434,6 +397,7 @@ int	h, offset;
  *                  important key sequences, hand the hard work off
  *                  to LineEdit().  
  *	returns:
+ *              -2    if we drop out bottom *and* want to page forward
  *		-1    if we drop out the bottom 
  *		FALSE if editing is cancelled
  *		TRUE  if editing is finished
@@ -441,11 +405,13 @@ int	h, offset;
 HeaderEditor(f, n)
 int f, n;
 {
-    register  int	retval = -1;		/* return value */
     register  int	i;
     register  int	ch;
     register  int	status;			/* return status of something*/
     register  char	*bufp;
+    struct headerentry *h;
+    int                 cur_e, count, retval = -1;
+    char               *errmss;
 
     ComposerEditing = TRUE;
     display_delimiter(0);			/* provide feedback */
@@ -460,21 +426,44 @@ int f, n;
      * in the message text, else if f == 2, we moved into the header by
      * moving past the left edge of the top line in the message.  so, make 
      * the end of the last line of the last entry the current cursor position
+     * lastly, if f == 3, we moved into the header by hitting backpage() on
+     * the top line of the message, so scroll a page back.  
      */
     if(f){
-	/*
-	 * note: assumes that ods.cur_e and ods.cur_l haven't changed
-	 *       since we left...
-	 */
-	ods.p_line = ComposerTopLine - 2;
-	ods.p_off = 1000;
+	if(f == 2){				/* 2 leaves cursor at end  */
+	    struct hdr_line *l = ods.cur_l;
+	    int              e = ods.cur_e;
 
-	if(f==1){
+	    /*--- make sure on last field ---*/
+	    while(l = next_hline(&e, l))
+	      if(headents[ods.cur_e].display_it){
+		  ods.cur_l = l;
+		  ods.cur_e = e;
+	      }
+
+	    ods.p_off = 1000;			/* and make sure at EOL    */
+	}
+	else{
+	    /*
+	     * note: assumes that ods.cur_e and ods.cur_l haven't changed
+	     *       since we left...
+	     */
+
+	    /* fix postition */
 	    if(curwp->w_doto < headents[ods.cur_e].prlen)
 	      ods.p_off = 0;
 	    else if(curwp->w_doto < ods.p_off + headents[ods.cur_e].prlen)
 	      ods.p_off = curwp->w_doto - headents[ods.cur_e].prlen;
+	    else
+	      ods.p_off = 1000;
+
+	    /* and scroll back if needed */
+	    if(f == 3)
+	      for(i = 0; header_upline(0) && i <= FULL_SCR(); i++)
+		;
 	}
+
+	ods.p_line = ComposerTopLine - 2;
     }
     else{		/* use offset 0 of first line of first entry */
 	ods.p_line = COMPOSER_TOP_LINE;
@@ -484,30 +473,43 @@ int f, n;
     }
 
     InvertPrompt(ods.cur_e, TRUE);		/* highlight header field */
-    ShowPrompt();				/* display correct options */
+    sgarbk = 1;
 
     do{
+	if(sgarbk){
+	    ShowPrompt();			/* display correct options */
+	    sgarbk = 0;
+	}
+
 	ch = LineEdit(TRUE);			/* work on the current line */
 
         switch (ch){
 	  case (CTRL|'R') :			/* Toggle header display */
-#ifdef	ATTACHMENTS
-	    if(ods.cur_e == SUBJHDR || ods.cur_e == ATTCHDR)
-#else
-	    if(ods.cur_e == SUBJHDR)
-#endif
-	      InvertPrompt(ods.cur_e, FALSE);	/* don't leave inverted */
+            /*---- Are there any headers to expand above us? ---*/
+            for(h = headents; h != &headents[ods.cur_e]; h++)
+              if(h->rich_header)
+                break;
+            if(h->rich_header)
+	      InvertPrompt(ods.cur_e, FALSE);	/* Yes, don't leave inverted */
 
 	    if(partial_entries()){
-#ifdef	ATTACHMENTS
-		if(ods.cur_e > CCHDR && ods.cur_e < ATTCHDR){
+                /*--- Just turned off all rich headers --*/
+		if(headents[ods.cur_e].rich_header){
+                    /*-- current header got turned off too --*/
+                    /* Check below */
+                    for(cur_e =ods.cur_e; headents[cur_e].name!=NULL; cur_e++)
+                      if(!headents[cur_e].rich_header)
+                        break;
+                    if(headents[cur_e].name == NULL) {
+                        /* didn't find one, check above */
+                        for(cur_e =ods.cur_e; headents[cur_e].name!=NULL;
+                            cur_e--)
+                          if(!headents[cur_e].rich_header)
+                            break;
+
+                    }
 		    ods.p_off = 0;
-		    ods.cur_e = ATTCHDR;
-#else
-		if(ods.cur_e > CCHDR && ods.cur_e < SUBJHDR){
-		    ods.p_off = 0;
-		    ods.cur_e = SUBJHDR;
-#endif
+		    ods.cur_e = cur_e;
 		    ods.cur_l = headents[ods.cur_e].hd_text;
 		}
 	    }
@@ -519,35 +521,32 @@ int f, n;
 	    break;
 
 	  case (CTRL|'C') :			/* bag whole thing ?*/
-#ifdef	OLDWAY
-	    abort_composer(1, 0);
-#else
 	    if(abort_composer(1, 0) == TRUE)
-	      return(retval);
-#endif
+	      return(FALSE);
+
 	    break;
 
 	  case (CTRL|'X') :			/* Done. Send it. */
-#ifdef	ATTACHMENTS
 	    i = 0;
-	    if(ods.cur_e == ATTCHDR){
+#ifdef	ATTACHMENTS
+	    if(headents[ods.cur_e].is_attach){
 		/* verify the attachments, and pretty things up in case
 		 * we come back to the composer due to error...
 		 */
 		if((i = SyncAttach()) != 0){
 		    sleep(2);		/* give time for error to absorb */
-		    FormatLines(headents[ATTCHDR].hd_text, "",
-				term.t_ncol - headents[ATTCHDR].prlen,
-				ATTCHDR);
+		    FormatLines(headents[ods.cur_e].hd_text, "",
+				term.t_ncol - headents[ods.cur_e].prlen,
+				headents[ods.cur_e].break_on_comma, 0);
 		}
 	    }
 	    else
 #endif
-	    if(ods.cur_e==BCCHDR || ods.cur_e==TOHDR || ods.cur_e==CCHDR)
-	      i = resolve_niks(ods.cur_e);
+	    if(headents[ods.cur_e].builder)	/* verify text? */
+	      i = call_builder(&headents[ods.cur_e]) > 0;
 
 	    if(wquit(1,0) == TRUE)
-	      return(retval);
+	      return(TRUE);
 
 	    if(i){
 		/*
@@ -575,17 +574,14 @@ int f, n;
 	    break;
 
 	  case (CTRL|'O') :			/* Suspend message */
-	    if(ods.cur_e==BCCHDR || ods.cur_e==TOHDR || ods.cur_e==CCHDR){
-		resolve_niks(ods.cur_e);
-	    }
-#ifdef	ATTACHMENTS
-	    if(ods.cur_e == ATTCHDR){
+	    if(headents[ods.cur_e].is_attach){
 		if(SyncAttach() < 0){
 		    if(mlyesno("Problem with attachments. Postpone anyway?",
 			       FALSE) != TRUE){
-			if(FormatLines(headents[ATTCHDR].hd_text, "",
-				       term.t_ncol - headents[ATTCHDR].prlen,
-				       ATTCHDR) == -1)
+			if(FormatLines(headents[ods.cur_e].hd_text, "",
+				       term.t_ncol - headents[ods.cur_e].prlen,
+				       headents[ods.cur_e].break_on_comma,
+				       0) == -1)
 			  emlwrite("\007Format lines failed!", NULL);
 			UpdateHeader();
 			PaintHeader(COMPOSER_TOP_LINE, FALSE);
@@ -594,35 +590,70 @@ int f, n;
 		    }
 		}
 	    }
-#endif
-	    suspend_composer(1,0);
-	    return(retval);
-	    break;
+	    else if(headents[ods.cur_e].builder)
+	      call_builder(&headents[ods.cur_e]);
+
+	    suspend_composer(1, 0);
+	    return(TRUE);
 
 #ifdef	ATTACHMENTS
 	  case (CTRL|'J') :			/* handle attachments */
 	    { char fn[NLINE], sz[32], cmt[NLINE];
 
 	      if(AskAttach(fn, sz, cmt)){
-		  /* update display */
-		  sprintf(s, "%s (%s) \"%s\"%s", fn, sz, cmt, 
-			  (headents[ATTCHDR].hd_text->text[0]=='\0') ? "":",");
+		  int	 a_e;
+		  struct hdr_line *lp;
 
-		  if(FormatLines(headents[ATTCHDR].hd_text, s,
-				 term.t_ncol - headents[ATTCHDR].prlen,
-				 ATTCHDR) == -1){
-		      emlwrite("\007Format lines failed!", NULL);
+                  /*--- Find headerentry that is attachments (only first) --*/
+                  for(a_e = 0; headents[a_e].name != NULL; a_e++ )
+                    if(headents[a_e].is_attach){
+			/* make sure field stays displayed */
+			headents[a_e].rich_header = 0;
+			headents[a_e].display_it = 1;
+			break;
+		    }
+
+		  /* append new attachment line */
+		  for(lp = headents[a_e].hd_text; lp->next; lp=lp->next)
+		    ;
+
+		  /* build new attachment line */
+		  if(lp->text[0]){		/* adding a line? */
+		      strcat(lp->text, ",");	/* append delimiter */
+		      if(lp->next = HALLOC()){	/* allocate new line */
+			  lp->next->prev = lp;
+			  lp->next->next = NULL;
+			  lp = lp->next;
+		      }
+		      else{
+			  emlwrite(
+				 "\007Can't allocate line for new attachment!",
+				 NULL);
+			  break;
+		      }
 		  }
 
-		  if(SyncAttach() < 0)
-		    emlwrite("\007Problem attaching: %s", fn);
+		  sprintf(lp->text, "%s (%s) \"%.*s\"", fn, sz, 80, cmt);
+
+		  /* validate the new attachment, and reformat if needed */
+		  if(status = SyncAttach()){
+		      if(status < 0)
+			emlwrite("\007Problem attaching: %s", fn);
+
+		      if(FormatLines(headents[a_e].hd_text, "",
+				     term.t_ncol - headents[a_e].prlen,
+				     headents[a_e].break_on_comma, 0) == -1){
+			  emlwrite("\007Format lines failed!", NULL);
+			  break;
+		      }
+		  }
 
 		  UpdateHeader();
-		  PaintHeader(COMPOSER_TOP_LINE, FALSE);
+		  PaintHeader(COMPOSER_TOP_LINE, status != 0);
 		  PaintBody(1);
 	      }
 
-	      ShowPrompt();			/* clean up prompt */
+	      sgarbk = 1;			/* clean up prompt */
 	    }
 	    break;
 #endif
@@ -632,168 +663,91 @@ int f, n;
 
 	  case (CTRL|'N') :
 	  case K_PAD_DOWN :
-	    if((++ods.p_line >= (ComposerTopLine - 1))    /* stop? */
-	       && (ods.cur_e == LASTHDR && ods.cur_l->next == NULL)){
-		ods.p_line = ComposerTopLine;
-		if(ComposerTopLine == BOTTOM()){
-		    UpdateHeader();
-		    PaintHeader(COMPOSER_TOP_LINE, FALSE);
-		    PaintBody(1);
-		}
-		ods.p_line = ComposerTopLine;
-		InvertPrompt(ods.cur_e, FALSE);
-	    }
-	    else{
-		status = ods.p_line >= BOTTOM();
-		
-		i = ods.cur_e;			/* prepare for shifted cur_e */
-		ods.cur_l = next_line(&ods.cur_e, ods.cur_l);
-
-		if(i != ods.cur_e){	/* new field ! */
-		    InvertPrompt(i, FALSE);
-		    switch(i){
-		      case TOHDR:
-		      case CCHDR:
-		      case BCCHDR:
-			/* 
-			 * because of the way resolve_niks works top_l
-			 * may get broken...
-			 */
-			if((i=resolve_niks(i)) != -1){
-			    if(status || i){
-				ods.p_line = 0; /* force new top line */
-				status = TRUE;
-			    }
-			}
-			break;
-#ifdef	ATTACHMENTS
-		      case ATTCHDR:
-			/*
-			 * make sure things are in order, check files
-			 * and comments
-			 */
-			if(status = SyncAttach()){ /* fixup if 1 or -1 */
-			    if(FormatLines(headents[ATTCHDR].hd_text, "",
-					   term.t_ncol-headents[ATTCHDR].prlen,
-					   ATTCHDR) == -1)
-			      emlwrite("\007Format lines failed!", NULL);
-			}
-			break;
-#endif
-		      default:
-			break;
-		    }
-		    InvertPrompt(ods.cur_e, TRUE);
-		    ShowPrompt();
-		}
-
-		if(ods.p_off > strlen(ods.cur_l->text))
-		  ods.p_off = strlen(ods.cur_l->text);
-
-		if(status){
-		    UpdateHeader();
-		    PaintHeader(COMPOSER_TOP_LINE, FALSE);
-		    PaintBody(1);
-		}
-	    }
+	    header_downline(1);
 	    break;
 
 	  case (CTRL|'P') :
 	  case K_PAD_UP :
-	    if(ods.cur_e == TOHDR && ods.cur_l->prev == NULL){
-		emlwrite("Can't move beyond top of header", NULL);
-	    }
-	    else{
-		if(ods.p_line-- == COMPOSER_TOP_LINE)
-		  status = TRUE;		/* refigure bounds */
-		else
-		  status = FALSE;
-
-		i = ods.cur_e;
-		ods.cur_l = prev_line(&ods.cur_e, ods.cur_l);
-		if(ods.p_off > strlen(ods.cur_l->text))
-		  ods.p_off = strlen(ods.cur_l->text);
-
-		if(i != ods.cur_e){		/* new field ! */
-		    InvertPrompt(i, FALSE);
-		    switch(i){
-		      case TOHDR:
-		      case CCHDR:
-		      case BCCHDR:
-			if((i = resolve_niks(i)) != -1)
-			  if(status || i)
-			    status = TRUE;
-			break;
-#ifdef	ATTACHMENTS
-		      case ATTCHDR:
-			/*
-			 * Check that attachments are in order
-			 */
-			if(status = SyncAttach()){	/* returns 1 or -1 */
-			    if(FormatLines(headents[ATTCHDR].hd_text, "",
-					   term.t_ncol - headents[ATTCHDR].prlen,
-					   ATTCHDR) == -1)
-			      emlwrite("\007Format lines failed!", NULL);
-			}
-			break;
-#endif
-		      default:
-			break;
-		    }
-		    InvertPrompt(ods.cur_e, TRUE);
-		    ShowPrompt();
-		}
-		if(status){
-		    UpdateHeader();
-		    PaintHeader(COMPOSER_TOP_LINE, FALSE);
-		    PaintBody(1);
-		}
-	    }
+	    header_upline(1);
 	    break;
 
-	  case (CTRL|'T') :			/* address book. */
-	    if(ods.cur_e == FCCHDR){
-		if((*Pmaster->folders)(s))		/* pine call */
-		  strcpy(headents[FCCHDR].hd_text->text, s);
+	  case (CTRL|'V') :			/* down a page */
+	    cur_e = ods.cur_e;
+	    if(!next_hline(&cur_e, ods.cur_l)){
+		header_downline(1); 		/* cause us to return */
+		retval = -2;
 	    }
-	    else if(ods.cur_e==BCCHDR || ods.cur_e==TOHDR || ods.cur_e==CCHDR){
-		if((bufp = (*Pmaster->addrbook)(1)) != NULL){	/* pine call */
-		    if(ods.cur_l->text[0] != '\0')
-		      strcat(bufp, ", ");
-		    if(FormatLines(ods.cur_l, bufp,
-				   (term.t_ncol-headents[ods.cur_e].prlen), 
-				   ods.cur_e) == -1){
-			emlwrite("Problem adding address to header !", NULL);
-			(*term.t_beep)();
-			break;
-		    }
-		    UpdateHeader();
-		}
-	    }
-#ifdef	ATTACHMENTS
-	    else if(ods.cur_e == ATTCHDR){
+	    else
+	      for(i = 0; i <= FULL_SCR() && header_downline(0); i++)
+		;
+
+	    break;
+
+	  case (CTRL|'Y') :			/* up a page */
+	    for(i = 0; header_upline(0) && i <= FULL_SCR(); i++)
+	      if(i < 0)
+		break;
+
+	    break;
+
+	  case (CTRL|'T') :			/* Call field selector */
+            if(headents[ods.cur_e].is_attach) {
+                /*--- selector for attachments ----*/
 		char dir[NLINE], fn[NLINE], sz[NLINE];
 
-		strcpy(dir, gethomedir(NULL));
-		switch(FileBrowse(dir, fn, sz)){
-		  case 1:			/* got a new file */
-		    sprintf(s, "%s%c%s (%s) \"\"%s", dir, C_FILESEP, fn, sz, 
-			  (headents[ATTCHDR].hd_text->text[0] == '\0') ? "" : ",");
-		    if(FormatLines(headents[ATTCHDR].hd_text, s,
-				   term.t_ncol - headents[ATTCHDR].prlen,
-				   ATTCHDR) == -1){
+		strcpy(dir, gmode&MDCURDIR ? "." : gethomedir(NULL));
+		fn[0] = '\0';
+		if(FileBrowse(dir, fn, sz, FB_READ) == 1){ /* got a new file */
+		    char buf[NLINE];
+		    sprintf(buf, "%s%c%s (%s) \"\"%s", dir, C_FILESEP, fn, sz, 
+			    (!headents[ods.cur_e].hd_text->text[0]) ? "":",");
+		    if(FormatLines(headents[ods.cur_e].hd_text, buf,
+				   term.t_ncol - headents[ods.cur_e].prlen,
+				   headents[ods.cur_e].break_on_comma,0)==-1){
 			emlwrite("\007Format lines failed!", NULL);
 		    }
+
 		    UpdateHeader();
-		    break;
-		  case 0:			/* nothing of interest */
-		    break;
-		  default:
-		    break;
-		}
-	    }
-#endif
-	    else{
+		}				/* else, nothing of interest */
+            } else if (headents[ods.cur_e].selector != NULL) {
+                /*---- General selector for non-attachments -----*/
+                errmss = NULL;
+                bufp = (*(headents[ods.cur_e].selector))(&errmss);
+                if(bufp != NULL) {
+                    if(headents[ods.cur_e].break_on_comma) {
+                        /*--- Must be an address ---*/
+                        if(ods.cur_l->text[0] != '\0'){
+			    for(i = ++ods.p_len; i; i--)
+			      ods.cur_l->text[i] = ods.cur_l->text[i-1];
+
+			    ods.cur_l->text[0] = ',';
+			}
+
+                        if(FormatLines(ods.cur_l, bufp,
+				      (term.t_ncol-headents[ods.cur_e].prlen), 
+                                      headents[ods.cur_e].break_on_comma,
+				      0) == -1){
+                            emlwrite("Problem adding address to header !",
+                                     NULL);
+                            (*term.t_beep)();
+                            break;
+                        }
+
+    		        UpdateHeader();
+			free(bufp);
+                    } else {
+                        strcpy(headents[ods.cur_e].hd_text->text, bufp);
+                    }
+    	            PaintBody(0); /* Repaint entire screen */
+		} else {
+    	            PaintBody(0); /* Repaint entire screen,then error msg */
+                    if(errmss != NULL) {
+                        (*term.t_beep)();
+	                emlwrite(errmss, NULL);
+                    }
+                }
+	    } else {
+                /*----- No selector -----*/
 		(*term.t_beep)();
 		continue;
 	    }
@@ -827,6 +781,131 @@ int f, n;
     return(retval);
 }
 
+
+/*
+ *
+ */
+int
+header_downline(beyond)
+     int beyond;
+{
+    struct hdr_line *new_l;
+    int    new_e, status, fullpaint, len;
+
+    /* calculate the next line: physical *and* logical */
+    status    = 0;
+    new_e     = ods.cur_e;
+    if((new_l = next_hline(&new_e, ods.cur_l)) == NULL && !beyond)
+      return(0);
+
+    fullpaint = ++ods.p_line >= BOTTOM();	/* force full redraw?       */
+
+    /* expand what needs expanding */
+    if(new_e != ods.cur_e || !new_l){		/* new (or last) field !    */
+	if(new_l)
+	  InvertPrompt(ods.cur_e, FALSE);	/* turn off current entry   */
+
+	if(headents[ods.cur_e].is_attach) {	/* varify data ?	    */
+	    if(status = SyncAttach()){		/* fixup if 1 or -1	    */
+		headents[ods.cur_e].rich_header = 0;
+		if(FormatLines(headents[ods.cur_e].hd_text, "",
+			       term.t_ncol-headents[new_e].prlen,
+			       headents[ods.cur_e].break_on_comma, 0) == -1)
+		  emlwrite("\007Format lines failed!", NULL);
+	    }
+	} else if(headents[ods.cur_e].builder) { /* expand addresses	    */
+	    if(status = (call_builder(&headents[ods.cur_e]) > 0)){
+		struct hdr_line *l;		/* fixup ods.cur_l */
+		ods.p_line = 0;			/* force top line recalc */
+		for(l = headents[ods.cur_e].hd_text; l; l = l->next)
+		  ods.cur_l = l;
+
+		NewTop();			/* get new top_l */
+	    }
+	}
+
+	if(new_l){				/* if one below, turn it on */
+	    InvertPrompt(new_e, TRUE);
+	    sgarbk = 1;				/* paint keymenu too	    */
+	}
+    }
+
+    if(new_l){					/* fixup new pointers	    */
+	ods.cur_l = (ods.cur_e != new_e) ? headents[new_e].hd_text : new_l;
+	ods.cur_e = new_e;
+	if(ods.p_off > (len = strlen(ods.cur_l->text)))
+	  ods.p_off = len;
+    }
+
+    if(!new_l || status || fullpaint){		/* handle big screen paint  */
+	UpdateHeader();
+	PaintHeader(COMPOSER_TOP_LINE, FALSE);
+	PaintBody(1);
+
+	if(!new_l){				/* make sure we're done     */
+	    ods.p_line = ComposerTopLine;
+	    InvertPrompt(ods.cur_e, FALSE);	/* turn off current entry   */
+	}
+    }
+
+    return(new_l ? 1 : 0);
+}
+
+
+/*
+ *
+ */
+int
+header_upline(gripe)
+    int gripe;
+{
+    struct hdr_line *new_l;
+    int    new_e, status, fullpaint, len;
+
+    /* calculate the next line: physical *and* logical */
+    status    = 0;
+    fullpaint = ods.p_line-- == COMPOSER_TOP_LINE;
+    new_e     = ods.cur_e;
+    if(!(new_l = prev_hline(&new_e, ods.cur_l))){	/* all the way up! */
+	ods.p_line = COMPOSER_TOP_LINE;
+	if(gripe)
+	  emlwrite("Can't move beyond top of header", NULL);
+
+	return(0);
+    }
+
+    if(new_e != ods.cur_e){			/* new field ! */
+	InvertPrompt(ods.cur_e, FALSE);
+	if(headents[ods.cur_e].is_attach){
+	    if(status = SyncAttach()){		/* non-zero ? reformat field */
+		headents[ods.cur_e].rich_header = 0;
+		if(FormatLines(headents[ods.cur_e].hd_text, "",
+			       term.t_ncol - headents[ods.cur_e].prlen,
+			       headents[ods.cur_e].break_on_comma,0) == -1)
+		  emlwrite("\007Format lines failed!", NULL);
+	    }
+	}
+	else if(headents[ods.cur_e].builder){
+	    status = call_builder(&headents[ods.cur_e]) > 0;
+	}
+
+	InvertPrompt(new_e, TRUE);
+	sgarbk = 1;
+    }
+
+    ods.cur_e = new_e;				/* update pointers */
+    ods.cur_l = new_l;
+    if(ods.p_off > (len = strlen(ods.cur_l->text)))
+      ods.p_off = len;
+
+    if(status || fullpaint){
+	UpdateHeader();
+	PaintHeader(COMPOSER_TOP_LINE, FALSE);
+	PaintBody(1);
+    }
+
+    return(1);
+}
 
 
 
@@ -896,7 +975,7 @@ int	allowedit;
 	}
 
         if(mpresf){				/* blast old messages */
-	    if(mpresf++ > MESSDELAY){		/* every few keystrokes */
+	    if(mpresf++ > NMMESSDELAY){		/* every few keystrokes */
 		mlerase();
 		movecursor(ods.p_line, ods.p_off+headents[ods.cur_e].prlen);
 	    }
@@ -911,17 +990,17 @@ int	allowedit;
              * index of the character after the inserted ch ...
              */
             if(allowedit){
-		if(ods.cur_e == FCCHDR && !fallowc((char)ch)){
+		if(headents[ods.cur_e].only_file_chars && !fallowc((char)ch)){
 		    /* no garbage in filenames */
 		    emlwrite("\007Can't have a '%c' in folder name",(void *)ch);
 		    continue;
 		}
-		else if(ods.cur_e == ATTCHDR && intag(strng, ods.p_off)){
+		else if(headents[ods.cur_e].is_attach && intag(strng,ods.p_off)){
 		    emlwrite("\007Can't edit attachment number!", NULL);
 		    continue;
 		}
 
-		if(ods.cur_e != SUBJHDR){	/* single spaced except subj.*/
+		if(headents[ods.cur_e].single_space){
 		    if(ch == ' ' 
 		       && (strng[ods.p_off]==' ' || strng[ods.p_off-1]==' '))
 		      continue;
@@ -935,6 +1014,9 @@ int	allowedit;
 		    *tbufp = tbufp[-1];
 		} while(--tbufp > &strng[ods.p_off]);	/* shift right */
 		strng[ods.p_off++] = ch;	/* add char to str */
+
+		/* make this entry sticky */
+		headents[ods.cur_e].sticky = 1;
 
 		/*
 		 * then find out where things fit...
@@ -951,7 +1033,7 @@ int	allowedit;
 		}
 		else{
                     if((status = FormatLines(ods.cur_l, "", LINELEN(), 
-					     ods.cur_e)) == -1){
+    			        headents[ods.cur_e].break_on_comma,0)) == -1){
                         (*term.t_beep)();
                         continue;
                     }
@@ -982,22 +1064,17 @@ int	allowedit;
         else {					/* interpret ch as a command */
             switch (ch = normal(ch, ckm, 2)) {
 	      case (CTRL|'@') :		/* word skip */
-		while(!isspace(strng[ods.p_off])){
-		    if(ods.p_off == strlen(strng)){
-			ods.p_off = 0;
-			return(K_PAD_DOWN);
-		    }
-		    else
-		      ods.p_off++;
-		}
-		/* 
-		 * move past the space, if that's the end of the line,
-		 * move to the next...
-		 */
-		if(strng[++ods.p_off] == '\0'){
-		    ods.p_off = 0;
+		while(strng[ods.p_off] && !isspace(strng[ods.p_off]))
+		  ods.p_off++;		/* skip any text we're in */
+
+		while(strng[ods.p_off] && isspace(strng[ods.p_off]))
+		  ods.p_off++;		/* skip any whitespace after it */
+
+		if(strng[ods.p_off] == '\0'){
+		    ods.p_off = 0;	/* end of line, let caller handle it */
 		    return(K_PAD_DOWN);
 		}
+
 		continue;
 
 	      case (CTRL|'K') :			/* kill line cursor's on */
@@ -1005,9 +1082,9 @@ int	allowedit;
 		ods.p_off = 0;
 
 		if(ods.cur_l->next != NULL && ods.cur_l->prev != NULL)
-		  ods.cur_l = next_line(&ods.cur_e, ods.cur_l);
+		  ods.cur_l = next_hline(&ods.cur_e, ods.cur_l);
 		else if(ods.cur_l->prev != NULL)
-		  ods.cur_l = prev_line(&ods.cur_e, ods.cur_l);
+		  ods.cur_l = prev_hline(&ods.cur_e, ods.cur_l);
 
 		if(KillHeaderLine(lp, (last_key == (CTRL|'K')))){
 		    if(optimize && 
@@ -1024,6 +1101,7 @@ int	allowedit;
 		}
 		strng = ods.cur_l->text;
 		ods.p_len = strlen(strng);
+		headents[ods.cur_e].sticky = 1;
 		continue;
 
 	      case (CTRL|'U') :			/* un-delete deleted lines */
@@ -1035,6 +1113,7 @@ int	allowedit;
 		    ods.p_off = 0;		/* dot hasn't moved! */
 		    strng = ods.cur_l->text;
 		    ods.p_len = strlen(strng);
+		    headents[ods.cur_e].sticky = 1;
 		}
 		else
 		  emlwrite("Problem Unkilling text", NULL);
@@ -1084,11 +1163,12 @@ int	allowedit;
 		else if(ods.p_off >= strlen(strng))
 		  continue;
 
-		if(ods.cur_e == ATTCHDR && intag(strng, ods.p_off)){
+		if(headents[ods.cur_e].is_attach && intag(strng, ods.p_off)){
 		    emlwrite("\007Can't edit attachment number!", NULL);
 		    continue;
 		}
 
+		headents[ods.cur_e].sticky = 1;
 		pputc(strng[ods.p_off++], 0); 	/* drop through and rubout */
 
 	      case 0x7f       :			/* blast previous char */
@@ -1098,7 +1178,7 @@ int	allowedit;
 		    continue;
 		}
 
-		if(ods.cur_e == ATTCHDR && intag(strng, ods.p_off - 1)){
+		if(headents[ods.cur_e].is_attach && intag(strng, ods.p_off-1)){
 		    emlwrite("\007Can't edit attachment number!", NULL);
 		    continue;
 		}
@@ -1132,7 +1212,7 @@ int	allowedit;
 		}
 
 		if((status = FormatLines(ods.cur_l, "", LINELEN(), 
-					 ods.cur_e)) == -1){
+				   headents[ods.cur_e].break_on_comma,0))==-1){
 		    (*term.t_beep)();
 		    continue;
 		}
@@ -1156,6 +1236,8 @@ int	allowedit;
 		}
 
 		movecursor(ods.p_line, ods.p_off+headents[ods.cur_e].prlen);
+
+		headents[ods.cur_e].sticky = 1;
 
 		if(skipmove)
 		  continue;
@@ -1184,33 +1266,24 @@ int	allowedit;
  *               all lines below for proper format.
  *
  *	notes:
- *		this thing is where the actual header formatting gets done.
- *		currently, all line breaks are done on commas.  this could 
- *		be a problem if, in the subject field, not breaking on 
- *		spaces becomes objectionable.  all that needs to be done
- *		is that this func gets passed the entry as well as the 
- *		line pointer, and the entry gets compared to SUBJHDR and
- *		the appropriate break character set when calling 
- *		break_point().
- *
- *		also, i haven't done much optimization at all.  right now,
- *		FormatLines recursively fixes all remaining lines in the
- *		entry.  some speed might gained if this was built to
- *		iteratively scan the lines.
+ *		Not much optimization at all.  Right now, it recursively
+ *		fixes all remaining lines in the entry.  Some speed might
+ *		gained if this was built to iteratively scan the lines.
  *
  *	returns:
  *		-1 on error
  *		FALSE if only this line is changed
  *		TRUE  if text below the first line is changed
  */
-FormatLines(h, instr, maxlen, entry)
+FormatLines(h, instr, maxlen, break_on_comma, quoted)
 struct  hdr_line  *h;				/* where to begin formatting */
 char	*instr;					/* input string */
 int	maxlen;					/* max chars on a line */
-int	entry;					/* which header field */
+int	break_on_comma;				/* break lines on commas */
+int	quoted;					/* this line inside quotes */
 {
     int		retval = FALSE;
-    register	int	i, l, addr;
+    register	int	i, l;
     char	*ostr;				/* pointer to output string */
     register	char	*breakp;		/* pointer to line break */
     register	char	*bp, *tp;		/* temporary pointers */
@@ -1220,24 +1293,15 @@ int	entry;					/* which header field */
     ostr = h->text;
     nlp = h->next;
     l = strlen(instr) + strlen(ostr);
-    addr = (entry == TOHDR || entry == CCHDR 
-#ifdef	ATTACHMENTS
-	    || entry == BCCHDR || entry == ATTCHDR); /* ATTCHDR breaks on ,s too */
-#else
-	    || entry == BCCHDR);
-#endif
     if((buf = (char *)malloc(l+10)) == NULL)
       return(-1);
 
     if(l >= maxlen){				/* break then fixup below */
 	if(strlen(instr) < maxlen){		/* room for more */
 
-	    if(addr && ((bp = (char *)strchr(instr, ',')) != NULL)){
-		if(bp[1] == ' ')
-		  bp += 2;
-		else
-		  bp++;
-		for(tp = bp;*tp != '\0' && *tp == ' '; tp++)
+	    if(break_on_comma && (bp = (char *)strqchr(instr, ',', &quoted))){
+		bp += (bp[1] == ' ') ? 2 : 1;
+		for(tp = bp; *tp && *tp == ' '; tp++)
 		  ;
 
 		strcpy(buf, tp);
@@ -1248,18 +1312,22 @@ int	entry;					/* which header field */
 		retval = TRUE;
 	    }
 	    else{
-
 		breakp = break_point(ostr, maxlen-strlen(instr),
-				     addr ? ',' : ' ');
+				     break_on_comma ? ',' : ' ',
+				     break_on_comma ? &quoted : NULL);
 
-		if(breakp == ostr){		/* no good breakpoint */
-		    if(strchr(instr, addr ? ',' : ' ') == NULL){ /* cont'd */
-			breakp = &ostr[maxlen-strlen(instr)-1];
+		if(breakp == ostr){	/* no good breakpoint */
+		    if(break_on_comma && *breakp == ','){
+			breakp = ostr + 1;
 			retval = TRUE;
 		    }
-		    else{	/* instr's as broken as we can get it */
+		    else if(strchr(instr,(break_on_comma && !quoted)?',':' ')){
 			strcpy(buf, ostr);
 			strcpy(ostr, instr);
+		    }
+		    else{		/* instr's broken as we can get it */
+			breakp = &ostr[maxlen-strlen(instr)-1];
+			retval = TRUE;
 		    }
 		}
 		else
@@ -1285,19 +1353,14 @@ int	entry;					/* which header field */
 	    }
 	}
 	else{					/* instr > maxlen ! */
-	    if(addr){
-		if(((bp=(char *)strchr(instr, ',')) == NULL) 
-		   || bp - instr >= maxlen)
-		  breakp = &instr[maxlen];
-		else{
-		    if(bp[1] == ' ')
-		      breakp = bp + 2;
-		    else
-		      breakp = bp + 1;
-		}
+	    if(break_on_comma){
+		breakp = (!(bp = strqchr(instr, ',', &quoted))
+			  || bp - instr >= maxlen)
+			   ? &instr[maxlen]
+			   : bp + ((bp[1] == ' ') ? 2 : 1);
 	    }
 	    else{
-		breakp = break_point(instr, maxlen, ' ');
+		breakp = break_point(instr, maxlen, ' ', NULL);
 
 		if(breakp == instr)		/* no good break point */
 		  breakp = &instr[maxlen - 1];
@@ -1307,6 +1370,7 @@ int	entry;					/* which header field */
 	    strcat(buf, ostr);			/* add line that was there */
 	    for(tp=ostr,bp=instr; bp < breakp; tp++, bp++)
 	      *tp = *bp;
+
 	    *tp = '\0';
 	}
 
@@ -1317,9 +1381,8 @@ int	entry;					/* which header field */
 		return(-1);
 	    }
 
-	    if(optimize)
-	      if((i=physical_line(h)) != -1)
-		  scrolldown(wheadp, i-1, 1);
+	    if(optimize && (i = physical_line(h)) != -1)
+	      scrolldown(wheadp, i - 1, 1);
 
 	    h->next = lp;			/* fix up links */
 	    lp->prev = h;
@@ -1332,63 +1395,52 @@ int	entry;					/* which header field */
 	    retval = FALSE;
     }
     else{					/* combined length < max */
-	if(*instr != '\0'){
+	if(*instr){
 	    strcpy(buf, instr);			/* insert instr before ostr */
 	    strcat(buf, ostr);
 	    strcpy(ostr, buf);
 	}
+
 	*buf = '\0';
 	breakp = NULL;
 
-	if(addr && (breakp=(char *)strchr(ostr, ',')) != NULL){
-	    if(breakp[1] == ' ')
-	      breakp += 2;
-	    else
-	      breakp++;
-
+	if(break_on_comma && (breakp = strqchr(ostr, ',', &quoted))){
+	    breakp += (breakp[1] == ' ') ? 2 : 1;
 	    strcpy(buf, breakp);
 	    *breakp = '\0';
 
-	    if(strlen(buf)){
-		if(nlp == NULL){
-		    if((lp = HALLOC()) == NULL){
-			emlwrite("Can't allocate any more lines for header!", NULL);
-			free(buf);
-			return(-1);
-		    }
-
-		    if(optimize)
-		      if((i=physical_line(h)) != -1)
-			scrolldown(wheadp, i-1, 1);
-
-		    h->next = lp;		/* fix up links */
-		    lp->prev = h;
-		    lp->next = NULL;
-		    lp->text[0] = '\0';
-		    nlp = lp;
-		    retval = TRUE;
+	    if(strlen(buf) && !nlp){
+		if((lp = HALLOC()) == NULL){
+		    emlwrite("Can't allocate any more lines for header!",NULL);
+		    free(buf);
+		    return(-1);
 		}
+
+		if(optimize && (i = physical_line(h)) != -1)
+		  scrolldown(wheadp, i - 1, 1);
+
+		h->next = lp;		/* fix up links */
+		lp->prev = h;
+		lp->next = NULL;
+		lp->text[0] = '\0';
+		nlp = lp;
+		retval = TRUE;
 	    }
 	}
 
-	if(nlp == NULL){
-	    free(buf);
-	    return(FALSE);
-	}
-	else{
-	    if(!strlen(buf) && breakp == NULL){
+	if(nlp){
+	    if(!strlen(buf) && !breakp){
 		if(strlen(ostr) + strlen(nlp->text) >= maxlen){
 		    breakp = break_point(nlp->text, maxlen-strlen(ostr), 
-					 addr ? ',' : ' ');
+					 break_on_comma ? ',' : ' ',
+					 break_on_comma ? &quoted : NULL);
 		    
 		    if(breakp == nlp->text){	/* commas this line? */
-			for(tp=ostr; *tp != '\0'; tp++){
-			    if(*tp == (addr ? ',' : ' '))
-			      break;
-			}
-			if(*tp == '\0'){
-			    /* no commas, get next best break point */
-			    breakp += maxlen-strlen(ostr)-1;
+			for(tp=ostr; *tp  && *tp != ' '; tp++)
+			  ;
+
+			if(!*tp){		/* no commas, get next best */
+			    breakp += maxlen - strlen(ostr) - 1;
 			    retval = TRUE;
 			}
 			else
@@ -1410,13 +1462,12 @@ int	entry;					/* which header field */
 		else{
 		    strcat(ostr, nlp->text);
 
-		    if(optimize)
-		      if((i=physical_line(nlp)) != -1)
-			scrollup(wheadp, i, 1);
+		    if(optimize && (i = physical_line(nlp)) != -1)
+		      scrollup(wheadp, i, 1);
 
 		    hldelete(nlp);
 
-		    if((nlp = h->next) == NULL){
+		    if(!(nlp = h->next)){
 			free(buf);
 			return(TRUE);		/* can't go further */
 		    }
@@ -1425,9 +1476,14 @@ int	entry;					/* which header field */
 		}
 	    }
 	}
+	else{
+	    free(buf);
+	    return(FALSE);
+	}
+
     }
 
-    i = FormatLines(nlp, buf, maxlen, entry);	/* add buf below */
+    i = FormatLines(nlp, buf, maxlen, break_on_comma, quoted);
     free(buf);
     switch(i){
       case -1:					/* bubble up worst case */
@@ -1450,13 +1506,14 @@ int	entry;					/* which header field */
  */
 void
 PaintHeader(line, clear)
-int	line;					/* physical line on screen   */
-int	clear;					/* clear before painting */
+    int	line;					/* physical line on screen   */
+    int	clear;					/* clear before painting */
 {
     register struct hdr_line	*lp;
     register char	*bufp;
     register int	curline;
     register int	curoffset;
+    char     buf[NLINE];
     int      e;
 
     if(clear)
@@ -1465,23 +1522,23 @@ int	clear;					/* clear before painting */
     curline   = COMPOSER_TOP_LINE;
     curoffset = 0;
 
-    for(lp=ods.top_l, e=ods.top_e; ; curline++){
-	if((curline == line) || ((lp = next_line(&e, lp)) == NULL))
+    for(lp = ods.top_l, e = ods.top_e; ; curline++){
+	if((curline == line) || ((lp = next_hline(&e, lp)) == NULL))
 	  break;
     }
 
-    while(e <= LASTHDR){			/* begin to redraw */
+    while(headents[e].name != NULL){			/* begin to redraw */
 	while(lp != NULL){
-	    *s = '\0';
+	    buf[0] = '\0';
             if((!lp->prev || curline == COMPOSER_TOP_LINE) && !curoffset){
 	        if(InvertPrompt(e, (e == ods.cur_e && ComposerEditing)) == -1
 		   && !is_blank(curline, 0, headents[e].prlen))
-		   sprintf(s, "          ");
+		   sprintf(buf, "          ");
 	    }
 	    else if(!is_blank(curline, 0, headents[e].prlen))
-	      sprintf(s, "          ");
+	      sprintf(buf, "          ");
 
-	    if(*(bufp = s) != '\0'){		/* need to paint? */
+	    if(*(bufp = buf) != '\0'){		/* need to paint? */
 		movecursor(curline, 0);		/* paint the line... */
 		while(*bufp != '\0')
 		  pputc(*bufp++, 0);
@@ -1491,7 +1548,8 @@ int	clear;					/* clear before painting */
 	    curoffset += headents[e].prlen;
 	    while(*bufp == pscr(curline, curoffset)->c && *bufp != '\0'){
 		bufp++;
-		curoffset++;
+		if(++curoffset >= term.t_ncol)
+		  break;
 	    }
 
 	    if(*bufp != '\0'){			/* need to move? */
@@ -1516,10 +1574,10 @@ int	clear;					/* clear before painting */
 	    lp = lp->next;
         }
 
-	if(curline == BOTTOM())
+	if(curline >= BOTTOM())
 	  return;				/* don't paint delimiter */
 
-	while(++e <= LASTHDR)
+	while(headents[++e].name != NULL)
 	  if(headents[e].display_it){
 	      lp = headents[e].hd_text;
 	      break;
@@ -1567,13 +1625,14 @@ ArrangeHeader()
     register struct hdr_line *l;
 
     ods.p_line = ods.p_off = 0;
-    e = ods.top_e = TOHDR;
+    e = ods.top_e = 0;
     l = ods.top_l = headents[e].hd_text;
-    while(!(e == LASTHDR && l->next == NULL))
-      l = next_line(&e, l);
+    while(headents[e+1].name || (l && l->next))
+      if(l = next_hline(&e, l)){
+	  ods.cur_l = l;
+	  ods.cur_e = e;
+      }
 
-    ods.cur_l = l;
-    ods.cur_e = e;
     UpdateHeader();
 }
 
@@ -1585,16 +1644,20 @@ ArrangeHeader()
 ComposerHelp(level)
 int	level;
 {
+    char buf[80];
+
     curwp->w_flag |= WFMODE;
     sgarbf = TRUE;
 
-    if(level < 0 || level > LASTHDR){
+    if(level < 0 || !headents[level].name){
 	(*term.t_beep)();
 	emlwrite("Sorry, I can't help you with that.", NULL);
+	sleep(2);
 	return(FALSE);
     }
-    sprintf(s,"Help for Composer %s Field", headents[level].name);
-    (*Pmaster->helper)(headents[level].help, s, 1);
+
+    sprintf(buf, "Help for Composer %.40s Field", headents[level].name);
+    (*Pmaster->helper)(headents[level].help, buf, 1);
 }
 
 
@@ -1639,7 +1702,7 @@ HeaderLen()
     lp = ods.top_l;
     e  = ods.top_e;
     while(lp != NULL){
-	lp = next_line(&e, lp);
+	lp = next_hline(&e, lp);
 	i++;
     }
     return(i);
@@ -1648,22 +1711,46 @@ HeaderLen()
 
 
 /*
- * next_line() - return a pointer to the next line structure
+ * first_hline() - return a pointer to the first displayable header line
+ * 
+ *	returns:
+ *		1) pointer to first displayable line in header and header
+ *                 entry, via side effect, that the first line is a part of
+ *              2) NULL if no next line, leaving entry at LASTHDR
+ */
+struct hdr_line *
+first_hline(entry)
+    int *entry;
+{
+    /* init *entry so we're sure to start from the top */
+    for(*entry = 0; headents[*entry].name; (*entry)++)
+      if(headents[*entry].display_it)
+	return(headents[*entry].hd_text);
+
+    *entry = 0;
+    return(NULL);		/* this shouldn't happen */
+}
+
+
+
+/*
+ * next_hline() - return a pointer to the next line structure
  * 
  *	returns:
  *		1) pointer to next displayable line in header and header
  *                 entry, via side effect, that the next line is a part of
  *              2) NULL if no next line, leaving entry at LASTHDR
  */
-static struct hdr_line *next_line(entry, line)
-int *entry;
-struct hdr_line *line;
+struct hdr_line *
+next_hline(entry, line)
+    int *entry;
+    struct hdr_line *line;
 {
     if(line == NULL)
       return(NULL);
 
     if(line->next == NULL){
-	while(++(*entry) <= LASTHDR){
+	while(headents[++(*entry)].name != NULL){
 	    if(headents[*entry].display_it)
 	      return(headents[*entry].hd_text);
 	}
@@ -1677,7 +1764,7 @@ struct hdr_line *line;
 
 
 /*
- * prev_line() - return a pointer to the next line structure back
+ * prev_hline() - return a pointer to the next line structure back
  * 
  *	returns:
  *              1) pointer to previous displayable line in header and 
@@ -1685,15 +1772,16 @@ struct hdr_line *line;
  *                 via side effect
  *              2) NULL if we can't go back further
  */
-static struct hdr_line *prev_line(entry, line)
-int *entry;
-struct hdr_line *line;
+struct hdr_line *
+prev_hline(entry, line)
+    int *entry;
+    struct hdr_line *line;
 {
     if(line == NULL)
       return(NULL);
 
     if(line->prev == NULL){
-	while(--(*entry) >= TOHDR){
+	while(--(*entry) >= 0){
 	    if(headents[*entry].display_it){
 		line = headents[*entry].hd_text;
 		while(line->next != NULL)
@@ -1751,7 +1839,7 @@ UpdateHeader()
 	     * this checks to make sure cur_l is below top_l and that
 	     * cur_l is on the screen...
 	     */
-	    if((lp = next_line(&le, lp)) == NULL || ++i >= BOTTOM()){
+	    if((lp = next_hline(&le, lp)) == NULL || ++i >= BOTTOM()){
 		NewTop();
 		ret = TRUE;
 		break;
@@ -1761,32 +1849,27 @@ UpdateHeader()
 
     ods.p_line = COMPOSER_TOP_LINE;		/* find  p_line... */
     lp = ods.top_l;
-    le  = ods.top_e;
-    while(lp != ods.cur_l && lp != NULL){
-	lp = next_line(&le, lp);
+    le = ods.top_e;
+    while(lp && lp != ods.cur_l){
+	lp = next_hline(&le, lp);
 	ods.p_line++;
     }
 
     if(!ret)
       ret = !(ods.p_line == old_p);
 
-    ComposerTopLine = ods.p_line;
-    while(lp != NULL && ComposerTopLine < BOTTOM()){
-	lp = next_line(&le, lp);
-	ComposerTopLine++;
+    ComposerTopLine = ods.p_line;		/* figure top composer line */
+    while(lp && ComposerTopLine <= BOTTOM()){
+	lp = next_hline(&le, lp);
+	ComposerTopLine += (lp) ? 1 : 2;	/* allow for delim at end   */
     }
-    if(lp == NULL && ComposerTopLine+1 < BOTTOM())
-      ComposerTopLine++;			/* and add one for delimiter */
 
     if(!ret)
       ret = !(ComposerTopLine == old_top);
 
-    /*
-     * update pico parms if need be...
-     */
-    if(wheadp->w_toprow != ComposerTopLine){
+    if(wheadp->w_toprow != ComposerTopLine){	/* update pico params... */
         wheadp->w_toprow = ComposerTopLine;
-        wheadp->w_ntrows = BOTTOM() - ComposerTopLine;
+        wheadp->w_ntrows = ((i = BOTTOM() - ComposerTopLine) > 0) ? i : 0;
 	ret = TRUE;
     }
     return(ret);
@@ -1814,7 +1897,7 @@ NewTop()
     while(lp != NULL && i--){
 	ods.top_l = lp;
 	ods.top_e = e;
-	lp = prev_line(&e, lp);
+	lp = prev_hline(&e, lp);
     }
 }
 
@@ -1829,16 +1912,15 @@ display_delimiter(state)
 int	state;
 {
     register char    *bufp;
-    static   short   ps = 0;			/* previous state */
+    static   short   ps   = 0;			/* previous state */
 
-    if(ComposerTopLine > BOTTOM())		/* silently forget it */
+    if(ComposerTopLine - 1 >= BOTTOM())		/* silently forget it */
       return;
 
     bufp = "----- Message Text -----";
 
     if(state == ps){				/* optimize ? */
-	for(ps = 0; bufp[ps]
-	    && pscr(ComposerTopLine - 1, ps)->c == bufp[ps]; ps++)
+	for(ps = 0; bufp[ps] && pscr(ComposerTopLine-1,ps)->c == bufp[ps];ps++)
 	  ;
 
 	if(bufp[ps] == '\0'){
@@ -1910,8 +1992,8 @@ int	entry, state;
     if(state)
       (*term.t_rev)(1);
 
-    while(bufp[1] != '\0')			/* putc upto last char */
-      pputc(*bufp++, 1);
+    while(*bufp && *(bufp + 1))
+      pputc(*bufp++, 1);			/* putc upto last char */
 
     if(state)
       (*term.t_rev)(0);
@@ -1932,18 +2014,19 @@ int	entry, state;
  */
 partial_entries()
 {
-    register int   i = 0, rv = 0;
+    register struct headerentry *h;
+    int                          is_on;
+  
+    /*---- find out status of first rich header ---*/
+    for(h = headents; !h->rich_header && h->name != NULL; h++)
+      ;
 
-    if(headents[FCCHDR].display_it){
-        headents[BCCHDR].display_it = FALSE;
-        headents[FCCHDR].display_it = FALSE;
-	rv = 1;
-    }
-    else{
-        while(i <= LASTHDR)
-            headents[i++].display_it = TRUE;
-    }
-    return(rv);
+    is_on = h->display_it;
+    for(h = headents; h->name != NULL; h++) 
+      if(h->rich_header) 
+        h->display_it = ! is_on;
+
+    return(is_on);
 }
 
 
@@ -1965,7 +2048,7 @@ int	entry, lastchar;
     int    i;
     register struct hdr_line    *line;
 
-    for(line=ods.top_l, i=ods.top_e; i <= LASTHDR && i <= entry; p_line++){
+    for(line=ods.top_l, i=ods.top_e; headents[i].name && i <= entry; p_line++){
 	if(p_line >= BOTTOM())
 	  break;
 	if(i == entry){
@@ -1978,7 +2061,7 @@ int	entry, lastchar;
 	    else
 	      return(-1);
 	}
-	line = next_line(&i, line);
+	line = next_hline(&i, line);
     }
     return(-1);
 }
@@ -2000,14 +2083,14 @@ struct hdr_line *l;
     register struct hdr_line    *lp;
     int    i;
 
-    for(lp=ods.top_l, i=ods.top_e; i <= LASTHDR && lp != NULL; p_line++){
+    for(lp=ods.top_l, i=ods.top_e; headents[i].name && lp != NULL; p_line++){
 	if(p_line >= BOTTOM())
 	  break;
 
 	if(lp == l)
 	  return(p_line);
 
-	lp = next_line(&i, lp);
+	lp = next_hline(&i, lp);
     }
     return(-1);
 }
@@ -2015,7 +2098,7 @@ struct hdr_line *l;
 
 
 /*
- * resolve_niks() - resolve any nicknames in the address book associated
+ * call_builder() - resolve any nicknames in the address book associated
  *                  with the given entry...
  *
  *    NOTES:
@@ -2044,16 +2127,19 @@ struct hdr_line *l;
  *              FALSE if not, or
  *		-1 on error
  */
-resolve_niks(entry)
-int	entry;
+call_builder(entry)
+struct headerentry *entry;
 {
     register    int     retval = FALSE;
     register	int	i;
-    register    struct  hdr_line  *line = headents[entry].hd_text;
+    register    struct  hdr_line  *line = entry->hd_text;
     char	*sbuf;
-    char	*errmsg;
-    
-    line = headents[entry].hd_text;
+    char	*errmsg, *s = NULL, *fcc = NULL;
+
+    if(!entry->builder)
+      return(0);
+
+    line = entry->hd_text;
     i = 0;
     while(line != NULL){
 	i += term.t_ncol;
@@ -2068,7 +2154,7 @@ int	entry;
     /*
      * cat the whole entry into one string...
      */
-    line = headents[entry].hd_text;
+    line = entry->hd_text;
     while(line != NULL){
 	i = strlen(line->text);
 	/*
@@ -2085,9 +2171,8 @@ int	entry;
         if(line->text[i-1] == ',')
 	  strcat(line->text, " ");		/* help address builder */
 	else if(line->next != NULL && !strend(line->text, ',')){
-	    if(strqchr(line->text, ',')){
+	    if(strqchr(line->text, ',', NULL))
 	      strcat(line->text, ", ");		/* implied comma */
-	  }
 	}
 	else if(line->prev != NULL && line->next != NULL){
 	    if(strchr(line->prev->text, ' ') != NULL 
@@ -2098,17 +2183,46 @@ int	entry;
         line = line->next;
     }
 
-    if((retval=(*Pmaster->buildaddr)(sbuf, s, &errmsg)) == -1){
-	sprintf(s, "%s field: %s", headents[entry].name, errmsg);
-	(*term.t_beep)();
-	emlwrite(s, NULL);
+    errmsg = NULL;
+    retval = (*entry->builder)(sbuf, &s, &errmsg,
+			       entry->affected_entry ? &fcc : NULL);
+    if(errmsg){
+	if(*errmsg){
+	    char err[500];
+
+	    sprintf(err, "%s field: %s", entry->name, errmsg);
+	    (*term.t_beep)();
+	    emlwrite(err, NULL);
+	}
+	else
+	    mlerase();
+
+	free(errmsg);
     }
-    else if(strcmp(sbuf, s)){
-	line = headents[entry].hd_text;
-	InitEntryText(s, entry);		/* arrange new one */
-        zotentry(line); 			/* blast old list of entries */
+
+    if(retval != -1){
+	if(strcmp(sbuf, s)){
+	    line = entry->hd_text;
+	    InitEntryText(s, entry);		/* arrange new one */
+	    zotentry(line); 			/* blast old list o'entries */
+	}
+
+	if(fcc && !entry->affected_entry->sticky){
+	    line = entry->affected_entry->hd_text;
+	    if(strcmp(line->text, fcc)){ /* make sure they see it if changed */
+		entry->affected_entry->display_it = 1;
+		InitEntryText(fcc, entry->affected_entry);
+		zotentry(line);			/* blast old list o'entries */
+	    }
+	}
+
         retval = TRUE;
     }
+
+    if(s)
+	free(s);
+    if(fcc)
+	free(fcc);
     free(sbuf);
     return(retval);
 }
@@ -2147,28 +2261,25 @@ int   ch;
  * strqchr - returns pointer to first non-quote-enclosed occurance of c in 
  *           the given string.  otherwise NULL.
  */
-char *strqchr(s, ch)
-char *s;
-int   ch;
+char *
+strqchr(s, ch, q)
+    char *s;
+    int   ch;
+    int  *q;
 {
-    register char *b;
-    register char  c;
+    int	 quoted = (q) ? *q : 0;
 
-    c = (char)ch;
-
-    if((b = s) == NULL)
-      return(NULL);
-
-    while(*b != '\0'){
-	if(*b == '"'){
-	    for(b++; *b != '"'; b++)
-	      if(*b == '\0')
-		return(NULL);
+    for(; s && *s; s++){
+	if(*s == '"'){
+	    quoted = !quoted;
+	    if(q)
+	      *q = quoted;
 	}
-	if(*b == c)
-	  return(b);
-	b++;
+
+	if(!quoted && *s == ch)
+	  return(s);
     }
+
     return(NULL);
 }
 
@@ -2253,7 +2364,8 @@ SaveHeaderLines()
 	  break;
       }
 
-    if(FormatLines(ods.cur_l, buf, LINELEN(), ods.cur_e) == -1)
+    if(FormatLines(ods.cur_l, buf, LINELEN(),
+		   headents[ods.cur_e].break_on_comma, 0) == -1)
       i = FALSE;
     else
       i = TRUE;
@@ -2273,18 +2385,20 @@ SaveHeaderLines()
  *		Pointer to the best break point in s, or
  *		Pointer to the beginning of s if no break point found
  */
-char *break_point(s, l, ch)
-char *s;
-int  l, ch;
+char *
+break_point(s, l, ch, q)
+    char *s;
+    int   l, ch, *q;
 {
-    register char *b;
-    register char  c;
+    register char *b = s + l;
+    int            quoted = (q) ? *q : 0;
 
-    c = (char) ch;
-    b = s+l;
     while(b != s){
-	if(*b == c){
-	    if(c == ' '){
+	if(ch == ',' && *b == '"')		/* don't break on quoted ',' */
+	  quoted = !quoted;			/* toggle quoted state */
+
+	if(*b == ch){
+	    if(ch == ' '){
 		if(b + 1 < s + l){
 		    b++;			/* leave the ' ' */
 		    break;
@@ -2303,7 +2417,11 @@ int  l, ch;
 	}
 	b--;
     }
-    return(b);
+
+    if(q)
+      *q = quoted;
+
+    return((quoted) ? s : b);
 }
 
 
@@ -2380,32 +2498,16 @@ int row, col, n;
  */
 ShowPrompt()
 {
-    switch(ods.cur_e){
-      case TOHDR:
-      case CCHDR:
-      case BCCHDR:
-#ifdef	ATTACHMENTS
-	wkeyhelp("GCR0KOXDJ0UT", "Get Help,Cancel,Rich Hdr,Del Line,Postpone,Send,Del Char,Attach,UnDel Line,To AddrBk");
-	break;
-      case FCCHDR:
-	wkeyhelp("GCR0KOXDJ0UT", "Get Help,Cancel,Rich Hdr,Del Line,Postpone,Send,Del Char,Attach,UnDel Line,To Fldrs");
-	break;
-      case ATTCHDR:
-	wkeyhelp("GCR0KOXDJ0UT", "Get Help,Cancel,Rich Hdr,Del Line,Postpone,Send,Del Char,Attach,UnDel Line,To Files");
-	break;
-      default:
-	wkeyhelp("GCR0KOXDJ0U0", "Get Help,Cancel,Rich Hdr,Del Line,Postpone,Send,Del Char,Attach,UnDel Line");
-#else
-	wkeyhelp("GCR0KOXD00UT", "Get Help,Cancel,Rich Hdr,Del Line,Postpone,Send,Del Char,UnDel Line,To AddrBk");
-	break;
-      case FCCHDR:
-	wkeyhelp("GCR0KOXD00UT", "Get Help,Cancel,Rich Hdr,Del Line,Postpone,Send,Del Char,UnDel Line,To Fldrs");
-	break;
-      default:
-	wkeyhelp("GCR0KOXD00U0", "Get Help,Cancel,Rich Hdr,Del Line,Postpone,Send,Del Char,UnDel Line");
-#endif
-	break;
+    int new_e = ods.cur_e;
+
+    if(headents[ods.cur_e].key_label) {
+	menu_header[TO_KEY].name  = "^T";
+	menu_header[TO_KEY].label = headents[ods.cur_e].key_label;
     }
+    else
+      menu_header[TO_KEY].name  = NULL;
+
+    wkeyhelp(menu_header);
 }
 
 
@@ -2423,12 +2525,12 @@ packheader()
     register char	*bufp;		/* */
     register struct	hdr_line *line;
 
-    while(i <= LASTHDR){
+    while(headents[i].name != NULL){
 #ifdef	ATTACHMENTS
 	/*
 	 * attachments are special case, already in struct we pass back
 	 */
-	if(i == ATTCHDR){
+	if(headents[i].is_attach){
 	    i++;
 	    continue;
 	}
@@ -2488,11 +2590,11 @@ packheader()
  */
 zotheader()
 {
-    register int i;
-
-    for(i=TOHDR; i <= LASTHDR; i++){
-	zotentry(headents[i].hd_text);
-    }
+    register struct headerentry *i;
+  
+    for(i=headents; i->name != NULL; i++){
+	zotentry(i->hd_text);
+      }
 }
 
 

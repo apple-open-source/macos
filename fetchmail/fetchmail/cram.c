@@ -17,9 +17,9 @@
 #include  "i18n.h"
 #include "md5.h"
 
-static void hmac_md5 (unsigned char *password,  size_t pass_len,
-                      unsigned char *challenge, size_t chal_len,
-                      unsigned char *response,  size_t resp_len)
+void hmac_md5 (unsigned char *password,  size_t pass_len,
+               unsigned char *challenge, size_t chal_len,
+               unsigned char *response,  size_t resp_len)
 {
     int i;
     unsigned char ipad[64];
@@ -89,10 +89,10 @@ int do_cram_md5 (int sock, char *command, struct query *ctl, char *strip)
     respdata = buf1;
     if (strip && strncmp(buf1, strip, strlen(strip)) == 0)
 	respdata += strlen(strip);
-    len = from64tobits (msg_id, respdata);
+    len = from64tobits (msg_id, respdata, sizeof(msg_id));
 
     if (len < 0) {
-	report (stderr, _("could not decode BASE64 challenge\n"));
+	report (stderr, GT_("could not decode BASE64 challenge\n"));
 	return PS_AUTHFAIL;
     } else if (len < sizeof (msg_id)) {
         msg_id[len] = 0;
@@ -100,7 +100,7 @@ int do_cram_md5 (int sock, char *command, struct query *ctl, char *strip)
         msg_id[sizeof (msg_id)-1] = 0;
     }
     if (outlevel >= O_DEBUG) {
-        report (stdout, _("decoded as %s\n"), msg_id);
+        report (stdout, GT_("decoded as %s\n"), msg_id);
     }
 
     /* The client makes note of the data and then responds with a string

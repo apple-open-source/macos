@@ -64,6 +64,8 @@
 
 #define kIOAudioDeviceLocalizedBundleKey	"IOAudioDeviceLocalizedBundle"
 
+#define kIOAudioDeviceTransportTypeKey		"IOAudioDeviceTransportType"
+
 
 
 /*****
@@ -134,6 +136,10 @@
 
 #define kIOAudioStreamNumericRepresentationKey	"IOAudioStreamNumericRepresentation"
 
+#define kIOAudioStreamFormatFlagsKey			"IOAudioStreamFormatFlags"
+#define kIOAudioStreamFramesPerPacketKey		"IOAudioStreamFramesPerPacket"
+#define kIOAudioStreamBytesPerPacketKey			"IOAudioStreamBytesPerPacket"
+
 
 #define kIOAudioStreamBitDepthKey				"IOAudioStreamBitDepth"
 #define kIOAudioStreamBitWidthKey				"IOAudioStreamBitWidth"
@@ -148,6 +154,8 @@
 #define kIOAudioStreamMaximumSampleRateKey		"IOAudioStreamMaximumSampleRate"
 
 #define kIOAudioStreamDriverTagKey				"IOAudioStreamDriverTag"
+
+#define kIOAudioStreamTerminalTypeKey			"IOAudioStreamTerminalType"
 
 /*****
  *

@@ -1,4 +1,4 @@
-;;; sort.el --- commands to sort text in an Emacs buffer.
+;;; sort.el --- commands to sort text in an Emacs buffer
 
 ;; Copyright (C) 1986, 1987, 1994, 1995 Free Software Foundation, Inc.
 
@@ -258,26 +258,40 @@ the sort order."
     (modify-syntax-entry ?\. "_" table)	; for floating pt. numbers. -wsr
     (setq sort-fields-syntax-table table)))
 
+(defcustom sort-numeric-base 10
+  "*The default base used by `sort-numeric-fields'."
+  :group 'sort
+  :type 'integer)
+
 ;;;###autoload
 (defun sort-numeric-fields (field beg end)
   "Sort lines in region numerically by the ARGth field of each line.
 Fields are separated by whitespace and numbered from 1 up.
-Specified field must contain a number in each line of the region.
+Specified field must contain a number in each line of the region,
+which may begin with \"0x\" or \"0\" for hexadecimal and octal values.
+Otherwise, the number is interpreted according to sort-numeric-base.
 With a negative arg, sorts by the ARGth field counted from the right.
 Called from a program, there are three arguments:
 FIELD, BEG and END.  BEG and END specify region to sort."
   (interactive "p\nr")
   (sort-fields-1 field beg end
-		 (function (lambda ()
-			     (sort-skip-fields field)
-			     (string-to-number
-			      (buffer-substring
-			        (point)
-				(save-excursion
-				  ;; This is just wrong! Even without floats...
-				  ;; (skip-chars-forward "[0-9]")
-				  (forward-sexp 1)
-				  (point))))))
+		 (lambda ()
+		   (sort-skip-fields field)
+		   (let* ((case-fold-search t)
+			  (base
+			   (if (looking-at "\\(0x\\)[0-9a-f]\\|\\(0\\)[0-7]")
+			       (cond ((match-beginning 1)
+				      (goto-char (match-end 1))
+				      16)
+				     ((match-beginning 2)
+				      (goto-char (match-end 2))
+				      8)
+				     (t nil)))))
+		     (string-to-number (buffer-substring (point)
+							 (save-excursion
+							   (forward-sexp 1)
+							   (point)))
+				       (or base sort-numeric-base))))
 		 nil))
 
 ;;;;;###autoload
@@ -446,10 +460,10 @@ sRegexp specifying key within record: \nr")
 ;;;###autoload
 (defun sort-columns (reverse &optional beg end)
   "Sort lines in region alphabetically by a certain range of columns.
-For the purpose of this command, the region includes
+For the purpose of this command, the region BEG...END includes
 the entire line that point is in and the entire line the mark is in.
 The column positions of point and mark bound the range of columns to sort on.
-A prefix argument means sort into reverse order.
+A prefix argument means sort into REVERSE order.
 The variable `sort-fold-case' determines whether alphabetic case affects
 the sort order.
 
@@ -472,25 +486,27 @@ Use \\[untabify] to convert tabs to spaces before sorting."
       (setq col-start (min col-beg1 col-end1))
       (setq col-end (max col-beg1 col-end1))
       (if (search-backward "\t" beg1 t)
-	  (error "sort-columns does not work with tabs.  Use M-x untabify."))
+	  (error "sort-columns does not work with tabs -- use M-x untabify"))
       (if (not (or (eq system-type 'vax-vms)
 		   (text-properties-at beg1)
 		   (< (next-property-change beg1 nil end1) end1)))
 	  ;; Use the sort utility if we can; it is 4 times as fast.
 	  ;; Do not use it if there are any properties in the region,
 	  ;; since the sort utility would lose the properties.
-	  (call-process-region beg1 end1 "sort" t t nil
-			       (if reverse "-rt\n" "-t\n")
-			       (concat "+0." col-start)
-			       (concat "-0." col-end))
+	  (let ((sort-args (list (if reverse "-rt\n" "-t\n")
+				 (concat "+0." (int-to-string col-start))
+				 (concat "-0." (int-to-string col-end)))))
+	    (when sort-fold-case
+	      (push "-f" sort-args))
+	    (apply #'call-process-region beg1 end1 "sort" t t nil sort-args))
 	;; On VMS, use Emacs's own facilities.
 	(save-excursion
 	  (save-restriction
 	    (narrow-to-region beg1 end1)
 	    (goto-char beg1)
 	    (sort-subr reverse 'forward-line 'end-of-line
-		       (function (lambda () (move-to-column col-start) nil))
-		       (function (lambda () (move-to-column col-end) nil)))))))))
+		       #'(lambda () (move-to-column col-start) nil)
+		       #'(lambda () (move-to-column col-end) nil))))))))
 
 ;;;###autoload
 (defun reverse-region (beg end)

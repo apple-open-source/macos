@@ -1,13 +1,13 @@
 ;;; cl-specs.el --- Edebug specs for cl.el
 
 ;; Copyright (C) 1993 Free Software Foundation, Inc.
-;; Author: Daniel LaLiberte <liberte@cs.uiuc.edu>
+;; Author: Daniel LaLiberte <liberte@holonexus.org>
 ;; Keywords: lisp, tools, maint
 
 ;; LCD Archive Entry:
-;; cl-specs.el|Daniel LaLiberte|liberte@cs.uiuc.edu
+;; cl-specs.el|Daniel LaLiberte|liberte@holonexus.org
 ;; |Edebug specs for cl.el
-;; |$Date: 2000/06/30 17:51:35 $|1.1|
+;; |$Date: 2001/10/31 17:58:18 $|1.1|
 
 ;; This file is part of GNU Emacs.
 
@@ -26,12 +26,14 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
-;;;; Commentary:
+;;; Commentary:
 
 ;; These specs are to be used with edebug.el version 3.3 or later and
 ;; cl.el version 2.03 or later, by Dave Gillespie <daveg@synaptics.com>.
 
 ;; This file need not be byte-compiled, but it shouldn't hurt.
+
+;;; Code:
 
 (provide 'cl-specs)
 ;; Do the above provide before the following require.
@@ -47,8 +49,6 @@
 
 ;; Loops
 
-(def-edebug-spec when t)
-(def-edebug-spec unless t)
 (def-edebug-spec case (form &rest (sexp body)))
 (def-edebug-spec ecase case)
 (def-edebug-spec do
@@ -127,12 +127,12 @@
 
 (def-edebug-spec incf (place &optional form))
 (def-edebug-spec decf incf)
-(def-edebug-spec push (form place))
+(def-edebug-spec push (form place))	; different for CL
 (def-edebug-spec pushnew 
   (form place &rest 
 	&or [[&or ":test" ":test-not" ":key"] function-form]
 	[edebug-keywordp form]))
-(def-edebug-spec pop (place))
+(def-edebug-spec pop (place))		; different for CL
 
 (def-edebug-spec shiftf (&rest place))  ;; really [&rest place] form
 (def-edebug-spec rotatef (&rest place))
@@ -202,7 +202,7 @@
     [&optional ["&optional" cl-&optional-arg &rest cl-&optional-arg]]
     [&optional ["&rest" arg]]
     [&optional ["&key" [cl-&key-arg &rest cl-&key-arg]
-		&optional "&allow-other-keywords"]]
+		&optional "&allow-other-keys"]]
     [&optional ["&aux" &rest
 		&or (symbolp &optional def-form) symbolp]]
     )))
@@ -227,7 +227,7 @@
 			[&or ([&or (symbolp cl-macro-arg) arg] 
 			      &optional def-form cl-macro-arg)
 			     arg]]
-		&optional "&allow-other-keywords"]]
+		&optional "&allow-other-keys"]]
     [&optional ["&aux" &rest
 		&or (symbolp &optional def-form) symbolp]]
     [&optional "&environment" arg]
@@ -246,7 +246,7 @@
 			[&or ([&or (symbolp cl-macro-arg) arg] 
 			      &optional def-form cl-macro-arg)
 			     arg]]
-		&optional "&allow-other-keywords"]]
+		&optional "&allow-other-keys"]]
     [&optional ["&aux" &rest
 		&or (symbolp &optional def-form) symbolp]]
     . [&or arg nil])))
@@ -470,3 +470,4 @@
 (def-edebug-spec loop-d-type-spec
   (&or (loop-d-type-spec . [&or nil loop-d-type-spec]) cl-type-spec))
 
+;;; cl-specs.el ends here

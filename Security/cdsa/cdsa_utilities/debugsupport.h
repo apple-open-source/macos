@@ -95,7 +95,7 @@ public:
 	public:
 		virtual ~Sink();
 		virtual void put(const char *buffer, unsigned int length) = 0;
-		virtual void dump(const char *format, va_list args);
+		virtual void dump(const char *buffer);
 		virtual void configure(const char *argument);
 	};
 	
@@ -142,6 +142,9 @@ protected:
 	// current output support
 	Sink *sink;
 	
+	static terminate_handler previousTerminator;	// for chaining
+	static void terminator();
+	
 	// the default Target
 	static Target *singleton;
 };
@@ -154,7 +157,7 @@ class FileSink : public Target::Sink {
 public:
 	FileSink(FILE *f) : file(f), addDate(false), lockIO(true), lock(false) { }
 	void put(const char *, unsigned int);
-	void dump(const char *format, va_list args);
+	void dump(const char *text);
 	void configure(const char *);
 	
 private:
@@ -168,13 +171,14 @@ class SyslogSink : public Target::Sink {
 public:
 	SyslogSink(int pri) : priority(pri), dumpBase(dumpBuffer), dumpPtr(dumpBuffer) { }
 	void put(const char *, unsigned int);
-	void dump(const char *format, va_list args);
+	void dump(const char *text);
 	void configure(const char *);
 	
 private:
 	int priority;
 	
-	static const size_t dumpBufferSize = 1024;
+	// a sliding buffer to hold partial line output
+	static const size_t dumpBufferSize = 1024;	// make this about 2 * maximum line length of dumps
 	char dumpBuffer[dumpBufferSize];
 	char *dumpBase, *dumpPtr;
 };
@@ -195,8 +199,5 @@ private:
 
 } // end namespace Security
 
-#ifdef _CPP_DEBUGGING
-#pragma export off
-#endif
 
 #endif //_H_DEBUGSUPPORT

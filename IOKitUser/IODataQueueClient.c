@@ -40,8 +40,15 @@ IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue)
 
     if (dataQueue && (dataQueue->head != dataQueue->tail)) {
         IODataQueueEntry *head = (IODataQueueEntry *)((char *)dataQueue->queue + dataQueue->head);
-		// we wraped around to beginning, so read from there
-        if ((dataQueue->head + head->size + DATA_QUEUE_ENTRY_HEADER_SIZE) > dataQueue->queueSize) {
+
+		// Check if there's enough room before the end of the queue for a header.
+        // If there is room, check if there's enough room to hold the header and
+        // the data.
+
+        if ((dataQueue->head + DATA_QUEUE_ENTRY_HEADER_SIZE > dataQueue->queueSize) ||
+            ((dataQueue->head + head->size + DATA_QUEUE_ENTRY_HEADER_SIZE) > dataQueue->queueSize))
+        {
+            // No room for the header or the data, wrap to the beginning of the queue.
             entry = dataQueue->queue;
         } else {
             entry = head;
@@ -79,10 +86,8 @@ IOReturn IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, UInt32 *da
                 if (dataSize) {
                     if (entry->size <= *dataSize) {
                         memcpy(data, &entry->data, entry->size);
-                        *dataSize = entry->size;
                         dataQueue->head = newHead;
                     } else {
-                        *dataSize = entry->size;
                         retVal = kIOReturnNoSpace;
                     }
                 } else {
@@ -90,6 +95,12 @@ IOReturn IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, UInt32 *da
                 }
             } else {
                 dataQueue->head = newHead;
+            }
+
+            // RY: Update the data size here.  This will
+            // insure that dataSize is always updated.
+            if (dataSize) {
+                *dataSize = entry->size;
             }
         } else {
             retVal = kIOReturnUnderrun;

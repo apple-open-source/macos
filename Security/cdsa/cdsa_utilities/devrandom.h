@@ -24,6 +24,7 @@
 
 #include <Security/utilities.h>
 #include <Security/unix++.h>
+#include <Security/globalizer.h>
 
 
 namespace Security {
@@ -41,7 +42,7 @@ public:
     void addEntropy(const void *data, size_t length);
 
 private:
-    UnixPlusPlus::FileDesc mDevRandom;
+    static ModuleNexus<UnixPlusPlus::FileDesc> mDevRandom;
 };
 
 

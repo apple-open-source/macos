@@ -1,0 +1,83 @@
+#! /bin/sh
+
+# Test behaviour of variable_conditions_reduce()
+# This checks the result of variable_conditions_reduce() for a wide variety
+# of cases.
+
+. $srcdir/defs || exit 1
+
+# FIXME: probably ought to let use override this like we do in `defs'.
+amfile=../../automake
+
+sed 1q $amfile >>automake_tmp
+cat << 'END' >> automake_tmp
+my $failed = 0;
+sub check_reduce($$) {
+ my ($inref, $outref) = @_;
+ my @result = sort &Automake::variable_conditions_reduce(@$inref);
+ my $correct = 1;
+ $correct = 0 if (join(",", @result) ne join(",", @$outref));
+
+ if (! $correct) {
+   print '"'.join(",", @$inref) . '" => "' .
+	 join(",", @result) . '" expected "' .
+	 join(",", @$outref) . '"' . "\n";
+   $failed = 1;
+ }
+}
+
+# If no conditions are given, TRUE should be returned
+check_reduce([""], ["TRUE"]);
+# A single condition should be passed through unchanged
+check_reduce(["FOO"], ["FOO"]);
+check_reduce(["FALSE"], ["FALSE"]);
+check_reduce(["TRUE"], ["TRUE"]);
+
+# TRUE and false should be discarded and overwhelm the result, respectively
+check_reduce(["FOO", "TRUE"], ["FOO"]);
+check_reduce(["FOO", "FALSE"], ["FALSE"]);
+
+# Repetitions should be removed
+check_reduce(["FOO", "FOO"], ["FOO"]);
+check_reduce(["TRUE", "FOO", "FOO"], ["FOO"]);
+check_reduce(["FOO", "TRUE", "FOO"], ["FOO"]);
+check_reduce(["FOO", "FOO", "TRUE"], ["FOO"]);
+
+# Two different conditions should be preserved, but TRUEs should be removed
+check_reduce(["FOO", "BAR"], ["BAR,FOO"]);
+check_reduce(["TRUE", "FOO", "BAR"], ["BAR,FOO"]);
+check_reduce(["FOO", "TRUE", "BAR"], ["BAR,FOO"]);
+check_reduce(["FOO", "BAR", "TRUE"], ["BAR,FOO"]);
+
+# A condition implied by another condition should be removed.
+check_reduce(["FOO BAR", "BAR"], ["FOO BAR"]);
+check_reduce(["BAR", "FOO BAR"], ["FOO BAR"]);
+check_reduce(["TRUE", "FOO BAR", "BAR"], ["FOO BAR"]);
+check_reduce(["FOO BAR", "TRUE", "BAR"], ["FOO BAR"]);
+check_reduce(["FOO BAR", "BAR", "TRUE"], ["FOO BAR"]);
+
+check_reduce(["BAR FOO", "BAR"], ["BAR FOO"]);
+check_reduce(["BAR", "BAR FOO"], ["BAR FOO"]);
+check_reduce(["TRUE", "BAR FOO", "BAR"], ["BAR FOO"]);
+check_reduce(["BAR FOO", "TRUE", "BAR"], ["BAR FOO"]);
+check_reduce(["BAR FOO", "BAR", "TRUE"], ["BAR FOO"]);
+
+# Check that reduction happens even when there are two conditionals to remove.
+check_reduce(["FOO", "FOO BAR", "BAR"], ["FOO BAR"]);
+check_reduce(["FOO", "FOO BAR", "BAZ", "FOO BAZ"], ["FOO BAR", "FOO BAZ"]);
+check_reduce(["FOO", "FOO BAR", "BAZ", "FOO BAZ", "FOO BAZ BAR"], ["FOO BAZ BAR"]);
+
+# Duplicated condionals should be removed
+check_reduce(["FOO", "BAR", "BAR"], ["BAR,FOO"]);
+
+# Equivalent conditionals in different forms should be reduced: which one is
+# left is unfortunately order dependent.
+check_reduce(["BAR FOO", "FOO BAR"], ["FOO BAR"]);
+check_reduce(["FOO BAR", "BAR FOO"], ["BAR FOO"]);
+
+exit $failed;
+END
+cat $amfile >>automake_tmp
+chmod +x automake_tmp
+
+./automake_tmp

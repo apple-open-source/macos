@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1988, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,9 +31,15 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
+#ifdef __FBSDID
+__FBSDID("$FreeBSD: src/crypto/telnet/telnet/terminal.c,v 1.2.8.2 2002/04/13 10:59:08 markm Exp $");
+#endif
+
 #ifndef lint
-static char sccsid[] = "@(#)terminal.c	8.2 (Berkeley) 2/16/95";
-#endif /* not lint */
+static const char sccsid[] = "@(#)terminal.c	8.2 (Berkeley) 2/16/95";
+#endif
 
 #include <arpa/telnet.h>
 #include <sys/types.h>
@@ -65,6 +48,10 @@ static char sccsid[] = "@(#)terminal.c	8.2 (Berkeley) 2/16/95";
 
 #include "externs.h"
 #include "types.h"
+
+#ifdef	ENCRYPTION
+#include <libtelnet/encrypt.h>
+#endif
 
 Ring		ttyoring, ttyiring;
 unsigned char	ttyobuf[2*BUFSIZ], ttyibuf[BUFSIZ];
@@ -111,8 +98,8 @@ cc_t termAytChar;
  * initialize the terminal data structures.
  */
 
-    void
-init_terminal()
+void
+init_terminal(void)
 {
     if (ring_init(&ttyoring, ttyobuf, sizeof ttyobuf) != 1) {
 	exit(1);
@@ -122,7 +109,6 @@ init_terminal()
     }
     autoflush = TerminalAutoFlush();
 }
-
 
 /*
  *		Send as much data as possible to the terminal.
@@ -134,12 +120,10 @@ init_terminal()
  *			 n: All data - n was written out.
  */
 
-
-    int
-ttyflush(drop)
-    int drop;
+int
+ttyflush(int drop)
 {
-    register int n, n0, n1;
+    int n, n0, n1;
 
     n0 = ring_full_count(&ttyoring);
     if ((n1 = n = ring_full_consecutive(&ttyoring)) > 0) {
@@ -185,17 +169,14 @@ ttyflush(drop)
  */
 
 
-    int
-getconnmode()
+int
+getconnmode(void)
 {
     extern int linemode;
     int mode = 0;
 #ifdef	KLUDGELINEMODE
     extern int kludgelinemode;
 #endif
-
-    if (In3270)
-	return(MODE_FLOW);
 
     if (my_want_state_is_dont(TELOPT_ECHO))
 	mode |= MODE_ECHO;
@@ -225,14 +206,13 @@ getconnmode()
     return(mode);
 }
 
-    void
-setconnmode(force)
-    int force;
+void
+setconnmode(int force)
 {
 #ifdef	ENCRYPTION
     static int enc_passwd = 0;
 #endif	/* ENCRYPTION */
-    register int newmode;
+    int newmode;
 
     newmode = getconnmode()|(force?MODE_FORCE:0);
 
@@ -255,9 +235,8 @@ setconnmode(force)
 
 }
 
-
-    void
-setcommandmode()
+void
+setcommandmode(void)
 {
     TerminalNewMode(-1);
 }

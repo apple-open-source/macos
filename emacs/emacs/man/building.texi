@@ -1,7 +1,7 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985, 86, 87, 93, 94, 95, 1997 Free Software Foundation, Inc.
+@c Copyright (C) 1985,86,87,93,94,95,97,2000,2001 Free Software Foundation, Inc.
 @c See file emacs.texi for copying conditions.
-@node Building, Abbrevs, Programs, Top
+@node Building, Maintaining, Programs, Top
 @chapter Compiling and Testing Programs
 @cindex building programs
 @cindex program building
@@ -42,8 +42,11 @@ compilation errors occurred.
 
 @table @kbd
 @item M-x compile
-Run a compiler asynchronously under Emacs, with error messages to
-@samp{*compilation*} buffer.
+Run a compiler asynchronously under Emacs, with error messages going to
+the @samp{*compilation*} buffer.
+@item M-x recompile
+Invoke a compiler with the same command as in the last invocation of
+@kbd{M-x compile}.
 @item M-x grep
 Run @code{grep} asynchronously under Emacs, with matching lines
 listed in the buffer named @samp{*grep*}.
@@ -90,6 +93,7 @@ above point, which remains at the end.  If point is not at the end of
 the buffer, it remains fixed while more compilation output is added at
 the end of the buffer.
 
+@cindex compilation buffer, keeping current position at the end
 @vindex compilation-scroll-output
   If you set the variable @code{compilation-scroll-output} to a
 non-@code{nil} value, then the compilation buffer always scrolls to
@@ -103,6 +107,11 @@ the compiler process terminates, the mode line of the
 compilation, as only one can exist at any time.  However, @kbd{M-x
 compile} asks for confirmation before actually killing a compilation
 that is running.
+
+@findex recompile
+  To rerun the last compilation with the same command, type @kbd{M-x
+recompile}.  This automatically reuses the compilation command from the
+last invocation of @kbd{M-x compile}.
 
 @node Grep Searching
 @section Searching with Grep under Emacs
@@ -143,6 +152,10 @@ in @ref{Dired and Find}.
 mode, whose main feature is to provide a convenient way to look at the
 source line where the error happened.
 
+  If you set the variable @code{compilation-scroll-output} to a
+non-@code{nil} value, then the compilation buffer always scrolls to
+follow output as it comes in.
+
 @table @kbd
 @item C-x `
 Visit the locus of the next compiler error message or @code{grep} match.
@@ -156,9 +169,10 @@ Visit the locus of the error message that you click on.
 @kindex C-x `
 @findex next-error
   You can visit the source for any particular error message by moving
-point in @samp{*compilation*} to that error message and typing @key{RET}
-(@code{compile-goto-error}).  Or click @kbd{Mouse-2} on the error message;
-you need not switch to the @samp{*compilation*} buffer first.
+point in the @samp{*compilation*} buffer to that error message and
+typing @key{RET} (@code{compile-goto-error}).  Alternatively, you can
+click @kbd{Mouse-2} on the error message; you need not switch to the
+@samp{*compilation*} buffer first.
 
   To parse the compiler error messages sequentially, type @kbd{C-x `}
 (@code{next-error}).  The character following the @kbd{C-x} is the
@@ -177,6 +191,16 @@ an Emacs error.
 
   @kbd{C-u C-x `} starts scanning from the beginning of the compilation
 buffer.  This is one way to process the same set of errors again.
+
+@vindex compilation-error-regexp-alist
+@vindex grep-regexp-alist
+  To parse messages from the compiler, Compilation mode uses the
+variable @code{compilation-error-regexp-alist} which lists various
+formats of error messages and tells Emacs how to extract the source file
+and the line number from the text of a message.  If your compiler isn't
+supported, you can tailor Compilation mode to it by adding elements to
+that list.  A similar variable @code{grep-regexp-alist} tells Emacs how
+to parse output of a @code{grep} command.
 
   Compilation mode also redefines the keys @key{SPC} and @key{DEL} to
 scroll by screenfuls, and @kbd{M-n} and @kbd{M-p} to move to the next or
@@ -249,12 +273,15 @@ various symbolic debuggers from within Emacs.  We recommend the debugger
 GDB, which is free software, but you can also run DBX, SDB or XDB if you
 have them.  GUD can also serve as an interface to the Perl's debugging
 mode, the Python debugger PDB, and to JDB, the Java Debugger.
+@xref{Debugger,, The Lisp Debugger, elisp, the Emacs Lisp Reference Manual},
+for information on debugging Emacs Lisp programs.
 
 @menu
 * Starting GUD::	How to start a debugger subprocess.
 * Debugger Operation::	Connection between the debugger and source buffers.
 * Commands of GUD::	Key bindings for common commands.
 * GUD Customization::	Defining your own commands for GUD.
+* GUD Tooltips::        Showing variable values by pointing with the mouse.
 @end menu
 
 @node Starting GUD
@@ -266,9 +293,9 @@ to a particular debugger program.
 @table @kbd
 @item M-x gdb @key{RET} @var{file} @key{RET}
 @findex gdb
-Run GDB as a subprocess of Emacs.  This command creates a buffer for
-input and output to GDB, and switches to it.  If a GDB buffer already
-exists, it just switches to that buffer.
+Run GDB as a subprocess of Emacs.  This command creates a buffer
+for input and output to GDB, and switches to it.  If a GDB buffer
+already exists, it just switches to that buffer.
 
 @item M-x dbx @key{RET} @var{file} @key{RET}
 @findex dbx
@@ -322,11 +349,12 @@ allowed.  GUD assumes that the first argument not starting with a
 for its ordinary input and output.  This is called the GUD buffer.  The
 debugger displays the source files of the program by visiting them in
 Emacs buffers.  An arrow (@samp{=>}) in one of these buffers indicates
-the current execution line.  Moving point in this buffer does not move
-the arrow.
+the current execution line.@footnote{Under a window system the arrow is
+displayed in the marginal area of the Emacs window.}  Moving point in
+this buffer does not move the arrow.
 
   You can start editing these source files at any time in the buffers
-that were made to display them.  The arrow is not part of the file's
+that display them.  The arrow is not part of the file's
 text; it appears only on the screen.  If you do modify a source file,
 keep in mind that inserting or deleting lines will throw off the arrow's
 positioning; GUD has no way of figuring out which line corresponded
@@ -349,9 +377,9 @@ selecting stack frames, and for stepping through the program.  These
 commands are available both in the GUD buffer and globally, but with
 different key bindings.
 
-  The breakpoint commands are usually used in source file buffers,
-because that is the way to specify where to set or clear the breakpoint.
-Here's the global command to set a breakpoint:
+  The breakpoint commands are normally used in source file buffers,
+because that is the easiest way to specify where to set or clear the
+breakpoint.  Here's the global command to set a breakpoint:
 
 @table @kbd
 @item C-x @key{SPC}
@@ -479,7 +507,7 @@ Instead, type @kbd{C-q @key{TAB}} to enter a tab.
 if you are using GDB; @code{dbx-mode-hook}, if you are using DBX;
 @code{sdb-mode-hook}, if you are using SDB; @code{xdb-mode-hook}, if you
 are using XDB; @code{perldb-mode-hook}, for Perl debugging mode;
-@code{jdb-mode-hook}, for PDB; @code{jdb-mode-hook}, for JDB.  You can
+@code{pdb-mode-hook}, for PDB; @code{jdb-mode-hook}, for JDB.  You can
 use these hooks to define custom key bindings for the debugger
 interaction buffer.  @xref{Hooks}.
 
@@ -494,7 +522,7 @@ debugger interaction buffer:
 
   This defines a command named @var{function} which sends
 @var{cmdstring} to the debugger process, and gives it the documentation
-string @var{docstring}.  You can use the command thus defined in any
+string @var{docstring}.  You can then use the command @var{function} in any
 buffer.  If @var{binding} is non-@code{nil}, @code{gud-def} also binds
 the command to @kbd{C-c @var{binding}} in the GUD buffer's mode and to
 @kbd{C-x C-a @var{binding}} generally.
@@ -530,6 +558,16 @@ empty string.
 If you don't use @samp{%p} in the command string, the command you define
 ignores any numeric argument.
 @end table
+
+@node GUD Tooltips
+@subsection GUD Tooltips
+
+@cindex tooltips with GUD
+The Tooltip facility (@pxref{Tooltips}) provides support for GUD@.  If
+GUD support is activated by customizing the @code{tooltip} group,
+variable values can be displayed in tooltips by pointing at them with
+the mouse in the GUD buffer or in source buffers with major modes in the
+customizable list @code{tooltip-gud-modes}.
 
 @node Executing Lisp
 @section Executing Lisp Expressions
@@ -596,7 +634,7 @@ the result of compiling @file{@var{lib}.el}; it is better to load the
 compiled file, since it will load and run faster.
 
   If @code{load-library} finds that @file{@var{lib}.el} is newer than
-@file{@var{lib}.elc} file, it prints a warning, because it's likely that
+@file{@var{lib}.elc} file, it issues a warning, because it's likely that
 somebody made changes to the @file{.el} file and forgot to recompile
 it.
 
@@ -632,6 +670,13 @@ By convention, the compiled code for a library goes in a separate file
 whose name consists of the library source file with @samp{c} appended.
 Thus, the compiled code for @file{foo.el} goes in @file{foo.elc}.
 That's why @code{load-library} searches for @samp{.elc} files first.
+
+@vindex load-dangerous-libraries
+@cindex Lisp files byte-compiled by XEmacs
+  By default, Emacs refuses to load compiled Lisp files which were
+compiled with XEmacs, a modified versions of Emacs---they can cause
+Emacs to crash.  Set the variable @code{load-dangerous-libraries} to
+@code{t} if you want to try loading them.
 
 @node Lisp Eval
 @section Evaluating Emacs-Lisp Expressions
@@ -690,6 +735,7 @@ changes that you have just made in the text of a function definition.
 evaluating a @code{defvar} expression does nothing if the variable it
 defines already has a value.  But @kbd{C-M-x} unconditionally resets the
 variable to the initial value specified in the @code{defvar} expression.
+@code{defcustom} expressions are treated similarly.
 This special feature is convenient for debugging Lisp programs.
 
 @kindex C-x C-e
@@ -711,9 +757,19 @@ is @code{eval-region}.  @kbd{M-x eval-region} parses the text of the
 region as one or more Lisp expressions, evaluating them one by one.
 @kbd{M-x eval-current-buffer} is similar but evaluates the entire
 buffer.  This is a reasonable way to install the contents of a file of
-Lisp code that you are just ready to test.  Later, as you find bugs and
+Lisp code that you are ready to test.  Later, as you find bugs and
 change individual functions, use @kbd{C-M-x} on each function that you
 change.  This keeps the Lisp world in step with the source file.
+
+@vindex eval-expression-print-level
+@vindex eval-expression-print-length
+@vindex eval-expression-debug-on-error
+The customizable variables @code{eval-expression-print-level} and
+@code{eval-expression-print-length} control the maximum depth and length
+of lists to print in the result of the evaluation commands before
+abbreviating them.  @code{eval-expression-debug-on-error} controls
+whether evaluation errors invoke the debugger when these commands are
+used.
 
 @node Lisp Interaction
 @section Lisp Interaction Buffers

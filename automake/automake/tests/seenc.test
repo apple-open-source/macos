@@ -1,0 +1,22 @@
+#! /bin/sh
+
+# Test to make sure C-but-not-CC error works.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+LIBOBJS="$LIBOBJS fsusage.o mountlist.o"
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = foo
+foo_SOURCES = x.C
+foo_LDADD = @LIBOBJS@
+END
+
+: > fsusage.c
+: > mountlist.c
+
+$ACLOCAL || exit 1
+$AUTOMAKE > out 2>&1 && exit 1
+exit 0

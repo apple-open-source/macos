@@ -19,7 +19,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclNamesp.c,v 1.1.1.4 2000/12/06 23:03:28 wsanchez Exp $
+ * RCS: @(#) $Id: tclNamesp.c,v 1.1.1.5 2002/04/05 16:13:24 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -1265,6 +1265,7 @@ Tcl_Import(interp, namespacePtr, pattern, allowOverwrite)
 			        "import pattern \"", pattern,
 				"\" would create a loop containing command \"",
 				Tcl_DStringValue(&ds), "\"", (char *) NULL);
+			Tcl_DStringFree(&ds);
 			return TCL_ERROR;
 		    }
 		}
@@ -1277,6 +1278,7 @@ Tcl_Import(interp, namespacePtr, pattern, allowOverwrite)
 		dataPtr->realCmdPtr = cmdPtr;
 		dataPtr->selfPtr = (Command *) importedCmd;
 		dataPtr->selfPtr->compileProc = cmdPtr->compileProc;
+		Tcl_DStringFree(&ds);
 
 		/*
 		 * Create an ImportRef structure describing this new import

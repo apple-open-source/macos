@@ -26,8 +26,16 @@
  *
  */
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 #include <ppc/proc_reg.h>
-#include <ppc/machine_routines.h>
+
+/* Map memory map IO space */
+#include <mach/mach_types.h>
+extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
+__END_DECLS
+
 
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOKitKeys.h>
@@ -61,30 +69,36 @@ bool Core99PE::start(IOService *provider)
   IORegistryEntry *powerMgtEntry;
   unsigned long   *primInfo;
   unsigned long   uniNArbCtrl, uniNBaseAddressTemp;
+  const char      *provider_name;
   
   setChipSetType(kChipSetTypeCore99);
   
 
   // Set the machine type based on first entry found.
-  if      (!strcmp(provider->getName(), "PowerMac2,1"))
+  provider_name = provider->getName();
+  
+  if      (!strcmp(provider_name, "PowerMac2,1"))
     machineType = kCore99TypePowerMac2_1;
-  else if (!strcmp(provider->getName(), "PowerMac2,2"))
+  else if (!strcmp(provider_name, "PowerMac2,2"))
     machineType = kCore99TypePowerMac2_2;
-  else if (!strcmp(provider->getName(), "PowerMac3,1"))
+  else if (!strcmp(provider_name, "PowerMac3,1"))
     machineType = kCore99TypePowerMac3_1;
-  else if (!strcmp(provider->getName(), "PowerMac3,2"))
+  else if (!strcmp(provider_name, "PowerMac3,2"))
     machineType = kCore99TypePowerMac3_2;
-  else if (!strcmp(provider->getName(), "PowerMac3,3"))
+  else if (!strcmp(provider_name, "PowerMac3,3"))
     machineType = kCore99TypePowerMac3_3;
-  else if (!strcmp(provider->getName(), "PowerMac5,1"))
+  else if (!strcmp(provider_name, "PowerMac5,1"))
     machineType = kCore99TypePowerMac5_1;
-  else if (!strcmp(provider->getName(), "PowerBook2,1"))
+  else if (!strcmp(provider_name, "PowerBook2,1"))
     machineType = kCore99TypePowerBook2_1;
-  else if (!strcmp(provider->getName(), "PowerBook2,2"))
+  else if (!strcmp(provider_name, "PowerBook2,2"))
     machineType = kCore99TypePowerBook2_2;
-  else if (!strcmp(provider->getName(), "PowerBook3,1"))
+  else if (!strcmp(provider_name, "PowerBook3,1"))
     machineType = kCore99TypePowerBook3_1;
   else return false;
+  
+  isPortable = (0 == strncmp(provider_name, "PowerBook", strlen("PowerBook"))) ||
+	(0 == strncmp(provider_name, "iBook", strlen("iBook")));
   
   setMachineType(machineType);
   
@@ -270,6 +284,11 @@ IOReturn Core99PE::callPlatformFunction(const OSSymbol *functionName,
   if (functionName->isEqualTo("AccessUniN15PerformanceRegister")) {
     return accessUniN15PerformanceRegister((bool)param1, (long)param2,
 					   (unsigned long *)param3);
+  }
+  
+  if (functionName->isEqualTo("PlatformIsPortable")) {
+    *(bool *) param1 = isPortable;
+    return kIOReturnSuccess;
   }
   
   return super::callPlatformFunction(functionName, waitForFunction,

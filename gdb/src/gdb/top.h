@@ -1,5 +1,6 @@
 /* Top level stuff for GDB, the GNU debugger.
-   Copyright 1986-1994, 2000 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1996,
+   1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,6 +19,9 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#ifndef TOP_H
+#define TOP_H
+
 /* From top.c.  */
 extern char *line;
 extern int linesize;
@@ -27,11 +31,6 @@ extern int inhibit_gdbinit;
 extern int epoch_interface;
 extern char gdbinit[];
 extern char gdbinit_global[];
-
-extern char *gdb_completer_word_break_characters;
-extern char *gdb_completer_command_word_break_characters;
-extern char *gdb_completer_filename_word_break_characters;
-extern char *gdb_completer_quote_characters;
 
 extern void print_gdb_version (struct ui_file *);
 
@@ -46,7 +45,7 @@ extern void simplified_command_loop (char *(*read_input_func) (char *),
 extern int quit_confirm (void);
 extern void quit_force (char *, int);
 extern void quit_command (char *, int);
-extern int quit_cover (PTR);
+extern int quit_cover (void *);
 extern void execute_command (char *, int);
 
 /* This function returns a pointer to the string that is used
@@ -72,3 +71,5 @@ extern char *source_error;
 extern char *source_pre_error;
 extern int history_expansion_p;
 extern int server_command;
+
+#endif

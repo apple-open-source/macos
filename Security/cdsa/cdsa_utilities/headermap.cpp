@@ -20,7 +20,9 @@
 // headermap - represent Internet-standard headers
 //
 #include "headermap.h"
+#include <ctype.h>
 
+using namespace std;
 
 namespace Security {
 

@@ -1,3 +1,0 @@
-OTHER_PRIVATE_HEADERS = btree.h bt_extern.h
-PUBLIC_HEADER_DIR_SUFFIX = /btree
-PRIVATE_HEADER_DIR_SUFFIX = /btree

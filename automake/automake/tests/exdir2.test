@@ -1,0 +1,14 @@
+#! /bin/sh
+
+# Test to make sure undefined directories are invalid.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'EOF'
+html_DATA = zot.html
+pkgdata_DATA = qbert
+EOF
+
+$ACLOCAL || exit 1
+$AUTOMAKE && exit 1
+exit 0

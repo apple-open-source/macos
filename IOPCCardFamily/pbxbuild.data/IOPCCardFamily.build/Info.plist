@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.3</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.3</string>
+	<string>1.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPCCardFamily</key>
@@ -33,7 +33,7 @@
 					<key>I/O Port Ranges</key>
 					<array>
 						<data>
-						/gAAAP4A//8=
+						AAAAAAAA//8=
 						</data>
 					</array>
 					<key>Memory Ranges</key>
@@ -48,7 +48,7 @@
 					<key>I/O Port Ranges</key>
 					<array>
 						<data>
-						/gAAAP4A//8=
+						AAAAAAAA//8=
 						</data>
 					</array>
 					<key>Memory Ranges</key>
@@ -63,10 +63,10 @@
 					<key>I/O Port Ranges</key>
 					<array>
 						<data>
-						8gAAAPIAD/8=
+						AAAAAAAAD/8=
 						</data>
 						<data>
-						8gAgAPIA//8=
+						AAAgAAAA//8=
 						</data>
 					</array>
 					<key>Memory Ranges</key>
@@ -81,10 +81,10 @@
 					<key>I/O Port Ranges</key>
 					<array>
 						<data>
-						8gAAAPIAj/8=
+						AAAAAAAAj/8=
 						</data>
 						<data>
-						8gCgAPIA//8=
+						AACgAAAA//8=
 						</data>
 					</array>
 					<key>Memory Ranges</key>
@@ -99,10 +99,10 @@
 					<key>I/O Port Ranges</key>
 					<array>
 						<data>
-						8gAAAPIAj/8=
+						AAAAAAAAj/8=
 						</data>
 						<data>
-						8gCgAPIA//8=
+						AACgAAAA//8=
 						</data>
 					</array>
 					<key>Memory Ranges</key>
@@ -117,10 +117,10 @@
 					<key>I/O Port Ranges</key>
 					<array>
 						<data>
-						8gAAAPIAj/8=
+						AAAAAAAAj/8=
 						</data>
 						<data>
-						8gCgAPIA//8=
+						AACgAAAA//8=
 						</data>
 					</array>
 					<key>Memory Ranges</key>
@@ -135,13 +135,13 @@
 					<key>I/O Port Ranges</key>
 					<array>
 						<data>
-						/gAQAP4A//8=
+						AAAQAAAA//8=
 						</data>
 					</array>
 					<key>Memory Ranges</key>
 					<array>
 						<data>
-						kAAAAJ////8=
+						oAAAAK////8=
 						</data>
 					</array>
 				</dict>

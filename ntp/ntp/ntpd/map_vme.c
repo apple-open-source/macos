@@ -22,8 +22,8 @@
 #include <sys/types.h> 
 #include <sys/stat.h> 
 #include <sys/sysmacros.h> 
-#include <sys/rtprio.h> /* for rtprio */
-#include <sys/lock.h> /* for plock */
+#include <sys/rtprio.h>		/* for rtprio */
+#include <sys/lock.h>		/* for plock */
 #include "/etc/conf/machine/vme2.h"
 #include "/etc/conf/h/io.h"
 #include "gps.h"
@@ -74,7 +74,7 @@ map_vme (
 	}
 	if(tx.error)
 	    printf("io_testr failed internal error %d\n",tx.error);
-	if(tx.access_result <= 0) {
+	if(tx.access_result < 0) {
 		printf("io_testr failed\n");
 		exit(2);
 	}
@@ -119,13 +119,13 @@ init_vme(boid)
 
 /* offsets from base address: */
 
-	greg[0] =  (unsigned short *)gps_base + GFRZ1;
+	greg[0] = (unsigned short *)gps_base + GFRZ1;
 	greg[1] = (unsigned short *)gps_base + GUFRZ1;
 	greg[2] = (unsigned short *)gps_base + GREG1A;
-	greg[3] = (unsigned short  *)gps_base + GREG1B;
-	greg[4] = (unsigned short  *)gps_base + GREG1C;
-	greg[5] = (unsigned short  *)gps_base + GREG1D;
-	greg[6] = (unsigned short  *)gps_base + GREG1E;
+	greg[3] = (unsigned short *)gps_base + GREG1B;
+	greg[4] = (unsigned short *)gps_base + GREG1C;
+	greg[5] = (unsigned short *)gps_base + GREG1D;
+	greg[6] = (unsigned short *)gps_base + GREG1E;
 
 	return (0); 
 }

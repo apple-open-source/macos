@@ -47,7 +47,7 @@ if ($?prompt) then		# For interactive shells only (ie. not scripts):
   set dextract			# pushd +n gets stack item n
   set dunique			# Only push unique directories
   #set pushdtohome		# 'pushd' = 'pushd ~'
-  #set symlinks = ignore	# 'cd ..' goes to previous dir, not $cwd/..
+  set symlinks = ignore		# 'cd ..' goes to previous dir, not $cwd/..
 
   # Random
   set correct = cmd		# Spell Correction on
@@ -60,11 +60,11 @@ if ($?prompt) then		# For interactive shells only (ie. not scripts):
   #alias precmd 'noop'
 
   # Command to execute periodically
-  #set tperiod = 10		# Period, in minutes
+  #set tperiod = 10			# Period, in minutes
   #alias periodic touch /dev/$tty	# Command
 
   # Command to execute after changing directory
-  #alias cwdcmd 'noop
+  #alias cwdcmd 'noop'
 
   # Command to execute when tcsh wants to beep.
   #alias beepcmp 'noop'

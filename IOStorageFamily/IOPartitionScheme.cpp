@@ -286,6 +286,10 @@ void IOPartitionScheme::write(IOService *          /* client */,
 
 IOReturn IOPartitionScheme::synchronizeCache(IOService * client)
 {
+    //
+    // Flush the cached data in the storage object, if any, synchronously.
+    //
+
     return getProvider()->synchronizeCache(this);
 }
 

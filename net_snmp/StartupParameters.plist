@@ -1,0 +1,11 @@
+{
+  Description     = "SNMP server";
+  Provides        = ("SNMP");
+  Requires        = ("Resolver");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting SNMP server";
+    stop  = "Stopping SNMP server";
+  };
+}

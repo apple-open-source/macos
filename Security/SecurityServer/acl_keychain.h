@@ -18,7 +18,7 @@
 
 //
 // acl_keychain - a subject type for the protected-path
-//				  keychain prompt interaction model.
+//		keychain prompt interaction model.
 //
 #ifndef _ACL_KEYCHAIN
 #define _ACL_KEYCHAIN
@@ -27,20 +27,18 @@
 #include "SecurityAgentClient.h"
 #include <string>
 
-#ifdef _CPP_ACL_KEYCHAIN
-#pragma export on
-#endif
-
 
 //
 // This is the actual subject implementation class
 //
 class KeychainPromptAclSubject : public SimpleAclSubject {
+	static const Version pumaVersion = 0;	// 10.0, 10.1 -> default selector (not stored)
+	static const Version jaguarVersion = 1;	// 10.2 et al -> first version selector
 public:
     bool validate(const AclValidationContext &baseCtx, const TypedList &sample) const;
     CssmList toList(CssmAllocator &alloc) const;
     
-    KeychainPromptAclSubject(string description);
+    KeychainPromptAclSubject(string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &selector);
     
     void exportBlob(Writer::Counter &pub, Writer::Counter &priv);
     void exportBlob(Writer &pub, Writer &priv);
@@ -49,19 +47,24 @@ public:
 
     class Maker : public AclSubject::Maker {
     public:
-    	Maker() : AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT) { }
+    	Maker(CSSM_ACL_SUBJECT_TYPE type = CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT)
+			: AclSubject::Maker(type) { }
     	KeychainPromptAclSubject *make(const TypedList &list) const;
-    	KeychainPromptAclSubject *make(Reader &pub, Reader &priv) const;
+    	KeychainPromptAclSubject *make(Version version, Reader &pub, Reader &priv) const;
     };
     
 private:
-    string description;
+	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR selector; // selector structure
+    string description;				// description blob (string)
+	
+private:
+	static CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR defaultSelector;
+	
+	typedef uint32 VersionMarker;
+	static const VersionMarker currentVersion = 0x3BD5910D;
+	
+	bool isLegacyCompatible() const;
 };
-
-
-#ifdef _CPP_ACL_KEYCHAIN
-#pragma export off
-#endif
 
 
 #endif //_ACL_KEYCHAIN

@@ -1,0 +1,1016 @@
+This is ../info/efaq, produced by makeinfo version 4.0 from faq.texi.
+
+INFO-DIR-SECTION Emacs
+START-INFO-DIR-ENTRY
+* Emacs FAQ: (efaq).	Frequently Asked Questions about Emacs.
+END-INFO-DIR-ENTRY
+
+   Copyright 1994,1995,1996,1997,1998,1999,2000 Reuven M. Lerner
+Copyright 1992,1993 Steven Byrnes
+Copyright 1990,1991,1992 Joseph Brian Wells
+This list of frequently asked questions about GNU Emacs with answers
+("FAQ") may be translated into other languages, transformed into other
+formats (e.g. Texinfo, Info, WWW, WAIS), and updated with new
+information.
+
+   The same conditions apply to any derivative of the FAQ as apply to
+the FAQ itself.  Every copy of the FAQ must include this notice or an
+approved translation, information on who is currently maintaining the
+FAQ and how to contact them (including their e-mail address), and
+information on where the latest version of the FAQ is archived
+(including FTP information).
+
+   The FAQ may be copied and redistributed under these conditions,
+except that the FAQ may not be embedded in a larger literary work
+unless that work itself allows free copying and redistribution.
+
+   [This version has been somewhat edited from the last-posted version
+(as of August 1999) for inclusion in the Emacs distribution.]
+
+
+File: efaq,  Node: Terminal setup code works after Emacs has begun,  Next: Using function keys under X,  Prev: Invalid prefix characters,  Up: Key bindings
+
+Why doesn't this [terminal or window-system setup] code work in my `.emacs' file, but it works just fine after Emacs starts up?
+===============================================================================================================================
+
+   During startup, Emacs initializes itself according to a given
+code/file order.  If some of the code executed in your `.emacs' file
+needs to be postponed until the initial terminal or window-system setup
+code has been executed but is not, then you will experience this
+problem (this code/file execution order is not enforced after startup).
+
+   To postpone the execution of Emacs Lisp code until after terminal or
+window-system setup, treat the code as a "lambda list" and set the
+value of either the `term-setup-hook' or `window-setup-hook' variable
+to this lambda function.  For example,
+
+     (add-hook 'term-setup-hook
+               (lambda ()
+                (when (string-match "\\`vt220" (or (getenv "TERM") ""))
+                  ;; Make vt220's "Do" key behave like M-x:
+                  (global-set-key [do] 'execute-extended-command))))
+
+   For information on what Emacs does every time it is started, see the
+`lisp/startup.el' file.
+
+
+File: efaq,  Node: Using function keys under X,  Next: Working with function and arrow keys,  Prev: Terminal setup code works after Emacs has begun,  Up: Key bindings
+
+How do I use function keys under X?
+===================================
+
+   With Emacs 19, functions keys under X are bound like any other key.
+*Note Binding keys to commands::, for details.
+
+
+File: efaq,  Node: Working with function and arrow keys,  Next: X key translations for Emacs,  Prev: Using function keys under X,  Up: Key bindings
+
+How do I tell what characters or symbols my function or arrow keys emit?
+========================================================================
+
+   Type `C-h c' then the function or arrow keys.  The command will
+return either a function key symbol or character sequence (see the
+Emacs on-line documentation for an explanation).  This works for other
+keys as well.
+
+
+File: efaq,  Node: X key translations for Emacs,  Next: Handling C-s and C-q with flow control,  Prev: Working with function and arrow keys,  Up: Key bindings
+
+How do I set the X key "translations" for Emacs?
+================================================
+
+   Emacs is not written using the Xt library by default, so there are no
+"translations" to be set.  (We aren't sure how to set such translations
+if you do build Emacs with Xt; please let us know if you've done this!)
+
+   The only way to affect the behavior of keys within Emacs is through
+`xmodmap' (outside Emacs) or `define-key' (inside Emacs).  The
+`define-key' command should be used in conjunction with the
+`function-key-map' map.  For instance,
+
+     (define-key function-key-map [M-<TAB>] [?\M-\t])
+
+defines the `M-<TAB>' key sequence.
+
+
+File: efaq,  Node: Handling C-s and C-q with flow control,  Next: Binding C-s and C-q,  Prev: X key translations for Emacs,  Up: Key bindings
+
+How do I handle `C-s' and `C-q' being used for flow control?
+============================================================
+
+   `C-s' and `C-q' are used in the XON/XOFF flow control protocol.
+This messes things up when you're using Emacs over a serial line,
+because Emacs binds these keys to commands by default.  Because Emacs
+won't honor them as flow control characters, too many of these
+characters are not passed on and overwhelm output buffers.  Sometimes,
+intermediate software using XON/XOFF flow control will prevent Emacs
+from ever seeing `C-s' and `C-q'.
+
+   Possible solutions:
+
+   * Disable the use of `C-s' and `C-q' for flow control.
+
+     You need to determine the cause of the flow control.
+
+        - your terminal
+
+          Your terminal may use XON/XOFF flow control to have time to
+          display all the characters it receives.  For example, VT
+          series terminals do this.  It may be possible to turn this
+          off from a setup menu.  For example, on a VT220 you may
+          select "No XOFF" in the setup menu.  This is also true for
+          some terminal emulation programs on PCs.
+
+          When you turn off flow control at the terminal, you will also
+          need to turn it off at the other end, which might be at the
+          computer you are logged in to or at some terminal server in
+          between.
+
+          If you turn off flow control, characters may be lost; using a
+          printer connected to the terminal may fail.  You may be able
+          to get around this problem by modifying the `termcap' entry
+          for your terminal to include extra NUL padding characters.
+
+        - a modem
+
+          If you are using a dialup connection, the modems may be using
+          XON/XOFF flow control.  It's not clear how to get around this.
+
+        - a router or terminal server
+
+          Some network box between the terminal and your computer may
+          be using XON/XOFF flow control.  It may be possible to make
+          it use some other kind of flow control.  You will probably
+          have to ask your local network experts for help with this.
+
+        - `tty' and/or `pty' devices
+
+          If your connection to Emacs goes through multiple `tty' and/or
+          `pty' devices, they may be using XON/XOFF flow control even
+          when it is not necessary.
+
+          Eirik Fuller <eirik@theory.tn.cornell.edu> writes:
+
+               Some versions of `rlogin' (and possibly `telnet') do not
+               pass flow control characters to the remote system to
+               which they connect.  On such systems, Emacs on the
+               remote system cannot disable flow control on the local
+               system.  Sometimes `rlogin -8' will avoid this problem.
+
+               One way to cure this is to disable flow control on the
+               local host (the one running `rlogin', not the one
+               running `rlogind') using the `stty' command, before
+               starting the `rlogin' process.  On many systems, `stty
+               start u stop u' will do this.
+
+               Some versions of `tcsh' will prevent even this from
+               working.  One way around this is to start another shell
+               before starting rlogin, and issue the `stty' command to
+               disable flow control from that shell.
+
+          Use `stty -ixon' instead of `stty start u stop u' on some
+          systems.
+
+
+   * Make Emacs speak the XON/XOFF flow control protocol.
+
+     You can make Emacs treat `C-s' and `C-q' as flow control
+     characters by evaluating the form
+
+          (enable-flow-control)
+
+     to unconditionally enable flow control or
+
+          (enable-flow-control-on "vt100" "h19")
+
+     (using your terminal names instead of `vt100' or `h19') to enable
+     selectively.  These commands will automatically swap `C-s' and
+     `C-q' to `C-\' and `C-^'.  Variables can be used to change the
+     default swap keys (`flow-control-c-s-replacement' and
+     `flow-control-c-q-replacement').
+
+     If you are fixing this for yourself, simply put the form in your
+     `.emacs' file.  If you are fixing this for your entire site, the
+     best place to put it is in the `site-lisp/site-start.el' file.
+     (Here `site-lisp' is actually a subdirectory of your Emacs
+     installation directory, typically `/usr/local/share/emacs'.)
+     Putting this form in `site-lisp/default.el' has the problem that
+     if the user's `.emacs' file has an error, this will prevent
+     `default.el' from being loaded and Emacs may be unusable for the
+     user, even for correcting their `.emacs' file (unless they're
+     smart enough to move it to another name).
+
+     `enable-flow-control' can be invoked interactively as well: `M-x
+     enable-flow-control <RET>'.
+
+
+   For further discussion of this issue, read the file `etc/PROBLEMS'
+(in the Emacs source directory when you unpack the Emacs distribution).
+
+
+File: efaq,  Node: Binding C-s and C-q,  Next: Backspace invokes help,  Prev: Handling C-s and C-q with flow control,  Up: Key bindings
+
+How do I bind `C-s' and `C-q' (or any key) if these keys are filtered out?
+==========================================================================
+
+   To bind `C-s' and `C-q', use either `enable-flow-control' or
+`enable-flow-control-on'.  *Note Handling C-s and C-q with flow
+control::, for usage and implementation details.
+
+   To bind other keys, use `keyboard-translate'.  *Note Swapping
+keys::, for usage details.  To do this for an entire site, you should
+swap the keys in `site-lisp/site-start.el'.  *Note Handling C-s and C-q
+with flow control::, for an explanation of why `site-lisp/default.el'
+should not be used.
+
+   * If you do this for an entire site, the users will be confused by
+     the disparity between what the documentation says and how Emacs
+     actually behaves.
+
+
+
+File: efaq,  Node: Backspace invokes help,  Next: stty and Backspace key,  Prev: Binding C-s and C-q,  Up: Key bindings
+
+Why does the <Backspace> key invoke help?
+=========================================
+
+   The <Backspace> key (on most keyboards) generates ASCII code 8.
+`C-h' sends the same code.  In Emacs by default `C-h' invokes
+help-command.  This is intended to be easy to remember since the first
+letter of `help' is `h'.  The easiest solution to this problem is to
+use `C-h' (and <Backspace>) for help and <DEL> (the <Delete> key) for
+deleting the previous character.
+
+   For many people this solution may be problematic:
+
+   * They normally use <Backspace> outside of Emacs for deleting the
+     previous character.  This can be solved by making <DEL> the command
+     for deleting the previous character outside of Emacs.  On many Unix
+     systems, this command will remap <DEL>:
+
+          stty erase `^?'
+
+   * The user may prefer the <Backspace> key for deleting the previous
+     character because it is more conveniently located on their
+     keyboard or because they don't even have a separate <Delete> key.
+     In this case, the <Backspace> key should be made to behave like
+     <Delete>.  There are several methods.
+
+        - Some terminals (e.g., VT3## terminals) and terminal emulators
+          (e.g., TeraTerm) allow the character generated by the
+          <Backspace> key to be changed from a setup menu.
+
+        - You may be able to get a keyboard that is completely
+          programmable, or a terminal emulator that supports remapping
+          of any key to any other key.
+
+        - With Emacs 21.1 and later, you can control the effect of the
+          <Backspace> and <Delete> keys, on both dumb terminals and a
+          windowed displays, by customizing the option
+          `normal-erase-is-backspace-mode', or by invoking `M-x
+          normal-erase-is-backspace'.  See the documentation of these
+          symbols (*note Emacs Lisp documentation::) for more info.
+
+        - It is possible to swap the <Backspace> and <DEL> keys inside
+          Emacs:
+
+               (keyboard-translate ?\C-h ?\C-?)
+
+          This is the recommended method of forcing <Backspace> to act
+          as <DEL>, because it works even in modes which bind <DEL> to
+          something other than `delete-backward-char'.
+
+          Similarly, you could remap <DEL> to act as `C-d', which by
+          default deletes forward:
+
+               (keyboard-translate ?\C-? ?\C-d)
+
+          *Note Swapping keys::, for further details about
+          `keyboard-translate'.
+
+        - Another approach is to switch key bindings and put help on
+          `C-x h' instead:
+
+               (global-set-key "\C-h" 'delete-backward-char)
+               
+               ;;; overrides mark-whole-buffer
+               (global-set-key "\C-xh" 'help-command)
+
+          This method is not recommended, though: it only solves the
+          problem for those modes which bind <DEL> to
+          `delete-backward-char'.  Modes which bind <DEL> to something
+          else, such as `view-mode', will not work as you expect when
+          you press the <Backspace> key.  For this reason, we recommend
+          the the `keyboard-translate' method, shown above.
+
+          Other popular key bindings for help are `M-?' and `C-x ?'.
+
+     Don't try to bind <DEL> to `help-command', because there are many
+     modes that have local bindings of <DEL> that will interfere.
+
+
+   When Emacs 21 or later runs on a windowed display, it binds the
+<Delete> key to a command which deletes the character at point, to make
+Emacs more consistent with keyboard operation on these systems.
+
+   For more information about troubleshooting this problem, see *Note
+If <DEL> Fails to Delete: (emacs)DEL Does Not Delete.
+
+
+File: efaq,  Node: stty and Backspace key,  Next: Swapping keys,  Prev: Backspace invokes help,  Up: Key bindings
+
+Why doesn't Emacs look at the `stty' settings for <Backspace> vs. <Delete>?
+===========================================================================
+
+   Good question!
+
+
+File: efaq,  Node: Swapping keys,  Next: Producing C-XXX with the keyboard,  Prev: stty and Backspace key,  Up: Key bindings
+
+How do I swap two keys?
+=======================
+
+   In Emacs 19, you can swap two keys (or key sequences) by using the
+`keyboard-translate' function.  For example, to turn `C-h' into <DEL>
+and <DEL> to `C-h', use
+
+     (keyboard-translate ?\C-h ?\C-?)  ; translate `C-h' to DEL
+     (keyboard-translate ?\C-? ?\C-h)  ; translate DEL to `C-h'.
+
+The first key sequence of the pair after the function identifies what is
+produced by the keyboard; the second, what is matched for in the
+keymaps.
+
+   Keyboard translations are not the same as key bindings in keymaps.
+Emacs contains numerous keymaps that apply in different situations, but
+there is only one set of keyboard translations, and it applies to every
+character that Emacs reads from the terminal.  Keyboard translations
+take place at the lowest level of input processing; the keys that are
+looked up in keymaps contain the characters that result from keyboard
+translation.
+
+   *note Keyboard Translations: (emacs)Keyboard Translations.
+
+
+File: efaq,  Node: Producing C-XXX with the keyboard,  Next: No Meta key,  Prev: Swapping keys,  Up: Key bindings
+
+How do I produce C-XXX with my keyboard?
+========================================
+
+   On terminals (but not under X), some common "aliases" are:
+
+`C-2'  or  `C-<SPC>'
+     `C-@'
+
+`C-6'
+     `C-^'
+
+`C-7'  or  `C-S--'
+     `C-_'
+
+`C-4'
+     `C-\'
+
+`C-5'
+     `C-]'
+
+`C-/'
+     `C-?'
+
+   Often other aliases exist; use the `C-h c' command and try <CTRL>
+with all of the digits on your keyboard to see what gets generated.
+You can also try the `C-h w' command if you know the name of the
+command.
+
+
+File: efaq,  Node: No Meta key,  Next: No Escape key,  Prev: Producing C-XXX with the keyboard,  Up: Key bindings
+
+What if I don't have a <Meta> key?
+==================================
+
+   On many keyboards, the <Alt> key acts as <Meta>, so try it.
+
+   Instead of typing `M-a', you can type `<ESC> a'.  In fact, Emacs
+converts `M-a' internally into `<ESC> a' anyway (depending on the value
+of `meta-prefix-char').  Note that you press <Meta> and <a> together,
+but with <ESC>, you press <ESC>, release it, and then press <a>.
+
+
+File: efaq,  Node: No Escape key,  Next: Compose Character,  Prev: No Meta key,  Up: Key bindings
+
+What if I don't have an <Escape> key?
+=====================================
+
+   Type `C-[' instead.  This should send ASCII code 27 just like an
+Escape key would.  `C-3' may also work on some terminal (but not under
+X).  For many terminals (notably DEC terminals) <F11> generates <ESC>.
+If not, the following form can be used to bind it:
+
+     ;;; F11 is the documented ESC replacement on DEC terminals.
+     (define-key function-key-map [f11] [?\e])
+
+
+File: efaq,  Node: Compose Character,  Next: Binding combinations of modifiers and function keys,  Prev: No Escape key,  Up: Key bindings
+
+Can I make my <Compose Character> key behave like a <Meta> key?
+===============================================================
+
+   On a dumb terminal such as a VT220, no.  It is rumored that certain
+VT220 clones could have their <Compose> key configured this way.  If
+you're using X, you might be able to do this with the `xmodmap' command.
+
+
+File: efaq,  Node: Binding combinations of modifiers and function keys,  Next: Meta key does not work in xterm,  Prev: Compose Character,  Up: Key bindings
+
+How do I bind a combination of modifier key and function key?
+=============================================================
+
+   With Emacs 19 and later, you can represent modified function keys in
+vector format by adding prefixes to the function key symbol.  For
+example (from the on-line documentation):
+
+     (global-set-key [?\C-x right] 'forward-page)
+
+where `?\C-x' is the Lisp character constant for the character `C-x'.
+
+   You can use the modifier keys <Control>, <Meta>, <Hyper>, <Super>,
+<Alt>, and <Shift> with function keys.  To represent these modifiers,
+prepend the strings `C-', `M-', `H-', `s-', `A-', and `S-' to the
+symbol name.  Here is how to make `H-M-RIGHT' move forward a word:
+
+     (global-set-key [H-M-right] 'forward-word)
+
+   * Not all modifiers are permitted in all situations.  <Hyper>,
+     <Super>, and <Alt> are not available on Unix character terminals.
+     Non-ASCII keys and mouse events (e.g. `C-=' and `Mouse-1') also
+     fall under this category.
+
+
+   *Note Binding keys to commands::, for general key binding
+instructions.
+
+
+File: efaq,  Node: Meta key does not work in xterm,  Next: ExtendChar key does not work as Meta,  Prev: Binding combinations of modifiers and function keys,  Up: Key bindings
+
+Why doesn't my <Meta> key work in an `xterm' window?
+====================================================
+
+   *note Single-Byte Character Set Support: (emacs)Single-Byte
+Character Support.
+
+   If the advice in the Emacs manual fails, try all of these methods
+before asking for further help:
+
+   * You may have big problems using `mwm' as your window manager.
+     (Does anyone know a good generic solution to allow the use of the
+     <Meta> key in Emacs with `mwm'?)
+
+   * For X11: Make sure it really is a <Meta> key.  Use `xev' to find
+     out what keysym your <Meta> key generates.  It should be either
+     `Meta_L' or `Meta_R'.  If it isn't, use `xmodmap' to fix the
+     situation.  If <Meta> does generate `Meta_L' or `Meta_R', but
+     `M-x' produces a non-ASCII character, put this in your
+     `~/.Xdefaults' file:
+
+           XTerm*eightBitInput:   false
+           XTerm*eightBitOutput:  true
+
+   * Make sure the `pty' the `xterm' is using is passing 8 bit
+     characters.  `stty -a' (or `stty everything') should show `cs8'
+     somewhere.  If it shows `cs7' instead, use `stty cs8 -istrip' (or
+     `stty pass8') to fix it.
+
+   * If there is an `rlogin' connection between `xterm' and Emacs, the
+     `-8' argument may need to be given to rlogin to make it pass all 8
+     bits of every character.
+
+   * If Emacs is running on Ultrix, it is reported that evaluating
+     `(set-input-mode t nil)' helps.
+
+   * If all else fails, you can make `xterm' generate `<ESC> W' when
+     you type `M-W', which is the same conversion Emacs would make if it
+     got the `M-W' anyway.  In X11R4, the following resource
+     specification will do this:
+
+          XTerm.VT100.EightBitInput: false
+
+     (This changes the behavior of the `insert-eight-bit' action.)
+
+     With older `xterm's, you can specify this behavior with a
+     translation:
+
+          XTerm.VT100.Translations: #override \
+            Meta<KeyPress>: string(0x1b) insert()
+
+     You might have to replace `Meta' with `Alt'.
+
+
+
+File: efaq,  Node: ExtendChar key does not work as Meta,  Prev: Meta key does not work in xterm,  Up: Key bindings
+
+Why doesn't my <ExtendChar> key work as a <Meta> key under HP-UX 8.0 and 9.x?
+=============================================================================
+
+   This is a result of an internationalization extension in X11R4 and
+the fact that HP is now using this extension.  Emacs assumes that the
+`XLookupString' function returns the same result regardless of the
+<Meta> key state which is no longer necessarily true.  Until Emacs is
+fixed, the temporary kludge is to run this command after each time the
+X server is started but preferably before any xterm clients are:
+
+     xmodmap -e 'remove mod1 = Mode_switch'
+
+   This will disable the use of the extra keysyms systemwide, which may
+be undesirable if you actually intend to use them.
+
+
+File: efaq,  Node: Alternate character sets,  Next: Mail and news,  Prev: Key bindings,  Up: Top
+
+Alternate character sets
+************************
+
+* Menu:
+
+* Emacs does not display 8-bit characters::
+* Inputting eight-bit characters::
+* Kanji and Chinese characters::
+* Right-to-left alphabets::
+
+
+File: efaq,  Node: Emacs does not display 8-bit characters,  Next: Inputting eight-bit characters,  Prev: Alternate character sets,  Up: Alternate character sets
+
+How do I make Emacs display 8-bit characters?
+=============================================
+
+   *note Single-byte Character Set Support: (emacs)Single-Byte
+Character Support.  On a Unix, when Emacs runs on a text-only terminal
+display or is invoked with `emacs -nw', you typically need to use
+`set-terminal-coding-system' to tell Emacs what the terminal can
+display, even after setting the language environment; otherwise
+non-ASCII characters will display as `?'.  On other operating systems,
+such as MS-DOS and MS-Windows, Emacs queries the OS about the character
+set supported by the display, and sets up the required terminal coding
+system automatically.
+
+
+File: efaq,  Node: Inputting eight-bit characters,  Next: Kanji and Chinese characters,  Prev: Emacs does not display 8-bit characters,  Up: Alternate character sets
+
+How do I input eight-bit characters?
+====================================
+
+   Various methods are available for input of eight-bit characters.  See
+*note Single-byte Character Set Support: (emacs)Single-Byte Character
+Support.  For more sophisticated methods, *note Input Methods:
+(emacs)Input Methods.
+
+
+File: efaq,  Node: Kanji and Chinese characters,  Next: Right-to-left alphabets,  Prev: Inputting eight-bit characters,  Up: Alternate character sets
+
+Where can I get an Emacs that handles kanji, Chinese, or other Far-Eastern character sets?
+==========================================================================================
+
+   Emacs 20 and later includes many of the features of MULE, the
+MULtilingual Enhancement to Emacs.  *Note Installing Emacs::, for
+information on where to find and download the latest version of Emacs.
+
+
+File: efaq,  Node: Right-to-left alphabets,  Prev: Kanji and Chinese characters,  Up: Alternate character sets
+
+Where is an Emacs that can handle Semitic (right-to-left) alphabets?
+====================================================================
+
+   Emacs 20 and later supports Hebrew characters (ISO 8859-8), but does
+not yet support right-to-left character entry and display.
+
+   Joel M. Hoffman <joel@exc.com> has written a Lisp package called
+`hebrew.el' that allows right-to-left editing of Hebrew.  It reportedly
+works out of the box with Emacs 19, but requires patches for Emacs 18.
+Write to Joel if you want the patches or package.
+
+   `hebrew.el' requires a Hebrew screen font, but no other hardware
+support.  Joel has a screen font for PCs running MS-DOS or GNU/Linux.
+
+   You might also try to query archie for files named with `hebrew';
+several ftp sites in Israel may also have the necessary files.
+
+
+File: efaq,  Node: Mail and news,  Next: Concept index,  Prev: Alternate character sets,  Up: Top
+
+Mail and news
+*************
+
+* Menu:
+
+* Changing the included text prefix::
+* Saving a copy of outgoing mail::
+* Expanding aliases when sending mail::
+* Rmail thinks all messages are one big one::
+* Sorting the messages in an Rmail folder::
+* Rmail writes to /usr/spool/mail::
+* Recovering mail files when Rmail munges them::
+* Replying to the sender of a message::
+* MIME with Emacs mail packages::
+* Automatically starting a mail or news reader::
+* Reading news with Emacs::
+* Gnus does not work with NNTP::
+* Viewing articles with embedded underlining::
+* Saving a multi-part Gnus posting::
+* Starting Gnus faster::
+* Catching up in all newsgroups::
+* Killing based on nonstandard headers::
+* Removing flashing messages::
+* Catch-up is slow in Gnus::
+* Gnus hangs for a long time::
+* Learning more about Gnus::
+
+
+File: efaq,  Node: Changing the included text prefix,  Next: Saving a copy of outgoing mail,  Prev: Mail and news,  Up: Mail and news
+
+How do I change the included text prefix in mail/news followups?
+================================================================
+
+   If you read mail with Rmail or news with Gnus, set the variable
+`mail-yank-prefix'.  For VM, set `vm-included-text-prefix'.  For mh-e,
+set `mh-ins-buf-prefix'.
+
+   For fancier control of citations, use Supercite.  *Note Supercite::.
+
+   To prevent Emacs from including various headers of the replied-to
+message, set the value of `mail-yank-ignored-headers' to an appropriate
+regexp.
+
+
+File: efaq,  Node: Saving a copy of outgoing mail,  Next: Expanding aliases when sending mail,  Prev: Changing the included text prefix,  Up: Mail and news
+
+How do I save a copy of outgoing mail?
+======================================
+
+   You can either mail yourself a copy by including a `BCC' header in
+the mail message, or store a copy of the message directly to a file by
+including an `FCC' header.
+
+   If you use standard mail, you can automatically create a `BCC' to
+yourself by putting
+
+     (setq mail-self-blind t)
+
+in your `.emacs' file.  You can automatically include an `FCC' field by
+putting something like the following in your `.emacs' file:
+
+     (setq mail-archive-file-name (expand-file-name "~/outgoing"))
+
+   The output file will be in Unix mail format, which can be read
+directly by VM, but not always by Rmail.  *Note Learning how to do
+something::.
+
+   If you use `mh-e', add an `FCC' or `BCC' field to your components
+file.
+
+   It does not work to put `set record filename' in the `.mailrc' file.
+
+
+File: efaq,  Node: Expanding aliases when sending mail,  Next: Rmail thinks all messages are one big one,  Prev: Saving a copy of outgoing mail,  Up: Mail and news
+
+Why doesn't Emacs expand my aliases when sending mail?
+======================================================
+
+   * You must separate multiple addresses in the headers of the mail
+     buffer with commas.  This is because Emacs supports RFC822
+     standard addresses like this one:
+
+          To: Willy Smith <wks@xpnsv.lwyrs.com>
+
+     However, you do not need to--and probably should not, unless your
+     system's version of `/usr/ucb/mail' (a.k.a. `mailx') supports
+     RFC822--separate addresses with commas in your `~/.mailrc' file.
+
+   * Emacs normally only reads the `.mailrc' file once per session,
+     when you start to compose your first mail message.  If you edit
+     `.mailrc', you can type `M-x rebuild-mail-abbrevs <RET>' to make
+     Emacs reread `~/.mailrc'.
+
+   * If you like, you can expand mail aliases as abbrevs, as soon as you
+     type them in.  To enable this feature, execute the following:
+
+          (add-hook 'mail-mode-hook 'mail-abbrevs-setup)
+
+     Note that the aliases are expanded automatically only after you
+     type <RET> or a punctuation character (e.g. `,').  You can force
+     their expansion by moving point to the end of the alias and typing
+     `C-x a e' (`M-x expand-abbrev').
+
+
+File: efaq,  Node: Rmail thinks all messages are one big one,  Next: Sorting the messages in an Rmail folder,  Prev: Expanding aliases when sending mail,  Up: Mail and news
+
+Why does Rmail think all my saved messages are one big message?
+===============================================================
+
+   A file created through the `FCC' field in a message is in Unix mail
+format, not the format that Rmail uses (BABYL format).  Rmail will try
+to convert a Unix mail file into BABYL format on input, but sometimes it
+makes errors.  For guaranteed safety, you can make the `saved-messages'
+file be an inbox for your Rmail file by using the function
+`set-rmail-inbox-list'.
+
+
+File: efaq,  Node: Sorting the messages in an Rmail folder,  Next: Rmail writes to /usr/spool/mail,  Prev: Rmail thinks all messages are one big one,  Up: Mail and news
+
+How can I sort the messages in my Rmail folder?
+===============================================
+
+   In Rmail, type `C-c C-s C-h' to get a list of sorting functions and
+their key bindings.
+
+
+File: efaq,  Node: Rmail writes to /usr/spool/mail,  Next: Recovering mail files when Rmail munges them,  Prev: Sorting the messages in an Rmail folder,  Up: Mail and news
+
+Why does Rmail need to write to `/usr/spool/mail'?
+==================================================
+
+   This is the behavior of the `movemail' program which Rmail uses.
+This indicates that `movemail' is configured to use lock files.
+
+   RMS writes:
+
+     Certain systems require lock files to interlock access to mail
+     files.  On these systems, `movemail' must write lock files, or you
+     risk losing mail.  You simply must arrange to let `movemail' write
+     them.
+
+     Other systems use the `flock' system call to interlock access.  On
+     these systems, you should configure `movemail' to use `flock'.
+
+
+File: efaq,  Node: Recovering mail files when Rmail munges them,  Next: Replying to the sender of a message,  Prev: Rmail writes to /usr/spool/mail,  Up: Mail and news
+
+How do I recover my mail files after Rmail munges their format?
+===============================================================
+
+   If you have just done `M-x rmail-input' on a file and you don't want
+to save it in Rmail's format (called BABYL), just kill the buffer (with
+`C-x k').
+
+   If you typed `M-x rmail' and it read some messages out of your inbox
+and you want to put them in a Unix mail file, use `C-o' on each message.
+
+   If you want to convert an existing file from BABYL format to Unix
+mail format, use the command `M-x unrmail': it will prompt you for the
+input and output file names.
+
+   Alternatively, you could use the `b2m' program supplied with Emacs.
+`b2m' is a filter, and is used like this:
+
+      b2m < BABYL-FILE > MBOX-FILE
+
+where BABYL-FILE is the name of the BABYL file, and MBOX-FILE is the
+name of the file where the converted mail will be written.
+
+
+File: efaq,  Node: Replying to the sender of a message,  Next: MIME with Emacs mail packages,  Prev: Recovering mail files when Rmail munges them,  Up: Mail and news
+
+How can I force Rmail to reply to the sender of a message, but not the other recipients?
+========================================================================================
+
+   Ron Isaacson <isaacson@seas.upenn.edu> says: When you hit <r> to
+reply in Rmail, by default it CCs all of the original recipients
+(everyone on the original `To' and `CC' lists). With a prefix argument
+(i.e., typing `C-u' before <r>), it replies only to the sender.
+However, going through the whole `C-u' business every time you want to
+reply is a pain.  This is the best fix I've been able to come up with:
+
+     (defun rmail-reply-t ()
+       "Reply only to the sender of the current message. (See rmail-reply.)"
+       (interactive)
+       (rmail-reply t))
+     
+     (add-hook 'rmail-mode-hook
+       (lambda ()
+         (define-key rmail-mode-map "r" 'rmail-reply-t)
+         (define-key rmail-mode-map "R" 'rmail-reply)))
+
+
+File: efaq,  Node: MIME with Emacs mail packages,  Next: Automatically starting a mail or news reader,  Prev: Replying to the sender of a message,  Up: Mail and news
+
+How can I get my favorite Emacs mail package to support MIME?
+=============================================================
+
+   Read the Emacs MIME FAQ, maintained by MacDonald Hall Jackson
+<trey@cs.berkeley.edu> at
+
+   `http://bmrc.berkeley.edu/~trey/emacs/mime.html'
+
+   Version 6.x of VM supports MIME.  *Note VM::.  Gnus supports MIME in
+mail and news messages as of version 5.8.1 (Pterodactyl).  Rmail has
+limited support for single-part MIME messages beginning with Emacs 20.3.
+
+
+File: efaq,  Node: Automatically starting a mail or news reader,  Next: Reading news with Emacs,  Prev: MIME with Emacs mail packages,  Up: Mail and news
+
+How do I make Emacs automatically start my mail/news reader?
+============================================================
+
+   To start Emacs in Gnus:
+
+     emacs -f gnus
+
+in Rmail:
+
+     emacs -f rmail
+
+   A more convenient way to start with Gnus:
+
+     alias gnus 'emacs -f gnus'
+     gnus
+
+   It is probably unwise to automatically start your mail or news reader
+from your `.emacs' file.  This would cause problems if you needed to run
+two copies of Emacs at the same time.  Also, this would make it
+difficult for you to start Emacs quickly when you needed to.
+
+
+File: efaq,  Node: Reading news with Emacs,  Next: Gnus does not work with NNTP,  Prev: Automatically starting a mail or news reader,  Up: Mail and news
+
+How do I read news under Emacs?
+===============================
+
+   Use `M-x gnus'.  It is documented in Info (*note Learning how to do
+something::).
+
+
+File: efaq,  Node: Gnus does not work with NNTP,  Next: Viewing articles with embedded underlining,  Prev: Reading news with Emacs,  Up: Mail and news
+
+Why doesn't Gnus work via NNTP?
+===============================
+
+   There is a bug in NNTP version 1.5.10, such that when multiple
+requests are sent to the NNTP server, the server only handles the first
+one before blocking waiting for more input which never comes.  NNTP
+version 1.5.11 claims to fix this.
+
+   You can work around the bug inside Emacs like this:
+
+     (setq nntp-maximum-request 1)
+
+   You can find out what version of NNTP your news server is running by
+telnetting to the NNTP port (usually 119) on the news server machine
+(i.e., `telnet server-machine 119').  The server should give its
+version number in the welcome message.  Type `quit' to get out.
+
+   *Note Spontaneous entry into isearch-mode::, for some additional
+ideas.
+
+
+File: efaq,  Node: Viewing articles with embedded underlining,  Next: Saving a multi-part Gnus posting,  Prev: Gnus does not work with NNTP,  Up: Mail and news
+
+How do I view news articles with embedded underlining (e.g., ClariNews)?
+========================================================================
+
+   Underlining appears like this:
+
+     _^Hu_^Hn_^Hd_^He_^Hr_^Hl_^Hi_^Hn_^Hi_^Hn_^Hg
+
+   Per Abrahamsen <abraham@dina.kvl.dk> suggests using the following
+code, which uses the underline face to turn such text into true
+underlining, inconjunction with Gnus:
+
+     (defun gnus-article-prepare-overstrike ()
+       ;; Prepare article for overstrike commands.
+       (save-excursion
+         (set-buffer gnus-article-buffer)
+         (let ((buffer-read-only nil))
+         (goto-char (point-min))
+           (while (search-forward "\b" nil t)
+             (let ((next (following-char))
+                   (previous (char-after (- (point) 2))))
+               (cond ((eq next previous)
+                      (delete-region (- (point) 2) (point))
+                      (put-text-property (point) (1+ (point))
+                                         'face 'bold))
+                     ((eq next ?_)
+                      (delete-region (1- (point)) (1+ (point)))
+                      (put-text-property (1- (point)) (point)
+                                         'face 'underline))
+                     ((eq previous ?_)
+                      (delete-region (- (point) 2) (point))
+                      (put-text-property (point) (1+ (point))
+                                         'face 'underline))))))))
+     
+     (add-hook 'gnus-article-prepare-hook 'gnus-article-prepare-overstrike)
+
+   Latest versions of Gnus do such a conversion automatically.
+
+   If you prefer to do away with underlining altogether, you can
+destructively remove it with `M-x ununderline-region'; do this
+automatically via
+
+     (add-hook 'gnus-article-prepare-hook
+       (lambda () (ununderline-region (point-min) (point-max))))
+
+
+File: efaq,  Node: Saving a multi-part Gnus posting,  Next: Starting Gnus faster,  Prev: Viewing articles with embedded underlining,  Up: Mail and news
+
+How do I save all the items of a multi-part posting in Gnus?
+============================================================
+
+   Use `gnus-uu'.  Type `C-c C-v C-h' in the Gnus summary buffer to see
+a list of available commands.
+
+
+File: efaq,  Node: Starting Gnus faster,  Next: Catching up in all newsgroups,  Prev: Saving a multi-part Gnus posting,  Up: Mail and news
+
+How do I make Gnus start up faster?
+===================================
+
+   From the Gnus FAQ (*note Learning more about Gnus::):
+
+     Pranav Kumar Tiwari <pktiwari@eos.ncsu.edu> writes: I posted the
+     same query recently and I got an answer to it. I am going to
+     repeat the answer. What you need is a newer version of gnus,
+     version 5.0.4+. I am using 5.0.12 and it works fine with me with
+     the following settings:
+
+          (setq gnus-check-new-newsgroups nil
+                gnus-read-active-file 'some
+                gnus-nov-is-evil nil
+                gnus-select-method '(nntp gnus-nntp-server))
+
+
+File: efaq,  Node: Catching up in all newsgroups,  Next: Killing based on nonstandard headers,  Prev: Starting Gnus faster,  Up: Mail and news
+
+How do I catch up all newsgroups in Gnus?
+=========================================
+
+   In the `*Newsgroup*' buffer, type `M-< C-x ( c y C-x ) M-0 C-x e'
+
+   Leave off the initial `M-<' if you only want to catch up from point
+to the end of the `*Newsgroup*' buffer.
+
+
+File: efaq,  Node: Killing based on nonstandard headers,  Next: Removing flashing messages,  Prev: Catching up in all newsgroups,  Up: Mail and news
+
+Why can't I kill in Gnus based on the Newsgroups/Keywords/Control headers?
+==========================================================================
+
+   Gnus will complain that the `Newsgroups', `Keywords', and `Control'
+headers are "Unknown header" fields.
+
+   For the `Newsgroups' header, there is an easy workaround: kill on the
+`Xref' header instead, which will be present on any cross-posted article
+(as long as your site carries the cross-post group).
+
+   If you really want to kill on one of these headers, you can do it
+like this:
+
+     (gnus-kill nil "^Newsgroups: .*\\(bad\\.group\\|worse\\.group\\)")
+
+
+File: efaq,  Node: Removing flashing messages,  Next: Catch-up is slow in Gnus,  Prev: Killing based on nonstandard headers,  Up: Mail and news
+
+How do I get rid of flashing messages in Gnus for slow connections?
+===================================================================
+
+   Set `nntp-debug-read' to `nil'.
+
+
+File: efaq,  Node: Catch-up is slow in Gnus,  Next: Gnus hangs for a long time,  Prev: Removing flashing messages,  Up: Mail and news
+
+Why is catch up slow in Gnus?
+=============================
+
+   Because Gnus is marking crosspostings read.  You can control this
+with the variable `gnus-use-cross-reference'.
+
+
+File: efaq,  Node: Gnus hangs for a long time,  Next: Learning more about Gnus,  Prev: Catch-up is slow in Gnus,  Up: Mail and news
+
+Why does Gnus hang for a long time when posting?
+================================================
+
+   David Lawrence <tale@uunet.uu.net> explains:
+
+     The problem is almost always interaction between NNTP and C News.
+     NNTP POST asks C News's `inews' to not background itself but
+     rather hang around and give its exit status so it knows whether
+     the post was successful.  (That wait will on some systems not
+     return the exit status of the waited for job is a different sort
+     of problem.)  It ends up taking a long time because `inews' is
+     calling `relaynews', which often waits for another `relaynews' to
+     free the lock on the news system so it can file the article.
+
+     My preferred solution is to change `inews' to not call
+     `relaynews', but rather use `newsspool'.  This loses some
+     error-catching functionality, but is for the most part safe as
+     `inews' will detect a lot of the errors on its own.  The C News
+     folks have sped up `inews', too, so speed should look better to
+     most folks as that update propagates around.
+
+
+File: efaq,  Node: Learning more about Gnus,  Prev: Gnus hangs for a long time,  Up: Mail and news
+
+Where can I find out more about Gnus?
+=====================================
+
+   Look for the Gnus FAQ, available at
+
+   `http://www.ccs.neu.edu/software/contrib/gnus/'
+

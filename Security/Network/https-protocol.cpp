@@ -98,9 +98,10 @@ void SecureHTTPProtocol::SecureHTTPConnection::startSSL()
     mode(rawInput);
     
     // configure the SSL session
-    allowExpiredCerts(getv<bool>(kNetworkHttpAcceptExpiredCerts, false));
-    allowUnknownRoots(getv<bool>(kNetworkHttpAcceptUnknownRoots, false));
-
+    allowsExpiredCerts(getv<bool>(kNetworkHttpAcceptExpiredCerts, false));
+    allowsUnknownRoots(getv<bool>(kNetworkHttpAcceptUnknownRoots, false));
+	peerId(peerAddress());
+	
     // start SSL handshake
     SSL::open();
     assert(SSL::state() == kSSLHandshake);	// there is no chance that we could already be done
@@ -155,7 +156,7 @@ void SecureHTTPProtocol::SecureHTTPConnection::transit(Event event,
         }
 
         // if SSL fails, we have to abandon the Connection
-    } catch (CssmCommonError &err) {
+    } catch (const CssmCommonError &err) {
         setError("SSL failed", err.osStatus());
         throw;
     } catch (...) {

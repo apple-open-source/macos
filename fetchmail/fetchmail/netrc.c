@@ -1,6 +1,7 @@
 /* netrc.c -- parse the .netrc file to get hosts, accounts, and passwords
 
    Gordon Matzigkeit <gord@gnu.ai.mit.edu>, 1996
+   Copyright assigned to Eric S. Raymond, October 2001.
 
    For license terms, see the file COPYING in this directory.
 
@@ -214,11 +215,11 @@ parse_netrc (file)
 	    {
 #ifdef HAVE_ERROR
 		error_at_line (0, file, ln,
-			       _("warning: found \"%s\" before any host names"),
+			       GT_("warning: found \"%s\" before any host names"),
 			       premature_token);
 #else
 		fprintf (stderr,
-			 _("%s:%d: warning: found \"%s\" before any host names\n"),
+			 GT_("%s:%d: warning: found \"%s\" before any host names\n"),
 			 file, ln, premature_token);
 #endif
 		premature_token = NULL;
@@ -257,7 +258,7 @@ parse_netrc (file)
 
 		else
 		{
-		    fprintf (stderr, _("%s:%d: warning: unknown token \"%s\"\n"),
+		    fprintf (stderr, GT_("%s:%d: warning: unknown token \"%s\"\n"),
 			     file, ln, tok);
 		}
 	    }

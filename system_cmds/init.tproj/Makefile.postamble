@@ -2,4 +2,7 @@ INSTALL_PERMISSIONS = 500  # If set, 'install' chmod's executable to this
 #CHFLAGS = /usr/bin/chflags
 #after_install::
 #	$(CHFLAGS) schg  $(DSTROOT)$(INSTALLDIR)/$(NAME)
-
+after_install:
+	mkdir -p "$(DSTROOT)/usr/share/man/man8"
+	install -c -m 644 init.8 "$(DSTROOT)/usr/share/man/man8/init.8"
+	ln -f "$(DSTROOT)/usr/share/man/man8/init.8" "$(DSTROOT)/usr/share/man/man8/securelevel.8"

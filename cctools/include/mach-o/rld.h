@@ -28,8 +28,8 @@
 #ifndef _MACHO_RLD_H_
 #define _MACHO_RLD_H_
 
-#import <streams/streams.h>
-#import <mach-o/loader.h>
+#include <streams/streams.h>
+#include <mach-o/loader.h>
 
 extern long rld_load(
     NXStream *stream,

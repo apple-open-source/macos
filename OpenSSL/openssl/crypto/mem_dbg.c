@@ -384,7 +384,7 @@ int CRYPTO_remove_all_info(void)
 	}
 
 
-static unsigned long break_order_num=0;
+static const unsigned long break_order_num=0;
 void CRYPTO_dbg_malloc(void *addr, int num, const char *file, int line,
 	int before_p)
 	{

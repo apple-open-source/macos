@@ -27,46 +27,47 @@
  */
 
 #include "libsaio.h"
-#include "memory.h"
-#include "kernBootStruct.h"
 #include "rcz_common.h"
-#include <ufs/ufs/dir.h>
+#include "rcz_decompress_file.h"
 #include <mach-o/fat.h>
 
-static int devMajor[3] = { 6, 3, 1 };  	// sd, hd, fd major dev #'s
+static int devMajor[3] = { 6, 3, 1 };   // sd, hd, fd major dev #'s
+
+static int xread(int fd, char * addr, int size);
+static int loadmacho(struct mach_header * head, int dev, int io,
+                     entry_t * rentry, char ** raddr, int * rsize,
+                     int file_offset);
 
 //==========================================================================
 // Open a file for reading.  If the file doesn't exist,
 // try opening the compressed version.
 
 #ifdef RCZ_COMPRESSED_FILE_SUPPORT
-int
-openfile(char *filename, int ignored)
+int openfile(const char * filename, int ignored)
 {
     unsigned char *buf;
     int fd, size, ret;
     unsigned char *addr;
-	
+
     if ((fd = open(filename, 0)) < 0) {
-	buf = malloc(256);
-	sprintf(buf, "%s%s", filename, RCZ_EXTENSION);
-	if ((fd = open(buf, 0)) >= 0) {
-	    size = rcz_file_size(fd);
-	    addr = (unsigned char *)((KERNEL_ADDR + KERNEL_LEN) - size);
-	    ret = rcz_decompress_file(fd, addr);
-	    close(fd);
-	    if (ret < 0)
-		fd = -1;
-	    else
-		fd = openmem(addr, size);
-	}
-	free(buf);
+        buf = malloc(256);
+        sprintf(buf, "%s%s", filename, RCZ_EXTENSION);
+        if ((fd = open(buf, 0)) >= 0) {
+            size = rcz_file_size(fd);
+            addr = (unsigned char *)((KERNEL_ADDR + KERNEL_LEN) - size);
+            ret = rcz_decompress_file(fd, addr);
+            close(fd);
+            if (ret < 0)
+                fd = -1;
+            else
+                fd = openmem(addr, size);
+        }
+        free(buf);
     }
     return fd;
 }
 #else
-int
-openfile(char *filename, int ignored)
+int openfile(char * filename, int ignored)
 {
     return open(filename, 0);
 }
@@ -75,13 +76,10 @@ openfile(char *filename, int ignored)
 //==========================================================================
 // loadprog
 
-int
-loadprog( int                  dev,
-          int                  fd,
-          struct mach_header * headOut,
-          entry_t *            entry,       /* entry point */
-          char **              addr,        /* load address */
-          int *                size )       /* size of loaded program */
+int loadprog( int dev, int fd, struct mach_header * headOut,
+              entry_t * entry,   /* entry point */
+              char **   addr,    /* load address */
+              int *     size )   /* size of loaded program */
 {
     struct mach_header head;
     int file_offset = 0;
@@ -101,18 +99,18 @@ read_again:
     else if ( file_offset == 0 && 
               ((head.magic == FAT_CIGAM) || (head.magic == FAT_MAGIC)) )
     {
-		int swap = (head.magic == FAT_CIGAM) ? 1 : 0;
-		struct fat_header * fhp = (struct fat_header *) &head;
-		struct fat_arch *   fap;
-		int i, narch = swap ? NXSwapLong(fhp->nfat_arch) : fhp->nfat_arch;
-		int cpu, size;
-		char * buf;
+        int swap = (head.magic == FAT_CIGAM) ? 1 : 0;
+        struct fat_header * fhp = (struct fat_header *) &head;
+        struct fat_arch *   fap;
+        int i, narch = swap ? NXSwapLong(fhp->nfat_arch) : fhp->nfat_arch;
+        int cpu, size;
+        char * buf;
 
-		size = sizeof(struct fat_arch) * narch;
-		buf = malloc(size);
+        size = sizeof(struct fat_arch) * narch;
+        buf = malloc(size);
         b_lseek(fd, 0, 0);
         read(fd, buf, size);
-	
+    
         for ( i = 0, fap = (struct fat_arch *)(buf+sizeof(struct fat_header));
               i < narch;
               i++, fap++ )
@@ -140,110 +138,103 @@ read_again:
 //
 // Read from file descriptor. addr is a physical address.
 
-int xread( int    fd,
-           char * addr,
-           int    size )
+static int xread( int fd, char * addr, int size )
 {
-	char *      orgaddr = addr;
-	long		offset;
-	unsigned	count;
-	long		max;
+    char *      orgaddr = addr;
+    long        offset;
+    unsigned    count;
+    long        max;
 #define BUFSIZ 8192
-	char *      buf;
-	int         bufsize = BUFSIZ;
+    char *      buf;
+    int         bufsize = BUFSIZ;
 
 #if 0
     printf("xread: addr=%x, size=%x\n", addr, size);
     sleep(1);
 #endif
 
-	buf = malloc(BUFSIZ);
-	
-	// align your read to increase speed
-	offset = tell(fd) & 4095;
-	if ( offset != 0 )
-		max = 4096 - offset;
-	else
-		max = bufsize;
+    buf = malloc(BUFSIZ);
 
-	while ( size > 0 )
-	{
-		if ( size > max ) count = max;
-		else count = size;
+    // align your read to increase speed
+    offset = tell(fd) & 4095;
+    if ( offset != 0 )
+        max = 4096 - offset;
+    else
+        max = bufsize;
+
+    while ( size > 0 )
+    {
+        if ( size > max ) count = max;
+        else count = size;
 #if 0
-		printf("xread: loop size=%x, count=%x\n", size, count);
-		sleep(1);
+        printf("xread: loop size=%x, count=%x\n", size, count);
+        sleep(1);
 #endif
 
-		if ( read(fd, buf, count) != count) break;
+        if ( read(fd, buf, count) != count) break;
 
-		bcopy(buf, ptov(addr), count);
-		size -= count;
-		addr += count;
+        bcopy(buf, ptov(addr), count);
+        size -= count;
+        addr += count;
 
-		max = bufsize;
+        max = bufsize;
 
 #if 0
-		tick += count;
-		if ( tick > (50*1024) )
-		{
-			putchar('+');
-			tick = 0;
-		}
+        tick += count;
+        if ( tick > (50*1024) )
+        {
+            putchar('+');
+            tick = 0;
+        }
 #endif
-	}
+    }
 
-	free(buf);
-	return addr-orgaddr;
+    free(buf);
+    return addr-orgaddr;
 }
 
 //==========================================================================
 // loadmacho
 
-int
-loadmacho( struct mach_header * head,
-           int                  dev,
-           int                  io,
-           entry_t *            rentry,
-           char **              raddr,
-           int *                rsize,
-           int                  file_offset )
+static int loadmacho( struct mach_header * head, int dev, int io,
+                      entry_t * rentry, char ** raddr, int * rsize,
+                      int file_offset )
 {
-	int          ncmds;
-	void *       cmds;
+    int          ncmds;
+    void *       cmds;
     void *       cp;
-	unsigned int entry  = 0;
-	int          vmsize = 0;
-	unsigned int vmaddr = ~0;
+    unsigned int entry  = 0;
+    int          vmsize = 0;
+    unsigned int vmaddr = ~0;
     unsigned int vmend  = 0;
 
-	struct xxx_thread_command {
-		unsigned long	cmd;
-		unsigned long	cmdsize;
-		unsigned long	flavor;
-		unsigned long	count;
-		i386_thread_state_t state;
-	} * th;
+    struct xxx_thread_command {
+        unsigned long    cmd;
+        unsigned long    cmdsize;
+        unsigned long    flavor;
+        unsigned long    count;
+        i386_thread_state_t state;
+    } * th;
 
-	// XXX should check cputype
-	cmds = malloc(head->sizeofcmds);
-	b_lseek(io, sizeof(struct mach_header) + file_offset, 0);
+    // XXX should check cputype
+    cmds = malloc(head->sizeofcmds);
+    b_lseek(io, sizeof(struct mach_header) + file_offset, 0);
 
-	if ( read(io, (char *) cmds, head->sizeofcmds) != head->sizeofcmds )
+    if ( read(io, (char *) cmds, head->sizeofcmds) != head->sizeofcmds )
     {
-	    error("loadmacho: error reading commands\n");
-	    goto shread;
-	}
+        error("loadmacho: error reading commands\n");
+        goto shread;
+    }
 
-	for ( ncmds = head->ncmds, cp = cmds; ncmds > 0; ncmds-- )
-	{
-		unsigned int addr;
+    for ( ncmds = head->ncmds, cp = cmds; ncmds > 0; ncmds-- )
+    {
+        unsigned int addr;
 
-#define lcp	((struct load_command *) cp)
-#define scp	((struct segment_command *) cp)
+#define lcp ((struct load_command *) cp)
+#define scp ((struct segment_command *) cp)
 
-		switch ( lcp->cmd )
-		{
+        switch ( lcp->cmd )
+        {
             case LC_SEGMENT:
                 addr = (scp->vmaddr & 0x3fffffff) + (int)*raddr;
                 if ( scp->filesize )
@@ -260,7 +251,7 @@ loadmacho( struct mach_header * head,
                     // FIXME:  check to see if we overflow
                     // the available space (should be passed in
                     // as the size argument).
-			    
+  
 #if 0
                     printf("LC: fileoff %x, filesize %x, off %x, addr %x\n",
                            scp->fileoff, scp->filesize, file_offset, addr);
@@ -282,21 +273,21 @@ loadmacho( struct mach_header * head,
                 th = (struct xxx_thread_command *) cp;
                 entry = th->state.eip;
                 break;
-		}
-		cp += lcp->cmdsize;
-	}
+        }
+        cp += lcp->cmdsize;
+    }
 
-	kernBootStruct->rootdev = (dev & 0xffffff00) | devMajor[Dev(dev)];
+    kernBootStruct->rootdev = (dev & 0xffffff00) | devMajor[B_TYPE(dev)];
 
-	free(cmds);
+    free(cmds);
 
-	*rentry = (entry_t)( (int) entry & 0x3fffffff );
-	*rsize = vmend - vmaddr;
-	*raddr = (char *)vmaddr;
+    *rentry = (entry_t)( (int) entry & 0x3fffffff );
+    *rsize = vmend - vmaddr;
+    *raddr = (char *)vmaddr;
 
-	return 0;
+    return 0;
 
 shread:
-	free(cmds);
-	return -1;
+    free(cmds);
+    return -1;
 }

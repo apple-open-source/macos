@@ -20,7 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 /*!
   @header IOFireWireSerialBusProtocolTransport
   Contains the class definition for IOFireWireSerialBusProtocolTransport.
@@ -34,7 +33,7 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOSyncer.h>
-
+#include <IOKit/IOCommandPool.h>
 #include <IOKit/firewire/IOFireWireUnit.h>
 #include <IOKit/sbp2/IOFireWireSBP2LUN.h>
 
@@ -59,7 +58,10 @@ private:
 	IOFireWireSBP2Login *fLogin;
 	IOFireWireSBP2ORB *fORB;
 	IOFireWireSBP2ManagementORB * fLUNResetORB;
-    IOSimpleLock *fQueueLock;
+    
+	// /!\ WARNING! NOT USED left behind for legacy binary reasons
+	IOSimpleLock *fQueueLock;
+	
 	UInt32 fLoginRetryCount;
 	bool fDeferRegisterService;
 	bool fNeedLogin;
@@ -81,6 +83,9 @@ private:
 	FetchAgentResetCompleteStatic (	void *refcon,
 									IOReturn status );
 
+    static IOReturn
+    ConnectToDeviceStatic (	OSObject *refCon, void *, void *, void *, void * );
+    
 	virtual void
 	FetchAgentResetComplete ( IOReturn status );
 
@@ -120,6 +125,12 @@ private:
 
 protected:
 
+    enum SBP2LoginState {
+        kFirstTimeLoggingInState,
+        kLogginSucceededState,
+        kLogginFailedState
+    };
+    
 	/*! 
 		@typedef SBP2ClientOrbData
 		@param orb IOFireWireSBP2ORB for request.
@@ -148,8 +159,12 @@ protected:
 	bool fLoggedIn;
 	
     // binary compatibility instance variable expansion
-    struct ExpansionData { };
-    ExpansionData *reserved;
+    struct ExpansionData { 
+		IOCommandPool *	 fCommandPool;
+        SBP2LoginState	 fLoginState;
+	};
+	
+	ExpansionData *reserved;
 	
 	bool fObjectIsOpen;
 
@@ -365,3 +380,4 @@ private:
 
 #endif _IOFireWireSerialBusProtocolTransport_
 
+//------------------------------------------------------------------------------

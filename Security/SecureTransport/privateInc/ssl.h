@@ -22,7 +22,7 @@
 	Contains:	convenience header, including public and private parts
 				of original ssl.h
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 

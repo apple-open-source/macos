@@ -4,7 +4,7 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: regexp.n,v 1.1.1.4 2000/12/06 23:03:58 wsanchez Exp $
+'\" RCS: @(#) $Id: regexp.n,v 1.1.1.5 2002/04/05 16:13:05 jevans Exp $
 '\" 
 .so man.macros
 .TH regexp n 8.3 Tcl "Tcl Built-In Commands"
@@ -127,7 +127,7 @@ portion of the expression that wasn't matched), then the corresponding
 has been specified or to an empty string otherwise.
 
 .SH "SEE ALSO"
-re_syntax(n)
+re_syntax(n), regsub(n)
 
 .SH KEYWORDS
 match, regular expression, string

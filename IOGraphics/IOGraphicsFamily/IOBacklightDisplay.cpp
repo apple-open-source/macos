@@ -21,15 +21,11 @@
  */
 
 #include <IOKit/IOLib.h>
+#include <IOKit/graphics/IOGraphicsPrivate.h>
 #define IOFRAMEBUFFER_PRIVATE
 #include <IOKit/graphics/IODisplay.h>
 #include <IOKit/ndrvsupport/IOMacOSVideo.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
-
-#ifndef kAppleClamshellStateKey
-#define kAppleClamshellStateKey	"AppleClamshellState"
-#endif
-
 
 /*
     We further divide the actual display panel brightness levels into four
@@ -65,6 +61,7 @@ enum {
 };
 
 extern IOOptionBits gIOFBLastClamshellState;
+extern bool	    gIOFBSystemPower;
 
 #define kIOBacklightUserBrightnessKey	"IOBacklightUserBrightness"
 
@@ -195,7 +192,7 @@ IOReturn IOBacklightDisplay::setPowerState( unsigned long powerState, IOService 
     value = fMaxBrightnessLevel[fCurrentPowerState];
     if( value > fCurrentUserBrightness)
         value = fCurrentUserBrightness;
-
+//if(gIOFBSystemPower)
     setBrightness( value );
 
     powerState |= (powerState >= kIOBacklightDisplayMaxUsableState) ? kFBDisplayUsablePowerState : 0;
@@ -354,6 +351,8 @@ public:
     // IODisplay
     virtual void initPowerManagement( IOService * );
     virtual bool setBrightness( SInt32 value );
+    virtual IOReturn framebufferEvent( IOFramebuffer * framebuffer, 
+                                        IOIndex event, void * info );
 
 private:
     static bool _clamshellHandler( void * target, void * ref,
@@ -404,6 +403,22 @@ void AppleBacklightDisplay::initPowerManagement( IOService * provider )
     super::initPowerManagement( provider );
 
     IOFramebuffer::clamshellEnable( +1 );
+}
+
+IOReturn AppleBacklightDisplay::framebufferEvent( IOFramebuffer * framebuffer,
+						    IOIndex event, void * info )
+{
+    SInt32		    value;
+
+    if( (kIOFBNotifyDidWake == event) && (info)) {
+	value = fMaxBrightnessLevel[kIODisplayMaxPowerState];
+	if( value > fCurrentUserBrightness)
+	    value = fCurrentUserBrightness;
+    
+	setBrightness( value );
+    }
+
+    return( kIOReturnSuccess );
 }
 
 bool AppleBacklightDisplay::_clamshellHandler( void * target, void * ref,

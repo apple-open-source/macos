@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -75,23 +75,29 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 
 	/* serialize the key/value pairs to set*/
 	if (keysToSet) {
-		xmlSet   = CFPropertyListCreateXMLData(NULL, keysToSet);
-		mySetRef = (xmlData_t)CFDataGetBytePtr(xmlSet);
-		mySetLen = CFDataGetLength(xmlSet);
+		if (!_SCSerialize(keysToSet, &xmlSet, (void **)&mySetRef, &mySetLen)) {
+			_SCErrorSet(kSCStatusFailed);
+			return NULL;
+		}
 	}
 
 	/* serialize the keys to remove */
 	if (keysToRemove) {
-		xmlRemove   = CFPropertyListCreateXMLData(NULL, keysToRemove);
-		myRemoveRef = (xmlData_t)CFDataGetBytePtr(xmlRemove);
-		myRemoveLen = CFDataGetLength(xmlRemove);
+		if (!_SCSerialize(keysToRemove, &xmlRemove, (void **)&myRemoveRef, &myRemoveLen)) {
+			if (xmlSet)	CFRelease(xmlSet);
+			_SCErrorSet(kSCStatusFailed);
+			return NULL;
+		}
 	}
 
 	/* serialize the keys to notify */
 	if (keysToNotify) {
-		xmlNotify   = CFPropertyListCreateXMLData(NULL, keysToNotify);
-		myNotifyRef = (xmlData_t)CFDataGetBytePtr(xmlNotify);
-		myNotifyLen = CFDataGetLength(xmlNotify);
+		if (!_SCSerialize(keysToNotify, &xmlNotify, (void **)&myNotifyRef, &myNotifyLen)) {
+			if (xmlSet)	CFRelease(xmlSet);
+			if (xmlRemove)	CFRelease(xmlRemove);
+			_SCErrorSet(kSCStatusFailed);
+			return NULL;
+		}
 	}
 
 	/* send the keys and patterns, fetch the associated result from the server */
@@ -156,14 +162,18 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 		return FALSE;
 	}
 
-	/* serialize the key and data */
-	xmlKey = CFPropertyListCreateXMLData(NULL, key);
-	myKeyRef = (xmlData_t)CFDataGetBytePtr(xmlKey);
-	myKeyLen = CFDataGetLength(xmlKey);
+	/* serialize the key */
+	if (!_SCSerialize(key, &xmlKey, (void **)&myKeyRef, &myKeyLen)) {
+		_SCErrorSet(kSCStatusFailed);
+		return NULL;
+	}
 
-	xmlData = CFPropertyListCreateXMLData(NULL, value);
-	myDataRef = (xmlData_t)CFDataGetBytePtr(xmlData);
-	myDataLen = CFDataGetLength(xmlData);
+	/* serialize the data */
+	if (!_SCSerialize(value, &xmlData, (void **)&myDataRef, &myDataLen)) {
+		CFRelease(xmlKey);
+		_SCErrorSet(kSCStatusFailed);
+		return NULL;
+	}
 
 	/* send the key & data to the server, get new instance id */
 	status = configset(storePrivate->server,

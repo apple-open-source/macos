@@ -12,7 +12,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclTestObj.c,v 1.1.1.3 2000/04/12 02:01:36 wsanchez Exp $
+ * RCS: @(#) $Id: tclTestObj.c,v 1.1.1.4 2002/04/05 16:13:26 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -420,7 +420,8 @@ TestindexobjCmd(clientData, interp, objc, objv)
 	if (Tcl_GetIntFromObj(interp, objv[2], &index2) != TCL_OK) {
 	    return TCL_ERROR;
 	}
-	objv[1]->internalRep.twoPtrValue.ptr2 = (VOID *) index2;
+	objv[1]->internalRep.twoPtrValue.ptr2 =
+		(VOID *) (index2 * sizeof(char *));
 	result = Tcl_GetIndexFromObj((Tcl_Interp *) NULL, objv[1],
 		tablePtr, "token", 0, &index);
 	if (result == TCL_OK) {

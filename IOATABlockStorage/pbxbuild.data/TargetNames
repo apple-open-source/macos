@@ -1,1 +1,13 @@
-Targets='IOATABlockStorage'
+if [ "${Target}" = "IOATABlockStorage" ]; then
+	Targets='InstallHeaders
+ATASMARTLib
+IOATABlockStorage'
+elif [ "${Target}" = "ATASMARTLib" ]; then
+	Targets='ATASMARTLib'
+elif [ "${Target}" = "InstallHeaders" ]; then
+	Targets='InstallHeaders'
+else
+	Targets='InstallHeaders
+ATASMARTLib
+IOATABlockStorage'
+fi

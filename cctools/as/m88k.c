@@ -19,6 +19,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 #include <mach-o/m88k/reloc.h>
 #include "m88k-opcode.h"
 #include "as.h"

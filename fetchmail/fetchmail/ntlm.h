@@ -1,3 +1,5 @@
+/* ntlm.h  -- interface declarations for SMB authentication code */
+
 typedef unsigned short uint16;
 typedef unsigned int   uint32;
 typedef unsigned char  uint8;
@@ -66,3 +68,4 @@ extern void dumpSmbNtlmAuthResponse(FILE *fp, tSmbNtlmAuthResponse *response);
 extern void buildSmbNtlmAuthRequest(tSmbNtlmAuthRequest *request, char *user, char *domain);
 extern void buildSmbNtlmAuthResponse(tSmbNtlmAuthChallenge *challenge, tSmbNtlmAuthResponse *response, char *user, char *password);
 
+/* ntlm.h ends here */

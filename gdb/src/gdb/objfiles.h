@@ -1,5 +1,6 @@
 /* Definitions for symbol file management in GDB.
-   Copyright (C) 1992, 1993, 1994, 1995, 1999 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -203,7 +204,7 @@ extern void print_objfile_statistics (void);
 extern void print_symbol_bcache_statistics (void);
 
 /* Number of entries in the minimal symbol hash table.  */
-#define MINIMAL_SYMBOL_HASH_SIZE 349
+#define MINIMAL_SYMBOL_HASH_SIZE 2039
 
 /* Master structure for keeping track of each file from which
    gdb reads symbols.  There are several ways these get allocated: 1.
@@ -509,12 +510,6 @@ extern struct objfile *current_objfile;
 
 extern struct objfile *object_files;
 
-/* Declarations for functions defined in objfiles.c */
-
-extern struct objfile *allocate_objfile (bfd *, int, int, CORE_ADDR);
-
-extern int build_objfile_section_table (struct objfile *);
-
 extern void objfile_to_front (struct objfile *);
 
 extern void unlink_objfile (struct objfile *);
@@ -607,16 +602,19 @@ extern int is_in_import_list (char *, struct objfile *);
     ALL_OBJFILE_OSECTIONS (objfile, osect)
 
 #define SECT_OFF_DATA(objfile) \
-     ((objfile->sect_index_data == -1) ? \
-      (internal_error ("sect_index_data not initialized"), -1) : objfile->sect_index_data)
+     ((objfile->sect_index_data == -1) \
+      ? (internal_error (__FILE__, __LINE__, "sect_index_data not initialized"), -1) \
+      : objfile->sect_index_data)
 
 #define SECT_OFF_RODATA(objfile) \
-     ((objfile->sect_index_rodata == -1) ? \
-      (internal_error ("sect_index_rodata not initialized"), -1) : objfile->sect_index_rodata)
+     ((objfile->sect_index_rodata == -1) \
+      ? (internal_error (__FILE__, __LINE__, "sect_index_rodata not initialized"), -1) \
+      : objfile->sect_index_rodata)
 
 #define SECT_OFF_TEXT(objfile) \
-     ((objfile->sect_index_text == -1) ? \
-      (internal_error ("sect_index_text not initialized"), -1) : objfile->sect_index_text)
+     ((objfile->sect_index_text == -1) \
+      ? (internal_error (__FILE__, __LINE__, "sect_index_text not initialized"), -1) \
+      : objfile->sect_index_text)
 
 /* Sometimes the .bss section is missing from the objfile, so we don't
    want to die here. Let the users of SECT_OFF_BSS deal with an

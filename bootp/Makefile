@@ -14,9 +14,9 @@ PROJECT_TYPE = Aggregate
 
 BUNDLES = IPConfiguration.bproj
 
-TOOLS = bootpd.tproj ipconfig.tproj
+TOOLS = bootpd.tproj ipconfig.tproj bsdpc.tproj
 
-LIBRARIES = bootplib DHCPServer
+LIBRARIES = bootplib DHCPServer BSDPClient
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 
@@ -28,7 +28,6 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -I../bootplib
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

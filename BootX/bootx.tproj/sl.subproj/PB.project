@@ -7,16 +7,14 @@
         FRAMEWORKSEARCH = (); 
         HEADERSEARCH = (); 
         H_FILES = (
-            bad_system.h, 
+            appleboot.h, 
             clut.h, 
             elf.h, 
-            GetSymbolFromPEF.h, 
-            happy_foot.h, 
-            happy_mac.h, 
-            images.h
+            failedboot.h, 
+            netboot.h 
         ); 
         M_FILES = (); 
-        OTHER_LINKED = (main.c, macho.c, device_tree.c, display.c, PEFSupport.c, elf.c, drivers.c); 
+        OTHER_LINKED = (main.c, macho.c, device_tree.c, display.c, elf.c, drivers.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
         SUBPROJECTS = (); 
         TOOLS = (); 

@@ -36,36 +36,41 @@
 #import "Root.h"
 #import "Thread.h"
 #import "CacheAgent.h"
+#import "LUServer.h"
 #import "Config.h"
 #import "LUPrivate.h"
 #import "LUCachedDictionary.h"
 #import <arpa/inet.h>
 #import <stdio.h>
+#import <string.h>
 #import <NetInfo/dsutil.h>
 
 #define CUserName			 0
 #define CUserNumber			 1
 #define CGroupName 			 2
 #define CGroupNumber 		 3
-#define CHostName 			 4
-#define CHostIPAddress		 5
-#define CHostENAddress		 6
-#define CNetworkName		 7
-#define CNetworkIPAddress	 8
-#define CServiceName		 9
-#define CServiceNumber		10
-#define CProtocolName		11
-#define CProtocolNumber		12
-#define CRpcName			13
-#define CRpcNumber			14
-#define CMountName			15
-#define CPrinterName		16
-#define CBootparamName		17
-#define CBootpName			18
-#define CBootpIPAddress		19
-#define CBootpENAddress		20
-#define CAliasName			21
-#define CNetgroupName		22
+#define CIPV4NodeName		 4
+#define CIPV4NodeAddr		 5
+#define CIPV4NodeMAC			 6
+#define CIPV6NodeName 		 7
+#define CIPV6NodeAddr		 8
+#define CNetworkName			 9
+#define CNetworkIPAddress	10
+#define CServiceName			11
+#define CServiceNumber		12
+#define CProtocolName		13
+#define CProtocolNumber		14
+#define CRpcName				15
+#define CRpcNumber			16
+#define CMountName			17
+#define CPrinterName			18
+#define CBootparamName		19
+#define CBootpName			20
+#define CBootpIPAddress		21
+#define CBootpENAddress		22
+#define CAliasName			23
+#define CNetgroupName		24
+#define CInitgroupName		25
 
 LUCategory cacheCategory[] =
 {
@@ -73,6 +78,8 @@ LUCategory cacheCategory[] =
 	LUCategoryUser,
 	LUCategoryGroup,
 	LUCategoryGroup,
+	LUCategoryHost,
+	LUCategoryHost,
 	LUCategoryHost,
 	LUCategoryHost,
 	LUCategoryHost,
@@ -91,7 +98,8 @@ LUCategory cacheCategory[] =
 	LUCategoryBootp,
 	LUCategoryBootp,
 	LUCategoryAlias,
-	LUCategoryNetgroup
+	LUCategoryNetgroup,
+	LUCategoryInitgroups
 };
 
 char *cacheName[] =
@@ -103,6 +111,8 @@ char *cacheName[] =
 	"host (by name)",	
 	"host (by Internet address)",	
 	"host (by Ethernet address)",	
+	"host (IPV6 by name)",	
+	"host (by IPV6 address)",	
 	"network (by name)",	
 	"network (by Internet address)",	
 	"service (by name)",	
@@ -118,14 +128,15 @@ char *cacheName[] =
 	"bootparam (by Ethernet address)",	
 	"bootp",	
 	"alias",	
-	"netgroup"
+	"netgroup",
+	"grouplist"
 };
 
 int cacheForCategory[] =
 {
 	CUserName,
 	CGroupName,
-	CHostName,
+	CIPV4NodeName,
 	CNetworkName,
 	CServiceName,
 	CProtocolName,
@@ -138,7 +149,7 @@ int cacheForCategory[] =
 	-1,
 	-1,
 	CNetgroupName,
-	-1,
+	CInitgroupName,
 	-1
 };
 
@@ -146,18 +157,15 @@ int cacheForCategory[] =
 
 static CacheAgent *_sharedCacheAgent = nil;
 
-static BOOL shutdown_CacheAgent = NO;
-
 @implementation CacheAgent
 
 - (void)ageCache:(unsigned int)n
 {
 	int i, len;
-	int expired, expireAll, expireInitGroups, expireRootInitgroups;
+	int expired, expireAll;
 	time_t age;
 	time_t ttl;
 	LUDictionary *item;
-	LUArray *all;
 	LUCategory cat;
 	LUCache *cache;
 
@@ -171,8 +179,6 @@ static BOOL shutdown_CacheAgent = NO;
 
 	expired = 0;
 	expireAll = 0;
-	expireInitGroups = 0;
-	expireRootInitgroups = 0;
 	
 	len = [cache count];
 	for (i = len - 1; i >= 0; i--)
@@ -188,57 +194,6 @@ static BOOL shutdown_CacheAgent = NO;
 			[cache removeObject:item];
 			expired++;
 		}
-	}
-
-	if (cat == LUCategoryGroup)
-	{
-		all = allStore[LUCategoryInitgroups].all;
-		if (all != nil)
-		{
-			if (expired > 0)
-				expireInitGroups++;
-			else if ([all validationStampCount] == 0)
-				expireInitGroups++;
-			else
-			{
-				item = [all validationStampAtIndex:0];
-				ttl = [item timeToLive];
-				age = [item age];
-
-				if (age > ttl) expireInitGroups++;
-			}
-		}
-
-		all = rootInitGroups;
-		if (all != nil)
-		{
-			if (expired > 0)
-				expireRootInitgroups++;
-			else if ([all validationStampCount] == 0)
-				expireRootInitgroups++;
-			else
-			{
-				item = [all validationStampAtIndex:0];
-				ttl = [item timeToLive];
-				age = [item age];
-
-				if (age > ttl) expireRootInitgroups++;
-			}
-		}
-	}
-
-	if (expireInitGroups)
-	{
-		[allStore[LUCategoryInitgroups].all release];
-		allStore[LUCategoryInitgroups].all = nil;
-		if (initgroupsUserName != NULL) freeString(initgroupsUserName);
-		initgroupsUserName = NULL;
-	}
-
-	if (expireRootInitgroups)
-	{
-		[rootInitGroups release];
-		rootInitGroups = nil;
 	}
 
 	if (allStore[cat].all != nil)
@@ -272,16 +227,6 @@ static BOOL shutdown_CacheAgent = NO;
 	if (expireAll > 0)
 	{
 		system_log(LOG_DEBUG, "expired all %s cache", [LUAgent categoryName:cat]);
-	}
-
-	if (expireInitGroups > 0)
-	{
-		system_log(LOG_DEBUG, "expired all groups for user cache");
-	}
-
-	if (expireRootInitgroups > 0)
-	{
-		system_log(LOG_DEBUG, "expired all groups for root cache");
 	}
 }
 
@@ -432,10 +377,6 @@ static BOOL shutdown_CacheAgent = NO;
 		allStore[i].enabled = NO;
 	}
 
-	rootInitGroups = nil;
-
-	initgroupsUserName = NULL;
-
 	global = [configManager configGlobal:configurationArray];
 
 	gValidation = [configManager boolForKey:"ValidateCache" dict:global default:YES];
@@ -469,7 +410,7 @@ static BOOL shutdown_CacheAgent = NO;
 			cEnable = NO;
 			for (j = 0; order[j] != NULL; j++)
 			{
-				if (streq(order[j], "Cache") || streq(order[j], "Cache"))
+				if (streq(order[j], "Cache") || streq(order[j], "CacheAgent"))
 					cEnable = YES;
 			}
 		}
@@ -479,6 +420,8 @@ static BOOL shutdown_CacheAgent = NO;
 		[self setCapacity:cMax forCategory:(LUCategory)i];
 		[self setTimeToLive:cTTL forCategory:(LUCategory)i];
 	}
+
+	cserver = (LUServer *)[[LUServer alloc] init];
 
 	return self;
 }
@@ -503,8 +446,7 @@ static BOOL shutdown_CacheAgent = NO;
 - (void)dealloc
 {
 	int i;
-
-	shutdown_CacheAgent = YES;
+	LUServer *s;
 
 	for (i = 0; i < NCACHE; i++)
 	{
@@ -516,12 +458,10 @@ static BOOL shutdown_CacheAgent = NO;
 		if (allStore[i].all != nil) [allStore[i].all release];
 	}
 
-	[rootInitGroups release];
-
-	if (initgroupsUserName != NULL) freeString(initgroupsUserName);
-	initgroupsUserName = NULL;
-
 	syslock_free(cacheLock);
+
+	s = (LUServer *)cserver;
+	[s release];
 	
 	system_log(LOG_DEBUG, "Deallocated CacheAgent 0x%08x\n", (int)self);
 
@@ -538,10 +478,16 @@ static BOOL shutdown_CacheAgent = NO;
 - (BOOL)isValid:(LUDictionary *)item
 {
 	id agent;
+	LUServer *s;
+	char *name;
 
 	if (item == nil) return NO;
-		
-	agent = [item agent];
+
+	name = [item valueForKey:"_lookup_agent"];
+	if (name == NULL) return NO;
+
+	s = (LUServer *)cserver;
+	agent = [s agentNamed:name];
 	if (agent == nil) return NO;
 
 	return [agent isValid: item];
@@ -549,7 +495,6 @@ static BOOL shutdown_CacheAgent = NO;
 
 - (LUDictionary *)postProcess:(LUDictionary *)item
 	cache:(unsigned int)n
-	key:(char *)key
 {
 	time_t age, ttl;
 	unsigned int hits;
@@ -586,7 +531,6 @@ static BOOL shutdown_CacheAgent = NO;
 	unsigned int i, len;
 	time_t age;
 	LUDictionary *stamp;
-	LUAgent *agent;
 
 	if (array == nil) return NO;
 	len = [array validationStampCount];
@@ -598,10 +542,7 @@ static BOOL shutdown_CacheAgent = NO;
 		if (stamp == nil) return NO;
 		age = [stamp age];
 		if (age > [stamp timeToLive]) return NO;
-
-		agent = [stamp agent];
-		if (agent == nil) return NO;
-		if (![agent isValid:stamp]) return NO;
+		if (![self isValid:stamp]) return NO;
 	}
 	return YES;
 }
@@ -656,9 +597,6 @@ static BOOL shutdown_CacheAgent = NO;
 	cat = [stamp category];
 	if (cat >= NCATEGORIES) return;
 
-	/* initgroups arrays are handled by setInitgroupsForUser: */
-	if (cat == LUCategoryInitgroups) return;
-
 	ttl = [self timeToLiveForCategory:cat];
 	[self setTimeToLive:ttl forArray:array];
 
@@ -666,127 +604,6 @@ static BOOL shutdown_CacheAgent = NO;
 	if (allStore[cat].all != nil) [allStore[cat].all release];
 	allStore[cat].all = [array retain];
 	syslock_unlock(cacheLock);
-}
-
-- (LUArray *)initgroupsForUser:(char *)name
-{
-	LUArray *all;
-
-	syslock_lock(cacheLock);
-
-	if (streq(name, "root"))
-	{
-		if (rootInitGroups == nil)
-		{
-			syslock_unlock(cacheLock);
-			return nil;
-		}
-
-		if (!allStore[(unsigned int)LUCategoryInitgroups].validate)
-		{
-			[rootInitGroups retain];
-			syslock_unlock(cacheLock);
-			return rootInitGroups;
-		}
-
-		if ([self isArrayValid:rootInitGroups])
-		{
-			[rootInitGroups retain];
-			syslock_unlock(cacheLock);
-			return rootInitGroups;
-		}
-
-		[rootInitGroups release];
-		rootInitGroups = nil;
-		syslock_unlock(cacheLock);
-		return nil;
-	}
-
-	if ((initgroupsUserName == NULL) || (name == NULL))
-	{
-		syslock_unlock(cacheLock);
-		return nil;
-	}
-
-	if (strcmp(name, initgroupsUserName))
-	{
-		syslock_unlock(cacheLock);
-		return nil;
-	}
-
-	all = allStore[(unsigned int)LUCategoryInitgroups].all;
-	if (all == nil)
-	{
-		syslock_unlock(cacheLock);
-		return nil;
-	}
-
-	/* Retain the array here.  Caller must release */
-	if (!allStore[(unsigned int)LUCategoryInitgroups].validate)
-	{
-		[all retain];
-		syslock_unlock(cacheLock);
-		return all;
-	}
-
-	if ([self isArrayValid:all])
-	{
-		[all retain];
-		syslock_unlock(cacheLock);
-		return all;
-	}
-
-	[all release];
-	allStore[(unsigned int)LUCategoryInitgroups].all = nil;
-
-	syslock_unlock(cacheLock);
-	return nil;
-}
-
-- (LUArray *)allGroupsWithUser:(char *)name
-{
-	return [self initgroupsForUser:name];
-}
-
-- (void)setInitgroups:(LUArray *)groups forUser:(char *)name
-{
-	time_t ttl;
-
-	if (name == NULL) return;
-
-	ttl = [self timeToLiveForCategory:LUCategoryGroup];
-	[self setTimeToLive:ttl forArray:groups];
-
-	syslock_lock(cacheLock);
-
-	if (streq(name, "root"))
-	{
-		if (rootInitGroups != nil) [rootInitGroups release];
-		rootInitGroups = [groups retain];
-		syslock_unlock(cacheLock);
-		return;
-	}
-
-	if (initgroupsUserName != NULL) freeString(initgroupsUserName);
-	initgroupsUserName = copyString(name);
-
-	if (allStore[(unsigned int)LUCategoryInitgroups].all != nil)
-	{
-		[allStore[(unsigned int)LUCategoryInitgroups].all release];
-	}
-	allStore[(unsigned int)LUCategoryInitgroups].all = [groups retain];
-
-	syslock_unlock(cacheLock);
-}
-
-- (LUDictionary *)cache:(unsigned int)n itemWithKey:(char *)key category:(LUCategory)cat
-{
-	LUDictionary *item;
- 
-	item = [cacheStore[n].cache objectForKey:key];
-	item = [self postProcess:item cache:n key:key];
-
-	return item;
 }
 
 /*
@@ -808,9 +625,11 @@ static BOOL shutdown_CacheAgent = NO;
 			return -1;
 
 		case LUCategoryHost:
-			if (streq(key, "name")) return CHostName;
-			if (streq(key, "ip_address")) return CHostIPAddress;
-			if (streq(key, "en_address")) return CHostENAddress;
+			if (streq(key, "name")) return CIPV4NodeName;
+			if (streq(key, "namev6")) return CIPV6NodeName;
+			if (streq(key, "ip_address")) return CIPV4NodeAddr;
+			if (streq(key, "ipv6_address")) return CIPV6NodeAddr;
+			if (streq(key, "en_address")) return CIPV4NodeMAC;
 			return -1;
 
 		case LUCategoryNetwork:
@@ -858,6 +677,8 @@ static BOOL shutdown_CacheAgent = NO;
 		case LUCategoryNetgroup:
 			if (streq(key, "name")) return CNetgroupName;
 			return -1;
+
+		case LUCategoryInitgroups: return CInitgroupName;
 
 		default:
 			return -1;
@@ -910,7 +731,7 @@ static BOOL shutdown_CacheAgent = NO;
 	int i, len;
 
 	if (item == nil) return;
-	if (!(cacheNum == CHostENAddress || cacheNum == CBootpENAddress)) return;
+	if (!(cacheNum == CIPV4NodeMAC || cacheNum == CBootpENAddress)) return;
 	if (!cacheStore[cacheNum].enabled) return;
 
 	values = [item valuesForKey:"en_address"];
@@ -989,65 +810,140 @@ static BOOL shutdown_CacheAgent = NO;
 	}
 }
 
-- (void)addObject:(LUDictionary *)item
+- (void)addObject:(LUDictionary *)item key:(char *)key category:(LUCategory)cat
 {
-	LUCategory cat;
-
 	if (item == nil) return;
+	if (key == NULL) return;
 
 	syslock_lock(cacheLock);
 
-	cat = [item category];
 	switch (cat)
 	{
 		case LUCategoryUser:
-			[self addObject:item category:cat toCache:CUserName key:"name"];
-			[self addObject:item category:cat toCache:CUserName key:"realname"];
-			[self addObject:item category:cat toCache:CUserNumber key:"uid"];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CUserName key:"name"];
+				[self addObject:item category:cat toCache:CUserName key:"realname"];
+			}
+			else if (streq(key, "uid"))
+			{
+				[self addObject:item category:cat toCache:CUserNumber key:"uid"];
+			}
 			break;
 		case LUCategoryGroup:
-			[self addObject:item category:cat toCache:CGroupName key:"name"];
-			[self addObject:item category:cat toCache:CGroupNumber key:"gid"];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CGroupName key:"name"];
+			}
+			else if (streq(key, "gid"))
+			{
+				[self addObject:item category:cat toCache:CGroupNumber key:"gid"];
+			}
 			break;
 		case LUCategoryHost:
-			[self addObject:item category:cat toCache:CHostName key:"name"];
-			[self addObject:item category:cat toCache:CHostIPAddress key:"ip_address"];
-			[self addEthernetObject:item category:cat toCache:CHostENAddress];
+			if (streq(key, "name"))
+			{
+				if ([item valuesForKey:"ip_address"] != NULL)
+				{
+					[self addObject:item category:cat toCache:CIPV4NodeName key:"name"];
+					[self addEthernetObject:item category:cat toCache:CIPV4NodeMAC];
+				}
+				if ([item valuesForKey:"ipv6_address"] != NULL)
+				{
+					[self addObject:item category:cat toCache:CIPV6NodeName key:"name"];
+				}
+			}
+			else if (streq(key, "ip_address"))
+			{
+				
+				[self addObject:item category:cat toCache:CIPV4NodeAddr key:"ip_address"];
+				[self addEthernetObject:item category:cat toCache:CIPV4NodeMAC];
+			}
+			else if (streq(key, "ipv6_address"))
+			{
+				[self addObject:item category:cat toCache:CIPV6NodeAddr key:"ipv6_address"];
+			}
 			break;
 		case LUCategoryNetwork:
-			[self addObject:item category:cat toCache:CNetworkName key:"name"];
-			[self addObject:item category:cat toCache:CNetworkIPAddress key:"address"];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CNetworkName key:"name"];
+			}
+			else if (streq(key, "address"))
+			{
+				[self addObject:item category:cat toCache:CNetworkIPAddress key:"address"];
+			}
 			break;
 		case LUCategoryService:
 			[self addService:item];
 			break;
 		case LUCategoryProtocol:
-			[self addObject:item category:cat toCache:CProtocolName key:"name"];
-			[self addObject:item category:cat toCache:CProtocolNumber key:"number"];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CProtocolName key:"name"];
+			}
+			else if (streq(key, "number"))
+			{
+				[self addObject:item category:cat toCache:CProtocolNumber key:"number"];
+			}
 			break;
 		case LUCategoryRpc:
-			[self addObject:item category:cat toCache:CRpcName key:"name"];
-			[self addObject:item category:cat toCache:CRpcNumber key:"number"];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CRpcName key:"name"];
+			}
+			else if (streq(key, "number"))
+			{
+				[self addObject:item category:cat toCache:CRpcNumber key:"number"];
+			}
 			break;
 		case LUCategoryMount:
-			[self addObject:item category:cat toCache:CMountName key:"name"];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CMountName key:"name"];
+			}
 			break;
 		case LUCategoryPrinter:
-			[self addObject:item category:cat toCache:CPrinterName key:"name"];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CPrinterName key:"name"];
+			}
 			break;
 		case LUCategoryBootparam:
-			[self addObject:item category:cat toCache:CBootparamName key:"name"];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CBootparamName key:"name"];
+			}
 			break;
 		case LUCategoryBootp:
-			[self addObject:item category:cat toCache:CBootpName key:"name"];
-			[self addObject:item category:cat toCache:CBootpIPAddress key:"ip_address"];
-			[self addEthernetObject:item category:cat toCache:CBootpENAddress];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CBootpName key:"name"];
+				[self addEthernetObject:item category:cat toCache:CBootpENAddress];
+			}
+			else if (streq(key, "ip_address"))
+			{
+				[self addObject:item category:cat toCache:CBootpIPAddress key:"ip_address"];
+				[self addEthernetObject:item category:cat toCache:CBootpENAddress];
+			}
 			break;
 		case LUCategoryAlias:
-			[self addObject:item category:cat toCache:CAliasName key:"name"];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CAliasName key:"name"];
+			}
 			break;
 		case LUCategoryNetgroup:
-			[self addObject:item category:cat toCache:CNetgroupName key:"name"];
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CNetgroupName key:"name"];
+			}
+			break;
+		case LUCategoryInitgroups:
+			if (streq(key, "name"))
+			{
+				[self addObject:item category:cat toCache:CInitgroupName key:"name"];
+			}
 			break;
 		default: break;
 	}
@@ -1071,69 +967,63 @@ static BOOL shutdown_CacheAgent = NO;
 	switch (cat)
 	{
 		case LUCategoryUser:
-			[cacheStore	[CUserName].cache removeObject:item];
-			[cacheStore	[CUserNumber].cache removeObject:item];
+			[cacheStore[CUserName].cache removeObject:item];
+			[cacheStore[CUserNumber].cache removeObject:item];
 			break;
 		case LUCategoryGroup:
-			[cacheStore	[CGroupName].cache removeObject:item];
-			[cacheStore	[CGroupNumber].cache removeObject:item];
+			[cacheStore[CGroupName].cache removeObject:item];
+			[cacheStore[CGroupNumber].cache removeObject:item];
 			break;
 		case LUCategoryHost:
-			[cacheStore	[CHostName].cache removeObject:item];
-			[cacheStore	[CHostIPAddress].cache removeObject:item];
-			[cacheStore	[CHostENAddress].cache removeObject:item];
+			[cacheStore[CIPV4NodeName].cache removeObject:item];
+			[cacheStore[CIPV4NodeAddr].cache removeObject:item];
+			[cacheStore[CIPV6NodeName].cache removeObject:item];
+			[cacheStore[CIPV6NodeAddr].cache removeObject:item];
+			[cacheStore[CIPV4NodeMAC].cache removeObject:item];
 			break;
 		case LUCategoryNetwork:
-			[cacheStore	[CNetworkName].cache removeObject:item];
-			[cacheStore	[CNetworkIPAddress].cache removeObject:item];
+			[cacheStore[CNetworkName].cache removeObject:item];
+			[cacheStore[CNetworkIPAddress].cache removeObject:item];
 			break;
 		case LUCategoryService:
-			[cacheStore	[CServiceName].cache removeObject:item];
-			[cacheStore	[CServiceNumber].cache removeObject:item];
+			[cacheStore[CServiceName].cache removeObject:item];
+			[cacheStore[CServiceNumber].cache removeObject:item];
 			break;
 		case LUCategoryProtocol:
-			[cacheStore	[CProtocolName].cache removeObject:item];
-			[cacheStore	[CProtocolNumber].cache removeObject:item];
+			[cacheStore[CProtocolName].cache removeObject:item];
+			[cacheStore[CProtocolNumber].cache removeObject:item];
 			break;
 		case LUCategoryRpc:
-			[cacheStore	[CRpcName].cache removeObject:item];
-			[cacheStore	[CRpcNumber].cache removeObject:item];
+			[cacheStore[CRpcName].cache removeObject:item];
+			[cacheStore[CRpcNumber].cache removeObject:item];
 			break;
 		case LUCategoryMount:
-			[cacheStore	[CMountName].cache removeObject:item];
+			[cacheStore[CMountName].cache removeObject:item];
 			break;
 		case LUCategoryPrinter:
-			[cacheStore	[CPrinterName].cache removeObject:item];
+			[cacheStore[CPrinterName].cache removeObject:item];
 			break;
 		case LUCategoryBootparam:
-			[cacheStore	[CBootparamName].cache removeObject:item];
+			[cacheStore[CBootparamName].cache removeObject:item];
 			break;
 		case LUCategoryBootp:
-			[cacheStore	[CBootpName].cache removeObject:item];
-			[cacheStore	[CBootpIPAddress].cache removeObject:item];
-			[cacheStore	[CBootpENAddress].cache removeObject:item];
+			[cacheStore[CBootpName].cache removeObject:item];
+			[cacheStore[CBootpIPAddress].cache removeObject:item];
+			[cacheStore[CBootpENAddress].cache removeObject:item];
 			break;
 		case LUCategoryAlias:
-			[cacheStore	[CAliasName].cache removeObject:item];
+			[cacheStore[CAliasName].cache removeObject:item];
 			break;
 		case LUCategoryNetgroup:
-			[cacheStore	[CNetgroupName].cache removeObject:item];
+			[cacheStore[CNetgroupName].cache removeObject:item];
+			break;
+		case LUCategoryInitgroups:
+			[cacheStore[CInitgroupName].cache removeObject:item];
 			break;
 		default: break;
 	}
 
 	syslock_unlock(cacheLock);
-}
-
-- (void)reset
-{
-	syslock_lock(cacheLock);
-	[configurationArray release];
-	generation = [configManager generation];
-	configurationArray = [configManager config];
-	syslock_unlock(cacheLock);
-
-	[self flushCache];
 }
 
 - (void)flushCache
@@ -1148,16 +1038,7 @@ static BOOL shutdown_CacheAgent = NO;
 	{
 		[allStore[i].all release];
 		allStore[i].all = nil;
-
-		if (i == LUCategoryInitgroups)
-		{
-			if (initgroupsUserName != NULL) freeString(initgroupsUserName);
-			initgroupsUserName = NULL;
-		}
 	}
-
-	if (rootInitGroups != nil) [rootInitGroups release];
-	rootInitGroups = nil;
 
 	syslock_unlock(cacheLock);
 }
@@ -1178,12 +1059,6 @@ static BOOL shutdown_CacheAgent = NO;
 	{
 		[allStore[i].all release];
 		allStore[i].all = nil;
-	}
-
-	if (cat == LUCategoryInitgroups)
-	{
-		if (rootInitGroups != nil) [rootInitGroups release];
-		rootInitGroups = nil;
 	}
 
 	syslock_unlock(cacheLock);
@@ -1216,12 +1091,6 @@ static BOOL shutdown_CacheAgent = NO;
 			}
 		}
 
-		if (obj == rootInitGroups)
-		{
-			syslock_unlock(cacheLock);
-			return YES;
-		}
-
 		syslock_unlock(cacheLock);
 		return NO;
 	}
@@ -1251,10 +1120,36 @@ static BOOL shutdown_CacheAgent = NO;
 	if (n < 0 || n > NCACHE) return nil;
 
 	syslock_lock(cacheLock);
-	item = [self cache:n itemWithKey:val category:cat];
+	item = [cacheStore[n].cache objectForKey:val];
+	item = [self postProcess:item cache:n];
 	syslock_unlock(cacheLock);
 
 	return item;
+}
+
+- (unsigned int)memorySize
+{
+	unsigned int size;
+
+	size = [super memorySize];
+
+	size += 24;
+	if (cacheLock != NULL) size += sizeof(syslock);
+
+	size += (NCACHE * 20);
+	size += (NCATEGORIES * 12);
+		
+	return size;
+}
+
+- (LUDictionary *)allGroupsWithUser:(char *)name
+{
+	return [self itemWithKey:"name" value:name category:LUCategoryInitgroups];
+}
+
+- (void)setInitgroups:(LUDictionary *)item forUser:(char *)name
+{
+	[self addObject:item category:LUCategoryInitgroups toCache:CInitgroupName key:"name"];
 }
 
 @end

@@ -52,7 +52,7 @@
 #if defined(LIBC_SCCS) && !defined(lint) 
 /*static char *sccsid = "from: @(#)xdr_rec.c 1.21 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)xdr_rec.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: xdr_rec.c,v 1.2 1999/10/14 21:56:55 wsanchez Exp $";
+static char *rcsid = "$Id: xdr_rec.c,v 1.3 2002/02/19 20:36:26 epeyton Exp $";
 #endif
 
 /*
@@ -74,6 +74,8 @@ static char *rcsid = "$Id: xdr_rec.c,v 1.2 1999/10/14 21:56:55 wsanchez Exp $";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 #include <netinet/in.h>

@@ -15,9 +15,11 @@ BuildStyle=
 Actions=
 Assignments=
 
+# We change into the directory that contains the pbxbuild.sh script.
+cd "`dirname -- "$0"`"
+
 IFS='
 '
-cd $(dirname $0)
 
 while [ $# -gt 0 ] ; do
 	case ${1} in

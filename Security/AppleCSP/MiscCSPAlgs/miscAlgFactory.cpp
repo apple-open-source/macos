@@ -23,6 +23,7 @@
 
 #include "miscAlgFactory.h"
 #include <AES/aescspi.h>
+#include <AES/gladmanContext.h>
 #include "desContext.h"
 #include "rc2Context.h"
 #include "rc4Context.h"
@@ -31,14 +32,8 @@
 #include "DigestContext.h"
 #include "SHA1_MD5_Object.h"			/* raw digest */
 #include "MD2Object.h"
+#include "NullCryptor.h"
 #include <Security/cssmapple.h>
-
-/* 
- * normally CSSM_ALGID_SHA1HMAC_LEGACY maps to a MacLegacyContext if 
- * CRYPTKIT_CSP_ENABLE is true. For quick testing, we also map 
- * CSSM_ALGID_SHA1HMAC to MacLegacyContext.
- */
-#define HMAC_BOGUS_ENABLE	0
 
 /*
  * These #defines are mainly to facilitate measuring the performance of our own
@@ -83,7 +78,20 @@ bool MiscAlgFactory::setup(
 			switch(alg) {
 				case CSSM_ALGID_AES:
 					if(cspCtx == NULL) {
-						cspCtx = new AESContext(session);
+						/* 
+						 * Get optional block size to determine correct implementation
+						 */
+						uint32 blockSize = context.getInt(CSSM_ATTRIBUTE_BLOCK_SIZE);
+						if(blockSize == 0) {
+							blockSize = GLADMAN_BLOCK_SIZE_BYTES;
+						}
+						if(GLADMAN_AES_128_ENABLE && 
+							(blockSize == GLADMAN_BLOCK_SIZE_BYTES)) {
+							cspCtx = new GAESContext(session);
+						}
+						else {
+							cspCtx = new AESContext(session);
+						}
 					}
 					return true;
 
@@ -131,6 +139,14 @@ bool MiscAlgFactory::setup(
 					}
 					return true;
 				#endif
+				
+				#if		NULL_CRYPT_ENABLE
+				case CSSM_ALGID_NONE:
+					if(cspCtx == NULL) {
+						cspCtx = new NullCryptor(session);
+					}
+					return true;
+				#endif	/* NULL_CRYPT_ENABLE */
 				
 				default:
 					break;	// not our symmetric alg
@@ -233,12 +249,31 @@ bool MiscAlgFactory::setup(
 				case CSSM_ALGID_SHA1HMAC:
 					if(cspCtx == NULL) {
 						cspCtx = new AppleSymmKeyGenerator(session,
-							HMAC_MIN_KEY_SIZE * 8,
+							HMAC_SHA_MIN_KEY_SIZE * 8,
+							HMAC_MAX_KEY_SIZE * 8,
+							true);				// must be byte size
+					}
+					return true;
+				case CSSM_ALGID_MD5HMAC:
+					if(cspCtx == NULL) {
+						cspCtx = new AppleSymmKeyGenerator(session,
+							HMAC_MD5_MIN_KEY_SIZE * 8,
 							HMAC_MAX_KEY_SIZE * 8,
 							true);				// must be byte size
 					}
 					return true;
 				#endif
+				
+				#if		NULL_CRYPT_ENABLE
+				case CSSM_ALGID_NONE:
+					if(cspCtx == NULL) {
+						cspCtx = new AppleSymmKeyGenerator(session,
+							NULL_CRYPT_BLOCK_SIZE * 8,
+							NULL_CRYPT_BLOCK_SIZE * 8,
+							true);				// must be byte size
+					}
+					return true;
+				#endif	/* NULL_CRYPT_ENABLE */
 				
 				default:
 					break;	// not our keygen alg
@@ -249,20 +284,16 @@ bool MiscAlgFactory::setup(
 			switch(alg) {
 				#if		MAF_MAC_ENABLE
 				case CSSM_ALGID_SHA1HMAC:
+				case CSSM_ALGID_MD5HMAC:
 					if(cspCtx == NULL) {
-						#if		HMAC_BOGUS_ENABLE
-						/* quick hack for Keychain Access testing */
-						cspCtx = new MacLegacyContext(session);
-						#else
-						cspCtx = new MacContext(session);
-						#endif
+						cspCtx = new MacContext(session, alg);
 					}
 					return true;
 				#endif
 				#if		CRYPTKIT_CSP_ENABLE
 				case CSSM_ALGID_SHA1HMAC_LEGACY:
 					if(cspCtx == NULL) {
-						cspCtx = new MacLegacyContext(session);
+						cspCtx = new MacLegacyContext(session, alg);
 					}
 					return true;
 				#endif

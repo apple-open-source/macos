@@ -1,5 +1,5 @@
 /* COFF (SVR3) Shared library declarations for GDB, the GNU Debugger.
-   Copyright (C) 1992 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1998, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -32,10 +32,10 @@ extern void coff_clear_solib (void);
 
 /* Called to add symbols from a shared library to gdb's symbol table. */
 
-#define SOLIB_ADD(filename, from_tty, targ) \
-    coff_solib_add (filename, from_tty, targ)
+#define SOLIB_ADD(filename, from_tty, targ, readsyms) \
+    coff_solib_add (filename, from_tty, targ, readsyms)
 
-extern void coff_solib_add (char *, int, struct target_ops *);
+extern void coff_solib_add (char *, int, struct target_ops *, int);
 
 /* Function to be called when the inferior starts up, to discover the names
    of shared libraries that are dynamically linked, the base addresses to

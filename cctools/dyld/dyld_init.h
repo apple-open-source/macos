@@ -73,6 +73,7 @@ extern enum bool dyld_executable_path_debug;
 extern enum bool dyld_two_level_debug;
 extern enum bool dyld_abort_multiple_inits;
 extern enum bool dyld_new_local_shared_regions;
+extern enum bool dyld_no_fix_prebinding;
 extern unsigned long dyld_image_vmaddr_slide;
 
 extern enum bool profile_server;

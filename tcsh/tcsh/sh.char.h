@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.char.h,v 1.1.1.3 2001/06/28 23:10:50 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.char.h,v 1.1.1.3 2001/06/28 23:10:50 bbraun Exp $ */
 /*
  * sh.char.h: Table for spotting special characters quickly
  * 	      Makes for very obscure but efficient coding.

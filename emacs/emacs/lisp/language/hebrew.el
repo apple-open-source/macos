@@ -1,4 +1,4 @@
-;;; hebrew.el --- Support for Hebrew -*- coding: iso-2022-7bit; -*-
+;;; hebrew.el --- support for Hebrew -*- coding: iso-2022-7bit; -*-
 
 ;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
 ;; Licensed to the Free Software Foundation.
@@ -25,6 +25,7 @@
 ;;; Commentary:
 
 ;; For Hebrew, the character sets ISO8859-8 is supported.
+;; See http://www.ecma.ch/ecma1/STAND/ECMA-121.HTM.
 
 ;;; Code:
 
@@ -38,11 +39,12 @@
 
 (define-coding-system-alias 'iso-8859-8 'hebrew-iso-8bit)
 
-(defun setup-hebrew-environment ()
-  "Setup multilingual environment (MULE) for Hebrew.
-But, please note that right-to-left writing is not yet supported."
-  (interactive)
-  (set-language-environment "Hebrew"))
+;; These are for Explicit and Implicit directionality information, as
+;; defined in RFC 1556.  We don't yet support directional information
+;; in bidi languages, so these aliases are a lie, especially as far as
+;; iso-8859-8-e is concerned.  FIXME.
+(define-coding-system-alias 'iso-8859-8-e 'hebrew-iso-8bit)
+(define-coding-system-alias 'iso-8859-8-i 'hebrew-iso-8bit)
 
 (set-language-info-alist
  "Hebrew" '((charset . (hebrew-iso8859-8))
@@ -54,5 +56,7 @@ But, please note that right-to-left writing is not yet supported."
 	    (sample-text . "Hebrew	,Hylem(B")
 	    (documentation . "Right-to-left writing is not yet supported.")
 	    ))
+
+(provide 'hebrew)
 
 ;;; hebrew.el ends here

@@ -104,8 +104,10 @@ CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(const TypedList &l
 	}
 }
 
-CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(Reader &pub, Reader &priv) const
+CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(Version version,
+	Reader &pub, Reader &priv) const
 {
+	assert(version == 0);
     CssmAllocator &alloc = CssmAllocator::standard();
 	uint32 sigType; pub(sigType);
 	const void *data; uint32 length; pub.countedData(data, length);

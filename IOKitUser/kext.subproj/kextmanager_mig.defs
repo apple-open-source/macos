@@ -1,0 +1,59 @@
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem kextmanager 70000;
+serverprefix _;
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+import <Security/Authorization.h>;
+import <IOKit/kext/kextmanager_types.h>;
+import <mach/kmod.h>;
+import <sys/param.h>;
+
+type kext_result_t = int;
+
+// length limit chosen arbitrarily
+type property_key_t = array [128] of char;
+// length must match KMOD_MAX_NAME from <mach/kmod.h>
+type kext_bundle_id_t = array [64] of char;
+// length must match MAXPATHLEN from <sys/param.h>
+type posix_path_t = array [1024] of char;
+
+/*
+ * serialized XML data (server->client)
+ */
+type xmlDataOut = ^ array [] of MACH_MSG_TYPE_BYTE
+	ctype : xmlDataOut_t;
+type xmlDataIn = ^ array [] of MACH_MSG_TYPE_BYTE
+        ctype : xmlDataIn_t;
+type AuthRefIn = struct [8] of unsigned32
+        ctype : AuthorizationExternalForm;
+
+routine kextmanager_path_for_bundle_id(
+    server           : mach_port_t;
+    bundle_id        : kext_bundle_id_t;
+    out path         : posix_path_t;
+    out kext_result  : kext_result_t);
+
+routine kextmanager_create_property_value_array(
+    server           : mach_port_t;
+    prop_key         : property_key_t;
+    out data         : xmlDataOut, dealloc);
+
+routine kextmanager_user_did_log_in(
+    server           : mach_port_t;
+    euid             : int;
+    authref          : AuthRefIn);
+
+routine kextmanager_user_will_log_out(
+    server           : mach_port_t;
+    euid             : int);
+
+routine kextmanager_get_logged_in_userid(
+    server           : mach_port_t;
+    out euid         : int);
+
+routine kextmanager_record_nonsecure_kextload(
+    server           : mach_port_t;
+    load_data        : xmlDataIn);

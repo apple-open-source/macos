@@ -1,0 +1,18 @@
+#! /bin/sh
+
+# Make sure we don't override the user's site.exp rule.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = dejagnu
+
+site.exp:
+    echo foo
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep site.exp Makefile.in
+test `grep '^site\.exp:' Makefile.in | wc -l` -eq 1

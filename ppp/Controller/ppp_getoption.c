@@ -40,13 +40,7 @@ includes
 #include <sys/sockio.h>
 #include <net/if.h>
 #include <CoreFoundation/CoreFoundation.h>
-
-#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>
-#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
-#include <SystemConfiguration/v1Compatibility.h>
-#include <SystemConfiguration/SCSchemaDefinitions.h>
-#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
 
 #include "ppp_msg.h"
 #include "ppp_privmsg.h"
@@ -68,8 +62,6 @@ definitions
 #define MAX(a, b)	((a) > (b)? (a): (b))
 #endif
 
-extern SCDSessionRef		gCfgCache;
-
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 u_long get_ipaddr (struct ppp *ppp, struct opt_long *option, 
@@ -78,21 +70,21 @@ u_long get_ipaddr (struct ppp *ppp, struct opt_long *option,
 {
 
     // first search in the state
-    if (!getAddressFromEntity(gCfgCache, kSCCacheDomainState, ppp->serviceID, 
+    if (!getAddressFromEntity(kSCDynamicStoreDomainState, ppp->serviceID, 
         entity, property, opt)) {
         return 0;
     }
 
     // then, search in the option set
     if (option && option->set) {
-        PRINTF(("    ---> Client %d, option is set = %ld  \n", id, option->val));
+        PRINTF(("    ---> option is set = %ld  \n", option->val));
         *opt = option->val;
         return 0;
     }
     
     // at last, search in the setup 
     if (lookinsetup
-        && !getAddressFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+        && !getAddressFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
         entity, property, opt)) {
         return 0;
     }
@@ -109,14 +101,14 @@ u_long get_long (struct ppp *ppp, struct opt_long *option,
 {
 
     // first search in the state
-    if (!getNumberFromEntity(gCfgCache, kSCCacheDomainState, ppp->serviceID, 
+    if (!getNumberFromEntity(kSCDynamicStoreDomainState, ppp->serviceID, 
         entity, property, opt)) {
         return 0;
     }
 
     // then, search in the option set
     if (option && option->set) {
-        PRINTF(("    ---> Client %d, option is set = %ld  \n", id, option->val));
+        PRINTF(("    ---> option is set = %ld  \n", option->val));
         *opt = option->val;
         return 0;
     }
@@ -124,7 +116,7 @@ u_long get_long (struct ppp *ppp, struct opt_long *option,
     // at last, search in the setup, only in lookinsetup flag is set
     if (lookinsetup && 
         ((setupdict && !getNumber(setupdict, property, opt))
-        || (!setupdict && !getNumberFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+        || (!setupdict && !getNumberFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
         entity, property, opt)))) {
         return 0;
     }
@@ -142,7 +134,7 @@ int get_str (struct ppp *ppp, struct opt_str *option,
     unsigned short 	len;
     
     // first search in the state
-    if (!getStringFromEntity(gCfgCache, kSCCacheDomainState, ppp->serviceID, 
+    if (!getStringFromEntity(kSCDynamicStoreDomainState, ppp->serviceID, 
         entity, property, opt, OPT_STR_LEN)) {
         *outlen = strlen(opt);
         return 0;
@@ -150,7 +142,7 @@ int get_str (struct ppp *ppp, struct opt_str *option,
 
     // then, search in the option set
     if (option && option->set) {
-        PRINTF(("    ---> Client %d, option is set = %s  \n", id, option->str));
+        PRINTF(("    ---> option is set = %s  \n", option->str));
         len = MIN(OPT_STR_LEN, strlen(option->str) + 1);
         strncpy(opt, option->str, len);
         opt[len - 1] = 0;
@@ -161,7 +153,7 @@ int get_str (struct ppp *ppp, struct opt_str *option,
     // at last, search in the setup, only in lookinsetup flag is set
     if (lookinsetup && 
         ((setupdict && !getString(setupdict, property, opt, OPT_STR_LEN))
-        || (!setupdict && !getStringFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+        || (!setupdict && !getStringFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
         entity, property, opt, OPT_STR_LEN)))) {
         *outlen = strlen(opt);
         return 0;
@@ -184,7 +176,7 @@ int get_passwd (struct ppp *ppp, struct opt_str *option,
     *opt = 0;
     *outlen = 0;
 
-    if (ppp->phase != PPP_RUNNING) {
+    if (ppp->phase != PPP_RUNNING && ppp->phase != PPP_ONHOLD) {
         // not running, search in our set, then in the setup
         if (option && option->set) {
             PRINTF(("    ---> Client %d, option is set = %s  \n", id, option->str));
@@ -193,7 +185,7 @@ int get_passwd (struct ppp *ppp, struct opt_str *option,
             opt[len - 1] = 0;
             *outlen = len;
         }
-        else if (!getStringFromEntity(gCfgCache, kSCCacheDomainSetup, ppp->serviceID, 
+        else if (!getStringFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
             entity, property, opt, OPT_STR_LEN)) {
             *outlen = strlen(opt);
         }
@@ -203,7 +195,7 @@ int get_passwd (struct ppp *ppp, struct opt_str *option,
     else {
         // not idle, search in the state
         // Fix Me : during connection/disconnection phases, options may be incomplete
-        if (!getStringFromEntity(gCfgCache, kSCCacheDomainState, ppp->serviceID, 
+        if (!getStringFromEntity(kSCDynamicStoreDomainState, ppp->serviceID, 
             entity, property, opt, OPT_STR_LEN)) {
             *outlen = strlen(opt);
         }
@@ -218,10 +210,10 @@ int get_passwd (struct ppp *ppp, struct opt_str *option,
 ----------------------------------------------------------------------------- */
 u_long ppp_getoption (struct client *client, struct msg *msg)
 {
-    struct ppp_opt 		*opt = (struct ppp_opt *)&msg->data[0];
+    struct ppp_opt 		*opt = (struct ppp_opt *)&msg->data[MSG_DATAOFF(msg)];
     struct options		*opts;
-    struct ppp			*ppp = ppp_findbyref(msg->hdr.m_link);
-
+    struct ppp 			*ppp = ppp_find(msg);
+            
     if (!ppp) {
         msg->hdr.m_len = 0;
         msg->hdr.m_result = ENODEV;
@@ -229,14 +221,14 @@ u_long ppp_getoption (struct client *client, struct msg *msg)
     }
 
     // not connected, get the client options that will be used.
-    opts = client_findoptset(client, msg->hdr.m_link);
+    opts = client_findoptset(client, ppp_makeref(ppp));
        
     if (ppp_getoptval(ppp, opts, opt->o_type, &opt->o_data[0], &msg->hdr.m_len, 0)) {
         msg->hdr.m_len = 0;
         msg->hdr.m_result = EOPNOTSUPP;
         return 0;
     }
-
+    
     msg->hdr.m_result = 0;
     msg->hdr.m_len += sizeof(struct ppp_opt_hdr);
     return 0;
@@ -251,6 +243,7 @@ int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *
     u_int32_t			*lopt = (u_int32_t *)pdata;
     u_char 			*popt = (u_char *)pdata;
     struct options		emptyopts;
+    char 			str[OPT_STR_LEN], str2[OPT_STR_LEN];
 
     if (!opts) {
         bzero(&emptyopts, sizeof(emptyopts));
@@ -264,23 +257,61 @@ int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *
 
         // DEVICE options
         case PPP_OPT_DEV_NAME:
-            get_str(ppp, &opts->dev.name, kSCEntNetInterface, kSCPropNetInterfaceDeviceName, popt, plen, 0, 1, OPT_DEV_NAME_DEF);
+            get_str(ppp, &opts->dev.name, kSCEntNetInterface, kSCPropNetInterfaceDeviceName, popt, plen, 0, 1, 
+                (ppp->subtype == PPP_TYPE_SERIAL) ? OPT_DEV_NAME_DEF : 
+                ((ppp->subtype == PPP_TYPE_PPPoE) ? OPT_DEV_NAME_PPPoE_DEF : ""));
             break;
         case PPP_OPT_DEV_SPEED:
-            get_long(ppp, &opts->dev.speed, kSCEntNetModem, kSCPropNetModemSpeed, lopt, 0, 1, OPT_DEV_SPEED_DEF);
+            *lopt = 0; 
+            switch (ppp->subtype) {
+                case PPP_TYPE_SERIAL:
+                    get_long(ppp, &opts->dev.speed, kSCEntNetModem, kSCPropNetModemSpeed, lopt, 0, 1, OPT_DEV_SPEED_DEF);
+                    break;
+                case PPP_TYPE_PPPoE:
+                case PPP_TYPE_PPTP:
+                case PPP_TYPE_L2TP:
+                    break;
+            }
             break;
         case PPP_OPT_DEV_CONNECTSCRIPT:
-            get_str(ppp, &opts->dev.connectscript, kSCEntNetModem, kSCPropNetModemConnectionScript, popt, plen, 0, 1, OPT_DEV_CONNECTSCRIPT_DEF);
+            get_str(ppp, &opts->dev.connectscript, kSCEntNetModem, kSCPropNetModemConnectionScript, popt, plen, 0, 1, 
+                (ppp->subtype == PPP_TYPE_SERIAL) ? OPT_DEV_CONNECTSCRIPT_DEF : "");
             break;
  
+        case PPP_OPT_DEV_DIALMODE:
+            *plen = 4;
+            *lopt = PPP_DEV_WAITFORDIALTONE;
+            // search in the option set
+            if (opts->dev.dialmode.set) {
+                *lopt = opts->dev.dialmode.val;
+            }
+            // then, search in the setup
+            else if (!getStringFromEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, 
+                kSCEntNetModem, kSCPropNetModemDialMode, str, OPT_STR_LEN)) {
+
+                str2[0] = 0;
+                CFStringGetCString(kSCValNetModemDialModeIgnoreDialTone, str2, sizeof(str2), kCFStringEncodingUTF8);
+                if (!strcmp(str, str2))
+                    *lopt = PPP_DEV_IGNOREDIALTONE;
+                else {
+                    str2[0] = 0;
+                    CFStringGetCString(kSCValNetModemDialModeManual, str2, sizeof(str2), kCFStringEncodingUTF8);
+                    if (!strcmp(str, str2))
+                        *lopt = PPP_DEV_MANUALDIAL;
+                }
+            }
+            break;
+
         // COMM options
        case PPP_OPT_DEV_CONNECTSPEED:
             *lopt = 0; 
             switch (ppp->subtype) {
                 case PPP_TYPE_SERIAL:
-                    get_long(ppp, 0, kSCEntNetModem, CFSTR("ConnectSpeed"), lopt, 0, 0, 0);
+                    get_long(ppp, 0, kSCEntNetModem, kSCPropNetModemConnectSpeed, lopt, 0, 0, 0);
                     break;
                 case PPP_TYPE_PPPoE:
+                case PPP_TYPE_PPTP:
+                case PPP_TYPE_L2TP:
                     break;
             }
             break;
@@ -292,7 +323,7 @@ int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *
                 *lopt = OPT_COMM_TERMINALMODE_DEF; 
                 if (!get_long(ppp, 0, kSCEntNetPPP, kSCPropNetPPPCommDisplayTerminalWindow, &lval, pppdict, 1, 0) && lval) 
                      *lopt = PPP_COMM_TERM_WINDOW;
-                else if (!get_long(ppp, 0, kSCEntNetPPP, CFSTR("CommUseTerminalScript"), &lval, pppdict, 1, 0) && lval) 
+                else if (!get_long(ppp, 0, kSCEntNetPPP, kSCPropNetPPPCommUseTerminalScript, &lval, pppdict, 1, 0) && lval) 
                     *lopt = PPP_COMM_TERM_SCRIPT;
             }
 	    break;	    
@@ -304,8 +335,8 @@ int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *
             get_long(ppp, &opts->comm.idletimer, kSCEntNetPPP, kSCPropNetPPPDisconnectOnIdleTimer, lopt, pppdict, lval, lval ? OPT_COMM_IDLETIMER_DEF : 0);
             break;
         case PPP_OPT_COMM_SESSIONTIMER:
-            get_long(ppp, 0, kSCEntNetPPP, CFSTR("UseSessionTimer"), &lval, pppdict, 1, 0);
-            get_long(ppp, &opts->comm.sessiontimer, kSCEntNetPPP, CFSTR("SessionTimer"), lopt, pppdict, lval, lval ? OPT_COMM_SESSIONTIMER_DEF : 0);
+            get_long(ppp, 0, kSCEntNetPPP, kSCPropNetPPPUseSessionTimer, &lval, pppdict, 1, 0);
+            get_long(ppp, &opts->comm.sessiontimer, kSCEntNetPPP, kSCPropNetPPPSessionTimer, lopt, pppdict, lval, lval ? OPT_COMM_SESSIONTIMER_DEF : 0);
             break;
         case PPP_OPT_COMM_REMINDERTIMER:
             get_long(ppp, 0, kSCEntNetPPP, kSCPropNetPPPIdleReminder, &lval, pppdict, 1, 0);
@@ -329,6 +360,9 @@ int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *
                 case PPP_TYPE_PPPoE:
                     lval = OPT_LCP_MRU_PPPoE_DEF;
                     break;
+                case PPP_TYPE_PPTP:
+                    lval = OPT_LCP_MRU_PPTP_DEF;
+                    break;
                 default:
                     lval = OPT_LCP_MRU_DEF;
             }
@@ -338,6 +372,9 @@ int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *
             switch (ppp->subtype) {
                 case PPP_TYPE_PPPoE:
                     lval = OPT_LCP_MTU_PPPoE_DEF;
+                    break;
+                case PPP_TYPE_PPTP:
+                    lval = OPT_LCP_MTU_PPTP_DEF;
                     break;
                 default:
                     lval = OPT_LCP_MTU_DEF;
@@ -360,10 +397,8 @@ int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *
         // AUTH options
         case PPP_OPT_AUTH_PROTO:
             *lopt = OPT_AUTH_PROTO_DEF;
-//            if (popt[0]) {
-                *lopt = PPP_AUTH_PAPCHAP;	// only that value is coded at this point
-                *plen = 4;
-//            }
+            if (opts->auth.proto.set)
+                *lopt = opts->auth.proto.val;
             break;
         case PPP_OPT_AUTH_NAME:
              get_str(ppp, &opts->auth.name, kSCEntNetPPP, kSCPropNetPPPAuthName, popt, plen, pppdict, 1, "");
@@ -371,6 +406,12 @@ int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *
         case PPP_OPT_AUTH_PASSWD:
 //             get_passwd(ppp, &opts->auth.passwd, kSCEntNetPPP, kSCPropNetPPPAuthPassword, popt, plen, pppdict);
             get_str(ppp, &opts->auth.passwd, kSCEntNetPPP, kSCPropNetPPPAuthPassword, popt, plen, pppdict, 1, "");
+            // don't return the actual pasword.
+            // instead, return len = 1 if password is known, ken = 0 if password is unknown
+            if (*plen) {
+                popt[0] = '*';
+                *plen = 1;
+            }
             break;
 
             // IPCP options
@@ -387,13 +428,15 @@ int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *
            // MISC options
         case PPP_OPT_LOGFILE:
              get_str(ppp, &opts->misc.logfile, kSCEntNetPPP, kSCPropNetPPPLogfile, popt, plen, pppdict, 1, "");
+             if (popt[0] != '/') {
+                lval = strlen(DIR_LOGS);
+                strncpy(popt + lval, popt, *plen);
+                strncpy(popt, DIR_LOGS, lval);
+                *plen += lval;
+             }
             break;
         case PPP_OPT_ALERTENABLE:
-            // this option is not found in the preferences
-            *lopt = ppp->alertenable;            
-            //*lopt = OPT_ALERT_DEF;
-            //if (opts->misc.alertenable.set) 
-            //     *lopt = opts->misc.alertenable.val;
+            get_long(ppp, &opts->misc.alertenable, kSCEntNetPPP, CFSTR("AlertEnable"), lopt, pppdict, 1, 0xFFFFFFFF);
             break;
         case PPP_OPT_AUTOCONNECT:
             get_long(ppp, &opts->misc.autoconnect, kSCEntNetPPP, kSCPropNetPPPDialOnDemand, lopt, pppdict, 1, 0);

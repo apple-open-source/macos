@@ -94,6 +94,8 @@ int gIOPCIDebug = 0;
 static void setupIntelPIC(IOPCIDevice * nub);
 #endif
 
+static bool IOPCIBridgeCheckProperties( IORegistryEntry * entry );
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // stub driver has two power states, off and on
 
@@ -148,6 +150,44 @@ IOReturn IOPCIBridge::setDevicePowerState( IOPCIDevice * device,
         return( restoreDeviceState( device));
     if( whatToDo == 0)
         return( saveDeviceState( device));
+		
+	// Special for pci/pci-bridge devices - 2 to save immediately, 3 to restore immediately
+	// This also notifies any pci bridge children we might have
+	if ( whatToDo == 2 || whatToDo == 3) {
+		OSIterator 		*childIterator;
+		IORegistryEntry *childEntry, *childDriver;
+		IOPCIBridge		*pciDriver;
+		IOPCI2PCIBridge	*pci2pciDriver;
+		OSData			*deviceTypeString;
+
+		// Notify our children
+		if ((childIterator = this->getChildIterator (gIOServicePlane)) != NULL) {
+			while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
+				deviceTypeString = OSDynamicCast( OSData, childEntry->getProperty( "device_type" ));
+				if (deviceTypeString && !strcmp((const char*)deviceTypeString->getBytesNoCopy(), "pci")) {
+					childDriver = childEntry->copyChildEntry(gIOServicePlane);
+					if (childDriver) {
+						// First see if we're dealing with a PCI to PCI bridge
+						pci2pciDriver = OSDynamicCast( IOPCI2PCIBridge, childDriver );
+						if (pci2pciDriver) {
+							// Handle bridge driver immediately
+							if (whatToDo == 2) 
+								pci2pciDriver->saveBridgeState();
+							else 
+								pci2pciDriver->restoreBridgeState();
+						}
+						
+						// Pass message down to all our PCI device children
+						pciDriver = OSDynamicCast( IOPCIBridge, childDriver );
+						if (pciDriver)
+							pciDriver->setDevicePowerState(NULL, whatToDo);	// do save/restore
+						
+						childDriver->release ();
+					}
+				}
+			}
+		}
+	}
 
     return( kIOReturnSuccess );
 }
@@ -261,18 +301,60 @@ IORegistryEntry * IOPCIBridge::findMatching( OSIterator * kids,
     return( found );
 }
 
+static bool IOPCIBridgeCheckProperties( IORegistryEntry * entry )
+{
+    UInt32	vendor, product, classCode;
+    UInt32	subVendor = 0, subProduct = 0;
+    OSData *	data;
+    OSData *	nameData;
+    char	compatBuf[128];
+    char *	out;
+
+    if( (data = OSDynamicCast(OSData, entry->getProperty("compatible")))
+     && (nameData = OSDynamicCast(OSData, entry->getProperty("name")))
+     && !data->isEqualTo(nameData))
+	return( true );				// no compatible change needed
+
+    if( (data = OSDynamicCast(OSData, entry->getProperty("vendor-id"))))
+	vendor = *((UInt32 *) data->getBytesNoCopy());
+    else
+	return( false );
+    if( (data = OSDynamicCast(OSData, entry->getProperty("device-id"))))
+	product = *((UInt32 *) data->getBytesNoCopy());
+    else
+	return( false );
+    if( (data = OSDynamicCast(OSData, entry->getProperty("class-code"))))
+	classCode = *((UInt32 *) data->getBytesNoCopy());
+    else
+	return( false );
+    if( (data = OSDynamicCast(OSData, entry->getProperty("subsystem-vendor-id"))))
+	subVendor = *((UInt32 *) data->getBytesNoCopy());
+    if( (data = OSDynamicCast(OSData, entry->getProperty("subsystem-id"))))
+	subProduct = *((UInt32 *) data->getBytesNoCopy());
+
+    out = compatBuf;
+    if( (subVendor || subProduct)
+      && ((subVendor != vendor) || (subProduct != product)))
+	out += sprintf(out, "pci%lx,%lx", subVendor, subProduct) + 1;
+    out += sprintf(out, "pci%lx,%lx", vendor, product) + 1;
+    out += sprintf(out, "pciclass,%06lx", classCode) + 1;
+
+    entry->setProperty("compatible", compatBuf, out - compatBuf);
+
+    return( true );
+}
+
 OSDictionary * IOPCIBridge::constructProperties( IOPCIAddressSpace space )
 {
     OSDictionary *	propTable;
     UInt32		value;
-    UInt8		byte;
-    UInt16		vendor, device;
+    UInt32		vendor, product, classCode, revID;
+    UInt32		subVendor = 0, subProduct = 0;
     OSData *		prop;
     const char *	name;
     const OSSymbol *	nameProp;
-    char *		nameStr;
-    char *		compatBuf;
-    char *		nextCompat;
+    char		compatBuf[128];
+    char *		out;
 
     struct IOPCIGenericNames {
 	const char *	name;
@@ -289,11 +371,10 @@ OSDictionary * IOPCIBridge::constructProperties( IOPCIAddressSpace space )
     };
     const IOPCIGenericNames *	nextName;
 
-    compatBuf = (char *) IOMalloc( 256 );
 
     propTable = OSDictionary::withCapacity( 8 );
 
-    if( compatBuf && propTable) {
+    if( propTable) {
 
         prop = OSData::withBytes( &space, sizeof( space) );
         if( prop) {
@@ -302,74 +383,79 @@ OSDictionary * IOPCIBridge::constructProperties( IOPCIAddressSpace space )
         }
 
         value = configRead32( space, kIOPCIConfigVendorID );
-        vendor = value;
-        device = value >> 16;
+        vendor = value & 0xffff;
+        product = value >> 16;
 
-        prop = OSData::withBytes( &vendor, 2 );
+        prop = OSData::withBytes( &vendor, sizeof(vendor) );
         if( prop) {
             propTable->setObject("vendor-id", prop );
             prop->release();
         }
         
-        prop = OSData::withBytes( &device, 2 );
+        prop = OSData::withBytes( &product, sizeof(product) );
         if( prop) {
             propTable->setObject("device-id", prop );
             prop->release();
         }
 
         value = configRead32( space, kIOPCIConfigRevisionID );
-	byte = value & 0xff;
-        prop = OSData::withBytes( &byte, 1 );
+	revID = value & 0xff;
+        prop = OSData::withBytes( &revID, sizeof(revID) );
         if( prop) {
             propTable->setObject("revision-id", prop );
             prop->release();
         }
 
+	classCode = value >> 8;
+        prop = OSData::withBytes( &classCode, sizeof(classCode) );
+        if( prop) {
+            propTable->setObject("class-code", prop );
+            prop->release();
+        }
+
 	// make generic name
-	value >>= 8;
+
 	name = 0;
 	for( nextName = genericNames;
 		(0 == name) && nextName->name;
 		nextName++ ) {
-	    if( (value & nextName->mask) == nextName->classCode)
+	    if( (classCode & nextName->mask) == nextName->classCode)
 		name = nextName->name;
 	}
 
-	// start compatible list
-	nextCompat = compatBuf;
-        sprintf( nextCompat, "pci%x,%x", vendor, device);
-	nameStr = nextCompat;
+	// or name from IDs
 
         value = configRead32( space, kIOPCIConfigSubSystemVendorID );
         if( value) {
-            vendor = value;
-            device = value >> 16;
+            subVendor = value & 0xffff;
+            subProduct = value >> 16;
 
-            prop = OSData::withBytes( &vendor, 2 );
+            prop = OSData::withBytes( &subVendor, sizeof(subVendor) );
             if( prop) {
                 propTable->setObject("subsystem-vendor-id", prop );
                 prop->release();
             }
-            prop = OSData::withBytes( &device, 2 );
+            prop = OSData::withBytes( &subProduct, sizeof(subProduct) );
             if( prop) {
                 propTable->setObject("subsystem-id", prop );
                 prop->release();
             }
-
-            nextCompat += strlen( nextCompat ) + 1;
-            sprintf( nextCompat, "pci%x,%x", vendor, device);
-	    nameStr = nextCompat;
         }
 
-        nextCompat += strlen( nextCompat ) + 1;
-        prop = OSData::withBytes( compatBuf, nextCompat - compatBuf);
-        if( prop) {
-            propTable->setObject( "compatible", prop );
-            prop->release();
-        }
-
+	out = compatBuf;
+	if( (subVendor || subProduct)
+	&& ((subVendor != vendor) || (subProduct != product)))
+	    out += sprintf(out, "pci%lx,%lx", subVendor, subProduct) + 1;
 	if( 0 == name)
-            name = nameStr;
+	    name = out;
+	out += sprintf(out, "pci%lx,%lx", vendor, product) + 1;
+	out += sprintf(out, "pciclass,%06lx", classCode) + 1;
+
+	prop = OSData::withBytes( compatBuf, out - compatBuf );
+	if( prop) {
+	    propTable->setObject("compatible", prop );
+	    prop->release();
+	}
 
         nameProp = OSSymbol::withCString( name );
         if( nameProp) {
@@ -378,9 +464,6 @@ OSDictionary * IOPCIBridge::constructProperties( IOPCIAddressSpace space )
             nameProp->release();
         }
     }
-
-    if( compatBuf)
-        IOFree( compatBuf, 256 );
 
     return( propTable );
 }
@@ -532,6 +615,7 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 
             if( (regEntry = findMatching( kidsIter, space ))) {
 
+		IOPCIBridgeCheckProperties( regEntry );
 
 	    } else {
 		/* probe - should guard exceptions */
@@ -708,6 +792,7 @@ IOReturn IOPCIBridge::getDTNubAddressing( IOPCIDevice * regEntry )
 IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
 {
     OSArray *		array;
+    OSData *		assignedProp;
     IOPhysicalAddress	phys;
     IOPhysicalLength	len;
     UInt32		save, value;
@@ -728,7 +813,10 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
     array = OSArray::withCapacity( 1 );
     if( 0 == array)
 	return( kIOReturnNoMemory );
-
+    assignedProp = OSData::withCapacity( 3 * sizeof(IOPCIPhysicalAddress) );
+    if( 0 == assignedProp)
+	return( kIOReturnNoMemory );
+    
     for( regNum = 0x10; regNum < 0x28; regNum += 4) {
 
 	// begin scary
@@ -756,6 +844,11 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
 	if( value & 1) {
 	    reg.s.space = kIOPCIIOSpace;
 
+	    // If the upper 16 bits for I/O space
+	    // are all 0, then we should ignore them.
+	    if ((value & 0xFFFF0000) == 0) {
+	        value = value | 0xFFFF0000;
+	    }
 	} else {
 	    reg.s.prefetch = (0 != (value & 8));
 
@@ -779,6 +872,17 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
         phys = IOPhysical32( 0, save & value );
         len = IOPhysical32( 0, -value );
 
+	if( assignedProp) {
+	    IOPCIPhysicalAddress assigned;
+	    assigned.physHi = reg;
+	    assigned.physMid = 0;
+	    assigned.physLo = phys;
+	    assigned.lengthHi = 0;
+	    assigned.lengthLo = len;
+    
+	    assignedProp->appendBytes( &assigned, sizeof(assigned) );
+	}
+
 if( 1 & gIOPCIDebug)
 	IOLog("Space %08lx : %08lx, %08lx\n", reg.bits, phys, len);
 	
@@ -787,8 +891,11 @@ if( 1 & gIOPCIDebug)
 
     if( array->getCount())
         nub->setProperty( gIODeviceMemoryKey, array);
-
     array->release();
+
+    if( assignedProp->getLength())
+	nub->setProperty( "assigned-addresses", assignedProp );
+    assignedProp->release();
 
     return( kIOReturnSuccess);
 }
@@ -935,7 +1042,7 @@ UInt32 IOPCIBridge::findPCICapability( IOPCIAddressSpace space,
 	offset = (data >> 8) & 0xfc;
     }
 
-    return( data );
+    return( offset ? data : 0 );
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

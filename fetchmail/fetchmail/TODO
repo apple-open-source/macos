@@ -9,8 +9,35 @@
    personally  chase obscure or marginal problems. Help with any of these
    will be cheerfully accepted.
 
-   Using  LMTP  alias  with  a  local  name that is not a full name fails
-   horribly (the LMTP port never gets stripped off the name).
+   Matthias  Andree  writes:  I believe fetchmail should not iterate over
+   protocols when we have a DNS failure.
+
+> BTW, I found a bug in 5.9.7:
+> ./fetchmail -Nvd0 jads.asdkjaldsf.com
+> Enter password for emma@jads.asdkjaldsf.com:
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol auto) at Mit 20
+> Feb 2002 06:35:07 CET: poll started
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol IMAP) at Mit 20
+> Feb 2002 06:35:07 CET: poll started
+> fetchmail: couldn't find canonical DNS name of jads.asdkjaldsf.com
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol IMAP) at Mit 20
+> Feb 2002 06:35:08 CET: poll completed
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol POP3) at Mit 20
+> Feb 2002 06:35:08 CET: poll started
+> fetchmail: couldn't find canonical DNS name of jads.asdkjaldsf.com
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol POP3) at Mit 20
+> Feb 2002 06:35:08 CET: poll completed
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol auto) at Mit 20
+> Feb 2002 06:35:08 CET: poll completed
+> fetchmail: Query status=11 (DNS)
+> fetchmail: normal termination, status 11
+
+   IDLE  is  not  fully implemented. Fetchmail does not time out the idle
+   connection  every  30  minutes  or  less  as required by RFC2177. Some
+   servers     (including     UW     IMAPD     compiled    without    the
+   MICROSOFT_BRAIN_DAMAGE  option,  as  is  the  default)  will  drop the
+   connection  after  30 minutes, resulting in a spurious socket error in
+   your logs and no mail being picked up until the next poll cycle.
 
    The  UIDL  code  seems rather broken. It's a nasty swamp. Somebody who
    actually  uses  it  should  fix  it -- every time I try I seem to make
@@ -21,9 +48,6 @@
    wait 300 (xx) seconds for a "-ERR" or a "+OK" . If nothing comes back,
    retry at the next poll event and generate no errors. If we get an -ERR
    then log an authentication failure.
-
-   SMTP  authentication  a  la  RFC  2554 ought to be supported. The Exim
-   reference has a whole chapter on this topic.
 
    It  has been reported that multidrop name matching fails when the name
    to  be matched contains a Latin-1 umlaut. Dollars to doughnuts this is
@@ -44,6 +68,10 @@
    Move  everything to using service strings rather that port numbers, so
    we  can  get rid of ENABLE_INET6 everywhere but in SockOpen (this will
    get rid of the kluge in rcfile_y.y).
+
+   John  Summerfield  suggests  that  specifying a localname containing @
+   ought  to  be  treated  as  an  smtpname  option, with the domain part
+   removed for other purposes such as local-address matching.
 
    The Debian bug-tracking page for fetchmail lists other bug reports.
      _________________________________________________________________

@@ -2,12 +2,182 @@
 
 (The `lines' figures total .c, .h, .l, and .y files under version control.)
 
+fetchmail-5.9.11 (Mon Apr  1 17:09:13 EST 2002), 21597 lines:
+
+* Updated Turkish and Japanese translations.
+* Added warning about auth failures on the GMX server.
+* HMH's Debian 5.9.10 patches:
+1. Fix minor typo in FAQ
+2. Fix partial implementation of ESMTP auth, and some minor
+   fetchmailconf stuff
+3. Add proper error reporting to bad logfile creation.
+   patch by Sunil Shetye <shetye@bombay.retortsoft.com>
+4. Fix incredible aggravating bug that caused dataloss
+   risks if 4xx errors were returned by the MTA
+5. Corrected version of the fix-timeouts-for-ssl and descriptor
+   leaking patches from Sylvain Benoist <sylvainb@whitepj.com>
+   Also fix outdated comments in driver.c
+6. Sunil Shetye's patch to stop fetchmail from trying to fetch
+   twice with IMAP
+7. Stop stupid complaint about turning off SSL being illegal
+   without SSL support.
+8. Byrial Jensen <byrial@image.dk> i18n fixes
+* Sunil Shetye's attribute patch.
+* HMH's revised but untested SMTP authentication patch.
+
+There are 489 people on fetchmail-friends and 654 on fetchmail-announce.
+
+fetchmail-5.9.10 (Sun Mar 10 15:09:57 EST 2002), 21529 lines:
+
+* Security fix: don't trust the message count passed back by the server.
+
+There are 481 people on fetchmail-friends and 646 on fetchmail-announce.
+
+fetchmail-5.9.9 (Sat Mar  9 08:54:28 EST 2002), 21508 lines:
+
+* Renamed misnamed tr.po and da.po files
+* Jakub Ulanowski's patch to fix SSL fingerprint handling.
+* Matt Kraai's patch for supporting STLS over POP3.
+* French translation updated.
+* Debian fixes merged.
+* Added maildrop (MDA shipped with courier) as fallback after procmail
+  and sendmail (thanks to Alexander Lazic <al-fetchmail@none.at>).
+* ESMTP AUTH support from Wojciech Polak <polak@lodz.pdi.net>.
+
+There are 481 people on fetchmail-friends and 646 on fetchmail-announce.
+
+fetchmail-5.9.8 (Thu Feb 14 23:47:31 EST 2002), 21358 lines:
+
+* Added de translation catalog; updated da and tr catalogs.
+* vsprintf underflow fixes by Sunil Shetye.
+* Added warning about IMS POP3 server.
+* Mattyhias Andree's fix for a longstanding SSL hang bug.
+* Fix yacc syntax bug when building with SSL.
+* Sunil Shetye's patch for idle timeout during poll.
+* Applied HMH's fix for the "message delimiter found in headers" code path
+  (Debian bug #128672).
+
+There are 459 people on fetchmail-friends and 641 on fetchmail-announce.
+
+fetchmail-5.9.7 (Sat Feb  2 00:33:40 EST 2002), 21330 lines:
+
+* Minor fixes by HMH.
+* Properly guard some transaction reporting in the SSL code.
+* Updated German (de) po file.  Added Turkish (tr) po file.
+* Expunge edge case fix by Sunil Shetye.
+* Fixes for some odd IMAP and SMTP edge cases by Sunil Shetye.
+* UIDL bug fix by Matthias Andree.
+* Use smtpaddress, if present, to set the return path on warning mail.
+* Tell parser to object when SSL keyboard is used with SSL not compiled.
+* GSSAPI and ODMR fixes by Tom Hughes.
+
+There are 456 people on fetchmail-friends and 635 on fetchmail-announce.
+
+fetchmail-5.9.6 (Fri Dec 14 04:03:50 EST 2001), 21247 lines:
+
+* OPIE bug fixes by Jun Miyoshi <usako@omnisci.co.jp>.
+* Documented known IDLE bug in the todo.html file.
+* Sunil Shetye's fix for a timeout/reconnect bug.
+* LMTP fix from Toshiro HIKITA <toshi@sodan.org>.
+* The duplicate-killer doesn't try to operate if we can get an actual
+  recipient address from the trace headers.
+
+There are 416 people on fetchmail-friends and 629 on fetchmail-announce.
+
+fetchmail-5.9.5 (Thu Nov  8 14:14:35 EST 2001), 21162 lines:
+
+* Changed the logging logic along lines suggested by Jan Klaverstijn,
+* fetchmailconf looks first in the directory it's running from to find
+  fetchmail.
+* Make sure we get a success status correctly from open_smtp_sink()
+  and open_bsmtp_sink().
+* Matthias Andree's env.c patch to refuse service when QMAILINJECT is defined.
+* Immediately abort if a non-empty QMAILINJECT environment variable is
+  found. If it is set and contains f or i, qmail-inject or qmail's
+  sendmail `compatibility' wrapper will rewrite From: or Message-ID:
+  headers, respectively. En passant, fix the bug that program_name was
+  not filled in before used when the user's ID had no PW entry, leading
+  to (null) or crash when printing the error message. Patch by Matthias
+  Andree.
+* NextStep and OpenStep port patch from Eric Sunshine.
+* Block signals during SockConnect() so we don't get a socket descriptor 
+  leak if we're hit by an alarm signal during connect(2).
+* Set queryname even when server is inactive; avoids a core-dump bug in
+  the fetchids code.
+
+There are 396 people on fetchmail-friends and 627 on fetchmail-announce.
+
+fetchmail-5.9.4 (Wed Oct  3 07:47:45 EDT 2001), 21104 lines:
+
+* Finished license cleanup, all licenses in the distribution are now
+  officially GPL-compatible.
+* Added a length check to from64tobits() after receiving a warning that
+  it might create buffer overflows.  No exploitable overflows were found by
+  a careful case-by-case audit, and at minimum an exploit would have required 
+  that the mailserver be subverted or DNS be spoofed to enable a 
+  man-in-the-middle attack.
+
+There are 371 people on fetchmail-friends and 623 on fetchmail-announce.
+% Mailing list cleaned
+
+fetchmail-5.9.3 (Sun Sep 30 12:08:52 EDT 2001), 21075 lines:
+
+* Fix configuration error in handling of long options.
+* Thomas Moestl's patch to use querynames in UID files.
+* Timeout to deal with long socket closes (Sunil Shetye).
+* Move from RSA MD5 code to Colin Plumb's public-domain implementation (BSD
+  classic license eliminated)
+* Rewrite strcasecmp() (BSD classic license eliminated).
+* getopt_long is back for Solaris and HP-UX systems.
+* Updated Danish po file.
+* Re-enable explicit bounce message on bad address.
+
+There are 393 people on fetchmail-friends and 622 on fetchmail-announce.
+
+fetchmail-5.9.2 (Wed Sep 26 12:47:00 EDT 2001), 21118 lines:
+
+* Enable code to build on Solaris again (long options won't work).
+* Move Hesiod lookups to just before DNS lookups.
+* Make sure the SICHLD handler is called when we run detached.
+* Make kerberos5 in OpenBSD (Federico Schwindt <fgsch@olimpo.com.br>).
+* Added FAQ item X8 on why mail sometimes gets an extra ) appended.
+
+There are 407 people on fetchmail-friends and 624 on fetchmail-announce.
+
+fetchmail-5.9.1 (Mon Sep 24 19:01:57 EDT 2001), 21120 lines:
+
+* Make -D short option for --smtpaddress active again.
+* Typo fix for Polish translation.
+* Make sure IMAP capability checks are caseblind.
+* Make sure suffix checks on akalists are properly caseblinded.
+* All warning mail now has a generated date stamp.
+* getopt.c and getopt1.c removed due to license incompatibility with OpenSSL.
+* End of poll cycle is now logged.
+* Sanity check now rejects SSL option if SSL support is not compiled in
+  (resolves Debian bug #109796).
+* HMH's fix for the LMTP localhost/foo problem.
+* Mike Warfield's fix for using a combined SSL cert and key in a single file.
+* DNS lookups moved to just before the mailserver socket open, so fetchmail
+  now works OK even if started up without Internet access.
+* Switched from _( to GT_( as a gettext macro, in order to avoid a 
+  conflict with the SSL library.
+
+There are 404 people on fetchmail-friends and 624 on fetchmail-announce.
+
+fetchmail-5.9.0 (Sun Aug 12 23:52:16 EDT 2001), 21062 lines:
+
+* Blush...# characters now go to stdout, same place as the dots.
+* Matthias Andree's patch to correct parsing of spaces in quoted usernames.
+
+There are 371 people on fetchmail-friends and 610 on fetchmail-announce.
+% Release 5.9.0
+
 fetchmail-5.8.17 (Tue Aug  7 20:05:36 EDT 2001), 21056 lines:
 
-* SECURITY FIX: Fixed a security hole that is exploitable if fetchmail is
-  running as root and the attacker can either subvert the mailserver or
-  redirect to a fake one using DNS spoofing.  Bugtraq announcement to follow
-  soon.  Thanks to Salvatore Sanfilippo <antirez@invece.org>.
+* SECURITY FIX: Fixed a security hole that is exploitable if the attacker can 
+  either subvert the mailserver or redirect to a fake one using DNS spoofing.
+  Bugtraq announcement to follow soon.  Thanks to Salvatore Sanfilippo 
+  <antirez@invece.org>.
 * Eliminated second bounce on failed RCPT TO address.
 * Always use fetchmail host's FQDN to identify the daemon when
   sending bounce messages.
@@ -35,7 +205,7 @@ fetchmail-5.8.15 (Tue Jul 31 02:07:03 EDT 2001), 21075 lines:
 * Man page bugs pointed out by Andrew Benham.
 * POP3 end of session RSET on keep removed.
 * In IMAP, handle BAD and NO responses to FETCH gracefully.
-* Parse "no {syslog|invisible|showdots} properly.
+* Parse "no {syslog|invisible|showdots}" properly.
 * Change AC_DEFINE to AC_DEFINE_UNQUOTED appropriately in configure.in
   (Debian bug #104484).
 * Fixed bug in fetchmailconf plugin/plugout code (Debian bug #105987).
@@ -90,7 +260,7 @@ fetchmail-5.8.10 (Mon Jun 25 17:04:08 EDT 2001), 20922 lines:
 * More fixes for the new message-marking code from Thomas Moestl.
 * Fixes for ODMR code from Matt Armstrong.
 
-There are 355 people on fetchmail-friends and  on fetchmail-announce.
+There are 355 people on fetchmail-friends and 603 on fetchmail-announce.
 
 fetchmail-5.8.9 (Sun Jun 24 20:30:49 EDT 2001), 20922 lines:
 

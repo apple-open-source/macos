@@ -18,6 +18,10 @@ along with GNU Emacs; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdio.h>
 
 #include "lwlib-Xaw.h"
@@ -69,7 +73,7 @@ xaw_update_scrollbar (instance, widget, val)
 		     XtNy, &pos_y,
 		     XtNtopOfThumb, &widget_topOfThumb,
 		     XtNshown, &widget_shown,
-		     0);
+		     NULL);
 
       /*
        * First size and position the scrollbar widget.
@@ -84,7 +88,7 @@ xaw_update_scrollbar (instance, widget, val)
 	  XtVaSetValues (widget,
 			 XtNlength, data->scrollbar_height,
 			 XtNthickness, width,
-			 0);
+			 NULL);
 	}
 
       /*
@@ -137,7 +141,7 @@ xaw_update_one_widget (instance, widget, val, deep_p)
       Dimension bw = 0;
       Arg al[3];
 
-      XtVaGetValues (widget, XtNborderWidth, &bw, 0);
+      XtVaGetValues (widget, XtNborderWidth, &bw, NULL);
       if (bw == 0)
 	/* Don't let buttons end up with 0 borderwidth, that's ugly...
 	   Yeah, all this should really be done through app-defaults files
@@ -150,11 +154,11 @@ xaw_update_one_widget (instance, widget, val, deep_p)
 	  XtSetValues (widget, al, 1);
 	}
 
+      XtSetSensitive (widget, val->enabled);
       XtSetArg (al[0], XtNlabel, val->value);
-      XtSetArg (al[1], XtNsensitive, val->enabled);
       /* Force centered button text.  Se above. */
-      XtSetArg (al[2], XtNjustify, XtJustifyCenter);
-      XtSetValues (widget, al, 3);
+      XtSetArg (al[1], XtNjustify, XtJustifyCenter);
+      XtSetValues (widget, al, 2);
       XtRemoveAllCallbacks (widget, XtNcallback);
       XtAddCallback (widget, XtNcallback, xaw_generic_callback, instance);
     }
@@ -183,8 +187,9 @@ xaw_destroy_instance (instance)
 }
 
 void
-xaw_popup_menu (widget)
+xaw_popup_menu (widget, event)
      Widget widget;
+     XEvent *event;
 {
   /* An Athena menubar has not been implemented. */
   return;
@@ -471,7 +476,7 @@ xaw_generic_callback (widget, closure, call_data)
 
 #if 0
   user_data = NULL;
-  XtVaGetValues (widget, XtNuserData, &user_data, 0);
+  XtVaGetValues (widget, XtNuserData, &user_data, NULL);
 #else
   /* Damn!  Athena doesn't give us a way to hang our own data on the
      buttons, so we have to go find it...  I guess this assumes that
@@ -501,16 +506,22 @@ wm_delete_window (shell, closure, call_data)
      XtPointer call_data;
 {
   LWLIB_ID id;
+  Cardinal nkids;
+  int i;
   Widget *kids = 0;
   Widget widget;
   if (! XtIsSubclass (shell, shellWidgetClass))
     abort ();
-  XtVaGetValues (shell, XtNchildren, &kids, 0);
+  XtVaGetValues (shell, XtNnumChildren, &nkids, NULL);
+  XtVaGetValues (shell, XtNchildren, &kids, NULL);
   if (!kids || !*kids)
     abort ();
-  widget = kids [0];
-  if (! XtIsSubclass (widget, dialogWidgetClass))
-    abort ();
+  for (i = 0; i < nkids; i++)
+    {
+      widget = kids[i];
+      if (XtIsSubclass (widget, dialogWidgetClass))
+	break;
+    }
   id = lw_get_widget_id (widget);
   if (! id) abort ();
 
@@ -596,7 +607,7 @@ xaw_create_scrollbar (instance)
   Dimension width;
   Widget scrollbar;
 
-  XtVaGetValues (instance->parent, XtNwidth, &width, 0);
+  XtVaGetValues (instance->parent, XtNwidth, &width, NULL);
   
   XtSetArg (av[ac], XtNshowGrip, 0); ac++;
   XtSetArg (av[ac], XtNresizeToPreferred, 1); ac++;
@@ -611,7 +622,7 @@ xaw_create_scrollbar (instance)
 
   /* We have to force the border width to be 0 otherwise the
      geometry manager likes to start looping for awhile... */
-  XtVaSetValues (scrollbar, XtNborderWidth, 0, 0);
+  XtVaSetValues (scrollbar, XtNborderWidth, 0, NULL);
 
   XtRemoveAllCallbacks (scrollbar, "jumpProc");
   XtRemoveAllCallbacks (scrollbar, "scrollProc");

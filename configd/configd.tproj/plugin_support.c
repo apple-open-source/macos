@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,6 +43,7 @@
 
 #include "configd.h"
 #include <SystemConfiguration/SCDPlugin.h>
+void	_SCDPluginExecInit();
 
 
 /*
@@ -277,12 +278,12 @@ loadBundle(const void *value, void *context) {
 	}
 
 	if (!bundleVerbose) {
-	dict = CFBundleGetInfoDictionary(bundle);
-	if (isA_CFDictionary(dict)) {
-		CFBooleanRef	bool;
+		dict = CFBundleGetInfoDictionary(bundle);
+		if (isA_CFDictionary(dict)) {
+			CFBooleanRef	bVal;
 
-			bool = CFDictionaryGetValue(dict, kSCBundleVerbose);
-		if (isA_CFBoolean(bool) && CFBooleanGetValue(bool)) {
+			bVal = CFDictionaryGetValue(dict, kSCBundleVerbose);
+			if (isA_CFBoolean(bVal) && CFBooleanGetValue(bVal)) {
 				bundleVerbose = TRUE;
 			}
 		}
@@ -381,6 +382,8 @@ primeBundle(const void *value, void *context) {
 }
 
 
+#ifdef	DEBUG
+
 static void
 timerCallback(CFRunLoopTimerRef timer, void *info)
 {
@@ -389,6 +392,8 @@ timerCallback(CFRunLoopTimerRef timer, void *info)
 	      CFSTR("the CFRunLoop is waiting for something to happen...."));
 	return;
 }
+
+#endif	/* DEBUG */
 
 
 static void
@@ -402,7 +407,7 @@ sortBundles(CFMutableArrayRef orig)
 		Boolean	inserted = FALSE;
 
 		for (i = 0; i < CFArrayGetCount(orig); i++) {
-			CFBundleRef	bundle1	  = CFArrayGetValueAtIndex(orig, i);
+			CFBundleRef	bundle1	  = (CFBundleRef)CFArrayGetValueAtIndex(orig, i);
 			CFStringRef	bundleID1 = CFBundleGetIdentifier(bundle1);
 			int		count;
 			CFDictionaryRef	dict;
@@ -426,7 +431,7 @@ sortBundles(CFMutableArrayRef orig)
 				CFStringRef	r	= CFArrayGetValueAtIndex(requires, j);
 
 				for (k = 0; k < CFArrayGetCount(new); k++) {
-					CFBundleRef	bundle2	  = CFArrayGetValueAtIndex(new, k);
+					CFBundleRef	bundle2	  = (CFBundleRef)CFArrayGetValueAtIndex(new, k);
 					CFStringRef	bundleID2 = CFBundleGetIdentifier(bundle2);
 
 					if (bundleID2 && CFEqual(bundleID2, r)) {
@@ -470,6 +475,9 @@ plugin_exec(void *arg)
 
 	/* keep track of bundles */
 	allBundles = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+        /* allow plug-ins to exec child/helper processes */
+        _SCDPluginExecInit();
 
 	if (arg == NULL) {
 		char				path[MAXPATHLEN];
@@ -569,20 +577,22 @@ plugin_exec(void *arg)
 			     primeBundle,
 			     NULL);
 
+#ifdef	DEBUG
 	if (arg == NULL && (nLoaded > 0)) {
 		CFRunLoopTimerRef	timer;
 
 		/* allocate a periodic event (to help show we're not blocking) */
-			timer = CFRunLoopTimerCreate(NULL,				/* allocator */
-						     CFAbsoluteTimeGetCurrent() + 1.0,	/* fireDate */
-						     60.0,				/* interval */
-						     0,					/* flags */
-						     0,					/* order */
-						     timerCallback,			/* callout */
-						     NULL);				/* context */
-			CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopDefaultMode);
-			CFRelease(timer);
-		}
+		timer = CFRunLoopTimerCreate(NULL,				/* allocator */
+					     CFAbsoluteTimeGetCurrent() + 1.0,	/* fireDate */
+					     60.0,				/* interval */
+					     0,					/* flags */
+					     0,					/* order */
+					     timerCallback,			/* callout */
+					     NULL);				/* context */
+		CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopDefaultMode);
+		CFRelease(timer);
+	}
+#endif	/* DEBUG */
 
 	if (_configd_fork) {
 		/* synchronize with parent process */

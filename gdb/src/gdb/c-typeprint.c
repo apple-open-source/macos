@@ -1,5 +1,6 @@
 /* Support for printing C and C++ types for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1989, 1991, 1993-1996, 1998-2000
+   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1998,
+   1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -28,16 +29,14 @@
 #include "value.h"
 #include "gdbcore.h"
 #include "target.h"
-#include "command.h"
-#include "gdbcmd.h"
 #include "language.h"
 #include "demangle.h"
 #include "c-lang.h"
 #include "typeprint.h"
+#include "cp-abi.h"
 
 #include "gdb_string.h"
 #include <errno.h>
-#include <ctype.h>
 
 /* Flag indicating target was compiled by HP compiler */
 extern int hp_som_som_object_present;
@@ -53,54 +52,10 @@ static void cp_type_print_derivation_info (struct ui_file *, struct type *);
 void c_type_print_varspec_prefix (struct type *, struct ui_file *, int,
 				  int);
 
-static void c_type_print_cv_qualifier (struct type *, struct ui_file *,
-				       int, int);
+/* Print "const", "volatile", or address space modifiers. */
+static void c_type_print_modifier (struct type *, struct ui_file *,
+				   int, int);
 
-
-void
-c_typedef_print (struct type *type, struct symbol *new, struct ui_file *stream)
-{
-  CHECK_TYPEDEF (type);
-  switch (current_language->la_language)
-    {
-#ifdef _LANG_c
-    case language_c:
-    case language_cplus:
-    case language_objc:
-      fprintf_filtered (stream, "typedef ");
-      type_print (type, "", stream, 0);
-      if (TYPE_NAME ((SYMBOL_TYPE (new))) == 0
-	  || !STREQ (TYPE_NAME ((SYMBOL_TYPE (new))), SYMBOL_NAME (new)))
-	fprintf_filtered (stream, " %s", SYMBOL_SOURCE_NAME (new));
-      break;
-#endif
-#ifdef _LANG_m2
-    case language_m2:
-      fprintf_filtered (stream, "TYPE ");
-      if (!TYPE_NAME (SYMBOL_TYPE (new)) ||
-	  !STREQ (TYPE_NAME (SYMBOL_TYPE (new)), SYMBOL_NAME (new)))
-	fprintf_filtered (stream, "%s = ", SYMBOL_SOURCE_NAME (new));
-      else
-	fprintf_filtered (stream, "<builtin> = ");
-      type_print (type, "", stream, 0);
-      break;
-#endif
-#ifdef _LANG_chill
-    case language_chill:
-      fprintf_filtered (stream, "SYNMODE ");
-      if (!TYPE_NAME (SYMBOL_TYPE (new)) ||
-	  !STREQ (TYPE_NAME (SYMBOL_TYPE (new)), SYMBOL_NAME (new)))
-	fprintf_filtered (stream, "%s = ", SYMBOL_SOURCE_NAME (new));
-      else
-	fprintf_filtered (stream, "<builtin> = ");
-      type_print (type, "", stream, 0);
-      break;
-#endif
-    default:
-      error ("Language not supported.");
-    }
-  fprintf_filtered (stream, ";\n");
-}
 
 /* LEVEL is the depth to indent lines by.  */
 
@@ -255,7 +210,7 @@ c_type_print_varspec_prefix (struct type *type, struct ui_file *stream,
     case TYPE_CODE_PTR:
       c_type_print_varspec_prefix (TYPE_TARGET_TYPE (type), stream, 0, 1);
       fprintf_filtered (stream, "*");
-      c_type_print_cv_qualifier (type, stream, 1, 0);
+      c_type_print_modifier (type, stream, 1, 0);
       break;
 
     case TYPE_CODE_MEMBER:
@@ -286,7 +241,7 @@ c_type_print_varspec_prefix (struct type *type, struct ui_file *stream,
     case TYPE_CODE_REF:
       c_type_print_varspec_prefix (TYPE_TARGET_TYPE (type), stream, 0, 1);
       fprintf_filtered (stream, "&");
-      c_type_print_cv_qualifier (type, stream, 1, 0);
+      c_type_print_modifier (type, stream, 1, 0);
       break;
 
     case TYPE_CODE_FUNC:
@@ -333,28 +288,42 @@ c_type_print_varspec_prefix (struct type *type, struct ui_file *stream,
    NEED_SPACE = 1 indicates an initial white space is needed */
 
 static void
-c_type_print_cv_qualifier (struct type *type, struct ui_file *stream,
-			   int need_pre_space, int need_post_space)
+c_type_print_modifier (struct type *type, struct ui_file *stream,
+		       int need_pre_space, int need_post_space)
 {
-  int flag = 0;
+  int did_print_modifier = 0;
+  char *address_space_id;
 
-  if (TYPE_CONST (type))
+  /* We don't print `const' qualifiers for references --- since all
+     operators affect the thing referenced, not the reference itself,
+     every reference is `const'.  */
+  if (TYPE_CONST (type)
+      && TYPE_CODE (type) != TYPE_CODE_REF)
     {
       if (need_pre_space)
 	fprintf_filtered (stream, " ");
       fprintf_filtered (stream, "const");
-      flag = 1;
+      did_print_modifier = 1;
     }
 
   if (TYPE_VOLATILE (type))
     {
-      if (flag || need_pre_space)
+      if (did_print_modifier || need_pre_space)
 	fprintf_filtered (stream, " ");
       fprintf_filtered (stream, "volatile");
-      flag = 1;
+      did_print_modifier = 1;
     }
 
-  if (flag && need_post_space)
+  address_space_id = address_space_int_to_name (TYPE_FLAGS (type));
+  if (address_space_id)
+    {
+      if (did_print_modifier || need_pre_space)
+	fprintf_filtered (stream, " ");
+      fprintf_filtered (stream, "@%s", address_space_id);
+      did_print_modifier = 1;
+    }
+
+  if (did_print_modifier && need_post_space)
     fprintf_filtered (stream, " ");
 }
 
@@ -431,12 +400,20 @@ is_type_conversion_operator (struct type *type, int i, int j)
   while (strchr (" \t\f\n\r", *name))
     name++;
 
-  if (strncmp (name, "new", 3) == 0)
+  if (!('a' <= *name && *name <= 'z')
+      && !('A' <= *name && *name <= 'Z')
+      && *name != '_')
+    /* If this doesn't look like the start of an identifier, then it
+       isn't a type conversion operator.  */
+    return 0;
+  else if (strncmp (name, "new", 3) == 0)
     name += 3;
   else if (strncmp (name, "delete", 6) == 0)
     name += 6;
   else
-    return 0;
+    /* If it doesn't look like new or delete, it's a type conversion
+       operator.  */
+    return 1;
 
   /* Is that really the end of the name?  */
   if (('a' <= *name && *name <= 'z')
@@ -597,7 +574,9 @@ c_type_print_varspec_suffix (struct type *type, struct ui_file *stream,
 	{
 	  int i, len = TYPE_NFIELDS (type);
 	  fprintf_filtered (stream, "(");
-	  if ((len == 0) && (current_language->la_language == language_cplus))
+	  if (len == 0
+              && (TYPE_PROTOTYPED (type)
+                  || current_language->la_language == language_cplus))
 	    {
 	      fprintf_filtered (stream, "void");
 	    }
@@ -663,9 +642,9 @@ void
 c_type_print_base (struct type *type, struct ui_file *stream, int show,
 		   int level)
 {
-  register int i;
-  register int len;
-  register int lastval;
+  int i;
+  int len, real_len;
+  int lastval;
   char *mangled_name;
   char *demangled_name;
   char *demangled_no_static;
@@ -695,7 +674,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
   if (show <= 0
       && TYPE_NAME (type) != NULL)
     {
-      c_type_print_cv_qualifier (type, stream, 0, 1);
+      c_type_print_modifier (type, stream, 0, 1);
       fputs_filtered (TYPE_NAME (type), stream);
       return;
     }
@@ -715,7 +694,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
       break;
 
     case TYPE_CODE_STRUCT:
-      c_type_print_cv_qualifier (type, stream, 0, 1);
+      c_type_print_modifier (type, stream, 0, 1);
       /* Note TYPE_CODE_STRUCT and TYPE_CODE_CLASS have the same value,
        * so we use another means for distinguishing them.
        */
@@ -748,7 +727,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
       goto struct_union;
 
     case TYPE_CODE_UNION:
-      c_type_print_cv_qualifier (type, stream, 0, 1);
+      c_type_print_modifier (type, stream, 0, 1);
       fprintf_filtered (stream, "union ");
 
     struct_union:
@@ -780,7 +759,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 	  fprintf_filtered (stream, "{\n");
 	  if ((TYPE_NFIELDS (type) == 0) && (TYPE_NFN_FIELDS (type) == 0))
 	    {
-	      if (TYPE_FLAGS (type) & TYPE_FLAG_STUB)
+	      if (TYPE_STUB (type))
 		fprintfi_filtered (level + 4, stream, "<incomplete type>\n");
 	      else
 		fprintfi_filtered (level + 4, stream, "<no data fields>\n");
@@ -928,9 +907,21 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 	      fprintf_filtered (stream, ";\n");
 	    }
 
-	  /* If there are both fields and methods, put a space between. */
+	  /* If there are both fields and methods, put a blank line
+	      between them.  Make sure to count only method that we will
+	      display; artificial methods will be hidden.  */
 	  len = TYPE_NFN_FIELDS (type);
-	  if (len && section_type != s_none)
+	  real_len = 0;
+	  for (i = 0; i < len; i++)
+	    {
+	      struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
+	      int len2 = TYPE_FN_FIELDLIST_LENGTH (type, i);
+	      int j;
+	      for (j = 0; j < len2; j++)
+		if (!TYPE_FN_FIELD_ARTIFICIAL (f, j))
+		  real_len++;
+	    }
+	  if (real_len > 0 && section_type != s_none)
 	    fprintf_filtered (stream, "\n");
 
 	  /* C++: print out the methods */
@@ -945,11 +936,13 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 		{
 		  char *physname = TYPE_FN_FIELD_PHYSNAME (f, j);
 		  int is_full_physname_constructor =
-		  ((physname[0] == '_' && physname[1] == '_'
-		    && strchr ("0123456789Qt", physname[2]))
-		   || STREQN (physname, "__ct__", 6)
-		   || DESTRUCTOR_PREFIX_P (physname)
-		   || STREQN (physname, "__dt__", 6));
+		   is_constructor_name (physname) 
+		   || is_destructor_name (physname)
+		   || method_name[0] == '~';
+
+		  /* Do not print out artificial methods.  */
+		  if (TYPE_FN_FIELD_ARTIFICIAL (f, j))
+		    continue;
 
 		  QUIT;
 		  if (TYPE_FN_FIELD_PROTECTED (f, j))
@@ -1038,15 +1031,15 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 			  strncpy (demangled_no_static, demangled_no_class, length);
 			  *(demangled_no_static + length) = '\0';
 			  fputs_filtered (demangled_no_static, stream);
-			  free (demangled_no_static);
+			  xfree (demangled_no_static);
 			}
 		      else
 			fputs_filtered (demangled_no_class, stream);
-		      free (demangled_name);
+		      xfree (demangled_name);
 		    }
 
 		  if (TYPE_FN_FIELD_STUB (f, j))
-		    free (mangled_name);
+		    xfree (mangled_name);
 
 		  fprintf_filtered (stream, ";\n");
 		}
@@ -1064,7 +1057,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
       break;
 
     case TYPE_CODE_ENUM:
-      c_type_print_cv_qualifier (type, stream, 0, 1);
+      c_type_print_modifier (type, stream, 0, 1);
       /* HP C supports sized enums */
       if (hp_som_som_object_present)
 	switch (TYPE_LENGTH (type))
@@ -1148,7 +1141,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
          template <class T1, class T2> class "
          and then merges with the struct/union/class code to
          print the rest of the definition. */
-      c_type_print_cv_qualifier (type, stream, 0, 1);
+      c_type_print_modifier (type, stream, 0, 1);
       fprintf_filtered (stream, "template <");
       for (i = 0; i < TYPE_NTEMPLATE_ARGS (type); i++)
 	{
@@ -1183,7 +1176,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
          is no type name, then complain. */
       if (TYPE_NAME (type) != NULL)
 	{
-	  c_type_print_cv_qualifier (type, stream, 0, 1);
+	  c_type_print_modifier (type, stream, 0, 1);
 	  fputs_filtered (TYPE_NAME (type), stream);
 	}
       else

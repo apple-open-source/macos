@@ -17,7 +17,7 @@ HFILES = hfs_endian.h newfs_hfs.h readme.h
 CFILES = hfs_endian.c makehfs.c newfs_hfs.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
-	      hfsbootdata.img
+	      hfsbootdata.img newfs_hfs.8
 
 
 MAKEFILEDIR = /System/Developer/Makefiles/pb_makefiles

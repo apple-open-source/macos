@@ -25,6 +25,8 @@
 
 #include <IOKit/IOTypes.h>
 
+#pragma pack(1)                              /* (enable 8-bit struct packing) */
+
 /*
  *	The following CPRM Information is taken from Mt. Fuji
  *	Specifications ( INf-8090i Rev 4.0 ) document pp. 425-426
@@ -95,7 +97,7 @@ struct DVDPhysicalFormatInfo
 {
 	UInt8		dataLength[2];
 	UInt8		reserved[2];
-#if defined(__LITTLE_ENDIAN__)
+#ifdef __LITTLE_ENDIAN__
 	// Byte 0
 	UInt8		partVersion:4;
 	UInt8		bookType:4;
@@ -113,7 +115,7 @@ struct DVDPhysicalFormatInfo
 	// Byte 3
 	UInt8		trackDensity:4;
 	UInt8		linearDensity:4;
-#else /* !defined(__LITTLE_ENDIAN__) */
+#else /* !__LITTLE_ENDIAN__ */
 	// Byte 0
 	UInt8		bookType:4;
 	UInt8		partVersion:4;
@@ -131,7 +133,7 @@ struct DVDPhysicalFormatInfo
 	// Byte 3
 	UInt8		linearDensity:4;
 	UInt8		trackDensity:4;
-#endif /* !defined(__LITTLE_ENDIAN__) */
+#endif /* !__LITTLE_ENDIAN__ */
 	
 	// Bytes 4-15
 	UInt8		zero1;		// always 0x00
@@ -142,13 +144,13 @@ struct DVDPhysicalFormatInfo
 	UInt8		endSectorNumberInLayerZero[3];
 	
 	// Byte 16
-#if defined(__LITTLE_ENDIAN__)
+#ifdef __LITTLE_ENDIAN__
 	UInt8		reserved1:7;
 	UInt8		bcaFlag:1;
-#else /* !defined(__LITTLE_ENDIAN__) */
+#else /* !__LITTLE_ENDIAN__ */
 	UInt8		bcaFlag:1;
 	UInt8		reserved1:7;
-#endif /* !defined(__LITTLE_ENDIAN__) */
+#endif /* !__LITTLE_ENDIAN__ */
 	
 	// Bytes 17-2047
 	UInt8		mediaSpecific[2031];
@@ -190,13 +192,13 @@ struct DVDAuthenticationGrantIDInfo
 	UInt8	dataLength[2];
 	UInt8	reserved[2];
 	UInt8	reserved2[3];
-#if defined(__LITTLE_ENDIAN__)
+#ifdef __LITTLE_ENDIAN__
 	UInt8	reservedBits:6;
 	UInt8	grantID:2;
-#else /* !defined(__LITTLE_ENDIAN__) */
+#else /* !__LITTLE_ENDIAN__ */
 	UInt8	grantID:2;
 	UInt8	reservedBits:6;
-#endif /* !defined(__LITTLE_ENDIAN__) */
+#endif /* !__LITTLE_ENDIAN__ */
 };
 typedef struct DVDAuthenticationGrantIDInfo DVDAuthenticationGrantIDInfo;
 
@@ -235,17 +237,17 @@ struct DVDTitleKeyInfo
 {
 	UInt8	dataLength[2];
 	UInt8	reserved[2];
-#if defined(__LITTLE_ENDIAN__)
+#ifdef __LITTLE_ENDIAN__
 	UInt8	CP_MOD:4;
 	UInt8	CGMS:2;
 	UInt8	CP_SEC:1;
 	UInt8	CPM:1;
-#else 	/* !defined(__LITTLE_ENDIAN__) */
+#else /* !__LITTLE_ENDIAN__ */
 	UInt8	CPM:1;
 	UInt8	CP_SEC:1;
 	UInt8	CGMS:2;
 	UInt8	CP_MOD:4;
-#endif	/* !defined(__LITTLE_ENDIAN__) */
+#endif /* !__LITTLE_ENDIAN__ */
 	UInt8	titleKeyValue[5];
 	UInt8	reserved2[2];
 };
@@ -257,13 +259,13 @@ struct DVDAuthenticationSuccessFlagInfo
 	UInt8	dataLength[2];
 	UInt8	reserved[2];
 	UInt8	reserved2[3];
-#if defined(__LITTLE_ENDIAN__)
+#ifdef __LITTLE_ENDIAN__
 	UInt8	successFlag:1;
 	UInt8	reservedBits:7;
-#else /* !defined(__LITTLE_ENDIAN__) */
+#else /* !__LITTLE_ENDIAN__ */
 	UInt8	reservedBits:7;
 	UInt8	successFlag:1;
-#endif /* !defined(__LITTLE_ENDIAN__) */
+#endif /* !__LITTLE_ENDIAN__ */
 };
 typedef struct DVDAuthenticationSuccessFlagInfo DVDAuthenticationSuccessFlagInfo;
 
@@ -272,20 +274,124 @@ struct DVDRegionPlaybackControlInfo
 {
 	UInt8									dataLength[2];
 	UInt8									reserved[2];
-	#if defined(__LITTLE_ENDIAN__)
+#ifdef __LITTLE_ENDIAN__
 	UInt8									numberUserResets:3;
 	UInt8									numberVendorResets:3;
 	UInt8									typeCode:2;
-	#else /* !defined(__LITTLE_ENDIAN__) */
+#else /* !__LITTLE_ENDIAN__ */
 	UInt8									typeCode:2;
 	UInt8									numberVendorResets:3;
 	UInt8									numberUserResets:3;
-	#endif /* !defined(__LITTLE_ENDIAN__) */
+#endif /* !__LITTLE_ENDIAN__ */
 	DVDCPRMRegionCode						driveRegion;
 	DVDRegionalPlaybackControlScheme		rpcScheme;
 	UInt8									reserved2;
 };
 typedef struct DVDRegionPlaybackControlInfo DVDRegionPlaybackControlInfo;
+
+// Read Disc Information Format
+struct DVDDiscInfo
+{
+    UInt16 dataLength;
+#ifdef __LITTLE_ENDIAN__
+    UInt8  discStatus:2;
+    UInt8  stateOfLastBorder:2;
+    UInt8  erasable:1;
+    UInt8  reserved:3;
+#else /* !__LITTLE_ENDIAN__ */
+    UInt8  reserved:3;
+    UInt8  erasable:1;
+    UInt8  stateOfLastBorder:2;
+    UInt8  discStatus:2;
+#endif /* !__LITTLE_ENDIAN__ */
+    UInt8  reserved2;
+    UInt8  numberOfBordersLSB;
+    UInt8  firstRZoneNumberInLastBorderLSB;
+    UInt8  lastRZoneNumberInLastBorderLSB;
+#ifdef __LITTLE_ENDIAN__
+    UInt8  reserved3:5;
+    UInt8  unrestrictedUse:1;
+    UInt8  discBarCodeValid:1;
+    UInt8  reserved4:1;
+#else /* !__LITTLE_ENDIAN__ */
+    UInt8  reserved4:1;
+    UInt8  discBarCodeValid:1;
+    UInt8  unrestrictedUse:1;
+    UInt8  reserved3:5;
+#endif /* !__LITTLE_ENDIAN__ */
+    UInt8  reserved5;
+    UInt8  numberOfBordersMSB;
+    UInt8  firstRZoneNumberInLastBorderMSB;
+    UInt8  lastRZoneNumberInLastBorderMSB;
+    UInt8  reserved6[4];
+    UInt8  reserved7[4];
+    UInt8  reserved8[4];
+    UInt8  discBarCode[8];
+    UInt8  reserved9;
+    UInt8  numberOfOPCTableEntries;
+    UInt8  opcTableEntries[0];
+};
+typedef struct DVDDiscInfo DVDDiscInfo;
+
+// Read RZone Information Address Types
+typedef UInt8 DVDRZoneInfoAddressType;
+enum
+{
+    kDVDRZoneInfoAddressTypeLBA          = 0x00,
+    kDVDRZoneInfoAddressTypeRZoneNumber  = 0x01,
+    kDVDRZoneInfoAddressTypeBorderNumber = 0x02,
+};
+
+// Read RZone Information Format
+struct DVDRZoneInfo
+{
+    UInt16 dataLength;
+    UInt8  rzoneNumberLSB;
+    UInt8  borderNumberLSB;
+    UInt8  reserved;
+#ifdef __LITTLE_ENDIAN__
+    UInt8  reserved2:4;
+    UInt8  copy:1;
+    UInt8  damage:1;
+    UInt8  reserved3:2;
+
+    UInt8  reserved4:4;
+    UInt8  restrictedOverwrite:1;
+    UInt8  incremental:1;
+    UInt8  blank:1;
+    UInt8  reservedRZone:1;
+
+    UInt8  nextWritableAddressValid:1;
+    UInt8  lastRecordedAddressValid:1;
+    UInt8  reserved5:6;
+#else /* !__LITTLE_ENDIAN__ */
+    UInt8  reserved3:2;
+    UInt8  damage:1;
+    UInt8  copy:1;
+    UInt8  reserved2:4;
+
+    UInt8  reservedRZone:1;
+    UInt8  blank:1;
+    UInt8  incremental:1;
+    UInt8  restrictedOverwrite:1;
+    UInt8  reserved4:4;
+
+    UInt8  reserved5:6;
+    UInt8  lastRecordedAddressValid:1;
+    UInt8  nextWritableAddressValid:1;
+#endif /* !__LITTLE_ENDIAN__ */
+    UInt32 rzoneStartAddress;
+    UInt32 nextWritableAddress;
+    UInt32 freeBlocks;
+    UInt32 blockingFactor;
+    UInt32 rzoneSize;
+    UInt32 lastRecordedAddress;
+    UInt8  rzoneNumberMSB;
+    UInt8  borderNumberMSB;
+    UInt8  reserved6;
+    UInt8  reserved7;
+};
+typedef struct DVDRZoneInfo DVDRZoneInfo;
 
 enum DVDMediaType
 {
@@ -303,5 +409,7 @@ typedef enum DVDMediaType DVDMediaType;
 
 #define kDVDSpeedMin 0x0546
 #define kDVDSpeedMax 0xFFFF
+
+#pragma options align=reset              /* (reset to default struct packing) */
 
 #endif /* _IODVDTYPES_H */

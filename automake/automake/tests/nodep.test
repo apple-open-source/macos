@@ -1,0 +1,26 @@
+#! /bin/sh
+
+# Test to make sure no-dependencies option does the right thing.
+# Bug report from Greg A. Woods.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = no-dependencies
+bin_PROGRAMS = zardoz
+zardoz_SOURCES = y.c
+END
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+mkdir x
+
+: > y.c
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '%' Makefile.in && exit 1
+exit 0

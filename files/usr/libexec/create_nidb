@@ -229,138 +229,16 @@ while (<NETWORKS>)
 close (NETWORKS);
 
 ##
-# Protocols
+# Protocols are not loaded into NetInfo
 ##
 
-open(PROTOCOLS, "${root}/${filepath}/protocols");
-
-print NICL "cd /protocols\n";
-
-while (<PROTOCOLS>)
-{
-	chop;
-	s/#.*$//;
-	s/\s+/ /g;
-
-	my ($name, $number, @names) = split(" ", $_);
-	my $namecount = unshift(@names, $name);
-
-	if ($name)
-	{
-		die "Found invalid protocols entry $_\n" if ($number eq "");
-
-		$_ = $name;
-		s/\//\\\\\//g;
-		$name = $_;
-
-		if ($namecount gt 1)
-		{
-			print NICL "create \"$name\" name \"".join('" "', @names)."\"\n";
-		}
-		print NICL "create \"$name\" number \"${number}\"\n";
-	}
-}
-
-close (PROTOCOLS);
-
 ##
-# RPCs
+# RPCs are not loaded into NetInfo
 ##
 
-open(RPC, "${root}/${filepath}/rpc");
-
-print NICL "cd /rpcs\n";
-
-while (<RPC>)
-{
-	chop;
-	s/#.*$//;
-	s/\s+/ /g;
-
-	my ($name, $number, @names) = split(" ", $_);
-	my $namecount = unshift(@names, $name);
-
-	if ($name)
-	{
-		die "Found invalid rpc entry $_\n" if ($number eq "");
-
-		$_ = $name;
-		s/\//\\\\\//g;
-		$name = $_;
-	
-		if ($namecount gt 1)
-		{
-			print NICL "create \"$name\" name \"".join('" "', @names)."\"\n";
-		}
-		print NICL "create \"$name\" number \"${number}\"\n";
-	}
-}
-
-close (RPC);
-
 ##
-# Services
+# Services are not loaded into NetInfo
 ##
-
-open(SERVICES, "${root}/${filepath}/services");
-
-print NICL "cd /services\n";
-
-while (<SERVICES>)
-{
-	chomp;
-	if (!grep /^[a-zA-Z0-9]/, $_)
-	{
-		next;
-	}
-
-	@line = split;
-	($port, $prot) = split /\//, $line[1];
-	$service{$line[0]}{'port'} = $port;
-	$service{$line[0]}{'protocols'}{$prot} = 1;
-
-	for ($n = 2; defined $line[$n]; $n++)
-	{
-		if (grep(/^\#/,$line[$n]))
-		{
-			last;
-		}
-		$service{$line[0]}{'names'}{$line[$n]} = 1;
-	}
-}
-
-foreach $key (keys %service)
-{
-	$_ = $key;
-	s/\//\\\\\//g;
-	$nkey = $_;
-
-	print NICL "create \"$nkey\" port $service{$key}{'port'}\n";
-
-	foreach $prot (keys %{$service{$key}{'protocols'}})
-	{
-		$protocols = "$protocols \"$prot\"";
-	}
-
-	if ($protocols)
-	{
-		print NICL "create \"$nkey\" protocol $protocols\n";
-	}
-
-	foreach $name (keys %{$service{$key}{'names'}})
-	{
-		$names = "$names \"$name\"";
-	}
-
-	if (defined $names)
-	{
-		$names = "\"$key\" $names";
-		print NICL "create \"$nkey\" name $names\n";
-	}
-
-	undef $protocols;
-	undef $names;
-}
 
 ##
 # Aliases

@@ -87,8 +87,11 @@ public:
     };
     
     struct PrivateBlob : public Blob {
-        uint8 encryptionKey[24];	// master encryption key
-        uint8 signingKey[20];		// master signing key
+	    typedef uint8 EncryptionKey[24];
+		typedef uint8 SigningKey[20];
+
+        EncryptionKey encryptionKey;	// master encryption key
+        SigningKey signingKey;		// master signing key
 
         // private ACL blob follows, to the end
         void *privateAclBlob()	{ return at(sizeof(PrivateBlob)); }

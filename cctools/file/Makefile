@@ -1,10 +1,14 @@
 export USE_APPLE_PB_SUPPORT = all
 OFLAG = -O
-ifeq "mwcc" "$(notdir $(CC))"
-  CFLAGS = -g $(OFLAG) -DBUILTIN_FAT
+ifeq "mwccppc" "$(notdir $(CC))"
+  CFLAGS = -g $(OFLAG) -DBUILTIN_FAT -I$(SRCROOT)/../include
 else
-  CFLAGS = -g $(OFLAG) -Wall -DBUILTIN_FAT -Wno-precomp
+  CFLAGS = -g $(OFLAG) -Wall -DBUILTIN_FAT -Wno-precomp -I$(SRCROOT)/../include
 endif
+
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+	     echo YES ; else echo NO ; \
+	     fi; )
 
 ifneq "" "$(wildcard /bin/mkdirs)"
   MKDIRS = /bin/mkdirs
@@ -49,10 +53,15 @@ magic: $(MAGFILES)
 vers.c:
 	vers_string -c $(VERS_STRING_FLAGS) $(PRODUCT) > $(OFILE_DIR)/$@
 
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+.c.o:
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $<
+else
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 clean: shlib_clean
 	-rm -f $(SYMROOT)/$(PRODUCT).NEW $(OFILE_DIR)/vers.c $(OFILE_DIR)/magic

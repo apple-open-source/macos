@@ -25,7 +25,7 @@
 
 #include <IOKit/IOTypes.h>
 
-#define IOACCEL_TYPES_REV	5
+#define IOACCEL_TYPES_REV	6
 
 /* Integer rectangle in device coordinates */
 typedef struct
@@ -35,6 +35,12 @@ typedef struct
     SInt16	w;
     SInt16	h;
 } IOAccelBounds;
+
+typedef struct
+{
+    SInt16	w;
+    SInt16	h;
+} IOAccelSize;
 
 /* Surface information */
 
@@ -62,7 +68,11 @@ typedef struct
 	unsigned long client_row_bytes;
 } IOAccelSurfaceReadData;
 
-
+typedef struct {
+	IOAccelBounds	buffer;
+        IOAccelSize	source;
+	UInt32		reserved[8];
+} IOAccelSurfaceScaling;
 
 #endif /* _IOACCEL_TYPES_H */
 

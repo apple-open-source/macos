@@ -1,5 +1,6 @@
 /* Target-machine dependent code for Zilog Z8000, for GDB.
-   Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -31,6 +32,7 @@
 #include "gdbtypes.h"
 #include "dis-asm.h"
 #include "gdbcore.h"
+#include "regcache.h"
 
 #include "value.h" /* For read_register() */
 
@@ -171,7 +173,7 @@ z8k_frame_chain (struct frame_info *thisframe)
 void
 init_frame_pc (void)
 {
-  abort ();
+  internal_error (__FILE__, __LINE__, "failed internal consistency check");
 }
 
 /* Put here the code to store, into a struct frame_saved_regs,
@@ -197,7 +199,7 @@ z8k_frame_init_saved_regs (struct frame_info *frame_info)
 void
 z8k_push_dummy_frame (void)
 {
-  abort ();
+  internal_error (__FILE__, __LINE__, "failed internal consistency check");
 }
 
 int

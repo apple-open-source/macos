@@ -32,6 +32,16 @@
 #include <IOKit/storage/IOCDTypes.h>
 
 /*!
+ * @defined kIOCDPartitionSchemeClass
+ * @abstract
+ * kIOCDPartitionSchemeClass is the name of the IOCDPartitionScheme class.
+ * @discussion
+ * kIOCDPartitionSchemeClass is the name of the IOCDPartitionScheme class.
+ */
+
+#define kIOCDPartitionSchemeClass "IOCDPartitionScheme"
+
+/*!
  * @defined kIOMediaSessionIDKey
  * @abstract
  * kIOMediaSessionIDKey is property of IOMedia objects.  It has an OSNumber
@@ -44,11 +54,12 @@
 
 #define kIOMediaSessionIDKey "Session ID"
 
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IOCDMedia.h>
 #include <IOKit/storage/IOPartitionScheme.h>
@@ -166,6 +177,22 @@ public:
                       IOStorageCompletion  completion);
 
     /*
+     * Write data into the storage object at the specified byte offset from the
+     * specified buffer, asynchronously.   When the write completes, the caller
+     * will be notified via the specified completion action.
+     *
+     * The buffer will be retained for the duration of the write.
+     *
+     * For the CD partition scheme, we convert the write from a partition
+     * object into the appropriate writeCD command to our provider media.
+     */
+
+    virtual void write(IOService *          client,
+                       UInt64               byteStart,
+                       IOMemoryDescriptor * buffer,
+                       IOStorageCompletion  completion);
+
+    /*
      * Obtain this object's provider.  We override the superclass's method
      * to return a more specific subclass of OSObject -- IOCDMedia.   This
      * method serves simply as a convenience to subclass developers.
@@ -191,6 +218,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOCDPartitionScheme, 15);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IOCDPARTITIONSCHEME_H */

@@ -1,5 +1,5 @@
 /* Parameters for execution on a Fujitsu FR30 processor.
-   Copyright 1999, Free Software Foundation, Inc.
+   Copyright 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -17,6 +17,8 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
+
+#include "regcache.h"
 
 #define FR30_GENREGS		16
 #define FR30_DEDICATEDREGS	8
@@ -49,8 +51,6 @@
 /* Stack grows downward.  */
 
 #define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
-
-#define TARGET_BYTE_ORDER BIG_ENDIAN
 
 #define R0_REGNUM  0
 #define R1_REGNUM  1
@@ -184,9 +184,6 @@ extern void fr30_store_return_value (struct type *type, char *valbuf);
 
 /* Define this for Wingdb */
 #define TARGET_FR30
-
-/* IEEE format floating point */
-#define IEEE_FLOAT (1)
 
 /* Define other aspects of the stack frame.  */
 

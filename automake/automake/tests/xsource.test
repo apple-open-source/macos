@@ -1,0 +1,24 @@
+#! /bin/sh
+
+# Test to make sure multiple source files with the same object
+# file causes error.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = zardoz
+zardoz_SOURCES = z.c x/z.c
+END
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+mkdir x
+
+: > z.c
+: > x/z.c
+
+$ACLOCAL || exit 1
+$AUTOMAKE && exit 1
+exit 0

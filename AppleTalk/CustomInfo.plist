@@ -1,5 +1,5 @@
 {
         CFBundleName = "AppleTalk";
         CFBundleIdentifier = "com.apple.framework.AppleTalk";
-        CFBundleShortVersionString = "1.0.1";
+        CFBundleShortVersionString = "1.2.0";
 }

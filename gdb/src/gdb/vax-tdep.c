@@ -1,5 +1,6 @@
 /* Print VAX instructions for GDB, the GNU debugger.
-   Copyright 1986, 1989, 1991, 1992, 1996 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1991, 1992, 1995, 1996, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -24,6 +25,24 @@
 #include "gdbcore.h"
 #include "frame.h"
 #include "value.h"
+
+/* Return 1 if P points to an invalid floating point value.
+   LEN is the length in bytes -- not relevant on the Vax.  */
+
+/* FIXME: cagney/2002-01-19: The macro below was originally defined in
+   tm-vax.h and used in values.c.  Two problems.  Firstly this is a
+   very non-portable and secondly it is wrong.  The VAX should be
+   using floatformat and associated methods to identify and handle
+   invalid floating-point values.  Adding to the poor target's woes
+   there is no floatformat_vax_{f,d} and no TARGET_FLOAT_FORMAT
+   et.al..  */
+
+/* FIXME: cagney/2002-01-19: It turns out that the only thing that
+   uses this macro is the vax disassembler code (so how old is this
+   target?).  This target should instead be using the opcodes
+   disassembler.  That allowing the macro to be eliminated.  */
+
+#define INVALID_FLOAT(p, len) ((*(short *) p & 0xff80) == 0x8000)
 
 /* Vax instructions are never longer than this.  */
 #define MAXLEN 62

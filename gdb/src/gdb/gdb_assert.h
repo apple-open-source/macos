@@ -1,5 +1,5 @@
 /* GDB-friendly replacement for <assert.h>.
-   Copyright 2000 Free Software Foundation, Inc.
+   Copyright 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -20,6 +20,11 @@
 
 #ifndef GDB_ASSERT_H
 #define GDB_ASSERT_H
+
+/* PRAGMATICS: "gdb_assert.h":gdb_assert() is a lower case (rather
+   than upper case) macro since that provides the closest fit to the
+   existing lower case macro <assert.h>:assert() that it is
+   replacing. */
 
 #define gdb_assert(expr)                                                      \
   ((void) ((expr) ? 0 :                                                       \
@@ -43,8 +48,7 @@
 /* This prints an "Assertion failed" message, aksing the user if they
    want to continue, dump core, or just exit.  */
 #define gdb_assert_fail(assertion, file, line, function)                      \
-  internal_error ("%s:%u: %s%sAssertion `%s' failed.",                        \
-		  file, line,                                                 \
+  internal_error (file, line, "%s%sAssertion `%s' failed.",                   \
 		  function ? function : "", function ? ": " : "",             \
 		  assertion)
 

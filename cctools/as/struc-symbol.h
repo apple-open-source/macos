@@ -1,3 +1,5 @@
+#ifndef _STRUC_SYMBOL_H_
+#define _STRUC_SYMBOL_H_
 /* struct_symbol.h - Internal symbol structure
    Copyright (C) 1987 Free Software Foundation, Inc.
 
@@ -68,3 +70,4 @@ struct indirect_symbol {
   struct indirect_symbol *isy_next;	/* forward chain, or NULL */
 };
 typedef struct indirect_symbol isymbolS;
+#endif /* _STRUC_SYMBOL_H_ */

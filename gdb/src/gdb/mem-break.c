@@ -1,5 +1,6 @@
 /* Simulate breakpoints by patching locations in the target system, for GDB.
-   Copyright 1990, 1991, 1995 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1995, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    Contributed by Cygnus Support.  Written by John Gilmore.
 
    This file is part of GDB.
@@ -46,7 +47,7 @@ memory_breakpoint_from_pc (CORE_ADDR *pcptr, int *lenptr)
      breakpoint.  On some machines, breakpoints are handled by the
      target environment and we don't have to worry about them here.  */
 #ifdef BIG_BREAKPOINT
-  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
     {
       static unsigned char big_break_insn[] = BIG_BREAKPOINT;
       *lenptr = sizeof (big_break_insn);
@@ -54,7 +55,7 @@ memory_breakpoint_from_pc (CORE_ADDR *pcptr, int *lenptr)
     }
 #endif
 #ifdef LITTLE_BREAKPOINT
-  if (TARGET_BYTE_ORDER != BIG_ENDIAN)
+  if (TARGET_BYTE_ORDER != BFD_ENDIAN_BIG)
     {
       static unsigned char little_break_insn[] = LITTLE_BREAKPOINT;
       *lenptr = sizeof (little_break_insn);

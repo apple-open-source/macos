@@ -19,12 +19,27 @@
 //
 // cssmdata.cpp -- Manager different CssmData types
 //
-#ifdef __MWERKS__
-#define _CPP_CDSA_UTILITIES_CSSMDATA
-#endif
 #include <Security/cssmdata.h>
-
 #include <Security/utilities.h>
+#include <cstring>
+
+
+namespace Security {
+
+
+//
+// Comparing raw CSSM_DATA things
+//
+bool operator == (const CSSM_DATA &d1, const CSSM_DATA &d2)
+{
+    if (&d1 == &d2)
+        return true;	// identical
+    if (d1.Length != d2.Length)
+        return false;	// can't be
+    if (d1.Data == d2.Data)
+        return true;	// points to same data
+    return !memcmp(d1.Data, d2.Data, d1.Length);
+}
 
 
 //
@@ -126,3 +141,6 @@ CssmDLPolyData::operator Guid () const
 
 	return Guid(reinterpret_cast<const char *>(mData.Data));
 }
+
+
+}	// end namespace Security

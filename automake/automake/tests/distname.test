@@ -1,0 +1,33 @@
+#! /bin/sh
+
+# Test of names in tar file.
+# From Rainer Orth
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(a.c)
+AM_INIT_AUTOMAKE(nonesuch, 0.23)
+AM_PROG_CC_C_O
+AC_PROG_CC
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = wish
+wish_SOURCES = a.c
+END
+
+: > a.c
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --include-deps --copy --add-missing
+./configure
+$MAKE dist
+
+gunzip nonesuch-0.23.tar.gz
+(tar tf nonesuch-0.23.tar | fgrep './nonesuch-0.23/a.c') && exit 1
+exit 0

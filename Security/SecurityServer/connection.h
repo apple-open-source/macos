@@ -70,11 +70,12 @@ public:
 	
 public:
 	void releaseKey(KeyHandle key);
+    CSSM_KEY_SIZE queryKeySize(Key &key);
 	
 	// service calls
-	void generateSignature(const Context &context, Key &key,
+	void generateSignature(const Context &context, Key &key, CSSM_ALGORITHMS signOnlyAlgorithm,
 		const CssmData &data, CssmData &signature);
-	void verifySignature(const Context &context, Key &key,
+	void verifySignature(const Context &context, Key &key, CSSM_ALGORITHMS verifyOnlyAlgorithm,
 		const CssmData &data, const CssmData &signature);
 	void generateMac(const Context &context, Key &key,
 		const CssmData &data, CssmData &mac);
@@ -91,6 +92,9 @@ public:
 		const AccessCredentials *cred, const AclEntryPrototype *owner,
 		uint32 pubUsage, uint32 pubAttrs, uint32 privUsage, uint32 privAttrs,
 		Key * &publicKey, Key * &privateKey);
+	Key &deriveKey(Database *db, const Context &context, Key *key,
+		const AccessCredentials *cred, const AclEntryPrototype *owner,
+		CssmData *param, uint32 usage, uint32 attrs);
 
     void wrapKey(const Context &context, Key *key,
         Key &keyToBeWrapped, const AccessCredentials *cred,
@@ -99,6 +103,8 @@ public:
 		const AccessCredentials *cred, const AclEntryPrototype *owner,
 		uint32 usage, uint32 attrs, const CssmKey wrappedKey,
         Key *publicKey, CssmData *descriptiveData);
+        
+    uint32 getOutputSize(const Context &context, Key &key, uint32 inputSize, bool encrypt = true);
 
 private:
 	// peer state: established during connection startup; fixed thereafter
@@ -116,7 +122,7 @@ private:
 	// see KeychainPromptAclSubject in acl_keychain.cpp for more information on this
 	const SecurityServerAcl *aclUpdateTrigger; // update trigger set for this (NULL if none)
     uint8 aclUpdateTriggerCount; // number of back-to-back requests honored
-    static const uint8 aclUpdateTriggerLimit = 2;	// two subsequent calls (getAcl + changeAcl)
+    static const uint8 aclUpdateTriggerLimit = 3;	// 3 calls (getAcl+getOwner+changeAcl)
 };
 
 

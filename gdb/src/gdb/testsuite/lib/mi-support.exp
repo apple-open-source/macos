@@ -1,4 +1,4 @@
-# Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+# Copyright 1999, 2000 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -99,6 +99,12 @@ proc mi_gdb_start { } {
 
     gdb_stop_suppressing_tests;
 
+    # Start SID.
+    if { [info procs sid_start] != "" } {
+	verbose "Spawning SID"
+	sid_start
+    }
+
     verbose "Spawning $GDB -nw $GDBFLAGS $MIFLAGS"
 
     if [info exists gdb_spawn_id] {
@@ -117,13 +123,8 @@ proc mi_gdb_start { } {
 	return 1;
     }
     gdb_expect {
-	-re ".*UI_OUT.*$mi_gdb_prompt$" {
-	    verbose "GDB initialized."
-	}
 	-re ".*$mi_gdb_prompt$" {
-	    untested "Skip mi tests (output not in headless format)."
-	    remote_close host;
-	    return -1;
+	    verbose "GDB initialized."
 	}
 	-re ".*$gdb_prompt $" {
 	    untested "Skip mi tests (got non-mi prompt)."
@@ -131,6 +132,11 @@ proc mi_gdb_start { } {
 	    return -1;
 	}
 	-re ".*unrecognized option.*for a complete list of options." {
+	    untested "Skip mi tests (not compiled with mi support)."
+	    remote_close host;
+	    return -1;
+	}
+	-re ".*Interpreter `mi' unrecognized." {
 	    untested "Skip mi tests (not compiled with mi support)."
 	    remote_close host;
 	    return -1;
@@ -165,12 +171,6 @@ proc mi_gdb_start { } {
 	}
     }
 
-    # Finally start SID.
-    if { [info procs sid_start] != "" } {
-	verbose "Spawning SID"
-	sid_start
-    }
-
     return 0;
 }
 
@@ -201,6 +201,7 @@ proc mi_delete_breakpoints {} {
     send_gdb "103-break-list\n"
     gdb_expect 30 {
 	 -re "103-break-list\r\n103\\\^done,BreakpointTable=\{\}\r\n$mi_gdb_prompt$" {}
+	 -re "103-break-list\r\n103\\\^done,BreakpointTable=\{nr_rows=\".\",nr_cols=\".\",hdr=\\\[\{width=\".*\",alignment=\".*\",col_name=\"number\",colhdr=\"Num\"\}.*colhdr=\"Type\".*colhdr=\"Disp\".*colhdr=\"Enb\".*colhdr=\"Address\".*colhdr=\"What\".*\\\],body=\\\[\\\]\}" {}
 	 -re "103-break-list\r\n103\\\^doneNo breakpoints or watchpoints.\r\n\r\n$mi_gdb_prompt$" {warning "Unexpected console text received"}
 	 -re "$mi_gdb_prompt$" { perror "Breakpoints not deleted" ; return }
 	 -re "Delete all breakpoints.*or n.*$" {
@@ -584,6 +585,18 @@ proc mi_run_cmd {args} {
 	    }
 	    return;
 	}
+
+	if [target_info exists gdb,start_symbol] {
+	    set start [target_info gdb,start_symbol];
+	} else {
+	    set start "start";
+	}
+
+	# HACK: Should either use 000-jump or fix the target code
+	# to better handle RUN.
+	send_gdb  "jump *$start\n"
+	warning "Using CLI jump command, expect run-to-main FAIL"
+	return
     }
 
     send_gdb "000-exec-run $args\n"
@@ -627,9 +640,12 @@ proc mi_run_to_main { } {
 
     mi_run_cmd
     gdb_expect {
-	-re "000\\*stopped,reason=\"breakpoint-hit\",bkptno=\"1\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\"main\",args=\{\},file=\".*\",line=\"\[0-9\]*\"\}\r\n$mi_gdb_prompt$" {
+	-re "000\\*stopped,reason=\"breakpoint-hit\",bkptno=\"1\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\"main\",args=\(\\\[\\\]\|\{\}\),file=\".*\",line=\"\[0-9\]*\"\}\r\n$mi_gdb_prompt$" {
 	    pass "$test"
 	    return 0
+	}
+	-re ".*$mi_gdb_prompt$" {
+	    fail "$test (2)"
 	}
 	timeout {
 	    fail "$test (timeout)"
@@ -649,7 +665,7 @@ proc mi_next { test } {
     global mi_gdb_prompt
     send_gdb "220-exec-next\n"
     gdb_expect {
-	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"end-stepping-range\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\{.*\},,file=\".*\",line=\"\[0-9\]*\"\}\r\n$mi_gdb_prompt$" {
+	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"end-stepping-range\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\[\\\[\{].*[\\\]\}\],file=\".*\",line=\"\[0-9\]*\"\}\r\n$mi_gdb_prompt$" {
 	    pass "$test"
 	    return 0
 	}
@@ -671,7 +687,7 @@ proc mi_step { test } {
     global mi_gdb_prompt
     send_gdb "220-exec-step\n"
     gdb_expect {
-	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"end-stepping-range\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\{.*\},,file=\".*\",line=\"\[0-9\]*\"\}\r\n$mi_gdb_prompt$" {
+	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"end-stepping-range\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\[\\\[\{\].*\[\\\]\}\],file=\".*\",line=\"\[0-9\]*\"\}\r\n$mi_gdb_prompt$" {
 	    pass "$test"
 	    return 0
 	}
@@ -682,7 +698,91 @@ proc mi_step { test } {
     }
 }
 
+# cmd should not include the number or newline (i.e. "exec-step 3", not
+# "220-exec-step 3\n"
 
-# Local variables: 
-# change-log-default-name: "../gdb.mi/ChangeLog-mi"
-# End: 
+# Can not match -re ".*\r\n${mi_gdb_prompt}", because of false positives
+# after the first prompt is printed.
+
+proc mi_run_to_helper { cmd reason func args file line extra test } {
+    global suppress_flag
+    if { $suppress_flag } {
+	return -1
+    }
+    global mi_gdb_prompt
+    global hex
+    global decimal
+    send_gdb "220-$cmd\n"
+    gdb_expect {
+	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"$reason\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\"$func\",args=$args,file=\".*$file\",line=\"$line\"\}$extra\r\n$mi_gdb_prompt$" {
+	    pass "$test"
+	    return 0
+	}
+	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"$reason\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\[\\\[\{\].*\[\\\]\}\],file=\".*\",line=\"\[0-9\]*\"\}.*\r\n$mi_gdb_prompt$" {
+	    fail "$test (stopped at wrong place)"
+	    return -1
+	}
+	-re "220\\^running\r\n${mi_gdb_prompt}.*\r\n${mi_gdb_prompt}$" {
+	    fail "$test (unknown output after running)"
+	    return -1
+	}
+	timeout {
+	    fail "$test (timeout)"
+	    return -1
+	}
+    }
+}
+
+proc mi_run_to { cmd reason func args file line extra test } {
+    mi_run_to_helper "$cmd" "$reason" "$func" "\\\[$args\\\]" \
+	"$file" "$line" "$extra" "$test"
+}
+
+proc mi_next_to { func args file line test } {
+    mi_run_to "exec-next" "end-stepping-range" "$func" "$args" \
+	"$file" "$line" "" "$test"
+}
+
+proc mi_step_to { func args file line test } {
+    mi_run_to "exec-step" "end-stepping-range" "$func" "$args" \
+	"$file" "$line" "" "$test"
+}
+
+proc mi_finish_to { func args file line result ret test } {
+    mi_run_to "exec-finish" "function-finished" "$func" "$args" \
+	"$file" "$line" \
+	",gdb-result-var=\"$result\",return-value=\"$ret\"" \
+	"$test"
+}
+
+proc mi_continue_to { bkptno func args file line test } {
+    mi_run_to "exec-continue" "breakpoint-hit\",bkptno=\"$bkptno" \
+	"$func" "$args" "$file" "$line" "" "$test"
+}
+
+proc mi0_run_to { cmd reason func args file line extra test } {
+    mi_run_to_helper "$cmd" "$reason" "$func" "\{$args\}" \
+	"$file" "$line" "$extra" "$test"
+}
+
+proc mi0_next_to { func args file line test } {
+    mi0_run_to "exec-next" "end-stepping-range" "$func" "$args" \
+	"$file" "$line" "" "$test"
+}
+
+proc mi0_step_to { func args file line test } {
+    mi0_run_to "exec-step" "end-stepping-range" "$func" "$args" \
+	"$file" "$line" "" "$test"
+}
+
+proc mi0_finish_to { func args file line result ret test } {
+    mi0_run_to "exec-finish" "function-finished" "$func" "$args" \
+	"$file" "$line" \
+	",gdb-result-var=\"$result\",return-value=\"$ret\"" \
+	"$test"
+}
+
+proc mi0_continue_to { bkptno func args file line test } {
+    mi0_run_to "exec-continue" "breakpoint-hit\",bkptno=\"$bkptno" \
+	"$func" "$args" "$file" "$line" "" "$test"
+}

@@ -1,94 +1,160 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * The Original Code and all software distributed under the License are
+ * This Original Code and all software distributed under the License are
  * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/* cache */
+/*
+ *  cache.c - A simple cache for file systems meta-data.
+ *
+ *  Copyright (c) 2000 Apple Computer, Inc.
+ *
+ *  DRI: Josh de Cesare
+ */
 
-#include "cache.h"
-#include "libsa.h"
+#include <sl.h>
+// #include <fs.h>
 
-cache_t *cacheInit(
-    int nitems,
-    int item_size
-)
+struct CacheEntry {
+  CICell    ih;
+  long      time;
+  long long offset;
+};
+typedef struct CacheEntry CacheEntry;
+
+#define kCacheSize            (0x100000)
+#define kCacheMinBlockSize    (0x200)
+#define kCacheMaxBlockSize    (0x4000)
+#define kCacheMaxEntries      (kCacheSize / kCacheMinBlockSize)
+
+static CICell     gCacheIH;
+static long       gCacheBlockSize;
+static long       gCacheNumEntries;
+static long       gCacheTime;
+
+#ifdef __i386__
+static CacheEntry *gCacheEntries;
+static char       *gCacheBuffer;
+#else
+static CacheEntry gCacheEntries[kCacheMaxEntries];
+static char       gCacheBuffer[kCacheSize];
+#endif
+
+unsigned long     gCacheHits;
+unsigned long     gCacheMisses;
+unsigned long     gCacheEvicts;
+
+void CacheInit( CICell ih, long blockSize )
 {
-    cache_t *cp;
-    item_size += sizeof(item_t);
-    cp = (cache_t *)malloc(sizeof(cache_t) + nitems * item_size);
-    cp->nitems = nitems;
-    cp->item_size = item_size;
-    return cp;
+#ifdef __i386__
+    if ((ih == gCacheIH) && (blockSize == gCacheBlockSize))
+        return;
+#endif
+
+    if ((blockSize  < kCacheMinBlockSize) ||
+        (blockSize >= kCacheMaxBlockSize))
+        return;
+
+    gCacheBlockSize = blockSize;
+    gCacheNumEntries = kCacheSize / gCacheBlockSize;
+    gCacheTime = 0;
+    
+    gCacheHits = 0;
+    gCacheMisses = 0;
+    gCacheEvicts = 0;
+
+    gCacheIH = ih;
+
+#ifdef __i386__
+    if (!gCacheBuffer) gCacheBuffer = (char *) malloc(kCacheSize);
+    if (!gCacheEntries) gCacheEntries = (CacheEntry *) malloc(kCacheMaxEntries * sizeof(CacheEntry));
+    if ( !gCacheBuffer || !gCacheEntries )
+    {
+        gCacheIH = 0;  // invalidate cache
+        return;
+    }
+#endif
+
+    bzero(gCacheEntries, kCacheMaxEntries * sizeof(CacheEntry));
 }
 
-/*
- * Either find an item in the cache, or find where it should go.
- * Returns 1 if found, 0 if not found.
- * This function assumes that if you find an empty slot, you will use it;
- * therefore, empty slots returned are marked valid.
- */
-int cacheFind(
-    cache_t *cp,
-    int key1,
-    int key2,
-    char **ip
-)
+long CacheRead( CICell ih, char * buffer, long long offset,
+	            long length, long cache )
 {
-    item_t *iip, *min_p;
-    int i,j;
-    
-    for(i=j=0, iip = min_p = (item_t *)cp->storage; i < cp->nitems; i++) {
-	if (iip->referenced && (iip->key1 == key1) && (iip->key2 == key2)) {
-	    *ip = iip->storage;
-	    if (iip->referenced < 65535)
-		iip->referenced++;
-	    return 1;
-	}
-	if (iip->referenced < min_p->referenced) {
-	    min_p = iip;
-	    j = i;
-	}
-	iip = (item_t *)((char *)iip + cp->item_size);
-    }
-    *ip = min_p->storage;
-    min_p->referenced = 1;
-    min_p->key1 = key1;
-    min_p->key2 = key2;
-    return 0;
-}
+	long       cnt, oldestEntry = 0, oldestTime, loadCache = 0;
+	CacheEntry *entry;
 
-/*
- * Flush the cache.
- */
-void cacheFlush(
-    cache_t *cp
-)
-{
-    int i;
-    item_t *ip;
-    
-    if (cp == 0)
-	return;
-    for(i=0, ip = (item_t *)cp->storage; i < cp->nitems; i++) {
-	ip->referenced = 0;
-	ip = (item_t *)((char *)ip + cp->item_size);
+    // See if the data can be cached.
+    if (cache && (gCacheIH == ih) && (length == gCacheBlockSize)) {
+        // Look for the data in the cache.
+        for (cnt = 0; cnt < gCacheNumEntries; cnt++) {
+            entry = &gCacheEntries[cnt];
+            if ((entry->ih == ih) && (entry->offset == offset)) {
+                entry->time = ++gCacheTime;
+                break;
+            }
+        }
+
+        // If the data was found copy it to the caller.
+        if (cnt != gCacheNumEntries) {
+            bcopy(gCacheBuffer + cnt * gCacheBlockSize, buffer, gCacheBlockSize);
+            gCacheHits++;
+            return gCacheBlockSize;
+        }
+
+        // Could not find the data in the cache.
+        loadCache = 1;
     }
+
+    // Read the data from the disk.
+    Seek(ih, offset);
+    Read(ih, (long)buffer, length);
+    if (cache) gCacheMisses++;
+
+    // Put the data from the disk in the cache if needed.
+    if (loadCache) {
+        // Find a free entry.
+        oldestTime = gCacheTime;
+        for (cnt = 0; cnt < gCacheNumEntries; cnt++) {
+            entry = &gCacheEntries[cnt];
+
+            // Found a free entry.
+            if (entry->ih == 0) break;
+        
+            if (entry->time < oldestTime) {
+                oldestTime = entry->time;
+                oldestEntry = cnt;
+            }
+        }
+
+        // If no free entry was found, use the oldest.
+        if (cnt == gCacheNumEntries) {
+            cnt = oldestEntry;
+            gCacheEvicts++;
+        }
+
+        // Copy the data from disk to the new entry.
+        entry = &gCacheEntries[cnt];
+        entry->ih = ih;
+        entry->time = ++gCacheTime;
+        entry->offset = offset;
+        bcopy(buffer, gCacheBuffer + cnt * gCacheBlockSize, gCacheBlockSize);
+    }
+
+    return length;
 }

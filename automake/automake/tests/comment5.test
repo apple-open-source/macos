@@ -1,0 +1,54 @@
+#! /bin/sh
+# Test for PR/280.
+# (Automake should complain about trailing backslashes in comments.)
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in <<'EOF'
+AC_OUTPUT
+EOF
+
+cat > Makefile.am << 'EOF'
+all-local:
+	@echo ${var}
+
+# a comment with backslash \
+
+
+var = foo
+EOF
+
+$ACLOCAL
+$AUTOMAKE && exit 1
+
+## Here is a second test because head comments are
+## handled differently in Automake 1.5.
+
+cat > Makefile.am << 'EOF'
+# a comment with backslash \
+
+
+all-local:
+	@echo ${var}
+
+var = foo
+EOF
+
+$AUTOMAKE && exit 1
+
+## Make sure backslashes are still allowed within a comment.
+## This usually happens when commenting out a Makefile rule.
+
+cat > Makefile.am << 'EOF'
+all-local:
+	@echo ${var}
+
+# a comment with backslash \
+# but terminated by a line without backslash
+
+var = foo
+EOF
+
+$AUTOMAKE

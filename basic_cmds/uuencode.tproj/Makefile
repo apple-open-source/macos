@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = uuencode.c
 
-OTHERSRCS = Makefile.preamble Makefile uuencode.format.5 uuencode.1\
+OTHERSRCS = Makefile.preamble Makefile uuencode.5 uuencode.1\
             Makefile.postamble
 
 

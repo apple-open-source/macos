@@ -1,5 +1,99 @@
+- cpusubtype_findbestarch() in best_arch.c when passed CPU_SUBTYPE_POWERPC_ALL
+  as the cpusubtype and only 7440 and 750 were in the fat file nothing was
+  selected.  Is this right?
+
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
+
+Changes for the 5.10 release (the cctools-416 release):
+- Changed writeout() in writeout.c to not update the LC_ID_DYLIB timestamp if
+  the new dont_update_LC_ID_DYLIB_timestamp is TRUE.  Radar bug #2914003.
+
+Changes for the 5.10 release (the cctools-414 release):
+- Changed the two calls to mach_host_self() in get_arch_from_host.c and
+  writeout.c to call mach_port_deallocate() on the port after the calls.  Radar
+  bug #2895931.
+
+Changes for the 5.10 release (the cctools-412 release):
+- Added the no_error_if_missing parameter to symLocForDylib(), dstLocForDylib()
+  and LocForDylib() in SymLoc.c .  In LocForDylib() no call to error() is made
+  if the installName can't be found.  Radar bug #2882324.
+- Added the no_error_if_missing parameter to get_symfile_for_dylib() and
+  get_dstfile_for_dylib() in dylib_roots.c which is pass through to
+  symLocForDylib() or dstLocForDylib().  Radar bug #2882324.
+
+Changes for the 5.10 release (the cctools-411 release):
+- Added the header file macosx_deployment_target.c to libstuff so that both the
+  ld(1) code and the seg_addr_table(1) code can use the same code. Radar bug
+  #2848945.
+
+Changes for the 5.10 release (the cctools-404 release):
+- Changed crc32() in crc32.c to be a __private_extern__.  Radar bug #2859919.
+
+Changes for the 5.10 release (the cctools-400 release):
+- Changed the Makefile back to again use the -dependency-file with gcc.
+- Added a new throttle parameter to writeout() in writeout.c to allow
+  redo_prebinding(3) used with prebinding on demand to throttle back its
+  I/O when running in the back ground.  Radar bug #2850642.
+- Added code in writeout() in writeout.c to use fcntl() with the F_NOCACHE
+  option to not cache the blocks of the output file.
+
+Changes for the 5.10 release (the cctools-397 release):
+- Changed where "stuff/bool.h" was included in ofile.c
+Radar bug #2831923.
+
+Changes for the 5.10 release (the cctools-394 release):
+- Changed the Makefile to not use the -dependency-file with gcc as well as
+  mwccppc.
+- Added an include for <string.h> in bytesex.c, ofile_get_word.c to remove the
+  warning: implicit declaration of function `memcpy'.
+
+Changes for the 5.10 release (the cctools-393 release):
+- Added the code needed in check_Mach_O() in ofile.c for the LC_LOAD_WEAK_DYLIB
+  variant of the LC_LOAD_DYLIB load command.
+- Added the code needed in swap_object_headers() in swap_object_headers.c for
+  the LC_LOAD_WEAK_DYLIB variant of the LC_LOAD_DYLIB load command.
+
+Changes for the 5.10 release (the cctools-392 release):
+- Added the new parameter use_member_syntax to the ofile_process() in ofile.c. 
+  Changed the two calls to ofile_process() in dylib_roots.c to pass FALSE for
+  use_member_syntax.  Radar bug #2730127.
+
+Changes for the 5.10 release (the cctools-389 release):
+- Changed writeout() in writeout.c to not set the modification time back by
+  5 seconds if the file does not contain an archive.  Radar bug #2788034.
+
+Changes for the 5.10 release (the cctools-388 release):
+- Changed check_for_install_name() in dylib_roots.c used in seg_addr_table(1)
+  so that if the install name starts with @executable_path it is considered ok.
+  This will also be a problem for libhotspot/libjvm also, since libhotspot.dylib
+  will have a libjvm install_name.
+
+Changes for the 5.10 release (the cctools-387 release):
+- Changed writeout() in writeout.c to stagger the time stamps of dynamic
+  libraires with multiple cpusubtypes.  This avoids problems with prebinding.
+  Radar bug #2676444.
+
+Changes for the 5.10 release (the cctools-386 release):
+- Picked up the crc32.c file from the freeBSD code.
+- Added the calculate_input_prebind_cksum parameter to breakout() in breakout.c
+  and the new routine cksum_object() to calculate the input's check sum for the
+  cases that the redo_prebinding code needs it.
+- Added logic to check_Mach_O() in ofile.c for checking the new LC_PREBIND_CKSUM
+  load command.
+- Added swap_prebind_cksum_command() for the new LC_PREBIND_CKSUM command and
+  also updated swap_headers().
+
+Changes for the 5.10 release (the cctools-385 release):
+- Moved the routines archive_error(), archive_member_error() and
+  Mach_O_error() from ofile.c to ofile_error.c so the redo_prebinding library
+  can override them.
+- Fixed a bug in breakout.c that called realloc() on *archs which could not
+  be NULL the first time.  So set *archs to NULL and *narchs to zero in
+  breakout.c.
+- Added __private_extern__ to free_archs() in breakout.c.
+- Added some checks to checkout() in checkout.c to make sure an MH_DYLIB has
+  a LC_ID_DYLIB command and the name.offset is valid.
 
 Changes for the 5.9 release (the cctools-381 release):
 - Changed check_Mach_O() in ofile.c and ifdef'ed out the check for unknown

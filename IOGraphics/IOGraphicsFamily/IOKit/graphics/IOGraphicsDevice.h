@@ -19,12 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved. 
- *
- * HISTORY
- *
- */
 
 
 #ifndef _IOKIT_IOGRAPHICSDEVICE_H

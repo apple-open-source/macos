@@ -1,0 +1,1159 @@
+This is libtool.info, produced by makeinfo version 4.0 from
+libtool.texi.
+
+INFO-DIR-SECTION GNU programming tools
+START-INFO-DIR-ENTRY
+* Libtool: (libtool).           Generic shared library support script.
+END-INFO-DIR-ENTRY
+
+INFO-DIR-SECTION Individual utilities
+START-INFO-DIR-ENTRY
+* libtoolize: (libtool)Invoking libtoolize.     Adding libtool support.
+END-INFO-DIR-ENTRY
+
+   This file documents GNU Libtool 1.4.2
+
+   Copyright (C) 1996-2000 Free Software Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+no Invariant Sections, with no Front-Cover Texts, and with no
+Back-Cover Texts.  A copy of the license is included in the section
+entitled "GNU Free Documentation License".
+
+
+File: libtool.info,  Node: Libltdl interface,  Next: Modules for libltdl,  Up: Using libltdl
+
+How to use libltdl in your programs
+===================================
+
+The libltdl API is similar to the dlopen interface of Solaris and Linux,
+which is very simple but powerful.
+
+To use libltdl in your program you have to include the header file
+`ltdl.h':
+
+     #include <ltdl.h>
+
+The last release of libltdl used some symbols that violated the POSIX
+namespace conventions.  These symbols are now deprecated, and have been
+replaced by those described here.  If you have code that relies on the
+old deprecated symbol names, defining `LT_NON_POSIX_NAMESPACE' before
+you include `ltdl.h' provides conversion macros.  Whichever set of
+symbols you use, the new api is not binary compatible with the last, so
+you will need to recompile your application in order to use this
+version of libltdl.
+
+Note that libltdl is not threadsafe, i.e. a multithreaded application
+has to use a mutex for libltdl.  It was reported that GNU/Linux's glibc
+2.0's `dlopen' with `RTLD_LAZY' (which libltdl uses by default) is not
+thread-safe, but this problem is supposed to be fixed in glibc 2.1.  On
+the other hand, `RTLD_NOW' was reported to introduce problems in
+multi-threaded applications on FreeBSD.  Working around these problems
+is left as an exercise for the reader; contributions are certainly
+welcome.
+
+The following types are defined in `ltdl.h':
+
+ - Type: lt_ptr
+     `lt_ptr' is a generic pointer.
+
+ - Type: lt_dlhandle
+     `lt_dlhandle' is a module "handle".  Every lt_dlopened module has
+     a handle associated with it.
+
+ - Type: lt_dlsymlist
+     `lt_dlsymlist' is a symbol list for dlpreopened modules.  This
+     structure is described in *note Dlpreopening::.
+
+libltdl provides the following functions:
+
+ - Function: int lt_dlinit (void)
+     Initialize libltdl.  This function must be called before using
+     libltdl and may be called several times.  Return 0 on success,
+     otherwise the number of errors.
+
+ - Function: int lt_dlexit (void)
+     Shut down libltdl and close all modules.  This function will only
+     then shut down libltdl when it was called as many times as
+     `lt_dlinit' has been successfully called.  Return 0 on success,
+     otherwise the number of errors.
+
+ - Function: lt_dlhandle lt_dlopen (const char *FILENAME)
+     Open the module with the file name FILENAME and return a handle
+     for it.  `lt_dlopen' is able to open libtool dynamic modules,
+     preloaded static modules, the program itself and native dynamic
+     libraries.
+
+     Unresolved symbols in the module are resolved using its dependency
+     libraries (not implemented yet) and previously dlopened modules.
+     If the executable using this module was linked with the
+     `-export-dynamic' flag, then the global symbols in the executable
+     will also be used to resolve references in the module.
+
+     If FILENAME is `NULL' and the program was linked with
+     `-export-dynamic' or `-dlopen self', `lt_dlopen' will return a
+     handle for the program itself, which can be used to access its
+     symbols.
+
+     If libltdl cannot find the library and the file name FILENAME does
+     not have a directory component it will additionally search in the
+     following search paths for the module (in the order as follows):
+
+       1. user-defined search path: This search path can be set by the
+          program using the functions `lt_dlsetsearchpath' and
+          `lt_dladdsearchdir'.
+
+       2. libltdl's search path: This search path is the value of the
+          environment variable LTDL_LIBRARY_PATH.
+
+       3. system library search path: The system dependent library
+          search path (e.g. on Linux it is LD_LIBRARY_PATH).
+
+     Each search path must be a colon-separated list of absolute
+     directories, for example, `"/usr/lib/mypkg:/lib/foo"'.
+
+     If the same module is loaded several times, the same handle is
+     returned.  If `lt_dlopen' fails for any reason, it returns `NULL'.
+
+ - Function: lt_dlhandle lt_dlopenext (const char *FILENAME)
+     The same as `lt_dlopen', except that it tries to append different
+     file name extensions to the file name.  If the file with the file
+     name FILENAME cannot be found libltdl tries to append the
+     following extensions:
+
+       1. the libtool archive extension `.la'
+
+       2. the extension used for native dynamic libraries on the host
+          platform, e.g., `.so', `.sl', etc.
+
+     This lookup strategy was designed to allow programs that don't
+     have knowledge about native dynamic libraries naming conventions
+     to be able to `dlopen' such libraries as well as libtool modules
+     transparently.
+
+ - Function: int lt_dlclose (lt_dlhandle HANDLE)
+     Decrement the reference count on the module HANDLE.  If it drops
+     to zero and no other module depends on this module, then the
+     module is unloaded.  Return 0 on success.
+
+ - Function: lt_ptr lt_dlsym (lt_dlhandle HANDLE, const char *NAME)
+     Return the address in the module HANDLE, where the symbol given by
+     the null-terminated string NAME is loaded.  If the symbol cannot
+     be found, `NULL' is returned.
+
+ - Function: const char * lt_dlerror (void)
+     Return a human readable string describing the most recent error
+     that occurred from any of libltdl's functions.  Return `NULL' if
+     no errors have occurred since initialization or since it was last
+     called.
+
+ - Function: int lt_dlpreload (const lt_dlsymlist *PRELOADED)
+     Register the list of preloaded modules PRELOADED.  If PRELOADED is
+     `NULL', then all previously registered symbol lists, except the
+     list set by `lt_dlpreload_default', are deleted. Return 0 on
+     success.
+
+ - Function: int lt_dlpreload_default (const lt_dlsymlist *PRELOADED)
+     Set the default list of preloaded modules to PRELOADED, which
+     won't be deleted by `lt_dlpreload'.  Note that this function does
+     _not_ require libltdl to be initialized using `lt_dlinit' and can
+     be used in the program to register the default preloaded modules.
+     Instead of calling this function directly, most programs will use
+     the macro `LTDL_SET_PRELOADED_SYMBOLS'.
+
+     Return 0 on success.
+
+ - Macro: LTDL_SET_PRELOADED_SYMBOLS()
+     Set the default list of preloaded symbols.  Should be used in your
+     program to initialize libltdl's list of preloaded modules.
+
+          #include <ltdl.h>
+          
+          int main() {
+            /* ... */
+            LTDL_SET_PRELOADED_SYMBOLS();
+            /* ... */
+          }
+
+ - Function: int lt_dladdsearchdir (const char *SEARCH_DIR)
+     Add the search directory SEARCH_DIR to the user-defined library
+     search path. Return 0 on success.
+
+ - Function: int lt_dlsetsearchpath (const char *SEARCH_PATH)
+     Replace the current user-defined library search path with
+     SEARCH_PATH, which must be a colon-separated list of absolute
+     directories.  Return 0 on success.
+
+ - Function: const char * lt_dlgetsearchpath (void)
+     Return the current user-defined library search path.
+
+ - Function: int lt_dlmakeresident (lt_dlhandle HANDLE)
+     Mark a module so that it cannot be `lt_dlclose'd.  This can be
+     useful if a module implements some core functionality in your
+     project, which would cause your code to crash if removed.  Return
+     0 on success.
+
+     If you use `lt_dlopen (NULL)' to get a HANDLE for the running
+     binary, that handle will always be marked as resident, and
+     consequently cannot be successfully `lt_dlclose'd.
+
+ - Function: int lt_dlisresident (lt_dlhandle HANDLE)
+     Check whether a particular module has been marked as resident,
+     returning 1 if it has or 0 otherwise.  If there is an error while
+     executing this function, return -1 and set an error message for
+     retrieval with `lt_dlerror'.
+
+ - Variable: lt_ptr (*) (size_t SIZE) lt_dlmalloc
+ - Variable: void (*) (lt_ptr PTR) lt_dlfree
+     These variables are set to `malloc' and `free', by default, but
+     you can set them to any other functions that provides equivalent
+     functionality.  However, you must not modify their values after
+     calling any libltdl function other than `lt_dlpreopen_default' or
+     the macro `LTDL_SET_PRELOADED_SYMBOLS'.
+
+
+File: libtool.info,  Node: Modules for libltdl,  Next: Thread Saftey in libltdl,  Prev: Libltdl interface,  Up: Using libltdl
+
+Creating modules that can be `dlopen'ed
+=======================================
+
+   Libtool modules are like normal libtool libraries with a few
+exceptions:
+
+   You have to link the module with libtool's `-module' switch, and you
+should link any program that is intended to dlopen the module with
+`-dlopen modulename.la' so that libtool can dlpreopen the module on
+platforms which don't support dlopening.  If the module depends on any
+other libraries, make sure you specify them either when you link the
+module or when you link programs that dlopen it.  If you want to
+disable *note Versioning:: for a specific module you should link it
+with the `-avoid-version' switch.  Note that libtool modules don't need
+to have a "lib" prefix.  However, automake 1.4 or higher is required to
+build such modules.
+
+   Usually a set of modules provide the same interface, i.e, exports
+the same symbols, so that a program can dlopen them without having to
+know more about their internals.  In order to avoid symbol conflicts
+all exported symbols must be prefixed with "modulename_LTX_"
+(`modulename' is the name of the module).  Internal symbols must be
+named in such a way that they won't conflict with other modules, for
+example, by prefixing them with "_modulename_".  Although some
+platforms support having the same symbols defined more than once it is
+generally not portable and it makes it impossible to dlpreopen such
+modules.  libltdl will automatically cut the prefix off to get the real
+name of the symbol.  Additionally, it supports modules which don't use
+a prefix so that you can also dlopen non-libtool modules.
+
+   `foo1.c' gives an example of a portable libtool module.  Exported
+symbols are prefixed with "foo1_LTX_", internal symbols with "_foo1_".
+Aliases are defined at the beginning so that the code is more readable.
+
+     /* aliases for the exported symbols */
+     #define foo	foo1_LTX_foo
+     #define bar	foo1_LTX_bar
+     
+     /* a global variable definition */
+     int bar = 1;
+     
+     /* a private function */
+     int _foo1_helper() {
+       return bar;
+     }
+     
+     /* an exported function */
+     int foo() {
+       return _foo1_helper();
+     }
+
+The `Makefile.am' contains the necessary rules to build the module
+`foo1.la':
+
+     ...
+     lib_LTLIBRARIES = foo1.la
+     
+     foo1_la_SOURCES = foo1.c
+     foo1_la_LDFLAGS = -module
+     ...
+
+
+File: libtool.info,  Node: Thread Saftey in libltdl,  Next: User defined module data,  Prev: Modules for libltdl,  Up: Using libltdl
+
+Using libtldl in a multi threaded environment
+=============================================
+
+   Using the `lt_dlmutex_register()' function, and by providing some
+appropriate callback function definitions, libltdl can be used in a
+multi-threaded environment.
+
+ - Type: void lt_dlmutex_lock (void)
+     This is the type of a function pointer holding the address of a
+     function which will be called at the start of parts of the libltdl
+     implementation code which require a mutex lock.
+
+     Because libltdl is inherantly recursive, it is important that the
+     locking mechanism employed by these callback functions are
+     reentrant, or else strange problems will occur.
+
+ - Type: void lt_dlmutex_unlock (void)
+     The type of a matching unlock function.
+
+ - Type: void lt_dlmutex_seterror (const char *ERROR);
+     Many of the functions in the libltdl API have a special return
+     value to indicate to the client that an error has occured.
+     Normally (in single threaded applications) a string describing
+     that error can be retrieved from internal storage with
+     `lt_dlerror()'.
+
+     A function of this type must be registered with the library in
+     order for it to work in a multi-threaded context.  The function
+     should store any error message passed in thread local storage.
+
+ - Type: const char * lt_dlmutex_geterror (void)
+     The type of a matching callback function to retrieve the last
+     stored error message from thread local storage.
+
+     When regeistered correctly this function will be used by
+     `lt_dlerror())' from all threads to retrieve error messages for the
+     client.
+
+ - Function: int lt_dlmutex_register (lt_dlmutex_lock *LOCK,
+          lt_dlmutex_unlock *UNLOCK, lt_dlmutex_set_error *SETERROR,
+          lt_dlmutex_geterror *GETERROR)
+     Use this function to register one of each of function ttypes
+     described above in preparation for multi-threaded use of libltdl.
+     All arguments must be valid non-`NULL' function addresses, or else
+     all `NULL' to return to single threaded operation.
+
+
+File: libtool.info,  Node: User defined module data,  Next: Module loaders for libltdl,  Prev: Thread Saftey in libltdl,  Up: Using libltdl
+
+Data associated with loaded modules
+===================================
+
+   Some of the internal information about each loaded module that is
+maintained by libltdl is available to the user, in the form of this
+structure:
+
+ - Type: struct lt_dlinfo { char *FILENAME; char *NAME; int REF_COUNT; }
+     `lt_dlinfo' is used to store information about a module.  The
+     FILENAME attribute is a null-terminated character string of the
+     real module file name.  If the module is a libtool module then
+     NAME is its module name (e.g. `"libfoo"' for `"dir/libfoo.la"'),
+     otherwise it is set to `NULL'.  The REF_COUNT attribute is a
+     reference counter that describes how often the same module is
+     currently loaded.
+
+   The following function will return a pointer to libltdl's internal
+copy of this structure for the given HANDLE:
+
+ - Function: const lt_dlinfo * lt_dlgetinfo (lt_dlhandle HANDLE)
+     Return a pointer to a struct that contains some information about
+     the module HANDLE.  The contents of the struct must not be
+     modified.  Return `NULL' on failure.
+
+   Furthermore, in order to save you from having to keep a list of the
+handles of all the modules you have loaded, these functions allow you to
+iterate over libltdl's list of loaded modules:
+
+ - Function: int lt_dlforeach
+          (int (*FUNC) (lt_dlhandle HANDLE, lt_ptr DATA), lt_ptr DATA)
+     For each loaded module call the function FUNC.  The argument
+     HANDLE is the handle of one of the loaded modules, DATA is the
+     DATA argument passed to `lt_dlforeach'.  As soon as FUNC returns a
+     non-zero value for one of the handles, `lt_dlforeach' will stop
+     calling FUNC and immediately return 1.  Otherwise 0 is returned.
+
+ - Function: lt_dlhandle lt_dlhandle_next (lt_dlhandle place)
+     Iterate over the loaded module handles, returning the first handle
+     in the list if PLACE is `NULL', and the next one on subsequent
+     calls.  If PLACE is the last element in the list of loaded
+     modules, this function returns `NULL'.
+
+   Of course, you would still need to maintain your own list of loaded
+module handles to parallel the list maintained by libltdl if there are
+any other data that you need to associate with each handle for the
+purposes of your application.  However, if you use the following API
+calls to associate your application data with individual module handles
+as they are loaded there is actually no need to do that.  You must
+first obtain a unique caller id from libltdl which you subsequently use
+to retrieve the data you stored earlier.  This allows for different
+libraries that each wish to store their own data against loaded modules
+to do so without interfering with one another's data.
+
+ - Type: lt_dlcaller_id
+     The opaque type used to hold individual data set keys.
+
+ - Function: lt_dlcaller_id lt_dlcaller_register (void)
+     Use this to obtain a unique key to store and retrieve individual
+     sets of per module data.
+
+ - Function: lt_ptr lt_dlcaller_set_data (lt_dlcaller_id KEY,
+          lt_dlhandle HANDLE, lt_ptr DATA)
+     Set DATA as the set of data uniquely associated with KEY and
+     HANDLE for later retrieval.  This function returns the DATA
+     previously associated with KEY and HANDLE if any.  A result of 0,
+     may indicate that a diagnostic for the last error (if any) is
+     available from `lt_dlerror()'.
+
+     For example, to correctly remove some associated data:
+
+              lt_ptr stale = lt_dlcaller_set_data (key, handle, 0);
+              if (stale == NULL)
+                {
+                  char *error_msg = lt_dlerror ();
+          
+                  if (error_msg != NULL)
+                    {
+                      my_error_handler (error_msg);
+                      return STATUS_FAILED;
+                    }
+                }
+              else
+                {
+                  free (stale);
+                }
+
+ - Function: lt_ptr lt_dlcaller_get_data (lt_dlcaller_id KEY,
+          lt_dlhandle HANDLE)
+     Return the address of the data associated with KEY and HANDLE, or
+     else `NULL' if there is none.
+
+   The preceding functions can be combined with `lt_dlforeach' to
+implement search and apply operations without the need for your
+application to track the modules that have been loaded and unloaded:
+
+     int
+     my_dlcaller_callback (lt_dlhandle handle, lt_ptr key_ptr)
+     {
+       struct my_module_data *my_data;
+     
+       my_data = lt_dlcaller_get_data (handle, (lt_dlcaller_id) *key_ptr);
+     
+       return process (my_data);
+     }
+     
+     int
+     my_dlcaller_foreach (lt_dlcaller_id key)
+     {
+       lt_dlforeach (my_dlcaller_callback, (lt_ptr) &key);
+     }
+
+
+File: libtool.info,  Node: Module loaders for libltdl,  Next: Distributing libltdl,  Prev: User defined module data,  Up: Using libltdl
+
+How to create and register new module loaders
+=============================================
+
+   Sometimes libltdl's many ways of gaining access to modules are not
+sufficient for the purposes of a project.  You can write your own
+loader, and register it with libltdl so that `lt_dlopen' will be able
+to use it.
+
+   Writing a loader involves writing at least three functions which can
+be called  by `lt_dlopen', `lt_dlsym' and `lt_dlclose'.  Optionally,
+you can provide a finalisation function to perform any cleanup
+operations when `lt_dlexit' executes, and a symbol prefix string which
+will be prepended to any symbols passed to `lt_dlsym'.  These functions
+must match the function pointer types below, after which they can be
+allocated to an instance of `lt_user_dlloader' and registered.
+
+   Registering the loader requires that you choose a name for it, so
+that it can be recognised by `lt_dlloader_find' and removed with
+`lt_dlloader_remove'.  The name you choose must be unique, and not
+already in use by libltdl's builtin loaders:
+
+"dlopen"
+     The system dynamic library loader, if one exists.
+
+"dld"
+     The GNU dld loader, if `libdld' was installed when libltdl was
+     built.
+
+"dlpreload"
+     The loader for `lt_dlopen'ing of preloaded static modules.
+
+   The prefix "dl" is reserved for loaders supplied with future
+versions of libltdl, so you should not use that for your own loader
+names.
+
+The following types are defined in `ltdl.h':
+
+ - Type: lt_module
+     `lt_module' is a dlloader dependent module.  The dynamic module
+     loader extensions communicate using these low level types.
+
+ - Type: lt_dlloader
+     `lt_dlloader' is a handle for module loader types.
+
+ - Type: lt_dlloader_data
+     `lt_dlloader_data' is used for specifying loader instance data.
+
+ - Type: struct lt_user_dlloader {const char *SYM_PREFIX;
+          lt_module_open *MODULE_OPEN;lt_module_close *MODULE_CLOSE;
+          lt_find_sym *FIND_SYM; lt_dlloader_exit *DLLOADER_EXIT;
+          lt_dlloader_data DLLOADER_DATA; }
+     If you want to define a new way to open dynamic modules, and have
+     the `lt_dlopen' API use it, you need to instantiate one of these
+     structures and pass it to `lt_dlloader_add'.  You can pass whatever
+     you like in the DLLOADER_DATA field, and it will be passed back as
+     the value of the first parameter to each of the functions
+     specified in the function pointer fields.
+
+ - Type: lt_module lt_module_open (lt_user_data LOADER_DATA,
+          const char *FILENAME)
+     The type of the loader function for an `lt_dlloader' module
+     loader.  The value set in the dlloader_data field of the `struct
+     lt_user_dlloader' structure will be passed into this function in
+     the LOADER_DATA parameter.  Implementation of such a function
+     should attempt to load the named module, and return an `lt_module'
+     suitable for passing in to the associated `lt_module_close' and
+     `lt_sym_find' function pointers.  If the function fails it should
+     return `NULL', and set the error message with `lt_dlseterror'.
+
+ - Type: int lt_module_close (lt_dlloader_data LOADER_DATA,
+          lt_module MODULE)
+     The type of the unloader function for a user defined module loader.
+     Implementatation of such a function should attempt to release any
+     resources tied up by the MODULE module, and then unload it from
+     memory.  If the function fails for some reason, set the error
+     message with `lt_dlseterror' and return non-zero.
+
+ - Type: lt_ptr lt_find_sym (lt_user_data LOADER_DATA,
+          lt_module MODULE, const char *SYMBOL)
+     The type of the symbol lookup function for a user defined module
+     loader.  Implementation of such a function should return the
+     address of the named SYMBOL in the module MODULE, or else set the
+     error message with `lt_dlseterror' and return `NULL' if lookup
+     fails.
+
+ - Type: int lt_dlloader_exit (lt_user_data LOADER_DATA)
+     The type of the finalisation function for a user defined module
+     loader.  Implementation of such a function should free any
+     resources associated with the loader, including any user specified
+     data in the `dlloader_data' field of the `lt_user_dlloader'.  If
+     non-`NULL', the function will be called by `lt_dlexit', and
+     `lt_dlloader_remove'.
+
+   For example:
+
+     int
+     register_myloader (void)
+     {
+       lt_user_dlloader dlloader;
+     
+       /* User modules are responsible for their own initialisation. */
+       if (myloader_init () != 0)
+         return MYLOADER_INIT_ERROR;
+     
+       dlloader.sym_prefix    = NULL;
+       dlloader.module_open   = myloader_open;
+       dlloader.module_close  = myloader_close;
+       dlloader.find_sym      = myloader_find_sym.
+       dlloader.dlloader_exit = myloader_exit;
+       dlloader.dlloader_data = (lt_user_data)myloader_function;
+     
+       /* Add my loader as the default module loader. */
+       if (lt_dlloader_add (lt_dlloader_next (NULL), &dlloader, "myloader") != 0)
+         return ERROR;
+     
+       return OK;
+     }
+
+   Note that if there is any initialisation required for the loader, it
+must be performed manually before the loader is registered - libltdl
+doesn't handle user loader initialisation.
+
+   Finalisation _is_ handled by libltdl however, and it is important to
+ensure the `dlloader_exit' callback releases any resources claimed
+during the initialisation phase.
+
+libltdl provides the following functions for writing your own module
+loaders:
+
+ - Function: int lt_dlloader_add (lt_dlloader *PLACE,
+          lt_user_dlloader *DLLOADER, const char *LOADER_NAME)
+     Add a new module loader to the list of all loaders, either as the
+     last loader (if PLACE is `NULL'), else immediately before the
+     loader passed as PLACE.  LOADER_NAME will be returned by
+     `lt_dlloader_name' if it is subsequently passed a newly registered
+     loader.  These LOADER_NAMEs must be unique, or
+     `lt_dlloader_remove' and `lt_dlloader_find' cannot work. Returns 0
+     for success.
+
+          {
+            /* Make myloader be the last one. */
+            if (lt_dlloader_add (NULL, myloader) != 0)
+              perror (lt_dlerror ());
+          }
+
+ - Function: int lt_dlloader_remove (const char *LOADER_NAME)
+     Remove the loader identified by the unique name, LOADER_NAME.
+     Before this can succeed, all modules opened by the named loader
+     must have been closed.  Returns 0 for success, otherwise an error
+     message can be obtained from `lt_dlerror'.
+
+          {
+            /* Remove myloader. */
+            if (lt_dlloader_remove ("myloader") != 0)
+              perror (lt_dlerror ());
+          }
+
+ - Function: lt_dlloader * lt_dlloader_next (lt_dlloader *PLACE)
+     Iterate over the module loaders, returning the first loader if
+     PLACE is `NULL', and the next one on subsequent calls. The handle
+     is for use with `lt_dlloader_add'.
+
+          {
+            /* Make myloader be the first one. */
+            if (lt_dlloader_add (lt_dlloader_next (NULL), myloader) != 0)
+              return ERROR;
+          }
+
+ - Function: lt_dlloader * lt_dlloader_find (const char *LOADER_NAME)
+     Return the first loader with a matching LOADER_NAME identifier, or
+     else `NULL', if the identifier is not found.
+
+     The identifiers which may be used by libltdl itself, if the host
+     architecture supports them are "dlopen"(1), "dld" and "dlpreload".
+
+          {
+            /* Add a user loader as the next module loader to be tried if
+               the standard dlopen loader were to fail when lt_dlopening. */
+            if (lt_dlloader_add (lt_dlloader_find ("dlopen"), myloader) != 0)
+              return ERROR;
+          }
+
+ - Function: const char * lt_dlloader_name (lt_dlloader *PLACE)
+     Return the identifying name of PLACE, as obtained from
+     `lt_dlloader_next' or `lt_dlloader_find'.  If this function fails,
+     it will return `NULL' and set an error for retrieval with
+     `lt_dlerror'.
+
+ - Function: lt_user_data * lt_dlloader_data (lt_dlloader *PLACE)
+     Return the address of the `dlloader_data' of PLACE, as obtained
+     from `lt_dlloader_next' or `lt_dlloader_find'.  If this function
+     fails, it will return `NULL' and set an error for retrieval with
+     `lt_dlerror'.
+
+Error handling within user module loaders
+-----------------------------------------
+
+ - Function: int lt_dladderror (const char *DIAGNOSTIC)
+     This function allows you to integrate your own error messages into
+     `lt_dlerror'.  Pass in a suitable diagnostic message for return by
+     `lt_dlerror', and an error identifier for use with `lt_dlseterror'
+     is returned.
+
+     If the allocation of an identifier fails, this function returns -1.
+
+          int myerror = lt_dladderror ("Doh!");
+          if (myerror < 0)
+            perror (lt_dlerror ());
+
+ - Function: int lt_dlseterror (int ERRORCODE)
+     When writing your own module loaders, you should use this function
+     to raise errors so that they are propogated through the
+     `lt_dlerror' interface. All of the standard errors used by libltdl
+     are declared in `ltdl.h', or you can add more of your own with
+     `lt_dladderror'.  This function returns 0 on success.
+
+          if (lt_dlseterror (LTDL_ERROR_NO_MEMORY) != 0)
+            perror (lt_dlerror ());
+
+   ---------- Footnotes ----------
+
+   (1) This is used for the host dependent module loading API -
+`shl_load' and `LoadLibrary' for example
+
+
+File: libtool.info,  Node: Distributing libltdl,  Prev: Module loaders for libltdl,  Up: Using libltdl
+
+How to distribute libltdl with your package
+===========================================
+
+   Even though libltdl is installed together with libtool, you may wish
+to include libltdl in the distribution of your package, for the
+convenience of users of your package that don't have libtool or libltdl
+installed.  In this case, you must decide whether to manually add the
+`ltdl' objects to your package, or else which flavor of libltdl you
+want to use: a convenience library or an installable libtool library.
+
+   The most simplistic way to add `libltdl' to your package is to copy
+the source files, `ltdl.c' and `ltdl.h', to a source directory withing
+your package and to build and link them along with the rest of your
+sources.  To help you do this, the m4 macros for autoconf are available
+in `ltdl.m4'.  You must ensure that they are available in `aclocal.m4'
+before you run autoconf - by appending the contents of `ltdl.m4' to
+`acinclude.m4', if you are using automake, or to `aclocal.m4' if you
+are not.  Having made the macros available, you must add a call to the
+`AC_LIB_LTDL' macro to your package's `configure.in' to perform the
+configure time checks required to build `ltdl.o' correctly.  This
+method has problems if you then try to link the package binaries with
+an installed libltdl, or a library which depends on libltdl: you may
+have problems with duplicate symbol definitions.
+
+   One advantage of the convenience library is that it is not
+installed, so the fact that you use libltdl will not be apparent to the
+user, and it will not overwrite a pre-installed version of libltdl a
+user might have.  On the other hand, if you want to upgrade libltdl for
+any reason (e.g. a bugfix) you'll have to recompile your package
+instead of just replacing an installed version of libltdl.  However, if
+your programs or libraries are linked with other libraries that use
+such a pre-installed version of libltdl, you may get linker errors or
+run-time crashes.  Another problem is that you cannot link the
+convenience library into more than one libtool library, then link a
+single program with these libraries, because you may get duplicate
+symbols. In general you can safely use the convenience library in
+programs which don't depend on other libraries that might use libltdl
+too.  In order to enable this flavor of libltdl, you should add the
+line `AC_LIBLTDL_CONVENIENCE' to your `configure.in', _before_
+`AC_PROG_LIBTOOL'.
+
+   In order to select the installable version of libltdl, you should
+add a call of the macro `AC_LIBLTDL_INSTALLABLE' to your `configure.in'
+_before_ `AC_PROG_LIBTOOL'.  This macro will check whether libltdl is
+already installed and, if not, request the libltdl embedded in your
+package to be built and installed.  Note, however, that no version
+checking is performed.  The user may override the test and determine
+that the libltdl embedded must be installed, regardless of the
+existence of another version, using the configure switch
+`--enable-ltdl-install'.
+
+   In order to embed libltdl into your package, just add `--ltdl' to
+the `libtoolize' command line. It will copy the libltdl sources to a
+subdirectory `libltdl' in your package.  Both macros accept an optional
+argument to specify the location of the `libltdl' directory. By the
+default both macros assume that it is `${top_srcdir}/libltdl'.
+
+   Whatever macro you use, it is up to you to ensure that your
+`configure.in' will configure libltdl, using `AC_CONFIG_SUBDIRS', and
+that your `Makefile's will start sub-makes within libltdl's directory,
+using automake's SUBDIRS, for example.  Both macros define the shell
+variables LIBLTDL, to the link flag that you should use to link with
+libltdl, and INCLTDL, to the preprocessor flag that you should use to
+compile with programs that include `ltdl.h'.  It is up to you to use
+`AC_SUBST' to ensure that this variable will be available in
+`Makefile's, or add them to variables that are `AC_SUBST'ed by default,
+such as LIBS and CPPFLAGS.
+
+   If you're using the convenience libltdl, LIBLTDL will be the
+pathname for the convenience version of libltdl and INCLTDL will be
+`-I' followed by the directory that contains libltdl, both starting
+with `${top_builddir}/' or `${top_srcdir}/', respectively.
+
+   If you request an installed version of libltdl and one is found(1),
+LIBLTDL will be set to `-lltdl' and INCLTDL will be empty (which is
+just a blind assumption that `ltdl.h' is somewhere in the include path
+if libltdl is in the library path).  If an installable version of
+libltdl must be built, its pathname, starting with `${top_builddir}/',
+will be stored in LIBLTDL, and INCLTDL will be set just like in the
+case of convenience library.
+
+   So, when you want to link a program with libltdl, be it a
+convenience, installed or installable library, just compile with
+`$(INCLTDL)' and link it with `$(LIBLTDL)', using libtool.
+
+   You should probably also add `AC_LIBTOOL_DLOPEN' to your
+`configure.in' _before_ `AC_PROG_LIBTOOL', otherwise libtool will
+assume no dlopening mechanism is supported, and revert to dlpreopening,
+which is probably not what you want.
+
+   Avoid using the `-static' or `-all-static' switches when linking
+programs with libltdl.  This will not work on all platforms, because
+the dlopening functions may not be available for static linking.
+
+   The following example shows you how to embed the convenience libltdl
+in your package.  In order to use the installable variant just replace
+`AC_LIBLTDL_CONVENIENCE' with `AC_LIBLTDL_INSTALLABLE'.  We assume that
+libltdl was embedded using `libtoolize --ltdl'.
+
+   configure.in:
+     ...
+     dnl Enable building of the convenience library
+     dnl and set LIBLTDL accordingly
+     AC_LIBLTDL_CONVENIENCE
+     dnl Substitute INCLTDL and LIBLTDL in the Makefiles
+     AC_SUBST(INCLTDL)
+     AC_SUBST(LIBLTDL)
+     dnl Check for dlopen support
+     AC_LIBTOOL_DLOPEN
+     dnl Configure libtool
+     AC_PROG_LIBTOOL
+     dnl Configure libltdl
+     AC_CONFIG_SUBDIRS(libltdl)
+     ...
+
+   Makefile.am:
+     ...
+     SUBDIRS = libltdl
+     
+     INCLUDES = $(INCLTDL)
+     
+     myprog_LDFLAGS = -export-dynamic
+     # The quotes around -dlopen below fool automake <= 1.4 into accepting it
+     myprog_LDADD = $(LIBLTDL) "-dlopen" self "-dlopen" foo1.la
+     myprog_DEPENDENCIES = $(LIBLTDL) foo1.la
+     ...
+
+   ---------- Footnotes ----------
+
+   (1) Even if libltdl is installed, `AC_LIBLTDL_INSTALLABLE' may fail
+to detect it, if libltdl depends on symbols provided by libraries other
+than the C library.  In this case, it will needlessly build and install
+libltdl.
+
+
+File: libtool.info,  Node: Other languages,  Next: Troubleshooting,  Prev: Using libltdl,  Up: Top
+
+Using libtool with other languages
+**********************************
+
+   Libtool was first implemented in order to add support for writing
+shared libraries in the C language.  However, over time, libtool is
+being integrated with other languages, so that programmers are free to
+reap the benefits of shared libraries in their favorite programming
+language.
+
+   This chapter describes how libtool interacts with other languages,
+and what special considerations you need to make if you do not use C.
+
+* Menu:
+
+* C++ libraries::
+
+
+File: libtool.info,  Node: C++ libraries,  Up: Other languages
+
+Writing libraries for C++
+=========================
+
+   Creating libraries of C++ code should be a fairly straightforward
+process, because its object files differ from C ones in only three ways:
+
+  1. Because of name mangling, C++ libraries are only usable by the C++
+     compiler that created them.  This decision was made by the
+     designers of C++ in order to protect users from conflicting
+     implementations of features such as constructors, exception
+     handling, and RTTI.
+
+  2. On some systems, the C++ compiler must take special actions for the
+     dynamic linker to run dynamic (i.e., run-time) initializers.  This
+     means that we should not call `ld' directly to link such
+     libraries, and we should use the C++ compiler instead.
+
+  3. C++ compilers will link some Standard C++ library in by default,
+     but libtool does not know which are these libraries, so it cannot
+     even run the inter-library dependence analyzer to check how to
+     link it in.  Therefore, running `ld' to link a C++ program or
+     library is deemed to fail.  However, running the C++ compiler
+     directly may lead to problems related with inter-library
+     dependencies.
+
+   The conclusion is that libtool is not ready for general use for C++
+libraries.  You should avoid any global or static variable
+initializations that would cause an "initializer element is not
+constant" error if you compiled them with a standard C compiler.
+
+   There are other ways of working around this problem, but they are
+beyond the scope of this manual.
+
+   Furthermore, you'd better find out, at configure time, what are the
+C++ Standard libraries that the C++ compiler will link in by default,
+and explicitly list them in the link command line.  Hopefully, in the
+future, libtool will be able to do this job by itself.
+
+
+File: libtool.info,  Node: Troubleshooting,  Next: Maintaining,  Prev: Other languages,  Up: Top
+
+Troubleshooting
+***************
+
+   Libtool is under constant development, changing to remain up-to-date
+with modern operating systems.  If libtool doesn't work the way you
+think it should on your platform, you should read this chapter to help
+determine what the problem is, and how to resolve it.
+
+* Menu:
+
+* Libtool test suite::          Libtool's self-tests.
+* Reporting bugs::              How to report problems with libtool.
+
+
+File: libtool.info,  Node: Libtool test suite,  Next: Reporting bugs,  Up: Troubleshooting
+
+The libtool test suite
+======================
+
+   Libtool comes with its own set of programs that test its
+capabilities, and report obvious bugs in the libtool program.  These
+tests, too, are constantly evolving, based on past problems with
+libtool, and known deficiencies in other operating systems.
+
+   As described in the `INSTALL' file, you may run `make check' after
+you have built libtool (possibly before you install it) in order to
+make sure that it meets basic functional requirements.
+
+* Menu:
+
+* Test descriptions::           The contents of the test suite.
+* When tests fail::             What to do when a test fails.
+
+
+File: libtool.info,  Node: Test descriptions,  Next: When tests fail,  Up: Libtool test suite
+
+Description of test suite
+-------------------------
+
+   Here is a list of the current programs in the test suite, and what
+they test for:
+
+`cdemo-conf.test'
+`cdemo-exec.test'
+`cdemo-make.test'
+`cdemo-static.test'
+`cdemo-shared.test'
+     These programs check to see that the `cdemo' subdirectory of the
+     libtool distribution can be configured and built correctly.
+
+     The `cdemo' subdirectory contains a demonstration of libtool
+     convenience libraries, a mechanism that allows build-time static
+     libraries to be created, in a way that their components can be
+     later linked into programs or other libraries, even shared ones.
+
+     The tests `cdemo-make.test' and `cdemo-exec.test' are executed
+     three times, under three different libtool configurations:
+     `cdemo-conf.test' configures `cdemo/libtool' to build both static
+     and shared libraries (the default for platforms that support
+     both), `cdemo-static.test' builds only static libraries
+     (`--disable-shared'), and `cdemo-shared.test' builds only shared
+     libraries (`--disable-static').
+
+`demo-conf.test'
+`demo-exec.test'
+`demo-inst.test'
+`demo-make.test'
+`demo-unst.test'
+`demo-static.test'
+`demo-shared.test'
+`demo-nofast.test'
+`demo-pic.test'
+`demo-nopic.test'
+     These programs check to see that the `demo' subdirectory of the
+     libtool distribution can be configured, built, installed, and
+     uninstalled correctly.
+
+     The `demo' subdirectory contains a demonstration of a trivial
+     package that uses libtool.  The tests `demo-make.test',
+     `demo-exec.test', `demo-inst.test' and `demo-unst.test' are
+     executed four times, under four different libtool configurations:
+     `demo-conf.test' configures `demo/libtool' to build both static
+     and shared libraries, `demo-static.test' builds only static
+     libraries (`--disable-shared'), and `demo-shared.test' builds only
+     shared libraries (`--disable-static').  `demo-nofast.test'
+     configures `demo/libtool' to disable the fast-install mode
+     (`--enable-fast-install=no').  `demo-pic.test' configures
+     `demo/libtool' to prefer building PIC code (`--with-pic'),
+     `demo-nopic.test' to prefer non-PIC code (`--without-pic').
+
+`deplibs.test'
+     Many systems cannot link static libraries into shared libraries.
+     libtool uses a `deplibs_check_method' to prevent such cases.  This
+     tests checks whether libtool's `deplibs_check_method' works
+     properly.
+
+`hardcode.test'
+     On all systems with shared libraries, the location of the library
+     can be encoded in executables that are linked against it *note
+     Linking executables::.  This test checks the conditions under
+     which your system linker hardcodes the library location, and
+     guarantees that they correspond to libtool's own notion of how
+     your linker behaves.
+
+`build-relink.test'
+     Checks whether variable SHLIBPATH_OVERRIDES_RUNPATH is properly
+     set.  If the test fails and VERBOSE is set, it will indicate what
+     the variable should have been set to.
+
+`noinst-link.test'
+     Checks whether libtool will not try to link with a previously
+     installed version of a library when it should be linking with a
+     just-built one.
+
+`depdemo-conf.test'
+`depdemo-exec.test'
+`depdemo-inst.test'
+`depdemo-make.test'
+`depdemo-unst.test'
+`depdemo-static.test'
+`depdemo-shared.test'
+`depdemo-nofast.test'
+     These programs check to see that the `depdemo' subdirectory of the
+     libtool distribution can be configured, built, installed, and
+     uninstalled correctly.
+
+     The `depdemo' subdirectory contains a demonstration of
+     inter-library dependencies with libtool.  The test programs link
+     some interdependent libraries.
+
+     The tests `depdemo-make.test', `depdemo-exec.test',
+     `depdemo-inst.test' and `depdemo-unst.test' are executed four
+     times, under four different libtool configurations:
+     `depdemo-conf.test' configures `depdemo/libtool' to build both
+     static and shared libraries, `depdemo-static.test' builds only
+     static libraries (`--disable-shared'), and `depdemo-shared.test'
+     builds only shared libraries (`--disable-static').
+     `depdemo-nofast.test' configures `depdemo/libtool' to disable the
+     fast-install mode (`--enable-fast-install=no'.
+
+`mdemo-conf.test'
+`mdemo-exec.test'
+`mdemo-inst.test'
+`mdemo-make.test'
+`mdemo-unst.test'
+`mdemo-static.test'
+`mdemo-shared.test'
+     These programs check to see that the `mdemo' subdirectory of the
+     libtool distribution can be configured, built, installed, and
+     uninstalled correctly.
+
+     The `mdemo' subdirectory contains a demonstration of a package that
+     uses libtool and the system independent dlopen wrapper `libltdl' to
+     load modules.  The library `libltdl' provides a dlopen wrapper for
+     various platforms (Linux, Solaris, HP/UX etc.) including support
+     for dlpreopened modules (*note Dlpreopening::).
+
+     The tests `mdemo-make.test', `mdemo-exec.test', `mdemo-inst.test'
+     and `mdemo-unst.test' are executed three times, under three
+     different libtool configurations: `mdemo-conf.test' configures
+     `mdemo/libtool' to build both static and shared libraries,
+     `mdemo-static.test' builds only static libraries
+     (`--disable-shared'), and `mdemo-shared.test' builds only shared
+     libraries (`--disable-static').
+
+`dryrun.test'
+     This test checks whether libtool's `--dry-run' mode works properly.
+
+`assign.test'
+     Checks whether we don't put break or continue on the same line as
+     an assignment in the libtool script.
+
+`link.test'
+     This test guarantees that linking directly against a non-libtool
+     static library works properly.
+
+`link-2.test'
+     This test makes sure that files ending in `.lo' are never linked
+     directly into a program file.
+
+`nomode.test'
+     Check whether we can actually get help for libtool.
+
+`quote.test'
+     This program checks libtool's metacharacter quoting.
+
+`sh.test'
+     Checks whether a `test' command was forgotten in libtool.
+
+`suffix.test'
+     When other programming languages are used with libtool (*note
+     Other languages::), the source files may end in suffixes other
+     than `.c'.  This test validates that libtool can handle suffixes
+     for all the file types that it supports, and that it fails when
+     the suffix is invalid.
+
+
+File: libtool.info,  Node: When tests fail,  Prev: Test descriptions,  Up: Libtool test suite
+
+When tests fail
+---------------
+
+   Each of the above tests are designed to produce no output when they
+are run via `make check'.  The exit status of each program tells the
+`Makefile' whether or not the test succeeded.
+
+   If a test fails, it means that there is either a programming error in
+libtool, or in the test program itself.
+
+   To investigate a particular test, you may run it directly, as you
+would a normal program.  When the test is invoked in this way, it
+produces output which may be useful in determining what the problem is.
+
+   Another way to have the test programs produce output is to set the
+VERBOSE environment variable to `yes' before running them.  For
+example, `env VERBOSE=yes make check' runs all the tests, and has each
+of them display debugging information.
+
+
+File: libtool.info,  Node: Reporting bugs,  Prev: Libtool test suite,  Up: Troubleshooting
+
+Reporting bugs
+==============
+
+   If you think you have discovered a bug in libtool, you should think
+twice: the libtool maintainer is notorious for passing the buck (or
+maybe that should be "passing the bug").  Libtool was invented to fix
+known deficiencies in shared library implementations, so, in a way, most
+of the bugs in libtool are actually bugs in other operating systems.
+However, the libtool maintainer would definitely be happy to add support
+for somebody else's buggy operating system.  [I wish there was a good
+way to do winking smiley-faces in Texinfo.]
+
+   Genuine bugs in libtool include problems with shell script
+portability, documentation errors, and failures in the test suite
+(*note Libtool test suite::).
+
+   First, check the documentation and help screens to make sure that the
+behaviour you think is a problem is not already mentioned as a feature.
+
+   Then, you should read the Emacs guide to reporting bugs (*note
+Reporting Bugs: (emacs)Bugs.).  Some of the details listed there are
+specific to Emacs, but the principle behind them is a general one.
+
+   Finally, send a bug report to the libtool bug reporting address
+<bug-libtool@gnu.org> with any appropriate _facts_, such as test suite
+output (*note When tests fail::), all the details needed to reproduce
+the bug, and a brief description of why you think the behaviour is a
+bug.  Be sure to include the word "libtool" in the subject line, as
+well as the version number you are using (which can be found by typing
+`libtool --version').
+
+
+File: libtool.info,  Node: Maintaining,  Next: GNU Free Documentation License,  Prev: Troubleshooting,  Up: Top
+
+Maintenance notes for libtool
+*****************************
+
+   This chapter contains information that the libtool maintainer finds
+important.  It will be of no use to you unless you are considering
+porting libtool to new systems, or writing your own libtool.
+
+* Menu:
+
+* New ports::                   How to port libtool to new systems.
+* Tested platforms::            When libtool was last tested.
+* Platform quirks::             Information about different library systems.
+* libtool script contents::     Configuration information that libtool uses.
+* Cheap tricks::                Making libtool maintainership easier.
+
+
+File: libtool.info,  Node: New ports,  Next: Tested platforms,  Up: Maintaining
+
+Porting libtool to new systems
+==============================
+
+   Before you embark on porting libtool to an unsupported system, it is
+worthwhile to send e-mail to the libtool mailing list
+<libtool@gnu.org>, to make sure that you are not duplicating existing
+work.
+
+   If you find that any porting documentation is missing, please
+complain!  Complaints with patches and improvements to the
+documentation, or to libtool itself, are more than welcome.
+
+* Menu:
+
+* Information sources::         Where to find relevant documentation
+* Porting inter-library dependencies::  Implementation details explained
+

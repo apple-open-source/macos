@@ -1,0 +1,89 @@
+This document details the partition layout needed when using
+BootX as an external booter (i.e. external to the intended root
+partition)
+
+SPLIT BOOTER/LOADER:
+
+Until Mac OS X 10.2, there were two dedicated partitions used to
+support booting of non-native fliesystems (where native is relative to
+Open Firmware, and is traditionally HFS for Old World machines, and
+HFS/HFS+ for New World machines).
+
+The first partition is an HFS+ filesystem that has been blessed and
+contains a BootX file. This partition is used for New World booting
+only. The second partition has the raw booter information occupying
+the beginning of the partition.
+
+## Type_________________ Name____________ Start___ Size____ End_____
+...
+ 8 Apple_Boot            MOSX_OF3_Booter      1544    16384    17927       
+ 9 Apple_Loader          SecondaryLoader     17928     1024    18951       
+10 Apple_UFS             Mac_OS_X            18952  5102592  5121543       
+
+Several utilities depend on the partition types and partition names in
+order to identify the booting mechanism. In order to be fully
+compliant, be sure to mark your partitions as
+Apple_Boot/MOSX_OF3_Booter and Apple_Loader/SecondaryLoader. Further,
+the partitions should be 16384 and 1024 sectors, respectively. The
+BootX secondary loader placed on both these partitions expect to be
+in partitions n-2 and n-1 for root partition n.
+
+The format of the booter partition is a pure HFS+ partition, as
+created by newfs_hfs. The volume label is traditionally "Boot OSX",
+but not relevant. It has a single, blessed directory called "External
+Booter" that contains BootX:
+
+[jyb:~] root# mount -t hfs /dev/disk0s8 /mnt
+[jyb:~] root# ls /mnt
+External Booter
+[jyb:~] root# ls /mnt/External\ Booter/
+BootX
+[jyb:~] root# bless -info /mnt
+finderinfo[0]:     17 => Blessed System Folder is /mnt/External Booter
+finderinfo[1]:      0 => No Startup App folder (ignored anyway)
+finderinfo[2]:      0 => Open-folder linked list empty
+finderinfo[3]:      0 => No OS Classic + X blessed 9 folder
+finderinfo[4]:      0 => Unused field unset
+finderinfo[5]:     17 => OS X blessed folder is /mnt/External Booter
+64-bit VSDB volume id:  0x0000000000000000
+
+The loader partition has the unpacked XCOFF data at the beginning of
+the partition. Additionally, the following information must be set in
+the partition map entry for that partition:
+
+      pmPartStatus               0x4000003B (1073741883)
+                                 autoMount
+                                 writeEnable
+                                 readEnable
+                                 bootInfo
+                                 entryAllocated
+                                 entryValid
+      pmLgBootStart              0x00000000 (0)
+      pmBootSize                 0x000B4000 (737280)
+      pmBootAddr                 0x01C00000 (29360128)
+      pmBootAddr2                0x00000000 (0)
+      pmBootEntry                0x01C00510 (29361424)
+      pmBootEntry2               0x00000000 (0)
+      pmBootCksum                0x00000000 (0)
+
+COMBINED LOADER:
+
+The combined secondary loader partition relies on techniques used for
+HFS+ booting of Old World machines. It consist of a single partition
+of type/name Apple_Boot/eXternal booter. It's size can be arbitrary,
+but will typically be 16384+1024=17408 sectors. The extents
+B-tree must be at least 4MB, since space gets diverted from its
+allocated extent to fit the Old World secondary loader.
+
+[jyb:/tmp] me% hdiutil create booter.dmg -sectors 16384 -layout NONE
+...............................................................................
+created: booter.dmg
+[jyb:/tmp] root# hdid -nomount booter.dmg 
+/dev/disk1                                             
+[jyb:/tmp] root# bless -device /dev/disk1 -format -label "Boot OSX"
+-fsargs "-c e=1024" -xcoff /usr/standalone/ppc/bootx.xcoff -verbose
+
+[jyb:/tmp] root# mount -t hfs /dev/disk1 /mnt
+[jyb:/tmp] root# bless -folder /mnt -bootinfo
+/usr/standalone/ppc/bootx.bootinfo -verbose -systemfile /usr/share/misc/hdbootdata -folder9 /mnt -bootBlockFile /usr/share/misc/bootblockdata
+

@@ -1,0 +1,109 @@
+{
+    FILESTABLE = {
+        Documentation = (AUTHORS, CHANGES, COMPAT, MANIFEST, COPYING, INSTALL, NEWS, NOTES, README); 
+        Headers = (
+            flags.h, 
+            alias.h, 
+            ansi_stdlib.h, 
+            bashtypes.h, 
+            array.h, 
+            bashansi.h, 
+            bashhist.h, 
+            bashintl.h, 
+            bashjmp.h, 
+            bashline.h, 
+            bashtty.h, 
+            builtins.h, 
+            command.h, 
+            dispose_cmd.h, 
+            error.h, 
+            execute_cmd.h, 
+            externs.h, 
+            filecntl.h, 
+            general.h, 
+            hashcmd.h, 
+            hashlib.h, 
+            input.h, 
+            jobs.h, 
+            mailcheck.h, 
+            make_cmd.h, 
+            maxpath.h, 
+            memalloc.h, 
+            parser.h, 
+            pathexp.h, 
+            pathnames.h, 
+            posixdir.h, 
+            posixjmp.h, 
+            posixstat.h, 
+            posixwait.h, 
+            quit.h, 
+            shell.h, 
+            sig.h, 
+            siglist.h, 
+            stdc.h, 
+            subst.h, 
+            trap.h, 
+            unionwait.h, 
+            unwind_prot.h, 
+            variables.h, 
+            y.tab.h, 
+            config.h.bot, 
+            config.h.top
+        ); 
+        Makefiles = (Makefile.in, config.h.in, configure, configure.in); 
+        Resources = ("parser-built"); 
+        SUBPROJECTS = (doc, CWRU, builtins, lib, examples, support, tests); 
+        Sources = (
+            aclocal.m4, 
+            alias.c, 
+            array.c, 
+            eval.c, 
+            bracecomp.c, 
+            error.c, 
+            bashhist.c, 
+            bashline.c, 
+            braces.c, 
+            copy_cmd.c, 
+            dispose_cmd.c, 
+            expr.c, 
+            execute_cmd.c, 
+            flags.c, 
+            general.c, 
+            getcwd.c, 
+            hashcmd.c, 
+            hashlib.c, 
+            input.c, 
+            jobs.c, 
+            list.c, 
+            locale.c, 
+            mailcheck.c, 
+            make_cmd.c, 
+            nojobs.c, 
+            oslib.c, 
+            parse.y, 
+            pathexp.c, 
+            print_cmd.c, 
+            shell.c, 
+            sig.c, 
+            siglist.c, 
+            stringlib.c, 
+            subst.c, 
+            test.c, 
+            trap.c, 
+            unwind_prot.c, 
+            variables.c, 
+            version.c, 
+            vprint.c, 
+            xmalloc.c, 
+            y.tab.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = bash; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

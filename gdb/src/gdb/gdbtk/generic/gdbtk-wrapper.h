@@ -31,6 +31,11 @@ struct gdb_wrapper_arguments {
   char *args[10];
 };
 
+/* FIXME: cagney/2002-01-04: GDB no longer uses or supplies the
+   value_ptr typedef.  Provide one here to keep the Insight code
+   immediatly happy.  */
+typedef struct value *value_ptr;
+
 /* Whenever any gdb function wrapper is called, its return status is: */
 typedef enum gdb_wrapper_status { GDB_OK, GDB_ERROR } gdb_result;
 

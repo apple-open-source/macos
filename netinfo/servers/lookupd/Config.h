@@ -46,7 +46,6 @@
 	BOOL didSetConfig;
 	unsigned int source;
 	unsigned int initsource;
-	unsigned int generation;
 	void *sourceDomain;
 	char *sourcePath;
 	char *sourceDomainName;
@@ -54,12 +53,6 @@
 
 /* Called at startup by lookupd.m */
 - (BOOL)setConfigSource:(int)src path:(char *)path domain:(char *)domain;
-
-/* Get current config generation (increments when lookupd gets a SIGHUP) */
-- (unsigned int)generation;
-
-/* Called on SIGHUP. */
-- (void)reset;
 
 /* Array of config dictionaries. */
 - (LUArray *)config;

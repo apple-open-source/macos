@@ -23,6 +23,14 @@
 #ifndef _IOKIT_SCSI_COMMAND_DEFINITIONS_H_
 #define _IOKIT_SCSI_COMMAND_DEFINITIONS_H_
 
+
+#if KERNEL
+#include <IOKit/IOTypes.h>
+#else
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
+
 #pragma mark About this file
 /* This file contains all the definitions for types and constants that are
  * used by the command set classes for building CDBs.  The field type

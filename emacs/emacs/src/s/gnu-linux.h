@@ -1,5 +1,5 @@
 /* This file is the configuration file for Linux-based GNU systems
-   Copyright (C) 1985, 1986, 1992, 1994, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1985, 86, 92, 94, 96, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -54,15 +54,6 @@ Boston, MA 02111-1307, USA.  */
 #endif /* emacs */
 #endif /* NOT_C_CODE */
 
-/* Define HAVE_TERMIOS if the system provides POSIX-style
-   functions and macros for terminal control.  */
-
-#define HAVE_TERMIOS
-
-/* Define HAVE_PTYS if the system supports pty devices.  */
-
-#define HAVE_PTYS
-
 #if defined HAVE_GRANTPT
 #define UNIX98_PTYS
 
@@ -98,15 +89,23 @@ Boston, MA 02111-1307, USA.  */
     sigunblock (sigmask (SIGCHLD));			\
   }
 
-#else /* not HAVE_GRANDPT */
+#else /* not HAVE_GRANTPT */
 
 /* Letter to use in finding device name of first pty,
-  if system supports pty's.  'p' means it is /dev/ptyp0  */
+   if system supports pty's.  'p' means it is /dev/ptyp0  */
 
 #define FIRST_PTY_LETTER 'p'
+
 #endif  /* not HAVE_GRANDPT */
 
-/* Uncomment this later when other problems are dealt with -mkj */
+/*  Define HAVE_TERMIOS if the system provides POSIX-style
+    functions and macros for terminal control.  */
+
+#define HAVE_TERMIOS
+
+/* Define HAVE_PTYS if the system supports pty devices. */
+
+#define HAVE_PTYS
 
 #define HAVE_SOCKETS
 
@@ -146,22 +145,6 @@ Boston, MA 02111-1307, USA.  */
    your system and must be used only through an encapsulation
    (Which you should place, by convention, in sysdep.c).  */
 
-/* On POSIX systems the system calls are interruptible by signals
- that the user program has elected to catch.  Thus the system call
- must be retried in these cases.  To handle this without massive
- changes in the source code, we remap the standard system call names
- to names for our own functions in sysdep.c that do the system call
- with retries. */
-
-#define read sys_read
-#define write sys_write
-#define open sys_open
-#define close sys_close
-
-#define INTERRUPTIBLE_OPEN
-#define INTERRUPTIBLE_CLOSE
-#define INTERRUPTIBLE_IO
-
 /* If you mount the proc file system somewhere other than /proc
    you will have to uncomment the following and make the proper
    changes */
@@ -202,20 +185,25 @@ Boston, MA 02111-1307, USA.  */
 #else
 #define LD_SWITCH_SYSTEM LD_SWITCH_X_SITE_AUX
 #endif /* __mips__ */
+
+/* Link temacs with -z nocombreloc so that unexec works right, whether or
+   not -z combreloc is the default.  GNU ld ignores unknown -z KEYWORD
+   switches, so this also works with older versions that don't implement
+   -z combreloc.  */
+#define LD_SWITCH_SYSTEM_TEMACS -z nocombreloc
 #endif /* __ELF__ */
 
 /* As of version 1.1.51, Linux did not actually implement SIGIO.
    But it works in newer versions.  */
-/* Here we assume that signal.h is already included.  */
 #ifdef emacs
 #ifdef LINUX_SIGIO_DOES_WORK
 #define INTERRUPT_INPUT
 #else
-#undef SIGIO
+#define BROKEN_SIGIO
 /* Some versions of Linux define SIGURG and SIGPOLL as aliases for SIGIO.
    This prevents lossage in process.c.  */
-#undef SIGURG
-#undef SIGPOLL
+#define BROKEN_SIGURG
+#define BROKEN_SIGPOLL
 #endif
 #endif
 
@@ -223,9 +211,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define NO_SIOCTL_H           /* don't have sioctl.h */
 
-#define HAVE_VFORK
-#define HAVE_SYS_SIGLIST
-#define HAVE_GETWD            /* cure conflict with getcwd? */
 #define HAVE_WAIT_HEADER
 
 #define SYSV_SYSTEM_DIR       /* use dirent.h */
@@ -265,7 +250,7 @@ Boston, MA 02111-1307, USA.  */
 /* alane@wozzle.linet.org says that -lipc is not a separate library,
    since libc-4.4.1.  So -lipc was deleted.  */
 #define LIBS_SYSTEM
-#define C_SWITCH_SYSTEM -D_BSD_SOURCE -D_XOPEN_SOURCE
+#define C_SWITCH_SYSTEM -D_BSD_SOURCE
 #endif
 
 /* Paul Abrahams <abrahams@equinox.shaysnet.com> says this is needed.  */
@@ -331,11 +316,28 @@ Boston, MA 02111-1307, USA.  */
    and the function definitions in libc.  So turn this off.  */
 /* #define REGEXP_IN_LIBC */
 
-/* Use BSD process groups.  */
+/* Use BSD process groups, but use setpgid() instead of setpgrp() to
+   actually set a process group. */
 
 #define BSD_PGRPS
+
+#define NARROWPROTO 1
 
 /* Use mmap directly for allocating larger buffers.  */
 #ifdef DOUG_LEA_MALLOC
 #undef REL_ALLOC
+#endif
+
+/* Tell that garbage collector that setjmp is known to save all
+   registers relevant for conservative garbage collection in the
+   jmp_buf.  */
+/* m68k and alpha aren't tested, but there are Debian packages for SCM
+   and/or Guile on them, so the technique must work.  */
+
+/* Don't use #cpu here since in newest development versions of GCC,
+   we must call cpp with -traditional, and that disables #cpu.  */
+
+#if defined __i386__ || defined __sparc__ || defined __m68k__ || defined __alpha__
+#define GC_SETJMP_WORKS 1
+#define GC_MARK_STACK GC_MAKE_GCPROS_NOOPS
 #endif

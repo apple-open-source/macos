@@ -42,7 +42,7 @@ private:
 	*lookupEntryLocked(KeyType key) 
 		{
 			// don't create new entry if desired entry isn't there
-			MapType::iterator it = mMap.find(key);
+			typename MapType::iterator it = mMap.find(key);
 			if(it == mMap.end()) {
 				return NULL;
 			}
@@ -80,7 +80,7 @@ public:
 	*removeFirstEntry()
 		{
 			StLock<Mutex> _(mMapLock);
-			MapType::iterator it = mMap.begin();
+			typename MapType::iterator it = mMap.begin();
 			if(it == mMap.end()) {
 				return NULL;
 			}

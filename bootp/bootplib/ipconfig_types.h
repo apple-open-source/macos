@@ -1,3 +1,7 @@
+
+#ifndef _S_IPCONFIG_TYPES_H
+#define _S_IPCONFIG_TYPES_H
+
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -114,3 +118,5 @@ typedef struct {
     char		dhcp_client_id[0];
     */
 } ipconfig_method_data_t;
+
+#endif _S_IPCONFIG_TYPES_H

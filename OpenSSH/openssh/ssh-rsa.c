@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: ssh-rsa.c,v 1.16 2002/02/24 19:14:59 markus Exp $");
+RCSID("$OpenBSD: ssh-rsa.c,v 1.21 2002/06/23 03:30:17 deraadt Exp $");
 
 #include <openssl/evp.h>
 #include <openssl/err.h>
@@ -35,12 +35,11 @@ RCSID("$OpenBSD: ssh-rsa.c,v 1.16 2002/02/24 19:14:59 markus Exp $");
 #include "key.h"
 #include "ssh-rsa.h"
 #include "compat.h"
+#include "ssh.h"
 
 /* RSASSA-PKCS1-v1_5 (PKCS #1 v2.0 signature) with SHA1 */
 int
-ssh_rsa_sign(
-    Key *key,
-    u_char **sigp, u_int *lenp,
+ssh_rsa_sign(Key *key, u_char **sigp, u_int *lenp,
     u_char *data, u_int datalen)
 {
 	const EVP_MD *evp_md;
@@ -52,10 +51,6 @@ ssh_rsa_sign(
 
 	if (key == NULL || key->type != KEY_RSA || key->rsa == NULL) {
 		error("ssh_rsa_sign: no RSA key");
-		return -1;
-	}
-	if (datafellows & SSH_BUG_SIGBLOB) {
-		error("ssh_rsa_sign: SSH_BUG_SIGBLOB not supported");
 		return -1;
 	}
 	nid = (datafellows & SSH_BUG_RSASIGMD5) ? NID_md5 : NID_sha1;
@@ -75,17 +70,18 @@ ssh_rsa_sign(
 
 	if (ok != 1) {
 		int ecode = ERR_get_error();
-		error("ssh_rsa_sign: RSA_sign failed: %s", ERR_error_string(ecode, NULL));
+		error("ssh_rsa_sign: RSA_sign failed: %s",
+		    ERR_error_string(ecode, NULL));
 		xfree(sig);
 		return -1;
 	}
 	if (len < slen) {
 		int diff = slen - len;
-		debug("slen %d > len %d", slen, len);
+		debug("slen %u > len %u", slen, len);
 		memmove(sig + diff, sig, len);
 		memset(sig, 0, diff);
 	} else if (len > slen) {
-		error("ssh_rsa_sign: slen %d slen2 %d", slen, len);
+		error("ssh_rsa_sign: slen %u slen2 %u", slen, len);
 		xfree(sig);
 		return -1;
 	}
@@ -108,9 +104,7 @@ ssh_rsa_sign(
 }
 
 int
-ssh_rsa_verify(
-    Key *key,
-    u_char *signature, u_int signaturelen,
+ssh_rsa_verify(Key *key, u_char *signature, u_int signaturelen,
     u_char *data, u_int datalen)
 {
 	Buffer b;
@@ -118,20 +112,16 @@ ssh_rsa_verify(
 	EVP_MD_CTX md;
 	char *ktype;
 	u_char digest[EVP_MAX_MD_SIZE], *sigblob;
-	u_int len, dlen;
+	u_int len, dlen, modlen;
 	int rlen, ret, nid;
 
 	if (key == NULL || key->type != KEY_RSA || key->rsa == NULL) {
 		error("ssh_rsa_verify: no RSA key");
 		return -1;
 	}
-	if (datafellows & SSH_BUG_SIGBLOB) {
-		error("ssh_rsa_verify: SSH_BUG_SIGBLOB not supported");
-		return -1;
-	}
-	if (BN_num_bits(key->rsa->n) < 768) {
-		error("ssh_rsa_verify: n too small: %d bits",
-		    BN_num_bits(key->rsa->n));
+	if (BN_num_bits(key->rsa->n) < SSH_RSA_MINIMUM_MODULUS_SIZE) {
+		error("ssh_rsa_verify: RSA modulus too small: %d < minimum %d bits",
+		    BN_num_bits(key->rsa->n), SSH_RSA_MINIMUM_MODULUS_SIZE);
 		return -1;
 	}
 	buffer_init(&b);
@@ -152,6 +142,21 @@ ssh_rsa_verify(
 		xfree(sigblob);
 		return -1;
 	}
+	/* RSA_verify expects a signature of RSA_size */
+	modlen = RSA_size(key->rsa);
+	if (len > modlen) {
+		error("ssh_rsa_verify: len %u > modlen %u", len, modlen);
+		xfree(sigblob);
+		return -1;
+	} else if (len < modlen) {
+		int diff = modlen - len;
+		debug("ssh_rsa_verify: add padding: modlen %u > len %u",
+		    modlen, len);
+		sigblob = xrealloc(sigblob, modlen);
+		memmove(sigblob + diff, sigblob, len);
+		memset(sigblob, 0, diff);
+		len = modlen;
+	}
 	nid = (datafellows & SSH_BUG_RSASIGMD5) ? NID_md5 : NID_sha1;
 	if ((evp_md = EVP_get_digestbynid(nid)) == NULL) {
 		error("ssh_rsa_verify: EVP_get_digestbynid %d failed", nid);
@@ -168,7 +173,8 @@ ssh_rsa_verify(
 	xfree(sigblob);
 	if (ret == 0) {
 		int ecode = ERR_get_error();
-		error("ssh_rsa_verify: RSA_verify failed: %s", ERR_error_string(ecode, NULL));
+		error("ssh_rsa_verify: RSA_verify failed: %s",
+		    ERR_error_string(ecode, NULL));
 	}
 	debug("ssh_rsa_verify: signature %scorrect", (ret==0) ? "in" : "");
 	return ret;

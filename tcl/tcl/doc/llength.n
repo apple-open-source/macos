@@ -5,7 +5,7 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: llength.n,v 1.1.1.2 2000/04/12 02:02:02 wsanchez Exp $
+'\" RCS: @(#) $Id: llength.n,v 1.1.1.3 2002/04/05 16:13:01 jevans Exp $
 '\" 
 .so man.macros
 .TH llength n "" Tcl "Tcl Built-In Commands"
@@ -21,6 +21,9 @@ llength \- Count the number of elements in a list
 .PP
 Treats \fIlist\fR as a list and returns a decimal string giving
 the number of elements in it.
+
+.SH "SEE ALSO"
+list(n), lindex(n), lrange(n)
 
 .SH KEYWORDS
 element, list, length

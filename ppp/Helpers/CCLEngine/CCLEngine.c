@@ -44,12 +44,7 @@ Includes
 #include <sys/ioctl.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>
-#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
-#include <SystemConfiguration/v1Compatibility.h>
-#include <SystemConfiguration/SCSchemaDefinitions.h>
-#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
 
 #include "CCLEngine.h"
 #include "../../Controller/ppp_msg.h"
@@ -304,7 +299,7 @@ void StopRead()
 -------------------------------------------------------------------------- */
 int main(int argc, char **argv)
 {
-    int 		option, ret, nready, status;
+    int 		option, ret, nready, status, i, len;
     char 		*arg, c;
     struct stat 	statbuf;
     fd_set		rset;
@@ -403,8 +398,12 @@ int main(int argc, char **argv)
                 break;
 
             case 'P':
-                if ((arg = OPTARG(argc, argv)) != NULL)
+                if ((arg = OPTARG(argc, argv)) != NULL) {
                     password = copy_of(arg);
+                    len = strlen(arg);
+                    // hide the password parameter
+                    for (i = 0; i < len; arg[i++] = '*');
+                }
                 else
                     terminate(cclErr_BadParameter);
                 break;
@@ -473,7 +472,7 @@ int main(int argc, char **argv)
 
     /* start by unpublishing any remaining information */
     if (serviceID) {
-        unpublish_entry(serviceID, CFSTR("ConnectSpeed"));
+        unpublish_entry(serviceID, kSCPropNetModemConnectSpeed);
     }
 
     StopRead();
@@ -526,9 +525,9 @@ void InitScript()
 
     LastExitError		= 0;
 
-    DialString1MaxLen		= 20;
-    DialString2MaxLen		= 20;
-    DialString3MaxLen		= 20;
+    DialString1MaxLen		= 40;
+    DialString2MaxLen		= 40;
+    DialString3MaxLen		= 40;
 
     SV.topOfStack		= cclNestingLimit;	// this stack is for JSR and RETURN commands.
     SV.theAbortErr		= 0;
@@ -1325,9 +1324,9 @@ the end of the script, or waiting for an asynchronous command to complete.
 -------------------------------------------------------------------------- */
 void RunScript()  
 {
-    u_int8_t	running, cmd, jumpLabel;
+    u_int8_t	running, cmd;
     int		result = 0;
-    u_int32_t	i, exitError, lval;
+    u_int32_t	i, exitError, lval, jumpLabel;
 
     if (SV.scriptLine == 0) {			// no entry point, so terminate the script.
         SV.ctlFlags &= ~cclPlaying;				// don't play this script.
@@ -1613,8 +1612,9 @@ int MatchFind(u_int8_t newChar)
 {
     int			i, matchFound;
     TPMatchStrInfo	matchInfo;
-    char text[256];
-   u_int8_t		matchStrChar, c;
+    char 		text[256], s[64];
+    u_int8_t		matchStrChar, c;
+    time_t 		t;
 
     matchFound = 0;								// assume no match found
     newChar &= 0x7f;							// some PADs have bogus high bit
@@ -1761,8 +1761,11 @@ int MatchFind(u_int8_t newChar)
         if (verbose) {
             if (sysloglevel)
                 syslog(sysloglevel, "CCLMatched : %s\n", text);
-            if (usestderr)
-                fprintf(stderr, "CCLMatched : %s\n", text);
+            if (usestderr) {
+                time(&t);
+                strftime(s, sizeof(s), "%c : ", localtime(&t));
+                fprintf(stderr, "%sCCLMatched : %s\n", s, text);
+            }
         }
     }
 
@@ -1909,9 +1912,10 @@ pass a string up to the Client, along with where it should be displayed
 -------------------------------------------------------------------------- */
 void Note()
 {
-    char 	text[256];
+    char 	text[256], s[64];
     u_int32_t	msgDestination, msgLevel;	// will contain code for destination.
     CFStringRef	ref;
+    time_t 	t;
     
     SkipBlanks();				// get to the string.
     PrepStr(SV.strBuf, 0, 0);	// returns a pointer to a Pascal string.
@@ -1936,7 +1940,7 @@ void Note()
     if (serviceID && (msgDestination & 2)) {
         ref = CFStringCreateWithCString(NULL, text, kCFStringEncodingUTF8);
         if (ref) {
-            publish_entry(serviceID, CFSTR("Note"), ref);
+            publish_entry(serviceID, kSCPropNetModemNote, ref);
             CFRelease(ref);
         }
     }
@@ -1944,8 +1948,11 @@ void Note()
     if (msgDestination & 1) {
         if (sysloglevel)
             syslog(sysloglevel, "%s\n", text);
-        if (usestderr)
-            fprintf(stderr, "%s\n", text);
+        if (usestderr) {
+            time(&t);
+            strftime(s, sizeof(s), "%c : ", localtime(&t));
+            fprintf(stderr, "%s%s\n", s, text);
+        }
     }
 }
 
@@ -1960,7 +1967,8 @@ u_int8_t Write()
     u_int32_t	isVarString;
     u_int16_t	i, j;
     int32_t	varIndex;
-    char 	text[256];
+    char 	text[256], s[64];
+    time_t 	t;
 
     SkipBlanks();
     PrepStr(SV.strBuf, &isVarString, &varIndex );
@@ -1992,8 +2000,11 @@ u_int8_t Write()
     if (verbose) {
         if (sysloglevel)
             syslog(sysloglevel, "CCLWrite : %s\n", text);
-        if (usestderr)
-            fprintf(stderr, "CCLWrite : %s\n", text);
+        if (usestderr) {
+            time(&t);
+            strftime(s, sizeof(s), "%c : ", localtime(&t));
+            fprintf(stderr, "%sCCLWrite : %s\n", s, text);
+        }
     }
     
     //
@@ -2196,7 +2207,7 @@ void CommunicatingAt()
     if (serviceID) {
         num = CFNumberCreate(NULL, kCFNumberIntType, &speed);
         if (num) {
-            publish_entry(serviceID, CFSTR("ConnectSpeed"), num);
+            publish_entry(serviceID, kSCPropNetModemConnectSpeed, num);
             CFRelease(num);
         }
     }
@@ -2263,8 +2274,8 @@ If the strings match, return the parsed label, else return 0
 -------------------------------------------------------------------------- */
 int IfStr()
 {
-    u_int8_t		noMatch = 0, labelIndex, *src;
-    u_int32_t		i = 0, strIndex;
+    u_int8_t		noMatch = 0, *src;
+    u_int32_t		i = 0, strIndex, labelIndex;
 
     NextInt( &strIndex );				// this is which varString to check
 
@@ -2391,13 +2402,20 @@ void terminate(int exitError)
 {
     //u_long m = exitError;
     CFNumberRef		num;
+#if 0
+    char 	s[64];
+    time_t 	t;
+#endif
 
 #if 0
     if (verbose) {
         if (sysloglevel)
             syslog(sysloglevel, "CCLExit : %d\n", exitError);
-        if (usestderr)
-            fprintf(stderr, "CCLExit : %d\n", exitError);
+        if (usestderr) {
+            time(&t);
+            strftime(s, sizeof(s), "%c : ", localtime(&t));
+            fprintf(stderr, "%sCCLExit : %d\n", s, exitError);
+        }
     }
 #endif
     //if (ppplink != -1) 
@@ -2406,6 +2424,7 @@ void terminate(int exitError)
      // connect and listen mode always publish last cause
      // disconnect mode publish only non-null cause
      // last cause displays connection error, even when plays disconnect sequence
+#if 0
     if (serviceID && (exitError || (mode != 1))) {
         num = CFNumberCreate(NULL, kCFNumberIntType, &exitError);
         if (num) {
@@ -2413,10 +2432,11 @@ void terminate(int exitError)
             CFRelease(num);
         }
     }
+#endif
 
     /* unpublish unnecessary information */
     if (serviceID) {
-        unpublish_entry(serviceID, CFSTR("Note"));
+        unpublish_entry(serviceID, kSCPropNetModemNote);
     }
 
     close(infd);
@@ -2530,86 +2550,66 @@ publish a dictionnary entry in the cache
 ----------------------------------------------------------------------------- */
 int publish_entry(u_char *serviceid, CFStringRef entry, CFTypeRef value)
 {
-    CFDictionaryRef		dict;
-    CFMutableDictionaryRef	newDict = 0;
-    SCDHandleRef 		handle = 0;
-    CFStringRef			key = 0;
-    SCDStatus			status;
-    SCDSessionRef		cfgCache = 0;		/* configd session */
+    CFMutableDictionaryRef	dict;
+    CFStringRef			key;
+    SCDynamicStoreRef		cfgCache;
+    CFPropertyListRef		ref;
+    int				ret = 0;
 
-    status = SCDOpen(&cfgCache, CFSTR("CCLEngine"));
-    if (status != SCD_OK)
-        return 0;
-            
-    key = SCDKeyCreate(CFSTR("%@/%@/%@/%s/%@"), kSCCacheDomainState, kSCCompNetwork, kSCCompService, serviceid, kSCEntNetModem);
-    if (key == NULL)	
-        goto done;
-        
-    status = SCDGet(cfgCache, key, &handle);
-    if (status == SCD_OK) {
-        if (dict = SCDHandleGetData(handle)) 
-            newDict = CFDictionaryCreateMutableCopy(0, 0, dict);
+    if (cfgCache = SCDynamicStoreCreate(0, CFSTR("CCLEngine"), 0, 0)) {
+        if (key = SCDynamicStoreKeyCreate(0, CFSTR("%@/%@/%@/%s/%@"), 
+                    kSCDynamicStoreDomainState, kSCCompNetwork, kSCCompService, serviceid, kSCEntNetModem)) {
+
+            if (ref = SCDynamicStoreCopyValue(cfgCache, key)) {
+                dict = CFDictionaryCreateMutableCopy(0, 0, ref);
+                CFRelease(ref);
+            }
+            else
+                dict = CFDictionaryCreateMutable(0, 0, 
+                            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+            if (dict) {
+                CFDictionarySetValue(dict, entry, value);
+                ret = SCDynamicStoreSetValue(cfgCache, key, dict);
+                CFRelease(dict);
+            }
+
+            CFRelease(key);
+        }
+        CFRelease(cfgCache);
     }
-    else {
-        if (handle = SCDHandleInit())
-            newDict = CFDictionaryCreateMutable(0, 0,
-                                          &kCFTypeDictionaryKeyCallBacks,
-                                          &kCFTypeDictionaryValueCallBacks);
-    }
-    
-    if (newDict == NULL)
-        goto done;
-
-    CFDictionarySetValue(newDict,  entry, value);
-    SCDHandleSetData(handle, newDict);
-    status = SCDSet(cfgCache, key, handle);
-
-done:
-    if (handle) SCDHandleRelease(handle);
-    if (newDict) CFRelease(newDict);
-    if (key) CFRelease(key);
-    if (cfgCache) SCDClose(&cfgCache);
-    return 0;
+    return ret;
 }
+
 /* -----------------------------------------------------------------------------
 unpublish a disctionnary entry from the cache
 ----------------------------------------------------------------------------- */
 int unpublish_entry(u_char *serviceid, CFStringRef entry)
 {
-    CFDictionaryRef		dict;
-    CFMutableDictionaryRef	newDict = 0;
-    SCDHandleRef 		handle = 0;
-    CFStringRef			key = 0;
-    SCDStatus			status;
-    SCDSessionRef		cfgCache = 0;		/* configd session */
-
-    status = SCDOpen(&cfgCache, CFSTR("CCLEngine"));
-    if (status != SCD_OK)
-        return 0;
-            
-    key = SCDKeyCreate(CFSTR("%@/%@/%@/%s/%@"), kSCCacheDomainState, kSCCompNetwork, kSCCompService, serviceid, kSCEntNetModem);
-    if (key == NULL)	
-        goto done;
-        
-    status = SCDGet(cfgCache, key, &handle);
-    if (status == SCD_OK) {
-        if (dict = SCDHandleGetData(handle)) 
-            newDict = CFDictionaryCreateMutableCopy(0, 0, dict);
-    }
+    CFPropertyListRef		ref;
+    CFMutableDictionaryRef	dict;
+    CFStringRef			key;
+    SCDynamicStoreRef		cfgCache;
+    int 			ret = 0;
     
-    if (newDict == NULL)
-        goto done;
-
-    CFDictionaryRemoveValue(newDict, entry);
-    SCDHandleSetData(handle, newDict);
-    status = SCDSet(cfgCache, key, handle);
-
-done:
-    if (handle) SCDHandleRelease(handle);
-    if (newDict) CFRelease(newDict);
-    if (key) CFRelease(key);
-    if (cfgCache) SCDClose(&cfgCache);
-    return 0;
+    if (cfgCache = SCDynamicStoreCreate(0, CFSTR("CCLEngine"), 0, 0)) {
+            
+        if (key = SCDynamicStoreKeyCreate(0, CFSTR("%@/%@/%@/%s/%@"), 
+                    kSCDynamicStoreDomainState, kSCCompNetwork, kSCCompService, serviceid, kSCEntNetModem)) {
+        
+            if (ref = SCDynamicStoreCopyValue(cfgCache, key)) {
+                if (dict = CFDictionaryCreateMutableCopy(0, 0, ref)) {
+                    CFDictionaryRemoveValue(dict, entry);
+                    ret = SCDynamicStoreSetValue(cfgCache, key, dict);
+                    CFRelease(dict);
+                }
+                CFRelease(ref);
+            }
+            CFRelease(key);
+        }
+        CFRelease(cfgCache);
+    }
+    return ret;
 }
 
 

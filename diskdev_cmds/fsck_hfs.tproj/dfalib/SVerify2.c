@@ -38,7 +38,6 @@
 
 //	Prototypes for internal subroutines
 static int BTKeyChk( SGlobPtr GPtr, NodeDescPtr nodeP, BTreeControlBlock *btcb );
-
 		
 
 /*------------------------------------------------------------------------------
@@ -206,32 +205,37 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	if ( header->treeDepth > BTMaxDepth )
 	{
 		RcdError( GPtr, E_BTDepth );
-		result = E_BTDepth;
-		goto exit;
+		goto RebuildBTreeExit;
 	}
 	calculatedBTCB->treeDepth = header->treeDepth;
 	
-	if ((header->rootNode < 0) || (header->rootNode >= calculatedBTCB->totalNodes))
+	if ( header->rootNode >= calculatedBTCB->totalNodes ||
+		 (header->treeDepth != 0 && header->rootNode == kHeaderNodeNum) )
 	{
 		RcdError( GPtr, E_BTRoot );
-		result = E_BTRoot;
-		goto exit;
+		goto RebuildBTreeExit;
 	}
 	calculatedBTCB->rootNode = header->rootNode;
 
 	if ( (calculatedBTCB->treeDepth == 0) || (calculatedBTCB->rootNode == 0) )
 	{
 		if ( calculatedBTCB->treeDepth == calculatedBTCB->rootNode )
-		{
 			goto exit;	/* empty BTree */
-		}
-		else
-		{
-			RcdError( GPtr, E_BTDepth );
-			result = E_BTDepth;;	/* depth doesn't agree with root */
-			goto exit;
-		}
+
+		RcdError( GPtr, E_BTDepth );
+		goto RebuildBTreeExit;
 	}		
+
+#if 0
+	printf( "\nB-Tree header rec: \n" );
+	printf( "    treeDepth     = %d \n", header->treeDepth );
+	printf( "    rootNode      = %d \n", header->rootNode );
+	printf( "    leafRecords   = %d \n", header->leafRecords );
+	printf( "    firstLeafNode = %d \n", header->firstLeafNode );
+	printf( "    lastLeafNode  = %d \n", header->lastLeafNode );
+	printf( "    totalNodes    = %d \n", header->totalNodes );
+	printf( "    freeNodes     = %d \n", header->freeNodes );
+#endif
 		
 	/*
 	 * Set up tree path record for root level
@@ -274,16 +278,47 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 		 */		
 		if ( index < 0 )
 		{
+#if 0 //
+			// this will print out our leaf node order
+			if ( nodeDescP->kind == kBTLeafNode ) 
+			{
+				static int		myCounter = 0;
+				if ( myCounter > 19 )
+				{
+					myCounter = 0;
+					printf( "\n  " );
+				}
+				printf( "%d ", nodeNum );
+				
+				myCounter++;
+			}
+#endif
+
 			result = AllocBTN( GPtr, refNum, nodeNum );
-			if (result) goto exit;	/* node already allocated? */
+			if ( result ) 
+			{
+				/* node already allocated can be fixed if it is an index node */
+				if ( nodeDescP->kind == kBTIndexNode )
+					goto RebuildBTreeExit;	
+				goto exit;
+			}
 				
 			result = BTKeyChk( GPtr, nodeDescP, calculatedBTCB );
-			if (result) goto exit;
+			if ( result ) 
+			{
+				/* we should be able to fix any E_KeyOrd error or any B-Tree key */
+				/* errors with an index node. */
+				if ( E_KeyOrd == result || nodeDescP->kind == kBTIndexNode )
+					goto RebuildBTreeExit;	
+				goto exit;
+			}
 				
 			if ( nodeDescP->bLink != tprP->TPRLtSib )
 			{
 				RcdError( GPtr, E_SibLk );
-				result = E_SibLk;
+				/* bad sibling link can be fixed if it is an index node */
+				if ( nodeDescP->kind == kBTIndexNode )
+					goto RebuildBTreeExit;	
 				goto exit;
 			}	
 			if ( tprP->TPRRtSib == -1 )
@@ -294,23 +329,26 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			{
 				if ( nodeDescP->fLink != tprP->TPRRtSib )
 				{				
-					RcdError( GPtr, E_SibLk );
 					result = E_SibLk;
+					/* bad sibling link can be fixed if it is an index node */
+					if ( nodeDescP->kind == kBTIndexNode )
+						goto RebuildBTreeExit;	
 					goto exit;
 				}
 			}
 			
 			if ( (nodeDescP->kind != kBTIndexNode) && (nodeDescP->kind != kBTLeafNode) )
 			{
-				*statusFlag |= S_RebuildBTree;
 				RcdError( GPtr, E_NType );
-				result		=  noErr;
+				goto exit;
 			}	
 			if ( nodeDescP->height != calculatedBTCB->treeDepth - GPtr->BTLevel + 1 )
 			{
-				*statusFlag |= S_RebuildBTree;
 				RcdError( GPtr, E_NHeight );
-				result		=  noErr;
+				/* node height can be fixed if it is an index node */
+				if ( nodeDescP->kind == kBTIndexNode )
+					goto RebuildBTreeExit;	
+				goto exit;
 			}
 				
 			if ( parKey[0] != 0 )
@@ -318,8 +356,8 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				GetRecordByIndex( (BTreeControlBlock *)calculatedBTCB, nodeDescP, 0, &keyPtr, &dataPtr, &recSize );
 				if ( CompareKeys( (BTreeControlBlockPtr)calculatedBTCB, (BTreeKey *)parKey, keyPtr ) != 0 )
 				{
-					*statusFlag |= S_RebuildBTree;
 					RcdError( GPtr, E_IKey );
+					goto RebuildBTreeExit;
 				}
 			}
 			if ( nodeDescP->kind == kBTIndexNode )
@@ -351,21 +389,21 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 
 			if ( GPtr->BTLevel > BTMaxDepth )
 			{
-				*statusFlag |= S_RebuildBTree;
 				RcdError( GPtr, E_BTDepth );
-				result		=  noErr;
+				goto RebuildBTreeExit;
 			}				
 			tprP = &(*GPtr->BTPTPtr)[GPtr->BTLevel -1];
 			
-			GetRecordByIndex( (BTreeControlBlock *)calculatedBTCB, nodeDescP, index, &keyPtr, &dataPtr, &recSize );
+			GetRecordByIndex( (BTreeControlBlock *)calculatedBTCB, nodeDescP, 
+							  index, &keyPtr, &dataPtr, &recSize );
 			
 			nodeNum = *(UInt32*)dataPtr;
-			if ( (nodeNum <= 0) || (nodeNum >= calculatedBTCB->totalNodes) )
+			if ( (nodeNum == kHeaderNodeNum) || (nodeNum >= calculatedBTCB->totalNodes) )
 			{
 				RcdError( GPtr, E_IndxLk );
-				result = E_IndxLk;
-				goto exit;
+				goto RebuildBTreeExit;
 			}	
+
 			/* 
 			 * Make a copy of the parent's key so we can compare it
 			 * with the child's key later.
@@ -384,11 +422,10 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				GetRecordByIndex( (BTreeControlBlock *)calculatedBTCB, nodeDescP, index-1, &keyPtr, &dataPtr, &recSize );
 
 				nodeNum = *(UInt32*)dataPtr;
-				if ( (nodeNum <= 0) || (nodeNum >= calculatedBTCB->totalNodes) )
+				if ( (nodeNum == kHeaderNodeNum) || (nodeNum >= calculatedBTCB->totalNodes) )
 				{
-					*statusFlag |= S_RebuildBTree;
 					RcdError( GPtr, E_IndxLk );
-					result =  noErr;	/* FLASHING */
+					goto RebuildBTreeExit;
 				}
 				tprP->TPRLtSib = nodeNum;
 			}
@@ -403,11 +440,10 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			{
 				GetRecordByIndex( (BTreeControlBlock *)calculatedBTCB, nodeDescP, index+1, &keyPtr, &dataPtr, &recSize );
 				nodeNum = *(UInt32*)dataPtr;
-				if ( (nodeNum <= 0) || (nodeNum >= calculatedBTCB->totalNodes) )
+				if ( (nodeNum == kHeaderNodeNum) || (nodeNum >= calculatedBTCB->totalNodes) )
 				{
-					*statusFlag |= S_RebuildBTree;
 					RcdError( GPtr, E_IndxLk );
-					result =  noErr;	/* FLASHING */
+					goto RebuildBTreeExit;
 				}
 				tprP->TPRRtSib = nodeNum;
 			}
@@ -428,7 +464,6 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			if ( tprP->TPRRtSib == 0 )
 				calculatedBTCB->lastLeafNode = nodeNum;
 			leafRecords	+= nodeDescP->numRecords;
-		
 
 			if (checkLeafRecord != NULL) {
 				for (i = 0; i < nodeDescP->numRecords; i++) {
@@ -447,8 +482,14 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 exit:
 	if (node.buffer != NULL)
 		(void) ReleaseNode(calculatedBTCB, &node);
-	
+		
 	return( result );
+
+RebuildBTreeExit:
+	/* force a B-Tree file rebuild */
+	*statusFlag |= S_RebuildBTree;
+	result = errRebuildBtree;
+	goto exit;
 
 } /* end of BTCheck */
 
@@ -670,8 +711,8 @@ int CmpBTM( SGlobPtr GPtr, short fileRefNum )
 {
 	OSErr			result;
 	UInt16			recSize;
-	short			mapSize;
-	short			size;
+	SInt32			mapSize;
+	SInt32			size;
 	UInt32			nodeNum;
 	short			recIndx;
 	char			*p;
@@ -718,6 +759,8 @@ int CmpBTM( SGlobPtr GPtr, short fileRefNum )
 		if ( result != noErr )
 		{ 	
 			*statP = *statP | S_BTM;	/* didn't match, mark it damaged */
+                        RcdError(GPtr, E_BadMapN);
+                        result = 0;			/* mismatch isn't fatal; let us continue */
 			goto exit;
 		}
 	
@@ -1038,7 +1081,7 @@ OSErr CompareVolumeHeader( SGlobPtr GPtr, HFSPlusVolumeHeader *volumeHeader)
 
 	if ( kHFSPlusSigWord				!= vcb->vcbSignature )	goto VolumeHeaderDamaged;
 	if ( volumeHeader->encodingsBitmap		!= vcb->vcbEncodingsBitmap )	goto VolumeHeaderDamaged;
-	if ( (SInt16) (hfsPlusIOPosOffset/512)		!= vcb->vcbAlBlSt )		goto VolumeHeaderDamaged;
+	if ( (UInt16) (hfsPlusIOPosOffset/512)		!= vcb->vcbAlBlSt )		goto VolumeHeaderDamaged;
 	if ( volumeHeader->createDate			!= vcb->vcbCreateDate )	goto VolumeHeaderDamaged;
 	if ( volumeHeader->modifyDate			!= vcb->vcbModifyDate )	goto VolumeHeaderDamaged;
 	if ( volumeHeader->backupDate			!= vcb->vcbBackupDate )	goto VolumeHeaderDamaged;
@@ -1073,7 +1116,7 @@ ContinueChecking:
 	 * compare extent file allocation info with VolumeHeader
 	 */		
 	fcbP = vcb->vcbExtentsFile;
-	if ( volumeHeader->extentsFile.totalBlocks * vcb->vcbBlockSize != fcbP->fcbPhysicalSize )
+	if ( (UInt64)volumeHeader->extentsFile.totalBlocks * (UInt64)vcb->vcbBlockSize != fcbP->fcbPhysicalSize )
 	{
 		GPtr->VIStat = GPtr->VIStat | S_MDB;
 		WriteError ( GPtr, E_VolumeHeaderDamaged, 3, 0 );
@@ -1094,7 +1137,7 @@ ContinueChecking:
 	 * compare catalog file allocation info with MDB
 	 */	
 	fcbP = vcb->vcbCatalogFile;	/* compare PEOF for catalog file */
-	if ( volumeHeader->catalogFile.totalBlocks * vcb->vcbBlockSize != fcbP->fcbPhysicalSize )
+	if ( (UInt64)volumeHeader->catalogFile.totalBlocks * (UInt64)vcb->vcbBlockSize != fcbP->fcbPhysicalSize )
 	{
 		GPtr->VIStat = GPtr->VIStat | S_MDB;
 		WriteError ( GPtr, E_VolumeHeaderDamaged, 5, 0 );
@@ -1116,7 +1159,7 @@ ContinueChecking:
 	 * compare bitmap file allocation info with MDB
 	 */		
 	fcbP = vcb->vcbAllocationFile;
-	if ( volumeHeader->allocationFile.totalBlocks * vcb->vcbBlockSize != fcbP->fcbPhysicalSize )
+	if ( (UInt64)volumeHeader->allocationFile.totalBlocks * (UInt64)vcb->vcbBlockSize != fcbP->fcbPhysicalSize )
 	{
 		GPtr->VIStat = GPtr->VIStat | S_MDB;
 		WriteError ( GPtr, E_VolumeHeaderDamaged, 7, 0 );
@@ -1135,6 +1178,3 @@ ContinueChecking:
 
 	return( noErr );
 }
-
-
-

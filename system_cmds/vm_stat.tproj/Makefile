@@ -15,7 +15,7 @@ PROJECT_TYPE = Tool
 CFILES = vm_stat.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble m.template\
-            h.template
+            h.template vm_stat.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

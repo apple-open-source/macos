@@ -23,6 +23,10 @@
 # include <termios.h>
 #endif
 
+#ifdef HAVE_ERRNO_H
+# include <errno.h>
+#endif
+
 #include "ntp_types.h"
 #include "ntp_proto.h"
 
@@ -52,6 +56,10 @@ extern	int	cfsetospeed	P((struct termios *, speed_t));
 #endif
 
 extern	char *	getpass		P((const char *));
+
+#ifdef DECL_HSTRERROR_0
+extern	const char * hstrerror	P((int));
+#endif
 
 #ifdef DECL_INET_NTOA_0
 struct in_addr;
@@ -132,6 +140,11 @@ struct sigvec;
 extern	int	sigvec		P((int, struct sigvec *, struct sigvec *));
 #endif
 
+#ifndef HAVE_SNPRINTF
+/* PRINTFLIKE3 */
+extern	int	snprintf	P((char *, size_t, const char *, ...));
+#endif
+
 #ifdef DECL_SRAND48_0
 extern	void	srand48		P((long));
 #endif
@@ -163,6 +176,14 @@ extern	int	vsprintf	P((char *, const char *, ...));
 
 #ifdef DECL_STIME_0
 extern	int	stime		P((const time_t *));
+#endif
+
+#ifdef DECL_STIME_1
+extern	int	stime		P((long *));
+#endif
+
+#ifdef DECL_STRERROR_0
+extern	char *	strerror		P((int errnum));
 #endif
 
 #ifdef DECL_STRTOL_0
@@ -201,6 +222,10 @@ extern	int	settimeofday	P((struct timeval *, void *));
 
 #ifdef DECL_TOLOWER_0
 extern	int	tolower		P((int));
+#endif
+
+#ifdef DECL_TOUPPER_0
+extern	int	toupper		P((int));
 #endif
 
 /*

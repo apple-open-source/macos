@@ -1,0 +1,9 @@
+The header files in this private directory tree exist to compensate
+for header files missing from the OpenUNIX distribution or ones in
+the distribution that have errors.
+
+See the comments in README files where *.h files exist for further
+explanations.
+
+Vic Abell
+October 3, 2001

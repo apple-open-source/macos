@@ -24,15 +24,17 @@
  *  Copyright (c) 2000 Apple Computer Inc. All rights reserved.
  *
  */
-
 #include "AuthorizationEngine.h"
+#include <Security/AuthorizationWalkers.h>
 
 #include "server.h"
 #include "authority.h"
 
 #include <Security/AuthorizationTags.h>
 #include <Security/logging.h>
+#include <Security/cfutilities.h>
 #include <Security/debugging.h>
+#include "session.h"
 
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFNumber.h>
@@ -44,17 +46,16 @@
 #include <unistd.h>
 #include <grp.h>
 #include <pwd.h>
+#include <Security/checkpw.h>
 
-// for longname lookup
-#include <netinfo/ni.h>
-// private header (lu_utils.h from lookup project)
-extern "C" {
-int lookupd_query(ni_proplist *l, ni_proplist ***out);
-ni_proplist *lookupd_make_query(char *cat, char *fmt, ...);
-int _lu_running(void);
+// checkpw() that uses provided struct passwd
+extern "C"
+{
+int checkpw_internal( const char* userName, const char* password, const struct passwd *pw );
 }
 
-using namespace Authorization;
+namespace Authorization {
+
 
 //
 // Errors to be thrown
@@ -63,13 +64,13 @@ Error::Error(int err) : error(err)
 {
 }
 
-const char *Error::what() const
+const char *Error::what() const throw()
 { return "Authorization error"; }
 
-CSSM_RETURN Error::cssmError() const
+CSSM_RETURN Error::cssmError() const throw()
 { return error; }	// @@@ eventually...
 
-OSStatus Error::osStatus() const
+OSStatus Error::osStatus() const throw()
 { return error; }
 
 void Error::throwMe(int err) { throw Error(err); }
@@ -93,60 +94,34 @@ mShared(shared), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(false)
 	const char *user = username.c_str();
 	struct passwd *pw = getpwnam(user);
 
-	do
-	{
-		if ( !pw && _lu_running() ) {
-			// try lookup query to find passed username as a long name (realname in NI-speak)
-			ni_proplist **out = NULL;
-			// query "user" records.  "k" specifies position of keys in varargs
-			ni_proplist *in = lookupd_make_query("user", "kv", "realname", user);
-			if (!in) break;
+    do {
 
-			int results = lookupd_query(in, &out);
-			ni_proplist_free(in);
-			if (!out) break;
+        if (!pw)
+        {
+            debug("autheval", "user %s not found, creating invalid credential", user);
+            break;
+        }
 
-			// Find the first, if any, name value in returned records, getpwnam, and dispose of them
-			for (int i=0; i<results; ++i) {
-				ni_proplist *nipl = out[i];
-				for (unsigned int j=0; !pw && j< nipl->ni_proplist_len; j++) {
-					if ( !strcmp(nipl->ni_proplist_val[j].nip_name, "name") &&
-						(nipl->ni_proplist_val[j].nip_val.ni_namelist_len > 0) )
-							pw = getpwnam( *(nipl->ni_proplist_val[j].nip_val.ni_namelist_val) );
-				}
-				ni_proplist_free(nipl);
-			}
-			free(out);
-		}
+        const char *passwd = password.c_str();
+        int checkpw_status = checkpw_internal(user, passwd, pw);
 
-		if (!pw)
-		{
-			debug("autheval", "user %s not found, creating invalid credential", user);
-			break;
-		}
-
-		if (pw->pw_passwd != NULL && pw->pw_passwd[0])
-		{
-			const char *passwd = password.c_str();
-			if (strcmp(crypt(passwd, pw->pw_passwd), pw->pw_passwd))
-			{
-				debug("autheval", "password for user %s is invalid, creating invalid credential", user);
+        if (checkpw_status != CHECKPW_SUCCESS)
+        {
+				debug("autheval", "checkpw() for user %s failed with error %d, creating invalid credential", user, checkpw_status);
 				break;
-			}
-		}
+        }
 
-		debug("autheval", "password for user %s is ok, creating%s credential",
+		debug("autheval", "checkpw() for user %s succeeded, creating%s credential",
 			user, mShared ? " shared" : "");
 
 		mUsername = string ( pw->pw_name );
 		mUid = pw->pw_uid;
 		mGid = pw->pw_gid;
 		mValid = true;
-	}
+
+        endpwent();
+    }
 	while (0);
-	
-	if (pw)
-		endpwent();
 }
 
 
@@ -248,183 +223,6 @@ Credential::operator < (const Credential &other) const
 
 
 //
-// Right class
-//
-Right &
-Right::overlay(AuthorizationItem &item)
-{
-	return static_cast<Right &>(item);
-}
-
-Right *
-Right::overlay(AuthorizationItem *item)
-{
-	return static_cast<Right *>(item);
-}
-
-Right::Right()
-{
-	name = "";
-	valueLength = 0;
-	value = NULL;
-	flags = 0;
-}
-
-Right::Right(AuthorizationString inName, size_t inValueLength, const void *inValue)
-{
-	name = inName;
-	valueLength = inValueLength;
-	value = const_cast<void *>(inValue);
-}
-
-Right::~Right()
-{
-}
-
-bool
-Right::operator < (const Right &other) const
-{
-	return strcmp(name, other.name) < 0;
-}
-
-
-//
-// RightSet class
-//
-const AuthorizationRights RightSet::gEmptyRights = { 0, NULL };
-
-RightSet::RightSet(const AuthorizationRights *rights) :
-mRights(const_cast<AuthorizationRights *>(rights ? rights : &gEmptyRights))
-{
-}
-
-RightSet::RightSet(const RightSet &other)
-{
-	mRights = other.mRights;
-}
-
-RightSet::~RightSet()
-{
-}
-
-RightSet::const_reference
-RightSet::back() const
-{
-	// @@@ Should this if empty::throwMe()?
-	return static_cast<const_reference>(mRights->items[size() - 1]);
-}
-
-
-//
-// MutableRightSet class
-//
-MutableRightSet::MutableRightSet(size_t count, const Right &element) :
-mCapacity(count)
-{
-	mRights = new AuthorizationRights();
-	mRights->items = reinterpret_cast<pointer>(malloc(sizeof(Right) * mCapacity));
-	if (!mRights->items)
-	{
-		delete mRights;
-		throw std::bad_alloc();
-	}
-
-	mRights->count = count;
-	for (size_type ix = 0; ix < count; ++ix)
-		mRights->items[ix] = element;
-}
-
-MutableRightSet::MutableRightSet(const RightSet &other)
-{
-	size_type count = other.size();
-	mCapacity = count;
-	mRights = new AuthorizationRights();
-
-	mRights->items = reinterpret_cast<pointer>(malloc(sizeof(Right) * mCapacity));
-	if (!mRights->items)
-	{
-		delete mRights;
-		throw std::bad_alloc();
-	}
-
-	mRights->count = count;
-	for (size_type ix = 0; ix < count; ++ix)
-		mRights->items[ix] = other.mRights->items[ix];
-}
-
-MutableRightSet::~MutableRightSet()
-{
-	free(mRights->items);
-	delete mRights;
-}
-
-MutableRightSet &
-MutableRightSet::operator = (const RightSet &other)
-{
-	size_type count = other.size();
-	if (capacity() < count)
-		grow(count);
-
-	mRights->count = count;
-	for (size_type ix = 0; ix < count; ++ix)
-		mRights->items[ix] = other.mRights->items[ix];
-
-	return *this;
-}
-
-void
-MutableRightSet::swap(MutableRightSet &other)
-{
-	AuthorizationRights *rights = mRights;
-	size_t capacity = mCapacity;
-	mRights = other.mRights;
-	mCapacity = other.mCapacity;
-	other.mRights = rights;
-	other.mCapacity = capacity;
-}
-
-MutableRightSet::reference
-MutableRightSet::back()
-{
-	// @@@ Should this if empty::throwMe()?
-	return static_cast<reference>(mRights->items[size() - 1]);
-}
-
-void
-MutableRightSet::push_back(const_reference right)
-{
-	if (size() >= capacity())
-		grow(capacity() + 1);
-
-	mRights->items[mRights->count] = right;
-	mRights->count++;
-}
-
-void
-MutableRightSet::pop_back()
-{
-	// @@@ Should this if empty::throwMe()?
-	if (!empty())
-		mRights->count--;
-}
-
-void
-MutableRightSet::grow(size_type min_capacity)
-{
-	size_type newCapacity = mCapacity * mCapacity;
-	if (newCapacity < min_capacity)
-		newCapacity = min_capacity;
-
-	void *newItems = realloc(mRights->items, sizeof(*mRights->items) * newCapacity);
-	if (!newItems)
-		throw std::bad_alloc();
-
-	mRights->items = reinterpret_cast<pointer>(newItems);
-	mCapacity = newCapacity;
-}
-
-
-//
 // Rule class
 //
 CFStringRef Rule::kUserInGroupID = CFSTR("group");
@@ -433,6 +231,7 @@ CFStringRef Rule::kSharedID = CFSTR("shared");
 CFStringRef Rule::kAllowRootID = CFSTR("allow-root");
 CFStringRef Rule::kDenyID = CFSTR("deny");
 CFStringRef Rule::kAllowID = CFSTR("allow");
+CFStringRef Rule::kEvalMechID = CFSTR("eval");
 
 
 Rule::Rule() :
@@ -462,54 +261,86 @@ Rule::Rule(CFTypeRef cfRule)
 	}
 	else if (CFGetTypeID(cfRule) == CFDictionaryGetTypeID())
 	{
-		mType = kUserInGroup;
 		CFDictionaryRef dict = reinterpret_cast<CFDictionaryRef>(cfRule);
 		CFTypeRef groupTag = CFDictionaryGetValue(dict, kUserInGroupID);
-		if (!groupTag || CFGetTypeID(groupTag) != CFStringGetTypeID())
-			Error::throwMe();
 
-		CFStringRef group = reinterpret_cast<CFStringRef>(groupTag);
-		char buffer[512];
-		const char *ptr = CFStringGetCStringPtr(group, kCFStringEncodingUTF8);
-		if (ptr == NULL)
-		{
-			if (CFStringGetCString(group, buffer, 512, kCFStringEncodingUTF8))
-				ptr = buffer;
-			else
-				Error::throwMe();
-		}
+        // Probably a user in group rule
+        if (groupTag)
+        {
+            if (CFGetTypeID(groupTag) != CFStringGetTypeID())
+                Error::throwMe();
 
-		mGroupName = string(ptr);
+            mType = kUserInGroup;
+    
+            CFStringRef group = reinterpret_cast<CFStringRef>(groupTag);
+            char buffer[512];
+            const char *ptr = CFStringGetCStringPtr(group, kCFStringEncodingUTF8);
+            if (ptr == NULL)
+            {
+                if (CFStringGetCString(group, buffer, 512, kCFStringEncodingUTF8))
+                    ptr = buffer;
+                else
+                    Error::throwMe();
+            }
+    
+            mGroupName = string(ptr);
+    
+            mMaxCredentialAge = DBL_MAX;
+            CFTypeRef timeoutTag = CFDictionaryGetValue(dict, kTimeoutID);
+            if (timeoutTag)
+            {
+                if (CFGetTypeID(timeoutTag) != CFNumberGetTypeID())
+                    Error::throwMe();
+                CFNumberGetValue(reinterpret_cast<CFNumberRef>(timeoutTag), kCFNumberDoubleType, &mMaxCredentialAge);
+            }
+    
+            CFTypeRef sharedTag = CFDictionaryGetValue(dict, kSharedID);
+            mShared = false;
+            if (sharedTag)
+            {
+                if (CFGetTypeID(sharedTag) != CFBooleanGetTypeID())
+                    Error::throwMe();
+                mShared = CFBooleanGetValue(reinterpret_cast<CFBooleanRef>(sharedTag));
+            }
+    
+            CFTypeRef allowRootTag = CFDictionaryGetValue(dict, kAllowRootID);
+            mAllowRoot = false;
+            if (allowRootTag)
+            {
+                if (CFGetTypeID(allowRootTag) != CFBooleanGetTypeID())
+                    Error::throwMe();
+                mAllowRoot = CFBooleanGetValue(reinterpret_cast<CFBooleanRef>(allowRootTag));
+            }
+            debug("authrule", "rule user in group \"%s\" timeout %g%s%s",
+                mGroupName.c_str(), mMaxCredentialAge, mShared ? " shared" : "",
+                mAllowRoot ? " allow-root" : "");
+        }
+        else
+        {
+            CFTypeRef mechTag = CFDictionaryGetValue(dict, kEvalMechID);
+            if (mechTag)
+            {
+                if (CFGetTypeID(mechTag) != CFStringGetTypeID())
+                    Error::throwMe();
+    
+                mType = kEvalMech;
+        
+                CFStringRef eval = reinterpret_cast<CFStringRef>(mechTag);
+                char buffer[512];
+                const char *ptr = CFStringGetCStringPtr(eval, kCFStringEncodingUTF8);
+                if (ptr == NULL)
+                {
+                    if (CFStringGetCString(eval, buffer, 512, kCFStringEncodingUTF8))
+                        ptr = buffer;
+                    else
+                        Error::throwMe();
+                }
+                mEvalDef = string(ptr);
+            }
+            else
+                Error::throwMe();
+        }
 
-		mMaxCredentialAge = DBL_MAX;
-		CFTypeRef timeoutTag = CFDictionaryGetValue(dict, kTimeoutID);
-		if (timeoutTag)
-		{
-			if (CFGetTypeID(timeoutTag) != CFNumberGetTypeID())
-				Error::throwMe();
-			CFNumberGetValue(reinterpret_cast<CFNumberRef>(timeoutTag), kCFNumberDoubleType, &mMaxCredentialAge);
-		}
-
-		CFTypeRef sharedTag = CFDictionaryGetValue(dict, kSharedID);
-		mShared = false;
-		if (sharedTag)
-		{
-			if (CFGetTypeID(sharedTag) != CFBooleanGetTypeID())
-				Error::throwMe();
-			mShared = CFBooleanGetValue(reinterpret_cast<CFBooleanRef>(sharedTag));
-		}
-
-		CFTypeRef allowRootTag = CFDictionaryGetValue(dict, kAllowRootID);
-		mAllowRoot = false;
-		if (allowRootTag)
-		{
-			if (CFGetTypeID(allowRootTag) != CFBooleanGetTypeID())
-				Error::throwMe();
-			mAllowRoot = CFBooleanGetValue(reinterpret_cast<CFBooleanRef>(allowRootTag));
-		}
-		debug("authrule", "rule user in group \"%s\" timeout %g%s%s",
-			mGroupName.c_str(), mMaxCredentialAge, mShared ? " shared" : "",
-			mAllowRoot ? " allow-root" : "");
 	}
 }
 
@@ -518,7 +349,8 @@ mType(other.mType),
 mGroupName(other.mGroupName),
 mMaxCredentialAge(other.mMaxCredentialAge),
 mShared(other.mShared),
-mAllowRoot(other.mAllowRoot)
+mAllowRoot(other.mAllowRoot),
+mEvalDef(other.mEvalDef)
 {
 }
 
@@ -530,6 +362,7 @@ Rule::operator = (const Rule &other)
 	mMaxCredentialAge = other.mMaxCredentialAge;
 	mShared = other.mShared;
 	mAllowRoot = other.mAllowRoot;
+	mEvalDef = other.mEvalDef;
 	return *this;
 }
 
@@ -537,11 +370,279 @@ Rule::~Rule()
 {
 }
 
+
+OSStatus
+Rule::evaluateMechanism(const AuthorizationEnvironment *environment, AuthorizationToken &auth, CredentialSet &outCredentials)
+{
+	assert(mType == kEvalMech);
+
+    if (mEvalDef.length() == 0) // no definition
+        return kAuthorizationResultAllow;
+
+    // mechanisms are split by commas
+    vector<string> mechanismNames;
+    {
+        string::size_type cursor = 0, comma = 0;
+        string token = "";
+    
+        while (cursor < mEvalDef.length())
+        {
+            comma = mEvalDef.find(',', cursor);
+            if (comma == string::npos)
+                    comma = mEvalDef.length();
+    
+            token = mEvalDef.substr(cursor, comma - cursor);
+
+            // skip empty tokens
+            if (token.length() > 0)
+                mechanismNames.push_back(token);
+                
+            cursor = comma + 1;
+        }
+    }
+
+    // @@@ configuration does not support arguments
+    const AuthorizationValueVector arguments = { 0, NULL };
+    MutableAuthItemSet *context = NULL; 
+    AuthItemSet *hints = NULL;
+    AuthorizationItemSet *outHints = NULL, *outContext = NULL;
+    bool userInteraction = true;
+
+    CssmAllocator& alloc = CssmAllocator::standard();
+    
+    AuthorizationResult result = kAuthorizationResultAllow;
+    vector<string>::iterator currentMechanism = mechanismNames.begin();
+    
+    while ( (result == kAuthorizationResultAllow)  &&
+            (currentMechanism != mechanismNames.end()) ) // iterate mechanisms
+    {
+        AuthorizationItemSet *inHints, *inContext;
+
+        // release after invocation, ignored for first pass
+        if (outContext)
+        {
+            inContext = outContext;
+            debug("SSevalMech", "set up context %p as input", inContext);
+            delete context;
+            context = new MutableAuthItemSet(inContext);
+        }
+        else
+        {
+            inContext = &auth.infoSet(); // returns deep copy
+            debug("SSevalMech", "set up stored context %p as input", inContext);
+            delete context;
+            context = new MutableAuthItemSet(inContext);
+        }
+            
+        if (outHints)
+        {
+            inHints = outHints;
+            debug("SSevalMech", "set up hints %p as input", inHints);
+            delete hints;
+            hints = new AuthItemSet(outHints);
+        }
+        else
+        {
+            inHints = NULL;
+            debug("SSevalMech", "set up environment hints %p as input", environment);
+            delete hints;
+            hints = new AuthItemSet(environment);
+        }
+
+        string::size_type extPlugin = currentMechanism->find(':');
+        if (extPlugin != string::npos)
+        {
+            // no whitespace removal
+            string pluginIn(currentMechanism->substr(0, extPlugin));
+            string mechanismIn(currentMechanism->substr(extPlugin + 1));
+            debug("SSevalMech", "external mech %s:%s", pluginIn.c_str(), mechanismIn.c_str());
+
+            bool mechExecOk = false; // successfully ran a mechanism
+                
+            try
+            {
+		Process &cltProc = Server::active().connection().process;
+		// Authorization preserves creator's UID in setuid processes
+		uid_t cltUid = (cltProc.uid() != 0) ? cltProc.uid() : auth.creatorUid();
+                debug("SSevalMech", "Mechanism invocation by process %d (UID %d)", cltProc.pid(), cltUid);
+                QueryInvokeMechanism client(cltUid, auth);
+
+                mechExecOk = client(pluginIn, mechanismIn, &arguments, *hints, *context, &result, outHints, outContext);
+                debug("SSevalMech", "new context %p, new hints %p", outContext, outHints);
+            }
+            catch (...) {
+                debug("SSevalMech", "exception from mech eval or client death");
+                // various server problems, but only if it really failed
+                if (mechExecOk != true)
+                    result = kAuthorizationResultUndefined;
+            }
+                
+            debug("SSevalMech", "evaluate(plugin: %s, mechanism: %s) %s, result: %lu.", pluginIn.c_str(), mechanismIn.c_str(), (mechExecOk == true) ? "succeeded" : "failed", result);
+            debug("SSevalMech", "mech eval okay");
+            
+            // Things worked and there is new context, so get rid of old
+            if (mechExecOk)
+            {
+                if (inContext)
+                {
+                    debug("SSevalMech", "release input context %p", inContext);
+                    alloc.free(inContext);
+                }
+                if (inHints)
+                {
+                    debug("SSevalMech", "release input hints %p", inHints);
+                    alloc.free(inHints);
+                }
+            }
+            else
+            {
+                // reset previous context and hints
+                debug("SSevalMech", "resetting previous input context %p and hints %p", inContext, inHints);
+                outContext = inContext;
+                outHints = inHints;
+            }
+        }
+        else
+        {
+            // internal mechanisms - no glue
+            if (*currentMechanism == "authinternal")
+            {
+                debug("SSevalMech", "evaluate authinternal");
+                result = kAuthorizationResultDeny;
+                do {
+                    MutableAuthItemSet::iterator found = find_if(context->begin(), context->end(), FindAuthItemByRightName(kAuthorizationEnvironmentUsername) );
+                    if (found == context->end())
+                        break;
+                    string username(static_cast<const char *>(found->argument()), found->argumentLength());
+                    debug("SSevalMech", "found username");
+                    found = find_if(context->begin(), context->end(), FindAuthItemByRightName(kAuthorizationEnvironmentPassword) );
+                    if (found == context->end())
+                        break;
+                    string password(static_cast<const char *>(found->argument()), found->argumentLength());
+                    debug("SSevalMech", "found password");
+                    Credential newCredential(username, password, true); // create a new shared credential
+                    if (newCredential->isValid())
+                    {
+                        outCredentials.clear(); // only keep last one
+                        debug("SSevalMech", "inserting new credential");
+                        outCredentials.insert(newCredential);
+                        result = kAuthorizationResultAllow;
+                    } else
+                        result = kAuthorizationResultDeny;
+                } while (0);
+            }
+            else
+            if (*currentMechanism == "push_hints_to_context")
+            {
+                debug("SSevalMech", "evaluate push_hints_to_context");
+                userInteraction = false; // we can't talk to the user
+                result = kAuthorizationResultAllow; // snarfcredential doesn't block evaluation, ever, it may restart
+                // clean up current context
+                if (inContext)
+                {
+                    debug("SSevalMech", "release input context %p", inContext);
+                    alloc.free(inContext);
+                }
+                // create out context from input hints, no merge
+                // @@@ global copy template not being invoked...
+                outContext = Copier<AuthorizationItemSet>(*hints).keep();
+            }
+            else
+            if (*currentMechanism == "switch_to_user")
+            {
+                try {
+		    Process &cltProc = Server::active().connection().process;
+		    // Authorization preserves creator's UID in setuid processes
+		    uid_t cltUid = (cltProc.uid() != 0) ? cltProc.uid() : auth.creatorUid();
+                    debug("SSevalMech", "terminating agent at request of process %d (UID %d)\n", cltProc.pid(), cltUid);
+                    QueryTerminateAgent client(cltUid, auth);
+                    client();
+                } catch (...) {
+                    // Not our agent
+                }
+                result = kAuthorizationResultAllow;
+            }
+                
+            
+            
+        }
+        
+
+        // we own outHints and outContext
+        switch(result)
+        {
+            case kAuthorizationResultAllow:
+                debug("SSevalMech", "result allow");
+                currentMechanism++;
+                break;
+            case kAuthorizationResultDeny:
+                debug("SSevalMech", "result deny");
+                if (inContext)
+                {
+                    debug("SSevalMech", "abort eval, release input context %p", inContext);
+                    alloc.free(inContext);
+                }
+                if (inHints)
+                {
+                    debug("SSevalMech", "abort eval, release input hints %p", inHints);
+                    alloc.free(inHints);
+                }
+                outContext = outHints = NULL; // making sure things get reset
+                if (userInteraction)
+                {
+                    currentMechanism = mechanismNames.begin();
+                    result = kAuthorizationResultAllow; // stay in loop
+                }
+                break;
+            case kAuthorizationResultUndefined:
+                debug("SSevalMech", "result undefined");
+                break; // abort evaluation
+            case kAuthorizationResultUserCanceled:
+                debug("SSevalMech", "result canceled");
+                break; // stop evaluation, return some sideband
+            default:
+                break; // abort evaluation
+        }
+    }
+
+    // End of evaluation, if last step produced meaningful data, incorporate
+    if ((result == kAuthorizationResultAllow) ||
+        (result == kAuthorizationResultUserCanceled)) // @@@ can only pass back sideband through context
+    {
+        debug("SSevalMech", "make new context %p available", outContext);
+        auth.setInfoSet(*outContext);
+        outContext = NULL;
+    }
+    
+    // clean up last outContext and outHints, if any
+    if (outContext)
+    {
+        debug("SSevalMech", "release output context %p", outContext);
+        alloc.free(outContext);
+    }
+    if (outHints)
+    {
+        debug("SSevalMech", "release output hints %p", outHints);
+        alloc.free(outHints);
+    }
+    
+    // deny on user cancel
+    switch(result)
+    {
+        case kAuthorizationResultUndefined:
+            return errAuthorizationDenied;
+        case kAuthorizationResultDeny:
+            return errAuthorizationDenied;
+        default:
+            return errAuthorizationSuccess; // @@@ cancel should return cancelled
+    }
+}
+
 OSStatus
 Rule::evaluate(const Right &inRight,
     const AuthorizationEnvironment *environment, AuthorizationFlags flags,
 	CFAbsoluteTime now, const CredentialSet *inCredentials, CredentialSet &credentials,
-	const AuthorizationToken &auth)
+	AuthorizationToken &auth)
 {
 	switch (mType)
 	{
@@ -554,7 +655,10 @@ Rule::evaluate(const Right &inRight,
 	case kUserInGroup:
 		debug("autheval", "rule is user in group");
 		break;
-	default:
+    case kEvalMech:
+        debug("autheval", "rule evalutes mechanisms");
+        return evaluateMechanism(environment, auth, credentials); 
+    default:
 		Error::throwMe();
 	}
 
@@ -575,7 +679,11 @@ Rule::evaluate(const Right &inRight,
 	{
 		OSStatus status = evaluate(inRight, environment, now, *it, true);
 		if (status != errAuthorizationDenied)
+		{
+			// add credential to authinfo
+			auth.setCredentialInfo(*it);
 			return status;
+		}
 	}
 
 	// Second -- go though the credentials passed in to this authorize operation by the state management layer.
@@ -589,6 +697,9 @@ Rule::evaluate(const Right &inRight,
 				// Add the credential we used to the output set.
 				// @@@ Deal with potential credential merges.
 				credentials.insert(*it);
+                // add credential to authinfo
+                auth.setCredentialInfo(*it);
+                                
 				return status;
 			}
 			else if (status != errAuthorizationDenied)
@@ -604,14 +715,15 @@ Rule::evaluate(const Right &inRight,
 	if (!(flags & kAuthorizationFlagInteractionAllowed))
 		return errAuthorizationInteractionNotAllowed;
 
-	QueryAuthorizeByGroup query;
+	Process &cltProc = Server::active().connection().process;
+	// Authorization preserves creator's UID in setuid processes
+	uid_t cltUid = (cltProc.uid() != 0) ? cltProc.uid() : auth.creatorUid();
+        IFDEBUG(debug("autheval", "Auth query from process %d (UID %d)", cltProc.pid(), cltUid));
+	QueryAuthorizeByGroup query(cltUid, auth);
 
 	string usernamehint;
-	// @@@ This should really be the loginname of the proccess that originally created the AuthorizationRef.
-	// For now we get the pw_name of the user with the uid of the calling process.
-	uid_t uid = query.uid();
-	if (uid)
-	{
+    // username hint is taken from the user who created the authorization, unless it's clearly ineligible
+	if (uid_t uid = auth.creatorUid()) {
 		struct passwd *pw = getpwuid(uid);
 		if (pw != NULL)
 		{
@@ -621,14 +733,17 @@ Rule::evaluate(const Right &inRight,
 				// Check if username will authorize the request and set username to
 				// be used as a hint to the user if so
 				if (evaluate(inRight, environment, now, Credential(pw->pw_name, pw->pw_uid, pw->pw_gid, mShared), true) == errAuthorizationSuccess) {
+
 						// user long name as hint
 						usernamehint = string( pw->pw_gecos );
+#if 0
 						// minus other gecos crud
 						size_t comma = usernamehint.find(',');
 						if (comma)
 							usernamehint = usernamehint.substr(0, comma);
 						// or fallback to short username
-						if (usernamehint.size() == 0)
+#endif
+                    if (usernamehint.size() == 0)
 							usernamehint = string( pw->pw_name );
 				} //fi
 			} //fi
@@ -658,6 +773,10 @@ Rule::evaluate(const Right &inRight,
 				// @@@ Deal with potential credential merges.
 				credentials.insert(newCredential);
 				query.done();
+                        
+				// add credential to authinfo
+				auth.setCredentialInfo(newCredential);
+                                
 				return errAuthorizationSuccess;
 			}
 			else if (status != errAuthorizationDenied)
@@ -714,7 +833,8 @@ Rule::evaluate(const Right &inRight, const AuthorizationEnvironment *environment
 		return errAuthorizationDenied;
 
 	// Is this the default group of this user?
-	// <grp.h> declares gr_gid int, as opposed to advertised (getgrent(3)) gid_t
+	// PR-2875126 <grp.h> declares gr_gid int, as opposed to advertised (getgrent(3)) gid_t
+	// When this is fixed this warning should go away.
 	if (credential->gid() == gr->gr_gid)
 	{
 		debug("autheval", "user %s has group %s(%d) as default group, granting right %s",
@@ -801,7 +921,8 @@ Engine::~Engine()
 void
 Engine::updateRules(CFAbsoluteTime now)
 {
-	if (mRules.empty())
+    StLock<Mutex> _(mLock);
+    if (mRules.empty())
 		readRules();
 	else
 	{
@@ -957,6 +1078,8 @@ Rule
 Engine::getRule(const Right &inRight) const
 {
 	string key(inRight.rightName());
+    // Lock the rulemap
+    StLock<Mutex> _(mLock);
 	for (;;)
 	{
 		RuleMap::const_iterator it = mRules.find(key);
@@ -997,7 +1120,7 @@ Engine::getRule(const Right &inRight) const
 OSStatus
 Engine::authorize(const RightSet &inRights, const AuthorizationEnvironment *environment,
 	AuthorizationFlags flags, const CredentialSet *inCredentials, CredentialSet *outCredentials,
-	MutableRightSet *outRights, const AuthorizationToken &auth)
+	MutableRightSet *outRights, AuthorizationToken &auth)
 {
 	CredentialSet credentials;
 	MutableRightSet rights;
@@ -1074,3 +1197,5 @@ Engine::authorize(const RightSet &inRights, const AuthorizationEnvironment *envi
 
 	return status;
 }
+
+}	// end namespace Authorization

@@ -1,5 +1,5 @@
 {
    CFBundleName  = "DiskArbitration";
    CFBundleIdentifier = "com.apple.DiskArbitration";
-   CFBundleShortVersionString = "1.0.0";
+   CFBundleShortVersionString = "1.2.0";
 }

@@ -1,0 +1,59 @@
+## automake - create Makefile.in from Makefile.am
+## Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+## Free Software Foundation, Inc.
+
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2, or (at your option)
+## any later version.
+
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+## 02111-1307, USA.
+
+.%SUFFIX%.info:
+## We want to force the .info file to be built in srcdir.  This is
+## probably the simplest way.  However, at Cygnus .info files are
+## always put into the build directory.  So at runtime we select which
+## rule to use.
+## Note that we also remove the possible output files before running
+## makeinfo.  Otherwise, if the texinfo file shrinks (or if you start
+## using --no-split), you'll be left with some dead info files lying
+## around -- dead files which will end up in the distribution.
+?!CYGNUS?	@cd $(srcdir) && rm -f $@ $@-[0-9] $@-[0-9][0-9]
+?!CYGNUS?	cd $(srcdir) \
+?!CYGNUS?	  && $(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
+?!CYGNUS?	       `echo $< | sed 's,.*/,,'`
+?CYGNUS?	@rm -f $@ $@-[0-9] $@-[0-9][0-9]
+?CYGNUS?	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
+?CYGNUS?	  -I $(srcdir) $<
+
+.%SUFFIX%.dvi:
+	TEXINPUTS="%TEXINFODIR%$(PATH_SEPARATOR)$$TEXINPUTS" \
+## Must set MAKEINFO like this so that version.texi will be found even
+## if it is in srcdir.
+	MAKEINFO='$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -I $(srcdir)' \
+	$(TEXI2DVI) $<
+
+.%SUFFIX%:
+## We want to force the .info file to be built in srcdir.  This is
+## probably the simplest way.  However, at Cygnus .info files are
+## always put into the build directory.  So at runtime we select which
+## rule to use.
+## Note that we also remove the possible output files before running
+## makeinfo.  Otherwise, if the texinfo file shrinks (or if you start
+## using --no-split), you'll be left with some dead info files lying
+## around -- dead files which will end up in the distribution.
+?!CYGNUS?	@cd $(srcdir) && rm -f $@ $@-[0-9] $@-[0-9][0-9]
+?!CYGNUS?	cd $(srcdir) \
+?!CYGNUS?	  && $(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
+?!CYGNUS?	       `echo $< | sed 's,.*/,,'`
+?CYGNUS?	@rm -f $@ $@-[0-9] $@-[0-9][0-9]
+?CYGNUS?	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) \
+?CYGNUS?	  -I $(srcdir) $<

@@ -29,7 +29,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/print-dhcp6.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $";
+    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-dhcp6.c,v 1.1.1.2 2002/05/29 00:05:35 landonf Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -56,12 +56,12 @@ struct rtentry;
 #include "dhcp6opt.h"
 
 #if 0
-static void dhcp6opttab_init (void);
-static struct dhcp6_opt *dhcp6opttab_byname (char *);
+static void dhcp6opttab_init(void);
+static struct dhcp6_opt *dhcp6opttab_byname(char *);
 #endif
-static struct dhcp6_opt *dhcp6opttab_bycode (u_int);
+static struct dhcp6_opt *dhcp6opttab_bycode(u_int);
 
-static char tstr[] = " [|dhcp6]";
+static const char tstr[] = " [|dhcp6]";
 
 static struct dhcp6_opt dh6opttab[] = {
 	/* IP Address Extension */

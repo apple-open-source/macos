@@ -3842,7 +3842,7 @@ unsigned long *nextrel)
     struct scattered_relocation_info *sreloc;
     unsigned long r_address, r_extern, r_type, r_scattered, r_pcrel,
 		  r_symbolnum, r_value;
-    enum bool partial_section, pic;
+    enum bool partial_section, sectdiff, pic, has_sect_diff_relocs;
     enum bool flag_relocs, first_time;
 
 	/* to shut up compiler warning messages "may be used uninitialized" */
@@ -3859,6 +3859,7 @@ unsigned long *nextrel)
 	    flag_relocs = FALSE;
 	if(flag_relocs == TRUE)
 	    clear_read_only_reloc_flags();
+	has_sect_diff_relocs = FALSE;
 
 	*nlocrel = 0;
 	*nextrel = 0;
@@ -3931,10 +3932,13 @@ unsigned long *nextrel)
 		    continue;
 		}
 	    }
-	    if(r_extern == 0)
+	    if(r_extern == 0){
+		sectdiff = reloc_is_sectdiff(arch_flag.cputype, r_type);
+		has_sect_diff_relocs |= sectdiff;
 		pic = (enum bool)
-		      (reloc_is_sectdiff(arch_flag.cputype, r_type) ||
+		      (sectdiff == TRUE ||
 		       (r_pcrel == 1 && r_symbolnum != NO_SECT));
+	    }
 	    else
 		pic = FALSE;
 	    /*
@@ -4057,6 +4061,17 @@ unsigned long *nextrel)
 		warning_with_cur_obj("has local relocation entries in "
 		    "non-writable section (%.16s,%.16s)",
 		    map->s->segname, map->s->sectname);
+	}
+	if(sect_diff_reloc_flag != SECT_DIFF_RELOC_SUPPRESS &&
+	   has_sect_diff_relocs == TRUE){
+	    if(sect_diff_reloc_flag == SECT_DIFF_RELOC_ERROR)
+		error_with_cur_obj("has section difference relocation entries "
+		    "in section (%.16s,%.16s)", map->s->segname,
+		    map->s->sectname);
+	    else
+		warning_with_cur_obj("has section difference relocation entries"
+		    " in section (%.16s,%.16s)", map->s->segname,
+		    map->s->sectname);
 	}
 }
 

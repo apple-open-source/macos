@@ -16,9 +16,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
-#include <IOKit/iokitmig.h>
-#include <mach/mach_port.h>
-#include <IOKit/DV/IOFWDVClient.h>
+#include <IOKit/avc/IOFireWireAVCLib.h>
 
 #define DEBUG 0
 
@@ -32,8 +30,7 @@ struct ControlComponentInstance
     ComponentInstance	self;
     Boolean		fDeviceEnable;
     // X Stuff
-    UInt64		fGUID;				// persistent unique ID for each device
-    io_connect_t	fConnection;
+    IOFireWireAVCLibUnitInterface **fAVCInterface;
 };							
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -117,21 +114,15 @@ static pascal ComponentResult
 FWDVCDeviceControlDoAVCTransaction(ControlComponentInstancePtr dc,
                 DVCTransactionParams* inTransaction)
 {
-    ComponentResult result = noErr;
-    int size = inTransaction->responseBufferSize;
-    if ( dc->fConnection == kIDHInvalidDeviceID )
+    if ( dc->fAVCInterface == NULL )
             return(kIDHErrInvalidDeviceID);
 
     if ( !dc->fDeviceEnable )
             return(kIDHErrDeviceDisconnected);
-    result = io_connect_method_structureI_structureO(
-        dc->fConnection, kAVCCommand,
-        inTransaction->commandBufferPtr, inTransaction->commandLength,
-        inTransaction->responseBufferPtr, &size);
+    return (*dc->fAVCInterface)->AVCCommand(dc->fAVCInterface,
+            inTransaction->commandBufferPtr, inTransaction->commandLength,
+            inTransaction->responseBufferPtr, &inTransaction->responseBufferSize);
 
-    if(noErr == result)
-        inTransaction->responseBufferSize = size;
-    return result;
 }
 
 //====================================================================================
@@ -145,7 +136,7 @@ FWDVCDeviceControlEnableAVCTransactions(ControlComponentInstancePtr dc)
 {
     ComponentResult	result = noErr;
 
-    if ( dc->fConnection != (io_connect_t) kIDHInvalidDeviceID )
+    if ( dc->fAVCInterface != NULL )
             dc->fDeviceEnable = true;
     else
             result = kIDHErrDeviceNotOpened;
@@ -184,12 +175,11 @@ FWDVCDeviceControlSetDeviceConnectionID(
     if ( dc->fDeviceEnable )
             result = kIDHErrDeviceInUse;
     else {
-        if(dc->fConnection != kIDHInvalidDeviceID)
-            IOConnectRelease(dc->fConnection);
-        dc->fConnection = (io_connect_t)(connectionID);
-        if(dc->fConnection != kIDHInvalidDeviceID)
-            IOConnectAddRef(dc->fConnection);
-
+        if(dc->fAVCInterface != NULL)
+            (*dc->fAVCInterface)->Release(dc->fAVCInterface);
+        dc->fAVCInterface = (IOFireWireAVCLibUnitInterface **)(connectionID);
+        if(dc->fAVCInterface != NULL)
+            (*dc->fAVCInterface)->AddRef(dc->fAVCInterface);
     }
 
     return result;
@@ -205,7 +195,7 @@ static pascal ComponentResult
 FWDVCDeviceControlGetDeviceConnectionID(
                             ControlComponentInstancePtr dc, DeviceConnectionID* connectionID)
 {
-    *connectionID = (dc->fConnection);
+    *connectionID = (DeviceConnectionID)dc->fAVCInterface;
     return noErr;
 }
 
@@ -238,8 +228,8 @@ FWDVCComponentClose(ControlComponentInstancePtr storage, ComponentInstance self)
     if( !storage)
         return( noErr );
 
-    if(storage->fConnection != kIDHInvalidDeviceID)
-        IOConnectRelease(storage->fConnection);
+    if(storage->fAVCInterface != NULL)
+        (*storage->fAVCInterface)->Release(storage->fAVCInterface);
     DisposePtr((Ptr) storage);
 
     SetComponentInstanceStorage(self, (Handle) nil );

@@ -42,11 +42,12 @@ enum
     kIOCDAudioControlMethodCount      // (total number of methods supported)
 };
 
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/IOUserClient.h>
 #include <IOKit/storage/IOCDAudioControl.h>
@@ -154,6 +155,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOCDAudioControlUserClient,  7);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* _IOCDAUDIOCONTROLUSERCLIENT_H */

@@ -1,0 +1,25 @@
+{
+    FILESTABLE = {
+        Documentation = (README); 
+        Headers = (); 
+        Resources = (
+            "dollar-at.sh", 
+            "dollar-star.sh", 
+            "ifs-test-1.sh", 
+            "ifs-test-2.sh", 
+            "ifs-test-3.sh", 
+            "input-line.sh", 
+            varenv.sh
+        ); 
+        SUBPROJECTS = (misc); 
+        Sources = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = tests; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

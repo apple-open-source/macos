@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,18 +33,20 @@
 
 #include <IOKit/OSMessageNotification.h>
 #include <IOKit/firewire/IOFireWireFamilyCommon.h>
-#include"IOFireWireUserClient.h"
+#include <IOKit/firewire/IOFWAddressSpace.h>
+#include "IOFireWireUserClient.h"
 
 typedef union IOFWPacketHeader_t
 {
     typedef enum QueueTag_t
     {
         kFree = 0,
-        kStopPacket     = 'stop',
-        kBadPacket	   = ' bad',
-        kIncomingPacket = 'pckt',
-        kSkippedPacket = 'skip',
-		kReadPacket	= 'read'
+        kStopPacket     	= 'stop',
+        kBadPacket	   		= ' bad',
+        kIncomingPacket 	= 'pckt',
+        kSkippedPacket		= 'skip',
+		kReadPacket			= 'read',
+		kLockPacket			= 'lock'
     } QueueTag ;
 
     struct CommonHeader_t
@@ -54,7 +56,7 @@ typedef union IOFWPacketHeader_t
         OSAsyncReference*			whichAsyncRef ;
         UInt32						argCount ;
         
-        UInt32						args[10] ;
+        UInt32						args[9] ;
     } CommonHeader ;
 
     struct IncomingPacket_t
@@ -73,7 +75,9 @@ typedef union IOFWPacketHeader_t
         UInt32						speed ;
         UInt32						addrHi ;
         UInt32						addrLo ;
-        UInt32						lockWrite ;
+        UInt32						isLock ;
+		UInt32						generation ;
+		IOFWRequestRefCon			reqrefcon ;
 
     } IncomingPacket ;
 
@@ -106,10 +110,8 @@ typedef union IOFWPacketHeader_t
         UInt32						speed ;
         UInt32						addrHi ;
         UInt32						addrLo ;
-		int							tLabel ;
 		IOFWRequestRefCon			reqrefcon ;
 		UInt32						generation ;
-		
 	} ReadPacket ;
 
 public:
@@ -119,22 +121,21 @@ public:
 
 inline IOByteCount& IOFWPacketHeaderGetSize(IOFWPacketHeader_t* hdr) ;
 inline IOByteCount& IOFWPacketHeaderGetOffset(IOFWPacketHeader_t* hdr) ;
-inline void InitIncomingPacketHeader(IOFWPacketHeader* header,
-	const union IOFWPacketHeader_t* next,
+inline void InitIncomingPacketHeader(
+	IOFWPacketHeader_t*				header,
+	IOFWPacketHeader_t*				next,
 	const IOByteCount				len,
 	const IOByteCount				offset,
-	OSAsyncReference				ref,
-	void*							refCon,
+	OSAsyncReference*				ref,
 	UInt16							nodeID,
-	const IOFWSpeed&  				speed,
+	const IOFWSpeed&   				speed,
 	const FWAddress&				addr,
-	const Boolean					lockWrite) ;
+	const bool						isLock = false) ;	// generation used only for lock
 inline void InitSkippedPacketHeader(
 	IOFWPacketHeader*				header,
 	const union IOFWPacketHeader_t* next,
 	const IOByteCount				offset,
-	OSAsyncReference*				ref,
-	void*							refCon) ;
+	OSAsyncReference*				ref) ;
 inline void InitReadPacketHeader(
 	IOFWPacketHeader*				header,
 	IOFWPacketHeader*				next,
@@ -146,66 +147,77 @@ inline void InitReadPacketHeader(
 	IOFWSpeed&						speed,
 	FWAddress						addr,
 	IOFWRequestRefCon				reqrefcon) ;
+inline void	InitLockPacketHeader(
+	IOFWPacketHeader*				header,
+	IOFWPacketHeader*				next,
+	IOByteCount						len,
+	IOByteCount						offset,
+	OSAsyncReference*				ref,
+	UInt16							nodeID,
+	IOFWSpeed&						speed,
+	FWAddress						addr,
+	const UInt32					generation,
+	IOFWRequestRefCon				reqrefcon) ;
 inline Boolean IsSkippedPacketHeader(const union IOFWPacketHeader_t* header) ;
 inline Boolean IsFreePacketHeader(const union IOFWPacketHeader_t* header) ;
-inline Boolean IsReadPacketHeader(const union IOFWPacketHeader_t* header) ;
-
+//inline Boolean IsReadPacketHeader(const union IOFWPacketHeader_t* header) ;
 
 // To support mapping the memory descriptor within
 // a pseudo address space to user space, we need to add
 // accessors to IOFWPseudoAddressSpace. This class
 // implements the additional functionality.
-class IOFWUserClientPseudoAddrSpace: public IOFWPseudoAddressSpace
+class IOFWUserPseudoAddressSpace: public IOFWPseudoAddressSpace
 {
-	OSDeclareDefaultStructors(IOFWUserClientPseudoAddrSpace)
+	OSDeclareDefaultStructors(IOFWUserPseudoAddressSpace)
 
 public:
-//	virtual bool					initAll(
-//											IOFireWireUserClient*		me,
-//											IOMemoryDescriptor*			inPacketQueueBuffer,
-//											IOMemoryDescriptor*			inBackingStore,
-//											UInt32						inRefCon,
-//											IOFireWireController*		control,
-//											FWAddress*					addr,
-//											UInt32 						len, 
-//											FWReadCallback 				reader,
-//											FWWriteCallback 			writer,
-//											void*						refcon);
-	virtual bool					initAll( 
-											IOFireWireUserClient*		inUserClient, 
-											FWAddrSpaceCreateParams* 	inParams) ;
-
-	// override deactivate so we can delete any notification related structures...
+	// --- OSObject ----------
+	#if IOFIREWIREUSERCLIENTDEBUG > 0
+    virtual bool 					serialize(OSSerialize *s) const;
+	#endif
 	virtual void					free() ;
+
+	// --- IOFWPseudoAddressSpace ----------
+	// override deactivate so we can delete any notification related structures...
+	virtual IOReturn				activate() ;
 	virtual void					deactivate() ;
 	
-	// === getters ==========
-    const FWAddress& 				getBase() { return fBase;}
-	const UInt32					getLength() { return fLen; }
+	bool							completeInit( 
+											IOFireWireUserClient*		inUserClient, 
+											FWAddrSpaceCreateParams* 	inParams) ;
+	bool							initPseudo( 
+											IOFireWireUserClient*		inUserClient, 
+											FWAddrSpaceCreateParams* 	inParams) ;
+	bool							initFixed(
+											IOFireWireUserClient*		inUserClient,
+											FWAddrSpaceCreateParams*	inParams ) ;
+	virtual UInt32 					doLock(
+											UInt16 						nodeID, 
+											IOFWSpeed &					speed, 
+											FWAddress 					addr, 
+											UInt32 						inLen,
+											const UInt32 *				newVal, 
+											UInt32 &					outLen, 
+											UInt32 *					oldVal, 
+											UInt32 						type,
+											IOFWRequestRefCon 			refcon) ;
+
+	UInt32							doPacket(
+											UInt16							nodeID,
+											IOFWSpeed&						speed,
+											FWAddress						addr,
+											UInt32							len,
+											const void*						buf,
+											IOFWRequestRefCon				reqrefcon,
+											IOFWPacketHeader::QueueTag		tag,
+											UInt32*							oldVal = NULL) ;
+
+	// --- getters ----------
+    const FWAddress& 				getBase() { return fAddress ; }
 	const UInt32					getUserRefCon() { return fUserRefCon ;}
 	const IOFireWireUserClient&		getUserClient() { return *fUserClient ;}
 
-    static 	UInt32 					simpleReader(
-											void*					refcon,
-											UInt16 					nodeID,
-											IOFWSpeed &				speed,
-											FWAddress 				addr,
-											UInt32 					len,
-											IOMemoryDescriptor**	buf,
-											IOByteCount* 			offset,
-                                            IOFWRequestRefCon		reqrefcon)
-											{ return IOFWPseudoAddressSpace::simpleReader(refcon, nodeID, speed, addr, len, buf, offset, reqrefcon); }
-    
-    static 	UInt32 					simpleWriter(
-											void*					refcon,
-											UInt16 					nodeID,
-											IOFWSpeed&				speed,
-											FWAddress 				addr,
-											UInt32 					len,
-											const void*				buf,
-                                            IOFWRequestRefCon		reqrefcon)
-											{ return IOFWPseudoAddressSpace::simpleWriter(refcon, nodeID, speed, addr, len, buf, reqrefcon); }
-
+	// --- readers/writers ----------
     static UInt32					pseudoAddrSpaceReader(
                                             void*					refCon,
                                             UInt16					nodeID,
@@ -223,39 +235,40 @@ public:
                                             UInt32					len,
                                             const void*				buf,
                                             IOFWRequestRefCon		reqrefcon) ;
-	virtual void					setAsyncRef_Packet(
+
+	// --- async utility functions ----------
+	void							setAsyncRef_Packet(
 											OSAsyncReference		inAsyncRef) ;
-	virtual void					setAsyncRef_SkippedPacket(
+	void							setAsyncRef_SkippedPacket(
 											OSAsyncReference		inAsyncRef) ;
-	virtual void					setAsyncRef_Read(
+	void							setAsyncRef_Read(
 											OSAsyncReference		inAsyncRef) ;
-	virtual void					clientCommandIsComplete(
+	void							clientCommandIsComplete(
 											FWClientCommandID		inCommandID,
 											IOReturn				inResult ) ;
 	void							sendPacketNotification(
 											IOFWPacketHeader*		inPacketHeader) ;
 private:
-    IOMemoryDescriptor*		fPacketQueueBuffer ;
-//	IOMemoryDescriptor*		fBackingStore ;
+    IOMemoryDescriptor*			fPacketQueueBuffer ;			// the queue where incoming packets, etc., go
+	IOLock*						fLock ;							// to lock this object
+
+	UInt32						fUserRefCon ;
+	IOFireWireUserClient*		fUserClient ;
+	IOFWPacketHeader*			fLastWrittenHeader ;
+	IOFWPacketHeader*			fLastReadHeader ;
+	UInt32						fBufferAvailable ;				// amount of queue space remaining
+	FWAddress					fAddress ;						// where we are
 	
-	IOLock*					fLock ;
+	OSAsyncReference			fSkippedPacketAsyncNotificationRef ;
+	OSAsyncReference			fPacketAsyncNotificationRef ;
+	OSAsyncReference			fReadAsyncNotificationRef ;
+	bool						fWaitingForUserCompletion ;
+	bool						fUserLocks ;					// are we doing locks in user space?
 	
-	UInt32					fUserRefCon ;
-	IOFireWireUserClient*	fUserClient ;
-	IOFWPacketHeader*		fLastWrittenHeader ;
-	IOFWPacketHeader*		fLastReadHeader ;
-	UInt32					fBufferAvailable ;
-	FWAddress				fAddress ;
+	UInt32						fFlags ;
 	
-	OSAsyncReference		fSkippedPacketAsyncNotificationRef ;
-	OSAsyncReference		fPacketAsyncNotificationRef ;
-	OSAsyncReference		fReadAsyncNotificationRef ;
-	bool					fWaitingForUserCompletion ;
-	
-	UInt32					fFlags ;
-	
-	Boolean					fPacketQueuePrepared ;
-	Boolean					fBackingStorePrepared ;
+	Boolean						fPacketQueuePrepared ;
+	Boolean						fBackingStorePrepared ;
 } ;
 
 #endif //__IOFWUserClientPsduAddrSpace_H__

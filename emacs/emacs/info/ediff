@@ -1,50 +1,65 @@
-This is Info file ../info/ediff, produced by Makeinfo version 1.68 from
-the input file ediff.texi.
+This is ../info/ediff, produced by makeinfo version 4.0 from ediff.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Ediff: (ediff).       A visual interface for comparing and merging programs.
 END-INFO-DIR-ENTRY
 
-   This file documents Ediff, a comprehensive visual interface to Unix
-diff and patch utilities.
+   This file documents Ediff, a comprehensive visual interface to diff
+and patch utilities.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software
+Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 Indirect:
-ediff-1: 509
-ediff-2: 48497
-ediff-3: 94302
+ediff-1: 1307
+ediff-2: 50904
+ediff-3: 99853
 
 Tag Table:
 (Indirect)
-Node: Top509
-Node: Introduction1108
-Node: Major Entry Points3496
-Node: Session Commands11635
-Node: Quick Help Commands13152
-Node: Other Session Commands30477
-Node: Registry of Ediff Sessions32635
-Node: Session Groups34191
-Node: Remote and Compressed Files39428
-Node: Customization40659
-Node: Hooks42611
-Node: Quick Help Customization47491
-Node: Window and Frame Configuration48497
-Node: Selective Browsing54393
-Node: Highlighting Difference Regions58575
-Node: Narrowing63460
-Node: Refinement of Difference Regions64733
-Node: Patch and Diff Programs67661
-Node: Merging and diff371718
-Node: Support for Version Control80352
-Node: Customizing the Mode Line81933
-Node: Miscellaneous82778
-Node: Notes on Heavy-duty Customization87734
-Node: Credits90305
-Node: Index94302
+Node: Top1307
+Node: Introduction1906
+Node: Major Entry Points4294
+Node: Session Commands13637
+Node: Quick Help Commands15154
+Node: Other Session Commands33482
+Node: Registry of Ediff Sessions35640
+Node: Session Groups37195
+Node: Remote and Compressed Files42427
+Node: Customization43658
+Node: Hooks45610
+Node: Quick Help Customization50904
+Node: Window and Frame Configuration51910
+Node: Selective Browsing57865
+Node: Highlighting Difference Regions62047
+Node: Narrowing66777
+Node: Refinement of Difference Regions68050
+Node: Patch and Diff Programs70978
+Node: Merging and diff375546
+Node: Support for Version Control85345
+Node: Customizing the Mode Line86958
+Node: Miscellaneous87803
+Node: Notes on Heavy-duty Customization92759
+Node: Credits95330
+Node: Index99853
 
 End Tag Table

@@ -1,10 +1,11 @@
 ;;; pop3.el --- Post Office Protocol (RFC 1460) interface
 
-;; Copyright (C) 1996,1997,1998 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 1997, 1998, 1999, 2000
+;;        Free Software Foundation, Inc.
 
 ;; Author: Richard L. Pieri <ratinox@peorth.gweep.net>
-;; Keywords: mail, pop3
-;; Version: 1.3m
+;; Maintainer: FSF
+;; Keywords: mail
 
 ;; This file is part of GNU Emacs.
 
@@ -35,9 +36,6 @@
 ;;; Code:
 
 (require 'mail-utils)
-(provide 'pop3)
-
-(defconst pop3-version "1.3m")
 
 (defvar pop3-maildrop (or (user-login-name) (getenv "LOGNAME") (getenv "USER") nil)
   "*POP3 maildrop.")
@@ -59,9 +57,6 @@ values are 'apop.")
 (defvar pop3-timestamp nil
   "Timestamp returned when initially connected to the POP server.
 Used for APOP authentication.")
-
-(defvar pop3-movemail-file-coding-system nil
-  "Crashbox made by pop3-movemail with this coding system.")
 
 (defvar pop3-read-point nil)
 (defvar pop3-debug nil)
@@ -86,52 +81,70 @@ Used for APOP authentication.")
 	  ((equal 'pass pop3-authentication-scheme)
 	   (pop3-user process pop3-maildrop)
 	   (pop3-pass process))
-	  (t (error "Invalid POP3 authentication scheme.")))
+	  (t (error "Invalid POP3 authentication scheme")))
     (setq message-count (car (pop3-stat process)))
-    (while (<= n message-count)
-      (message (format "Retrieving message %d of %d from %s..."
-		       n message-count pop3-mailhost))
-      (pop3-retr process n crashbuf)
-      (save-excursion
-	(set-buffer crashbuf)
-	(let ((coding-system-for-write pop3-movemail-file-coding-system))
-	  (append-to-file (point-min) (point-max) crashbox))
-	(set-buffer (process-buffer process))
-	(while (> (buffer-size) 5000)
-	  (goto-char (point-min))
-	  (forward-line 50)
-	  (delete-region (point-min) (point))))
-      (pop3-dele process n)
-      (setq n (+ 1 n))
-      (if pop3-debug (sit-for 1) (sit-for 0.1))
-      )
-    (pop3-quit process)
+    (unwind-protect
+	(while (<= n message-count)
+	  (message (format "Retrieving message %d of %d from %s..."
+			   n message-count pop3-mailhost))
+	  (pop3-retr process n crashbuf)
+	  (save-excursion
+	    (set-buffer crashbuf)
+	    (let ((coding-system-for-write 'binary))
+	      (write-region (point-min) (point-max) crashbox t 'nomesg))
+	    (set-buffer (process-buffer process))
+	    (while (> (buffer-size) 5000)
+	      (goto-char (point-min))
+	      (forward-line 50)
+	      (delete-region (point-min) (point))))
+	  (pop3-dele process n)
+	  (setq n (+ 1 n))
+	  (if pop3-debug (sit-for 1) (sit-for 0.1))
+	  )
+      (pop3-quit process))
     (kill-buffer crashbuf)
     )
-  )
+  t)
+
+(defun pop3-get-message-count ()
+  "Return the number of messages in the maildrop."
+  (let* ((process (pop3-open-server pop3-mailhost pop3-port))
+	 message-count
+	 (pop3-password pop3-password)
+	 )
+    ;; for debugging only
+    (if pop3-debug (switch-to-buffer (process-buffer process)))
+    ;; query for password
+    (if (and pop3-password-required (not pop3-password))
+	(setq pop3-password
+	      (pop3-read-passwd (format "Password for %s: " pop3-maildrop))))
+    (cond ((equal 'apop pop3-authentication-scheme)
+	   (pop3-apop process pop3-maildrop))
+	  ((equal 'pass pop3-authentication-scheme)
+	   (pop3-user process pop3-maildrop)
+	   (pop3-pass process))
+	  (t (error "Invalid POP3 authentication scheme")))
+    (setq message-count (car (pop3-stat process)))
+    (pop3-quit process)
+    message-count))
 
 (defun pop3-open-server (mailhost port)
-  "Open TCP connection to MAILHOST.
+  "Open TCP connection to MAILHOST on PORT.
 Returns the process associated with the connection."
-  (let ((process-buffer
-	 (get-buffer-create (format "trace of POP session to %s" mailhost)))
-	(process)
-	(coding-system-for-read 'binary)
+  (let ((coding-system-for-read 'binary)
 	(coding-system-for-write 'binary)
-    )
+	process)
     (save-excursion
-      (set-buffer process-buffer)
+      (set-buffer (get-buffer-create (concat " trace of POP session to "
+					     mailhost)))
       (erase-buffer)
       (setq pop3-read-point (point-min))
-      )
-    (setq process
-	  (open-network-stream "POP" process-buffer mailhost port))
-    (let ((response (pop3-read-response process t)))
-      (setq pop3-timestamp
-	    (substring response (or (string-match "<" response) 0)
-		       (+ 1 (or (string-match ">" response) -1)))))
-    process
-    ))
+      (setq process (open-network-stream "POP"(current-buffer) mailhost port))
+      (let ((response (pop3-read-response process t)))
+	(setq pop3-timestamp
+	      (substring response (or (string-match "<" response) 0)
+			 (+ 1 (or (string-match ">" response) -1)))))
+      process)))
 
 ;; Support functions
 
@@ -149,8 +162,7 @@ Returns the process associated with the connection."
 ;;      (insert command "\r\n"))
     (setq pop3-read-point (point))
     (goto-char (point-max))
-    (process-send-string process command)
-    (process-send-string process "\r\n")
+    (process-send-string process (concat command "\r\n"))
     )
 
 (defun pop3-read-response (process &optional return)
@@ -176,22 +188,6 @@ Return the response string if optional second argument is non-nil."
 	    t)
 	  )))))
 
-(defun pop3-string-to-list (string &optional regexp)
-  "Chop up a string into a list."
-  (let ((list)
-	(regexp (or regexp " "))
-	(string (if (string-match "\r" string)
-		    (substring string 0 (match-beginning 0))
-		  string)))
-    (store-match-data nil)
-    (while string
-      (if (string-match regexp string)
-	  (setq list (cons (substring string 0 (- (match-end 0) 1)) list)
-		string (substring string (match-end 0)))
-	(setq list (cons string list)
-	      string nil)))
-    (nreverse list)))
-
 (defvar pop3-read-passwd nil)
 (defun pop3-read-passwd (prompt)
   (if (not pop3-read-passwd)
@@ -215,9 +211,31 @@ Return the response string if optional second argument is non-nil."
       (forward-char)))
   (set-marker end nil))
 
+(eval-when-compile (defvar parse-time-months))
+
+;; Copied from message-make-date.
+(defun pop3-make-date (&optional now)
+  "Make a valid date header.
+If NOW, use that time instead."
+  (require 'parse-time)
+  (let* ((now (or now (current-time)))
+	 (zone (nth 8 (decode-time now)))
+	 (sign "+"))
+    (when (< zone 0)
+      (setq sign "-")
+      (setq zone (- zone)))
+    (concat
+     (format-time-string "%d" now)
+     ;; The month name of the %b spec is locale-specific.  Pfff.
+     (format " %s "
+	     (capitalize (car (rassoc (nth 4 (decode-time now))
+				      parse-time-months))))
+     (format-time-string "%Y %H:%M:%S " now)
+     ;; We do all of this because XEmacs doesn't have the %z spec.
+     (format "%s%02d%02d" sign (/ zone 3600) (/ (% zone 3600) 60)))))
+
 (defun pop3-munge-message-separator (start end)
   "Check to see if a message separator exists.  If not, generate one."
-  (if (not (fboundp 'message-make-date)) (autoload 'message-make-date "message"))
   (save-excursion
     (save-restriction
       (narrow-to-region start end)
@@ -227,8 +245,9 @@ Return the response string if optional second argument is non-nil."
 		   (looking-at "BABYL OPTIONS:") ; Babyl
 		   ))
 	  (let ((from (mail-strip-quoted-names (mail-fetch-field "From")))
-		(date (pop3-string-to-list (or (mail-fetch-field "Date")
-					       (message-make-date))))
+		(date (split-string (or (mail-fetch-field "Date")
+					(pop3-make-date))
+				    " "))
 		(From_))
 	    ;; sample date formats I have seen
 	    ;; Date: Tue, 9 Jul 1996 09:04:21 -0400 (EDT)
@@ -252,7 +271,18 @@ Return the response string if optional second argument is non-nil."
 	      (setq From_ (concat (substring From_ 0 (match-beginning 0))
 				  (substring From_ (match-end 0)))))
 	    (goto-char (point-min))
-	    (insert From_))))))
+	    (insert From_)
+	    (if (search-forward "\n\n" nil t)
+		nil
+	      (goto-char (point-max))
+	      (insert "\n"))
+	    (narrow-to-region (point) (point-max))
+	    (let ((size (- (point-max) (point-min))))
+	      (goto-char (point-min))
+	      (widen)
+	      (forward-line -1)
+	      (insert (format "Content-Length: %s\n" size)))
+	    )))))
 
 ;; The Command Set
 
@@ -263,7 +293,7 @@ Return the response string if optional second argument is non-nil."
   (pop3-send-command process (format "USER %s" user))
   (let ((response (pop3-read-response process t)))
     (if (not (and response (string-match "+OK" response)))
-	(error (format "USER %s not valid." user)))))
+	(error (format "USER %s not valid" user)))))
 
 (defun pop3-pass (process)
   "Send authentication information to the server."
@@ -288,26 +318,28 @@ Return the response string if optional second argument is non-nil."
 
 ;; TRANSACTION STATE
 
-(defvar pop3-md5-program "md5"
-  "*Program to encode its input in MD5.")
+(eval-and-compile
+  (if (fboundp 'md5)
+      (defalias 'pop3-md5 'md5)
+    (defvar pop3-md5-program "md5"
+      "*Program to encode its input in MD5.")
 
-(defun pop3-md5 (string)
-  (with-temp-buffer
-    (insert string)
-    (call-process-region (point-min) (point-max)
-			 (or shell-file-name "/bin/sh")
-			 t (current-buffer) nil
-			 "-c" pop3-md5-program)
-    ;; The meaningful output is the first 32 characters.
-    ;; Don't return the newline that follows them!
-    (buffer-substring (point-min) (+ (point-min) 32))))
+    (defun pop3-md5 (string)
+      (with-temp-buffer
+	(insert string)
+	(call-process-region (point-min) (point-max)
+			     pop3-md5-program
+			     t (current-buffer) nil)
+	;; The meaningful output is the first 32 characters.
+	;; Don't return the newline that follows them!
+	(buffer-substring 1 33)))))
 
 (defun pop3-stat (process)
   "Return the number of messages in the maildrop and the maildrop's size."
   (pop3-send-command process "STAT")
   (let ((response (pop3-read-response process t)))
-    (list (string-to-int (nth 1 (pop3-string-to-list response)))
-	  (string-to-int (nth 2 (pop3-string-to-list response))))
+    (list (string-to-int (nth 1 (split-string response " ")))
+	  (string-to-int (nth 2 (split-string response " "))))
     ))
 
 (defun pop3-list (process &optional msg)
@@ -369,7 +401,7 @@ This function currently does nothing.")
   "Return highest accessed message-id number for the session."
   (pop3-send-command process "LAST")
   (let ((response (pop3-read-response process t)))
-    (string-to-int (nth 1 (pop3-string-to-list response)))
+    (string-to-int (nth 1 (split-string response " ")))
     ))
 
 (defun pop3-rset (process)
@@ -470,3 +502,7 @@ and close the connection."
 ;; Restrictions: none
 ;; Possible responses:
 ;;  +OK [TCP connection closed]
+
+(provide 'pop3)
+
+;;; pop3.el ends here

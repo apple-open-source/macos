@@ -1,18 +1,374 @@
-2000-06-13  Gerd Moellmann  <gerd@gnu.org>
+2001-10-20  Gerd Moellmann  <gerd@gnu.org>
 
-	* Version 20.7 released.
-	
-2000-02-26  Gerd Moellmann  <gerd@gnu.org>
+	* Version 21.1 released.
 
-	* Version 20.6 released.
-	
-1999-12-04  Gerd Moellmann  <gerd@gnu.org>
+2001-09-29  Eli Zaretskii  <eliz@is.elta.co.il>
 
-	* Version 20.5 released.
-	
+	* HELLO: Fix the Italian and Maltese entries.  From Trevor Spiteri
+	<tbspit@eng.um.edu.mt>.
+
+2001-08-25  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* HELLO: Slovak language name added to be compatible with other
+	languages.
+
+2001-08-23  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* TUTORIAL.pl: Updated in accordance with the English version.
+	From Beata Wierzcho,B3(Bowska <beataw@orient.uw.edu.pl> and
+	Janusz S. Bien <jsbien@mail.uw.edu.pl>
+
+2001-08-14  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* MACHINES: Modify the entry for HITACHI SR2001/SR2201 series, as
+	per config.sub and config.guess.  Reported by Ryo Furue
+	<furufuru@ccsr.u-tokyo.ac.jp>.
+
+2001-08-10  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* TUTORIAL.sk: Updated in accordance with the English version.
+	From Miroslav Va,B9(Bko <vasko@debian.cz>.
+
+2001-08-08  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* TUTORIAL.ko: Updated in accordance with the English version.
+	From Koaunghi Un <koaunghi@world.kaist.ac.kr>.
+
+2001-08-06  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* TUTORIAL.cs: Update from Milan Zamazal.
+
+2001-08-05  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* TUTORIAL.cs, TUTORIAL.sk, cs-refcard.tex, sk-refcard.tex: e-mail
+	address of Milan Zamazal changed.
+
+2001-08-04  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* TUTORIAL, TUTORIAL.cs: Be consistent when naming CONTROL and
+	META keys.
+
+2001-05-17  Francesco Potorti`  <pot@gnu.org>
+
+	* etags.1: Add the latest changes to etags behaviour.
+
+2001-05-04  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* emacsclient.1: Place in the public domain.
+
+2001-04-29  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* emacstool.1: Place under GFDL.
+
+2001-04-25  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* emacs.1: Place under GFDL.
+
+	* etags.1: Ditto.
+
+	* gfdl.1: New file.
+
+2001-04-18  Gerd Moellmann  <gerd@gnu.org>
+
+	* TUTORIAL.sk, sk-survival.tex
+	* sk-refcard.ps, sk-refcard.tex, sk-dired-ref.ps
+	* sk-dired-ref.tex: New files.
+
+	* cs-survival.tex, cs-dired-ref.ps, cs-dired-ref.tex: New files.
+	From Pavel@Janik.cz (Pavel Jan,Bm(Bk).
+
+2001-04-10  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin1.ps: Footer implementation.  Doc fix.
+	(doLineNumber): Code fix for line number color.
+	(BeginPage, BeginSheet, HeaderFramePath, HeaderFrame, HeaderText): Code
+	fix for footer implementation.
+	(TextStart, SetFooterLines, FooterFrameStart, doFramePath)
+	(FooterFramePath, doFrame, FooterFrame, FooterStart)
+	(HeaderOrFooterTextLines, HeaderOrFooterText, FooterText): New funs.
+
+2001-04-03  Gerd Moellmann  <gerd@gnu.org>
+
+	* splash8.xpm: New image from Luis Fernandes <elf@ee.ryerson.ca>
+	for color depth 8.
+
+2001-04-02  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin1.ps: Line and paragraph spacing feature.
+	(LineHS, ParagraphHS, EffectUnderline, EffectStrikeou, EffectOverline)
+	(EffectShadow, EffectBox, EffectOutline): New vars.
+	(PSL, S, EF, printZebra, doColumnZebra, doZebra): Code fix.
+	(PHL, LHL): New funs.
+
+	* ps-prin2.ps: File eliminated.
+
+2001-03-26  Gerd Moellmann  <gerd@gnu.org>
+
+	* splash.pbm: New image from Luis Fernandes <elf@ee.ryerson.ca>.
+
+2001-03-15  Gerd Moellmann  <gerd@gnu.org>
+
+	* splash.xpm, splash.pbm: Replaced with new images from
+	Luis Fernandes <elf@ee.ryerson.ca>.
+
+2001-03-05  Gerd Moellmann  <gerd@gnu.org>
+
+	* cs-refcard.ps, cs-refcard.tex: New files.
+
+2001-02-26  Gerd Moellmann  <gerd@gnu.org>
+
+	* THE-GNU-PROJECT: New file.
+
+2001-02-22  Andrew Innes  <andrewi@gnu.org>
+
+	* MACHINES: Update pointer to MS-Windows install instructions.
+
+2001-02-20  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin1.ps: Code fix to support `ps-zebra-stripe-follow'
+	functionality enhancement.
+	(doColumnZebra): Code fix.
+
+2001-02-08  Dave Love  <fx@gnu.org>
+
+	* tasks.texi, SERVICE: Updated.
+
+2001-02-03  Andrew Innes  <andrewi@gnu.org>
+
+	* PROBLEMS: Add note about need to specify extra compiler flags
+	with recent Cygwin ports of gcc.
+
+2001-01-27  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* DEBUG: Expand and update, based on the instructions to
+	pretesters, nt/INSTALL, and private communications and experience.
+
+2001-01-17  Dave Love  <fx@gnu.org>
+
+	* termcap.src: New version from http://www.tuxedo.org/~esr/terminfo/.
+
+2001-01-08  Gerd Moellmann  <gerd@gnu.org>
+
+	* TUTORIAL.es: New file.
+
+2001-01-08  Kevin Gallagher  <kevingal@onramp.net>
+
+	* edt-user.doc: Updated to reflect EDT Emulation version 4.0
+        enhancements.
+
+2000-12-29  Gerd Moellmann  <gerd@gnu.org>
+
+	* fr-refcard.tex, fr-refcard.ps, fr-drdref.tex, fr-drdref.ps: New
+	files.
+
+2000-12-29  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin1.ps: Handle form feed better when ps-zebra-stripe-follow
+	is non-nil.
+	(printZebra, BeginPage): Code fix.
+
+2000-12-15  Miles Bader  <miles@gnu.org>
+
+	* DEBUG: Add note aboute using `inverse-video' to detect excessive
+	screen redraw.
+
+2000-12-07  Dave Love  <fx@gnu.org>
+
+	* CODINGS, CHARSETS: Removed.  (Mule 2.3 relics.)
+
+2000-11-30  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin1.ps: Eliminated the line number font predefinition.
+
+2000-11-09  Kenichi Handa  <handa@etl.go.jp>
+
+	* TUTORIAL.ja: Adjusted for the change of TUTORIAL (use C-x C-l,
+	not M-:, as example of disabled command).
+
+2000-11-02  Gerd Moellmann  <gerd@gnu.org>
+
+	* ONEWS.1, ONEWS.2, ONEWS.3, ONEWS.4: Renamed from NEWS.*.
+
+2000-10-16  Gerd Moellmann  <gerd@gnu.org>
+
+	* 3B-MAXMEM, AIX.DUMP, SUN-SUPPORT: Removed.
+
+	* tasks.texi: Updated to the version from /gd/gnuorg.
+
+	* FTP: Refer to the GNU web site.
+
+2000-10-12  Dave Love  <fx@gnu.org>
+
+	* gnus.pbm: New file.
+
+	* gnus.xbm: Deleted.
+
+2000-10-05  Miles Bader  <miles@lsi.nec.co.jp>
+
+	* gnus-pointer.xbm, gnus-pointer.xpm: Remove top empty line.
+
+2000-09-22  Gerd Moellmann  <gerd@gnu.org>
+
+	* splash.xbm: File removed.
+	* splash.pbm: New file.
+
+2000-09-20  Gerd Moellmann  <gerd@gnu.org>
+
+	* splash.xbm: New file.
+
+2000-09-19  Gerd Moellmann  <gerd@gnu.org>
+
+	* splash.xpm: New file.
+
+2000-09-11  Dave Love  <fx@gnu.org>
+
+	* gnus.xbm, gnus.xpm, gnus-pointer.xpm, gnus-pointer.xbm: New
+	files.
+
+2000-08-29  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin3.ps: Eliminated.
+
+	* ps-prin2.ps: Changed comment version (6.0).
+
+	* ps-prin1.ps: Changed comment version (6.0).
+
+	* ps-prin0.ps: Changed comment version (6.0).
+
+2000-08-24  Wlodzimierz Bzyl <matwb@univ.gda.pl>
+
+	* survival.tex: New file.
+
+2000-08-21  Gerd Moellmann  <gerd@gnu.org>
+
+	* de-refcard.ps, de-refcard.tex: Renamed from refcard-de.*.
+
+	* pl-refcard.ps, pl-refcard.tex: Renamed from refcard-pl.*.
+
+2000-08-17  Gerd Moellmann  <gerd@gnu.org>
+
+	* NEWS.1: Reintegrated into NEWS.
+
+	* OOOOONEWS...OONEWS: Renamed to NEWS.1...NEWS.4.
+
+2000-08-16  Gerd Moellmann  <gerd@gnu.org>
+
+	* dired-ref.tex, dired-ref.ps: New files.
+
+	* refcard-de.tex, refcard-de.ps: New files.
+
+2000-07-20  Gerd Moellmann  <gerd@gnu.org>
+
+	* emacs.1: Change `-b' to `-bw'.
+
+2000-07-07  Andreas Schwab  <schwab@suse.de>
+
+	* yow.lines: Fix indentation.
+
+2000-06-07  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin0.ps: Insert a version number comment (5.2.2).
+	Indentation fix.
+
+	* ps-prin1.ps: Insert a version number comment (5.2.2).  Can
+	select page size with/without giving an error if PostScript
+	printer doesn't have this kind of page size.  Zebra Stripe
+	continues or restarts on next page.  Indentation fix.
+	(BeginSheet): If necessary, rescale n-up to fit on the sheet of
+	paper.
+	(BeginDoc, doColumnZebra, HeaderText): Code fix.
+	(SetPageSize): New proc.
+
+	* ps-prin2.ps: Insert a version number comment (5.2.2).
+
+	* ps-prin3.ps: Insert a version number comment (5.2.2).
+	Indentation fix.
+
+2000-05-18  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin1.ps: PostScript code compatibility with other utilities
+	like mpage, psnup, etc.
+	(isLineStep): Code fix.
+	(BeginDoc, BeginSheet): Utility compatibility.
+
+2000-05-03  Dave Love  <fx@gnu.org>
+
+	* letter.xbm: New file.
+
+2000-04-29  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin0.ps: PostScript level 1 compatibility.
+
+	* ps-prin1.ps: PostScript level 1 compatibility, Upside-down
+	printing and line number step.
+	(BeginDoc, doLineNumber, SL, HL): Code fix.
+	(isLineStep, PSL): New funs.
+
+	* ps-prin3.ps: PostScript level 1 compatibility.
+
+2000-04-10  Gerd Moellmann  <gerd@gnu.org>
+
+	* refcard.bit: Removed.
+
+2000-04-10  Wlodzimierz Bzyl  <matwb@monika.univ.gda.pl>
+
+	* refcard-pl.ps: New file.
+	* refcard-pl.tex: New file.
+
+2000-03-30  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin0.ps: Replace gs_languagelevel by languagelevel.
+	(DefOp): New proc.
+
+	* ps-prin1.ps: Replace gs_languagelevel by languagelevel.
+	(printBackground, SetColor): New procs.
+	(ZebraColor): Renaming old ZebraGray var.
+
+2000-03-23  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin1.ps: Eliminate SkipFirstPage.
+
+2000-03-22  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin0.ps: Define command only for language level 1.
+
+2000-03-16  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin0.ps: Define packedarray operator for language level 1,
+	adjust setduplexmode and settumble definitions.
+
+2000-03-15  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-print0.ps: New file.
+
+	* ps-prin1.ps, ps-prin3.ps: Eliminate CheckConfig.
+
+2000-01-05  Vinicius Jose Latorre  <vinicius@cpqd.com.br>
+
+	* ps-prin1.ps, ps-prin2.ps, ps-prin3.ps: New files.
+
 1999-11-30  Paul Eggert  <eggert@twinsun.com>
 
 	* PROBLEMS: Update Solaris 2.6 and 7 problems.
+
+1999-11-22  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS: Rename messages-locale to system-messages-locale
+	and time-locale to system-time-locale.
+
+1999-10-24  Noah Friedman  <friedman@splode.com>
+
+	* yow.lines: Add more quotes.  Correct a misquote.
+
+	* spook.lines: Add more phrases.
+
+1999-10-23  Paul Eggert  <eggert@twinsun.com>
+
+	* NEWS: Describe new functions and variables for locales.
+
+1999-10-07  Gerd Moellmann  <gerd@gnu.org>
+
+	* TUTORIAL.ro: Change copyright statement.
 
 1999-07-12  Richard Stallman  <rms@gnu.org>
 
@@ -270,7 +626,7 @@
 
 	* NEWS: Preserved jimb's last change (documenting kill on
 	read-only buffers).
-	
+
 	Added documentation on new info features.
 
 1993-03-22  Eric S. Raymond  (eric@geech.gnu.ai.mit.edu)
@@ -396,7 +752,7 @@
 	and lib-src, the old etc's ChangeLog has been duplicated in the
 	new etc and lib-src.  That means that each contains complete and
 	coherent information, although each contains extraneous
-	information.	 
+	information.
 
 1992-04-08  Jim Blandy  (jimb@pogo.cs.oberlin.edu)
 
@@ -679,7 +1035,7 @@
 
 	* timer.c, getdate.y (new files) and Makefile:
 	  Sub-process support for run-at-time in timer.el.
-	  Doesn't yet work correctly for USG. 
+	  Doesn't yet work correctly for USG.
 
 1990-01-10  Jim Kingdon  (kingdon at pogo)
 
@@ -989,3 +1345,12 @@
 	* server.c [not BSD and not HAVE_SYSVIPC]: fix error message.
 
 	* loadst.c (main) [XENIX]: use /usr/spool/mail, not /usr/mail.
+
+;; Local Variables:
+;; coding: iso-2022-7bit
+;; End:
+
+    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2001
+	Free Software Foundation, Inc.
+  Copying and distribution of this file, with or without modification,
+  are permitted provided the copyright notice and this notice are preserved.

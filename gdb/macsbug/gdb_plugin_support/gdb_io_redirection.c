@@ -84,7 +84,7 @@ static unsigned long open_refCount        = 0;	  /* "clock" to not reclaim old o
 extern int ui_file_magic;
 #define magic ui_file_magic		  /* all plugin support libs use this 1 instance*/
 #define CHECK_MAGIC(p, func)  if ((p)->magic_nbr != &magic) \
-    			          internal_error(#func ": bad magic number for %s", \
+    			          internal_error(__FILE__, __LINE__, #func ": bad magic number for %s", \
 				  	          p->f == stderr ? "stderr" : "stdout")
 
 /* List entries of unknown stream redirection values, i.e., corresponding to streams	*/
@@ -420,7 +420,7 @@ GDB_FILE *gdb_open_output(FILE *f, gdb_output_filter_ftype filter, void *data)
     DEBUG1(output_file_new);
     
     if (f != stdout && f != stderr)
-    	internal_error("attempt to call gdb_open_output for something other than stdout or stderr");
+    	internal_error(__FILE__, __LINE__, "attempt to call gdb_open_output for something other than stdout or stderr");
     
     if (!filter) {
     	if (f == stdout) {
@@ -622,7 +622,7 @@ GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
 	//fprintf(stderr, "  gdb_redirect_output0: stream == gdb_default_stdout\n");
     } else {
 	if (!stream)
-    	    internal_error("attempt to redirect output to a undefined (NULL) stream");
+    	    internal_error(__FILE__, __LINE__, "attempt to redirect output to a undefined (NULL) stream");
 	
 	/* If the stream being redirected to is one of ours then we can use the data	*/
 	/* that gdb_open_output() set up.  If it isn't one of ours we use the data we	*/
@@ -660,7 +660,7 @@ GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
 	    //			    stream, output, output->magic_nbr, &magic);
 	} else {
 	    if (!is_known_redirection(stream))
-	    	internal_error("attempt to redirect to a undefined stream");
+	    	internal_error(__FILE__, __LINE__, "attempt to redirect to a undefined stream");
 	    output = ui_file_data((struct ui_file *)stream);
 	    
 	    #if 0
@@ -673,7 +673,7 @@ GDB_FILE *gdb_redirect_output(GDB_FILE *stream)
 	    #endif
 	    
 	    if (output->magic_nbr != &magic)
-		internal_error("attempt to redirect to a stream with a bad magic number");
+		internal_error(__FILE__, __LINE__, "attempt to redirect to a stream with a bad magic number");
 	    
 	    if (output->f == stdout) {
 		prev_file  = (GDB_FILE *)gdb_stdout;
@@ -761,7 +761,7 @@ void gdb_close_output(GDB_FILE *stream)
     
     output = ui_file_data((struct ui_file *)stream);
     if (output->magic_nbr != &magic)
-	internal_error("attempt to close to a stream with a bad magic number");
+	internal_error(__FILE__, __LINE__, "attempt to close to a stream with a bad magic number");
 
     //fprintf(stderr, "  gdb_close_output1: ui_file = %X, data = %X, magic_nbr = %X, &magic = %X\n",
     //				stream, output, output->magic_nbr, &magic);

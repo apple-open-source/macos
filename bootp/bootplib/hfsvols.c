@@ -89,19 +89,14 @@ enum {
 };
 
 static u_char *
-S_get_volume_name(volumeInfo_t * volinfo)
+S_get_volume_name(volumeInfo_t * volinfo, int * len_p)
 {
-    u_char *	name;
     u_char *	source_name;
 
     source_name = ((u_char *)&volinfo->volume_name) 
 	+ volinfo->volume_name.attr_dataoffset;
-    name = (u_char *)malloc(volinfo->volume_name.attr_length + 1);
-    if (name == NULL)
-	return (name);
-    strncpy(name, source_name, volinfo->volume_name.attr_length);
-    name[volinfo->volume_name.attr_length] = '\0';
-    return (name);
+    *len_p = volinfo->volume_name.attr_length;
+    return (source_name);
 }
 
 static __inline__ void
@@ -150,21 +145,6 @@ fsstat_lookup(struct statfs * list_p, int n, dev_t dev)
 	    return (scan);
     }
     return (NULL);
-}
-
-static void
-hfsVol_free(void * arg)
-{
-    hfsVol_t * entry = (hfsVol_t *)arg;
-    if (entry->name)
-	free(entry->name);
-    if (entry->mounted_on)
-	free(entry->mounted_on);
-    if (entry->mounted_from)
-	free(entry->mounted_from);
-    bzero(entry, sizeof(*entry));
-    free(entry);
-    return;
 }
 
 static void
@@ -238,6 +218,10 @@ hfsVolList_init()
 	hfsVol_t *		entry;
 	struct statfs * 	p = stat_p + i;
 	volumeInfo_t		volinfo;
+	int			mounted_on_len = 0;
+	int			mounted_from_len = 0;
+	u_char *		name = NULL;
+	int			name_len = 0;
 
 	if (strcmp(p->f_fstypename, "hfs"))
 	    continue;
@@ -251,16 +235,28 @@ hfsVolList_init()
 		goto err;
 	    }
 	    bzero(list, sizeof(*list));
-	    dynarray_init(list, hfsVol_free, NULL);
+	    dynarray_init(list, free, NULL);
 	}
-	entry = malloc(sizeof(*entry));
+	mounted_on_len = strlen(p->f_mntonname);
+	mounted_from_len = strlen(p->f_mntfromname);
+	name = S_get_volume_name(&volinfo, &name_len);
+	entry = malloc(sizeof(*entry) + mounted_on_len + mounted_from_len
+		       + name_len + 3);
 	if (entry == NULL)
 	    continue;
 	bzero(entry, sizeof(*entry));
 	entry->device_id = volinfo.device_id;
-	entry->mounted_on = strdup(p->f_mntonname);
-	entry->mounted_from = strdup(p->f_mntfromname);
-	entry->name = S_get_volume_name(&volinfo);
+	entry->mounted_on = (char *)(entry + 1);
+	strncpy(entry->mounted_on, p->f_mntonname, mounted_on_len);
+	entry->mounted_on[mounted_on_len] = '\0';
+
+	entry->mounted_from = entry->mounted_on + mounted_on_len + 1;
+	strncpy(entry->mounted_from, p->f_mntfromname, mounted_from_len);
+	entry->mounted_from[mounted_from_len] = '\0';
+
+	entry->name = entry->mounted_from + mounted_from_len + 1;
+	strncpy(entry->name, name, name_len);
+	entry->name[name_len] = '\0';
 	dynarray_add(list, entry);
     }
  err:

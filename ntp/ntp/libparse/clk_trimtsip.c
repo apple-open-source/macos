@@ -1,20 +1,16 @@
 /*
- * /src/NTP/ntp-4/libparse/clk_trimtsip.c,v 4.12 1999/02/28 13:00:08 kardel RELEASE_19990228_A
+ * /src/NTP/ntp-4/libparse/clk_trimtsip.c,v 4.13 1999/11/28 09:13:51 kardel RELEASE_19991128_A
  *
- * clk_trimtsip.c,v 4.12 1999/02/28 13:00:08 kardel RELEASE_19990228_A
+ * clk_trimtsip.c,v 4.13 1999/11/28 09:13:51 kardel RELEASE_19991128_A
  *
  * Trimble TSIP support - CURRENTLY VERY MUCH UNDER CONSTRUCTION
  */
 
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+# include <config.h>
 #endif
 
 #if defined(REFCLOCK) && defined(CLOCK_PARSE) && defined(CLOCK_TRIMTSIP)
-
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/errno.h>
 
 #include "ntp_syslog.h"
 #include "ntp_types.h"
@@ -22,18 +18,15 @@
 #include "ntp_unixtime.h"
 #include "ntp_calendar.h"
 #include "ntp_machine.h"
+#include "ntp_stdlib.h"
 
 #include "parse.h"
 
 #ifndef PARSESTREAM
-#include <stdio.h>
+# include <stdio.h>
 #else
-#include "sys/parsestreams.h"
-# endif
-
-#include "ntp_stdlib.h"
-
-#include "ntp_stdlib.h"
+# include "sys/parsestreams.h"
+#endif
 
 #include "ascii.h"
 #include "binio.h"
@@ -376,6 +369,9 @@ int clk_trimtsip_bs;
  * History:
  *
  * clk_trimtsip.c,v
+ * Revision 4.13  1999/11/28 09:13:51  kardel
+ * RECON_4_0_98F
+ *
  * Revision 4.12  1999/02/28 13:00:08  kardel
  * *** empty log message ***
  *

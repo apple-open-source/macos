@@ -4,6 +4,9 @@ File		:	pwd.h			-	Provide mission header ioctl.h for CodeWarrior
 Author	:	Matthias Neeracher
 Language	:	MPW C/C++
 $Log: pwd.h,v $
+Revision 1.3  2002/03/01 00:32:50  zarzycki
+Reverting back to cvs-19
+
 Revision 1.1.1.3  1999/09/02 04:55:07  wsanchez
 Import of cvs-15 (Apple)
 

@@ -1,4 +1,4 @@
-;;; loadup.el --- load up standardly loaded Lisp files for Emacs.
+;;; loadup.el --- load up standardly loaded Lisp files for Emacs
 
 ;; Copyright (C) 1985, 1986, 1992, 1994 Free Software Foundation, Inc.
 
@@ -28,6 +28,17 @@
 
 ;;; Code:
 
+;; add subdirectories to the load-path for files that might
+;; get autoloaded when bootstrapping
+(if (or (equal (nth 3 command-line-args) "bootstrap")
+	(equal (nth 4 command-line-args) "bootstrap")
+	;; in case CANNOT_DUMP
+	(equal (nth 0 command-line-args) "../src/bootstrap-emacs"))
+    (let ((path (car load-path)))
+      (setq load-path (list path
+			    (expand-file-name "emacs-lisp" path)
+			    (expand-file-name "international" path)))))
+
 (message "Using load-path %s" load-path)
 
 ;;; We don't want to have any undo records in the dumped Emacs.
@@ -39,9 +50,11 @@
 ;; We specify .el in case someone compiled version.el by mistake.
 (load "version.el")
 
-(load "map-ynp")
 (load "widget")
 (load "custom")
+(load "emacs-lisp/backquote")
+(load "map-ynp")
+(load "env")
 (load "cus-start")
 (load "international/mule")
 (load "international/mule-conf.el") ;Don't get confused if someone compiled this by mistake.
@@ -49,13 +62,7 @@
 (load "bindings")
 (setq load-source-file-function 'load-with-code-conversion)
 (load "simple")
-(load "help")
 (load "files")
-;; Any Emacs Lisp source file (*.el) loaded here after can contain
-;; multilingual text.
-(load "international/mule-cmds")
-(load "case-table")
-(load "international/characters")
 
 (message "Lists of integers (garbage collection statistics) are normal output")
 (message "while building Emacs; they do not indicate a problem.")
@@ -63,12 +70,22 @@
 (load "loaddefs.el")  ;Don't get confused if someone compiled this by mistake.
 (message "%s" (garbage-collect))
 
+(load "help")
+;; Any Emacs Lisp source file (*.el) loaded here after can contain
+;; multilingual text.
+(load "international/mule-cmds")
+(load "case-table")
+(load "international/characters")
+(load "international/utf-8")
+
 (let ((set-case-syntax-set-multibyte t))
   (load "international/latin-1")
   (load "international/latin-2")
   (load "international/latin-3")
   (load "international/latin-4")
-  (load "international/latin-5"))
+  (load "international/latin-5")
+  (load "international/latin-8")
+  (load "international/latin-9"))
 ;; Load language-specific files.
 (load "language/chinese")
 (load "language/cyrillic")
@@ -92,9 +109,9 @@
 (update-coding-systems-internal)
 
 (load "indent")
-(load "isearch")
 (load "window")
 (load "frame")
+(load "term/tty-colors")
 (load "faces")
 (if (fboundp 'frame-face-alist)
     (progn
@@ -102,8 +119,10 @@
 (if (fboundp 'track-mouse)
     (progn
       (load "mouse")
-      (load "scroll-bar")
+      (and (boundp 'x-toolkit-scroll-bars)
+	   (load "scroll-bar"))
       (load "select")))
+(load "isearch")
 
 (message "%s" (garbage-collect))
 (load "menu-bar")
@@ -139,10 +158,13 @@
       (load "dos-w32")
       (load "dos-fns")
       (load "dos-vars")
-      (load "international/ccl") ; for cpNNN coding systems in codepage.el
+      (load "international/ccl")	; codepage.el uses CCL en/decoder
       (load "international/codepage")	; internal.el uses cpNNN coding systems
       (load "disp-table"))) ; needed to setup ibm-pc char set, see internal.el
-(if (fboundp 'atan)	; preload some constants and 
+(if (eq system-type 'macos)
+    (progn
+      (load "ls-lisp")))
+(if (fboundp 'atan)	; preload some constants and
     (progn		; floating pt. functions if we have float support.
       (load "float-sup")))
 (message "%s" (garbage-collect))
@@ -203,7 +225,9 @@
 	    (delete-file name))
 	(copy-file (expand-file-name "../etc/DOC") name t))
       (Snarf-documentation (file-name-nondirectory name)))
-    (Snarf-documentation "DOC"))
+    (condition-case nil
+	(Snarf-documentation "DOC")
+      (error nil)))
 (message "Finding pointers to doc strings...done")
 
 ;;;Note: You can cause additional libraries to be preloaded
@@ -230,7 +254,7 @@
       (princ ")))\n" (current-buffer))
       (write-region (point-min) (point-max)
 		    (expand-file-name
-		     (cond 
+		     (cond
 		      ((eq system-type 'ms-dos)
 		       "../lib-src/fns.el")
 		      ((eq system-type 'windows-nt)
@@ -243,15 +267,20 @@
   (setq symbol-file-load-history-loaded t))
 (set-buffer-modified-p nil)
 
+;; reset the load-path.  See lread.c:init_lread why.
+(if (or (equal (nth 3 command-line-args) "bootstrap")
+	(equal (nth 4 command-line-args) "bootstrap"))
+    (setcdr load-path nil))
+
 (garbage-collect)
 
 ;;; At this point, we're ready to resume undo recording for scratch.
 (buffer-enable-undo "*scratch*")
 
-(if (or (equal (nth 3 command-line-args) "dump")
-	(equal (nth 4 command-line-args) "dump"))
+(if (or (member (nth 3 command-line-args) '("dump" "bootstrap"))
+	(member (nth 4 command-line-args) '("dump" "bootstrap")))
     (if (eq system-type 'vax-vms)
-	(progn 
+	(progn
 	  (message "Dumping data as file temacs.dump")
 	  (dump-emacs "temacs.dump" "temacs")
 	  (kill-emacs))

@@ -29,6 +29,8 @@
 #include <AppleCSP/RawSigner.h>
 #include <AppleCSP/AppleCSPSession.h>
 
+#define RSA_SIG_PADDING_DEFAULT		RSA_PKCS1_PADDING
+
 class RSASigner : public RawSigner {
 public:
 	RSASigner(
@@ -38,7 +40,8 @@ public:
 			RawSigner(alloc, digestAlg),
 			mRsaKey(NULL),
 			mWeMallocdRsaKey(false),
-			mSession(session) { }
+			mSession(session),
+			mPadding(RSA_SIG_PADDING_DEFAULT) { }
 			
 	~RSASigner();
 	
@@ -76,6 +79,7 @@ private:
 	RSA					*mRsaKey;
 	bool				mWeMallocdRsaKey;
 	AppleCSPSession		&mSession;
+	int					mPadding;		// RSA_NO_PADDING, RSA_PKCS1_PADDING
 };
 
 class DSASigner : public RawSigner {

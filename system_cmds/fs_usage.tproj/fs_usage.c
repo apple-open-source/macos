@@ -35,6 +35,7 @@ cc -I. -DKERNEL_PRIVATE -O -o fs_usage fs_usage.c
 #include <nlist.h>
 #include <fcntl.h>
 #include <string.h>
+#include <dirent.h>
 
 #include <sys/types.h>
 #include <sys/param.h>
@@ -42,7 +43,6 @@ cc -I. -DKERNEL_PRIVATE -O -o fs_usage fs_usage.c
 
 #include <libc.h>
 #include <termios.h>
-#include <bsd/curses.h>
 #include <sys/ioctl.h>
 
 #ifndef KERNEL_PRIVATE
@@ -59,6 +59,23 @@ cc -I. -DKERNEL_PRIVATE -O -o fs_usage fs_usage.c
 #include <err.h>
 
 extern int errno;
+
+
+
+#define MAXINDEX 2048
+
+typedef struct LibraryInfo {
+     unsigned long address;
+     char     *name;
+} LibraryInfo;
+
+LibraryInfo frameworkInfo[MAXINDEX];
+int numFrameworks = 0;
+
+char seg_addr_table[256]="/AppleInternal/Developer/seg_addr_table";
+
+char *lookup_name();
+
 
 /* 
    MAXCOLS controls when extra data kicks in.
@@ -94,10 +111,47 @@ int  cur_max = 0;
 int  need_new_map = 1;
 int  bias_secs;
 int  wideflag = 0;
+int  columns = 0;
 int  select_pid_mode = 0;  /* Flag set indicates that output is restricted
 			      to selected pids or commands */
 
 int  one_good_pid = 0;    /* Used to fail gracefully when bad pids given */
+
+
+#define NFS_DEV -1
+
+struct diskrec {
+        struct diskrec *next;
+        char *diskname;
+        int   dev;
+};
+
+struct diskio {
+        struct diskio *next;
+        struct diskio *prev;
+        int  type;
+        int  bp;
+        int  dev;
+        int  blkno;
+        int  iosize;
+        int  io_errno;
+        int  issuing_thread;
+        int  completion_thread;
+        char issuing_command[MAXCOMLEN];
+        double issued_time;
+        double completed_time;
+};
+
+struct diskrec *disk_list = NULL;
+struct diskio *free_diskios = NULL;
+struct diskio *busy_diskios = NULL;
+
+struct diskio *insert_diskio();
+struct diskio *complete_diskio();
+void    	free_diskio();
+void		print_diskio();
+void		format_print();
+char           *find_disk_name();
 
 
 #define DBG_ZERO_FILL_FAULT   1
@@ -110,10 +164,38 @@ int  one_good_pid = 0;    /* Used to fail gracefully when bad pids given */
 #define TRACE_STRING_EXEC      0x07010008
 
 #define MACH_vmfault    0x01300000
+#define MACH_pageout    0x01300004
 #define MACH_sched      0x01400000
 #define MACH_stkhandoff 0x01400008
 #define VFS_LOOKUP      0x03010090
 #define BSC_exit        0x040C0004
+
+#define P_WrData	0x03020000
+#define P_RdData	0x03020008
+#define P_WrMeta	0x03020020
+#define P_RdMeta	0x03020028
+#define P_PgOut		0x03020040
+#define P_PgIn		0x03020048
+#define P_WrDataAsync	0x03020010
+#define P_RdDataAsync	0x03020018
+#define P_WrMetaAsync	0x03020030
+#define P_RdMetaAsync	0x03020038
+#define P_PgOutAsync	0x03020050
+#define P_PgInAsync	0x03020058
+
+#define P_WrDataDone	0x03020004
+#define P_RdDataDone	0x0302000C
+#define P_WrMetaDone	0x03020024
+#define P_RdMetaDone	0x0302002C
+#define P_PgOutDone	0x03020044
+#define P_PgInDone	0x0302004C
+#define P_WrDataAsyncDone	0x03020014
+#define P_RdDataAsyncDone	0x0302001C
+#define P_WrMetaAsyncDone	0x03020034
+#define P_RdMetaAsyncDone	0x0302003C
+#define P_PgOutAsyncDone	0x03020054
+#define P_PgInAsyncDone		0x0302005C
+
 
 #define MSC_map_fd   0x010c00ac
 #define	BSC_recvmsg  0x040C006C
@@ -127,23 +209,30 @@ int  one_good_pid = 0;    /* Used to fail gracefully when bad pids given */
 #define BSC_close    0x040C0018
 #define BSC_link     0x040C0024
 #define BSC_unlink   0x040C0028
+#define BSC_chdir    0x040c0030
+#define BSC_fchdir   0x040c0034
 #define BSC_mknod    0x040C0038	
 #define BSC_chmod    0x040C003C	
 #define BSC_chown    0x040C0040	
 #define BSC_access   0x040C0084	
 #define BSC_chflags  0x040C0088	
 #define BSC_fchflags 0x040C008C
-#define BSC_sync     0x040C0090	
+#define BSC_sync     0x040C0090
+#define BSC_revoke   0x040C00E0
 #define BSC_symlink  0x040C00E4	
-#define BSC_readlink 0x040C00E8	
+#define BSC_readlink 0x040C00E8
+#define BSC_chroot   0x040C00F4	
 #define BSC_fsync    0x040C017C	
 #define BSC_readv    0x040C01E0	
 #define BSC_writev   0x040C01E4	
 #define BSC_fchown   0x040C01EC	
 #define BSC_fchmod   0x040C01F0	
-#define BSC_rename   0x040C0200	
+#define BSC_rename   0x040C0200
+#define BSC_mkfifo   0x040c0210	
 #define BSC_mkdir    0x040C0220	
-#define BSC_rmdir    0x040C0224	
+#define BSC_rmdir    0x040C0224
+#define BSC_utimes   0x040C0228
+#define BSC_futimes  0x040C022C
 #define BSC_statfs   0x040C0274	
 #define BSC_fstatfs  0x040C0278	
 #define BSC_stat     0x040C02F0	
@@ -155,17 +244,22 @@ int  one_good_pid = 0;    /* Used to fail gracefully when bad pids given */
 #define BSC_mmap     0x040c0314
 #define BSC_lseek    0x040c031c
 #define BSC_truncate 0x040C0320
-#define BSC_ftruncate     0x040C0324	
+#define BSC_ftruncate     0x040C0324
+#define BSC_undelete 0x040C0334
 #define BSC_statv    0x040C0364	
 #define BSC_lstatv   0x040C0368	
 #define BSC_fstatv   0x040C036C	
-#define BSC_mkcomplex     0x040C0360	
+#define BSC_mkcomplex   0x040C0360	
 #define BSC_getattrlist 0x040C0370	
 #define BSC_setattrlist 0x040C0374	
 #define BSC_getdirentriesattr 0x040C0378	
 #define BSC_exchangedata  0x040C037C	
 #define BSC_checkuseraccess   0x040C0380	
-#define BSC_searchfs    0x040C0384	
+#define BSC_searchfs    0x040C0384
+#define BSC_delete      0x040C0388
+#define BSC_copyfile    0x040C038C
+#define BSC_fsctl       0x040C03C8
+#define BSC_load_shared_file  0x040C04A0
 
 // Carbon File Manager support
 #define FILEMGR_PBGETCATALOGINFO		 0x1e000020
@@ -259,9 +353,7 @@ int kp_nentries = 0;
 #define DBG_FUNC_ALL	(DBG_FUNC_START | DBG_FUNC_END)
 #define DBG_FUNC_MASK	0xfffffffc
 
-/* Default divisor */
-#define DIVISOR 16.6666        /* Trace divisor converts to microseconds */
-double divisor = DIVISOR;
+double divisor = 0.0;       /* Trace divisor converts to microseconds */
 
 int mib[6];
 size_t needed;
@@ -308,10 +400,23 @@ void leave()			/* exit under normal conditions -- INT handler */
 }
 
 
+void get_screenwidth()
+{
+        struct winsize size;
+
+	columns = MAXCOLS;
+
+	if (isatty(1)) {
+	        if (ioctl(1, TIOCGWINSZ, &size) != -1)
+		        columns = size.ws_col;
+	}
+}
+
+
 void sigwinch()
 {
-  if (!wideflag)
-    initscr();
+        if (!wideflag)
+	        get_screenwidth();
 }
 
 int
@@ -349,8 +454,7 @@ main(argc, argv)
             printf("'fs_usage' must be run as root...\n");
             exit(1);
         }
-
-	initscr();
+	get_screenwidth();
 
 	/* get our name */
 	if (argc > 0) {
@@ -370,8 +474,8 @@ main(argc, argv)
 		    break;
                 case 'w':
 		    wideflag = 1;
-		    if (COLS < MAX_WIDE_MODE_COLS)
-		      COLS = MAX_WIDE_MODE_COLS;
+		    if (columns < MAX_WIDE_MODE_COLS)
+		      columns = MAX_WIDE_MODE_COLS;
 		    break;
 	       default:
 		 exit_usage(myname);		 
@@ -397,6 +501,7 @@ main(argc, argv)
 	  {
 	    argtopid("Terminal");
 	    argtopid("telnetd");
+	    argtopid("telnet");
 	    argtopid("sshd");
 	    argtopid("rlogind");
 	    argtopid("tcsh");
@@ -426,11 +531,15 @@ main(argc, argv)
 	/* set up signal handlers */
 	signal(SIGINT, leave);
 	signal(SIGQUIT, leave);
+	signal(SIGHUP, leave);
 	signal(SIGTERM, leave);
 	signal(SIGWINCH, sigwinch);
 
 	if ((my_buffer = malloc(SAMPLE_SIZE * sizeof(kd_buf))) == (char *)0)
 	    quit("can't allocate memory for tracing info\n");
+
+	ReadSegAddrTable();
+        cache_disk_names();
 
 	set_remove();
 	set_numbufs(SAMPLE_SIZE);
@@ -461,7 +570,7 @@ main(argc, argv)
 	/* main loop */
 
 	while (1) {
-	        usleep(1000 * 50);
+	        usleep(1000 * 25);
 
 		sample_sc();
 	}
@@ -470,7 +579,7 @@ main(argc, argv)
 void
 find_proc_names()
 {
-	size_t			bufSize = 0;
+        size_t			bufSize = 0;
 	struct kinfo_proc       *kp;
 	int quit();
 
@@ -511,6 +620,18 @@ struct th_info *find_thread(int thread, int type) {
        }
        return ((struct th_info *)0);
 }
+
+
+mark_thread_waited(int thread) {
+       struct th_info *ti;
+
+       for (ti = th_state; ti < &th_state[cur_max]; ti++) {
+	       if (ti->thread == thread) {
+                    ti->waited = 1;
+	       }
+       }
+}
+
 
 void
 set_enable(int val) 
@@ -624,8 +745,6 @@ get_bufinfo(kbufinfo_t *val)
 void
 set_remove() 
 {
-        extern int errno;
-
         errno = 0;
 
 	mib[0] = CTL_KERN;
@@ -726,6 +845,7 @@ sample_sc()
 		long *sargptr;
 		unsigned long long now;
 		struct th_info *ti;
+                struct diskio  *dio;
 		void enter_syscall();
 		void exit_syscall();
 		void kill_thread_map();
@@ -733,8 +853,46 @@ sample_sc()
 		thread  = kd[i].arg5 & KDBG_THREAD_MASK;
 		debugid = kd[i].debugid;
 		type    = kd[i].debugid & DBG_FUNC_MASK;
+                
+                now = (((unsigned long long)kd[i].timestamp.tv_sec) << 32) |
+                        (unsigned long long)((unsigned int)(kd[i].timestamp.tv_nsec));
+
 
 		switch (type) {
+
+                case P_RdMeta:
+                case P_WrMeta:
+                case P_RdData:
+                case P_WrData:
+                case P_PgIn:
+                case P_PgOut:
+                case P_RdMetaAsync:
+                case P_WrMetaAsync:
+                case P_RdDataAsync:
+                case P_WrDataAsync:
+                case P_PgInAsync:
+                case P_PgOutAsync:
+                    insert_diskio(type, kd[i].arg1, kd[i].arg2, kd[i].arg3, kd[i].arg4, thread, (double)now);
+                    continue;
+                
+                case P_RdMetaDone:
+                case P_WrMetaDone:
+                case P_RdDataDone:
+                case P_WrDataDone:
+                case P_PgInDone:
+                case P_PgOutDone:
+                case P_RdMetaAsyncDone:
+                case P_WrMetaAsyncDone:
+                case P_RdDataAsyncDone:
+                case P_WrDataAsyncDone:
+                case P_PgInAsyncDone:
+                case P_PgOutAsyncDone:
+                    if (dio = complete_diskio(kd[i].arg1, kd[i].arg4, kd[i].arg3, thread, (double)now)) {
+                        print_diskio(dio);
+                        free_diskio(dio);
+                    }
+                    continue;
+
 
 		case TRACE_DATA_NEWTHREAD:
 		   
@@ -774,8 +932,7 @@ sample_sc()
 
 		case MACH_sched:
 		case MACH_stkhandoff:
-		    if (ti = find_thread(thread, 0))
-		            ti->waited = 1;
+                    mark_thread_waited(thread);
 		    continue;
 
 		case VFS_LOOKUP:
@@ -789,7 +946,6 @@ sample_sc()
 			    *sargptr++ = kd[i].arg3;
 			    *sargptr++ = kd[i].arg4;
 			    ti->pathptr = sargptr;
-
 		    } else {
 		            sargptr = ti->pathptr;
 
@@ -802,6 +958,19 @@ sample_sc()
 			    if ((long *)sargptr >= (long *)&ti->pathname[PATHLENGTH])
 			      continue;
 
+                            /*
+			      We need to detect consecutive vfslookup entries.
+			      So, if we get here and find a START entry,
+			      fake the pathptr so we can bypass all further
+			      vfslookup entries.
+			    */
+
+			    if (debugid & DBG_FUNC_START)
+			      {
+				(long *)ti->pathptr = (long *)&ti->pathname[PATHLENGTH];
+				continue;
+			      }
+
 			    *sargptr++ = kd[i].arg1;
 			    *sargptr++ = kd[i].arg2;
 			    *sargptr++ = kd[i].arg3;
@@ -810,8 +979,6 @@ sample_sc()
 		    }
 		    continue;
 		}
-		now = (((unsigned long long)kd[i].timestamp.tv_sec) << 32) |
-		        (unsigned long long)((unsigned int)(kd[i].timestamp.tv_nsec));
 
 		if (debugid & DBG_FUNC_START) {
 		       char *p;
@@ -1025,9 +1192,18 @@ sample_sc()
 		}
 		switch (type) {
 
+		case MACH_pageout:
+		    if (kd[i].arg2) 
+		            exit_syscall("PAGE_OUT_D", thread, type, 0, kd[i].arg1, 0, 4, (double)now);
+		    else
+		            exit_syscall("PAGE_OUT_V", thread, type, 0, kd[i].arg1, 0, 4, (double)now);
+		    break;
+
 		case MACH_vmfault:
 		    if (kd[i].arg2 == DBG_PAGEIN_FAULT)
-		            exit_syscall("PAGE_IN", thread, type, 0, kd[i].arg1, 0, 2, (double)now);
+		            exit_syscall("PAGE_IN", thread, type, kd[i].arg4, kd[i].arg1, 0, 6, (double)now);
+                    else if (kd[i].arg2 == DBG_CACHE_HIT_FAULT)
+		            exit_syscall("CACHE_HIT", thread, type, 0, kd[i].arg1, 0, 2, (double)now);
 		    else {
 		            if (ti = find_thread(thread, type)) {
 			            if (ti == &th_state[cur_max - 1])
@@ -1063,6 +1239,10 @@ sample_sc()
 
 		case BSC_stat:
 		    exit_syscall("stat", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_load_shared_file:
+		    exit_syscall("load_sf", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
 
 		case BSC_open:
@@ -1113,12 +1293,48 @@ sample_sc()
 		    exit_syscall("access", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
 
+		case BSC_chdir:
+		    exit_syscall("chdir", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_chroot:
+		    exit_syscall("chroot", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_utimes:
+		    exit_syscall("utimes", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_delete:
+		    exit_syscall("delete", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_undelete:
+		    exit_syscall("undelete", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_revoke:
+		    exit_syscall("revoke", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_fsctl:
+		    exit_syscall("fsctl", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
 		case BSC_chflags:
 		    exit_syscall("chflags", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
-
+                    
 		case BSC_fchflags:
 		    exit_syscall("fchflags", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+                    
+		case BSC_fchdir:
+		    exit_syscall("fchdir", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+                    
+		case BSC_futimes:
+		    exit_syscall("futimes", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
 		    break;
 
 		case BSC_sync:
@@ -1153,12 +1369,12 @@ sample_sc()
 		    exit_syscall("fchmod", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
 		    break;
 
-		case BSC_rename:
-		    exit_syscall("rename", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
-		    break;
-
 		case BSC_mkdir:
 		    exit_syscall("mkdir", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_mkfifo:
+		    exit_syscall("mkfifo", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
 
 		case BSC_rmdir:
@@ -1225,9 +1441,19 @@ sample_sc()
 		    exit_syscall("getdirentriesattr", thread, type, kd[i].arg1, kd[i].arg2, 0, 1, (double)now);
 		    break;
 
+
 		case BSC_exchangedata:
 		    exit_syscall("exchangedata", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
+                    
+ 		case BSC_rename:
+		    exit_syscall("rename", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+
+ 		case BSC_copyfile:
+		    exit_syscall("copyfile", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+
 
 		case BSC_checkuseraccess:
 		    exit_syscall("checkuseraccess", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
@@ -1461,6 +1687,7 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 
        switch (type) {
 
+       case MACH_pageout:
        case MACH_vmfault:
        case MSC_map_fd:
        case BSC_mmap:
@@ -1469,6 +1696,7 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
        case BSC_recvfrom:
        case BSC_sendto:
        case BSC_stat:
+       case BSC_load_shared_file:
        case BSC_open:
        case BSC_close:
        case BSC_read:
@@ -1483,6 +1711,16 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
        case BSC_access:
        case BSC_chflags:
        case BSC_fchflags:
+       case BSC_fchdir:
+       case BSC_futimes:
+       case BSC_chdir:
+       case BSC_utimes:
+       case BSC_chroot:
+       case BSC_undelete:
+       case BSC_delete:
+       case BSC_revoke:
+       case BSC_fsctl:
+       case BSC_copyfile:
        case BSC_sync:
        case BSC_symlink:
        case BSC_readlink:
@@ -1493,6 +1731,7 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
        case BSC_fchmod:
        case BSC_rename:
        case BSC_mkdir:
+       case BSC_mkfifo:
        case BSC_rmdir:
        case BSC_statfs:
        case BSC_fstatfs:
@@ -1589,6 +1828,7 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 	           return;
 	   if (i >= cur_max)
 	           cur_max = i + 1;
+                   
 
 	   if ((type >> 24) == FILEMGR_CLASS) {
 		   ti->in_filemgr = 1;
@@ -1604,7 +1844,7 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 		   sprintf(buf, "%-8.8s", &(ctime(&curr_time)[11]));
 		   tsclen = strlen(buf);
 
-		   if (COLS > MAXCOLS || wideflag) {
+		   if (columns > MAXCOLS || wideflag) {
 		           usecs = l_usecs - (long long)((long long)secs * 1000000);
 			   sprintf(&buf[tsclen], ".%03ld", (long)usecs / 1000);
 			   tsclen = strlen(buf);
@@ -1625,12 +1865,12 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 		       /*
 			 Calculate white space out to command
 		       */
-		       if (COLS > MAXCOLS || wideflag)
+		       if (columns > MAXCOLS || wideflag)
 			 {
-			   clen = COLS - (tsclen + nmclen + argsclen + 20);
+			   clen = columns - (tsclen + nmclen + argsclen + 20);
 			 }
 		       else
-			 clen = COLS - (tsclen + nmclen + argsclen + 12);
+			 clen = columns - (tsclen + nmclen + argsclen + 12);
 
 		       if(clen > 0)
 			 {
@@ -1647,7 +1887,7 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 			   printf(buf);
 			 }
 
-		       if (COLS > MAXCOLS || wideflag)
+		       if (columns > MAXCOLS || wideflag)
 			   printf("%-20.20s\n", map->command); 
 		       else
 			   printf("%-12.12s\n", map->command); 
@@ -1666,7 +1906,6 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 	   ti->arg4   = kd->arg4;
 	   ti->pathptr = (long *)0;
 	   ti->pathname[0] = 0;
-
 	   break;
 
        default:
@@ -1680,21 +1919,45 @@ void
 exit_syscall(char *sc_name, int thread, int type, int error, int retval,
 	                    int has_fd, int has_ret, double now)
 {
-       struct th_info *ti;
+    struct th_info *ti;
+      
+    if ((ti = find_thread(thread, type)) == (struct th_info *)0)
+        return;
+               
+    format_print(ti, sc_name, thread, type, error, retval, has_fd, has_ret, now, ti->stime, ti->waited, ti->pathname, NULL);
+
+    if (ti == &th_state[cur_max - 1])
+        cur_max--;
+    ti->thread = 0;
+}
+
+
+
+void
+format_print(struct th_info *ti, char *sc_name, int thread, int type, int error, int retval,
+	                    int has_fd, int has_ret, double now, double stime, int waited, char *pathname, struct diskio *dio)
+{
        int secs;
        int usecs;
        int nopadding;
        long long l_usecs;
        long curr_time;
+       char *command_name;
        kd_threadmap *map;
        kd_threadmap *find_thread_map();
        int len = 0;
        int clen = 0;
+       char *framework_name;
        char buf[MAXCOLS];
       
-       if ((ti = find_thread(thread, type)) == (struct th_info *)0)
-	       return;
-       map = find_thread_map(thread);
+       command_name = "";
+       
+       if (dio)
+            command_name = dio->issuing_command;
+       else {
+            if (map = find_thread_map(thread))
+                command_name = map->command;
+       }
        l_usecs = (long long)(now / divisor);
        secs = l_usecs / 1000000;
 
@@ -1706,11 +1969,12 @@ exit_syscall(char *sc_name, int thread, int type, int error, int retval,
        sprintf(buf, "%-8.8s", &(ctime(&curr_time)[11]));
        clen = strlen(buf);
 
-       if (COLS > MAXCOLS || wideflag) {
+       if (columns > MAXCOLS || wideflag) {
 	       nopadding = 0;
 	       usecs = l_usecs - (long long)((long long)secs * 1000000);
 	       sprintf(&buf[clen], ".%03ld", (long)usecs / 1000);
 	       clen = strlen(buf);
+               
 	       if ((type >> 24) != FILEMGR_CLASS) {
 		   if (find_thread(thread, -1)) {
 		       sprintf(&buf[clen], "   ");
@@ -1721,53 +1985,75 @@ exit_syscall(char *sc_name, int thread, int type, int error, int retval,
        } else
 	       nopadding = 1;
 
-       if (((type >> 24) == FILEMGR_CLASS) && (COLS > MAXCOLS || wideflag))
+       if (((type >> 24) == FILEMGR_CLASS) && (columns > MAXCOLS || wideflag))
 	       sprintf(&buf[clen], "  %-18.18s", sc_name);
        else
 	       sprintf(&buf[clen], "  %-15.15s", sc_name);
 
        clen = strlen(buf);
+       
+       framework_name = (char *)0;
 
-       if (COLS > MAXCOLS || wideflag) {
+       if (columns > MAXCOLS || wideflag) {
+            if (has_ret == 7) {
+                sprintf(&buf[clen], " D=0x%8.8x", dio->blkno);
+                
+                clen = strlen(buf);
+                
+                if (dio->io_errno)
+                    sprintf(&buf[clen], "  [%3d]       ", dio->io_errno);
+                else
+                    sprintf(&buf[clen], "  B=0x%-6x   /dev/%s", dio->iosize, find_disk_name(dio->dev));
+            } else {
+              
 	       if (has_fd == 2 && error == 0)
 		       sprintf(&buf[clen], " F=%-3d", retval);
 	       else if (has_fd == 1)
 		       sprintf(&buf[clen], " F=%-3d", ti->arg1);
-	       else if (has_ret != 2)
+	       else if (has_ret != 2 && has_ret != 6)
 		       sprintf(&buf[clen], "      ");
 
 	       clen = strlen(buf);
 
-	       if (error)
+	       if (has_ret == 2 || has_ret == 6)
+		       framework_name = lookup_name(retval);
+
+	       if (error && has_ret != 6)
 		       sprintf(&buf[clen], "[%3d]       ", error);
 	       else if (has_ret == 3)
 		       sprintf(&buf[clen], "O=0x%8.8x", ti->arg3);
 	       else if (has_ret == 5)
 		       sprintf(&buf[clen], "O=0x%8.8x", retval);
 	       else if (has_ret == 2) 
-		       sprintf(&buf[clen], " A=0x%8.8x     ", retval);
+		       sprintf(&buf[clen], " A=0x%8.8x              ", retval);
+	       else if (has_ret == 6) 
+		       sprintf(&buf[clen], " A=0x%8.8x  B=0x%-8x", retval, error);
 	       else if (has_ret == 1)
 		       sprintf(&buf[clen], "  B=0x%-6x", retval);
 	       else if (has_ret == 4)
-		       sprintf(&buf[clen], "R=0x%-8x", retval);
+		       sprintf(&buf[clen], "B=0x%-8x", retval);
 	       else
 		       sprintf(&buf[clen], "            ");
-	       clen = strlen(buf);
+            }
+            clen = strlen(buf);
        }
        printf(buf);
 
        /*
 	 Calculate space available to print pathname
        */
-       if (COLS > MAXCOLS || wideflag)
-	 clen =  COLS - (clen + 13 + 20);
+       if (columns > MAXCOLS || wideflag)
+	 clen =  columns - (clen + 13 + 20);
        else
-	 clen =  COLS - (clen + 13 + 12);
+	 clen =  columns - (clen + 13 + 12);
 
        if ((type >> 24) != FILEMGR_CLASS && !nopadding)
 	 clen -= 3;
 
-       sprintf(&buf[0], " %s ", ti->pathname);
+       if (framework_name)
+	 sprintf(&buf[0], " %s ", framework_name);
+       else
+	 sprintf(&buf[0], " %s ", pathname);
        len = strlen(buf);
        
        if (clen > len)
@@ -1791,30 +2077,26 @@ exit_syscall(char *sc_name, int thread, int type, int error, int retval,
 	   printf(&buf[len - clen]);
 	 }
 
-       usecs = (unsigned long)(((double)now - ti->stime) / divisor);
+       usecs = (unsigned long)((now - stime) / divisor);
        secs = usecs / 1000000;
        usecs -= secs * 1000000;
 
        if ((type >> 24) != FILEMGR_CLASS && !nopadding)
 	       printf("   ");
 	       
-       printf(" %2ld.%06ld", (long)secs, (long)usecs);
-       if (ti->waited)
+       printf(" %2ld.%06ld", (unsigned long)secs, (unsigned long)usecs);
+       
+       if (waited)
 	       printf(" W");
        else
 	       printf("  ");
 
-       if (map) {
-	       if (COLS > MAXCOLS || wideflag)
-		       printf(" %-20.20s", map->command);
-	       else
-		       printf(" %-12.12s", map->command);
-       }
-       printf("\n");
+       if (columns > MAXCOLS || wideflag)
+               printf(" %-20.20s", command_name);
+       else
+               printf(" %-12.12s", command_name);
 
-       if (ti == &th_state[cur_max - 1])
-	         cur_max--;
-       ti->thread = 0;
+       printf("\n");
        fflush (0);
 }
 
@@ -1849,7 +2131,7 @@ void getdivisor()
     unsigned int proc_to_abs_num;
     unsigned int proc_to_abs_denom;
 
-	extern void MKGetTimeBaseInfo(unsigned int *, unsigned int *, unsigned int *, unsigned int *, unsigned int *);
+    extern void MKGetTimeBaseInfo(unsigned int *, unsigned int *, unsigned int *, unsigned int *, unsigned int *);
 
     MKGetTimeBaseInfo (&delta, &abs_to_ns_num, &abs_to_ns_denom,
 		       &proc_to_abs_num,  &proc_to_abs_denom);
@@ -1875,10 +2157,7 @@ void read_command_map()
         if (mapptr = (kd_threadmap *) malloc(size))
 	     bzero (mapptr, size);
 	else
-	{
-	    printf("Thread map is not initialized -- this is not fatal\n");
 	    return;
-	}
     }
  
     /* Now read the threadmap */
@@ -1891,13 +2170,9 @@ void read_command_map()
     if (sysctl(mib, 3, mapptr, &size, NULL, 0) < 0)
     {
         /* This is not fatal -- just means I cant map command strings */
-
-        printf("Can't read the thread map -- this is not fatal\n");
 	free(mapptr);
 	mapptr = 0;
-	return;
     }
-    return;
 }
 
 
@@ -2012,3 +2287,376 @@ argtopid(str)
 }
 
 
+
+char *lookup_name(unsigned long addr) 
+{       
+        register int i;
+	register int start, last;
+
+
+	if (numFrameworks == 0 || addr < frameworkInfo[0].address || addr > frameworkInfo[numFrameworks].address)
+	        return (0);
+
+	start = 0;
+	last  = numFrameworks;
+
+	for (i = numFrameworks / 2; i >= 0 && i < numFrameworks; ) {
+
+	        if (addr >= frameworkInfo[i].address && addr < frameworkInfo[i+1].address)
+		        return(frameworkInfo[i].name);
+
+		if (addr >= frameworkInfo[i].address) {
+		        start = i;
+		        i = start + ((last - i) / 2);
+		} else {
+		        last = i;
+		        i = start + ((i - start) / 2);
+		}
+	}
+	return (0);
+}
+
+
+/*
+ * Comparison routines for sorting
+ */
+static int compareFrameworkAddress(const void  *aa, const void *bb)
+{
+    LibraryInfo *a = (LibraryInfo *)aa;
+    LibraryInfo *b = (LibraryInfo *)bb;
+
+    if (a->address < b->address) return -1;
+    if (a->address == b->address) return 0;
+    return 1;
+}
+
+
+int scanline(char *inputstring,char **argv)
+{
+     int n = 0;
+     char **ap = argv, *p, *val;  
+
+     for (p = inputstring; p != NULL; ) 
+     {
+        while ((val = strsep(&p, " \t")) != NULL && *val == '\0');
+        *ap++ = val;
+        n++; 
+     }
+     *ap = 0;
+     return n;
+}
+
+
+int ReadSegAddrTable()
+{
+    char buf[1024];
+
+    FILE *fd;
+    unsigned long frameworkAddress, frameworkDataAddress, previousFrameworkAddress;
+    char frameworkName[256];
+    char *tokens[64];
+    int  ntokens;
+    char *substring,*ptr;
+    int  founddylib = 0;
+    int  i;
+
+
+    bzero(buf, sizeof(buf));
+    bzero(tokens, sizeof(tokens));
+    
+    numFrameworks = 0;
+
+    if ((fd = fopen(seg_addr_table, "r")) == 0)
+    {
+        return 0;
+    }
+    fgets(buf, 1023, fd);
+
+    if (*buf == '#')
+    {
+        founddylib = 0;
+        frameworkName[0] = 0;
+        previousFrameworkAddress = 0;
+
+        while (fgets(buf, 1023, fd) && numFrameworks < (MAXINDEX - 2))
+        {
+	    /*
+	     * Get rid of EOL
+	     */
+	    buf[strlen(buf)-1] = 0;
+
+	    if (strncmp(buf, "# dyld:", 7) == 0) {
+	        /*
+		 * the next line in the file will contain info about dyld
+		 */
+	        founddylib = 1;
+		continue;
+	    }
+	    /*
+	     * This is a split library line: parse it into 3 tokens
+	     */
+	    ntokens = scanline(buf, tokens);
+
+	    if (ntokens < 3)
+	        continue;
+
+	    frameworkAddress     = strtoul(tokens[0], 0, 16);
+	    frameworkDataAddress = strtoul(tokens[1], 0, 16);
+
+	    if (founddylib) {
+	        /*
+		 * dyld entry is of a different form from the std split library
+		 * it consists of a base address and a size instead of a code
+		 * and data base address
+		 */
+	        frameworkInfo[numFrameworks].address   = frameworkAddress;
+		frameworkInfo[numFrameworks+1].address = frameworkAddress + frameworkDataAddress;
+
+		frameworkInfo[numFrameworks].name   = (char *)"dylib";
+		frameworkInfo[numFrameworks+1].name = (char *)0;
+
+		numFrameworks += 2;
+		founddylib = 0;
+
+		continue;
+	    }  
+
+	    /*
+	     * Make sure that we have 2 addresses and a path
+	     */
+	    if (!frameworkAddress)
+	        continue;
+	    if (!frameworkDataAddress)
+	        continue;
+	    if (*tokens[2] != '/')
+	        continue;
+	    if (frameworkAddress == previousFrameworkAddress) 
+	        continue;
+	    previousFrameworkAddress = frameworkAddress;
+
+            /*
+	     * Extract lib name from path name
+	     */
+	    if (substring = strrchr(tokens[2], '.'))
+	    {		
+	        /*
+		 * There is a ".": name is whatever is between the "/" around the "." 
+		 */
+	      while ( *substring != '/') {		    /* find "/" before "." */
+		    substring--;
+		}
+		substring++;
+		strcpy(frameworkName, substring);           /* copy path from "/" */
+		substring = frameworkName;
+
+		while ( *substring != '/' && *substring)    /* find "/" after "." and stop string there */
+		    substring++;
+		*substring = 0;
+	    }
+	    else 
+	    {
+	        /*
+		 * No ".": take segment after last "/"
+		 */
+	        ptr = tokens[2];
+		substring = ptr;
+
+		while (*ptr) 
+		{
+		    if (*ptr == '/')
+		        substring = ptr + 1;
+		    ptr++;
+		}
+		strcpy(frameworkName, substring);
+	    }
+	    frameworkInfo[numFrameworks].address   = frameworkAddress;
+	    frameworkInfo[numFrameworks+1].address = frameworkDataAddress;
+
+	    frameworkInfo[numFrameworks].name = (char *)malloc(strlen(frameworkName) + 1);
+	    strcpy(frameworkInfo[numFrameworks].name, frameworkName);
+	    frameworkInfo[numFrameworks+1].name = frameworkInfo[numFrameworks].name;
+
+	    numFrameworks += 2;
+        }
+    }
+    frameworkInfo[numFrameworks].address = frameworkInfo[numFrameworks - 1].address + 0x800000;
+    frameworkInfo[numFrameworks].name = (char *)0;
+
+    fclose(fd);
+
+    qsort(frameworkInfo, numFrameworks, sizeof(LibraryInfo), compareFrameworkAddress);
+
+    return 1;
+}
+
+
+struct diskio *insert_diskio(int type, int bp, int dev, int blkno, int io_size, int thread, double curtime)
+{
+    register struct diskio *dio;
+    register kd_threadmap  *map;
+    
+    if (dio = free_diskios)
+        free_diskios = dio->next;
+    else {
+        if ((dio = (struct diskio *)malloc(sizeof(struct diskio))) == NULL)
+            return (NULL);
+    }
+    dio->prev = NULL;
+    
+    dio->type = type;
+    dio->bp = bp;
+    dio->dev = dev;
+    dio->blkno = blkno;
+    dio->iosize = io_size;
+    dio->issued_time = curtime;
+    dio->issuing_thread = thread;
+    
+    if (map = find_thread_map(thread))
+        strcpy(dio->issuing_command, map->command);
+    else
+        strcpy(dio->issuing_command, "");
+    
+    dio->next = busy_diskios;
+    if (dio->next)
+        dio->next->prev = dio;
+    busy_diskios = dio;
+
+    return (dio);
+}
+
+
+struct diskio *complete_diskio(int bp, int io_errno, int resid, int thread, double curtime)
+{
+    register struct diskio *dio;
+    
+    for (dio = busy_diskios; dio; dio = dio->next) {
+        if (dio->bp == bp) {
+        
+            if (dio == busy_diskios) {
+                if (busy_diskios = dio->next)
+                    dio->next->prev = NULL;
+            } else {
+                if (dio->next)
+                    dio->next->prev = dio->prev;
+                dio->prev->next = dio->next;
+            }
+            dio->iosize -= resid;
+            dio->io_errno = io_errno;
+            dio->completed_time = curtime;
+            dio->completion_thread = thread;
+            
+	    return (dio);
+        }    
+    }
+    return ((struct diskio *)0);
+}
+
+
+void free_diskio(struct diskio *dio)
+{
+    dio->next = free_diskios;
+    free_diskios = dio;
+}
+
+
+void print_diskio(struct diskio *dio)
+{
+    register char  *p;
+    struct th_info *ti;
+
+    switch (dio->type) {
+
+        case P_RdMeta:
+            p = "  RdMeta";
+            break;
+        case P_WrMeta:
+            p = "  WrMeta";
+            break;
+        case P_RdData:
+            p = "  RdData";
+            break;
+        case P_WrData:
+            p = "  WrData";
+            break;        
+        case P_PgIn:
+            p = "  PgIn";
+            break;
+        case P_PgOut:
+            p = "  PgOut";
+            break;
+        case P_RdMetaAsync:
+            p = "  RdMeta[async]";
+            break;
+        case P_WrMetaAsync:
+            p = "  WrMeta[async]";
+            break;
+        case P_RdDataAsync:
+            p = "  RdData[async]";
+            break;
+        case P_WrDataAsync:
+            p = "  WrData[async]";
+            break;        
+        case P_PgInAsync:
+            p = "  PgIn[async]";
+            break;
+        case P_PgOutAsync:
+            p = "  PgOut[async]";
+            break;
+
+    }
+    format_print(NULL, p, dio->issuing_thread, dio->type, 0, 0, 0, 7, dio->completed_time, dio->issued_time, 1, "", dio);
+}
+
+
+cache_disk_names()
+{
+    struct stat    st;
+    DIR            *dirp = NULL;
+    struct dirent  *dir;
+    struct diskrec *dnp;
+
+
+    if ((dirp = opendir("/dev")) == NULL)
+        return;
+        
+    while ((dir = readdir(dirp)) != NULL) {
+        char nbuf[MAXPATHLEN];
+        
+        if (dir->d_namlen < 5 || strncmp("disk", dir->d_name, 4))
+            continue;
+        sprintf(nbuf, "%s/%s", "/dev", dir->d_name);
+        
+	if (stat(nbuf, &st) < 0)
+            continue;
+
+        if ((dnp = (struct diskrec *)malloc(sizeof(struct diskrec))) == NULL)
+            continue;
+            
+        if ((dnp->diskname = (char *)malloc(dir->d_namlen + 1)) == NULL) {
+            free(dnp);
+            continue;
+        }
+        strncpy(dnp->diskname, dir->d_name, dir->d_namlen);
+        dnp->diskname[dir->d_namlen] = 0;
+        dnp->dev = st.st_rdev;
+        
+        dnp->next = disk_list;
+        disk_list = dnp;
+    }
+    (void) closedir(dirp);
+}
+
+
+char *find_disk_name(int dev)
+{
+    struct diskrec *dnp;
+    
+    if (dev == NFS_DEV)
+        return ("NFS");
+        
+    for (dnp = disk_list; dnp; dnp = dnp->next) {
+        if (dnp->dev == dev)
+            return (dnp->diskname);
+    }
+    return ("NOTFOUND");
+}

@@ -1,4 +1,4 @@
-.TH NSModule 3 "August 9, 2001" "Apple Computer, Inc."
+.TH NSModule 3 "December 13, 2001" "Apple Computer, Inc."
 .SH NAME
 NSModule \- programmatic interface for working with modules and symbols
 .SH SYNOPSIS
@@ -76,6 +76,10 @@ extern long NSVersionOfRunTimeLibrary(
 .sp .5
 extern long NSVersionOfLinkTimeLibrary(
 	const char *libraryName);
+.sp .5
+extern int _NSGetExecutablePath(
+	char *buf,
+	unsigned long *bufsize)
 .sp 2
 extern void NSInstallLinkEditErrorHandlers(
 	NSLinkEditErrorHandlers *handlers);
@@ -421,6 +425,12 @@ With this option if the
 passed for the library has not already been loaded it is not loaded.  Only if
 it has been loaded the pointer to the mach_header will not be
 .SM NULL.
+.TP
+.B NSADDIMAGE_OPTION_MATCH_FILENAME_BY_INSTALLNAME
+When this option is specified if a later load of a dependent dynamic library
+with a file system path is needed by an image that matches the install name of
+the dynamic library loaded with this option, then the dynamic library loaded
+with the call to NSAddImage() is used in place of the dependent dynamic library.
 .PP
 .I NSVersionOfRunTimeLibrary
 is passed the install name of a dynamic shared library and returns
@@ -431,6 +441,15 @@ program is not using that library.
 is passed the install name of a dynamic shared library and returns the
 current_version number of the library the executable program was built
 with or \-1 if the program was not built with that library.
+.PP
+.I _NSGetExecutablePath
+copies the path of the executable into the buffer and
+returns 0 if the path was successfully copied in the provided buffer. If the
+buffer is not large enough, \-1 is returned and the expected buffer size is
+copied in *bufsize. Note that _NSGetExecutablePath will return "a path" to
+the executable not a "real path" to the executable. That is the path may be
+a symbolic link and not the real file. And with deep directories the total
+bufsize needed could be more than MAXPATHLEN.
 .SH ERROR HANDLING
 .PP
 .I NSInstallLinkEditErrorHandlers

@@ -1,0 +1,92 @@
+                                  _   _ ____  _     
+                              ___| | | |  _ \| |    
+                             / __| | | | |_) | |    
+                            | (__| |_| |  _ <| |___ 
+                             \___|\___/|_| \_\_____|
+
+TODO
+
+ Things to do in project cURL. Please tell me what you think, contribute and
+ send me patches that improve things!
+
+To do for the next release:
+
+ * Make sure SSL works even when IPv6 is enabled. We just can't connect to
+   IPv6 sites and use SSL, but we should detect that particular condition
+   and warn about it.
+
+ * Make SSL session ids get used if multiple HTTPS documents from the same
+   host is requested.
+
+To do in a future release (random order):
+
+ * Rewrite parts of the test suite. Make a (XML?) format to store all
+   test-data in a single for a single test case. The current system makes far
+   too many separate files. We also need to have the test suite support
+   different behaviors, like when libcurl is compiled for IPv6 support and
+   thus performs a different set of FTP commands.
+
+ * Add configure options that disables certain protocols in libcurl to
+   decrease footprint.  '--disable-[protocol]' where protocol is http, ftp,
+   telnet, ldap, dict or file.
+
+ * Extend the test suite to include telnet and https. The telnet could just do
+   ftp or http operations (for which we have test servers) and the https would
+   probably work against/with some of the openssl tools.
+
+ * Add a command line option that allows the output file to get the same time
+   stamp as the remote file. libcurl already is capable of fetching the remote
+   file's date.
+
+ * Make curl's SSL layer option capable of using other free SSL libraries.
+   Such as the Mozilla Security Services
+   (http://www.mozilla.org/projects/security/pki/nss/) and GNUTLS
+   (http://gnutls.hellug.gr/)
+
+ * Add asynchronous name resolving, as this enables full timeout support for
+   fork() systems.
+
+ * Non-blocking connect(), also to make timeouts work on windows.
+
+ * Move non-URL related functions that are used by both the lib and the curl
+   application to a separate "portability lib".
+
+ * Add support for other languages than C.  C++ (rumours have been heard about
+   something being worked on in this area) and perl (we have seen the first
+   versions of this!) comes to mind. Python anyone?
+
+ * "Content-Encoding: compress/gzip/zlib" HTTP 1.1 clearly defines how to get
+   and decode compressed documents. There is the zlib that is pretty good at
+   decompressing stuff. This work was started in October 1999 but halted again
+   since it proved more work than we thought. It is still a good idea to
+   implement though.
+
+ * Authentication: NTLM. Support for that MS crap called NTLM
+   authentication. MS proxies and servers sometime require that. Since that
+   protocol is a proprietary one, it involves reverse engineering and network
+   sniffing. This should however be a library-based functionality. There are a
+   few different efforts "out there" to make open source HTTP clients support
+   this and it should be possible to take advantage of other people's hard
+   work. http://modntlm.sourceforge.net/ is one. There's a web page at
+   http://www.innovation.ch/java/ntlm.html that contains detailed reverse-
+   engineered info.
+
+ * RFC2617 compliance, "Digest Access Authentication"
+   A valid test page seem to exist at:
+   http://hopf.math.nwu.edu/testpage/digest/
+   And some friendly person's server source code is available at
+   http://hopf.math.nwu.edu/digestauth/index.html
+   Then there's the Apache mod_digest source code too of course.  It seems as
+   if Netscape doesn't support this, and not many servers do. Although this is
+   a lot better authentication method than the more common "Basic". Basic
+   sends the password in cleartext over the network, this "Digest" method uses
+   a challange-response protocol which increases security quite a lot.
+
+ * Other proxies
+   Ftp-kind proxy, Socks5, whatever kind of proxies are there?
+
+ * IPv6 Awareness and support. (This is partly done.)  RFC 2428 "FTP
+   Extensions for IPv6 and NATs" is interesting. PORT should be replaced with
+   EPRT for IPv6 (done), and EPSV instead of PASV.  HTTP proxies are left to
+   add support for.
+

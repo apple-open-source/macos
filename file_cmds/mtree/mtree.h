@@ -1,5 +1,3 @@
-/*	$NetBSD: mtree.h,v 1.7 1995/03/07 21:26:27 cgd Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,17 +31,14 @@
  * SUCH DAMAGE.
  *
  *	@(#)mtree.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.sbin/mtree/mtree.h,v 1.5 1999/12/09 20:38:35 joe Exp $
  */
-
-#ifndef _MTREE_H_
-#define _MTREE_H_
 
 #include <string.h>
 #include <stdlib.h>
-#include <sys/time.h>
 
 #define	KEYDEFAULT \
-	(F_GID | F_MODE | F_NLINK | F_SIZE | F_SLINK | F_TIME | F_UID)
+	(F_GID | F_MODE | F_NLINK | F_SIZE | F_SLINK | F_TIME | F_UID | F_FLAGS)
 
 #define	MISMATCHEXIT	2
 
@@ -53,11 +48,15 @@ typedef struct _node {
 	off_t	st_size;			/* size */
 	struct timespec	st_mtimespec;		/* last modification time */
 	u_long	cksum;				/* check sum */
+	char	*md5digest;			/* MD5 digest */
+	char	*sha1digest;			/* SHA-1 digest */
+	char	*rmd160digest;			/* RIPEMD160 digest */
 	char	*slink;				/* symbolic link reference */
 	uid_t	st_uid;				/* uid */
 	gid_t	st_gid;				/* gid */
 #define	MBITS	(S_ISUID|S_ISGID|S_ISTXT|S_IRWXU|S_IRWXG|S_IRWXO)
 	mode_t	st_mode;			/* mode */
+	u_long	st_flags;			/* flags */
 	nlink_t	st_nlink;			/* link count */
 
 #define	F_CKSUM	0x0001				/* check sum */
@@ -68,15 +67,20 @@ typedef struct _node {
 #define	F_MAGIC	0x0020				/* name has magic chars */
 #define	F_MODE	0x0040				/* mode */
 #define	F_NLINK	0x0080				/* number of links */
-#define	F_OPT	0x0100				/* existence optional */
-#define	F_SIZE	0x0200				/* size */
-#define	F_SLINK	0x0400				/* link count */
-#define	F_TIME	0x0800				/* modification time */
-#define	F_TYPE	0x1000				/* file type */
-#define	F_UID	0x2000				/* uid */
-#define	F_UNAME	0x4000				/* user name */
-#define	F_VISIT	0x8000				/* file visited */
-	u_short	flags;				/* items set */
+#define	F_SIZE	0x0100				/* size */
+#define	F_SLINK	0x0200				/* link count */
+#define	F_TIME	0x0400				/* modification time */
+#define	F_TYPE	0x0800				/* file type */
+#define	F_UID	0x1000				/* uid */
+#define	F_UNAME	0x2000				/* user name */
+#define	F_VISIT	0x4000				/* file visited */
+#define F_MD5	0x8000				/* MD5 digest */
+#define F_NOCHANGE 0x10000			/* If owner/mode "wrong", do */
+						/* not change */
+#define	F_SHA1	0x20000				/* SHA-1 digest */
+#define	F_RMD160 0x40000			/* RIPEMD160 digest */
+#define	F_FLAGS	0x80000				/* file flags */
+	u_int	flags;				/* items set */
 
 #define	F_BLOCK	0x001				/* block special */
 #define	F_CHAR	0x002				/* char special */
@@ -93,5 +97,3 @@ typedef struct _node {
 #define	RP(p)	\
 	((p)->fts_path[0] == '.' && (p)->fts_path[1] == '/' ? \
 	    (p)->fts_path + 2 : (p)->fts_path)
-
-#endif /* _MTREE_H_ */

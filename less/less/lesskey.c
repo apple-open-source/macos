@@ -220,9 +220,6 @@ char *infile = NULL;
 char *outfile = NULL ;
 
 int linenum;
-#ifdef __APPLE__
-__private_extern__
-#endif
 int errors;
 
 extern char version[];

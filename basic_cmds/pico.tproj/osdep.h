@@ -1,5 +1,5 @@
 /*
- * $Id: osdep.h,v 1.1.1.1 1999/04/15 17:45:13 wsanchez Exp $
+ * $Id: osdep.h,v 1.2 2002/01/03 22:16:42 jevans Exp $
  *
  * Program:	Operating system dependent routines - Ultrix 4.1
  *
@@ -14,7 +14,7 @@
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -54,6 +54,12 @@
 /* DYNIX/ptx signal semantics are AT&T/POSIX; the sigset() call sets
    the handler permanently, more like BSD signal(). */
 #define signal(s,f) sigset (s, f)
+#endif
+
+/* signal handling is broken in the delivered SCO shells, so punt on 
+   suspending the current session */
+#if defined(sco) && defined(SIGTSTP)
+#undef SIGTSTP
 #endif
 
 #include	<ctype.h>
@@ -97,7 +103,7 @@ typedef struct
 /*
  * type qsort() expects
  */
-#if	defined(nxt)
+#if	defined(nxt) || defined(neb)
 #define	QSType	  void
 #define QcompType const void
 #else
@@ -127,7 +133,7 @@ typedef struct
  */
 #if	defined(COHERENT) || defined(AUX)
 #define SPELLER         "/bin/spell"
-#elif	!defined(nxt)
+#else
 #define	SPELLER		"/usr/bin/spell"
 #endif
 
@@ -166,5 +172,10 @@ extern char *getcwd();
 #if	defined(COHERENT)
 #define void char
 #endif
+
+/*
+ * Mode passed chmod() to make tmp files exclusively user read/write-able
+ */
+#define	MODE_READONLY	(0600)
 
 #endif	/* OSDEP_H */

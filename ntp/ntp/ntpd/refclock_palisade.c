@@ -2,7 +2,7 @@
  * This software was developed by the Software and Component Technologies
  * group of Trimble Navigation, Ltd.
  *
- * Copyright (c) 1997, 1998, 1999 Trimble Navigation Ltd.
+ * Copyright (c) 1997, 1998, 1999, 2000  Trimble Navigation Ltd.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,7 +52,6 @@
  *
  */
 
-#include <errno.h>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -87,6 +86,7 @@ struct refclock refclock_palisade = {
 	NOFLAGS			/* not used */
 };
 
+int day_of_year P((char *dt));
 
 /*
  * palisade_start - open the devices and initialize data for processing
@@ -200,11 +200,6 @@ palisade_start (
 	pp->io.srcclock = (caddr_t)peer;
 	pp->io.datalen = 0;
 	pp->io.fd = fd;
-	pp->nstages = 1;
-#ifndef PALISADE
-	pp->nskeep = 1;
-#endif
-
 	if (!io_addclock(&pp->io)) {
 #ifdef DEBUG
                 printf("Palisade(%d) io_addclock\n",unit);
@@ -766,10 +761,8 @@ HW_poll (
 	}
   
 	x |= TIOCM_RTS;        /* turn on RTS  */
-	/* poll timestamp */
-	get_systime(&pp->lastrec);
 
-	/* Leading edge trigger */
+	/* Edge trigger */
 	if (ioctl(pp->io.fd, TIOCMSET, &x) < 0) { 
 #ifdef DEBUG
 	if (debug)
@@ -782,6 +775,10 @@ HW_poll (
 	}
 
 	x &= ~TIOCM_RTS;        /* turn off RTS  */
+	
+	/* poll timestamp */
+	get_systime(&pp->lastrec);
+
 	if (ioctl(pp->io.fd, TIOCMSET, &x) == -1) {
 #ifdef DEBUG
 	if (debug)
@@ -881,4 +878,6 @@ getint (
 return (short) (bp[1] + (bp[0] << 8));
 }
 
+#else
+int refclock_palisade_bs;
 #endif /* REFCLOCK */

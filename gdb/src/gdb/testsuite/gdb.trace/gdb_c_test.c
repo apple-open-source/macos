@@ -3,7 +3,7 @@
  ******************************************************************************
  *
  * COPYRIGHT (C) by EMC Corporation, 1997 All rights reserved.
- * gdb_c_test.c,v 1.1.1.1 1999/04/16 01:34:36 shebs Exp
+ * gdb_c_test.c,v 1.3 2002/03/07 04:18:55 fnf Exp
  * DESCRIPTION: This module has been provided for the purpose of testing GDB.
  *
  * NOTES:
@@ -497,15 +497,15 @@ ULONG   gdb_c_test( ULONG *parm )
 
 {
    char *p = "gdb_c_test";
-   char *rediculously_long_variable_name_with_equally_long_string_assignment;
+   char *ridiculously_long_variable_name_with_equally_long_string_assignment;
    register long local_reg = 7;
    static unsigned long local_static, local_static_sizeof;
    long local_long;
    unsigned long *stack_ptr;
    unsigned long end_of_stack;
 
-   rediculously_long_variable_name_with_equally_long_string_assignment = 
-     "rediculously long variable name with equally long string assignment";
+   ridiculously_long_variable_name_with_equally_long_string_assignment = 
+     "ridiculously long variable name with equally long string assignment";
    local_static = 9;
    local_static_sizeof = sizeof (struct GDB_STRUCT_TEST);
    local_long = local_reg + 1;
@@ -513,7 +513,7 @@ ULONG   gdb_c_test( ULONG *parm )
    end_of_stack = 
      (unsigned long) &stack_ptr + sizeof(stack_ptr) + sizeof(end_of_stack) - 1;
 
-   printp ("\ngdb_c_test.c,v 1.1.1.1 1999/04/16 01:34:36 shebs Exp\n");
+   printp ("\ngdb_c_test.c,v 1.3 2002/03/07 04:18:55 fnf Exp\n");
 
    printp( "%s: arguments = %X, %X, %X, %X, %X, %X\n",
            p, parm[ 1 ], parm[ 2 ], parm[ 3 ], parm[ 4 ], parm[ 5 ], parm[ 6 ] );
@@ -2542,7 +2542,7 @@ find_memory(unsigned char *mem, long count,
 		 mem, mem_block, mem_addr, mem_size, mem_stamp);
 #endif
 	  *location = mem_block + (mem - mem_addr);
-	  length = mem_size - (mem - mem_addr);;
+	  length = mem_size - (mem - mem_addr);
 
 	  if (length < count)
 	    *incr = length;

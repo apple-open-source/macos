@@ -16,10 +16,14 @@ SOURCES=$(LIB_SRC)/mkstemps.c		\
 	$(LIB_SRC)/getopt1.c		\
 	$(LIB_SRC)/choose-temp.c
 
-## might as well make it fat while we're here...
+## might as well make it fat while we're here ... if we can.
 libiberty.a : $(SOURCES)
 	cc -arch ppc -O2 -c -I $(SRCROOT)/include $(SOURCES)
 	libtool -o libibertyppc.a *.o
-	cc -arch i386 -O2 -c -I $(SRCROOT)/include $(SOURCES)
-	libtool -o libiberty.a *.o libibertyppc.a
+	if [ -d /usr/libexec/gcc/darwin/i386 ] ; then \
+	  cc -arch i386 -O2 -c -I $(SRCROOT)/include $(SOURCES) ; \
+	  libtool -o libiberty.a *.o libibertyppc.a ; \
+	else \
+	  mv libibertyppc.a libiberty.a ; \
+	fi
 

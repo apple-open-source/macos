@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/mi.varargs.h,v 1.1.1.2 2001/06/28 23:10:49 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/mi.varargs.h,v 1.1.1.2 2001/06/28 23:10:49 bbraun Exp $ */
 /*
  * mi.varargs.h: Correct varargs for minix
  */

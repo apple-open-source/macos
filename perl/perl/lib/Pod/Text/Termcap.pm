@@ -1,5 +1,5 @@
 # Pod::Text::Termcap -- Convert POD data to ASCII text with format escapes.
-# $Id: Termcap.pm,v 1.1.1.1 2000/03/31 05:11:59 wsanchez Exp $
+# $Id: Termcap.pm,v 1.2 2002/03/14 08:59:11 zarzycki Exp $
 #
 # Copyright 1999 by Russ Allbery <rra@stanford.edu>
 #
@@ -28,7 +28,7 @@ use vars qw(@ISA $VERSION);
 @ISA = qw(Pod::Text);
 
 # Use the CVS revision of this file as its version number.
-($VERSION = (split (' ', q$Revision: 1.1.1.1 $ ))[1]) =~ s/\.(\d)$/.0$1/;
+($VERSION = (split (' ', q$Revision: 1.2 $ ))[1]) =~ s/\.(\d)$/.0$1/;
 
 
 ############################################################################

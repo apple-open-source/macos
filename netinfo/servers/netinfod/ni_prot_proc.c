@@ -44,6 +44,7 @@
 #include <sys/socket.h>
 #include "sanitycheck.h"
 #include "multi_call.h"
+#include "psauth.h"
 #include <sys/time.h>
 #include <stdio.h>
 #include <string.h>
@@ -122,9 +123,9 @@ CLIENT *svctcp_getclnt(SVCXPRT *xprt);
  * Ping timeout is 1/2 second per try, with 10 tries.  Total timeout is 5 seconds.
  */
  
-#define PING_TIMEOUT_SEC  0     
+#define PING_TIMEOUT_SEC  0 
 #define PING_TIMEOUT_USEC 500000
-#define PING_CALL_SEC  5     
+#define PING_CALL_SEC  5 
 #define PING_CALL_USEC 0
 
 /* Number of minutes to force between attempts to see if we are still root */
@@ -197,6 +198,54 @@ isupdate(struct svc_req *req)
 		ntohs(sin->sin_port) < IPPORT_RESERVED);
 }
 
+static bool_t
+is_admin(void *ni, char *user)
+{
+	ni_namelist nl;
+	ni_status status;
+	ni_id id;
+	ni_idlist idl;
+	int i;
+
+	if (ni == NULL) return FALSE;
+	if (user == NULL) return FALSE;
+
+	/* Find /groups/admin */
+	status = ni_root(ni, &id);
+	if (status != NI_OK) return FALSE;
+
+	NI_INIT(&idl);
+	status = ni_lookup(ni, &id, NAME_NAME, NAME_GROUPS, &idl);
+	if (status != NI_OK) return FALSE;
+
+	id.nii_object = idl.ni_idlist_val[0];
+	ni_idlist_free(&idl);
+
+	NI_INIT(&idl);
+	status = ni_lookup(ni, &id, NAME_NAME, NAME_ADMIN, &idl);
+	if (status != NI_OK) return FALSE;
+
+	id.nii_object = idl.ni_idlist_val[0];
+	ni_idlist_free(&idl);
+
+	/* Check if named user is a member */
+	NI_INIT(&nl);
+	status = ni_lookupprop(ni, &id, NAME_USERS, &nl);
+	if (status != NI_OK) return FALSE;
+
+	for (i = 0; i < nl.ni_namelist_len; i++)
+	{
+		if (!strcmp(user, nl.ni_namelist_val[i]))
+		{
+			ni_namelist_free(&nl);
+			return TRUE;
+		}
+	}
+
+	ni_namelist_free(&nl);
+	return FALSE;
+}
+
 /*
  * Authenticate a NetInfo call. Only required for write operations.
  * NetInfo uses passwords for authentications, but does not send them
@@ -214,26 +263,30 @@ authenticate(void *ni, struct svc_req *req)
 	struct sockaddr_in *sin = svc_getcaller(req->rq_xprt);
 	struct authunix_parms *aup;
 	char *p;
-	ni_namelist nl;
+	ni_namelist nl, name_nl;
 	ni_status status;
 	ni_id id;
 	ni_idlist idl;
 	char uidstr[MAXINTSTRSIZE];
-	int u, found;
+	int u, found, try_crypt;
 
 	/*
 	 * Root on the local machine can do anything
 	 */
-	if (sys_is_my_address(&(sin->sin_addr)) && 
-	    ntohs(sin->sin_port) < IPPORT_RESERVED) {
+	if (sys_is_my_address(&(sin->sin_addr)) && ntohs(sin->sin_port) < IPPORT_RESERVED)
+	{
 		ni_setuser(ni, ACCESS_USER_SUPER);
-		return (NI_OK);
+		return NI_OK;
 	}
-	if (req->rq_cred.oa_flavor != AUTH_UNIX) {
+
+	if (req->rq_cred.oa_flavor != AUTH_UNIX)
+	{
 		ni_setuser(ni, NULL);
-		return (NI_OK);
+		return NI_OK;
 	}
+
 	aup = (struct authunix_parms *)req->rq_clntcred;
+
 	/*
 	 * Pull user-supplied password out of RPC message.
 	 * Our trivial encryption scheme just inverts the bits
@@ -241,24 +294,23 @@ authenticate(void *ni, struct svc_req *req)
 	for (p = aup->aup_machname; *p; p++) *p = ~(*p);
 
 	status = ni_root(ni, &id);
-	if (status != NI_OK) {
-		return (status);
-	}
+	if (status != NI_OK) return status;
 
 	/*
 	 * Get /users directory
 	 */
 	NI_INIT(&idl);
 	status = ni_lookup(ni, &id, NAME_NAME, NAME_USERS, &idl);
-	if (status != NI_OK) {
+	if (status != NI_OK)
+	{
 		system_log(LOG_ERR,
-		       "Cannot authenticate user %d from %s:%hu - no /%s "
-		       "directory: %s", aup->aup_uid,
-		       inet_ntoa(sin->sin_addr), ntohs(sin->sin_port),
-		       NAME_USERS,
-		       ni_error(status));
+				"Cannot authenticate user %d from %s:%hu - no /%s "
+				"directory: %s", aup->aup_uid,
+				inet_ntoa(sin->sin_addr), ntohs(sin->sin_port),
+				NAME_USERS,
+				ni_error(status));
 		auth_count[BAD]++;
-		return (status == NI_NODIR ? NI_NOUSER : status);
+		return ((status == NI_NODIR) ? NI_NOUSER : status);
 	}
 
 	id.nii_object = idl.ni_idlist_val[0];
@@ -270,87 +322,146 @@ authenticate(void *ni, struct svc_req *req)
 	sprintf(uidstr, "%d", aup->aup_uid);
 	NI_INIT(&idl);
 	status = ni_lookup(ni, &id, NAME_UID, uidstr, &idl);
-	if (status != NI_OK) {
+	if (status != NI_OK)
+	{
 		system_log(LOG_ERR, "Cannot find user %d from %s:%hu: %s",
-		       aup->aup_uid,
-		       inet_ntoa(sin->sin_addr), ntohs(sin->sin_port),
-		       ni_error(status));
+				aup->aup_uid,
+				inet_ntoa(sin->sin_addr), ntohs(sin->sin_port),
+				ni_error(status));
 		auth_count[BAD]++;
-		return (status == NI_NODIR ? NI_NOUSER : status);
+		return ((status == NI_NODIR) ? NI_NOUSER : status);
 	}
 
 	/*
-	 * Check each user for a password match
+	 * Try authenticating each user
 	 */
 	found = 0;
-	for (u = 0; u < idl.ni_idlist_len; u++) {
+	for (u = 0; u < idl.ni_idlist_len; u++)
+	{
 		id.nii_object = idl.ni_idlist_val[u];
-		NI_INIT(&nl);
-		status = ni_lookupprop(ni, &id, NAME_PASSWD, &nl);
-		if (status == NI_OK) {
-			if ((nl.ni_namelist_len == 0) || (nl.ni_namelist_val[0][0] == '\0'))
-			{
-				/*
-				 * Free Parking: user has no password
-				 */
-				found = 1;
-				ni_namelist_free(&nl);
-				break;
-			}
+		try_crypt = 0;
 
-			if (!strcmp(nl.ni_namelist_val[0],
-				crypt(aup->aup_machname, nl.ni_namelist_val[0])) != 0)
+		/* Check for an authentication authority */
+
+		NI_INIT(&nl);
+		status = ni_lookupprop(ni, &id, NAME_AUTHENTICATION_AUTHORITY, &nl);
+		if ((status == NI_OK) && (nl.ni_namelist_len > 0))
+		{
+			if (CheckAuthType(nl.ni_namelist_val[0], BASIC_AUTH_TYPE))
 			{
-				/*
-				 * Password match
-				 */
-				found = 1;
-				ni_namelist_free(&nl);
-				break;
+				try_crypt = 1;
 			}
+			else
+			{
+				NI_INIT(&name_nl);
+				status = ni_lookupprop(ni, &id, NAME_NAME, &name_nl);
+				if ((status == NI_OK) && (name_nl.ni_namelist_len > 0))
+				{
+					if (DoPSAuth(name_nl.ni_namelist_val[0], aup->aup_machname, nl.ni_namelist_val[0]) == 0)
+					{
+						found = 1;
+						ni_namelist_free(&name_nl);
+						ni_namelist_free(&nl);
+						break;
+					}
+					ni_namelist_free(&name_nl);
+				}
+			}
+			ni_namelist_free(&nl);
 		}
-		ni_namelist_free(&nl);
+		else
+		{
+			try_crypt = 1;
+		}
+
+		if (try_crypt == 1)
+		{
+			NI_INIT(&nl);
+			status = ni_lookupprop(ni, &id, NAME_PASSWD, &nl);
+			if (status == NI_OK)
+			{
+				if ((nl.ni_namelist_len == 0) || (nl.ni_namelist_val[0][0] == '\0'))
+				{
+					/*
+					 * Free Parking: user has no password
+					 */
+					found = 1;
+					ni_namelist_free(&nl);
+					break;
+				}
+
+				if (!strcmp(nl.ni_namelist_val[0], crypt(aup->aup_machname, nl.ni_namelist_val[0])) != 0)
+				{
+					/*
+					 * Password match
+					 */
+					found = 1;
+					ni_namelist_free(&nl);
+					break;
+				}
+			}
+			ni_namelist_free(&nl);
+		}
 	}
 
 	ni_idlist_free(&idl);
-	if (!found) {
+	if (!found)
+	{
 		/*
 		 * No user with this uid with no password or a matching password
 		 */
 		system_log(LOG_ERR, "Authentication error for user "
-		       "%d from %s:%hu",
-		       aup->aup_uid,
-		       inet_ntoa(sin->sin_addr), ntohs(sin->sin_port),
-		       ni_error(status));
+				"%d from %s:%hu",
+				aup->aup_uid,
+				inet_ntoa(sin->sin_addr), ntohs(sin->sin_port),
+				ni_error(status));
 		auth_count[BAD]++;
-		return (NI_AUTHERROR);
+		return NI_AUTHERROR;
 	}
 
 	NI_INIT(&nl);
 	status = ni_lookupprop(ni, &id, NAME_NAME, &nl);
-	if (status != NI_OK) {
+	if (status != NI_OK)
+	{
 		system_log(LOG_ERR,
-		       "User %d from %s:%hu - name prop not found during "
-		       "authentication",
-		       aup->aup_uid,
-		       inet_ntoa(sin->sin_addr), ntohs(sin->sin_port),
-		       ni_error(status));
+				"User %d from %s:%hu - name prop not found during "
+				"authentication",
+				aup->aup_uid,
+				inet_ntoa(sin->sin_addr), ntohs(sin->sin_port),
+				ni_error(status));
 		auth_count[BAD]++;
-		return (status == NI_NOPROP ? NI_NOUSER : status);
-	}
-	if (nl.ni_namelist_len == 0) {
-		system_log(LOG_ERR,
-		       "User %d from %s:%hu - name value not found during "
-		       "authentication",
-		       aup->aup_uid,
-		       inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
-		auth_count[BAD]++;
-		return (NI_NOUSER);
+		return ((status == NI_NOPROP) ? NI_NOUSER : status);
 	}
 
-	/* If the user has uid 0, allow root access */
-	if (aup->aup_uid == 0) ni_setuser(ni, ACCESS_USER_SUPER); 
-	else ni_setuser(ni, nl.ni_namelist_val[0]);
+	if (nl.ni_namelist_len == 0)
+	{
+		system_log(LOG_ERR,
+				"User %d from %s:%hu - name value not found during "
+				"authentication",
+				aup->aup_uid,
+				inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
+		auth_count[BAD]++;
+		return NI_NOUSER;
+	}
+
+	/*
+	 * If the user has uid 0, allow root access.
+	 * Also allow root access if we promote admin users, and this user
+	 * is an admin (member of the "admin" group).
+	 */
+	promote_admins = get_promote_admins(ni);
+	if (aup->aup_uid == 0)
+	{
+		ni_setuser(ni, ACCESS_USER_SUPER);
+	}
+	else if (promote_admins && is_admin(ni, nl.ni_namelist_val[0]))
+	{
+		ni_setuser(ni, ACCESS_USER_SUPER);
+	}
+	else
+	{
+		ni_setuser(ni, nl.ni_namelist_val[0]);
+	}
 
 	auth_count[GOOD]++;
 	system_log(LOG_NOTICE,
@@ -359,7 +470,7 @@ authenticate(void *ni, struct svc_req *req)
 		inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
 
 	ni_namelist_free(&nl);
-	return (NI_OK);
+	return NI_OK;
 }
 
 /*
@@ -375,15 +486,17 @@ validate_write(struct svc_req *req)
 
 	status = NI_OK;
 	ni_setuser(db_ni, NULL);
-	if (i_am_clone) {
-		if (!isupdate(req)) {
-			status = NI_RDONLY;
-		} else {
-			ni_setuser(db_ni, ACCESS_USER_SUPER);
-		}
-	} else {
+
+	if (i_am_clone)
+	{
+		if (!isupdate(req)) status = NI_RDONLY;
+		else ni_setuser(db_ni, ACCESS_USER_SUPER);
+	}
+	else 
+	{
 		status = authenticate(db_ni, req);
 	}
+
 	/*
 	 * Do master side of readall in separate process.
 	 * We need to lock out modifications during a readall, to
@@ -392,9 +505,79 @@ validate_write(struct svc_req *req)
 	 * to enforce things.
 	 */
 	if ((sending_all > 0) || db_lockup) {
-	    status = NI_MASTERBUSY;
+		status = NI_MASTERBUSY;
 	}
 	return (status);
+}
+
+static void
+add_peer_servers(ni_entry entry, ni_namelist *sl)
+{
+	ni_name sep;
+	ni_namelist nl;
+	ni_index i, j, taglen;
+	ni_id id;
+	char *s;
+
+	if (entry.names == NULL) return;
+	if (sl == NULL) return;
+	
+	id.nii_object = entry.id;
+	for (i = 0; i < entry.names->ni_namelist_len; i++)
+	{
+		if (strncmp(entry.names->ni_namelist_val[i], "./", 2)) continue;
+
+		sep = entry.names->ni_namelist_val[i] + 1;
+		taglen = strlen(sep);
+		if (taglen == 0) continue;
+
+		NI_INIT(&nl);
+		if (ni_lookupprop(db_ni, &id, NAME_IP_ADDRESS, &nl) != NI_OK) continue;
+
+		for (j = 0; j < nl.ni_namelist_len; j++)
+		{
+			s = malloc(strlen(nl.ni_namelist_val[j]) + taglen + 1);
+			sprintf(s, "%s%s", nl.ni_namelist_val[j], sep);
+			ni_namelist_insert(sl, s, NI_INDEX_NULL);
+			free(s);
+		}
+
+		ni_namelist_free(&nl);
+	}
+}
+
+static ni_status
+get_servers_from_db(void *ni, ni_namelist *sl)
+{
+	ni_id id;
+	ni_idlist ids;
+	ni_entrylist entries;
+	int i;
+	ni_status status;
+
+	status = ni_root(ni, &id);
+	if (status != NI_OK) return status;
+
+	NI_INIT(&ids);
+	status = ni_lookup(ni, &id, NAME_NAME, NAME_MACHINES, &ids);
+	if (status != NI_OK) return status;
+
+	/* list "serves" properties in /machines */
+	id.nii_object = ids.ni_idlist_val[0];
+	ni_idlist_free(&ids);
+
+	NI_INIT(&entries);
+	status = ni_list_const(ni, &id, NAME_SERVES, &entries);
+	if (status != NI_OK) return status;
+
+	for (i = 0; i < entries.ni_entrylist_len; i++)
+	{
+		add_peer_servers(entries.ni_entrylist_val[i], sl);
+	}
+
+	ni_list_const_free(ni);
+
+	return NI_OK;
 }
 
 /*
@@ -402,9 +585,9 @@ validate_write(struct svc_req *req)
  */
 void *
 _ni_ping_2_svc(
-	   void *arg,
-	   struct svc_req *req
-	   )
+		void *arg,
+		struct svc_req *req
+		)
 {
 	if (req == NULL) return ((void *)~0);
 
@@ -430,14 +613,17 @@ _ni_statistics_2_svc(
 	 * going to muck with the protocol definition file at this time.
 	 * This definition must be shared with ni_prot_svc.c
 	 */
-	extern struct ni_stats {
+	extern struct ni_stats
+	{
 		unsigned long ncalls;
 		unsigned long time;
-	    } netinfod_stats[];
+	} netinfod_stats[];
+
 	#define STATS_PROCNUM	0
 	#define STATS_NCALLS	1
 	#define STATS_TIME	2
 	#define N_STATS_VALS	(STATS_TIME+1)
+
 	int total_calls = 0;		/* We'll total things here */
 	interface_list_t *ifaces;
 	struct timeval now;
@@ -446,201 +632,215 @@ _ni_statistics_2_svc(
 	/*
 	 * Sizes of values, excluding call stats
 	 * Note: for properties with multiple values the size should reflect the
-	 *       max space required for any one value.
+	 * max space required for any one value.
 	 */
-	static int props_sizes[] = {
-	    MAXINTSTRSIZE,	/* checksum: */
-	    128,		/* server_version: */
-	    NI_NAME_MAXLEN+1,	/* tag: max(NI_NAME_MAXLEN+1, 7, MAXINTSTRSIZE) */
-	    16,			/* ip_address(es): "xxx.yyy.zzz.www" */
-	    MAXHOSTNAMELEN+1,	/* hostname: */
-	    MAXINTSTRSIZE+17,	/* write_locked: strlen(SENDING_ALLn_STG)+MAXINTSTRSIZE */
-	    MAXINTSTRSIZE,	/* notify_threads: 3 of MAXINTSTRSIZE */
-	    MAXINTSTRSIZE,	/* notifications_pending: */
-	    MAXINTSTRSIZE,	/* authentications: 4 of MAXINTRSTRSIZE */
-	    MAXINTSTRSIZE,	/* readall_proxies: max(MAXINTSTRSIZE, "strict"|"loose}) */
-	    MAXINTSTRSIZE,	/* cleanup_wait: */
-	    MAXINTSTRSIZE,	/* total_calls: */
-	    16+1+MAXNAMLEN+1,	/* binding: "xxx.yyy.zzz.www/tag" */
-	    MAXINTSTRSIZE	/* connections: 4 of MAXINTSTRSIZE */
+	static int props_sizes[] =
+	{
+		MAXINTSTRSIZE,	/* checksum: */
+	 	128,		/* server_version: */
+	 	NI_NAME_MAXLEN+1,	/* tag: max(NI_NAME_MAXLEN+1, 7, MAXINTSTRSIZE) */
+	 	16,			/* ip_address(es): "xxx.yyy.zzz.www" */
+	 	MAXHOSTNAMELEN+1,	/* hostname: */
+	 	16+1+MAXNAMLEN+1,	/* servers: "xxx.yyy.zzz.www/tag" */
+	 	MAXINTSTRSIZE+17,	/* write_locked: strlen(SENDING_ALLn_STG)+MAXINTSTRSIZE */
+	 	MAXINTSTRSIZE,	/* notify_threads: 3 of MAXINTSTRSIZE */
+	 	MAXINTSTRSIZE,	/* notifications_pending: */
+	 	MAXINTSTRSIZE,	/* authentications: 4 of MAXINTRSTRSIZE */
+	 	MAXINTSTRSIZE,	/* readall_proxies: max(MAXINTSTRSIZE, "strict"|"loose}) */
+	 	MAXINTSTRSIZE,	/* cleanup_wait: */
+	 	MAXINTSTRSIZE,	/* total_calls: */
+	 	16+1+MAXNAMLEN+1,	/* binding: "xxx.yyy.zzz.www/tag" */
+	 	MAXINTSTRSIZE	/* connections: 4 of MAXINTSTRSIZE */
 	};
 
-#define wProps(i, fmt, val) \
-	wPropsN(i,0, fmt, val)
-#define wPropsN(i, j, fmt, val) \
-	(void)sprintf(props[i].nip_val.ni_namelist_val[j], fmt, val)
+#define wProps(i, fmt, val) wPropsN(i,0, fmt, val)
+#define wPropsN(i, j, fmt, val) sprintf(props[i].nip_val.ni_namelist_val[j], fmt, val)
 
-	static ni_property props[] = {
-	    {"checksum", {1, NULL}},
+	static ni_property props[] =
+	{
+	 	{"checksum", {1, NULL}},
 #define P_CHECKSUM 0
-	    {"server_version", {1, NULL}},
+	 	{"server_version", {1, NULL}},
 #define P_VERSION 1
-	    /*
-	     * tag can have two or three values.  If master, there'll
-	     * be 3; if clone, 2.  We'll allocate space for 3, to
-	     * simplify the code.
-	     */
-	    {"tag", {3, NULL}},	/* tag; master & #clones, or clone */
+	 	/*
+	  	* tag can have two or three values.  If master, there'll
+	  	* be 3; if clone, 2.  We'll allocate space for 3, to
+	  	* simplify the code.
+	  	*/
+	 	{"tag", {3, NULL}},	/* tag; master & #clones, or clone */
 #define P_TAG 2
 #define STATS_TAG 0
 #define STATS_MASTER 1
 #define STATS_NCLONES 2
-	    {"ip_address", {16, NULL}},
+	 	{"ip_address", {16, NULL}},
 #define P_ADDR 3
-	    {"hostname", {1, NULL}},
+	 	{"hostname", {1, NULL}},
 #define P_HOST 4
-	    {"write_locked", {1, NULL}},
-#define P_LOCKED 5
+		{"domain_servers", {0, NULL}},
+#define P_SERVERS 5
+	 	{"write_locked", {1, NULL}},
+#define P_LOCKED 6
 #define SENDING_ALL1_STG "Yes (a readall)"
 #define SENDING_ALLn_STG "Yes (%u readalls)"
 #define READING_ALL_STG "clone%s"
-	    {"notify_threads", {3, NULL}},	/* current, max, latency */
-#define P_THREADS 6
+	 	{"notify_threads", {3, NULL}},	/* current, max, latency */
+#define P_THREADS 7
 #define STATS_THREADS_USED 0
 #define STATS_THREADS_MAX 1
 #define STATS_THREADS_LATENCY 2
-	    {"notifications_pending", {1, NULL}},
-#define P_PENDING 7
-	    {"authentications", {4, NULL}},	/* {user,dir}:{good,bad} */
-#define P_AUTHS 8
-	    {"readall_proxies", {2, NULL}},	/* max, strict */
-#define P_PROXIES 9
+	 	{"notifications_pending", {1, NULL}},
+#define P_PENDING 8
+	 	{"authentications", {4, NULL}},	/* {user,dir}:{good,bad} */
+#define P_AUTHS 9
+	 	{"readall_proxies", {2, NULL}},	/* max, strict */
+#define P_PROXIES 10
 #define STATS_PROXIES 0
 #define STATS_PROXIES_STRICT 1
-	    {"cleanup_wait", {2, NULL}},	/* minutes (!), remaining */
-#define P_CLEANUP 10
+	 	{"cleanup_wait", {2, NULL}},	/* minutes (!), remaining */
+#define P_CLEANUP 11
 #define STATS_CLEANUPTIME 0
 #define STATS_CLEANUP_TOGO 1
-	    {"total_calls", {1, NULL}},
-#define P_CALLS 11
-	    {"binding", {1, NULL}},		/* unknown, notResponding, addr/tag, root, forcedRoot */
-#define P_BINDING 12
-	    {"connections", {4, NULL}},		/* current, top, max, lru-closed */
-#define P_CONNECTIONS 13
+	 	{"total_calls", {1, NULL}},
+#define P_CALLS 12
+	 	{"binding", {1, NULL}},		/* unknown, notResponding, addr/tag, root, forcedRoot */
+#define P_BINDING 13
+	 	{"connections", {4, NULL}},		/* current, top, max, lru-closed */
+#define P_CONNECTIONS 14
 #define STATS_CONNECTIONS_USED 0
 #define STATS_CONNECTIONS_TOP 1
 #define STATS_CONNECTIONS_MAX 2
 #define STATS_CONNECTIONS_CLOSED 3
-	    /*
-	     * 3 values of following properties:
-	     * procnum, ncalls, time (usec)
-	     */
-#define PROC_STATS_START	14
-	    {NULL, {N_STATS_VALS, NULL}},	/* 0: ping */
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},	/* 10: lookup */
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},	/* 20: readname */
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}},
-	    {NULL, {N_STATS_VALS, NULL}}	/* 28: lookupread */
+	 	/*
+	  	* 3 values of following properties:
+	  	* procnum, ncalls, time (usec)
+	  	*/
+#define PROC_STATS_START 15
+	 	{NULL, {N_STATS_VALS, NULL}},	/* 0: ping */
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},	/* 10: lookup */
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},	/* 20: readname */
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}},
+	 	{NULL, {N_STATS_VALS, NULL}}	/* 28: lookupread */
 	};
 
 	int i, j;
+	unsigned current_checksum;
 	static unsigned char first_time = TRUE;
+	static unsigned last_checksum = 0;
 	static ni_proplist res;
 
-	if (req == NULL) {
-		return (NULL);
-	}
+	if (req == NULL) return NULL;
 
 //	system_log(LOG_DEBUG, "ni_statistics on connection %u", req->rq_xprt->xp_sock);
 
-	if (first_time) {
-	    /* Save myself some typing (and static memory)... */
-	    first_time = FALSE;
-	    for (i = 0; i < PROC_STATS_START; i++) {
-		/* Initialize the props other than call stats */
-		if (NULL == (props[i].nip_val.ni_namelist_val =
-			(ni_name *)malloc(props[i].nip_val.ni_namelist_len *
-					  sizeof(ni_name)))) {
-			system_log(LOG_ALERT, 
-				"Couldn't allocate memory for statistics");
-			system_log(LOG_ALERT, "Aborting!");
-			abort();
-		}
-		for (j = 0; j < props[i].nip_val.ni_namelist_len; j++) {
-		    if (NULL == (props[i].nip_val.ni_namelist_val[j] =
-				    (ni_name)malloc(props_sizes[i]))) {
-				system_log(LOG_ALERT, 
-					"Couldn't allocate memory for statistics");
+	if (first_time)
+	{
+		/* Save some typing (and static memory)... */
+		first_time = FALSE;
+		for (i = 0; i < PROC_STATS_START; i++)
+		{
+			/* Initialize the props other than call stats and server list */
+			if (i == P_SERVERS) continue;
+
+			props[i].nip_val.ni_namelist_val = (ni_name *)malloc(props[i].nip_val.ni_namelist_len * sizeof(ni_name));
+			if (props[i].nip_val.ni_namelist_val == NULL)
+			{
+				system_log(LOG_ALERT, "Couldn't allocate memory for statistics");
 				system_log(LOG_ALERT, "Aborting!");
 				abort();
-		    }
-		}
-	    }
-	    for (i = PROC_STATS_START;
-		 i <= PROC_STATS_START+_NI_LOOKUPREAD;
-		 i++) {
-		/* Initialize the call stats */
-		props[i].nip_name = procname(i - PROC_STATS_START);
-		if (NULL == (props[i].nip_val.ni_namelist_val =
-				(ni_name *)malloc(sizeof(ni_name) *
-						    N_STATS_VALS))) {
-				system_log(LOG_ALERT, 
-					"Couldn't allocate memory for statistics");
+			}
+
+			for (j = 0; j < props[i].nip_val.ni_namelist_len; j++)
+			{
+				props[i].nip_val.ni_namelist_val[j] = (ni_name)malloc(props_sizes[i]);
+				if (props[i].nip_val.ni_namelist_val[j] == NULL)
+				{
+					system_log(LOG_ALERT, "Couldn't allocate memory for statistics");
+					system_log(LOG_ALERT, "Aborting!");
+					abort();
+				}
+			}
+	 	}
+
+	 	for (i = PROC_STATS_START; i <= PROC_STATS_START+_NI_LOOKUPREAD; i++)
+		{
+			/* Initialize the call stats */
+			props[i].nip_name = procname(i - PROC_STATS_START);
+			props[i].nip_val.ni_namelist_val = (ni_name *)malloc(sizeof(ni_name) * N_STATS_VALS);
+			if (props[i].nip_val.ni_namelist_val == NULL)
+			{
+				system_log(LOG_ALERT, "Couldn't allocate memory for statistics");
 				system_log(LOG_ALERT, "Aborting!");
 				abort();
+			}
+
+			for (j = 0; j < N_STATS_VALS; j++)
+			{
+				props[i].nip_val.ni_namelist_val[j] = (ni_name)malloc(MAXINTSTRSIZE+1);
+				if (props[i].nip_val.ni_namelist_val[j] == NULL)
+				{
+					system_log(LOG_ALERT,  "Couldn't allocate memory for statistics");
+					system_log(LOG_ALERT, "Aborting!");
+					abort();
+				}
+			}
+
+			/* Set up the (static) procedure number */
+			wPropsN(i, STATS_PROCNUM, "%u", i - PROC_STATS_START);
 		}
-		for (j = 0; j < N_STATS_VALS; j++) {
-		    if (NULL == (props[i].nip_val.ni_namelist_val[j] = 
-				    (ni_name)malloc(MAXINTSTRSIZE+1))) {
-				system_log(LOG_ALERT, 
-					"Couldn't allocate memory for statistics");
-				system_log(LOG_ALERT, "Aborting!");
-				abort();
-		    }
-		}
-		/* Set up the (static) procedure number */
-		wPropsN(i, STATS_PROCNUM, "%u", i - PROC_STATS_START);
-	    }
 
-	    /* generate static information */
+	 	/* generate static information */
 
-	    /* server_version */
-	    wProps(P_VERSION, "%s", _PROJECT_VERSION_);
+	 	/* server_version */
+	 	wProps(P_VERSION, "%s", _PROJECT_VERSION_);
 
-	    /* tag: tag, master (w/# clones) or clone */
-	    wPropsN(P_TAG, STATS_TAG, "%s", db_tag);
-	    if (!i_am_clone) {
-		wPropsN(P_TAG, STATS_MASTER, "%s", "master");
-		props[P_TAG].nip_val.ni_namelist_len = 3;
-	    } else {
-		wPropsN(P_TAG, STATS_MASTER, "%s", "clone");
-		props[P_TAG].nip_val.ni_namelist_len = 2;
-	    }
+	 	/* tag: tag, master (w/# clones) or clone */
+	 	wPropsN(P_TAG, STATS_TAG, "%s", db_tag);
+	 	if (!i_am_clone)
+		{
+			wPropsN(P_TAG, STATS_MASTER, "%s", "master");
+			props[P_TAG].nip_val.ni_namelist_len = 3;
+	 	}
+		else
+		{
+			wPropsN(P_TAG, STATS_MASTER, "%s", "clone");
+			props[P_TAG].nip_val.ni_namelist_len = 2;
+	 	}
 
-	    /* hostname */
-	    wProps(P_HOST, "%s", sys_hostname());
-
+	 	/* hostname */
+	 	wProps(P_HOST, "%s", sys_hostname());
 	}
 
 	/* checksum */
-	wProps(P_CHECKSUM, "%u", ni_getchecksum(db_ni));
+	current_checksum = ni_getchecksum(db_ni);
+	wProps(P_CHECKSUM, "%u", current_checksum);
 
 	/* identify whether the extended statistics should be returned */
-	if (req->rq_cred.oa_flavor == AUTH_UNIX) {
+	if (req->rq_cred.oa_flavor == AUTH_UNIX)
+	{
 		struct authunix_parms *aup;
 		char *p;
 		
@@ -651,7 +851,8 @@ _ni_statistics_2_svc(
 		 */
 		for (p = aup->aup_machname; *p; p++) *p = ~(*p);
 
-		if (strcmp(aup->aup_machname, "checksum") == 0) {
+		if (strcmp(aup->aup_machname, "checksum") == 0)
+		{
 			res.ni_proplist_len =  1;	/* assumes "checksum" is first property */
 			res.ni_proplist_val = props;
 			return (&res);
@@ -659,44 +860,60 @@ _ni_statistics_2_svc(
 	}
 
 	/* tag: tag, master (w/# clones) or clone */
-	if (!i_am_clone) {
-	    wPropsN(P_TAG, STATS_NCLONES, "%d", count_clones());
+	if (!i_am_clone)
+	{
+	 	wPropsN(P_TAG, STATS_NCLONES, "%d", count_clones());
 	}
 
 	/* ip_address(es) */
 	ifaces = sys_interfaces();
+
 	for (i = 0, j = 0; ifaces && (i < ifaces->count) && (j < 16); i++)
 	{
-	    if ((ifaces->interface[i].flags & IFF_UP) == 0) continue;
-	    if (ifaces->interface[i].flags & IFF_LOOPBACK) continue;
+	 	if ((ifaces->interface[i].flags & IFF_UP) == 0) continue;
+	 	if (ifaces->interface[i].flags & IFF_LOOPBACK) continue;
 			
-	    wPropsN(P_ADDR, j++, "%s", inet_ntoa(ifaces->interface[i].addr));
+	 	wPropsN(P_ADDR, j++, "%s", inet_ntoa(ifaces->interface[i].addr));
 	}
+
+	sys_interfaces_release(ifaces);
+
 	if (j == 0)
 	{
-	    props[P_ADDR].nip_val.ni_namelist_len = 1;
-	    wPropsN(P_ADDR, j++, "%s", "0.0.0.0");
+	 	props[P_ADDR].nip_val.ni_namelist_len = 1;
+	 	wPropsN(P_ADDR, j++, "%s", "0.0.0.0");
 	}
 	props[P_ADDR].nip_val.ni_namelist_len = j;
 
+	/* server list is refreshed if the checksum has changed */
+	if (current_checksum != last_checksum)
+	{
+		ni_namelist_free(&(props[P_SERVERS].nip_val));
+		get_servers_from_db(db_ni, &(props[P_SERVERS].nip_val));
+		last_checksum = current_checksum;
+	}
+
 	/* write_locked */
-	if (i_am_clone) {
-	    wProps(P_LOCKED, READING_ALL_STG,
-		   reading_all ? " (reading all)" : "");
-	} else if (sending_all > 0) {
-	    wProps(P_LOCKED,
-		   1 == sending_all ? SENDING_ALL1_STG : SENDING_ALLn_STG,
-		   sending_all);
-	} else if (db_lockup) {
-	    /* If this is longer than SENDING_ALLn_STG, change props_sizes */
-	    wProps(P_LOCKED, "%s", "Yes (due to SIGINT)");
-	} else {
-	    wProps(P_LOCKED, "%s", "No");
+	if (i_am_clone)
+	{
+	 	wProps(P_LOCKED, READING_ALL_STG, reading_all ? " (reading all)" : "");
+	}
+	else if (sending_all > 0)
+	{
+	 	wProps(P_LOCKED, 1 == sending_all ? SENDING_ALL1_STG : SENDING_ALLn_STG, sending_all);
+	}
+	else if (db_lockup)
+	{
+	 	/* If this is longer than SENDING_ALLn_STG, change props_sizes */
+	 	wProps(P_LOCKED, "%s", "Yes (due to SIGINT)");
+	}
+	else
+	{
+	 	wProps(P_LOCKED, "%s", "No");
 	}
 
 	/* notify_threads: current, max, latency */
-	wPropsN(P_THREADS, STATS_THREADS_USED, "%u",
-		count_notify_subthreads());
+	wPropsN(P_THREADS, STATS_THREADS_USED, "%u", count_notify_subthreads());
 	wPropsN(P_THREADS, STATS_THREADS_MAX, "%u", max_subthreads);
 	wPropsN(P_THREADS, STATS_THREADS_LATENCY, "%u", update_latency_secs);
 
@@ -711,18 +928,15 @@ _ni_statistics_2_svc(
 
 	/* readall_proxies: max, strict */
 	wPropsN(P_PROXIES, STATS_PROXIES, "%d", max_readall_proxies);
-	wPropsN(P_PROXIES, STATS_PROXIES_STRICT, "%s",
-		      strict_proxies ? "strict" : "loose");
+	wPropsN(P_PROXIES, STATS_PROXIES_STRICT, "%s", strict_proxies ? "strict" : "loose");
 
 	/* cleanup_wait (in seconds internally, in minutes externally!) */
 	gettimeofday(&now, NULL);
 	wPropsN(P_CLEANUP, STATS_CLEANUPTIME, "%d", cleanupwait/60);
 #ifdef _OS_NEXT_
-	wPropsN(P_CLEANUP, STATS_CLEANUP_TOGO, "%ld",
-	       cleanupwait < 0 ? -1 : (cleanuptime - now.tv_sec)/60);
+	wPropsN(P_CLEANUP, STATS_CLEANUP_TOGO, "%ld", cleanupwait < 0 ? -1 : (cleanuptime - now.tv_sec)/60);
 #else
-	wPropsN(P_CLEANUP, STATS_CLEANUP_TOGO, "%d",
-	       cleanupwait < 0 ? -1 : (cleanuptime - now.tv_sec)/60);
+	wPropsN(P_CLEANUP, STATS_CLEANUP_TOGO, "%d", cleanupwait < 0 ? -1 : (cleanuptime - now.tv_sec)/60);
 #endif
 
 	/* current binding status */
@@ -751,27 +965,21 @@ _ni_statistics_2_svc(
 	}
 
 	/* connections: current, max, lru-closed */
-	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_USED, "%d",
-		ni_svc_connections);
-	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_TOP, "%d",
-		ni_svc_topconnections);
-	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_MAX, "%d",
-		ni_svc_maxconnections);
-	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_CLOSED, "%d",
-		ni_svc_lruclosed);
+	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_USED, "%d", ni_svc_connections);
+	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_TOP, "%d", ni_svc_topconnections);
+	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_MAX, "%d", ni_svc_maxconnections);
+	wPropsN(P_CONNECTIONS, STATS_CONNECTIONS_CLOSED, "%d", ni_svc_lruclosed);
 
 	/* We'll return to total_calls later */
 
 	/* Loop through the call stats. */
-	for (i = PROC_STATS_START;
-	     i <= PROC_STATS_START + _NI_LOOKUPREAD;
-	     i++) {
-	    wPropsN(i, STATS_NCALLS, "%lu",
-		    netinfod_stats[i - PROC_STATS_START].ncalls);
-	    wPropsN(i, STATS_TIME, "%lu",
-		    netinfod_stats[i - PROC_STATS_START].time);
-	    total_calls += netinfod_stats[i - PROC_STATS_START].ncalls;
+	for (i = PROC_STATS_START; i <= PROC_STATS_START + _NI_LOOKUPREAD; i++)
+	{
+	 	wPropsN(i, STATS_NCALLS, "%lu", netinfod_stats[i - PROC_STATS_START].ncalls);
+	 	wPropsN(i, STATS_TIME, "%lu", netinfod_stats[i - PROC_STATS_START].time);
+	 	total_calls += netinfod_stats[i - PROC_STATS_START].ncalls;
 	}
+
 	wProps(P_CALLS, "%u", total_calls);
 
 	res.ni_proplist_len = PROC_STATS_START+(_NI_LOOKUPREAD+1);
@@ -785,9 +993,9 @@ _ni_statistics_2_svc(
  */
 ni_id_res *
 _ni_root_2_svc(
-	   void *arg,
-	   struct svc_req *req
-	   )
+		void *arg,
+		struct svc_req *req
+		)
 {
 	static ni_id_res res;
 
@@ -803,9 +1011,9 @@ _ni_root_2_svc(
  */
 ni_id_res *
 _ni_self_2_svc(
-	   ni_id *arg,
-	   struct svc_req *req
-	   )
+		ni_id *arg,
+		struct svc_req *req
+		)
 {
 	static ni_id_res res;
 
@@ -822,9 +1030,9 @@ _ni_self_2_svc(
  */
 ni_parent_res * 
 _ni_parent_2_svc(
-	     ni_id *arg,
-	     struct svc_req *req
-	     )
+	 	ni_id *arg,
+	 	struct svc_req *req
+	 	)
 {
 	static ni_parent_res res;
 
@@ -833,7 +1041,7 @@ _ni_parent_2_svc(
 	}
 	res.ni_parent_res_u.stuff.self_id = *arg;
 	res.status = ni_parent(db_ni, &res.ni_parent_res_u.stuff.self_id,
-			       &res.ni_parent_res_u.stuff.object_id);
+					&res.ni_parent_res_u.stuff.object_id);
 	return (&res);
 }
 
@@ -842,9 +1050,9 @@ _ni_parent_2_svc(
  */
 ni_children_res *
 _ni_children_2_svc(
-	       ni_id *arg,
-	       struct svc_req *req
-	       )
+			ni_id *arg,
+			struct svc_req *req
+			)
 {
 	static ni_children_res res;
 
@@ -863,9 +1071,9 @@ _ni_children_2_svc(
  */
 ni_create_res *
 _ni_create_2_svc(
-	     ni_create_args *arg,
-	     struct svc_req *req
-	     )
+	 	ni_create_args *arg,
+	 	struct svc_req *req
+	 	)
 {
 	static ni_create_res res;
 
@@ -883,8 +1091,8 @@ _ni_create_2_svc(
 	}
 	res.ni_create_res_u.stuff.self_id = arg->id;
 	res.status = ni_create(db_ni, &res.ni_create_res_u.stuff.self_id, 
-			       arg->props, &res.ni_create_res_u.stuff.id,
-			       arg->where);
+					arg->props, &res.ni_create_res_u.stuff.id,
+					arg->where);
 	if (res.status == NI_OK) {
 		if (!i_am_clone) {
 			if (arg->target_id == NULL) {
@@ -904,9 +1112,9 @@ _ni_create_2_svc(
  */
 ni_id_res *
 _ni_destroy_2_svc(
-	      ni_destroy_args *arg,
-	      struct svc_req *req
-	      )
+	  	ni_destroy_args *arg,
+	  	struct svc_req *req
+	  	)
 {
 	static ni_id_res res;
 
@@ -934,9 +1142,9 @@ _ni_destroy_2_svc(
  */
 ni_proplist_res *
 _ni_read_2_svc(
-	   ni_id *arg,
-	   struct svc_req *req
-	   )
+		ni_id *arg,
+		struct svc_req *req
+		)
 {
 	static ni_proplist_res res;
 
@@ -947,7 +1155,7 @@ _ni_read_2_svc(
 	}
 	res.ni_proplist_res_u.stuff.id = *arg;
 	res.status = ni_read(db_ni, &res.ni_proplist_res_u.stuff.id, 
-			     &res.ni_proplist_res_u.stuff.props);
+			 	&res.ni_proplist_res_u.stuff.props);
 	return (&res);
 }
 
@@ -956,9 +1164,9 @@ _ni_read_2_svc(
  */
 ni_id_res *
 _ni_write_2_svc(
-	    ni_proplist_stuff *arg,
-	    struct svc_req *req
-	    )
+		ni_proplist_stuff *arg,
+		struct svc_req *req
+		)
 {
 	static ni_id_res res;
 
@@ -986,9 +1194,9 @@ _ni_write_2_svc(
  */
 ni_lookup_res *
 _ni_lookup_2_svc(
-	     ni_lookup_args *arg,
-	     struct svc_req *req
-	     )
+	 	ni_lookup_args *arg,
+	 	struct svc_req *req
+	 	)
 {
 	static ni_lookup_res res;
 
@@ -999,8 +1207,8 @@ _ni_lookup_2_svc(
 	res.ni_lookup_res_u.stuff.self_id = arg->id;
 	NI_INIT(&res.ni_lookup_res_u.stuff.idlist);
 	res.status = ni_lookup(db_ni, &res.ni_lookup_res_u.stuff.self_id,
-			       arg->key, arg->value, 
-			       &res.ni_lookup_res_u.stuff.idlist);
+					arg->key, arg->value, 
+					&res.ni_lookup_res_u.stuff.idlist);
 	return (&res);
 }
 
@@ -1022,9 +1230,9 @@ _ni_lookupread_2_svc(
 	}
 	res.ni_proplist_res_u.stuff.id = arg->id;
 	res.status = ni_lookupread(db_ni, 
-				   &res.ni_proplist_res_u.stuff.id,
-				   arg->key, arg->value, 
-				   &res.ni_proplist_res_u.stuff.props);
+					&res.ni_proplist_res_u.stuff.id,
+					arg->key, arg->value, 
+					&res.ni_proplist_res_u.stuff.props);
 	return (&res);
 }
 
@@ -1033,9 +1241,9 @@ _ni_lookupread_2_svc(
  */
 ni_list_res *
 _ni_list_2_svc(
-	   ni_name_args *arg,
-	   struct svc_req *req
-	   )
+		ni_name_args *arg,
+		struct svc_req *req
+		)
 {
 	static ni_list_res res;
 
@@ -1045,8 +1253,8 @@ _ni_list_2_svc(
 	}
 	res.ni_list_res_u.stuff.self_id = arg->id;
 	res.status = ni_list_const(db_ni, &res.ni_list_res_u.stuff.self_id,
-				   arg->name, 
-				   &res.ni_list_res_u.stuff.entries);
+					arg->name, 
+					&res.ni_list_res_u.stuff.entries);
 	return (&res);
 }
 
@@ -1060,9 +1268,9 @@ _ni_list_2_svc(
  */
 ni_listall_res *
 _ni_listall_2_svc(
-	      ni_id *id,
-	      struct svc_req *req
-	      )
+	  	ni_id *id,
+	  	struct svc_req *req
+	  	)
 {
 	static ni_listall_res res;
 
@@ -1073,7 +1281,7 @@ _ni_listall_2_svc(
 
 	res.ni_listall_res_u.stuff.self_id = *id;
 	res.status = ni_listall(db_ni, &res.ni_listall_res_u.stuff.self_id,
-			     &res.ni_listall_res_u.stuff.entries);
+			 	&res.ni_listall_res_u.stuff.entries);
 	return (&res);
 }
 
@@ -1082,9 +1290,9 @@ _ni_listall_2_svc(
  */
 ni_namelist_res *
 _ni_readprop_2_svc(
-	       ni_prop_args *arg,
-	       struct svc_req *req
-	       )
+			ni_prop_args *arg,
+			struct svc_req *req
+			)
 {
 	static ni_namelist_res res;
 
@@ -1233,7 +1441,7 @@ _ni_renameprop_2_svc(
 	}
 	res.ni_id_res_u.id = arg->id;
 	res.status = ni_renameprop(db_ni, &res.ni_id_res_u.id, 
-				   arg->prop_index, arg->name);
+					arg->prop_index, arg->name);
 	if (res.status == NI_OK) {
 		if (!i_am_clone) {
 			notify_clients(_NI_RENAMEPROP, arg);
@@ -1265,7 +1473,7 @@ _ni_createname_2_svc(
 	}
 	res.ni_id_res_u.id = arg->id;
 	res.status = ni_createname(db_ni, &res.ni_id_res_u.id, arg->prop_index, arg->name,
-				   arg->where);
+					arg->where);
 	if (res.status == NI_OK) {
 		if (!i_am_clone) {
 			notify_clients(_NI_CREATENAME, arg);
@@ -1296,8 +1504,8 @@ _ni_writename_2_svc(
 	}
 	res.ni_id_res_u.id = arg->id;
 	res.status = ni_writename(db_ni, &res.ni_id_res_u.id, 
-				    arg->prop_index, arg->name_index,
-				    arg->name);
+					arg->prop_index, arg->name_index,
+					arg->name);
 	if (res.status == NI_OK) {
 		if (!i_am_clone) {
 			notify_clients(_NI_WRITENAME, arg);
@@ -1313,8 +1521,8 @@ _ni_writename_2_svc(
  */
 ni_readname_res *
 _ni_readname_2_svc(
-	       ni_nameindex_args *arg,
-	       struct svc_req *req
+			ni_nameindex_args *arg,
+			struct svc_req *req
 		)
 {
 	static ni_readname_res res;
@@ -1350,7 +1558,7 @@ _ni_destroyname_2_svc(
 	}
 	res.ni_id_res_u.id = arg->id;
 	res.status = ni_destroyname(db_ni, &res.ni_id_res_u.id, 
-				    arg->prop_index, arg->name_index);
+					arg->prop_index, arg->name_index);
 	if (res.status == NI_OK) {
 		if (!i_am_clone) {
 			notify_clients(_NI_DESTROYNAME, arg);
@@ -1387,7 +1595,7 @@ tag_match(
 	 */
 	len = sep - slashtag;
 	if (ni_name_match_seg(NAME_DOT, slashtag, len) ||
-	    ni_name_match_seg(NAME_DOTDOT, slashtag, len)) {
+		ni_name_match_seg(NAME_DOTDOT, slashtag, len)) {
 		return (0);
 	}
 
@@ -1403,9 +1611,9 @@ tag_match(
  */
 void *
 _ni_bind_2_svc(
-	   ni_binding *binding,
-	   struct svc_req *req
-	   )
+		ni_binding *binding,
+		struct svc_req *req
+		)
 {
 	ni_id id;
 	ni_idlist ids;
@@ -1482,7 +1690,7 @@ _ni_bind_2_svc(
  */
 typedef struct ni_rparent_stuff {
 	nibind_bind_args *bindings; /* arguments to BIND */
-	ni_rparent_res *res;	     /* result from BIND  */
+	ni_rparent_res *res;	 	/* result from BIND  */
 } ni_rparent_stuff;
 
 /*
@@ -1510,7 +1718,7 @@ catch(void *vstuff, struct sockaddr_in *raddr, int which)
 /*
  * Determine if this entry serves ".." (i.e. it has a serves property of
  * which one of the values looks like ../SOMETAG.
- */       
+ */		
 static unsigned
 servesdotdot(ni_entry entry, ni_name *tag)
 {
@@ -1554,7 +1762,7 @@ add_binding_entry(struct in_addr sa, ni_name st, struct in_addr ca, ni_name ct,
 	sprintf(astr, "%s", inet_ntoa(sa));
 	sprintf(cstr, "%s", inet_ntoa(ca));
 	
-	system_log(LOG_DEBUG, "binding list added   %s/%s   (%s/%s)", astr, st, cstr, ct);
+	system_log(LOG_DEBUG, "binding list added	%s/%s	(%s/%s)", astr, st, cstr, ct);
 
 	MM_GROW_ARRAY(*addrs, *naddrs);
 	(*addrs)[*naddrs].s_addr = sa.s_addr;
@@ -1595,6 +1803,8 @@ add_broadcast_binding(ni_name server_tag, ni_name client_tag,
 			add_binding_entry(l->interface[i].bcast, server_tag, l->interface[i].addr, client_tag, addrs, stuff, naddrs);
 		}
 	}
+
+	sys_interfaces_release(l);
 }
 
 static void
@@ -1612,6 +1822,8 @@ add_hardwired_binding(struct in_addr server_addr, ni_name server_tag, ni_name cl
 		if ((l->interface[i].flags & IFF_LOOPBACK) && (l->count > 1)) continue;
 		add_binding_entry(server_addr, server_tag, l->interface[i].addr, client_tag, addrs, stuff, naddrs);
 	}
+
+	sys_interfaces_release(l);
 }
 
 static void
@@ -1664,6 +1876,8 @@ get_token_1(FILE *fp, int xword)
 			t->value = realloc(t->value, len + 1);
 			t->value[len] = '\0';
 		}
+
+		if (t->value == NULL) return t;
 
 		s = (token_t *)malloc(sizeof(token_t));
 		s->type = TokenWord;
@@ -2080,9 +2294,9 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 	 * Majka - 1994.04.27
 	 * 1. shuffle the servers to distribute client load
 	 * 2. re-order the servers so that:
-	 *    a. servers on the local host are first
-	 *    b. servers on the local network are next
-	 *    c. all other servers
+	 *	a. servers on the local host are first
+	 *	b. servers on the local network are next
+	 *	c. all other servers
 	 */
 
 	shuffle = (int *)malloc(naddrs * sizeof(int)); 
@@ -2173,8 +2387,8 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 		for (i = 0; i < nlocal; i++)
 		{
 			system_log(LOG_INFO, "local bind try %d: %s/%s",
-			       i + 1, inet_ntoa(addrs[i]),
-			       stuff->bindings[i].server_tag);
+					i + 1, inet_ntoa(addrs[i]),
+					stuff->bindings[i].server_tag);
 		}
 
 		stat = ni_multi_call(nlocal, addrs,
@@ -2190,8 +2404,8 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 		for (i = 0; i < nnetwork; i++)
 		{
 			system_log(LOG_INFO, "network bind try %d: %s/%s",
-			       i + 1, inet_ntoa(addrs[i]),
-			       stuff->bindings[i].server_tag);
+					i + 1, inet_ntoa(addrs[i]),
+					stuff->bindings[i].server_tag);
 		}
 
 		stat = ni_multi_call(nnetwork, addrs,
@@ -2207,8 +2421,8 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 		for (i = 0; i < naddrs; i++)
 		{
 			system_log(LOG_INFO, "world bind try %d: %s/%s",
-			       i + 1, inet_ntoa(addrs[i]),
-			       stuff->bindings[i].server_tag);
+					i + 1, inet_ntoa(addrs[i]),
+					stuff->bindings[i].server_tag);
 		}
 
 		stat = ni_multi_call(naddrs, addrs,
@@ -2332,9 +2546,9 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 	 * If already have the result, return it.
 	 *
 	 * Note: As long as the parent NetInfo server which we were
-	 *       previously bound to is still up and running there
-	 *       will be no re-binding calls which might detect that
-	 *       we are now the root domain.
+	 *		previously bound to is still up and running there
+	 *		will be no re-binding calls which might detect that
+	 *		we are now the root domain.
 	 */
 	if (res.status == NI_OK)
 	{
@@ -2460,7 +2674,7 @@ waitforparent(void)
 
 	alert_enable(0);
 	return;
-}		   
+}			
 
 /*
  * The NetInfo CRASHED procedure
@@ -2501,9 +2715,9 @@ _ni_crashed_2_svc(unsigned *checksum, struct svc_req *req)
 void proxy_term(void);
 ni_readall_res *
 _ni_readall_2_svc(
-	      unsigned *checksum,
-	      struct svc_req *req
-	      )
+	  	unsigned *checksum,
+	  	struct svc_req *req
+	  	)
 {
 	static ni_readall_res res;
 	unsigned db_checksum;
@@ -2720,7 +2934,7 @@ _ni_readall_2_svc(
 				}
 
 				/* Retain the proxy's pid to kill it if we shutdown */
-		   		add_proxy(kpid, svc_getcaller(req->rq_xprt)-> sin_addr.s_addr);
+					add_proxy(kpid, svc_getcaller(req->rq_xprt)-> sin_addr.s_addr);
 
 				syslock_unlock(readall_syslock);
 
@@ -2758,7 +2972,7 @@ _ni_readall_2_svc(
 			}
 			syslock_unlock(readall_syslock);
 		}
-	    /* If not strict proxies, retain and run in this process */
+		/* If not strict proxies, retain and run in this process */
 	} else {
 		syslock_unlock(readall_syslock);
 	}
@@ -2792,14 +3006,14 @@ _ni_readall_2_svc(
 void
 readall_catcher(void)
 {
-    /*
-     * We can't just clean up the proxy's pid: remove_proxy() calls
-     * [HashTable removeKey:] which calls free(), which waits on the
-     * (global) malloc lock.  So, just post that we need to clean up.
-     * And, make the posting as atomic as possible, so we don't ever
-     * lose anything, and we avoid possible race conditions.
-     */
-    readall_done = TRUE;
+	/*
+	 * We can't just clean up the proxy's pid: remove_proxy() calls
+	 * [HashTable removeKey:] which calls free(), which waits on the
+	 * (global) malloc lock.  So, just post that we need to clean up.
+	 * And, make the posting as atomic as possible, so we don't ever
+	 * lose anything, and we avoid possible race conditions.
+	 */
+	readall_done = TRUE;
 }
 
 void
@@ -2809,12 +3023,12 @@ readall_cleanup(void)
 	union wait wait_stat;
 	unsigned int addr;
 
-    /*
-     * A readall fork finished doing its job.  Note the **ASSUMPTION**
-     * that the only child processes we fork are for readalls.
-     */
-    syslock_lock(readall_syslock);
-    while (TRUE)
+	/*
+ 	 * A readall fork finished doing its job.  Note the **ASSUMPTION**
+ 	 * that the only child processes we fork are for readalls.
+ 	 */
+	syslock_lock(readall_syslock);
+	while (TRUE)
 	{
 		p = wait4(-1, (_WAIT_TYPE_ *)&wait_stat, WNOHANG, NULL);
 		switch (p)
@@ -2870,23 +3084,23 @@ readall_cleanup(void)
 void
 dblock_catcher(void)
 {
-    if (i_am_clone)
+	if (i_am_clone)
 	{
 		system_log(LOG_ERR, "SIGINT to clone ignored");
 		return;
-    }
+	}
 	else if (i_am_proxy)
 	{
 		system_log(LOG_ERR, "SIGINT to readall proxy ignored");
 		return;
-    }
+	}
 
-    syslock_lock(lockup_syslock);
-    db_lockup = ! db_lockup;
-    system_log(LOG_WARNING, "Master database is now %s", 
-	   db_lockup ? "locked" : "unlocked");
-    syslock_unlock(lockup_syslock);
-    return;
+	syslock_lock(lockup_syslock);
+	db_lockup = ! db_lockup;
+	system_log(LOG_WARNING, "Master database is now %s", 
+		db_lockup ? "locked" : "unlocked");
+	syslock_unlock(lockup_syslock);
+	return;
 }
 
 /*
@@ -2894,17 +3108,17 @@ dblock_catcher(void)
  */
 ni_status *
 _ni_resync_2_svc(
-	     void *arg,
-	     struct svc_req *req
-	     )
+	 	void *arg,
+	 	struct svc_req *req
+	 	)
 {
 	static ni_status status;
 
 	if (req == NULL) return (NULL);
 
 	system_log(LOG_NOTICE, "got a resync from %s:%hu",
-	       inet_ntoa(svc_getcaller(req->rq_xprt)->sin_addr),
-	       ntohs(svc_getcaller(req->rq_xprt)->sin_port));
+			inet_ntoa(svc_getcaller(req->rq_xprt)->sin_addr),
+			ntohs(svc_getcaller(req->rq_xprt)->sin_port));
 
 	cleanupwait = get_cleanupwait(db_ni);
 	forcedIsRoot = get_forced_root(db_ni);

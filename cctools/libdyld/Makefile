@@ -1,3 +1,4 @@
+RC_OS = macos
 PROFILING = -DDYLD_PROFILING
 OFLAG = -O
 ifeq "macos" "$(RC_OS)"
@@ -5,21 +6,25 @@ ifeq "macos" "$(RC_OS)"
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double ; \
+	     echo -Wno-long-double -no-cpp-precomp ; \
 	     fi; )
 endif
 MIG = $(NEXT_ROOT)/usr/bin/mig
-ifneq "mwcc" "$(notdir $(CC))"
+ifneq "mwccppc" "$(notdir $(CC))"
   MIG_FLAGS = $(PROFILING)
 endif
 
-ifeq "mwcc" "$(notdir $(CC))"
+ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(PROFILING) $(OFLAG) -g \
      -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) -I$(SRCROOT)/../dyld
 else
   CFLAGS = $(PROFILING) $(OFLAG) -g -Wall -Wno-precomp  $(X_CFLAGS) \
      -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) -I$(SRCROOT)/../dyld
 endif
+
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+	     echo YES ; else echo NO ; \
+	     fi; )
 
 ifneq "" "$(wildcard /bin/mkdirs)"
   MKDIRS = /bin/mkdirs
@@ -228,10 +233,15 @@ objectfileimage.o: ofi.o ofile.o
 	    ofi.o ofile.o $(LIBSTUFF)
 
 ofile.o: $(SRCROOT)/../libstuff/ofile.c
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o \
+		$(SRCROOT)/../libstuff/ofile.c -DOFI
+else
 	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file \
 		$(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o \
 		$(SRCROOT)/../libstuff/ofile.c -DOFI
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 debug.c: _dyld_debug.h
 _dyld_debug.h: _dyld_debugUser.c
@@ -251,7 +261,7 @@ _dyld_debugUser.c: $(SRCROOT)/../dyld/dyld_debug.defs dyld_debug_MsgError.h
 	fi
 
 _dyld_debugUser.o: _dyld_debugUser.c
-ifeq "mwcc" "$(notdir $(CC))"
+ifeq "mwccppc" "$(notdir $(CC))"
 	cd $(OFILE_DIR); \
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c _dyld_debugUser.c
 else
@@ -281,11 +291,16 @@ _dyld_eventServer.o: _dyld_eventServer.c
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c sed._dyld_eventServer.c \
 		-o _dyld_eventServer.o
 
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+.c.o:
+	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c -o $(OFILE_DIR)/$*.o $<
+else
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c \
 		-MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 clean:
 	-rm -r -f $(OFILE_DIRS) $(OBJROOT)/static_obj
@@ -307,12 +322,22 @@ lib_ofiles_install: $(RC_OS)_lib_ofiles_install
 
 macos_lib_ofiles_install: all
 	$(MKDIRS) $(DSTROOT)$(SYSTEMDIR)
-	install -c -m 444 $(SYMROOT)/libdyld.a \
-		 $(DSTROOT)$(SYSTEMDIR)/libdyld.a
-	(cd $(DSTROOT)$(SYSTEMDIR); \
-	rm -f libdyld_debug.a; ln -s libdyld.a libdyld_debug.a)
-	install -c -m 444 $(SYMROOT)/libdyld_pg.a \
-		 $(DSTROOT)$(SYSTEMDIR)/libdyld_profile.a
+	@if [ $(SRCROOT) = . ];						\
+	then								\
+	    install -c -m 444 dtmp_obj/libdyld.a			\
+		     $(DSTROOT)$(SYSTEMDIR)/libdyld.a;			\
+	    (cd $(DSTROOT)$(SYSTEMDIR); 				\
+	    rm -f libdyld_debug.a; ln -s libdyld.a libdyld_debug.a);	\
+	    install -c -m 444 ptmp_obj/libdyld_pg.a 			\
+		     $(DSTROOT)$(SYSTEMDIR)/libdyld_profile.a;		\
+	else								\
+	    install -c -m 444 $(SYMROOT)/libdyld.a			\
+		     $(DSTROOT)$(SYSTEMDIR)/libdyld.a;			\
+	    (cd $(DSTROOT)$(SYSTEMDIR); 				\
+	    rm -f libdyld_debug.a; ln -s libdyld.a libdyld_debug.a);	\
+	    install -c -m 444 $(SYMROOT)/libdyld_pg.a 			\
+		     $(DSTROOT)$(SYSTEMDIR)/libdyld_profile.a;		\
+	fi
 
 teflon_lib_ofiles_install nextstep_lib_ofiles_install:
 

@@ -1,5 +1,5 @@
 /* GNU/Linux on ARM target support.
-   Copyright 1999, 2000 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -25,62 +25,64 @@
 #include "floatformat.h"
 #include "gdbcore.h"
 #include "frame.h"
+#include "regcache.h"
+#include "doublest.h"
 
-/* For arm_linux_skip_solib_resolver.  */
+#include "arm-tdep.h"
+
+/* For shared library handling.  */
 #include "symtab.h"
 #include "symfile.h"
 #include "objfiles.h"
 
-#ifdef GET_LONGJMP_TARGET
+/* Under ARM GNU/Linux the traditional way of performing a breakpoint
+   is to execute a particular software interrupt, rather than use a
+   particular undefined instruction to provoke a trap.  Upon exection
+   of the software interrupt the kernel stops the inferior with a
+   SIGTRAP, and wakes the debugger.  Since ARM GNU/Linux is little
+   endian, and doesn't support Thumb at the moment we only override
+   the ARM little-endian breakpoint.  */
 
-/* Figure out where the longjmp will land.  We expect that we have
-   just entered longjmp and haven't yet altered r0, r1, so the
-   arguments are still in the registers.  (A1_REGNUM) points at the
-   jmp_buf structure from which we extract the pc (JB_PC) that we will
-   land at.  The pc is copied into ADDR.  This routine returns true on
-   success. */
+static const char arm_linux_arm_le_breakpoint[] = {0x01,0x00,0x9f,0xef};
 
-#define LONGJMP_TARGET_SIZE 	sizeof(int)
-#define JB_ELEMENT_SIZE		sizeof(int)
-#define JB_SL			18
-#define JB_FP			19
-#define JB_SP			20
-#define JB_PC			21
+/* CALL_DUMMY_WORDS:
+   This sequence of words is the instructions
 
-int
-arm_get_longjmp_target (CORE_ADDR * pc)
+   mov  lr, pc
+   mov  pc, r4
+   swi	bkpt_swi
+
+   Note this is 12 bytes.  */
+
+LONGEST arm_linux_call_dummy_words[] =
 {
-  CORE_ADDR jb_addr;
-  char buf[LONGJMP_TARGET_SIZE];
+  0xe1a0e00f, 0xe1a0f004, 0xef9f001
+};
 
-  jb_addr = read_register (A1_REGNUM);
-
-  if (target_read_memory (jb_addr + JB_PC * JB_ELEMENT_SIZE, buf,
-			  LONGJMP_TARGET_SIZE))
-    return 0;
-
-  *pc = extract_address (buf, LONGJMP_TARGET_SIZE);
-  return 1;
-}
-
-#endif /* GET_LONGJMP_TARGET */
+/* Description of the longjmp buffer.  */
+#define JB_ELEMENT_SIZE		INT_REGISTER_RAW_SIZE
+#define JB_PC			21
 
 /* Extract from an array REGBUF containing the (raw) register state
    a function return value of type TYPE, and copy that, in virtual format,
    into VALBUF.  */
-
-void
+/* FIXME rearnsha/2002-02-23: This function shouldn't be necessary.
+   The ARM generic one should be able to handle the model used by
+   linux and the low-level formatting of the registers should be
+   hidden behind the regcache abstraction.  */
+static void
 arm_linux_extract_return_value (struct type *type,
 				char regbuf[REGISTER_BYTES],
 				char *valbuf)
 {
   /* ScottB: This needs to be looked at to handle the different
-     floating point emulators on ARM Linux.  Right now the code
+     floating point emulators on ARM GNU/Linux.  Right now the code
      assumes that fetch inferior registers does the right thing for
      GDB.  I suspect this won't handle NWFPE registers correctly, nor
      will the default ARM version (arm_extract_return_value()).  */
 
-  int regnum = (TYPE_CODE_FLT == TYPE_CODE (type)) ? F0_REGNUM : A1_REGNUM;
+  int regnum = ((TYPE_CODE_FLT == TYPE_CODE (type))
+		? ARM_F0_REGNUM : ARM_A1_REGNUM);
   memcpy (valbuf, &regbuf[REGISTER_BYTE (regnum)], TYPE_LENGTH (type));
 }
 
@@ -102,8 +104,8 @@ arm_linux_extract_return_value (struct type *type,
 #define MAKE_THUMB_ADDR(addr)	((addr) | 1)
 #define UNMAKE_THUMB_ADDR(addr) ((addr) & ~1)
    	  
-CORE_ADDR
-arm_linux_push_arguments (int nargs, value_ptr * args, CORE_ADDR sp,
+static CORE_ADDR
+arm_linux_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		          int struct_return, CORE_ADDR struct_addr)
 {
   char *fp;
@@ -144,7 +146,7 @@ arm_linux_push_arguments (int nargs, value_ptr * args, CORE_ADDR sp,
     }
 
   /* Initialize the integer argument register pointer.  */
-  argreg = A1_REGNUM;
+  argreg = ARM_A1_REGNUM;
 
   /* The struct_return pointer occupies the first parameter passing
      register.  */
@@ -158,7 +160,6 @@ arm_linux_push_arguments (int nargs, value_ptr * args, CORE_ADDR sp,
     {
       int len;
       char *val;
-      double dbl_arg;
       CORE_ADDR regval;
       enum type_code typecode;
       struct type *arg_type, *target_type;
@@ -178,14 +179,11 @@ arm_linux_push_arguments (int nargs, value_ptr * args, CORE_ADDR sp,
          calling the function.  */
       if (TYPE_CODE_FLT == typecode && REGISTER_SIZE == len)
 	{
-	  /* Float argument in buffer is in host format.  Read it and 
-	     convert to DOUBLEST, and store it in target double.  */
 	  DOUBLEST dblval;
-	  
+	  dblval = extract_floating (val, len);
 	  len = TARGET_DOUBLE_BIT / TARGET_CHAR_BIT;
-	  floatformat_to_doublest (HOST_FLOAT_FORMAT, val, &dblval);
-	  store_floating (&dbl_arg, len, dblval);
-	  val = (char *) &dbl_arg;
+	  val = alloca (len);
+	  store_floating (val, len, dblval);
 	}
 
       /* If the argument is a pointer to a function, and it is a Thumb
@@ -229,8 +227,8 @@ arm_linux_push_arguments (int nargs, value_ptr * args, CORE_ADDR sp,
 }
 
 /*
-   Dynamic Linking on ARM Linux
-   ----------------------------
+   Dynamic Linking on ARM GNU/Linux
+   --------------------------------
 
    Note: PLT = procedure linkage table
    GOT = global offset table
@@ -257,11 +255,11 @@ arm_linux_push_arguments (int nargs, value_ptr * args, CORE_ADDR sp,
    When the executable or library is first loaded, each GOT entry is
    initialized to point to the code which implements dynamic name
    resolution and code finding.  This is normally a function in the
-   program interpreter (on ARM Linux this is usually ld-linux.so.2,
-   but it does not have to be).  On the first invocation, the function
-   is located and the GOT entry is replaced with the real function
-   address.  Subsequent calls go through steps 1, 2 and 3 and end up
-   calling the real code.
+   program interpreter (on ARM GNU/Linux this is usually
+   ld-linux.so.2, but it does not have to be).  On the first
+   invocation, the function is located and the GOT entry is replaced
+   with the real function address.  Subsequent calls go through steps
+   1, 2 and 3 and end up calling the real code.
 
    1) In the code: 
 
@@ -365,7 +363,7 @@ find_minsym_and_objfile (char *name, struct objfile **objfile_p)
       ALL_OBJFILE_MSYMBOLS (objfile, msym)
 	{
 	  if (SYMBOL_NAME (msym)
-	      && STREQ (SYMBOL_NAME (msym), name))
+	      && strcmp (SYMBOL_NAME (msym), name) == 0)
 	    {
 	      *objfile_p = objfile;
 	      return msym;
@@ -394,7 +392,7 @@ skip_hurd_resolver (CORE_ADDR pc)
      It's kind of gross to do all these checks every time we're
      called, since they don't change once the executable has gotten
      started.  But this is only a temporary hack --- upcoming versions
-     of Linux will provide a portable, efficient interface for
+     of GNU/Linux will provide a portable, efficient interface for
      debugging programs that use shared libraries.  */
 
   struct objfile *objfile;
@@ -404,7 +402,7 @@ skip_hurd_resolver (CORE_ADDR pc)
   if (resolver)
     {
       struct minimal_symbol *fixup
-	= lookup_minimal_symbol ("fixup", 0, objfile);
+	= lookup_minimal_symbol ("fixup", NULL, objfile);
 
       if (fixup && SYMBOL_VALUE_ADDRESS (fixup) == pc)
 	return (SAVED_PC_AFTER_CALL (get_current_frame ()));
@@ -475,7 +473,8 @@ arm_linux_sigcontext_register_address (CORE_ADDR sp, CORE_ADDR pc, int regno)
 
   inst = read_memory_integer (pc, 4);
 
-  if (inst == ARM_LINUX_SIGRETURN_INSTR || inst == ARM_LINUX_RT_SIGRETURN_INSTR)
+  if (inst == ARM_LINUX_SIGRETURN_INSTR
+      || inst == ARM_LINUX_RT_SIGRETURN_INSTR)
     {
       CORE_ADDR sigcontext_addr;
 
@@ -506,16 +505,43 @@ arm_linux_sigcontext_register_address (CORE_ADDR sp, CORE_ADDR pc, int regno)
 	 PSR value follows the sixteen registers which accounts for
 	 the constant 19 below. */
 
-      if (0 <= regno && regno <= PC_REGNUM)
+      if (0 <= regno && regno <= ARM_PC_REGNUM)
 	reg_addr = sigcontext_addr + 12 + (4 * regno);
-      else if (regno == PS_REGNUM)
+      else if (regno == ARM_PS_REGNUM)
 	reg_addr = sigcontext_addr + 19 * 4;
     }
 
   return reg_addr;
 }
 
+static void
+arm_linux_init_abi (struct gdbarch_info info,
+		    struct gdbarch *gdbarch)
+{
+  struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
+
+  tdep->lowest_pc = 0x8000;
+  tdep->arm_breakpoint = arm_linux_arm_le_breakpoint;
+  tdep->arm_breakpoint_size = sizeof (arm_linux_arm_le_breakpoint);
+
+  tdep->jb_pc = JB_PC;
+  tdep->jb_elt_size = JB_ELEMENT_SIZE;
+
+  set_gdbarch_call_dummy_words (gdbarch, arm_linux_call_dummy_words);
+  set_gdbarch_sizeof_call_dummy_words (gdbarch,
+				       sizeof (arm_linux_call_dummy_words));
+
+  /* The following two overrides shouldn't be needed.  */
+  set_gdbarch_extract_return_value (gdbarch, arm_linux_extract_return_value);
+  set_gdbarch_push_arguments (gdbarch, arm_linux_push_arguments);
+
+  /* Shared library handling.  */
+  set_gdbarch_in_solib_call_trampoline (gdbarch, in_plt_section);
+  set_gdbarch_skip_trampoline_code (gdbarch, find_solib_trampoline_target);
+}
+
 void
 _initialize_arm_linux_tdep (void)
 {
+  arm_gdbarch_register_os_abi (ARM_ABI_LINUX, arm_linux_init_abi);
 }

@@ -35,19 +35,19 @@
  */
 
 
-#import <stdlib.h>
-#import <unistd.h>
-#import <string.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <sys/wait.h>
-#import <sys/errno.h>
-#import <sys/socket.h>
-#import <net/if_types.h>
-#import <syslog.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/errno.h>
+#include <sys/socket.h>
+#include <net/if_types.h>
+#include <syslog.h>
 
-#import "dynarray.h"
-#import "FDSet.h"
+#include "dynarray.h"
+#include "FDSet.h"
 
 static void
 FDSet_process(CFSocketRef s, CFSocketCallBackType type, 

@@ -1,25 +1,835 @@
 This is ../info/gnus, produced by makeinfo version 4.0 from gnus.texi.
 
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Gnus: (gnus).         The newsreader Gnus.
 END-INFO-DIR-ENTRY
 
    This file documents Gnus, the GNU Emacs newsreader.
 
-   Copyright (C) 1995,96 Free Software Foundation, Inc.
+   Copyright (C) 1995,96,97,98,99,2000,2001 Free Software Foundation,
+Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being none, with the Front-Cover texts being "A GNU
+Manual", and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License" in the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the entire resulting derived work is distributed under the terms
-of a permission notice identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
+
+
+File: gnus,  Node: Topic Topology,  Next: Topic Parameters,  Prev: Topic Sorting,  Up: Group Topics
+
+Topic Topology
+--------------
+
+   So, let's have a look at an example group buffer:
+
+     Gnus
+       Emacs -- I wuw it!
+          3: comp.emacs
+          2: alt.religion.emacs
+         Naughty Emacs
+          452: alt.sex.emacs
+            0: comp.talk.emacs.recovery
+       Misc
+          8: comp.binaries.fractals
+         13: comp.sources.unix
+
+   So, here we have one top-level topic (`Gnus'), two topics under
+that, and one sub-topic under one of the sub-topics.  (There is always
+just one (1) top-level topic).  This topology can be expressed as
+follows:
+
+     (("Gnus" visible)
+      (("Emacs -- I wuw it!" visible)
+       (("Naughty Emacs" visible)))
+      (("Misc" visible)))
+
+   This is in fact how the variable `gnus-topic-topology' would look
+for the display above.  That variable is saved in the `.newsrc.eld'
+file, and shouldn't be messed with manually--unless you really want to.
+Since this variable is read from the `.newsrc.eld' file, setting it in
+any other startup files will have no effect.
+
+   This topology shows what topics are sub-topics of what topics
+(right), and which topics are visible.  Two settings are currently
+allowed--`visible' and `invisible'.
+
+
+File: gnus,  Node: Topic Parameters,  Prev: Topic Topology,  Up: Group Topics
+
+Topic Parameters
+----------------
+
+   All groups in a topic will inherit group parameters from the parent
+(and ancestor) topic parameters.  All valid group parameters are valid
+topic parameters (*note Group Parameters::).
+
+   In addition, the following parameters are only valid as topic
+parameters:
+
+`subscribe'
+     When subscribing new groups by topic (*note Subscription
+     Methods::), the `subscribe' topic parameter says what groups go in
+     what topic.  Its value should be a regexp to match the groups that
+     should go in that topic.
+
+   Group parameters (of course) override topic parameters, and topic
+parameters in sub-topics override topic parameters in super-topics.  You
+know.  Normal inheritance rules.  ("Rules" is here a noun, not a verb,
+although you may feel free to disagree with me here.)
+
+     Gnus
+       Emacs
+          3: comp.emacs
+          2: alt.religion.emacs
+        452: alt.sex.emacs
+         Relief
+          452: alt.sex.emacs
+            0: comp.talk.emacs.recovery
+       Misc
+          8: comp.binaries.fractals
+         13: comp.sources.unix
+        452: alt.sex.emacs
+
+   The `Emacs' topic has the topic parameter `(score-file .
+"emacs.SCORE")'; the `Relief' topic has the topic parameter
+`(score-file . "relief.SCORE")'; and the `Misc' topic has the topic
+parameter `(score-file . "emacs.SCORE")'.  In addition,
+`alt.religion.emacs' has the group parameter `(score-file .
+"religion.SCORE")'.
+
+   Now, when you enter `alt.sex.emacs' in the `Relief' topic, you will
+get the `relief.SCORE' home score file.  If you enter the same group in
+the `Emacs' topic, you'll get the `emacs.SCORE' home score file.  If
+you enter the group `alt.religion.emacs', you'll get the
+`religion.SCORE' home score file.
+
+   This seems rather simple and self-evident, doesn't it?  Well, yes.
+But there are some problems, especially with the `total-expiry'
+parameter.  Say you have a mail group in two topics; one with
+`total-expiry' and one without.  What happens when you do `M-x
+gnus-expire-all-expirable-groups'?  Gnus has no way of telling which one
+of these topics you mean to expire articles from, so anything may
+happen.  In fact, I hereby declare that it is "undefined" what happens.
+You just have to be careful if you do stuff like that.
+
+
+File: gnus,  Node: Misc Group Stuff,  Prev: Group Topics,  Up: The Group Buffer
+
+Misc Group Stuff
+================
+
+* Menu:
+
+* Scanning New Messages:: Asking Gnus to see whether new messages have arrived.
+* Group Information::     Information and help on groups and Gnus.
+* Group Timestamp::       Making Gnus keep track of when you last read a group.
+* File Commands::         Reading and writing the Gnus files.
+
+`^'
+     Enter the server buffer (`gnus-group-enter-server-mode').  *Note
+     The Server Buffer::.
+
+`a'
+     Post an article to a group (`gnus-group-post-news').  If given a
+     prefix, the current group name will be used as the default.
+
+`m'
+     Mail a message somewhere (`gnus-group-mail').
+
+   Variables for the group buffer:
+
+`gnus-group-mode-hook'
+     is called after the group buffer has been created.
+
+`gnus-group-prepare-hook'
+     is called after the group buffer is generated.  It may be used to
+     modify the buffer in some strange, unnatural way.
+
+`gnus-group-prepared-hook'
+     is called as the very last thing after the group buffer has been
+     generated.  It may be used to move point around, for instance.
+
+`gnus-permanently-visible-groups'
+     Groups matching this regexp will always be listed in the group
+     buffer, whether they are empty or not.
+
+`gnus-group-name-charset-method-alist'
+     An alist of method and the charset for group names. It is used to
+     show non-ASCII group names.
+
+     For example:
+          (setq gnus-group-name-charset-method-alist
+              '(((nntp "news.com.cn") . cn-gb-2312)))
+
+`gnus-group-name-charset-group-alist'
+     An alist of regexp of group name and the charset for group names.
+     It is used to show non-ASCII group names.
+
+     For example:
+          (setq gnus-group-name-charset-group-alist
+              '(("\\.com\\.cn:" . cn-gb-2312)))
+
+
+File: gnus,  Node: Scanning New Messages,  Next: Group Information,  Up: Misc Group Stuff
+
+Scanning New Messages
+---------------------
+
+`g'
+     Check the server(s) for new articles.  If the numerical prefix is
+     used, this command will check only groups of level ARG and lower
+     (`gnus-group-get-new-news').  If given a non-numerical prefix, this
+     command will force a total re-reading of the active file(s) from
+     the back end(s).
+
+`M-g'
+     Check whether new articles have arrived in the current group
+     (`gnus-group-get-new-news-this-group').
+     `gnus-goto-next-group-when-activating' says whether this command is
+     to move point to the next group or not.  It is `t' by default.
+
+`C-c M-g'
+     Activate absolutely all groups (`gnus-activate-all-groups').
+
+`R'
+     Restart Gnus (`gnus-group-restart').  This saves the `.newsrc'
+     file(s), closes the connection to all servers, clears up all
+     run-time Gnus variables, and then starts Gnus all over again.
+
+   `gnus-get-new-news-hook' is run just before checking for new news.
+
+   `gnus-after-getting-new-news-hook' is run after checking for new
+news.
+
+
+File: gnus,  Node: Group Information,  Next: Group Timestamp,  Prev: Scanning New Messages,  Up: Misc Group Stuff
+
+Group Information
+-----------------
+
+`H f'
+     Try to fetch the FAQ for the current group
+     (`gnus-group-fetch-faq').  Gnus will try to get the FAQ from
+     `gnus-group-faq-directory', which is usually a directory on a
+     remote machine.  This variable can also be a list of directories.
+     In that case, giving a prefix to this command will allow you to
+     choose between the various sites.  `ange-ftp' (or `efs') will be
+     used for fetching the file.
+
+     If fetching from the first site is unsuccessful, Gnus will attempt
+     to go through `gnus-group-faq-directory' and try to open them one
+     by one.
+
+`H d'
+`C-c C-d'
+     Describe the current group (`gnus-group-describe-group').  If given
+     a prefix, force Gnus to re-read the description from the server.
+
+`M-d'
+     Describe all groups (`gnus-group-describe-all-groups').  If given a
+     prefix, force Gnus to re-read the description file from the server.
+
+`H v'
+`V'
+     Display current Gnus version numbers (`gnus-version').
+
+`?'
+     Give a very short help message (`gnus-group-describe-briefly').
+
+`C-c C-i'
+     Go to the Gnus info node (`gnus-info-find-node').
+
+
+File: gnus,  Node: Group Timestamp,  Next: File Commands,  Prev: Group Information,  Up: Misc Group Stuff
+
+Group Timestamp
+---------------
+
+   It can be convenient to let Gnus keep track of when you last read a
+group.  To set the ball rolling, you should add
+`gnus-group-set-timestamp' to `gnus-select-group-hook':
+
+     (add-hook 'gnus-select-group-hook 'gnus-group-set-timestamp)
+
+   After doing this, each time you enter a group, it'll be recorded.
+
+   This information can be displayed in various ways--the easiest is to
+use the `%d' spec in the group line format:
+
+     (setq gnus-group-line-format
+           "%M\%S\%p\%P\%5y: %(%-40,40g%) %d\n")
+
+   This will result in lines looking like:
+
+     *        0: mail.ding                                19961002T012943
+              0: custom                                   19961002T012713
+
+   As you can see, the date is displayed in compact ISO 8601 format.
+This may be a bit too much, so to just display the date, you could say
+something like:
+
+     (setq gnus-group-line-format
+           "%M\%S\%p\%P\%5y: %(%-40,40g%) %6,6~(cut 2)d\n")
+
+
+File: gnus,  Node: File Commands,  Prev: Group Timestamp,  Up: Misc Group Stuff
+
+File Commands
+-------------
+
+`r'
+     Re-read the init file (`gnus-init-file', which defaults to
+     `~/.gnus') (`gnus-group-read-init-file').
+
+`s'
+     Save the `.newsrc.eld' file (and `.newsrc' if wanted)
+     (`gnus-group-save-newsrc').  If given a prefix, force saving the
+     file(s) whether Gnus thinks it is necessary or not.
+
+
+File: gnus,  Node: The Summary Buffer,  Next: The Article Buffer,  Prev: The Group Buffer,  Up: Top
+
+The Summary Buffer
+******************
+
+   A line for each article is displayed in the summary buffer.  You can
+move around, read articles, post articles and reply to articles.
+
+   The most common way to a summary buffer is to select a group from the
+group buffer (*note Selecting a Group::).
+
+   You can have as many summary buffers open as you wish.
+
+* Menu:
+
+* Summary Buffer Format::       Deciding how the summary buffer is to look.
+* Summary Maneuvering::         Moving around the summary buffer.
+* Choosing Articles::           Reading articles.
+* Paging the Article::          Scrolling the current article.
+* Reply Followup and Post::     Posting articles.
+* Marking Articles::            Marking articles as read, expirable, etc.
+* Limiting::                    You can limit the summary buffer.
+* Threading::                   How threads are made.
+* Sorting::                     How articles and threads are sorted.
+* Asynchronous Fetching::       Gnus might be able to pre-fetch articles.
+* Article Caching::             You may store articles in a cache.
+* Persistent Articles::         Making articles expiry-resistant.
+* Article Backlog::             Having already read articles hang around.
+* Saving Articles::             Ways of customizing article saving.
+* Decoding Articles::           Gnus can treat series of (uu)encoded articles.
+* Article Treatment::           The article buffer can be mangled at will.
+* MIME Commands::               Doing MIMEy things with the articles.
+* Charsets::                    Character set issues.
+* Article Commands::            Doing various things with the article buffer.
+* Summary Sorting::             Sorting the summary buffer in various ways.
+* Finding the Parent::          No child support? Get the parent.
+* Alternative Approaches::      Reading using non-default summaries.
+* Tree Display::                A more visual display of threads.
+* Mail Group Commands::         Some commands can only be used in mail groups.
+* Various Summary Stuff::       What didn't fit anywhere else.
+* Exiting the Summary Buffer::  Returning to the Group buffer,
+                                or reselecting the current group.
+* Crosspost Handling::          How crossposted articles are dealt with.
+* Duplicate Suppression::       An alternative when crosspost handling fails.
+
+
+File: gnus,  Node: Summary Buffer Format,  Next: Summary Maneuvering,  Up: The Summary Buffer
+
+Summary Buffer Format
+=====================
+
+* Menu:
+
+* Summary Buffer Lines::     You can specify how summary lines should look.
+* To From Newsgroups::       How to not display your own name.
+* Summary Buffer Mode Line:: You can say how the mode line should look.
+* Summary Highlighting::     Making the summary buffer all pretty and nice.
+
+   Gnus will use the value of the `gnus-extract-address-components'
+variable as a function for getting the name and address parts of a
+`From' header.  Two pre-defined functions exist:
+`gnus-extract-address-components', which is the default, quite fast,
+and too simplistic solution; and `mail-extract-address-components',
+which works very nicely, but is slower.  The default function will
+return the wrong answer in 5% of the cases.  If this is unacceptable to
+you, use the other function instead:
+
+     (setq gnus-extract-address-components
+           'mail-extract-address-components)
+
+   `gnus-summary-same-subject' is a string indicating that the current
+article has the same subject as the previous.  This string will be used
+with those specs that require it.  The default is `""'.
+
+
+File: gnus,  Node: Summary Buffer Lines,  Next: To From Newsgroups,  Up: Summary Buffer Format
+
+Summary Buffer Lines
+--------------------
+
+   You can change the format of the lines in the summary buffer by
+changing the `gnus-summary-line-format' variable.  It works along the
+same lines as a normal `format' string, with some extensions (*note
+Formatting Variables::).
+
+   The default string is `%U%R%z%I%(%[%4L: %-20,20n%]%) %s\n'.
+
+   The following format specification characters are understood:
+
+`N'
+     Article number.
+
+`S'
+     Subject string.  List identifiers stripped,
+     `gnus-list-identifies'.  *Note Article Hiding::.
+
+`s'
+     Subject if the article is the root of the thread or the previous
+     article had a different subject, `gnus-summary-same-subject'
+     otherwise.  (`gnus-summary-same-subject' defaults to `""'.)
+
+`F'
+     Full `From' header.
+
+`n'
+     The name (from the `From' header).
+
+`f'
+     The name, code `To' header or the `Newsgroups' header (*note To
+     From Newsgroups::).
+
+`a'
+     The name (from the `From' header).  This differs from the `n' spec
+     in that it uses the function designated by the
+     `gnus-extract-address-components' variable, which is slower, but
+     may be more thorough.
+
+`A'
+     The address (from the `From' header).  This works the same way as
+     the `a' spec.
+
+`L'
+     Number of lines in the article.
+
+`c'
+     Number of characters in the article. This specifier is not
+     supported in some methods (like nnfolder).
+
+`I'
+     Indentation based on thread level (*note Customizing Threading::).
+
+`T'
+     Nothing if the article is a root and lots of spaces if it isn't (it
+     pushes everything after it off the screen).
+
+`['
+     Opening bracket, which is normally `[', but can also be `<' for
+     adopted articles (*note Customizing Threading::).
+
+`]'
+     Closing bracket, which is normally `]', but can also be `>' for
+     adopted articles.
+
+`>'
+     One space for each thread level.
+
+`<'
+     Twenty minus thread level spaces.
+
+`U'
+     Unread.
+
+`R'
+     This misleadingly named specifier is the "secondary mark".  This
+     mark will say whether the article has been replied to, has been
+     cached, or has been saved.
+
+`i'
+     Score as a number (*note Scoring::).
+
+`z'
+     Zcore, `+' if above the default level and `-' if below the default
+     level.  If the difference between `gnus-summary-default-score' and
+     the score is less than `gnus-summary-zcore-fuzz', this spec will
+     not be used.
+
+`V'
+     Total thread score.
+
+`x'
+     `Xref'.
+
+`D'
+     `Date'.
+
+`d'
+     The `Date' in `DD-MMM' format.
+
+`o'
+     The `Date' in YYYYMMDD`T'HHMMSS format.
+
+`M'
+     `Message-ID'.
+
+`r'
+     `References'.
+
+`t'
+     Number of articles in the current sub-thread.  Using this spec
+     will slow down summary buffer generation somewhat.
+
+`e'
+     An `=' (`gnus-not-empty-thread-mark') will be displayed if the
+     article has any children.
+
+`P'
+     The line number.
+
+`O'
+     Download mark.
+
+`u'
+     User defined specifier.  The next character in the format string
+     should be a letter.  Gnus will call the function
+     `gnus-user-format-function-'`X', where `X' is the letter following
+     `%u'.  The function will be passed the current header as argument.
+     The function should return a string, which will be inserted into
+     the summary just like information from any other summary specifier.
+
+   The `%U' (status), `%R' (replied) and `%z' (zcore) specs have to be
+handled with care.  For reasons of efficiency, Gnus will compute what
+column these characters will end up in, and "hard-code" that.  This
+means that it is invalid to have these specs after a variable-length
+spec.  Well, you might not be arrested, but your summary buffer will
+look strange, which is bad enough.
+
+   The smart choice is to have these specs as far to the left as
+possible.  (Isn't that the case with everything, though?  But I
+digress.)
+
+   This restriction may disappear in later versions of Gnus.
+
+
+File: gnus,  Node: To From Newsgroups,  Next: Summary Buffer Mode Line,  Prev: Summary Buffer Lines,  Up: Summary Buffer Format
+
+To From Newsgroups
+------------------
+
+   In some groups (particularly in archive groups), the `From' header
+isn't very interesting, since all the articles there are written by
+you.  To display the information in the `To' or `Newsgroups' headers
+instead, you need to decide three things: What information to gather;
+where to display it; and when to display it.
+
+  1. The reading of extra header information is controlled by the
+     `gnus-extra-headers'.  This is a list of header symbols.  For
+     instance:
+
+          (setq gnus-extra-headers
+                '(To Newsgroups X-Newsreader))
+
+     This will result in Gnus trying to obtain these three headers, and
+     storing it in header structures for later easy retrieval.
+
+  2. The value of these extra headers can be accessed via the
+     `gnus-extra-header' function.  Here's a format line spec that will
+     access the `X-Newsreader' header:
+
+          "%~(form (gnus-extra-header 'X-Newsreader))@"
+
+  3. The `gnus-ignored-from-addresses' variable says when the `%f'
+     summary line spec returns the `To', `Newsreader' or `From' header.
+     If this regexp matches the contents of the `From' header, the
+     value of the `To' or `Newsreader' headers are used instead.
+
+
+   A related variable is `nnmail-extra-headers', which controls when to
+include extra headers when generating overview (NOV) files.  If you
+have old overview files, you should regenerate them after changing this
+variable.
+
+   You also have to instruct Gnus to display the data by changing the
+`%n' spec to the `%f' spec in the `gnus-summary-line-format' variable.
+
+   In summary, you'd typically do something like the following:
+
+     (setq gnus-extra-headers
+           '(To Newsgroups))
+     (setq nnmail-extra-headers gnus-extra-headers)
+     (setq gnus-summary-line-format
+           "%U%R%z%I%(%[%4L: %-20,20f%]%) %s\n")
+     (setq gnus-ignored-from-addresses
+           "Your Name Here")
+
+   Now, this is mostly useful for mail groups, where you have control
+over the NOV files that are created.  However, if you can persuade your
+nntp admin to add:
+
+     Newsgroups:full
+
+   to the end of her `overview.fmt' file, then you can use that just as
+you would the extra headers from the mail groups.
+
+
+File: gnus,  Node: Summary Buffer Mode Line,  Next: Summary Highlighting,  Prev: To From Newsgroups,  Up: Summary Buffer Format
+
+Summary Buffer Mode Line
+------------------------
+
+   You can also change the format of the summary mode bar (*note Mode
+Line Formatting::).  Set `gnus-summary-mode-line-format' to whatever you
+like.  The default is `Gnus: %%b [%A] %Z'.
+
+   Here are the elements you can play with:
+
+`G'
+     Group name.
+
+`p'
+     Unprefixed group name.
+
+`A'
+     Current article number.
+
+`z'
+     Current article score.
+
+`V'
+     Gnus version.
+
+`U'
+     Number of unread articles in this group.
+
+`e'
+     Number of unread articles in this group that aren't displayed in
+     the summary buffer.
+
+`Z'
+     A string with the number of unread and unselected articles
+     represented either as `<%U(+%e) more>' if there are both unread
+     and unselected articles, and just as `<%U more>' if there are just
+     unread articles and no unselected ones.
+
+`g'
+     Shortish group name.  For instance, `rec.arts.anime' will be
+     shortened to `r.a.anime'.
+
+`S'
+     Subject of the current article.
+
+`u'
+     User-defined spec (*note User-Defined Specs::).
+
+`s'
+     Name of the current score file (*note Scoring::).
+
+`d'
+     Number of dormant articles (*note Unread Articles::).
+
+`t'
+     Number of ticked articles (*note Unread Articles::).
+
+`r'
+     Number of articles that have been marked as read in this session.
+
+`E'
+     Number of articles expunged by the score files.
+
+
+File: gnus,  Node: Summary Highlighting,  Prev: Summary Buffer Mode Line,  Up: Summary Buffer Format
+
+Summary Highlighting
+--------------------
+
+`gnus-visual-mark-article-hook'
+     This hook is run after selecting an article.  It is meant to be
+     used for highlighting the article in some way.  It is not run if
+     `gnus-visual' is `nil'.
+
+`gnus-summary-update-hook'
+     This hook is called when a summary line is changed.  It is not run
+     if `gnus-visual' is `nil'.
+
+`gnus-summary-selected-face'
+     This is the face (or "font" as some people call it) used to
+     highlight the current article in the summary buffer.
+
+`gnus-summary-highlight'
+     Summary lines are highlighted according to this variable, which is
+     a list where the elements are of the format `(FORM . FACE)'.  If
+     you would, for instance, like ticked articles to be italic and
+     high-scored articles to be bold, you could set this variable to
+     something like
+          (((eq mark gnus-ticked-mark) . italic)
+           ((> score default) . bold))
+     As you may have guessed, if FORM returns a non-`nil' value, FACE
+     will be applied to the line.
+
+
+File: gnus,  Node: Summary Maneuvering,  Next: Choosing Articles,  Prev: Summary Buffer Format,  Up: The Summary Buffer
+
+Summary Maneuvering
+===================
+
+   All the straight movement commands understand the numeric prefix and
+behave pretty much as you'd expect.
+
+   None of these commands select articles.
+
+`G M-n'
+`M-n'
+     Go to the next summary line of an unread article
+     (`gnus-summary-next-unread-subject').
+
+`G M-p'
+`M-p'
+     Go to the previous summary line of an unread article
+     (`gnus-summary-prev-unread-subject').
+
+`G g'
+     Ask for an article number and then go to the summary line of that
+     article without displaying the article
+     (`gnus-summary-goto-subject').
+
+   If Gnus asks you to press a key to confirm going to the next group,
+you can use the `C-n' and `C-p' keys to move around the group buffer,
+searching for the next group to read without actually returning to the
+group buffer.
+
+   Variables related to summary movement:
+
+`gnus-auto-select-next'
+     If you issue one of the movement commands (like `n') and there are
+     no more unread articles after the current one, Gnus will offer to
+     go to the next group.  If this variable is `t' and the next group
+     is empty, Gnus will exit summary mode and return to the group
+     buffer.  If this variable is neither `t' nor `nil', Gnus will
+     select the next group, no matter whether it has any unread
+     articles or not.  As a special case, if this variable is
+     `quietly', Gnus will select the next group without asking for
+     confirmation.  If this variable is `almost-quietly', the same will
+     happen only if you are located on the last article in the group.
+     Finally, if this variable is `slightly-quietly', the `Z n' command
+     will go to the next group without confirmation.  Also *note Group
+     Levels::.
+
+`gnus-auto-select-same'
+     If non-`nil', all the movement commands will try to go to the next
+     article with the same subject as the current.  ("Same" here might
+     mean "roughly equal".  See `gnus-summary-gather-subject-limit' for
+     details (*note Customizing Threading::).)  If there are no more
+     articles with the same subject, go to the first unread article.
+
+     This variable is not particularly useful if you use a threaded
+     display.
+
+`gnus-summary-check-current'
+     If non-`nil', all the "unread" movement commands will not proceed
+     to the next (or previous) article if the current article is unread.
+     Instead, they will choose the current article.
+
+`gnus-auto-center-summary'
+     If non-`nil', Gnus will keep the point in the summary buffer
+     centered at all times.  This makes things quite tidy, but if you
+     have a slow network connection, or simply do not like this
+     un-Emacsism, you can set this variable to `nil' to get the normal
+     Emacs scrolling action.  This will also inhibit horizontal
+     re-centering of the summary buffer, which might make it more
+     inconvenient to read extremely long threads.
+
+     This variable can also be a number.  In that case, center the
+     window at the given number of lines from the top.
+
+
+File: gnus,  Node: Choosing Articles,  Next: Paging the Article,  Prev: Summary Maneuvering,  Up: The Summary Buffer
+
+Choosing Articles
+=================
+
+* Menu:
+
+* Choosing Commands::        Commands for choosing articles.
+* Choosing Variables::       Variables that influence these commands.
+
+
+File: gnus,  Node: Choosing Commands,  Next: Choosing Variables,  Up: Choosing Articles
+
+Choosing Commands
+-----------------
+
+   None of the following movement commands understand the numeric
+prefix, and they all select and display an article.
+
+   If you want to fetch new articles or redisplay the group, see *Note
+Exiting the Summary Buffer::.
+
+`<SPC>'
+     Select the current article, or, if that one's read already, the
+     next unread article (`gnus-summary-next-page').
+
+`G n'
+`n'
+     Go to next unread article (`gnus-summary-next-unread-article').
+
+`G p'
+`p'
+     Go to previous unread article (`gnus-summary-prev-unread-article').
+
+`G N'
+`N'
+     Go to the next article (`gnus-summary-next-article').
+
+`G P'
+`P'
+     Go to the previous article (`gnus-summary-prev-article').
+
+`G C-n'
+     Go to the next article with the same subject
+     (`gnus-summary-next-same-subject').
+
+`G C-p'
+     Go to the previous article with the same subject
+     (`gnus-summary-prev-same-subject').
+
+`G f'
+`.'
+     Go to the first unread article
+     (`gnus-summary-first-unread-article').
+
+`G b'
+`,'
+     Go to the article with the highest score
+     (`gnus-summary-best-unread-article').
+
+`G l'
+`l'
+     Go to the previous article read (`gnus-summary-goto-last-article').
+
+`G o'
+     Pop an article off the summary history and go to this article
+     (`gnus-summary-pop-article').  This command differs from the
+     command above in that you can pop as many previous articles off the
+     history as you like, while `l' toggles the two last read articles.
+     For a somewhat related issue (if you use these commands a lot),
+     *note Article Backlog::.
+
+`G j'
+`j'
+     Ask for an article number or `Message-ID', and then go to that
+     article (`gnus-summary-goto-article').
 
 
 File: gnus,  Node: Choosing Variables,  Prev: Choosing Commands,  Up: Choosing Articles
@@ -57,20 +867,20 @@ File: gnus,  Node: Paging the Article,  Next: Reply Followup and Post,  Prev: Ch
 Scrolling the Article
 =====================
 
-`SPACE'
-     Pressing `SPACE' will scroll the current article forward one page,
+`<SPC>'
+     Pressing <SPC> will scroll the current article forward one page,
      or, if you have come to the end of the current article, will
      choose the next article (`gnus-summary-next-page').
 
-`DEL'
+`<DEL>'
      Scroll the current article back one page
      (`gnus-summary-prev-page').
 
-`RET'
+`<RET>'
      Scroll the current article one line forward
      (`gnus-summary-scroll-up').
 
-`M-RET'
+`M-<RET>'
      Scroll the current article one line backward
      (`gnus-summary-scroll-down').
 
@@ -80,6 +890,16 @@ Scrolling the Article
      given a prefix, fetch the current article, but don't run any of the
      article treatment functions.  This will give you a "raw" article,
      just the way it came from the server.
+
+     If given a numerical prefix, you can do semi-manual charset stuff.
+     `C-u 0 g cn-gb-2312 <RET>' will decode the message as if it were
+     encoded in the `cn-gb-2312' charset.  If you have
+
+          (setq gnus-summary-show-article-charset-alist
+                '((1 . cn-gb-2312)
+                  (2 . big5)))
+
+     then you can say `C-u 1 g' to get the same effect.
 
 `A <'
 `<'
@@ -99,15 +919,17 @@ Scrolling the Article
      Select the article buffer (`gnus-summary-select-article-buffer').
 
 
-File: gnus,  Node: Reply Followup and Post,  Next: Canceling and Superseding,  Prev: Paging the Article,  Up: The Summary Buffer
+File: gnus,  Node: Reply Followup and Post,  Next: Marking Articles,  Prev: Paging the Article,  Up: The Summary Buffer
 
 Reply, Followup and Post
 ========================
 
 * Menu:
 
-* Summary Mail Commands::            Sending mail.
-* Summary Post Commands::            Sending news.
+* Summary Mail Commands::       Sending mail.
+* Summary Post Commands::       Sending news.
+* Summary Message Commands::    Other Message-related commands.
+* Canceling and Superseding::   ``Whoops, I shouldn't have called him that.''
 
 
 File: gnus,  Node: Summary Mail Commands,  Next: Summary Post Commands,  Up: Reply Followup and Post
@@ -136,13 +958,22 @@ Summary Mail Commands
 
 `S W'
      Mail a wide reply to the current article and include the original
-     message (`gnus-summary-reply-with-original').  This command uses
-     the process/prefix convention.
+     message (`gnus-summary-wide-reply-with-original').  This command
+     uses the process/prefix convention.
 
 `S o m'
+`C-c C-f'
      Forward the current article to some other person
-     (`gnus-summary-mail-forward').  If given a prefix, include the full
-     headers of the forwarded article.
+     (`gnus-summary-mail-forward').  If no prefix is given, the message
+     is forwarded according to the value of (`message-forward-as-mime')
+     and (`message-forward-show-mml'); if the prefix is 1, decode the
+     message and forward directly inline; if the prefix is 2, forward
+     message as an rfc822 MIME section; if the prefix is 3, decode
+     message and forward as an rfc822 MIME section; if the prefix is 4,
+     forward message directly inline; otherwise, the message is
+     forwarded as no prefix given but use the flipped value of
+     (`message-forward-as-mime').  By default, the message is decoded
+     and forwarded as an rfc822 MIME section.
 
 `S m'
 `m'
@@ -198,7 +1029,7 @@ Summary Mail Commands
    Also *note (message)Header Commands:: for more information.
 
 
-File: gnus,  Node: Summary Post Commands,  Prev: Summary Mail Commands,  Up: Reply Followup and Post
+File: gnus,  Node: Summary Post Commands,  Next: Summary Message Commands,  Prev: Summary Mail Commands,  Up: Reply Followup and Post
 
 Summary Post Commands
 ---------------------
@@ -231,8 +1062,16 @@ Summary Post Commands
 
 `S o p'
      Forward the current article to a newsgroup
-     (`gnus-summary-post-forward').  If given a prefix, include the full
-     headers of the forwarded article.
+     (`gnus-summary-post-forward').   If no prefix is given, the
+     message is forwarded according to the value of
+     (`message-forward-as-mime') and (`message-forward-show-mml'); if
+     the prefix is 1, decode the message and forward directly inline;
+     if the prefix is 2, forward message as an rfc822 MIME section; if
+     the prefix is 3, decode message and forward as an rfc822 MIME
+     section; if the prefix is 4, forward message directly inline;
+     otherwise, the message is forwarded as no prefix given but use the
+     flipped value of (`message-forward-as-mime').  By default, the
+     message is decoded and forwarded as an rfc822 MIME section.
 
 `S O p'
      Digest the current series and forward the result to a newsgroup
@@ -241,15 +1080,27 @@ Summary Post Commands
 
 `S u'
      Uuencode a file, split it into parts, and post it as a series
-     (`gnus-uu-post-news'). (*note Uuencoding and Posting::).
+     (`gnus-uu-post-news').  (*note Uuencoding and Posting::).
 
    Also *note (message)Header Commands:: for more information.
 
 
-File: gnus,  Node: Canceling and Superseding,  Next: Marking Articles,  Prev: Reply Followup and Post,  Up: The Summary Buffer
+File: gnus,  Node: Summary Message Commands,  Next: Canceling and Superseding,  Prev: Summary Post Commands,  Up: Reply Followup and Post
+
+Summary Message Commands
+------------------------
+
+`S y'
+     Yank the current article into an already existing Message
+     composition buffer (`gnus-summary-yank-message').  This command
+     prompts for what message buffer you want to yank into, and
+     understands the process/prefix convention (*note Process/Prefix::).
+
+
+File: gnus,  Node: Canceling and Superseding,  Prev: Summary Message Commands,  Up: Reply Followup and Post
 
 Canceling Articles
-==================
+------------------
 
    Have you ever written something, and then decided that you really,
 really, really wish you hadn't posted that?
@@ -297,7 +1148,7 @@ previous article will be canceled/superseded.
    Just remember, kids: There is no 'c' in 'supersede'.
 
 
-File: gnus,  Node: Marking Articles,  Next: Limiting,  Prev: Canceling and Superseding,  Up: The Summary Buffer
+File: gnus,  Node: Marking Articles,  Next: Limiting,  Prev: Reply Followup and Post,  Up: The Summary Buffer
 
 Marking Articles
 ================
@@ -320,8 +1171,9 @@ neologism ohoy!) of the article.  Alphabetic marks generally mean
 
 * Menu:
 
-* Setting Marks::           How to set and remove marks.
-* Setting Process Marks::   How to mark articles for later processing.
+* Setting Marks::             How to set and remove marks.
+* Generic Marking Commands::  How to customize the marking.
+* Setting Process Marks::     How to mark articles for later processing.
 
 
 File: gnus,  Node: Unread Articles,  Next: Read Articles,  Up: Marking Articles
@@ -349,7 +1201,7 @@ other.
      are followups to it.  If you want to see them even if they don't
      have followups, you can use the `/ D' command (*note Limiting::).
 
-`SPACE'
+`<SPC>'
      Marked as unread (`gnus-unread-mark').
 
      "Unread articles" are articles that haven't been read at all yet.
@@ -460,7 +1312,7 @@ replied article that you have process-marked, what will that look like?
 you'll only see the cache mark and not the replied mark.
 
 
-File: gnus,  Node: Setting Marks,  Next: Setting Process Marks,  Prev: Other Marks,  Up: Marking Articles
+File: gnus,  Node: Setting Marks,  Next: Generic Marking Commands,  Prev: Other Marks,  Up: Marking Articles
 
 Setting Marks
 -------------
@@ -552,827 +1404,41 @@ Setting Marks
 be taken after setting a mark.  If non-`nil', point will move to the
 next/previous unread article.  If `nil', point will just move one line
 up or down.  As a special case, if this variable is `never', all the
-marking commands as well as other commands (like `SPACE') will move to
+marking commands as well as other commands (like <SPC>) will move to
 the next article, whether it is unread or not.  The default is `t'.
 
 
-File: gnus,  Node: Setting Process Marks,  Prev: Setting Marks,  Up: Marking Articles
-
-Setting Process Marks
----------------------
-
-`M P p'
-`#'
-     Mark the current article with the process mark
-     (`gnus-summary-mark-as-processable').
-
-`M P u'
-`M-#'
-     Remove the process mark, if any, from the current article
-     (`gnus-summary-unmark-as-processable').
-
-`M P U'
-     Remove the process mark from all articles
-     (`gnus-summary-unmark-all-processable').
-
-`M P i'
-     Invert the list of process marked articles
-     (`gnus-uu-invert-processable').
-
-`M P R'
-     Mark articles that have a `Subject' header that matches a regular
-     expression (`gnus-uu-mark-by-regexp').
-
-`M P r'
-     Mark articles in region (`gnus-uu-mark-region').
-
-`M P t'
-     Mark all articles in the current (sub)thread
-     (`gnus-uu-mark-thread').
-
-`M P T'
-     Unmark all articles in the current (sub)thread
-     (`gnus-uu-unmark-thread').
-
-`M P v'
-     Mark all articles that have a score above the prefix argument
-     (`gnus-uu-mark-over').
-
-`M P s'
-     Mark all articles in the current series (`gnus-uu-mark-series').
-
-`M P S'
-     Mark all series that have already had some articles marked
-     (`gnus-uu-mark-sparse').
-
-`M P a'
-     Mark all articles in series order (`gnus-uu-mark-series').
-
-`M P b'
-     Mark all articles in the buffer in the order they appear
-     (`gnus-uu-mark-buffer').
-
-`M P k'
-     Push the current process mark set onto the stack and unmark all
-     articles (`gnus-summary-kill-process-mark').
-
-`M P y'
-     Pop the previous process mark set from the stack and restore it
-     (`gnus-summary-yank-process-mark').
-
-`M P w'
-     Push the current process mark set onto the stack
-     (`gnus-summary-save-process-mark').
-
-
-File: gnus,  Node: Limiting,  Next: Threading,  Prev: Marking Articles,  Up: The Summary Buffer
-
-Limiting
-========
-
-   It can be convenient to limit the summary buffer to just show some
-subset of the articles currently in the group.  The effect most limit
-commands have is to remove a few (or many) articles from the summary
-buffer.
-
-   All limiting commands work on subsets of the articles already fetched
-from the servers.  None of these commands query the server for
-additional articles.
-
-`/ /'
-`/ s'
-     Limit the summary buffer to articles that match some subject
-     (`gnus-summary-limit-to-subject').
-
-`/ a'
-     Limit the summary buffer to articles that match some author
-     (`gnus-summary-limit-to-author').
-
-`/ u'
-`x'
-     Limit the summary buffer to articles not marked as read
-     (`gnus-summary-limit-to-unread').  If given a prefix, limit the
-     buffer to articles strictly unread.  This means that ticked and
-     dormant articles will also be excluded.
-
-`/ m'
-     Ask for a mark and then limit to all articles that have been marked
-     with that mark (`gnus-summary-limit-to-marks').
-
-`/ t'
-     Ask for a number and then limit the summary buffer to articles
-     older than (or equal to) that number of days
-     (`gnus-summary-limit-to-marks').  If given a prefix, limit to
-     articles younger than that number of days.
-
-`/ n'
-     Limit the summary buffer to the current article
-     (`gnus-summary-limit-to-articles').  Uses the process/prefix
-     convention (*note Process/Prefix::).
-
-`/ w'
-     Pop the previous limit off the stack and restore it
-     (`gnus-summary-pop-limit').  If given a prefix, pop all limits off
-     the stack.
-
-`/ v'
-     Limit the summary buffer to articles that have a score at or above
-     some score (`gnus-summary-limit-to-score').
-
-`/ E'
-`M S'
-     Include all expunged articles in the limit
-     (`gnus-summary-limit-include-expunged').
-
-`/ D'
-     Include all dormant articles in the limit
-     (`gnus-summary-limit-include-dormant').
-
-`/ *'
-     Include all cached articles in the limit
-     (`gnus-summary-limit-include-cached').
-
-`/ d'
-     Exclude all dormant articles from the limit
-     (`gnus-summary-limit-exclude-dormant').
-
-`/ T'
-     Include all the articles in the current thread in the limit.
-
-`/ c'
-     Exclude all dormant articles that have no children from the limit
-     (`gnus-summary-limit-exclude-childless-dormant').
-
-`/ C'
-     Mark all excluded unread articles as read
-     (`gnus-summary-limit-mark-excluded-as-read').   If given a prefix,
-     also mark excluded ticked and dormant articles as read.
-
-
-File: gnus,  Node: Threading,  Next: Sorting,  Prev: Limiting,  Up: The Summary Buffer
-
-Threading
-=========
-
-   Gnus threads articles by default.  "To thread" is to put responses
-to articles directly after the articles they respond to--in a
-hierarchical fashion.
-
-   Threading is done by looking at the `References' headers of the
-articles.  In a perfect world, this would be enough to build pretty
-trees, but unfortunately, the `References' header is often broken or
-simply missing.  Weird news propagation excarcerbates the problem, so
-one has to employ other heuristics to get pleasing results.  A plethora
-of approaches exists, as detailed in horrible detail in *note
-Customizing Threading::.
-
-   First, a quick overview of the concepts:
-
-"root"
-     The top-most article in a thread; the first article in the thread.
-
-"thread"
-     A tree-like article structure.
-
-"sub-thread"
-     A small(er) section of this tree-like structure.
-
-"loose threads"
-     Threads often lose their roots due to article expiry, or due to
-     the root already having been read in a previous session, and not
-     displayed in the summary buffer.  We then typically have many
-     sub-threads that really belong to one thread, but are without
-     connecting roots.  These are called loose threads.
-
-"thread gathering"
-     An attempt to gather loose threads into bigger threads.
-
-"sparse threads"
-     A thread where the missing articles have been "guessed" at, and are
-     displayed as empty lines in the summary buffer.
-
-* Menu:
-
-* Customizing Threading::     Variables you can change to affect the threading.
-* Thread Commands::           Thread based commands in the summary buffer.
-
-
-File: gnus,  Node: Customizing Threading,  Next: Thread Commands,  Up: Threading
-
-Customizing Threading
----------------------
-
-* Menu:
-
-* Loose Threads::        How Gnus gathers loose threads into bigger threads.
-* Filling In Threads::   Making the threads displayed look fuller.
-* More Threading::       Even more variables for fiddling with threads.
-* Low-Level Threading::  You thought it was over... but you were wrong!
-
-
-File: gnus,  Node: Loose Threads,  Next: Filling In Threads,  Up: Customizing Threading
-
-Loose Threads
-.............
-
-`gnus-summary-make-false-root'
-     If non-`nil', Gnus will gather all loose subtrees into one big tree
-     and create a dummy root at the top.  (Wait a minute.  Root at the
-     top?  Yup.)  Loose subtrees occur when the real root has expired,
-     or you've read or killed the root in a previous session.
-
-     When there is no real root of a thread, Gnus will have to fudge
-     something.  This variable says what fudging method Gnus should use.
-     There are four possible values:
-
-    `adopt'
-          Gnus will make the first of the orphaned articles the parent.
-          This parent will adopt all the other articles.  The adopted
-          articles will be marked as such by pointy brackets (`<>')
-          instead of the standard square brackets (`[]').  This is the
-          default method.
-
-    `dummy'
-          Gnus will create a dummy summary line that will pretend to be
-          the parent.  This dummy line does not correspond to any real
-          article, so selecting it will just select the first real
-          article after the dummy article.
-          `gnus-summary-dummy-line-format' is used to specify the
-          format of the dummy roots.  It accepts only one format spec:
-          `S', which is the subject of the article.  *Note Formatting
-          Variables::.
-
-    `empty'
-          Gnus won't actually make any article the parent, but simply
-          leave the subject field of all orphans except the first
-          empty.  (Actually, it will use `gnus-summary-same-subject' as
-          the subject (*note Summary Buffer Format::).)
-
-    `none'
-          Don't make any article parent at all.  Just gather the
-          threads and display them after one another.
-
-    `nil'
-          Don't gather loose threads.
-
-`gnus-summary-gather-subject-limit'
-     Loose threads are gathered by comparing subjects of articles.  If
-     this variable is `nil', Gnus requires an exact match between the
-     subjects of the loose threads before gathering them into one big
-     super-thread.  This might be too strict a requirement, what with
-     the presence of stupid newsreaders that chop off long subject
-     lines.  If you think so, set this variable to, say, 20 to require
-     that only the first 20 characters of the subjects have to match.
-     If you set this variable to a really low number, you'll find that
-     Gnus will gather everything in sight into one thread, which isn't
-     very helpful.
-
-     If you set this variable to the special value `fuzzy', Gnus will
-     use a fuzzy string comparison algorithm on the subjects (*note
-     Fuzzy Matching::).
-
-`gnus-simplify-subject-fuzzy-regexp'
-     This can either be a regular expression or list of regular
-     expressions that match strings that will be removed from subjects
-     if fuzzy subject simplification is used.
-
-`gnus-simplify-ignored-prefixes'
-     If you set `gnus-summary-gather-subject-limit' to something as low
-     as 10, you might consider setting this variable to something
-     sensible:
-
-          (setq gnus-simplify-ignored-prefixes
-                (concat
-                 "\\`\\[?\\("
-                 (mapconcat
-                  'identity
-                  '("looking"
-                    "wanted" "followup" "summary\\( of\\)?"
-                    "help" "query" "problem" "question"
-                    "answer" "reference" "announce"
-                    "How can I" "How to" "Comparison of"
-                    ;; ...
-                    )
-                  "\\|")
-                 "\\)\\s *\\("
-                 (mapconcat 'identity
-                            '("for" "for reference" "with" "about")
-                            "\\|")
-                 "\\)?\\]?:?[ \t]*"))
-
-     All words that match this regexp will be removed before comparing
-     two subjects.
-
-`gnus-simplify-subject-functions'
-     If non-`nil', this variable overrides
-     `gnus-summary-gather-subject-limit'.  This variable should be a
-     list of functions to apply to the `Subject' string iteratively to
-     arrive at the simplified version of the string.
-
-     Useful functions to put in this list include:
-
-    `gnus-simplify-subject-re'
-          Strip the leading `Re:'.
-
-    `gnus-simplify-subject-fuzzy'
-          Simplify fuzzily.
-
-    `gnus-simplify-whitespace'
-          Remove excessive whitespace.
-
-     You may also write your own functions, of course.
-
-`gnus-summary-gather-exclude-subject'
-     Since loose thread gathering is done on subjects only, that might
-     lead to many false hits, especially with certain common subjects
-     like `' and `(none)'.  To make the situation slightly better, you
-     can use the regexp `gnus-summary-gather-exclude-subject' to say
-     what subjects should be excluded from the gathering process.
-     The default is `^ *$\\|^(none)$'.
-
-`gnus-summary-thread-gathering-function'
-     Gnus gathers threads by looking at `Subject' headers.  This means
-     that totally unrelated articles may end up in the same "thread",
-     which is confusing.  An alternate approach is to look at all the
-     `Message-ID's in all the `References' headers to find matches.
-     This will ensure that no gathered threads ever include unrelated
-     articles, but it also means that people who have posted with broken
-     newsreaders won't be gathered properly.  The choice is
-     yours--plague or cholera:
-
-    `gnus-gather-threads-by-subject'
-          This function is the default gathering function and looks at
-          `Subject's exclusively.
-
-    `gnus-gather-threads-by-references'
-          This function looks at `References' headers exclusively.
-
-     If you want to test gathering by `References', you could say
-     something like:
-
-          (setq gnus-summary-thread-gathering-function
-                'gnus-gather-threads-by-references)
-
-
-File: gnus,  Node: Filling In Threads,  Next: More Threading,  Prev: Loose Threads,  Up: Customizing Threading
-
-Filling In Threads
-..................
-
-`gnus-fetch-old-headers'
-     If non-`nil', Gnus will attempt to build old threads by fetching
-     more old headers--headers to articles marked as read.  If you
-     would like to display as few summary lines as possible, but still
-     connect as many loose threads as possible, you should set this
-     variable to `some' or a number.  If you set it to a number, no
-     more than that number of extra old headers will be fetched.  In
-     either case, fetching old headers only works if the backend you
-     are using carries overview files--this would normally be `nntp',
-     `nnspool' and `nnml'.  Also remember that if the root of the
-     thread has been expired by the server, there's not much Gnus can
-     do about that.
-
-     This variable can also be set to `invisible'.  This won't have any
-     visible effects, but is useful if you use the `A T' command a lot
-     (*note Finding the Parent::).
-
-`gnus-build-sparse-threads'
-     Fetching old headers can be slow.  A low-rent similar effect can be
-     gotten by setting this variable to `some'.  Gnus will then look at
-     the complete `References' headers of all articles and try to string
-     together articles that belong in the same thread.  This will leave
-     "gaps" in the threading display where Gnus guesses that an article
-     is missing from the thread.  (These gaps appear like normal summary
-     lines.  If you select a gap, Gnus will try to fetch the article in
-     question.)  If this variable is `t', Gnus will display all these
-     "gaps" without regard for whether they are useful for completing
-     the thread or not.  Finally, if this variable is `more', Gnus
-     won't cut off sparse leaf nodes that don't lead anywhere.  This
-     variable is `nil' by default.
-
-
-File: gnus,  Node: More Threading,  Next: Low-Level Threading,  Prev: Filling In Threads,  Up: Customizing Threading
-
-More Threading
-..............
-
-`gnus-show-threads'
-     If this variable is `nil', no threading will be done, and all of
-     the rest of the variables here will have no effect.  Turning
-     threading off will speed group selection up a bit, but it is sure
-     to make reading slower and more awkward.
-
-`gnus-thread-hide-subtree'
-     If non-`nil', all threads will be hidden when the summary buffer is
-     generated.
-
-`gnus-thread-expunge-below'
-     All threads that have a total score (as defined by
-     `gnus-thread-score-function') less than this number will be
-     expunged.  This variable is `nil' by default, which means that no
-     threads are expunged.
-
-`gnus-thread-hide-killed'
-     if you kill a thread and this variable is non-`nil', the subtree
-     will be hidden.
-
-`gnus-thread-ignore-subject'
-     Sometimes somebody changes the subject in the middle of a thread.
-     If this variable is non-`nil', the subject change is ignored.  If
-     it is `nil', which is the default, a change in the subject will
-     result in a new thread.
-
-`gnus-thread-indent-level'
-     This is a number that says how much each sub-thread should be
-     indented.  The default is 4.
-
-
-File: gnus,  Node: Low-Level Threading,  Prev: More Threading,  Up: Customizing Threading
-
-Low-Level Threading
-...................
-
-`gnus-parse-headers-hook'
-     Hook run before parsing any headers.  The default value is
-     `(gnus-decode-rfc1522)', which means that QPized headers will be
-     slightly decoded in a hackish way.  This is likely to change in the
-     future when Gnus becomes MIME'ified.
-
-`gnus-alter-header-function'
-     If non-`nil', this function will be called to allow alteration of
-     article header structures.  The function is called with one
-     parameter, the article header vector, which it may alter in any
-     way.  For instance, if you have a mail-to-news gateway which
-     alters the `Message-ID's in systematic ways (by adding prefixes
-     and such), you can use this variable to un-scramble the
-     `Message-ID's so that they are more meaningful.  Here's one
-     example:
-
-          (setq gnus-alter-header-function 'my-alter-message-id)
-          
-          (defun my-alter-message-id (header)
-            (let ((id (mail-header-id header)))
-              (when (string-match
-                     "\\(<[^<>@]*\\)\\.?cygnus\\..*@\\([^<>@]*>\\)" id)
-                (mail-header-set-id
-                 (concat (match-string 1 id) "@" (match-string 2 id))
-                 header))))
-
-
-File: gnus,  Node: Thread Commands,  Prev: Customizing Threading,  Up: Threading
-
-Thread Commands
----------------
-
-`T k'
-`M-C-k'
-     Mark all articles in the current (sub-)thread as read
-     (`gnus-summary-kill-thread').  If the prefix argument is positive,
-     remove all marks instead.  If the prefix argument is negative, tick
-     articles instead.
-
-`T l'
-`M-C-l'
-     Lower the score of the current (sub-)thread
-     (`gnus-summary-lower-thread').
-
-`T i'
-     Increase the score of the current (sub-)thread
-     (`gnus-summary-raise-thread').
-
-`T #'
-     Set the process mark on the current (sub-)thread
-     (`gnus-uu-mark-thread').
-
-`T M-#'
-     Remove the process mark from the current (sub-)thread
-     (`gnus-uu-unmark-thread').
-
-`T T'
-     Toggle threading (`gnus-summary-toggle-threads').
-
-`T s'
-     Expose the (sub-)thread hidden under the current article, if any
-     (`gnus-summary-show-thread').
-
-`T h'
-     Hide the current (sub-)thread (`gnus-summary-hide-thread').
-
-`T S'
-     Expose all hidden threads (`gnus-summary-show-all-threads').
-
-`T H'
-     Hide all threads (`gnus-summary-hide-all-threads').
-
-`T t'
-     Re-thread the current article's thread
-     (`gnus-summary-rethread-current').  This works even when the
-     summary buffer is otherwise unthreaded.
-
-`T ^'
-     Make the current article the child of the marked (or previous)
-     article (`gnus-summary-reparent-thread').
-
-   The following commands are thread movement commands.  They all
-understand the numeric prefix.
-
-`T n'
-     Go to the next thread (`gnus-summary-next-thread').
-
-`T p'
-     Go to the previous thread (`gnus-summary-prev-thread').
-
-`T d'
-     Descend the thread (`gnus-summary-down-thread').
-
-`T u'
-     Ascend the thread (`gnus-summary-up-thread').
-
-`T o'
-     Go to the top of the thread (`gnus-summary-top-thread').
-
-   If you ignore subject while threading, you'll naturally end up with
-threads that have several different subjects in them.  If you then issue
-a command like `T k' (`gnus-summary-kill-thread') you might not wish to
-kill the entire thread, but just those parts of the thread that have
-the same subject as the current article.  If you like this idea, you
-can fiddle with `gnus-thread-operation-ignore-subject'.  If it is
-non-`nil' (which it is by default), subjects will be ignored when doing
-thread commands.  If this variable is `nil', articles in the same
-thread with different subjects will not be included in the operation in
-question.  If this variable is `fuzzy', only articles that have
-subjects fuzzily equal will be included (*note Fuzzy Matching::).
-
-
-File: gnus,  Node: Sorting,  Next: Asynchronous Fetching,  Prev: Threading,  Up: The Summary Buffer
-
-Sorting
-=======
-
-   If you are using a threaded summary display, you can sort the
-threads by setting `gnus-thread-sort-functions', which is a list of
-functions.  By default, sorting is done on article numbers.  Ready-made
-sorting predicate functions include `gnus-thread-sort-by-number',
-`gnus-thread-sort-by-author', `gnus-thread-sort-by-subject',
-`gnus-thread-sort-by-date', `gnus-thread-sort-by-score', and
-`gnus-thread-sort-by-total-score'.
-
-   Each function takes two threads and returns non-`nil' if the first
-thread should be sorted before the other.  Note that sorting really is
-normally done by looking only at the roots of each thread.  If you use
-more than one function, the primary sort key should be the last function
-in the list.  You should probably always include
-`gnus-thread-sort-by-number' in the list of sorting
-functions--preferably first.  This will ensure that threads that are
-equal with respect to the other sort criteria will be displayed in
-ascending article order.
-
-   If you would like to sort by score, then by subject, and finally by
-number, you could do something like:
-
-     (setq gnus-thread-sort-functions
-           '(gnus-thread-sort-by-number
-             gnus-thread-sort-by-subject
-             gnus-thread-sort-by-total-score))
-
-   The threads that have highest score will be displayed first in the
-summary buffer.  When threads have the same score, they will be sorted
-alphabetically.  The threads that have the same score and the same
-subject will be sorted by number, which is (normally) the sequence in
-which the articles arrived.
-
-   If you want to sort by score and then reverse arrival order, you
-could say something like:
-
-     (setq gnus-thread-sort-functions
-           '((lambda (t1 t2)
-               (not (gnus-thread-sort-by-number t1 t2)))
-             gnus-thread-sort-by-score))
-
-   The function in the `gnus-thread-score-function' variable (default
-`+') is used for calculating the total score of a thread.  Useful
-functions might be `max', `min', or squared means, or whatever tickles
-your fancy.
-
-   If you are using an unthreaded display for some strange reason or
-other, you have to fiddle with the `gnus-article-sort-functions'
-variable.  It is very similar to the `gnus-thread-sort-functions',
-except that it uses slightly different functions for article
-comparison.  Available sorting predicate functions are
-`gnus-article-sort-by-number', `gnus-article-sort-by-author',
-`gnus-article-sort-by-subject', `gnus-article-sort-by-date', and
-`gnus-article-sort-by-score'.
-
-   If you want to sort an unthreaded summary display by subject, you
-could say something like:
-
-     (setq gnus-article-sort-functions
-           '(gnus-article-sort-by-number
-             gnus-article-sort-by-subject))
-
-
-File: gnus,  Node: Asynchronous Fetching,  Next: Article Caching,  Prev: Sorting,  Up: The Summary Buffer
-
-Asynchronous Article Fetching
-=============================
-
-   If you read your news from an NNTP server that's far away, the
-network latencies may make reading articles a chore.  You have to wait
-for a while after pressing `n' to go to the next article before the
-article appears.  Why can't Gnus just go ahead and fetch the article
-while you are reading the previous one?  Why not, indeed.
-
-   First, some caveats.  There are some pitfalls to using asynchronous
-article fetching, especially the way Gnus does it.
-
-   Let's say you are reading article 1, which is short, and article 2 is
-quite long, and you are not interested in reading that.  Gnus does not
-know this, so it goes ahead and fetches article 2.  You decide to read
-article 3, but since Gnus is in the process of fetching article 2, the
-connection is blocked.
-
-   To avoid these situations, Gnus will open two (count 'em two)
-connections to the server.  Some people may think this isn't a very nice
-thing to do, but I don't see any real alternatives.  Setting up that
-extra connection takes some time, so Gnus startup will be slower.
-
-   Gnus will fetch more articles than you will read.  This will mean
-that the link between your machine and the NNTP server will become more
-loaded than if you didn't use article pre-fetch.  The server itself will
-also become more loaded--both with the extra article requests, and the
-extra connection.
-
-   Ok, so now you know that you shouldn't really use this thing...
-unless you really want to.
-
-   Here's how:  Set `gnus-asynchronous' to `t'.  The rest should happen
-automatically.
-
-   You can control how many articles are to be pre-fetched by setting
-`gnus-use-article-prefetch'.  This is 30 by default, which means that
-when you read an article in the group, the backend will pre-fetch the
-next 30 articles.  If this variable is `t', the backend will pre-fetch
-all the articles it can without bound.  If it is `nil', no pre-fetching
-will be done.
-
-   There are probably some articles that you don't want to
-pre-fetch--read articles, for instance.  The
-`gnus-async-prefetch-article-p' variable controls whether an article is
-to be pre-fetched.  This function should return non-`nil' when the
-article in question is to be pre-fetched.  The default is
-`gnus-async-read-p', which returns `nil' on read articles.  The
-function is called with an article data structure as the only parameter.
-
-   If, for instance, you wish to pre-fetch only unread articles shorter
-than 100 lines, you could say something like:
-
-     (defun my-async-short-unread-p (data)
-       "Return non-nil for short, unread articles."
-       (and (gnus-data-unread-p data)
-            (< (mail-header-lines (gnus-data-header data))
-               100)))
-     
-     (setq gnus-async-prefetch-article-p 'my-async-short-unread-p)
-
-   These functions will be called many, many times, so they should
-preferably be short and sweet to avoid slowing down Gnus too much.
-It's probably a good idea to byte-compile things like this.
-
-   Articles have to be removed from the asynch buffer sooner or later.
-The `gnus-prefetched-article-deletion-strategy' says when to remove
-articles.  This is a list that may contain the following elements:
-
-`read'
-     Remove articles when they are read.
-
-`exit'
-     Remove articles when exiting the group.
-
-   The default value is `(read exit)'.
-
-
-File: gnus,  Node: Article Caching,  Next: Persistent Articles,  Prev: Asynchronous Fetching,  Up: The Summary Buffer
-
-Article Caching
-===============
-
-   If you have an _extremely_ slow NNTP connection, you may consider
-turning article caching on.  Each article will then be stored locally
-under your home directory.  As you may surmise, this could potentially
-use _huge_ amounts of disk space, as well as eat up all your inodes so
-fast it will make your head swim.  In vodka.
-
-   Used carefully, though, it could be just an easier way to save
-articles.
-
-   To turn caching on, set `gnus-use-cache' to `t'.  By default, all
-articles ticked or marked as dormant will then be copied over to your
-local cache (`gnus-cache-directory').  Whether this cache is flat or
-hierarchal is controlled by the `gnus-use-long-file-name' variable, as
-usual.
-
-   When re-selecting a ticked or dormant article, it will be fetched
-from the cache instead of from the server.  As articles in your cache
-will never expire, this might serve as a method of saving articles
-while still keeping them where they belong.  Just mark all articles you
-want to save as dormant, and don't worry.
-
-   When an article is marked as read, is it removed from the cache.
-
-   The entering/removal of articles from the cache is controlled by the
-`gnus-cache-enter-articles' and `gnus-cache-remove-articles' variables.
-Both are lists of symbols.  The first is `(ticked dormant)' by
-default, meaning that ticked and dormant articles will be put in the
-cache.  The latter is `(read)' by default, meaning that articles marked
-as read are removed from the cache.  Possibly symbols in these two
-lists are `ticked', `dormant', `unread' and `read'.
-
-   So where does the massive article-fetching and storing come into the
-picture?  The `gnus-jog-cache' command will go through all subscribed
-newsgroups, request all unread articles, score them, and store them in
-the cache.  You should only ever, ever ever ever, use this command if
-1) your connection to the NNTP server is really, really, really slow
-and 2) you have a really, really, really huge disk.  Seriously.  One
-way to cut down on the number of articles downloaded is to score
-unwanted articles down and have them marked as read.  They will not
-then be downloaded by this command.
-
-   It is likely that you do not want caching on all groups.  For
-instance, if your `nnml' mail is located under your home directory, it
-makes no sense to cache it somewhere else under your home directory.
-Unless you feel that it's neat to use twice as much space.
-
-   To limit the caching, you could set `gnus-cacheable-groups' to a
-regexp of groups to cache, `^nntp' for instance, or set the
-`gnus-uncacheable-groups' regexp to `^nnml', for instance.  Both
-variables are `nil' by default. If a group matches both variables, the
-group is not cached.
-
-   The cache stores information on what articles it contains in its
-active file (`gnus-cache-active-file').  If this file (or any other
-parts of the cache) becomes all messed up for some reason or other, Gnus
-offers two functions that will try to set things right.  `M-x
-gnus-cache-generate-nov-databases' will (re)build all the NOV files,
-and `gnus-cache-generate-active' will (re)generate the active file.
-
-
-File: gnus,  Node: Persistent Articles,  Next: Article Backlog,  Prev: Article Caching,  Up: The Summary Buffer
-
-Persistent Articles
-===================
-
-   Closely related to article caching, we have "persistent articles".
-In fact, it's just a different way of looking at caching, and much more
-useful in my opinion.
-
-   Say you're reading a newsgroup, and you happen on to some valuable
-gem that you want to keep and treasure forever.  You'd normally just
-save it (using one of the many saving commands) in some file.  The
-problem with that is that it's just, well, yucky.  Ideally you'd prefer
-just having the article remain in the group where you found it forever;
-untouched by the expiry going on at the news server.
-
-   This is what a "persistent article" is--an article that just won't
-be deleted.  It's implemented using the normal cache functions, but you
-use two explicit commands for managing persistent articles:
-
-`*'
-     Make the current article persistent (`gnus-cache-enter-article').
-
-`M-*'
-     Remove the current article from the persistent articles
-     (`gnus-cache-remove-article').  This will normally delete the
-     article.
-
-   Both these commands understand the process/prefix convention.
-
-   To avoid having all ticked articles (and stuff) entered into the
-cache, you should set `gnus-use-cache' to `passive' if you're just
-interested in persistent articles:
-
-     (setq gnus-use-cache 'passive)
-
-
-File: gnus,  Node: Article Backlog,  Next: Saving Articles,  Prev: Persistent Articles,  Up: The Summary Buffer
-
-Article Backlog
-===============
-
-   If you have a slow connection, but the idea of using caching seems
-unappealing to you (and it is, really), you can help the situation some
-by switching on the "backlog".  This is where Gnus will buffer already
-read articles so that it doesn't have to re-fetch articles you've
-already read.  This only helps if you are in the habit of re-selecting
-articles you've recently read, of course.  If you never do that,
-turning the backlog on will slow Gnus down a little bit, and increase
-memory usage some.
-
-   If you set `gnus-keep-backlog' to a number N, Gnus will store at
-most N old articles in a buffer for later re-fetching.  If this
-variable is non-`nil' and is not a number, Gnus will store _all_ read
-articles, which means that your Emacs will grow without bound before
-exploding and taking your machine down with you.  I put that in there
-just to keep y'all on your toes.
-
-   This variable is `nil' by default.
+File: gnus,  Node: Generic Marking Commands,  Next: Setting Process Marks,  Prev: Setting Marks,  Up: Marking Articles
+
+Generic Marking Commands
+------------------------
+
+   Some people would like the command that ticks an article (`!') go to
+the next article.  Others would like it to go to the next unread
+article.  Yet others would like it to stay on the current article.  And
+even though I haven't heard of anybody wanting it to go to the previous
+(unread) article, I'm sure there are people that want that as well.
+
+   Multiply these five behaviors by five different marking commands, and
+you get a potentially complex set of variable to control what each
+command should do.
+
+   To sidestep that mess, Gnus provides commands that do all these
+different things.  They can be found on the `M M' map in the summary
+buffer.  Type `M M C-h' to see them all--there are too many of them to
+list in this manual.
+
+   While you can use these commands directly, most users would prefer
+altering the summary mode keymap.  For instance, if you would like the
+`!' command to go to the next article instead of the next unread
+article, you could say something like:
+
+     (add-hook 'gnus-summary-mode-hook 'my-alter-summary-map)
+     (defun my-alter-summary-map ()
+       (local-set-key "!" 'gnus-summary-put-mark-as-ticked-next))
+
+   or
+
+     (defun my-alter-summary-map ()
+       (local-set-key "!" "MM!n"))
 

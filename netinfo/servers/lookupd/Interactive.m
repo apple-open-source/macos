@@ -506,6 +506,18 @@ void dohelp(FILE *in, FILE *out, int proc, char **commands)
 		fprintf(out, "Prints configuration.\n");
 	}
 
+	else if (streq(commands[proc], "disableStatistics"))
+	{
+		fprintf(out, "\n");
+		fprintf(out, "Turns off statistics gathering.\n");
+	}
+
+	else if (streq(commands[proc], "enableStatistics"))
+	{
+		fprintf(out, "\n");
+		fprintf(out, "Turns on statistics gathering.\n");
+	}
+
 	else if (streq(commands[proc], "flushCache"))
 	{
 		fprintf(out, "\n");
@@ -673,13 +685,6 @@ void dohelp(FILE *in, FILE *out, int proc, char **commands)
 		fprintf(out, "Looks up the protocol with the given number.\n");
 	}	
 	
-	else if (streq(commands[proc], "reset"))
-	{
-		fprintf(out, "\n");
-		fprintf(out, "usage: reset\n\n");
-		fprintf(out, "Resets configuration.\n");
-	}
-	
 	else if (streq(commands[proc], "rpcWithName"))
 	{
 		fprintf(out, "\n");
@@ -802,6 +807,7 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	char *key, *val, *cat;
 	Thread *t;
 	unsigned long ts;
+	char scratch[64];
 
 	if (proc < 0) return;
 	if (streq(commands[proc], "help"))
@@ -813,9 +819,10 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	server = nil;
 
 	if (streq(commands[proc], "memory"));
+	else if (streq(commands[proc], "disableStatistics"));
+	else if (streq(commands[proc], "enableStatistics"));
 	else if (streq(commands[proc], "flushCache"));
 	else if (streq(commands[proc], "normalLookupOrder"));
-	else if (streq(commands[proc], "reset"));
 	else if (streq(commands[proc], "showMemoryObject"));
 	else
 	{
@@ -845,7 +852,7 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 			return;
 		}
 
-		askMe = agent;
+		askMe = [agent retain];
 		return;
 	}
 
@@ -878,9 +885,8 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	
 	else if (streq(commands[proc], "allGroupsWithUser"))
 	{
-		list = [ask allGroupsWithUser:get_string(in, out, ": ")];
+		dict = [ask allGroupsWithUser:get_string(in, out, ": ")];
 		fprintf(out, "\n");
-		resultIsList = YES;
 	}
 
 	else if (streq(commands[proc], "allHosts"))
@@ -895,6 +901,7 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		cat = copyString(get_string(in, out, ": "));
 		fprintf(out, "\n");
 		i = [LUAgent categoryWithName:cat];
+		freeString(cat);
 		list = nil;
 	
 		if (i == -1) fprintf(out, "Unknown category\n");
@@ -976,6 +983,20 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		resultIsList = YES;
 	}
 	
+	else if (streq(commands[proc], "disableStatistics"))
+	{
+		fprintf(out, "\n");
+		statistics_enabled = NO;
+		return;
+	}
+	
+	else if (streq(commands[proc], "enableStatistics"))
+	{
+		fprintf(out, "\n");
+		statistics_enabled = YES;
+		return;
+	}
+	
 	else if (streq(commands[proc], "flushCache"))
 	{
 		fprintf(out, "\n");
@@ -1047,6 +1068,12 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		return;
 	}
 
+	else if (streq(commands[proc], "ipv6NodeWithName"))
+	{
+		dict = [ask ipv6NodeWithName:get_string(in, out, ": ")];
+		fprintf(out, "\n");
+	}
+	
 	else if (streq(commands[proc], "isNetwareEnabled"))
 	{
 		fprintf(out, "\n");
@@ -1099,7 +1126,7 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	else if (streq(commands[proc], "netgroupWithName"))
 	{
 		/* XXX domain doesn't print */
-		dict = [ask itemWithKey:"name" value:get_string(in, out, ": ") category:LUCategoryNetgroup];
+		dict = [ask netgroupWithName:get_string(in, out, ": ")];
 		fprintf(out, "\n");
 	}
 	
@@ -1141,12 +1168,6 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		dict = [ask itemWithKey:"number" value:get_string(in, out, ": ") category:LUCategoryProtocol];
 		fprintf(out, "\n");
 	}	
-	
-	else if (streq(commands[proc], "reset"))
-	{
-		[controller reset];
-		return;
-	}
 	
 	else if (streq(commands[proc], "rpcWithName"))
 	{
@@ -1202,6 +1223,8 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 	{
 		fprintf(out, "\n");
 		/* retain stats since we don't want to *really* free it */
+		sprintf(scratch, "%u", [rover totalMemory]);
+		[statistics setValue:scratch forKey:"# Total Memory"];
 		dict = statistics;
 		if (dict != nil) [dict retain];
 	}
@@ -1331,6 +1354,8 @@ void interactive(FILE *in, FILE *out)
 	commands = appendString("bootpWithInternetAddress", commands);
 	commands = appendString("bootparamsWithName", commands);
 	commands = appendString("configuration", commands);
+	commands = appendString("disableStatistics", commands);
+	commands = appendString("enableStatistics", commands);
 	commands = appendString("flushCache", commands);
 	commands = appendString("groupWithName", commands);
 	commands = appendString("groupWithNumber", commands);
@@ -1339,6 +1364,7 @@ void interactive(FILE *in, FILE *out)
 	commands = appendString("hostWithInternetAddress", commands);
 	commands = appendString("hostWithName", commands);
 	commands = appendString("inNetgroup", commands);
+	commands = appendString("ipv6NodeWithName", commands);
 	commands = appendString("isNetwareEnabled", commands);
 	commands = appendString("isSecurityEnabledForOption", commands);
 	commands = appendString("itemWithKey", commands);
@@ -1352,7 +1378,6 @@ void interactive(FILE *in, FILE *out)
 	commands = appendString("protocolWithName", commands);
 	commands = appendString("protocolWithNumber", commands);
 	commands = appendString("quit", commands);
-	commands = appendString("reset", commands);
 	commands = appendString("rpcWithName", commands);
 	commands = appendString("rpcWithNumber", commands);
 	commands = appendString("serviceWithName", commands);
@@ -1382,6 +1407,7 @@ void interactive(FILE *in, FILE *out)
 		}
 
 		if (streq(commands[n], "quit")) break;
+
 		doproc(in, out, n, commands);
 		fprintf(out, "\n");
 	}

@@ -1,4 +1,4 @@
-.TH SEG_ADDR_TABLE l "June 21, 2000" "Apple Computer, Inc."
+.TH SEG_ADDR_TABLE l "May 24, 2002" "Apple Computer, Inc."
 .SH NAME
 seg_addr_table \- re-layout, update or check a segment address table
 .SH SYNOPSIS
@@ -72,6 +72,12 @@ assignment is based on the special entries in the table for the next addresses
 to assign.  This action is similar to detecting overlaps with -checkonly, setting
 the overlapping library to 0x00000000 and running with -update. 
 .TP
+.B \-relayout_nonsplit
+Similar to relayout except it only causes all the non split libraries to
+re-laied out and all non-split dynamic libraries to be assigned addresses.  The 
+addresses are assigned in order specified and the space given to each is based
+on the libraries virtual address sizes.
+.TP
 .B \-checkonly
 This option only checks the entries in the table for overlaps.
 .PP
@@ -107,21 +113,49 @@ operation:
 Specifies the starting address to layout ``flat'' libraries.
 .I addr
 is a hexadecimal number and should be a multiple of the target pagesize.
-The default if not specified is 0x41300000.
+The default if not specified is 0x41300000 when the environment variable
+.SM MACOSX_DEPLOYMENT_TARGET
+is 10.1 or not set and allocations are into increasing addresses.  When
+.SM MACOSX_DEPLOYMENT_TARGET
+is 10.2 or greater the default is 0x7ffc0000 and allocations are into
+decreasing addresses.
+.TP
+.BI \-allocate_flat " direction"
+Specifies which
+.I direction
+to allocate flat addresses into.  The argument
+.I direction
+can be either
+.I increasing
+or
+.I decreasing.
+The default if not specified is increasing when the environment variable
+.SM MACOSX_DEPLOYMENT_TARGET
+is 10.1 or not set and when
+.SM MACOSX_DEPLOYMENT_TARGET
+is 10.2 or greater the default is decreasing.
 .TP
 .BI "\-segs_read_only_addr" " addr"
 Specifies the starting address to layout the read-only segments of ``split''
 libraries.
 .I addr
 is a hexadecimal number and should be a multiple of the target pagesize.
-The default if not specified is 0x20000000.
+The default if not specified is 0x70000000 when the environment variable
+.SM MACOSX_DEPLOYMENT_TARGET
+is 10.1 or not set and when
+.SM MACOSX_DEPLOYMENT_TARGET
+is 10.2 or greater the default is 0x90000000.
 .TP
 .BI "\-segs_read_write_addr" " addr"
 Specifies the starting address to layout the read-write segments of ``split''
 libraries.
 .I addr
 is a hexadecimal number and should be a multiple of the target pagesize.
-The default if not specified is 0x30000000.
+The default if not specified is 0x80000000 when the environment variable
+.SM MACOSX_DEPLOYMENT_TARGET
+is 10.1 or not set and when
+.SM MACOSX_DEPLOYMENT_TARGET
+is 10.2 or greater the default is 0xa0000000.
 .PP
 The following options may be specified with any operation:
 .TP

@@ -1,0 +1,130 @@
+{
+    "DYNAMIC_CODE_GEN" = YES; 
+    FILESTABLE = {
+        FRAMEWORKS = (); 
+        "H_FILES" = (
+            "admin.h", 
+            "algorithm.h", 
+            "backupsa.h", 
+            "crypto_openssl.h", 
+            "dnssec.h", 
+            "grabmyaddr.h", 
+            "gssapi.h", 
+            "handler.h", 
+            "ipsec_doi.h", 
+            "isakmp_agg.h", 
+            "isakmp_base.h", 
+            "isakmp_ident.h", 
+            "isakmp_inf.h", 
+            "isakmp_newg.h", 
+            "isakmp_quick.h", 
+            "isakmp.h", 
+            "localconf.h", 
+            "logger.h", 
+            "misc.h", 
+            "oakley.h", 
+            "pfkey.h", 
+            "plog.h", 
+            "policy.h", 
+            "proposal.h", 
+            "remoteconf.h", 
+            "rijndael-alg-fst.h", 
+            "rijndael-api-fst.h", 
+            "safefile.h", 
+            "sainfo.h", 
+            "schedule.h", 
+            "session.h", 
+            "sha2.h", 
+            "sockmisc.h", 
+            "str2val.h", 
+            "strnames.h", 
+            "vendorid.h", 
+            "vmbuf.h", 
+            "admin_var.h", 
+            "cftoken.h", 
+            "debug.h", 
+            "dhgroup.h", 
+            "gcmalloc.h", 
+            "isakmp_var.h", 
+            "libpfkey.h", 
+            "netdb_dnssec.h", 
+            "rijndael_local.h", 
+            "rijndael.h", 
+            "var.h"
+        ); 
+        "OTHER_LIBS" = (crypto, ipsec, ssl); 
+        "OTHER_LINKED" = (
+            "admin.c", 
+            "algorithm.c", 
+            "backupsa.c", 
+            "cfparse.y", 
+            "cftoken.l", 
+            "crypto_openssl.c", 
+            "dnssec.c", 
+            "getcertsbyname.c", 
+            "grabmyaddr.c", 
+            "gssapi.c", 
+            "handler.c", 
+            "ipsec_doi.c", 
+            "isakmp.c", 
+            "isakmp_agg.c", 
+            "isakmp_base.c", 
+            "isakmp_ident.c", 
+            "isakmp_inf.c", 
+            "isakmp_newg.c", 
+            "isakmp_quick.c", 
+            "key_debug.c", 
+            "localconf.c", 
+            "logger.c", 
+            "main.c", 
+            "misc.c", 
+            "oakley.c", 
+            "pfkey.c", 
+            "pfkey2.c", 
+            "pfkey_dump.c", 
+            "plog.c", 
+            "policy.c", 
+            "proposal.c", 
+            "remoteconf.c", 
+            "rijndael-alg-fst.c", 
+            "rijndael-api-fst.c", 
+            "safefile.c", 
+            "sainfo.c", 
+            "schedule.c", 
+            "session.c", 
+            "sha2.c", 
+            "sockmisc.c", 
+            "str2val.c", 
+            "strnames.c", 
+            "vendorid.c", 
+            "vmbuf.c"
+        ); 
+        "OTHER_SOURCES" = (
+            "Makefile.preamble", 
+            Makefile, 
+            "Makefile.postamble", 
+            "boxes-fst.dat", 
+            "psk.txt", 
+            "racoon.8", 
+            "racoon.conf", 
+            "racoon.conf.5"
+        ); 
+    }; 
+    LANGUAGE = English; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    "NEXTSTEP_BUILDTOOL" = "/bin/gnumake"; 
+    "NEXTSTEP_INSTALLDIR" = "/usr/sbin"; 
+    "NEXTSTEP_JAVA_COMPILER" = "/usr/bin/javac"; 
+    "NEXTSTEP_OBJCPLUS_COMPILER" = "/usr/bin/cc"; 
+    "PDO_UNIX_BUILDTOOL" = "$NEXT_ROOT/Developer/bin/make"; 
+    "PDO_UNIX_INSTALLDIR" = "/bin"; 
+    "PDO_UNIX_JAVA_COMPILER" = "$(JDKBINDIR)/javac"; 
+    "PDO_UNIX_OBJCPLUS_COMPILER" = "$(NEXTDEV_BIN)/gcc"; 
+    PROJECTNAME = racoon; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = "2.8"; 
+    "WINDOWS_BUILDTOOL" = "$NEXT_ROOT/Developer/Executables/make"; 
+    "WINDOWS_INSTALLDIR" = "/Library/Executables"; 
+    "WINDOWS_JAVA_COMPILER" = "$(JDKBINDIR)/javac.exe"; 
+    "WINDOWS_OBJCPLUS_COMPILER" = "$(DEVDIR)/gcc"; 
+}

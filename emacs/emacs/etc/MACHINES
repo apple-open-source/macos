@@ -68,7 +68,7 @@ Alliant FX/2800 (i860-alliant-bsd)
 
   Known to work with 19.26 and OS version 2.2, compiler version 1.3.
 
-Alpha (DEC) running OSF/1 (alpha-dec-osf1, alpha-dec-linux-gnu)
+Alpha (DEC) running OSF/1 or GNU/Linux (alpha-dec-osf1, alpha-dec-linux-gnu)
 
   For OSF/1 (aka Digital Unix) version 4.0, update 386,
   it is reported that you need to run configure this way:
@@ -76,11 +76,14 @@ Alpha (DEC) running OSF/1 (alpha-dec-osf1, alpha-dec-linux-gnu)
       configure --x-includes=/usr/include --x-libraries=/usr/shlib
 
   For 4.0 revision 564, and 4.0A and 4.0B, Emacs 20 seems to work
-  with no special configuration options.
+  with no special configuration options.  However, if you use GCC as
+  your compiler, you will need version 2.8.1 or later, as older
+  versions fail to build with a message "Invalid dimension for the
+  charset-ID 160".
 
-  Note that the X11 libraries on GNU/Linux systems
-  for the Alpha are said to have bugs that prevent Emacs from working with X
-  (as of November 1995).
+  Note that the X11 libraries on GNU/Linux systems for the Alpha are
+  said to have bugs that prevent Emacs from working with X (as of
+  November 1995).  Recent releases work (July 2000).
 
 Altos 3068 (m68k-altos-sysv)
 
@@ -98,6 +101,29 @@ Amdahl UTS (580-amdahl-sysv)
   The 5.2u370 compiler is so brain damaged that it is not
   even worth trying to use it.  Success was obtained with the
   uts native C compiler on uts version 5.2.5.
+
+Apple PowerPC Macintosh running GNU/Linux
+
+  There are special considerations for a variety of this system which
+  is known as the ``Yellow Dog [GNU/]Linux'': Emacs may crash during
+  dumping.  To solve this, edit the header file src/m/macppc.h in the
+  Emacs distribution, and remove the "#if 0" and "#endif" directives
+  which surround the following block near the end of the file:
+
+    #if 0  /* This breaks things on PPC GNU/Linux ecept for Yellowdog,
+	      even with identical GCC, as, ld.  Let's take it out until we
+	      know what's really going on here.  */
+    /* GCC 2.95 and newer on GNU/Linux PPC changed the load address to
+       0x10000000.  */
+    #if defined __linux__
+    #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
+    #define DATA_SEG_BITS  0x10000000
+    #endif
+    #endif
+    #endif /* 0 */
+
+  After that, reconfigure and rebuild Emacs.  It should now build
+  successfully.
 
 Apollo running X Windows (m68k-apollo-bsd)
 
@@ -504,7 +530,7 @@ High Level Hardware Orion 1/05 (clipper-highlevel-bsd)
   C compiler has a bug; it loops compiling eval.c.
   Compile it by hand without optimization.
 
-HITACHI SR2001/SR2201 series (hppa1.1-hitachi-hiuxmpp)
+HITACHI SR2001/SR2201 series (hppa1.1-hitachi-hiuxwe2)
 
   These machines are based on PA architecture running HI-UX/MPP
   (based on OSF1. `MPP' stands for `Massively Parallel Processor').
@@ -512,9 +538,12 @@ HITACHI SR2001/SR2201 series (hppa1.1-hitachi-hiuxmpp)
   Emacs 19.34 is believed to work; its pretest was tested
   both on SR2001 (output of `uname -rv' is `00-01-BB 0') and 
   SR2201 (`02-00 0').
+
+  Emacs 20.7 was reported to build on a system whose `uname -rs'
+  output is `HI-UX/MPP 03-04'.
   
   The machine description file is `src/m/sr2k.h' is based on 
-  `src/m/hp800.h'. The system description file is `src/s/hiuxmpp.h'
+  `src/m/hp800.h'. The system description file is `src/s/hiuxwe2.h'
   based on `src/s/osf1.h'. Note that this system doesn't use COFF.   
 
 IBM PS/2 (i386-ibm-aix1.1 or i386-ibm-aix1.2)
@@ -528,6 +557,10 @@ IBM PS/2 (i386-ibm-aix1.1 or i386-ibm-aix1.2)
 IBM RS/6000 (rs6000-ibm-aix*)
 
   Emacs 19.26 is believed to work; its pretest was tested.
+
+  Compiling with the system's `cc' and CFLAGS containing `-O5' might
+  fail because libXbsd isn't found.  This is a compiler bug;
+  re-configure Emacs so that it isn't compiled with `-O5'.
 
   At last report, Emacs didn't run well on terminals.  Informed
   persons say that the tty VMIN and VTIME settings have been
@@ -616,8 +649,8 @@ Intel 386 (i386-*-isc, 		i386-*-esix,	 i386-*-bsdi2,
     #define HAVE_XSCREENNUMBEROFSCREEN
 
   To work around the problem, add those definitions by hand.
-  It is possible that this problem happens only with X11R6
-  or that newer system versions have fixed it.
+  It is possible that this problem happens only with X11R6.
+  Newer system versions have fixed it.
 
   The 19.26 pretest was reported to work on SVR4.3 and on Freebsd.
 
@@ -701,6 +734,18 @@ Iris 2500 and Iris 2500 Turbo (m68k-sgi-iris3.5 or m68k-sgi-iris3.6)
   Note that the 3030 is the same as the Iris 2500 Turbo.
 
 Iris 4D (mips-sgi-irix[456].*)
+
+  You can build a 64-bit executable (with larger maximum buffer size)
+  on Irix 6.5 by specifying the 64-bit ABI using the `-64' compiler
+  flag or otherwise (see cc(1)).  This may work on earlier Irix 6
+  systems if you edit src/s/irix6-0.h following irix6-5.h.
+
+  If compiling with GCC on Irix 6 yields an error "conflicting types
+  for `initstate'", install GCC 2.95 or a newer version, and this
+  problem should go away.  It is possible that this problem results
+  from upgrading the operating system without reinstalling GCC; so you
+  could also try reinstalling the same version of GCC, and telling us
+  whether that fixes the problem.
 
   The 19.26 pretest was reported to work on IRIX 4.0.5 and 5.2.
   19.23 was reported to work on IRIX 5.2, but you may need to install
@@ -963,7 +1008,33 @@ Stride (m68k-stride-sysv)
 
 Sun 3, Sun 4 (sparc), Sun 386 (m68k-sun-sunos, sparc-sun-sunos, i386-sun-sunos,
 			       sparc-sun-sunos4.1.3noshr, sparc-sun-solaris2.*,
-			       i386-sun-solaris2.*)
+			       i386-sun-solaris2.*, sparc*-*-linux-gnu)
+
+  To build a 64-bit Emacs (with larger maximum buffer size and
+  including large file support) on a Solaris system which supports
+  64-bit executables, use the Sun compiler, configuring something like
+  this (see the cc documentation for information on 64-bit
+  compilation):  env CC="cc -xarch=v9" ./configure
+
+  As of version 2.95, GCC doesn't support the 64-bit ABI properly, but
+  later releases may.
+
+  Some versions of Solaris 8 have a bug in their XIM (X Input Method)
+  implementation which causes Emacs to dump core when one of several
+  frames is closed.  To avoid this, either install patch 108773-12
+  (for Sparc) or 108874-12 (for x86), or configure Emacs with the
+  `--with-xim=no' switch (you can use Leim input methods instead).
+
+  On Solaris 2.7, building Emacs with WorkShop Compilers 5.0 98/12/15
+  C 5.0 failed, apparently with non-default CFLAGS, most probably due to
+  compiler bugs.  Using Sun Solaris 2.7 Sun WorkShop 6 update 1 C
+  release was reported to work without problems.  It worked OK on
+  another system with Solaris 8 using apparently the same 5.0 compiler
+  and the default CFLAGS.
+
+  Emacs 20.5 and later work on SPARC GNU/Linux with the 32-bit ABI.
+  As of release 2.95, GCC doesn't work properly with the 64-bit ABI
+  (applicable on UltraSPARC), but that isn't the default mode.
 
   Emacs 20.3 fails to build on Solaris 2.5 if you use GCC 2.7.2.3.
   Installing GCC 2.8 fixes the problem.
@@ -1366,10 +1437,10 @@ VMS (vmsM.N)
   distribution.  See the file ../vms/VMSINSTALL for info on moving
   Unix distributions to VMS, and other VMS-related topics.
 
-Windows NT
+Windows NT/95/98/ME/2000
 
-  For installation on Windows NT, see the file etc/INSTALL and search for
-  `Windows NT'.
+  For installation on all versions of the MS-Windows platform, see the
+  file nt/INSTALL.
 
 Xenix (xenix)
 

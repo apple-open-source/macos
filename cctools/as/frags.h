@@ -1,3 +1,5 @@
+#ifndef _FRAGS_H_
+#define _FRAGS_H_
 /* frags.h - Header file for the frag concept.
    Copyright (C) 1987 Free Software Foundation, Inc.
 
@@ -109,3 +111,4 @@ extern void frag_align(
 	}				\
 	obstack_1grow( &frags, datum );	\
 }
+#endif /* _FRAGS_H_ */

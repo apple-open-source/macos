@@ -282,7 +282,7 @@ cl_vi_init(sp)
 	idlok(stdscr, 1);		/* Use hardware insert/delete line. */
 
 	/* Put the cursor keys into application mode. */
-	(void)keypad(stdscr, TRUE);
+	(void)nvi_keypad(stdscr, TRUE);
 
 	/*
 	 * XXX
@@ -388,7 +388,7 @@ cl_vi_end(gp)
 	clp = GCLP(gp);
 
 	/* Restore the cursor keys to normal mode. */
-	(void)keypad(stdscr, FALSE);
+	(void)nvi_keypad(stdscr, FALSE);
 
 	/*
 	 * If we were running vi when we quit, scroll the screen up a single

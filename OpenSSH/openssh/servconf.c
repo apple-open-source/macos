@@ -10,10 +10,19 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: servconf.c,v 1.101 2002/02/04 12:15:25 markus Exp $");
+RCSID("$OpenBSD: servconf.c,v 1.112 2002/06/23 09:46:51 deraadt Exp $");
 
-#if defined(KRB4) || defined(KRB5)
+#if defined(KRB4)
 #include <krb.h>
+#endif
+#if defined(KRB5)
+#ifdef HEIMDAL
+#include <krb.h>
+#else
+/* Bodge - but then, so is using the kerberos IV KEYFILE to get a Kerberos V
+ * keytab */
+#define KEYFILE "/etc/krb5.keytab"
+#endif
 #endif
 #ifdef AFS
 #include <kafs.h>
@@ -36,6 +45,8 @@ static void add_one_listen_addr(ServerOptions *, char *, u_short);
 
 /* AF_UNSPEC or AF_INET or AF_INET6 */
 extern int IPv4or6;
+/* Use of privilege separation or not */
+extern int use_privsep;
 
 /* Initializes the server options to their default values. */
 
@@ -91,6 +102,7 @@ initialize_server_options(ServerOptions *options)
 	options->challenge_response_authentication = -1;
 	options->permit_empty_passwd = -1;
 	options->use_login = -1;
+	options->compression = -1;
 	options->allow_tcp_forwarding = -1;
 	options->num_allow_users = 0;
 	options->num_deny_users = 0;
@@ -110,6 +122,9 @@ initialize_server_options(ServerOptions *options)
 	options->client_alive_count_max = -1;
 	options->authorized_keys_file = NULL;
 	options->authorized_keys_file2 = NULL;
+
+	/* Needs to be accessable in many places */
+	use_privsep = -1;
 }
 
 void
@@ -186,7 +201,7 @@ fill_default_server_options(ServerOptions *options)
 		options->pubkey_authentication = 1;
 #if defined(KRB4) || defined(KRB5)
 	if (options->kerberos_authentication == -1)
-		options->kerberos_authentication = (access(KEYFILE, R_OK) == 0);
+		options->kerberos_authentication = 0;
 	if (options->kerberos_or_local_passwd == -1)
 		options->kerberos_or_local_passwd = 1;
 	if (options->kerberos_ticket_cleanup == -1)
@@ -198,7 +213,7 @@ fill_default_server_options(ServerOptions *options)
 #endif
 #ifdef AFS
 	if (options->afs_token_passing == -1)
-		options->afs_token_passing = k_hasafs();
+		options->afs_token_passing = 0;
 #endif
 	if (options->password_authentication == -1)
 		options->password_authentication = 1;
@@ -210,6 +225,8 @@ fill_default_server_options(ServerOptions *options)
 		options->permit_empty_passwd = 0;
 	if (options->use_login == -1)
 		options->use_login = 0;
+	if (options->compression == -1)
+		options->compression = 1;
 	if (options->allow_tcp_forwarding == -1)
 		options->allow_tcp_forwarding = 1;
 	if (options->gateway_ports == -1)
@@ -235,6 +252,20 @@ fill_default_server_options(ServerOptions *options)
 	}
 	if (options->authorized_keys_file == NULL)
 		options->authorized_keys_file = _PATH_SSH_USER_PERMITTED_KEYS;
+
+	/* Turn privilege separation on by default */
+	if (use_privsep == -1)
+		use_privsep = 1;
+
+#if !defined(HAVE_MMAP_ANON_SHARED)
+	if (use_privsep && options->compression == 1) {
+		error("This platform does not support both privilege "
+		    "separation and compression");
+		error("Compression disabled");
+		options->compression = 0;
+	}
+#endif
+
 }
 
 /* Keyword tokens. */
@@ -260,13 +291,14 @@ typedef enum {
 	sPrintMotd, sPrintLastLog, sIgnoreRhosts,
 	sX11Forwarding, sX11DisplayOffset, sX11UseLocalhost,
 	sStrictModes, sEmptyPasswd, sKeepAlives,
-	sUseLogin, sAllowTcpForwarding,
+	sUseLogin, sAllowTcpForwarding, sCompression,
 	sAllowUsers, sDenyUsers, sAllowGroups, sDenyGroups,
 	sIgnoreUserKnownHosts, sCiphers, sMacs, sProtocol, sPidFile,
 	sGatewayPorts, sPubkeyAuthentication, sXAuthLocation, sSubsystem, sMaxStartups,
 	sBanner, sVerifyReverseMapping, sHostbasedAuthentication,
 	sHostbasedUsesNameFromPacketOnly, sClientAliveInterval,
 	sClientAliveCountMax, sAuthorizedKeysFile, sAuthorizedKeysFile2,
+	sUsePrivilegeSeparation,
 	sDeprecated
 } ServerOpCodes;
 
@@ -323,6 +355,7 @@ static struct {
 	{ "strictmodes", sStrictModes },
 	{ "permitemptypasswords", sEmptyPasswd },
 	{ "uselogin", sUseLogin },
+	{ "compression", sCompression },
 	{ "keepalive", sKeepAlives },
 	{ "allowtcpforwarding", sAllowTcpForwarding },
 	{ "allowusers", sAllowUsers },
@@ -342,6 +375,7 @@ static struct {
 	{ "clientalivecountmax", sClientAliveCountMax },
 	{ "authorizedkeysfile", sAuthorizedKeysFile },
 	{ "authorizedkeysfile2", sAuthorizedKeysFile2 },
+	{ "useprivilegeseparation", sUsePrivilegeSeparation},
 	{ NULL, sBadOption }
 };
 
@@ -389,7 +423,7 @@ add_one_listen_addr(ServerOptions *options, char *addr, u_short port)
 	hints.ai_family = IPv4or6;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = (addr == NULL) ? AI_PASSIVE : 0;
-	snprintf(strport, sizeof strport, "%d", port);
+	snprintf(strport, sizeof strport, "%u", port);
 	if ((gaierr = getaddrinfo(addr, strport, &hints, &aitop)) != 0)
 		fatal("bad addr or host: %s (%s)",
 		    addr ? addr : "<NULL>",
@@ -405,9 +439,8 @@ process_server_config_line(ServerOptions *options, char *line,
     const char *filename, int linenum)
 {
 	char *cp, **charptr, *arg, *p;
-	int *intptr, value;
+	int *intptr, value, i, n;
 	ServerOpCodes opcode;
-	int i, n;
 
 	cp = line;
 	arg = strdelim(&cp);
@@ -684,6 +717,10 @@ parse_flag:
 		intptr = &options->use_login;
 		goto parse_flag;
 
+	case sCompression:
+		intptr = &options->compression;
+		goto parse_flag;
+
 	case sGatewayPorts:
 		intptr = &options->gateway_ports;
 		goto parse_flag;
@@ -718,12 +755,17 @@ parse_flag:
 		intptr = &options->allow_tcp_forwarding;
 		goto parse_flag;
 
+	case sUsePrivilegeSeparation:
+		intptr = &use_privsep;
+		goto parse_flag;
+
 	case sAllowUsers:
 		while ((arg = strdelim(&cp)) && *arg != '\0') {
 			if (options->num_allow_users >= MAX_ALLOW_USERS)
 				fatal("%s line %d: too many allow users.",
 				    filename, linenum);
-			options->allow_users[options->num_allow_users++] = xstrdup(arg);
+			options->allow_users[options->num_allow_users++] =
+			    xstrdup(arg);
 		}
 		break;
 
@@ -732,7 +774,8 @@ parse_flag:
 			if (options->num_deny_users >= MAX_DENY_USERS)
 				fatal( "%s line %d: too many deny users.",
 				    filename, linenum);
-			options->deny_users[options->num_deny_users++] = xstrdup(arg);
+			options->deny_users[options->num_deny_users++] =
+			    xstrdup(arg);
 		}
 		break;
 
@@ -741,7 +784,8 @@ parse_flag:
 			if (options->num_allow_groups >= MAX_ALLOW_GROUPS)
 				fatal("%s line %d: too many allow groups.",
 				    filename, linenum);
-			options->allow_groups[options->num_allow_groups++] = xstrdup(arg);
+			options->allow_groups[options->num_allow_groups++] =
+			    xstrdup(arg);
 		}
 		break;
 
@@ -879,10 +923,9 @@ parse_flag:
 void
 read_server_config(ServerOptions *options, const char *filename)
 {
-	FILE *f;
+	int linenum, bad_options = 0;
 	char line[1024];
-	int linenum;
-	int bad_options = 0;
+	FILE *f;
 
 	f = fopen(filename, "r");
 	if (!f) {

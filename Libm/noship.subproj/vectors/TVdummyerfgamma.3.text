@@ -1,0 +1,23 @@
+! File tlerfgamma.3.text
+!
+! Phony test vectors for NCEG functions erf, erc,
+! gamma, and lgamma all expect functions which
+! return their long double arguments
+!
+! Cases for erf(x)
+3G	d	Q	0	OK	Q
+!
+! Cases for erfc(x)
+3W	d	0	0	OK	0
+3W	d	-0	0	OK	-0
+!
+! Cases for gamma(x)
+3g	d	H	0	OK	H
+3g	d	-H	0	OK	-H
+3g	d	1	0	OK	1
+!
+! Cases for lgamma(x)
+3h	d	-1	0	OK	-1
+3h	d	-E	0	OK	-E
+3h	d	E	0	OK	E
+3h	d	0i1	0	OK	0i1

@@ -1,0 +1,30 @@
+#! /bin/sh
+
+# Test for PR 34.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AM_CONFIG_HEADER(include/config.h)
+AC_PROG_CC
+AC_OUTPUT(Makefile include/Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = foo
+foo_SOURCES = foo.c
+END
+
+: > foo.c
+: > acconfig.h
+
+mkdir include
+: > include/Makefile.am
+: > include/config.h.in
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+egrep '^DEFAULT_INCLUDES =.* -I(\.|\$\(top_builddir\))/include' Makefile.in

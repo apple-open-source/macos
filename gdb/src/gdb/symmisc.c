@@ -1,5 +1,6 @@
 /* Do various things to symbol tables (other than lookup), for GDB.
-   Copyright 1986, 1987, 1989, 1991-1996, 1998, 2000 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
+   1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -88,10 +89,10 @@ free_symtab_block (struct objfile *objfile, struct block *b)
   n = BLOCK_NSYMS (b);
   for (i = 0; i < n; i++)
     {
-      mfree (objfile->md, SYMBOL_NAME (BLOCK_SYM (b, i)));
-      mfree (objfile->md, (PTR) BLOCK_SYM (b, i));
+      xmfree (objfile->md, SYMBOL_NAME (BLOCK_SYM (b, i)));
+      xmfree (objfile->md, (PTR) BLOCK_SYM (b, i));
     }
-  mfree (objfile->md, (PTR) b);
+  xmfree (objfile->md, (PTR) b);
 }
 
 /* Free all the storage associated with the struct symtab <- S.
@@ -125,7 +126,7 @@ free_symtab (register struct symtab *s)
       for (i = 0; i < n; i++)
 	free_symtab_block (s->objfile, BLOCKVECTOR_BLOCK (bv, i));
       /* Free the blockvector itself.  */
-      mfree (s->objfile->md, (PTR) bv);
+      xmfree (s->objfile->md, (PTR) bv);
       /* Also free the linetable.  */
 
     case free_linetable:
@@ -133,22 +134,22 @@ free_symtab (register struct symtab *s)
          or by some other symtab, except for our linetable.
          Free that now.  */
       if (LINETABLE (s))
-	mfree (s->objfile->md, (PTR) LINETABLE (s));
+	xmfree (s->objfile->md, (PTR) LINETABLE (s));
       break;
     }
 
   /* If there is a single block of memory to free, free it.  */
   if (s->free_ptr != NULL)
-    mfree (s->objfile->md, s->free_ptr);
+    xmfree (s->objfile->md, s->free_ptr);
 
   /* Free source-related stuff */
   if (s->line_charpos != NULL)
-    mfree (s->objfile->md, (PTR) s->line_charpos);
+    xmfree (s->objfile->md, (PTR) s->line_charpos);
   if (s->fullname != NULL)
-    mfree (s->objfile->md, s->fullname);
+    xmfree (s->objfile->md, s->fullname);
   if (s->debugformat != NULL)
-    mfree (s->objfile->md, s->debugformat);
-  mfree (s->objfile->md, (PTR) s);
+    xmfree (s->objfile->md, s->debugformat);
+  xmfree (s->objfile->md, (PTR) s);
 }
 
 void
@@ -410,6 +411,7 @@ dump_symtab (struct objfile *objfile, struct symtab *symtab,
   int len, blen;
   register struct linetable *l;
   struct blockvector *bv;
+  struct symbol *sym;
   register struct block *b;
   int depth;
 
@@ -471,11 +473,12 @@ dump_symtab (struct objfile *objfile, struct symtab *symtab,
 	  if (BLOCK_GCC_COMPILED (b))
 	    fprintf_filtered (outfile, ", compiled with gcc%d", BLOCK_GCC_COMPILED (b));
 	  fprintf_filtered (outfile, "\n");
-	  /* Now print each symbol in this block */
-	  for (j = 0; j < blen; j++)
+	  /* Now print each symbol in this block.  */
+	  /* FIXMED: Sort?  */
+	  ALL_BLOCK_SYMBOLS (b, j, sym)
 	    {
 	      struct print_symbol_args s;
-	      s.symbol = BLOCK_SYM (b, j);
+	      s.symbol = sym;
 	      s.depth = depth + 1;
 	      s.outfile = outfile;
 	      catch_errors (print_symbol, &s, "Error printing symbol:\n",
@@ -525,7 +528,7 @@ Arguments missing: an output file name and an optional symbol file name");
     }
 
   filename = tilde_expand (filename);
-  make_cleanup (free, filename);
+  make_cleanup (xfree, filename);
 
   outfile = gdb_fopen (filename, FOPEN_WT);
   if (outfile == 0)
@@ -759,7 +762,7 @@ maintenance_print_psymbols (char *args, int from_tty)
     }
 
   filename = tilde_expand (filename);
-  make_cleanup (free, filename);
+  make_cleanup (xfree, filename);
 
   outfile = gdb_fopen (filename, FOPEN_WT);
   if (outfile == 0)
@@ -902,7 +905,7 @@ maintenance_print_msymbols (char *args, int from_tty)
     }
 
   filename = tilde_expand (filename);
-  make_cleanup (free, filename);
+  make_cleanup (xfree, filename);
 
   outfile = gdb_fopen (filename, FOPEN_WT);
   if (outfile == 0)
@@ -957,7 +960,7 @@ maintenance_check_symtabs (char *ignore, int from_tty)
     while (length--)
       {
 	sym = lookup_block_symbol (b, SYMBOL_NAME (*psym),
-				   SYMBOL_NAMESPACE (*psym));
+				   NULL, SYMBOL_NAMESPACE (*psym));
 	if (!sym)
 	  {
 	    printf_filtered ("Static symbol `");
@@ -974,7 +977,7 @@ maintenance_check_symtabs (char *ignore, int from_tty)
     while (length--)
       {
 	sym = lookup_block_symbol (b, SYMBOL_NAME (*psym),
-				   SYMBOL_NAMESPACE (*psym));
+				   NULL, SYMBOL_NAMESPACE (*psym));
 	if (!sym)
 	  {
 	    printf_filtered ("Global symbol `");

@@ -29,7 +29,12 @@ Boston, MA 02111-1307, USA.
 #include <stdio.h>
 #include <windows.h>
 
+#ifndef MOUSE_MOVED
+#define MOUSE_MOVED   1
+#endif
+
 #include "lisp.h"
+#include "keyboard.h"
 #include "frame.h"
 #include "blockinput.h"
 #include "termhooks.h"
@@ -110,7 +115,7 @@ fill_queue (BOOL block)
 static FRAME_PTR 
 get_frame (void)
 {
-  return selected_frame;
+  return SELECTED_FRAME ();
 }
 
 /* Translate console modifiers to emacs modifiers.  
@@ -479,7 +484,7 @@ w32_console_toggle_lock_key (int vk_code, Lisp_Object new_state)
 
   if (NILP (new_state)
       || (NUMBERP (new_state)
-	  && (XUINT (new_state)) & 1 != cur_state))
+	  && ((XUINT (new_state)) & 1) != cur_state))
     {
       faked_key = vk_code;
 
@@ -501,9 +506,7 @@ w32_console_toggle_lock_key (int vk_code, Lisp_Object new_state)
 /* Mouse position hook.  */
 void 
 w32_console_mouse_position (FRAME_PTR *f,
-#ifndef MULE
 			    int insist,
-#endif
 			    Lisp_Object *bar_window,
 			    enum scroll_bar_part *part,
 			    Lisp_Object *x,
@@ -512,14 +515,12 @@ w32_console_mouse_position (FRAME_PTR *f,
 {
   BLOCK_INPUT;
 
-#ifndef MULE  
   insist = insist;
-#endif
 
   *f = get_frame ();
   *bar_window = Qnil;
   *part = 0;
-  selected_frame->mouse_moved = 0;
+  SELECTED_FRAME ()->mouse_moved = 0;
   
   *x = movement_pos.X;
   *y = movement_pos.Y;
@@ -535,7 +536,7 @@ mouse_moved_to (int x, int y)
   /* If we're in the same place, ignore it */
   if (x != movement_pos.X || y != movement_pos.Y)
     {
-      selected_frame->mouse_moved = 1;
+      SELECTED_FRAME ()->mouse_moved = 1;
       movement_pos.X = x;
       movement_pos.Y = y;
       movement_time = GetTickCount ();
@@ -554,9 +555,10 @@ mouse_moved_to (int x, int y)
      Right == 2
    Others increase from there.  */
 
-static int emacs_button_translation[NUM_MOUSE_BUTTONS] =
+#define NUM_TRANSLATED_MOUSE_BUTTONS 3
+static int emacs_button_translation[NUM_TRANSLATED_MOUSE_BUTTONS] =
 {
-  0, 2, 1, 3, 4,
+  0, 2, 1
 };
 
 static int 
@@ -585,18 +587,16 @@ do_mouse_event (MOUSE_EVENT_RECORD *event,
   /* Find out what button has changed state since the last button event.  */
   but_change = button_state ^ event->dwButtonState;
   mask = 1;
-  for (i = 0; i < NUM_MOUSE_BUTTONS; i++, mask <<= 1)
+  for (i = 0; mask; i++, mask <<= 1)
     if (but_change & mask)
       {
-	XSETINT (emacs_ev->code, emacs_button_translation[i]);
+        if (i < NUM_TRANSLATED_MOUSE_BUTTONS)
+          XSETINT (emacs_ev->code, emacs_button_translation[i]);
+        else
+          XSETINT (emacs_ev->code, i);
 	break;
       }
 
-  /* If the changed button is out of emacs' range (highly unlikely)
-     ignore this event.  */
-  if (i == NUM_MOUSE_BUTTONS)
-    return 0;
-  
   button_state = event->dwButtonState;
   emacs_ev->timestamp = GetTickCount ();
   emacs_ev->modifiers = w32_kbd_mods_to_emacs (event->dwControlKeyState, 0) |

@@ -99,7 +99,7 @@ char **envp)
 	if(input == NULL || output == NULL)
 	    usage();
 
-	breakout(input, &archs, &narchs);
+	breakout(input, &archs, &narchs, FALSE);
 	if(errors)
 	    return(EXIT_FAILURE);
 
@@ -109,7 +109,7 @@ char **envp)
 	if(stat(input, &stat_buf) == -1)
 	    system_error("can't stat input file: %s", input);
 	writeout(archs, narchs, output, stat_buf.st_mode & 0777,
-		     TRUE, FALSE, FALSE);
+		     TRUE, FALSE, FALSE, NULL);
 
 	if(errors)
 	    return(EXIT_FAILURE);
@@ -153,26 +153,6 @@ unsigned long narchs)
 			    else if(lc->cmd == LC_SEGMENT){
 				sg = (struct segment_command *)lc;
 				hack_seg(object, lc, sg);
-#ifdef remove
-				if(strcmp(sg->segname, SEG_PAGEZERO) != 0 &&
-				   strcmp(sg->segname, SEG_LINKEDIT) != 0){
-				    if(object->mh->filetype != MH_OBJECT){
-					memset(sg->segname, '\0',
-					       sizeof(sg->segname));
-					strncpy(sg->segname, segname,
-						sizeof(sg->segname));
-				    }
-				    s = (struct section *)
-					 ((char *)lc +
-					  sizeof(struct segment_command));
-				    for(l = 0; l < sg->nsects; l++){
-					memset(s->segname, '\0',
-					       sizeof(s->segname));
-					strncpy(s->segname, segname,
-						sizeof(s->segname));
-				    }
-				}
-#endif remove
 			    }
 			    else if(lc->cmd == LC_DYSYMTAB){
 				error_arch(archs + i, archs[i].members + j,
@@ -272,6 +252,12 @@ unsigned long narchs)
 		    object->output_sym_info_size =
 			object->input_sym_info_size;
 		}
+		/*
+		 * Always clear the prebind checksum if any when creating a new
+		 * file.
+		 */
+		if(object->cs != NULL)
+		    object->cs->cksum = 0;
 	    }
 	}
 }

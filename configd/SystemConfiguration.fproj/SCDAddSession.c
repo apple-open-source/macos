@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -68,14 +68,18 @@ SCDynamicStoreAddTemporaryValue(SCDynamicStoreRef store, CFStringRef key, CFProp
 		return FALSE;
 	}
 
-	/* serialize the key and data */
-	xmlKey = CFPropertyListCreateXMLData(NULL, key);
-	myKeyRef = (xmlData_t)CFDataGetBytePtr(xmlKey);
-	myKeyLen = CFDataGetLength(xmlKey);
+	/* serialize the key */
+	if (!_SCSerialize(key, &xmlKey, (void **)&myKeyRef, &myKeyLen)) {
+		_SCErrorSet(kSCStatusFailed);
+		return FALSE;
+	}
 
-	xmlData = CFPropertyListCreateXMLData(NULL, value);
-	myDataRef = (xmlData_t)CFDataGetBytePtr(xmlData);
-	myDataLen = CFDataGetLength(xmlData);
+	/* serialize the data */
+	if (!_SCSerialize(value, &xmlData, (void **)&myDataRef, &myDataLen)) {
+		CFRelease(xmlKey);
+		_SCErrorSet(kSCStatusFailed);
+		return FALSE;
+	}
 
 	/* send the key & data to the server */
 	status = configadd_s(storePrivate->server,

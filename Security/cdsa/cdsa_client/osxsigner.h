@@ -40,9 +40,10 @@ namespace CodeSigning
 // The OSX standard signer object
 //
 class OSXSigner : public Signer {
-	class OSXSignature;
 	class Digester; friend class Digester;
 public:
+	class OSXSignature;
+
 	OSXSigner();
 	OSXSignature *sign(const Signable &target);
 	bool verify(const Signable &target, const Signature *signature);

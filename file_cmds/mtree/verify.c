@@ -1,5 +1,3 @@
-/*	$NetBSD: verify.c,v 1.14 1998/08/27 18:03:45 ross Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,29 +31,31 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)verify.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: verify.c,v 1.14 1998/08/27 18:03:45 ross Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/mtree/verify.c,v 1.10.2.2 2001/01/12 19:17:18 phk Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <err.h>
+#include <errno.h>
 #include <fts.h>
 #include <fnmatch.h>
-#include <unistd.h>
-#include <errno.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "mtree.h"
 #include "extern.h"
 
-extern int crc_total, ftsoptions;
-extern int dflag, eflag, rflag, sflag, uflag;
+extern long int crc_total;
+extern int ftsoptions;
+extern int dflag, eflag, qflag, rflag, sflag, uflag;
 extern char fullpath[MAXPATHLEN];
+extern int lineno;
 
 static NODE *root;
 static char path[MAXPATHLEN];
@@ -77,65 +77,72 @@ verify()
 static int
 vwalk()
 {
-	FTS *t;
-	FTSENT *p;
-	NODE *ep, *level;
-	int ftsdepth, specdepth, rval;
+	register FTS *t;
+	register FTSENT *p;
+	register NODE *ep, *level;
+	int specdepth, rval;
 	char *argv[2];
 
 	argv[0] = ".";
 	argv[1] = NULL;
 	if ((t = fts_open(argv, ftsoptions, NULL)) == NULL)
-		mtree_err("fts_open: %s", strerror(errno));
+		err(1, "line %d: fts_open", lineno);
 	level = root;
-	ftsdepth = specdepth = rval = 0;
-	while ((p = fts_read(t)) != NULL) {
+	specdepth = rval = 0;
+	while ((p = fts_read(t))) {
+		if (check_excludes(p->fts_name, p->fts_path)) {
+			fts_set(t, p, FTS_SKIP);
+			continue;
+		}
 		switch(p->fts_info) {
 		case FTS_D:
-			++ftsdepth; 
+		case FTS_SL:
 			break;
 		case FTS_DP:
-			--ftsdepth; 
-			if (specdepth > ftsdepth) {
+			if (specdepth > p->fts_level) {
 				for (level = level->parent; level->prev;
-				      level = level->prev);  
+				      level = level->prev);
 				--specdepth;
 			}
 			continue;
 		case FTS_DNR:
 		case FTS_ERR:
 		case FTS_NS:
-			(void)fprintf(stderr, "mtree: %s: %s\n",
-			    RP(p), strerror(errno));
+			warnx("%s: %s", RP(p), strerror(p->fts_errno));
 			continue;
 		default:
 			if (dflag)
 				continue;
 		}
 
+		if (specdepth != p->fts_level)
+			goto extra;
 		for (ep = level; ep; ep = ep->next)
 			if ((ep->flags & F_MAGIC &&
 			    !fnmatch(ep->name, p->fts_name, FNM_PATHNAME)) ||
 			    !strcmp(ep->name, p->fts_name)) {
 				ep->flags |= F_VISIT;
-				if (compare(ep->name, ep, p))
+				if ((ep->flags & F_NOCHANGE) == 0 &&
+				    compare(ep->name, ep, p))
 					rval = MISMATCHEXIT;
-				if (!(ep->flags & F_IGN) &&
-				    ep->child && ep->type == F_DIR &&
+				if (ep->flags & F_IGN)
+					(void)fts_set(t, p, FTS_SKIP);
+				else if (ep->child && ep->type == F_DIR &&
 				    p->fts_info == FTS_D) {
 					level = ep->child;
 					++specdepth;
-				} else
-					(void)fts_set(t, p, FTS_SKIP);
+				}
 				break;
 			}
 
 		if (ep)
 			continue;
+extra:
 		if (!eflag) {
-			(void)printf("extra: %s", RP(p));
+			(void)printf("%s extra", RP(p));
 			if (rflag) {
-				if (unlink(p->fts_accpath)) {
+				if ((S_ISDIR(p->fts_statp->st_mode)
+				    ? rmdir : unlink)(p->fts_accpath)) {
 					(void)printf(", not removed: %s",
 					    strerror(errno));
 				} else
@@ -147,42 +154,64 @@ vwalk()
 	}
 	(void)fts_close(t);
 	if (sflag)
-		(void)fprintf(stderr,
-		    "mtree: %s checksum: %u\n", fullpath, crc_total);
+		warnx("%s checksum: %lu", fullpath, crc_total);
 	return (rval);
 }
 
 static void
 miss(p, tail)
-	NODE *p;
-	char *tail;
+	register NODE *p;
+	register char *tail;
 {
-	int create;
-	char *tp;
+	register int create;
+	register char *tp;
+	const char *type;
 
 	for (; p; p = p->next) {
-		if (p->flags & F_OPT && !(p->flags & F_VISIT))
-			continue;
 		if (p->type != F_DIR && (dflag || p->flags & F_VISIT))
 			continue;
 		(void)strcpy(tail, p->name);
-		if (!(p->flags & F_VISIT))
-			(void)printf("missing: %s", path);
-		if (p->type != F_DIR) {
+		if (!(p->flags & F_VISIT)) {
+			/* Don't print missing message if file exists as a
+			   symbolic link and the -q flag is set. */
+			struct stat statbuf;
+ 
+			if (qflag && stat(path, &statbuf) == 0)
+				p->flags |= F_VISIT;
+			else
+				(void)printf("%s missing", path);
+		}
+		if (p->type != F_DIR && p->type != F_LINK) {
 			putchar('\n');
 			continue;
 		}
 
 		create = 0;
+		if (p->type == F_LINK)
+			type = "symlink";
+		else
+			type = "directory";
 		if (!(p->flags & F_VISIT) && uflag) {
 			if (!(p->flags & (F_UID | F_UNAME)))
-			    (void)printf(" (not created: user not specified)");
+				(void)printf(" (%s not created: user not specified)", type);
 			else if (!(p->flags & (F_GID | F_GNAME)))
-			    (void)printf(" (not created: group not specified)");
-			else if (!(p->flags & F_MODE))
-			    (void)printf(" (not created: mode not specified)");
+				(void)printf(" (%s not created: group not specified)", type);
+			else if (p->type == F_LINK) {
+				if (symlink(p->slink, path))
+					(void)printf(" (symlink not created: %s)\n",
+					    strerror(errno));
+				else
+					(void)printf(" (created)\n");
+#if 0 /* lchown() does not exist on Darwin. */
+				if (lchown(path, p->st_uid, p->st_gid))
+					(void)printf("%s: user/group not modified: %s\n",
+					    path, strerror(errno));
+#endif
+				continue;
+			} else if (!(p->flags & F_MODE))
+			    (void)printf(" (directory not created: mode not specified)");
 			else if (mkdir(path, S_IRWXU))
-				(void)printf(" (not created: %s)",
+				(void)printf(" (directory not created: %s)",
 				    strerror(errno));
 			else {
 				create = 1;
@@ -202,10 +231,16 @@ miss(p, tail)
 		if (chown(path, p->st_uid, p->st_gid)) {
 			(void)printf("%s: user/group/mode not modified: %s\n",
 			    path, strerror(errno));
+			(void)printf("%s: warning: file mode %snot set\n", path,
+			    (p->flags & F_FLAGS) ? "and file flags " : "");
 			continue;
 		}
 		if (chmod(path, p->st_mode))
 			(void)printf("%s: permissions not set: %s\n",
+			    path, strerror(errno));
+		if ((p->flags & F_FLAGS) && p->st_flags &&
+		    chflags(path, p->st_flags))
+			(void)printf("%s: file flags not set: %s\n",
 			    path, strerror(errno));
 	}
 }

@@ -1,11 +1,11 @@
-;;; midnight.el --- run something every midnight, e.g., kill old buffers.
+;;; midnight.el --- run something every midnight, e.g., kill old buffers
 
 ;;; Copyright (C) 1998 Free Software Foundation, Inc.
 
-;;; Author: Sam Steingold <sds@usa.net>
-;;; Maintainer: Sam Steingold <sds@usa.net>
-;;; Created: 1998-05-18
-;;; Keywords: utilities
+;; Author: Sam Steingold <sds@usa.net>
+;; Maintainer: Sam Steingold <sds@usa.net>
+;; Created: 1998-05-18
+;; Keywords: utilities
 
 ;; This file is part of GNU Emacs.
 
@@ -63,11 +63,6 @@ call `cancel-timer' or `timer-activate' on `midnight-timer' instead."
 
 ;;; time conversion
 
-(defun midnight-float-time (&optional tm)
-  "Convert `current-time' to a float number of seconds."
-  (multiple-value-bind (s0 s1 s2) (or tm (current-time))
-    (+ (* (float (ash 1 16)) s0) (float s1) (* 0.0000001 s2))))
-
 (defun midnight-time-float (num)
   "Convert the float number of seconds since epoch to the list of 3 integers."
   (let* ((div (ash 1 16)) (1st (floor num div)))
@@ -76,9 +71,8 @@ call `cancel-timer' or `timer-activate' on `midnight-timer' instead."
 
 (defun midnight-buffer-display-time (&optional buf)
   "Return the time-stamp of the given buffer, or current buffer, as float."
-  (save-excursion
-    (set-buffer (or buf (current-buffer)))
-    (when buffer-display-time (midnight-float-time buffer-display-time))))
+  (with-current-buffer (or buf (current-buffer))
+    (when buffer-display-time (float-time buffer-display-time))))
 
 ;;; clean-buffer-list stuff
 
@@ -138,7 +132,7 @@ two lists will NOT be killed if it is also present in this list."
   :group 'midnight)
 
 
-(defcustom clean-buffer-list-kill-never-regexps '("^ \*Minibuf-.*\*$")
+(defcustom clean-buffer-list-kill-never-regexps '("^ \\*Minibuf-.*\\*$")
   "*List of regexp saying which buffers will never be killed at midnight.
 See also `clean-buffer-list-kill-never-buffer-names'.
 Killing is done by `clean-buffer-list'.
@@ -151,7 +145,7 @@ two lists will NOT be killed if it also matches anything in this list."
 (defun midnight-find (el ls test &optional key)
   "A stopgap solution to the absence of `find' in ELisp."
   (dolist (rr ls)
-    (when (funcall test el (if key (funcall key rr) rr))
+    (when (funcall test (if key (funcall key rr) rr) el)
       (return rr))))
 
 (defun clean-buffer-list-delay (name)
@@ -178,7 +172,7 @@ the current date/time, buffer name, how many seconds ago it was
 displayed (can be nil if the buffer was never displayed) and its
 lifetime, i.e., its \"age\" when it will be purged."
   (interactive)
-  (let ((tm (midnight-float-time)) bts (ts (format-time-string "%Y-%m-%d %T"))
+  (let ((tm (float-time)) bts (ts (format-time-string "%Y-%m-%d %T"))
         (bufs (buffer-list)) buf delay cbld bn)
     (while (setq buf (pop bufs))
       (setq bts (midnight-buffer-display-time buf) bn (buffer-name buf)

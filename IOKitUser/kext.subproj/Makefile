@@ -12,13 +12,18 @@ NAME = kext
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = CFAdditions.h KEXTDefs.h KEXTPrivate.h KEXTManager.h\
-         vers_rsrc.h
+HFILES = KXKextManager.h KXKextRepository.h KXKext.h\
+         KXKextManager_private.h KXKextRepository_private.h\
+         KXKext_private.h dgraph.h kld_patch.h load.h paths.h\
+         printPList.h vers_rsrc.h KextManager.h KextManagerPriv.h\
+         kextmanager_types.h c++rem3.h
 
-CFILES = CFAdditions.c KEXTBundle.c KEXTLib.c KEXTManager.c\
-         KEXTModule.c KEXTPersonality.c vers_rsrc.c
+CFILES = KXKextManager.c KXKextRepository.c KXKext.c dgraph.c\
+         kld_patch.c load.c paths.c printPList.c vers_rsrc.c\
+         KextManager.c c++rem3.c
 
-OTHERSRCS = Makefile.preamble Makefile
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
+            kextmanager_mig.defs
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -30,9 +35,10 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-PRIVATE_HEADERS = KEXTManager.h
+PUBLIC_HEADERS = KextManager.h
 
-PROJECT_HEADERS = KEXTDefs.h CFAdditions.h KEXTPrivate.h KEXTManager.h
+PROJECT_HEADERS = KXKextManager.h KXKextRepository.h KXKext.h\
+                  kextmanager_types.h
 
 
 

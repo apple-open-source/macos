@@ -14,8 +14,11 @@
 # based on original version by Alan R. Martello <al@ee.pitt.edu>
 # And by A.Macpherson@bnr.co.uk for multi-homed hosts
 #
-# $Header: /cvs/Darwin/Scripting/perl/perl/lib/ftp.pl,v 1.1.1.2 2000/03/31 05:11:47 wsanchez Exp $
+# $Header: /cvs/Darwin/src/live/perl/perl/lib/ftp.pl,v 1.2 2002/03/14 08:57:50 zarzycki Exp $
 # $Log: ftp.pl,v $
+# Revision 1.2  2002/03/14 08:57:50  zarzycki
+# Revert HEAD back to perl-17
+#
 # Revision 1.1.1.2  2000/03/31 05:11:47  wsanchez
 # Import of perl 5.6.0
 #

@@ -4,7 +4,7 @@
         H_FILES = (); 
         M_FILES = (); 
         OTHER_LINKED = (yppoll.c); 
-        OTHER_SOURCES = (Makefile.dist, Makefile.preamble, yppoll.8); 
+        OTHER_SOURCES = (Makefile.dist, Makefile.preamble, yppoll.8, Makefile.postamble); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

@@ -43,17 +43,12 @@ Boston, MA 02111-1307, USA.  */
    stupidly gets confused by it.  */
 #undef KERNEL_FILE
 
-#define HAVE_ALLOCA
-
 #define SYSTEM_MALLOC
 
 #define environ _environ
 
 /* This should be true for recent NeXT systems.  At least since 3.2.  */
 #define HAVE_MACH_MACH_H
-
-/* mktime wrongly ignores TZ.  */
-#define BROKEN_MKTIME 1
 
 #if 0 /* I think these are never used--let's see.  -- rms.  */
 /* Mask for address bits within a memory segment */

@@ -21,7 +21,7 @@
 
 	Contains:	SSLContext accessors
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -62,8 +62,9 @@
 #include "sslKeychain.h"
 #include "sslutil.h"
 #include "cipherSpecs.h"
-
+#include "appleSession.h"
 #include <string.h>
+#include <Security/SecCertificate.h>
 
 static void sslFreeDnList(
 	SSLContext *ctx)
@@ -107,6 +108,11 @@ static SSLErr sslFreeTrustedRoots(
 	return SSLNoErr;
 }
 
+/*
+ * Default attempted version. 
+ */
+#define DEFAULT_MAX_VERSION		TLS_Version_1_0	
+
 OSStatus
 SSLNewContext				(Boolean 			isServer,
 							 SSLContextRef 		*contextPtr)	/* RETURNED */
@@ -131,37 +137,37 @@ SSLNewContext				(Boolean 			isServer,
     /* different defaults for client and server ... */
     if(isServer) {
     	ctx->protocolSide = SSL_ServerSide;
-    	ctx->reqProtocolVersion = SSL_Version_3_0;
+    	ctx->reqProtocolVersion = DEFAULT_MAX_VERSION;
     }
     else {
     	ctx->protocolSide = SSL_ClientSide;
     	ctx->reqProtocolVersion = SSL_Version_Undetermined;
     }
     ctx->negProtocolVersion = SSL_Version_Undetermined;
+	ctx->maxProtocolVersion = DEFAULT_MAX_VERSION;
+	/* Default value so we can send and receive hello msgs */
+	ctx->sslTslCalls = &Ssl3Callouts;
 	
     /* Initialize the cipher state to NULL_WITH_NULL_NULL */
-    ctx->selectedCipherSpec = &SSL_NULL_WITH_NULL_NULL_CipherSpec;
-    ctx->selectedCipher = ctx->selectedCipherSpec->cipherSpec;
-    ctx->writeCipher.hash = ctx->selectedCipherSpec->macAlgorithm;
-    ctx->readCipher.hash = ctx->selectedCipherSpec->macAlgorithm;
-    ctx->readCipher.symCipher = ctx->selectedCipherSpec->cipher;
+    ctx->selectedCipherSpec    = &SSL_NULL_WITH_NULL_NULL_CipherSpec;
+    ctx->selectedCipher        = ctx->selectedCipherSpec->cipherSpec;
+    ctx->writeCipher.macRef    = ctx->selectedCipherSpec->macAlgorithm;
+    ctx->readCipher.macRef     = ctx->selectedCipherSpec->macAlgorithm;
+    ctx->readCipher.symCipher  = ctx->selectedCipherSpec->cipher;
     ctx->writeCipher.symCipher = ctx->selectedCipherSpec->cipher;
 	
-	#if		_APPLE_CDSA_
 	/* these two are invariant */
     ctx->writeCipher.encrypting = 1;
     ctx->writePending.encrypting = 1;
-	#endif	/* _APPLE_CDSA_ */
 	
     /* this gets init'd on first call to SSLHandshake() */
     ctx->validCipherSpecs = NULL;
     ctx->numValidCipherSpecs = 0;
     
+	ctx->peerDomainName = NULL;
+	ctx->peerDomainNameLen = 0;
+
     SSLInitMACPads();
-	if(cfSetUpAllocators(ctx)) {
-		oerr = memFullErr;
-		goto errOut;
-	}
 	
 	/* attach to CSP, CL, TP */
 	serr = attachToAll(ctx);
@@ -214,8 +220,8 @@ SSLDisposeContext				(SSLContext			*ctx)
     SSLFreeBuffer(&ctx->dhExchangePublic, &ctx->sysCtx);
     SSLFreeBuffer(&ctx->dhPrivate, &ctx->sysCtx);
     
-    SSLFreeBuffer(&ctx->shaState, &ctx->sysCtx);
-    SSLFreeBuffer(&ctx->md5State, &ctx->sysCtx);
+	CloseHash(&SSLHashSHA1, &ctx->shaState, ctx);
+	CloseHash(&SSLHashMD5,  &ctx->md5State, ctx);
     
     SSLFreeBuffer(&ctx->sessionID, &ctx->sysCtx);
     SSLFreeBuffer(&ctx->peerID, &ctx->sysCtx);
@@ -225,6 +231,11 @@ SSLDisposeContext				(SSLContext			*ctx)
     SSLFreeBuffer(&ctx->fragmentedMessageCache, &ctx->sysCtx);
     SSLFreeBuffer(&ctx->receivedDataBuffer, &ctx->sysCtx);
 
+	if(ctx->peerDomainName) {
+		sslFree(ctx->peerDomainName);
+		ctx->peerDomainName = NULL;
+		ctx->peerDomainNameLen = 0;
+	}
     SSLDisposeCipherSuite(&ctx->readCipher, ctx);
     SSLDisposeCipherSuite(&ctx->writeCipher, ctx);
     SSLDisposeCipherSuite(&ctx->readPending, ctx);
@@ -235,13 +246,27 @@ SSLDisposeContext				(SSLContext			*ctx)
 	ctx->numValidCipherSpecs = 0;
 	
 	/* free APPLE_CDSA stuff */
-	#if		ST_KEYCHAIN_ENABLE
+	#if 0
+	/* As of 5/3/02, we don't need to free these keys; they belong
+	 * to SecKeychain */
+	#if		ST_KEYCHAIN_ENABLE && ST_KC_KEYS_NEED_REF
 	sslFreeKey(ctx->signingKeyCsp, &ctx->signingPrivKey, &ctx->signingKeyRef);
 	sslFreeKey(ctx->encryptKeyCsp, &ctx->encryptPrivKey, &ctx->encryptKeyRef);
 	#else	
-	sslFreeKey(ctx->signingKeyCsp, &ctx->signingPrivKey, NULL);
-	sslFreeKey(ctx->encryptKeyCsp, &ctx->encryptPrivKey, NULL);
-	#endif	/* ST_KEYCHAIN_ENABLE */
+	sslFreeKey(ctx->signingKeyCsp, (CSSM_KEY_PTR *)&ctx->signingPrivKey, NULL);
+	sslFreeKey(ctx->encryptKeyCsp, (CSSM_KEY_PTR *)&ctx->encryptPrivKey, NULL);
+	#endif	/* ST_KEYCHAIN_ENABLE && ST_KC_KEYS_NEED_REF */
+	#endif	/* 0 */
+	
+	/*
+	 * NOTE: currently, all public keys come from the CL via CSSM_CL_CertGetKeyInfo.
+	 * We really don't know what CSP the CL used to generate a public key (in fact,
+	 * it uses the raw CSP only to get LogicalKeySizeInBits, but we can't know
+	 * that). Thus using e.g. signingKeyCsp (or any other CSP) to free 
+	 * signingPubKey is not tecnically accurate. However, our public keys 
+	 * are all raw keys, and all Apple CSPs dispose of raw keys in the same
+	 * way.
+	 */
 	sslFreeKey(ctx->signingKeyCsp, &ctx->signingPubKey, NULL);
 	sslFreeKey(ctx->encryptKeyCsp, &ctx->encryptPubKey, NULL);
 	sslFreeKey(ctx->peerPubKeyCsp, &ctx->peerPubKey, NULL);
@@ -256,10 +281,10 @@ SSLDisposeContext				(SSLContext			*ctx)
 	
 	detachFromAll(ctx);
 	    
-    cfTearDownAllocators(ctx);
     memset(ctx, 0, sizeof(SSLContext));
     sslFree(ctx);
-    return noErr;
+	sslCleanupSession();
+	return noErr;
 }
 
 /*
@@ -335,11 +360,70 @@ SSLSetConnection			(SSLContextRef		ctx,
     return noErr;
 }
 
+OSStatus
+SSLSetPeerDomainName		(SSLContextRef		ctx,
+							 const char			*peerName,
+							 size_t				peerNameLen)
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	if(sslIsSessionActive(ctx)) {
+		/* can't do this with an active session */
+		return badReqErr;
+	}
+	
+	/* free possible existing name */
+	if(ctx->peerDomainName) {
+		sslFree(ctx->peerDomainName);
+	}
+	
+	/* copy in */
+	ctx->peerDomainName = sslMalloc(peerNameLen);
+	if(ctx->peerDomainName == NULL) {
+		return memFullErr;
+	}
+	memmove(ctx->peerDomainName, peerName, peerNameLen);
+	ctx->peerDomainNameLen = peerNameLen;
+	return noErr;
+}
+		
+/*
+ * Determine the buffer size needed for SSLGetPeerDomainName().
+ */
+OSStatus 
+SSLGetPeerDomainNameLength	(SSLContextRef		ctx,
+							 size_t				*peerNameLen)	// RETURNED
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	*peerNameLen = ctx->peerDomainNameLen;
+	return noErr;
+}
+
+OSStatus 
+SSLGetPeerDomainName		(SSLContextRef		ctx,
+							 char				*peerName,		// returned here
+							 size_t				*peerNameLen)	// IN/OUT
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	if(*peerNameLen < ctx->peerDomainNameLen) {
+		return errSSLBufferOverflow;
+	}
+	memmove(peerName, ctx->peerDomainName, ctx->peerDomainNameLen);
+	*peerNameLen = ctx->peerDomainNameLen;
+	return noErr;
+}
+
 OSStatus 
 SSLSetProtocolVersion		(SSLContextRef 		ctx,
 							 SSLProtocol		version)
 {   
 	SSLProtocolVersion	versInt;
+	SSLProtocolVersion	versMax;
 	
 	if(ctx == NULL) {
 		return paramErr;
@@ -353,21 +437,34 @@ SSLSetProtocolVersion		(SSLContextRef 		ctx,
 	switch(version) {
 		case kSSLProtocolUnknown:
 			versInt = SSL_Version_Undetermined;
+			versMax = DEFAULT_MAX_VERSION;
 			break;
 		case kSSLProtocol2:
-			versInt = SSL_Version_2_0;
+			versInt = versMax = SSL_Version_2_0;
 			break;
 		case kSSLProtocol3:
 			/* this tells us to do our best but allows 2.0 */
 			versInt = SSL_Version_Undetermined;
+			versMax = SSL_Version_3_0;
 			break;
 		case kSSLProtocol3Only:
 			versInt = SSL_Version_3_0_Only;
+			versMax = SSL_Version_3_0;
+			break;
+		case kTLSProtocol1:
+			/* this tells us to do our best but allows 2.0 */
+			versInt = SSL_Version_Undetermined;
+			versMax = TLS_Version_1_0;
+			break;
+		case kTLSProtocol1Only:
+			versInt = TLS_Version_1_0_Only;
+			versMax = TLS_Version_1_0;
 			break;
 		default:
 			return paramErr;
 	}
 	ctx->reqProtocolVersion = ctx->negProtocolVersion = versInt;
+	ctx->maxProtocolVersion = versMax;
     return noErr;
 }
 
@@ -382,8 +479,14 @@ static SSLProtocol convertProtToExtern(SSLProtocolVersion prot)
 			return kSSLProtocol2;
 		case SSL_Version_3_0:
 			return kSSLProtocol3;
+		case TLS_Version_1_0_Only:
+			return kTLSProtocol1Only;
+		case TLS_Version_1_0:
+			return kTLSProtocol1;
+		/* this can happen in an intermediate state while negotiation
+		 * is in progress...right? */
 		case SSL_Version_3_0_With_2_0_Hello:
-			sslPanic("How did we get SSL_Version_3_0_With_2_0_Hello?");
+			return kSSLProtocolUnknown;
 		default:
 			sslPanic("convertProtToExtern: bad prot");
 	}
@@ -414,7 +517,7 @@ SSLGetNegotiatedProtocolVersion		(SSLContextRef		ctx,
 }
 
 OSStatus 
-SSLSetAllowExpiredCerts	(SSLContextRef		ctx,
+SSLSetAllowsExpiredCerts(SSLContextRef		ctx,
 						 Boolean			allowExpired)
 {
 	if(ctx == NULL) {
@@ -429,7 +532,7 @@ SSLSetAllowExpiredCerts	(SSLContextRef		ctx,
 }
 
 OSStatus
-SSLGetAllowExpiredCerts		(SSLContextRef		ctx,
+SSLGetAllowsExpiredCerts	(SSLContextRef		ctx,
 							 Boolean			*allowExpired)
 {
 	if(ctx == NULL) {
@@ -439,7 +542,7 @@ SSLGetAllowExpiredCerts		(SSLContextRef		ctx,
 	return noErr;
 }
 
-OSStatus SSLSetAllowAnyRoot(
+OSStatus SSLSetAllowsAnyRoot(
 	SSLContextRef	ctx,
 	Boolean			anyRoot)
 {
@@ -451,7 +554,7 @@ OSStatus SSLSetAllowAnyRoot(
 }
 
 OSStatus
-SSLGetAllowAnyRoot(
+SSLGetAllowsAnyRoot(
 	SSLContextRef	ctx,
 	Boolean			*anyRoot)
 {
@@ -514,8 +617,13 @@ SSLSetCertificate			(SSLContextRef		ctx,
 		&ctx->localCert,
 		&ctx->signingPubKey,
 		&ctx->signingPrivKey,
-		&ctx->signingKeyCsp,
-		&ctx->signingKeyRef);
+		&ctx->signingKeyCsp
+		#if ST_KC_KEYS_NEED_REF
+		,
+		&ctx->signingKeyRef
+		#else
+		);
+		#endif
 }
 #endif	/* (ST_SERVER_MODE_ENABLE || ST_CLIENT_AUTHENTICATION) */
 
@@ -542,12 +650,17 @@ SSLSetEncryptionCertificate	(SSLContextRef		ctx,
 		&ctx->encryptCert,
 		&ctx->encryptPubKey,
 		&ctx->encryptPrivKey,
-		&ctx->encryptKeyCsp,
+		&ctx->encryptKeyCsp
+		#if	ST_KC_KEYS_NEED_REF
+		,
 		&ctx->encryptKeyRef);
+		#else
+		);
+		#endif
 }
 #endif	/* ST_SERVER_MODE_ENABLE*/
 
-#if		ST_KEYCHAIN_ENABLE
+#if		ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS
 
 /*
  * Add (optional, additional) trusted root certs.
@@ -597,19 +710,19 @@ SSLSetNewRootKC				(SSLContextRef		ctx,
 	ctx->accessCreds = accessCreds;
 	return noErr;
 }
-#endif	/* ST_KEYCHAIN_ENABLE */
+#endif	/* ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS */
 
 OSStatus 
 SSLSetPeerID				(SSLContext 		*ctx, 
-							 CFDataRef 			peerID)
+							 const void 		*peerID,
+							 size_t				peerIDLen)
 {
 	SSLErr serr;
-	uint32 len;
 	
 	/* copy peerId to context->peerId */
 	if((ctx == NULL) || 
 	   (peerID == NULL) ||
-	   ((len = CFDataGetLength(peerID)) == 0)) {
+	   (peerIDLen == 0)) {
 		return paramErr;
 	}
 	if(sslIsSessionActive(ctx)) {
@@ -617,12 +730,21 @@ SSLSetPeerID				(SSLContext 		*ctx,
 		return badReqErr;
 	}
 	SSLFreeBuffer(&ctx->peerID, &ctx->sysCtx);
-	serr = SSLAllocBuffer(&ctx->peerID, len, &ctx->sysCtx);
+	serr = SSLAllocBuffer(&ctx->peerID, peerIDLen, &ctx->sysCtx);
 	if(serr) {
 		return sslErrToOsStatus(serr);
 	}
-	memmove(ctx->peerID.data, CFDataGetBytePtr(peerID), len);
-	ctx->peerID.length = len;
+	memmove(ctx->peerID.data, peerID, peerIDLen);
+	return noErr;
+}
+
+OSStatus
+SSLGetPeerID				(SSLContextRef 		ctx, 
+							 const void 		**peerID,
+							 size_t				*peerIDLen)
+{
+	*peerID = ctx->peerID.data;			// may be NULL
+	*peerIDLen = ctx->peerID.length;
 	return noErr;
 }
 
@@ -647,7 +769,7 @@ SSLGetNegotiatedCipher		(SSLContextRef 		ctx,
  * it's used and sent to a client in SSLEncodeCertificateRequest();
  * but the list is never used to decide what certs to send!
  *
- * Also FIXME - this allocation of dnBufs is total horseshit. The
+ * Also FIXME - this allocation of dnBufs is preposterous. The
  * SSLBufs can never get freed. Why not just allocate the 
  * raw DNListElems? Sheesh. 
  */
@@ -684,7 +806,9 @@ SSLGetPeerCertificates		(SSLContextRef 		ctx,
 	uint32 				numCerts;
 	CFMutableArrayRef	ca;
 	CFIndex				i;
-	CFDataRef			cfd;
+	SecCertificateRef	cfd;
+	OSStatus			ortn;
+	CSSM_DATA			certData;
 	SSLCertificate		*scert;
 	
 	if(ctx == NULL) {
@@ -700,28 +824,30 @@ SSLGetPeerCertificates		(SSLContextRef 		ctx,
 	if(numCerts == 0) {
 		return noErr;
 	}
-	ca = CFArrayCreateMutable(ctx->cfAllocatorRef,
+	ca = CFArrayCreateMutable(kCFAllocatorDefault,
 		(CFIndex)numCerts, &kCFTypeArrayCallBacks);
 	if(ca == NULL) {
 		return memFullErr;	
 	}
 	
 	/*
-	 * We'll give the certs in the same order we store them -
-	 * caller gets root first. OK?
+	 * Caller gets leaf cert first, the opposite of the way we store them.
 	 */
 	scert = ctx->peerCert;
 	for(i=0; i<numCerts; i++) {
 		CASSERT(scert != NULL);		/* else SSLGetCertificateChainLength 
 									 * broken */
-		cfd = CFDataCreate(ctx->cfAllocatorRef,
-				scert->derCert.data,
-				scert->derCert.length);
-		if(cfd == NULL) {
+		SSLBUF_TO_CSSM(&scert->derCert, &certData);
+		ortn = SecCertificateCreateFromData(&certData,
+			CSSM_CERT_X_509v3,
+			CSSM_CERT_ENCODING_DER,
+			&cfd);
+		if(ortn) {
 			CFRelease(ca);
-			return memFullErr;
+			return ortn;
 		}
-		CFArrayAppendValue(ca, cfd);
+		/* insert at head of array */
+		CFArrayInsertValueAtIndex(ca, 0, cfd);
 		scert = scert->next;
 	}
 	*certs = ca;

@@ -19,13 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved. 
- *
- * HISTORY
- *
- */
-
 
 #ifndef _IOKIT_IOGRAPHICSTYPES_H
 #define _IOKIT_IOGRAPHICSTYPES_H
@@ -37,7 +30,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV	4
+#define IOGRAPHICSTYPES_REV	5
 
 typedef SInt32	IOIndex;
 typedef UInt32	IOSelect;
@@ -79,6 +72,24 @@ enum {
     kIOMonoInverseDirectPixels	= 4,
 };
 
+/*!
+ * @struct IOPixelInformation
+ * @abstract A structure defining the format of a framebuffer.
+ * @discussion This structure is used by IOFramebuffer to define the format of the pixels.
+ * @field bytesPerRow The number of bytes per row.
+ * @field bytesPerPlane Not used.
+ * @field bitsPerPixel The number of bits per pixel, including unused bits and alpha.
+ * @field pixelType One of kIOCLUTPixels (indexed pixels with changeable CLUT), kIORGBDirectPixels (direct pixels).
+ * @field componentCount One for indexed pixels, three for direct pixel formats.
+ * @field bitsPerComponent Number of bits per component in each pixel.
+ * @field componentMasks Mask of the bits valid for each component of the pixel - in R, G, B order for direct pixels.
+ * @field pixelFormat String description of the pixel format - IO32BitDirectPixels, IO16BitDirectPixels etc.
+ * @field flags None defined - set to zero.
+ * @field activeWidth Number of pixels visible per row.
+ * @field activeHeight Number of visible pixel rows.
+ * @field reserved Set to zero.
+ */
+
 struct IOPixelInformation {
     IOByteCount			bytesPerRow;
     IOByteCount			bytesPerPlane;
@@ -97,6 +108,22 @@ typedef struct IOPixelInformation IOPixelInformation;
 
 // Info about a display mode
 typedef UInt32  IOAppleTimingID;
+
+/*!
+ * @struct IODisplayModeInformation
+ * @abstract A structure defining the format of a framebuffer.
+ * @discussion This structure is used by IOFramebuffer to define the format of the pixels.
+ * @field nominalWidth Number of pixels visible per row.
+ * @field nominalHeight Number of visible pixel rows.
+ * @field refreshRate Refresh rate in fixed point 16.16.
+ * @field maxDepthIndex Highest depth index available in this display mode.
+ * @field flags Flags for the mode, including: <br>
+    kDisplayModeInterlacedFlag mode is interlaced. <br>
+    kDisplayModeSimulscanFlag mode is available on multiple display connections. <br>
+    kDisplayModeNotPresetFlag mode is not a factory preset for the display (geometry may need correction). <br>
+    kDisplayModeStretchedFlag mode is stretched/distorted to match the display aspect ratio. <br>
+ * @field reserved Set to zero.
+ */
 
 struct IODisplayModeInformation {
     UInt32			nominalWidth;
@@ -132,7 +159,7 @@ enum {
     kDisplayModeDefaultFlag		= 0x00000004,
 };
 
-// Framebuffer info
+// Framebuffer info - obsolete
 
 struct IOFramebufferInformation {
     IOPhysicalAddress		baseAddress;
@@ -165,6 +192,16 @@ enum {
 
 typedef UInt16 IOColorComponent;
 
+/*!
+ * @struct IOColorEntry
+ * @abstract A structure defining one entry of a color lookup table.
+ * @discussion This structure is used by IOFramebuffer to define an entry of a color lookup table.
+ * @field index Number of pixels visible per row.
+ * @field red Value of red component 0-65535.
+ * @field green Value of green component 0-65535.
+ * @field blue Value of blue component 0-65535.
+ */
+
 struct IOColorEntry {
     UInt16	   		index;
     IOColorComponent   		red;
@@ -190,6 +227,8 @@ enum {
     kIOMirrorDefaultAttribute		= 'mrdf',
 
     kIOCapturedAttribute		= 'capd',
+
+    kIOCursorControlAttribute		= 'crsc',
 };
 
 // values for kIOMirrorAttribute
@@ -221,6 +260,43 @@ struct IODetailedTimingInformation {
     UInt32			verticalSyncWidth;	// lines
 };
 typedef struct IODetailedTimingInformation IODetailedTimingInformation;
+
+/*!
+ * @struct IODetailedTimingInformationV2
+ * @abstract A structure defining the detailed timing information of a display mode.
+ * @discussion This structure is used by IOFramebuffer to define detailed timing information for a display mode. The VESA EDID document has more information.
+ * @field __reservedA Set to zero.
+ * @field scalerFlags If the mode is scaled, kScaleStretchToFitMask may be set to allow stretching.
+ * @field horizontalScaled If the mode is scaled, sets the size of the image before scaling.
+ * @field verticalScaled If the mode is scaled, sets the size of the image before scaling.
+ 
+ * @field signalConfig kAnalogSetupExpectedMask set if display expects a blank-to-black setup or pedestal.  See VESA signal standards.
+ * @field signalLevels One of:<br>
+    kAnalogSignalLevel_0700_0300 0.700 - 0.300 V p-p.<br>
+    kAnalogSignalLevel_0714_0286 0.714 - 0.286 V p-p.<br>
+    kAnalogSignalLevel_1000_0400 1.000 - 0.400 V p-p.<br>
+    kAnalogSignalLevel_0700_0000 0.700 - 0.000 V p-p.<br>
+ * @field pixelClock Pixel clock frequency in Hz.
+ * @field minPixelClock Minimum pixel clock frequency in Hz, with error.
+ * @field maxPixelClock Maximum pixel clock frequency in Hz, with error.
+ * @field horizontalActive Pixel clocks per line.
+ * @field horizontalBlanking Blanking clocks per line.
+ * @field horizontalSyncOffset First clock of horizontal sync.
+ * @field horizontalSyncPulseWidth Width of horizontal sync.
+ * @field verticalActive Number of lines per frame.
+ * @field verticalBlanking Blanking lines per frame.
+ * @field verticalSyncOffset First line of vertical sync.
+ * @field verticalSyncPulseWidth Height of vertical sync.
+ * @field horizontalBorderLeft First clock of horizontal border or zero.
+ * @field horizontalBorderRight Last clock of horizontal border or zero.
+ * @field verticalBorderTop First line of vertical border or zero.
+ * @field verticalBorderBottom Last line of vertical border or zero.
+ * @field horizontalSyncConfig kSyncPositivePolarityMask for positive polarity horizontal sync.
+ * @field horizontalSyncLevel Zero.
+ * @field verticalSyncConfig kSyncPositivePolarityMask for positive polarity vertical sync.
+ * @field verticalSyncLevel Zero.
+ * @field __reservedB Reserved set to zero.
+ */
 
 struct IODetailedTimingInformationV2 {
 
@@ -379,6 +455,58 @@ typedef IOGPoint Point;
 typedef IOGBounds Bounds;
 #endif
 
+// cursor description
+
+enum {
+   kTransparentEncoding 	= 0,
+   kInvertingEncoding
+};
+
+enum {
+   kTransparentEncodingShift	= (kTransparentEncoding << 1),
+   kTransparentEncodedPixel	= (0x01 << kTransparentEncodingShift),
+
+   kInvertingEncodingShift	= (kInvertingEncoding << 1),
+   kInvertingEncodedPixel	= (0x01 << kInvertingEncodingShift),
+};
+
+enum {
+   kHardwareCursorDescriptorMajorVersion	= 0x0001,
+   kHardwareCursorDescriptorMinorVersion	= 0x0000
+};
+
+/*!
+ * @struct IOHardwareCursorDescriptor
+ * @abstract A structure defining the format of a hardware cursor.
+ * @discussion This structure is used by IOFramebuffer to define the format of a hardware cursor.
+ * @field majorVersion Set to kHardwareCursorDescriptorMajorVersion.
+ * @field minorVersion Set to kHardwareCursorDescriptorMinorVersion.
+ * @field height Maximum size of the cursor.
+ * @field width Maximum size of the cursor.
+ * @field bitDepth Number bits per pixel, or a QD/QT pixel type, for example kIO8IndexedPixelFormat, kIO32ARGBPixelFormat.
+ * @field maskBitDepth Unused.
+ * @field numColors Number of colors for indexed pixel types.
+ * @field colorEncodings An array pointer specifying the pixel values corresponding to the indices into the color table, for indexed pixel types.
+ * @field flags None defined, set to zero.
+ * @field supportedSpecialEncodings Mask of supported special pixel values, eg. kTransparentEncodedPixel, kInvertingEncodedPixel.
+ * @field specialEncodings Array of pixel values for each supported special encoding.
+ */
+
+struct IOHardwareCursorDescriptor {
+   UInt16		majorVersion;
+   UInt16		minorVersion;
+   UInt32		height;
+   UInt32		width;
+   UInt32		bitDepth;			// bits per pixel, or a QD/QT pixel type
+   UInt32		maskBitDepth;			// unused
+   UInt32		numColors;			// number of colors in the colorMap. ie. 
+   UInt32 *		colorEncodings;
+   UInt32		flags;
+   UInt32		supportedSpecialEncodings;
+   UInt32		specialEncodings[16];
+};
+typedef struct IOHardwareCursorDescriptor IOHardwareCursorDescriptor;
+
 // interrupt types
 
 enum {
@@ -412,6 +540,7 @@ enum {
 #define kIOFBDetailedTimingsKey		"IOFBDetailedTimings"
 #define kIOFBTimingRangeKey		"IOFBTimingRange"
 #define kIOFBScalerInfoKey		"IOFBScalerInfo"
+#define kIOFBCursorInfoKey		"IOFBCursorInfo"
 
 #define kIOFBHostAccessFlagsKey		"IOFBHostAccessFlags"
 

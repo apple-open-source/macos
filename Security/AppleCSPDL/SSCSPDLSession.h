@@ -37,16 +37,11 @@ class SSCSPDLSession: public KeyPool
 public:
 	SSCSPDLSession();
 
-	SecurityServer::ClientSession &clientSession() { return mClientSession; }
-
 	void makeReferenceKey(SSCSPSession &session,
 						  SecurityServer::KeyHandle inKeyHandle,
 						  CssmKey &outKey, SSDatabase &inSSDatabase,
 						  uint32 inKeyAttr, const CssmData *inKeyLabel);
 	SSKey &lookupKey(const CssmKey &inKey);
-
-private:
-	SecurityServer::ClientSession mClientSession;
 };
 
 

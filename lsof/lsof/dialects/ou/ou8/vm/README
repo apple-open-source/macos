@@ -1,0 +1,8 @@
+The <vm/page_f.h> header file is included by <vm/page.h> for
+"portability," but it is missing from the standard OpenUNIX
+distribution.  Apparently its contents are unimportant, because
+the empty page_f.h in this directory satisfies the pre-preprocessor
+#include of it from <vm/page.h>.
+
+Vic Abell
+October 3, 2001

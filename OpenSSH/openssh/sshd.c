@@ -15,8 +15,10 @@
  * called by a name other than "ssh" or "Secure Shell".
  *
  * SSH2 implementation:
+ * Privilege Separation:
  *
- * Copyright (c) 2000 Markus Friedl.  All rights reserved.
+ * Copyright (c) 2000, 2001, 2002 Markus Friedl.  All rights reserved.
+ * Copyright (c) 2002 Niels Provos.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,11 +42,16 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: sshd.c,v 1.228 2002/02/27 21:23:13 stevesk Exp $");
+RCSID("$OpenBSD: sshd.c,v 1.251 2002/06/25 18:51:04 markus Exp $");
 
 #include <openssl/dh.h>
 #include <openssl/bn.h>
 #include <openssl/md5.h>
+#include <openssl/rand.h>
+#ifdef HAVE_SECUREWARE
+#include <sys/security.h>
+#include <prot.h>
+#endif
 
 #include "ssh.h"
 #include "ssh1.h"
@@ -72,6 +79,11 @@ RCSID("$OpenBSD: sshd.c,v 1.228 2002/02/27 21:23:13 stevesk Exp $");
 #include "misc.h"
 #include "dispatch.h"
 #include "channels.h"
+#include "session.h"
+#include "monitor_mm.h"
+#include "monitor.h"
+#include "monitor_wrap.h"
+#include "monitor_fdpass.h"
 
 #ifdef LIBWRAP
 #include <tcpd.h>
@@ -189,8 +201,13 @@ u_int utmp_len = MAXHOSTNAMELEN;
 int *startup_pipes = NULL;
 int startup_pipe;		/* in child */
 
+/* variables used for privilege separation */
+extern struct monitor *pmonitor;
+extern int use_privsep;
+
 /* Prototypes for various functions defined later in this file. */
 void destroy_sensitive_data(void);
+void demote_sensitive_data(void);
 
 static void do_ssh1_kex(void);
 static void do_ssh2_kex(void);
@@ -202,6 +219,7 @@ static void
 close_listen_socks(void)
 {
 	int i;
+
 	for (i = 0; i < num_listen_socks; i++)
 		close(listen_socks[i]);
 	num_listen_socks = -1;
@@ -211,6 +229,7 @@ static void
 close_startup_pipes(void)
 {
 	int i;
+
 	if (startup_pipes)
 		for (i = 0; i < options.max_startups; i++)
 			if (startup_pipes[i] != -1)
@@ -243,7 +262,8 @@ sighup_restart(void)
 	close_listen_socks();
 	close_startup_pipes();
 	execv(saved_argv[0], saved_argv);
-	log("RESTART FAILED: av[0]='%.100s', error: %.100s.", saved_argv[0], strerror(errno));
+	log("RESTART FAILED: av[0]='%.100s', error: %.100s.", saved_argv[0],
+	    strerror(errno));
 	exit(1);
 }
 
@@ -264,9 +284,11 @@ static void
 main_sigchld_handler(int sig)
 {
 	int save_errno = errno;
+	pid_t pid;
 	int status;
 
-	while (waitpid(-1, &status, WNOHANG) > 0)
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0 ||
+	    (pid < 0 && errno == EINTR))
 		;
 
 	signal(SIGCHLD, main_sigchld_handler);
@@ -322,6 +344,7 @@ static void
 key_regeneration_alarm(int sig)
 {
 	int save_errno = errno;
+
 	signal(SIGALRM, SIG_DFL);
 	errno = save_errno;
 	key_do_regen = 1;
@@ -353,13 +376,14 @@ sshd_exchange_identification(int sock_in, int sock_out)
 
 	if (client_version_string == NULL) {
 		/* Send our protocol version identification. */
-		if (atomicio(write, sock_out, server_version_string, strlen(server_version_string))
+		if (atomicio(write, sock_out, server_version_string,
+		    strlen(server_version_string))
 		    != strlen(server_version_string)) {
 			log("Could not write ident string to %s", get_remote_ipaddr());
 			fatal_cleanup();
 		}
 
-		/* Read other side's version identification. */
+		/* Read other sides version identification. */
 		memset(buf, 0, sizeof(buf));
 		for (i = 0; i < sizeof(buf) - 1; i++) {
 			if (atomicio(read, sock_in, &buf[i], 1) != 1) {
@@ -456,7 +480,6 @@ sshd_exchange_identification(int sock_in, int sock_out)
 	}
 }
 
-
 /* Destroy the host and server keys.  They will no longer be needed. */
 void
 destroy_sensitive_data(void)
@@ -475,6 +498,175 @@ destroy_sensitive_data(void)
 	}
 	sensitive_data.ssh1_host_key = NULL;
 	memset(sensitive_data.ssh1_cookie, 0, SSH_SESSION_KEY_LENGTH);
+}
+
+/* Demote private to public keys for network child */
+void
+demote_sensitive_data(void)
+{
+	Key *tmp;
+	int i;
+
+	if (sensitive_data.server_key) {
+		tmp = key_demote(sensitive_data.server_key);
+		key_free(sensitive_data.server_key);
+		sensitive_data.server_key = tmp;
+	}
+
+	for (i = 0; i < options.num_host_key_files; i++) {
+		if (sensitive_data.host_keys[i]) {
+			tmp = key_demote(sensitive_data.host_keys[i]);
+			key_free(sensitive_data.host_keys[i]);
+			sensitive_data.host_keys[i] = tmp;
+			if (tmp->type == KEY_RSA1)
+				sensitive_data.ssh1_host_key = tmp;
+		}
+	}
+
+	/* We do not clear ssh1_host key and cookie.  XXX - Okay Niels? */
+}
+
+static void
+privsep_preauth_child(void)
+{
+	u_int32_t rand[256];
+	gid_t gidset[2];
+	struct passwd *pw;
+	int i;
+
+	/* Enable challenge-response authentication for privilege separation */
+	privsep_challenge_enable();
+
+	for (i = 0; i < 256; i++)
+		rand[i] = arc4random();
+	RAND_seed(rand, sizeof(rand));
+
+	/* Demote the private keys to public keys. */
+	demote_sensitive_data();
+
+	if ((pw = getpwnam(SSH_PRIVSEP_USER)) == NULL)
+		fatal("Privilege separation user %s does not exist",
+		    SSH_PRIVSEP_USER);
+	memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
+	endpwent();
+
+	/* Change our root directory*/
+	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
+		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
+		    strerror(errno));
+	if (chdir("/") == -1)
+		fatal("chdir(\"/\"): %s", strerror(errno));
+
+	/* Drop our privileges */
+	debug3("privsep user:group %u:%u", (u_int)pw->pw_uid,
+	    (u_int)pw->pw_gid);
+#if 0
+	/* XXX not ready, to heavy after chroot */
+	do_setusercontext(pw);
+#else
+	gidset[0] = pw->pw_gid;
+	if (setgid(pw->pw_gid) < 0)
+		fatal("setgid failed for %u", pw->pw_gid );
+	if (setgroups(1, gidset) < 0)
+		fatal("setgroups: %.100s", strerror(errno));
+	permanently_set_uid(pw);
+#endif
+}
+
+static Authctxt*
+privsep_preauth(void)
+{
+	Authctxt *authctxt = NULL;
+	int status;
+	pid_t pid;
+
+	/* Set up unprivileged child process to deal with network data */
+	pmonitor = monitor_init();
+	/* Store a pointer to the kex for later rekeying */
+	pmonitor->m_pkex = &xxx_kex;
+
+	pid = fork();
+	if (pid == -1) {
+		fatal("fork of unprivileged child failed");
+	} else if (pid != 0) {
+		debug2("Network child is on pid %ld", (long)pid);
+
+		close(pmonitor->m_recvfd);
+		authctxt = monitor_child_preauth(pmonitor);
+		close(pmonitor->m_sendfd);
+
+		/* Sync memory */
+		monitor_sync(pmonitor);
+
+		/* Wait for the child's exit status */
+		while (waitpid(pid, &status, 0) < 0)
+			if (errno != EINTR)
+				break;
+		return (authctxt);
+	} else {
+		/* child */
+
+		close(pmonitor->m_sendfd);
+
+		/* Demote the child */
+		if (getuid() == 0 || geteuid() == 0)
+			privsep_preauth_child();
+		setproctitle("%s", "[net]");
+	}
+	return (NULL);
+}
+
+static void
+privsep_postauth(Authctxt *authctxt)
+{
+	extern Authctxt *x_authctxt;
+
+	/* XXX - Remote port forwarding */
+	x_authctxt = authctxt;
+
+#ifdef BROKEN_FD_PASSING
+	if (1) {
+#else
+	if (authctxt->pw->pw_uid == 0 || options.use_login) {
+#endif
+		/* File descriptor passing is broken or root login */
+		monitor_apply_keystate(pmonitor);
+		use_privsep = 0;
+		return;
+	}
+
+	/* Authentication complete */
+	alarm(0);
+	if (startup_pipe != -1) {
+		close(startup_pipe);
+		startup_pipe = -1;
+	}
+
+	/* New socket pair */
+	monitor_reinit(pmonitor);
+
+	pmonitor->m_pid = fork();
+	if (pmonitor->m_pid == -1)
+		fatal("fork of unprivileged child failed");
+	else if (pmonitor->m_pid != 0) {
+		debug2("User child is on pid %ld", (long)pmonitor->m_pid);
+		close(pmonitor->m_recvfd);
+		monitor_child_postauth(pmonitor);
+
+		/* NEVERREACHED */
+		exit(0);
+	}
+
+	close(pmonitor->m_sendfd);
+
+	/* Demote the private keys to public keys. */
+	demote_sensitive_data();
+
+	/* Drop privileges */
+	do_setusercontext(authctxt->pw);
+
+	/* It is safe now to apply the key state */
+	monitor_apply_keystate(pmonitor);
 }
 
 static char *
@@ -506,16 +698,37 @@ list_hostkey_types(void)
 	return p;
 }
 
-static Key *
+Key *
 get_hostkey_by_type(int type)
 {
 	int i;
+
 	for (i = 0; i < options.num_host_key_files; i++) {
 		Key *key = sensitive_data.host_keys[i];
 		if (key != NULL && key->type == type)
 			return key;
 	}
 	return NULL;
+}
+
+Key *
+get_hostkey_by_index(int ind)
+{
+	if (ind < 0 || ind >= options.num_host_key_files)
+		return (NULL);
+	return (sensitive_data.host_keys[ind]);
+}
+
+int
+get_hostkey_index(Key *key)
+{
+	int i;
+
+	for (i = 0; i < options.num_host_key_files; i++) {
+		if (key == sensitive_data.host_keys[i])
+			return (i);
+	}
+	return (-1);
 }
 
 /*
@@ -594,9 +807,13 @@ main(int ac, char **av)
 	int listen_sock, maxfd;
 	int startup_p[2];
 	int startups = 0;
+	Authctxt *authctxt;
 	Key *key;
 	int ret, key_used = 0;
 
+#ifdef HAVE_SECUREWARE
+	(void)set_auth_parameters(ac, av);
+#endif
 	__progname = get_progname(av[0]);
 	init_rng();
 
@@ -795,23 +1012,47 @@ main(int ac, char **av)
 		 * hate software patents. I dont know if this can go? Niels
 		 */
 		if (options.server_key_bits >
-		    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n) - SSH_KEY_BITS_RESERVED &&
-		    options.server_key_bits <
-		    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n) + SSH_KEY_BITS_RESERVED) {
+		    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n) -
+		    SSH_KEY_BITS_RESERVED && options.server_key_bits <
+		    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n) +
+		    SSH_KEY_BITS_RESERVED) {
 			options.server_key_bits =
-			    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n) + SSH_KEY_BITS_RESERVED;
+			    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n) +
+			    SSH_KEY_BITS_RESERVED;
 			debug("Forcing server key to %d bits to make it differ from host key.",
 			    options.server_key_bits);
 		}
+	}
+
+	if (use_privsep) {
+		struct passwd *pw;
+		struct stat st;
+
+		if ((pw = getpwnam(SSH_PRIVSEP_USER)) == NULL)
+			fatal("Privilege separation user %s does not exist",
+			    SSH_PRIVSEP_USER);
+		if ((stat(_PATH_PRIVSEP_CHROOT_DIR, &st) == -1) ||
+		    (S_ISDIR(st.st_mode) == 0))
+			fatal("Missing privilege separation directory: %s",
+			    _PATH_PRIVSEP_CHROOT_DIR);
+		if (st.st_uid != 0 || (st.st_mode & (S_IWGRP|S_IWOTH)) != 0)
+			fatal("Bad owner or mode for %s",
+			    _PATH_PRIVSEP_CHROOT_DIR);
 	}
 
 	/* Configuration looks good, so exit if in test mode. */
 	if (test_flag)
 		exit(0);
 
-#ifdef HAVE_SCO_PROTECTED_PW
-	(void) set_auth_parameters(ac, av);
-#endif
+	/*
+	 * Clear out any supplemental groups we may have inherited.  This
+	 * prevents inadvertent creation of files with bad modes (in the
+	 * portable version at least, it's certainly possible for PAM 
+	 * to create a file, and we can't control the code in every 
+	 * module which might be used).
+	 */
+	if (setgroups(0, NULL) < 0)
+		debug("setgroups() failed: %.200s", strerror(errno));
 
 	/* Initialize the log (it is reinitialized below in case we forked). */
 	if (debug_flag && !inetd_flag)
@@ -956,7 +1197,7 @@ main(int ac, char **av)
 			 */
 			f = fopen(options.pid_file, "wb");
 			if (f) {
-				fprintf(f, "%u\n", (u_int) getpid());
+				fprintf(f, "%ld\n", (long) getpid());
 				fclose(f);
 			}
 		}
@@ -1103,7 +1344,7 @@ main(int ac, char **av)
 				if (pid < 0)
 					error("fork: %.100s", strerror(errno));
 				else
-					debug("Forked child %d.", pid);
+					debug("Forked child %ld.", (long)pid);
 
 				close(startup_p[1]);
 
@@ -1128,6 +1369,17 @@ main(int ac, char **av)
 	}
 
 	/* This is the child processing a new connection. */
+
+	/*
+	 * Create a new session and process group since the 4.4BSD
+	 * setlogin() affects the entire process group.  We don't
+	 * want the child to be able to affect the parent.
+	 */
+#if 0
+	/* XXX: this breaks Solaris */
+	if (!debug_flag && !inetd_flag && setsid() < 0)
+		error("setsid: %.100s", strerror(errno));
+#endif
 
 	/*
 	 * Disable the key regeneration alarm.  We will not regenerate the
@@ -1202,7 +1454,7 @@ main(int ac, char **av)
 	sshd_exchange_identification(sock_in, sock_out);
 	/*
 	 * Check that the connection comes from a privileged port.
-	 * Rhosts-Authentication only makes sense from priviledged
+	 * Rhosts-Authentication only makes sense from privileged
 	 * programs.  Of course, if the intruder has root access on his local
 	 * machine, he can connect from any port.  So do not use these
 	 * authentication methods from machines that you do not trust.
@@ -1231,15 +1483,43 @@ main(int ac, char **av)
 
 	packet_set_nonblocking();
 
+	if (use_privsep)
+		if ((authctxt = privsep_preauth()) != NULL)
+			goto authenticated;
+
 	/* perform the key exchange */
 	/* authenticate user and start session */
 	if (compat20) {
 		do_ssh2_kex();
-		do_authentication2();
+		authctxt = do_authentication2();
 	} else {
 		do_ssh1_kex();
-		do_authentication();
+		authctxt = do_authentication();
 	}
+	/*
+	 * If we use privilege separation, the unprivileged child transfers
+	 * the current keystate and exits
+	 */
+	if (use_privsep) {
+		mm_send_keystate(pmonitor);
+		exit(0);
+	}
+
+ authenticated:
+	/*
+	 * In privilege separation, we fork another child and prepare
+	 * file descriptor passing.
+	 */
+	if (use_privsep) {
+		privsep_postauth(authctxt);
+		/* the monitor process [priv] will not return */
+		if (!compat20)
+			destroy_sensitive_data();
+	}
+
+	/* Perform session preparation. */
+	do_authenticated(authctxt);
+
 	/* The connection has been terminated. */
 	verbose("Closing connection to %.100s", remote_ip);
 
@@ -1248,9 +1528,57 @@ main(int ac, char **av)
 #endif /* USE_PAM */
 
 	packet_close();
+
+	if (use_privsep)
+		mm_terminate();
+
 	exit(0);
 }
 
+/*
+ * Decrypt session_key_int using our private server key and private host key
+ * (key with larger modulus first).
+ */
+int
+ssh1_session_key(BIGNUM *session_key_int)
+{
+	int rsafail = 0;
+
+	if (BN_cmp(sensitive_data.server_key->rsa->n, sensitive_data.ssh1_host_key->rsa->n) > 0) {
+		/* Server key has bigger modulus. */
+		if (BN_num_bits(sensitive_data.server_key->rsa->n) <
+		    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n) + SSH_KEY_BITS_RESERVED) {
+			fatal("do_connection: %s: server_key %d < host_key %d + SSH_KEY_BITS_RESERVED %d",
+			    get_remote_ipaddr(),
+			    BN_num_bits(sensitive_data.server_key->rsa->n),
+			    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n),
+			    SSH_KEY_BITS_RESERVED);
+		}
+		if (rsa_private_decrypt(session_key_int, session_key_int,
+		    sensitive_data.server_key->rsa) <= 0)
+			rsafail++;
+		if (rsa_private_decrypt(session_key_int, session_key_int,
+		    sensitive_data.ssh1_host_key->rsa) <= 0)
+			rsafail++;
+	} else {
+		/* Host key has bigger modulus (or they are equal). */
+		if (BN_num_bits(sensitive_data.ssh1_host_key->rsa->n) <
+		    BN_num_bits(sensitive_data.server_key->rsa->n) + SSH_KEY_BITS_RESERVED) {
+			fatal("do_connection: %s: host_key %d < server_key %d + SSH_KEY_BITS_RESERVED %d",
+			    get_remote_ipaddr(),
+			    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n),
+			    BN_num_bits(sensitive_data.server_key->rsa->n),
+			    SSH_KEY_BITS_RESERVED);
+		}
+		if (rsa_private_decrypt(session_key_int, session_key_int,
+		    sensitive_data.ssh1_host_key->rsa) < 0)
+			rsafail++;
+		if (rsa_private_decrypt(session_key_int, session_key_int,
+		    sensitive_data.server_key->rsa) < 0)
+			rsafail++;
+	}
+	return (rsafail);
+}
 /*
  * SSH1 key exchange
  */
@@ -1366,43 +1694,9 @@ do_ssh1_kex(void)
 	packet_set_protocol_flags(protocol_flags);
 	packet_check_eom();
 
-	/*
-	 * Decrypt it using our private server key and private host key (key
-	 * with larger modulus first).
-	 */
-	if (BN_cmp(sensitive_data.server_key->rsa->n, sensitive_data.ssh1_host_key->rsa->n) > 0) {
-		/* Server key has bigger modulus. */
-		if (BN_num_bits(sensitive_data.server_key->rsa->n) <
-		    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n) + SSH_KEY_BITS_RESERVED) {
-			fatal("do_connection: %s: server_key %d < host_key %d + SSH_KEY_BITS_RESERVED %d",
-			    get_remote_ipaddr(),
-			    BN_num_bits(sensitive_data.server_key->rsa->n),
-			    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n),
-			    SSH_KEY_BITS_RESERVED);
-		}
-		if (rsa_private_decrypt(session_key_int, session_key_int,
-		    sensitive_data.server_key->rsa) <= 0)
-			rsafail++;
-		if (rsa_private_decrypt(session_key_int, session_key_int,
-		    sensitive_data.ssh1_host_key->rsa) <= 0)
-			rsafail++;
-	} else {
-		/* Host key has bigger modulus (or they are equal). */
-		if (BN_num_bits(sensitive_data.ssh1_host_key->rsa->n) <
-		    BN_num_bits(sensitive_data.server_key->rsa->n) + SSH_KEY_BITS_RESERVED) {
-			fatal("do_connection: %s: host_key %d < server_key %d + SSH_KEY_BITS_RESERVED %d",
-			    get_remote_ipaddr(),
-			    BN_num_bits(sensitive_data.ssh1_host_key->rsa->n),
-			    BN_num_bits(sensitive_data.server_key->rsa->n),
-			    SSH_KEY_BITS_RESERVED);
-		}
-		if (rsa_private_decrypt(session_key_int, session_key_int,
-		    sensitive_data.ssh1_host_key->rsa) < 0)
-			rsafail++;
-		if (rsa_private_decrypt(session_key_int, session_key_int,
-		    sensitive_data.server_key->rsa) < 0)
-			rsafail++;
-	}
+	/* Decrypt session_key_int using host/server keys */
+	rsafail = PRIVSEP(ssh1_session_key(session_key_int));
+
 	/*
 	 * Extract session key from the decrypted integer.  The key is in the
 	 * least significant 256 bits of the integer; the first byte of the
@@ -1453,8 +1747,11 @@ do_ssh1_kex(void)
 		for (i = 0; i < 16; i++)
 			session_id[i] = session_key[i] ^ session_key[i + 16];
 	}
-	/* Destroy the private and public keys.  They will no longer be needed. */
+	/* Destroy the private and public keys. No longer. */
 	destroy_sensitive_data();
+
+	if (use_privsep)
+		mm_ssh1_session_id(session_id);
 
 	/* Destroy the decrypted integer.  It is no longer needed. */
 	BN_clear_free(session_key_int);
@@ -1467,7 +1764,7 @@ do_ssh1_kex(void)
 
 	debug("Received session key; encryption turned on.");
 
-	/* Send an acknowledgement packet.  Note that this packet is sent encrypted. */
+	/* Send an acknowledgment packet.  Note that this packet is sent encrypted. */
 	packet_start(SSH_SMSG_SUCCESS);
 	packet_send();
 	packet_write_wait();
@@ -1494,6 +1791,10 @@ do_ssh2_kex(void)
 		myproposal[PROPOSAL_MAC_ALGS_CTOS] =
 		myproposal[PROPOSAL_MAC_ALGS_STOC] = options.macs;
 	}
+	if (!options.compression) {
+		myproposal[PROPOSAL_COMP_ALGS_CTOS] =
+		myproposal[PROPOSAL_COMP_ALGS_STOC] = "none";
+	}
 	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = list_hostkey_types();
 
 	/* start key exchange */
@@ -1502,6 +1803,7 @@ do_ssh2_kex(void)
 	kex->client_version_string=client_version_string;
 	kex->server_version_string=server_version_string;
 	kex->load_host_key=&get_hostkey_by_type;
+	kex->host_key_index=&get_hostkey_index;
 
 	xxx_kex = kex;
 

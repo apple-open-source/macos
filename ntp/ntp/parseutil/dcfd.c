@@ -25,23 +25,24 @@
  * written consent of the author.
  */
 
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include <unistd.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <signal.h>
-#include <errno.h>
 #include <syslog.h>
-
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
+#include <time.h>
 
 /*
  * NTP compilation environment
  */
 #include "ntp_stdlib.h"
+#include "ntpd.h"   /* indirectly include ntp.h to get YEAR_PIVOT   Y2KFixes */
 
 /*
  * select which terminal handling to use (currently only SysV variants)
@@ -165,7 +166,7 @@ static char pat[] = "-\\|/";
 static struct timeval max_adj_offset = { 0, 128000 };
 
 static long clock_adjust = 0;	/* current adjustment value (usec * 2^USECSCALE) */
-static long drift_comp   = 0;	/* accumulated drift value  (usec / ADJINTERVAL) */
+static long accum_drift   = 0;	/* accumulated drift value  (usec / ADJINTERVAL) */
 static long adjustments  = 0;
 static char skip_adjust  = 1;	/* discard first adjustment (bad samples) */
 
@@ -200,9 +201,9 @@ typedef struct clocktime clocktime_t;
 #define TIMES24(_X_) (((_X_) << 4) + ((_X_) << 3))      /* *16 + *8 */
 #define TIMES60(_X_) ((((_X_) << 4)  - (_X_)) << 2)     /* *(16 - 1) *4 */
 /*
- * generic abs() function
+ * generic l_abs() function
  */
-#define abs(_x_)     (((_x_) < 0) ? -(_x_) : (_x_))
+#define l_abs(_x_)     (((_x_) < 0) ? -(_x_) : (_x_))
 
 /*
  * conversion related return/error codes
@@ -744,25 +745,20 @@ dcf_to_unixtime(
 	/*
 	 * map 2 digit years to 19xx (DCF77 is a 20th century item)
 	 */
-	if (clock_time->year < 100)
-	    clock_time->year += 1900;
-
-	/*
-	 * assume that we convert timecode within the unix/UTC epoch -
-	 * prolonges validity of 2 digit years
-	 */
-	if (clock_time->year < 1998)
-	    clock_time->year += 100;		/* XXX this will do it till <2098 */
+	if ( clock_time->year < YEAR_PIVOT ) 	/* in case of	   Y2KFixes [ */
+		clock_time->year += 100;	/* *year%100, make tm_year */
+						/* *(do we need this?) */
+	if ( clock_time->year < YEAR_BREAK )	/* (failsafe if) */
+	    clock_time->year += 1900;				/* Y2KFixes ] */
 
 	/*
 	 * must have been a really bad year code - drop it
 	 */
-	if (clock_time->year < 1998)
+	if (clock_time->year < (YEAR_PIVOT + 1900) )		/* Y2KFixes */
 	{
 		SETRTC(CVT_FAIL|CVT_BADDATE);
 		return -1;
 	}
-  
 	/*
 	 * sorry, slow section here - but it's not time critical anyway
 	 */
@@ -770,10 +766,7 @@ dcf_to_unixtime(
 	/*
 	 * calculate days since 1970 (watching leap years)
 	 */
-	t =  (clock_time->year - 1970) * 365;
-	t += (clock_time->year >> 2) - (1970 >> 2);
-	t -= clock_time->year / 100 - 1970 / 100;
-	t += clock_time->year / 400 - 1970 / 400;
+	t = julian0( clock_time->year ) - julian0( 1970 );
 
   				/* month */
 	if (clock_time->month <= 0 || clock_time->month > 12)
@@ -782,8 +775,10 @@ dcf_to_unixtime(
 		return -1;		/* bad month */
 	}
 				/* adjust current leap year */
+#if 0
 	if (clock_time->month < 3 && days_per_year(clock_time->year) == 366)
 	    t--;
+#endif
 
 	/*
 	 * collect days from months excluding the current one
@@ -887,9 +882,9 @@ pr_timeval(
 	static char buf[20];
 
 	if (val->tv_sec == 0)
-	    sprintf(buf, "%c0.%06ld", (val->tv_usec < 0) ? '-' : '+', (long int)abs(val->tv_usec));
+	    sprintf(buf, "%c0.%06ld", (val->tv_usec < 0) ? '-' : '+', (long int)l_abs(val->tv_usec));
 	else
-	    sprintf(buf, "%ld.%06ld", (long int)val->tv_sec, (long int)abs(val->tv_usec));
+	    sprintf(buf, "%ld.%06ld", (long int)val->tv_sec, (long int)l_abs(val->tv_usec));
 	return buf;
 }
 
@@ -963,10 +958,10 @@ read_drift(
 		fclose(df);
 		LPRINTF("read_drift: %d.%03d ppm ", idrift, fdrift);
 
-		drift_comp = idrift << USECSCALE;
+		accum_drift = idrift << USECSCALE;
 		fdrift     = (fdrift << USECSCALE) / 1000;
-		drift_comp += fdrift & (1<<USECSCALE);
-		LPRINTF("read_drift: drift_comp %ld ", (long int)drift_comp);
+		accum_drift += fdrift & (1<<USECSCALE);
+		LPRINTF("read_drift: drift_comp %ld ", (long int)accum_drift);
 	}
 }
 
@@ -985,14 +980,14 @@ update_drift(
 	df = fopen(drift_file, "w");
 	if (df != NULL)
 	{
-		int idrift = R_SHIFT(drift_comp, USECSCALE);
-		int fdrift = drift_comp & ((1<<USECSCALE)-1);
+		int idrift = R_SHIFT(accum_drift, USECSCALE);
+		int fdrift = accum_drift & ((1<<USECSCALE)-1);
 
-		LPRINTF("update_drift: drift_comp %ld ", (long int)drift_comp);
+		LPRINTF("update_drift: drift_comp %ld ", (long int)accum_drift);
 		fdrift = (fdrift * 1000) / (1<<USECSCALE);
 		fprintf(df, "%4d.%03d %c%ld.%06ld %.24s\n", idrift, fdrift,
-			(offset < 0) ? '-' : '+', (long int)(abs(offset) / 1000000),
-			(long int)(abs(offset) % 1000000), asctime(localtime(&reftime)));
+			(offset < 0) ? '-' : '+', (long int)(l_abs(offset) / 1000000),
+			(long int)(l_abs(offset) % 1000000), asctime(localtime(&reftime)));
 		fclose(df);
 		LPRINTF("update_drift: %d.%03d ppm ", idrift, fdrift);
 	}
@@ -1023,8 +1018,8 @@ adjust_clock(
 	}
 
 	toffset = *offset;
-	toffset.tv_sec  = abs(toffset.tv_sec);
-	toffset.tv_usec = abs(toffset.tv_usec);
+	toffset.tv_sec  = l_abs(toffset.tv_sec);
+	toffset.tv_usec = l_abs(toffset.tv_usec);
 	if (timercmp(&toffset, &max_adj_offset, >))
 	{
 		/*
@@ -1047,18 +1042,18 @@ adjust_clock(
 	if (tmp > FREQ_WEIGHT)
 	    tmp = FREQ_WEIGHT;
 
-	drift_comp  += R_SHIFT(usecoffset << USECSCALE, TIMECONSTANT+TIMECONSTANT+FREQ_WEIGHT-tmp);
+	accum_drift  += R_SHIFT(usecoffset << USECSCALE, TIMECONSTANT+TIMECONSTANT+FREQ_WEIGHT-tmp);
 
-	if (drift_comp > MAX_DRIFT)		/* clamp into interval */
-	    drift_comp = MAX_DRIFT;
+	if (accum_drift > MAX_DRIFT)		/* clamp into interval */
+	    accum_drift = MAX_DRIFT;
 	else
-	    if (drift_comp < -MAX_DRIFT)
-		drift_comp = -MAX_DRIFT;
+	    if (accum_drift < -MAX_DRIFT)
+		accum_drift = -MAX_DRIFT;
 
 	update_drift(drift_file, usecoffset, reftime);
 	LPRINTF("clock_adjust: %s, clock_adjust %ld, drift_comp %ld(%ld) ",
 		pr_timeval(offset),(long int) R_SHIFT(clock_adjust, USECSCALE),
-		(long int)R_SHIFT(drift_comp, USECSCALE), (long int)drift_comp);
+		(long int)R_SHIFT(accum_drift, USECSCALE), (long int)accum_drift);
 }
 
 /*-----------------------------------------------------------------------
@@ -1077,7 +1072,7 @@ periodic_adjust(
 
 	clock_adjust -= adjustment;
 
-	adjustment += R_SHIFT(drift_comp, USECSCALE+ADJINTERVAL);
+	adjustment += R_SHIFT(accum_drift, USECSCALE+ADJINTERVAL);
 
 	adj_time(adjustment);
 }
@@ -1093,7 +1088,7 @@ tick(
 {
 	static unsigned long last_notice = 0;
 
-#if !defined(SA_ONSTACK) && !defined(SV_ONSTACK)
+#if !defined(HAVE_SIGACTION) && !defined(HAVE_SIGVEC)
 	(void)signal(SIGALRM, tick);
 #endif
 
@@ -1213,8 +1208,135 @@ usage(
 	fprintf(stderr, "\t-f              print all databits (includes PTB private data)\n");
 	fprintf(stderr, "\t-l              print loop filter debug information\n");
 	fprintf(stderr, "\t-o              print offet average for current minute\n");
+	fprintf(stderr, "\t-Y              make internal Y2K checks then exit\n");	/* Y2KFixes */
 	fprintf(stderr, "\t-d <drift_file> specify alternate drift file\n");
 	fprintf(stderr, "\t-D <input delay>specify delay from input edge to processing in micro seconds\n");
+}
+
+/*-----------------------------------------------------------------------
+ * check_y2k() - internal check of Y2K logic
+ *	(a lot of this logic lifted from ../ntpd/check_y2k.c)
+ */
+int
+check_y2k( void )
+{ 
+    int  year;			/* current working year */
+    int  year0 = 1900;		/* sarting year for NTP time */
+    int  yearend;		/* ending year we test for NTP time.
+				    * 32-bit systems: through 2036, the
+				      **year in which NTP time overflows.
+				    * 64-bit systems: a reasonable upper
+				      **limit (well, maybe somewhat beyond
+				      **reasonable, but well before the
+				      **max time, by which time the earth
+				      **will be dead.) */
+    time_t Time;
+    struct tm LocalTime;
+
+    int Fatals, Warnings;
+#define Error(year) if ( (year)>=2036 && LocalTime.tm_year < 110 ) \
+	Warnings++; else Fatals++
+
+    Fatals = Warnings = 0;
+
+    Time = time( (time_t *)NULL );
+    LocalTime = *localtime( &Time );
+
+    year = ( sizeof( u_long ) > 4 ) 	/* save max span using year as temp */
+		? ( 400 * 3 ) 		/* three greater gregorian cycles */
+		: ((int)(0x7FFFFFFF / 365.242 / 24/60/60)* 2 ); /*32-bit limit*/
+			/* NOTE: will automacially expand test years on
+			 * 64 bit machines.... this may cause some of the
+			 * existing ntp logic to fail for years beyond
+			 * 2036 (the current 32-bit limit). If all checks
+			 * fail ONLY beyond year 2036 you may ignore such
+			 * errors, at least for a decade or so. */
+    yearend = year0 + year;
+
+    year = 1900+YEAR_PIVOT;
+    printf( "  starting year %04d\n", (int) year );
+    printf( "  ending year   %04d\n", (int) yearend );
+
+    for ( ; year < yearend; year++ )
+    {
+	clocktime_t  ct;
+	time_t	     Observed;
+	time_t	     Expected;
+	unsigned     Flag;
+	unsigned long t;
+
+	ct.day = 1;
+	ct.month = 1;
+	ct.year = year;
+	ct.hour = ct.minute = ct.second = ct.usecond = 0;
+	ct.utcoffset = 0;
+	ct.flags = 0;
+
+	Flag = 0;
+ 	Observed = dcf_to_unixtime( &ct, &Flag );
+		/* seems to be a clone of parse_to_unixtime() with
+		 * *a minor difference to arg2 type */
+	if ( ct.year != year )
+	{
+	    fprintf( stdout, 
+	       "%04d: dcf_to_unixtime(,%d) CORRUPTED ct.year: was %d\n",
+	       (int)year, (int)Flag, (int)ct.year );
+	    Error(year);
+	    break;
+	}
+	t = julian0(year) - julian0(1970);	/* Julian day from 1970 */
+	Expected = t * 24 * 60 * 60;
+	if ( Observed != Expected  ||  Flag )
+	{   /* time difference */
+	    fprintf( stdout, 
+	       "%04d: dcf_to_unixtime(,%d) FAILURE: was=%lu s/b=%lu  (%ld)\n",
+	       year, (int)Flag, 
+	       (unsigned long)Observed, (unsigned long)Expected,
+	       ((long)Observed - (long)Expected) );
+	    Error(year);
+	    break;
+	}
+
+	if ( year >= YEAR_PIVOT+1900 )
+	{
+	    /* check year % 100 code we put into dcf_to_unixtime() */
+	    ct.year = year % 100;
+	    Flag = 0;
+
+	    Observed = dcf_to_unixtime( &ct, &Flag );
+
+	    if ( Observed != Expected  ||  Flag )
+	    {   /* time difference */
+		fprintf( stdout, 
+"%04d: dcf_to_unixtime(%d,%d) FAILURE: was=%lu s/b=%lu  (%ld)\n",
+		   year, (int)ct.year, (int)Flag, 
+		   (unsigned long)Observed, (unsigned long)Expected,
+		   ((long)Observed - (long)Expected) );
+		Error(year);
+		break;
+	    }
+
+	    /* check year - 1900 code we put into dcf_to_unixtime() */
+	    ct.year = year - 1900;
+	    Flag = 0;
+
+	    Observed = dcf_to_unixtime( &ct, &Flag );
+
+	    if ( Observed != Expected  ||  Flag ) {   /* time difference */
+		    fprintf( stdout, 
+			     "%04d: dcf_to_unixtime(%d,%d) FAILURE: was=%lu s/b=%lu  (%ld)\n",
+			     year, (int)ct.year, (int)Flag, 
+			     (unsigned long)Observed, (unsigned long)Expected,
+			     ((long)Observed - (long)Expected) );
+		    Error(year);
+		break;
+	    }
+
+
+	}
+    }
+
+    return ( Fatals );
 }
 
 /*--------------------------------------------------
@@ -1339,6 +1461,10 @@ main(
 				}
 				break;
 	      
+			    case 'Y':	
+				errs=check_y2k();
+				exit( errs ? 1 : 0 );
+
 			    default:
 				fprintf(stderr, "%s: unknown option -%c\n", argv[0], c);
 				errs=1;
@@ -1453,7 +1579,7 @@ main(
 		/*
 		 * setup periodic operations (state control / frequency control)
 		 */
-#ifdef SV_ONSTACK
+#ifdef HAVE_SIGVEC
 		{
 			struct sigvec vec;
 
@@ -1468,12 +1594,14 @@ main(
 			}
 		}
 #else
-#ifdef SA_ONSTACK
+#ifdef HAVE_SIGACTION
 		{
 			struct sigaction act;
 
 			act.sa_handler   = tick;
+# ifdef HAVE_SA_SIGACTION_IN_STRUCT_SIGACTION
 			act.sa_sigaction = (void (*) P((int, siginfo_t *, void *)))0;
+# endif /* HAVE_SA_SIGACTION_IN_STRUCT_SIGACTION */
 			sigemptyset(&act.sa_mask);
 			act.sa_flags     = 0;
 
@@ -1679,7 +1807,7 @@ main(
 					       (clock_time.flags & DCFB_ANNOUNCE) ? "A" : "_",
 					       (clock_time.flags & DCFB_DST) ? "D" : "_",
 					       (clock_time.flags & DCFB_LEAP) ? "L" : "_",
-					       (lasterror < 0) ? '-' : '+', abs(lasterror) / 1000000, abs(lasterror) % 1000000
+					       (lasterror < 0) ? '-' : '+', l_abs(lasterror) / 1000000, l_abs(lasterror) % 1000000
 					       );
 
 					if (trace && (i == 0))

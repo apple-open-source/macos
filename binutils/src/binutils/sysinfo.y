@@ -1,3 +1,22 @@
+/* Copyright 2001 Free Software Foundation, Inc.
+   Written by Steve Chamberlain of Cygnus Support (steve@cygnus.com).
+
+This file is part of GNU binutils.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +72,7 @@ top:  {
       printf("#ifdef SYSROFF_PRINT\n");
       printf("#include <stdio.h>\n");
       printf("#include <stdlib.h>\n");
+      printf("#include <ansidecl.h>\n");
       break;
     }
  } 
@@ -84,6 +104,13 @@ it:
 	  {
 	  case 'd':
 	    printf("\n\n\n#define IT_%s_CODE 0x%x\n", it,code);
+	    printf("struct IT_%s;\n", it);
+	    printf("extern void sysroff_swap_%s_in PARAMS ((struct IT_%s *));\n",
+		   $2, it);
+	    printf("extern void sysroff_swap_%s_out PARAMS ((FILE *, struct IT_%s *));\n",
+		   $2, it);
+	    printf("extern void sysroff_print_%s_out PARAMS ((struct IT_%s *));\n",
+		   $2, it);
 	    printf("struct IT_%s { \n", it);
 	    break;
 	  case 'i':

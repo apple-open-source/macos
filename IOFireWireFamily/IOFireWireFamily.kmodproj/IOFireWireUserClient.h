@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved. 
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved. 
  *
  * HISTORY
  *
@@ -42,22 +42,22 @@
 typedef unsigned char Byte ;
 #endif
 
-#if IOFIREWIREUSERCLIENTDEBUG
-	#define IOFireWireUserClientLog_(x) IOLog x
-	#define IOFireWireUserClientLogIfNil_(x, y) \
+#if IOFIREWIREUSERCLIENTDEBUG > 0
+	#define IOFireWireUserClientLog_(x...) IOLog(x)
+	#define IOFireWireUserClientLogIfNil_(x, y...) \
 	{ if ((void*)(x) == NULL) { IOFireWireUserClientLog_(y); } }
-	#define IOFireWireUserClientLogIfErr_(x, y) \
+	#define IOFireWireUserClientLogIfErr_(x, y...) \
 	{ if ((x) != 0) { IOFireWireUserClientLog_(y); } }
-	#define IOFireWireUserClientLogIfFalse_(x, y) \
+	#define IOFireWireUserClientLogIfFalse_(x, y...) \
 	{ if (!(x)) { IOFireWireUserClientLog_(y); } }
-	#define IOFireWireUserClientLogIfTrue_(x, y) \
+	#define IOFireWireUserClientLogIfTrue_(x, y...) \
 	{ if ((x)) { IOFireWireUserClientLog_(y) ; } }
 #else
-	#define IOFireWireUserClientLog_(x)
-	#define IOFireWireUserClientLogIfNil_(x, y)
-	#define IOFireWireUserClientLogIfErr_(x, y)
-	#define IOFireWireUserClientLogIfFalse_(x, y)
-	#define IOFireWireUserClientLogIfTrue_(x, y)
+	#define IOFireWireUserClientLog_(x...)
+	#define IOFireWireUserClientLogIfNil_(x, y...)
+	#define IOFireWireUserClientLogIfErr_(x, y...)
+	#define IOFireWireUserClientLogIfFalse_(x, y...)
+	#define IOFireWireUserClientLogIfTrue_(x, y...)
 #endif
 
 typedef struct AsyncRefHolder_t
@@ -86,14 +86,15 @@ class IOFireWireUserClient : public IOUserClient
 private:
     IOFireWireNub *			fOwner;
     task_t					fTask;
-    IOExternalMethod		fMethods[ kNumFireWireMethods ];
-    IOExternalAsyncMethod 	fAsyncMethods[ kNumFireWireAsyncMethods ];
+	IOExternalMethod		fMethods[ kNumFireWireMethods ];
+	IOExternalAsyncMethod 	fAsyncMethods[ kNumFireWireAsyncMethods ];
 
 	IOLock*					fSetLock ;
 
 	OSSet*					fUserPseudoAddrSpaces ;	// all user allocated pseudo address spaces
 	OSSet*					fUserPhysicalAddrSpaces ;
 	OSSet*					fUserUnitDirectories ;
+	OSSet*					fUserRemoteConfigDirectories ;
 	OSSet*					fUserIsochChannels ;
 	OSSet*					fUserIsochPorts ;
 	OSSet*					fUserCommandObjects ;
@@ -104,16 +105,21 @@ private:
 	OSAsyncReference		fBusResetDoneAsyncNotificationRef ;
 	IONotifier*				fNotifier ;
 	IOService*				fOpenClient ;
+	bool					fUnsafeResets ;
 
 public:
+    virtual void retain() const	;
     static IOFireWireUserClient*	withTask(
 											task_t 					owningTask);
  	virtual bool 					start(
-											IOService * provider );
+											IOService * 			provider );
+    virtual void stop( IOService * provider );
 	void							deallocateSets() ; 
 	virtual void					free() ;
     virtual IOReturn 				clientClose( void );
-    virtual IOReturn 				clientDied( void );
+    virtual IOReturn 				clientDied( void );	
+	virtual IOReturn				setProperties(
+											OSObject*				properties ) ;
 	const task_t					getOwningTask() const {return fTask;}
 	IOFireWireNub*					getOwner() const { return fOwner; }
 
@@ -126,6 +132,7 @@ public:
 	// --- open/close ----------
 	IOReturn						userOpen() ;
 	IOReturn						userOpenWithSessionRef(IOService*	session) ;
+	IOReturn						seize(IOOptionBits inFlags ) ;
 	IOReturn						userClose() ;
 	
 	// --- utils ----------
@@ -160,61 +167,20 @@ public:
 											OSObject* 				object, 
 											OSSet* 					set) ;
 
-	// --- read ----------------
-	virtual IOReturn				readQuad(
-											UInt64					addr,
-											UInt32					failOnReset,
-											UInt32					generation,
-											UInt32*					val) ;
-	virtual IOReturn				readQuadAbsolute(
-											UInt64					addr,
-											UInt32					failOnReset,
-											UInt32					generation,
-											UInt32*					val) ;
-    virtual IOReturn 				read(
-											FWReadWriteParams*		inParams,
-											UInt32*					outSize) ;
-    virtual IOReturn 				readAbsolute(
-											FWReadWriteParams* 		inParams,
-											UInt32*					outSize) ;
-	// --- write ----------
-    virtual IOReturn 				writeQuad(
-											UInt64					addr,
-											UInt32					val,
-											UInt32					failOnReset,
-											UInt32					generation) ;
-    virtual IOReturn 				writeQuadAbsolute(
-											UInt64					addr,
-											UInt32					val,
-											UInt32					failOnReset,
-											UInt32					generation) ;
-    virtual IOReturn 				write(
-											FWReadWriteParams* 		inParams,
-											UInt32*					outSize) ;
-    virtual IOReturn 				writeAbsolute(
-											FWReadWriteParams* 		inParams,
-											UInt32*					outSize) ;
-	// --- compare/swap ----------
-    virtual IOReturn 				compareSwap(
-											UInt64					addr,
-											UInt32 					cmpVal,
-											UInt32 					newVal,
-											UInt32					failOnReset,
-											UInt32					generation);
-    virtual IOReturn 				compareSwapAbsolute(
-											UInt64					addr,
-											UInt32 					cmpVal,
-											UInt32 					newVal,
-											UInt32					failOnReset,
-											UInt32					generation);
+	// --- read/write/lock ----------------
+	virtual IOReturn				readQuad( const FWReadQuadParams* inParams, UInt32* outVal ) ;
+	virtual IOReturn 				read( const FWReadParams* inParams, IOByteCount* outBytesTransferred ) ;
+    virtual IOReturn 				writeQuad( const FWWriteQuadParams* inParams ) ;
+    virtual IOReturn 				write( const FWWriteParams* inParams, IOByteCount* outBytesTransferred ) ;
+    virtual IOReturn 				compareSwap( const FWCompareSwapParams* inParams, UInt64* oldVal) ;
 
 	// --- other -----------------
     virtual IOReturn 				busReset();
 	virtual IOReturn				getGenerationAndNodeID(
 											UInt32*					outGeneration,
-											UInt16*					outNodeID) const ;
+											UInt32*					outNodeID) const ;
 	virtual IOReturn				getLocalNodeID(
-											UInt16*					outLocalNodeID) const ;
+											UInt32*					outLocalNodeID) const ;
 	virtual IOReturn				getResetTime(
 											AbsoluteTime*			outResetTime) const ;
     virtual IOReturn 				message(
@@ -266,12 +232,12 @@ public:
     // --- Address Spaces Methods ----------
 	//
 	virtual IOReturn				allocateAddressSpace(
-											FWAddrSpaceCreateParams*	inParams,
-											FWKernAddrSpaceRef* 		outKernAddrSpaceRef) ;
+											FWAddrSpaceCreateParams* inParams,
+											FWKernAddrSpaceRef* 	outKernAddrSpaceRef) ;
 	virtual IOReturn				releaseAddressSpace(
-											IOFWUserClientPseudoAddrSpace*	inAddrSpace) ;
+											FWKernAddrSpaceRef		inAddrSpace) ;
 	virtual IOReturn				getPseudoAddressSpaceInfo(
-											IOFWUserClientPseudoAddrSpace*	inAddrSpaceRef,
+											FWKernAddrSpaceRef		inAddrSpaceRef,
 											UInt32*					outNodeID,
 											UInt32*					outAddressHi,
 											UInt32*					outAddressLo) ;
@@ -324,8 +290,8 @@ public:
 	//	--- physical address space stuff ----------
 	//
 	virtual IOReturn				allocatePhysicalAddressSpace(
-											FWPhysicalAddrSpaceCreateParams* inParams,
-											FWKernPhysicalAddrSpaceRef* outKernAddrSpaceRef) ;
+											FWPhysicalAddrSpaceCreateParams* 	inParams,
+											FWKernPhysicalAddrSpaceRef* 		outKernAddrSpaceRef) ;
 	virtual IOReturn				releasePhysicalAddressSpace(
 											IOFWUserClientPhysicalAddressSpace*	inAddrSpace) ;
 	virtual IOReturn				getPhysicalAddressSpaceSegmentCount(
@@ -345,12 +311,6 @@ public:
 											FWUserCommandSubmitParams*	inParams,
 											IOFWUserCommand**			outCommand) ;
 	virtual IOReturn				userAsyncCommand_Submit(
-											OSAsyncReference			asyncRef,
-											FWUserCommandSubmitParams*	inParams,
-											FWUserCommandSubmitResult*	outResult,
-											IOByteCount					inParamsSize,
-											IOByteCount*				outResultSize) ;
-	virtual IOReturn				userAsyncCommand_SubmitAbsolute(
 											OSAsyncReference			asyncRef,
 											FWUserCommandSubmitParams*	inParams,
 											FWUserCommandSubmitResult*	outResult,
@@ -380,29 +340,21 @@ public:
     virtual IOReturn configDirectoryGetKeyValue_UInt32(
 							FWKernConfigDirectoryRef	inDirRef,
 							int							key,
+							UInt32						wantText,
 							UInt32*						outValue,
 							FWKernOSStringRef*			outString,
 							UInt32*						outStringLen);
-    virtual IOReturn configDirectoryGetKeyValue_Data(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							key,
-							FWKernOSDataRef*			outValue,
-							IOByteCount*				outDataSize,
-							FWKernOSStringRef*			outString,
-							UInt32*						outStringLen);
+    virtual IOReturn configDirectoryGetKeyValue_Data( FWKernConfigDirectoryRef inDirRef, int key, UInt32 wantText,
+							FWGetKeyValueDataResults* results ) ;
     virtual IOReturn configDirectoryGetKeyValue_ConfigDirectory(
 							FWKernConfigDirectoryRef	inDirRef,
 							int							key,
+							UInt32						wantText,
 							FWKernConfigDirectoryRef*	outValue,
 							FWKernOSStringRef*			outString,
 							UInt32*						outStringLen);
-    virtual IOReturn configDirectoryGetKeyOffset_FWAddress(
-							FWKernConfigDirectoryRef	inDirRef,
-							int							key,
-							UInt32*						addressHi,
-							UInt32*						addressLo,
-							FWKernOSStringRef*			outString,
-							UInt32*						outStringLen);
+    virtual IOReturn configDirectoryGetKeyOffset_FWAddress( FWKernConfigDirectoryRef inDirRef, int key, UInt32 wantText,
+							FWGetKeyOffsetResults* results ) ;
     virtual IOReturn configDirectoryGetIndexType(
 							FWKernConfigDirectoryRef	inDirRef,
 							int							index,
@@ -488,10 +440,12 @@ public:
 								FWKernIsochPortRef		inPortRef,
 								UInt32					inJumpDCLCompilerData,
 								UInt32					inLabelDCLCompilerData) ;
+	virtual IOReturn	localIsochPortModifyJumpDCLSize( FWKernIsochPortRef inPortRef, UInt32 inDCLCompilerData,
+								IOByteCount newSize ) ;
 	virtual IOReturn	setAsyncRef_DCLCallProc(
 								OSAsyncReference		asyncRef,
 								FWKernIsochPortRef		inPortRef,
-								DCLCallCommandProcPtr	inProc) ;
+								DCLCallCommandProcPtr	inProc ) ;
 	
 	//
 	// --- isoch channel ----------
@@ -537,8 +491,57 @@ public:
 
 	//
 	// --- statistics ----------
+	//
 	const IOFireWireUserClientStatistics*	
 						getStatistics()			{ return fStatistics ; }
+
+
+	//
+	// --- absolute address firewire commands ----------
+	//
+    IOFWReadCommand*				createReadCommand( 
+											UInt32				generation,
+											FWAddress 			devAddress, 
+											IOMemoryDescriptor*	hostMem,
+											FWDeviceCallback 	completion,
+											void *				refcon ) const ;
+    IOFWReadQuadCommand*			createReadQuadCommand(
+											UInt32				generation,
+											FWAddress 			devAddress, 
+											UInt32 *			quads, 
+											int 				numQuads,
+											FWDeviceCallback 	completion,
+											void *				refcon ) const ;
+    IOFWWriteCommand*				createWriteCommand( 
+											UInt32				generation,
+											FWAddress 			devAddress, 
+											IOMemoryDescriptor*	hostMem,
+											FWDeviceCallback 	completion,
+											void*				refcon ) const ;
+    IOFWWriteQuadCommand*			createWriteQuadCommand( 
+											UInt32				generation,
+											FWAddress 			devAddress, 
+											UInt32*				quads, 
+											int 				numQuads,
+											FWDeviceCallback 	completion,
+											void *				refcon ) const ;
+
+		// size is 1 for 32 bit compare, 2 for 64 bit.
+    IOFWCompareAndSwapCommand*		createCompareAndSwapCommand( 
+											UInt32				generation,
+											FWAddress 			devAddress,
+											const UInt32 *		cmpVal, 
+											const UInt32 *		newVal, 
+											int 				size,
+											FWDeviceCallback 	completion, 
+											void *				refcon ) const ;
+
+	IOReturn	firelog( const char* string, IOByteCount bufSize ) const ;
+	IOReturn 	getBusGeneration( UInt32* outGeneration ) ;
+	IOReturn 	getLocalNodeIDWithGeneration( UInt32 generation, UInt32* outLocalNodeID ) ;
+	IOReturn 	getRemoteNodeID( UInt32 generation, UInt32* outRemoteNodeID ) ;
+	IOReturn 	getSpeedToNode( UInt32 generation, UInt32* outSpeed ) ;
+	IOReturn 	getSpeedBetweenNodes( UInt32 generation, UInt32 fromNode, UInt32 toNode, UInt32* outSpeed ) ;
 
  protected:
 	IOFireWireUserClientStatistics*		fStatistics ;

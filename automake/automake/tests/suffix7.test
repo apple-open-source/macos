@@ -1,0 +1,25 @@
+#! /bin/sh
+
+# Test to make sure Automake supports implicit rules "confusing"
+# extensions.  Inspired by a mail from Alex Hornby. 
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+SUFFIXES = .idl S.cpp C.h
+SUFFIXES += C.cpp S.h
+.idlC.cpp:
+	cp $< $@
+END
+
+: > fooa
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+# Make sure Automake has NOT recognized .cpp and .idlC as two new
+# extensions.
+grep 'SUFFIXES.* \.cpp' Makefile.in && exit 1
+grep 'SUFFIXES.* \.idlC' Makefile.in && exit 1
+
+exit 0

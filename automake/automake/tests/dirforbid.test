@@ -1,0 +1,24 @@
+#! /bin/sh
+
+# All primaries cannot be used with all directories.
+# Automake should flag them as errors.
+# For PR/294
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in <<'END'
+AC_PROG_CC
+END
+
+# Try some (not all) disallowed variables
+for i in data_PROGRAMS lib_HEADERS ; do
+  cat > Makefile.am << END
+$i = foo
+END
+  $ACLOCAL
+  # This strange syntax works around NetBSD Problem Report #11542.
+  $AUTOMAKE -a && exit 1 || :
+done
+:

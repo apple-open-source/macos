@@ -1,0 +1,827 @@
+? pbxbuild.data/AppleADBMouse.build/PkgInfo
+Index: AppleADBMouse.cpp
+===================================================================
+RCS file: /cvs/Darwin/AppleADBMouse/AppleADBMouse.cpp,v
+retrieving revision 1.5.2.1
+retrieving revision 1.5.2.1.2.1
+diff -u -d -b -w -r1.5.2.1 -r1.5.2.1.2.1
+--- AppleADBMouse.cpp	2002/06/22 03:46:43	1.5.2.1
++++ AppleADBMouse.cpp	2002/07/02 03:34:22	1.5.2.1.2.1
+@@ -684,8 +684,10 @@
+         setProperty("USBMouseStopsTrackpad", (unsigned long long)(mode), sizeof(mode)*8);
+ 	if (mode)
+ 	{
++	    if ( ! _notifierA)
+ 	    _notifierA = addNotification( gIOFirstMatchNotification, serviceMatching( "IOUSBHIDDriver" ), 
+                      (IOServiceNotificationHandler)check_usb_mouse, this, 0 ); 
++	    if (! _notifierT)
+ 	    _notifierT = addNotification( gIOTerminatedNotification, serviceMatching( "IOUSBHIDDriver" ), 
+                      (IOServiceNotificationHandler)check_usb_mouse, this, 0 ); 
+ 	    //The same C function can handle both firstmatch and termination notifications
+Index: AppleADBMouse.pbproj/project.pbxproj
+===================================================================
+RCS file: /cvs/Darwin/AppleADBMouse/AppleADBMouse.pbproj/project.pbxproj,v
+retrieving revision 1.9.2.1
+retrieving revision 1.9.2.1.2.1
+diff -u -d -b -w -r1.9.2.1 -r1.9.2.1.2.1
+--- project.pbxproj	2002/06/22 03:46:44	1.9.2.1
++++ project.pbxproj	2002/07/02 03:34:23	1.9.2.1.2.1
+@@ -14,6 +14,7 @@
+ 			isa = PBXShellScriptBuildPhase;
+ 			neededFileNames = (
+ 			);
++			runOnlyForDeploymentPostprocessing = 0;
+ 			shellPath = /bin/sh;
+ 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+ 		};
+@@ -45,6 +46,7 @@
+ 			isa = PBXShellScriptBuildPhase;
+ 			neededFileNames = (
+ 			);
++			runOnlyForDeploymentPostprocessing = 0;
+ 			shellPath = /bin/sh;
+ 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+ 		};
+@@ -98,7 +100,7 @@
+ 				LIBRARY_SEARCH_PATHS = "";
+ 				MODULE_IOKIT = YES;
+ 				MODULE_NAME = com.apple.driver.AppleADBMouse;
+-				MODULE_VERSION = 2.0.5d2;
++				MODULE_VERSION = 2.0.5d3;
+ 				OTHER_CFLAGS = "";
+ 				OTHER_LDFLAGS = "";
+ 				OTHER_REZFLAGS = "";
+@@ -137,7 +139,7 @@
+ 	<key>CFBundleSignature</key>
+ 	<string>????</string>
+ 	<key>CFBundleVersion</key>
+-	<string>2.0.5d2</string>
++	<string>2.0.5d3</string>
+ 	<key>IOKitPersonalities</key>
+ 	<dict>
+ 		<key>AppleADBMouseType1</key>
+@@ -239,6 +241,7 @@
+ 				1A224C40FF42367911CA2CB7,
+ 			);
+ 			isa = PBXHeadersBuildPhase;
++			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+ 		089C1675FE841209C02AAC07 = {
+ 			buildActionMask = 2147483647;
+@@ -246,6 +249,7 @@
+ 				089C1680FE841241C02AAC07,
+ 			);
+ 			isa = PBXResourcesBuildPhase;
++			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+ 		089C1676FE841209C02AAC07 = {
+ 			buildActionMask = 2147483647;
+@@ -253,18 +257,21 @@
+ 				1A224C41FF42367911CA2CB7,
+ 			);
+ 			isa = PBXSourcesBuildPhase;
++			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+ 		089C1677FE841209C02AAC07 = {
+ 			buildActionMask = 2147483647;
+ 			files = (
+ 			);
+ 			isa = PBXFrameworksBuildPhase;
++			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+ 		089C1679FE841209C02AAC07 = {
+ 			buildActionMask = 2147483647;
+ 			files = (
+ 			);
+ 			isa = PBXRezBuildPhase;
++			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+ 		089C167CFE841241C02AAC07 = {
+ 			children = (
+Index: English.lproj/InfoPlist.strings
+===================================================================
+RCS file: /cvs/Darwin/AppleADBMouse/English.lproj/InfoPlist.strings,v
+retrieving revision 1.4.2.1
+retrieving revision 1.4.2.1.2.1
+diff -u -d -b -w -r1.4.2.1 -r1.4.2.1.2.1
+Binary files /tmp/cvs006400 and /tmp/cvsa06400 differ
+Index: pbxbuild.data/ProjectBuilderJambase
+===================================================================
+RCS file: /cvs/Darwin/AppleADBMouse/pbxbuild.data/ProjectBuilderJambase,v
+retrieving revision 1.2.2.1
+retrieving revision 1.2.2.1.2.1
+diff -u -d -b -w -r1.2.2.1 -r1.2.2.1.2.1
+--- ProjectBuilderJambase	2002/06/22 03:46:45	1.2.2.1
++++ ProjectBuilderJambase	2002/07/02 03:34:24	1.2.2.1.2.1
+@@ -107,7 +107,7 @@
+ 
+ # language-independent code generation settings
+        deferred OPTIMIZATION_LEVEL = 0 ;
+-       deferred OPTIMIZATION_CFLAGS = -O ;
++       deferred OPTIMIZATION_CFLAGS = -Os ;
+        deferred DEBUGGING_SYMBOLS = YES ;
+        deferred PROFILING_CODE = NO ;
+        deferred PREBINDING = YES ;
+@@ -249,6 +249,7 @@
+ CHMOD		default = /bin/chmod ;
+ CHOWN		default = /usr/sbin/chown ;
+ CP		default = /bin/cp ;
++DITTO		default = /usr/bin/ditto ;
+ ECHO            default = echo ;
+ EGREP		default = /usr/bin/egrep ;
+ FASTCP		default = /usr/lib/fastcp ;
+@@ -277,6 +278,7 @@
+ OSAL		default = /usr/bin/osalang ;
+ OSAS		default = /usr/bin/osascript ;
+ PAX		default = /bin/pax ;
++PBXCP		default = $(SYSTEM_DEVELOPER_TOOLS)/pbxcp ;
+ RANLIB		default = /usr/bin/ranlib ;
+ REGGEN		default = reggen ;
+ RESMERGER	default = $(SYSTEM_DEVELOPER_TOOLS)/ResMerger ;
+@@ -335,8 +337,10 @@
+ # Link target is treated as a nonfile to preserve the value
+ rule SymLink
+ {
++    if ! $(2) in $(PRODUCT_FILES) && $(2) != $(PRODUCT_CLASS_FILE_DIR) {
+     NOTFILE $(2) ;
+ }
++}
+ actions SymLink
+ {
+     $(LN) -sf "$(2)" "$(1)"
+@@ -626,6 +630,51 @@
+     $(CP) "$(CPFLAGS)" "$_source" "$(1)"
+ }
+ 
++# PBXCp <destination-file> : <source-file>
++# Reliably copies files only.  Does not currently respect Mac OS
++# Finder info or resource forks, but it does skip CVS directories
++# and it does optionally strip Mach-O executables.
++# Leaf names of the source and destination are expected to match.
++rule PBXCp
++{
++    if $(ACTION) != installhdrs {
++        DEPENDS $(1) : $(2) ;
++    }
++    PBXCP_FLAGS on $(1) = ;
++    VERBOSE_PBXCP default = NO ;
++    if $(VERBOSE_PBXCP) = YES {
++        PBXCP_FLAGS on $(1) += -V ;
++    }
++    PBXCP_FLAGS on $(1) += -exclude .DS_Store ;
++    if $(REMOVE_CVS_FROM_RESOURCES) = YES {
++        PBXCP_FLAGS on $(1) += -exclude CVS ;
++    }
++    if $(COPY_PHASE_STRIP) = YES  &&  $(ACTION) != installhdrs {
++        PBXCP_FLAGS on $(1) += -strip-debug-symbols ;
++    }
++    # Because any content copied may have been generated, and so may be
++    # in the form of a symlink to the actual content, it is necessary
++    # to resolve one level of symbolic link for all sources copied.
++    PBXCP_FLAGS on $(1) += -resolve-src-symlinks ;
++
++    PBXCp.CopyToDirectory $(1) : $(2) ;
++}
++actions together piecemeal updated PBXCp.CopyToDirectory
++{
++    $(PBXCP) $(PBXCP_FLAGS:Q) $(2:Q) $(1:DQ)
++}
++
++# Ditto <destination> : <source>
++# Directory to directory copies.
++rule Ditto
++{
++    DEPENDS $(1) : $(2) ;
++}
++actions Ditto
++{
++    $(DITTO) $(2:Q) $(1:Q)
++}
++
+ # RobustCp <destination> : <source>
+ # RobustCp is like Cp, but is made more robust by first removing
+ # any previous copy results and then conditionally removing CVS
+@@ -1280,7 +1329,7 @@
+ # Linking, class archive generation, and related operations:
+ #
+ # Variables used by linking operations:
+-# FLAGS.o of target, LDFLAGS, OTHER_LDFLAGS,
++# FLAGS.o of target, LDFLAGS, SECTORDER_FLAGS
+ # LIBRARY_SEARCH_PATHS, FRAMEWORK_SEARCH_PATHS,
+ # and optionally LINK_FILE_LIST and INIT_ROUTINE
+ 
+@@ -1318,18 +1367,18 @@
+ # Use jar command to generate an archive
+ # from the class file list after removing "./" from each file path
+ actions ClassArchive.jarArchive {
+-    cd "$(2)" && $(JAR) $(JARFLAGS) $(OTHER_JARFLAGS) "$(JAVA_MANIFEST_FILE)" "$(1)" .
++    cd "$(2)" && $(MKDIR) -p "$(1:D)" && $(JAR) $(JARFLAGS) $(OTHER_JARFLAGS) "$(JAVA_MANIFEST_FILE)" "$(1)" .
+ }
+ # Use zip command to generate an archive
+ # from the class file list after removing "./" from each file path
+ actions ClassArchive.zipArchive {
+-    cd "$(2)" && $(ZIP) $(ZIPFLAGS) $(OTHER_ZIPFLAGS) "$(1)" .
++    cd "$(2)" && $(MKDIR) -p "$(1:D)" && $(ZIP) $(ZIPFLAGS) $(OTHER_ZIPFLAGS) "$(1)" .
+ }
+ 
+ # Bulk copy of class files
+ # ClassCopy <product class file dir> : <compiled class file dir>
+ actions ClassCopy {
+-    mkdir -p "$(1:G=)" && cd "$(2:G=)" && $(PAX) -pe -rw . "$(1:G=)"
++    $(MKDIR) -p "$(1:G=)" && cd "$(2:G=)" && $(PAX) -pe -rw . "$(1:G=)"
+ }
+ 
+ # Unarchive <location> : <archive>
+@@ -1550,7 +1599,7 @@
+ {
+     LIBRARY_SEARCH_PATHS on $(1) = $(LIBRARY_SEARCH_PATHS) ;
+     ProcessLink $(1) : $(2) : StaticLibrary ;
+-    FLAGS.o on $(1) = $(LDFLAGS) $(SECTORDER_FLAGS) $(OTHER_LDFLAGS) ;
++    FLAGS.o on $(1) = $(LDFLAGS) $(SECTORDER_FLAGS) ;
+ }
+ actions together StaticLibrary
+ {
+@@ -1575,7 +1624,7 @@
+     ProcessLink $(1) : $(2) ;
+     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
+     LIBRARY_SEARCH_PATHS on $(1) = $(LIBRARY_SEARCH_PATHS) ;
+-    FLAGS.o on $(1) = $(ARCH_FLAGS) $(LDFLAGS) $(SECTORDER_FLAGS) $(OTHER_LDFLAGS) ;
++    FLAGS.o on $(1) = $(ARCH_FLAGS) $(LDFLAGS) $(SECTORDER_FLAGS) ;
+     if $(INIT_ROUTINE) {
+         FLAGS.o on $(1) += -init $(INIT_ROUTINE) ;
+     }
+@@ -1604,7 +1653,7 @@
+     LIBRARY_SEARCH_PATHS on $(1) = $(LIBRARY_SEARCH_PATHS) ;
+     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
+     ProcessLink $(1) : $(2) : DynamicLibrary ;
+-    FLAGS.o on $(1) = $(ARCH_FLAGS) $(LDFLAGS) $(SECTORDER_FLAGS) $(OTHER_LDFLAGS) ;
++    FLAGS.o on $(1) = $(ARCH_FLAGS) $(LDFLAGS) $(SECTORDER_FLAGS) ;
+     if $(INIT_ROUTINE) {
+         FLAGS.o on $(1) += -init $(INIT_ROUTINE) ;
+     }
+@@ -1815,14 +1864,15 @@
+ # Also be sure to the FRAMEWORK_INSTALL_NAME variable on the <framework stub>
+ actions GenerateFrameworkStub
+ {
+-    $(MKDIR) -p "$(DERIVED_FILE_DIR)"
++    $(MKDIR:Q) -p $(DERIVED_FILE_DIR:Q)
+     dummy_class_name=`echo -n $(1:B) | tr -c '[:alnum:]' '_'`
+-    $(ECHO) "@interface NSFramework_${dummy_class_name}" > "$(DERIVED_FILE_DIR)/framework_stub.m"
+-    $(ECHO) "@end" >> "$(DERIVED_FILE_DIR)/framework_stub.m"
+-    $(ECHO) "@implementation NSFramework_${dummy_class_name}" >> "$(DERIVED_FILE_DIR)/framework_stub.m"
+-    $(ECHO) "@end" >> "$(DERIVED_FILE_DIR)/framework_stub.m"
+-    $(CC) -c "$(DERIVED_FILE_DIR)/framework_stub.m" -o "$(DERIVED_FILE_DIR)/framework_stub.o"
+-    $(_LD_FOR_LINKING) -dynamiclib $(DYLIB_VERSION_FLAGS) $(INSTALLED_NAME_FLAG) $(DYLIB_VERSION_FLAGS) "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "$(DynamicLibrary.ARGUMENTS)" "$(DERIVED_FILE_DIR)/framework_stub.o" -o "$(1)"
++    $(ECHO:Q) "@interface NSFramework_${dummy_class_name}" > $(DERIVED_FILE_DIR:Q)/framework_stub.m
++    $(ECHO:Q) "@end" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
++    $(ECHO:Q) "@implementation NSFramework_${dummy_class_name}" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
++    $(ECHO:Q) "@end" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
++    $(CC:Q) -c $(DERIVED_FILE_DIR:Q)/framework_stub.m -o $(DERIVED_FILE_DIR:Q)/framework_stub.o
++    $(_LD_FOR_LINKING:Q) -dynamiclib $(INSTALLED_NAME_FLAG) $(DYLIB_VERSION_FLAGS:Q) -L$(LIBRARY_SEARCH_PATHS:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) $(DynamicLibrary.ARGUMENTS:Q) $(DERIVED_FILE_DIR:Q)/framework_stub.o -o $(1:Q)
++    $(STRIP:Q) $(STRIPFLAGS:Q) $(1:Q)
+ }
+ # Copyright (c) 1999-2002 Apple Computer, Inc.
+ # All rights reserved.
+@@ -1844,7 +1894,7 @@
+ _BUILD_PHASING default = YES ;
+ export INSTALL_OWNER default = $(USER) ;
+ export INSTALL_GROUP default = $(GROUP) ;
+-export INSTALL_MODE_FLAG default = "a-w,a+rX" ;
++export INSTALL_MODE_FLAG default = "ugo-w,o+rX" ;
+ export FRAMEWORK_VERSION default = "A" ;
+ REMOVE_CVS_FROM_RESOURCES default = YES ;
+ COPY_PHASE_STRIP default = NO ;
+@@ -1874,12 +1924,13 @@
+ 
+ # These default flags probably shouldn't be overridden by users.
+ JAVAC_DEFAULT_FLAGS default = -J-Xms64m -J-XX:NewSize=4M -J-Dfile.encoding=UTF8 ;
+-JIKES_DEFAULT_FLAGS default = +E -OLDCSO ;
++JIKES_DEFAULT_FLAGS default = +E +OLDCSO ;
+ 
+ # Default variants and flags
+ # !!!:cmolick:20020226 using all three is an interesting test case
+ # BUILD_VARIANTS default = normal debug profile ;
+ BUILD_VARIANTS default = normal ;
++_BUILD_PHASES = ;
+ cc_normal_FLAGS default = ;
+ cc_debug_FLAGS default = -g ;
+ cc_profile_FLAGS default = -pg ;
+@@ -1989,7 +2040,7 @@
+         }
+     }
+     # Set reasonable optimization flags for installs if not already set
+-    OPTIMIZATION_CFLAGS default = -O ;
++    OPTIMIZATION_CFLAGS default = -Os ;
+     # C++ options match C options by default
+     OTHER_CPLUSPLUSFLAGS default = $(OTHER_CFLAGS) ;
+     WARNING_CPLUSPLUSFLAGS default = $(WARNING_CFLAGS) ;
+@@ -2094,7 +2145,7 @@
+          && $(PRODUCT_TYPE) != Library {
+             # Use WRAPPER when defined for bundle product
+             _INSTALLED_PRODUCT = $(TARGET_BUILD_DIR)$(/)$(WRAPPER) ;
+-            _PRODUCT_REFERENCE default = $(BUILT_PRODUCTS_DIR:G=ProductLink)$(/)$(WRAPPER) ;
++            _PRODUCT_REFERENCE default = $(BUILT_PRODUCTS_DIR:G=ProductRef)$(/)$(WRAPPER) ;
+             #!!!:cmolick:20020517:this may be bad for non-deployment location
+             if $(DEPLOYMENT_POSTPROCESSING) = YES {
+                 SetModeOwnerAndGroup $(_INSTALLED_PRODUCT:G=ModeOwnerGroup) : $(_INSTALLED_PRODUCT) ;
+@@ -2107,7 +2158,7 @@
+             if $(1:G=) {
+                 # Use nonempty, ungristed primary target for tool or library product
+                 _INSTALLED_PRODUCT = $(TARGET_BUILD_DIR)$(/)$(1:G=) ;
+-                _PRODUCT_REFERENCE default = $(BUILT_PRODUCTS_DIR:G=ProductLink)$(/)$(1:G=) ;
++                _PRODUCT_REFERENCE default = $(BUILT_PRODUCTS_DIR:G=ProductRef)$(/)$(1:G=) ;
+                 SymLink $(_PRODUCT_REFERENCE) : $(_INSTALLED_PRODUCT) ;
+                 DEPENDS $(_PRODUCT_REFERENCE) : $(BUILT_PRODUCTS_DIR) ;
+                 DEPENDS $(1) : $(_PRODUCT_REFERENCE) ;
+@@ -2158,7 +2209,7 @@
+     # Set up post-phase processing
+     if $(POST_PHASE_PRODUCTS) {
+         DEPENDS $(1) : $(POST_PHASE_PRODUCTS) ;
+-        DEPENDS $(POST_PHASE_PRODUCTS) : $(BUILD_PHASES) ;
++        DEPENDS $(POST_PHASE_PRODUCTS) : $(_BUILD_PHASES) ;
+     }
+     # Alternative catch-all mechanism to set mode and ownership of files
+     # that for some reason require this post build processing.
+@@ -2168,17 +2219,14 @@
+         ALTERNATE_PERMISSIONS_TARGET = $(ALTERNATE_PERMISSIONS_FILE:G=AlternatePermissions) ;
+         NOTFILE $(ALTERNATE_PERMISSIONS_TARGET) ;
+         DEPENDS $(1) : $(ALTERNATE_PERMISSIONS_TARGET) ;
+-        DEPENDS $(ALTERNATE_PERMISSIONS_TARGET) : $(BUILD_PHASES) ;
++        DEPENDS $(ALTERNATE_PERMISSIONS_TARGET) : $(_BUILD_PHASES) ;
+         if $(ALTERNATE_MODE) {
+-            INSTALL_MODE_FLAG = $(ALTERNATE_MODE) ;
+             INSTALL_MODE_FLAG on $(ALTERNATE_PERMISSIONS_TARGET) = $(ALTERNATE_MODE) ;
+         }
+         if $(ALTERNATE_OWNER) {
+-            INSTALL_OWNER = $(ALTERNATE_OWNER) ;
+             INSTALL_OWNER on $(ALTERNATE_PERMISSIONS_TARGET) = $(ALTERNATE_OWNER) ;
+         }
+         if $(ALTERNATE_GROUP) {
+-            INSTALL_GROUP = $(ALTERNATE_GROUP) ;
+             INSTALL_GROUP on $(ALTERNATE_PERMISSIONS_TARGET) = $(ALTERNATE_GROUP) ;
+         }
+         SetModeOwnerAndGroup $(ALTERNATE_PERMISSIONS_TARGET) : $(ALTERNATE_PERMISSIONS_FILE_PATH) ;
+@@ -2204,16 +2252,18 @@
+ # 
+ rule BeginWrappedProduct
+ {
+-    # set up the basic product variables
+-    BeginProduct $(1) ;
+     # define wrapper using appropriate extension and suffix
+-    WRAPPER = $(1:G=) ;
+     if $(WRAPPER_EXTENSION) {
+         WRAPPER_SUFFIX = .$(WRAPPER_EXTENSION) ;
+     }
+     if $(WRAPPER_SUFFIX) {
+-        WRAPPER = $(WRAPPER:S=$(WRAPPER_SUFFIX)) ;
++        WRAPPER = $(1:G=:S=$(WRAPPER_SUFFIX)) ;
+     }
++    else {
++        WRAPPER = $(1:G=) ;
++    }
++    # set up the basic product variables
++    BeginProduct $(1) ;
+     # define and create wrapper and make primary nonfile target depend on it
+     LOCATE on $(WRAPPER) = $(TARGET_BUILD_DIR) ;
+     Mkdir $(WRAPPER) ;
+@@ -2538,6 +2588,9 @@
+ .applescript_RULE	= ProcessAppleScript ;
+ .s_RULE		= ProcessC ;
+ .c_RULE		= ProcessC ;
++.adb_RULE	= ProcessC ; # unsupported
++.ads_RULE	= ProcessC ; # unsupported
++.f_RULE		= ProcessC ; # unsupported
+ .C_RULE		= ProcessCplusplus ;
+ .cc_RULE	= ProcessCplusplus ;
+ .cp_RULE	= ProcessCplusplus ;
+@@ -2609,7 +2662,7 @@
+ rule BuildPhase
+ {
+     # retain a list of all phases
+-    BUILD_PHASES += $(1) ;
++    _BUILD_PHASES += $(1) ;
+     # retain name for action echo
+     PHASE_NAME on $(1) = $(1:G) ;
+     # this build phase depends on the previous phase
+@@ -2955,12 +3008,20 @@
+                 if headers in $(BUILD_COMPONENTS) {
+                     if $(PUBLIC_HEADER_DIR) {
+                         local HEADER_COPY = $(PUBLIC_HEADER_DIR)$(/)$(2:BS:G=) ;
+-                        Cp $(HEADER_COPY) : $(2) ;
++                        #DEPENDS $(PUBLIC_HEADER_DIR:G=populated) : $(2) ;
++                        #PBXCp $(PUBLIC_HEADER_DIR:G=populated) : $(2) ;
++                        #ProductFile $(PUBLIC_HEADER_DIR:G=populated) ;
++                        DEPENDS $(HEADER_COPY) : $(2) ;
++                        PBXCp $(HEADER_COPY) : $(2) ;
+                         ProductFile $(HEADER_COPY) ;
+                         if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
+                             ASIDE_HEADER_COPY = $(HEADER_COPY:G=aside) ;
+-                            Cp $(ASIDE_HEADER_COPY) : $(2) ;
+-                            ProductFile $(ASIDE_HEADER_COPY) ;
++                            #DEPENDS $(ASIDE_PUBLIC_HEADER_DIR:G=aside-populated) : $(2) ;
++                            #PBXCp $(ASIDE_PUBLIC_HEADER_DIR:G=aside-populated) : $(2) ;
++                            #ProductFileAside $(ASIDE_PUBLIC_HEADER_DIR:G=aside-populated) ;
++                            DEPENDS $(ASIDE_HEADER_COPY) : $(2) ;
++                            PBXCp $(ASIDE_HEADER_COPY) : $(2) ;
++                            ProductFileAside $(ASIDE_HEADER_COPY) ;
+                         }
+                     }
+                     else {
+@@ -3000,11 +3061,19 @@
+                 if headers in $(BUILD_COMPONENTS) {
+                     if $(PRIVATE_HEADER_DIR) {
+                         local HEADER_COPY = $(PRIVATE_HEADER_DIR)$(/)$(2:BS:G=) ;
+-                        Cp $(HEADER_COPY) : $(2) ;
++                        #DEPENDS $(PRIVATE_HEADER_DIR:G=populated) : $(2) ;
++                        #PBXCp $(PRIVATE_HEADER_DIR:G=populated) : $(2) ;
++                        #ProductFile $(PRIVATE_HEADER_DIR:G=populated) ;
++                        DEPENDS $(HEADER_COPY) : $(2) ;
++                        PBXCp $(HEADER_COPY) : $(2) ;
+                         ProductFile $(HEADER_COPY) ;
+                         if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
+                             ASIDE_HEADER_COPY = $(HEADER_COPY:G=aside) ;
+-                            Cp $(ASIDE_HEADER_COPY) : $(2) ;
++                            #DEPENDS $(ASIDE_PRIVATE_HEADER_DIR:G=aside-populated) : $(2) ;
++                            #PBXCp $(ASIDE_PRIVATE_HEADER_DIR:G=aside-populated) : $(2) ;
++                            #ProductFileAside $(ASIDE_PRIVATE_HEADER_DIR:G=aside-populated) ;
++                            DEPENDS $(ASIDE_HEADER_COPY) : $(2) ;
++                            PBXCp $(ASIDE_HEADER_COPY) : $(2) ;
+                             ProductFileAside $(ASIDE_HEADER_COPY) ;
+                         }
+                     }
+@@ -3037,6 +3106,14 @@
+     }
+     else {
+         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;    # We must compile with the extension-specific build flags
++        if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
++            USE_DYNAMIC_NO_PIC default = YES ;
++        } else {
++            USE_DYNAMIC_NO_PIC default = NO ;
++        }
++        if $(USE_DYNAMIC_NO_PIC) = YES {
++            FLAGS on $(1) += -mdynamic-no-pic ;
++        }
+         FLAGS on $(1) += $(OTHER_CFLAGS) ;
+     }
+     FLAGS on $(1) += -pipe ;
+@@ -3095,12 +3172,23 @@
+         if $(ARCH) in ppc {
+             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
+         }
++        if $(MODULE_IOKIT) = YES {
++            KERNEL_COMPILE_OPTIONS += -fapple-kext ;
++        }
+         local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
+         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) $(OTHER_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
+         GLOBAL_CFLAGS on $(1) = ;
+     }
+     else {
+         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;    # We must compile with the extension-specific build flags
++        if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
++            USE_DYNAMIC_NO_PIC default = YES ;
++        } else {
++            USE_DYNAMIC_NO_PIC default = NO ;
++        }
++        if $(USE_DYNAMIC_NO_PIC) = YES {
++            FLAGS on $(1) += -mdynamic-no-pic ;
++        }
+         FLAGS on $(1) += $(OTHER_CFLAGS) ;
+     }
+     FLAGS on $(1) += -pipe ;
+@@ -3134,7 +3222,7 @@
+ }
+ actions MakePFEFile
+ {
+-    for c_dialect in $(PFE_FILE_C_DIALECTS) ; do $(CC:Q) -c -x ${c_dialect} -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) "$(FLAGS)" $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) $(OTHER_PRECOMP_CFLAGS:Q) $(2:Q) -o /tmp/.null.o --dump-pch $(1:Q) ; if [ $? != 0 ] ; then exit 1 ; fi ; done
++    for c_dialect in $(PFE_FILE_C_DIALECTS) ; do dummy_file=`mktemp /tmp/.null-XXXXXXXX`; $(CC:Q) -c -x ${c_dialect} -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) "$(FLAGS)" $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) $(OTHER_PRECOMP_CFLAGS:Q) $(2:Q) -o ${dummy_file} --dump-pch $(1:Q) ; exit_code=$? ; rm ${dummy_file} ; if [ ${exit_code} != 0 ] ; then exit ${exit_code} ; fi ; done
+ }
+ 
+ 
+@@ -3278,7 +3366,7 @@
+             }
+             # development settings property list
+             # This plist gets copied into the bundle if we are doing a development build or removed from the symroot otherwise.  Right now, "development build" means that the ACTION is "build" (as opposed to "install").
+-            if $(_PBDEVELOPMENT_FILE_LIST_PATH)
++            if $(DEVELOPMENT_SETTINGS_PATH)
+              && $(PURE_JAVA) != YES && $(ACTION) = build {
+                 # if available and not pure java
+                 if $(PRODUCT_TYPE) = Framework {
+@@ -3326,7 +3414,7 @@
+                     }
+                     DEPENDS $(DEVELOPMENT_PLIST_FILE) : $(DEVELOPMENT_PLIST_DIR) ;
+                 }
+-                Cp $(DEVELOPMENT_PLIST_FILE) : $(_DEVELOPMENT_PLIST_FILE_PATH) ;
++                Cp $(DEVELOPMENT_PLIST_FILE) : $(DEVELOPMENT_SETTINGS_PATH) ;
+                 ProductFile $(DEVELOPMENT_PLIST_FILE) ;
+                 if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
+                     ASIDE_DEVELOPMENT_PLIST_FILE default = $(DEVELOPMENT_PLIST_FILE:G=aside) ;
+@@ -3445,13 +3533,19 @@
+                 }
+             }
+             NONLOCALIZED_RESOURCE = $(NONLOCALIZED_RESOURCE_DIR)$(/)$(2:BS) ;
+-            DEPENDS $(NONLOCALIZED_RESOURCE) : $(NONLOCALIZED_RESOURCE_DIR) ;
+-            RobustCp $(NONLOCALIZED_RESOURCE) : $(2) ;
++            #DEPENDS $(NONLOCALIZED_RESOURCE_DIR:G=populated) : $(2) ;
++            #PBXCp $(NONLOCALIZED_RESOURCE_DIR:G=populated) : $(2) ;
++            #ProductFile $(NONLOCALIZED_RESOURCE_DIR:G=populated) ;
++            DEPENDS $(NONLOCALIZED_RESOURCE) : $(2) ;
++            PBXCp $(NONLOCALIZED_RESOURCE) : $(2) ;
+             ProductFile $(NONLOCALIZED_RESOURCE) ;
+             if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
+                 ASIDE_NONLOCALIZED_RESOURCE = $(NONLOCALIZED_RESOURCE:G=aside) ;
+-                DEPENDS $(ASIDE_NONLOCALIZED_RESOURCE) : $(ASIDE_NONLOCALIZED_RESOURCE_DIR) ;
+-                RobustCp $(ASIDE_NONLOCALIZED_RESOURCE) : $(2) ;
++                #DEPENDS $(ASIDE_NONLOCALIZED_RESOURCE_DIR:G=aside-populated) : $(2) ;
++                #PBXCp $(ASIDE_NONLOCALIZED_RESOURCE_DIR:G=aside-populated) : $(2) ;
++                #ProductFileAside $(ASIDE_NONLOCALIZED_RESOURCE_DIR:G=aside-populated) ;
++                DEPENDS $(ASIDE_NONLOCALIZED_RESOURCE) : $(2) ;
++                PBXCp $(ASIDE_NONLOCALIZED_RESOURCE) : $(2) ;
+                 ProductFileAside $(ASIDE_NONLOCALIZED_RESOURCE) ;
+             }
+         } else for SPECIFIC_REGION in $(REGION) {
+@@ -3471,13 +3565,19 @@
+                 }
+             }
+             LOCALIZED_RESOURCE = $(LOCALIZED_RESOURCE_DIR)$(/)$(2:BS) ;
+-            DEPENDS $(LOCALIZED_RESOURCE) : $(LOCALIZED_RESOURCE_DIR) ;
+-            RobustCp $(LOCALIZED_RESOURCE) : $(2) ;
++            #DEPENDS $(LOCALIZED_RESOURCE_DIR:G=populated) : $(2) ;
++            #PBXCp $(LOCALIZED_RESOURCE_DIR:G=populated) : $(2) ;
++            #ProductFile $(LOCALIZED_RESOURCE_DIR:G=populated) ;
++            DEPENDS $(LOCALIZED_RESOURCE) : $(2) ;
++            PBXCp $(LOCALIZED_RESOURCE) : $(2) ;
+             ProductFile $(LOCALIZED_RESOURCE) ;
+             if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
+                 ASIDE_LOCALIZED_RESOURCE = $(LOCALIZED_RESOURCE:G=aside) ;
+-                DEPENDS $(ASIDE_LOCALIZED_RESOURCE) : $(ASIDE_LOCALIZED_RESOURCE_DIR) ;
+-                RobustCp $(ASIDE_LOCALIZED_RESOURCE) : $(2) ;
++                #DEPENDS $(ASIDE_LOCALIZED_RESOURCE_DIR:G=aside-populated) : $(2) ;
++                #PBXCp $(ASIDE_LOCALIZED_RESOURCE_DIR:G=aside-populated) : $(2) ;
++                #ProductFileAside $(ASIDE_LOCALIZED_RESOURCE_DIR:G=aside-populated) ;
++                DEPENDS $(ASIDE_LOCALIZED_RESOURCE) : $(2) ;
++                PBXCp $(ASIDE_LOCALIZED_RESOURCE) : $(2) ;
+                 ProductFileAside $(ASIDE_LOCALIZED_RESOURCE) ;
+             }
+         }
+@@ -3824,6 +3924,11 @@
+                 FLAGS.o on $(INNER_PRODUCT_$(VARIANT)) += -static -nostdlib -r -lkmodc++ "$(MODULE_OBJECT_PATH)" -lkmod -lcc_kext ;
+             }
+             else {
++                if $(PREBINDING) = YES
++                 && $(PRODUCT_TYPE) != Bundle
++                 && ! ( $(PRODUCT_TYPE) = Library && ( $(LIBRARY_STYLE) = BUNDLE || $(LIBRARY_STYLE) = STATIC ) ) {
++                    FLAGS.o on $(INNER_PRODUCT_$(VARIANT)) += -prebind ;
++                }
+                 if $(PRODUCT_TYPE) = Bundle
+                  || ( $(PRODUCT_TYPE) = Library && $(LIBRARY_STYLE) = BUNDLE ) {
+                     FLAGS.o on $(INNER_PRODUCT_$(VARIANT)) += -bundle ;
+@@ -3853,7 +3958,12 @@
+                     }
+                 }
+             }
++            # other link options
++            OTHER_LDFLAGS_$(VARIANT) default = $(OTHER_LDFLAGS) ;
++            if $(OTHER_LDFLAGS_$(VARIANT)) {
++                FLAGS.o on $(INNER_PRODUCT_$(VARIANT)) += $(OTHER_LDFLAGS_$(VARIANT)) ;
+         }
++        }
+         else {
+             # no object files present, indicating pure Java
+             if $(PRODUCT_TYPE) = Framework {
+@@ -3871,16 +3981,16 @@
+                 }
+                 ProductFile $(INNER_PRODUCT_$(VARIANT)) ;
+                 if $(DYLIB_COMPATIBILITY_VERSION) {
+-                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT) += -compatibility_version "$(DYLIB_COMPATIBILITY_VERSION)" ;
++                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT_$(VARIANT)) += -compatibility_version "$(DYLIB_COMPATIBILITY_VERSION)" ;
+                 }
+                 else {
+-                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT) += -compatibility_version 1 ;
++                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT_$(VARIANT)) += -compatibility_version 1 ;
+                 }
+                 if $(DYLIB_CURRENT_VERSION) {
+-                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT) += -current_version "$(DYLIB_CURRENT_VERSION)" ;
++                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT_$(VARIANT)) += -current_version "$(DYLIB_CURRENT_VERSION)" ;
+                 }
+                 else {
+-                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT) += -current_version 1 ;
++                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT_$(VARIANT)) += -current_version 1 ;
+                 }
+                 if $(INSTALL_PATH) {
+                     FRAMEWORK_INSTALLED_NAME_$(VARIANT) default = $(INSTALL_PATH)$(/)$(INNER_PRODUCT_$(VARIANT):G=) ;
+@@ -3968,7 +4078,7 @@
+             }
+         }
+         # generate an archive if there are compiled or merged classes
+-        if $(COMPILED_JAVA) || $(MERGED_ARCHIVES) {
++        if $(COMPILED_JAVA) || $(MERGED_ARCHIVES) || $(COPIED_JAVA_RESOURCES) {
+ 	    if $(JAVA_ARCHIVE_CLASSES) != NO {
+ 	        # java archive suffix applies to applications and frameworks
+ 	        if $(JAVA_ARCHIVE_TYPE) = JAR {
+@@ -3984,13 +4094,35 @@
+                   || $(PRODUCT_TYPE) = Framework ) {
+                     # Assume bundled products with object files are Cocoa
+ 		    CLASS_ARCHIVE default = $(RESOURCE_DIR)$(/)Java$(/)$(1:B)$(CLASS_ARCHIVE_SUFFIX) ;
++                    ProductFile $(CLASS_ARCHIVE) ;
+ 	        }
+ 	        else {
+                     CLASS_ARCHIVE default = $(1:B:G=)$(CLASS_ARCHIVE_SUFFIX) ;
++                    # It is critical for the class archive to be declared
++                    # a product file before any symlinks to it are made
++                    # which would conditionally involved declaring the
++                    # symbolic link content to not be a file.
++                    ProductFile $(CLASS_ARCHIVE) ;
++                    # ref. w/suffix for tool or library in deployment location
++                    if $(DEPLOYMENT_LOCATION) = YES {
++                        _ARCHIVE_REFERENCE default = $(BUILT_PRODUCTS_DIR:G=ArchiveRef)$(/)$(CLASS_ARCHIVE) ;
++                        SymLink $(_ARCHIVE_REFERENCE) : $(CLASS_ARCHIVE) ;
++                        DEPENDS $(_ARCHIVE_REFERENCE) : $(BUILT_PRODUCTS_DIR) ;
++                        DEPENDS $(1) : $(_ARCHIVE_REFERENCE) ;
+ 	        }
+-                # class archive depends on class archive dir
++                    # Make a link to the product without extension
++                    # to allow for references missing extension.
++                    _SUFFIX_FREE_ARCHIVE_REFERENCE = $(CLASS_ARCHIVE:S=) ;
++                    LOCATE on $(_SUFFIX_FREE_ARCHIVE_REFERENCE) = $(TARGET_BUILD_DIR) ;
++                    SymLink $(_SUFFIX_FREE_ARCHIVE_REFERENCE) : $(CLASS_ARCHIVE) ;
++                    DEPENDS $(_SUFFIX_FREE_ARCHIVE_REFERENCE) : $(TARGET_BUILD_DIR) ;
++                    DEPENDS $(1) : $(_SUFFIX_FREE_ARCHIVE_REFERENCE) ;
++    	        }
++                # class archive depends on target build dir
++                DEPENDS $(CLASS_ARCHIVE) : $(TARGET_BUILD_DIR) ;
++                # class archive depends on class archive dir (if defined)
+                 CLASS_ARCHIVE_DIR = $(CLASS_ARCHIVE:D:G=) ;
+-                if ! $(CLASS_ARCHIVE_DIR) in $(PRODUCT_FILES) {
++                if $(CLASS_ARCHIVE_DIR) && ! $(CLASS_ARCHIVE_DIR) in $(PRODUCT_FILES) {
+                     Mkdir $(CLASS_ARCHIVE_DIR) ;
+                     ProductFile $(CLASS_ARCHIVE_DIR) ;
+                 }
+@@ -3999,25 +4131,23 @@
+ 	        if $(MERGED_ARCHIVES) {
+                     DEPENDS $(CLASS_ARCHIVE) : $(MERGED_ARCHIVES) ;
+                 }
+-                else {
++                if $(COMPILED_JAVA) {
+                     DEPENDS $(CLASS_ARCHIVE) : $(JAVA_COMPILE_TARGET) ;
+                 }
+-                ProductFile $(CLASS_ARCHIVE) ;
++                if $(COPIED_JAVA_RESOURCES) {
++                    DEPENDS $(CLASS_ARCHIVE) : $(COPIED_JAVA_RESOURCES) ;
+ 	    }
++	    }
+             if $(JAVA_ARCHIVE_CLASSES) != YES {
+                 # !!!:cmolick:20020123 product class file dir not always made?!
+                 Mkdir $(PRODUCT_CLASS_FILE_DIR) ;
+                 ProductFile $(PRODUCT_CLASS_FILE_DIR) ;
+-
+-                CLASS_COPY_TARGET default = $(PRODUCT_CLASS_FILE_DIR:G=ClassCopy) ;
+-                ClassCopy $(CLASS_COPY_TARGET) : $(CLASS_FILE_DIR) ;
+-                ProductFile $(CLASS_COPY_TARGET) ;
+-                DEPENDS $(CLASS_COPY_TARGET) : $(PRODUCT_CLASS_FILE_DIR) ;
++                Ditto $(PRODUCT_CLASS_FILE_DIR) : $(CLASS_FILE_DIR) ;
+ 	        if $(MERGED_ARCHIVES) {
+-                    DEPENDS $(CLASS_COPY_TARGET) : $(MERGED_ARCHIVES) ;
++                    DEPENDS $(PRODUCT_CLASS_FILE_DIR) : $(MERGED_ARCHIVES) ;
+                 }
+                 else {
+-                    DEPENDS $(CLASS_COPY_TARGET) : $(JAVA_COMPILE_TARGET) ;
++                    DEPENDS $(PRODUCT_CLASS_FILE_DIR) : $(JAVA_COMPILE_TARGET) ;
+                 }
+             }
+         }
+@@ -4342,7 +4472,7 @@
+     }
+ }
+ 
+-rule ProcessJavaArchiveFiles
++rule ProcessJavaResourceFiles
+ {
+     if build in $(BUILD_COMPONENTS) {
+         local FILE ;
+@@ -4353,7 +4483,7 @@
+         }
+         LOCATE on $(2) = $(SOURCE_ROOT) ;
+         for FILE in $(2) {
+-            ProcessJavaArchiveFile $(1) : $(FILE) : $(CLASS_FILE_DIR) ;
++            ProcessJavaResourceFile $(1) : $(FILE) : $(CLASS_FILE_DIR) ;
+         }
+         if $(_BUILD_PHASING) = YES {
+             if $(BUILD_PHASE_PRODUCTS) {
+@@ -4364,33 +4494,30 @@
+     }
+ }
+ 
+-rule ProcessJavaArchiveFile
++rule ProcessJavaResourceFile
+ {
+     local ARCHIVE_PATH ;
+     local ARCHIVE_DESTINATION ;
++    local ARCHIVE_DESTINATION_FILE ;
+ 
+     # copy any other reference - formulate destination first
+     if $($(2)_JAVA_ARCHIVE_SUBDIR) {
+-        ARCHIVE_DESTINATION = $(3)$(/)$($(2)_JAVA_ARCHIVE_SUBDIR)$(/)$(2:BS) ;
++        ARCHIVE_DESTINATION_DIR = $(3)$(/)$($(2)_JAVA_ARCHIVE_SUBDIR) ;
+     }
+     else {
+-        RemovePrefixPath ARCHIVE_PATH : $(JAVA_SOURCE_SUBDIR) : $(2) ;
+-        ARCHIVE_DESTINATION = $(3)$(/)$(ARCHIVE_PATH) ;
++        # if there's no setting, just copy the file to the root of the archive.
++        ARCHIVE_DESTINATION_DIR = $(3) ;
+     }
+-    ProductFile $(ARCHIVE_DESTINATION) ;
+-    Cp $(ARCHIVE_DESTINATION) : $(2) ;
++    ARCHIVE_DESTINATION_FILE = $(ARCHIVE_DESTINATION_DIR)/$(2:BS) ;
++    Mkdir $(ARCHIVE_DESTINATION_DIR) ;
++    ProductFile $(ARCHIVE_DESTINATION_DIR) ;
++    PBXCp $(ARCHIVE_DESTINATION_FILE:G=populated) : $(2) ;
++    ProductFile $(ARCHIVE_DESTINATION_FILE:G=populated) ;
+ 
+     # copied content depends on source
+-    DEPENDS $(ARCHIVE_DESTINATION) : $(2) ;
+-    # make sure destination directory exists
+-    local DESTINATION_DIR = $(ARCHIVE_DESTINATION:D) ;
+-    DEPENDS $(ARCHIVE_DESTINATION) : $(DESTINATION_DIR) ;
+-    if ! $(DESTINATION_DIR) in $(PRODUCT_FILES) {
+-        Mkdir $(DESTINATION_DIR) ;
+-        ProductFile $(DESTINATION_DIR) ;
+-    }
+-    # set contents present for archival flag by making COMPILED_JAVA nonempty
+-    COMPILED_JAVA += $(2) ;
++    DEPENDS $(ARCHIVE_DESTINATION_FILE) : $(2) ;
++    # set contents present for archival flag by making COPIED_JAVA_RESOURCES nonempty
++    COPIED_JAVA_RESOURCES += $(2) ;
+ }
+ 
+ # Following rules are used by ProcessSource
+@@ -4410,13 +4537,14 @@
+             DEPENDS $(JAVA_COMPILE_TARGET) : $(JAVA_BRIDGE_COMPILE_TARGET) ;
+         }
+     }
++    
+     export JAVA_SOURCE_PATH default = $(SOURCE_ROOT)$(/)$(JAVA_SOURCE_SUBDIR) ;
+ 
+     # start with the compiler-specific flags.
+     if $(JAVA_COMPILER:B) = jikes {
+         export JAVAC_FLAGS = $(JIKES_DEFAULT_FLAGS) ;
+     }
+-    if $(JAVA_COMPILER:B) = javac {
++    else if $(JAVA_COMPILER:B) = javac {
+         export JAVAC_FLAGS = $(JAVAC_DEFAULT_FLAGS) ;
+     }
+     else {
+@@ -4537,7 +4665,7 @@
+     frameworkjars=""
+     for i in `echo $(JAVA_FRAMEWORK_JARS)/*.jar $(JAVA_FRAMEWORK_JARS)/*.zip ` ; do if [ -f "$i" ] ; then frameworkjars="$frameworkjars":"$i" ; fi ; done
+     classpath="$(CLASS_FILE_DIR)$(LINKED_CLASS_ARCHIVES)$frameworkjars:"`$(JAVACONFIG) DefaultClasspath`
+-    $(JAVA_COMPILER) +OLDCSO +E $(JAVAC_FLAGS) -sourcepath "$(JAVA_SOURCE_PATH)" -classpath "$classpath" -d "$(CLASS_FILE_DIR)" '$(2)'
++    $(JAVA_COMPILER) $(JAVAC_FLAGS) -sourcepath "$(JAVA_SOURCE_PATH)" -classpath "$classpath" -d "$(CLASS_FILE_DIR)" '$(2)'
+ }
+ 
+ rule ProcessApplescripts
+@@ -4961,9 +5089,11 @@
+     if Server in $($(2)_ATTRIBUTES) {
+         TEMP_FILES += $(FILE_BASE)Server.h $(FILE_BASE)Server.c ;
+     }
++    if Client in $($(2)_ATTRIBUTES) || Server in $($(2)_ATTRIBUTES) {
+     Mig $(TEMP_FILES) : $(2) ;
+     DerivedFiles $(TEMP_FILES) ;
+     ProcessFiles $(1) : $(TEMP_FILES) ;
++    }
+ }
+ 
+ rule ProcessUsingLex
+Index: pbxbuild.data/AppleADBMouse.build/Info.plist
+===================================================================
+RCS file: /cvs/Darwin/AppleADBMouse/pbxbuild.data/AppleADBMouse.build/Info.plist,v
+retrieving revision 1.3.2.1
+retrieving revision 1.3.2.1.2.1
+diff -u -d -b -w -r1.3.2.1 -r1.3.2.1.2.1
+--- Info.plist	2002/06/22 03:46:46	1.3.2.1
++++ Info.plist	2002/07/02 03:34:25	1.3.2.1.2.1
+@@ -19,7 +19,7 @@
+ 	<key>CFBundleSignature</key>
+ 	<string>????</string>
+ 	<key>CFBundleVersion</key>
+-	<string>2.0.5d2</string>
++	<string>2.0.5d3</string>
+ 	<key>IOKitPersonalities</key>
+ 	<dict>
+ 		<key>AppleADBMouseType1</key>
+Index: pbxbuild.data/AppleADBMouse.build/Jamfile.jam
+===================================================================
+RCS file: /cvs/Darwin/AppleADBMouse/pbxbuild.data/AppleADBMouse.build/Jamfile.jam,v
+retrieving revision 1.3.2.1
+retrieving revision 1.3.2.1.2.1
+diff -u -d -b -w -r1.3.2.1 -r1.3.2.1.2.1
+--- Jamfile.jam	2002/06/22 03:46:46	1.3.2.1
++++ Jamfile.jam	2002/07/02 03:34:25	1.3.2.1.2.1
+@@ -31,7 +31,7 @@
+ export deferred LIBRARY_SEARCH_PATHS =  ;
+ export deferred MODULE_IOKIT = YES ;
+ export deferred MODULE_NAME = com.apple.driver.AppleADBMouse ;
+-export deferred MODULE_VERSION = 2.0.5d2 ;
++export deferred MODULE_VERSION = 2.0.5d3 ;
+ export deferred OTHER_CFLAGS =  ;
+ export deferred OTHER_LDFLAGS =  ;
+ export deferred OTHER_REZFLAGS =  ;

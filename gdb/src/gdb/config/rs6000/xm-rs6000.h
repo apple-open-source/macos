@@ -1,5 +1,6 @@
 /* Parameters for hosting on an RS6000, for GDB, the GNU debugger.
-   Copyright 1986-87, 1989, 1991-96, 1998 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1998,
+   2000, 2001 Free Software Foundation, Inc.
    Contributed by IBM Corporation.
 
    This file is part of GDB.
@@ -43,7 +44,6 @@
 /* #define HAVE_TERMIO 1 */
 
 #define	USG 1
-#define	HAVE_SIGSETMASK	1
 
 #define FIVE_ARG_PTRACE
 
@@ -62,13 +62,6 @@
 /* There is no vfork.  */
 
 #define	vfork	fork
-
-/* Setpgrp() takes arguments, unlike ordinary Sys V's.  */
-
-#define	SETPGRP_ARGS 1
-
-/* AIX doesn't have strdup, so we need to declare it for libiberty */
-extern char *strdup (char *);
 
 /* Signal handler for SIGWINCH `window size changed'. */
 
@@ -101,7 +94,3 @@ aix_resizewindow (signo)			\
       chars_per_line = val;			\
   }						\
 }
-
-/* setpgrp() messes up controling terminal. The other version of it
-   requires libbsd.a. */
-#define	setpgrp(XX,YY)		setpgid (XX, YY)

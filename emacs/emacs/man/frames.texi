@@ -1,5 +1,6 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985, 86, 87, 93, 94, 95, 1997 Free Software Foundation, Inc.
+@c Copyright (C) 1985, 86, 87, 93, 94, 95, 97, 99, 2000, 2001
+@c   Free Software Foundation, Inc.
 @c See file emacs.texi for copying conditions.
 @node Frames, International, Windows, Top
 @chapter Frames and X Windows
@@ -18,7 +19,7 @@ minibuffer of another frame.
 instance, if you put text in the kill ring in one frame, you can yank it
 in another frame.  If you exit Emacs through @kbd{C-x C-c} in one frame,
 it terminates all the frames.  To delete just one frame, use @kbd{C-x 5
-0}.
+0} (that is zero, not @kbd{o}).
 
   To avoid confusion, we reserve the word ``window'' for the
 subdivisions that Emacs implements, and never use it to refer to a
@@ -28,25 +29,33 @@ frame.
 so that you can use many of the features described in this chapter.
 @xref{MS-DOS Input}, for more information.
 
+@cindex MS Windows
+  Emacs compiled for MS Windows mostly supports the same features as
+under X.  However, images, tool bars, and tooltips are not yet
+available in Emacs version 21.1 on MS-Windows.
+
 @menu
 * Mouse Commands::      Moving, cutting, and pasting, with the mouse.
 * Secondary Selection:: Cutting without altering point and mark.
+* Clipboard::           Using the clipboard for selections.
 * Mouse References::    Using the mouse to select an item from a list.
 * Menu Mouse Clicks::   Mouse clicks that bring up menus.
 * Mode Line Mouse::     Mouse clicks on the mode line.
-* Speedbar::            How to make and use a speedbar frame.
 * Creating Frames::     Creating additional Emacs frames with various contents.
+* Frame Commands::      Iconifying, deleting, and switching frames.
+* Speedbar::            How to make and use a speedbar frame.
 * Multiple Displays::   How one Emacs job can talk to several displays.
 * Special Buffer Frames::  You can make certain buffers have their own frames.
 * Frame Parameters::    Changing the colors and other modes of frames.
 * Scroll Bars::	        How to enable and disable scroll bars; how to use them.
+* Wheeled Mice::        Using mouse wheels for scrolling.
 * Menu Bars::	        Enabling and disabling the menu bar.
-* Faces::	        How to change the display style using faces.
-* Font Lock::           Minor mode for syntactic highlighting using faces.
-* Support Modes::       Font Lock support modes make Font Lock faster.
-* Highlight Changes::   Using colors to show where you changed the buffer.
-* Misc X::	        Iconifying and deleting frames. Region highlighting.
+* Tool Bars::           Enabling and disabling the tool bar.
+* Dialog Boxes::        Controlling use of dialog boxes.
+* Tooltips::            Showing "tooltips", AKA "balloon help" for active text.
+* Mouse Avoidance::     Moving the mouse pointer out of the way.
 * Non-Window Terminals::  Multiple frames on terminals that show only one.
+* XTerm Mouse::         Using the mouse in an XTerm terminal emulator.
 @end menu
 
 @node Mouse Commands
@@ -57,7 +66,7 @@ so that you can use many of the features described in this chapter.
 compatible with the @code{xterm} program.  You can use the same mouse
 commands for copying between Emacs and other X client programs.
 
-@kindex DELETE
+@kindex DELETE @r{(and mouse selection)}
   If you select a region with any of these mouse commands, and then
 immediately afterward type the @key{DELETE} function key, it deletes the
 region that you selected.  The @key{BACKSPACE} function key and the
@@ -132,7 +141,7 @@ click on a character with ``symbol'' syntax (such as underscore, in C
 mode), it sets the region around the symbol surrounding that character.
 
 If you click on a character with open-parenthesis or close-parenthesis
-syntax, it sets the region around the parenthetical grouping (sexp)
+syntax, it sets the region around the parenthetical grouping
 which that character starts or ends.  If you click on a character with
 string-delimiter syntax (such as a singlequote or doublequote in C), it
 sets the region around the string constant (using heuristics to figure
@@ -170,9 +179,13 @@ Under X, this also sets the @dfn{primary selection}.  Then use the
 ``paste'' or ``yank'' command of the program operating the other window
 to insert the text from the selection.
 
-  To copy text from another X window, use the ``cut'' or ``copy'' command
-of the program operating the other window, to select the text you want.
-Then yank it in Emacs with @kbd{C-y} or @kbd{Mouse-2}.
+  To copy text from another X window, use the ``cut'' or ``copy''
+command of the program operating the other window, to select the text
+you want.  Then yank it in Emacs with @kbd{C-y} or @kbd{Mouse-2}.
+
+  The standard coding system for X selections is @code{compound-text}.
+To specify another coding system for X selections, use @kbd{C-x
+@key{RET} x} or @kbd{C-x @key{RET} X}.  @xref{Specify Coding}.
 
   These cutting and pasting commands also work on MS-Windows.
 
@@ -184,8 +197,8 @@ Then yank it in Emacs with @kbd{C-y} or @kbd{Mouse-2}.
 of the kill ring, it sets the @dfn{primary selection} in the X server.
 This is how other X clients can access the text.  Emacs also stores the
 text in the cut buffer, but only if the text is short enough
-(@code{x-cut-buffer-max} specifies the maximum number of characters);
-putting long strings in the cut buffer can be slow.
+(the value of @code{x-cut-buffer-max} specifies the maximum number of
+characters); putting long strings in the cut buffer can be slow.
 
   The commands to yank the first entry in the kill ring actually check
 first for a primary selection in another program; after that, they check
@@ -207,7 +220,9 @@ without setting point or the mark.
 Set the secondary selection, with one end at the place where you press
 down the button, and the other end at the place where you release it
 (@code{mouse-set-secondary}).  The highlighting appears and changes as
-you drag.
+you drag.  You can control the appearance of the highlighting by
+customizing the @code{secondary-selection} face (@pxref{Face
+Customization}).
 
 If you move the mouse off the top or bottom of the window while
 dragging, the window scrolls at a steady rate until you move the mouse
@@ -242,6 +257,30 @@ If @code{mouse-yank-at-point} is non-@code{nil}, @kbd{M-Mouse-2}
 yanks at point.  Then it does not matter precisely where you click; all
 that matters is which window you click on.  @xref{Mouse Commands}.
 
+@node Clipboard
+@section Using the Clipboard
+@cindex X clipboard
+@cindex clipboard
+@vindex x-select-enable-clipboard
+@findex menu-bar-enable-clipboard
+@cindex OpenWindows
+@cindex Gnome
+
+  As well as the primary and secondary selection types, X supports a
+@dfn{clipboard} selection type which is used by some applications,
+particularly under OpenWindows and Gnome.
+
+  The command @kbd{M-x menu-bar-enable-clipboard} makes the @code{Cut},
+@code{Paste} and @code{Copy} menu items, as well as the keys of the same
+names, all use the clipboard.
+ 
+  You can customize the option @code{x-select-enable-clipboard} to make
+the Emacs yank functions consult the clipboard before the primary
+selection, and to make the kill functions to store in the clipboard as
+well as the primary selection.  Otherwise they do not access the
+clipboard at all.  Using the clipboard is the default on MS-Windows,
+unlike most systems.
+
 @node Mouse References
 @section Following References with the Mouse
 @kindex Mouse-2 @r{(selection)}
@@ -270,52 +309,77 @@ over it.
   Mouse clicks modified with the @key{CTRL} and @key{SHIFT} keys
 bring up menus.
 
-@kindex C-Mouse-3
 @table @kbd
 @item C-Mouse-1
+@kindex C-Mouse-1
 This menu is for selecting a buffer.
 
+The MSB (``mouse select buffer'') global minor mode makes this
+menu smarter and more customizable.  @xref{Buffer Menus}.
+
 @item C-Mouse-2
+@kindex C-Mouse-2
 This menu is for specifying faces and other text properties
 for editing formatted text.  @xref{Formatted Text}.
 
 @item C-Mouse-3
-This menu is mode-specific.  For most modes, this menu has the same
-items as all the mode-specific menu-bar menus put together.  Some modes
-may specify a different menu for this button.@footnote{Some systems use
-@kbd{Mouse-3} for a mode-specific menu.  We took a survey of users, and
-found they preferred to keep @kbd{Mouse-3} for selecting and killing
-regions.  Hence the decision to use @kbd{C-Mouse-3} for this menu.}
+@kindex C-Mouse-3
+This menu is mode-specific.  For most modes if Menu-bar mode is on, this
+menu has the same items as all the mode-specific menu-bar menus put
+together.  Some modes may specify a different menu for this
+button.@footnote{Some systems use @kbd{Mouse-3} for a mode-specific
+menu.  We took a survey of users, and found they preferred to keep
+@kbd{Mouse-3} for selecting and killing regions.  Hence the decision to
+use @kbd{C-Mouse-3} for this menu.}  If Menu-bar mode is off, this menu
+contains all the items which would be present in the menu bar---not just
+the mode-specific ones---so that you can access them without having to
+display the menu bar.
 
-@item S-mouse-1
+@item S-Mouse-1
 This menu is for specifying the frame's principal font.
 @end table
 
 @node Mode Line Mouse
 @section Mode Line Mouse Commands
+@cindex mode line, mouse
+@cindex mouse on mode line
 
   You can use mouse clicks on window mode lines to select and manipulate
 windows.
 
 @table @kbd
 @item Mouse-1
+@kindex Mouse-1 @r{(mode line)}
 @kbd{Mouse-1} on a mode line selects the window above.  By dragging
 @kbd{Mouse-1} on the mode line, you can move it, thus changing the
 height of the windows above and below.
 
 @item Mouse-2
+@kindex Mouse-2 @r{(mode line)}
 @kbd{Mouse-2} on a mode line expands that window to fill its frame.
 
 @item Mouse-3
-@kbd{Mouse-3} on a mode line deletes the window above.
+@kindex Mouse-3 @r{(mode line)}
+@kbd{Mouse-3} on a mode line deletes the window above.  If the frame has
+only one window, it buries the current buffer instead and switches to
+another buffer.
 
 @item C-Mouse-2
+@kindex C-mouse-2 @r{(mode line)}
 @kbd{C-Mouse-2} on a mode line splits the window above
 horizontally, above the place in the mode line where you click.
 @end table
 
+@kindex C-Mouse-2 @r{(scroll bar)}
   @kbd{C-Mouse-2} on a scroll bar splits the corresponding window
-vertically.  @xref{Split Window}.
+vertically, unless you are using an X toolkit's implementation of
+scroll bars.  @xref{Split Window}.
+
+  The commands above apply to areas of the mode line which do not have
+special mouse bindings of their own.  Some areas, such as the buffer
+name and the major mode name, have their own special mouse bindings.
+Emacs displays information about these bindings when you hold the
+mouse over such a place (@pxref{Tooltips}).
 
 @node Creating Frames
 @section Creating Frames
@@ -380,6 +444,48 @@ parameter, as shown here:
 (add-to-list 'default-frame-alist '(font . "10x20"))
 @end example
 
+@noindent
+Here's a similar example for specifying a foreground color:
+
+@example
+(add-to-list 'default-frame-alist '(background-color . "blue"))
+@end example
+
+
+@node Frame Commands
+@section Frame Commands
+
+  The following commands let you create, delete and operate on frames:
+
+@table @kbd
+@item C-z
+@kindex C-z @r{(X windows)}
+@findex iconify-or-deiconify-frame
+Iconify the selected Emacs frame (@code{iconify-or-deiconify-frame}).
+The normal meaning of @kbd{C-z}, to suspend Emacs, is not useful under a
+window system, so it has a different binding in that case.
+
+If you type this command on an Emacs frame's icon, it deiconifies the frame.
+
+@item C-x 5 0
+@kindex C-x 5 0
+@findex delete-frame
+Delete the selected frame (@code{delete-frame}).  This is not allowed if
+there is only one frame.
+
+@item C-x 5 o
+@kindex C-x 5 o
+@findex other-frame
+Select another frame, raise it, and warp the mouse to it so that it
+stays selected.  If you repeat this command, it cycles through all the
+frames on your terminal.
+
+@item C-x 5 1
+@kindex C-x 5 1
+@findex delete-other-frames
+Delete all frames except the selected one.
+@end table
+
 @node Speedbar
 @section Making and Using a Speedbar Frame
 @cindex speedbar
@@ -417,11 +523,11 @@ speedbar for it.
 @section Multiple Displays
 @cindex multiple displays
 
-  A single Emacs can talk to more than one X Windows display.
-Initially, Emacs uses just one display---the one specified with the
-@code{DISPLAY} environment variable or with the @samp{--display} option
-(@pxref{Initial Options}).  To connect to another display, use the
-command @code{make-frame-on-display}:
+  A single Emacs can talk to more than one X display.  Initially, Emacs
+uses just one display---the one specified with the @env{DISPLAY}
+environment variable or with the @samp{--display} option (@pxref{Initial
+Options}).  To connect to another display, use the command
+@code{make-frame-on-display}:
 
 @findex make-frame-on-display
 @table @kbd
@@ -526,11 +632,11 @@ window management behavior of the selected frame.
 @table @kbd
 @item M-x set-foreground-color @key{RET} @var{color} @key{RET}
 Specify color @var{color} for the foreground of the selected frame.
+(This also changes the foreground color of the default face.)
 
 @item M-x set-background-color @key{RET} @var{color} @key{RET}
 Specify color @var{color} for the background of the selected frame.
-This changes the foreground color of the @code{modeline} face also, so
-that it remains in inverse video compared with the default.
+(This also changes the background color of the default face.)
 
 @item M-x set-cursor-color @key{RET} @var{color} @key{RET}
 Specify color @var{color} for the cursor of the selected frame.
@@ -570,10 +676,11 @@ the appropriate window manager features.
 @item M-x set-frame-font @key{RET} @var{font} @key{RET}
 @cindex font (principal)
 Specify font @var{font} as the principal font for the selected frame.
-The principal font is used for all text displayed in the frame, except
-when a face (@pxref{Faces}) specifies a different font to use for
-certain text.  @xref{Font X}, for ways to list the available fonts on
-your system.
+The principal font controls several face attributes of the
+@code{default} face (@pxref{Faces}).  For example, if the principal font
+has a height of 12 pt, all text will be drawn in 12 pt fonts, unless you
+use another face that specifies a different height.  @xref{Font X}, for
+ways to list the available fonts on your system.
 
 @kindex S-Mouse-1
 You can also set a frame's principal font through a pop-up menu.
@@ -587,7 +694,10 @@ the menus and menu bar, you must use X resources (@pxref{Resources X}).
 @xref{Colors X}, regarding colors.  @xref{Font X}, regarding choice of
 font.
 
-  For information on frame parameters and customization, see @ref{Frame
+  Colors, fonts, and other attributes of the frame's display can also
+be customized by setting frame parameters in the variable
+@code{default-frame-alist} (@pxref{Creating Frames}).  For a detailed
+description of frame parameters and customization, see @ref{Frame
 Parameters,,, elisp, The Emacs Lisp Reference Manual}.
 
 @node Scroll Bars
@@ -596,10 +706,12 @@ Parameters,,, elisp, The Emacs Lisp Reference Manual}.
 @cindex mode, Scroll Bar
 
   When using X, Emacs normally makes a @dfn{scroll bar} at the left of
-each Emacs window.  The scroll bar runs the height of the window, and
-shows a moving rectangular inner box which represents the portion of the
-buffer currently displayed.  The entire height of the scroll bar
-represents the entire length of the buffer.
+each Emacs window.@footnote{Placing it at the left is usually more
+useful with overlapping frames with text starting at the left margin.}
+The scroll bar runs the height of the window, and shows a moving
+rectangular inner box which represents the portion of the buffer
+currently displayed.  The entire height of the scroll bar represents the
+entire length of the buffer.
 
   You can use @kbd{Mouse-2} (normally, the middle button) in the scroll
 bar to move or drag the inner box up and down.  If you move it to the
@@ -613,22 +725,54 @@ the level where you click up to the top of the window.  @kbd{Mouse-3}
 down to the level where you click.  By clicking repeatedly in the same
 place, you can scroll by the same distance over and over.
 
-  Aside from scrolling, you can also click @kbd{C-Mouse-2} in the scroll
-bar to split a window vertically.  The split occurs on the line where
-you click.
+  If you are using Emacs's own implementation of scroll bars, as opposed
+to scroll bars from an X toolkit, you can also click @kbd{C-Mouse-2} in
+the scroll bar to split a window vertically.  The split occurs on the
+line where you click.
 
 @findex scroll-bar-mode
+@vindex scroll-bar-mode
   You can enable or disable Scroll Bar mode with the command @kbd{M-x
 scroll-bar-mode}.  With no argument, it toggles the use of scroll bars.
 With an argument, it turns use of scroll bars on if and only if the
 argument is positive.  This command applies to all frames, including
-frames yet to be created.  You can use the X resource
-@samp{verticalScrollBars} to control the initial setting of Scroll Bar
-mode.  @xref{Resources X}.
+frames yet to be created.  Customize the option @code{scroll-bar-mode}
+to control the use of scroll bars at startup.  You can use it to specify
+that they are placed at the right of windows if you prefer that.  You
+can use the X resource @samp{verticalScrollBars} to control the initial
+setting of Scroll Bar mode similarly.  @xref{Resources X}.
 
 @findex toggle-scroll-bar
   To enable or disable scroll bars for just the selected frame, use the
 @kbd{M-x toggle-scroll-bar} command.
+
+@vindex scroll-bar-width
+@cindex width of the scroll bar
+  You can control the scroll bar width by changing the value of the
+@code{scroll-bar-width} frame parameter.
+
+@node Wheeled Mice
+@section Scrolling With ``Wheeled'' Mice
+
+@cindex mouse wheel
+@cindex wheel, mouse
+@findex mouse-wheel-mode
+@cindex Mouse Wheel minor mode
+@cindex mode, Mouse Wheel
+  Some mice have a ``wheel'' instead of a third button.  You can
+usually click the wheel to act as either @kbd{Mouse-2} or
+@kbd{Mouse-3}, depending on the setup.  You can also use the wheel to
+scroll windows instead of using the scroll bar or keyboard commands.
+To do so, turn on Mouse Wheel global minor mode with the command
+@kbd{M-x mouse-wheel-mode} or by customizing the option
+@code{mouse-wheel-mode}.  Support for the wheel depends on the system
+generating appropriate events for Emacs.
+
+@vindex mouse-wheel-follow-mouse
+@vindex mouse-wheel-scroll-amount
+  The variables @code{mouse-wheel-follow-mouse} and
+@code{mouse-wheel-scroll-amount} determine where and by how much
+buffers are scrolled.
 
 @node Menu Bars
 @section Menu Bars
@@ -636,412 +780,110 @@ mode.  @xref{Resources X}.
 @cindex mode, Menu Bar
 
   You can turn display of menu bars on or off with @kbd{M-x
-menu-bar-mode}.  With no argument, this command toggles Menu Bar mode, a
+menu-bar-mode} or by customizing the option @code{menu-bar-mode}.
+With no argument, this command toggles Menu Bar mode, a
 minor mode.  With an argument, the command turns Menu Bar mode on if the
 argument is positive, off if the argument is not positive.  You can use
 the X resource @samp{menuBarLines} to control the initial setting of
-Menu Bar mode.  @xref{Resources X}.  Expert users often turn off the
-menu bar, especially on text-only terminals, where this makes one
-additional line available for text.
+Menu Bar mode.  @xref{Resources X}.
+
+@kindex C-Mouse-3 @r{(when menu bar is disabled)}
+  Expert users often turn off the menu bar, especially on text-only
+terminals, where this makes one additional line available for text.
+If the menu bar is off, you can still pop up a menu of its contents
+with @kbd{C-Mouse-3} on a display which supports pop-up menus.
+@xref{Menu Mouse Clicks}.
 
   @xref{Menu Bar}, for information on how to invoke commands with the
 menu bar.
 
-@node Faces
-@section Using Multiple Typefaces
-@cindex faces
+@node Tool Bars
+@section Tool Bars
+@cindex Tool Bar mode
+@cindex mode, Tool Bar
+@cindex icons, tool bar
 
-  When using Emacs with X, you can set up multiple styles of displaying
-characters.  The aspects of style that you can control are the type
-font, the foreground color, the background color, and whether to
-underline.  Emacs on MS-DOS supports faces partially by letting you
-control the foreground and background colors of each face
-(@pxref{MS-DOS}).
+The @dfn{tool bar} is a line (or multiple lines) of icons at the top
+of the Emacs window.  You can click on these icons with the mouse
+to do various jobs.
 
-  The way you control display style is by defining named @dfn{faces}.
-Each face can specify a type font, a foreground color, a background
-color, and an underline flag; but it does not have to specify all of
-them.  Then by specifying the face or faces to use for a given part
-of the text in the buffer, you control how that text appears.
+The global tool bar contains general commands.  Some major modes
+define their own tool bars to replace it.  A few ``special'' modes
+that are not designed for ordinary editing remove some items from the
+global tool bar.
 
-  The style of display used for a given character in the text is
-determined by combining several faces.  Any aspect of the display style
-that isn't specified by overlays or text properties comes from the frame
-itself.
+Tool bars work only on a graphical display.  The tool bar uses colored
+XPM icons if Emacs was built with XPM support.  Otherwise, the tool
+bar uses monochrome icons (PBM or XBM format).
 
-  Enriched mode, the mode for editing formatted text, includes several
-commands and menus for specifying faces.  @xref{Format Faces}, for how
-to specify the font for text in the buffer.  @xref{Format Colors}, for
-how to specify the foreground and background color.
+You can turn display of tool bars on or off with @kbd{M-x
+tool-bar-mode}.
 
-  To alter the appearance of a face, use the customization buffer.
-@xref{Face Customization}.  You can also use X resources to specify
-attributes of particular faces (@pxref{Resources X}).
+@node Dialog Boxes
+@section Using Dialog Boxes
+@cindex dialog boxes
 
-@findex list-faces-display
-  To see what faces are currently defined, and what they look like, type
-@kbd{M-x list-faces-display}.  It's possible for a given face to look
-different in different frames; this command shows the appearance in the
-frame in which you type it.  Here's a list of the standardly defined
-faces:
+@vindex use-dialog-box
+  A dialog box is a special kind of menu for asking you a yes-or-no
+question or some other special question.  Many Emacs commands use a
+dialog box to ask a yes-or-no question, if you used the mouse to
+invoke the command to begin with.
+
+  You can customize the option @code{use-dialog-box} to suppress the
+use of dialog boxes.  This also controls whether to use file selection
+windows (but those are not supported on all platforms).
+
+@node Tooltips
+@section Tooltips (or ``Balloon Help'')
+
+@cindex balloon help
+  Tooltips are small X windows displaying a help string at the current
+mouse position, typically over text---including the mode line---which
+can be activated with the mouse or other keys.  (This facility is
+sometimes known as @dfn{balloon help}.)  Help text may be available for
+menu items too.
+
+@findex tooltip-mode
+  To use tooltips, enable Tooltip mode with the command @kbd{M-x
+tooltip-mode}.  The customization group @code{tooltip} controls
+various aspects of how tooltips work.  When Tooltip mode is disabled,
+the help text is displayed in the echo area instead.
+
+  As of Emacs 21.1, tooltips are not supported on MS-Windows.
+So help text always appears in the echo area.
+
+@node Mouse Avoidance
+@section Mouse Avoidance
+@cindex avoiding mouse in the way of your typing
+@cindex mouse avoidance
+
+@vindex mouse-avoidance-mode
+Mouse Avoidance mode keeps the window system mouse pointer away from
+point, to avoid obscuring text.  Whenever it moves the mouse, it also
+raises the frame.  To use Mouse Avoidance mode, customize the option
+@code{mouse-avoidance-mode}.  You can set this to various values to
+move the mouse in several ways:
 
 @table @code
-@item default
-This face is used for ordinary text that doesn't specify any other face.
-@item modeline
-This face is used for mode lines.  By default, it's set up as the
-inverse of the default face.  @xref{Display Vars}.
-@item highlight
-This face is used for highlighting portions of text, in various modes.
-@item region
-This face is used for displaying a selected region (when Transient Mark
-mode is enabled---see below).
-@item secondary-selection
-This face is used for displaying a secondary selection (@pxref{Secondary
-Selection}).
-@item bold
-This face uses a bold variant of the default font, if it has one.
-@item italic
-This face uses an italic variant of the default font, if it has one.
-@item bold-italic
-This face uses a bold italic variant of the default font, if it has one.
-@item underline
-This face underlines text.
+@item banish
+Move the mouse to the upper-right corner on any key-press;
+@item exile
+Move the mouse to the corner only if the cursor gets too close,
+and allow it to return once the cursor is out of the way;
+@item jump
+If the cursor gets too close to the mouse, displace the mouse
+a random distance & direction;
+@item animate
+As @code{jump}, but shows steps along the way for illusion of motion;
+@item cat-and-mouse
+The same as @code{animate};
+@item proteus
+As @code{animate}, but changes the shape of the mouse pointer too.
 @end table
 
-@cindex @code{region} face
-  When Transient Mark mode is enabled, the text of the region is
-highlighted when the mark is active.  This uses the face named
-@code{region}; you can control the style of highlighting by changing the
-style of this face (@pxref{Face Customization}).  @xref{Transient Mark},
-for more information about Transient Mark mode and activation and
-deactivation of the mark.
-
-  One easy way to use faces is to turn on Font Lock mode.  This minor
-mode, which is always local to a particular buffer, arranges to
-choose faces according to the syntax of the text you are editing.  It
-can recognize comments and strings in most languages; in several
-languages, it can also recognize and properly highlight various other
-important constructs.  @xref{Font Lock}, for more information about
-Font Lock mode and syntactic highlighting.
-
-  You can print out the buffer with the highlighting that appears
-on your screen using the command @code{ps-print-buffer-with-faces}.
-@xref{Postscript}.
-
-@node Font Lock
-@section Font Lock mode
-@cindex Font Lock mode
-@cindex mode, Font Lock
-@cindex syntax highlighting
-
-  Font Lock mode is a minor mode, always local to a particular
-buffer, which highlights (or ``fontifies'') using various faces
-according to the syntax of the text you are editing.  It can
-recognize comments and strings in most languages; in several
-languages, it can also recognize and properly highlight various other
-important constructs---for example, names of functions being defined
-or reserved keywords.
-
-@findex font-lock-mode
-@findex turn-on-font-lock
-  The command @kbd{M-x font-lock-mode} turns Font Lock mode on or off
-according to the argument, and toggles the mode when it has no argument.
-The function @code{turn-on-font-lock} unconditionally enables Font Lock
-mode.  This is useful in mode-hook functions.  For example, to enable
-Font Lock mode whenever you edit a C file, you can do this:
-
-@example
-(add-hook 'c-mode-hook 'turn-on-font-lock)
-@end example
-
-@findex global-font-lock-mode
-  To turn on Font Lock mode automatically in all modes which support it,
-use the function @code{global-font-lock-mode}, like this:
-
-@example
-(global-font-lock-mode 1)
-@end example
-
-@kindex M-g M-g
-@findex font-lock-fontify-block
-  In Font Lock mode, when you edit the text, the highlighting updates
-automatically in the line that you changed.  Most changes don't affect
-the highlighting of subsequent lines, but occasionally they do.  To
-rehighlight a range of lines, use the command @kbd{M-g M-g}
-(@code{font-lock-fontify-block}).
-
-@vindex font-lock-mark-block-function
-  In certain major modes, @kbd{M-g M-g} refontifies the entire current
-function.  (The variable @code{font-lock-mark-block-function} controls
-how to find the current function.)  In other major modes, @kbd{M-g M-g}
-refontifies 16 lines above and below point.
-
-  With a prefix argument @var{n}, @kbd{M-g M-g} refontifies @var{n}
-lines above and below point, regardless of the mode.
-
-  To get the full benefit of Font Lock mode, you need to choose a
-default font which has bold, italic, and bold-italic variants; or else
-you need to have a color or gray-scale screen.
-
-@vindex font-lock-maximum-decoration
-  The variable @code{font-lock-maximum-decoration} specifies the
-preferred level of fontification, for modes that provide multiple
-levels.  Level 1 is the least amount of fontification; some modes
-support levels as high as 3.  The normal default is ``as high as
-possible.''  You can specify an integer, which applies to all modes, or
-you can specify different numbers for particular major modes; for
-example, to use level 1 for C/C++ modes, and the default level
-otherwise, use this:
-
-@example
-(setq font-lock-maximum-decoration
-      '((c-mode . 1) (c++-mode . 1)))
-@end example
-
-@vindex font-lock-maximum-size
-  Fontification can be too slow for large buffers, so you can suppress
-it.  The variable @code{font-lock-maximum-size} specifies a buffer size,
-beyond which buffer fontification is suppressed.
-
-@c @w is used below to prevent a bad page-break.
-@vindex font-lock-beginning-of-syntax-function
-  Comment and string fontification (or ``syntactic'' fontification)
-relies on analysis of the syntactic structure of the buffer text.  For
-the purposes of speed, some modes including C mode and Lisp mode rely on
-a special convention: an open-parenthesis in the leftmost column always
-defines the @w{beginning} of a defun, and is thus always outside any string
-or comment.  (@xref{Defuns}.)  If you don't follow this convention,
-then Font Lock mode can misfontify the text after an open-parenthesis in
-the leftmost column that is inside a string or comment.
-
-  The variable @code{font-lock-beginning-of-syntax-function} (always
-buffer-local) specifies how Font Lock mode can find a position
-guaranteed to be outside any comment or string.  In modes which use the
-leftmost column parenthesis convention, the default value of the variable
-is @code{beginning-of-defun}---that tells Font Lock mode to use the
-convention.  If you set this variable to @code{nil}, Font Lock no longer
-relies on the convention.  This avoids incorrect results, but the price
-is that, in some cases, fontification for a changed text must rescan
-buffer text from the beginning of the buffer.
-
-@findex font-lock-add-keywords
-  Font Lock highlighting patterns already exist for many modes, but you
-may want to fontify additional patterns.  You can use the function
-@code{font-lock-add-keywords}, to add your own highlighting patterns for
-a particular mode.  For example, to highlight @samp{FIXME:} words in C
-comments, use this:
-
-@example
-(font-lock-add-keywords
- 'c-mode
- '(("\\<\\(FIXME\\):" 1 font-lock-warning-face t)))
-@end example
-
-@node Support Modes
-@section Font Lock Support Modes
-
-  Font Lock support modes make Font Lock mode faster for large buffers.
-There are two support modes: Fast Lock mode and Lazy Lock mode.  They
-use two different methods of speeding up Font Lock mode.
-
-@menu
-* Fast Lock Mode::      Saving font information in files.
-* Lazy Lock Mode::      Fontifying only text that is actually displayed.
-* Fast or Lazy::        Which support mode is best for you?
-@end menu
-
-@node Fast Lock Mode
-@subsection Fast Lock Mode
-
-@cindex Fast Lock mode
-@cindex mode, Fast Lock
-  To make Font Lock mode faster for buffers visiting large files, you
-can use Fast Lock mode.  Fast Lock mode saves the font information for
-each file in a separate cache file; each time you visit the file, it
-rereads the font information from the cache file instead of refontifying
-the text from scratch.
-
-@findex fast-lock-mode
-  The command @kbd{M-x fast-lock-mode} turns Fast Lock mode on or off,
-according to the argument (with no argument, it toggles).  You can also
-arrange to enable Fast Lock mode whenever you use Font Lock mode, like
-this:
-
-@example
-(setq font-lock-support-mode 'fast-lock-mode)
-@end example
-
-@vindex fast-lock-minimum-size
-  It is not worth writing a cache file for small buffers.  Therefore,
-the variable @code{fast-lock-minimum-size} specifies a minimum file size
-for caching font information.
-
-@vindex fast-lock-cache-directories
-  The variable @code{fast-lock-cache-directories} specifies where to put
-the cache files.  Its value is a list of directories to try; @code{"."}
-means the same directory as the file being edited.  The default value is
-@w{@code{("." "~/.emacs-flc")}}, which means to use the same directory if
-possible, and otherwise the directory @file{~/.emacs-flc}.
-
-@vindex fast-lock-save-others
-  The variable @code{fast-lock-save-others} specifies whether Fast Lock
-mode should save cache files for files that you do not own.  A
-non-@code{nil} value means yes (and that is the default).
-
-@node Lazy Lock Mode
-@subsection Lazy Lock Mode
-@cindex Lazy Lock mode
-@cindex mode, Lazy Lock
-
-  To make Font Lock mode faster for large buffers, you can use Lazy Lock
-mode to reduce the amount of text that is fontified.  In Lazy Lock mode,
-buffer fontification is demand-driven; it happens to portions of the
-buffer that are about to be displayed.  And fontification of your
-changes is deferred; it happens only when Emacs has been idle for a
-certain short period of time.
-
-@findex lazy-lock-mode
-  The command @kbd{M-x lazy-lock-mode} turns Lazy Lock mode on or off,
-according to the argument (with no argument, it toggles).  You can also
-arrange to enable Lazy Lock mode whenever you use Font Lock mode, like
-this:
-
-@example
-(setq font-lock-support-mode 'lazy-lock-mode)
-@end example
-
-@vindex lazy-lock-minimum-size
-  It is not worth avoiding buffer fontification for small buffers.
-Therefore, the variable @code{lazy-lock-minimum-size} specifies a
-minimum buffer size for demand-driven buffer fontification.  Buffers
-smaller than that are fontified all at once, as in plain Font Lock mode.
-
-@vindex lazy-lock-defer-time
-  When you alter the buffer, Lazy Lock mode defers fontification of the
-text you changed.  The variable @code{lazy-lock-defer-time} specifies
-how many seconds Emacs must be idle before it starts fontifying your
-changes.  If the value is 0, then changes are fontified immediately, as
-in plain Font Lock mode.
-
-@vindex lazy-lock-defer-on-scrolling
-  Lazy Lock mode normally fontifies newly visible portions of the buffer
-before they are first displayed.  However, if the value of
-@code{lazy-lock-defer-on-scrolling} is non-@code{nil}, newly visible
-text is fontified only when Emacs is idle for
-@code{lazy-lock-defer-time} seconds.
-
-@vindex lazy-lock-defer-contextually
-  In some modes, including C mode and Emacs Lisp mode, changes in one
-line's contents can alter the context for subsequent lines, and thus
-change how they ought to be fontified.  Ordinarily, you must type
-@kbd{M-g M-g} to refontify the subsequent lines.  However, if you set
-the variable @code{lazy-lock-defer-contextually} to non-@code{nil}, Lazy
-Lock mode does this automatically, after @code{lazy-lock-defer-time}
-seconds.
-
-@cindex stealth fontification
-  When Emacs is idle for a long time, Lazy Lock fontifies additional
-portions of the buffer, not yet displayed, in case you will display them
-later.  This is called @dfn{stealth fontification}.
-
-@vindex lazy-lock-stealth-time
-@vindex lazy-lock-stealth-lines
-@vindex lazy-lock-stealth-verbose
-  The variable @code{lazy-lock-stealth-time} specifies how many seconds
-Emacs has to be idle before stealth fontification starts.  A value of
-@code{nil} means no stealth fontification.  The variables
-@code{lazy-lock-stealth-lines} and @code{lazy-lock-stealth-verbose}
-specify the granularity and verbosity of stealth fontification.
-
-@node Fast or Lazy
-@subsection Fast Lock or Lazy Lock?
-
-  Here is a simple guide to help you choose one of the Font Lock support
-modes.
-
-@itemize @bullet
-@item
-Fast Lock mode intervenes only during file visiting and buffer
-killing (and related events); therefore buffer editing and window
-scrolling are no faster or slower than in plain Font Lock mode.
-
-@item
-Fast Lock mode is slower at reading a cache file than Lazy Lock
-mode is at fontifying a window; therefore Fast Lock mode is slower at
-visiting a file than Lazy Lock mode.
-
-@item
-Lazy Lock mode intervenes during window scrolling to fontify text that
-scrolls onto the screen; therefore, scrolling is slower than in plain
-Font Lock mode.
-
-@item
-Lazy Lock mode doesn't fontify during buffer editing (it defers
-fontification of changes); therefore, editing is faster than in plain
-Font Lock mode.
-
-@item
-Fast Lock mode can be fooled by a file that is kept under version
-control software; therefore buffer fontification may occur even when
-a cache file exists for the file.
-
-@item
-Fast Lock mode only works with a buffer visiting a file; Lazy Lock
-mode works with any buffer.
-
-@item
-Fast Lock mode generates cache files; Lazy Lock mode does not.
-@end itemize
-
-@vindex font-lock-support-mode
-  The variable @code{font-lock-support-mode} specifies which of these
-support modes to use; for example, to specify that Fast Lock mode is
-used for C/C++ modes, and Lazy Lock mode otherwise, set the variable
-like this:
-
-@example
-(setq font-lock-support-mode
-      '((c-mode . fast-lock-mode) (c++-mode . fast-lock-mode)
-        (t . lazy-lock-mode)))
-@end example
-
-@node Highlight Changes
-@section Highlight Changes Mode
-
-@findex highlight-changes-mode
-  Use @kbd{M-x highlight-changes-mode} to enable a minor mode
-that uses faces (colors, typically) to indicate which parts of
-the buffer were changed most recently.
-
-@node Misc X
-@section Miscellaneous X Window Features
-
-  The following commands let you create, delete and operate on frames:
-
-@table @kbd
-@item C-z
-@kindex C-z @r{(X windows)}
-@findex iconify-or-deiconify-frame
-Iconify the selected Emacs frame (@code{iconify-or-deiconify-frame}).
-The normal meaning of @kbd{C-z}, to suspend Emacs, is not useful under a
-window system, so it has a different binding in that case.
-
-If you type this command on an Emacs frame's icon, it deiconifies the frame.
-
-@item C-x 5 0
-@kindex C-x 5 0
-@findex delete-frame
-Delete the selected frame (@code{delete-frame}).  This is not allowed if
-there is only one frame.
-
-@item C-x 5 o
-@kindex C-x 5 o
-@findex other-frame
-Select another frame, raise it, and warp the mouse to it so that it
-stays selected.  If you repeat this command, it cycles through all the
-frames on your terminal.
-@end table
+@findex mouse-avoidance-mode
+You can also use the command @kbd{M-x mouse-avoidance-mode} to enable
+the mode.
 
 @node Non-Window Terminals
 @section Non-Window Terminals
@@ -1073,3 +915,16 @@ select-frame-by-name @key{RET} @var{name} @key{RET}} to select a frame
 according to its name.  The name you specify appears in the mode line
 when the frame is selected.
 
+@node XTerm Mouse
+@section Using a Mouse in Terminal Emulators
+@cindex xterm, mouse support
+@cindex terminal emulators, mouse support
+
+Some terminal emulators under X support mouse clicks in the terminal
+window.  In a terminal emulator which is compatible with @code{xterm},
+you can use @kbd{M-x xterm-mouse-mode} to enable simple use of the
+mouse---only single clicks are supported.  The normal @code{xterm} mouse
+functionality is still available by holding down the @kbd{SHIFT} key
+when you press the mouse button.  The Linux console supports this
+mode if it has support for the mouse enabled, e.g.@: using the
+@command{gpm} daemon.

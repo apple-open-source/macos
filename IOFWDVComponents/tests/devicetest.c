@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <iokit/IOKitLib.h>
+#include <iokit/avc/IOFireWireAVCConsts.h>
 
 #include <DVComponentGlue/IsochronousDataHandler.h>
 #include <DVComponentGlue/DeviceControl.h>
@@ -49,6 +50,7 @@ static void doControlTest(ComponentInstance theInst, QTAtomSpec *currentIsochCon
         IDHDeviceStatus			devStatus;
         DVCTransactionParams 	pParams;
         char					in[4], out[16];
+        //char					in[44], out[44];
         int i;
 
         result = IDHGetDeviceControl(theInst, &controlInst);
@@ -69,12 +71,71 @@ static void doControlTest(ComponentInstance theInst, QTAtomSpec *currentIsochCon
         if(!controlInst)
                 goto Exit;
 
-
+#if 1
         // fill up the avc frame
-        in[0]	= 0x00; //kAVCControlCommand;
+        in[0]	= kAVCStatusInquiryCommand; //kAVCControlCommand;
         in[1] 	= 0x20;						// for now
         in[2] 	= op1;
         in[3] 	= op2;
+#else
+        // fill up the avc frame
+        in[0]	= 0x00;
+        in[1] 	= 0x58;						// for now
+        in[2] 	= 0x50;
+        in[3] 	= 0x00;
+        
+        in[4]	= 0xff; 
+        in[5] 	= 0x00;						// for now
+        in[6] 	= 0x00;
+        in[7] 	= 0x00;
+        
+        in[8]	= 0xff; 
+        in[9]	= 0xff; 
+        in[10]	= 0xff; 
+        in[11]	= 0xff; 
+     
+        in[12] 	= 0x00;
+        in[13] 	= 0x00;
+        in[14] 	= 0x00;
+        in[15] 	= 0x1b;
+        
+        in[16] 	= 0x5c;
+        in[17] 	= 0x44;
+        in[18] 	= 0x43;
+        in[19] 	= 0x49;
+        
+        in[20] 	= 0x4d;
+        in[21] 	= 0x5c;
+        in[22] 	= 0x31;
+        in[23] 	= 0x30;
+        
+        in[24] 	= 0x31;
+        in[25] 	= 0x43;
+        in[26] 	= 0x41;
+        in[27] 	= 0x4e;
+        
+        in[28] 	= 0x4f;
+        in[29] 	= 0x4e;
+        in[30] 	= 0x5c;
+        in[31] 	= 0x41;
+        
+        in[32] 	= 0x55;
+        in[33] 	= 0x54;
+        in[34] 	= 0x5f;
+        in[35] 	= 0x30;
+        
+        in[36] 	= 0x31;
+        in[37] 	= 0x30;
+        in[38] 	= 0x33;
+        in[39] 	= 0x2e;
+        
+        in[40] 	= 0x4a;
+        in[41] 	= 0x50;
+        in[42] 	= 0x47;
+        in[43] 	= 0x00;
+        
+                   
+#endif
 
         // fill up the transaction parameter block
     pParams.commandBufferPtr = in;
@@ -98,7 +159,7 @@ static void doControlTest(ComponentInstance theInst, QTAtomSpec *currentIsochCon
         for(i=0; i<sizeof(out); i++)
                 printf("%d(0x%x) ", out[i], out[i]);
         printf("\n");
-    } while(result != kIOReturnSuccess);
+    } while (1); //(result != kIOReturnSuccess);
     
     //sleep(10);
 
@@ -117,7 +178,7 @@ static void OpenDV()
     UInt32 cmpFlag;
     UInt32 isoversion;
     long size;
-    OSErr err;
+    OSStatus err;
     
     theInst = OpenDefaultComponent('ihlr', 'dv  ');
     printf("Instance is 0x%x\n", theInst);
@@ -265,19 +326,17 @@ static void OpenDV()
     if( videoConfig.atom == nil)	// no good configs found
             goto error;
 
-    QTUnlockContainer( deviceList);
-    deviceList = NULL;
-
-
     printf("setting config\n");
     // set isoch to use this config
     err = IDHSetDeviceConfiguration( theInst, &videoConfig);
     if( err != noErr)
             goto error;
-#if 0
+#if 1
     doControlTest(theInst, &videoConfig,
-        0xc3, //kAVCPlayOpcode
-        0x75 //kAVCPlayForward
+        //0xc3, //kAVCPlayOpcode
+        //0x75 //kAVCPlayForward
+        0xd0,	// Transport State
+        0x7f
     );
 #else
     {
@@ -300,10 +359,11 @@ error:
     if( err != noErr)
         printf("error %d(0x%x)\n", err, err);
     if(deviceList) {
-            QTUnlockContainer( deviceList);
+        QTUnlockContainer( deviceList);
+        QTDisposeAtomContainer(deviceList);
     }
 
-    CallComponentClose(theInst, 0);
+    CloseComponent(theInst);
 
 }
 
@@ -331,7 +391,7 @@ int main(int argc, char **argv)
 	aComponent = 0;
 	aName = NewHandleClear(200);
 	while (aComponent = FindNextComponent(aComponent, &desc)) {
-		OSErr oops;
+		OSStatus oops;
 		printf("Found component 0x%x:", aComponent);
 		oops = GetComponentInfo(aComponent, &aDesc, aName,
                                          NULL, NULL);
@@ -350,6 +410,18 @@ int main(int argc, char **argv)
 	}
         }
 
+    num = 0;
+    do {
+        ComponentInstance theInst;
+
+        theInst = OpenDefaultComponent('ihlr', 'dv  ');
+        //printf("Instance is 0x%x\n", theInst);
+        if(theInst == NULL)
+                return;
+        num++;
+        usleep(50000);
+        CloseComponent(theInst);
+    } while (0);
 	OpenDV();
 	return 0;
 }

@@ -57,6 +57,7 @@ Includes
 #include <sys/kernel.h>
 #include <net/if_types.h>
 #include <net/dlil.h>
+#include <kern/clock.h>
 
 
 
@@ -136,15 +137,21 @@ int pppoe_wan_attach(void *rfc, struct ppp_link **link)
     struct ppp_link  	*lk;
     u_short 		unit;
 
-    if (pppoe_wan_findfreeunit(&unit))
-        return ENOMEM;
+    // Note : we allocate/find number/insert in queue in that specific order
+    // because of funnels and race condition issues
 
-   // then, alloc the structure...
     MALLOC(wan, struct pppoe_wan *, sizeof(struct pppoe_wan), M_DEVBUF, M_WAITOK);
     if (!wan)
         return ENOMEM;
 
+    if (pppoe_wan_findfreeunit(&unit)) {
+        FREE(wan, M_DEVBUF);
+        return ENOMEM;
+    }
+
     bzero(wan, sizeof(struct pppoe_wan));
+
+    TAILQ_INSERT_TAIL(&pppoe_wan_head, wan, next);
     lk = (struct ppp_link *) wan;
     
     // it's time now to register our brand new link
@@ -163,13 +170,13 @@ int pppoe_wan_attach(void *rfc, struct ppp_link **link)
     ret = ppp_link_attach((struct ppp_link *)wan);
     if (ret) {
         log(LOG_INFO, "pppoe_wan_attach, error = %d, (ld = 0x%x)\n", ret, wan);
+        TAILQ_REMOVE(&pppoe_wan_head, wan, next);
         FREE(wan, M_DEVBUF);
         return ret;
     }
     
     log(LOG_INFO, "pppoe_wan_attach, link index = %d, (ld = 0x%x)\n", lk->lk_index, lk);
 
-    TAILQ_INSERT_TAIL(&pppoe_wan_head, wan, next);
     *link = lk;
     
     return 0;
@@ -216,7 +223,7 @@ int pppoe_wan_input(struct ppp_link *link, struct mbuf *m)
     link->lk_ipackets++;
     link->lk_ibytes += m->m_pkthdr.len;
     //getmicrotime(&link->lk_last_recv);
-    link->lk_last_recv = time_second;
+    link->lk_last_recv = clock_get_system_value().tv_sec;
 
     ppp_link_input(link, m);	
     return 0;
@@ -255,6 +262,6 @@ int pppoe_wan_output(struct ppp_link *link, struct mbuf *m)
     link->lk_opackets++;
     link->lk_obytes += m->m_pkthdr.len;
     //getmicrotime(link->lk_last_xmit);
-    link->lk_last_xmit = time_second;
+    link->lk_last_xmit = clock_get_system_value().tv_sec;
     return 0;
 }

@@ -1,5 +1,6 @@
 /* Low level interface to I386 running mach 3.0.
-   Copyright (C) 1992 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1996, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,6 +22,7 @@
 #include "defs.h"
 #include "inferior.h"
 #include "floatformat.h"
+#include "regcache.h"
 
 #include <stdio.h>
 

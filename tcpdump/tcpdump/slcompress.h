@@ -1,7 +1,7 @@
 /*
  * Definitions for tcp compression routines.
  *
- * @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/slcompress.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/slcompress.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)
  *
  * Copyright (c) 1989, 1990, 1992, 1993 Regents of the University of
  * California. All rights reserved.

@@ -1,4 +1,4 @@
-.\" Copyright (c) 1983, 1990, 1993
+.\" Copyright (c) 1983, 1990, 1993, 2002
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
 .\" This code is derived from software contributed to Berkeley by
@@ -34,7 +34,7 @@
 .\"
 .\"	@(#)edquota.8	8.2 (Berkeley) 4/27/95
 .\"
-.Dd "April 27, 1995"
+.Dd "March 28, 2002"
 .Dt EDQUOTA 8
 .Os
 .Sh NAME
@@ -65,8 +65,10 @@ one or more users may be specified on the command line.
 For each user a temporary file is created
 with an ASCII representation of the current
 disk quotas for that user.
-The list of filesystems with user quotas is determined from
-.Pa /etc/fstab .
+The list of filesystems with user quotas is determined by
+scanning the mounted filesystems for a
+.Pa .quota.ops.user
+file located at its root.
 An editor is invoked on the ASCII file.
 The editor invoked is 
 .Xr vi 1
@@ -90,6 +92,11 @@ On leaving the editor,
 .Nm edquota
 reads the temporary file and modifies the binary
 quota files to reflect the changes made.
+The binary quota file,
+.Pa .quota.user
+is stored at the root of the filesystem.
+The default filename and root location for the user
+quotas cannot be overridden.
 .Pp
 If the 
 .Fl p
@@ -106,6 +113,15 @@ flag is specified,
 .Nm edquota
 is invoked to edit the quotas of
 one or more groups specified on the command line.
+The list of filesystems with group quotas is determined by
+scanning the mounted filesystems for a
+.Pa .quota.ops.group
+file located at its root.
+Similarly, the binary quota file,
+.Pa .quota.group
+is stored at the root of the filesystem.
+The default filename and root location for group
+quotas cannot be overridden.
 The 
 .Fl p 
 flag can be specified in conjunction with
@@ -119,20 +135,21 @@ for a grace period that may be specified per filesystem.
 Once the grace period has expired,
 the soft limit is enforced as a hard limit.
 The default grace period for a filesystem is specified in
-.Pa /usr/include/ufs/ufs/quota.h .
+.Pa /usr/include/sys/quota.h .
 The 
 .Fl t
 flag can be used to change the grace period.
 By default, or when invoked with the 
 .Fl u
-flag, the grace period is set for all the filesystems with user
-quotas specified in
-.Pa /etc/fstab .
+flag, the grace period is set for each filesystem with a
+.Pa .quota.ops.user
+file located at its root.
 When invoked with the 
 .Fl g
-flag the grace period is
-set for all the filesystems with group quotas specified in
-.Pa /etc/fstab .
+flag, the grace period is
+set for each filesystem with a
+.Pa .quota.ops.group
+file located at its root.
 The grace period may be specified in days, hours, minutes, or seconds.
 Setting a grace period to zero indicates that the default
 grace period should be imposed.
@@ -141,18 +158,25 @@ grace period should be granted.
 .Pp
 Only the super-user may edit quotas.
 .Sh FILES
-.Bl -tag -width 24n -compact
-.It Pa quota.user
-at the filesystem root with user quotas
-.It Pa quota.group
-at the filesystem root with group quotas
-.It Pa /etc/fstab
-to find filesystem names and locations
+Each of the following quota files is located at the root of the
+mounted filesystem.  The mount option files are empty files
+whose existence indicates that quotas are to be enabled
+for that filesystem.  The binary data files will be
+created by edquota, if they don't already exist.
+.Pp
+.Bl -tag -width .quota.ops.group -compact
+.It Pa .quota.user
+data file containing user quotas
+.It Pa .quota.group
+data file containing group quotas
+.It Pa .quota.ops.user
+mount option file used to enable user quotas
+.It Pa .quota.ops.group
+mount option file used to enable group quotas
 .El
 .Sh SEE ALSO
 .Xr quota 1 ,
 .Xr quotactl 2 ,
-.Xr fstab 5 ,
 .Xr quotacheck 8 ,
 .Xr quotaon 8 ,
 .Xr repquota 8

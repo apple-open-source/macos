@@ -1,4 +1,25 @@
 /*
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * ppp_defs.h - PPP definitions.
  *
  * Copyright (c) 1994 The Australian National University.
@@ -25,18 +46,6 @@
  * OR MODIFICATIONS.
  */
 
-/*
- *  ==FILEVERSION 20000114==
- *
- *  NOTE TO MAINTAINERS:
- *     If you modify this file at all, please set the above date.
- *     ppp_defs.h is shipped with a PPP distribution as well as with the kernel;
- *     if everyone increases the FILEVERSION number above, then scripts
- *     can do the right thing when deciding whether to install a new ppp_defs.h
- *     file.  Don't change the format of that line otherwise, so the
- *     installation script can recognize it.
- */
-
 #ifndef _PPP_DEFS_H_
 #define _PPP_DEFS_H_
 
@@ -47,9 +56,9 @@
 #define PPP_FCSLEN	2	/* octets for FCS */
 #define PPP_MRU		1500	/* default MRU = max length of info field */
 
-#define PPP_ADDRESS(p)	(((__u8 *)(p))[0])
-#define PPP_CONTROL(p)	(((__u8 *)(p))[1])
-#define PPP_PROTOCOL(p)	((((__u8 *)(p))[2] << 8) + ((__u8 *)(p))[3])
+#define PPP_ADDRESS(p)	(((u_int8_t *)(p))[0])
+#define PPP_CONTROL(p)	(((u_int8_t *)(p))[1])
+#define PPP_PROTOCOL(p)	((((u_int8_t *)(p))[2] << 8) + ((u_int8_t *)(p))[3])
 
 /*
  * Significant octet values.
@@ -83,6 +92,7 @@
 #define PPP_LQR		0xc025	/* Link Quality Report protocol */
 #define PPP_CHAP	0xc223	/* Cryptographic Handshake Auth. Protocol */
 #define PPP_CBCP	0xc029	/* Callback Control Protocol */
+#define PPP_EAP		0xc227	/* Extensible Authentication Protocol */
 
 /*
  * Values for FCS calculations.

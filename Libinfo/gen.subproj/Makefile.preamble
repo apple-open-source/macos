@@ -1,4 +1,6 @@
+AFTER_POSTINSTALL += install-man-page
 OTHER_CFLAGS = \
+	-DINET6=1 \
 	-Dsetservent=_old_setservent \
 	-Dgetservent=_old_getservent \
 	-Dendservent=_old_endservent \

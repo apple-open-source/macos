@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,12 +25,22 @@
 
 #if defined(KERNEL) && defined(__cplusplus)
 
-// Headers for general IOKit definitions
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// General IOKit headers
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 
-// Headers for SCSI command support definitions
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSIPrimaryCommands.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class SCSIReducedBlockCommands : public SCSIPrimaryCommands
 {
@@ -38,9 +48,9 @@ class SCSIReducedBlockCommands : public SCSIPrimaryCommands
 	OSDeclareDefaultStructors ( SCSIReducedBlockCommands );
 	
 public:
-
+	
 	static SCSIReducedBlockCommands * CreateSCSIReducedBlockCommandObject ( void );
-		
+	
 	// SCSI Reduced Block Commands as defined in T10:1240-D RBC
 	
 	// The FORMAT_UNIT command as defined in section 5.1

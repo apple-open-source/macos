@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: io.test,v 1.1.1.4 2000/12/06 23:04:10 wsanchez Exp $
+# RCS: @(#) $Id: io.test,v 1.1.1.5 2002/04/05 16:13:53 jevans Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -3796,12 +3796,12 @@ test io-32.8 {Tcl_Read, nonblocking, file} {nonBlockFiles} {
     set z [read $f1 1000000]
     close $f1
     set x ok
-    set l [string length $z]]
-    set z [file size longfile]]
+    set l [string length $z]
+    set z [file size longfile]
     if {$z != $l} {
 	set x broken
     }
-  set x
+    set x
 } ok
 test io-32.9 {Tcl_Read, read to end of file} {
     set f1 [open longfile r]

@@ -676,6 +676,7 @@ just close the window, and wait for reopening."
 (setq-default current-local-mousemap nil)
 (defvar current-global-mousemap (make-mousemap))
 
-(provide 'term/sun-mouse)
+(provide 'sun-mouse)
+(provide 'term/sun-mouse)		; have to (require 'term/sun-mouse)
 
 ;;; sun-mouse.el ends here

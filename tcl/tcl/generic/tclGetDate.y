@@ -11,7 +11,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclGetDate.y,v 1.1.1.4 2000/12/06 23:03:35 wsanchez Exp $
+ * RCS: @(#) $Id: tclGetDate.y,v 1.1.1.5 2002/04/05 16:13:20 jevans Exp $
  */
 
 %{
@@ -33,7 +33,7 @@
 #include "tclInt.h"
 #include "tclPort.h"
 
-#ifdef MAC_TCL
+#if defined(MAC_TCL) && !defined(TCL_MAC_USE_MSL_EPOCH)
 #   define EPOCH           1904
 #   define START_OF_TIME   1904
 #   define END_OF_TIME     2039
@@ -798,6 +798,23 @@ RelativeMonth(Start, RelMonth, TimePtr)
     result = Convert(Month, (time_t) tm->tm_mday, Year,
 	    (time_t) tm->tm_hour, (time_t) tm->tm_min, (time_t) tm->tm_sec,
 	    MER24, DSTmaybe, &Julian);
+
+    /*
+     * The Julian time returned above is behind by one day, if "month" 
+     * or "year" is used to specify relative time and the GMT flag is true.
+     * This problem occurs only when the current time is closer to
+     * midnight, the difference being not more than its time difference
+     * with GMT. For example, in US/Pacific time zone, the problem occurs
+     * whenever the current time is between midnight to 8:00am or 7:00amDST.
+     * See Bug# 413397 for more details and sample script.
+     * To resolve this bug, we simply add the number of seconds corresponding
+     * to timezone difference with GMT to Julian time, if GMT flag is true.
+     */
+
+    if (TclDateTimezone == 0) {
+        Julian += TclpGetTimeZone((unsigned long) Start) * 60L;
+    }
+
     /*
      * The following iteration takes into account the case were we jump
      * into a "short month".  Far example, "one month from Jan 31" will

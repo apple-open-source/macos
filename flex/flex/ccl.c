@@ -26,7 +26,7 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* $Header: /cvs/Darwin/Commands/GNU/flex/flex/ccl.c,v 1.1.1.1 1999/04/23 00:46:29 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/flex/flex/ccl.c,v 1.1.1.1 1999/04/23 00:46:29 wsanchez Exp $ */
 
 #include "flexdef.h"
 

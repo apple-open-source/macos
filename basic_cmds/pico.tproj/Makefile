@@ -18,7 +18,7 @@ CFILES = ansi.c attach.c basic.c bind.c browse.c buffer.c composer.c\
          display.c file.c fileio.c line.c main.c osdep.c pico.c\
          random.c region.c search.c spell.c tcap.c window.c word.c
 
-OTHERSRCS = Makefile.preamble Makefile
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble pico.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -27,7 +27,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/bin
 WINDOWS_INSTALLDIR = /usr/bin
 PDO_UNIX_INSTALLDIR = /usr/bin
-LIBS = 
+LIBS = -lcurses
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

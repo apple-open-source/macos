@@ -1,0 +1,95 @@
+# Jamfile for target "IPFirewall (Kernel Extension)" of project "IPFirewall"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IPFirewall ;
+export deferred SRCROOT = /var/tmp/IPFirewall ;
+
+# User-defined project-wide settings for project
+
+# Target "IPFirewall (Kernel Extension)"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IPFirewall (Kernel Extension).build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IPFirewall (Kernel Extension).build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IPFirewall (Kernel Extension).build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "IPFirewall (Kernel Extension)"
+export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = c ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = "IPFirewall (Kernel Extension)" ;
+
+# User-defined build settings for target "IPFirewall (Kernel Extension)"
+export deferred FRAMEWORK_SEARCH_PATHS =  ;
+export deferred HEADER_SEARCH_PATHS =  ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
+export deferred KERNEL_MODULE = YES ;
+export deferred LIBRARY_SEARCH_PATHS =  ;
+export deferred MODULE_NAME = com.apple.nke.IPFirewall ;
+export deferred MODULE_START = IPFirewall_start ;
+export deferred MODULE_STOP = IPFirewall_stop ;
+export deferred MODULE_VERSION = 1.2 ;
+export deferred OPTIMIZATION_CFLAGS = -Os ;
+export deferred OTHER_CFLAGS = -DKERNEL=1 -DIPDIVERT=1 -DIPFIREWALL_DEFAULT_TO_ACCEPT=1 -DIPV6FIREWALL_DEFAULT_TO_ACCEPT=1 -DIPFIREWALL_FORWARD -traditional-cpp ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PREBINDING = YES ;
+export deferred PRODUCT_NAME = IPFirewall ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wall -Wno-four-char-constants -Wno-unknown-pragmas ;
+export deferred WRAPPER_EXTENSION = kext ;
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+	export deferred OPTIMIZATION_CFLAGS = -Os ;
+}
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginBundle "<IPFirewall>IPFirewall.kext" ;
+
+# Script Build Phase Files
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/IPFirewall (Kernel Extension).build/BPTag000-script.sh" ;
+ProcessScriptBuildPhaseFiles "<IPFirewall>IPFirewall.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : "" : BPTag000 ;
+
+# Headers
+IPFirewall.kmodproj/OldInterface.h_ATTRIBUTES = ;
+HEADERS = IPFirewall.kmodproj/OldInterface.h ;
+ProcessHeaders "<IPFirewall>IPFirewall.kext" : "$(HEADERS)" : BPTag000 : BPTag001 ;
+
+# Resources
+RESOURCES = ;
+ProcessResources "<IPFirewall>IPFirewall.kext" : "$(RESOURCES)" : BPTag001 : BPTag002 ;
+
+# Sources
+SOURCES =
+	IPFirewall.kmodproj/IPFirewall.c
+	IPFirewall.kmodproj/ip_fw.c ;
+ProcessSources "<IPFirewall>IPFirewall.kext" : "$(SOURCES)" : BPTag002 : BPTag003 ;
+
+# Frameworks & Libraries
+FRAMEWORKS_AND_LIBRARIES = ;
+ProcessFrameworksAndLibraries "<IPFirewall>IPFirewall.kext" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag003 : BPTag004 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<IPFirewall>IPFirewall.kext" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
+
+# Script Build Phase Files
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/IPFirewall (Kernel Extension).build/BPTag006-script.sh" ;
+ProcessScriptBuildPhaseFiles "<IPFirewall>IPFirewall.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
+
+EndBundle "<IPFirewall>IPFirewall.kext" ;
+

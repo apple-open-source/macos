@@ -30,6 +30,7 @@
 #ifndef __OPENSTEP__
 #import <crt_externs.h>
 #endif
+#import "stuff/bool.h"
 #import <mach-o/dyld.h>
 #import <mach-o/ldsyms.h>
 
@@ -379,3 +380,24 @@ const char *libraryName)
 	return(FALSE);
 }
 
+/*
+ *_NSGetExecutablePath copies the path of the executable into the buffer and
+ * returns 0 if the path was successfully copied in the provided buffer. If the
+ * buffer is not large enough, -1 is returned and the expected buffer size is
+ * copied in *bufsize. Note that _NSGetExecutablePath will return "a path" to
+ * the executable not a "real path" to the executable. That is the path may be
+ * a symbolic link and not the real file. And with deep directories the total
+ * bufsize needed could be more than MAXPATHLEN.
+ */
+int
+_NSGetExecutablePath(
+char *buf,
+unsigned long *bufsize)
+{
+    static int (*p)(char *buf, unsigned long *bufsize) = NULL;
+
+	if(p == NULL)
+	    _dyld_func_lookup("__dyld__NSGetExecutablePath",
+			      (unsigned long *)&p);
+	return(p(buf, bufsize));
+}

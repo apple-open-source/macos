@@ -1,4 +1,4 @@
-.\" $RCSfile: gsh.man,v $$Revision: 1.1.1.2 $$Date: 2000/03/31 05:11:03 $
+.\" $RCSfile: gsh.man,v $$Revision: 1.3 $$Date: 2002/03/14 08:55:24 $
 .TH GSH 8 "13 May 1988"
 .SH NAME
 gsh \- global shell

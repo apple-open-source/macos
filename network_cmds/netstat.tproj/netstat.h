@@ -59,91 +59,118 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
-#ifndef EXTERN
-#define EXTERN extern
+extern int	Aflag;	/* show addresses of protocol control block */
+extern int	aflag;	/* show all sockets (including servers) */
+extern int	bflag;	/* show i/f total bytes in/out */
+extern int	dflag;	/* show i/f dropped packets */
+extern int	gflag;	/* show group (multicast) routing or stats */
+extern int	iflag;	/* show interfaces */
+extern int	lflag;	/* show routing table with use and ref */
+extern int	Lflag;	/* show size of listen queues */
+extern int	mflag;	/* show memory stats */
+extern int	nflag;	/* show addresses numerically */
+extern int	rflag;	/* show routing tables (or routing stats) */
+extern int	sflag;	/* show protocol statistics */
+extern int	tflag;	/* show i/f watchdog timers */
+extern int	Wflag;	/* wide display */
+
+extern int	interval; /* repeat interval for i/f stats */
+
+extern char	*interface; /* desired i/f for stats, or NULL for all i/fs */
+extern int	unit;	/* unit number for above */
+
+extern int	af;	/* address family */
+
+int	kread (u_long addr, char *buf, int size);
+char	*plural (int);
+char	*plurales (int);
+
+void	protopr (u_long, char *, int);
+void	tcp_stats (u_long, char *, int);
+void	udp_stats (u_long, char *, int);
+void	ip_stats (u_long, char *, int);
+void	icmp_stats (u_long, char *, int);
+void	igmp_stats (u_long, char *, int);
+#ifdef IPSEC
+void	ipsec_stats (u_long, char *, int);
 #endif
-EXTERN int	Aflag;		/* show addresses of protocol control block */
-EXTERN int	aflag;		/* show all sockets (including servers) */
-EXTERN int	bflag;		/* show i/f total bytes in/out */
-EXTERN int	dflag;		/* show i/f dropped packets */
-EXTERN int	gflag;		/* show group (multicast) routing or stats */
-EXTERN int	iflag;		/* show static interfaces */
-EXTERN int	mflag;		/* show memory stats */
-EXTERN int	nflag;		/* show addresses numerically */
-EXTERN int	pflag;		/* show given protocol */
-EXTERN int	rflag;		/* show routing tables (or routing stats) */
-EXTERN int	sflag;		/* show protocol statistics */
-EXTERN int	tflag;		/* show i/f watchdog timers */
 
-EXTERN int	interval;	/* repeat interval for i/f stats */
+#ifdef INET6
+void	ip6_stats (u_long, char *, int);
+void	ip6_ifstats (char *);
+void	icmp6_stats (u_long, char *, int);
+void	icmp6_ifstats (char *);
+void	pim6_stats (u_long, char *, int);
+void	rip6_stats (u_long, char *, int);
+void	mroute6pr (u_long, u_long);
+void	mrt6_stats (u_long);
 
-EXTERN char	*interface;	/* desired i/f for stats, or NULL for all i/fs */
-EXTERN int	unit;		/* unit number for above */
+struct sockaddr_in6;
+struct in6_addr;
+char *routename6 (struct sockaddr_in6 *);
+char *netname6 (struct sockaddr_in6 *, struct in6_addr *);
+#endif /*INET6*/
 
-EXTERN int	af;		/* address family */
+#ifdef IPSEC
+void	pfkey_stats (u_long, char *, int);
+#endif
 
-int	kread __P((u_long addr, char *buf, int size));
-char	*plural __P((int));
-char	*plurales __P((int));
-void	trimdomain __P((char *));
+void	bdg_stats (u_long, char *, int);
 
-void	protopr __P((u_long, char *));
-void	tcp_stats __P((u_long, char *));
-void	udp_stats __P((u_long, char *));
-void	ip_stats __P((u_long, char *));
-void	icmp_stats __P((u_long, char *));
-void	igmp_stats __P((u_long, char *));
-void	protopr __P((u_long, char *));
+//void	mbpr (u_long, u_long, u_long, u_long);
+void	mbpr (u_long);
 
-void	mbpr __P((u_long));
+void	hostpr (u_long, u_long);
+void	impstats (u_long, u_long);
 
-void	hostpr __P((u_long, u_long));
-void	impstats __P((u_long, u_long));
+void	intpr (int, u_long, void (*)(char *));
 
-void	intpr __P((int, u_long));
+void	pr_rthdr (int);
+void	pr_family (int);
+void	rt_stats (u_long, u_long);
+char	*ipx_pnet (struct sockaddr *);
+char	*ipx_phost (struct sockaddr *);
+char	*ns_phost (struct sockaddr *);
+void	upHex (char *);
 
-void	pr_rthdr __P(());
-void	pr_family __P((int));
-void	rt_stats __P((u_long));
-char	*ipx_pnet __P((struct sockaddr *));
-char	*ipx_phost __P((struct sockaddr *));
-char	*ns_phost __P((struct sockaddr *));
-void	upHex __P((char *));
+char	*routename (u_long);
+char	*netname (u_long, u_long);
+#if 0
+char	*atalk_print (struct sockaddr *, int);
+char	*atalk_print2 (struct sockaddr *, struct sockaddr *, int);
+char	*ipx_print (struct sockaddr *);
+char	*ns_print (struct sockaddr *);
+#endif
+void	routepr (u_long);
 
-char	*routename __P((u_long));
-char	*netname __P((u_long, u_long));
-char	*atalk_print __P((struct sockaddr *, int));
-char	*atalk_print2 __P((struct sockaddr *, struct sockaddr *, int));
-char	*ipx_print __P((struct sockaddr *));
-char	*ns_print __P((struct sockaddr *));
-void	routepr __P((u_long));
+#if 0
+void	ipxprotopr (u_long, char *, int);
+void	spx_stats (u_long, char *, int);
+void	ipx_stats (u_long, char *, int);
+void	ipxerr_stats (u_long, char *, int);
 
-void	ipxprotopr __P((u_long, char *));
-void	spx_stats __P((u_long, char *));
-void	ipx_stats __P((u_long, char *));
-void	ipxerr_stats __P((u_long, char *));
+void	nsprotopr (u_long, char *, int);
+void	spp_stats (u_long, char *, int);
+void	idp_stats (u_long, char *, int);
+void	nserr_stats (u_long, char *, int);
 
-void	nsprotopr __P((u_long, char *));
-void	spp_stats __P((u_long, char *));
-void	idp_stats __P((u_long, char *));
-void	nserr_stats __P((u_long, char *));
+void	atalkprotopr (u_long, char *, int);
+void	ddp_stats (u_long, char *, int);
 
-void	atalkprotopr __P((u_long, char *));
-void	ddp_stats __P((u_long, char *));
+void	netgraphprotopr (u_long, char *, int);
+#endif
 
-void	intpr __P((int, u_long));
+void	unixpr (void);
 
-void	unixpr __P((void));
+void	esis_stats (u_long, char *, int);
+void	clnp_stats (u_long, char *, int);
+void	cltp_stats (u_long, char *, int);
+void	iso_protopr (u_long, char *, int);
+void	iso_protopr1 (u_long, int);
+void	tp_protopr (u_long, char *, int);
+void	tp_inproto (u_long);
+void	tp_stats (caddr_t, caddr_t);
 
-void	esis_stats __P((u_long, char *));
-void	clnp_stats __P((u_long, char *));
-void	cltp_stats __P((u_long, char *));
-void	iso_protopr __P((u_long, char *));
-void	iso_protopr1 __P((u_long, int));
-void	tp_protopr __P((u_long, char *));
-void	tp_inproto __P((u_long));
-void	tp_stats __P((caddr_t, caddr_t));
-
-void	mroutepr __P((u_long, u_long));
-void	mrt_stats __P((u_long));
+void	mroutepr (u_long, u_long);
+void	mrt_stats (u_long);
 

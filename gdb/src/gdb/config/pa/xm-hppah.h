@@ -1,5 +1,6 @@
 /* Parameters for hosting on an HPPA-RISC machine running HPUX, for GDB.
-   Copyright 1991, 1992 Free Software Foundation, Inc. 
+   Copyright 1991, 1992, 1993, 1995, 1996, 2000
+   Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -28,20 +29,4 @@
 
 #define USG
 
-#ifndef __STDC__
-/* This define is discussed in decode_line_1 in symtab.c  */
-#define HPPA_COMPILER_BUG
-#endif
-
 #define HAVE_TERMIOS
-
-/* HP defines malloc and realloc as returning void *, even for non-ANSI
-   compilations (such as with the native compiler). */
-
-#define MALLOC_INCOMPATIBLE
-
-extern void *malloc (size_t);
-
-extern void *realloc (void *, size_t);
-
-extern void free (void *);

@@ -12,8 +12,6 @@ NAME = hid
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = IOHIDLib.h
-
 CFILES = IOHIDLib.c
 
 OTHERSRCS = Makefile.preamble Makefile
@@ -27,10 +25,6 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-
-PUBLIC_HEADERS = IOHIDLib.h
-
-PROJECT_HEADERS = IOHIDLib.h
 
 
 

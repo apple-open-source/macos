@@ -1,4 +1,26 @@
 /*
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*
  * dhcp_options.c
  * - routines to parse and access dhcp options
  *   and create new dhcp option areas
@@ -32,6 +54,15 @@
 #import "dhcp_options.h"
 #import "gen_dhcp_parse_table.h"
 #import "util.h"
+
+/*
+ * Module: dhcpoa (dhcp options area)
+ *
+ * Purpose:
+ *   Types and functions to create new dhcp option areas.
+ */
+
+#define DHCPOA_MAGIC	0x11223344
 
 
 #define MAX_TAG (sizeof(dhcptag_info_table) / sizeof(dhcptag_info_table[0]))
@@ -819,14 +850,15 @@ dhcpol_print(dhcpol_t * list)
  */
 
 /*
- * Function: dhcpoa_init
+ * Function: dhcpoa_{init_common, init_no_end, init}
  *
  * Purpose:
  *   Initialize an option area structure so that it can be used
  *   in calling the dhcpoa_* routines.
  */
-void
-dhcpoa_init(dhcpoa_t * oa_p, void * buffer, int size)
+
+static void
+dhcpoa_init_common(dhcpoa_t * oa_p, void * buffer, int size, int reserve)
 {
     bzero(buffer, size);	/* fill option area with pad tags */
 
@@ -834,6 +866,21 @@ dhcpoa_init(dhcpoa_t * oa_p, void * buffer, int size)
     oa_p->oa_magic = DHCPOA_MAGIC;
     oa_p->oa_buffer = buffer;
     oa_p->oa_size = size;
+    oa_p->oa_reserve = reserve;
+}
+
+void
+dhcpoa_init_no_end(dhcpoa_t * oa_p, void * buffer, int size)
+{
+    dhcpoa_init_common(oa_p, buffer, size, 0);
+    return;
+}
+
+void
+dhcpoa_init(dhcpoa_t * oa_p, void * buffer, int size)
+{
+    /* initialize the area, reserve space for the end tag */
+    dhcpoa_init_common(oa_p, buffer, size, 1);
     return;
 }
 
@@ -861,16 +908,16 @@ dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, void * option)
     }
 
     if (oa_p->oa_end_tag) {
-	strcpy(oa_p->oa_err, "attempt to add second end tag");
+	strcpy(oa_p->oa_err, "attempt to add data after end tag");
 	return (dhcpoa_failed_e);
     }
 
     switch (tag) {
       case dhcptag_end_e:
-	if ((oa_p->oa_offset + 1) >= oa_p->oa_size) {
+	if ((oa_p->oa_offset + 1) > oa_p->oa_size) {
 	    /* this can't happen since we're careful to leave space */
-	    sprintf(oa_p->oa_err, "can't add end tag %d >= %d",
-		    oa_p->oa_offset + 1, oa_p->oa_size);
+	    sprintf(oa_p->oa_err, "can't add end tag %d > %d",
+		    oa_p->oa_offset + oa_p->oa_reserve, oa_p->oa_size);
 	    return (dhcpoa_failed_e);
 	}
 	((u_char *)oa_p->oa_buffer)[oa_p->oa_offset + TAG_OFFSET] = tag;
@@ -879,10 +926,10 @@ dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, void * option)
 	break;
 
       case dhcptag_pad_e:
-	/* 1 for pad tag, 1 for end tag which must be present */
-	if ((oa_p->oa_offset + 1 + 1) >= oa_p->oa_size) {
-	    sprintf(oa_p->oa_err, "can't add pad tag %d >= %d",
-		    oa_p->oa_offset + 1 + 1, oa_p->oa_size);
+	/* 1 for pad tag */
+	if ((oa_p->oa_offset + oa_p->oa_reserve + 1) > oa_p->oa_size) {
+	    sprintf(oa_p->oa_err, "can't add pad tag %d > %d",
+		    oa_p->oa_offset + oa_p->oa_reserve + 1, oa_p->oa_size);
 	    return (dhcpoa_full_e);
 	}
 	((u_char *)oa_p->oa_buffer)[oa_p->oa_offset + TAG_OFFSET] = tag;
@@ -890,10 +937,11 @@ dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, void * option)
 	break;
 
       default:
-	/* 2 for tag/len, 1 for end tag which must be present */
-	if ((oa_p->oa_offset + len + 2 + 1) >= oa_p->oa_size) {
-	    sprintf(oa_p->oa_err, "can't add tag %d (%d >= %d)", tag,
-		    oa_p->oa_offset + len + 2 + 1, oa_p->oa_size);
+	/* 2 for tag/len */
+	if ((oa_p->oa_offset + len + 2 + oa_p->oa_reserve) > oa_p->oa_size) {
+	    sprintf(oa_p->oa_err, "can't add tag %d (%d > %d)", tag,
+		    oa_p->oa_offset + len + 2 + oa_p->oa_reserve, 
+		    oa_p->oa_size);
 	    return (dhcpoa_full_e);
 	}
 	((u_char *)oa_p->oa_buffer)[oa_p->oa_offset + TAG_OFFSET] = tag;
@@ -986,11 +1034,34 @@ dhcpoa_used(dhcpoa_t * oa_p)
 }
 
 int
+dhcpoa_freespace(dhcpoa_t * oa_p)
+{
+    int	freespace;
+
+    if (oa_p == NULL || oa_p->oa_magic != DHCPOA_MAGIC) {
+	return 0;
+    }
+    freespace = oa_p->oa_size - oa_p->oa_offset - oa_p->oa_reserve;
+    if (freespace < 0) {
+	freespace = 0;
+    }
+    return (freespace);
+}
+
+int
 dhcpoa_count(dhcpoa_t * oa_p)
 {
     if (oa_p == NULL || oa_p->oa_magic != DHCPOA_MAGIC)
 	return 0;
     return (oa_p->oa_option_count);
+}
+
+void *
+dhcpoa_buffer(dhcpoa_t * oa_p) 
+{
+    if (oa_p == NULL || oa_p->oa_magic != DHCPOA_MAGIC)
+      return (NULL);
+    return (oa_p->oa_buffer);
 }
 
 #ifdef TEST_DHCP_OPTIONS

@@ -1,6 +1,9 @@
 /* MS-DOS specific Lisp utilities interface.
    Coded by Manabu Higashida, 1991.
-   Copyright (C) 1991 Free Software Foundation, Inc.
+   Modified by Morten Welinder, 1993-1994.
+
+   Copyright (C) 1991, 1994, 1995, 1997, 1999
+   Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -36,5 +39,7 @@ extern Lisp_Object Vdos_version;
 extern Lisp_Object Vdos_windows_version;
 #ifndef HAVE_X_WINDOWS
 extern Lisp_Object Vdos_display_scancodes;
-extern Lisp_Object Qmsdos_color_translate;
+
+extern int         msdos_stdcolor_idx  P_ ((const char *));
+extern Lisp_Object msdos_stdcolor_name P_ ((int));
 #endif

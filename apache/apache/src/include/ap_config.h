@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1003,8 +1003,10 @@ typedef int rlim_t;
 #define NEED_HASHBANG_EMUL
 
 #elif defined(CYGWIN)               /* Cygwin 1.x POSIX layer for Win32 */
+#define SYSTEM_UID 18
 #define JMP_BUF jmp_buf
 #define NO_KILLPG
+#define NO_SETSID
 #define USE_LONGJMP
 #define GDBM_STATIC
 #define HAVE_MMAP 1

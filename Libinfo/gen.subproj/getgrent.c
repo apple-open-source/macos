@@ -61,6 +61,7 @@ static char sccsid[] = "@(#)getgrent.c	8.2 (Berkeley) 3/21/94";
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <grp.h>
 
 static FILE *_gr_fp;
@@ -76,7 +77,7 @@ static char line[MAXLINELENGTH];
 struct group *
 getgrent()
 {
-	if (!_gr_fp && !start_gr() || !grscan(0, 0, NULL))
+	if ((!_gr_fp && !start_gr()) || !grscan(0, 0, NULL))
 		return(NULL);
 	return(&_gr_group);
 }
@@ -113,7 +114,7 @@ getgrgid(gid)
 	return(rval ? &_gr_group : NULL);
 }
 
-static
+static int
 start_gr()
 {
 	if (_gr_fp) {
@@ -148,7 +149,7 @@ endgrent()
 	}
 }
 
-static
+static int
 grscan(search, gid, name)
 	register int search, gid;
 	register char *name;

@@ -38,38 +38,37 @@
 
 extern CFMutableDictionaryRef plistDict;
 
-char * daCreateCStringFromCFString(CFStringRef string);
+char           *daCreateCStringFromCFString(CFStringRef string);
 
-int sortfs(const void *v1, const void *v2);
-int suffixfs(struct dirent *dp);
+int             sortfs(const void *v1, const void *v2);
+int             suffixfs(struct dirent * dp);
 
-char *resourcePathForFSName(char *fs);
+char           *resourcePathForFSName(char *fs);
 
-char *fsDirForFS(char *fsname);
-char *utilPathForFS(char *fsname);
+char           *fsDirForFS(char *fsname);
+char           *utilPathForFS(char *fsname);
 
-int renameUFSDevice(const char *devName, const char *mountPoint);
+int             renameUFSDevice(const char *devName, const char *mountPoint);
 
-char *fsNameForFSWithMediaName(char *fsname, char *mediaName);
+char           *fsNameForFSWithMediaName(char *fsname, char *mediaName);
 
-char *verifyArgsForFileSystem(char *fsname);
-char *repairPathForFileSystem(char *fsname);
-char *verifyPathForFileSystem(char *fsname);
-char *repairArgsForFileSystem(char *fsname);
+char           *verifyArgsForFileSystem(char *fsname);
+char           *repairPathForFileSystem(char *fsname);
+char           *verifyPathForFileSystem(char *fsname);
+char           *repairArgsForFileSystem(char *fsname);
 
-// for debugging
+//for debugging
+	void            printArgsForFsname(char *fsname);
 
-void printArgsForFsname(char *fsname);
+//replacement codes
 
-// replacement codes
-
-void cacheFileSystemDictionaries();
-void cacheFileSystemMatchingArray();
-
-
-char *valueForFileSystem(char *fsname, char *fskey);
+void            cacheFileSystemDictionaries();
+void            cacheFileSystemMatchingArray();
 
 
-// internal only
+char           *valueForFileSystem(char *fsname, char *fskey);
+
+
+//internal only
 CFDictionaryRef dictionaryForFileSystem(char *fsname);
-char *valueForFSDictionary(CFDictionaryRef dict, char *fskey);
+char           *valueForFSDictionary(CFDictionaryRef dict, char *fskey);

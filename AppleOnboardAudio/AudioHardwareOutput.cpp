@@ -57,7 +57,6 @@
 OSDefineMetaClassAndStructors(AudioHardwareOutput, IOAudioPort)
 
 AudioHardwareOutput *AudioHardwareOutput::create(AudioHardwareOutputInfo theInfo){
- 
     AudioHardwareOutput *myOutput;
     myOutput = new AudioHardwareOutput;
     
@@ -70,7 +69,6 @@ AudioHardwareOutput *AudioHardwareOutput::create(AudioHardwareOutputInfo theInfo
 
     return myOutput;
 }
-
 
 bool AudioHardwareOutput::init(AudioHardwareOutputInfo theInfo) {
 
@@ -99,60 +97,96 @@ bool AudioHardwareOutput::init(AudioHardwareOutputInfo theInfo) {
 
 
 void AudioHardwareOutput::free(){
-    //pluginRef->release();
+    // pluginRef->release();
     super::free();
 }
 
 void AudioHardwareOutput::attachAudioPluginRef(AppleOnboardAudio *theAudioPlugin){
     pluginRef = theAudioPlugin;
-    //pluginRef->retain();
+    // pluginRef->retain();
 }
 
 
-void AudioHardwareOutput::deviceIntService( UInt32 currentDevices ){
-    UInt32 progOutputBits;
-        
+void AudioHardwareOutput::deviceIntService( UInt32 currentDevices ) {
+    UInt32						progOutputBits;
+	OSNumber *					activeOutput;
+
     switch(outputKind) {
         case kOutputPortTypeClassic:
         case kOutputPortTypeProj3:
             active = (deviceMask & currentDevices) == deviceMatch;
-    
-            if(active) 
+
+            if(active) {
                 pluginRef->sndHWSetActiveOutputExclusive(sndHWPort);
+				if (NULL != pluginRef->outputSelector) {
+					activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeHeadphones, 32);
+					pluginRef->outputSelector->hardwareValueChanged (activeOutput);
+				}
+			} else {
+				if (NULL != pluginRef->outputSelector) {
+					activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeInternalSpeaker, 32);
+					pluginRef->outputSelector->hardwareValueChanged (activeOutput);
+				}
+			}
             break;
         case kOutputPortTypeProj5:
             if ((deviceMask & currentDevices) != 0) {
-            
-		active = true;
-		pluginRef->sndHWSetActiveOutputExclusive(sndHWPort);
-	
-		if ((kSndHWCPUHeadphone & currentDevices) == kSndHWCPUHeadphone) {
-                    progOutputBits = pluginRef->sndHWGetProgOutput();
-                    if(invertMute)
-                        progOutputBits &= ~kSndHWProgOutput1;
-                    else
-                        progOutputBits |= kSndHWProgOutput1;		
-                    pluginRef->sndHWSetProgOutput( progOutputBits);
-		} else {
-                    progOutputBits = pluginRef->sndHWGetProgOutput();
-                    if(invertMute)
-                        progOutputBits |= kSndHWProgOutput1;		
-                    else
-                        progOutputBits &= ~kSndHWProgOutput1;							
-                    pluginRef->sndHWSetProgOutput( progOutputBits);
-		}
+				active = true;
+				pluginRef->sndHWSetActiveOutputExclusive (sndHWPort);
+
+				if ((kSndHWCPUHeadphone & currentDevices) == kSndHWCPUHeadphone) {
+					progOutputBits = pluginRef->sndHWGetProgOutput ();
+					if (invertMute) {
+						progOutputBits &= ~kSndHWProgOutput1;
+					} else {
+						progOutputBits |= kSndHWProgOutput1;
+					}
+		
+					pluginRef->sndHWSetProgOutput (progOutputBits);
+
+					if (NULL != pluginRef->outputSelector) {
+						activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeHeadphones, 32);
+						pluginRef->outputSelector->hardwareValueChanged (activeOutput);
+					}
+				} else {
+					progOutputBits = pluginRef->sndHWGetProgOutput ();
+					if(invertMute) {
+						progOutputBits |= kSndHWProgOutput1;
+					} else {
+						progOutputBits &= ~kSndHWProgOutput1;
+					}
+							
+					pluginRef->sndHWSetProgOutput (progOutputBits);
+
+					if (NULL != pluginRef->outputSelector) {
+						activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeInternalSpeaker, 32);
+						pluginRef->outputSelector->hardwareValueChanged (activeOutput);
+					}
+				}
             } else { // Must be External.
-		active = false;
+				active = false;
+				if (NULL != pluginRef->outputSelector) {
+					activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeExternalSpeaker, 32);
+					pluginRef->outputSelector->hardwareValueChanged (activeOutput);
+				}
             }
             break;
         default:
             break;
     }
+
+	// For [2926907]
+	if (NULL != pluginRef->headphoneConnection && oKind == kIOAudioOutputPortSubTypeHeadphones) {
+		OSNumber *			headphoneState;
+		headphoneState = OSNumber::withNumber ((long long unsigned int)active, 32);
+		(void)pluginRef->headphoneConnection->hardwareValueChanged (headphoneState);
+	}
+	// end [2926907]
+
     ioLog();
 }
 
 void AudioHardwareOutput::ioLog(){
-
     switch (outputKind) {
         case kOutputPortTypeUnknown:
             debugIOLog("+ Info for output port : unknown");
@@ -178,7 +212,7 @@ void AudioHardwareOutput::ioLog(){
 void AudioHardwareOutput::setMute(bool muteState ){
     UInt32 progOutbits;
     
-    if(muteState != mute){
+//    if(muteState != mute){
         if(kOutputPortTypeProj3 == outputKind) {
             progOutbits = pluginRef->sndHWGetProgOutput();
             
@@ -193,7 +227,7 @@ void AudioHardwareOutput::setMute(bool muteState ){
             pluginRef->sndHWSetSystemMute(muteState);
         }
         mute = muteState;
-    }
+//    }
 }
 
 bool AudioHardwareOutput::getMute(void){

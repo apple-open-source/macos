@@ -1,4 +1,4 @@
-#   Copyright (C) 1999 Cygnus Solutions
+#   Copyright (C) 1999, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,16 +38,10 @@ global objdir srcdir
 #####                 #####
 
 # Load the test executable
-if {$tcl_platform(platform) == "windows"} {
-  set file [file join $objdir list.exe]
-} else {
-  set file [file join $objdir list]
-}
-
-# This isn't a test case, since if this fails, we're hosed.
-if {[catch {gdb_cmd "file $file" 1} t]} {
-  # an error occured loading the file
-  gdbtk_test_error "loading \"$file\": $t"
+set program [file join $objdir list]
+if {[catch {gdbtk_test_file $program} t]} {
+  # This isn't a test case, since if this fails, we're hosed.
+  gdbtk_test_error "loading \"$program\": $t"
 }
 
 set srcwin [ManagedWin::open SrcWin]
@@ -57,7 +51,7 @@ set statbar [$srcwin test_get _statbar]
 
 # get things started
 gdb_cmd "break main"
-run_executable
+gdbtk_test_run
 
 # Test: srcwin2-1.1
 # Desc: Check for something in source window
@@ -283,14 +277,14 @@ gdbtk_test srcwin2-2.6 "goto function bar" {
   # now get a dump of all tags and check that only one line is
   # marked BROWSE_TAG and no lines are STACK_TAG or PC_TAG.
 
-  # We know that list1.c should have BROWSE_TAG set at index 5.2
+  # We know that list1.c should have BROWSE_TAG set at index 10.2
   # for function "bar".  If list1.c is changed or the layout of the source
   # window is changed, this must be updated.
   if {![catch {set z [$twin dump -tag 1.0 end]}]} {
     foreach {k v i} $z {
       if {$k == "tagon"} {
 	if {$v == "BROWSE_TAG"} {
-	  if {$i == "5.2"} {
+	  if {$i == "10.2"} {
 	    incr r
 	  } else {
 	    incr r 5
@@ -327,16 +321,16 @@ gdbtk_test srcwin2-2.7 "goto function oof" {
   # now get a dump of all tags and check that only one line is
   # marked BROWSE_TAG and no lines are STACK_TAG or PC_TAG.
 
-  # We know that list1.c should have BROWSE_TAG set at index 32.2
+  # We know that list1.c should have BROWSE_TAG set at index 38.2
   # for function "oof".  If list1.c is changed or the layout of the source
   # window is changed, this must be updated.
   if {![catch {set z [$twin dump -tag 1.0 end]}]} {
     foreach {k v i} $z {
       if {$k == "tagon"} {
 	if {$v == "BROWSE_TAG"} {
-	  if {$i == "32.2"} {
+	  if {$i == "38.2"} {
 	    set line_number [$twin get "$i wordstart" "$i wordend"]
-	    if {$line_number == "32"} {
+	    if {$line_number == "38"} {
 	      incr r
 	    } else {
 	      incr r -100
@@ -426,7 +420,7 @@ gdbtk_test srcwin2-2.11 "set BP and continue" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "32.2"} {
+	    if {$i == "38.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -472,14 +466,14 @@ gdbtk_test srcwin2-3.1 "stack up (1)" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "32.2"} {
+	    if {$i == "38.2"} {
 	      incr r
 	    } else {
 	      incr r 5
 	    }
 	  }
 	  if {$v == "STACK_TAG"} {
-	    if {$i == "22.2"} {
+	    if {$i == "26.2"} {
 	      incr r
 	    } else {
 	      incr r 10
@@ -518,14 +512,14 @@ gdbtk_test srcwin2-3.2 "stack up (2)" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "32.2"} {
+	    if {$i == "38.2"} {
 	      incr r
 	    } else {
 	      incr r 5
 	    }
 	  }
 	  if {$v == "STACK_TAG"} {
-	    if {$i == "7.2"} {
+	    if {$i == "12.2"} {
 	      incr r
 	    } else {
 	      incr r 10
@@ -564,7 +558,7 @@ gdbtk_test srcwin2-3.3 "stack up (3)" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "STACK_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -617,41 +611,44 @@ gdbtk_test srcwin2-3.4 "stack up (4)" {
   set r
 } {1}
 
+
+# Disabled for now because there are different correct results.
+# Test should be rewritten to include those.
 # Test: srcwin2-3.5
 # Desc: "stack up" when we are at the top
-gdbtk_test srcwin2-3.5 "stack up when at the top" {
-  $srcwin stack up
-  set r 0
-  set name [$statbar.name get]
-  set func [$statbar.func get]
+#gdbtk_test srcwin2-3.5 "stack up when at the top" {
+# $srcwin stack up
+#  set r 0
+#  set name [$statbar.name get]
+#  set func [$statbar.func get]
 
   # check contents of name and function comboboxes
-  if {$name != "list0.c"} {set r -1}
-  if {$func != "main"} {set r -2}
+#  if {$name != "list0.c"} {set r -1}
+#  if {$func != "main"} {set r -2}
 
   # check that the correct file is displayed
-  set twin [$stw test_get twin]
-  set a [$twin get 1.0 end]
-  if {[string compare $file1(source) $a]} {set r -3}
+#  set twin [$stw test_get twin]
+#  set a [$twin get 1.0 end]
+#  if {[string compare $file1(source) $a]} {set r -3}
   
   # check for STACK_TAG
-  if {$r == 0} {
-    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
-      foreach {k v i} $z {
-	if {$k == "tagon"} {
-	  if {$v == "STACK_TAG"} {
-	    incr r
-	  }
-	  if {$v == "PC_TAG"} {incr r 10}
-	  if {$v == "BROWSE_TAG"} {incr r 100}
-	}
-      }
-    } else {
-      set r -4
-    }
-  }
-  set r
-} {1}
+#  if {$r == 0} {
+#    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+#      foreach {k v i} $z {
+#	if {$k == "tagon"} {
+#	  if {$v == "STACK_TAG"} {
+#	    incr r
+#	  }
+#	  if {$v == "PC_TAG"} {incr r 10}
+#	  if {$v == "BROWSE_TAG"} {incr r 100}
+#	}
+#      }
+#    } else {
+#      set r -4
+#    }
+#  }
+#  set r
+#} {1}
 
 # Test: srcwin2-3.6
 # Desc: "stack down"  test
@@ -676,7 +673,7 @@ gdbtk_test srcwin2-3.6 "stack down" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "STACK_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -716,7 +713,7 @@ gdbtk_test srcwin2-3.7 "stack bottom" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "32.2"} {
+	    if {$i == "38.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -756,7 +753,7 @@ gdbtk_test srcwin2-3.8 "stack down when at bottom" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "32.2"} {
+	    if {$i == "38.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -796,7 +793,7 @@ gdbtk_test srcwin2-4.1 "set BP in another file" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "BROWSE_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -805,7 +802,7 @@ gdbtk_test srcwin2-4.1 "set BP in another file" {
 	  if {$v == "STACK_TAG"} {incr r 10}
 	  if {$v == "PC_TAG"} {incr r 100}
 	} elseif {$k == "image"} {
-	  if {$i == "8.0"} {
+	  if {$i == "9.0"} {
 	    incr r
 	  } else {
 	    set r -200
@@ -849,7 +846,7 @@ gdbtk_test srcwin2-4.2 "temporary BP" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "BROWSE_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -858,7 +855,7 @@ gdbtk_test srcwin2-4.2 "temporary BP" {
 	  if {$v == "STACK_TAG"} {incr r 10}
 	  if {$v == "PC_TAG"} {incr r 100}
 	} elseif {$k == "image"} {
-	  if {$i == "8.0"} {
+	  if {$i == "9.0"} {
 	    incr r
 	  } else {
 	    set r -200
@@ -878,7 +875,7 @@ gdbtk_test srcwin2-4.2 "temporary BP" {
       foreach {k v i} $z {
 	if {$k == "tagon"} {
 	  if {$v == "PC_TAG"} {
-	    if {$i == "8.2"} {
+	    if {$i == "9.2"} {
 	      incr r
 	    } else {
 	      incr r 5
@@ -899,8 +896,3 @@ gdbtk_test srcwin2-4.2 "temporary BP" {
 } {3}
 
 gdbtk_test_done
-
-# Local variables:
-# mode: tcl
-# change-log-default-name: "ChangeLog-gdbtk"
-# End:

@@ -387,10 +387,13 @@ bool UniNEnet::hardwareResetPHY()
 
 	result = keyLargo->callPlatformFunction( keyLargo_resetUniNEthernetPhy, false, 0, 0, 0, 0 );
 	ELG( keyLargo, result, 'RPhy', "hardwareResetPHY" );
-	if ( result != kIOReturnSuccess )
-		return false;
+///	if ( result != kIOReturnSuccess )
+///		return false;
 
-	return true;
+		// Clear Powerdown and reset:
+	miiWriteWord( MII_CONTROL_RESET, MII_CONTROL, kPHYAddr0 );
+	IOSleep( 1 );
+	return true;	/// return value not used.
 }/* end hardwareResetPHY */
 
 

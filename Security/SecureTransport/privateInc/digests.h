@@ -21,7 +21,7 @@
 
 	Contains:	HashReference declarations
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -30,13 +30,22 @@
 #ifndef	_DIGESTS_H_
 #define _DIGESTS_H_	1
 
+#include "cryptType.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern HashReference SSLHashNull;
-extern HashReference SSLHashMD5;
-extern HashReference SSLHashSHA1;
+/*
+ * These numbers show up all over the place...might as well hard code 'em once.
+ */
+#define SSL_MD5_DIGEST_LEN	16
+#define SSL_SHA1_DIGEST_LEN	20
+#define SSL_MAX_DIGEST_LEN	20
+
+extern const HashReference SSLHashNull;
+extern const HashReference SSLHashMD5;
+extern const HashReference SSLHashSHA1;
 
 extern void SSLInitMACPads(void);
 extern SSLErr CloneHashState(
@@ -48,7 +57,10 @@ extern SSLErr ReadyHash(
 	const HashReference *ref, 
 	SSLBuffer *state, 
 	SSLContext *ctx);
-
+extern SSLErr CloseHash(
+	const HashReference *ref, 
+	SSLBuffer *state, 
+	SSLContext *ctx);
 
 #ifdef __cplusplus
 }

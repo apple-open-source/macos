@@ -92,8 +92,8 @@ INSTALL_STRIP =
 
 # Things that a user might actually run,
 # which should be installed in bindir.
-INSTALLABLES = etags emacsclient b2m
-INSTALLABLE_SCRIPTS = rcs-checkin
+INSTALLABLES = etags emacsclient b2m ebrowse
+INSTALLABLE_SCRIPTS = rcs-checkin grep-changelog
 
 # Things that Emacs runs internally, or during the build process,
 #  which should not be installed in bindir.
@@ -201,8 +201,12 @@ MOVE_FLAGS=
 # ifdef HAVE_LIBKRB5
     KRB5LIB = -lkrb5
 # endif
-# ifdef HAVE_LIBCRYPTO
+# ifdef HAVE_LIBK5CRYPTO
+    CRYPTOLIB = -lk5crypto
+# else
+#  ifdef HAVE_LIBCRYPTO
     CRYPTOLIB = -lcrypto
+#  endif
 # endif
 # ifdef HAVE_LIBCOM_ERR
     COM_ERRLIB = -lcom_err
@@ -210,7 +214,13 @@ MOVE_FLAGS=
 #endif /* KERBEROS */
 
 /* If HESIOD is defined, set this to "-lhesiod". */
-HESIODLIB=
+#ifdef HAVE_LIBHESIOD
+# ifdef HAVE_LIBRESOLV
+    HESIODLIB= -lhesiod -lresolv
+# else
+    HESIODLIB= -lhesiod
+# endif
+#endif
 
 MOVE_LIBS=$(KRB4LIB) $(DESLIB) $(KRB5LIB) $(CRYPTOLIB) $(COM_ERRLIB) $(HESIODLIB)
 
@@ -346,7 +356,7 @@ getopt.o: ${srcdir}/getopt.c ${srcdir}/getopt.h
 getopt1.o: ${srcdir}/getopt1.c ${srcdir}/getopt.h
 	${CC} -c ${CPP_CFLAGS} ${srcdir}/getopt1.c
 alloca.o: ${srcdir}/alloca.c
-	${CC} -c ${BASE_CFLAGS} ${srcdir}/alloca.c
+	${CC} -Demacs -c ${BASE_CFLAGS} ${srcdir}/alloca.c
 
 #ifdef REGEXP_IN_LIBC
 REGEXPOBJ =
@@ -362,15 +372,18 @@ regex.o: $(srcdir)/../src/regex.c $(srcdir)/../src/regex.h ../src/config.h
 etags: ${srcdir}/etags.c $(GETOPTDEPS) $(REGEXPDEPS) ../src/config.h
 	$(CC) ${ALL_CFLAGS} -DVERSION="\"${version}\"" ${srcdir}/etags.c $(GETOPTOBJS) $(REGEXPOBJ) $(LOADLIBES) -o etags
 
+ebrowse: ${srcdir}/ebrowse.c $(GETOPTDEPS) ../src/config.h
+	$(CC) ${ALL_CFLAGS} -DVERSION="\"${version}\"" ${srcdir}/ebrowse.c $(GETOPTOBJS) $(LOADLIBES) -o ebrowse
+
 /* We depend on etags to assure that parallel makes don't write two
    etags.o files on top of each other.  */
 ctags: etags
 	$(CC) ${ALL_CFLAGS} -DCTAGS -DVERSION="\"${version}\"" ${srcdir}/etags.c $(GETOPTOBJS) $(REGEXPOBJ) $(LOADLIBES) -o ctags
 
-profile: ${srcdir}/profile.c
+profile: ${srcdir}/profile.c ../src/config.h
 	$(CC) ${ALL_CFLAGS} ${srcdir}/profile.c $(LOADLIBES) -o profile
 
-make-docfile: ${srcdir}/make-docfile.c
+make-docfile: ${srcdir}/make-docfile.c ../src/config.h
 	$(CC) ${ALL_CFLAGS} ${srcdir}/make-docfile.c $(LOADLIBES) -o make-docfile
 
 digest-doc: ${srcdir}/digest-doc.c
@@ -389,7 +402,7 @@ movemail: movemail.o pop.o $(GETOPTDEPS)
 movemail.o: ${srcdir}/movemail.c ../src/config.h
 	$(CC) -c ${CPP_CFLAGS} -Demacs ${MOVE_FLAGS} ${srcdir}/movemail.c
 
-pop.o: ${srcdir}/pop.c
+pop.o: ${srcdir}/pop.c  ../src/config.h
 	$(CC) -c ${CPP_CFLAGS} ${MOVE_FLAGS} ${srcdir}/pop.c
 
 cvtmail: ${srcdir}/cvtmail.c
@@ -409,7 +422,7 @@ emacsclient: ${srcdir}/emacsclient.c ../src/config.h $(GETOPTDEPS)
 	   -DVERSION=`sed -n -e '/(defconst emacs-version/ s/^[^"]*\("[^"]*"\).*/\1/p' ${srcdir}/../lisp/version.el` \
 	   $(LOADLIBES) -o emacsclient
 
-hexl: ${srcdir}/hexl.c
+hexl: ${srcdir}/hexl.c ../src/config.h
 	$(CC) ${ALL_CFLAGS} ${srcdir}/hexl.c $(LOADLIBES) -o hexl
 
 /* These are NOT included in INSTALLABLES or UTILITIES.

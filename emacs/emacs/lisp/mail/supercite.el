@@ -3,7 +3,7 @@
 ;; Copyright (C) 1993, 1997 Free Software Foundation, Inc.
 
 ;; Author: 1993 Barry A. Warsaw, Century Computing, Inc. <bwarsaw@cen.com>
-;; Maintainer:    supercite-help@python.org
+;; Maintainer:    Mark Senn <mds@ecn.purdue.edu>
 ;; Created:       February 1993
 ;; Last Modified: 1993/09/22 18:58:46
 ;; Keywords: mail, news
@@ -32,7 +32,9 @@
 ;; |Mail and news reply citation package
 ;; |1993/09/22 18:58:46|3.1|
 
-;; Code:
+;;; Commentary:
+
+;;; Code:
 
 
 (require 'regi)
@@ -103,14 +105,14 @@ This should NOT have a leading `^' character."
 
 ;; Nemacs and Mule users note: please see the texinfo manual for
 ;; suggestions on setting these variables.
-(defcustom sc-citation-root-regexp "[-._a-zA-Z0-9]*"
+(defcustom sc-citation-root-regexp "[-._[:alnum:]]*"
   "*Regexp describing variable root part of a citation for a cited line.
 This should NOT have a leading `^' character.  See also
 `sc-citation-nonnested-root-regexp'."
   :type 'regexp
   :group 'supercite-cite)
 
-(defcustom sc-citation-nonnested-root-regexp "[-._a-zA-Z0-9]+"
+(defcustom sc-citation-nonnested-root-regexp "[-._[:alnum:]]+"
   "*Regexp describing the variable root part of a nested citation.
 This should NOT have a leading `^' character.  This variable is
 related to `sc-citation-root-regexp' but whereas that variable
@@ -800,6 +802,8 @@ the list should be unique."
     (end                          (setq sc-mail-headers-end (point))))
   "Regi frame for glomming mail header information.")
 
+(eval-when-compile (defvar curline))	; dynamic bondage
+
 ;; regi functions
 (defun sc-mail-fetch-field (&optional attribs-p)
   "Insert a key and value into `sc-mail-info' alist.
@@ -1010,7 +1014,7 @@ AUTHOR is the author's name (which is removed from the address)."
 		   (= (aref address (1- (length address))) ?>))
 	      (substring address 1 (1- (length address)))
 	    address))
-      (if (string-match "[-a-zA-Z0-9!@%._]+" from 0)
+      (if (string-match "[-[:alnum:]!@%._]+" from 0)
 	  (sc-submatch 0 from)
 	"")
       )))
@@ -1057,7 +1061,7 @@ This should be the author's full name minus an optional title."
 	  (sc-name-substring
 	   from (string-match "\".*\"" from 0) (match-end 0) 1)
 	  (sc-name-substring
-	   from (string-match "\\([-.a-zA-Z0-9_]+\\s +\\)+<" from 0)
+	   from (string-match "\\([-.[:alnum:]_]+\\s +\\)+<" from 0)
 	   (match-end 1) 0)
 	  (sc-attribs-emailname from))))
     ;; strip off any leading or trailing whitespace
@@ -2094,7 +2098,7 @@ cited."
 	    (looking-at "^[ \t]*$")
 	    (consp arg))
 	(insert (sc-mail-field "sc-citation"))
-      (error "Line is already cited."))))
+      (error "Line is already cited"))))
 
 (defun sc-version (arg)
   "Echo the current version of Supercite in the minibuffer.

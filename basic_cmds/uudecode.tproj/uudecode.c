@@ -104,7 +104,7 @@ decode()
 
 	/* create output file, set mode */
 	if (!freopen(buf, "w", stdout) ||
-	    fchmod(fileno(stdout), mode&0666)) {
+	    fchmod(fileno(stdout), mode&0777)) {
 		(void)fprintf(stderr, "uudecode: %s: %s: %s\n", buf,
 		    filename, strerror(errno));
 		return(1);

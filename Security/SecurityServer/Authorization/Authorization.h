@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,15 +17,12 @@
 
 
 /*
- *  Authorization.h
- *  Authorization -- APIs for implementing access control in applications and daemons.
- *
- *    Copyright (C) 2000, 2001 by Apple Computer, Inc., all rights reserved
- *
+ *  Authorization.h -- APIs for implementing access control in applications
+ *  and daemons.
  */
 
-#if !defined(__Authorization__)
-#define __Authorization__ 1
+#ifndef _SECURITY_AUTHORIZATION_H_
+#define _SECURITY_AUTHORIZATION_H_
 
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <stdio.h>
@@ -45,7 +42,7 @@ extern "C" {
 	
 	If any of the operations that the preference panel wishes to perform are currently not allowed the lock icon in the window would show up in the locked state.  Otherwise it would show up unlocked.
 	
-	When the user locks the lock AuthorizationFree() is called with the kAuthorizationFreeFlagDestroy to destroy any authorization rights that have been aquired.
+	When the user locks the lock AuthorizationFree() is called with the kAuthorizationFlagDestroyRights to destroy any authorization rights that have been aquired.
 	
 	When the user unlocks the lock AuthorizationCreate() is called with the kAuthorizationFlagInteractionAllowed and kAuthorizationFlagExtendRights flags to obtain all required rights.  The old authorization object can be freed by calling AuthorizationFree() with no flags.
 
@@ -238,7 +235,7 @@ OSStatus AuthorizationCreate(const AuthorizationRights *rights,
 
 /*!
     @function AuthorizationFree
-    Destroy an AutorizationRef object. If the kAuthorizationFreeFlagDestroy flag is passed,
+    Destroy an AutorizationRef object. If the kAuthorizationFlagDestroyRights flag is passed,
 	any rights associated with the authorization are lost. Otherwise, only local resources
 	are released, and the rights may still be available to other clients.
 
@@ -328,7 +325,13 @@ OSStatus AuthorizationCopyInfo(AuthorizationRef authorization,
 	@param authorization The (valid) authorization reference to externalize
 	@param extForm Pointer to an AuthorizationExternalForm variable to fill.
 	
-	@result TBD
+        @result errAuthorizationSuccess 0 No error.
+
+        errAuthorizationExternalizeNotAllowed -60009 Externalizing this authorization is not allowed.
+
+        errAuthorizationInvalidRef -60002 The authorization parameter is invalid.
+
+
 */
 OSStatus AuthorizationMakeExternalForm(AuthorizationRef authorization,
 	AuthorizationExternalForm *extForm);
@@ -345,7 +348,7 @@ OSStatus AuthorizationMakeExternalForm(AuthorizationRef authorization,
 	@param extForm Pointer to an AuthorizationExternalForm value.
 	@param authorization Will be filled with a valid AuthorizationRef on success.
 	
-	@result TBD
+	@result errAuthorizationInternalizeNotAllowed -60010 Internalizing this authorization is not allowed.
 */
 OSStatus AuthorizationCreateFromExternalForm(const AuthorizationExternalForm *extForm,
 	AuthorizationRef *authorization);
@@ -405,4 +408,4 @@ OSStatus AuthorizationCopyPrivilegedReference(AuthorizationRef *authorization,
 }
 #endif
 
-#endif /* ! __Authorization__ */
+#endif /* !_SECURITY_AUTHORIZATION_H_ */

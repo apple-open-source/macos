@@ -1,0 +1,475 @@
+#!@PERL@
+# -*- perl -*-
+# @configure_input@
+
+eval 'exec @PERL@ -S $0 ${1+"$@"}'
+    if 0;
+
+# aclocal - create aclocal.m4 by scanning configure.ac
+
+# Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002
+#           Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# Written by Tom Tromey <tromey@redhat.com>.
+
+BEGIN
+{
+  my $prefix = "@prefix@";
+  my $perllibdir = $ENV{'perllibdir'} || "@datadir@/@PACKAGE@-@APIVERSION@";
+  unshift @INC, "$perllibdir";
+}
+
+use Automake::General;
+use Automake::XFile;
+
+# Some constants.
+$VERSION = "@VERSION@";
+$APIVERSION = "@APIVERSION@";
+$PACKAGE = "@PACKAGE@";
+$prefix = "@prefix@";
+# Note that this isn't pkgdatadir, but a separate directory.
+# Note also that the versioned directory is handled later.
+$acdir = "@datadir@/aclocal";
+$default_acdir = $acdir;
+
+# Some globals.
+
+# Exit status.
+$exit_status = 0;
+
+# Name of the top autoconf input: `configure.ac' or `configure.in'.
+$configure_ac = find_configure_ac;
+
+# Text to output.
+$output = '';
+
+# Output file name.
+$output_file = 'aclocal.m4';
+
+# Which macros have been seen.
+%macro_seen = ();
+
+# Which files have been seen.
+%file_seen = ();
+
+# Map macro names to file names.
+%map = ();
+
+# Map file names to file contents.
+%file_contents = ();
+
+# How much to say.
+$verbose = 0;
+
+# Map from obsolete macros to hints for new macros.
+# If you change this, change the corresponding list in automake.in.
+# FIXME: should just put this into a single file.
+my %obsolete_macros =
+    (
+     'AC_FEATURE_CTYPE'		=> "use `AC_HEADER_STDC'",
+     'AC_FEATURE_ERRNO'		=> "add `strerror' to `AC_REPLACE_FUNCS(...)'",
+     'AC_FEATURE_EXIT'		=> '',
+     'AC_SYSTEM_HEADER'		=> '',
+
+     # Note that we do not handle this one, because it is still run
+     # from AM_CONFIG_HEADER.  So we deal with it specially in
+     # &scan_autoconf_files.
+     # 'AC_CONFIG_HEADER'	=> "use `AM_CONFIG_HEADER'",
+
+     'fp_C_PROTOTYPES'		=> "use `AM_C_PROTOTYPES'",
+     'fp_PROG_CC_STDC'		=> "use `AM_PROG_CC_STDC'",
+     'fp_PROG_INSTALL'		=> "use `AC_PROG_INSTALL'",
+     'fp_WITH_DMALLOC'		=> "use `AM_WITH_DMALLOC'",
+     'fp_WITH_REGEX'		=> "use `AM_WITH_REGEX'",
+     'gm_PROG_LIBTOOL'		=> "use `AM_PROG_LIBTOOL'",
+     'jm_MAINTAINER_MODE'	=> "use `AM_MAINTAINER_MODE'",
+     'md_TYPE_PTRDIFF_T'	=> "add `ptrdiff_t' to `AC_CHECK_TYPES(...)'",
+     'ud_PATH_LISPDIR'		=> "use `AM_PATH_LISPDIR'",
+     'ud_GNU_GETTEXT'		=> "use `AM_GNU_GETTEXT'",
+
+     # Now part of autoconf proper, under a different name.
+     'fp_FUNC_FNMATCH'		=> "use `AC_FUNC_FNMATCH'",
+     'AM_SANITY_CHECK_CC'	=> "automatically done by `AC_PROG_CC'",
+     'AM_PROG_INSTALL'		=> "use `AC_PROG_INSTALL'",
+     'AM_EXEEXT'		=> "automatically done by `AC_PROG_(CC|CXX|F77)'",
+     'AM_CYGWIN32'		=> "use `AC_CYGWIN'",
+     'AM_MINGW32'		=> "use `AC_MINGW32'",
+     'AM_FUNC_MKTIME'		=> "use `AC_FUNC_MKTIME'",
+     );
+
+# Regexp to match the above macros.
+$obsolete_rx = '\b(' . join ('|', keys %obsolete_macros) . ')\b';
+
+# Matches a macro definition.
+$ac_defun_rx = "AC_DEFUN\\(\\[?([^],)\n]+)\\]?";
+
+# Matches an AC_REQUIRE line.
+$ac_require_rx = "AC_REQUIRE\\(\\[?([^])]*)\\]?\\)";
+
+
+
+local (@dirlist) = &parse_arguments (@ARGV);
+&scan_m4_files (@dirlist);
+&scan_configure;
+if (! $exit_status)
+{
+    &write_aclocal;
+}
+&check_acinclude;
+
+exit $exit_status;
+
+################################################################
+
+# Print usage and exit.
+sub usage
+{
+    local ($status) = @_;
+
+    print "Usage: aclocal [OPTIONS] ...\n\n";
+    print "\
+Generate `aclocal.m4' by scanning `configure.ac' or `configure.in'
+
+  --acdir=DIR           directory holding config files
+  --help                print this help, then exit
+  -I DIR                add directory to search list for .m4 files
+  --output=FILE         put output in FILE (default aclocal.m4)
+  --print-ac-dir        print name of directory holding m4 files
+  --verbose             don't be silent
+  --version             print version number, then exit
+
+Report bugs to <bug-automake\@gnu.org>.\n";
+
+    exit $status;
+}
+
+# Parse command line.
+sub parse_arguments
+{
+    local (@arglist) = @_;
+    local (@dirlist);
+    local ($print_and_exit) = 0;
+
+    while (@arglist)
+    {
+	if ($arglist[0] =~ /^--acdir=(.+)$/)
+	{
+	    $acdir = $1;
+	}
+	elsif ($arglist[0] =~/^--output=(.+)$/)
+	{
+	    $output_file = $1;
+	}
+	elsif ($arglist[0] eq '-I')
+	{
+	    shift (@arglist);
+	    push (@dirlist, $arglist[0]);
+	}
+	elsif ($arglist[0] eq '--print-ac-dir')
+	{
+	    $print_and_exit = 1;
+	}
+	elsif ($arglist[0] eq '--verbose')
+	{
+	    ++$verbose;
+	}
+	elsif ($arglist[0] eq '--version')
+	{
+	    print "aclocal (GNU $PACKAGE) $VERSION\n\n";
+	    print "Copyright 2002 Free Software Foundation, Inc.\n";
+	    print "This is free software; see the source for copying conditions.  There is NO\n";
+	    print "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n";
+	    print "Written by Tom Tromey <tromey\@redhat.com>\n";
+	    exit 0;
+	}
+	elsif ($arglist[0] eq '--help')
+	{
+	    &usage (0);
+	}
+	else
+	{
+	    die "aclocal: unrecognized option -- `$arglist[0]'\nTry `aclocal --help' for more information.\n";
+	}
+
+	shift (@arglist);
+    }
+
+    if ($print_and_exit)
+    {
+	print $acdir, "\n";
+	exit 0;
+    }
+
+    # Search the versioned directory near the end, and then the
+    # unversioned directory last.  Only do this if the user didn't
+    # override acdir.
+    push (@dirlist, "$acdir-$APIVERSION")
+	if $acdir eq $default_acdir;
+
+    # By default $(datadir)/aclocal doesn't exist.  We don't want to
+    # get an error in the case where we are searching the default
+    # directory and it hasn't been created.
+    push (@dirlist, $acdir)
+	unless $acdir eq $default_acdir && ! -d $acdir;
+
+    return @dirlist;
+}
+
+################################################################
+
+sub scan_configure
+{
+    die "aclocal: `configure.ac' or `configure.in' is required\n"
+        if !$configure_ac;
+
+    open (CONFIGURE, $configure_ac)
+	|| die "aclocal: couldn't open `$configure_ac': $!\n";
+
+    # Make sure we include acinclude.m4 if it exists.
+    if (-f 'acinclude.m4')
+    {
+	&add_file ('acinclude.m4');
+    }
+
+    while (<CONFIGURE>)
+    {
+	# Remove comments from current line.
+	s/\bdnl\b.*$//;
+	s/\#.*$//;
+
+	if (/$obsolete_rx/o)
+	{
+	    local ($hint) = '';
+	    if ($obsolete_macros{$1} ne '')
+	    {
+		$hint = '; ' . $obsolete_macros{$1};
+	    }
+	    warn "aclocal: $configure_ac: $.: `$1' is obsolete$hint\n";
+	    $exit_status = 1;
+	    next;
+	}
+
+	# Search for things we know about.  The "search" sub is
+	# constructed dynamically by scan_m4_files.  The last
+	# parenthethical match makes sure we don't match things that
+	# look like macro assignments or AC_SUBSTs.
+	if (! &search && /(^|\s+)(AM_[A-Z0-9_]+)($|[^\]\)=A-Z0-9_])/)
+	{
+	    # Macro not found, but AM_ prefix found.
+	    warn "aclocal: $configure_ac: $.: macro `$2' not found in library\n";
+	    $exit_status = 1;
+	}
+    }
+
+    close (CONFIGURE);
+}
+
+################################################################
+
+# Check macros in acinclude.m4.  If one is not used, warn.
+sub check_acinclude
+{
+    local ($key);
+
+    foreach $key (keys %map)
+    {
+	next unless $map{$key} eq 'acinclude.m4';
+	if (! $macro_seen{$key})
+	{
+	    # FIXME: should print line number of acinclude.m4.
+	    warn "aclocal: macro `$key' defined in acinclude.m4 but never used\n";
+	}
+    }
+}
+
+################################################################
+
+# Scan all the installed m4 files and construct a map.
+sub scan_m4_files
+{
+    local (@dirlist) = @_;
+
+    # First, scan acinclude.m4 if it exists.
+    if (-f 'acinclude.m4')
+    {
+	$file_contents{'acinclude.m4'} = &scan_file ('acinclude.m4');
+    }
+
+    local ($m4dir);
+    foreach $m4dir (@dirlist)
+    {
+	opendir (DIR, $m4dir)
+	    || die "aclocal: couldn't open directory `$m4dir': $!\n";
+	local ($file, $fullfile);
+	foreach $file (sort grep (! /^\./, readdir (DIR)))
+	{
+	    # Only examine .m4 files.
+	    next unless $file =~ /\.m4$/;
+
+	    # Skip some files when running out of srcdir.
+	    next if $file eq 'aclocal.m4';
+
+	    $fullfile = $m4dir . '/' . $file;
+	    $file_contents{$fullfile} = &scan_file ($fullfile);
+	}
+	closedir (DIR);
+    }
+
+    # Construct a new function that does the searching.  We use a
+    # function (instead of just evalling $search in the loop) so that
+    # "die" is correctly and easily propagated if run.
+    my $search = "sub search {\nmy \$found = 0;\n";
+    foreach my $key (reverse sort keys %map)
+    {
+	# EXPR is a regexp matching the name of the macro.
+	(my $expr = $key) =~ s/(\W)/\\$1/g;
+	$search .= ('if (/\b' . $key . '\b/) { & add_macro (' . $key
+		    . '); $found = 1; }' . "\n");
+    }
+    $search .= "return \$found;\n};\n";
+    eval $search;
+    die "internal error: $@\n search is $search" if $@;
+}
+
+################################################################
+
+# Add a macro to the output.
+sub add_macro
+{
+    local ($macro) = @_;
+
+    # We want to ignore AC_ macros.  However, if an AC_ macro is
+    # defined in (eg) acinclude.m4, then we want to make sure we mark
+    # it as seen.
+    return if $macro =~ /^AC_/ && ! defined $map{$macro};
+
+    if (! defined $map{$macro})
+    {
+	warn "aclocal: macro `$macro' required but not defined\n";
+	$exit_status = 1;
+	return;
+    }
+
+    print STDERR "aclocal: saw macro $macro\n" if $verbose;
+    $macro_seen{$macro} = 1;
+    &add_file ($map{$macro});
+}
+
+# Add a file to output.
+sub add_file
+{
+    local ($file) = @_;
+
+    # Only add a file once.
+    return if ($file_seen{$file});
+    $file_seen{$file} = 1;
+
+    $output .= $file_contents{$file} . "\n";
+    local ($a, @rlist);
+    foreach (split ("\n", $file_contents{$file}))
+    {
+	# This is a hack for Perl 4.
+	$a = $_;
+	if ($a =~ /$ac_require_rx/g)
+	{
+	    push (@rlist, $1);
+	}
+
+	# Remove comments from current line.
+	s/\bdnl\b.*$//;
+	s/\#.*$//;
+
+	# The search function is constructed dynamically by
+	# scan_m4_files.  The last parenthethical match makes sure we
+	# don't match things that look like macro assignments or
+	# AC_SUBSTs.
+	if (! &search && /(^|\s+)(AM_[A-Z0-9_]+)($|[^\]\)=A-Z0-9_])/)
+	{
+	    # Macro not found, but AM_ prefix found.
+	    warn "aclocal: $configure_ac: $.: macro `$2' not found in library\n";
+	    $exit_status = 1;
+	}
+    }
+
+    local ($macro);
+    foreach $macro (@rlist)
+    {
+	&add_macro ($macro);
+    }
+}
+
+# Scan a single M4 file.  Return contents.
+sub scan_file
+{
+    local ($file) = @_;
+
+    my $fh = new Automake::XFile $file;
+    my $contents = '';
+    while ($_ = $fh->getline)
+    {
+	# Ignore `##' lines.
+	next if /^##/;
+
+	$contents .= $_;
+
+	if (/$ac_defun_rx/)
+	{
+	    if (! defined $map{$1})
+	    {
+		$map{$1} = $file;
+	    }
+
+	    # Note: we used to give an error here if we saw a
+	    # duplicated macro.  However, this turns out to be
+	    # extremely unpopular.  It causes actual problems which
+	    # are hard to work around, especially when you must
+	    # mix-and-match tool versions.
+
+	    print STDERR "aclocal: found macro $1 in $file: $.\n" if $verbose;
+	}
+    }
+
+    return $contents;
+}
+
+################################################################
+
+# Write output.
+sub write_aclocal
+{
+    return if ! length ($output);
+
+    print STDERR "aclocal: writing $output_file\n" if $verbose;
+
+    my $out = new Automake::XFile "> $output_file";
+    print $out
+"# $output_file generated automatically by aclocal $VERSION -*- Autoconf -*-
+
+# Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002
+# Free Software Foundation, Inc.
+# This file is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+$output";
+}

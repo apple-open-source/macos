@@ -118,6 +118,7 @@ main(argc, argv)
 	if (argc != 2) {
 		usage_error: ;
 		fprintf(stderr, "usage: config [ -bcdo dir ] [ -p ] sysname\n");
+		exit(1);
 	}
 	if (!build_directory)
 		build_directory = argv[1];

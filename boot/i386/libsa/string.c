@@ -45,12 +45,12 @@ void * memcpy(void * dst, const void * src, size_t len)
     return dst;
 }
 
-void bcopy(const void * src, void * dst, int len)
+void bcopy(const void * src, void * dst, size_t len)
 {
 	memcpy(dst, src, len);
 }
 
-void bzero(void * dst, int len)
+void bzero(void * dst, size_t len)
 {
     memset(dst, 0, len);
 }
@@ -108,7 +108,7 @@ strncpy(char * s1, const char * s2, size_t n)
 }
 
 int
-ptol(char *str)
+ptol(const char *str)
 {
 	register int c = *str;
 

@@ -302,10 +302,10 @@ char **envp)
 
 	for(i = 0; i < cmd_flags.nfiles; i++)
 	    ofile_process(files[i], arch_flags, narch_flags, all_archs, FALSE,
-			  FALSE, nm, &cmd_flags);
+			  FALSE, TRUE, nm, &cmd_flags);
 	if(cmd_flags.nfiles == 0)
 	    ofile_process("a.out",  arch_flags, narch_flags, all_archs, FALSE,
-			  FALSE, nm, &cmd_flags);
+			  FALSE, TRUE, nm, &cmd_flags);
 
 	if (cmd_flags.ofile_name != NULL)
 	    free(cmd_flags.ofile_name);

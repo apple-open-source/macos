@@ -84,15 +84,26 @@ HFILES				=	gdb.h			\
 
 HEADERS				=	$(HFILES:%=$(SRCROOT)/%)
 
-PRIVATE_FRAMEWORKS_DIR_		=	/System/Library/PrivateFrameworks
+ifndef BINUTILS_BUILD_ROOT
+BINUTILS_BUILD_ROOT = $(NEXT_ROOT)
+endif
 
-INCLUDES 			= 	-I$(PRIVATE_FRAMEWORKS_DIR_)/gdb.framework/Headers 	 \
-					-I$(PRIVATE_FRAMEWORKS_DIR_)/gdb.framework/Headers/config \
-					-I$(PRIVATE_FRAMEWORKS_DIR_)/gdb.framework/Headers/machine \
-					-I$(PRIVATE_FRAMEWORKS_DIR_)/bfd.framework/Headers 	 \
-					-I$(PRIVATE_FRAMEWORKS_DIR_)/mmalloc.framework/Headers 	 \
-					-I$(PRIVATE_FRAMEWORKS_DIR_)/liberty.framework/Headers	 \
-					-I$(PRIVATE_FRAMEWORKS_DIR_)/binutils.framework/Headers	 \
+ifndef GDB_BUILD_ROOT
+GDB_BUILD_ROOT = $(NEXT_ROOT)
+endif
+
+BINUTILS_FRAMEWORKS = $(BINUTILS_BUILD_ROOT)/System/Library/PrivateFrameworks
+
+GDB_FRAMEWORKS = $(GDB_BUILD_ROOT)/System/Library/PrivateFrameworks
+
+INCLUDES 			= 	\
+					-I$(BINUTILS_FRAMEWORKS)/bfd.framework/Headers 	 \
+					-I$(BINUTILS_FRAMEWORKS)/mmalloc.framework/Headers 	 \
+					-I$(BINUTILS_FRAMEWORKS)/liberty.framework/Headers	 \
+					-I$(BINUTILS_FRAMEWORKS)/binutils.framework/Headers	 \
+					-I$(GDB_FRAMEWORKS)/gdb.framework/Headers 	 \
+					-I$(GDB_FRAMEWORKS)/gdb.framework/Headers/config \
+					-I$(GDB_FRAMEWORKS)/gdb.framework/Headers/machine \
 					-I.
 
 CFLAGS 				= 	-g 			\

@@ -21,7 +21,7 @@
 
 	Contains:	Finished and server hello done messages. 
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -78,33 +78,51 @@
 #endif
 
 #include <string.h>
+#include <assert.h>
 
 SSLErr
 SSLEncodeFinishedMessage(SSLRecord *finished, SSLContext *ctx)
 {   SSLErr          err;
     SSLBuffer       finishedMsg, shaMsgState, md5MsgState;
-    UInt32          sideSenderValue;
-    
+    Boolean         isServerMsg;
+    unsigned		finishedSize;
+	
     shaMsgState.data = 0;
     md5MsgState.data = 0;
     
+	/* size and version depend on negotiatedProtocol */
+	switch(ctx->negProtocolVersion) {
+		case SSL_Version_3_0:
+			finished->protocolVersion = SSL_Version_3_0;
+			finishedSize = 36;
+			break;
+		case TLS_Version_1_0:
+			finished->protocolVersion = TLS_Version_1_0;
+			finishedSize = 12;
+			break;
+		default:
+			assert(0);
+			return SSLInternalError;
+	}
     finished->contentType = SSL_handshake;
-    finished->protocolVersion = SSL_Version_3_0;
-    if ((err = SSLAllocBuffer(&finished->contents, 40, &ctx->sysCtx)) != 0)
+	/* msg = type + 3 bytes len + finishedSize */
+    if ((err = SSLAllocBuffer(&finished->contents, finishedSize + 4, 
+			&ctx->sysCtx)) != 0)
         return err;
     
     finished->contents.data[0] = SSL_finished;
-    SSLEncodeInt(finished->contents.data + 1, 36, 3);
+    SSLEncodeInt(finished->contents.data + 1, finishedSize, 3);
     
-    finishedMsg.data = finished->contents.data+4;
-    finishedMsg.length = 36;
+    finishedMsg.data = finished->contents.data + 4;
+    finishedMsg.length = finishedSize;
     
     if ((err = CloneHashState(&SSLHashSHA1, ctx->shaState, &shaMsgState, ctx)) != 0)
         goto fail;
     if ((err = CloneHashState(&SSLHashMD5, ctx->md5State, &md5MsgState, ctx)) != 0)
         goto fail;
-    sideSenderValue = (ctx->protocolSide == SSL_ServerSide) ? SSL_Finished_Sender_Server : SSL_Finished_Sender_Client;
-    if ((err = SSLCalculateFinishedMessage(finishedMsg, shaMsgState, md5MsgState, sideSenderValue, ctx)) != 0)
+    isServerMsg = (ctx->protocolSide == SSL_ServerSide) ? true : false;
+    if ((err = ctx->sslTslCalls->computeFinishedMac(ctx, finishedMsg, 
+			shaMsgState, md5MsgState, isServerMsg)) != 0)
         goto fail;  
     
 fail:
@@ -117,15 +135,26 @@ SSLErr
 SSLProcessFinished(SSLBuffer message, SSLContext *ctx)
 {   SSLErr          err;
     SSLBuffer       expectedFinished, shaMsgState, md5MsgState;
-    UInt32          peerSenderValue;
+    Boolean         isServerMsg;
+    unsigned		finishedSize;
     
-    if (message.length != 36) {
+	switch(ctx->negProtocolVersion) {
+		case SSL_Version_3_0:
+			finishedSize = 36;
+			break;
+		case TLS_Version_1_0:
+			finishedSize = 12;
+			break;
+		default:
+			assert(0);
+			return SSLInternalError;
+	}
+    if (message.length != finishedSize) {
 		errorLog0("SSLProcessFinished: msg len error 1\n");
         return SSLProtocolErr;
     }
-    peerSenderValue = (ctx->protocolSide == SSL_ClientSide) ? SSL_Finished_Sender_Server : SSL_Finished_Sender_Client;
     expectedFinished.data = 0;
-    if ((err = SSLAllocBuffer(&expectedFinished, 36, &ctx->sysCtx)) != 0)
+    if ((err = SSLAllocBuffer(&expectedFinished, finishedSize, &ctx->sysCtx)) != 0)
         return err;
     shaMsgState.data = 0;
     if ((err = CloneHashState(&SSLHashSHA1, ctx->shaState, &shaMsgState, ctx)) != 0)
@@ -133,11 +162,12 @@ SSLProcessFinished(SSLBuffer message, SSLContext *ctx)
     md5MsgState.data = 0;
     if ((err = CloneHashState(&SSLHashMD5, ctx->md5State, &md5MsgState, ctx)) != 0)
         goto fail;
-    if ((err = SSLCalculateFinishedMessage(expectedFinished, shaMsgState, md5MsgState, peerSenderValue, ctx)) != 0)
+    isServerMsg = (ctx->protocolSide == SSL_ServerSide) ? false : true;
+    if ((err = ctx->sslTslCalls->computeFinishedMac(ctx, expectedFinished, 
+			shaMsgState, md5MsgState, isServerMsg)) != 0)
         goto fail;
-    DUMP_BUFFER_NAME("finished got", message);
-    DUMP_BUFFER_NAME("finished wanted", expectedFinished);
-    if (memcmp(expectedFinished.data, message.data, 36) != 0)
+
+    if (memcmp(expectedFinished.data, message.data, finishedSize) != 0)
     {  
    		errorLog0("SSLProcessFinished: memcmp failure\n");
    	 	err = SSLProtocolErr;
@@ -152,86 +182,13 @@ fail:
 }
 
 SSLErr
-SSLCalculateFinishedMessage(SSLBuffer finished, SSLBuffer shaMsgState,
-            SSLBuffer md5MsgState, UInt32 senderID, SSLContext *ctx)
-{   SSLErr          err;
-    SSLBuffer       hash, input;
-    UInt8           sender[4], md5Inner[16], shaInner[20];
-    
-    CASSERT(finished.length == 36);
-    
-    if (senderID != 0)
-    {   SSLEncodeInt(sender, senderID, 4);
-        input.data = sender;
-        input.length = 4;
-        if ((err = SSLHashMD5.update(md5MsgState, input)) != 0)
-            return err;
-        if ((err = SSLHashSHA1.update(shaMsgState, input)) != 0)
-            return err;
-    }
-    input.data = ctx->masterSecret;
-    input.length = 48;
-    if ((err = SSLHashMD5.update(md5MsgState, input)) != 0)
-        return err;
-    if ((err = SSLHashSHA1.update(shaMsgState, input)) != 0)
-        return err;
-    input.data = SSLMACPad1;
-    input.length = SSLHashMD5.macPadSize;
-    if ((err = SSLHashMD5.update(md5MsgState, input)) != 0)
-        return err;
-    input.length = SSLHashSHA1.macPadSize;
-    if ((err = SSLHashSHA1.update(shaMsgState, input)) != 0)
-        return err;
-    hash.data = md5Inner;
-    hash.length = 16;
-    if ((err = SSLHashMD5.final(md5MsgState, hash)) != 0)
-        return err;
-    hash.data = shaInner;
-    hash.length = 20;
-    if ((err = SSLHashSHA1.final(shaMsgState, hash)) != 0)
-        return err;
-    if ((err = SSLHashMD5.init(md5MsgState)) != 0)
-        return err;
-    if ((err = SSLHashSHA1.init(shaMsgState)) != 0)
-        return err;
-    input.data = ctx->masterSecret;
-    input.length = 48;
-    if ((err = SSLHashMD5.update(md5MsgState, input)) != 0)
-        return err;
-    if ((err = SSLHashSHA1.update(shaMsgState, input)) != 0)
-        return err;
-    input.data = SSLMACPad2;
-    input.length = SSLHashMD5.macPadSize;
-    if ((err = SSLHashMD5.update(md5MsgState, input)) != 0)
-        return err;
-    input.length = SSLHashSHA1.macPadSize;
-    if ((err = SSLHashSHA1.update(shaMsgState, input)) != 0)
-        return err;
-    input.data = md5Inner;
-    input.length = 16;
-    if ((err = SSLHashMD5.update(md5MsgState, input)) != 0)
-        return err;
-    hash.data = finished.data;
-    hash.length = 16;
-    if ((err = SSLHashMD5.final(md5MsgState, hash)) != 0)
-        return err;
-    input.data = shaInner;
-    input.length = 20;
-    if ((err = SSLHashSHA1.update(shaMsgState, input)) != 0)
-        return err;
-    hash.data = finished.data + 16;
-    hash.length = 20;
-    if ((err = SSLHashSHA1.final(shaMsgState, hash)) != 0)
-        return err;
-    return SSLNoErr;
-}
-
-SSLErr
 SSLEncodeServerHelloDone(SSLRecord *helloDone, SSLContext *ctx)
 {   SSLErr          err;
     
     helloDone->contentType = SSL_handshake;
-    helloDone->protocolVersion = SSL_Version_3_0;
+	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+		   (ctx->negProtocolVersion == TLS_Version_1_0));
+    helloDone->protocolVersion = ctx->negProtocolVersion;
     if ((err = SSLAllocBuffer(&helloDone->contents, 4, &ctx->sysCtx)) != 0)
         return err;
     helloDone->contents.data[0] = SSL_server_hello_done;

@@ -1,3 +1,6 @@
+
+#ifndef _S_FDSET_H
+#define _S_FDSET_H
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -37,8 +40,8 @@
 #define CFRUNLOOP_NEW_API 1
 #endif
 
-#import <CoreFoundation/CFRunLoop.h>
-#import <CoreFoundation/CFSocket.h>
+#include <CoreFoundation/CFRunLoop.h>
+#include <CoreFoundation/CFSocket.h>
 
 /*
  * Type: FDCallout_func_t
@@ -80,3 +83,5 @@ FDSet_fd_set(FDSet_t * set);
 
 int
 FDSet_max_fd(FDSet_t * set);
+
+#endif _S_FDSET_H

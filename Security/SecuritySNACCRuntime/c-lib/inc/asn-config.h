@@ -32,39 +32,6 @@
  * This source code is distributed in the hope that it will be
  * useful, but WITHOUT ANY WARRANTY; without even the implied warranty
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c-lib/inc/asn-config.h,v 1.1.1.1 2001/05/18 23:14:08 mb Exp $
- * $Log: asn-config.h,v $
- * Revision 1.1.1.1  2001/05/18 23:14:08  mb
- * Move from private repository to open source repository
- *
- * Revision 1.2  2001/05/05 00:59:22  rmurphy
- * Adding darwin license headers
- *
- * Revision 1.1.1.1  1999/03/16 18:06:20  aram
- * Originals from SMIME Free Library.
- *
- * Revision 1.6  1997/03/13 09:15:16  wan
- * Improved dependency generation for stupid makedepends.
- * Corrected PeekTag to peek into buffer only as far as necessary.
- * Added installable error handler.
- * Fixed small glitch in idl-code generator (Markku Savela <msa@msa.tte.vtt.fi>).
- *
- * Revision 1.5  1995/07/24 21:01:11  rj
- * changed `_' to `-' in file names.
- *
- * Revision 1.4  1995/02/13  14:47:33  rj
- * settings for IEEE_REAL_FMT/IEEE_REAL_LIB moved from {c_lib,c++_lib}/inc/asn_config.h to acconfig.h.
- *
- * Revision 1.3  1994/10/08  04:46:20  rj
- * config.h -> snacc.h, which now is the toplevel config file.
- *
- * Revision 1.2  1994/08/31  23:53:05  rj
- * redundant code moved into ../../config.h.bot
- *
- * Revision 1.1  1994/08/28  09:21:25  rj
- * first check-in. for a list of changes to the snacc-1.1 distribution please refer to the ChangeLog.
- *
  */
 
 #ifndef _asn_config_h_
@@ -244,5 +211,20 @@ Asn1ErrorHandler Asn1InstallErrorHandler PROTO ((Asn1ErrorHandler handler));
 #endif /* USE_EXP_BUF */
 
 #include "print.h"  /* for printing set up */
+
+/*
+ * Enables throw/catch as replacement for setjmp/longjmp in C++ lib. 
+ * BDecPdu still returns int (1 = OK, 0 = fail) in either config.
+ * The compiler gets this symbol from this file; runtime support uses
+ * the same symbol in c++_lib/inc/asn-config.h There is currently no 
+ * straightforward way to have one symbol used in both environments. 
+ */
+#define SNACC_EXCEPTION_ENABLE	1
+
+/*
+ * Enable BEncPdu, BDecPdu. Same remarks apply as above w.r.t the 
+ * c++ config file.
+ */
+#define SNACC_ENABLE_PDU		0
 
 #endif /* conditional include */

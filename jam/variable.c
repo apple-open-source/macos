@@ -56,6 +56,7 @@ struct _def_asgs {
 	}		asgs[0];
 } ;
 static struct _def_asgs *def_asgs = NULL;
+static unsigned committing_def_asgs = 0;
 
 #endif
 
@@ -112,15 +113,14 @@ int export;
 	{
 	    char *val;
 
-	    if( val = strchr( *e, '=' ) )
+	    if( (val = strchr( *e, '=' )) != NULL )
 	    {
 		LIST *l = L0;
-#if !defined(__APPLE__)
-		int pp, p;
-#endif
+
+		void * pp, * p;
 		char buf[ MAXSYM ];
 #if defined(__APPLE__)
-		l = list_new( l, newstr( val + 1 ) );
+		char split = '\01';
 #else
 		char split = ' ';
 
@@ -133,7 +133,7 @@ int export;
 		        !strncmp( val - 4, "path", 4 ) )
 			    split = SPLITPATH;
 		}
-
+#endif
 		/* Do the split */
 
 		for( pp = val + 1; p = strchr( pp, split ); pp = p + 1 )
@@ -144,7 +144,7 @@ int export;
 		}
 
 		l = list_new( l, newstr( pp ) );
-#endif
+
 		/* Get name */
 
 		strncpy( buf, *e, val - *e );
@@ -273,7 +273,25 @@ char	*symbol;
 	VARIABLE var, *v = &var;
 
 	v->symbol = symbol;
+#ifdef APPLE_EXTENSIONS
+	// If we have a deferred setting for 'symbol' that hasn't yet been committed,
+	// we return the uncommitted value.  We create a new list here, which we leak,
+	// but for now (March 2002) this is ok -- this occurs very rarely, and we need
+	// this for a fix for Proton.
+	if (APPLE_JAM_EXTENSIONS  &&  def_asgs != NULL  &&  !committing_def_asgs) {
+	    int   i;
 
+	    for (i = def_asgs->count-1; i >= 0; i--) {
+		if (strcmp(symbol, def_asgs->asgs[i].symbol) == 0) {
+		    LIST * value = list_new(NULL, newstr(def_asgs->asgs[i].value));
+		    if (DEBUG_VARGET) {
+			var_dump(symbol, value, "get-uncommitted-deferred");
+		    }
+		    return value;
+		}
+	    }
+	}
+#endif
 	if( varhash && hashcheck( varhash, (HASHDATA **)&v ) )
 	{
 	    if( DEBUG_VARGET )
@@ -483,7 +501,7 @@ LIST *value;
 	#ifdef DEBUG_VARIABLE_EXPORTING
 	    printf("[setenv '%s' '%s']\n", symbol, buffer);
 	#endif
-	    setenv(symbol, buffer, 0);
+	    setenv(symbol, buffer, 1);
 	#ifdef MEASURE_SETENV
 	    setenv_num++;
 	    setenv_bytes += strlen(symbol) + 1 + strlen(buffer) + 1;
@@ -566,14 +584,20 @@ static inline void strbuf_append_character (struct string_buffer * sbuf, char ch
 static void strbuf_append_quoted_characters (struct string_buffer * sbuf, const char * characters, unsigned length, unsigned quote_only_if_needed)
 {
     register unsigned   needs_quotes = 0;    // Do we really need to quote the string?
+#ifdef QUOTE_STRINGS_BY_ENCLOSING_IN_DOUBLEQUOTES
     register unsigned   extra_length = 2;    // For the two quotes, plus any escape characters
+#else // QUOTE_STRINGS_BY_ESCAPING_CHARACTERS_USING_BACKSLASHES
+    register unsigned   extra_length = 0;    // Only escape characters in this case
+#endif
     register unsigned   i;
 
     for (i = 0; i < length; i++) {
 	register char ch = characters[i];
 	if (isspace(ch) || ch == '\\' || ch == '\"' || ch == '\'') {
 	    needs_quotes = 1;
+#ifdef QUOTE_STRINGS_BY_ENCLOSING_IN_DOUBLEQUOTES
 	    if( ch == '\\'  ||  ch == '\"' )
+#endif // QUOTE_STRINGS_BY_ESCAPING_CHARACTERS_USING_BACKSLASHES
 		extra_length++;
 	}
     }
@@ -589,6 +613,7 @@ static void strbuf_append_quoted_characters (struct string_buffer * sbuf, const 
 	    sbuf->characters = realloc(sbuf->characters, sbuf->capacity);
 	}
 	dstp = sbuf->characters + sbuf->length;
+#ifdef QUOTE_STRINGS_BY_ENCLOSING_IN_DOUBLEQUOTES
 	*dstp++ = '\"';
 	for (i = 0; i < length; i++) {
 	    register char ch = characters[i];
@@ -598,6 +623,15 @@ static void strbuf_append_quoted_characters (struct string_buffer * sbuf, const 
 	    *dstp++ = ch;
 	}
 	*dstp++ = '\"';
+#else // QUOTE_STRINGS_BY_ESCAPING_CHARACTERS_USING_BACKSLASHES
+	for (i = 0; i < length; i++) {
+	    register char ch = characters[i];
+	    if (isspace(ch) || ch == '\\' || ch == '\"' || ch == '\'') {
+		*dstp++ = '\\';
+	    }
+	    *dstp++ = ch;
+	}
+#endif
 	sbuf->length += length + extra_length;
     }
 }
@@ -851,7 +885,7 @@ static int var_append_expansion_of_deferred_variable (const char * symbol, unsig
 	}
 	subrange_start = value;
 	subrange_end = subrange_start + strlen(subrange_start);
-        while (!found_recursion  &&  find_next_variable_reference(subrange_start, subrange_end-subrange_start, &var_ref_start, &var_name_start, &var_name_end, &var_ref_end)) {
+        while (!found_recursion  &&  find_next_variable_reference(subrange_start, subrange_end-subrange_start, (char **)(&var_ref_start), (char **)(&var_name_start), (char **)(&var_name_end), (char **)(&var_ref_end))) {
 
             // First append any plain text prefix, up to the opening delimiter.
             if (subrange_start < var_ref_start) {
@@ -948,19 +982,37 @@ void var_commit_all_deferred_assignments ()
 	struct hash *   commited_defvars_hash;
 	int             i;
 
+
+	committing_def_asgs = 1;
+
 	// First append all command-line assignments to the list of accumulated deferred assignments.
 	for (i = 0; globs.cmdline_defines[i] != NULL; i++) {
 	    char *   equals_sign_p;
 
 	    if ((equals_sign_p = strchr(globs.cmdline_defines[i], '=')) != NULL  &&  (equals_sign_p > globs.cmdline_defines[i])) {
-		char    varname[MAXSYM];
-		LIST *  list = NULL;
-		int     flag = (equals_sign_p[-1] == '+') ? VAR_APPEND : VAR_SET;
+		char          buffer[MAXSYM];
+		LIST *        list = NULL;
+		int           flag = (equals_sign_p[-1] == '+') ? VAR_APPEND : VAR_SET;
+		const char *  val_start_p;
+		const char *  val_end_p;
 
-		list = list_new(list, newstr(equals_sign_p + 1));
-		strncpy(varname, globs.cmdline_defines[i], equals_sign_p - globs.cmdline_defines[i] - ((equals_sign_p[-1] == '+') ? 1 : 0));
-		varname[equals_sign_p - globs.cmdline_defines[i]] = '\0';
-		var_set_deferred(varname, list, flag, 1 /* export-in-environment */ );
+		// Split the value string (starting at equals_sign_p + 1) into a list (split on '\01').
+		for (val_start_p = equals_sign_p + 1; (val_end_p = strchr(val_start_p, '\01')) != NULL; val_end_p = val_start_p + 1) {
+		    strncpy(buffer, val_start_p, val_end_p - val_start_p);
+		    buffer[val_end_p - val_start_p] = '\0';
+		    list = list_new(list, newstr(buffer));
+		}
+		list = list_new(list, newstr(val_start_p));
+
+		// Now extract the variable name, and set the value list that we computed above as its deferred value.
+		strncpy(buffer, globs.cmdline_defines[i], equals_sign_p - globs.cmdline_defines[i] - ((equals_sign_p[-1] == '+') ? 1 : 0));
+		buffer[equals_sign_p - globs.cmdline_defines[i]] = '\0';
+#if 0
+		printf("set-deferred %s %s ", buffer, (flag == VAR_APPEND) ? "+=" : "=");
+		list_print(list);
+		printf("\n");
+#endif
+		var_set_deferred(buffer, list, flag, 1 /* export-in-environment */ );
 	    }
 	}
 
@@ -1002,6 +1054,7 @@ void var_commit_all_deferred_assignments ()
 	free(def_asgs);
 	def_asgs = NULL;
 	hashdone(commited_defvars_hash);
+	committing_def_asgs = 0;
     }
 }
 

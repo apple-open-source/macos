@@ -73,6 +73,9 @@ static char sccsid[] = "@(#)quotaon.c	8.1 (Berkeley) 6/6/93";
 #include <sys/param.h>
 #include <sys/file.h>
 #include <sys/mount.h>
+#ifdef __APPLE__
+#include <sys/stat.h>
+#endif /* __APPLE__ */
 #include <ufs/ufs/quota.h>
 #include <stdio.h>
 #include <fstab.h>
@@ -93,6 +96,10 @@ main(argc, argv)
 	char ch, *qfnp, *whoami, *rindex();
 	long argnum, done = 0;
 	int i, offmode = 0, errs = 0;
+#ifdef __APPLE__
+	int nfst;
+	struct statfs *fst;
+#endif /* __APPLE__ */
 	extern char *optarg;
 	extern int optind;
 
@@ -132,6 +139,41 @@ main(argc, argv)
 		gflag++;
 		uflag++;
 	}
+
+#ifdef __APPLE__
+	nfst = getmntinfo(&fst, MNT_WAIT);
+	if (nfst==0) {
+	  fprintf(stderr, "no filesystems mounted");
+	  return(1);
+	}
+
+	for (i=0; i<nfst; i++) {
+	  if(strcmp(fst[i].f_fstypename, "hfs")) {
+	    if (strcmp(fst[i].f_fstypename, "ufs"))
+	      continue;
+	  }
+	  if(fst[i].f_flags & MNT_RDONLY) {
+	    errs++;
+	    continue;
+	  }
+
+	  if (aflag) {
+	    if (gflag && hasquota(&fst[i], GRPQUOTA, &qfnp))
+	      errs += quotaonoff(&fst[i], offmode, GRPQUOTA, qfnp);
+	    if (uflag && hasquota(&fst[i], USRQUOTA, &qfnp))
+	      errs += quotaonoff(&fst[i], offmode, USRQUOTA, qfnp);
+	    continue;
+	  }
+	  if ((argnum = oneof(fst[i].f_mntonname, argv, argc)) >= 0 ||
+	      (argnum = oneof(fst[i].f_mntfromname, argv, argc)) >= 0) {
+	    done |= 1 << argnum;
+	    if (gflag && hasquota(&fst[i], GRPQUOTA, &qfnp))
+	      errs += quotaonoff(&fst[i], offmode, GRPQUOTA, qfnp);
+	    if (uflag && hasquota(&fst[i], USRQUOTA, &qfnp))
+	      errs += quotaonoff(&fst[i], offmode, USRQUOTA, qfnp);
+	  }
+	}
+#else
 	setfsent();
 	while ((fs = getfsent()) != NULL) {
 		if (strcmp(fs->fs_vfstype, "ufs") ||
@@ -154,6 +196,7 @@ main(argc, argv)
 		}
 	}
 	endfsent();
+#endif /* __APPLE__ */
 	for (i = 0; i < argc; i++)
 		if ((done & (1 << i)) == 0)
 			fprintf(stderr, "%s not found in fstab\n",
@@ -170,6 +213,36 @@ usage(whoami)
 	exit(1);
 }
 
+#ifdef __APPLE__
+quotaonoff(fst, offmode, type, qfpathname)
+	register struct statfs *fst;
+	int offmode, type;
+	char *qfpathname;
+{
+        if (strcmp(fst->f_mntonname, "/") && (fst->f_flags & MNT_RDONLY))
+		return (1);
+	if (offmode) {
+		if (quotactl(fst->f_mntonname, QCMD(Q_QUOTAOFF, type), 0, 0) < 0) {
+			fprintf(stderr, "quotaoff: ");
+			perror(fst->f_mntonname);
+			return (1);
+		}
+		if (vflag)
+		  printf("%s: %s quotas turned off\n", fst->f_mntonname,
+			       qfextension[type]);
+		return (0);
+	}
+	if (quotactl(fst->f_mntonname, QCMD(Q_QUOTAON, type), 0, qfpathname) < 0) {
+		fprintf(stderr, "quotaon: using %s on ", qfpathname);
+		perror(fst->f_mntonname);
+		return (1);
+	}
+	if (vflag)
+		printf("%s: %s quotas turned on\n", fst->f_mntonname,
+		    qfextension[type]);
+	return (0);
+}
+#else
 quotaonoff(fs, offmode, type, qfpathname)
 	register struct fstab *fs;
 	int offmode, type;
@@ -198,6 +271,7 @@ quotaonoff(fs, offmode, type, qfpathname)
 		    qfextension[type]);
 	return (0);
 }
+#endif /* __APPLE__ */
 
 /*
  * Check to see if target appears in list of size cnt.
@@ -217,6 +291,40 @@ oneof(target, list, cnt)
 /*
  * Check to see if a particular quota is to be enabled.
  */
+#ifdef __APPLE__
+hasquota(fst, type, qfnamep)
+	register struct statfs *fst;
+	int type;
+	char **qfnamep;
+{
+	struct stat sb;
+	static char initname, usrname[100], grpname[100];
+	static char buf[BUFSIZ];
+
+	if (!initname) {
+		sprintf(usrname, "%s%s", qfextension[USRQUOTA], qfname);
+		sprintf(grpname, "%s%s", qfextension[GRPQUOTA], qfname);
+		initname = 1;
+	}
+
+        /*
+	  We only support the default path to the
+	  on disk quota files.
+	*/
+
+        (void)sprintf(buf, "%s/%s.%s", fst->f_mntonname,
+		      QUOTAOPSNAME, qfextension[type] );
+        if (stat(buf, &sb) != 0) {
+          /* There appears to be no mount option file */
+          return(0);
+        }
+
+
+	(void) sprintf(buf, "%s/%s.%s", fst->f_mntonname, qfname, qfextension[type]);
+	*qfnamep = buf;
+	return (1);
+}
+#else
 hasquota(fs, type, qfnamep)
 	register struct fstab *fs;
 	int type;
@@ -251,6 +359,8 @@ hasquota(fs, type, qfnamep)
 	*qfnamep = buf;
 	return (1);
 }
+#endif /* __APPLE__ */
+
 
 /*
  * Verify file system is mounted and not readonly.

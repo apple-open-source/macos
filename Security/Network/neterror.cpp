@@ -30,7 +30,7 @@ Error::Error(OSStatus err) : MacOSError(err)
 {
 }
 
-Error::~Error()
+Error::~Error() throw()
 {
 }
 

@@ -22,6 +22,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*	ranlib.h	4.1	83/05/03	*/
+#ifndef _MACH_O_RANLIB_H_
+#define _MACH_O_RANLIB_H_
 
 #include <sys/types.h>		/* off_t */
 
@@ -60,3 +62,4 @@ struct	ranlib {
     } ran_un;
     unsigned long	ran_off;	/* library member at this offset */
 };
+#endif /* _MACH_O_RANLIB_H_ */

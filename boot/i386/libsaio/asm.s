@@ -31,6 +31,17 @@
 /*
  * HISTORY
  * $Log: asm.s,v $
+ * Revision 1.3  2002/07/09 14:06:21  jliu
+ * Merging changes from PR-2954224 branch in boot/i386.
+ *
+ * Revision 1.2.30.1  2002/07/05 16:24:51  jliu
+ * Merged UFS/HFS/HFS+ filesystem support from BootX.
+ * Moved boot2 load address due to increased size. boot0/boot1 also changed.
+ * Updated boot graphics and CLUT.
+ * Added support to chain load foreign booters.
+ * Fixed param passing bug in network loader.
+ * Misc cleanup in libsaio.
+ *
  * Revision 1.2  2000/05/23 23:01:11  lindak
  * Merged PR-2309530 into Kodiak (liu i386 booter: does not support label-less
  * ufs partitions)
@@ -59,11 +70,11 @@
  * Import of boot-25 (~mwatson)
  *
  * Revision 2.1.1.2  90//03//22  17:59:50  rvb
- * 	Added _sp() => where is the stack at. [kupfer]
+ *  Added _sp() => where is the stack at. [kupfer]
  * 
  * Revision 2.1.1.1  90//02//09  17:25:04  rvb
- * 	Add Intel copyright
- * 	[90//02//09            rvb]
+ *  Add Intel copyright
+ *  [90//02//09            rvb]
  * 
  */
 
@@ -86,75 +97,114 @@
 
     .file "asm.s"
 
-BOOTSEG     =   BASE_SEG
+CR0_PE_ON  = 0x1
+CR0_PE_OFF = 0x7ffffffe
 
-CR0_PE_ON   =   0x1
-CR0_PE_OFF  =   0xfffffffe
+STACK32_BASE = ADDR32(STACK_SEG, 0)
+STACK16_SEG  = STACK_SEG
+CODE32_BASE  = ADDR32(BASE_SEG, 0)
+CODE16_SEG   = BASE_SEG
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// Pointer to 6-bytes in memory that contains the base address and the limit
+// (size of GDT table in bytes) of the GDT. The LGDT is the only instruction
+// that directly loads a linear address (not a segment relative address) and
+// a limit in protected mode.
 
 .globl _Gdtr
     .data
-    .align 2,0x90
+    .align 2, 0x90
 _Gdtr:
-    .word 0x2F
-//  .long _Gdt+4096
+    .word GDTLIMIT
     .long vtop(_Gdt)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // Data area for __switch_stack.
 //
-save_sp: .long  STACK_ADDR
-save_ss: .long  0
-
+save_sp: .long  STACK_OFS
+save_ss: .long  STACK_SEG
 
     .text
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // real_to_prot()
-//  transfer from real mode to protected mode.
-//  preserves all registers except eax
+//
+// Transfer from real mode to protected mode.
+// Preserves all registers except EAX.
 //
 LABEL(__real_to_prot)
-    // guarantee that interrupt is disabled when in prot mode
+
+    // Interrupts are disabled in protected mode.
+
     cli
 
-    addr32                    // load the gdtr
-    data32
-    lgdt    _Gdtr
+    // Load the Global Descriptor Table Register (GDTR).
 
-    // set the PE bit of CR0 to go to protected mode
+    addr32
+    data32
+    lgdt    OFFSET16(_Gdtr)
+
+    // Enter protected mode by setting the PE bit in CR0.
 
     mov     %cr0, %eax
     data32
     or      $CR0_PE_ON, %eax
-    mov     %eax, %cr0 
+    mov     %eax, %cr0
 
-    // make intrasegment jump to flush the processor pipeline and
-    // reload CS register
+    // Make intrasegment jump to flush the processor pipeline and
+    // reload CS register.
 
     data32
     ljmp    $0x08, $xprot
 
 xprot:
     // we are in USE32 mode now
-    // set up the protected mode segment registers : DS, SS, ES
+    // set up the protected mode segment registers : DS, SS, ES, FS, GS
 
     mov     $0x10, %eax
     movw    %ax, %ds
     movw    %ax, %ss
     movw    %ax, %es
+    movw    %ax, %fs
+    movw    %ax, %gs
 
-    xorl    %eax, %eax        // clear garbage from upper word of esp
-    movw    %sp, %ax
+    // Convert STACK_SEG:SP to 32-bit linear stack pointer.
+
+    movzwl  %sp, %eax
+    addl    $STACK32_BASE, %eax
     movl    %eax, %esp
+
+    // Convert STACK_SEG:BP to 32-bit linear base pointer.
+
+    movzwl  %bp, %eax
+    addl    $STACK32_BASE, %eax
+    movl    %eax, %ebp
+
+    // Modify the caller's return address on the stack from
+    // segment offset to linear address.
+
+    popl    %eax
+    addl    $CODE32_BASE, %eax
+    pushl   %eax
 
     ret
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // prot_to_real()
-//  transfer from protected mode to real mode
-//  preserves all registers except eax
+//
+// Transfer from protected mode to real mode.
+// Preserves all registers except EAX.
 // 
 LABEL(__prot_to_real)
+
+    // Set up segment registers appropriate for real mode.
+
+    movw    $0x30, %ax
+    movw    %ax, %ds
+    movw    %ax, %es
+    movw    %ax, %fs
+    movw    %ax, %gs
+    movw    %ax, %ss
 
     ljmp    $0x18, $x16       // change to USE16 mode
 
@@ -168,74 +218,65 @@ x16:
     // and reload CS register
 
     data32
-    ljmp    $BOOTSEG, $xreal
+    ljmp    $CODE16_SEG, $xreal - CODE32_BASE
 
 xreal:
     // we are in real mode now
-    // set up the real mode segment registers : DS, SS, ES
+    // set up the real mode segment registers : DS, DS, ES, FS, GS
 
     movw    %cs, %ax
     movw    %ax, %ds
-    movw    %ax, %ss
     movw    %ax, %es
+    movw    %ax, %fs
+    movw    %ax, %gs
+
+    // load stack segment register SS.
+
+    data32
+    movl    $STACK16_SEG, %eax
+    movw    %ax, %ss
+
+    // clear top 16-bits of ESP and EBP.
+
+    data32
+    movzwl  %sp, %esp
+    data32
+    movzwl  %bp, %ebp
+
+    // Modify caller's return address on the stack
+    // from linear address to segment offset.
+
+    data32
+    popl    %eax
+    data32
+    movzwl  %ax, %eax
+    data32
+    pushl   %eax
+
+    // Reenable maskable interrupts.
+
+    sti
 
     data32
     ret
-
-#if defined(DEFINE_INLINE_FUNCTIONS)
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// outb(port, byte)
-//
-LABEL(_outb)
-    push    %ebp
-    mov     %esp, %ebp
-    push    %edx
-
-    movw    8(%ebp), %dx
-    movb    12(%ebp), %al
-    outb    %al, %dx
-
-    pop     %edx
-    pop     %ebp
-    ret
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// inb(port)
-//
-LABEL(_inb)
-    push    %ebp
-    mov     %esp, %ebp
-    push    %edx
-
-    movw    8(%ebp), %dx
-    subw    %ax, %ax
-    inb     %dx, %al
-
-    pop     %edx
-    pop     %ebp
-    ret
-
-#endif /* DEFINE_INLINE_FUNCTIONS */
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // halt()
 //
 LABEL(_halt)
-//  call    _getchar
     hlt
     jmp     _halt
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // startprog(phyaddr)
-// Start the program on protected mode where phyaddr is the entry point
+// Start the program on protected mode where phyaddr is the entry point.
 //
 LABEL(_startprog)
     push    %ebp
     mov     %esp, %ebp
 
-    mov     0x8(%ebp), %ecx     // entry offset 
-    mov     $0x28, %ebx     // segment
+    mov     0x8(%ebp), %ecx  // entry offset 
+    mov     $0x28, %ebx      // segment
     push    %ebx
     push    %ecx
 
@@ -255,89 +296,92 @@ LABEL(__sp)
     ret
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// Returns the current stack pointer.
+// Returns the current frame pointer.
 //
 LABEL(__bp)
     mov %ebp, %eax
     ret
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Switch stack.
-# Switches between registers SS:SP and memory save_ss:save_sp.
-# Call this function from real mode only!!!
-#
-# AX, DI, and SI are modified.
-#
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// switch_stack()
+//
+// Switches stack pointer between SS:SP and memory save_ss:save_sp.
+// Call this function from real mode only!!!
+//
+// AX, DI, and SI are clobbered.
+//
 LABEL(__switch_stack)
-	popl	%eax				# save return address
-	popl	%edi				# discard upper 16-bit
-	
-	data32
-	addr32
-	movl	save_ss, %esi		# copy new SS to ESI
+    popl    %eax                # save return address
+    popl    %edi                # discard upper 16-bit
 
-	data32
-	addr32
-	movl	save_sp, %edi		# copy new SP to EDI
-	
-	addr32
-	mov		%ss, save_ss		# save current SS
-	
-	data32
-	addr32
-	movl	%esp, save_sp		# Save current SP
-	
-	cli
-	mov		%si, %ss			# Perform stack switch
-	mov		%di, %sp
-	sti
-	
-	pushl	%eax				# push IP of caller onto the new stack
-	
-	xorl	%eax, %eax
-	xorl	%esi, %esi
-	xorl	%edi, %edi
+    data32
+    addr32
+    movl    OFFSET16(save_ss), %esi   # new SS to SI
 
-	ret
+    data32
+    addr32
+    movl    OFFSET16(save_sp), %edi   # new SP to DI
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Issue a request to the network loader.
-#
+    addr32
+    mov     %ss, OFFSET16(save_ss)    # save current SS to memory
+
+    data32
+    addr32
+    movl    %esp, OFFSET16(save_sp)   # save current SP to memory
+
+    cli
+    mov     %si, %ss            # switch stack
+    mov     %di, %sp
+    sti
+
+    pushl   %eax                # push IP of caller onto the new stack
+
+    xorl    %eax, %eax
+    xorl    %esi, %esi
+    xorl    %edi, %edi
+
+    ret
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+// loader()
+//
+// Issue a request to the network loader.
+//
 LABEL(_loader)
-	enter	$0, $0	
-	pushal
+    enter   $0, $0
+    pushal
 
-	#
-	# Pass a far pointer to the command structure
-	# to the INT call through DI:CX.
-	#
-	# The command code is in BX.
-	#
+    #
+    # Pass a far pointer to the command structure
+    # to the INT call through DX:CX.
+    #
+    # The command code is in BX.
+    #
 
-	movw	8(%ebp), %bx		# 8[EBP]  = command code
-	movw	12(%ebp), %cx		# 12[EBP] = command structure offset
-	movw	14(%ebp), %di		# 14[EBP] = command structure segment
+    movw     8(%ebp), %bx       #  8[EBP] = command code
+    movw    12(%ebp), %cx       # 12[EBP] = command structure offset
+    movw    14(%ebp), %dx       # 14[EBP] = command structure segment
 
-	call	__prot_to_real		# Revert to real mode
+    call    __prot_to_real      # Revert to real mode
 
-	###### Real Mode Begin ######
+    ###### Real Mode Begin ######
 
-	data32
-	call	__switch_stack		# Switch to NBP stack
+    data32
+    call    __switch_stack      # Switch to NBP stack
 
-	int		$0x2b				# Call NBP
+    int     $0x2b               # Call NBP
 
-	data32
-	call	__switch_stack		# Restore stack
+    data32
+    call    __switch_stack      # Restore stack
 
-	data32
-	call	__real_to_prot		# Back to protected mode	
-	
-	###### Real Mode End ######
-	
-	popal
-	leave
-	ret
+    data32
+    call    __real_to_prot      # Back to protected mode
+
+    ###### Real Mode End ######
+
+    popal
+    leave
+    ret
 
 #if 0
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

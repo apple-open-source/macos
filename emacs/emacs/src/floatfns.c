@@ -1,5 +1,5 @@
 /* Primitive operations on floating point for GNU Emacs Lisp interpreter.
-   Copyright (C) 1988, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1993, 1994, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -44,13 +44,10 @@ Boston, MA 02111-1307, USA.  */
    a domain error occurs.)
  */
 
-#include <signal.h>
-
 #include <config.h>
+#include <signal.h>
 #include "lisp.h"
 #include "syssignal.h"
-
-#ifdef LISP_FLOAT_TYPE
 
 #if STDC_HEADERS
 #include <float.h>
@@ -110,7 +107,9 @@ extern double logb ();
 #ifdef FLOAT_CHECK_ERRNO
 # include <errno.h>
 
+#ifndef USE_CRT_DLL
 extern int errno;
+#endif
 #endif
 
 /* Avoid traps on VMS from sinh and cosh.
@@ -222,7 +221,7 @@ extract_float (num)
   CHECK_NUMBER_OR_FLOAT (num, 0);
 
   if (FLOATP (num))
-    return XFLOAT (num)->data;
+    return XFLOAT_DATA (num);
   return (double) XINT (num);
 }
 
@@ -480,8 +479,8 @@ DEFUN ("expt", Fexpt, Sexpt, 2, 2, 0,
       XSETINT (val, acc);
       return val;
     }
-  f1 = FLOATP (arg1) ? XFLOAT (arg1)->data : XINT (arg1);
-  f2 = FLOATP (arg2) ? XFLOAT (arg2)->data : XINT (arg2);
+  f1 = FLOATP (arg1) ? XFLOAT_DATA (arg1) : XINT (arg1);
+  f2 = FLOATP (arg2) ? XFLOAT_DATA (arg2) : XINT (arg2);
   /* Really should check for overflow, too */
   if (f1 == 0.0 && f2 == 0.0)
     f1 = 1.0;
@@ -650,7 +649,7 @@ DEFUN ("abs", Fabs, Sabs, 1, 1, 0,
   CHECK_NUMBER_OR_FLOAT (arg, 0);
 
   if (FLOATP (arg))
-    IN_FLOAT (arg = make_float (fabs (XFLOAT (arg)->data)), "abs", arg);
+    IN_FLOAT (arg = make_float (fabs (XFLOAT_DATA (arg))), "abs", arg);
   else if (XINT (arg) < 0)
     XSETINT (arg, - XINT (arg));
 
@@ -718,8 +717,6 @@ This is the same as the exponent of a float.")
   return val;
 }
 
-#endif /* LISP_FLOAT_TYPE */
-
 
 /* the rounding functions  */
 
@@ -738,13 +735,12 @@ rounding_driver (arg, divisor, double_round, int_round2, name)
 
       CHECK_NUMBER_OR_FLOAT (divisor, 1);
 
-#ifdef LISP_FLOAT_TYPE
       if (FLOATP (arg) || FLOATP (divisor))
 	{
 	  double f1, f2;
 
-	  f1 = FLOATP (arg) ? XFLOAT (arg)->data : XINT (arg);
-	  f2 = (FLOATP (divisor) ? XFLOAT (divisor)->data : XINT (divisor));
+	  f1 = FLOATP (arg) ? XFLOAT_DATA (arg) : XINT (arg);
+	  f2 = (FLOATP (divisor) ? XFLOAT_DATA (divisor) : XINT (divisor));
 	  if (! IEEE_FLOATING_POINT && f2 == 0)
 	    Fsignal (Qarith_error, Qnil);
 
@@ -752,7 +748,6 @@ rounding_driver (arg, divisor, double_round, int_round2, name)
 	  FLOAT_TO_INT2 (f1, arg, name, arg, divisor);
 	  return arg;
 	}
-#endif
 
       i1 = XINT (arg);
       i2 = XINT (divisor);
@@ -764,15 +759,13 @@ rounding_driver (arg, divisor, double_round, int_round2, name)
       return arg;
     }
 
-#ifdef LISP_FLOAT_TYPE
   if (FLOATP (arg))
     {
       double d;
 
-      IN_FLOAT (d = (*double_round) (XFLOAT (arg)->data), name, arg);
+      IN_FLOAT (d = (*double_round) (XFLOAT_DATA (arg)), name, arg);
       FLOAT_TO_INT (d, arg, name, arg);
     }
-#endif
 
   return arg;
 }
@@ -882,7 +875,6 @@ With optional DIVISOR, truncate ARG/DIVISOR.")
 			  "truncate");
 }
 
-#ifdef LISP_FLOAT_TYPE
 
 Lisp_Object
 fmod_float (x, y)
@@ -890,8 +882,8 @@ fmod_float (x, y)
 {
   double f1, f2;
 
-  f1 = FLOATP (x) ? XFLOAT (x)->data : XINT (x);
-  f2 = FLOATP (y) ? XFLOAT (y)->data : XINT (y);
+  f1 = FLOATP (x) ? XFLOAT_DATA (x) : XINT (x);
+  f2 = FLOATP (y) ? XFLOAT_DATA (y) : XINT (y);
 
   if (! IEEE_FLOATING_POINT && f2 == 0)
     Fsignal (Qarith_error, Qnil);
@@ -1022,17 +1014,9 @@ init_floatfns ()
   in_float = 0;
 }
 
-#else /* not LISP_FLOAT_TYPE */
-
-init_floatfns ()
-{}
-
-#endif /* not LISP_FLOAT_TYPE */
-
 void
 syms_of_floatfns ()
 {
-#ifdef LISP_FLOAT_TYPE
   defsubr (&Sacos);
   defsubr (&Sasin);
   defsubr (&Satan);
@@ -1070,7 +1054,6 @@ syms_of_floatfns ()
   defsubr (&Sabs);
   defsubr (&Sfloat);
   defsubr (&Slogb);
-#endif /* LISP_FLOAT_TYPE */
   defsubr (&Sceiling);
   defsubr (&Sfloor);
   defsubr (&Sround);

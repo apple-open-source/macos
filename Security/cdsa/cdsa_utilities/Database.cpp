@@ -52,8 +52,10 @@ void
 DatabaseManager::removeIfUnused(Database &inDatabase)
 {
     StLock<Mutex> _(mDatabaseMapLock);
-    if (!inDatabase.hasDbContexts())
+    if (!inDatabase.hasDbContexts()) {
         mDatabaseMap.erase(inDatabase.mDbName);
+		delete &inDatabase;
+	}
 }
 
 DbContext &

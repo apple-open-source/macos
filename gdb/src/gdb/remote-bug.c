@@ -1,7 +1,9 @@
 /* Remote debugging interface for Motorola's MVME187BUG monitor, an embedded
    monitor for the m88k.
 
-   Copyright 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001,
+   2002 Free Software Foundation, Inc.
+
    Contributed by Cygnus Support.  Written by K. Richard Pixley.
 
    This file is part of GDB.
@@ -23,12 +25,10 @@
 
 #include "defs.h"
 #include "inferior.h"
-#include "gdb_wait.h"
-
 #include "gdb_string.h"
+#include "regcache.h"
 #include <ctype.h>
 #include <fcntl.h>
-#include <signal.h>
 #include <setjmp.h>
 #include <errno.h>
 
@@ -36,10 +36,8 @@
 #include "gdbcore.h"
 #include "gdbcmd.h"
 
+#include "serial.h"
 #include "remote-utils.h"
-
-
-extern int sleep ();
 
 /* External data declarations */
 extern int stop_soon_quietly;	/* for wait_for_inferior */
@@ -119,7 +117,7 @@ bug_load (char *args, int fromtty)
 
   sr_check_open ();
 
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
   abfd = bfd_openr (args, 0);
   if (!abfd)
     {
@@ -143,7 +141,7 @@ bug_load (char *args, int fromtty)
 
 	  char *buffer = xmalloc (srec_frame);
 
-	  printf_filtered ("%s\t: 0x%4x .. 0x%4x  ", s->name, s->vma, s->vma + s->_raw_size);
+	  printf_filtered ("%s\t: 0x%4lx .. 0x%4lx  ", s->name, s->vma, s->vma + s->_raw_size);
 	  gdb_flush (gdb_stdout);
 	  for (i = 0; i < s->_raw_size; i += srec_frame)
 	    {
@@ -156,7 +154,7 @@ bug_load (char *args, int fromtty)
 	      gdb_flush (gdb_stdout);
 	    }
 	  printf_filtered ("\n");
-	  free (buffer);
+	  xfree (buffer);
 	}
       s = s->next;
     }
@@ -229,14 +227,14 @@ bug_open (char *args, int from_tty)
       target_is_m88110 = 1;
       break;
     default:
-      abort ();
+      internal_error (__FILE__, __LINE__, "failed internal consistency check");
     }
 }
 
 /* Tell the remote machine to resume.  */
 
 void
-bug_resume (int pid, int step, enum target_signal sig)
+bug_resume (ptid_t ptid, int step, enum target_signal sig)
 {
   if (step)
     {
@@ -265,8 +263,8 @@ static char *wait_strings[] =
   NULL,
 };
 
-int
-bug_wait (int pid, struct target_waitstatus *status)
+ptid_t
+bug_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   int old_timeout = sr_get_timeout ();
   int old_immediate_quit = immediate_quit;
@@ -329,7 +327,7 @@ bug_wait (int pid, struct target_waitstatus *status)
 
   sr_set_timeout (old_timeout);
   immediate_quit = old_immediate_quit;
-  return 0;
+  return inferior_ptid;
 }
 
 /* Return the name of register number REGNO
@@ -401,7 +399,7 @@ bug_srec_write_cr (char *s)
 	  printf ("%c", *p);
 
 	do
-	  SERIAL_WRITE (sr_get_desc (), p, 1);
+	  serial_write (sr_get_desc (), p, 1);
 	while (sr_pollchar () != *p);
       }
   else
@@ -515,9 +513,9 @@ bug_store_register (int regno)
       if (target_is_m88110 && regno == SFIP_REGNUM)
 	return;
       else if (regno < XFP_REGNUM)
-	sprintf (buffer, "rs %s %08x",
+	sprintf (buffer, "rs %s %08lx",
 		 regname,
-		 read_register (regno));
+		 (long) read_register (regno));
       else
 	{
 	  unsigned char *fpreg_buf =
@@ -555,7 +553,7 @@ bug_store_register (int regno)
 
 int
 bug_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
-		 struct target_ops *target)
+		 struct mem_attrib *attrib, struct target_ops *target)
 {
   int res;
 
@@ -650,7 +648,7 @@ bug_write_memory (CORE_ADDR memaddr, unsigned char *myaddr, int len)
 	    thisgo = srec_bytes;
 
 	  address = memaddr + done;
-	  sprintf (buf, "S3%02X%08X", thisgo + 4 + 1, address);
+	  sprintf (buf, "S3%02X%08lX", thisgo + 4 + 1, (long) address);
 	  buf += 12;
 
 	  checksum += (thisgo + 4 + 1
@@ -740,7 +738,7 @@ bug_read_memory (CORE_ADDR memaddr, unsigned char *myaddr, int len)
   unsigned int inaddr;
   unsigned int checksum;
 
-  sprintf (request, "du 0 %x:&%d", memaddr, len);
+  sprintf (request, "du 0 %lx:&%d", (long) memaddr, len);
   sr_write_cr (request);
 
   p = buffer = alloca (len);
@@ -842,7 +840,7 @@ bug_insert_breakpoint (CORE_ADDR addr, char *save)
       char buffer[100];
 
       num_brkpts++;
-      sprintf (buffer, "br %x", addr);
+      sprintf (buffer, "br %lx", (long) addr);
       sr_write_cr (buffer);
       gr_expect_prompt ();
       return (0);
@@ -868,7 +866,7 @@ bug_remove_breakpoint (CORE_ADDR addr, char *save)
       char buffer[100];
 
       num_brkpts--;
-      sprintf (buffer, "nobr %x", addr);
+      sprintf (buffer, "nobr %lx", (long) addr);
       sr_write_cr (buffer);
       gr_expect_prompt ();
 
@@ -949,7 +947,6 @@ init_bug_ops (void)
   bug_ops.to_thread_alive = 0;
   bug_ops.to_stop = 0;
   bug_ops.to_pid_to_exec_file = NULL;
-  bug_ops.to_core_file_to_sym_file = NULL;
   bug_ops.to_stratum = process_stratum;
   bug_ops.DONT_USE = 0;
   bug_ops.to_has_all_memory = 1;

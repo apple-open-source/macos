@@ -32,7 +32,6 @@
 
 // Externs for fs.c
 extern long LoadFile(char *fileSpec);
-extern long CopyFile(char *fileSpec, char **addr, long *length);
 extern long GetFileInfo(char *dirSpec, char *name, long *flags, long *time);
 extern long GetDirEntry(char *dirSpec, long *dirIndex, char **name,
 			long *flags, long *time);

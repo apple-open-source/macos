@@ -10,7 +10,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclLoadShl.c,v 1.1.1.3 2000/04/12 02:01:14 wsanchez Exp $
+ * RCS: @(#) $Id: tclLoadShl.c,v 1.1.1.4 2002/04/05 16:14:07 jevans Exp $
  */
 
 #include <dl.h>
@@ -23,7 +23,7 @@
 #   undef EXTERN
 #endif
 
-#include "tcl.h"
+#include "tclInt.h"
 
 /*
  *----------------------------------------------------------------------

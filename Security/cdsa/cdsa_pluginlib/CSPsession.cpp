@@ -40,7 +40,7 @@ CSPPluginSession::PluginContext::~PluginContext()
 //
 // Internal utilities
 //
-inline CssmData CSPFullPluginSession::makeBuffer(size_t size, CssmAllocator &alloc)
+CssmData CSPFullPluginSession::makeBuffer(size_t size, CssmAllocator &alloc)
 {
 	return CssmData(alloc.malloc(size), size);
 }
@@ -655,7 +655,10 @@ void CSPFullPluginSession::DigestDataFinal(CSSM_CC_HANDLE ccHandle,
 void CSPFullPluginSession::DigestDataClone(CSSM_CC_HANDLE ccHandle,
                                            CSSM_CC_HANDLE clonedCCHandle)
 {
-	setContext(clonedCCHandle, getStagedContext(ccHandle, CSSM_ALGCLASS_DIGEST)->clone(*this));
+    CSPContext *cloned = getStagedContext(ccHandle, CSSM_ALGCLASS_DIGEST)->clone(*this);
+    cloned->mDirection = true;
+    cloned->mType = CSSM_ALGCLASS_DIGEST;
+    setContext(clonedCCHandle, cloned);
 }
 
 

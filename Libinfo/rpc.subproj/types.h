@@ -51,7 +51,7 @@
  *
  *	from: @(#)types.h 1.18 87/07/24 SMI
  *	from: @(#)types.h	2.3 88/08/15 4.0 RPCSRC
- *	$Id: types.h,v 1.2 1999/10/14 21:56:54 wsanchez Exp $
+ *	$Id: types.h,v 1.3 2002/07/27 18:24:28 majka Exp $
  */
 
 /*
@@ -74,7 +74,7 @@
 #	define NULL	0
 #endif
 
-#define mem_alloc(bsize)	malloc(bsize)
+#define mem_alloc(bsize)	calloc(1, bsize)
 #define mem_free(ptr, bsize)	free(ptr)
 
 #ifndef makedev /* ie, we haven't already included it */

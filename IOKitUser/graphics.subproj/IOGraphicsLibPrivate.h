@@ -25,14 +25,23 @@ enum {
 };
 
 enum {
+    // disable any use of scaled modes,
     kOvrFlagDisableScaling	= 0x00000001,
+    // remove driver modes,
     kOvrFlagDisableNonScaled	= 0x00000002,
+    // disable scaled modes made up by the system (just use the override list)
     kOvrFlagDisableGenerated	= 0x00000004
 };
 
 enum {
+    // skips all the various checks and always installs
     kScaleInstallAlways		= 0x00000001,
+    // disables the install of a stretched version if the aspect is different
     kScaleInstallNoStretch	= 0x00000002
+};
+
+enum {
+    kIOMirrorNoTrim		= 0x00000010
 };
 
 enum {
@@ -42,6 +51,10 @@ enum {
 
 enum {
     kIOMirrorHint = 0x10000
+};
+
+enum {
+    kIODisplayOnlyPreferredName	= 0x00000200
 };
 
 struct EDIDDetailedTimingDesc {

@@ -1,3 +1,5 @@
+#ifndef _S_AFP_H
+#define _S_AFP_H
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -42,3 +44,5 @@
  * - constant value of root directory id
  */
 #define AFP_DIRID_ROOT		2
+
+#endif _S_AFP_H

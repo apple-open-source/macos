@@ -252,7 +252,7 @@ protected:
     virtual IOReturn createLoginAction( IOFireWireSBP2Login ** login );
 
     static IOReturn staticRemoveLoginAction( OSObject *self, void * login, void *, void *, void * );
-    virtual IOReturn IOFireWireSBP2LUN::removeLoginAction( IOFireWireSBP2Login * login );
+    virtual IOReturn removeLoginAction( IOFireWireSBP2Login * login );
 
 public:
 

@@ -1,0 +1,21 @@
+#! /bin/sh
+
+# Test to make sure nostdinc option works correctly.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = nostdinc
+bin_PROGRAMS = foo
+foo_SOURCES = foo.c
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+fgrep -e '-I.' Makefile.in && exit 1
+exit 0

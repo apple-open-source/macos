@@ -1,10 +1,12 @@
 ;;; smtpmail.el --- simple SMTP protocol (RFC 821) for sending mail
 
-;; Copyright (C) 1995, 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 2001 Free Software Foundation, Inc.
 
 ;; Author: Tomoji Kagatani <kagatani@rbc.ncl.omron.co.jp>
 ;; Maintainer: Brian D. Carlstrom <bdc@ai.mit.edu>
 ;; ESMTP support: Simon Leinen <simon@switch.ch>
+;; Hacked by Mike Taylor, 11th October 1999 to add support for
+;; automatically appending a domain to RCPT TO: addresses.
 ;; Keywords: mail
 
 ;; This file is part of GNU Emacs.
@@ -31,9 +33,10 @@
 ;; Please add these lines in your .emacs(_emacs) or use customize.
 ;;
 ;;(setq send-mail-function 'smtpmail-send-it) ; if you use `mail'
-;;(setq message-send-mail-function 'smtpmail-send-it) ; if you use `message'
+;;(setq message-send-mail-function 'smtpmail-send-it) ; if you are using Gnus.
 ;;(setq smtpmail-default-smtp-server "YOUR SMTP HOST")
 ;;(setq smtpmail-local-domain "YOUR DOMAIN NAME")
+;;(setq smtpmail-sendto-domain "YOUR DOMAIN NAME")
 ;;(setq smtpmail-debug-info t) ; only to debug problems
 
 ;; To queue mail, set smtpmail-queue-mail to t and use 
@@ -74,6 +77,22 @@ don't define this value."
   :type '(choice (const nil) string)
   :group 'smtpmail)
 
+(defcustom smtpmail-sendto-domain nil
+  "*Local domain name without a host name.
+This is appended (with an @-sign) to any specified recipients which do
+not include an @-sign, so that each RCPT TO address is fully qualified.
+\(Some configurations of sendmail require this.)
+
+Don't bother to set this unless you have get an error like:
+	Sending failed; SMTP protocol error
+when sending mail, and the *trace of SMTP session to <somewhere>*
+buffer includes an exchange like:
+	RCPT TO: <someone>
+	501 <someone>: recipient address must contain a domain
+"
+  :type '(choice (const nil) string)
+  :group 'smtpmail)
+
 (defcustom smtpmail-debug-info nil
   "*smtpmail debug info printout. messages and process buffer."
   :type 'boolean
@@ -94,6 +113,14 @@ and sent with `smtpmail-send-queued-mail'."
 (defcustom smtpmail-queue-dir "~/Mail/queued-mail/"
   "*Directory where `smtpmail.el' stores queued mail."
   :type 'directory
+  :group 'smtpmail)
+
+(defcustom smtpmail-warn-about-unknown-extensions nil
+  "*If set, print warnings about unknown SMTP extensions.
+This is mainly useful for development purposes, to learn about
+new SMTP extensions that might be useful to support."
+  :type 'boolean
+  :version "21.1"
   :group 'smtpmail)
 
 (defvar smtpmail-queue-index-file "index"
@@ -305,6 +332,12 @@ This is relative to `smtpmail-queue-dir'.")
       (concat (system-name) "." smtpmail-local-domain)
     (system-name)))
 
+(defun smtpmail-maybe-append-domain (recipient)
+  (if (or (not smtpmail-sendto-domain)
+	  (string-match "@" recipient))
+      recipient
+    (concat recipient "@" smtpmail-sendto-domain)))
+
 (defun smtpmail-via-smtp (recipient smtpmail-text-buffer)
   (let ((process nil)
 	(host (or smtpmail-smtp-server
@@ -368,8 +401,8 @@ This is relative to `smtpmail-queue-dir'.")
 						  help xusr))
 				(setq supported-extensions
 				      (cons name supported-extensions)))
-			       (t (message "unknown extension %s"
-					   name)))))
+			       (smtpmail-warn-about-unknown-extensions
+				(message "Unknown extension %s" name)))))
 		  (setq extension-lines (cdr extension-lines)))))
 
 	    (if (or (member 'onex supported-extensions)
@@ -448,7 +481,7 @@ This is relative to `smtpmail-queue-dir'.")
 	    ;; RCPT TO: <recipient>
 	    (let ((n 0))
 	      (while (not (null (nth n recipient)))
-		(smtpmail-send-command process (format "RCPT TO: <%s>" (nth n recipient)))
+		(smtpmail-send-command process (format "RCPT TO: <%s>" (smtpmail-maybe-append-domain (nth n recipient))))
 		(setq n (1+ n))
 
 		(setq response-code (smtpmail-read-response process))

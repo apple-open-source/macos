@@ -42,9 +42,6 @@ if [ -f ${NIBINDD_PIDFILE} ]; then
 		#
 		break
 	    fi
-	else
-	    #
-	    # "nibindd" PID file not found (yet), delay & retry
 	fi
 
 	CHECK=`expr ${CHECK} + 1`

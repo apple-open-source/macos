@@ -1,6 +1,6 @@
 /* Unexec for DEC alpha.  schoepf@sc.ZIB-Berlin.DE (Rainer Schoepf).
 
-   Copyright (C) 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -27,6 +27,10 @@ Boston, MA 02111-1307, USA.  */
 #include <sys/mman.h>
 #include <stdio.h>
 #include <varargs.h>
+#include <errno.h>
+#ifdef HAVE_STRING_H
+#include <string.h>
+#endif
 #if !defined (__NetBSD__) && !defined (__OpenBSD__)
 #include <filehdr.h>
 #include <aouthdr.h>
@@ -77,8 +81,10 @@ Boston, MA 02111-1307, USA.  */
 #define	_SBSS		".sbss"
 #endif /* __NetBSD__ || __OpenBSD__ */
 
-static void fatal_unexec ();
-static void mark_x ();
+static void fatal_unexec __P ((char *, char *));
+static void mark_x __P ((char *));
+
+static void update_dynamic_symbols __P ((char *, char *, int, struct aouthdr));
 
 #define READ(_fd, _buffer, _size, _error_message, _error_arg) \
 	errno = EEOF; \
@@ -94,10 +100,11 @@ static void mark_x ();
 	if (lseek (_fd, _position, L_SET) != _position) \
 	  fatal_unexec (_error_message, _error_arg);
 
-extern int errno;
-extern char *strerror ();
-
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#else
 void *sbrk ();
+#endif
 
 #define EEOF -1
 
@@ -137,6 +144,7 @@ struct headers {
 #define DEFAULT_ENTRY_ADDRESS __start
 #endif
 
+void
 unexec (new_name, a_name, data_start, bss_start, entry_address)
      char *new_name, *a_name;
      unsigned long data_start, bss_start, entry_address;
@@ -235,10 +243,10 @@ unexec (new_name, a_name, data_start, bss_start, entry_address)
 #endif
 #ifdef _PDATA
   CHECK_SCNHDR (pdata_section, _PDATA, STYP_PDATA);
-#endif _PDATA
+#endif /* _PDATA */
 #ifdef _GOT
   CHECK_SCNHDR (got_section,   _GOT,   STYP_GOT);
-#endif _GOT
+#endif /* _GOT */
   CHECK_SCNHDR (data_section,  _DATA,  STYP_DATA);
 #ifdef _XDATA
   CHECK_SCNHDR (xdata_section, _XDATA, STYP_XDATA);
@@ -419,7 +427,7 @@ unexec (new_name, a_name, data_start, bss_start, entry_address)
 }
 
 
-
+static void
 update_dynamic_symbols (old, new_name, new, aout)
      char *old;			/* Pointer to old executable */
      char *new_name;            /* Name of new executable */

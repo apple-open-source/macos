@@ -5,29 +5,52 @@
 
 . /etc/hostconfig
 
+get_host()
+{
+	ifconfig ${primary} inet 2>/dev/null | sed -n '/169\.254/d;/127\.0\.0\.1/d;/0\.0\.0\.0/d;s/^.*inet \([0-9\.]*\) netmask.*/\1/p' | while read ip_address 
+	do
+		host=$(nslookup ${ip_address} 2>/dev/null | sed -n 's/Name: [ ]*\([^ ]*\)$/\1/p')
+		if [ ! "${host}" = "" ] ; then
+			echo "${host}"
+			break;
+		fi
+	done
+}
+
+get_localhost()
+{
+	scutil << __END_OF_SCUTIL_COMMAND 2>/dev/null   | \
+		sed -n -e 's/.*LocalHostName : \(.*\)/\1.local./p'
+open
+show Setup:/Network/HostNames
+close
+quit
+__END_OF_SCUTIL_COMMAND
+}
+
 if [ ! "${HOSTNAME:=-AUTOMATIC-}" = "-AUTOMATIC-" ] ; then
+	hostname "${HOSTNAME}"
 	exit 1
 fi
 
 primary=$(netstat -rn | sed -n 's/default [ ]*[^ ]*[ ]*[^ ]*[ ]*[^ ]*[ ]*[^ ]*[ ]*\([^ ]*\)[ ]*[^ ]*/\1/p')
 
-if [ "${primary}" = "" ] ; then
-	exit 0
+if [ ! "${primary}" = "" ] ; then
+	host=$(ipconfig getoption "${primary}" host_name)
+	if [ "${host}" = "" ]; then
+		host=$(get_host)
+	fi
 fi
 
-host=$(ipconfig getoption "${primary}" host_name)
 if [ "${host}" = "" ]; then
-	ifconfig ${primary} inet 2>/dev/null | sed -n '/169\.254/d;/127\.0\.0\.1/d;/0\.0\.0\.0/d;s/^.*inet \([0-9\.]*\) netmask.*/\1/p' | while read ip_address 
-	do
-		host=$(nslookup ${ip_address} 2>/dev/null | sed -n 's/Name: [ ]*\([^ ]*\)$/\1/p')
-		if [ ! "${host}" = "" ] ; then
-			break;
-		fi
-	done
+	host=$(get_localhost)
 fi
 
-if [ ! "${host}" = "" ]; then
-	logger setting hostname to "${host}"
-	hostname "${host}"
+if [ "${host}" = "" ]; then
+	host=localhost
 fi
+
+logger setting hostname to "${host}"
+hostname "${host}"
+
 exit 0

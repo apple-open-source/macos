@@ -1,20 +1,17 @@
 /*
- * /src/NTP/ntp-4/libparse/clk_trimtaip.c,v 4.6 1998/08/16 18:46:27 kardel RELEASE_19990228_A
+ * /src/NTP/ntp-4/libparse/clk_trimtaip.c,v 4.7 1999/11/28 09:13:51 kardel RELEASE_19991128_A
  *
- * clk_trimtaip.c,v 4.6 1998/08/16 18:46:27 kardel RELEASE_19990228_A
+ * clk_trimtaip.c,v 4.7 1999/11/28 09:13:51 kardel RELEASE_19991128_A
  *
  * Trimble SV6 clock support - several collected codepieces
  */
 
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+# include <config.h>
 #endif
 
 #if defined(REFCLOCK) && defined(CLOCK_PARSE) && defined(CLOCK_TRIMTAIP)
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/errno.h>
 #include "ntp_fp.h"
 #include "ntp_unixtime.h"
 #include "ntp_calendar.h"
@@ -129,7 +126,7 @@ inp_trimtaip(
 {
 	unsigned int rtc;
 	
-	parseprintf(DD_PARSE, ("inp_trimtaip(0x%x, 0x%x, ...)\n", (int)parseio, (int)ch));
+	parseprintf(DD_PARSE, ("inp_trimtaip(0x%lx, 0x%x, ...)\n", (long)parseio, ch));
 	
 	switch (ch)
 	{
@@ -162,6 +159,9 @@ int clk_trimtaip_bs;
  * History:
  *
  * clk_trimtaip.c,v
+ * Revision 4.7  1999/11/28 09:13:51  kardel
+ * RECON_4_0_98F
+ *
  * Revision 4.6  1998/08/16 18:46:27  kardel
  * (clock_trimtaip =): changed format name
  *

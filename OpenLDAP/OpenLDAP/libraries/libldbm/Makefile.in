@@ -1,0 +1,17 @@
+# $OpenLDAP: pkg/ldap/libraries/libldbm/Makefile.in,v 1.12 2002/02/10 21:42:54 kurt Exp $
+## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+##
+## Makefile for -lldbm
+##
+
+LIBRARY		= libldbm.a
+SRCS		= ldbm.c
+OBJS		= ldbm.o
+
+LDAP_INCDIR= ../../include       
+LDAP_LIBDIR= ../../libraries
+
+XLIBS		= $(LIBRARY)
+XXLIBS		= $(LDBM_LIBS)
+

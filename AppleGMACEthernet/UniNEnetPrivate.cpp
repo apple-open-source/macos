@@ -46,6 +46,7 @@
 bool UniNEnet::allocateMemory()
 {
 	UInt32		rxRingSize, txRingSize;
+//	IOReturn	rc;						// return code
 
  
 		/* Allocate memory for DMA ring elements:	*/
@@ -58,6 +59,12 @@ bool UniNEnet::allocateMemory()
 		ALRT( 0, txRingSize, '-Tx-', "UniNEnet::allocateMemory - failed to alloc Tx Ring" );
 		return false;
 	}
+#ifdef UNNECESSARY
+	rc = IOSetProcessorCacheMode(	kernel_task,
+									(IOVirtualAddress)fTxDescriptorRing,
+									txRingSize,
+									kIOMapInhibitCache );
+#endif // UNNECESSARY
 	ELG( txRingSize, fTxDescriptorRing, '=TxR', "UniNEnet::allocateMemory - Tx Ring alloc'd" );
 
 
@@ -69,6 +76,12 @@ bool UniNEnet::allocateMemory()
 		ALRT( 0, rxRingSize, '-Rx-', "UniNEnet::allocateMemory - failed to alloc Rx Ring" );
 		return false;
 	}
+#ifdef UNNECESSARY
+	rc = IOSetProcessorCacheMode(	kernel_task,
+									(IOVirtualAddress)fRxDescriptorRing,
+									rxRingSize,
+									kIOMapInhibitCache );
+#endif // UNNECESSARY
 	ELG( rxRingSize, fRxDescriptorRing, '=RxR', "UniNEnet::allocateMemory - Rx Ring alloc'd" );
 
 		/* set up the Tx and Rx mBuf pointer arrays:	*/
@@ -519,6 +532,7 @@ bool UniNEnet::initChip()
     mach_timespec_t		timeStamp;
     UInt32          	rxFifoSize;
     UInt32          	rxOff, rxOn;
+    UInt32          	ui32;
     UInt16       		*p16;
 	UInt16				phyAdrToPoll, phyRegToPoll, phyBitsToMonitor;
 	UInt16				val16;
@@ -553,7 +567,19 @@ bool UniNEnet::initChip()
 	WRITE_REGISTER( TxMACMask,				kTxMACMask_default );
 	WRITE_REGISTER( RxMACMask,				kRxMACMask_default );
 	WRITE_REGISTER( MACControlMask,			kMACControlMask_default );
-	WRITE_REGISTER( Configuration,			fConfiguration );
+
+	fConfiguration	= kConfiguration_TX_DMA_Limit		// default Configuration value
+					| kConfiguration_RX_DMA_Limit
+					| kConfiguration_Infinite_Burst;
+	WRITE_REGISTER( Configuration, fConfiguration );	// try the default
+
+	ui32 = READ_REGISTER( Configuration );				// read it back
+    if ( (ui32 & kConfiguration_Infinite_Burst) == 0 )	
+    {													// not infinite-burst capable:
+        ELG( 0, 0, 'Lims', "UniNEnet::initChip: set TX_DMA_Limit and RX_DMA_Limit." );
+		fConfiguration	= (0x02 << 1) | (0x08 << 6);	// change TX_DMA_Limit, RX_DMA_Limit
+		WRITE_REGISTER( Configuration, fConfiguration );
+    }
 
 	WRITE_REGISTER( InterPacketGap0,	kInterPacketGap0_default );
 	WRITE_REGISTER( InterPacketGap1,	kInterPacketGap1_default );
@@ -853,7 +879,7 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 
 	OSSynchronizeIO();				// make sure ring updated before kicked.
 	WRITE_REGISTER( TxKick, j );
-
+///	j = READ_REGISTER( TxKick );	/// read it back to force it out.
     return true;          
 }/* end transmitPacket */
 
@@ -1105,7 +1131,8 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
         receivedFrameSize	= dmaFlags & kGEMRxDescFrameSize_Mask;
 		rxPktStatus			= OSReadLittleInt32( &fRxDescriptorRing[ i ].flags, 0 );
-		ELG( rxPktStatus, receivedFrameSize, 'Rx P', "UniNEnet::receivePackets - rx'd packet" );
+	///	ELG( rxPktStatus, receivedFrameSize, 'Rx P', "UniNEnet::receivePackets - rx'd packet" );
+		ELG( READ_REGISTER( RxCompletion ), receivedFrameSize, 'Rx P', "UniNEnet::receivePackets - rx'd packet" );
 
 			/* Reject packets that are runts or that have other mutations.	*/
 
@@ -1149,7 +1176,6 @@ bool UniNEnet::receivePackets( bool debuggerParam )
             if ( packet && replaced )
             {
                 status = genRxDescriptor( i );
-
                 if ( status )
                 {
                     reusePkt = false;
@@ -1160,13 +1186,16 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 						// Assume descriptor has not been corrupted.
 					freePacket( fRxMbuf[i] );	// release new packet.
                     fRxMbuf[i] = packet;		// get the old packet back.
-                    packet = 0;             // pass up nothing.
-                    IOLog( "UniNEnet::receivePackets - genRxDescriptor error\n" );
+					packet = 0;					// pass up nothing.
                 }
             }
-            
+
 			if ( packet == 0 )
+			{		// Can get here if Tx is spewing UDP packets and
+					// uses up the whole pool.
 				NETWORK_STAT_ADD( inputErrors );
+				ELG( 0, 0, 'Pkt-', "UniNEnet::receivePackets - no mBuf available." );
+			}
         }/* end IF reusePkt is false */
 
 			/* Install the new MBuf for the one we're about	*/
@@ -1386,7 +1415,7 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 			/* temporarily enable it to get the phyStatus:	*/
 		ELG( 0, 0, '+Clk', "UniNEnet::monitorLinkStatus - turning on cell clock!!!" );
 	//	OSSynchronizeIO();
-		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, 0, 0, 0 );
+		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, (void*)nub, 0, 0 );
 		OSSynchronizeIO();
 		IODelay( 3 );		// Allow the cell some clock cycles before using it.
 		fCellClockEnabled	= true;
@@ -1414,7 +1443,7 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
     {		// if it was off in the first place, turn it back off
 		ELG( 0, 0, '-Clk', "UniNEnet::monitorLinkStatus - turning off cell clock!!!" );
 		OSSynchronizeIO();
-		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)false, 0, 0, 0 );
+		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)false, (void*)nub, 0, 0 );
 		OSSynchronizeIO();
 		fCellClockEnabled = false;
     }
@@ -1656,20 +1685,23 @@ IOReturn UniNEnet::getHardwareAddress( IOEthernetAddress *ea )
 }/* end getHardwareAddress */
 
 
-IOReturn UniNEnet::setHardwareAddress( IOEthernetAddress *ea )
+IOReturn UniNEnet::setHardwareAddress( const IOEthernetAddress *ea )
 {
-    int			i;
-    UInt16		*p16 = (UInt16*)ea;
+	UInt16		a0, a1, a2;
 
 
-	ELG( p16[0], p16[1] << 16 | p16[2], 'SetA', "UniNEnet::setHardwareAddress" );
+	a0 = ea->bytes[ 0 ] << 8 | ea->bytes[ 1 ];
+	a1 = ea->bytes[ 2 ] << 8 | ea->bytes[ 3 ];
+	a2 = ea->bytes[ 4 ] << 8 | ea->bytes[ 5 ];
 
-    for ( i = 0; i < kIOEthernetAddressSize / 2; i++ )
-		WRITE_REGISTER( MACAddress[ i ], p16[ 2 - i ] );
+	ELG( a0, a1 << 16 | a2, 'SetA', "UniNEnet::setHardwareAddress" );
+
+	WRITE_REGISTER( MACAddress[ 0 ], a2 );
+	WRITE_REGISTER( MACAddress[ 1 ], a1 );
+	WRITE_REGISTER( MACAddress[ 2 ], a0 );
 
     return kIOReturnSuccess;
 }/* end setHardwareAddress */
-
 
 #define ENET_CRCPOLY 0x04c11db7
 

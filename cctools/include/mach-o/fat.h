@@ -21,6 +21,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef _MACH_O_FAT_H_
+#define _MACH_O_FAT_H_
 /*
  * This header file describes the structures of the file format for "fat"
  * architecture specific file (wrapper design).  At the begining of the file
@@ -40,8 +42,8 @@
  * <mach/machine.h> is needed here for the cpu_type_t and cpu_subtype_t types
  * and contains the constants for the possible values of these types.
  */
-#import <mach/machine.h>
-#import <architecture/byte_order.h>
+#include <mach/machine.h>
+#include <architecture/byte_order.h>
 
 #define FAT_MAGIC	0xcafebabe
 #define FAT_CIGAM	NXSwapLong(FAT_MAGIC)
@@ -59,3 +61,4 @@ struct fat_arch {
 	unsigned long	align;		/* alignment as a power of 2 */
 };
 
+#endif /* _MACH_O_FAT_H_ */

@@ -26,21 +26,22 @@
 #ifndef __LIBSAIO_SAIO_TYPES_H
 #define __LIBSAIO_SAIO_TYPES_H
 
-typedef char BOOL;
-#define NO  0
-#define YES 1
-
-#include <mach-o/loader.h>
-#undef i386_THREAD_STATE
-#undef i386_THREAD_STATE_COUNT
-#include <mach/i386/thread_status.h>
 #include <sys/reboot.h>
-
-typedef unsigned long	entry_t;
-
-#include <stdarg.h>
+#include <sys/types.h>
 #include "bios.h"
-#include "saio.h"
+#include "nbp_cmd.h"
+
+#if 0
+#define DEBUG_DISK(x)    printf x
+#else
+#define DEBUG_DISK(x)
+#endif
+
+typedef char BOOL;
+#define NO   0
+#define YES  1
+
+typedef unsigned long entry_t;
 
 typedef struct {
     unsigned int sectors:8;
@@ -54,5 +55,87 @@ struct driveParameters {
     int heads;
     int totalDrives;
 };
+
+struct         BootVolume;
+typedef struct BootVolume * BVRef;
+typedef struct BootVolume * CICell;
+
+typedef long (*FSInit)(CICell ih);
+typedef long (*FSLoadFile)(CICell ih, char * filePath);
+typedef long (*FSGetDirEntry)(CICell ih, char * dirPath, long * dirIndex,
+                              char ** name, long * flags, long * time);
+typedef void (*BVGetDescription)(CICell ih, char * str, long strMaxLen);
+
+struct iob {
+    unsigned int   i_flgs;          /* see F_* below */
+    unsigned int   i_offset;        /* seek byte offset in file */
+    int            i_filesize;      /* size of file */
+    char *         i_buf;           /* file load address */
+};
+
+#define F_READ     0x1              /* file opened for reading */
+#define F_WRITE    0x2              /* file opened for writing */
+#define F_ALLOC    0x4              /* buffer allocated */
+#define F_FILE     0x8              /* file instead of device */
+#define F_NBSF     0x10             /* no bad sector forwarding */
+#define F_SSI      0x40             /* set skip sector inhibit */
+#define F_MEM      0x80             /* memory instead of file or device */
+
+struct dirstuff {
+    char *         dir_path;        /* directory path */
+    long           dir_index;       /* directory entry index */
+    BVRef          dir_bvr;         /* volume reference */
+};
+
+struct BootVolume {
+    BVRef            next;            /* list linkage pointer */
+    int              biosdev;         /* BIOS device number */
+    unsigned int     flags;           /* attribute flags */
+    BVGetDescription description;     /* BVGetDescription function */
+    int              part_no;         /* partition number (1 based) */
+    unsigned int     part_boff;       /* partition block offset */
+    unsigned int     part_type;       /* partition type */
+    unsigned int     fs_boff;         /* 1st block # of next read */
+    FSLoadFile       fs_loadfile;     /* FSLoadFile function */
+    FSGetDirEntry    fs_getdirentry;  /* FSGetDirEntry function */
+};
+
+enum {
+    kBVFlagPrimary     = 0x01,
+    kBVFlagNativeBoot  = 0x02,
+    kBVFlagForeignBoot = 0x04
+};
+
+enum {
+    kBIOSDevTypeFloppy    = 0x00,
+    kBIOSDevTypeHardDrive = 0x80,
+    kBIOSDevTypeNetwork   = 0xE0,
+    kBIOSDevUnitMask      = 0x0F,
+    kBIOSDevTypeMask      = 0xF0,
+    kBIOSDevMask          = 0xFF
+};
+
+#define BIOS_DEV_TYPE(d)  ((d) & kBIOSDevTypeMask)
+#define BIOS_DEV_UNIT(d)  ((d) & kBIOSDevUnitMask)
+
+/*
+ * KernBootStruct device types.
+ */
+enum {
+    DEV_SD = 0,
+    DEV_HD = 1,
+    DEV_FD = 2,
+    DEV_EN = 3
+};
+
+#ifndef max
+#define max(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
+#ifndef min
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#endif
+
+#define MAKEKERNDEV(t, u, p)  MAKEBOOTDEV(t, 0, 0, u, p)
 
 #endif /* !__LIBSAIO_SAIO_TYPES_H */

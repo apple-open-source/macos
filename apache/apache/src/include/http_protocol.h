@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -216,6 +216,11 @@ CORE_EXPORT(void) ap_parse_uri(request_rec *r, const char *uri);
  * contain an HTTP method.  Returns M_INVALID if not recognized.
  */
 API_EXPORT(int) ap_method_number_of(const char *method);
+
+API_EXPORT(int) ap_getline(char *s, int n, BUFF *in, int fold);
+
+API_EXPORT(long) ap_get_chunk_size(char *b);
+
 
 #ifdef __cplusplus
 }

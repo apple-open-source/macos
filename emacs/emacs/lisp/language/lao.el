@@ -1,4 +1,4 @@
-;;; lao.el --- Support for Lao -*- coding: iso-2022-7bit; -*-
+;;; lao.el --- support for Lao -*- coding: iso-2022-7bit; -*-
 
 ;; Copyright (C) 1997 Electrotechnical Laboratory, JAPAN.
 ;; Licensed to the Free Software Foundation.
@@ -21,6 +21,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;;; Code:
 
@@ -46,5 +48,12 @@
 (aset use-default-ascent ?(1?(B t)
 (aset use-default-ascent ?(1B(B t)
 (aset ignore-relative-composition ?(1\(B t)
+
+;; Register a function to compose Lao characters.
+(aset composition-function-table (make-char 'lao)
+      '(("\\c0\\c9?\\(\\(\\c2\\|\\c3\\)\\c4?\\|\\c4\\)?"
+	 . lao-composition-function)))
+
+(provide 'lao)
 
 ;;; lao.el ends here

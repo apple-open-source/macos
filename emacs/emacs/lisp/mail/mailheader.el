@@ -1,8 +1,8 @@
-;;; mailheader.el --- Mail header parsing, merging, formatting
+;;; mailheader.el --- mail header parsing, merging, formatting
 
 ;; Copyright (C) 1996 by Free Software Foundation, Inc.
 
-;; Author: Erik Naggum <erik@arcana.naggum.no>
+;; Author: Erik Naggum <erik@naggum.no>
 ;; Keywords: tools, mail, news
 
 ;; This file is part of GNU Emacs.
@@ -36,7 +36,7 @@
 ;; The car of each element in the message-header alist is a symbol whose
 ;; print name is the name of the header, in all lower-case.  The cdr of an
 ;; element depends on the operation.  After extracting headers from a
-;; messge, it is a string, the value of the header.  An extracted set of
+;; message, it is a string, the value of the header.  An extracted set of
 ;; headers may be parsed further, which may turn it into a list, whose car
 ;; is the original value and whose subsequent elements depend on the
 ;; header.  For formatting, it is evaluated to obtain the strings to be
@@ -63,7 +63,7 @@ that name."
 		(> (skip-chars-forward "^\0- :") 0)
 		(= (following-char) ?:)
 		(setq end (point))
-		(progn (forward-char) 
+		(progn (forward-char)
 		       (> (skip-chars-forward " \t") 0)))
       (let ((header (intern (downcase (buffer-substring start end))))
 	    (value (list (buffer-substring
@@ -109,7 +109,7 @@ value."
   "Return the value associated with header HEADER in HEADER-ALIST.
 If the value is a string, it is the original value of the header.  If the
 value is a list, its first element is the original value of the header,
-with any subsequent elements bing the result of parsing the value.
+with any subsequent elements being the result of parsing the value.
 If HEADER-ALIST is nil, the dynamically bound variable `headers' is used."
   (cdr (assq header (or header-alist headers))))
 
@@ -165,7 +165,7 @@ specified for a particular header field, the default action is to
 insert the value of the header, unless it is nil.
 
 The headers are inserted in the order of the FORMAT-RULES.
-A key of t in FORMAT-RULES. represents any otherwise unmentioned headers.
+A key of t in FORMAT-RULES represents any otherwise unmentioned headers.
 A key of nil has as its value a list of defaulted headers to ignore."
   (let ((ignore (append (cdr (assq nil format-rules))
 			(mapcar #'car format-rules))))

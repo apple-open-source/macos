@@ -1,0 +1,14 @@
+#! /bin/sh
+
+# Test to make sure RULE_PATTERN catches strange targets.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+$(srcdir)/Makefile.am:
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^$(srcdir)/Makefile\.am' Makefile.in

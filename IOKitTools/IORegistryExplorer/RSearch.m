@@ -21,7 +21,7 @@
         selector: @selector(applicationWillBecomeActiveNotification:)
         name: NSApplicationWillBecomeActiveNotification
         object: NSApp];
-
+    [[[resultsTable tableColumns] objectAtIndex:0] setWidth:1000];
 
     return;
 }
@@ -31,6 +31,7 @@
     [self importFindText];
     [searchWindow makeKeyAndOrderFront:self];
     [searchWindow display];
+
     return;
 }
 
@@ -170,7 +171,17 @@
 
 }
 
+- (void)copy:(id)sender
+{
+        int selectedRow = [resultsTable selectedRow];
 
-
+        if (selectedRow >= 0) {
+                NSString *path = [[resultsArray objectAtIndex:[resultsTable selectedRow]] substringFromIndex:5];
+                // soemthing selected - copy to pasteboard
+                [[NSPasteboard generalPasteboard] declareTypes: [NSArray arrayWithObject:NSStringPboardType] owner: [self class]];
+                [[NSPasteboard generalPasteboard] setString:path forType:NSStringPboardType];
+        }
+        return;
+}
 
 @end

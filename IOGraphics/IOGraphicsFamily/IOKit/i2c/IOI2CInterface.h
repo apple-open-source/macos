@@ -113,6 +113,7 @@ IOReturn IOFBGetI2CInterfaceCount( io_service_t framebuffer, IOItemCount * count
 IOReturn IOFBCopyI2CInterfaceForBus( io_service_t framebuffer, IOOptionBits bus, io_service_t * interface );
 
 typedef struct IOI2CConnect * IOI2CConnectRef;
+
 IOReturn IOI2CCopyInterfaceForID( CFTypeRef identifier, io_service_t * interface );
 IOReturn IOI2CInterfaceOpen( io_service_t interface, IOOptionBits options,
                              IOI2CConnectRef * connect );

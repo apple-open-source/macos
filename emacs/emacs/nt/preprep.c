@@ -26,6 +26,10 @@ Boston, MA 02111-1307, USA.
 #include <stdio.h>
 #include <fcntl.h>
 #include <time.h>
+#ifdef __GNUC__
+#define _ANONYMOUS_UNION
+#define _ANONYMOUS_STRUCT
+#endif
 #include <windows.h>
 
 /* Include relevant definitions from IMAGEHLP.H, which can be found
@@ -291,7 +295,7 @@ relocate_offset (DWORD offset,
 #define PTR_TO_RVA(ptr) ((DWORD)(ptr) - (DWORD) GetModuleHandle (NULL))
 
 #define PTR_TO_OFFSET(ptr, pfile_data) \
-          ((char *)(ptr) - (pfile_data)->file_base)
+          ((unsigned char *)(ptr) - (pfile_data)->file_base)
 
 #define OFFSET_TO_PTR(offset, pfile_data) \
           ((pfile_data)->file_base + (DWORD)(offset))

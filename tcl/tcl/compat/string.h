@@ -9,7 +9,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: string.h,v 1.1.1.3 2000/04/12 02:02:08 wsanchez Exp $
+ * RCS: @(#) $Id: string.h,v 1.1.1.4 2002/04/05 16:12:51 jevans Exp $
  */
 
 #ifndef _STRING
@@ -59,12 +59,13 @@ extern int		strncmp _ANSI_ARGS_((CONST char *s1, CONST char *s2,
 			    size_t nChars));
 extern char *		strncpy _ANSI_ARGS_((char *dst, CONST char *src,
 			    size_t numChars));
-extern char *		strpbrk _ANSI_ARGS_((CONST char *string, char *chars));
+extern char *		strpbrk _ANSI_ARGS_((CONST char *string,
+			    CONST char *chars));
 extern char *		strrchr _ANSI_ARGS_((CONST char *string, int c));
 extern size_t		strspn _ANSI_ARGS_((CONST char *string,
 			    CONST char *chars));
 extern char *		strstr _ANSI_ARGS_((CONST char *string,
 			    CONST char *substring));
-extern char *		strtok _ANSI_ARGS_((CONST char *s, CONST char *delim));
+extern char *		strtok _ANSI_ARGS_((char *s, CONST char *delim));
 
 #endif /* _STRING */

@@ -429,6 +429,7 @@ struct library_image *library_image)
 						dylib_references[i].isym),
 				  get_hint(image, symbols +
 						dylib_references[i].isym),
+				  get_weak(symbols + dylib_references[i].isym),
 				  &defined_symbol, &defined_module,
 				  &defined_image, &defined_library_image, NULL);
 		    /*

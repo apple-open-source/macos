@@ -73,7 +73,7 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 
-#include <net/slcompress.h>
+#include "slcompress.h"
 
 #ifndef SL_NO_STATS
 #define INCR(counter) ++comp->counter;

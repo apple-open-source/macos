@@ -1,0 +1,63 @@
+!
+!  Test Vectors for Truncate-to-Integer via modf call
+!
+! Integral cases.
+3b	    ALL		  1		  0		  OK	  1
+3b	    ALL		  Hd1  0	   OK	   Hd1
+3b	    ALL		  -1	  0		  OK	  -1
+3b	    ALL		  -Hd1 0	   OK	   -Hd1
+3b	    ALL		  9p9   0	    OK	    9p9
+3b	    ALL		  -9p9  0	    OK	    -9p9
+3b	    ALL		  0		  0		  OK	  0
+3b	    ALL		  -0	  0		  OK	  -0
+3b	    ALL		  Hm9	   0	   OK	   Hm9
+3b	    ALL		  Hm9d1	 0		 OK		 Hm9d1
+3b	    ALL		  Hm9d9	 0		 OK		 Hm9d9
+3b	    ALL		  Hm9d9d9 0	   OK	   Hm9d9d9
+3b	    ALL		  -Hm9	    0	    OK	   -Hm9
+3b	    ALL		  -Hm9d1  0		  OK	 -Hm9d1
+3b	    ALL		  -Hm9d9  0		  OK	 -Hm9d9
+3b	    ALL		  -Hm9d9d9 0    OK	   -Hm9d9d9
+! Infinities.
+3b	    ALL		  H		 0		 OK		 H
+3b	    ALL		  -H	 0		 OK		 -H
+! Cases with nonzero fractional parts.
+3b	    ALL		  1i1   0	    OK	    1
+3b	    ALL		  1d1   0	    OK	    0
+3b	    ALL		  -1d1  0	    OK	    -0 
+3b	    ALL		  -1i1  0	    OK	    -1
+3b	    ALL		  E		  0		  OK		  0
+3b	    ALL		  -E	  0		  OK		  -0
+3b	    ALL		  Ed1   0	    OK	    0
+3b	    ALL		  -Ed1  0	    OK	    -0
+3b	    ALL		  0i1   0	    OK	    0
+3b	    ALL		  -0i1  0	    OK	    -0
+3b	    ALL		  8i1   0	    OK	    8
+3b	    ALL		  -8i1  0	    OK	    -8
+3b	    ALL		  8d1   0	    OK	    7
+3b	    ALL		  -8d1  0	    OK	    -7
+3b	    ALL		  1p9d8 0	  OK		  511
+3b	    ALL		  -1p9d8  0	   OK	   -511
+3b	    ALL		  1p14d1  0	    OK	    16383 
+3b	    ALL		  -1p14d1 0	   OK	   -16383
+3b	    ALL		  1p9i8	  0	    OK	    1p9
+3b	    ALL		  -1p9i8  0	   OK	   -1p9
+3b	    ALL		  1p18i1  0	    OK	    1p18 
+3b	    ALL		  -1p18i1 0	   OK	   -1p18 
+! Half-way cases.
+3b	    ALL		  1m1   0	    OK	    0
+3b	    ALL		  -1m1  0	    OK	    -0
+3b	    ALL		  3m1   0	    OK	    1
+3b	    ALL		  -3m1  0	    OK	    -1
+3b	    ALL		  9m1   0	    OK	    4
+3b	    ALL		  -9m1  0	    OK	    -4
+3b	    ALL		  1m1i1	  0		  OK	    0
+3b	    ALL		  -1m1i1  0		  OK	    -0
+3b	    ALL		  3m1d1	  0		  OK	    1
+3b	    ALL		  -3m1d1  0		  OK	    -1
+3b	    ALL		  9m1i1 0	  OK		    4
+3b	    ALL		  -9m1i1 0	  OK		    -4
+! NAN operand.
+! Commented out signaling NaN case <JPO, 5/13/93>
+3b	    ALL		  Q		  0		  OK	  Q
+!3b	    ALL		  S		  0		  i		  Q

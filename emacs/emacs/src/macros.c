@@ -1,5 +1,5 @@
 /* Keyboard macros.
-   Copyright (C) 1985, 1986, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1993, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -27,7 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #include "window.h"
 #include "keyboard.h"
 
-Lisp_Object Qexecute_kbd_macro;
+Lisp_Object Qexecute_kbd_macro, Qkbd_macro_termination_hook;
 
 /* Kbd macro currently being executed (a string or vector).  */
 
@@ -61,7 +61,7 @@ The commands are recorded even as they are executed.\n\
 Use \\[end-kbd-macro] to finish recording and make the macro available.\n\
 Use \\[name-last-kbd-macro] to give it a permanent name.\n\
 Non-nil arg (prefix arg) means append to last macro defined;\n\
- This begins by re-executing that macro as if you typed it again.")
+this begins by re-executing that macro as if you typed it again.")
   (append)
      Lisp_Object append;
 {
@@ -90,10 +90,38 @@ Non-nil arg (prefix arg) means append to last macro defined;\n\
     }
   else
     {
-      message ("Appending to kbd macro...");
-      current_kboard->kbd_macro_ptr = current_kboard->kbd_macro_end;
+      int i, len;
+
+      /* Check the type of last-kbd-macro in case Lisp code changed it.  */
+      if (!STRINGP (current_kboard->Vlast_kbd_macro)
+	  && !VECTORP (current_kboard->Vlast_kbd_macro))
+	current_kboard->Vlast_kbd_macro
+	  = wrong_type_argument (Qarrayp, current_kboard->Vlast_kbd_macro);
+
+      len = XINT (Flength (current_kboard->Vlast_kbd_macro));
+
+      /* Copy last-kbd-macro into the buffer, in case the Lisp code
+	 has put another macro there.  */
+      if (current_kboard->kbd_macro_bufsize < len + 30)
+	{
+	  current_kboard->kbd_macro_bufsize = len + 30;
+	  current_kboard->kbd_macro_buffer
+	    = (Lisp_Object *)xrealloc (current_kboard->kbd_macro_buffer,
+				       (len + 30) * sizeof (Lisp_Object));
+	}
+      for (i = 0; i < len; i++)
+	current_kboard->kbd_macro_buffer[i]
+	  = Faref (current_kboard->Vlast_kbd_macro, make_number (i));
+
+      current_kboard->kbd_macro_ptr = current_kboard->kbd_macro_buffer + len;
+      current_kboard->kbd_macro_end = current_kboard->kbd_macro_ptr;
+
+      /* Re-execute the macro we are appending to,
+	 for consistency of behavior.  */
       Fexecute_kbd_macro (current_kboard->Vlast_kbd_macro,
 			  make_number (1));
+
+      message ("Appending to kbd macro...");
     }
   current_kboard->defining_kbd_macro = Qt;
   
@@ -149,24 +177,25 @@ void
 store_kbd_macro_char (c)
      Lisp_Object c;
 {
-  if (!NILP (current_kboard->defining_kbd_macro))
+  struct kboard *kb = current_kboard;
+
+  if (!NILP (kb->defining_kbd_macro))
     {
-      if ((current_kboard->kbd_macro_ptr
-	   - current_kboard->kbd_macro_buffer)
-	  == current_kboard->kbd_macro_bufsize)
+      if (kb->kbd_macro_ptr - kb->kbd_macro_buffer == kb->kbd_macro_bufsize)
 	{
-	  register Lisp_Object *new;
-	  current_kboard->kbd_macro_bufsize *= 2;
-	  new = (Lisp_Object *)xrealloc (current_kboard->kbd_macro_buffer,
-					 (current_kboard->kbd_macro_bufsize
-					  * sizeof (Lisp_Object)));
-	  current_kboard->kbd_macro_ptr
-	    += new - current_kboard->kbd_macro_buffer;
-	  current_kboard->kbd_macro_end
-	    += new - current_kboard->kbd_macro_buffer;
-	  current_kboard->kbd_macro_buffer = new;
+	  int ptr_offset, end_offset, nbytes;
+	  
+	  ptr_offset = kb->kbd_macro_ptr - kb->kbd_macro_buffer;
+	  end_offset = kb->kbd_macro_end - kb->kbd_macro_buffer;
+	  kb->kbd_macro_bufsize *= 2;
+	  nbytes = kb->kbd_macro_bufsize * sizeof *kb->kbd_macro_buffer;
+	  kb->kbd_macro_buffer
+	    = (Lisp_Object *) xrealloc (kb->kbd_macro_buffer, nbytes);
+	  kb->kbd_macro_ptr = kb->kbd_macro_buffer + ptr_offset;
+	  kb->kbd_macro_end = kb->kbd_macro_buffer + end_offset;
 	}
-      *current_kboard->kbd_macro_ptr++ = c;
+      
+      *kb->kbd_macro_ptr++ = c;
     }
 }
 
@@ -185,6 +214,7 @@ DEFUN ("cancel-kbd-macro-events", Fcancel_kbd_macro_events,
   ()
 {
   current_kboard->kbd_macro_ptr = current_kboard->kbd_macro_end;
+  return Qnil;
 }
 
 DEFUN ("store-kbd-macro-event", Fstore_kbd_macro_event,
@@ -241,6 +271,7 @@ pop_kbd_macro (info)
   tem = XCDR (info);
   executing_macro_index = XINT (XCAR (tem));
   real_this_command = XCDR (tem);
+  Frun_hooks (1, &Qkbd_macro_termination_hook);
   return Qnil;
 }
 
@@ -312,6 +343,8 @@ syms_of_macros ()
 {
   Qexecute_kbd_macro = intern ("execute-kbd-macro");
   staticpro (&Qexecute_kbd_macro);
+  Qkbd_macro_termination_hook = intern ("kbd-macro-termination-hook");
+  staticpro (&Qkbd_macro_termination_hook);
 
   defsubr (&Sstart_kbd_macro);
   defsubr (&Send_kbd_macro);

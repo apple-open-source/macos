@@ -35,6 +35,7 @@
 
 #include "BTreePrivate.h"
 
+#define DEBUG_TREEOPS 0
 
 /////////////////////// Routines Internal To BTree Module ///////////////////////
 //
@@ -66,6 +67,7 @@ static Boolean	   RotateRecordLeft	(BTreeControlBlockPtr		 btreePtr,
 									 NodeDescPtr				 leftNode,
 									 NodeDescPtr				 rightNode );
 
+#if 0 
 static OSStatus	   SplitLeft		(BTreeControlBlockPtr		 btreePtr,
 									 BlockDescriptor			*leftNode,
 									 BlockDescriptor			*rightNode,
@@ -77,7 +79,7 @@ static OSStatus	   SplitLeft		(BTreeControlBlockPtr		 btreePtr,
 									 UInt16						*insertIndex,
 									 UInt32						*insertNodeNum,
 									 UInt16						*recsRotated );
-								 
+#endif
 
 
 static	OSStatus	InsertLevel		(BTreeControlBlockPtr		 btreePtr,
@@ -91,7 +93,7 @@ static	OSStatus	InsertLevel		(BTreeControlBlockPtr		 btreePtr,
 						 
 static OSErr		InsertNode 		(BTreeControlBlockPtr		 btreePtr,
 									 InsertKey					*key,
-									 BlockDescriptor			*rightNode,
+									 BlockDescriptor			*targetNode,
 									 UInt32						 node,
 									 UInt16	 					 index,
 									 UInt32						*newNode,	
@@ -105,6 +107,54 @@ static UInt16		GetKeyLength	(const BTreeControlBlock *btreePtr,
 									 const BTreeKey *key,
 									 Boolean forLeafNode );
 
+static Boolean 		RotateRecordRight( 	BTreeControlBlockPtr		btreePtr,
+								 		NodeDescPtr				leftNode,
+							 	 		NodeDescPtr				rightNode );
+							 	 		
+static OSStatus		RotateRight(	BTreeControlBlockPtr		 btreePtr,
+								 	NodeDescPtr					 leftNode,
+								 	NodeDescPtr					 rightNode,
+								 	UInt16						 leftInsertIndex,
+									KeyPtr						 keyPtr,
+									UInt8 *						 recPtr,
+									UInt16						 recSize,
+									UInt16						*insertIndex,
+									UInt32						*insertNodeNum,
+								 	Boolean						*recordFit,
+									UInt16						*recsRotated );
+									
+static OSStatus		SplitRight(		BTreeControlBlockPtr		 btreePtr,
+								 	BlockDescriptor				*nodePtr,
+									BlockDescriptor				*rightNodePtr,
+									UInt32						 nodeNum,
+									UInt16						 index,
+									KeyPtr						 keyPtr,
+									UInt8  						*recPtr,
+									UInt16						 recSize,
+									UInt16						*insertIndexPtr,
+									UInt32						*newNodeNumPtr,
+									UInt16						*recsRotatedPtr );
+
+#if DEBUG_TREEOPS
+static int DoKeyCheck( NodeDescPtr nodeP, BTreeControlBlock *btcb );
+static int	DoKeyCheckAcrossNodes( 	NodeDescPtr theLeftNodePtr, 
+									NodeDescPtr theRightNodePtr, 
+									BTreeControlBlock *theTreePtr,
+									Boolean printKeys );
+static void PrintNodeDescriptor( NodeDescPtr  thePtr );
+static void PrintKey( UInt8 *  myPtr, int mySize );
+#endif // DEBUG_TREEOPS
+
+
+/* used by InsertLevel (and called routines) to communicate the state of an insert operation */
+enum
+{
+	kInsertParent 			= 0x0001,
+	kUpdateParent 			= 0x0002,
+	kNewRoot	 			= 0x0004,
+	kInsertedInRight 		= 0x0008,
+	kRecordFits		 		= 0x0010
+};
 
 
 //////////////////////// BTree Multi-node Tree Operations ///////////////////////
@@ -163,7 +213,18 @@ OSStatus	SearchTree	(BTreeControlBlockPtr	 btreePtr,
 
 	while (true)
 	{
-		PanicIf(curNodeNum == 0, "\pSearchTree: curNodeNum is zero!");
+        //
+        //	[2550929] Node number 0 is the header node.  It is never a valid
+        //	index or leaf node.  If we're ever asked to search through node 0,
+        //	something has gone wrong (typically a bad child node number, or
+        //	we found a node full of zeroes that we thought was an index node).
+        //
+        if (curNodeNum == 0)
+        {
+//          Panic("\pSearchTree: curNodeNum is zero!");
+            err = fsBTInvalidNodeErr;
+            goto ErrorExit;
+        }
 
 		err = GetNode (btreePtr, curNodeNum, &nodeRec);
 		if (err != noErr)
@@ -263,7 +324,7 @@ OSStatus	InsertLevel (BTreeControlBlockPtr		 btreePtr,
 						 UInt32						*insertNode )
 {
 	OSStatus			 err;
-	BlockDescriptor		 leftNode;
+	BlockDescriptor		 siblingNode;
 	UInt32				 targetNodeNum;
 	UInt32				 newNodeNum;
 	UInt16				 newIndex;
@@ -274,16 +335,16 @@ OSStatus	InsertLevel (BTreeControlBlockPtr		 btreePtr,
 #if defined(applec) && !defined(__SC__)
 	PanicIf ((level == 1) && (((NodeDescPtr)targetNode->buffer)->kind != kBTLeafNode), "\P InsertLevel: non-leaf at level 1! ");
 #endif
-	leftNode.buffer = nil;
+	siblingNode.buffer = nil;
 	targetNodeNum = treePathTable [level].node;
 
 	insertParent = false;
 	updateParent = false;
-
+	
 	////// process first insert //////
 	
 	err = InsertNode (btreePtr, primaryKey, targetNode, targetNodeNum, index,
-					  &newNodeNum, &newIndex, &leftNode, &updateParent, &insertParent, &newRoot );
+					  &newNodeNum, &newIndex, &siblingNode, &updateParent, &insertParent, &newRoot );
 	M_ExitOnError (err);
 
 	if ( newRoot )
@@ -291,12 +352,17 @@ OSStatus	InsertLevel (BTreeControlBlockPtr		 btreePtr,
 		// Extend the treePathTable by adding an entry for the new
 		// root node that references the current targetNode.
 		// 
-		// If inserting the secondaryKey changes the first key of
-		// the target node, then we'll have to update the second
-		// key in the new root node.
+		// When we split right the index in the new root is 0 if the new
+		// node is the same as the target node or 1 otherwise.  When the
+		// new node number and the target node number are the same then
+		// we inserted the new record into the left node (the orignial target)
+		// after the split.
 
 		treePathTable [level + 1].node  = btreePtr->rootNode;
-		treePathTable [level + 1].index = 1;	// 1 since we always split/rotate left
+		if ( targetNodeNum == newNodeNum )
+			treePathTable [level + 1].index = 0;  // 
+		else
+			treePathTable [level + 1].index = 1;
 	}
 	
 	if ( level == 1 )
@@ -308,8 +374,12 @@ OSStatus	InsertLevel (BTreeControlBlockPtr		 btreePtr,
 	{
 		Boolean				temp;
 
-		err = InsertNode (btreePtr, secondaryKey, targetNode, newNodeNum, newIndex,
-						  &newNodeNum, &newIndex, &leftNode, &updateParent, &insertParent, &temp);
+		// NOTE - we only get here if we have split a child node to the right and 
+		// we are currently updating the child's parent.   newIndex + 1 refers to
+		// the location in the parent node where we insert the new index record that
+		// represents the new child node (the new right node). 
+		err = InsertNode (btreePtr, secondaryKey, targetNode, newNodeNum, newIndex + 1,
+						  &newNodeNum, &newIndex, &siblingNode, &updateParent, &insertParent, &temp);
 		M_ExitOnError (err);
 		
 		if ( DEBUG_BUILD && updateParent && newRoot )
@@ -380,11 +450,15 @@ OSStatus	InsertLevel (BTreeControlBlockPtr		 btreePtr,
 			else
 			{
 				insertKeyPtr = primaryKey;
+				// split right but not updating parent for our left node then 
+				// we want to insert the key for the new right node just after 
+				// the key for our left node.
+				index++;
 			}
 			
-			insertKeyPtr->keyPtr		= (KeyPtr) GetRecordAddress (btreePtr, leftNode.buffer, 0);
+			insertKeyPtr->keyPtr		= (KeyPtr) GetRecordAddress (btreePtr, siblingNode.buffer, 0);
 			insertKeyPtr->keyLength		= GetKeyLength(btreePtr, insertKeyPtr->keyPtr, false);
-			insertKeyPtr->recPtr		= (UInt8 *) &((NodeDescPtr)targetNode->buffer)->bLink;
+			insertKeyPtr->recPtr		= (UInt8 *) &((NodeDescPtr)targetNode->buffer)->fLink;
 			insertKeyPtr->recSize		= sizeof(UInt32);
 			insertKeyPtr->replacingKey	= kInsertRecord;
 			insertKeyPtr->skipRotate	= false;		// a rotate is OK during second insert
@@ -398,15 +472,15 @@ OSStatus	InsertLevel (BTreeControlBlockPtr		 btreePtr,
 	err = UpdateNode (btreePtr, targetNode);	// all done with target
 	M_ExitOnError (err);
 
-	err = UpdateNode (btreePtr, &leftNode);		// all done with left sibling
+	err = UpdateNode (btreePtr, &siblingNode);		// all done with left sibling
 	M_ExitOnError (err);
-	
+
 	return	noErr;
 
 ErrorExit:
 
 	(void) ReleaseNode (btreePtr, targetNode);
-	(void) ReleaseNode (btreePtr, &leftNode);
+	(void) ReleaseNode (btreePtr, &siblingNode);
 
 	Panic ("\p InsertLevel: an error occured!");
 
@@ -421,110 +495,124 @@ ErrorExit:
 static OSErr	InsertNode	(BTreeControlBlockPtr	 btreePtr,
 							 InsertKey				*key,
 
-							 BlockDescriptor		*rightNode,
-							 UInt32					 node,
+							 BlockDescriptor		*targetNode,
+							 UInt32					 nodeNum,
 							 UInt16	 				 index,
 
-							 UInt32					*newNode,	
+							 UInt32					*newNodeNumPtr,	
 							 UInt16					*newIndex,
 
-							 BlockDescriptor		*leftNode,
+							 BlockDescriptor		*siblingNode,
 							 Boolean				*updateParent,
 							 Boolean				*insertParent,
 							 Boolean				*rootSplit )
 {
-	BlockDescriptor		*targetNode;
+	BlockDescriptor		*tempNode;
 	UInt32				 leftNodeNum;
+	UInt32				 rightNodeNum;
 	UInt16				 recsRotated;
 	OSErr				 err;
 	Boolean				 recordFit;
 
 	*rootSplit = false;
 	
-	PanicIf ( rightNode->buffer == leftNode->buffer, "\p InsertNode: rightNode == leftNode, huh?");
+	PanicIf ( targetNode->buffer == siblingNode->buffer, "\p InsertNode: targetNode == siblingNode, huh?");
 	
-	leftNodeNum = ((NodeDescPtr) rightNode->buffer)->bLink;
+	leftNodeNum = ((NodeDescPtr) targetNode->buffer)->bLink;
+	rightNodeNum = ((NodeDescPtr) targetNode->buffer)->fLink;
 
 
 	/////////////////////// Try Simple Insert ///////////////////////////////
 
-	if ( node == leftNodeNum )
-		targetNode = leftNode;
+	if ( nodeNum == leftNodeNum )
+		tempNode = siblingNode;
 	else
-		targetNode = rightNode;
+		tempNode = targetNode;
 
-	recordFit = InsertKeyRecord (btreePtr, targetNode->buffer, index, key->keyPtr, key->keyLength, key->recPtr, key->recSize);
+	recordFit = InsertKeyRecord (btreePtr, tempNode->buffer, index, key->keyPtr, key->keyLength, key->recPtr, key->recSize);
 
 	if ( recordFit )
 	{
-		*newNode  = node;
+		*newNodeNumPtr  = nodeNum;
 		*newIndex = index;
 	
-		if ( (index == 0) && (((NodeDescPtr) targetNode->buffer)->height != btreePtr->treeDepth) )
+#if DEBUG_TREEOPS
+		if ( DoKeyCheck( tempNode->buffer, btreePtr ) != noErr )
+		{
+			printf( "\n%s - bad key order in node num %d: \n", __FUNCTION__ , nodeNum );
+			PrintNodeDescriptor( tempNode->buffer );
+			err = fsBTBadRotateErr;
+			goto ErrorExit;
+		}
+#endif // DEBUG_TREEOPS
+
+		if ( (index == 0) && (((NodeDescPtr) tempNode->buffer)->height != btreePtr->treeDepth) )
 			*updateParent = true;	// the first record changed so we need to update the parent
+		goto ExitThisRoutine;
 	}
 
 
 	//////////////////////// Try Rotate Left ////////////////////////////////
 	
-	if ( !recordFit && leftNodeNum > 0 )
+	if ( leftNodeNum > 0 )
 	{
-		PanicIf ( leftNode->buffer != nil, "\p InsertNode: leftNode already aquired!");
+		PanicIf ( siblingNode->buffer != nil, "\p InsertNode: siblingNode already aquired!");
 
-		if ( leftNode->buffer == nil )
+		if ( siblingNode->buffer == nil )
 		{
-			err = GetNode (btreePtr, leftNodeNum, leftNode);	// will be released by caller or a split below
+			err = GetNode (btreePtr, leftNodeNum, siblingNode);	// will be released by caller or a split below
 			M_ExitOnError (err);
 		}
 
-		PanicIf ( ((NodeDescPtr) leftNode->buffer)->fLink != node, "\p InsertNode, RotateLeft: invalid sibling link!" );
+		PanicIf ( ((NodeDescPtr) siblingNode->buffer)->fLink != nodeNum, "\p InsertNode, RotateLeft: invalid sibling link!" );
 
 		if ( !key->skipRotate )		// are rotates allowed?
 		{
-			err = RotateLeft (btreePtr, leftNode->buffer, rightNode->buffer, index, key->keyPtr, key->recPtr,
-							  key->recSize, newIndex, newNode, &recordFit, &recsRotated );	
+			err = RotateLeft (btreePtr, siblingNode->buffer, targetNode->buffer, index, key->keyPtr, key->recPtr,
+							  key->recSize, newIndex, newNodeNumPtr, &recordFit, &recsRotated );	
 			M_ExitOnError (err);
 
 			if ( recordFit )
 			{
 				if ( key->replacingKey || (recsRotated > 1) || (index > 0) )
 					*updateParent = true;			
+				goto ExitThisRoutine;
 			}
 		}
 	}	
 
 
-	//////////////////////// Try Split Left /////////////////////////////////
+	//////////////////////// Try Split Right /////////////////////////////////
 
-	if ( !recordFit )
+	(void) ReleaseNode( btreePtr, siblingNode );
+	err = SplitRight( btreePtr, targetNode, siblingNode, nodeNum, index, key->keyPtr,
+					  key->recPtr, key->recSize, newIndex, newNodeNumPtr, &recsRotated );
+	M_ExitOnError (err);
+
+	// if we split root node - add new root
+	if ( ((NodeDescPtr) targetNode->buffer)->height == btreePtr->treeDepth )
 	{
-		// might not have left node...
-		err = SplitLeft (btreePtr, leftNode, rightNode, node, index, key->keyPtr,
-						 key->recPtr, key->recSize, newIndex, newNode, &recsRotated);
+		err = AddNewRootNode( btreePtr, targetNode->buffer, siblingNode->buffer );	// Note: does not update TPT
 		M_ExitOnError (err);
+		*rootSplit = true;
+	}
+	else
+	{
+		*insertParent = true;
 
-		// if we split root node - add new root
-		
-		if ( ((NodeDescPtr) rightNode->buffer)->height == btreePtr->treeDepth )
-		{
-			err = AddNewRootNode (btreePtr, leftNode->buffer, rightNode->buffer);	// Note: does not update TPT
-			M_ExitOnError (err);
-			*rootSplit = true;
-		}
-		else
-		{
-			*insertParent = true;
-
-			if ( key->replacingKey || (recsRotated > 1) || (index > 0) )
-				*updateParent = true;
-		}
+		// update parent index node when replacingKey is true or when
+		// we inserted a new record at the beginning of our target node.
+		if ( key->replacingKey || ( index == 0 && *newIndex == 0 ) )
+			*updateParent = true;
 	}
 	
+ExitThisRoutine:
+
 	return noErr;
 
 ErrorExit:
 
-	(void) ReleaseNode (btreePtr, leftNode);
+	(void) ReleaseNode (btreePtr, siblingNode);
 	return err;
 	
 } // End of InsertNode
@@ -919,6 +1007,23 @@ static OSStatus	RotateLeft		(BTreeControlBlockPtr		 btreePtr,
 		*insertNodeNum = leftNode->fLink;
 	}
 
+#if DEBUG_TREEOPS
+	if ( DoKeyCheck( leftNode, btreePtr ) != noErr )
+	{
+		printf( "\n%s - bad key order in left node num %d: \n", __FUNCTION__ , rightNode->bLink );
+		PrintNodeDescriptor( leftNode );
+		err = fsBTBadRotateErr;
+		goto ErrorExit;
+	}
+	if ( DoKeyCheck( rightNode, btreePtr ) != noErr )
+	{
+		printf( "\n%s - bad key order in left node num %d: \n", __FUNCTION__ , leftNode->fLink );
+		PrintNodeDescriptor( rightNode );
+		err = fsBTBadRotateErr;
+		goto ErrorExit;
+	}
+#endif // DEBUG_TREEOPS
+
 
 	return noErr;
 
@@ -936,7 +1041,7 @@ ErrorExit:
 }
 
 
-
+#if 0 
 /////////////////////////////////// SplitLeft ///////////////////////////////////
 
 static OSStatus	SplitLeft		(BTreeControlBlockPtr		 btreePtr,
@@ -1044,6 +1149,7 @@ ErrorExit:
 	
 	return	err;
 }
+#endif
 
 
 
@@ -1064,7 +1170,7 @@ static Boolean RotateRecordLeft (BTreeControlBlockPtr		btreePtr,
 	
 	if ( !recordFit )
 		return false;
-	
+
 	DeleteRecord (btreePtr, rightNode, 0);
 	
 	return true;
@@ -1121,6 +1227,17 @@ static OSStatus	AddNewRootNode	(BTreeControlBlockPtr	 btreePtr,
 
 	PanicIf ( !didItFit, "\pAddNewRootNode:InsertKeyRecord failed for right index record");
 
+
+#if DEBUG_TREEOPS
+	if ( DoKeyCheck( rootNode.buffer, btreePtr ) != noErr )
+	{
+		printf( "\n%s - bad key order in root node num %d: \n", __FUNCTION__ , rootNum );
+		PrintNodeDescriptor( rootNode.buffer );
+		err = fsBTBadRotateErr;
+		goto ErrorExit;
+	}
+#endif // DEBUG_TREEOPS
+
 	
 	/////////////////////////// Release Root Node ///////////////////////////////
 	
@@ -1155,3 +1272,482 @@ static UInt16	GetKeyLength ( const BTreeControlBlock *btreePtr, const BTreeKey *
 	return length;
 }
 
+
+
+/////////////////////////////////// SplitRight ///////////////////////////////////
+
+static OSStatus	SplitRight		(BTreeControlBlockPtr		 btreePtr,
+								 BlockDescriptor			*nodePtr,
+								 BlockDescriptor			*rightNodePtr,
+								 UInt32						 nodeNum,
+								 UInt16						 index,
+								 KeyPtr						 keyPtr,
+								 UInt8  					*recPtr,
+								 UInt16						 recSize,
+								 UInt16						*insertIndexPtr,
+								 UInt32						*newNodeNumPtr,
+								 UInt16						*recsRotatedPtr )
+{
+	OSStatus			err;
+	NodeDescPtr			leftPtr, rightPtr;
+	UInt32				newNodeNum;
+	Boolean				recordFit;
+	
+	
+	///////////////////////////// Compare Nodes /////////////////////////////////
+
+	leftPtr  = nodePtr->buffer;
+	
+	if ( leftPtr->fLink != 0 )
+	{
+		err = GetNode( btreePtr, leftPtr->fLink, rightNodePtr );
+		M_ExitOnError( err );
+	}
+	rightPtr = rightNodePtr->buffer;
+	
+	PanicIf ( leftPtr->fLink != 0 && rightPtr == 0, "\p SplitRight: right sibling missing!?" );
+	
+	//¥¥ type should be kLeafNode or kIndexNode
+	
+	if ( (leftPtr->height == 1) && (leftPtr->kind != kBTLeafNode) )
+		return	fsBTInvalidNodeErr;
+	
+	if ( rightPtr != nil )
+	{
+		if ( rightPtr->bLink != nodeNum )
+			return fsBTInvalidNodeErr;										//¥¥ E_BadSibling ?
+	
+		if ( rightPtr->height != leftPtr->height )
+			return	fsBTInvalidNodeErr;										//¥¥ E_BadNodeHeight ?
+		
+		if ( rightPtr->kind != leftPtr->kind )
+			return	fsBTInvalidNodeErr;										//¥¥ E_BadNodeType ?
+	}
+	
+
+	///////////////////////////// Allocate Node /////////////////////////////////
+
+	err = AllocateNode (btreePtr, &newNodeNum);
+	M_ExitOnError (err);
+
+	/////////////// Update backward Link In Original Right Node ///////////////////
+
+	if ( rightPtr != nil )
+	{
+		rightPtr->bLink	= newNodeNum;
+		err = UpdateNode (btreePtr, rightNodePtr);
+		M_ExitOnError (err);
+	}
+
+	/////////////////////// Initialize New Right Node ////////////////////////////
+
+	err = GetNewNode (btreePtr, newNodeNum, rightNodePtr );
+	M_ExitOnError (err);
+	
+	rightPtr			= rightNodePtr->buffer;
+	rightPtr->bLink		= nodeNum;
+	
+
+	// Steal Info From Left Node
+	
+	rightPtr->fLink  = leftPtr->fLink;
+	rightPtr->kind   = leftPtr->kind;
+	rightPtr->height = leftPtr->height;
+	
+	leftPtr->fLink		= newNodeNum;			// update Left fLink
+
+	if ( (rightPtr->kind == kBTLeafNode) && (rightPtr->fLink == 0) )
+	{
+		// if we're adding a new last leaf node - update BTreeInfoRec
+		
+		btreePtr->lastLeafNode = newNodeNum;
+		M_BTreeHeaderDirty (btreePtr);		//¥¥ AllocateNode should have set the bit already...
+	}
+
+	////////////////////////////// Rotate Right //////////////////////////////////
+
+	err = RotateRight (btreePtr, leftPtr, rightPtr, index, keyPtr, recPtr, recSize,
+					  insertIndexPtr, newNodeNumPtr, &recordFit, recsRotatedPtr);
+	M_ExitOnError (err);
+	
+	return noErr;
+	
+ErrorExit:
+	
+	(void) ReleaseNode (btreePtr, nodePtr);
+	(void) ReleaseNode (btreePtr, rightNodePtr);
+	
+	//¥¥ Free new node if allocated?
+
+	*insertIndexPtr	= 0;
+	*newNodeNumPtr	= 0;
+	*recsRotatedPtr	= 0;
+	
+	return	err;
+	
+} /* SplitRight */
+
+
+
+////////////////////////////////// RotateRight ///////////////////////////////////
+
+/*-------------------------------------------------------------------------------
+
+Routine:	RotateRight	-	rotate half of .
+
+Function:	Brief_description_of_the_function_and_any_side_effects
+
+Algorithm:	if rightIndex > insertIndex, subtract 1 for actual rightIndex
+
+Input:		btreePtr			- description
+			leftNode			- description
+			rightNode			- description
+			leftInsertIndex		- description
+			keyPtr				- description
+			recPtr				- description
+			recSize				- description
+			
+Output:		insertIndex
+			insertNodeNum		- description
+			recordFit			- description
+			recsRotated
+			
+Result:		noErr		- success
+			!= noErr	- failure
+-------------------------------------------------------------------------------*/
+
+static OSStatus	RotateRight		(BTreeControlBlockPtr		 btreePtr,
+								 NodeDescPtr				 leftNodePtr,
+								 NodeDescPtr				 rightNodePtr,
+								 UInt16						 leftInsertIndex,
+								 KeyPtr						 keyPtr,
+								 UInt8 						*recPtr,
+								 UInt16						 recSize,
+								 UInt16						*insertIndexPtr,
+								 UInt32						*newNodeNumPtr,
+								 Boolean					*didRecordFitPtr,
+								 UInt16						*recsRotatedPtr )
+{
+	OSStatus			err;
+	SInt32				insertSize;
+	SInt32				nodeSize;
+	SInt32				leftSize, rightSize;
+	SInt32				moveSize;
+	UInt16				keyLength;
+	UInt16				lengthFieldSize;
+	SInt16				index, moveIndex, myInsertIndex;
+	Boolean				didItFit;
+	Boolean				doIncrement = false;
+
+	///////////////////// Determine If Record Will Fit //////////////////////////
+	
+	keyLength = GetKeyLength( btreePtr, keyPtr, (leftNodePtr->kind == kBTLeafNode) );
+
+	// the key's length field is 8-bits in HFS and 16-bits in HFS+
+	if ( btreePtr->attributes & kBTBigKeysMask )
+		lengthFieldSize = sizeof(UInt16);
+	else
+		lengthFieldSize = sizeof(UInt8);
+
+	insertSize = keyLength + lengthFieldSize + recSize + sizeof(UInt16);
+	if ( M_IsOdd (insertSize) )
+		++insertSize;	// add pad byte;
+	nodeSize		= btreePtr->nodeSize;
+
+	// add size of insert record to left node
+	rightSize		= nodeSize - GetNodeFreeSize( btreePtr, rightNodePtr );
+	leftSize		= nodeSize - GetNodeFreeSize( btreePtr, leftNodePtr ) + insertSize;
+
+	moveIndex	= leftNodePtr->numRecords - 1; // start at last record in the node
+	moveSize	= 0;
+
+	while ( rightSize < leftSize )
+	{
+		moveSize = GetRecordSize( btreePtr, leftNodePtr, moveIndex ) + 2;
+
+		if ( moveIndex == leftInsertIndex || leftNodePtr->numRecords == leftInsertIndex )
+			moveSize += insertSize;
+		
+		leftSize	-= moveSize;
+		rightSize	+= moveSize;
+		--moveIndex;
+	}	
+	
+	if ( rightSize > nodeSize )	// undo last move
+	{
+		leftSize	+= moveSize;
+		rightSize	-= moveSize;
+		++moveIndex;
+	}
+	
+	if ( leftSize > nodeSize )	// record won't fit - failure, but not error
+	{
+		*insertIndexPtr		= 0;
+		*newNodeNumPtr		= 0;
+		*didRecordFitPtr	= false;
+		*recsRotatedPtr		= 0;
+		
+		return	noErr;
+	}
+	
+	// we've found balance point, 
+
+	//////////////////////////// Rotate Records /////////////////////////////////
+
+	*didRecordFitPtr	= true;
+	index				= leftNodePtr->numRecords - 1;
+	*recsRotatedPtr		= index - moveIndex;
+	myInsertIndex 		= 0;
+	
+	// handle case where the new record is inserting after the last
+	// record in our left node.
+	if ( leftNodePtr->numRecords == leftInsertIndex )
+	{
+		didItFit = InsertKeyRecord (btreePtr, rightNodePtr, 0,
+									keyPtr, keyLength, recPtr, recSize);
+		if ( !didItFit )
+		{
+			Panic ("\pRotateRight: InsertKeyRecord (left) returned false!");
+			err = fsBTBadRotateErr;
+			goto ErrorExit;
+		}
+		
+		// NOTE - our insert location will slide as we insert more records
+		doIncrement = true;
+		*newNodeNumPtr = leftNodePtr->fLink;
+	}
+
+	while ( index > moveIndex )
+	{
+		didItFit = RotateRecordRight( btreePtr, leftNodePtr, rightNodePtr );
+		if ( !didItFit )
+		{
+			Panic ("\pRotateRight: RotateRecordRight returned false!");
+			err = fsBTBadRotateErr;
+			goto ErrorExit;
+		}
+
+		if ( index == leftInsertIndex )	// insert new record in right node
+		{
+			didItFit = InsertKeyRecord (btreePtr, rightNodePtr, 0,
+										keyPtr, keyLength, recPtr, recSize);
+			if ( !didItFit )
+			{
+				Panic ("\pRotateRight: InsertKeyRecord (left) returned false!");
+				err = fsBTBadRotateErr;
+				goto ErrorExit;
+			}
+			
+			// NOTE - our insert index will slide as we insert more records
+			doIncrement = true;
+			myInsertIndex = -1;
+			*newNodeNumPtr = leftNodePtr->fLink;
+		}
+
+		if ( doIncrement )
+			myInsertIndex++;
+		--index;
+	}
+	
+	*insertIndexPtr = myInsertIndex;
+	
+	if ( moveIndex >= leftInsertIndex )	// then insert new record in left node
+	{
+		didItFit = InsertKeyRecord (btreePtr, leftNodePtr, leftInsertIndex,
+									keyPtr, keyLength, recPtr, recSize);
+		if ( !didItFit )
+		{
+			Panic ("\pRotateRight: InsertKeyRecord (right) returned false!");
+			err = fsBTBadRotateErr;
+			goto ErrorExit;
+		}
+	
+		*insertIndexPtr = leftInsertIndex;
+		*newNodeNumPtr = rightNodePtr->bLink;
+	}
+
+#if DEBUG_TREEOPS
+	if ( DoKeyCheck( rightNodePtr, btreePtr ) != noErr )
+	{
+		printf( "\n%s - bad key order in right node num %d: \n", __FUNCTION__ , leftNodePtr->fLink);
+		PrintNodeDescriptor( rightNodePtr );
+		err = fsBTBadRotateErr;
+		goto ErrorExit;
+	}
+	if ( DoKeyCheck( leftNodePtr, btreePtr ) != noErr )
+	{
+		printf( "\n%s - bad key order in left node num %d: \n", __FUNCTION__ , rightNodePtr->bLink);
+		PrintNodeDescriptor( leftNodePtr );
+		err = fsBTBadRotateErr;
+		goto ErrorExit;
+	}
+	if ( DoKeyCheckAcrossNodes( leftNodePtr, rightNodePtr, btreePtr, false ) != noErr )
+	{
+		printf( "\n%s - bad key order across nodes left %d right %d: \n", 
+			__FUNCTION__ , rightNodePtr->bLink, leftNodePtr->fLink );
+		PrintNodeDescriptor( leftNodePtr );
+		PrintNodeDescriptor( rightNodePtr );
+		err = fsBTBadRotateErr;
+		goto ErrorExit;
+	}
+#endif // DEBUG_TREEOPS
+
+	return noErr;
+
+
+	////////////////////////////// Error Exit ///////////////////////////////////
+
+ErrorExit:
+
+	*insertIndexPtr	= 0;
+	*newNodeNumPtr	= 0;
+	*didRecordFitPtr = false;
+	*recsRotatedPtr	= 0;
+	
+	return	err;
+	
+} /* RotateRight */
+
+
+
+/////////////////////////////// RotateRecordRight ////////////////////////////////
+
+static Boolean RotateRecordRight (BTreeControlBlockPtr		btreePtr,
+								 NodeDescPtr				leftNodePtr,
+							 	 NodeDescPtr				rightNodePtr )
+{
+	UInt16		size;
+	UInt8 *		recPtr;
+	Boolean		didRecordFit;
+	
+	size	= GetRecordSize( btreePtr, leftNodePtr, leftNodePtr->numRecords - 1 ) ;
+	recPtr	= GetRecordAddress( btreePtr, leftNodePtr, leftNodePtr->numRecords - 1 ) ;
+	
+	didRecordFit = InsertRecord( btreePtr, rightNodePtr, 0, recPtr, size );
+	if ( !didRecordFit )
+		return false;
+	
+	DeleteRecord( btreePtr, leftNodePtr, leftNodePtr->numRecords - 1 );
+	
+	return true;
+	
+} /* RotateRecordRight */
+
+
+
+#if DEBUG_TREEOPS
+static int	DoKeyCheckAcrossNodes( 	NodeDescPtr theLeftNodePtr, 
+									NodeDescPtr theRightNodePtr, 
+									BTreeControlBlock *theTreePtr,
+									Boolean printKeys ) 
+{
+	UInt16				myLeftDataSize;
+	UInt16				myRightDataSize;
+	UInt16				myRightKeyLen;
+	UInt16				myLeftKeyLen;
+	KeyPtr 				myLeftKeyPtr;
+	KeyPtr 				myRightKeyPtr;
+	UInt8 *				myLeftDataPtr;
+	UInt8 *				myRightDataPtr;
+
+
+	GetRecordByIndex( theTreePtr, theLeftNodePtr, (theLeftNodePtr->numRecords - 1), 
+					  &myLeftKeyPtr, &myLeftDataPtr, &myLeftDataSize );
+	GetRecordByIndex( theTreePtr, theRightNodePtr, 0, 
+					  &myRightKeyPtr, &myRightDataPtr, &myRightDataSize );
+
+	if ( theTreePtr->attributes & kBTBigKeysMask )
+	{
+		myRightKeyLen = myRightKeyPtr->length16;
+		myLeftKeyLen = myLeftKeyPtr->length16;
+	}
+	else
+	{
+		myRightKeyLen = myRightKeyPtr->length8;
+		myLeftKeyLen = myLeftKeyPtr->length8;
+	}
+
+	if ( printKeys )
+	{
+		printf( "%s - left and right keys:\n", __FUNCTION__ );
+		PrintKey( (UInt8 *) myLeftKeyPtr, myLeftKeyLen );
+		PrintKey( (UInt8 *) myRightKeyPtr, myRightKeyLen );
+	}
+	
+	if ( CompareKeys( theTreePtr, myLeftKeyPtr, myRightKeyPtr ) >= 0 )
+		return( -1 );
+
+	return( noErr );
+	
+} /* DoKeyCheckAcrossNodes */
+
+
+static int DoKeyCheck( NodeDescPtr nodeP, BTreeControlBlock *btcb )
+{
+	SInt16				index;
+	UInt16				dataSize;
+	UInt16				keyLength;
+	KeyPtr 				keyPtr;
+	UInt8				*dataPtr;
+	KeyPtr				prevkeyP	= nil;
+
+
+	if ( nodeP->numRecords == 0 )
+	{
+		if ( (nodeP->fLink == 0) && (nodeP->bLink == 0) )
+			return( -1 );
+	}
+	else
+	{
+		/*
+		 * Loop on number of records in node
+		 */
+		for ( index = 0; index < nodeP->numRecords; index++)
+		{
+			GetRecordByIndex( (BTreeControlBlock *)btcb, nodeP, (UInt16) index, &keyPtr, &dataPtr, &dataSize );
+	
+			if (btcb->attributes & kBTBigKeysMask)
+				keyLength = keyPtr->length16;
+			else
+				keyLength = keyPtr->length8;
+				
+			if ( keyLength > btcb->maxKeyLength )
+			{
+				return( -1 );
+			}
+	
+			if ( prevkeyP != nil )
+			{
+				if ( CompareKeys( (BTreeControlBlockPtr)btcb, prevkeyP, keyPtr ) >= 0 )
+				{
+					return( -1 );
+				}
+			}
+			prevkeyP = keyPtr;
+		}
+	}
+
+	return( noErr );
+	
+} /* DoKeyCheck */
+
+static void PrintNodeDescriptor( NodeDescPtr  thePtr )
+{
+	printf( "    fLink %d bLink %d kind %d height %d numRecords %d \n",
+			thePtr->fLink, thePtr->bLink, thePtr->kind, thePtr->height, thePtr->numRecords );
+}
+
+
+static void PrintKey( UInt8 *  myPtr, int mySize )
+{
+	int		i;
+	
+	for ( i = 0; i < mySize+2; i++ )
+	{
+		printf("%02X", *(myPtr + i) );
+	}
+	printf("\n" );
+} /* PrintKey */
+
+
+#endif // DEBUG_TREEOPS

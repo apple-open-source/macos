@@ -10,7 +10,7 @@
 <table width="100%" cellpadding=0><tr>
 <td width="30%">Back to <a href="/~esr">Eric's Home Page</a>
 <td width="30%" align=center>Up to <a href="/~esr/sitemap.html">Site Map</a>
-<td width="30%" align=right>$Date: 2001/08/10 16:07:02 $
+<td width="30%" align=right>$Date: 2002/03/26 00:56:06 $
 </table>
 <HR>
 <H1 ALIGN=CENTER>Fetchmail Bugs and To-Do Items</H1>
@@ -20,8 +20,36 @@ is now pretty mature and I have many other projects, so I don't
 personally chase obscure or marginal problems.  Help with any of these
 will be cheerfully accepted.
 
-<p>Using LMTP alias with a local name that is not a full name fails horribly
-(the LMTP port never gets stripped off the name).
+<p>Matthias Andree writes: I believe fetchmail should not iterate over
+protocols when we have a DNS failure.
+
+<listing>
+> BTW, I found a bug in 5.9.7:
+> ./fetchmail -Nvd0 jads.asdkjaldsf.com
+> Enter password for emma@jads.asdkjaldsf.com: 
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol auto) at Mit 20
+> Feb 2002 06:35:07 CET: poll started
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol IMAP) at Mit 20
+> Feb 2002 06:35:07 CET: poll started
+> fetchmail: couldn't find canonical DNS name of jads.asdkjaldsf.com
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol IMAP) at Mit 20
+> Feb 2002 06:35:08 CET: poll completed
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol POP3) at Mit 20
+> Feb 2002 06:35:08 CET: poll started
+> fetchmail: couldn't find canonical DNS name of jads.asdkjaldsf.com
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol POP3) at Mit 20
+> Feb 2002 06:35:08 CET: poll completed
+> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol auto) at Mit 20
+> Feb 2002 06:35:08 CET: poll completed
+> fetchmail: Query status=11 (DNS)
+> fetchmail: normal termination, status 11
+</listing>
+
+<p>IDLE is not fully implemented.  Fetchmail does not time out the idle connection
+every 30 minutes or less as required by RFC2177.  Some servers (including UW IMAPD
+compiled without the MICROSOFT_BRAIN_DAMAGE option, as is the default) will drop
+the connection after 30 minutes, resulting in a spurious socket error in your logs
+and no mail being picked up until the next poll cycle.
 
 <p>The UIDL code seems rather broken.  It's a nasty swamp.  Somebody who
 actually uses it should fix it -- every time I try I seem to make
@@ -32,11 +60,6 @@ authentication failure.  Possible fix: after issuing a PASS
 command. wait 300 (xx) seconds for a "-ERR" or a "+OK" . If nothing
 comes back, retry at the next poll event and generate no errors. If we
 get an -ERR then log an authentication failure.
-
-<p>SMTP authentication a la RFC 2554 ought to be supported.  The Exim
-reference has a 
-<a href="http://www.exim.org/exim-html-3.10/doc/html/spec_33.html#SEC705">
-whole chapter on this topic</a>.
 
 <p>It has been reported that multidrop name matching fails when the name
 to be matched contains a Latin-1 umlaut.  Dollars to doughnuts this is
@@ -58,6 +81,10 @@ lock file."
 can get rid of ENABLE_INET6 everywhere but in SockOpen (this will get
 rid of the kluge in rcfile_y.y).
 
+<p>John Summerfield suggests that specifying a localname containing @
+ought to be treated as an smtpname option, with the domain part
+removed for other purposes such as local-address matching.
+
 <p>The <a
 href="http://bugs.debian.org/cgi-bin/pkgreport.cgi?pkg=fetchmail&archive=no">Debian
 bug-tracking page for fetchmail</a> lists other bug reports.
@@ -66,7 +93,7 @@ bug-tracking page for fetchmail</a> lists other bug reports.
 <table width="100%" cellpadding=0><tr>
 <td width="30%">Back to <a href="/~esr">Eric's Home Page</a>
 <td width="30%" align=center>Up to <a href="/~esr/sitemap.html">Site Map</a>
-<td width="30%" align=right>$Date: 2001/08/10 16:07:02 $
+<td width="30%" align=right>$Date: 2002/03/26 00:56:06 $
 </table>
 
 <P><ADDRESS>Eric S. Raymond <A HREF="mailto:esr@thyrsus.com">&lt;esr@thyrsus.com&gt;</A></ADDRESS>

@@ -561,18 +561,79 @@ nistore_vital_statistics(dsstore *s, u_int32_t dsid, u_int32_t *vers, u_int32_t 
 }
 
 dsstatus
+nistore_list(dsstore *s, u_int32_t dsid, dsdata *key, u_int32_t asel, dsrecord **list)
+{
+	ni_id n;
+	ni_entrylist el;
+	ni_status status;
+	int i, j;
+	dsdata *d, *k;
+	dsattribute *a;
+
+	n.nii_object = dsid;
+	n.nii_instance = 0;
+
+	k = key;
+	if (k == NULL) k = cstring_to_dsdata("name");
+
+	NI_INIT(&el);
+	status = ni_list(s->index[0], &n, dsdata_to_cstring(k), &el);
+	if (status != NI_OK)
+	{
+	    if (key == NULL) dsdata_release(k);
+	    return nitodsstatus(status);
+	}
+
+	*list = dsrecord_new();
+	d = cstring_to_dsdata("key");
+	a = dsattribute_new(d);
+	dsattribute_append(a, k);
+	dsrecord_append_attribute(*list, a, SELECT_META_ATTRIBUTE);
+	dsdata_release(d);
+	dsattribute_release(a);
+	if (key == NULL) dsdata_release(k);
+
+	for (i = 0; i < el.ni_entrylist_len; i++)
+	{
+		if (el.ni_entrylist_val[i].names == NULL) continue;
+
+		d = int32_to_dsdata(el.ni_entrylist_val[i].id);
+		a = dsattribute_new(d);
+		dsdata_release(d);
+		dsrecord_append_attribute(*list, a, SELECT_ATTRIBUTE);
+
+		a->count = el.ni_entrylist_val[i].names->ni_namelist_len;
+		if (a->count > 0)
+			a->value = (dsdata **)malloc(a->count * sizeof(dsdata *));
+
+		for (j = 0; j < a->count; j++)
+			a->value[j] = cstring_to_dsdata(el.ni_entrylist_val[i].names->ni_namelist_val[j]);
+
+		dsattribute_release(a);
+	}
+
+	ni_entrylist_free(&el);
+	return DSStatusOK;
+}
+
+dsstatus
 nistore_match(dsstore *s, u_int32_t dsid, dsdata *key, dsdata *val, u_int32_t asel, u_int32_t *match)
 {
 	ni_id n;
 	ni_idlist idl;
 	ni_status status;
+	char *ckey, *cval;
 
 	if (s == NULL) return DSStatusInvalidStore;
-	
+	ckey = dsdata_to_cstring(key);
+	if (ckey == NULL) return DSStatusInvalidKey;
+	cval = dsdata_to_cstring(val);
+	if (cval == NULL) return DSStatusNoData;
+
 	*match = IndexNull;
 	NI_INIT(&idl);
 	n.nii_object = dsid;
-	status = ni_lookup(s->index[0], &n, dsdata_to_cstring(key), dsdata_to_cstring(val), &idl);
+	status = ni_lookup(s->index[0], &n, ckey, cval, &idl);
 	if (status == NI_NODIR) return DSStatusOK;
 	if (status != NI_OK) return nitodsstatus(status);
 

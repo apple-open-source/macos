@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/timed.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL) */
+/* @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/timed.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL) */
 /*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.

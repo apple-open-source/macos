@@ -1,4 +1,5 @@
-#   Copyright (C) 1998 Cygnus Solutions
+# Browser Window Tests
+# Copyright 1998, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -55,7 +56,10 @@ proc do_search {} {
 proc set_search_mode {val} {
   global browser
   pref set gdb/search/filter_mode $val
-  $browser component filt_type entryset $val
+
+  # Use configure instead of entryset: need to have
+  # combobox's command fire
+  $browser component filt_type configure -value $val
 }
 
 # Highlight a file
@@ -95,8 +99,11 @@ proc clear {} {
 #####         #####
 
 # Load the test executable
-set file [file join $objdir stack]
-gdb_cmd "file $file"
+set program [file join $objdir stack]
+if {[catch {gdbtk_test_file $program} t]} {
+  # This isn't a test case, since if this fails, we're hosed.
+  gdbtk_test_error "loading \"$program\": $t"
+}
 
 # Open a browser
 set browser [ManagedWin::open BrowserWin]
@@ -353,7 +360,7 @@ gdbtk_test browser-3.5 {all functions matching "func_1" in stack1.c - "mode cont
   clear
   select stack1.c
   do_search
-} {func_1 func_10 func_11 func_12 func_13 func_14 func_15 static_func_1 static_func_10 static_func_11 static_func_12 static_func_13 static_func_14 static_func_15 }
+} {func_1 func_10 func_11 func_12 func_13 func_14 func_15 static_func_1 static_func_10 static_func_11 static_func_12 static_func_13 static_func_14 static_func_15}
 
 # Test:  browser-3.6
 # Desc:  Check all functions matching "func_1" in stack2.c - mode contains
@@ -469,13 +476,13 @@ if {$test_ran} {
 }
 
 # Test:  browser-4.4
-# Desc:  Check for all functions matching "func" - mode ends with
+# Desc:  Check for all functions matching "func_1" - mode ends with
 gdbtk_test browser-4.4 {all functions matching "func_1" - "mode ends with"} {
   set_search_mode "ends with"
   set_regexp "func_1"
   select_all
   do_search
-} {func_1 func_10 func_11 func_12 func_13 func_14 func_15 static_func_1 static_func_10 static_func_11 static_func_12 static_func_13 static_func_14 static_func_15}
+} {func_1 static_func_1}
 
 # Test:  browser-4.5
 # Desc:  Check all functions matching "func_1" in stack1.c - mode ends with
@@ -485,7 +492,7 @@ gdbtk_test browser-4.5 {all functions matching "func_1" in stack1.c - "mode ends
   clear
   select stack1.c
   do_search
-} {func_1 func_10 func_11 func_12 func_13 func_14 func_15 static_func_1 static_func_10 static_func_11 static_func_12 static_func_13 static_func_14 static_func_15 }
+} {func_1 static_func_1}
 if {$test_ran} {
   clear
 }
@@ -555,6 +562,7 @@ gdbtk_test browser-5.12 {all functions matching regexp "func" in stack2.c} {
 gdbtk_test browser-5.13 {all functions matching regexp "\_1$"} {
   set_search_mode "matches regexp"
   set_regexp {\_1$}
+  select_all
   do_search
 } {extern_func1_1 func_1 static_func_1}
 
@@ -608,17 +616,26 @@ gdbtk_test browser-6.1 {select button - select all} {
   expr {[llength $m] >= 2}
 } {1}
 
+# Test:  browser-6.2
+# Desc:  Check that search expressions are saved
+gdbtk_test browser-6.2 {save last search expression} {
+  set_regexp hello
+  select_all
+  do_search
+  pref get gdb/search/last_symbol
+} {hello}
+
 # Test:  browser-7.1
 # Desc:  Toggle all bps on
 gdbtk_test browser-7.1 {toggle_all_bp on} {
   set_regexp {\_1$}
   set_search_mode "matches regexp"
   select_all
-  do_search
-  $browser component func_add_bp invoke
-
-  set_regexp .*
   set funcs [do_search]
+
+  # select all to set bp on
+  $browser component func_box selection set 0 end
+  $browser component func_add_bp invoke
 
   set bps {}
   foreach f $funcs {
@@ -629,29 +646,26 @@ gdbtk_test browser-7.1 {toggle_all_bp on} {
     }
   }
 
-  for {set i 0} {$i < 20} {incr i} {
-    catch {gdb_cmd "delete $i"}
-  }
-
+  catch {gdb_cmd "delete" 0}
   join [lsort $bps]
 } {extern_func1_1 func_1 static_func_1}
 
 # Test:  browser-7.2
-# Desc:  Toggle all bps off
-gdbtk_test browser-7.2 {toggle_all_bp off} {
+# Desc:  Toggle some bps off
+gdbtk_test browser-7.2 {toggle_some_bp off} {
   set_regexp {\_1$}
   set_search_mode "matches regexp"
   select_all
-  do_search
-  $browser component func_add_bp invoke
-
-  set_regexp .*
   set funcs [do_search]
 
-  # Turn off all static bps
-  set_regexp {\_1$}
+  $browser component func_box selection set 0 end
+  $browser component func_add_bp invoke
+
+  # Turn off all the "static_func_*" bps
+  set_regexp {^static.*_1$}
   do_search
-  $browser component func_remove_bp
+  $browser component func_box selection set 0 end
+  $browser component func_remove_bp invoke
   set bps {}
   foreach f $funcs {
     if {![catch {gdb_loc $f} ls]} {
@@ -661,21 +675,10 @@ gdbtk_test browser-7.2 {toggle_all_bp off} {
     }
   }
 
-  for {set i 0} {$i < 20} {incr i} {
-    catch {gdb_cmd "delete $i"}
-  }
+  catch {gdb_cmd "delete" 0}
 
   join [lsort $bps]
 } {extern_func1_1 func_1}
-
-# Test:  browser-6.1
-# Desc:  Check that search expressions are saved
-gdbtk_test browser-6.1 {save last search expression} {
-  set_regexp hello
-  select_all
-  do_search
-  pref get gdb/search/last_symbol
-} {hello}
 
 #
 #  Exit

@@ -1,5 +1,5 @@
 /* GDB variable objects API.
-   Copyright 1999 Free Software Foundation, Inc.
+   Copyright 1999, 2000 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -29,7 +29,8 @@ enum varobj_display_formats
     FORMAT_BINARY,		/* Binary display                    */
     FORMAT_DECIMAL,		/* Decimal display                   */
     FORMAT_HEXADECIMAL,		/* Hex display                       */
-    FORMAT_OCTAL		/* Octal display                     */
+    FORMAT_OCTAL,		/* Octal display                     */
+    FORMAT_UNSIGNED		/* Unsigned decimal display          */
   };
 
 enum varobj_type
@@ -60,6 +61,7 @@ struct varobj;
 
 extern struct varobj *varobj_create (char *objname,
 				     char *expression, CORE_ADDR frame,
+				     struct block *block,
 				     enum varobj_type type);
 
 extern char *varobj_gen_name (void);
@@ -87,6 +89,8 @@ extern int varobj_list_children (struct varobj *var,
 
 extern char *varobj_get_type (struct varobj *var);
 
+extern char *varobj_get_path_expr (struct varobj *var);
+
 extern struct type *varobj_get_type_struct (struct varobj *var);
 
 extern enum varobj_languages varobj_get_language (struct varobj *var);
@@ -99,9 +103,11 @@ extern int varobj_set_value (struct varobj *var, char *expression);
 
 extern int varobj_list (struct varobj ***rootlist);
 
-extern int varobj_update (struct varobj *var, struct varobj ***changelist);
+extern int varobj_in_scope_p (struct varobj *var);
 
 extern int varobj_pc_in_valid_block_p (struct varobj *var);
+
+extern int varobj_update (struct varobj **varp, struct varobj ***changelist);
 
 extern void varobj_get_valid_block (struct varobj *var, CORE_ADDR *start,
 				    CORE_ADDR *end);

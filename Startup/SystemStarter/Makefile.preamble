@@ -3,10 +3,15 @@ BundleInstallDir = $(NSLIBRARYDIR)/CoreServices/SystemStarter
 
 AFTER_INSTALL = install_bundles
 
-BUNDLES =
+BUNDLES = SystemStarterResources
 
-ifneq "$(wildcard /System/Library/Frameworks/ApplicationServices.framework)" ""
+ifneq "$(wildcard /System/Library/Frameworks/ApplicationServices.framework/Frameworks/CoreGraphics.framework/PrivateHeaders/CoreGraphicsPrivate.h)" ""
 BUNDLES += QuartzDisplay
 endif
+
+ifneq "$(wildcard /System/Library/PrivateFrameworks/Bom.framework/Versions/A/Headers/Bom.h)" ""
+BUNDLES += SafeBootResources
+endif
+
 
 include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/lbl/os-solaris2.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/lbl/os-solaris2.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)
  */
 
 /* Prototypes missing in SunOS 5 */

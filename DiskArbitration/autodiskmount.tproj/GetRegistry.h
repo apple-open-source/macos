@@ -23,15 +23,16 @@
  */
 
 #ifdef __cplusplus
-extern "C" {
+extern          "C" {
 #endif
 
 #include <IOKit/IOKitLib.h>
 
-void GetDisksFromRegistry(io_iterator_t iter, int initialRun);
-int shouldAutomount(io_registry_entry_t media);
-int shouldEjectOnLogout(io_registry_entry_t media);
-int ownerUIDForMedia(io_registry_entry_t media);
+	void            GetDisksFromRegistry(io_iterator_t iter, int initialRun, int mountExisting);
+    int             shouldAutomount(io_registry_entry_t media);
+    int             diskIsInternal(io_registry_entry_t media);
+	int             shouldEjectOnLogout(io_registry_entry_t media);
+	int             ownerUIDForMedia(io_registry_entry_t media);
 
 #ifdef __cplusplus
 }

@@ -58,55 +58,11 @@
 
 #include <Security/SecureTransport.h>
 #include "sslBuildFlags.h"
-
-#ifdef	_APPLE_CDSA_
-
 #include <Security/cssmtype.h>
-
-#if		ST_KEYCHAIN_ENABLE
-#include <Keychain.h>
-#endif	/* ST_KEYCHAIN_ENABLE */
-
-#endif	/* _APPLE_CDSA_ */
-
-#ifndef	_APPLE_CDSA_
-#include "sslalloc.h"
-#endif
 
 #include "sslerrs.h"
 #include "sslPriv.h"
-
-
-/*
- * These were originally in ssl.h; they're not exposed as client-specified
- * functions here.
- */
-#ifndef	_APPLE_CDSA_
-typedef SSLErr (*SSLRandomFunc) (
-	SSLBuffer data, 
-	void *randomRef);
-typedef SSLErr (*SSLTimeFunc) (
-	UInt32 *time, 
-	void *timeRef);
-typedef SSLErr (*SSLConvertTimeFunc) (
-	UInt32 *time, 
-	void *timeRef);
-typedef SSLErr (*SSLAddSessionFunc) (
-	SSLBuffer sessionKey, 
-	SSLBuffer sessionData, 
-	void *sessionRef);
-typedef SSLErr (*SSLGetSessionFunc) (
-	SSLBuffer sessionKey, 
-	SSLBuffer *sessionData, 
-	void *sessionRef);
-typedef SSLErr (*SSLDeleteSessionFunc) (
-	SSLBuffer sessionKey, 
-	void *sessionRef);
-typedef SSLErr (*SSLCheckCertificateFunc) (
-	int certCount, 
-	SSLBuffer *derCerts, 
-	void *checkCertificateRef);
-#endif	/* _APPLE_CDSA_ */
+#include "tls_ssl.h"
 
 typedef struct
 {   SSLReadFunc         read;
@@ -116,45 +72,16 @@ typedef struct
 
 struct SystemContext
 {   
-	/* FIXME - this probably goes away; we keep it as a struct due
-	 * to its pervasive use in calls to SSLAllocBuffer. We have to
-	 * have *an* element in it for compiler reasons.
+	/* 
+	 * This struct is a remnant of the original SSLRef implementation; it
+	 * held things like caller-provided memory allocator callbacks.
+	 * We'll keep the struct (and an instance of it in SSLContext, below)
+	 * around in case we want to use it in SSLAllocBuffer and its siblings.
 	 */
-	#ifdef	_APPLE_CDSA_
 	int 				foo;
-	#else
-	SSLAllocFunc        alloc;
-    SSLFreeFunc         free;
-    SSLReallocFunc      realloc;
-    void                *allocRef;
-    SSLTimeFunc         time;
-    SSLConvertTimeFunc  convertTime;
-    void                *timeRef;
-    SSLRandomFunc       random;
-    void                *randomRef;
-    #endif	/* _APPLE_CDSA_ */
 };
 
 typedef struct SystemContext SystemContext;
-
-typedef struct
-{   
-	#ifndef	_APPLE_CDSA_
-	/* these functions are hard-coded */
-	SSLAddSessionFunc       addSession;
-    SSLGetSessionFunc       getSession;
-    SSLDeleteSessionFunc    deleteSession;
-    #endif
-    void                    *sessionRef;
-} SessionContext;
-
-#ifndef	_APPLE_CDSA_
-/* not used, cert functions via CDSA */
-typedef struct
-{   SSLCheckCertificateFunc checkCertFunc;
-    void                    *checkCertRef;
-} CertificateContext;
-#endif
 
 /*
  * A carryover from original SSLRef 3.0 - we'll store the DER-encoded
@@ -165,20 +92,23 @@ typedef struct SSLCertificate
 {   
 	struct SSLCertificate   *next;
     SSLBuffer               derCert;
-    #ifndef	_APPLE_CDSA_
-    /* but not decoded...we never do that! */
-    X509Cert                cert;
-    #endif	/* _APPLE_CDSA_ */
 } SSLCertificate;
 
 #include "cryptType.h"
 
+/*
+ * An SSLContext contains four of these - one for each of {read,write} and for
+ * {current, pending}.
+ */
 struct CipherContext
-{   const HashReference       *hash;
-    const SSLSymmetricCipher  *symCipher;
-    
-    #ifdef	_APPLE_CDSA_
-    
+{   
+	 
+	const HashHmacReference   	*macRef;			/* HMAC (TLS) or digest (SSL) */
+    const SSLSymmetricCipher  	*symCipher;
+	
+	/* this is a context which is reused once per record */
+    HashHmacContext				macCtx;
+	
     /* 
      * symKey is obtained from the CSP at cspHand. Normally this 
      * cspHand is the same as ctx->cspHand; some day they might differ.
@@ -193,18 +123,12 @@ struct CipherContext
 	/* needed in CDSASymmInit */
 	uint8				encrypting;
 	
-    #else
-    void                *symCipherState;
-    #endif	/* _APPLE_CDSA_*/
     sslUint64           sequenceNum;
     uint8               ready;
-	#ifdef	__APPLE__
+
 	/* in SSL2 mode, the macSecret is the same size as the
-	 * cipher key - which is 24 bytes in the 3DDES case. */
+	 * cipher key - which is 24 bytes in the 3DES case. */
 	uint8				macSecret[MAX_SYMKEY_SIZE];
-	#else
-    uint8               macSecret[MAX_DIGEST_SIZE];
-	#endif	/* __APPLE__ */
 };
 /* typedef in cryptType.h */
 
@@ -224,39 +148,46 @@ typedef struct DNListElem
 struct SSLContext
 {   
 	/*
-	 * For _APPLE_CDSA_, SystemContext is empty; we'll leave it in for now
-	 * 'cause it gets passed around so often for SSLAllocBuffer().
+	 * For Apple CDSA version, SystemContext is empty; we'll leave it in for now
+	 * because it gets passed around so often for SSLAllocBuffer().
 	 */
 	SystemContext       sysCtx;
     IOContext           ioCtx;
-    SessionContext      sessionCtx;
-    #ifndef	_APPLE_CDSA_
-    CertificateContext  certCtx;
-    #endif
     
+	/* 
+	 * For the first two, SSL_Version_Undetermined means "get the best we
+	 * can, up to macProtocolVersion".
+	 */
     SSLProtocolVersion  reqProtocolVersion;	/* requested by app */
     SSLProtocolVersion  negProtocolVersion;	/* negotiated */
+    SSLProtocolVersion  maxProtocolVersion;	/* max allowed by app */
     SSLProtocolSide     protocolSide;
-    
-    #ifdef	_APPLE_CDSA_
-    
+    const struct _SslTlsCallouts *sslTslCalls; /* selects between SSLv3 and TLSv1 */
+	
     /* crypto state in CDSA-centric terms */
     
-    CSSM_KEY_PTR		signingPrivKey;	/* our private signing key */
+    CSSM_KEY_PTR		signingPrivKey;/* our private signing key */
     CSSM_KEY_PTR		signingPubKey;	/* our public signing key */
     CSSM_CSP_HANDLE		signingKeyCsp;	/* associated DL/CSP */
-	#if		ST_KEYCHAIN_ENABLE
-    KCItemRef			signingKeyRef;	/* for signingPrivKey */
+	#if			ST_KEYCHAIN_ENABLE
+		#if 	ST_KC_KEYS_NEED_REF
+		SecKeychainRef	signingKeyRef;	/* for signingPrivKey */
+		#else
+		void			*signingKeyRef;	/* TBD */
+		#endif	/* ST_KC_KEYS_NEED_REF */
     #endif
 	
 	/* this stuff should probably be #if ST_SERVER_MODE_ENABLE....  */
-    CSSM_KEY_PTR		encryptPrivKey;	/* our private encrypt key, for 
+    CSSM_KEY_PTR		encryptPrivKey;/* our private encrypt key, for 
     									 * server-initiated key exchange */
     CSSM_KEY_PTR		encryptPubKey;	/* public version of above */
     CSSM_CSP_HANDLE		encryptKeyCsp;
 	#if		ST_KEYCHAIN_ENABLE
-	/* but we'll just do this so we can compile it */
-    KCItemRef			encryptKeyRef;	/* for encryptPrivKey */
+		#if 	ST_KC_KEYS_NEED_REF
+		SecKeychainRef	encryptKeyRef;	/* for signingPrivKey */
+		#else
+		void			*encryptKeyRef;	/* TBD */
+		#endif	/* ST_KC_KEYS_NEED_REF */
     #endif 	/* ST_KEYCHAIN_ENABLE */
 	
     CSSM_KEY_PTR		peerPubKey;
@@ -284,10 +215,10 @@ struct SSLContext
      * Keychain to which newly encountered root certs are attempted
      * to be added. AccessCreds untyped for now.
      */
-	#if		ST_KEYCHAIN_ENABLE
-    KCRef				newRootCertKc;
+	#if		ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS
+    SecKeychainRef		newRootCertKc;
     void				*accessCreds;
-    #endif	/* ST_KEYCHAIN_ENABLE */
+    #endif	/* ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS */
 	
     /* for symmetric cipher and RNG */
     CSSM_CSP_HANDLE		cspHand;
@@ -296,27 +227,17 @@ struct SSLContext
     CSSM_TP_HANDLE		tpHand;
     CSSM_CL_HANDLE		clHand;
     
+	#if 	ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
+	/* we manually attach to this for now; eventually we get it from KC */
+	CSSM_CSP_HANDLE		cspDlHand;
+	#endif
+	
     /* FIXME - how will we represent this? */
     void         		*dhAnonParams;
     void         		*peerDHParams;
         
-    /* context and allocator for CF */
-	CFAllocatorRef 		cfAllocatorRef;
-	CFAllocatorContext 	lCFAllocatorContext;
-
 	Boolean				allowExpiredCerts;
 	
-    #else
-    /* from SSLRef 3.0 */
-    SSLRSAPrivateKey    localKey;
-    SSLRSAPrivateKey    exportKey;
-    SSLCertificate      *localCert;
-    SSLCertificate      *peerCert;
-    SSLRSAPublicKey     peerKey;
-    SSLDHParams         dhAnonParams;
-    SSLDHParams         peerDHParams;
-    #endif	_APPLE_CDSA_
-    
     SSLBuffer		    sessionID;
     
     SSLBuffer			dhPeerPublic;
@@ -326,6 +247,9 @@ struct SSLContext
     SSLBuffer			peerID;
     SSLBuffer			resumableSession;
     
+	char				*peerDomainName;
+	UInt32				peerDomainNameLen;
+	
     CipherContext       readCipher;
     CipherContext       writeCipher;
     CipherContext       readPending;
@@ -333,29 +257,26 @@ struct SSLContext
     
     uint16              selectedCipher;			/* currently selected */
     const SSLCipherSpec *selectedCipherSpec;	/* ditto */
-    SSLCipherSpec		*validCipherSpecs;		/* context's valid specs */
+    SSLCipherSpec		*validCipherSpecs;		/* context's valid specs */ 
     unsigned			numValidCipherSpecs;	/* size of validCipherSpecs */
     SSLHandshakeState   state;
     
-    #ifdef	_APPLE_CDSA_
 	#if		ST_SERVER_MODE_ENABLE
     SSLAuthenticate		clientAuth;			/* kNeverAuthenticate, etc. */
     Boolean				tryClientAuth;
 	#endif	/* ST_SERVER_MODE_ENABLE */
-    #else
-    int                 requestClientCert;
-    #endif
     int                 certRequested;
     int                 certSent;
     int                 certReceived;
     int                 x509Requested;
     DNListElem          *acceptableDNList;
     
-    uint8               clientRandom[32];
-    uint8               serverRandom[32];
+    uint8               clientRandom[SSL_CLIENT_SRVR_RAND_SIZE];
+    uint8               serverRandom[SSL_CLIENT_SRVR_RAND_SIZE];
     SSLBuffer   		preMasterSecret;
     uint8               masterSecret[48];
     
+	/* running digests of all handshake messages */
     SSLBuffer   		shaState, md5State;
     
     SSLBuffer		    fragmentedMessageCache;
@@ -373,12 +294,10 @@ struct SSLContext
     SSLBuffer			receivedDataBuffer;
     uint32              receivedDataPos;
     
-    #ifdef	_APPLE_CDSA_
     Boolean				allowAnyRoot;		// don't require known roots
     #if		SSL_DEBUG
     char				*rootCertName;		// if non-null, write root cert here    
     #endif	/* SSL_DEBUG */
-    #endif	/* _APPLE_CDSA_ */
     
 };
 

@@ -1,4 +1,4 @@
-;;; snake.el -- Implementation of Snake for Emacs
+;;; snake.el --- implementation of Snake for Emacs
 
 ;; Copyright (C) 1997 Free Software Foundation, Inc.
 
@@ -24,6 +24,8 @@
 ;; Boston, MA 02111-1307, USA.
 
 ;;; Commentary:
+
+;;; Code:
 
 (eval-when-compile
   (require 'cl))
@@ -80,7 +82,7 @@
 (defvar snake-score-y snake-height
   "Y position of score.")
 
-(defvar snake-score-file "/tmp/snake-scores"
+(defvar snake-score-file (concat temporary-file-directory "snake-scores")
   "File for holding high scores.")
 
 ;; ;;;;;;;;;;;;; display options ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

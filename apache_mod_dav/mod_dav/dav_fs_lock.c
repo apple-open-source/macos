@@ -654,7 +654,7 @@ static dav_error * dav_fs_load_lock_record(dav_lockdb *lockdb, dav_datum key,
 	    offset += sizeof(*ip->locktoken);
 	    memcpy(&ip->timeout, val.dptr + offset, sizeof(ip->timeout));
 	    offset += sizeof(ip->timeout);
-	    ip->key.dsize = *((int *) (val.dptr + offset));	/* length of datum */
+	    memcpy(&ip->key.dsize, val.dptr + offset, sizeof(int)); /* length of datum */
 	    offset += sizeof(ip->key.dsize);
 	    ip->key.dptr = ap_palloc(lockdb->info->pool, ip->key.dsize); 
 	    memcpy(ip->key.dptr, val.dptr + offset, ip->key.dsize);

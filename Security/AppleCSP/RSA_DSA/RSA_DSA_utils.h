@@ -31,15 +31,6 @@
 extern "C" {
 #endif
 
-void throwRsaDsa(
-	const char *op);
-	
-/*
- * given an openssl-style error, throw appropriate CssmError.
- */
-void throwOpensslErr(
-	int irtn);
-
 /* 
  * Given a Context:
  * -- obtain CSSM key (there must only be one)

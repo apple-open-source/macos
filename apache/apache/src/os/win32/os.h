@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -171,6 +171,12 @@ every configuration function as __stdcall.
 /* Seems Windows is not a subgenius */
 #define NO_SLACK
 #include <stddef.h>
+
+/* MSVC asserts that strtol "errno is set to ERANGE 
+ * if overflow or underflow occurs"
+ * Ergo we can use the library strtol safely.
+ */
+#define ap_strtol strtol
 
 #define NO_OTHER_CHILD
 #define NO_RELIABLE_PIPED_LOGS

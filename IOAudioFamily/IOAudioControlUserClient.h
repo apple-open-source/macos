@@ -45,9 +45,13 @@ protected:
     struct ExpansionData { };
     
     ExpansionData *reserved;
-    
+
+public:
+	virtual void sendChangeNotification(UInt32 notificationType);
+
 private:
-    OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 0);
+    OSMetaClassDeclareReservedUsed(IOAudioControlUserClient, 0);
+
     OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 1);
     OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 2);
     OSMetaClassDeclareReservedUnused(IOAudioControlUserClient, 3);

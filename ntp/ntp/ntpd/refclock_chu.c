@@ -1,29 +1,11 @@
 /*
- * refclock_chu - clock driver for Canadian radio CHU receivers
+ * refclock_chu - clock driver for Canadian CHU time/frequency station
  */
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
 #if defined(REFCLOCK) && defined(CLOCK_CHU)
-
-/* #define AUDIO_CHUa */
-
-#include <stdio.h>
-#include <ctype.h>
-#include <sys/time.h>
-#include <time.h>
-#include <math.h>
-
-#ifdef AUDIO_CHU
-#ifdef HAVE_SYS_AUDIOIO_H
-#include <sys/audioio.h>
-#endif /* HAVE_SYS_AUDIOIO_H */
-#ifdef HAVE_SUN_AUDIOIO_H
-#include <sun/audioio.h>
-#endif /* HAVE_SUN_AUDIOIO_H */
-#endif /* AUDIO_CHU */
 
 #include "ntpd.h"
 #include "ntp_io.h"
@@ -31,8 +13,22 @@
 #include "ntp_calendar.h"
 #include "ntp_stdlib.h"
 
+#include <stdio.h>
+#include <ctype.h>
+#include <math.h>
+
+#ifdef HAVE_AUDIO
+#include "audio.h"
+#endif /* HAVE_AUDIO */
+
+#define ICOM 	1		/* undefine to suppress ICOM code */
+
+#ifdef ICOM
+#include "icom.h"
+#endif /* ICOM */
+
 /*
- * Clock driver for Canadian radio CHU receivers
+ * Audio CHU demodulator/decoder
  *
  * This driver synchronizes the computer time using data encoded in
  * radio transmissions from Canadian time/frequency station CHU in
@@ -40,8 +36,14 @@
  * 7335 kHz and 14670 kHz in upper sideband, compatible AM mode. An
  * ordinary shortwave receiver can be tuned manually to one of these
  * frequencies or, in the case of ICOM receivers, the receiver can be
- * tuned automatically using the minimuf and icom programs as
- * propagation conditions change throughout the day and night.
+ * tuned automatically using this program as propagation conditions
+ * change throughout the day and night.
+ *
+ * The driver receives, demodulates and decodes the radio signals when
+ * connected to the audio codec of a Sun workstation running SunOS or
+ * Solaris, and with a little help, other workstations with similar
+ * codecs or sound cards. In this implementation, only one audio driver
+ * and codec can be supported on a single machine.
  *
  * The driver can be compiled to use a Bell 103 compatible modem or
  * modem chip to receive the radio signal and demodulate the data.
@@ -168,36 +170,51 @@
  * input port, where 0 is the mike port (default) and 1 is the line-in
  * port. It does not seem useful to select the compact disc player port.
  * Fudge flag3 enables audio monitoring of the input signal. For this
- * purpose, the speaker volume must be set before the driver is started. 
+ * purpose, the speaker volume must be set before the driver is started.
+ *
+ * The audio codec code is normally compiled in the driver if the
+ * architecture supports it (HAVE_AUDIO defined), but is used only if the
+ * link /dev/chu_audio is defined and valid. The serial port
+ * code is alwasy compiled in the driver, but is used only if the autdio
+ * codec is not available and the link /dev/chu%d is defined and valid.
+ * The ICOM code is normally compiled in the driver if selected (ICOM
+ * defined), but is used only if the link /dev/icom%d is defined and
+ * valid and the mode keyword on the server configuration command
+ * specifies a nonzero mode (ICOM ID select code). The C-IV speed is
+ * 9600 bps if the high order 0x80 bit of the mode is zero and 1200 bps
+ * if one. The C-IV trace is turned on if the debug level is greater
+ * than one.
  */
-
 /*
  * Interface definitions
  */
 #define	SPEED232	B300	/* uart speed (300 baud) */
 #define	PRECISION	(-10)	/* precision assumed (about 1 ms) */
 #define	REFID		"CHU"	/* reference ID */
-#ifdef AUDIO_CHU
-#define	DESCRIPTION	"CHU Modem Receiver" /* WRU */
+#define	DEVICE		"/dev/chu%d" /* device name and unit */
+#define	SPEED232	B300	/* UART speed (300 baud) */
+#ifdef ICOM
+#define DWELL		5	/* minutes before qsy */
+#define NCHAN		3	/* number of channels */
+#endif /* ICOM */
+#ifdef HAVE_AUDIO
 
 /*
  * Audio demodulator definitions
  */
-#define AUDIO_BUFSIZ	160	/* codec buffer size (Solaris only) */
-#define SAMPLE		8000	/* nominal sample rate (Hz) */
+#define SECOND		8000	/* nominal sample rate (Hz) */
 #define BAUD		300	/* modulation rate (bps) */
 #define OFFSET		128	/* companded sample offset */
 #define SIZE		256	/* decompanding table size */
 #define	MAXSIG		6000.	/* maximum signal level */
-#define DRPOUT		100.	/* dropout signal level */
 #define LIMIT		1000.	/* soft limiter threshold */
 #define AGAIN		6.	/* baseband gain */
 #define LAG		10	/* discriminator lag */
+#define	DEVICE_AUDIO	"/dev/chu_audio" /* device name */
+#define	DESCRIPTION	"CHU Audio/Modem Receiver" /* WRU */
 #else
-#define	DEVICE		"/dev/chu%d" /* device name and unit */
-#define	SPEED232	B300	/* UART speed (300 baud) */
-#define	DESCRIPTION	"CHU Audio Receiver" /* WRU */
-#endif /* AUDIO_CHU */
+#define	DESCRIPTION	"CHU Modem Receiver" /* WRU */
+#endif /* HAVE_AUDIO */
 
 /*
  * Decoder definitions
@@ -208,8 +225,8 @@
 #define MINCHAR		9	/* min characters per burst */
 #define MINDIST		28	/* min burst distance (of 40)  */
 #define MINSYNC		8	/* min sync distance (of 16) */
-#define MINDEC		.5	/* decoder majority rule (of 1.) */
 #define MINSTAMP	20	/* min timestamps (of 60) */
+#define PANIC		(4 * 1440) /* panic restart */
 
 /*
  * Hex extension codes (>= 16)
@@ -219,28 +236,41 @@
 #define HEX_HARD	18	/* hard error */
 
 /*
- * Error flags (up->errflg)
+ * Status bits (status)
  */
-#define CHU_ERR_RUNT	0x001	/* runt burst */
-#define CHU_ERR_NOISE	0x002	/* noise burst */
-#define CHU_ERR_BFRAME	0x004	/* invalid format B frame sync */
-#define CHU_ERR_BFORMAT	0x008	/* invalid format B data */
-#define CHU_ERR_AFRAME	0x010	/* invalid format A frame sync */
-#define CHU_ERR_DECODE	0x020	/* invalid data decode */
-#define CHU_ERR_STAMP	0x040	/* too few timestamps */
-#define CHU_ERR_AFORMAT	0x080	/* invalid format A data */
-#ifdef AUDIO_CHU
-#define CHU_ERR_ERROR	0x100	/* codec error (overrun) */
-#endif /* AUDIO_CHU */
+#define RUNT		0x0001	/* runt burst */
+#define NOISE		0x0002	/* noise burst */
+#define BFRAME		0x0004	/* invalid format B frame sync */
+#define BFORMAT		0x0008	/* invalid format B data */
+#define AFRAME		0x0010	/* invalid format A frame sync */
+#define AFORMAT		0x0020	/* invalid format A data */
+#define DECODE		0x0040	/* invalid data decode */
+#define STAMP		0x0080	/* too few timestamps */
+#define INYEAR		0x0100	/* valid B frame */
+#define INSYNC		0x0200	/* clock synchronized */
 
-#ifdef AUDIO_CHU
+/*
+ * Alarm status bits (alarm)
+ *
+ * These alarms are set at the end of a minute in which at least one
+ * burst was received. SYNERR is raised if the AFRAME or BFRAME status
+ * bits are set during the minute, FMTERR is raised if the AFORMAT or
+ * BFORMAT status bits are set, DECERR is raised if the DECODE status
+ * bit is set and TSPERR is raised if the STAMP status bit is set.
+ */
+#define SYNERR		0x01	/* frame sync error */
+#define FMTERR		0x02	/* data format error */
+#define DECERR		0x04	/* data decoding error */
+#define TSPERR		0x08	/* insufficient data */
+
+#ifdef HAVE_AUDIO
 struct surv {
 	double	shift[12];	/* mark register */
-	double	max, min;	/* max/min envelope signals */
+	double	es_max, es_min;	/* max/min envelope signals */
 	double	dist;		/* sample distance */
 	int	uart;		/* decoded character */
 };
-#endif /* AUDIO_CHU */
+#endif /* HAVE_AUDIO */
 
 /*
  * CHU unit control structure
@@ -253,8 +283,14 @@ struct chuunit {
 	l_fp	laststamp;	/* last buffer timestamp */
 	l_fp	charstamp;	/* character time as a l_fp */
 	int	errflg;		/* error flags */
+	int	status;		/* status bits */
 	int	bufptr;		/* buffer index pointer */
-	int	pollcnt;	/* poll message counter */
+	char	ident[10];	/* transmitter frequency */
+#ifdef ICOM
+	int	fd_icom;	/* ICOM file descriptor */
+	int	chan;		/* frequency identifier */
+	int	dwell;		/* dwell minutes at current frequency */
+#endif /* ICOM */
 
 	/*
 	 * Character burst variables
@@ -264,13 +300,23 @@ struct chuunit {
 	int	ndx;		/* buffer start index */
 	int	prevsec;	/* previous burst second */
 	int	burdist;	/* burst distance */
+	int	mindist;	/* minimum distance */
 	int	syndist;	/* sync distance */
 	int	burstcnt;	/* format A bursts this minute */
 
-#ifdef AUDIO_CHU
+	/*
+	 * Format particulars
+	 */
+	int	leap;		/* leap/dut code */
+	int	dut;		/* UTC1 correction */
+	int	tai;		/* TAI - UTC correction */
+	int	dst;		/* Canadian DST code */
+
+#ifdef HAVE_AUDIO
 	/*
 	 * Audio codec variables
 	 */
+	int	fd_audio;	/* audio port file descriptor */
 	double	comp[SIZE];	/* decompanding table */
 	int	port;		/* codec port */
 	int	gain;		/* codec gain */
@@ -296,7 +342,7 @@ struct chuunit {
 	struct surv surv[8];	/* UART survivor structures */
 	int	decptr;		/* decode pointer */
 	int	dbrk;		/* holdoff counter */
-#endif /* AUDIO_CHU */
+#endif /* HAVE_AUDIO */
 };
 
 /*
@@ -313,28 +359,25 @@ static	void	chu_poll	P((int, struct peer *));
 static	void	chu_decode	P((struct peer *, int));
 static	void	chu_burst	P((struct peer *));
 static	void	chu_clear	P((struct peer *));
-static	void	chu_update	P((struct peer *, int));
-static	void	chu_year	P((struct peer *, int));
+static	void	chu_a		P((struct peer *, int));
+static	void	chu_b		P((struct peer *, int));
 static	int	chu_dist	P((int, int));
-#ifdef AUDIO_CHU
+static	int	chu_major	P((struct peer *));
+#ifdef HAVE_AUDIO
 static	void	chu_uart	P((struct surv *, double));
 static	void	chu_rf		P((struct peer *, double));
 static	void	chu_gain	P((struct peer *));
-static	int	chu_audio	P((void));
-static	void	chu_debug	P((void));
-#endif /* AUDIO_CHU */
+static	void	chu_audio_receive P((struct recvbuf *rbufp));
+#endif /* HAVE_AUDIO */
+static	void	chu_serial_receive P((struct recvbuf *rbufp));
 
 /*
  * Global variables
  */
 static char hexchar[] = "0123456789abcdef_-=";
-#ifdef AUDIO_CHU
-#ifdef HAVE_SYS_AUDIOIO_H
-struct	audio_device device;	/* audio device ident */
-#endif /* HAVE_SYS_AUDIOIO_H */
-static struct audio_info info;	/* audio device info */
-static int	chu_ctl_fd;	/* audio control file descriptor */
-#endif /* AUDIO_CHU */
+#ifdef ICOM
+static double qsy[NCHAN] = {3.33, 7.335, 14.67}; /* frequencies (MHz) */
+#endif /* ICOM */
 
 /*
  * Transfer vector
@@ -361,41 +404,52 @@ chu_start(
 {
 	struct chuunit *up;
 	struct refclockproc *pp;
-
-	/*
-	 * Local variables
-	 */
+	char device[20];	/* device name */
 	int	fd;		/* file descriptor */
-#ifdef AUDIO_CHU
+#ifdef ICOM
+	char	tbuf[80];	/* trace buffer */
+	int	temp;
+#endif /* ICOM */
+#ifdef HAVE_AUDIO
+	int	fd_audio;	/* audio port file descriptor */
 	int	i;		/* index */
 	double	step;		/* codec adjustment */
 
 	/*
-	 * Open audio device
+	 * Open audio device.
 	 */
-	fd = open("/dev/audio", O_RDWR | O_NONBLOCK, 0777);
-	if (fd == -1) {
-		perror("chu: audio");
-		return (0);
-	}
-#else
-	char device[20];	/* device name */
+	fd_audio = audio_init(DEVICE_AUDIO);
+#ifdef DEBUG
+	if (fd_audio > 0 && debug)
+		audio_show();
+#endif
 
 	/*
-	 * Open serial port. Use RAW line discipline (required).
+	 * Open serial port in raw mode.
 	 */
-	(void)sprintf(device, DEVICE, unit);
-	if (!(fd = refclock_open(device, SPEED232, LDISC_RAW))) {
-		return (0);
+	if (fd_audio > 0) {
+		fd = fd_audio;
+	} else {
+		sprintf(device, DEVICE, unit);
+		fd = refclock_open(device, SPEED232, LDISC_RAW);
 	}
-#endif /* AUDIO_CHU */
+#else /* HAVE_AUDIO */
+
+	/*
+	 * Open serial port in raw mode.
+	 */
+	sprintf(device, DEVICE, unit);
+	fd = refclock_open(device, SPEED232, LDISC_RAW);
+#endif /* HAVE_AUDIO */
+	if (fd <= 0)
+		return (0);
 
 	/*
 	 * Allocate and initialize unit structure
 	 */
 	if (!(up = (struct chuunit *)
 	      emalloc(sizeof(struct chuunit)))) {
-		(void) close(fd);
+		close(fd);
 		return (0);
 	}
 	memset((char *)up, 0, sizeof(struct chuunit));
@@ -406,7 +460,7 @@ chu_start(
 	pp->io.datalen = 0;
 	pp->io.fd = fd;
 	if (!io_addclock(&pp->io)) {
-		(void)close(fd);
+		close(fd);
 		free(up);
 		return (0);
 	}
@@ -416,23 +470,17 @@ chu_start(
 	 */
 	peer->precision = PRECISION;
 	pp->clockdesc = DESCRIPTION;
-	pp->nstages = MAXSTAGE;
-	pp->nskeep = MAXSTAGE * 3 / 5;
 	memcpy((char *)&pp->refid, REFID, 4);
 	DTOLFP(CHAR, &up->charstamp);
-	up->pollcnt = 2;
-#ifdef AUDIO_CHU
-	up->gain = (AUDIO_MAX_GAIN - AUDIO_MIN_GAIN) / 2;
-	if (chu_audio() < 0) {
-		io_closeclock(&pp->io);
-		free(up);
-		return (0);
-	}
+#ifdef HAVE_AUDIO
 
 	/*
 	 * The companded samples are encoded sign-magnitude. The table
-	 * contains all the 256 values in the interest of speed.
+	 * contains all the 256 values in the interest of speed. We do
+	 * this even if the audio codec is not available. C'est la lazy.
 	 */
+	up->fd_audio = fd_audio;
+	up->gain = 127;
 	up->comp[0] = up->comp[OFFSET] = 0.;
 	up->comp[1] = 1; up->comp[OFFSET + 1] = -1.;
 	up->comp[2] = 3; up->comp[OFFSET + 2] = -3.;
@@ -443,8 +491,43 @@ chu_start(
                 if (i % 16 == 0)
                 	step *= 2.;
 	}
-	DTOLFP(1. / SAMPLE, &up->tick);
-#endif /* AUDIO_CHU */
+	DTOLFP(1. / SECOND, &up->tick);
+#endif /* HAVE_AUDIO */
+	strcpy(up->ident, "X");
+#ifdef ICOM
+	temp = 0;
+#ifdef DEBUG
+	if (debug > 1)
+		temp = P_TRACE;
+#endif
+	if (peer->ttlmax > 0) {
+		if (peer->ttlmax & 0x80)
+			up->fd_icom = icom_init("/dev/icom", B1200,
+			    temp);
+		else
+			up->fd_icom = icom_init("/dev/icom", B9600,
+			    temp);
+	}
+	if (up->fd_icom > 0) {
+		if (icom_freq(up->fd_icom, peer->ttlmax & 0x7f,
+		    qsy[up->chan]) < 0) {
+			NLOG(NLOG_SYNCEVENT | NLOG_SYSEVENT)
+			    msyslog(LOG_ERR,
+			    "ICOM bus error; autotune disabled");
+			up->errflg = CEVNT_FAULT;
+			close(up->fd_icom);
+			up->fd_icom = 0;
+		} else {
+			sprintf(up->ident, "%.1f", qsy[up->chan]); 
+			sprintf(tbuf, "chu: QSY to %s MHz", up->ident);
+			record_clock_stats(&peer->srcadr, tbuf);
+#ifdef DEBUG
+			if (debug)
+				printf("%s\n", tbuf);
+#endif
+		}
+	}
+#endif /* ICOM */
 	return (1);
 }
 
@@ -463,17 +546,55 @@ chu_shutdown(
 
 	pp = peer->procptr;
 	up = (struct chuunit *)pp->unitptr;
+	if (up == NULL)
+		return;
 	io_closeclock(&pp->io);
+	if (up->fd_icom > 0)
+		close(up->fd_icom);
 	free(up);
 }
 
-#ifdef AUDIO_CHU
-
 /*
- * chu_receive - receive data from the audio device
+ * chu_receive - receive data from the audio or serial device
  */
 static void
 chu_receive(
+	struct recvbuf *rbufp	/* receive buffer structure pointer */
+	)
+{
+#ifdef HAVE_AUDIO
+	struct chuunit *up;
+	struct refclockproc *pp;
+	struct peer *peer;
+
+	peer = (struct peer *)rbufp->recv_srcclock;
+	pp = peer->procptr;
+	up = (struct chuunit *)pp->unitptr;
+
+	/*
+	 * If the audio codec is warmed up, the buffer contains codec
+	 * samples which need to be demodulated and decoded into CHU
+	 * characters using the software UART. Otherwise, the buffer
+	 * contains CHU characters from the serial port, so the software
+	 * UART is bypassed. In this case the CPU will probably run a
+	 * few degrees cooler.
+	 */
+	if (up->fd_audio > 0)
+		chu_audio_receive(rbufp);
+	else
+		chu_serial_receive(rbufp);
+#else
+	chu_serial_receive(rbufp);
+#endif /* HAVE_AUDIO */
+}
+
+#ifdef HAVE_AUDIO
+
+/*
+ * chu_audio_receive - receive data from the audio device
+ */
+static void
+chu_audio_receive(
 	struct recvbuf *rbufp	/* receive buffer structure pointer */
 	)
 {
@@ -481,15 +602,12 @@ chu_receive(
 	struct refclockproc *pp;
 	struct peer *peer;
 
-	/*
-	 * Local variables
-	 */
 	double	sample;		/* codec sample */
 	u_char	*dpt;		/* buffer pointer */
 	l_fp	ltemp;		/* l_fp temp */
-	double	dtemp;		/* double temp */
 	int	isneg;		/* parity flag */
-	int	i, j;		/* index temps */
+	double	dtemp;
+	int	i, j;
 
 	peer = (struct peer *)rbufp->recv_srcclock;
 	pp = peer->procptr;
@@ -501,7 +619,7 @@ chu_receive(
 	 */
 	up->timestamp = rbufp->recv_time;
 	up->bufcnt = rbufp->recv_length;
-	DTOLFP(up->bufcnt * 1. / SAMPLE, &ltemp);
+	DTOLFP(up->bufcnt * 1. / SECOND, &ltemp);
 	L_SUB(&up->timestamp, &ltemp);
 	dpt = (u_char *)&rbufp->recv_space;
 	for (up->bufptr = 0; up->bufptr < up->bufcnt; up->bufptr++) {
@@ -519,14 +637,13 @@ chu_receive(
 			sample = -MAXSIG;
 			up->clipcnt++;
 		}
-		up->seccnt = (up->seccnt + 1) % SAMPLE;
+		up->seccnt = (up->seccnt + 1) % SECOND;
 		if (up->seccnt == 0) {
 			if (pp->sloppyclockflag & CLK_FLAG2)
-				up->port = AUDIO_LINE_IN;
+				up->port = 2;
 			else
-				up->port = AUDIO_MICROPHONE;
+				up->port = 1;
 			chu_gain(peer);
-			up->clipcnt = 0;
 		}
 		chu_rf(peer, sample);
 
@@ -586,7 +703,7 @@ chu_receive(
  * code. Hopefully, the compiler will efficiently implement the move-
  * and-muiltiply-and-add operations.
  */
-void
+static void
 chu_rf(
 	struct peer *peer,	/* peer structure pointer */
 	double	sample		/* analog sample */
@@ -605,10 +722,11 @@ chu_rf(
 	double	lpf;		/* lowpass signal */
 	double	span;		/* UART signal span */
 	double	dist;		/* UART signal distance */
-	int	i, j;		/* index temps */
+	int	i, j;
 
 	pp = peer->procptr;
 	up = (struct chuunit *)pp->unitptr;
+
 	/*
 	 * Bandpass filter. 4th-order elliptic, 500-Hz bandpass centered
 	 * at 2125 Hz. Passband ripple 0.3 dB, stopband ripple 50 dB.
@@ -652,9 +770,9 @@ chu_rf(
 	up->disc[up->discptr] = limit;
 	up->discptr = (up->discptr + 1 ) % LAG;
 	if (disc >= 0)
-		disc = sqrt(disc);
+		disc = SQRT(disc);
 	else
-		disc = -sqrt(-disc);
+		disc = -SQRT(-disc);
 
 	/*
 	 * Lowpass filter. Raised cosine, Ts = 1 / 300, beta = 0.1.
@@ -686,10 +804,7 @@ chu_rf(
 	lpf += (up->lpf[2] = up->lpf[1]) * 2.003159e-01;
 	lpf += (up->lpf[1] = up->lpf[0]) * 1.084671e-01;
 	lpf += up->lpf[0] = disc * 2.538771e-02;
-/*
-printf("%8.3f %8.3f\n", disc, lpf);
-return;
-*/
+
 	/*
 	 * Maximum likelihood decoder. The UART updates each of the
 	 * eight survivors and determines the span, slice level and
@@ -699,11 +814,11 @@ return;
 	 * survivor with maximum distance determines the final decoded
 	 * character.
 	 */
-	up->baud += 1. / SAMPLE;
+	up->baud += 1. / SECOND;
 	if (up->baud > 1. / (BAUD * 8.)) {
 		up->baud -= 1. / (BAUD * 8.);
 		sp = &up->surv[up->decptr];
-		span = sp->max - sp->min;
+		span = sp->es_max - sp->es_min;
 		up->maxsignal += (span - up->maxsignal) / 80.;
 		if (up->dbrk > 0) {
 			up->dbrk--;
@@ -736,34 +851,31 @@ return;
  * program selects over the last eight survivors the one with maximum
  * distance to determine the decoded character.
  */
-void
+static void
 chu_uart(
 	struct surv *sp,	/* survivor structure pointer */
 	double	sample		/* baseband signal */
 	)
 {
-	/*
-	 * Local variables
-	 */
-	double	max, min;	/* max/min envelope */
+	double	es_max, es_min;	/* max/min envelope */
 	double	slice;		/* slice level */
 	double	dist;		/* distance */
-	double	dtemp;		/* double temp */
-	int	i;		/* index temp */
+	double	dtemp;
+	int	i;
 
 	/*
 	 * Save the sample and shift right. At the same time, measure
 	 * the maximum and minimum over all eleven samples.
 	 */
-	max = -1e6;
-	min = 1e6;
+	es_max = -1e6;
+	es_min = 1e6;
 	sp->shift[0] = sample;
 	for (i = 11; i > 0; i--) {
 		sp->shift[i] = sp->shift[i - 1];
-		if (sp->shift[i] > max)
-			max = sp->shift[i];
-		if (sp->shift[i] < min)
-			min = sp->shift[i];
+		if (sp->shift[i] > es_max)
+			es_max = sp->shift[i];
+		if (sp->shift[i] < es_min)
+			es_min = sp->shift[i];
 	}
 
 	/*
@@ -772,7 +884,7 @@ chu_uart(
 	 * the distance on the assumption the first and last bits must
 	 * be mark, the second space and the rest either mark or space.
 	 */ 
-	slice = (max + min) / 2.;
+	slice = (es_max + es_min) / 2.;
 	dist = 0;
 	sp->uart = 0;
 	for (i = 1; i < 12; i++) {
@@ -781,28 +893,28 @@ chu_uart(
 		if (dtemp > slice)
 			sp->uart |= 0x1;
 		if (i == 1 || i == 11) {
-			dist += dtemp - min;
+			dist += dtemp - es_min;
 		} else if (i == 10) {
-			dist += max - dtemp;
+			dist += es_max - dtemp;
 		} else {
 			if (dtemp > slice)
-				dist += dtemp - min;
+				dist += dtemp - es_min;
 			else
-				dist += max - dtemp;
+				dist += es_max - dtemp;
 		}
 	}
-	sp->max = max;
-	sp->min = min;
-	sp->dist = dist / (11 * (max - min));
+	sp->es_max = es_max;
+	sp->es_min = es_min;
+	sp->dist = dist / (11 * (es_max - es_min));
 }
+#endif /* HAVE_AUDIO */
 
 
-#else /* AUDIO_CHU */
 /*
- * chu_receive - receive data from the serial interface
+ * chu_serial_receive - receive data from the serial device
  */
 static void
-chu_receive(
+chu_serial_receive(
 	struct recvbuf *rbufp	/* receive buffer structure pointer */
 	)
 {
@@ -823,11 +935,10 @@ chu_receive(
 	dpt = (u_char *)&rbufp->recv_space;
 	chu_decode(peer, *dpt);
 }
-#endif /* AUDIO_CHU */
 
 
 /*
- * chu_decode - decode the data
+ * chu_decode - decode the character data
  */
 static void
 chu_decode(
@@ -838,11 +949,8 @@ chu_decode(
 	struct refclockproc *pp;
 	struct chuunit *up;
 
-	/*
-	 * Local variables
-	 */
 	l_fp	tstmp;		/* timestamp temp */
-	double	dtemp;		/* double temp */
+	double	dtemp;
 
 	pp = peer->procptr;
 	up = (struct chuunit *)pp->unitptr;
@@ -890,10 +998,7 @@ chu_burst(
 	struct chuunit *up;
 	struct refclockproc *pp;
 
-	/*
-	 * Local variables
-	 */
-	int	i;		/* index temp */
+	int	i;
 
 	pp = peer->procptr;
 	up = (struct chuunit *)pp->unitptr;
@@ -905,7 +1010,7 @@ chu_burst(
 	 * match the inverse for format B.
 	 */
 	if (up->ndx < MINCHAR) {
-		up->errflg |= CHU_ERR_RUNT;
+		up->status |= RUNT;
 		return;
 	}
 	up->burdist = 0;
@@ -915,15 +1020,16 @@ chu_burst(
 	/*
 	 * If the burst distance is at least MINDIST, this must be a
 	 * format A burst; if the value is not greater than -MINDIST, it
-	 * must be a format B burst; otherwise, it is a noise burst and
-	 * of no use to anybody.
+	 * must be a format B burst. If the B burst is perfect, we
+	 * believe it; otherwise, it is a noise burst and of no use to
+	 * anybody.
 	 */
 	if (up->burdist >= MINDIST) {
-		chu_update(peer, up->ndx);
+		chu_a(peer, up->ndx);
 	} else if (up->burdist <= -MINDIST) {
-		chu_year(peer, up->ndx);
+		chu_b(peer, up->ndx);
 	} else {
-		up->errflg |= CHU_ERR_NOISE;
+		up->status |= NOISE;
 		return;
 	}
 
@@ -933,18 +1039,16 @@ chu_burst(
 	 * process the minute. Don't do this if this is called from the
 	 * timer interrupt routine.
 	 */
-	if (peer->outdate == current_time)
-		up->pollcnt = 2;
-	else
+	if (peer->outdate != current_time)
 		peer->nextdate = current_time + 10;
 }
 
 
 /*
- * chu_year - decode format B burst
+ * chu_b - decode format B burst
  */
 static void
-chu_year(
+chu_b(
 	struct peer *peer,
 	int	nchar
 	)
@@ -952,16 +1056,10 @@ chu_year(
 	struct	refclockproc *pp;
 	struct	chuunit *up;
 
-	/*
-	 * Local variables
-	 */
 	u_char	code[11];	/* decoded timecode */
+	char	tbuf[80];	/* trace buffer */
 	l_fp	offset;		/* timestamp offset */
-	int	leap;		/* leap/dut code */
-	int	dut;		/* UTC1 correction */
-	int	tai;		/* TAI - UTC correction */
-	int	dst;		/* Canadian DST code */
-	int	i;		/* index temp */
+	int	i;
 
 	pp = peer->procptr;
 	up = (struct chuunit *)pp->unitptr;
@@ -972,37 +1070,39 @@ chu_year(
 	 * is considered valid only if all characters are valid; that
 	 * is, only if the distance is 40. 
 	 */
-	sprintf(pp->a_lastcode, "%2d %2d ", nchar, -up->burdist);
+	sprintf(tbuf, "chuB %04x %2d %2d ", up->status, nchar,
+	    -up->burdist);
 	for (i = 0; i < nchar; i++)
-		sprintf(&pp->a_lastcode[strlen(pp->a_lastcode)], "%02x",
+		sprintf(&tbuf[strlen(tbuf)], "%02x",
 		    up->cbuf[i]);
-	pp->lencode = strlen(pp->a_lastcode);
 	if (pp->sloppyclockflag & CLK_FLAG4)
-		record_clock_stats(&peer->srcadr, pp->a_lastcode);
+		record_clock_stats(&peer->srcadr, tbuf);
 #ifdef DEBUG
-	if (debug > 2)
-		printf("chu: %s\n", pp->a_lastcode);
+	if (debug)
+		printf("%s\n", tbuf);
 #endif
-	if (-up->burdist < 40) {
-		up->errflg |= CHU_ERR_BFRAME;
+	if (up->burdist > -40) {
+		up->status |= BFRAME;
 		return;
 	}
+	up->status |= INYEAR;
 
 	/*
 	 * Convert the burst data to internal format. If this succeeds,
-	 * save the timestamps for later. The leap, dut, tai and dst are
-	 * presently unused.
+	 * save the timestamps for later.
 	 */
 	for (i = 0; i < 5; i++) {
 		code[2 * i] = hexchar[up->cbuf[i] & 0xf];
 		code[2 * i + 1] = hexchar[(up->cbuf[i] >>
 		    4) & 0xf];
 	}
-	if (sscanf((char *)code, "%1x%1d%4d%2d%2x", &leap, &dut,
-	    &pp->year, &tai, &dst) != 5) {
-		up->errflg |= CHU_ERR_BFORMAT;
+	if (sscanf((char *)code, "%1x%1d%4d%2d%2x", &up->leap, &up->dut,
+	    &pp->year, &up->tai, &up->dst) != 5) {
+		up->status |= BFORMAT;
 		return;
 	}
+	if (up->leap & 0x8)
+		up->dut = -up->dut;
 	offset.l_ui = 31;
 	offset.l_f = 0;
 	for (i = 0; i < nchar && i < 10; i++) {
@@ -1016,10 +1116,10 @@ chu_year(
 
 
 /*
- * chu_update - decode format A burst
+ * chu_a - decode format A burst
  */
 static void
-chu_update(
+chu_a(
 	struct peer *peer,
 	int nchar
 	)
@@ -1027,13 +1127,11 @@ chu_update(
 	struct refclockproc *pp;
 	struct chuunit *up;
 
-	/*
-	 * Local variables
-	 */
+	char	tbuf[80];	/* trace buffer */
 	l_fp	offset;		/* timestamp offset */
 	int	val;		/* distance */
-	int	temp;		/* common temp */
-	int	i, j, k;	/* index temps */
+	int	temp;
+	int	i, j, k;
 
 	pp = peer->procptr;
 	up = (struct chuunit *)pp->unitptr;
@@ -1063,31 +1161,35 @@ chu_update(
 			k = i;
 		}
 	}
-
 	temp = (up->cbuf[k + 4] >> 4) & 0xf;
 	if (temp > 9 || k + 9 >= nchar || temp != ((up->cbuf[k + 9] >>
 	    4) & 0xf))
 		temp = 0;
-#ifdef AUDIO_CHU
-	sprintf(pp->a_lastcode, "%3d %4.0f %2d %2d %2d %2d %1d ",
-	    up->gain, up->maxsignal, nchar, up->burdist, k, up->syndist,
-	    temp);
+#ifdef HAVE_AUDIO
+	if (up->fd_audio)
+		sprintf(tbuf, "chuA %04x %4.0f %2d %2d %2d %2d %1d ",
+		    up->status, up->maxsignal, nchar, up->burdist, k,
+		    up->syndist, temp);
+	else
+		sprintf(tbuf, "chuA %04x %2d %2d %2d %2d %1d ",
+		    up->status, nchar, up->burdist, k, up->syndist,
+		    temp);
+
 #else
-	sprintf(pp->a_lastcode, "%2d %2d %2d %2d %1d ", nchar,
-	    up->burdist, k, up->syndist, temp);
-#endif /* AUDIO_CHU */
+	sprintf(tbuf, "chuA %04x %2d %2d %2d %2d %1d ", up->status,
+	    nchar, up->burdist, k, up->syndist, temp);
+#endif /* HAVE_AUDIO */
 	for (i = 0; i < nchar; i++)
-		sprintf(&pp->a_lastcode[strlen(pp->a_lastcode)], "%02x",
+		sprintf(&tbuf[strlen(tbuf)], "%02x",
 		    up->cbuf[i]);
-	pp->lencode = strlen(pp->a_lastcode);
 	if (pp->sloppyclockflag & CLK_FLAG4)
-		record_clock_stats(&peer->srcadr, pp->a_lastcode);
+		record_clock_stats(&peer->srcadr, tbuf);
 #ifdef DEBUG
-	if (debug > 2)
-		printf("chu: %s\n", pp->a_lastcode);
+	if (debug)
+		printf("%s\n", tbuf);
 #endif
 	if (up->syndist < MINSYNC) {
-		up->errflg |= CHU_ERR_AFRAME;
+		up->status |= AFRAME;
 		return;
 	}
 
@@ -1129,8 +1231,10 @@ chu_update(
 			i += 2;
 			continue;
 		}
-		up->decode[i++][up->cbuf[j] & 0xf]++;
-		up->decode[i++][(up->cbuf[j] >> 4) & 0xf]++;
+		up->decode[i][up->cbuf[j] & 0xf]++;
+		i++;
+		up->decode[i][(up->cbuf[j] >> 4) & 0xf]++;
+		i++;
 	}
 	up->burstcnt++;
 }
@@ -1142,53 +1246,167 @@ chu_update(
 static void
 chu_poll(
 	int unit,
-	struct peer *peer
+	struct peer *peer	/* peer structure pointer */
 	)
 {
 	struct refclockproc *pp;
 	struct chuunit *up;
-
-	/*
-	 * Local variables
-	 */
-	u_char	code[11];	/* decoded timecode */
-	l_fp	toffset, offset; /* l_fp temps */
-	int	mindist;	/* minimum distance */
-	int	val1, val2;	/* maximum distance */
-	int	synchar;	/* should be a 6 in traffic */
-	double	dtemp;		/* double temp */
-	int	temp;		/* common temp */
-	int	i, j, k;	/* index temps */
-
+	char	synchar, qual, leapchar;
+	int	minset;
+	int	temp;
+#ifdef ICOM
+	char	tbuf[80];	/* trace buffer */
+#endif /* ICOM */
 	pp = peer->procptr;
 	up = (struct chuunit *)pp->unitptr;
+	if (pp->coderecv == pp->codeproc)
+		up->errflg = CEVNT_TIMEOUT;
+	else
+		pp->polls++;
+	minset = ((current_time - peer->update) + 30) / 60;
+	if (up->status & INSYNC) {
+		if (minset > PANIC)
+			up->status = 0;
+		else
+			peer->reach |= 1;
+	}
 
 	/*
 	 * Process the last burst, if still in the burst buffer.
 	 * Don't mess with anything if nothing has been heard.
 	 */
 	chu_burst(peer);
-	if (up->pollcnt == 0)
-		refclock_report(peer, CEVNT_TIMEOUT);
-	else
-		up->pollcnt--;
-	if (up->burstcnt == 0) {
-		chu_clear(peer);
-		return;
+#ifdef ICOM
+	if (up->burstcnt > 2) {
+		up->dwell = 0;
+	} else if (up->dwell < DWELL) {
+		up->dwell++;
+	} else if (up->fd_icom > 0) {
+		up->dwell = 0;
+		up->chan = (up->chan + 1) % NCHAN;
+		icom_freq(up->fd_icom, peer->ttlmax & 0x7f, qsy[up->chan]);
+		sprintf(up->ident, "%.3f", qsy[up->chan]); 
+		sprintf(tbuf, "chu: QSY to %s MHz", up->ident);
+		record_clock_stats(&peer->srcadr, tbuf);
+#ifdef DEBUG
+		if (debug)
+			printf("%s\n", tbuf);
+#endif
 	}
+#endif /* ICOM */
+	if (up->burstcnt == 0)
+		return;
+	temp = chu_major(peer);
+	if (up->status & INYEAR)
+		up->status |= INSYNC;
+	qual = 0;
+	if (up->status & (BFRAME | AFRAME))
+		qual |= SYNERR;
+	if (up->status & (BFORMAT | AFORMAT))
+		qual |= FMTERR;
+	if (up->status & DECODE)
+		qual |= DECERR;
+	if (up->status & STAMP)
+		qual |= TSPERR;
+	synchar = leapchar = ' ';
+	if (!(up->status & INSYNC)) {
+		pp->leap = LEAP_NOTINSYNC;
+		synchar = '?';
+	} else if (up->leap & 0x2) {
+		pp->leap = LEAP_ADDSECOND;
+		leapchar = 'L';
+	} else if (up->leap & 0x4) {
+		pp->leap = LEAP_DELSECOND;
+		leapchar = 'l';
+	} else {
+		pp->leap = LEAP_NOWARNING;
+	}
+#ifdef HAVE_AUDIO
+	if (up->fd_audio)
+		sprintf(pp->a_lastcode,
+		    "%c%1X %4d %3d %02d:%02d:%02d.000 %c%x %+d %d %d %s %d %d %d %d",
+		    synchar, qual, pp->year, pp->day, pp->hour,
+		    pp->minute, pp->second, leapchar, up->dst, up->dut,
+		    minset, up->gain, up->ident, up->tai, up->burstcnt,
+		    up->mindist, up->ntstamp);
+	else
+		sprintf(pp->a_lastcode,
+		    "%c%1X %4d %3d %02d:%02d:%02d.000 %c%x %+d %d %s %d %d %d %d",
+		    synchar, qual, pp->year, pp->day, pp->hour,
+		    pp->minute, pp->second, leapchar, up->dst, up->dut,
+		    minset, up->ident, up->tai, up->burstcnt,
+		    up->mindist, up->ntstamp);
+#else
+	sprintf(pp->a_lastcode,
+	    "%c%1X %4d %3d %02d:%02d:%02d.000 %c%x %+d %d %s %d %d %d %d",
+	    synchar, qual, pp->year, pp->day, pp->hour, pp->minute,
+	    pp->second, leapchar, up->dst, up->dut, minset,
+	    up->ident, up->tai, up->burstcnt, up->mindist, up->ntstamp);
+#endif /* HAVE_AUDIO */
+	pp->lencode = strlen(pp->a_lastcode);
 
 	/*
-	 * Majority decoder. Select the character with the most
-	 * occurrences for each burst position. The distance for the
-	 * character is this number of occurrences. If no occurrences
-	 * are found, assume a miss '_'; if only a single occurrence is
-	 * found, assume a soft error '-'; if two different characters
-	 * with the same distance are found, assume a hard error '='.
-	 * The decoding distance is defined as the minimum of the
-	 * character distances.
+	 * If timestamps have been stuffed, the timecode is ipso fatso
+	 * correct and can be selected to discipline the clock.
 	 */
-	mindist = 16;
-	for (i = 0; i < 10; i++) {
+	if (temp > 0) {
+		record_clock_stats(&peer->srcadr, pp->a_lastcode);
+		refclock_receive(peer);
+	} else if (pp->sloppyclockflag & CLK_FLAG4) {
+		record_clock_stats(&peer->srcadr, pp->a_lastcode);
+	}
+#ifdef DEBUG
+	if (debug)
+		printf("chu: timecode %d %s\n", pp->lencode,
+		    pp->a_lastcode);
+#endif
+	chu_clear(peer);
+	if (up->errflg)
+		refclock_report(peer, up->errflg);
+	up->errflg = 0;
+}
+
+
+/*
+ * chu_major - majority decoder
+ */
+static int
+chu_major(
+	struct peer *peer	/* peer structure pointer */
+	)
+{
+	struct refclockproc *pp;
+	struct chuunit *up;
+
+	u_char	code[11];	/* decoded timecode */
+	l_fp	toffset, offset; /* l_fp temps */
+	int	val1, val2;	/* maximum distance */
+	int	synchar;	/* stray cat */
+	double	dtemp;
+	int	temp;
+	int	i, j, k;
+
+	pp = peer->procptr;
+	up = (struct chuunit *)pp->unitptr;
+
+	/*
+	 * Majority decoder. Each burst encodes two replications at each
+	 * digit position in the timecode. Each row of the decoding
+	 * matrix encodes the number of occurences of each digit found
+	 * at the corresponding position. The maximum over all
+	 * occurences at each position is the distance for this position
+	 * and the corresponding digit is the maximumn likelihood
+	 * candidate. If the distance is zero, assume a miss '_'; if the
+	 * distance is not more than half the total number of
+	 * occurences, assume a soft error '-'; if two different digits
+	 * with the same distance are found, assume a hard error '='.
+	 * These will later cause a format error when the timecode is
+	 * interpreted. The decoding distance is defined as the minimum
+	 * distance over the first nine digits. The tenth digit varies
+	 * over the seconds, so we don't count it.
+	 */
+	up->mindist = 16;
+	for (i = 0; i < 9; i++) {
 		val1 = val2 = 0;
 		k = 0;
 		for (j = 0; j < 16; j++) {
@@ -1199,21 +1417,30 @@ chu_poll(
 				k = j;
 			}
 		}
-		if (val1 > 0 && val1 == val2)
+		if (val1 == 0)
+			code[i] = HEX_MISS;
+		else if (val1 == val2)
 			code[i] = HEX_HARD;
-		else if (val1 < 2)
+		else if (val1 <= up->burstcnt)
 			code[i] = HEX_SOFT;
 		else
 			code[i] = k;
-		if (val1 < mindist)
-			mindist = val1;
+		if (val1 < up->mindist)
+			up->mindist = val1;
 		code[i] = hexchar[code[i]];
 	}
 	code[i] = 0;
-	if (mindist < up->burstcnt * 2 * MINDEC)
-		up->errflg |= CHU_ERR_DECODE;
+
+	/*
+	 * A valid timecode requires at least three bursts and a
+	 * decoding distance greater than half the total number of
+	 * occurences. A valid timecode also requires at least 20 valid
+	 * timestamps.
+	 */
+	if (up->burstcnt < 3 || up->mindist <= up->burstcnt)
+		up->status |= DECODE;
 	if (up->ntstamp < MINSTAMP)
-		up->errflg |= CHU_ERR_STAMP;
+		up->status |= STAMP;
 
 	/*
 	 * Compute the timecode timestamp from the days, hours and
@@ -1222,46 +1449,29 @@ chu_poll(
 	 * seconds. Note that this code relies on the filesystem time
 	 * for the years and does not use the years of the timecode.
 	 */
-	if (sscanf((char *)code, "%1x%3d%2d%2d", &synchar, &pp->day, &pp->hour,
-	    &pp->minute) != 4)
-		up->errflg |= CHU_ERR_AFORMAT;
-	sprintf(pp->a_lastcode,
-	    "%02x %4d %3d %02d:%02d:%02d %2d %2d %2d",
-	    up->errflg, pp->year, pp->day, pp->hour, pp->minute,
-	    pp->second, up->burstcnt, mindist, up->ntstamp);
-	pp->lencode = strlen(pp->a_lastcode);
-	record_clock_stats(&peer->srcadr, pp->a_lastcode);
-#ifdef DEBUG
-	if (debug > 2)
-		printf("chu: %s\n", pp->a_lastcode);
-#endif
-	if (up->errflg & (CHU_ERR_DECODE | CHU_ERR_STAMP |
-	    CHU_ERR_AFORMAT)) {
-		refclock_report(peer, CEVNT_BADREPLY);
-		chu_clear(peer);
-		return;
+	if (sscanf((char *)code, "%1x%3d%2d%2d", &synchar, &pp->day,
+	    &pp->hour, &pp->minute) != 4) {
+		up->status |= AFORMAT;
+		return (0);
+	}
+	if (up->status & (DECODE | STAMP)) {
+		up->errflg = CEVNT_BADREPLY;
+		return (0);
 	}
 	L_CLR(&offset);
 	if (!clocktime(pp->day, pp->hour, pp->minute, 0, GMT,
 	    up->tstamp[0].l_ui, &pp->yearstart, &offset.l_ui)) {
-		refclock_report(peer, CEVNT_BADTIME);
-		chu_clear(peer);
-		return;
+		up->errflg = CEVNT_BADTIME;
+		return (0);
 	}
-	pp->polls++;
-	pp->leap = LEAP_NOWARNING;
 	pp->lastref = offset;
-	pp->variance = 0;
 	for (i = 0; i < up->ntstamp; i++) {
 		toffset = offset;
 		L_SUB(&toffset, &up->tstamp[i]);
 		LFPTOD(&toffset, dtemp);
-		pp->filter[(pp->coderecv++) % pp->nstages] = dtemp +
-		    FUDGE + pp->fudgetime1;
+		SAMPLE(dtemp + FUDGE + pp->fudgetime1);
 	}
-	if (i > 0)
-		refclock_receive(peer);
-	chu_clear(peer);
+	return (i);
 }
 
 
@@ -1270,25 +1480,22 @@ chu_poll(
  */
 static void
 chu_clear(
-	struct peer *peer
+	struct peer *peer	/* peer structure pointer */
 	)
 {
 	struct refclockproc *pp;
 	struct chuunit *up;
-
-	/*
-	 * Local variables
-	 */
-	int	i, j;		/* index temps */
+	int	i, j;
 
 	pp = peer->procptr;
 	up = (struct chuunit *)pp->unitptr;
 
 	/*
-	 * Clear stuff for following minute.
+	 * Clear stuff for the minute.
 	 */
-	up->ndx = up->ntstamp = up->prevsec = 0;
-	up->errflg = 0;
+	up->ndx = up->prevsec = 0;
+	up->burstcnt = up->mindist = up->ntstamp = 0;
+	up->status &= INSYNC | INYEAR;
 	up->burstcnt = 0;
 	for (i = 0; i < 20; i++) {
 		for (j = 0; j < 16; j++)
@@ -1306,12 +1513,9 @@ chu_dist(
 	int	y		/* another octet of bits */
 	)
 {
-	/*
-	 * Local variables
-	 */
 	int	val;		/* bit count */ 
-	int	temp;		/* misc temporary */
-	int	i;		/* index temporary */
+	int	temp;
+	int	i;
 
 	/*
 	 * The distance is determined as the weight of the exclusive OR
@@ -1332,7 +1536,7 @@ chu_dist(
 }
 
 
-#ifdef AUDIO_CHU
+#ifdef HAVE_AUDIO
 /*
  * chu_gain - adjust codec gain
  *
@@ -1356,111 +1560,22 @@ chu_gain(
 	/*
 	 * Apparently, the codec uses only the high order bits of the
 	 * gain control field. Thus, it may take awhile for changes to
-	 * wiggle the hardware bits. Set the new bits in the structure
-	 * and call AUDIO_SETINFO. Upon return, the old bits are in the
-	 * structure.
+	 * wiggle the hardware bits.
 	 */
 	if (up->clipcnt == 0) {
 		up->gain += 4;
-		if (up->gain > AUDIO_MAX_GAIN)
-			up->gain = AUDIO_MAX_GAIN;
-	} else if (up->clipcnt > SAMPLE / 100) {
+		if (up->gain > 255)
+			up->gain = 255;
+	} else if (up->clipcnt > SECOND / 100) {
 		up->gain -= 4;
-		if (up->gain < AUDIO_MIN_GAIN)
-			up->gain = AUDIO_MIN_GAIN;
+		if (up->gain < 0)
+			up->gain = 0;
 	}
-	AUDIO_INITINFO(&info);
-	info.record.port = up->port;
-	info.record.gain = up->gain;
-	info.record.error = 0;
-	ioctl(chu_ctl_fd, (int)AUDIO_SETINFO, &info);
-	if (info.record.error)
-		up->errflg |= CHU_ERR_ERROR;
+	audio_gain(up->gain, up->port);
+	up->clipcnt = 0;
 }
+#endif /* HAVE_AUDIO */
 
-
-/*
- * chu_audio - initialize audio device
- *
- * This code works with SunOS 4.1.3 and Solaris 2.6; however, it is
- * believed generic and applicable to other systems with a minor twid
- * or two. All it does is open the device, set the buffer size (Solaris
- * only), preset the gain and set the input port. It assumes that the
- * codec sample rate (8000 Hz), precision (8 bits), number of channels
- * (1) and encoding (ITU-T G.711 mu-law companded) have been set by
- * default.
- */
-static int
-chu_audio(
-	)
-{
-	/*
-	 * Open audio control device
-	 */
-	if ((chu_ctl_fd = open("/dev/audioctl", O_RDWR)) < 0) {
-		perror("audioctl");
-		return(-1);
-	}
-#ifdef HAVE_SYS_AUDIOIO_H
-	/*
-	 * Set audio device parameters.
-	 */
-	AUDIO_INITINFO(&info);
-	info.record.buffer_size = AUDIO_BUFSIZ;
-	if (ioctl(chu_ctl_fd, (int)AUDIO_SETINFO, &info) < 0) {
-		perror("AUDIO_SETINFO");
-		close(chu_ctl_fd);
-		return(-1);
-	}
-#endif /* HAVE_SYS_AUDIOIO_H */
-#ifdef DEBUG
-	chu_debug();
-#endif /* DEBUG */
-	return(0);
-}
-
-
-#ifdef DEBUG
-/*
- * chu_debug - display audio parameters
- *
- * This code doesn't really do anything, except satisfy curiousity and
- * verify the ioctl's work.
- */
-static void
-chu_debug(
-	)
-{
-	if (debug == 0)
-		return;
-#ifdef HAVE_SYS_AUDIOIO_H
-	ioctl(chu_ctl_fd, (int)AUDIO_GETDEV, &device);
-	printf("chu: name %s, version %s, config %s\n",
-	    device.name, device.version, device.config);
-#endif /* HAVE_SYS_AUDIOIO_H */
-	ioctl(chu_ctl_fd, (int)AUDIO_GETINFO, &info);
-	printf(
-	    "chu: samples %d, channels %d, precision %d, encoding %d\n",
-	    info.record.sample_rate, info.record.channels,
-	    info.record.precision, info.record.encoding);
-#ifdef HAVE_SYS_AUDIOIO_H
-	printf("chu: gain %d, port %d, buffer %d\n",
-	    info.record.gain, info.record.port,
-	    info.record.buffer_size);
-#else /* HAVE_SYS_AUDIOIO_H */
-	printf("chu: gain %d, port %d\n",
-	    info.record.gain, info.record.port);
-#endif /* HAVE_SYS_AUDIOIO_H */
-	printf(
-	    "chu: samples %d, eof %d, pause %d, error %d, waiting %d, balance %d\n",
-	    info.record.samples, info.record.eof,
-	    info.record.pause, info.record.error,
-	    info.record.waiting, info.record.balance);
-	printf("chu: monitor %d, muted %d\n",
-	    info.monitor_gain, info.output_muted);
-}
-#endif /* DEBUG */
-#endif /* AUDIO_CHU */
 
 #else
 int refclock_chu_bs;

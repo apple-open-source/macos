@@ -7,6 +7,7 @@
 #include "ntlm.h"
 #include "smbencrypt.h"
 #include "smbbyteorder.h"
+#include "fetchmail.h"
 
 char versionString[] ="libntlm version 0.21";
 
@@ -162,7 +163,7 @@ void dumpSmbNtlmAuthResponse(FILE *fp, tSmbNtlmAuthResponse *response)
 
 void buildSmbNtlmAuthRequest(tSmbNtlmAuthRequest *request, char *user, char *domain)
   {
-    char *u = strdup(user);
+    char *u = xstrdup(user);
     char *p = strchr(u,'@');
     
     if (p)
@@ -185,9 +186,9 @@ void buildSmbNtlmAuthResponse(tSmbNtlmAuthChallenge *challenge, tSmbNtlmAuthResp
   {
     uint8 lmRespData[24];
     uint8 ntRespData[24];
-    char *d = strdup(GetUnicodeString(challenge,uDomain));
+    char *d = xstrdup(GetUnicodeString(challenge,uDomain));
     char *domain = d;
-    char *u = strdup(user);
+    char *u = xstrdup(user);
     char *p = strchr(u,'@');
     
     if (p)

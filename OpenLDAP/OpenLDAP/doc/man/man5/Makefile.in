@@ -1,0 +1,7 @@
+# $OpenLDAP: pkg/ldap/doc/man/man5/Makefile.in,v 1.5 2002/01/04 20:17:34 kurt Exp $
+## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+## COPYING RESTRICTIONS APPLY, See COPYRIGHT file
+##
+## man5 Makefile.in for OpenLDAP
+
+MANSECT=5

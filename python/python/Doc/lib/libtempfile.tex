@@ -1,0 +1,78 @@
+\section{\module{tempfile} ---
+         Generate temporary file names}
+
+\declaremodule{standard}{tempfile}
+\modulesynopsis{Generate temporary file names.}
+
+\indexii{temporary}{file name}
+\indexii{temporary}{file}
+
+
+This module generates temporary file names.  It is not \UNIX{} specific,
+but it may require some help on non-\UNIX{} systems.
+
+The module defines the following user-callable functions:
+
+\begin{funcdesc}{mktemp}{\optional{suffix}}
+Return a unique temporary filename.  This is an absolute pathname of a
+file that does not exist at the time the call is made.  No two calls
+will return the same filename.  \var{suffix}, if provided, is used as
+the last part of the generated file name.  This can be used to provide
+a filename extension or other identifying information that may be
+useful on some platforms.
+\end{funcdesc}
+
+\begin{funcdesc}{TemporaryFile}{\optional{mode\optional{,
+                                bufsize\optional{, suffix}}}}
+Return a file (or file-like) object that can be used as a temporary
+storage area.  The file is created in the most secure manner available
+in the appropriate temporary directory for the host platform.  Under
+\UNIX, the directory entry to the file is removed so that it is secure
+against attacks which involve creating symbolic links to the file or
+replacing the file with a symbolic link to some other file.  For other
+platforms, which don't allow removing the directory entry while the
+file is in use, the file is automatically deleted as soon as it is
+closed (including an implicit close when it is garbage-collected).
+
+The \var{mode} parameter defaults to \code{'w+b'} so that the file
+created can be read and written without being closed.  Binary mode is
+used so that it behaves consistently on all platforms without regard
+for the data that is stored.  \var{bufsize} defaults to \code{-1},
+meaning that the operating system default is used.  \var{suffix} is
+passed to \function{mktemp()}.
+\end{funcdesc}
+
+The module uses two global variables that tell it how to construct a
+temporary name.  The caller may assign values to them; by default they
+are initialized at the first call to \function{mktemp()}.
+
+\begin{datadesc}{tempdir}
+When set to a value other than \code{None}, this variable defines the
+directory in which filenames returned by \function{mktemp()} reside.
+The default is taken from the environment variable \envvar{TMPDIR}; if
+this is not set, either \file{/usr/tmp} is used (on \UNIX), or the
+current working directory (all other systems).  No check is made to
+see whether its value is valid.
+\end{datadesc}
+
+\begin{funcdesc}{gettempprefix}{}
+Return the filename prefix used to create temporary files.  This does
+not contain the directory component.  Using this function is preferred
+over using the \code{template} variable directly.
+\versionadded{1.5.2}
+\end{funcdesc}
+
+\begin{datadesc}{template}
+\deprecated{2.0}{Use \function{gettempprefix()} instead.}
+When set to a value other than \code{None}, this variable defines the
+prefix of the final component of the filenames returned by
+\function{mktemp()}.  A string of decimal digits is added to generate
+unique filenames.  The default is either \file{@\var{pid}.} where
+\var{pid} is the current process ID (on \UNIX),
+\file{\textasciitilde\var{pid}-} on Windows NT, \file{Python-Tmp-} on
+MacOS, or \file{tmp} (all other systems).
+
+Older versions of this module used to require that \code{template} be
+set to \code{None} after a call to \function{os.fork()}; this has not
+been necessary since version 1.5.2.
+\end{datadesc}

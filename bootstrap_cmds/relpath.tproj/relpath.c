@@ -31,12 +31,12 @@
  * START_DIR and END_PATH are sub-directories of DIR;
  * otherwise, emit an absolute path to END_PATH.
  */
-#import	<stdio.h>
-#import <sys/types.h>
-#import <sys/stat.h>
-#import <sys/param.h>
-#import	<strings.h>
-#import	<libc.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/param.h>
+#include <strings.h>
+#include <libc.h>
 
 static int is_prefix(const char *path1, const char *path2);
 static char *abspath(const char *opath, char *absbuf);

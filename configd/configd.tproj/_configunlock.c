@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,9 +40,10 @@ static void
 _notifyWatchers()
 {
 	CFIndex			keyCnt;
-	void			**keys;
+	const void		**keys;
 
-	if ((keyCnt = CFSetGetCount(changedKeys)) == 0)
+	keyCnt = CFSetGetCount(changedKeys);
+	if (keyCnt == 0)
 		return;		/* if nothing to do */
 
 	keys = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
@@ -51,7 +52,7 @@ _notifyWatchers()
 		CFDictionaryRef		dict;
 		CFArrayRef		sessionsWatchingKey;
 		CFIndex			watcherCnt;
-		void			**watchers;
+		const void		**watchers;
 		CFDictionaryRef		info;
 		CFMutableDictionaryRef	newInfo;
 		CFArrayRef		changes;
@@ -69,52 +70,54 @@ _notifyWatchers()
 		 */
 		sessionsWatchingKey = CFDictionaryGetValue(dict, kSCDWatchers);
 		watcherCnt = CFArrayGetCount(sessionsWatchingKey);
-		watchers   = CFAllocatorAllocate(NULL, watcherCnt * sizeof(CFNumberRef), 0);
-		CFArrayGetValues(sessionsWatchingKey,
-				 CFRangeMake(0, CFArrayGetCount(sessionsWatchingKey)),
-				 watchers);
-		while (--watcherCnt >= 0) {
-			CFStringRef	sessionKey;
+		if (watcherCnt > 0) {
+			watchers   = CFAllocatorAllocate(NULL, watcherCnt * sizeof(CFNumberRef), 0);
+			CFArrayGetValues(sessionsWatchingKey,
+					 CFRangeMake(0, CFArrayGetCount(sessionsWatchingKey)),
+					 watchers);
+			while (--watcherCnt >= 0) {
+				CFStringRef	sessionKey;
 
-			sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@"), watchers[watcherCnt]);
-			info = CFDictionaryGetValue(sessionData, sessionKey);
-			if (info) {
-				newInfo = CFDictionaryCreateMutableCopy(NULL, 0, info);
-			} else {
-				newInfo = CFDictionaryCreateMutable(NULL,
-								    0,
-								    &kCFTypeDictionaryKeyCallBacks,
-								    &kCFTypeDictionaryValueCallBacks);
+				sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@"), watchers[watcherCnt]);
+				info = CFDictionaryGetValue(sessionData, sessionKey);
+				if (info) {
+					newInfo = CFDictionaryCreateMutableCopy(NULL, 0, info);
+				} else {
+					newInfo = CFDictionaryCreateMutable(NULL,
+									    0,
+									    &kCFTypeDictionaryKeyCallBacks,
+									    &kCFTypeDictionaryValueCallBacks);
+				}
+
+				changes = CFDictionaryGetValue(newInfo, kSCDChangedKeys);
+				if (changes) {
+					newChanges = CFArrayCreateMutableCopy(NULL, 0, changes);
+				} else {
+					newChanges = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+				}
+
+				if (CFArrayContainsValue(newChanges,
+							 CFRangeMake(0, CFArrayGetCount(newChanges)),
+							 (CFStringRef)keys[keyCnt]) == FALSE) {
+					CFArrayAppendValue(newChanges, (CFStringRef)keys[keyCnt]);
+				}
+				CFDictionarySetValue(newInfo, kSCDChangedKeys, newChanges);
+				CFRelease(newChanges);
+				CFDictionarySetValue(sessionData, sessionKey, newInfo);
+				CFRelease(newInfo);
+				CFRelease(sessionKey);
+
+				/*
+				 * flag this session as needing a kick
+				 */
+				if (needsNotification == NULL)
+					needsNotification = CFSetCreateMutable(NULL,
+									       0,
+									       &kCFTypeSetCallBacks);
+				CFSetAddValue(needsNotification, watchers[watcherCnt]);
 			}
-
-			changes = CFDictionaryGetValue(newInfo, kSCDChangedKeys);
-			if (changes) {
-				newChanges = CFArrayCreateMutableCopy(NULL, 0, changes);
-			} else {
-				newChanges = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-			}
-
-			if (CFArrayContainsValue(newChanges,
-						 CFRangeMake(0, CFArrayGetCount(newChanges)),
-						 (CFStringRef)keys[keyCnt]) == FALSE) {
-				CFArrayAppendValue(newChanges, (CFStringRef)keys[keyCnt]);
-			}
-			CFDictionarySetValue(newInfo, kSCDChangedKeys, newChanges);
-			CFRelease(newChanges);
-			CFDictionarySetValue(sessionData, sessionKey, newInfo);
-			CFRelease(newInfo);
-			CFRelease(sessionKey);
-
-			/*
-			 * flag this session as needing a kick
-			 */
-			if (needsNotification == NULL)
-				needsNotification = CFSetCreateMutable(NULL,
-								       0,
-								       &kCFTypeSetCallBacks);
-			CFSetAddValue(needsNotification, watchers[watcherCnt]);
+			CFAllocatorDeallocate(NULL, watchers);
 		}
-		CFAllocatorDeallocate(NULL, watchers);
 	}
 	CFAllocatorDeallocate(NULL, keys);
 
@@ -132,9 +135,10 @@ static void
 _processDeferredRemovals()
 {
 	CFIndex			keyCnt;
-	void			**keys;
+	const void		**keys;
 
-	if ((keyCnt = CFSetGetCount(deferredRemovals)) == 0)
+	keyCnt = CFSetGetCount(deferredRemovals);
+	if (keyCnt == 0)
 		return;		/* if nothing to do */
 
 	keys = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
@@ -142,7 +146,7 @@ _processDeferredRemovals()
 	while (--keyCnt >= 0) {
 		CFDictionaryApplyFunction(sessionData,
 					  (CFDictionaryApplierFunction)_removeRegexWatchersBySession,
-					  keys[keyCnt]);
+					  (void *)keys[keyCnt]);
 	}
 	CFAllocatorDeallocate(NULL, keys);
 

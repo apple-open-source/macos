@@ -72,7 +72,7 @@ void ppp_proto_free(void *data);
 #define LOGVAL 		LOG_DEBUG
 #define LOG(text) 	log(LOGVAL, text)
 #define LOGDBG(ifp, text) \
-    if (ifp->if_flags & IFF_DEBUG) {	\
+    if ((ifp)->if_flags & IFF_DEBUG) {	\
         log text; 		\
     }
 

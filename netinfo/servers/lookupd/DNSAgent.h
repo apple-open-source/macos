@@ -35,12 +35,15 @@
 #import "LUDictionary.h"
 #import "LUAgent.h"
 #import <NetInfo/dns.h>
+#import <NetInfo/sdns.h>
 
 @interface DNSAgent : LUAgent
 {
 	LUDictionary *stats;
-	dns_handle_t *dns;
+	sdns_handle_t *dns;
 	BOOL allHostsEnabled;
+	BOOL localMulticast;
+	BOOL qualifyLocal;
 }
 
 - (char **)searchList;

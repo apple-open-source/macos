@@ -1161,7 +1161,6 @@ finish_translation_unit ()
     poplevel (0, 0, 0);
   while (current_namespace != global_namespace)
     pop_namespace ();
-  objc_finish ();  
   finish_file ();
 }
 

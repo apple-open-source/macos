@@ -1,5 +1,7 @@
 /* Target-dependent code for Mitsubishi D10V, for GDB.
-   Copyright (C) 1996, 1997, 2000 Free Software Foundation, Inc.
+
+   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -35,12 +37,10 @@
 #include "objfiles.h"
 #include "language.h"
 #include "arch-utils.h"
+#include "regcache.h"
 
 #include "floatformat.h"
 #include "sim-d10v.h"
-
-#undef XMALLOC
-#define XMALLOC(TYPE) ((TYPE*) xmalloc (sizeof (TYPE)))
 
 struct frame_extra_info
   {
@@ -62,7 +62,7 @@ struct gdbarch_tdep
 
 #define DMEM_START	0x2000000
 #define IMEM_START	0x1000000
-#define STACK_START	0x0007ffe
+#define STACK_START	0x200bffe
 
 /* d10v register names. */
 
@@ -94,14 +94,16 @@ static void d10v_eva_get_trace_data (void);
 static int prologue_find_regs (unsigned short op, struct frame_info *fi,
 			       CORE_ADDR addr);
 
-extern void d10v_frame_init_saved_regs (struct frame_info *);
+static void d10v_frame_init_saved_regs (struct frame_info *);
 
 static void do_d10v_pop_frame (struct frame_info *fi);
 
-int
+static int
 d10v_frame_chain_valid (CORE_ADDR chain, struct frame_info *frame)
 {
-  return ((chain) != 0 && (frame) != 0 && (frame)->pc > IMEM_START);
+  return ((chain) != 0 && (frame) != 0
+	  && (frame)->pc > IMEM_START
+	  && !inside_entry_file (FRAME_SAVED_PC (frame)));
 }
 
 static CORE_ADDR
@@ -117,14 +119,38 @@ d10v_stack_align (CORE_ADDR len)
    The d10v returns anything less than 8 bytes in size in
    registers. */
 
-int
+static int
 d10v_use_struct_convention (int gcc_p, struct type *type)
 {
-  return (TYPE_LENGTH (type) > 8);
+  long alignment;
+  int i;
+  /* The d10v only passes a struct in a register when that structure
+     has an alignment that matches the size of a register. */
+  /* If the structure doesn't fit in 4 registers, put it on the
+     stack. */
+  if (TYPE_LENGTH (type) > 8)
+    return 1;
+  /* If the struct contains only one field, don't put it on the stack
+     - gcc can fit it in one or more registers. */
+  if (TYPE_NFIELDS (type) == 1)
+    return 0;
+  alignment = TYPE_LENGTH (TYPE_FIELD_TYPE (type, 0));
+  for (i = 1; i < TYPE_NFIELDS (type); i++)
+    {
+      /* If the alignment changes, just assume it goes on the
+         stack. */
+      if (TYPE_LENGTH (TYPE_FIELD_TYPE (type, i)) != alignment)
+	return 1;
+    }
+  /* If the alignment is suitable for the d10v's 16 bit registers,
+     don't put it on the stack. */
+  if (alignment == 2 || alignment == 4)
+    return 0;
+  return 1;
 }
 
 
-unsigned char *
+static unsigned char *
 d10v_breakpoint_from_pc (CORE_ADDR *pcptr, int *lenptr)
 {
   static unsigned char breakpoint[] =
@@ -191,7 +217,20 @@ d10v_ts3_register_name (int reg_nr)
   return register_names[reg_nr];
 }
 
-/* Access the DMAP/IMAP registers in a target independent way. */
+/* Access the DMAP/IMAP registers in a target independent way.
+
+   Divide the D10V's 64k data space into four 16k segments:
+   0x0000 -- 0x3fff, 0x4000 -- 0x7fff, 0x8000 -- 0xbfff, and 
+   0xc000 -- 0xffff.
+
+   On the TS2, the first two segments (0x0000 -- 0x3fff, 0x4000 --
+   0x7fff) always map to the on-chip data RAM, and the fourth always
+   maps to I/O space.  The third (0x8000 - 0xbfff) can be mapped into
+   unified memory or instruction memory, under the control of the
+   single DMAP register.
+
+   On the TS3, there are four DMAP registers, each of which controls
+   one of the segments.  */
 
 static unsigned long
 d10v_ts2_dmap_register (int reg_nr)
@@ -274,7 +313,7 @@ d10v_ts3_register_sim_regno (int nr)
 /* Index within `registers' of the first byte of the space for
    register REG_NR.  */
 
-int
+static int
 d10v_register_byte (int reg_nr)
 {
   if (reg_nr < A0_REGNUM)
@@ -291,7 +330,7 @@ d10v_register_byte (int reg_nr)
 /* Number of bytes of storage in the actual machine representation for
    register REG_NR.  */
 
-int
+static int
 d10v_register_raw_size (int reg_nr)
 {
   if (reg_nr < A0_REGNUM)
@@ -302,97 +341,104 @@ d10v_register_raw_size (int reg_nr)
     return 2;
 }
 
-/* Number of bytes of storage in the program's representation
-   for register N.  */
-
-int
-d10v_register_virtual_size (int reg_nr)
-{
-  return TYPE_LENGTH (REGISTER_VIRTUAL_TYPE (reg_nr));
-}
-
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
 
-struct type *
+static struct type *
 d10v_register_virtual_type (int reg_nr)
 {
-  if (reg_nr >= A0_REGNUM
+  if (reg_nr == PC_REGNUM)
+    return builtin_type_void_func_ptr;
+  else if (reg_nr >= A0_REGNUM
       && reg_nr < (A0_REGNUM + NR_A_REGS))
     return builtin_type_int64;
-  else if (reg_nr == PC_REGNUM
-	   || reg_nr == SP_REGNUM)
-    return builtin_type_int32;
   else
     return builtin_type_int16;
 }
 
-/* convert $pc and $sp to/from virtual addresses */
-int
-d10v_register_convertible (int nr)
-{
-  return ((nr) == PC_REGNUM || (nr) == SP_REGNUM);
-}
-
-void
-d10v_register_convert_to_virtual (int regnum, struct type *type, char *from,
-				  char *to)
-{
-  ULONGEST x = extract_unsigned_integer (from, REGISTER_RAW_SIZE (regnum));
-  if (regnum == PC_REGNUM)
-    x = (x << 2) | IMEM_START;
-  else
-    x |= DMEM_START;
-  store_unsigned_integer (to, TYPE_LENGTH (type), x);
-}
-
-void
-d10v_register_convert_to_raw (struct type *type, int regnum, char *from,
-			      char *to)
-{
-  ULONGEST x = extract_unsigned_integer (from, TYPE_LENGTH (type));
-  x &= 0x3ffff;
-  if (regnum == PC_REGNUM)
-    x >>= 2;
-  store_unsigned_integer (to, 2, x);
-}
-
-
-CORE_ADDR
+static CORE_ADDR
 d10v_make_daddr (CORE_ADDR x)
 {
   return ((x) | DMEM_START);
 }
 
-CORE_ADDR
+static CORE_ADDR
 d10v_make_iaddr (CORE_ADDR x)
 {
   return (((x) << 2) | IMEM_START);
 }
 
-int
+static int
 d10v_daddr_p (CORE_ADDR x)
 {
   return (((x) & 0x3000000) == DMEM_START);
 }
 
-int
+static int
 d10v_iaddr_p (CORE_ADDR x)
 {
   return (((x) & 0x3000000) == IMEM_START);
 }
 
 
-CORE_ADDR
+static CORE_ADDR
 d10v_convert_iaddr_to_raw (CORE_ADDR x)
 {
   return (((x) >> 2) & 0xffff);
 }
 
-CORE_ADDR
+static CORE_ADDR
 d10v_convert_daddr_to_raw (CORE_ADDR x)
 {
   return ((x) & 0xffff);
+}
+
+static void
+d10v_address_to_pointer (struct type *type, void *buf, CORE_ADDR addr)
+{
+  /* Is it a code address?  */
+  if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
+      || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD)
+    {
+      store_unsigned_integer (buf, TYPE_LENGTH (type), 
+                              d10v_convert_iaddr_to_raw (addr));
+    }
+  else
+    {
+      /* Strip off any upper segment bits.  */
+      store_unsigned_integer (buf, TYPE_LENGTH (type), 
+                              d10v_convert_daddr_to_raw (addr));
+    }
+}
+
+static CORE_ADDR
+d10v_pointer_to_address (struct type *type, void *buf)
+{
+  CORE_ADDR addr = extract_address (buf, TYPE_LENGTH (type));
+
+  /* Is it a code address?  */
+  if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
+      || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD
+      || TYPE_CODE_SPACE (TYPE_TARGET_TYPE (type)))
+    return d10v_make_iaddr (addr);
+  else
+    return d10v_make_daddr (addr);
+}
+
+static CORE_ADDR
+d10v_integer_to_address (struct type *type, void *buf)
+{
+  LONGEST val;
+  val = unpack_long (type, buf);
+  if (TYPE_CODE (type) == TYPE_CODE_INT
+      && TYPE_LENGTH (type) <= TYPE_LENGTH (builtin_type_void_data_ptr))
+    /* Convert small integers that would would be directly copied into
+       a pointer variable into an address pointing into data space.  */
+    return d10v_make_daddr (val & 0xffff);
+  else
+    /* The value is too large to fit in a pointer.  Assume this was
+       intentional and that the user in fact specified a raw address.  */
+    return val;
 }
 
 /* Store the address of the place in which to copy the structure the
@@ -401,7 +447,7 @@ d10v_convert_daddr_to_raw (CORE_ADDR x)
    We store structs through a pointer passed in the first Argument
    register. */
 
-void
+static void
 d10v_store_struct_return (CORE_ADDR addr, CORE_ADDR sp)
 {
   write_register (ARG1_REGNUM, (addr));
@@ -412,7 +458,7 @@ d10v_store_struct_return (CORE_ADDR addr, CORE_ADDR sp)
 
    Things always get returned in RET1_REGNUM, RET2_REGNUM, ... */
 
-void
+static void
 d10v_store_return_value (struct type *type, char *valbuf)
 {
   write_register_bytes (REGISTER_BYTE (RET1_REGNUM),
@@ -424,7 +470,7 @@ d10v_store_return_value (struct type *type, char *valbuf)
    the address in which a function should return its structure value,
    as a CORE_ADDR (or an expression that can be used as one).  */
 
-CORE_ADDR
+static CORE_ADDR
 d10v_extract_struct_value_address (char *regbuf)
 {
   return (extract_address ((regbuf) + REGISTER_BYTE (ARG1_REGNUM),
@@ -432,29 +478,17 @@ d10v_extract_struct_value_address (char *regbuf)
 	  | DMEM_START);
 }
 
-CORE_ADDR
+static CORE_ADDR
 d10v_frame_saved_pc (struct frame_info *frame)
 {
   return ((frame)->extra_info->return_pc);
-}
-
-CORE_ADDR
-d10v_frame_args_address (struct frame_info *fi)
-{
-  return (fi)->frame;
-}
-
-CORE_ADDR
-d10v_frame_locals_address (struct frame_info *fi)
-{
-  return (fi)->frame;
 }
 
 /* Immediately after a function call, return the saved pc.  We can't
    use frame->return_pc beause that is determined by reading R13 off
    the stack and that may not be written yet. */
 
-CORE_ADDR
+static CORE_ADDR
 d10v_saved_pc_after_call (struct frame_info *frame)
 {
   return ((read_register (LR_REGNUM) << 2)
@@ -464,7 +498,7 @@ d10v_saved_pc_after_call (struct frame_info *frame)
 /* Discard from the stack the innermost frame, restoring all saved
    registers.  */
 
-void
+static void
 d10v_pop_frame (void)
 {
   generic_pop_current_frame (do_d10v_pop_frame);
@@ -543,7 +577,7 @@ check_prologue (unsigned short op)
   return 0;
 }
 
-CORE_ADDR
+static CORE_ADDR
 d10v_skip_prologue (CORE_ADDR pc)
 {
   unsigned long op;
@@ -611,7 +645,7 @@ d10v_skip_prologue (CORE_ADDR pc)
    INIT_EXTRA_FRAME_INFO and INIT_FRAME_PC will be called for the new frame.
  */
 
-CORE_ADDR
+static CORE_ADDR
 d10v_frame_chain (struct frame_info *fi)
 {
   d10v_frame_init_saved_regs (fi);
@@ -633,7 +667,7 @@ d10v_frame_chain (struct frame_info *fi)
 				     REGISTER_RAW_SIZE (FP_REGNUM)))
     return (CORE_ADDR) 0;
 
-  return D10V_MAKE_DADDR (read_memory_unsigned_integer (fi->saved_regs[FP_REGNUM],
+  return d10v_make_daddr (read_memory_unsigned_integer (fi->saved_regs[FP_REGNUM],
 					    REGISTER_RAW_SIZE (FP_REGNUM)));
 }
 
@@ -710,7 +744,7 @@ prologue_find_regs (unsigned short op, struct frame_info *fi, CORE_ADDR addr)
    in the stack frame.  sp is even more special: the address we return
    for it IS the sp for the next frame. */
 
-void
+static void
 d10v_frame_init_saved_regs (struct frame_info *fi)
 {
   CORE_ADDR fp, pc;
@@ -777,7 +811,7 @@ d10v_frame_init_saved_regs (struct frame_info *fi)
   fi->extra_info->size = -next_addr;
 
   if (!(fp & 0xffff))
-    fp = D10V_MAKE_DADDR (read_register (SP_REGNUM));
+    fp = d10v_make_daddr (read_register (SP_REGNUM));
 
   for (i = 0; i < NUM_REGS - 1; i++)
     if (fi->saved_regs[i])
@@ -788,11 +822,11 @@ d10v_frame_init_saved_regs (struct frame_info *fi)
   if (fi->saved_regs[LR_REGNUM])
     {
       CORE_ADDR return_pc = read_memory_unsigned_integer (fi->saved_regs[LR_REGNUM], REGISTER_RAW_SIZE (LR_REGNUM));
-      fi->extra_info->return_pc = D10V_MAKE_IADDR (return_pc);
+      fi->extra_info->return_pc = d10v_make_iaddr (return_pc);
     }
   else
     {
-      fi->extra_info->return_pc = D10V_MAKE_IADDR (read_register (LR_REGNUM));
+      fi->extra_info->return_pc = d10v_make_iaddr (read_register (LR_REGNUM));
     }
 
   /* th SP is not normally (ever?) saved, but check anyway */
@@ -811,7 +845,7 @@ d10v_frame_init_saved_regs (struct frame_info *fi)
     }
 }
 
-void
+static void
 d10v_init_extra_frame_info (int fromleaf, struct frame_info *fi)
 {
   fi->extra_info = (struct frame_extra_info *)
@@ -840,7 +874,7 @@ show_regs (char *args, int from_tty)
   int a;
   printf_filtered ("PC=%04lx (0x%lx) PSW=%04lx RPT_S=%04lx RPT_E=%04lx RPT_C=%04lx\n",
 		   (long) read_register (PC_REGNUM),
-		   (long) D10V_MAKE_IADDR (read_register (PC_REGNUM)),
+		   (long) d10v_make_iaddr (read_register (PC_REGNUM)),
 		   (long) read_register (PSW_REGNUM),
 		   (long) read_register (24),
 		   (long) read_register (25),
@@ -894,64 +928,58 @@ show_regs (char *args, int from_tty)
   printf_filtered ("\n");
 }
 
-CORE_ADDR
-d10v_read_pc (int pid)
+static CORE_ADDR
+d10v_read_pc (ptid_t ptid)
 {
-  int save_pid;
+  ptid_t save_ptid;
   CORE_ADDR pc;
   CORE_ADDR retval;
 
-  save_pid = inferior_pid;
-  inferior_pid = pid;
+  save_ptid = inferior_ptid;
+  inferior_ptid = ptid;
   pc = (int) read_register (PC_REGNUM);
-  inferior_pid = save_pid;
-  retval = D10V_MAKE_IADDR (pc);
+  inferior_ptid = save_ptid;
+  retval = d10v_make_iaddr (pc);
   return retval;
 }
 
-void
-d10v_write_pc (CORE_ADDR val, int pid)
+static void
+d10v_write_pc (CORE_ADDR val, ptid_t ptid)
 {
-  int save_pid;
+  ptid_t save_ptid;
 
-  save_pid = inferior_pid;
-  inferior_pid = pid;
-  write_register (PC_REGNUM, D10V_CONVERT_IADDR_TO_RAW (val));
-  inferior_pid = save_pid;
+  save_ptid = inferior_ptid;
+  inferior_ptid = ptid;
+  write_register (PC_REGNUM, d10v_convert_iaddr_to_raw (val));
+  inferior_ptid = save_ptid;
 }
 
-CORE_ADDR
+static CORE_ADDR
 d10v_read_sp (void)
 {
-  return (D10V_MAKE_DADDR (read_register (SP_REGNUM)));
+  return (d10v_make_daddr (read_register (SP_REGNUM)));
 }
 
-void
+static void
 d10v_write_sp (CORE_ADDR val)
 {
-  write_register (SP_REGNUM, D10V_CONVERT_DADDR_TO_RAW (val));
+  write_register (SP_REGNUM, d10v_convert_daddr_to_raw (val));
 }
 
-void
-d10v_write_fp (CORE_ADDR val)
-{
-  write_register (FP_REGNUM, D10V_CONVERT_DADDR_TO_RAW (val));
-}
-
-CORE_ADDR
+static CORE_ADDR
 d10v_read_fp (void)
 {
-  return (D10V_MAKE_DADDR (read_register (FP_REGNUM)));
+  return (d10v_make_daddr (read_register (FP_REGNUM)));
 }
 
 /* Function: push_return_address (pc)
    Set up the return address for the inferior function call.
    Needed for targets where we don't actually execute a JSR/BSR instruction */
 
-CORE_ADDR
+static CORE_ADDR
 d10v_push_return_address (CORE_ADDR pc, CORE_ADDR sp)
 {
-  write_register (LR_REGNUM, D10V_CONVERT_IADDR_TO_RAW (CALL_DUMMY_ADDRESS ()));
+  write_register (LR_REGNUM, d10v_convert_iaddr_to_raw (CALL_DUMMY_ADDRESS ()));
   return sp;
 }
 
@@ -986,14 +1014,14 @@ pop_stack_item (struct stack_item *si)
 {
   struct stack_item *dead = si;
   si = si->prev;
-  free (dead->data);
-  free (dead);
+  xfree (dead->data);
+  xfree (dead);
   return si;
 }
 
 
-CORE_ADDR
-d10v_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+static CORE_ADDR
+d10v_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		     int struct_return, CORE_ADDR struct_addr)
 {
   int i;
@@ -1003,44 +1031,11 @@ d10v_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
   /* Fill in registers and arg lists */
   for (i = 0; i < nargs; i++)
     {
-      value_ptr arg = args[i];
+      struct value *arg = args[i];
       struct type *type = check_typedef (VALUE_TYPE (arg));
       char *contents = VALUE_CONTENTS (arg);
       int len = TYPE_LENGTH (type);
       /* printf ("push: type=%d len=%d\n", type->code, len); */
-      if (TYPE_CODE (type) == TYPE_CODE_PTR)
-	{
-	  /* pointers require special handling - first convert and
-	     then store */
-	  long val = extract_signed_integer (contents, len);
-	  len = 2;
-	  if (TYPE_TARGET_TYPE (type)
-	      && (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC))
-	    {
-	      /* function pointer */
-	      val = D10V_CONVERT_IADDR_TO_RAW (val);
-	    }
-	  else if (D10V_IADDR_P (val))
-	    {
-	      /* also function pointer! */
-	      val = D10V_CONVERT_DADDR_TO_RAW (val);
-	    }
-	  else
-	    {
-	      /* data pointer */
-	      val &= 0xFFFF;
-	    }
-	  if (regnum <= ARGN_REGNUM)
-	    write_register (regnum++, val & 0xffff);
-	  else
-	    {
-	      char ptr[2];
-	      /* arg will go onto stack */
-	      store_address (ptr, 2, val & 0xffff);
-	      si = push_stack_item (si, ptr, 2);
-	    }
-	}
-      else
 	{
 	  int aligned_regnum = (regnum + 1) & ~1;
 	  if (len <= 2 && regnum <= ARGN_REGNUM)
@@ -1089,31 +1084,12 @@ d10v_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
 /* Given a return value in `regbuf' with a type `valtype', 
    extract and copy its value into `valbuf'.  */
 
-void
+static void
 d10v_extract_return_value (struct type *type, char regbuf[REGISTER_BYTES],
 			   char *valbuf)
 {
   int len;
   /*    printf("RET: TYPE=%d len=%d r%d=0x%x\n",type->code, TYPE_LENGTH (type), RET1_REGNUM - R0_REGNUM, (int) extract_unsigned_integer (regbuf + REGISTER_BYTE(RET1_REGNUM), REGISTER_RAW_SIZE (RET1_REGNUM)));  */
-  if (TYPE_CODE (type) == TYPE_CODE_PTR
-      && TYPE_TARGET_TYPE (type)
-      && (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC))
-    {
-      /* pointer to function */
-      int num;
-      short snum;
-      snum = extract_address (regbuf + REGISTER_BYTE (RET1_REGNUM), REGISTER_RAW_SIZE (RET1_REGNUM));
-      store_address (valbuf, 4, D10V_MAKE_IADDR (snum));
-    }
-  else if (TYPE_CODE (type) == TYPE_CODE_PTR)
-    {
-      /* pointer to data */
-      int num;
-      short snum;
-      snum = extract_address (regbuf + REGISTER_BYTE (RET1_REGNUM), REGISTER_RAW_SIZE (RET1_REGNUM));
-      store_address (valbuf, 4, D10V_MAKE_DADDR (snum));
-    }
-  else
     {
       len = TYPE_LENGTH (type);
       if (len == 1)
@@ -1271,13 +1247,14 @@ print_insn (CORE_ADDR memaddr, struct ui_file *stream)
 {
   /* If there's no disassembler, something is very wrong.  */
   if (tm_print_insn == NULL)
-    internal_error ("print_insn: no disassembler");
+    internal_error (__FILE__, __LINE__,
+		    "print_insn: no disassembler");
 
-  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
     tm_print_insn_info.endian = BFD_ENDIAN_BIG;
   else
     tm_print_insn_info.endian = BFD_ENDIAN_LITTLE;
-  return (*tm_print_insn) (memaddr, &tm_print_insn_info);
+  return TARGET_PRINT_INSN (memaddr, &tm_print_insn_info);
 }
 
 static void
@@ -1346,7 +1323,7 @@ d10v_eva_get_trace_data (void)
   oldsize = trace_data.size;
   trace_data.size += count;
 
-  free (tmpspace);
+  xfree (tmpspace);
 
   if (trace_display)
     display_trace (oldsize, trace_data.size);
@@ -1494,7 +1471,6 @@ d10v_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_read_pc (gdbarch, d10v_read_pc);
   set_gdbarch_write_pc (gdbarch, d10v_write_pc);
   set_gdbarch_read_fp (gdbarch, d10v_read_fp);
-  set_gdbarch_write_fp (gdbarch, d10v_write_fp);
   set_gdbarch_read_sp (gdbarch, d10v_read_sp);
   set_gdbarch_write_sp (gdbarch, d10v_write_sp);
 
@@ -1508,15 +1484,19 @@ d10v_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_register_byte (gdbarch, d10v_register_byte);
   set_gdbarch_register_raw_size (gdbarch, d10v_register_raw_size);
   set_gdbarch_max_register_raw_size (gdbarch, 8);
-  set_gdbarch_register_virtual_size (gdbarch, d10v_register_virtual_size);
+  set_gdbarch_register_virtual_size (gdbarch, generic_register_virtual_size);
   set_gdbarch_max_register_virtual_size (gdbarch, 8);
   set_gdbarch_register_virtual_type (gdbarch, d10v_register_virtual_type);
 
-  set_gdbarch_ptr_bit (gdbarch, 4 * TARGET_CHAR_BIT);
+  set_gdbarch_ptr_bit (gdbarch, 2 * TARGET_CHAR_BIT);
+  set_gdbarch_addr_bit (gdbarch, 32);
+  set_gdbarch_address_to_pointer (gdbarch, d10v_address_to_pointer);
+  set_gdbarch_pointer_to_address (gdbarch, d10v_pointer_to_address);
+  set_gdbarch_integer_to_address (gdbarch, d10v_integer_to_address);
   set_gdbarch_short_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_int_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_long_bit (gdbarch, 4 * TARGET_CHAR_BIT);
-  set_gdbarch_long_long_bit (gdbarch, 4 * TARGET_CHAR_BIT);
+  set_gdbarch_long_long_bit (gdbarch, 8 * TARGET_CHAR_BIT);
   /* NOTE: The d10v as a 32 bit ``float'' and ``double''. ``long
      double'' is 64 bits. */
   set_gdbarch_float_bit (gdbarch, 4 * TARGET_CHAR_BIT);
@@ -1524,18 +1504,19 @@ d10v_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_long_double_bit (gdbarch, 8 * TARGET_CHAR_BIT);
   switch (info.byte_order)
     {
-    case BIG_ENDIAN:
+    case BFD_ENDIAN_BIG:
       set_gdbarch_float_format (gdbarch, &floatformat_ieee_single_big);
       set_gdbarch_double_format (gdbarch, &floatformat_ieee_single_big);
       set_gdbarch_long_double_format (gdbarch, &floatformat_ieee_double_big);
       break;
-    case LITTLE_ENDIAN:
+    case BFD_ENDIAN_LITTLE:
       set_gdbarch_float_format (gdbarch, &floatformat_ieee_single_little);
       set_gdbarch_double_format (gdbarch, &floatformat_ieee_single_little);
       set_gdbarch_long_double_format (gdbarch, &floatformat_ieee_double_little);
       break;
     default:
-      internal_error ("d10v_gdbarch_init: bad byte order for float format");
+      internal_error (__FILE__, __LINE__,
+		      "d10v_gdbarch_init: bad byte order for float format");
     }
 
   set_gdbarch_use_generic_dummy_frames (gdbarch, 1);
@@ -1553,21 +1534,10 @@ d10v_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_get_saved_register (gdbarch, generic_get_saved_register);
   set_gdbarch_fix_call_dummy (gdbarch, generic_fix_call_dummy);
 
-  set_gdbarch_register_convertible (gdbarch, d10v_register_convertible);
-  set_gdbarch_register_convert_to_virtual (gdbarch, d10v_register_convert_to_virtual);
-  set_gdbarch_register_convert_to_raw (gdbarch, d10v_register_convert_to_raw);
-
   set_gdbarch_extract_return_value (gdbarch, d10v_extract_return_value);
   set_gdbarch_push_arguments (gdbarch, d10v_push_arguments);
   set_gdbarch_push_dummy_frame (gdbarch, generic_push_dummy_frame);
   set_gdbarch_push_return_address (gdbarch, d10v_push_return_address);
-
-  set_gdbarch_d10v_make_daddr (gdbarch, d10v_make_daddr);
-  set_gdbarch_d10v_make_iaddr (gdbarch, d10v_make_iaddr);
-  set_gdbarch_d10v_daddr_p (gdbarch, d10v_daddr_p);
-  set_gdbarch_d10v_iaddr_p (gdbarch, d10v_iaddr_p);
-  set_gdbarch_d10v_convert_daddr_to_raw (gdbarch, d10v_convert_daddr_to_raw);
-  set_gdbarch_d10v_convert_iaddr_to_raw (gdbarch, d10v_convert_iaddr_to_raw);
 
   set_gdbarch_store_struct_return (gdbarch, d10v_store_struct_return);
   set_gdbarch_store_return_value (gdbarch, d10v_store_return_value);
@@ -1592,8 +1562,8 @@ d10v_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_frame_chain (gdbarch, d10v_frame_chain);
   set_gdbarch_frame_chain_valid (gdbarch, d10v_frame_chain_valid);
   set_gdbarch_frame_saved_pc (gdbarch, d10v_frame_saved_pc);
-  set_gdbarch_frame_args_address (gdbarch, d10v_frame_args_address);
-  set_gdbarch_frame_locals_address (gdbarch, d10v_frame_locals_address);
+  set_gdbarch_frame_args_address (gdbarch, default_frame_address);
+  set_gdbarch_frame_locals_address (gdbarch, default_frame_address);
   set_gdbarch_saved_pc_after_call (gdbarch, d10v_saved_pc_after_call);
   set_gdbarch_frame_num_args (gdbarch, frame_num_args_unknown);
   set_gdbarch_stack_align (gdbarch, d10v_stack_align);

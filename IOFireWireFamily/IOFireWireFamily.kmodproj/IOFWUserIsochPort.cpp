@@ -31,7 +31,7 @@
 #include <IOKit/firewire/IOFWIsochPort.h>
 #include <IOKit/firewire/IOFireWireDevice.h>
 #include <IOKit/firewire/IOFireWireController.h>
-
+#include <IOKit/firewire/IOFireWireLink.h>
 #include "IOFireWireUserClient.h"
 #include "IOFWUserIsochPort.h"
 
@@ -99,26 +99,13 @@ Boolean
 IOFWUserIsochPortProxy::init(
 	IOFireWireUserClient*	inUserClient)
 {
-	fUserClient 			= inUserClient ;
-	fUserClient->retain() ;
-	
+	fUserClient 			= inUserClient ;	
 	fPortStarted			= false ;
 	fPortAllocated			= false ;
-	
-//	IOFWUserIsochPort* newPort = new IOFWUserIsochPort ;
-//	if (newPort && !newPort->init())
-//	{
-//		newPort->release() ;
-//		newPort = NULL ;
-//		
-//	}
-	
-//	fPort = newPort ;
 	fPort = NULL ;
 	
-	IOFireWireUserClientLog_(("IOFWUserIsochPortProxy::init: this=0x%08lX, fPort = %08lX\n", this, fPort)) ;
+	IOFireWireUserClientLog_("IOFWUserIsochPortProxy::init: this=%p, fPort %p, fUserClient %p\n", this, fPort, fUserClient) ;
 	
-//	return (fPort != NULL) ;
 	return true ;
 }
 
@@ -200,7 +187,7 @@ IOFWUserIsochPortProxy::start()
 		else
 			IOLog("%s %u: IOFWUserIsochPortProxt::Start(): error %x trying to allocate isoch port\n", __FILE__, __LINE__, result ) ;
 
-		IOFireWireUserClientLog_(("starting port 0x%08lX\n", this)) ;
+		IOFireWireUserClientLog_("starting port %p\n", this) ;
 
 		fPortStarted = (kIOReturnSuccess == result) ;
 	}
@@ -214,7 +201,7 @@ IOFWUserIsochPortProxy::stop()
 	IOReturn	result		= kIOReturnSuccess ;
 	if (fPortStarted)
 	{
-		IOFireWireUserClientLog_(("IOFWUserIsochPortProxy::stop: stopping port 0x%08lX\n", fPort)) ;
+		IOFireWireUserClientLog_("IOFWUserIsochPortProxy::stop: stopping port %p\n", fPort) ;
 		
 		if (!fPort)
 		{
@@ -234,19 +221,13 @@ IOFWUserIsochPortProxy::stop()
 void
 IOFWUserIsochPortProxy::free()
 {
-	IOFireWireUserClientLog_(("IOFWUserIsochPortProxy::free: this=0x%08lX, releasing fPort @ 0x%08lX\n", this, fPort)) ;
+	IOFireWireUserClientLog_("IOFWUserIsochPortProxy::free: this=%p, releasing fPort @ %p\n", this, fPort) ;
 	if (fPort)
 	{
 		fPort->release() ;
 		fPort = NULL ;
 	}
 	
-	if (fUserClient)
-	{
-		fUserClient->release() ;
-		fUserClient = NULL ;
-	}
-		
 	OSObject::free() ;
 }
 
@@ -261,6 +242,7 @@ IOFWUserIsochPortProxy::createPort()
 		newPort->release() ;
 		newPort = NULL ;
 		result = kIOReturnNoMemory ;
+		IOLog("%s %u: couldn't make newPort!\n", __FILE__, __LINE__) ;
 	}
 	
 	fPort = newPort ;
@@ -276,31 +258,26 @@ OSDefineMetaClassAndStructors(IOFWUserLocalIsochPortProxy, IOFWUserIsochPortProx
 /****************************************************************/
 
 Boolean
-IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
-	FWLocalIsochPortAllocateParams*	inParams,
-	IOFireWireUserClient*			inUserClient)
+IOFWUserLocalIsochPortProxy::initWithUserDCLProgram( FWLocalIsochPortAllocateParams* inParams, IOFireWireUserClient* inUserClient)
 {
 	if (!IOFWUserIsochPortProxy::init(inUserClient))
+	{
+		IOLog("%s %u:IOFWUserIsochPortProxy::init failed\n", __FILE__, __LINE__) ;
 		return false ;
-
-	// init for safety!
-//	fUserDCLProgramMem		= NULL ;
-//	fDCLProgramBytes		= 0 ;
-//	fKernDCLProgramBuffer	= NULL ;
-//	fUserBufferMem			= NULL ;
-//	fUserBufferMemPrepared	= false ;
+	}
 
 	fTalking				= inParams->talking ;
 	fStartEvent				= inParams->startEvent ;
 	fStartState				= inParams->startState ;
 	fStartMask				= inParams->startMask ;
+	fUserObj				= inParams->userObj ;
+    fTaskInfo.fTask 		= fUserClient->getOwningTask();
 
 	//
 	// Note: The ranges passed in must be sorted. (Should be if user space code doesn't change)
 	//zzz is this still true?
 	//
 	IOReturn		result					= kIOReturnSuccess ;
-	IOByteCount		tempLength				= 0 ;	// holds throw away value.
 
 	//
 	// Get user space range list into kernel and copy user space DCL program to a kernel buffer:
@@ -317,8 +294,11 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 															    sizeof(IOVirtualRange) * inParams->userDCLProgramRangeCount, 
 															    kIODirectionIn, fUserClient->getOwningTask() ) ;
 	if (!programRangesMem)
+	{
+		IOLog("%s %u: Couldn't create programRangesMem\n", __FILE__, __LINE__) ;
 		result = kIOReturnNoMemory ;
-	
+	}
+		
 	// copy user space range list to in kernel list
 	IOByteCount		programStartOffset 	= 0 ;
 	if ( kIOReturnSuccess == result )
@@ -339,7 +319,7 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 								 inParams->userDCLProgramRangeCount, 
 								 & programStartOffset))
 		{
-			IOFireWireUserClientLog_(("IOFWUserLocalIsochPortProxy::initWithUserDCLProgram: failed to find program starting point in ranges provided")) ;
+			IOFireWireUserClientLog_("IOFWUserLocalIsochPortProxy::initWithUserDCLProgram: failed to find program starting point in ranges provided") ;
 		}
 		
 		// use list to create a memory descriptor covering the memory containing the program in user space
@@ -347,8 +327,10 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 															kIODirectionOutIn, fUserClient->getOwningTask()) ;
 
 		if (!fUserDCLProgramMem)
+		{
+			IOLog("%s %u: Couldn't get fUserDCLProgramMem\n", __FILE__, __LINE__) ;
 			result = kIOReturnNoMemory ;
-			
+		}
 	}
 	
 	if ( kIOReturnSuccess == result )
@@ -363,10 +345,12 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 		fDCLProgramBytes = fUserDCLProgramMem->getLength() ;
 	
 		if ( NULL == ( fKernDCLProgramBuffer = new UInt8[ fDCLProgramBytes ] ) )
+		{
 			result = kIOReturnNoMemory ;
-
-		fKernDCLProgramStart = (DCLCommandStruct*)(fKernDCLProgramBuffer + programStartOffset) ;
-		
+			IOLog("%s %u: couldn't get fKernDCLProgramBuffer\n", __FILE__, __LINE__) ;
+		}
+		else
+			fKernDCLProgramStart = (DCLCommandStruct*)(fKernDCLProgramBuffer + programStartOffset) ;
 	}
 	
 	//
@@ -374,70 +358,74 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 	//
 	
 	// create an array to hold list of user space ranges
-	if ( kIOReturnSuccess == result )
+	if ( inParams->userDCLBufferRangeCount > 0 )
 	{
-		if ( NULL == ( bufferRanges = new IOVirtualRange[ inParams->userDCLBufferRangeCount ] ) )
-			result = kIOReturnNoMemory ;
-	}
-	
-	// create memory descriptor to cover buffer ranges array in user space
-	IOMemoryDescriptor*	bufferRangesMem = 0 ;
-	if (kIOReturnSuccess == result)
-	{
-		bufferRangesMem = IOMemoryDescriptor::withAddress((IOVirtualAddress)inParams->userDCLBufferRanges,
-														  inParams->userDCLBufferRangeCount * sizeof(IOVirtualRange),
-														  kIODirectionIn, fUserClient->getOwningTask() ) ;
-		if (!bufferRangesMem)
-			result = kIOReturnNoMemory ;
-	}
-	
-	// copy user space range list to in-kernel list
-	if ( kIOReturnSuccess == result )
-		result = bufferRangesMem->prepare() ;
-	
-	if (kIOReturnSuccess == result)
-	{
-		bufferRangesMem->readBytes(0, bufferRanges, bufferRangesMem->getLength()) ;
-		
-		// we're done with this
-		bufferRangesMem->complete() ;
-	}
-
-	if ( bufferRangesMem )
-	{
-		bufferRangesMem->release() ;
-	}
-
-	// convert ranges to be page aligned and have lengths on multiples of whole pages only
-	// IOMemoryDescripor::map() will fail otherwise...
-	for( UInt32 i=0; i < inParams->userDCLBufferRangeCount; i++ )
-	{
-		if ( !page_aligned( bufferRanges[i].address ) )
+		if ( kIOReturnSuccess == result )
 		{
-			bufferRanges[i].length += bufferRanges[i].address - trunc_page( bufferRanges[i].address ) ;
-			bufferRanges[i].address = trunc_page( bufferRanges[i].address ) ;
+			if ( NULL == ( bufferRanges = new IOVirtualRange[ inParams->userDCLBufferRangeCount ] ) )
+			{
+				result = kIOReturnNoMemory ;
+				IOLog("%s %u: couldn't get bufferRanges\n", __FILE__, __LINE__) ;
+			}
 		}
 		
-		bufferRanges[i].length = round_page( bufferRanges[i].address + bufferRanges[i].length ) - bufferRanges[i].address ;
-	}
+		// create memory descriptor to cover buffer ranges array in user space
+		IOMemoryDescriptor*	bufferRangesMem = 0 ;
+		if (kIOReturnSuccess == result)
+		{
+			bufferRangesMem = IOMemoryDescriptor::withAddress((IOVirtualAddress)inParams->userDCLBufferRanges,
+															inParams->userDCLBufferRangeCount * sizeof(IOVirtualRange),
+															kIODirectionOutIn, fUserClient->getOwningTask() ) ;
+			if (!bufferRangesMem)
+			{
+				IOLog("%s %u: couldn't get bufferRangesMem\n", __FILE__, __LINE__) ;
+				result = kIOReturnNoMemory ;
+			}
+				
+		}
+		
+		// copy user space range list to in-kernel list
+		if ( kIOReturnSuccess == result )
+			result = bufferRangesMem->prepare() ;
+		
+		if (kIOReturnSuccess == result)
+		{
+			bufferRangesMem->readBytes(0, bufferRanges, bufferRangesMem->getLength()) ;
+			
+			// we're done with this
+			bufferRangesMem->complete() ;
+		}
+	
+		if ( bufferRangesMem )
+		{
+			bufferRangesMem->release() ;
+		}
 
-	// create a memory descriptor to cover user buffers using list of virtual ranges
-	// copied from user space
-	if ( kIOReturnSuccess == result )
-	{
-		fUserBufferMem = IOMemoryDescriptor::withRanges( bufferRanges, inParams->userDCLBufferRangeCount, 
-														kIODirectionOutIn, fUserClient->getOwningTask() ) ;
 
-		if ( !fUserBufferMem )
-			result = kIOReturnNoMemory ;
+		// create a memory descriptor to cover user buffers using list of virtual ranges
+		// copied from user space
+		if ( kIOReturnSuccess == result )
+		{
+			fUserBufferMem = IOMemoryDescriptor::withRanges( bufferRanges, inParams->userDCLBufferRangeCount, 
+															kIODirectionOutIn, fUserClient->getOwningTask() ) ;
+	
+			if ( !fUserBufferMem )
+			{
+				IOLog("%s %u: couldn't get fUserBufferMem\n", __FILE__, __LINE__) ;			
+				result = kIOReturnNoMemory ;
+			}
+		}
+		
+		if ( kIOReturnSuccess == result )
+		{
+			result = fUserBufferMem->prepare( kIODirectionOutIn ) ;
+			fUserBufferMemPrepared = ( kIOReturnSuccess == result ) ;
+			if (!fUserBufferMemPrepared)
+				IOLog("%s %u:couldn't prepare mem\n", __FILE__, __LINE__) ;
+		}
+	
 	}
 	
-	if ( kIOReturnSuccess == result )
-	{
-		result = fUserBufferMem->prepare( kIODirectionOutIn ) ;
-		fUserBufferMemPrepared = ( kIOReturnSuccess == result ) ;
-	}
-
 	// allocate a buffer to hold the user space --> kernel dcl mapping table
 	if (kIOReturnSuccess == result)
 	{
@@ -445,16 +433,22 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 		fUserToKernelDCLLookupTable = new DCLCommandStruct*[ fUserToKernelDCLLookupTableLength ] ;
 				
 		if ( !fUserToKernelDCLLookupTable )
+		{
+			IOLog("%s %u: couldn't get fUserToKernelDCLLookupTable\n", __FILE__, __LINE__) ;
 			result = kIOReturnNoMemory ;
+		}
 	}		
 
-	DCLCommandStruct**	userDCLTable ;	// array
+	DCLCommandStruct**	userDCLTable = NULL ;	// array
 	if (kIOReturnSuccess == result)
 	{
 		userDCLTable = new (DCLCommandStruct*)[ fUserToKernelDCLLookupTableLength ]  ;
 
 		if (!userDCLTable)
+		{
+			IOLog("%s %u: couldn't get userDCLTable\n", __FILE__, __LINE__) ;
 			result = kIOReturnNoMemory ;
+		}
 	}
 	
 	//
@@ -469,13 +463,26 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 		// 		a. convert user next ptr's to kernel next ptr's
 		//		b. convert user data buffers to kernel data buffers
 		//		c. fill in table entry mapping user ref ID to kernel DCL		
-		fUserBufferMemMap = fUserBufferMem->map() ;
-		if ( !fUserBufferMemMap )
-		{
-			fKernDCLProgramStart = NULL ;
-			result = kIOReturnVMError ;
-		}
 
+		if ( fUserBufferMem )
+		{
+			fUserBufferMemMap = fUserBufferMem->map() ;
+			if ( !fUserBufferMemMap )
+			{
+				fKernDCLProgramStart = NULL ;
+				result = kIOReturnVMError ;
+				IOLog("%s %u: couldn't map!\n", __FILE__, __LINE__) ;
+			}
+            else
+            {
+                fTaskInfo.fDataBaseAddr = fUserBufferMemMap->getVirtualAddress();
+                fTaskInfo.fDataSize = fUserBufferMemMap->getLength();
+                // Horrible hack!!
+                fTaskInfo.fCallRefCon = fUserBufferMem;
+                        
+            }
+		}
+		
 		if (fKernDCLProgramStart)
 		{
 			DCLCommandStruct*	pCurrentKernDCL 	= fKernDCLProgramStart ;
@@ -487,13 +494,12 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 			{
 				IOByteCount			distance			= 0 ;
 				IOVirtualRange		tempBufferRange	;
-				
 
 				// add this DCL to our lookup table
 				userDCLTable[lookupTableLength] = lastNextUserDCL ;
 				lastNextUserDCL = pCurrentKernDCL->pNextDCLCommand ;
 				fUserToKernelDCLLookupTable[lookupTableLength] = pCurrentKernDCL ;
-	
+
 				// clear out any remnant garbage in compiler data field:
 				pCurrentKernDCL->compilerData = 0 ;
 	
@@ -501,28 +507,26 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 				// convert user space data buffer pointer to in-kernel data pointer
 				if (getDCLDataBuffer(pCurrentKernDCL, & tempBufferRange.address, & tempBufferRange.length))
 				{
-					if (!findOffsetInRanges( tempBufferRange.address,
-											bufferRanges,
-											inParams->userDCLBufferRangeCount,
-											& distance))
-						IOFireWireUserClientLog_(("IOFWUserLocalIsochPortProxy::initWithUserDCLProgram: couldn't find DCL data buffer in buffer ranges")) ;
-					
-					// set DCL's data pointer to point to same memory in kernel address space
-					IOVirtualAddress	baseAddr = fUserBufferMemMap->getVirtualAddress() ;
-
-					setDCLDataBuffer( pCurrentKernDCL, baseAddr + distance, tempBufferRange.length ) ;
+					if ( tempBufferRange.address != NULL && tempBufferRange.length > 0 )
+					{
+						if (!findOffsetInRanges( tempBufferRange.address,
+												bufferRanges,
+												inParams->userDCLBufferRangeCount,
+												& distance))
+						{
+							IOFireWireUserClientLog_("IOFWUserLocalIsochPortProxy::initWithUserDCLProgram: couldn't find DCL data buffer in buffer ranges") ;
+						}
+						
+						// set DCL's data pointer to point to same memory in kernel address space
+						IOVirtualAddress	baseAddr = fUserBufferMemMap->getVirtualAddress() ;
+	
+						setDCLDataBuffer( pCurrentKernDCL, baseAddr + distance, tempBufferRange.length ) ;
+					}
 				}
 	
 				// check for other DCL command types that might need conversion
 				switch( pCurrentKernDCL->opcode & ~kFWDCLOpFlagMask )
 				{
-					case kDCLPtrTimeStampOp:
-						result = convertToKernelDCL( (DCLPtrTimeStampStruct*) pCurrentKernDCL,
-													bufferRanges,
-													inParams->userDCLBufferRangeCount,
-													fUserBufferMem) ;
-						break ;
-					
 					case kDCLCallProcOp:
 						result = convertToKernelDCL( (DCLCallProcStruct*) pCurrentKernDCL,
 													 userDCLTable[lookupTableLength] ) ;
@@ -540,13 +544,14 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 				// pass through, then use that as an offset from the beginning of our
 				// kernel DCL program buffer. We then set the current DCL's next pointer to point to
 				// the proper in-kernel DCL
-				lookupTableLength++ ;
+				++lookupTableLength ;
 				
 				if ( pCurrentKernDCL->pNextDCLCommand && kIOReturnSuccess == result )
 				{
 					if ( !findOffsetInRanges( (IOVirtualAddress)( pCurrentKernDCL->pNextDCLCommand ), programRanges, inParams->userDCLProgramRangeCount, & distance ) )
 					{
-						IOFireWireUserClientLog_(("IOFWUserLocalIsochPortProxy::initWithUserDCLProgram: couldn't find DCL next ptr in program ranges")) ;
+						IOFireWireUserClientLog_("IOFWUserLocalIsochPortProxy::initWithUserDCLProgram: couldn't find DCL next ptr in program ranges") ;
+						pCurrentKernDCL->pNextDCLCommand = NULL ;
 					}
 					else
 						pCurrentKernDCL->pNextDCLCommand = (DCLCommandStruct*)(fKernDCLProgramBuffer + distance) ;
@@ -596,8 +601,7 @@ IOFWUserLocalIsochPortProxy::initWithUserDCLProgram(
 		}
 		
 	}
-	
-		
+
 	// memory descriptor makes a copy, so we can delete these
 	delete[] programRanges ;	
 	delete[] bufferRanges ;
@@ -620,6 +624,7 @@ IOFWUserLocalIsochPortProxy::free()
 		if ( fUserBufferMemMap )
 			fUserBufferMemMap->release() ;
 		
+		IOFireWireUserClientLog_("releasing fUserBufferMem, retain=%u\n", fUserBufferMem->getRetainCount()) ;
 		fUserBufferMem->release() ;
 	}
 
@@ -691,18 +696,11 @@ IOFWUserLocalIsochPortProxy::allocatePort(IOFWSpeed speed, UInt32 chan)
 	if (!fPort)
 		result = createPort() ;
 		
-	if ( result == kIOReturnSuccess && !fUserBufferMemPrepared )
+	if ( result == kIOReturnSuccess && fUserBufferMem && !fUserBufferMemPrepared )
 	{
 		result = fUserBufferMem->prepare() ;
 		fUserBufferMemPrepared = ( result == kIOReturnSuccess )  ;
 	}
-
-//	if ( result == kIOReturnSuccess )
-//	{
-//		fUserBufferMemMap = fUserBufferMem->map() ;
-//		if ( !fUserBufferMemMap )
-//			result = kIOReturnVMError ;
-//	}
 
 	if ( result == kIOReturnSuccess && !fUserDCLProgramMemPrepared )
 	{
@@ -714,7 +712,7 @@ IOFWUserLocalIsochPortProxy::allocatePort(IOFWSpeed speed, UInt32 chan)
 		result = IOFWUserIsochPortProxy::allocatePort(speed, chan) ;
 	else
 	{
-		IOFireWireUserClientLog_(("%s %u IOFWUserLocalIsochPortProxy::allocatePort: failed with error %x\n", __FILE__, __LINE__, result )) ;
+		IOFireWireUserClientLog_("%s %u IOFWUserLocalIsochPortProxy::allocatePort: failed with error %x\n", __FILE__, __LINE__, result ) ;
 		fPort->release() ;
 		fPort = NULL ;
 	}
@@ -725,20 +723,12 @@ IOFWUserLocalIsochPortProxy::allocatePort(IOFWSpeed speed, UInt32 chan)
 IOReturn
 IOFWUserLocalIsochPortProxy::releasePort()
 {
-//	IOFireWireUserClientLog_(("IOFWUserLocalIsochPortProxy::releasePort: zeroing DCL compiler data\n")) ;
-
 	IOReturn	result = kIOReturnSuccess ;
 	
 	if (fPort)
 	{
 		result = IOFWUserIsochPortProxy::releasePort() ;
 		
-//		if ( fUserBufferMemMap )
-//		{
-//			fUserBufferMemMap->release() ;
-//			fUserBufferMemMap = NULL ;
-//		}
-
 		if ( fUserBufferMemPrepared )
 		{
 			fUserBufferMem->complete() ;
@@ -758,6 +748,30 @@ IOFWUserLocalIsochPortProxy::releasePort()
 	return result ;
 }
 
+IOReturn
+IOFWUserLocalIsochPortProxy::stop()
+{
+	IOFireWireLink*		link = fUserClient->getOwner()->getController()->getLink() ;
+
+	// we are sending a stop token, but take isoch workloop lock to make sure all
+	// callbacks coming from FWIM have already been cleared out.
+
+//	workLoop->(IOWorkLoop::Action*)
+//	workLoop->closeGate() ;
+	link->closeIsochGate() ;
+
+	#if IOFIREWIREDEBUG > 0
+	IOReturn result = 
+	#endif
+	IOFireWireUserClient::sendAsyncResult( fStopTokenAsyncRef, kIOFireWireLastDCLToken, & fUserObj, 1 ) ;
+	
+	IOFireWireUserClientLogIfErr_(result, "IOFWUserLocalIsochPortProxy::stop: sendAsyncResult returned error 0x%08lX!\n", (UInt32) result) ;
+
+	IOReturn err = IOFWUserIsochPortProxy::stop() ;
+	link->openIsochGate() ;
+	
+	return err ;
+}
 
 // ============================================================
 // utility functions
@@ -787,6 +801,11 @@ IOFWUserLocalIsochPortProxy::getDCLDataBuffer(
 		case kDCLReceiveBufferOp:
 			//zzz what should I do here?
 			break ;
+		case kDCLPtrTimeStampOp:
+			*outDataBuffer		= (IOVirtualAddress)((DCLPtrTimeStamp*)inDCL)->timeStampPtr ; 
+			*outDataLength		= sizeof( *(((DCLPtrTimeStamp*)inDCL)->timeStampPtr) ) ;
+			result = true ;
+			break ;
 
 		default:
 			break ;
@@ -815,6 +834,10 @@ IOFWUserLocalIsochPortProxy::setDCLDataBuffer(
 		case kDCLSendBufferOp:
 		case kDCLReceiveBufferOp:
 			//zzz what should I do here?
+			break ;
+
+		case kDCLPtrTimeStampOp:
+			((DCLPtrTimeStamp*)inDCL)->timeStampPtr = (UInt32*)inDataBuffer ;
 			break ;
 
 		default:
@@ -904,7 +927,7 @@ IOFWUserLocalIsochPortProxy::printDCLProgram(
 				
 			case kDCLSendBufferOp:
 			case kDCLReceiveBufferOp:
-				IOLog("(DCLTransferBufferStruct) buffer=%08lX, size=%lu, packetSize=%08X, bufferOffset=%08X",
+				IOLog("(DCLTransferBufferStruct) buffer=%08lX, size=%lu, packetSize=%08X, bufferOffset=%08lX",
 					  (UInt32)((DCLTransferBufferStruct*)currentDCL)->buffer,
 					  ((DCLTransferBufferStruct*)currentDCL)->size,
 					  ((DCLTransferBufferStruct*)currentDCL)->packetSize,
@@ -939,7 +962,7 @@ IOFWUserLocalIsochPortProxy::printDCLProgram(
 					  (UInt32)((DCLUpdateDCLListStruct*)currentDCL)->dclCommandList,
 					  ((DCLUpdateDCLListStruct*)currentDCL)->numDCLCommands) ;
 				
-				for(UInt32 listIndex=0; listIndex < ((DCLUpdateDCLListStruct*)currentDCL)->numDCLCommands; listIndex++)
+				for(UInt32 listIndex=0; listIndex < ((DCLUpdateDCLListStruct*)currentDCL)->numDCLCommands; ++listIndex)
 				{
 					IOLog("%08lX ", (UInt32)(((DCLUpdateDCLListStruct*)currentDCL)->dclCommandList)[listIndex]) ;
 					IOSleep(8) ;
@@ -954,7 +977,7 @@ IOFWUserLocalIsochPortProxy::printDCLProgram(
 		}
 		
 		currentDCL = currentDCL->pNextDCLCommand ;
-		index++ ;
+		++index ;
 		IOSleep(40) ;
 	}
 	
@@ -984,36 +1007,10 @@ IOFWUserLocalIsochPortProxy::convertToKernelDCL(
 						    & (DCLCommandStruct*)inDCLCommand->pJumpDCLLabel))
 		result = kIOReturnError ;
 
-	IOFireWireUserClientLogIfErr_( result, ("couldn't convert jump DCL (inDCLCommand=0x%08lX, inDCLCommand->pJumpDCLLabel=0x%08lX)\n", (UInt32)inDCLCommand, (UInt32)inDCLCommand->pJumpDCLLabel)) ;
+	IOFireWireUserClientLogIfErr_( result, "couldn't convert jump DCL (inDCLCommand=0x%08lX, inDCLCommand->pJumpDCLLabel=0x%08lX)\n", (UInt32)inDCLCommand, (UInt32)inDCLCommand->pJumpDCLLabel) ;
 		
 	return result ;
 }
-
-
-IOReturn
-IOFWUserLocalIsochPortProxy::convertToKernelDCL(
-	DCLPtrTimeStampStruct*	inDCLCommand,
-	IOVirtualRange*			inBufferRanges,
-	UInt32					inBufferRangeCount,
-	IOMemoryDescriptor*		inKernelBufferMem)
-{
-	IOByteCount		offset ;
-	IOByteCount 	tempLength ;
-	IOReturn		result 		= kIOReturnSuccess ;
-	
-	if (!findOffsetInRanges((IOVirtualAddress)(inDCLCommand->timeStampPtr), inBufferRanges, inBufferRangeCount, & offset))
-		result = kIOReturnError ;	// this should never happen!
-
-	inDCLCommand->timeStampPtr = (UInt32*) inKernelBufferMem->getVirtualSegment(offset, & tempLength) ;
-	if (!inDCLCommand->timeStampPtr)
-		result = kIOReturnVMError ;
-	
-	if (kIOReturnSuccess != result)
-		IOFireWireUserClientLog_(("couldn't convert ptr time stamp DCL\n")) ;
-		
-	return result ;
-}
-
 
 IOReturn
 IOFWUserLocalIsochPortProxy::convertToKernelDCL(
@@ -1031,24 +1028,32 @@ IOFWUserLocalIsochPortProxy::convertToKernelDCL(
 																kIODirectionIn,
 																fUserClient->getOwningTask() ) ;
 	if (!dclListMem)
+	{
+		IOLog("%s %u: couldn't get dclListMem\n", __FILE__, __LINE__) ;
 		result = kIOReturnNoMemory ;
-
+	}
 	if ( kIOReturnSuccess == result )
 	{
 		inDCLCommand->dclCommandList = new (DCLCommandStruct*)[inDCLCommand->numDCLCommands] ;
 		if (!inDCLCommand->dclCommandList)
+		{
+			IOFireWireUserClientLog_("%s %u: couldn't allocate inDCLCommand->dclCommandList\n", __FILE__, __LINE__) ;
 			result = kIOReturnNoMemory ;
+		}
 	}
 	
 	if ( kIOReturnSuccess == result )
 	{
 		if ( dclListMem->readBytes(0, inDCLCommand->dclCommandList, listSize) < listSize )
+		{
+			IOFireWireUserClientLog_("%s %u: dclListMem->readBytes failed\n", __FILE__, __LINE__) ;
 			result = kIOReturnVMError ;
+		}
 	}
 	
 	if ( kIOReturnSuccess == result )
 	{
-		for(UInt32	index = 0; index < inDCLCommand->numDCLCommands; index++)
+		for(UInt32	index = 0; index < inDCLCommand->numDCLCommands; ++index)
 		{
 			if ( !userToKernLookup( inDCLCommand->dclCommandList[index], 
 									inUserDCLTable, 
@@ -1056,7 +1061,10 @@ IOFWUserLocalIsochPortProxy::convertToKernelDCL(
 									inTableLength,
 									inOutHint, 
 									& (inDCLCommand->dclCommandList)[index]))
+			{
+				IOFireWireUserClientLog_("%s %u: couldn't find dcl referenced in dcl list in program\n", __FILE__, __LINE__) ;
 				result = kIOReturnError ;
+			}
 		}
 	}
 	
@@ -1064,9 +1072,6 @@ IOFWUserLocalIsochPortProxy::convertToKernelDCL(
 	{
 		dclListMem->release() ;
 	}
-		
-	if (kIOReturnSuccess != result)
-		IOFireWireUserClientLog_(("couldn't convert update dcl list\n")) ;
 
 	return result ;
 }
@@ -1081,7 +1086,10 @@ IOFWUserLocalIsochPortProxy::convertToKernelDCL(
 	AsyncRefHolder*		holder	= new AsyncRefHolder ;
 	
 	if (!holder)
+	{
+		IOLog("%s %u: couldn't get holder\n", __FILE__, __LINE__) ;
 		result = kIOReturnNoMemory ;
+	}
 	else
 	{
 		(holder->asyncRef)[0] 	= 0 ;
@@ -1092,8 +1100,7 @@ IOFWUserLocalIsochPortProxy::convertToKernelDCL(
 		inDCLCommand->proc		= & (IOFWUserLocalIsochPortProxy::dclCallProcHandler) ;
 	}
 	
-	if (kIOReturnSuccess != result)
-		IOFireWireUserClientLog_(("couldn't convert call proc DCL\n")) ;
+	IOFireWireUserClientLogIfErr_(result, "couldn't convert call proc DCL\n") ;
 		
 	return result ;
 }
@@ -1119,7 +1126,7 @@ IOFWUserLocalIsochPortProxy::findOffsetInRanges(
 		else
 			*outOffset += inRanges[index].length ;
 		
-		index++ ;
+		++index ;
 	}
 	
 	return found ;
@@ -1149,15 +1156,16 @@ IOFWUserLocalIsochPortProxy::userToKernLookup(
 			*outDCLCommand = inKernDCLList[tableIndex] ;
 			inOutHint = tableIndex ;
 			if ( inDCLCommand == NULL )
-				IOFireWireUserClientLog_(("IOFWUserLocalIsochPortProxy::userToKernLookup: ")) ;
+			{
+				IOFireWireUserClientLog_("IOFWUserLocalIsochPortProxy::userToKernLookup: ") ;
+			}
 			
 			return true ;
 		}
-
 		
 	} while ( tableIndex != inOutHint ) ;
 
-	IOFireWireUserClientLog_(("IOFWUserLocalIsochPortProxy::userToKernLookup: couldn't find 0x%08lX\n", (UInt32)inDCLCommand)) ;
+	IOFireWireUserClientLog_("IOFWUserLocalIsochPortProxy::userToKernLookup: couldn't find 0x%08lX\n", (UInt32)inDCLCommand) ;
 
 	return false ;
 }
@@ -1168,33 +1176,39 @@ IOFWUserLocalIsochPortProxy::dclCallProcHandler(
 {
 	AsyncRefHolder*	holder = (AsyncRefHolder*) (((DCLCallProcStruct*)pDCLCommand)->procData) ;
 
-	#ifdef IOFIREWIREUSERCLIENTDEBUG
 	IOFWUserLocalIsochPortProxy*	me	 = (IOFWUserLocalIsochPortProxy*) holder->obj ;
-	me->fUserClient->getStatistics()->isochCallbacks->addValue( 1 ) ;
-	#endif
-	
-//	if (count++ % 100 == 0)
-//		IOFireWireUserClientLog_(("callback called 100 times\n")) ;
 
-	if ((holder->asyncRef)[0])
-	{
-//		IOFireWireUserClientLog_(("holder->asyncRef[0]=0x%08lX, callback=%08lX\n", holder->asyncRef[0], (holder->asyncRef)[kIOAsyncCalloutFuncIndex])) ;
+#if IOFIREWIREUSERCLIENTDEBUG > 0
+	if (!me->fUserClient->getStatistics())
+		panic("%s %u", __FILE__, __LINE__) ;
+		
+	me->fUserClient->getStatistics()->isochCallbacks->addValue( 1 ) ;
+#endif
 	
-		IOReturn result = IOFireWireUserClient::sendAsyncResult( holder->asyncRef,
+	if ((holder->asyncRef)[0])
+	{	
+#if IOFIREWIREUSERCLIENTDEBUG > 0
+		IOReturn result =
+#endif
+		IOFireWireUserClient::sendAsyncResult( holder->asyncRef,
 																 kIOReturnSuccess, 
-																 NULL, 0) ;
-		if (kIOReturnSuccess != result)
-			IOFireWireUserClientLog_(("IOFWUserLocalIsochPortProxy::dclCallProcHandler: sendAsyncResult returned error 0x%08lX!\n", (UInt32) result)) ;
+																 & me->fUserObj, 1) ;
+
+		IOFireWireUserClientLogIfErr_(result, "IOFWUserLocalIsochPortProxy::dclCallProcHandler: sendAsyncResult returned error 0x%08lX!\n", (UInt32) result) ;
 	}
 }
 
 IOReturn
 IOFWUserLocalIsochPortProxy::setAsyncRef_DCLCallProc(
 	OSAsyncReference		asyncRef,
-	DCLCallCommandProcPtr	inProc)
+	DCLCallCommandProcPtr	inProc )
 {
 	DCLCommandStruct*	pCurrentDCL = fKernDCLProgramStart ;
 	AsyncRefHolder*		holder ;
+	
+	// set up stop token async ref
+	IOFireWireUserClient::setAsyncReference( asyncRef, (mach_port_t) asyncRef[0], (void*)inProc, (void*)0xFFFFFFFF ) ;
+	bcopy( asyncRef, fStopTokenAsyncRef, sizeof( OSAsyncReference ) ) ;
 	
 	// we walk the DCL program looking for callproc DCLs. 
 	// when we find them, we update their asyncRef's as appropriate
@@ -1218,31 +1232,28 @@ IOFWUserLocalIsochPortProxy::setAsyncRef_DCLCallProc(
 }
 
 IOReturn
-IOFWUserLocalIsochPortProxy::modifyJumpDCL(
-	UInt32				inJumpDCLCompilerData,
-	UInt32				inLabelDCLCompilerData)
+IOFWUserLocalIsochPortProxy::modifyJumpDCL( UInt32 inJumpDCLCompilerData, UInt32 inLabelDCLCompilerData)
 {
-	inJumpDCLCompilerData-- ;
-	inLabelDCLCompilerData-- ;
+	--inJumpDCLCompilerData ;
+	--inLabelDCLCompilerData ;
 
 	// be sure opcodes exist
 	if ( inJumpDCLCompilerData > fUserToKernelDCLLookupTableLength || inLabelDCLCompilerData > fUserToKernelDCLLookupTableLength )
 	{
-		IOFireWireUserClientLog_(("IOFWUserLocalIsochPort::modifyJumpDCL: DCL index (inJumpDCLCompilerData=%u, inLabelDCLCompilerData=%u) past end of lookup table (length=%u)\n", 
+		IOFireWireUserClientLog_("IOFWUserLocalIsochPort::modifyJumpDCL: DCL index (inJumpDCLCompilerData=%lu, inLabelDCLCompilerData=%lu) past end of lookup table (length=%lu)\n", 
 				inJumpDCLCompilerData,
 				inLabelDCLCompilerData,
-				fUserToKernelDCLLookupTableLength)) ;
+				fUserToKernelDCLLookupTableLength) ;
 		return kIOReturnBadArgument ;
 	}
 		
 	DCLJumpStruct*	pJumpDCL	= (DCLJumpStruct*)(fUserToKernelDCLLookupTable[inJumpDCLCompilerData]) ;
 	pJumpDCL->pJumpDCLLabel = (DCLLabelStruct*)(fUserToKernelDCLLookupTable[inLabelDCLCompilerData]) ;
 	
-//	// make sure we're modifying a jump and that it's pointing to a label
-	if ((pJumpDCL->opcode & ~kFWDCLOpFlagMask) != kDCLJumpOp || 
-	    (pJumpDCL->pJumpDCLLabel->opcode & ~kFWDCLOpFlagMask) != kDCLLabelOp)
+	// make sure we're modifying a jump and that it's pointing to a label
+	if ((pJumpDCL->pJumpDCLLabel->opcode & ~kFWDCLOpFlagMask) != kDCLLabelOp)
 	{
-		IOFireWireUserClientLog_(("IOFWUserLocalIsochPortProxy::modifyJumpDCL: modifying non-jump or pointing jump to non-label\n")) ;
+		IOFireWireUserClientLog_("IOFWUserLocalIsochPortProxy::modifyJumpDCL: modifying non-jump or pointing jump to non-label\n") ;
 		return kIOReturnBadArgument ;
 	}
 
@@ -1251,8 +1262,29 @@ IOFWUserLocalIsochPortProxy::modifyJumpDCL(
 
 	if (fPort)
 		return ((IOFWLocalIsochPort*)fPort)->notify(kFWDCLModifyNotification, & (DCLCommandStruct*)pJumpDCL, 1) ;
-	else
-		return kIOReturnSuccess ;
+
+	return kIOReturnSuccess ;
+}
+
+IOReturn
+IOFWUserLocalIsochPortProxy::modifyJumpDCLSize( UInt32 dclCompilerData, IOByteCount newSize )
+{
+	--dclCompilerData ;
+
+	// be sure opcodes exist
+	if ( dclCompilerData > fUserToKernelDCLLookupTableLength )
+	{
+		IOFireWireUserClientLog_("IOFWUserLocalIsochPort::modifyJumpDCLSize: DCL index (dclCompilerData=%lu) past end of lookup table (length=%lu)\n", 
+				dclCompilerData, fUserToKernelDCLLookupTableLength ) ;
+		return kIOReturnBadArgument ;
+	}
+		
+	DCLTransferPacket*	dcl = (DCLTransferPacket*)( fUserToKernelDCLLookupTable[ dclCompilerData ] ) ;
+	
+	if (fPort)
+		return ((IOFWLocalIsochPort*)fPort)->notify(kFWDCLModifyNotification, &(DCLCommand*)dcl, 1) ;
+
+	return kIOReturnSuccess ;
 }
 
 IOReturn
@@ -1260,32 +1292,27 @@ IOFWUserLocalIsochPortProxy::createPort()
 {
 	IOReturn	result = kIOReturnSuccess ;
 
-//	if ( !fUserDCLProgramMemPrepared )
-//	{
-//		result = fUserDCLProgramMem->prepare(kIODirectionOutIn) ;
-//		fUserDCLProgramMemPrepared = (kIOReturnSuccess == result) ;
-//	
-//		IOFireWireUserClientLogIfFalse_( fUserDCLProgramMemPrepared, ("%s %u: prepare result=%08lX", __FILE__, __LINE__, result ) ) ;
-//	}
-	
-	if ( !fUserBufferMemPrepared )
+	if ( fUserBufferMem && !fUserBufferMemPrepared )
 	{
 		result = fUserBufferMem->prepare(kIODirectionOutIn) ;
 		fUserBufferMemPrepared = (kIOReturnSuccess == result) ;
 	}
 	
 	if ( result == kIOReturnSuccess )
-	{
+	{        
 		fPort = fUserClient->getOwner()->getController()->createLocalIsochPort(
 																fTalking,
 																fKernDCLProgramStart,
-																0, 
+																&fTaskInfo, 
 																fStartEvent,
 																fStartState,
 																fStartMask) ;
 
 		if (!fPort)
+		{
+			IOLog("%s %u: no fPort", __FILE__, __LINE__) ;
 			return kIOReturnNoMemory ;
+		}
 	}
 	
 	return kIOReturnSuccess ;

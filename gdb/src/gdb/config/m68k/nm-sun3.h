@@ -1,5 +1,5 @@
 /* Native-only definitions for Sun-3 for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989, 1991, 1992, 1996
+   Copyright 1986, 1987, 1989, 1991, 1992, 1996
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -18,6 +18,8 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
+
+#include "regcache.h"
 
 /* Do implement the attach and detach commands.  */
 

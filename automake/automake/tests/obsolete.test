@@ -1,0 +1,19 @@
+#! /bin/sh
+
+# Test to make sure obsolete macros really are.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+fp_PROG_INSTALL
+END
+
+: > Makefile.am
+
+$ACLOCAL  2>stderr          && exit 1
+grep AC_PROG_INSTALL stderr || exit 1
+
+$AUTOMAKE 2>stderr          && exit 1
+grep AC_PROG_INSTALL stderr || exit 1
+
+exit 0

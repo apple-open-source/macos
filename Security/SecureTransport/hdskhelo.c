@@ -21,7 +21,7 @@
 
 	Contains:	Support for client hello and server hello messages. 
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -94,6 +94,14 @@
 
 static SSLErr SSLEncodeRandom(unsigned char *p, SSLContext *ctx);
 
+/* IE treats null session id as valid; two consecutive sessions with NULL ID
+ * are considered a match. Workaround: when resumable sessions are disabled, 
+ * send a random session ID. */
+#define SSL_IE_NULL_RESUME_BUG		1
+#if		SSL_IE_NULL_RESUME_BUG
+#define SSL_NULL_ID_LEN				32	/* length of bogus session ID */
+#endif
+
 SSLErr
 SSLEncodeServerHello(SSLRecord *serverHello, SSLContext *ctx)
 {   SSLErr          err;
@@ -103,10 +111,18 @@ SSLEncodeServerHello(SSLRecord *serverHello, SSLContext *ctx)
     sessionIDLen = 0;
     if (ctx->sessionID.data != 0)
         sessionIDLen = (UInt8)ctx->sessionID.length;
+	#if 	SSL_IE_NULL_RESUME_BUG
+	if(sessionIDLen == 0) {
+		sessionIDLen = SSL_NULL_ID_LEN;
+	}	
+	#endif	/* SSL_IE_NULL_RESUME_BUG */
+		
  	#if LOG_NEGOTIATE
-	dprintf0("===SSL3 server: sending SSL_Version_3_0\n");
+	dprintf2("===SSL3 server: sending version %d_%d\n",
+		ctx->negProtocolVersion >> 8, ctx->negProtocolVersion & 0xff);
+	dprintf1("...sessionIDLen = %d\n", sessionIDLen);
 	#endif
-    serverHello->protocolVersion = SSL_Version_3_0;
+    serverHello->protocolVersion = ctx->negProtocolVersion;
     serverHello->contentType = SSL_handshake;
     if ((err = SSLAllocBuffer(&serverHello->contents, 42 + sessionIDLen, &ctx->sysCtx)) != 0)
         return err;
@@ -114,20 +130,36 @@ SSLEncodeServerHello(SSLRecord *serverHello, SSLContext *ctx)
     progress = serverHello->contents.data;
     *progress++ = SSL_server_hello;
     progress = SSLEncodeInt(progress, 38 + sessionIDLen, 3);
-    progress = SSLEncodeInt(progress, SSL_Version_3_0, 2);
+    progress = SSLEncodeInt(progress, serverHello->protocolVersion, 2);
     if ((err = SSLEncodeRandom(progress, ctx)) != 0)
         return err;
-    memcpy(ctx->serverRandom, progress, 32);
-    progress += 32;
-    *(progress++) = (UInt8)sessionIDLen;
+    memcpy(ctx->serverRandom, progress, SSL_CLIENT_SRVR_RAND_SIZE);
+    progress += SSL_CLIENT_SRVR_RAND_SIZE;
+	*(progress++) = (UInt8)sessionIDLen;
+	#if 	SSL_IE_NULL_RESUME_BUG
+	if(ctx->sessionID.data != NULL) {
+		/* normal path for enabled resumable session */
+		memcpy(progress, ctx->sessionID.data, sessionIDLen);
+	}
+	else {
+		/* IE workaround */
+		SSLBuffer rb;
+		rb.data = progress;
+		rb.length = SSL_NULL_ID_LEN;
+		sslRand(ctx, &rb);
+	}
+	#else	
     if (sessionIDLen > 0)
         memcpy(progress, ctx->sessionID.data, sessionIDLen);
-    progress += sessionIDLen;
+	#endif	/* SSL_IE_NULL_RESUME_BUG */
+	progress += sessionIDLen;
     progress = SSLEncodeInt(progress, ctx->selectedCipher, 2);
     *(progress++) = 0;      /* Null compression */
 
+ 	#if LOG_NEGOTIATE
     dprintf1("ssl3: server specifying cipherSuite 0x%lx\n", (UInt32)ctx->selectedCipher);
-    
+    #endif
+	
     CASSERT(progress == serverHello->contents.data + serverHello->contents.length);
     
     return SSLNoErr;
@@ -150,11 +182,23 @@ SSLProcessServerHello(SSLBuffer message, SSLContext *ctx)
     
     protocolVersion = (SSLProtocolVersion)SSLDecodeInt(p, 2);
     p += 2;
-    if (protocolVersion != SSL_Version_3_0)
-        return SSLUnsupportedErr;
+    if (protocolVersion > ctx->maxProtocolVersion) {
+        return SSLNegotiationErr;
+	}
     ctx->negProtocolVersion = protocolVersion;
-    #if LOG_NEGOTIATE
-    dprintf0("===SSL3 client: negVersion is 3_0\n");
+	switch(protocolVersion) {
+		case SSL_Version_3_0:
+			ctx->sslTslCalls = &Ssl3Callouts;
+			break;
+		case TLS_Version_1_0:
+ 			ctx->sslTslCalls = &Tls1Callouts;
+			break;
+		default:
+			return SSLNegotiationErr;
+	}
+	#if LOG_NEGOTIATE
+    dprintf2("===SSL3 client: negVersion is %d_%d\n",
+		(protocolVersion >> 8) & 0xff, protocolVersion & 0xff);
     #endif
     
     memcpy(ctx->serverRandom, p, 32);
@@ -175,8 +219,8 @@ SSLProcessServerHello(SSLBuffer message, SSLContext *ctx)
     
     ctx->selectedCipher = (UInt16)SSLDecodeInt(p,2);
     #if	LOG_NEGOTIATE
-    dprintf1("===ssl3: server requests cipherKind 0x%x\n", 
-    	(UInt32)ctx->selectedCipher);
+    dprintf1("===ssl3: server requests cipherKind %d\n", 
+    	(unsigned)ctx->selectedCipher);
     #endif
     p += 2;
     if ((err = FindCipherSpec(ctx)) != 0) {
@@ -202,7 +246,7 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
     
     sessionIDLen = 0;
     if (ctx->resumableSession.data != 0)
-    {   if (ERR(err = SSLRetrieveSessionIDIdentifier(ctx->resumableSession, &sessionIdentifier, ctx)) != 0)
+    {   if (ERR(err = SSLRetrieveSessionID(ctx->resumableSession, &sessionIdentifier, ctx)) != 0)
         {   return err;
         }
         sessionIDLen = sessionIdentifier.length;
@@ -210,7 +254,7 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
     
     length = 39 + 2*(ctx->numValidCipherSpecs) + sessionIDLen;
     
-    clientHello->protocolVersion = SSL_Version_3_0;
+    clientHello->protocolVersion = ctx->maxProtocolVersion;
     clientHello->contentType = SSL_handshake;
     if ((err = SSLAllocBuffer(&clientHello->contents, length + 4, &ctx->sysCtx)) != 0)
         return err;
@@ -218,15 +262,16 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
     p = clientHello->contents.data;
     *p++ = SSL_client_hello;
     p = SSLEncodeInt(p, length, 3);
-    p = SSLEncodeInt(p, SSL_Version_3_0, 2);
+    p = SSLEncodeInt(p, ctx->maxProtocolVersion, 2);
   	#if LOG_NEGOTIATE
-	dprintf0("===SSL3 client: proclaiming Version_3_0 capable ONLY\n");
+	dprintf2("===SSL3 client: proclaiming max protocol %d_%d capable ONLY\n",
+		ctx->maxProtocolVersion >> 8, ctx->maxProtocolVersion & 0xff);
 	#endif
    if ((err = SSLEncodeRandom(p, ctx)) != 0)
     {   SSLFreeBuffer(&clientHello->contents, &ctx->sysCtx);
         return err;
     }
-    memcpy(ctx->clientRandom, p, 32);
+    memcpy(ctx->clientRandom, p, SSL_CLIENT_SRVR_RAND_SIZE);
     p += 32;
     *p++ = sessionIDLen;    /* 1 byte vector length */
     if (sessionIDLen > 0)
@@ -265,6 +310,8 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
     progress = message.data;
     clientVersion = (SSLProtocolVersion)SSLDecodeInt(progress, 2);
     progress += 2;
+	#if old_way
+	/* tested, works with SSLv3 */
     if (clientVersion < SSL_Version_3_0) {
         #if LOG_NEGOTIATE
         dprintf1("===SSL3 server: clientVersion %s rejected\n", clientVersion);
@@ -272,11 +319,29 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
         return SSLUnsupportedErr;
     }
     ctx->negProtocolVersion = SSL_Version_3_0;
+	#else	
+	/* Untested, for TLS */
+	if(clientVersion > ctx->maxProtocolVersion) {
+		clientVersion = ctx->maxProtocolVersion;
+	}
+	switch(clientVersion) {
+		case SSL_Version_3_0:
+			ctx->sslTslCalls = &Ssl3Callouts;
+			break;
+		case TLS_Version_1_0:
+ 			ctx->sslTslCalls = &Tls1Callouts;
+			break;
+		default:
+			return SSLNegotiationErr;
+	}
+	ctx->negProtocolVersion = clientVersion;
+	#endif	/* new_way */
     #if LOG_NEGOTIATE
-    dprintf0("===SSL3 server: negVersion is 3_0\n");
+    dprintf2("===SSL3 server: negVersion is %d_%d\n",
+		clientVersion >> 8, clientVersion & 0xff);
     #endif
     
-    memcpy(ctx->clientRandom, progress, 32);
+    memcpy(ctx->clientRandom, progress, SSL_CLIENT_SRVR_RAND_SIZE);
     progress += 32;
     sessionIDLen = *(progress++);
     if (message.length < 41 + sessionIDLen) {
@@ -318,7 +383,7 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
         return err;
     }
     #if	LOG_NEGOTIATE
-    dprintf1("ssl3 server: selecting cipherKind 0x%x\n", (UInt32)ctx->selectedCipher);
+    dprintf1("ssl3 server: selecting cipherKind 0x%x\n", (unsigned)ctx->selectedCipher);
     #endif
     
     compressionCount = *(progress++);
@@ -342,20 +407,12 @@ SSLEncodeRandom(unsigned char *p, SSLContext *ctx)
     SSLErr      err;
     UInt32      time;
     
-    #ifdef	_APPLE_CDSA_
     if ((err = sslTime(&time)) != 0)
-    #else
-    if ((err = ctx->sysCtx.time(&time, ctx->sysCtx.timeRef)) != 0)
-    #endif
         return err;
     SSLEncodeInt(p, time, 4);
     randomData.data = p+4;
     randomData.length = 28;
-    #ifdef	_APPLE_CDSA_
    	if((err = sslRand(ctx, &randomData)) != 0)
-    #else
-    if ((err = ctx->sysCtx.random(randomData, ctx->sysCtx.randomRef)) != 0)
-    #endif
         return err;
     return SSLNoErr;
 }
@@ -363,13 +420,14 @@ SSLEncodeRandom(unsigned char *p, SSLContext *ctx)
 SSLErr
 SSLInitMessageHashes(SSLContext *ctx)
 {   SSLErr          err;
-    if ((err = SSLFreeBuffer(&ctx->shaState, &ctx->sysCtx)) != 0)
+
+    if ((err = CloseHash(&SSLHashSHA1, &ctx->shaState, ctx)) != 0)
         return err;
-    if ((err = SSLFreeBuffer(&ctx->md5State, &ctx->sysCtx)) != 0)
+    if ((err = CloseHash(&SSLHashMD5,  &ctx->md5State, ctx)) != 0)
         return err;
     if ((err = ReadyHash(&SSLHashSHA1, &ctx->shaState, ctx)) != 0)
         return err;
-    if ((err = ReadyHash(&SSLHashMD5, &ctx->md5State, ctx)) != 0)
+    if ((err = ReadyHash(&SSLHashMD5,  &ctx->md5State, ctx)) != 0)
         return err;
     return SSLNoErr;
 }

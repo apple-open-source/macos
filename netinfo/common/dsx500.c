@@ -69,7 +69,7 @@ dsx500_explode_rdn(char *rdn, u_int32_t notypes)
 char           *
 dsx500_dn_to_netinfo_string_path (char *dn)
 {
-	char           *dce, *q, **rdns, **p;
+	char           *dce, *q, **rdns, **p, *c;
 	int             len = 0;
 
 	rdns = explode_name(dn, 0, NAME_TYPE_X500_DN);
@@ -77,9 +77,15 @@ dsx500_dn_to_netinfo_string_path (char *dn)
 	{
 		return NULL;
 	}
+
 	for (p = rdns; *p != NULL; p++)
 	{
-		len += strlen(*p) + 1;
+		for (c = *p; *c != '\0'; c++)
+		{
+			if (*c == '/') len++;
+			len++;
+		}
+		len++;
 	}
 
 	q = dce = malloc(len + 1);
@@ -89,37 +95,44 @@ dsx500_dn_to_netinfo_string_path (char *dn)
 	}
 	p--;			/* get back past NULL */
 
-	for (; p != rdns; p--)
+	for (; p >= rdns; p--)
 	{
-		strcpy(q, "/");
-		q++;
-		strcpy(q, *p);
-		q += strlen(*p);
+		*q++ = '/';
+		for (c = *p; *c != '\0'; c++)
+		{
+			if (*c == '/')
+				*q++ = '\\';
+			*q++ = *c;
+		}
 	}
-
-	strcpy(q, "/");
-	q++;
-	strcpy(q, *p);
+	*q = '\0';
 
 	return dce;
 }
 
 char           *
-dsx500_netinfo_string_path_to_dn (char *dce)
+dsx500_netinfo_string_path_to_dn (char *netinfo_name)
 {
-	char           *dn, *q, **rdns, **p;
-	int             len;
+	char           *dn, *q, **rdns, **p, *c;
+	int             len = 0;
 
-	rdns = explode_name(dce, 0, NAME_TYPE_NETINFO_PATH);
+	if (*netinfo_name == '/')
+		netinfo_name++;
+
+	rdns = explode_name(netinfo_name, 0, NAME_TYPE_NETINFO_PATH);
 	if (rdns == NULL)
 	{
 		return NULL;
 	}
-	len = 0;
 
 	for (p = rdns; *p != NULL; p++)
 	{
-		len += strlen(*p) + 1;
+		for (c = *p; *c != '\0'; c++)
+		{
+			if (NeedEscapeRDN(*c)) len++;
+			len++;
+		}
+		len++;
 	}
 
 	q = dn = malloc(len);
@@ -129,27 +142,18 @@ dsx500_netinfo_string_path_to_dn (char *dce)
 	}
 	p--;
 
-	for (; p != rdns; p--)
+	for (; p >= rdns; p--)
 	{
-		strcpy(q, *p);
-		q += strlen(*p);
-		strcpy(q, ",");
-		q++;
+		for (c = *p; *c != '\0'; c++)
+		{
+			if (NeedEscapeRDN(*c))
+				*q++ = '\\';
+			*q++ = *c;
+		}
+		*q++ = ',';
 	}
 
-	if (*dce == '/')
-	{
-		/*
-		 * the name was fully qualified, thus the most-significant
-		 * RDN was empty. trash the last comma
-		 */
-		q--;
-		*q = '\0';
-	} else
-	{
-		/* the name was relative. copy the most significant RDN */
-		strcpy(q, *p);
-	}
+	*--q = '\0';
 
 	return dn;
 }
@@ -218,7 +222,13 @@ explode_name(char *name, u_int32_t notypes, u_int32_t is_type)
 	end_part:
 			if (state == OUTQUOTE)
 			{
+				int need_ni_name = 0;
+
 				++count;
+
+				if ((is_type == NAME_TYPE_NETINFO_PATH) && (have_equals == 0))
+					need_ni_name = 1;
+
 				have_equals = 0;
 
 				if (parts == NULL)
@@ -226,7 +236,8 @@ explode_name(char *name, u_int32_t notypes, u_int32_t is_type)
 					if ((parts = (char **) malloc(8
 						 * sizeof(char *))) == NULL)
 						return (NULL);
-				} else if (count >= 8)
+				}
+				else if (count >= 8)
 				{
 					if ((parts = (char **) realloc(parts,
 					      (count + 1) * sizeof(char *)))
@@ -257,12 +268,23 @@ explode_name(char *name, u_int32_t notypes, u_int32_t is_type)
 						--p;
 					}
 				}
+
 				len = p - rdn;
+				if (need_ni_name)
+					len += sizeof("name=") - 1;
 
 				if ((parts[count - 1] = (char *) calloc(1,
 							  len + 1)) != NULL)
 				{
-					memmove(parts[count - 1], rdn, len);
+					char *r = parts[count - 1];
+
+					if (need_ni_name)
+					{
+						memmove(r, "name=", len);
+						r += sizeof("name=") - 1;
+					}
+
+					memmove(r, rdn, len);
 
 					if (!endquote)
 					{
@@ -315,8 +337,6 @@ explode_name(char *name, u_int32_t notypes, u_int32_t is_type)
  * ignored. String s **must** be null-terminated.
  */
 
-#define ASCII_SPACE(c)    ( (c) == ' ' )
-
 static char    *
 get_next_substring(const char *s, char d)
 {
@@ -331,7 +351,7 @@ get_next_substring(const char *s, char d)
 
 	/* Skip leading spaces */
 
-	while (*s && ASCII_SPACE(*s))
+	while (*s && dsutil_utf8_isspace(s))
 	{
 		s++;
 	}
@@ -356,6 +376,11 @@ get_next_substring(const char *s, char d)
 
 }
 
+/* 
+ * These functions are not cognizant of escaped equal
+ * signs in RDNs. They need to be fixed, preferably using
+ * the latest OpenLDAP DN parsing code.
+ */
 
 /*
  * rdn_attr_type:
@@ -377,7 +402,7 @@ dsx500_rdn_attr_type(char *s)
  * rdn_attr_value:
  * 
  * Given a string (i.e. an rdn) of the form: "attribute_type = attribute_value"
- * this function returns "attribute_type" which is placed in newly allocated
+ * this function returns "attribute_value" which is placed in newly allocated
  * memory. The returned string will be null-terminated and may contain spaces
  * (i.e. "John Doe\0").
  */

@@ -78,7 +78,7 @@ int lock_state(void)
 	bkgd = (fscanf(lockfp, "%d %d", &pid, &st) == 2);
 
 	if (kill(pid, 0) == -1) {
-	    fprintf(stderr,_("fetchmail: removing stale lockfile\n"));
+	    fprintf(stderr,GT_("fetchmail: removing stale lockfile\n"));
 	    pid = 0;
 	    unlink(lockfile);
 	}
@@ -119,7 +119,7 @@ void lock_or_die(void)
       }
       else
       {
-	  fprintf(stderr,	_("fetchmail: lock creation failed.\n"));
+	  fprintf(stderr,	GT_("fetchmail: lock creation failed.\n"));
 	  exit(PS_EXCLUDE);
       }
     }

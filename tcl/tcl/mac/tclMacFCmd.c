@@ -9,7 +9,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacFCmd.c,v 1.1.1.3 2000/04/12 02:02:37 wsanchez Exp $
+ * RCS: @(#) $Id: tclMacFCmd.c,v 1.1.1.4 2002/04/05 16:13:44 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -748,7 +748,7 @@ DoCopyDirectory(
         err = FSpDirCreateCompat(&tmpDirSpec, smSystemScript, &tmpDirID);
     }
     if (err == noErr) {
-	err = FSpDirectoryCopy(&srcFileSpec, &tmpDirSpec, NULL, 0, true,
+	err = FSpDirectoryCopy(&srcFileSpec, &tmpDirSpec, NULL, NULL, 0, true,
 	    	CopyErrHandler);
     }
     

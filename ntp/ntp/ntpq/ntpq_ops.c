@@ -1,14 +1,14 @@
 /*
  * ntpdc_ops.c - subroutines which are called to perform operations by ntpdc
  */
+
 #include <stdio.h>
-#include <ctype.h>
-#include <sys/types.h>
-#include <sys/time.h>
-#include <netdb.h>
 
 #include "ntpq.h"
 #include "ntp_stdlib.h"
+
+#include <ctype.h>
+#include <netdb.h>
 
 extern char *	chosts[];
 extern char currenthost[];
@@ -940,7 +940,7 @@ printassoc(
 			conf = "yes";
 		else
 			conf = "no";
-		if (statval & CTL_PST_REACH) {
+		if (statval & CTL_PST_REACH || 1) {
 			reach = "yes";
 			if (statval & CTL_PST_AUTHENABLE) {
 				if (statval & CTL_PST_AUTHENTIC)
@@ -1319,7 +1319,7 @@ doprintpeers(
 	l_fp rec;
 	l_fp ts;
 	u_char havevar[MAXHAVE];
-	u_long poll;
+	u_long poll_sec;
 	char type = '?';
 	char refid_string[10];
 	char whenbuf[8], pollbuf[8];
@@ -1442,7 +1442,7 @@ doprintpeers(
 	/*
 	 * Got everything, format the line
 	 */
-	poll = 1<<max(min3(ppoll, hpoll, NTP_MAXPOLL), NTP_MINPOLL);
+	poll_sec = 1<<max(min3(ppoll, hpoll, NTP_MAXPOLL), NTP_MINPOLL);
 	if (pktversion > NTP_OLDVERSION)
 		c = flash3[CTL_PEER_STATVAL(rstatus) & 0x7];
 	else
@@ -1453,7 +1453,7 @@ doprintpeers(
 		"%c%-15.15s %-15.15s %2ld %c %4.4s %4.4s  %3lo  %7.7s %8.7s %7.7s\n",
 		c, nntohost(srcadr), dstadr_refid, stratum, type,
 		prettyinterval(whenbuf, when(&ts, &rec, &reftime)),
-		prettyinterval(pollbuf, (int)poll), reach,
+		prettyinterval(pollbuf, (int)poll_sec), reach,
 		lfptoms(&estdelay, 3), lfptoms(&estoffset, 3),
 		havevar[HAVE_JITTER] ? lfptoms(&estjitter, 3) :
 		lfptoms(&estdisp, 3));
@@ -1535,15 +1535,17 @@ dopeers(
 	if (!dogetassoc(fp))
 		return;
 
-	for (i = 0; i < numhosts; ++i)
-	{ if(getnetnum(chosts[i],&netnum,fullname))
-		if ((int)strlen(fullname) > maxhostlen)
-		maxhostlen = strlen(fullname);
-	}
-	if (numhosts > 1)
+	maxhostlen = 0;
+	if (numhosts > 1) {
+		for (i = 0; i < numhosts; ++i)
+		{ if(getnetnum(chosts[i],&netnum,fullname))
+			if ((int)strlen(fullname) > maxhostlen)
+			maxhostlen = strlen(fullname);
+		}
 		(void) fprintf(fp, "%-*.*s ", maxhostlen, maxhostlen, "host");
-	(void) fprintf(fp,
-			   "     remote           refid      st t when poll reach   delay   offset  jitter\n");
+	}
+	fprintf(fp,
+	   "     remote           refid      st t when poll reach   delay   offset  jitter\n");
 	if (numhosts > 1)
 		for (i = 0; i <= maxhostlen; ++i)
 		(void) fprintf(fp, "=");
@@ -1607,6 +1609,8 @@ doopeers(
 
 	(void) fprintf(fp,
 			   "     remote           local      st t when poll reach   delay   offset    disp\n");
+	(void) fprintf(fp,
+			   "                                      (s)  (s)          (ms)     (ms)     (ms)\n");
 	(void) fprintf(fp,
 			   "==============================================================================\n");
 

@@ -64,35 +64,35 @@ private:
     /* Feature Control Register */
 
     enum {
-            heathrowFCTrans         = 24,			// 0 = Transceiver On (for SCC ports)
-            heathrowFCMBPwr         = 25,			// 1 = power off Media Bay
-            heathrowFCPCIMBEn       = 26,			// 1 = enable PCI Media Bay
-            heathrowFCATAMBEn       = 27,			// 1 = enable ATA Media Bay
-            heathrowFCFloppyEn      = 28,			// 1 = enable floppy
-            heathrowFCATAINTEn      = 29,			// 1 = enable internal ATA inputs
-            heathrowFCATA0Reset     = 30,			// reset ATA0
-            heathrowFCMBReset       = 31,			// reset Media Bay
-            heathrowFCIOBusEn       = 16,			// IO Bus Enable
-            heathrowFCSCCCEn        = 17,			// 0 = Stop SCC clock
-            heathrowFCSCSICEn       = 18,			// 0 = Stop SCSE clock
-            heathrowFCSWIMCEn       = 19,			// 0 = Stop SWIM clock
-            heathrowFCSndPwr        = 20,			// 0 = power off to sound chip
-            heathrowFCSndClkEn      = 21,			// 1 = enable external shift sound clock
-            heathrowFCSCCAEn        = 22,			// 1 = enable SCCA
-            heathrowFCSCCBEn        = 23,			// 1 = enable SCCB
-            heathrowFCVIAPort       = 8,			// 1 = VIA functions in port mode
-            heathrowFCPWM           = 9,			// 0 = turns off PWM counters
-            heathrowFCHookPB        = 10,			// changes functions of IO pins
-            heathrowFCSWIM3         = 11,			// changes functions of floppy pins
-            heathrowFCAud22         = 12,			// 1 = SND_22M is running
-            heathrowFCSCSILink      = 13,			//
-            heathrowFCArbByPass     = 14,			// 1 = internal arbiter by passed
-            heathrowFCATA1Reset     = 15,			//
-            heathrowFCSCCPClk       = 0,			// 1 = SCC pClk forced low
-            heathrowFCResetSCC      = 1,			// 1 = reset SCC cell
+            heathrowFCTrans         = 1 <<  24,			// 0 = Transceiver On (for SCC ports)
+            heathrowFCMBPwr         = 1 <<  25,			// 1 = power off Media Bay
+            heathrowFCPCIMBEn       = 1 <<  26,			// 1 = enable PCI Media Bay
+            heathrowFCATAMBEn       = 1 <<  27,			// 1 = enable ATA Media Bay
+            heathrowFCFloppyEn      = 1 <<  28,			// 1 = enable floppy
+            heathrowFCATAINTEn      = 1 <<  29,			// 1 = enable internal ATA inputs
+            heathrowFCATA0Reset     = 1 <<  30,			// reset ATA0
+            heathrowFCMBReset       = 1 <<  31,			// reset Media Bay
+            heathrowFCIOBusEn       = 1 <<  16,			// IO Bus Enable
+            heathrowFCSCCCEn        = 1 <<  17,			// 0 = Stop SCC clock
+            heathrowFCSCSICEn       = 1 <<  18,			// 0 = Stop SCSE clock
+            heathrowFCSWIMCEn       = 1 <<  19,			// 0 = Stop SWIM clock
+            heathrowFCSndPwr        = 1 <<  20,			// 0 = power off to sound chip
+            heathrowFCSndClkEn      = 1 <<  21,			// 1 = enable external shift sound clock
+            heathrowFCSCCAEn        = 1 <<  22,			// 1 = enable SCCA
+            heathrowFCSCCBEn        = 1 <<  23,			// 1 = enable SCCB
+            heathrowFCVIAPort       = 1 <<  8,			// 1 = VIA functions in port mode
+            heathrowFCPWM           = 1 <<  9,			// 0 = turns off PWM counters
+            heathrowFCHookPB        = 1 <<  10,			// changes functions of IO pins
+            heathrowFCSWIM3         = 1 <<  11,			// changes functions of floppy pins
+            heathrowFCAud22         = 1 <<  12,			// 1 = SND_22M is running
+            heathrowFCSCSILink      = 1 <<  13,			//
+            heathrowFCArbByPass     = 1 <<  14,			// 1 = internal arbiter by passed
+            heathrowFCATA1Reset     = 1 <<  15,			//
+            heathrowFCSCCPClk       = 1 <<  0,			// 1 = SCC pClk forced low
+            heathrowFCResetSCC      = 1 <<  1,			// 1 = reset SCC cell
 
-            heathrowFCMediaBaybits  = (1<<heathrowFCPCIMBEn)|(1<<heathrowFCATAMBEn)|(1<<heathrowFCFloppyEn),
-            heathrowFCMBlogical	    = (1<<heathrowFCMBPwr)|(1<<heathrowFCMBReset)	// these bits are negative true logic
+            heathrowFCMediaBaybits  = heathrowFCPCIMBEn | heathrowFCATAMBEn | heathrowFCFloppyEn,
+            heathrowFCMBlogical	    = heathrowFCMBPwr | heathrowFCMBReset	// these bits are negative true logic
     };
     
     // register backup (to save the status before to sleep and restore
@@ -120,6 +120,16 @@ private:
           vBufD  =   vBufA     // disk head select is buffer A
           };
 
+    //FCR register offsets and constants
+    enum
+    	 {
+    	  heathrowIDOffset   	=  0x00000034,
+    	  heathrowFCROffset  	=  0x00000038,
+    	  heathrowAUXFCROffset 	=  0x0000003C,
+    	  heathrowVIAOffset     =  0x00016000
+    	  };
+    	  
+    
     // This is a short version of the IODBDMAChannelRegisters which includes only
     // the registers we actually mean to save
     struct DBDMAChannelRegisters {
@@ -137,7 +147,7 @@ private:
         UInt32				interruptMask2;
         UInt32				featureControlReg;
         UInt32				auxControlReg;
-        DBDMAChannelRegisters		savedDBDMAState[12];
+        DBDMAChannelRegisters		savedDBDMAState[13];
         UInt8				savedVIAState[9];
     };
     typedef struct HeathrowState HeathrowState;
@@ -164,6 +174,10 @@ private:
   void ModemResetHigh();
 
   // callPlatformFunction symbols
+  const OSSymbol 	*heathrow_enableSCC;
+  const OSSymbol	*heathrow_powerModem;
+  const OSSymbol	*heathrow_modemResetLow;
+  const OSSymbol	*heathrow_modemResetHigh;
   const OSSymbol 	*heathrow_sleepState;
   const OSSymbol 	*heathrow_powerMediaBay;
   const OSSymbol 	*heathrow_set_light;
@@ -188,6 +202,7 @@ public:
   // PM MEthods:
   void initForPM (IOService *provider);
   IOReturn setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
+  void setSCSIActiveTermState(bool EnableTermPower);
   
   // Sleep/Wake methods:
   virtual void sleepState(bool sleepMe);

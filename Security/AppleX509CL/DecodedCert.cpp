@@ -34,7 +34,7 @@
 
 DecodedCert::DecodedCert(
 	AppleX509CLSession	&session)
-	: alloc(CssmAllocator::standard()),
+	: alloc(session),
 	  mSession(session)
 {
 	certificateToSign = new CertificateToSign;
@@ -45,7 +45,7 @@ DecodedCert::DecodedCert(
 DecodedCert::DecodedCert(
 	AppleX509CLSession	&session,
 	const CssmData 	&encodedCert)
-	: alloc(CssmAllocator::standard()),
+	: alloc(session),
 	  mSession(session)
 {
 	reset();
@@ -200,84 +200,6 @@ CSSM_KEY_PTR DecodedCert::extractCSSMKey(
 	   (snaccKeyInfo->algorithm == NULL)) {
 		CssmError::throwMe(CSSMERR_CL_NO_FIELD_VALUES);
 	}
-	CSSM_KEY_PTR cssmKey = (CSSM_KEY_PTR) alloc.malloc(sizeof(CSSM_KEY));
-	memset(cssmKey, 0, sizeof(CSSM_KEY));
-	CSSM_KEYHEADER &hdr = cssmKey->KeyHeader;
-	CssmRemoteData keyData(alloc, cssmKey->KeyData);
-	try {
-		hdr.HeaderVersion = CSSM_KEYHEADER_VERSION;
-		/* CspId blank */
-		hdr.BlobType = CSSM_KEYBLOB_RAW;
-		hdr.AlgorithmId = CL_snaccOidToCssmAlg(snaccKeyInfo->algorithm->algorithm);
-			
-		/* 
-		 * Format inferred from AlgorithmId. I have never seen these defined
-		 * anywhere, e.g., whart's the format of an RSA public key in a cert?
-		 * X509 certainly doesn't say. However. the following two cases are known
-		 * to be correct. 
-		 */
-		switch(hdr.AlgorithmId) {
-			case CSSM_ALGID_RSA:
-				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;
-				break;
-			case CSSM_ALGID_DSA:
-				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_FIPS186;
-				break;
-			case CSSM_ALGID_FEE:
-				/* CSSM_KEYBLOB_RAW_FORMAT_NONE --> DER encoded */
-				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
-				break;
-			default:
-				/* punt */
-				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
-		}
-		hdr.KeyClass = CSSM_KEYCLASS_PUBLIC_KEY;
-		
-		/* KeyUsage inferred from extensions */
-		hdr.KeyUsage = inferKeyUsage();
-		
-		/* start/end date unknown, leave zero */
-		hdr.WrapAlgorithmId = CSSM_ALGID_NONE;
-		hdr.WrapMode = CSSM_ALGMODE_NONE;
-		
-		/*
-		 * subjectPublicKeyInfo.subjectPublicKey (AsnBits) ==> KeyData
-		 */
-		SC_asnBitsToCssmData(snaccKeyInfo->subjectPublicKey, keyData);
-		keyData.release();
-
-		/*
-		 * LogicalKeySizeInBits - ask the CSP
-		 */
-		CSSM_CSP_HANDLE cspHand = getGlobalCspHand(true);
-		CSSM_KEY_SIZE keySize;
-		CSSM_RETURN crtn;
-		crtn = CSSM_QueryKeySizeInBits(cspHand, NULL, cssmKey, &keySize);
-		if(crtn) {
-			CssmError::throwMe(crtn);
-		}
-		cssmKey->KeyHeader.LogicalKeySizeInBits = 
-			keySize.LogicalKeySizeInBits;
-	}
-	catch (...) {
-		alloc.free(cssmKey);
-		throw;
-	}
-	return cssmKey;
-}
-
-void DecodedCert::freeCSSMKey(
-	CSSM_KEY_PTR		cssmKey,
-	CssmAllocator		&alloc,
-	bool				freeTop)
-{
-	if(cssmKey == NULL) {
-		return;
-	}
-	alloc.free(cssmKey->KeyData.Data);
-	memset(cssmKey, 0, sizeof(CSSM_KEY));
-	if(freeTop) {
-		alloc.free(cssmKey);
-	}
+	return CL_extractCSSMKey(*snaccKeyInfo, alloc, this);
 }
 

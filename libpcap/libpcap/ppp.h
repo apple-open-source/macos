@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/Libraries/Other/libpcap/libpcap/ppp.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL) */
+/* @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/ppp.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL) */
 /*
  * Point to Point Protocol (PPP) RFC1331
  *

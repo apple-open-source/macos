@@ -9,7 +9,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclInterp.c,v 1.1.1.3 2000/04/12 02:01:30 wsanchez Exp $
+ * RCS: @(#) $Id: tclInterp.c,v 1.1.1.4 2002/04/05 16:13:21 jevans Exp $
  */
 
 #include <stdio.h>
@@ -949,7 +949,7 @@ Tcl_GetAlias(interp, aliasName, targetInterpPtr, targetNamePtr, argcPtr,
 /*
  *----------------------------------------------------------------------
  *
- * Tcl_ObjGetAlias --
+ * Tcl_GetAliasObj --
  *
  *	Object version: Gets information about an alias.
  *
@@ -1398,6 +1398,19 @@ AliasObjCmd(clientData, interp, objc, objv)
     Tcl_AllowExceptions(targetInterp);
 
     /*
+     * Check depth of nested calls with AliasObjCmd: if this gets too large,
+     * it's probably because of an infinite loop somewhere.
+     */
+
+    if (((Interp *) targetInterp)->numLevels >
+	    ((Interp *) targetInterp)->maxNestingDepth) {
+	Tcl_AppendToObj(Tcl_GetObjResult(targetInterp),
+		"too many nested calls to AliasObjCmd (infinite loop using alias?)", -1);
+	result = TCL_ERROR;
+	goto done;
+    }
+
+    /*
      * Append the arguments to the command prefix and invoke the command
      * in the target interp's global namespace.
      */
@@ -1410,8 +1423,6 @@ AliasObjCmd(clientData, interp, objc, objv)
 	    TCL_INVOKE_NO_TRACEBACK);
     Tcl_DecrRefCount(cmdPtr);
 
-    ((Interp *) targetInterp)->numLevels--;
-    
     /*
      * Check if we are at the bottom of the stack for the target interpreter.
      * If so, check for special return codes.
@@ -1441,7 +1452,9 @@ AliasObjCmd(clientData, interp, objc, objv)
 	    result = TCL_ERROR;
 	}
     }
-
+    done:
+    ((Interp *) targetInterp)->numLevels--;
+    
     TclTransferResult(targetInterp, result, interp);
 
     Tcl_Release((ClientData) targetInterp);

@@ -374,3 +374,79 @@ timestamp_printf(char * msg)
 }
 
 
+int
+ether_cmp(struct ether_addr * e1, struct ether_addr * e2)
+{
+    int i;
+    u_char * c1 = e1->octet;
+    u_char * c2 = e2->octet;
+
+    for (i = 0; i < sizeof(e1->octet); i++, c1++, c2++) {
+	if (*c1 == *c2)
+	    continue;
+	return ((int)*c1 - (int)*c2);
+    }
+    return (0);
+}
+
+
+#include <stdio.h>
+#include <ctype.h>
+#include <unistd.h>
+#include <string.h>
+
+#include <CoreFoundation/CFString.h>
+
+/* 
+ * Function: dns_hostname_clean
+ * Purpose:
+ *   Check whether the given hostname is DNS clean.
+ * Returns:
+ *   TRUE if the hostname is clean, FALSE otherwise
+ */
+int
+dns_hostname_is_clean(const char * source_str)
+{
+    int		i;
+    int		len = strlen(source_str);
+    char	prev_ch = '\0';
+    const char *scan;
+
+    if (len == 0) {
+	return (NULL);
+    }
+    for (scan = source_str, i = 0; i < len; i++, scan++) {
+	char	ch = *scan;
+	char 	next_ch = *(scan + 1);
+
+	if (prev_ch == '.' || prev_ch == '\0') {
+	    if (isalpha(ch) == 0) {
+		goto failed;
+	    }
+	}
+	else if (next_ch == '\0' || next_ch == '.') {
+	    if (isalnum(ch) == 0) {
+		goto failed;
+	    }
+	}
+	else if (isalnum(ch) == 0) {
+	    switch (ch) {
+	    case '.':
+	    case '-':
+		if (prev_ch == '.' || prev_ch == '-') {
+		    goto failed;
+		}
+		break;
+	    default:
+		goto failed;
+		break;
+	    }
+	}
+	prev_ch = ch;
+    }
+    return (TRUE);
+
+ failed:
+    return (FALSE);
+}
+

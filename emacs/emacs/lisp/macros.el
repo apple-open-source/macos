@@ -1,4 +1,4 @@
-;;; macros.el --- non-primitive commands for keyboard macros.
+;;; macros.el --- non-primitive commands for keyboard macros
 
 ;; Copyright (C) 1985, 86, 87, 92, 94, 95 Free Software Foundation, Inc.
 
@@ -43,7 +43,7 @@ Such a \"function\" cannot be called from Lisp, but it is a valid editor command
   (and (fboundp symbol)
        (not (stringp (symbol-function symbol)))
        (not (vectorp (symbol-function symbol)))
-       (error "Function %s is already defined and not a keyboard macro."
+       (error "Function %s is already defined and not a keyboard macro"
 	      symbol))
   (if (string-equal symbol "")
       (error "No command name given"))
@@ -150,6 +150,8 @@ use this command, and then save the file."
 		       (setq mods (cdr mods)))
 		     (cond ((= char ?\\)
 			    (insert "\\\\"))
+			   ((= char ?\;)
+			    (insert "\\;"))
 			   ((= char 127)
 			    (insert "\\C-?"))
 			   ((< char 127)
@@ -279,7 +281,7 @@ and then select the region of un-tablified names and use
   (or macro
       (progn
 	(if (null last-kbd-macro)
-	    (error "No keyboard macro has been defined."))
+	    (error "No keyboard macro has been defined"))
 	(setq macro last-kbd-macro)))
   (save-excursion
     (let ((end-marker (progn

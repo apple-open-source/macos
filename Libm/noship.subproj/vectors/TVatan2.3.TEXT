@@ -1,0 +1,194 @@
+
+! File TLATAN2.3.TEXT
+!
+! Tests of atan2(y,x)
+!
+! NANs
+35	d	Q	H	OK	Q
+35	d	Q	Hd1	OK	Q
+35	d	Q	1	OK	Q
+35	d	Q	E	OK	Q
+35	d	Q	Ed1	OK	Q
+35	d	Q	0i1	OK	Q
+35	d	Q	0	OK	Q
+35	d	Q	-H	OK	Q
+35	d	Q	-Hd1	OK	Q
+35	d	Q	-1	OK	Q
+35	d	Q	-E	OK	Q
+35	d	Q	-Ed1	OK	Q
+35	d	Q	-0i1	OK	Q
+35	d	Q	-0	OK	Q
+35	d	H	Q	OK	Q
+35	d	Hd1	Q	OK	Q
+35	d	1	Q	OK	Q
+35	d	E	Q	OK	Q
+35	d	Ed1	Q	OK	Q
+35	d	0i1	Q	OK	Q
+35	d	0	Q	OK	Q
+35	d	-H	Q	OK	Q
+35	d	-Hd1	Q	OK	Q
+35	d	-1	Q	OK	Q
+35	d	-E	Q	OK	Q
+35	d	-Ed1	Q	OK	Q
+35	d	-0i1	Q	OK	Q
+35	d	-0	Q	OK	Q
+35	d	Q	Q	OK	Q
+!
+! atan2(y,x) returns y for y = 0 and x > 0.
+35	d	0	0i1	OK	0
+35	d	-0	0i1	OK	-0
+35	d	0	E	OK	0
+35	d	-0	E	OK	-0
+35	d	0	1d1	OK	0
+35	d	-0	1d1	OK	-0
+35	d	0	Hd1	OK	0
+35	d	-0	Hd1	OK	-0
+35	d	0	H	OK	0
+35	d	-0	H	OK	-0
+!
+! atan2(y,+0) returns y for y = 0.
+35	d	0	0	OK	0
+35	d	-0	0	OK	-0
+!
+! atan2(y,x) returns copysign(pi,y) for y = 0 and x < 0.
+35	d	0	-0i1	x	$4000C90FDAA22168C235	!	flags??
+35	d	-0	-0i1	x	$C000C90FDAA22168C235
+35	d	0	-E	x	$4000C90FDAA22168C235
+35	d	-0	-E	x	$C000C90FDAA22168C235
+35	d	0	-1d1	x	$4000C90FDAA22168C235
+35	d	-0	-1d1	x	$C000C90FDAA22168C235
+35	d	0	-Hd1	x	$4000C90FDAA22168C235
+35	d	-0	-Hd1	x	$C000C90FDAA22168C235
+35	d	0	-H	x	$4000C90FDAA22168C235
+35	d	-0	-H	x	$C000C90FDAA22168C235
+!
+! atan2(y,-0) returns copysign(pi,y) for y = 0.
+35	d	0	-0	x	$4000C90FDAA22168C235	!	flags??
+35	d	-0	-0	x	$C000C90FDAA22168C235
+!
+! atan2(y,x) returns pi/2 for y > 0 and x = 0.
+35	d	0i1	0	x	$3FFFC90FDAA22168C235	!	flags??
+35	d	0i1	-0	x	$3FFFC90FDAA22168C235
+35	d	E	0	x	$3FFFC90FDAA22168C235
+35	d	E	-0	x	$3FFFC90FDAA22168C235
+35	d	1d1	0	x	$3FFFC90FDAA22168C235
+35	d	1d1	-0	x	$3FFFC90FDAA22168C235
+35	d	Hd1	0	x	$3FFFC90FDAA22168C235
+35	d	Hd1	-0	x	$3FFFC90FDAA22168C235
+35	d	H	0	x	$3FFFC90FDAA22168C235
+35	d	H	-0	x	$3FFFC90FDAA22168C235
+!
+! atan2(y,x) returns -pi/2 for y < 0 and x = 0.
+35	d	-0i1	0	x	$BFFFC90FDAA22168C235	!	flags??
+35	d	-0i1	-0	x	$BFFFC90FDAA22168C235
+35	d	-E	0	x	$BFFFC90FDAA22168C235
+35	d	-E	-0	x	$BFFFC90FDAA22168C235
+35	d	-1d1	0	x	$BFFFC90FDAA22168C235
+35	d	-1d1	-0	x	$BFFFC90FDAA22168C235
+35	d	-Hd1	0	x	$BFFFC90FDAA22168C235
+35	d	-Hd1	-0	x	$BFFFC90FDAA22168C235
+35	d	-H	0	x	$BFFFC90FDAA22168C235
+35	d	-H	-0	x	$BFFFC90FDAA22168C235
+!
+! atan2(y,+INFINITY) returns copysign(0,y) for finite y != 0.
+35	d	0i1	H	OK	0
+35	d	-0i1	H	OK	-0
+35	d	E	H	OK	0
+35	d	-E	H	OK	-0
+35	d	1d1	H	OK	0
+35	d	-1d1	H	OK	-0
+35	d	Hd1	H	OK	0
+35	d	-Hd1	H	OK	-0
+!
+! atan2(y,-INFINITY) returns copysign(pi,y) for finite y.
+35	d	0i1	-H	x	$4000C90FDAA22168C235	!	flags??
+35	d	-0i1	-H	x	$C000C90FDAA22168C235
+35	d	E	-H	x	$4000C90FDAA22168C235
+35	d	-E	-H	x	$C000C90FDAA22168C235
+35	d	1d1	-H	x	$4000C90FDAA22168C235
+35	d	-1d1	-H	x	$C000C90FDAA22168C235
+35	d	Hd1	-H	x	$4000C90FDAA22168C235
+35	d	-Hd1	-H	x	$C000C90FDAA22168C235
+!
+! atan2(+INFINITY,x) returns pi/2 for finite x.
+35	d	H	0i1	x	$3FFFC90FDAA22168C235	!	flags??
+35	d	H	-0i1	x	$3FFFC90FDAA22168C235
+35	d	H	E	x	$3FFFC90FDAA22168C235
+35	d	H	-E	x	$3FFFC90FDAA22168C235
+35	d	H	1d1	x	$3FFFC90FDAA22168C235
+35	d	H	-1d1	x	$3FFFC90FDAA22168C235
+35	d	H	Hd1	x	$3FFFC90FDAA22168C235
+35	d	H	-Hd1	x	$3FFFC90FDAA22168C235
+!
+! atan2(-INFINITY,x) returns -pi/2 for finite x.
+35	d	-H	0i1	x	$BFFFC90FDAA22168C235	!	flags??
+35	d	-H	-0i1	x	$BFFFC90FDAA22168C235
+35	d	-H	E	x	$BFFFC90FDAA22168C235
+35	d	-H	-E	x	$BFFFC90FDAA22168C235
+35	d	-H	1d1	x	$BFFFC90FDAA22168C235
+35	d	-H	-1d1	x	$BFFFC90FDAA22168C235
+35	d	-H	Hd1	x	$BFFFC90FDAA22168C235
+35	d	-H	-Hd1	x	$BFFFC90FDAA22168C235
+!
+! atan2(y,x) when both y and x are infinite.
+35	d	H	H	x	$3FFEC90FDAA22168C235	!	pi/4	flags??
+35	d	-H	H	x	$BFFEC90FDAA22168C235	!	-pi/4	flags??
+35	d	H	-H	x	$400096CBE3F9990E91A8	!	3*pi/4	flags??
+35	d	-H	-H	x	$C00096CBE3F9990E91A8	!	-3*pi/4	flags??
+!
+! atan2(y,x) is y/x - noise when x,y > 0 and y/x is tiny (< 2^(-32).
+
+! <scp> Disabled <0e and >0e variants, since function is computed round-nearest always.
+35	d	E	1	x	E
+35	d	Ei1	1	x	Ei1
+35	d	Ep1	1	x	Ep1
+35	d	Ep1i3	1	x	Ep1i3
+35	d	Ed2	1	ux	Ed2
+35	d	Ep1d5	1	x	Ep1d5
+35	d	0i1	1	ux	0i1
+35	d	0i9	1	ux	0i9
+!
+! atan2(y,x) is y/x + noise when x > 0, y < 0, and |y|/x is tiny.
+35	d	-E	1	x	-E
+35	d	-Ei1	1	x	-Ei1
+35	d	-Ep1	1	x	-Ep1
+35	d	-Ep1i3	1	x	-Ep1i3
+35	d	-Ed2	1	ux	-Ed2
+35	d	-Ep1d5	1	x	-Ep1d5
+35	d	-0i1	1	ux	-0i1
+35	d	-0i9	1	ux	-0i9
+
+!
+! atan2(y,x) is pi - (y/x - noise) when x < 0, y > 0 and y/|x| is tiny (< 2^(-32).
+35	=d	E	-1	x	$4000C90FDAA22168C235
+35	=d	Ei1	-1	x	$4000C90FDAA22168C235
+35	=d	Ep1	-1	x	$4000C90FDAA22168C235
+35	=d	Ep1i3	-1	x	$4000C90FDAA22168C235
+35	=d	Ed2	-1	x	$4000C90FDAA22168C235
+35	=d	Ep1d5	-1	x	$4000C90FDAA22168C235
+35	=d	0i1	-1	x	$4000C90FDAA22168C235
+35	=d	0i9	-1	x	$4000C90FDAA22168C235
+!
+! atan2(y,x) is -pi + (y/x - noise) when x < 0, y < 0 and y/x is tiny (< 2^(-32).
+35	=d	-E	-1	x	$C000C90FDAA22168C235
+35	=d	-Ei1	-1	x	$C000C90FDAA22168C235
+35	=d	-Ep1	-1	x	$C000C90FDAA22168C235
+35	=d	-Ep1i3	-1	x	$C000C90FDAA22168C235
+35	=d	-Ed2	-1	x	$C000C90FDAA22168C235
+35	=d	-Ep1d5	-1	x	$C000C90FDAA22168C235
+35	=d	-0i1	-1	x	$C000C90FDAA22168C235
+35	=d	-0i9	-1	x	$C000C90FDAA22168C235
+!
+! atan2(y,x) is a multiple of pi/3 when |y/x| = sqrt(3).
+
+! <scp> harness appears to incorrectly convert the '$' constants below. 
+! <scp> Use long double derived values instead.
+!35	=e	  	$3FFFDDB3D742C265539E	1		x    $3FFF860A91C16B9B2C24	    ;pi/3
+!35	=e	  	$BFFFDDB3D742C265539E	1		x    $BFFF860A91C16B9B2C24	    ;-pi/3
+!35	=e	  	$3FFFDDB3D742C265539E	-1		x    $4000860A91C16B9B2C24-1    ;2*pi/3
+!35	=e	  	$BFFFDDB3D742C265539E	-1		x    $C000860A91C16B9B2C24-1    ;-2*pi/3
+
+35	=d	$3FFFDDB3D742C265539E	1	x	$3FFF860A91C16B9B2C23-1	;	pi/3
+35	=d	$BFFFDDB3D742C265539E	1	x	$BFFF860A91C16B9B2C23-1	;	-pi/3
+45	=d	0x3ffbb67a	0xe8584caa	0xbff00000	0x0	x	0x4000c152	0x382d7366	;	2*pi/3
+45	=d	0xbffbb67a	0xe8584caa	0xbff00000	0x0	x	0xc000c152	0x382d7366	;	-2*pi/3

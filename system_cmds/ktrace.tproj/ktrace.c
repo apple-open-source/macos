@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2000-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,7 @@
  */
 /*-
  * Copyright (c) 1988, 1993
- *      The Regents of the University of California.  All rights reserved.
+ *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,8 +35,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *      This product includes software developed by the University of
- *      California, Berkeley and its contributors.
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -54,6 +54,20 @@
  * SUCH DAMAGE.
  */
 
+#ifndef lint
+static char copyright[] =
+"@(#) Copyright (c) 1988, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#ifndef lint
+#if 0
+static char sccsid[] = "@(#)ktrace.c	8.1 (Berkeley) 6/6/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/ktrace/ktrace.c,v 1.12.2.3 2001/07/11 00:29:27 mikeh Exp $";
+#endif /* not lint */
+
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -64,7 +78,6 @@
 
 #include <err.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "ktrace.h"
@@ -79,12 +92,14 @@ main(argc, argv)
 	enum { NOTSET, CLEAR, CLEARALL } clear;
 	int append, ch, fd, inherit, ops, pid, pidset, trpoints;
 	char *tracefile;
+	mode_t omask;
+	struct stat sb;
 
 	clear = NOTSET;
 	append = ops = pidset = inherit = 0;
 	trpoints = DEF_POINTS;
 	tracefile = DEF_TRACEFILE;
-	while ((ch = getopt(argc,argv,"aCcdf:g:ip:t:")) != EOF)
+	while ((ch = getopt(argc,argv,"aCcdf:g:ip:t:")) != -1)
 		switch((char)ch) {
 		case 'a':
 			append = 1;
@@ -139,26 +154,38 @@ main(argc, argv)
 			trpoints = ALL_POINTS;
 			pid = 1;
 		} else
-			ops |= pid ? KTROP_CLEAR : KTROP_CLEARFILE;
+			ops |= pidset ? KTROP_CLEAR : KTROP_CLEARFILE;
 
 		if (ktrace(tracefile, ops, trpoints, pid) < 0)
-			err(1, tracefile);
+			err(1, "%s", tracefile);
 		exit(0);
 	}
 
-	if ((fd = open(tracefile, O_CREAT | O_WRONLY | (append ? 0 : O_TRUNC),
-	    DEFFILEMODE)) < 0)
-		err(1, tracefile);
+	omask = umask(S_IRWXG|S_IRWXO);
+	if (append) {
+		if ((fd = open(tracefile, O_CREAT | O_WRONLY, DEFFILEMODE)) < 0)
+			err(1, "%s", tracefile);
+		if (fstat(fd, &sb) != 0 || sb.st_uid != getuid())
+			errx(1, "Refuse to append to %s not owned by you.",
+			    tracefile);
+	} else {
+		if (unlink(tracefile) == -1 && errno != ENOENT)
+			err(1, "unlink %s", tracefile);
+		if ((fd = open(tracefile, O_CREAT | O_EXCL | O_WRONLY,
+		    DEFFILEMODE)) < 0)
+			err(1, "%s", tracefile);
+	}
+	(void)umask(omask);
 	(void)close(fd);
 
 	if (*argv) { 
 		if (ktrace(tracefile, ops, trpoints, getpid()) < 0)
-			err(1, tracefile);
+			err(1, "%s", tracefile);
 		execvp(argv[0], &argv[0]);
 		err(1, "exec of '%s' failed", argv[0]);
 	}
 	else if (ktrace(tracefile, ops, trpoints, pid) < 0)
-		err(1, tracefile);
+		err(1, "%s", tracefile);
 	exit(0);
 }
 
@@ -181,8 +208,9 @@ rpid(p)
 void
 usage()
 {
-	(void)fprintf(stderr,
-"usage:\tktrace [-aCcid] [-f trfile] [-g pgid] [-p pid] [-t [acgn]\n\tktrace [-aCcid] [-f trfile] [-t [acgn] command\n");
+	(void)fprintf(stderr, "%s\n%s\n",
+"usage: ktrace [-aCcdi] [-f trfile] [-g pgrp | -p pid] [-t cnisuw]",
+"       ktrace [-adi] [-f trfile] [-t cnisuw] command");
 	exit(1);
 }
 

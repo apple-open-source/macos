@@ -177,6 +177,9 @@ jump 101
 !
 @LABEL 19
 ! 
+! if there is no number, reports EMPTY error
+ifstr 1 109 "" 
+! 
 ! This is where we break up long dialstrings
 ! 
 ! Display the full dialstring contained in Varstring 1
@@ -752,6 +755,14 @@ matchread 30
 @LABEL 108
 exit -6008
 !
+! Empty phone number
+@LABEL 109
+matchstr 1 125 "OK\13\10"
+write "AT&F\13"
+matchread 30
+@LABEL 125
+exit -6027
+! 
 ! 
 ! ---- DELAYED and BLACKLISTED functions ----
 ! 

@@ -106,7 +106,8 @@ char *envp[])
 	old_dylib = argv[1];
 	new_dylib = argv[2];
 
-	ofile_process(old_dylib, NULL, 0, TRUE, TRUE, TRUE, process_old, NULL);
+	ofile_process(old_dylib, NULL, 0, TRUE, TRUE, TRUE, FALSE, process_old, 
+		      NULL);
 
 	if(compatible == TRUE)
 	    return(EXIT_SUCCESS);
@@ -141,8 +142,8 @@ void *cookie)
 	arch_processed = FALSE;
 	arch_name_being_processed = arch_name;
 
-	ofile_process(new_dylib, &arch_flag, 1, FALSE, TRUE, TRUE, compare,
-		      old_ofile);
+	ofile_process(new_dylib, &arch_flag, 1, FALSE, TRUE, TRUE, FALSE,
+		      compare, old_ofile);
 
 	if(arch_processed == FALSE)
 	    fatal("new dynamic shared library: %s  does not contain "

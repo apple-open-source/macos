@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = ypcat.c
 
-OTHERSRCS = Makefile.dist Makefile.preamble ypcat.1
+OTHERSRCS = Makefile.dist Makefile.preamble ypcat.1 Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -1,3 +1,7 @@
+
+#ifndef _S_BOOTPD_H
+#define _S_BOOTPD_H
+
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -20,7 +24,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import "dhcp_options.h"
+#import <objc/Object.h>
+#include "dhcp_options.h"
+#include "NIDomain.h"
+
+typedef struct {
+    interface_t *	if_p;
+    struct dhcp *	pkt;
+    int			pkt_length;
+    dhcpol_t *		options_p;
+    struct in_addr *	dstaddr_p;
+    struct timeval *	time_in_p;
+} request_t;
 
 /*
  * bootpd.h
@@ -86,3 +101,7 @@ PropList_lookup(PropList_t * pl_p, ni_name propname);
 int
 PropList_instance(PropList_t * pl_p);
 
+extern void
+my_log(int priority, const char *message, ...);
+
+#endif _S_BOOTPD_H

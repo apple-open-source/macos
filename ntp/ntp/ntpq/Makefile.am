@@ -4,7 +4,7 @@ bin_PROGRAMS = ntpq
 INCLUDES = -I$(top_srcdir)/include
 # LDADD might need RESLIB and ADJLIB
 LDADD =	version.o ../libntp/libntp.a @LIBRSAREF@ 
-DISTCLEANFILES = .version
+DISTCLEANFILES = .version version.c
 noinst_HEADERS = ntpq.h
 #EXTRA_DIST = ntpq.mak
 ETAGS_ARGS = Makefile.am
@@ -17,5 +17,5 @@ $(PROGRAMS): $(LDADD)
 	cd ../libntp && $(MAKE)
 
 version.o: $(ntpq_OBJECTS) ../libntp/libntp.a @LIBRSAREF@ Makefile
-	$(top_builddir)/scripts/mkver ntpq
+	env CSET=`cat $(top_srcdir)/version` $(top_builddir)/scripts/mkver ntpq
 	$(COMPILE) -c version.c

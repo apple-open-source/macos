@@ -1,0 +1,17 @@
+#! /bin/sh
+
+# Test to make sure `dist' prefix works with man pages.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+dist_man_MANS = foo.1
+nodist_man1_MANS = bar.man
+END
+
+: > foo.1
+: > bar.man
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+grep '^MANS ' Makefile.in

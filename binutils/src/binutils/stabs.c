@@ -1,5 +1,6 @@
 /* stabs.c -- Parse stabs debugging information
-   Copyright (C) 1995, 96, 97, 98, 99, 2000 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
    Written by Ian Lance Taylor <ian@cygnus.com>.
 
    This file is part of GNU Binutils.
@@ -25,14 +26,15 @@
    trying to identify the correct address for anything.  */
 
 #include <stdio.h>
-#include <ctype.h>
 
 #include "bfd.h"
 #include "bucomm.h"
 #include "libiberty.h"
+#include "safe-ctype.h"
 #include "demangle.h"
 #include "debug.h"
 #include "budbg.h"
+#include "filenames.h"
 
 #define true 1
 #define false 0
@@ -42,14 +44,6 @@
 
 #include "aout/aout64.h"
 #include "aout/stab_gnu.h"
-
-#ifndef DIR_SEPARATOR
-#ifdef _WIN32
-#define DIR_SEPARATOR '\\'
-#else
-#define DIR_SEPARATOR '/'
-#endif
-#endif
 
 /* The number of predefined XCOFF types.  */
 
@@ -316,11 +310,11 @@ parse_number (pp, poverflow)
 	  int d;
 
 	  d = *p++;
-	  if (isdigit ((unsigned char) d))
+	  if (ISDIGIT (d))
 	    d -= '0';
-	  else if (isupper ((unsigned char) d))
+	  else if (ISUPPER (d))
 	    d -= 'A';
-	  else if (islower ((unsigned char) d))
+	  else if (ISLOWER (d))
 	    d -= 'a';
 	  else
 	    break;
@@ -571,12 +565,7 @@ parse_stab (dhandle, handle, type, desc, value, string)
 
 	  f = info->so_string;
 
-	  if (   (string[0] == '/')
-	      || (string[0] == DIR_SEPARATOR)
-	      || (   (DIR_SEPARATOR == '\\')
-		  && (string[1] == ':')
-		  && (   (string[2] == DIR_SEPARATOR)
-		      || (string[2] == '/'))))
+          if (IS_ABSOLUTE_PATH (string))
 	    info->so_string = xstrdup (string);
 	  else
 	    info->so_string = concat (info->so_string, string,
@@ -709,6 +698,7 @@ parse_stab (dhandle, handle, type, desc, value, string)
     case N_OBJ:
     case N_ENDM:
     case N_MAIN:
+    case N_WARNING:
       break;
     }
 
@@ -794,7 +784,7 @@ parse_stab_string (dhandle, info, stabtype, desc, value, string)
     }
 
   ++p;
-  if (isdigit ((unsigned char) *p) || *p == '(' || *p == '-')
+  if (ISDIGIT (*p) || *p == '(' || *p == '-')
     type = 'l';
   else
     type = *p++;
@@ -1198,7 +1188,7 @@ parse_stab_type (dhandle, info, typename, pp, slotp)
   /* Read type number if present.  The type number may be omitted.
      for instance in a two-dimensional array declared with type
      "ar1;1;10;ar1;1;10;4".  */
-  if (! isdigit ((unsigned char) **pp) && **pp != '(' && **pp != '-')
+  if (! ISDIGIT (**pp) && **pp != '(' && **pp != '-')
     {
       /* 'typenums=' not present, type is anonymous.  Read and return
 	 the definition, but don't put it in the type vector.  */
@@ -1241,7 +1231,7 @@ parse_stab_type (dhandle, info, typename, pp, slotp)
 	  const char *p = *pp + 1;
 	  const char *attr;
 
-	  if (isdigit ((unsigned char) *p) || *p == '(' || *p == '-')
+	  if (ISDIGIT (*p) || *p == '(' || *p == '-')
 	    {
 	      /* Member type.  */
 	      break;
@@ -2926,7 +2916,7 @@ parse_stab_argtypes (dhandle, info, class_type, fieldname, tagname,
   /* Constructors are sometimes handled specially.  */
   is_full_physname_constructor = ((argtypes[0] == '_'
 				   && argtypes[1] == '_'
-				   && (isdigit ((unsigned char) argtypes[2])
+				   && (ISDIGIT (argtypes[2])
 				       || argtypes[2] == 'Q'
 				       || argtypes[2] == 't'))
 				  || strncmp (argtypes, "__ct", 4) == 0);
@@ -3162,7 +3152,7 @@ parse_stab_array_type (dhandle, info, pp, stringp)
 
   adjustable = false;
 
-  if (! isdigit ((unsigned char) **pp) && **pp != '-')
+  if (! ISDIGIT (**pp) && **pp != '-')
     {
       ++*pp;
       adjustable = true;
@@ -3176,7 +3166,7 @@ parse_stab_array_type (dhandle, info, pp, stringp)
     }
   ++*pp;
 
-  if (! isdigit ((unsigned char) **pp) && **pp != '-')
+  if (! ISDIGIT (**pp) && **pp != '-')
     {
       ++*pp;
       adjustable = true;
@@ -3785,7 +3775,7 @@ stab_demangle_count (pp)
   unsigned int count;
 
   count = 0;
-  while (isdigit ((unsigned char) **pp))
+  while (ISDIGIT (**pp))
     {
       count *= 10;
       count += **pp - '0';
@@ -3802,12 +3792,12 @@ stab_demangle_get_count (pp, pi)
      const char **pp;
      unsigned int *pi;
 {
-  if (! isdigit ((unsigned char) **pp))
+  if (! ISDIGIT (**pp))
     return false;
 
   *pi = **pp - '0';
   ++*pp;
-  if (isdigit ((unsigned char) **pp))
+  if (ISDIGIT (**pp))
     {
       unsigned int count;
       const char *p;
@@ -3820,7 +3810,7 @@ stab_demangle_get_count (pp, pi)
 	  count += *p - '0';
 	  ++p;
 	}
-      while (isdigit ((unsigned char) *p));
+      while (ISDIGIT (*p));
       if (*p == '_')
 	{
 	  *pp = p + 1;
@@ -3915,7 +3905,7 @@ stab_demangle_prefix (minfo, pp)
     scan += i - 2;
 
   if (scan == *pp
-      && (isdigit ((unsigned char) scan[2])
+      && (ISDIGIT (scan[2])
 	  || scan[2] == 'Q'
 	  || scan[2] == 't'))
     {
@@ -3924,7 +3914,7 @@ stab_demangle_prefix (minfo, pp)
       return true;
     }
   else if (scan == *pp
-	   && ! isdigit ((unsigned char) scan[2])
+	   && ! ISDIGIT (scan[2])
 	   && scan[2] != 't')
     {
       /* Look for the `__' that separates the prefix from the
@@ -4139,13 +4129,13 @@ stab_demangle_qualified (minfo, pp, ptype)
 	 preceded by an underscore (to distinguish it from the <= 9
 	 case) and followed by an underscore.  */
       p = *pp + 2;
-      if (! isdigit ((unsigned char) *p) || *p == '0')
+      if (! ISDIGIT (*p) || *p == '0')
 	{
 	  stab_bad_demangle (orig);
 	  return false;
 	}
       qualifiers = atoi (p);
-      while (isdigit ((unsigned char) *p))
+      while (ISDIGIT (*p))
 	++p;
       if (*p != '_')
 	{
@@ -4410,7 +4400,7 @@ stab_demangle_template (minfo, pp, pname)
 	    {
 	      if (**pp == 'm')
 		++*pp;
-	      while (isdigit ((unsigned char) **pp))
+	      while (ISDIGIT (**pp))
 		++*pp;
 	    }
 	  else if (charp)
@@ -4441,18 +4431,18 @@ stab_demangle_template (minfo, pp, pname)
 	    {
 	      if (**pp == 'm')
 		++*pp;
-	      while (isdigit ((unsigned char) **pp))
+	      while (ISDIGIT (**pp))
 		++*pp;
 	      if (**pp == '.')
 		{
 		  ++*pp;
-		  while (isdigit ((unsigned char) **pp))
+		  while (ISDIGIT (**pp))
 		    ++*pp;
 		}
 	      if (**pp == 'e')
 		{
 		  ++*pp;
-		  while (isdigit ((unsigned char) **pp))
+		  while (ISDIGIT (**pp))
 		    ++*pp;
 		}
 	    }
@@ -4474,7 +4464,7 @@ stab_demangle_template (minfo, pp, pname)
      regular demangling routine.  */
   if (pname != NULL)
     {
-      char *s1, *s2, *s3, *s4;
+      char *s1, *s2, *s3, *s4 = NULL;
       char *from, *to;
 
       s1 = savestring (orig, *pp - orig);
@@ -4705,7 +4695,7 @@ stab_demangle_type (minfo, pp, ptype)
 	high = 0;
 	while (**pp != '\0' && **pp != '_')
 	  {
-	    if (! isdigit ((unsigned char) **pp))
+	    if (! ISDIGIT (**pp))
 	      {
 		stab_bad_demangle (orig);
 		return false;
@@ -4809,7 +4799,7 @@ stab_demangle_type (minfo, pp, ptype)
 	varargs = false;
 
 	++*pp;
-	if (isdigit ((unsigned char) **pp))
+	if (ISDIGIT (**pp))
 	  {
 	    n = stab_demangle_count (pp);
 	    if (strlen (*pp) < n)
@@ -5119,7 +5109,7 @@ stab_demangle_fund_type (minfo, pp, ptype)
 
     case 'G':
       ++*pp;
-      if (! isdigit ((unsigned char) **pp))
+      if (! ISDIGIT (**pp))
 	{
 	  stab_bad_demangle (orig);
 	  return false;

@@ -80,6 +80,7 @@ struct object *object)
     unsigned long i;
     struct load_command *lc;
     struct segment_command *sg;
+    struct dylib_command *dl_id;
 
 	/*
 	 * Set up the symtab load command field and link edit segment feilds in
@@ -89,6 +90,7 @@ struct object *object)
 	object->dyst = NULL;
 	object->hints_cmd = NULL;
 	object->seg_linkedit = NULL;
+	dl_id = NULL;
 	lc = object->load_commands;
 	for(i = 0; i < object->mh->ncmds; i++){
 	    if(lc->cmd == LC_SYMTAB){
@@ -118,8 +120,21 @@ struct object *object)
 		    object->seg_linkedit = sg;
 		}
 	    }
+	    else if(lc->cmd == LC_ID_DYLIB){
+		if(dl_id != NULL)
+		    fatal_arch(arch, member, "malformed file (more than one "
+			"LC_ID_DYLIB load command): ");
+		dl_id = (struct dylib_command *)lc;
+		if(dl_id->dylib.name.offset >= dl_id->cmdsize)
+		    fatal_arch(arch, member, "malformed file (name.offset of "
+			"load command %lu extends past the end of the load "
+			"command): ", i);
+	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
+	if(object->mh->filetype == MH_DYLIB && dl_id == NULL)
+	    fatal_arch(arch, member, "malformed file (no LC_ID_DYLIB load "
+		"command in MH_DYLIB file): ");
 	if(object->hints_cmd != NULL){
 	    if(object->dyst == NULL && object->hints_cmd->nhints != 0)
 		fatal_arch(arch, member, "malformed file (LC_TWOLEVEL_HINTS "

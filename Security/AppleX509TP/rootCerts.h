@@ -19,8 +19,7 @@
 /*
 	File:		rootCerts.h
 
-	Contains:	embedded iSign and SSL root certs - subject name 
-				and public keys
+	Contains:	Interface to local cache of system-wide trusted root certs
 
 	Written by:	Doug Mitchell. 
 
@@ -32,39 +31,46 @@
 #define _TP_ROOT_CERTS_H_
 
 #include <Security/cssmtype.h>
+#include <Security/globalizer.h>
+#include <Security/threading.h>
 
-#ifdef __cplusplus
-extern	"C" {
-#endif /* __cplusplus */
+/*
+ * As of 3/18/02, use of the built-in root certs is disabled by default. 
+ * Their use is enabled at in CSSM_TP_CertGroupVerify by the use of a 
+ * private bit in CSSM_APPLE_TP_ACTION_DATA.ActionFlags. 
+ * The presence of the root certs at all (at compile time) is controlled
+ * TP_ROOT_CERT_ENABLE.
+ */
+#define TP_ROOT_CERT_ENABLE		1
+
+#if		TP_ROOT_CERT_ENABLE
 
 /*
  * Each one of these represents one known root cert.
  */
 typedef struct {
-	const CSSM_DATA * const	subjectName;	// normalized and DER-encoded
-	const CSSM_DATA * const	publicKey;		// DER-encoded
-	uint32 					keySize;
+	CSSM_DATA 	subjectName;	// normalized and DER-encoded
+	CSSM_DATA 	publicKey;		// DER-encoded
+	uint32 		keySize;
 } tpRootCert;
 
-extern const tpRootCert iSignRootCerts[];
-extern const unsigned numiSignRootCerts;
+/* One of these per process which caches the roots in tpRootCert format */
+class TPRootStore
+{
+public:
+	TPRootStore() : mRootCerts(NULL), mNumRootCerts(0) { }
+	~TPRootStore();
+	const tpRootCert *rootCerts(
+		CSSM_CL_HANDLE clHand,
+		unsigned &numRootCerts);
+	static ModuleNexus<TPRootStore> tpGlobalRoots;
+	
+private:
+	tpRootCert *mRootCerts;
+	unsigned mNumRootCerts;
+	Mutex mLock;
+};
 
-extern const tpRootCert sslRootCerts[];
-extern const unsigned numSslRootCerts;
-
-/* These certs are shared by SSL and iSign */
-extern const CSSM_DATA serverpremium_pubKey;
-extern const CSSM_DATA serverpremium_subject;
-extern const CSSM_DATA serverbasic_pubKey;
-extern const CSSM_DATA serverbasic_subject;
-extern const CSSM_DATA PCA3ss_v4_pubKey;
-extern const CSSM_DATA PCA3ss_v4_subject;
-
-#define ENABLE_APPLE_DEBUG_ROOT		0
-
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
+#endif	/* TP_ROOT_CERT_ENABLE */
 
 #endif	/* _TP_ROOT_CERTS_H_ */

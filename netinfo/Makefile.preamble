@@ -16,19 +16,19 @@
 ## To change the default flags that get passed to ${CC} 
 ## (e.g. change -O to -O2), see Makefile.postamble.
 
-# B&I Building for Mac OS X
-ifeq "$(RC_OS)" "macos"
-RECURSIVE_CFLAGS += -D_OS_VERSION_MACOS_X_
-endif
-
 # B&I Building for Mac OS X Server
 ifeq "$(RC_OS)" "teflon"
 RECURSIVE_CFLAGS += -D_OS_VERSION_MACOS_X_SERVER_
 endif
 
 # B&I Building for Darwin
-ifeq "$(RC_OS)" "darwin"
+ifeq "$(RC_RELEASE)" "Darwin"
 RECURSIVE_CFLAGS += -D_OS_VERSION_DARWIN_
+else
+# B&I Building for Mac OS X
+ifeq "$(RC_OS)" "macos"
+RECURSIVE_CFLAGS += -D_OS_VERSION_MACOS_X_
+endif
 endif
 
 # Flags passed to compiler (in addition to -g, -O, etc)

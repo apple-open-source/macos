@@ -9,7 +9,7 @@ UserType        = Developer
 ToolType        = Libraries
 Configure       = $(Sources)/config
 Extra_CC_Flags  = -Wno-precomp
-GnuAfterInstall = shlibs strip
+GnuAfterInstall = shlibs strip 
 
 # config is kinda like configure
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -22,8 +22,8 @@ Configure_Flags = --prefix="$(Install_Prefix)"								\
 Environment     = CFLAG="$(CFLAGS)"									\
 		  AR="$(SRCROOT)/ar.sh r"								\
 		  PERL='/usr/bin/perl'									\
-		  INCLUDEDIR="$(USRDIR)/local/include/openssl"						\
-		  MANDIR="$(MANDIR)"
+		  INCLUDEDIR="$(USRDIR)/include/openssl"						\
+		  MANDIR="/usr/share/man"
 
 Install_Target  = install
 
@@ -56,7 +56,7 @@ shlibs:
 		"$(DSTROOT)$(USRLIBDIR)/libcrypto.$(FileVersion).dylib"					\
 		-install_name "$(USRLIBDIR)/libssl.$(FileVersion).dylib"				\
 		-o "$(DSTROOT)$(USRLIBDIR)/libssl.$(FileVersion).dylib"
-	$(_v) foreach lib in crypto ssl; do								\
+	$(_v) for lib in crypto ssl; do								\
 		$(LN) -fs "lib$${lib}.$(FileVersion).dylib" "$(DSTROOT)$(USRLIBDIR)/lib$${lib}.dylib";	\
 		$(RM) "$(DSTROOT)$(USRLIBDIR)/lib$${lib}.a";						\
 	      done
@@ -64,3 +64,6 @@ shlibs:
 strip:
 	$(_v) $(STRIP)    $(shell $(FIND) $(DSTROOT)$(USRBINDIR) -type f)
 	$(_v) $(STRIP) -S $(shell $(FIND) $(DSTROOT)$(USRLIBDIR) -type f)
+	mkdir -p $(DSTROOT)/usr/share/man/man3
+	mv $(DSTROOT)/usr/share/man/man3o/* $(DSTROOT)/usr/share/man/man3/
+	rmdir $(DSTROOT)/usr/share/man/man3o

@@ -1,0 +1,105 @@
+#!/bin/sh
+
+##
+# Copyright 2002 Apple Computer, Inc.
+#
+# This script configures NetBoot
+##
+
+##
+# Set shell to ignore Control-C, etc.
+# Prevent inadvertent problems caused by interrupting the shell during boot.
+##
+stty intr  undef
+stty kill  undef
+stty quit  undef
+stty susp  undef
+stty start undef
+stty stop  undef
+stty dsusp undef
+
+. /etc/rc.common
+
+
+NETBOOT_MOUNT=/var/netboot
+NETBOOT_DIR=${NETBOOT_MOUNT}/.com.apple.NetBootX
+NETBOOT_SHADOW=${NETBOOT_DIR}/shadowfile
+
+Failed()
+{
+	echo rc.netboot: $1
+	exit 1
+}
+
+do_start()
+{
+    volinfo=`autodiskmount -F`
+    if [ $? -ne 0 ]; then
+	Failed "could not locate a suitable local drive"
+    fi
+
+    set ${volinfo}
+    devname=$1
+    fstype=$2
+
+    mount -t ${fstype} -o nosuid,nodev /dev/${devname} ${NETBOOT_MOUNT}
+    if [ $? -ne 0 ]; then
+	Failed "mount of ${devname} failed"
+    fi
+
+    mkdir -p ${NETBOOT_DIR}
+    chmod 700 ${NETBOOT_DIR}
+    if ! rm -f ${NETBOOT_SHADOW} ; then
+	Failed "rm ${NETBOOT_SHADOW} failed"
+    fi
+    rm -rf ${NETBOOT_DIR}/*
+
+    mount -u -o ro /
+    root_device=$(mount | sed -n 's:/dev/\(.*\) on / .*:\1:p')
+    case ${root_device} in
+	vn*)
+    	    if ! touch ${NETBOOT_SHADOW} ; then
+		Failed "create ${NETBOOT_SHADOW} failed"
+	    fi
+	    chmod 600 ${NETBOOT_SHADOW}
+    	    if ! /usr/libexec/vndevice shadow /dev/r${root_device} ${NETBOOT_SHADOW} ; then
+		Failed "vndevice shadow failed"
+	    fi
+	    ;;
+	"")
+	    Failed "root device unknown"
+	    ;;
+	*)
+	    if ! /usr/bin/nbdst "${root_device}" ${NETBOOT_SHADOW} ; then
+		Failed "nbdst failed"	
+	    fi
+	    ;;
+    esac
+}
+
+do_vm()
+{
+    swapdir=${1}
+    if [ "${swapdir}" = "" ]; then
+	swapdir=/private/var/vm
+    fi
+    rm -rf ${swapdir}
+    ln -s ${NETBOOT_DIR} ${swapdir}
+}
+
+command="${1}"
+shift
+
+case "${command}" in
+    start)
+	do_start $@
+	;;
+    setup_vm)
+	do_vm $@
+	;;
+esac 
+
+##
+# Exit
+##
+exit 0

@@ -22,7 +22,7 @@
 /*
  *  net.c - File System Module for wrapping TFTP.
  *
- *  Copyright (c) 1999-2000 Apple Computer, Inc.
+ *  Copyright (c) 1999-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -42,7 +42,7 @@ CICell NetInitPartition(char *devSpec)
 {
   NetPartInfoPtr net;
   
-  net = (NetPartInfoPtr)malloc(sizeof(NetPartInfo));
+  net = (NetPartInfoPtr)AllocateBootXMemory(sizeof(NetPartInfo));
   if (net == 0) return 0;
   
   strcpy(net->devSpec, devSpec);
@@ -72,7 +72,7 @@ long NetLoadFile(CICell ih, char *filePath)
   
   triesLeft = 10;
   do {
-    ret = CallMethod_1_1(netIH, "load", kLoadAddr, &length);
+    ret = CallMethod(1, 1, netIH, "load", kLoadAddr, &length);
     if (gOFVersion < kOFVersion3x) {
       if (length == 0) ret = -1;
     }

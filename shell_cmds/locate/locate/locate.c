@@ -82,6 +82,7 @@ __RCSID("$NetBSD: locate.c,v 1.8 1997/10/19 04:11:56 lukem Exp $");
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "locate.h"
 #include "pathnames.h"

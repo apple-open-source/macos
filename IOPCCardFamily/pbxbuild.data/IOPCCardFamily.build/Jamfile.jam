@@ -1,20 +1,27 @@
-# Jamfile for target IOPCCardFamily of project IOPCCardFamily
+# Jamfile for target "IOPCCardFamily" of project "IOPCCardFamily"
 
-
-PROJECT = IOPCCardFamily ;
 
 JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 
-# IOPCCardFamily target
-export deferred TARGET_NAME = IOPCCardFamily ;
-export deferred PRODUCT_NAME = IOPCCardFamily ;
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOPCCardFamily ;
 
-export deferred PKGINFO_FILE_CONTENTS = "KEXT????" ;
-export deferred PRODUCT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/IOPCCardFamily.build/Info.plist" ;
-export deferred PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOPCCardFamily.build/PkgInfo" ;
-export deferred DEVELOPMENT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/IOPCCardFamily.build/pbdevelopment.plist" ;
+# User-defined project-wide settings for project
 
+# Target "IOPCCardFamily"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "IOPCCardFamily"
 export deferred CLONE_HEADERS = NO ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = IOPCCardFamily ;
+
+# User-defined build settings for target "IOPCCardFamily"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
 export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
@@ -22,7 +29,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.iokit.IOPCCardFamily ;
-export deferred MODULE_VERSION = 1.1.3 ;
+export deferred MODULE_VERSION = 1.2.0 ;
 export deferred OTHER_CFLAGS =  -no-cpp-precomp ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -40,6 +47,7 @@ if "$(BUILD_STYLE)" = Development {
 if "$(BUILD_STYLE)" = Deployment {
 	export deferred COPY_PHASE_STRIP = YES ;
 }
+
 
 commitdeferred ;
 
@@ -94,7 +102,7 @@ HEADERS =
 ProcessHeaders "<IOPCCardFamily>IOPCCardFamily.kext" : "$(HEADERS)" : "" : BPTag000 ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/IOPCCardFamily.build/BPTag001-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag001-script.sh" ;
 if $(ACTION) in build install installhdrs {
 	ProcessScriptBuildPhaseFiles "<IOPCCardFamily>IOPCCardFamily.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag000 : BPTag001 ;
 }

@@ -1,4 +1,4 @@
-@(#) $Header: /cvs/Darwin/Libraries/Other/libpcap/libpcap/README,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
+@(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/README,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
 
 LIBPCAP 0.5
 Now maintained by "The Tcpdump Group"

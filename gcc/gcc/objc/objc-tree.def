@@ -25,7 +25,7 @@ Boston, MA 02111-1307, USA.  */
 DEFTREECODE (CLASS_INTERFACE_TYPE, "class_interface_type", 't', 0)
 DEFTREECODE (CLASS_IMPLEMENTATION_TYPE, "class_implementation_type", 't', 0)
 DEFTREECODE (CATEGORY_INTERFACE_TYPE, "category_interface_type", 't', 0)
-DEFTREECODE (CATEGORY_IMPLEMENTATION_TYPE,"category_implementation_type",'t',0)
+DEFTREECODE (CATEGORY_IMPLEMENTATION_TYPE, "category_implementation_type", 't', 0)
 DEFTREECODE (PROTOCOL_INTERFACE_TYPE, "protocol_interface_type", 't', 0)
 
 /* Objective-C decls.  */

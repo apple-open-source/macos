@@ -4,4 +4,4 @@ Vendor: GNU Project
 Version: 1.4
 URL: ftp://prep.ai.mit.edu/pub/gnu/m4/
 Description: GNU macro processor
-Build-Depends: build-base, perl
+Build-Depends: build-base, perl, texi2html

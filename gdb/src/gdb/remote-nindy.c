@@ -1,5 +1,8 @@
 /* Memory-access and commands for remote NINDY process, for GDB.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999,
+   2000, 2001, 2002 Free Software Foundation, Inc.
+
    Contributed by Intel Corporation.  Modified from remote.c by Chris Benenati.
 
    GDB is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,8 +19,7 @@
    notice and this notice must be preserved on all copies.
 
    In other words, go ahead and share GDB, but don't try to stop
-   anyone else from sharing it farther.  Help stamp out software hoarding!
- */
+   anyone else from sharing it farther.  Help stamp out software hoarding!  */
 
 /*
    Except for the data cache routines, this file bears little resemblence
@@ -108,8 +110,8 @@
 #include "gdbcore.h"
 #include "command.h"
 #include "floatformat.h"
+#include "regcache.h"
 
-#include "gdb_wait.h"
 #include <sys/file.h>
 #include <ctype.h>
 #include "serial.h"
@@ -140,7 +142,7 @@ char *nindy_ttyname;		/* name of tty to talk to nindy on, or null */
 #define FALSE	0
 
 /* From nindy-share/nindy.c.  */
-extern serial_t nindy_serial;
+extern struct serial *nindy_serial;
 
 static int have_regs = 0;	/* 1 iff regs read since i960 last halted */
 static int regs_changed = 0;	/* 1 iff regs were modified since last read */
@@ -157,11 +159,11 @@ static void
 nindy_close (int quitting)
 {
   if (nindy_serial != NULL)
-    SERIAL_CLOSE (nindy_serial);
+    serial_close (nindy_serial);
   nindy_serial = NULL;
 
   if (savename)
-    free (savename);
+    xfree (savename);
   savename = 0;
 }
 
@@ -254,7 +256,7 @@ non_dle (char *buf, int n)
 /* Tell the remote machine to resume.  */
 
 void
-nindy_resume (int pid, int step, enum target_signal siggnal)
+nindy_resume (ptid_t ptid, int step, enum target_signal siggnal)
 {
   if (siggnal != TARGET_SIGNAL_0 && siggnal != stop_signal)
     warning ("Can't send signals to remote NINDY targets.");
@@ -276,7 +278,7 @@ nindy_resume (int pid, int step, enum target_signal siggnal)
 struct clean_up_tty_args
 {
   serial_ttystate state;
-  serial_t serial;
+  struct serial *serial;
 };
 static struct clean_up_tty_args tty_args;
 
@@ -284,8 +286,8 @@ static void
 clean_up_tty (PTR ptrarg)
 {
   struct clean_up_tty_args *args = (struct clean_up_tty_args *) ptrarg;
-  SERIAL_SET_TTY_STATE (args->serial, args->state);
-  free (args->state);
+  serial_set_tty_state (args->serial, args->state);
+  xfree (args->state);
   warning ("\n\nYou may need to reset the 80960 and/or reload your program.\n");
 }
 
@@ -298,8 +300,8 @@ static void (*old_ctrlz) ();
 static void
 clean_up_int (void)
 {
-  SERIAL_SET_TTY_STATE (tty_args.serial, tty_args.state);
-  free (tty_args.state);
+  serial_set_tty_state (tty_args.serial, tty_args.state);
+  xfree (tty_args.state);
 
   signal (SIGINT, old_ctrlc);
 #ifdef SIGTSTP
@@ -315,8 +317,8 @@ clean_up_int (void)
  * Return to caller, storing status in 'status' just as `wait' would.
  */
 
-static int
-nindy_wait (int pid, struct target_waitstatus *status)
+static ptid_t
+nindy_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   fd_set fds;
   int c;
@@ -333,8 +335,8 @@ nindy_wait (int pid, struct target_waitstatus *status)
   /* OPERATE IN PASSTHROUGH MODE UNTIL NINDY SENDS A DLE CHARACTER */
 
   /* Save current tty attributes, and restore them when done.  */
-  tty_args.serial = SERIAL_FDOPEN (0);
-  tty_args.state = SERIAL_GET_TTY_STATE (tty_args.serial);
+  tty_args.serial = serial_fdopen (0);
+  tty_args.state = serial_get_tty_state (tty_args.serial);
   old_ctrlc = signal (SIGINT, clean_up_int);
 #ifdef SIGTSTP
   old_ctrlz = signal (SIGTSTP, clean_up_int);
@@ -346,19 +348,19 @@ nindy_wait (int pid, struct target_waitstatus *status)
      <CR> and perform echo.  */
   /* This used to set CBREAK and clear ECHO and CRMOD.  I hope this is close
      enough.  */
-  SERIAL_RAW (tty_args.serial);
+  serial_raw (tty_args.serial);
 
   while (1)
     {
       /* Input on remote */
-      c = SERIAL_READCHAR (nindy_serial, -1);
+      c = serial_readchar (nindy_serial, -1);
       if (c == SERIAL_ERROR)
 	{
 	  error ("Cannot read from serial line");
 	}
       else if (c == 0x1b)	/* ESC */
 	{
-	  c = SERIAL_READCHAR (nindy_serial, -1);
+	  c = serial_readchar (nindy_serial, -1);
 	  c &= ~0x40;
 	}
       else if (c != 0x10)	/* DLE */
@@ -391,8 +393,8 @@ nindy_wait (int pid, struct target_waitstatus *status)
 	}
     }
 
-  SERIAL_SET_TTY_STATE (tty_args.serial, tty_args.state);
-  free (tty_args.state);
+  serial_set_tty_state (tty_args.serial, tty_args.state);
+  xfree (tty_args.state);
   discard_cleanups (old_cleanups);
 
   if (stop_exit)
@@ -408,7 +410,7 @@ nindy_wait (int pid, struct target_waitstatus *status)
       status->kind = TARGET_WAITKIND_STOPPED;
       status->value.sig = i960_fault_to_signal (stop_code);
     }
-  return inferior_pid;
+  return inferior_ptid;
 }
 
 /* Read the remote registers into the block REGS.  */
@@ -476,7 +478,8 @@ nindy_store_registers (int regno)
 
 int
 nindy_xfer_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len,
-			    int should_write, struct target_ops *target)
+			    int should_write, struct mem_attrib *attrib,
+			    struct target_ops *target)
 {
   int res;
 
@@ -510,7 +513,7 @@ nindy_create_inferior (char *execfile, char *args, char **env)
   /* The "process" (board) is already stopped awaiting our commands, and
      the program is already downloaded.  We just set its PC and go.  */
 
-  inferior_pid = pid;		/* Needed for wait_for_inferior below */
+  inferior_ptid = pid_to_ptid (pid);	/* Needed for wait_for_inferior below */
 
   clear_proceed_status ();
 
@@ -538,7 +541,7 @@ reset_command (char *args, int from_tty)
     }
   if (query ("Really reset the target system?", 0, 0))
     {
-      SERIAL_SEND_BREAK (nindy_serial);
+      serial_send_break (nindy_serial);
       tty_flush (nindy_serial);
     }
 }
@@ -603,7 +606,7 @@ nindy_load (char *filename, int from_tty)
 		  s->_raw_size,
 		  s->vma);
 	  ninMemPut (s->vma, buffer, s->_raw_size);
-	  free (buffer);
+	  xfree (buffer);
 	}
     }
   bfd_close (file);
@@ -735,7 +738,6 @@ specified when you started GDB.";
   nindy_ops.to_thread_alive = 0;	/* to_thread_alive */
   nindy_ops.to_stop = 0;	/* to_stop */
   nindy_ops.to_pid_to_exec_file = NULL;
-  nindy_ops.to_core_file_to_sym_file = NULL;
   nindy_ops.to_stratum = process_stratum;
   nindy_ops.DONT_USE = 0;	/* next */
   nindy_ops.to_has_all_memory = 1;

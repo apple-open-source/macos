@@ -33,12 +33,16 @@
             SCDConsoleUser.h, 
             SCDHostName.h, 
             DHCPClientPreferences.h, 
-            SCDynamicStoreCopyDHCPInfo.h
+            SCDynamicStoreCopyDHCPInfo.h, 
+            moh_msg.h, 
+            moh.h, 
+            DeviceOnHold.h
         ); 
         OTHER_LINKED = (
             SCD.c, 
             SCDKeys.c, 
             SCDPrivate.c, 
+            SCDPlugin.c, 
             SCDOpen.c, 
             SCDLock.c, 
             SCDUnlock.c, 
@@ -76,11 +80,14 @@
             SCPPath.c, 
             SCDConsoleUser.c, 
             SCDHostName.c, 
+            SCLocation.c, 
             SCNetwork.c, 
             SCProxies.c, 
             ppp.c, 
             v1Compatibility.c, 
-            DHCP.c
+            DHCP.c, 
+            moh.c, 
+            DeviceOnHold.c
         ); 
         OTHER_SOURCES = (
             Makefile.preamble, 
@@ -94,7 +101,6 @@
         ); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (
-            SystemConfiguration.h, 
             SCPrivate.h, 
             config_types.h, 
             SCDynamicStoreInternal.h, 
@@ -110,6 +116,7 @@
             SCPreferencesSetSpecific.h, 
             SCNetwork.h, 
             SCValidation.h, 
+            SystemConfiguration.h, 
             v1Compatibility.h
         ); 
         PUBLIC_HEADERS = (
@@ -120,14 +127,15 @@
             SCPreferences.h, 
             SCPreferencesPath.h, 
             SCPreferencesSetSpecific.h, 
-            SCNetwork.h
+            SCNetwork.h, 
+            DHCPClientPreferences.h, 
+            SCDynamicStoreCopyDHCPInfo.h
         ); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
-    NEXTSTEP_COMPILEROPTIONS = "-DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS"; 
     NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/Frameworks"; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 

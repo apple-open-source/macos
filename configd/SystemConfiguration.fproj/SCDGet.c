@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,10 +54,8 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	CFIndex				myPatternsLen	= 0;
 	xmlDataOut_t			xmlDictRef;		/* dict (serialized) */
 	CFIndex				xmlDictLen;
-	CFDataRef			xmlDict;		/* dict (XML serialized) */
-	CFDictionaryRef			dict;			/* dict (un-serialized) */
+	CFDictionaryRef			dict		= NULL;	/* dict (un-serialized) */
 	int				sc_status;
-	CFStringRef			xmlError;
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyMultiple:"));
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  keys     = %@"), keys);
@@ -76,16 +74,19 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 
 	/* serialize the keys */
 	if (keys) {
-		xmlKeys = CFPropertyListCreateXMLData(NULL, keys);
-		myKeysRef = (xmlData_t)CFDataGetBytePtr(xmlKeys);
-		myKeysLen = CFDataGetLength(xmlKeys);
+		if (!_SCSerialize(keys, &xmlKeys, (void **)&myKeysRef, &myKeysLen)) {
+			_SCErrorSet(kSCStatusFailed);
+			return NULL;
+		}
 	}
 
 	/* serialize the patterns */
 	if (patterns) {
-		xmlPatterns = CFPropertyListCreateXMLData(NULL, patterns);
-		myPatternsRef = (xmlData_t)CFDataGetBytePtr(xmlPatterns);
-		myPatternsLen = CFDataGetLength(xmlPatterns);
+		if (!_SCSerialize(patterns, &xmlPatterns, (void **)&myPatternsRef, &myPatternsLen)) {
+			CFRelease(xmlKeys);
+			_SCErrorSet(kSCStatusFailed);
+			return NULL;
+		}
 	}
 
 	/* send the keys and patterns, fetch the associated result from the server */
@@ -121,25 +122,8 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 		return NULL;
 	}
 
-	/* un-serialize the dict, return a value associated with the key */
-	xmlDict = CFDataCreate(NULL, xmlDictRef, xmlDictLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDictRef, xmlDictLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	dict = CFPropertyListCreateFromXMLData(NULL,
-					       xmlDict,
-					       kCFPropertyListImmutable,
-					       &xmlError);
-	CFRelease(xmlDict);
-	if (!dict) {
-		if (xmlError) {
-			SCLog(_sc_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() dict: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	/* un-serialize the dictionary */
+	if (!_SCUnserialize((CFPropertyListRef *)&dict, xmlDictRef, xmlDictLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}
@@ -160,11 +144,9 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	CFIndex				myKeyLen;
 	xmlDataOut_t			xmlDataRef;	/* data (serialized) */
 	CFIndex				xmlDataLen;
-	CFDataRef			xmlData;	/* data (XML serialized) */
 	CFPropertyListRef		data;		/* data (un-serialized) */
 	int				newInstance;
 	int				sc_status;
-	CFStringRef			xmlError;
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyValue:"));
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  key      = %@"), key);
@@ -181,9 +163,10 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	}
 
 	/* serialize the key */
-	xmlKey = CFPropertyListCreateXMLData(NULL, key);
-	myKeyRef = (xmlData_t)CFDataGetBytePtr(xmlKey);
-	myKeyLen = CFDataGetLength(xmlKey);
+	if (!_SCSerialize(key, &xmlKey, (void **)&myKeyRef, &myKeyLen)) {
+		_SCErrorSet(kSCStatusFailed);
+		return NULL;
+	}
 
 	/* send the key & fetch the associated data from the server */
 	status = configget(storePrivate->server,
@@ -216,25 +199,8 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 		return NULL;
 	}
 
-	/* un-serialize the data, return a value associated with the key */
-	xmlData = CFDataCreate(NULL, xmlDataRef, xmlDataLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	data = CFPropertyListCreateFromXMLData(NULL,
-					       xmlData,
-					       kCFPropertyListImmutable,
-					       &xmlError);
-	CFRelease(xmlData);
-	if (!data) {
-		if (xmlError) {
-			SCLog(_sc_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() data: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	/* un-serialize the data */
+	if (!_SCUnserialize(&data, xmlDataRef, xmlDataLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}

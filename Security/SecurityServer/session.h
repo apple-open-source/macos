@@ -29,7 +29,13 @@
 #include <Security/utilities.h>
 #include <Security/handleobject.h>
 #include <Security/cssmdb.h>
+
+#if __GNUC__ > 2
+#include <ext/hash_map>
+using __gnu_cxx::hash_map;
+#else
 #include <hash_map>
+#endif
 
 
 class Key;
@@ -45,15 +51,19 @@ class Connection;
 // single-sign-on functionality.
 //
 class Session : public HandleObject {
-    typedef MachPlusPlus::Bootstrap Bootstrap;
 public:
-    Session(Bootstrap bootstrap, SessionAttributeBits attrs = 0);
+    typedef MachPlusPlus::Bootstrap Bootstrap;
+
+    Session(Bootstrap bootstrap, Port servicePort, SessionAttributeBits attrs = 0);
 	virtual ~Session();
     
     Bootstrap bootstrapPort() const		{ return mBootstrap; }
+	Port servicePort() const			{ return mServicePort; }
     
     void addProcess(Process *proc);
     bool removeProcess(Process *proc);
+	
+	virtual void release();
     
     void addAuthorization(AuthorizationToken *auth);
     bool removeAuthorization(AuthorizationToken *auth);
@@ -80,7 +90,8 @@ public:
 	OSStatus authGetRights(const AuthorizationBlob &auth,
 		const RightSet &requestedRights, const AuthorizationEnvironment *environment,
 		AuthorizationFlags flags, MutableRightSet &grantedRights);
-	OSStatus authGetInfo(const AuthorizationBlob &auth, const char *tag, MutableRightSet &info);
+	OSStatus authGetInfo(const AuthorizationBlob &auth, const char *tag, AuthorizationItemSet *&contextInfo);
+    
 	OSStatus authExternalize(const AuthorizationBlob &auth, AuthorizationExternalForm &extForm);
 	OSStatus authInternalize(const AuthorizationExternalForm &extForm, AuthorizationBlob &auth);
 
@@ -97,19 +108,21 @@ protected:
     bool clearResources();
 
 public:
-    static Session &find(Bootstrap bootstrap, bool makeNew = true);
+    static Session &find(Port servPort);
     static Session &find(SecuritySessionId id);
-    static void eliminate(Bootstrap bootstrap);
+    static void eliminate(Port servPort);
     
 protected:
 	mutable Mutex mLock;			// object lock
     
     Bootstrap mBootstrap;			// session bootstrap port
+	Port mServicePort;				// SecurityServer service port for this session
     SessionAttributeBits mAttributes; // attribute bits (see AuthSession.h)
     unsigned int mProcessCount;		// number of active processes in session
     unsigned int mAuthCount;		// number of AuthorizationTokens belonging to us
     bool mDying;					// session is dying
 
+    mutable Mutex mCredsLock;	// lock for mSessionCreds
 	CredentialSet mSessionCreds;	// shared session authorization credentials
 
 private:	
@@ -133,7 +146,7 @@ public:
 //
 class RootSession : public Session {
 public:
-    RootSession();
+    RootSession(Port servicePort, SessionAttributeBits attrs = 0);
 };
 
 
@@ -143,9 +156,13 @@ public:
 // are torn down when their bootstrap object disappears (which happens when mach_init
 // destroys it due to its requestor referent vanishing).
 //
-class DynamicSession : public Session {
+class DynamicSession : private ReceivePort, public Session {
 public:
-    DynamicSession(Bootstrap bootstrap);
+    DynamicSession(const Bootstrap &bootstrap);
+	~DynamicSession();
+	
+protected:
+	void release();
 };
 
 

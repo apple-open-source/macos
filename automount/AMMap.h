@@ -37,6 +37,7 @@
 	Vnode *root;
 }
 
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds;
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir;
 - (unsigned int)didAutoMount;
 

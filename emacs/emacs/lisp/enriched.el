@@ -2,7 +2,7 @@
 
 ;; Copyright (c) 1994, 1995, 1996 Free Software Foundation, Inc.
 
-;; Author: Boris Goldowsky <boris@gnu.ai.mit.edu>
+;; Author: Boris Goldowsky <boris@gnu.org>
 ;; Keywords: wp, faces
 
 ;; This file is part of GNU Emacs.
@@ -99,7 +99,7 @@ expression, which is evaluated to get the string to insert.")
 (defconst enriched-annotation-format "<%s%s>"
   "General format of enriched-text annotations.")
 
-(defconst enriched-annotation-regexp "<\\(/\\)?\\([-A-za-z0-9]+\\)>"
+(defconst enriched-annotation-regexp "<\\(/\\)?\\([-A-Za-z0-9]+\\)>"
   "Regular expression matching enriched-text annotations.")
 
 (defconst enriched-translations
@@ -121,8 +121,10 @@ expression, which is evaluated to get the string to insert.")
     (PARAMETER     (t           "param")) ; Argument of preceding annotation
     ;; The following are not part of the standard:
     (FUNCTION      (enriched-decode-foreground "x-color")
-		   (enriched-decode-background "x-bg-color"))
+		   (enriched-decode-background "x-bg-color")
+		   (enriched-decode-display-prop "x-display"))
     (read-only     (t           "x-read-only"))
+    (display	   (nil		enriched-handle-display-prop))
     (unknown       (nil         format-annotate-value))
 ;   (font-size     (2           "bigger")       ; unimplemented
 ;		   (-2          "smaller"))
@@ -346,17 +348,23 @@ One annotation each for foreground color, background color, italic, etc."
 	    
 (defun enriched-face-ans (face)
   "Return annotations specifying FACE."
-  (cond ((string-match "^fg:" (symbol-name face))
+  (cond ((and (consp face) (eq (car face) 'foreground-color))
+	 (list (list "x-color" (cdr face))))
+	((and (consp face) (eq (car face) 'background-color))
+	 (list (list "x-bg-color" (cdr face))))
+	((string-match "^fg:" (symbol-name face))
 	 (list (list "x-color" (substring (symbol-name face) 3))))
 	((string-match "^bg:" (symbol-name face))
 	 (list (list "x-bg-color" (substring (symbol-name face) 3))))
-	((let* ((fg (face-foreground face))
-		(bg (face-background face))
+	((let* ((fg (face-attribute face :foreground))
+		(bg (face-attribute face :background))
 		(props (face-font face t))
 		(ans (cdr (format-annotate-single-property-change
 			   'face nil props enriched-translations))))
-	   (if fg (setq ans (cons (list "x-color" fg) ans)))
-	   (if bg (setq ans (cons (list "x-bg-color" bg) ans)))
+	   (unless (eq fg 'unspecified)
+	     (setq ans (cons (list "x-color" fg) ans)))
+	   (unless (eq bg 'unspecified)
+	     (setq ans (cons (list "x-bg-color" bg) ans)))
 	   ans))))
 
 ;;;
@@ -436,8 +444,8 @@ Return value is \(begin end name positive-p), or nil if none was found."
   (let ((face (intern (concat "fg:" color))))
     (cond ((null color)
 	   (message "Warning: no color specified for <x-color>"))
-	  ((internal-find-face face))
-	  ((and window-system (facemenu-get-face face)))
+	  ((facep face))
+	  ((and (display-color-p) (facemenu-get-face face)))
 	  ((make-face face)
 	   (message "Warning: color `%s' can't be displayed" color)))
     (list from to 'face face)))
@@ -446,10 +454,43 @@ Return value is \(begin end name positive-p), or nil if none was found."
   (let ((face (intern (concat "bg:" color))))
     (cond ((null color)
 	   (message "Warning: no color specified for <x-bg-color>"))
-	  ((internal-find-face face))
-	  ((and window-system (facemenu-get-face face)))
+	  ((facep face))
+	  ((and (display-color-p) (facemenu-get-face face)))
 	  ((make-face face)
 	   (message "Warning: color `%s' can't be displayed" color)))
     (list from to 'face face)))
 
+
+
+;;; Handling the `display' property.
+
+
+(defun enriched-handle-display-prop (old new)
+  "Return a list of annotations for a change in the `display' property.
+OLD is the old value of the property, NEW is the new value.  Value
+is a list `(CLOSE OPEN)', where CLOSE is a list of annotations to
+close and OPEN a list of annotations to open.  Each of these lists
+has the form `(ANNOTATION PARAM ...)'."
+  (let ((annotation "x-display")
+	(param (prin1-to-string (or old new)))
+	close open)
+    (if (null old)
+	(list nil (list annotation param))
+      (list (list annotation param)))))
+
+
+(defun enriched-decode-display-prop (start end &optional param)
+  "Decode a `display' property for text between START and END.
+PARAM is a `<param>' found for the property.
+Value is a list `(START END SYMBOL VALUE)' with START and END denoting
+the range of text to assign text property SYMBOL with value VALUE "
+  (let ((prop (when (stringp param)
+		(condition-case ()
+		    (car (read-from-string param))
+		  (error nil)))))
+    (unless prop
+      (message "Warning: invalid <x-display> parameter %s" param))
+    (list start end 'display prop)))
+	       
+	   
 ;;; enriched.el ends here

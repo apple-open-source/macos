@@ -3,7 +3,7 @@ static char yysccsid[] = "@(#)yaccpar 1.8 (Berkeley) 01/20/91";
 #endif
 #define YYBYACC 1
 #line 2 "a2p.y"
-/* $RCSfile: a2p.c,v $$Revision: 1.1.1.3 $$Date: 2000/03/31 05:13:03 $
+/* $RCSfile: a2p.c,v $$Revision: 1.2 $$Date: 2002/03/14 09:03:59 $
  *
  *    Copyright (c) 1991-1997, Larry Wall
  *
@@ -11,6 +11,9 @@ static char yysccsid[] = "@(#)yaccpar 1.8 (Berkeley) 01/20/91";
  *    License or the Artistic License, as specified in the README file.
  *
  * $Log: a2p.c,v $
+ * Revision 1.2  2002/03/14 09:03:59  zarzycki
+ * Revert HEAD back to perl-17
+ *
  * Revision 1.1.1.3  2000/03/31 05:13:03  wsanchez
  * Import of perl 5.6.0
  *

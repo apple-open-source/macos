@@ -1,0 +1,23 @@
+#! /bin/sh
+
+# Test that `+=' fails when required.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_RANLIB
+END
+
+# If you do this in a real Makefile.am, I will kill you.
+cat > Makefile.am << 'END'
+lib_LIBRARIES = libq.a
+libq_a_SOURCES = q.c
+AR += qq
+END
+
+: > q.c
+
+$ACLOCAL || exit 1
+$AUTOMAKE && exit 1
+exit 0

@@ -35,11 +35,14 @@
 #include <errno.h>
 #include <stdio.h>
 #include <dev/disk.h>
-#include <bsd/grp.h>
-#include <bsd/pwd.h>
+#include <grp.h>
+#include <pwd.h>
+#include <paths.h>
 
 #include <IOKit/OSMessageNotification.h>
 #include <IOKit/IOKitLib.h>
+
+#include <SystemConfiguration/SystemConfiguration.h>
 
 
 #include "ServerToClient.h"
@@ -59,14 +62,13 @@
 
 mach_port_t ioMasterPort;
 
-
 void autodiskmount(int ownership);
 
 uid_t 		requestorUID;
 gid_t 		requestorGID;
 mach_port_t 	requestingClientPort;
 int 		DA_postponedDisksExist;
-int 		DA_stateChangedToNew;
+int 		DA_stateChangedSpinRunLoop;
 
 	
 /*
@@ -85,7 +87,7 @@ int gDaemon;
 	External routines
 */
 
-extern void ClientDeath(mach_port_t clientPort);
+extern void ClientDeath(mach_port_t clientPort, int deadNotification);
 
 extern boolean_t ClientToServer_server(mach_msg_header_t * msg, mach_msg_header_t * reply);
 
@@ -144,6 +146,177 @@ CFStringRef mountOrFsckFailedWithDiskUtility;
 typedef struct IONotificationMsg IONotificationMsg, * IONotificationMsgPtr;
 
 static void HandleIONotificationMsg( IONotificationMsgPtr ioNotificationMsgPtr );
+
+#define PIPEFULL	(4 * 1024)
+static char *
+read_output(int fd)
+{
+	char *		buf = NULL;
+	ssize_t 	count;
+	ssize_t		where = 0;
+
+	buf = malloc(PIPEFULL);
+	if (buf == NULL) {
+		return (NULL);
+	}
+
+	/* this handles up to PIPEFULL - 1 bytes */
+	while (where < (PIPEFULL - 1)
+	       && (count = read(fd, buf + where, PIPEFULL - 1 - where))) {
+	    if (count == -1) {
+		free(buf);
+		return (NULL);
+	    }
+	    where += count;
+	}
+	buf[where] = '\0';
+	return (buf);
+}
+
+boolean_t
+do_exec(const char * dir, const char * argv[], int * result,
+	char * * output)
+{
+	int 		fdp[2];
+	boolean_t	got_result = FALSE;
+	int 		pid;
+
+	if (g.debug) {
+		const char * * scan;
+		printf("do_exec(");
+		for (scan = argv; *scan; scan++) {
+			printf("%s%s", (scan != argv) ? " " : "", *scan);
+		}
+		printf(")\n");
+	}
+	if (output != NULL) {
+		*output = NULL;
+		if (pipe(fdp) == -1) {
+			LogErrorMessage("do_exec(): pipe() failed, %s", 
+					strerror(errno));
+			return (FALSE);
+		}
+	}
+	if (access(argv[0], F_OK) == 0) {
+		pid = fork();
+		if (pid == 0) {
+			/* CHILD PROCESS */
+			if (output == NULL)
+				cleanUpAfterFork(NULL);
+			else
+				cleanUpAfterFork(fdp);
+
+			if (dir) {
+				chdir(dir);
+			}
+			execve(argv[0], (char * const *)argv, 0);
+			exit(-127);
+		}
+		else if (pid > 0) {  /* PARENT PROCESS */
+			int statusp;
+			int waitResult;
+			
+			if (output != NULL) {
+				close(fdp[1]);
+				*output = read_output(fdp[0]);
+                                close(fdp[0]);
+			}
+			dwarning(("wait4(pid=%d,&statusp,0,NULL)...\n", pid));
+			waitResult = wait4(pid,&statusp,0,NULL);
+			dwarning(("wait4(pid=%d,&statusp,0,NULL) => %d\n", 
+				  pid, waitResult));
+			if (waitResult > 0
+			    && WIFEXITED(statusp)) {
+				got_result = TRUE;
+				*result = (int)(char)(WEXITSTATUS(statusp));
+			}
+		}
+		else {
+			LogErrorMessage("do_exec: fork() failed, %s",
+					strerror(errno));
+		}
+	}
+	return (got_result);
+}
+
+void 
+cleanUpAfterFork(int fdp[])
+{
+    int fd, maxfd = getdtablesize();
+
+        /* Close all inherited file descriptors */
+
+    for (fd = 0; fd < maxfd; fd++)
+    {
+	    if (fdp == NULL || (fdp[0] != fd && fdp[1] != fd)) {
+		    close(fd);
+	    }
+    }
+
+        /* Disassociate ourselves from any controlling tty */
+
+    if ((fd = open("/dev/tty", O_NDELAY)) >= 0)
+    {
+                ioctl(fd, TIOCNOTTY, 0);
+                close(fd);
+    }
+
+    /* Reset the user and group id's to their real values */
+
+    setgid(getgid());
+    setuid(getuid());
+
+    (void)setsid();
+    
+    (void)chdir("/");
+
+    if ((fd = open(_PATH_DEVNULL, O_RDWR, 0)) != -1) {
+	    /* point stdin -> /dev/null */
+	    (void)dup2(fd, STDIN_FILENO);
+	    if (fdp != NULL) {
+		    /* point stdout to one end of pipe fdp[1] */
+		    (void)dup2(fdp[1], STDOUT_FILENO);
+
+		    /* close the other end */
+		    close(fdp[0]);
+	    }
+	    else {
+		    (void)dup2(fd, STDOUT_FILENO);
+	    }
+	    (void)dup2(fd, STDERR_FILENO);
+	    if (fd > 2)
+		    (void)close (fd);
+    }
+    return;
+}
+
+int
+findDiskInit()
+{
+	kern_return_t r;
+        io_iterator_t ioIterator;  // first match
+
+	r = IOMasterPort(bootstrap_port, &ioMasterPort);
+	if (r != KERN_SUCCESS)
+	{
+		LogErrorMessage("(%s:%d) IOMasterPort failed: {0x%x} %s\n", __FILE__, __LINE__, r, mach_error_string(r));
+		return -1;
+	}
+
+	r = IOServiceGetMatchingServices(ioMasterPort,
+					 IOServiceMatching( "IOMedia" ),
+					 &ioIterator);
+        if (r != KERN_SUCCESS)
+        {
+                LogErrorMessage("(%s:%d) IOServiceGetMatching Services: {0x%x} %s\n", __FILE__, __LINE__, r, mach_error_string(r));
+                return -1;
+        }
+        GetDisksFromRegistry(ioIterator, 1, 0);
+        IOObjectRelease(ioIterator);
+        cacheFileSystemDictionaries();
+        cacheFileSystemMatchingArray();
+	return (0);
+}
 
 void * YankedDiskThread(void * args)
 {
@@ -303,7 +476,7 @@ static void HandleIONotificationMsg( IONotificationMsgPtr msg )
 	// remote port is the notification (an iterator_t) that fired
 
         if (notifyType != 102) {  // anything except terminate
-            GetDisksFromRegistry( (io_iterator_t) msg->msgHdr.msgh_remote_port, 0 );
+            GetDisksFromRegistry( (io_iterator_t) msg->msgHdr.msgh_remote_port, 0, 0 );
 
             autodiskmount(FALSE);
         } else {
@@ -311,7 +484,7 @@ static void HandleIONotificationMsg( IONotificationMsgPtr msg )
 
             io_registry_entry_t	entry;
 
-            while ( entry = IOIteratorNext( iter ) )
+            while ( (entry = IOIteratorNext( iter )) )
             {
                 kern_return_t		kr;
                 CFDictionaryRef properties = 0; // (needs release)
@@ -329,8 +502,8 @@ static void HandleIONotificationMsg( IONotificationMsgPtr msg )
                         continue;
                 }
 
-                
-                kr = IORegistryEntryCreateCFProperties(entry, &properties, kCFAllocatorDefault, kNilOptions);
+
+                kr = IORegistryEntryCreateCFProperties(entry, (CFMutableDictionaryRef *)&properties, kCFAllocatorDefault, kNilOptions);
                 if ( KERN_SUCCESS != kr )
                 {
                         dwarning(("can't obtain properties for '%s'\n", ioMediaName));
@@ -429,7 +602,7 @@ ClientPtr NewClient( mach_port_t port, unsigned pid, unsigned flags )
 	result->port = port;
 	result->pid = pid;
 	result->flags = flags;
-	result->state = kDiskStateNew;
+	result->state = kClientStateNew;
 	result->numAcksRequired = 0;
         result->notifyOnDiskTypes = 0;
         result->unrecognizedPriority = 0;
@@ -531,7 +704,8 @@ DiskPtr NewDisk(	char * ioBSDName,
 					char * ioDeviceTreePathOrNull,
                                         io_object_t	service,
                                         int	mountingUserFromDevice,
-					unsigned flags )
+					unsigned flags,
+					UInt64 ioSize)
 {
 	DiskPtr result;
 	
@@ -577,6 +751,11 @@ DiskPtr NewDisk(	char * ioBSDName,
         result->wholeDiskHasBeenYanked = 0;
         result->admCreatedMountPoint = 0;
         result->ejectOnLogout = 0;
+	   result->ioSize = ioSize;
+        result->approvedForMounting = 0;
+        result->forceTakeOwnershipOnDisk = 0;
+        result->volName = strdup( "" );
+        result->timeAppeared = CFAbsoluteTimeGetCurrent();
 
 	if ( ioMediaNameOrNull )
 	{
@@ -609,7 +788,14 @@ DiskPtr NewDisk(	char * ioBSDName,
 
 	g.NumDisks ++ ;
 	g.NumDisksAddedOrDeleted ++;
-	
+
+	/* Retain service */
+
+	if ( service )
+	{
+		IOObjectRetain( service );
+	}
+
 Return:
 	return result;
 
@@ -627,7 +813,7 @@ boolean_t IsWhole( DiskPtr diskPtr )
 	
 	return result;
 
-} // IsNetwork
+} // IsWhole
 
 
 //------------------------------------------------------------------------
@@ -710,6 +896,17 @@ void DiskSetMountpoint( DiskPtr diskPtr, const char * mountpoint )
 	diskPtr->sequenceNumber = NextSequenceNumber();
 
 } // DiskSetMountpoint
+
+void DiskSetVolumeName( DiskPtr diskPtr, const char * volName )
+{
+    if ( diskPtr->volName )
+    {
+        free( diskPtr->volName );
+    }
+
+    diskPtr->volName = strdup( volName ? volName : "" );
+
+}
 
 //------------------------------------------------------------------------
 
@@ -949,10 +1146,17 @@ int EjectDisk( DiskPtr diskPtr )
 		SetStateForAllPartitions( diskPtr, kDiskStateIdle );
     	goto Return;
     }
+
+    if ( 0 != ( diskPtr->flags & kDiskArbDiskAppearedEjectableMask ) )
+    {
         /* Mark each partition on this disk with <state> = kDiskStateNewlyEjected. */
-        if (diskPtr) {
-                SetStateForAllPartitions( diskPtr, kDiskStateNewlyEjected );
-        }
+        SetStateForAllPartitions( diskPtr, kDiskStateNewlyEjected );
+    }
+    else
+    {
+        /* Mark each partition on this disk with <state> = kDiskStateIdle. */
+        SetStateForAllPartitions( diskPtr, kDiskStateIdle );
+    }
 
 	result = ioctl(fd, DKIOCEJECT, 0);
 	if ( -1 == result )
@@ -960,13 +1164,8 @@ int EjectDisk( DiskPtr diskPtr )
                 
                 result = errno;
 
-                if (result == 45) {  // operation not supported for firewire devices
-                        result = 0;
-                        goto Return;
-                }
-
                 LogErrorMessage("%s('%s') ioctl(DKIOCEJECT) failed: %d (%s)\n", __FUNCTION__, diskPtr->ioBSDName, result, strerror(result));
-		SetStateForAllPartitions( diskPtr, kDiskStateIdle );
+                SetStateForAllPartitions( diskPtr, kDiskStateIdle );
                 goto Return;
 	}
 
@@ -1009,8 +1208,10 @@ void FreeDisk( DiskPtr diskPtr )
 			diskPtr->ioBSDName = NULL; // Attempt to catch accidental re-use.
 			free( diskPtr->ioContent );
 			diskPtr->ioContent = NULL; // Attempt to catch accidental re-use.
-			free( diskPtr->mountpoint );
-			diskPtr->mountpoint = NULL; // Attempt to catch accidental re-use.
+                        free( diskPtr->mountpoint );
+                        diskPtr->mountpoint = NULL; // Attempt to catch accidental re-use.
+                        free( diskPtr->volName );
+                        diskPtr->volName = NULL; // Attempt to catch accidental re-use.
 			if ( diskPtr->ioMediaNameOrNull)
 			{
 			    free( diskPtr->ioMediaNameOrNull);
@@ -1031,8 +1232,11 @@ void FreeDisk( DiskPtr diskPtr )
 			}
 			diskPtr->ackValues = NULL; // Attempt to catch accidental re-use.
 
-                        IOObjectRelease(diskPtr->service);
-                        
+			if ( diskPtr->service )
+			{
+				IOObjectRelease( diskPtr->service );
+			}
+
 			free( diskPtr );
                         
 			g.NumDisks --;
@@ -1097,7 +1301,8 @@ int IsStateNeedingAckValueTable( DiskState diskState )
 	{
 		case kDiskStateToBeEjected:
 		case kDiskStateToBeUnmounted:
-		case kDiskStateToBeUnmountedAndEjected:
+        case kDiskStateToBeUnmountedAndEjected:
+        case kDiskStateWaitingForMountApproval:
 			return 1;
 		break;
 
@@ -1470,6 +1675,7 @@ void FreeAckValues( AckValues * ackValues )
 	dwarning(("%s(0x%08x)\n", __FUNCTION__, (unsigned)ackValues));
 
 	if ( ! ackValues ) goto Return;
+	if ( ! ackValues->ackValues ) goto Return;
 	
 	if ( ackValues->ackValues )
 	{
@@ -1493,7 +1699,7 @@ void ClearAckValuesForAllDisks()
         
         for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
         {
-                if (p = diskPtr->ackValues )
+                if ((p = diskPtr->ackValues) )
                 {
                         for (i = 0; i < p->logicalLength; i++)
                         {
@@ -1511,12 +1717,12 @@ void InitAckValue( AckValues * p, pid_t pid )
 {
 	dwarning(("%s(0x%08x, pid=%d)\n", __FUNCTION__, (unsigned)p, (unsigned)pid));
 
-	p->ackValues[ p->logicalLength ].pid = pid;
-	p->ackValues[ p->logicalLength ].state = kSendMsg;
-	p->ackValues[ p->logicalLength ].errorCode = 0;
-	
 	if ( p->logicalLength < p->physicalLength )
 	{
+		p->ackValues[ p->logicalLength ].pid = pid;
+		p->ackValues[ p->logicalLength ].state = kSendMsg;
+		p->ackValues[ p->logicalLength ].errorCode = 0;
+	
 		p->logicalLength ++ ;
 	}
 	else
@@ -1549,14 +1755,7 @@ void UpdateAckValue( AckValues * p, pid_t pid, int errorCode )
 			}
 			else
 			{
-                                //Client *unrespondingClient = LookupClientByPID(pid);
-                                //mach_port_t unrespondingPort = unrespondingClient->port;
-                                
-                                LogErrorMessage("(%s:%d) %s(0x%08x, pid=%d, errorCode=%d): error: state != kWaitingForAck\n", __FILE__, __LINE__, __FUNCTION__, (unsigned)p, (unsigned)pid, errorCode);
-                        	p->ackValues[ i ].state = kWaitingForAck;
-                                //SendClientWasDisconnectedMsg(unrespondingClient);
-                                //ClientDeath(unrespondingPort);
-                                
+				LogErrorMessage("(%s:%d) %s(0x%08x, pid=%d, errorCode=%d): error: state != kWaitingForAck\n", __FILE__, __LINE__, __FUNCTION__, (unsigned)p, (unsigned)pid, errorCode);
 			}
 			p->ackValues[ i ].errorCode = errorCode;
 			goto Return;
@@ -1578,6 +1777,11 @@ int NumUnsetAckValues( AckValues * p )
 	int i;
 
 	result = 0;
+
+        if (!p) {
+            dwarning(("%s, No Ack Values passed in??\n", __FUNCTION__));
+            return 0;
+        }
 	
 	for (i = 0; i < p->logicalLength; i++)
 	{
@@ -1614,6 +1818,46 @@ int NumUnsetAckValuesForAllDisks( void )
 	return result;
 
 } // NumUnsetAckValuesForAllDisks
+
+
+int NumUnsetAckValuesForAllPartitions( DiskPtr diskPtr )
+{
+	DiskPtr diskPtr2;
+	int	family1, family2;
+	int	deviceNum1, deviceNum2;
+	int result;
+
+	result = 0;
+	
+	if ( IsNetwork( diskPtr ) )
+	{
+		result = NumUnsetAckValues( diskPtr->ackValues );
+		goto Return;
+	}
+
+	family1 = diskPtr->family;
+	deviceNum1 = diskPtr->ioBSDUnit;
+
+	for (diskPtr2 = g.Disks; diskPtr2 != NULL; diskPtr2 = diskPtr2->next)
+	{
+		family2 = diskPtr2->family;
+		deviceNum2 = diskPtr2->ioBSDUnit;
+
+		if ( family1 == family2 && deviceNum1 == deviceNum2 )
+		{
+			if ( diskPtr2->ackValues )
+			{
+				result += NumUnsetAckValues( diskPtr2->ackValues );
+			}
+		}
+	}
+
+Return:
+	dwarning(("%s => %d\n", __FUNCTION__, result));
+	
+	return result;
+
+} // NumUnsetAckValuesForAllPartitions
 
 
 void PrintAckValues( AckValues * p )
@@ -1682,6 +1926,48 @@ Return:
 	return result;
 
 } // GetDissenterFromAckValuesForAllDisks
+
+
+AckValue * GetDissenterFromAckValuesForAllPartitions( DiskPtr diskPtr )
+{
+	AckValue * result;
+	DiskPtr diskPtr2;
+	int	family1, family2;
+	int	deviceNum1, deviceNum2;
+
+	if ( IsNetwork( diskPtr ) )
+	{
+		result = GetDissenterFromAckValues( diskPtr->ackValues );
+		goto Return;
+	}
+
+	family1 = diskPtr->family;
+	deviceNum1 = diskPtr->ioBSDUnit;
+
+	for (diskPtr2 = g.Disks; diskPtr2 != NULL; diskPtr2 = diskPtr2->next)
+	{
+		family2 = diskPtr2->family;
+		deviceNum2 = diskPtr2->ioBSDUnit;
+
+		if ( family1 == family2 && deviceNum1 == deviceNum2 )
+		{
+			if ( diskPtr2->ackValues )
+			{
+				result = GetDissenterFromAckValues( diskPtr2->ackValues );
+				if ( result )
+				{
+					goto Return;
+				}
+			}
+		}
+	}
+
+	result = NULL;
+
+Return:
+	return result;
+
+} // GetDissenterFromAckValuesForAllPartitions
 
 AckValue * GetUnresponderFromAckValues( AckValues * ackValuesPtr )
 {
@@ -1759,12 +2045,19 @@ void MakeDeadClientAgreeable( ClientPtr clientPtr )
 
 unsigned NumClientsDesiringAsyncNotification( void )
 {
+    return NumClientsDesiringAsyncNotificationOfType(kDiskArbNotifyAsync) +
+           NumClientsDesiringAsyncNotificationOfType(kDiskArbNotifyDiskApproval);
+} // NumClientsDesiringAsyncNotification
+
+
+unsigned NumClientsDesiringAsyncNotificationOfType( int type )
+{
 	unsigned result = 0; /* mandatory initialization */
 	ClientPtr clientPtr;
 	
 	for (clientPtr = g.Clients; clientPtr != NULL; clientPtr = clientPtr->next)
 	{
-		if ( clientPtr->flags & kDiskArbNotifyAsync )
+		if ( clientPtr->flags & type )
 		{
 			result ++ ;
 		}
@@ -1777,20 +2070,58 @@ unsigned NumClientsDesiringAsyncNotification( void )
 
 //------------------------------------------------------------------------
 
-// this structure's parts are significantly overloaded - see each thread for actual usage ...
+DiskThreadRecord * NewDiskThreadRecord()
+{
+    DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
 
-typedef struct {
-    int			diskAppearedType;
-    mach_port_t		port;
-    char		*ioBSDName;		// stores volume for DiskChanged
-    unsigned		flags;
-    char		*mountpoint;		// stores newMountpoint for DiskChanged
-    int			pid;
-    char		*ioDeviceTreePath;
-    char		*ioContent;		// stores 
-    int			sequenceNumber;
-    int			diskType;
-} DiskThreadRecord;
+    record->diskAppearedType = 0;
+    record->port = 0;
+    record->ioBSDName = NULL;
+    record->flags = 0;
+    record->mountpoint = NULL;
+    record->pid = 0;
+    record->ioDeviceTreePath = NULL;
+    record->ioContent = NULL;
+    record->sequenceNumber = 0;
+    record->diskType = 0;
+    record->fsName = NULL;
+    record->fsType = NULL;
+    record->timeAppeared = 0;
+    
+    return record;
+    
+}
+
+void DeleteThreadRecord(DiskThreadRecord *record)
+{
+    if (record->ioBSDName) {
+        free(record->ioBSDName);
+        record->ioBSDName = NULL; // catch accidental double free
+    }
+    if (record->ioDeviceTreePath) {
+        free(record->ioDeviceTreePath);
+        record->ioDeviceTreePath = NULL;
+    }
+    if (record->ioContent) {
+        free(record->ioContent);
+        record->ioContent = NULL;
+    }
+    if (record->mountpoint) {
+        free(record->mountpoint);
+        record->mountpoint = NULL;
+    }
+    if (record->fsType) {
+        free(record->fsType);
+        record->fsType = NULL;
+    }
+    if (record->fsName) {
+        free(record->fsName);
+        record->fsName = NULL;
+    }
+    free(record);
+    record = NULL;
+}
+
 
 static void * NotifyDiskAppeared(void * args)
 {
@@ -1813,6 +2144,10 @@ static void * NotifyDiskAppeared(void * args)
         {
                 r = DiskArbDiskAppeared2_rpc(record->port, record->ioBSDName, record->flags, record->mountpoint, record->ioContent, record->ioDeviceTreePath, record->sequenceNumber);
         }
+    else if ( record->diskAppearedType == kDiskArbNotifyDiskAppearedComplete )
+        {
+                r = DiskArbDiskAppearedComplete_rpc(record->port, record->ioBSDName, record->flags, record->mountpoint, record->ioContent, record->ioDeviceTreePath, record->sequenceNumber, record->timeAppeared, record->fsType, record->fsName);
+        }
 	if ( r ) dwarning(("... $%08x: %s\n", r, mach_error_string(r)));
 	if ( r == MACH_SEND_INVALID_DEST )
 	{
@@ -1820,11 +2155,7 @@ static void * NotifyDiskAppeared(void * args)
 		/* Don't do anything here ... wait for the notification */
 		dwarning(("Dead client! Port = $%08x (pid=%d)\n", record->port, record->pid));
 	}
-	free(record->ioBSDName);
-        free(record->ioDeviceTreePath);
-        free(record->ioContent);
-        free(record->mountpoint);
-	free(record);
+    DeleteThreadRecord(record);
 	return NULL;
 }
 
@@ -1857,7 +2188,7 @@ static void * NotifyDiskMessagesCompleted(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x\n", record->port));
         }
-        free(record);
+        DeleteThreadRecord(record);
         return NULL;
 }
 
@@ -1888,7 +2219,7 @@ static void * NotifyBlueBoxMessages(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x\n", record->port));
         }
-        free(record);
+        DeleteThreadRecord(record);
         return NULL;
 }
 
@@ -1905,7 +2236,7 @@ static void * NotifyDiskChanged(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x\n", record->port));
         }
-        free(record);
+        DeleteThreadRecord(record);
         return NULL;
 }
 
@@ -1922,7 +2253,8 @@ static void * NotifyDiskWillBeChecked(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x\n", record->port));
         }
-        free(record);
+        DeleteThreadRecord(record);
+
         return NULL;
 }
 
@@ -1939,9 +2271,27 @@ static void * NotifyCallFailed(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x\n", record->port));
         }
-        free(record);
+        DeleteThreadRecord(record);
         return NULL;
 }
+
+static void * NotifyCallSucceeded(void * args)
+{
+        DiskThreadRecord *record = args;
+        kern_return_t r;
+
+        r = DiskArbPreviousCallSucceeded_rpc(record->port, record->ioBSDName, record->flags);
+        if ( r ) dwarning(("... $%08x: %s\n", r, mach_error_string(r)));
+        if ( r == MACH_SEND_INVALID_DEST )
+        {
+                /* The client has died */
+                /* Don't do anything here ... wait for the notification */
+                dwarning(("Dead client! Port = $%08x\n", record->port));
+        }
+        DeleteThreadRecord(record);
+        return NULL;
+}
+
 
 
 static void * NotifyUnrecognizedDiskInserted(void * args)
@@ -1959,7 +2309,7 @@ static void * NotifyUnrecognizedDiskInserted(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x\n", record->port));
         }
-        free(record);
+        DeleteThreadRecord(record);
         return NULL;
 }
 
@@ -1978,7 +2328,7 @@ static void * NotifyUnrecognizedDiskArbitration(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x\n", record->port));
         }
-        free(record);
+        DeleteThreadRecord(record);
         return NULL;
 }
 
@@ -1996,7 +2346,7 @@ static void * NotifyPreUnmount(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x (pid=%d)\n", record->port, record->pid));
         }
-        free(record);
+        DeleteThreadRecord(record);
         return NULL;
 }
 
@@ -2014,9 +2364,28 @@ static void * NotifyPreEjection(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x (pid=%d)\n", record->port, record->pid));
         }
-        free(record);
+        DeleteThreadRecord(record);
         return NULL;
 }
+
+static void * NotifyPreMount(void * args)
+{
+        DiskThreadRecord *record = args;
+
+        kern_return_t r;
+
+        r = DiskArbDiskApprovalPre_rpc(record->port, record->ioBSDName, record->mountpoint, record->ioContent, record->ioDeviceTreePath, record->flags, record->isWritable, record->isRemovable, record->isWhole, record->fsType);
+        if ( r ) dwarning(("... $%08x: %s\n", r, mach_error_string(r)));
+        if ( r == MACH_SEND_INVALID_DEST )
+        {
+                /* The client has died */
+                /* Don't do anything here ... wait for the notification */
+                dwarning(("Dead client! Port = $%08x (pid=%d)\n", record->port, record->pid));
+        }
+        DeleteThreadRecord(record);
+        return NULL;
+}
+
 
 static void * NotifyPostUnmount(void * args)
 {
@@ -2032,7 +2401,7 @@ static void * NotifyPostUnmount(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x (pid=%d)\n", record->port, record->pid));
         }
-        free(record);
+        DeleteThreadRecord(record);
         return NULL;
 }
 
@@ -2050,7 +2419,7 @@ static void * NotifyPostEjection(void * args)
                 /* Don't do anything here ... wait for the notification */
                 dwarning(("Dead client! Port = $%08x (pid=%d)\n", record->port, record->pid));
         }
-        free(record);
+        DeleteThreadRecord(record);
         return NULL;
 }
 
@@ -2067,7 +2436,7 @@ static void StartDiskAppearedThread(DiskThreadRecord * record)
 }
 
 
-static void StartDiskMessagesCompleted(DiskThreadRecord * record)
+void StartDiskMessagesCompleted(DiskThreadRecord * record)
 {
     pthread_attr_t attr;
     pthread_t tid;
@@ -2145,6 +2514,19 @@ void StartCallFailedThread(DiskThreadRecord * record)
     pthread_attr_destroy(&attr);
 }
 
+void StartCallSucceededThread(DiskThreadRecord * record)
+{
+    pthread_attr_t attr;
+    pthread_t tid;
+
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_create(&tid, &attr, NotifyCallSucceeded, record);
+    pthread_attr_destroy(&attr);
+}
+
+
+
 void StartUnrecognizedDiskThread(DiskThreadRecord * record)
 {
     pthread_attr_t attr;
@@ -2175,6 +2557,17 @@ void StartPreUnmountNotifyThread(DiskThreadRecord * record)
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     pthread_create(&tid, &attr, NotifyPreUnmount, record);
+    pthread_attr_destroy(&attr);
+}
+
+void StartPreMountNotifyThread(DiskThreadRecord * record)
+{
+    pthread_attr_t attr;
+    pthread_t tid;
+
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_create(&tid, &attr, NotifyPreMount, record);
     pthread_attr_destroy(&attr);
 }
 
@@ -2213,10 +2606,7 @@ void StartPostEjectNotifyThread(DiskThreadRecord * record)
 
 void SendClientWasDisconnectedMsg(ClientPtr clientPtr)
 {
-    DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
     dwarning(("DiskArbClientDisconnected_rpc($%08x) ...\n", clientPtr->port));
-
-    record->port = clientPtr->port;
 
     StartClientDisconnectedThread(clientPtr);
 
@@ -2242,7 +2632,7 @@ int SendDiskAppearedMsgs( void )
 
 		if ( ( kClientStateNew == clientPtr->state ) && ( clientPtr->flags & kDiskArbNotifyBlueBoxBootVolumeUpdated ) )
 		{
-                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                        DiskThreadRecord * record = NewDiskThreadRecord();
                         dwarning(("DiskArbBlueBoxBootVolumeUpdated_async_rpc($%08x (pid=%d), gBlueBoxBootVolume=%d) ...\n", clientPtr->port, clientPtr->pid, gBlueBoxBootVolume));
                         record->sequenceNumber = gBlueBoxBootVolume;
                         record->port = clientPtr->port;
@@ -2252,12 +2642,12 @@ int SendDiskAppearedMsgs( void )
 
 		for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
 		{
-                        if ( ( kClientStateNew == clientPtr->state ) || ( kDiskStateNew == diskPtr->state ) || ( kDiskStateUnrecognized == diskPtr->state ))
-			{
-                                if ((diskPtr->flags & kDiskArbDiskAppearedUnrecognizableFormat) && (clientPtr->flags & kDiskArbNotifyUnrecognizedVolumes) ) {
-                                        SendUnrecognizedDiskMsgs(clientPtr->port, diskPtr->ioBSDName, "", "", (!((diskPtr->flags & kDiskArbDiskAppearedLockedMask) == kDiskArbDiskAppearedLockedMask)), ((diskPtr->flags & kDiskArbDiskAppearedEjectableMask) == kDiskArbDiskAppearedEjectableMask), IsWhole(diskPtr));
-                                        continue;
-                                }
+            if ( ( kClientStateNew == clientPtr->state ) || ( kDiskStateNew == diskPtr->state ) || ( kDiskStateMountApprovalDenied == diskPtr->state ) || ( kDiskStateUnrecognized == diskPtr->state ))
+            {
+                if ((diskPtr->flags & kDiskArbDiskAppearedUnrecognizableFormat) && (clientPtr->flags & kDiskArbNotifyUnrecognizedVolumes) ) {
+                        SendUnrecognizedDiskMsgs(clientPtr->port, diskPtr->ioBSDName, "", "", (!((diskPtr->flags & kDiskArbDiskAppearedLockedMask) == kDiskArbDiskAppearedLockedMask)), ((diskPtr->flags & kDiskArbDiskAppearedEjectableMask) == kDiskArbDiskAppearedEjectableMask), IsWhole(diskPtr));
+                        continue;
+                }
 
 				/* New semantics: DiskAppearedWithoutMountpoint and DiskAppearedWithMountpoint *are* mutually exclusive */
 				
@@ -2265,7 +2655,7 @@ int SendDiskAppearedMsgs( void )
 
 				if ( (clientPtr->flags & kDiskArbNotifyDiskAppearedWithoutMountpoint) && 0 == strcmp("",diskPtr->mountpoint) )
 				{
-					DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+					DiskThreadRecord * record = NewDiskThreadRecord();
 
 					dwarning(("DiskArbDiskAppearedWithoutMountpoint_rpc($%08x (pid=%d), '%s', $%08x) ...\n", clientPtr->port, clientPtr->pid, diskPtr->ioBSDName, diskPtr->flags));
 
@@ -2280,79 +2670,112 @@ int SendDiskAppearedMsgs( void )
                                         record->sequenceNumber = diskPtr->sequenceNumber;
 
 					StartDiskAppearedThread(record);
-                                        if ( kDiskStateNew == diskPtr->state ) newDiskAppeared = TRUE;
+                    if ( kDiskStateNew == diskPtr->state ) newDiskAppeared = TRUE;
 				}
 
 				if ( (clientPtr->flags & kDiskArbNotifyDiskAppearedWithMountpoint) && 0 != strcmp("",diskPtr->mountpoint) )
 				{
-					DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+					DiskThreadRecord * record = NewDiskThreadRecord();
 
 					dwarning(("DiskArbDiskAppearedWithMountpoint_rpc($%08x (pid=%d), '%s', $%08x, '%s') ...\n", clientPtr->port, clientPtr->pid, diskPtr->ioBSDName, diskPtr->flags, diskPtr->mountpoint));
 
                                         record->diskAppearedType = kDiskArbNotifyDiskAppearedWithMountpoint;
-					record->port = clientPtr->port;
-					record->ioBSDName = strdup( diskPtr->ioBSDName );
-					record->flags = diskPtr->flags;
-					record->mountpoint = strdup( diskPtr->mountpoint );
-					record->pid = clientPtr->pid;
+                                        record->port = clientPtr->port;
+                                        record->ioBSDName = strdup( diskPtr->ioBSDName );
+                                        record->flags = diskPtr->flags;
+                                        record->mountpoint = strdup( diskPtr->mountpoint );
+                                        record->pid = clientPtr->pid;
                                         record->ioContent = strdup(diskPtr->ioContent);
                                         record->ioDeviceTreePath = strdup(diskPtr->ioDeviceTreePath);
                                         record->sequenceNumber = diskPtr->sequenceNumber;
-					StartDiskAppearedThread(record);
-                                        if ( kDiskStateNew == diskPtr->state ) newDiskAppeared = TRUE;
+                                        
+                    StartDiskAppearedThread(record);
+                    if ( kDiskStateNew == diskPtr->state ) newDiskAppeared = TRUE;
 				}
-                                if ( clientPtr->flags & kDiskArbNotifyDiskAppeared )
-                                {
-                                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                            
+                if ( clientPtr->flags & kDiskArbNotifyDiskAppeared ) {
+                    DiskThreadRecord * record = NewDiskThreadRecord();
 
-                                        dwarning(("DiskArbDiskAppeared_rpc($%08x (pid=%d), '%s', $%08x, '%s', '%s') ...\n", clientPtr->port, clientPtr->pid, diskPtr->ioBSDName, diskPtr->flags, diskPtr->mountpoint, diskPtr->ioContent));
+                    dwarning(("DiskArbDiskAppeared_rpc($%08x (pid=%d), '%s', $%08x, '%s', '%s') ...\n", clientPtr->port, clientPtr->pid, diskPtr->ioBSDName, diskPtr->flags, diskPtr->mountpoint, diskPtr->ioContent));
 
-                                        record->diskAppearedType = kDiskArbNotifyDiskAppeared;
-                                        record->port = clientPtr->port;
-                                        record->ioBSDName = strdup( diskPtr->ioBSDName );
-                                        record->flags = diskPtr->flags;
-                                        record->mountpoint = strdup( diskPtr->mountpoint );
-                                        record->pid = clientPtr->pid;
-                                        record->ioContent = strdup(diskPtr->ioContent);
-                                        record->ioDeviceTreePath = strdup(diskPtr->ioDeviceTreePath);
-                                        record->sequenceNumber = diskPtr->sequenceNumber;
-                                        StartDiskAppearedThread(record);
-                                        if ( kDiskStateNew == diskPtr->state ) newDiskAppeared = TRUE;
-                                }
+                    record->diskAppearedType = kDiskArbNotifyDiskAppeared;
+                    record->port = clientPtr->port;
+                    record->ioBSDName = strdup( diskPtr->ioBSDName );
+                    record->flags = diskPtr->flags;
+                    record->mountpoint = strdup( diskPtr->mountpoint );
+                    record->pid = clientPtr->pid;
+                    record->ioContent = strdup(diskPtr->ioContent);
+                    record->ioDeviceTreePath = strdup(diskPtr->ioDeviceTreePath);
+                    record->sequenceNumber = diskPtr->sequenceNumber;
+                    StartDiskAppearedThread(record);
+                    if ( kDiskStateNew == diskPtr->state ) newDiskAppeared = TRUE;
+                }
 
-                                if ( clientPtr->flags & kDiskArbNotifyDiskAppeared2 )
-                                {
-                                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                if ( clientPtr->flags & kDiskArbNotifyDiskAppeared2 ) {
+                    DiskThreadRecord * record = NewDiskThreadRecord();
 
-                                        dwarning(("DiskArbDiskAppeared2_rpc($%08x (pid=%d), '%s', $%08x, '%s', '%s', '%s', %d) ...\n", clientPtr->port, clientPtr->pid, diskPtr->ioBSDName, diskPtr->flags, diskPtr->mountpoint, diskPtr->ioContent, diskPtr->ioDeviceTreePath, diskPtr->sequenceNumber));
+                    dwarning(("DiskArbDiskAppeared2_rpc($%08x (pid=%d), '%s', $%08x, '%s', '%s', '%s', %d) ...\n", clientPtr->port, clientPtr->pid, diskPtr->ioBSDName, diskPtr->flags, diskPtr->mountpoint, diskPtr->ioContent, diskPtr->ioDeviceTreePath, diskPtr->sequenceNumber));
 
-                                        record->diskAppearedType = kDiskArbNotifyDiskAppeared2;
-                                        record->port = clientPtr->port;
-                                        record->ioBSDName = strdup( diskPtr->ioBSDName );
-                                        record->flags = diskPtr->flags;
-                                        record->mountpoint = strdup( diskPtr->mountpoint );
-                                        record->pid = clientPtr->pid;
-                                        record->ioContent = strdup(diskPtr->ioContent);
-                                        record->ioDeviceTreePath = strdup(diskPtr->ioDeviceTreePath);
-                                        record->sequenceNumber = diskPtr->sequenceNumber;
-                                        StartDiskAppearedThread(record);
-                                        if ( kDiskStateNew == diskPtr->state ) newDiskAppeared = TRUE;
-                                }
+                    record->diskAppearedType = kDiskArbNotifyDiskAppeared2;
+                    record->port = clientPtr->port;
+                    record->ioBSDName = strdup( diskPtr->ioBSDName );
+                    record->flags = diskPtr->flags;
+                    record->mountpoint = strdup( diskPtr->mountpoint );
+                    record->pid = clientPtr->pid;
+                    record->ioContent = strdup(diskPtr->ioContent);
+                    record->ioDeviceTreePath = strdup(diskPtr->ioDeviceTreePath);
+                    record->sequenceNumber = diskPtr->sequenceNumber;
+                    StartDiskAppearedThread(record);
+                    if ( kDiskStateNew == diskPtr->state ) newDiskAppeared = TRUE;
+                }
+
+                if ( clientPtr->flags & kDiskArbNotifyDiskAppearedComplete ) {
+                    DiskThreadRecord * record = NewDiskThreadRecord();
+
+                    dwarning(("DiskArbDiskAppearedComplete_rpc\n"));
+
+                    record->diskAppearedType = kDiskArbNotifyDiskAppearedComplete;
+                    record->port = clientPtr->port;
+                    record->ioBSDName = strdup( diskPtr->ioBSDName );
+                    record->flags = diskPtr->flags;
+                    record->mountpoint = strdup( diskPtr->mountpoint );
+                    record->pid = clientPtr->pid;
+                    record->ioContent = strdup(diskPtr->ioContent);
+                    record->ioDeviceTreePath = strdup(diskPtr->ioDeviceTreePath);
+                    record->sequenceNumber = diskPtr->sequenceNumber;
+                    record->fsType = (diskPtr->mountedFilesystemName?strdup( diskPtr->mountedFilesystemName):strdup(""));
+                    record->timeAppeared = diskPtr->timeAppeared;
+                    record->fsName = (diskPtr->volName?strdup( diskPtr->volName):strdup(""));
+
+                    StartDiskAppearedThread(record);
+                    if ( kDiskStateNew == diskPtr->state ) newDiskAppeared = TRUE;
+                }
+
 
 			} // IF client is new OR disk is new
 
 		} // FOREACH disk
 
 	} // FOREACH client
+
+        // cleanup -- all unrecognized disks need to be marked Idle - notifications have been sent for them
+        for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
+        {
+
+            if ( kDiskStateUnrecognized == diskPtr->state || kDiskStateMountApprovalDenied == diskPtr->state) {
+                SetStateForOnePartition(diskPtr, kDiskStateIdle);
+            }
+        }
+        
 	
-        return newDiskAppeared;
+    return newDiskAppeared;
 
 
 } // SendDiskAppearedMsgs
 
 void SendUnrecognizedDiskMsgs(mach_port_t port, char *devname, char *fstype, char *deviceType, int isWritable, int isRemovable, int isWhole)
 {
-        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+        DiskThreadRecord * record = NewDiskThreadRecord();
 
         record->diskAppearedType = isWhole;
         record->port = port;
@@ -2361,7 +2784,6 @@ void SendUnrecognizedDiskMsgs(mach_port_t port, char *devname, char *fstype, cha
         record->mountpoint = strdup( fstype );
         record->pid = 0;
         record->ioContent = strdup(deviceType);
-        record->ioDeviceTreePath = strdup("");
         record->sequenceNumber = isRemovable;
 
         StartUnrecognizedDiskThread(record);
@@ -2370,7 +2792,7 @@ void SendUnrecognizedDiskMsgs(mach_port_t port, char *devname, char *fstype, cha
 
 void SendUnrecognizedDiskArbitrationMsgs(mach_port_t port, char *devname, char *fstype, char *deviceType, int isWritable, int isRemovable, int isWhole, int diskType)
 {
-        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+        DiskThreadRecord * record = NewDiskThreadRecord();
 
         record->diskAppearedType = isWhole;
         record->port = port;
@@ -2379,7 +2801,6 @@ void SendUnrecognizedDiskArbitrationMsgs(mach_port_t port, char *devname, char *
         record->mountpoint = strdup( fstype );
         record->pid = 0;
         record->ioContent = strdup(deviceType);
-        record->ioDeviceTreePath = strdup("");
         record->sequenceNumber = isRemovable;
         record->diskType = diskType;
 
@@ -2399,24 +2820,14 @@ void SendDiskChangedMsgs(char *devname, char *newMountpoint, char *newVolumeName
         for (clientPtr = g.Clients; clientPtr != NULL; clientPtr = clientPtr->next)
         {
                 if ( ( clientPtr->flags & kDiskArbNotifyChangedDisks ) ) {
-                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
-
-                        //char *mp = malloc(sizeof(char)*strlen(newMountpoint));
-                        //char *nv = malloc(sizeof(char)*strlen(newVolumeName));
-
-                        //strcpy(mp, newMountpoint);
-                        //strcpy(nv, newVolumeName);
-
+                        DiskThreadRecord * record = NewDiskThreadRecord();
                         dwarning(("DiskArbDiskChanged_rpc($%08x (pid=%d)) ...\n", clientPtr->port, clientPtr->pid));
 
-                        record->diskAppearedType = 0;
                         record->port = clientPtr->port;
                         record->ioBSDName = strdup( devname );
                         record->flags = flags;
-                        record->mountpoint = strdup( newMountpoint ); // mp;
-                        record->pid = 0;
-                        record->ioContent = strdup(newVolumeName); //nv;
-                        record->ioDeviceTreePath = strdup("");
+                        record->mountpoint = strdup( newMountpoint );
+                        record->ioContent = strdup(newVolumeName);
                         record->sequenceNumber = success;
 
                         StartDiskChangedThread(record);
@@ -2435,19 +2846,15 @@ void SendDiskWillBeCheckedMessages(DiskPtr diskPtr)
         for (clientPtr = g.Clients; clientPtr != NULL; clientPtr = clientPtr->next)
         {
                 if ( ( clientPtr->flags & kDiskArbNotifyDiskWillBeChecked ) ) {
-                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                        DiskThreadRecord * record = NewDiskThreadRecord();
 
                         dwarning(("SendDiskWillBeCheckedMessages_rpc($%08x (pid=%d)) ...\n", clientPtr->port, clientPtr->pid));
 
-                        record->diskAppearedType = 0;
                         record->port = clientPtr->port;
                         record->ioBSDName = strdup( diskPtr->ioBSDName );
                         record->flags = diskPtr->flags;
-                        record->mountpoint = strdup("");
                         record->pid = clientPtr->pid;
                         record->ioContent = strdup(diskPtr->ioContent);
-                        record->ioDeviceTreePath = strdup("");
-                        record->sequenceNumber = 0;
 
                         StartDiskWillBeCheckedMessages(record);
                 }
@@ -2458,78 +2865,50 @@ void SendDiskWillBeCheckedMessages(DiskPtr diskPtr)
 void SendCallFailedMessage(ClientPtr clientPtr, DiskPtr diskPtr, int failedType, int error)
 {
         if ( ( clientPtr->flags & kDiskArbNotifyCallFailed ) ) {
-                DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                DiskThreadRecord * record = NewDiskThreadRecord();
 
                 dwarning(("SendCallFailedMessage($%08x (pid=%d)) ...\n", clientPtr->port, clientPtr->pid));
 
-                record->diskAppearedType = 0;
                 record->port = clientPtr->port;
                 record->ioBSDName = (diskPtr ? strdup( diskPtr->ioBSDName ) : strdup(""));
                 record->flags = failedType;
-                record->mountpoint = strdup("");
                 record->pid = clientPtr->pid;
-                record->ioContent = strdup("");
-                record->ioDeviceTreePath = strdup("");
                 record->sequenceNumber = error;
 
                 StartCallFailedThread(record);
         }
 } // SendCallFailedMessage
 
-//------------------------------------------------------------------------
-
-
-void SendUnmountCommitMsgs( void )
+void SendCallSucceededMessage(ClientPtr clientPtr, DiskPtr diskPtr, int succeededType)
 {
-	ClientPtr clientPtr;
-	DiskPtr diskPtr;
-	kern_return_t r = 0;
-	
-	dwarning(("%s\n", __FUNCTION__));
-	
-	/* For each client, and disk, send a notification if the disk was unmounted/ejected */
+        if ( ( clientPtr->flags & kDiskArbNotifyCallSucceeded ) ) {
+                DiskThreadRecord * record = NewDiskThreadRecord();
 
-	for (clientPtr = g.Clients; clientPtr != NULL; clientPtr = clientPtr->next)
-	{
-		for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
-		{
-			if ( kDiskStateNewlyUnmounted == diskPtr->state || kDiskStateNewlyEjected == diskPtr->state )
-			{
+                dwarning(("SendCallSucceededMessage($%08x (pid=%d)) ...\n", clientPtr->port, clientPtr->pid));
 
-				if ( clientPtr->flags & kDiskArbNotifyUnmount )
-				{
-					dwarning(("DiskArbUnmountCommit($%08x (pid=%d), '%s') ...\n", clientPtr->port, clientPtr->pid, diskPtr->ioBSDName));
-					if ( r == MACH_SEND_INVALID_DEST )
-					{
-						/* The client has died */
-						/* Don't do anything here ... wait for the notification */
-						dwarning(("Dead client! Port = $%08x (pid=%d)\n", clientPtr->port, clientPtr->pid));
-					}
-				}
+                record->port = clientPtr->port;
+                record->ioBSDName = (diskPtr ? strdup( diskPtr->ioBSDName ) : strdup(""));
+                record->flags = succeededType;
+                record->pid = clientPtr->pid;
 
-			}
-
-		} // FOREACH disk
-
-	} // FOREACH client
-	
-} // SendUnmountCommitMsgs
+                StartCallSucceededThread(record);
+        }
+} // SendCallSucceededMessage
 
 
 //------------------------------------------------------------------------
-
 
 void PrepareToSendPreUnmountMsgs( void )
 {
-	ClientPtr clientPtr;
-	DiskPtr diskPtr;
+    ClientPtr clientPtr;
+    DiskPtr diskPtr;
 
-	dwarning(("%s\n", __FUNCTION__));
-	
-	/* For each client and disk */
+    dwarning(("%s\n", __FUNCTION__));
 
-	for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
-	{
+    /* For each client and disk */
+
+    for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
+    {
                 if ( kDiskStateToBeUnmounted == diskPtr->state || kDiskStateToBeUnmountedAndEjected == diskPtr->state )
                 {
                         // Assert: the <ackValues> field for this disk was allocated/initialized when its state was set.
@@ -2541,7 +2920,7 @@ void PrepareToSendPreUnmountMsgs( void )
 
                                 for (clientPtr = g.Clients; clientPtr != NULL; clientPtr = clientPtr->next)
                                 {
-                                        if ( clientPtr->flags & kDiskArbNotifyAsync )
+                                    if ( clientPtr->flags & kDiskArbNotifyAsync )
                                         {
                                                 InitAckValue( diskPtr->ackValues, clientPtr->pid );
                                         }
@@ -2549,7 +2928,7 @@ void PrepareToSendPreUnmountMsgs( void )
                                 } // FOREACH client
                        }
                 }
-	} // FOREACH disk
+    } // FOREACH disk
 
 } // PrepareToSendPreUnmountMsgs
 
@@ -2559,22 +2938,22 @@ void PrepareToSendPreUnmountMsgs( void )
 
 void PrepareToSendPreEjectMsgs( void )
 {
-	ClientPtr clientPtr;
-	DiskPtr diskPtr;
-	
-	dwarning(("%s\n", __FUNCTION__));
-	
-	/* For each client and disk */
+    ClientPtr clientPtr;
+    DiskPtr diskPtr;
 
-	for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
-	{
-		if ( kDiskStateToBeEjected == diskPtr->state )
-		{
-			// Assert: the <ackValues> field for this disk was allocated/initialized when its state was set.
+    dwarning(("%s\n", __FUNCTION__));
+
+    /* For each client and disk */
+
+    for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
+    {
+        if ( kDiskStateToBeEjected == diskPtr->state )
+        {
+            // Assert: the <ackValues> field for this disk was allocated/initialized when its state was set.
                         // only ask for eject notifications for *whole" disks
                         // makes sense *right*?
 
-                        if (IsWhole(diskPtr)) {
+                        //if (IsWhole(diskPtr)) {
 
                                 for (clientPtr = g.Clients; clientPtr != NULL; clientPtr = clientPtr->next)
                                 {
@@ -2584,129 +2963,214 @@ void PrepareToSendPreEjectMsgs( void )
                                         }
 
                                 } // FOREACH client
-                        }
+                        //}
 
-		}
-		
-	} // FOREACH disk
+        }
+
+    } // FOREACH disk
 
 } // PrepareToSendPreEjectMsgs
 
-
-//------------------------------------------------------------------------
-
-
-void SendPreUnmountMsgs( void )
+void PrepareToSendPreMountMsgsForDisk( DiskPtr diskPtr )
 {
-        DiskPtr diskPtr;
-        int i;
+    ClientPtr clientPtr;
 
-        dwarning(("%s\n", __FUNCTION__));
+    dwarning(("%s\n", __FUNCTION__));
 
-        /* For each client and disk */
+    /* For each client and disk */
 
-        for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
-        {
-                if ( kDiskStateToBeUnmounted == diskPtr->state || kDiskStateToBeUnmountedAndEjected == diskPtr->state )
-                {
-                        for (i = 0; i < diskPtr->ackValues->logicalLength; i++)
-                        {
-                                ClientPtr clientPtr;
-                                //kern_return_t r;
+    if ( kDiskStateWaitingForMountApproval == diskPtr->state )
+    {
+            // Assert: the <ackValues> field for this disk was allocated/initialized when its state was set.
 
-                                if ( diskPtr->ackValues->ackValues[ i ].state != kSendMsg )
-                                {
-                                        continue;
-                                }
+            // only ask for unmount notifications for *mounted" disks
+            // makes sense *right*?
 
-                                clientPtr = LookupClientByPID( diskPtr->ackValues->ackValues[ i ].pid );
-                                if ( ! clientPtr )
-                                {
-                                        pwarning(("%s: pid = %d: no known client with this pid.\n", __FUNCTION__, diskPtr->ackValues->ackValues[ i ].pid));
-                                }
+            if (diskPtr->ioMediaNameOrNull && strlen(diskPtr->ioMediaNameOrNull)) {
 
-                                if ( clientPtr->numAcksRequired > 0 )
-                                {
-//					pwarning(("%s: skipping pid = %d for '%s' since numAcksRequired = %d\n", __FUNCTION__, clientPtr->pid, diskPtr->ioBSDName, clientPtr->numAcksRequired));
-                                        continue;
-                                }
+                    for (clientPtr = g.Clients; clientPtr != NULL; clientPtr = clientPtr->next)
+                    {
+                            if ( clientPtr->flags & kDiskArbNotifyDiskApproval )
+                            {
+                                    InitAckValue( diskPtr->ackValues, clientPtr->pid );
+                            }
 
-                                {
-                                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
-                                        record->port = clientPtr->port;
-                                        record->ioBSDName = strdup( diskPtr->ioBSDName );
-                                        StartPreUnmountNotifyThread(record);
-                                }
+                    } // FOREACH client
+            }
+    }
 
-                                clientPtr->numAcksRequired++;
-
-                                diskPtr->ackValues->ackValues[ i ].state = kWaitingForAck;
-
-                        } // FOREACH ack value
-
-                }
-
-        } // FOREACH disk
-
-} // SendPreUnmountMsgs
+} // PrepareToSendPreMountMsgsForDisk
 
 
 //------------------------------------------------------------------------
 
 
-void SendPreEjectMsgs( void )
+void SendPreUnmountMsgsForDisk( DiskPtr diskPtr )
 {
-        DiskPtr diskPtr;
         int i;
 
-        dwarning(("%s\n", __FUNCTION__));
+        dwarning(("%s('%s')\n", __FUNCTION__, diskPtr->ioBSDName));
 
         /* For each client and disk */
 
-        for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
+        if ( kDiskStateToBeUnmounted == diskPtr->state || kDiskStateToBeUnmountedAndEjected == diskPtr->state )
         {
-                if ( kDiskStateToBeEjected == diskPtr->state )
+                for (i = 0; i < diskPtr->ackValues->logicalLength; i++)
                 {
-                        for (i = 0; i < diskPtr->ackValues->logicalLength; i++)
+                        ClientPtr clientPtr;
+
+                        if ( diskPtr->ackValues->ackValues[ i ].state != kSendMsg )
                         {
-                                ClientPtr clientPtr;
+                                continue;
+                        }
 
-                                if ( diskPtr->ackValues->ackValues[ i ].state != kSendMsg )
-                                {
-                                        continue;
-                                }
+                        clientPtr = LookupClientByPID( diskPtr->ackValues->ackValues[ i ].pid );
+                        if ( ! clientPtr )
+                        {
+                                pwarning(("%s: pid = %d: no known client with this pid.\n", __FUNCTION__, diskPtr->ackValues->ackValues[ i ].pid));
+                                continue;
+                        }
 
-                                clientPtr = LookupClientByPID( diskPtr->ackValues->ackValues[ i ].pid );
-                                if ( ! clientPtr )
-                                {
-                                        pwarning(("%s: pid = %d: no known client with this pid.\n", __FUNCTION__, diskPtr->ackValues->ackValues[ i ].pid));
-                                }
+                        if ( clientPtr->numAcksRequired > 0 )
+                        {
+                                dwarning(("%s: skipping pid = %d for '%s' since numAcksRequired = %d\n", __FUNCTION__, clientPtr->pid, diskPtr->ioBSDName, clientPtr->numAcksRequired));
+                                continue;
+                        }
 
-                                if ( clientPtr->numAcksRequired > 0 )
-                                {
-//					dwarning(("%s: skipping pid = %d for '%s' since numAcksRequired = %d\n", __FUNCTION__, clientPtr->pid, diskPtr->ioBSDName, clientPtr->numAcksRequired));
-                                        continue;
-                                }
+                        {
+                                DiskThreadRecord * record = NewDiskThreadRecord();
+                                record->port = clientPtr->port;
+                                record->ioBSDName = strdup( diskPtr->ioBSDName );
+                                StartPreUnmountNotifyThread(record);
+                        }
 
-                                {
-                                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
-                                        record->port = clientPtr->port;
-                                        record->ioBSDName = strdup( diskPtr->ioBSDName );
-                                        StartPreEjectNotifyThread(record);
-                                }
+                        clientPtr->numAcksRequired++;
 
-                                clientPtr->numAcksRequired++;
+                        diskPtr->ackValues->ackValues[ i ].state = kWaitingForAck;
 
-                                diskPtr->ackValues->ackValues[ i ].state = kWaitingForAck;
+                } // FOREACH ack value
 
-                        } // FOREACH ack value
+        }
 
-                }
-
-        } // FOREACH disk
+} // SendPreUnmountMsgsForDisk
 
 
-} // SendPreEjectMsgs
+void SendPreMountMsgsForDisk( DiskPtr diskPtr )
+{
+        int i;
+
+        dwarning(("%s('%s')\n", __FUNCTION__, diskPtr->ioBSDName));
+
+        /* For each client and disk */
+
+        if ( kDiskStateWaitingForMountApproval == diskPtr->state )
+        {
+                for (i = 0; i < diskPtr->ackValues->logicalLength; i++)
+                {
+                        ClientPtr clientPtr;
+
+                        if ( diskPtr->ackValues->ackValues[ i ].state != kSendMsg )
+                        {
+                                continue;
+                        }
+
+                        clientPtr = LookupClientByPID( diskPtr->ackValues->ackValues[ i ].pid );
+                        if ( ! clientPtr )
+                        {
+                                pwarning(("%s: pid = %d: no known client with this pid.\n", __FUNCTION__, diskPtr->ackValues->ackValues[ i ].pid));
+                                continue;
+                        }
+
+                        if ( clientPtr->numAcksRequired > 0)
+                        {
+                                dwarning(("%s: skipping pid = %d for '%s' since numAcksRequired = %d\n", __FUNCTION__, clientPtr->pid, diskPtr->ioBSDName, clientPtr->numAcksRequired));
+                                continue;
+                        }
+
+                        {
+                                DiskThreadRecord * record = NewDiskThreadRecord();
+                                record->port = clientPtr->port;
+                                record->ioBSDName = strdup( diskPtr->ioBSDName );
+                                record->ioDeviceTreePath = strdup( diskPtr->ioDeviceTreePath );
+                                record->mountpoint = strdup( diskPtr->volName );
+                                record->ioContent = strdup( diskPtr->ioContent );
+
+                                record->isWritable = ( diskPtr->flags & kDiskArbDiskAppearedLockedMask ) == 0;
+                                record->flags = diskPtr->flags;
+                                record->isRemovable = ( diskPtr->flags & kDiskArbDiskAppearedEjectableMask ) == 0;
+                                record->isWhole = IsWhole(diskPtr);
+                                record->fsType = strdup("");  // not yet implemented
+                                
+                                StartPreMountNotifyThread(record);
+                        }
+
+                        clientPtr->numAcksRequired++;
+
+                        diskPtr->ackValues->ackValues[ i ].state = kWaitingForAck;
+
+                } // FOREACH ack value
+
+        }
+
+} // SendPreMountMsgsForDisk
+
+
+//------------------------------------------------------------------------
+
+
+void SendPreEjectMsgsForDisk( DiskPtr diskPtr )
+{
+        int i;
+
+    if (!diskPtr) {
+        pwarning(("%s no diskPtr!\n", __FUNCTION__));
+    }
+
+        dwarning(("%s('%s')\n", __FUNCTION__, diskPtr->ioBSDName));
+
+        /* For each client and disk */
+
+        if ( kDiskStateToBeEjected == diskPtr->state )
+        {
+                for (i = 0; i < diskPtr->ackValues->logicalLength; i++)
+                {
+                        ClientPtr clientPtr;
+
+                        if ( diskPtr->ackValues->ackValues[ i ].state != kSendMsg )
+                        {
+                                continue;
+                        }
+
+                        clientPtr = LookupClientByPID( diskPtr->ackValues->ackValues[ i ].pid );
+                        if ( ! clientPtr )
+                        {
+                                pwarning(("%s: pid = %d: no known client with this pid.\n", __FUNCTION__, diskPtr->ackValues->ackValues[ i ].pid));
+                                continue;
+                        }
+
+                        if ( clientPtr->numAcksRequired > 0 )
+                        {
+                                dwarning(("%s: skipping pid = %d for '%s' since numAcksRequired = %d\n", __FUNCTION__, clientPtr->pid, diskPtr->ioBSDName, clientPtr->numAcksRequired));
+                                continue;
+                        }
+
+                        {
+                                DiskThreadRecord * record = NewDiskThreadRecord();
+                                record->port = clientPtr->port;
+                                record->ioBSDName = strdup( diskPtr->ioBSDName );
+                                StartPreEjectNotifyThread(record);
+                        }
+
+                        clientPtr->numAcksRequired++;
+
+                        diskPtr->ackValues->ackValues[ i ].state = kWaitingForAck;
+
+                } // FOREACH ack value
+
+        }
+
+
+} // SendPreEjectMsgsForDisk
 
 
 //------------------------------------------------------------------------
@@ -2722,7 +3186,7 @@ void SendUnmountPostNotifyMsgsForOnePartition( char * ioBSDName, int errorCode, 
 	{
 		if ( clientPtr->flags & kDiskArbNotifyAsync )
 		{
-                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                        DiskThreadRecord * record = NewDiskThreadRecord();
                         dwarning(("DiskArbUnmountPostNotify_async_rpc($%08x (pid=%d), '%s', errorCode=%d, pid=%d) ...\n", clientPtr->port, clientPtr->pid, ioBSDName, errorCode, pid));
                         record->sequenceNumber = errorCode;
                         record->port = clientPtr->port;
@@ -2750,7 +3214,7 @@ void SendEjectPostNotifyMsgsForOnePartition( char * ioBSDName, int errorCode, pi
 	{
 		if ( clientPtr->flags & kDiskArbNotifyAsync )
 		{
-                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                        DiskThreadRecord * record = NewDiskThreadRecord();
                         dwarning(("DiskArbEjectPostNotify_async_rpc($%08x (pid=%d), '%s', errorCode=%d, pid=%d) ...\n", clientPtr->port, clientPtr->pid, ioBSDName, errorCode, pid));
                         record->sequenceNumber = errorCode;
                         record->port = clientPtr->port;
@@ -2814,7 +3278,7 @@ void SendBlueBoxBootVolumeUpdatedMsgs( void )
 	{
 		if ( clientPtr->flags & kDiskArbNotifyBlueBoxBootVolumeUpdated )
 		{
-                        DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                        DiskThreadRecord * record = NewDiskThreadRecord();
 			dwarning(("DiskArbBlueBoxBootVolumeUpdated_async_rpc($%08x (pid=%d), gBlueBoxBootVolume=%d) ...\n", clientPtr->port, clientPtr->pid, gBlueBoxBootVolume));
                         record->sequenceNumber = gBlueBoxBootVolume;
                         record->port = clientPtr->port;
@@ -2855,7 +3319,7 @@ void SendCompletedMsgs( int messageType, int newDisk )
                         }
 
                         if (shouldSend) {
-                                DiskThreadRecord * record = malloc(sizeof(DiskThreadRecord));
+                                DiskThreadRecord * record = NewDiskThreadRecord();
                                 dwarning(("DiskArbNotificationComplete_rpc($%08x (messageType=%d)) ...\n", clientPtr->port, messageType));
 
                                 record->port = clientPtr->port;
@@ -2908,248 +3372,243 @@ int GetBlueBoxBootVolume( void )
 //------------------------------------------------------------------------
 
 
-void CompleteUnmount( void )
+void CompleteUnmountForDisk( DiskPtr diskPtr )
 {
-	DiskPtr diskPtr;
-	AckValue * avp;
-	int errorCode_out = 0;
-	pid_t pid_out = 0;
-	DiskPtr wholeDiskToBeEjectedOrNULL;
-	
-	dwarning(("%s\n", __FUNCTION__));
+    AckValue * avp;
+    int errorCode_out = 0;
+    pid_t pid_out = 0;
+    DiskPtr wholeDiskToEject = LookupWholeDiskForThisPartition(diskPtr);
+    boolean_t unmountingAllowed = FALSE;
+    int flags;
+    int requestor;
 
-	// Unmount could be completed for each partition independently.
-	// But it simplifies things to wait them to all complete before proceeding.
-	
-	if ( 0 != NumUnsetAckValuesForAllDisks() )
-	{
-		goto Return;
-	}
-	
-	/* 0 == NumUnsetAckValuesForAllDisks() */
-	
-	/* Initialize this before we start changing their states.  It will be NULL if this is not an unmount-and-eject. */
+    dwarning(("%s\n", __FUNCTION__));
 
-	wholeDiskToBeEjectedOrNULL = LookupWholeDiskToBeEjected();
+    // Unmount could be completed for each partition independently.
+    // But it simplifies things to wait them to all complete before proceeding.
 
-	for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = diskPtr->next)
-	{
-		/* Skip disks that are not undergoing unmounting. */
+    if ( 0 != NumUnsetAckValues(diskPtr->ackValues) )
+    {
+        goto Return;
+    }
 
-		if ( diskPtr->state != kDiskStateToBeUnmounted && diskPtr->state != kDiskStateToBeUnmountedAndEjected )
-		{
-			continue;
-		}
-		
-		avp = GetDissenterFromAckValues( diskPtr->ackValues );
-		
-		if ( NULL == avp )
-		{
-			int err;
-			
-			dwarning(("%s: there was no dissenter for '%s'\n", __FUNCTION__, diskPtr->ioBSDName));
-	
-			err = UnmountDisk( diskPtr, FALSE ); /* Updates diskPtr->state for this partition. */
-			if ( err )
-			{
-				/* Failure.  The unmount failed.  diskPtr->state == kDiskStateIdle */
-	
-				dwarning(("%s: the unmount failed\n", __FUNCTION__));
-				
-				errorCode_out = err;
-				pid_out = -1;
-			}
-			else
-			{
-				/* Success.  diskPtr->state == kDiskStateNewlyUnmounted */
-	
-				errorCode_out = 0;
-				pid_out = -1;
-	
-			}
-		}
-		else
-		{
-			/* Failure.  There was a dissenter.  Report it. */
-			
-			dwarning(("%s: there was a dissenter for '%s'\n", __FUNCTION__, diskPtr->ioBSDName));
-	
-			errorCode_out = avp->errorCode;
-			pid_out = avp->pid;
+    /* 0 == NumUnsetAckValuesForAllDisks() */
 
-			SetStateForOnePartition( diskPtr, kDiskStateIdle );
-		}
-	
-		/* Send each waiting client a notification with the errorcode and dissenter. */
-	
-		SendUnmountPostNotifyMsgsForOnePartition( diskPtr->ioBSDName, errorCode_out, pid_out );
-	
-	} // FOREACH disk
+    /* Initialize this before we start changing their states.  It will be NULL if this is not an unmount-and-eject. */
 
-	/* Was this the first phase of an unmount-and-eject? */
-	
-	if ( wholeDiskToBeEjectedOrNULL && ( 0 == NumPartitionsMountedFromThisDisk( wholeDiskToBeEjectedOrNULL ) ) )
-	{
-		/* WARNING: this might rob old-style clients of their synchronous UnmountCommit notifications if the eject fails. */
-		/* Why?  Because we keep no record that an unmount happened.  So if the eject fails, we won't send any UnmountCommit notifications. */
-		/* This can only happen if there is someone holding open a file descriptor on one of the /dev nodes for the disk. */
-	
-		SetStateForAllPartitions( wholeDiskToBeEjectedOrNULL, kDiskStateToBeEjected );
-
-		/* Prepare a list of pre-eject notifications to be sent. */
-
-		PrepareToSendPreEjectMsgs();
-		
-		/* Return to the main msg loop to process sending of pre-eject msgs and receiving of acks. */
-
-	}
-
-Return:
-	return;
-
-} // CompleteUnmount
+    if ( !( ( diskPtr->state == kDiskStateToBeUnmountedAndEjected ) || ( diskPtr->state == kDiskStateToBeEjected ) ) )
+    {
+        wholeDiskToEject = NULL;
+    }
 
 
-//------------------------------------------------------------------------
+    /* Skip disks that are not undergoing unmounting. */
+
+    if ( diskPtr->state != kDiskStateToBeUnmounted && diskPtr->state != kDiskStateToBeUnmountedAndEjected )
+    {
+        goto Continue;
+    }
+
+    avp = GetDissenterFromAckValues( diskPtr->ackValues );
 
 
-void CompleteEject( void )
-{
-	DiskPtr diskPtr;
-	AckValue * avp;
-	int errorCode_out = 0;
-	pid_t pid_out = 0;
-	
-	dwarning(("%s\n", __FUNCTION__));
+    if ( NULL == avp ) {
+         flags = kDiskArbApproveMounting;
+     } else {
+         flags = avp->errorCode;
+     }
 
-	/* Ejection differs from unmounting because it requires acks for all partitions before proceeding. */
-	
-	if ( 0 != NumUnsetAckValuesForAllDisks() )
-	{
-		goto Return;
-	}
-	
-	diskPtr = LookupWholeDiskToBeEjected();
-	if ( ! diskPtr )
-	{
-		LogErrorMessage("%s(): LookupWholeDiskToBeEjected() => NULL\n", __FUNCTION__);
-		goto Return;
-	}
+    requestor = diskPtr->unmountOrEjectRequestorUID;
 
-	/* 0 == NumUnsetAckValuesForAllDisks() */
-		
-	avp = GetDissenterFromAckValuesForAllDisks();
+    if (flags == kDiskArbApproveMounting || (requestor == 0)) {
+        unmountingAllowed = TRUE;
+    }
+    if ((flags & kDiskArbRequireAuthentication) && (requestor != 0)) {
+        ClientPtr client = LookupClientByPID(avp->pid);
+        
+        dwarning(("%s: checking client authorization to unmount '%s'\n", __FUNCTION__, diskPtr->ioBSDName));
+        
+        if (client && authorizationAllowedForEvent(client, "system.volume.unmount")) {
+            unmountingAllowed = TRUE;
+            avp->errorCode = 0;
+            flags = 0;
+        } else {
+            unmountingAllowed = FALSE;
+        }
+    }
 
-	if ( NULL == avp )
-	{
-		int err;
+    if ( unmountingAllowed )
+    {
+        int err;
 
-		dwarning(("%s: there was no dissenter\n", __FUNCTION__));
+        dwarning(("%s: there was no dissenter for '%s'\n", __FUNCTION__, diskPtr->ioBSDName));
 
-		/* Assume that all the partitions have already been unmounted. */
-	
-		err = EjectDisk( diskPtr ); /* Updates diskPtr->state for each partition on this disk. */
-		if ( err )
-		{
-			/* Failure.  The eject failed.  diskPtr->state == kDiskStateIdle */
-
-			dwarning(("%s: the eject failed\n", __FUNCTION__));
-			
-			errorCode_out = err;
-			pid_out = -1;
-		}
-		else
-		{
-			/* Success.  diskPtr->state == kDiskStateNewlyEjected */
-
-			errorCode_out = 0;
-			pid_out = -1;
-		}
-	}
-	else
-	{
-		/* Failure.  There was a dissenter.  Report it. */
-		
-		dwarning(("%s: there was a dissenter\n", __FUNCTION__));
-
-		errorCode_out = avp->errorCode;
-		pid_out = avp->pid;
-
-		SetStateForAllPartitions( diskPtr, kDiskStateIdle );
-	}
-
-	/* Send each waiting client a notification with the errorcode and dissenter. */
-
-	SendEjectPostNotifyMsgsForAllPartitions( diskPtr, errorCode_out, pid_out );
-
-Return:
-	return;
-
-} // CompleteEject
-
-
-//------------------------------------------------------------------------
-
-
-DiskState AreWeBusy( void )
-{
-        DiskState result;
-        DiskPtr diskPtr;
-
-        result = kDiskStateIdle;
-
-        for (diskPtr = g.Disks; diskPtr != NULL ; diskPtr = diskPtr->next)
+        err = UnmountDisk( diskPtr, FALSE ); /* Updates diskPtr->state for this partition. */
+        if ( err )
         {
-                switch ( diskPtr->state )
-                {
-                        case kDiskStateToBeUnmounted:
-                                if ( kDiskStateIdle == result )
-                                {
-                                        result = diskPtr->state;
-                                }
-                                else if ( result != diskPtr->state )
-                                {
-                                        dwarning(("%s: incompatible disk states: %s (%d) vs. %s (%d)\n", __FUNCTION__, DISKSTATE(diskPtr->state), diskPtr->state, DISKSTATE(result), result));
-                                }
-                        break;
+            /* Failure.  The unmount failed.  diskPtr->state == kDiskStateIdle */
 
-                        case kDiskStateToBeEjected:
-                                if ( kDiskStateIdle == result )
-                                {
-                                        result = diskPtr->state;
-                                }
-                                else if ( result != diskPtr->state )
-                                {
-                                        dwarning(("%s: incompatible disk states: %s (%d) vs. %s (%d)\n", __FUNCTION__, DISKSTATE(diskPtr->state), diskPtr->state, DISKSTATE(result), result));
-                                }
-                        break;
+            dwarning(("%s: the unmount failed\n", __FUNCTION__));
 
-                        case kDiskStateToBeUnmountedAndEjected:
-                                if ( kDiskStateIdle == result || kDiskStateToBeEjected == result )
-                                {
-                                        result = diskPtr->state;
-                                }
-                                else if ( result != diskPtr->state )
-                                {
-                                        dwarning(("%s: incompatible disk states: %s (%d) vs. %s (%d)\n", __FUNCTION__, DISKSTATE(diskPtr->state), diskPtr->state, DISKSTATE(result), result));
-                                }
-                        break;
+            errorCode_out = err;
+            pid_out = -1;
+        }
+        else
+        {
+            /* Success.  diskPtr->state == kDiskStateNewlyUnmounted */
+           errorCode_out = 0;
+            pid_out = -1;
 
-                        case kDiskStateIdle: /* not busy */
-                        case kDiskStateNew: /* not busy */
-                        case kDiskStateNewlyEjected: /* not busy */
-                        case kDiskStateNewlyUnmounted: /* not busy */
-                        default:
-                                /* do nothing - result initialized to zero / kDiskStateIdle */
-                        break;
-                }
+        }
+    }
+    else
+    {
+        /* Failure.  There was a dissenter.  Report it. */
+
+        dwarning(("%s: there was a dissenter for '%s'\n", __FUNCTION__, diskPtr->ioBSDName));
+
+        errorCode_out = flags;
+        pid_out = (avp?avp->pid:0);
+
+        SetStateForOnePartition( diskPtr, kDiskStateIdle );
+    }
+
+    /* Send each waiting client a notification with the errorcode and dissenter. */
+
+    SendUnmountPostNotifyMsgsForOnePartition( diskPtr->ioBSDName, errorCode_out, pid_out );
+
+    /* Was this the first phase of an unmount-and-eject? */
+Continue:
+
+        if ( wholeDiskToEject && ( 0 == NumPartitionsMountedFromThisDisk( wholeDiskToEject ) ) )
+        {
+            /* WARNING: this might rob old-style clients of their synchronous UnmountCommit notifications if the eject fails. */
+            /* Why?  Because we keep no record that an unmount happened.  So if the eject fails, we won't send any UnmountCommit notifications. */
+            /* This can only happen if there is someone holding open a file descriptor on one of the /dev nodes for the disk. */
+
+            SetStateForAllPartitions( wholeDiskToEject, kDiskStateToBeEjected );
+
+            /* Prepare a list of pre-eject notifications to be sent. */
+
+            PrepareToSendPreEjectMsgs();
+
+            /* Return to the main msg loop to process sending of pre-eject msgs and receiving of acks. */
+
         }
 
-//Return:
-        dwarning(("%s() => %s (%d)\n", __FUNCTION__, DISKSTATE(result), result));
-        return result;
+Return:
+        return;
 
-} // AreWeBusy
+} // CompleteUnmountForDisk
+
+
+//------------------------------------------------------------------------
+
+
+void CompleteEjectForDisk( DiskPtr diskPtr )
+{
+    AckValue * avp;
+    int errorCode_out = 0;
+    pid_t pid_out = 0;
+    DiskPtr wholeDiskToEject = LookupWholeDiskForThisPartition(diskPtr);
+    boolean_t ejectingAllowed = FALSE;
+    int flags;
+    int requestor;
+
+    dwarning(("%s\n", __FUNCTION__));
+    if ( ! wholeDiskToEject )
+    {
+            LogErrorMessage("%s(): LookupWholeDiskToBeEjected() => NULL\n", __FUNCTION__);
+            goto Return;
+    }
+
+    // Ejection differs from unmounting because it requires acks for
+    // all partitions before proceeding.
+
+    if ( 0 != NumUnsetAckValuesForAllPartitions(wholeDiskToEject) )
+    {
+        goto Return;
+    }
+
+    /* 0 == NumUnsetAckValuesForAllDisks() */
+
+    avp = GetDissenterFromAckValuesForAllPartitions( wholeDiskToEject );
+
+
+    if ( NULL == avp ) {
+         flags = kDiskArbApproveMounting;
+     } else {
+         flags = avp->errorCode;
+     }
+
+    requestor = wholeDiskToEject->unmountOrEjectRequestorUID;
+
+    if (flags == kDiskArbApproveMounting || (requestor == 0)) {
+        ejectingAllowed = TRUE;
+    }
+    if ((flags & kDiskArbRequireAuthentication) && (requestor != 0)) {
+        ClientPtr client = LookupClientByPID(avp->pid);
+        
+        dwarning(("%s: checking client authorization to eject '%s'\n", __FUNCTION__, wholeDiskToEject->ioBSDName));
+        
+        if (client && authorizationAllowedForEvent(client, "system.volume.eject")) {
+            ejectingAllowed = TRUE;
+            avp->errorCode = 0;
+            flags = 0;
+        } else {
+            ejectingAllowed = FALSE;
+        }
+    }
+
+    if ( ejectingAllowed )
+    {
+        int err;
+
+        dwarning(("%s: there was no dissenter\n", __FUNCTION__));
+
+        /* Assume that all the partitions have already been unmounted. */
+	
+        err = EjectDisk( wholeDiskToEject ); /* Updates wholeDiskToEject->state for each partition on this disk. */
+        if ( err )
+        {
+            /* Failure.  The eject failed.  wholeDiskToEject->state == kDiskStateIdle */
+
+            dwarning(("%s: the eject failed\n", __FUNCTION__));
+
+            errorCode_out = err;
+            pid_out = -1;
+        }
+        else
+        {
+            /* Success.  wholeDiskToEject->state == kDiskStateNewlyEjected */
+            errorCode_out = 0;
+            pid_out = -1;
+
+        }
+    }
+    else
+    {
+        /* Failure.  There was a dissenter.  Report it. */
+
+        dwarning(("%s: there was a dissenter\n", __FUNCTION__));
+
+        errorCode_out = avp->errorCode;
+        pid_out = avp->pid;
+
+        SetStateForAllPartitions( wholeDiskToEject, kDiskStateIdle );
+    }
+
+    /* Send each waiting client a notification with the errorcode and dissenter. */
+
+    SendEjectPostNotifyMsgsForAllPartitions( wholeDiskToEject, errorCode_out, pid_out );
+
+Return:
+        return;
+
+} // CompleteEjectForDisk
+
+
+//------------------------------------------------------------------------
 
 DiskState AreWeBusyForDisk( DiskPtr diskPtr )
 {
@@ -3160,37 +3619,11 @@ DiskState AreWeBusyForDisk( DiskPtr diskPtr )
         switch ( diskPtr->state )
         {
                 case kDiskStateToBeUnmounted:
-                        if ( kDiskStateIdle == result )
-                        {
-                                result = diskPtr->state;
-                        }
-                        else if ( result != diskPtr->state )
-                        {
-                                dwarning(("%s: incompatible disk states: %s (%d) vs. %s (%d)\n", __FUNCTION__, DISKSTATE(diskPtr->state), diskPtr->state, DISKSTATE(result), result));
-                        }
-                break;
-
                 case kDiskStateToBeEjected:
-                        if ( kDiskStateIdle == result )
-                        {
-                                result = diskPtr->state;
-                        }
-                        else if ( result != diskPtr->state )
-                        {
-                                dwarning(("%s: incompatible disk states: %s (%d) vs. %s (%d)\n", __FUNCTION__, DISKSTATE(diskPtr->state), diskPtr->state, DISKSTATE(result), result));
-                        }
-                break;
-
                 case kDiskStateToBeUnmountedAndEjected:
-                        if ( kDiskStateIdle == result || kDiskStateToBeEjected == result )
-                        {
-                                result = diskPtr->state;
-                        }
-                        else if ( result != diskPtr->state )
-                        {
-                                dwarning(("%s: incompatible disk states: %s (%d) vs. %s (%d)\n", __FUNCTION__, DISKSTATE(diskPtr->state), diskPtr->state, DISKSTATE(result), result));
-                        }
-                break;
+                case kDiskStateWaitingForMountApproval:
+                    result = diskPtr->state;
+                    break;
 
                 case kDiskStateIdle: /* not busy */
                 case kDiskStateNew: /* not busy */
@@ -3202,7 +3635,9 @@ DiskState AreWeBusyForDisk( DiskPtr diskPtr )
         }
 
 //Return:
-        dwarning(("%s() => %s (%d)\n", __FUNCTION__, DISKSTATE(result), result));
+        if (result) {
+            dwarning(("%s() => %s (%d)\n", __FUNCTION__, DISKSTATE(result), result));
+        }
         return result;
 
 } // AreWeBusyForDisk
@@ -3211,6 +3646,7 @@ DiskState AreWeBusyForDisk( DiskPtr diskPtr )
 //------------------------------------------------------------------------
 
 // write out our pid
+
 
 static void
 writepid(void)
@@ -3224,6 +3660,7 @@ writepid(void)
                 fclose(fp);
         }
 }
+
 
 //------------------------------------------------------------------------
 
@@ -3289,7 +3726,7 @@ int authorizationAllowedForEvent(ClientPtr client, char *event)
         rights.count = 1;
         rights.items = items;
 
-        err = AuthorizationCopyRights(client->clientAuthRef, &rights, kAuthorizationEmptyEnvironment, kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed, NULL); 
+        err = AuthorizationCopyRights(client->clientAuthRef, &rights, kAuthorizationEmptyEnvironment, kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagDestroyRights, NULL); 
 
         authorized = (errAuthorizationSuccess == err);
 
@@ -3470,7 +3907,7 @@ int DiskArbitrationServerMain(int argc, char* argv[])
 
         // Get the existing disks from the IO Registry and arm the notification
 
-        GetDisksFromRegistry( ioIterator, 1 );
+        GetDisksFromRegistry( ioIterator, 1, 0 );
 
         ioNotificationType = kIOTerminatedNotification;
         r = IOServiceAddNotification(	ioMasterPort, ioNotificationType,
@@ -3483,7 +3920,7 @@ int DiskArbitrationServerMain(int argc, char* argv[])
                 return -1;
         }
 
-        while ( entry = IOIteratorNext( ioIterator2 ) ) {  // clear the iterator and move on
+        while ( (entry = IOIteratorNext( ioIterator2 )) ) {  // clear the iterator and move on
             IOObjectRelease( entry );
         }
 
@@ -3558,7 +3995,7 @@ int DiskArbitrationServerMain(int argc, char* argv[])
                 
 		// Get the existing disks from the IO Registry and arm the notification
 
-                GetDisksFromRegistry( ioIterator, 0 );
+                GetDisksFromRegistry( ioIterator, 0, 0 );
 
                 ioNotificationType = kIOTerminatedNotification;
                 r = IOServiceAddNotification(	ioMasterPort, ioNotificationType,
@@ -3571,7 +4008,7 @@ int DiskArbitrationServerMain(int argc, char* argv[])
                         return -1;
                 }
 
-                while ( entry = IOIteratorNext( ioIterator2 ) ) {  // clear the iterator and move on
+                while ( (entry = IOIteratorNext( ioIterator2 )) ) {  // clear the iterator and move on
                     IOObjectRelease( entry );
                 }
 
@@ -3579,8 +4016,22 @@ int DiskArbitrationServerMain(int argc, char* argv[])
 		// This should be a no-op here, since we probably discovered all these disks before daemonizing
 	
 		autodiskmount(FALSE);
-	
-	}
+
+    } else {
+        // this is being run debug, let's go ahead and set the current user to the owner of /dev/console
+        int uid = 0;
+        int gid = 0;
+
+        CFStringRef name = SCDynamicStoreCopyConsoleUser(NULL, &uid, &gid);
+
+        if (name) {
+            dwarning(("Setting currentConsoleUser to be %d, %d\n", uid, gid));
+            currentConsoleUser = uid;
+            CFRelease(name);
+        } else {
+            currentConsoleUser = 0;
+        }
+    }
 	
 	/*
 	-- Phase 3 - become a server
@@ -3643,59 +4094,79 @@ int DiskArbitrationServerMain(int argc, char* argv[])
 		LogErrorMessage("(%s:%d) mach_port_move_member (IO notification port) failed: {0x%x} %s\n", __FILE__, __LINE__, r, mach_error_string(r));
 		return -1;
 	}
-
+    if (!g.readOnlyBoot) {
         // write out our pid
         writepid();
+    }
 
 	// Server loop
+ServerLoop:    
 
 	while( 1 )
 	{
                 DiskPtr diskPtr;
                 DiskPtr nextDiskPtr;
 		mach_port_t deadPort;
-		DiskState busyState;
+		DiskState busyState = NULL;
                 mach_msg_format_0_trailer_t	*trailer;
 
-		/* Are we (still) busy, i.e., in the midst of processing an async unmount/eject transaction? */
+                nextDiskPtr = g.Disks;
 
-		busyState = AreWeBusy();
+                for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = nextDiskPtr)
+                {
+                        /* Are we (still) busy, i.e., in the midst of processing an async unmount transaction? */
 
-		if ( kDiskStateToBeUnmounted == busyState || kDiskStateToBeUnmountedAndEjected == busyState )
-		{
-			CompleteUnmount();
-			// Note: Recalculate <busyState> since we may have completed an unmount w/ zero clients.
-                        if (NumUnsetAckValuesForAllDisks() == 0) {
-                                SendCompletedMsgs(kDiskArbCompletedPostUnmount, 0);
+                        nextDiskPtr = diskPtr->next;
+                        busyState = AreWeBusyForDisk(diskPtr);
+
+                        if ( kDiskStateToBeUnmounted == busyState || kDiskStateToBeUnmountedAndEjected == busyState )
+                        {
+                                CompleteUnmountForDisk(diskPtr);
+                                // Note: Recalculate <busyState> since we may have completed an unmount w/ zero clients.
+                                if (NumUnsetAckValuesForAllDisks() == 0) {
+                                        SendCompletedMsgs(kDiskArbCompletedPostUnmount, 0);
+                                }
                         }
-			busyState = AreWeBusy();
-		}
+                }
 
-		if ( kDiskStateToBeEjected == busyState )
-		{
-			CompleteEject();
-			// Note: Recalculate <busyState> since we may have completed an unmount w/ zero clients.
-                        if (NumUnsetAckValuesForAllDisks() == 0) {
-                                SendCompletedMsgs(kDiskArbCompletedPostEject, 0);
+                nextDiskPtr = g.Disks;
+
+                for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = nextDiskPtr)
+                {
+                        /* Are we (still) busy, i.e., in the midst of processing an async eject transaction? */
+
+                        nextDiskPtr = diskPtr->next;
+                        busyState = AreWeBusyForDisk(diskPtr);
+
+                        if ( kDiskStateToBeEjected == busyState )
+                        {
+                                CompleteEjectForDisk(diskPtr);
+                                // Note: Recalculate <busyState> since we may have completed an unmount w/ zero clients.
+                                if (NumUnsetAckValuesForAllDisks() == 0) {
+                                        SendCompletedMsgs(kDiskArbCompletedPostEject, 0);
+                                }
+                                busyState = AreWeBusyForDisk(diskPtr);
                         }
-			busyState = AreWeBusy();
-		}
 
-		/* Send out async notifications about to any to-be-unmounted/ejected disks */
+                        /* Send out async notifications about to any to-be-unmounted/ejected disks */
 
-		if ( kDiskStateToBeUnmounted == busyState || kDiskStateToBeUnmountedAndEjected == busyState )
-		{
-			SendPreUnmountMsgs();
+                        if ( kDiskStateToBeUnmounted == busyState || kDiskStateToBeUnmountedAndEjected == busyState )
+                        {
+                                SendPreUnmountMsgsForDisk(diskPtr);
+                        }
 
-		}
-		
-		/* Send out async notifications about to any to-be-ejected disks */
+                        /* Send out async notifications about to any to-be-ejected disks */
 
-		if ( kDiskStateToBeEjected == busyState )
-		{
-			SendPreEjectMsgs();
-
-		}
+                        if ( kDiskStateToBeEjected == busyState )
+                        {
+                                SendPreEjectMsgsForDisk(diskPtr);
+                        }
+                        
+                        if ( kDiskStateWaitingForMountApproval == busyState )
+                        {
+                                SendPreMountMsgsForDisk(diskPtr);
+                        }
+                }
 
 
                 nextDiskPtr = g.Disks;
@@ -3709,8 +4180,8 @@ int DiskArbitrationServerMain(int argc, char* argv[])
                                 ClientPtr nextClientPtr = GetNextClientForDisk(diskPtr);
 
                                 if (nextClientPtr) {
-                                        SendUnrecognizedDiskArbitrationMsgs(nextClientPtr->port, diskPtr->ioBSDName, "", "", (!((diskPtr->flags & kDiskArbDiskAppearedLockedMask) == kDiskArbDiskAppearedLockedMask)), ((diskPtr->flags & kDiskArbDiskAppearedEjectableMask) == kDiskArbDiskAppearedEjectableMask), IsWhole(diskPtr), DiskTypeForDisk(diskPtr));
-                                        diskPtr->state = kDiskStateUnrecognized;
+                                     SendUnrecognizedDiskArbitrationMsgs(nextClientPtr->port, diskPtr->ioBSDName, "", "", (!((diskPtr->flags & kDiskArbDiskAppearedLockedMask) == kDiskArbDiskAppearedLockedMask)), ((diskPtr->flags & kDiskArbDiskAppearedEjectableMask) == kDiskArbDiskAppearedEjectableMask), IsWhole(diskPtr), DiskTypeForDisk(diskPtr));
+                                    SetStateForOnePartition(diskPtr, kDiskStateUnrecognized);
                                 } else {
                                         // check the new whole disks for a new disk that does not contain a recognizable section
                                         DiskPtr wholePtr = LookupWholeDiskForThisPartition(diskPtr);
@@ -3724,7 +4195,7 @@ int DiskArbitrationServerMain(int argc, char* argv[])
 
                                                         // display the dialog
                                                         if (DiskArbIsHandlingUnrecognizedDisks()) {
-                                                                StartUnrecognizedDiskDialogThread(diskPtr);
+                                                                StartUnrecognizedDiskDialogThread(wholePtr);
                                                                 wholePtr->flags |= kDiskArbDiskAppearedDialogDisplayed;
                                                         }
                                                 }
@@ -3735,7 +4206,7 @@ int DiskArbitrationServerMain(int argc, char* argv[])
 
 		/* Send out synchronous notifications out to any new clients and about any new disks */
 
-		if ( kDiskStateIdle == busyState )
+		//if ( kDiskStateIdle == busyState )
 		{
                         int newDisks = SendDiskAppearedMsgs();
                         SendCompletedMsgs(kDiskArbCompletedDiskAppeared, newDisks);
@@ -3746,7 +4217,7 @@ int DiskArbitrationServerMain(int argc, char* argv[])
 
                 nextDiskPtr = g.Disks;
                 DA_postponedDisksExist = 0;
-                DA_stateChangedToNew = 0;
+                DA_stateChangedSpinRunLoop = 0;
 
                 for (diskPtr = g.Disks; diskPtr != NULL; diskPtr = nextDiskPtr)
                 {
@@ -3763,9 +4234,77 @@ int DiskArbitrationServerMain(int argc, char* argv[])
                         nextDiskPtr = diskPtr->next;
 			switch ( diskPtr->state )
 			{
-				case kDiskStateNewlyUnmounted:
-					SetStateForOnePartition( diskPtr, kDiskStateIdle );
-				break;
+                case kDiskStateNewlyUnmounted:
+                    SetStateForOnePartition( diskPtr, kDiskStateIdle );
+                break;
+                case kDiskStateWaitingForMountApproval:
+                    if (NumUnsetAckValues(diskPtr->ackValues) == 0) {
+                        AckValue *avp = GetDissenterFromAckValues( diskPtr->ackValues );
+                        boolean_t mountingAllowed = FALSE;
+                        boolean_t eject = FALSE;
+                        boolean_t readOnly = FALSE;
+
+                       int flags;
+
+                       if ( NULL == avp ) {
+                            flags = kDiskArbApproveMounting;
+                        } else {
+                            flags = avp->errorCode;
+                        }
+
+                        if (flags == kDiskArbApproveMounting) {
+                            mountingAllowed = TRUE;
+                        }
+                        
+                        if (flags & kDiskArbEjectDevice) {
+                            eject = TRUE;
+                        }
+                        
+                        if (flags & kDiskArbMountReadOnly) {
+                            mountingAllowed = TRUE;
+                            readOnly = TRUE;
+                        }
+
+                        if (flags & kDiskArbRequireAuthentication) {
+                            ClientPtr client = LookupClientByPID(avp->pid);
+
+                            if (client && authorizationAllowedForEvent(client, "system.volume.mount")) {
+                                mountingAllowed = TRUE;
+                            } else {
+                                mountingAllowed = FALSE;
+                            }
+                        }
+                        
+                        if (flags & kDiskArbDisallowMounting) {
+                            mountingAllowed = FALSE;
+                        }
+
+                        if (mountingAllowed) {                            
+                            dwarning(("Making a disk new - no one is objecting ...\n"));
+                            SetStateForOnePartition( diskPtr, kDiskStateNew );
+                            diskPtr->approvedForMounting++;
+                            DA_stateChangedSpinRunLoop++;
+
+                            if (readOnly) {
+                                dwarning(("Making a disk new - and it should be mounted read only ...\n"));
+                                // mark the disk for read only-ness
+                                diskPtr->flags |= kDiskArbDiskAppearedLockedMask;
+                            }
+                            
+                        } else {
+                            dwarning(("There is a dissenter and you can't mount the disk\n"));
+                            SetStateForOnePartition(diskPtr, kDiskStateMountApprovalDenied);
+                            diskPtr->approvedForMounting = 0;
+                            DA_stateChangedSpinRunLoop++;
+
+                            if (eject) {
+                                dwarning(("The disk should be ejecting now\n"));
+                                DiskArbEjectRequest_async_rpc( 0, 0, diskPtr->ioBSDName, FALSE);
+                                goto ServerLoop;
+                            }
+                        }
+                    }
+                    break;
 
 				case kDiskStateNewlyEjected:
 					FreeDisk( diskPtr );
@@ -3785,8 +4324,8 @@ int DiskArbitrationServerMain(int argc, char* argv[])
 
                                                         if (!busy) {
                                                                 dwarning(("Setting disk state to new, whole is there and not busy\n"));
-                                                                diskPtr->state = kDiskStateNew;
-                                                                DA_stateChangedToNew++;
+                                                                SetStateForOnePartition(diskPtr, kDiskStateNew);
+                                                                DA_stateChangedSpinRunLoop++;
                                                         } else {
                                                                 dwarning(("Some whole disk is busy\n"));
                                                                 DA_postponedDisksExist++;
@@ -3829,12 +4368,13 @@ int DiskArbitrationServerMain(int argc, char* argv[])
                         // get an iterator from the registry for IOMedia and get the disks out of the registry ...
                         err = IOServiceGetMatchingServices(masterPort, IOServiceMatching("IOMedia"), &ioIterator);
 
-                        GetDisksFromRegistry( ioIterator, 0 );
+                        GetDisksFromRegistry( ioIterator, 0, 0 );
+                        IOObjectRelease( ioIterator );
                         continue;
                 }
 
-                if (DA_stateChangedToNew) {
-                        dwarning(("Some disk is now new - sending ourselves a new disk message\n"));
+                if (DA_stateChangedSpinRunLoop) {
+                        dwarning(("Some disk is now new or denied - sending ourselves a new disk message\n"));
                         autodiskmount(FALSE);
                         continue;
                 }
@@ -3860,9 +4400,9 @@ int DiskArbitrationServerMain(int argc, char* argv[])
                     if (unresponder && unresponder->pid) {
                             Client *unrespondingClient = LookupClientByPID(unresponder->pid);
                             mach_port_t unrespondingPort = unrespondingClient->port;
-                            dwarning(("**********Someone (pid = (%d)) isn't responding to a sent acknowledgement request\n", unresponder->pid));
+                            pwarning(("Someone (pid = (%d)) isn't responding to a sent disk acknowledgement request. That client has been disconnected.\n", unresponder->pid));
                             SendClientWasDisconnectedMsg(unrespondingClient);
-                            ClientDeath(unrespondingPort);
+                            ClientDeath(unrespondingPort, FALSE);
                     } else {
                             dwarning(("Someone timed out, but we don't know who ..."));
                     }
@@ -3924,7 +4464,7 @@ int DiskArbitrationServerMain(int argc, char* argv[])
 				
 				/* Clean up the resources consumed by the client record */
 				
-				ClientDeath( deadPort );
+				ClientDeath( deadPort, TRUE );
 			}
 			else
 			{

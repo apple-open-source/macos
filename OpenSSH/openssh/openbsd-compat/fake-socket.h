@@ -1,9 +1,9 @@
-/* $Id: fake-socket.h,v 1.1.1.1 2001/02/25 20:54:30 zarzycki Exp $ */
+/* $Id: fake-socket.h,v 1.1.1.2 2002/05/28 18:25:57 zarzycki Exp $ */
 
 #ifndef _FAKE_SOCKET_H
 #define _FAKE_SOCKET_H
 
-#include "config.h"
+#include "includes.h"
 #include "sys/types.h"
 
 #ifndef HAVE_STRUCT_SOCKADDR_STORAGE

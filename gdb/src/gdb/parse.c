@@ -1,5 +1,6 @@
 /* Parse expressions for GDB.
-   Copyright (C) 1986, 89, 90, 91, 94, 98, 1999 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Modified from expread.y by the Department of Computer Science at the
    State University of New York at Buffalo, 1991.
 
@@ -45,6 +46,7 @@
 #include "symfile.h"		/* for overlay functions */
 #include "inferior.h"		/* for NUM_PSEUDO_REGS.  NOTE: replace 
 				   with "gdbarch.h" when appropriate.  */
+#include "doublest.h"
 
 
 /* Symbols which architectures can redefine.  */
@@ -115,25 +117,8 @@ target_map_name_to_register (char *str, int len)
 {
   int i;
 
-  /* First try target specific aliases. We try these first because on some 
-     systems standard names can be context dependent (eg. $pc on a 
-     multiprocessor can be could be any of several PCs).  */
-#ifdef REGISTER_NAME_ALIAS_HOOK
-  i = REGISTER_NAME_ALIAS_HOOK (str, len);
-  if (i >= 0)
-    return i;
-#endif
-
-  /* Search architectural register name space. */
-  for (i = 0; i < NUM_REGS; i++)
-    if (REGISTER_NAME (i) && len == strlen (REGISTER_NAME (i))
-	&& STREQN (str, REGISTER_NAME (i), len))
-      {
-	return i;
-      }
-
-  /* Try pseudo-registers, if any. */
-  for (i = NUM_REGS; i < NUM_REGS + NUM_PSEUDO_REGS; i++)
+  /* Search register name space. */
+  for (i = 0; i < NUM_REGS + NUM_PSEUDO_REGS; i++)
     if (REGISTER_NAME (i) && len == strlen (REGISTER_NAME (i))
 	&& STREQN (str, REGISTER_NAME (i), len))
       {
@@ -176,7 +161,7 @@ end_arglist (void)
   register struct funcall *call = funcall_chain;
   funcall_chain = call->next;
   arglist_len = call->arglist_len;
-  free ((PTR) call);
+  xfree (call);
   return val;
 }
 
@@ -191,7 +176,7 @@ free_funcalls (void *ignore)
   for (call = funcall_chain; call; call = next)
     {
       next = call->next;
-      free ((PTR) call);
+      xfree (call);
     }
 }
 
@@ -402,13 +387,15 @@ struct type *msym_data_symbol_type;
 struct type *msym_unknown_symbol_type;
 
 void
-write_exp_msymbol (struct minimal_symbol *msymbol,
-		   struct type *text_symbol_type, struct type *data_symbol_type)
+write_exp_msymbol (struct minimal_symbol *msymbol, 
+		   struct type *text_symbol_type, 
+		   struct type *data_symbol_type)
 {
   CORE_ADDR addr;
 
   write_exp_elt_opcode (OP_LONG);
-  write_exp_elt_type (lookup_pointer_type (builtin_type_void));
+  /* Let's make the type big enough to hold a 64-bit address.  */
+  write_exp_elt_type (builtin_type_CORE_ADDR);
 
   addr = SYMBOL_VALUE_ADDRESS (msymbol);
   if (overlay_debugging)
@@ -1163,7 +1150,7 @@ parse_exp_1 (char **stringptr, struct block *block, int comma)
   old_chain = make_cleanup (free_funcalls, 0 /*ignore*/);
   funcall_chain = 0;
 
-  expression_context_block = block ? block : get_selected_block ();
+  expression_context_block = block ? block : get_selected_block (0);
 
   namecopy = (char *) alloca (strlen (lexptr) + 1);
   expout_size = 10;
@@ -1220,8 +1207,8 @@ parse_expression (char *string)
 /* Stuff for maintaining a stack of types.  Currently just used by C, but
    probably useful for any language which declares its types "backwards".  */
 
-void
-push_type (enum type_pieces tp)
+static void
+check_type_stack_depth (void)
 {
   if (type_stack_depth == type_stack_size)
     {
@@ -1229,19 +1216,26 @@ push_type (enum type_pieces tp)
       type_stack = (union type_stack_elt *)
 	xrealloc ((char *) type_stack, type_stack_size * sizeof (*type_stack));
     }
+}
+
+void
+push_type (enum type_pieces tp)
+{
+  check_type_stack_depth ();
   type_stack[type_stack_depth++].piece = tp;
 }
 
 void
 push_type_int (int n)
 {
-  if (type_stack_depth == type_stack_size)
-    {
-      type_stack_size *= 2;
-      type_stack = (union type_stack_elt *)
-	xrealloc ((char *) type_stack, type_stack_size * sizeof (*type_stack));
-    }
+  check_type_stack_depth ();
   type_stack[type_stack_depth++].int_val = n;
+}
+
+void
+push_type_address_space (char *string)
+{
+  push_type_int (address_space_name_to_int (string));
 }
 
 enum type_pieces
@@ -1267,6 +1261,9 @@ struct type *
 follow_types (struct type *follow_type)
 {
   int done = 0;
+  int make_const = 0;
+  int make_volatile = 0;
+  int make_addr_space = 0;
   int array_size;
   struct type *range_type;
 
@@ -1275,12 +1272,60 @@ follow_types (struct type *follow_type)
       {
       case tp_end:
 	done = 1;
+	if (make_const)
+	  follow_type = make_cv_type (make_const, 
+				      TYPE_VOLATILE (follow_type), 
+				      follow_type, 0);
+	if (make_volatile)
+	  follow_type = make_cv_type (TYPE_CONST (follow_type), 
+				      make_volatile, 
+				      follow_type, 0);
+	if (make_addr_space)
+	  follow_type = make_type_with_address_space (follow_type, 
+						      make_addr_space);
+	make_const = make_volatile = 0;
+	make_addr_space = 0;
+	break;
+      case tp_const:
+	make_const = 1;
+	break;
+      case tp_volatile:
+	make_volatile = 1;
+	break;
+      case tp_space_identifier:
+	make_addr_space = pop_type_int ();
 	break;
       case tp_pointer:
 	follow_type = lookup_pointer_type (follow_type);
+	if (make_const)
+	  follow_type = make_cv_type (make_const, 
+				      TYPE_VOLATILE (follow_type), 
+				      follow_type, 0);
+	if (make_volatile)
+	  follow_type = make_cv_type (TYPE_CONST (follow_type), 
+				      make_volatile, 
+				      follow_type, 0);
+	if (make_addr_space)
+	  follow_type = make_type_with_address_space (follow_type, 
+						      make_addr_space);
+	make_const = make_volatile = 0;
+	make_addr_space = 0;
 	break;
       case tp_reference:
 	follow_type = lookup_reference_type (follow_type);
+	if (make_const)
+	  follow_type = make_cv_type (make_const, 
+				      TYPE_VOLATILE (follow_type), 
+				      follow_type, 0);
+	if (make_volatile)
+	  follow_type = make_cv_type (TYPE_CONST (follow_type), 
+				      make_volatile, 
+				      follow_type, 0);
+	if (make_addr_space)
+	  follow_type = make_type_with_address_space (follow_type, 
+						      make_addr_space);
+	make_const = make_volatile = 0;
+	make_addr_space = 0;
 	break;
       case tp_array:
 	array_size = pop_type_int ();

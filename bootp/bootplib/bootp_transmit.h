@@ -1,3 +1,5 @@
+#ifndef _S_BOOTP_TRANSMIT_H
+#define _S_BOOTP_TRANSMIT_H
 /*
  * Copyright (c) 1999, 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -41,3 +43,5 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 	       u_short dest_port,
 	       u_short src_port,
 	       void * data, int len);
+
+#endif _S_BOOTP_TRANSMIT_H

@@ -1,5 +1,7 @@
 /* Memory-access and commands for remote es1800 processes, for GDB.
-   Copyright (C) 1988, 1992 Free Software Foundation, Inc.
+
+   Copyright 1988, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000,
+   2001, 2002 Free Software Foundation, Inc.
 
    This file is added to GDB to make it possible to do debugging via an
    ES-1800 emulator. The code was originally written by Johan Holmberg
@@ -104,11 +106,13 @@
 #include "frame.h"
 #include "inferior.h"
 #include "target.h"
-#include "gdb_wait.h"
 #include "command.h"
+#include "symfile.h"
 #include "remote-utils.h"
 #include "gdbcore.h"
 #include "serial.h"
+#include "regcache.h"
+#include "value.h"
 
 /* Prototypes for local functions */
 
@@ -134,13 +138,13 @@ static void es1800_files_info (struct target_ops *);
 
 static int
 es1800_xfer_inferior_memory (CORE_ADDR, char *, int, int,
-			     struct target_ops *);
+			     struct mem_attrib *, struct target_ops *);
 
 static void es1800_prepare_to_store (void);
 
-static int es1800_wait (int, struct target_waitstatus *);
+static ptid_t es1800_wait (ptid_t, struct target_waitstatus *);
 
-static void es1800_resume (int, int, enum target_signal);
+static void es1800_resume (ptid_t, int, enum target_signal);
 
 static void es1800_detach (char *, int);
 
@@ -229,7 +233,7 @@ static int m68020;
    es1800_open knows that we don't have a file open when the program
    starts.  */
 
-static serial_t es1800_desc = NULL;
+static struct serial *es1800_desc = NULL;
 
 #define	PBUFSIZ	1000
 #define HDRLEN sizeof("@.BAAAAAAAA=$VV\r")
@@ -309,41 +313,41 @@ es1800_open (char *name, int from_tty)
 
 #ifndef DEBUG_STDIN
 
-  es1800_desc = SERIAL_OPEN (name);
+  es1800_desc = serial_open (name);
   if (es1800_desc == NULL)
     {
       perror_with_name (name);
     }
   savename = savestring (name, strlen (name));
 
-  es1800_saved_ttystate = SERIAL_GET_TTY_STATE (es1800_desc);
+  es1800_saved_ttystate = serial_get_tty_state (es1800_desc);
 
-  if ((fcflag = fcntl (DEPRECATED_SERIAL_FD (es1800_desc), F_GETFL, 0)) == -1)
+  if ((fcflag = fcntl (deprecated_serial_fd (es1800_desc), F_GETFL, 0)) == -1)
     {
       perror_with_name ("fcntl serial");
     }
   es1800_fc_save = fcflag;
 
   fcflag = (fcflag & (FREAD | FWRITE));		/* mask out any funny stuff */
-  if (fcntl (DEPRECATED_SERIAL_FD (es1800_desc), F_SETFL, fcflag) == -1)
+  if (fcntl (deprecated_serial_fd (es1800_desc), F_SETFL, fcflag) == -1)
     {
       perror_with_name ("fcntl serial");
     }
 
   if (baud_rate != -1)
     {
-      if (SERIAL_SETBAUDRATE (es1800_desc, baud_rate))
+      if (serial_setbaudrate (es1800_desc, baud_rate))
 	{
-	  SERIAL_CLOSE (es1800_desc);
+	  serial_close (es1800_desc);
 	  perror_with_name (name);
 	}
     }
 
-  SERIAL_RAW (es1800_desc);
+  serial_raw (es1800_desc);
 
   /* If there is something sitting in the buffer we might take it as a
      response to a command, which would be bad.  */
-  SERIAL_FLUSH_INPUT (es1800_desc);
+  serial_flush_input (es1800_desc);
 
 #endif /* DEBUG_STDIN */
 
@@ -425,15 +429,15 @@ es1800_close (int quitting)
   if (es1800_desc != NULL)
     {
       printf ("\nClosing connection to emulator...\n");
-      if (SERIAL_SET_TTY_STATE (es1800_desc, es1800_saved_ttystate) < 0)
+      if (serial_set_tty_state (es1800_desc, es1800_saved_ttystate) < 0)
 	print_sys_errmsg ("warning: unable to restore tty state", errno);
-      fcntl (DEPRECATED_SERIAL_FD (es1800_desc), F_SETFL, es1800_fc_save);
-      SERIAL_CLOSE (es1800_desc);
+      fcntl (deprecated_serial_fd (es1800_desc), F_SETFL, es1800_fc_save);
+      serial_close (es1800_desc);
       es1800_desc = NULL;
     }
   if (savename != NULL)
     {
-      free (savename);
+      xfree (savename);
     }
   savename = NULL;
 
@@ -498,7 +502,7 @@ es1800_detach (char *args, int from_tty)
    siggnal - the signal value to be given to the target (0 = no signal) */
 
 static void
-es1800_resume (int pid, int step, enum target_signal siggnal)
+es1800_resume (ptid_t ptid, int step, enum target_signal siggnal)
 {
   char buf[PBUFSIZ];
 
@@ -521,8 +525,8 @@ es1800_resume (int pid, int step, enum target_signal siggnal)
    storing status in STATUS just as `wait' would.
    status -  */
 
-static int
-es1800_wait (int pid, struct target_waitstatus *status)
+static ptid_t
+es1800_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   unsigned char buf[PBUFSIZ];
   int old_timeout = timeout;
@@ -587,7 +591,7 @@ es1800_wait (int pid, struct target_waitstatus *status)
     }
   signal (SIGINT, old_sigint);
   timeout = old_timeout;
-  return (0);
+  return inferior_ptid;
 }
 
 
@@ -959,7 +963,8 @@ tohex (int nib)
 
 static int
 es1800_xfer_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len,
-			     int write, struct target_ops *tops)
+			     int write, struct mem_attrib *attrib,
+			     struct target_ops *target)
 {
   int origlen = len;
   int xfersize;
@@ -1029,7 +1034,7 @@ es1800_read_bytes (CORE_ADDR memaddr, char *myaddr, int len)
 
   if (len > PBUFSIZ / 2 - 1)
     {
-      abort ();
+      internal_error (__FILE__, __LINE__, "failed internal consistency check");
     }
 
   if (len == 1)			/* The emulator does not like expressions like:  */
@@ -1151,7 +1156,7 @@ verify_break (int vec)
 	{
 	  memory_error (status, memaddress);
 	}
-      return (STRCMP (instr, buf));
+      return (strcmp (instr, buf));
     }
   return (-1);
 }
@@ -1202,9 +1207,9 @@ get_break_addr (int vec, CORE_ADDR *addrp)
 static void
 es1800_kill (void)
 {
-  if (inferior_pid != 0)
+  if (!ptid_equal (inferior_ptid, null_ptid))
     {
-      inferior_pid = 0;
+      inferior_ptid = null_ptid;
       es1800_mourn_inferior ();
     }
 }
@@ -1235,7 +1240,7 @@ es1800_load (char *filename, int from_tty)
     }
 
   filename = tilde_expand (filename);
-  make_cleanup (free, filename);
+  make_cleanup (xfree, filename);
 
   switch (es1800_load_format)
     {
@@ -1269,7 +1274,7 @@ es1800_load (char *filename, int from_tty)
     }
 
   breakpoint_init_inferior ();
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
   if (from_tty)
     {
       printf ("Downloading \"%s\" to the ES 1800\n", filename);
@@ -1316,7 +1321,7 @@ es1800_load (char *filename, int from_tty)
       system (buf);
     }
 
-  symbol_file_command (filename, from_tty);	/* reading symbol table */
+  symbol_file_add_main (filename, from_tty);	/* reading symbol table */
   immediate_quit--;
 }
 
@@ -1370,7 +1375,7 @@ bfd_copy (bfd *from_bfd, bfd *to_bfd)
 
 #endif
 
-/* Start an process on the es1800 and set inferior_pid to the new
+/* Start an process on the es1800 and set inferior_ptid to the new
    process' pid.
    execfile - the file to run
    args     - arguments passed to the program
@@ -1423,7 +1428,7 @@ es1800_create_inferior (char *execfile, char *args, char **env)
   /* The "process" (board) is already stopped awaiting our commands, and
      the program is already downloaded.  We just set its PC and go.  */
 
-  inferior_pid = pid;		/* Needed for wait_for_inferior below */
+  inferior_ptid = pid_to_ptid (pid);	/* Needed for wait_for_inferior below */
 
   clear_proceed_status ();
 
@@ -1545,7 +1550,7 @@ readchar (void)
 {
   int ch;
 
-  ch = SERIAL_READCHAR (es1800_desc, timeout);
+  ch = serial_readchar (es1800_desc, timeout);
 
   /* FIXME: doing an error() here will probably cause trouble, at least if from
      es1800_wait.  */
@@ -1575,7 +1580,7 @@ static void
 send_with_reply (char *string, char *buf, int len)
 {
   send (string);
-  SERIAL_WRITE (es1800_desc, "\r", 1);
+  serial_write (es1800_desc, "\r", 1);
 
 #ifndef DEBUG_STDIN
   expect (string, 1);
@@ -1594,7 +1599,7 @@ static void
 send_command (char *string)
 {
   send (string);
-  SERIAL_WRITE (es1800_desc, "\r", 1);
+  serial_write (es1800_desc, "\r", 1);
 
 #ifndef DEBUG_STDIN
   expect (string, 0);
@@ -1613,7 +1618,7 @@ send (char *string)
     {
       fprintf (stderr, "Sending: %s\n", string);
     }
-  SERIAL_WRITE (es1800_desc, string, strlen (string));
+  serial_write (es1800_desc, string, strlen (string));
 }
 
 
@@ -1781,7 +1786,7 @@ es1800_transparent (char *args, int from_tty)
       perror_with_name ("ioctl console");
     }
 
-  if ((fcflag = fcntl (DEPRECATED_SERIAL_FD (es1800_desc), F_GETFL, 0)) == -1)
+  if ((fcflag = fcntl (deprecated_serial_fd (es1800_desc), F_GETFL, 0)) == -1)
     {
       perror_with_name ("fcntl serial");
     }
@@ -1789,7 +1794,7 @@ es1800_transparent (char *args, int from_tty)
   es1800_fc_save = fcflag;
   fcflag = fcflag | FNDELAY;
 
-  if (fcntl (DEPRECATED_SERIAL_FD (es1800_desc), F_SETFL, fcflag) == -1)
+  if (fcntl (deprecated_serial_fd (es1800_desc), F_SETFL, fcflag) == -1)
     {
       perror_with_name ("fcntl serial");
     }
@@ -1807,7 +1812,7 @@ es1800_transparent (char *args, int from_tty)
 	    {
 	      es1800_buf[es1800_cnt++] = inputbuf[i++];
 	    }
-	  if ((cc = SERIAL_WRITE (es1800_desc, es1800_buf, es1800_cnt)) == -1)
+	  if ((cc = serial_write (es1800_desc, es1800_buf, es1800_cnt)) == -1)
 	    {
 	      perror_with_name ("FEL! write:");
 	    }
@@ -1825,7 +1830,7 @@ es1800_transparent (char *args, int from_tty)
 	  perror_with_name ("FEL! read:");
 	}
 
-      cc = read (DEPRECATED_SERIAL_FD (es1800_desc), inputbuf, inputcnt);
+      cc = read (deprecated_serial_fd (es1800_desc), inputbuf, inputcnt);
       if (cc != -1)
 	{
 	  for (i = 0; i < cc;)
@@ -1864,7 +1869,7 @@ es1800_transparent (char *args, int from_tty)
 
   close (console);
 
-  if (fcntl (DEPRECATED_SERIAL_FD (es1800_desc), F_SETFL, es1800_fc_save) == -1)
+  if (fcntl (deprecated_serial_fd (es1800_desc), F_SETFL, es1800_fc_save) == -1)
     {
       perror_with_name ("FEL! fcntl");
     }
@@ -1957,7 +1962,7 @@ es1800_child_detach (char *args, int from_tty)
   pop_target ();
   if (from_tty)
     {
-      printf ("Ending debugging the process %d.\n", inferior_pid);
+      printf ("Ending debugging the process %d.\n", PIDGET (inferior_ptid));
     }
 }
 
@@ -2022,7 +2027,6 @@ Specify the serial device it is connected to (e.g. /dev/ttya).";
   es1800_ops.to_thread_alive = 0;
   es1800_ops.to_stop = 0;
   es1800_ops.to_pid_to_exec_file = NULL;
-  es1800_ops.to_core_file_to_sym_file = NULL;
   es1800_ops.to_stratum = core_stratum;
   es1800_ops.DONT_USE = 0;
   es1800_ops.to_has_all_memory = 0;
@@ -2095,7 +2099,6 @@ Specify the serial device it is connected to (e.g. /dev/ttya).";
   es1800_child_ops.to_thread_alive = 0;
   es1800_child_ops.to_stop = 0;
   es1800_child_ops.to_pid_to_exec_file = NULL;
-  es1800_child_ops.to_core_file_to_sym_file = NULL;
   es1800_child_ops.to_stratum = process_stratum;
   es1800_child_ops.DONT_USE = 0;
   es1800_child_ops.to_has_all_memory = 1;

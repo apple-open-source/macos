@@ -3,7 +3,7 @@ Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
 Vendor: GNU Project
 Version: 1.13
 URL: ftp://prep.ai.mit.edu/pub/gnu/tar/
-Build-Depends: build-base, network-cmds, gnudiff, perl, texi2html
+Build-Depends: build-base, network-cmds, gnudiff, perl, texi2html, yacc
 Description: GNU tape archive utility
  GNU `tar' saves many files together into a single tape or disk
  archive, and can restore individual files from the archive.  It

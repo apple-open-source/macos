@@ -65,7 +65,7 @@ Install_Info = $(SHAREDIR)/info
 endif
 ifndef Install_HTML
 ifeq "$(UserType)" "Developer"
-Install_HTML = $(NSDEVELOPERDIR)/Documentation/$(ToolType)/$(ProjectName)
+Install_HTML = $(NSDEVELOPERDIR)/Documentation/DeveloperTools/$(ProjectName)
 else
 Install_HTML = $(NSDOCUMENTATIONDIR)/$(ToolType)/$(ProjectName)
 endif

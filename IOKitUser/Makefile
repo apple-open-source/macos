@@ -11,6 +11,9 @@ NAME = IOKit
 
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Framework
+English_RESOURCES = Localizable.strings
+
+LANGUAGES = English
 
 HFILES = IOKitLib.h IOCFSerialize.h IOCFUnserialize.h IOCFPlugIn.h\
          IOKitInternal.h IOCFURLAccess.h IOCFBundle.h IOKitLibPrivate.h\
@@ -23,7 +26,7 @@ CFILES = IOCFSerialize.c IOCFUnserialize.tab.c IOKitLib.c\
 
 SUBPROJECTS = adb.subproj audio.subproj pwr_mgt.subproj usb.subproj\
               network.subproj graphics.subproj hidsystem.subproj\
-              kext.subproj cdb.subproj hid.subproj ups.subproj
+              kext.subproj hid.subproj ps.subproj
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble iokitmig.defs\
             CustomInfo.plist
@@ -38,7 +41,7 @@ MAKEFILE = framework.make
 NEXTSTEP_INSTALLDIR = $(SYSTEM_LIBRARY_DIR)/Frameworks
 WINDOWS_INSTALLDIR = /Library/Frameworks
 PDO_UNIX_INSTALLDIR = /Library/Frameworks
-LIBS = 
+LIBS = -lkld -lz
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
@@ -46,7 +49,8 @@ PROF_LIBS = $(LIBS)
 HEADER_PATHS = -I/System/Library/Frameworks/Kernel.framework/Headers
 NEXTSTEP_PB_CFLAGS = -Wall -Wno-four-char-constants -DAPPLE -DIOKIT -D_ANSI_C_SOURCE -Dvolatile=__volatile
 NEXTSTEP_PB_LDFLAGS = -prebind  -seg_addr_table $(NEXT_ROOT)$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table
-FRAMEWORKS = -framework CoreFoundation SystemConfiguration
+FRAMEWORKS = -framework CoreFoundation \
+             -framework SystemConfiguration
 PUBLIC_HEADERS = IOKitLib.h IOCFUnserialize.h IOCFSerialize.h\
                  IOCFPlugIn.h IOCFURLAccess.h IOCFBundle.h\
                  IODataQueueClient.h iokitmig.h

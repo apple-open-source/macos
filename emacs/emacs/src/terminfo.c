@@ -19,25 +19,13 @@ the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include <config.h>
+#include "lisp.h"
 
 /* Define these variables that serve as global parameters to termcap,
    so that we do not need to conditionalize the places in Emacs
    that set them.  */
 
 char *UP, *BC, PC;
-
-#if defined (HAVE_LIBNCURSES) && ! defined (NCURSES_OSPEED_T)
-short ospeed;
-#else
-#if defined (HAVE_TERMIOS_H) && defined (LINUX)
-#include <termios.h>
-/* HJL's version of libc is said to need this on the Alpha.
-   On the other hand, DEC OSF1 on the Alpha needs ospeed to be a short.  */
-speed_t ospeed;
-#else
-short ospeed;
-#endif
-#endif
 
 /* Interface to curses/terminfo library.
    Turns out that all of the terminfo-level routines look
@@ -57,7 +45,7 @@ tparam (string, outstring, len, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, 
 
   temp = tparm (string, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
   if (outstring == 0)
-    outstring = ((char *) (malloc ((strlen (temp)) + 1)));
+    outstring = ((char *) (xmalloc ((strlen (temp)) + 1)));
   strcpy (outstring, temp);
   return outstring;
 }

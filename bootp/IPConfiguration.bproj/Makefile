@@ -11,6 +11,9 @@ NAME = IPConfiguration
 
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Loadable Bundle
+English_RESOURCES = Localizable.strings
+
+LANGUAGES = English
 
 GLOBAL_RESOURCES = IPConfiguration.xml
 
@@ -36,10 +39,11 @@ PROF_LIBS = $(LIBS)
 BUNDLE_EXTENSION = bundle
 
 
-HEADER_PATHS =\
+HEADER_PATHS = -I../bootplib\
                -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
 FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
-FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
+FRAMEWORKS = -framework CoreFoundation -framework IOKit\
+             -framework SystemConfiguration
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

@@ -21,6 +21,12 @@
 
 #include <Security/AppleDatabase.h>
 #include <Security/globalizer.h>
+#include <Security/timeflow.h>
+#include <Security/threading.h>
+#include <sys/param.h>
+
+namespace Security
+{
 
 class MDSModule
 {
@@ -30,12 +36,27 @@ public:
     MDSModule ();
     ~MDSModule ();
 
-    DatabaseManager &databaseManager () { return mDatabaseManager; }
-
+    DatabaseManager 		&databaseManager () { return mDatabaseManager; }
+	void					lastScanIsNow();
+	double					timeSinceLastScan();
+	void					getDbPath(char *path);
+	void					setDbPath(const char *path);
+	
 private:
     static ModuleNexus<MDSModule> mModuleNexus;
 
-    AppleDatabaseManager mDatabaseManager;
+    AppleDatabaseManager 	mDatabaseManager;
+	
+	/*
+	 * Manipulated by MDSSession objects when they hold the system-wide per-user
+	 * MDS file lock. mDbPath readable any time; it's protected process-wide
+	 * by mDbPathLock.
+	 */
+	char 					mDbPath[MAXPATHLEN + 1];
+	Time::Absolute			mLastScanTime;
+	Mutex					mDbPathLock;
 };
+
+} // end namespace Security
 
 #endif // _MDSMODULE_H_

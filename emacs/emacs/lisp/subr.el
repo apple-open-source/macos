@@ -1,6 +1,7 @@
 ;;; subr.el --- basic lisp subroutines for Emacs
 
-;; Copyright (C) 1985, 1986, 1992, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 86, 92, 94, 95, 99, 2000, 2001
+;;   Free Software Foundation, Inc.
 
 ;; This file is part of GNU Emacs.
 
@@ -18,6 +19,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;;; Code:
 (defvar custom-declare-variable-list nil
@@ -51,17 +54,58 @@ BODY should be a list of lisp expressions."
   ;; depend on backquote.el.
   (list 'function (cons 'lambda cdr)))
 
+(defmacro push (newelt listname)
+  "Add NEWELT to the list stored in the symbol LISTNAME.
+This is equivalent to (setq LISTNAME (cons NEWELT LISTNAME)).
+LISTNAME must be a symbol."
+  (list 'setq listname
+	(list 'cons newelt listname)))
+
+(defmacro pop (listname)
+  "Return the first element of LISTNAME's value, and remove it from the list.
+LISTNAME must be a symbol whose value is a list.
+If the value is nil, `pop' returns nil but does not actually
+change the list."
+  (list 'prog1 (list 'car listname)
+	(list 'setq listname (list 'cdr listname))))
+
 (defmacro when (cond &rest body)
-  "(when COND BODY...): if COND yields non-nil, do BODY, else return nil."
+  "If COND yields non-nil, do BODY, else return nil."
   (list 'if cond (cons 'progn body)))
-(put 'when 'lisp-indent-function 1)
-(put 'when 'edebug-form-spec '(&rest form))
 
 (defmacro unless (cond &rest body)
-  "(unless COND BODY...): if COND yields nil, do BODY, else return nil."
+  "If COND yields nil, do BODY, else return nil."
   (cons 'if (cons cond (cons nil body))))
-(put 'unless 'lisp-indent-function 1)
-(put 'unless 'edebug-form-spec '(&rest form))
+
+(defmacro dolist (spec &rest body)
+  "(dolist (VAR LIST [RESULT]) BODY...): loop over a list.
+Evaluate BODY with VAR bound to each car from LIST, in turn.
+Then evaluate RESULT to get return value, default nil."
+  (let ((temp (make-symbol "--dolist-temp--")))
+    (list 'let (list (list temp (nth 1 spec)) (car spec))
+	  (list 'while temp
+		(list 'setq (car spec) (list 'car temp))
+		(cons 'progn
+		      (append body
+			      (list (list 'setq temp (list 'cdr temp))))))
+	  (if (cdr (cdr spec))
+	      (cons 'progn
+		    (cons (list 'setq (car spec) nil) (cdr (cdr spec))))))))
+
+(defmacro dotimes (spec &rest body)
+  "(dotimes (VAR COUNT [RESULT]) BODY...): loop a certain number of times.
+Evaluate BODY with VAR bound to successive integers running from 0,
+inclusive, to COUNT, exclusive.  Then evaluate RESULT to get
+the return value (nil if RESULT is omitted)."
+  (let ((temp (make-symbol "--dotimes-temp--")))
+    (list 'let (list (list temp (nth 1 spec)) (list (car spec) 0))
+	   (list 'while (list '< (car spec) temp)
+		 (cons 'progn
+		       (append body (list (list 'setq (car spec)
+						(list '1+ (car spec)))))))
+	   (if (cdr (cdr spec))
+	       (car (cdr (cdr spec)))
+	     nil))))
 
 (defsubst caar (x)
   "Return the car of the car of X."
@@ -90,9 +134,39 @@ If N is bigger than the length of X, return X."
 	  (setq m (1+ m) p (cdr p)))
 	(if (<= n 0) p
 	  (if (< n m) (nthcdr (- m n) x) x)))
-    (while (cdr x)
+    (while (consp (cdr x))
       (setq x (cdr x)))
     x))
+
+(defun butlast (x &optional n)
+  "Returns a copy of LIST with the last N elements removed."
+  (if (and n (<= n 0)) x
+    (nbutlast (copy-sequence x) n)))
+
+(defun nbutlast (x &optional n)
+  "Modifies LIST to remove the last N elements."
+  (let ((m (length x)))
+    (or n (setq n 1))
+    (and (< n m)
+	 (progn
+	   (if (> n 0) (setcdr (nthcdr (- (1- m) n) x) nil))
+	   x))))
+
+(defun remove (elt seq)
+  "Return a copy of SEQ with all occurences of ELT removed.
+SEQ must be a list, vector, or string.  The comparison is done with `equal'."
+  (if (nlistp seq)
+      ;; If SEQ isn't a list, there's no need to copy SEQ because
+      ;; `delete' will return a new object.
+      (delete elt seq)
+    (delete elt (copy-sequence seq))))
+
+(defun remq (elt list)
+  "Return a copy of LIST with all occurences of ELT removed.
+The comparison is done with `eq'."
+  (if (memq elt list)
+      (delq elt (copy-sequence list))
+    list))
 
 (defun assoc-default (key alist &optional test default)
   "Find object KEY in a pseudo-alist ALIST.
@@ -111,6 +185,37 @@ If TEST is omitted or nil, `equal' is used."
 	  (setq found t value (if (consp elt) (cdr elt) default))))
       (setq tail (cdr tail)))
     value))
+
+(defun assoc-ignore-case (key alist)
+  "Like `assoc', but ignores differences in case and text representation.
+KEY must be a string.  Upper-case and lower-case letters are treated as equal.
+Unibyte strings are converted to multibyte for comparison."
+  (let (element)
+    (while (and alist (not element))
+      (if (eq t (compare-strings key 0 nil (car (car alist)) 0 nil t))
+	  (setq element (car alist)))
+      (setq alist (cdr alist)))
+    element))
+
+(defun assoc-ignore-representation (key alist)
+  "Like `assoc', but ignores differences in text representation.
+KEY must be a string.  
+Unibyte strings are converted to multibyte for comparison."
+  (let (element)
+    (while (and alist (not element))
+      (if (eq t (compare-strings key 0 nil (car (car alist)) 0 nil))
+	  (setq element (car alist)))
+      (setq alist (cdr alist)))
+    element))
+
+(defun member-ignore-case (elt list)
+  "Like `member', but ignores differences in case and text representation.
+ELT must be a string.  Upper-case and lower-case letters are treated as equal.
+Unibyte strings are converted to multibyte for comparison."
+  (while (and list (not (eq t (compare-strings elt 0 nil (car list) 0 nil t))))
+    (setq list (cdr list)))
+  list)
+
 
 ;;;; Keymap support.
 
@@ -151,8 +256,15 @@ but optional second arg NODIGITS non-nil treats them like other chars."
 (defun substitute-key-definition (olddef newdef keymap &optional oldmap prefix)
   "Replace OLDDEF with NEWDEF for any keys in KEYMAP now defined as OLDDEF.
 In other words, OLDDEF is replaced with NEWDEF where ever it appears.
-If optional fourth argument OLDMAP is specified, we redefine
-in KEYMAP as NEWDEF those chars which are defined as OLDDEF in OLDMAP."
+Alternatively, if optional fourth argument OLDMAP is specified, we redefine
+in KEYMAP as NEWDEF those keys which are defined as OLDDEF in OLDMAP."
+  ;; Don't document PREFIX in the doc string because we don't want to
+  ;; advertise it.  It's meant for recursive calls only.  Here's its
+  ;; meaning
+  
+  ;; If optional argument PREFIX is specified, it should be a key
+  ;; prefix, a string.  Redefined bindings will then be bound to the
+  ;; original key, with PREFIX added at the front.
   (or prefix (setq prefix ""))
   (let* ((scan (or oldmap keymap))
 	 (vec1 (vector nil))
@@ -276,20 +388,23 @@ in KEYMAP as NEWDEF those chars which are defined as OLDDEF in OLDMAP."
 	       (car scan)))))
       (setq scan (cdr scan)))))
 
-(defun define-key-after (keymap key definition after)
+(defun define-key-after (keymap key definition &optional after)
   "Add binding in KEYMAP for KEY => DEFINITION, right after AFTER's binding.
 This is like `define-key' except that the binding for KEY is placed
 just after the binding for the event AFTER, instead of at the beginning
 of the map.  Note that AFTER must be an event type (like KEY), NOT a command
 \(like DEFINITION).
 
-If AFTER is t, the new binding goes at the end of the keymap.
+If AFTER is t or omitted, the new binding goes at the end of the keymap.
 
-KEY must contain just one event type--that is to say, it must be
-a string or vector of length 1.
+KEY must contain just one event type--that is to say, it must be a
+string or vector of length 1, but AFTER should be a single event
+type--a symbol or a character, not a sequence.
+
+Bindings are always added before any inherited map.
 
 The order of bindings in a keymap matters when it is used as a menu."
-
+  (unless after (setq after t))
   (or (keymapp keymap)
       (signal 'wrong-type-argument (list 'keymapp keymap)))
   (if (> (length key) 1)
@@ -421,7 +536,7 @@ and `down'."
 
 (defun event-basic-type (event)
   "Returns the basic type of the given event (all modifiers removed).
-The value is an ASCII printing character (not upper case) or a symbol."
+The value is a printing character (not upper case) or a symbol."
   (if (consp event)
       (setq event (car event)))
   (if (symbolp event)
@@ -530,8 +645,8 @@ as returned by the `event-start' and `event-end' functions."
 (defalias 'define-function 'defalias)
 
 (defalias 'sref 'aref)
-(make-obsolete 'sref 'aref)
-(make-obsolete 'char-bytes "Now this function always returns 1")
+(make-obsolete 'sref 'aref "20.4")
+(make-obsolete 'char-bytes "Now this function always returns 1" "20.4")
 
 ;; Some programs still use this as a function.
 (defun baud-rate ()
@@ -557,6 +672,9 @@ Please convert your programs to use the variable `baud-rate' directly."
 (defalias 'search-backward-regexp (symbol-function 're-search-backward))
 (defalias 'int-to-string 'number-to-string)
 (defalias 'store-match-data 'set-match-data)
+;; These are the XEmacs names:
+(defalias 'point-at-eol 'line-end-position)
+(defalias 'point-at-bol 'line-beginning-position)
 
 ;;; Should this be an obsolete name?  If you decide it should, you get
 ;;; to go through all the sources and change them.
@@ -567,6 +685,9 @@ Please convert your programs to use the variable `baud-rate' directly."
 (defun make-local-hook (hook)
   "Make the hook HOOK local to the current buffer.
 The return value is HOOK.
+
+You never need to call this function now that `add-hook' does it for you
+if its LOCAL argument is non-nil.
 
 When a hook is local, its local and global values
 work in concert: running the hook actually runs all the hook
@@ -600,7 +721,7 @@ FUNCTION is added at the end.
 
 The optional fourth argument, LOCAL, if non-nil, says to modify
 the hook's buffer-local value rather than its default value.
-This makes no difference if the hook is not buffer-local.
+This makes the hook buffer-local if needed.
 To make a hook variable buffer-local, always use
 `make-local-hook', not `make-local-variable'.
 
@@ -609,32 +730,23 @@ HOOK is void, it is first set to nil.  If HOOK's value is a single
 function, it is changed to a list of functions."
   (or (boundp hook) (set hook nil))
   (or (default-boundp hook) (set-default hook nil))
-  ;; If the hook value is a single function, turn it into a list.
-  (let ((old (symbol-value hook)))
-    (if (or (not (listp old)) (eq (car old) 'lambda))
-	(set hook (list old))))
-  (if (or local
-	  ;; Detect the case where make-local-variable was used on a hook
-	  ;; and do what we used to do.
-	  (and (local-variable-if-set-p hook)
-	       (not (memq t (symbol-value hook)))))
-      ;; Alter the local value only.
-      (or (if (or (consp function) (byte-code-function-p function))
-	      (member function (symbol-value hook))
-	    (memq function (symbol-value hook)))
-	  (set hook 
-	       (if append
-		   (append (symbol-value hook) (list function))
-		 (cons function (symbol-value hook)))))
-    ;; Alter the global value (which is also the only value,
-    ;; if the hook doesn't have a local value).
-    (or (if (or (consp function) (byte-code-function-p function))
-	    (member function (default-value hook))
-	  (memq function (default-value hook)))
-	(set-default hook 
-		     (if append
-			 (append (default-value hook) (list function))
-		       (cons function (default-value hook)))))))
+  (if local (unless (local-variable-if-set-p hook) (make-local-hook hook))
+    ;; Detect the case where make-local-variable was used on a hook
+    ;; and do what we used to do.
+    (unless (and (consp (symbol-value hook)) (memq t (symbol-value hook)))
+      (setq local t)))
+  (let ((hook-value (if local (symbol-value hook) (default-value hook))))
+    ;; If the hook value is a single function, turn it into a list.
+    (when (or (not (listp hook-value)) (eq (car hook-value) 'lambda))
+      (setq hook-value (list hook-value)))
+    ;; Do the actual addition if necessary
+    (unless (member function hook-value)
+      (setq hook-value
+	    (if append
+		(append hook-value (list function))
+	      (cons function hook-value))))
+    ;; Set the actual variable
+    (if local (set hook hook-value) (set-default hook hook-value))))
 
 (defun remove-hook (hook function &optional local)
   "Remove from the value of HOOK the function FUNCTION.
@@ -644,39 +756,34 @@ list of hooks to run in HOOK, then nothing is done.  See `add-hook'.
 
 The optional third argument, LOCAL, if non-nil, says to modify
 the hook's buffer-local value rather than its default value.
-This makes no difference if the hook is not buffer-local.
+This makes the hook buffer-local if needed.
 To make a hook variable buffer-local, always use
 `make-local-hook', not `make-local-variable'."
-  (if (or (not (boundp hook))		;unbound symbol, or
-	  (not (default-boundp hook))
-	  (null (symbol-value hook))	;value is nil, or
-	  (null function))		;function is nil, then
-      nil				;Do nothing.
-    (if (or local
-	    ;; Detect the case where make-local-variable was used on a hook
-	    ;; and do what we used to do.
-	    (and (local-variable-p hook)
-		  (consp (symbol-value hook))
-		  (not (memq t (symbol-value hook)))))
-	(let ((hook-value (symbol-value hook)))
-	  (if (consp hook-value)
-	      (if (member function hook-value)
-		  (setq hook-value (delete function (copy-sequence hook-value))))
-	    (if (equal hook-value function)
-		(setq hook-value nil)))
-	  (set hook hook-value))
-      (let ((hook-value (default-value hook)))
-	(if (and (consp hook-value) (not (functionp hook-value)))
-	    (if (member function hook-value)
-		(setq hook-value (delete function (copy-sequence hook-value))))
-	  (if (equal hook-value function)
-	      (setq hook-value nil)))
-	(set-default hook hook-value)))))
+  (or (boundp hook) (set hook nil))
+  (or (default-boundp hook) (set-default hook nil))
+  (if local (unless (local-variable-if-set-p hook) (make-local-hook hook))
+    ;; Detect the case where make-local-variable was used on a hook
+    ;; and do what we used to do.
+    (unless (and (consp (symbol-value hook)) (memq t (symbol-value hook)))
+      (setq local t)))
+  (let ((hook-value (if local (symbol-value hook) (default-value hook))))
+    ;; Remove the function, for both the list and the non-list cases.
+    (if (or (not (listp hook-value)) (eq (car hook-value) 'lambda))
+	(if (equal hook-value function) (setq hook-value nil))
+      (setq hook-value (delete function (copy-sequence hook-value))))
+    ;; If the function is on the global hook, we need to shadow it locally
+    ;;(when (and local (member function (default-value hook))
+    ;;	       (not (member (cons 'not function) hook-value)))
+    ;;  (push (cons 'not function) hook-value))
+    ;; Set the actual variable
+    (if local (set hook hook-value) (set-default hook hook-value))))
 
-(defun add-to-list (list-var element)
+(defun add-to-list (list-var element &optional append)
   "Add to the value of LIST-VAR the element ELEMENT if it isn't there yet.
 The test for presence of ELEMENT is done with `equal'.
-If ELEMENT is added, it is added at the beginning of the list.
+If ELEMENT is added, it is added at the beginning of the list,
+unless the optional argument APPEND is non-nil, in which case
+ELEMENT is added at the end.
 
 If you want to use `add-to-list' on a variable that is not defined
 until a certain package is loaded, you should put the call to `add-to-list'
@@ -685,7 +792,10 @@ into a hook function that will be run only after loading the package.
 other hooks, such as major mode hooks, can do the job."
   (if (member element (symbol-value list-var))
       (symbol-value list-var)
-    (set list-var (cons element (symbol-value list-var)))))
+    (set list-var
+	 (if append
+	     (append (symbol-value list-var) (list element))
+	   (cons element (symbol-value list-var))))))
 
 ;;;; Specifying things to do after certain files are loaded.
 
@@ -694,7 +804,12 @@ other hooks, such as major mode hooks, can do the job."
 This makes or adds to an entry on `after-load-alist'.
 If FILE is already loaded, evaluate FORM right now.
 It does nothing if FORM is already on the list for FILE.
-FILE should be the name of a library, with no directory name."
+FILE must match exactly.  Normally FILE is the name of a library,
+with no directory or extension specified, since that is how `load'
+is normally called."
+  ;; Make sure `load-history' contains the files dumped with Emacs
+  ;; for the case that FILE is one of the files dumped with Emacs.
+  (load-symbol-file-load-history)
   ;; Make sure there is an element for FILE.
   (or (assoc file after-load-alist)
       (setq after-load-alist (cons (list file) after-load-alist)))
@@ -793,11 +908,14 @@ Optional DEFAULT is a default password to use instead of empty input."
 	  (let ((first (read-passwd prompt nil default))
 		(second (read-passwd "Confirm password: " nil default)))
 	    (if (equal first second)
-		(setq success first)
+		(progn
+		  (and (arrayp second) (fillarray second ?\0))
+		  (setq success first))
+	      (and (arrayp first) (fillarray first ?\0))
+	      (and (arrayp second) (fillarray second ?\0))
 	      (message "Password not repeated accurately; please start over")
 	      (sit-for 1))))
 	success)
-    (clear-this-command-keys)
     (let ((pass nil)
 	  (c 0)
 	  (echo-keystrokes 0)
@@ -805,14 +923,24 @@ Optional DEFAULT is a default password to use instead of empty input."
       (while (progn (message "%s%s"
 			     prompt
 			     (make-string (length pass) ?.))
-		    (setq c (read-char nil t))
+		    (setq c (read-char-exclusive nil t))
 		    (and (/= c ?\r) (/= c ?\n) (/= c ?\e)))
+	(clear-this-command-keys)
 	(if (= c ?\C-u)
-	    (setq pass "")
+	    (progn
+	      (and (arrayp pass) (fillarray pass ?\0))
+	      (setq pass ""))
 	  (if (and (/= c ?\b) (/= c ?\177))
-	      (setq pass (concat pass (char-to-string c)))
+	      (let* ((new-char (char-to-string c))
+		     (new-pass (concat pass new-char)))
+		(and (arrayp pass) (fillarray pass ?\0))
+		(fillarray new-char ?\0)
+		(setq c ?\0)
+		(setq pass new-pass))
 	    (if (> (length pass) 0)
-		(setq pass (substring pass 0 -1))))))
+		(let ((new-pass (substring pass 0 -1)))
+		  (and (arrayp pass) (fillarray pass ?\0))
+		  (setq pass new-pass))))))
       (message nil)
       (or pass default ""))))
 
@@ -938,9 +1066,9 @@ Wildcards and redirection are handled as usual in the shell."
   "Execute the forms in BODY with BUFFER as the current buffer.
 The value returned is the value of the last form in BODY.
 See also `with-temp-buffer'."
-  `(save-current-buffer
-    (set-buffer ,buffer)
-    ,@body))
+  (cons 'save-current-buffer
+	(cons (list 'set-buffer buffer)
+	      body)))
 
 (defmacro with-temp-file (file &rest body)
   "Create a new buffer, evaluate BODY there, and write the buffer to FILE.
@@ -1021,6 +1149,23 @@ in BODY."
 	 . ,body)
      (combine-after-change-execute)))
 
+
+(defmacro with-syntax-table (table &rest body)
+  "Evaluate BODY with syntax table of current buffer set to a copy of TABLE.
+The syntax table of the current buffer is saved, BODY is evaluated, and the
+saved table is restored, even in case of an abnormal exit.
+Value is what BODY returns."
+  (let ((old-table (make-symbol "table"))
+	(old-buffer (make-symbol "buffer")))
+    `(let ((,old-table (syntax-table))
+	   (,old-buffer (current-buffer)))
+       (unwind-protect
+	   (progn
+	     (set-syntax-table (copy-syntax-table ,table))
+	     ,@body)
+	 (save-current-buffer
+	   (set-buffer ,old-buffer)
+	   (set-syntax-table ,old-table))))))
 
 (defvar save-match-data-internal)
 
@@ -1030,10 +1175,14 @@ in BODY."
 ;; now, but it generates slower code.
 (defmacro save-match-data (&rest body)
   "Execute the BODY forms, restoring the global value of the match data."
-  `(let ((save-match-data-internal (match-data)))
-       (unwind-protect
-	   (progn ,@body)
-	 (set-match-data save-match-data-internal))))
+  ;; It is better not to use backquote here,
+  ;; because that makes a bootstrapping problem
+  ;; if you need to recompile all the Lisp files using interpreted code.
+  (list 'let
+	'((save-match-data-internal (match-data)))
+	(list 'unwind-protect
+	      (cons 'progn body)
+	      '(set-match-data save-match-data-internal))))
 
 (defun match-string (num &optional string)
   "Return string of text matched by last search.
@@ -1070,7 +1219,9 @@ If SEPARATORS is absent, it defaults to \"[ \\f\\t\\n\\r\\v]+\".
 
 If there is match for SEPARATORS at the beginning of STRING, we do not
 include a null substring for that.  Likewise, if there is a match
-at the end of STRING, we don't include a null substring for that."
+at the end of STRING, we don't include a null substring for that.
+
+Modifies the match data; use `save-match-data' if necessary."
   (let ((rexp (or separators "[ \f\t\n\r\v]+"))
 	(start 0)
 	notfirst
@@ -1105,12 +1256,80 @@ Unless optional argument INPLACE is non-nil, return a new string."
       (if (eq (aref newstr i) fromchar)
 	  (aset newstr i tochar)))
     newstr))
+
+(defun replace-regexp-in-string (regexp rep string &optional
+					fixedcase literal subexp start)
+  "Replace all matches for REGEXP with REP in STRING.
+
+Return a new string containing the replacements.
+
+Optional arguments FIXEDCASE, LITERAL and SUBEXP are like the
+arguments with the same names of function `replace-match'.  If START
+is non-nil, start replacements at that index in STRING.
+
+REP is either a string used as the NEWTEXT arg of `replace-match' or a
+function.  If it is a function it is applied to each match to generate
+the replacement passed to `replace-match'; the match-data at this
+point are such that match 0 is the function's argument.
+
+To replace only the first match (if any), make REGEXP match up to \\'
+and replace a sub-expression, e.g.
+  (replace-regexp-in-string \"\\(foo\\).*\\'\" \"bar\" \" foo foo\" nil nil 1)
+    => \" bar foo\"
+"
+
+  ;; To avoid excessive consing from multiple matches in long strings,
+  ;; don't just call `replace-match' continually.  Walk down the
+  ;; string looking for matches of REGEXP and building up a (reversed)
+  ;; list MATCHES.  This comprises segments of STRING which weren't
+  ;; matched interspersed with replacements for segments that were.
+  ;; [For a `large' number of replacments it's more efficient to
+  ;; operate in a temporary buffer; we can't tell from the function's
+  ;; args whether to choose the buffer-based implementation, though it
+  ;; might be reasonable to do so for long enough STRING.]
+  (let ((l (length string))
+	(start (or start 0))
+	matches str mb me)
+    (save-match-data
+      (while (and (< start l) (string-match regexp string start))
+	(setq mb (match-beginning 0)
+	      me (match-end 0))
+	;; If we matched the empty string, make sure we advance by one char
+	(when (= me mb) (setq me (min l (1+ mb))))
+	;; Generate a replacement for the matched substring.
+	;; Operate only on the substring to minimize string consing.
+	;; Set up match data for the substring for replacement;
+	;; presumably this is likely to be faster than munging the
+	;; match data directly in Lisp.
+	(string-match regexp (setq str (substring string mb me)))
+	(setq matches
+	      (cons (replace-match (if (stringp rep)
+				       rep
+				     (funcall rep (match-string 0 str)))
+				   fixedcase literal str subexp)
+		    (cons (substring string start mb) ; unmatched prefix
+			  matches)))
+	(setq start me))
+      ;; Reconstruct a string from the pieces.
+      (setq matches (cons (substring string start l) matches)) ; leftover
+      (apply #'concat (nreverse matches)))))
 
 (defun shell-quote-argument (argument)
   "Quote an argument for passing as argument to an inferior shell."
   (if (eq system-type 'ms-dos)
-      ;; MS-DOS shells don't have quoting, so don't do any.
-      argument
+      ;; Quote using double quotes, but escape any existing quotes in
+      ;; the argument with backslashes.
+      (let ((result "")
+	    (start 0)
+	    end)
+	(if (or (null (string-match "[^\"]" argument))
+		(< (match-end 0) (length argument)))
+	    (while (string-match "[\"]" argument start)
+	      (setq end (match-beginning 0)
+		    result (concat result (substring argument start end)
+				   "\\" (substring argument end (1+ end)))
+		    start (1+ end))))
+	(concat "\"" result (substring argument start) "\""))
     (if (eq system-type 'windows-nt)
 	(concat "\"" argument "\"")
       (if (equal argument "")
@@ -1232,24 +1451,148 @@ configuration."
       (eq (car-safe object) 'lambda)
       (and (symbolp object) (fboundp object))))
 
-;; now in fns.c
-;(defun nth (n list)
-;  "Returns the Nth element of LIST.
-;N counts from zero.  If LIST is not that long, nil is returned."
-;  (car (nthcdr n list)))
-;
-;(defun copy-alist (alist)
-;  "Return a copy of ALIST.
-;This is a new alist which represents the same mapping
-;from objects to objects, but does not share the alist structure with ALIST.
-;The objects mapped (cars and cdrs of elements of the alist)
-;are shared, however."
-;  (setq alist (copy-sequence alist))
-;  (let ((tail alist))
-;    (while tail
-;      (if (consp (car tail))
-;	  (setcar tail (cons (car (car tail)) (cdr (car tail)))))
-;      (setq tail (cdr tail))))
-;  alist)
+(defun interactive-form (function)
+  "Return the interactive form of FUNCTION.
+If function is a command (see `commandp'), value is a list of the form
+\(interactive SPEC).  If function is not a command, return nil."
+  (setq function (indirect-function function))
+  (when (commandp function)
+    (cond ((byte-code-function-p function)
+	   (when (> (length function) 5)
+	     (let ((spec (aref function 5)))
+	       (if spec
+		   (list 'interactive spec)
+		 (list 'interactive)))))
+	  ((subrp function)
+	   (subr-interactive-form function))
+	  ((eq (car-safe function) 'lambda)
+	   (setq function (cddr function))
+	   (when (stringp (car function))
+	     (setq function (cdr function)))
+	   (let ((form (car function)))
+	     (when (eq (car-safe form) 'interactive)
+	       (copy-sequence form)))))))
+
+(defun assq-delete-all (key alist)
+  "Delete from ALIST all elements whose car is KEY.
+Return the modified alist."
+  (let ((tail alist))
+    (while tail
+      (if (eq (car (car tail)) key)
+	  (setq alist (delq (car tail) alist)))
+      (setq tail (cdr tail)))
+    alist))
+
+(defun make-temp-file (prefix &optional dir-flag)
+  "Create a temporary file.
+The returned file name (created by appending some random characters at the end
+of PREFIX, and expanding against `temporary-file-directory' if necessary,
+is guaranteed to point to a newly created empty file.
+You can then use `write-region' to write new data into the file.
+
+If DIR-FLAG is non-nil, create a new empty directory instead of a file."
+  (let (file)
+    (while (condition-case ()
+	       (progn
+		 (setq file
+		       (make-temp-name
+			(expand-file-name prefix temporary-file-directory)))
+		 (if dir-flag
+		     (make-directory file)
+		   (write-region "" nil file nil 'silent nil 'excl))
+		 nil)
+	    (file-already-exists t))
+      ;; the file was somehow created by someone else between
+      ;; `make-temp-name' and `write-region', let's try again.
+      nil)
+    file))
+
+
+(defun add-minor-mode (toggle name &optional keymap after toggle-fun)
+  "Register a new minor mode.
+
+This is an XEmacs-compatibility function.  Use `define-minor-mode' instead.
+
+TOGGLE is a symbol which is the name of a buffer-local variable that
+is toggled on or off to say whether the minor mode is active or not.
+
+NAME specifies what will appear in the mode line when the minor mode
+is active.  NAME should be either a string starting with a space, or a
+symbol whose value is such a string.
+
+Optional KEYMAP is the keymap for the minor mode that will be added
+to `minor-mode-map-alist'.
+
+Optional AFTER specifies that TOGGLE should be added after AFTER
+in `minor-mode-alist'.
+
+Optional TOGGLE-FUN is an interactive function to toggle the mode.
+It defaults to (and should by convention be) TOGGLE.
+
+If TOGGLE has a non-nil `:included' property, an entry for the mode is
+included in the mode-line minor mode menu.
+If TOGGLE has a `:menu-tag', that is used for the menu item's label."
+  (unless toggle-fun (setq toggle-fun toggle))
+  ;; Add the toggle to the minor-modes menu if requested.
+  (when (get toggle :included)
+    (define-key mode-line-mode-menu
+      (vector toggle)
+      (list 'menu-item
+	    (or (get toggle :menu-tag)
+		(if (stringp name) name (symbol-name toggle)))
+	    toggle-fun
+	    :button (cons :toggle toggle))))
+  ;; Add the name to the minor-mode-alist.
+  (when name
+    (let ((existing (assq toggle minor-mode-alist)))
+      (when (and (stringp name) (not (get-text-property 0 'local-map name)))
+	(setq name
+	      (propertize name
+			  'local-map mode-line-minor-mode-keymap
+			  'help-echo "mouse-3: minor mode menu")))
+      (if existing
+	  (setcdr existing (list name))
+	(let ((tail minor-mode-alist) found)
+	  (while (and tail (not found))
+	    (if (eq after (caar tail))
+		(setq found tail)
+	      (setq tail (cdr tail))))
+	  (if found
+	      (let ((rest (cdr found)))
+		(setcdr found nil)
+		(nconc found (list (list toggle name)) rest))
+	    (setq minor-mode-alist (cons (list toggle name)
+					 minor-mode-alist)))))))
+  ;; Add the map to the minor-mode-map-alist.    
+  (when keymap
+    (let ((existing (assq toggle minor-mode-map-alist)))
+      (if existing
+	  (setcdr existing keymap)
+	(let ((tail minor-mode-map-alist) found)
+	  (while (and tail (not found))
+	    (if (eq after (caar tail))
+		(setq found tail)
+	      (setq tail (cdr tail))))
+	  (if found
+	      (let ((rest (cdr found)))
+		(setcdr found nil)
+		(nconc found (list (cons toggle keymap)) rest))
+	    (setq minor-mode-map-alist (cons (cons toggle keymap)
+					     minor-mode-map-alist))))))))
+
+;; XEmacs compatibility/convenience.
+(if (fboundp 'play-sound)
+    (defun play-sound-file (file &optional volume device)
+      "Play sound stored in FILE.
+VOLUME and DEVICE correspond to the keywords of the sound
+specification for `play-sound'."
+      (interactive "fPlay sound file: ")
+      (let ((sound (list :file file)))
+	(if volume
+	    (plist-put sound :volume volume))
+	(if device
+	    (plist-put sound :device device))
+	(push 'sound sound)
+	(play-sound sound))))
 
 ;;; subr.el ends here

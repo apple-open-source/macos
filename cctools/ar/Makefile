@@ -1,9 +1,15 @@
 OFLAG = -O
-ifeq "mwcc" "$(notdir $(CC))"
-  CFLAGS = -g $(OFLAG)
+ifeq "mwccppc" "$(notdir $(CC))"
+  CFLAGS = -g $(OFLAG) -I$(SRCROOT)/../include
 else
-  CFLAGS = -g $(OFLAG) -Wall -Wno-precomp
+  CFLAGS = -g $(OFLAG) -Wall -Wno-precomp -I$(SRCROOT)/../include
 endif
+
+LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
+
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+	     echo YES ; else echo NO ; \
+	     fi; )
 
 ifneq "" "$(wildcard /bin/mkdirs)"
   MKDIRS = /bin/mkdirs
@@ -11,10 +17,11 @@ else
   MKDIRS = /bin/mkdir -p
 endif
 
+SRCROOT = .
 OBJROOT = .
+SYMROOT = .
 OFILE_DIR = $(OBJROOT)
 VPATH = $(OFILE_DIR)
-SYMROOT = .
 
 BINDIR = /usr/bin
 MANDIR = /usr/share/man
@@ -33,15 +40,20 @@ PRODUCT = ar
 all: $(OFILE_DIR) $(SYMROOT) $(PRODUCT).NEW
 
 $(PRODUCT).NEW:	$(OFILE_DIR) $(SYMROOT) $(OBJS)
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/$@ $(OBJS)
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/$@ $(OBJS) $(LIBSTUFF)
 
 vers.c:
 	vers_string -c $(VERS_STRING_FLAGS) $(PRODUCT) > $(OFILE_DIR)/$@
 
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+.c.o:
+	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c -o $(OFILE_DIR)/$*.o $<
+else
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 clean: shlib_clean
 	-rm -f $(SYMROOT)/$(PRODUCT).NEW $(OFILE_DIR)/vers.c

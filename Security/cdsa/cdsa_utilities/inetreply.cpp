@@ -21,7 +21,7 @@
 //
 #include "inetreply.h"
 #include <Security/debugging.h>
-
+#include <ctype.h>
 
 namespace Security {
 namespace IPPlusPlus {

@@ -28,7 +28,7 @@
 #include <Security/globalizer.h>
 #include <Security/cssmalloc.h>
 #include <Security/tqueue.h>
-
+#include <set>
 
 namespace Security {
 namespace MachPlusPlus {
@@ -39,7 +39,7 @@ extern "C" {
 	void cdsa_mach_notify_port_destroyed(mach_port_t, mach_port_name_t port);
 	void cdsa_mach_notify_port_deleted(mach_port_t, mach_port_name_t port);
 	void cdsa_mach_notify_send_once(mach_port_t);
-	void cdsa_mach_notify_no_senders(mach_port_t);	// legacy
+	void cdsa_mach_notify_no_senders(mach_port_t, mach_port_mscount_t);
 };
 
 
@@ -76,16 +76,23 @@ public:
 	void run(size_t maxSize = 4096, mach_msg_options_t options = 0);
 	
 	Time::Interval timeout() const { return workerTimeout; }
-	void timeout(Time::Interval t) { workerTimeout = t; }
-	uint32 maxThreads() const	{ return maxWorkerCount; }
-	void maxThreads(uint32 n)	{ maxWorkerCount = n; }
+	void timeout(Time::Interval t)	{ workerTimeout = t; }
+	uint32 maxThreads() const		{ return maxWorkerCount; }
+	void maxThreads(uint32 n)		{ maxWorkerCount = n; }
+	
+	Port primaryServicePort() const	{ return mServerPort; }
+	
+	// listen on additional ports (dispatching to the main handler)
+	void add(Port receiver);
+	void remove(Port receiver);
 
 	// the currently active server in this thread (there can only be one)
 	static MachServer &active()
 	{ assert(perThread().server); return *perThread().server; }
 	
-	// request dead-port notification if this port dies (override notifyDeadName)
-	virtual void notifyIfDead(Port port) const;
+	// request port status notifications (override virtual methods below to receive)
+	virtual void notifyIfDead(Port port, bool doNotify = true) const;
+	virtual void notifyIfUnused(Port port, bool doNotify = true) const;
 
 	// register (CssmAllocator-derived) memory to be released after reply is sent
 	void releaseWhenDone(CssmAllocator &alloc, void *memory);
@@ -148,7 +155,8 @@ protected:
 	virtual void notifyDeadName(Port port);
 	virtual void notifyPortDeleted(Port port);
 	virtual void notifyPortDestroyed(Port port);
-	virtual void notifySendOnce();
+	virtual void notifySendOnce(Port port);
+	virtual void notifyNoSenders(Port port, mach_port_mscount_t);
 
 	// don't mess with this unless you know what you're doing
     Bootstrap bootstrap;			// bootstrap port we registered with
@@ -198,11 +206,11 @@ private:
 	friend void cdsa_mach_notify_port_destroyed(mach_port_t, mach_port_name_t port);
 	friend void cdsa_mach_notify_port_deleted(mach_port_t, mach_port_name_t port);
 	friend void cdsa_mach_notify_send_once(mach_port_t);
+	friend void cdsa_mach_notify_no_senders(mach_port_t, mach_port_mscount_t);
 };
 
 
 } // end namespace MachPlusPlus
-
 } // end namespace Security
 
 #endif //_H_MACHSERVER

@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include "ntp_machine.h"
 #include "ntp_fp.h"
-#include "ntp_stdlib.h"
 #include "ntp_syslog.h"
+#include "ntp_stdlib.h"
 #include "ntp_io.h"
 #include "recvbuff.h"
 #include "iosignal.h"
@@ -24,7 +24,6 @@ static	struct recvbuf *volatile fulllist;  /* lifo buffers with data */
 static	struct recvbuf *volatile beginlist; /* fifo buffers with data */
 	
 #if defined(HAVE_IO_COMPLETION_PORT)
-static HANDLE fulldatabufferevent;
 static CRITICAL_SECTION RecvCritSection;
 # define RECV_BLOCK_IO()	EnterCriticalSection(&RecvCritSection)
 # define RECV_UNBLOCK_IO()	LeaveCriticalSection(&RecvCritSection)
@@ -111,27 +110,15 @@ init_recvbuff(int nbufs)
 	}
 
 	fulllist = 0;
-	free_recvbufs = total_recvbufs = RECV_INIT;
+	free_recvbufs = total_recvbufs = nbufs;
 	full_recvbufs = lowater_adds = 0;
 
 #if defined(HAVE_IO_COMPLETION_PORT)
 	InitializeCriticalSection(&RecvCritSection);
-	fulldatabufferevent = CreateEvent(NULL, FALSE,FALSE, NULL);
 #endif
 
 }
 
-#if defined(HAVE_IO_COMPLETION_PORT)
-
-/*  Return the new full buffer event handle . This handle is 
- *  signalled when a recv buffer is placed in the full list.
- */
-HANDLE
-get_recv_buff_event()
-{
-	return fulldatabufferevent;
-}
-#endif
 
 /*
  * getrecvbufs - get receive buffers which have data in them
@@ -171,7 +158,7 @@ getrecvbufs(void)
 		if (free_recvbufs <= RECV_LOWAT)
 		{
 			if (total_recvbufs >= RECV_TOOMANY)
-			    msyslog(LOG_ERR, "too many recvbufs allocated (%d)",
+			    msyslog(LOG_ERR, "too many recvbufs allocated (%ld)",
 				    total_recvbufs);
 			else
 			{
@@ -224,11 +211,6 @@ add_full_recv_buffer(
 	fulllist = rb;
 	full_recvbufs++;
 
-#if defined(HAVE_IO_COMPLETION_PORT)
-	if (!SetEvent(fulldatabufferevent)) {
-		msyslog(LOG_ERR, "Can't set receive buffer event");
-	}
-#endif
 	RECV_UNBLOCK_IO();
 }
 
@@ -240,7 +222,7 @@ get_free_recv_buffer(void)
 	if (free_recvbufs <= RECV_LOWAT)
 		{
 			if (total_recvbufs >= RECV_TOOMANY) {
-			    msyslog(LOG_ERR, "too many recvbufs allocated (%d)",
+			    msyslog(LOG_ERR, "too many recvbufs allocated (%ld)",
 				    total_recvbufs);
 			}
 			else

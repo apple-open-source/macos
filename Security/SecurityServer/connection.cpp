@@ -175,23 +175,33 @@ void Connection::releaseKey(Key::Handle key)
 
 
 //
+// Key inquiries
+//
+CSSM_KEY_SIZE Connection::queryKeySize(Key &key)
+{
+    CssmClient::Key theKey(Server::csp(), key);
+    return theKey.sizeInBits();
+}
+
+
+//
 // Signatures and MACs
 //
 void Connection::generateSignature(const Context &context, Key &key,
-	const CssmData &data, CssmData &signature)
+	CSSM_ALGORITHMS signOnlyAlgorithm, const CssmData &data, CssmData &signature)
 {
 	context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)key);
 	key.validate(CSSM_ACL_AUTHORIZATION_SIGN, context);
-	CssmClient::Sign signer(Server::csp(), context.algorithm());
+	CssmClient::Sign signer(Server::csp(), context.algorithm(), signOnlyAlgorithm);
 	signer.override(context);
 	signer.sign(data, signature);
 }
 
 void Connection::verifySignature(const Context &context, Key &key,
-	const CssmData &data, const CssmData &signature)
+	CSSM_ALGORITHMS verifyOnlyAlgorithm, const CssmData &data, const CssmData &signature)
 {
 	context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)key);
-	CssmClient::Verify verifier(Server::csp(), context.algorithm());
+	CssmClient::Verify verifier(Server::csp(), context.algorithm(), verifyOnlyAlgorithm);
 	verifier.override(context);
 	verifier.verify(data, signature);
 }
@@ -252,7 +262,7 @@ void Connection::decrypt(const Context &context, Key &key,
 
 
 //
-// Key generation.
+// Key generation and derivation.
 // Currently, we consider symmetric key generation to be fast, but
 // asymmetric key generation to be (potentially) slow.
 //
@@ -267,7 +277,7 @@ void Connection::generateKey(Database *db, const Context &context,
 	// generate key
 	// @@@ turn "none" return into reference if permanent (only)
 	CssmKey key;
-	generate(key, CssmClient::KeySpec(usage, attrs & ~Key::managedAttributes));
+	generate(key, Key::KeySpec(usage, attrs));
 		
 	// register and return the generated key
     newKey = new Key(db, key, attrs & Key::managedAttributes, owner);
@@ -288,12 +298,33 @@ void Connection::generateKey(Database *db, const Context &context,
 	// generate keys
 	// @@@ turn "none" return into reference if permanent (only)
 	CssmKey pubKey, privKey;
-	generate(pubKey, CssmClient::KeySpec(pubUsage, pubAttrs & ~Key::managedAttributes),
-		privKey, CssmClient::KeySpec(privUsage, privAttrs & ~Key::managedAttributes));
+	generate(pubKey, Key::KeySpec(pubUsage, pubAttrs),
+		privKey, Key::KeySpec(privUsage, privAttrs));
 		
 	// register and return the generated keys
 	publicKey = new Key(db, pubKey, pubAttrs & Key::managedAttributes, owner);
 	privateKey = new Key(db, privKey, privAttrs & Key::managedAttributes, owner);
+}
+
+Key &Connection::deriveKey(Database *db, const Context &context, Key *baseKey,
+		const AccessCredentials *cred, const AclEntryPrototype *owner,
+        CssmData *param, uint32 usage, uint32 attrs)
+{
+	// prepare a key-derivation context
+    if (baseKey) {
+		baseKey->validate(CSSM_ACL_AUTHORIZATION_DERIVE, cred);
+        context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)*baseKey);
+	}
+	CssmClient::DeriveKey derive(Server::csp(), context.algorithm(), CSSM_ALGID_NONE);
+	derive.override(context);
+	
+	// derive key
+	// @@@ turn "none" return into reference if permanent (only)
+	CssmKey key;
+	derive(param, Key::KeySpec(usage, attrs), key);
+		
+	// register and return the generated key
+    return *new Key(db, key, attrs & Key::managedAttributes, owner);
 }
 
 
@@ -334,8 +365,23 @@ Key &Connection::unwrapKey(Database *db, const Context &context, Key *key,
     }
 
     // @@@ Invoking conversion operator to CssmKey & on *publicKey and take the address of the result.
-    unwrap(wrappedKey, CssmClient::KeySpec(usage, attrs), unwrappedKey,
+    unwrap(wrappedKey, Key::KeySpec(usage, attrs), unwrappedKey,
         descriptiveData, publicKey ? &static_cast<CssmKey &>(*publicKey) : NULL);
 
     return *new Key(db, unwrappedKey, attrs & Key::managedAttributes, owner);
 }
+
+
+//
+// Miscellaneous CSSM functions
+//
+uint32 Connection::getOutputSize(const Context &context, Key &key, uint32 inputSize, bool encrypt)
+{
+    // We're fudging here somewhat, since the context can be any type.
+    // ctx.override will fix the type, and no-one's the wiser.
+	context.replace(CSSM_ATTRIBUTE_KEY, (CSSM_KEY &)key);
+    CssmClient::Digest ctx(Server::csp(), context.algorithm());
+    ctx.override(context);
+    return ctx.getOutputSize(inputSize, encrypt);
+}
+

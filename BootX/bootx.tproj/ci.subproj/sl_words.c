@@ -22,7 +22,7 @@
 /*
  *  sl_words.c - Forth and C code for the sl_words package.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -38,14 +38,11 @@ extern const char *gControl2Source[];
 
 CICell SLWordsIH = 0;
 
-long InitSLWords(long ofVers)
+long InitSLWords(void)
 {
   long result, cnt;
   
-  result = Interpret_1_1
-    (
-     " drop"
-     
+  result = Interpret(0, 1,
      " hex"
      " unselect-dev"
      
@@ -97,13 +94,13 @@ long InitSLWords(long ofVers)
      " ;"
      
      // Set up the spin cursor stuff.
-     " 0 value spinType"
      " 0 value screenIH"
      " 0 value cursorAddr"
      " 0 value cursorX"
      " 0 value cursorY"
      " 0 value cursorW"
      " 0 value cursorH"
+     " 0 value cursorFrames"
      " 0 value cursorPixelSize"
      " 0 value cursorStage"
      " 0 value cursorTime"
@@ -115,40 +112,23 @@ long InitSLWords(long ofVers)
      "     get-msecs dup cursorTime - cursorDelay >= if"
      "       to cursorTime"
      "       slw_update_keymap"
-     "       spinType 0= if"
-     "         cursorStage 1+ 3 mod dup to cursorStage"
-     "         cursorW * cursorH * cursorAddr +"
-     "         cursorX cursorY cursorW cursorH"
-     "         \" draw-rectangle\" screenIH $call-method"
-     "       else"
-     "         cursorStage 1+ 6 mod dup to cursorStage"
-     "         dup 3 > if 6 swap - then dup >r"
-     "         1+ cursorW * cursorPixelSize * cursorAddr +"
-     "         cursorX cursorY cursorW cursorH r> 1+ -"
-     "         \" draw-rectangle\" screenIH $call-method"
-     "       then"
+     "       cursorStage 1+ cursorFrames mod dup to cursorStage"
+     "       cursorW cursorH * cursorPixelSize * * cursorAddr +"
+     "       cursorX cursorY cursorW cursorH"
+     "       \" draw-rectangle\" screenIH $call-method"
      "     else"
      "       drop"
      "     then"
      "   then"
      " ;"
      
-     // slw_spin_init ( screenIH cursorAddr cursorX cursorY cursorW cursorH --)
+     // slw_spin_init ( screenIH cursorAddr cursorX cursorY cursorW cursorH--)
      " : slw_spin_init"
-     "   to cursorH to cursorW"
-     "   to cursorY to cursorX"
+     "   dup FFFF and to cursorH 10 >> drop"
+     "   dup FFFF and to cursorW 10 >> to cursorPixelSize"
+     "   dup FFFF and to cursorY 10 >> d# 1000 swap / to cursorDelay"
+     "   dup FFFF and to cursorX 10 >> to cursorFrames"
      "   to cursorAddr to screenIH"
-     "   d# 111 to cursorDelay"
-     "   ['] slw_spin to spin" 
-     " ;"
-     
-     // slw_spin_init2 ( screenIH cursorAddr cursorX cursorY cursorW cursorH--)
-     " : slw_spin_init2"
-     "   1 to spinType"
-     "   to cursorH dup FFFF and to cursorW 10 >> to cursorPixelSize"
-     "   to cursorY to cursorX"
-     "   to cursorAddr to screenIH"
-     "   d# 50 to cursorDelay"
      "   ['] slw_spin to spin" 
      " ;"
      
@@ -169,14 +149,13 @@ long InitSLWords(long ofVers)
      
      " 0 0 \" sl_words\" $open-package"
      
-     , ofVers, &SLWordsIH);
+     , &SLWordsIH);
   
   if (result != kCINoError) return result;
   if (SLWordsIH == 0) return kCIError;
   
   if (gOFVersion < kOFVersion3x) {
-    result = Interpret_1_0
-      (
+    result = Interpret(1, 0,
        " dev /packages/obp-tftp"
        " ['] load C + l!"
        , kLoadSize);
@@ -184,8 +163,7 @@ long InitSLWords(long ofVers)
   }
   
   if (gOFVersion < kOFVersion3x) {
-    result = Interpret_1_0
-      (
+    result = Interpret(1, 0,
        " dev /packages/mac-parts"
        " \" lame\" device-name"
        " dev /packages"
@@ -197,7 +175,7 @@ long InitSLWords(long ofVers)
   
   if (gOFVersion < kOFVersion2x) {
     for(cnt = 0; gControl2Source[cnt] != '\0'; cnt++) {
-      result = Interpret_0_0(gControl2Source[cnt]);
+      result = Interpret(0, 0, gControl2Source[cnt]);
       if (result == kCIError) return kCIError;
       if (result == kCICatch) return kCINoError;
     }
@@ -213,19 +191,18 @@ long InitSLWords(long ofVers)
 #if SL_DEBUG
 void InitDebugWords(void)
 {
-  Interpret_0_0
-    (
+  Interpret(0, 0,
      // .sc ( -- )
      " : .sc ?state-valid ci-regs 4+ l@ l@ dup 0= \" Bad Stack\" (abort\")"
      " cr .\" Stack Trace\""
-    " begin dup while dup 8 + l@ cr u. l@ repeat drop ;"
+     " begin dup while dup 8 + l@ cr u. l@ repeat drop ;"
      );
 }
 #endif
 
 void SetOutputLevel(long level)
 {
-  CallMethod_1_0(SLWordsIH, "slw_set_output_level", level);
+  CallMethod(1, 0, SLWordsIH, "slw_set_output_level", level);
 }
 
 
@@ -234,8 +211,8 @@ char *InitKeyMap(CICell keyboardIH)
   long ret;
   char *keyMap;
   
-  ret = CallMethod_1_1(SLWordsIH, "slw_init_keymap",
-		       keyboardIH, (CICell *)&keyMap);
+  ret = CallMethod(1, 1, SLWordsIH, "slw_init_keymap",
+		   keyboardIH, (CICell *)&keyMap);
   if (ret != kCINoError) return NULL;
   
   return keyMap;
@@ -243,38 +220,38 @@ char *InitKeyMap(CICell keyboardIH)
 
 void UpdateKeyMap(void)
 {
-  CallMethod_0_0(SLWordsIH, "slw_update_keymap");
+  CallMethod(0, 0, SLWordsIH, "slw_update_keymap");
 }
 
 
-void SpinInit(long spinType, CICell screenIH, char *cursorAddr,
-	      long cursorX, long cursorY, long cursorW, long cursorH,
-	      long pixelSize)
+void SpinInit(CICell screenIH, char *cursorAddr,
+	      long cursorX, long cursorY,
+	      long cursorW, long cursorH,
+	      long frames,  long fps,
+	      long pixelSize, long spare)
 {
-  if (spinType == 0) {
-    CallMethod_6_0(SLWordsIH, "slw_spin_init",
-		   screenIH, (long)cursorAddr,
-		   cursorX, cursorY, cursorW, cursorH);
-  } else {
-    CallMethod_6_0(SLWordsIH, "slw_spin_init2",
-		   screenIH, (long)cursorAddr,
-		   cursorX, cursorY, cursorW | pixelSize << 16, cursorH);
-  }
+  CallMethod(6, 0, SLWordsIH, "slw_spin_init",
+	     screenIH, (long)cursorAddr,
+	     cursorX | (frames << 16),
+	     cursorY | (fps << 16),
+	     cursorW | (pixelSize << 16),
+	     cursorH | (spare << 16));
 }
 
 void Spin(void)
 {
-  CallMethod_0_0(SLWordsIH, "slw_spin");
+  CallMethod(0, 0, SLWordsIH, "slw_spin");
 }
+
 
 long GetPackageProperty(CICell phandle, char *propName,
 			char **propAddr, long *propLen)
 {
   long ret, nameLen = strlen(propName);
   
-  ret = Interpret_3_2("get-package-property if 0 0 then",
-		      phandle, nameLen, (CICell)propName,
-		      (CICell *)propLen, (CICell *)propAddr);
+  ret = Interpret(3, 2, "get-package-property if 0 0 then",
+		  (CICell)propName, nameLen, phandle,
+		  (CICell *)propAddr, (CICell *)propLen);
   if ((ret != kCINoError) || (*propAddr == NULL)) return -1;
   
   return 0;

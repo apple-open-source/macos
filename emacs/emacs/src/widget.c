@@ -1,5 +1,5 @@
 /* The emacs frame widget.
-   Copyright (C) 1992, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "lisp.h"
 #include "xterm.h"
 
+#include "keyboard.h"
 #include "frame.h"
 #include "window.h"
 
@@ -49,6 +50,9 @@ Boston, MA 02111-1307, USA.  */
 #include <X11/Shell.h>
 #include <X11/ShellP.h>
 #include "../lwlib/lwlib.h"
+
+#include <signal.h>
+#include "syssignal.h"
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
@@ -238,6 +242,8 @@ get_wm_shell (w)
   return wmshell;
 }
 
+#if 0 /* Currently not used.  */
+
 static void
 mark_shell_size_user_specified (wmshell)
      Widget wmshell;
@@ -248,6 +254,8 @@ mark_shell_size_user_specified (wmshell)
   ((WMShellWidget) wmshell)->wm.size_hints.flags |= USSize;
 }
 
+#endif
+
 
 /* Can't have static frame locals because of some broken compilers.
    Normally, initializing a variable like this doesn't work in emacs,
@@ -255,7 +263,9 @@ mark_shell_size_user_specified (wmshell)
    thus have its data not go into text space) because Xt needs to
    write to initialized data objects too.
  */
+#if 0
 static Boolean first_frame_p = True;
+#endif
 
 static void
 set_frame_size (ew)
@@ -296,30 +306,12 @@ set_frame_size (ew)
 
    */
 
-  /* Geometry of the AppShell */
-  int app_flags = 0;
-  int app_x = 0;
-  int app_y = 0;
-  unsigned int app_w = 0;
-  unsigned int app_h = 0;
-  
-  /* Geometry of the EmacsFrame */
-  int frame_flags = 0;
-  int frame_x = 0;
-  int frame_y = 0;
-  unsigned int frame_w = 0;
-  unsigned int frame_h = 0;
-  
   /* Hairily merged geometry */
-  int x = 0;
-  int y = 0;
   unsigned int w = ew->emacs_frame.frame->width;
   unsigned int h = ew->emacs_frame.frame->height;
-  int flags = 0;
   
   Widget wmshell = get_wm_shell ((Widget) ew);
   /* Each Emacs shell is now independent and top-level.  */
-  Widget app_shell = wmshell;
   
   if (! XtIsSubclass (wmshell, shellWidgetClass)) abort ();
 
@@ -330,17 +322,17 @@ set_frame_size (ew)
      treat that as the geometry of the frame.  (Is this bogus?
      I'm not sure.) */
   if (ew->emacs_frame.geometry == 0)
-    XtVaGetValues (wmshell, XtNgeometry, &ew->emacs_frame.geometry, 0);
+    XtVaGetValues (wmshell, XtNgeometry, &ew->emacs_frame.geometry, NULL);
 
   /* If the Shell is iconic, then the EmacsFrame is iconic.  (Is
      this bogus? I'm not sure.) */
   if (!ew->emacs_frame.iconic)
-    XtVaGetValues (wmshell, XtNiconic, &ew->emacs_frame.iconic, 0);
+    XtVaGetValues (wmshell, XtNiconic, &ew->emacs_frame.iconic, NULL);
   
   
   {
     char *geom = 0;
-    XtVaGetValues (app_shell, XtNgeometry, &geom, 0);
+    XtVaGetValues (app_shell, XtNgeometry, &geom, NULL);
     if (geom)
       app_flags = XParseGeometry (geom, &app_x, &app_y, &app_w, &app_h);
   }
@@ -390,7 +382,7 @@ set_frame_size (ew)
 
       /* If the AppShell is iconic, then the EmacsFrame is iconic. */
       if (!ew->emacs_frame.iconic)
-	XtVaGetValues (app_shell, XtNiconic, &ew->emacs_frame.iconic, 0);
+	XtVaGetValues (app_shell, XtNiconic, &ew->emacs_frame.iconic, NULL);
 
       first_frame_p = False;
     }
@@ -432,18 +424,22 @@ set_frame_size (ew)
   {
     struct frame* frame = ew->emacs_frame.frame;
     Dimension pixel_width, pixel_height;
-    char shell_position [32];
 
-    /* Take into account the size of the scrollbar */
+    /* Take into account the size of the scrollbar.  Always use the
+       number of columns occupied by the scroll bar here otherwise we
+       might end up with a frame width that is not a multiple of the
+       frame's character width which is bad for vertically split
+       windows.  */
     frame->output_data.x->vertical_scroll_bar_extra
       = (!FRAME_HAS_VERTICAL_SCROLL_BARS (frame)
 	 ? 0
-	 : FRAME_SCROLL_BAR_PIXEL_WIDTH (frame) > 0
-	 ? FRAME_SCROLL_BAR_PIXEL_WIDTH (frame)
 	 : (FRAME_SCROLL_BAR_COLS (frame)
 	    * FONT_WIDTH (frame->output_data.x->font)));
 
-    change_frame_size (frame, h, w, 1, 0);
+    frame->output_data.x->flags_areas_extra
+      = FRAME_FLAGS_AREA_WIDTH (frame);
+
+    change_frame_size (frame, h, w, 1, 0, 0);
     char_to_pixel_size (ew, w, h, &pixel_width, &pixel_height);
     ew->core.width = pixel_width;
     ew->core.height = pixel_height;
@@ -464,7 +460,7 @@ set_frame_size (ew)
 	len = strlen (shell_position) + 1;
 	tem = (char *) xmalloc (len);
 	strncpy (tem, shell_position, len);
-	XtVaSetValues (wmshell, XtNgeometry, tem, 0);
+	XtVaSetValues (wmshell, XtNgeometry, tem, NULL);
       }
     else if (flags & (WidthValue | HeightValue))
       {
@@ -474,7 +470,7 @@ set_frame_size (ew)
 	len = strlen (shell_position) + 1;
 	tem = (char *) xmalloc (len);
 	strncpy (tem, shell_position, len);
-	XtVaSetValues (wmshell, XtNgeometry, tem, 0);
+	XtVaSetValues (wmshell, XtNgeometry, tem, NULL);
       }
 
     /* If the geometry spec we're using has W/H components, mark the size
@@ -484,7 +480,7 @@ set_frame_size (ew)
 
     /* Also assign the iconic status of the frame to the Shell, so that
        the WM sees it. */
-    XtVaSetValues (wmshell, XtNiconic, ew->emacs_frame.iconic, 0);
+    XtVaSetValues (wmshell, XtNiconic, ew->emacs_frame.iconic, NULL);
 #endif /* 0 */
   }
 }
@@ -532,14 +528,16 @@ update_wm_hints (ew)
 /*  ((WMShellWidget) wmshell)->wm.size_hints.flags |= USSize;*/
 
   XtVaSetValues (wmshell,
-		 XtNbaseWidth, base_width,
-		 XtNbaseHeight, base_height,
-		 XtNwidthInc, cw, 
-		 XtNheightInc, ch,
-		 XtNminWidth, base_width + min_cols * cw,
-		 XtNminHeight, base_height + min_rows * ch,
-		 0);
+		 XtNbaseWidth, (XtArgVal) base_width,
+		 XtNbaseHeight, (XtArgVal) base_height,
+		 XtNwidthInc, (XtArgVal) cw, 
+		 XtNheightInc, (XtArgVal) ch,
+		 XtNminWidth, (XtArgVal) (base_width + min_cols * cw),
+		 XtNminHeight, (XtArgVal) (base_height + min_rows * ch),
+		 NULL);
 }
+
+#if 0
 
 static void
 create_frame_gcs (ew)
@@ -556,7 +554,11 @@ create_frame_gcs (ew)
   s->output_data.x->cursor_gc
     = XCreateGC (XtDisplay (ew), RootWindowOfScreen (XtScreen (ew)),
 		 (unsigned long)0, (XGCValues *)0);
+  s->output_data.x->black_relief.gc = 0;
+  s->output_data.x->white_relief.gc = 0;
 }
+
+#endif /* 0 */
 
 static char setup_frame_cursor_bits[] =
 {
@@ -733,8 +735,12 @@ EmacsFrameRealize (widget, mask, attrs)
 {
   EmacsFrame ew = (EmacsFrame)widget;
 
-  attrs->event_mask = (STANDARD_EVENT_SET | PropertyChangeMask
-		       | SubstructureNotifyMask | SubstructureRedirectMask);
+  /* This used to contain SubstructureRedirectMask, but this turns out
+     to be a problem with XIM on Solaris, and events from that mask
+     don't seem to be used.  Let's check that.  */
+  attrs->event_mask = (STANDARD_EVENT_SET
+		       | PropertyChangeMask
+		       | SubstructureNotifyMask);
   *mask |= CWEventMask;
   XtCreateWindow (widget, InputOutput, (Visual *)CopyFromParent, *mask,
 		  attrs);
@@ -754,16 +760,12 @@ EmacsFrameDestroy (widget)
   if (! s->output_data.x) abort ();
   if (! s->output_data.x->normal_gc) abort ();
 
-  /* this would be called from Fdelete_frame() but it needs to free some
-     stuff after the widget has been finalized but before the widget has
-     been freed. */
-  free_frame_faces (s);
-
   BLOCK_INPUT;
-  /* need to be careful that the face-freeing code doesn't free these too */
-  XFreeGC (XtDisplay (widget), s->output_data.x->normal_gc);
-  XFreeGC (XtDisplay (widget), s->output_data.x->reverse_gc);
-  XFreeGC (XtDisplay (widget), s->output_data.x->cursor_gc);
+  x_free_gcs (s);
+  if (s->output_data.x->white_relief.gc)
+    XFreeGC (XtDisplay (widget), s->output_data.x->white_relief.gc);
+  if (s->output_data.x->black_relief.gc)
+    XFreeGC (XtDisplay (widget), s->output_data.x->black_relief.gc);
   UNBLOCK_INPUT;
 }
 
@@ -777,7 +779,7 @@ EmacsFrameResize (widget)
   int rows;
 
   pixel_to_char_size (ew, ew->core.width, ew->core.height, &columns, &rows);
-  change_frame_size (f, rows, columns, 0, 1);
+  change_frame_size (f, rows, columns, 0, 1, 0);
   update_wm_hints (ew); 
   update_various_frame_slots (ew);
 
@@ -835,7 +837,7 @@ EmacsFrameSetValues (cur_widget, req_widget, new_widget, dum1, dum2)
       new->core.height = pixel_height;
 
       change_frame_size (new->emacs_frame.frame, char_height, char_width,
-			  1, 0);
+			  1, 0, 0);
       needs_a_refresh = True;
     }
 
@@ -854,7 +856,8 @@ EmacsFrameSetValues (cur_widget, req_widget, new_widget, dum1, dum2)
   if (cur->emacs_frame.iconic != new->emacs_frame.iconic)
     {
       Widget wmshell = get_wm_shell ((Widget) cur);
-      XtVaSetValues (wmshell, XtNiconic, new->emacs_frame.iconic, 0);
+      XtVaSetValues (wmshell, XtNiconic,
+		     (XtArgVal) new->emacs_frame.iconic, NULL);
     }
 
   return needs_a_refresh;
@@ -900,11 +903,8 @@ EmacsFrameSetCharSize (widget, columns, rows)
      int rows;
 {
   EmacsFrame ew = (EmacsFrame) widget;
-  Dimension pixel_width, pixel_height, granted_width, granted_height;
-  XtGeometryResult result;
+  Dimension pixel_width, pixel_height;
   struct frame *f = ew->emacs_frame.frame;
-  Arg al[2];
-  int ac = 0;
   
   if (columns < 3) columns = 3;  /* no way buddy */
 
@@ -912,15 +912,27 @@ EmacsFrameSetCharSize (widget, columns, rows)
   f->output_data.x->vertical_scroll_bar_extra
     = (!FRAME_HAS_VERTICAL_SCROLL_BARS (f)
        ? 0
-       : FRAME_SCROLL_BAR_PIXEL_WIDTH (f) > 0
-       ? FRAME_SCROLL_BAR_PIXEL_WIDTH (f)
        : (FRAME_SCROLL_BAR_COLS (f) * FONT_WIDTH (f->output_data.x->font)));
+
+  f->output_data.x->flags_areas_extra
+    = FRAME_FLAGS_AREA_WIDTH (f);
 
   char_to_pixel_size (ew, columns, rows, &pixel_width, &pixel_height);
 
+#if 0  /* This doesn't seem to be right.  The frame gets too wide. --gerd.  */
+  /* Something is really strange here wrt to the border width:
+     Apparently, XtNwidth and XtNheight include the border, so we have
+     to add it here.  But the XtNborderWidth set for the widgets has
+     no similarity to what f->output_data.x->border_width is set to.  */
+  XtVaGetValues (widget, XtNborderWidth, &border_width, NULL);
+  pixel_height += 2 * border_width;
+  pixel_width += 2 * border_width;
+#endif
+
   /* Manually change the height and width of all our widgets,
      adjusting each widget by the same increments.  */
-  if (ew->core.width != pixel_width || ew->core.height != pixel_height)
+  if (ew->core.width != pixel_width
+      || ew->core.height != pixel_height)
     {
       int hdelta = pixel_height - ew->core.height;
       int wdelta = pixel_width - ew->core.width;
@@ -931,30 +943,57 @@ EmacsFrameSetCharSize (widget, columns, rows)
       int old_left = f->output_data.x->widget->core.x;
       int old_top = f->output_data.x->widget->core.y;
 
+      /* Input is blocked here, and Xt waits for some event to
+         occur.  */
+
       lw_refigure_widget (f->output_data.x->column_widget, False);
       update_hints_inhibit = 1;
 
-      ac = 0;
-      XtSetArg (al[ac], XtNheight, pixel_height); ac++;
-      XtSetArg (al[ac], XtNwidth, pixel_width); ac++;
-      XtSetValues ((Widget) ew, al, ac);
- 
-      ac = 0;
-      XtSetArg (al[ac], XtNheight, column_widget_height + hdelta); ac++;
-      XtSetArg (al[ac], XtNwidth, column_widget_width + wdelta); ac++;
-      XtSetValues (f->output_data.x->column_widget, al, ac);
+      /* Xt waits for a ConfigureNotify event from the window manager
+	 in EmacsFrameSetCharSize when the shell widget is resized.
+	 For some window managers like fvwm2 2.2.5 and KDE 2.1 this
+	 event doesn't arrive for an unknown reason and Emacs hangs in
+	 Xt when the default font is changed.  Tell Xt not to wait,
+	 depending on the value of the frame parameter
+	 `wait-for-wm'.  */
+      XtVaSetValues (f->output_data.x->widget,
+		     XtNwaitForWm, (XtArgVal) f->output_data.x->wait_for_wm,
+		     NULL);
 
-      ac = 0;
-      XtSetArg (al[ac], XtNheight, outer_widget_height + hdelta); ac++;
-      XtSetArg (al[ac], XtNwidth, outer_widget_width + wdelta); ac++;
-      XtSetValues (f->output_data.x->widget, al, ac);
-
+      /* Workaround: When a SIGIO or SIGALRM occurs while Xt is
+	 waiting for a ConfigureNotify event (see above), this leads
+	 to Xt waiting indefinitely instead of using its default
+	 timeout (5 seconds).  */
+      turn_on_atimers (0);
+#ifdef SIGIO
+      sigblock (sigmask (SIGIO));
+#endif
+      
+      /* Do parents first, otherwise LessTif's geometry management
+	 enters an infinite loop (as of 2000-01-15).  This is fixed in
+	 later versions of LessTif (as of 2001-03-13); I'll leave it
+	 as is because I think it can't do any harm.  */
+      XtVaSetValues (f->output_data.x->widget,
+      		     XtNheight, (XtArgVal) (outer_widget_height + hdelta),
+		     XtNwidth, (XtArgVal) (outer_widget_width + wdelta),
+		     NULL);
+      XtVaSetValues (f->output_data.x->column_widget,
+      		     XtNheight, (XtArgVal) (column_widget_height + hdelta),
+      		     XtNwidth, (XtArgVal) column_widget_width + wdelta,
+		     NULL);
+      XtVaSetValues ((Widget) ew,
+                     XtNheight, (XtArgVal) pixel_height,
+      		     XtNwidth, (XtArgVal) pixel_width,
+		     NULL);
+#ifdef SIGIO
+      sigunblock (sigmask (SIGIO));
+#endif
+      turn_on_atimers (1);
+      
       lw_refigure_widget (f->output_data.x->column_widget, True);
 
       update_hints_inhibit = 0;
       update_wm_hints (ew);
-
-      do_pending_window_change ();
 
       /* These seem to get clobbered.  I don't know why. - rms.  */
       f->output_data.x->widget->core.x = old_left;
@@ -967,6 +1006,7 @@ EmacsFrameSetCharSize (widget, columns, rows)
      we have to make sure to do it here.  */
   SET_FRAME_GARBAGED (f);
 }
+
 
 void
 widget_store_internal_border (widget)

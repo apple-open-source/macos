@@ -26,7 +26,7 @@
 /*
  *  sprintf.c - sprintf and helper functions.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -61,7 +61,7 @@ int sprintf(char *str, const char *fmt, ...)
     va_start(ap, fmt);	
     pi.str = str;
     pi.last_str = 0;
-    prf(fmt, ap, sputc, &pi);
+    prf(fmt, (unsigned int *)ap, sputc, &pi);
     *pi.str = '\0';
     va_end(ap);
     return 0;
@@ -73,7 +73,7 @@ int slvprintf(char *str, int len, const char *fmt, va_list ap )
     struct putc_info pi;
     pi.str = str;
     pi.last_str = str + len - 1;
-    prf(fmt, ap, sputc, &pi);
+    prf(fmt, (unsigned int *)ap, sputc, &pi);
     *pi.str = '\0';
     return (pi.str - str);
 }

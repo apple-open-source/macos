@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: fileio.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $";
+static char rcsid[] = "$Id: fileio.c,v 1.2 2002/01/03 22:16:39 jevans Exp $";
 #endif
 /*
  * Program:	ASCII file reading routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: fileio.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp 
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of

@@ -137,6 +137,8 @@ for file in `$cat .clist`; do
     $sed \
 	-e '1d' \
 	-e '/^#.*<stdin>/d' \
+	-e '/^#.*<built-in>/d' \
+	-e '/^#.*<command line>/d' \
 	-e '/^#.*"-"/d' \
 	-e 's#\.[0-9][0-9]*\.c#'"$file.c#" \
 	-e 's/^[	 ]*#[	 ]*line/#/' \

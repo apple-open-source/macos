@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/machdep.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/machdep.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
  */
 #ifndef tcpdump_machdep_h
 #define tcpdump_machdep_h

@@ -1,6 +1,6 @@
 ;;; mail-utils.el --- utility functions used both by rmail and rnews
 
-;; Copyright (C) 1985 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 2001 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: mail, news
@@ -59,6 +59,7 @@ from START (inclusive) to END (exclusive)."
     (concat (substring string 0 start)
 	    (substring string end nil))))
 
+;;;###autoload
 (defun mail-quote-printable (string &optional wrapper)
   "Convert a string to the \"quoted printable\" Q encoding.
 If the optional argument WRAPPER is non-nil,
@@ -82,6 +83,7 @@ we add the wrapper characters =?ISO-8859-1?Q?....?=."
       (+ (- char ?A) 10)
     (- char ?0)))
 
+;;;###autoload
 (defun mail-unquote-printable (string &optional wrapper)
   "Undo the \"quoted printable\" encoding.
 If the optional argument WRAPPER is non-nil,
@@ -90,17 +92,46 @@ we expect to find and remove the wrapper characters =?ISO-8859-1?Q?....?=."
     (and wrapper
 	 (string-match "\\`=\\?ISO-8859-1\\?Q\\?\\([^?]*\\)\\?" string)
 	 (setq string (match-string 1 string)))
-    (let ((i 0) (result ""))
-      (while (string-match "=\\(..\\)" string i)
-	(setq result
-	      (concat result (substring string i (match-beginning 0))
-		      (make-string 1
+    (let ((i 0) strings)
+      (while (string-match "=\\(..\\|\n\\)" string i)
+	(setq strings (cons (substring string i (match-beginning 0)) strings))
+	(unless (= (aref string (match-beginning 1)) ?\n)
+	  (setq strings
+		(cons (make-string 1
 				   (+ (* 16 (mail-unquote-printable-hexdigit
 					     (aref string (match-beginning 1))))
 				      (mail-unquote-printable-hexdigit
-				       (aref string (1+ (match-beginning 1))))))))
+				       (aref string (1+ (match-beginning 1))))))
+		      strings)))
 	(setq i (match-end 0)))
-      (concat result (substring string i)))))
+      (apply 'concat (nreverse (cons (substring string i) strings))))))
+
+;;;###autoload
+(defun mail-unquote-printable-region (beg end &optional wrapper)
+  "Undo the \"quoted printable\" encoding in buffer from BEG to END.
+If the optional argument WRAPPER is non-nil,
+we expect to find and remove the wrapper characters =?ISO-8859-1?Q?....?=."
+  (interactive "r\nP")
+  (save-match-data
+    (save-excursion
+      (save-restriction
+	(narrow-to-region beg end)
+	(goto-char (point-min))
+	(when (and wrapper
+		   (looking-at "\\`=\\?ISO-8859-1\\?Q\\?\\([^?]*\\)\\?"))
+	  (delete-region (match-end 1) end)
+	  (delete-region (point) (match-beginning 1)))
+	(while (re-search-forward "=\\(..\\|\n\\)" nil t)
+	  (goto-char (match-end 0))
+	  (replace-match
+	   (if (= (char-after (match-beginning 1)) ?\n)
+	       ""
+	     (make-string 1
+			  (+ (* 16 (mail-unquote-printable-hexdigit
+				    (char-after (match-beginning 1))))
+			     (mail-unquote-printable-hexdigit
+			      (char-after (1+ (match-beginning 1)))))))
+	   t t))))))
 
 (defun mail-strip-quoted-names (address)
   "Delete comments and quoted strings in an address list ADDRESS.
@@ -116,8 +147,7 @@ Return a modified address list."
        ;; Detect nested comments.
        (if (string-match "[ \t]*(\\([^)\\]\\|\\\\.\\|\\\\\n\\)*(" address)
 	   ;; Strip nested comments.
-	   (save-excursion
-	     (set-buffer (get-buffer-create " *temp*"))
+	   (with-current-buffer (get-buffer-create " *temp*")
 	     (erase-buffer)
 	     (insert address)
 	     (set-syntax-table lisp-mode-syntax-table)
@@ -139,9 +169,7 @@ Return a modified address list."
 			    ;;  `(xyzzy (foo) whinge)' properly.  Big deal.
 			    "[ \t]*(\\([^)\\]\\|\\\\.\\|\\\\\n\\)*)"
 			    address))
-	   (setq address
-		 (mail-string-delete address
-				     pos (match-end 0)))))
+	   (setq address (replace-match "" nil nil address 0))))
 
        ;; strip surrounding whitespace
        (string-match "\\`[ \t\n]*" address)
@@ -153,23 +181,20 @@ Return a modified address list."
        ;; strip `quoted' names (This is supposed to hack `"Foo Bar" <bar@host>')
        (setq pos 0)
        (while (setq pos (string-match
-                          "\\([ \t]?\\)[ \t]*\"\\([^\"\\]\\|\\\\.\\|\\\\\n\\)*\"[ \t\n]*"
+                          "\\([ \t]?\\)\\([ \t]*\"\\([^\"\\]\\|\\\\.\\|\\\\\n\\)*\"[ \t\n]*\\)"
 			  address pos))
 	 ;; If the next thing is "@", we have "foo bar"@host.  Leave it.
 	 (if (and (> (length address) (match-end 0))
 		  (= (aref address (match-end 0)) ?@))
 	     (setq pos (match-end 0))
-	   (setq address
-		 (mail-string-delete address
-                                     (match-end 1) (match-end 0)))))
-       ;; Retain only part of address in <> delims, if there is such a thing.
-       (while (setq pos (string-match "\\(,\\s-*\\|\\`\\)[^,]*<\\([^>,:]*>\\)"
+	   ;; Otherwise discard the "..." part.
+	   (setq address (replace-match "" nil nil address 2))))
+       ;; If this address contains <...>, replace it with just
+       ;; the part between the <...>.
+       (while (setq pos (string-match "\\(,\\s-*\\|\\`\\)\\([^,]*<\\([^>,:]*\\)>[^,]*\\)\\(\\s-*,\\|\\'\\)"
 				      address))
-	 (let ((junk-beg (match-end 1))
-	       (junk-end (match-beginning 2))
-	       (close (match-end 0)))
-	   (setq address (mail-string-delete address (1- close) close))
-	   (setq address (mail-string-delete address junk-beg junk-end))))
+	 (setq address (replace-match (match-string 3 address)
+				      nil 'literal address 2)))
        address))))
 
 ; rmail-dont-reply-to-names is defined in loaddefs
@@ -195,36 +220,41 @@ Usenet paths ending in an element that matches are removed also."
 		             ;; Include the human name that precedes <foo@bar>.
 			     "\\([^\,.<\"]\\|\"[^\"]*\"\\)*"
 			     "<\\(" rmail-dont-reply-to-names "\\)"
-		       "\\)"))
+		       "\\)[^,]*"))
 	(case-fold-search t)
 	pos epos)
-    (while (setq pos (string-match match userids pos))
-      (if (> pos 0) (setq pos (match-beginning 2)))
-      (setq epos
-	    ;; Delete thru the next comma, plus whitespace after.
-	    (if (string-match ",[ \t\n]*" userids (match-end 0))
-		(match-end 0)
-	      (length userids)))
-      ;; Count the double-quotes since the beginning of the list.
-      ;; Reject this match if it is inside a pair of doublequotes.
-      (let (quote-pos inside-quotes)
-	(while (and (setq quote-pos (string-match "\"" userids quote-pos))
-		    (< quote-pos pos))
-	  (setq quote-pos (1+ quote-pos))
-	  (setq inside-quotes (not inside-quotes)))
+    (while (and (setq pos (string-match match userids pos))
+		(> (length userids) 0))
+      ;; If there's a match, it starts at the beginning of the string,
+      ;; or with `,'.  We must delete from that position to the
+      ;; end of the user-id which starts at match-beginning 2.
+      (let (inside-quotes quote-pos last-quote-pos)
+	(save-match-data
+	  (while (and (setq quote-pos (string-match "\"" userids quote-pos))
+		      (< quote-pos pos))
+	    (setq last-quote-pos quote-pos)
+	    (setq quote-pos (1+ quote-pos))
+	    (setq inside-quotes (not inside-quotes))))
 	(if inside-quotes
-	    ;; Advance to next even-parity quote, and scan from there.
-	    (setq pos (string-match "\"" userids pos))
-	  (setq userids
-		(mail-string-delete
-		 userids pos epos)))))
+	    (if (string-match "\"" userids pos)
+		(setq pos (string-match "\"" userids pos))
+	      ;; If the open-quote has no close-quote,
+	      ;; delete the open-quote to get something well-defined.
+	      ;; This case is not valid, but it can happen if things
+	      ;; are weird elsewhere.
+	      (setq userids (replace-match "" nil nil userids))
+	      (setq userids (concat (substring userids 0 last-quote-pos)
+				    (substring userids (1+ last-quote-pos))))
+	      (setq pos (1- pos)))
+	  (setq userids (replace-match "" nil nil userids)))))
     ;; get rid of any trailing commas
     (if (setq pos (string-match "[ ,\t\n]*\\'" userids))
 	(setq userids (substring userids 0 pos)))
     ;; remove leading spaces. they bother me.
-    (if (string-match "\\s *" userids)
+    (if (string-match "\\(\\s \\|,\\)*" userids)
 	(substring userids (match-end 0))
       userids)))
+
 
 ;;;###autoload
 (defun mail-fetch-field (field-name &optional last all list)

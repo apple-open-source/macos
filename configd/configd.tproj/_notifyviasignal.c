@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -54,7 +54,7 @@ __SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 
 	if (pid == getpid()) {
 		/* sorry, you can't request that configd be signalled */
-		return kSCStatusFailed;
+		return kSCStatusInvalidArgument;
 	}
 
 	if ((sig <= 0) || (sig > NSIG)) {

@@ -1,0 +1,40 @@
+#! /bin/sh
+
+# Test library-specific flags.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_RANLIB
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = no-dependencies
+lib_LIBRARIES = libfoo.a
+libfoo_a_SOURCES = foo.c bar.cc
+libfoo_a_CFLAGS = -DBAR
+libfoo_a_CXXFLAGS = -DZOT
+END
+
+# Make sure `compile' is required.
+$ACLOCAL || exit 1
+$AUTOMAKE && exit 1
+
+: > compile
+
+$AUTOMAKE || exit 1
+
+# Look for $(COMPILE) -c in .c.o rule.
+grep 'COMPILE. [^-]' Makefile.in && exit 1
+
+# Look for libfoo_a-foo.o.
+grep foo Makefile.in || exit 1
+grep '[^-]foo\.o' Makefile.in && exit 1
+
+# Look for libfoo_a-bar.o.
+grep bar Makefile.in || exit 1
+grep '[^-]bar\.o' Makefile.in && exit 1
+
+exit 0

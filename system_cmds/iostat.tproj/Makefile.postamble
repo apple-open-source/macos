@@ -85,8 +85,8 @@
 
 # Ownership and permissions of files installed by 'install' target
 #INSTALL_AS_USER = root        # User to chown app to
-INSTALL_AS_GROUP = kmem      # Group to chgrp app to 
-INSTALL_PERMISSIONS = 2555        # If set, 'install' chmod's executable to this
+#INSTALL_AS_GROUP = kmem      # Group to chgrp app to 
+#INSTALL_PERMISSIONS = 2555        # If set, 'install' chmod's executable to this
 
 # Options to strip for bundles, apps with bundles, and apps without bundles, 
 # respectively.

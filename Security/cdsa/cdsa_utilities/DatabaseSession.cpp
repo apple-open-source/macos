@@ -27,6 +27,11 @@
 #include <Security/Database.h>
 #include <Security/DbContext.h>
 #include <memory>
+#include <Security/debugging.h>
+
+/* log open/close events */
+#define DOCDebug(args...)	debug("DBOpen", ## args)
+
 
 using namespace std;
 
@@ -96,6 +101,7 @@ DatabaseSession::DbOpen(const char *inDbName,
                         const void *inOpenParameters,
                         CSSM_DB_HANDLE &outDbHandle)
 {
+	DOCDebug("DatabaseSession::DbOpen: dbName %s", inDbName);
 	outDbHandle = CSSM_INVALID_HANDLE;	// CDSA 2.0 says to set this if we fail 
     outDbHandle = insertDbContext(mDatabaseManager.dbOpen(*this,
                                                           DbName(inDbName, CssmNetAddress::optional(inDbLocation)),
@@ -164,6 +170,7 @@ void
 DatabaseSession::DbClose(CSSM_DB_HANDLE inDbHandle)
 {
     StLock<Mutex> _(mDbContextMapLock);
+	DOCDebug("DatabaseSession::Close");
     DbContextMap::iterator it = mDbContextMap.find(inDbHandle);
     if (it == mDbContextMap.end())
         CssmError::throwMe(CSSM_ERRCODE_INVALID_DB_HANDLE);

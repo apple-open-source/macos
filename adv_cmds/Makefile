@@ -9,12 +9,13 @@
 
 NAME = adv_cmds
 
-PROJECTVERSION = 2.8
+PROJECTVERSION = 2.6
 PROJECT_TYPE = Aggregate
+LANGUAGE = English
 
 TOOLS = cap_mkdb.tproj finger.tproj fingerd.tproj last.tproj md.tproj\
-        mklocale.tproj pstat.tproj sccs.tproj stty.tproj tput.tproj\
-        tty.tproj tset.tproj whois.tproj ps.tproj
+        mklocale.tproj pstat.tproj stty.tproj \
+        tty.tproj whois.tproj ps.tproj
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.include adv_cmds.rtf
 
@@ -31,13 +32,6 @@ NEXTSTEP_PB_CFLAGS = -traditional-cpp -D__TEFLON__
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp
-
-NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
-WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc
-PDO_UNIX_OBJCPLUS_COMPILER = $(NEXTDEV_BIN)/gcc
-NEXTSTEP_JAVA_COMPILER = /usr/bin/javac
-WINDOWS_JAVA_COMPILER = $(JDKBINDIR)/javac.exe
-PDO_UNIX_JAVA_COMPILER = $(JDKBINDIR)/javac
 
 include $(MAKEFILEDIR)/platform.make
 

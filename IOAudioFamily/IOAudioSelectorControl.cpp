@@ -31,9 +31,10 @@
 #define super IOAudioControl
 
 OSDefineMetaClassAndStructors(IOAudioSelectorControl, IOAudioControl)
-OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 0);
-OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 1);
-OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 2);
+OSMetaClassDefineReservedUsed(IOAudioSelectorControl, 0);
+OSMetaClassDefineReservedUsed(IOAudioSelectorControl, 1);
+OSMetaClassDefineReservedUsed(IOAudioSelectorControl, 2);
+
 OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 3);
 OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 4);
 OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 5);
@@ -48,12 +49,119 @@ OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 13);
 OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 14);
 OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 15);
 
+// New code
+IOAudioSelectorControl *IOAudioSelectorControl::createOutputSelector(SInt32 initialValue,
+                                                                    UInt32 channelID,
+                                                                    const char *channelName,
+                                                                    UInt32 cntrlID)
+{
+    return create(initialValue, 
+                    channelID, 
+                    channelName, 
+                    cntrlID, 
+                    kIOAudioSelectorControlSubTypeOutput, 
+                    kIOAudioControlUsageOutput);
+}
+
+IOReturn IOAudioSelectorControl::removeAvailableSelection(SInt32 selectionValue)
+{
+    OSCollectionIterator *iterator;
+    IOReturn result = kIOReturnNotFound;
+
+    assert(availableSelections);
+
+    iterator = OSCollectionIterator::withCollection(availableSelections);
+    if (iterator) {
+        OSDictionary *	selection;
+		UInt32			index;
+
+		index = 0;
+        while (selection = (OSDictionary *)iterator->getNextObject()) {
+            OSNumber *	sValue;
+
+            sValue = (OSNumber *)selection->getObject(kIOAudioSelectorControlSelectionValueKey);
+
+            if (sValue && ((SInt32)sValue->unsigned32BitValue() == selectionValue)) {
+				// Remove the selected dictionary from the array
+				availableSelections->removeObject(index);
+				result = kIOReturnSuccess;
+                break;
+            }
+			index++;
+        }
+
+        iterator->release();
+    }
+
+	if (kIOReturnSuccess == result) {
+		sendChangeNotification(kIOAudioControlRangeChangeNotification);
+	}
+
+    return result;
+}
+
+IOReturn IOAudioSelectorControl::replaceAvailableSelection(SInt32 selectionValue, const char *selectionDescription)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (selectionDescription != NULL) {
+        OSString *selDesc;
+        
+        selDesc = OSString::withCString(selectionDescription);
+        if (selDesc) {
+            result = replaceAvailableSelection(selectionValue, selDesc);
+        } else {
+            result = kIOReturnNoMemory;
+        }
+    }
+    
+    return result;
+}
+
+IOReturn IOAudioSelectorControl::replaceAvailableSelection(SInt32 selectionValue, OSString *selectionDescription)
+{
+    OSCollectionIterator *iterator;
+    IOReturn result = kIOReturnNotFound;
+
+    assert(availableSelections);
+
+    iterator = OSCollectionIterator::withCollection(availableSelections);
+    if (iterator) {
+        OSDictionary *	selection;
+		UInt32			index;
+
+		index = 0;
+        while (selection = (OSDictionary *)iterator->getNextObject()) {
+            OSNumber *	sValue;
+
+            sValue = (OSNumber *)selection->getObject(kIOAudioSelectorControlSelectionValueKey);
+
+            if (sValue && ((SInt32)sValue->unsigned32BitValue() == selectionValue)) {
+				// Replace the selected dictionary in the array
+				availableSelections->replaceObject(index, selectionDescription);
+				result = kIOReturnSuccess;
+                break;
+            }
+			index++;
+        }
+
+        iterator->release();
+    }
+
+	if (kIOReturnSuccess == result) {
+		sendChangeNotification(kIOAudioControlRangeChangeNotification);
+	}
+
+    return result;
+}
+
+// Original code...
 IOAudioSelectorControl *IOAudioSelectorControl::create(SInt32 initialValue,
                                                         UInt32 channelID,
-                                                        const char *channelName = 0,
-                                                        UInt32 cntrlID = 0,
-                                                        UInt32 subType = 0,
-                                                        UInt32 usage = 0)
+                                                        const char *channelName,
+                                                        UInt32 cntrlID,
+                                                        UInt32 subType,
+                                                        UInt32 usage)
 {
     IOAudioSelectorControl *control;
     
@@ -76,8 +184,8 @@ IOAudioSelectorControl *IOAudioSelectorControl::create(SInt32 initialValue,
                                             
 IOAudioSelectorControl *IOAudioSelectorControl::createInputSelector(SInt32 initialValue,
                                                                     UInt32 channelID,
-                                                                    const char *channelName = 0,
-                                                                    UInt32 cntrlID = 0)
+                                                                    const char *channelName,
+                                                                    UInt32 cntrlID)
 {
     return create(initialValue, 
                     channelID, 
@@ -89,11 +197,11 @@ IOAudioSelectorControl *IOAudioSelectorControl::createInputSelector(SInt32 initi
 
 bool IOAudioSelectorControl::init(SInt32 initialValue,
                                     UInt32 channelID,
-                                    const char *channelName = 0,
-                                    UInt32 cntrlID = 0,
-                                    UInt32 subType = 0,
-                                    UInt32 usage = 0,
-                                    OSDictionary *properties = 0)
+                                    const char *channelName,
+                                    UInt32 cntrlID,
+                                    UInt32 subType,
+                                    UInt32 usage,
+                                    OSDictionary *properties)
 {
     bool result = false;
     OSNumber *number;
@@ -185,6 +293,10 @@ IOReturn IOAudioSelectorControl::addAvailableSelection(SInt32 selectionValue, OS
         }
     }
     
+	if (kIOReturnSuccess == result) {
+		sendChangeNotification(kIOAudioControlRangeChangeNotification);
+	}
+
     return result;
 }
 

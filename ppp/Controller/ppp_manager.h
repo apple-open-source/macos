@@ -35,10 +35,11 @@ void ppp_updatesetup(struct ppp *ppp, CFDictionaryRef service);
 void ppp_updatestate(struct ppp *ppp, CFDictionaryRef service);
 void ppp_printlist();
 void ppp_postupdatesetup();
-void ppp_dispose(struct ppp *ppp);
+int ppp_dispose(struct ppp *ppp);
 struct ppp *ppp_findbyname(u_char *name, u_short unit);
 struct ppp *ppp_findbyserviceID(CFStringRef serviceID);
 struct ppp *ppp_findbyref(u_long ref);
+struct ppp *ppp_find(struct msg *msg);
 void ppp_setorder(struct ppp *ppp, u_int16_t order);
 u_short ppp_findfreeunit(u_short subfam);
 u_int32_t ppp_makeref(struct ppp *ppp);
@@ -47,7 +48,8 @@ int ppp_logout();
 int ppp_login();
 int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand);
 int ppp_dodisconnect(struct ppp *ppp, int sig);
-void ppp_event(struct client *client, struct msg *msg);
+int ppp_dosuspend(struct ppp *ppp);
+int ppp_doresume(struct ppp *ppp);
 
 
 /* this struct contains all the information to control a ppp interface */
@@ -57,6 +59,7 @@ struct ppp {
 
     CFStringRef	serviceID;		/* service ID in the cache */
     CFStringRef	subtypeRef;		/* subtype string */
+    u_char 	*sid;			/* C version of the servceID */
     
     // suptype/unit will make the reference number
     u_int16_t 	subtype;		/* ppp subtype of link */
@@ -70,31 +73,23 @@ struct ppp {
     u_int32_t 	phase;			/* where the link is at */    
     u_int32_t 	oldphase;		/* where the link was at last lime */    
     u_int32_t 	conntime; 		/* time when connected	*/
-    u_int32_t 	maxtime; 		/* max connection time allowed */
+    u_int32_t 	disconntime; 		/* time when disconnection is planned, 
+                                            as advertised by the server, or as required by the session timer */
     u_int32_t 	laststatus;		/* last fail status */
+    u_int32_t 	lastdevstatus;		/* last device specific fail status */
     u_int32_t 	alertenable;		/* alert level flags */
+    CFBundleRef	bundle;			/* PPP device bundle */
 
+    u_int8_t	started_link;		/* pppd has just been started */
     u_int8_t	kill_link;		/* pppd needs to be killed when it appears (sig number) */
+    u_int8_t	kill_sent;		/* kill signal has been sent, wait for idle */
     u_int8_t	dosetup;		/* needs to process service setup */
     u_int8_t	needconnect;		/* needs to process service setup */
+    u_int8_t	needdispose;		/* needs to dispose of the ppp structure */
     struct options *needconnectopts; 	/* connect options to use */ 
 };
 
 
-CFSocketRef AddSocketNativeToRunLoop(int fd);
-//int DelSocketRefFromRunLoop(CFSocketRef ref);
-int DelSocketRef(CFSocketRef ref);
-CFSocketRef CreateSocketRefWithNative(int fd);
-CFRunLoopSourceRef AddSocketRefToRunLoop(CFSocketRef ref);
-void DelRunLoopSource(CFRunLoopSourceRef rls);
-
-
-CFRunLoopTimerRef AddTimerToRunLoop(void (*func) __P((CFRunLoopTimerRef, void *)), void *arg, u_short time);
-
-void DelTimerFromRunLoop(CFRunLoopTimerRef *timer);
-
-void ppp_autoconnect_off(struct ppp *ppp);
-void ppp_autoconnect_on(struct ppp *ppp);
 int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *pdata, u_int32_t *plen, CFDictionaryRef dict);
 
 extern CFURLRef 	gBundleURLRef;
@@ -102,5 +97,7 @@ extern CFBundleRef 	gBundleRef;
 extern CFStringRef 	gCancelRef;
 extern CFStringRef 	gInternetConnectRef;
 extern CFURLRef 	gIconURLRef;
+extern CFStringRef 	gPluginsDir;
+extern CFURLRef		gPluginsURLRef;
 
 #endif

@@ -1,0 +1,24 @@
+#! /bin/sh
+
+# Test to make sure dependencies work with .ll files.
+# Test synthesized from PR automake/6.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_CXX
+AM_PROG_LEX
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = zoo
+zoo_SOURCES = joe.ll
+END
+
+: > joe.ll
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+fgrep joe.Po Makefile.in

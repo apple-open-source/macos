@@ -1,5 +1,5 @@
 /* Kernel Object Display generic routines and callbacks
-   Copyright 1998, 1999 Free Software Foundation, Inc.
+   Copyright 1998, 1999, 2000 Free Software Foundation, Inc.
 
    Written by Fernando Nasser <fnasser@cygnus.com> for Cygnus Solutions.
 
@@ -132,7 +132,16 @@ kod_set_os (char *arg, int from_tty, struct cmd_list_element *command)
 {
   char *p;
 
-  if (command->type != set_cmd)
+  /* NOTE: cagney/2002-03-17: The add_show_from_set() function clones
+     the set command passed as a parameter.  The clone operation will
+     include (BUG?) any ``set'' command callback, if present.
+     Commands like ``info set'' call all the ``show'' command
+     callbacks.  Unfortunatly, for ``show'' commands cloned from
+     ``set'', this includes callbacks belonging to ``set'' commands.
+     Making this worse, this only occures if add_show_from_set() is
+     called after add_cmd_sfunc() (BUG?).  */
+
+  if (cmd_type (command) != set_cmd)
     return;
 
   /* If we had already had an open OS, close it.  */
@@ -143,9 +152,8 @@ kod_set_os (char *arg, int from_tty, struct cmd_list_element *command)
   if (old_operating_system)
     {
       delete_cmd (old_operating_system, &infolist);
-      free (old_operating_system);
+      xfree (old_operating_system);
     }
-  old_operating_system = xstrdup (operating_system);
 
   if (! operating_system || ! *operating_system)
     {
@@ -159,6 +167,8 @@ kod_set_os (char *arg, int from_tty, struct cmd_list_element *command)
   else
     {
       char *kodlib;
+
+      old_operating_system = xstrdup (operating_system);
 
       load_kod_library (operating_system);
 
@@ -175,7 +185,7 @@ kod_set_os (char *arg, int from_tty, struct cmd_list_element *command)
 	p = "Unknown KOD library";
       printf_filtered ("%s - %s\n", operating_system, p);
 
-      free (kodlib);
+      xfree (kodlib);
     }
 }
 
@@ -224,6 +234,6 @@ _initialize_kod (void)
 		   (char *) &operating_system,
 		   "Set operating system",
 		   &setlist);
-  c->function.sfunc = kod_set_os;
+  set_cmd_sfunc (c, kod_set_os);
   add_show_from_set (c, &showlist);
 }

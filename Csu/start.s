@@ -21,6 +21,19 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+/*
+ * To avoid "relocation overflow" errors from the static link editor we want
+ * to make sure that the .text section and the stub sections don't have any 
+ * sections between them (like the .cstring section).  Since this is the first
+ * file loaded we can force the order by ordering the section directives.
+ */
+.text
+#ifdef CRT1
+.picsymbol_stub
+.symbol_stub 	/* only in executables with -mdynamic-no-pic */
+#endif
+
 #if defined(__m68k__) || defined(__i386__) || defined(__ppc__)
 /*
  * C runtime startup for m68k, i386 & ppc

@@ -2,7 +2,7 @@
 .\" Copyright (c) 1992 Peter Eriksson, Lysator, Linkoping University.
 .\" This software has been released into the public domain.
 .\"
-.\"	$Id: identd.8,v 1.1.1.1 1999/05/02 03:57:41 wsanchez Exp $
+.\"	$Id: identd.8,v 1.2 2002/03/29 01:34:27 bbraun Exp $
 .\"
 .TH IDENTD 8 "27 May 1992"
 .SH NAME
@@ -62,7 +62,7 @@ flag should be used when starting the daemon from
 .B inetd
 with the "wait" option in the
 .B /etc/inetd.conf
-file . This is the prefered mode of
+file . This is the preferred mode of
 operation since that will start a copy of
 .B identd
 at the first connection request and then
@@ -83,7 +83,7 @@ The
 flag can be used to make the daemon run in standalone mode without
 the assistance from
 .B inetd.
-This mode is the least prefered mode since
+This mode is the least preferred mode since
 a bug or any other fatal condition in the server will make it terminate
 and it will then have to be restarted manually. Other than that is has the
 same advantage as the

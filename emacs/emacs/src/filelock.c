@@ -1,5 +1,6 @@
 /* Lock files for editing.
-   Copyright (C) 1985, 86, 87, 93, 94, 96, 98, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1985, 86, 87, 93, 94, 96, 98, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -19,10 +20,11 @@ the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
+#include <config.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
-#include <config.h>
+#include <stdio.h>
 
 #ifdef VMS
 #include "vms-pwd.h"
@@ -31,32 +33,31 @@ Boston, MA 02111-1307, USA.  */
 #endif /* not VMS */
 
 #include <sys/file.h>
-#ifdef USG
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
+#ifdef HAVE_STRING_H
 #include <string.h>
-#endif /* USG */
+#endif
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
 #ifdef __FreeBSD__
-#include <sys/time.h>
-#include <sys/types.h>
 #include <sys/sysctl.h>
 #endif /* __FreeBSD__ */
+
+#include <errno.h>
+#ifndef errno
+extern int errno;
+#endif
 
 #include "lisp.h"
 #include "buffer.h"
 #include "charset.h"
 #include "coding.h"
 #include "systime.h"
-
-#include <time.h>
-#include <errno.h>
-#ifndef errno
-extern int errno;
-#endif
 
 /* The directory for writing temporary files.  */
 
@@ -119,10 +120,16 @@ static int boot_time_initialized;
 
 extern Lisp_Object Vshell_file_name;
 
+#ifdef BOOT_TIME
+static void get_boot_time_1 P_ ((char *, int));
+#endif
+
 static time_t
 get_boot_time ()
 {
+#if defined (BOOT_TIME) && ! defined (NO_WTMP_FILE)
   int counter;
+#endif
 
   if (boot_time_initialized)
     return boot_time;
@@ -244,6 +251,7 @@ get_boot_time ()
    Ignore all reboot records on or before BOOT_TIME.
    Success is indicated by setting BOOT_TIME to a larger value.  */
 
+void
 get_boot_time_1 (filename, newest)
      char *filename;
      int newest;
@@ -255,11 +263,11 @@ get_boot_time_1 (filename, newest)
     {
       /* On some versions of IRIX, opening a nonexistent file name
 	 is likely to crash in the utmp routines.  */
-      desc = open (filename, O_RDONLY);
+      desc = emacs_open (filename, O_RDONLY, 0);
       if (desc < 0)
 	return;
 
-      close (desc);
+      emacs_close (desc);
 
       utmpname (filename);
     }
@@ -309,9 +317,11 @@ typedef struct
 
 
 /* Write the name of the lock file for FN into LFNAME.  Length will be
-   that of FN plus two more for the leading `.#' plus one for the null.  */
+   that of FN plus two more for the leading `.#' plus 1 for the
+   trailing period plus one for the digit after it plus one for the
+   null.  */
 #define MAKE_LOCK_NAME(lock, file) \
-  (lock = (char *) alloca (STRING_BYTES (XSTRING (file)) + 2 + 1), \
+  (lock = (char *) alloca (STRING_BYTES (XSTRING (file)) + 2 + 1 + 1 + 1), \
    fill_in_lock_file_name (lock, (file)))
 
 static void
@@ -320,6 +330,8 @@ fill_in_lock_file_name (lockfile, fn)
      register Lisp_Object fn;
 {
   register char *p;
+  struct stat st;
+  int count = 0;
 
   strcpy (lockfile, XSTRING (fn)->data);
 
@@ -332,6 +344,18 @@ fill_in_lock_file_name (lockfile, fn)
   /* Insert the `.#'.  */
   p[1] = '.';
   p[2] = '#';
+
+  p = p + strlen (p);
+
+  while (lstat (lockfile, &st) == 0 && !S_ISLNK (st.st_mode))
+    {
+      if (count > 9)
+	{
+	  *p = '\0';
+	  return;
+	}
+      sprintf (p, ".%d", count++);
+    }
 }
 
 /* Lock the lock file named LFNAME.
@@ -400,7 +424,7 @@ current_lock_owner (owner, lfname)
 #ifndef index
   extern char *rindex (), *index ();
 #endif
-  int o, p, len, ret;
+  int len, ret;
   int local_owner = 0;
   char *at, *dot, *colon;
   char *lfinfo = 0;
@@ -411,7 +435,13 @@ current_lock_owner (owner, lfname)
     {
       bufsize *= 2;
       lfinfo = (char *) xrealloc (lfinfo, bufsize);
+      errno = 0;
       len = readlink (lfname, lfinfo, bufsize);
+#ifdef ERANGE
+      /* HP-UX reports ERANGE if the buffer is too small.  */
+      if (len == -1 && errno == ERANGE)
+	len = bufsize;
+#endif
     }
   while (len >= bufsize);
   
@@ -527,7 +557,7 @@ lock_if_free (clasher, lfname)
       else if (locker == 1)
         return 1;  /* Someone else has it.  */
       else if (locker == -1)
-        return -1;  /* Some kind of bug, avoid infinite loop.  */
+	return -1;   /* current_lock_owner returned strange error.  */
 
       /* We deleted a stale lock; try again to lock the file.  */
     }
@@ -632,17 +662,12 @@ unlock_all_files ()
   register Lisp_Object tail;
   register struct buffer *b;
 
-  for (tail = Vbuffer_alist; GC_CONSP (tail); tail = XCONS (tail)->cdr)
+  for (tail = Vbuffer_alist; GC_CONSP (tail); tail = XCDR (tail))
     {
-      b = XBUFFER (XCONS (XCONS (tail)->car)->cdr);
+      b = XBUFFER (XCDR (XCAR (tail)));
       if (STRINGP (b->file_truename) && BUF_SAVE_MODIFF (b) < BUF_MODIFF (b))
 	{
-	  register char *lfname;
-
-	  MAKE_LOCK_NAME (lfname, b->file_truename);
-
-	  if (current_lock_owner (0, lfname) == 2)
-	    unlink (lfname);
+	  unlock_file(b->file_truename);
 	}
     }
 }
@@ -688,7 +713,7 @@ unlock_buffer (buffer)
     unlock_file (buffer->file_truename);
 }
 
-DEFUN ("file-locked-p", Ffile_locked_p, Sfile_locked_p, 0, 1, 0,
+DEFUN ("file-locked-p", Ffile_locked_p, Sfile_locked_p, 1, 1, 0,
   "Return nil if the FILENAME is not locked,\n\
 t if it is locked by you, else a string of the name of the locker.")
   (filename)

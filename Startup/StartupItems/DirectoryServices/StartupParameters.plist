@@ -1,11 +1,6 @@
 {
-  Description     = "directory services";
-  Provides        = ("NetInfo", "NIS", "Resolver");
-  Requires        = ("Portmap", "Network Configuration");
+  Description     = "Directory Services";
+  Provides        = ("DirectoryServices", "Resolver");
+  Requires        = ("NetInfo", "NIS");
   OrderPreference = "None";
-  Messages =
-  {
-    start = "Starting directory services";
-    stop  = "Stopping directory services";
-  };
 }

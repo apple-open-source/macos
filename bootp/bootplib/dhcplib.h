@@ -1,3 +1,6 @@
+
+#ifndef _S_DHCPLIB_H
+#define _S_DHCPLIB_H
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -20,10 +23,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <mach/boolean.h>
-#import <sys/time.h>
-#import "dhcp_options.h"
-#import "gen_dhcp_tags.h"
+#include <mach/boolean.h>
+#include <sys/time.h>
+#include "dhcp_options.h"
+#include "gen_dhcp_tags.h"
 
 void	dhcp_print_packet(struct dhcp *dp, int pkt_len);
 
@@ -65,4 +68,4 @@ boolean_t
 dhcp_packet_match(struct bootp * packet, unsigned long xid, 
 		  u_char hwtype, void * hwaddr, int hwlen);
 
-
+#endif _S_DHCPLIB_H

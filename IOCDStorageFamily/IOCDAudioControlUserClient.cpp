@@ -23,6 +23,7 @@
 #include <IOKit/assert.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/storage/IOCDAudioControlUserClient.h>
+#include <libkern/OSByteOrder.h>
 
 #define super IOUserClient
 OSDefineMetaClassAndStructors(IOCDAudioControlUserClient, IOUserClient)

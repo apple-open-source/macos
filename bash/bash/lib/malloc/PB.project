@@ -1,0 +1,17 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = (getpagesize.h); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (xmalloc.c, stub.c, gmalloc.c, malloc.c, alloca.c); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = malloc; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

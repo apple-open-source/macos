@@ -1,4 +1,4 @@
-;;; tetris.el -- Implementation of Tetris for Emacs
+;;; tetris.el --- implementation of Tetris for Emacs
 
 ;; Copyright (C) 1997 Free Software Foundation, Inc.
 
@@ -25,6 +25,8 @@
 ;; Boston, MA 02111-1307, USA.
 
 ;;; Commentary:
+
+;;; Code:
 
 (eval-when-compile
   (require 'cl))
@@ -100,7 +102,7 @@ Element 0 is ignored.")
 (defvar tetris-score-y (+ tetris-next-y 6)
   "Y position of score.")
 
-(defvar tetris-score-file "/tmp/tetris-scores"
+(defvar tetris-score-file (concat temporary-file-directory "tetris-scores")
 ;; anybody with a well-connected server want to host this?
 ;(defvar tetris-score-file "/anonymous@ftp.pgt.com:/pub/cgw/tetris-scores"
   "File for holding high scores.")

@@ -7,11 +7,14 @@
  
      DRI:        xxx put dri here xxx
  
-     Copyright:  © 1999-2000 by Apple Computer, Inc., all rights reserved.
+     Copyright:  © 1999-2001 by Apple Computer, Inc., all rights reserved.
+ 
+     Warning:    *** APPLE INTERNAL USE ONLY ***
+                 This file contains unreleased SPI's
  
      BuildInfo:  Built by:            wgulland
-                 On:                  Thu Sep 21 14:47:24 2000
-                 With Interfacer:     3.0d20e4 (Mac OS X for PowerPC)
+                 On:                  Tue Mar 12 16:49:05 2002
+                 With Interfacer:     3.0d35   (Mac OS X for PowerPC)
                  From:                DeviceControlPriv.i
                      Revision:        3
                      Dated:           6/15/99
@@ -23,11 +26,10 @@
  
 */
 
-#include <Carbon/Carbon.h>
-
-//#include <MixedMode.h>
-//#include <Components.h>
-#include "DeviceControlPriv.h"
+#include <CoreServices/CoreServices.h>
+//#include <CarbonCore/MixedMode.h>
+//#include <CarbonCore/Components.h>
+#include <DeviceControlPriv.h>
 #if MP_SUPPORT
 	#include "MPMixedModeSupport.h"
 #endif

@@ -10,7 +10,6 @@
 #include "AudioHardwarePower.h"
 #include "AppleOnboardAudio.h"
 
-
 #pragma mark -Generic Power Object
 OSDefineMetaClassAndStructors(AudioPowerObject, OSObject)
    
@@ -57,10 +56,8 @@ IOReturn AudioPowerObject::setHardwarePowerOff(){
     
     return result;
 }
- 
 
-
-    //For FW PB and Titanium
+// For FW PB and PowerBook G4
 #pragma mark -FW PowerBook and PowerBook G4
 
 OSDefineMetaClassAndStructors(AudioProj10PowerObject, AudioPowerObject)
@@ -108,8 +105,8 @@ IOReturn AudioProj10PowerObject::setHardwarePowerOn(){
     
     if(keyLargo){
         long gpioOffset = kPowerObjectOffset;
-        UInt8  value = kPowerOn;  //KPowerOn
-        keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)value, 0, 0);
+        UInt8  value = kPowerOn;
+        keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)(UInt32)value, 0, 0);
     }
     IOSleep(80);
     progOut = audioPluginRef->sndHWGetProgOutput();
@@ -120,42 +117,41 @@ IOReturn AudioProj10PowerObject::setHardwarePowerOn(){
     if(audioPluginRef) {
         audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
         audioPluginRef->setDeviceDetectionActive();
-        audioPluginRef->setMuteState(singleMuteState);
+//        audioPluginRef->setMuteState(singleMuteState);
     }
     DEBUG_IOLOG("- AudioProj10PowerObject::setHardwarePowerOn\n");
     return result;
 }
 
 IOReturn AudioProj10PowerObject::setHardwarePowerOff(){
-    
     IOReturn result = kIOReturnSuccess;
     UInt32 progOut;
     IOService *keyLargo = 0;
     DEBUG_IOLOG("+ AudioProj10PowerObject::setHardwarePowerOff\n");
     
-        //generic code
+	// generic code
     if(audioPluginRef) {
-         singleMuteState = audioPluginRef->getMuteState();
-         audioPluginRef->setMuteState(false);
+//         singleMuteState = audioPluginRef->getMuteState();
+//         audioPluginRef->setMuteState(false);
     }
     
-        //specific
+	// specific
     progOut = audioPluginRef->sndHWGetProgOutput();
-    progOut |= kSndHWProgOutput0;  //this turns the boomer off
+    progOut |= kSndHWProgOutput0;  // this turns the boomer off
     audioPluginRef->sndHWSetProgOutput(progOut);
     IOSleep(200);
     
-        //generic
+	// generic
     audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
     audioPluginRef->setDeviceDetectionInActive();
 
-        //clock
+	// clock
     keyLargo = IOService::waitForService(IOService::serviceMatching("KeyLargo")); 
                 
     if(keyLargo){
         long gpioOffset = kPowerObjectOffset;
-        UInt8  value = kPowerOff;  //KPowerOff
-        keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)value, 0, 0);
+        UInt8  value = kPowerOff;
+        keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)(UInt32)value, 0, 0);
     }
 
     DEBUG_IOLOG("- AudioProj10PowerObject::setHardwarePowerOff");
@@ -163,8 +159,8 @@ IOReturn AudioProj10PowerObject::setHardwarePowerOff(){
 }
 
     
-    //For WallStreet
-#pragma mark -Wallstreet
+// For PowerBook G3
+#pragma mark -PowerBook G3
 
 OSDefineMetaClassAndStructors(AudioProj6PowerObject, AudioPowerObject)
 
@@ -211,10 +207,10 @@ IOReturn AudioProj6PowerObject::setHardwarePowerOff(){
      
     DEBUG_IOLOG("+ AudioProj6PowerObject::setHardwarePowerOff\n");
 
-        //generic
+	// generic
     if(audioPluginRef) {
-         singleMuteState = audioPluginRef->getMuteState();
-         audioPluginRef->setMuteState(false);
+//         singleMuteState = audioPluginRef->getMuteState();
+//         audioPluginRef->setMuteState(false);
     }
     audioPluginRef->sndHWSetPowerState(kIOAudioDeviceSleep);
     audioPluginRef->setDeviceDetectionInActive();
@@ -228,8 +224,7 @@ IOReturn AudioProj6PowerObject::setHardwarePowerOff(){
         HeathRow->callPlatformFunction(OSSymbol::withCString("heathrow_safeWriteRegUInt32"), false, 
                                                                 (void *)powerRegAdrr, (void *)mask, (void *) data, 0);
     } 
-        
-    
+
     DEBUG2_IOLOG("- AudioProj6PowerObject::setHardwarePowerOff, %d\n", kIOReturnSuccess == result);
     return result;
 }
@@ -256,7 +251,7 @@ IOReturn AudioProj6PowerObject::setHardwarePowerOn(){
     if(audioPluginRef) {
         audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
         audioPluginRef->setDeviceDetectionActive();
-        audioPluginRef->setMuteState(singleMuteState);
+//        audioPluginRef->setMuteState(singleMuteState);
     }
 
     DEBUG2_IOLOG("- AudioProj6PowerObject::setHardwarePowerOn, %d\n", kIOReturnSuccess == result);
@@ -265,7 +260,7 @@ IOReturn AudioProj6PowerObject::setHardwarePowerOn(){
 }
 
 
-    //For B&W G3 (Yosemite)
+// For B&W G3
 #pragma mark -B&W G3
 
 OSDefineMetaClassAndStructors(AudioProj4PowerObject, AudioPowerObject)
@@ -288,7 +283,7 @@ IOReturn AudioProj4PowerObject::setHardwarePowerOn(){
     return result;
 }
 
-    //for iBooks in Clamshell
+// for iBooks in Clamshell
 #pragma mark -Original iBooks
 
 OSDefineMetaClassAndStructors(AudioProj8PowerObject, AudioPowerObject)
@@ -339,8 +334,8 @@ IOReturn AudioProj8PowerObject::setHardwarePowerOff()
     // it may be necessary to check for the existance and availability of i2c services before 
     // asking the driver to execute a state change.  So far this seems to work.
     if(audioPluginRef) {
-         singleMuteState = audioPluginRef->getMuteState();
-         audioPluginRef->setMuteState(false);
+//         singleMuteState = audioPluginRef->getMuteState();
+//         audioPluginRef->setMuteState(false);
     }
     
     progOut = audioPluginRef->sndHWGetProgOutput();
@@ -370,13 +365,13 @@ IOReturn AudioProj8PowerObject::setHardwarePowerOn()
     if(audioPluginRef) {
         audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
         audioPluginRef->setDeviceDetectionActive();
-        audioPluginRef->setMuteState(singleMuteState);
+//        audioPluginRef->setMuteState(singleMuteState);
     }
     debugIOLog("- AudioProj8PowerObject::setHardwarePowerOn\n");
     return result;
 }
 
-    //for Screamer base G3 and iMac DVs
+// for Screamer based G3 and iMac DVs
 #pragma mark -Screamer based G3 and iMacs
 
 OSDefineMetaClassAndStructors(AudioProj7PowerObject, AudioPowerObject)
@@ -409,8 +404,8 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOff(){
     DEBUG_IOLOG("+ AudioProj7PowerObject::setHardwarePowerOff\n");
     
     if(audioPluginRef) {
-         singleMuteState = audioPluginRef->getMuteState();
-         audioPluginRef->setMuteState(false);
+//         singleMuteState = audioPluginRef->getMuteState();
+//         audioPluginRef->setMuteState(false);
     }
     
     progOut = audioPluginRef->sndHWGetProgOutput();
@@ -425,8 +420,8 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOff(){
                 
     if(keyLargo){
         long gpioOffset = kPowerObjectOffset;
-        UInt8  value = kPowerOff;  //KPowerOff
-        keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)value, 0, 0);
+        UInt8  value = kPowerOff;
+        keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)(UInt32)value, 0, 0);
     }
     
     DEBUG_IOLOG("- AudioProj7PowerObject::setHardwarePowerOff");
@@ -443,12 +438,12 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOn(){
     
     if(keyLargo){
         long gpioOffset = kPowerObjectOffset;
-        UInt8  value = kPowerOn;  //KPowerOn
-        keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)value, 0, 0);
+        UInt8  value = kPowerOn;
+        keyLargo->callPlatformFunction("keyLargo_writeRegUInt8", false, (void *)&gpioOffset, (void *)(UInt32)value, 0, 0);
     }
     
     if(audioPluginRef) {
-        IOSleep(300);   //we need to wait to be sure that the antipop has the time to do his stuff
+        IOSleep(300);   		// we need to wait to be sure that the antipop has the time to do his stuff
         progOut = audioPluginRef->sndHWGetProgOutput();
         progOut |= kSndHWProgOutput0;
         audioPluginRef->sndHWSetProgOutput(progOut);
@@ -457,13 +452,13 @@ IOReturn AudioProj7PowerObject::setHardwarePowerOn(){
     if(audioPluginRef) {
         audioPluginRef->sndHWSetPowerState(kIOAudioDeviceActive);
         audioPluginRef->setDeviceDetectionActive();
-        audioPluginRef->setMuteState(singleMuteState);
+//        audioPluginRef->setMuteState(singleMuteState);
     }
     DEBUG_IOLOG("- AudioProj7PowerObject::setHardwarePowerOn\n");
     return result;
 }
 
-    //for Texas3001 Tower
+// for Texas3001 Tower
 #pragma mark -Texas Desktop CPUs
 
 OSDefineMetaClassAndStructors(AudioProj14PowerObject, AudioPowerObject)
@@ -534,9 +529,8 @@ UInt32 AudioProj14PowerObject::GetTimeToChangePowerState (IOAudioDevicePowerStat
 
 	return microSecondsRequired;
 }
-    
 
-    //for iBook dual USB
+// for iBook dual USB
 #pragma mark -iBook dual USB
 
 OSDefineMetaClassAndStructors(AudioProj16PowerObject, AudioPowerObject)

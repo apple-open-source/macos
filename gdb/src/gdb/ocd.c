@@ -1,5 +1,7 @@
 /* Target communications support for Macraigor Systems' On-Chip Debugging
-   Copyright 1996, 1997 Free Software Foundation, Inc.
+
+   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -27,7 +29,6 @@
 #include "bfd.h"
 #include "symfile.h"
 #include "target.h"
-#include "gdb_wait.h"
 #include "gdbcmd.h"
 #include "objfiles.h"
 #include "gdb-stabs.h"
@@ -35,6 +36,7 @@
 #include <signal.h>
 #include "serial.h"
 #include "ocd.h"
+#include "regcache.h"
 
 /* Prototypes for local functions */
 
@@ -82,7 +84,7 @@ static int remote_timeout = 2;
 /* Descriptor for I/O to remote machine.  Initialize it to NULL so that
    ocd_open knows that we don't have a file open when the program
    starts.  */
-static serial_t ocd_desc = NULL;
+static struct serial *ocd_desc = NULL;
 
 void
 ocd_error (char *s, int error_code)
@@ -150,7 +152,7 @@ ocd_error (char *s, int error_code)
 /*  Return nonzero if the thread TH is still alive on the remote system.  */
 
 int
-ocd_thread_alive (int th)
+ocd_thread_alive (ptid_t th)
 {
   return 1;
 }
@@ -162,7 +164,7 @@ void
 ocd_close (int quitting)
 {
   if (ocd_desc)
-    SERIAL_CLOSE (ocd_desc);
+    serial_close (ocd_desc);
   ocd_desc = NULL;
 }
 
@@ -182,7 +184,7 @@ ocd_start_remote (PTR dummy)
 
   immediate_quit++;		/* Allow user to interrupt it */
 
-  SERIAL_SEND_BREAK (ocd_desc);	/* Wake up the wiggler */
+  serial_send_break (ocd_desc);	/* Wake up the wiggler */
 
   speed = 80;			/* Divide clock by 4000 */
 
@@ -289,44 +291,24 @@ device the OCD device is attached to (e.g. /dev/ttya).");
 
   unpush_target (current_ops);
 
-  if (strncmp (name, "wiggler", 7) == 0)
-    {
-      ocd_desc = SERIAL_OPEN ("ocd");
-      if (!ocd_desc)
-	perror_with_name (name);
-
-      buf[0] = OCD_LOG_FILE;
-      buf[1] = 1;		/* open new or overwrite existing WIGGLERS.LOG */
-      ocd_put_packet (buf, 2);
-      p = ocd_get_packet (buf[0], &pktlen, remote_timeout);
-
-      buf[0] = OCD_SET_CONNECTION;
-      buf[1] = 0x01;		/* atoi (name[11]); */
-      ocd_put_packet (buf, 2);
-      p = ocd_get_packet (buf[0], &pktlen, remote_timeout);
-    }
-  else
-    /* not using Wigglers.dll */
-    {
-      ocd_desc = SERIAL_OPEN (name);
-      if (!ocd_desc)
-	perror_with_name (name);
-    }
+  ocd_desc = serial_open (name);
+  if (!ocd_desc)
+    perror_with_name (name);
 
   if (baud_rate != -1)
     {
-      if (SERIAL_SETBAUDRATE (ocd_desc, baud_rate))
+      if (serial_setbaudrate (ocd_desc, baud_rate))
 	{
-	  SERIAL_CLOSE (ocd_desc);
+	  serial_close (ocd_desc);
 	  perror_with_name (name);
 	}
     }
 
-  SERIAL_RAW (ocd_desc);
+  serial_raw (ocd_desc);
 
   /* If there is something sitting in the buffer we might take it as a
      response to a command, which would be bad.  */
-  SERIAL_FLUSH_INPUT (ocd_desc);
+  serial_flush_input (ocd_desc);
 
   if (from_tty)
     {
@@ -343,7 +325,7 @@ device the OCD device is attached to (e.g. /dev/ttya).");
      variables, especially since GDB will someday have a notion of debugging
      several processes.  */
 
-  inferior_pid = 42000;
+  inferior_ptid = pid_to_ptid (42000);
   /* Start the remote connection; if error (0), discard this target.
      In particular, if the user quits, be sure to discard it
      (we'd be in an inconsistent state otherwise).  */
@@ -375,7 +357,7 @@ ocd_detach (char *args, int from_tty)
 /* Tell the remote machine to resume.  */
 
 void
-ocd_resume (int pid, int step, enum target_signal siggnal)
+ocd_resume (ptid_t ptid, int step, enum target_signal siggnal)
 {
   int pktlen;
 
@@ -445,7 +427,7 @@ interrupt_query (void)
 Give up (and stop debugging it)? "))
     {
       target_mourn_inferior ();
-      return_to_top_level (RETURN_QUIT);
+      throw_exception (RETURN_QUIT);
     }
 
   target_terminal_inferior ();
@@ -760,7 +742,7 @@ ocd_read_bytes (CORE_ADDR memaddr, char *myaddr, int len)
 /* ARGSUSED */
 int
 ocd_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int should_write,
-		 struct target_ops *target)
+		 struct mem_attrib *attrib, struct target_ops *target)
 {
   int res;
 
@@ -788,7 +770,7 @@ readchar (int timeout)
 {
   int ch;
 
-  ch = SERIAL_READCHAR (ocd_desc, timeout);
+  ch = serial_readchar (ocd_desc, timeout);
 
   switch (ch)
     {
@@ -842,7 +824,7 @@ reset_packet (void)
 static void
 output_packet (void)
 {
-  if (SERIAL_WRITE (ocd_desc, pkt, pktp - pkt))
+  if (serial_write (ocd_desc, pkt, pktp - pkt))
     perror_with_name ("output_packet: write failed");
 
   reset_packet ();
@@ -881,7 +863,7 @@ stu_put_packet (unsigned char *buf, int len)
   unsigned char c;
 
   if (len == 0 || len > 256)
-    abort ();			/* Can't represent 0 length packet */
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");			/* Can't represent 0 length packet */
 
   reset_packet ();
 
@@ -940,7 +922,7 @@ ocd_put_packet (unsigned char *buf, int len)
     }
 
   *packet_ptr++ = -checksum;
-  if (SERIAL_WRITE (ocd_desc, packet, packet_ptr - packet))
+  if (serial_write (ocd_desc, packet, packet_ptr - packet))
     perror_with_name ("output_packet: write failed");
 }
 #endif
@@ -1250,7 +1232,7 @@ ocd_load (char *args, int from_tty)
 {
   generic_load (args, from_tty);
 
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
 
 /* This is necessary because many things were based on the PC at the time that
    we attached to the monitor, which is no longer valid now that we have loaded

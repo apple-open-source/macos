@@ -1,0 +1,16 @@
+#! /bin/sh
+
+# We must skip the backslash, not complain about `./\' not existing.
+# Reported by Rick Scott <rwscott@omnisig.com>
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+SUBDIRS = \
+   .
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+exit 0

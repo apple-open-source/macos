@@ -83,7 +83,7 @@ do_dictSetKey(int argc, char **argv)
 		return;
 	}
 
-	if (CFGetTypeID(value) != CFDictionaryGetTypeID()) {
+	if (!isA_CFDictionary(value)) {
 		SCPrint(TRUE, stdout, CFSTR("d.add: data (fetched from configuration server) is not a dictionary.\n"));
 		return;
 	}
@@ -192,7 +192,7 @@ do_dictRemoveKey(int argc, char **argv)
 		return;
 	}
 
-	if (CFGetTypeID(value) != CFDictionaryGetTypeID()) {
+	if (!isA_CFDictionary(value)) {
 		SCPrint(TRUE, stdout, CFSTR("d.remove: data (fetched from configuration server) is not a dictionary.\n"));
 		return;
 	}

@@ -1,0 +1,302 @@
+\chapter{Building C and \Cpp{} Extensions on Windows
+     \label{building-on-windows}}
+
+
+This chapter briefly explains how to create a Windows extension module
+for Python using Microsoft Visual \Cpp, and follows with more
+detailed background information on how it works.  The explanatory
+material is useful for both the Windows programmer learning to build
+Python extensions and the \UNIX{} programmer interested in producing
+software which can be successfully built on both \UNIX{} and Windows.
+
+
+\section{A Cookbook Approach \label{win-cookbook}}
+
+There are two approaches to building extension modules on Windows,
+just as there are on \UNIX: use the \refmodule{distutils} package to
+control the build process, or do things manually.  The distutils
+approach works well for most extensions; documentation on using
+\refmodule{distutils} to build and package extension modules is
+available in \citetitle[../dist/dist.html]{Distributing Python
+Modules}.  This section describes the manual approach to building
+Python extensions written in C or \Cpp.
+
+To build extensions using these instructions, you need to have a copy
+of the Python sources of the same version as your installed Python.
+You will need Microsoft Visual \Cpp{} ``Developer Studio''; project
+files are supplied for V\Cpp{} version 6, but you can use older
+versions of V\Cpp.  The example files described here are distributed
+with the Python sources in the \file{PC\textbackslash
+example_nt\textbackslash} directory.
+
+\begin{enumerate}
+  \item
+  \strong{Copy the example files}\\
+    The \file{example_nt} directory is a subdirectory of the \file{PC}
+    directory, in order to keep all the PC-specific files under the
+    same directory in the source distribution.  However, the
+    \file{example_nt} directory can't actually be used from this
+    location.  You first need to copy or move it up one level, so that
+    \file{example_nt} is a sibling of the \file{PC} and \file{Include}
+    directories.  Do all your work from within this new location.
+
+  \item
+  \strong{Open the project}\\
+    From V\Cpp, use the \menuselection{File \sub Open Workspace}
+    dialog (not \menuselection{File \sub Open}!).  Navigate to and
+    select the file \file{example.dsw}, in the \emph{copy} of the
+    \file{example_nt} directory you made above.  Click Open.
+
+  \item
+  \strong{Build the example DLL}\\
+    In order to check that everything is set up right, try building:
+
+    \begin{enumerate}
+      \item
+        Select a configuration.  This step is optional.  Choose
+        \menuselection{Build \sub Select Active Configuration} and
+        select either ``example - Win32 Release'' or ``example - Win32
+        Debug.''  If you skip this step, V\Cpp{} will use the Debug
+        configuration by default.
+
+      \item
+        Build the DLL.  Choose \menuselection{Build \sub Build
+        example_d.dll} in Debug mode, or \menuselection{Build \sub
+        Build example.dll} in Release mode.  This creates all
+        intermediate and result files in a subdirectory called either
+        \file{Debug} or \file{Release}, depending on which
+        configuration you selected in the preceding step.
+    \end{enumerate}
+
+  \item
+  \strong{Testing the debug-mode DLL}\\
+    Once the Debug build has succeeded, bring up a DOS box, and change
+    to the \file{example_nt\textbackslash Debug} directory.  You
+    should now be able to repeat the following session (\code{C>} is
+    the DOS prompt, \code{>\code{>}>} is the Python prompt; note that
+    build information and various debug output from Python may not
+    match this screen dump exactly):
+
+\begin{verbatim}
+C>..\..\PCbuild\python_d
+Adding parser accelerators ...
+Done.
+Python 2.2 (#28, Dec 19 2001, 23:26:37) [MSC 32 bit (Intel)] on win32
+Type "copyright", "credits" or "license" for more information.
+>>> import example
+[4897 refs]
+>>> example.foo()
+Hello, world
+[4903 refs]
+>>>
+\end{verbatim}
+
+    Congratulations!  You've successfully built your first Python
+    extension module.
+
+  \item
+  \strong{Cretating your own project}\\
+    Choose a name and create a directory for it.  Copy your C sources
+    into it.  Note that the module source file name does not
+    necessarily have to match the module name, but the name of the
+    initialization function should match the module name --- you can
+    only import a module \module{spam} if its initialization function
+    is called \cfunction{initspam()}, and it should call
+    \cfunction{Py_InitModule()} with the string \code{"spam"} as its
+    first argument (use the minimal \file{example.c} in this directory
+    as a guide).  By convention, it lives in a file called
+    \file{spam.c} or \file{spammodule.c}.  The output file should be
+    called \file{spam.dll} or \file{spam.pyd} (the latter is supported
+    to avoid confusion with a system library \file{spam.dll} to which
+    your module could be a Python interface) in Release mode, or
+    \file{spam_d.dll} or \file{spam_d.pyd} in Debug mode.
+
+    Now your options are:
+
+    \begin{enumerate}
+      \item  Copy \file{example.dsw} and \file{example.dsp}, rename
+             them to \file{spam.*}, and edit them by hand, or
+      \item  Create a brand new project; instructions are below.
+    \end{enumerate}
+
+    In either case, copy \file{example_nt\textbackslash example.def}
+    to \file{spam\textbackslash spam.def}, and edit the new
+    \file{spam.def} so its second line contains the string
+    `\code{initspam}'.  If you created a new project yourself, add the
+    file \file{spam.def} to the project now.  (This is an annoying
+    little file with only two lines.  An alternative approach is to
+    forget about the \file{.def} file, and add the option
+    \programopt{/export:initspam} somewhere to the Link settings, by
+    manually editing the setting in Project Options dialog).
+
+  \item
+  \strong{Creating a brand new project}\\
+    Use the \menuselection{File \sub New \sub Projects} dialog to
+    create a new Project Workspace.  Select ``Win32 Dynamic-Link
+    Library,'' enter the name (\samp{spam}), and make sure the
+    Location is set to the \file{spam} directory you have created
+    (which should be a direct subdirectory of the Python build tree, a
+    sibling of \file{Include} and \file{PC}).  Select Win32 as the
+    platform (in my version, this is the only choice).  Make sure the
+    Create new workspace radio button is selected.  Click OK.
+
+    Now open the \menuselection{Project \sub Settings} dialog.  You
+    only need to change a few settings.  Make sure All Configurations
+    is selected from the Settings for: dropdown list.  Select the
+    C/\Cpp{} tab.  Choose the Preprocessor category in the popup menu
+    at the top.  Type the following text in the entry box labeled
+    Addditional include directories:
+
+\begin{verbatim}
+..\Include,..\PC
+\end{verbatim}
+
+    Then, choose the Input category in the Link tab, and enter
+
+\begin{verbatim}
+..\PCbuild
+\end{verbatim}
+
+    in the text box labelled ``Additional library path.''
+
+    Now you need to add some mode-specific settings:
+
+    Select ``Win32 Release'' in the ``Settings for'' dropdown list.
+    Click the Link tab, choose the Input Category, and append
+    \code{python22.lib} to the list in the ``Object/library modules''
+    box.
+
+    Select ``Win32 Debug'' in the ``Settings for'' dropdown list, and
+    append \code{python22_d.lib} to the list in the ``Object/library
+    modules'' box.  Then click the C/\Cpp{} tab, select ``Code
+    Generation'' from the Category dropdown list, and select ``Debug
+    Multithreaded DLL'' from the ``Use run-time library'' dropdown
+    list.
+
+    Select ``Win32 Release'' again from the ``Settings for'' dropdown
+    list.  Select ``Multithreaded DLL'' from the ``Use run-time
+    library:'' dropdown list.
+
+    You should now create the file spam.def as instructed in the
+    previous section.  Then chose the \menuselection{Insert \sub Files
+    into Project} dialog.  Set the pattern to \code{*.*} and select
+    both \file{spam.c} and \file{spam.def} and click OK.  (Inserting
+    them one by one is fine too.)
+\end{enumerate}
+
+
+If your module creates a new type, you may have trouble with this line:
+
+\begin{verbatim}
+    PyObject_HEAD_INIT(&PyType_Type)
+\end{verbatim}
+
+Change it to:
+
+\begin{verbatim}
+    PyObject_HEAD_INIT(NULL)
+\end{verbatim}
+
+and add the following to the module initialization function:
+
+\begin{verbatim}
+    MyObject_Type.ob_type = &PyType_Type;
+\end{verbatim}
+
+Refer to section 3 of the
+\citetitle[http://www.python.org/doc/FAQ.html]{Python FAQ} for details
+on why you must do this.
+
+
+\section{Differences Between \UNIX{} and Windows
+     \label{dynamic-linking}}
+\sectionauthor{Chris Phoenix}{cphoenix@best.com}
+
+
+\UNIX{} and Windows use completely different paradigms for run-time
+loading of code.  Before you try to build a module that can be
+dynamically loaded, be aware of how your system works.
+
+In \UNIX, a shared object (\file{.so}) file contains code to be used by the
+program, and also the names of functions and data that it expects to
+find in the program.  When the file is joined to the program, all
+references to those functions and data in the file's code are changed
+to point to the actual locations in the program where the functions
+and data are placed in memory.  This is basically a link operation.
+
+In Windows, a dynamic-link library (\file{.dll}) file has no dangling
+references.  Instead, an access to functions or data goes through a
+lookup table.  So the DLL code does not have to be fixed up at runtime
+to refer to the program's memory; instead, the code already uses the
+DLL's lookup table, and the lookup table is modified at runtime to
+point to the functions and data.
+
+In \UNIX, there is only one type of library file (\file{.a}) which
+contains code from several object files (\file{.o}).  During the link
+step to create a shared object file (\file{.so}), the linker may find
+that it doesn't know where an identifier is defined.  The linker will
+look for it in the object files in the libraries; if it finds it, it
+will include all the code from that object file.
+
+In Windows, there are two types of library, a static library and an
+import library (both called \file{.lib}).  A static library is like a
+\UNIX{} \file{.a} file; it contains code to be included as necessary.
+An import library is basically used only to reassure the linker that a
+certain identifier is legal, and will be present in the program when
+the DLL is loaded.  So the linker uses the information from the
+import library to build the lookup table for using identifiers that
+are not included in the DLL.  When an application or a DLL is linked,
+an import library may be generated, which will need to be used for all
+future DLLs that depend on the symbols in the application or DLL.
+
+Suppose you are building two dynamic-load modules, B and C, which should
+share another block of code A.  On \UNIX, you would \emph{not} pass
+\file{A.a} to the linker for \file{B.so} and \file{C.so}; that would
+cause it to be included twice, so that B and C would each have their
+own copy.  In Windows, building \file{A.dll} will also build
+\file{A.lib}.  You \emph{do} pass \file{A.lib} to the linker for B and
+C.  \file{A.lib} does not contain code; it just contains information
+which will be used at runtime to access A's code.  
+
+In Windows, using an import library is sort of like using \samp{import
+spam}; it gives you access to spam's names, but does not create a
+separate copy.  On \UNIX, linking with a library is more like
+\samp{from spam import *}; it does create a separate copy.
+
+
+\section{Using DLLs in Practice \label{win-dlls}}
+\sectionauthor{Chris Phoenix}{cphoenix@best.com}
+
+Windows Python is built in Microsoft Visual \Cpp; using other
+compilers may or may not work (though Borland seems to).  The rest of
+this section is MSV\Cpp{} specific.
+
+When creating DLLs in Windows, you must pass \file{python15.lib} to
+the linker.  To build two DLLs, spam and ni (which uses C functions
+found in spam), you could use these commands:
+
+\begin{verbatim}
+cl /LD /I/python/include spam.c ../libs/python15.lib
+cl /LD /I/python/include ni.c spam.lib ../libs/python15.lib
+\end{verbatim}
+
+The first command created three files: \file{spam.obj},
+\file{spam.dll} and \file{spam.lib}.  \file{Spam.dll} does not contain
+any Python functions (such as \cfunction{PyArg_ParseTuple()}), but it
+does know how to find the Python code thanks to \file{python15.lib}.
+
+The second command created \file{ni.dll} (and \file{.obj} and
+\file{.lib}), which knows how to find the necessary functions from
+spam, and also from the Python executable.
+
+Not every identifier is exported to the lookup table.  If you want any
+other modules (including Python) to be able to see your identifiers,
+you have to say \samp{_declspec(dllexport)}, as in \samp{void
+_declspec(dllexport) initspam(void)} or \samp{PyObject
+_declspec(dllexport) *NiGetSpamData(void)}.
+
+Developer Studio will throw in a lot of import libraries that you do
+not really need, adding about 100K to your executable.  To get rid of
+them, use the Project Settings dialog, Link tab, to specify
+\emph{ignore default libraries}.  Add the correct
+\file{msvcrt\var{xx}.lib} to the list of libraries.

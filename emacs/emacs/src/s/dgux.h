@@ -1,6 +1,6 @@
 /* Definitions file for GNU Emacs running on Data General's DG/UX
    version 4.32 upto and including 5.4.1.
-   Copyright (C) 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -86,10 +86,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define HAVE_PTYS
 
-/* (Assume) we do have vfork.  */
-
-#define HAVE_VFORK
-
 /*
  *	Define NONSYSTEM_DIR_LIBRARY to make Emacs emulate
  *      The 4.2 opendir, etc., library functions.
@@ -166,12 +162,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define	BAUD_CONVERT    { 0, 110, 134, 150, 300, 600, 1200, 1800, 2400, \
 			  4800, 9600, 19200, 38400 }
-
-/*
- *	Define NLIST_STRUCT if the system has nlist.h
- */
-
-#define	NLIST_STRUCT
 
 /*
  *      Make WM Interface Compliant.
@@ -251,17 +241,6 @@ Boston, MA 02111-1307, USA.  */
 #undef sigpause
 
 #define POSIX_SIGNALS
-
-/* Define this if you use System 5 Release 4 Streams */
-#define open  sys_open
-#define close sys_close
-#define read  sys_read
-#define write sys_write
-
-#define INTERRUPTIBLE_OPEN
-#define INTERRUPTIBLE_CLOSE
-/* can't hurt to define these, even though read/write should auto restart */
-#define INTERRUPTIBLE_IO
 
 #ifndef NO_DGUX_SIGNAL_REDEF
 /* Can't use sys_signal because then etc/server.c would need sysdep.o.  */

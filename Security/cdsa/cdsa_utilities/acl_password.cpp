@@ -75,7 +75,7 @@ PasswordAclSubject *PasswordAclSubject::Maker::make(const TypedList &list) const
 	return new PasswordAclSubject(CssmAllocator::standard(CssmAllocator::sensitive), *password);
 }
 
-PasswordAclSubject *PasswordAclSubject::Maker::make(Reader &pub, Reader &priv) const
+PasswordAclSubject *PasswordAclSubject::Maker::make(Version, Reader &pub, Reader &priv) const
 {
     CssmAllocator &alloc = CssmAllocator::standard(CssmAllocator::sensitive);
 	const void *data; uint32 length; priv.countedData(data, length);

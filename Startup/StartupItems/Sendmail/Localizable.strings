@@ -2,8 +2,12 @@
 <!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
 <plist version="0.9">
 <dict>
-	<key>Starting Sendmail</key>
-	<string>Starting Sendmail</string>
+	<key>Starting mail services</key>
+	<string>Starting mail services</string>
+	<key>Stopping mail services</key>
+	<string>Stopping mail services</string>
+	<key>Restarting mail services</key>
+	<string>Restarting mail services</string>
 </dict>
 </plist>
 

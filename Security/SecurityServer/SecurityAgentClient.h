@@ -28,10 +28,14 @@
 #include <Security/osxsigning.h>
 #include <Security/cssmacl.h>
 #include <Security/cssm.h>
+#include <Security/Authorization.h>
+#include <Security/AuthorizationPlugin.h>
+#include <Security/AuthorizationWalkers.h>
 
 namespace Security {
 
 using MachPlusPlus::Port;
+    using MachPlusPlus::Bootstrap;
 using CodeSigning::OSXCode;
 
 
@@ -43,7 +47,6 @@ namespace SecurityAgent {
 
 static const unsigned int maxPassphraseLength = 1024;
 static const unsigned int maxUsernameLength = 80;
-
 
 //
 // Unified reason codes transmitted to SecurityAgent (and internationalized there)
@@ -85,11 +88,13 @@ enum Reason {
 class Client {
 public:
 	Client();
+    Client(uid_t clientUID, Bootstrap clientBootstrap);
 	virtual ~Client();
-	
-	void activate(const char *bootstrapName = NULL);
-	void terminate();
-	
+
+	virtual void activate(const char *bootstrapName = NULL);
+	virtual void terminate();
+	bool isActive() const { return mActive; }
+
 	bool keepAlive() const		{ return mKeepAlive; }
 	void keepAlive(bool ka)		{ mKeepAlive = ka; }
 	
@@ -116,12 +121,13 @@ public:
 	
 	// ask permission to use an item in a database
     struct KeychainChoice {
-        bool allowAccess;
-        bool continueGrantingToCaller;
+        bool allowAccess;						// user said "yes"
+        bool continueGrantingToCaller;			// user wants calling App added to ACL
+		char passphrase[maxPassphraseLength];	// only if requested
     };
     void queryKeychainAccess(const OSXCode *requestor, pid_t requestPid,
         const char *database, const char *itemName, AclAuthorization action,
-		KeychainChoice &choice);
+		bool needPassphrase, KeychainChoice &choice);
         
     // generic old passphrase query
     void queryOldGenericPassphrase(const OSXCode *requestor, pid_t requestPid,
@@ -143,7 +149,11 @@ public:
                 char username[maxUsernameLength], char passphrase[maxPassphraseLength]);
 	bool retryAuthorizationAuthenticate(Reason reason,
                 char username[maxUsernameLength], char passphrase[maxPassphraseLength]);
-	
+
+    bool invokeMechanism(const string &inPluginId, const string &inMechanismId, const AuthorizationValueVector *inArguments, const AuthorizationItemSet *inHints, const AuthorizationItemSet *inContext, AuthorizationResult *outResult, AuthorizationItemSet *&outHintsPtr, AuthorizationItemSet *&outContextPtr);
+
+    void terminateAgent();
+    
 	// Cancel a pending client call in another thread by sending a cancel message.
 	// This call (only) may be made from another thread.
 	void cancel();
@@ -158,6 +168,8 @@ private:
 	bool mActive;
     uid_t desktopUid;
     gid_t desktopGid;
+    bool mUsePBS;
+    Bootstrap mClientBootstrap;
     mach_port_t pbsBootstrap;
 	bool mKeepAlive;
 
@@ -167,11 +179,13 @@ private:
 		newPassphraseStage,		// in get-new-passphrase sub-protocol
         newGenericPassphraseStage, // in get-new-generic-passphrase sub-protocol
         oldGenericPassphraseStage, // in get-old-generic-passphrase sub-protocol
-		authorizeStage			// in authorize-by-group-membership sub-protocol
+		authorizeStage,			// in authorize-by-group-membership sub-protocol
+       invokeMechanismStage   // in invoke mechanism sub-protocol
 	} stage;
 	Port mStagePort;
 
-    void locateDesktop();
+	void setClientGroupID(const char *grpName = NULL);
+	void locateDesktop();
     void establishServer(const char *name);
 	void check(kern_return_t error);
 	void unstage();

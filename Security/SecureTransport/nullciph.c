@@ -65,12 +65,10 @@ const SSLSymmetricCipher SSLCipherNull = {
     0,          /* Secret key size */
     0,          /* IV size */
     0,          /* Block size */
-    #ifdef	_APPLE_CDSA_
     CSSM_ALGID_NONE,	
     CSSM_ALGID_NONE,	
     CSSM_ALGMODE_NONE,
 	CSSM_PADDING_NONE,
-    #endif	/* _APPLE_CDSA */
     NullInit,
     NullCrypt,
     NullCrypt,

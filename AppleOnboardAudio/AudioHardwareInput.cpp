@@ -16,7 +16,6 @@
 OSDefineMetaClassAndStructors(AudioHardwareInput, IOAudioPort)
 
 AudioHardwareInput *AudioHardwareInput::create(AudioHardwareInputInfo theInfo){
- 
     AudioHardwareInput *myIntput;
     myIntput = new AudioHardwareInput;
     
@@ -30,9 +29,7 @@ AudioHardwareInput *AudioHardwareInput::create(AudioHardwareInputInfo theInfo){
     return myIntput;
 }
 
-
 bool AudioHardwareInput::init(AudioHardwareInputInfo theInfo) {
-
     if(!super::init())
         return(false);
     
@@ -51,15 +48,14 @@ bool AudioHardwareInput::init(AudioHardwareInputInfo theInfo) {
     return(true);
 }
 
-
 void AudioHardwareInput::free(){
-    //pluginRef->release();
+    // pluginRef->release();
     super::free();
 }
 
 void AudioHardwareInput::attachAudioPluginRef(AppleOnboardAudio *theAudioPlugin){
     pluginRef = theAudioPlugin;
-    //pluginRef->retain();
+    // pluginRef->retain();
 }
 
 
@@ -67,16 +63,16 @@ bool AudioHardwareInput::deviceSetActive( UInt32 currentDevices ){
     UInt32 devices;
     bool oldactive;
     
-        //we make the following assumption until we have input selection
-        //Internal microphone is supposed to be active until we have 
-        //input selection. When an external mic is connected it is activated
-        //automatically
-    //debug2IOLog("Current devices are %x \n", currentDevices);
+	// we make the following assumption until we have input selection
+	// Internal microphone is supposed to be active until we have 
+	// input selection. When an external mic is connected it is activated
+	// automatically
+    // debug2IOLog("Current devices are %x \n", currentDevices);
     devices = pluginRef->sndHWGetConnectedDevices();    
-    devices = devices & kSndHWInputDevices;   //we have only the connected device
+    devices = devices & kSndHWInputDevices;   		// we have only the connected device
     oldactive = active;
 
-        //mask the device to get only input devices
+	// mask the device to get only input devices
 
     switch(inputPortType) {
         case kIntMicSource:
@@ -93,7 +89,7 @@ bool AudioHardwareInput::deviceSetActive( UInt32 currentDevices ){
                     pluginRef->sndHWSetActiveInputExclusive(sndHWPort);
                     if(isOnMuX)
                         theMuxRef->SetMuxSource(inputPortType);
-                    //CLOG(" --> Switching to port %d\n", sndHWPort);
+                    // CLOG(" --> Switching to port %d\n", sndHWPort);
                 }
 			}
             ioLog();
@@ -138,16 +134,17 @@ void AudioHardwareInput::ioLog() {
 }
 
 void AudioHardwareInput::forceActivation(UInt32 selector) {
-    
+	debug4IOLog ("forceActivation(%4s), inputPortType = %4s, active = %d\n", (char*)&selector, (char*)&inputPortType, active);
+
     if(selector == inputPortType) {
-        if(!active) {
+//        if(!active) {
             pluginRef->sndHWSetActiveInputExclusive(sndHWPort);
             if(isOnMuX)
-                    theMuxRef->SetMuxSource(inputPortType);
+				theMuxRef->SetMuxSource(inputPortType);
 
            // CLOG(" --> Switching to port %d\n", sndHWPort);
             active = true;
-        }
+//        }
     } else {
         active = false;
     }

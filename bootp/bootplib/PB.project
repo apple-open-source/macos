@@ -6,7 +6,9 @@
         CLASSES = (clientTypes.m, subnetDescr.m); 
         FRAMEWORKS = (); 
         FRAMEWORKSEARCH = (); 
-        HEADERSEARCH = ("$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/bsd"); 
+        HEADERSEARCH = (
+            "$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders"
+        ); 
         H_FILES = (
             afp.h, 
             arp.h, 
@@ -46,7 +48,11 @@
             bootp_transmit.h, 
             NICachePrivate.h, 
             nbsp.h, 
-            NetBootServer.h
+            NetBootServer.h, 
+            ioregpath.h, 
+            cfutil.h, 
+            nbimages.h, 
+            NetBootImageInfo.h
         ); 
         LIBRARYSEARCH = (); 
         OTHER_LIBS = (); 
@@ -72,7 +78,10 @@
             ptrlist.c, 
             tftplib.c, 
             ts_log.c, 
-            util.c
+            util.c, 
+            ioregpath.c, 
+            cfutil.c, 
+            nbimages.c
         ); 
         OTHER_SOURCES = (
             Makefile.preamble, 

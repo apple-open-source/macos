@@ -1,3 +1,4 @@
+RC_OS = macos
 OTHER_SRCS = Makefile
 PRIVATE_NOTES = Private_CompilerTools.html FatFiles.rtf
 NOTES = CompilerTools.html Prebinding.html

@@ -5,9 +5,9 @@
 #		folder and creates a top-level HTML page to them
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/03/29 03:02:19 $
+# Last Updated: $Date: 2001/11/30 22:43:15 $
 # 
-# Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
+# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
 # subject to the Apple Public Source License Version 1.1 (the "License").
 # You may not use this file except in compliance with the License.  Please
@@ -22,7 +22,7 @@
 # the specific language governing rights and limitations under the
 # License.
 #
-# $Revision: 1.3 $
+# $Revision: 1.5 $
 ######################################################################
 use Cwd;
 use File::Find;
@@ -61,13 +61,23 @@ my $debugging = 1;
 # - We run through array of DocRef objs and create a master TOC based on the info
 # - Finally, we visit each TOC file in each frameset and add a "[Top]" link
 #   back to the master TOC.  [This is fragile in the current implementation, since
-#   we find TOCs based on searching for a file called "toc.html" in the frameset dir.
+#   we find TOCs based on searching for a file called "toc.html" in the frameset dir.]
 # 
 ########################## Setup from Configuration File #######################
 my $localConfigFileName = "headerDoc2HTML.config";
 my $preferencesConfigFileName = "com.apple.headerDoc2HTML.config";
-my $homeDir = (getpwuid($<))[7];
-my $usersPreferencesPath = $homeDir.$pathSeparator."Library".$pathSeparator."Preferences";
+my $homeDir;
+my $usersPreferencesPath;
+#added WD-rpw 07/30/01 to support running on MacPerl
+if ($^O =~ /MacOS/i)  {
+	require "FindFolder.pl";
+	$homeDir = MacPerl::FindFolder("D");	#D = Desktop. Arbitrary place to put things
+	$usersPreferencesPath = MacPerl::FindFolder("P");	#P = Preferences
+} else {
+	$homeDir = (getpwuid($<))[7];
+	$usersPreferencesPath = $homeDir.$pathSeparator."Library".$pathSeparator."Preferences";
+}
+
 my @configFiles = ($Bin.$pathSeparator.$localConfigFileName, $usersPreferencesPath.$pathSeparator.$preferencesConfigFileName);
 
 # default configuration, which will be modified by assignments found in config files.
@@ -93,12 +103,17 @@ my $inputDir;
 
 if (($#ARGV == 0) && (-d $ARGV[0])) {
     $inputDir = $ARGV[0];
-    $inputDir =~ s|(.*)/$|$1|; # get rid of trailing slash, if any
-    if ($inputDir !~ /^\//) { # not absolute path -- !!! should check for ~
-        my $cwd = cwd();
-        $inputDir = $cwd.$pathSeparator.$inputDir;
-    }
-    &find({wanted => \&getFiles, follow => 1}, $inputDir);
+
+	if ($^O =~ /MacOS/i) {
+		find(\&getFiles, $inputDir);
+	} else {
+		$inputDir =~ s|(.*)/$|$1|; # get rid of trailing slash, if any
+		if ($inputDir !~ /^\//) { # not absolute path -- !!! should check for ~
+			my $cwd = cwd();
+			$inputDir = $cwd.$pathSeparator.$inputDir;
+		}
+		&find({wanted => \&getFiles, follow => 1}, $inputDir);
+	}
 } else {
     die "You must specify a single input directory for processing.\n";
 }
@@ -115,6 +130,8 @@ sub getFiles {
 ########################## Find HeaderDoc Comments #######################
 my @headerFramesetRefs;
 my @classFramesetRefs;
+my @categoryFramesetRefs;
+my @protocolFramesetRefs;
 
 my $oldRecSep = $/;
 undef $/; # read in files as strings
@@ -148,8 +165,12 @@ foreach my $file (@inputFiles) {
         my $tmpType = $docRef->type();
         if ($tmpType eq "Header") {
             push (@headerFramesetRefs, $docRef);
-        } elsif ($tmpType eq "CPPClass") {
+        } elsif ($tmpType eq "cl"){
             push (@classFramesetRefs, $docRef);
+        } elsif ($tmpType eq "intf"){
+            push (@protocolFramesetRefs, $docRef);
+        } elsif ($tmpType eq "ObjCCategory"){
+            push (@categoryFramesetRefs, $docRef);
         } else {
             my $tmpName = $docRef->name();
             my $tmpPath = $docRef->path();
@@ -160,12 +181,11 @@ foreach my $file (@inputFiles) {
 $/ = $oldRecSep;
 
 # create master TOC if we have any framesets
-if (scalar(@headerFramesetRefs) + scalar(@classFramesetRefs)) {
+if (scalar(@headerFramesetRefs) + scalar(@classFramesetRefs) + scalar(@protocolFramesetRefs) + scalar(@categoryFramesetRefs)) {
     &printMasterTOC();
     &addTopLinkToFramesetTOCs();
 } else {
     print "gatherHeaderDoc.pl: No HeaderDoc framesets found--returning\n" if ($debugging); 
-    return;
 }
 exit 0;
 
@@ -175,6 +195,8 @@ sub printMasterTOC {
     my $masterTOC = $outputDir.$pathSeparator. $masterTOCFileName;
     my $headersLinkString= '';
     my $classesLinkString = '';
+    my $protocolsLinkString = '';
+    my $categoriesLinkString = '';
     my $fileString;
     my $localDebug = 0;
     
@@ -196,6 +218,24 @@ sub printMasterTOC {
     }
     if (($localDebug) && length($classesLinkString)) {print "\$classesLinkString is '$classesLinkString'\n";};
     
+    # get the HTML links to each protocol 
+    foreach my $ref (sort objName @protocolFramesetRefs) {
+        my $name = $ref->name();
+        my $path = $ref->path();        
+        my $tmpString = &getLinkToFramesetFrom($masterTOC, $path, $name);
+        $protocolsLinkString .= $tmpString;
+    }
+    if (($localDebug) && length($protocolsLinkString)) {print "\$protocolsLinkString is '$protocolsLinkString'\n";};
+    
+    # get the HTML links to each category 
+    foreach my $ref (sort objName @categoryFramesetRefs) {
+        my $name = $ref->name();
+        my $path = $ref->path();        
+        my $tmpString = &getLinkToFramesetFrom($masterTOC, $path, $name);
+        $categoriesLinkString .= $tmpString;
+    }
+    if (($localDebug) && length($categoriesLinkString)) {print "\$categoriesLinkString is '$categoriesLinkString'\n";};
+    
     # put together header/footer with linkString--could use template
     my $htmlHeader = "<html><head><title>Header Documentation</title></head><body bgcolor=\"#cccccc\"><h1>Header Documentation</h1><hr><br>\n";
     my $headerSection = "<h2>Headers</h2>\n<blockquote>\n".$headersLinkString."\n</blockquote>\n";
@@ -203,8 +243,16 @@ sub printMasterTOC {
     if (length($classesLinkString)) {
     	$classesSection = "<h2>Classes</h2>\n<blockquote>\n".$classesLinkString."\n</blockquote>\n";
     }
+    my $categoriesSection = '';
+    if (length($categoriesLinkString)) {
+    	$categoriesSection = "<h2>Categories</h2>\n<blockquote>\n".$categoriesLinkString."\n</blockquote>\n";
+    }
+    my $protocolsSection = '';
+    if (length($protocolsLinkString)) {
+    	$protocolsSection = "<h2>Protocols</h2>\n<blockquote>\n".$protocolsLinkString."\n</blockquote>\n";
+    }
     my $htmlFooter = "</body>\n</html>\n";
-    $fileString = $htmlHeader.$headerSection.$classesSection.$htmlFooter;
+    $fileString = $htmlHeader.$headerSection.$classesSection.$categoriesSection.$protocolsSection.$htmlFooter;
     
     # write out page
     print "gatherHeaderDoc.pl: writing master TOC to $masterTOC\n" if ($localDebug);
@@ -219,6 +267,8 @@ sub addTopLinkToFramesetTOCs {
     my @allDocRefs;
     push(@allDocRefs, @headerFramesetRefs);
     push(@allDocRefs, @classFramesetRefs);
+    push(@allDocRefs, @protocolFramesetRefs);
+    push(@allDocRefs, @categoryFramesetRefs);
     my $localDebug = 0;
     
     foreach my $ref (@allDocRefs) {

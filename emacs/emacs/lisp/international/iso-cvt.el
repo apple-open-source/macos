@@ -1,7 +1,7 @@
-;;; iso-cvt.-el -- translate ISO 8859-1 from/to various encodings
+;;; iso-cvt.el --- translate ISO 8859-1 from/to various encodings -*- coding: iso-latin-1 -*-
 ;; This file was formerly called gm-lingo.el.
 
-;; Copyright (C) 1993, 1994, 1995, 1996, 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 1996, 1998, 2000 Free Software Foundation, Inc.
 
 ;; Author: Michael Gschwind <mike@vlsivie.tuwien.ac.at>
 ;; Keywords: tex, iso, latin, i18n
@@ -32,22 +32,18 @@
 ;; Note that many translations use the GNU recode tool to do the actual
 ;; conversion.  So you might want to install that tool to get the full
 ;; benefit of iso-cvt.el
-;
 
 ; TO DO:
-; Cover more cases for translation (There is an infinite number of ways to
+; Cover more cases for translation.  (There is an infinite number of ways to
 ; represent accented characters in TeX)
 
 ;; SEE ALSO:
 ; If you are interested in questions related to using the ISO 8859-1
 ; characters set (configuring emacs, Unix, etc. to use ISO), then you
 ; can get the ISO 8859-1 FAQ via anonymous ftp from
-; ftp.vlsivie.tuwien.ac.at in /pub/bit/FAQ-ISO-8859-1
+; ftp.vlsivie.tuwien.ac.at in /pub/8bit/FAQ-ISO-8859-1
 
 ;;; Code:
-
-(provide 'iso-cvt)
-(require 'format)
 
 (defvar iso-spanish-trans-tab
   '(
@@ -88,8 +84,7 @@
 (defun iso-spanish (from to &optional buffer)
   "Translate net conventions for Spanish to ISO 8859-1.
 The region between FROM and TO is translated using the table TRANS-TAB.
-Optional arg BUFFER is ignored (so that the function can can be used in
-`format-alist')."
+Optional arg BUFFER is ignored (for use in `format-alist')."
   (interactive "*r")
   (iso-translate-conventions from to iso-spanish-trans-tab))
 
@@ -130,8 +125,7 @@ little.")
 (defun iso-german (from to &optional buffer)
  "Translate net conventions for German to ISO 8859-1.
 The region between FROM and TO is translated using the table TRANS-TAB.
-Optional arg BUFFER is ignored (so that the function can can be used in
-`format-alist')."
+Optional arg BUFFER is ignored (for use in `format-alist')."
  (interactive "*r")
  (iso-translate-conventions from to iso-german-trans-tab))
  
@@ -203,8 +197,7 @@ Optional arg BUFFER is ignored (so that the function can can be used in
 (defun iso-iso2tex (from to &optional buffer)
  "Translate ISO 8859-1 characters to TeX sequences.
 The region between FROM and TO is translated using the table TRANS-TAB.
-Optional arg BUFFER is ignored (so that the function can can be used in
-`format-alist')."
+Optional arg BUFFER is ignored (for use in `format-alist')."
  (interactive "*r")
  (iso-translate-conventions from to iso-iso2tex-trans-tab))
 
@@ -390,8 +383,7 @@ contains commonly used sequences.")
 (defun iso-tex2iso (from to &optional buffer)
  "Translate TeX sequences to ISO 8859-1 characters.
 The region between FROM and TO is translated using the table TRANS-TAB.
-Optional arg BUFFER is ignored (so that the function can can be used in
-`format-alist')."
+Optional arg BUFFER is ignored (for use in `format-alist')."
  (interactive "*r")
  (iso-translate-conventions from to iso-tex2iso-trans-tab))
 
@@ -649,8 +641,7 @@ contains commonly used sequences.")
 (defun iso-gtex2iso (from to &optional buffer)
  "Translate German TeX sequences to ISO 8859-1 characters.
 The region between FROM and TO is translated using the table TRANS-TAB.
-Optional arg BUFFER is ignored (so that the function can can be used in
-`format-alist')."
+Optional arg BUFFER is ignored (for use in `format-alist')."
  (interactive "*r")
  (iso-translate-conventions from to iso-gtex2iso-trans-tab))
 
@@ -658,8 +649,7 @@ Optional arg BUFFER is ignored (so that the function can can be used in
 (defun iso-iso2gtex (from to &optional buffer)
  "Translate ISO 8859-1 characters to German TeX sequences.
 The region between FROM and TO is translated using the table TRANS-TAB.
-Optional arg BUFFER is ignored (so that the function can can be used in
-`format-alist')."
+Optional arg BUFFER is ignored (for use in `format-alist')."
  (interactive "*r")
  (iso-translate-conventions from to iso-iso2gtex-trans-tab))
 
@@ -676,10 +666,153 @@ Optional arg BUFFER is ignored (so that the function can can be used in
 (defun iso-iso2duden (from to &optional buffer)
  "Translate ISO 8859-1 characters to German TeX sequences.
 The region between FROM and TO is translated using the table TRANS-TAB.
-Optional arg BUFFER is ignored (so that the function can can be used in
-`format-alist')."
+Optional arg BUFFER is ignored (for use in `format-alist')."
  (interactive "*r")
  (iso-translate-conventions from to iso-iso2duden-trans-tab))
+
+(defvar iso-iso2sgml-trans-tab
+  '(("À" "&Agrave;")
+    ("Á" "&Aacute;")
+    ("Â" "&Acirc;")
+    ("Ã" "&Atilde;")
+    ("Ä" "&Auml;")
+    ("Å" "&Aring;")
+    ("Æ" "&AElig;")
+    ("Ç" "&Ccedil;")
+    ("È" "&Egrave;")
+    ("É" "&Eacute;")
+    ("Ê" "&Ecirc;")
+    ("Ë" "&Euml;")
+    ("Ì" "&Igrave;")
+    ("Í" "&Iacute;")
+    ("Î" "&Icirc;")
+    ("Ï" "&Iuml;")
+    ("Ð" "&ETH;")
+    ("Ñ" "&Ntilde;")
+    ("Ò" "&Ograve;")
+    ("Ó" "&Oacute;")
+    ("Ô" "&Ocirc;")
+    ("Õ" "&Otilde;")
+    ("Ö" "&Ouml;")
+    ("Ø" "&Oslash;")
+    ("Ù" "&Ugrave;")
+    ("Ú" "&Uacute;")
+    ("Û" "&Ucirc;")
+    ("Ü" "&Uuml;")
+    ("Ý" "&Yacute;")
+    ("Þ" "&THORN;")
+    ("ß" "&szlig;")
+    ("à" "&agrave;")
+    ("á" "&aacute;")
+    ("â" "&acirc;")
+    ("ã" "&atilde;")
+    ("ä" "&auml;")
+    ("å" "&aring;")
+    ("æ" "&aelig;")
+    ("ç" "&ccedil;")
+    ("è" "&egrave;")
+    ("é" "&eacute;")
+    ("ê" "&ecirc;")
+    ("ë" "&euml;")
+    ("ì" "&igrave;")
+    ("í" "&iacute;")
+    ("î" "&icirc;")
+    ("ï" "&iuml;")
+    ("ð" "&eth;")
+    ("ñ" "&ntilde;")
+    ("ò" "&ograve;")
+    ("ó" "&oacute;")
+    ("ô" "&ocirc;")
+    ("õ" "&otilde;")
+    ("ö" "&ouml;")
+    ("ø" "&oslash;")
+    ("ù" "&ugrave;")
+    ("ú" "&uacute;")
+    ("û" "&ucirc;")
+    ("ü" "&uuml;")
+    ("ý" "&yacute;")
+    ("þ" "&thorn;")
+    ("ÿ" "&yuml;")))
+
+(defvar iso-sgml2iso-trans-tab
+  '(("&Agrave;" "À")
+    ("&Aacute;" "Á")
+    ("&Acirc;" "Â")
+    ("&Atilde;" "Ã")
+    ("&Auml;" "Ä")
+    ("&Aring;" "Å")
+    ("&AElig;" "Æ")
+    ("&Ccedil;" "Ç")
+    ("&Egrave;" "È")
+    ("&Eacute;" "É")
+    ("&Ecirc;" "Ê")
+    ("&Euml;" "Ë")
+    ("&Igrave;" "Ì")
+    ("&Iacute;" "Í")
+    ("&Icirc;" "Î")
+    ("&Iuml;" "Ï")
+    ("&ETH;" "Ð")
+    ("&Ntilde;" "Ñ")
+    ("&Ograve;" "Ò")
+    ("&Oacute;" "Ó")
+    ("&Ocirc;" "Ô")
+    ("&Otilde;" "Õ")
+    ("&Ouml;" "Ö")
+    ("&Oslash;" "Ø")
+    ("&Ugrave;" "Ù")
+    ("&Uacute;" "Ú")
+    ("&Ucirc;" "Û")
+    ("&Uuml;" "Ü")
+    ("&Yacute;" "Ý")
+    ("&THORN;" "Þ")
+    ("&szlig;" "ß")
+    ("&agrave;" "à")
+    ("&aacute;" "á")
+    ("&acirc;" "â")
+    ("&atilde;" "ã")
+    ("&auml;" "ä")
+    ("&aring;" "å")
+    ("&aelig;" "æ")
+    ("&ccedil;" "ç")
+    ("&egrave;" "è")
+    ("&eacute;" "é")
+    ("&ecirc;" "ê")
+    ("&euml;" "ë")
+    ("&igrave;" "ì")
+    ("&iacute;" "í")
+    ("&icirc;" "î")
+    ("&iuml;" "ï")
+    ("&eth;" "ð")
+    ("&ntilde;" "ñ")
+    ("&ograve;" "ò")
+    ("&oacute;" "ó")
+    ("&ocirc;" "ô")
+    ("&otilde;" "õ")
+    ("&ouml;" "ö")
+    ("&oslash;" "ø")
+    ("&ugrave;" "ù")
+    ("&uacute;" "ú")
+    ("&ucirc;" "û")
+    ("&uuml;" "ü")
+    ("&yacute;" "ý")
+    ("&thorn;" "þ")
+    ("&yuml;" "ÿ")))
+
+;;;###autoload
+(defun iso-iso2sgml (from to &optional buffer)
+ "Translate ISO 8859-1 characters in the region to SGML entities.
+The entities used are from \"ISO 8879:1986//ENTITIES Added Latin 1//EN\".
+Optional arg BUFFER is ignored (for use in `format-alist')."
+ (interactive "*r")
+ (iso-translate-conventions from to iso-iso2sgml-trans-tab))
+
+;;;###autoload
+(defun iso-sgml2iso (from to &optional buffer)
+ "Translate SGML entities in the region to ISO 8859-1 characters.
+The entities used are from \"ISO 8879:1986//ENTITIES Added Latin 1//EN\".
+Optional arg BUFFER is ignored (for use in `format-alist')."
+ (interactive "*r")
+ (iso-translate-conventions from to iso-sgml2iso-trans-tab))
 
 ;;;###autoload
 (defun iso-cvt-read-only ()
@@ -733,24 +866,30 @@ Optional arg BUFFER is ignored (so that the function can can be used in
 	  (progn
 	    (define-key load-as-menu-map (vector name)
 	      (cons str-name
-		    (list 'lambda '(file) (list 'interactive (format "FFind file (as %s): " name))
-			  (list 'format-find-file 'file (list 'quote name)))))
+		    `(lambda (file)
+		       (interactive (format "FFind file (as %s): " ,name))
+		       (format-find-file file ',name))))
 	    (define-key insert-as-menu-map (vector name)
 	      (cons str-name
-		    (list 'lambda '(file) (list 'interactive (format "FInsert file (as %s): " name))
-			  (list 'format-insert-file 'file (list 'quote name)))))
+		    `(lambda (file)
+		       (interactive (format "FInsert file (as %s): " ,name))
+		       (format-insert-file file ',name))))
 	    (define-key write-as-menu-map (vector name)
 	      (cons str-name
-		    (list 'lambda '(file) (list 'interactive (format "FWrite file (as %s): " name))
-			  (list 'format-write-file 'file (list 'quote (list name))))))
+		    `(lambda (file)
+		       (interactive (format "FWrite file (as %s): " ,name))
+			  (format-write-file file ',name))))
 	    (define-key translate-to-menu-map (vector name)
 	      (cons str-name
-		    (list 'lambda '() '(interactive)
-			  (list 'format-encode-buffer (list 'quote name)))))
+		    `(lambda ()
+		       (interactive)
+			  (format-encode-buffer ',name))))
 	    (define-key translate-from-menu-map (vector name)
 	      (cons str-name
-		    (list 'lambda '() '(interactive)
-			  (list 'format-decode-buffer (list 'quote (list name))))))
-	    )))))
+		    `(lambda ()
+		       (interactive)
+		       (format-decode-buffer ',name)))))))))
+
+(provide 'iso-cvt)
 
 ;;; iso-cvt.el ends here

@@ -54,1309 +54,529 @@
  *	@(#)sys.c	7.1 (Berkeley) 6/5/86
  */
 
-#include <sys/param.h>
-#include <ufs/ufs/dir.h>
-#include <sys/reboot.h>
-#include <architecture/byte_order.h>
-#include "ufs_byteorder.h"
 #include "libsaio.h"
-#include "cache.h"
-#include "kernBootStruct.h"
-#include "stringConstants.h"
-#include <ufs/ffs/fs.h>
-#include "nbp.h"
-#include "memory.h"
 
-char * gFilename;
-
-extern int ram_debug_sarld;		// in load.c
-
-#define DCACHE            1
-#define ICACHE            1
-#define SYS_MESSAGES      1
-#define CHECK_CAREFULLY   0
-#define COMPRESSION       1
-
-// #define DEBUG 1
-
-#ifdef	DEBUG
-#define DPRINT(x)       { printf x; }
-#define DSPRINT(x)      { printf x; sleep(2); }
-#define RDPRINT(x)      { if (ram_debug_sarld) printf x; }
-#define RDSPRINT(x)     { if (ram_debug_sarld) printf x; sleep(2); }
-#else
-#define DPRINT(x)
-#define DSPRINT(x)
-#define RDPRINT(x)
-#define RDSPRINT(x)
-#endif
-
-char * devsw[] = {
-    "sd",
-    "hd",
-    "fd",
-    "en",
-    NULL
+struct devsw {
+    const char *  name;
+    unsigned char biosdev;
 };
 
-//#############################################################################
-//#
-//# Disk filesystem functions.
-//#
-//#############################################################################
+static struct devsw devsw[] =
+{
+    { "sd", 0x80 },  /* DEV_SD */
+    { "hd", 0x80 },  /* DEV_HD */
+    { "fd", 0x00 },  /* DEV_FD */
+    { "en", 0xE0 },  /* DEV_EN */
+    { 0, 0 }
+};
 
-static ino_t dlook(char *s, struct iob *io);
-static char * xx(char *str, struct iob *file);
-static int ffs(register long mask);
-
-extern int label_secsize;
-
-#define BIG_ENDIAN_INTEL_FS __LITTLE_ENDIAN__
-
-#if ICACHE
-#define ICACHE_SIZE       256
-#define ICACHE_READAHEAD  8    // read behind and read ahead
-static cache_t * icache;
-#endif ICACHE
-
-#if DCACHE
-#define DCACHE_SIZE       16   // 1k (DIRBLKSIZ) blocks
-static cache_t * dcache;
-#endif
-
-#define	DEV_BSIZE         label_secsize
-
-#if CHECK_CAREFULLY
-static int open_init;
-#endif
-
-static struct fs * fs_block;
-static int         fs_block_valid;
-
-#define SUPERBLOCK_ERROR  "Bad superblock: error %d\n"
-
-/*==========================================================================
- *
- *
+/*
+ * Max number of file descriptors.
  */
+#define NFILES  6
+
+static struct iob iob[NFILES];
+
+void * gFSLoadAddress = 0;
+
+static BVRef getBootVolumeRef( const char * path, const char ** outPath );
+static BVRef newBootVolumeRef( int biosdev, int partno );
+
+//==========================================================================
+// LoadFile - LOW-LEVEL FILESYSTEM FUNCTION.
+//            Load the specified file to the load buffer at LOAD_ADDR.
+
+long LoadFile(const char * fileSpec)
+{
+    const char * filePath;
+    long         fileSize;
+    BVRef        bvr;
+
+    // Resolve the boot volume from the file spec.
+
+    if ((bvr = getBootVolumeRef(fileSpec, &filePath)) == NULL)
+        return -1;
+
+    // Read file into load buffer. The data in the load buffer will be
+    // overwritten by the next LoadFile() call.
+
+    gFSLoadAddress = (void *) LOAD_ADDR;
+
+    fileSize = bvr->fs_loadfile(bvr, (char *)filePath);
+
+    // Return the size of the file, or -1 if load failed.
+
+    return fileSize;
+}
+
+//==========================================================================
+// GetDirEntry - LOW-LEVEL FILESYSTEM FUNCTION.
+//               Fetch the next directory entry for the given directory.
+
+long GetDirEntry(const char * dirSpec, long * dirIndex, const char ** name, 
+                 long * flags, long * time)
+{
+    const char * dirPath;
+    BVRef        bvr;
+
+    // Resolve the boot volume from the dir spec.
+
+    if ((bvr = getBootVolumeRef(dirSpec, &dirPath)) == NULL)
+        return -1;
+
+    // Return 0 on success, or -1 if there are no additional entries.
+
+    return bvr->fs_getdirentry( bvr,
+                /* dirPath */   (char *)dirPath,
+                /* dirIndex */  dirIndex,
+                /* dirEntry */  (char **)name, flags, time );
+}
+
+//==========================================================================
+// GetFileInfo - LOW-LEVEL FILESYSTEM FUNCTION.
+//               Get attributes for the specified file.
+
+long GetFileInfo(const char * dirSpec, const char * name,
+                 long * flags, long * time)
+{
+    long         index = 0;
+    const char * entryName;
+
+    while (GetDirEntry(dirSpec, &index, &entryName, flags, time) == 0)
+    {
+        if (strcmp(entryName, name) == 0)
+            return 0;  // success
+    }
+    return -1;  // file not found
+}
+
+//==========================================================================
+// iob_from_fdesc()
+//
+// Return a pointer to an allocated 'iob' based on the file descriptor
+// provided. Returns NULL if the file descriptor given is invalid.
+
 static struct iob * iob_from_fdesc(int fdesc)
 {
-    register struct iob * file;
-    
+    register struct iob * io;
+
     if (fdesc < 0 || fdesc >= NFILES ||
-        ((file = &iob[fdesc])->i_flgs & F_ALLOC) == 0)
-	    return NULL;
+        ((io = &iob[fdesc])->i_flgs & F_ALLOC) == 0)
+        return NULL;
     else
-	    return file;
+        return io;
 }
 
+//==========================================================================
+// openmem()
 
-/***************************************************************************
- *
- * Disk functions.
- *
- ***************************************************************************/
-
-/*==========================================================================
- *
- *
- */
-static int
-openi(int n, struct iob * io)
+int openmem(char * buf, int len)
 {
-	struct dinode * dp;
-	int    cc, i, j, n_round;
+    int          fdesc;
+    struct iob * io;
 
-#if ICACHE
-	struct dinode *ip;
-	
-	if (icache == 0) {
-	    icache = cacheInit(ICACHE_SIZE, sizeof(struct dinode));
-	}
-#endif /* ICACHE */
+    // Locate a free descriptor slot.
 
-	io->i_offset = 0;
-	io->i_bn = fsbtodb(io->i_ffs, ino_to_fsba(io->i_ffs, n)) + io->i_boff;
-	io->i_cc = io->i_ffs->fs_bsize;
-	io->i_ma = io->i_buf;
+    for (fdesc = 0; fdesc < NFILES; fdesc++)
+        if (iob[fdesc].i_flgs == 0)
+            goto gotfile;
 
-#if ICACHE
-	if (cacheFind(icache, n, 0, (char **)&ip) == 1) {
-		io->i_ino.i_din = *ip;
-		cc = 0;
-	} else {
-#endif ICACHE
-        cc = devread(io);
-	    dp = (struct dinode *)io->i_buf;
-	    n_round = (n / INOPB(io->i_ffs)) * INOPB(io->i_ffs);
-#if ICACHE
-	    /* Read multiple inodes into cache */
-        for (i = max(ino_to_fsbo(io->i_ffs, n) - ICACHE_READAHEAD, 0),
-             j = min(i+2*ICACHE_READAHEAD, INOPB(io->i_ffs)); i < j; i++) {
-            cacheFind(icache, n_round + i, 0, (char **)&ip);
+    stop("Out of file descriptors");
 
-#if	BIG_ENDIAN_INTEL_FS
-#warning Building with Big Endian changes
-            byte_swap_dinode_in(&dp[i]);
-#endif	/* BIG_ENDIAN_INTEL_FS */
+gotfile:
+    io = &iob[fdesc];
+    bzero(io, sizeof(*io));
 
-            *ip = dp[i];
-            if (i == ino_to_fsbo(io->i_ffs, n)) {
-                io->i_ino.i_din = *ip;
-            }
-	    }
-	}
-#else ICACHE
+    // Mark the descriptor as taken. Set the F_MEM flag to indicate
+    // that the file buffer is provided by the caller.
 
-#if     BIG_ENDIAN_INTEL_FS
-    byte_swap_dinode_in(&dp[ino_to_fsbo(io->i_ffs, n)]);
-#endif  /* BIG_ENDIAN_INTEL_FS */
+    io->i_flgs     = F_ALLOC | F_MEM;
+    io->i_buf      = buf;
+    io->i_filesize = len;
 
-    io->i_ino.i_din = dp[ino_to_fsbo(io->i_ffs, n)];
-#endif ICACHE
-	
-    io->i_ino.i_number = n;
-	return (cc);
+    return fdesc;
 }
 
-/*==========================================================================
- *
- *
- */
-static int
-readlink(struct iob * io, char * buf, int len)
+//==========================================================================
+// open() - Open the file specified by 'path' for reading.
+
+int open(const char * path, int flags)
 {
-	register struct inode * ip;
-	
-	ip = &io->i_ino;
-#if 1
-    /* read contents */
-    io->i_offset = 0;
-    io->i_cc = 0;
-    io->i_flgs |= F_FILE;
-    if (read(io - iob, buf, len) < 0)
-        return -1;
-#else    
-	if (ip->i_icflags & IC_FASTLINK) {
-	   if (ip->i_size > len)
-           return -1;
-	    bcopy(ip->i_symlink, buf, ip->i_size);
-	} else {
-	    /* read contents */
-	    io->i_offset = 0;
-	    io->i_cc = 0;
-	    io->i_flgs |= F_FILE;
-	    if (read(io - iob, buf, len) < 0)
-		return -1;
-	}
-#endif
-	return 0;
-}
+    int          fdesc, i;
+    struct iob * io;
+    const char * filePath;
+    BVRef        bvr;
 
-/*==========================================================================
- *
- *
- */
-static int
-find(char * path, struct iob * file)
-{
-	char * q;
-	char   c;
-	int    n, parent;
-	char * lbuf = malloc(MAXPATHLEN + 1);
-	int    ret;
+    // Locate a free descriptor slot.
 
-#if	CHECK_CAREFULLY
-	if (path==NULL || *path=='\0') {
-		error("null path\n");
-		ret = 0; goto out;
-	}
-#endif	CHECK_CAREFULLY
+    for (fdesc = 0; fdesc < NFILES; fdesc++)
+        if (iob[fdesc].i_flgs == 0)
+            goto gotfile;
 
-    DSPRINT(("in find: path=%s\n", path));
+    stop("Out of file descriptors");
 
-root:
-	n = ROOTINO;
-	if (openi(n, file) < 0)
-	{
-        DPRINT(("openi failed\n"));
+gotfile:
+    io = &iob[fdesc];
+    bzero(io, sizeof(*io));
 
-#if	SYS_MESSAGES
-		error("bad root inode\n");
-#endif
+    // Mark the descriptor as taken.
 
-		ret = 0; goto out;
-	}
-    DPRINT(("openi ok\n"));
+    io->i_flgs = F_ALLOC;
 
-	while (*path)
-	{
-		while (*path == '/')
-			path++;
-		q = path;
-		while(*q != '/' && *q != '\0')
-			q++;
-		c = *q;
-		*q = '\0';
-		if (q == path) path = "." ;	/* "/" means "/." */
+    // Resolve the boot volume from the file spec.
 
-		parent = n;
-		if ((n = dlook(path, file)) != 0)
-		{
-			if (c == '\0')
-				break;
-			if (openi(n, file) < 0)
-			{
-				*q = c;
-				ret = 0; goto out;
-			}
-			*q = c;
-			path = q;
+    if ((bvr = getBootVolumeRef(path, &filePath)) == NULL)
+        goto error;
 
-			/* Check for symlinks */
-			if (file->i_ino.i_mode & IFLNK) {
-			    char *buf = malloc(MAXPATHLEN + 1);
-			    if (readlink(file, buf, MAXPATHLEN + 1) < 0)
-				return -1;
-			    strcat(buf, q);
-			    strcpy(lbuf, buf);
-			    free(buf);
-			    path = lbuf;
-			    if (*path == '/')
-				goto root;
-			    if (openi(parent, file) < 0) {
-				ret = 0; goto out;
-			    }
-			}
-			continue;
-		}
-		else
-		{
-			*q = c;
-			ret = 0; goto out;
-		}
-	}
-	ret = n;
-out:
-	free(lbuf);
-	return (ret);
-}
+    // Find the next available memory block in the download buffer.
 
-/*==========================================================================
- *
- *
- */
-static daddr_t
-sbmap(struct iob * io, daddr_t bn)
-{
-	register struct inode * ip;
-	int     i, j, sh;
-	daddr_t nb, * bap;
-
-	ip = &io->i_ino;
-
-	if (bn < 0) {
-#if	SYS_MESSAGES
-		error("bn negative\n");
-#endif
-		return ((daddr_t)0);
-	}
-
-	/*
-	 * blocks 0..NDADDR are direct blocks
-	 */
-	if (bn < NDADDR)
-	{
-		nb = ip->i_db[bn];
-		return (nb);
-	}
-
-	/*
-	 * addresses NIADDR have single and double indirect blocks.
-	 * the first step is to determine how many levels of indirection.
-	 */
-    RDPRINT(("In NINADDR\n"));
-
-	sh = 1;
-	bn -= NDADDR;
-	for (j = NIADDR; j > 0; j--) {
-		sh *= NINDIR(io->i_ffs);
-		if (bn < sh)
-			break;
-		bn -= sh;
-	}
-
-	if (j == 0) {
-#if	SYS_MESSAGES
-		error("bn ovf %d\n", bn);
-#endif
-		return ((daddr_t)0);
-	}
-
-	/*
-	 * fetch the first indirect block address from the inode
-	 */
-	nb = ip->i_ib[NIADDR - j];
-	if (nb == 0) {
-#if	SYS_MESSAGES
-		error("bn void %d\n",bn);
-#endif
-		return ((daddr_t)0);
-	}
-
-	/*
-	 * fetch through the indirect blocks
-	 */
-	for (; j <= NIADDR; j++) {
-		if (blknos[j] != nb) {
-			io->i_bn = fsbtodb(io->i_ffs, nb) + io->i_boff;
-			if (b[j] == (char *)0)
-				b[j] = malloc(MAXBSIZE);
-			io->i_ma = b[j];
-			io->i_cc = io->i_ffs->fs_bsize;
-
-            RDPRINT(("Indir block read\n"));
-
-			if (devread(io) != io->i_ffs->fs_bsize) {
-#if	SYS_MESSAGES
-				error("bn %d: read error\n", io->i_bn);
-#endif
-				return ((daddr_t)0);
-			}
-			blknos[j] = nb;
-		}
-		bap = (daddr_t *)b[j];
-		sh /= NINDIR(io->i_ffs);
-		i = (bn / sh) % NINDIR(io->i_ffs);
-#if	BIG_ENDIAN_INTEL_FS
-		nb = NXSwapBigLongToHost(bap[i]);
-#else	/* BIG_ENDIAN_INTEL_FS */
-		nb = bap[i];
-#endif	/* BIG_ENDIAN_INTEL_FS */
-		if (nb == 0) {
-#if	SYS_MESSAGES
-			error("bn void %d\n",bn);
-#endif
-			return ((daddr_t)0);
-		}
-	}
-
-	return (nb);
-}
-
-/*==========================================================================
- *
- *
- */
-static struct dirstuff *
-disk_opendir(char * path)
-{
-    register struct dirstuff * dirp;
-    register int fd;
-    
-    dirp = (struct dirstuff *)malloc(sizeof(struct dirstuff));
-    if (dirp == (struct dirstuff *)-1)
-        return 0;
-
-    DPRINT(("Calling open in opendir\n"));
-    fd = open(path,0);
-    if (fd == -1) {
-        DPRINT(("open failed \n"));
-        free((void *)dirp);
-        return 0;
+    io->i_buf = (char *) LOAD_ADDR;
+    for (i = 0; i < NFILES; i++)
+    {
+        if ((iob[i].i_flgs != F_ALLOC) || (i == fdesc)) continue;
+        io->i_buf = max(iob[i].i_filesize + iob[i].i_buf, io->i_buf);
     }
 
-    DPRINT(("open ok fd is %d \n", fd));
-    dirp->io = &iob[fd];
-    dirp->loc = 0;
-    iob[fd].dirbuf_blkno = -1;
+    // Load entire file into memory. Unnecessary open() calls must
+    // be avoided.
 
-    return dirp;
+    gFSLoadAddress = io->i_buf;
+    io->i_filesize = bvr->fs_loadfile(bvr, (char *)filePath);
+    if (io->i_filesize < 0) goto error;
+
+    return fdesc;
+
+error:
+    close(fdesc);
+    return -1;
 }
 
-/*==========================================================================
- *
- *
- */
-static int
-disk_closedir(struct dirstuff * dirp)
+//==========================================================================
+// close() - Close a file descriptor.
+
+int close(int fdesc)
 {
-    close(dirp->io - iob);
-    free((void *)dirp);
+    struct iob * io;
+
+    if ((io = iob_from_fdesc(fdesc)) == NULL)
+        return (-1);
+
+    io->i_flgs = 0;
+
     return 0;
 }
 
-/*==========================================================================
- * get next entry in a directory.
- */
-static struct direct *
-disk_readdir(struct dirstuff * dirp)
+//==========================================================================
+// lseek() - Reposition the byte offset of the file descriptor from the
+//           beginning of the file. Returns the relocated offset.
+
+int b_lseek(int fdesc, int offset, int ptr)
 {
-	struct direct *       dp;
-	register struct iob * io;
-	daddr_t               lbn, d;
-	int                   off;
-#if DCACHE
-	char *                bp;
-	int                   dirblkno;
+    struct iob * io;
 
-	if (dcache == 0)
-		dcache = cacheInit(DCACHE_SIZE, DIRBLKSIZ);
-#endif DCACHE
+    if ((io = iob_from_fdesc(fdesc)) == NULL)
+        return (-1);
 
-	io = dirp->io;
-	for(;;)
-	{
-		if (dirp->loc >= io->i_ino.i_size)
-			return (NULL);
-		off = blkoff(io->i_ffs, dirp->loc);
-		lbn = lblkno(io->i_ffs, dirp->loc);
+    io->i_offset = offset;
 
-#if DCACHE
-		dirblkno = dirp->loc / DIRBLKSIZ;
-		if (cacheFind(dcache, io->i_ino.i_number, dirblkno, &bp)) {
-		    dp = (struct direct *)(bp + (dirp->loc % DIRBLKSIZ));
-		} else
-#else DCACHE
-		if (io->dirbuf_blkno != lbn)
-#endif DCACHE
-		{
-		    if((d = sbmap(io, lbn)) == 0)
-			    return NULL;
-		    io->i_bn = fsbtodb(io->i_ffs, d) + io->i_boff;
-		    io->i_ma = io->i_buf;
-		    io->i_cc = blksize(io->i_ffs, &io->i_ino, lbn);
-		
-		    if (devread(io) < 0)
-		    {
-#if	SYS_MESSAGES
-			    error("bn %d: directory read error\n", io->i_bn);
-#endif
-			    return (NULL);
-		    }
-#if	BIG_ENDIAN_INTEL_FS
-		    byte_swap_dir_block_in(io->i_buf, io->i_cc);
-#endif	/* BIG_ENDIAN_INTEL_FS */
-
-#if DCACHE
-		    bcopy(io->i_buf + dirblkno * DIRBLKSIZ, bp, DIRBLKSIZ);
-		    dp = (struct direct *)(io->i_buf + off);
-#endif
-		}
-#if !DCACHE
-		dp = (struct direct *)(io->i_buf + off);
-#endif
-		dirp->loc += dp->d_reclen;
-
-		if (dp->d_ino != 0) return (dp);
-	}
+    return offset;
 }
 
-/*==========================================================================
- *
- *
- */
-static ino_t
-dlook(
-	char *       s,
-	struct iob * io
-)
+//==========================================================================
+// tell() - Returns the byte offset of the file descriptor.
+
+int tell(int fdesc)
 {
-	struct direct *         dp;
-	register struct inode * ip;
-	struct dirstuff         dirp;
-	int                     len;
+    struct iob * io;
 
-	if (s == NULL || *s == '\0')
-		return (0);
-	ip = &io->i_ino;
-	if ((ip->i_mode & IFMT) != IFDIR) {
-#if	SYS_MESSAGES
-		error(". before %s not a dir\n", s);
-#endif
-		return (0);
-	}
-	if (ip->i_size == 0) {
-#if	SYS_MESSAGES
-		error("%s: 0 length dir\n", s);
-#endif
-		return (0);
-	}
-	len = strlen(s);
-	dirp.loc = 0;
-	dirp.io = io;
-	io->dirbuf_blkno = -1;
+    if ((io = iob_from_fdesc(fdesc)) == NULL)
+        return 0;
 
-	for (dp = disk_readdir(&dirp); dp != NULL; dp = disk_readdir(&dirp)) {
-        DPRINT(("checking name %s\n", dp->d_name));
-		if(dp->d_ino == 0)
-			continue;
-		if (dp->d_namlen == len && !strcmp(s, dp->d_name))
-			return (dp->d_ino);
-	}
-	return (0);
+    return io->i_offset;
 }
 
-/*==========================================================================
- *
- *
- */
-static int
-getch(int fdesc)
+//==========================================================================
+// read() - Read up to 'count' bytes of data from the file descriptor
+//          into the buffer pointed to by buf.
+
+int read(int fdesc, char * buf, int count)
 {
-	register struct iob * io;
-	struct fs *           fs;
-	char *                p;
-	int                   c, lbn, off, size, diff;
-
-	if ((io = iob_from_fdesc(fdesc)) == 0) {
-		return (-1);
-	}
-
-    RDPRINT(("In getch\n"));
-
-    p = io->i_ma;
-	if (io->i_cc <= 0) {
-		if ((io->i_flgs & F_FILE) != 0) {
-			diff = io->i_ino.i_size - io->i_offset;
-			if (diff <= 0)
-				return (-1);
-			fs = io->i_ffs;
-			lbn = lblkno(fs, io->i_offset);
-#if 1
-			io->i_bn = fsbtodb(fs, sbmap(io, lbn)) + io->i_boff;
-#else
-			io->i_bn = fsbtodb(fs, sbmap(io, lbn)) + io->i_boff;
-#endif
-			off = blkoff(fs, io->i_offset);
-			size = blksize(fs, &io->i_ino, lbn);
-		} else {
-			diff = 0;
-#ifndef	SMALL
-			io->i_bn = io->i_offset / DEV_BSIZE;
-			off = 0;
-			size = DEV_BSIZE;
-#endif	SMALL
-		}
-
-        RDPRINT(("gc: bn=%x; off=%x\n",io->i_bn, io->i_offset));
-	
-        io->i_ma = io->i_buf;
-		io->i_cc = size;
-		if (devread(io) < 0) {
-			return (-1);
-		}
-		if ((io->i_flgs & F_FILE) != 0) {
-			if (io->i_offset - off + size >= io->i_ino.i_size)
-				io->i_cc = diff + off;
-			io->i_cc -= off;
-		}
-		p = &io->i_buf[off];
-	}
-	io->i_cc--;
-	io->i_offset++;
-	c = (unsigned)*p++;
-	io->i_ma = p;
-	return (c);
-}
-
-/*==========================================================================
- *
- */
-static int
-disk_read(int fdesc, char * buf, int count)
-{
-	int                   i, size;
-	register struct iob * file;
-	struct fs *           fs;
-	int                   lbn, off;
-
-    RDSPRINT(("IN READ\n"));
-
-	if ((file = iob_from_fdesc(fdesc)) == 0) {
-		return (-1);
-	}
-#if CHECK_CAREFULLY
-	if ((file->i_flgs&F_READ) == 0) {
-		return (-1);
-	}
-#endif
-	if ((file->i_flgs & F_MEM) != 0) {
-
-        RDSPRINT(("In read FMEM\n"));
-
-	    if (file->i_offset < file->i_boff) {
-            if (count > (file->i_boff - file->i_offset))
-                count = file->i_boff - file->i_offset;
-            bcopy(file->i_buf + file->i_offset, buf, count);
-            file->i_offset += count;
-	    } else {
-            count = 0;
-	    }
-	    return count;
-	}
-	
-#ifndef	SMALL
-	if ((file->i_flgs & F_FILE) == 0) {
-		file->i_cc = count;
-		file->i_ma = buf;
-		file->i_bn = file->i_boff + (file->i_offset / DEV_BSIZE);
-
-        RDPRINT(("In read nsmall fbn=%x; offset=%x;", file->i_bn,
-                 file->i_offset));
-        RDSPRINT(("boff=%x\n", file->i_boff));
-
-		i = devread(file);
-		file->i_offset += count;
-		return (i);
-	}
-#endif /* SMALL */
-
-	if (file->i_offset+count > file->i_ino.i_size)
-		count = file->i_ino.i_size - file->i_offset;
-
-    RDSPRINT(("In read nsmall count=%x;", count));
-
-    if ((i = count) <= 0)
-        return (0);
-
-	/*
-	 * While reading full blocks, do I/O into user buffer.
-	 * Anything else uses getc().
-	 */
-	fs = file->i_ffs;
-	while (i) {
-        RDSPRINT(("In lread while\n"));
-		off = blkoff(fs, file->i_offset);
-		lbn = lblkno(fs, file->i_offset);
-		size = blksize(fs, &file->i_ino, lbn);
-		if (off == 0 && size <= i) {
-			file->i_bn = fsbtodb(fs, sbmap(file, lbn)) +
-			    file->i_boff;
-			file->i_cc = size;
-			file->i_ma = buf;
-
-            RDPRINT(("In read->devread\n"));
-            RDPRINT(("In read fbn=%x; offset=%x;", file->i_bn,
-                     file->i_offset));
-            RDSPRINT((" boff=%x\n", file->i_boff));
-
-            if (devread(file) < 0) {
-                return (-1);
-            }
-            file->i_offset += size;
-            file->i_cc = 0;
-            buf += size;
-            i -= size;
-		}
-        else {
-            RDSPRINT(("IN while nonread\n"));
-			size -= off;
-			if (size > i)
-				size = i;
-			i -= size;
-			do {
-				*buf++ = getch(fdesc);
-			} while (--size);
-		}
-	}
-
-	return (count);
-}
-
-/*==========================================================================
- * Disk (block device) functions.
- */
-static BOOL
-disk_open(char * name, struct iob * file, int how)
-{
-	int    i;
-
-	file->i_cc = SBSIZE;
-//	file->i_bn = (SBLOCK / DEV_BSIZE) + file->i_boff;
-	file->i_bn = (SBOFF/label_secsize) + file->i_boff;
-	file->i_offset = 0;
-
-	if (file->i_ffs == 0) {
-		if (fs_block == 0) {
-            DPRINT(("No super block; reading one \n"));
-		    fs_block = (struct fs *) malloc(SBSIZE);
-		}
-		if (fs_block_valid == 0) {
-		    file->i_ma = (char *)fs_block;
-		    if (devread(file) < 0) {
-#ifndef SMALL
-			    error(SUPERBLOCK_ERROR, 1);
-#endif
-			    return NO;
-		    }
-#if	BIG_ENDIAN_INTEL_FS
-		    byte_swap_superblock(fs_block);
-#endif	/* BIG_ENDIAN_INTEL_FS */
-            DPRINT(("Read SB \n"));
-		    fs_block_valid = 1;
-		}
-		file->i_ffs = fs_block;
-		file->i_buf = malloc(MAXBSIZE);
-	}
-#if	BIG_ENDIAN_INTEL_FS
-    DPRINT(("IN BE_FS code \n"));
-
-	if (file->i_ffs->fs_magic != FS_MAGIC) {
-        DPRINT(("Bad magic in FS %d ; got %d\n", FS_MAGIC,
-                file->i_ffs->fs_magic));
-		error(SUPERBLOCK_ERROR, 2);
-		return NO;
-	}
-	/*
-	 *  The following is a gross hack to boot disks that have an actual
-	 *  blocksize of 512 bytes but were written with a theoretical 1024
-	 *  byte blocksize (fsbtodb == 0).
-	 *
-	 *  We can make this assumption because we can only boot disks with
-	 *  a 512 byte sector size.
-	 */
-    DPRINT(("SB  magic ok \n"));
-	if (file->i_ffs->fs_fsize == 0) {
-		error(SUPERBLOCK_ERROR,3);
-		return NO;
-	}
-	file->i_ffs->fs_fsbtodb = ffs(file->i_ffs->fs_fsize / DEV_BSIZE) - 1;
-#endif	/* BIG_ENDIAN_INTEL_FS */
-
-	if ((i = find(name, file)) == 0) {
-        DPRINT(("find() failed\n"));
-		return NO;
-	}
-
-#if	CHECK_CAREFULLY
-	if (how != 0) {
-		error("Can't write files\n");
-		return NO;
-	}
-#endif	CHECK_CAREFULLY
-
-    DPRINT(("calling openi \n"));
-	if (openi(i, file) < 0) {
-        DPRINT(("openi failed \n"));
-		return NO;
-	}
-
-    DPRINT(("openi ok \n"));
-
-	file->i_offset = 0;
-	file->i_cc = 0;
-	file->i_flgs |= F_FILE | (how+1);
-
-	return YES;
-}
-
-/*==========================================================================
- *
- *
- */
-static int
-ffs(register long mask)
-{
-	register int cnt;
-
-	if (mask == 0) return(0);
-
-	for (cnt = 1; !(mask & 1); cnt++)
-		mask >>= 1;
-	return(cnt);
-}
-
-/*==========================================================================
- *
- *
- */
-static void
-disk_flushdev()
-{
-    register int i;
+    struct iob * io;
     
-    devflush();
-    for (i = 0; i < NFILES; i++)
-        if (iob[i].i_flgs & (F_READ | F_WRITE))
-            error("flushdev: fd %d is open\n",i);
+    if ((io = iob_from_fdesc(fdesc)) == NULL)
+        return (-1);
 
-    fs_block_valid = 0;
-#if ICACHE
-    cacheFlush(icache);
-#endif
-#if DCACHE
-    cacheFlush(dcache);
-#endif
+    if (io->i_offset + count > io->i_filesize)
+        count = io->i_filesize - io->i_offset;
+
+    if (count <= 0)
+        return 0;  // end of file
+
+    bcopy(io->i_buf + io->i_offset, buf, count);
+
+    io->i_offset += count;
+
+    return count;
 }
 
-/***************************************************************************
- *
- * Network functions.
- *
- ***************************************************************************/
+//==========================================================================
+// file_size() - Returns the size of the file described by the file
+//               descriptor.
 
-static int
-en_read(int fdesc, char * buf, int count)
+int file_size(int fdesc)
 {
-	struct iob * file;
+    struct iob * io;
 
-	if ((file = iob_from_fdesc(fdesc)) == 0)
-		return (-1);
-	
-	DSPRINT(("read[%d]: %x %x %d\n",
-		fdesc, TFTP_ADDR + file->i_offset, (unsigned) buf, count)); 
+    if ((io = iob_from_fdesc(fdesc)) == 0)
+        return 0;
 
-	bcopy((char *)(TFTP_ADDR + file->i_offset), buf, count);
-	file->i_offset += count;
-
-	return count;
-}
- 
-static BOOL
-en_open(char * name, struct iob * file, int how)
-{
-	unsigned long  txferSize = TFTP_LEN;
-	
-	if (nbpTFTPReadFile(name, &txferSize, TFTP_ADDR) != nbpStatusSuccess)
-		return NO;
-
-	file->i_buf        = NULL;
-	file->i_offset     = 0;
-	file->i_ino.i_size = txferSize;		// update the real size
-
-	return YES;
+    return io->i_filesize;
 }
 
-static void
-en_devopen(char * name, struct iob * io)
+//==========================================================================
+
+struct dirstuff * opendir(const char * path)
 {
-	io->i_error = 0;
+    struct dirstuff * dirp = 0;
+    const char *      dirPath;
+    BVRef             bvr;
+
+    if ((bvr = getBootVolumeRef(path, &dirPath)) == NULL)
+        goto error;
+
+    dirp = (struct dirstuff *) malloc(sizeof(struct dirstuff));
+    if (dirp == NULL)
+        goto error;
+
+    dirp->dir_path = newString(dirPath);
+    if (dirp->dir_path == NULL)
+        goto error;
+
+    dirp->dir_bvr = bvr;
+
+    return dirp;
+
+error:
+    closedir(dirp);
+    return NULL;
 }
 
-/***************************************************************************
- *
- * Dispatch functions.
- *
- ***************************************************************************/
+//==========================================================================
 
-/*==========================================================================
- *
- */
-static int
-gen_read(int fdesc, char * buf, int count)
+int closedir(struct dirstuff * dirp)
 {
-	struct iob * file;
-	
-	if ((file = iob_from_fdesc(fdesc)) == 0)
-		return (-1);
-	
-	return (file->i_ino.i_dev == DEV_EN) ?
-		en_read(fdesc, buf, count) :
-		disk_read(fdesc, buf, count);
-}
-
-/*==========================================================================
- *
- */
-static int
-gen_open(char * name, struct iob * file, int how)
-{
-	return (file->i_ino.i_dev == DEV_EN) ?
-		en_open(name, file, how) : disk_open(name, file, how);
-}
-
-/*==========================================================================
- *
- */
-static void
-gen_devopen(char * name, struct iob * io)
-{
-	return (io->i_ino.i_dev == DEV_EN) ?
-		en_devopen(name, io) : devopen(name, io);
-}
-
-/*==========================================================================
- *
- */
-static void
-gen_flushdev()
-{
-	return disk_flushdev();
-}
-
-/*==========================================================================
- *
- */
-static char *
-gen_usrDevices()
-{
-#define NET_ARCH_DEVICES ""
-
-	return (((currentdev() >> B_TYPESHIFT) & B_TYPEMASK) == DEV_EN) ?
-		NET_ARCH_DEVICES : ARCH_DEVICES;
-}
-
-/***************************************************************************
- *
- * External functions.
- *
- ***************************************************************************/
-
-/*==========================================================================
- *
- */
-struct dirstuff *
-opendir(char * path)
-{
-    return disk_opendir(path);
-}
-
-/*==========================================================================
- *
- */
-int
-closedir(struct dirstuff * dirp)
-{
-    return disk_closedir(dirp);
-}
-
-/*==========================================================================
- * get next entry in a directory.
- */
-struct direct *
-readdir(struct dirstuff * dirp)
-{
-    return disk_readdir(dirp);
-}
-
-/*==========================================================================
- *
- */
-int
-b_lseek(int fdesc, unsigned int addr, int ptr)
-{
-	register struct iob * io;
-
-    RDPRINT(("In lseek addr= %x\n", addr));
-
-#if	CHECK_CAREFULLY
-	if (ptr != 0) {
-		error("Seek not from beginning of file\n");
-		return (-1);
-	}
-#endif /* CHECK_CAREFULLY */
-
-	if ((io = iob_from_fdesc(fdesc)) == 0) {
-		return (-1);
-	}
-	io->i_offset = addr;
-	io->i_bn = addr / DEV_BSIZE;
-	io->i_cc = 0;
-
-    RDPRINT(("In end of lseek offset %x; bn %x\n", io->i_offset,io->i_bn));
-
-	return (0);
-}
-
-/*==========================================================================
- *
- */
-int
-tell(int fdesc)
-{
-	return iob[fdesc].i_offset;
-}
-
-/*==========================================================================
- *
- */
-int
-read(int fdesc, char * buf, int count)
-{
-	return gen_read(fdesc, buf, count);
-}
-
-/*==========================================================================
- *
- */
-int
-openmem(char * buf, int len)
-{
-	register struct iob * file;
-	int                   fdesc;
-
-	for (fdesc = 0; fdesc < NFILES; fdesc++)
-		if (iob[fdesc].i_flgs == 0)
-			goto gotfile;
- 	stop("Out of file descriptor slots");
-
-gotfile:
-	(file = &iob[fdesc])->i_flgs |= F_ALLOC;
-	file->i_buf = buf;
-	file->i_boff = len;
-	file->i_offset = 0;
-	file->i_flgs |= F_MEM;
-	return fdesc;
-}
-
-/*==========================================================================
- * Generic open call.
- */
-int
-open(char * str, int how)
-{
-	register char *       cp;
-	register struct iob * file;
-	int                   fdesc;
-
-    DSPRINT(("In open %s\n", str));
-
-#if CHECK_CAREFULLY	/* iob[] is in BSS, so it is guaranteed to be zero. */
-	if (open_init == 0) {
-        int i;
-		for (i = 0; i < NFILES; i++)
-			iob[i].i_flgs = 0;
-		open_init = 1;
-	}
-#endif
-
-	for (fdesc = 0; fdesc < NFILES; fdesc++)
-		if (iob[fdesc].i_flgs == 0)
-			goto gotfile;
- 	stop("Out of file descriptor slots");
-
-gotfile:
-	(file = &iob[fdesc])->i_flgs |= F_ALLOC;
-
-	if ((cp = xx(str, file)) == (char *) -1)
-	{
-		close(fdesc);
-		return -1;
-	}
-
-	if (*cp == '\0') {
-		file->i_flgs |= how+1;
-		file->i_cc = 0;
-		file->i_offset = 0;
-		return (fdesc);
-	}
-	
-	if (gen_open(cp, file, how) == NO) {
-		close(fdesc);
-		return -1;
-	}
-	return (fdesc);
-}
-
-/*==========================================================================
- *
- */
-#define LP '('
-#define RP ')'
-
-static char * xx(char *str, struct iob *file)
-{
-	register char *cp = str, *xp;
-	char ** dp;
-	int old_dev = kernBootStruct->kernDev;
-	int dev  = (kernBootStruct->kernDev >> B_TYPESHIFT) & B_TYPEMASK;
-	int unit = (kernBootStruct->kernDev >> B_UNITSHIFT) & B_UNITMASK;
-	int part = (kernBootStruct->kernDev >> B_PARTITIONSHIFT) & B_PARTITIONMASK;
-	int i;
-	int no_dev;
-	int biosOffset;
-
-	biosOffset = unit;		// set the device
-
-	for (; *cp && *cp != LP; cp++) ;
-	if (no_dev = !*cp) {    // no left paren found
-		cp = str;
-		xp = devsw[dev];
-	} else if (cp == str) {	// paren but no device
-		cp++;
-		xp = devsw[dev];
-	} else {
-		xp = str;
-		cp++;
-	}
-
-	for (dp = devsw; *dp; dp++)
-	{
-		if ((xp[0] == *dp[0]) && (xp[1] == *(dp[0] + 1)))
-			goto gotdev;
-	}
-
-	error("Unknown device '%c%c'\n",xp[0],xp[1]);
-	return ((char *)-1);
-
-gotdev:
-	if (no_dev)
-		goto none;
-	i = 0;
-	while (*cp >= '0' && *cp <= '9')
-	{
-		i = i * 10 + *cp++ - '0';
-        unit = i;           // get the specified unit number
-	}
-
-	biosOffset = unit;		// set the device
-
-	if (*cp == RP || no_dev)
-		/* do nothing since ptol(")") returns 0 */ ;
-	else if (*cp == ',')
-        part = ptol(++cp);  // get the specified partition number
-	else if (cp[-1] == LP) 
-		part = ptol(cp);
-	else {
-badoff:
-		error("Missing offset specification\n");
-		return ((char *)-1);
-	}
-
-	for ( ;!no_dev ;) {     // skip after the right paren
-		if (*cp == RP)
-			break;
-		if (*cp++)
-			continue;
-		goto badoff;
-	}
-
-none:
-	file->i_ino.i_dev = dev = dp - devsw;
-	file->partition   = part;
-	file->biosdev     = (BIOSDEV(dev)) + biosOffset;
-
-	if (dev == DEV_SD) {
-		file->biosdev += kernBootStruct->numIDEs;
-	}
-    else if (dev == DEV_EN) {
-        file->biosdev = BIOS_DEV_EN;
+    if (dirp) {
+        if (dirp->dir_path) free(dirp->dir_path);
+        free(dirp);
     }
-    else if (dev == DEV_HD && kernBootStruct->numIDEs == 0) {
-		error("No IDE drives detected\n");
-		return ((char *)-1);
-	}
-
-	kernBootStruct->kernDev = (dev << B_TYPESHIFT) | 
-                              (unit << B_UNITSHIFT) |
-                              (part << B_PARTITIONSHIFT);
-
-	if (kernBootStruct->kernDev != old_dev)
-	    flushdev();
-
-	gen_devopen(str, file);
-
-	if (file->i_error) 
-		return (char *)-1;
-	if (!no_dev && *cp) cp++;
-
-	gFilename = cp;
-
-	return cp;
+    return 0;
 }
 
-/*==========================================================================
- *
- */
-int
-close(int fdesc)
+//==========================================================================
+
+int readdir(struct dirstuff * dirp, const char ** name, long * flags,
+            long * time)
 {
-	register struct iob * file;
-	register int          i;
-
-	if ((file = iob_from_fdesc(fdesc)) == 0)
-		return (-1);
-
-	if ((file->i_flgs & F_MEM) == 0) {
-//		free((char *)file->i_ffs);
-	    file->i_ffs = NULL;
-	    if (file->i_buf) {
-			free(file->i_buf);
-			file->i_buf = NULL;
-		}
-	    for (i=0;i<NBUFS;i++)
-	    {
-		    if (b[i])
-		    {	free(b[i]); 
-			    b[i] = NULL;
-		    }
-		    blknos[i] = 0;
-	    }
-	}
-
-	file->i_flgs = 0;
-	return (0);
+    return dirp->dir_bvr->fs_getdirentry( dirp->dir_bvr,
+                          /* dirPath */   dirp->dir_path,
+                          /* dirIndex */  &dirp->dir_index,
+                          /* dirEntry */  (char **)name, flags, time );
 }
 
-/*==========================================================================
- *
- */
-int
-file_size(int fdesc)
-{
-	register struct iob * io;
-    
-	if ((io = iob_from_fdesc(fdesc)) == 0)
-		return (-1);
+//==========================================================================
 
-	return io->i_ino.i_size;
-}
-
-/*==========================================================================
- * ensure that all device caches are flushed,
- * because we are about to change the device media
- */
-void
-flushdev()
-{
-	gen_flushdev();
-}
-
-/*==========================================================================
- *
- */
-void
-stop(char * s)
-{
-#if	CHECK_CAREFULLY
-	register int i;
-	
-	for (i = 0; i < NFILES; i++)
-		if (iob[i].i_flgs != 0)
-			close(i);
-#endif	CHECK_CAREFULLY
-
-    /* textMode(); */    // can't call this function from here
-	error("\n%s\n", s);
-	sleep(4);            // about to halt
-	halt();
-}
-
-/*==========================================================================
- *
- */
 int currentdev()
 {
     return kernBootStruct->kernDev;
 }
 
-/*==========================================================================
- *
- */
-int
-switchdev(int dev)
+//==========================================================================
+
+int switchdev(int dev)
 {
-    flushdev();
     kernBootStruct->kernDev = dev;
     return dev;
 }
 
-/*==========================================================================
- *
- */
-char *
-usrDevices()
+//==========================================================================
+
+const char * usrDevices()
 {
-	return gen_usrDevices();
+    return (B_TYPE(currentdev()) == DEV_EN) ? "" : "/private/Drivers/i386";
+}
+
+//==========================================================================
+
+BVRef scanBootVolumes( int biosdev, int * count )
+{
+    BVRef bvr = 0;
+
+    switch ( BIOS_DEV_TYPE( biosdev ) )
+    {
+        case kBIOSDevTypeFloppy:
+        case kBIOSDevTypeHardDrive:
+            bvr = diskScanBootVolumes( biosdev, count );
+            break;
+        case kBIOSDevTypeNetwork:
+            bvr = nbpScanBootVolumes( biosdev, count );
+            break;
+    }
+    return bvr;
+}
+
+//==========================================================================
+
+void getBootVolumeDescription( BVRef bvr, char * str, long strMaxLen )
+{
+    bvr->description( bvr, str, strMaxLen );
+}
+
+//==========================================================================
+
+BVRef selectBootVolume( BVRef chain )
+{
+    BVRef bvr, bvr1 = 0, bvr2 = 0;
+
+    for ( bvr = chain; bvr; bvr = bvr->next )
+    {
+        if ( bvr->flags & kBVFlagNativeBoot ) bvr1 = bvr;
+        if ( bvr->flags & kBVFlagPrimary )    bvr2 = bvr;
+    }
+
+    bvr = bvr1 ? bvr1 :
+          bvr2 ? bvr2 : chain;
+
+    return bvr;
+}
+
+//==========================================================================
+
+#define LP '('
+#define RP ')'
+extern int gBIOSDev;
+
+static BVRef getBootVolumeRef( const char * path, const char ** outPath )
+{
+    const char * cp;
+    BVRef        bvr;
+    int          type = B_TYPE( kernBootStruct->kernDev );
+    int          unit = B_UNIT( kernBootStruct->kernDev );
+    int          part = B_PARTITION( kernBootStruct->kernDev );
+    int          biosdev = gBIOSDev;
+    static BVRef lastBVR = 0;
+    static int   lastKernDev;
+
+    // Search for left parenthesis in the path specification.
+
+    for (cp = path; *cp; cp++) {
+        if (*cp == LP || *cp == '/') break;
+    }
+
+    if (*cp != LP)  // no left paren found
+    {
+        cp = path;
+        if ( lastBVR && lastKernDev == kernBootStruct->kernDev )
+        {
+            bvr = lastBVR;
+            goto quick_exit;
+        }
+    }
+    else if ((cp - path) == 2)  // found "xx("
+    {
+        const struct devsw * dp;
+        const char * xp = path;
+        int          i;
+
+        cp++;
+
+        // Check the 2 character device name pointed by 'xp'.
+
+        for (dp = devsw; dp->name; dp++)
+        {
+            if ((xp[0] == dp->name[0]) && (xp[1] == dp->name[1]))
+                break;  // found matching entry
+        }
+        if (dp->name == NULL)
+        {
+            error("Unknown device '%c%c'\n", xp[0], xp[1]);
+            return NULL;
+        }
+        type = dp - devsw;  // kerndev type
+        
+        // Extract the optional unit number from the specification.
+        // hd(unit) or hd(unit, part).
+
+        i = 0;
+        while (*cp >= '0' && *cp <= '9')
+        {
+            i = i * 10 + *cp++ - '0';
+            unit = i;
+        }
+
+        // Extract the optional partition number from the specification.
+
+        if (*cp == ',')
+            part = atoi(++cp);
+
+        // Skip past the right paren.
+
+        for ( ; *cp && *cp != RP; cp++) /* LOOP */;
+        if (*cp == RP) cp++;
+        
+        biosdev = dp->biosdev;
+    }
+    else
+    {
+        // Bad device specifier, skip past the right paren.
+
+        for ( cp++; *cp && *cp != RP; cp++) /* LOOP */;
+        if (*cp == RP) cp++;
+    }
+
+    biosdev += (unit & kBIOSDevUnitMask);
+
+    if ((bvr = newBootVolumeRef(biosdev, part)) == NULL)
+    {
+        // error("newBootVolumeRef() error\n");
+        return NULL;
+    }
+
+    // Record the most recent device parameters in the
+    // KernBootStruct.
+
+    kernBootStruct->kernDev = MAKEKERNDEV(type, unit, bvr->part_no);
+
+    lastBVR = bvr;
+    lastKernDev = kernBootStruct->kernDev;
+
+quick_exit:
+    // Returns the file path following the device spec.
+    // e.g. 'hd(1,b)mach_kernel' is reduced to 'mach_kernel'.
+
+    *outPath = cp;
+
+    return bvr;
+}
+
+//==========================================================================
+
+static BVRef newBootVolumeRef( int biosdev, int partno )
+{
+    BVRef bvr, bvr1, bvrChain;
+
+    // Fetch the volume list from the device.
+
+    bvrChain = scanBootVolumes( biosdev, NULL );
+
+    // Look for a perfect match based on device and partition number.
+
+    for ( bvr1 = NULL, bvr = bvrChain; bvr; bvr = bvr->next )
+    {
+        if ( ( bvr->flags & kBVFlagNativeBoot ) == 0 ) continue;
+    
+        bvr1 = bvr;
+        if ( bvr->part_no == partno ) break;
+    }
+
+    return bvr ? bvr : bvr1;
 }

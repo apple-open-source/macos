@@ -173,10 +173,12 @@ protected:
 	struct ExpansionData
 	{
 		bool	fUseExtendedLBA;
+		bool	fPowerAckInProgress;
 	};
 	ExpansionData * reserved;
 	
 	#define fUseExtendedLBA		reserved->fUseExtendedLBA
+	#define fPowerAckInProgress	reserved->fPowerAckInProgress
 	
 	//-----------------------------------------------------------------------
 	// Static member functions
@@ -212,6 +214,8 @@ protected:
 										 IOByteCount			numBlocks );
 
 	static void		sSaveStateData ( IOATACommand * cmd );
+	
+	static IOReturn	sValidateIdentifyData ( UInt8 * deviceIdentifyData );
 
 	// The sSetWakeupResetOccurred method is used to safely set member variables
 	// behind the command gate.
@@ -368,7 +372,12 @@ public:
 	// Power management support. Functions inherited from IOService.
 	
 	virtual IOReturn 	setAggressiveness ( UInt32 type, UInt32 minutes );
-		
+	
+	// The initialPowerStateForDomainState() method is called by the power manager
+	// to ask us what state we should be in based on the power flags of our parent
+	// in the power tree.
+	virtual UInt32		initialPowerStateForDomainState ( IOPMPowerFlags flags );
+	
 	virtual IOReturn 	setPowerState ( UInt32			powerStateOrdinal,
 										IOService * 	whatDevice );
 	
@@ -518,8 +527,15 @@ public:
 	
 	virtual const char * 	getDeviceTypeName ( void );
 
+	//-----------------------------------------------------------------------
+	// Sends an ATA SMART command to the device.
+
+	/* Added with 10.1.4 */
+	OSMetaClassDeclareReservedUsed ( IOATABlockStorageDriver, 1 )
+	
+	virtual IOReturn		sendSMARTCommand ( IOATACommand * command );
+	
 	// Binary Compatibility reserved method space
-	OSMetaClassDeclareReservedUnused ( IOATABlockStorageDriver, 1 );
 	OSMetaClassDeclareReservedUnused ( IOATABlockStorageDriver, 2 );
 	OSMetaClassDeclareReservedUnused ( IOATABlockStorageDriver, 3 );
 	OSMetaClassDeclareReservedUnused ( IOATABlockStorageDriver, 4 );

@@ -7,7 +7,7 @@ SECURITYSERVER=-YES-	# needs to be put into /etc/hostconfig
 if [ "$SECURITYSERVER" != "-NO-" ]; then
   ConsoleMessage "Starting SecurityServer"
   export DEBUGDEST=LOG_AUTHPRIV
-  /System/Library/CoreServices/SecurityServer
+  /System/Library/CoreServices/SecurityServer -X
 else
   ConsoleMessage "SecurityServer disabled"
 fi

@@ -281,8 +281,10 @@ private:
     // interrupts:
     IOService *myProvider;
     
-    // Remember if we had a PMU provider or not
+    // Remember if we had a PMU, UniN provider or not
     bool i2cPMU;
+    bool i2cUniN;
+    bool i2cmacio;
     
     // Keeps track of the success (or failure) of the last transfer:
     bool transferWasSuccesful;

@@ -1,5 +1,5 @@
 /* Parameters for target machine ARC, for GDB, the GNU debugger.
-   Copyright (C) 1995 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1998, 1999, 2000 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
    This file is part of GDB.
@@ -19,14 +19,10 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#include "regcache.h"
+
 /* Used by arc-tdep.c to set the default cpu type.  */
 #define DEFAULT_ARC_CPU_TYPE "base"
-
-/* Byte order is selectable.  */
-#define	TARGET_BYTE_ORDER_SELECTABLE
-
-/* We have IEEE floating point, if we have any float at all.  */
-#define IEEE_FLOAT (1)
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -61,8 +57,8 @@ extern CORE_ADDR arc_skip_prologue (CORE_ADDR, int);
 
 /* We don't have a reliable single step facility.
    ??? We do have a cycle single step facility, but that won't work.  */
-#define SOFTWARE_SINGLE_STEP_P 1
-extern void arc_software_single_step (unsigned int, int);
+#define SOFTWARE_SINGLE_STEP_P() 1
+extern void arc_software_single_step (enum target_signal, int);
 #define SOFTWARE_SINGLE_STEP(sig,bp_p) arc_software_single_step (sig, bp_p)
 
 /* FIXME: Need to set STEP_SKIPS_DELAY.  */

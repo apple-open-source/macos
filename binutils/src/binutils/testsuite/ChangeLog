@@ -1,3 +1,154 @@
+2002-02-18  Timothy Daly  <remote_bob@yahoo.com>
+
+	* binutils-all/readelf.r: Change expected output to match new,
+	narrowed-to-80-chars format.
+	* binutils-all/readelf.r-64: Change expected output to match new,
+	narrowed-to-80-chars format.
+
+2002-02-18  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* binutils-all/objcopy.exp
+	(strip_executable_with_saving_a_symbol): Prune symbol Main in nm
+	output for mmix-knuth-mmixware.
+
+2002-02-13  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* binutils-all/readelf.ss-mips: Do not expect an explicit
+        ordering of the sections.
+
+2002-02-10  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* binutils-all/objdump.exp: Add 'xscale' to the list of expected
+	CPUs.
+
+2002-01-14  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* binutils-all/objcopy.exp: Expect xscale-coff to fail simple
+	objcopy test for the same reason as arm-coff.
+
+2001-11-29  H.J. Lu <hjl@gnu.org>
+
+	* binutils-all/objcopy.exp (strip_test): Add strip on archive.
+
+2001-11-15  Alan Modra  <amodra@bigpond.net.au>
+
+	* binutils-all/objcopy.exp: Allow '? main', to suit powerpc64.
+
+2001-11-14  Geoffrey Keating  <geoffk@redhat.com>
+
+	* binutils-all/readelf.exp: powerpc-*-eabi* is an ELF target.
+
+2001-10-03  Thiemo Seufer <seufer@csv.ica.uni-stuttgart.de>
+
+	* binutils-all/readelf.exp: Exclude mips*-*-elf* from 'readelf -wi'
+	test.
+
+Tue Sep  4 20:25:41 2001  Jeffrey A Law  (law@cygnus.com)
+
+	* binutils/all/readelf.exp: Expect readelf -wi to
+	fail for the H8 series.
+
+2001-08-27  Alan Modra  <amodra@bigpond.net.au>
+
+	* binutils-all/readelf.s-64: Adjust offsets for powerpc64.  Don't
+	use constructs like [45][08] when all combinations are not valid.
+	Instead use (48|50) to explicitly state which values are correct.
+
+2001-08-21  H.J. Lu  <hjl@gnu.org>
+
+	* binutils-all/readelf.r: Updated for the readelf change.
+
+	* binutils-all/readelf.r-64: New for the readelf change.
+
+2001-07-27  H.J. Lu  <hjl@gnu.org>
+
+	* binutils-all/windres/windres.exp: Don't set xfail for
+	bmpalign (compare) on none-ix86/pe targets.
+
+2001-07-24  H.J. Lu  <hjl@gnu.org>
+
+	* binutils-all/windres/windres.exp: Set xfail on none-ix86/pe
+	targets.
+
+2001-07-18  DJ Delorie  <dj@redhat.com>
+
+	* config/default.exp (WINDRES): Add.
+	* binutils-all/windres/windres.exp: New.
+	* binutils-all/windres/README: New.
+	* binutils-all/windres/bmp1.bmp: New.
+	* binutils-all/windres/bmpalign.rc: New.
+	* binutils-all/windres/bmpalign.rsd: New.
+	* binutils-all/windres/lang.rc: New.
+	* binutils-all/windres/lang.rsd: New.
+	* binutils-all/windres/msupdate: New.
+	* binutils-all/windres/strtab1.rc: New.
+	* binutils-all/windres/strtab1.rsd: New.
+
+2001-07-05  Ben Elliston  <bje@redhat.com>
+
+	* lib/utils-lib.exp (target_assemble): Remove duplicate copy.
+	(default_target_assemble): Likewise.
+
+2001-06-18  Thiemo Seufer <seufer@csv.ica.uni-stuttgart.de>
+
+	* binutils-all/readelf.exp: Typo.
+
+2001-06-19  Andreas Jaeger  <aj@suse.de>
+
+	* binutils-all/readelf.r: Don't check for specific info value to
+	pass testsuite on ia64 and alpha.
+
+2001-06-07  H.J. Lu  <hjl@gnu.org>
+
+	* binutils-all/readelf.ss-mips: Support stabs.
+	* binutils-all/readelf.ss-tmips: Likewise.
+
+2001-05-25  H.J. Lu  <hjl@gnu.org>
+
+	* binutils-all/readelf.exp (readelf_test): Set target_machine
+	to tmips for traditional mips.
+
+	* binutils-all/readelf.s: Support traditional mips.
+
+	* binutils-all/readelf.ss-tmips: New for traditional mips.
+
+2001-05-25  Alan Modra  <amodra@one.net.au>
+
+	* binutils-all/readelf.exp: Replace linuxoldld with linux*oldld
+	and linuxaout with linux*aout.
+	* binutils-all/objcopy.exp: Remove xfail for linuxaout.
+
+2001-05-24  H.J. Lu  <hjl@gnu.org>
+
+	* binutils-all/objdump.exp (cpus_expected): Add s390.
+
+2001-03-30  H.J. Lu  <hjl@gnu.org>
+
+	* binutils-all/readelf.exp: Run on more ELF targets.
+
+2001-02-11  H.J. Lu  <hjl@gnu.org>
+
+	* config/default.exp: Set up gcc_gas_flag.
+
+	* binutils-all/objcopy.exp (copy_setup): Process gcc_gas_flag
+	for Linux only.
+
+	* binutils-all/testprog.c: Include <string.h> and don't use
+	exit ().
+
+2001-01-16  Matthew Green  <mrg@redhat.com>
+
+	* binutils-all/readelf.s-64: Match readelf -S output.
+
+2000-12-09  Nick Clifton  <nickc@redhat.com>
+
+	* binutils-all/objdump.exp (cpus_expected): Add tic54x and
+	tms320c54x.
+
+2000-11-28  Hans-Peter Nilsson  <hp@axis.com>
+
+	* binutils-all/readelf.s: Adjust to readelf.c formatting changes.
+
 2000-11-02  Chris Demetriou  <cgd@sibyte.com>
 
         * binutils-all/readelf.exp (regexp_diff): Add code
@@ -186,8 +337,8 @@ Wed Jun 24 09:20:21 1998  Nick Clifton  <nickc@cygnus.com>
 
 1998-07-20  Vladimir N. Makarov  <vmakarov@cygnus.com>
 
-	* objcopy.exp: Two new tests - strip object file with saving a
-	symbol and strip executable file with saving a symbol.
+	* binutils-all/objcopy.exp: Two new tests - strip object file with
+	saving a symbol and strip executable file with saving a symbol.
 
 Fri May 29 14:50:24 1998  Ian Lance Taylor  <ian@cygnus.com>
 
@@ -708,4 +859,3 @@ Sun Feb 21 10:55:55 1993  Mike Werner  (mtw@poseidon.cygnus.com)
 	of dejagnu.  The modifications to these testcases, etc., which
 	will allow them to work with the new version of dejagnu will be
 	made in a future update.
-

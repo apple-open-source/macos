@@ -1,0 +1,24 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = (
+            stdc.h, 
+            ansi_stdlib.h, 
+            filecntl.h, 
+            memalloc.h, 
+            posixstat.h, 
+            posixjmp.h, 
+            posixdir.h
+        ); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = posixheaders; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

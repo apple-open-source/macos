@@ -9,25 +9,25 @@
   This chapter describes the Emacs commands that add, remove, or
 adjust indentation.
 
-@c WideCommands
 @table @kbd
 @item @key{TAB}
-Indent current line ``appropriately'' in a mode-dependent fashion.
+Indent the current line ``appropriately'' in a mode-dependent fashion.
 @item @kbd{C-j}
 Perform @key{RET} followed by @key{TAB} (@code{newline-and-indent}).
 @item M-^
-Merge two lines (@code{delete-indentation}).  This would cancel out
-the effect of @kbd{C-j}.
+Merge the previous and the current line (@code{delete-indentation}).
+This would cancel out the effect of @kbd{C-j}.
 @item C-M-o
-Split line at point; text on the line after point becomes a new line
-indented to the same column that it now starts in (@code{split-line}).
+Split the current line at point; text on the line after point becomes a
+new line indented to the same column where point is located
+(@code{split-line}).
 @item M-m
 Move (forward or back) to the first nonblank character on the current
 line (@code{back-to-indentation}).
 @item C-M-\
-Indent several lines to same column (@code{indent-region}).
+Indent several lines to the same column (@code{indent-region}).
 @item C-x @key{TAB}
-Shift block of lines rigidly right or left (@code{indent-rigidly}).
+Shift a block of lines rigidly right or left (@code{indent-rigidly}).
 @item M-i
 Indent from point to the next prespecified tab stop column
 (@code{tab-to-tab-stop}).
@@ -51,6 +51,10 @@ knows about many aspects of C syntax.
   In Text mode, @key{TAB} runs the command @code{tab-to-tab-stop}, which
 indents to the next tab stop column.  You can set the tab stops with
 @kbd{M-x edit-tab-stops}.
+
+  Normally, @key{TAB} inserts an optimal mix of tabs and spaces for
+the intended indentation.  @xref{Just Spaces}, for how to prevent use
+of tabs.
 
 @menu
 * Indentation Commands::  Various commands and techniques for indentation.
@@ -125,11 +129,13 @@ previous line, the whitespace before point is deleted and the first
 indentation point then applicable is used.  If no indentation point is
 applicable even then, @code{indent-relative} runs @code{tab-to-tab-stop}
 @ifinfo
-(@pxref{Tab Stops}).
+(@pxref{Tab Stops}),
 @end ifinfo
 @iftex
-(see next section).
+(see next section),
 @end iftex
+unless it is called with a numeric argument, in which case it does
+nothing.
 
   @code{indent-relative} is the definition of @key{TAB} in Indented Text
 mode.  @xref{Text}.
@@ -183,18 +189,19 @@ To install changes, type C-c C-c
 are present just to help you see where the colons are and know what to do.
 
   Note that the tab stops that control @code{tab-to-tab-stop} have nothing
-to do with displaying tab characters in the buffer.  @xref{Display Vars},
+to do with displaying tab characters in the buffer.  @xref{Display Custom},
 for more information on that.
 
 @node Just Spaces,, Tab Stops, Indentation
 @section Tabs vs. Spaces
 
 @vindex indent-tabs-mode
-  Emacs normally uses both tabs and spaces to indent lines.  If you prefer,
-all indentation can be made from spaces only.  To request this, set
-@code{indent-tabs-mode} to @code{nil}.  This is a per-buffer variable;
-altering the variable affects only the current buffer, but there is a
-default value which you can change as well.  @xref{Locals}.
+  Emacs normally uses both tabs and spaces to indent lines.  If you
+prefer, all indentation can be made from spaces only.  To request
+this, set @code{indent-tabs-mode} to @code{nil}.  This is a per-buffer
+variable, so altering the variable affects only the current buffer,
+but there is a default value which you can change as well.
+@xref{Locals}.
 
 @findex tabify
 @findex untabify

@@ -1,4 +1,25 @@
 /*
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * natd - Network Address Translation Daemon for FreeBSD.
  *
  * This software is provided free of charge, with no 
@@ -9,13 +30,15 @@
  *
  * Ari Suutari <suutari@iki.fi>
  *
- *	$Id: natd.c,v 1.1.1.1 2000/01/11 01:48:51 wsanchez Exp $
+ * Based upon:
+ * $FreeBSD: src/sbin/natd/natd.c,v 1.25.2.3 2000/07/11 20:00:57 ru Exp $
  */
 
 #define SYSLOG_NAMES
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 #include <sys/time.h>
 
 #include <netinet/in.h>
@@ -24,8 +47,8 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ip_icmp.h>
-#include <sys/ioctl.h>
 #include <net/if.h>
+#include <net/if_dl.h>
 #include <net/route.h>
 #include <arpa/inet.h>
 
@@ -80,15 +103,15 @@ static void	Usage (void);
 static char*	FormatPacket (struct ip*);
 static void	PrintPacket (struct ip*);
 static void	SyslogPacket (struct ip*, int priority, const char *label);
-static void	SetAliasAddressFromIfName (char* ifName);
+static void	SetAliasAddressFromIfName (const char *ifName);
 static void	InitiateShutdown (int);
 static void	Shutdown (int);
 static void	RefreshAddr (int);
-static void	ParseOption (const char* option, const char* parms, int cmdLine);
+static void	ParseOption (const char* option, const char* parms);
 static void	ReadConfigFile (const char* fileName);
 static void	SetupPortRedirect (const char* parms);
+static void	SetupProtoRedirect(const char* parms);
 static void	SetupAddressRedirect (const char* parms);
-static void	SetupPptpAlias (const char* parms);
 static void	StrToAddr (const char* str, struct in_addr* addr);
 static u_short  StrToPort (const char* str, const char* proto);
 static int      StrToPortRange (const char* str, const char* proto, port_range *portRange);
@@ -96,6 +119,7 @@ static int 	StrToProto (const char* str);
 static int      StrToAddrAndPortRange (const char* str, struct in_addr* addr, char* proto, port_range *portRange);
 static void	ParseArgs (int argc, char** argv);
 static void	FlushPacketBuffer (int fd);
+static void	SetupPunchFW(const char *strValue);
 
 /*
  * Globals.
@@ -167,7 +191,8 @@ int main (int argc, char** argv)
 /*
  * Open syslog channel.
  */
-	openlog ("natd", LOG_CONS | LOG_PID, logFacility);
+	openlog ("natd", LOG_CONS | LOG_PID | (verbose ? LOG_PERROR : 0),
+		 logFacility);
 /*
  * Check that valid aliasing address has been given.
  */
@@ -185,7 +210,7 @@ int main (int argc, char** argv)
 			errx (1, "both input and output ports are required");
 
 	if (inPort == 0 && outPort == 0 && inOutPort == 0)
-		ParseOption ("port", DEFAULT_SERVICE, 0);
+		ParseOption ("port", DEFAULT_SERVICE);
 
 /*
  * Check if ignored packets should be dropped.
@@ -253,16 +278,21 @@ int main (int argc, char** argv)
 			Quit ("Unable to bind outgoing divert socket.");
 	}
 /*
- * Create routing socket if interface name specified.
+ * Create routing socket if interface name specified and in dynamic mode.
  */
-	if (ifName && dynamicMode) {
+	routeSock = -1;
+	if (ifName) {
+		if (dynamicMode) {
 
-		routeSock = socket (PF_ROUTE, SOCK_RAW, 0);
-		if (routeSock == -1)
-			Quit ("Unable to create routing info socket.");
+			routeSock = socket (PF_ROUTE, SOCK_RAW, 0);
+			if (routeSock == -1)
+				Quit ("Unable to create routing info socket.");
+
+			assignAliasAddr = 1;
+		}
+		else
+			SetAliasAddressFromIfName (ifName);
 	}
-	else
-		routeSock = -1;
 /*
  * Create socket for sending ICMP messages.
  */
@@ -285,6 +315,8 @@ int main (int argc, char** argv)
  * Catch signals to manage shutdown and
  * refresh of interface address.
  */
+	siginterrupt(SIGTERM, 1);
+	siginterrupt(SIGHUP, 1);
 	signal (SIGTERM, InitiateShutdown);
 	signal (SIGHUP, RefreshAddr);
 /*
@@ -411,9 +443,9 @@ static void DaemonMode ()
 static void ParseArgs (int argc, char** argv)
 {
 	int		arg;
-	char*		parm;
 	char*		opt;
 	char		parmBuf[256];
+	int		len; /* bounds checking */
 
 	for (arg = 1; arg < argc; arg++) {
 
@@ -424,23 +456,27 @@ static void ParseArgs (int argc, char** argv)
 			Usage ();
 		}
 
-		parm = NULL;
 		parmBuf[0] = '\0';
+		len = 0;
 
 		while (arg < argc - 1) {
 
 			if (argv[arg + 1][0] == '-')
 				break;
 
-			if (parm)
-				strcat (parmBuf, " ");
+			if (len) {
+				strncat (parmBuf, " ", sizeof(parmBuf) - (len + 1));
+				len += strlen(parmBuf + len);
+			}
 
 			++arg;
-			parm = parmBuf;
-			strcat (parmBuf, argv[arg]);
+			strncat (parmBuf, argv[arg], sizeof(parmBuf) - (len + 1));
+			len += strlen(parmBuf + len);
+
 		}
 
-		ParseOption (opt + 1, parm, 1);
+		ParseOption (opt + 1, (len ? parmBuf : NULL));
+
 	}
 }
 
@@ -479,14 +515,14 @@ static void DoAliasing (int fd, int direction)
  * This is a IP packet.
  */
 	ip = (struct ip*) packetBuf;
-	if (direction == DONT_KNOW)
+	if (direction == DONT_KNOW) {
 		if (packetAddr.sin_addr.s_addr == INADDR_ANY)
 			direction = OUTPUT;
 		else
 			direction = INPUT;
+	}
 
 	if (verbose) {
-		
 /*
  * Print packet direction and protocol type.
  */
@@ -630,16 +666,14 @@ static void HandleRoutingInfo (int fd)
 	}
 
 	if (verbose)
-		printf ("Routing message %X received.\n", ifMsg.ifm_type);
+		printf ("Routing message %#x received.\n", ifMsg.ifm_type);
 
-	if (ifMsg.ifm_type != RTM_NEWADDR)
-		return;
-
-	if (verbose && ifMsg.ifm_index == ifIndex)
-		printf ("Interface address has changed.\n");
-
-	if (ifMsg.ifm_index == ifIndex)
+	if ((ifMsg.ifm_type == RTM_NEWADDR || ifMsg.ifm_type == RTM_IFINFO) &&
+	    ifMsg.ifm_index == ifIndex) {
+		if (verbose)
+			printf("Interface address/MTU has probably changed.\n");
 		assignAliasAddr = 1;
+	}
 }
 
 static void PrintPacket (struct ip* ip)
@@ -700,101 +734,102 @@ static char* FormatPacket (struct ip* ip)
 	return buf;
 }
 
-static void SetAliasAddressFromIfName (char* ifn)
+static void
+SetAliasAddressFromIfName(const char *ifn)
 {
-	struct ifconf		cf;
-	struct ifreq		buf[32];
-	char			msg[80];
-	struct ifreq*		ifPtr;
-	int			extra;
-	int			helperSock;
-	int			bytes;
-	struct sockaddr_in*	addr;
-	int			found;
-	struct ifreq		req;
-	char			last[10];
-/*
- * Create a dummy socket to access interface information.
- */
-	helperSock = socket (AF_INET, SOCK_DGRAM, 0);
-	if (helperSock == -1) {
+	size_t needed;
+	int mib[6];
+	char *buf, *lim, *next;
+	struct if_msghdr *ifm;
+	struct ifa_msghdr *ifam;
+	struct sockaddr_dl *sdl;
+	struct sockaddr_in *sin;
 
-		Quit ("Failed to create helper socket.");
-		exit (1);
-	}
-
-	cf.ifc_len = sizeof (buf);
-	cf.ifc_req = buf;
+	mib[0] = CTL_NET;
+	mib[1] = PF_ROUTE;
+	mib[2] = 0;
+	mib[3] = AF_INET;	/* Only IP addresses please */
+	mib[4] = NET_RT_IFLIST;
+	mib[5] = 0;		/* ifIndex??? */
 /*
  * Get interface data.
  */
-	if (ioctl (helperSock, SIOCGIFCONF, &cf) == -1) {
-
-		Quit ("Ioctl SIOCGIFCONF failed.");
-		exit (1);
-	}
-
-	ifIndex	= 0;
-	ifPtr	= buf;
-	bytes	= cf.ifc_len;
-	found   = 0;
-	last[0] = '\0';
+	if (sysctl(mib, 6, NULL, &needed, NULL, 0) == -1)
+		err(1, "iflist-sysctl-estimate");
+	if ((buf = malloc(needed)) == NULL)
+		errx(1, "malloc failed");
+	if (sysctl(mib, 6, buf, &needed, NULL, 0) == -1)
+		err(1, "iflist-sysctl-get");
+	lim = buf + needed;
 /*
  * Loop through interfaces until one with
  * given name is found. This is done to
  * find correct interface index for routing
  * message processing.
  */
-	while (bytes) {
-
-		if (ifPtr->ifr_addr.sa_family == AF_INET &&
-                    !strcmp (ifPtr->ifr_name, ifn)) {
-
-			found = 1;
-			break;
+	ifIndex	= 0;
+	next = buf;
+	while (next < lim) {
+		ifm = (struct if_msghdr *)next;
+		next += ifm->ifm_msglen;
+		if (ifm->ifm_version != RTM_VERSION) {
+			if (verbose)
+				warnx("routing message version %d "
+				      "not understood", ifm->ifm_version);
+			continue;
 		}
-
-		if (strcmp (last, ifPtr->ifr_name)) {
-
-			strcpy (last, ifPtr->ifr_name);
-			++ifIndex;
+		if (ifm->ifm_type == RTM_IFINFO) {
+			sdl = (struct sockaddr_dl *)(ifm + 1);
+			if (strlen(ifn) == sdl->sdl_nlen &&
+			    strncmp(ifn, sdl->sdl_data, sdl->sdl_nlen) == 0) {
+				ifIndex = ifm->ifm_index;
+				ifMTU = ifm->ifm_data.ifi_mtu;
+				break;
+			}
 		}
-
-		extra = ifPtr->ifr_addr.sa_len - sizeof (struct sockaddr);
-
-		ifPtr++;
-		ifPtr = (struct ifreq*) ((char*) ifPtr + extra);
-		bytes -= sizeof (struct ifreq) + extra;
 	}
-
-	if (!found) {
-
-		close (helperSock);
-		sprintf (msg, "Unknown interface name %s.\n", ifn);
-		Quit (msg);
-	}
-/*
- * Get MTU size.
- */
-	strcpy (req.ifr_name, ifn);
-
-	if (ioctl (helperSock, SIOCGIFMTU, &req) == -1)
-		Quit ("Cannot get interface mtu size.");
-
-	ifMTU = req.ifr_mtu;
+	if (!ifIndex)
+		errx(1, "unknown interface name %s", ifn);
 /*
  * Get interface address.
  */
-	if (ioctl (helperSock, SIOCGIFADDR, &req) == -1)
-		Quit ("Cannot get interface address.");
+	sin = NULL;
+	while (next < lim) {
+		ifam = (struct ifa_msghdr *)next;
+		next += ifam->ifam_msglen;
+		if (ifam->ifam_version != RTM_VERSION) {
+			if (verbose)
+				warnx("routing message version %d "
+				      "not understood", ifam->ifam_version);
+			continue;
+		}
+		if (ifam->ifam_type != RTM_NEWADDR)
+			break;
+		if (ifam->ifam_addrs & RTA_IFA) {
+			int i;
+			char *cp = (char *)(ifam + 1);
 
-	addr = (struct sockaddr_in*) &req.ifr_addr;
-	PacketAliasSetAddress (addr->sin_addr);
-	syslog (LOG_INFO, "Aliasing to %s, mtu %d bytes",
-			  inet_ntoa (addr->sin_addr),
-			  ifMTU);
+#define ROUNDUP(a) \
+	((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
+#define ADVANCE(x, n) (x += ROUNDUP((n)->sa_len))
 
-	close (helperSock);
+			for (i = 1; i < RTA_IFA; i <<= 1)
+				if (ifam->ifam_addrs & i)
+					ADVANCE(cp, (struct sockaddr *)cp);
+			if (((struct sockaddr *)cp)->sa_family == AF_INET) {
+				sin = (struct sockaddr_in *)cp;
+				break;
+			}
+		}
+	}
+	if (sin == NULL)
+		errx(1, "%s: cannot get interface address", ifn);
+
+	PacketAliasSetAddress(sin->sin_addr);
+	syslog(LOG_INFO, "Aliasing to %s, mtu %d bytes",
+	       inet_ntoa(sin->sin_addr), ifMTU);
+
+	free(buf);
 }
 
 void Quit (const char* msg)
@@ -808,12 +843,11 @@ void Warn (const char* msg)
 	if (background)
 		syslog (LOG_ALERT, "%s (%m)", msg);
 	else
-		warn (msg);
+		warn ("%s", msg);
 }
 
 static void RefreshAddr (int sig)
 {
-	signal (SIGHUP, RefreshAddr);
 	if (ifName)
 		assignAliasAddr = 1;
 }
@@ -825,6 +859,7 @@ static void InitiateShutdown (int sig)
  * shutdown existing connections when system
  * is shut down.
  */
+	siginterrupt(SIGALRM, 1);
 	signal (SIGALRM, Shutdown);
 	alarm (10);
 }
@@ -846,15 +881,17 @@ enum Option {
 	OutPort,
 	Port,
 	AliasAddress,
+	TargetAddress,
 	InterfaceName,
 	RedirectPort,
+	RedirectProto,
 	RedirectAddress,
 	ConfigFile,
 	DynamicMode,
-	PptpAlias,
 	ProxyRule,
  	LogDenied,
- 	LogFacility
+ 	LogFacility,
+	PunchFW
 };
 
 enum Param {
@@ -992,6 +1029,14 @@ static struct OptionInfo optionTable[] = {
 		"alias_address",
 		"a" },
 	
+	{ TargetAddress,
+		0,
+		Address,
+		"x.x.x.x",
+		"address to use for incoming sessions",
+		"target_address",
+		"t" },
+	
 	{ InterfaceName,
 		0,
 		String,
@@ -1012,26 +1057,26 @@ static struct OptionInfo optionTable[] = {
 	{ RedirectPort,
 		0,
 		String,
-	        "tcp|udp local_addr:local_port_range [public_addr:]public_port_range"
+	        "tcp|udp local_addr:local_port_range[,...] [public_addr:]public_port_range"
 	 	" [remote_addr[:remote_port_range]]",
 		"redirect a port (or ports) for incoming traffic",
 		"redirect_port",
 		NULL },
 
+	{ RedirectProto,
+		0,
+		String,
+	        "proto local_addr [public_addr] [remote_addr]",
+		"redirect packets of a given proto",
+		"redirect_proto",
+		NULL },
+
 	{ RedirectAddress,
 		0,
 		String,
-	        "local_addr public_addr",
+	        "local_addr[,...] public_addr",
 		"define mapping between local and public addresses",
 		"redirect_address",
-		NULL },
-
-       { PptpAlias,
-		0,
-		String,
-		"src",
-		"define inside machine for PPTP traffic",
-		"pptpalias",
 		NULL },
 
 	{ ConfigFile,
@@ -1056,11 +1101,18 @@ static struct OptionInfo optionTable[] = {
 	        "facility",
 		"name of syslog facility to use for logging",
 		"log_facility",
-		NULL }
+		NULL },
 
+	{ PunchFW,
+		0,
+		String,
+	        "basenumber:count",
+		"punch holes in the firewall for incoming FTP/IRC DCC connections",
+		"punch_fw",
+		NULL }
 };
 	
-static void ParseOption (const char* option, const char* parms, int cmdLine)
+static void ParseOption (const char* option, const char* parms)
 {
 	int			i;
 	struct OptionInfo*	info;
@@ -1183,16 +1235,20 @@ static void ParseOption (const char* option, const char* parms, int cmdLine)
 		memcpy (&aliasAddr, &addrValue, sizeof (struct in_addr));
 		break;
 
+	case TargetAddress:
+		PacketAliasSetTarget(addrValue);
+		break;
+
 	case RedirectPort:
 		SetupPortRedirect (strValue);
 		break;
 
-	case RedirectAddress:
-		SetupAddressRedirect (strValue);
+	case RedirectProto:
+		SetupProtoRedirect(strValue);
 		break;
 
-	case PptpAlias:
-		SetupPptpAlias (strValue);
+	case RedirectAddress:
+		SetupAddressRedirect (strValue);
 		break;
 
 	case ProxyRule:
@@ -1204,7 +1260,6 @@ static void ParseOption (const char* option, const char* parms, int cmdLine)
 			free (ifName);
 
 		ifName = strdup (strValue);
-		assignAliasAddr = 1;
 		break;
 
 	case ConfigFile:
@@ -1234,42 +1289,45 @@ static void ParseOption (const char* option, const char* parms, int cmdLine)
 			errx(1, "Unknown log facility name: %s", strValue);	
 
 		break;
+
+	case PunchFW:
+		SetupPunchFW(strValue);
+		break;
 	}
 }
 
 void ReadConfigFile (const char* fileName)
 {
 	FILE*	file;
-	char	buf[128];
-	char*	ptr;
+	char	*buf;
+	size_t	len;
+	char	*ptr, *p;
 	char*	option;
 
 	file = fopen (fileName, "r");
-	if (!file) {
+	if (!file)
+		err(1, "cannot open config file %s", fileName);
 
-		sprintf (buf, "Cannot open config file %s.\n", fileName);
-		Quit (buf);
-	}
+	while ((buf = fgetln(file, &len)) != NULL) {
+		if (buf[len - 1] == '\n')
+			buf[len - 1] = '\0';
+		else
+			errx(1, "config file format error: "
+				"last line should end with newline");
 
-	while (fgets (buf, sizeof (buf), file)) {
-
-		ptr = strchr (buf, '\n');
-		if (!ptr)
-			errx (1, "config line too long: %s", buf);
-
-		*ptr = '\0';
-		if (buf[0] == '#')
-			continue;
-
-		ptr = buf;
 /*
- * Skip white space at beginning of line.
+ * Check for comments, strip off trailing spaces.
  */
-		while (*ptr && isspace (*ptr))
-			++ptr;
-
+		if ((ptr = strchr(buf, '#')))
+			*ptr = '\0';
+		for (ptr = buf; isspace(*ptr); ++ptr)
+			continue;
 		if (*ptr == '\0')
 			continue;
+		for (p = strchr(buf, '\0'); isspace(*--p);)
+			continue;
+		*++p = '\0';
+
 /*
  * Extract option name.
  */
@@ -1288,7 +1346,7 @@ void ReadConfigFile (const char* fileName)
 		while (*ptr && isspace (*ptr))
 			++ptr;
 
-		ParseOption (option, *ptr ? ptr : NULL, 0);
+		ParseOption (option, *ptr ? ptr : NULL);
 	}
 
 	fclose (file);
@@ -1318,29 +1376,11 @@ static void Usage ()
 	exit (1);
 }
 
-void SetupPptpAlias (const char* parms)
-{
-	char		buf[128];
-	char*		ptr;
-	struct in_addr	srcAddr;
-
-	strcpy (buf, parms);
-
-/*
- * Extract source address.
- */
-	ptr = strtok (buf, " \t");
-	if (!ptr)
-		errx(1, "pptpalias: missing src address");
-
-	StrToAddr (ptr, &srcAddr);
-	PacketAliasPptp (srcAddr);
-}
-
 void SetupPortRedirect (const char* parms)
 {
 	char		buf[128];
 	char*		ptr;
+	char*		serverPool;
 	struct in_addr	localAddr;
 	struct in_addr	publicAddr;
 	struct in_addr	remoteAddr;
@@ -1355,6 +1395,7 @@ void SetupPortRedirect (const char* parms)
 	char*		protoName;
 	char*		separator;
 	int             i;
+	struct alias_link *link = NULL;
 
 	strcpy (buf, parms);
 /*
@@ -1372,14 +1413,23 @@ void SetupPortRedirect (const char* parms)
 	if (!ptr)
 		errx (1, "redirect_port: missing local address");
 
-	if ( StrToAddrAndPortRange (ptr, &localAddr, protoName, &portRange) != 0 )
-	        errx (1, "redirect_port: invalid local port range");
+	separator = strchr(ptr, ',');
+	if (separator) {		/* LSNAT redirection syntax. */
+		localAddr.s_addr = INADDR_NONE;
+		localPort = ~0;
+		numLocalPorts = 1;
+		serverPool = ptr;
+	} else {
+		if ( StrToAddrAndPortRange (ptr, &localAddr, protoName, &portRange) != 0 )
+			errx (1, "redirect_port: invalid local port range");
 
-	localPort     = GETLOPORT(portRange);
-	numLocalPorts = GETNUMPORTS(portRange);
+		localPort     = GETLOPORT(portRange);
+		numLocalPorts = GETNUMPORTS(portRange);
+		serverPool = NULL;
+	}
 
 /*
- * Extract public port and optinally address.
+ * Extract public port and optionally address.
  */
 	ptr = strtok (NULL, " \t");
 	if (!ptr)
@@ -1405,10 +1455,10 @@ void SetupPortRedirect (const char* parms)
 	ptr = strtok (NULL, " \t");
 	if (ptr) {
 		separator = strchr (ptr, ':');
-		if (separator)
+		if (separator) {
 		        if (StrToAddrAndPortRange (ptr, &remoteAddr, protoName, &portRange) != 0)
 			        errx (1, "redirect_port: invalid remote port range");
-		else {
+		} else {
 		        SETLOPORT(portRange, 0);
 			SETNUMPORTS(portRange, 1);
 			StrToAddr (ptr, &remoteAddr);
@@ -1430,7 +1480,7 @@ void SetupPortRedirect (const char* parms)
 	        errx (1, "redirect_port: port ranges must be equal in size");
 
 	/* Remote port range is allowed to be '0' which means all ports. */
-	if (numRemotePorts != numLocalPorts && numRemotePorts != 1 && remotePort != 0)
+	if (numRemotePorts != numLocalPorts && (numRemotePorts != 1 || remotePort != 0))
 	        errx (1, "redirect_port: remote port must be 0 or equal to local port range in size");
 
 	for (i = 0 ; i < numPublicPorts ; ++i) {
@@ -1439,22 +1489,98 @@ void SetupPortRedirect (const char* parms)
 	        if (numRemotePorts == 1 && remotePort == 0)
 		        remotePortCopy = 0;
 
-	        PacketAliasRedirectPort (localAddr,
-					 htons(localPort + i),
-					 remoteAddr,
-					 htons(remotePortCopy),
-					 publicAddr,
-					 htons(publicPort + i),
-					 proto);
+		link = PacketAliasRedirectPort (localAddr,
+						htons(localPort + i),
+						remoteAddr,
+						htons(remotePortCopy),
+						publicAddr,
+						htons(publicPort + i),
+						proto);
 	}
+
+/*
+ * Setup LSNAT server pool.
+ */
+	if (serverPool != NULL && link != NULL) {
+		ptr = strtok(serverPool, ",");
+		while (ptr != NULL) {
+			if (StrToAddrAndPortRange(ptr, &localAddr, protoName, &portRange) != 0)
+				errx(1, "redirect_port: invalid local port range");
+
+			localPort = GETLOPORT(portRange);
+			if (GETNUMPORTS(portRange) != 1)
+				errx(1, "redirect_port: local port must be single in this context");
+			PacketAliasAddServer(link, localAddr, htons(localPort));
+			ptr = strtok(NULL, ",");
+		}
+	}
+}
+
+void
+SetupProtoRedirect(const char* parms)
+{
+	char		buf[128];
+	char*		ptr;
+	struct in_addr	localAddr;
+	struct in_addr	publicAddr;
+	struct in_addr	remoteAddr;
+	int		proto;
+	char*		protoName;
+	struct protoent *protoent;
+
+	strcpy (buf, parms);
+/*
+ * Extract protocol.
+ */
+	protoName = strtok(buf, " \t");
+	if (!protoName)
+		errx(1, "redirect_proto: missing protocol");
+
+	protoent = getprotobyname(protoName);
+	if (protoent == NULL)
+		errx(1, "redirect_proto: unknown protocol %s", protoName);
+	else
+		proto = protoent->p_proto;
+/*
+ * Extract local address.
+ */
+	ptr = strtok(NULL, " \t");
+	if (!ptr)
+		errx(1, "redirect_proto: missing local address");
+	else
+		StrToAddr(ptr, &localAddr);
+/*
+ * Extract optional public address.
+ */
+	ptr = strtok(NULL, " \t");
+	if (ptr)
+		StrToAddr(ptr, &publicAddr);
+	else
+		publicAddr.s_addr = INADDR_ANY;
+/*
+ * Extract optional remote address.
+ */
+	ptr = strtok(NULL, " \t");
+	if (ptr)
+		StrToAddr(ptr, &remoteAddr);
+	else
+		remoteAddr.s_addr = INADDR_ANY;
+/*
+ * Create aliasing link.
+ */
+	(void)PacketAliasRedirectProto(localAddr, remoteAddr, publicAddr,
+				       proto);
 }
 
 void SetupAddressRedirect (const char* parms)
 {
 	char		buf[128];
 	char*		ptr;
+	char*		separator;
 	struct in_addr	localAddr;
 	struct in_addr	publicAddr;
+	char*		serverPool;
+	struct alias_link *link;
 
 	strcpy (buf, parms);
 /*
@@ -1464,7 +1590,14 @@ void SetupAddressRedirect (const char* parms)
 	if (!ptr)
 		errx (1, "redirect_address: missing local address");
 
-	StrToAddr (ptr, &localAddr);
+	separator = strchr(ptr, ',');
+	if (separator) {		/* LSNAT redirection syntax. */
+		localAddr.s_addr = INADDR_NONE;
+		serverPool = ptr;
+	} else {
+		StrToAddr (ptr, &localAddr);
+		serverPool = NULL;
+	}
 /*
  * Extract public address.
  */
@@ -1473,7 +1606,19 @@ void SetupAddressRedirect (const char* parms)
 		errx (1, "redirect_address: missing public address");
 
 	StrToAddr (ptr, &publicAddr);
-	PacketAliasRedirectAddr (localAddr, publicAddr);
+	link = PacketAliasRedirectAddr(localAddr, publicAddr);
+
+/*
+ * Setup LSNAT server pool.
+ */
+	if (serverPool != NULL && link != NULL) {
+		ptr = strtok(serverPool, ",");
+		while (ptr != NULL) {
+			StrToAddr(ptr, &localAddr);
+			PacketAliasAddServer(link, localAddr, htons(~0));
+			ptr = strtok(NULL, ",");
+		}
+	}
 }
 
 void StrToAddr (const char* str, struct in_addr* addr)
@@ -1575,4 +1720,16 @@ int StrToAddrAndPortRange (const char* str, struct in_addr* addr, char* proto, p
 
 	StrToAddr (str, addr);
 	return StrToPortRange (ptr, proto, portRange);
+}
+
+static void
+SetupPunchFW(const char *strValue)
+{
+	unsigned int base, num;
+
+	if (sscanf(strValue, "%u:%u", &base, &num) != 2)
+		errx(1, "punch_fw: basenumber:count parameter required");
+
+	PacketAliasSetFWBase(base, num);
+	(void)PacketAliasSetMode(PKT_ALIAS_PUNCH_FW, PKT_ALIAS_PUNCH_FW);
 }

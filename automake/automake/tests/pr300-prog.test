@@ -1,0 +1,57 @@
+#! /bin/sh
+
+# Make sure that installing subdirectory programs works.
+# PR/300
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = subdir/wish
+subdir_wish_SOURCES = a.c
+
+nobase_bin_PROGRAMS = subdir/want
+subdir_want_SOURCES = a.c
+END
+
+cat > a.c << 'END'
+#include <stdio.h>
+int main ()
+{
+   printf ("hi liver!\n");
+   return 0;
+}
+END
+
+## A rule in the Makefile should create subdir
+# mkdir subdir
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --copy --add-missing
+./configure --prefix `pwd`/inst
+$MAKE
+
+test -f subdir/wish
+test -f subdir/want
+
+$MAKE install
+
+test -f inst/bin/wish
+test -f inst/bin/subdir/want
+
+$MAKE uninstall
+
+test -f inst/bin/wish && exit 1
+test -f inst/bin/subdir/want && exit 1
+
+$MAKE install-strip
+
+test -f inst/bin/wish
+test -f inst/bin/subdir/want

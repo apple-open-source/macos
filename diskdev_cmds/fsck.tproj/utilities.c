@@ -312,16 +312,16 @@ flush(fd, bp)
 		int size = sblock.fs_cssize - i < sblock.fs_bsize ?
 		    	   sblock.fs_cssize - i : sblock.fs_bsize;
 		if (rev_endian)
-			byte_swap_ints((int *) sblock.fs_csp[j], 
+			byte_swap_ints((int *) ((char *)sblock.fs_csp + i), 
 				size / sizeof(int));
-		bwrite(fswritefd, (char *)sblock.fs_csp[j],
+		bwrite(fswritefd, (char *)sblock.fs_csp + i,
 		    fsbtodb(&sblock, sblock.fs_csaddr + j * sblock.fs_frag),
 		    size);
 		if (rev_endian)
-			byte_swap_ints((int *) sblock.fs_csp[j], 
+			byte_swap_ints((int *) ((char *)sblock.fs_csp + i), 
 				size / sizeof(int));
 #else /* REV_ENDIAN_FS */
-		bwrite(fswritefd, (char *)sblock.fs_csp[j],
+		bwrite(fswritefd, (char *)sblock.fs_csp + i,
 		    fsbtodb(&sblock, sblock.fs_csaddr + j * sblock.fs_frag),
 		    sblock.fs_cssize - i < sblock.fs_bsize ?
 		    sblock.fs_cssize - i : sblock.fs_bsize);

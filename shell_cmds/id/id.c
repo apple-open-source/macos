@@ -191,9 +191,9 @@ pretty(pw)
 		
 		if ((eid = geteuid()) != rid) {
 			if ((pw = getpwuid(eid)) != NULL)
-				(void)printf("euid\t%s", pw->pw_name);
+				(void)printf("euid\t%s\n", pw->pw_name);
 			else
-				(void)printf("euid\t%u", eid);
+				(void)printf("euid\t%u\n", eid);
 		}
 		if ((rid = getgid()) != (eid = getegid())) {
 			if ((gr = getgrgid(rid)) != NULL)

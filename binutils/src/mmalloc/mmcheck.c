@@ -179,6 +179,8 @@ mmcheckf (md, func, force)
   struct mdesc *mdp;
   int rtnval;
 
+  abort ();
+
   mdp = MD_TO_MDP (md);
 
   /* We can safely set or update the abort function at any time, regardless
@@ -217,6 +219,8 @@ mmcheck (md, func)
   void (*func) PARAMS ((void));
 {
   int rtnval;
+
+  abort ();
 
   rtnval = mmcheckf (md, func, 0);
   return (rtnval);

@@ -1,0 +1,11 @@
+#! /bin/sh
+
+# Test to make sure `-c' works.  Report from Andris Pavenis.
+
+. $srcdir/defs || exit 1
+
+: > Makefile.am
+rm -f install-sh
+
+$ACLOCAL || exit 1
+$AUTOMAKE -c -a

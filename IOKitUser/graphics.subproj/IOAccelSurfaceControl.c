@@ -172,18 +172,34 @@ IOReturn IOAccelDestroySurface( IOAccelConnect connect )
 	return kr;
 }
 
+
+#if 0
 IOReturn IOAccelSetSurfaceScale( IOAccelConnect connect, IOOptionBits options, UInt32 width, UInt32 height )
 {
-	int data[3];
-	int countio = 0;
-
-	data[0] = options;
-        data[1] = width;
-        data[2] = height;
-
-	return io_connect_method_scalarI_scalarO((io_connect_t) connect, kIOAccelSurfaceSetScale,
-		data, 3, NULL, &countio);
+    int data[3];
+    int countio = 0;
+    
+    data[0] = options;
+    data[1] = width;
+    data[2] = height;
+    
+    return io_connect_method_scalarI_scalarO((io_connect_t) connect, kIOAccelSurfaceSetScale,
+            data, 3, NULL, &countio);
 }
+IOReturn IOAccelSetSurfaceScaling( IOAccelConnect connect, IOOptionBits options,
+                                    IOAccelSurfaceScaling * scaling, UInt32 scalingSize )
+#else
+IOReturn IOAccelSetSurfaceScale( IOAccelConnect connect, IOOptionBits options,
+                                    IOAccelSurfaceScaling * scaling, UInt32 scalingSize )
+#endif
+{
+	return io_connect_method_scalarI_structureI((io_connect_t) connect,
+                kIOAccelSurfaceSetScale,
+                &options, 1,
+		(char *) scaling, scalingSize);
+}
+
+
 
 IOReturn IOAccelSetSurfaceShape( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
                                             eIOAccelSurfaceShapeBits options )

@@ -106,3 +106,6 @@ STRIPFLAGS =
 # owned by the top-level Makefile API and no context has been set up for where 
 # derived files should go.
 
+after_install:
+	mkdir -p "$(DSTROOT)/usr/share/man/man8"
+	install -c -m 644 ypbind.8 "$(DSTROOT)/usr/share/man/man8/ypbind.8"

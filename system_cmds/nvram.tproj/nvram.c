@@ -409,10 +409,11 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
   long          cnt, cnt2;
   const char    *nameString;
   char          numberBuffer[10];
-  char          *dataPtr, dataChar;
+  const uint8_t *dataPtr;
+  uint8_t       dataChar;
   char          *dataBuffer = 0;
-  char          *valueString = 0;
-  unsigned long number, length;
+  const char    *valueString = 0;
+  uint32_t      number, length;
   CFTypeID      typeID;
   
   // Get the OF variable's name.

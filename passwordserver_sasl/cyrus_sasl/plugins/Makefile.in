@@ -1,0 +1,535 @@
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
+
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+# Makefile.am for the SASL plugins
+# Rob Siemborski
+# Rob Earhart
+# $Id: Makefile.in,v 1.2 2002/05/22 17:58:41 snsimon Exp $
+#
+################################################################
+# Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer. 
+#
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in
+#    the documentation and/or other materials provided with the
+#    distribution.
+#
+# 3. The name "Carnegie Mellon University" must not be used to
+#    endorse or promote products derived from this software without
+#    prior written permission. For permission or any other legal
+#    details, please contact  
+#      Office of Technology Transfer
+#      Carnegie Mellon University
+#      5000 Forbes Avenue
+#      Pittsburgh, PA  15213-3890
+#      (412) 268-4387, fax: (412) 268-7395
+#      tech-transfer@andrew.cmu.edu
+#
+# 4. Redistributions of any form whatsoever must retain the following
+#    acknowledgment:
+#    "This product includes software developed by Computing Services
+#     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+#
+# CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+# THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+# AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+# FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+# AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+# OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+#
+################################################################
+
+# Library version info - here at the top, for sanity
+# CURRENT:REVISION:AGE
+
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+oldincludedir = /usr/include
+
+DESTDIR =
+
+pkgdatadir = $(datadir)/@PACKAGE@
+pkglibdir = $(libdir)/@PACKAGE@
+pkgincludedir = $(includedir)/@PACKAGE@
+
+top_builddir = ..
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+transform = @program_transform_name@
+
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+AS = @AS@
+AWK = @AWK@
+CC = @CC@
+CPP = @CPP@
+DIRS = @DIRS@
+DLLTOOL = @DLLTOOL@
+DMALLOC_LIBS = @DMALLOC_LIBS@
+DYNSASLFLAGS = @DYNSASLFLAGS@
+GETADDRINFOOBJS = @GETADDRINFOOBJS@
+GETNAMEINFOOBJS = @GETNAMEINFOOBJS@
+GETSUBOPT = @GETSUBOPT@
+GSSAPIBASE_LIBS = @GSSAPIBASE_LIBS@
+GSSAPI_LIBS = @GSSAPI_LIBS@
+IPCTYPE = @IPCTYPE@
+JAVAC = @JAVAC@
+JAVADOC = @JAVADOC@
+JAVAH = @JAVAH@
+JAVAROOT = @JAVAROOT@
+JAVA_INCLUDES = @JAVA_INCLUDES@
+LIBOBJS = @LIBOBJS@
+LIBTOOL = @LIBTOOL@
+LIB_CRYPT = @LIB_CRYPT@
+LIB_DES = @LIB_DES@
+LIB_DYN_SASL = @LIB_DYN_SASL@
+LIB_PAM = @LIB_PAM@
+LIB_SASL = @LIB_SASL@
+LIB_SOCKET = @LIB_SOCKET@
+LN_S = @LN_S@
+LTGETADDRINFOOBJS = @LTGETADDRINFOOBJS@
+LTGETNAMEINFOOBJS = @LTGETNAMEINFOOBJS@
+LTLIBOBJS = @LTLIBOBJS@
+LTSNPRINTFOBJS = @LTSNPRINTFOBJS@
+MAKEINFO = @MAKEINFO@
+NM = @NM@
+OBJDUMP = @OBJDUMP@
+OTP_LIBS = @OTP_LIBS@
+PACKAGE = @PACKAGE@
+PLAIN_LIBS = @PLAIN_LIBS@
+PURECOV = @PURECOV@
+PURIFY = @PURIFY@
+PWCHECKMETH = @PWCHECKMETH@
+RANLIB = @RANLIB@
+SASLFLAGS = @SASLFLAGS@
+SASL_DB_BACKEND = @SASL_DB_BACKEND@
+SASL_DB_BACKEND_STATIC = @SASL_DB_BACKEND_STATIC@
+SASL_DB_INC = @SASL_DB_INC@
+SASL_DB_LIB = @SASL_DB_LIB@
+SASL_DB_MANS = @SASL_DB_MANS@
+SASL_DB_UTILS = @SASL_DB_UTILS@
+SASL_DL_LIB = @SASL_DL_LIB@
+SASL_KRB_LIB = @SASL_KRB_LIB@
+SASL_MECHS = @SASL_MECHS@
+SASL_STATIC_LIBS = @SASL_STATIC_LIBS@
+SASL_STATIC_OBJS = @SASL_STATIC_OBJS@
+SASL_UTIL_HEADERS_EXTRA = @SASL_UTIL_HEADERS_EXTRA@
+SASL_UTIL_LIBS_EXTRA = @SASL_UTIL_LIBS_EXTRA@
+SFIO_INC_FLAGS = @SFIO_INC_FLAGS@
+SFIO_LIB_FLAGS = @SFIO_LIB_FLAGS@
+SMTPTEST_PROGRAM = @SMTPTEST_PROGRAM@
+SNPRINTFOBJS = @SNPRINTFOBJS@
+SRP_LIBS = @SRP_LIBS@
+VERSION = @VERSION@
+
+plain_version = 2:3:0
+anonymous_version = 2:3:0
+kerberos4_version = 2:3:0
+crammd5_version = 2:3:0
+gssapiv2_version = 2:3:0
+digestmd5_version = 2:3:0
+login_version = 2:3:0
+sasldb_version = 2:3:0
+srp_version = 2:3:0
+otp_version = 2:3:0
+
+INCLUDES = -I$(top_srcdir)/include -I$(top_srcdir)/lib -I$(top_srcdir)/sasldb
+LDFLAGS = @LDFLAGS@ -module -export-dynamic -rpath $(plugindir)
+
+COMPAT_OBJS = @LTGETADDRINFOOBJS@ @LTGETNAMEINFOOBJS@ @LTSNPRINTFOBJS@
+
+EXTRA_DIST = makeinit.sh
+noinst_SCRIPTS = makeinit.sh
+
+plugindir = @plugindir@
+
+common_sources = plugin_common.c plugin_common.h
+
+sasldir = $(prefix)/lib/sasl2
+sasl_LTLIBRARIES = @SASL_MECHS@
+EXTRA_LTLIBRARIES = libplain.la libanonymous.la libkerberos4.la libcrammd5.la 	libgssapiv2.la libdigestmd5.la liblogin.la libsrp.la libotp.la 	libsasldb.la
+
+
+libplain_la_SOURCES = plain.c plain_init.c $(common_sources)
+libplain_la_LDFLAGS = -version-info $(plain_version)
+libplain_la_DEPENDENCIES = $(COMPAT_OBJS)
+libplain_la_LIBADD = $(PLAIN_LIBS) $(COMPAT_OBJS)
+
+libanonymous_la_SOURCES = anonymous.c anonymous_init.c $(common_sources)
+libanonymous_la_LDFLAGS = -version-info $(anonymous_version)
+libanonymous_la_DEPENDENCIES = $(COMPAT_OBJS)
+libanonymous_la_LIBADD = $(COMPAT_OBJS)
+
+libkerberos4_la_SOURCES = kerberos4.c kerberos4_init.c $(common_sources)
+libkerberos4_la_LDFLAGS = -version-info $(kerberos4_version)
+libkerberos4_la_DEPENDENCIES = $(COMPAT_OBJS)
+libkerberos4_la_LIBADD = $(SASL_KRB_LIB) $(LIB_SOCKET) $(COMPAT_OBJS)
+
+libgssapiv2_la_SOURCES = gssapi.c gssapiv2_init.c $(common_sources)
+libgssapiv2_la_LDFLAGS = -version-info $(gssapiv2_version)
+libgssapiv2_la_DEPENDENCIES = $(COMPAT_OBJS)
+libgssapiv2_la_LIBADD = $(GSSAPIBASE_LIBS) $(GSSAPI_LIBS) $(LIB_SOCKET) $(COMPAT_OBJS)
+
+libcrammd5_la_SOURCES = cram.c crammd5_init.c $(common_sources)
+libcrammd5_la_LDFLAGS = -version-info $(crammd5_version)
+libcrammd5_la_DEPENDENCIES = $(COMPAT_OBJS)
+libcrammd5_la_LIBADD = $(COMPAT_OBJS)
+
+libdigestmd5_la_SOURCES = digestmd5.c digestmd5_init.c $(common_sources)
+libdigestmd5_la_LDFLAGS = -version-info $(digestmd5_version)
+libdigestmd5_la_DEPENDENCIES = $(COMPAT_OBJS)
+libdigestmd5_la_LIBADD = $(LIB_DES) $(LIB_SOCKET) $(COMPAT_OBJS)
+
+liblogin_la_SOURCES = login.c login_init.c $(common_sources)
+liblogin_la_LDFLAGS = -version-info $(login_version)
+liblogin_la_DEPENDENCIES = $(COMPAT_OBJS)
+liblogin_la_LIBADD = $(PLAIN_LIBS) $(COMPAT_OBJS)
+
+libsrp_la_SOURCES = srp.c srp_init.c $(common_sources)
+libsrp_la_LDFLAGS = -version-info $(srp_version)
+libsrp_la_DEPENDENCIES = $(COMPAT_OBJS)
+libsrp_la_LIBADD = $(SRP_LIBS) $(COMPAT_OBJS)
+
+libotp_la_SOURCES = otp.c otp_init.c otp.h $(common_sources)
+libotp_la_LDFLAGS = -version-info $(otp_version)
+libotp_la_DEPENDENCIES = $(COMPAT_OBJS)
+libotp_la_LIBADD = $(OTP_LIBS) $(COMPAT_OBJS)
+
+# Auxprop Plugins
+libsasldb_la_SOURCES = sasldb.c sasldb_init.c $(common_sources)
+libsasldb_la_LDFLAGS = -version-info $(sasldb_version)
+libsasldb_la_DEPENDENCIES = $(COMPAT_OBJS)
+libsasldb_la_LIBADD = ../sasldb/libsasldb.la $(SASL_DB_LIB) $(COMPAT_OBJS)
+
+# Instructions for making the _init files
+
+init_src = anonymous_init.c crammd5_init.c digestmd5_init.c gssapiv2_init.c kerberos4_init.c login_init.c plain_init.c srp_init.c otp_init.c sasldb_init.c
+
+
+CLEANFILES = $(init_src)
+mkinstalldirs = $(SHELL) $(top_srcdir)/config/mkinstalldirs
+CONFIG_HEADER = ../config.h
+CONFIG_CLEAN_FILES = 
+LTLIBRARIES =  $(sasl_LTLIBRARIES)
+
+
+DEFS = @DEFS@ -I. -I$(srcdir) -I..
+CPPFLAGS = @CPPFLAGS@
+LIBS = @LIBS@
+libplain_la_OBJECTS =  plain.lo plain_init.lo plugin_common.lo
+libanonymous_la_OBJECTS =  anonymous.lo anonymous_init.lo \
+plugin_common.lo
+libkerberos4_la_OBJECTS =  kerberos4.lo kerberos4_init.lo \
+plugin_common.lo
+libcrammd5_la_OBJECTS =  cram.lo crammd5_init.lo plugin_common.lo
+libgssapiv2_la_OBJECTS =  gssapi.lo gssapiv2_init.lo plugin_common.lo
+libdigestmd5_la_OBJECTS =  digestmd5.lo digestmd5_init.lo \
+plugin_common.lo
+liblogin_la_OBJECTS =  login.lo login_init.lo plugin_common.lo
+libsrp_la_OBJECTS =  srp.lo srp_init.lo plugin_common.lo
+libotp_la_OBJECTS =  otp.lo otp_init.lo plugin_common.lo
+libsasldb_la_OBJECTS =  sasldb.lo sasldb_init.lo plugin_common.lo
+SCRIPTS =  $(noinst_SCRIPTS)
+
+CFLAGS = @CFLAGS@
+COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+DIST_COMMON =  Makefile.am Makefile.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = gtar
+GZIP_ENV = --best
+SOURCES = $(libplain_la_SOURCES) $(libanonymous_la_SOURCES) $(libkerberos4_la_SOURCES) $(libcrammd5_la_SOURCES) $(libgssapiv2_la_SOURCES) $(libdigestmd5_la_SOURCES) $(liblogin_la_SOURCES) $(libsrp_la_SOURCES) $(libotp_la_SOURCES) $(libsasldb_la_SOURCES)
+OBJECTS = $(libplain_la_OBJECTS) $(libanonymous_la_OBJECTS) $(libkerberos4_la_OBJECTS) $(libcrammd5_la_OBJECTS) $(libgssapiv2_la_OBJECTS) $(libdigestmd5_la_OBJECTS) $(liblogin_la_OBJECTS) $(libsrp_la_OBJECTS) $(libotp_la_OBJECTS) $(libsasldb_la_OBJECTS)
+
+all: all-redirect
+.SUFFIXES:
+.SUFFIXES: .S .c .lo .o .s
+$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps plugins/Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+
+mostlyclean-saslLTLIBRARIES:
+
+clean-saslLTLIBRARIES:
+	-test -z "$(sasl_LTLIBRARIES)" || rm -f $(sasl_LTLIBRARIES)
+
+distclean-saslLTLIBRARIES:
+
+maintainer-clean-saslLTLIBRARIES:
+
+install-saslLTLIBRARIES: $(sasl_LTLIBRARIES)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(sasldir)
+	@list='$(sasl_LTLIBRARIES)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo "$(LIBTOOL)  --mode=install $(INSTALL) $$p $(DESTDIR)$(sasldir)/$$p"; \
+	    $(LIBTOOL)  --mode=install $(INSTALL) $$p $(DESTDIR)$(sasldir)/$$p; \
+	  else :; fi; \
+	done
+
+uninstall-saslLTLIBRARIES:
+	@$(NORMAL_UNINSTALL)
+	list='$(sasl_LTLIBRARIES)'; for p in $$list; do \
+	  $(LIBTOOL)  --mode=uninstall rm -f $(DESTDIR)$(sasldir)/$$p; \
+	done
+
+.c.o:
+	$(COMPILE) -c $<
+
+.s.o:
+	$(COMPILE) -c $<
+
+.S.o:
+	$(COMPILE) -c $<
+
+mostlyclean-compile:
+	-rm -f *.o core *.core
+
+clean-compile:
+
+distclean-compile:
+	-rm -f *.tab.c
+
+maintainer-clean-compile:
+
+.c.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.s.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.S.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+mostlyclean-libtool:
+	-rm -f *.lo
+
+clean-libtool:
+	-rm -rf .libs _libs
+
+distclean-libtool:
+
+maintainer-clean-libtool:
+
+libplain.la: $(libplain_la_OBJECTS) $(libplain_la_DEPENDENCIES)
+	$(LINK)  $(libplain_la_LDFLAGS) $(libplain_la_OBJECTS) $(libplain_la_LIBADD) $(LIBS)
+
+libanonymous.la: $(libanonymous_la_OBJECTS) $(libanonymous_la_DEPENDENCIES)
+	$(LINK)  $(libanonymous_la_LDFLAGS) $(libanonymous_la_OBJECTS) $(libanonymous_la_LIBADD) $(LIBS)
+
+libkerberos4.la: $(libkerberos4_la_OBJECTS) $(libkerberos4_la_DEPENDENCIES)
+	$(LINK)  $(libkerberos4_la_LDFLAGS) $(libkerberos4_la_OBJECTS) $(libkerberos4_la_LIBADD) $(LIBS)
+
+libcrammd5.la: $(libcrammd5_la_OBJECTS) $(libcrammd5_la_DEPENDENCIES)
+	$(LINK)  $(libcrammd5_la_LDFLAGS) $(libcrammd5_la_OBJECTS) $(libcrammd5_la_LIBADD) $(LIBS)
+
+libgssapiv2.la: $(libgssapiv2_la_OBJECTS) $(libgssapiv2_la_DEPENDENCIES)
+	$(LINK)  $(libgssapiv2_la_LDFLAGS) $(libgssapiv2_la_OBJECTS) $(libgssapiv2_la_LIBADD) $(LIBS)
+
+libdigestmd5.la: $(libdigestmd5_la_OBJECTS) $(libdigestmd5_la_DEPENDENCIES)
+	$(LINK)  $(libdigestmd5_la_LDFLAGS) $(libdigestmd5_la_OBJECTS) $(libdigestmd5_la_LIBADD) $(LIBS)
+
+liblogin.la: $(liblogin_la_OBJECTS) $(liblogin_la_DEPENDENCIES)
+	$(LINK)  $(liblogin_la_LDFLAGS) $(liblogin_la_OBJECTS) $(liblogin_la_LIBADD) $(LIBS)
+
+libsrp.la: $(libsrp_la_OBJECTS) $(libsrp_la_DEPENDENCIES)
+	$(LINK)  $(libsrp_la_LDFLAGS) $(libsrp_la_OBJECTS) $(libsrp_la_LIBADD) $(LIBS)
+
+libotp.la: $(libotp_la_OBJECTS) $(libotp_la_DEPENDENCIES)
+	$(LINK)  $(libotp_la_LDFLAGS) $(libotp_la_OBJECTS) $(libotp_la_LIBADD) $(LIBS)
+
+libsasldb.la: $(libsasldb_la_OBJECTS) $(libsasldb_la_DEPENDENCIES)
+	$(LINK)  $(libsasldb_la_LDFLAGS) $(libsasldb_la_OBJECTS) $(libsasldb_la_LIBADD) $(LIBS)
+
+tags: TAGS
+
+ID: $(HEADERS) $(SOURCES) $(LISP)
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	here=`pwd` && cd $(srcdir) \
+	  && mkid -f$$here/ID $$unique $(LISP)
+
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) $(LISP)
+	tags=; \
+	here=`pwd`; \
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	test -z "$(ETAGS_ARGS)$$unique$(LISP)$$tags" \
+	  || (cd $(srcdir) && etags $(ETAGS_ARGS) $$tags  $$unique $(LISP) -o $$here/TAGS)
+
+mostlyclean-tags:
+
+clean-tags:
+
+distclean-tags:
+	-rm -f TAGS ID
+
+maintainer-clean-tags:
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = plugins
+
+distdir: $(DISTFILES)
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$d/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
+check-am: all-am
+check: check-am
+installcheck-am:
+installcheck: installcheck-am
+install-exec-am:
+install-exec: install-exec-am
+
+install-data-am: install-saslLTLIBRARIES
+install-data: install-data-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+install: install-am
+uninstall-am: uninstall-saslLTLIBRARIES
+uninstall: uninstall-am
+all-am: Makefile $(LTLIBRARIES) $(SCRIPTS)
+all-redirect: all-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+	$(mkinstalldirs)  $(DESTDIR)$(sasldir)
+
+
+mostlyclean-generic:
+
+clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+
+maintainer-clean-generic:
+mostlyclean-am:  mostlyclean-saslLTLIBRARIES mostlyclean-compile \
+		mostlyclean-libtool mostlyclean-tags \
+		mostlyclean-generic
+
+mostlyclean: mostlyclean-am
+
+clean-am:  clean-saslLTLIBRARIES clean-compile clean-libtool clean-tags \
+		clean-generic mostlyclean-am
+
+clean: clean-am
+
+distclean-am:  distclean-saslLTLIBRARIES distclean-compile \
+		distclean-libtool distclean-tags distclean-generic \
+		clean-am
+	-rm -f libtool
+
+distclean: distclean-am
+
+maintainer-clean-am:  maintainer-clean-saslLTLIBRARIES \
+		maintainer-clean-compile maintainer-clean-libtool \
+		maintainer-clean-tags maintainer-clean-generic \
+		distclean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+
+.PHONY: mostlyclean-saslLTLIBRARIES distclean-saslLTLIBRARIES \
+clean-saslLTLIBRARIES maintainer-clean-saslLTLIBRARIES \
+uninstall-saslLTLIBRARIES install-saslLTLIBRARIES mostlyclean-compile \
+distclean-compile clean-compile maintainer-clean-compile \
+mostlyclean-libtool distclean-libtool clean-libtool \
+maintainer-clean-libtool tags mostlyclean-tags distclean-tags \
+clean-tags maintainer-clean-tags distdir info-am info dvi-am dvi check \
+check-am installcheck-am installcheck install-exec-am install-exec \
+install-data-am install-data install-am install uninstall-am uninstall \
+all-redirect all-am all installdirs mostlyclean-generic \
+distclean-generic clean-generic maintainer-clean-generic clean \
+mostlyclean distclean maintainer-clean
+
+
+${init_src}: $(srcdir)/makeinit.sh
+	$(SHELL) $(srcdir)/makeinit.sh
+
+# Compatibility function build rules (they build in lib/)
+$(COMPAT_OBJS):
+	rm -f $(COMPAT_OBJS)
+	cd ../lib; $(MAKE) $(COMPAT_OBJS)
+	for file in $(COMPAT_OBJS); do ln -s ../lib/$$file .; done
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

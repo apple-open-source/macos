@@ -1,5 +1,6 @@
-/* Startup code for gdbtk.
-   Copyright 1994-1998, 2000 Free Software Foundation, Inc.
+/* Startup code for Insight.
+   Copyright 1994, 1995, 1996, 1997, 1998, 2000, 200, 2002
+   Free Software Foundation, Inc.
 
    Written by Stu Grossman <grossman@cygnus.com> of Cygnus Support.
 
@@ -21,43 +22,40 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include "symtab.h"
 #include "inferior.h"
-#include "command.h"
-#include "bfd.h"
 #include "symfile.h"
 #include "objfiles.h"
-#include "target.h"
 #include "gdbcore.h"
 #include "tracepoint.h"
 #include "demangle.h"
+#include "gdb-events.h"
+#include "top.h"
+#include "annotate.h"
+#include "cli/cli-decode.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
 
-#include <sys/stat.h>
+/* tcl header files includes varargs.h unless HAS_STDARG is defined,
+   but gdb uses stdarg.h, so make sure HAS_STDARG is defined.  */
+#define HAS_STDARG 1
 
-#include <tcl.h>
-#include <tk.h>
 #include <itcl.h>
 #include <tix.h>
 #include "guitcl.h"
 #include "gdbtk.h"
 
-#include <stdarg.h>
 #include <signal.h>
 #include <fcntl.h>
-#include "top.h"
 #include <sys/ioctl.h>
+#include <sys/time.h>
+
 #include "gdb_string.h"
 #include "dis-asm.h"
-#include <stdio.h>
 #include "gdbcmd.h"
 
-#include "annotate.h"
-#include <sys/time.h>
 
 volatile int in_fputs = 0;
 
@@ -65,26 +63,29 @@ volatile int in_fputs = 0;
    that it should forcibly detach from the target. */
 int gdbtk_force_detach = 0;
 
+/* From gdbtk-bp.c */
+extern void gdbtk_create_breakpoint (int);
+extern void gdbtk_delete_breakpoint (int);
+extern void gdbtk_modify_breakpoint (int);
+extern void gdbtk_create_tracepoint (int);
+extern void gdbtk_delete_tracepoint (int);
+extern void gdbtk_modify_tracepoint (int);
+
 extern void (*pre_add_symbol_hook) (char *);
 extern void (*post_add_symbol_hook) (void);
 extern void (*selected_frame_level_changed_hook) (int);
 extern int (*ui_loop_hook) (int);
 
-static void gdbtk_create_tracepoint (struct tracepoint *);
-static void gdbtk_delete_tracepoint (struct tracepoint *);
-static void gdbtk_modify_tracepoint (struct tracepoint *);
+static void gdbtk_architecture_changed (void);
 static void gdbtk_trace_find (char *arg, int from_tty);
 static void gdbtk_trace_start_stop (int, int);
-static void gdbtk_create_breakpoint (struct breakpoint *);
-static void gdbtk_delete_breakpoint (struct breakpoint *);
-static void gdbtk_modify_breakpoint (struct breakpoint *);
 static void gdbtk_attach (void);
 static void gdbtk_detach (void);
 static void gdbtk_file_changed (char *);
 static void gdbtk_exec_file_display (char *);
 static void tk_command_loop (void);
 static void gdbtk_call_command (struct cmd_list_element *, char *, int);
-static int gdbtk_wait (int, struct target_waitstatus *);
+static ptid_t gdbtk_wait (ptid_t, struct target_waitstatus *);
 int x_event (int);
 static int gdbtk_query (const char *, va_list);
 static void gdbtk_warning (const char *, va_list);
@@ -96,11 +97,10 @@ static void gdbtk_print_frame_info (struct symtab *, int, int, int);
 static void gdbtk_post_add_symbol (void);
 static void gdbtk_register_changed (int regno);
 static void gdbtk_memory_changed (CORE_ADDR addr, int len);
-static void tracepoint_notify (struct tracepoint *, const char *);
 static void gdbtk_selected_frame_changed (int);
 static void gdbtk_context_change (int);
 static void gdbtk_error_begin (void);
-static void report_error (void);
+void report_error (void);
 static void gdbtk_annotate_signal (void);
 static void gdbtk_set_hook (struct cmd_list_element *cmdblk);
 
@@ -111,7 +111,6 @@ static void gdbtk_set_hook (struct cmd_list_element *cmdblk);
 
 void gdbtk_fputs (const char *, struct ui_file *);
 static int gdbtk_load_hash (const char *, unsigned long);
-static void breakpoint_notify (struct breakpoint *, const char *);
 
 /*
  * gdbtk_add_hooks - add all the hooks to gdb.  This will get called by the
@@ -121,6 +120,19 @@ static void breakpoint_notify (struct breakpoint *, const char *);
 void
 gdbtk_add_hooks (void)
 {
+  static struct gdb_events handlers;
+
+  /* Gdb event handlers */
+  handlers.breakpoint_create = gdbtk_create_breakpoint;
+  handlers.breakpoint_modify = gdbtk_modify_breakpoint;
+  handlers.breakpoint_delete = gdbtk_delete_breakpoint;
+  handlers.tracepoint_create = gdbtk_create_tracepoint;
+  handlers.tracepoint_modify = gdbtk_modify_tracepoint;
+  handlers.tracepoint_delete = gdbtk_delete_tracepoint;
+  handlers.architecture_changed = gdbtk_architecture_changed;
+  set_gdb_event_hooks (&handlers);
+
+  /* Hooks */
   command_loop_hook = tk_command_loop;
   call_command_hook = gdbtk_call_command;
   set_hook = gdbtk_set_hook;
@@ -132,10 +144,6 @@ gdbtk_add_hooks (void)
   query_hook = gdbtk_query;
   warning_hook = gdbtk_warning;
 
-  create_breakpoint_hook = gdbtk_create_breakpoint;
-  delete_breakpoint_hook = gdbtk_delete_breakpoint;
-  modify_breakpoint_hook = gdbtk_modify_breakpoint;
-
   interactive_hook = gdbtk_interactive;
   target_wait_hook = gdbtk_wait;
   ui_load_progress_hook = gdbtk_load_hash;
@@ -146,9 +154,6 @@ gdbtk_add_hooks (void)
   file_changed_hook = gdbtk_file_changed;
   specify_exec_file_hook (gdbtk_exec_file_display);
 
-  create_tracepoint_hook = gdbtk_create_tracepoint;
-  delete_tracepoint_hook = gdbtk_delete_tracepoint;
-  modify_tracepoint_hook = gdbtk_modify_tracepoint;
   trace_find_hook = gdbtk_trace_find;
   trace_start_stop_hook = gdbtk_trace_start_stop;
 
@@ -180,7 +185,7 @@ gdbtk_add_hooks (void)
    instead of to the result_ptr.
    * GDBTK_MAKES_LIST flag means add to the result as a list element.
 
- */
+*/
 
 gdbtk_result *result_ptr = NULL;
 
@@ -193,11 +198,8 @@ gdbtk_restore_result_ptr (void *old_result_ptr)
   result_ptr = (gdbtk_result *) old_result_ptr;
 }
 
-
-
 /* This allows you to Tcl_Eval a tcl command which takes
    a command word, and then a single argument. */
-
 int
 gdbtk_two_elem_cmd (cmd_name, argv1)
      char *cmd_name;
@@ -221,6 +223,14 @@ gdbtk_two_elem_cmd (cmd_name, argv1)
   return result;
 }
 
+struct ui_file *
+gdbtk_fileopen (void)
+{
+  struct ui_file *file = ui_file_new ();
+  set_ui_file_fputs (file, gdbtk_fputs);
+  return file;
+}
+
 /* This handles all the output from gdb.  All the gdb printf_xxx functions
  * eventually end up here.  The output is either passed to the result_ptr
  * where it will go to the result of some gdbtk command, or passed to the
@@ -242,13 +252,18 @@ gdbtk_two_elem_cmd (cmd_name, argv1)
  */
 
 void
-gdbtk_fputs (ptr, stream)
-     const char *ptr;
-     struct ui_file *stream;
+gdbtk_fputs (const char *ptr, struct ui_file *stream)
 {
+  if (gdbtk_disable_fputs)
+    return;
+  
   in_fputs = 1;
 
-  if (result_ptr != NULL)
+  if (stream == gdb_stdlog)
+    gdbtk_two_elem_cmd ("gdbtk_tcl_fputs_log", (char *) ptr);
+  else if (stream == gdb_stdtarg)
+    gdbtk_two_elem_cmd ("gdbtk_tcl_fputs_target", (char *) ptr);
+  else if (result_ptr != NULL)
     {
       if (result_ptr->flags & GDBTK_TO_RESULT)
 	{
@@ -288,14 +303,12 @@ gdbtk_fputs (ptr, stream)
  */
 
 static void
-gdbtk_warning (warning, args)
-     const char *warning;
-     va_list args;
+gdbtk_warning (const char *warning, va_list args)
 {
-  char buf[200];
-
-  vsprintf (buf, warning, args);
+  char *buf;
+  xvasprintf (&buf, warning, args);
   gdbtk_two_elem_cmd ("gdbtk_tcl_warning", buf);
+  free(buf);
 }
 
 
@@ -308,7 +321,7 @@ gdbtk_warning (warning, args)
 /* pop up a messagebox, or it can silently log the errors through */
 /* the gdbtk dbug command.  */
 
-static void
+void
 report_error ()
 {
   TclDebug ('E', Tcl_GetVar (gdbtk_interp, "errorInfo", TCL_GLOBAL_ONLY));
@@ -321,28 +334,24 @@ report_error ()
  */
 
 void
-gdbtk_ignorable_warning (class, warning)
-     const char *class;
-     const char *warning;
+gdbtk_ignorable_warning (const char *class, const char *warning)
 {
-  char buf[512];
-  sprintf (buf, "gdbtk_tcl_ignorable_warning {%s} {%s}", class, warning);
+  char *buf;
+  xasprintf (&buf, "gdbtk_tcl_ignorable_warning {%s} {%s}", class, warning);
   if (Tcl_Eval (gdbtk_interp, buf) != TCL_OK)
     report_error ();
+  free(buf); 
 }
 
 static void
-gdbtk_register_changed (regno)
-     int regno;
+gdbtk_register_changed (int regno)
 {
   if (Tcl_Eval (gdbtk_interp, "gdbtk_register_changed") != TCL_OK)
     report_error ();
 }
 
 static void
-gdbtk_memory_changed (addr, len)
-     CORE_ADDR addr;
-     int len;
+gdbtk_memory_changed (CORE_ADDR addr, int len)
 {
   if (Tcl_Eval (gdbtk_interp, "gdbtk_memory_changed") != TCL_OK)
     report_error ();
@@ -410,12 +419,10 @@ tk_command_loop ()
  * For native windows (and a few other targets, like the v850 ICE),
  * we rely on the target_wait loops to call ui_loop_hook to keep us alive. */
 int
-x_event (signo)
-     int signo;
+x_event (int signo)
 {
   static volatile int in_x_event = 0;
   static Tcl_Obj *varname = NULL;
-  static int count = 0;
 
   /* Do nor re-enter this code or enter it while collecting gdb output. */
   if (in_x_event || in_fputs)
@@ -441,7 +448,7 @@ x_event (signo)
       int val;
       if (varname == NULL)
 	{
-#if TCL_MAJOR_VERSION == 8 && TCL_MINOR_VERSION < 1
+#if TCL_MAJOR_VERSION == 8 && (TCL_MINOR_VERSION < 1 || TCL_MINOR_VERSION > 2)
 	  Tcl_Obj *varnamestrobj = Tcl_NewStringObj ("download_cancel_ok", -1);
 	  varname = Tcl_ObjGetVar2 (gdbtk_interp, varnamestrobj, NULL, TCL_GLOBAL_ONLY);
 #else
@@ -469,16 +476,16 @@ static void
 gdbtk_readline_begin (char *format,...)
 {
   va_list args;
-  char buf[200];
+  char *buf;
 
   va_start (args, format);
-  vsprintf (buf, format, args);
+  xvasprintf (&buf, format, args);
   gdbtk_two_elem_cmd ("gdbtk_tcl_readline_begin", buf);
+  free(buf);
 }
 
 static char *
-gdbtk_readline (prompt)
-     char *prompt;
+gdbtk_readline (char *prompt)
 {
   int result;
 
@@ -508,10 +515,8 @@ gdbtk_readline_end ()
 }
 
 static void
-gdbtk_call_command (cmdblk, arg, from_tty)
-     struct cmd_list_element *cmdblk;
-     char *arg;
-     int from_tty;
+gdbtk_call_command (struct cmd_list_element *cmdblk,
+		    char *arg, int from_tty)
 {
   running_now = 0;
   if (cmdblk->class == class_run || cmdblk->class == class_trace)
@@ -538,11 +543,10 @@ gdbtk_set_hook (struct cmd_list_element *cmdblk)
 {
   Tcl_DString cmd;
   char *p;
-  char buffer[30];
+  char *buffer = NULL;
 
   Tcl_DStringInit (&cmd);
-  Tcl_DStringAppendElement (&cmd, "run_hooks");
-  Tcl_DStringAppendElement (&cmd, "gdb_set_hook");
+  Tcl_DStringAppendElement (&cmd, "gdbtk_tcl_set_variable");
 
   /* Append variable name as sublist.  */
   Tcl_DStringStartSublist (&cmd);
@@ -550,7 +554,7 @@ gdbtk_set_hook (struct cmd_list_element *cmdblk)
   while (p && *p)
     {
       char *q = strchr (p, ' ');
-      char save;
+      char save = '\0';
       if (q)
 	{
 	  save = *q;
@@ -581,12 +585,12 @@ gdbtk_set_hook (struct cmd_list_element *cmdblk)
 
     case var_uinteger:
     case var_zinteger:
-      sprintf (buffer, "%u", *(unsigned int *) cmdblk->var);
+      xasprintf (&buffer, "%u", *(unsigned int *) cmdblk->var);
       Tcl_DStringAppendElement (&cmd, buffer);
       break;
 
     case var_integer:
-      sprintf (buffer, "%d", *(int *) cmdblk->var);
+      xasprintf (&buffer, "%d", *(int *) cmdblk->var);
       Tcl_DStringAppendElement (&cmd, buffer);
       break;
 
@@ -600,76 +604,22 @@ gdbtk_set_hook (struct cmd_list_element *cmdblk)
     report_error ();
 
   Tcl_DStringFree (&cmd);
-}
-
-/* The next three functions use breakpoint_notify to allow the GUI 
- * to handle creating, deleting and modifying breakpoints.  These three
- * functions are put into the appropriate gdb hooks in gdbtk_init.
- */
-
-static void
-gdbtk_create_breakpoint (b)
-     struct breakpoint *b;
-{
-  breakpoint_notify (b, "create");
-}
-
-static void
-gdbtk_delete_breakpoint (b)
-     struct breakpoint *b;
-{
-  breakpoint_notify (b, "delete");
-}
-
-static void
-gdbtk_modify_breakpoint (b)
-     struct breakpoint *b;
-{
-  breakpoint_notify (b, "modify");
-}
-
-/* This is the generic function for handling changes in
- * a breakpoint.  It routes the information to the Tcl
- * command "gdbtk_tcl_breakpoint" in the form:
- *   gdbtk_tcl_breakpoint action b_number b_address b_line b_file
- * On error, the error string is written to gdb_stdout.
- */
-
-static void
-breakpoint_notify (b, action)
-     struct breakpoint *b;
-     const char *action;
-{
-  char buf[256];
-  int v;
-  struct symtab_and_line sal;
-  char *filename;
-
-  if (b->type != bp_breakpoint)
-    return;
-
-  /* We ensure that ACTION contains no special Tcl characters, so we
-     can do this.  */
-  sal = find_pc_line (b->address, 0);
-  filename = symtab_to_filename (sal.symtab);
-  if (filename == NULL)
-    filename = "";
-
-  sprintf (buf, "gdbtk_tcl_breakpoint %s %d 0x%lx %d {%s} {%s} %d %d",
-	   action, b->number, (long) b->address, b->line_number, filename,
-	   bpdisp[b->disposition], b->enable, b->thread);
-
-  if (Tcl_Eval (gdbtk_interp, buf) != TCL_OK)
-    report_error ();
+   
+  if (buffer != NULL)
+    {
+      free(buffer);
+    }
 }
 
 int
 gdbtk_load_hash (const char *section, unsigned long num)
 {
-  char buf[128];
-  sprintf (buf, "Download::download_hash %s %ld", section, num);
+  char *buf;
+  xasprintf (&buf, "Download::download_hash %s %ld", section, num);
   if (Tcl_Eval (gdbtk_interp, buf) != TCL_OK)
     report_error ();
+  free(buf); 
+   
   return atoi (gdbtk_interp->result);
 }
 
@@ -677,8 +627,7 @@ gdbtk_load_hash (const char *section, unsigned long num)
 /* This hook is called whenever we are ready to load a symbol file so that
    the UI can notify the user... */
 static void
-gdbtk_pre_add_symbol (name)
-     char *name;
+gdbtk_pre_add_symbol (char *name)
 {
   gdbtk_two_elem_cmd ("gdbtk_tcl_pre_add_symbol", name);
 }
@@ -694,17 +643,15 @@ gdbtk_post_add_symbol ()
 /* This hook function is called whenever we want to wait for the
    target.  */
 
-static int
-gdbtk_wait (pid, ourstatus)
-     int pid;
-     struct target_waitstatus *ourstatus;
+static ptid_t
+gdbtk_wait (ptid_t ptid, struct target_waitstatus *ourstatus)
 {
   gdbtk_force_detach = 0;
   gdbtk_start_timer ();
-  pid = target_wait (pid, ourstatus);
+  ptid = target_wait (ptid, ourstatus);
   gdbtk_stop_timer ();
 
-  return pid;
+  return ptid;
 }
 
 /*
@@ -717,15 +664,14 @@ gdbtk_wait (pid, ourstatus)
  */
 
 static int
-gdbtk_query (query, args)
-     const char *query;
-     va_list args;
+gdbtk_query (const char *query, va_list args)
 {
-  char buf[200];
+  char *buf;
   long val;
 
-  vsprintf (buf, query, args);
+  xvasprintf (&buf, query, args);
   gdbtk_two_elem_cmd ("gdbtk_tcl_query", buf);
+  free(buf);
 
   val = atol (gdbtk_interp->result);
   return val;
@@ -733,59 +679,9 @@ gdbtk_query (query, args)
 
 
 static void
-gdbtk_print_frame_info (s, line, stopline, noerror)
-     struct symtab *s;
-     int line;
-     int stopline;
-     int noerror;
+gdbtk_print_frame_info (struct symtab *s, int line,
+			int stopline, int noerror)
 {
-  current_source_symtab = s;
-  current_source_line = line;
-}
-
-static void
-gdbtk_create_tracepoint (tp)
-     struct tracepoint *tp;
-{
-  tracepoint_notify (tp, "create");
-}
-
-static void
-gdbtk_delete_tracepoint (tp)
-     struct tracepoint *tp;
-{
-  tracepoint_notify (tp, "delete");
-}
-
-static void
-gdbtk_modify_tracepoint (tp)
-     struct tracepoint *tp;
-{
-  tracepoint_notify (tp, "modify");
-}
-
-static void
-tracepoint_notify (tp, action)
-     struct tracepoint *tp;
-     const char *action;
-{
-  char buf[256];
-  int v;
-  struct symtab_and_line sal;
-  char *filename;
-
-  /* We ensure that ACTION contains no special Tcl characters, so we
-     can do this.  */
-  sal = find_pc_line (tp->address, 0);
-
-  filename = symtab_to_filename (sal.symtab);
-  if (filename == NULL)
-    filename = "N/A";
-  sprintf (buf, "gdbtk_tcl_tracepoint %s %d 0x%lx %d {%s} %d", action, tp->number,
-	   (long) tp->address, sal.line, filename, tp->pass_count);
-
-  if (Tcl_Eval (gdbtk_interp, buf) != TCL_OK)
-    report_error ();
 }
 
 /*
@@ -799,18 +695,16 @@ tracepoint_notify (tp, action)
  */
 
 static void
-gdbtk_trace_find (arg, from_tty)
-     char *arg;
-     int from_tty;
+gdbtk_trace_find (char *arg, int from_tty)
 {
   Tcl_Obj *cmdObj;
 
   cmdObj = Tcl_NewListObj (0, NULL);
   Tcl_ListObjAppendElement (gdbtk_interp, cmdObj,
-			Tcl_NewStringObj ("gdbtk_tcl_trace_find_hook", -1));
+			    Tcl_NewStringObj ("gdbtk_tcl_trace_find_hook", -1));
   Tcl_ListObjAppendElement (gdbtk_interp, cmdObj, Tcl_NewStringObj (arg, -1));
   Tcl_ListObjAppendElement (gdbtk_interp, cmdObj, Tcl_NewIntObj (from_tty));
-#if TCL_MAJOR_VERSION == 8 && TCL_MINOR_VERSION < 1
+#if TCL_MAJOR_VERSION == 8 && (TCL_MINOR_VERSION < 1 || TCL_MINOR_VERSION > 2)
   if (Tcl_GlobalEvalObj (gdbtk_interp, cmdObj) != TCL_OK)
     report_error ();
 #else
@@ -829,9 +723,7 @@ gdbtk_trace_find (arg, from_tty)
  */
 
 static void
-gdbtk_trace_start_stop (start, from_tty)
-     int start;
-     int from_tty;
+gdbtk_trace_start_stop (int start, int from_tty)
 {
 
   if (start)
@@ -842,8 +734,7 @@ gdbtk_trace_start_stop (start, from_tty)
 }
 
 static void
-gdbtk_selected_frame_changed (level)
-     int level;
+gdbtk_selected_frame_changed (int level)
 {
   Tcl_UpdateLinkedVar (gdbtk_interp, "gdb_selected_frame_level");
 }
@@ -851,24 +742,21 @@ gdbtk_selected_frame_changed (level)
 /* Called when the current thread changes. */
 /* gdb_context is linked to the tcl variable "gdb_context_id" */
 static void
-gdbtk_context_change (num)
-     int num;
+gdbtk_context_change (int num)
 {
   gdb_context = num;
 }
 
 /* Called from file_command */
 static void
-gdbtk_file_changed (filename)
-     char *filename;
+gdbtk_file_changed (char *filename)
 {
   gdbtk_two_elem_cmd ("gdbtk_tcl_file_changed", filename);
 }
 
 /* Called from exec_file_command */
 static void
-gdbtk_exec_file_display (filename)
-     char *filename;
+gdbtk_exec_file_display (char *filename)
 {
   gdbtk_two_elem_cmd ("gdbtk_tcl_exec_file_display", filename);
 }
@@ -886,7 +774,7 @@ gdbtk_error_begin ()
 static void
 gdbtk_annotate_signal ()
 {
-  char buf[128];
+  char *buf;
 
   /* Inform gui that the target has stopped. This is
      a necessary stop button evil. We don't want signal notification
@@ -894,10 +782,11 @@ gdbtk_annotate_signal ()
      timeout. */
   Tcl_Eval (gdbtk_interp, "gdbtk_stop_idle_callback");
 
-  sprintf (buf, "gdbtk_signal %s {%s}", target_signal_to_name (stop_signal),
-	   target_signal_to_string (stop_signal));
+  xasprintf (&buf, "gdbtk_signal %s {%s}", target_signal_to_name (stop_signal),
+	     target_signal_to_string (stop_signal));
   if (Tcl_Eval (gdbtk_interp, buf) != TCL_OK)
     report_error ();
+  free(buf);  
 }
 
 static void
@@ -918,3 +807,9 @@ gdbtk_detach ()
     }
 }
 
+/* Called from gdbarch_update_p whenever the architecture changes. */
+static void
+gdbtk_architecture_changed (void)
+{
+  Tcl_Eval (gdbtk_interp, "gdbtk_tcl_architecture_changed");
+}

@@ -95,6 +95,10 @@ SOURCE=..\..\..\ntpdc\ntpdc_ops.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\libntp\util_clockstuff.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\version.c
 # End Source File
 # End Group
@@ -121,8 +125,8 @@ ProjDir=.
 InputPath=..\..\..\configure
 
 "$(ProjDir)\version.c" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	echo Using environment var PERL ($(PERL)) 
-	$(PERL)\bin\perl ..\scripts\mkver.bat -P ntpdc 
+	echo Using NT Shell Script to generate version.c 
+	..\scripts\mkver.bat -P ntpdc 
 	
 # End Custom Build
 
@@ -133,8 +137,8 @@ ProjDir=.
 InputPath=..\..\..\configure
 
 "$(ProjDir)\version.c" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	echo Using environment var PERL ($(PERL)) 
-	$(PERL)\bin\perl ..\scripts\mkver.bat -P ntpdc 
+	echo Using NT Shell Script to generate version.c 
+	..\scripts\mkver.bat -P ntpdc 
 	
 # End Custom Build
 

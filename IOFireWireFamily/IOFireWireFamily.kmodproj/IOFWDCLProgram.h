@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
  *
  * HISTORY
  *
@@ -35,6 +35,8 @@
 #include <IOKit/firewire/IOFireWireBus.h>
 #include <IOKit/IOMemoryCursor.h>
 
+/*! @class IODCLProgram
+*/
 class IODCLProgram : public OSObject
 {
     OSDeclareAbstractStructors(IODCLProgram)
@@ -46,8 +48,6 @@ protected:
     IOMemoryDescriptor *fDCLDesc;
     IOMemoryDescriptor *fDataDesc;
     IOMemoryCursor *fDataCursor;
-    IOFireWireBus::CallUserProc * fCallUser;
-    void *fCallRefCon;	// Refcon for user call
 
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -58,11 +58,11 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
 
-	DCLCommandPtr convertDCLPtrToKernel(DCLCommandPtr dcl)
-		{if (dcl) return (DCLCommandPtr)((UInt32)dcl + fDCLTaskToKernel); else return dcl;};
-
-	DCLCommandPtr convertDCLPtrFromKernel(DCLCommandPtr dcl)
-		{if (dcl) return (DCLCommandPtr)((UInt32)dcl - fDCLTaskToKernel); else return dcl;};
+//	DCLCommandPtr convertDCLPtrToKernel(DCLCommandPtr dcl)
+//		{if (dcl) return (DCLCommandPtr)((UInt32)dcl + fDCLTaskToKernel); else return dcl;};
+//
+//	DCLCommandPtr convertDCLPtrFromKernel(DCLCommandPtr dcl)
+//		{if (dcl) return (DCLCommandPtr)((UInt32)dcl - fDCLTaskToKernel); else return dcl;};
 
     virtual UInt32 getPhysicalSegs(void *addr, IOByteCount len,
                     IOMemoryCursor::PhysicalSegment segs[], UInt32 maxSegs);

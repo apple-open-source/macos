@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 32;
+	objectVersion = 38;
 	objects = {
 		01DAA1890011347911DB9E42 = {
 			fileRef = 0546EEDCFFF1B73511CA2C33;
@@ -11,6 +11,16 @@
 			settings = {
 			};
 		};
+//010
+//011
+//012
+//013
+//014
+//050
+//051
+//052
+//053
+//054
 		0546EECBFFF1B73511CA2C33 = {
 			buildStyles = (
 				212BCDE0FFF2C8AB11CA2C33,
@@ -19,7 +29,7 @@
 			isa = PBXProject;
 			mainGroup = 0546EECCFFF1B73511CA2C33;
 			productRefGroup = 0546EEE3FFF1B73511CA2C33;
-			projectDirPath = .;
+			projectDirPath = "";
 			targets = (
 				0546EEE5FFF1B73511CA2C33,
 			);
@@ -101,14 +111,14 @@
 				0546EEF1FFF1B73511CA2C33,
 			);
 			buildSettings = {
-				DEPLOYMENT_OPTIMIZATION_CFLAGS = "-O2";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_NAME = com.apple.nke.SharedIP;
 				MODULE_START = SIP_start;
 				MODULE_STOP = SIP_stop;
-				MODULE_VERSION = 1.1.4;
+				MODULE_VERSION = 1.2.0;
+				OPTIMIZATION_CFLAGS = "-O2";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -116,8 +126,6 @@
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 			);
@@ -127,8 +135,8 @@
 			productName = "SIP-NKE (Bundle)";
 			productReference = 0546EEE4FFF1B73511CA2C33;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
@@ -147,17 +155,17 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.4</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>0xfeedface</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.4</string>
+	<string>1.2.0</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
-		<string>1.1</string>
+		<string>6.0</string>
 		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
+		<string>6.0</string>
 	</dict>
 </dict>
 </plist>
@@ -171,7 +179,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -184,7 +191,6 @@
 				0546EEE9FFF1B73511CA2C33,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		0546EEE8FFF1B73511CA2C33 = {
 			fileRef = 0546EED7FFF1B73511CA2C33;
@@ -203,7 +209,6 @@
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		0546EEEBFFF1B73511CA2C33 = {
 			buildActionMask = 2147483647;
@@ -213,7 +218,6 @@
 				01DAA1890011347911DB9E42,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		0546EEECFFF1B73511CA2C33 = {
 			fileRef = 0546EEDAFFF1B73511CA2C33;
@@ -236,14 +240,12 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		0546EEF0FFF1B73511CA2C33 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		0546EEF1FFF1B73511CA2C33 = {
 			buildActionMask = 2147483647;
@@ -252,12 +254,21 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
+//050
+//051
+//052
+//053
+//054
+//210
+//211
+//212
+//213
+//214
 		212BCDE0FFF2C8AB11CA2C33 = {
 			buildRules = (
 			);

@@ -13,12 +13,6 @@
 
 #if defined(REFCLOCK) && defined(CLOCK_SHM)
 
-#undef fileno   
-#include <ctype.h>
-#undef fileno   
-#include <sys/time.h>
-#undef fileno   
-
 #include "ntpd.h"
 #undef fileno   
 #include "ntp_io.h"
@@ -29,15 +23,16 @@
 #undef fileno   
 #include "ntp_stdlib.h"
 
+#undef fileno   
+#include <ctype.h>
+#undef fileno   
+
 #ifndef SYS_WINNT
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <assert.h>
-#include <time.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
+# include <sys/ipc.h>
+# include <sys/shm.h>
+# include <assert.h>
+# include <unistd.h>
+# include <stdio.h>
 #endif
 
 /*
@@ -94,36 +89,19 @@ struct shmTime {
 };
 struct shmTime *getShmTime (int unit) {
 #ifndef SYS_WINNT
-	extern char *sys_errlist[ ];
-	extern int sys_nerr;
-	extern int errno;
 	int shmid=0;
 
 	assert (unit<10); /* MAXUNIT is 4, so should never happen */
 	shmid=shmget (0x4e545030+unit, sizeof (struct shmTime), 
 		      IPC_CREAT|(unit<2?0700:0777));
 	if (shmid==-1) { /*error */
-		char buf[20];
-		char *pe=buf;
-		if (errno<sys_nerr)
-		    pe=sys_errlist[errno];
-		else {
-			sprintf (buf,"errno=%d",errno);
-		}
-		msyslog(LOG_ERR,"SHM shmget (unit %d): %s",unit,pe);
+		msyslog(LOG_ERR,"SHM shmget (unit %d): %s",unit,strerror(errno));
 		return 0;
 	}
 	else { /* no error  */
 		struct shmTime *p=(struct shmTime *)shmat (shmid, 0, 0);
 		if ((int)(long)p==-1) { /* error */
-			char buf[20];
-			char *pe=buf;
-			if (errno<sys_nerr)
-			    pe=sys_errlist[errno];
-			else {
-				sprintf (buf,"errno=%d",errno);
-			}
-			msyslog(LOG_ERR,"SHM shmat (unit %d): %s",unit,pe);
+			msyslog(LOG_ERR,"SHM shmat (unit %d): %s",unit,strerror(errno));
 			return 0;
 		}
 		return p;
@@ -265,7 +243,7 @@ shm_poll(
 		int ok=1;
 		switch (up->mode) {
 		    case 0: {
-			    tvr.tv_sec=up->receiveTimeStampSec-172800;
+			    tvr.tv_sec=up->receiveTimeStampSec;
 			    tvr.tv_usec=up->receiveTimeStampUSec;
 			    tvt.tv_sec=up->clockTimeStampSec;
 			    tvt.tv_usec=up->clockTimeStampUSec;
@@ -273,7 +251,7 @@ shm_poll(
 		    break;
 		    case 1: {
 			    int cnt=up->count;
-			    tvr.tv_sec=up->receiveTimeStampSec-172800;
+			    tvr.tv_sec=up->receiveTimeStampSec;
 			    tvr.tv_usec=up->receiveTimeStampUSec;
 			    tvt.tv_sec=up->clockTimeStampSec;
 			    tvt.tv_usec=up->clockTimeStampUSec;
@@ -283,17 +261,18 @@ shm_poll(
 		    default:
 			msyslog (LOG_ERR, "SHM: bad mode found in shared memory: %d",up->mode);
 		}
-		/*msyslog(LOG_NOTICE,"poll2a tvr.s %d tvr.u %d tvt.s %d tvt.u %d",tvr.tv_sec,tvr.tv_usec,tvt.tv_sec,tvt.tv_usec);*/
 		up->valid=0;
 		if (ok) {
 			TVTOTS(&tvr,&pp->lastrec);
-			pp->lasttime = current_time;
+			pp->lastrec.l_ui += JAN_1970;
+			/* pp->lasttime = current_time; */
 			pp->polls++;
 			t=gmtime (&tvt.tv_sec);
-			pp->day=t->tm_yday;/*+2; */
+			pp->day=t->tm_yday+1;
 			pp->hour=t->tm_hour;
 			pp->minute=t->tm_min;
 			pp->second=t->tm_sec;
+			pp->msec=0;
 			pp->usec=tvt.tv_usec;
 			peer->precision=up->precision;
 			pp->leap=up->leap;

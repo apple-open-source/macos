@@ -1,4 +1,7 @@
 
+#ifndef _S_AFPUSERS_H
+#define _S_AFPUSERS_H
+
 typedef struct {
     ni_id		dir;
     NIDomain_t *	domain;
@@ -14,6 +17,4 @@ boolean_t	AFPUsers_create(AFPUsers_t * users, gid_t gid,
 				uid_t start, int count);
 void		AFPUsers_print(AFPUsers_t * users);
 
-
-
-
+#endif _S_AFPUSERS_H

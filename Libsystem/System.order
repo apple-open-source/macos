@@ -38,10 +38,9 @@ termios.o:_tcsetpgrp
 sigaction.o:_sigaction
 sigaction.o:_sigaction__
 dyld.o:__dyld_bind_fully_image_containing_address
-bzero.o:_bzero
+bzero.o:.section_all
 geteuid.o:_geteuid
 strcpy.o:_strcpy
-tputs.o:_tputs
 fwrite.o:_fwrite
 strncpy.o:_strncpy
 sprintf.o:_sprintf
@@ -166,11 +165,9 @@ termios.o:_tcgetattr
 close.o:_close
 setvbuf.o:_setvbuf
 makebuf.o:___swhatbuf
-ttyname.o:_ttyname
 db.o:_dbopen
 hash.o:___hash_open
 stat.o:_stat
-ttyname.o:_oldttyname
 opendir.o:_opendir
 opendir.o:___opendir2
 fstatfs.o:_fstatfs
@@ -947,7 +944,6 @@ crypt.o:_des_cipher
 lu_user.o:_endpwent
 lu_user.o:_lu_endpwent
 login.o:_login
-ttyslot.o:_ttyslot
 getttyent.o:_setttyent
 getttyent.o:_getttyent
 getttyent.o:_skip
@@ -972,7 +968,6 @@ setpgid.o:_setpgid
 creat.o:_creat
 strxfrm.o:_strxfrm
 setenv.o:_unsetenv
-termcap.o:_tgetent
 getcap.o:_cgetent
 getcap.o:_getent
 hash.o:_alloc_segs
@@ -984,11 +979,8 @@ hash.o:_hash_close
 hash.o:_hdestroy
 hash_buf.o:___buf_free
 hash.o:_flush_meta
-termcap.o:_tgetflag
 getcap.o:_cgetcap
-termcap.o:_tgetnum
 getcap.o:_cgetnum
-termcap.o:_tgetstr
 getcap.o:_cgetstr
 strcoll.o:_strcoll
 getpriority.o:_getpriority

@@ -37,9 +37,12 @@ $Config{startperl}
 
 print OUT <<'!NO!SUBS!';
 
-# $RCSfile: s2p.PL,v $$Revision: 1.1.1.4 $$Date: 2000/03/31 05:13:04 $
+# $RCSfile: s2p.PL,v $$Revision: 1.2 $$Date: 2002/03/14 09:04:01 $
 #
 # $Log: s2p.PL,v $
+# Revision 1.2  2002/03/14 09:04:01  zarzycki
+# Revert HEAD back to perl-17
+#
 # Revision 1.1.1.4  2000/03/31 05:13:04  wsanchez
 # Import of perl 5.6.0
 #

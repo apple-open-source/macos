@@ -4,7 +4,16 @@
         FRAMEWORKS = (); 
         OTHER_LIBS = (disk); 
         OTHER_LINKED = (ufsutil.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, Info.plist, InfoPlist.strings, PkgInfo, version.plist); 
+        OTHER_SOURCES = (
+            Makefile.preamble, 
+            Makefile, 
+            Makefile.postamble, 
+            Info.plist, 
+            InfoPlist.strings, 
+            PkgInfo, 
+            version.plist, 
+            ufs.util.8
+        ); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

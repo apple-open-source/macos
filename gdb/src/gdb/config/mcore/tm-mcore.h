@@ -1,5 +1,5 @@
 /* Parameters for execution on a Motorola MCore.
-   Copyright (C) 1995 Free Software Foundation, Inc.
+   Copyright 1995, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,8 +18,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA. */
 
-/* The mcore is little endian (by default) */
-#define TARGET_BYTE_ORDER_DEFAULT LITTLE_ENDIAN
+#include "regcache.h"
 
 /* All registers are 32 bits */
 #define REGISTER_SIZE 4
@@ -149,12 +148,9 @@ extern use_struct_convention_fn mcore_use_struct_convention;
     generic_get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 
 /* Cons up virtual frame pointer for trace */
-extern void mcore_virtual_frame_pointer (CORE_ADDR, long *, long *);
+extern void mcore_virtual_frame_pointer (CORE_ADDR, int *, LONGEST *);
 #define TARGET_VIRTUAL_FRAME_POINTER(PC, REGP, OFFP) \
 	mcore_virtual_frame_pointer ((PC), (REGP), (OFFP))
-
-/* MCore can be bi-endian. */
-#define TARGET_BYTE_ORDER_SELECTABLE_P 1
 
 /* For PE, gcc will tell us what th real type of
    arguments are when it promotes arguments. */

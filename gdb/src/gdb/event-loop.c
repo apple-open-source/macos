@@ -1,5 +1,5 @@
 /* Event loop machinery for GDB, the GNU debugger.
-   Copyright 1999 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
    Written by Elena Zannoni <ezannoni@cygnus.com> of Cygnus Solutions.
 
    This file is part of GDB.
@@ -20,7 +20,6 @@
    Boston, MA 02111-1307, USA. */
 
 #include "defs.h"
-#include "top.h"
 #include "event-loop.h"
 #include "event-top.h"
 #include "interpreter.h"
@@ -34,59 +33,11 @@
 #endif
 
 #include <sys/types.h>
-#include <string.h>
+#include "gdb_string.h"
 #include <errno.h>
-#include <setjmp.h>
 #include <sys/time.h>
 
-/* Type of the mask arguments to select. */
-
-#ifndef HAVE_POLL
-#ifdef NO_FD_SET
-/* All this stuff below is not required if select is used as God(tm)
-   intended, with the FD_* macros.  Are there any implementations of
-   select which don't have FD_SET and other standard FD_* macros?  I
-   don't think there are, but if I'm wrong, we need to catch them.  */
-#error FD_SET must be defined if select function is to be used!
-
-#ifndef _AIX
-typedef long fd_mask;
-#endif
-#if defined(_IBMR2)
-#define SELECT_MASK void
-#else
-#define SELECT_MASK int
-#endif /* !_IBMR2 */
-
-/* Define "NBBY" (number of bits per byte) if it's not already defined. */
-
-#ifndef NBBY
-#define NBBY 8
-#endif
-
-/* Define the number of fd_masks in an fd_set */
-
-#ifndef FD_SETSIZE
-#ifdef OPEN_MAX
-#define FD_SETSIZE OPEN_MAX
-#else
-#define FD_SETSIZE 256
-#endif
-#endif
-#if !defined(howmany)
-#define howmany(x, y) (((x)+((y)-1))/(y))
-#endif
-#ifndef NFDBITS
-#define NFDBITS NBBY*sizeof(fd_mask)
-#endif
-#define MASK_SIZE howmany(FD_SETSIZE, NFDBITS)
-
-#endif /* NO_FD_SET */
-#endif /* !HAVE_POLL */
-
-
 typedef struct gdb_event gdb_event;
-typedef void (event_handler_func) (int);
 
 /* Event for the GDB event system.  Events are queued by calling
    async_queue_event and serviced later on by gdb_do_one_event. An
@@ -94,15 +45,21 @@ typedef void (event_handler_func) (int);
    read. Servicing an event simply means that the procedure PROC will
    be called.  We have 2 queues, one for file handlers that we listen
    to in the event loop, and one for the file handlers+events that are
-   ready. The procedure PROC associated with each event is always the
-   same (handle_file_event).  Its duty is to invoke the handler
-   associated with the file descriptor whose state change generated
-   the event, plus doing other cleanups and such. */
+   ready. 
+
+   File events are all handled through the procedure
+   handle_file_event.  Its duty is to invoke the handler associated
+   with the file descriptor whose state change generated the event,
+   plus doing other cleanups and such. 
+
+   Other event types can be created, and added to the event queue by
+   using gdb_queue_event.
+*/
 
 struct gdb_event
   {
     event_handler_func *proc;	/* Procedure to call to service this event. */
-    int fd;			/* File descriptor that is ready. */
+    void *data;			/* The data for this event */
     struct gdb_event *next_event;	/* Next in list of events or NULL. */
   };
 
@@ -212,7 +169,7 @@ static struct
     int timeout_valid;
   }
 gdb_notifier;
- 
+
 /* Structure associated with a timer. PROC will be executed at the
    first occasion after WHEN. */
 struct gdb_timer
@@ -257,17 +214,28 @@ static int async_handler_ready = 0;
 
 static void create_file_handler (int fd, int mask, handler_func * proc, gdb_client_data client_data);
 static void invoke_async_signal_handler (void);
-static void handle_file_event (int event_file_desc);
+static void handle_file_event (void *data);
 static int gdb_wait_for_event (void);
 static int gdb_do_one_event (void *data);
 static int check_async_ready (void);
 void async_queue_event (gdb_event * event_ptr, queue_position position);
 int sigint_taken_p(void);
+static gdb_event *gdb_create_event (event_handler_func proc, void *data);
 static gdb_event *create_file_event (int fd);
 static int process_event (void);
-static void handle_timer_event (int dummy);
+static void handle_timer_event (void *dummy);
 static void poll_timers (void);
 
+
+void
+gdb_queue_event (event_handler_func proc, void *data, queue_position position)
+{
+  gdb_event *new_event;
+
+  new_event = gdb_create_event (proc, data);
+  async_queue_event (new_event, position);
+
+}
 
 /* Insert an event object into the gdb event queue at 
    the specified position.
@@ -304,6 +272,18 @@ async_queue_event (gdb_event * event_ptr, queue_position position)
     }
 }
 
+static gdb_event *
+gdb_create_event (event_handler_func proc, void *data)
+{
+  gdb_event *new_event;
+  
+  new_event = (gdb_event *) xmalloc (sizeof (gdb_event));
+  new_event->proc = proc;
+  new_event->data = data;
+
+  return new_event;
+}
+  
 /* Create a file event, to be enqueued in the event queue for
    processing. The procedure associated to this event is always
    handle_file_event, which will in turn invoke the one that was
@@ -311,12 +291,7 @@ async_queue_event (gdb_event * event_ptr, queue_position position)
 static gdb_event *
 create_file_event (int fd)
 {
-  gdb_event *file_event_ptr;
-
-  file_event_ptr = (gdb_event *) xmalloc (sizeof (gdb_event));
-  file_event_ptr->proc = handle_file_event;
-  file_event_ptr->fd = fd;
-  return (file_event_ptr);
+  return gdb_create_event (handle_file_event, (void *) fd);
 }
 
 static void 
@@ -331,7 +306,7 @@ print_event_queue ()
   for (file_ptr = gdb_notifier.first_file_handler; file_ptr != NULL;
        file_ptr = file_ptr->next_file)
     {
-      printf ("    FD:  %d\n", file_ptr->fd);
+      printf ("    FD:  %d\n", (int) file_ptr->fd);
     }
 
   
@@ -340,13 +315,13 @@ print_event_queue ()
        event_ptr = event_ptr->next_event)
     {
       printf ("    File Descriptor: %d, Handler: 0x%lx\n",
-	      event_ptr->fd, (unsigned long) event_ptr->proc);
+	      (int) event_ptr->data, (unsigned long) event_ptr->proc);
       if ((unsigned long) event_ptr->proc == (unsigned long) handle_file_event)
 	{
 	  for (file_ptr = gdb_notifier.first_file_handler; file_ptr != NULL;
 	       file_ptr = file_ptr->next_file)
 	    {
-	      if (file_ptr->fd == event_ptr->fd)
+	      if (file_ptr->fd == (int) event_ptr->data)
 		{
 		  printf ("     - File Event, handler is 0x%lx\n",
 			  (unsigned long) file_ptr->proc);
@@ -370,7 +345,7 @@ process_event (void)
 {
   gdb_event *event_ptr, *prev_ptr;
   event_handler_func *proc;
-  int fd;
+  void *data;
 
   /* First let's see if there are any asynchronous event handlers that
      are ready. These would be the result of invoking any of the
@@ -391,7 +366,7 @@ process_event (void)
       /* Call the handler for the event. */
 
       proc = event_ptr->proc;
-      fd = event_ptr->fd;
+      data = event_ptr->data;
 
       /* Let's get rid of the event from the event queue.  We need to
          do this now because while processing the event, the proc
@@ -416,10 +391,10 @@ process_event (void)
 	  if (event_ptr->next_event == NULL)
 	    event_queue.last_event = prev_ptr;
 	}
-      free ((char *) event_ptr);
+      xfree (event_ptr);
 
       /* Now call the procedure associated with the event. */
-      (*proc) (fd);
+      (*proc) (data);
       return 1;
     }
 
@@ -500,6 +475,14 @@ start_event_loop (void)
       if (gdb_result == 0)
 	{
 	  display_gdb_prompt (0);
+	  /* This call looks bizarre, but it is required.  If the user
+	     entered a command that caused an error,
+	     after_char_processing_hook won't be called from
+	     rl_callback_read_char_wrapper.  Using a cleanup there
+	     won't work, since we want this function to be called
+	     after a new prompt is printed.  */
+	  if (after_char_processing_hook)
+	    (*after_char_processing_hook) ();
 	  /* Maybe better to set a flag to be checked somewhere as to
 	     whether display the prompt or not. */
 	}
@@ -534,7 +517,8 @@ add_file_handler (int fd, handler_func * proc, gdb_client_data client_data)
       if (poll (&fds, 1, 0) == 1 && (fds.revents & POLLNVAL))
 	use_poll = 0;
 #else
-      internal_error ("event-loop.c : use_poll without HAVE_POLL");
+      internal_error (__FILE__, __LINE__,
+		      "use_poll without HAVE_POLL");
 #endif /* HAVE_POLL */
     }
   if (use_poll)
@@ -542,7 +526,8 @@ add_file_handler (int fd, handler_func * proc, gdb_client_data client_data)
 #ifdef HAVE_POLL
       create_file_handler (fd, POLLIN, proc, client_data);
 #else
-      internal_error ("event-loop.c : use_poll without HAVE_POLL");
+      internal_error (__FILE__, __LINE__,
+		      "use_poll without HAVE_POLL");
 #endif
     }
   else
@@ -593,8 +578,9 @@ create_file_handler (int fd, int mask, handler_func * proc, gdb_client_data clie
       gdb_notifier.num_fds++;
       if (gdb_notifier.poll_fds)
 	gdb_notifier.poll_fds =
-	  (struct pollfd *) realloc (gdb_notifier.poll_fds,
-			   (gdb_notifier.num_fds) * sizeof (struct pollfd));
+	  (struct pollfd *) xrealloc (gdb_notifier.poll_fds,
+				      (gdb_notifier.num_fds
+				       * sizeof (struct pollfd)));
       else
 	gdb_notifier.poll_fds =
 	  (struct pollfd *) xmalloc (sizeof (struct pollfd));
@@ -602,7 +588,8 @@ create_file_handler (int fd, int mask, handler_func * proc, gdb_client_data clie
       (gdb_notifier.poll_fds + gdb_notifier.num_fds - 1)->events = mask;
       (gdb_notifier.poll_fds + gdb_notifier.num_fds - 1)->revents = 0;
 #else
-      internal_error ("event-loop.c : use_poll without HAVE_POLL");
+      internal_error (__FILE__, __LINE__,
+		      "use_poll without HAVE_POLL");
 #endif /* HAVE_POLL */
     }
   else
@@ -670,11 +657,12 @@ delete_file_handler (int fd)
 	      j++;
 	    }
 	}
-      free (gdb_notifier.poll_fds);
+      xfree (gdb_notifier.poll_fds);
       gdb_notifier.poll_fds = new_poll_fds;
       gdb_notifier.num_fds--;
 #else
-      internal_error ("event-loop.c : use_poll without HAVE_POLL");
+      internal_error (__FILE__, __LINE__,
+		      "use_poll without HAVE_POLL");
 #endif /* HAVE_POLL */
     }
   else
@@ -718,7 +706,7 @@ delete_file_handler (int fd)
 	;
       prev_ptr->next_file = file_ptr->next_file;
     }
-  free ((char *) file_ptr);
+  xfree (file_ptr);
 }
 
 /* Handle the given event by calling the procedure associated to the
@@ -726,8 +714,9 @@ delete_file_handler (int fd)
    through event_ptr->proc.  EVENT_FILE_DESC is file descriptor of the
    event in the front of the event queue. */
 static void
-handle_file_event (int event_file_desc)
+handle_file_event (void *data)
 {
+  int event_file_desc = (int) data;
   file_handler *file_ptr;
   int mask;
 #ifdef HAVE_POLL
@@ -775,7 +764,8 @@ handle_file_event (int event_file_desc)
 	      else
 		file_ptr->error = 0;
 #else
-	      internal_error ("event-loop.c : use_poll without HAVE_POLL");
+	      internal_error (__FILE__, __LINE__,
+			      "use_poll without HAVE_POLL");
 #endif /* HAVE_POLL */
 	    }
 	  else
@@ -836,7 +826,8 @@ gdb_wait_for_event (void)
       if (num_found == -1 && errno != EINTR)
 	perror_with_name ("Poll");
 #else
-      internal_error ("event-loop.c : use_poll without HAVE_POLL");
+      internal_error (__FILE__, __LINE__,
+		      "use_poll without HAVE_POLL");
 #endif /* HAVE_POLL */
     }
   else
@@ -897,7 +888,8 @@ gdb_wait_for_event (void)
 	  file_ptr->ready_mask = (gdb_notifier.poll_fds + i)->revents;
 	}
 #else
-      internal_error ("event-loop.c : use_poll without HAVE_POLL");
+      internal_error (__FILE__, __LINE__,
+		      "use_poll without HAVE_POLL");
 #endif /* HAVE_POLL */
     }
   else
@@ -1023,7 +1015,7 @@ delete_async_signal_handler (async_signal_handler ** async_handler_ptr)
       if (sighandler_list.last_handler == (*async_handler_ptr))
 	sighandler_list.last_handler = prev_ptr;
     }
-  free ((char *) (*async_handler_ptr));
+  xfree ((*async_handler_ptr));
   (*async_handler_ptr) = NULL;
 }
 
@@ -1143,7 +1135,7 @@ delete_timer (int id)
 	;
       prev_timer->next = timer_ptr->next;
     }
-  free ((char *) timer_ptr);
+  xfree (timer_ptr);
 
   gdb_notifier.timeout_valid = 0;
 }
@@ -1153,7 +1145,7 @@ delete_timer (int id)
    timer event from the event queue. Repeat this for each timer that
    has expired. */
 static void
-handle_timer_event (int dummy)
+handle_timer_event (void *dummy)
 {
   struct timeval time_now;
   struct gdb_timer *timer_ptr, *saved_timer;
@@ -1174,7 +1166,7 @@ handle_timer_event (int dummy)
       timer_ptr = timer_ptr->next;
       /* Call the procedure associated with that timer. */
       (*saved_timer->proc) (saved_timer->client_data);
-      free (saved_timer);
+      xfree (saved_timer);
     }
 
   gdb_notifier.timeout_valid = 0;
@@ -1219,7 +1211,7 @@ poll_timers (void)
 	{
 	  event_ptr = (gdb_event *) xmalloc (sizeof (gdb_event));
 	  event_ptr->proc = handle_timer_event;
-	  event_ptr->fd = timer_list.first_timer->timer_id;
+	  event_ptr->data = (void *) timer_list.first_timer->timer_id;
 	  async_queue_event (event_ptr, TAIL);
 	}
 
@@ -1230,7 +1222,8 @@ poll_timers (void)
 #ifdef HAVE_POLL
 	  gdb_notifier.poll_timeout = delta.tv_sec * 1000;
 #else
-	  internal_error ("event-loop.c : use_poll without HAVE_POLL");
+	  internal_error (__FILE__, __LINE__,
+			  "use_poll without HAVE_POLL");
 #endif /* HAVE_POLL */
 	}
       else

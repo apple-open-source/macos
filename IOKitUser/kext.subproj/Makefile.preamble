@@ -1,3 +1,11 @@
 PROJECT_HEADER_DIR_SUFFIX = /IOKit/$(NAME)
 PUBLIC_HEADER_DIR_SUFFIX = /$(NAME)
 PRIVATE_HEADER_DIR_SUFFIX = /$(NAME)
+
+PRIVATE_HEADERS = KXKextManager.h KXKextRepository.h KXKext.h kextmanager_mig.defs kextmanager_types.h KextManagerPriv.h
+
+OTHER_PROJECT_HEADERS = kextmanager_mig.h
+OTHER_OFILES = kextmanagerUser.o
+
+ifeq "$(RC_RELEASE)" "Darwin"
+	OTHER_CFLAGS += -DNO_CFUserNofitication

@@ -1,5 +1,6 @@
 /* Memory-access and commands for "inferior" process, for GDB.
-   Copyright 1986, 87, 88, 89, 91, 92, 95, 96, 1998, 1999
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
+   1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -29,14 +30,14 @@
 #include "environ.h"
 #include "value.h"
 #include "gdbcmd.h"
+#include "symfile.h"
 #include "gdbcore.h"
 #include "target.h"
 #include "language.h"
 #include "symfile.h"
 #include "objfiles.h"
-#ifdef UI_OUT
+#include "completer.h"
 #include "ui-out.h"
-#endif
 #include "event-top.h"
 #include "parser-defs.h"
 #include "top.h"
@@ -126,6 +127,19 @@ static void breakpoint_auto_delete_contents (PTR);
 
 static char *inferior_args;
 
+/* The inferior arguments as a vector.  If INFERIOR_ARGC is nonzero,
+   then we must compute INFERIOR_ARGS from this (via the target).  */
+
+static int inferior_argc;
+static char **inferior_argv;
+
+/* Use this to tell whether we go to start the inferior using a shell or
+   not.  This has to be here, rather than in fork-child.c, because it is
+   used in construct_inferior_arguments, which is also used here, but not
+   everyone uses fork-child... */
+
+int start_with_shell_flag = STARTUP_WITH_SHELL;
+
 /* File name for default use for standard in/out in the inferior.  */
 
 char *inferior_io_terminal;
@@ -135,7 +149,7 @@ char *inferior_io_terminal;
    being debugged it should be nonzero (currently 3 is used) for remote
    debugging.  */
 
-int inferior_pid;
+ptid_t inferior_ptid;
 
 /* Last signal that the inferior received (why it stopped).  */
 
@@ -197,6 +211,134 @@ int step_multi;
 
 struct environ *inferior_environ;
 
+/* Accessor routines. */
+
+char *
+get_inferior_args (void)
+{
+  if (inferior_argc != 0)
+    {
+      char *n, *old;
+
+      n = gdbarch_construct_inferior_arguments (current_gdbarch,
+						inferior_argc, inferior_argv);
+      old = set_inferior_args (n);
+      xfree (old);
+    }
+
+  if (inferior_args == NULL)
+    inferior_args = xstrdup ("");
+
+  return inferior_args;
+}
+
+char *
+set_inferior_args (char *newargs)
+{
+  char *saved_args = inferior_args;
+
+  inferior_args = newargs;
+  inferior_argc = 0;
+  inferior_argv = 0;
+
+  return saved_args;
+}
+
+void
+set_inferior_args_vector (int argc, char **argv)
+{
+  inferior_argc = argc;
+  inferior_argv = argv;
+}
+
+/* Notice when `set args' is run.  */
+static void
+notice_args_set (char *args, int from_tty, struct cmd_list_element *c)
+{
+  inferior_argc = 0;
+  inferior_argv = 0;
+}
+
+/* Notice when `show args' is run.  */
+static void
+notice_args_read (char *args, int from_tty, struct cmd_list_element *c)
+{
+  /* Might compute the value.  */
+  get_inferior_args ();
+}
+
+
+/* Compute command-line string given argument vector.  This does the
+   same shell processing as fork_inferior.  */
+/* ARGSUSED */
+char *
+construct_inferior_arguments (struct gdbarch *gdbarch, int argc, char **argv)
+{
+  char *result;
+
+  if (start_with_shell_flag)
+    {
+      /* This holds all the characters considered special to the
+	 typical Unix shells.  We include `^' because the SunOS
+	 /bin/sh treats it as a synonym for `|'.  */
+      char *special = "\"!#$&*()\\|[]{}<>?'\"`~^; \t\n";
+      int i;
+      int length = 0;
+      char *out, *cp;
+
+      /* We over-compute the size.  It shouldn't matter.  */
+      for (i = 0; i < argc; ++i)
+	length += 2 * strlen (argv[i]) + 1;
+
+      result = (char *) xmalloc (length);
+      out = result;
+
+      for (i = 0; i < argc; ++i)
+	{
+	  if (i > 0)
+	    *out++ = ' ';
+
+	  for (cp = argv[i]; *cp; ++cp)
+	    {
+	      if (strchr (special, *cp) != NULL)
+		*out++ = '\\';
+	      *out++ = *cp;
+	    }
+	}
+      *out = '\0';
+    }
+  else
+    {
+      /* In this case we can't handle arguments that contain spaces,
+	 tabs, or newlines -- see breakup_args().  */
+      int i;
+      int length = 0;
+
+      for (i = 0; i < argc; ++i)
+	{
+	  char *cp = strchr (argv[i], ' ');
+	  if (cp == NULL)
+	    cp = strchr (argv[i], '\t');
+	  if (cp == NULL)
+	    cp = strchr (argv[i], '\n');
+	  if (cp != NULL)
+	    error ("can't handle command-line argument containing whitespace");
+	  length += strlen (argv[i]) + 1;
+	}
+
+      result = (char *) xmalloc (length);
+      result[0] = '\0';
+      for (i = 0; i < argc; ++i)
+	{
+	  if (i > 0)
+	    strcat (result, " ");
+	  strcat (result, argv[i]);
+	}
+    }
+
+  return result;
+}
+
 
 /* This function detects whether or not a '&' character (indicating
    background execution) has been added as *the last* of the arguments ARGS
@@ -245,7 +387,7 @@ run_command (char *args, int from_tty)
 
   dont_repeat ();
 
-  if (inferior_pid != 0 && target_has_execution)
+  if (! ptid_equal (inferior_ptid, null_ptid) && target_has_execution)
     {
       if (from_tty
 	  && !query ("The program being debugged has been started already.\n\
@@ -260,16 +402,22 @@ Start it from the beginning? "))
 
   clear_breakpoint_hit_counts ();
 
-  exec_file = (char *) get_exec_file (0);
-
   /* Purge old solib objfiles. */
   objfile_purge_solibs ();
 
   do_run_cleanups (NULL);
 
-  /* The exec file is re-read every time we do a generic_mourn_inferior, so
-     we just have to worry about the symbol file.  */
+  /* The comment here used to read, "The exec file is re-read every
+     time we do a generic_mourn_inferior, so we just have to worry
+     about the symbol file."  The `generic_mourn_inferior' function
+     gets called whenever the program exits.  However, suppose the
+     program exits, and *then* the executable file changes?  We need
+     to check again here.  Since reopen_exec_file doesn't do anything
+     if the timestamp hasn't changed, I don't see the harm.  */
+  reopen_exec_file ();
   reread_symbols ();
+
+  exec_file = (char *) get_exec_file (0);
 
   /* We keep symbols from add-symbol-file, on the grounds that the
      user might want to add some symbols before running the program
@@ -286,7 +434,6 @@ Start it from the beginning? "))
     }
   else
     {
-      char *cmd;
       int async_exec = strip_bg_char (&args);
 
       /* If we get a request for running in the bg but the target
@@ -305,32 +452,23 @@ Start it from the beginning? "))
       /* If there were other args, beside '&', process them. */
       if (args)
 	{
-	  cmd = concat ("set args ", args, NULL);
-	  make_cleanup (free, cmd);
-	  execute_command (cmd, from_tty);
+          char *old_args = set_inferior_args (xstrdup (args));
+          xfree (old_args);
 	}
     }
 
   if (from_tty)
     {
-#ifdef UI_OUT
       ui_out_field_string (uiout, NULL, "Starting program");
       ui_out_text (uiout, ": ");
       if (exec_file)
 	ui_out_field_string (uiout, "execfile", exec_file);
       ui_out_spaces (uiout, 1);
-      ui_out_field_string (uiout, "infargs", inferior_args);
+      /* We call get_inferior_args() because we might need to compute
+	 the value now.  */
+      ui_out_field_string (uiout, "infargs", get_inferior_args ());
       ui_out_text (uiout, "\n");
       ui_out_flush (uiout);
-#else
-      puts_filtered ("Starting program: ");
-      if (exec_file)
-	puts_filtered (exec_file);
-      puts_filtered (" ");
-      puts_filtered (inferior_args);
-      puts_filtered ("\n");
-      gdb_flush (gdb_stdout);
-#endif
     }
 
   if (state_change_hook)
@@ -343,7 +481,9 @@ Start it from the beginning? "))
         return;
       }
   }
-  target_create_inferior (exec_file, inferior_args,
+  /* We call get_inferior_args() because we might need to compute
+     the value now.  */
+  target_create_inferior (exec_file, get_inferior_args (),
 			  environ_vector (inferior_environ));
 }
 
@@ -351,8 +491,8 @@ Start it from the beginning? "))
 static void
 run_no_args_command (char *args, int from_tty)
 {
-  execute_command ("set args", from_tty);
-  run_command ((char *) NULL, from_tty);
+  char *old_args = set_inferior_args (xstrdup (""));
+  xfree (old_args);
 }
 
 
@@ -722,7 +862,7 @@ jump_command (char *arg, int from_tty)
     }
 
   sal = sals.sals[0];
-  free ((PTR) sals.sals);
+  xfree (sals.sals);
 
   if (sal.symtab == 0 && sal.pc == 0)
     error ("No source file has been specified.");
@@ -908,7 +1048,7 @@ run_stack_dummy (CORE_ADDR addr, char *buffer)
       bpt = set_momentary_breakpoint (sal,
 				      get_current_frame (),
 				      bp_call_dummy);
-      bpt->disposition = del;
+      bpt->disposition = disp_del;
 
       /* If all error()s out of proceed ended up calling normal_stop (and
          perhaps they should; it already does in the special case of error
@@ -1037,27 +1177,19 @@ until_command (char *arg, int from_tty)
 static void
 print_return_value (int structure_return, struct type *value_type)
 {
-  register value_ptr value;
-#ifdef UI_OUT
+  struct value *value;
   static struct ui_stream *stb = NULL;
-#endif /* UI_OUT */
 
   if (!structure_return)
     {
       value = value_being_returned (value_type, stop_registers, structure_return);
-#ifdef UI_OUT
       stb = ui_out_stream_new (uiout);
       ui_out_text (uiout, "Value returned is ");
       ui_out_field_fmt (uiout, "gdb-result-var", "$%d", record_latest_value (value));
-      ui_out_text (uiout, "= ");
+      ui_out_text (uiout, " = ");
       value_print (value, stb->stream, 0, Val_no_prettyprint);
       ui_out_field_stream (uiout, "return-value", stb);
       ui_out_text (uiout, "\n");
-#else /* UI_OUT */
-      printf_filtered ("Value returned is $%d = ", record_latest_value (value));
-      value_print (value, gdb_stdout, 0, Val_no_prettyprint);
-      printf_filtered ("\n");
-#endif /* UI_OUT */
     }
   else
     {
@@ -1066,30 +1198,19 @@ print_return_value (int structure_return, struct type *value_type)
 	 initiate the call, as opposed to the call_function_by_hand case */
 #ifdef VALUE_RETURNED_FROM_STACK
       value = 0;
-#ifdef UI_OUT
       ui_out_text (uiout, "Value returned has type: ");
       ui_out_field_string (uiout, "return-type", TYPE_NAME (value_type));
       ui_out_text (uiout, ".");
       ui_out_text (uiout, " Cannot determine contents\n");
-#else /* UI_OUT */
-      printf_filtered ("Value returned has type: %s.", TYPE_NAME (value_type));
-      printf_filtered (" Cannot determine contents\n");
-#endif /* UI_OUT */
 #else
       value = value_being_returned (value_type, stop_registers, structure_return);
-#ifdef UI_OUT
       stb = ui_out_stream_new (uiout);
       ui_out_text (uiout, "Value returned is ");
       ui_out_field_fmt (uiout, "gdb-result-var", "$%d", record_latest_value (value));
-      ui_out_text (uiout, "= ");
+      ui_out_text (uiout, " = ");
       value_print (value, stb->stream, 0, Val_no_prettyprint);
       ui_out_field_stream (uiout, "return-value", stb);
       ui_out_text (uiout, "\n");
-#else
-      printf_filtered ("Value returned is $%d = ", record_latest_value (value));
-      value_print (value, gdb_stdout, 0, Val_no_prettyprint);
-      printf_filtered ("\n");
-#endif
 #endif
     }
 }
@@ -1122,7 +1243,8 @@ finish_command_continuation (struct continuation_arg *arg)
 
       value_type = TYPE_TARGET_TYPE (SYMBOL_TYPE (function));
       if (!value_type)
-	internal_error ("finish_command: function has no target type");
+	internal_error (__FILE__, __LINE__,
+			"finish_command: function has no target type");
 
       if (TYPE_CODE (value_type) == TYPE_CODE_VOID)
 	{
@@ -1249,7 +1371,8 @@ finish_command (char *arg, int from_tty)
 
 	  value_type = TYPE_TARGET_TYPE (SYMBOL_TYPE (function));
 	  if (!value_type)
-	    internal_error ("finish_command: function has no target type");
+	    internal_error (__FILE__, __LINE__,
+			    "finish_command: function has no target type");
 
 	  /* FIXME: Shouldn't we do the cleanups before returning? */
 	  if (TYPE_CODE (value_type) == TYPE_CODE_VOID)
@@ -1407,7 +1530,7 @@ set_environment_command (char *arg, int from_tty)
     }
   else
     set_in_environ (inferior_environ, var, val);
-  free (var);
+  xfree (var);
 }
 
 static void
@@ -1452,10 +1575,10 @@ path_command (char *dirname, int from_tty)
   /* Can be null if path is not set */
   if (!env)
     env = "";
-  exec_path = strsave (env);
+  exec_path = xstrdup (env);
   mod_path (dirname, &exec_path);
   set_in_environ (inferior_environ, path_var_name, exec_path);
-  free (exec_path);
+  xfree (exec_path);
   if (from_tty)
     path_info ((char *) NULL, from_tty);
 }
@@ -1479,19 +1602,16 @@ void
 do_registers_info (int regnum, int fpregs)
 {
   register int i;
-  int numregs = ARCH_NUM_REGS;
+  int numregs = NUM_REGS + NUM_PSEUDO_REGS;
+  char *raw_buffer = (char*) alloca (MAX_REGISTER_RAW_SIZE);
+  char *virtual_buffer = (char*) alloca (MAX_REGISTER_VIRTUAL_SIZE);
 
   for (i = 0; i < numregs; i++)
     {
-      char raw_buffer[MAX_REGISTER_RAW_SIZE];
-      char virtual_buffer[MAX_REGISTER_VIRTUAL_SIZE];
-
       /* Decide between printing all regs, nonfloat regs, or specific reg.  */
       if (regnum == -1)
 	{
-	  if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) == TYPE_CODE_FLT && !fpregs)
-	    continue;
-	  if ((REGISTER_VIRTUAL_TYPE (i) == builtin_type_v4sf) && !fpregs)
+	  if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) != TYPE_CODE_INT && !fpregs)
 	    continue;
 	}
       else
@@ -1528,38 +1648,22 @@ do_registers_info (int regnum, int fpregs)
 	}
 
       /* If virtual format is floating, print it that way, and in raw hex.  */
-      if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) == TYPE_CODE_FLT)
+
+      if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) != TYPE_CODE_INT)
 	{
 	  register int j;
 
-#ifdef INVALID_FLOAT
-	  if (INVALID_FLOAT (virtual_buffer, REGISTER_VIRTUAL_SIZE (i)))
-	    printf_filtered ("<invalid float>");
-	  else
-#endif
-	    val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0, 0,
-		       gdb_stdout, 0, 1, 0, Val_pretty_default);
+	  val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0, 0,
+		     gdb_stdout, 0, 1, 0, Val_pretty_default);
 
 	  printf_filtered ("\t(raw 0x");
 	  for (j = 0; j < REGISTER_RAW_SIZE (i); j++)
 	    {
-	      register int idx = TARGET_BYTE_ORDER == BIG_ENDIAN ? j
+	      register int idx = TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? j
 	      : REGISTER_RAW_SIZE (i) - 1 - j;
 	      printf_filtered ("%02x", (unsigned char) raw_buffer[idx]);
 	    }
 	  printf_filtered (")");
-	}
-
-/* FIXME!  val_print probably can handle all of these cases now...  */
-
-      /* Else if virtual format is too long for printf,
-         print in hex a byte at a time.  */
-      else if (REGISTER_VIRTUAL_SIZE (i) > (int) sizeof (long))
-	{
-	  register int j;
-	  printf_filtered ("0x");
-	  for (j = 0; j < REGISTER_VIRTUAL_SIZE (i); j++)
-	    printf_filtered ("%02x", (unsigned char) virtual_buffer[j]);
 	}
       /* Else print as integer in hex and in decimal.  */
       else
@@ -1605,7 +1709,7 @@ registers_info (char *addr_exp, int fpregs)
       end = addr_exp;
       while (*end != '\0' && *end != ' ' && *end != '\t')
 	++end;
-      numregs = ARCH_NUM_REGS;
+      numregs = NUM_REGS + NUM_PSEUDO_REGS;
 
       regnum = target_map_name_to_register (addr_exp, end - addr_exp);
       if (regnum >= 0)
@@ -1660,10 +1764,6 @@ nofp_registers_info (char *addr_exp, int from_tty)
 void
 attach_command (char *args, int from_tty)
 {
-#ifdef SOLIB_ADD
-  extern int auto_solib_add;
-#endif
-
   char *exec_file;
   char *full_exec_path = NULL;
 
@@ -1705,7 +1805,7 @@ attach_command (char *args, int from_tty)
   exec_file = (char *) get_exec_file (0);
   if (!exec_file)
     {
-      exec_file = target_pid_to_exec_file (inferior_pid);
+      exec_file = target_pid_to_exec_file (PIDGET (inferior_ptid));
       if (exec_file)
 	{
 	  /* It's possible we don't have a full path, but rather just a
@@ -1720,22 +1820,18 @@ attach_command (char *args, int from_tty)
 	    full_exec_path = savestring (exec_file, strlen (exec_file));
 
 	  exec_file_attach (full_exec_path, from_tty);
-	  symbol_file_command (full_exec_path, from_tty);
+	  symbol_file_add_main (full_exec_path, from_tty);
 	}
     }
 
+  /* Add shared library symbols from the newly attached process, if any.  */
 #ifdef SOLIB_ADD
-  if (0 && auto_solib_add)
-    {
-      /* Add shared library symbols from the newly attached process, if any.  */
-      SOLIB_ADD ((char *) 0, from_tty, &current_target);
-      re_enable_breakpoints_in_shlibs (0);
-    }
+  SOLIB_ADD ((char *) 0, from_tty, &current_target, auto_solib_add);
+  re_enable_breakpoints_in_shlibs (0);
 #endif
-
   /* Take any necessary post-attaching actions for this platform.
    */
-  target_post_attach (inferior_pid);
+  target_post_attach (PIDGET (inferior_ptid));
 
   normal_stop ();
 
@@ -1768,13 +1864,13 @@ detach_command (char *args, int from_tty)
 
 /* Stop the execution of the target while running in async mode, in
    the backgound. */
-#ifdef UI_OUT
+
 void
 interrupt_target_command_wrapper (char *args, int from_tty)
 {
   interrupt_target_command (args, from_tty);
 }
-#endif
+
 static void
 interrupt_target_command (char *args, int from_tty)
 {
@@ -1789,11 +1885,7 @@ interrupt_target_command (char *args, int from_tty)
 static void
 float_info (char *addr_exp, int from_tty)
 {
-#ifdef FLOAT_INFO
-  FLOAT_INFO;
-#else
-  printf_filtered ("No floating point info available for this processor.\n");
-#endif
+  PRINT_FLOAT_INFO ();
 }
 
 /* ARGSUSED */
@@ -1810,20 +1902,20 @@ _initialize_infcmd (void)
 {
   struct cmd_list_element *c;
 
-  add_com ("tty", class_run, tty_command,
-	   "Set terminal for future runs of program being debugged.");
+  c = add_com ("tty", class_run, tty_command,
+	       "Set terminal for future runs of program being debugged.");
+  set_cmd_completer (c, filename_completer);
 
-  add_show_from_set
-    (c = add_set_cmd ("args", class_run, var_string_noescape,
-		  (char *) &inferior_args,
-		  "Set argument list to give program being debugged when it is started.\n\
+  c = add_set_cmd ("args", class_run, var_string_noescape,
+		   (char *) &inferior_args,
+		   "Set argument list to give program being debugged when it is started.\n\
 Follow this command with any number of args, to be passed to the program.",
-		  &setlist),
-     &showlist);
-
-  c->completer = filename_completer;
-  c->completer_word_break_characters =
-    gdb_completer_filename_word_break_characters;
+		   &setlist);
+  set_cmd_completer (c, filename_completer);
+  /* c->completer_word_break_characters = gdb_completer_filename_word_break_characters; */ /* FIXME */
+  set_cmd_sfunc (c, notice_args_set);
+  c = add_show_from_set (c, &showlist);
+  set_cmd_sfunc (c, notice_args_read);
 
   c = add_cmd
     ("environment", no_class, environment_info,
@@ -1831,17 +1923,17 @@ Follow this command with any number of args, to be passed to the program.",
 With an argument VAR, prints the value of environment variable VAR to\n\
 give the program being debugged.  With no arguments, prints the entire\n\
 environment to be given to the program.", &showlist);
-  c->completer = noop_completer;
+  set_cmd_completer (c, noop_completer);
 
   add_prefix_cmd ("unset", no_class, unset_command,
-		  "Complement to certain \"set\" commands",
+		  "Complement to certain \"set\" commands.",
 		  &unsetlist, "unset ", 0, &cmdlist);
 
   c = add_cmd ("environment", class_run, unset_environment_command,
 	       "Cancel environment variable VAR for the program.\n\
 This does not affect the program until the next \"run\" command.",
 	       &unsetlist);
-  c->completer = noop_completer;
+  set_cmd_completer (c, noop_completer);
 
   c = add_cmd ("environment", class_run, set_environment_command,
 	       "Set environment variable value to give the program.\n\
@@ -1849,14 +1941,15 @@ Arguments are VAR VALUE where VAR is variable name and VALUE is value.\n\
 VALUES of environment variables are uninterpreted strings.\n\
 This does not affect the program until the next \"run\" command.",
 	       &setlist);
-  c->completer = noop_completer;
+  set_cmd_completer (c, noop_completer);
 
-  add_com ("path", class_files, path_command,
-	   "Add directory DIR(s) to beginning of search path for object files.\n\
+  c = add_com ("path", class_files, path_command,
+	       "Add directory DIR(s) to beginning of search path for object files.\n\
 $cwd in the path means the current working directory.\n\
 This path is equivalent to the $PATH shell variable.  It is a list of\n\
 directories, separated by colons.  These directories are searched to find\n\
 fully linked executable files and separately compiled object files as needed.");
+  set_cmd_completer (c, filename_completer);
 
   c = add_cmd ("paths", no_class, path_info,
 	       "Current search path for finding object files.\n\
@@ -1865,7 +1958,7 @@ This path is equivalent to the $PATH shell variable.  It is a list of\n\
 directories, separated by colons.  These directories are searched to find\n\
 fully linked executable files and separately compiled object files as needed.",
 	       &showlist);
-  c->completer = noop_completer;
+  set_cmd_completer (c, noop_completer);
 
   c = add_cmd ("attach", class_run, attach_command,
 	   "Attach to a process or file outside of GDB.\n\
@@ -1880,9 +1973,9 @@ program running in the process, looking first in the current working\n\
 directory, or (if not found there) using the source file search path\n\
 (see the \"directory\" command).  You can also use the \"file\" command\n\
 to specify the program, and to load its symbol table.", &cmdlist);
-  c->completer = PROCESS_COMPLETER;
+  set_cmd_completer (c, PROCESS_COMPLETER);
 #ifdef PROCESS_COMPLETER_WORD_BREAK_CHARACTERS
-  c->completer_word_break_characters = PROCESS_COMPLETER_WORD_BREAK_CHARACTERS;
+  /* c->completer_word_break_characters = PROCESS_COMPLETER_WORD_BREAK_CHARACTERS; */ /* FIXME */
 #endif
 
   add_com ("detach", class_run, detach_command,
@@ -1922,25 +2015,30 @@ Argument N means do this N times (or till program stops for another reason).");
 Argument N means do this N times (or till program stops for another reason).");
   add_com_alias ("s", "step", class_run, 1);
 
-  add_com ("until", class_run, until_command,
-	   "Execute until the program reaches a source line greater than the current\n\
+  c = add_com ("until", class_run, until_command,
+	       "Execute until the program reaches a source line greater than the current\n\
 or a specified line or address or function (same args as break command).\n\
 Execution will also stop upon exit from the current stack frame.");
+  set_cmd_completer (c, location_completer);
   add_com_alias ("u", "until", class_run, 1);
 
-  add_com ("jump", class_run, jump_command,
-	   "Continue program being debugged at specified line or address.\n\
+  c = add_com ("jump", class_run, jump_command,
+	       "Continue program being debugged at specified line or address.\n\
 Give as argument either LINENUM or *ADDR, where ADDR is an expression\n\
 for an address to start at.");
+  set_cmd_completer (c, location_completer);
 
   if (xdb_commands)
-    add_com ("go", class_run, go_command,
-	     "Usage: go <location>\n\
+    {
+      c = add_com ("go", class_run, go_command,
+		   "Usage: go <location>\n\
 Continue program being debugged, stopping at specified line or \n\
 address.\n\
 Give as argument either LINENUM or *ADDR, where ADDR is an \n\
 expression for an address to start at.\n\
 This command is a combination of tbreak and jump.");
+      set_cmd_completer (c, location_completer);
+    }
 
   if (xdb_commands)
     add_com_alias ("g", "go", class_run, 1);
@@ -1961,11 +2059,8 @@ they will be expanded using \"sh\".  Input and output redirection with
 With no arguments, uses arguments last specified (with \"run\" or \"set args\").\n\
 To cancel previous arguments and run with no arguments,\n\
 use \"set args\" without arguments.");
-
-  c->completer = filename_completer;
-  c->completer_word_break_characters =
-    gdb_completer_filename_word_break_characters;
-
+  set_cmd_completer (c, filename_completer);
+  /* c->completer_word_break_characters = gdb_completer_filename_word_break_characters; */ /* FIXME */
   add_com_alias ("r", "run", class_run, 1);
   if (xdb_commands)
     add_com ("R", class_run, run_no_args_command,
@@ -1993,7 +2088,6 @@ Register name as argument means describe only that register.");
   add_info ("float", float_info,
 	    "Print the status of the floating point unit\n");
 
-  inferior_args = savestring ("", 1);	/* Initially no args */
   inferior_environ = make_environ ();
   init_environ (inferior_environ);
 }

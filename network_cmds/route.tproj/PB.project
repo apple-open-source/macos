@@ -6,7 +6,7 @@
         H_FILES = (keywords.h); 
         M_FILES = (); 
         OTHER_LIBS = (); 
-        OTHER_LINKED = (ccitt_addr.c, route.c); 
+        OTHER_LINKED = (route.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, Makefile.dist, route.8); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 

@@ -46,8 +46,8 @@ public:
     DatabaseSession(DatabaseManager &inDatabaseManager);
     virtual ~DatabaseSession();
 
-    void GetDbNames(CSSM_NAME_LIST_PTR &NameList);
-    void FreeNameList(CSSM_NAME_LIST &NameList);
+    virtual void GetDbNames(CSSM_NAME_LIST_PTR &NameList);
+    virtual void FreeNameList(CSSM_NAME_LIST &NameList);
     void DbDelete(const char *DbName,
                   const CSSM_NET_ADDRESS *DbLocation,
                   const AccessCredentials *AccessCred);
@@ -58,7 +58,7 @@ public:
                   const CSSM_RESOURCE_CONTROL_CONTEXT *CredAndAclEntry,
                   const void *OpenParameters,
                   CSSM_DB_HANDLE &DbHandle);
-    void DbOpen(const char *DbName,
+    virtual void DbOpen(const char *DbName,
                 const CSSM_NET_ADDRESS *DbLocation,
                 CSSM_DB_ACCESS_TYPE AccessRequest,
                 const AccessCredentials *AccessCred,

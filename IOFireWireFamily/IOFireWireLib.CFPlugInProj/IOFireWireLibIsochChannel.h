@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,141 +23,113 @@
  *  IOFireWireLibIsochChannel.h
  *  IOFireWireFamily
  *
- *  Created by NWG on Mon Mar 12 2001.
- *  Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ *  Created on Mon Mar 12 2001.
+ *  Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  */
 
-#ifndef __IOFireWireLibIsochChannel_H__
-#define __IOFireWireLibIsochChannel_H__
+#import "IOFireWireLibPriv.h"
+#import "IOFireWireLibIsochPort.h"
+#import "IOFireWireLibIsoch.h"
 
-#include "IOFireWireLibPriv.h"
-#include "IOFireWireLibIsochPort.h"
-#include <IOKit/firewire/IOFireWireLibIsoch.h>
+namespace IOFireWireLib {
 
-class IOFireWireLibIsochChannelImp: public IOFireWireIUnknown
-{
- public:
-	// --- ctor/dtor
-							IOFireWireLibIsochChannelImp(
-									IOFireWireDeviceInterfaceImp&	inUserClient) ;
-							~IOFireWireLibIsochChannelImp() ;
-	virtual IOReturn		Init(
-									Boolean							inDoIRM,
-									IOByteCount						inPacketSize,
-									IOFWSpeed						inPrefSpeed) ;
+	class IsochChannel: public IOFireWireIUnknown
+	{
+		protected:
+			typedef ::IOFireWireLibIsochChannelRef 				ChannelRef ;
+			typedef ::IOFireWireIsochChannelForceStopHandler	ForceStopHandler ;
 
-	static void				ForceStopHandler(
-									IOFireWireLibPseudoAddressSpaceRef refCon,
-									IOReturn						result,
-									void**							args,
-									int								numArgs) ;
+		public:
+			IsochChannel( IUnknownVTbl* interface, Device& userclient, bool inDoIRM, IOByteCount inPacketSize, IOFWSpeed inPrefSpeed) ;
+			virtual ~IsochChannel() ;
 
-	// --- other methods
-	virtual IOReturn 		SetTalker(
-									IOFireWireLibIsochPortRef	 		talker ) ;
-	virtual IOReturn		AddListener(
-									IOFireWireLibIsochPortRef	 		listener ) ;
-	virtual IOReturn		AllocateChannel() ;
-	virtual IOReturn 		ReleaseChannel() ;
-	virtual IOReturn		Start() ;
-	virtual IOReturn		Stop() ;
+		public:
+			// --- other methods
+			virtual IOReturn 			SetTalker( IOFireWireLibIsochPortRef talker ) ;
+			virtual IOReturn			AddListener( IOFireWireLibIsochPortRef listener ) ;
 
-	virtual IOFireWireIsochChannelForceStopHandler
-							SetChannelForceStopHandler(
-									IOFireWireIsochChannelForceStopHandler stopProc) ;
-	virtual void	 		SetRefCon(
-									void* 							stopProcRefCon) ;
-	virtual void*			GetRefCon() ;
-	virtual Boolean			NotificationIsOn() ;
-	virtual Boolean			TurnOnNotification() ;
-	virtual void			TurnOffNotification() ;
-	virtual void			ClientCommandIsComplete(
-									FWClientCommandID 				commandID, 
-									IOReturn 						status) ;
+			virtual IOReturn			AllocateChannel() ;
+			virtual IOReturn 			ReleaseChannel() ;
+			virtual IOReturn			Start() ;
+			virtual IOReturn			Stop() ;
+					
+			virtual ForceStopHandler	SetChannelForceStopHandler( ForceStopHandler stopProc ) ;
+			virtual void	 			SetRefCon( void* stopProcRefCon ) ;
+			virtual void*				GetRefCon() ;
 
- protected:
-	IOFireWireDeviceInterfaceImp&			mUserClient ;
-	FWKernIsochChannelRef					mKernChannelRef ;
-	Boolean									mNotifyIsOn ;
-	IOFireWireIsochChannelForceStopHandler	mForceStopHandler ;
-	void*									mUserRefCon ;
+			virtual Boolean				NotificationIsOn() ;
+			virtual Boolean				TurnOnNotification() ;
+			virtual void				TurnOffNotification() ;
+
+			virtual void				ClientCommandIsComplete( FWClientCommandID commandID, IOReturn status ) ;
+		
+		protected:
+			static void					ForceStop( ChannelRef refcon, IOReturn result, void** args, int numArgs ) ;
+		
+		protected:
+			Device&						mUserClient ;
+			FWKernIsochChannelRef		mKernChannelRef ;
+			Boolean						mNotifyIsOn ;
+			ForceStopHandler			mForceStopHandler ;
+			void*						mUserRefCon ;
+			io_async_ref_t				mAsyncRef ;
+			IOFireWireLibIsochPortRef	mTalker ;
+			CFMutableArrayRef			mListeners ;
+			ChannelRef					mRefInterface ;
+			IOFWSpeed					mSpeed ;
+			IOFWSpeed					mPrefSpeed ;
+			UInt32						mChannel ;
+	} ;
 	
-	io_async_ref_t							mAsyncRef ;
-
-	IOFireWireLibIsochPortImp*				mTalker ;
-	CFMutableArrayRef						mListeners ;
-	IOFireWireLibIsochChannelRef			mRefInterface ;
+	class IsochChannelCOM: public IsochChannel
+	{
+			typedef ::IOFireWireIsochChannelInterface		Interface ;
 	
-	IOFWSpeed								mSpeed ;
-	IOFWSpeed								mPrefSpeed ;
-	UInt32									mChannel ;
-} ;
+		public:
+			IsochChannelCOM( Device& userclient, bool inDoIRM, IOByteCount inPacketSize, IOFWSpeed inPrefSpeed ) ;
+			virtual ~IsochChannelCOM() ;
+		
+		private:
+			static Interface sInterface ;
 
-class IOFireWireLibIsochChannelCOM: public IOFireWireLibIsochChannelImp
-{
- public:
-							IOFireWireLibIsochChannelCOM(
-									IOFireWireDeviceInterfaceImp&	inUserClient) ;
-	virtual 				~IOFireWireLibIsochChannelCOM() ;
-
-	// --- COM ---------------
- 	struct InterfaceMap
- 	{
- 		IUnknownVTbl*					pseudoVTable ;
- 		IOFireWireLibIsochChannelCOM*	obj ;
- 	} ;
- 
-	static IOFireWireIsochChannelInterface	sInterface ;
- 	InterfaceMap							mInterface ;
-
- 	// GetThis()
- 	inline static IOFireWireLibIsochChannelCOM* GetThis(IOFireWireLibIsochChannelRef self)
-	 	{ return ((InterfaceMap*)self)->obj ;}
-
-	// --- IUNKNOWN support ----------------
-	
-	static IUnknownVTbl**	Alloc(
-									IOFireWireDeviceInterfaceImp&	inUserClient,
-									Boolean							inDoIRM,
-									IOByteCount						inPacketSize,
-									IOFWSpeed						inPrefSpeed) ;
-	virtual HRESULT			QueryInterface(REFIID iid, void ** ppv ) ;
-
-	// --- static methods ------------------
-	static IOReturn			SSetTalker(
-									IOFireWireLibIsochChannelRef 	self, 
-									IOFireWireLibIsochPortRef 		talker) ;
-	static IOReturn 		SAddListener(
-									IOFireWireLibIsochChannelRef 	self, 
-									IOFireWireLibIsochPortRef 		listener) ;
-	static IOReturn 		SAllocateChannel(
-									IOFireWireLibIsochChannelRef 	self) ;
-	static IOReturn			SReleaseChannel(
-									IOFireWireLibIsochChannelRef 	self) ;
-	static IOReturn 		SStart(
-									IOFireWireLibIsochChannelRef 	self) ;
-	static IOReturn			SStop(
-									IOFireWireLibIsochChannelRef 	self) ;
-	static IOFireWireIsochChannelForceStopHandler
-							SSetChannelForceStopHandler(
-									IOFireWireLibIsochChannelRef 	self, 
-									IOFireWireIsochChannelForceStopHandler stopProc) ;
-	static void		 		SSetRefCon(
-									IOFireWireLibIsochChannelRef 	self, 
-									void* 							stopProcRefCon) ;
-	static void*			SGetRefCon(
-									IOFireWireLibIsochChannelRef 	self) ;
-	static Boolean			SNotificationIsOn(
-									IOFireWireLibIsochChannelRef 	self) ;
-	static Boolean			STurnOnNotification(
-									IOFireWireLibIsochChannelRef 	self) ;
-	static void				STurnOffNotification(
-									IOFireWireLibIsochChannelRef	self) ;	
-	static void				SClientCommandIsComplete(
-									IOFireWireLibIsochChannelRef 	self, 
-									FWClientCommandID 				commandID, 
-									IOReturn 						status) ;
-} ;
-
-#endif __IOFireWireLibIsochChannel_H__
+		public:
+			static IUnknownVTbl**	Alloc( Device&	inUserClient, Boolean inDoIRM, IOByteCount inPacketSize, IOFWSpeed inPrefSpeed) ;
+			virtual HRESULT			QueryInterface( REFIID iid, void ** ppv ) ;
+		
+		protected:
+			static IOReturn			SSetTalker(
+											ChannelRef 	self, 
+											IOFireWireLibIsochPortRef 		talker) ;
+			static IOReturn 		SAddListener(
+											ChannelRef 	self, 
+											IOFireWireLibIsochPortRef 		listener) ;
+			static IOReturn 		SAllocateChannel(
+											ChannelRef 	self) ;
+			static IOReturn			SReleaseChannel(
+											ChannelRef 	self) ;
+			static IOReturn 		SStart(
+											ChannelRef 	self) ;
+			static IOReturn			SStop(
+											ChannelRef 	self) ;
+			static ForceStopHandler
+									SSetChannelForceStopHandler(
+											ChannelRef 	self, 
+											ForceStopHandler stopProc) ;
+			static void		 		SSetRefCon(
+											ChannelRef 	self, 
+											void* 							stopProcRefCon) ;
+			static void*			SGetRefCon(
+											ChannelRef 	self) ;
+			static Boolean			SNotificationIsOn(
+											ChannelRef 	self) ;
+			static Boolean			STurnOnNotification(
+											ChannelRef 	self) ;
+			static void				STurnOffNotification(
+											ChannelRef	self) ;	
+			static void				SClientCommandIsComplete(
+											ChannelRef 	self, 
+											FWClientCommandID 				commandID, 
+											IOReturn 						status) ;
+	} ;	
+}

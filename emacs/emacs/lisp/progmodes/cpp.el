@@ -1,4 +1,4 @@
-;;; cpp.el --- Highlight or hide text according to cpp conditionals.
+;;; cpp.el --- highlight or hide text according to cpp conditionals
 
 ;; Copyright (C) 1994, 1995 Free Software Foundation
 
@@ -49,7 +49,7 @@
 ;;; Customization:
 (defgroup cpp nil
   "Highlight or hide text according to cpp conditionals."
-  :group 'C
+  :group 'c
   :prefix "cpp-")
 
 (defcustom cpp-config-file (convert-standard-filename ".cpp.el")
@@ -70,7 +70,8 @@
 (defcustom cpp-face-type 'light 
   "*Indicate what background face type you prefer.
 Can be either light or dark for color screens, mono for monochrome
-screens, and none if you don't use a window system."
+screens, and none if you don't use a window system and don't have
+a color-capable display."
   :options '(light dark mono nil)
   :type 'symbol
   :group 'cpp)
@@ -775,6 +776,7 @@ BRANCH should be either nil (false branch), t (true branch) or 'both."
     (add-text-properties from to
 			 (append (list 'face face)
 				 '(mouse-face highlight)
+				 '(help-echo "mouse-2: change/use this item")
 				 (list 'cpp-callback callback)
 				 (if data (list 'cpp-data data))))))
 
@@ -797,7 +799,8 @@ BRANCH should be either nil (false branch), t (true branch) or 'both."
   ;; Create entry for face with background COLOR.
   (cons color (cons 'background-color color)))
 
-(cpp-choose-default-face (if window-system cpp-face-type 'none))
+(cpp-choose-default-face
+ (if (or window-system (display-color-p)) cpp-face-type 'none))
 
 (defun cpp-face-name (face)
   ;; Return the name of FACE from `cpp-face-all-list'.

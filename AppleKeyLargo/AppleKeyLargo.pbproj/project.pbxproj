@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
@@ -12,9 +12,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -44,9 +44,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -100,7 +100,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleKeyLargo;
-				MODULE_VERSION = 1.1.5d2;
+				MODULE_VERSION = 1.2.0d6;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -118,15 +118,15 @@
 			productName = AppleKeyLargo;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleKeyLargo</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleKeyLargo version 1.1.5, Copyright 2002 Apple Computer, Inc.</string>
+	<string>AppleKeyLargo version 1.2, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -138,11 +138,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.5</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.5d2</string>
+	<string>1.2.0d6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleKeyLargo</key>
@@ -180,9 +180,10 @@
 			files = (
 				73D52289FFE5D05111CA2A1B,
 				73D5228AFFE5D05111CA2A1B,
+				B05AB27A018A0F5D05CE0D9E,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -190,7 +191,7 @@
 				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -198,23 +199,24 @@
 				73D5228BFFE5D05111CA2A1B,
 				73D5228CFFE5D05111CA2A1B,
 				B03E150801778A6305CE0D9E,
+				B05AB27B018A0F5D05CE0D9E,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -292,6 +294,8 @@
 			children = (
 				73D52285FFE5D05111CA2A1B,
 				73D52286FFE5D05111CA2A1B,
+				B05AB278018A0F5D05CE0D9E,
+				B05AB279018A0F5D05CE0D9E,
 				73D52287FFE5D05111CA2A1B,
 				73D52288FFE5D05111CA2A1B,
 				B03E150701778A6305CE0D9E,
@@ -312,9 +316,12 @@
 //733
 //734
 		73D52285FFE5D05111CA2A1B = {
+			indentWidth = 4;
 			isa = PBXFileReference;
 			path = KeyLargo.cpp;
 			refType = 4;
+			tabWidth = 4;
+			usesTabs = 1;
 		};
 		73D52286FFE5D05111CA2A1B = {
 			isa = PBXFileReference;
@@ -322,9 +329,12 @@
 			refType = 4;
 		};
 		73D52287FFE5D05111CA2A1B = {
+			indentWidth = 4;
 			isa = PBXFileReference;
 			path = USBKeyLargo.cpp;
 			refType = 4;
+			tabWidth = 4;
+			usesTabs = 1;
 		};
 		73D52288FFE5D05111CA2A1B = {
 			isa = PBXFileReference;
@@ -376,6 +386,28 @@
 		};
 		B03E150801778A6305CE0D9E = {
 			fileRef = B03E150701778A6305CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B05AB278018A0F5D05CE0D9E = {
+			isa = PBXFileReference;
+			path = KeyLargoWatchDogTimer.cpp;
+			refType = 4;
+		};
+		B05AB279018A0F5D05CE0D9E = {
+			isa = PBXFileReference;
+			path = KeyLargoWatchDogTimer.h;
+			refType = 4;
+		};
+		B05AB27A018A0F5D05CE0D9E = {
+			fileRef = B05AB279018A0F5D05CE0D9E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B05AB27B018A0F5D05CE0D9E = {
+			fileRef = B05AB278018A0F5D05CE0D9E;
 			isa = PBXBuildFile;
 			settings = {
 			};

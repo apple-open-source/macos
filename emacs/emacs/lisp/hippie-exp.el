@@ -1,4 +1,4 @@
-;;; hippie-exp.el --- expand text trying various ways to find its expansion.
+;;; hippie-exp.el --- expand text trying various ways to find its expansion
 
 ;; Copyright (C) 1992 Free Software Foundation, Inc.
 
@@ -168,8 +168,12 @@
 
 ;;; Code:
 
+(eval-when-compile (require 'comint))
+
 (defgroup hippie-expand nil
   "Expand text trying various ways to find its expansion."
+  :link '(custom-manual "(autotype)Hippie Expand")
+  :link '(emacs-commentary-link "hippie-exp")
   :group 'abbrev
   :group 'convenience)
 
@@ -198,19 +202,22 @@
 (defvar he-search-window ())
 
 ;;;###autoload
-(defvar hippie-expand-try-functions-list '(try-complete-file-name-partially
-					   try-complete-file-name
-					   try-expand-all-abbrevs
-					   try-expand-list
-					   try-expand-line
-					   try-expand-dabbrev
-					   try-expand-dabbrev-all-buffers
-					   try-expand-dabbrev-from-kill
-					   try-complete-lisp-symbol-partially
-					   try-complete-lisp-symbol)
+(defcustom hippie-expand-try-functions-list
+  '(try-complete-file-name-partially
+    try-complete-file-name
+    try-expand-all-abbrevs
+    try-expand-list
+    try-expand-line
+    try-expand-dabbrev
+    try-expand-dabbrev-all-buffers
+    try-expand-dabbrev-from-kill
+    try-complete-lisp-symbol-partially
+    try-complete-lisp-symbol)
   "The list of expansion functions tried in order by `hippie-expand'.
 To change the behavior of `hippie-expand', remove, change the order of,
-or insert functions in this list.")
+or insert functions in this list."
+  :type '(repeat function)
+  :group 'hippie-expand)
 
 ;;;###autoload
 (defcustom hippie-expand-verbose t
@@ -412,14 +419,14 @@ undoes the expansion."
   "Construct a function similar to `hippie-expand'.
 Make it use the expansion functions in TRY-LIST.  An optional second
 argument VERBOSE non-nil makes the function verbose."
-  (` (function (lambda (arg)
-       (, (concat 
-	   "Try to expand text before point, using the following functions: \n"
-	   (mapconcat 'prin1-to-string (eval try-list) ", ")))
-       (interactive "P")
-       (let ((hippie-expand-try-functions-list (, try-list))
-	     (hippie-expand-verbose (, verbose)))
-	 (hippie-expand arg))))))
+  `(function (lambda (arg)
+    ,(concat 
+      "Try to expand text before point, using the following functions: \n"
+      (mapconcat 'prin1-to-string (eval try-list) ", "))
+    (interactive "P")
+    (let ((hippie-expand-try-functions-list ,try-list)
+          (hippie-expand-verbose ,verbose))
+      (hippie-expand arg)))))
 
 
 ;;;  Here follows the try-functions and their requisites:
@@ -627,6 +634,7 @@ for subsequent calls (for further possible completions of the same
 string).  It returns t if a new completion is found, nil otherwise."
   (let ((expansion ())
 	(strip-prompt (and (get-buffer-process (current-buffer))
+			   comint-use-prompt-regexp-instead-of-fields
 			   comint-prompt-regexp)))
     (if (not old)
 	(progn
@@ -673,6 +681,7 @@ for subsequent calls (for further possible completions of the same
 string).  It returns t if a new completion is found, nil otherwise."
   (let ((expansion ())
 	(strip-prompt (and (get-buffer-process (current-buffer))
+			   comint-use-prompt-regexp-instead-of-fields
 			   comint-prompt-regexp))
 	(buf (current-buffer))
 	(orig-case-fold-search case-fold-search))
@@ -699,6 +708,7 @@ string).  It returns t if a new completion is found, nil otherwise."
 		      (widen))
 		  (goto-char he-search-loc)
 		  (setq strip-prompt (and (get-buffer-process (current-buffer))
+					  comint-use-prompt-regexp-instead-of-fields
 					  comint-prompt-regexp))
 		  (setq expansion 
 			(let ((case-fold-search orig-case-fold-search))
@@ -732,8 +742,8 @@ string).  It returns t if a new completion is found, nil otherwise."
 		    (re-search-forward
 		     (he-line-search-regexp str strip-prompt)
 		     nil t)))
-      (setq result (buffer-substring-no-properties (match-beginning 2)
-						   (match-end 2)))
+      (setq result (buffer-substring-no-properties (match-end 1)
+						   (match-end 0)))
       (if (he-string-member result he-tried-table t)
 	  (setq result nil)))		    ; if already in table, ignore
     result))

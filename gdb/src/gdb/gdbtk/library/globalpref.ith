@@ -16,30 +16,32 @@ class GlobalPref {
   inherit ManagedWin ModalDialog
 
   private {
-    variable icondirlist ""
-    variable Original	;# Original settings
-    variable Fonts	;# List of all available fonts for editing
+    variable _new
+    variable _saved
+    variable _icondirlist ""
+    variable _original	;# Original font settings
+    variable _size      ;# Array tracking spinint values
+    variable _fonts	;# List of all available fonts for editing
     common tracing_labels
     common inited 0
-    variable tracing_cb
 
-    proc _init {}
-    method build_win {}
-    method make_font_item {f name label font_list}
-    method resize_font_item_height {}
-    method change_icons {w args}
-    method wfont_changed  {attribute font w val}
-    method font_changed {attribute font val}
-    method toggle_tracing_mode {}
-    method ok {}
-    method apply {{deleteMe 0}}
+    method _init {}
+    method _init_var {}
+    method _build_win {}
+    method _make_font_item {f name label font_list}
+    method _resize_font_item_height {}
+    method _change_icons {w args}
+    method _change_font {font stupid implementation}
+    method _change_size {direction font}
+    method _ok {}
+    method _apply {{deleteMe 0}}
+    method _cancel {}
     method cancel {}
-    method toggle_tracing {win}
+    method _toggle_tracing {win}
   }
 
   public {
     method constructor {args}
     method destructor {}
   }
-
 }

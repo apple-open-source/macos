@@ -24,15 +24,8 @@
 #ifndef __RIJNDAEL_ALG_H
 #define __RIJNDAEL_ALG_H
 
-#ifdef	__APPLE__
-#define MIN_AES_KEY_BITS		128
-#define MID_AES_KEY_BITS		192
-#define MAX_AES_KEY_BITS		256
+#include "aesCommon.h"
 
-#define MIN_AES_BLOCK_BITS		128
-#define MID_AES_BLOCK_BITS		192
-#define MAX_AES_BLOCK_BITS		256
-#endif
 #define MAXBC				(MAX_AES_BLOCK_BITS/32)
 #define MAXKC				(MAX_AES_KEY_BITS/32)
 #define MAXROUNDS			14
@@ -61,6 +54,8 @@ int rijndaelDecryptRound (word8 a[4][MAXBC], int keyBits, int blockBits,
 		word8 rk[MAXROUNDS+1][4][MAXBC], int rounds);
 #endif
 
+#if		!GLADMAN_AES_128_ENABLE
+
 /*
  * Optimized routines for 128-bit block and key.
  */
@@ -77,6 +72,8 @@ int rijndaelEncrypt128 (word8 a[4][BC_128_OPT],
 	word8 rk[MAXROUNDS+1][4][MAXBC]);
 int rijndaelDecrypt128 (word8 a[4][BC_128_OPT], 
 	word8 rk[MAXROUNDS+1][4][MAXBC]);
+
+#endif		/* !GLADMAN_AES_128_ENABLE */
 
 #ifdef	__cplusplus
 }

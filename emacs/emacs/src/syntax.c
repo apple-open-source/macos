@@ -1,5 +1,5 @@
 /* GNU Emacs routines to deal with syntax tables; also word and list parsing.
-   Copyright (C) 1985, 87, 93, 94, 95, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1985, 87, 93, 94, 95, 97, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -45,10 +45,19 @@ Lisp_Object Qsyntax_table_p, Qsyntax_table, Qscan_error;
 int words_include_escapes;
 int parse_sexp_lookup_properties;
 
+/* Nonzero means `scan-sexps' treat all multibyte characters as symbol.  */
+int multibyte_syntax_as_symbol;
+
 /* Used as a temporary in SYNTAX_ENTRY and other macros in syntax.h,
    if not compiled with GCC.  No need to mark it, since it is used
    only very temporarily.  */
 Lisp_Object syntax_temp;
+
+/* Non-zero means an open parenthesis in column 0 is always considered
+   to be the start of a defun.  Zero means an open parenthesis in
+   column 0 has no special meaning.  */
+
+int open_paren_in_column_0_is_defun_start;
 
 /* This is the internal form of the parse state used in parse-partial-sexp.  */
 
@@ -56,7 +65,7 @@ struct lisp_parse_state
   {
     int depth;		/* Depth at end of parsing.  */
     int instring;	/* -1 if not within string, else desired terminator.  */
-    int incomment;	/* Nonzero if within a comment at end of parsing.  */
+    int incomment;	/* -1 if in unnestable comment else comment nesting */
     int comstyle;	/* comment style a=0, or b=1, or ST_COMMENT_STYLE.  */
     int quoted;		/* Nonzero if just after an escape char at end of parsing */
     int thislevelstart;	/* Char number of most recent start-of-expression at current level */
@@ -85,7 +94,7 @@ static int find_start_modiff;
 
 
 static int find_defun_start P_ ((int, int));
-static int back_comment P_ ((int, int, int, int, int *, int *));
+static int back_comment P_ ((int, int, int, int, int, int *, int *));
 static int char_quoted P_ ((int, int));
 static Lisp_Object skip_chars P_ ((int, int, Lisp_Object, Lisp_Object));
 static Lisp_Object scan_lists P_ ((int, int, int, int));
@@ -119,7 +128,7 @@ update_syntax_table (charpos, count, init, object)
      Lisp_Object object;
 {
   Lisp_Object tmp_table;
-  int cnt = 0, doing_extra = 0, invalidate = 1;
+  int cnt = 0, invalidate = 1;
   INTERVAL i, oldi;
 
   if (init)
@@ -137,14 +146,14 @@ update_syntax_table (charpos, count, init, object)
       while (!NULL_PARENT (i)) 
 	{
 	  if (AM_RIGHT_CHILD (i))
-	    i->parent->position = i->position
+	    INTERVAL_PARENT (i)->position = i->position
 	      - LEFT_TOTAL_LENGTH (i) + TOTAL_LENGTH (i) /* right end */
-	      - TOTAL_LENGTH (i->parent)
-	      + LEFT_TOTAL_LENGTH (i->parent);
+	      - TOTAL_LENGTH (INTERVAL_PARENT (i))
+	      + LEFT_TOTAL_LENGTH (INTERVAL_PARENT (i));
 	  else
-	    i->parent->position = i->position - LEFT_TOTAL_LENGTH (i)
+	    INTERVAL_PARENT (i)->position = i->position - LEFT_TOTAL_LENGTH (i)
 	      + TOTAL_LENGTH (i);
-	  i = i->parent;
+	  i = INTERVAL_PARENT (i);
 	}
       i = gl_state.forward_i;
       gl_state.b_property = i->position - 1 - gl_state.offset;
@@ -153,7 +162,7 @@ update_syntax_table (charpos, count, init, object)
     }
   oldi = i = count > 0 ? gl_state.forward_i : gl_state.backward_i;
 
-  /* We are guarantied to be called with CHARPOS either in i,
+  /* We are guaranteed to be called with CHARPOS either in i,
      or further off.  */
   if (NULL_INTERVAL_P (i))
     error ("Error in syntax_table logic for to-the-end intervals");
@@ -163,21 +172,21 @@ update_syntax_table (charpos, count, init, object)
 	error ("Error in syntax_table logic for intervals <-");
       /* Update the interval.  */
       i = update_interval (i, charpos);
-      if (oldi->position != INTERVAL_LAST_POS (i))
+      if (!gl_state.left_ok || oldi->position != INTERVAL_LAST_POS (i))
 	{
 	  invalidate = 0;
 	  gl_state.right_ok = 1;	/* Invalidate the other end.  */
 	  gl_state.forward_i = i;
 	  gl_state.e_property = INTERVAL_LAST_POS (i) - gl_state.offset;
 	}
-    } 
+    }
   else if (charpos >= INTERVAL_LAST_POS (i)) /* Move right.  */
     {
       if (count < 0)
 	error ("Error in syntax_table logic for intervals ->");
       /* Update the interval.  */
       i = update_interval (i, charpos);
-      if (i->position != INTERVAL_LAST_POS (oldi))
+      if (!gl_state.right_ok || i->position != INTERVAL_LAST_POS (oldi))
 	{
 	  invalidate = 0;
 	  gl_state.left_ok = 1;		/* Invalidate the other end.  */
@@ -197,9 +206,9 @@ update_syntax_table (charpos, count, init, object)
   if (invalidate)
     invalidate = !EQ (tmp_table, gl_state.old_prop); /* Need to invalidate? */
       
-  if (invalidate)			/* Did not get to adjacent interval.  */
-    {					/* with the same table => */
-					/* invalidate the old range.  */
+  if (invalidate)		/* Did not get to adjacent interval.  */
+    {				/* with the same table => */
+				/* invalidate the old range.  */
       if (count > 0)
 	{
 	  gl_state.backward_i = i;
@@ -332,9 +341,15 @@ dec_bytepos (bytepos)
   return bytepos;
 }
 
-/* Find a defun-start that is the last one before POS (or nearly the last).
-   We record what we find, so that another call in the same area
-   can return the same value right away.  
+/* Return a defun-start position before before POS and not too far before.
+   It should be the last one before POS, or nearly the last.
+
+   When open_paren_in_column_0_is_defun_start is nonzero,
+   the beginning of every line is treated as a defun-start.
+
+   We record the information about where the scan started
+   and what its result was, so that another call in the same area
+   can return the same value very quickly.
 
    There is no promise at which position the global syntax data is
    valid on return from the subroutine, so the caller should explicitly
@@ -344,8 +359,6 @@ static int
 find_defun_start (pos, pos_byte)
      int pos, pos_byte;
 {
-  int tem;
-  int shortage;
   int opoint = PT, opoint_byte = PT_BYTE;
 
   /* Use previous finding, if it's valid and applies to this inquiry.  */
@@ -367,20 +380,24 @@ find_defun_start (pos, pos_byte)
      syntax-tables.  */
   gl_state.current_syntax_table = current_buffer->syntax_table;
   gl_state.use_global = 0;
-  while (PT > BEGV)
+  if (open_paren_in_column_0_is_defun_start)
     {
-      /* Open-paren at start of line means we found our defun-start.  */
-      if (SYNTAX (FETCH_CHAR (PT_BYTE)) == Sopen)
+      while (PT > BEGV)
 	{
-	  SETUP_SYNTAX_TABLE (PT + 1, -1);	/* Try again... */
+	  /* Open-paren at start of line means we may have found our
+	     defun-start.  */
 	  if (SYNTAX (FETCH_CHAR (PT_BYTE)) == Sopen)
-	    break;
-	  /* Now fallback to the default value.  */
-	  gl_state.current_syntax_table = current_buffer->syntax_table;
-	  gl_state.use_global = 0;
+	    {
+	      SETUP_SYNTAX_TABLE (PT + 1, -1);	/* Try again... */
+	      if (SYNTAX (FETCH_CHAR (PT_BYTE)) == Sopen)
+		break;
+	      /* Now fallback to the default value.  */
+	      gl_state.current_syntax_table = current_buffer->syntax_table;
+	      gl_state.use_global = 0;
+	    }
+	  /* Move to beg of previous line.  */
+	  scan_newline (PT, PT_BYTE, BEGV, BEGV_BYTE, -2, 1);
 	}
-      /* Move to beg of previous line.  */
-      scan_newline (PT, PT_BYTE, BEGV, BEGV_BYTE, -2, 1);
     }
 
   /* Record what we found, for the next try.  */
@@ -414,19 +431,19 @@ prev_char_comend_first (pos, pos_byte)
 
 /* Return the SYNTAX_COMSTART_FIRST of the character before POS, POS_BYTE.  */
 
-static int
-prev_char_comstart_first (pos, pos_byte)
-     int pos, pos_byte;
-{
-  int c, val;
-
-  DEC_BOTH (pos, pos_byte);
-  UPDATE_SYNTAX_TABLE_BACKWARD (pos);
-  c = FETCH_CHAR (pos_byte);
-  val = SYNTAX_COMSTART_FIRST (c);
-  UPDATE_SYNTAX_TABLE_FORWARD (pos + 1);
-  return val;
-}
+/* static int
+ * prev_char_comstart_first (pos, pos_byte)
+ *      int pos, pos_byte;
+ * {
+ *   int c, val;
+ * 
+ *   DEC_BOTH (pos, pos_byte);
+ *   UPDATE_SYNTAX_TABLE_BACKWARD (pos);
+ *   c = FETCH_CHAR (pos_byte);
+ *   val = SYNTAX_COMSTART_FIRST (c);
+ *   UPDATE_SYNTAX_TABLE_FORWARD (pos + 1);
+ *   return val;
+ * } */
 
 /* Checks whether charpos FROM is at the end of a comment.
    FROM_BYTE is the bytepos corresponding to FROM.
@@ -442,9 +459,9 @@ prev_char_comstart_first (pos, pos_byte)
    the returned value (or at FROM, if the search was not successful).  */
 
 static int
-back_comment (from, from_byte, stop, comstyle, charpos_ptr, bytepos_ptr)
+back_comment (from, from_byte, stop, comnested, comstyle, charpos_ptr, bytepos_ptr)
      int from, from_byte, stop;
-     int comstyle;
+     int comnested, comstyle;
      int *charpos_ptr, *bytepos_ptr;
 {
   /* Look back, counting the parity of string-quotes,
@@ -456,113 +473,186 @@ back_comment (from, from_byte, stop, comstyle, charpos_ptr, bytepos_ptr)
      OFROM[I] is position of the earliest comment-starter seen
      which is I+2X quotes from the comment-end.
      PARITY is current parity of quotes from the comment end.  */
-  int parity = 0;
-  int my_stringend = 0;
+  int string_style = -1;	/* Presumed outside of any string. */
   int string_lossage = 0;
+  /* Not a real lossage: indicates that we have passed a matching comment
+     starter plus an non-matching comment-ender, meaning that any matching
+     comment-starter we might see later could be a false positive (hidden
+     inside another comment).
+     Test case:  { a (* b } c (* d *) */
+  int comment_lossage = 0;
   int comment_end = from;
   int comment_end_byte = from_byte;
   int comstart_pos = 0;
   int comstart_byte;
-  /* Value that PARITY had, when we reached the position
-     in COMSTART_POS.  */
-  int comstart_parity = 0;
-  int scanstart = from - 1;
   /* Place where the containing defun starts,
      or 0 if we didn't come across it yet.  */
   int defun_start = 0;
   int defun_start_byte = 0;
   register enum syntaxcode code;
+  int nesting = 1;		/* current comment nesting */
   int c;
+  int syntax = 0;
+
+  /* FIXME: A }} comment-ender style leads to incorrect behavior
+     in the case of {{ c }}} because we ignore the last two chars which are
+     assumed to be comment-enders although they aren't.  */
 
   /* At beginning of range to scan, we're outside of strings;
      that determines quote parity to the comment-end.  */
   while (from != stop)
     {
-      int temp_byte, prev_comend_second;
+      int temp_byte, prev_syntax;
+      int com2start, com2end;
 
       /* Move back and examine a character.  */
       DEC_BOTH (from, from_byte);
       UPDATE_SYNTAX_TABLE_BACKWARD (from);
 
+      prev_syntax = syntax;
       c = FETCH_CHAR (from_byte);
+      syntax = SYNTAX_WITH_FLAGS (c);
       code = SYNTAX (c);
 
-      /* If this char is the second of a 2-char comment end sequence,
-	 back up and give the pair the appropriate syntax.  */
-      if (from > stop && SYNTAX_COMEND_SECOND (c)
-	  && prev_char_comend_first (from, from_byte))
+      /* Check for 2-char comment markers.  */
+      com2start = (SYNTAX_FLAGS_COMSTART_FIRST (syntax)
+		   && SYNTAX_FLAGS_COMSTART_SECOND (prev_syntax)
+		   && comstyle == SYNTAX_FLAGS_COMMENT_STYLE (prev_syntax)
+		   && (SYNTAX_FLAGS_COMMENT_NESTED (prev_syntax)
+		       || SYNTAX_FLAGS_COMMENT_NESTED (syntax)) == comnested);
+      com2end = (SYNTAX_FLAGS_COMEND_FIRST (syntax)
+		 && SYNTAX_FLAGS_COMEND_SECOND (prev_syntax));
+
+      /* Nasty cases with overlapping 2-char comment markers:
+	 - snmp-mode: -- c -- foo -- c --
+	              --- c --
+		      ------ c --
+	 - c-mode:    *||*
+		      |* *|* *|
+		      |*| |* |*|
+		      ///   */
+
+      /* If a 2-char comment sequence partly overlaps with another,
+	 we don't try to be clever.  */
+      if (from > stop && (com2end || com2start))
 	{
-	  code = Sendcomment;
-	  DEC_BOTH (from, from_byte);
-	  UPDATE_SYNTAX_TABLE_BACKWARD (from);
-	  c = FETCH_CHAR (from_byte);
+	  int next = from, next_byte = from_byte, next_c, next_syntax;
+	  DEC_BOTH (next, next_byte);
+	  UPDATE_SYNTAX_TABLE_BACKWARD (next);
+	  next_c = FETCH_CHAR (next_byte);
+	  next_syntax = SYNTAX_WITH_FLAGS (next_c);
+	  if (((com2start || comnested)
+	       && SYNTAX_FLAGS_COMEND_SECOND (syntax)
+	       && SYNTAX_FLAGS_COMEND_FIRST (next_syntax))
+	      || ((com2end || comnested)
+		  && SYNTAX_FLAGS_COMSTART_SECOND (syntax)
+		  && comstyle == SYNTAX_FLAGS_COMMENT_STYLE (syntax)
+		  && SYNTAX_FLAGS_COMSTART_FIRST (next_syntax)))
+	    goto lossage;
+	  /* UPDATE_SYNTAX_TABLE_FORWARD (next + 1); */
 	}
-			
-      /* If this char starts a 2-char comment start sequence,
-	 treat it like a 1-char comment starter.  */
-      if (from < scanstart && SYNTAX_COMSTART_FIRST (c))
-	{
-	  temp_byte = inc_bytepos (from_byte);
-	  UPDATE_SYNTAX_TABLE_FORWARD (from + 1);
-	  if (SYNTAX_COMSTART_SECOND (FETCH_CHAR (temp_byte))
-	      && comstyle == SYNTAX_COMMENT_STYLE (FETCH_CHAR (temp_byte)))
-	    code = Scomment;
-	  UPDATE_SYNTAX_TABLE_BACKWARD (from);
-	}
+
+      if (com2start && comstart_pos == 0)
+	/* We're looking at a comment starter.  But it might be a comment
+	   ender as well (see snmp-mode).  The first time we see one, we
+	   need to consider it as a comment starter,
+	   and the subsequent times as a comment ender.  */
+	com2end = 0;
+
+      /* Turn a 2-char comment sequences into the appropriate syntax.  */
+      if (com2end)
+	code = Sendcomment;
+      else if (com2start)
+	code = Scomment;
+      /* Ignore comment starters of a different style.  */
+      else if (code == Scomment
+	       && (comstyle != SYNTAX_FLAGS_COMMENT_STYLE (syntax)
+		   || SYNTAX_FLAGS_COMMENT_NESTED (syntax) != comnested))
+	continue;
 
       /* Ignore escaped characters, except comment-enders.  */
       if (code != Sendcomment && char_quoted (from, from_byte))
 	continue;
 
-      /* Track parity of quotes.  */
-      if (code == Sstring)
+      switch (code)
 	{
-	  parity ^= 1;
-	  if (my_stringend == 0)
-	    my_stringend = c;
-	  /* If we have two kinds of string delimiters.
-	     There's no way to grok this scanning backwards.  */
-	  else if (my_stringend != c)
+	case Sstring_fence:
+	case Scomment_fence:
+	  c = (code == Sstring_fence ? ST_STRING_STYLE : ST_COMMENT_STYLE);
+	case Sstring:
+	  /* Track parity of quotes.  */
+	  if (string_style == -1)
+	    /* Entering a string.  */
+	    string_style = c;
+	  else if (string_style == c)
+	    /* Leaving the string.  */
+	    string_style = -1;
+	  else
+	    /* If we have two kinds of string delimiters.
+	       There's no way to grok this scanning backwards.  */
 	    string_lossage = 1;
-	}
+	  break;
+	  
+	case Scomment:
+	  /* We've already checked that it is the relevant comstyle.  */
+	  if (string_style != -1 || comment_lossage || string_lossage)
+	    /* There are odd string quotes involved, so let's be careful.
+	       Test case in Pascal: " { " a { " } */
+	    goto lossage;
 
-      if (code == Sstring_fence || code == Scomment_fence)
-	{
-	  parity ^= 1;
-	  if (my_stringend == 0)
-	    my_stringend
-	      = code == Sstring_fence ? ST_STRING_STYLE : ST_COMMENT_STYLE;
-	  /* If we have two kinds of string delimiters.
-	     There's no way to grok this scanning backwards.  */
-	  else if (my_stringend != (code == Sstring_fence 
-				    ? ST_STRING_STYLE : ST_COMMENT_STYLE))
-	    string_lossage = 1;
-	}
+	  if (!comnested)
+	    {
+	      /* Record best comment-starter so far.  */
+	      comstart_pos = from;
+	      comstart_byte = from_byte;
+	    }
+	  else if (--nesting <= 0)
+	    /* nested comments have to be balanced, so we don't need to
+	       keep looking for earlier ones.  We use here the same (slightly
+	       incorrect) reasoning as below:  since it is followed by uniform
+	       paired string quotes, this comment-start has to be outside of
+	       strings, else the comment-end itself would be inside a string. */
+	    goto done;
+	  break;
 
-      /* Record comment-starters according to that
-	 quote-parity to the comment-end.  */
-      if (code == Scomment)
-	{
-	  comstart_parity = parity;
-	  comstart_pos = from;
-	  comstart_byte = from_byte;
-	}
+	case Sendcomment:
+	  if (SYNTAX_FLAGS_COMMENT_STYLE (syntax) == comstyle
+	      && (SYNTAX_FLAGS_COMMENT_NESTED (prev_syntax)
+		  || SYNTAX_FLAGS_COMMENT_NESTED (syntax)) == comnested)
+	    /* This is the same style of comment ender as ours. */
+	    {
+	      if (comnested)
+		nesting++;
+	      else
+		/* Anything before that can't count because it would match
+		   this comment-ender rather than ours.  */
+		from = stop;	/* Break out of the loop.  */
+	    }
+	  else if (comstart_pos != 0 || c != '\n')
+	    /* We're mixing comment styles here, so we'd better be careful.
+	       The (comstart_pos != 0 || c != '\n') check is not quite correct
+	       (we should just always set comment_lossage), but removing it
+	       would imply that any multiline comment in C would go through
+	       lossage, which seems overkill.
+	       The failure should only happen in the rare cases such as
+	         { (* } *)   */
+	    comment_lossage = 1;
+	  break;
 
-      /* If we find another earlier comment-ender,
-	 any comment-starts earlier than that don't count
-	 (because they go with the earlier comment-ender).  */
-      if (code == Sendcomment
-	  && SYNTAX_COMMENT_STYLE (FETCH_CHAR (from_byte)) == comstyle)
-	break;
+	case Sopen:
+	  /* Assume a defun-start point is outside of strings.  */
+	  if (open_paren_in_column_0_is_defun_start
+	      && (from == stop
+		  || (temp_byte = dec_bytepos (from_byte),
+		      FETCH_CHAR (temp_byte) == '\n')))
+	    {
+	      defun_start = from;
+	      defun_start_byte = from_byte;
+	      from = stop;	/* Break out of the loop.  */
+	    }
+	  break;
 
-      /* Assume a defun-start point is outside of strings.  */
-      if (code == Sopen
-	  && (from == stop
-	      || (temp_byte = dec_bytepos (from_byte),
-		  FETCH_CHAR (temp_byte) == '\n')))
-	{
-	  defun_start = from;
-	  defun_start_byte = from_byte;
+	default:
 	  break;
 	}
     }
@@ -573,12 +663,9 @@ back_comment (from, from_byte, stop, comstyle, charpos_ptr, bytepos_ptr)
       from_byte = comment_end_byte;
       UPDATE_SYNTAX_TABLE_FORWARD (comment_end - 1);
     }
-  /* If the earliest comment starter
-     is followed by uniform paired string quotes or none,
-     we know it can't be inside a string
-     since if it were then the comment ender would be inside one.
-     So it does start a comment.  Skip back to it.  */
-  else if (comstart_parity == 0 && !string_lossage) 
+  /* If comstart_pos is set and we get here (ie. didn't jump to `lossage'
+     or `done'), then we've found the beginning of the non-nested comment.  */
+  else if (1)	/* !comnested */
     {
       from = comstart_pos;
       from_byte = comstart_byte;
@@ -586,40 +673,52 @@ back_comment (from, from_byte, stop, comstyle, charpos_ptr, bytepos_ptr)
     }
   else
     {
+      struct lisp_parse_state state;
+    lossage:
       /* We had two kinds of string delimiters mixed up
 	 together.  Decode this going forwards.
-	 Scan fwd from the previous comment ender
+	 Scan fwd from a known safe place (beginning-of-defun)
 	 to the one in question; this records where we
 	 last passed a comment starter.  */
-      struct lisp_parse_state state;
       /* If we did not already find the defun start, find it now.  */
       if (defun_start == 0)
 	{
 	  defun_start = find_defun_start (comment_end, comment_end_byte);
 	  defun_start_byte = find_start_value_byte;
 	}
-      scan_sexps_forward (&state,
-			  defun_start, defun_start_byte,
-			  comment_end - 1, -10000, 0, Qnil, 0);
-      if (state.incomment)
+      do
 	{
-	  /* scan_sexps_forward changed the direction of search in
-	     global variables, so we need to update it completely.  */
-	  
-	  from = state.comstr_start;
-	}
-      else
-	{
-	  from = comment_end;	  
-	}
+	  scan_sexps_forward (&state,
+			      defun_start, defun_start_byte,
+			      comment_end, -10000, 0, Qnil, 0);
+	  defun_start = comment_end;
+	  if (state.incomment == (comnested ? 1 : -1)
+	      && state.comstyle == comstyle)
+	    from = state.comstr_start;
+	  else
+	    {
+	      from = comment_end;
+	      if (state.incomment)
+		/* If comment_end is inside some other comment, maybe ours
+		   is nested, so we need to try again from within the
+		   surrounding comment.  Example: { a (* " *)  */
+		{
+		  /* FIXME: We should advance by one or two chars. */
+		  defun_start = state.comstr_start + 2;
+		  defun_start_byte = CHAR_TO_BYTE (defun_start);
+		}
+	    }
+	} while (defun_start < comment_end);
+
       from_byte = CHAR_TO_BYTE (from);
       UPDATE_SYNTAX_TABLE_FORWARD (from - 1);
     }
     
+ done:
   *charpos_ptr = from;
   *bytepos_ptr = from_byte;
 
-  return from;
+  return (from == comment_end) ? -1 : from;
 }
 
 DEFUN ("syntax-table-p", Fsyntax_table_p, Ssyntax_table_p, 1, 1, 0,
@@ -693,11 +792,12 @@ One argument, a syntax table.")
   (table)
      Lisp_Object table;
 {
+  int idx;
   check_syntax_table (table);
   current_buffer->syntax_table = table;
   /* Indicate that this buffer now has a specified syntax table.  */
-  current_buffer->local_var_flags
-    |= XFASTINT (buffer_local_flags.syntax_table);
+  idx = PER_BUFFER_VAR_IDX (syntax_table);
+  SET_PER_BUFFER_VALUE_P (current_buffer, idx, 1);
   return table;
 }
 
@@ -800,85 +900,35 @@ DEFUN ("matching-paren", Fmatching_paren, Smatching_paren, 1, 1, 0,
   return Qnil;
 }
 
-/* This comment supplies the doc string for modify-syntax-entry,
-   for make-docfile to see.  We cannot put this in the real DEFUN
-   due to limits in the Unix cpp.
-
-DEFUN ("modify-syntax-entry", foo, bar, 2, 3, 0,
-  "Set syntax for character CHAR according to string S.\n\
-The syntax is changed only for table TABLE, which defaults to\n\
- the current buffer's syntax table.\n\
-The first character of S should be one of the following:\n\
-  Space or -  whitespace syntax.    w   word constituent.\n\
-  _           symbol constituent.   .   punctuation.\n\
-  (           open-parenthesis.     )   close-parenthesis.\n\
-  \"           string quote.         \\   escape.\n\
-  $           paired delimiter.     '   expression quote or prefix operator.\n\
-  <           comment starter.      >   comment ender.\n\
-  /           character-quote.      @   inherit from `standard-syntax-table'.\n\
-\n\
-Only single-character comment start and end sequences are represented thus.\n\
-Two-character sequences are represented as described below.\n\
-The second character of S is the matching parenthesis,\n\
- used only if the first character is `(' or `)'.\n\
-Any additional characters are flags.\n\
-Defined flags are the characters 1, 2, 3, 4, b, and p.\n\
- 1 means CHAR is the start of a two-char comment start sequence.\n\
- 2 means CHAR is the second character of such a sequence.\n\
- 3 means CHAR is the start of a two-char comment end sequence.\n\
- 4 means CHAR is the second character of such a sequence.\n\
-\n\
-There can be up to two orthogonal comment sequences.  This is to support\n\
-language modes such as C++.  By default, all comment sequences are of style\n\
-a, but you can set the comment sequence style to b (on the second character\n\
-of a comment-start, or the first character of a comment-end sequence) using\n\
-this flag:\n\
- b means CHAR is part of comment sequence b.\n\
-\n\
- p means CHAR is a prefix character for `backward-prefix-chars';\n\
-   such characters are treated as whitespace when they occur\n\
-   between expressions.")
-  (char, s, table)
-*/
-
-DEFUN ("modify-syntax-entry", Fmodify_syntax_entry, Smodify_syntax_entry, 2, 3, 
-  /* I really don't know why this is interactive
-     help-form should at least be made useful whilst reading the second arg
-   */
-  "cSet syntax for character: \nsSet syntax for %s to: ",
-  0 /* See immediately above */)
-  (c, newentry, syntax_table)
-     Lisp_Object c, newentry, syntax_table;
+DEFUN ("string-to-syntax", Fstring_to_syntax, Sstring_to_syntax, 1, 1, 0,
+  "Convert a syntax specification STRING into syntax cell form.\n\
+STRING should be a string as it is allowed as argument of\n\
+`modify-syntax-entry'.  Value is the equivalent cons cell\n\
+\(CODE . MATCHING-CHAR) that can be used as value of a `syntax-table'\n\
+text property.")
+  (string)
+     Lisp_Object string;
 {
   register unsigned char *p;
   register enum syntaxcode code;
   int val;
   Lisp_Object match;
 
-  CHECK_NUMBER (c, 0);
-  CHECK_STRING (newentry, 1);
+  CHECK_STRING (string, 0);
 
-  if (NILP (syntax_table))
-    syntax_table = current_buffer->syntax_table;
-  else
-    check_syntax_table (syntax_table);
-
-  p = XSTRING (newentry)->data;
+  p = XSTRING (string)->data;
   code = (enum syntaxcode) syntax_spec_code[*p++];
   if (((int) code & 0377) == 0377)
     error ("invalid syntax description letter: %c", p[-1]);
 
   if (code == Sinherit)
-    {
-      SET_RAW_SYNTAX_ENTRY (syntax_table, XINT (c), Qnil);
-      return Qnil;
-    }
+    return Qnil;
 
   if (*p)
     {
       int len;
       int character = (STRING_CHAR_AND_LENGTH
-		       (p, STRING_BYTES (XSTRING (newentry)) - 1, len));
+		       (p, STRING_BYTES (XSTRING (string)) - 1, len));
       XSETINT (match, character);
       if (XFASTINT (match) == ' ')
 	match = Qnil;
@@ -914,16 +964,79 @@ DEFUN ("modify-syntax-entry", Fmodify_syntax_entry, Smodify_syntax_entry, 2, 3,
       case 'b':
 	val |= 1 << 21;
 	break;
+
+      case 'n':
+	val |= 1 << 22;
+	break;
       }
 	
   if (val < XVECTOR (Vsyntax_code_object)->size && NILP (match))
-    newentry = XVECTOR (Vsyntax_code_object)->contents[val];
+    return XVECTOR (Vsyntax_code_object)->contents[val];
   else
     /* Since we can't use a shared object, let's make a new one.  */
-    newentry = Fcons (make_number (val), match);
-    
-  SET_RAW_SYNTAX_ENTRY (syntax_table, XINT (c), newentry);
+    return Fcons (make_number (val), match);
+}
 
+/* This comment supplies the doc string for modify-syntax-entry,
+   for make-docfile to see.  We cannot put this in the real DEFUN
+   due to limits in the Unix cpp.
+
+DEFUN ("modify-syntax-entry", foo, bar, 2, 3, 0,
+  "Set syntax for character CHAR according to string S.\n\
+The syntax is changed only for table TABLE, which defaults to\n\
+ the current buffer's syntax table.\n\
+The first character of S should be one of the following:\n\
+  Space or -  whitespace syntax.    w   word constituent.\n\
+  _           symbol constituent.   .   punctuation.\n\
+  (           open-parenthesis.     )   close-parenthesis.\n\
+  \"           string quote.         \\   escape.\n\
+  $           paired delimiter.     '   expression quote or prefix operator.\n\
+  <           comment starter.      >   comment ender.\n\
+  /           character-quote.      @   inherit from `standard-syntax-table'.\n\
+  |           generic string fence. !   generic comment fence.\n\
+\n\
+Only single-character comment start and end sequences are represented thus.\n\
+Two-character sequences are represented as described below.\n\
+The second character of S is the matching parenthesis,\n\
+ used only if the first character is `(' or `)'.\n\
+Any additional characters are flags.\n\
+Defined flags are the characters 1, 2, 3, 4, b, p, and n.\n\
+ 1 means CHAR is the start of a two-char comment start sequence.\n\
+ 2 means CHAR is the second character of such a sequence.\n\
+ 3 means CHAR is the start of a two-char comment end sequence.\n\
+ 4 means CHAR is the second character of such a sequence.\n\
+\n\
+There can be up to two orthogonal comment sequences.  This is to support\n\
+language modes such as C++.  By default, all comment sequences are of style\n\
+a, but you can set the comment sequence style to b (on the second character\n\
+of a comment-start, or the first character of a comment-end sequence) using\n\
+this flag:\n\
+ b means CHAR is part of comment sequence b.\n\
+ n means CHAR is part of a nestable comment sequence.\n\
+\n\
+ p means CHAR is a prefix character for `backward-prefix-chars';\n\
+   such characters are treated as whitespace when they occur\n\
+   between expressions.")
+  (char, s, table)
+*/
+
+DEFUN ("modify-syntax-entry", Fmodify_syntax_entry, Smodify_syntax_entry, 2, 3, 
+  /* I really don't know why this is interactive
+     help-form should at least be made useful whilst reading the second arg
+   */
+  "cSet syntax for character: \nsSet syntax for %s to: ",
+  0 /* See immediately above */)
+  (c, newentry, syntax_table)
+     Lisp_Object c, newentry, syntax_table;
+{
+  CHECK_NUMBER (c, 0);
+
+  if (NILP (syntax_table))
+    syntax_table = current_buffer->syntax_table;
+  else
+    check_syntax_table (syntax_table);
+
+  SET_RAW_SYNTAX_ENTRY (syntax_table, XINT (c), Fstring_to_syntax (newentry));
   return Qnil;
 }
 
@@ -934,7 +1047,7 @@ describe_syntax (value)
     Lisp_Object value;
 {
   register enum syntaxcode code;
-  char desc, match, start1, start2, end1, end2, prefix, comstyle;
+  char desc, start1, start2, end1, end2, prefix, comstyle, comnested;
   char str[2];
   Lisp_Object first, match_lisp;
 
@@ -958,8 +1071,8 @@ describe_syntax (value)
       return;
     }
 
-  first = XCONS (value)->car;
-  match_lisp = XCONS (value)->cdr;
+  first = XCAR (value);
+  match_lisp = XCDR (value);
 
   if (!INTEGERP (first) || !(NILP (match_lisp) || INTEGERP (match_lisp)))
     {
@@ -974,6 +1087,7 @@ describe_syntax (value)
   end2 = (XINT (first) >> 19) & 1;
   prefix = (XINT (first) >> 20) & 1;
   comstyle = (XINT (first) >> 21) & 1;
+  comnested = (XINT (first) >> 22) & 1;
 
   if ((int) code < 0 || (int) code >= (int) Smax)
     {
@@ -1004,6 +1118,8 @@ describe_syntax (value)
     insert ("p", 1);
   if (comstyle)
     insert ("b", 1);
+  if (comnested)
+    insert ("n", 1);
 
   insert_string ("\twhich means: ");
 
@@ -1022,7 +1138,7 @@ describe_syntax (value)
     case Sclose:
       insert_string ("close"); break;
     case Squote:
-      insert_string ("quote"); break;
+      insert_string ("prefix"); break;
     case Sstring:
       insert_string ("string"); break;
     case Smath:
@@ -1035,6 +1151,12 @@ describe_syntax (value)
       insert_string ("comment"); break;
     case Sendcomment:
       insert_string ("endcomment"); break;
+    case Sinherit:
+      insert_string ("inherit"); break;
+    case Scomment_fence:
+      insert_string ("comment fence"); break;
+    case Sstring_fence:
+      insert_string ("string fence"); break;
     default:
       insert_string ("invalid");
       return;
@@ -1057,6 +1179,8 @@ describe_syntax (value)
     insert_string (",\n\t  is the second character of a comment-end sequence");
   if (comstyle)
     insert_string (" (comment style b)");
+  if (comnested)
+    insert_string (" (nestable)");
 
   if (prefix)
     insert_string (",\n\t  is a prefix character for `backward-prefix-chars'");
@@ -1201,21 +1325,25 @@ scan_words (from, count)
 DEFUN ("forward-word", Fforward_word, Sforward_word, 1, 1, "p",
   "Move point forward ARG words (backward if ARG is negative).\n\
 Normally returns t.\n\
-If an edge of the buffer is reached, point is left there\n\
-and nil is returned.")
+If an edge of the buffer or a field boundary is reached, point is left there\n\
+and the function returns nil.  Field boundaries are not noticed if\n\
+`inhibit-field-text-motion' is non-nil.")
   (count)
      Lisp_Object count;
 {
-  int val;
+  int orig_val, val;
   CHECK_NUMBER (count, 0);
 
-  if (!(val = scan_words (PT, XINT (count))))
-    {
-      SET_PT (XINT (count) > 0 ? ZV : BEGV);
-      return Qnil;
-    }
+  val = orig_val = scan_words (PT, XINT (count));
+  if (! orig_val)
+    val = XINT (count) > 0 ? ZV : BEGV;
+
+  /* Avoid jumping out of an input field.  */
+  val = XFASTINT (Fconstrain_to_field (make_number (val), make_number (PT),
+				       Qt, Qnil, Qnil));
+  
   SET_PT (val);
-  return Qt;
+  return val == orig_val ? Qt : Qnil;
 }
 
 Lisp_Object skip_chars ();
@@ -1273,17 +1401,11 @@ skip_chars (forwardp, syntaxp, string, lim)
      int forwardp, syntaxp;
      Lisp_Object string, lim;
 {
-  register unsigned char *p, *pend;
   register unsigned int c;
-  register int ch;
   unsigned char fastmap[0400];
   /* If SYNTAXP is 0, STRING may contain multi-byte form of characters
-     of which codes don't fit in FASTMAP.  In that case, we set the
-     first byte of multibyte form (i.e. base leading-code) in FASTMAP
-     and set the actual ranges of characters in CHAR_RANGES.  In the
-     form "X-Y" of STRING, both X and Y must belong to the same
-     character set because a range striding across character sets is
-     meaningless.  */
+     of which codes don't fit in FASTMAP.  In that case, set the
+     ranges of characters in CHAR_RANGES.  */
   int *char_ranges;
   int n_char_ranges = 0;
   int negate = 0;
@@ -1291,11 +1413,33 @@ skip_chars (forwardp, syntaxp, string, lim)
   int multibyte = !NILP (current_buffer->enable_multibyte_characters);
   int string_multibyte;
   int size_byte;
+  unsigned char *str;
+  int len;
 
   CHECK_STRING (string, 0);
   char_ranges = (int *) alloca (XSTRING (string)->size * (sizeof (int)) * 2);
   string_multibyte = STRING_MULTIBYTE (string);
+  str = XSTRING (string)->data;
   size_byte = STRING_BYTES (XSTRING (string));
+
+  /* Adjust the multibyteness of the string to that of the buffer.  */
+  if (multibyte != string_multibyte)
+    {
+      int nbytes;
+
+      if (multibyte)
+	nbytes = count_size_as_multibyte (XSTRING (string)->data,
+					  XSTRING (string)->size);
+      else
+	nbytes = XSTRING (string)->size;
+      if (nbytes != size_byte)
+	{
+	  str = (unsigned char *) alloca (nbytes);
+	  copy_text (XSTRING (string)->data, str, size_byte,
+		     string_multibyte, multibyte);
+	  size_byte = nbytes;
+	}
+    }
 
   if (NILP (lim))
     XSETINT (lim, forwardp ? ZV : BEGV);
@@ -1310,12 +1454,12 @@ skip_chars (forwardp, syntaxp, string, lim)
 
   bzero (fastmap, sizeof fastmap);
 
-  i = 0, i_byte = 0;
+  i_byte = 0;
 
   if (i_byte < size_byte
       && XSTRING (string)->data[0] == '^')
     {
-      negate = 1; i++, i_byte++;
+      negate = 1; i_byte++;
     }
 
   /* Find the characters specified and set their elements of fastmap.
@@ -1324,22 +1468,8 @@ skip_chars (forwardp, syntaxp, string, lim)
 
   while (i_byte < size_byte)
     {
-      int c_leading_code;
-
-      if (string_multibyte)
-	{
-	  c_leading_code = XSTRING (string)->data[i_byte];
-	  FETCH_STRING_CHAR_ADVANCE (c, string, i, i_byte);
-	}
-      else
-	c = c_leading_code = XSTRING (string)->data[i_byte++];
-
-      /* Convert multibyteness between what the string has
-	 and what the buffer has.  */
-      if (multibyte)
-	c = unibyte_char_to_multibyte (c);
-      else
-	c &= 0377;
+      c = STRING_CHAR_AND_LENGTH (str + i_byte, size_byte - i_byte, len);
+      i_byte += len;
 
       if (syntaxp)
 	fastmap[syntax_spec_code[c & 0377]] = 1;
@@ -1350,62 +1480,58 @@ skip_chars (forwardp, syntaxp, string, lim)
 	      if (i_byte == size_byte)
 		break;
 
-	      if (string_multibyte)
-		{
-		  c_leading_code = XSTRING (string)->data[i_byte];
-		  FETCH_STRING_CHAR_ADVANCE (c, string, i, i_byte);
-		}
-	      else
-		c = c_leading_code = XSTRING (string)->data[i_byte++];
+	      c = STRING_CHAR_AND_LENGTH (str+i_byte, size_byte-i_byte, len);
+	      i_byte += len;
 	    }
 	  if (i_byte < size_byte
-	      && XSTRING (string)->data[i_byte] == '-')
+	      && str[i_byte] == '-')
 	    {
-	      unsigned int c2, c2_leading_code;
+	      unsigned int c2;
 
 	      /* Skip over the dash.  */
-	      i++, i_byte++;
+	      i_byte++;
 
 	      if (i_byte == size_byte)
 		break;
 
 	      /* Get the end of the range.  */
-	      if (string_multibyte)
-		{
-		  c2_leading_code = XSTRING (string)->data[i_byte];
-		  FETCH_STRING_CHAR_ADVANCE (c2, string, i, i_byte);
-		}
-	      else
-		c2 = XSTRING (string)->data[i_byte++];
+	      c2 =STRING_CHAR_AND_LENGTH (str+i_byte, size_byte-i_byte, len);
+	      i_byte += len;
 
 	      if (SINGLE_BYTE_CHAR_P (c))
 		{
 		  if (! SINGLE_BYTE_CHAR_P (c2))
-		    error ("Invalid charcter range: %s",
-			   XSTRING (string)->data);
+		    {
+		      /* Handle a range starting with a character of
+			 less than 256, and ending with a character of
+			 not less than 256.  Split that into two
+			 ranges, the low one ending at 0377, and the
+			 high one starting at the smallest character
+			 in the charset of C2 and ending at C2.  */
+		      int charset = CHAR_CHARSET (c2);
+		      int c1 = MAKE_CHAR (charset, 0, 0);
+
+		      char_ranges[n_char_ranges++] = c1;
+		      char_ranges[n_char_ranges++] = c2;
+		      c2 = 0377;
+		    }
 		  while (c <= c2)
 		    {
 		      fastmap[c] = 1;
 		      c++;
 		    }
 		}
-	      else
+	      else if (c <= c2)	/* Both C and C2 are multibyte char.  */
 		{
-		  if (c_leading_code != c2_leading_code)
-		    error ("Invalid charcter range: %s",
-			   XSTRING (string)->data);
-		  fastmap[c_leading_code] = 1;
-		  if (c <= c2)
-		    {
-		      char_ranges[n_char_ranges++] = c;
-		      char_ranges[n_char_ranges++] = c2;
-		    }
+		  char_ranges[n_char_ranges++] = c;
+		  char_ranges[n_char_ranges++] = c2;
 		}
 	    }
 	  else
 	    {
-	      fastmap[c_leading_code] = 1;
-	      if (!SINGLE_BYTE_CHAR_P (c))
+	      if (SINGLE_BYTE_CHAR_P (c))
+		fastmap[c] = 1;
+	      else
 		{
 		  char_ranges[n_char_ranges++] = c;
 		  char_ranges[n_char_ranges++] = c;
@@ -1414,19 +1540,10 @@ skip_chars (forwardp, syntaxp, string, lim)
 	}
     }
 
-  /* If ^ was the first character, complement the fastmap.  In
-     addition, as all multibyte characters have possibility of
-     matching, set all entries for base leading codes, which is
-     harmless even if SYNTAXP is 1.  */
-
+  /* If ^ was the first character, complement the fastmap.  */
   if (negate)
     for (i = 0; i < sizeof fastmap; i++)
-      {
-	if (!multibyte || !BASE_LEADING_CODE_P (i))
-	  fastmap[i] ^= 1;
-	else
-	  fastmap[i] = 1;
-      }
+      fastmap[i] ^= 1;
 
   {
     int start_point = PT;
@@ -1501,28 +1618,32 @@ skip_chars (forwardp, syntaxp, string, lim)
 	if (forwardp)
 	  {
 	    if (multibyte)
-	      while (pos < XINT (lim) && fastmap[(c = FETCH_BYTE (pos_byte))])
+	      while (pos < XINT (lim))
 		{
-		  if (!BASE_LEADING_CODE_P (c))
-		    INC_BOTH (pos, pos_byte);
-		  else if (n_char_ranges)
+		  c = FETCH_MULTIBYTE_CHAR (pos_byte);
+		  if (SINGLE_BYTE_CHAR_P (c))
 		    {
-		      /* We much check CHAR_RANGES for a multibyte
-			 character.  */
-		      ch = FETCH_MULTIBYTE_CHAR (pos_byte);
-		      for (i = 0; i < n_char_ranges; i += 2)
-			if ((ch >= char_ranges[i] && ch <= char_ranges[i + 1]))
-			  break;
-		      if (!(negate ^ (i < n_char_ranges)))
+		      if (!fastmap[c])
 			break;
-
-		      INC_BOTH (pos, pos_byte);
 		    }
 		  else
 		    {
-		      if (!negate) break;
-		      INC_BOTH (pos, pos_byte);
+		      /* If we are looking at a multibyte character,
+			 we must look up the character in the table
+			 CHAR_RANGES.  If there's no data in the
+			 table, that character is not what we want to
+			 skip.  */
+
+		      /* The following code do the right thing even if
+			 n_char_ranges is zero (i.e. no data in
+			 CHAR_RANGES).  */
+		      for (i = 0; i < n_char_ranges; i += 2)
+			if (c >= char_ranges[i] && c <= char_ranges[i + 1])
+			  break;
+		      if (!(negate ^ (i < n_char_ranges)))
+			break;
 		    }
+		  INC_BOTH (pos, pos_byte);
 		}
 	    else
 	      while (pos < XINT (lim) && fastmap[FETCH_BYTE (pos)])
@@ -1533,41 +1654,26 @@ skip_chars (forwardp, syntaxp, string, lim)
 	    if (multibyte)
 	      while (pos > XINT (lim))
 		{
-		  int savepos = pos_byte;
-		  DEC_BOTH (pos, pos_byte);
-		  if (fastmap[(c = FETCH_BYTE (pos_byte))])
+		  int prev_pos_byte = pos_byte;
+
+		  DEC_POS (prev_pos_byte);
+		  c = FETCH_MULTIBYTE_CHAR (prev_pos_byte);
+		  if (SINGLE_BYTE_CHAR_P (c))
 		    {
-		      if (!BASE_LEADING_CODE_P (c))
-			;
-		      else if (n_char_ranges)
-			{
-			  /* We much check CHAR_RANGES for a multibyte
-			     character.  */
-			  ch = FETCH_MULTIBYTE_CHAR (pos_byte);
-			  for (i = 0; i < n_char_ranges; i += 2)
-			    if (ch >= char_ranges[i] && ch <= char_ranges[i + 1])
-			      break;
-			  if (!(negate ^ (i < n_char_ranges)))
-			    {
-			      pos++;
-			      pos_byte = savepos;
-			      break;
-			    }
-			}
-		      else
-			if (!negate)
-			  {
-			    pos++;
-			    pos_byte = savepos;
-			    break;
-			  }
+		      if (!fastmap[c])
+			break;
 		    }
 		  else
 		    {
-		      pos++;
-		      pos_byte = savepos;
-		      break;
+		      /* See the comment in the previous similar code.  */
+		      for (i = 0; i < n_char_ranges; i += 2)
+			if (c >= char_ranges[i] && c <= char_ranges[i + 1])
+			  break;
+		      if (!(negate ^ (i < n_char_ranges)))
+			break;
 		    }
+		  pos--;
+		  pos_byte = prev_pos_byte;
 		}
 	    else
 	      while (pos > XINT (lim) && fastmap[FETCH_BYTE (pos - 1)])
@@ -1593,6 +1699,125 @@ skip_chars (forwardp, syntaxp, string, lim)
   }
 }
 
+/* Jump over a comment, assuming we are at the beginning of one.
+   FROM is the current position.
+   FROM_BYTE is the bytepos corresponding to FROM.
+   Do not move past STOP (a charpos).
+   The comment over which we have to jump is of style STYLE
+     (either SYNTAX_COMMENT_STYLE(foo) or ST_COMMENT_STYLE).
+   NESTING should be positive to indicate the nesting at the beginning
+     for nested comments and should be zero or negative else.
+     ST_COMMENT_STYLE cannot be nested.
+   PREV_SYNTAX is the SYNTAX_WITH_FLAGS of the previous character
+     (or 0 If the search cannot start in the middle of a two-character).
+
+   If successful, return 1 and store the charpos of the comment's end
+   into *CHARPOS_PTR and the corresponding bytepos into *BYTEPOS_PTR.
+   Else, return 0 and store the charpos STOP into *CHARPOS_PTR, the
+   corresponding bytepos into *BYTEPOS_PTR and the current nesting
+   (as defined for state.incomment) in *INCOMMENT_PTR.
+
+   The comment end is the last character of the comment rather than the
+     character just after the comment.
+
+   Global syntax data is assumed to initially be valid for FROM and
+   remains valid for forward search starting at the returned position. */
+
+static int
+forw_comment (from, from_byte, stop, nesting, style, prev_syntax,
+	      charpos_ptr, bytepos_ptr, incomment_ptr)
+     int from, from_byte, stop;
+     int nesting, style, prev_syntax;
+     int *charpos_ptr, *bytepos_ptr, *incomment_ptr;
+{
+  register int c, c1;
+  register enum syntaxcode code;
+  register int syntax;
+
+  if (nesting <= 0) nesting = -1;
+
+  /* Enter the loop in the middle so that we find
+     a 2-char comment ender if we start in the middle of it.  */
+  syntax = prev_syntax;
+  if (syntax != 0) goto forw_incomment;
+
+  while (1)
+    {
+      if (from == stop)
+	{
+	  *incomment_ptr = nesting;
+	  *charpos_ptr = from;
+	  *bytepos_ptr = from_byte;
+	  return 0;
+	}
+      c = FETCH_CHAR (from_byte);
+      syntax = SYNTAX_WITH_FLAGS (c);
+      code = syntax & 0xff;
+      if (code == Sendcomment
+	  && SYNTAX_FLAGS_COMMENT_STYLE (syntax) == style
+	  && (SYNTAX_FLAGS_COMMENT_NESTED (syntax) ?
+	      (nesting > 0 && --nesting == 0) : nesting < 0))
+	/* we have encountered a comment end of the same style
+	   as the comment sequence which began this comment
+	   section */
+	break;
+      if (code == Scomment_fence
+	  && style == ST_COMMENT_STYLE)
+	/* we have encountered a comment end of the same style
+	   as the comment sequence which began this comment
+	   section.  */
+	break;
+      if (nesting > 0
+	  && code == Scomment
+	  && SYNTAX_FLAGS_COMMENT_NESTED (syntax)
+	  && SYNTAX_FLAGS_COMMENT_STYLE (syntax) == style)
+	/* we have encountered a nested comment of the same style
+	   as the comment sequence which began this comment section */
+	nesting++;
+      INC_BOTH (from, from_byte);
+      UPDATE_SYNTAX_TABLE_FORWARD (from);
+      
+    forw_incomment:
+      if (from < stop && SYNTAX_FLAGS_COMEND_FIRST (syntax)
+	  && SYNTAX_FLAGS_COMMENT_STYLE (syntax) == style
+	  && (c1 = FETCH_CHAR (from_byte),
+	      SYNTAX_COMEND_SECOND (c1))
+	  && ((SYNTAX_FLAGS_COMMENT_NESTED (syntax) ||
+	       SYNTAX_COMMENT_NESTED (c1)) ? nesting > 0 : nesting < 0))
+	{
+	  if (--nesting <= 0)
+	    /* we have encountered a comment end of the same style
+	       as the comment sequence which began this comment
+	       section */
+	    break;
+	  else
+	    {
+	      INC_BOTH (from, from_byte);
+	      UPDATE_SYNTAX_TABLE_FORWARD (from);
+	    }
+	}
+      if (nesting > 0
+	  && from < stop
+	  && SYNTAX_FLAGS_COMSTART_FIRST (syntax)
+	  && (c1 = FETCH_CHAR (from_byte),
+	      SYNTAX_COMMENT_STYLE (c1) == style
+	      && SYNTAX_COMSTART_SECOND (c1))
+	  && (SYNTAX_FLAGS_COMMENT_NESTED (syntax) ||
+	      SYNTAX_COMMENT_NESTED (c1)))
+	/* we have encountered a nested comment of the same style
+	   as the comment sequence which began this comment
+	   section */
+	{
+	  INC_BOTH (from, from_byte);
+	  UPDATE_SYNTAX_TABLE_FORWARD (from);
+	  nesting++;
+	}
+    }
+  *charpos_ptr = from;
+  *bytepos_ptr = from_byte;
+  return 1;
+}
+
 DEFUN ("forward-comment", Fforward_comment, Sforward_comment, 1, 1, 0,
   "Move forward across up to N comments.  If N is negative, move backward.\n\
 Stop scanning if we find something other than a comment or whitespace.\n\
@@ -1608,9 +1833,11 @@ between them, return t; otherwise return nil.")
   register int c, c1;
   register enum syntaxcode code;
   int comstyle = 0;	    /* style of comment encountered */
+  int comnested = 0;	    /* whether the comment is nestable or not */
   int found;
   int count1;
   int out_charpos, out_bytepos;
+  int dummy;
 
   CHECK_NUMBER (count, 0);
   count1 = XINT (count);
@@ -1635,13 +1862,13 @@ between them, return t; otherwise return nil.")
 	      immediate_quit = 0;
 	      return Qnil;
 	    }
-	  UPDATE_SYNTAX_TABLE_FORWARD (from);
 	  c = FETCH_CHAR (from_byte);
 	  code = SYNTAX (c);
 	  comstart_first = SYNTAX_COMSTART_FIRST (c);
+	  comnested = SYNTAX_COMMENT_NESTED (c);
+	  comstyle = SYNTAX_COMMENT_STYLE (c);
 	  INC_BOTH (from, from_byte);
 	  UPDATE_SYNTAX_TABLE_FORWARD (from);
-	  comstyle = 0;
 	  if (from < stop && comstart_first
 	      && (c1 = FETCH_CHAR (from_byte),
 		  SYNTAX_COMSTART_SECOND (c1)))
@@ -1653,12 +1880,16 @@ between them, return t; otherwise return nil.")
 		 the comment section.  */
 	      code = Scomment;
 	      comstyle = SYNTAX_COMMENT_STYLE (c1);
+	      comnested = comnested || SYNTAX_COMMENT_NESTED (c1);
 	      INC_BOTH (from, from_byte);
+	      UPDATE_SYNTAX_TABLE_FORWARD (from);
 	    }
 	}
-      while (code == Swhitespace || code == Sendcomment);
+      while (code == Swhitespace || (code == Sendcomment && c == '\n'));
 
-      if (code != Scomment && code != Scomment_fence)
+      if (code == Scomment_fence)
+	comstyle = ST_COMMENT_STYLE;
+      else if (code != Scomment)
 	{
 	  immediate_quit = 0;
 	  DEC_BOTH (from, from_byte);
@@ -1666,42 +1897,17 @@ between them, return t; otherwise return nil.")
 	  return Qnil;
 	}
       /* We're at the start of a comment.  */
-      while (1)
+      found = forw_comment (from, from_byte, stop, comnested, comstyle, 0,
+			    &out_charpos, &out_bytepos, &dummy);
+      from = out_charpos; from_byte = out_bytepos;
+      if (!found)
 	{
-	  if (from == stop)
-	    {
-	      immediate_quit = 0;
-	      SET_PT_BOTH (from, from_byte);
-	      return Qnil;
-	    }
-	  UPDATE_SYNTAX_TABLE_FORWARD (from);
-	  c = FETCH_CHAR (from_byte);
-	  INC_BOTH (from, from_byte);
-	  if (SYNTAX (c) == Sendcomment
-	      && SYNTAX_COMMENT_STYLE (c) == comstyle)
-	    /* we have encountered a comment end of the same style
-	       as the comment sequence which began this comment
-	       section */
-	    break;
-	  if (SYNTAX (c) == Scomment_fence
-	      && comstyle == ST_COMMENT_STYLE)
-	    /* we have encountered a comment end of the same style
-	       as the comment sequence which began this comment
-	       section.  */
-	    break;
-	  if (from < stop && SYNTAX_COMEND_FIRST (c)
-	      && SYNTAX_COMMENT_STYLE (c) == comstyle
-	      && (c1 = FETCH_CHAR (from_byte),
-		  UPDATE_SYNTAX_TABLE_FORWARD (from),
-		  SYNTAX_COMEND_SECOND (c1)))
-	    /* we have encountered a comment end of the same style
-	       as the comment sequence which began this comment
-	       section */
-	    {
-	      INC_BOTH (from, from_byte);
-	      break;
-	    }
+	  immediate_quit = 0;
+	  SET_PT_BOTH (from, from_byte);
+	  return Qnil;
 	}
+      INC_BOTH (from, from_byte);
+      UPDATE_SYNTAX_TABLE_FORWARD (from);
       /* We have skipped one comment.  */
       count1--;
     }
@@ -1710,7 +1916,7 @@ between them, return t; otherwise return nil.")
     {
       while (1)
 	{
-	  int quoted, comstart_second;
+	  int quoted;
 
 	  if (from <= stop)
 	    {
@@ -1730,9 +1936,9 @@ between them, return t; otherwise return nil.")
 	  c = FETCH_CHAR (from_byte);
 	  code = SYNTAX (c);
 	  comstyle = 0;
+	  comnested = SYNTAX_COMMENT_NESTED (c);
 	  if (code == Sendcomment)
 	    comstyle = SYNTAX_COMMENT_STYLE (c);
-	  comstart_second = SYNTAX_COMSTART_SECOND (c);
 	  if (from > stop && SYNTAX_COMEND_SECOND (c)
 	      && prev_char_comend_first (from, from_byte)
 	      && !char_quoted (from - 1, dec_bytepos (from_byte)))
@@ -1744,17 +1950,9 @@ between them, return t; otherwise return nil.")
 	      code = Sendcomment;
 	      /* Calling char_quoted, above, set up global syntax position
 		 at the new value of FROM.  */
-	      comstyle = SYNTAX_COMMENT_STYLE (FETCH_CHAR (from_byte));
-	    }
-	  if (from > stop && comstart_second
-	      && prev_char_comstart_first (from, from_byte)
-	      && !char_quoted (from - 1, dec_bytepos (from_byte)))
-	    {
-	      /* We must record the comment style encountered so that
-		 later, we can match only the proper comment begin
-		 sequence of the same style.  */
-	      code = Scomment;
-	      DEC_BOTH (from, from_byte);
+	      c1 = FETCH_CHAR (from_byte);
+	      comstyle = SYNTAX_COMMENT_STYLE (c1);
+	      comnested = comnested || SYNTAX_COMMENT_NESTED (c1);
 	    }
 
 	  if (code == Scomment_fence)
@@ -1785,14 +1983,33 @@ between them, return t; otherwise return nil.")
 	    }
 	  else if (code == Sendcomment)
 	    {
-	      found = back_comment (from, from_byte, stop, comstyle,
+	      found = back_comment (from, from_byte, stop, comnested, comstyle,
 				    &out_charpos, &out_bytepos);
-	      if (found != -1)
-		from = out_charpos, from_byte = out_bytepos;
-	      /* We have skipped one comment.  */
-	      break;
+	      if (found == -1)
+		{
+		  if (c == '\n')
+		    /* This end-of-line is not an end-of-comment.
+		       Treat it like a whitespace.
+		       CC-mode (and maybe others) relies on this behavior.  */
+		    ;
+		  else
+		    {
+		      /* Failure: we should go back to the end of this
+			 not-quite-endcomment.  */
+		      if (SYNTAX(c) != code)
+			/* It was a two-char Sendcomment.  */
+			INC_BOTH (from, from_byte);
+		      goto leave;
+		    }
+		}
+	      else
+		{
+		  /* We have skipped one comment.  */
+		  from = out_charpos, from_byte = out_bytepos;
+		  break;
+		}
 	    }
-	  else if (code != Swhitespace && code != Scomment)
+	  else if (code != Swhitespace)
 	    {
 	    leave:
 	      immediate_quit = 0;
@@ -1810,6 +2027,13 @@ between them, return t; otherwise return nil.")
   return Qt;
 }
 
+/* Return syntax code of character C if C is a single byte character
+   or `multibyte_symbol_p' is zero.  Otherwise, return Ssymbol.  */
+
+#define SYNTAX_WITH_MULTIBYTE_CHECK(c)			\
+  ((SINGLE_BYTE_CHAR_P (c) || !multibyte_symbol_p)	\
+   ? SYNTAX (c) : Ssymbol)
+
 static Lisp_Object
 scan_lists (from, count, depth, sexpflag)
      register int from;
@@ -1824,12 +2048,14 @@ scan_lists (from, count, depth, sexpflag)
   register enum syntaxcode code, temp_code;
   int min_depth = depth;    /* Err out if depth gets less than this.  */
   int comstyle = 0;	    /* style of comment encountered */
+  int comnested = 0;	    /* whether the comment is nestable or not */
   int temp_pos;
   int last_good = from;
   int found;
   int from_byte;
   int out_bytepos, out_charpos;
-  int temp;
+  int temp, dummy;
+  int multibyte_symbol_p = sexpflag && multibyte_syntax_as_symbol;
 
   if (depth > 0) min_depth = 0;
 
@@ -1849,8 +2075,10 @@ scan_lists (from, count, depth, sexpflag)
 	  int comstart_first, prefix;
 	  UPDATE_SYNTAX_TABLE_FORWARD (from);
 	  c = FETCH_CHAR (from_byte);
-	  code = SYNTAX (c);
+	  code = SYNTAX_WITH_MULTIBYTE_CHECK (c);
 	  comstart_first = SYNTAX_COMSTART_FIRST (c);
+	  comnested = SYNTAX_COMMENT_NESTED (c);
+	  comstyle = SYNTAX_COMMENT_STYLE (c);
 	  prefix = SYNTAX_PREFIX (c);
 	  if (depth == min_depth)
 	    last_good = from;
@@ -1866,7 +2094,9 @@ scan_lists (from, count, depth, sexpflag)
 		 only a comment end of the same style actually ends
 		 the comment section */
 	      code = Scomment;
-	      comstyle = SYNTAX_COMMENT_STYLE (FETCH_CHAR (from_byte));
+	      c1 = FETCH_CHAR (from_byte);
+	      comstyle = SYNTAX_COMMENT_STYLE (c1);
+	      comnested = comnested || SYNTAX_COMMENT_NESTED (c1);
 	      INC_BOTH (from, from_byte);
 	      UPDATE_SYNTAX_TABLE_FORWARD (from);
 	    }
@@ -1890,7 +2120,8 @@ scan_lists (from, count, depth, sexpflag)
 		  UPDATE_SYNTAX_TABLE_FORWARD (from);
 
 		  /* Some compilers can't handle this inside the switch.  */
-		  temp = SYNTAX (FETCH_CHAR (from_byte));
+		  c = FETCH_CHAR (from_byte);
+		  temp = SYNTAX_WITH_MULTIBYTE_CHECK (c);
 		  switch (temp)
 		    {
 		    case Scharquote:
@@ -1909,41 +2140,24 @@ scan_lists (from, count, depth, sexpflag)
 		}
 	      goto done;
 
-	    case Scomment:
 	    case Scomment_fence:
+	      comstyle = ST_COMMENT_STYLE;
+	      /* FALLTHROUGH */
+	    case Scomment:
 	      if (!parse_sexp_ignore_comments) break;
-	      while (1)
+	      UPDATE_SYNTAX_TABLE_FORWARD (from);
+	      found = forw_comment (from, from_byte, stop,
+				    comnested, comstyle, 0,
+				    &out_charpos, &out_bytepos, &dummy);
+	      from = out_charpos, from_byte = out_bytepos;
+	      if (!found)
 		{
-		  if (from == stop)
-		    {
-		      if (depth == 0)
-			goto done;
-		      goto lose;
-		    }
-		  UPDATE_SYNTAX_TABLE_FORWARD (from);
-		  c = FETCH_CHAR (from_byte);
-		  INC_BOTH (from, from_byte);
-		  if (code == Scomment 
-		      ? (SYNTAX (c) == Sendcomment
-			 && SYNTAX_COMMENT_STYLE (c) == comstyle)
-		      : (SYNTAX (c) == Scomment_fence))
-		    /* we have encountered a comment end of the same style
-		       as the comment sequence which began this comment
-		       section */
-		    break;
-		  if (from < stop && SYNTAX_COMEND_FIRST (c)
-		      && SYNTAX_COMMENT_STYLE (c) == comstyle
-		      && (UPDATE_SYNTAX_TABLE_FORWARD (from),
-			  SYNTAX_COMEND_SECOND (FETCH_CHAR (from_byte)))
-		      && code == Scomment)
-		    /* we have encountered a comment end of the same style
-		       as the comment sequence which began this comment
-		       section */
-		    {
-		      INC_BOTH (from, from_byte);
-		      break;
-		    }
+		  if (depth == 0)
+		    goto done;
+		  goto lose;
 		}
+	      INC_BOTH (from, from_byte);
+	      UPDATE_SYNTAX_TABLE_FORWARD (from);
 	      break;
 
 	    case Smath:
@@ -1982,13 +2196,15 @@ scan_lists (from, count, depth, sexpflag)
 		{
 		  if (from >= stop) goto lose;
 		  UPDATE_SYNTAX_TABLE_FORWARD (from);
-		  if (code == Sstring 
-		      ? (FETCH_CHAR (from_byte) == stringterm)
-		      : SYNTAX (FETCH_CHAR (from_byte)) == Sstring_fence) 
+		  c = FETCH_CHAR (from_byte);
+		  if (code == Sstring
+		      ? (c == stringterm
+			 && SYNTAX_WITH_MULTIBYTE_CHECK (c) == Sstring)
+		      : SYNTAX_WITH_MULTIBYTE_CHECK (c) == Sstring_fence)
 		    break;
 
 		  /* Some compilers can't handle this inside the switch.  */
-		  temp = SYNTAX (FETCH_CHAR (from_byte));
+		  temp = SYNTAX_WITH_MULTIBYTE_CHECK (c);
 		  switch (temp)
 		    {
 		    case Scharquote:
@@ -2021,10 +2237,11 @@ scan_lists (from, count, depth, sexpflag)
 	  DEC_BOTH (from, from_byte);
 	  UPDATE_SYNTAX_TABLE_BACKWARD (from);
 	  c = FETCH_CHAR (from_byte);
-	  code = SYNTAX (c);
+	  code = SYNTAX_WITH_MULTIBYTE_CHECK (c);
 	  if (depth == min_depth)
 	    last_good = from;
 	  comstyle = 0;
+	  comnested = SYNTAX_COMMENT_NESTED (c);
 	  if (code == Sendcomment)
 	    comstyle = SYNTAX_COMMENT_STYLE (c);
 	  if (from > stop && SYNTAX_COMEND_SECOND (c)
@@ -2037,11 +2254,13 @@ scan_lists (from, count, depth, sexpflag)
 	      DEC_BOTH (from, from_byte);
 	      UPDATE_SYNTAX_TABLE_BACKWARD (from);
 	      code = Sendcomment;
-	      comstyle = SYNTAX_COMMENT_STYLE (FETCH_CHAR (from_byte));
+	      c1 = FETCH_CHAR (from_byte);
+	      comstyle = SYNTAX_COMMENT_STYLE (c1);
+	      comnested = comnested || SYNTAX_COMMENT_NESTED (c1);
 	    }
 	  
 	  /* Quoting turns anything except a comment-ender
-	     into a word character.  Note that this if cannot be true
+	     into a word character.  Note that this cannot be true
 	     if we decremented FROM in the if-statement above.  */
 	  if (code != Sendcomment && char_quoted (from, from_byte))
 	    code = Sword;
@@ -2066,7 +2285,7 @@ scan_lists (from, count, depth, sexpflag)
 		    temp_pos--;
 		  UPDATE_SYNTAX_TABLE_BACKWARD (from - 1);
 		  c1 = FETCH_CHAR (temp_pos);
-		  temp_code = SYNTAX (c1);
+		  temp_code = SYNTAX_WITH_MULTIBYTE_CHECK (c1);
 		  /* Don't allow comment-end to be quoted.  */
 		  if (temp_code == Sendcomment)
 		    goto done2;
@@ -2078,7 +2297,7 @@ scan_lists (from, count, depth, sexpflag)
 		      UPDATE_SYNTAX_TABLE_BACKWARD (from - 1);
 		    }
 		  c1 = FETCH_CHAR (temp_pos);
-		  temp_code = SYNTAX (c1);
+		  temp_code = SYNTAX_WITH_MULTIBYTE_CHECK (c1);
 		  if (! (quoted || temp_code == Sword
 			 || temp_code == Ssymbol
 			 || temp_code == Squote))
@@ -2118,8 +2337,14 @@ scan_lists (from, count, depth, sexpflag)
 	    case Sendcomment:
 	      if (!parse_sexp_ignore_comments)
 		break;
-	      found = back_comment (from, from_byte, stop, comstyle,
+	      found = back_comment (from, from_byte, stop, comnested, comstyle,
 				    &out_charpos, &out_bytepos);
+	      /* FIXME:  if found == -1, then it really wasn't a comment-end.
+		 For single-char Sendcomment, we can't do much about it apart
+		 from skipping the char.
+		 For 2-char endcomments, we could try again, taking both
+		 chars as separate entities, but it's a lot of trouble
+		 for very little gain, so we don't bother either.  -sm */
 	      if (found != -1)
 		from = out_charpos, from_byte = out_bytepos;
 	      break;
@@ -2132,7 +2357,8 @@ scan_lists (from, count, depth, sexpflag)
 		  if (from == stop) goto lose;
 		  UPDATE_SYNTAX_TABLE_BACKWARD (from);
 		  if (!char_quoted (from, from_byte) 
-		      && SYNTAX (FETCH_CHAR (from_byte)) == code)
+		      && (c = FETCH_CHAR (from_byte),
+			  SYNTAX_WITH_MULTIBYTE_CHECK (c) == code))
 		    break;
 		}
 	      if (code == Sstring_fence && !depth && sexpflag) goto done2;
@@ -2150,7 +2376,8 @@ scan_lists (from, count, depth, sexpflag)
 		    temp_pos--;
 		  UPDATE_SYNTAX_TABLE_BACKWARD (from - 1);
 		  if (!char_quoted (from - 1, temp_pos)
-		      && stringterm == FETCH_CHAR (temp_pos))
+		      && stringterm == (c = FETCH_CHAR (temp_pos))
+		      && SYNTAX_WITH_MULTIBYTE_CHECK (c) == Sstring)
 		    break;
 		  DEC_BOTH (from, from_byte);
 		}
@@ -2289,11 +2516,12 @@ scan_sexps_forward (stateptr, from, from_byte, end, targetdepth,
   struct lisp_parse_state state;
 
   register enum syntaxcode code;
+  int c1;
+  int comnested;
   struct level { int last, prev; };
   struct level levelstart[100];
   register struct level *curlevel = levelstart;
   struct level *endlevel = levelstart + 100;
-  int prev;
   register int depth;	/* Paren depth of current scanning location.
 			   level - levelstart equals this except
 			   when the depth becomes negative.  */
@@ -2305,6 +2533,8 @@ scan_sexps_forward (stateptr, from, from_byte, end, targetdepth,
   int prev_from_syntax;
   int boundary_stop = commentstop == -1;
   int nofence;
+  int found;
+  int out_bytepos, out_charpos;
   int temp;
 
   prev_from = from;
@@ -2346,25 +2576,27 @@ do { prev_from = from;				\
       oldstate = Fcdr (oldstate);
       tem = Fcar (oldstate);
       /* Check whether we are inside string_fence-style string: */
-      state.instring = ( !NILP (tem) 
-			 ? ( INTEGERP (tem) ? XINT (tem) : ST_STRING_STYLE) 
-			 : -1);
+      state.instring = (!NILP (tem) 
+			? (INTEGERP (tem) ? XINT (tem) : ST_STRING_STYLE) 
+			: -1);
 
       oldstate = Fcdr (oldstate);
       tem = Fcar (oldstate);
-      state.incomment = !NILP (tem);
+      state.incomment = (!NILP (tem)
+			 ? (INTEGERP (tem) ? XINT (tem) : -1)
+			 : 0);
 
       oldstate = Fcdr (oldstate);
       tem = Fcar (oldstate);
       start_quoted = !NILP (tem);
 
-      /* if the eight element of the list is nil, we are in comment
+      /* if the eighth element of the list is nil, we are in comment
 	 style a.  If it is non-nil, we are in comment style b */
       oldstate = Fcdr (oldstate);
       oldstate = Fcdr (oldstate);
       tem = Fcar (oldstate);
-      state.comstyle = NILP (tem) ? 0 : ( EQ (tem, Qsyntax_table) 
-					  ? ST_COMMENT_STYLE : 1 );
+      state.comstyle = NILP (tem) ? 0 : (EQ (tem, Qsyntax_table) 
+					 ? ST_COMMENT_STYLE : 1);
 
       oldstate = Fcdr (oldstate);
       tem = Fcar (oldstate);
@@ -2376,7 +2608,7 @@ do { prev_from = from;				\
 	  /* curlevel++->last ran into compiler bug on Apollo */
 	  curlevel->last = XINT (Fcar (tem));
 	  if (++curlevel == endlevel)
-	    error ("Nesting too deep for parser");
+	    curlevel--; /* error ("Nesting too deep for parser"); */
 	  curlevel->prev = -1;
 	  curlevel->last = -1;
 	  tem = Fcdr (tem);
@@ -2418,35 +2650,38 @@ do { prev_from = from;				\
       code = prev_from_syntax & 0xff;
 
       if (code == Scomment)
-	state.comstr_start = prev_from;
+	{
+	  state.comstyle = SYNTAX_FLAGS_COMMENT_STYLE (prev_from_syntax);
+	  state.incomment = (SYNTAX_FLAGS_COMMENT_NESTED (prev_from_syntax) ?
+			     1 : -1);
+	  state.comstr_start = prev_from;
+	}
       else if (code == Scomment_fence)
 	{
 	  /* Record the comment style we have entered so that only
 	     the comment-end sequence of the same style actually
 	     terminates the comment section.  */
-	  state.comstyle = ( code == Scomment_fence 
-			     ? ST_COMMENT_STYLE 
-			     : SYNTAX_COMMENT_STYLE (FETCH_CHAR (from_byte)));
+	  state.comstyle = ST_COMMENT_STYLE;
+	  state.incomment = -1;
 	  state.comstr_start = prev_from;
-	  if (code != Scomment_fence)
-	    INC_FROM;
 	  code = Scomment;
 	}
      else if (from < end)
 	if (SYNTAX_FLAGS_COMSTART_FIRST (prev_from_syntax))
-	  if (SYNTAX_COMSTART_SECOND (FETCH_CHAR (from_byte)))
+	  if (c1 = FETCH_CHAR (from_byte),
+	      SYNTAX_COMSTART_SECOND (c1))
 	    /* Duplicate code to avoid a complex if-expression
 	       which causes trouble for the SGI compiler.  */
 	    {
 	      /* Record the comment style we have entered so that only
 		 the comment-end sequence of the same style actually
 		 terminates the comment section.  */
-	      state.comstyle = ( code == Scomment_fence 
-				 ? ST_COMMENT_STYLE 
-				 : SYNTAX_COMMENT_STYLE (FETCH_CHAR (from_byte)));
+	      state.comstyle = SYNTAX_COMMENT_STYLE (FETCH_CHAR (from_byte));
+	      comnested = SYNTAX_FLAGS_COMMENT_NESTED (prev_from_syntax);
+	      comnested = comnested || SYNTAX_COMMENT_NESTED (c1);
+	      state.incomment = comnested ? 1 : -1;
 	      state.comstr_start = prev_from;
-	      if (code != Scomment_fence)
-		INC_FROM;
+	      INC_FROM;
 	      code = Scomment;
 	    }
 
@@ -2492,48 +2727,24 @@ do { prev_from = from;				\
 	  curlevel->prev = curlevel->last;
 	  break;
 
-	startincomment:
-	  if (commentstop == 1)
-	    goto done;
-	  if (from != BEGV)
-	    {
-	      /* Enter the loop in the middle so that we find
-		 a 2-char comment ender if we start in the middle of it.  */
-	      goto startincomment_1;
-	    }
-	  /* At beginning of buffer, enter the loop the ordinary way.  */
-	  state.incomment = 1;
-	  goto commentloop;
-
 	case Scomment:
-	  state.incomment = 1;
 	  if (commentstop || boundary_stop) goto done;
-	commentloop:
-	  while (1)
-	    {
-	      if (from == end) goto done;
-	      prev = FETCH_CHAR (from_byte);
-	      if (SYNTAX (prev) == Sendcomment
-		  && SYNTAX_COMMENT_STYLE (prev) == state.comstyle)
-		/* Only terminate the comment section if the endcomment
-		   of the same style as the start sequence has been
-		   encountered.  */
-		break;
-	      if (state.comstyle == ST_COMMENT_STYLE
-		  && SYNTAX (prev) == Scomment_fence) 
-		break;
-	      INC_FROM;
-	    startincomment_1:
-	      if (from < end && SYNTAX_FLAGS_COMEND_FIRST (prev_from_syntax)
-		  && SYNTAX_COMEND_SECOND (FETCH_CHAR (from_byte))
-		  && (SYNTAX_FLAGS_COMMENT_STYLE (prev_from_syntax)
-		      == state.comstyle))
-		/* Only terminate the comment section if the end-comment
-		   sequence of the same style as the start sequence has
-		   been encountered.  */
-		break;
-	    }
-	  INC_FROM; 
+	startincomment:
+	  /* The (from == BEGV) test was to enter the loop in the middle so
+	     that we find a 2-char comment ender even if we start in the
+	     middle of it.  We don't want to do that if we're just at the
+	     beginning of the comment (think of (*) ... (*)).  */
+	  found = forw_comment (from, from_byte, end,
+				state.incomment, state.comstyle,
+				(from == BEGV || from < state.comstr_start + 3)
+				? 0 : prev_from_syntax,
+				&out_charpos, &out_bytepos, &state.incomment);
+	  from = out_charpos; from_byte = out_bytepos;
+	  /* Beware!  prev_from and friends are invalid now.
+	     Luckily, the `done' doesn't use them and the INC_FROM
+	     sets them to a sane value without looking at them. */
+	  if (!found) goto done;
+	  INC_FROM;
 	  state.incomment = 0;
 	  state.comstyle = 0;	/* reset the comment style */
 	  if (boundary_stop) goto done;
@@ -2545,7 +2756,7 @@ do { prev_from = from;				\
 	  /* curlevel++->last ran into compiler bug on Apollo */
 	  curlevel->last = prev_from;
 	  if (++curlevel == endlevel)
-	    error ("Nesting too deep for parser");
+	    curlevel--; /* error ("Nesting too deep for parser"); */
 	  curlevel->prev = -1;
 	  curlevel->last = -1;
 	  if (targetdepth == depth) goto done;
@@ -2655,10 +2866,11 @@ Value is a list of ten elements describing final state of parsing:\n\
  3. non-nil if inside a string.\n\
     (it is the character that will terminate the string,\n\
      or t if the string should be terminated by a generic string delimiter.)\n\
- 4. t if inside a comment.\n\
+ 4. nil if outside a comment, t if inside a non-nestable comment, \n\
+    else an integer (the current comment nesting).\n\
  5. t if following a quote character.\n\
  6. the minimum paren-depth encountered during this scan.\n\
- 7. t if in a comment of style b; `syntax-table' if the comment\n\
+ 7. t if in a comment of style b; symbol `syntax-table' if the comment\n\
     should be terminated by a generic comment delimiter.\n\
  8. character address of start of comment or string; nil if not in one.\n\
  9. Intermediate data for continuation of parsing (subject to change).\n\
@@ -2670,8 +2882,8 @@ Fifth arg STATE is a nine-element list like what this function returns.\n\
  It is used to initialize the state of the parse.  Elements number 1, 2, 6\n\
  and 8 are ignored; you can leave off element 8 (the last) entirely.\n\
 Sixth arg COMMENTSTOP non-nil means stop at the start of a comment.\n\
- If it is `syntax-table', stop after the start of a comment or a string,\n\
- or after end of a comment or a string.")
+ If it is symbol `syntax-table', stop after the start of a comment or a\n\
+ string, or after end of a comment or a string.")
   (from, to, targetdepth, stopbefore, state, commentstop)
 */
 
@@ -2706,7 +2918,9 @@ DEFUN ("parse-partial-sexp", Fparse_partial_sexp, Sparse_partial_sexp, 2, 6, 0,
 	       Fcons (state.instring >= 0 
 		      ? (state.instring == ST_STRING_STYLE 
 			 ? Qt : make_number (state.instring)) : Qnil,
-		 Fcons (state.incomment ? Qt : Qnil,
+		 Fcons (state.incomment < 0 ? Qt :
+			(state.incomment == 0 ? Qnil :
+			 make_number (state.incomment)),
 		   Fcons (state.quoted ? Qt : Qnil,
 		     Fcons (make_number (state.mindepth),
 		       Fcons ((state.comstyle 
@@ -2736,7 +2950,7 @@ init_syntax_once ()
   Qchar_table_extra_slots = intern ("char-table-extra-slots");
 
   /* Create objects which can be shared among syntax tables.  */
-  Vsyntax_code_object = Fmake_vector (make_number (13), Qnil);
+  Vsyntax_code_object = Fmake_vector (make_number (Smax), Qnil);
   for (i = 0; i < XVECTOR (Vsyntax_code_object)->size; i++)
     XVECTOR (Vsyntax_code_object)->contents[i]
       = Fcons (make_number (i), Qnil);
@@ -2790,6 +3004,11 @@ init_syntax_once ()
       c = ".,;:?!#@~^'`"[i];
       SET_RAW_SYNTAX_ENTRY (Vstandard_syntax_table, c, temp);
     }
+
+  /* All multibyte characters have syntax `word' by default.  */
+  temp = XVECTOR (Vsyntax_code_object)->contents[(int) Sword];
+  for (i = CHAR_TABLE_SINGLE_BYTE_SLOTS; i < CHAR_TABLE_ORDINARY_SLOTS; i++)
+    XCHAR_TABLE (Vstandard_syntax_table)->contents[i] = temp;
 }
 
 void
@@ -2821,6 +3040,15 @@ relevant only for open/close type.");
   DEFVAR_BOOL ("words-include-escapes", &words_include_escapes,
     "Non-nil means `forward-word', etc., should treat escape chars part of words.");
 
+  DEFVAR_BOOL ("multibyte-syntax-as-symbol", &multibyte_syntax_as_symbol,
+    "Non-nil means `scan-sexps' treats all multibyte characters as symbol.");
+  multibyte_syntax_as_symbol = 0;
+
+  DEFVAR_BOOL ("open-paren-in-column-0-is-defun-start",
+	       &open_paren_in_column_0_is_defun_start,
+    "Non-nil means an open paren in column 0 denotes the start of a defun.");
+  open_paren_in_column_0_is_defun_start = 1;
+
   defsubr (&Ssyntax_table_p);
   defsubr (&Ssyntax_table);
   defsubr (&Sstandard_syntax_table);
@@ -2828,6 +3056,7 @@ relevant only for open/close type.");
   defsubr (&Sset_syntax_table);
   defsubr (&Schar_syntax);
   defsubr (&Smatching_paren);
+  defsubr (&Sstring_to_syntax);
   defsubr (&Smodify_syntax_entry);
   defsubr (&Sdescribe_syntax);
 

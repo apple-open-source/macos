@@ -14,7 +14,3 @@ install::
 install::
 	@echo "Installing $(Destination)"
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
-	$(_v) $(TOUCH) "$(Destination)/swapfile"
-ifeq ($(USER),root) # Can't set sticky on a file if not root
-	$(_v) $(CHMOD) 1600 "$(Destination)/swapfile"
-endif

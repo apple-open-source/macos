@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: pico.c,v 1.1.1.1 1999/04/15 17:45:13 wsanchez Exp $";
+static char rcsid[] = "$Id: pico.c,v 1.2 2002/01/03 22:16:42 jevans Exp $";
 #endif
 /*
  * Program:	Main Pine Composer routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: pico.c,v 1.1.1.1 1999/04/15 17:45:13 wsanchez Exp $"
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -105,8 +105,8 @@ static char rcsid[] = "$Id: pico.c,v 1.1.1.1 1999/04/15 17:45:13 wsanchez Exp $"
  */
 static int pfkm[12][2] = {
     { F1,  (CTRL|'G')},
-    { F2,  (CTRL|'X')},
-    { F3,  (CTRL|'C')},
+    { F2,  (CTRL|'C')},
+    { F3,  (CTRL|'X')},
     { F4,  (CTRL|'J')},
     { F5,  (CTRL|'R')},
     { F6,  (CTRL|'W')},
@@ -130,6 +130,7 @@ static int pfkm[12][2] = {
 int      pico_all_done = 0;
 jmp_buf  finstate;
 char    *pico_anchor = NULL;
+extern struct headerentry *headents;
 
 /*
  * pico - the main routine for Pine's composer.
@@ -146,6 +147,7 @@ PICO *pm;
     extern   struct on_display ods;
 
     Pmaster       = pm;
+    gmode	  = MDWRAP;
     gmode        |= pm->pine_flags;/* high 4 bits rsv'd by pine composer */
     pico_all_done = 0;
 
@@ -170,20 +172,41 @@ PICO *pm;
     if(pm->msgtext)
       breplace(pm->msgtext);
 
+#ifdef	_WINDOWS
+    mswin_allowpaste(MSWIN_PASTE_FULL);
+#endif
+
     pico_all_done = setjmp(finstate);	/* jump out of HUP handler ? */
 
-    if(!pico_all_done){
-	if(pm->pine_flags&P_BODY){	/* begin editing the header? */
+    if(gmode&MDALTNOW){
+	while(1){
+	    if((pm->pine_flags & P_BODY) /* begin editing the header? */
+	       && alt_editor(0, 1) < 0)	/* magically enter user's editor */
+	      break;			/* if problem, drop into pico */
+
+	    update();			/* paint screen, n' start editing... */
+	    HeaderEditor((pm->pine_flags & (P_HEADEND|P_BODY)) ? 2 : 0, 0);
+	    if(pico_all_done)
+	      break;
+
+	    pm->pine_flags |= P_BODY;	/* make sure we enter alt ed next */
+	}
+    }
+    else if(!pico_all_done){
+	if(pm->pine_flags & P_BODY){	/* begin editing the header? */
 	    ArrangeHeader();		/* line up pointers */
 	}
 	else{
 	    update();			/* paint screen, */
-	    HeaderEditor(0, 0);		/* start editing... */
+	    HeaderEditor((pm->pine_flags & P_HEADEND) ? 2 : 0, 0);
 	}
     }
 
     while(1){
 	if(pico_all_done){
+#ifdef	_WINDOWS
+	    mswin_allowpaste(MSWIN_PASTE_DISABLE);
+#endif
 	    c = anycb() ? BUF_CHANGED : 0;
 	    switch(pico_all_done){	/* prepare for/handle final events */
 	      case COMP_EXIT :		/* already confirmed */
@@ -200,7 +223,7 @@ PICO *pm;
 		 * pack up and let caller know that we've received a SIGHUP
 		 */
 		if(ComposerEditing)		/* expand addr if needed */
-		  resolve_niks(ods.cur_e);
+		  call_builder(&headents[ods.cur_e]);
 
 		packheader();
 		c |= COMP_GOTHUP;
@@ -243,7 +266,7 @@ PICO *pm;
 	  continue;
 
 	if (mpresf != FALSE) {		/* message stay around only  */
-	    if (mpresf++ > MESSDELAY)	/* so long! */
+	    if (mpresf++ > NMMESSDELAY)	/* so long! */
 	      mlerase();
 	}
 
@@ -494,7 +517,7 @@ int f, n;
 	    pico_all_done = COMP_EXIT;
 	    return(TRUE);
 	  case ABORT:
-	    emlwrite("\007Send Message Cancelled", NULL);
+	    emlwrite("Send cancelled", NULL);
 	    break;
 	  default:
 	    mlerase();
@@ -516,7 +539,7 @@ int f, n;
 	      wquit(1, 0);
 	}
 	else if(s == ABORT){
-	    emlwrite("\007Exit Cancelled", NULL);
+	    emlwrite("Exit cancelled", NULL);
 	}
         return(s);
     }
@@ -533,11 +556,6 @@ int f, n;
 ctrlg(f, n)
 int f, n;
 {
-    (*term.t_beep)();
-    if (kbdmip != NULL) {
-	kbdm[0] = (CTLX|')');
-	kbdmip  = NULL;
-    }
     emlwrite("Cancelled", NULL);
     return (ABORT);
 }
@@ -583,7 +601,7 @@ func_init()
     vtrow = vtcol = lbound = 0;
     ttrow = ttcol = HUGE;
 
-    pat[0] = rpat[0] = '\0';
+    pat[0] = '\0';
 }
 
 

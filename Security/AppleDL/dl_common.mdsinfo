@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>BuiltIn</key>
+	<true/>
+	<key>CDSAVersion</key>
+	<string>2.0</string>
+	<key>Desc</key>
+	<string>Apple built-in DL</string>
+	<key>DynamicFlag</key>
+	<false/>
+	<key>MdsFileDescription</key>
+	<string>Built-in DL Common info</string>
+	<key>MdsFileType</key>
+	<string>PluginCommon</string>
+	<key>ModuleID</key>
+	<string>{87191ca1-0fc9-11d4-849a000502b52122}</string>
+	<key>ModuleName</key>
+	<string>AppleDL</string>
+	<key>MultiThreadFlag</key>
+	<false/>
+	<key>ProductVersion</key>
+	<string>1.0</string>
+	<key>ServiceMask</key>
+	<string>CSSM_SERVICE_DL</string>
+</dict>
+</plist>

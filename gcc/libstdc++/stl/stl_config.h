@@ -164,6 +164,7 @@
 #     define __STL_NO_NAMESPACES
 #     define __SGI_STL_USE_AUTO_PTR_CONVERSIONS
 #     define __STL_USE_NAMESPACES
+#     define __STL_NO_DRAND48
 #   endif
 #   if defined(__linux__)
      /* glibc pre 2.0 is very buggy. We have to disable thread for it.

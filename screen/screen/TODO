@@ -1,0 +1,9 @@
+- display size adaption (Activate)
+- better kanji
+- process.c cleanup via comm splitting
+- writelocks?
+- partial?
+- nonblock?
+- source command
+- type into several windows at once (for cluster admins)
+- configurable digraph table

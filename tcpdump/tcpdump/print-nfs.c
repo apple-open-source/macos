@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/print-nfs.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-nfs.c,v 1.1.1.2 2002/05/29 00:05:39 landonf Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -1205,7 +1205,7 @@ parserddires(const u_int32_t *dp)
 	int er;
 
 	dp = parsestatus(dp, &er);
-	if (dp == 0 || er)
+	if (dp == NULL || er)
 		return (0);
 	if (qflag)
 		return (1);
@@ -1487,7 +1487,8 @@ interp_reply(const struct rpc_msg *rp, u_int32_t proc, u_int32_t vers, int lengt
 
 	case NFSPROC_ACCESS:
 		printf(" access");
-		dp = parserep(rp, length);
+		if (!(dp = parserep(rp, length)))
+			break;
 		if (!(dp = parsestatus(dp, &er)))
 			break;
 		if (vflag)

@@ -1,7 +1,7 @@
 /* Remote target glue for the WinBond ROM monitor running on the "Cougar"
    W89k eval board.
 
-   Copyright 1995 Free Software Foundation, Inc.
+   Copyright 1995, 1998, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -26,6 +26,7 @@
 #include "monitor.h"
 #include "serial.h"
 #include "xmodem.h"
+#include "regcache.h"
 
 
 static void w89k_open (char *args, int from_tty);
@@ -159,7 +160,7 @@ static int hashmark = 1;	/* flag set by "set hash" */
 extern struct monitor_ops w89k_cmds;	/* fwd decl */
 
 static void
-w89k_load (serial_t desc, char *file, int hashmark)
+w89k_load (struct serial *desc, char *file, int hashmark)
 {
   bfd *abfd;
   asection *s;

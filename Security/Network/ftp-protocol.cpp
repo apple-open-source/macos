@@ -332,8 +332,12 @@ void FTPProtocol::FTPConnection::transit(Event event, char *input, size_t length
             case transferSent:
                 switch (reply) {
                 case 150:
+                case 125:
+                    transfer().ftpResponse() = input;	// remember response for caller.
+                    transfer().ftpResponseCode() = reply;
                     if (!mPassive)
                         mReceiver.receive(mDataPath);	// accept incoming connection and stop listening
+                    observe(Observer::resultCodeReady, input);
                     
                     // engage the data path
                     switch (operation()) {
@@ -341,9 +345,11 @@ void FTPProtocol::FTPConnection::transit(Event event, char *input, size_t length
                     case downloadDirectory:
                     case downloadListing:
                         mDataPath.start(sink());
+                        observe(Observer::downloading, input);
                         break;
                     case upload:
                         mDataPath.start(source());
+                        observe(Observer::uploading, input);
                         break;
                     default:
                         assert(false);

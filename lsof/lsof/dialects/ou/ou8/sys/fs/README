@@ -1,0 +1,20 @@
+The header files in this directory exist for the following reasons:
+
+fifonode.h              The source of this file in /usr/include/sys/fs
+			has a syntax error in the pre-processor
+			#if test at line 35.  This private copy
+			corrects the syntax error.
+
+memfs_mnode.h           The mnode structure defined by the source
+			of this file in /usr/include/sys/fs is
+			missing 8 bytes before the mno_vnode member.
+			This private copy supplies two dummy integer
+			members in compensation.
+
+namenode.h              The source of this file in /usr/include/sys/fs
+			has a syntax error in the pre-processor
+			#if test at line 46.  This private copy
+			corrects the syntax error.
+
+Vic Abell
+October 3, 2001

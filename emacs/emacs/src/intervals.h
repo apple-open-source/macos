@@ -1,5 +1,5 @@
 /* Definitions and global variables for intervals.
-   Copyright (C) 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -18,12 +18,11 @@ along with GNU Emacs; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifdef USE_TEXT_PROPERTIES
 #ifndef NORMAL_FACE
 #include "dispextern.h"
 #endif
 
-#define NULL_INTERVAL 0
+#define NULL_INTERVAL ((INTERVAL)0)
 #define INTERVAL_DEFAULT NULL_INTERVAL
 
 /* These are macros for dealing with the interval tree. */
@@ -38,14 +37,14 @@ Boston, MA 02111-1307, USA.  */
    Lisp_String pointer (meaning it points to the owner of this
    interval tree). */
 #ifdef NO_UNION_TYPE
-#define NULL_INTERVAL_P(i) ((i) == NULL_INTERVAL           \
-			    || BUFFERP ((Lisp_Object)(i)) \
-			    || STRINGP ((Lisp_Object)(i)))
+#define INT_LISPLIKE(i) (BUFFERP ((Lisp_Object)(i)) \
+			 || STRINGP ((Lisp_Object)(i)))
 #else
-#define NULL_INTERVAL_P(i) ((i) == NULL_INTERVAL           \
-			    || BUFFERP ((Lisp_Object){(EMACS_INT)(i)}) \
-			    || STRINGP ((Lisp_Object){(EMACS_INT)(i)}))
+#define INT_LISPLIKE(i) (BUFFERP ((Lisp_Object){(EMACS_INT)(i)}) \
+			 || STRINGP ((Lisp_Object){(EMACS_INT)(i)}))
 #endif
+#define NULL_INTERVAL_P(i) (CHECK(!INT_LISPLIKE(i),"non-interval"),(i) == NULL_INTERVAL)
+/* old #define NULL_INTERVAL_P(i) ((i) == NULL_INTERVAL || INT_LISPLIKE (i)) */
 
 /* True if this interval has no right child. */
 #define NULL_RIGHT_CHILD(i) ((i)->right == NULL_INTERVAL)
@@ -54,15 +53,15 @@ Boston, MA 02111-1307, USA.  */
 #define NULL_LEFT_CHILD(i) ((i)->left == NULL_INTERVAL)
 
 /* True if this interval has no parent. */
-#define NULL_PARENT(i) (NULL_INTERVAL_P ((i)->parent))
+#define NULL_PARENT(i) ((i)->up_obj || (i)->up.interval == 0)
 
 /* True if this interval is the left child of some other interval. */
-#define AM_LEFT_CHILD(i) (! NULL_INTERVAL_P ((i)->parent) \
-			  && (i)->parent->left == (i))
+#define AM_LEFT_CHILD(i) (! NULL_PARENT (i) \
+			  && INTERVAL_PARENT (i)->left == (i))
 
 /* True if this interval is the right child of some other interval. */
-#define AM_RIGHT_CHILD(i) (! NULL_INTERVAL_P ((i)->parent) \
-			   && (i)->parent->right == (i))
+#define AM_RIGHT_CHILD(i) (! NULL_PARENT (i) \
+			   && INTERVAL_PARENT (i)->right == (i))
 
 /* True if this interval has no children. */
 #define LEAF_INTERVAL_P(i) ((i)->left == NULL_INTERVAL \
@@ -104,12 +103,36 @@ Boston, MA 02111-1307, USA.  */
    or having no properties. */
 #define DEFAULT_INTERVAL_P(i) (NULL_INTERVAL_P (i) || EQ ((i)->plist, Qnil))
 
+/* Test what type of parent we have.  Three possibilities: another
+   interval, a buffer or string object, or NULL_INTERVAL.  */
+#define INTERVAL_HAS_PARENT(i) ((i)->up_obj == 0 && (i)->up.interval != 0)
+#define INTERVAL_HAS_OBJECT(i) ((i)->up_obj)
+
+/* Set/get parent of an interval.
+
+   The choice of macros is dependent on the type needed.  Don't add
+   casts to get around this, it will break some development work in
+   progress.  */
+#define SET_INTERVAL_PARENT(i,p) (eassert (!INT_LISPLIKE (p)),(i)->up_obj = 0, (i)->up.interval = (p))
+#define SET_INTERVAL_OBJECT(i,o) (eassert (!INTEGERP (o)), eassert (BUFFERP (o) || STRINGP (o)),(i)->up_obj = 1, (i)->up.obj = (o))
+#define INTERVAL_PARENT(i) (eassert((i) != 0 && (i)->up_obj == 0),(i)->up.interval)
+#define GET_INTERVAL_OBJECT(d,s) (eassert((s)->up_obj == 1), (d) = (s)->up.obj)
+
+/* Make the parent of D be whatever the parent of S is, regardless of
+   type.  This is used when balancing an interval tree.  */
+#define COPY_INTERVAL_PARENT(d,s) ((d)->up = (s)->up, (d)->up_obj = (s)->up_obj)
+
+/* Get the parent interval, if any, otherwise a null pointer.  Useful
+   for walking up to the root in a "for" loop; use this to get the
+   "next" value, and test the result to see if it's NULL_INTERVAL.  */
+#define INTERVAL_PARENT_OR_NULL(i) (INTERVAL_HAS_PARENT (i) ? INTERVAL_PARENT (i) : 0)
+
 /* Reset this interval to its vanilla, or no-property state. */
 #define RESET_INTERVAL(i) \
 { \
     (i)->total_length = (i)->position = 0;    \
     (i)->left = (i)->right = NULL_INTERVAL;   \
-    (i)->parent = NULL_INTERVAL;              \
+    SET_INTERVAL_PARENT (i, NULL_INTERVAL);	      \
     (i)->write_protect = 0;                   \
     (i)->visible = 0;                         \
     (i)->front_sticky = (i)->rear_sticky = 0; \
@@ -161,6 +184,8 @@ Boston, MA 02111-1307, USA.  */
 /* Replace later with cache access */
 /*#define FRONT_STICKY_P(i) ((i)->front_sticky != 0)
   #define END_STICKY_P(i) ((i)->rear_sticky != 0)*/
+/* As we now have Vtext_property_default_nonsticky, these macros are
+   unreliable now.  Currently, they are never used.  */
 #define FRONT_STICKY_P(i) \
   (! NULL_INTERVAL_P (i) && ! NILP (textget ((i)->plist, Qfront_sticky)))
 #define END_NONSTICKY_P(i) \
@@ -220,9 +245,13 @@ extern INLINE void copy_intervals_to_string P_ ((Lisp_Object, struct buffer *,
 extern INTERVAL copy_intervals P_ ((INTERVAL, int, int));
 extern Lisp_Object textget P_ ((Lisp_Object, Lisp_Object));
 extern void move_if_not_intangible P_ ((int));
-extern Lisp_Object get_local_map P_ ((int, struct buffer *));
+extern int get_property_and_range P_ ((int, Lisp_Object, Lisp_Object *,
+				       int *, int *, Lisp_Object));
+extern Lisp_Object get_local_map P_ ((int, struct buffer *, Lisp_Object));
 extern INTERVAL update_interval P_ ((INTERVAL, int));
 extern void set_intervals_multibyte P_ ((int));
+extern INTERVAL validate_interval_range P_ ((Lisp_Object, Lisp_Object *,
+					     Lisp_Object *, int));
 
 /* Defined in xdisp.c */
 extern int invisible_ellipsis_p P_ ((Lisp_Object, Lisp_Object));
@@ -237,6 +266,7 @@ extern Lisp_Object Qpoint_entered;
 extern Lisp_Object Qmodification_hooks;
 extern Lisp_Object Qcategory;
 extern Lisp_Object Qlocal_map;
+extern Lisp_Object Qkeymap;
 
 /* Visual properties text (including strings) may have. */
 extern Lisp_Object Qforeground, Qbackground, Qfont, Qunderline, Qstipple;
@@ -244,6 +274,7 @@ extern Lisp_Object Qinvisible, Qintangible, Qread_only;
 
 extern Lisp_Object Vinhibit_point_motion_hooks;
 extern Lisp_Object Vdefault_text_properties;
+extern Lisp_Object Vtext_property_default_nonsticky;
 
 /* Sticky properties */
 extern Lisp_Object Qfront_sticky, Qrear_nonsticky;
@@ -258,25 +289,17 @@ EXFUN (Fset_text_properties, 4);
 EXFUN (Fremove_text_properties, 4);
 EXFUN (Ftext_property_any, 5);
 EXFUN (Ftext_property_not_all, 5);
+EXFUN (Fprevious_single_char_property_change, 4);
 extern Lisp_Object copy_text_properties P_ ((Lisp_Object, Lisp_Object,
 					     Lisp_Object, Lisp_Object,
 					     Lisp_Object, Lisp_Object));
+Lisp_Object text_property_list P_ ((Lisp_Object, Lisp_Object, Lisp_Object,
+				    Lisp_Object));
+int add_text_properties_from_list P_ ((Lisp_Object, Lisp_Object, Lisp_Object));
+void extend_property_ranges P_ ((Lisp_Object, Lisp_Object, Lisp_Object));
+Lisp_Object get_char_property_and_overlay P_ ((Lisp_Object, Lisp_Object,
+					       Lisp_Object, Lisp_Object*));
 
 extern void syms_of_textprop ();
 
-#else  /* don't support text properties */
-
-#define NULL_INTERVAL_P(i) 1
-#define INTERVAL_SIZE 0
-#define INTERVAL_PTR_SIZE 0
-
-#define copy_intervals_to_string(string,buffer,position,length)
-#define verify_interval_modification(buffer,start,end)
-#define insert_interval_copy(source,position,end,sink,at)
-#define graft_intervals_into_buffer(tree,position,bufferptr)
-#define offset_intervals(buffer,position,length)
-#define copy_intervals(tree,start,length)
-
-#define syms_of_textprop()
-
-#endif /* don't support text properties */
+#include "composite.h"

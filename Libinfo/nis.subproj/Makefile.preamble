@@ -1,1 +1,2 @@
+AFTER_POSTINSTALL += install-nis-man
 PUBLIC_HEADER_DIR_SUFFIX = /rpcsvc

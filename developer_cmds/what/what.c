@@ -47,6 +47,7 @@ __RCSID("$NetBSD: what.c,v 1.6 1997/10/20 03:16:31 lukem Exp $");
 #endif /* not lint */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 void search __P((void));
 int main __P((int, char **));

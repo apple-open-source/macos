@@ -1,0 +1,40 @@
+Libtool would not be what it is today without the invaluable help of
+these people:
+
+Everybody who was kind enough to spend time testing libtool, use it in
+their packages and report bugs, who are too numerous to mention here.
+Many people who have kindly submitted bug reports and small patches
+are credited for their contributions in the ChangeLogs.
+
+The following people made especially gracious contributions of their
+time and energy in helping to track down bugs, port to new systems,
+and generally assist in the libtool maintainership process:
+
+Akim Demaille <demaille@inf.enst.fr>
+Andrey Slepuhin <pooh@msu.ru>
+Bruno Haible <haible@ilog.fr>
+Carl D. Roth <roth@cse.ucsc.edu>
+Chris P. Ross <cross@eng.us.uu.net>
+DJ Delorie <dj@delorie.com>
+Edouard G. Parmelan <Edouard.Parmelan@France.NCR.COM>
+Eric Estievenart <eric@via.ecp.fr>
+Erez Zadok <ezk@shekel.mcl.cs.columbia.edu>
+H.J. Lu <hjl@gnu.org>
+Ian Lance Taylor <ian@cygnus.com>
+Joel N. Weber II <devnull@gnu.org>
+Joseph Beckenbach III <jrb3@best.com>
+Kenneth Albanowski <kjahds@kjahds.com>
+Kurt D. Zeilenga <Kurt@OpenLDAP.Org>
+Manfred Weichel <Manfred.Weichel@pdb.siemens.de>
+Marc J. Fraioli <fraioli@dg-rtp.dg.com>
+Mark Kettenis <kettenis@phys.uva.nl>
+Ossama Othman <othman@cs.wustl.edu>
+Olly Betts <olly@muscat.co.uk>
+Pavel Roskin <pavel_roskin@geocities.com>
+Sebastian Wilhelmi <wilhelmi@ira.uka.de>
+Stephan Kulow <coolo@kde.org>
+Steven M. Schultz <sms@wlv.iipo.gtegsc.com>
+Todd Vierling <tv@pobox.com>
+Tom Tromey <tromey@cygnus.com>
+Ulrich Drepper <drepper@ipd.info.uni-karlsruhe.de>
+Xavier Pianet <xavier@xingo.com>

@@ -45,19 +45,19 @@ include $(CoreOSMakefiles)/Standard/Standard.make
 # Some reasonable defaults for RC variables
 ##
 
-RC_ARCHS   = ppc i386
+RC_ARCHS   = $(shell file /usr/lib/libSystem.B.dylib | grep 'shared library ' | sed 's|.*shared library ||')
 RC_RELEASE = unknown
 RC_VERSION = unknown
 
 ifeq ($(COPY_SOURCES),YES)
-SRCROOT = /tmp/$(Project)/Sources
+SRCROOT = /tmp/$(ProjectName)/Sources
 else
 SRCROOT = $(shell pwd)
 endif
 
-OBJROOT = /tmp/$(Project)/Build
-SYMROOT = /tmp/$(Project)/Debug
-DSTROOT = /tmp/$(Project)/Release
+OBJROOT = /tmp/$(ProjectName)/Build
+SYMROOT = /tmp/$(ProjectName)/Debug
+DSTROOT = /tmp/$(ProjectName)/Release
 
 ##
 # My variables

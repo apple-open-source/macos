@@ -104,6 +104,8 @@ private:
     boolean_t   frxThreadLaunched:1;	/* RX Thread has finished launching */
     boolean_t   ftxThreadLaunched:1;	/* RX Thread has finished launching */
 
+    IOSerialStreamSync *fProvider;
+
     /*
      * TTY glue layer private routines
      */

@@ -1,5 +1,6 @@
 /* IBM RS/6000 native-dependent macros for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1994 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1994, 1996, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,9 +23,6 @@
 
 #define ATTACH_DETACH
 
-#define PTRACE_ATTACH PT_ATTACH
-#define PTRACE_DETACH PT_DETACH
-
 /* Override copies of {fetch,store}_inferior_registers in infptrace.c.  */
 
 #define FETCH_INFERIOR_REGISTERS
@@ -45,10 +43,10 @@
 /* When a target process or core-file has been attached, we sneak in
    and figure out where the shared libraries have got to.  */
 
-#define	SOLIB_ADD(a, b, c)	\
-  if (inferior_pid)	\
+#define	SOLIB_ADD(a, b, c, d)	\
+  if (PIDGET (inferior_ptid))	\
     /* Attach to process.  */  \
-    xcoff_relocate_symtab (inferior_pid); \
+    xcoff_relocate_symtab (PIDGET (inferior_ptid)); \
   else		\
     /* Core file.  */ \
     xcoff_relocate_core (c);
@@ -57,10 +55,10 @@ extern void xcoff_relocate_symtab (unsigned int);
 struct target_ops;
 extern void xcoff_relocate_core (struct target_ops *);
 
-/* Load segment of a given pc value. */
+/* If ADDR lies in a shared library, return its name.  */
 
-#define	PC_LOAD_SEGMENT(PC)	pc_load_segment_name(PC)
-extern char *pc_load_segment_name (CORE_ADDR);
+#define	PC_SOLIB(PC)	xcoff_solib_address(PC)
+extern char *xcoff_solib_address (CORE_ADDR);
 
 /* Return sizeof user struct to callers in less machine dependent routines */
 

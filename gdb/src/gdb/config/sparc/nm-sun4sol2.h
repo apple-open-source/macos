@@ -1,5 +1,5 @@
 /* Native-dependent definitions for Sparc running SVR4.
-   Copyright 1994 Free Software Foundation, Inc.
+   Copyright 1994, 1996, 1997, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -17,6 +17,8 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
+
+#include "regcache.h"
 
 /* Include the generic SVR4 definitions.  */
 
@@ -51,17 +53,17 @@
    It will *NOT* be necessary for GDB to step over the watchpoint. */
 #define HAVE_CONTINUABLE_WATCHPOINT
 
-extern int procfs_stopped_by_watchpoint (int);
+extern int procfs_stopped_by_watchpoint (ptid_t);
 #define STOPPED_BY_WATCHPOINT(W) \
-  procfs_stopped_by_watchpoint(inferior_pid)
+  procfs_stopped_by_watchpoint(inferior_ptid)
 
 /* Use these macros for watchpoint insertion/deletion.  */
 /* type can be 0: write watch, 1: read watch, 2: access watch (read/write) */
 
-extern int procfs_set_watchpoint (int, CORE_ADDR, int, int, int);
+extern int procfs_set_watchpoint (ptid_t, CORE_ADDR, int, int, int);
 #define target_insert_watchpoint(ADDR, LEN, TYPE) \
-        procfs_set_watchpoint (inferior_pid, ADDR, LEN, TYPE, 1)
+        procfs_set_watchpoint (inferior_ptid, ADDR, LEN, TYPE, 1)
 #define target_remove_watchpoint(ADDR, LEN, TYPE) \
-        procfs_set_watchpoint (inferior_pid, ADDR, 0, 0, 0)
+        procfs_set_watchpoint (inferior_ptid, ADDR, 0, 0, 0)
 
 #endif /* NEW_PROC_API */

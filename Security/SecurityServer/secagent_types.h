@@ -20,6 +20,8 @@
 // secagent_types - type equivalence declarations for SecurityAgent MIG
 //
 #include "SecurityAgentClient.h"
+#include <Security/Authorization.h>
+#include <Security/AuthorizationPlugin.h>
 
 // @@@ who forgot that one?
 extern "C" kern_return_t mig_deallocate(vm_address_t addr, vm_size_t size);
@@ -29,17 +31,22 @@ namespace Security
 
 using namespace SecurityAgent;
 
-
+typedef void *Data;
+    
 typedef char *String;
 typedef const char *ConstString;
 typedef Client::KeychainChoice Choice;
 typedef char *Username;
 typedef uint32 MigBoolean;
 
+typedef AuthorizationItemSet AuthorizationItemSetBlob;
+typedef AuthorizationItemSet *AuthorizationItemSetPtr;
+typedef AuthorizationValueVector AuthorizationValueVectorBlob;
+typedef AuthorizationValueVector *AuthorizationValueVectorPtr;
 
-// fix const-blindless in MIG's internals
-inline int mig_strncpy(char *dest, const char *src, int length)
-{ return ::mig_strncpy(dest, const_cast<char *>(src), length); }
+typedef AuthorizationMechanismId PluginId;
+typedef AuthorizationMechanismId MechanismId;
+typedef uint32 AuthorizationResultInt;
 
 
 //

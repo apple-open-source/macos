@@ -49,7 +49,17 @@ protected:
     struct ExpansionData { };
     
     ExpansionData *reserved;
-    
+
+public:
+	static IOAudioLevelControl *createPassThruVolumeControl (SInt32 initialValue,
+                                                                SInt32 minValue,
+                                                                SInt32 maxValue,
+                                                                IOFixed minDB,
+                                                                IOFixed maxDB,
+                                                                UInt32 channelID,
+                                                                const char *channelName,
+                                                                UInt32 cntrlID);
+
 private:
     OSMetaClassDeclareReservedUnused(IOAudioLevelControl, 0);
     OSMetaClassDeclareReservedUnused(IOAudioLevelControl, 1);

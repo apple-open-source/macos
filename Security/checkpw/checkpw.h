@@ -26,6 +26,8 @@
 #ifndef __CHKUSRNAMPASSWD_H__
 #define __CHKUSRNAMPASSWD_H__
 
+#include <pwd.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

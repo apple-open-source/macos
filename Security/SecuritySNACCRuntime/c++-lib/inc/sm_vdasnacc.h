@@ -201,7 +201,6 @@ long SM_Buffer2BigIntegerStr( CSM_Buffer     *asn1Data,
 
 #define NULL_STR (Str_struct *) NULL
 
-
 //extern "C" {
 //#include    <stdio.h>    /**** Standard I/O includes   ****/
 //long vdasnacc_sortSetOf(Str_struct **strEnc, int icount);
@@ -210,6 +209,8 @@ long SM_Buffer2BigIntegerStr( CSM_Buffer     *asn1Data,
 //void free_Str_content(Str_struct *str);
 //}
 
+#if 	SNACC_ENABLE_PDU
+/* Note no equivalent if !SNACC_ENABLE_PDU */
 #define ENCODE_ANY(encodedData,asnAny)\
    {\
     CSM_Buffer *blob=new CSM_Buffer;\
@@ -230,12 +231,6 @@ long SM_Buffer2BigIntegerStr( CSM_Buffer     *asn1Data,
     if (blob)\
       DECODE_BUF((decodeData), blob)\
    }
-
-// This macro is usually only necessary if a SNACC AsnBuf is used
-//  immediately after being loaded by an application (e.g. consecutive 
-//  encode decode operations).
-#define SNACC_BUFRESET_READ(pSnaccBuf)   (pSnaccBuf)->ResetInReadMode();
-#define SNACC_BUFRESET_WRITE(pSnaccBuf)  (pSnaccBuf)->ResetInWriteRvsMode();
 
 #define ENCODE_BUF_NO_ALLOC(encodeData, blob)\
    {\
@@ -287,6 +282,14 @@ long SM_Buffer2BigIntegerStr( CSM_Buffer     *asn1Data,
    free(pchBuffer);\
    }
       
+#endif	/* SNACC_ENABLE_PDU */
+
+// This macro is usually only necessary if a SNACC AsnBuf is used
+//  immediately after being loaded by an application (e.g. consecutive 
+//  encode decode operations).
+#define SNACC_BUFRESET_READ(pSnaccBuf)   (pSnaccBuf)->ResetInReadMode();
+#define SNACC_BUFRESET_WRITE(pSnaccBuf)  (pSnaccBuf)->ResetInWriteRvsMode();
+
 #define SM_ASSIGN_ANYBUF(lpBuf, asnAny)\
    {\
     (asnAny)->value = (AsnType *)new CSM_Buffer(*(lpBuf));\

@@ -64,6 +64,7 @@ typedef struct sComData
 	unsigned long		fMsgID;
 	unsigned long		fPID;
 	unsigned long		fPort;
+	unsigned long           fIPAddress;
 	sObject				obj[ 10 ];
 	char				data[ 1 ];
 } sComData;
@@ -100,8 +101,21 @@ enum eDSServerCalls {
 
 int checkpw( const char* userName, const char* password )
 {
-	int siResult = CHECKPW_FAILURE;
 	struct passwd* pw = NULL;
+    int status;
+    
+    pw = getpwnam( userName );
+	if (pw == NULL)
+		return CHECKPW_UNKNOWNUSER;
+
+    status = checkpw_internal(userName, password, pw);
+    endpwent();
+    return status;
+}
+
+int checkpw_internal( const char* userName, const char* password, const struct passwd* pw )
+{
+	int siResult = CHECKPW_FAILURE;
 	kern_return_t	result = err_none;
 	mach_port_t		bsPort = 0;
 	mach_port_t		serverPort = 0;
@@ -112,12 +126,6 @@ int checkpw( const char* userName, const char* password )
 	long			curr = 0;
 	unsigned long	i = 0;
 
-	pw = getpwnam( userName );
-	if (pw == NULL)
-	{
-		return CHECKPW_UNKNOWNUSER;
-	}
-	
 	
 	do {
 		// Special case for empty password (this explicitly denies UNIX-like behavior)
@@ -136,11 +144,7 @@ int checkpw( const char* userName, const char* password )
 			break;
 		}
 
-		// Special marker for Directory Services 
-		if (strcmp(pw->pw_passwd,"********") != 0) {
-			siResult = CHECKPW_BADPASSWORD;
-			break;
-		}
+		// Try Directory Services directly
 
 		result = mach_port_allocate( mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &replyPort );
 		if ( result != err_none ) {
@@ -245,8 +249,6 @@ int checkpw( const char* userName, const char* password )
 	if ( replyPort != 0 )
 		mach_port_deallocate( mach_task_self(), replyPort );
 	
-	if (pw)
-		endpwent();
 
 	return siResult;
 }

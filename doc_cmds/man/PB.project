@@ -2,9 +2,9 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         FRAMEWORKS = (); 
-        H_FILES = (config.h, pathnames.h); 
-        OTHER_LINKED = (config.c, man.c); 
-        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, man.1, man.conf.5, man.conf); 
+        H_FILES = (ndir.h, version.h); 
+        OTHER_LINKED = (glob.c, man.c); 
+        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, man.1); 
     }; 
     LANGUAGE = English; 
     LOCALIZABLE_FILES = {}; 

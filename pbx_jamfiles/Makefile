@@ -23,7 +23,7 @@ JAMBASE_NAME = ProjectBuilderJambase
 INSTALL_PATH = $(SYSTEM_DEVELOPER_DIR)/Makefiles/pbx_jamfiles
 
 # The following are concatenated together to produce $(JAMBASE_NAME)
-JAMBASE_SOURCES = Jambase util.jam compatibility.jam commands.jam files.jam products.jam process.jam actions.jam include-jamfile.jam
+JAMBASE_SOURCES = Jambase util.jam definitions.jam compatibility.jam commands.jam files.jam products.jam process.jam actions.jam include-jamfile.jam
 
 # The following are installed into the same directory as $(JAMBASE_NAME)
 JAMBASE_RESOURCES = platform-darwin.jam platform-macos.jam

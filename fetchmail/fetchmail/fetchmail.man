@@ -367,7 +367,7 @@ interpreted as the name of a UNIX socket accepting LMTP connections
 	--smtphost server1,server2/2525,server3,/var/imap/socket/lmtp
 
 This option can be used with ODMR, and will make fetchmail a relay
-between the ODMR server and and SMTP or LMTP receiver.
+between the ODMR server and SMTP or LMTP receiver.
 .TP 
 .B --fetchdomains <hosts>
 (Keyword: fetchdomains)
@@ -376,10 +376,10 @@ server should ship mail for once the connection is turned around.  The
 default is the FQDN of the machine running fetchmail.
 .TP
 .B \-D <domain>, --smtpaddress <domain>
-(Keyword: smtpaddress) 
-Specify the domain to be put in RCPT TO lines shipped to SMTP. The
-name of the SMTP server (as specified by --smtphost, or defaulted to
-"localhost") is used when this is not specified.
+(Keyword: smtpaddress) Specify the domain to be appended to addresses
+in RCPT TO lines shipped to SMTP. The name of the SMTP server (as
+specified by --smtphost, or defaulted to "localhost") is used when
+this is not specified.
 .TP
 .B --smtpname <user@domain>
 (Keyword: smtpname) 
@@ -492,7 +492,10 @@ connection to the server is flaky and expensive, as it avoids
 resending duplicate mail after a line hit.  However, on large
 mailboxes the overhead of re-indexing after every message can slam the
 server pretty hard, so if your connection is reliable it is good to do
-expunges less frequently.  If you specify this option to an integer N,
+expunges less frequently.  Also note that some servers enforce a delay
+of a few seconds after each quit, so fetchmail may not be able to get
+back in immediately after an expunge -- you may see "lock busy" errors
+if this happens. If you specify this option to an integer N,
 it tells
 .I fetchmail
 to only issue expunges on every Nth delete.  An argument of zero
@@ -577,7 +580,7 @@ selects Kerberos authentication.  This option does not work with ETRN.
 .TP
 .B \-f <pathname>, --fetchmailrc <pathname>
 Specify a non-default name for the 
-.I .fetchmailrc
+.I ~/.fetchmailrc
 run control file.  The pathname argument must be either "-" (a single
 dash, meaning to read the configuration from standard input) or a
 filename.  Unless the --version option is also on, a named file
@@ -661,7 +664,7 @@ editor like
 written in Python.
 
 .SH USER AUTHENTICATION AND ENCRYPTION
-All modes except ETRN require authentication of the client.
+All modes except ETRN require authentication of the client to the server.
 Normal user authentication in 
 .I fetchmail
 is very much like the authentication mechanism of 
@@ -702,16 +705,16 @@ in daemon mode or with scripts.
 If you do not specify a password, and
 .I fetchmail
 cannot extract one from your
-.I .fetchmailrc
+.I ~/.fetchmailrc
 file, it will look for a 
-.I .netrc
+.I ~/.netrc
 file in your home directory before requesting one interactively; if an
 entry matching the mailserver is found in that file, the password will
 be used.  Fetchmail first looks for a match on poll name; if it finds none,
 it checks for a match on via name.  See the
 .IR ftp (1)
 man page for details of the syntax of the
-.I .netrc
+.I ~/.netrc
 file.  (This feature may allow you to avoid duplicating password
 information in more than one file.)
 .PP
@@ -737,7 +740,7 @@ RFC1460 introduced APOP authentication.  In this variant of POP3,
 you register an APOP password on your server host (the program
 to do this with on the server is probably called \fIpopauth\fR(8)).  You
 put the same password in your 
-.I .fetchmailrc
+.I ~/.fetchmailrc
 file.  Each time 
 .I fetchmail
 logs in, it sends a cryptographically secure hash of your password and
@@ -818,7 +821,7 @@ by a recognized Certifying Authority.  The format for the key files and
 the certificate files is that required by the underlying SSL libraries
 (OpenSSL in the general case).
 .PP
-Finally, a word of care about the use of SSL: While above mentioned
+A word of care about the use of SSL: While above mentioned
 setup with self-signed server certificates retrieved over the wires
 can protect you from a passive eavesdropper it doesn't help against an
 active attacker. It's clearly an improvement over sending the
@@ -827,6 +830,12 @@ attack is trivially possible (in particular with tools such as dsniff,
 http://www.monkey.org/~dugsong/dsniff/).  Use of an ssh tunnel (see
 below for some examples) is preferable if you care seriously about the
 security of your mailbox.
+.PP
+.B fetchmail
+also supports authentication to the ESMTP server on the client side
+according to RFC 2554.  You can specify a name/password pair to be
+used with the keywords `esmtpname' and `esmtppassword'; the former
+defaults to the username of the calling user.
 
 .SH DAEMON MODE
 The 
@@ -911,7 +920,7 @@ The
 option turns off use of 
 .IR syslog (3),
 assuming it's turned on in the 
-.I .fetchmailrc 
+.I ~/.fetchmailrc 
 file, or that the
 .B -L
 or
@@ -935,14 +944,14 @@ next poll cycle.  (The IMAP logic doesn't delete messages until
 they're delivered, so this problem does not arise.)
 .PP
 If you touch or change the 
-.I .fetchmailrc 
+.I ~/.fetchmailrc 
 file while fetchmail is running in daemon mode, this will be detected 
 at the beginning of the next poll cycle.  When a changed
-.I .fetchmailrc 
+.I ~/.fetchmailrc 
 is detected, fetchmail rereads it and restarts from scratch (using
 exec(2); no state information is retained in the new instance).  Note also
 that if you break the
-.I .fetchmailrc 
+.I ~/.fetchmailrc 
 file's syntax, the new instance will softly and silently vanish away
 on startup.
 
@@ -1122,10 +1131,12 @@ actions on the following SMTP/ESMTP error responses
 Leave the message in the server mailbox for later retrieval.
 .TP 5
 552 (message exceeds fixed maximum message size)
-Delete the message from the server.  Send bounce-mail to the originator.
+Delete the message from the server.  Send bounce-mail to the
+originator.
 .TP 5
 553 (invalid sending domain)
-Delete the message from the server.  Send bounce-mail to the originator.
+Delete the message from the server.  Don't even try to send
+bounce-mail to the originator.
 .PP
 Other errors trigger bounce mail back to the originator.
 
@@ -1299,6 +1310,12 @@ Pass in IPsec security option request.
 T}
 principal   	\&	T{
 Set Kerberos principal (only useful with imap and kerberos)
+T}
+esmtpname   	\&	T{
+Set name for RFC2554 authentication to the ESMTP server.
+T}
+esmtppassword   	\&	T{
+Set password for RFC2554 authentication to the ESMTP server.
 T}
 .TE
 
@@ -1699,8 +1716,8 @@ When trying to determine the originating address of a message,
 fetchmail looks through headers in the following order: 
 
         Return-Path:
-        Resent-Sender: (ignored if it doesn't contain an @)
-        Sender: (ignored if it doesn't contain an @)
+        Resent-Sender: (ignored if it doesn't contain an @ or !)
+        Sender: (ignored if it doesn't contain an @ or !)
         Resent-From:
         From:
         Reply-To:
@@ -1830,7 +1847,7 @@ Here's an example of another kind of multidrop connection:
 
 .nf
   poll pop.provider.net localdomains loonytoons.org toons.org:
-        user maildrop with pass secret1 to 'esr' * here
+        user maildrop with pass secret1 to * here
 .fi
 
 This also says that the mailbox of account `maildrop' on the server is
@@ -2154,7 +2171,7 @@ Fetchmail's method of sending bouncemail and spam bounces requires that
 port 25 of localhost be available for sending mail via SMTP.
 .PP
 If you modify a
-.I .fetchmailrc
+.I ~/.fetchmailrc
 while a background instance is running and break the syntax, the
 background instance will die silently.  Unfortunately, it can't 
 die noisily because we don't yet know whether syslog should be enabled.
@@ -2165,9 +2182,6 @@ with the plugin option.
 The UIDL code is generally flaky and tends to lose its state on errors
 and line drops (so that old messages are re-seen).  If this happens to
 you, switch to IMAP4.
-.PP
-Usuing LMTP with a localname that is not a full email name (containing
-@ and having a host part) will fail.
 .PP
 The `principal' option only handles Kerberos IV, not V.
 .PP
@@ -2191,7 +2205,8 @@ mutt(1), elm(1), mail(1), sendmail(8), popd(8), imapd(8), netrc(5)
 .SH APPLICABLE STANDARDS
 .TP 5
 SMTP/ESMTP:
-RFC 821, RFC2821, RFC 1869, RFC 1652, RFC 1870, RFC1983, RFC 1985
+RFC 821, RFC2821, RFC 1869, RFC 1652, RFC 1870, RFC 1983, RFC 1985,
+RFC 2554
 .TP 5
 mail:
 RFC 822, RFC2822, RFC 1123, RFC 1892, RFC 1894

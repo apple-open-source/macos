@@ -1,5 +1,6 @@
 /* Native-dependent code for Motorola m68k's running NetBSD, for GDB.
-   Copyright 1988, 1989, 1991, 1992, 1994, 1996 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992, 1994, 1996, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,13 +19,14 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#include "defs.h"
 #include <sys/types.h>
 #include <sys/ptrace.h>
 #include <machine/reg.h>
 #include <machine/frame.h>
-
-#include "defs.h"
 #include "inferior.h"
+#include "gdbcore.h"
+#include "regcache.h"
 
 void
 fetch_inferior_registers (int regno)
@@ -32,12 +34,12 @@ fetch_inferior_registers (int regno)
   struct reg inferior_registers;
   struct fpreg inferior_fp_registers;
 
-  ptrace (PT_GETREGS, inferior_pid,
+  ptrace (PT_GETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_registers, 0);
   memcpy (&registers[REGISTER_BYTE (0)], &inferior_registers,
 	  sizeof (inferior_registers));
 
-  ptrace (PT_GETFPREGS, inferior_pid,
+  ptrace (PT_GETFPREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers, 0);
   memcpy (&registers[REGISTER_BYTE (FP0_REGNUM)], &inferior_fp_registers,
 	  sizeof (inferior_fp_registers));
@@ -53,12 +55,12 @@ store_inferior_registers (int regno)
 
   memcpy (&inferior_registers, &registers[REGISTER_BYTE (0)],
 	  sizeof (inferior_registers));
-  ptrace (PT_SETREGS, inferior_pid,
+  ptrace (PT_SETREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_registers, 0);
 
   memcpy (&inferior_fp_registers, &registers[REGISTER_BYTE (FP0_REGNUM)],
 	  sizeof (inferior_fp_registers));
-  ptrace (PT_SETFPREGS, inferior_pid,
+  ptrace (PT_SETFPREGS, PIDGET (inferior_ptid),
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers, 0);
 }
 

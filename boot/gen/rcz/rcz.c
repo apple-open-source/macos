@@ -22,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #import <stdio.h>
+#import <stdlib.h>
 #import <mach/mach.h>
 #import <mach/mach_error.h>
 #import <mach/mach_traps.h>
@@ -40,12 +41,12 @@ usage(void)
     exit(1);
 }
 
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     char *infile = NULL, *outfile = NULL;
     int compress = 0;
     int verbose = 0;
-    FILE *inf, *outf;
+    FILE *inf, *outf = NULL;
     unsigned char *inbuf, *outbuf;
     unsigned long length, total;
     kern_return_t ret;
@@ -113,7 +114,7 @@ main(int argc, char *argv[])
 	}
 
 	fseek(inf,0,2); length = ftell(inf); rewind(inf);
-	if ((ret = map_fd(fileno(inf), 0, &inbuf, TRUE, length)) != KERN_SUCCESS) {
+	if ((ret = map_fd(fileno(inf), 0, (vm_address_t *)&inbuf, TRUE, length)) != KERN_SUCCESS) {
 	    mach_error("map_fd", ret);	
 	    exit(1);
 	}
@@ -123,7 +124,7 @@ main(int argc, char *argv[])
 	if (verbose)
 	    fprintf(stderr, "%ld %ld\nCompression ratio: %f\n", length, total, total/(1.0*length));
 	fclose(inf);
-	vm_deallocate(mach_task_self(), inbuf, length);
+	vm_deallocate(mach_task_self(), (vm_address_t)inbuf, length);
 	fclose(outf);
     } else {
 	unsigned char *ptr;
@@ -149,7 +150,7 @@ main(int argc, char *argv[])
 		}
 	}
 	fseek(inf,0,2); length = ftell(inf); rewind(inf);
-	if ((ret = map_fd(fileno(inf), 0, &inbuf, TRUE, length)) != KERN_SUCCESS) {
+	if ((ret = map_fd(fileno(inf), 0, (vm_address_t *)&inbuf, TRUE, length)) != KERN_SUCCESS) {
 	    mach_error("map_fd", ret);	
 	    exit(1);
 	}
@@ -171,7 +172,7 @@ main(int argc, char *argv[])
 	if (verbose)
 	    fprintf(stderr, "%ld %ld\nCompression ratio: %f\n", length, total, total/(1.0*length));
 	fclose(inf);
-	vm_deallocate(mach_task_self(), inbuf, length);
+	vm_deallocate(mach_task_self(), (vm_address_t)inbuf, length);
 	fclose(outf);
     }
     exit(0);

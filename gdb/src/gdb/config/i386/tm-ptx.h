@@ -1,6 +1,7 @@
 /* Target machine definitions for GDB on a Sequent Symmetry under ptx
    with Weitek 1167 and i387 support.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 2000
+   Free Software Foundation, Inc.
    Symmetry version by Jay Vosburgh (fubar@sequent.com).
 
    This file is part of GDB.
@@ -68,7 +69,7 @@ since it uses host specific ptrace calls.
    scheme (which is the same as the 386 scheme) and also regmap in the various
    *-nat.c files. */
 
-#undef  REGISTER_NAMES
+#undef REGISTER_NAME
 #define REGISTER_NAMES { "eax",  "ecx",    "edx",  "ebx",  \
 			 "esp",  "ebp",    "esi",  "edi",  \
 			 "eip",  "eflags", "st0",  "st1",  \

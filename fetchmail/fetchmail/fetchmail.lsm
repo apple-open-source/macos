@@ -1,10 +1,10 @@
 Begin3
 Title:		fetchmail
-Version:	5.8.17
-Entered-date:	7AUG2001
+Version:	5.9.11
+Entered-date:	2002APR01
 Description:	Full-featured IMAP/POP2/POP3/APOP/RPOP/KPOP/ETRN/ODMR client 
 	        with GUI configuration, daemon mode, forwarding via SMTP or 
-		local MDA, superior reply handling, support for multidrop
+		local MDA, reply address rewrites, support for multidrop
 		mailboxes. Supports SASL authentication, Kerbereros, GSSAPI, 
 		OTP. Not a mail user agent, rather a pipe-fitting that 
 		forwards fetched mail to your local delivery system. 
@@ -14,7 +14,8 @@ Keywords:	mail, client, POP, POP2, POP3, APOP, RPOP, KPOP, IMAP, ETRN,
     		ODMR, SMTP, ESMTP, GSSAPI, RPA, NTLM, CRAM-MD5, SASL.
 Author: 	esr@snark.thyrsus.com (Eric S. Raymond)
 Primary-site:	locke.ccil.org /pub/esr/fetchmail
-		877K fetchmail-5.8.17.tar.gz
+		950K fetchmail-5.9.11.tar.gz
 Platforms:	All
 Copying-policy:	GPL
 End
+

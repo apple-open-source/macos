@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl -- -*-perl-*-
+#!/usr/local/bin/perl -w
 #
 #   ``Wee have also Shelles, thee Lyke of whych you knowe not, wherein
 #     thee User may with thee merest Presse of thee Tabbe-Keye expande
@@ -9,7 +9,7 @@
 # Runs as a filter.  Should ignore anything which isn't a "complete".
 # It expects each "complete" statement to be the first thing on a line.
 # All the examples in the tcsh manual give sensible results.
-# Author:  Peter Stephenson <pws@s-a.amtp.liv.ac.uk>
+# Author:  Peter Stephenson <pws@ibmth.df.unipi.it>
 #
 # Option:
 # -x (exact): only applies in the case of command disambiguation (is
@@ -39,10 +39,17 @@
 # (5) Make sure all command names with wildcards are processed together --
 #     they need to be lumped into one "compctl -C" or "compctl -D"
 #     statement for zsh.
+# (6) Group completion (complete's g flag) is not built into zsh, so
+#     you need perl to be available to generate the groups.  If this
+#     script is useful, I assume that's not a problem.
+# (7) I don't know what `completing completions' means, so the X
+#     flag to complete is not handled.
 
 # Handle options
-($ARGV[0] eq '-x') && shift && ($opt_x = 1);
-($ARGV[0] =~ /^-+$/) && shift;
+if (@ARGV) {
+    ($ARGV[0] eq '-x') && shift && ($opt_x = 1);
+    ($ARGV[0] =~ /^-+$/) && shift;
+}
 
 # Function names used (via magic autoincrement) when cmdline words are needed
 $funcnam = 'compfn001';
@@ -62,16 +69,16 @@ sub getword {
 		$word .= '"' . $word2;
 	    }
 	} elsif (/\S/) {
-	    ($word, $_) = /^([^\s\\\'\"#;]*)(.*)$/;
+	    ($word, $_) = /^([^\s\\\'\"\#;]*)(.*)$/;
 	    # Backslash: literal next character
 	    /^\\(.)/ && (($word .= substr($_,1,1)),
 			 ($_ = substr($_,2)));
 	    # Rest of line quoted or end of command
-	    /^[#;]/ && ($_ = '');
+	    /^[\#;]/ && ($_ = '');
 	} else {
 	    return undef;
 	}
-	length($word) && ($ret = $ret . $word);
+	length($word) && ($ret = defined($ret) ? $ret . $word : $word);
     }
     $ret;
 }
@@ -112,30 +119,62 @@ sub gettype {
 # Nothing (n) can be handled by returning nothing.  (C.f. King Lear, I.i.)
     if ($c =~ /[abcjuv]/) {
 	$ret = "-$c";
+    } elsif ($c eq 'C') {
+	if (defined($glob)) {
+	    $ret = "-W $glob -/g '*(.*)'";
+	    undef($glob);
+	} else {
+	    $ret = '-c';
+	}
     } elsif ($c eq 'S') {
 	$ret = '-k signals';
     } elsif ($c eq 'd') {
-	$qual = '/';
+	if (defined($glob)) {
+	    $qual = '-/';
+	} else {
+	    $ret = '-/';
+	}
+    } elsif ($c eq 'D') {
+	if (defined($glob)) {
+	    $ret = "-W $glob -/";
+	    undef($glob);
+	} else {
+	    $ret = '-/';
+	}
     } elsif ($c eq 'e') {
 	$ret = '-E';
     } elsif ($c eq 'f' && !$glob) {
 	$ret = '-f';
+    } elsif ($c eq 'F') {
+	if (defined($glob)) {
+	    $ret = "-W $glob -f";
+	    undef($glob);
+	} else {
+	    $ret = '-f';
+	}
+    } elsif ($c eq 'g') {
+	$ret = "-s '\$(perl -e '\\''while ((\$name) = getgrent)\n" .
+	    "{ print \$name, \"\\n\"; }'\\'')'";
     } elsif ($c eq 'l') {
-	$ret = qq
--k  '(cputime filesize datasize stacksize coredumpsize resident descriptors)'
-    ;
+	$ret = q!-k "(`limit | awk '{print $1}'`)"!;
     } elsif ($c eq 'p') {
-	# Use globbing, but make sure there's a star at the end
-	($glob =~ /\*$/) || ($glob .= '*');
+        $ret = "-W $glob -f", undef($glob) if defined($glob);
     } elsif ($c eq 's') {
-	$ret = '-p';
+        $ret = '-p';
     } elsif ($c eq 't') {
 	$qual = '.';
+    } elsif ($c eq 'T') {
+        if (defined($glob)) {
+            $ret = "-W $glob -g '*(.)'";
+            undef($glob);
+        } else {
+            $ret = "-g '*(.)'";
+        }
     } elsif ($c eq 'x') {
 	$glob =~ s/'/'\\''/g;
 	$ret = "-X '$glob'";
 	undef($glob);
-    } elsif ($c eq '$') {     # '{
+    } elsif ($c eq '$') {     # '){
 	$ret = "-k " . substr($_,1);
     } elsif ($c eq '(') {
 	s/'/'\\''/g;
@@ -161,8 +200,8 @@ HERE
     # foo{bar,ba,blak,sheap} -> foo(bar|ba|blak|sheap).
     # This saves a lot of mess, since in zsh brace expansion occurs
     # before globbing.  I'm sorry, but I don't trust $` and $'.
-    while ((($b,$m,$e) = ($glob =~ /^(.*)\{(.*)\}(.*)$/))
-	   && ($m =~ /,/)) {
+    while (defined($glob) && (($b,$m,$e) = ($glob =~ /^(.*)\{(.*)\}(.*)$/))
+	   && $m =~ /,/) {
 	@m = split(/,/, $m);
 	for ($i = 0; $i < @m; $i++) {
 	    while ($m[$i] =~ /\\$/) {
@@ -188,8 +227,8 @@ $" = " - ";
 
 while (<>) {
     if (/^\s*complete\s/) {
-	$wc = 0;
-	undef(@stuff); undef($default);
+	undef(@stuff);
+	$default = '';
 	$_ = $';
 	while (/\\$/) {
 	    # Remove backslashed newlines: in principle these should become
@@ -209,21 +248,23 @@ while (<>) {
 	    # Loop over remaining arguments to "complete".
 	    $sep = substr($word,1,1);
 	    $sep =~ s/(\W)/\\$1/g;
-	    @split = split(/$sep/,$word);
+	    @split = split(/$sep/,$word,4);
 	    for ($i = 0; $i < 3; $i++) {
-		while ($split[i] =~ /\\$/) {
-		    substr($split[i],-1,1) = "";
-		    splice(@split,$i,2,"$split[i]\\$sep$split[i+1]");
+		while ($split[$i] =~ /\\$/) {
+		    substr($split[$i],-1,1) = "";
+		    splice(@split,$i,2,"$split[$i]\\$sep$split[$i+1]");
 		}
 	    }
-	    ($pat,$arg,$type,$suffix,$crap) = @split;
-	    ($suffix =~ /^\s*$/) && undef($suffix);
-	    if (($word =~ /^n${sep}\*${sep}/) &&
+	    ($pat,$arg,$type,$suffix) = @split;
+	    defined($suffix) && ($suffix =~ /^\s*$/) && undef($suffix);
+	    if (($word =~ /^n$sep\*$sep/) &&
 		 (!defined($defmatch))) {
 		 # The "complete" catch-all:  treat this as compctl\'s
 		 # default (requiring no pattern matching).
 		$default .= &gettype($type) . ' ';
-		defined($suffix) && ($defsuf .= $suffix);
+		defined($suffix) &&
+		    (defined($defsuf) ? ($defsuf .= $suffix)
+		     : ($defsuf = $suffix));
 	    } else {
 		$pat = &getpat($pat,$arg);
 		$type = &gettype($type);
@@ -236,8 +277,8 @@ while (<>) {
 			} else {
 			    ($defmatch =~ /\*$/) && chop($defmatch);
 			    if ($opt_x) {
-				$c = ($defmatch =~ /[*?]/) ? 'C' : c;
-				$pat = "${c}[0,${defmatch}]";
+				$c = ($defmatch =~ /[*?]/) ? 'C' : 'c';
+				$pat = $c . "[0,${defmatch}]";
 			    } else {
 				$pat = ($defmatch =~ /[*?]/) ?
 				    "C[0,${defmatch}]" : "S[${defmatch}]";
@@ -259,7 +300,7 @@ while (<>) {
 		    } else {
 		        # Not command word completion, but still command
 			# word with pattern
-			($defmatch = '*') || ($pat = "W[0,$defmatch] $pat");
+			($defmatch eq '*') || ($pat = "W[0,$defmatch] $pat");
 			push(@defaultword,defined($suffix) ?
 			     "'$pat' $type -S '$suffix'" : "'$pat' $type");
 		    }

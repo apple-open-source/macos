@@ -26,6 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 /* byte_sex.c */
+#include <string.h>
 #include <mach-o/fat.h>
 #include <mach-o/loader.h>
 #import <mach/m68k/thread_status.h>
@@ -1743,6 +1744,21 @@ enum byte_sex target_byte_sex)
 		memcpy(hints + i, &shint, sizeof(struct swapped_twolevel_hint));
 	    }
 	}
+}
+
+__private_extern__
+void
+swap_prebind_cksum_command(
+struct prebind_cksum_command *cksum_cmd,
+enum byte_sex target_byte_sex)
+{
+#ifdef __MWERKS__
+    enum byte_sex dummy;
+        dummy = target_byte_sex;
+#endif
+	cksum_cmd->cmd = SWAP_LONG(cksum_cmd->cmd);
+	cksum_cmd->cmdsize = SWAP_LONG(cksum_cmd->cmdsize);
+	cksum_cmd->cksum = SWAP_LONG(cksum_cmd->cksum);
 }
 
 __private_extern__

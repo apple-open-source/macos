@@ -69,245 +69,317 @@
  */
 
 
-
-//#define PPP_COMPRESS 1
-#ifdef PPP_COMPRESS
-
-
-
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/proc.h>
 #include <sys/mbuf.h>
 #include <sys/socket.h>
-#include <machine/spl.h>
 #include <net/if.h>
 #include <net/netisr.h>
-
-#include "ppp_global.h"
 #include <sys/syslog.h>
+#include <netinet/in.h>
 
-#define PACKETPTR	struct mbuf *
-#include "../../include/net/ppp-comp.h"
 
+#include "ppp_defs.h"		// public ppp values
+#include "ppp_fam.h"
+#include "ppp_ip.h"
+#include "if_ppplink.h"		// public link API
 #include "ppp_if.h"
+#include "ppp_domain.h"
 #include "ppp_comp.h"
+
+/* -----------------------------------------------------------------------------
+Definitions
+----------------------------------------------------------------------------- */
+
+struct ppp_comp {
+
+    TAILQ_ENTRY(ppp_comp) next;
+
+    /* compressor identifier */
+    u_int32_t	protocol;				/* CCP compression protocol number */
+
+    void 	*userdata;			/* user data to pass to the compressor */
+
+    /* compression call back functions */
+
+    void	*(*comp_alloc) 
+                (u_char *options, int opt_len);	/* Allocate space for a compressor (transmit side) */
+    void	(*comp_free) 
+                (void *state);			/* Free space used by a compressor */
+    int		(*comp_init) 			/* Initialize a compressor */
+                (void *state, u_char *options, int opt_len,
+                int unit, int hdrlen, int mtu, int debug);
+    void	(*comp_reset) 
+                (void *state);			/* Reset a compressor */
+    int		(*compress) 			/* Compress a packet */
+                (void *state, struct mbuf **m);
+    void	(*comp_stat) 			/* Return compression statistics */
+                (void *state, struct compstat *stats);
+
+    
+    /* decompression call back functions */
+    
+    void	*(*decomp_alloc) 		/* Allocate space for a decompressor (receive side) */
+                (u_char *options, int opt_len);
+    void	(*decomp_free) 
+                (void *state);			/* Free space used by a decompressor */	
+    int		(*decomp_init) 			/* Initialize a decompressor */
+                (void *state, u_char *options, int opt_len,
+                int unit, int hdrlen, int mru, int debug);
+    void	(*decomp_reset) 		/* Reset a decompressor */
+                (void *state);
+    int		(*decompress) 			/* Decompress a packet. */
+                (void *state, struct mbuf **m);
+    void	(*incomp) 			/* Update state for an incompressible packet received */
+                (void *state, struct mbuf *m);	
+    void	(*decomp_stat) 			/* Return decompression statistics */
+                (void *state, struct compstat *stats);
+};
+
 
 /* -----------------------------------------------------------------------------
 Forward declarations
 ----------------------------------------------------------------------------- */
 
+struct ppp_comp *ppp_comp_find(u_int32_t proto);
 
 /* -----------------------------------------------------------------------------
 Globals
 ----------------------------------------------------------------------------- */
-
-// List of compressors we know about.
-
-extern struct compressor ppp_bsd_compress;
-extern struct compressor ppp_deflate, ppp_deflate_draft;
-
-static struct compressor *ppp_compressors[8] = {
-#if DO_BSD_COMPRESS
-#if defined(PPP_BSDCOMP)
-    &ppp_bsd_compress,
-#endif
-#endif
-#if DO_DEFLATE
-#if defined(PPP_DEFLATE)
-    &ppp_deflate,
-    &ppp_deflate_draft,
-#endif
-#endif
-    NULL
-};
-
-
+static TAILQ_HEAD(, ppp_comp) 	ppp_comp_head;
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void ppp_comp_alloc(struct ppp_if *sc)
+int ppp_comp_init()
 {
-    sc->sc_xc_state = NULL;
-    sc->sc_rc_state = NULL;
+    TAILQ_INIT(&ppp_comp_head);
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void ppp_comp_dealloc(struct ppp_if *sc)
+int ppp_comp_dispose()
 {
-    ppp_comp_close(sc);
-    sc->sc_xc_state = NULL;
-    sc->sc_rc_state = NULL;
+    struct ppp_comp  	*comp;
+
+    while (comp = TAILQ_FIRST(&ppp_comp_head)) {
+        TAILQ_REMOVE(&ppp_comp_head, comp, next);
+    	FREE(comp, M_DEVBUF);
+    }
+    
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_comp_setcompressor(struct ppp_if *sc, struct ppp_option_data *odp)
+struct ppp_comp *ppp_comp_find(u_int32_t proto)
 {
-    int 			s, error = 0, nb;
-    struct compressor 		**cp;
+    struct ppp_comp  	*comp;
+
+    TAILQ_FOREACH(comp, &ppp_comp_head, next)
+        if (comp->protocol == proto)
+            return comp;
+    
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int ppp_comp_register(struct ppp_comp_reg *compreg, ppp_comp_ref *compref)
+{
+    struct ppp_comp *comp;
+
+    /* sanity check */
+    if (compreg == NULL
+        || compreg->comp_alloc == NULL
+        || compreg->comp_free == NULL
+        || compreg->comp_init == NULL
+        || compreg->comp_reset == NULL
+        || compreg->compress == NULL
+        || compreg->comp_stat == NULL
+        || compreg->decomp_alloc == NULL
+        || compreg->decomp_free == NULL
+        || compreg->decomp_init == NULL
+        || compreg->decomp_reset == NULL
+        || compreg->decompress == NULL
+        || compreg->incomp == NULL
+        || compreg->decomp_stat == NULL)	
+        return(EINVAL);
+    
+    comp = ppp_comp_find(compreg->compress_proto);
+    if (comp != NULL)
+        return(EEXIST);
+
+    MALLOC(comp, struct ppp_comp *, sizeof(*comp), M_TEMP, M_WAITOK);
+    if (comp == NULL)
+        return(ENOMEM);
+        
+    bzero((char *)comp, sizeof(*comp));
+
+    comp->protocol = compreg->compress_proto;
+    comp->comp_alloc = compreg->comp_alloc;
+    comp->comp_free = compreg->comp_free;
+    comp->comp_init = compreg->comp_init;
+    comp->comp_reset = compreg->comp_reset;
+    comp->compress = compreg->compress;
+    comp->comp_stat = compreg->comp_stat;
+    comp->decomp_alloc = compreg->decomp_alloc;
+    comp->decomp_free = compreg->decomp_free;
+    comp->decomp_init = compreg->decomp_init;
+    comp->decomp_reset = compreg->decomp_reset;
+    comp->decompress = compreg->decompress;
+    comp->incomp = compreg->incomp;
+    comp->decomp_stat = compreg->decomp_stat;
+
+    TAILQ_INSERT_TAIL(&ppp_comp_head, comp, next);
+    
+    *compref = comp;
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int ppp_comp_deregister(ppp_comp_ref *compref)
+{	
+    struct ppp_comp	*comp = (struct ppp_comp *)compref;
+
+    if (comp == NULL)	/* sanity check */
+        return(EINVAL);
+
+    TAILQ_REMOVE(&ppp_comp_head, comp, next);
+    
+    FREE(comp, M_TEMP);
+    return(0);
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
+{
+    int 			error = 0, nb;
+    struct ppp_comp 		*cp;
     u_char 			ccp_option[CCP_MAX_OPTION_LENGTH];
 
     nb = odp->length;
     if (nb > sizeof(ccp_option))
         nb = sizeof(ccp_option);
 
-    if ((error = copyin(odp->ptr, ccp_option, nb)) != 0)
+    if (error = copyin(odp->ptr, ccp_option, nb))
         return (error);
 
     if (ccp_option[1] < 2)	/* preliminary check on the length byte */
         return (EINVAL);
 
-    for (cp = ppp_compressors; *cp; cp++) {
-        if ((*cp)->compress_proto == ccp_option[0])
-            break;
+    cp = ppp_comp_find(ccp_option[0]);
+    if (cp == 0) {
+        LOGDBG(&wan->net, (LOGVAL, "ppp%d: no compressor for [%x %x %x], %x\n",
+                wan->net.if_unit, ccp_option[0], ccp_option[1],
+                ccp_option[2], nb));
+
+        return EINVAL;	/* no handler found */
     }
 
-    if (*cp) {
-         // Found a handler for the protocol - try to allocate a compressor or decompressor.
-        error = 0;
-        s = splnet();
-        if (odp->transmit) {
-            if (sc->sc_xc_state)
-                (*sc->sc_xcomp->comp_free)(sc->sc_xc_state);
-            sc->sc_xcomp = *cp;
-            sc->sc_xc_state = (*cp)->comp_alloc(ccp_option, nb);
-            if (!sc->sc_xc_state) {
-                error = ENOBUFS;
-                if (sc->sc_flags & SC_DEBUG)
-                    printf("ppp%d: comp_alloc failed\n", sc->sc_if.if_unit);
-            }
-            splimp();
-            sc->sc_flags &= ~SC_COMP_RUN;
+    if (odp->transmit) {
+        if (wan->xc_state)
+            (*wan->xcomp->comp_free)(wan->xc_state);
+        wan->xcomp = cp;
+        wan->xc_state = cp->comp_alloc(ccp_option, nb);
+        if (!wan->xc_state) {
+            error = ENOBUFS;
+            LOGDBG(&wan->net, (LOGVAL, "ppp%d: comp_alloc failed\n", wan->net.if_unit));
         }
-        else {
-            if (sc->sc_rc_state)
-                (*sc->sc_rcomp->decomp_free)(sc->sc_rc_state);
-            sc->sc_rcomp = *cp;
-            sc->sc_rc_state = (*cp)->decomp_alloc(ccp_option, nb);
-            if (!sc->sc_rc_state) {
-                error = ENOBUFS;
-                if (sc->sc_flags & SC_DEBUG)
-                    printf("ppp%d: decomp_alloc failed\n", sc->sc_if.if_unit);
-            }
-            splimp();
-            sc->sc_flags &= ~SC_DECOMP_RUN;
-        }
-        splx(s);
-        return error;
+        wan->sc_flags &= ~SC_COMP_RUN;
     }
-
-    if (sc->sc_flags & SC_DEBUG)
-        printf("ppp%d: no compressor for [%x %x %x], %x\n",
-               sc->sc_if.if_unit, ccp_option[0], ccp_option[1],
-               ccp_option[2], nb);
-
-    return EINVAL;	/* no handler found */
+    else {
+        if (wan->rc_state)
+            (*wan->rcomp->decomp_free)(wan->rc_state);
+        wan->rcomp = cp;
+        wan->rc_state = cp->decomp_alloc(ccp_option, nb);
+        if (!wan->rc_state) {
+            error = ENOBUFS;
+            LOGDBG(&wan->net, (LOGVAL, "ppp%d: decomp_alloc failed\n", wan->net.if_unit));
+        }
+        wan->sc_flags &= ~SC_DECOMP_RUN;
+    }
+    
+    return error;
 }
 
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void ppp_comp_getstats(struct ppp_if *sc, struct ppp_comp_stats *stats)
+void ppp_comp_getstats(struct ppp_if *wan, struct ppp_comp_stats *stats)
 {
 
     bzero(stats, sizeof(struct ppp_comp_stats));
-    if (sc->sc_xc_state)
-        (*sc->sc_xcomp->comp_stat)(sc->sc_xc_state, &stats->c);
-    if (sc->sc_rc_state)
-        (*sc->sc_rcomp->decomp_stat)(sc->sc_rc_state, &stats->d);
+    if (wan->xc_state)
+        (*wan->xcomp->comp_stat)(wan->xc_state, &stats->c);
+    if (wan->rc_state)
+        (*wan->rcomp->decomp_stat)(wan->rc_state, &stats->d);
 }
 
 /* -----------------------------------------------------------------------------
 Handle a CCP packet.  `rcvd' is 1 if the packet was received,
 0 if it is about to be transmitted.
+mbuf points to the ccp payload (doesn't include FF03 and 80FD)
 ----------------------------------------------------------------------------- */
-void ppp_ccp(struct ppp_if *sc, struct mbuf *m, int rcvd)
+void ppp_comp_ccp(struct ppp_if *wan, struct mbuf *m, int rcvd)
 {
-    u_char *dp, *ep;
-    struct mbuf *mp;
-    int slen, s;
-
-    /*
-     * Get a pointer to the data after the PPP header.
-     */
-    if (m->m_len <= PPP_HDRLEN) {
-	mp = m->m_next;
-	if (mp == NULL)
-	    return;
-	dp = (mp != NULL)? mtod(mp, u_char *): NULL;
-    } else {
-	mp = m;
-	dp = mtod(mp, u_char *) + PPP_HDRLEN;
-    }
-
-    ep = mtod(mp, u_char *) + mp->m_len;
-    if (dp + CCP_HDRLEN > ep)
-	return;
-    slen = CCP_LENGTH(dp);
-    if (dp + slen > ep) {
-	if (sc->sc_flags & SC_DEBUG)
-	    printf("if_ppp/ccp: not enough data in mbuf (%p+%x > %p+%x)\n",
-		   dp, slen, mtod(mp, u_char *), mp->m_len);
+    u_char 	*p = mtod(m, u_char *);
+    int 	slen;
+    
+    slen = CCP_LENGTH(p);
+    if (slen > m->m_pkthdr.len) {
+        LOGDBG(&wan->net, (LOGVAL, "ppp_comp_ccp: not enough data in mbuf (expected = %d, got = %d)\n",
+		   slen, m->m_pkthdr.len));
 	return;
     }
-
-    switch (CCP_CODE(dp)) {
+    
+    switch (CCP_CODE(p)) {
     case CCP_CONFREQ:
     case CCP_TERMREQ:
     case CCP_TERMACK:
 	/* CCP must be going down - disable compression */
-	if (sc->sc_flags & SC_CCP_UP) {
-	    s = splimp();
-	    sc->sc_flags &= ~(SC_CCP_UP | SC_COMP_RUN | SC_DECOMP_RUN);
-	    splx(s);
-	}
+        wan->sc_flags &= ~(rcvd ? SC_COMP_RUN : SC_DECOMP_RUN);
 	break;
 
     case CCP_CONFACK:
-	if (sc->sc_flags & SC_CCP_OPEN && !(sc->sc_flags & SC_CCP_UP)
+	if (wan->sc_flags & SC_CCP_OPEN && !(wan->sc_flags & SC_CCP_UP)
 	    && slen >= CCP_HDRLEN + CCP_OPT_MINLEN
-	    && slen >= CCP_OPT_LENGTH(dp + CCP_HDRLEN) + CCP_HDRLEN) {
-	    if (!rcvd) {
-		/* we're agreeing to send compressed packets. */
-		if (sc->sc_xc_state != NULL
-		    && (*sc->sc_xcomp->comp_init)
-			(sc->sc_xc_state, dp + CCP_HDRLEN, slen - CCP_HDRLEN,
-			 sc->sc_if.if_unit, 0, sc->sc_flags & SC_DEBUG)) {
-		    s = splimp();
-		    sc->sc_flags |= SC_COMP_RUN;
-		    splx(s);
+	    && slen >= CCP_OPT_LENGTH(p + CCP_HDRLEN) + CCP_HDRLEN) {
+	    if (rcvd) {
+		/* peer is agreeing to send compressed packets. */
+		if (wan->rc_state
+		    && (*wan->rcomp->decomp_init)
+			(wan->rc_state, p + CCP_HDRLEN, slen - CCP_HDRLEN,
+			 wan->net.if_unit, 0, wan->mru, wan->net.if_flags & IFF_DEBUG)) {
+		    wan->sc_flags |= SC_DECOMP_RUN;
+		    wan->sc_flags &= ~(SC_DC_ERROR | SC_DC_FERROR);
 		}
 	    } else {
-		/* peer is agreeing to send compressed packets. */
-		if (sc->sc_rc_state != NULL
-		    && (*sc->sc_rcomp->decomp_init)
-			(sc->sc_rc_state, dp + CCP_HDRLEN, slen - CCP_HDRLEN,
-			 sc->sc_if.if_unit, 0, sc->sc_mru,
-			 sc->sc_flags & SC_DEBUG)) {
-		    s = splimp();
-		    sc->sc_flags |= SC_DECOMP_RUN;
-		    sc->sc_flags &= ~(SC_DC_ERROR | SC_DC_FERROR);
-		    splx(s);
+		/* we're agreeing to send compressed packets. */
+		if (wan->xc_state
+		    && (*wan->xcomp->comp_init)
+			(wan->xc_state, p + CCP_HDRLEN, slen - CCP_HDRLEN,
+			 wan->net.if_unit, 0, wan->net.if_mtu, wan->net.if_flags & IFF_DEBUG)) {
+		    wan->sc_flags |= SC_COMP_RUN;
 		}
 	    }
 	}
 	break;
 
     case CCP_RESETACK:
-	if (sc->sc_flags & SC_CCP_UP) {
-	    if (!rcvd) {
-		if (sc->sc_xc_state && (sc->sc_flags & SC_COMP_RUN))
-		    (*sc->sc_xcomp->comp_reset)(sc->sc_xc_state);
-	    } else {
-		if (sc->sc_rc_state && (sc->sc_flags & SC_DECOMP_RUN)) {
-		    (*sc->sc_rcomp->decomp_reset)(sc->sc_rc_state);
-		    s = splimp();
-		    sc->sc_flags &= ~SC_DC_ERROR;
-		    splx(s);
+	if (wan->sc_flags & SC_CCP_UP) {
+	    if (rcvd) {
+		if (wan->rc_state && (wan->sc_flags & SC_DECOMP_RUN)) {
+		    (*wan->rcomp->decomp_reset)(wan->rc_state);
+		    wan->sc_flags &= ~SC_DC_ERROR;
 		}
+	    } else {
+		if (wan->xc_state && (wan->sc_flags & SC_COMP_RUN))
+		    (*wan->xcomp->comp_reset)(wan->xc_state);
 	    }
 	}
 	break;
@@ -317,15 +389,109 @@ void ppp_ccp(struct ppp_if *sc, struct mbuf *m, int rcvd)
 /* -----------------------------------------------------------------------------
 CCP is down; free (de)compressor state if necessary.
 ----------------------------------------------------------------------------- */
-void ppp_comp_close(struct ppp_if *sc)
+void ppp_comp_close(struct ppp_if *wan)
 {
-    if (sc->sc_xc_state) {
-	(*sc->sc_xcomp->comp_free)(sc->sc_xc_state);
-	sc->sc_xc_state = NULL;
+
+    wan->sc_flags &= ~(SC_CCP_OPEN || SC_CCP_UP || SC_COMP_RUN || SC_DECOMP_RUN);
+    if (wan->xc_state) {
+	(*wan->xcomp->comp_free)(wan->xc_state);
+	wan->xc_state = NULL;
     }
-    if (sc->sc_rc_state) {
-	(*sc->sc_rcomp->decomp_free)(sc->sc_rc_state);
-	sc->sc_rc_state = NULL;
+    if (wan->rc_state) {
+	(*wan->rcomp->decomp_free)(wan->rc_state);
+	wan->rc_state = NULL;
     }
 }
-#endif
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+void ppp_comp_logmbuf(char *msg, struct mbuf *m) 
+{
+    int 	i, lcount, copycount, count;
+    char 	lbuf[16], *data;
+
+    if (m == NULL)
+        return;
+
+    log(LOGVAL, "%s: \n", msg);
+
+    for (count = m->m_len, data = mtod(m, char*); m != NULL; ) {
+        /* build a line of output */
+        for(lcount = 0; lcount < sizeof(lbuf); lcount += copycount) {
+            if (!count) {
+                m = m->m_next;
+                if (m == NULL)
+                    break;
+                count = m->m_len;
+                data  = mtod(m,char*);
+            }
+            copycount = (count > sizeof(lbuf) - lcount) ? sizeof(lbuf) - lcount : count;
+            bcopy(data, &lbuf[lcount], copycount);
+            data  += copycount;
+            count -= copycount;
+        }
+
+        /* output line (hex 1st, then ascii) */
+        log(LOGVAL, "%s:  0x  ", msg);
+        for(i = 0; i < lcount; i++) {
+            if (i == 8) log(LOGVAL, "  ");
+            log(LOGVAL, "%02x ", (u_char)lbuf[i]);
+        }
+        for( ; i < sizeof(lbuf); i++) {
+            if (i == 8) log(LOGVAL, "  ");
+            log(LOGVAL, "   ");
+        }
+        log(LOGVAL, "  '");
+        for(i = 0; i < lcount; i++)
+            log(LOGVAL, "%c",(lbuf[i]>=040 && lbuf[i]<=0176)?lbuf[i]:'.');
+        log(LOGVAL, "'\n");
+    }
+}
+
+/* -----------------------------------------------------------------------------
+return codes :
+> 0 : compression done, buffer has changed, return new lenght
+0 : compression not done, buffer has not changed, lenght is unchanged
+< 0 : compression not done because of error, return -error 
+----------------------------------------------------------------------------- */
+int ppp_comp_compress(struct ppp_if *wan, struct mbuf **m)
+{    
+    if (wan->xc_state == 0 || (wan->sc_flags & SC_CCP_UP) == 0)
+        return COMP_NOTDONE;
+    
+    return wan->xcomp->compress(wan->xc_state, m);
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int ppp_comp_incompress(struct ppp_if *wan, struct mbuf *m)
+{
+    
+    if ((wan->rc_state == 0) || (wan->sc_flags & (SC_DC_ERROR | SC_DC_FERROR)))
+        return 0;
+        
+    /* Uncompressed frame - pass to decompressor so it can update its dictionary if necessary. */
+    wan->rcomp->incomp(wan->rc_state, m);
+
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int ppp_comp_decompress(struct ppp_if *wan, struct mbuf **m)
+{
+    int err;
+    
+    if ((wan->rc_state == 0) || (wan->sc_flags & (SC_DC_ERROR | SC_DC_FERROR)))
+        return DECOMP_ERROR;
+            
+    err = wan->rcomp->decompress(wan->rc_state, m);
+    if (err != DECOMP_OK) {
+        if (err == DECOMP_FATALERROR)
+            wan->sc_flags |= SC_DC_FERROR;
+        wan->sc_flags |= SC_DC_ERROR;
+        ppp_if_error(&wan->net);
+    }
+
+    return err;	
+}

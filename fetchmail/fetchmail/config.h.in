@@ -81,9 +81,6 @@
 /* Define as 1 if you have catgets and don't want to use GNU gettext.  */
 #undef HAVE_CATGETS
 
-/* Define if you have GNU's getopt family of functions.  */
-#undef HAVE_GETOPTLONG
-
 /* Define as 1 if you have gettext and don't want to use GNU gettext.  */
 #undef HAVE_GETTEXT
 
@@ -212,6 +209,9 @@
 
 /* Define if you have the gethostbyname function.  */
 #undef HAVE_GETHOSTBYNAME
+
+/* Define if you have the getopt_long function.  */
+#undef HAVE_GETOPT_LONG
 
 /* Define if you have the getpagesize function.  */
 #undef HAVE_GETPAGESIZE

@@ -1,0 +1,42 @@
+#! /bin/sh
+
+# Make sure stamp-h* files are created where we expect
+. $srcdir/defs || exit 1
+
+cat > configure.in << END
+AC_INIT(Makefile.am)
+AM_INIT_AUTOMAKE($me, 1.0)
+AM_CONFIG_HEADER(1.h
+                 2.h:config.hin
+                 3.h:sdir1/config1.hin
+
+                 sdir1/4.h
+                 sdir1/5.h:config.hin
+                 sdir1/6.h:sdir1/config1.hin
+                 sdir1/7.h:sdir2/config2.hin)
+AC_OUTPUT(Makefile)
+END
+
+: > Makefile.am
+mkdir sdir1
+mkdir sdir2
+: > config.hin
+: > 1.h.in
+: > sdir1/4.h.in
+: > sdir1/config1.hin
+: > sdir2/config2.hin
+
+$ACLOCAL || exit 1
+$AUTOCONF || exit 1
+$AUTOMAKE || exit 1
+./configure || exit 1
+
+test -f stamp-h1 || exit 1
+test -f stamp-h2 || exit 1
+test -f stamp-h3 || exit 1
+test -f sdir1/stamp-h4 || exit 1
+test -f sdir1/stamp-h5 || exit 1
+test -f sdir1/stamp-h6 || exit 1
+test -f sdir1/stamp-h7 || exit 1
+
+exit 0

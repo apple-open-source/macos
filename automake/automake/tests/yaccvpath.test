@@ -1,0 +1,101 @@
+#! /bin/sh
+
+# This test checks that dependent files are updated before including
+# in the distribution. `parse.c' depends on `parce.y'. The later is
+# updated so that `parse.c' should be rebuild. Then we are running
+# `make' and `make distdir' and check whether the version of `parse.c'
+# to be distributed is up to date.
+
+. $srcdir/defs || exit 1
+
+$needs_gnu_make			# for `make distdir'
+
+# Likewise for some other tools.
+(gcc -v) > /dev/null 2>&1 || exit 77
+(bison -V) > /dev/null 2>&1 || exit 77
+
+cat > configure.in << 'END'
+AC_INIT
+AC_CONFIG_AUX_DIR([.])
+AM_INIT_AUTOMAKE(foo, 0.1)
+PACKAGE=foo
+VERSION=0.1
+AC_PROG_CC
+AC_PROG_YACC
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = foo
+foo_SOURCES = parse.y foo.c
+END
+
+# Original parser, with `foobar'
+cat > parse.y << 'END'
+%{
+int yylex () {return 0;}
+void yyerror (char *s) {}
+%}
+%%
+foobar : 'f' 'o' 'o' 'b' 'a' 'r' {};
+END
+
+cat > foo.c << 'END'
+int main () { return 0; }
+END
+
+# We are not checking Autoconf, so we pick $YACC for it.
+YACC="bison -y"
+export YACC
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+$YACC parse.y
+mv y.tab.c parse.c
+
+mkdir sub
+cd sub
+../configure
+
+# A delay is needed to make sure that the new parse.y is indeed newer
+# than parse.c, i.e. the they don't have the same timestamp.
+sleep 2
+
+# New parser, with `fubar'
+cat > ../parse.y << 'END'
+%{
+int yylex () {return 0;}
+void yyerror (char *s) {}
+%}
+%%
+fubar : 'f' 'o' 'o' 'b' 'a' 'r' {};
+END
+
+$MAKE
+$MAKE distdir
+grep fubar foo-0.1/parse.c
+
+#
+# Now check to make sure that `make dist' will rebuild the parser.
+#
+
+# A delay is needed to make sure that the new parse.y is indeed newer
+# than parse.c, i.e. the they don't have the same timestamp.
+sleep 2
+
+# New parser, with `maude'
+cat > ../parse.y << 'END'
+%{
+int yylex () {return 0;}
+void yyerror (char *s) {}
+%}
+%%
+maude : 'm' 'a' 'u' 'd' 'e' {};
+END
+
+$MAKE distdir
+grep maude foo-0.1/parse.c

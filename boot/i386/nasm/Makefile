@@ -10,7 +10,7 @@ MANINSTALLDIR = $(SYMROOT)
 INSTALLDIR = $(SYMROOT)
 
 OPTIM = -O2
-CFLAGS	= $(OPTIM) -g  -Wall -traditional-cpp
+CFLAGS	= $(OPTIM) -g  -Wmost -Werror
 DEFINES=
 INC = -I.
 ifneq "" "$(wildcard /bin/mkdirs)"

@@ -37,6 +37,67 @@
 #import <NetInfo/dsutil.h>
 #import "LUPrivate.h"
 #import <stdlib.h>
+#import <string.h>
+
+static char *
+dsmetadatatostring(dsdata *d)
+{
+	char *s;
+
+	if (d == NULL) return NULL;
+	s = malloc(d->length + 2);
+	memmove(s + 1, d->data, d->length);
+	s[0] = '_';
+	s[d->length + 1] = '\0';
+	return s;
+}
+
+LUArray *
+dsrecordToArray(dsrecord *rl)
+{
+	LUArray *a;
+	dsrecord *r;
+	LUDictionary *dict;
+	unsigned int where;
+	int i, j;
+	char *k;
+
+	if (rl == NULL) return nil;
+	r = rl;
+
+	a = [[LUArray alloc] init];
+
+	while (r != NULL)
+	{
+		dict = [[LUDictionary alloc] init];
+
+		for (i = 0; i < r->count; i++)
+		{
+			where = [dict addKey:dsdata_to_cstring(r->attribute[i]->key)];
+			for (j = 0; j < r->attribute[i]->count; j++)
+			{
+				[dict addValue:dsdata_to_cstring(r->attribute[i]->value[j]) atIndex:where];
+			}
+		}
+
+		for (i = 0; i < r->meta_count; i++)
+		{
+			k = dsmetadatatostring(r->meta_attribute[i]->key);
+			where = [dict addKey:k];
+			free(k);
+			for (j = 0; j < r->meta_attribute[i]->count; j++)
+			{
+				[dict addValue:dsdata_to_cstring(r->meta_attribute[i]->value[j]) atIndex:where];
+			}
+		}
+
+		[a addObject:dict];
+		[dict release];
+		r = r->next;
+	}
+
+	return a;
+}
 
 @implementation LUArray
 
@@ -44,10 +105,21 @@
 {
 	int i;
 
-	fprintf(f, "Array: \"%s\" (%d object%s)\n", [self banner], count, (count == 1) ? "" : "s");
+	fprintf(f, "Array: \"%s\"\n", [self banner]);
+	if (validationStampCount > 0)
+	{
+		fprintf(f, "--> %d validation stamp%s\n", validationStampCount, (validationStampCount == 1) ? "" : "s");
+		fprintf(f, "[\n");
+		for (i = 0; i < validationStampCount; i++) [validationStamps[i] print:f];
+		fprintf(f, "]\n");
+		fprintf(f, "<-- %d validation stamp%s\n\n", validationStampCount, (validationStampCount == 1) ? "" : "s");
+	}
+
+	fprintf(f, "==> %d object%s\n", count, (count == 1) ? "" : "s");
 	fprintf(f, "[\n");
 	for (i = 0; i < count; i++) [obj[i] print:f];
 	fprintf(f, "]\n");
+	fprintf(f, "<== %d object%s\n\n", count, (count == 1) ? "" : "s");
 }
 
 - (LUArray *)init
@@ -240,5 +312,15 @@
 	return list;
 }
 
+- (unsigned int)memorySize
+{
+	unsigned int size;
+
+	size = [super memorySize];
+	size += 8;
+	size += (4 * count);
+	size += (4 * validationStampCount);
+	return size;
+}
 
 @end

@@ -1,6 +1,6 @@
 /* System description file for MS-DOS
 
-   Copyright (C) 1993, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1996, 1997, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -216,7 +216,9 @@ You lose; /* Emacs for DOS must be compiled with DJGPP */
 
 /* When $TERM is "internal" then this is substituted:  */
 #define INTERNAL_TERMINAL "pc|bios|IBM PC with colour display:\
-:co#80:li#25:km:ms:cm=<CM>:cl=<CL>:ce=<CE>:"
+:co#80:li#25:Co#16:pa#256:km:ms:cm=<CM>:cl=<CL>:ce=<CE>:\
+:se=</SO>:so=<SO>:us=<UL>:ue=</UL>:md=<BD>:mh=<DIM>:mb=<BL>:mr=<RV>:me=<NV>:\
+:AB=<BG %d>:AF=<FG %d>:op=<DefC>:"
 
 /* Define this to a function (Fdowncase, Fupcase) if your file system
    likes that */
@@ -265,5 +267,12 @@ You lose; /* Emacs for DOS must be compiled with DJGPP */
 #define LIBX11_SYSTEM -lxext -lsys
 #else
 /* We need a little extra space, see ../../lisp/loadup.el */
-#define SYSTEM_PURESIZE_EXTRA 85000
+#define SYSTEM_PURESIZE_EXTRA 60000
 #endif
+
+/* Tell the garbage collector that setjmp is known to save all
+   registers relevant for conservative garbage collection in the
+   jmp_buf.  */
+
+#define GC_SETJMP_WORKS 1
+#define GC_MARK_STACK GC_MAKE_GCPROS_NOOPS

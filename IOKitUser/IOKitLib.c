@@ -21,6 +21,7 @@
  */
 
 #include <mach/mach.h>
+#include <mach/mach_port.h>
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -45,11 +46,37 @@
 
 extern 	mach_port_t 	mach_task_self();
 
+const 	mach_port_t 	kIOMasterPortDefault = MACH_PORT_NULL;
+
+static mach_port_t
+__IOGetDefaultMasterPort()
+{
+    kern_return_t	result;
+    mach_port_t	masterPort;
+
+    result = IOMasterPort(MACH_PORT_NULL, &masterPort);
+    if( KERN_SUCCESS != result) {
+        masterPort = MACH_PORT_NULL;
+    }
+    return( masterPort );
+}
+
 kern_return_t
 IOMasterPort( mach_port_t bootstrapPort,
 		mach_port_t * masterPort )
 {
-    return host_get_io_master(mach_host_self(), masterPort);
+    kern_return_t result = KERN_SUCCESS;
+    mach_port_t host_port = 0;
+
+    host_port = mach_host_self();
+    result = host_get_io_master(host_port, masterPort);
+
+   /* Dispose of the host port to prevent security breaches and port
+    * leaks. We don't care about the kern_return_t value of this
+    * call for now as there's nothing we can do if it fails.
+    */
+    if (host_port) mach_port_deallocate(mach_task_self(), host_port);
+    return result;
 }
 
 kern_return_t
@@ -175,6 +202,25 @@ IOIteratorIsValid(
  * IOService
  */
 
+io_service_t
+IOServiceGetMatchingService(
+	mach_port_t	masterPort,
+	CFDictionaryRef	matching )
+{
+    io_iterator_t       iter = NULL;
+    io_service_t        service = NULL;
+
+    IOServiceGetMatchingServices( masterPort, matching, &iter );
+
+    if( iter) {
+
+        service = IOIteratorNext( iter );
+        IOObjectRelease( iter );
+    }
+
+    return( service );
+}
+
 kern_return_t
 IOServiceGetMatchingServices(
         mach_port_t	masterPort,
@@ -183,6 +229,8 @@ IOServiceGetMatchingServices(
 {
     kern_return_t	kr;
     CFDataRef		data;
+
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
 
     if( !matching)
 	return( kIOReturnBadArgument);
@@ -233,6 +281,8 @@ IOServiceAddNotification(
 {
     kern_return_t	kr;
     CFDataRef		data;
+
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
 
     if( !matching)
 	return( kIOReturnBadArgument);
@@ -316,7 +366,9 @@ IONotificationPortCreate(
 {
     kern_return_t 	 kr;
     IONotificationPort * notify;
-    
+
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+
     notify = calloc( 1, sizeof( IONotificationPort));
     if( !notify)
         return( 0 );
@@ -397,6 +449,8 @@ IOMakeMatching(
     IOReturn			err;
     CFMutableDictionaryRef	result = 0;
     char * 			matching;
+
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
 
     matching = (char *) malloc( sizeof( io_string_t));
 
@@ -604,6 +658,9 @@ IODispatchCalloutFromCFMessage(CFMachPortRef port, void *_msg, CFIndex size, voi
         break;
       }
     }
+
+    if( MACH_PORT_NULL != msg->msgh_remote_port)
+	mach_port_deallocate( mach_task_self(), msg->msgh_remote_port );
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -630,6 +687,8 @@ IOKitGetBusyState(
 {
     io_service_t 	root;
     kern_return_t	kr;
+
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
 
     kr = io_registry_entry_from_path( masterPort,
 			kIOServicePlane ":/", &root );
@@ -669,6 +728,8 @@ IOKitWaitQuiet(
     io_service_t 	root;
     kern_return_t	kr;
     mach_timespec_t	defaultWait = { 0, -1 };
+
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
 
     kr = io_registry_entry_from_path( masterPort,
 			kIOServicePlane ":/", &root );
@@ -1021,6 +1082,8 @@ IORegistryCreateIterator(
 	IOOptionBits	options,
 	io_iterator_t * iterator )
 {
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+
     return( io_registry_create_iterator( masterPort, (char *) plane,
 		options, iterator));
 }
@@ -1059,6 +1122,8 @@ IORegistryEntryFromPath(
     kern_return_t	kr;
     io_registry_entry_t	entry;
 
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+
     kr = io_registry_entry_from_path( masterPort, (char *) path, &entry );
     if( kIOReturnSuccess != kr)
 	entry = 0;
@@ -1072,6 +1137,8 @@ IORegistryGetRootEntry(
 {
     kern_return_t	kr;
     io_registry_entry_t	entry;
+
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
 
     kr = io_registry_get_root_entry( masterPort, &entry );
     if( kIOReturnSuccess != kr)
@@ -1463,6 +1530,8 @@ IOCatalogueSendData(
     kern_return_t kr;
     kern_return_t result;
 
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+
     kr = io_catalog_send_data( masterPort, flag,
                             (char *) buffer, size, &result );
     if( KERN_SUCCESS == kr)
@@ -1477,6 +1546,8 @@ IOCatalogueTerminate(
         int                     flag,
         io_name_t		description )
 {
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+
     return( io_catalog_terminate( masterPort, flag, description ));
 }
 
@@ -1487,6 +1558,8 @@ IOCatalogueGetData(
         char                  **buffer,
         int                    *size )
 {
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+
     return ( io_catalog_get_data( masterPort, flag, (char **)buffer, (unsigned *)size ) );
 }
 
@@ -1495,6 +1568,8 @@ IOCatlogueGetGenCount(
         mach_port_t		masterPort,
         int                    *genCount )
 {
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+
     return ( io_catalog_get_gen_count( masterPort, genCount ) );
 }
 
@@ -1503,6 +1578,8 @@ IOCatalogueModuleLoaded(
         mach_port_t		masterPort,
         io_name_t               name )
 {
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+
     return ( io_catalog_module_loaded( masterPort, name ) );
 }
 
@@ -1511,6 +1588,8 @@ IOCatalogueReset(
         mach_port_t		masterPort,
 	int			flag )
 {
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+
     return ( io_catalog_reset(masterPort, flag) );
 }
 
@@ -1523,6 +1602,8 @@ IORegistryCreateEnumerator(
         mach_port_t	masterPort,
 	mach_port_t *	enumerator )
 {
+    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+
     return( io_registry_create_iterator( masterPort,
                                          "IOService", true, enumerator));
 }

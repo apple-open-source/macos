@@ -69,6 +69,7 @@ extern int alwaysno;	/* assume "no" for all questions */
 extern int alwaysyes;	/* assume "yes" for all questions */
 extern int preen;	/* we are preening */
 extern int rdonly;	/* device is opened read only (supersedes above) */
+extern int quick;	/* set to quickly check if volume is dirty */
 
 extern char *fname;	/* filesystem currently checked */
 
@@ -108,6 +109,11 @@ int readboot __P((int, struct bootblock *));
 int writefsinfo __P((int, struct bootblock *));
 
 /*
+ * Determine whether a volume is dirty, without reading the entire FAT.
+ */
+int isdirty(int fs, struct bootblock *boot, int fat);
+
+/*
  * Read one of the FAT copies and return a pointer to the new
  * allocated array holding our description of it.
  */
@@ -140,9 +146,15 @@ int handleDirTree __P((int, struct bootblock *, struct fatEntry *));
  * Cross-check routines run after everything is completely in memory
  */
 /*
+ * Determine the length of a cluster chain by following its links in the FAT
+ */
+cl_t chainlength(struct bootblock *boot, struct fatEntry *fat, cl_t head);
+
+/*
  * Check for lost cluster chains
  */
 int checklost __P((int, struct bootblock *, struct fatEntry *));
+
 /*
  * Try to reconnect a lost cluster chain
  */

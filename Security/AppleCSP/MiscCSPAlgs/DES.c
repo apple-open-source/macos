@@ -27,7 +27,13 @@
  *	Created.
  */
 
+#ifdef	CRYPTKIT_CSP_ENABLE
+/* CryptKit compiled in; secure malloc available */
 #define STATIC_PERMS	0
+#else
+/* Statically allocated lookup tables */
+#define STATIC_PERMS	1
+#endif	/* CRYPTKIT_CSP_ENABLE */
 
 #include "DES.h"
 #if	!STATIC_PERMS

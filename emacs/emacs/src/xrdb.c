@@ -1,5 +1,5 @@
 /* Deal with the X Resource Manager.
-   Copyright (C) 1990, 1993, 1994 Free Software Foundation.
+   Copyright (C) 1990, 1993, 1994, 2000, 2001 Free Software Foundation.
 
 This file is part of GNU Emacs.
 
@@ -33,13 +33,15 @@ Boston, MA 02111-1307, USA.  */
 #include <stdio.h>
 
 #if 1 /* I'd really appreciate it if this code could go away...  -JimB */
-/* this avoids lossage in the `dual-universe' headers on AT&T SysV X11 */
-#ifdef USG5
+/* This avoids lossage in the `dual-universe' headers on AT&T SysV
+   X11.  Don't do it on Solaris, because it breaks compilation with
+   XFree86 4.0.3 (and probably many other X11R6 releases) on Solaris
+   2 */
+#if defined(USG5) && !defined(SOLARIS2)
 #ifndef SYSV
 #define SYSV
 #endif
-#include <unistd.h>
-#endif /* USG5 */
+#endif /* USG5 && !SOLARIS2 */
 
 #endif /* 1 */
 
@@ -61,6 +63,8 @@ Boston, MA 02111-1307, USA.  */
 #if !defined(S_ISDIR) && defined(S_IFDIR)
 #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
 #endif
+
+#include "lisp.h"
 
 extern char *getenv ();
 
@@ -88,7 +92,6 @@ extern char *get_system_name ();
 #define malloc xmalloc
 #define realloc xrealloc
 #define free xfree
-extern long *xmalloc (), *xrealloc ();
 #endif
 
 char *x_get_string_resource ();
@@ -180,7 +183,7 @@ magic_file_p (string, string_len, class, escaped_suffix, suffix)
   while (p < string + string_len)
     {
       /* The chunk we're about to stick on the end of result.  */
-      char *next;
+      char *next = NULL;
       int next_len;
 
       if (*p == '%')
@@ -226,11 +229,11 @@ magic_file_p (string, string_len, class, escaped_suffix, suffix)
 		    free (path);
 		    return NULL;
 		  }
-		
+
 		next = lang;
 		next_len = strlen (next);
 		break;
-	      
+
 	      case 't':
 	      case 'c':
 		free (path);
@@ -246,7 +249,7 @@ magic_file_p (string, string_len, class, escaped_suffix, suffix)
 	  path_size = (path_len + next_len + 1) * 2;
 	  path = (char *) realloc (path, path_size);
 	}
-      
+
       bcopy (next, path + path_len, next_len);
       path_len += next_len;
 
@@ -308,7 +311,7 @@ gethomedir ()
 	ptr = pw->pw_dir;
     }
 
-  if (ptr == NULL) 
+  if (ptr == NULL)
     return "/";
 
   copy = (char *) malloc (strlen (ptr) + 2);
@@ -332,7 +335,7 @@ file_p (path)
 
 
 /* Find the first element of SEARCH_PATH which exists and is readable,
-   after expanding the %-escapes.  Return 0 if we didn't find any, and 
+   after expanding the %-escapes.  Return 0 if we didn't find any, and
    the path name of the one we found otherwise.  */
 
 static char *
@@ -345,7 +348,7 @@ search_magic_path (search_path, class, escaped_suffix, suffix)
     {
       for (p = s; *p && *p != ':'; p++)
 	;
-      
+
       if (p > s)
 	{
 	  char *path = magic_file_p (s, p - s, class, escaped_suffix, suffix);
@@ -396,8 +399,6 @@ static XrmDatabase
 get_fallback (display)
      Display *display;
 {
-  XrmDatabase db;
-
   return NULL;
 }
 
@@ -420,7 +421,7 @@ get_user_app (class)
       || ((path = getenv ("XAPPLRESDIR"))
 	  && ((file = search_magic_path (path, class, "/%L/%N", 0))
 	      || (file = search_magic_path (path, class, "/%N", 0))))
-      
+
       /* Check in the home directory.  This is a bit of a hack; let's
 	 hope one's home directory doesn't contain any %-escapes.  */
       || (free_it = gethomedir (),
@@ -522,10 +523,15 @@ x_load_resources (display, xrm_string, myname, myclass)
      Display *display;
      char *xrm_string, *myname, *myclass;
 {
-  char *xdefs;
   XrmDatabase user_database;
   XrmDatabase rdb;
   XrmDatabase db;
+  char line[256];
+  char *helv = "-*-helvetica-medium-r-*--*-120-*-*-*-*-iso8859-1";
+#ifdef USE_MOTIF
+  char *courier = "-*-courier-medium-r-*-*-*-120-*-*-*-*-iso8859-1";
+  extern Lisp_Object Vdouble_click_time;
+#endif
 
   x_rm_string = XrmStringToQuark (XrmStringType);
 #ifndef USE_X_TOOLKIT
@@ -534,6 +540,70 @@ x_load_resources (display, xrm_string, myname, myclass)
   XrmInitialize ();
 #endif
   rdb = XrmGetStringDatabase ("");
+
+  /* Add some font defaults.  If the font `helv' doesn't exist, widgets
+     will use some other default font.  */
+#ifdef USE_MOTIF
+
+  sprintf (line, "%s.pane.background: grey75", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*fontList: %s", myclass, helv);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*menu*background: grey75", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*menubar*background: grey75", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*verticalScrollBar.background: grey75", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*verticalScrollBar.troughColor: grey75", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s.dialog*.background: grey75", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*fsb.Text.background: white", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*fsb.FilterText.background: white", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*fsb*DirList.background: white", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*fsb*ItemsList.background: white", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*fsb*background: grey75", myclass);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*fsb.Text.fontList: %s", myclass, courier);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*fsb.FilterText.fontList: %s", myclass, courier);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*fsb*ItemsList.fontList: %s", myclass, courier);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "%s*fsb*DirList.fontList: %s", myclass, courier);
+  XrmPutLineResource (&rdb, line);
+
+  /* Set double click time of list boxes in the file selection
+     dialog from `double-click-time'.  */
+  if (INTEGERP (Vdouble_click_time) && XINT (Vdouble_click_time) > 0)
+    {
+      sprintf (line, "%s*fsb*DirList.doubleClickInterval: %d",
+	       myclass, XFASTINT (Vdouble_click_time));
+      XrmPutLineResource (&rdb, line);
+      sprintf (line, "%s*fsb*ItemsList.doubleClickInterval: %d",
+	       myclass, XFASTINT (Vdouble_click_time));
+      XrmPutLineResource (&rdb, line);
+    }
+
+#else /* not USE_MOTIF */
+
+  sprintf (line, "Emacs.dialog*.font: %s", helv);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "Emacs.dialog*.background: grey75");
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "*XlwMenu*font: %s", helv);
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "*XlwMenu*background: grey75");
+  XrmPutLineResource (&rdb, line);
+  sprintf (line, "Emacs*verticalScrollBar.background: grey75");
+  XrmPutLineResource (&rdb, line);
+
+#endif /* not USE_MOTIF */
 
   user_database = get_user_db (display);
 
@@ -567,7 +637,7 @@ x_load_resources (display, xrm_string, myname, myclass)
   db = get_environ_db ();
   if (db != NULL)
     XrmMergeDatabases (db, &rdb);
-  
+
   /* Last, merge in any specification from the command line. */
   if (xrm_string != NULL)
     {

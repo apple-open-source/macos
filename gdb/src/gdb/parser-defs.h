@@ -1,5 +1,6 @@
 /* Parser definitions for GDB.
-   Copyright (C) 1986, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000 Free Software Foundation, Inc.
    Modified from expread.y by the Department of Computer Science at the
    State University of New York at Buffalo.
 
@@ -22,6 +23,8 @@
 
 #if !defined (PARSER_DEFS_H)
 #define PARSER_DEFS_H 1
+
+#include "doublest.h"
 
 struct std_regs
   {
@@ -89,7 +92,14 @@ struct objc_class_str
    An array should be preceded in the list by the size of the array.  */
 enum type_pieces
   {
-    tp_end = -1, tp_pointer, tp_reference, tp_array, tp_function
+    tp_end = -1, 
+    tp_pointer, 
+    tp_reference, 
+    tp_array, 
+    tp_function, 
+    tp_const, 
+    tp_volatile, 
+    tp_space_identifier
   };
 /* The stack can contain either an enum type_pieces or an int.  */
 union type_stack_elt
@@ -139,6 +149,8 @@ extern char *copy_name (struct stoken);
 extern void push_type (enum type_pieces);
 
 extern void push_type_int (int);
+
+extern void push_type_address_space (char *);
 
 extern enum type_pieces pop_type (void);
 

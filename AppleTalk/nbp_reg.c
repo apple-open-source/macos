@@ -56,6 +56,8 @@
 #include <sys/sockio.h>
 #include <net/if.h>
 
+#include <ifaddrs.h>
+
 #include <netat/appletalk.h>
 #include <netat/at_var.h>
 #include <netat/nbp.h>
@@ -82,7 +84,6 @@
   each interface.
 
 */
-#define MAX_IF		16
 
 int nbp_reg_lookup(entity, retry)
      at_entity_t     *entity;
@@ -109,53 +110,29 @@ int nbp_reg_lookup(entity, retry)
 	if ((global_state.flags & AT_ST_MULTIHOME) && (entity->zone.str[0] == '*'))
 	{
 		/* for each interface that is configured for Appletalk */
-		struct ifconf	ifc;
-		struct ifreq	*ifrbuf = NULL, *ifr;
+		struct ifaddrs *ifaddrs, *ifa;
 		at_if_cfg_t 	cfg;
-		int				size = sizeof(struct ifreq) * MAX_IF;
 		
-		while (1) {
-			if (ifrbuf != NULL)
-				ifrbuf = (struct ifreq *)realloc(ifrbuf, size);
-			else
-				ifrbuf = (struct ifreq *)malloc(size);
-				
-			ifc.ifc_req = ifrbuf;
-			ifc.ifc_len = size;
-	
-			if (ioctl(s, SIOCGIFCONF, &ifc) < 0 || ifc.ifc_len <= 0) {
-				fprintf(stderr, "nbp_reg_lookup: SIOCGIFCONF error");
-				(void)close(s);
-				if (ifrbuf)
-					free(ifrbuf);
-				return(-1);
-			}
-	
-			if ((ifc.ifc_len + sizeof(struct ifreq)) < size)
-				break;
-				
-			size *= 2;
-		}
-
-		for (ifr = (struct ifreq *) ifc.ifc_buf;
-		     (char *) ifr < &ifc.ifc_buf[ifc.ifc_len];
-		     ifr = IFR_NEXT(ifr)) {
-		  	unsigned char *p, c;
-
-			if (ifr->ifr_addr.sa_family != AF_APPLETALK)
+		if (getifaddrs(&ifaddrs) < 0)
+			return(-1);	/* getifaddrs properly set errno */
+		
+		for (ifa = ifaddrs; ifa != NULL; ifa = ifa->ifa_next) {
+			unsigned char *p, c;
+			
+			if (ifa->ifa_addr->sa_family != AF_APPLETALK)
 				continue;
 
-			if (*ifr->ifr_name == '\0')
+			if (*ifa->ifa_name == '\0')
 				continue;
-
+						
 			/*
-			 * Adapt to buggy kernel implementation (> 9 of a type)
-			 */
-			p = &ifr->ifr_name[strlen(ifr->ifr_name)-1];
+			* Adapt to buggy kernel implementation (> 9 of a type)
+			*/
+			p = &ifa->ifa_name[strlen(ifa->ifa_name)-1];
 			if ((c = *p) > '0'+9)
-			  	sprintf(p, "%d", c-'0');
+				sprintf(p, "%d", c-'0');
 
-			strcpy(cfg.ifr_name, ifr->ifr_name);
+			strcpy(cfg.ifr_name, ifa->ifa_name);
 			if (ioctl(s, AIOCGETIFCFG, (caddr_t)&cfg) < 0)
 				continue;
 
@@ -167,13 +144,17 @@ int nbp_reg_lookup(entity, retry)
 			  entity_copy[cnt] = entity_copy[0];
 			entity_copy[cnt++].zone = cfg.zonename;
 		}
+		
 		if(!cnt) {
 			fprintf(stderr,"nbp_reg_lookup: no local zones\n");
 			(void)close(s);
 			SET_ERRNO(ENOENT);
 			return(-1);
 		}
+		
+		freeifaddrs(ifaddrs);
 	}
+
 	(void)close(s);
 	for (i = 0; i < cnt; i++) {
 #ifdef APPLETALK_DEBUG

@@ -25,6 +25,11 @@ Boston, MA 02111-1307, USA.
 #define NTHEAP_H_
 
 #include <windows.h>
+/* Emacs takes care of ensuring that these are defined.  */
+#ifdef max
+#undef max
+#undef min
+#endif
 
 #define ROUND_UP(p, align)   (((DWORD)(p) + (align)-1) & ~((align)-1))
 #define ROUND_DOWN(p, align) ((DWORD)(p) & ~((align)-1))
@@ -50,6 +55,7 @@ extern OSVERSIONINFO  osinfo_cache;
 extern BOOL   	      using_dynamic_heap;
 extern int    	      w32_major_version;
 extern int    	      w32_minor_version;
+extern int    	      w32_build_number;
 
 enum {
   OS_WIN95 = 1,

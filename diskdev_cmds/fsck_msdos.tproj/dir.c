@@ -263,7 +263,7 @@ resetDosDirSection(boot, fat)
 	memset(rootDir, 0, sizeof *rootDir);
 	if (boot->flags & FAT32) {
 		if (boot->RootCl < CLUST_FIRST || boot->RootCl >= boot->NumClusters) {
-			pfatal("Root directory starts with cluster out of range(%u)",
+			pfatal("Root directory starts with cluster out of range(%u)\n",
 			       boot->RootCl);
 			return FSFATAL;
 		}
@@ -277,7 +277,7 @@ resetDosDirSection(boot, fat)
 				pwarn("Root directory starts with cluster marked %s\n",
 				      rsrvdcltype(cl));
 			else {
-				pfatal("Root directory doesn't start a cluster chain");
+				pfatal("Root directory doesn't start a cluster chain\n");
 				return FSFATAL;
 			}
 			if (ask(1, "Fix")) {
@@ -287,7 +287,7 @@ resetDosDirSection(boot, fat)
 				ret = FSFATAL;
 		}
 
-		fat[boot->RootCl].flags |= FAT_USED;
+		fat[boot->RootCl].in_use = 1;
 		rootDir->head = boot->RootCl;
 	}
 
@@ -435,7 +435,7 @@ checksize(boot, fat, p, dir)
 	else {
 		if (dir->head < CLUST_FIRST || dir->head >= boot->NumClusters)
 			return FSERROR;
-		physicalSize = fat[dir->head].length * boot->ClusterSize;
+		physicalSize = chainlength(boot, fat, dir->head) * boot->ClusterSize;
 	}
 	if (physicalSize < dir->size) {
 		pwarn("size of %s is %u, should at most be %u\n",
@@ -781,7 +781,7 @@ readDosDirSection(f, boot, fat, dir)
 			}
 
 			if (dirent.head >= CLUST_FIRST && dirent.head < boot->NumClusters)
-				fat[dirent.head].flags |= FAT_USED;
+				fat[dirent.head].in_use = 1;
 
 			if (dirent.flags & ATTR_DIRECTORY) {
 				/*
@@ -1002,7 +1002,7 @@ reconnect(dosfs, boot, fat, head)
 	(void)snprintf(d.name, sizeof(d.name), "%u", head);
 	d.flags = 0;
 	d.head = head;
-	d.size = fat[head].length * boot->ClusterSize;
+	d.size = chainlength(boot, fat, head) * boot->ClusterSize;
 
 	memset(p, 0, 32);
 	memset(p, ' ', 11);
@@ -1017,7 +1017,7 @@ reconnect(dosfs, boot, fat, head)
 	p[29] = (u_char)(d.size >> 8);
 	p[30] = (u_char)(d.size >> 16);
 	p[31] = (u_char)(d.size >> 24);
-	fat[head].flags |= FAT_USED;
+	fat[head].in_use = 1;
 	if (lseek(dosfs, lfoff, SEEK_SET) != lfoff
 	    || write(dosfs, lfbuf, boot->ClusterSize) != boot->ClusterSize) {
 		perror("could not write LOST.DIR");

@@ -53,13 +53,15 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)svc_run.c 1.1 87/10/13 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)svc_run.c	2.1 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: svc_run.c,v 1.2 1999/10/14 21:56:54 wsanchez Exp $";
+static char *rcsid = "$Id: svc_run.c,v 1.3 2002/02/19 20:36:25 epeyton Exp $";
 #endif
 
 /*
  * This is the rpc server side idle loop
  * Wait for input, call server program.
  */
+#include <stdio.h>
+#include <unistd.h>
 #include <rpc/rpc.h>
 #include <sys/errno.h>
 
@@ -73,7 +75,7 @@ svc_run()
 
 	for (;;) {
 		readfds = svc_fdset;
-		switch (select(svc_maxfd+1, &readfds, (int *)0, (int *)0,
+		switch (select(svc_maxfd+1, &readfds, NULL, NULL,
 			       (struct timeval *)0)) {
 		case -1:
 			if (errno == EINTR) {

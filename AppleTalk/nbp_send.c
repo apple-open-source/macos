@@ -81,10 +81,10 @@
 static int nbpId = 0;
 
 static int doNbpReply(at_nbp_t *nbpIn, u_char *reply, u_char **replyPtr,
-		      int got, int max);
+		      int got, int max, int buf_len);
 static int nbp_len(at_nbptuple_t *tuple);
 static void nbp_pack_tuple(at_entity_t *entity, at_nbptuple_t *tuple);
-static void nbp_unpack_tuple(at_nbptuple_t *tuple, at_entity_t *entity);
+static int nbp_unpack_tuple(at_nbptuple_t *tuple, at_entity_t *entity);
 static void time_diff(struct timeval *time1, struct timeval *time2,
 			struct timeval *diff);
 
@@ -260,7 +260,7 @@ poll:
 			if (nbpIn->control != expectedControl) 
 				goto poll;
 				
-			n = doNbpReply(nbpIn, reply, &replyPtr, got, max);
+			n = doNbpReply(nbpIn, reply, &replyPtr, got, max, result);
 			got += n;
 			SET_ERRNO(0);
 			if (got >= max)
@@ -312,36 +312,57 @@ out:
 	return (got);
 } /* _nbp_send_ */
 
-static int doNbpReply(nbpIn, reply, replyPtr, got, max)
+static int doNbpReply(nbpIn, reply, replyPtr, got, max, buf_len)
 	at_nbp_t	*nbpIn;
 	u_char		*reply, **replyPtr;
-	int		got, max;
+	int		got, max, buf_len;
 {
-	int 		i, wegot = 0;
+	int 		i, wegot = 0, tot_len;
 	at_nbptuple_t	*tuple, *tupleIn, *tupleNext;
 
 	tupleIn = &nbpIn->tuple[0];
 	tupleNext = * (at_nbptuple_t **) replyPtr;
+	tot_len = nbp_len(tupleIn);
 
 	for (i = 0; i < (int) nbpIn->tuple_count; i++) {
-		for (tuple = (at_nbptuple_t *) reply; tuple < tupleNext; tuple++) {
-			if (tuple->enu_enum == tupleIn->enu_enum &&
-			    tuple->enu_addr.net == tupleIn->enu_addr.net &&
-			    tuple->enu_addr.node == tupleIn->enu_addr.node &&
-			    tuple->enu_addr.socket == tupleIn->enu_addr.socket){
-				goto skip;
+		/* check that the actual size of the current tuple doesn't exceed the buffer size */
+		if ((buf_len - tot_len) < 0) {
+			/*buffer is corrupt - set the reply back (wegot-1) entries
+				and return 0 */
+			tupleNext -= (wegot - 1);
+			return 0;
+		} else {
+			for (tuple = (at_nbptuple_t *) reply; tuple < tupleNext; tuple++) {
+				if (tuple->enu_enum == tupleIn->enu_enum &&
+					tuple->enu_addr.net == tupleIn->enu_addr.net &&
+					tuple->enu_addr.node == tupleIn->enu_addr.node &&
+					tuple->enu_addr.socket == tupleIn->enu_addr.socket){
+					goto skip;
+				}
 			}
-		}
-		if (got + wegot >= max)
-			break;
-		wegot++;
-
-		tupleNext->enu_addr = tupleIn->enu_addr;
-		tupleNext->enu_enum = tupleIn->enu_enum;
-		(void) nbp_unpack_tuple(tupleIn, &tupleNext->enu_entity);
-		tupleNext++;
+			if (got + wegot >= max)
+				break;
+			wegot++;
+		
+			tupleNext->enu_addr = tupleIn->enu_addr;
+			tupleNext->enu_enum = tupleIn->enu_enum;
+			
+			/* Here, if the tuple is bad, nbp_unpack_tuple will now return
+				an error. We then set the reply back (wegot-1) entries
+				and return 0 */
+			if ((nbp_unpack_tuple(tupleIn, &tupleNext->enu_entity)) != 0) {
+				tupleNext -= (wegot - 1);
+				return 0;
+			}
+		
+			tupleNext++;
 skip:
-		tupleIn = (at_nbptuple_t *) (((u_char *) tupleIn) + nbp_len(tupleIn));
+			/* skip over current tuple to next in buffer */
+			tupleIn = (at_nbptuple_t *) (((u_char *) tupleIn) + nbp_len(tupleIn));
+			
+			/* add length of next tuple to tot_len */
+			tot_len += nbp_len(tupleIn);
+		}
 	}
 	*replyPtr = (u_char *) tupleNext;
 	return (wegot);
@@ -380,18 +401,32 @@ static void nbp_pack_tuple(entity, tuple)
 }
 
 /* tuple is in the compressed (no "filler") format */
-static void nbp_unpack_tuple(tuple, entity)
+static int nbp_unpack_tuple(tuple, entity)
 	at_nbptuple_t	*tuple;
 	at_entity_t	*entity;
 {
 	register u_char	*p;
 
 	p = (u_char *)&tuple->enu_entity;
+	
+	if (*p > NBP_NVE_STR_SIZE) {
+		return -1;
+	}
 	memcpy (&entity->object, p, *p + 1);
 	p += *p + 1;
+	
+	if (*p > NBP_NVE_STR_SIZE) {
+		return -1;
+	}
 	memcpy (&entity->type, p, *p + 1);
 	p += *p + 1;
+	
+	if (*p > NBP_NVE_STR_SIZE) {
+		return -1;
+	}
 	memcpy (&entity->zone, p, *p + 1);
+	
+	return 0;
 }
 
 /* returns (time1 - time2) in diff.

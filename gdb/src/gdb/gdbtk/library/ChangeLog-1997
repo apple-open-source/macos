@@ -1,0 +1,1487 @@
+Wed Dec 10 13:17:21 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* src.tcl (file): Insert tracepoint dots into the source window, too.
+
+	* tracedlg.tcl (build_win): Add an update to workaround a Tix/Tk bug when
+	mapping the dialog under X.
+
+	* console.tcl (insert): Add all errors to the end of the text widget.
+	(einsert): Send errors to end of text widget, not insertion pt.
+	(invoke): Send errors to end of text widget, not insertion pt.
+
+	* interface.tcl (gdbtk_tcl_readline_begin): Insert message into
+	command window so that the user sees messages like "Enter commands, one
+	per line. Enter 'end' when finished."
+
+	* actiondlg.tcl (change_other): Clear the entry on <Return>.
+	Add fencepost to avoid manipulating collect list twice which
+	could otherwise have undesired side effects.
+	Add some validation test for typed-in entries.
+	(ok): Call change_other to check the "Other" entry widget when the
+	dialog is dismissed.
+	(change): fix typo
+
+Mon Dec  8 15:07:51 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* tracedlg.tcl (get_data): New method which gets the data associated
+	with an action.
+	(add_all_actions): Use the new get_data method.
+
+	* actiondlg.tcl (get_selections): Add "declaration" for i so that
+	its scope is not limited to for loop.
+
+Fri Dec  5 10:01:24 1997  Keith Seitz  <keiths@pizza.cygnus.com>
+
+	* tracedlg.tcl (build_win): Add support for ranges of lines at which
+	tracepoint should be set.
+	(add_action): With ranges, use actions from first in tracepoint in the
+	range.
+	(ok): Set tracepoints for ranges, asking if it is ok to overwrite
+	any existing ones when necessary. Dismiss the dialog first -- or else
+	it could hang around forever.
+	(edit): With ranges, use actions of the first tracepoint.
+	TraceDlg::Lines: Renamed from TraceDlg::Line.
+	TraceDlg::New: New protected variable (indicates if there are any new
+	tracepoints being set with this dialog).
+	TraceDlg::Exists: New protected variable (indicates if there are any
+	existing tracepoints that may be overwritten -- so ask the user first).
+
+	* src.tcl (fill_files): Use gdb_find_file to test for the existence
+	of a file, not "file exists".
+	(do_popup): Filter the selection a little. If the selection is
+	multi-line selection, enable the tracepoint range option. Don't
+	display "add to watch" for EVERYTHING!
+	(validBPLine): Valid lines can have images on them, too.
+	(bp_line): Fallout of above: check if breakpoint exists before
+	deciding whether to clear it or set it.
+	(getVariable): Sllow LINE to be passed, so others can filter lines, too.
+	(set_tracepoint): Pass TraceDlg a list of lines -- only one line in this
+	case.
+	(tracepoint_range): New function to set tracepoint ranges.
+	(file): Use gdb_find_file to get the real filename.
+
+Wed Nov 26 15:02:43 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* balloon.tcl, gettext.tcl: Remove obsolete files.
+	
+	* console.tcl (invoke): Remove debug line.
+
+	* src.tcl (update): Remove debug line.
+
+	* prefs.tcl (pref_set_defaults): Turn debug mode off by deafult.
+
+Wed Nov 26 11:30:49 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* main.tcl: Initialize gdbtk_state(readline).
+
+	* console.tcl (invoke): Check if we are in readline mode, so that
+	we wait for the user's input and set a global with the result.
+	(activate): Add prompt argument for readline's prompt.
+	(setprompt): Add prompt argument for readline's prompt.
+
+	* interface.tcl (gdbtk_tcl_readline): hack to get readline working
+
+	* lots: Merge with foundry's 11/18/97 build.
+	
+	* console.tcl (setprompt): Get prompt from gdb.
+
+	* prefs.tcl (pref_set_defaults): Add tracepoint defaults.
+
+	* interface.tcl (gdbtk_tcl_tracepoint): New function which mimicks
+	gdbtk_tcl_breakpoint.
+
+	* src.tcl (constructor): Set default behavior of left click. Make
+	a tracepoint dot, too.
+	(fill_files): "New" function: ripped out of "location". It fills the
+	'files' combo box on the bottom of the source window.
+	(location): Use fill_files to fill the files combo box.
+	(do_bp): Add support for tracepoints.
+	(bp_line): Add support for tracepoints.
+	(set_tracepoint): New function to set a tracepoint on a given line.
+	(config_win): Add "Set tracepoint here" to right-click menu.
+
+	* actiondlg.tcl: New file to help with tracepoint data collection actions.
+
+	* tracedlg.tcl: New file to help with tracepoints.
+
+Mon Nov 17 16:49:56 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* src.tcl (config_win): Remove stray character.
+
+Mon Nov 17 16:04:08 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* main.tcl (startup code: Use the first element from the
+	vmake-exelist list.
+	(exe_name): Likewise.
+	(gdbtk_tcl_preloop): Quote file name passed to file.
+	(download): Quote file name passed to load.
+
+Sun Nov 16 18:21:57 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* bp.tcl (build_win): Change headers to be raised.
+	Change resizing so that the bp grid doesn't change
+	size and is always in the upper left corner.  Scrollbars
+	will appear if the window is shrunk too small.
+ 	(bp_add): Set checkbutton color differently if not
+	on Windows.
+
+	* manage.tcl (manage_init): About title should only
+	have Foundry in it if we are running Foundry.
+
+Fri Nov 14 11:15:29 1997  Jeff Holcomb  <jeffh@cygnus.com>
+
+	* manage.tcl (manage_init): About window title is now "About
+	Cygnus Foundry".
+
+	* toolbar.tcl (create_menu_items): Changed "About Foundry
+	Debugger..." menu option to "About Cygnus Foundry...".
+
+Fri Nov 14 00:00:42 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* memory.tcl (toggle_enabled): Toggle the background
+	color when Auto Update is changed.
+
+	* download_pref.tcl (save): New method. Save new
+	defaults.
+
+	* pref.tcl (build_win): Don't delete subwidget.
+	(save): New method.
+	
+	* manage.tcl (manage_init): Change preferences title.
+
+	* prefs.tcl (pref_set_defaults): Define gdb/advanced.
+	Used for testing advanced features.
+
+	* src.tcl (build_win): Set min size for top pane.
+	(mode): Set minimum size for pane2 when needed.
+
+	* toolbar.tcl (create_menu_items): Underline the
+	W in "Web", not the "e".
+
+Thu Nov 13 16:07:53 1997  Jeff Holcomb  <jeffh@cygnus.com>
+
+	* download.tcl (done): Update window and show the window for
+	at least 3 seconds.
+	(constructor): Initialize start_time and last_num.
+
+Thu Nov 13 18:17:07 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* main.tcl (ide_run_server): Call run_executable.
+	(run_executable): New procedure, mostly from old ide_run_server.
+	If ! GDBTK_IDE, just execute a run command.  In the case where
+	we've already downloaded, don't bother to do the run command after
+	idle.  If downloading is not forced, ask whether we should do it.
+	* src.tcl (config_win): Call run_executable, not gdb_cmd run.
+	* srcbar.tcl (_set_run): Likewise.
+	* toolbar.tcl (create_menu_items): Likewise.
+
+	* main.tcl: Initialize gdb_exe_set.  If IDE, arrange to receive
+ 	process-ended events.
+	(gdbtk_tcl_preloop): Don't try to read the file if it doesn't
+ 	exist.
+	(download): Don't try to download the file if it doesn't exist.
+  	Set gdb_download_mtime.
+	(exe_name): Just call set_exe_name.
+	(set_exe_name): New procedure.  Like old exe_name, but call
+	gdb_clear_file before running gdb file command, set gdb_exe_set,
+	and run gdb_idle_hook.
+	(receive_process_ended): New procedure.
+
+Thu Nov 13 13:35:32 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* prefs.tcl (pref_set_defaults): Set debug off by default.
+
+	* src.tcl (config_win): Bind Ctrl+P and Ctrl+D.
+	(update_title): Change window titlebar.
+
+	* srcbar.tcl (_set_run): Change balloon help for
+	stop and run icons.
+	(create_menu_items): Add accelerator for Print Source.
+
+	* toolbar.tcl (create_buttons): Change balloon help for
+	project icon.
+	(create_menu_items): Change access keys. Add accelerator
+	for Download.
+
+Thu Nov 13 10:47:04 1997  Jeff Holcomb  <jeffh@cygnus.com>
+
+	* download.tcl (constructor): Fix text and button layout.
+	Don't allow resizing.
+
+Wed Nov 12 16:59:17 1997  Jeff Holcomb  <jeffh@cygnus.com>
+
+	* download.tcl (constructor): Patch from Ian to redo the
+	download window and also cancel support.
+	(update): Ditto.
+	(done): Ditto.
+	(cancel): New method to handle canceling the download.
+	(download_hash): Cancel support.
+
+Wed Nov 12 13:11:20 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* memory.tcl (build_win): Change "Address" to "Addresses"
+	on menu and add separator.
+
+Tue Nov 11 11:00:25 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* download_pref.tcl (cancel): Must reset combobox
+	because dialog no longer gets deleted.
+
+Tue Nov 11 15:40:36 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* toolbar.tcl (create_menu_items): Underline "W", not "C", in
+	"Cygnus on the Web".
+
+Tue Nov 11 11:00:25 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* variables.tcl (edit): Disable menus when in editing mode.
+
+Tue Nov 11 02:00:25 1997  Martin M. Hunt  <hunt@cygnus.com>
+	
+	* variables.tcl (selectionChanged): When selection changes,
+	cancel any editing in progress.
+	(build_win): Set background in text styles.
+	(edit): Set background colors.
+	(UnEdit): Clear selection when done.
+
+Mon Nov 10 12:22:00 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* variables.tcl (build_win): Set background color.
+
+Mon Nov 10 05:30:00 1997  Martin M. Hunt  <hunt@cygnus.com>
+	
+	* about.tcl (build_win): Bind button one to close
+	the window.
+
+	* tclIndex: Rebuilt.
+	
+Mon Nov 10 03:00:00 1997  Martin M. Hunt  <hunt@cygnus.com>	
+
+	* download_pref.tcl (build_win): Fix reading of initial
+	baud rate.
+
+	* download.tcl (Download): Call keep_raised.
+
+	* main.tcl (ide_do_run): Catch GDB commands.
+	(ide_run_server): Catch GDB commands.
+	(ide_do_run): Don't set gdb_download_complete to 0.
+	We don't need further downloads unless executable changes
+	or Download is selected from the menubar.
+	(keep_raised): Keep a window on top.
+
+	* src.tcl (config_win): Catch GDB commands.
+
+	* toolbar.tcl (create_menu_items): Catch GDB commands.
+	(create_menu_items): Remove automatic step.
+	
+	* srcbar.tcl (_set_run): Catch GDB commands.
+
+	* stack.tcl (build_win): Change background color.
+
+	* bp.tcl: Change background color.
+	(destructor): Remove breakpoint change hook.
+	(bp_type): Fix problem with toggling temp to normal bps.
+	(build_win): Add popup menu.
+	
+	* interface.tcl (gdbtk_tcl_query): Change title and type.
+
+Mon Nov 10 00:26:25 1997  Martin M. Hunt  <hunt@cygnus.com>	
+
+	* pref.tcl (build_win): OK button wasn't working.
+
+	* main.tcl: Rework all the "automatic" downloading stuff so
+	it doesn't download and run when only the preferences are 
+	being displayed.
+
+	* src.tcl (open_src): Callback from IDE that opens
+	a source window when the bug is clicked on. Starts
+	up automatic download if necessary.
+
+	* tclIndex: Rebuilt.
+
+	* images2/bp.gif, stack.gif, up,gif, down.gif, bottom.gif:
+	Updated icons.
+	
+Sun Nov  9 19:30:33 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* main.tcl (gdbtk_tcl_preloop): Remove uneeded if statement.
+	Remove calls to manage get_state.
+
+	* manage.tcl (manage_get_state): Remove.
+	(manage_init): Add save state to several windows.
+	(manage_create): Use ide_property instead of prefs to find window
+	geometry. 
+	(manage_delete): Restructure to fix several bugs.
+	(manage_save): Use ide_property instead of prefs. Don't
+	call pref_save.
+	(manage_register_defaults): Remove calls to manage_get_state.
+
+	* tclIndex: Rebuilt.
+	
+Sun Nov  9 16:34:44 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* pref.tcl (build_win): Removed View page.
+
+	* toolbar.tcl (create_menu_items): Debugger -> "Foundry Debugger";
+	Help menu now parallels vmake.
+	* manage.tcl (manage_init): GDBTK -> "Foundry Debugger".
+
+Sun Nov  9 18:24:18 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* memory.tcl (build_win): Use a single menu, remove ``Hide
+	menubar'' entry, add ^U binding.
+	* manage.tcl (manage_init): Change name of memory window from
+	``Memory Dump'' to ``Memory''.
+
+	* srcbar.tcl (create_buttons): Remove toggle update button.
+
+	* src.tcl (update_title): Don't use colon if there is no file
+	name.
+
+	* main.tcl: If GDBTK_IDE, initialize gdb_download_complete.
+	(gdbtk_tcl_preloop): If GDBTK_IDE, call download.
+	(ide_run_server): Don't run if we already have a run request.  If
+	download is complete, run program as an idle callback.  Otherwise,
+	wait until the download is complete before running the program.
+	(ide_do_run): New procedure to support ide_run_server.
+	(download): Don't run program.  Set gdb_download_complete.
+
+	* src.tcl (name): Give an error if the file does not exist.
+	(location): Only add files that exist to the file name combobox.
+
+Sun Nov  9 11:09:39 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* src.tcl (name): Use better error message.
+
+	* locals.tcl (build_win): New method.
+	* watch.tcl (build_win): Create menu.  Watch -> "Add Watch".
+	(Menu): New instance variable.
+	(selectionChanged): New method.
+	(postMenu): "Stop Watching" -> Remove.
+	* variables.tcl (build_win): Set -ignoreinvoke on Tree widget, and
+	set -command to run editEntry method.  Don't install <Double-1>
+	binding.  Put headers on Tree widget.  Run selectionChanged
+	method.
+	(editEntry): Renamed.  Now takes entry name as argument.
+	(populate): Don't set -state disabled on new items.
+	(getSelection): New method.
+	(selectionChanged): New method.
+	(build_menu_helper): New method.
+	(postMenu): View->Format.
+	(build_win): Likewise.
+
+	* variables.tcl (editXY): Only edit if entry is not empty.
+
+	* srcbar.tcl (create_menu_items): Edit -> Open.
+	(create_buttons): Likewise.
+
+Thu Nov  6 11:00:41 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* manage.tcl (manage_delete): Special-case deletion of pref window.
+	(manage_create): Don't special-case deletion of pref window.
+
+Thu Nov  6 13:57:32 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* manage.tcl (manage_get_state): Return an empty string for a
+	withdrawn window and for the preferences window.
+
+	* main.tcl (exe_name): Don't do anything if the executable name
+	has not actually changed.
+
+Wed Nov  5 23:08:00 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* main.tcl (download): Always specify exact filename
+	to load.
+
+Wed Nov  5 00:31:53 1997  Martin M. Hunt  <hunt@cygnus.com>
+	
+	* manage.tcl (manage_delete): Only delete source window if
+	user answers yes to query.
+
+	* bp.tcl: Rewrite to include pulldown menu and new look.
+
+	* register.tcl: Rewrite to include pulldown menu and new look.
+
+	* stack.tcl: Open initial size wide enough to show all text.
+
+	* src.tcl: Modified popup window. Remove option to open
+	multiple source windows because the IDE window code doesn't
+	work with it.
+
+	* srcbar.tcl (_set_run): Change balloon message for Run.
+
+	* variables.tcl, watch.tcl: Use fixed font.
+
+	* toolbar.tcl (create_menu_items): Handle Close Debugger correctly.
+
+	* mem_pref.tcl: Put focus and grab on window.
+
+	* memory.tcl: Balloon message change.
+	
+Mon Nov  3 11:04:44 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* main.tcl (gdbtk_tcl_preloop): Look at main even if IDE running.
+	(ide_run_server): Open src window.
+
+	* manage.tcl (manage_init): Don't recreate initial windows when
+	running under IDE.
+
+Fri Oct 31 00:00:04 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* pref.tcl (cancel): Use manage delete.
+	* toolbar.tcl (create_menu_items): Don't register debugger
+	preference window.
+	* manage.tcl (manage_register_defaults): Use idewindow, not
+	idewindow_proc.
+	(manage_delete): Don't deregister preference window.
+	(manage): Added find, create_closed methods.
+	(manage_create): Added visibility argument; changed all callers.
+	Special case destruction of pref window.
+	* main.tcl: IDE window callback proc is "manage find".  Register
+	debugger preference window.  Create closed src and pref windows
+	initially.
+	(gdbtk_tcl_preloop): Don't create source window in IDE mode.
+
+	* src.tcl (trace_variable): New method.
+	(constructor): Use variable traces to track target/exe changes.
+	(destructor): Remove variable traces.
+
+Thu Oct 30 12:50:28 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* mem_pref.tcl: Change buttons to OK/Cancel/Apply.
+	Minor cleanup.
+
+	* memory.tcl: New look. Added menubar.
+
+Tue Oct 28 23:03:00 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* toolbar.tcl (create_buttons):  Clean up balloon help 
+	for buttons.
+	(create_menu_items): Move print menu items to srcbar.tcl.
+	Cleanup labels.
+
+	* srcbar.tcl (create_menu_items): Add print menu items.
+	(create_buttons): Clean up balloon help for buttons.
+
+Tue Oct 28 17:26:15 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* toolbar.tcl (create_menu_items): Add print menu items.
+	(print): New function.  Calls the proper print routine.
+
+	* src.tcl (print): New function.  Dump the contents
+ 	of the text widget to a printer.
+
+Tue Oct 28 01:06:15 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* toolbar.tcl (create_menu_items): Add new
+	preferences menu code.
+
+	* pref.tcl (build_win): Remove all old ppreferences.
+	Add Connection and View preferences.
+	(cancel): New function. Restore previous values and
+	quit.
+
+	* manage.tcl (manage_delete): Unregister preferences
+	on exit.
+	
+	* src.tcl (constructor): Add sizebox under Windows. 
+
+	* download.tcl (constructor): Remove shortcuts on buttons.
+ 	Put focus on "OK" button.
+
+	* download_pref.tcl (cancel): New function. Restores
+	previous values.
+	
+Tue Oct 21 15:28:29 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* main.tcl: Main window now named "Foundry Debugger".
+
+Fri Oct 24 14:03:00 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* manage.tcl (manage_menu): Deleted.
+	(manage_delete): Notify IDE when windows are deleted.
+	(manage_raise): New function.
+	(manage_create): Notify IDE when a window is created.
+
+	* download.tcl (constructor): Put focus on download
+	window.
+
+	* toolbar.tcl (create_menu_items): Make "Window" menu
+	and IDE managed-menu, but don't put anything in it.
+
+Fri Oct 24 12:28:43 1997  Martin M. Hunt  <hunt@cygnus.com>	
+
+	* toolbar.tcl (create_menu_items): Add View menu.
+
+	* src.tcl (config_win): Add accelerators for new View
+	menu.
+
+Wed Oct 22 21:30:52 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* download.tcl (Download): Make window local modal.
+	Raise it to top.
+
+	* srcbar.tcl (create_buttons): Change border size on
+	address and line labels.  Change balloon help. Remove
+	vertical line.
+
+Mon Oct 20 10:12:23 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* toolbar.tcl (create_buttons): vmake window now named "Foundry
+	Project".
+
+Mon Oct 13 19:02:33 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* bp.tcl (bp_modify): Change color of checkbuttons.
+
+	* download.tcl (done): Write "DONE" on progress meters.
+
+Thu Oct  9 14:33:21 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* main.tcl: Call ide_window_register restorer.
+
+Thu Oct  9 12:46:25 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* src.tcl (updateBalloon): Changed name of balloon variable.
+	(showBalloon): Likewise.  Use new "balloon show" command.
+	(SrcBalloon): Removed.
+	(TimeOut): Default is 1000 (1 second).
+
+Wed Oct  1 11:33:36 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* main.tcl: Use "manage get_state" as window saver.
+
+	* manage.tcl (manage): Added "restore", "get_state" options.
+	(manage_restore): New proc.
+	(manage_get_state): Likewise.
+	(manage_register_defaults): Use "manage get_state" as window
+	saver.
+
+Sun Sep 28 04:20:00 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* bp.tcl: Clean up the spacing to make the widget look better.
+
+	* download_pref.tcl: Show the initial baud rate correctly.
+
+	* download.tcl: Cleanup correctly when deleted.
+
+	* main.tcl (gdb_tcl_preloop): Set baud rate.
+	(ide_run_server): Delay download 1 second.
+	(demo_it): Do gdb "next" commands every 2 seconds.
+
+	* manage.tcl (manage_create): Withdraw window immediately then
+	deiconify it when done.
+
+	* prefs.tcl (pref_set_defaults): Don't define stack bg color.
+
+	* register.tcl: Withdraw window immediately so we don't have
+	to watch it slowly draw. Make it look more like memory window.
+
+	* src.tcl: Fix major bug where source window got lost when
+	the source file was not found. Reconfigures more smoothly.
+
+	* srcbar.tcl (create_menu_items): Comment out "Close Debugger"
+	menu item because it was broken.
+
+	* stack.tcl: Use the same background color as the other windows.
+
+	* toolbar.tcl: Add "Automatic Step" menu item.
+	
+Fri Sep 26 21:10:11 1997  Keith Seitz  <keiths@pizza.cygnus.com>
+
+	* download.tcl (done): display bytes loaded as an integer.
+
+Fri Sep 26 13:09:47 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* images2/edit.gif: Replaced.
+
+Fri Sep 26 00:42:00 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* main.tcl (ide_run_server): Just call download.
+	(download): First set baud rate then target.  Then, depending
+	on preferences set a breakpoint at 'main' and 'exit' and run.
+	(set_baud): New function.
+	
+	* download_pref.tcl (build_win) Add checkbuttons for "Run until
+	'main'" and "Set breakpoint at 'exit'.
+	(change_baud): Set preference when baud changes.
+
+	* pref.tcl (reconfig): Correct problem with download options.
+
+	* prefs.tcl (pref_set_defaults): Define gdb/load/main, 
+	gdb/load/exit, and gdb/load/baud.
+
+	* src.tcl (location): Fix a problem where the browse tag was
+	sometimes not deleted.
+
+	* manage.tcl: Add a window title for Download Options.
+	
+Thu Sep 25 15:39:00 1997  Martin M. Hunt  <hunt@cygnus.com>	
+
+	* download_pref.tcl: New file. Creates a download options dialog.
+
+	* manage.tcl: Add download prefs window to list.
+
+	* toolbar.tcl: Add Download preferences to menu.
+
+	* pref.tcl: Add Download to tab notebook preferences.
+
+	* src.tcl: Set activebackground on popup to indicate color
+	of the breakpoint dot that will be set.
+
+Thu Sep 25 12:36:00 1997  Martin M. Hunt  <hunt@cygnus.com>	
+
+	* download.tcl (done): Make sure all indicators show download
+	completed, even if we weren't properly notified.
+
+	* manage.tcl: Better support for windows that want to set
+	their own titles.
+
+	* src.tcl (update_title): New function.  Sets titlebar
+	to indicate current filename, and under IDE, executable and
+	target.
+
+	* images2/reg.gif: Updated image.
+	
+Thu Sep 25 08:58:44 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* src.tcl (config_win): don't focus src window on Enter events
+
+Thu Sep 25 03:11:00 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* main.tcl (ide_run_server): Set target and download automatically.
+	(download): Open a download window.
+
+	* download.tcl: New file. Implements a download window.
+
+	* manage.tcl (manage_init): Add download window.
+	(manage_create): If there is no title, don't try to set one and
+	don't try to set geometry.
+
+	* registers.tcl: Make it look more like memory window.
+
+	* toolbar.tcl, floatbar.tcl, srcbar.tcl: Update look of menus and toolbars 
+	to be closer to prototype.
+
+	* Makefile: Add download.tcl.
+
+	* tclIndex: Rebuilt.
+	
+	* images/memory.gif: Update.
+
+	* images/bp.gif: New file. Breakpoint icon.
+
+Wed Sep 24 07:43:47 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* variables.tcl (VariableWin::build_win): add double-click binding to edit
+	(editXY): new method to support above
+
+	* prefs.tcl (pref_set_defaults): add register window pref for highlight color
+
+	* register.tcl (RegWin::constructor): set highlight and normal fg
+	(build_win): build window using grid geometry manager, not grid widget
+	(dimensions): new method
+	(fixLength): new method
+	(but3): use "Menu" (protected data)
+	(edit): use entry to edit values
+	(acceptEdit): new method
+	(unedit): new method
+	(update): change to use new grid layout and change highlighting
+	(reconfig): destroy scrolled window, too
+	ScrolledWin: new protected data
+	Menu: new protected data
+	Editing: new protected data
+
+Tue Sep 23 15:15:22 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* main.tcl: If GDBTK_IDE, withdraw . before making any calls
+	across the IDE backplane.
+	* manage.tcl (manage_init): If using a floating toolbar, and
+	GDBTK_IDE, deiconify . to undo the withdrawal.
+
+Tue Sep 23 01:31:00 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* main.tcl: Reorder calls to pref init and standard_look_and_feel.
+
+	* global_pref.tcl: Change font requester to modify both src-font
+	and global.fixed. Change to be compatible with latest libide font code.
+
+	* prefs.tcl: Changes to get working with latest libide font code.
+	
+Mon Sep 22 15:16:00 1997  Martin M. Hunt  <hunt@cygnus.com>	
+
+	* memory.tcl: Add editing.  Remove debugging lines.
+	Fix problems with resizing.
+
+	* mem_pref.tcl: Remove debugging line.
+	
+Fri Sep 19 08:22:25 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* variables.tcl (build_win): use preferences
+	(getAllClassMembers): new method
+	(getPath): update to support C++
+
+	* watch.tcl (build_win): augment parent class' build_win instead of replacing it
+
+	* stack.tcl (build_win): use preferences
+	(update): catch gdb_loc in case source window is not open yet
+
+	* prefs.tcl (pref_set_defaults): add new defaults for all previously
+	hard-coded fonts and colors
+
+	* global_pref.tcl (build_win): use preferences
+
+	* console.tcl (Console::constructor): use preferences
+
+	* bp.tcl (bp_add): use preferences
+	(bp_modify): use preferences
+	
+
+	* src.tcl (SrcWin::constructor): use preferences
+	(build_win): use preferences
+	(config_win): use preferences, bind <Enter> to focus source window textbox
+	so that our keypresses always work
+	(SrcBalloon): new protected variable
+	(TimeOut): new common variable
+
+Wed Sep 17 13:54:29 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* toolbar.tcl (build_win): Use standard_toolbar.
+
+Wed Sep 17 13:52:00 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* src.tcl (config_win): Set bg color back to default.
+
+Tue Sep 16 23:10:00 1997  Martin M. Hunt  <hunt@cygnus.com>	
+
+	* images2/*: Delete unused icons.
+
+Tue Sep 16 21:30:40 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* bp.tcl (bp_add): Add some padding to space things
+	out more.  Anchor labels to the right side.
+
+	* src.tcl: Fix problem where breakpoints were disappearing
+	when files changed.
+
+Tue Sep 16 17:45:05 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* manage.tcl: Change manage_create and manage_open to accept
+	a variable number of args. Add mem and mempref window types.
+	Fix pref save call.
+
+	* memory.tcl: New file. Implements a memory dump window.
+	Currently read-only.
+
+	* mem_pref.tcl: New file.  Implements options dialog for
+	memory dump window.
+
+	* pref.tcl, toolbar_pref.tcl, register.tcl, src_pref.tcl,
+	global_pref.tcl, about.tcl: Make "attach" a public config
+	variable.
+
+	* main.tcl: Use standard_look_and_feel.
+
+	* Makefile, tclIndex: Rebuilt.
+
+	* images/check.gif: A check mark image.
+
+	* images/stop.gif: Fix transparency.
+
+Tue Sep 16 08:13:03 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* src.tcl (getVariable): fix off by one error when a breakpoint
+	is set at a line
+	(hasBreakpoint): new method
+	(SrcWin): add idle hook for source balloons
+	(updateBalloon): new method
+	(showBalloon): use register_balloon
+	(register_balloon): new method
+
+Tue Sep 16 05:55:31 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* watch.tcl (add): use a little more robust (if more obscure) method
+	of determining validity of a variable name
+	(label): translate % to $ in names
+	
+	* variables.tcl (Variable::setType): allow for convenience variables
+	(Variable::isConvenience): new method
+	(Variable::displayHex): allow for convenience variables
+	(VariableWin::edit): do not eval $data when editing (for conv. vars)
+	(VariableWin::postMenu): use virtual method label to title popup
+	
+Fri Sep 12 12:17:13 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* variables.tcl (Variable::value): when no display style specified,
+	choose some reasonable default for the given type
+
+	* src.tcl (config_win): ad bindings to support variable balloons in source mode
+	(getVariable): new method
+	(cancelMotion): new method
+	(motion): new method
+	(showBalloon): new method
+	timeoutID: new protected variable
+	TimeOut: new protected variable
+
+Fri Sep 12 05:47:56 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* variables.tcl (getLocals): return empty list when no locals present.
+
+Thu Sep 11 14:13:19 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* variables.tcl (VariableWin::build_win): change popup construction
+	(VariableWin::postMenu): redo menu layout to use dynamic idices of
+	panes
+	(VariableWin::edit): new method
+	(VariableWin::UnEdit): new method
+	(VariableWin::changeValue): new method
+	(VariableWin::getPath): handle unamed unions/structs and arrays more
+	intelligently
+	VariableWin::Editing: new protected variable
+	VariableWin::EditEntry: new protected variable
+	(Variable::isOpenable): make sure we can open unions 
+	(Variable::isUnamed): new method
+	(Variable::isUnion): new method
+	(Variable::setType): handle unions and unamed structs/unions better
+	(Variable::displayHex): unions, structs only display in hex
+	(Variable::isArray):  new method
+	(Variable::isEnum): new method
+	(Variable::isEditable): new method
+	(Variable::value): enums now show symbol values, too. Analogous to char
+	and char*.
+
+	* watch.tcl (WatchWin::build_win): change popup construction
+	(WatchWin::postMenu): redo menu layout to use dynamic indices of panes
+	
+
+Wed Sep 10 20:44:12 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* manage.tcl (manage_register_defaults): Rename from
+	manage_register_default.  Take a list of windows.
+	(manage_menu): Invoke manage_register_defaults once as an idle
+	callback, rather than invoking manage_register_default in many
+	different idle callbacks.
+
+Wed Sep 10 00:49:23 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* src.tcl (edit): Don't start editor if we're not
+	debugging anything.
+
+	* main.tcl: Keep correct colorscheme for windows.
+
+Mon Sep  8 12:10:26 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* manage.tcl (manage_restart): Only restart toolbar once.
+
+	* global_pref.tcl: Minor fix.
+
+	* images2/vmake.gif: Fix transparency.
+	
+Mon Sep  8 13:05:11 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* interface.tcl (gdbtk_tcl_query): Use tk_messageBox rather than
+	tk_dialog.
+
+	* main.tcl: Register check and exit handlers using new commands
+	provided by gdbtk.
+
+Mon Sep  8 03:01:25 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* global_pref.tcl (build_win): Some font fixes.
+
+Mon Sep  8 02:25:17 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* src.tcl: Make disabled breakpoints black.
+	Make comboboxes only use scrollbars when needed.
+
+	* interface.tcl (gdbtk_tcl_breakpoint): Change to support
+	changes in gdbtk.c.  Supply breakpoint number to hooks.
+
+	* manage.tcl: Add breakpoint window.  Add support for
+	dynamically attaching/detaching toolbars.
+
+	* bp.tcl: New file.  Breakpoint window.
+	
+	* main.tcl: Change palette for debugging.
+
+	* pref.tcl: New file. Preferences dialog.
+
+	* floatbar.tcl: Add target and download buttons.
+	Add spacing.
+
+	* srcbar.tcl, toolbar.tcl: Change to use flat icons. Work with
+	floating toolbar if requested.
+
+	* prefs.tcl: Define new preferences to force toolbar
+	to float or be attached to the source windows.
+
+	* global_pref.tcl: Remove icon requester.
+
+	* toolbar_pref.tcl: Add icon combobox.  Add checkbuttons
+	for forcing toolbar to either float or be attached to src window.
+	
+	* Makefile: Add bp.tcl
+
+	* images/*: Fix transparency and add new icons.
+
+	* images2/*: Add flat icons.
+
+Fri Sep  5 20:24:07 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* main.tcl: Register an exit handler when using the IDE.
+
+Thu Sep  4 11:47:38 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* ALL: Change preferences to use new preferences.
+	Change "dbug" calls to "debug".
+
+	* pref.tcl: New file.  Local preferences read/write.
+
+	* gettext.tcl, debug.tcl, balloon.tcl: Delete. Use
+	versions from libide instead.
+	
+Wed Sep  3 09:20:13 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* main.tcl (add): Pass idewindow_no_state to idewindow_proc.
+	* manage.tcl (manage_register_default): Pass idewindow_no_state to
+	idewindow_proc.
+
+Mon Aug 25 05:59:01 1997  Martin M. Hunt  <hunt@pern.cygnus.com>
+
+	* images2/{finished.gif, finishedu.gif, nextd.gif nextu.gif,
+	stepd.gif, stepu.gif}: Use icons with straight brackets
+	instead of slanted.
+
+	* prefs.tcl (pref_set_defaults): Set default debugMode to 0.
+
+	* register.tcl (build_win): Change font to fixed and bg to white.
+
+	* src.tcl: Change all references to fonts to "src-font".
+
+	* global_pref.tcl: Change font requester to do src-font.
+
+	* srcbar.tcl: Change address and line labels to use
+	src-font and be sunken.
+
+	* stack.tcl: Chnage bg to white and fonr to src-font.
+
+Mon Aug 25 03:06:35 1997  Keith Seitz  <keiths@pizza.cygnus.com>
+
+        * src.tcl: (set_status) check if inferior is running first, and reset
+        message for status window if it is not.
+ 
+
+Mon Aug 25 00:28:39 1997  Martin M. Hunt  <hunt@pern.cygnus.com>
+
+	* srcbar.tcl: Change stack images to be consistent with others.
+
+	* images2/{upu.gif,upd.gif,bottomd.gif,bottomu.gif,downu.gif,
+	downd.gif}: New stack images.
+
+	* images2/edit[ud].gif: Correct quantization and transparency.
+
+	* manage.tcl (manage_delete): Kill gdb when all source windows
+	are deleted.
+	(manage_create): Only add IDE entries on the first source window.
+
+	* src.tcl (do_popup): Don't map window if already mapped. Fixes
+	problem with tk_popup.  Change menu items.
+
+Mon Aug 25 00:24:43 1997  Keith Seitz  <keiths@pizza.cygnus.com>
+
+	* src.tcl: (set_status) change to using gdb_target_has_execution to
+	determine if the target is running
+
+Sun Aug 24 23:02:19 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* toolbar.tcl (build_win): Make sure object is deleted when window
+	is destroyed.
+	(destructor): Don't destroy containing widget; just us.
+
+	* srcbar.tcl (create_menu_items): Added Exit item to menu.
+
+	* src.tcl (build_win): Use grid, not packer, to lay out main
+	window.
+	(mode): Pack new text widget into pane; don't repack the pane
+	itself.
+
+Sun Aug 24 22:06:30 1997  Keith Seitz  <keiths@pizza.cygnus.com>
+
+	* varialbes.tcl: (build_win) set hlist font to 'tix option get
+	fixed_font', change selectBackground to Hlist background, select-
+	BorderWidth to 0, selectForeground to black. Use tk_popup instead of
+	tixPopup widget.
+	(postMenu) make necessary tk_popup changes, make sure functions are
+	only allowed to be displayed in hex.
+	(isFunction) new method
+	(displayHex) functions only displayable as hex
+	(value) extract the address of functions for value
+	* watch.tcl: (constructor) remove popup menu customization
+	(build_win) change from tixPopup to tk_popup, hack the
+	hlist options to use the correct font, etc as in variables.tcl,
+	(validateEntry) always erase the contents of the entry
+	(postMenu) make all changes to use tk_popup and move the "Stop
+	watching" menu addition here
+	(label) make sure that we use "foo.bar" and "foo->bar" correctly
+	(add) fix typo preventing recognition of variables already being
+	watched
+
+Sun Aug 24 18:49:16 1997  Martin M. Hunt  <hunt@pern.cygnus.com>
+
+	* console.tcl (invoke): Don't display error messages in console window.
+	(constructor):  Enable cut-and-paste.  Fix intermittant bug.
+
+	* main.tcl (gdbtk_tcl_preloop): Don't automatically do anything
+	but issue the file command.
+	(download): Issue load command.  Called when icon is selected.
+	(set_target): Issue target command.  Called when target
+	icon is selected.
+
+	* srcbar.tcl: Add target and download buttons to toolbar.
+
+Sun Aug 24 20:30:41 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* main.tcl (gdbtk_tcl_preloop): If GDBTK_IDE, then automatically
+ 	set file and target based on properties.  If using the simulator,
+ 	load the executable.  Catch and ignore errors from setting the
+ 	source window to show main.
+
+Sun Aug 24 14:39:23 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* src.tcl (constructor): Don't set `editor'.
+	(location): Never update external editor.
+	(edit): Don't set `editor'.
+	(editor): Removed instance variable.
+
+	* images2/stepiu.gif, images2/stepid.gif, images2/nextiu.gif,
+	images2/nextid.gif: Installed new versions.
+
+	* srcbar.tcl (_toggle_updates): Pass $updatevalue to
+	updatecommand.
+	(destructor): Implemented.
+	(_set_stepi): New method.
+	(displaymode): Run _set_stepi when changed.
+	(updatevalue): Global state stored in global array.
+	(create_buttons): Create stepi, nexti buttons.  Run _set_stepi.
+	(_load_src_images): Create stepi, nexti icons.
+
+	* images2/stepiu.gif, images2/stepid.gif, images2/nextiu.gif,
+	images2/nextid.gif: New images.
+	(create_buttons): Likewise.
+
+	* src.tcl (toggle_updates): Use $value, not $a.
+
+	* src.tcl (mode): Don't change commands on (nonexistent) step/next
+	buttons.
+
+	* toolbar.tcl (create_buttons): Added watch button.
+	(_load_images): Create watch images.
+	* images2/watchd.gif, images2/watchu.gif: New files.
+	* images2/varsd.gif, images2/varsu.gif: Changed.
+
+	* images2/*: Removed old images, added many new images.
+
+	* prefs.tcl (pref_set_defaults): Default images are in images2
+	directory.
+	* src.tcl (build_win): Make a GDBSrcBar.
+	(location): address and line information now in toolbar.
+	(mode): Set -displaymode on toolbar.
+	(update): Set -running on toolbar.
+	(busy): Likewise.
+	(edit): Now a method, not a proc.
+	(toggle_updates): Added "value" argument.
+	* Makefile (TCL): Added srcbar.tcl, floatbar.tcl.
+	* toolbar.tcl (create_buttons): New method.
+	(create_menu_items): Likewise.
+	(build_win): Run create_menu_items and create_buttons.  Move most
+	of body into these methods.  Removed Exit command from File menu.
+	(_loaded_images): New common variable.
+	(_load_images): New method.
+	(create_buttons): Run it.
+	(create_menu_items): Removed Tools menu.
+	(configure): Renamed from config.
+	* srcbar.tcl: New file.  Implements toolbar attached to source
+	window.
+	* floatbar.tcl: New file.  Implements floating toolbar.
+	* manage.tcl (manage_init): toolbar-type is GDBFloatBar.
+	(manage_init): Don't create toolbar if running under IDE.
+
+Sun Aug 24 13:05:22 1997  Martin M. Hunt  <hunt@pern.cygnus.com>
+
+	* manage.tcl (manage_init): Remove idemenuname from
+	the _manage_objects array; it was redundant.
+	(manage_create): Stop notifying IDE about new transient
+	windows.
+
+Sun Aug 24 01:07:29 1997  Tom Tromey  <tromey@cygnus.com>
+
+	* about.tcl, console.tcl, global_pref.tcl, prefs.tcl,
+	register.tcl, src.tcl, src_pref.tcl, stack.tcl, toolbar.tcl,
+	toolbar_pref.tcl: Added Copyright statement.
+
+	* Makefile (tags, TAGS): New targets.
+
+	* toolbar.tcl (build_win): Quit->Exit.  Only display this item if
+	not using the IDE.
+
+Sat Aug 23 21:55:54 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* src.tcl (SrcWin update): Set command for stop icon.
+	(SrcWin busy): Likewise.
+
+	* manage.tcl: Move comments out of array initialization.
+
+Sat Aug 23 17:36:06 1997  Martin M. Hunt  <hunt@pern.cygnus.com>
+
+	* src.tcl (name): Handle case where files are part of the
+	sources, but are unreadable. 
+	(build_win): Set filename combobox size to default.
+
+	* manage.tcl: Remove breakpoint window from window list.
+	
+Sat Aug 23 16:49:53 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* src.tcl: remove old breakdot stuff
+	(reconfig) make sure we redraw the breakdots when font changes
+	(file) check for duplicate break-able lines
+	* variables.tcl: remove debug output
+	* watch.tcl: add entry field to enter watch expressions
+
+Sat Aug 23 17:44:45 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* manage.tcl (manage_create): Register the window if it is not
+	already registered, rather than if it is already registered.
+
+	* src.tcl (SrcWin config_win): Add special double and triple click
+	bindings to override standard text bindings in break dot area.
+
+	* prefs.tcl (pref_set_defaults): Set the global font to the Tix
+	default font.  Set the src font to the Tix default fixed font.
+	* src.tcl (SrcWin config_win): Configure the text font.
+	* console.tcl (Console constructor): Set the cont to the Tix
+	fixed font.
+
+Fri Aug 22 20:42:51 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* src.tcl: add breakpoint image that is text-size insensitive
+	change layout of source, assembly, and mixed windows to use
+	tabs, if possible, allowing more clickable area for toggling
+	breakpoints, etc.
+	* variables.tcl: (VariableWin::isFloat) new method
+	(VariableWin::value) make sure floats are output as floats
+	when user specifies "decimal" output
+
+Fri Aug 22 16:23:32 1997  Martin M. Hunt  <hunt@pern.cygnus.com>
+
+	* src.tcl (goto_func): Catch errors.
+
+Fri Aug 22 16:35:39 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* main.tcl: Use underscores rather than dashes in variable names.
+	(ide_run_server): Make gdb_target_name global.  Call file before
+	calling target.  Call load before calling run.
+
+Fri Aug 22 12:15:06 1997  Martin M. Hunt  <hunt@pern.cygnus.com>
+
+	* debug.tcl (dbug): Make debug window scrolled. Make it
+	work with standalone gdb.
+
+	* prefs.tcl (pref_save): Fix puts that were incorrectly
+	changed to dbug.
+
+Thu Aug 21 17:57:59 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* ALL: Change all "puts" to "dbug".
+
+	* debug.tcl: New file. Opens a window for debugging messages.
+
+Thu Aug 21 14:30:53 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* watch.tcl: (add) strip commas, too
+
+Thu Aug 21 14:26:36 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* variables.tcl: (buid_win) use listbox's font for font measuring
+
+Thu Aug 21 02:52:35 1997  Martin M. Hunt  <hunt@pern.cygnus.com>
+
+	* src.tcl (name): Check source filenames and handle errors
+	if not found.
+
+	* variables.tcl (destructor): Display styles are not
+	objects so must be destroyed instead of deleted.
+	(name): comment out debugging line.
+
+	* main.tcl: Add stuff from standard_look_and_feel.
+
+	* prefs.tcl, manage.tcl: Minor cleanup.
+
+Thu Aug 21 00:39:35 1997  Martin M. Hunt  <hunt@pern.cygnus.com>	
+
+	* main.tcl (ide_run_server) New function.  Starts GDB when
+	asked politely.
+	(target_name): New function. Watches for changes in the target
+	name.
+	(exe_name): New function. Watches for changes in the
+	executable name.
+
+	* console.tcl (insert, einsert): Scroll so the insertion 
+	point can be seen.
+
+	* manage.tcl: SPecial hacks to create a global "console".
+	Needed because we can't have puts searching for a console
+	window everytime a puts arrives.
+	
+	* interface.tcl (gdbtk_tcl_fputs, gdbtk_tcl_fputs_error):
+	Write to the console if one exists, and do an update.
+
+	* tclIndex: Rebuilt.
+	
+Wed Aug 20 17:23:07 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* variables.tcl: (Variable::setType VariableWin::getPath) handle types
+	with multiple names (unsigned char, long long unsigned int) properly
+	* locals.tcl: (update) comment out debug info
+
+Wed Aug 20 16:36:49 1997  Keith Seitz  <keiths@pizza.cygnus.com>
+
+	* watch.tcl: (add) try to handle errors more gracefully
+	* variables.tcl: (value) make sure we handle bad pointer
+	dereferences nicely
+	(lots of places) switch to using 'ouput' instead of 'print'
+
+Wed Aug 20 11:43:35 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* src.tcl (file): Handle case where source files do
+	not have any lines which generate code.
+	(set_status):  Keep status to one line.
+
+Wed Aug 20 00:00:52 1997  Tom Tromey  <tromey@sanguine.cygnus.com>
+
+	* images2/build.gif, images2/file.gif, images2/reg.gif,
+	images2/stop.gif, images2/continue.gif, images2/finish.gif,
+	images2/next.gif, images2/step.gif, images2/run.gif: New files.
+
+Tue Aug 19 14:52:59 1997  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* tclIndex: rebuilt
+	* Makefile: add variables.tcl, watch.tcl, and locals.tcl
+	* manage.tcl: (manage_init): add locals window
+	* src.tcl: (do_popup): add binding for watch window
+	(addToWatch): new method
+	* locals.tcl: new file
+	* variables.tcl: new file
+	* watch.tcl: new file
+	
+
+Mon Aug 18 01:28:19 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* manage.tcl: Change window names to have only first
+	char of each word capitalized.
+
+	* global_pref.tcl (get_file): Handle bad pathnames.
+
+Sun Aug 17 01:59:02 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* register.tcl (destructor): Call manage delete.
+	* global_pref.tcl (destructor): Call manage delete.
+	* prefs.tcl (destructor): Call manage delete.
+	* src_pref.tcl  (destructor): Call manage delete.
+	* toolbar_pref.tcl  (destructor): Call manage delete.
+
+	* manage.tcl: (manage_delete): Remove windows that
+	have been quit, rather than killed by window manager.
+
+	* src.tcl (location): Don't call gdb_listfuncs on
+	NULL filenames.
+	
+Sun Aug 17 00:18:02 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* src.tcl: Major changes to support file browsing.
+	Also bug fixes for assembly mode, new comboboxes
+	for filename and function selection.
+
+	* src_pref.tcl: New file.  Allows selection of
+	colors used in source display.
+
+	* prefs.tcl: Add new window type for src prefs.
+	Set default colors for source window.
+
+	* manage.tcl (manage_init): Add srcpref window type.
+	(manage_restart): Preserve window geometries on restarts.
+
+	* Makefile: Add src_pref.tcl.
+
+	* tclIndex: Rebuilt.
+
+	* toolbar.tcl: Add call to source prefs.
+ 	
+	* main.tcl: Change initial "src file" call to
+	"src location".
+
+Thu Aug 14 15:49:02 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* manage.tcl (manage_create): Some fixes for IDE windows. 
+
+Thu Aug 14 03:18:10 1997  Martin M. Hunt  <hunt@cygnus.com>
+	
+	* register.tcl, stack.tcl (destructor): Remove hook.
+
+	* manage.tcl: Mostly rewritten from scratch to be
+	more efficient and handle multiple windows of the same type.
+	(manage_open): New function opens or creates a window
+	as necessary.
+	(manage_create): Now always creates a new window.
+
+	* global_pref.tcl (build_win): Only put up font message
+	box on Unix systems.
+
+	* main.tcl: Change "manage create" calls to "manage open"
+
+	* src (destructor): Remove hooks.
+	(do_popup): Add a menu item to open another source window.
+	
+	* toolbar.tcl (build_win): Change "manage create" calls to
+	"manage open".  Bind button 3 on iconbar to "manage create".
+	
+	* prefs.tcl: Changes required for new features in manage.tcl.
+	
+	* tclIndex: Rebuilt.
+
+	* hooks.tcl (remove_hook): Fix.
+	(lremove): New function.
+	
+Tue Aug 12 16:06:04 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* main.tcl: If running in the IDE, register the source window as
+	the generic gdb window.
+
+Tue Aug 12 01:42:10 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* global_pref.tcl (build_win): Add a font size control
+	widget, and a font preview window.   Implement scanning
+	for fixed-width fonts and a font cache.
+	(font_changed): Save all font attributes in new-style
+	font description.
+
+	* balloon.tcl: Merge in latest changes from libide.
+
+	* prefs.tcl (pref): Rename variables to make function
+	clearer.
+	(pref_init): After reading in prefs file, create
+	all named fonts.
+	(pref_set_defaults): Set default font to {courier 12 roman}.
+
+Mon Aug 11 13:47:49 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* tclIndex: New file.
+
+	* Makefile: New file. Generates tclIndex when needed.
+
+	* manage.tcl (manage_init): Add an icon for GDB. 
+	(manage_create): Bind Map and Unmap for toolbar toplevel.
+	Tell window manager to display icon if one exists.
+	(manage_iconify): Iconify or deiconify all windows.
+	(make_icon_window): Build a window with an icon in it.
+	(bind_for_toplevel_only): Local copy, because if you build
+	GDB without IDE you won't get the one in libide.
+
+	* main.tcl: Remove all the source commands.
+
+	* toolbar.tcl: Use "-menu" configuration option for toplevel.
+
+	* images/cygnus_icon.gif: A cygnus logo with GDB on it.
+	For Unix window managers.
+	
+Fri Aug  8 16:01:20 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* manage.tcl (manage): Add menu subcommand.
+	(manage_init): Add -menu, -menuname, and -idemenuname options for
+	all the windows.
+	(manage_create): Register transient windows.
+	(manage_menu, manage_register_default): New procedures.
+	* toolbar.tcl (build_win): Call manage_menu to set up the window
+	menu.
+
+Thu Aug  7 16:51:43 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* stack.tcl: Bind button 1 to select current
+	frame.  Add balloonhelp.
+
+Thu Aug  7 14:00:18 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* main.tcl, manage.tcl, toolbar.tcl: Add support
+	for stack window.
+
+	* stack.tcl, images/stack.gif: New files.
+
+	* ALL: Change "::" to "@@" for itcl1.5/tcl8.0. You
+	muct now use tcl8 for gdbtk to work.
+
+Tue Aug  5 12:10:43 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* register.tcl, global_pref.tcl: Change color "darkred"
+ 	to red so it will work on windows.
+
+Tue Aug  5 12:01:26 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* manage.tcl (manage_init): Unset prefs are now ""
+	instead of 0.
+
+Tue Aug  5 02:21:47 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* images*/run.gif: Change to green again.
+
+Tue Aug  5 01:42:56 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* main.tcl: Source register.tcl
+
+	* register.tcl: New file. Editable register window
+	and register preferences.
+
+	* toolbar.tcl: Add hooks for register prefs.
+
+	* manage.tcl: Add register window to list of windows.
+	Deiconify windows when requested.
+
+	* src.tcl: Minor changes.
+
+	* global_pref.tcl: Bind return key to image dir entry 
+	widget.
+
+	* prefs.tcl: Add register prefs to notebook widget.
+	Change default for pref get to {} instead of 0.
+	
+Fri Aug  1 14:21:25 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* images/*: Smaller toolbar icons. Fix some gifs
+	to be transparent.
+
+Thu Jul 31 01:20:51 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* src.tcl (mode): Don't try to display EDIT button
+	in any mode.
+
+Thu Jul 31 00:56:26 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* global_pref.tcl (build_win): Add ComboBox for simple font selection.
+
+	* prefs.tcl (pref_init): Allow "option" commands in init file.
+
+	* src.tcl: Remove EDIT button. Change fonts to use global font if
+	no src font is specified.
+	
+	* toolbar.tcl: Enable Tools/Edit pulldown menu.
+
+Wed Jul 30 14:43:49 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* about.tcl (build_win): Set bg to white for Cygnus gif.
+
+Wed Jul 30 14:39:49 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* manage.tcl (manage_create): Fix window raising.
+
+Wed Jul 30 13:40:11 1997  Martin M. Hunt  <hunt@cygnus.com>
+
+	* initial checkin.
+

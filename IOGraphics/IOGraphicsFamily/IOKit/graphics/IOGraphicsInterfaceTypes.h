@@ -292,6 +292,8 @@ enum {
 #define kIOAccelTypesKey			"IOAccelTypes"
 #define kIOAccelIndexKey			"IOAccelIndex"
 
+#define kIOAccelRevisionKey			"IOAccelRevision"
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #endif /* !_IOKIT_IOGRAPHICSINTERFACETYPES_H */

@@ -140,27 +140,41 @@ struct IOHIDDeviceInterface
     /* removalCallback is called if the device is removed. */
     /* removeTarget and removalRefcon are passed to the callback. */
     IOReturn (*setRemovalCallback)(void * 			self,
-                                   IOHIDCallbackFunction *	removalCallback,
+                                   IOHIDCallbackFunction	removalCallback,
                                    void *			removalTarget,
                                    void *			removalRefcon);
 
-    /* Polling the most recent value of an element */
-    /* The timestamp in the event is the last time the element was changed. */
-    /* This call is most useful for the input element type. */
+
+/*! @function getElementValue
+    @abstract Called to obtain the most recent value of an element
+    @discussion This call is most useful for interrupt driven elements,
+        such as input type elements.  Since feature type element values 
+        need to be polled from the device, it is recommended to use the 
+        queryElementValue method to obtain the current value.  The  
+        timestamp field in the event details the last time the element 
+        value was altered.
+    @param elementCookie The element of interest. 
+    @param valueEvent The event that will be filled.   If a long value is 
+        present, it is up to the caller to deallocate it. */
     IOReturn (*getElementValue)(void * 			self,
                                 IOHIDElementCookie	elementCookie,
                                 IOHIDEventStruct *	valueEvent);
 
-    /* This call sets a value in a device. */
-    /* It is most useful for the feature element type. */
-    /* Using IOOutputTransaction is a better choice for output elements  */
-    /* timoutMS is the timeout in milliseconds, a zero timeout will cause */
-    /*	this call to be non-blocking (returning queue empty) if there */
-    /*	is a NULL callback, and blocking forever until the queue is */
-    /*	non-empty if their is a valid callback */
-    /* callback, if non-NULL is a callback to be called when data is */
-    /*  inserted to the queue  */
-    /* callbackTarget and callbackRefcon are passed to the callback */
+
+/*! @function setElementValue
+    @abstract Called to set an element value on the device
+    @discussion This call is most useful for feature type elements.  It is
+        recommended to use IOOutputTransaction for output type elements
+    @param elementCookie The element of interest. 
+    @param valueEvent The event that will be filled.  If a long value is
+        present, it will be copied.
+
+    *** THIS METHOD IS SYNCHRONOUS ***
+    *** THE FOLLOWING PARAMS ARE UNSUPPORTED ***
+    @param timeoutMS
+    @param callback 
+    @param callbackTarget
+    @param callbackRefcon */
     IOReturn (*setElementValue)(void *	 			self,
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
@@ -169,16 +183,21 @@ struct IOHIDDeviceInterface
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
 
-    /* This call actually querys the device. */
-    /* It is most useful for the feature element type. */
-    /* Not all devices support this call for inputs, but all do for features */
-    /* timoutMS is the timeout in milliseconds, a zero timeout will cause */
-    /*	this call to be non-blocking (returning queue empty) if there */
-    /*	is a NULL callback, and blocking forever until the queue is */
-    /*	non-empty if their is a valid callback */
-    /* callback, if non-NULL is a callback to be called when data is */
-    /*  inserted to the queue  */
-    /* callbackTarget and callbackRefcon are passed to the callback */
+
+/*! @function queryElementValue
+    @abstract Called to obtain the current value of an element
+    @discussion This call is most useful for feature type elements.  This
+        method will poll the device for the current element value.
+    @param elementCookie The element of interest. 
+    @param valueEvent The event that will be filled.  If a long value is 
+        present, it is up to the caller to deallocate it.
+
+    *** THIS METHOD IS SYNCHRONOUS ***
+    *** THE FOLLOWING PARAMS ARE UNSUPPORTED ***
+    @param timeoutMS
+    @param callback 
+    @param callbackTarget
+    @param callbackRefcon */
     IOReturn (*queryElementValue)(void * 			self,
                                 IOHIDElementCookie		elementCookie,
                                 IOHIDEventStruct *		valueEvent,
@@ -187,14 +206,20 @@ struct IOHIDDeviceInterface
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
 
-    /* start/stop data delivery every queue for a device */
+/*! @function startAllQueues
+    @abstract Start data delivery on all queue for a this device */
     IOReturn (*startAllQueues)(void * self);
+    
+/*! @function stopAllQueues
+    @abstract Stop data delivery on all queue for a this device */
     IOReturn (*stopAllQueues)(void * self);
 
-    /* Wrapper to return instances of the IOHIDQueueInterface */
+/*! @function allocQueue
+    @abstract Wrapper to return instances of the IOHIDQueueInterface */
     IOHIDQueueInterface ** (*allocQueue) (void *self);
     
-    /* Wrapper to return instances of the IOHIDOutputTransactionInterface */
+/*! @function allocOutputTransaction
+    @abstract Wrapper to return instances of the IOHIDOutputTransactionInterface */
     IOHIDOutputTransactionInterface ** (*allocOutputTransaction) (void *self);
 };
 typedef struct IOHIDDeviceInterface IOHIDDeviceInterface;
@@ -208,57 +233,115 @@ struct IOHIDQueueInterface
 {
     IUNKNOWN_C_GUTS;
     
-    /* Completion plumbing (overrides that set in IOHIDDevice) */
+/*! @function createAsyncEventSource
+    @abstract Called to create an async event source
+    @discussion This will be used with setEventCallout.
+    @param source The newly created event source */
     IOReturn (*createAsyncEventSource)(void * 			self, 
                                         CFRunLoopSourceRef * 	source);
+
+/*! @function getAsyncEventSource
+    @abstract Called to obtain the current event source */
     CFRunLoopSourceRef (*getAsyncEventSource)(void * self);
 
+/*! @function createAsyncPort
+    @abstract Called to create an async port
+    @discussion This will be used with createAsyncEventSource.
+    @param port The newly created async port */
     IOReturn (*createAsyncPort)(void * self, mach_port_t * port);
+    
+/*! @function getAsyncPort
+    @abstract Called to obtain the current async port */
     mach_port_t (*getAsyncPort)(void * self);
     
-    /* Basic IOHIDQueue interface */
-    /* depth is the maximum number of elements in the queue before	*/
-    /*   the oldest elements in the queue begin to be lost		*/
+/*! @function create
+    @abstract Create the current queue. 
+    @param flags
+    @param depth The maximum number of elements in the queue 
+        before the oldest elements in the queue begin to be lost. */
     IOReturn (*create)(void * 			self, 
                         UInt32 			flags,
                         UInt32			depth);
+
+/*! @function create
+    @abstract Dispose of the current queue. */
     IOReturn (*dispose)(void * self);
     
-    /* Any number of hid elements can feed the same queue */
+/*! @function addElement
+    @abstract Called to add an element to the queue
+    @discussion If the element has already been added to queue,
+        an error will be returned.
+    @param elementCookie The element of interest. 
+    @flags */
     IOReturn (*addElement)(void * self,
                            IOHIDElementCookie elementCookie,
                            UInt32 flags);
+
+/*! @function removeElement
+    @abstract Called to remove an element to the queue
+    @discussion If the element has not been added to queue,
+        an error will be returned.
+    @param elementCookie The element of interest. */
     IOReturn (*removeElement)(void * self, IOHIDElementCookie elementCookie);
+    
+/*! @function hasElement
+    @abstract Called to check whether an element has been added to 
+        the queue.
+    @discussion Will return true if present, otherwise will return fales.
+    @param elementCookie The element of interest. */
     Boolean (*hasElement)(void * self, IOHIDElementCookie elementCookie);
 
-    /* start/stop data delivery to a queue */
+/*! @function start
+    @abstract Called to start event delivery to the queue. */
     IOReturn (*start)(void * self);
-    IOReturn (*stop)(void * self);
     
-    /* read next event from a queue */
-    /* maxtime, if non-zero, limits read events to those that occured */
-    /*   on or before maxTime */
-    /* timoutMS is the timeout in milliseconds, a zero timeout will cause */
-    /*	this call to be non-blocking (returning queue empty) if there */
-    /*	is a NULL callback, and blocking forever until the queue is */
-    /*	non-empty if their is a valid callback */
+/*! @function stop
+    @abstract Called to stop event delivery to the queue. */
+    IOReturn (*stop)(void * self);
+
+/*! @function getNextEvent
+    @abstract Called to read next event from the queue
+    @discussion
+    @param event The event that will be filled.  If a long value is
+        present, it is up to the caller to deallocate it.
+        
+    *** THE FOLLOWING PARAMETERS ARE UNSUPPORTED ***
+    @param maxtime If non-zero, limits read events to those that occured
+        on or before maxTime
+    @param timoutMS The timeout in milliseconds, a zero timeout will 
+        cause this call to be non-blocking (returning queue empty) if 
+        there is a NULL callback, and blocking forever until the queue
+        is non-empty if their is a valid callback */
+
     IOReturn (*getNextEvent)(void * 			self,
                             IOHIDEventStruct *		event,
                             AbsoluteTime		maxTime,
                             UInt32 			timeoutMS);
-    
-    /* set a callback for notification when queue transistions from non-empty */
-    /* callback, if non-NULL is a callback to be called when data is */
-    /*  inserted to the queue  */
-    /* callbackTarget and callbackRefcon are passed to the callback */
+
+/*! @function setEventCallout
+    @abstract Set the event callout to be called when the queue 
+        transitions to non-empty.
+    @discussion In order for this to work correctly, you must call
+        createAsyncPort and createAsyncEventSource.
+    @param callback if non-NULL is a callback to be called when data 
+        is  inserted to the queue
+    @param callbackTarget The callback target passed to the callback
+    @param callbackRefcon The callback refcon passed to the callback */
     IOReturn (*setEventCallout)(void * 			self,
-                                IOHIDCallbackFunction * callback,
+                                IOHIDCallbackFunction   callback,
                                 void * 			callbackTarget,
                                 void *			callbackRefcon);
 
-    /* Get the current notification callout */
+/*! @function getEventCallout
+    @abstract Get the event callout.
+    @discussion This callback will be called the queue transitions
+        to non-empty.
+    @param callback if non-NULL is a callback to be called when data 
+        is  inserted to the queue
+    @param callbackTarget The callback target passed to the callback
+    @param callbackRefcon The callback refcon passed to the callback */
     IOReturn (*getEventCallout)(void * 			self,
-                                IOHIDCallbackFunction ** outCallback,
+                                IOHIDCallbackFunction * outCallback,
                                 void ** 		outCallbackTarget,
                                 void **			outCallbackRefcon);
 };
@@ -280,60 +363,109 @@ struct IOHIDOutputTransactionInterface
     IOReturn (*createAsyncPort)(void * self, mach_port_t * port);
     mach_port_t (*getAsyncPort)(void * self);
     
-    /* Basic IOHIDOutputTransaction interface */
+/*! @function create
+    @abstract Create the current transaction.
+    @discussion This method will free any memory that has been
+        allocated for this transaction. */
     IOReturn (*create)(void * self);
+    
+/*! @function dispose
+    @abstract Dispose of the current transaction.
+    @discussion The transaction will have to be recreated, in order
+        to perform any operations on the transaction.*/
     IOReturn (*dispose)(void * self);
     
-    /* Any number of hid elements can be part of the same transaction. */
-    /* Elements only need to be added once */
-    IOReturn (*addElement)(void * self, IOHIDElementCookie elementCookie);
-    IOReturn (*removeElement)(void * self, IOHIDElementCookie elementCookie);
-    Boolean (*hasElement)(void * self, IOHIDElementCookie elementCookie);
+/*! @function addElement
+    @abstract Called to add an element to the transaction
+    @discussion If the element has already been added to transaction,
+        an error will be returned.
+    @param elementCookie The element of interest. */
+    IOReturn (*addElement)	(void * self, IOHIDElementCookie elementCookie);
     
-    /* This changes the default value of an element, when the values of the */
-    /* elements are cleared, on clear or commit, they are reset to the */
-    /* default value */
-    /* This call can be made on elements that are not in the transaction, but */
-    /* has undefined behavior if made on elements not in the transaction */
-    /* which are later added to the transaction. */
-    /* In other words, an element should be added before its default is */
-    /* set, for well defined behavior. */
+/*! @function removeElement
+    @abstract Called to removed an element from the transaction
+    @discussion If the element has not been added to transaction,
+        an error will be returned.
+    @param elementCookie The element of interest. */
+    IOReturn (*removeElement)	(void * self, IOHIDElementCookie elementCookie);
+    
+/*! @function hasElement
+    @abstract Called to check whether an element has been added to 
+        the transaction.
+    @discussion Will return true if present, otherwise will return fales.
+    @param elementCookie The element of interest. */
+    Boolean  (*hasElement)	(void * self, IOHIDElementCookie elementCookie);
+    
+/*! @function setElementDefault
+    @abstract Called to set the default value of an element in a 
+        transaction.
+    @discussion An error will be returned if the element has not been
+        added to the transaction.
+    @param elementCookie The element of interest. 
+    @param valueEvent The event that will be filled.  If a long value is
+        present, it will be copied.*/
     IOReturn (*setElementDefault)(void *	 	self,
                                   IOHIDElementCookie	elementCookie,
                                   IOHIDEventStruct *	valueEvent);
 
-    /* Get the current setting of an element's default value */
+/*! @function getElementDefault
+    @abstract Called to obtain the default value of an element in a 
+        transaction.
+    @discussion An error will be returned if the element has not been 
+        added to the transaction.
+    @param elementCookie The element of interest. 
+    @param outValueEvent The event that will be filled.  If a long value is 
+        present, it is up to the caller to deallocate it. */
     IOReturn (*getElementDefault)(void *	 	self,
                                   IOHIDElementCookie	elementCookie,
                                   IOHIDEventStruct *	outValueEvent);
 
-    /* Add a change to the transaction, by setting an element value */
-    /* The change is not actually made until it is commited */
-    /* The element must be part of the transaction or this call will fail */
+/*! @function setElementValue
+    @abstract Called to set the value of an element in a transaction.
+    @discussion An error will be returned if the element has not been
+        added to the transaction.
+    @param elementCookie The element of interest. 
+    @param valueEvent The event that will be filled.  If a long value is
+        present, it will be copied. */
     IOReturn (*setElementValue)(void *	 		self,
                                 IOHIDElementCookie	elementCookie,
                                 IOHIDEventStruct *	valueEvent);
 
-    /* Get the current setting of an element value */
+/*! @function getElementValue
+    @abstract Called to obtain the value of an element in a transaction.
+    @discussion An error will be returned if the element has not been 
+        added to the transaction.
+    @param elementCookie The element of interest. 
+    @param outValueEvent The event that will be filled.  If a long value is 
+        present, it is up to the caller to deallocate it. */
     IOReturn (*getElementValue)(void *	 		self,
                                 IOHIDElementCookie	elementCookie,
                                 IOHIDEventStruct *	outValueEvent);
 
-    /* Commit the transaction, or clear all the changes and start over */
-    /* timoutMS is the timeout in milliseconds, a zero timeout will cause */
-    /*	this call to be non-blocking (returning queue empty) if there */
-    /*	is a NULL callback, and blocking forever until the queue is */
-    /*	non-empty if their is a valid callback */
-    /* callback, if non-NULL is a callback to be called when data is */
-    /*  inserted to the queue  */
-    /* callbackTarget and callbackRefcon are passed to the callback */
+/*! @function commit
+    @abstract Commit the transaction
+    @discussion Transaction element values, if set, will be sent to the 
+        device.  Otherwise, the default element value will be used.  If
+        neither are set, that element will be omitted from the commit.
+        After a transaction is committed, transaction element values 
+        will be cleared.  Default values will be preserved.
+        
+    *** THIS METHOD IS SYNCHRONOUS ***
+    *** THE FOLLOWING PARAMS ARE UNSUPPORTED ***
+    @param timeoutMS
+    @param callback 
+    @param callbackTarget
+    @param callbackRefcon */
    IOReturn (*commit)(void * 			self,
                         UInt32 			timeoutMS,
-                        IOHIDCallbackFunction * callback,
+                        IOHIDCallbackFunction   callback,
                         void * 			callbackTarget,
                         void *			callbackRefcon);
     
-    /* Clear all the changes and start over */
+/*! @function clear
+    @abstract Clear the transaction
+    @discussion Transaction element values will cleared.   Default 
+        values will be preserved. */
     IOReturn (*clear)(void * self);
     
 };

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>AclSubjectTypes</key>
+	<array/>
+	<key>AuthTags</key>
+	<array/>
+	<key>ConjunctiveOps</key>
+	<array>
+		<string>CSSM_DB_NONE</string>
+		<string>CSSM_DB_AND</string>
+		<string>CSSM_DB_OR</string>
+	</array>
+	<key>DLType</key>
+	<string>CSSM_DL_FFS</string>
+	<key>MdsFileDescription</key>
+	<string>Built-in DL Primary info</string>
+	<key>MdsFileType</key>
+	<string>PluginSpecific</string>
+	<key>MdsRecordType</key>
+	<string>MDS_CDSADIR_DL_PRIMARY_RECORDTYPE</string>
+	<key>ModuleID</key>
+	<string>{87191ca1-0fc9-11d4-849a000502b52122}</string>
+	<key>ModuleName</key>
+	<string>AppleDL</string>
+	<key>ProductVersion</key>
+	<string>1.0</string>
+	<key>QueryLimitsFlag</key>
+	<integer>0</integer>
+	<key>RelationalOps</key>
+	<array>
+		<string>CSSM_DB_EQUAL</string>
+		<string>CSSM_DB_LESS_THAN</string>
+		<string>CSSM_DB_GREATER_THAN</string>
+		<string>CSSM_DB_NOT_EQUAL</string>
+		<string>CSSM_DB_CONTAINS</string>
+		<string>CSSM_DB_CONTAINS_INITIAL_SUBSTRING</string>
+		<string>CSSM_DB_CONTAINS_FINAL_SUBSTRING</string>
+	</array>
+	<key>SSID</key>
+	<integer>0</integer>
+	<key>SampleTypes</key>
+	<array/>
+	<key>Vendor</key>
+	<string>Apple Computer, Inc.</string>
+</dict>
+</plist>

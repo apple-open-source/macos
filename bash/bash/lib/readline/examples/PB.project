@@ -1,0 +1,17 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = (); 
+        Makefiles = (Makefile); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (histexamp.c, manexamp.c, rltest.c, rl.c, fileman.c); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = examples; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

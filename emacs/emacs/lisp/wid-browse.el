@@ -1,4 +1,4 @@
-;;; wid-browse.el --- Functions for browsing widgets.
+;;; wid-browse.el --- functions for browsing widgets
 ;;
 ;; Copyright (C) 1997 Free Software Foundation, Inc.
 ;;
@@ -86,6 +86,8 @@ if that value is non-nil."
   (easy-menu-add widget-browse-mode-menu)
   (run-hooks 'widget-browse-mode-hook))
 
+(put 'widget-browse-mode 'mode-class 'special)
+
 ;;; Commands.
 
 ;;;###autoload
@@ -120,7 +122,7 @@ if that value is non-nil."
 	      (get widget 'widget-type)
 	    (and (consp widget)
 		 (get (widget-type widget) 'widget-type)))
-    (error "Not a widget."))
+    (error "Not a widget"))
   ;; Create the buffer.
   (if (symbolp widget)
       (let ((buffer (format "*Browse %s Widget*" widget)))
@@ -297,4 +299,4 @@ With arg, turn widget mode on if and only if arg is positive."
 
 (provide 'wid-browse)
 
-;; wid-browse.el ends here
+;;; wid-browse.el ends here

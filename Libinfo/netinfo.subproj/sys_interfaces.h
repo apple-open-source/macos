@@ -26,14 +26,13 @@
 #define __SYS_INTERFACES__
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
+#include <net/if.h>
 
 typedef struct
 {
-	char name[IFNAMSIZ];
+	char *name;
 	short flags;
 	struct in_addr addr;
 	struct in_addr mask;
@@ -47,7 +46,7 @@ typedef struct
 	interface_t *interface;
 } interface_list_t;
 
-interface_list_t * sys_interfaces(void);
+interface_list_t *sys_interfaces(void);
 void sys_interfaces_release(interface_list_t *l);
 int sys_is_my_address(interface_list_t *l, struct in_addr *a);
 int sys_is_my_network(interface_list_t *l, struct in_addr *a);

@@ -41,11 +41,14 @@ SSCSPSession::SSCSPSession(CSSM_MODULE_HANDLE handle,
 						   CSSM_SERVICE_TYPE subserviceType,
 						   CSSM_ATTACH_FLAGS attachFlags,
 						   const CSSM_UPCALLS &upcalls,
-						   SSCSPDLSession &ssCSPDLSession)
+						   SSCSPDLSession &ssCSPDLSession,
+						   CssmClient::CSP &rawCsp)
 : CSPFullPluginSession(handle, plug, version, subserviceId, subserviceType,
 					   attachFlags, upcalls),
   mSSCSPDLSession(ssCSPDLSession),
-  mSSFactory(plug.mSSFactory)
+  mSSFactory(plug.mSSFactory),
+  mRawCsp(rawCsp),
+  mClientSession(CssmAllocator::standard(), *this)
 {
 }
 
@@ -160,6 +163,7 @@ SSCSPSession::UnwrapKey(CSSM_CC_HANDLE CCHandle,
 						CSSM_PRIVILEGE Privilege)
 {
 	SSDatabase database = getDatabase(context);
+	validateKeyAttr(KeyAttr);
 	const AccessCredentials *cred = NULL;
 	const AclEntryInput *owner = NULL;
 	if (CredAndAclEntry)
@@ -207,7 +211,25 @@ SSCSPSession::DeriveKey(CSSM_CC_HANDLE ccHandle,
 						const CSSM_RESOURCE_CONTROL_CONTEXT *credAndAclEntry,
 						CssmKey &derivedKey)
 {
-	unimplemented();
+	SSDatabase database = getDatabase(context);
+	validateKeyAttr(keyAttr);
+	const AccessCredentials *cred = NULL;
+	const AclEntryInput *owner = NULL;
+	if (credAndAclEntry)
+	{
+		cred = AccessCredentials::overlay(credAndAclEntry->AccessCred);
+		owner = &AclEntryInput::overlay(credAndAclEntry->InitialAclEntry);
+	}
+
+	/* optional BaseKey */
+ 	const CssmKey *keyInContext =
+		context.get<const CssmKey>(CSSM_ATTRIBUTE_KEY);
+	KeyHandle contextKeyHandle =
+		keyInContext ? lookupKey(*keyInContext).keyHandle() : noKey;
+	KeyHandle keyHandle;
+	clientSession().deriveKey(database.dbHandle(), context, contextKeyHandle, keyUsage,
+					keyAttr, param, cred, owner, keyHandle, derivedKey.header());
+	makeReferenceKey(keyHandle, derivedKey, database, keyAttr, keyLabel);
 }
 
 void
@@ -221,6 +243,7 @@ SSCSPSession::GenerateKey(CSSM_CC_HANDLE ccHandle,
 						  CSSM_PRIVILEGE privilege)
 {
 	SSDatabase database = getDatabase(context);
+	validateKeyAttr(keyAttr);
 	const AccessCredentials *cred = NULL;
 	const AclEntryInput *owner = NULL;
 	if (credAndAclEntry)
@@ -250,6 +273,8 @@ SSCSPSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
 							  CSSM_PRIVILEGE privilege)
 {
 	SSDatabase database = getDatabase(context);
+	validateKeyAttr(publicKeyAttr);
+	validateKeyAttr(privateKeyAttr);
 	const AccessCredentials *cred = NULL;
 	const AclEntryInput *owner = NULL;
 	if (credAndAclEntry)
@@ -488,3 +513,19 @@ SSCSPSession::PassThrough(CSSM_CC_HANDLE CCHandle,
 {
 	unimplemented();
 }
+
+/* Validate requested key attr flags for newly generated keys */
+void SSCSPSession::validateKeyAttr(uint32 reqKeyAttr)
+{
+	if(reqKeyAttr & (CSSM_KEYATTR_RETURN_DATA)) {
+		/* CSPDL only supports reference keys */
+		CssmError::throwMe(CSSMERR_CSP_UNSUPPORTED_KEYATTR_MASK);
+	}
+	if(reqKeyAttr & (CSSM_KEYATTR_ALWAYS_SENSITIVE | 
+				     CSSM_KEYATTR_NEVER_EXTRACTABLE)) {
+		/* invalid for any CSP */
+		CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
+	}
+	/* There may be more, but we'll leave it to SS and CSP to decide */
+}
+

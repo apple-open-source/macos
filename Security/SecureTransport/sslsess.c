@@ -69,12 +69,8 @@
 #include "cipherSpecs.h"
 #endif
 
-#ifdef	_APPLE_CDSA_
-#ifndef	_APPLE_SESSION_H_
 #include "appleSession.h"
-#endif
-#endif
-
+#include <assert.h>
 #include <string.h>
 #include <stddef.h>
 
@@ -83,6 +79,7 @@ typedef struct
     UInt8               sessionID[32];
     SSLProtocolVersion  protocolVersion;
     UInt16              cipherSuite;
+	UInt16				padding;	/* so remainder is word aligned */
     UInt8               masterSecret[48];
     int                 certCount;
     UInt8               certs[1];   /* Actually, variable length */
@@ -96,7 +93,7 @@ typedef struct
  * I don' think this is an issue...is it?
  */
 SSLErr
-SSLAddSessionID(const SSLContext *ctx)
+SSLAddSessionData(const SSLContext *ctx)
 {   SSLErr              err;
     uint32              sessionIDLen;
     SSLBuffer           sessionID;
@@ -129,7 +126,8 @@ SSLAddSessionID(const SSLContext *ctx)
     session->cipherSuite = ctx->selectedCipher;
     memcpy(session->masterSecret, ctx->masterSecret, 48);
     session->certCount = certCount;
-    
+    session->padding = 0;
+	
     certDest = session->certs;
     cert = ctx->peerCert;
     while (cert)
@@ -139,11 +137,7 @@ SSLAddSessionID(const SSLContext *ctx)
         cert = cert->next;
     }
     
-    #ifdef	_APPLE_CDSA_
-    err = sslAddSession(ctx->peerID, sessionID, ctx->sessionCtx.sessionRef);
-    #else
-    err = ctx->sessionCtx.addSession(ctx->peerID, sessionID, ctx->sessionCtx.sessionRef);
-    #endif
+    err = sslAddSession(ctx->peerID, sessionID);
     SSLFreeBuffer(&sessionID, &ctx->sysCtx);
     
     return err;
@@ -153,7 +147,7 @@ SSLAddSessionID(const SSLContext *ctx)
  * Retrieve resumable session data, from key ctx->peerID.
  */
 SSLErr
-SSLGetSessionID(SSLBuffer *sessionData, const SSLContext *ctx)
+SSLGetSessionData(SSLBuffer *sessionData, const SSLContext *ctx)
 {   SSLErr      err;
     
     if (ctx->peerID.data == 0)
@@ -161,12 +155,7 @@ SSLGetSessionID(SSLBuffer *sessionData, const SSLContext *ctx)
     
     sessionData->data = 0;
     
-    #ifdef	_APPLE_CDSA_
-    err = sslGetSession(ctx->peerID, sessionData, ctx->sessionCtx.sessionRef);
-    #else
-    ERR(err = ctx->sessionCtx.getSession(ctx->peerID, sessionData, ctx->sessionCtx.sessionRef));
-    #endif
-    
+    err = sslGetSession(ctx->peerID, sessionData);
     if (sessionData->data == 0)
         return ERR(SSLSessionNotFoundErr);
     
@@ -174,17 +163,13 @@ SSLGetSessionID(SSLBuffer *sessionData, const SSLContext *ctx)
 }
 
 SSLErr
-SSLDeleteSessionID(const SSLContext *ctx)
+SSLDeleteSessionData(const SSLContext *ctx)
 {   SSLErr      err;
     
     if (ctx->peerID.data == 0)
         return SSLSessionNotFoundErr;
     
-    #ifdef	_APPLE_CDSA_
-    err = sslDeleteSession(ctx->peerID, ctx->sessionCtx.sessionRef);
-    #else
-    err = ctx->sessionCtx.deleteSession(ctx->peerID, ctx->sessionCtx.sessionRef);
-    #endif
+    err = sslDeleteSession(ctx->peerID);
     return err;
 }
 
@@ -192,7 +177,7 @@ SSLDeleteSessionID(const SSLContext *ctx)
  * Given a sessionData blob, obtain the associated sessionID (NOT the key...).
  */
 SSLErr
-SSLRetrieveSessionIDIdentifier(
+SSLRetrieveSessionID(
 		const SSLBuffer sessionData, 
 		SSLBuffer *identifier, 
 		const SSLContext *ctx)
@@ -210,38 +195,85 @@ SSLRetrieveSessionIDIdentifier(
  * Obtain the protocol version associated with a specified resumable session blob.
  */
 SSLErr
-SSLRetrieveSessionIDProtocolVersion(
-		const SSLBuffer sessionID, 
+SSLRetrieveSessionProtocolVersion(
+		const SSLBuffer sessionData, 
 		SSLProtocolVersion *version, 
 		const SSLContext *ctx)
 {   ResumableSession    *session;
     
-    session = (ResumableSession*) sessionID.data;
+    session = (ResumableSession*) sessionData.data;
     *version = session->protocolVersion;
     return SSLNoErr;
 }
 
 /*
- * Retrieve session state. Presumably, ctx->sessionID and
+ * Retrieve session state from specified sessionData blob, install into
+ * ctx. Presumably, ctx->sessionID and
  * ctx->negProtocolVersion are already init'd (from the above two functions). 
  */
+ 
+/*
+ * Netscape Enterprise Server is known to change cipherspecs upon session resumption.
+ * For example, connecting to cdnow.com with all ciphersuites enabled results in
+ * CipherSuite 4 (SSL_RSA_WITH_RC4_128_MD5) being selected on the first session,
+ * and CipherSuite 10 (SSL_RSA_WITH_3DES_EDE_CBC_SHA) being selected on subsequent
+ * sessions. This is contrary to the SSL3.0 spec, sesion 7.6.1.3, describing the 
+ * Server Hello message. 
+ *
+ * This anomaly does not occur if only RC4 ciphers are enabled in the Client Hello
+ * message. It also does not happen in SSL V2. 
+ */
+#define ALLOW_CIPHERSPEC_CHANGE		1
+
 SSLErr
-SSLInstallSessionID(const SSLBuffer sessionData, SSLContext *ctx)
+SSLInstallSessionFromData(const SSLBuffer sessionData, SSLContext *ctx)
 {   SSLErr              err;
     ResumableSession    *session;
     uint8               *storedCertProgress;
     SSLCertificate      *cert, *lastCert;
-	#ifndef	__APPLE__
-    SSLBuffer           certAlloc;
-	#endif
     int                 certCount;
     uint32              certLen;
     
     session = (ResumableSession*)sessionData.data;
     
     CASSERT(ctx->negProtocolVersion == session->protocolVersion);
-    
-    ctx->selectedCipher = session->cipherSuite;
+	
+	/* 
+	 * For SSLv3 and TLSv1, we know that selectedCipher has already been specified in 
+	 * SSLProcessServerHello(). An SSLv2 server hello message with a session
+	 * ID hit contains no CipherKind field so we set it here.
+	 */
+	if(ctx->negProtocolVersion == SSL_Version_2_0) {
+		if(ctx->protocolSide == SSL_ClientSide) {
+			assert(ctx->selectedCipher == 0);
+			ctx->selectedCipher = session->cipherSuite;
+		}
+		else {
+			/* 
+			 * Else...what if they don't match? Could never happen, right? 
+			 * Wouldn't that mean the client is trying to switch ciphers on us?
+			 */
+			if(ctx->selectedCipher != session->cipherSuite) {
+				errorLog2("+++SSL2: CipherSpec change from %d to %d on session "
+					"resume\n",
+				session->cipherSuite, ctx->selectedCipher);
+				return SSLProtocolErr;
+			}
+		}
+	}
+	else {
+		assert(ctx->selectedCipher != 0);
+		if(ctx->selectedCipher != session->cipherSuite) {
+			#if		ALLOW_CIPHERSPEC_CHANGE
+			dprintf2("+++WARNING: CipherSpec change from %d to %d on session resume\n",
+				session->cipherSuite, ctx->selectedCipher);
+			#else
+			errorLog2("+++SSL: CipherSpec change from %d to %d on session resume\n",
+				session->cipherSuite, ctx->selectedCipher);
+			return SSLProtocolErr;
+			#endif
+		}
+    }
     if ((err = FindCipherSpec(ctx)) != 0) {
         return err;
     }
@@ -253,43 +285,20 @@ SSLInstallSessionID(const SSLBuffer sessionData, SSLContext *ctx)
 
     while (certCount--)
     {   
-		#ifdef	__APPLE__
 		cert = (SSLCertificate *)sslMalloc(sizeof(SSLCertificate));
 		if(cert == NULL) {
 			return SSLMemoryErr;
 		}
-		#else
-		if ((err = SSLAllocBuffer(&certAlloc, sizeof(SSLCertificate), &ctx->sysCtx)) != 0)
-            return err;
-        cert = (SSLCertificate*)certAlloc.data;
-		#endif
         cert->next = 0;
         certLen = SSLDecodeInt(storedCertProgress, 4);
         storedCertProgress += 4;
         if ((err = SSLAllocBuffer(&cert->derCert, certLen, &ctx->sysCtx)) != 0)
         {   
-			#ifdef	__APPLE__
 			sslFree(cert);
-			#else
-			SSLFreeBuffer(&certAlloc,&ctx->sysCtx);
-			#endif
             return err;
         }
         memcpy(cert->derCert.data, storedCertProgress, certLen);
         storedCertProgress += certLen;
-        #ifndef	_APPLE_CDSA_
-        /* we don't decode */
-        if ((err = ASNParseX509Certificate(cert->derCert, &cert->cert, ctx)) != 0)
-        {   
-			SSLFreeBuffer(&cert->derCert,&ctx->sysCtx);
-			#ifdef	__APPLE__
-			sslFree(cert);
-			#else
-            SSLFreeBuffer(&certAlloc,&ctx->sysCtx);
-			#endif
-            return err;
-        }
-        #endif
         if (lastCert == 0)
             ctx->peerCert = cert;
         else

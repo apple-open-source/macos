@@ -1,0 +1,112 @@
+/* config.h.in.  Generated automatically from configure.in by autoheader.  */
+
+/* Define to empty if the keyword does not work.  */
+#undef const
+
+/* Define to `int' if <sys/types.h> doesn't define.  */
+#undef mode_t
+
+/* Define to `int' if <sys/types.h> doesn't define.  */
+#undef pid_t
+
+/* Define as the return type of signal handlers (int or void).  */
+#undef RETSIGTYPE
+
+/* Define to `unsigned' if <sys/types.h> doesn't define.  */
+#undef size_t
+
+/* Define if you have the ANSI C header files.  */
+#undef STDC_HEADERS
+
+/* Define if lex declares yytext as a char * by default, not a char[].  */
+#undef YYTEXT_POINTER
+
+/* OS Definitions */
+#undef Linux
+#undef BSD
+#undef Darwin
+
+/* Found some version of curses that we're going to use */
+#undef HAS_CURSES
+
+   
+/* Use SunOS SysV curses? */
+#undef USE_SUNOS_CURSES
+
+/* Use old BSD curses - not used right now */
+#undef USE_BSD_CURSES
+
+/* Use SystemV curses? */
+#undef USE_SYSV_CURSES
+
+/* Use Ncurses? */
+#undef USE_NCURSES
+
+/* If you Curses does not have color define this one */
+#undef NO_COLOR_CURSES
+
+/* Define if you want to turn on SCO-specific code */
+#undef SCO_FLAVOR
+
+/* Set to reflect version of ncurses *
+ *   0 = version 1.*
+ *   1 = version 1.9.9g
+ *   2 = version 4.0/4.1 */
+#undef NCURSES_970530
+
+/* Define this if the lex used is the 'real' AT&T variety. Don't define if
+ * it's flex or some other */
+#undef USING_LEX
+
+/* Define if you have the getcwd function.  */
+#undef HAVE_GETCWD
+
+/* Define if you have the regcmp function.  */
+#undef HAVE_REGCMP
+
+/* Define if you have the regcomp function.  */
+#undef HAVE_REGCOMP
+
+/* Define if you have the snprintf function.  */
+#undef HAVE_SNPRINTF
+
+/* Define if you have the strerror function.  */
+#undef HAVE_STRERROR
+
+/* Define if you have the vsnprintf function.  */
+#undef HAVE_VSNPRINTF
+
+/* Define if you have the <dirent.h> header file.  */
+#undef HAVE_DIRENT_H
+
+/* Define if you have the <fcntl.h> header file.  */
+#undef HAVE_FCNTL_H
+
+/* Define if you have the <ndir.h> header file.  */
+#undef HAVE_NDIR_H
+
+/* Define if you have the <sys/dir.h> header file.  */
+#undef HAVE_SYS_DIR_H
+
+/* Define if you have the <sys/ndir.h> header file.  */
+#undef HAVE_SYS_NDIR_H
+
+/* Define if you have the <sys/termios.h> header file.  */
+#undef HAVE_SYS_TERMIOS_H
+
+/* Define if you have the <sys/window.h> header file.  */
+#undef HAVE_SYS_WINDOW_H
+
+/* Define if you have the <unistd.h> header file.  */
+#undef HAVE_UNISTD_H
+
+/* Name of package */
+#undef PACKAGE
+
+/* Version number of package */
+#undef VERSION
+
+/* Define if lex declares yytext as a char * by default,
+             not a char. */
+#undef YYTEXT_POINTER
+

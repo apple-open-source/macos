@@ -1,15 +1,23 @@
-# Jamfile for target InstallHeaders of project IOPCCardFamily
+# Jamfile for target "InstallHeaders" of project "IOPCCardFamily"
 
-
-PROJECT = IOPCCardFamily ;
 
 JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 
-# InstallHeaders target
-export deferred TARGET_NAME = InstallHeaders ;
-export deferred PRODUCT_NAME = InstallHeaders ;
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOPCCardFamily ;
 
+# User-defined project-wide settings for project
+
+# Target "InstallHeaders"
+
+# Implicitly computed build settings for target "InstallHeaders"
 export deferred CLONE_HEADERS = NO ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = InstallHeaders ;
+
+# User-defined build settings for target "InstallHeaders"
 export deferred INSTALLHDRS_COPY_PHASE = YES ;
 export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/pccard" ;
 export deferred OTHER_CFLAGS =  ;
@@ -29,6 +37,7 @@ if "$(BUILD_STYLE)" = Development {
 if "$(BUILD_STYLE)" = Deployment {
 	export deferred COPY_PHASE_STRIP = YES ;
 }
+
 
 commitdeferred ;
 

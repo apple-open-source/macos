@@ -1,0 +1,8 @@
+# $OpenLDAP: pkg/ldap/servers/Makefile.in,v 1.6 2002/01/04 20:17:44 kurt Exp $
+## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+##
+## servers Makefile.in for OpenLDAP
+
+SUBDIRS= slapd slurpd
+

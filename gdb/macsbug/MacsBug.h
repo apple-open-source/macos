@@ -55,7 +55,10 @@ extern Gdb_Cmd_Class macsbug_useful_class;	/* help class for useful commands	*/
 /*-----------------*
  | MacsBug_utils.c |
  *-----------------*/
- 
+
+#define DEFAULT_HEXDUMP_WIDTH	16		/* default hexdump bytes per line	*/
+#define DEFAULT_HEXDUMP_GROUP	4		/* default hexdump bytes per group	*/
+
 extern void init_macsbug_utils(void);
 extern char *format_disasm_line(FILE *f, char *src, void *data);
 extern char *filter_char(int c, int isString, char *buffer);
@@ -227,6 +230,8 @@ extern int max_history;				/* max nbr of lines of history recorded	*/
 extern int show_so_si_src;			/* show source with so/si commands	*/
 extern int dx_state;				/* breakpoints enabled state		*/
 extern int sidebar_state;			/* display reg sidebar in scroll mode	*/
+extern int hexdump_width;			/* hexdump line bytes per line		*/
+extern int hexdump_group;			/* hexdump bytes per group		*/
 extern int mb_testing;				/* set by SET mb_testing for debugging	*/
 
 /*--------------------------------------------------------------------------------------*/

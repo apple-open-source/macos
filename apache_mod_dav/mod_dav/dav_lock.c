@@ -662,6 +662,18 @@ int dav_get_resource_state(request_rec *r, const dav_resource *resource)
 	dav_lockdb *lockdb;
 	int locks_present;
 
+        /* ### the code below is an optimization to avoid the lock database
+           ### in certain cases. however, this doesn't work properly for
+           ### the COPY and MOVE case where we are passed the destination.
+           ### r->path_info is unrelated to that, so we shouldn't be
+           ### checking it.
+
+           ### further, for non-filesystem repositories the path_info will
+           ### definitely be non-null.
+
+           ### omit this code. we may reevaluate later.
+        */
+#if 0
 	/*
 	** A locknull resource has the form:
 	**
@@ -684,6 +696,7 @@ int dav_get_resource_state(request_rec *r, const dav_resource *resource)
 	if (r->path_info != NULL && *r->path_info != '\0') {
 	    return DAV_RESOURCE_NULL;
 	}
+#endif
 	
         if ((err = (*hooks->open_lockdb)(r, 1, 1, &lockdb)) == NULL) {
 	    /* note that we might see some expired locks... *shrug* */
@@ -696,7 +709,7 @@ int dav_get_resource_state(request_rec *r, const dav_resource *resource)
 
 	    ap_log_rerror(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, r,
 		          "Failed to query lock-null status for %s",
-			  r->filename);
+			  resource->uri);
 
 	    return DAV_RESOURCE_ERROR;
         }

@@ -1,15 +1,23 @@
-2000-06-13  Gerd Moellmann  <gerd@gnu.org>
+2001-10-20  Gerd Moellmann  <gerd@gnu.org>
 
-	* Version 20.7 released.
-	
-2000-02-26  Gerd Moellmann  <gerd@gnu.org>
+	* Version 21.1 released.
 
-	* Version 20.6 released.
-	
-1999-12-04  Gerd Moellmann  <gerd@gnu.org>
+2000-07-21  Eli Zaretskii  <eliz@is.elta.co.il>
 
-	* Version 20.5 released.
-	
+	* Activate.c (XMenuActivate): Call help callback with two more
+	arguments: the pane number and selection number.
+
+2000-01-27  Gerd Moellmann  <gerd@gnu.org>
+
+	* Activate.c (XMenuActivate): Add parameter HELP_CALLBACK.
+	Call help callback.
+
+	* Post.c (XMenuPost): Pass null help callback to XMenuActivate.
+
+	* AddSel.c (XMenuAddSelection): Add parameter HELP.
+
+	* XMenu.h (XmSelect): Add member `help_string'.
+
 1999-07-12  Richard Stallman  <rms@gnu.org>
 
 	* Version 20.4 released.
@@ -407,3 +415,11 @@
 	* Internal.c: Declare argument `display' in some functions.
 
 
+;; Local Variables:
+;; coding: iso-2022-7bit-unix
+;; End:
+
+    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2001
+	Free Software Foundation, Inc.
+  Copying and distribution of this file, with or without modification,
+  are permitted provided the copyright notice and this notice are preserved.

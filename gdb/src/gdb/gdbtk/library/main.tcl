@@ -28,12 +28,20 @@
 #set tcl_traceCompile 1
 
 # Add gdb's Tcl library directory to the end of the auto-load search path, if 
-# it isn't already on the path:
+# it isn't already on the path.
+# Also, add the plugins directory if it exists.
 # Note: GDBTK_LIBRARY will be set in tcl_findLibrary before main.tcl is called.
+
+set gdb_plugins ""
 
 if {[info exists auto_path]} {
   if {[lsearch -exact $auto_path $GDBTK_LIBRARY] < 0} {
     lappend auto_path $GDBTK_LIBRARY
+  }
+  # In any case, add the plugins directory if it exists
+  if {[file exists [file join $GDBTK_LIBRARY plugins]]} {
+    set gdb_plugins [file join $GDBTK_LIBRARY plugins]
+    lappend auto_path $gdb_plugins
   }
 }
 
@@ -50,11 +58,19 @@ namespace import itcl::*
 
 namespace import debug::*
 
-if {![find_iwidgets_library]} {
-  tk_messageBox -title Error -message "Could not find the Iwidgets libraries.
-Got nameofexec: [info nameofexecutable]
-Error(s) were: \n$errMsg" \
-      -icon error -type ok
+# Setup iwidgets path, if needed
+if {[info exists IWIDGETS_LIBRARY]} {
+  lappend auto_path $IWIDGETS_LIBRARY
+}
+
+if {[catch {package require Iwidgets 3.0} errMsg]} {
+  set msg "Could not find the Iwidgets libraries.\n\nGot nameofexec: [info nameofexecutable]\nError(s) were: \n$errMsg"
+
+  if {![info exists ::env(GDBTK_TEST_RUNNING)] || $::env(GDBTK_TEST_RUNNING) == 0} {
+    puts stderr $msg
+  } else {
+    tk_messageBox -title Error -message $msg -icon error -type ok
+  }
   exit
 }
 
@@ -85,8 +101,12 @@ if {[info exists env(GDBTK_TRACE)] && $env(GDBTK_TRACE) != 0} {
   }
 }
 
-if {[info exists env(GDBTK_DEBUGFILE)]} {
-  ::debug::logfile $env(GDBTK_DEBUGFILE)
+if {[info exists env(GDBTK_DEBUG)] && $env(GDBTK_DEBUG) != 0} {
+  if {[info exists env(GDBTK_DEBUGFILE)]} {
+    ::debug::logfile $env(GDBTK_DEBUGFILE)
+  } else {
+    ::debug::logfile "insight.log"
+  }
 }
 
 if {$tcl_platform(platform) == "unix"} {
@@ -94,6 +114,9 @@ if {$tcl_platform(platform) == "unix"} {
 #  tk_setPalette tan
   tix resetoptions TixGray [tix cget -fontset]
 }
+
+# For testing
+set _test(interactive) 0
 
 # initialize state variables
 initialize_gdbtk
@@ -118,19 +141,15 @@ pref_read
 
 init_disassembly_flavor
 
+# Arrange for session code to notice when file changes.
+add_hook file_changed_hook Session::notice_file_change
+
 ManagedWin::init
 
 # This stuff will help us play nice with WindowMaker's AppIcons.
 # Can't do the first bit yet, since we don't get this from gdb...
 # wm command . [concat $argv0 $argv] 
 wm group . . 
-
-# Open debug window if testsuite is not running and GDBTK_DEBUG is set
-if {![info exists env(GDBTK_TEST_RUNNING)] || !$env(GDBTK_TEST_RUNNING)} {
-  if {[info exists env(GDBTK_DEBUG)] && $env(GDBTK_DEBUG) > 1} {
-    ManagedWin::open DebugWin
-  }
-}
 
 # some initial commands to get gdb in the right mode
 gdb_cmd {set height 0}

@@ -1,3 +1,7 @@
+
+#ifndef _S_ARP_SESSION_H
+#define _S_ARP_SESSION_H
+
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -31,8 +35,8 @@
  * - created
  */
 
-#import "FDSet.h"
-#import "interfaces.h"
+#include "FDSet.h"
+#include "interfaces.h"
 
 /*
  * Type: arp_result_func_t
@@ -117,3 +121,5 @@ arp_probe(arp_client_t * client,
 
 void
 arp_cancel_probe(arp_client_t * client);
+
+#endif _S_ARP_SESSION_H

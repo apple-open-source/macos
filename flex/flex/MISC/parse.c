@@ -35,7 +35,7 @@ static char yysccsid[] = "@(#)yaccpar	1.9 (Berkeley) 02/21/93";
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* $Header: /cvs/Darwin/Commands/GNU/flex/flex/MISC/parse.c,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/flex/flex/MISC/parse.c,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ */
 
 
 /* Some versions of bison are broken in that they use alloca() but don't

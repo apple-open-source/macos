@@ -157,8 +157,6 @@ public:
 
     virtual IOWorkLoop *	getWorkLoop() const;
 
-    virtual IODeviceMemory *	ioDeviceMemory(void);
-    
     // original end methods
 
     static int			requestCardEjection(IOService * bridgeDevice);	// slot 0

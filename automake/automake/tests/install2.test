@@ -1,0 +1,36 @@
+#! /bin/sh
+
+# Test for bug in `make dist'
+# From Pavel Roskin.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+dnl Prevent automake from looking in .. and ../..
+AC_CONFIG_AUX_DIR(.)
+AM_INIT_AUTOMAKE(foo, 0.1)
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+SUBDIRS = .
+END
+
+# Likewise for gzip.
+(gzip --version) > /dev/null 2>&1 || exit 77
+
+$ACLOCAL || exit 1
+$AUTOCONF || exit 1
+$AUTOMAKE -a || exit 1
+
+chmod 000 Makefile.am
+
+# On some systems (like DOS and Windows), files are always readable
+test -r Makefile.am && exit 77
+
+./configure || exit 1
+# `dist' should fail because we can't copy Makefile.am.
+$MAKE dist  && exit 1
+
+exit 0

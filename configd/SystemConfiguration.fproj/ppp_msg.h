@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -168,7 +168,9 @@ enum {
     PPP_NETWORK,
     PPP_RUNNING,
     PPP_TERMINATE,
-    PPP_DISCONNECTLINK
+    PPP_DISCONNECTLINK,
+    PPP_HOLDOFF,
+    PPP_ONHOLD
 };
 
 // events

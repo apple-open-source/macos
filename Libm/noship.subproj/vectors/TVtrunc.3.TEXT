@@ -1,0 +1,63 @@
+!
+!  Test Vectors for Truncate-to-Integer : TVTTI.3
+!
+! Exact cases.
+3J	    ALL		  1		  0		  OK	  1
+3J	    ALL		  Hd1  0	   OK	   Hd1
+3J	    ALL		  -1	  0		  OK	  -1
+3J	    ALL		  -Hd1 0	   OK	   -Hd1
+3J	    ALL		  9p9   0	    OK	    9p9
+3J	    ALL		  -9p9  0	    OK	    -9p9
+3J	    ALL		  0		  0		  OK	  0
+3J	    ALL		  -0	  0		  OK	  -0
+3J	    ALL		  Hm9	   0	   OK	   Hm9
+3J	    ALL		  Hm9d1	 0		 OK		 Hm9d1
+3J	    ALL		  Hm9d9	 0		 OK		 Hm9d9
+3J	    ALL		  Hm9d9d9 0	   OK	   Hm9d9d9
+3J	    ALL		  -Hm9	    0	    OK	   -Hm9
+3J	    ALL		  -Hm9d1  0		  OK	 -Hm9d1
+3J	    ALL		  -Hm9d9  0		  OK	 -Hm9d9
+3J	    ALL		  -Hm9d9d9 0    OK	   -Hm9d9d9
+! Infinities.
+3J	    ALL		  H		 0		 OK		 H
+3J	    ALL		  -H	 0		 OK		 -H
+! Inexact cases.
+3J	    ALL		  1i1   0	    x	    1
+3J	    ALL		  1d1   0	    x	    0
+3J	    ALL		  -1d1  0	    x	    -0 
+3J	    ALL		  -1i1  0	    x	    -1
+3J	    ALL		  E		  0		  x		  0
+3J	    ALL		  -E	  0		  x		  -0
+3J	    ALL		  Ed1   0	    x	    0
+3J	    ALL		  -Ed1  0	    x	    -0
+3J	    ALL		  0i1   0	    x	    0
+3J	    ALL		  -0i1  0	    x	    -0
+3J	    ALL		  8i1   0	    x	    8
+3J	    ALL		  -8i1  0	    x	    -8
+3J	    ALL		  8d1   0	    x	    7
+3J	    ALL		  -8d1  0	    x	    -7
+3J	    ALL		  1p9d8 0	  x		  511
+3J	    ALL		  -1p9d8  0	   x	   -511
+3J	    ALL		  1p14d1  0	    x	    16383 
+3J	    ALL		  -1p14d1 0	   x	   -16383
+3J	    ALL		  1p9i8	  0	    x	    1p9
+3J	    ALL		  -1p9i8  0	   x	   -1p9
+3J	    ALL		  1p18i1  0	    x	    1p18 
+3J	    ALL		  -1p18i1 0	   x	   -1p18 
+! Half-way cases.
+3J	    ALL		  1m1   0	    x	    0
+3J	    ALL		  -1m1  0	    x	    -0
+3J	    ALL		  3m1   0	    x	    1
+3J	    ALL		  -3m1  0	    x	    -1
+3J	    ALL		  9m1   0	    x	    4
+3J	    ALL		  -9m1  0	    x	    -4
+3J	    ALL		  1m1i1	  0		  x	    0
+3J	    ALL		  -1m1i1  0		  x	    -0
+3J	    ALL		  3m1d1	  0		  x	    1
+3J	    ALL		  -3m1d1  0		  x	    -1
+3J	    ALL		  9m1i1 0	  x		    4
+3J	    ALL		  -9m1i1 0	  x		    -4
+! NAN operand.
+! Commented out signaling NaN case <JPO, 5/13/93>
+3J	    ALL		  Q		  0		  OK	  Q
+!3J	    ALL		  S		  0		  i		  Q

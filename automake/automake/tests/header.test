@@ -1,0 +1,24 @@
+#! /bin/sh
+
+# Test for PR 68.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_SUBST(MY_HEADERS)
+AC_PROG_CC
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = zoo
+zoo_SOURCES = joe.c
+END
+
+: > joe.c
+: > qq.h
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '[^@]MY_HEADERS' Makefile.in && exit 1
+exit 0

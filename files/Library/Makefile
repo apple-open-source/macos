@@ -14,3 +14,5 @@ install::
 install::
 	@echo "Installing $(Destination)"
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
+	@echo "Installing $(Destination)/Caches"
+	$(_v) $(INSTALL_DIRECTORY) -m 1777 "$(Destination)/Caches"

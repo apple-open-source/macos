@@ -1,5 +1,5 @@
 /* Machine independent support for SVR4 /proc (process file system) for GDB.
-   Copyright 1999 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
    Written by Michael Snyder at Cygnus Solutions.
    Based on work by Fred Fish, Stu Grossman, Geoff Noer, and others.
 
@@ -27,6 +27,7 @@ Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "gdbcmd.h"
+#include "completer.h"
 
 #if defined (NEW_PROC_API)
 #define _STRUCTURED_PROC 1
@@ -219,7 +220,9 @@ static struct trans ioctl_table[] = {
 int
 ioctl_with_trace (int fd, long opcode, void *ptr, char *file, int line)
 {
-  int i, ret, arg1;
+  int i = 0;
+  int ret;
+  int arg1;
 
   prepare_to_trace ();
 
@@ -446,12 +449,12 @@ write_with_trace (int fd, void *varg, size_t len, char *file, int line)
 {
   int  i;
   int ret;
-  long *arg = (long *) varg;
+  procfs_ctl_t *arg = (procfs_ctl_t *) varg;
 
   prepare_to_trace ();
   if (procfs_trace)
     {
-      long opcode = arg[0];
+      procfs_ctl_t opcode = arg[0];
       for (i = 0; rw_table[i].name != NULL; i++)
 	if (rw_table[i].value == opcode)
 	  break;
@@ -475,7 +478,9 @@ write_with_trace (int fd, void *varg, size_t len, char *file, int line)
       case PCUNSET:
 #endif
 #ifdef PCRESET
+#if PCRESET != PCUNSET
       case PCRESET:
+#endif
 #endif
 	fprintf (procfs_file ? procfs_file : stdout, 
 		 "write (PCRESET, %s) %s\n", 
@@ -551,6 +556,7 @@ write_with_trace (int fd, void *varg, size_t len, char *file, int line)
 	break;
       default:
 	{
+#ifdef BREAKPOINT
 	  static unsigned char break_insn[] = BREAKPOINT;
 
 	  if (len == sizeof (break_insn) &&
@@ -558,7 +564,9 @@ write_with_trace (int fd, void *varg, size_t len, char *file, int line)
 	    fprintf (procfs_file ? procfs_file : stdout, 
 		     "write (<breakpoint at 0x%08lx>) \n", 
 		     (unsigned long) lseek_offset);
-	  else if (rw_table[i].name)
+	  else 
+#endif
+	  if (rw_table[i].name)
 	    fprintf (procfs_file ? procfs_file : stdout, 
 		     "write (%s) %s\n", 
 		     rw_table[i].name, 
@@ -769,12 +777,13 @@ _initialize_proc_api (void)
 		   "Set tracing for /proc api calls.\n", &setlist);
 
   add_show_from_set (c, &showlist);
-  c->function.sfunc = set_procfs_trace_cmd;
+  set_cmd_sfunc (c, set_procfs_trace_cmd);
+  set_cmd_completer (c, filename_completer);
 
   c = add_set_cmd ("procfs-file", no_class, var_filename,
 		   (char *) &procfs_filename, 
 		   "Set filename for /proc tracefile.\n", &setlist);
 
   add_show_from_set (c, &showlist);
-  c->function.sfunc = set_procfs_file_cmd;
+  set_cmd_sfunc (c, set_procfs_file_cmd);
 }

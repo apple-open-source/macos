@@ -1,0 +1,256 @@
+COMMENT(!MOD!zsh/zutil
+Some utility builtins, e.g. the one for supporting configuration via 
+styles.
+!MOD!)
+cindex(builtins, utility)
+The tt(zsh/zutil) module only adds some builtins:
+
+startitem()
+findex(zstyle)
+xitem(tt(zstyle) [ tt(-L) ])
+xitem(tt(zstyle) [ tt(-e) | tt(-) | tt(-)tt(-) ] var(pattern) var(style) var(strings) ...)
+xitem(tt(zstyle -d) [ var(pattern) [ var(styles) ... ] ])
+xitem(tt(zstyle -g) var(name) [ var(pattern) [ var(style) ] ])
+xitem(tt(zstyle -abs) var(context) var(style) var(name) [ var(sep) ])
+xitem(tt(zstyle -Tt) var(context) var(style) [ var(strings) ...])
+item(tt(zstyle -m) var(context) var(style) var(pattern))(
+This builtin command is used to define and lookup styles.  Styles are
+pairs of names and values, where the values consist of any number of
+strings.  They are stored together with patterns and lookup is done by
+giving a string, called the `context', which is compared to the
+patterns.  The definition stored for the first matching pattern will be 
+returned.
+
+For ordering of comparisons, patterns are searched from most specific to
+least specific, and patterns that are equally specific keep the order in 
+which they were defined.  A pattern is considered to be more specific
+than another if it contains more components (substrings separated by
+colons) or if the patterns for the components are more specific, where 
+simple strings are considered to be more specific than patterns and
+complex patterns are considered to be more specific than the pattern
+`tt(*)'.
+
+The first form (without arguments) lists the definitions in the order
+tt(zstyle) will test them. If the tt(-L) option is given, listing is
+done in the form of calls to tt(zstyle).  Forms with arguments:
+
+startitem()
+item(tt(zstyle) [ tt(-) | tt(-)tt(-) | tt(-e) ] var(pattern) var(style) var(strings) ...)(
+vindex(reply, use of)
+Defines the given var(style) for the var(pattern) with the var(strings) as
+the value.  If the tt(-e) option is given, the var(strings) will be
+concatenated (separated by spaces) and the resulting string will be
+evaluated (in the same way as it is done by the tt(eval) builtin
+command) when the style is looked up.  In this case the parameter
+`tt(reply)' must be assigned to set the strings returned after the
+evaluation.  Before evaluating the value, tt(reply) is unset, and
+if it is still unset after the evaluation, the style is treated as if
+it were not set.
+)
+item(tt(zstyle -d) [ var(pattern) [ var(styles) ... ] ])(
+Delete style definitions. Without arguments all definitions are deleted,
+with a var(pattern) all definitions for that pattern are deleted and if
+any var(styles) are given, then only those styles are deleted for the
+var(pattern).
+)
+item(tt(zstyle -g) var(name) [ var(pattern) [ var(style) ] ])(
+Retrieve a style definition. The var(name) is
+used as the name of an array in which the results are stored. Without
+any further arguments, all var(patterns) defined are returned. With a
+var(pattern) the styles defined for that pattern are returned and with 
+both a var(pattern) and a var(style), the value strings of that
+combination is returned.
+)
+enditem()
+
+The other forms can be used to look up or test patterns.
+
+startitem()
+item(tt(zstyle -s) var(context) var(style) var(name) [ var(sep) ])(
+The parameter var(name) is set to the value of the style interpreted as a
+string.  If the value contains several strings they are concatenated with
+spaces (or with the var(sep) string if that is given) between them.
+)
+item(tt(zstyle -b) var(context) var(style) var(name))(
+The value is stored in var(name) as a boolean, i.e. as the string
+`tt(yes)' if the value has only one string and that string is equal to one
+of `tt(yes)', `tt(true)', `tt(on)', or `tt(1)'. If the value is any other
+string or has more than one string, the parameter is set to `tt(no)'.
+)
+item(tt(zstyle -a) var(context) var(style) var(name))(
+The value is stored in var(name) as an array. If var(name) is declared 
+as an associative array,  the first, third, etc. strings are used as the
+keys and the other strings are used as the values.
+)
+xitem(tt(zstyle -t) var(context) var(style) [ var(strings) ...])
+item(tt(zstyle -T) var(context) var(style) [ var(strings) ...])(
+Test the value of a style, i.e. the tt(-t) option only returns a status
+(sets tt($?)).  Without any var(strings) the return status is zero if the
+style is defined for at least one matching pattern, has only one string in
+its value, and that is equal to one of `tt(true)', `tt(yes)', `tt(on)' or
+`tt(1)'. If any var(strings) are given the status is zero if and only if
+at least one of the var(strings) is equal to at least one of the strings
+in the value. If the style is not defined, the status is tt(2).
+
+The tt(-T) option tests the values of the style like tt(-t), but it
+returns zero (rather than tt(2)) if the style is not defined for any
+matching pattern.
+)
+item(tt(zstyle -m) var(context) var(style) var(pattern))(
+Match a value. Returns status zero if the 
+var(pattern) matches at least one of the strings in the value.
+)
+enditem()
+)
+findex(zformat)
+xitem(tt(zformat -f) var(param) var(format) var(specs) ...)
+item(tt(zformat -a) var(array) var(sep) var(specs) ...)(
+This builtin provides two different forms of formatting. The first form 
+is selected with the tt(-f) option. In this case the var(format)
+string will be modified by replacing sequences starting with a percent 
+sign in it with strings from the var(specs).  Each var(spec) should be
+of the form `var(char)tt(:)var(string)' which will cause every
+appearance of the sequence `tt(%)var(char)' in var(format) to be replaced 
+by the var(string).  The `tt(%)' sequence may also contain optional
+minimum and maximum field width specifications between the `tt(%)' and 
+the `var(char)' in the form `tt(%)var(min)tt(.)var(max)tt(c)',
+i.e. the minimum field width is given first and if the maximum field
+width is used, it has to be preceded by a dot.  Specifying a minimum field
+width makes the result be padded with spaces to the right if the
+var(string) is shorter than the requested width.  Padding to the left
+can be achieved by giving a negative minimum field width.  If a maximum 
+field width is specified, the var(string) will be truncated after that
+many characters.  After all `tt(%)' sequences for the given var(specs)
+have been processed, the resulting string is stored in the parameter
+var(param).
+
+The second form, using the tt(-a) option, can be used for aligning
+strings.  Here, the var(specs) are of the form
+`var(left)tt(:)var(right)' where `var(left)' and `var(right)' are
+arbitrary strings.  These strings are modified by replacing the colons
+by the var(sep) string and padding the var(left) strings with spaces 
+to the right so that the var(sep) strings in the result (and hence the 
+var(right) strings after them) are all aligned if the strings are
+printed below each other.  All strings without a colon are left
+unchanged and all strings with an empty var(right) string have the
+trailing colon removed.  In both cases the lengths of the strings
+are not used to determine how the other strings are to be aligned.
+The resulting strings are stored in the var(array).
+)
+findex(zregexparse)
+item(tt(zregexparse))(
+This implements some internals of the tt(_regex_arguments) function.
+)
+findex(zparseopts)
+item(tt(zparseopts) [ tt(-D) ] [ tt(-K) ] [ tt(-E) ] [ tt(-a) var(array) ] [ tt(-A) var(assoc) ] var(specs))(
+This builtin simplifies the parsing of options in positional parameters,
+i.e. the set of arguments given by tt($*).  Each var(spec) describes one
+option and must be of the form `var(opt)[tt(=)var(array)]'.  If an option
+described by var(opt) is found in the positional parameters it is copied
+into the var(array) specified with the tt(-a) option; if the optional
+`tt(=)var(array)' is given, it is instead copied into that array.
+
+Note that it is an error to give any var(spec) without an
+`tt(=)var(array)' unless one of the tt(-a) or tt(-A) options is used.
+
+Unless the tt(-E) option is given, parsing stops at the first string
+that isn't described by one of the var(specs).  Even with tt(-E),
+parsing always stops at a positional parameter equal to `tt(-)' or
+`tt(-)tt(-)'.
+
+The var(opt) description must be one of the following.  Any of the special
+characters can appear in the option name provided it is preceded by a
+backslash.
+
+startitem()
+xitem(var(name))
+item(var(name)tt(+))(
+The var(name) is the name of the option without the leading `tt(-)'.  To
+specify a GNU-style long option, one of the usual two leading `tt(-)' must
+be included in var(name); for example, a `tt(--file)' option is
+represented by a var(name) of `tt(-file)'.
+
+If a `tt(+)' appears after var(name), the option is appended to var(array)
+each time it is found in the positional parameters; without the `tt(+)'
+only the em(last) occurrence of the option is preserved.
+
+If one of these forms is used, the option takes no argument, so parsing
+stops if the next positional parameter does not also begin with `tt(-)'
+(unless the tt(-E) option is used).
+)
+xitem(var(name)tt(:))
+xitem(var(name)tt(:-))
+item(var(name)tt(::))(
+If one or two colons are given, the option takes an argument; with one
+colon, the argument is mandatory and with two colons it is optional.  The
+argument is appended to the var(array) after the option itself.
+
+An optional argument is put into the same array element as the option name
+(note that this makes empty strings as arguments indistinguishable).  A
+mandatory argument is added as a separate element unless the `tt(:-)' form
+is used, in which case the argument is put into the same element.
+
+A `tt(+)' as described above may appear between the var(name) and the
+first colon.
+)
+enditem()
+
+The options of tt(zparseopts) itself are:
+
+startitem()
+item(tt(-a) var(array))(
+As described above, this names the default array in which to store the
+recognised options.
+)
+item(tt(-A) var(assoc))(
+If this is given, the options and their values are also put into an
+associative array with the option names as keys and the arguments (if any)
+as the values.
+)
+item(tt(-D))(
+If this option is given, all options found are removed from the positional
+parameters of the calling shell or shell function, up to but not including
+any not described by the var(specs).  This is similar to using the tt(shift)
+builtin.
+)
+item(tt(-K))(
+With this option, the arrays specified with the tt(-a) and tt(-A)
+options and with the `tt(=)var(array)' forms are kept unchanged when none
+of the var(specs) for them is used.  This allows assignment of default
+values to them before calling tt(zparseopts).
+)
+item(tt(-E))(
+This changes the parsing rules to em(not) stop at the first string
+that isn't described by one of the var(spec)s.  It can be used to test
+for or (if used together with tt(-D)) extract options and their
+arguments, ignoring all other options and arguments that may be in the
+positional parameters.
+)
+enditem()
+
+For example,
+
+example(set -- -a -bx -c y -cz baz -cend
+zparseopts a=foo b:=bar c+:=bar)
+
+will have the effect of
+
+example(foo=(-a)
+bar=(-b x -c y -c z))
+
+The arguments from `tt(baz)' on will not be used.
+
+As an example for the tt(-E) option, consider:
+
+example(set -- -a x -b y -c z arg1 arg2
+zparseopts -E -D b:=bar)
+
+will have the effect of
+
+example(bar=(-b y)
+set -- -a x -c z arg1 arg2)
+
+I.e., the option tt(-b) and its arguments are taken from the
+positional parameters and put into the array tt(bar).
+)
+enditem()

@@ -1,0 +1,1084 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		018938C0FFE55C3511CE15BF = {
+			buildStyles = (
+				0E9C736CFFE56ADA11CE15BF,
+				0E9C736DFFE56ADA11CE15BF,
+			);
+			isa = PBXProject;
+			mainGroup = 018938C1FFE55C3511CE15BF;
+			productRefGroup = 018938FAFFE55C3511CE15BF;
+			projectDirPath = "";
+			targets = (
+				018938FEFFE55C3511CE15BF,
+				01893900FFE55C3511CE15BF,
+				01893914FFE55C3511CE15BF,
+				0E9C736FFFE585B911CE15BF,
+				0189391EFFE55C3511CE15BF,
+			);
+		};
+		018938C1FFE55C3511CE15BF = {
+			children = (
+				018938C7FFE55C3511CE15BF,
+				0E9C737AFFE598CE11CE15BF,
+				018938F7FFE55C3511CE15BF,
+				018938FAFFE55C3511CE15BF,
+			);
+			isa = PBXGroup;
+			name = AppleCDDAFileSystemProj;
+			refType = 4;
+		};
+		018938C7FFE55C3511CE15BF = {
+			children = (
+				018938D7FFE55C3511CE15BF,
+				018938D2FFE55C3511CE15BF,
+				018938D3FFE55C3511CE15BF,
+				018938D4FFE55C3511CE15BF,
+				018938D6FFE55C3511CE15BF,
+				018938D5FFE55C3511CE15BF,
+				018938DAFFE55C3511CE15BF,
+				018938DBFFE55C3511CE15BF,
+				018938D9FFE55C3511CE15BF,
+				018938D0FFE55C3511CE15BF,
+				018938DCFFE55C3511CE15BF,
+				0E9C738AFFE59D1811CE15BF,
+			);
+			isa = PBXGroup;
+			name = "CDDA Filesystem";
+			path = "";
+			refType = 2;
+		};
+		018938D0FFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AppleCDDAFileSystemUtilities.cpp;
+			refType = 2;
+		};
+		018938D2FFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AppleCDDAFileSystemDefines.h;
+			refType = 2;
+		};
+		018938D3FFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AppleCDDAFileSystemVFSOps.h;
+			refType = 2;
+		};
+		018938D4FFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AppleCDDAFileSystemVNodeOps.h;
+			refType = 2;
+		};
+		018938D5FFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AIFFSupport.h;
+			refType = 2;
+		};
+		018938D6FFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AppleCDDAFileSystemUtils.h;
+			refType = 2;
+		};
+		018938D7FFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AppleCDDAFileSystemDebug.h;
+			refType = 2;
+		};
+		018938D9FFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AppleCDDAFileSystemUtils.c;
+			refType = 2;
+		};
+		018938DAFFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AppleCDDAFileSystemVFSOps.c;
+			refType = 2;
+		};
+		018938DBFFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AppleCDDAFileSystemVNodeOps.c;
+			refType = 2;
+		};
+		018938DCFFE55C3511CE15BF = {
+			isa = PBXFileReference;
+			path = AIFFSupport.c;
+			refType = 2;
+		};
+		018938F7FFE55C3511CE15BF = {
+			children = (
+				F7700AF0021C892001CE15C0,
+				018938F8FFE55C3511CE15BF,
+				5C596BD800BF099A05CE15C0,
+				0405E03F000A841111CE15C0,
+			);
+			isa = PBXGroup;
+			name = "Frameworks and Libraries";
+			refType = 4;
+		};
+		018938F8FFE55C3511CE15BF = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		018938FAFFE55C3511CE15BF = {
+			children = (
+				018938FBFFE55C3511CE15BF,
+				018938FCFFE55C3511CE15BF,
+				018938FDFFE55C3511CE15BF,
+				0E9C736EFFE585B911CE15BF,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		018938FBFFE55C3511CE15BF = {
+			isa = PBXBundleReference;
+			path = cddafs.kext;
+			refType = 3;
+		};
+		018938FCFFE55C3511CE15BF = {
+			isa = PBXExecutableFileReference;
+			path = mount_cddafs;
+			refType = 3;
+		};
+		018938FDFFE55C3511CE15BF = {
+			isa = PBXExecutableFileReference;
+			path = cddafs.util;
+			refType = 3;
+		};
+		018938FEFFE55C3511CE15BF = {
+			buildPhases = (
+				01893925FFE55C3511CE15BF,
+				01893927FFE55C3511CE15BF,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = cddafs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				018938FFFFE55C3511CE15BF,
+				F720E0840200C7D8017BD92B,
+			);
+			isa = PBXAggregateTarget;
+			name = "cddafs (Aggregate)";
+			productName = "AppleCDDAFileSystemProj (Aggregate)";
+			shouldUseHeadermap = 0;
+		};
+		018938FFFFE55C3511CE15BF = {
+			isa = PBXTargetDependency;
+			target = 01893900FFE55C3511CE15BF;
+		};
+		01893900FFE55C3511CE15BF = {
+			buildPhases = (
+				01893901FFE55C3511CE15BF,
+				01893902FFE55C3511CE15BF,
+				01893909FFE55C3511CE15BF,
+				0189390AFFE55C3511CE15BF,
+				01893910FFE55C3511CE15BF,
+				01893911FFE55C3511CE15BF,
+				01893912FFE55C3511CE15BF,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.filesystems.cddafs;
+				MODULE_START = Apple_CDDA_FS_Module_Start;
+				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
+				MODULE_VERSION = 2.0.0;
+				OTHER_CFLAGS = "-Wno-format -DMACH_KERNEL=1";
+				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = cddafs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = cddafs;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "cddafs (Bundle)";
+			productReference = 018938FBFFE55C3511CE15BF;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>cddafs</string>
+	<key>CFBundleGetInfoString</key>
+	<string>2.0.0, Copyright Apple Computer, Inc. 2000-2002</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.filesystems.cddafs</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>cddafs</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>2.0.0</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOCDStorageFamily</key>
+		<string>1.0.0</string>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.1.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.0.0b1</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		01893901FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		01893902FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+				01893903FFE55C3511CE15BF,
+				01893904FFE55C3511CE15BF,
+				01893905FFE55C3511CE15BF,
+				01893906FFE55C3511CE15BF,
+				01893907FFE55C3511CE15BF,
+				01893908FFE55C3511CE15BF,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01893903FFE55C3511CE15BF = {
+			fileRef = 018938D2FFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01893904FFE55C3511CE15BF = {
+			fileRef = 018938D3FFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01893905FFE55C3511CE15BF = {
+			fileRef = 018938D4FFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01893906FFE55C3511CE15BF = {
+			fileRef = 018938D5FFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01893907FFE55C3511CE15BF = {
+			fileRef = 018938D6FFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01893908FFE55C3511CE15BF = {
+			fileRef = 018938D7FFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01893909FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0189390AFFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+				0189390BFFE55C3511CE15BF,
+				0189390CFFE55C3511CE15BF,
+				0189390DFFE55C3511CE15BF,
+				0189390EFFE55C3511CE15BF,
+				0189390FFFE55C3511CE15BF,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0189390BFFE55C3511CE15BF = {
+			fileRef = 018938D0FFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0189390CFFE55C3511CE15BF = {
+			fileRef = 018938D9FFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0189390DFFE55C3511CE15BF = {
+			fileRef = 018938DAFFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0189390EFFE55C3511CE15BF = {
+			fileRef = 018938DBFFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0189390FFFE55C3511CE15BF = {
+			fileRef = 018938DCFFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		01893910FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01893911FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01893912FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		01893914FFE55C3511CE15BF = {
+			buildPhases = (
+				01893915FFE55C3511CE15BF,
+				01893917FFE55C3511CE15BF,
+				0189391AFFE55C3511CE15BF,
+				F720E0860200C7D8017BD92B,
+				0189391CFFE55C3511CE15BF,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /sbin;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = mount_cddafs;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				F720E0850200C7D8017BD92B,
+			);
+			isa = PBXToolTarget;
+			name = mount_cddafs;
+			productInstallPath = /sbin;
+			productName = "mount_cddafs (Tool)";
+			productReference = 018938FCFFE55C3511CE15BF;
+			shouldUseHeadermap = 0;
+		};
+		01893915FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01893917FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0189391AFFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0189391CFFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0189391EFFE55C3511CE15BF = {
+			buildPhases = (
+				0189391FFFE55C3511CE15BF,
+				01893920FFE55C3511CE15BF,
+				F776122D0209DB2C01FD8D06,
+				01893922FFE55C3511CE15BF,
+				01893924FFE55C3511CE15BF,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = cddafs.util;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = cddafs.util;
+			productName = "cddafs.util (Tool)";
+			productReference = 018938FDFFE55C3511CE15BF;
+			shouldUseHeadermap = 0;
+		};
+		0189391FFFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+				0189392DFFE55EF111CE15BF,
+				0E9C7384FFE598CE11CE15BF,
+				F720E07F020093E0017BD92B,
+				F7700AE8021C73D601CE15C0,
+				F7700AEC021C73FC01CE15C0,
+				F7700AEE021C88B301CE15C0,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01893920FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+				0E9C7385FFE598CE11CE15BF,
+				F720E0800200B9FA017BD92B,
+				F7700AE9021C73D601CE15C0,
+				F7700AED021C73FC01CE15C0,
+				F7700AEF021C88B301CE15C0,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01893922FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+				01893923FFE55C3511CE15BF,
+				5C596BD900BF099A05CE15C0,
+				F7700AF1021C892001CE15C0,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01893923FFE55C3511CE15BF = {
+			fileRef = 018938F8FFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01893924FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01893925FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				01893926FFE55C3511CE15BF,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01893926FFE55C3511CE15BF = {
+			fileRef = 018938FBFFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01893927FFE55C3511CE15BF = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				01893928FFE55C3511CE15BF,
+				01893929FFE55C3511CE15BF,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		01893928FFE55C3511CE15BF = {
+			fileRef = 018938FCFFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01893929FFE55C3511CE15BF = {
+			fileRef = 018938FDFFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0189392DFFE55EF111CE15BF = {
+			fileRef = 018938D2FFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//010
+//011
+//012
+//013
+//014
+//040
+//041
+//042
+//043
+//044
+		0405E03F000A841111CE15C0 = {
+			isa = PBXFrameworkReference;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
+		};
+//040
+//041
+//042
+//043
+//044
+//0E0
+//0E1
+//0E2
+//0E3
+//0E4
+		0E9C736CFFE56ADA11CE15BF = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		0E9C736DFFE56ADA11CE15BF = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		0E9C736EFFE585B911CE15BF = {
+			isa = PBXBundleReference;
+			path = cddafs.fs;
+			refType = 3;
+		};
+		0E9C736FFFE585B911CE15BF = {
+			buildPhases = (
+				0E9C7370FFE585B911CE15BF,
+				0E9C7371FFE585B911CE15BF,
+				0E9C7378FFE5883411CE15BF,
+				F705065201FD159401AFE711,
+				F720E08F02010B42017BD92B,
+				0E9C7372FFE585B911CE15BF,
+				0E9C7373FFE585B911CE15BF,
+				0E9C7374FFE585B911CE15BF,
+			);
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+				OTHER_LDFLAGS = "-bundle -undefined suppress";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = cddafs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = fs;
+			};
+			dependencies = (
+				0E9C7376FFE5877A11CE15BF,
+			);
+			isa = PBXBundleTarget;
+			name = cddafs.fs;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+			productName = cddafs.fs;
+			productReference = 0E9C736EFFE585B911CE15BF;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>2.0.0, Copyright Apple Computer, Inc. 2000-2002</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.filesystems.util.cddafs</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>cddafs</string>
+	<key>CFBundlePackageType</key>
+	<string>fs  </string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>2.0.0</string>
+	<key>FSMediaTypes</key>
+	<dict>
+		<key>CD</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>IOProviderClass</key>
+				<string>IOCDMedia</string>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>cddafs.util</string>
+			<key>FSProbeOrder</key>
+			<integer>1000</integer>
+		</dict>
+	</dict>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>CD-DA</key>
+		<dict>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>../../../../../../sbin/mount_cddafs</string>
+			<key>FSName</key>
+			<string>CD Audio File System</string>
+		</dict>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		0E9C7370FFE585B911CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0E9C7371FFE585B911CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+				F75EC306021C8BC501CE15C0,
+				0E9C738CFFE59D1811CE15BF,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0E9C7372FFE585B911CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0E9C7373FFE585B911CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0E9C7374FFE585B911CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0E9C7376FFE5877A11CE15BF = {
+			isa = PBXTargetDependency;
+			target = 0189391EFFE55C3511CE15BF;
+		};
+		0E9C7378FFE5883411CE15BF = {
+			buildActionMask = 12;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				0E9C7379FFE5883411CE15BF,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0E9C7379FFE5883411CE15BF = {
+			fileRef = 018938FDFFE55C3511CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0E9C737AFFE598CE11CE15BF = {
+			children = (
+				0E9C737FFFE598CE11CE15BF,
+				0E9C737EFFE598CE11CE15BF,
+				0E9C737CFFE598CE11CE15BF,
+				0E9C737BFFE598CE11CE15BF,
+				5CC237B40190BA4505CE15BF,
+				5CC237BD0190BACA05CE15BF,
+				F7700AE6021C73D601CE15C0,
+				F7700AE7021C73D601CE15C0,
+				F7700AEA021C73FC01CE15C0,
+				F7700AEB021C73FC01CE15C0,
+				F776122C0209DB2B01FD8D06,
+				F72B1238020750BD01B847FC,
+			);
+			isa = PBXGroup;
+			name = FilesystemProber;
+			refType = 4;
+		};
+		0E9C737BFFE598CE11CE15BF = {
+			isa = PBXFileReference;
+			name = cddafs_util.cpp;
+			path = FilesystemProber/cddafs_util.cpp;
+			refType = 2;
+		};
+		0E9C737CFFE598CE11CE15BF = {
+			isa = PBXFileReference;
+			name = cddafs_util.h;
+			path = FilesystemProber/cddafs_util.h;
+			refType = 2;
+		};
+		0E9C737EFFE598CE11CE15BF = {
+			isa = PBXFileReference;
+			name = getmntopts.c;
+			path = MountUtility/getmntopts.c;
+			refType = 2;
+		};
+		0E9C737FFFE598CE11CE15BF = {
+			isa = PBXFileReference;
+			name = mntopts.h;
+			path = MountUtility/mntopts.h;
+			refType = 2;
+		};
+		0E9C7384FFE598CE11CE15BF = {
+			fileRef = 0E9C737CFFE598CE11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0E9C7385FFE598CE11CE15BF = {
+			fileRef = 0E9C737BFFE598CE11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0E9C738AFFE59D1811CE15BF = {
+			children = (
+				0E9C738BFFE59D1811CE15BF,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = "";
+			refType = 4;
+		};
+		0E9C738BFFE59D1811CE15BF = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		0E9C738CFFE59D1811CE15BF = {
+			fileRef = 0E9C738AFFE59D1811CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//0E0
+//0E1
+//0E2
+//0E3
+//0E4
+//5C0
+//5C1
+//5C2
+//5C3
+//5C4
+		5C596BD800BF099A05CE15C0 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		5C596BD900BF099A05CE15C0 = {
+			fileRef = 5C596BD800BF099A05CE15C0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CC237B40190BA4505CE15BF = {
+			isa = PBXFileReference;
+			name = CDDATrackName.h;
+			path = Classes/CDDATrackName.h;
+			refType = 4;
+		};
+		5CC237BD0190BACA05CE15BF = {
+			isa = PBXFileReference;
+			name = CDDATrackName.cpp;
+			path = Classes/CDDATrackName.cpp;
+			refType = 2;
+		};
+//5C0
+//5C1
+//5C2
+//5C3
+//5C4
+//F70
+//F71
+//F72
+//F73
+//F74
+		F705065201FD159401AFE711 = {
+			buildActionMask = 8;
+			dstPath = /usr/include/cddafs;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		F720E07F020093E0017BD92B = {
+			fileRef = 0E9C737FFFE598CE11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F720E0800200B9FA017BD92B = {
+			fileRef = 0E9C737EFFE598CE11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F720E0840200C7D8017BD92B = {
+			isa = PBXTargetDependency;
+			target = 01893914FFE55C3511CE15BF;
+		};
+		F720E0850200C7D8017BD92B = {
+			isa = PBXTargetDependency;
+			target = 0E9C736FFFE585B911CE15BF;
+		};
+		F720E0860200C7D8017BD92B = {
+			buildActionMask = 8;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "rm -f $DSTROOT/sbin/mount_cddafs\nmkdir -p $DSTROOT/sbin\nln $DSTROOT/System/Library/Filesystems/cddafs.fs/Contents/Resources/cddafs.util $DSTROOT/sbin/mount_cddafs";
+		};
+		F720E08F02010B42017BD92B = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F72B1238020750BD01B847FC = {
+			children = (
+				F72B1239020750BD01B847FC,
+			);
+			isa = PBXVariantGroup;
+			name = Localizable.strings;
+			path = "";
+			refType = 4;
+		};
+		F72B1239020750BD01B847FC = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = Localizable.strings;
+			path = English.lproj/Localizable.strings;
+			refType = 4;
+		};
+		F75EC306021C8BC501CE15C0 = {
+			fileRef = F72B1238020750BD01B847FC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7700AE6021C73D601CE15C0 = {
+			isa = PBXFileReference;
+			name = iTunesDatabase.h;
+			path = Classes/iTunesDatabase.h;
+			refType = 4;
+		};
+		F7700AE7021C73D601CE15C0 = {
+			isa = PBXFileReference;
+			name = iTunesDatabase.cpp;
+			path = Classes/iTunesDatabase.cpp;
+			refType = 4;
+		};
+		F7700AE8021C73D601CE15C0 = {
+			fileRef = F7700AE6021C73D601CE15C0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7700AE9021C73D601CE15C0 = {
+			fileRef = F7700AE7021C73D601CE15C0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7700AEA021C73FC01CE15C0 = {
+			isa = PBXFileReference;
+			name = CDInfo.h;
+			path = Classes/CDInfo.h;
+			refType = 4;
+		};
+		F7700AEB021C73FC01CE15C0 = {
+			isa = PBXFileReference;
+			name = CDInfo.c;
+			path = Classes/CDInfo.c;
+			refType = 4;
+		};
+		F7700AEC021C73FC01CE15C0 = {
+			fileRef = F7700AEA021C73FC01CE15C0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7700AED021C73FC01CE15C0 = {
+			fileRef = F7700AEB021C73FC01CE15C0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7700AEE021C88B301CE15C0 = {
+			fileRef = 5CC237B40190BA4505CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7700AEF021C88B301CE15C0 = {
+			fileRef = 5CC237BD0190BACA05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F7700AF0021C892001CE15C0 = {
+			isa = PBXExecutableFileReference;
+			name = libcrypto.dylib;
+			path = /usr/lib/libcrypto.0.9.dylib;
+			refType = 0;
+		};
+		F7700AF1021C892001CE15C0 = {
+			fileRef = F7700AF0021C892001CE15C0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F776122C0209DB2B01FD8D06 = {
+			isa = PBXFileReference;
+			name = mount_cddafs.8;
+			path = FilesystemProber/mount_cddafs.8;
+			refType = 4;
+		};
+		F776122D0209DB2C01FD8D06 = {
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				F776122E0209DB2C01FD8D06,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		F776122E0209DB2C01FD8D06 = {
+			fileRef = F776122C0209DB2B01FD8D06;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 018938C0FFE55C3511CE15BF;
+}

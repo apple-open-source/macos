@@ -54,7 +54,7 @@ int preprocess = 0;
  * the nature of the input files (if any) is known.
  */
 
-#define BUFFER_SIZE (32 * 1024)
+#define BUFFER_SIZE (64 * 1024)
 
 #ifndef NeXT_MOD
 static char in_buf[BUFFER_SIZE];

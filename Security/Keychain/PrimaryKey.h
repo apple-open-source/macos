@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -19,8 +19,8 @@
 //
 // PrimaryKey.h
 //
-#ifndef _H_PRIMARYKEY
-#define _H_PRIMARYKEY
+#ifndef _SECURITY_PRIMARYKEY_H_
+#define _SECURITY_PRIMARYKEY_H_
 
 #include <Security/dlclient.h>
 #include <Security/Keychains.h>
@@ -61,8 +61,8 @@ public:
 	bool operator <(const PrimaryKey &other) const { return **this < *other; }
 };
 
-}; // end namespace KeychainCore
+} // end namespace KeychainCore
 
 } // end namespace Security
 
-#endif // _H_PRIMARYKEY
+#endif // !_SECURITY_PRIMARYKEY_H_

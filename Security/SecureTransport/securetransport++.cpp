@@ -219,28 +219,33 @@ void SecureTransportCore::enabledCiphers(
     MacOSError::check(SSLSetEnabledCiphers(mContext, ciphers, numCiphers));
 }
 
-bool SecureTransportCore::allowExpiredCerts() const
+bool SecureTransportCore::allowsExpiredCerts() const
 {
     Boolean allow;
-    MacOSError::check(SSLGetAllowExpiredCerts(mContext, &allow));
+    MacOSError::check(SSLGetAllowsExpiredCerts(mContext, &allow));
     return allow;
 }
 
-void SecureTransportCore::allowExpiredCerts(bool allow)
+void SecureTransportCore::allowsExpiredCerts(bool allow)
 {
-    MacOSError::check(SSLSetAllowExpiredCerts(mContext, allow));
+    MacOSError::check(SSLSetAllowsExpiredCerts(mContext, allow));
 }
 
-bool SecureTransportCore::allowUnknownRoots() const
+bool SecureTransportCore::allowsUnknownRoots() const
 {
     Boolean allow;
-    MacOSError::check(SSLGetAllowAnyRoot(mContext, &allow));
+    MacOSError::check(SSLGetAllowsAnyRoot(mContext, &allow));
     return allow;
 }
 
-void SecureTransportCore::allowUnknownRoots(bool allow)
+void SecureTransportCore::allowsUnknownRoots(bool allow)
 {
-    MacOSError::check(SSLSetAllowAnyRoot(mContext, allow));
+    MacOSError::check(SSLSetAllowsAnyRoot(mContext, allow));
+}
+
+void SecureTransportCore::peerId(const void *id, size_t length)
+{
+    MacOSError::check(SSLSetPeerID(mContext, id, length));
 }
 
 
@@ -265,12 +270,12 @@ OSStatus SecureTransportCore::sslReadFunc(SSLConnectionRef connection,
             return errSSLClosedGraceful;
         } else
             return errSSLWouldBlock;
-    } catch (UnixError &err) {
+    } catch (const UnixError &err) {
         *length = 0;
         if (err.error == ECONNRESET)
             return errSSLClosedGraceful;
         throw;
-    } catch (CssmCommonError &err) {
+    } catch (const CssmCommonError &err) {
         *length = 0;
         return err.osStatus();
     } catch (...) {
@@ -287,8 +292,8 @@ OSStatus SecureTransportCore::sslWriteFunc(SSLConnectionRef connection,
         size_t lengthRequested = *length;
         *length = stc->ioWrite(data, lengthRequested);
         debug("sslconio", "%p wrote %ld of %ld bytes", stc, *length, lengthRequested);
-        return *length == lengthRequested ? noErr : errSSLWouldBlock;
-    } catch (CssmCommonError &err) {
+        return *length == lengthRequested ? OSStatus(noErr) : OSStatus(errSSLWouldBlock);
+    } catch (const CssmCommonError &err) {
         *length = 0;
         return err.osStatus();
     } catch (...) {

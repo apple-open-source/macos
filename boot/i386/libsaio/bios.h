@@ -70,4 +70,8 @@ typedef struct {
     machineFlags_t    flags;
 } biosBuf_t;
 
+#define EBIOS_FIXED_DISK_ACCESS   0x01
+#define EBIOS_ENHANCED_DRIVE_INFO 0x04
+extern unsigned char uses_ebios[];
+
 #endif /* !__LIBSAIO_BIOS_H */

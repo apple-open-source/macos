@@ -31,7 +31,7 @@
 /*
  * Cheetah version of TP doesn't work with DLs. 
  */
-#define TP_DL_ENABLE		0
+#define TP_DL_ENABLE		1
 
 #ifdef	__cplusplus
 extern "C" {
@@ -75,18 +75,15 @@ void tp_CertFreeAlgId(
 	CSSM_DATA_PTR	value);
 
 #if	 TP_DL_ENABLE
-CSSM_DATA_PTR
-tp_GetCertFromDBList( CSSM_TP_HANDLE hTP,
-                      CSSM_CL_HANDLE hCL,
-                      CSSM_SELECTION_PREDICATE_PTR pPredicate,
-                      uint32 NumberOfPredicates,
-                      const CSSM_DB_LIST_PTR pDBList );
-
-CSSM_DATA_PTR
-tp_GetCertFromDBListBySName( CSSM_TP_HANDLE hTP,
-                             CSSM_CL_HANDLE hCL,
-                             const CSSM_DATA_PTR pSubjectName,
-                             const CSSM_DB_LIST_PTR pDBList );
+TPCertInfo *tpFindIssuer(
+	CssmAllocator 			&alloc,
+	CSSM_CL_HANDLE			clHand,
+	CSSM_CSP_HANDLE			cspHand,
+	TPCertInfo				*subjectCert,
+	const CSSM_DATA			*issuerName,		// passed for convenience
+	const CSSM_DL_DB_LIST	*dbList,
+	const char 				*cssmTimeStr,		// may be NULL
+	CSSM_RETURN				*issuerExpired);	// RETURNED
 
 #endif	/* TP_DL_ENABLE*/
 
@@ -105,21 +102,6 @@ CSSM_RETURN tp_VerifyCert(
 CSSM_BOOL tp_CompareCerts(
 	const CSSM_DATA			*cert1,
 	const CSSM_DATA			*cert2);
-
-#if		TP_DL_ENABLE
-/*
- * Search a list of DBs for a cert which verifies specified subject cert. 
- * Just a boolean return - we found it, or not.
- */
-CSSM_DATA_PTR tpFindIssuer(
-	CSSM_TP_HANDLE			tpHand,
-	CSSM_CL_HANDLE			clHand,
-	CSSM_CSP_HANDLE			cspHand,
-	const CSSM_DATA_PTR		subjectCert,
-	const CSSM_DATA_PTR		issuerName,			// passed for convenience
-	const CSSM_DB_LIST_PTR	dbList,
-	CSSM_BOOL				*subjectExpired);	// RETURNED
-#endif
 
 /*
  * Given an OID, return the corresponding CSSM_ALGID.

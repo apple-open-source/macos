@@ -1,5 +1,5 @@
-# Kernel Object Display Window definition for GDBtk.
-# Copyright (C) 1999 Cygnus Solutions
+# Kernel Object Display Window definition for Insight.
+# Copyright (C) 1999, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -36,24 +36,28 @@ class KodWin {
     variable BState
     variable Running 0
     method build_win {}
-    method update {}
     method display {}
     method display_list {}
     method display_object {{cmd ""} {obj ""}}
     method clear {}
     method top {}
     method up {}
-    method busy {}
-    method idle {}
     method cursor {glyph}
     method _disable_buttons {}
     method _restore_buttons {}
-    method set_os {var value}
   }
 
   public {
     method constructor {args}
     method destructor {}
     method reconfig {}
+
+    #
+    # Gdb Events
+    #
+    method set_variable {event}
+    method busy {event}
+    method idle {event}
+    method update {event}
   }
 }

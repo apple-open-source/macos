@@ -31,7 +31,6 @@ static const char rcsid[] =
 # include <time.h>
 #endif
 
-
 static	void	usage __P((void)),
 		run_reboot_jobs __P((cron_db *)),
 		cron_tick __P((cron_db *)),

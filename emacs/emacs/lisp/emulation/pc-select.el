@@ -2,10 +2,10 @@
 ;;;		     (or MAC GUI or MS-windoze (bah)) look-and-feel
 ;;;		     including key bindings.
 
-;; Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 2000 Free Software Foundation, Inc.
 
 ;; Author: Michael Staats <michael@thp.Uni-Duisburg.DE>
-;; Keywords: convenience 
+;; Keywords: convenience emulation
 ;; Created: 26 Sep 1995
 
 ;; This file is part of GNU Emacs.
@@ -36,7 +36,7 @@
 ;; This package uses transient-mark-mode and
 ;; delete-selection-mode.
 ;;
-;; In addition to that all key-bindings from the pc-mode are 
+;; In addition to that all key-bindings from the pc-mode are
 ;; done here too (as suggested by RMS).
 ;;
 ;; As I found out after I finished the first version, s-region.el tries
@@ -59,7 +59,7 @@
 ;; Dan Nicolaescu <done@ece.arizona.ro> suggested suppressing the
 ;; scroll-up/scroll-down error.
 ;; Eli Barzilay (eli@cs.bgu.ac.il) suggested the sexps functions and
-;; keybindings. 
+;; keybindings.
 ;;
 ;; Ok, some details about the idea of pc-selection-mode:
 ;;
@@ -76,6 +76,8 @@
 ;;    S-insert (paste) and C-insert (copy). These keys do the same in many
 ;;    other programs.
 ;;
+
+;;; Code:
 
 ;;;; Customization:
 (defgroup pc-select nil
@@ -229,7 +231,7 @@ If scan reaches end of buffer, stop there without error."
 A near full screen is `next-screen-context-lines' less than a full screen.
 Negative ARG means scroll upward.
 When calling from a program, supply a number as argument or nil."
-  (interactive "P") 
+  (interactive "P")
   (ensure-mark)
   (cond (pc-select-override-scroll-error
 	 (condition-case nil (scroll-down arg)
@@ -494,7 +496,7 @@ of the accessible part of the buffer.
 Don't use this command in Lisp programs!
 \(goto-char (p\oint-min)) is faster and avoids clobbering the mark."
   (interactive "P")
-  (ensure-mark) 
+  (ensure-mark)
   (let ((size (- (point-max) (point-min))))
     (goto-char (if arg
 		   (+ (point-min)
@@ -664,8 +666,8 @@ but before calling pc-selection-mode):
   ;; will be deleted on the next keypress.  IMHO especially for
   ;; copy-region-as-kill this is confusing.
   ;; The same goes for exchange-point-and-mark
-  (define-key global-map "\M-w" 'copy-region-as-kill-nomark) 
-  (define-key global-map "\C-x\C-x" 'exchange-point-and-mark-nomark) 
+  (define-key global-map "\M-w" 'copy-region-as-kill-nomark)
+  (define-key global-map "\C-x\C-x" 'exchange-point-and-mark-nomark)
   ;; The following keybindings are for standard ISO keyboards
   ;; as they are used with IBM compatible PCs, IBM RS/6000,
   ;; MACs, many X-Stations and probably more
@@ -723,10 +725,27 @@ but before calling pc-selection-mode):
   (global-set-key [C-down] 'forward-paragraph-nomark)	; KNextPara     cDn
   (global-set-key [C-up] 'backward-paragraph-nomark)	; KPrevPara     cUp
   (global-set-key [S-C-down] 'forward-paragraph-mark)
-  (global-set-key [S-C-up] 'backward-paragraph-mark) 
+  (global-set-key [S-C-up] 'backward-paragraph-mark)
 
   (or pc-select-selection-keys-only
-      (progn 
+      (progn
+	;; We are behaving like normal-erase-is-backspace-mode, so
+	;; say so explicitly.  But don't do that on a Unix tty, since
+	;; some of them have keyboards that by default already behave
+	;; as if normal-erase-is-backspace mode is on, and turning it
+	;; a second time screws them up.
+	(if (or (eq window-system 'x)
+		(memq system-name '(ms-dos windows-nt)))
+	    (progn
+	      (setq-default normal-erase-is-backspace t)
+	      (normal-erase-is-backspace-mode 1))
+	  ;; This is for tty.  We don't turn on normal-erase-is-backspace,
+	  ;; but bind keys as pc-selection-mode did before
+	  ;; normal-erase-is-backspace was invented, to keep us back
+	  ;; compatible.
+	  (global-set-key [delete] 'delete-char)  ; KDelete       Del
+	  (define-key function-key-map  [M-delete] [?\M-d])
+	  (global-set-key [C-backspace] 'backward-kill-word))
 	(define-key global-map [S-insert]  'yank)
 	(define-key global-map [C-insert]  'copy-region-as-kill)
 	(define-key global-map [S-delete]  'kill-region)
@@ -734,26 +753,23 @@ but before calling pc-selection-mode):
 	;; The following bindings are useful on Sun Type 3 keyboards
 	;; They implement the Get-Delete-Put (copy-cut-paste)
 	;; functions from sunview on the L6, L8 and L10 keys
-	;; Sam Steingold <sds@ptc.com> says that f16 is copy and f18 is paste.
+	;; Sam Steingold <sds@gnu.org> says that f16 is copy and f18 is paste.
 	(define-key global-map [f16]  'copy-region-as-kill)
 	(define-key global-map [f18]  'yank)
 	(define-key global-map [f20]  'kill-region)
 
 	;; The following bindings are from Pete Forman.
 	(global-set-key [f6] 'other-window)	; KNextPane     F6
-	(global-set-key [delete] 'delete-char)	; KDelete       Del
 	(global-set-key [C-delete] 'kill-line)	; KEraseEndLine cDel
-	(global-set-key [M-backspace] 'undo)	; KUndo         aBS
+	(global-set-key "\M-\d" 'undo)		; KUndo         aBS
 
-	;; The following bindings are taken from pc-mode.el
+	;; The following binding is taken from pc-mode.el
 	;; as suggested by RMS.
-	;; I only used the ones that are not covered above.
-	(define-key function-key-map  [M-delete] [?\M-d])
+	;; I only used the one that is not covered above.
 	(global-set-key [C-M-delete]  'kill-sexp)
-	(global-set-key [C-backspace] 'backward-kill-word)
 	;; Next line proposed by Eli Barzilay
 	(global-set-key [C-escape]    'electric-buffer-list)))
-  ;;        
+  ;;
   ;; setup
   ;;
   ;; Next line proposed by Eli Barzilay

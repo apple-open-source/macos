@@ -24,7 +24,7 @@
 
 #include "includes.h"
 
-RCSID("$OpenBSD: sftp.c,v 1.26 2002/02/12 12:32:27 djm Exp $");
+RCSID("$OpenBSD: sftp.c,v 1.30 2002/06/23 09:30:14 deraadt Exp $");
 
 /* XXX: short-form remote directory listings (like 'ls -C') */
 
@@ -53,8 +53,10 @@ static void
 connect_to_server(char *path, char **args, int *in, int *out, pid_t *sshpid)
 {
 	int c_in, c_out;
+
 #ifdef USE_PIPES
 	int pin[2], pout[2];
+
 	if ((pipe(pin) == -1) || (pipe(pout) == -1))
 		fatal("pipe: %s", strerror(errno));
 	*in = pin[0];
@@ -63,6 +65,7 @@ connect_to_server(char *path, char **args, int *in, int *out, pid_t *sshpid)
 	c_out = pin[1];
 #else /* USE_PIPES */
 	int inout[2];
+
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, inout) == -1)
 		fatal("socketpair: %s", strerror(errno));
 	*in = *out = inout[0];
@@ -94,7 +97,7 @@ static void
 usage(void)
 {
 	extern char *__progname;
-	
+
 	fprintf(stderr,
 	    "usage: %s [-vC1] [-b batchfile] [-o option] [-s subsystem|path] [-B buffer_size]\n"
 	    "            [-F config] [-P direct server path] [-S program]\n"
@@ -172,7 +175,7 @@ main(int argc, char **argv)
 		case 'R':
 			num_requests = strtol(optarg, &cp, 10);
 			if (num_requests == 0 || *cp != '\0')
-				fatal("Invalid number of requests \"%s\"", 
+				fatal("Invalid number of requests \"%s\"",
 				    optarg);
 			break;
 		case 'h':
@@ -180,6 +183,8 @@ main(int argc, char **argv)
 			usage();
 		}
 	}
+
+	log_init(argv[0], ll, SYSLOG_FACILITY_USER, 1);
 
 	if (sftp_direct == NULL) {
 		if (optind == argc || argc > (optind + 2))
@@ -210,7 +215,6 @@ main(int argc, char **argv)
 			usage();
 		}
 
-		log_init(argv[0], ll, SYSLOG_FACILITY_USER, 1);
 		addargs(&args, "-oProtocol %d", sshver);
 
 		/* no subsystem if the server-spec contains a '/' */
@@ -218,27 +222,27 @@ main(int argc, char **argv)
 			addargs(&args, "-s");
 
 		addargs(&args, "%s", host);
-		addargs(&args, "%s", (sftp_server != NULL ? 
+		addargs(&args, "%s", (sftp_server != NULL ?
 		    sftp_server : "sftp"));
 		args.list[0] = ssh_program;
 
 		fprintf(stderr, "Connecting to %s...\n", host);
-		connect_to_server(ssh_program, args.list, &in, &out, 
+		connect_to_server(ssh_program, args.list, &in, &out,
 		    &sshpid);
 	} else {
 		args.list = NULL;
 		addargs(&args, "sftp-server");
 
 		fprintf(stderr, "Attaching to %s...\n", sftp_direct);
-		connect_to_server(sftp_direct, args.list, &in, &out, 
+		connect_to_server(sftp_direct, args.list, &in, &out,
 		    &sshpid);
 	}
 
 	interactive_loop(in, out, file1, file2);
 
 #if !defined(USE_PIPES)
-        shutdown(in, SHUT_RDWR);
-        shutdown(out, SHUT_RDWR);
+	shutdown(in, SHUT_RDWR);
+	shutdown(out, SHUT_RDWR);
 #endif
 
 	close(in);
@@ -246,8 +250,10 @@ main(int argc, char **argv)
 	if (infile != stdin)
 		fclose(infile);
 
-	if (waitpid(sshpid, NULL, 0) == -1)
-		fatal("Couldn't wait for ssh process: %s", strerror(errno));
+	while (waitpid(sshpid, NULL, 0) == -1)
+		if (errno != EINTR)
+			fatal("Couldn't wait for ssh process: %s",
+			    strerror(errno));
 
 	exit(0);
 }

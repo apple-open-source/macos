@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,348 +33,696 @@
 #include <rpc/xdr.h>
 #include <pwd.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <unistd.h>
 
 #include "_lu_types.h"
 #include "lookup.h"
 #include "lu_utils.h"
 #include "lu_overrides.h"
 
-static lookup_state pw_state = LOOKUP_CACHE;
-static struct passwd global_pw;
-static int global_free = 1;
-static char *pw_data = NULL;
-static unsigned pw_datalen;
-static int pw_nentries;
-static int pw_start = 1;
-static XDR pw_xdr;
+static pthread_mutex_t _user_lock = PTHREAD_MUTEX_INITIALIZER;
+
+#define PW_GET_NAME 1
+#define PW_GET_UID 2
+#define PW_GET_ENT 3
 
 static void
-freeold(void)
+free_user_data(struct passwd *p)
 {
-	if (global_free == 1) return;
+	if (p == NULL) return;
 
-	free(global_pw.pw_name);
-	free(global_pw.pw_passwd);
-	free(global_pw.pw_class);
-	free(global_pw.pw_gecos);
-	free(global_pw.pw_dir);
-	free(global_pw.pw_shell);
-
-	global_free = 1;
+	if (p->pw_name != NULL) free(p->pw_name);
+	if (p->pw_passwd != NULL) free(p->pw_passwd);
+	if (p->pw_class != NULL) free(p->pw_class);
+	if (p->pw_gecos != NULL) free(p->pw_gecos);
+	if (p->pw_dir != NULL) free(p->pw_dir);
+	if (p->pw_shell != NULL) free(p->pw_shell);
 }
 
 static void
-convert_pw(_lu_passwd *lu_pw)
+free_user(struct passwd *p)
 {
-	freeold();
+	if (p == NULL) return;
+	free_user_data(p);
+	free(p);
+}
 
-	global_pw.pw_name = strdup(lu_pw->pw_name);
-	global_pw.pw_passwd = strdup(lu_pw->pw_passwd);
-	global_pw.pw_uid = lu_pw->pw_uid;
-	global_pw.pw_gid = lu_pw->pw_gid;
-	global_pw.pw_change = lu_pw->pw_change;
-	global_pw.pw_class = strdup(lu_pw->pw_class);
-	global_pw.pw_gecos = strdup(lu_pw->pw_gecos);
-	global_pw.pw_dir = strdup(lu_pw->pw_dir);
-	global_pw.pw_shell = strdup(lu_pw->pw_shell);
-	global_pw.pw_expire = lu_pw->pw_expire;
+static void
+free_lu_thread_info_user(void *x)
+{
+	struct lu_thread_info *tdata;
 
-	global_free = 0;
+	if (x == NULL) return;
+
+	tdata = (struct lu_thread_info *)x;
+	
+	if (tdata->lu_entry != NULL)
+	{
+		free_user((struct passwd *)tdata->lu_entry);
+		tdata->lu_entry = NULL;
+	}
+
+	_lu_data_free_vm_xdr(tdata);
+
+	free(tdata);
+}
+
+static struct passwd *
+extract_user(XDR *xdr)
+{
+	int i, j, nvals, nkeys, status;
+	char *key, **vals;
+	struct passwd *p;
+
+	if (xdr == NULL) return NULL;
+
+	if (!xdr_int(xdr, &nkeys)) return NULL;
+
+	p = (struct passwd *)calloc(1, sizeof(struct passwd));
+
+	p->pw_uid = -2;
+	p->pw_gid = -2;
+
+	for (i = 0; i < nkeys; i++)
+	{
+		key = NULL;
+		vals = NULL;
+		nvals = 0;
+
+		status = _lu_xdr_attribute(xdr, &key, &vals, &nvals);
+		if (status < 0)
+		{
+			free_user(p);
+			return NULL;
+		}
+
+		if (nvals == 0)
+		{
+			free(key);
+			continue;
+		}
+
+		j = 0;
+
+		if ((p->pw_name == NULL) && (!strcmp("name", key)))
+		{
+			p->pw_name = vals[0];
+			j = 1;
+		}
+		else if ((p->pw_passwd == NULL) && (!strcmp("passwd", key)))
+		{
+			p->pw_passwd = vals[0];
+			j = 1;
+		}
+		else if ((p->pw_class == NULL) && (!strcmp("class", key)))
+		{
+			p->pw_class = vals[0];
+			j = 1;
+		}
+		else if ((p->pw_gecos == NULL) && (!strcmp("realname", key)))
+		{
+			p->pw_gecos = vals[0];
+			j = 1;
+		}
+		else if ((p->pw_dir == NULL) && (!strcmp("home", key)))
+		{
+			p->pw_dir = vals[0];
+			j = 1;
+		}
+		else if ((p->pw_shell == NULL) && (!strcmp("shell", key)))
+		{
+			p->pw_shell = vals[0];
+			j = 1;
+		}
+		else if ((p->pw_uid == -2) && (!strcmp("uid", key)))
+		{
+			p->pw_uid = atoi(vals[0]);
+		}
+		else if ((p->pw_gid == -2) && (!strcmp("gid", key)))
+		{
+			p->pw_gid = atoi(vals[0]);
+		}
+		else if (!strcmp("change", key))
+		{
+			p->pw_change = atoi(vals[0]);
+		}		
+		else if (!strcmp("expire", key))
+		{
+			p->pw_expire = atoi(vals[0]);
+		}
+
+		free(key);
+		if (vals != NULL)
+		{
+			for (; j < nvals; j++) free(vals[j]);
+			free(vals);
+		}
+	}
+
+	if (p->pw_name == NULL) p->pw_name = strdup("");
+	if (p->pw_passwd == NULL) p->pw_passwd = strdup("");
+	if (p->pw_class == NULL) p->pw_class = strdup("");
+	if (p->pw_gecos == NULL) p->pw_gecos = strdup("");
+	if (p->pw_dir == NULL) p->pw_dir = strdup("");
+	if (p->pw_shell == NULL) p->pw_shell = strdup("");
+
+	return p;
+}
+
+static struct passwd *
+copy_user(struct passwd *in)
+{
+	struct passwd *p;
+
+	if (in == NULL) return NULL;
+
+	p = (struct passwd *)calloc(1, sizeof(struct passwd));
+
+	p->pw_name = LU_COPY_STRING(in->pw_name);
+	p->pw_passwd = LU_COPY_STRING(in->pw_passwd);
+	p->pw_uid = in->pw_uid;
+	p->pw_gid = in->pw_gid;
+	p->pw_change = in->pw_change;
+	p->pw_class = LU_COPY_STRING(in->pw_class);
+	p->pw_gecos = LU_COPY_STRING(in->pw_gecos);
+	p->pw_dir = LU_COPY_STRING(in->pw_dir);
+	p->pw_shell = LU_COPY_STRING(in->pw_shell);
+	p->pw_expire = in->pw_expire;
+
+	return p;
+}
+
+static int
+copy_user_r(struct passwd *in, struct passwd *out, char *buffer, int buflen)
+{
+	int hsize;
+	char *bp;
+
+	if (in == NULL) return -1;
+	if (out == NULL) return -1;
+
+	if (buffer == NULL) buflen = 0;
+
+	/* Calculate size of input */
+	hsize = 0;
+	if (in->pw_name != NULL) hsize += strlen(in->pw_name);
+	if (in->pw_passwd != NULL) hsize += strlen(in->pw_passwd);
+	if (in->pw_class != NULL) hsize += strlen(in->pw_class);
+	if (in->pw_gecos != NULL) hsize += strlen(in->pw_gecos);
+	if (in->pw_dir != NULL) hsize += strlen(in->pw_dir);
+	if (in->pw_shell != NULL) hsize += strlen(in->pw_shell);
+
+	/* Check buffer space */
+	if (hsize > buflen) return -1;
+
+	/* Copy result into caller's struct passwd, using buffer for memory */
+	bp = buffer;
+
+	out->pw_name = NULL;
+	if (in->pw_name != NULL)
+	{
+		out->pw_name = bp;
+		hsize = strlen(in->pw_name) + 1;
+		memmove(bp, in->pw_name, hsize);
+		bp += hsize;
+	}
+
+	out->pw_passwd = NULL;
+	if (in->pw_passwd != NULL)
+	{
+		out->pw_passwd = bp;
+		hsize = strlen(in->pw_passwd) + 1;
+		memmove(bp, in->pw_passwd, hsize);
+		bp += hsize;
+	}
+
+	out->pw_uid = in->pw_uid;
+
+	out->pw_gid = in->pw_gid;
+
+	out->pw_change = in->pw_change;
+
+	out->pw_class = NULL;
+	if (in->pw_class != NULL)
+	{
+		out->pw_class = bp;
+		hsize = strlen(in->pw_class) + 1;
+		memmove(bp, in->pw_class, hsize);
+		bp += hsize;
+	}
+
+	out->pw_gecos = NULL;
+	if (in->pw_gecos != NULL)
+	{
+		out->pw_gecos = bp;
+		hsize = strlen(in->pw_gecos) + 1;
+		memmove(bp, in->pw_gecos, hsize);
+		bp += hsize;
+	}
+
+	out->pw_dir = NULL;
+	if (in->pw_dir != NULL)
+	{
+		out->pw_dir = bp;
+		hsize = strlen(in->pw_dir) + 1;
+		memmove(bp, in->pw_dir, hsize);
+		bp += hsize;
+	}
+
+	out->pw_shell = NULL;
+	if (in->pw_shell != NULL)
+	{
+		out->pw_shell = bp;
+		hsize = strlen(in->pw_shell) + 1;
+		memmove(bp, in->pw_shell, hsize);
+		bp += hsize;
+	}
+
+	out->pw_expire = in->pw_expire;
+
+	return 0;
+}
+
+static void
+recycle_user(struct lu_thread_info *tdata, struct passwd *in)
+{
+	struct passwd *p;
+
+	if (tdata == NULL) return;
+	p = (struct passwd *)tdata->lu_entry;
+
+	if (in == NULL)
+	{
+		free_user(p);
+		tdata->lu_entry = NULL;
+	}
+
+	if (tdata->lu_entry == NULL)
+	{
+		tdata->lu_entry = in;
+		return;
+	}
+
+	free_user_data(p);
+
+	p->pw_name = in->pw_name;
+	p->pw_passwd = in->pw_passwd;
+	p->pw_uid = in->pw_uid;
+	p->pw_gid = in->pw_gid;
+	p->pw_change = in->pw_change;
+	p->pw_class = in->pw_class;
+	p->pw_gecos = in->pw_gecos;
+	p->pw_dir = in->pw_dir;
+	p->pw_shell = in->pw_shell;
+	p->pw_expire = in->pw_expire;
+
+	free(in);
 }
 
 static struct passwd *
 lu_getpwuid(int uid)
 {
-	unsigned datalen;
-	_lu_passwd_ptr lu_pw;
-	XDR xdr;
+	struct passwd *p;
+	unsigned int datalen;
+	XDR inxdr;
 	static int proc = -1;
-	unit lookup_buf[MAX_INLINE_UNITS];
-	
+	int count;
+	char *lookup_buf;
+
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "getpwuid_A", &proc) != KERN_SUCCESS)
 		{
-			return (NULL);
+			return NULL;
 		}
 	}
 
 	uid = htonl(uid);
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, (unit *)&uid, 1, lookup_buf, &datalen)
+	datalen = 0;
+	lookup_buf = NULL;
+
+	if (_lookup_all(_lu_port, proc, (unit *)&uid, 1, &lookup_buf, &datalen)
 		!= KERN_SUCCESS)
 	{
-		return (NULL);
+		return NULL;
 	}
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&xdr, lookup_buf, datalen, XDR_DECODE);
-	lu_pw = NULL;
-	if (!xdr__lu_passwd_ptr(&xdr, &lu_pw) || (lu_pw == NULL))
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	count = 0;
+	if (!xdr_int(&inxdr, &count))
 	{
-		xdr_destroy(&xdr);
-		return (NULL);
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
 	}
 
-	xdr_destroy(&xdr);
+	if (count == 0)
+	{
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
+	}
 
-	convert_pw(lu_pw);
-	xdr_free(xdr__lu_passwd_ptr, &lu_pw);
-	return (&global_pw);
+	p = extract_user(&inxdr);
+	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
+	return p;
 }
 
 static struct passwd *
 lu_getpwnam(const char *name)
 {
-	unsigned datalen;
+	struct passwd *p;
+	unsigned int datalen;
 	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
 	XDR outxdr;
 	XDR inxdr;
-	_lu_passwd_ptr lu_pw;
 	static int proc = -1;
-	unit lookup_buf[MAX_INLINE_UNITS];
+	int count;
+	char *lookup_buf;
 
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "getpwnam_A", &proc) != KERN_SUCCESS)
 		{
-			return (NULL);
+			return NULL;
 		}
 	}
 
 	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, &name))
+	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 	
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, (unit *)namebuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, lookup_buf, &datalen)
+	datalen = 0;
+	lookup_buf = NULL;
+
+	if (_lookup_all(_lu_port, proc, (unit *)namebuf,
+		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen)
 		!= KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 
 	xdr_destroy(&outxdr);
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&inxdr, lookup_buf, datalen, 
-		XDR_DECODE);
-	lu_pw = NULL;
-	if (!xdr__lu_passwd_ptr(&inxdr, &lu_pw) || (lu_pw == NULL))
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	count = 0;
+	if (!xdr_int(&inxdr, &count))
 	{
 		xdr_destroy(&inxdr);
-		return (NULL);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
 	}
 
+	if (count == 0)
+	{
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
+	}
+
+	p = extract_user(&inxdr);
 	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
 
-	convert_pw(lu_pw);
-	xdr_free(xdr__lu_passwd_ptr, &lu_pw);
-	return (&global_pw);
+
+	return p;
 }
-
-#ifdef notdef
-static int
-lu_putpwpasswd(char *login, char *old_passwd, char *new_passwd)
-{
-	unsigned datalen;
-	int changed;
-	XDR xdr;
-	static int proc = -1;
-	char output_buf[3 * (_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT)];
-	unit lookup_buf[MAX_INLINE_UNITS];
-	XDR outxdr;
-	
-	if (proc < 0)
-	{
-		if (_lookup_link(_lu_port, "putpwpasswd", &proc) != KERN_SUCCESS)
-		{
-			return (0);
-		}
-	}
-
-	xdrmem_create(&outxdr, output_buf, sizeof(output_buf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, &login) ||
-	    !xdr__lu_string(&outxdr, &old_passwd) ||
-	    !xdr__lu_string(&outxdr, &new_passwd))
-	{
-		xdr_destroy(&outxdr);
-		return (0);
-	}
-
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, output_buf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, lookup_buf, &datalen)
-		!= KERN_SUCCESS)
-	{
-		xdr_destroy(&outxdr);
-		return (0);
-	}
-
-	xdr_destroy(&outxdr);
-
-	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&xdr, lookup_buf, datalen, XDR_DECODE);
-	if (!xdr_int(&xdr, &changed))
-	{
-		xdr_destroy(&xdr);
-		return (0);
-	}
-
-	xdr_destroy(&xdr);
-
-	return (changed);
-}
-#endif
 
 static void
 lu_endpwent(void)
 {
-	pw_nentries = 0;
-	if (pw_data != NULL)
-	{
-		freeold();
-		vm_deallocate(mach_task_self(), (vm_address_t)pw_data, pw_datalen);
-		pw_data = NULL;
-	}
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_user, free_lu_thread_info_user);
+	_lu_data_free_vm_xdr(tdata);
 }
 
 static int
 lu_setpwent(void)
 {
 	lu_endpwent();
-	pw_start = 1;
-	return (1);
+	return 1;
 }
 
 static struct passwd *
 lu_getpwent()
 {
+	struct passwd *p;
 	static int proc = -1;
-	_lu_passwd lu_pw;
+	struct lu_thread_info *tdata;
 
-	if (pw_start == 1)
+	tdata = _lu_data_create_key(_lu_data_key_user, free_lu_thread_info_user);
+	if (tdata == NULL)
 	{
-		pw_start = 0;
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_user, tdata);
+	}
 
+	if (tdata->lu_vm == NULL)
+	{
 		if (proc < 0)
 		{
 			if (_lookup_link(_lu_port, "getpwent_A", &proc) != KERN_SUCCESS)
 			{
 				lu_endpwent();
-				return (NULL);
+				return NULL;
 			}
 		}
 
-		if (_lookup_all(_lu_port, proc, NULL, 0, &pw_data, &pw_datalen)
-			!= KERN_SUCCESS)
+		if (_lookup_all(_lu_port, proc, NULL, 0, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
 		{
 			lu_endpwent();
-			return (NULL);
+			return NULL;
 		}
 
-#ifdef NOTDEF
-/* NOTDEF because OOL buffers are counted in bytes with untyped IPC */
-		pw_datalen *= BYTES_PER_XDR_UNIT;
-#endif
+		/* mig stubs measure size in words (4 bytes) */
+		tdata->lu_vm_length *= 4;
 
-		xdrmem_create(&pw_xdr, pw_data, pw_datalen,
-			XDR_DECODE);
-		if (!xdr_int(&pw_xdr, &pw_nentries))
+		if (tdata->lu_xdr != NULL)
 		{
-			xdr_destroy(&pw_xdr);
+			xdr_destroy(tdata->lu_xdr);
+			free(tdata->lu_xdr);
+		}
+		tdata->lu_xdr = (XDR *)calloc(1, sizeof(XDR));
+
+		xdrmem_create(tdata->lu_xdr, tdata->lu_vm, tdata->lu_vm_length, XDR_DECODE);
+		if (!xdr_int(tdata->lu_xdr, &tdata->lu_vm_cursor))
+		{
 			lu_endpwent();
-			return (NULL);
+			return NULL;
 		}
 	}
 
-	if (pw_nentries == 0)
+	if (tdata->lu_vm_cursor == 0)
 	{
-		xdr_destroy(&pw_xdr);
 		lu_endpwent();
-		return (NULL);
+		return NULL;
 	}
 
-	bzero(&lu_pw, sizeof(lu_pw));
-	if (!xdr__lu_passwd(&pw_xdr, &lu_pw))
+	p = extract_user(tdata->lu_xdr);
+	if (p == NULL)
 	{
-		xdr_destroy(&pw_xdr);
 		lu_endpwent();
-		return (NULL);
+		return NULL;
 	}
 
-	pw_nentries--;
-	convert_pw(&lu_pw);
-	xdr_free(xdr__lu_passwd, &lu_pw);
-	return (&global_pw);
+	tdata->lu_vm_cursor--;
+	
+	return p;
 }
 
-static char *loginName = NULL;
-static uid_t loginUid = -1;
-
-extern char *getlogin(void);
-
-struct passwd *
-getpwuid(uid_t uid)
+static struct passwd *
+getpw_internal(const char *name, uid_t uid, int source)
 {
-    if (uid != 0) {
-        if (loginName == NULL) {
-            char *l = getlogin();
-            if (l != NULL) {
-                struct passwd *p = getpwnam(l);
-                if (p != NULL) {
-                    loginUid = p->pw_uid;
-                    loginName = l;
-                }
-            }
-        }
-        if (uid == loginUid) {
-            LOOKUP1(lu_getpwnam, _old_getpwnam,  loginName, struct passwd);
-        }
-    }
-    LOOKUP1(lu_getpwuid, _old_getpwuid,  uid, struct passwd);
+	struct passwd *res = NULL;
+	static char		*loginName = NULL;
+	static struct passwd	*loginEnt  = NULL;
+
+	if (loginName == NULL)
+	{
+		char	*l = getlogin();
+
+		pthread_mutex_lock(&_user_lock);
+		if ((loginEnt == NULL) && (l != NULL) && (*l != '\0'))
+		{
+			if (_lu_running())
+			{
+				loginEnt = lu_getpwnam(l);
+			}
+			else
+			{
+				loginEnt = copy_user(_old_getpwnam(l));
+			}
+	
+			loginName = l;
+		}
+		pthread_mutex_unlock(&_user_lock);
+	}
+
+	if (loginEnt != NULL)
+	{
+		switch (source)
+		{
+			case PW_GET_NAME:
+				if (strcmp(name, loginEnt->pw_name) == 0)
+				{
+					name = loginName;
+				}
+				if (strcmp(name, loginEnt->pw_gecos) == 0)
+				{
+					name = loginName;
+				}
+				break;
+			case PW_GET_UID:
+				if (uid == loginEnt->pw_uid)
+				{
+					source = PW_GET_NAME;
+					name = loginName;
+				}
+				break;
+			default:
+				break;
+		}
+	}
+
+	if (_lu_running())
+	{
+		switch (source)
+		{
+			case PW_GET_NAME:
+				res = lu_getpwnam(name);
+				break;
+			case PW_GET_UID:
+				res = lu_getpwuid(uid);
+				break;
+			case PW_GET_ENT:
+				res = lu_getpwent();
+				break;
+			default: res = NULL;
+		}
+	}
+	else
+	{
+		pthread_mutex_lock(&_user_lock);
+		switch (source)
+		{
+			case PW_GET_NAME:
+				res = copy_user(_old_getpwnam(name));
+				break;
+			case PW_GET_UID:
+				res = copy_user(_old_getpwuid(uid));
+				break;
+			case PW_GET_ENT:
+				res = copy_user(_old_getpwent());
+				break;
+			default: res = NULL;
+		}
+		pthread_mutex_unlock(&_user_lock);
+	}
+
+	return res;
+}
+
+static struct passwd *
+getpw(const char *name, uid_t uid, int source)
+{
+	struct passwd *res = NULL;
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_user, free_lu_thread_info_user);
+	if (tdata == NULL)
+	{
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_user, tdata);
+	}
+
+	res = getpw_internal(name, uid, source);
+
+	recycle_user(tdata, res);
+
+	return (struct passwd *)tdata->lu_entry;
+}
+
+static int
+getpw_r(const char *name, uid_t uid, int source, struct passwd *pwd, char *buffer, size_t bufsize, struct passwd **result)
+{
+	struct passwd *res = NULL;
+	int status;
+
+	*result = NULL;
+	errno = 0;
+
+	res = getpw_internal(name, uid, source);
+	if (res == NULL) return -1;
+
+	status = copy_user_r(res, pwd, buffer, bufsize);
+	free_user(res);
+
+	if (status != 0)
+	{
+		errno = ERANGE;
+		return -1;
+	}
+
+	*result = pwd;
+	return 0;
 }
 
 struct passwd *
 getpwnam(const char *name)
 {
-	LOOKUP1(lu_getpwnam, _old_getpwnam,  name, struct passwd);
+	return getpw(name, -2, PW_GET_NAME);
 }
 
-#ifdef notdef
-/*
- * putpwpasswd() is not supported with anything other than netinfo
- * right now.
- * old_passwd is clear text.
- * new_passwd is encrypted.
- */
-#define _old_passwd(name, oldpass, newpass) 0
-int
-putpwpasswd(char *login, char *old_passwd, char *new_passwd)
+struct passwd *
+getpwuid(uid_t uid)
 {
-	if (_lu_running()) return (lu_putpwpasswd(login, old_passwd, new_passwd));
-	return (old_passwd(login, old_passwd, new_passwd));
+	return getpw(NULL, uid, PW_GET_UID);
 }
-#endif
 
 struct passwd *
 getpwent(void)
 {
-	GETENT(lu_getpwent, _old_getpwent, &pw_state, struct passwd);
+	return getpw(NULL, -2, PW_GET_ENT);
 }
 
 int
 setpwent(void)
 {
-	INTSETSTATEVOID(lu_setpwent, _old_setpwent, &pw_state);
+	if (_lu_running()) lu_setpwent();
+	else _old_setpwent();
+	return 1;
 }
 
 void
 endpwent(void)
 {
-	UNSETSTATE(lu_endpwent, _old_endpwent, &pw_state);
+	if (_lu_running()) lu_endpwent();
+	else _old_endpwent();
+}
+int
+getpwnam_r(const char *name, struct passwd *pwd, char *buffer, size_t bufsize, struct passwd **result)
+{
+	return getpw_r(name, -2, PW_GET_NAME, pwd, buffer, bufsize, result);
+}
+
+int
+getpwuid_r(uid_t uid, struct passwd *pwd, char *buffer, size_t bufsize, struct passwd **result)
+{
+	return getpw_r(NULL, uid, PW_GET_UID, pwd, buffer, bufsize, result);
 }

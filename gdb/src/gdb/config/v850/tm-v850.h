@@ -1,6 +1,6 @@
 /* Parameters for execution on an NEC V850 processor.
-   Copyright 1996
-   Free Software Foundation, Inc. 
+   Copyright 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -19,7 +19,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#define TARGET_BYTE_ORDER LITTLE_ENDIAN
+#include "regcache.h"
 
 #define NUM_REGS 66
 
@@ -72,7 +72,6 @@ extern char **v850_register_names;
 #define FP_RAW_REGNUM 29
 
 #define TARGET_READ_FP() read_register (FP_RAW_REGNUM)
-#define TARGET_WRITE_FP(VAL) write_register (FP_REGNUM, (VAL))
 
 #define REGISTER_VIRTUAL_TYPE(REG) builtin_type_int
 

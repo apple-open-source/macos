@@ -1,0 +1,31 @@
+#! /bin/sh
+
+# Test to make sure ansi2knr doesn't use `$U' for C++.
+# Report from Robert Boehne.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CXX
+AM_C_PROTOTYPES
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = ansi2knr
+sbin_PROGRAMS = anonymous
+anonymous_SOURCES = doe.c jane.C
+END
+
+: > ansi2knr.c
+: > ansi2knr.1
+
+: > doe.C
+: > jane.C
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+fgrep 'jane$U' Makefile.in && exit 1
+fgrep 'doe$U' Makefile.in || exit 1
+
+exit 0

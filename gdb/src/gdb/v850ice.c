@@ -1,5 +1,6 @@
 /* ICE interface for the NEC V850 for GDB, the GNU debugger.
-   Copyright 1996, 2000 Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -30,6 +31,7 @@
 #include "gdbcore.h"
 #include "value.h"
 #include "command.h"
+#include "regcache.h"
 
 #include <tcl.h>
 #include <windows.h>
@@ -71,7 +73,8 @@ static void v850ice_prepare_to_store (void);
 
 static void v850ice_fetch_registers (int regno);
 
-static void v850ice_resume (int pid, int step, enum target_signal siggnal);
+static void v850ice_resume (ptid_t ptid, int step,
+                            enum target_signal siggnal);
 
 static void v850ice_open (char *name, int from_tty);
 
@@ -83,7 +86,8 @@ static void v850ice_store_registers (int regno);
 
 static void v850ice_mourn (void);
 
-static int v850ice_wait (int pid, struct target_waitstatus *status);
+static ptid_t v850ice_wait (ptid_t ptid,
+                                  struct target_waitstatus *status);
 
 static void v850ice_kill (void);
 
@@ -365,7 +369,7 @@ v850ice_open (char *name, int from_tty)
      target is active.  These functions should be split out into seperate
      variables, especially since GDB will someday have a notion of debugging
      several processes.  */
-  inferior_pid = 42000;
+  inferior_ptid = pid_to_ptid (42000);
 
   start_remote ();
   return;
@@ -381,7 +385,7 @@ v850ice_close (int quitting)
     {
       UnregisterClient ();
       ice_open = 0;
-      inferior_pid = 0;
+      inferior_ptid = null_ptid;
     }
 }
 
@@ -407,7 +411,7 @@ v850ice_detach (char *args, int from_tty)
 /* Tell the remote machine to resume.  */
 
 static void
-v850ice_resume (int pid, int step, enum target_signal siggnal)
+v850ice_resume (ptid_t ptid, int step, enum target_signal siggnal)
 {
   long retval;
   char buf[256];
@@ -430,8 +434,8 @@ v850ice_resume (int pid, int step, enum target_signal siggnal)
    Returns "pid" (though it's not clear what, if anything, that
    means in the case of this target).  */
 
-static int
-v850ice_wait (int pid, struct target_waitstatus *status)
+static ptid_t
+v850ice_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   long v850_status;
   char buf[256];
@@ -483,7 +487,7 @@ v850ice_wait (int pid, struct target_waitstatus *status)
     }
   while (!done);
 
-  return inferior_pid;
+  return inferior_ptid;
 }
 
 static int
@@ -750,7 +754,7 @@ static void
 v850ice_kill (void)
 {
   target_mourn_inferior ();
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
 }
 
 static void
@@ -794,11 +798,11 @@ ice_file (char *arg)
   /* Must supress from_tty, otherwise we could start asking if the
      user really wants to load a new symbol table, etc... */
   printf_unfiltered ("Reading symbols from %s...", arg);
-  exec_file_command (arg, 0);
-  symbol_file_command (arg, 0);
+  exec_open (arg, 0);
+  symbol_file_add_main (arg, 0);
   printf_unfiltered ("done\n");
 
-  /* exec_file_command will kill our target, so reinstall the ICE as
+  /* exec_open will kill our target, so reinstall the ICE as
      the target. */
   v850ice_open (NULL, 0);
 
@@ -929,7 +933,6 @@ init_850ice_ops (void)
   v850ice_ops.to_thread_alive = NULL;
   v850ice_ops.to_stop = v850ice_stop;
   v850ice_ops.to_pid_to_exec_file = NULL;
-  v850ice_ops.to_core_file_to_sym_file = NULL;
   v850ice_ops.to_stratum = process_stratum;
   v850ice_ops.DONT_USE = NULL;
   v850ice_ops.to_has_all_memory = 1;

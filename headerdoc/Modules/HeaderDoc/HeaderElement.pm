@@ -4,7 +4,7 @@
 # Synopsis: Root class for Function, Typedef, Constant, etc. -- used by HeaderDoc.
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2000/09/20 04:39:51 $
+# Last Updated: $Date: 2001/11/30 22:43:17 $
 #
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -25,7 +25,7 @@
 
 package HeaderDoc::HeaderElement;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash);
 use strict;
 use vars qw($VERSION @ISA);
 $VERSION = '1.20';
@@ -61,9 +61,12 @@ sub name {
     my $self = shift;
 
     if (@_) {
-        $self->{NAME} = shift;
-    }
-    return $self->{NAME};
+        my $name = shift;
+        $self->{NAME} = $name;
+    } else {
+    	my $n = $self->{NAME};
+		return $n;
+	}
 }
 
 sub abstract {
@@ -133,13 +136,15 @@ sub printObject {
     my $self = shift;
     my $dec = $self->declaration();
  
+    print "------------------------------------\n";
+    print "HeaderElement\n";
     print "name: $self->{NAME}\n";
     print "abstract: $self->{ABSTRACT}\n";
     print "declaration: $dec\n";
     print "declaration in HTML: $self->{DECLARATIONINHTML}\n";
     print "discussion: $self->{DISCUSSION}\n";
     print "linkageState: $self->{LINKAGESTATE}\n";
-    print "accessControl: $self->{ACCESSCONTROL}\n";
+    print "accessControl: $self->{ACCESSCONTROL}\n\n";
 }
 
 1;

@@ -25,8 +25,8 @@
 /*
  * MachRPC.m
  *
- * Custom procedure calls (using XDR!) on top of Mach IPC for lookupd
- * libc uses this goofy idea to talk to lookupd
+ * Custom procedure calls on top of Mach IPC for lookupd
+ * Libinfo uses this to talk to lookupd
  * 
  * Copyright (c) 1995, NeXT Computer Inc.
  * All rights reserved.
@@ -40,15 +40,15 @@
 #import "Config.h"
 #import "Thread.h"
 #import "LUPrivate.h"
-#import "LDAPAgent.h"
+#import "MemoryWatchdog.h"
 #import <mach/message.h>
 #import <mach/mach_error.h>
 #import <mach/mig_errors.h>
-#import <rpc/types.h>
-#import <rpc/xdr.h>
 #import <netinfo/lookup_types.h>
 #import "_lu_types.h"
 #import <netdb.h>
+#import <sys/socket.h>
+#import <netinet/in.h>
 #import <arpa/inet.h>
 #import <strings.h>
 #import <NetInfo/dsutil.h>
@@ -56,14 +56,14 @@
 
 /* 2 second timeout on sends */
 #define TIMEOUT_MSECONDS (2000)
-#define XDRSIZE 8192
 
-#define valNull   0
-#define valInt    1
-#define valString 2
-#define valIPAddr 3
-#define valIPNet  4
-#define valENAddr 5
+#define valNull			0
+#define valInt			1
+#define valString		2
+#define valIPAddr		3
+#define valIPV6Addr		4
+#define valIPNet			5
+#define valENAddr		6
 
 #ifdef _OS_VERSION_MACOS_X_
 extern boolean_t lookup_server(mach_msg_header_t *, mach_msg_header_t *);
@@ -71,6 +71,9 @@ extern boolean_t lookup_server(mach_msg_header_t *, mach_msg_header_t *);
 extern kern_return_t lookup_server(lookup_request_msg *, lookup_reply_msg *);
 #endif
 extern char *proc_name(int);
+
+extern char *ether_ntoa(struct ether_addr *);
+extern char *nettoa(u_int32_t net);
 
 @implementation MachRPC
 
@@ -80,17 +83,17 @@ extern char *proc_name(int);
 
 	[super init];
 
-	xdr = [[XDRSerializer alloc] init];
-
 	for (i = 0; i < NPROCS; i++)
+	{
 		proc_helper[i].type = nonStandardProc;
+		proc_helper[i].encoder = @selector(encodeDictionary:intoXdr:);
+	}
 
 	/*
 	 * getpwent (returns BSD4.3 data)
 	 */
 	i = PROC_GETPWENT;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeUser:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryUser;
@@ -100,7 +103,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETPWENT_A;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeUser_A:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryUser;
@@ -110,7 +112,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETPWUID;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeUser:intoXdr:);
 	proc_helper[i].decoder = valInt;
 	proc_helper[i].key = "uid";
 	proc_helper[i].cat = LUCategoryUser;
@@ -120,7 +121,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETPWUID_A;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeUser_A:intoXdr:);
 	proc_helper[i].decoder = valInt;
 	proc_helper[i].key = "uid";
 	proc_helper[i].cat = LUCategoryUser;
@@ -130,7 +130,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETPWNAM;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeUser:intoXdr:);
 	proc_helper[i].decoder = valString;
 	proc_helper[i].key = "name";
 	proc_helper[i].cat = LUCategoryUser;
@@ -140,7 +139,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETPWNAM_A;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeUser_A:intoXdr:);
 	proc_helper[i].decoder = valString;
 	proc_helper[i].key = "name";
 	proc_helper[i].cat = LUCategoryUser;
@@ -150,7 +148,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETGRENT;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeGroup:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryGroup;
@@ -160,7 +157,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETGRGID;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeGroup:intoXdr:);
 	proc_helper[i].decoder = valInt;
 	proc_helper[i].key = "gid";
 	proc_helper[i].cat = LUCategoryGroup;
@@ -170,7 +166,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETGRNAM;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeGroup:intoXdr:);
 	proc_helper[i].decoder = valString;
 	proc_helper[i].key = "name";
 	proc_helper[i].cat = LUCategoryGroup;
@@ -180,17 +175,16 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETHOSTENT;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeHost:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryHost;
+	proc_helper[i].encoder = @selector(encodeHost:intoXdr:);
 	
 	/*
 	 * gethostbyname
 	 */
 	i = PROC_GETHOSTBYNAME;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeHost:intoXdr:);
 	proc_helper[i].decoder = valString;
 	proc_helper[i].key = "name";
 	proc_helper[i].cat = LUCategoryHost;
@@ -200,9 +194,17 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETHOSTBYADDR;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeHost:intoXdr:);
 	proc_helper[i].decoder = valIPAddr;
 	proc_helper[i].key = "ip_address";
+	proc_helper[i].cat = LUCategoryHost;
+
+	/*
+	 * getipv6nodebyaddr
+	 */
+	i = PROC_GETIPV6NODEBYADDR;
+	proc_helper[i].type = standardDictionaryProc;
+	proc_helper[i].decoder = valIPV6Addr;
+	proc_helper[i].key = "ipv6_address";
 	proc_helper[i].cat = LUCategoryHost;
 
 	/*
@@ -210,7 +212,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETNETENT;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeNetwork:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryNetwork;
@@ -220,7 +221,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETNETBYNAME;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeNetwork:intoXdr:);
 	proc_helper[i].decoder = valString;
 	proc_helper[i].key = "name";
 	proc_helper[i].cat = LUCategoryNetwork;
@@ -230,7 +230,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETNETBYADDR;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeNetwork:intoXdr:);
 	proc_helper[i].decoder = valIPNet;
 	proc_helper[i].key = "address";
 	proc_helper[i].cat = LUCategoryNetwork;
@@ -240,7 +239,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETSERVENT;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeService:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryService;
@@ -250,7 +248,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETPROTOENT;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeProtocol:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryProtocol;
@@ -260,7 +257,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETPROTOBYNAME;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeProtocol:intoXdr:);
 	proc_helper[i].decoder = valString;
 	proc_helper[i].key = "name";
 	proc_helper[i].cat = LUCategoryProtocol;
@@ -270,7 +266,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETPROTOBYNUMBER;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeProtocol:intoXdr:);
 	proc_helper[i].decoder = valInt;
 	proc_helper[i].key = "number";
 	proc_helper[i].cat = LUCategoryProtocol;
@@ -280,7 +275,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETRPCENT;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeRpc:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryRpc;
@@ -290,7 +284,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETRPCBYNAME;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeRpc:intoXdr:);
 	proc_helper[i].decoder = valString;
 	proc_helper[i].key = "name";
 	proc_helper[i].cat = LUCategoryRpc;
@@ -300,7 +293,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_GETRPCBYNUMBER;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeRpc:intoXdr:);
 	proc_helper[i].decoder = valInt;
 	proc_helper[i].key = "number";
 	proc_helper[i].cat = LUCategoryRpc;
@@ -326,31 +318,10 @@ extern char *proc_name(int);
 	proc_helper[i].cat = LUCategoryMount;
 
 	/*
-	 * getmntent
-	 */
-	i = PROC_GETMNTENT;
-	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeMNT:intoXdr:);
-	proc_helper[i].decoder = valNull;
-	proc_helper[i].key = NULL;
-	proc_helper[i].cat = LUCategoryMount;
-	
-	/*
-	 * getmntbyname
-	 */
-	i = PROC_GETMNTBYNAME;
-	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeMNT:intoXdr:);
-	proc_helper[i].decoder = valString;
-	proc_helper[i].key = "name";
-	proc_helper[i].cat = LUCategoryMount;
-
-	/*
 	 * prdb_get
 	 */
 	i = PROC_PRDB_GET;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodePrinter:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryPrinter;
@@ -360,7 +331,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_PRDB_GETBYNAME;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodePrinter:intoXdr:);
 	proc_helper[i].decoder = valString;
 	proc_helper[i].key = "name";
 	proc_helper[i].cat = LUCategoryPrinter;
@@ -370,7 +340,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_BOOTPARAMS_GETENT;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeBootparams:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryBootparam;
@@ -380,7 +349,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_BOOTPARAMS_GETBYNAME;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeBootparams:intoXdr:);
 	proc_helper[i].decoder = valString;
 	proc_helper[i].key = "name";
 	proc_helper[i].cat = LUCategoryBootparam;
@@ -390,7 +358,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_BOOTP_GETBYIP;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeBootp:intoXdr:);
 	proc_helper[i].decoder = valIPAddr;
 	proc_helper[i].key = "ip_address";
 	proc_helper[i].cat = LUCategoryBootp;
@@ -400,7 +367,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_BOOTP_GETBYETHER;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeBootp:intoXdr:);
 	proc_helper[i].decoder = valENAddr;
 	proc_helper[i].key = "en_address";
 	proc_helper[i].cat = LUCategoryBootp;
@@ -410,7 +376,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_ALIAS_GETBYNAME;
 	proc_helper[i].type = standardDictionaryProc;
-	proc_helper[i].encoder = @selector(encodeAlias:intoXdr:);
 	proc_helper[i].decoder = valString;
 	proc_helper[i].key = "name";
 	proc_helper[i].cat = LUCategoryAlias;
@@ -420,7 +385,6 @@ extern char *proc_name(int);
 	 */
 	i = PROC_ALIAS_GETENT;
 	proc_helper[i].type = standardListProc;
-	proc_helper[i].encoder = @selector(encodeAlias:intoXdr:);
 	proc_helper[i].decoder = valNull;
 	proc_helper[i].key = NULL;
 	proc_helper[i].cat = LUCategoryAlias;
@@ -430,7 +394,6 @@ extern char *proc_name(int);
 
 - (void)dealloc
 {
-	if (xdr != nil) [xdr release];
 	[super dealloc];
 }
 
@@ -446,6 +409,8 @@ extern char *proc_name(int);
 	LUServer *server;
 	lookup_reply_msg reply;
 	lookup_request_msg *request;
+	vm_address_t vm_buf;
+	u_int32_t vm_len;
 
 	t = [Thread currentThread];
 	request = (lookup_request_msg *)[t data];
@@ -477,11 +442,20 @@ extern char *proc_name(int);
 		system_log(LOG_ERR, "msg_send failed (%s)", sys_strerror(status));
 	}
 
-	server = (LUServer *)[t data];
+	server = (LUServer *)[t server];
+	[t setServer:NULL];
+
+	vm_len = [t dataLen];
+	if (vm_len > 0)
+	{
+		vm_buf = (vm_address_t)[t data];
+		vm_deallocate(mach_task_self(), vm_buf, vm_len);
+	}
+
 	[t setData:NULL];
+	[t setDataLen:0];
 
 	if (!shutting_down) [controller checkInServer:server];
-	[t terminateSelf];
 }
 
 /*
@@ -496,7 +470,7 @@ extern char *proc_name(int);
 	LUDictionary *dict;
 	LUArray *list;
 	LUServer *server;
-	Thread *t, *ttest;
+	Thread *t;
 	int i;
 	int cat;
 	char *key;
@@ -519,19 +493,7 @@ extern char *proc_name(int);
 		return NO;
 	}
 
-	/*
-	 * Check if any other thread is using this server.
-	 * This is not supposed to happen.
-	 */
-	ttest = [Thread threadWithData:server];
-	if (ttest != nil) 
-	{
-		system_log(LOG_ERR, "%s: server already in use by %s", 
-			[t name], [ttest name]);
-		return NO;
-	}
-
-	[t setData:(void *)server];
+	[t setServer:(void *)server];
 
 	key = NULL;
 	val = NULL;
@@ -547,8 +509,9 @@ extern char *proc_name(int);
 		system_log(LOG_DEBUG, logString);
 
 		list = [server allItemsWithCategory:cat];
+		if (list == nil) return NO;
+
 		test = [self xdrList:list method:aSel buffer:outdata length:outlen server:server];
-	
 		[list release];
 
 		return test;
@@ -558,7 +521,7 @@ extern char *proc_name(int);
 	{
 		if ((inlen == 0) || (indata == NULL))
 		{
-			system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+			system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 			return NO;
 		}
 
@@ -569,35 +532,47 @@ extern char *proc_name(int);
 		switch (proc_helper[procno].decoder)
 		{
 			case valInt:
-				val = [xdr decodeInt:indata length:inlen];
+				val = [self decodeInt:indata length:inlen];
 				break;
 			case valString:
-				val = [xdr decodeString:indata length:inlen];
+				val = [self decodeString:indata length:inlen];
 				break;
 			case valIPAddr:
-				val = [xdr decodeIPAddr:indata length:inlen];
+				val = [self decodeIPAddr:indata length:inlen];
+				break;
+			case valIPV6Addr:
+				val = [self decodeIPV6Addr:indata length:inlen];
 				break;
 			case valIPNet:
-				val = [xdr decodeIPNet:indata length:inlen];
+				val = [self decodeIPNet:indata length:inlen];
 				break;
 			case valENAddr:
-				val = [xdr decodeENAddr:indata length:inlen];
+				val = [self decodeENAddr:indata length:inlen];
 				break;
 			default: val = NULL;
 		}
 
+		if ((val != NULL) && (val[0] == '\0'))
+		{
+			free(val);
+			val = NULL;
+		}
+	
 		if (val == NULL)
 		{
-			system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+			system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 			return NO;
 		}
 
 		system_log(LOG_DEBUG, "%s %s", logString, val);
 
 		dict = [server itemWithKey:key value:val category:cat];
+		free(val);
+		val = NULL;
+
+		if (dict == nil) return NO;
+
 		test = [self xdrItem:dict method:aSel buffer:outdata length:outlen];
-	
-		freeString(val);
 		[dict release];
 
 		return test;
@@ -605,6 +580,29 @@ extern char *proc_name(int);
 
 	switch (procno)
 	{
+		case PROC_GETIPV6NODEBYNAME: /* NONSTANDARD */
+			name = [self decodeString:indata length:inlen];
+			if ((name != NULL) && (name[0] == '\0'))
+			{
+				free(name);
+				name = NULL;
+			}
+
+			if (name == NULL)
+			{
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
+				return NO;
+			}
+
+			system_log(LOG_DEBUG, "%s %s", logString, name);
+			dict = [server ipv6NodeWithName:name];
+			freeString(name);
+			name = NULL;
+			if (dict == nil) return NO;
+			test = [self xdrItem:dict method:@selector(encodeDictionary:intoXdr:) buffer:outdata length:outlen];
+			[dict release];
+			return test;
+
 		case PROC_SETPWENT:
 		case PROC_ALIAS_SETENT:
 			*outlen = 0;
@@ -613,10 +611,10 @@ extern char *proc_name(int);
 			return YES;
 
 		case PROC_GETSERVBYNAME: /* NONSTANDARD */
-			stuff = [xdr twoStringsFromBuffer:indata length:inlen];
+			stuff = [self twoStringsFromBuffer:indata length:inlen];
 			if (stuff == NULL)
 			{
-				system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -627,15 +625,16 @@ extern char *proc_name(int);
 			if (proto != NULL) [dict setValue:proto forKey:"_lookup_service_protocol"];
 			freeList(stuff);
 			stuff = NULL;
-			test = [self xdrItem:dict method:@selector(encodeService:intoXdr:) buffer:outdata length:outlen];
+			if (dict == nil) return NO;
+			test = [self xdrItem:dict method:@selector(encodeDictionary:intoXdr:) buffer:outdata length:outlen];
 			[dict release];
 			return test;
 
 		case PROC_GETSERVBYPORT: /* NONSTANDARD */
-			stuff = [xdr intAndStringFromBuffer:indata length:inlen];
+			stuff = [self intAndStringFromBuffer:indata length:inlen];
 			if (stuff == NULL)
 			{
-				system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -647,15 +646,16 @@ extern char *proc_name(int);
 			if (proto != NULL) [dict setValue:proto forKey:"_lookup_service_protocol"];
 			freeList(stuff);
 			stuff = NULL;
-			test = [self xdrItem:dict method:@selector(encodeService:intoXdr:) buffer:outdata length:outlen];
+			if (dict == nil) return NO;
+			test = [self xdrItem:dict method:@selector(encodeDictionary:intoXdr:) buffer:outdata length:outlen];
 			[dict release];
 			return test;
 
 		case PROC_FIND: /* NONSTANDARD */
-			stuff = [xdr threeStringsFromBuffer:indata length:inlen];
+			stuff = [self threeStringsFromBuffer:indata length:inlen];
 			if (stuff == NULL)
 			{
-				system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -665,22 +665,22 @@ extern char *proc_name(int);
 			else dict = [server itemWithKey:stuff[1] value:stuff[2] category:i];
 			freeList(stuff);
 			stuff = NULL;
-			if (dict == nil)
-			{
-				test = NO;
-			}
-			else
-			{
-				test = [self xdrItem:dict method:@selector(encodeDictionary:intoXdr:) buffer:outdata length:outlen];
-				[dict release];
-			}
+			if (dict == nil) return NO;
+			test = [self xdrItem:dict method:@selector(encodeDictionary:intoXdr:) buffer:outdata length:outlen];
+			[dict release];
 			return test;
 
 		case PROC_LIST: /* NONSTANDARD */
-			name = [xdr decodeString:indata length:inlen];
+			name = [self decodeString:indata length:inlen];
+			if ((name != NULL) && (name[0] == '\0'))
+			{
+				free(name);
+				name = NULL;
+			}
+
 			if (name == NULL)
 			{
-				system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 	
@@ -697,15 +697,16 @@ extern char *proc_name(int);
 			}
 			freeString(name);
 			name = NULL;
+			if (list == nil) return NO;
 			test = [self xdrList:list method:@selector(encodeDictionary:intoXdr:) buffer:outdata length:outlen server:server];
 			[list release];
 			return test;
 
 		case PROC_QUERY: /* NONSTANDARD */
-			dict = [xdr dictionaryFromBuffer:indata length:inlen];
+			dict = [self dictionaryFromBuffer:indata length:inlen];
 			if (dict == nil)
 			{
-				system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -722,26 +723,33 @@ extern char *proc_name(int);
 			return test;
 
 		case PROC_INITGROUPS: /* NONSTANDARD */
-			name = [xdr decodeString:indata length:inlen];
+			name = [self decodeString:indata length:inlen];
+			if ((name != NULL) && (name[0] == '\0'))
+			{
+				free(name);
+				name = NULL;
+			}
+
 			if (name == NULL)
 			{
-				system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
 			system_log(LOG_DEBUG, "%s %s", logString, name);
-			list = [server allGroupsWithUser:name];
+			dict = [server allGroupsWithUser:name];
 			freeString(name);
 			name = NULL;
-			test = [self xdrInitgroups:list buffer:outdata length:outlen];
-			[list release];
+			if (dict == nil) return NO;
+			test = [self xdrInitgroups:dict buffer:outdata length:outlen];
+			[dict release];
 			return test;
 
 		case PROC_INNETGR: /* NONSTANDARD */
-			stuff = [xdr inNetgroupArgsFromBuffer:indata length:inlen];
+			stuff = [self inNetgroupArgsFromBuffer:indata length:inlen];
 			if (stuff == NULL)
 			{
-				system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -757,10 +765,16 @@ extern char *proc_name(int);
 			return YES;
 
 		case PROC_GETNETGRENT: /* NONSTANDARD */
-			name = [xdr decodeString:indata length:inlen];
+			name = [self decodeString:indata length:inlen];
+			if ((name != NULL) && (name[0] == '\0'))
+			{
+				free(name);
+				name = NULL;
+			}
+
 			if (name == NULL)
 			{
-				system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -768,15 +782,22 @@ extern char *proc_name(int);
 			dict = [server itemWithKey:"name" value:name category:LUCategoryNetgroup];
 			freeString(name);
 			name = NULL;
+			if (dict == nil) return NO;
 			test = [self xdrNetgroup:dict buffer:outdata length:outlen server:server];
 			[dict release];
 			return test;
 
 		case PROC_CHECKSECURITYOPT: /* NONSTANDARD */
-			name = [xdr decodeString:indata length:inlen];
+			name = [self decodeString:indata length:inlen];
+			if ((name != NULL) && (name[0] == '\0'))
+			{
+				free(name);
+				name = NULL;
+			}
+
 			if (name == NULL)
 			{
-				system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
@@ -796,11 +817,11 @@ extern char *proc_name(int);
 		case PROC_SETLOGINUSER: /* NONSTANDARD */
 			if ((inlen == 0) || (indata == NULL))
 			{
-				system_log(LOG_ERR, "%s - can't decode lookup value", logString);
+				system_log(LOG_NOTICE, "%s - can't decode lookup value", logString);
 				return NO;
 			}
 
-			i = [xdr intFromBuffer:indata length:inlen];
+			i = [self intFromBuffer:indata length:inlen];
 			system_log(LOG_DEBUG, "%s %d", logString, i);
 			if (!shutting_down) [controller setLoginUser:i];
 			[self xdrInt:1 buffer:outdata length:outlen];
@@ -808,13 +829,15 @@ extern char *proc_name(int);
 
 		case PROC__GETSTATISTICS: /* NONSTANDARD */
 			system_log(LOG_DEBUG, logString);
+			if (statistics == NULL) return NO;
+			sprintf(logString, "%u", [rover totalMemory]);
+			[statistics setValue:logString forKey:"# Total Memory"];
 			test = [self xdrItem:statistics method:@selector(encodeDictionary:intoXdr:) buffer:outdata length:outlen];
 			return test;
 
 		case PROC__INVALIDATECACHE: /* NONSTANDARD */
 			system_log(LOG_DEBUG, logString);
 			if (!shutting_down) [controller flushCache];
-			[self xdrInt:1 buffer:outdata length:outlen];
 			[self xdrInt:0 buffer:outdata length:outlen];
 			return YES;
 
@@ -825,133 +848,42 @@ extern char *proc_name(int);
 			return YES;
 
 		default: 
-			system_log(LOG_ERR, "%s: unknown proc %d", [t name], procno);
+			system_log(LOG_NOTICE, "%s: unknown proc %d", [t name], procno);
 			return NO;
 	}
 
 	return NO;
 }
 
-- (void)encodeUser_A:(LUDictionary *)item intoXdr:(XDR *)xdrs
+- (void)encodeHost:(LUDictionary *)item intoXdr:(lu_xdr_t *)xdrs
 {
-	[xdr encodeString:	"name"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"passwd"		from:item intoXdr:xdrs];
-	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs default:-2];
-	[xdr encodeInt:	"gid"		from:item intoXdr:xdrs];
-	[xdr encodeInt:	"change"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"class"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"realname"	from:item intoXdr:xdrs];
-	[xdr encodeString:	"home"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"shell"		from:item intoXdr:xdrs];
-	[xdr encodeInt:	"expire"		from:item intoXdr:xdrs];
+	u_int32_t count;
+
+	/* Number of keys */
+	count = 2;
+	lu_xdr_u_int_32(xdrs, &count);
+
+	[self encodeAttribute:"name" from:item intoXdr:xdrs count:(u_int32_t)-1];
+	[self encodeAttribute:"ip_address" from:item intoXdr:xdrs count:(u_int32_t)-1];
 }
 
-- (void)encodeUser:(LUDictionary *)item intoXdr:(XDR *)xdrs
+- (void)encodeFS:(LUDictionary *)item intoXdr:(lu_xdr_t *)xdrs
 {
-	[xdr encodeString:	"name"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"passwd"		from:item intoXdr:xdrs];
-	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs default:-2];
-	[xdr encodeInt:	"gid"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"realname"	from:item intoXdr:xdrs];
-	[xdr encodeString:	"home"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"shell"		from:item intoXdr:xdrs];
-}
-
-- (void)encodeShadowedUser_A:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	[xdr encodeString:	"name"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"*"			intoXdr:xdrs];
-	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs default:-2];
-	[xdr encodeInt:	"gid"		from:item intoXdr:xdrs];
-	[xdr encodeInt:	"change"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"class"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"realname"	from:item intoXdr:xdrs];
-	[xdr encodeString:	"home"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"shell"		from:item intoXdr:xdrs];
-	[xdr encodeInt:	"expire"		from:item intoXdr:xdrs];
-}
-
-- (void)encodeShadowedUser:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	[xdr encodeString:	"name"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"*"			intoXdr:xdrs];
-	[xdr encodeInt:	"uid"		from:item intoXdr:xdrs default:-2];
-	[xdr encodeInt:	"gid"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"realname"	from:item intoXdr:xdrs];
-	[xdr encodeString:	"home"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"shell"		from:item intoXdr:xdrs];
-}
-
-- (void)encodeGroup:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	[xdr encodeString:		"name"	from:item intoXdr:xdrs];
-	[xdr encodeString:		"passwd"	from:item intoXdr:xdrs];
-	[xdr encodeInt:		"gid"	from:item intoXdr:xdrs];
-	[xdr encodeStrings:	"users"	from:item intoXdr:xdrs max:_LU_MAXGRP];
-}
-
-- (void)encodeHost:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	[xdr encodeStrings:	"name"		from:item intoXdr:xdrs max:_LU_MAXHNAMES];
-	[xdr encodeIPAddrs:	"ip_address"	from:item intoXdr:xdrs max:_LU_MAXADDRS];
-}
-
-- (void)encodeNetwork:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	[xdr encodeStrings:	"name"		from:item intoXdr:xdrs max:_LU_MAXNNAMES];
-	[xdr encodeNetAddr:	"address"		from:item intoXdr:xdrs];
-}
-
-- (void)encodeService:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	char **portList;
-	int portcount;
-	unsigned long p;
-	char *proto;
-
-	proto = [item valueForKey:"_lookup_service_protocol"];
-	if (proto != NULL)
-	{
-		if (proto[0] == '\0') proto = NULL;
-	}
-
-	[xdr encodeStrings:"name" from:item intoXdr:xdrs max:_LU_MAXSNAMES];
-
-	portList = [item valuesForKey:"port"];
-	portcount = [item countForKey:"port"];
-	if (portcount <= 0) p = -1;
-	else p = htons(atoi(portList[0]));
-
-	[xdr encodeInt:p intoXdr:xdrs];
-
-	if (proto == NULL)
-		[xdr encodeString:"protocol" from:item intoXdr:xdrs];
-	else
-		[xdr encodeString:proto intoXdr:xdrs];
-}
-
-- (void)encodeProtocol:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	[xdr encodeStrings:	"name"	from:item intoXdr:xdrs max:_LU_MAXPNAMES];
-	[xdr encodeInt:		"number"	from:item intoXdr:xdrs];
-}
-
-- (void)encodeRpc:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	[xdr encodeStrings:	"name"	from:item intoXdr:xdrs max:_LU_MAXRNAMES];
-	[xdr encodeInt:		"number"	from:item intoXdr:xdrs];
-}
-
-- (void)encodeFS:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	char *opts;
-	char type[8];
+	char *opts, *s;
+	char type[64];
 	char **optsList;
-	int i, count, len;
+	int i, len;
+	u_int32_t count;
 
-	[xdr encodeString:	"name"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"dir"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"vfstype"		from:item intoXdr:xdrs];
+	/* Number of keys */
+	count = 7;
+	lu_xdr_u_int_32(xdrs, &count);
+
+	[self encodeAttribute:"name" from:item intoXdr:xdrs count:1];
+	[self encodeAttribute:"dir" from:item intoXdr:xdrs count:1];
+	[self encodeAttribute:"vfstype" from:item intoXdr:xdrs count:1];
+	[self encodeAttribute:"freq" from:item intoXdr:xdrs count:1];
+	[self encodeAttribute:"passno" from:item intoXdr:xdrs count:1];
 
 	optsList = [item valuesForKey:"opts"];
 	if (optsList == NULL) count = 0;
@@ -985,136 +917,52 @@ extern char *proc_name(int);
 		}
 	}
 
-	[xdr encodeString:	opts 	intoXdr:xdrs];
-	[xdr encodeString:	type 	intoXdr:xdrs];
-	[xdr encodeInt:	"freq"	from:item intoXdr:xdrs];
-	[xdr encodeInt:	"passno"	from:item intoXdr:xdrs];
+	count = 1;
+
+	s = "opts";
+	lu_xdr_string(xdrs, &s);
+	lu_xdr_u_int_32(xdrs, &count);
+	lu_xdr_string(xdrs, &opts);
 	free(opts);
+
+	s = "type";
+	lu_xdr_string(xdrs, &s);
+	lu_xdr_u_int_32(xdrs, &count);
+	s = type;
+	lu_xdr_string(xdrs, &s);
 }
 
-- (void)encodeMNT:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	char *opts;
-	char *type;
-	char **optsList;
-	int i, count, len;
-
-	[xdr encodeString:	"name"	from:item intoXdr:xdrs];
-	[xdr encodeString:	"dir"	from:item intoXdr:xdrs];
-
-	/* HORRIBLE HACK - we should keep the type in NetInfo! */
-	type = [item valueForKey:"type"];
-	if (type == NULL) [xdr encodeString:"nfs" intoXdr:xdrs];
-	else [xdr encodeString:"type" from:item intoXdr:xdrs];
-
-	optsList = [item valuesForKey:"opts"];
-	if (optsList == NULL) count = 0;
-	else count = [item countForKey:"opts"];
-	if (count < 0) count = 0;
-
-	len = 0;
-	for (i = 0; i < count; i++)
-	{
-		len += strlen(optsList[i]);
-		if (i < (count - 1)) len++;
-	}
-
-	opts = malloc(len + 1);
-
-	opts[0] = '\0';
-	for (i = 0; i < count; i++)
-	{
-		strcat(opts, optsList[i]);
-		if (i < (count - 1)) strcat(opts, ",");
-	}
-
-	[xdr encodeString:	opts			intoXdr:xdrs];
-	[xdr encodeInt:	"dump_freq"	from:item intoXdr:xdrs];
-	[xdr encodeInt:	"passno"		from:item intoXdr:xdrs];
-	free(opts);
-}
-
-- (void)encodePrinter:(LUDictionary *)item intoXdr:(XDR *)xdrs
+- (void)encodeDictionary:(LUDictionary *)item intoXdr:(lu_xdr_t *)xdrs
 {
 	char *key;
 	int i, count;
-	char **l = NULL;
 
-	[xdr encodeStrings:"name" from:item intoXdr:xdrs max:_LU_MAXPRNAMES];
+	if (item == NULL) return;
 
 	count = 0;
 	for (i = 0; NULL != (key = [item keyAtIndex:i]); i++)
 	{
 		if (!strncmp(key, "_lookup_", 8)) continue;
-		if (streq(key, "name")) continue;
 		count++;
-		l = appendString(key, l);
 	}
 
-	if (count > _LU_MAXPRPROPS)
+	lu_xdr_int_32(xdrs, &count);
+
+	for (i = 0; NULL != (key = [item keyAtIndex:i]); i++)
 	{
-		system_log(LOG_ERR, "truncating at %d values", _LU_MAXPRPROPS);
-		count = _LU_MAXPRPROPS;
-	}
-
-	[xdr encodeInt:count intoXdr:xdrs];
-	for (i = 0; i < count; i++)
-	{
-		[xdr encodeString:l[i] intoXdr:xdrs];
-		[xdr encodeString:l[i] from:item intoXdr:xdrs];
-	}
-	freeList(l);
-	l = NULL;
-}
-
-- (void)encodeBootparams:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	[xdr encodeString:		"name"		from:item intoXdr:xdrs];
-	[xdr encodeStrings:	"bootparams"	from:item intoXdr:xdrs max:_LU_MAX_BOOTPARAMS_KV];
-}
-
-- (void)encodeBootp:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	[xdr encodeString:	"name"		from:item intoXdr:xdrs];
-	[xdr encodeString:	"bootfile"	from:item intoXdr:xdrs];
-	[xdr encodeIPAddr:	"ip_address"	from:item intoXdr:xdrs];
-	[xdr encodeENAddr:	"en_address"	from:item intoXdr:xdrs];
-}
-
-- (void)encodeAlias:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	[xdr encodeString:		"name"		from:item intoXdr:xdrs];
-	[xdr encodeStrings:	"members"		from:item intoXdr:xdrs max:_LU_MAXALIASMEMBERS];
-	[xdr encodeInt:		"alias_local"	from:item intoXdr:xdrs];
-}
-
-- (void)encodeDictionary:(LUDictionary *)item intoXdr:(XDR *)xdrs
-{
-	char *key;
-	int i, count, n;
-
-	count = [item count];
-	[xdr encodeInt:count intoXdr:xdrs];
-
-	for (i = 0; i < count; i++)
-	{
-		key = [item keyAtIndex:i];
-		[xdr encodeString:key intoXdr:xdrs];
-		n = [item countAtIndex:i];
-		[xdr encodeStrings:key from:item intoXdr:xdrs maxCount:n maxLength:(unsigned int)-1];
+		if (!strncmp(key, "_lookup_", 8)) continue;
+		[self encodeAttribute:key from:item intoXdr:xdrs count:-1];
 	}
 }
 
 - (BOOL)xdrNetgroup:(LUDictionary *)item buffer:(char **)data length:(int *)len server:(LUServer *)server
 {
-	unsigned long i, count, size;
-	char **names;
-	char *xdrBuffer;
-	XDR outxdr;
+	u_int32_t i, count;
+	char **names, *s, *dash;
+	lu_xdr_t *outxdr;
+	int32_t status;
 
 	if (item == nil) return NO;
-
-	xdrBuffer = malloc(XDRSIZE);
 
 	count = 0;
 	i = [item countForKey:"hosts"];
@@ -1125,85 +973,79 @@ extern char *proc_name(int);
 	if (i != IndexNull) count += i;
 
 	*len = 0;
-	xdrmem_create(&outxdr, xdrBuffer, XDRSIZE, XDR_ENCODE);
+	outxdr = lu_xdr_alloc(0, 0);
 
-	if (!xdr_u_long(&outxdr, &count))
+	status = lu_xdr_u_int_32(outxdr, &count);
+	if (status != 0)
 	{
-		xdr_destroy(&outxdr);
-		free(xdrBuffer);
+		lu_xdr_free(outxdr);
 		return NO;
 	}
 
-	size = xdr_getpos(&outxdr);
-	[server copyToOOBuffer:xdrBuffer size:size];
-
 	/* XXX Netgroups as members of other netgroups not supported! */
 
-	names = [item valuesForKey:"hosts"];
-	count = [item countForKey:"hosts"];
+	dash = "-";
+
+	s = "hosts";
+	names = [item valuesForKey:s];
+	count = [item countForKey:s];
 	if (count == IndexNull) count = 0;
 	for (i = 0; i < count; i++)
 	{
-		xdr_setpos(&outxdr, 0);
-		[xdr encodeString:names[i] intoXdr:&outxdr];
-		[xdr encodeString:"-" intoXdr:&outxdr];
-		[xdr encodeString:"-" intoXdr:&outxdr];
-		size = xdr_getpos(&outxdr);
-		[server copyToOOBuffer:xdrBuffer size:size];
+		lu_xdr_string(outxdr, &(names[i]));
+		lu_xdr_string(outxdr, &dash);
+		lu_xdr_string(outxdr, &dash);
 	}
 
-	names = [item valuesForKey:"users"];
-	count = [item countForKey:"users"];
+	s = "users";
+	names = [item valuesForKey:s];
+	count = [item countForKey:s];
 	if (count == IndexNull) count = 0;
 	for (i = 0; i < count; i++)
 	{
-		xdr_setpos(&outxdr, 0);
-		[xdr encodeString:"-" intoXdr:&outxdr];
-		[xdr encodeString:names[i] intoXdr:&outxdr];
-		[xdr encodeString:"-" intoXdr:&outxdr];
-		size = xdr_getpos(&outxdr);
-		[server copyToOOBuffer:xdrBuffer size:size];
+		lu_xdr_string(outxdr, &dash);
+		lu_xdr_string(outxdr, &(names[i]));
+		lu_xdr_string(outxdr, &dash);
 	}
 
-	names = [item valuesForKey:"domains"];
-	count = [item countForKey:"domains"];
+	s = "domains";
+	names = [item valuesForKey:s];
+	count = [item countForKey:s];
 	if (count == IndexNull) count = 0;
 	for (i = 0; i < count; i++)
 	{
-		xdr_setpos(&outxdr, 0);
-		[xdr encodeString:"-" intoXdr:&outxdr];
-		[xdr encodeString:"-" intoXdr:&outxdr];
-		[xdr encodeString:names[i] intoXdr:&outxdr];
-		size = xdr_getpos(&outxdr);
-		[server copyToOOBuffer:xdrBuffer size:size];
+		lu_xdr_string(outxdr, &dash);
+		lu_xdr_string(outxdr, &dash);
+		lu_xdr_string(outxdr, &(names[i]));
 	}
 
-	*data = [server ooBuffer];
-	*len = [server ooBufferLength];
+	*data = outxdr->buf;
+	*len = outxdr->datalen;
 
-	xdr_destroy(&outxdr);
-	free(xdrBuffer);
+	free(outxdr);
 
 	return YES;
 }
 
 - (BOOL)xdrInt:(int)i buffer:(char **)data length:(int *)len
 {
-	XDR outxdr;
-	BOOL status;
+	lu_xdr_t *outxdr;
+	int32_t status;
+	
+	outxdr = lu_xdr_alloc(0, 0);
 
-	xdrmem_create(&outxdr, *data, MAX_INLINE_DATA, XDR_ENCODE);
-
-	status = xdr_int(&outxdr, &i);
-	if (!status)
+	status = lu_xdr_int_32(outxdr, &i);
+	if (status != 0)
 	{
-		system_log(LOG_ERR, "xdr_int failed");
-		xdr_destroy(&outxdr);
+		system_log(LOG_ERR, "lu_xdr_int_32 failed");
+		lu_xdr_free(outxdr);
 		return NO;
 	}
 
-	*len = xdr_getpos(&outxdr);
-	xdr_destroy(&outxdr);
+	*len = lu_xdr_getpos(outxdr);
+	*data = outxdr->buf;
+	free(outxdr);
+
 	return YES;
 }
 
@@ -1213,45 +1055,35 @@ extern char *proc_name(int);
 	length:(int *)len
 	server:(LUServer *)server
 {
-	unsigned long i, count, size;
+	u_int32_t i, count;
 	static LUDictionary *item;
-	char *xdrBuffer;
-	XDR outxdr;
+	lu_xdr_t *outxdr;
+	int32_t status;
 
 	if (list == nil) return NO;
-
-	xdrBuffer = malloc(XDRSIZE);
 	
-	xdrmem_create(&outxdr, xdrBuffer, XDRSIZE, XDR_ENCODE);
+	outxdr = lu_xdr_alloc(0, 0);
 	count = [list count];
 
 	*len = 0;
-	if (!xdr_u_long(&outxdr, &count))
+
+	status = lu_xdr_u_int_32(outxdr, &count);
+	if (status != 0)
 	{
-		xdr_destroy(&outxdr);
-		free(xdrBuffer);
+		lu_xdr_free(outxdr);
 		return NO;
 	}
-
-	size = xdr_getpos(&outxdr);
-	[server copyToOOBuffer:xdrBuffer size:size];
 
 	for (i = 0; i < count; i++)
 	{
 		item = [list objectAtIndex:i];
-		xdr_setpos(&outxdr, 0);
-
-		[self perform:method with:item with:(id)&outxdr];
-
-		size = xdr_getpos(&outxdr);
-		[server copyToOOBuffer:xdrBuffer size:size];
+		[self perform:method with:item with:(id)outxdr];
 	}
 
-	*data = [server ooBuffer];
-	*len = [server ooBufferLength];
+	*data = outxdr->buf;
+	*len = outxdr->datalen;
 
-	xdr_destroy(&outxdr);
-	free(xdrBuffer);
+	free(outxdr);
 
 	return YES;
 }
@@ -1261,95 +1093,539 @@ extern char *proc_name(int);
 	buffer:(char **)data
 	length:(int *)len
 {
-	XDR outxdr;
-	BOOL realData;
-	int h_errno;
-	BOOL status;
+	lu_xdr_t *outxdr;
+	int count;
 
-	xdrmem_create(&outxdr, *data, MAX_INLINE_DATA, XDR_ENCODE);
+	outxdr = lu_xdr_alloc(0, 0);
+	if (outxdr == NULL) return NO;
 
-	realData = (item != nil);
-	[xdr encodeBool:realData intoXdr:&outxdr];
+	count = 0;
+	if (item != nil) count = 1;
 
-	if (!realData)
-	{
-		if (method == @selector(encodeHost:intoXdr:))
-		{
-			h_errno = HOST_NOT_FOUND;
-			status = xdr_int(&outxdr, &h_errno);
-			if (!status)
-			{
-				system_log(LOG_ERR, "xdr_int failed");
-				xdr_destroy(&outxdr);
-				return NO;
-			}
-		}
-		*len = xdr_getpos(&outxdr);
-		xdr_destroy(&outxdr);
+	lu_xdr_int_32(outxdr, &count);
+
+	if (count == 0)
+	{		
+		*len = lu_xdr_getpos(outxdr);
+		*data = outxdr->buf;
+		free(outxdr);
 		return YES;
 	}
 
-	[self perform:method with:item with:(id)&outxdr];
+	[self perform:method with:item with:(id)outxdr];
 
-	if (method == @selector(encodeHost:intoXdr:))
-	{
-		h_errno = 0;
-		status = xdr_int(&outxdr, &h_errno);
-		if (!status)
-		{
-			system_log(LOG_ERR, "xdr_int failed");
-			xdr_destroy(&outxdr);
-			return NO;
-		}
-	}
+	*len = lu_xdr_getpos(outxdr);
+	*data = outxdr->buf;
+	free(outxdr);
 
-	*len = xdr_getpos(&outxdr);
-	xdr_destroy(&outxdr);
 	return YES;
 }
 
-- (BOOL)xdrInitgroups:(LUArray *)list buffer:(char **)data length:(int *)len
+- (BOOL)xdrInitgroups:(LUDictionary *)item buffer:(char **)data length:(int *)len
 {
-	XDR outxdr;
-	char **gidsSent = NULL;
+	lu_xdr_t *outxdr;
 	char **gids;
-	LUDictionary *group;
-	int j, ngids;
 	int i, count;
 	int n;
 
-	if (list == nil) return NO;
+	if (item == nil) return NO;
+	gids = [item valuesForKey:"gid"];
+	if (gids == NULL) return NO;
 
-	count = [list count];
-	if (count == 0) return NO;
+	outxdr = lu_xdr_alloc(0, 0);
 
-	xdrmem_create(&outxdr, *data, MAX_INLINE_DATA, XDR_ENCODE);
+	count = [item countForKey:"gid"];
+	if (count < 0) count = 0;
+	if (count > NGROUPS) count = NGROUPS;
+
+	lu_xdr_int_32(outxdr, &count);
 
 	for (i = 0; i < count; i++)
 	{
-		group = [list objectAtIndex:i];
-		gids = [group valuesForKey:"gid"];
-		if (gids == NULL) continue;
-		ngids = [group countForKey:"gid"];
-		if (ngids < 0) ngids = 0;
-		for (j = 0; j < ngids; j++)
-		{
-			if (listIndex(gids[j], gidsSent) != IndexNull) continue;
-			gidsSent = appendString(gids[j], gidsSent);
-			n = atoi(gids[j]);
-			[xdr encodeInt:n intoXdr:&outxdr];
-		}
+		n = atoi(gids[i]);
+		lu_xdr_int_32(outxdr, &n);
 	}
 
-	n = -99; /* XXX STUPID ENCODING ALERT - fix in libc someday */
-	[xdr encodeInt:n intoXdr:&outxdr];
-
-	*len = xdr_getpos(&outxdr);
-	xdr_destroy(&outxdr);
-
-	freeList(gidsSent);
+	*len = lu_xdr_getpos(outxdr);
+	*data = outxdr->buf;
+	free(outxdr);
 
 	return YES;
+}
+
+- (unsigned int)memorySize
+{
+	unsigned int size, i;
+
+	size = [super memorySize];
+
+	size += 4;
+
+	for (i = 0; i < NPROCS; i++)
+	{
+		size += 20;
+		if (proc_helper[i].key != NULL) size += (strlen(proc_helper[i].key) + 1);
+	}
+
+	return size;
+}
+
+- (void)encodeAttribute:(char *)key from:(LUDictionary *)item intoXdr:(lu_xdr_t *)xdrs count:(unsigned long)n
+{
+	u_int32_t i, len;
+	char **values;
+
+	values = [item valuesForKey:key];
+	len = [item countForKey:key];
+
+	if (len == IndexNull) len = 0;
+	if (len > n) len = n;
+		
+	lu_xdr_string(xdrs, &key);
+	lu_xdr_u_int_32(xdrs, &len);
+
+	for (i = 0; i < len; i++)
+	{
+		lu_xdr_string(xdrs, &(values[i]));
+	}
+}
+
+/* 
+ * decode routines
+ */
+- (char *)decodeString:(char *)buf length:(int)len;
+{
+	char *str;
+	lu_xdr_t *inxdr;
+
+	if (buf == NULL) return NULL;
+	if (len == 0) return NULL;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+
+	str = NULL;
+	lu_xdr_string(inxdr, &str);
+	lu_xdr_free(inxdr);
+
+	return str;
+}
+
+- (char *)decodeInt:(char *)buf length:(int)len
+{
+	char *str;
+	int32_t i, status;
+	lu_xdr_t *inxdr;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+
+	status = lu_xdr_int_32(inxdr, &i);
+	if (status != 0)
+	{
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	lu_xdr_free(inxdr);
+
+	str = malloc(16);
+	sprintf(str, "%d", i);
+
+	return str;
+}
+
+- (char *)decodeIPAddr:(char *)buf length:(int)len
+{
+	struct in_addr ip;
+	char *str;
+	int32_t i, status;
+	lu_xdr_t *inxdr;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+
+	status = lu_xdr_int_32(inxdr, &i);
+	if (status != 0)
+	{
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	lu_xdr_free(inxdr);
+
+	ip.s_addr = i;
+	str = malloc(16);
+	sprintf(str, "%s", inet_ntoa(ip));
+
+	return str;
+}
+
+- (char *)decodeIPV6Addr:(char *)buf length:(int)len
+{
+	struct in6_addr ip;
+	char *str;
+	int32_t i, j, status;
+	lu_xdr_t *inxdr;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+
+	for (j = 0; j < 4; j++)
+	{
+		status = lu_xdr_int_32(inxdr, &i);
+		if (status != 0)
+		{
+			lu_xdr_free(inxdr);
+			return NULL;
+		}
+
+		ip.__u6_addr.__u6_addr32[j] = i;
+	}
+
+	lu_xdr_free(inxdr);
+
+	str = malloc(64);
+	if (inet_ntop(AF_INET6, &(ip.__u6_addr.__u6_addr32[0]), str, 64) == NULL)
+	{
+		free(str);
+		return NULL;
+	}
+
+	return str;
+}
+
+- (char *)decodeIPNet:(char *)buf length:(int)len
+{
+	char *str;
+	int32_t i, status;
+	lu_xdr_t *inxdr;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+
+	status = lu_xdr_int_32(inxdr, &i);
+	if (status != 0)
+	{
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	lu_xdr_free(inxdr);
+
+	str = malloc(16);
+	sprintf(str, "%s", nettoa(i));
+
+	return str;
+}
+
+- (char *)decodeENAddr:(char *)buf length:(int)len
+{
+	char *str, *p;
+	struct ether_addr en;
+	lu_xdr_t *inxdr;
+	u_int32_t size;
+	int32_t status;
+
+	size = sizeof(struct ether_addr);
+	memset(&en, 0, size);
+	p = (char *)&en;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+
+	status = lu_xdr_buffer(inxdr, &p, &size);
+	if (status != 0)
+	{
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	lu_xdr_free(inxdr);
+
+	str = malloc(20);
+	sprintf(str, "%s", ether_ntoa(&en));
+
+	return str;
+}
+
+- (char **)twoStringsFromBuffer:(char *)buf length:(int)len
+{
+	char *str1, *str2;
+	char **l = NULL;
+	lu_xdr_t *inxdr;
+	int32_t status;
+
+	if (buf == NULL) return NULL;
+	if (len == 0) return NULL;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+	str1 = NULL;
+	str2 = NULL;
+
+	status = lu_xdr_string(inxdr, &str1);
+	if (status != 0)
+	{
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	status = lu_xdr_string(inxdr, &str2);
+	if (status != 0)
+	{
+		free(str1);
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	lu_xdr_free(inxdr);
+
+	l = appendString(str1, l);
+	l = appendString(str2, l);
+
+	free(str1);
+	free(str2);
+
+	return l;
+}
+
+- (char **)threeStringsFromBuffer:(char *)buf length:(int)len
+{
+	char *str1, *str2, *str3;
+	char **l = NULL;
+	lu_xdr_t *inxdr;
+	int32_t status;
+
+	if (buf == NULL) return NULL;
+	if (len == 0) return NULL;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+	str1 = NULL;
+	str2 = NULL;
+	str3 = NULL;
+
+	status = lu_xdr_string(inxdr, &str1);
+	if (status != 0)
+	{
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	status = lu_xdr_string(inxdr, &str2);
+	if (status != 0)
+	{
+		free(str1);
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	status = lu_xdr_string(inxdr, &str3);
+	if (status != 0)
+	{
+		free(str1);
+		free(str2);
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	lu_xdr_free(inxdr);
+
+	l = appendString(str1, l);
+	l = appendString(str2, l);
+	l = appendString(str3, l);
+
+	free(str1);
+	free(str2);
+	free(str3);
+
+	return l;
+}
+
+- (int)intFromBuffer:(char *)buf length:(int)len
+{
+	int32_t i, status;
+	lu_xdr_t *inxdr;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+	status = lu_xdr_int_32(inxdr, &i);
+	if (status != 0) i = 0;
+	lu_xdr_free(inxdr);
+
+	return i;
+}
+
+- (LUDictionary *)dictionaryFromBuffer:(char *)buf length:(int)len
+{
+	LUDictionary *item;
+	char *key, *val, **l;
+	int32_t i, j, count, n, status;
+	lu_xdr_t *inxdr;
+
+	if (buf == NULL) return NULL;
+	if (len == 0) return NULL;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+
+	status = lu_xdr_int_32(inxdr, &count);
+	if (status != 0)
+	{
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	l = NULL;
+
+	item = [[LUDictionary alloc] init];
+	for (i = 0; i < count; i++)
+	{
+		key = NULL;
+		status = lu_xdr_string(inxdr, &key);
+		if (status != 0) break;
+
+		status = lu_xdr_int_32(inxdr, &n);
+		if (status != 0) break;
+
+		l = NULL;
+		for (j = 0; j < n; j++)
+		{
+			val = NULL;
+			status = lu_xdr_string(inxdr, &val);
+			if (status != 0) break;
+
+			l = appendString(val, l);
+			free(val);
+		}
+
+		if (j != n) break;
+
+		[item setValues:l forKey:key count:n];
+		free(key);
+		key = NULL;
+		freeList(l);
+		l = NULL;
+	}
+
+	if (key != NULL) free(key);
+	if (l != NULL) freeList(l);
+
+	lu_xdr_free(inxdr);
+	if (i != count)
+	{
+		[item release];
+		return NULL;
+	}
+
+	return item;	
+}
+
+- (char **)intAndStringFromBuffer:(char *)buf length:(int)len
+{
+	int32_t i, status;
+	char *str;
+	char **l = NULL;
+	lu_xdr_t *inxdr;
+	char num[64];
+
+	if (buf == NULL) return NULL;
+	if (len == 0) return NULL;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+	str = NULL;
+	status = lu_xdr_int_32(inxdr, &i);
+	if (status != 0)
+	{
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	status = lu_xdr_string(inxdr, &str);
+	if (status != 0)
+	{
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	lu_xdr_free(inxdr);
+
+	sprintf(num, "%d", i);
+	l = appendString(num, l);
+	l = appendString(str, l);
+	free(str);
+	return l;
+}
+
+- (char **)inNetgroupArgsFromBuffer:(char *)buf length:(int)len
+{
+	lu_xdr_t *inxdr;
+	char **l = NULL;
+	char *group, *host, *user, *domain;
+	int32_t status;
+
+	inxdr = lu_xdr_from_buffer(buf, len, LU_XDR_DECODE);
+
+	status = lu_xdr_string(inxdr, &group);
+	if (status != 0)
+	{
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	status = lu_xdr_string(inxdr, &user);
+	if (status != 0)
+	{
+		if (group != NULL) free(group);
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	status = lu_xdr_string(inxdr, &host);
+	if (status != 0)
+	{
+		if (group != NULL) free(group);
+		if (user != NULL) free(user);
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	status = lu_xdr_string(inxdr, &domain);
+	if (status != 0)
+	{
+		if (group != NULL) free(group);
+		if (user != NULL) free(user);
+		if (host != NULL) free(host);
+		lu_xdr_free(inxdr);
+		return NULL;
+	}
+
+	lu_xdr_free(inxdr);
+
+	if (group == NULL)
+	{
+		if (user != NULL) free(user);
+		if (host != NULL) free(host);
+		if (domain != NULL) free(domain);
+		return NULL;
+	}
+
+	l = appendString(group, l);
+	free(group);
+
+	if (host != NULL)
+	{
+		l = appendString(host, l);
+		free(host);
+	}
+	else l = appendString("", l);
+
+	if (user != NULL)
+	{
+		l = appendString(user, l);
+		free(user);
+	}
+	else l = appendString("", l);
+
+	if (domain != NULL)
+	{
+		l = appendString(domain, l);
+		free(domain);
+	}
+	else l = appendString("", l);
+
+	return l;
 }
 
 @end

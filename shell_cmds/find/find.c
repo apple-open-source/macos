@@ -1,5 +1,3 @@
-/*	$NetBSD: find.c,v 1.11 1998/02/21 22:47:20 christos Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -36,12 +34,12 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
-static char sccsid[] = "from: @(#)find.c	8.5 (Berkeley) 8/5/94";
+static char sccsid[] = "@(#)find.c	8.5 (Berkeley) 8/5/94";
 #else
-__RCSID("$NetBSD: find.c,v 1.11 1998/02/21 22:47:20 christos Exp $");
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/find/find.c,v 1.7.6.3 2001/05/06 09:53:22 phk Exp $";
 #endif
 #endif /* not lint */
 
@@ -51,11 +49,28 @@ __RCSID("$NetBSD: find.c,v 1.11 1998/02/21 22:47:20 christos Exp $");
 #include <err.h>
 #include <errno.h>
 #include <fts.h>
+#include <regex.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 #include "find.h"
+
+static int	find_compare __P((const FTSENT **s1, const FTSENT **s2));
+
+/*
+ * find_compare --
+ *	tell fts_open() how to order the traversal of the hierarchy. 
+ *	This variant gives lexicographical order, i.e., alphabetical
+ *	order within each directory.
+ */
+static int
+find_compare(s1, s2)
+	const FTSENT **s1, **s2;
+{
+
+	return (strcoll((*s1)->fts_name, (*s2)->fts_name));
+}
 
 /*
  * find_formplan --
@@ -94,29 +109,36 @@ find_formplan(argv)
 			tail = new;
 		}
 	}
-    
+
 	/*
 	 * if the user didn't specify one of -print, -ok or -exec, then -print
 	 * is assumed so we bracket the current expression with parens, if
 	 * necessary, and add a -print node on the end.
 	 */
 	if (!isoutput) {
+		OPTION *p;
+		char **argv = 0;
+
 		if (plan == NULL) {
-			new = c_print(NULL, 0);
+			p = option("-print");
+			new = (p->create)(p, &argv);
 			tail = plan = new;
 		} else {
-			new = c_openparen(NULL, 0);
+			p = option("(");
+			new = (p->create)(p, &argv);
 			new->next = plan;
 			plan = new;
-			new = c_closeparen(NULL, 0);
+			p = option(")");
+			new = (p->create)(p, &argv);
 			tail->next = new;
 			tail = new;
-			new = c_print(NULL, 0);
+			p = option("-print");
+			new = (p->create)(p, &argv);
 			tail->next = new;
 			tail = new;
 		}
 	}
-    
+
 	/*
 	 * the command line has been completely processed into a search plan
 	 * except for the (, ), !, and -o operators.  Rearrange the plan so
@@ -145,7 +167,7 @@ find_formplan(argv)
 	plan = or_squish(plan);			/* -o's */
 	return (plan);
 }
- 
+
 FTS *tree;			/* pointer to top of FTS hierarchy */
 
 /*
@@ -161,11 +183,12 @@ find_execute(plan, paths)
 	register FTSENT *entry;
 	PLAN *p;
 	int rval;
-    
-	if (!(tree = fts_open(paths, ftsoptions, NULL)))
+
+	tree = fts_open(paths, ftsoptions, (issort ? find_compare : NULL));
+	if (tree == NULL)
 		err(1, "ftsopen");
 
-	for (rval = 0; (entry = fts_read(tree)) != NULL; ) {
+	for (rval = 0; (entry = fts_read(tree)) != NULL;) {
 		switch (entry->fts_info) {
 		case FTS_D:
 			if (isdepth)
@@ -195,17 +218,24 @@ find_execute(plan, paths)
 			rval = 1;
 			continue;
 		}
-		 
+
+		if (mindepth != -1 && entry->fts_level < mindepth)
+			continue;
+
 		/*
 		 * Call all the functions in the execution plan until one is
 		 * false or all have been executed.  This is where we do all
 		 * the work specified by the user on the command line.
 		 */
-		for (p = plan; p && (p->eval)(p, entry); p = p->next)
-			;
+		for (p = plan; p && (p->execute)(p, entry); p = p->next);
+
+		if (maxdepth != -1 && entry->fts_level >= maxdepth) {
+			if (fts_set(tree, entry, FTS_SKIP))
+			err(1, "%s", entry->fts_path);
+			continue;
+		}
 	}
 	if (errno)
 		err(1, "fts_read");
-	(void)fts_close(tree);
 	return (rval);
 }

@@ -22,11 +22,16 @@
 #include <Security/DatabaseSession.h>
 #include <Security/handleobject.h>
 #include <Security/mds.h>
+#include <Security/MDSModule.h>
+#include <Security/MDSSchema.h>
 #include <map>
 #include <sys/stat.h>
+#include <sys/param.h>
+#include <sys/types.h>
 #include <list>
 
-typedef list<class PluginInfo *> PluginInfoList;
+namespace Security
+{
 
 class MDSSession: public DatabaseSession, public HandleObject
 {
@@ -40,31 +45,117 @@ public:
     void install ();
     void uninstall ();
 
-    void GetDbNames(CSSM_NAME_LIST_PTR &outNameList);
-    void FreeNameList(CSSM_NAME_LIST &inNameList);
+	CSSM_DB_HANDLE MDSSession::dbOpen(
+		const char *dbName);
+		
+	// some DatabaseSession routines we need to override
+	void DbOpen(const char *DbName,
+			const CSSM_NET_ADDRESS *DbLocation,
+			CSSM_DB_ACCESS_TYPE AccessRequest,
+			const AccessCredentials *AccessCred,
+			const void *OpenParameters,
+			CSSM_DB_HANDLE &DbHandle);
+    void GetDbNames(CSSM_NAME_LIST_PTR &NameList);
+    void FreeNameList(CSSM_NAME_LIST &NameList);
+    void GetDbNameFromHandle(CSSM_DB_HANDLE DBHandle,
+			char **DbName);
 
     // implement CssmHeap::Allocator
-    void *malloc(size_t size) { return mCssmMemoryFunctions.malloc(size); };
-    void free(void *addr) { mCssmMemoryFunctions.free(addr); }
-	void *realloc(void *addr, size_t size) { return mCssmMemoryFunctions.realloc(addr, size); }
+    void *malloc(size_t size) throw(std::bad_alloc)
+	{ return mCssmMemoryFunctions.malloc(size); }
+    void free(void *addr) throw()
+	{ mCssmMemoryFunctions.free(addr); }
+	void *realloc(void *addr, size_t size) throw(std::bad_alloc)
+	{ return mCssmMemoryFunctions.realloc(addr, size); }
 
+	MDSModule		&module() 	{ return mModule; }
+	void removeRecordsForGuid(
+		const char *guid,
+		CSSM_DB_HANDLE dbHand);
+
+	
+	/* 
+	 * represents two DB files in any location and state
+	 */
+	class DbFilesInfo
+	{
+	public:
+		DbFilesInfo(MDSSession &session, const char *dbPath);
+		~DbFilesInfo();
+		/* these three may not be needed */
+		CSSM_DB_HANDLE objDbHand();
+		CSSM_DB_HANDLE directDbHand();
+		time_t laterTimestamp()			{ return mLaterTimestamp; }
+
+		/* public functions used by MDSSession */
+		void updateSystemDbInfo(
+			const char *systemPath,			// e.g., /System/Library/Frameworks
+			const char *bundlePath);		// e.g., /System/Library/Security
+		void removeOutdatedPlugins();
+		void updateForBundleDir(
+			const char *bundleDirPath);
+		void updateForBundle(
+			const char *bundlePath);
+		void autoCommit(CSSM_BOOL val);		// DB autocommit on/off 
+	private:
+		bool lookupForPath(
+			const char *path);
+
+		/* object and list to keep track of "to be deleted" records */
+		#define MAX_GUID_LEN	64		/* normally 37 */
+		class TbdRecord
+		{
+		public:
+			TbdRecord(const CSSM_DATA &guid);
+			~TbdRecord() 		{ } 
+			const char *guid() 	{ return mGuid; }
+		private:
+			char mGuid[MAX_GUID_LEN];
+		};
+		typedef vector<TbdRecord *> TbdVector;
+
+		void checkOutdatedPlugin(
+			const CSSM_DATA &pathValue, 
+			const CSSM_DATA &guidValue, 
+			TbdVector &tbdVector);
+
+		MDSSession &mSession;
+		char mDbPath[MAXPATHLEN];
+		CSSM_DB_HANDLE mObjDbHand;
+		CSSM_DB_HANDLE mDirectDbHand;
+		time_t mLaterTimestamp;
+	};	/* DbFilesInfo */
 private:
-	bool obtainLock(int timeout = 0);
-	void releaseLock();
+	bool obtainLock(
+		const char *lockFile,
+		int &fd, 
+		int timeout = 0);
+	void releaseLock(
+		int &fd);
+	
+	/* given DB file name, fill in fully specified path */
+	void dbFullPath(
+		const char *dbName,
+		char fullPath[MAXPATHLEN+1]);
+	
+	void updateDataBases();
 
-	void initializeDatabases();
-	void updateDatabases();
-
-	void scanPluginDirectory();
-	void removeOutdatedPlugins(const PluginInfoList &pluginList);
-	void insertNewPlugins(const PluginInfoList &pluginList);
+	bool systemDatabasesPresent(bool purge);
+	void createSystemDatabase(
+		const char *dbName,
+		const RelationInfo *relationInfo,
+		unsigned numRelations,
+		CSSM_DB_HANDLE &dbHand);		// RETURNED
+	bool createSystemDatabases();
 
     const CssmMemoryFunctions mCssmMemoryFunctions;
-    Guid mCallerGuid;
-    bool mCallerGuidPresent;
+    Guid 			mCallerGuid;
+    bool 			mCallerGuidPresent;
 	
-	struct timespec mLastScanTime;
-	int mLockFd;
+	MDSModule		&mModule;
+	int				mLockFd;		// per-user MDS DB lock
 };
+
+} // end namespace Security
 
 #endif //_MDSSESSION_H_

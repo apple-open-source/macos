@@ -57,6 +57,7 @@
 #include <Security/CipherSuite.h>
 #include "sslPriv.h"
 #include "sslctx.h"
+#include "tls_hmac.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,15 +78,12 @@ typedef struct
     SSLCipherSuite     	cipherSuite;
 } SSLCipherMapping;
 
-/*
- * Note: we're not changing the digest mechanisms for now; BSAFE 
- * doesn't provide the necessary "digest clone" op. 
- */
-typedef SSLErr (*HashInit)(SSLBuffer digestCtx);
+typedef SSLErr (*HashInit)(SSLBuffer digestCtx, SSLContext *sslCtx);
 typedef SSLErr (*HashUpdate)(SSLBuffer digestCtx, SSLBuffer data);
-typedef SSLErr (*HashFinal)(SSLBuffer digestCtx, SSLBuffer digest);
+/* HashFinal also does HashClose */
+typedef SSLErr (*HashFinal)(SSLBuffer digestCtx, SSLBuffer digest);	
+typedef SSLErr (*HashClose)(SSLBuffer digestCtx, SSLContext *sslCtx);
 typedef SSLErr (*HashClone)(SSLBuffer src, SSLBuffer dest);
-
 typedef struct
 {   UInt32      contextSize;
     UInt32      digestSize;
@@ -93,17 +91,39 @@ typedef struct
     HashInit    init;
     HashUpdate  update;
     HashFinal   final;
+	HashClose	close;
     HashClone   clone;
 } HashReference;
 
-extern const HashReference SSLHashNull;
-extern const HashReference SSLHashMD5;
-extern const HashReference SSLHashSHA1;
+/*
+ * TLS extension: 
+ *		-- new struct HashHmacReference
+ *		-- structs which used to use HashReference now use HashHmacReference
+ *		-- new union HashHmacContext, used in CipherContext.
+ */
+typedef struct {
+	const HashReference	*hash;
+	const HMACReference	*hmac;
+} HashHmacReference;
 
-#ifdef	_APPLE_CDSA_
+typedef union {
+	SSLBuffer			hashCtx;
+	HMACContextRef		hmacCtx;
+} HashHmacContext;
+
+/* these are declared in tls_hmac.c */
+extern const HashHmacReference HashHmacNull;
+extern const HashHmacReference HashHmacMD5;
+extern const HashHmacReference HashHmacSHA1;
+
+/*
+ * Hack to avoid circular dependency with tls_ssl.h.
+ */
+struct _SslTlsCallouts;
+
 /*
  * All symmetric ciphers go thru CDSA, but we'll keep these callouts for
- * now. The major change here is the inclusion of the CipherContext
+ * now. The major change here from SSLRef3 is the inclusion of the CipherContext
  * arg, for alg/mode and key storage. 
  */
 struct CipherContext;
@@ -123,12 +143,6 @@ typedef SSLErr (*SSLFinishFunc)(
 	CipherContext *cipherCtx, 
 	SSLContext *ctx);
 
-#else
-typedef SSLErr (*SSLKeyFunc)(UInt8 *key, UInt8 *iv, void **cipherRef, SSLContext *ctx);
-typedef SSLErr (*SSLCryptFunc)(SSLBuffer src, SSLBuffer dest, void *cipherRef, SSLContext *ctx);
-typedef SSLErr (*SSLFinishFunc)(void *cipherRef, SSLContext *ctx);
-#endif	/* _APPLE_CDSA */
-
 typedef enum
 {   NotExportable = 0,
     Exportable = 1
@@ -142,12 +156,10 @@ typedef struct {
     UInt8           	secretKeySize;
     UInt8           	ivSize;
     UInt8          	 	blockSize;
-    #ifdef	_APPLE_CDSA_
     CSSM_ALGORITHMS		keyAlg;				/* CSSM_ALGID_DES, etc. */
     CSSM_ALGORITHMS		encrAlg;			/* ditto */
     CSSM_ENCRYPT_MODE	encrMode;			/* CSSM_ALGMODE_CBCPadIV8, etc. */
 	CSSM_PADDING		encrPad;
-    #endif	/* _APPLE_CDSA */
     SSLKeyFunc      	initialize;
     SSLCryptFunc    	encrypt;
     SSLCryptFunc    	decrypt;
@@ -157,10 +169,9 @@ typedef struct {
 #define MAX_DIGEST_SIZE 20          /* SHA digest size = 160 bits */
 #define MAX_MAC_PADDING 48          /* MD5 MAC padding size = 48 bytes */
 #define MASTER_SECRET_LEN 48        /* master secret = 3 x MD5 hashes concatenated */
-#ifdef	__APPLE__
+
 /* SSL V2 - mac secret is the size of symmetric key, not digest */
 #define MAX_SYMKEY_SIZE		24
-#endif	/* __APPLE__ */
 
 typedef enum
 {   SSL_NULL_auth,
@@ -193,7 +204,7 @@ typedef struct {
     SSLCipherSuite      		cipherSpec;
     Exportability       		isExportable;
     KeyExchangeMethod   		keyExchangeMethod;
-    const HashReference      	*macAlgorithm;
+    const HashHmacReference     *macAlgorithm;
     const SSLSymmetricCipher  	*cipher;
 } SSLCipherSpec;
 

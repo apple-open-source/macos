@@ -1,0 +1,49 @@
+#! /bin/sh
+
+# Test to make sure dependency tracking works with
+# --disable-dependency-tracking.
+# Report from Robert Boehne
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(hello.c)
+AM_INIT_AUTOMAKE(hello,0.23)
+AC_PROG_CC
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = hello
+END
+
+cat > hello.h << 'END'
+#include <stdio.h>
+END
+
+cat > hello.c << 'END'
+#include "hello.h"
+int
+main (int argc, char *argv[])
+{
+   printf ("yeah, yeah\n");
+   return 0;
+}
+END
+
+# Likewise for gcc.
+(gcc -v) > /dev/null 2>&1 || exit 77
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+# Ignore user CFLAGS.
+CFLAGS=
+export CFLAGS
+
+CC='gcc' ./configure --disable-dependency-tracking
+
+$MAKE

@@ -1,0 +1,19 @@
+#! /bin/sh
+
+# Test to make sure "reversed" order of AC_PROG_INSTALL and
+# AC_PROG_INSTALL is not buggy.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am <<'END'
+bin_SCRIPTS = zot
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1

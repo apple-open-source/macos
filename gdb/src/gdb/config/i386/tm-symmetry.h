@@ -1,6 +1,6 @@
 /* Target machine definitions for GDB on a Sequent Symmetry under dynix 3.0,
    with Weitek 1167 and i387 support.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995
    Free Software Foundation, Inc.
    Symmetry version by Jay Vosburgh (fubar@sequent.com).
 
@@ -23,6 +23,9 @@
 
 #ifndef TM_SYMMETRY_H
 #define TM_SYMMETRY_H 1
+
+#include "regcache.h"
+#include "doublest.h"
 
 /* I don't know if this will work for cross-debugging, even if you do get
    a copy of the right include file.  */
@@ -63,7 +66,7 @@
    break mysteriously for no apparent reason.  Also note that the st(0)...
    st(7) 387 registers are represented as st0...st7.  */
 
-#undef  REGISTER_NAMES
+#undef REGISTER_NAME
 #define REGISTER_NAMES {     "eax",  "edx",  "ecx",   "st0",  "st1", \
 			     "ebx",  "esi",  "edi",   "st2",  "st3", \
 			     "st4",  "st5",  "st6",   "st7",  "esp", \
@@ -265,8 +268,8 @@ switch (regno) { \
 #undef REGISTER_CONVERT_TO_VIRTUAL
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,TYPE,FROM,TO) \
 { \
-  double val; \
-  floatformat_to_double (&floatformat_i387_ext, (FROM), &val); \
+  DOUBLEST val; \
+  floatformat_to_doublest (&floatformat_i387_ext, (FROM), &val); \
   store_floating ((TO), TYPE_LENGTH (TYPE), val); \
 }
 
@@ -276,8 +279,8 @@ switch (regno) { \
 #undef REGISTER_CONVERT_TO_RAW
 #define REGISTER_CONVERT_TO_RAW(TYPE,REGNUM,FROM,TO) \
 { \
-  double val = extract_floating ((FROM), TYPE_LENGTH (TYPE)); \
-  floatformat_from_double (&floatformat_i387_ext, &val, (TO)); \
+  DOUBLEST val = extract_floating ((FROM), TYPE_LENGTH (TYPE)); \
+  floatformat_from_doublest (&floatformat_i387_ext, &val, (TO)); \
 }
 
 /* Return the GDB type object for the "standard" data type
@@ -297,6 +300,7 @@ switch (regno) { \
    passes it on the stack.  gcc should be fixed in future versions to
    adopt native cc conventions.  */
 
+#undef  PUSH_ARGUMENTS
 #undef  STORE_STRUCT_RETURN
 #define STORE_STRUCT_RETURN(ADDR, SP) write_register(0, (ADDR))
 

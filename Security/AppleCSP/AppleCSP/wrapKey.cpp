@@ -20,6 +20,12 @@
 // wrapKey.cpp - wrap/unwrap key functions for AppleCSPSession
 //
 
+/*
+ * Currently the Security Server wraps public keys when they're stored, so we have
+ * to allow this. We might not want to do this in the real world. 
+ */
+#define ALLOW_PUB_KEY_WRAP		1
+
 #include "AppleCSPSession.h"
 #include "AppleCSPUtils.h"
 #ifdef USE_SNACC
@@ -93,27 +99,19 @@ void AppleCSPSession::WrapKey(
 		default:
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
-	try {
-		/* wrapping key only required for non-NULL wrap */
-		CssmKey &wrappingKeyRef = 
-			Context.get<CssmKey>(CSSM_ATTRIBUTE_KEY, 
-			CSSMERR_CSP_MISSING_ATTR_KEY);
-		wrappingKey = &wrappingKeyRef;
-	}
-	catch (const CssmError err) {
-		if((err.error == CSSMERR_CSP_MISSING_ATTR_KEY) &&
-		   (Context.algorithm() == CSSM_ALGID_NONE) &&
+
+	/* wrapping key only required for non-NULL wrap */
+	wrappingKey = Context.get<CssmKey>(CSSM_ATTRIBUTE_KEY);
+	if(wrappingKey == NULL) {
+		if((Context.algorithm() == CSSM_ALGID_NONE) &&
 		   (Context.type() == CSSM_ALGCLASS_SYMMETRIC)) {
 				// NULL wrap, OK
 				isNullWrap = true;
 		}
 		else {
 			errorLog0("WrapKey: missing wrapping key\n");
-			throw;
+			CssmError::throwMe(CSSMERR_CSP_MISSING_ATTR_KEY);
 		}
-	}
-	catch (...) {
-		throw;
 	}
 	
 	/*
@@ -126,9 +124,11 @@ void AppleCSPSession::WrapKey(
 		/*
 		 * Can only wrap session and private keys. 
 		 */
+		#if		!ALLOW_PUB_KEY_WRAP
 		if(UnwrappedKey.keyClass() == CSSM_KEYCLASS_PUBLIC_KEY) {
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 		}
+		#endif	/* ALLOW_PUB_KEY_WRAP */
 		cspValidateIntendedKeyUsage(&wrappingKey->KeyHeader, CSSM_KEYUSE_WRAP);
 
 		/*
@@ -253,10 +253,23 @@ void AppleCSPSession::WrapKey(
 	/*
 	 * Prepare outgoing header.
 	 */
-	copyCssmHeader(UnwrappedKey.header(), wrappedHdr, normAllocator);
+	const CssmKey::Header &unwrappedHdr = UnwrappedKey.header();
+	setKeyHeader(wrappedHdr,
+		plugin.myGuid(),
+		unwrappedHdr.algorithm(),		// same as incoming 
+		unwrappedHdr.keyClass(),		// same as incoming
+		unwrappedHdr.KeyAttr,
+		unwrappedHdr.KeyUsage);
+	wrappedHdr.LogicalKeySizeInBits = unwrappedHdr.LogicalKeySizeInBits;
 	wrappedHdr.WrapAlgorithmId = Context.algorithm(); 	// true for null 
 														// and non-Null 
 	wrappedHdr.Format = wrapFormat;
+	if(isNullWrap) {
+		wrappedHdr.BlobType = CSSM_KEYBLOB_RAW;
+	}
+	else {
+		wrappedHdr.BlobType = CSSM_KEYBLOB_WRAPPED;
+	}
 	
 	/* 
 	 * special case - break out here for custom Apple CMS  
@@ -301,7 +314,6 @@ void AppleCSPSession::WrapKey(
 			copyCssmData(rawBlob, 
 				CssmData::overlay(WrappedKey.KeyData), 
 				normAllocator);
-			wrappedHdr.BlobType = CSSM_KEYBLOB_RAW;
 			wrappedHdr.Format   = rawFormat; 
 		}
 #ifdef USE_SNACC
@@ -396,26 +408,17 @@ void AppleCSPSession::UnwrapKey(
 	CSSM_KEYBLOB_FORMAT		wrapFormat = WrappedKey.blobFormat();
 	
 	/* obtain unwrapping key if present */
-	try {
-		CssmKey &unwrappingKeyRef = 
-			Context.get<CssmKey>(CSSM_ATTRIBUTE_KEY, 
-			CSSMERR_CSP_MISSING_ATTR_KEY);
-		unwrappingKey = &unwrappingKeyRef;
-	}
-	catch (const CssmError err) {
-		if((err.error == CSSMERR_CSP_MISSING_ATTR_KEY) &&
-		   (Context.algorithm() == CSSM_ALGID_NONE) &&
+	unwrappingKey = Context.get<CssmKey>(CSSM_ATTRIBUTE_KEY);
+	if(unwrappingKey == NULL) {
+		if((Context.algorithm() == CSSM_ALGID_NONE) &&
 		   (Context.type() == CSSM_ALGCLASS_SYMMETRIC)) {
 				// NULL unwrap, OK
 				isNullUnwrap = true;
 		}
 		else {
 			errorLog0("UnwrapKey: missing wrapping key\n");
-			throw;
+			CssmError::throwMe(CSSMERR_CSP_MISSING_ATTR_KEY);
 		}
-	}
-	catch (...) {
-		throw;
 	}
 
 	/* 
@@ -450,10 +453,12 @@ void AppleCSPSession::UnwrapKey(
 	/* validate WrappedKey */
 	switch(WrappedKey.keyClass()) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
+			#if 	!ALLOW_PUB_KEY_WRAP
 			if(!isNullUnwrap) {
 				errorLog0("UnwrapKey: unwrap of public key illegal\n");
 				CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 			}
+			#endif	/* ALLOW_PUB_KEY_WRAP */
 			keyType = CKT_Public;
 			break;
 		case CSSM_KEYCLASS_PRIVATE_KEY:
@@ -491,12 +496,15 @@ void AppleCSPSession::UnwrapKey(
 
 	/* prepare outgoing header */
 	CssmKey::Header &unwrappedHdr = UnwrappedKey.header();
-	copyCssmHeader(WrappedKey.header(), unwrappedHdr, normAllocator);
-	unwrappedHdr.WrapAlgorithmId = Context.algorithm(); // true for null 
-														// and non-Null 
-	/* GUID must be appropriate */
-	unwrappedHdr.CspId = plugin.myGuid();
-
+	const CssmKey::Header &wrappedHdr   = WrappedKey.header();
+	setKeyHeader(unwrappedHdr,
+		plugin.myGuid(),
+		wrappedHdr.algorithm(),		// same as incoming 
+		wrappedHdr.keyClass(),		// same as incoming
+		KeyAttr & ~KEY_ATTR_RETURN_MASK,
+		KeyUsage);
+	unwrappedHdr.LogicalKeySizeInBits = wrappedHdr.LogicalKeySizeInBits;
+	unwrappedHdr.KeyUsage = wrappedHdr.KeyUsage;
 	UnwrappedKey.KeyData.Data = NULL;	// ignore possible incoming KeyData
 	UnwrappedKey.KeyData.Length = 0;
 	

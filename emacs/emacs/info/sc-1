@@ -1,6 +1,6 @@
 This is ../info/sc, produced by makeinfo version 4.0 from sc.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * SC: (sc).		Supercite lets you cite parts of messages you're
 			  replying to, in flexible ways.
@@ -10,11 +10,24 @@ END-INFO-DIR-ENTRY
 and attributing the replies for various GNU Emacs mail and news reading
 subsystems.
 
-   Copyright (C) 1993 Barry A. Warsaw
+   Copyright (C) 1993, 2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: sc,  Node: Top,  Next: Introduction,  Prev: (dir),  Up: (dir)
@@ -167,7 +180,7 @@ header" into the buffer.  This reference header is a string carrying
 details about the citation it is about to perform.
 
    Next, Supercite visits each line in the reply, transforming the line
-according to a customizable "script".  Lines which were not previously
+according to a customizable "script."  Lines which were not previously
 cited in the original message are given a citation, while already cited
 lines remain untouched, or are coerced to your preferred style.
 Finally, Supercite installs a keymap into the reply buffer so that you
@@ -326,16 +339,6 @@ nested or non-nested citation.  Thus the variable
 citation roots.  It is important to remember that if you change
 `sc-citation-root-regexp' you should always also change
 `sc-citation-nonnested-root-regexp'.
-
-   Nemacs users: For best results, try setting
-`sc-citation-root-regexp' to:
-
-     "\\([-._a-zA-Z0-9]\\|\\cc\\|\\cC\\|\\ch\\|\\cH\\|\\ck\\|\\cK\\|\\ca\\|\\cg\\|\\cr\\|\\cu\\)*"
-
-   Mule users: For best results, try setting `sc-citation-root-regexp'
-to:
-
-     "\\([-._a-zA-Z0-9]\\|\\cj\\)*"
 
 
 File: sc,  Node: Information Keys and the Info Alist,  Next: Reference Headers,  Prev: Miscellaneous Commands,  Up: Top
@@ -589,7 +592,7 @@ original message is performed via a call through a configurable hook
 variable.  The name of this variable has been agreed to in advance as
 part of the "citation interface specification".  By default this hook
 variable has a `nil' value, which the MUA recognizes to mean, "use your
-default citation function".  When you add Supercite's citation function
+default citation function."  When you add Supercite's citation function
 to the hook, thereby giving the variable a non-`nil' value, it tells
 the MUA to run the hook via `run-hooks' instead of using the default
 citation.
@@ -896,20 +899,20 @@ initializes the reply buffer:
      reply buffer's keymap.  Instead, it puts its commands on a keymap
      prefix, then installs this prefix onto the buffer's keymap.  What
      this means is that you typically have to type more characters to
-     invoke a Supercite command, but Supercite's keybindings can be
+     invoke a Supercite command, but Supercite's key bindings can be
      made much more consistent across MUAs.
 
      You can control what key Supercite uses as its keymap prefix by
      changing the variable `sc-mode-map-prefix'.  By default, this
      variable is set to `C-c C-p'; a finger twister perhaps, but
      unfortunately the best default due to the scarcity of available
-     keybindings in many MUAs.
+     key bindings in many MUAs.
 
   3. _Turns on Supercite minor mode._ The modeline of the reply buffer
      should indicate that Supercite is active in that buffer by
      displaying the string `SC'.
 
-  4. _Sets the "Undo Boundary"._ Supercite sets an undo boundary before
+  4. _Sets the "Undo Boundary."_ Supercite sets an undo boundary before
      it begins to modify the original yanked text.  This allows you to
      easily undo Supercite's changes to affect alternative citing
      styles.

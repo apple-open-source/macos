@@ -2,6 +2,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         FRAMEWORKS = (CoreFoundation.framework, IOKit.framework); 
+        OTHER_LIBS = (termcap); 
         OTHER_LINKED = (ioreg.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, ioreg.8); 
     }; 

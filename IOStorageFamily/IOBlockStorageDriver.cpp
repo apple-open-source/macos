@@ -24,6 +24,7 @@
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOMemoryDescriptor.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOBlockStorageDriver.h>
 #include <IOKit/storage/IOMedia.h>
@@ -38,6 +39,10 @@ const UInt32 kPollerInterval = 1000;                           // (ms, 1 second)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #define isMediaRemovable() (_removable)
+
+#define kIOPropertyProtocolCharacteristicsKey      "Protocol Characteristics"
+#define kIOPropertyPhysicalInterconnectLocationKey "Physical Interconnect Location"
+#define kIOPropertyExternalKey                     "External"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -97,7 +102,11 @@ bool IOBlockStorageDriver::init(OSDictionary * properties = 0)
     // Initialize this object's minimal state.
     //
 
+    // Ask our superclass' opinion.
+
     if (super::init(properties) == false)  return false;
+
+    // Initialize our state.
 
     _expansionData = IONew(ExpansionData, 1);
     if (_expansionData == 0)  return false;
@@ -118,22 +127,16 @@ bool IOBlockStorageDriver::init(OSDictionary * properties = 0)
     _maxReadByteTransfer     = 131072;
     _maxWriteByteTransfer    = 131072;
 
-///m:workaround:added:start
-    if (metaCast("IOCDBlockStorageDriver"))
-    {
-        _maxReadByteTransfer  = 196608;
-        _maxWriteByteTransfer = 196608;
-    }
-///m:workaround:added:stop
-
     _mediaStateLock          = IOLockAlloc();
 
     if (_mediaStateLock == 0)
         return false;
 
-    _deblockRequestWriteLock = IOLockAlloc();
-    _openClients             = OSSet::withCapacity(2);
-    _pollerCall              = thread_call_allocate(poller, this);
+    _deblockRequestWriteLock      = IOLockAlloc();
+    _deblockRequestWriteLockCount = 0;
+    _openClients                  = OSSet::withCapacity(2);
+    _pollerCall                   = thread_call_allocate(poller, this);
+    _powerEventNotifier           = 0;
 
     for (unsigned index = 0; index < kStatisticsCount; index++)
         _statistics[index] = OSNumber::withNumber(0ULL, 64);
@@ -144,9 +147,7 @@ bool IOBlockStorageDriver::init(OSDictionary * properties = 0)
     for (unsigned index = 0; index < kStatisticsCount; index++)
         if (_statistics[index] == 0)  return false;
 
-    //
-    // Create the standard block storage driver registry properties.
-    //
+    // Create our registry properties.
 
     OSDictionary * statistics = OSDictionary::withCapacity(kStatisticsCount);
 
@@ -179,6 +180,8 @@ bool IOBlockStorageDriver::init(OSDictionary * properties = 0)
     
     setProperty(kIOBlockStorageDriverStatisticsKey, statistics);
 
+    statistics->release();
+
     return true;
 }
 
@@ -209,7 +212,7 @@ bool IOBlockStorageDriver::start(IOService * provider)
         lockForArbitration();        // (disable opens/closes; a recursive lock)
 
         if (!isOpen() && !isInactive())
-            schedulePoller();        // (schedule the poller, increments retain)
+            schedulePoller();                           // (schedule the poller)
 
         unlockForArbitration();       // (enable opens/closes; a recursive lock)
     }
@@ -231,14 +234,12 @@ bool IOBlockStorageDriver::yield(IOService *  provider,
                                  void *       argument)
 {
     //
-    // This method is called as a result of the kIOMessageServiceIsTerminated
-    // or kIOMessageServiceIsRequestingClose provider messages.  The argument
-    // is passed in as-is from the message.  The kIOServiceRequired option is
-    // set for the kIOMessageServiceIsTerminated message to indicate that the
-    // yield must succeed.
+    // This method is called as a result of a kIOMessageServiceIsRequestingClose
+    // provider message.  The argument is passed in as-is from the message.  The
+    // options are unused.
     //
 
-    bool success = false;
+    bool success;
 
     lockForArbitration();
 
@@ -318,8 +319,7 @@ bool IOBlockStorageDriver::handleOpen(IOService *  client,
 
         // Lock down the media while we have opens on this driver object.
 
-        if (lockMedia(true) != kIOReturnSuccess)
-            IOLog("%s: Unable to lock down removable media.\n", getName());
+        lockMedia(true);
     }
 
     // Process the open.
@@ -364,33 +364,30 @@ void IOBlockStorageDriver::handleClose(IOService * client, IOOptionBits options)
 
     // Handle the last close in a special case.
 
-    if (!isInactive() && _openClients->getCount() == 0)
+    if (_openClients->getCount() == 0)
     {
-        if (isMediaWritable())
+        if (isInactive())
         {
-            if (getMediaState() == kIOMediaStateOnline)
-            {
-                // Synchronize the cache on writeable media.
+            // Yield the block storage device.
 
-                if (synchronizeCache(this) != kIOReturnSuccess)
-                    IOLog("%s: Unable to flush cache on media.\n", getName());
-            }
+            message(kIOMessageServiceIsRequestingClose, getProvider(), 0);
         }
-
-        if (isMediaRemovable())
+        else
         {
-            // Unlock the removable media.
-
-            if (getMediaState() == kIOMediaStateOnline)
+            if (isMediaRemovable())
             {
-                if (lockMedia(false) != kIOReturnSuccess)
-                    IOLog("%s: Unable to unlock removable media.\n", getName());
+                // Unlock the removable media.
+
+                if (getMediaState() == kIOMediaStateOnline)
+                {
+                    lockMedia(false);
+                }
+
+                // Reactivate the poller.
+
+                if (isMediaPollRequired() && !isMediaPollExpensive())
+                    schedulePoller();                   // (schedule the poller)
             }
-
-            // Reactivate the poller.
-
-            if (isMediaPollRequired() && !isMediaPollExpensive())
-                schedulePoller();    // (schedule the poller, increments retain)
         }
     }
 }
@@ -656,6 +653,13 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     assert(status                                != kIOReturnSuccess ||
            context->original.buffer->getLength() == actualByteCount);
 
+    // Update the dirtied state.
+
+    if (actualByteCount && isWrite)
+    {
+        driver->_mediaDirtied = true;
+    }
+
     // Update the total number of bytes transferred.
 
     driver->addToBytesTransferred(actualByteCount, 0, 0, isWrite);
@@ -725,7 +729,7 @@ void IOBlockStorageDriver::poller(void * target, void *)
     driver->lockForArbitration();    // (disable opens/closes; a recursive lock)
 
     if (!driver->isOpen() && !driver->isInactive())
-        driver->schedulePoller();    // (schedule the poller, increments retain)
+        driver->schedulePoller();                       // (schedule the poller)
 
     driver->unlockForArbitration();   // (enable opens/closes; a recursive lock)
 
@@ -761,12 +765,6 @@ IOReturn IOBlockStorageDriver::message(UInt32      type,
             success = yield(provider, 0, argument);
             return success ? kIOReturnSuccess : kIOReturnBusy;
         }
-        case kIOMessageServiceIsTerminated:
-        {
-            bool success;
-            success = yield(provider, kIOServiceRequired, argument);
-            return success ? kIOReturnSuccess : kIOReturnError;
-        }
         default:
         {
             return super::message(type, provider, argument);
@@ -788,19 +786,6 @@ IOBlockStorageDriver::acceptNewMedia(void)
     UInt64 nbytes;
     char name[128];
     bool nameSep;
-
-    /* Since the kernel printf doesn't handle 64-bit integers, we
-     * simply make an assumption that the block count and size
-     * will be 32-bit values max.
-     */
-
-#ifdef moreDebug
-    IOLog("%s[IOBlockStorageDriver]::%s media: %ld blocks, %ld bytes each, write-%s.\n",
-            getName(),
-            getDeviceTypeName(),
-            (UInt32)_maxBlockNumber + 1,(UInt32)getMediaBlockSize(),
-            (_writeProtected ? "protected" : "enabled"));
-#endif
 
     if (_maxBlockNumber) {
         nbytes = _mediaBlockSize * (_maxBlockNumber + 1);  
@@ -829,6 +814,9 @@ IOBlockStorageDriver::acceptNewMedia(void)
     result = (_mediaObject) ? kIOReturnSuccess : kIOReturnBadArgument;
     
     if (result == kIOReturnSuccess) {
+        if (getProperty(kIOMediaIconKey, gIOServicePlane)) {
+            _mediaObject->removeProperty(kIOMediaIconKey);
+        }
         ok = _mediaObject->attach(this);       		/* attach media object above us */
         if (ok) {
             _mediaPresent = true;
@@ -952,7 +940,8 @@ IOBlockStorageDriver::decommissionMedia(bool forcible)
         /* If this is a forcible decommission (i.e. media is gone), we don't
          * care whether the teardown worked; we forget about the media.
          */
-        if (_mediaObject->terminate(forcible ? kIOServiceRequired : 0) || forcible) {
+        if ((forcible || !_openClients->containsObject(_mediaObject)) &&
+            (isInactive() || _mediaObject->terminate() || forcible)) {
             _mediaObject->release();
             _mediaObject = 0;
 
@@ -974,28 +963,58 @@ IOBlockStorageDriver::ejectMedia(void)
 {
     IOReturn result;
 
-    if (_ejectable) {
-        
-        IOLockLock(_mediaStateLock);
+    IOLockLock(_mediaStateLock);
+
+    if (isMediaEjectable())
+    {
+        bool mediaDirtied = _mediaDirtied;
 
         lockForArbitration();
         result = decommissionMedia(false);	/* try to teardown */
         unlockForArbitration();
 
         if (result == kIOReturnSuccess) {	/* eject */
-            if (lockMedia(false) != kIOReturnSuccess)
-                IOLog("%s: Unable to unlock removable media.\n", getName());
+            if (mediaDirtied) {
+                synchronizeCache(this);
+            }
+
+            (void)lockMedia(false);
+
+            (void)getProvider()->doEjectMedia();	/* ignore any error */
+        }
+    }
+    else /* if (!isMediaEjectable()) */
+    {
+        lockForArbitration();
+
+        if (_mediaObject) {
+            if (!_openClients->containsObject(_mediaObject)) {
+                result = kIOReturnSuccess;
+            } else {
+                result = kIOReturnBusy;
+            }
+        } else {
+            result = kIOReturnNoMedia;
+        }
+
+        if (result == kIOReturnSuccess) {	/* eject */
+            if (_mediaDirtied) {
+                _mediaDirtied = false;
+                synchronizeCache(this);
+            }
+
+            if (isMediaRemovable())
+                (void)lockMedia(false);
 
             (void)getProvider()->doEjectMedia();	/* ignore any error */
         }
 
-        IOLockUnlock(_mediaStateLock);
-
-        return(result);
-            
-    } else {
-        return(kIOReturnUnsupported);        
+        unlockForArbitration();
     }
+
+    IOLockUnlock(_mediaStateLock);
+
+    return(result);
 }
 
 void
@@ -1004,8 +1023,8 @@ IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
                                      IOStorageCompletion             completion,
                                      IOBlockStorageDriver::Context * context)
 {
-    UInt32 block;
-    UInt32 nblks;
+    UInt64 block;
+    UInt64 nblks;
     IOReturn result;
 
     if (!_mediaPresent) {		/* no media? you lose */
@@ -1016,11 +1035,11 @@ IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
     /* We know that we are never called with a request too large,
      * nor one that is misaligned with a block.
      */
-    assert((byteStart           % _mediaBlockSize) == 0);
-    assert((buffer->getLength() % _mediaBlockSize) == 0);
+    assert((byteStart           % context->block.size) == 0);
+    assert((buffer->getLength() % context->block.size) == 0);
     
-    block = byteStart           / _mediaBlockSize;
-    nblks = buffer->getLength() / _mediaBlockSize;
+    block = byteStart           / context->block.size;
+    nblks = buffer->getLength() / context->block.size;
 
 /* Now the protocol-specific provider implements the actual
      * start of the data transfer: */
@@ -1071,6 +1090,35 @@ IOBlockStorageDriver::getMediaState() const
     } else {
         return(kIOMediaStateOffline);
     }
+}
+
+IOReturn
+IOBlockStorageDriver::handlePowerEvent(void *target,void *refCon,
+                                       UInt32 messageType,IOService *provider,
+                                       void *messageArgument,vm_size_t argSize)
+{
+    IOBlockStorageDriver *driver = (IOBlockStorageDriver *)target;
+    IOReturn result;
+
+    switch (messageType) {
+        case kIOMessageSystemWillPowerOff:
+        case kIOMessageSystemWillRestart:
+            if (!driver->isInactive()) {
+                if (driver->_mediaPresent) {
+                    if (driver->_mediaDirtied) {
+                        driver->synchronizeCache(driver);
+                    }
+                }
+            }
+            result = kIOReturnSuccess;
+            break;
+
+        default:
+            result = kIOReturnUnsupported;
+            break;
+    }
+
+    return(result);
 }
 
 bool
@@ -1168,9 +1216,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
         {
             _maxReadBlockTransfer = maxReadTransfer / 512;
             _maxReadBlockTransfer = min(_maxReadBlockTransfer, 0xFFFFFFFF);
-///m:workaround:added:start
-            _maxReadBlockTransfer = min(_maxReadBlockTransfer, 0x7FFFF);
-///m:workaround:added:stop
         }
 
         result = getProvider()->reportMaxWriteTransfer(512, &maxWriteTransfer);
@@ -1179,9 +1224,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
         {
             _maxWriteBlockTransfer = maxWriteTransfer / 512;
             _maxWriteBlockTransfer = min(_maxWriteBlockTransfer, 0xFFFFFFFF);
-///m:workaround:added:start
-            _maxWriteBlockTransfer = min(_maxWriteBlockTransfer, 0x7FFFF);
-///m:workaround:added:stop
         }
     }
 
@@ -1254,6 +1296,13 @@ IOBlockStorageDriver::handleStart(IOService * provider)
         return(false);
     }
 
+    /* Set up the power event handler for restarts and shutdowns: */
+
+    _powerEventNotifier = registerPrioritySleepWakeInterest(handlePowerEvent,this);
+    if (_powerEventNotifier) {
+        retain();
+    }
+
     return(true);
 }
 
@@ -1265,18 +1314,16 @@ IOBlockStorageDriver::handleYield(IOService *  provider,
                                   IOOptionBits options,
                                   void *       argument)
 {
-    // Determine whether we can yield (for non-required yield requests).
+    // Determine whether there are outstanding opens on this driver object.
 
-    if ( (options & kIOServiceRequired) == 0 && isOpen() != false )
+    if (isOpen())
     {
         return false;
     }
 
     // Halt the poller mechanism.
 
-    if ( isMediaRemovable()     != false &&
-         isMediaPollRequired()  != false &&
-         isMediaPollExpensive() == false )
+    if (isMediaRemovable() && isMediaPollRequired() && !isMediaPollExpensive())
     {
         unschedulePoller();                           // (unschedule the poller)
     }
@@ -1291,9 +1338,10 @@ IOBlockStorageDriver::handleYield(IOService *  provider,
 void
 IOBlockStorageDriver::initMediaState(void)
 {
-    _mediaDirtied	= false;
-    _mediaPresent	= false;
-    _writeProtected    	= false;
+    _mediaDirtied   = false;
+    _mediaPresent   = false;
+    _mediaType      = 0;
+    _writeProtected = false;
 }
 
 IOMedia *
@@ -1306,6 +1354,7 @@ IOMedia *
 IOBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
                                         UInt32 blockSize,char *mediaName)
 {
+    IOMediaAttributeMask attributes = 0;
     IOMedia *m;
     bool result;
 
@@ -1314,16 +1363,65 @@ IOBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
         return(NULL);
     }
 
+    attributes |= _ejectable ? kIOMediaAttributeEjectableMask : 0;
+    attributes |= _removable ? kIOMediaAttributeRemovableMask : 0;
+
     result = m->init(   base,			/* base byte offset */
                         byteSize,		/* byte size */
                         blockSize,		/* preferred block size */
-        		_ejectable,		/* TRUE if ejectable */
+                        attributes,		/* attributes */
                         true,			/* TRUE if whole physical media */
                         !_writeProtected,	/* TRUE if writable */
         		"");			/* content hint */
 
     if (result) {
+        char *picture = NULL;
+
+        if (_removable) {
+            picture = "Removable.icns";
+        } else {
+            OSDictionary *dictionary = OSDynamicCast(OSDictionary, getProvider()->getProperty(kIOPropertyProtocolCharacteristicsKey));
+
+            if (dictionary) {
+                OSString *string = OSDynamicCast(OSString, dictionary->getObject(kIOPropertyPhysicalInterconnectLocationKey));
+
+                if (string) {
+                    const char *value = string->getCStringNoCopy();
+
+                    if (value && !strcmp(value, kIOPropertyExternalKey)) {
+                        picture = "External.icns";
+                    } else {
+                        picture = "Internal.icns";
+                    }
+                }
+            }
+        }
+
+        if (picture) {
+            OSDictionary *dictionary = OSDictionary::withCapacity(2);
+            OSString *identifier = OSString::withCString("com.apple.iokit.IOStorageFamily");
+            OSString *resourceFile = OSString::withCString(picture);
+
+            if (dictionary && identifier && resourceFile) {
+                dictionary->setObject("CFBundleIdentifier", identifier);
+                dictionary->setObject("IOBundleResourceFile", resourceFile);
+            }
+
+            m->setProperty(kIOMediaIconKey, dictionary);
+
+            if (resourceFile) {
+                resourceFile->release();
+            }
+            if (identifier) {
+                identifier->release();
+            }
+            if (dictionary) {
+                dictionary->release();
+            }
+        }
+
         m->setName(mediaName);
+
         return(m);
         
     } else {					/* some init error */
@@ -1424,6 +1522,17 @@ IOBlockStorageDriver::rejectMedia(void)
 {
     (void)getProvider()->doEjectMedia();	/* eject it, ignoring any error */
     initMediaState();			/* deny existence of new media */
+}
+
+void
+IOBlockStorageDriver::stop(IOService * provider)
+{
+    if (_powerEventNotifier) {
+        _powerEventNotifier->remove();
+        _powerEventNotifier = NULL;
+        release();
+    }
+    super::stop(provider);
 }
 
 IOReturn
@@ -2242,6 +2351,17 @@ void IOBlockStorageDriver::deblockRequest(
     if ( buffer->getDirection() == kIODirectionOut )
     {
         IOLockLock(_deblockRequestWriteLock);
+
+        _deblockRequestWriteLockCount++;
+
+        if ( _deblockRequestWriteLockCount > 1 )
+        {
+            IOLockSleep( /* lock          */ _deblockRequestWriteLock, 
+                         /* event         */ _deblockRequestWriteLock,
+                         /* interruptible */ THREAD_UNINT );
+        }
+
+        IOLockUnlock(_deblockRequestWriteLock);
     }
 
     // Execute the transfer (for the next stage).
@@ -2280,6 +2400,17 @@ void IOBlockStorageDriver::deblockRequestCompletion( void *   target,
 
         if ( deblocker->getRequestBuffer()->getDirection() == kIODirectionOut )
         {
+            IOLockLock(driver->_deblockRequestWriteLock);
+
+            driver->_deblockRequestWriteLockCount--;
+
+            if ( driver->_deblockRequestWriteLockCount > 0 )
+            {
+                IOLockWakeup( /* lock  */ driver->_deblockRequestWriteLock,
+                              /* event */ driver->_deblockRequestWriteLock,
+                              /* one   */ true );
+            }
+
             IOLockUnlock(driver->_deblockRequestWriteLock);
         }
 
@@ -2593,7 +2724,7 @@ void IOBlockStorageDriver::breakUpRequest(
     return;
 }
 
-OSMetaClassDefineReservedUsed(IOBlockStorageDriver, 1);
+OSMetaClassDefineReservedUsed(IOBlockStorageDriver, 0);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

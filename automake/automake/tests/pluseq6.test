@@ -1,0 +1,20 @@
+#! /bin/sh
+
+# Test that `+=' works with standard header-vars.
+
+. $srcdir/defs || exit 1
+
+echo 'AC_SUBST(ZZZ)' >> configure.in
+
+# If you do this in a real Makefile.am, I will kill you.
+cat > Makefile.am << 'END'
+mandir += foo
+zq = zzz
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+fgrep '@mandir@ foo' Makefile.in || exit 1
+
+num=`grep '^mandir =' Makefile.in | wc -l`
+test $num -eq 1

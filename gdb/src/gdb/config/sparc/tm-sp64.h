@@ -1,6 +1,7 @@
 /* Target machine sub-parameters for SPARC64, for GDB, the GNU debugger.
    This is included by other tm-*.h files to define SPARC64 cpu-related info.
-   Copyright 1994, 1995, 1996, 1998 Free Software Foundation, Inc.
+   Copyright 1994, 1995, 1996, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    This is (obviously) based on the SPARC Vn (n<9) port.
    Contributed by Doug Evans (dje@cygnus.com).
    Further modified by Bob Manson (manson@cygnus.com).
@@ -22,7 +23,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#define GDB_MULTI_ARCH 2
+#define GDB_MULTI_ARCH GDB_MULTI_ARCH_PARTIAL
 
 #ifndef GDB_TARGET_IS_SPARC64
 #define GDB_TARGET_IS_SPARC64 1
@@ -195,7 +196,7 @@ void sparc_fix_call_dummy (char *dummy, CORE_ADDR pc, CORE_ADDR fun,
    this is also an argument.  This is used in call_function to build a
    stack, and in value_being_returned to print return values. 
 
-   On Sparc64, we only pass pointers to structs if they're larger then
+   On Sparc64, we only pass pointers to structs if they're larger than
    32 bytes. Otherwise they're stored in %o0-%o3 (floating-point
    values go into %fp0-%fp3).  */
 
@@ -267,12 +268,10 @@ CORE_ADDR sparc64_push_arguments (int,
 extern CORE_ADDR sparc64_read_sp ();
 extern CORE_ADDR sparc64_read_fp ();
 extern void sparc64_write_sp (CORE_ADDR);
-extern void sparc64_write_fp (CORE_ADDR);
 
 #define TARGET_READ_SP() (sparc64_read_sp ())
 #define TARGET_READ_FP() (sparc64_read_fp ())
 #define TARGET_WRITE_SP(X) (sparc64_write_sp (X))
-#define TARGET_WRITE_FP(X) (sparc64_write_fp (X))
 
 #undef EXTRACT_RETURN_VALUE
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \

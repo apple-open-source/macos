@@ -1,0 +1,74 @@
+<HTML><HEAD>
+<title>Options for Cyrus SASL</title>
+<!-- $Id: options.html,v 1.1 2002/02/28 00:00:06 snsimon Exp $ -->
+</HEAD>
+<BODY>
+<h1>Options for Cyrus SASL</h1>
+
+<p>This document contains information on what options are used by the
+Cyrus SASL library and bundled mechanisms:</p>
+
+<TABLE BORDER WIDTH=95%>
+<TR><TH>Option</TH><TH>Used By</TH><TH>Description</TH><TH>Default</TH></TR>
+<TR>
+<TD>auto_transition</TD><TD>SASL Library</TD> 
+<TD>When set to 'yes'
+and when using the sasldb auxprop plugin, automatically transition
+users to other mechs when they do a successful plaintext
+authentication</TD><TD>no</TD>
+</TR>
+<TR>
+<TD>canon_user_plugin</TD><TD>SASL Library</TD>
+<TD>Name of canon_user plugin to use</TD><TD>INTERNAL</TD>
+</TR>
+<TR>
+<TD>keytab</TD><TD>GSSAPI</TD> <TD>Location of keytab
+file</TD><TD><tt>/etc/krb5.keytab</tt> (system dependant)</TD>
+</TR>
+<TR>
+<TD>mech_list</TD><TD>SASL Library</TD>
+<TD>Whitespace separated list of mechanisms to allow (e.g. 'plain
+otp').  Used to restrict the mechanisms to a subset of the installed
+plugins.</TD><TD>all available</TD>
+</TR>
+<TR>
+<TD>opiekeys</TD><TD>OTP (with OPIE)</TD>
+<TD>Location of the opiekeys file</TD><TD><tt>/etc/opiekeys</tt></TD>
+</TR>
+<TR>
+<TD>otp_mda</TD><TD>OTP (w/o OPIE)</TD>
+<TD>Message digest algorithm for one-time passwords, used by sasl_setpass
+(possible values: 'md4', 'md5', 'sha1')</TD><TD><tt>md5</tt></TD>
+</TR>
+<TR>
+<TD>plugin_list</TD><TD>SASL Library</TD>
+<TD>Location of Plugin list (Unsupported)</TD><TD><i>none</i></TD>
+</TR>
+<TR>
+<TD>pwcheck_method</TD><TD>SASL Library</TD>
+<TD>Mechanism used to verify passwords, used by sasl_checkpass
+(possible values: 'auxprop', 'pwcheck', 'saslauthd', 'alwaystrue')</TD><TD>auxprop</TD>
+</TR>
+<TR>
+<TD>saslauthd_path</TD><TD>SASL Library</TD>
+<TD>Path to saslauthd binary</TD><TD>system dependant</TD>
+</TR>
+<TR>
+<TD>sasldb_path</TD><TD>sasldb plugin</TD>
+<TD>Path to sasldb file</TD><TD><tt>/etc/sasldb2</tt> (system dependant)</TD>
+<TR>
+<TD>srp_mda</TD><TD>SRP</TD>
+<TD>Message digest algorithm for SRP calculations
+(possible values: 'md5', 'sha1', 'rmd160')</TD><TD><tt>sha1</tt></TD>
+</TR>
+<TD>srvtab</TD><TD>KERBEROS_V4</TD>
+<TD>Location of the srvtab file</TD><TD><tt>/etc/srvtab</tt> (system
+dependant)</TD>
+</TR>
+</TABLE>
+
+<hr>
+Back to the <A href=index.html>index</a>
+
+</body>
+</html>

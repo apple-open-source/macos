@@ -29,6 +29,8 @@
 #include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
 #include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
 
+#include "Debugging.h"
+
 #if (USB_MASS_STORAGE_DEBUG == 0)
 #define USB_MSC_UFI_DEBUGGING_LEVEL 0
 #else
@@ -60,10 +62,85 @@
 #define STATUS_LOG(x)
 #endif
 
+#define kKeySwitchProperty			"Keyswitch"
+#define kAppleKeySwitchProperty		"AppleKeyswitch"
+
 #define super IOUSBMassStorageClass
 OSDefineMetaClassAndStructors( IOUSBMassStorageUFISubclass, IOUSBMassStorageClass )
 
-bool	
+
+void
+IOUSBMassStorageUFISubclass::free ( void )
+{
+	
+	// Check first that fIOUSBMassStorageUFISubclassReserved is not NULL
+	// so that we don't dereference it when we shouldn't when we
+	// check if fKeySwitchNotifier is NULL since fKeySwitchNotifier is
+	// defined to be fIOUSBMassStorageUFISubclassReserved->fKeySwitchNotifier
+	if ( fIOUSBMassStorageUFISubclassReserved != NULL )
+	{
+		
+		if ( fKeySwitchNotifier != NULL )
+		{
+			
+			fKeySwitchNotifier->remove ( );
+			fKeySwitchNotifier = NULL;
+			
+		}
+		
+		IOFree ( fIOUSBMassStorageUFISubclassReserved,
+				 sizeof ( IOUSBMassStorageUFISubclassExpansionData ) );
+		fIOUSBMassStorageUFISubclassReserved = NULL;
+		
+	}
+	
+	// Make sure to call our super
+	super::free ( );
+	
+}
+
+
+IOReturn
+IOUSBMassStorageUFISubclass::message( UInt32 type, IOService * provider, void * argument )
+{
+	
+	IOReturn	result;
+	
+	switch( type )
+	{
+		
+		case kIOMessageServiceIsRequestingClose:
+		{
+			// Check first that fIOUSBMassStorageUFISubclassReserved is not NULL
+			// so that we don't dereference it when we shouldn't when we
+			// check if fKeySwitchNotifier is NULL since fKeySwitchNotifier is
+			// defined to be fIOUSBMassStorageUFISubclassReserved->fKeySwitchNotifier
+			if ( fIOUSBMassStorageUFISubclassReserved != NULL )
+			{
+				if ( fKeySwitchNotifier != NULL )
+				{
+					
+					fKeySwitchNotifier->remove ( );
+					fKeySwitchNotifier = NULL;
+					
+				}
+			}
+			result = super::message( type, provider, argument );
+		}
+		break;
+		
+		default:
+		{
+			result = super::message( type, provider, argument );
+		}
+	}
+	
+	return result;
+	
+}
+
+
+bool
 IOUSBMassStorageUFISubclass::BeginProvidedServices( void )
 {
 	fDeviceCharacteristicsDictionary = OSDictionary::withCapacity( 1 );
@@ -129,24 +206,34 @@ IOUSBMassStorageUFISubclass::InitializeDeviceSupport( void )
 
 	ClearNotReadyStatus();
 
-	setupSuccessful = DetermineDeviceCharacteristics();
+	require( ( DetermineDeviceCharacteristics( ) == true ), ERROR_EXIT );
 	
-	if( setupSuccessful == true ) 
-	{		
-		fPollingMode = kPollingMode_NewMedia;
-		fPollingThread = thread_call_allocate(
-						( thread_call_func_t ) IOUSBMassStorageUFISubclass::sProcessPoll,
-						( thread_call_param_t ) this );
-		
-		if( fPollingThread == NULL )
-		{
-			ERROR_LOG( ( "fPollingThread allocation failed.\n" ) );
-			setupSuccessful = false;
-			goto ERROR_EXIT;
-		}
-	}
+	fPollingMode = kPollingMode_NewMedia;
+	fPollingThread = thread_call_allocate(
+					( thread_call_func_t ) IOUSBMassStorageUFISubclass::sProcessPoll,
+					( thread_call_param_t ) this );
 	
+	require_nonzero( fPollingThread, ERROR_EXIT );
+	
+	fIOUSBMassStorageUFISubclassReserved = ( IOUSBMassStorageUFISubclassExpansionData * )
+			IOMalloc ( sizeof ( IOUSBMassStorageUFISubclassExpansionData ) );
+	
+	require_nonzero ( fIOUSBMassStorageUFISubclassReserved, ERROR_EXIT );
+	
+	bzero ( fIOUSBMassStorageUFISubclassReserved,
+			sizeof ( IOUSBMassStorageUFISubclassExpansionData ) );
+	
+	// Add a notification for the Apple KeySwitch on the server.
+	fKeySwitchNotifier = addNotification (
+			gIOMatchedNotification,
+			nameMatching ( kAppleKeySwitchProperty ),
+			( IOServiceNotificationHandler ) &IOUSBMassStorageUFISubclass::ServerKeyswitchCallback,
+			this,
+			0 );
+
 	STATUS_LOG( ( "IOUSBMassStorageUFISubclass::InitializeDeviceSupport setupSuccessful = %d\n", setupSuccessful ) );
+	
+	setupSuccessful = true;
 	
 ERROR_EXIT:
 	return setupSuccessful;
@@ -301,7 +388,9 @@ IOUSBMassStorageUFISubclass::EnablePolling( void )
 {		
     AbsoluteTime	time;
 	
-    if(( fPollingMode != kPollingMode_Suspended ) && fPollingThread )
+    if( ( fPollingMode != kPollingMode_Suspended ) &&
+		fPollingThread &&
+		( isInactive() == false ) )
     {
         // Retain ourselves so that this object doesn't go away
         // while we are polling
@@ -592,12 +681,15 @@ IOUSBMassStorageUFISubclass::PollForNewMedia( void )
 	fMediumIsWriteProtected = DetermineMediumWriteProtectState();
 	
 	fMediumPresent	= true;
-	fPollingMode	= kPollingMode_Suspended;
 	
 	// Message up the chain that we have media
 	messageClients( kIOMessageMediaStateHasChanged,
 					 ( void * ) kIOMediaStateOnline,
 					 sizeof( IOMediaState ) );
+	
+	// Media is not locked into the drive, so this is most likely
+	// a manually ejectable device, start polling for media removal.
+	fPollingMode = kPollingMode_MediaRemoval;
 	
 }
 
@@ -1070,8 +1162,58 @@ REMOVE_CHECK_DONE:
 	{
 		// Media was removed, set the polling to determine when new media has been inserted
  		fPollingMode = kPollingMode_NewMedia;
+		
+		// Message up the chain that we do not have media
+		messageClients( kIOMessageMediaStateHasChanged,
+						( void * ) kIOMediaStateOffline );
 	}
 }
+
+
+bool
+IOUSBMassStorageUFISubclass::ServerKeyswitchCallback (
+									void *			target,
+									void * 			refCon,
+									IOService * 	newDevice )
+{
+	
+	OSBoolean *						shouldNotPoll	= NULL;
+	IOUSBMassStorageUFISubclass *	device			= NULL;
+	
+	STATUS_LOG( ( "ServerKeyswitchCallback called.\n" ) );
+	
+	shouldNotPoll = OSDynamicCast (
+							OSBoolean,
+							newDevice->getProperty ( kKeySwitchProperty ) );
+	
+	device = OSDynamicCast ( IOUSBMassStorageUFISubclass, ( OSObject * ) target );
+	
+	if ( ( shouldNotPoll != NULL ) && ( device != NULL ) )
+	{
+		
+		// Is the key unlocked?
+		if ( shouldNotPoll->isFalse ( ) )
+		{
+			
+			// Key is unlocked, start resuming device support
+			device->ResumeDeviceSupport ( );
+			
+		}
+		
+		else if ( shouldNotPoll->isTrue ( ) )
+		{
+			
+			// Key is locked, suspend device support
+			device->SuspendDeviceSupport ( );
+			
+		}
+		
+	}
+	
+	return true;
+	
+}
+
 
 #pragma mark -
 #pragma mark Client Requests Support
@@ -1918,7 +2060,7 @@ IOUSBMassStorageUFISubclass::GetAutoSenseData( SCSITaskIdentifier request,
 	SCSITask *		scsiRequest;
 	
 	scsiRequest = OSDynamicCast( SCSITask, request );
-	return scsiRequest->GetAutoSenseData( senseData );
+	return scsiRequest->GetAutoSenseData( senseData, sizeof ( SCSI_Sense_Data ) );
 }
 
 
@@ -1959,7 +2101,7 @@ IOUSBMassStorageUFISubclass::GetApplicationLayerReference ( SCSITaskIdentifier r
 //
 //----------------------------------------------------------------------
 
-inline bool
+bool
 IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField1Byte param,
 										SCSICmdField1Byte mask )
 {
@@ -1985,7 +2127,7 @@ IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField1Byte param,
 //
 //----------------------------------------------------------------------
 
-inline bool
+bool
 IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField2Byte param,
 										SCSICmdField2Byte mask )
 {
@@ -2011,7 +2153,7 @@ IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField2Byte param,
 //
 //----------------------------------------------------------------------
 
-inline bool
+bool
 IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField4Byte param,
 										SCSICmdField4Byte mask )
 {
@@ -2037,7 +2179,7 @@ IOUSBMassStorageUFISubclass::IsParameterValid( SCSICmdField4Byte param,
 //
 //----------------------------------------------------------------------
 
-inline bool
+bool
 IOUSBMassStorageUFISubclass::IsBufferAndCapacityValid(
 				IOMemoryDescriptor *		dataBuffer,
 				UInt32						requiredSize )
@@ -2086,12 +2228,12 @@ IOUSBMassStorageUFISubclass::SetCommandDescriptorBlock(
 							UInt8			cdbByte3,
 							UInt8			cdbByte4,
 							UInt8			cdbByte5,
-							UInt8			cdbByte6 = 0,
-							UInt8			cdbByte7 = 0,
-							UInt8			cdbByte8 = 0,
-							UInt8			cdbByte9 = 0,
-							UInt8			cdbByte10 = 0,
-							UInt8			cdbByte11 = 0)
+							UInt8			cdbByte6,
+							UInt8			cdbByte7,
+							UInt8			cdbByte8,
+							UInt8			cdbByte9,
+							UInt8			cdbByte10,
+							UInt8			cdbByte11)
 {
 	return request->SetCommandDescriptorBlock(
 					cdbByte0,
@@ -2123,8 +2265,8 @@ bool
 IOUSBMassStorageUFISubclass::SetDataTransferControl( 
 							SCSITask *				request,
 							UInt8					dataTransferDirection,
-							IOMemoryDescriptor *	dataBuffer = NULL,
-							UInt64					transferCountInBytes = 0 )
+							IOMemoryDescriptor *	dataBuffer,
+							UInt64					transferCountInBytes )
 {
 	bool	result = false;
 		
@@ -2510,7 +2652,7 @@ IOUSBMassStorageUFISubclass::READ_10(
 		requestedByteCount = TRANSFER_LENGTH * blockSize;
 		
 		// We know the number of bytes to transfer, now check that the 
-		// buffer is large ebnough to accomodate thuis request.
+		// buffer is large enough to accomodate this request.
 		if ( dataBuffer->getLength() < requestedByteCount )
 		{
 			return false;
@@ -2616,7 +2758,7 @@ IOUSBMassStorageUFISubclass::READ_12(
 		requestedByteCount = TRANSFER_LENGTH * blockSize;
 		
 		// We know the number of bytes to transfer, now check that the 
-		// buffer is large ebnough to accomodate thuis request.
+		// buffer is large enough to accomodate this request.
 		if ( dataBuffer->getLength() < requestedByteCount )
 		{
 			return false;
@@ -3063,7 +3205,7 @@ IOUSBMassStorageUFISubclass::WRITE_10(
 		requestedByteCount = TRANSFER_LENGTH * blockSize;
 		
 		// We know the number of bytes to transfer, now check that the 
-		// buffer is large ebnough to accomodate thuis request.
+		// buffer is large enough to accomodate this request.
 		if ( dataBuffer->getLength() < requestedByteCount )
 		{
 			return false;

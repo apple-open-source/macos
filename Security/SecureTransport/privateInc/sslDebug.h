@@ -42,6 +42,7 @@
 #define LOG_VIA_PRINTF		1
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #if		!LOG_VIA_PRINTF
 
@@ -175,16 +176,21 @@ static inline volatile void sslPanic(const char *str)
 /* log handshake messages */
 #define LOG_HDSK_MSG		0
 
-/* log negotiated handshake paramters */
+/* log negotiated handshake parameters */
 #define LOG_NEGOTIATE		0
 
 /* log received protocol messsages */
 #define LOG_RX_PROTOCOL		0
 
+/* log resumable session info */
+#define LOG_RESUM_SESSION 	0
+
 #else	/* !SSL_DEBUG - normal build - all flags disabled */
 #define LOG_HDSK_STATE		0
-#define LOG_HDSK_MSG		0
+#define LOG_HDSK_MSG		0 
 #define LOG_NEGOTIATE		0
+#define LOG_RX_PROTOCOL		0
+#define LOG_RESUM_SESSION	0
 #endif	/* SSL_DEBUG */
 
 #if		LOG_HDSK_STATE
@@ -199,6 +205,12 @@ extern char *hdskStateToStr(SSLHandshakeState state);
 #else	/* LOG_HDSK_STATE */
 #define SSLLogHdskMsg(msg, sent)
 #endif	/* LOG_HDSK_STATE */
+
+#if		LOG_RESUM_SESSION
+#define SSLLogResumSess(m)	printf(m)
+#else
+#define SSLLogResumSess(m)
+#endif	/* LOG_RESUM_SESSION */
 
 /* 
  * A crufty little routine to write cert blobs to disk.

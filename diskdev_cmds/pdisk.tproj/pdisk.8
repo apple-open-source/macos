@@ -1,0 +1,180 @@
+.\""Copyright (c) 2001 Apple Computer, Inc. All Rights Reserved.
+.\"The contents of this file constitute Original Code as defined in and are 
+.\"subject to the Apple Public Source License Version 1.2 (the 'License'). 
+.\"You may not use this file except in compliance with the
+.\"License. Please obtain a copy of the License at 
+.\"http://www.apple.com/publicsource and read it before using this file.
+.\"
+.\"This Original Code and all software distributed under the License are 
+.\"distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
+.\"EXPRESS OR IMPLIED, AND APPLE
+.\"HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT LIMITATION, ANY 
+.\"WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+.\"QUIET ENJOYMENT OR NON-INFRINGEMENT. Please see the License for the 
+.\"specific language governing rights and limitations under the License."
+.Dd March 24, 2001
+.Dt PDISK 8
+.Os Darwin
+.Sh NAME
+.Nm pdisk
+.Nd Apple partition table editor
+.Sh SYNOPSIS
+.Nm
+.Op Fl h | -help
+.Op Fl v | -version
+.Op Fl l | -list 
+.Oo 
+.Op name ...
+.Oc
+.Pp
+.Nm
+.Op r | -readonly
+.Ar device ...
+.Sh DESCRIPTION
+.Nm
+is a menu driven program which partitions disks using the standard
+Apple
+disk partitioning scheme described in "Inside Macintosh: Devices".
+It does not support the intel/dos partitioning scheme supported by
+.Nm fdisk .
+.Ar device
+is of the following form:
+.Bl -compact -indent
+.It
+.Nm /dev/disk0s
+.It
+.Nm /dev/disk0s1
+.It
+.Nm etc.
+.El
+.Sh OPTIONS
+.Bl -tag -width -indent
+.It Fl v | -version
+Prints version number of the
+.Nm
+program.
+.It Fl h | -help
+Prints a rather lame set of help messages for the
+.Nm
+program.
+.It Fl l | -list
+If no
+.Ar names
+are present then lists the partition tables for
+.Nm /dev/disk0s ,
+.Nm /dev/disk0s1 ,
+.Nm /dev/disk0s2 ,
+and so on.
+Otherwise, lists the partition tables for the specified
+.Ar names.
+.It Fl r | -readonly
+Prevents
+.Nm
+from writing to the device.
+.Sh "Editing Partition Tables"
+An argument which is simply the name of a
+device
+indicates that
+.Nm
+should edit the partition table of that device.
+.Pp
+.Bl -tag -width -indent -compact
+The current top level editing commands are:
+.It h
+command help
+.It p
+print the partition table
+.It P
+(print ordered by base address)
+.It i
+initialize partition map
+.It s
+change size of partition map
+.It c
+create new partition
+.It C
+(create with type also specified)
+.It d
+delete a partition
+.It r
+reorder partition entry in map
+.It w
+write the partition table
+.It q
+quit without saving changes
+.El
+.Pp
+Commands which take arguments prompt for each argument in turn.
+You can also type any number of the arguments separated by spaces
+and those prompts will be skipped.
+The only exception to typeahead are the confirmation prompts on the
+.Nm i
+and
+.Nm w
+commands.
+The idea being that if we expect you to confirm the decision we
+shouldn't undermine that by allowing you to be precipitate about it.
+.Pp
+Partitions are always specified by their number,
+which the index of the partition entry in the partition map.
+Most of the commands will change the index numbers of all partitions
+after the affected partition.
+You are advised to print the table as frequently as necessary.
+.Pp
+Creating more than fifteen partitions is not advised.
+There is currently a bug in the some (all?) of the kernels which
+causes
+access to the whole disk fail if more than fifteen partitions are in
+the
+map.
+.Pp
+The
+.Nm c
+(create new partition) command is the only one with complicated
+arguments.
+The first argument is the base address (in blocks) of the partition.
+Besides a raw number, you can also specify a partition number followed
+by the letter 'p' to indicate that the first block of the new
+partition
+should
+be the same as the first block of that existing free  space partition.
+The second argument is the length of the partition in blocks.
+This can be a raw number or can be a partition number followed by the
+letter 'p' to use the size of that partition or can be a number
+followed
+by 'k', 'm', or 'g' to indicate the size in kilobytes, megabytes, or
+gigabytes
+respectively.
+(These are powers of 1024, of course, not powers of 1000.)
+The last argument is the name of the partition.
+This can be a single word without quotes, or a string surrounded by
+single or double quotes.
+.Pp
+The
+.Nm C
+command is identical to the
+.Nm c
+command, with the addition of a partition type argument after the
+other arguments.
+.Pp
+The
+.Nm r
+(reorder) command allows the index number of partitions to be changed.
+The index numbers are constrained to be a contiguous sequence.
+.Pp
+The
+.Nm i
+(initialize) command prompts for the size of the device.
+This was done to get around a bug in the kernel where it reports the
+wrong
+size for the device.
+.Pp
+The
+.Nm w
+(write) command does write the partition map out.
+.Pp
+.Sh BUGS
+.Nm
+should be able to create HFS partitions that work.
+.Pp
+Even more help should be available during user input.

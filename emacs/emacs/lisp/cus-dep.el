@@ -1,4 +1,4 @@
-;;; cus-dep.el --- Find customization dependencies.
+;;; cus-dep.el --- find customization dependencies
 ;;
 ;; Copyright (C) 1997 Free Software Foundation, Inc.
 ;;
@@ -22,9 +22,11 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
-(require 'cl)
+(eval-when-compile (require 'cl))
 (require 'widget)
 (require 'cus-face)
 (require 'autoload)
@@ -116,7 +118,7 @@ Usage: emacs -batch -l ./cus-dep.el -f custom-make-dependencies DIRS"
 ;;; variables and groups if it's already set. (We don't know when
 ;;; cus-load.el is going to be loaded and at that time some of the
 ;;; files might be loaded and some others might not).
-(defmacro custom-put-if-not (symbol propname value)
+\(defmacro custom-put-if-not (symbol propname value)
   `(unless (get ,symbol ,propname)
      (put ,symbol ,propname ,value)))
 
@@ -162,10 +164,16 @@ Usage: emacs -batch -l ./cus-dep.el -f custom-make-dependencies DIRS"
 
 \(provide 'cus-load)
 
+;;; Local Variables:
+;;; version-control: never
+;;; no-byte-compile: t
+;;; no-update-autoloads: t
+;;; End:
 ;;; cus-load.el ends here\n")
   (let ((kept-new-versions 10000000))
     (save-buffer))
   (message "Generating cus-load.el...done")
   (kill-emacs))
 
+
 ;;; cus-dep.el ends here

@@ -1,6 +1,6 @@
-;;; cus-start.el --- define customization properties of builtins.
+;;; cus-start.el --- define customization properties of builtins
 ;;
-;; Copyright (C) 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1999, 2000 Free Software Foundation, Inc.
 ;;
 ;; Author: Per Abrahamsen <abraham@dina.kvl.dk>
 ;; Keywords: internal
@@ -54,6 +54,9 @@
 	     (truncate-lines display boolean)
 	     (selective-display-ellipses display boolean)
 	     (transient-mark-mode editing-basics boolean)
+	     (indicate-empty-lines display boolean "21.1")
+	     (scroll-up-aggressively windows boolean "21.1")
+	     (scroll-down-aggressively windows boolean "21.1")
 	     ;; callint.c
 	     (mark-even-if-inactive editing-basics boolean)
 	     ;; callproc.c
@@ -67,10 +70,23 @@
 	     (eol-mnemonic-unix mule string)
 	     (eol-mnemonic-dos mule string)
 	     (eol-mnemonic-mac mule string)
+	     (file-coding-system-alist
+	      mule
+	      (alist
+	       :key-type (regexp :tag "File regexp")
+	       :value-type (choice
+			    :value (undecided . undecided)
+			    (cons :tag "Encoding/decoding pair"
+				  :value (undecided . undecided)
+				  (coding-system :tag "Decoding")
+				  (coding-system :tag "Encoding"))
+			    (coding-system :tag "Single coding system"
+					   :value undecided)
+			    (function :value ignore))))
 	     ;; dired.c
 	     (completion-ignored-extensions dired 
 					    (repeat (string :format "%v")))
-	     ;; dispnew.el
+	     ;; dispnew.c
 	     (baud-rate display integer)
 	     (inverse-video display boolean)
 	     (visible-bell display boolean)
@@ -101,6 +117,8 @@
 				    (const :tag "always" t)))
 	     ;; fileio.c
 	     (insert-default-directory minibuffer boolean)
+	     ;; fns.c
+	     (use-dialog-box menu boolean "21.1")
 	     ;; frame.c
 	     (default-frame-alist frames
 	       (repeat (cons :format "%v"
@@ -113,7 +131,7 @@
 	     (auto-save-interval auto-save integer)
 	     (auto-save-timeout auto-save (choice (const :tag "off" nil)
 						  (integer :format "%v")))
-	     (echo-keystrokes minibuffer integer)
+	     (echo-keystrokes minibuffer number)
 	     (polling-period keyboard integer)
 	     (double-click-time mouse (restricted-sexp
 				       :match-alternatives (integerp 'nil 't)))
@@ -125,15 +143,46 @@
 						    (integer :tag "time" 2)
 						    (other :tag "on")))
 	     ;; lread.c
-	     (load-path environment 
-			(repeat (choice :tag "[Current dir?]"
-					:format "%[Current dir?%] %v"
-					(const :tag " current dir" nil)
-					(directory :format "%v"))))
+
+;; This is not good news because it will use the wrong
+;; version-specific directories when you upgrade.  We need
+;; customization of the front of the list, maintaining the standard
+;; value intact at the back.
+;;; 	     (load-path environment 
+;;; 			(repeat (choice :tag "[Current dir?]"
+;;; 					:format "%[Current dir?%] %v"
+;;; 					(const :tag " current dir" nil)
+;;;					(directory :format "%v"))))
 	     ;; minibuf.c
 	     (completion-auto-help minibuffer boolean)
 	     (enable-recursive-minibuffers minibuffer boolean)
+	     (minibuffer-prompt-properties
+	      minibuffer
+	      (list
+	       (checklist :inline t
+			  (const :tag "Read-Only"
+				 :doc "Prevent prompt from being modified"
+				 :format "%t%n%h"
+				 :inline t
+				 (read-only t))
+			  (const :tag "Inviolable"
+				 :doc "Prevent point from ever entering prompt"
+				 :format "%t%n%h"
+				 :inline t
+				 (point-entered minibuffer-avoid-prompt)))
+	       (repeat :inline t
+		       :tag "Other Properties"
+		       (list :inline t
+			     :format "%v"
+			     (symbol :tag "Property")
+			     (sexp :tag "Value"))))
+	      "21.1")
 	     (minibuffer-auto-raise minibuffer boolean)
+	     ;; options property set at end
+	     (read-buffer-function minibuffer
+				   (choice (const nil)
+					   (function-item iswitchb-read-buffer)
+					   function))
 	     ;; msdos.c
 	     (dos-unsupported-char-glyph display integer)
 	     ;; process.c
@@ -142,8 +191,8 @@
 	     (parse-sexp-ignore-comments editing-basics boolean)
 	     (words-include-escapes editing-basics boolean)
 	     ;; window.c
-	     (temp-buffer-show-function windows function)
-	     (display-buffer-function windows function)
+	     (temp-buffer-show-function windows (choice (const nil) function))
+	     (display-buffer-function windows (choice (const nil) function))
 	     (pop-up-frames frames boolean)
 	     (pop-up-frame-function frames function)
 	     (special-display-buffer-names 
@@ -176,18 +225,22 @@
 	     (same-window-buffer-names windows (repeat (string :format "%v")))
 	     (same-window-regexps windows (repeat (regexp :format "%v")))
 	     (pop-up-windows windows boolean)
+	     (even-window-heights windows boolean)
 	     (next-screen-context-lines windows integer)
 	     (split-height-threshold windows integer)
 	     (window-min-height windows integer)
 	     (window-min-width windows integer)
 	     (scroll-preserve-screen-position windows boolean)
+	     (display-buffer-reuse-frames windows boolean "21.1")
 	     ;; xdisp.c
 	     (scroll-step windows integer)
 	     (scroll-conservatively windows integer)
 	     (scroll-margin windows integer)
 	     (truncate-partial-width-windows display boolean)
 	     (mode-line-inverse-video modeline boolean)
-	     (line-number-display-limit display integer)
+	     (line-number-display-limit display
+					(choice integer
+						(const :tag "No limit" nil)))
 	     (highlight-nonselected-windows display boolean)
 	     (message-log-max debug (choice (const :tag "Disable" nil)
 					    (integer :menu-tag "lines"
@@ -196,20 +249,21 @@
 	     (unibyte-display-via-language-environment mule boolean)
 	     ;; xfns.c
 	     (x-bitmap-file-path installation
-				 (repeat (directory :format "%v")))))
-      this symbol group type native-p
+				 (repeat (directory :format "%v")))
+	     ;; xterm.c
+	     (x-stretch-cursor display boolean "21.1")))
+      this symbol group type native-p version
       ;; This function turns a value
       ;; into an expression which produces that value.
       (quoter (lambda (sexp)
 		(if (or (memq sexp '(t nil))
-			(and (symbolp sexp)
-			     (eq (aref (symbol-name sexp) 0) ?:))
+			(keywordp sexp)
 			(and (listp sexp)
 			     (memq (car sexp) '(lambda)))
 			(stringp sexp)
-			(numberp sexp)
-			(and (fboundp 'characterp)
-			     (characterp sexp)))
+;; 			(and (fboundp 'characterp)
+;; 			     (characterp sexp))
+			(numberp sexp))
 		    sexp
 		  (list 'quote sexp)))))
   (while all 
@@ -218,6 +272,7 @@
 	  symbol (nth 0 this)
 	  group (nth 1 this)
 	  type (nth 2 this)
+	  version (nth 3 this)
 	  ;; Don't complain about missing variables which are
 	  ;; irrelevant to this platform.
 	  native-p (save-match-data
@@ -241,7 +296,10 @@
 	;; Add it to the right group.
 	(custom-add-to-group group symbol 'custom-variable)
 	;; Set the type.
-	(put symbol 'custom-type type)))))
+	(put symbol 'custom-type type)
+	(put symbol 'custom-version version)))))
+
+(custom-add-to-group 'iswitchb 'read-buffer-function 'custom-variable)
 
 ;; Record cus-start as loaded
 ;; if we have set up all the info that we can set up.
@@ -250,4 +308,4 @@
 (unless purify-flag
   (provide 'cus-start))
 
-;;; cus-start.el ends here.
+;;; cus-start.el ends here

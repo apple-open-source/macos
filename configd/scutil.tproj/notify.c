@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -66,12 +66,12 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 		for (i=0; i<n; i++) {
 			SCPrint(TRUE,
 				stdout,
-				CFSTR("  changedKey [%d] = %@\n"),
+				CFSTR("  changed key [%d] = %@\n"),
 				i,
 				CFArrayGetValueAtIndex(changedKeys, i));
 		}
 	} else {
-		SCPrint(TRUE, stdout, CFSTR("  no changedKey's.\n"));
+		SCPrint(TRUE, stdout, CFSTR("  no changed key's.\n"));
 	}
 
 	return;
@@ -92,7 +92,14 @@ do_notify_list(int argc, char **argv)
 
 	list = SCDynamicStoreCopyWatchedKeyList(store, isRegex);
 	if (!list) {
-		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+		if (SCError() != kSCStatusOK) {
+			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+		} else {
+			SCPrint(TRUE,
+				stdout,
+				CFSTR("  no notifier %s.\n"),
+				isRegex ? "patterns" : "keys");
+		}
 		return;
 	}
 
@@ -108,12 +115,16 @@ do_notify_list(int argc, char **argv)
 		for (i=0; i<listCnt; i++) {
 			SCPrint(TRUE,
 				stdout,
-				CFSTR("  notifierKey [%d] = %@\n"),
+				CFSTR("  notifier %s [%d] = %@\n"),
+				isRegex ? "pattern" : "key",
 				i,
 				CFArrayGetValueAtIndex(sortedList, i));
 		}
 	} else {
-		SCPrint(TRUE, stdout, CFSTR("  no notifierKey's.\n"));
+		SCPrint(TRUE,
+			stdout,
+			CFSTR("  no notifier %s.\n"),
+			isRegex ? "patterns" : "keys");
 	}
 	CFRelease(sortedList);
 
@@ -314,21 +325,12 @@ do_notify_file(int argc, char **argv)
 }
 
 
-static char *signames[] = {
-	""    , "HUP" , "INT"   , "QUIT", "ILL"  , "TRAP", "ABRT", "EMT" ,
-	"FPE" , "KILL", "BUS"   , "SEGV", "SYS"  , "PIPE", "ALRM", "TERM",
-	"URG" , "STOP", "TSTP"  , "CONT", "CHLD" , "TTIN", "TTOU", "IO"  ,
-	"XCPU", "XFSZ", "VTALRM", "PROF", "WINCH", "INFO", "USR1",
-	"USR2"
-};
-
-
 static void
 signalCatcher(int signum)
 {
 	static int	n = 0;
 
-	SCPrint(TRUE, stdout, CFSTR("Received SIG%s (#%d).\n"), signames[signum], n++);
+	SCPrint(TRUE, stdout, CFSTR("Received sig%s (#%d).\n"), sys_signame[signum], n++);
 	return;
 }
 
@@ -348,7 +350,7 @@ do_notify_signal(int argc, char **argv)
 		}
 	} else {
 		for (sig=1; sig<NSIG; sig++) {
-			if (strcasecmp(argv[0], signames[sig]) == 0)
+			if (strcasecmp(argv[0], sys_signame[sig]) == 0)
 				break;
 		}
 		if (sig >= NSIG) {
@@ -358,7 +360,7 @@ do_notify_signal(int argc, char **argv)
 
 			str = CFStringCreateMutable(NULL, 0);
 			for (sig=1; sig<NSIG; sig++) {
-				CFStringAppendFormat(str, NULL, CFSTR(" %-6s"), signames[sig]);
+				CFStringAppendFormat(str, NULL, CFSTR(" %-6s"), sys_signame[sig]);
 				if ((sig % 10) == 0) {
 					CFStringAppendFormat(str, NULL, CFSTR("\n"));
 				}

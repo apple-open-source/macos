@@ -329,7 +329,7 @@ tdecode(str, area)
 	int c;
 
 	cp = *area;
-	while (c = *str++) {
+	while ((c = *str++)) {
 	    if (c == ':' && *(cp-1) != '\\')
 		break;
 	    *cp++ = c;

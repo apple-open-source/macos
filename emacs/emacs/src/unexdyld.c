@@ -42,6 +42,7 @@ int malloc_cookie;
 
 #ifdef VERBOSE
 #define SHOW_MCOPY_WRITES
+#define SHOW_MCOPY_READS
 #endif
 
 typedef struct region_t
@@ -207,7 +208,9 @@ static void mcopy (int ffd, int tfd,
 	  e = (char *)fpos;
 	  while (f > e) *--t = *--f;         
         }   
+#ifdef SHOW_MCOPY_READS
       printf ("read: %10lu - %10lu, length: %10lu [from MEM]  (%s)\n", tpos, tpos+len, len, reason);
+#endif
     }
   else if (ffd == -1)
     {
@@ -225,7 +228,9 @@ static void mcopy (int ffd, int tfd,
 	fatal_unexec ("cannot seek source");
       if (read (ffd, (void *)tpos, len) != len)
 	fatal_unexec ("cannot read source");
+#ifdef SHOW_MCOPY_READS
       printf ("read: %10lu - %10lu, length: %10lu [from DISK] (%s)\n", tpos, tpos+len, len, reason);
+#endif
     }
   else
     {
@@ -327,7 +332,12 @@ static void unexec_doit(int infd,int outfd)
 #ifdef VERBOSE
   printf ("malloc_cookie: %lx\n", malloc_cookie);
 #endif
-   
+  if (malloc_cookie == 0)
+    {
+      fprintf(stderr, "Error in malloc_freezedry()\n");
+      abort();
+    }
+
   {
     vm_address_t address;
     vm_size_t size;
@@ -722,7 +732,9 @@ static void unexec_doit(int infd,int outfd)
 	    }
 	  else
 	    {
+#ifdef VERBOSE
               printf ("segment is '%s':\n", segment_pointer->segname);
+#endif
 	      mcopy (infd, outfd, segment_pointer->fileoff, output_position, segment_pointer->filesize,
                      "SEG_OTHER: write segment data");
 	      section_pointer = (struct section *) (((void *)segment_pointer)+sizeof(*segment_pointer));
@@ -850,9 +862,39 @@ static void unexec_doit(int infd,int outfd)
           break;
 #endif
 	default:
-	  mcopy (-1, outfd, (unsigned long)load_command, header_position, load_command->cmdsize,
-                 "write other load command");
-	  header_position += load_command->cmdsize;
+	  {
+	    char *reason, *cmdstr;
+
+	    /* Create a string that tells what load command is being left
+	     * alone. */
+	    switch (load_command->cmd)
+	      {
+	      case LC_UNIXTHREAD:
+		cmdstr = "LC_UNIXTHREAD";
+		break;
+	      case LC_LOAD_DYLIB:
+		cmdstr = "LC_LOAD_DYLIB";
+		break;
+	      case LC_LOAD_DYLINKER:
+		cmdstr = "LC_LOAD_DYLINKER";
+		break;
+	      default:
+		cmdstr = NULL;
+	      }
+	    if (cmdstr != NULL)
+	      {
+		asprintf(&reason, "write other load command (%s)", cmdstr);
+	      }
+	    else
+	      {
+		asprintf(&reason, "write other load command (0x%x)", load_command->cmd);
+	      }
+
+	    mcopy (-1, outfd, (unsigned long)load_command, header_position, load_command->cmdsize,
+		   reason);
+	    free(reason);
+	    header_position += load_command->cmdsize;
+	  }
         }
     }
 

@@ -392,9 +392,9 @@ name:
 	mtctr	PICIFY_REG			@\
 	mflr	r0				@\
 	stw	r0,8(r1)			@\
-	stwu	r1,-56(r1)			@\
+	stwu	r1,-64(r1)			@\
 	bctrl					@\
-	addic	r1,r1,56     			@\
+	addic	r1,r1,64    			@\
 	lwz	r0,8(r1)			@\
 	mtlr	r0
 

@@ -1,23 +1,21 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
- * under the License."
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -73,16 +71,30 @@ static char sccsid[] = "@(#)repquota.c	8.2 (Berkeley) 11/22/94";
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/queue.h>
-#include <ufs/ufs/quota.h>
-#include <fstab.h>
-#include <pwd.h>
-#include <grp.h>
-#include <stdio.h>
+#include <sys/quota.h>
+
+#ifdef __APPLE__
+#include <sys/mount.h>
+#endif /* __APPLE__ */
 #include <errno.h>
+#include <fstab.h>
+#include <grp.h>
+#include <pwd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#ifdef __APPLE__
+#include <architecture/byte_order.h>
+#endif /* __APPLE__ */
 
 char *qfname = QUOTAFILENAME;
 char *qfextension[] = INITQFNAMES;
+#ifdef __APPLE__
+u_int32_t quotamagic[MAXQUOTAS] = INITQMAGICS;
+#endif /* __APPLE__ */
 
+#ifndef __APPLE__
 struct fileusage {
 	struct	fileusage *fu_next;
 	struct	dqblk fu_dqblk;
@@ -90,33 +102,38 @@ struct fileusage {
 	char	fu_name[1];
 	/* actually bigger */
 };
+struct fileusage * addid(u_long, int);
+struct fileusage * lookup(u_long, int);
+
 #define FUHASH 1024	/* must be power of two */
 struct fileusage *fuhead[MAXQUOTAS][FUHASH];
-struct fileusage *lookup();
-struct fileusage *addid();
 u_long highid[MAXQUOTAS];	/* highest addid()'ed identifier per type */
-#ifdef __APPLE__
-u_long neg_lowid[MAXQUOTAS];	/* lowest negative addid()'ed identifier per type */
-u_long neg_highid[MAXQUOTAS];	/* highest negative addid()'ed identifier per type */
-#endif /* __APPLE__ */
-
+#endif /* NOT __APPLE__ */
 
 int	vflag;			/* verbose */
 int	aflag;			/* all file systems */
 
-#ifdef __APPLE__
-long    dksecsize __P((char *dev));
-#endif /* __APPLE__ */
+int	hasquota(struct statfs *, int, char **);
+int	repquota(struct statfs *, int, char *);
+int	oneof(char *, char **, int);
+void	usage(void);
 
+int
 main(argc, argv)
 	int argc;
 	char **argv;
 {
+#ifndef __APPLE__
 	register struct fstab *fs;
 	register struct passwd *pw;
 	register struct group *gr;
+#endif /* __APPLE__ */
 	int gflag = 0, uflag = 0, errs = 0;
 	long i, argnum, done = 0;
+#ifdef __APPLE__
+        int nfst;
+        struct statfs *fst;
+#endif /* __APPLE__ */
 	extern char *optarg;
 	extern int optind;
 	char ch, *qfnp;
@@ -149,6 +166,35 @@ main(argc, argv)
 		uflag++;
 	}
 
+#ifdef __APPLE__
+        nfst = getmntinfo(&fst, MNT_WAIT);
+        if (nfst==0) {
+          fprintf(stderr, "repquota: no filesystems mounted");
+          return(1);
+        }
+
+        for (i=0; i<nfst; i++) {
+                if(strcmp(fst[i].f_fstypename, "hfs")) {
+		    if (strcmp(fst[i].f_fstypename, "ufs"))
+		        continue;
+		}
+		if (aflag) {
+			if (gflag && hasquota(&fst[i], GRPQUOTA, &qfnp))
+				errs += repquota(&fst[i], GRPQUOTA, qfnp);
+			if (uflag && hasquota(&fst[i], USRQUOTA, &qfnp))
+				errs += repquota(&fst[i], USRQUOTA, qfnp);
+			continue;
+		}
+		if ((argnum = oneof(fst[i].f_mntonname, argv, argc)) >= 0 ||
+		    (argnum = oneof(fst[i].f_mntfromname, argv, argc)) >= 0) {
+			done |= 1 << argnum;
+			if (gflag && hasquota(&fst[i], GRPQUOTA, &qfnp))
+				errs += repquota(&fst[i], GRPQUOTA, qfnp);
+			if (uflag && hasquota(&fst[i], USRQUOTA, &qfnp))
+				errs += repquota(&fst[i], USRQUOTA, qfnp);
+		}
+	}
+#else
 	if (gflag) {
 		setgrent();
 		while ((gr = getgrent()) != 0)
@@ -161,6 +207,7 @@ main(argc, argv)
 			(void) addid((u_long)pw->pw_uid, USRQUOTA, pw->pw_name);
 		endpwent();
 	}
+
 	setfsent();
 	while ((fs = getfsent()) != NULL) {
 		if (strcmp(fs->fs_vfstype, "ufs"))
@@ -182,12 +229,14 @@ main(argc, argv)
 		}
 	}
 	endfsent();
+#endif /* __APPLE */
 	for (i = 0; i < argc; i++)
 		if ((done & (1 << i)) == 0)
 			fprintf(stderr, "%s not found in fstab\n", argv[i]);
 	exit(errs);
 }
 
+void
 usage()
 {
 	fprintf(stderr, "Usage:\n\t%s\n\t%s\n",
@@ -196,6 +245,119 @@ usage()
 	exit(1);
 }
 
+#ifdef __APPLE__
+int
+repquota(fst, type, qfpathname)
+        struct statfs *fst;
+	int type;
+	char *qfpathname;
+{
+	FILE *qf;
+	u_long id;
+	struct dqblk dqbuf;
+	char *timeprt();
+	char *name;
+	struct dqfilehdr dqhdr;
+	static int warned = 0;
+	static int multiple = 0;
+	extern int errno;
+	int i;
+	struct passwd *pw;
+	struct group *gr;
+
+	if (quotactl(fst->f_mntonname, QCMD(Q_SYNC, type), 0, 0) < 0 &&
+	    errno == EOPNOTSUPP && !warned && vflag) {
+		warned++;
+		fprintf(stdout,
+		    "*** Warning: Quotas are not compiled into this kernel\n");
+	}
+	if (multiple++)
+		printf("\n");
+	if (vflag)
+		fprintf(stdout, "*** Report for %s quotas on %s (%s)\n",
+		    qfextension[type], fst->f_mntonname, fst->f_mntfromname);
+	if ((qf = fopen(qfpathname, "r")) == NULL) {
+		perror(qfpathname);
+		return (1);
+	}
+
+	/* Read in the quota file header. */
+	if (fread((char *)&dqhdr, sizeof(struct dqfilehdr), 1, qf) > 0) {
+		/* Check for reverse endian file. */
+		if (dqhdr.dqh_magic != quotamagic[type] &&
+		    NXSwapLong(dqhdr.dqh_magic) == quotamagic[type]) {
+			(void) fprintf(stderr,
+			    "*** Error: %s: not in machine native byte order\n", qfpathname);
+			(void) fclose(qf);
+			return (1);
+		}
+		/* Sanity check the quota file header. */
+		if ((dqhdr.dqh_magic != quotamagic[type]) ||
+		    (dqhdr.dqh_version > QF_VERSION) ||
+		    (!powerof2(dqhdr.dqh_maxentries))) {
+			(void) fprintf(stderr,
+			    "quotacheck: %s: not a valid quota file\n", qfpathname);
+			(void) fclose(qf);
+			return (1);
+		}
+	}
+	
+	printf("                        1K Block limits               File limits\n");
+	printf("User                used        soft        hard  grace    used  soft  hard  grace\n");
+
+	/* Read the entries in the quota file. */
+	for (i = 0; i < dqhdr.dqh_maxentries; i++) {
+		if (fread(&dqbuf, sizeof(struct dqblk), 1, qf) == 0 && feof(qf))
+			break;
+		id = dqbuf.dqb_id;
+		if (id == 0)
+			continue;
+		if (dqbuf.dqb_curinodes == 0 && dqbuf.dqb_curbytes == 0LL)
+			continue;
+		name = NULL;
+		switch (type) {
+		case USRQUOTA:
+			if ((pw = getpwuid(id)) != 0)
+				name = pw->pw_name;
+			break;
+		case GRPQUOTA:
+			if ((gr = getgrgid(id)) != 0)
+				name = gr->gr_name;
+			break;
+		}
+		if (name)
+			printf("%-10s", name);
+		else
+			printf("%-10u", (unsigned int)id);
+
+		printf("%c%c%12qd%12qd%12qd%7s",
+			dqbuf.dqb_bsoftlimit && 
+			    dqbuf.dqb_curbytes >= 
+			    dqbuf.dqb_bsoftlimit ? '+' : '-',
+			dqbuf.dqb_isoftlimit &&
+			    dqbuf.dqb_curinodes >=
+			    dqbuf.dqb_isoftlimit ? '+' : '-',
+			dqbuf.dqb_curbytes / 1024,
+			dqbuf.dqb_bsoftlimit / 1024,
+			dqbuf.dqb_bhardlimit / 1024,
+			dqbuf.dqb_bsoftlimit && 
+			    dqbuf.dqb_curbytes >= 
+			    dqbuf.dqb_bsoftlimit ?
+			    timeprt(dqbuf.dqb_btime) : "");
+		printf("  %6d%6d%6d%7s\n",
+			dqbuf.dqb_curinodes,
+			dqbuf.dqb_isoftlimit,
+			dqbuf.dqb_ihardlimit,
+			dqbuf.dqb_isoftlimit &&
+			    dqbuf.dqb_curinodes >=
+			    dqbuf.dqb_isoftlimit ?
+			    timeprt(dqbuf.dqb_itime) : "");
+	}
+	fclose(qf);
+
+	return (0);
+}
+#else
 repquota(fs, type, qfpathname)
 	register struct fstab *fs;
 	int type;
@@ -209,11 +371,6 @@ repquota(fs, type, qfpathname)
 	static struct dqblk zerodqblk;
 	static int warned = 0;
 	static int multiple = 0;
-#ifdef __APPLE__
-	static u_long delimiter;
-	static int pass;
-        long  dev_bsize;              /* computed value of DEV_BSIZE */
-#endif /* __APPLE__ */
 	extern int errno;
 
 	if (quotactl(fs->fs_file, QCMD(Q_SYNC, type), 0, 0) < 0 &&
@@ -245,26 +402,7 @@ repquota(fs, type, qfpathname)
 	printf("                        Block limits               File limits\n");
 	printf("User            used    soft    hard  grace    used  soft  hard  grace\n");
 
-#ifdef __APPLE__
-	if (!(dev_bsize = dksecsize(fs->fs_spec)))
-	  dev_bsize = DEV_BSIZE;
-	for (pass=0; pass<2; pass++) {
-	  if(pass==0) {
-	    /* pass through positive ids */
-	    id = 0; 
-	    delimiter = highid[type];
-	  }
-	  else {
-	    /* pass through negative ids */
-	    id = neg_lowid[type];
-	    if (id == 0)
-	      break;    /* No negative ids to loop through in pass2 */
-	    delimiter = neg_highid[type]; 
-	  }
-	  for(; (long)id <= (long)delimiter; id++) {
-#else
 	for (id = 0; id <= highid[type]; id++) {
-#endif /* __APPLE__ */
 		fup = lookup(id, type);
 		if (fup == 0)
 			continue;
@@ -279,15 +417,9 @@ repquota(fs, type, qfpathname)
 			fup->fu_dqblk.dqb_isoftlimit &&
 			    fup->fu_dqblk.dqb_curinodes >=
 			    fup->fu_dqblk.dqb_isoftlimit ? '+' : '-',
-#ifdef __APPLE__
-			dbtob(fup->fu_dqblk.dqb_curblocks, dev_bsize) / 1024,
-			dbtob(fup->fu_dqblk.dqb_bsoftlimit, dev_bsize) / 1024,
-			dbtob(fup->fu_dqblk.dqb_bhardlimit, dev_bsize) / 1024,
-#else
 			dbtob(fup->fu_dqblk.dqb_curblocks) / 1024,
 			dbtob(fup->fu_dqblk.dqb_bsoftlimit) / 1024,
 			dbtob(fup->fu_dqblk.dqb_bhardlimit) / 1024,
-#endif /* __APPLE__ */
 			fup->fu_dqblk.dqb_bsoftlimit && 
 			    fup->fu_dqblk.dqb_curblocks >= 
 			    fup->fu_dqblk.dqb_bsoftlimit ?
@@ -302,17 +434,16 @@ repquota(fs, type, qfpathname)
 			    timeprt(fup->fu_dqblk.dqb_itime) : "");
 		fup->fu_dqblk = zerodqblk;
 	}
-#ifdef __APPLE__
-	}  /* end pass loop */
-#endif /* __APPLE__ */
 	return (0);
 }
+#endif /* __APPLE */
 
 /*
  * Check to see if target appears in list of size cnt.
  */
+int
 oneof(target, list, cnt)
-	register char *target, *list[];
+	register char *target, **list;
 	int cnt;
 {
 	register int i;
@@ -326,6 +457,40 @@ oneof(target, list, cnt)
 /*
  * Check to see if a particular quota is to be enabled.
  */
+#ifdef __APPLE__
+int
+hasquota(fst, type, qfnamep)
+        register struct statfs *fst;
+	int type;
+	char **qfnamep;
+{
+        struct stat sb;
+	static char initname, usrname[100], grpname[100];
+	static char buf[BUFSIZ];
+
+	if (!initname) {
+		sprintf(usrname, "%s%s", qfextension[USRQUOTA], qfname);
+		sprintf(grpname, "%s%s", qfextension[GRPQUOTA], qfname);
+		initname = 1;
+	}
+
+        /*
+	  We only support the default path to the
+	  on disk quota files.
+	*/
+
+        (void)sprintf(buf, "%s/%s.%s", fst->f_mntonname,
+		      QUOTAOPSNAME, qfextension[type] );
+        if (stat(buf, &sb) != 0) {
+          /* There appears to be no mount option file */
+          return(0);
+        }
+
+	(void) sprintf(buf, "%s/%s.%s", fst->f_mntonname, qfname, qfextension[type]);
+	*qfnamep = buf;
+	return (1);
+}
+#else
 hasquota(fs, type, qfnamep)
 	register struct fstab *fs;
 	int type;
@@ -360,6 +525,10 @@ hasquota(fs, type, qfnamep)
 	*qfnamep = buf;
 	return (1);
 }
+#endif /* __APPLE__ */
+
+
+#ifndef __APPLE__
 
 /*
  * Routines to manage the file usage table.
@@ -406,19 +575,6 @@ addid(id, type, name)
 	fup->fu_next = *fhp;
 	*fhp = fup;
 	fup->fu_id = id;
-#ifdef __APPLE__
-	/* 
-	 * Store the range of negative ids.  So, for example, a range of
-	 * (-1 to -10) would have neg_lowid of -10 and  neg_highid of -1.
-	 */
-	if ((long)id < 0) {   
-	  if (neg_lowid[type] == 0 || id < neg_lowid[type])
-		neg_lowid[type] = id;
-	  if (neg_highid[type] == 0 || id > neg_highid[type])
-		neg_highid[type] = id;
-	}
-	else
-#endif /* __APPLE__ */
 	if (id > highid[type])
 		highid[type] = id;
 	if (name) {
@@ -428,6 +584,7 @@ addid(id, type, name)
 	}
 	return (fup);
 }
+#endif /* !__APPLE__ */
 
 /*
  * Calculate the grace period and return a printable string for it.

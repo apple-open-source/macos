@@ -1,0 +1,12 @@
+#! /bin/sh
+
+# Test to make sure we are compatible with the 1.4-p1 series.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = 1.4-p3
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE

@@ -1,5 +1,6 @@
 /* Parameters for Hewlett-Packard 9000/300 native support under bsd.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993  Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -39,7 +40,7 @@
 /* U_REGS_OFFSET is the offset of the registers within the u area for
    ptrace purposes.  */
 #define U_REGS_OFFSET \
-  ptrace (PT_READ_U, inferior_pid, \
+  ptrace (PT_READ_U, PIDGET (inferior_ptid), \
 	  (PTRACE_ARG3_TYPE) \
 	   (offsetof (struct user, u_kproc.kp_proc.p_md.md_regs)), 0) \
     - USRSTACK

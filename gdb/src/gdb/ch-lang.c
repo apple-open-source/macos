@@ -1,5 +1,6 @@
 /* Chill language support routines for GDB, the GNU debugger.
-   Copyright 1992, 1995, 1996, 2000 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1995, 1996, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -30,15 +31,14 @@
 
 extern void _initialize_chill_language (void);
 
-static value_ptr
-evaluate_subexp_chill (struct type *, struct expression *, int *,
-		       enum noside);
+static struct value *evaluate_subexp_chill (struct type *, struct expression *,
+					    int *, enum noside);
 
-static value_ptr value_chill_max_min (enum exp_opcode, value_ptr);
+static struct value *value_chill_max_min (enum exp_opcode, struct value *);
 
-static value_ptr value_chill_card (value_ptr);
+static struct value *value_chill_card (struct value *);
 
-static value_ptr value_chill_length (value_ptr);
+static struct value *value_chill_length (struct value *);
 
 static struct type *chill_create_fundamental_type (struct objfile *, int);
 
@@ -322,7 +322,7 @@ struct type *builtin_type_chill_long;
 struct type *builtin_type_chill_ulong;
 struct type *builtin_type_chill_real;
 
-struct type **CONST_PTR (chill_builtin_types[]) =
+struct type **const (chill_builtin_types[]) =
 {
   &builtin_type_chill_bool,
     &builtin_type_chill_char,
@@ -388,8 +388,8 @@ type_lower_upper (enum exp_opcode op,	/* Either UNOP_LOWER or UNOP_UPPER */
   error ("unknown mode for LOWER/UPPER builtin");
 }
 
-static value_ptr
-value_chill_length (value_ptr val)
+static struct value *
+value_chill_length (struct value *val)
 {
   LONGEST tmp;
   struct type *type = VALUE_TYPE (val);
@@ -416,8 +416,8 @@ value_chill_length (value_ptr val)
   return value_from_longest (builtin_type_int, tmp);
 }
 
-static value_ptr
-value_chill_card (value_ptr val)
+static struct value *
+value_chill_card (struct value *val)
 {
   LONGEST tmp = 0;
   struct type *type = VALUE_TYPE (val);
@@ -440,8 +440,8 @@ value_chill_card (value_ptr val)
   return value_from_longest (builtin_type_int, tmp);
 }
 
-static value_ptr
-value_chill_max_min (enum exp_opcode op, value_ptr val)
+static struct value *
+value_chill_max_min (enum exp_opcode op, struct value *val)
 {
   LONGEST tmp = 0;
   struct type *type = VALUE_TYPE (val);
@@ -493,7 +493,7 @@ value_chill_max_min (enum exp_opcode op, value_ptr val)
 			     tmp);
 }
 
-static value_ptr
+static struct value *
 evaluate_subexp_chill (struct type *expect_type,
 		       register struct expression *exp, register int *pos,
 		       enum noside noside)
@@ -501,8 +501,8 @@ evaluate_subexp_chill (struct type *expect_type,
   int pc = *pos;
   struct type *type;
   int tem, nargs;
-  value_ptr arg1;
-  value_ptr *argvec;
+  struct value *arg1;
+  struct value **argvec;
   enum exp_opcode op = exp->elts[*pos].opcode;
   switch (op)
     {
@@ -517,7 +517,8 @@ evaluate_subexp_chill (struct type *expect_type,
       if (nargs == 1 && TYPE_CODE (type) == TYPE_CODE_INT)
 	{
 	  /* Looks like string repetition. */
-	  value_ptr string = evaluate_subexp_with_coercion (exp, pos, noside);
+	  struct value *string = evaluate_subexp_with_coercion (exp, pos,
+								noside);
 	  return value_concat (arg1, string);
 	}
 
@@ -535,7 +536,8 @@ evaluate_subexp_chill (struct type *expect_type,
 
 	  /* Allocate arg vector, including space for the function to be
 	     called in argvec[0] and a terminating NULL */
-	  argvec = (value_ptr *) alloca (sizeof (value_ptr) * (nargs + 2));
+	  argvec = (struct value **) alloca (sizeof (struct value *)
+					     * (nargs + 2));
 	  argvec[0] = arg1;
 	  tem = 1;
 	  for (; tem <= nargs && tem <= TYPE_NFIELDS (type); tem++)
@@ -555,7 +557,8 @@ evaluate_subexp_chill (struct type *expect_type,
 
       while (nargs-- > 0)
 	{
-	  value_ptr index = evaluate_subexp_with_coercion (exp, pos, noside);
+	  struct value *index = evaluate_subexp_with_coercion (exp, pos,
+							       noside);
 	  arg1 = value_subscript (arg1, index);
 	}
       return (arg1);

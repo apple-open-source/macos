@@ -3,7 +3,7 @@
 # Default system startup file for Tcl-based applications.  Defines
 # "unknown" procedure and auto-load facilities.
 #
-# RCS: @(#) $Id: init.tcl,v 1.1.1.4 2000/12/06 23:03:35 wsanchez Exp $
+# RCS: @(#) $Id: init.tcl,v 1.1.1.5 2002/04/05 16:13:28 jevans Exp $
 #
 # Copyright (c) 1991-1993 The Regents of the University of California.
 # Copyright (c) 1994-1996 Sun Microsystems, Inc.
@@ -165,7 +165,7 @@ proc unknown args {
     set cmd [lindex $args 0]
     if {[regexp "^namespace\[ \t\n\]+inscope" $cmd] && [llength $cmd] == 4} {
         set arglist [lrange $args 1 end]
-	set ret [catch {uplevel $cmd $arglist} result]
+	set ret [catch {uplevel 1 ::$cmd $arglist} result]
         if {$ret == 0} {
             return $result
         } else {
@@ -188,7 +188,7 @@ proc unknown args {
 	    return -code error "self-referential recursion in \"unknown\" for command \"$name\"";
 	}
 	set unknown_pending($name) pending;
-	set ret [catch {auto_load $name [uplevel 1 {namespace current}]} msg]
+	set ret [catch {auto_load $name [uplevel 1 {::namespace current}]} msg]
 	unset unknown_pending($name);
 	if {$ret != 0} {
 	    append errorInfo "\n    (autoloading \"$name\")"
@@ -228,7 +228,7 @@ proc unknown args {
 		if {[string equal [info commands console] ""]} {
 		    set redir ">&@stdout <@stdin"
 		}
-		return [uplevel exec $redir $new [lrange $args 1 end]]
+		return [uplevel 1 exec $redir $new [lrange $args 1 end]]
 	    }
 	}
 	set errorCode $savedErrorCode
@@ -244,7 +244,7 @@ proc unknown args {
 	if {[info exists newcmd]} {
 	    tclLog $newcmd
 	    history change $newcmd 0
-	    return [uplevel $newcmd]
+	    return [uplevel 1 $newcmd]
 	}
 
 	set ret [catch {set cmds [info commands $name*]} msg]
@@ -256,7 +256,7 @@ proc unknown args {
 		"error in unknown while checking if \"$name\" is a unique command abbreviation: $msg"
 	}
 	if {[llength $cmds] == 1} {
-	    return [uplevel [lreplace $args 0 0 $cmds]]
+	    return [uplevel 1 [lreplace $args 0 0 $cmds]]
 	}
 	if {[llength $cmds]} {
 	    if {[string equal $name ""]} {
@@ -286,7 +286,7 @@ proc auto_load {cmd {namespace {}}} {
     global auto_index auto_oldpath auto_path
 
     if {[string length $namespace] == 0} {
-	set namespace [uplevel {namespace current}]
+	set namespace [uplevel 1 [list ::namespace current]]
     }
     set nameList [auto_qualify $cmd $namespace]
     # workaround non canonical auto_index entries that might be around
@@ -461,15 +461,16 @@ proc auto_import {pattern} {
 	return
     }
 
-    set ns [uplevel namespace current]
+    set ns [uplevel 1 [list ::namespace current]]
     set patternList [auto_qualify $pattern $ns]
 
     auto_load_index
 
     foreach pattern $patternList {
-        foreach name [array names auto_index] {
-            if {[string match $pattern $name] && \
-		    [string equal "" [info commands $name]]} {
+        foreach name [array names auto_index $pattern] {
+            if {[string equal "" [info commands $name]]
+		    && [string equal [namespace qualifiers $pattern] \
+				     [namespace qualifiers $name]]} {
                 uplevel #0 $auto_index($name)
             }
         }
@@ -509,13 +510,19 @@ proc auto_execok name {
 	# NT includes the 'start' built-in
 	lappend shellBuiltins "start"
     }
+    if {[info exists env(PATHEXT)]} {
+	# Add an initial ; to have the {} extension check first.
+	set execExtensions [split ";$env(PATHEXT)" ";"]
+    } else {
+	set execExtensions [list {} .com .exe .bat]
+    }
 
     if {[lsearch -exact $shellBuiltins $name] != -1} {
 	return [set auto_execs($name) [list $env(COMSPEC) /c $name]]
     }
 
     if {[llength [file split $name]] != 1} {
-	foreach ext {{} .com .exe .bat} {
+	foreach ext $execExtensions {
 	    set file ${name}${ext}
 	    if {[file exists $file] && ![file isdirectory $file]} {
 		return [set auto_execs($name) [list $file]]
@@ -545,7 +552,7 @@ proc auto_execok name {
 	# Skip already checked directories
 	if {[info exists checked($dir)] || [string equal {} $dir]} { continue }
 	set checked($dir) {}
-	foreach ext {{} .com .exe .bat} {
+	foreach ext $execExtensions {
 	    set file [file join $dir ${name}${ext}]
 	    if {[file exists $file] && ![file isdirectory $file]} {
 		return [set auto_execs($name) [list $file]]

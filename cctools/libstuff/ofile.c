@@ -43,10 +43,10 @@
 #import <mach/sparc/thread_status.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
+#include "stuff/bool.h"
 #ifdef OFI
 #include <mach-o/dyld.h>
 #endif
-#include "stuff/bool.h"
 #include "stuff/bytesex.h"
 #include "stuff/arch.h"
 #include "stuff/round.h"
@@ -91,17 +91,6 @@ static enum check_type check_extend_format_1(
     unsigned long *member_name_size);
 static enum check_type check_Mach_O(
     struct ofile *ofile);
-static void archive_error(
-    struct ofile *ofile,
-    const char *format, ...) __attribute__ ((format (printf, 2, 3)));
-static void archive_member_error(
-    struct ofile *ofile,
-    const char *format, ...) __attribute__ ((format (printf, 2, 3)));
-#ifndef OTOOL
-static void Mach_O_error(
-    struct ofile *ofile,
-    const char *format, ...) __attribute__ ((format (printf, 2, 3)));
-#endif /* !defined(OTOOL) */
 
 #ifndef OFI
 /*
@@ -126,6 +115,7 @@ unsigned long narch_flags,
 enum bool all_archs,
 enum bool process_non_objects,
 enum bool dylib_flat,
+enum bool use_member_syntax,
 void (*processor)(struct ofile *ofile, char *arch_name, void *cookie),
 void *cookie)
 {
@@ -137,18 +127,21 @@ void *cookie)
     const struct arch_flag *family_arch_flag;
 
 	/*
-	 * Look for a name of the form "archive(member)" which is
-	 * to mean a member in that archive (the member name must be at
-	 * least one character long to be recognized as this form).
+	 * If use_member_syntax is TRUE look for a name of the form
+	 * "archive(member)" which is to mean a member in that archive (the
+	 * member name must be at least one character long to be recognized as
+	 * this form).
 	 */
 	member_name = NULL;
-	len = strlen(name);
-	if(len >= 4 && name[len-1] == ')'){
-	    p = strrchr(name, '(');
-	    if(p != NULL && p != name){
-		member_name = p+1;
-		*p = '\0';
-		name[len-1] = '\0';
+	if(use_member_syntax == TRUE){
+	    len = strlen(name);
+	    if(len >= 4 && name[len-1] == ')'){
+		p = strrchr(name, '(');
+		if(p != NULL && p != name){
+		    member_name = p+1;
+		    *p = '\0';
+		    name[len-1] = '\0';
+		}
 	    }
 	}
 
@@ -2508,6 +2501,7 @@ struct ofile *ofile)
     struct ident_command *id;
     struct routines_command *rc;
     struct twolevel_hints_command *hints;
+    struct prebind_cksum_command *cs;
     unsigned long flavor, count, nflavor;
     char *p, *state;
 
@@ -2540,6 +2534,7 @@ struct ofile *ofile)
 	dyst = NULL;
 	rc = NULL;
 	hints = NULL;
+	cs = NULL;
 	for(i = 0, lc = load_commands; i < mh->ncmds; i++){
 	    l = *lc;
 	    if(swapped)
@@ -2813,6 +2808,22 @@ struct ofile *ofile)
 		}
 		break;
 
+	    case LC_PREBIND_CKSUM:
+		if(cs != NULL){
+		    Mach_O_error(ofile, "malformed object (more than one "
+			"LC_PREBIND_CKSUM command)");
+		    return(CHECK_BAD);
+		}
+		cs = (struct prebind_cksum_command *)lc;
+		if(swapped)
+		    swap_prebind_cksum_command(cs, host_byte_sex);
+		if(cs->cmdsize != sizeof(struct prebind_cksum_command)){
+		    Mach_O_error(ofile, "malformed object (LC_PREBIND_CKSUM "
+			"command %lu has incorrect cmdsize)", i);
+		    return(CHECK_BAD);
+		}
+		break;
+
 	    case LC_SYMSEG:
 		ss = (struct symseg_command *)lc;
 		if(swapped)
@@ -2858,20 +2869,23 @@ struct ofile *ofile)
 
 	    case LC_ID_DYLIB:
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 		dl = (struct dylib_command *)lc;
 		if(swapped)
 		    swap_dylib_command(dl, host_byte_sex);
 		if(dl->cmdsize < sizeof(struct dylib_command)){
 		    Mach_O_error(ofile, "malformed object (%s command %lu has "
 			"too small cmdsize field)", dl->cmd == LC_ID_DYLIB ? 
-			"LC_ID_DYLIB" : "LC_LOAD_DYLIB", i);
+			"LC_ID_DYLIB" : (dl->cmd ==  LC_LOAD_DYLIB ?
+			"LC_LOAD_DYLIB" : "LC_LOAD_WEAK_DYLIB"), i);
 		    return(CHECK_BAD);
 		}
 		if(dl->dylib.name.offset >= dl->cmdsize){
 		    Mach_O_error(ofile, "truncated or malformed object (name."
 			"offset field of %s command %lu extends past the end "
 			"of the file)", dl->cmd == LC_ID_DYLIB ? "LC_ID_DYLIB"
-			: "LC_LOAD_DYLIB", i);
+			: (dl->cmd ==  LC_LOAD_DYLIB ? "LC_LOAD_DYLIB" :
+			"LC_LOAD_WEAK_DYLIB"), i);
 		    return(CHECK_BAD);
 		}
 		break;
@@ -3644,52 +3658,6 @@ struct ofile *ofile)
 #endif /* OTOOL */
 }
 
-static
-void
-archive_error(
-struct ofile *ofile,
-const char *format, ...)
-{
-    va_list ap;
-
-	va_start(ap, format);
-	if(ofile->file_type == OFILE_FAT){
-	    print("%s: for architecture %s archive: %s ",
-		  progname, ofile->arch_flag.name, ofile->file_name);
-	}
-	else{
-	    print("%s: archive: %s ", progname, ofile->file_name);
-	}
-	vprint(format, ap);
-        print("\n");
-	va_end(ap);
-	errors++;
-}
-
-static
-void
-archive_member_error(
-struct ofile *ofile,
-const char *format, ...)
-{
-    va_list ap;
-
-	va_start(ap, format);
-	if(ofile->file_type == OFILE_FAT){
-	    print("%s: for architecture %s archive member: %s(%.*s) ",
-		  progname, ofile->arch_flag.name, ofile->file_name,
-		  (int)ofile->member_name_size, ofile->member_name);
-	}
-	else{
-	    print("%s: archive member: %s(%.*s) ", progname, ofile->file_name,
-		  (int)ofile->member_name_size, ofile->member_name);
-	}
-	vprint(format, ap);
-        print("\n");
-	va_end(ap);
-	errors++;
-}
-
 __private_extern__
 unsigned long
 size_ar_name(
@@ -3707,45 +3675,3 @@ const struct ar_hdr *ar_hdr)
 	}
 	return(i + 1);
 }
-
-#ifndef OTOOL
-static
-void
-Mach_O_error(
-struct ofile *ofile,
-const char *format, ...)
-{
-    va_list ap;
-
-	va_start(ap, format);
-	if(ofile->file_type == OFILE_FAT){
-	    if(ofile->arch_type == OFILE_ARCHIVE){
-		print("%s: for architecture %s object: %s(%.*s) ", progname,
-		      ofile->arch_flag.name, ofile->file_name,
-		      (int)ofile->member_name_size, ofile->member_name);
-	    }
-	    else{
-		print("%s: for architecture %s object: %s ", progname,
-		      ofile->arch_flag.name, ofile->file_name);
-	    }
-	}
-	else if(ofile->file_type == OFILE_ARCHIVE){
-	    if(ofile->member_type == OFILE_FAT){
-		print("%s: for object: %s(%.*s) architecture %s ", progname,
-		      ofile->file_name, (int)ofile->member_name_size,
-		      ofile->arch_flag.name, ofile->member_name);
-	    }
-	    else{
-		print("%s: object: %s(%.*s) ", progname, ofile->file_name,
-		      (int)ofile->member_name_size, ofile->member_name);
-	    }
-	}
-	else{
-	    print("%s: object: %s ", progname, ofile->file_name);
-	}
-	vprint(format, ap);
-        print("\n");
-	va_end(ap);
-	errors++;
-}
-#endif /* !defined(OTOOL) */

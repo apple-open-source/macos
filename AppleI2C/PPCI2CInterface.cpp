@@ -738,7 +738,9 @@ PPCI2CInterface::start(IOService *provider)
     UInt32 baseAddress;
     UInt32 addressSteps;
     UInt32 rate;
-    IORegistryEntry 	*i2cRegEntry;
+    OSIterator *iterator;
+    IORegistryEntry *registryEntry;
+    IOService *nub;
     
     // makes sure this is uninitialized.
     i2cRegisterMap = NULL;
@@ -748,23 +750,25 @@ PPCI2CInterface::start(IOService *provider)
     //see if we are attached to pmu-i2c node, and if so return i2cPMU = TRUE.
     retrieveProperty(provider);
 
-    // Create nub for lm87 if found
-    i2cRegEntry = provider->childFromPath("lm87", gIODTPlane);
-    if (i2cRegEntry)
-    {	
-        IOService *nub;
-        
-        if (nub = new PPCI2CInterface)
+    // publish children for Uni-N's i2c bus only, KeyLargo will handle the others (PMU and Mac-IO).
+    if (i2cUniN == TRUE)
+    {    
+        if( (iterator = provider->getChildIterator(gIODTPlane)) )
         {
-            if(!nub->init(i2cRegEntry, gIODTPlane))
+            while( registryEntry = (IORegistryEntry *)iterator->getNextObject() )
             {
-                nub->free();
-            }
-            else
-            {
-                nub->attach(this);
-                nub->registerService();            
-            }
+                if(nub = new PPCI2CInterface)
+                {
+                    if( !nub->init(registryEntry, gIODTPlane) )
+                        nub->free();
+                    else
+                    {
+                        nub->attach(this);
+                        nub->registerService();                                
+                    }
+                }
+            }    
+            iterator->release();
         }
     }
 
@@ -862,25 +866,44 @@ PPCI2CInterface::start(IOService *provider)
 bool PPCI2CInterface::retrieveProperty(IOService *provider)
 {
     i2cPMU = false;
-    OSData *	    propertyPtr = 0;
-    const char *    theProperty;
+    i2cUniN = false;
+    i2cmacio = false;
+    OSData *propertyPtr = 0;
     IOService *nub = provider;
     registeredForPmuI2C = false;  // checked when someone tries to register for a PMU interrupt
     
     nub = nub->getProvider();
  
-        propertyPtr = OSDynamicCast(OSData,provider->getProperty("name"));
-        if ( propertyPtr ) {
-            theProperty = (const char *) propertyPtr->getBytesNoCopy();
-            if ( strncmp("pmu-i2c",theProperty,7) == 0 ) {
-#ifdef DEBUGPMU
-                IOLog("                                      APPLE I2C:    pmu-i2c COMPATIBLE !\n");
-#endif // DEBUGPMU
-                i2cPMU = true;
-                }
-        }
+    // Are we attaching to the PMU I2C bus?
+    if ( (propertyPtr = OSDynamicCast(OSData, provider->getProperty("name"))) )
+    {
+        if ( strncmp("pmu-i2c", (const char *)propertyPtr->getBytesNoCopy(), 7) == 0 )
+        {
+    #ifdef DEBUGPMU
+            IOLog("                                      APPLE I2C:    pmu-i2c COMPATIBLE !\n");
+    #endif // DEBUGPMU
+            i2cPMU = true;
 
-     return true;
+            return true;
+        }
+    }
+
+    // Are we attaching to the Uni-N I2C bus?
+    if ( (propertyPtr = OSDynamicCast(OSData, provider->getProperty("AAPL,driver-name"))) )
+    {
+        if ( strncmp(".i2c-uni-n", (const char *)propertyPtr->getBytesNoCopy(), 10) == 0 )
+        {
+    #ifdef DEBUGPMU
+            IOLog("                                      APPLE I2C:    UniN-i2c COMPATIBLE !\n");
+    #endif // DEBUGPMU
+            i2cUniN = true;
+
+            return true;
+        }        
+    }
+
+    // Must be attaching to the Mac-IO I2C bus?    
+    return true;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -1106,12 +1129,6 @@ PPCI2CInterface::getKhzSpeed()
 bool
 PPCI2CInterface::openI2CBus(UInt8 port)
 {
-    if (i2cPMU)  {
-        lastMode = kSimpleI2CStream;	//Default case, unless changed after openI2CBus with set...Mode command
-#ifdef DEBUGPMU
-        IOLog(" APPLE I2C-PMU  Try to open I2CBus..................port = 0x%2x, mode = 0x%2x\n", port, lastMode);
-#endif // DEBUGPMU
-        }
     // Take the lock, so only this thread will be allowed to
     // touch the i2C bus (until we close it).
 
@@ -1127,6 +1144,13 @@ PPCI2CInterface::openI2CBus(UInt8 port)
 #else // !DEBUGMODE
     IORecursiveLockLock(mutexLock);
 #endif // DEBUGMODE
+
+    if (i2cPMU)  {
+        lastMode = kSimpleI2CStream;	//Default case, unless changed after openI2CBus with set...Mode command
+#ifdef DEBUGPMU
+        IOLog(" APPLE I2C-PMU  Try to open I2CBus..................port = 0x%2x, mode = 0x%2x\n", port, lastMode);
+#endif // DEBUGPMU
+        }
 
     setPort(port);
 
@@ -1147,9 +1171,7 @@ PPCI2CInterface::openI2CBus(UInt8 port)
 // Writes a block of data at a given address:
 bool
 PPCI2CInterface::writeI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UInt16 len)
-{
-    bool success = true;
-    
+{    
     // If I am not the owner of the lock returns without doing anyting.
     if (!IORecursiveLockHaveLock(mutexLock)) {
 #ifdef DEBUGMODE
@@ -1157,6 +1179,8 @@ PPCI2CInterface::writeI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UI
 #endif // DEBUGMODE
         return false;
     }
+
+    bool success = true;
     
     // pointer to the data to be transfered
     dataBuffer = newData;
@@ -1213,8 +1237,6 @@ PPCI2CInterface::writeI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UI
 bool
 PPCI2CInterface::readI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UInt16 len)
 {
-    bool success = false;
-
     // If I am not the owner of the lock returns without doing anyting.
     if (!IORecursiveLockHaveLock(mutexLock)) {
 #ifdef DEBUGMODE
@@ -1222,6 +1244,8 @@ PPCI2CInterface::readI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UIn
 #endif // DEBUGMODE
         return false;
     }
+
+    bool success = false;
     
     // pointer to the data to be received
     dataBuffer = newData;

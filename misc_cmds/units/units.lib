@@ -33,7 +33,7 @@ nano-			1e-9
 pico-			1e-12
 femto-			1e-15
 atto-			1e-18
-zopto-			1e-21
+zepto-			1e-21
 yocto-			1e-24
 
 semi-			.5
@@ -55,7 +55,7 @@ m-			milli
 p-			pico
 f-			femto
 a-			atto
-z-			zopto
+z-			zepto
 y-			yocto
 
 / constants

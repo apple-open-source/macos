@@ -28,16 +28,15 @@ using MachPlusPlus::Bootstrap;
 using CodeSigning::OSXCode;
 
 
-namespace Security
-{
+namespace Security {
+namespace SecurityServer {
 
-namespace SecurityServer
-{
 
 //
 // The process-global object
 //
 ModuleNexus<ClientSession::Global> ClientSession::mGlobal;
+bool ClientSession::mSetupSession;
 
 
 //
@@ -56,7 +55,7 @@ ClientSession::~ClientSession()
 
 
 //
-// Activate a session: This connects to the SecurityServer and executes
+// Activate a client session: This connects to the SecurityServer and executes
 // application authentication
 //
 void ClientSession::activate()
@@ -72,13 +71,20 @@ void ClientSession::activate()
 	}
 }
 
-// Caution: you can't use mGlobal() inside Global::Global (deadlock)
+
+//
+// Construct the process-global state object.
+// The ModuleNexus construction magic will ensure that this happens uniquely
+// even if the face of multithreaded attack.
+// Do note that the mSetupSession (session creation) case is gated by a global flag,
+// and it's the caller's responsibility not to multithread-race it.
+//
 ClientSession::Global::Global()
 {
-    debug("SSclnt", "Initial process setup");
-
     // find server port
-    serverPort = Bootstrap().lookup("SecurityServer");
+	Bootstrap myBootstrap;
+    serverPort = myBootstrap.lookup("SecurityServer");
+	debug("SSclnt", "contacting SecurityServer at port %d", serverPort.port());
     
     // send identification/setup message
     string extForm;
@@ -87,17 +93,25 @@ ClientSession::Global::Global()
         extForm = myself->encode();
         debug("SSclnt", "my OSXCode extForm=%s", extForm.c_str());
     } catch (...) {
-        myself = NULL;
         // leave extForm empty
         debug("SSclnt", "failed to obtain my own OSXCode");
     }
-    // cannot use UCSP_ARGS here because it uses mGlobal()
-    IPCN(ucsp_client_setup(serverPort, mig_get_reply_port(), &rcode,
-        mach_task_self(), extForm.c_str()));
+    // cannot use UCSP_ARGS here because it uses mGlobal() -> deadlock
     Thread &thread = this->thread();
+	
+	if (mSetupSession) {
+		debug("SSclnt", "sending session setup request");
+		mSetupSession = false;
+		IPCN(ucsp_client_setupNew(serverPort, thread.replyPort, &rcode,
+			mach_task_self(), extForm.c_str(), &serverPort.port()));
+		debug("SSclnt", "new session server port is %d", serverPort.port());
+	} else {	
+		IPCN(ucsp_client_setup(serverPort, thread.replyPort, &rcode,
+			mach_task_self(), extForm.c_str()));
+	}
     thread.registered = true;	// as a side-effect of setup call above
 	serverPort.requestNotify(thread.replyPort, MACH_NOTIFY_DEAD_NAME, true);
-    debug("SSclnt", "Process registered with SecurityServer");
+	debug("SSclnt", "contact with SecurityServer established");
 }
 
 

@@ -15,5 +15,5 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/Libraries/Other/libpcap/libpcap/pcap-pf.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/pcap-pf.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
  */

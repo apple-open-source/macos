@@ -354,6 +354,8 @@ int rijndaelDecrypt (
 	return 0;
 }
 
+#if		!GLADMAN_AES_128_ENABLE
+
 /*
  * All of these 128-bit-key-and-block routines require 32-bit word-aligned 
  * char array pointers.ÊThe key schedule arrays are easy; they come from
@@ -603,4 +605,6 @@ int rijndaelDecrypt128 (
 
 	return 0;
 }
+
+#endif		/* !GLADMAN_AES_128_ENABLE */
 

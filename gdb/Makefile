@@ -48,8 +48,8 @@ OBJTOP = $(shell (test -d $(OBJROOT) || $(INSTALL) -c -d $(OBJROOT)) && cd $(OBJ
 SYMTOP = $(shell (test -d $(SYMROOT) || $(INSTALL) -c -d $(SYMROOT)) && cd $(SYMROOT) && pwd)
 DSTTOP = $(shell (test -d $(DSTROOT) || $(INSTALL) -c -d $(DSTROOT)) && cd $(DSTROOT) && pwd)
 
-GDB_VERSION = 5.0-20001113
-APPLE_VERSION = 200
+GDB_VERSION = 5.1-20020408
+APPLE_VERSION = 228
 
 GDB_VERSION_STRING = $(GDB_VERSION) (Apple version gdb-$(APPLE_VERSION))
 
@@ -97,7 +97,7 @@ HOST_ARCHITECTURE = UNKNOWN
 
 RC_CFLAGS_NOARCH = $(shell echo $(RC_CFLAGS) | sed -e 's/-arch [a-z0-9]*//g')
 
-SYSTEM_FRAMEWORK = -framework System -lcc_dynamic
+SYSTEM_FRAMEWORK = -framework System
 FRAMEWORK_PREFIX =
 FRAMEWORK_SUFFIX =
 FRAMEWORK_VERSION = A
@@ -126,12 +126,11 @@ CONFIG_VERBOSE=-v
 CONFIG_ENABLE_GDBTK=--enable-gdbtk=no
 CONFIG_ENABLE_GDBMI=--enable-gdbmi=yes
 CONFIG_ENABLE_BUILD_WARNINGS=--enable-build-warnings
-CONFIG_ENABLE_TUI=--enable-tui
-CONFIG_ALL_BFD_TARGETS=--enable-targets=all
+CONFIG_ENABLE_TUI=--disable-tui
+CONFIG_ALL_BFD_TARGETS=
 CONFIG_64_BIT_BFD=--enable-64-bit-bfd
 CONFIG_WITH_MMAP=--with-mmap
 CONFIG_WITH_MMALLOC=--with-mmalloc
-CONFIG_WITH_MMALLOC=
 CONFIG_MAINTAINER_MODE=--enable-maintainer-mode
 CONFIG_OTHER_OPTIONS=
 
@@ -140,13 +139,13 @@ MAKE_CFM=WITHOUT_CFM=1
 else
 MAKE_CFM=
 endif
-
+ 
 MAKE_CTHREADS=
 
 ifneq ($(findstring rhapsody,$(CANONICAL_ARCHS))$(findstring macos10,$(CANONICAL_ARCHS)),)
 CC = cc -arch $(HOST_ARCHITECTURE) -no-cpp-precomp
 CC_FOR_BUILD = NEXT_ROOT= cc -no-cpp-precomp
-CDEBUGFLAGS = -g -O3
+CDEBUGFLAGS = -g -Os
 CFLAGS = $(CDEBUGFLAGS) -Wall -Wimplicit -Wno-long-double $(RC_CFLAGS_NOARCH)
 HOST_ARCHITECTURE = $(shell echo $* | sed -e 's/--.*//' -e 's/powerpc/ppc/' -e 's/-apple-rhapsody//' -e 's/-apple-macos.*//')
 endif
@@ -279,7 +278,6 @@ FSFLAGS = \
 	EFENCE_DEP='$(EFENCE_FRAMEWORK)/electric-fence' \
 	EFENCE='-F$(BINUTILS_FRAMEWORKS) -framework electric-fence' \
 	EFENCE_CFLAGS='-I$(EFENCE_HEADERS)' 
-
 
 CONFIGURE_ENV = $(EFLAGS)
 MAKE_ENV = $(EFLAGS)
@@ -542,6 +540,9 @@ install-gdb-rhapsody-common: install-gdb-common
 			< $(SRCROOT)/gdb.sh > $${dstroot}/usr/bin/gdb; \
 		chmod 755 $${dstroot}/usr/bin/gdb; \
 		\
+		cp -p $(SRCROOT)/cache-symfiles.sh $${dstroot}/usr/libexec/gdb/cache-symfiles; \
+		chmod 755 $${dstroot}/usr/libexec/gdb/cache-symfiles; \
+		\
 	done;
 
 install-gdb-rhapsody: install-gdb-rhapsody-common
@@ -723,7 +724,7 @@ endif
 	$(SUBMAKE) install-chmod-rhapsody
 
 install-macsbug:
-	$(SUBMAKE) -C $(SRCROOT)/macsbug SRCROOT=$(SRCROOT)/macsbug OBJROOT=$(OBJROOT)/powerpc-apple-macos10--powerpc-apple-macos10/macsbug SYMROOT=$(SYMROOT) DSTROOT=$(DSTROOT) install
+	$(SUBMAKE) -C $(SRCROOT)/macsbug GDB_BUILD_ROOT=$(DSTROOT) SRCROOT=$(SRCROOT)/macsbug OBJROOT=$(OBJROOT)/powerpc-apple-macos10--powerpc-apple-macos10/macsbug SYMROOT=$(SYMROOT) DSTROOT=$(DSTROOT) install
  
 install-pdo:
 	$(SUBMAKE) install-clean

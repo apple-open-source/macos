@@ -46,6 +46,7 @@
 ; This code is written for the NASM assembler.
 ;   nasm boot0.s -o boot0
 
+
 ;--------------------------------------------------------------------------
 ; Constants.
 
@@ -59,13 +60,14 @@ BOOTLOAD        EQU  0x7C00             ; booter load address
 BOOTRELOC       EQU  0xE000             ; booter is relocated here
 BOOTSIG         EQU  0xAA55             ; booter signature
 
-BOOT2_SIZE      EQU  88                 ; load this many blocks for boot2
-BOOT2_ADDR      EQU  0x3000             ; where to load boot2
+BOOT2_SIZE      EQU  112                ; load this many blocks for boot2
+BOOT2_ADDR      EQU  0x0200             ; where to load boot2
+BOOT2_SEG       EQU  0x2000
 
 %IF BOOTDEV = FLOPPY
-DRIVE_NUM       EQU  FLOPPY               ; floppy drive
+DRIVE_NUM       EQU  FLOPPY             ; floppy drive
 %ELSE
-DRIVE_NUM       EQU  HDISK                ; "C" drive
+DRIVE_NUM       EQU  HDISK              ; "C" drive
 %ENDIF
 SECTOR_BYTES    EQU  512                ; sector size in bytes
 
@@ -106,8 +108,8 @@ start
     ; or from 0:7C00h to BOOTSEG:BOOTRELOC.
     ;
     mov     es, ax              ; es <- BOOTSEG
-    xor     ax, ax
-    mov     ds, ax              ; ds <- 0
+    mov     ds, ax              ; ds <- BOOTSEG
+
     mov     si, BOOTLOAD        ; si <- BOOTLOAD (source)
     mov     di, BOOTRELOC       ; di <- BOOTRELOC (destination)
     ;
@@ -123,9 +125,6 @@ start
 ; Start execution from the relocated location.
 ;
 start_reloc
-    mov     ax, BOOTSEG
-    mov     ds, ax              ; ds <- BOOTSEG
-
     mov     al, '='             ; indicate execution start
     call    putchar
 
@@ -141,9 +140,6 @@ start_reloc
 
     mov     al, '>'             ; indicate INT13/F8 success
     call    putchar
-
-    mov     ax, BOOTSEG		 	 ; es <- BOOTSEG	
-    mov     es, ax 
 
     ; Since this code may not always reside in the MBR, we will always
     ; start by loading the MBR to BUF_MBR.
@@ -227,7 +223,7 @@ find_booter_ext
 
     cmp     BYTE [si + 4], TYPE_EXT_1   ; Is this an extended partition?
     je      find_booter_ext_2           ; yes, load its partition table
-	
+
     cmp     BYTE [si + 4], TYPE_EXT_2   ; Is this an extended partition?
     je      find_booter_ext_2           ; yes, load its partition table
 
@@ -298,14 +294,15 @@ load_booter
 
     mov     cx, 1               ; skip the initial boot sector
     mov     ax, BOOT2_SIZE      ; read BOOT2_SIZE sectors
+    mov     bx, BOOT2_SEG
+    mov     es, bx
     mov     bx, BOOT2_ADDR      ; where to place boot2 code
     call    load                ; load it...
 
-    xor     edx, edx            ; argument for boot2 (hard drive boot)
-%IF BOOTDEV = FLOPPY
-    inc     edx                 ; floppy is dev 1
-%ENDIF
-    jmp     BOOTSEG:BOOT2_ADDR  ; there is no going back now!
+    xor     edx, edx
+    mov     dl, DRIVE_NUM       ; argument for boot2
+
+    jmp     BOOT2_SEG:BOOT2_ADDR  ; there is no going back now!
 
 ;--------------------------------------------------------------------------
 ; Load sectors from disk using INT13/F2 call. The sectors are loaded
@@ -347,8 +344,8 @@ load_exit
 ;
 ; Arguments:
 ;   [chs_cx][chs_dx] - CHS starting position
-;   bx - pointer to the sector memory buffer
-;        (must not cross a segment boundary)
+;   es:bx - pointer to the sector memory buffer
+;           (must not cross a segment boundary)
 ;
 ; Returns:
 ;   CF = 0  success
@@ -570,27 +567,27 @@ load_error   db  10, 13, 'Load Error', 0
 ; that the 'times' argument is negative.
 
 pad_boot
-	times 446-($-$$) db 0
+    times 446-($-$$) db 0
 
 %IF BOOTDEV = FLOPPY
 ;--------------------------------------------------------------------------
 ; Put fake partition entries for the bootable floppy image
 ;
-part1bootid	db	      0x80	; first partition active
-part1head	db	      0x00	; head #
-part1sect	db	      0x02	; sector # (low 6 bits)
-part1cyl	db	      0x00	; cylinder # (+ high 2 bits of above)
-part1systid	db	      0xab	; Apple boot partition
-times	3	db	      0x00	; ignore head/cyl/sect #'s
-part1relsect	dd	0x00000001	; start at sector 1
-part1numsect	dd	0x00000058	; 44K for booter
-part2bootid	db	      0x00	; not active
-times	3	db	      0x00	; ignore head/cyl/sect #'s
-part2systid	db	      0xa8	; Apple UFS partition
-times	3	db	      0x00	; ignore head/cyl/sect #'s
-part2relsect	dd	0x0000005a	; start after booter
-; part2numsect	dd	0x00000ae6	; 1.44MB - 45K
-part2numsect	dd	0x00001626	; 2.88MB - 45K
+part1bootid     db        0x80  ; first partition active
+part1head       db        0x00  ; head #
+part1sect       db        0x02  ; sector # (low 6 bits)
+part1cyl        db        0x00  ; cylinder # (+ high 2 bits of above)
+part1systid     db        0xab  ; Apple boot partition
+times   3       db        0x00  ; ignore head/cyl/sect #'s
+part1relsect    dd  0x00000001  ; start at sector 1
+part1numsect    dd  0x00000080  ; 64K for booter
+part2bootid     db        0x00  ; not active
+times   3       db        0x00  ; ignore head/cyl/sect #'s
+part2systid     db        0xa8  ; Apple UFS partition
+times   3       db        0x00  ; ignore head/cyl/sect #'s
+part2relsect    dd  0x00000082  ; start after booter
+; part2numsect  dd  0x00000abe  ; 1.44MB - 65K
+part2numsect    dd  0x000015fe  ; 2.88MB - 65K
 %ENDIF
 
 pad_table_and_sig

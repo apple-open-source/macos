@@ -54,7 +54,7 @@ const unsigned char *host;	/* server hostname */
 
 #ifndef TESTMAIN
     if (outlevel >= O_DEBUG)
-	report_build(stdout, _("About to rewrite %s"), buf);
+	report_build(stdout, GT_("About to rewrite %s"), buf);
 
     /* make room to hack the address; buf must be malloced */
     for (cp = buf; *cp; cp++)
@@ -190,7 +190,7 @@ const unsigned char *host;	/* server hostname */
 
 #ifndef TESTMAIN
     if (outlevel >= O_DEBUG)
-	report_complete(stdout, _("Rewritten version is %s\n"), buf);
+	report_complete(stdout, GT_("Rewritten version is %s\n"), buf);
 #endif /* TESTMAIN */
     return(buf);
 }
@@ -315,6 +315,12 @@ const unsigned char *hdr;	/* header to be parsed, NUL to continue previous hdr *
 		state = INSIDE_BRACKETS;
 		tp = 0;
 	    }
+	    else if (*hp == '"')        /* quoted word, copy verbatim */
+	    {
+	        oldstate = state;
+		state = INSIDE_DQUOTE;
+                address[NEXTTP()] = *hp;
+            }
 	    else if (!isspace(*hp)) 	/* just take it, ignoring whitespace */
 		address[NEXTTP()] = *hp;
 	    break;

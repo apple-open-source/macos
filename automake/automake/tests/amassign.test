@@ -1,0 +1,14 @@
+#! /bin/sh
+
+# Test to see if AM_ name can be assigned to in configure.in.
+# Report from Steve Robbins.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AM_CFLAGS=foo
+AC_SUBST(AM_BAR)
+AC_SUBST([AM_ZARDOZ])
+END
+
+$ACLOCAL

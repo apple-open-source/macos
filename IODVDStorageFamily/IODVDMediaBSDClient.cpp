@@ -28,6 +28,63 @@ OSDefineMetaClassAndStructors(IODVDMediaBSDClient, IOMediaBSDClient)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+static bool DKIOC_IS_RESERVED(caddr_t data, u_int16_t reserved)
+{
+    UInt32 index;
+
+    for ( index = 0; index < sizeof(reserved) * 8; index++, reserved >>= 1 )
+    {
+        if ( (reserved & 1) )
+        {
+            if ( data[index] )  return true;
+        }
+    }
+
+    return false;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static IOMemoryDescriptor * DKIOC_PREPARE_BUFFER( void *      address,
+                                                  UInt32      length,
+                                                  IODirection direction )
+{
+    IOMemoryDescriptor * buffer = 0;
+
+    if ( address && length )
+    {
+        buffer = IOMemoryDescriptor::withAddress(         // (create the buffer)
+                                /* address   */ (vm_address_t) address,
+                                /* length    */                length,
+                                /* direction */                direction,
+                                /* task      */                current_task() );
+    }
+
+    if ( buffer )
+    {
+        if ( buffer->prepare() != kIOReturnSuccess )     // (prepare the buffer)
+        {
+            buffer->release();
+            buffer = 0;
+        }
+    }
+
+    return buffer;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static void DKIOC_COMPLETE_BUFFER(IOMemoryDescriptor * buffer)
+{
+    if ( buffer )
+    {
+        buffer->complete();                             // (complete the buffer)
+        buffer->release();                               // (release the buffer)
+    }
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 IODVDMedia * IODVDMediaBSDClient::getProvider() const
 {
     //
@@ -51,45 +108,24 @@ int IODVDMediaBSDClient::ioctl( dev_t         dev,
     // Process a DVD-specific ioctl.
     //
 
-    int error = 0;
+    IOMemoryDescriptor * buffer = 0;
+    int                  error  = 0;
+    IOReturn             status = kIOReturnSuccess;
 
     switch ( cmd )
     {
-        case DKIOCDVDREADSTRUCTURE: // readStructure(dk_dvd_read_structure_t *);
+        case DKIOCDVDREADSTRUCTURE:  // readStructure(dk_dvd_read_structure_t *)
         {
-            IOMemoryDescriptor *      buffer  = 0;
-            dk_dvd_read_structure_t * request = (dk_dvd_read_structure_t *)data;
-            IOReturn                  status  = kIOReturnSuccess;
+            dk_dvd_read_structure_t * request;
 
-            if ( request->reserved0008[0] ||
-                 request->reserved0008[1] ||
-                 request->reserved0008[2] )
-            {
-                error = EINVAL;
-                break;
-            }
+            request = (dk_dvd_read_structure_t *) data;
 
-            if ( request->buffer && request->bufferLength )
-            {
-                buffer = IOMemoryDescriptor::withAddress( 
-                           /* address   */ (vm_address_t) request->buffer,
-                           /* length    */                request->bufferLength,
-                           /* direction */                kIODirectionIn,
-                           /* task      */                current_task() );
+            if ( DKIOC_IS_RESERVED(data, 0x000E) )  { error = EINVAL;  break; }
 
-                if ( buffer == 0 )                               // (no buffer?)
-                {
-                    error = ENOMEM;
-                    break;
-                }
-
-                if ( buffer->prepare() != kIOReturnSuccess ) // (prepare buffer)
-                {
-                    buffer->release();
-                    error = EFAULT;           // (wiring or permissions failure)
-                    break;
-                }
-            }
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ request->buffer,
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn );
 
             status = getProvider()->readStructure(
                        /* buffer    */                      buffer,
@@ -98,51 +134,22 @@ int IODVDMediaBSDClient::ioctl( dev_t         dev,
                        /* layer     */                      request->layer,
                        /* grantID   */                      request->grantID );
 
-            error = getProvider()->errnoFromReturn(status);
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
 
-            if ( buffer )
-            {
-                buffer->complete();                     // (complete the buffer)
-                buffer->release();         // (release our retain on the buffer)
-            }
+            DKIOC_COMPLETE_BUFFER(buffer);
 
         } break;
 
-        case DKIOCDVDREPORTKEY:             // reportKey(dk_dvd_report_key_t *);
+        case DKIOCDVDREPORTKEY:              // reportKey(dk_dvd_report_key_t *)
         {
-            IOMemoryDescriptor *  buffer  = 0;
-            dk_dvd_report_key_t * request = (dk_dvd_report_key_t *)data;
-            IOReturn              status  = kIOReturnSuccess;
+            dk_dvd_report_key_t * request = (dk_dvd_report_key_t *) data;
 
-            if ( request->reserved0016[0] ||
-                 request->reserved0016[1] ||
-                 request->reserved0072[0] )
-            {
-                error = EINVAL;
-                break;
-            }
+            if ( DKIOC_IS_RESERVED(data, 0x020C) )  { error = EINVAL;  break; }
 
-            if ( request->buffer && request->bufferLength )
-            {
-                buffer = IOMemoryDescriptor::withAddress( 
-                           /* address   */ (vm_address_t) request->buffer,
-                           /* length    */                request->bufferLength,
-                           /* direction */                kIODirectionIn,
-                           /* task      */                current_task() );
-
-                if ( buffer == 0 )                               // (no buffer?)
-                {
-                    error = ENOMEM;
-                    break;
-                }
-
-                if ( buffer->prepare() != kIOReturnSuccess ) // (prepare buffer)
-                {
-                    buffer->release();
-                    error = EFAULT;           // (wiring or permissions failure)
-                    break;
-                }
-            }
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ request->buffer,
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn );
 
             status = getProvider()->reportKey(
                        /* buffer    */                buffer,
@@ -151,55 +158,22 @@ int IODVDMediaBSDClient::ioctl( dev_t         dev,
                        /* grantID   */                request->grantID,
                        /* format    */ (DVDKeyFormat) request->format );
 
-            error = getProvider()->errnoFromReturn(status);
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
 
-            if ( buffer )
-            {
-                buffer->complete();                     // (complete the buffer)
-                buffer->release();         // (release our retain on the buffer)
-            }
+            DKIOC_COMPLETE_BUFFER(buffer);
 
         } break;
 
-        case DKIOCDVDSENDKEY:                   // sendKey(dk_dvd_send_key_t *);
+        case DKIOCDVDSENDKEY:                    // sendKey(dk_dvd_send_key_t *)
         {
-            IOMemoryDescriptor * buffer  = 0;
-            dk_dvd_send_key_t *  request = (dk_dvd_send_key_t *)data;
-            IOReturn             status  = kIOReturnSuccess;
+            dk_dvd_send_key_t * request = (dk_dvd_send_key_t *) data;
 
-            if ( request->reserved0016[0] ||
-                 request->reserved0016[1] ||
-                 request->reserved0016[2] ||
-                 request->reserved0016[3] ||
-                 request->reserved0016[4] ||
-                 request->reserved0016[5] ||
-                 request->reserved0072[0] )
-            {
-                error = EINVAL;
-                break;
-            }
+            if ( DKIOC_IS_RESERVED(data, 0x02FC) )  { error = EINVAL;  break; }
 
-            if ( request->buffer && request->bufferLength )
-            {
-                buffer = IOMemoryDescriptor::withAddress( 
-                           /* address   */ (vm_address_t) request->buffer,
-                           /* length    */                request->bufferLength,
-                           /* direction */                kIODirectionOut,
-                           /* task      */                current_task() );
-
-                if ( buffer == 0 )                               // (no buffer?)
-                {
-                    error = ENOMEM;
-                    break;
-                }
-
-                if ( buffer->prepare() != kIOReturnSuccess ) // (prepare buffer)
-                {
-                    buffer->release();
-                    error = EFAULT;           // (wiring or permissions failure)
-                    break;
-                }
-            }
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ request->buffer,
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionOut );
 
             status = getProvider()->sendKey(
                        /* buffer    */                buffer,
@@ -207,31 +181,69 @@ int IODVDMediaBSDClient::ioctl( dev_t         dev,
                        /* grantID   */                request->grantID,
                        /* format    */ (DVDKeyFormat) request->format );
 
-            error = getProvider()->errnoFromReturn(status);
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
 
-            if ( buffer )
-            {
-                buffer->complete();                     // (complete the buffer)
-                buffer->release();         // (release our retain on the buffer)
-            }
+            DKIOC_COMPLETE_BUFFER(buffer);
 
         } break;
 
-        case DKIOCDVDGETSPEED:                         // getSpeed(u_int16_t *);
+        case DKIOCDVDGETSPEED:                          // getSpeed(u_int16_t *)
         {
-            IOReturn status;
-
             status = getProvider()->getSpeed((u_int16_t *)data);
-            error  = getProvider()->errnoFromReturn(status);
 
         } break;
 
-        case DKIOCDVDSETSPEED:                         // setSpeed(u_int16_t *);
+        case DKIOCDVDSETSPEED:                          // setSpeed(u_int16_t *)
         {
-            IOReturn status;
-
             status = getProvider()->setSpeed(*(u_int16_t *)data);
-            error  = getProvider()->errnoFromReturn(status);
+
+        } break;
+
+        case DKIOCDVDREADDISCINFO:    // readDiscInfo(dk_dvd_read_disc_info_t *)
+        {
+            dk_dvd_read_disc_info_t * request;
+
+            request = (dk_dvd_read_disc_info_t *) data;
+
+            if ( DKIOC_IS_RESERVED(data, 0x03FF) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ request->buffer,
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn );
+
+            status = getProvider()->readDiscInfo(
+                       /* buffer          */ buffer,
+                       /* actualByteCount */ &request->bufferLength );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCDVDREADRZONEINFO: // readRZoneInfo(dk_dvd_read_rzone_info_t *)
+        {
+            dk_dvd_read_rzone_info_t * request;
+
+            request = (dk_dvd_read_rzone_info_t *) data;
+
+            if ( DKIOC_IS_RESERVED(data, 0x020F) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ request->buffer,
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn );
+
+            status = getProvider()->readRZoneInfo(
+                       /* buffer          */ buffer,
+                       /* address         */ request->address,
+                       /* addressType     */ request->addressType,
+                       /* actualByteCount */ &request->bufferLength );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
 
         } break;
 
@@ -246,7 +258,7 @@ int IODVDMediaBSDClient::ioctl( dev_t         dev,
         } break;
     }
 
-    return error;                                       // (return error status)
+    return error ? error : getProvider()->errnoFromReturn(status);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

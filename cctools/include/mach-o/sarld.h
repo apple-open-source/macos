@@ -21,7 +21,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#import <mach-o/nlist.h>
+#ifndef _MACH_O_SARLD_H_
+#define _MACH_O_SARLD_H_
+
+#include <mach-o/nlist.h>
 /*
  * sa_rld() loads the specified object in memory against the specified
  * base file in memory.  The output is placed in memory starting at
@@ -89,3 +92,4 @@ __private_extern__ unsigned long sa_rld_output_size;
 #endif /* SA_RLD */
 
 
+#endif /* _MACH_O_SARLD_H_ */

@@ -1,0 +1,1047 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		1291E4B40242448303A87B01 = {
+			isa = PBXFileReference;
+			path = msdos.util.8;
+			refType = 4;
+		};
+		1291E4B50242448303A87B01 = {
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				1291E4B8024244C503A87B01,
+			);
+			isa = PBXCopyFilesBuildPhase;
+		};
+		1291E4B60242448403A87B01 = {
+			fileRef = 1291E4B40242448303A87B01;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		1291E4B8024244C503A87B01 = {
+			fileRef = 1291E4B40242448303A87B01;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//120
+//121
+//122
+//123
+//124
+//7D0
+//7D1
+//7D2
+//7D3
+//7D4
+		7D3170210117A0CD02CA2964 = {
+			fileRef = 7D8BA378010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D3170220117A10D02CA2964 = {
+			isa = PBXTargetDependency;
+			target = 7D8BA383010E490C02CA2964;
+		};
+		7D3170230117A1E602CA2964 = {
+			fileRef = 7D8BA378010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D4699340111B00602CA2964 = {
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8/;
+			dstSubfolderSpec = 0;
+			files = (
+				7D4699350111B03D02CA2964,
+			);
+			isa = PBXCopyFilesBuildPhase;
+		};
+		7D4699350111B03D02CA2964 = {
+			fileRef = 7D8BA34E010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D871B7B010E6ACA02CA2964 = {
+			isa = PBXTargetDependency;
+			target = 7DE2785C010E618E02CA2964;
+		};
+		7D88539B010E5E2C02CA2964 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		7D88539C010E5E2C02CA2964 = {
+			fileRef = 7D88539B010E5E2C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D8BA340010E490C02CA2964 = {
+			buildStyles = (
+				7D8BA3A3010E490C02CA2964,
+				7D8BA3A4010E490C02CA2964,
+			);
+			isa = PBXProject;
+			mainGroup = 7D8BA341010E490C02CA2964;
+			productRefGroup = 7D8BA376010E490C02CA2964;
+			projectDirPath = "";
+			targets = (
+				7D8BA37A010E490C02CA2964,
+				7D8BA38A010E490C02CA2964,
+				7D8BA37C010E490C02CA2964,
+				7DE2785C010E618E02CA2964,
+				7D8BA383010E490C02CA2964,
+			);
+		};
+		7D8BA341010E490C02CA2964 = {
+			children = (
+				7D8BA347010E490C02CA2964,
+				7D8BA34F010E490C02CA2964,
+				7D8BA35A010E490C02CA2964,
+				7D8BA376010E490C02CA2964,
+				7D88539B010E5E2C02CA2964,
+			);
+			isa = PBXGroup;
+			name = msdosfs;
+			refType = 4;
+		};
+		7D8BA347010E490C02CA2964 = {
+			children = (
+				7D8BA349010E490C02CA2964,
+				7D8BA34E010E490C02CA2964,
+			);
+			isa = PBXGroup;
+			name = msdos_mount;
+			path = mount_msdos.tproj;
+			refType = 4;
+		};
+		7D8BA349010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = mount_msdos.c;
+			refType = 4;
+		};
+		7D8BA34E010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = mount_msdos.8;
+			refType = 4;
+		};
+		7D8BA34F010E490C02CA2964 = {
+			children = (
+				7D8BA351010E490C02CA2964,
+				1291E4B40242448303A87B01,
+				7DE27863010E638402CA2964,
+			);
+			isa = PBXGroup;
+			name = msdos_util;
+			path = msdos_util.tproj;
+			refType = 4;
+		};
+		7D8BA351010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = dosutil.c;
+			refType = 4;
+		};
+		7D8BA35A010E490C02CA2964 = {
+			children = (
+				7D8BA362010E490C02CA2964,
+				7D8BA369010E490C02CA2964,
+			);
+			isa = PBXGroup;
+			name = msdos_kext;
+			path = msdosfs.kextproj;
+			refType = 4;
+		};
+		7D8BA362010E490C02CA2964 = {
+			children = (
+				7D8BA363010E490C02CA2964,
+				7D8BA364010E490C02CA2964,
+				7D8BA365010E490C02CA2964,
+				7D8BA366010E490C02CA2964,
+				7D8BA367010E490C02CA2964,
+				7D8BA368010E490C02CA2964,
+				B64F357E0230382C04C9147C,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			path = msdosfs.kmodproj;
+			refType = 4;
+		};
+		7D8BA363010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = bootsect.h;
+			refType = 4;
+		};
+		7D8BA364010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = bpb.h;
+			refType = 4;
+		};
+		7D8BA365010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = denode.h;
+			refType = 4;
+		};
+		7D8BA366010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = direntry.h;
+			refType = 4;
+		};
+		7D8BA367010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = fat.h;
+			refType = 4;
+		};
+		7D8BA368010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = msdosfsmount.h;
+			refType = 4;
+		};
+		7D8BA369010E490C02CA2964 = {
+			children = (
+				B673AAE70250E44704C9147C,
+				7D8BA36A010E490C02CA2964,
+				7D8BA36B010E490C02CA2964,
+				7D8BA36C010E490C02CA2964,
+				B64F35800230385404C9147C,
+				7D8BA36D010E490C02CA2964,
+				7D8BA36E010E490C02CA2964,
+				7D8BA36F010E490C02CA2964,
+			);
+			isa = PBXGroup;
+			name = Sources;
+			path = msdosfs.kmodproj;
+			refType = 4;
+		};
+		7D8BA36A010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = msdosfs_conv.c;
+			refType = 4;
+		};
+		7D8BA36B010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = msdosfs_denode.c;
+			refType = 4;
+		};
+		7D8BA36C010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = msdosfs_fat.c;
+			refType = 4;
+		};
+		7D8BA36D010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = msdosfs_lookup.c;
+			refType = 4;
+		};
+		7D8BA36E010E490C02CA2964 = {
+			isa = PBXFileReference;
+			path = msdosfs_vfsops.c;
+			refType = 4;
+		};
+		7D8BA36F010E490C02CA2964 = {
+			indentWidth = 4;
+			isa = PBXFileReference;
+			path = msdosfs_vnops.c;
+			refType = 4;
+			tabWidth = 4;
+			usesTabs = 0;
+		};
+		7D8BA376010E490C02CA2964 = {
+			children = (
+				7D8BA378010E490C02CA2964,
+				7D91DB9F010FC00502CA2964,
+				7D8BA377010E490C02CA2964,
+				7D8BA379010E490C02CA2964,
+				7DE2785B010E618E02CA2964,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		7D8BA377010E490C02CA2964 = {
+			isa = PBXExecutableFileReference;
+			path = mount_msdos;
+			refType = 3;
+		};
+		7D8BA378010E490C02CA2964 = {
+			isa = PBXExecutableFileReference;
+			path = msdos.util;
+			refType = 3;
+		};
+		7D8BA379010E490C02CA2964 = {
+			isa = PBXBundleReference;
+			path = msdosfs.kext;
+			refType = 3;
+		};
+		7D8BA37A010E490C02CA2964 = {
+			buildPhases = (
+				7D8BA39E010E490C02CA2964,
+				7D8BA3A1010E490C02CA2964,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = msdosfs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				7D8BA389010E490C02CA2964,
+				7D8BA37B010E490C02CA2964,
+				7D871B7B010E6ACA02CA2964,
+			);
+			isa = PBXAggregateTarget;
+			name = "msdosfs (Aggregate)";
+			productName = "msdosfs (Aggregate)";
+			shouldUseHeadermap = 0;
+		};
+		7D8BA37B010E490C02CA2964 = {
+			isa = PBXTargetDependency;
+			target = 7D8BA37C010E490C02CA2964;
+		};
+		7D8BA37C010E490C02CA2964 = {
+			buildPhases = (
+				7D8BA37D010E490C02CA2964,
+				7D8BA37E010E490C02CA2964,
+				7D8BA380010E490C02CA2964,
+				7D8BA381010E490C02CA2964,
+				7D4699340111B00602CA2964,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /sbin;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-ldisk";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = mount_msdos;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = mount_msdos;
+			productInstallPath = /sbin;
+			productName = "mount_msdos (Tool)";
+			productReference = 7D8BA377010E490C02CA2964;
+			shouldUseHeadermap = 0;
+		};
+		7D8BA37D010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+		};
+		7D8BA37E010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+				7D8BA37F010E490C02CA2964,
+			);
+			isa = PBXSourcesBuildPhase;
+		};
+		7D8BA37F010E490C02CA2964 = {
+			fileRef = 7D8BA349010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7D8BA380010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+				7D88539C010E5E2C02CA2964,
+			);
+			isa = PBXFrameworksBuildPhase;
+		};
+		7D8BA381010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+		};
+		7D8BA383010E490C02CA2964 = {
+			buildPhases = (
+				7D8BA384010E490C02CA2964,
+				7D8BA385010E490C02CA2964,
+				7D8BA387010E490C02CA2964,
+				7D8BA388010E490C02CA2964,
+				1291E4B50242448303A87B01,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = msdos.util;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = msdos.util;
+			productName = "msdos.util (Tool)";
+			productReference = 7D8BA378010E490C02CA2964;
+			shouldUseHeadermap = 0;
+		};
+		7D8BA384010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+		};
+		7D8BA385010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+				7D8BA386010E490C02CA2964,
+			);
+			isa = PBXSourcesBuildPhase;
+		};
+		7D8BA386010E490C02CA2964 = {
+			fileRef = 7D8BA351010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7D8BA387010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+				7DE2786C010E662C02CA2964,
+			);
+			isa = PBXFrameworksBuildPhase;
+		};
+		7D8BA388010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+		};
+		7D8BA389010E490C02CA2964 = {
+			isa = PBXTargetDependency;
+			target = 7D8BA38A010E490C02CA2964;
+		};
+		7D8BA38A010E490C02CA2964 = {
+			buildPhases = (
+				7D8BA38B010E490C02CA2964,
+				7D8BA38C010E490C02CA2964,
+				7D8BA393010E490C02CA2964,
+				7D8BA394010E490C02CA2964,
+				7D8BA39B010E490C02CA2964,
+				7D8BA39C010E490C02CA2964,
+				7D8BA39D010E490C02CA2964,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.filesystems.msdosfs;
+				MODULE_START = msdosfs_module_start;
+				MODULE_STOP = "msdosfs_module_stop ";
+				MODULE_VERSION = 1.2;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = msdosfs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = msdosfs;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "msdosfs (Bundle)";
+			productReference = 7D8BA379010E490C02CA2964;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>msdosfs</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.filesystems.msdosfs</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>msdosfs</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.2</string>
+	<key>IOKitPersonalities</key>
+	<dict/>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.0.0b1</string>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		7D8BA38B010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		7D8BA38C010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+				7D8BA38D010E490C02CA2964,
+				7D8BA38E010E490C02CA2964,
+				7D8BA38F010E490C02CA2964,
+				7D8BA390010E490C02CA2964,
+				7D8BA391010E490C02CA2964,
+				7D8BA392010E490C02CA2964,
+				B64F357F0230382C04C9147C,
+			);
+			isa = PBXHeadersBuildPhase;
+		};
+		7D8BA38D010E490C02CA2964 = {
+			fileRef = 7D8BA363010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D8BA38E010E490C02CA2964 = {
+			fileRef = 7D8BA364010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D8BA38F010E490C02CA2964 = {
+			fileRef = 7D8BA365010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D8BA390010E490C02CA2964 = {
+			fileRef = 7D8BA366010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D8BA391010E490C02CA2964 = {
+			fileRef = 7D8BA367010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D8BA392010E490C02CA2964 = {
+			fileRef = 7D8BA368010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D8BA393010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+		};
+		7D8BA394010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+				7D8BA395010E490C02CA2964,
+				7D8BA396010E490C02CA2964,
+				7D8BA397010E490C02CA2964,
+				7D8BA398010E490C02CA2964,
+				7D8BA399010E490C02CA2964,
+				7D8BA39A010E490C02CA2964,
+				B64F35810230385404C9147C,
+				B673AAE80250E44704C9147C,
+			);
+			isa = PBXSourcesBuildPhase;
+		};
+		7D8BA395010E490C02CA2964 = {
+			fileRef = 7D8BA36A010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7D8BA396010E490C02CA2964 = {
+			fileRef = 7D8BA36B010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7D8BA397010E490C02CA2964 = {
+			fileRef = 7D8BA36C010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7D8BA398010E490C02CA2964 = {
+			fileRef = 7D8BA36D010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7D8BA399010E490C02CA2964 = {
+			fileRef = 7D8BA36E010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7D8BA39A010E490C02CA2964 = {
+			fileRef = 7D8BA36F010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7D8BA39B010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+		};
+		7D8BA39C010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+		};
+		7D8BA39D010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		7D8BA39E010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				7D8BA39F010E490C02CA2964,
+				7D3170210117A0CD02CA2964,
+				1291E4B60242448403A87B01,
+			);
+			isa = PBXCopyFilesBuildPhase;
+		};
+		7D8BA39F010E490C02CA2964 = {
+			fileRef = 7D8BA377010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D8BA3A1010E490C02CA2964 = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7D8BA3A2010E490C02CA2964,
+			);
+			isa = PBXCopyFilesBuildPhase;
+		};
+		7D8BA3A2010E490C02CA2964 = {
+			fileRef = 7D8BA379010E490C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7D8BA3A3010E490C02CA2964 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		7D8BA3A4010E490C02CA2964 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		7D91DB9F010FC00502CA2964 = {
+			isa = PBXExecutableFileReference;
+			path = msdos.util;
+			refType = 3;
+		};
+		7DE2785B010E618E02CA2964 = {
+			isa = PBXBundleReference;
+			path = msdos.fs;
+			refType = 3;
+		};
+		7DE2785C010E618E02CA2964 = {
+			buildPhases = (
+				7DE2785E010E618E02CA2964,
+				7DE2785F010E618E02CA2964,
+				7DE27873010E684002CA2964,
+				7DE27860010E618E02CA2964,
+				7DE27861010E618E02CA2964,
+				7DE27862010E618E02CA2964,
+			);
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -undefined suppress";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = msdos;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = fs;
+			};
+			dependencies = (
+				7D3170220117A10D02CA2964,
+			);
+			isa = PBXBundleTarget;
+			name = msdos.fs;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+			productName = msdosfs.fs;
+			productReference = 7DE2785B010E618E02CA2964;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.filesystems.util.msdos</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>msdos</string>
+	<key>CFBundlePackageType</key>
+	<string>fs  </string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.2</string>
+	<key>FSMediaTypes</key>
+	<dict>
+		<key>DOS_FAT_12</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>DOS_FAT_12</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../msdos.util</string>
+			<key>FSProbeOrder</key>
+			<integer>1000</integer>
+		</dict>
+		<key>DOS_FAT_16</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>DOS_FAT_16</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../msdos.util</string>
+			<key>FSProbeOrder</key>
+			<integer>1000</integer>
+		</dict>
+		<key>DOS_FAT_16_S</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>DOS_FAT_16_S</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../msdos.util</string>
+			<key>FSProbeOrder</key>
+			<integer>1000</integer>
+		</dict>
+		<key>DOS_FAT_32</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>DOS_FAT_32</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../msdos.util</string>
+			<key>FSProbeOrder</key>
+			<integer>1000</integer>
+		</dict>
+		<key>Partitionless</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Leaf</key>
+				<true/>
+				<key>Whole</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../msdos.util</string>
+			<key>FSProbeOrder</key>
+			<integer>4000</integer>
+		</dict>
+		<key>Windows_FAT_16</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>Windows_FAT_16</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../msdos.util</string>
+			<key>FSProbeOrder</key>
+			<integer>1000</integer>
+		</dict>
+		<key>Windows_FAT_32</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>Windows_FAT_32</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../msdos.util</string>
+			<key>FSProbeOrder</key>
+			<integer>1000</integer>
+		</dict>
+	</dict>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>MS-DOS</key>
+		<dict>
+			<key>FSFormatArguments</key>
+			<string></string>
+			<key>FSFormatContentMask</key>
+			<string>DOS_FAT_32</string>
+			<key>FSFormatExecutable</key>
+			<string>../../../../../../sbin/newfs_msdos</string>
+			<key>FSFormatMinimumSize</key>
+			<integer>49152</integer>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>../../../../../../sbin/mount_msdos</string>
+			<key>FSName</key>
+			<string>MS-DOS</string>
+			<key>FSRepairArguments</key>
+			<string>-y</string>
+			<key>FSRepairExecutable</key>
+			<string>../../../../../../sbin/fsck_msdos</string>
+			<key>FSVerificationArguments</key>
+			<string>-n</string>
+			<key>FSVerificationExecutable</key>
+			<string>../../../../../../sbin/fsck_msdos</string>
+		</dict>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		7DE2785E010E618E02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+		};
+		7DE2785F010E618E02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+				7DE27865010E638402CA2964,
+			);
+			isa = PBXResourcesBuildPhase;
+		};
+		7DE27860010E618E02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+		};
+		7DE27861010E618E02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+		};
+		7DE27862010E618E02CA2964 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+		};
+		7DE27863010E638402CA2964 = {
+			children = (
+				7DE27864010E638402CA2964,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = "";
+			refType = 4;
+		};
+		7DE27864010E638402CA2964 = {
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		7DE27865010E638402CA2964 = {
+			fileRef = 7DE27863010E638402CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DE2786C010E662C02CA2964 = {
+			fileRef = 7D88539B010E5E2C02CA2964;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DE27873010E684002CA2964 = {
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 1;
+			files = (
+				7D3170230117A1E602CA2964,
+			);
+			isa = PBXCopyFilesBuildPhase;
+		};
+//7D0
+//7D1
+//7D2
+//7D3
+//7D4
+//B60
+//B61
+//B62
+//B63
+//B64
+		B64F357E0230382C04C9147C = {
+			isa = PBXFileReference;
+			path = msdosfs_lockf.h;
+			refType = 4;
+		};
+		B64F357F0230382C04C9147C = {
+			fileRef = B64F357E0230382C04C9147C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B64F35800230385404C9147C = {
+			isa = PBXFileReference;
+			path = msdosfs_lockf.c;
+			refType = 4;
+		};
+		B64F35810230385404C9147C = {
+			fileRef = B64F35800230385404C9147C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B673AAE70250E44704C9147C = {
+			indentWidth = 4;
+			isa = PBXFileReference;
+			path = msdosfs_attrlist.c;
+			refType = 4;
+			tabWidth = 4;
+			usesTabs = 0;
+		};
+		B673AAE80250E44704C9147C = {
+			fileRef = B673AAE70250E44704C9147C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 7D8BA340010E490C02CA2964;
+}

@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)clnt_udp.c 1.39 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)clnt_udp.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: clnt_udp.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
+static char *rcsid = "$Id: clnt_udp.c,v 1.4 2002/03/15 22:07:49 majka Exp $";
 #endif
 
 /*
@@ -63,12 +63,19 @@ static char *rcsid = "$Id: clnt_udp.c,v 1.2 1999/10/14 21:56:53 wsanchez Exp $";
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <rpc/rpc.h>
 #include <sys/socket.h>
+#include <sys/fcntl.h>
 #include <sys/ioctl.h>
 #include <netdb.h>
 #include <errno.h>
 #include <rpc/pmap_clnt.h>
+
+extern int	bindresvport();
+extern bool_t	xdr_opaque_auth();
 
 extern int errno;
 
@@ -137,9 +144,10 @@ clntudp_bufcreate(raddr, program, version, wait, sockp, sendsz, recvsz)
 	u_int recvsz;
 {
 	CLIENT *cl;
-	register struct cu_data *cu;
+	register struct cu_data *cu = NULL;
 	struct timeval now;
 	struct rpc_msg call_msg;
+	int rfd;
 
 	cl = (CLIENT *)mem_alloc(sizeof(CLIENT));
 	if (cl == NULL) {
@@ -159,7 +167,6 @@ clntudp_bufcreate(raddr, program, version, wait, sockp, sendsz, recvsz)
 	}
 	cu->cu_outbuf = &cu->cu_inbuf[recvsz];
 
-	(void)gettimeofday(&now, (struct timezone *)0);
 	if (raddr->sin_port == 0) {
 		u_short port;
 		if ((port =
@@ -177,7 +184,15 @@ clntudp_bufcreate(raddr, program, version, wait, sockp, sendsz, recvsz)
 	cu->cu_total.tv_usec = -1;
 	cu->cu_sendsz = sendsz;
 	cu->cu_recvsz = recvsz;
-	call_msg.rm_xid = getpid() ^ now.tv_sec ^ now.tv_usec;
+	
+	rfd = open("/dev/random", O_RDONLY, 0);
+	if ((rfd < 0) || (read(rfd, &call_msg.rm_xid, sizeof(call_msg.rm_xid)) != sizeof(call_msg.rm_xid)))
+	{
+		gettimeofday(&now, (struct timezone *)0);
+		call_msg.rm_xid = getpid() ^ now.tv_sec ^ now.tv_usec;
+	}
+	if (rfd > 0) close(rfd);
+
 	call_msg.rm_direction = CALL;
 	call_msg.rm_call.cb_rpcvers = RPC_MSG_VERSION;
 	call_msg.rm_call.cb_prog = program;
@@ -302,8 +317,8 @@ send_again:
 	FD_SET(cu->cu_sock, &mask);
 	for (;;) {
 		readfds = mask;
-		switch (select(cu->cu_sock+1, &readfds, (int *)NULL, 
-			       (int *)NULL, &(cu->cu_wait))) {
+		switch (select(cu->cu_sock+1, &readfds, NULL, 
+			       NULL, &(cu->cu_wait))) {
 
 		case 0:
 			time_waited.tv_sec += cu->cu_wait.tv_sec;

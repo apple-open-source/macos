@@ -1,35 +1,29 @@
-/* External/Public TUI Header File */
+/* External/Public TUI Header File.
+   Copyright 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Contributed by Hewlett-Packard Company.
+
+   This file is part of GDB.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 #ifndef TUI_H
 #define TUI_H
 
-#define _CURSES_PRIVATE
-#undef min
-#undef max
-
-#if defined (HAVE_NCURSES_H)
-#include <ncurses.h>
-#elif defined (HAVE_CURSES_H)
-
-#include <curses.h>
-
-#define KEY_NPAGE       0522            /* Next page */
-#define KEY_PPAGE       0523            /* Previous page */
-#define KEY_SF          0520            /* Scroll 1 line forward */
-#define KEY_SR          0521            /* Scroll 1 line backward (reverse) */
-#define KEY_DOWN        0402            /* Down-arrow */
-#define KEY_UP          0403/* Up-arrow */
-#define KEY_LEFT        0404/* Left-arrow */
-#define KEY_RIGHT       0405            /* Right-arrow */
-
-#endif
-
-#ifdef ANSI_PROTOTYPES
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
+#include <string.h>
 #include "ansidecl.h"
 
 #if defined(reg)
@@ -94,37 +88,36 @@ TuiWinType, *TuiWinTypePtr;
        }
 TuiPoint, *TuiPointPtr;
 
-/* Generic window information */
-     typedef struct _TuiGenWinInfo
-       {
-	 WINDOW *handle;	/* window handle */
-	 TuiWinType type;	/* type of window */
-	 int width;		/* window width */
-	 int height;		/* window height */
-	 TuiPoint origin;	/* origin of window */
-	 OpaquePtr content;	/* content of window */
-	 int contentSize;	/* Size of content (# of elements) */
-	 int contentInUse;	/* Can it be used, or is it already used? */
-	 int viewportHeight;	/* viewport height */
-	 int lastVisibleLine;	/* index of last visible line */
-	 int isVisible;		/* whether the window is visible or not */
-       }
-TuiGenWinInfo, *TuiGenWinInfoPtr;
-
 /* GENERAL TUI FUNCTIONS */
 /* tui.c */
-extern void tuiInit (char *argv0);
-extern void tuiInitWindows (void);
-extern void tuiResetScreen (void);
-extern void tuiCleanUp (void);
-extern void tuiError (char *, int);
-extern void tui_vError (va_list);
 extern void tuiFree (char *);
-extern Opaque tuiDo (TuiOpaqueFuncPtr, ...);
-extern Opaque tuiDoAndReturnToTop (TuiOpaqueFuncPtr, ...);
-extern Opaque tuiGetLowDisassemblyAddress (Opaque, Opaque);
-extern Opaque tui_vGetLowDisassemblyAddress (va_list);
-extern void tui_vSelectSourceSymtab (va_list);
+extern CORE_ADDR tuiGetLowDisassemblyAddress (CORE_ADDR, CORE_ADDR);
+extern void tui_show_assembly (CORE_ADDR addr);
+extern int tui_is_window_visible (TuiWinType type);
+extern int tui_get_command_dimension (int *width, int *height);
+
+/* Initialize readline and configure the keymap for the switching
+   key shortcut.  */
+extern void tui_initialize_readline (void);
+
+/* Enter in the tui mode (curses).  */
+extern void tui_enable (void);
+
+/* Leave the tui mode.  */
+extern void tui_disable (void);
+
+extern void tui_initialize_io (void);
+
+extern void tui_initialize_readline (void);
+
+extern int tui_active;
+
+extern void tui_install_hooks (void);
+extern void tui_remove_hooks (void);
+
+extern void tui_show_source (const char *file, int line);
+
+extern struct ui_out *tui_out_new (struct ui_file *stream);
 
 /* tuiDataWin.c */
 extern void tui_vCheckDataValues (va_list);
@@ -133,8 +126,7 @@ extern void tui_vCheckDataValues (va_list);
 extern void tui_vStartNewLines (va_list);
 
 /* tuiLayout.c */
-extern void tui_vAddWinToLayout (va_list);
-extern TuiStatus tui_vSetLayoutTo (va_list);
+extern TuiStatus tui_set_layout (const char *);
 
 /* tuiSourceWin.c */
 extern void tuiDisplayMainFunction (void);

@@ -44,7 +44,6 @@ private:
     bool				flushOnLock;
     UInt32				l2crValue;
     MacRISC2PE			*macRISC2PE;
-    IOPCI2PCIBridge		*decBridge;
     UInt32				numCPUs;
     bool				rememberNap;
     IOService			*mpic;

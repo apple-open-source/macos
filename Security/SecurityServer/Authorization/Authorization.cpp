@@ -175,22 +175,19 @@ OSStatus SessionCreate(SessionCreationFlags flags,
     SessionAttributeBits attributes)
 {
     BEGIN_API
-
-    // just to be on the safe side, drop any cached connection to the SecurityServer
-    server.reset();
     
     // unless the (expert) caller has already done so, create a sub-bootstrap and set it
     // note that this is inherently thread-unfriendly; we can't do anything about that
     // (caller's responsibility)
     Bootstrap bootstrap;
     if (!(flags & sessionKeepCurrentBootstrap)) {
-        TaskPort self;
-        bootstrap = bootstrap.subset(self);
-        self.bootstrap(bootstrap);
+		TaskPort self;
+		bootstrap = bootstrap.subset(TaskPort());
+		self.bootstrap(bootstrap);
     }
     
     // now call the SecurityServer and tell it to initialize the (new) session
     server().setupSession(flags, attributes);
-
+	
     END_API(CSSM)
 }

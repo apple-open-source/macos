@@ -28,8 +28,8 @@
 //
 // Construct a Process object.
 //
-Process::Process(TaskPort taskPort, const char *identity, uid_t uid, gid_t gid)
- :  session(Session::find(taskPort.bootstrap())), mBusyCount(0), mDying(false),
+Process::Process(Port servicePort, TaskPort taskPort, const char *identity, uid_t uid, gid_t gid)
+ :  session(Session::find(servicePort)), mBusyCount(0), mDying(false),
 	mTaskPort(taskPort), mUid(uid), mGid(gid)
 {
     // let's take a look at our wannabe client...
@@ -48,6 +48,7 @@ Process::Process(TaskPort taskPort, const char *identity, uid_t uid, gid_t gid)
         mTaskPort.port(), identity ? identity : "(unknown)");
 }
 
+#if 0
 Process::Process(Process &prior)
  :	session(Session::find(prior.mTaskPort.bootstrap())), mBusyCount(0), mDying(false),
     mTaskPort(prior.mTaskPort), mUid(prior.mUid), mGid(prior.mGid)
@@ -60,12 +61,12 @@ Process::Process(Process &prior)
     
     // copy the client-code id (and clear it in the prior so it doesn't get destroyed there)
     mClientCode = prior.mClientCode;
-    prior.mClientCode = NULL;
     prior.mTaskPort = Port();
 
     debug("SS", "Process %p(%d) recloned uid=%d gid=%d session=%p",
         this, mPid, mUid, mGid, &session);
 }
+#endif
 
 
 Process::~Process()
@@ -94,9 +95,9 @@ Process::~Process()
 	// no need to lock here; the client process has no more active threads
 	debug("SS", "Process %p(%d) has died", this, mPid);
 	
+    // release our name for the process's task port
 	if (mTaskPort)
         mTaskPort.destroy();	// either dead or taken by reclone
-	delete mClientCode;
     
     // deregister from session
     if (session.removeProcess(this))
@@ -113,16 +114,6 @@ bool Process::kill()
 		mDying = true;
 		return false;	// destroy me later
 	}
-}
-
-
-//
-// Given a task port, determine which session it belongs to.
-// @@@ Very preliminary, pending true session implementation.
-//
-Session &Process::sessionForPort(TaskPort taskPort)
-{
-    return Session::find(taskPort.bootstrap());
 }
 
 
@@ -201,3 +192,24 @@ bool Process::removeAuthorization(AuthorizationToken *auth)
 	}
 	return false;						// keep the auth; it's still in use
 }
+
+
+//
+// Notification client maintainance
+//
+void Process::requestNotifications(Port port, Listener::Domain domain, Listener::EventMask events)
+{
+    new Listener(*this, port, domain, events);
+}
+
+void Process::stopNotifications(Port port)
+{
+    if (!Listener::remove(port))
+        CssmError::throwMe(CSSMERR_CSSM_INVALID_HANDLE_USAGE);	//@@@ bad name (should be "no such callback")
+}
+
+void Process::postNotification(Listener::Domain domain, Listener::Event event, const CssmData &data)
+{
+    Listener::notify(domain, event, data);
+}
+

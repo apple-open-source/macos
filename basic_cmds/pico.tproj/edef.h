@@ -1,5 +1,5 @@
 /*
- * $Id: edef.h,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $
+ * $Id: edef.h,v 1.2 2002/01/03 22:16:39 jevans Exp $
  *
  * Program:	Global definitions and initializations
  *
@@ -14,7 +14,7 @@
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -56,25 +56,19 @@
 /* initialized global definitions */
 
 int     fillcol = 72;                   /* Current fill column          */
-short   kbdm[NKBDM] = {CTLX|')'};       /* Macro                        */
 char    pat[NPAT];                      /* Search pattern		*/
-char	rpat[NPAT];			/* replacement pattern		*/
-char	sarg[NSTRING] = "";		/* string argument for line exec*/
 int	eolexist = TRUE;		/* does clear to EOL exist	*/
 int	optimize = FALSE;		/* optimize flag(cf line speed)	*/
 int	scrollexist = TRUE;		/* does insert line exist	*/
 int	inschar = TRUE;			/* does insert character exist	*/
 int	delchar = TRUE;			/* does delete character exist	*/
 int     sgarbk = TRUE;                  /* TRUE if keyhelp garbaged     */
-char	s[16384];			/* global temporary string	*/
 int     mline_open = FALSE;             /* TRUE if message line is open */
 int	ComposerTopLine = 2;		/* TRUE if message line is open */
 int	ComposerEditing = FALSE;	/* TRUE if message line is open */
 int	revexist = FALSE;		/* does reverse video exist?	*/
-char	*modename[] = {			/* name of modes		*/
-	"WRAP", "CMODE", "SPELL", "EXACT", "VIEW", "OVER"};
 char	modecode[] = "WCSEVO";		/* letters to represent modes	*/
-int	gmode = MDSSPD;			/* global editor mode		*/
+int	gmode = MDWRAP;			/* global editor mode		*/
 int     sgarbf  = TRUE;                 /* TRUE if screen is garbage	*/
 int     mpresf  = FALSE;                /* TRUE if message in last line */
 int	clexec	= FALSE;		/* command line execution flag	*/
@@ -90,8 +84,6 @@ BUFFER  *curbp;                 /* Current buffer               */
 WINDOW  *wheadp;                /* Head of list of windows      */
 BUFFER  *bheadp;                /* Head of list of buffers      */
 BUFFER  *blistp;                /* Buffer for C-X C-B           */
-short   *kbdmip;                /* Input pointer for above      */
-short   *kbdmop;                /* Output pointer for above     */
 
 BUFFER  *bfind();               /* Lookup a buffer by name      */
 WINDOW  *wpopup();              /* Pop up window creation       */
@@ -104,27 +96,21 @@ LINE    *lalloc();              /* Allocate a line              */
 /* initialized global external declarations */
 
 extern  int     fillcol;                /* Fill column                  */
-extern  short   kbdm[];                 /* Holds kayboard macro data    */
 extern  char    pat[];                  /* Search pattern               */
-extern	char	rpat[];			/* Replacement pattern		*/
-extern	char	sarg[];			/* string argument for line exec*/
 extern	int	eolexist;		/* does clear to EOL exist?	*/
 extern	int	optimize;		/* optimize flag(cf line speed)	*/
 extern	int	scrollexist;		/* does insert line exist	*/
 extern	int	inschar;		/* does insert character exist	*/
 extern	int	delchar;		/* does delete character exist	*/
 extern  int     sgarbk;
-extern  char	s[];			/* global temporary string	*/
 extern  int     mline_open;             /* Message line is open         */
 extern	int	ComposerTopLine;	/* TRUE if message line is open */
 extern	int	ComposerEditing;	/* TRUE if message line is open */
 extern	int	timeout;		/* how long we wait in GetKey	*/
 extern	int	revexist;		/* does reverse video exist?	*/
-extern	char *modename[];		/* text names of modes		*/
 extern	char	modecode[];		/* letters to represent modes	*/
-extern	KEYTAB keytab[];		/* key bind to functions table	*/
-extern	KEYTAB pkeytab[];		/* pico's function table	*/
-extern	NBIND names[];			/* name to function table	*/
+extern	KEYTAB	keytab[];		/* key bind to functions table	*/
+extern	KEYTAB	pkeytab[];		/* pico's function table	*/
 extern	int	gmode;			/* global editor mode		*/
 extern  int     sgarbf;                 /* State of screen unknown      */
 extern  int     mpresf;                 /* Stuff in message line        */
@@ -141,8 +127,6 @@ extern  BUFFER  *curbp;                 /* Current buffer               */
 extern  WINDOW  *wheadp;                /* Head of list of windows      */
 extern  BUFFER  *bheadp;                /* Head of list of buffers      */
 extern  BUFFER  *blistp;                /* Buffer for C-X C-B           */
-extern  short   *kbdmip;                /* Input pointer for above      */
-extern  short   *kbdmop;                /* Output pointer for above     */
 
 extern  BUFFER  *bfind();               /* Lookup a buffer by name      */
 extern  WINDOW  *wpopup();              /* Pop up window creation       */
@@ -153,7 +137,12 @@ extern  LINE    *lalloc();              /* Allocate a line              */
 /* terminal table defined only in TERM.C */
 
 #ifndef	termdef
-extern  TERM    term;                   /* Terminal information.        */
+#if defined(VMS) && !defined(__ALPHA)
+globalref
+#else
+extern
+#endif
+       TERM    term;                   /* Terminal information.        */
 #endif
 
 #endif	/* EDEF_H */

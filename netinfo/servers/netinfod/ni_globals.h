@@ -63,9 +63,12 @@ extern const char NAME_LOOPBACK[];
 extern const char NAME_UID[];
 extern const char NAME_PASSWD[];
 extern const char NAME_USERS[];
+extern const char NAME_GROUPS[];
+extern const char NAME_ADMIN[];
 extern const char NAME_NETWORKS[];
 extern const char NAME_ADDRESS[];
 extern const char NAME_TRUSTED_NETWORKS[];
+extern const char NAME_AUTHENTICATION_AUTHORITY[];
 extern const char ACCESS_USER_SUPER[];
 extern const char ACCESS_USER_ANYBODY[];
 extern const char ACCESS_NAME_PREFIX[];
@@ -141,6 +144,9 @@ extern unsigned auth_count[N_AUTH_COUNT];
 #define WBAD 3
 
 extern bool_t readall_done;
+
+/* Promote members of the admin group to root access */
+extern bool_t promote_admins;
 
 /* Force the domain to be root... */
 extern bool_t forcedIsRoot;

@@ -30,6 +30,7 @@
 
 __BEGIN_DECLS
 #include <IOKit/iokitmig.h>
+#include <mach/mach.h>
 __END_DECLS
 
 //
@@ -121,6 +122,7 @@ IOFireWireSBP2LibLUN::IOFireWireSBP2LibLUN( void )
 	
 	// init async callbacks
 	fAsyncPort = MACH_PORT_NULL;
+	fCFAsyncPort = NULL;
 	fMessageCallbackRoutine = NULL;
 	fMessageCallbackRefCon = NULL;
 	
@@ -295,18 +297,20 @@ IOReturn IOFireWireSBP2LibLUN::staticStop( void * self )
 IOReturn IOFireWireSBP2LibLUN::stop( void )
 {
 	FWLOG(( "IOFireWireSBP2LibLUN : stop\n" ));
-		
+	
+	removeIODispatcherFromRunLoop();
+	
 	if( fConnection ) 
 	{
 		FWLOG(( "IOFireWireSBP2LibLUN : IOServiceClose connection = %d\n", fConnection ));
         IOServiceClose( fConnection );
         fConnection = MACH_PORT_NULL;
     }
-
+	
 	if( fAsyncPort != MACH_PORT_NULL )
 	{
-		FWLOG(( "IOFireWireSBP2LibLUN : release asyncPort\n" ));
-		IOObjectRelease( fAsyncPort );
+		FWLOG(( "IOFireWireSBP2LibLUN : release fAsyncPort\n" ));
+		mach_port_destroy( mach_task_self(), fAsyncPort );
 		fAsyncPort = MACH_PORT_NULL;
 	}
 	
@@ -430,7 +434,6 @@ IOReturn IOFireWireSBP2LibLUN::staticAddIODispatcherToRunLoop( void *self,
 IOReturn IOFireWireSBP2LibLUN::addIODispatcherToRunLoop( CFRunLoopRef cfRunLoopRef )
 {
 	IOReturn 				status = kIOReturnSuccess;
-	CFMachPortRef			cfPort = NULL;
 
 	FWLOG(( "IOFireWireSBP2LibLUN : addIODispatcherToRunLoop\n" ));
 	
@@ -448,31 +451,25 @@ IOReturn IOFireWireSBP2LibLUN::addIODispatcherToRunLoop( CFRunLoopRef cfRunLoopR
 		context.release = NULL;
 		context.copyDescription = NULL;
 
-		cfPort = CFMachPortCreateWithPort( kCFAllocatorDefault, fAsyncPort, 
+		fCFAsyncPort = CFMachPortCreateWithPort( kCFAllocatorDefault, fAsyncPort, 
 							(CFMachPortCallBack) IODispatchCalloutFromMessage, 
 							&context, &shouldFreeInfo );
-		if( !cfPort )
+		if( !fCFAsyncPort )
 			status = kIOReturnNoMemory;
 	}
 		
 	if( status == kIOReturnSuccess )
 	{
-		fCFRunLoopSource = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, cfPort, 0 );
+		fCFRunLoopSource = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, fCFAsyncPort, 0 );
 		if( !fCFRunLoopSource )
 			status = kIOReturnNoMemory;
 	}
-
-	if( cfPort != NULL )
-		CFRelease( cfPort );
 		
 	if( status == kIOReturnSuccess )
 	{
 		fCFRunLoop = cfRunLoopRef;
 		CFRunLoopAddSource( fCFRunLoop, fCFRunLoopSource, kCFRunLoopDefaultMode );
 	}
-
-	if( fCFRunLoopSource != NULL )
-		CFRelease( fCFRunLoopSource );
 
 	if( status == kIOReturnSuccess )
 	{
@@ -505,10 +502,19 @@ void IOFireWireSBP2LibLUN::staticRemoveIODispatcherFromRunLoop( void * self )
 
 void IOFireWireSBP2LibLUN::removeIODispatcherFromRunLoop( void )
 {
-	if( fCFRunLoopSource )
+	if( fCFRunLoopSource != NULL )
 	{
 		CFRunLoopRemoveSource( fCFRunLoop, fCFRunLoopSource, kCFRunLoopDefaultMode );
+		CFRelease( fCFRunLoopSource );
 		fCFRunLoopSource = NULL;
+	}
+
+	if( fCFAsyncPort != NULL )
+	{
+		FWLOG(( "IOFireWireSBP2LibLUN : release fCFAsyncPort\n" ));
+		CFMachPortInvalidate( fCFAsyncPort );
+		CFRelease( fCFAsyncPort );
+		fCFAsyncPort = NULL;
 	}
 }
 

@@ -1,7 +1,7 @@
 divert(-1)
 changecom(/*, */)
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -107,6 +107,72 @@ define(`parseInfo',
         }
     }')
 
+define(`startNewClass',
+`define(`indexIndex', 0)dnl
+define(`class', $1)dnl
+divert(2)dnl
+// $1 attributes
+const CSSM_DB_SCHEMA_ATTRIBUTE_INFO $1SchemaAttributeList[] =
+{
+divert(3)dnl
+// $1 indices
+const CSSM_DB_SCHEMA_INDEX_INFO $1SchemaIndexList[] =
+{')
+
+define(`endNewClass',
+`divert(2)dnl
+};
+
+const uint32 class()SchemaAttributeCount = sizeof(class()SchemaAttributeList) / sizeof(CSSM_DB_SCHEMA_ATTRIBUTE_INFO);
+
+divert(3)dnl
+`    // Unique (primary) index'
+undivert(5)
+`    // Secondary indices'
+undivert(6)dnl
+};
+
+const uint32 class()SchemaIndexCount = sizeof(class()SchemaIndexList) / sizeof(CSSM_DB_SCHEMA_INDEX_INFO);
+
+undivert(4)dnl
+divert(0)dnl
+undivert(2)dnl
+undivert(3)dnl')
+
+define(`newAttributeBody',
+`{
+ifelse(index(`$1',`s'),-1,
+`    CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER,
+    {(char *)$3},',
+`    CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
+    {$4},')
+    CSSM_DB_ATTRIBUTE_FORMAT_$7
+}')
+
+define(`simpleNewAttribute',
+`const CSSM_DB_ATTRIBUTE_INFO `k'class()$2 =
+newAttributeBody($*);
+')
+
+define(`newAttribute',
+`divert(2)dnl
+    { $3, $4, { $5, $6 }, CSSM_DB_ATTRIBUTE_FORMAT_$7 },
+divert(-1)
+ifelse(index(`$1',`S'),-1,`',
+`divert(4)dnl
+simpleNewAttribute($*)
+divert(-1)')dnl
+
+ifelse(index(`$1',`U'),-1,`',
+`divert(5)dnl
+    { $3, 0, CSSM_DB_INDEX_UNIQUE, CSSM_DB_INDEX_ON_ATTRIBUTE },
+divert(-1)')dnl
+ifelse(index(`$1',`I'),-1,`',
+`define(`indexIndex', incr(indexIndex))dnl
+divert(6)dnl
+    { $3, indexIndex(), CSSM_DB_INDEX_NONUNIQUE, CSSM_DB_INDEX_ON_ATTRIBUTE },
+divert(-1)')')
+
 /* Start of actual output */
 divert(0)dnl
 /*
@@ -115,6 +181,8 @@ divert(0)dnl
 
 `#include <Security/Schema.h>'
 
+`#include <Security/SecCertificate.h>'
+`#include <Security/TrustItem.h>'
 `#include <Security/SecKeychainAPIPriv.h>'
 `#include <Security/cssmapple.h>'
 `#include <Security/utilities.h>'
@@ -195,10 +263,29 @@ attribute(`UIi', Account, kSecAccountItemAttr, "Account", 0, NULL, BLOB)
 attribute(`UIi', SecurityDomain, kSecSecurityDomainItemAttr, "SecurityDomain", 0, NULL, BLOB)
 attribute(`UIi', Server, kSecServerItemAttr, "Server", 0, NULL, BLOB)
 attribute(`UIi', Protocol, kSecProtocolItemAttr, "Protocol", 0, NULL, UINT32)
-attribute(`UIi', AuthType, kSecAuthTypeItemAttr, "AuthType", 0, NULL, BLOB)
+attribute(`UIi', AuthType, kSecAuthenticationTypeItemAttr, "AuthType", 0, NULL, BLOB)
 attribute(`UIi', Port, kSecPortItemAttr, "Port", 0, NULL, UINT32)
 attribute(`UIi', Path, kSecPathItemAttr, "Path", 0, NULL, BLOB)
 endClass()
+
+startNewClass(X509Certificate)
+newAttribute(`UISs', CertType, kSecCertTypeItemAttr, "CertType", 0, NULL, UINT32)
+newAttribute(`  Ss', CertEncoding, kSecCertEncodingItemAttr, "CertEncoding", 0, NULL, UINT32)
+newAttribute(`  Ss', PrintName, kSecLabelItemAttr, "PrintName", 0, NULL, BLOB)
+newAttribute(`  Ss', Alias, kSecAliasItemAttr, "Alias", 0, NULL, BLOB)
+newAttribute(` ISs', Subject, kSecSubjectItemAttr, "Subject", 0, NULL, BLOB)
+newAttribute(`UISs', Issuer, kSecIssuerItemAttr, "Issuer", 0, NULL, BLOB)
+newAttribute(`UISs', SerialNumber, kSecSerialNumberItemAttr, "SerialNumber", 0, NULL, BLOB)
+newAttribute(` ISs', SubjectKeyIdentifier, kSecSubjectKeyIdentifierItemAttr, "SubjectKeyIdentifier", 0, NULL, BLOB)
+newAttribute(` ISs', PublicKeyHash, kSecPublicKeyHashItemAttr, "PublicKeyHash", 0, NULL, BLOB)
+endNewClass()
+
+startNewClass(UserTrust)
+newAttribute(`UISs', TrustedCertificate, kSecTrustCertAttr, "TrustedCertificate", 0, NULL, BLOB)
+newAttribute(`UISs', TrustedPolicy, kSecTrustPolicyAttr, "TrustedPolicy", 0, NULL, BLOB)
+newAttribute(`  Ss', PrintName, kSecLabelItemAttr, "PrintName", 0, NULL, BLOB)
+endNewClass()
+
 
 divert(3)
 static const CSSM_DB_RECORD_ATTRIBUTE_INFO Attributes[] =
@@ -247,7 +334,7 @@ recordTypeFor(SecItemClass itemClass)
     case kSecGenericPasswordItemClass: return CSSM_DL_DB_RECORD_GENERIC_PASSWORD;
     case kSecInternetPasswordItemClass: return CSSM_DL_DB_RECORD_INTERNET_PASSWORD;
     case kSecAppleSharePasswordItemClass: return CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD;
-    default: MacOSError::throwMe(errSecNoSuchClass);
+    default: return CSSM_DB_RECORDTYPE(itemClass);
     }
 }
 
@@ -259,7 +346,7 @@ itemClassFor(CSSM_DB_RECORDTYPE recordType)
     case CSSM_DL_DB_RECORD_GENERIC_PASSWORD: return kSecGenericPasswordItemClass;
     case CSSM_DL_DB_RECORD_INTERNET_PASSWORD: return kSecInternetPasswordItemClass;
     case CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD: return kSecAppleSharePasswordItemClass;
-    default: return 0; // MacOSError::throwMe(errSecNoSuchClass);
+    default: return SecItemClass(recordType);
     }
 }
 
@@ -293,9 +380,20 @@ attributeInfo(SecKeychainAttrType attrType)
     case kSecProtocolItemAttr: return kAppleshareProtocol;
     /* Unique Internet password attributes */
     case kSecSecurityDomainItemAttr: return kInternetSecurityDomain;
-    case kSecAuthTypeItemAttr: return kInternetAuthType;
+    case kSecAuthenticationTypeItemAttr: return kInternetAuthType;
     case kSecPortItemAttr: return kInternetPort;
     case kSecPathItemAttr: return kInternetPath;
+	/* Unique Certificate attributes */
+	case kSecCertTypeItemAttr: return kX509CertificateCertType;
+	case kSecCertEncodingItemAttr: return kX509CertificateCertEncoding;
+	case kSecSubjectItemAttr: return kX509CertificateSubject;
+	case kSecIssuerItemAttr: return kX509CertificateIssuer;
+	case kSecSerialNumberItemAttr: return kX509CertificateSerialNumber;
+	case kSecSubjectKeyIdentifierItemAttr: return kX509CertificateSubjectKeyIdentifier;
+	case kSecPublicKeyHashItemAttr: return kX509CertificatePublicKeyHash;
+	/* Unique UserTrust attributes */
+	case kSecTrustCertAttr: return kUserTrustTrustedCertificate;
+	case kSecTrustPolicyAttr: return kUserTrustTrustedPolicy;
     default: MacOSError::throwMe(errSecNoSuchAttr); // @@@ Not really but whatever.
     }
 }

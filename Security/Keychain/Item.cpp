@@ -22,14 +22,18 @@
 
 #include "Item.h"
 
+#include "Certificate.h"
+#include "KeyItem.h"
+
 #include "Globals.h"
 #include "Schema.h"
 #include "KCEventNotifier.h"
 #include "cssmdatetime.h"
 #include <Security/keychainacl.h>
-#include <Security/SecKeychainAPIPriv.h>
 #include <Security/aclsupport.h>
 #include <Security/osxsigning.h>
+#include <Security/trackingallocator.h>
+#include <Security/SecKeychainAPIPriv.h>
 
 using namespace KeychainCore;
 using namespace CSSMDateTimeUtils;
@@ -46,12 +50,9 @@ ItemImpl::ItemImpl(SecItemClass itemClass, OSType itemCreator, UInt32 length, co
 		mData.reset(new CssmDataContainer(data, length));
 
 	mDbAttributes->recordType(Schema::recordTypeFor(itemClass));
-	mDbAttributes->add(Schema::attributeInfo(kSecCreatorItemAttr), itemCreator);
 
-    SInt64 date;
-	GetCurrentMacLongDateTime(date);
-    setAttribute(Schema::attributeInfo(kSecCreationDateItemAttr), date);
-    setAttribute(Schema::attributeInfo(kSecModDateItemAttr), date);
+	if (itemCreator)
+		mDbAttributes->add(Schema::attributeInfo(kSecCreatorItemAttr), itemCreator);
 }
 
 ItemImpl::ItemImpl(SecItemClass itemClass, SecKeychainAttributeList *attrList, UInt32 length, const void* data)
@@ -70,11 +71,6 @@ ItemImpl::ItemImpl(SecItemClass itemClass, SecKeychainAttributeList *attrList, U
 			mDbAttributes->add(Schema::attributeInfo(attrList->attr[i].tag), CssmData(attrList->attr[i].data,  attrList->attr[i].length));
 		}
 	}
-
-    SInt64 date;
-	GetCurrentMacLongDateTime(date);
-    setAttribute(Schema::attributeInfo(kSecCreationDateItemAttr), date);
-    setAttribute(Schema::attributeInfo(kSecModDateItemAttr), date);
 }
 
 // DbItemImpl constructor
@@ -170,8 +166,10 @@ ItemImpl::defaultAttributeValue(const CSSM_DB_ATTRIBUTE_INFO &info)
 	}
 }
 
+
+
 PrimaryKey
-ItemImpl::add(const Keychain &keychain)
+ItemImpl::add(Keychain &keychain)
 {
 	// If we already have a Keychain we can't be added.
 	if (mKeychain)
@@ -183,11 +181,27 @@ ItemImpl::add(const Keychain &keychain)
     if (!mDbAttributes.get())
 		MacOSError::throwMe(errSecDuplicateItem);
 
+	CSSM_DB_RECORDTYPE recordType = mDbAttributes->recordType();
+
+	// update the creation and update dates on the new item
+	KeychainSchema schema = keychain->keychainSchema();
+    SInt64 date;
+	GetCurrentMacLongDateTime(date);
+	if (schema->hasAttribute(recordType, kSecCreationDateItemAttr))
+	{
+		setAttribute(schema->attributeInfoFor(recordType, kSecCreationDateItemAttr), date);
+	}
+
+	if (schema->hasAttribute(recordType, kSecModDateItemAttr))
+	{
+		setAttribute(schema->attributeInfoFor(recordType, kSecModDateItemAttr), date);
+	}
+
     // If the label (PrintName) attribute isn't specified, set a default label.
     if (!mDbAttributes->find(Schema::attributeInfo(kSecLabelItemAttr)))
     {
         CssmDbAttributeData *label = NULL;
-        switch (mDbAttributes->recordType())
+        switch (recordType)
         {
             case CSSM_DL_DB_RECORD_GENERIC_PASSWORD:
                 label = mDbAttributes->find(Schema::attributeInfo(kSecServiceItemAttr));
@@ -199,20 +213,21 @@ ItemImpl::add(const Keychain &keychain)
                 // if AppleShare server name wasn't specified, try the server address
                 if (!label) label = mDbAttributes->find(Schema::attributeInfo(kSecAddressItemAttr));
                 break;
-    
+
             default:
                 break;
         }
         // if all else fails, use the account name.
-        if (!label) label = mDbAttributes->find(Schema::attributeInfo(kSecAccountItemAttr));
+        if (!label)
+			label = mDbAttributes->find(Schema::attributeInfo(kSecAccountItemAttr));
 
         if (label && label->size())
-            mDbAttributes->add(Schema::attributeInfo(kSecLabelItemAttr), label->at<CssmData>(0));
+            setAttribute (Schema::attributeInfo(kSecLabelItemAttr), label->at<CssmData>(0));
     }
 
 	// get the attributes that are part of the primary key
 	const CssmAutoDbRecordAttributeInfo &primaryKeyInfos =
-		keychain->primaryKeyInfosFor(recordType());
+		keychain->primaryKeyInfosFor(recordType);
 
 	// make sure each primary key element has a value in the item, otherwise
 	// the database will complain. we make a set of the provided attribute infos
@@ -222,115 +237,64 @@ ItemImpl::add(const Keychain &keychain)
 	typedef set<CssmDbAttributeInfo> InfoSet;
 	InfoSet infoSet;
 
+	// make a set of all the attributes in the key
 	for (uint32 i = 0; i < attributes->size(); i++)
 		infoSet.insert(attributes->at(i).Info);
 
-	for (uint32 i = 0; i < primaryKeyInfos.size(); i++) {
+	for (uint32 i = 0; i < primaryKeyInfos.size(); i++) { // check to make sure all required attributes are in the key
 		InfoSet::const_iterator it = infoSet.find(primaryKeyInfos.at(i));
 
-		if (it == infoSet.end()) {
+		if (it == infoSet.end()) { // not in the key?  add the default
 			// we need to add a default value to the item attributes
-			attributes->add(primaryKeyInfos.at(i),
-				defaultAttributeValue(primaryKeyInfos.at(i)));
+			attributes->add(primaryKeyInfos.at(i), defaultAttributeValue(primaryKeyInfos.at(i)));
 		}
 	}
-
+	
 	Db db(keychain->database());
-	if (db->dl()->subserviceMask() & CSSM_SERVICE_CSP)
+	if (useSecureStorage(db))
 	{
 		// Add the item to the secure storage db
 		SSDb ssDb(safe_cast<SSDbImpl *>(&(*db)));
 
 		TrackingAllocator allocator(CssmAllocator::standard());
-		// @@@ Share this instance
-		KeychainAclFactory aclFactory(allocator);
+                
+		// hhs replaced with the new aclFactory class
+		AclFactory aclFactory;
+		const AccessCredentials *nullCred = aclFactory.nullCred();
 
-		AclEntryPrototype anyEncrypt(TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_ANY));
-		AuthorizationGroup &anyEncryptAuthGroup = anyEncrypt.authorization();
-		CSSM_ACL_AUTHORIZATION_TAG encryptTag = CSSM_ACL_AUTHORIZATION_ENCRYPT;
-		anyEncryptAuthGroup.NumberOfAuthTags = 1;
-		anyEncryptAuthGroup.AuthTags = &encryptTag;
-
-		const AccessCredentials *nullCred = aclFactory.nullCredentials();
-
-		const ResourceControlContext credAndAclEntry
-			(anyEncrypt, const_cast<AccessCredentials *>(nullCred));
-
-		// Create a new SSGroup with owner = ANY, encrypt = ANY
-		SSGroup ssGroup(ssDb, &credAndAclEntry);
-
-		// Now we edit the acl to look like we want it to.
-
-		// Find the PrintName (which we want SecurityAgent to display when evaluating the ACL
-		CssmDbAttributeData *data = mDbAttributes->find(Schema::attributeInfo(kSecLabelItemAttr));
-		CssmData noName;
-		CssmData &printName = data ? CssmData::overlay(data->Value[0]) : noName;
-
-		// @@@ This code should use KeychainACL instead, but that class will need some changes.
-		// Defering integration with KeychainACL to Puma.
-
-		// Figure out if we should special case this to have an anyAllow in this ACL or not.
-		// Currently only generic password items with sevicename "iTools" passwords are always anyAllow.
-		bool anyAllow = false;
-		if (mDbAttributes->recordType() == CSSM_DL_DB_RECORD_GENERIC_PASSWORD)
-		{
-			CssmDbAttributeData *data = mDbAttributes->find(Schema::attributeInfo(kSecServiceItemAttr));
-			if (data && data->Value[0].Length == 6 && !memcmp("iTools", data->Value[0].Data, 6))
-				anyAllow = true;
+		RefPointer<Access> access = mAccess;
+		if (!access) {
+			// create default access controls for the new item
+			CssmDbAttributeData *data = mDbAttributes->find(Schema::attributeInfo(kSecLabelItemAttr));
+			string printName = data ? CssmData::overlay(data->Value[0]).toString() : "keychain item";
+			access = new Access(printName);
+			
+			// special case for "iTools" password - allow anyone to decrypt the item
+			if (recordType == CSSM_DL_DB_RECORD_GENERIC_PASSWORD)
+			{
+				CssmDbAttributeData *data = mDbAttributes->find(Schema::attributeInfo(kSecServiceItemAttr));
+				if (data && data->Value[0].Length == 6 && !memcmp("iTools", data->Value[0].Data, 6))
+				{
+					typedef vector<RefPointer<ACL> > AclSet;
+					AclSet acls;
+					access->findAclsForRight(CSSM_ACL_AUTHORIZATION_DECRYPT, acls);
+					for (AclSet::const_iterator it = acls.begin(); it != acls.end(); it++)
+						(*it)->form(ACL::allowAllForm);
+				}
+			}
 		}
-
-		CssmList &list = *new(allocator) CssmList();
-	
-		// List is a threshold acl with 2 elements or 3 if anyAllow is true.
-		list.append(new(allocator) ListElement(CSSM_ACL_SUBJECT_TYPE_THRESHOLD));   
-		list.append(new(allocator) ListElement(1));
-		list.append(new(allocator) ListElement(2 + anyAllow));
-
-		// If anyAllow is true start the threshold list with a any allow sublist.
-		if(anyAllow)
-		{
-			CssmList &anySublist = *new(allocator) CssmList();
-			anySublist.append(new(allocator) ListElement(CSSM_ACL_SUBJECT_TYPE_ANY));
-			list.append(new(allocator) ListElement(anySublist));
-		}
-
-		// Now add a sublist to trust the current application.
-		auto_ptr<CodeSigning::OSXCode> code(CodeSigning::OSXCode::main());
-		const char *path = code->canonicalPath().c_str();
-		CssmData comment(const_cast<char *>(path), strlen(path) + 1);
-		TrustedApplication app(path, comment);
-		CssmList &appSublist = *new(allocator) CssmList();
-		appSublist.append(new(allocator) ListElement(CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE));
-		appSublist.append(new(allocator) ListElement(CSSM_ACL_CODE_SIGNATURE_OSX));
-		appSublist.append(new(allocator) ListElement(app->signature()));
-		appSublist.append(new(allocator) ListElement(app->comment()));
-		list.append(new(allocator) ListElement(appSublist));
-
-		// Finally add the keychain prompt sublist to the list so we default to asking
-		// the user for permission if all else fails.
-		CssmList &promptSublist = *new(allocator) CssmList();
-		promptSublist.append(new(allocator) ListElement(CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT));
-		promptSublist.append(new(allocator) ListElement(printName));
-		list.append(new(allocator) ListElement(promptSublist));	
-
-		// The acl prototype we want to add contains the list we just made.
-		AclEntryPrototype promptDecrypt(list);
-
-		// Now make sure it only authorizes decrypt.
-		AuthorizationGroup &promptDecryptAuthGroup = promptDecrypt.authorization();
-		CSSM_ACL_AUTHORIZATION_TAG decryptTag = CSSM_ACL_AUTHORIZATION_DECRYPT;
-		promptDecryptAuthGroup.NumberOfAuthTags = 1;
-		promptDecryptAuthGroup.AuthTags = &decryptTag;
-
-		// Add an acl entry for decrypt we just made
-		AclEdit edit(promptDecrypt);
-		ssGroup->changeAcl(nullCred, edit);
-
+		
+		// Create a new SSGroup with temporary access controls
+		Access::Maker maker;
+		ResourceControlContext prototype;
+		maker.initialOwner(prototype, nullCred);
+		SSGroup ssGroup(ssDb, &prototype);
+		
 		try
 		{
 			// Insert the record using the newly created group.
-			mUniqueId = ssDb->insert(recordType(), mDbAttributes.get(),
-									 mData.get(), ssGroup, nullCred);
+			mUniqueId = ssDb->insert(recordType, mDbAttributes.get(),
+									 mData.get(), ssGroup, maker.cred());
 		}
 		catch(...)
 		{
@@ -338,19 +302,17 @@ ItemImpl::add(const Keychain &keychain)
 			throw;
 		}
 
-		// Change the owner so change acl = KeychainPrompt
-		AclEntryPrototype promptOwner(TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT,
-			new(allocator) ListElement(allocator, printName)));
-		AclOwnerPrototype owner(promptOwner);
-		ssGroup->changeOwner(nullCred, owner);
+		// now finalize the access controls on the group
+		access->setAccess(*ssGroup, maker);
+		mAccess = NULL;	// use them and lose them
 	}
 	else
 	{
 		// add the item to the (regular) db
-		mUniqueId = db->insert(recordType(), mDbAttributes.get(), mData.get());
+		mUniqueId = db->insert(recordType, mDbAttributes.get(), mData.get());
 	}
 
-	mPrimaryKey = keychain->makePrimaryKey(recordType(), mUniqueId);
+	mPrimaryKey = keychain->makePrimaryKey(recordType, mUniqueId);
     mKeychain = keychain;
 
 	// Forget our data and attributes.
@@ -361,9 +323,11 @@ ItemImpl::add(const Keychain &keychain)
 }
 
 Item
-ItemImpl::copyTo(const Keychain &keychain)
+ItemImpl::copyTo(const Keychain &keychain, Access *newAccess = NULL)
 {
 	Item item(*this);
+	if (newAccess)
+		item->setAccess(newAccess);
 	keychain->add(item);
 	return item;
 }
@@ -378,15 +342,21 @@ ItemImpl::update()
 	if (!isModified())
 		return;
 
-	// Set the modification date on the item.
-    SInt64 date;
-	GetCurrentMacLongDateTime(date);
-    setAttribute(Schema::attributeInfo(kSecModDateItemAttr), date);
+	CSSM_DB_RECORDTYPE aRecordType = recordType();
+	KeychainSchema schema = mKeychain->keychainSchema();
+
+	// Update the modification date on the item if there is a mod date attribute.
+	if (schema->hasAttribute(aRecordType, kSecModDateItemAttr))
+	{
+		SInt64 date;
+		GetCurrentMacLongDateTime(date);
+		setAttribute(schema->attributeInfoFor(aRecordType, kSecModDateItemAttr), date);
+	}
 
 	// Make sure that we have mUniqueId
 	dbUniqueRecord();
 	Db db(mUniqueId->database());
-	if (db->dl()->subserviceMask() & CSSM_SERVICE_CSP)
+	if (useSecureStorage(db))
 	{
 		// Add the item to the secure storage db
 		SSDbUniqueRecord ssUniqueId(safe_cast<SSDbUniqueRecordImpl *>
@@ -397,7 +367,7 @@ ItemImpl::update()
 
 
 		// Only call this is user interaction is enabled.
-		ssUniqueId->modify(recordType(),
+		ssUniqueId->modify(aRecordType,
 						   mDbAttributes.get(),
 						   mData.get(),
 						   CSSM_DB_MODIFY_ATTRIBUTE_REPLACE,
@@ -405,14 +375,14 @@ ItemImpl::update()
 	}
 	else
 	{
-		mUniqueId->modify(recordType(),
+		mUniqueId->modify(aRecordType,
 						  mDbAttributes.get(),
 						  mData.get(),
 						  CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
 	}
 
 	PrimaryKey oldPK = mPrimaryKey;
-	mPrimaryKey = mKeychain->makePrimaryKey(recordType(), mUniqueId);
+	mPrimaryKey = mKeychain->makePrimaryKey(aRecordType, mUniqueId);
 
 	// Forget our data and attributes.
 	mData.reset(NULL);
@@ -468,18 +438,20 @@ ItemImpl::setData(UInt32 length,const void *data)
 	mData.reset(new CssmDataContainer(data, length));
 }
 
+void
+ItemImpl::setAccess(Access *newAccess)
+{
+	mAccess = newAccess;
+}
+
 CssmClient::DbUniqueRecord
 ItemImpl::dbUniqueRecord()
 {
 	if (!mUniqueId)
 	{
-		assert(mKeychain && mPrimaryKey);
-		DbCursor cursor(mPrimaryKey->createCursor(mKeychain));
-		if (!cursor->next(NULL, NULL, mUniqueId))
-		{
-			killRef();
-			MacOSError::throwMe(errSecInvalidItemRef);
-		}
+            DbCursor cursor(mPrimaryKey->createCursor(mKeychain));
+            if (!cursor->next(NULL, NULL, mUniqueId))
+                    MacOSError::throwMe(errSecInvalidItemRef);
 	}
 
 	return mUniqueId;
@@ -550,8 +522,7 @@ ItemImpl::setAttribute(const CssmDbAttributeInfo &info, const CssmPolyData &data
         }
         else if (length == sizeof(SInt64))
         {
-            MacLongDateTimeToTimeString(*reinterpret_cast<const SInt64 *>(buf),
-                                        16, &timeString);
+            MacLongDateTimeToTimeString(*reinterpret_cast<const SInt64 *>(buf), 16, &timeString);
             buf = &timeString;
             length = 16;
         }
@@ -589,66 +560,95 @@ void
 ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList, UInt32 *length, void **outData)
 {
 
-	// If the data hasn't been set we can't return it.
-	if (!mKeychain && outData)
-	{
-		CssmData *data = mData.get();
-		if (!data)
-			MacOSError::throwMe(errSecDataNotAvailable);
-	}
-	// TODO: need to check and make sure attrs are valid and handle error condition
-
-
-	if(itemClass)
-		*itemClass = Schema::itemClassFor(recordType());
-		
-	dbUniqueRecord();
-
-    UInt32 attrCount = attrList ? attrList->count : 0;
-	DbAttributes dbAttributes(mUniqueId->database(), attrCount);
-    for (UInt32 ix = 0; ix < attrCount; ++ix)
-        dbAttributes.add(Schema::attributeInfo(attrList->attr[ix].tag));
-
-	CssmDataContainer itemData;
-    getContent(&dbAttributes, outData ? &itemData : NULL);
-
-	if (outData) KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
-
-    for (UInt32 ix = 0; ix < attrCount; ++ix)
+    // If the data hasn't been set we can't return it.
+    if (!mKeychain && outData)
     {
-        if (dbAttributes.at(ix).NumberOfValues > 0)
-        {
-            attrList->attr[ix].data = dbAttributes.at(ix).Value[0].Data;	
-            attrList->attr[ix].length = dbAttributes.at(ix).Value[0].Length;
+            CssmData *data = mData.get();
+            if (!data)
+                    MacOSError::throwMe(errSecDataNotAvailable);
+    }
+    // TODO: need to check and make sure attrs are valid and handle error condition
 
-            // We don't want the data released, it is up the client
-            dbAttributes.at(ix).Value[0].Data = NULL;
-            dbAttributes.at(ix).Value[0].Length = 0;
-        }
-        else
-        {
-            attrList->attr[ix].data = NULL;	
-            attrList->attr[ix].length = 0;
-        }
+
+    if(itemClass)
+            *itemClass = Schema::itemClassFor(recordType());
+    
+    bool getDataFromDatabase = mKeychain && mPrimaryKey;
+    
+    if (getDataFromDatabase) // are we attached to a database?
+    
+    {
+        dbUniqueRecord();
     }
 
-	if (outData)
-	{
-		*outData=itemData.data();
-		itemData.Data=NULL;
-		
-		*length=itemData.length();
-		itemData.Length=0;
+    // get the number of attributes requested by the caller
+    UInt32 attrCount = attrList ? attrList->count : 0;
+    
+    if (getDataFromDatabase)
+    {
+        // make a DBAttributes structure and populate it
+        DbAttributes dbAttributes(mUniqueId->database(), attrCount);
+        for (UInt32 ix = 0; ix < attrCount; ++ix)
+        {
+            dbAttributes.add(Schema::attributeInfo(attrList->attr[ix].tag));
+        }
+        
+        // request the data from the database (since we are a reference "item" and the data is really stored there)
+        CssmDataContainer itemData;
+        if (getDataFromDatabase)
+        {
+            getContent(&dbAttributes, outData ? &itemData : NULL);
+        }
+        
+        // retrieve the data from result
+        for (UInt32 ix = 0; ix < attrCount; ++ix)
+        {
+            if (dbAttributes.at(ix).NumberOfValues > 0)
+            {
+                attrList->attr[ix].data = dbAttributes.at(ix).Value[0].Data;	
+                attrList->attr[ix].length = dbAttributes.at(ix).Value[0].Length;
+    
+                // We don't want the data released, it is up the client
+                dbAttributes.at(ix).Value[0].Data = NULL;
+                dbAttributes.at(ix).Value[0].Length = 0;
+            }
+            else
+            {
+                attrList->attr[ix].data = NULL;	
+                attrList->attr[ix].length = 0;
+            }
+        }
+
+		// clean up
+		if (outData)
+		{
+				*outData=itemData.data();
+				itemData.Data=NULL;
+				
+				*length=itemData.length();
+				itemData.Length=0;
+		}
+    }
+    else if (attrList != NULL)
+    {
+		getLocalContent (*attrList);
+		*outData = NULL;
+		*length = 0;
 	}
-	
+    
+    // inform anyone interested that we are doing this
+    if (outData)
+    {
+        KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
+    }
 }
 
 void
 ItemImpl::freeContent(SecKeychainAttributeList *attrList, void *data)
 {
-	CssmAllocator &allocator = CssmAllocator::standard(); // @@@ This might not match the one used originally
-	if (data)
-		allocator.free(data);
+    CssmAllocator &allocator = CssmAllocator::standard(); // @@@ This might not match the one used originally
+    if (data)
+            allocator.free(data);
 
     UInt32 attrCount = attrList ? attrList->count : 0;
     for (UInt32 ix = 0; ix < attrCount; ++ix)
@@ -670,10 +670,11 @@ ItemImpl::modifyAttributesAndData(const SecKeychainAttributeList *attrList, UInt
 		mDbAttributes->recordType(mPrimaryKey->recordType());
 	}
 
+	CSSM_DB_RECORDTYPE recordType = mDbAttributes->recordType();
     UInt32 attrCount = attrList ? attrList->count : 0;
 	for (UInt32 ix = 0; ix < attrCount; ix++)
 	{
-		CssmDbAttributeInfo info=mKeychain->attributeInfoForTag(attrList->attr[ix].tag);
+		CssmDbAttributeInfo info=mKeychain->attributeInfoFor(recordType, attrList->attr[ix].tag);
 						
 		if (attrList->attr[ix].length || info.AttributeFormat==CSSM_DB_ATTRIBUTE_FORMAT_STRING  || info.AttributeFormat==CSSM_DB_ATTRIBUTE_FORMAT_BLOB
 		 || info.AttributeFormat==CSSM_DB_ATTRIBUTE_FORMAT_STRING  || info.AttributeFormat==CSSM_DB_ATTRIBUTE_FORMAT_BIG_NUM
@@ -929,7 +930,7 @@ ItemImpl::group()
 	if (&*mUniqueId)
 	{
 		Db db(mKeychain->database());
-		if (db->dl()->subserviceMask() & CSSM_SERVICE_CSP)
+		if (useSecureStorage(db))
 		{
 			group = safer_cast<SSDbUniqueRecordImpl &>(*mUniqueId).group();
 		}
@@ -938,22 +939,142 @@ ItemImpl::group()
 	return group;
 }
 
+void ItemImpl::getLocalContent(SecKeychainAttributeList &attributeList)
+{
+    CssmAllocator &allocator = CssmAllocator::standard(); // @@@ This might not match the one used originally
+
+    // pull attributes out of a "floating" item, i.e. one that isn't attached to a database
+    unsigned int i;
+    for (i = 0; i < attributeList.count; ++i)
+    {
+        // get the size of the attribute
+        UInt32 actualLength;
+        SecKeychainAttribute attribute;
+        attribute.tag = attributeList.attr[i].tag;
+        attribute.length = 0;
+        attribute.data = NULL;
+        getAttribute (attribute, &actualLength);
+        
+        // if we didn't get the actual length, mark zeros.
+        if (actualLength == 0)
+        {
+            attributeList.attr[i].length = 0;
+            attributeList.attr[i].data = NULL;
+        }
+        else
+        {
+            // make room in the item data
+            attributeList.attr[i].length = actualLength;
+            attributeList.attr[i].data = allocator.malloc(actualLength);
+            getAttribute(attributeList.attr[i], &actualLength);
+        }
+    }
+}
+
 void
 ItemImpl::getContent(DbAttributes *dbAttributes, CssmDataContainer *itemData)
 {
     // Make sure mUniqueId is set.
-	dbUniqueRecord();
-	if (itemData)
-	{
-		Db db(mUniqueId->database());
-		if (db->dl()->subserviceMask() & CSSM_SERVICE_CSP)
-		{
-			SSDbUniqueRecord ssUniqueId(safe_cast<SSDbUniqueRecordImpl *>(&(*mUniqueId)));
-			const AccessCredentials *autoPrompt = globals().credentials();
-			ssUniqueId->get(dbAttributes, itemData, autoPrompt);
-            return;
-		}
+    dbUniqueRecord();
+    if (itemData)
+    {
+            Db db(mUniqueId->database());
+            if (useSecureStorage(db))
+            {
+                    SSDbUniqueRecord ssUniqueId(safe_cast<SSDbUniqueRecordImpl *>(&(*mUniqueId)));
+                    const AccessCredentials *autoPrompt = globals().credentials();
+                    ssUniqueId->get(dbAttributes, itemData, autoPrompt);
+                    return;
+            }
     }
 
     mUniqueId->get(dbAttributes, itemData); 
+}
+
+bool
+ItemImpl::useSecureStorage(const Db &db)
+{
+	switch (recordType())
+	{
+	case CSSM_DL_DB_RECORD_GENERIC_PASSWORD:
+	case CSSM_DL_DB_RECORD_INTERNET_PASSWORD:
+	case CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD:
+		if (db->dl()->subserviceMask() & CSSM_SERVICE_CSP)
+			return true;
+		break;
+	default:
+		break;
+	}
+	return false;
+}
+
+
+//
+// Item -- This class is here to magically create the right subclass of ItemImpl
+// when constructing new items.
+//
+Item::Item()
+{
+}
+
+Item::Item(ItemImpl *impl) : RefPointer<ItemImpl>(impl)
+{
+}
+
+Item::Item(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data)
+{
+	if (itemClass == CSSM_DL_DB_RECORD_X509_CERTIFICATE
+		|| itemClass == CSSM_DL_DB_RECORD_PUBLIC_KEY
+		|| itemClass == CSSM_DL_DB_RECORD_PRIVATE_KEY
+		|| itemClass == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+		MacOSError::throwMe(errSecNoSuchClass); /* @@@ errSecInvalidClass */
+
+	*this = new ItemImpl(itemClass, itemCreator, length, data);
+}
+
+Item::Item(SecItemClass itemClass, SecKeychainAttributeList *attrList, UInt32 length, const void* data)
+{
+	if (itemClass == CSSM_DL_DB_RECORD_X509_CERTIFICATE
+		|| itemClass == CSSM_DL_DB_RECORD_PUBLIC_KEY
+		|| itemClass == CSSM_DL_DB_RECORD_PRIVATE_KEY
+		|| itemClass == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+		MacOSError::throwMe(errSecNoSuchClass); /* @@@ errSecInvalidClass */
+
+	*this = new ItemImpl(itemClass, attrList, length, data);
+}
+
+Item::Item(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId)
+	: RefPointer<ItemImpl>(
+		primaryKey->recordType() == CSSM_DL_DB_RECORD_X509_CERTIFICATE
+		? new Certificate(keychain, primaryKey, uniqueId)
+		: (primaryKey->recordType() == CSSM_DL_DB_RECORD_PUBLIC_KEY
+		   || primaryKey->recordType() == CSSM_DL_DB_RECORD_PRIVATE_KEY
+		   || primaryKey->recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+		? new KeyItem(keychain, primaryKey, uniqueId)
+		: new ItemImpl(keychain, primaryKey, uniqueId))
+{
+}
+
+Item::Item(const Keychain &keychain, const PrimaryKey &primaryKey)
+	: RefPointer<ItemImpl>(
+		primaryKey->recordType() == CSSM_DL_DB_RECORD_X509_CERTIFICATE
+		? new Certificate(keychain, primaryKey)
+		: (primaryKey->recordType() == CSSM_DL_DB_RECORD_PUBLIC_KEY
+		   || primaryKey->recordType() == CSSM_DL_DB_RECORD_PRIVATE_KEY
+		   || primaryKey->recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+		? new KeyItem(keychain, primaryKey)
+		: new ItemImpl(keychain, primaryKey))
+{
+}
+
+Item::Item(ItemImpl &item)
+	: RefPointer<ItemImpl>(
+		item.recordType() == CSSM_DL_DB_RECORD_X509_CERTIFICATE
+		? new Certificate(safer_cast<Certificate &>(item))
+		: (item.recordType() == CSSM_DL_DB_RECORD_PUBLIC_KEY
+		   || item.recordType() == CSSM_DL_DB_RECORD_PRIVATE_KEY
+		   || item.recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+		? new KeyItem(safer_cast<KeyItem &>(item))
+		: new ItemImpl(item))
+{
 }

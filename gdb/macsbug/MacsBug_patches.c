@@ -322,7 +322,7 @@ static void enhanced_gdb_listing_cmd(char *arg, int from_tty, int cmdNbr,
 {
     if (from_tty && !macsbug_screen && isatty(STDOUT_FILENO) &&
     	gdb_get_int("$__lastcmd__") == cmdNbr)
-    	gdb_printf(CURSOR_UP, 2);
+    	gdb_printf(CURSOR_UP CLEAR_LINE, 2);
     
     if (macsbug_screen)
     	cmd(arg, from_tty);			/* just do cmd if we have screen	*/

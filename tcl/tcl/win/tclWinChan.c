@@ -9,7 +9,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclWinChan.c,v 1.1.1.4 2000/12/06 23:04:26 wsanchez Exp $
+ * RCS: @(#) $Id: tclWinChan.c,v 1.1.1.5 2002/04/05 16:14:14 jevans Exp $
  */
 
 #include "tclWinInt.h"
@@ -40,6 +40,8 @@ typedef struct FileInfo {
     int flags;			/* State flags, see above for a list. */
     HANDLE handle;		/* Input/output file. */
     struct FileInfo *nextPtr;	/* Pointer to next registered file. */
+    int dirty;                  /* Boolean flag. Set if the OS may have data
+				 * pending on the channel */
 } FileInfo;
 
 typedef struct ThreadSpecificData {
@@ -557,7 +559,7 @@ FileOutputProc(instanceData, buf, toWrite, errorCode)
         *errorCode = errno;
         return -1;
     }
-    FlushFileBuffers(infoPtr->handle);
+    infoPtr->dirty = 1;
     return bytesWritten;
 }
 
@@ -879,15 +881,20 @@ Tcl_MakeFileChannel(rawHandle, mode)
     char channelName[16 + TCL_INTEGER_SPACE];
     Tcl_Channel channel = NULL;
     HANDLE handle = (HANDLE) rawHandle;
+    HANDLE dupedHandle;
     DCB dcb;
-    DWORD consoleParams;
-    DWORD type;
+    DWORD consoleParams, type;
     TclFile readFile = NULL;
     TclFile writeFile = NULL;
+    BOOL result;
 
     if (mode == 0) {
 	return NULL;
     }
+
+    /*
+     * GetFileType() returns FILE_TYPE_UNKNOWN for invalid handles.
+     */
 
     type = GetFileType(handle);
 
@@ -930,19 +937,58 @@ Tcl_MakeFileChannel(rawHandle, mode)
 
     case FILE_TYPE_DISK:
     case FILE_TYPE_CHAR:
-    case FILE_TYPE_UNKNOWN:
 	channel = TclWinOpenFileChannel(handle, channelName, mode, 0);
 	break;
 	
+    case FILE_TYPE_UNKNOWN:
     default:
 	/*
-	 * The handle is of an unknown type, probably /dev/nul equivalent
-	 * or possibly a closed handle.
+	 * The handle is of an unknown type.  Test the validity of this OS
+	 * handle by duplicating it, then closing the dupe.  The Win32 API
+	 * doesn't provide an IsValidHandle() function, so we have to emulate
+	 * it here.  This test will not work on a console handle reliably,
+	 * which is why we can't test every handle that comes into this
+	 * function in this way.
 	 */
-	
-	channel = NULL;
-	break;
 
+	result = DuplicateHandle(GetCurrentProcess(), handle,
+		GetCurrentProcess(), &dupedHandle, 0, FALSE,
+		DUPLICATE_SAME_ACCESS);
+
+	if (result != 0) {
+	    /* 
+	     * Unable to make a duplicate. It's definately invalid at this
+	     * point.
+	     */
+
+	    return NULL;
+	}
+
+	/*
+	 * Use structured exception handling (Win32 SEH) to protect the close
+	 * of this duped handle which might throw EXCEPTION_INVALID_HANDLE.
+	 */
+
+	__try {
+	    CloseHandle(dupedHandle);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+	    /*
+	     * Definately an invalid handle.  So, therefore, the original
+	     * is invalid also.
+	     */
+
+	    return NULL;
+	}
+
+	/* Fall through, the handle is valid. */
+
+	/*
+	 * Create the undefined channel, anyways, because we know the handle
+	 * is valid to something.
+	 */
+
+	channel = TclWinOpenFileChannel(handle, channelName, mode, 0);
     }
 
     return channel;
@@ -975,6 +1021,7 @@ TclpGetDefaultStdChannel(type)
     char *bufMode;
     DWORD handleId;		/* Standard handle to retrieve. */
 
+
     switch (type) {
 	case TCL_STDIN:
 	    handleId = STD_INPUT_HANDLE;
@@ -1003,15 +1050,15 @@ TclpGetDefaultStdChannel(type)
      * is not a console mode application, even though this is not a valid
      * handle.
      */
-    
+
     if ((handle == INVALID_HANDLE_VALUE) || (handle == 0)) {
-	return NULL;
+	return (Tcl_Channel) NULL;
     }
-    
+
     channel = Tcl_MakeFileChannel(handle, mode);
 
     if (channel == NULL) {
-	return NULL;
+	return (Tcl_Channel) NULL;
     }
 
     /*
@@ -1081,7 +1128,7 @@ TclWinOpenFileChannel(handle, channelName, permissions, appendMode)
     infoPtr->watchMask = 0;
     infoPtr->flags = appendMode;
     infoPtr->handle = handle;
-	
+    infoPtr->dirty = 0;
     wsprintfA(channelName, "file%lx", (int) infoPtr);
     
     infoPtr->channel = Tcl_CreateChannel(&fileChannelType, channelName,
@@ -1098,3 +1145,45 @@ TclWinOpenFileChannel(handle, channelName, permissions, appendMode)
     return infoPtr->channel;
 }
 
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TclWinOpenFileChannel --
+ *
+ *	Constructs a File channel for the specified standard OS handle.
+ *      This is a helper function to break up the construction of 
+ *      channels into File, Console, or Serial.
+ *
+ * Results:
+ *	Returns the new channel, or NULL.
+ *
+ * Side effects:
+ *	May open the channel and may cause creation of a file on the
+ *	file system.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void
+TclWinFlushDirtyChannels ()
+{
+    FileInfo *infoPtr;
+    ThreadSpecificData *tsdPtr;
+
+    tsdPtr = FileInit();
+
+    /*
+     * Flush all channels which are dirty, i.e. may have data pending
+     * in the OS
+     */
+    
+    for (infoPtr = tsdPtr->firstFilePtr;
+	 infoPtr != NULL; 
+	 infoPtr = infoPtr->nextPtr) {
+	if (infoPtr->dirty) {
+	    FlushFileBuffers(infoPtr->handle);
+	    infoPtr->dirty = 0;
+	}
+    }
+}

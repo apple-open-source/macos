@@ -16,7 +16,6 @@
 OSDefineMetaClassAndStructors(AudioHardwareMux, OSObject)
 
 AudioHardwareMux *AudioHardwareMux::create(AudioHardwareMuxInfo theInfo){
- 
     CLOG("+ AudioHardwareMux::create\n");
     AudioHardwareMux *myMux;
     myMux = new AudioHardwareMux;
@@ -31,9 +30,7 @@ AudioHardwareMux *AudioHardwareMux::create(AudioHardwareMuxInfo theInfo){
     return myMux;
 }
 
-
 bool AudioHardwareMux::init(AudioHardwareMuxInfo theInfo) {
-
     short idx;
     
     CLOG("+ AudioHardwareMux::init\n");
@@ -66,15 +63,14 @@ bool AudioHardwareMux::init(AudioHardwareMuxInfo theInfo) {
     return(true);
 }
 
-
 void AudioHardwareMux::free(){
-    //pluginRef->release();
+    // pluginRef->release();
     super::free();
 }
 
 void AudioHardwareMux::attachAudioPluginRef(AppleOnboardAudio *theAudioPlugin){
     pluginRef = theAudioPlugin;
-    //pluginRef->retain();
+    // pluginRef->retain();
 }
 
 UInt32 AudioHardwareMux::GetMuxSource( ){
@@ -91,7 +87,7 @@ IOReturn AudioHardwareMux::SetMuxSource(UInt32 source ) {
     
     switch(MuxPortType) {
         case kAudioHardwareMuxPO:
-            //debugIOLog("We are in the right case\n");
+            // debugIOLog("We are in the right case\n");
             for (index = 0; index < MuxPOnumSources; index++) {
 		if (MuxPOsources[index].source == source) {
                     progOuts = pluginRef->sndHWGetProgOutput();	
@@ -113,11 +109,11 @@ IOReturn AudioHardwareMux::SetMuxSource(UInt32 source ) {
             heathrow = IOService::waitForService(IOService::serviceMatching("Heathrow"));
 
             heathrow->callPlatformFunction(OSSymbol::withCString("heathrow_safeReadRegUInt8"), false, 
-                                                                (void *)MmuxOffset, (void *)&value, 0, 0);
+                                                                (void *)MmuxOffset, &value, 0, 0);
             value &= k101MuxClearChanCBitsMask;
 
             heathrow->callPlatformFunction(OSSymbol::withCString("heathrow_writeRegUInt8"), false, 
-                                                                (void *)&MmuxOffset, (void *)value, 0, 0);
+                                                                (void *)&MmuxOffset, (void *)(UInt32)value, 0, 0);
             switch(source) {
                 case 'imic':
                     WSMuxchanCSetting |= k101MuxInternalMicInput;
@@ -136,18 +132,18 @@ IOReturn AudioHardwareMux::SetMuxSource(UInt32 source ) {
             }                        
             
             heathrow->callPlatformFunction(OSSymbol::withCString("heathrow_safeReadRegUInt8"), false, 
-                                                                (void *)MmuxOffset, (void *)&value, 0, 0); 
+                                                                (void *)MmuxOffset, &value, 0, 0); 
             
             value |= WSMuxchanCSetting; 
             
             if(doTimingStuff) {
                 IOSleep(k101MuxMClkDelay);
                 heathrow->callPlatformFunction(OSSymbol::withCString("heathrow_writeRegUInt8"), false, 
-                                                         (void *)&MmuxOffset, (void *)value, 0, 0);
+                                                         (void *)&MmuxOffset, (void *)(UInt32)value, 0, 0);
                 IOSleep(delayTime);
             } else {
                 heathrow->callPlatformFunction(OSSymbol::withCString("heathrow_writeRegUInt8"), false, 
-                                                         (void *)&MmuxOffset, (void *)value, 0, 0);
+                                                         (void *)&MmuxOffset, (void *)(UInt32)value, 0, 0);
             }
             break;
         default:
@@ -160,7 +156,6 @@ EXIT:
 BAIL:
     goto EXIT;
 }
-
 
 void AudioHardwareMux::ioLog() {
 #ifdef DEBUGLOG

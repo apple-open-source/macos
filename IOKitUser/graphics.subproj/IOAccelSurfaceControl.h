@@ -32,9 +32,10 @@ typedef struct IOAccelConnectStruct *IOAccelConnect;
 
 /* Create an accelerated surface and attach it to a CGS surface */
 IOReturn IOAccelCreateSurface( io_service_t service, UInt32 wid, eIOAccelSurfaceModeBits modebits, IOAccelConnect *connect );
-
-/* Fix surface size */
-IOReturn IOAccelSetSurfaceScale( IOAccelConnect connect, IOOptionBits options, UInt32 width, UInt32 height );
+ 
+/* Fix surface size & scaling */
+IOReturn IOAccelSetSurfaceScale( IOAccelConnect connect, IOOptionBits options,
+                                    IOAccelSurfaceScaling * scaling, UInt32 scalingSize );
 
 /* Detach an an accelerated surface from a CGS surface and destroy it*/
 IOReturn IOAccelDestroySurface( IOAccelConnect connect );

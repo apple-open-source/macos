@@ -1,0 +1,16 @@
+#! /bin/sh
+
+# Test to make sure all-local and other -local targets work correctly.
+
+. $srcdir/defs || exit 1
+
+for target in all install-exec install-data uninstall; do
+   echo "Doing $target"
+   echo "${target}-local:" > Makefile.am
+
+   $ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+   fgrep "${target}-local ${target}-local" Makefile.in && exit 1
+done
+exit 0

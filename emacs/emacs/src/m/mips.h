@@ -1,5 +1,5 @@
 /* m- file for Mips machines.
-   Copyright (C) 1987, 1992 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1992, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -149,8 +149,10 @@ NOTE-END  */
 #define LD_SWITCH_MACHINE -D 800000
 #define LIBS_DEBUG
 
+#if defined (__NetBSD__) || defined (__OpenBSD__)
+#else  /* bsd with elf */
 #define LINKER /bsd43/bin/ld
-  
+#endif /* bsd with elf */
 #else /* not BSD_SYSTEM */
 
 #if defined(__GNUC__) && defined(_ABIN32)
@@ -198,7 +200,7 @@ NOTE-END  */
 #undef static
 
 /* Don't try to use SIGIO or FIONREAD even though they are defined.  */
-#undef SIGIO
+#define BROKEN_SIGIO
 #define BROKEN_FIONREAD
 
 /* Describe special kernel features.  */
@@ -211,9 +213,6 @@ NOTE-END  */
 
 /* The `select' in the system won't work for pipes, so don't use it.  */
 #undef HAVE_SELECT /* override configuration decision */
-
-#define HAVE_GETWD
-#define HAVE_GETTIMEOFDAY
 
 #define HAVE_PTYS
 #define HAVE_SOCKETS

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		01140C20FFC5C1ED11CE15BF = {
 			isa = PBXFileReference;
@@ -64,18 +64,6 @@
 				);
 			};
 		};
-		01140C2AFFC5C1ED11CE15BF = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage/ata";
-			dstSubfolderSpec = 0;
-			files = (
-				01140C2FFFC5C21611CE15BF,
-				01140C30FFC5C21611CE15BF,
-				01140C31FFC5C21611CE15BF,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
-		};
 		01140C2BFFC5C1ED11CE15BF = {
 			fileRef = 01140C23FFC5C1ED11CE15BF;
 			isa = PBXBuildFile;
@@ -108,24 +96,6 @@
 				);
 			};
 		};
-		01140C2FFFC5C21611CE15BF = {
-			fileRef = 01140C20FFC5C1ED11CE15BF;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01140C30FFC5C21611CE15BF = {
-			fileRef = 01140C21FFC5C1ED11CE15BF;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01140C31FFC5C21611CE15BF = {
-			fileRef = 01140C22FFC5C1ED11CE15BF;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		0145CCF6FFE5FEDF11CE15BF = {
 			isa = PBXFrameworkReference;
 			name = Kernel.framework;
@@ -149,9 +119,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -184,9 +154,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -210,11 +180,16 @@
 			projectDirPath = "";
 			targets = (
 				089C1673FE841209C02AAC07,
+				5C3EEA0E022B07DD05CE15BF,
+				5CF10958022C984D05CE15BF,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
 			children = (
 				247142CAFF3F8F9811CA285C,
+				5C3EE9EE022AF3F005CE15BF,
+				5C3EE9FE022AF7EC05CE15BF,
+				5C3EE9FF022AF7EC05CE15BF,
 				0145CCF6FFE5FEDF11CE15BF,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
@@ -227,23 +202,22 @@
 			buildPhases = (
 				06AA1267FFB2110C11CA28AA,
 				089C1674FE841209C02AAC07,
-				01140C2AFFC5C1ED11CE15BF,
 				089C1675FE841209C02AAC07,
 				089C1676FE841209C02AAC07,
 				089C1677FE841209C02AAC07,
+				5CF10956022C975205CE15BF,
 				089C1679FE841209C02AAC07,
 				06AA1264FFB2107B11CA28AA,
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
-				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATABlockStorage;
-				MODULE_VERSION = 1.1.2;
+				MODULE_VERSION = 1.2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -253,6 +227,8 @@
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
+				5C418631022DA7C205CE15BF,
+				5C3EEA1B022B092C05CE15BF,
 			);
 			isa = PBXBundleTarget;
 			name = IOATABlockStorage;
@@ -260,15 +236,15 @@
 			productName = IOATABlockStorage;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOATABlockStorage</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.2, Copyright Apple Computer, Inc. 1998-2002</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 1998-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -280,11 +256,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2</string>
+	<string>1.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOATABlockStorage</key>
@@ -327,17 +303,21 @@
 				01140C27FFC5C1ED11CE15BF,
 				01140C28FFC5C1ED11CE15BF,
 				01140C29FFC5C1ED11CE15BF,
+				5C3EEA04022AF8BB05CE15BF,
+				5C3EEA06022AF8DB05CE15BF,
+				5C3EEA07022AF8DB05CE15BF,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 				089C1680FE841241C02AAC07,
+				5CD9EF2202BEB0B205CE15BF,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -346,26 +326,28 @@
 				01140C2CFFC5C1ED11CE15BF,
 				01140C2DFFC5C1ED11CE15BF,
 				01140C2EFFC5C1ED11CE15BF,
+				5C3EEA05022AF8BB05CE15BF,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
+				5CD9EF2102BEB0B205CE15BF,
 				089C167DFE841241C02AAC07,
 			);
 			isa = PBXGroup;
@@ -421,6 +403,8 @@
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				0B81C263FFB7832611CA28AA,
+				5C3EEA0D022B07DD05CE15BF,
+				5CF10957022C984D05CE15BF,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -440,16 +424,413 @@
 			children = (
 				01140C20FFC5C1ED11CE15BF,
 				01140C21FFC5C1ED11CE15BF,
+				5C3EEA02022AF8BB05CE15BF,
 				01140C22FFC5C1ED11CE15BF,
 				01140C24FFC5C1ED11CE15BF,
 				01140C23FFC5C1ED11CE15BF,
 				01140C26FFC5C1ED11CE15BF,
 				01140C25FFC5C1ED11CE15BF,
+				5C3EEA03022AF8BB05CE15BF,
 			);
 			isa = PBXGroup;
-			name = Source;
+			name = Kernel;
 			path = "";
 			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//5C0
+//5C1
+//5C2
+//5C3
+//5C4
+		5C3EE9EE022AF3F005CE15BF = {
+			children = (
+				5C3EE9EF022AF49305CE15BF,
+				5C3EE9F0022AF49305CE15BF,
+				5C3EE9F1022AF49305CE15BF,
+				5C3EE9F2022AF49305CE15BF,
+			);
+			isa = PBXGroup;
+			name = User;
+			refType = 4;
+		};
+		5C3EE9EF022AF49305CE15BF = {
+			isa = PBXFileReference;
+			name = ATASMARTLib.h;
+			path = UserClientLib/ATASMARTLib.h;
+			refType = 4;
+		};
+		5C3EE9F0022AF49305CE15BF = {
+			isa = PBXFileReference;
+			name = ATASMARTLibPriv.h;
+			path = UserClientLib/ATASMARTLibPriv.h;
+			refType = 4;
+		};
+		5C3EE9F1022AF49305CE15BF = {
+			isa = PBXFileReference;
+			name = ATASMARTClient.h;
+			path = UserClientLib/ATASMARTClient.h;
+			refType = 4;
+		};
+		5C3EE9F2022AF49305CE15BF = {
+			isa = PBXFileReference;
+			name = ATASMARTClient.cpp;
+			path = UserClientLib/ATASMARTClient.cpp;
+			refType = 4;
+		};
+		5C3EE9FE022AF7EC05CE15BF = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		5C3EE9FF022AF7EC05CE15BF = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		5C3EEA02022AF8BB05CE15BF = {
+			isa = PBXFileReference;
+			name = ATASMARTUserClient.h;
+			path = UserClient/ATASMARTUserClient.h;
+			refType = 4;
+		};
+		5C3EEA03022AF8BB05CE15BF = {
+			isa = PBXFileReference;
+			name = ATASMARTUserClient.cpp;
+			path = UserClient/ATASMARTUserClient.cpp;
+			refType = 4;
+		};
+		5C3EEA04022AF8BB05CE15BF = {
+			fileRef = 5C3EEA02022AF8BB05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA05022AF8BB05CE15BF = {
+			fileRef = 5C3EEA03022AF8BB05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA06022AF8DB05CE15BF = {
+			fileRef = 5C3EE9EF022AF49305CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA07022AF8DB05CE15BF = {
+			fileRef = 5C3EE9F0022AF49305CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA0D022B07DD05CE15BF = {
+			isa = PBXBundleReference;
+			path = ATASMARTLib.plugin;
+			refType = 3;
+		};
+		5C3EEA0E022B07DD05CE15BF = {
+			buildPhases = (
+				5C3EEA0F022B07DD05CE15BF,
+				5C3EEA10022B07DD05CE15BF,
+				5C3EEA11022B07DD05CE15BF,
+				5C3EEA12022B07DD05CE15BF,
+				5C3EEA13022B07DD05CE15BF,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ATASMARTLib;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = plugin;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = ATASMARTLib;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = ATASmartLib;
+			productReference = 5C3EEA0D022B07DD05CE15BF;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>ATASMARTLib</string>
+	<key>CFBundleGetInfoString</key>
+	<string>1.2.0, Copyright Apple Computer, Inc 2002</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.ATASMARTLib</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>ATASMARTLib</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.2.0</string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>5E659F92-20D3-11D6-BDB5-0003935A76B2</key>
+		<string>ATASMARTLibFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>24514B7A-2804-11D6-8A02-003065704866</key>
+		<array>
+			<string>5E659F92-20D3-11D6-BDB5-0003935A76B2</string>
+		</array>
+	</dict>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		5C3EEA0F022B07DD05CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+				5C3EEA14022B080405CE15BF,
+				5C3EEA15022B080405CE15BF,
+				5C3EEA16022B080405CE15BF,
+				5C3EEA17022B080405CE15BF,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5C3EEA10022B07DD05CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5C3EEA11022B07DD05CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+				5C3EEA18022B080405CE15BF,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5C3EEA12022B07DD05CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+				5C3EEA19022B08E505CE15BF,
+				5C3EEA1A022B08E505CE15BF,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5C3EEA13022B07DD05CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5C3EEA14022B080405CE15BF = {
+			fileRef = 5C3EE9EF022AF49305CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA15022B080405CE15BF = {
+			fileRef = 5C3EE9F0022AF49305CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA16022B080405CE15BF = {
+			fileRef = 5C3EE9F1022AF49305CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA17022B080405CE15BF = {
+			fileRef = 01140C22FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA18022B080405CE15BF = {
+			fileRef = 5C3EE9F2022AF49305CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA19022B08E505CE15BF = {
+			fileRef = 5C3EE9FE022AF7EC05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA1A022B08E505CE15BF = {
+			fileRef = 5C3EE9FF022AF7EC05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C3EEA1B022B092C05CE15BF = {
+			isa = PBXTargetDependency;
+			target = 5C3EEA0E022B07DD05CE15BF;
+		};
+		5C3EEA1C022B092C05CE15BF = {
+			fileRef = 5C3EEA0D022B07DD05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C418631022DA7C205CE15BF = {
+			isa = PBXTargetDependency;
+			target = 5CF10958022C984D05CE15BF;
+		};
+		5CD9EF2102BEB0B205CE15BF = {
+			isa = PBXFileReference;
+			name = PCCard.icns;
+			path = Icons/PCCard.icns;
+			refType = 4;
+		};
+		5CD9EF2202BEB0B205CE15BF = {
+			fileRef = 5CD9EF2102BEB0B205CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CF10956022C975205CE15BF = {
+			buildActionMask = 12;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				5C3EEA1C022B092C05CE15BF,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5CF10957022C984D05CE15BF = {
+			isa = PBXExecutableFileReference;
+			path = InstallHeaders;
+			refType = 3;
+		};
+		5CF10958022C984D05CE15BF = {
+			buildPhases = (
+				5CF10959022C984D05CE15BF,
+				5CF1095A022C984D05CE15BF,
+				5CF1095B022C984D05CE15BF,
+				5CF1095E022C989B05CE15BF,
+				5CF10962022C989B05CE15BF,
+				5CF1095C022C984D05CE15BF,
+			);
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = InstallHeaders;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = InstallHeaders;
+			productInstallPath = /usr/local/bin;
+			productName = InstallHeaders;
+			productReference = 5CF10957022C984D05CE15BF;
+			shouldUseHeadermap = 0;
+		};
+		5CF10959022C984D05CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5CF1095A022C984D05CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5CF1095B022C984D05CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5CF1095C022C984D05CE15BF = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5CF1095E022C989B05CE15BF = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage/ata";
+			dstSubfolderSpec = 0;
+			files = (
+				5CF1095F022C989B05CE15BF,
+				5CF10960022C989B05CE15BF,
+				5CF10961022C989B05CE15BF,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5CF1095F022C989B05CE15BF = {
+			fileRef = 01140C20FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CF10960022C989B05CE15BF = {
+			fileRef = 01140C21FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CF10961022C989B05CE15BF = {
+			fileRef = 01140C22FFC5C1ED11CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CF10962022C989B05CE15BF = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/storage/ata";
+			dstSubfolderSpec = 0;
+			files = (
+				5CF10963022C989B05CE15BF,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5CF10963022C989B05CE15BF = {
+			fileRef = 5C3EE9EF022AF49305CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

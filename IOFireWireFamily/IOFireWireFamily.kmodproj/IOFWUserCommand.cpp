@@ -15,16 +15,13 @@
 #include "IOFWUserCommand.h"
 
 OSDefineMetaClassAndAbstractStructors(IOFWUserCommand, OSObject)
-
 OSDefineMetaClassAndStructors(IOFWUserReadCommand, IOFWUserCommand)
 OSDefineMetaClassAndStructors(IOFWUserWriteCommand, IOFWUserCommand)
 OSDefineMetaClassAndStructors(IOFWUserCompareSwapCommand, IOFWUserCommand)
 
-#pragma mark === IOFWUserCommand ===
 // ============================================================
 // IOFWUserCommand
 // ============================================================
-
 void
 IOFWUserCommand::free()
 {
@@ -33,18 +30,18 @@ IOFWUserCommand::free()
 		IOReturn	cmdStatus = fCommand->getStatus() ;
 		if ( cmdStatus == kIOReturnBusy || cmdStatus == kIOFireWirePending )
 		{
-			IOFireWireUserClientLog_(("cancelling cmd %p\n", fCommand)) ;
+			IOFireWireUserClientLog_("cancelling cmd %p\n", fCommand) ;
 			fCommand->cancel( kIOReturnAborted ) ;
 		}
 		
 		fCommand->release() ;
 	}
 	
-	if (fUserClient)
-		fUserClient->release() ;
-	
 	if (fMem)
+	{
+		fMem->complete() ;
 		fMem->release() ;
+	}
 }
 
 void
@@ -64,21 +61,14 @@ IOFWUserCommand::withSubmitParams(
 	switch ( inParams->type )
 	{
 		case kFireWireCommandType_Read:
-//			result = new IOFWUserReadCommand ;
-//			break ;
+			// fallthru
 		case kFireWireCommandType_ReadQuadlet:
-//			result = new IOFWUserReadQuadletCommand ;
-//			break ;
 			result = new IOFWUserReadCommand ;
 			break ;
 		
 		case kFireWireCommandType_Write:
-//			result = new IOFWUserWriteCommand ;
-//			break ;
-		
+			// fallthru
 		case kFireWireCommandType_WriteQuadlet:
-//			result = new IOFWUserWriteQuadletCommand ;
-//			break ;
 			result = new IOFWUserWriteCommand ;
 			break ;
 			
@@ -105,12 +95,7 @@ IOFWUserCommand::initWithSubmitParams(
 	const FWUserCommandSubmitParams*	inParams,
 	const IOFireWireUserClient*			inUserClient)
 {
-	// not initing member vars as they should be 0'd 
-	// for us by the kernel
-	
 	fUserClient	= inUserClient ;
-	fUserClient->retain() ;
-	
 	return true ;
 }
 
@@ -122,21 +107,17 @@ IOFWUserCommand::asyncReadWriteCommandCompletion(
 	IOFireWireNub *			device, 
 	IOFWCommand *			fwCmd)
 {	
-//	if (refcon && ((IOFWUserReadQuadletCommand*)refcon)->fAsyncRef[0] )
-//	{		
-//		IOByteCount		bytesTransferred = ((IOFWUserCommand*)refcon)->fCommand->getBytesTransferred() ;
-//		IOReturn result = IOFireWireUserClient::sendAsyncResult( ((IOFWUserCommand*)refcon)->fAsyncRef, status, (void**) & bytesTransferred, 1) ;
-//		if (kIOReturnSuccess != result)
-//			IOFireWireUserClientLog_(("IOFWUserCommand::asyncReadWriteCommandCompletion: sendAsyncResult returned error 0x%08lX\n", (UInt32) result)) ;
-//	}
 	IOFWUserCommand*	cmd = (IOFWUserCommand*) refcon ;
 
 	if ( refcon && cmd->fAsyncRef[0] ) 
 	{
 		IOByteCount		bytesTransferred = cmd->fCommand->getBytesTransferred() ;
-		IOReturn		result = IOFireWireUserClient::sendAsyncResult( cmd->fAsyncRef, status, (void**) & bytesTransferred, 1 ) ;
+#if IOFIREWIREDEBUG > 0
+		IOReturn		result = 
+#endif
+		IOFireWireUserClient::sendAsyncResult( cmd->fAsyncRef, status, (void**) & bytesTransferred, 1 ) ;
 		
-		IOFireWireUserClientLogIfErr_( result, ("IOFWUserCommand::asyncReadWriteCommandCompletion: sendAsyncResult returned error 0x%08lX\n", (UInt32) result) ) ;
+		IOFireWireUserClientLogIfErr_( result, "IOFWUserCommand::asyncReadWriteCommandCompletion: sendAsyncResult returned error 0x%08lX\n", (UInt32) result ) ;
 	}
 }
 
@@ -151,16 +132,15 @@ IOFWUserCommand::asyncReadQuadletCommandCompletion(
 
 	if (refcon && cmd->fAsyncRef[0] )
 	{
-		IOReturn result = IOFireWireUserClient::sendAsyncResult( cmd->fAsyncRef, 
-																 status, 
-																 (void**)cmd->fQuads, 
-																 ( cmd->fCommand->getBytesTransferred() >> 2) + 2 ) ;
-		IOFireWireUserClientLogIfErr_( result, ("IOFireWireUserClient::asyncReadQuadletCommandCompletion: sendAsyncResult returned error 0x%08lX\n", result)) ;
+		#if IOFIREWIREDEBUG > 0
+		IOReturn result =
+		#endif
+		IOFireWireUserClient::sendAsyncResult( cmd->fAsyncRef, status, (void**)cmd->fQuads, ( cmd->fCommand->getBytesTransferred() >> 2) + 2 ) ;
+		IOFireWireUserClientLogIfErr_( result, "IOFireWireUserClient::asyncReadQuadletCommandCompletion: sendAsyncResult returned error 0x%08x\n", result) ;
 	}
 }
 
 #pragma mark -
-#pragma mark === ¥ IOFWUserReadCommand ===
 // ============================================================
 // IOFWUserReadCommand
 // ============================================================
@@ -180,6 +160,12 @@ IOFWUserReadCommand::initWithSubmitParams(
 		result = (NULL != fMem) ;
 	}
 	
+	if (result)
+	{
+		IOReturn error = fMem->prepare() ;
+		result = ( kIOReturnSuccess == error ) ;
+	}
+	
 	if (!result)
 	{
 		if (fMem)
@@ -194,15 +180,19 @@ IOFWUserReadCommand::submit(
 	FWUserCommandSubmitParams*	inParams,
 	FWUserCommandSubmitResult*	outResult)
 {
-	IOReturn	result		= kIOReturnSuccess ;
-	Boolean		syncFlag 	= inParams->flags & kFWCommandInterfaceSyncExecute ;
-	Boolean		copyFlag	= inParams->flags & kFireWireCommandUseCopy ;
+	IOReturn	error		= kIOReturnSuccess ;
+	Boolean		syncFlag 	= ( inParams->flags & kFWCommandInterfaceSyncExecute ) != 0 ;
+	Boolean		copyFlag	= ( inParams->flags & kFireWireCommandUseCopy ) != 0;
+	Boolean		absFlag		= ( inParams->flags & kFireWireCommandAbsolute ) != 0 ;
 
 	if ( inParams->staleFlags & kFireWireCommandStale_Buffer )	// do we need reevaluate our buffers?
 	{
 		if ( fMem )	// whatever happens, we're going to need a new memory descriptor
+		{
+			fMem->complete() ;
 			fMem->release() ;
-
+		}
+		
 		if ( copyFlag )	// is this command using in-line data?
 		{
 			if (fQuads && (fNumQuads != inParams->newBufferSize) || syncFlag)	// if we're executing synchronously,
@@ -234,12 +224,22 @@ IOFWUserReadCommand::submit(
 													kIODirectionOut, 
 													fUserClient->getOwningTask())) )
 			{
-				result = kIOReturnNoMemory ;
+				error = kIOReturnNoMemory ;
 			}
+			else
+			{
+				error = fMem->prepare() ;
+			
+				if ( error )
+				{
+					fMem->release() ;
+					fMem = NULL ;
+				}
+			}	
 		}
 	}
 
-	if ( kIOReturnSuccess == result)
+	if ( not error )
 	{
 		if (fCopyFlag != copyFlag)
 			if (fCommand)
@@ -253,16 +253,16 @@ IOFWUserReadCommand::submit(
 			if ( copyFlag )
 				if (syncFlag)
 				{
-					result = ((IOFWReadQuadCommand*)fCommand)->reinit( inParams->newTarget,
-																	   (UInt32*) inParams+1,
-																	   inParams->newBufferSize,
-																	   NULL,
-																	   this,
-																	   inParams->newFailOnReset) ;
+					if ( absFlag )
+					{
+						error = ((IOFWReadQuadCommand*)fCommand)->reinit( inParams->newGeneration, inParams->newTarget, (UInt32*) inParams+1, inParams->newBufferSize, NULL, this ) ;
+					}
+					else
+						error = ((IOFWReadQuadCommand*)fCommand)->reinit( inParams->newTarget, (UInt32*) inParams+1, inParams->newBufferSize, NULL, this, inParams->newFailOnReset) ;
 				}
 				else
 				{
-					result = ((IOFWReadQuadCommand*)fCommand)->reinit( inParams->newTarget,
+					error = ((IOFWReadQuadCommand*)fCommand)->reinit( inParams->newTarget,
 																	   fQuads,
 																	   fNumQuads,
 																	   & IOFWUserCommand::asyncReadWriteCommandCompletion,
@@ -270,14 +270,14 @@ IOFWUserReadCommand::submit(
 																	   inParams->newFailOnReset) ;
 				}
 			else
-				result = ((IOFWReadCommand*)fCommand)->reinit( inParams->newTarget,
+				error = ((IOFWReadCommand*)fCommand)->reinit( inParams->newTarget,
 															fMem, 
 															syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
 															this,
 															inParams->newFailOnReset ) ;
-			fCommand->setGeneration(inParams->newGeneration) ;
-			
-			IOFireWireUserClientLogIfErr_(result, ("IOFWUserReadCommand::submit: fCommand->reinit result=%08lX\n", result)) ;
+
+			fCommand->setGeneration(inParams->newGeneration) ;			
+			IOFireWireUserClientLogIfErr_(error, "IOFWUserReadCommand::submit: fCommand->reinit error=%08x\n", error) ;
 		}
 		else// if (inParams->staleFlags )
 		{
@@ -285,54 +285,65 @@ IOFWUserReadCommand::submit(
 			{
 				if (syncFlag)
 				{
-					fCommand = fUserClient->getOwner()->createReadQuadCommand( inParams->newTarget,
-																			   (UInt32*) inParams+1,
-																			   inParams->newBufferSize,
-																			   NULL,
-																			   this,
-																			   inParams->newFailOnReset ) ;
+					if ( absFlag )
+					{
+						fCommand = fUserClient->createReadQuadCommand( inParams->newGeneration, inParams->newTarget, (UInt32*) inParams+1, inParams->newBufferSize, NULL, this ) ;
+					}
+					else
+						fCommand = fUserClient->getOwner()->createReadQuadCommand( inParams->newTarget, (UInt32*) inParams+1, inParams->newBufferSize, NULL, this, inParams->newFailOnReset ) ;
 				}
 				else															   
 				{
 					// create a quadlet command and copy in-line quads into it.
-					fCommand = fUserClient->getOwner()->createReadQuadCommand( inParams->newTarget,
-																			   fQuads,
-																			   fNumQuads,
-																			   & IOFWUserCommand::asyncReadQuadletCommandCompletion,
-																			   this,
-																			   inParams->newFailOnReset) ;
+					if ( absFlag )
+					{
+						fCommand = fUserClient->createReadQuadCommand( inParams->newGeneration, inParams->newTarget, fQuads, fNumQuads, & IOFWUserCommand::asyncReadQuadletCommandCompletion, this ) ;
+					}
+					else
+					{
+						fCommand = fUserClient->getOwner()->createReadQuadCommand( inParams->newTarget,
+																					fQuads,
+																					fNumQuads,
+																					& IOFWUserCommand::asyncReadQuadletCommandCompletion,
+																					this,
+																					inParams->newFailOnReset) ;
+						if ( fCommand )
+							fCommand->setGeneration( inParams->newGeneration ) ;
+					}
 				}
 			}
 			else
 			{
 				// create a read command -- memory descriptor based
-				fCommand = fUserClient->getOwner()->createReadCommand( inParams->newTarget,
-																	   fMem,
-																	   syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
-																	   this,
-																	   inParams->newFailOnReset ) ;
+				if ( absFlag )
+				{
+					fCommand = fUserClient->createReadCommand( inParams->newGeneration, inParams->newTarget, fMem, syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion, this ) ;
+				}
+				else
+				{
+					fCommand = fUserClient->getOwner()->createReadCommand( inParams->newTarget,
+																			fMem,
+																			syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
+																			this,
+																			inParams->newFailOnReset ) ;
+					if ( fCommand )
+						fCommand->setGeneration( inParams->newGeneration ) ;
+				}
 			}
 			
 			if (!fCommand)
-				result = kIOReturnNoMemory ;
-			else
-			{
-				fCommand->setGeneration( inParams->newGeneration ) ;
-				if (inParams->newMaxPacket)
-					fCommand->setMaxPacket(inParams->newMaxPacket) ;// zzz is there any reason for us to pay
-																	// attention to the result of this function?
-																	// if the command is errored/busy, will we get
-																	// this far?
-			}
+				error = kIOReturnNoMemory ;
 		}
 	}
 	
-	if ( kIOReturnSuccess == result)
+	if ( not error )
 	{
-		setRefCon(inParams->refCon) ;
-
-		result = fCommand->submit() ;
-		IOFireWireUserClientLogIfErr_(result, ("IOFWUserReadCommand::submit: fCommand->submit result=%08lX\n", result)) ;
+		if (inParams->staleFlags & kFireWireCommandStale_MaxPacket)
+		{
+			fCommand->setMaxPacket(inParams->newMaxPacket) ;
+		}
+		error = fCommand->submit() ;
+		IOFireWireUserClientLogIfErr_(error, "IOFWUserReadCommand::submit: fCommand->submit error=%08x\n", error) ;
 	}
 						
 	if (syncFlag)
@@ -341,11 +352,10 @@ IOFWUserReadCommand::submit(
 		outResult->bytesTransferred	= fCommand->getBytesTransferred() ;
 	}	
 
-	return result ;
+	return error ;
 }
 
 #pragma mark -
-#pragma mark === ¥ IOFWUserWriteCommand ===
 // ============================================================
 // IOFWUserWriteCommand
 // ============================================================
@@ -364,6 +374,12 @@ IOFWUserWriteCommand::initWithSubmitParams(
 		result = (NULL != fMem) ;
 	}
 	
+	if (result)
+	{
+		IOReturn error = fMem->prepare() ;
+		result = (error == kIOReturnSuccess) ;
+	}
+
 	if (!result)
 	{
 		if (fMem)
@@ -379,14 +395,18 @@ IOFWUserWriteCommand::submit(
 	FWUserCommandSubmitResult*	outResult)
 {
 	IOReturn	result		= kIOReturnSuccess ;
-	Boolean		syncFlag 	= inParams->flags & kFWCommandInterfaceSyncExecute ;
-	Boolean		copyFlag	= inParams->flags & kFireWireCommandUseCopy ;
+	Boolean		syncFlag 	= ( inParams->flags & kFWCommandInterfaceSyncExecute ) != 0 ;
+	Boolean		copyFlag	= ( inParams->flags & kFireWireCommandUseCopy ) != 0 ;
+	Boolean		absFlag		= ( inParams->flags & kFireWireCommandAbsolute ) != 0 ;
 
 	if ( inParams->staleFlags & kFireWireCommandStale_Buffer )	// do we need reevaluate our buffers?
 	{
 		if ( fMem )	// whatever happens, we're going to need a new memory descriptor
+		{
+			fMem->complete() ;
 			fMem->release() ;
-
+		}
+		
 		if ( copyFlag )	// is this command using in-line data?
 			fMem = NULL ;
 		else
@@ -397,6 +417,16 @@ IOFWUserWriteCommand::submit(
 													fUserClient->getOwningTask())) )
 			{
 				result = kIOReturnNoMemory ;
+			}
+			else
+			{
+				result = fMem->prepare() ;
+				
+				if ( kIOReturnSuccess != result )
+				{
+					fMem->release() ;
+					fMem = NULL ;
+				}
 			}
 		}
 	}
@@ -430,49 +460,58 @@ IOFWUserWriteCommand::submit(
 															    inParams->newFailOnReset ) ;
 			}
 			
-			IOFireWireUserClientLogIfErr_( result, ("IOFWUserWriteCommand::submit: fCommand->reinit result=%08lX\n", result)) ;
+			IOFireWireUserClientLogIfErr_( result, "IOFWUserWriteCommand::submit: fCommand->reinit result=%08x\n", result) ;
 		}
 		else
 		{
 			if ( copyFlag )
 			{
-				fCommand = fUserClient->getOwner()->createWriteQuadCommand( inParams->newTarget,
-																		   (UInt32*) inParams+1,
-																		   inParams->newBufferSize,
-																		   syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
-																		   this,
-																		   inParams->newFailOnReset ) ;
+				if ( absFlag )
+					fCommand = fUserClient->createWriteQuadCommand( inParams->newGeneration, inParams->newTarget, (UInt32*) inParams+1, inParams->newBufferSize, syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion, this ) ;
+				else
+				{
+					fCommand = fUserClient->getOwner()->createWriteQuadCommand( inParams->newTarget,
+																				(UInt32*) inParams+1,
+																				inParams->newBufferSize,
+																				syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
+																				this,
+																				inParams->newFailOnReset ) ;
+					if ( fCommand )
+						fCommand->setGeneration( inParams->newGeneration ) ;
+				}
 			}
 			else
 			{
 				// create a read command -- memory descriptor based
-				fCommand = fUserClient->getOwner()->createWriteCommand( inParams->newTarget,
-																	   fMem,
-																	   syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
-																	   this,
-																	   inParams->newFailOnReset ) ;
+				if ( absFlag )
+					fCommand = fUserClient->createWriteCommand( inParams->newGeneration,
+																inParams->newTarget,
+																fMem,
+																syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
+																this ) ;
+				else
+				{
+					fCommand = fUserClient->getOwner()->createWriteCommand( inParams->newTarget,
+																			fMem,
+																			syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
+																			this,
+																			inParams->newFailOnReset ) ;
+					if ( fCommand )
+						fCommand->setGeneration( inParams->newGeneration ) ;
+				}
 			}
 			
 			if (!fCommand)
 				result = kIOReturnNoMemory ;
-			else
-			{
-				fCommand->setGeneration( inParams->newGeneration ) ;
-				if (inParams->staleFlags & kFireWireCommandStale_MaxPacket)
-					fCommand->setMaxPacket(inParams->newMaxPacket) ;// zzz is there any reason for us to pay
-																	// attention to the result of this function?
-																	// if the command is errored/busy, will we get
-																	// this far?
-			}
 		}
 	}
 	
 	if ( kIOReturnSuccess == result)
 	{
-		setRefCon(inParams->refCon) ;
-
+		if (inParams->staleFlags & kFireWireCommandStale_MaxPacket)
+			fCommand->setMaxPacket(inParams->newMaxPacket) ;// zzz is there any reason for us to pay
 		result = fCommand->submit() ;
-		IOFireWireUserClientLogIfErr_( result, ("IOFWUserReadCommand::submit: fCommand->submit result=%08lX\n", result)) ;
+		IOFireWireUserClientLogIfErr_( result, "IOFWUserReadCommand::submit: fCommand->submit result=%08x\n", result) ;
 	}
 						
 	if (syncFlag)
@@ -484,66 +523,7 @@ IOFWUserWriteCommand::submit(
 	return result ;
 }
 
-/*IOReturn
-IOFWUserWriteCommand::submit(
-	FWUserCommandSubmitParams*	inParams,
-	FWUserCommandSubmitResult*	outResult)
-{
-	IOReturn	result		= kIOReturnSuccess ;
-
-	if ( inParams->staleFlags & kFireWireCommandStale_Buffer )
-	{
-		if ( fMem )
-			fMem->release() ;
-
-		if (NULL == (fMem = IOMemoryDescriptor::withAddress( (vm_address_t) inParams->newBuffer, 
-												inParams->newBufferSize, 
-												kIODirectionOut, 
-												fUserClient->getOwningTask())) )
-		{
-			result = kIOReturnNoMemory ;
-		}
-	}
-
-	Boolean	syncFlag = inParams->flags & kFWCommandInterfaceSyncExecute ;
-	if ( kIOReturnSuccess == result )
-	{
-		if (!fCommand)
-		{
-			if (NULL == (fCommand = fUserClient->getOwner()->createWriteCommand( inParams->newTarget,
-																				 fMem,
-																				 syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
-																				 this,
-																				 inParams->newFailOnReset ) ))
-				result = kIOReturnNoMemory ;
-			else
-				fCommand->setGeneration( inParams->newGeneration ) ;
-		}
-		else //if ( inParams->staleFlags )
-		{
-			result = ((IOFWWriteCommand*)fCommand)->reinit( inParams->newTarget,
-															fMem,
-															syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
-															this,
-															inParams->newFailOnReset ) ;
-			fCommand->setGeneration( inParams->newGeneration ) ;
-		}
-	}
-	
-	if ( kIOReturnSuccess == result )
-		result = fCommand->submit() ;
-						
-	if (syncFlag)
-	{
-		outResult->result 			= fCommand->getStatus() ;
-		outResult->bytesTransferred	= fCommand->getBytesTransferred() ;
-	}	
-
-	return result ;
-} */
-
 #pragma mark -
-#pragma mark === ¥ IOFWUserCompareSwapCommand ===
 // ============================================================
 // IOFWUserCompareSwapCommand
 // ============================================================
@@ -564,48 +544,106 @@ IOFWUserCompareSwapCommand::submit(
 	FWUserCommandSubmitParams*	inParams,
 	FWUserCommandSubmitResult*	outResult)
 {
-	IOReturn	result		= kIOReturnSuccess ;
+	// cast to the right type:
+	// for compare swap commands we are really dealing with a 'FWUserCompareSwapSubmitResult'
+	// but we have to override submit() with a prototype matching our superclass submit()
+	FWUserCompareSwapSubmitResult* result = (FWUserCompareSwapSubmitResult*)outResult ;
+
+	IOReturn	error		= kIOReturnSuccess ;
 
 	if ( inParams->staleFlags & kFireWireCommandStale_Buffer )
-		fSize = inParams->newBufferSize >> 2 ;
+		fSize = inParams->newBufferSize ;
 
-	Boolean	syncFlag = inParams->flags & kFWCommandInterfaceSyncExecute ;
-	if ( kIOReturnSuccess == result )
+	Boolean			syncFlag 	= ( inParams->flags & kFWCommandInterfaceSyncExecute ) != 0 ;
+	Boolean			absFlag		= ( inParams->flags & kFireWireCommandAbsolute ) != 0 ;
+
+	if ( inParams->staleFlags & kFireWireCommandStale )
 	{
-		if (result)
+		if ( fCommand )
 		{
-			if (NULL == (fCommand = fUserClient->getOwner()->createCompareAndSwapCommand( inParams->newTarget, 
-																			(UInt32*)(inParams+1),// cmpVal past end of param struct
-																			((UInt32*)(inParams+1)) + (fSize << 2),// newVal past end of cmpVal
-																			fSize,
-																			syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
-																			this,
-																			inParams->newFailOnReset ) ))
-				result = kIOReturnNoMemory ;
-			else
-				fCommand->setGeneration( inParams->newGeneration ) ;
-
+			fCommand->release() ;
+			fCommand = NULL ;
 		}
-		else //if ( inParams->staleFlags )
+		
+		if ( absFlag )
+			fCommand = fUserClient->createCompareAndSwapCommand(	inParams->newGeneration, 
+																	inParams->newTarget, 
+																	(UInt32*)(inParams+1),// cmpVal past end of param struct
+																	(UInt32*)(inParams+1) + 2,// newVal past end of cmpVal
+																	fSize >> 2,
+																	syncFlag ? NULL : & IOFWUserCompareSwapCommand::asyncCompletion,
+																	this ) ;
+		else
 		{
-			result = ((IOFWCompareAndSwapCommand*)fCommand)->reinit( inParams->newTarget, 
-																	 (UInt32*)(inParams+1),// cmpVal past end of param struct
-																	 ((UInt32*)(inParams+1)) + (fSize << 2),// newVal past end of cmpVal
-																	 fSize,
-																	 syncFlag ? NULL : & IOFWUserCommand::asyncReadWriteCommandCompletion,
-																	 this,
-																	 inParams->newFailOnReset ) ;
+			fCommand = fUserClient->getOwner()->createCompareAndSwapCommand( inParams->newTarget, 
+																			(UInt32*)(inParams+1),// cmpVal past end of param struct
+																			(UInt32*)(inParams+1) + 2,// newVal past end of cmpVal
+																			fSize >> 2,
+																			syncFlag ? NULL : & IOFWUserCompareSwapCommand::asyncCompletion,
+																			this,
+																			inParams->newFailOnReset ) ;
+			if ( fCommand )
+				fCommand->setGeneration( inParams->newGeneration ) ;
+		}
+		
+		if ( !fCommand )
+			error = kIOReturnNoMemory ;
+
+	}
+	else //if ( inParams->staleFlags )
+	{
+		if ( absFlag )
+			error =((IOFWCompareAndSwapCommand*)fCommand)->reinit( inParams->newGeneration, 
+					inParams->newTarget, (UInt32*)(inParams+1),// cmpVal past end of param struct
+					(UInt32*)(inParams+1) + 2,// newVal past end of cmpVal
+					fSize >> 2, syncFlag ? NULL : & IOFWUserCompareSwapCommand::asyncCompletion, this ) ;
+		else
+		{
+			error = ((IOFWCompareAndSwapCommand*)fCommand)->reinit( inParams->newTarget, 
+					(UInt32*)(inParams+1),// cmpVal past end of param struct
+					(UInt32*)(inParams+1) + 2,// newVal past end of cmpVal
+					fSize >> 2, syncFlag ? NULL : & IOFWUserCompareSwapCommand::asyncCompletion, this,
+					inParams->newFailOnReset ) ;
 			fCommand->setGeneration( inParams->newGeneration ) ;
 		}
 	}
-	if ( kIOReturnSuccess == result)
-		result = fCommand->submit() ;
-						
-	if (syncFlag)
-	{
-		outResult->result 			= fCommand->getStatus() ;
-		outResult->bytesTransferred	= fCommand->getBytesTransferred() ;
-	}	
 
-	return result ;
+	if ( !error )
+	{
+		error = fCommand->submit() ;
+							
+		if (syncFlag)
+		{
+			result->result 					= fCommand->getStatus() ;
+			result->bytesTransferred		= fCommand->getBytesTransferred() ;
+			result->lockInfo.didLock		= ((IOFWCompareAndSwapCommand*)fCommand)->locked( (UInt32*) & result->lockInfo.value ) ;
+		}	
+	}
+	
+	return error ;
+}
+
+void
+IOFWUserCompareSwapCommand::asyncCompletion(
+	void *					refcon, 
+	IOReturn 				status, 
+	IOFireWireNub *			device, 
+	IOFWCommand *			fwCmd)
+{
+	IOFWUserCompareSwapCommand*	cmd = (IOFWUserCompareSwapCommand*)refcon ;
+
+	if (refcon && cmd->fAsyncRef[0] )
+	{
+		FWUserCompareSwapSubmitResult sendResult ;
+		
+		sendResult.result = status ;
+		sendResult.bytesTransferred = cmd->fCommand->getBytesTransferred() ;
+		sendResult.lockInfo.didLock	= (Boolean)((IOFWCompareAndSwapCommand*)cmd->fCommand)->locked( (UInt32*) & sendResult.lockInfo.value ) ;
+
+#if IOFIREWIREDEBUG > 0
+		IOReturn result =
+#endif		
+		IOFireWireUserClient::sendAsyncResult( cmd->fAsyncRef, status, (void**)& sendResult, sizeof(sendResult)/sizeof(UInt32) ) ;	// +1 to round up
+		IOFireWireUserClientLogIfErr_( result, "IOFireWireUserClient::asyncCompareSwapCommandCompletion: sendAsyncResult returned error 0x%08x\n", result) ;
+	}
 }

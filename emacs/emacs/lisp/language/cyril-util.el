@@ -1,4 +1,4 @@
-;;; cyril-util.el ---  utilities for Cyrillic scripts
+;;; cyril-util.el --- utilities for Cyrillic scripts
 
 ;; Copyright (C) 1997  Free Software Foundation, Inc.
 
@@ -21,25 +21,9 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
-
-;;;###autoload
-(defun setup-cyrillic-iso-environment ()
-  "Setup multilingual environment (MULE) for Cyrillic ISO-8859-5 users."
-  (interactive)
-  (set-language-environment "Cyrillic-ISO"))
-
-;;;###autoload
-(defun setup-cyrillic-koi8-environment ()
-  "Setup multilingual environment (MULE) for Cyrillic KOI8 users."
-  (interactive)
-  (set-language-environment "Cyrillic-KOI8"))
-
-;;;###autoload
-(defun setup-cyrillic-alternativnyj-environment ()
-  "Setup multilingual environment (MULE) for Cyrillic ALTERNATIVNYJ users."
-  (interactive)
-  (set-language-environment "Cyrillic-ALT"))
 
 ;;;###autoload
 (defun cyrillic-encode-koi8-r-char (char)
@@ -207,8 +191,8 @@ If the argument is nil, we return the display table to its standard state."
 ;;
 (provide 'cyril-util)
 
-;;; cyril-util.el ends here
-
 ;; Local Variables:
-;; buffer-file-coding-system: iso-2022-7bit
+;; coding: iso-2022-7bit
 ;; End:
+
+;;; cyril-util.el ends here

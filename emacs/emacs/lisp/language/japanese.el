@@ -1,4 +1,4 @@
-;;; japanese.el --- Japanese support -*- coding: iso-2022-7bit; -*-
+;;; japanese.el --- support for Japanese -*- coding: iso-2022-7bit; -*-
 
 ;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
 ;; Licensed to the Free Software Foundation.
@@ -33,10 +33,10 @@
  'iso-2022-jp 2 ?J
  "ISO 2022 based 7bit encoding for Japanese (MIME:ISO-2022-JP)"
  '((ascii japanese-jisx0208-1978 japanese-jisx0208
-	  latin-jisx0201 japanese-jisx0212 katakana-jisx0201) nil nil nil
+	  latin-jisx0201 japanese-jisx0212) nil nil nil
    short ascii-eol ascii-cntl seven)
  '((safe-charsets ascii japanese-jisx0208-1978 japanese-jisx0208
-		  latin-jisx0201 japanese-jisx0212 katakana-jisx0201)
+		  latin-jisx0201 japanese-jisx0212)
    (mime-charset . iso-2022-jp)))
 
 (define-coding-system-alias 'junet 'iso-2022-jp)
@@ -45,12 +45,12 @@
  'iso-2022-jp-2 2 ?J
  "ISO 2022 based 7bit encoding for CJK, Latin-1, and Greek (MIME:ISO-2022-JP-2)"
  '((ascii japanese-jisx0208-1978 japanese-jisx0208
-	  latin-jisx0201 japanese-jisx0212 katakana-jisx0201
+	  latin-jisx0201 japanese-jisx0212
 	  chinese-gb2312 korean-ksc5601) nil
 	  (nil latin-iso8859-1 greek-iso8859-7) nil
  short ascii-eol ascii-cntl seven nil single-shift)
  '((safe-charsets ascii japanese-jisx0208-1978 japanese-jisx0208
-		  latin-jisx0201 japanese-jisx0212 katakana-jisx0201
+		  latin-jisx0201 japanese-jisx0212
 		  chinese-gb2312 korean-ksc5601
 		  latin-iso8859-1 greek-iso8859-7)
    (mime-charset . iso-2022-jp-2)))
@@ -97,7 +97,8 @@
 	      (exit-function . exit-japanese-environment)
 	      (tutorial . "TUTORIAL.ja")
 	      (charset japanese-jisx0208 japanese-jisx0208-1978
-		       japanese-jisx0212 latin-jisx0201 katakana-jisx0201)
+		       japanese-jisx0212 latin-jisx0201 katakana-jisx0201
+		       japanese-jisx0213-1 japanese-jisx0213-2)
 	      (coding-system iso-2022-jp japanese-iso-8bit
 			     japanese-shift-jis japanese-iso-7bit-1978-irv)
 	      (coding-priority iso-2022-jp japanese-iso-8bit
@@ -106,5 +107,7 @@
 	      (features japan-util)
 	      (sample-text . "Japanese (日本語)	こんにちは, ｺﾝﾆﾁﾊ")
 	      (documentation . t)))
+
+(provide 'japanese)
 
 ;;; japanese.el ends here

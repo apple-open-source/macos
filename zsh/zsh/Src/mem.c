@@ -3,7 +3,7 @@
  *
  * This file is part of zsh, the Z shell.
  *
- * Copyright (c) 1992-1996 Paul Falstad
+ * Copyright (c) 1992-1997 Paul Falstad
  * All rights reserved.
  *
  * Permission is hereby granted, without written agreement and without
@@ -27,17 +27,14 @@
  *
  */
 
-#include "zsh.h"
-
-void *(*alloc) _((size_t));
-void *(*ncalloc) _((size_t));
+#include "zsh.mdh"
+#include "mem.pro"
 
 /*
-
 	There are two ways to allocate memory in zsh.  The first way is
 	to call zalloc/zcalloc, which call malloc/calloc directly.  It
 	is legal to call realloc() or free() on memory allocated this way.
-	The second way is to call halloc/hcalloc, which allocates memory
+	The second way is to call zhalloc/hcalloc, which allocates memory
 	from one of the memory pools on the heap stack.  Such memory pools 
 	will automatically created when the heap allocation routines are
 	called.  To be sure that they are freed at appropriate times
@@ -57,24 +54,29 @@ void *(*ncalloc) _((size_t));
 	Memory allocated in this way does not have to be freed explicitly;
 	it will all be freed when the pool is destroyed.  In fact,
 	attempting to free this memory may result in a core dump.
-	The pair of pointers ncalloc and alloc may point to either
-	zalloc & zcalloc or halloc & hcalloc; permalloc() sets them to the
-	former, and heapalloc() sets them to the latter. This can be useful.
-	For example, the dupstruct() routine duplicates a syntax tree,
-	allocating the new memory for the tree using alloc().  If you want
-	to duplicate a structure for a one-time use (i.e. to execute the list
-	in a for loop), call heapalloc(), then dupstruct().  If you want
-	to duplicate a structure in order to preserve it (i.e. a function
-	definition), call permalloc(), then dupstruct().
 
-	If we use zsh's own allocator we use a simple trick to avoid that
-	the (*real*) heap fills up with empty zsh-heaps: we allocate a
-	large block of memory before allocating a heap pool, this memory
-	is freed again immediately after the pool is allocated. If there
-	are only small blocks on the free list this guarantees that the
-	memory for the pool is at the end of the memory which means that
-	we can give it back to the system when the pool is freed.
+	If possible, the heaps are allocated using mmap() so that the
+	(*real*) heap isn't filled up with empty zsh heaps. If mmap()
+	is not available and zsh's own allocator is used, we use a simple trick
+	to avoid that: we allocate a large block of memory before allocating
+	a heap pool, this memory is freed again immediately after the pool
+	is allocated. If there are only small blocks on the free list this
+	guarantees that the memory for the pool is at the end of the memory
+	which means that we can give it back to the system when the pool is
+	freed.
 */
+
+#if defined(HAVE_SYS_MMAN_H) && defined(HAVE_MMAP) && defined(HAVE_MUNMAP)
+
+#include <sys/mman.h>
+
+#if defined(MAP_ANONYMOUS) && defined(MAP_PRIVATE)
+
+#define USE_MMAP 1
+#define MMAP_FLAGS (MAP_ANONYMOUS | MAP_PRIVATE)
+
+#endif
+#endif
 
 #ifdef ZSH_MEM_WARNING
 # ifndef DEBUG
@@ -84,122 +86,170 @@ void *(*ncalloc) _((size_t));
 
 #if defined(ZSH_MEM) && defined(ZSH_MEM_DEBUG)
 
-int h_m[1025], h_push, h_pop, h_free;
+static int h_m[1025], h_push, h_pop, h_free;
 
 #endif
 
-#define H_ISIZE  sizeof(zlong)
-#define HEAPSIZE (8192 - H_ISIZE)
+/* Make sure we align to the longest fundamental type. */
+union mem_align {
+    zlong l;
+    double d;
+};
+
+#define H_ISIZE  sizeof(union mem_align)
+#define HEAPSIZE (16384 - H_ISIZE)
 #define HEAP_ARENA_SIZE (HEAPSIZE - sizeof(struct heap))
 #define HEAPFREE (16384 - H_ISIZE)
 
-/* set default allocation to heap stack */
+/* list of zsh heaps */
+
+static Heap heaps;
+
+/* a heap with free space, not always correct (it will be the last heap
+ * if that was newly allocated but it may also be another one) */
+
+static Heap fheap;
+
+/* Use new heaps from now on. This returns the old heap-list. */
 
 /**/
-int
-global_heapalloc(void)
+mod_export Heap
+new_heaps(void)
 {
-    int luh = useheap;
+    Heap h;
 
-    alloc = hcalloc;
-    ncalloc = halloc;
-    useheap = 1;
-    return luh;
+    queue_signals();
+    h = heaps;
+
+    fheap = heaps = NULL;
+    unqueue_signals();
+
+    return h;
 }
 
-/* set default allocation to malloc() */
+/* Re-install the old heaps again, freeing the new ones. */
 
 /**/
-int
-global_permalloc(void)
+mod_export void
+old_heaps(Heap old)
 {
-    int luh = useheap;
+    Heap h, n;
 
-    alloc = zcalloc;
-    ncalloc = zalloc;
-    useheap = 0;
-    return luh;
-}
-
-/* heappush saves the current heap state using this structure */
-
-struct heapstack {
-    struct heapstack *next;	/* next one in list for this heap */
-    size_t used;
-};
-
-/* A zsh heap. */
-
-struct heap {
-    struct heap *next;		/* next one                                  */
-    size_t used;		/* bytes used from the heap                  */
-    struct heapstack *sp;	/* used by pushheap() to save the value used */
-#ifdef ZSH_64_BIT_TYPE
-    size_t dummy;		/* Make sure sizeof(heap) is a multiple of 8 */
+    queue_signals();
+    for (h = heaps; h; h = n) {
+	n = h->next;
+	DPUTS(h->sp, "BUG: old_heaps() with pushed heaps");
+#ifdef USE_MMAP
+	munmap((void *) h, sizeof(*h));
+#else
+	zfree(h, sizeof(*h));
 #endif
-#define arena(X)	((char *) (X) + sizeof(struct heap))
-};
+    }
+    heaps = old;
+    fheap = NULL;
+    unqueue_signals();
+}
 
-/* list of zsh heap */
+/* Temporarily switch to other heaps (or back again). */
 
-Heap heaps;
+/**/
+mod_export Heap
+switch_heaps(Heap new)
+{
+    Heap h;
+
+    queue_signals();
+    h = heaps;
+
+    heaps = new;
+    fheap = NULL;
+    unqueue_signals();
+
+    return h;
+}
 
 /* save states of zsh heaps */
 
 /**/
-void
+mod_export void
 pushheap(void)
 {
     Heap h;
     Heapstack hs;
+
+    queue_signals();
 
 #if defined(ZSH_MEM) && defined(ZSH_MEM_DEBUG)
     h_push++;
 #endif
 
     for (h = heaps; h; h = h->next) {
+	DPUTS(!h->used, "BUG: empty heap");
 	hs = (Heapstack) zalloc(sizeof(*hs));
 	hs->next = h->sp;
 	h->sp = hs;
 	hs->used = h->used;
     }
+    unqueue_signals();
 }
 
 /* reset heaps to previous state */
 
 /**/
-void
+mod_export void
 freeheap(void)
 {
-    Heap h;
+    Heap h, hn, hl = NULL;
+
+    queue_signals();
 
 #if defined(ZSH_MEM) && defined(ZSH_MEM_DEBUG)
     h_free++;
 #endif
-    for (h = heaps; h; h = h->next) {
+
+    fheap = NULL;
+    for (h = heaps; h; h = hn) {
+	hn = h->next;
+	if (h->sp) {
 #ifdef ZSH_MEM_DEBUG
-	if (h->sp)
 	    memset(arena(h) + h->sp->used, 0xff, h->used - h->sp->used);
-	else
-	    memset(arena(h), 0xff, h->used);
 #endif
-	h->used = h->sp ? h->sp->used : 0;
+	    h->used = h->sp->used;
+	    if (!fheap && h->used < HEAP_ARENA_SIZE)
+		fheap = h;
+	    hl = h;
+	} else {
+#ifdef USE_MMAP
+	    munmap((void *) h, h->size);
+#else
+	    zfree(h, HEAPSIZE);
+#endif
+	}
     }
+    if (hl)
+	hl->next = NULL;
+    else
+	heaps = NULL;
+
+    unqueue_signals();
 }
 
 /* reset heap to previous state and destroy state information */
 
 /**/
-void
+mod_export void
 popheap(void)
 {
     Heap h, hn, hl = NULL;
     Heapstack hs;
 
+    queue_signals();
+
 #if defined(ZSH_MEM) && defined(ZSH_MEM_DEBUG)
     h_pop++;
 #endif
 
+    fheap = NULL;
     for (h = heaps; h; h = hn) {
 	hn = h->next;
 	if ((hs = h->sp)) {
@@ -208,58 +258,101 @@ popheap(void)
 	    memset(arena(h) + hs->used, 0xff, h->used - hs->used);
 #endif
 	    h->used = hs->used;
+	    if (!fheap && h->used < HEAP_ARENA_SIZE)
+		fheap = h;
 	    zfree(hs, sizeof(*hs));
 
 	    hl = h;
-	} else
+	} else {
+#ifdef USE_MMAP
+	    munmap((void *) h, h->size);
+#else
 	    zfree(h, HEAPSIZE);
+#endif
+	}
     }
     if (hl)
 	hl->next = NULL;
     else
 	heaps = NULL;
+
+    unqueue_signals();
 }
 
 /* allocate memory from the current memory pool */
 
 /**/
-void *
-halloc(size_t size)
+mod_export void *
+zhalloc(size_t size)
 {
     Heap h;
     size_t n;
 
     size = (size + H_ISIZE - 1) & ~(H_ISIZE - 1);
 
+    queue_signals();
+
 #if defined(ZSH_MEM) && defined(ZSH_MEM_DEBUG)
-    h_m[size < 1024 ? (size / H_ISIZE) : 1024]++;
+    h_m[size < (1024 * H_ISIZE) ? (size / H_ISIZE) : 1024]++;
 #endif
 
     /* find a heap with enough free space */
 
-    for (h = heaps; h; h = h->next) {
+    for (h = ((fheap && HEAP_ARENA_SIZE >= (size + fheap->used)) ? fheap : heaps);
+	 h; h = h->next) {
 	if (HEAP_ARENA_SIZE >= (n = size + h->used)) {
+	    void *ret;
+
 	    h->used = n;
-	    return arena(h) + n - size;
+	    ret = arena(h) + n - size;
+	    unqueue_signals();
+	    return ret;
 	}
     }
-
     {
 	Heap hp;
         /* not found, allocate new heap */
-#ifdef ZSH_MEM
+#if defined(ZSH_MEM) && !defined(USE_MMAP)
 	static int called = 0;
 	void *foo = called ? (void *)malloc(HEAPFREE) : NULL;
             /* tricky, see above */
 #endif
 
-	queue_signals();
-	n = HEAP_ARENA_SIZE > size ? HEAP_ARENA_SIZE : size;
+	n = HEAP_ARENA_SIZE > size ? HEAPSIZE : size + sizeof(*h);
 	for (hp = NULL, h = heaps; h; hp = h, h = h->next);
 
-	h = (Heap) zalloc(n + sizeof(*h));
+#ifdef USE_MMAP
+	{
+	    static size_t pgsz = 0;
 
-#ifdef ZSH_MEM
+	    if (!pgsz) {
+
+#ifdef _SC_PAGESIZE
+		pgsz = sysconf(_SC_PAGESIZE);     /* SVR4 */
+#else
+# ifdef _SC_PAGE_SIZE
+		pgsz = sysconf(_SC_PAGE_SIZE);    /* HPUX */
+# else
+		pgsz = getpagesize();
+# endif
+#endif
+
+		pgsz--;
+	    }
+	    n = (n + pgsz) & ~pgsz;
+	    h = (Heap) mmap(NULL, n, PROT_READ | PROT_WRITE,
+			    MMAP_FLAGS, -1, 0);
+	    if (h == ((Heap) -1)) {
+		zerr("fatal error: out of heap memory", NULL, 0);
+		exit(1);
+	    }
+	    h->size = n;
+	}
+#else
+	h = (Heap) zalloc(n);
+#endif
+
+#if defined(ZSH_MEM) && !defined(USE_MMAP)
 	if (called)
 	    zfree(foo, HEAPFREE);
 	called = 1;
@@ -273,66 +366,150 @@ halloc(size_t size)
 	    hp->next = h;
 	else
 	    heaps = h;
+	fheap = h;
 
 	unqueue_signals();
 	return arena(h);
     }
 }
 
+/**/
+mod_export void *
+hrealloc(char *p, size_t old, size_t new)
+{
+    Heap h, ph;
+
+    old = (old + H_ISIZE - 1) & ~(H_ISIZE - 1);
+    new = (new + H_ISIZE - 1) & ~(H_ISIZE - 1);
+
+    if (old == new)
+	return p;
+    if (!old && !p)
+	return zhalloc(new);
+
+    /* find the heap with p */
+
+    queue_signals();
+    for (h = heaps, ph = NULL; h; ph = h, h = h->next)
+	if (p >= arena(h) && p < arena(h) + HEAP_ARENA_SIZE)
+	    break;
+
+    DPUTS(!h, "BUG: hrealloc() called for non-heap memory.");
+    DPUTS(h->sp && arena(h) + h->sp->used > p,
+	  "BUG: hrealloc() wants to realloc pushed memory");
+
+    if (p + old < arena(h) + h->used) {
+	if (new > old) {
+	    char *ptr = (char *) zhalloc(new);
+	    memcpy(ptr, p, old);
+#ifdef ZSH_MEM_DEBUG
+	    memset(p, 0xff, old);
+#endif
+	    unqueue_signals();
+	    return ptr;
+	} else {
+	    unqueue_signals();
+	    return new ? p : NULL;
+	}
+    }
+
+    DPUTS(p + old != arena(h) + h->used, "BUG: hrealloc more than allocated");
+
+    if (p == arena(h)) {
+	if (!new) {
+	    if (ph)
+		ph->next = h->next;
+	    else
+		heaps = h->next;
+	    fheap = NULL;
+#ifdef USE_MMAP
+	    munmap((void *) h, h->size);
+#else
+	    zfree(h, HEAPSIZE);
+#endif
+	    unqueue_signals();
+	    return NULL;
+	}
+#ifndef USE_MMAP
+	if (old > HEAP_ARENA_SIZE || new > HEAP_ARENA_SIZE) {
+	    size_t n = HEAP_ARENA_SIZE > new ? HEAPSIZE : new + sizeof(*h);
+
+	    if (ph)
+		ph->next = h = (Heap) realloc(h, n);
+	    else
+		heaps = h = (Heap) realloc(h, n);
+	}
+	h->used = new;
+	unqueue_signals();
+	return arena(h);
+#endif
+    }
+#ifndef USE_MMAP
+    DPUTS(h->used > HEAP_ARENA_SIZE, "BUG: hrealloc at invalid address");
+#endif
+    if (h->used + (new - old) <= HEAP_ARENA_SIZE) {
+	h->used += new - old;
+	unqueue_signals();
+	return p;
+    } else {
+	char *t = zhalloc(new);
+	memcpy(t, p, old > new ? new : old);
+	h->used -= old;
+#ifdef ZSH_MEM_DEBUG
+	memset(p, 0xff, old);
+#endif
+	unqueue_signals();
+	return t;
+    }
+}
+
 /* allocate memory from the current memory pool and clear it */
 
 /**/
-void *
+mod_export void *
 hcalloc(size_t size)
 {
     void *ptr;
 
-    ptr = halloc(size);
+    ptr = zhalloc(size);
     memset(ptr, 0, size);
     return ptr;
-}
-
-/**/
-void *
-hrealloc(char *p, int old, int new)
-{
-    char *ptr;
-
-    ptr = (char *)halloc(new);
-    memcpy(ptr, p, old);
-    return (void *) ptr;
 }
 
 /* allocate permanent memory */
 
 /**/
-void *
+mod_export void *
 zalloc(size_t size)
 {
     void *ptr;
 
     if (!size)
 	size = 1;
+    queue_signals();
     if (!(ptr = (void *) malloc(size))) {
 	zerr("fatal error: out of memory", NULL, 0);
 	exit(1);
     }
+    unqueue_signals();
 
     return ptr;
 }
 
 /**/
-void *
+mod_export void *
 zcalloc(size_t size)
 {
     void *ptr;
 
     if (!size)
 	size = 1;
+    queue_signals();
     if (!(ptr = (void *) malloc(size))) {
 	zerr("fatal error: out of memory", NULL, 0);
 	exit(1);
     }
+    unqueue_signals();
     memset(ptr, 0, size);
 
     return ptr;
@@ -345,9 +522,10 @@ zcalloc(size_t size)
  * POSIX compliant, but I'm not sure how to do that.                */
 
 /**/
-void *
+mod_export void *
 zrealloc(void *ptr, size_t size)
 {
+    queue_signals();
     if (ptr) {
 	if (size) {
 	    /* Do normal realloc */
@@ -355,58 +533,36 @@ zrealloc(void *ptr, size_t size)
 		zerr("fatal error: out of memory", NULL, 0);
 		exit(1);
 	    }
+	    unqueue_signals();
 	    return ptr;
 	}
 	else
 	    /* If ptr is not NULL, but size is zero, *
 	     * then object pointed to is freed.      */
 	    free(ptr);
+
+	ptr = NULL;
     } else {
 	/* If ptr is NULL, then behave like malloc */
-	return malloc(size);
+	ptr = malloc(size);
     }
+    unqueue_signals();
 
-    return NULL;
+    return ptr;
 }
 
 /**/
-char *
-dupstring(const char *s)
-{
-    char *t;
-
-    if (!s)
-	return NULL;
-    t = (char *)ncalloc(strlen((char *)s) + 1);
-    strcpy(t, s);
-    return t;
-}
-
-/**/
-char *
-ztrdup(const char *s)
-{
-    char *t;
-
-    if (!s)
-	return NULL;
-    t = (char *)zalloc(strlen((char *)s) + 1);
-    strcpy(t, s);
-    return t;
-}
-
 #ifdef ZSH_MEM
 
 /*
    Below is a simple segment oriented memory allocator for systems on
    which it is better than the system's one. Memory is given in blocks
-   aligned to an integer multiple of sizeof(zlong) (4 bytes on most machines,
-   but 8 bytes on e.g. a dec alpha, or if we are using 64-bit integer
-   arithmetic on a 32-bit machine). Each block is preceded by a header
-   which contains the length of the data part (in bytes). In allocated
-   blocks only this field of the structure m_hdr is senseful. In free
-   blocks the second field (next) is a pointer to the next free segment
-   on the free list.
+   aligned to an integer multiple of sizeof(union mem_align), which will
+   probably be 64-bit as it is the longer of zlong or double. Each block is
+   preceded by a header which contains the length of the data part (in
+   bytes). In allocated blocks only this field of the structure m_hdr is
+   senseful. In free blocks the second field (next) is a pointer to the next
+   free segment on the free list.
 
    On top of this simple allocator there is a second allocator for small
    chunks of data. It should be both faster and less space-consuming than
@@ -462,7 +618,7 @@ ztrdup(const char *s)
 
 struct m_shdr {
     struct m_shdr *next;	/* next one on free list */
-#ifdef ZSH_64_BIT_TYPE
+#ifdef PAD_64_BIT
     /* dummy to make this 64-bit aligned */
     struct m_shdr *dummy;
 #endif
@@ -470,18 +626,25 @@ struct m_shdr {
 
 struct m_hdr {
     zlong len;			/* length of memory block */
+#if defined(PAD_64_BIT) && !defined(ZSH_64_BIT_TYPE)
+    /* either 1 or 2 zlong's, whichever makes up 64 bits. */
+    zlong dummy1;
+#endif
     struct m_hdr *next;		/* if free: next on free list
 				   if block of small blocks: next one with
 				                 small blocks of same size*/
     struct m_shdr *free;	/* if block of small blocks: free list */
     zlong used;			/* if block of small blocks: number of used
 				                                     blocks */
+#if defined(PAD_64_BIT) && !defined(ZSH_64_BIT_TYPE)
+    zlong dummy2;
+#endif
 };
 
 
 /* alignment for memory blocks */
 
-#define M_ALIGN (sizeof(zlong))
+#define M_ALIGN (sizeof(union mem_align))
 
 /* length of memory header, length of first field of memory header and
    minimal size of a block left free (if we allocate memory and take a
@@ -490,23 +653,37 @@ struct m_hdr {
    the free list) */
 
 #define M_HSIZE (sizeof(struct m_hdr))
-#define M_ISIZE (sizeof(zlong))
+#if defined(PAD_64_BIT) && !defined(ZSH_64_BIT_TYPE)
+# define M_ISIZE (2*sizeof(zlong))
+#else
+# define M_ISIZE (sizeof(zlong))
+#endif
 #define M_MIN   (2 * M_ISIZE)
+
+/* M_FREE  is the number of bytes that have to be free before memory is
+ *         given back to the system
+ * M_KEEP  is the number of bytes that will be kept when memory is given
+ *         back; note that this has to be less than M_FREE
+ * M_ALLOC is the number of extra bytes to request from the system */
+
+#define M_FREE  32768
+#define M_KEEP  16384
+#define M_ALLOC M_KEEP
 
 /* a pointer to the last free block, a pointer to the free list (the blocks
    on this list are kept in order - lowest address first) */
 
-struct m_hdr *m_lfree, *m_free;
+static struct m_hdr *m_lfree, *m_free;
 
 /* system's pagesize */
 
-long m_pgsz = 0;
+static long m_pgsz = 0;
 
 /* the highest and the lowest valid memory addresses, kept for fast validity
    checks in free() and to find out if and when we can give memory back to
    the system */
 
-char *m_high, *m_low;
+static char *m_high, *m_low;
 
 /* Management of blocks for small blocks:
    Such blocks are kept in lists (one list for each of the sizes that are
@@ -523,22 +700,30 @@ char *m_high, *m_low;
 
 
 #define M_SIDX(S)  ((S) / M_ISIZE)
-#define M_SNUM     50
+#define M_SNUM     128
 #define M_SLEN(M)  ((M)->len / M_SNUM)
+#if defined(PAD_64_BIT) && !defined(ZSH_64_BIT_TYPE)
+/* Include the dummy in the alignment */
+#define M_SBLEN(S) ((S) * M_SNUM + sizeof(struct m_shdr *) +  \
+		    2*sizeof(zlong) + sizeof(struct m_hdr *))
+#define M_BSLEN(S) (((S) - sizeof(struct m_shdr *) -  \
+		     2*sizeof(zlong) - sizeof(struct m_hdr *)) / M_SNUM)
+#else
 #define M_SBLEN(S) ((S) * M_SNUM + sizeof(struct m_shdr *) +  \
 		    sizeof(zlong) + sizeof(struct m_hdr *))
 #define M_BSLEN(S) (((S) - sizeof(struct m_shdr *) -  \
 		     sizeof(zlong) - sizeof(struct m_hdr *)) / M_SNUM)
-#define M_NSMALL 8
+#endif
+#define M_NSMALL    8
 
-struct m_hdr *m_small[M_NSMALL];
+static struct m_hdr *m_small[M_NSMALL];
 
 #ifdef ZSH_MEM_DEBUG
 
-int m_s = 0, m_b = 0;
-int m_m[1025], m_f[1025];
+static int m_s = 0, m_b = 0;
+static int m_m[1025], m_f[1025];
 
-struct m_hdr *m_l;
+static struct m_hdr *m_l;
 
 #endif /* ZSH_MEM_DEBUG */
 
@@ -547,7 +732,9 @@ malloc(MALLOC_ARG_T size)
 {
     struct m_hdr *m, *mp, *mt;
     long n, s, os = 0;
+#ifndef USE_MMAP
     struct heap *h, *hp, *hf = NULL, *hfp = NULL;
+#endif
 
     /* some systems want malloc to return the highest valid address plus one
        if it is called with an argument of zero */
@@ -620,12 +807,14 @@ malloc(MALLOC_ARG_T size)
     } else
 	s = 0;
 
-/* search the free list for an block of at least the requested size */
+    /* search the free list for an block of at least the requested size */
     for (mp = NULL, m = m_free; m && m->len < size; mp = m, m = m->next);
 
- /* if there is an empty zsh heap at a lower address we steal it and take
-    the memory from it, putting the rest on the free list (remember
-    that the blocks on the free list are ordered) */
+#ifndef USE_MMAP
+
+    /* if there is an empty zsh heap at a lower address we steal it and take
+       the memory from it, putting the rest on the free list (remember
+       that the blocks on the free list are ordered) */
 
     for (hp = NULL, h = heaps; h; hp = h, h = h->next)
 	if (!h->used &&
@@ -652,14 +841,15 @@ malloc(MALLOC_ARG_T size)
 
 	for (mp = NULL, m = m_free; m && m->len < size; mp = m, m = m->next);
     }
+#endif
     if (!m) {
 	long nal;
 	/* no matching free block was found, we have to request new
 	   memory from the system */
-	n = (size + M_HSIZE + m_pgsz - 1) & ~(m_pgsz - 1);
+	n = (size + M_HSIZE + M_ALLOC + m_pgsz - 1) & ~(m_pgsz - 1);
 
 	if (((char *)(m = (struct m_hdr *)sbrk(n))) == ((char *)-1)) {
-	    DPUTS(1, "allocation error at sbrk.");
+	    DPUTS(1, "MEM: allocation error at sbrk.");
 	    unqueue_signals();
 	    return NULL;
 	}
@@ -765,7 +955,7 @@ malloc(MALLOC_ARG_T size)
    0 for this parameter means: `don't know' */
 
 /**/
-void
+mod_export void
 zfree(void *p, int sz)
 {
     struct m_hdr *m = (struct m_hdr *)(((char *)p) - M_ISIZE), *mp, *mt = NULL;
@@ -786,7 +976,7 @@ zfree(void *p, int sz)
     /* first a simple check if the given address is valid */
     if (((char *)p) < m_low || ((char *)p) > m_high ||
 	((long)p) & (M_ALIGN - 1)) {
-	DPUTS(1, "attempt to free storage at invalid address");
+	DPUTS(1, "BUG: attempt to free storage at invalid address");
 	return;
     }
 
@@ -818,7 +1008,7 @@ zfree(void *p, int sz)
 		if ((((char *)p) - (((char *)mt) + sizeof(struct m_hdr))) %
 		    M_BSLEN(mt->len)) {
 
-		    DPUTS(1, "attempt to free storage at invalid address");
+		    DPUTS(1, "BUG: attempt to free storage at invalid address");
 		    unqueue_signals();
 		    return;
 		}
@@ -826,13 +1016,13 @@ zfree(void *p, int sz)
 		for (sh2 = mt->free; sh2; sh2 = sh2->next)
 		    if (((char *)p) == ((char *)sh2)) {
 
-			DPUTS(1, "attempt to free already free storage");
+			DPUTS(1, "BUG: attempt to free already free storage");
 			unqueue_signals();
 			return;
 		    }
 #endif
 		DPUTS(M_BSLEN(mt->len) < osz,
-		      "attempt to free more than allocated.");
+		      "BUG: attempt to free more than allocated.");
 
 #ifdef ZSH_MEM_DEBUG
 		m_f[M_BSLEN(mt->len) / M_ISIZE]++;
@@ -892,7 +1082,7 @@ zfree(void *p, int sz)
 
     /* no block was found at the given address */
     if (((char *)mt) >= m_high) {
-	DPUTS(1, "attempt to free storage at invalid address");
+	DPUTS(1, "BUG: attempt to free storage at invalid address");
 	unqueue_signals();
 	return;
     }
@@ -903,11 +1093,11 @@ zfree(void *p, int sz)
 
     if (m == mt) {
 	/* it is, ouch! */
-	DPUTS(1, "attempt to free already free storage");
+	DPUTS(1, "BUG: attempt to free already free storage");
 	unqueue_signals();
 	return;
     }
-    DPUTS(m->len < osz, "attempt to free more than allocated.");
+    DPUTS(m->len < osz, "BUG: attempt to free more than allocated");
 #ifdef ZSH_MEM_DEBUG
     memset(p, 0xff, m->len);
 #endif
@@ -943,12 +1133,18 @@ zfree(void *p, int sz)
        and now there is more than one page size of memory, we can give
        it back to the system (and we do it ;-) */
     if ((((char *)m_lfree) + M_ISIZE + m_lfree->len) == m_high &&
-	m_lfree->len >= m_pgsz + M_MIN) {
-	long n = (m_lfree->len - M_MIN) & ~(m_pgsz - 1);
+	m_lfree->len >= m_pgsz + M_MIN + M_FREE) {
+	long n = (m_lfree->len - M_MIN - M_KEEP) & ~(m_pgsz - 1);
 
 	m_lfree->len -= n;
-	if (brk(m_high -= n) == -1)
-	    DPUTS(1, "allocation error at brk.");
+#ifdef HAVE_BRK
+	if (brk(m_high -= n) == -1) {
+#else
+	m_high -= n;
+	if (sbrk(-n) == (void *)-1) {
+#endif /* HAVE_BRK */
+	    DPUTS(1, "MEM: allocation error at brk.");
+	}
 
 #ifdef ZSH_MEM_DEBUG
 	m_b += n;
@@ -971,7 +1167,7 @@ free(FREE_ARG_T p)
    those that have a zero byte at the end) */
 
 /**/
-void
+mod_export void
 zsfree(char *p)
 {
     if (p)
@@ -1047,8 +1243,9 @@ bin_mem(char *name, char **argv, char *ops, int func)
     int i, ii, fi, ui, j;
     struct m_hdr *m, *mf, *ms;
     char *b, *c, buf[40];
-    long u = 0, f = 0;
+    long u = 0, f = 0, to, cu;
 
+    queue_signals();
     if (ops['v']) {
 	printf("The lower and the upper addresses of the heap. Diff gives\n");
 	printf("the difference between them, i.e. the size of the heap.\n\n");
@@ -1070,13 +1267,17 @@ bin_mem(char *name, char **argv, char *ops, int func)
 	printf("values, i.e. the number of blocks of that size that is\n");
 	printf("currently allocated. Total is the product of size and diff,\n");
 	printf("i.e. the number of bytes that are allocated for blocks of\n");
-	printf("this size.\n");
+	printf("this size. The last field gives the accumulated number of\n");
+	printf("bytes for all sizes.\n");
     }
-    printf("\nsize\tmalloc\tfree\tdiff\ttotal\n");
-    for (i = 0; i < 1024; i++)
-	if (m_m[i] || m_f[i])
-	    printf("%ld\t%d\t%d\t%d\t%ld\n", (long)i * M_ISIZE, m_m[i], m_f[i],
-		   m_m[i] - m_f[i], (long)i * M_ISIZE * (m_m[i] - m_f[i]));
+    printf("\nsize\tmalloc\tfree\tdiff\ttotal\tcum\n");
+    for (i = 0, cu = 0; i < 1024; i++)
+	if (m_m[i] || m_f[i]) {
+	    to = (long) i * M_ISIZE * (m_m[i] - m_f[i]);
+	    printf("%ld\t%d\t%d\t%d\t%ld\t%ld\n",
+		   (long)i * M_ISIZE, m_m[i], m_f[i], m_m[i] - m_f[i],
+		   to, (cu += to));
+	}
 
     if (m_m[i] || m_f[i])
 	printf("big\t%d\t%d\t%d\n", m_m[i], m_f[i], m_m[i] - m_f[i]);
@@ -1100,7 +1301,7 @@ bin_mem(char *name, char **argv, char *ops, int func)
 	printf("blocks is shown. For otherwise used blocks the first few\n");
 	printf("bytes are shown as an ASCII dump.\n");
     }
-    printf("\nblock list:\nnum\ttnum\taddr\tlen\tstate\tcum\n");
+    printf("\nblock list:\nnum\ttnum\taddr\t\tlen\tstate\tcum\n");
     for (m = m_l, mf = m_free, ii = fi = ui = 1; ((char *)m) < m_high;
 	 m = (struct m_hdr *)(((char *)m) + M_ISIZE + m->len), ii++) {
 	for (j = 0, ms = NULL; j < M_NSMALL && !ms; j++)
@@ -1113,7 +1314,7 @@ bin_mem(char *name, char **argv, char *ops, int func)
 	else if (m == ms)
 	    sprintf(buf, "%ld %ld %ld", (long)(M_SNUM - ms->used),
 		    (long)ms->used,
-		    (long)((m->len - sizeof(struct m_hdr)) / M_SNUM + 1));
+		    (long)(m->len - sizeof(struct m_hdr)) / M_SNUM + 1);
 
 	else {
 	    for (i = 0, b = buf, c = (char *)&m->next; i < 20 && i < m->len;
@@ -1145,7 +1346,8 @@ bin_mem(char *name, char **argv, char *ops, int func)
 	    printf("%ld\t", (long)i * M_ISIZE);
 
 	    for (ii = 0, m = m_small[i]; m; m = m->next) {
-		printf("(%ld/%ld) ", (long)(M_SNUM - m->used), (long)m->used);
+		printf("(%ld/%ld) ", (long)(M_SNUM - m->used),
+		       (long)m->used);
 		if (!((++ii) & 7))
 		    printf("\n\t");
 	    }
@@ -1172,15 +1374,17 @@ bin_mem(char *name, char **argv, char *ops, int func)
     if (h_m[1024])
 	printf("big\t%d\n", h_m[1024]);
 
+    unqueue_signals();
     return 0;
 }
 
 #endif
 
+/**/
 #else				/* not ZSH_MEM */
 
 /**/
-void
+mod_export void
 zfree(void *p, int sz)
 {
     if (p)
@@ -1188,11 +1392,12 @@ zfree(void *p, int sz)
 }
 
 /**/
-void
+mod_export void
 zsfree(char *p)
 {
     if (p)
 	free(p);
 }
 
+/**/
 #endif

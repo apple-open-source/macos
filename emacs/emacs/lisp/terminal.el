@@ -1,4 +1,4 @@
-;;; terminal.el --- terminal emulator for GNU Emacs.
+;;; terminal.el --- terminal emulator for GNU Emacs
 
 ;; Copyright (C) 1986,87,88,89,93,94 Free Software Foundation, Inc.
 
@@ -187,7 +187,9 @@ performance."
 ;; Required to support terminfo systems
 (defconst te-terminal-name-prefix "emacs-em"
   "Prefix used for terminal type names for Terminfo.")
-(defconst te-terminfo-directory "/tmp/emacs-terminfo/"
+(defconst te-terminfo-directory
+  (file-name-as-directory
+   (expand-file-name "emacs-terminfo" temporary-file-directory))
   "Directory used for run-time terminal definition files for Terminfo.")
 (defvar te-terminal-name nil)
 
@@ -989,11 +991,10 @@ move to start of new line, clear to end of line."
 	     ;; preemptible output!  Oh my!!
 	     (throw 'te-process-output t)))))
   ;; We must update window-point in every window displaying our buffer
-  (let* ((s (selected-window))
-	 (w s))
-    (while (not (eq s (setq w (next-window w))))
-      (if (eq (window-buffer w) (current-buffer))
-	  (set-window-point w (point))))))
+  (walk-windows (lambda (w)
+		  (when (and (not (eq w (selected-window)))
+			     (eq (window-buffer w) (current-buffer)))
+		    (set-window-point w (point))))))
 
 (defun te-get-char ()
   (if (cdr te-pending-output)
@@ -1119,8 +1120,9 @@ subprocess started."
   (if (null height) (setq height (- (window-height (selected-window)) 1)))
   (terminal-mode)
   (setq te-width width te-height height)
-  (setq te-terminal-name (concat te-terminal-name-prefix te-width
-				 te-height))
+  (setq te-terminal-name (concat te-terminal-name-prefix
+				 (number-to-string te-width)
+				 (number-to-string te-height)))
   (setq mode-line-buffer-identification
 	(list (format "Emacs terminal %dx%d: %%b  " te-width te-height)
 	      'te-pending-output-info))

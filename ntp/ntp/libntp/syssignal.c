@@ -1,3 +1,7 @@
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <signal.h>
@@ -6,9 +10,6 @@
 #include "ntp_stdlib.h"
 
 #ifdef HAVE_SIGACTION
-#include <errno.h>
-
-extern int errno;
 
 void
 signal_no_reset(
@@ -40,13 +41,27 @@ signal_no_reset(
 	vec.sa_flags = 0;
 #endif
 
+#ifdef SA_RESTART
+/* Added for PPS clocks on Solaris 7 which get EINTR errors */
+# ifdef SIGPOLL
+	if (sig == SIGPOLL) vec.sa_flags = SA_RESTART;
+# endif
+# ifdef SIGIO
+	if (sig == SIGIO)   vec.sa_flags = SA_RESTART;
+# endif
+#endif
+
 	while (1)
 	{
 		struct sigaction ovec;
 
 		n = sigaction(sig, &vec, &ovec);
 		if (n == -1 && errno == EINTR) continue;
-		if (ovec.sa_flags)
+		if (ovec.sa_flags
+#ifdef	SA_RESTART
+		    && ovec.sa_flags != SA_RESTART
+#endif
+		    )
 			msyslog(LOG_DEBUG, "signal_no_reset: signal %d had flags %x",
 				sig, ovec.sa_flags);
 		break;

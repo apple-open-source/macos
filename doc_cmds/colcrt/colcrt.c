@@ -50,6 +50,7 @@ __RCSID("$NetBSD: colcrt.c,v 1.4 1997/10/18 12:59:10 lukem Exp $");
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 /*
  * colcrt - replaces col for crts with new nroff esp. when using tbl.

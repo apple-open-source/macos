@@ -77,8 +77,8 @@ enum {
 	i2cBusSubAddrAVOL		= 0x02,
 	i2cBusSubaddrGCFG		= 0x03,
 
-	kSRC_48SR_REG			= 0x00,		              // 32 - 48 KHz default
-	kSRC_32SR_REG			= 0x01,		     	      // 26 - 32 KHz
+	kSRC_48SR_REG			= 0x00,		          // 32 - 48 KHz default
+	kSRC_32SR_REG			= 0x01,		     	  // 26 - 32 KHz
 	kSRC_24SR_REG			= 0x02,			      // 20 - 26 KHz
 	kSRC_16SR_REG			= 0x03,			      // 14 - 20 KHz
 	kSRC_12SR_REG			= 0x04,			      // 10 - 14 KHz
@@ -88,53 +88,53 @@ enum {
 };
 
 enum {
-	kClockSourceMask		=	(3<<30),	  // mask off clock sources
-	kClockSource18MHz		=	(0<<30),	 // select 18 MHz clock base
-	kClockSource45MHz		=	(1<<30),	 // select 45 MHz clock base
-	kClockSource49MHz		=	(2<<30),	 // select 49 MHz clock base
+	kClockSourceMask		=	(3<<30),		 // mask off clock sources
+	kClockSource18MHz		=	(0<<30),	 	// select 18 MHz clock base
+	kClockSource45MHz		=	(1<<30),		// select 45 MHz clock base
+	kClockSource49MHz		=	(2<<30),	 	// select 49 MHz clock base
 	kMClkDivisorShift		=	24,			    // shift to position value in MClk divisor field
-	kMClkDivisorMask		=	(0x1F<<24),// mask MClk divisor field
-	kMClkDivisor1			=	(0x14<<24),	 // MClk == clock source
-	kMClkDivisor3			=	(0x13<<24),	 // MClk == clock source/3
-	kMClkDivisor5			=	(0x12<<24),	 // MClk == clock source/5
+	kMClkDivisorMask		=	(0x1F<<24),		// mask MClk divisor field
+	kMClkDivisor1			=	(0x14<<24),		// MClk == clock source
+	kMClkDivisor3			=	(0x13<<24),	 	// MClk == clock source/3
+	kMClkDivisor5			=	(0x12<<24),	 	// MClk == clock source/5
 	kSClkDivisorShift		=	20,			    // shift to position value in SClk divisor field
-	kSClkDivisorMask		=	(0xF<<20),	// mask SClk divisor field
+	kSClkDivisorMask		=	(0xF<<20),		// mask SClk divisor field
 	kSClkDivisor1			=	(8<<20),	    // SClk == MClk
 	kSClkDivisor3			=	(9<<20),	    // SClk == MClk/3
-	kSClkMaster				=	(1<<19),	     // SClk in master mode
-	kSClkSlave				=	(0<<19),	      // SClk in slave mode
-	kSerialFormatShift		=	16,			   // shift to position value in I2S serial format field
-	kSerialFormatMask		=	(7<<16),	 // mask serial format field
-	kSerialFormatSony		=	(0<<16),	 // Sony mode
-	kSerialFormat64x		=	(1<<16),	  // I2S 64x mode
-	kSerialFormat32x		=	(2<<16),	  // I2S 32x mode
-	kSerialFormatDAV		=	(4<<16),	  // DAV mode
-	kSerialFormatSiliLabs	=	(5<<16),	  // Silicon Labs mode
+	kSClkMaster				=	(1<<19),	    // SClk in master mode
+	kSClkSlave				=	(0<<19),	    // SClk in slave mode
+	kSerialFormatShift		=	16,				// shift to position value in I2S serial format field
+	kSerialFormatMask		=	(7<<16),	 	// mask serial format field
+	kSerialFormatSony		=	(0<<16),	 	// Sony mode
+	kSerialFormat64x		=	(1<<16),	 	// I2S 64x mode
+	kSerialFormat32x		=	(2<<16),		// I2S 32x mode
+	kSerialFormatDAV		=	(4<<16),		// DAV mode
+	kSerialFormatSiliLabs	=	(5<<16),	  	// Silicon Labs mode
 	kExtSampleFreqIntShift	=	12,			    // shift to position for external sample frequency interrupt
-	kExtSampleFreqIntMask	=	(0xF<<12),	// mask external sample frequency interrupt field
-	kExtSampleFreqMask		=	0xFFF		      // mask for external sample frequency
+	kExtSampleFreqIntMask	=	(0xF<<12),		// mask external sample frequency interrupt field
+	kExtSampleFreqMask		=	0xFFF			// mask for external sample frequency
 };
 
 /*
  * interrupt control register definitions
  */
 enum {
-	kFrameCountEnable		=	(1<<31),		 // enable frame count interrupt
-	kFrameCountPending		=	(1<<30),	 // frame count interrupt pending
-	kMsgFlagEnable		=	(1<<29),				 // enable message flag interrupt
-	kMsgFlagPending		=	(1<<28),	   // message flag interrupt pending
-	kNewPeakEnable		=	(1<<27),	    // enable new peak interrupt
-	kNewPeakPending		=	(1<<26),	   // new peak interrupt pending
+	kFrameCountEnable		=	(1<<31),	// enable frame count interrupt
+	kFrameCountPending		=	(1<<30),	// frame count interrupt pending
+	kMsgFlagEnable			=	(1<<29),	// enable message flag interrupt
+	kMsgFlagPending			=	(1<<28),	// message flag interrupt pending
+	kNewPeakEnable			=	(1<<27),	// enable new peak interrupt
+	kNewPeakPending			=	(1<<26),	// new peak interrupt pending
 	kClocksStoppedEnable	=	(1<<25),	// enable clocks stopped interrupt
-	kClocksStoppedPending	=	(1<<24),// clocks stopped interrupt pending
+	kClocksStoppedPending	=	(1<<24),	// clocks stopped interrupt pending
 	kExtSyncErrorEnable		=	(1<<23),	// enable external sync error interrupt
 	kExtSyncErrorPending	=	(1<<22),	// external sync error interrupt pending
-	kExtSyncOKEnable		=	(1<<21),	   // enable external sync OK interrupt
-	kExtSyncOKPending		=	(1<<20),	  // external sync OK interrupt pending
+	kExtSyncOKEnable		=	(1<<21),	// enable external sync OK interrupt
+	kExtSyncOKPending		=	(1<<20),	// external sync OK interrupt pending
 	kNewSampleRateEnable	=	(1<<19),	// enable new sample rate interrupt
-	kNewSampleRatePending	=	(1<<18),// new sample rate interrupt pending
-	kStatusFlagEnable		=	(1<<17),	  // enable status flag interrupt
-	kStatusFlagPending		=	(1<<16)		 // status flag interrupt pending
+	kNewSampleRatePending	=	(1<<18),	// new sample rate interrupt pending
+	kStatusFlagEnable		=	(1<<17),	// enable status flag interrupt
+	kStatusFlagPending		=	(1<<16)		// status flag interrupt pending
 };
 
 typedef UInt8	biquadParams[15];
@@ -187,6 +187,7 @@ static UInt8	kBassRegValues[] = {
 //#define kUSE_DRC		//	when defined, enable DRC at -30.0 dB
 
 static UInt32	volumeTable[] = {					// db = 20 LOG(x) but we just use table. from 0.0 to -70 db
+	0x00000000,														// -infinity
 	0x00000015,		0x00000016,		0x00000017,		0x00000019,		// -70.0,	-69.5,	-69.0,	-68.5,
 	0x0000001A,		0x0000001C,		0x0000001D,		0x0000001F,		// -68.0,	-67.5,	-67.0,	-66.5,
 	0x00000021,		0x00000023,		0x00000025,		0x00000027,		// -66.0,	-65.5,	-65.0,	-64.5,
@@ -236,6 +237,7 @@ static UInt32	volumeTable[] = {					// db = 20 LOG(x) but we just use table. fro
 
 // This is the coresponding dB values of the entries in the volumeTable arrary above.
 static IOFixed	volumedBTable[] = {
+	-70 << 16,														// Should really be -infinity
 	-70 << 16,	-69 << 16 | 0x8000,	-69 << 16,	-68 << 16 | 0x8000,
 	-68 << 16,	-67 << 16 | 0x8000,	-67 << 16,	-66 << 16 | 0x8000,
 	-66 << 16,	-65 << 16 | 0x8000,	-65 << 16,	-64 << 16 | 0x8000,
@@ -643,7 +645,7 @@ struct EQPrefs {
 	UInt32					genreType;				//	'jazz', 'clas', etc...
 	UInt32					eqCount;				//	number of eq[n] array elements
 	UInt32					nameID;					//	resource id of STR identifying the filter genre
-	EQPrefsElement			eq[11];					//	'n' sized based on number of devicID/speakerID/layoutID combinations...
+	EQPrefsElement			eq[0x00000013];					//	'n' sized based on number of devicID/speakerID/layoutID combinations...
 };
 typedef EQPrefs *EQPrefsPtr;
 

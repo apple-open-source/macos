@@ -1,5 +1,6 @@
 /* Parser for GNU CHILL (CCITT High-Level Language)  -*- C -*-
-   Copyright (C) 1992, 1993, 1995 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1995, 1996, 1997, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -148,13 +149,14 @@ static enum ch_terminal match_integer_literal (void);
 static enum ch_terminal match_character_literal (void);
 static enum ch_terminal match_string_literal (void);
 static enum ch_terminal match_float_literal (void);
-static enum ch_terminal match_float_literal (void);
 static int decode_integer_literal (LONGEST *, char **);
 static int decode_integer_value (int, char **, LONGEST *);
 static char *match_simple_name_string (void);
 static void growbuf_by_size (int);
+static void parse_case_label (void);
 static void parse_untyped_expr (void);
 static void parse_if_expression (void);
+static void parse_if_expression_body (void);
 static void parse_else_alternative (void);
 static void parse_then_alternative (void);
 static void parse_expr (void);
@@ -177,13 +179,7 @@ static struct type *parse_mode_call (void);
 #endif
 static void parse_unary_call (void);
 static int parse_opt_untyped_expr (void);
-static void parse_case_label (void);
 static int expect (enum ch_terminal, char *);
-static void parse_expr (void);
-static void parse_primval (void);
-static void parse_untyped_expr (void);
-static int parse_opt_untyped_expr (void);
-static void parse_if_expression_body (void);
 static enum ch_terminal ch_lex (void);
 INLINE static enum ch_terminal PEEK_TOKEN (void);
 static enum ch_terminal peek_token_ (int);
@@ -217,7 +213,8 @@ static enum ch_terminal
 peek_token_ (int i)
 {
   if (i > MAX_LOOK_AHEAD)
-    internal_error ("ch-exp.c - too much lookahead");
+    internal_error (__FILE__, __LINE__,
+		    "too much lookahead");
   if (terminal_buffer[i] == TOKEN_NOT_READ)
     {
       terminal_buffer[i] = ch_lex ();
@@ -233,7 +230,8 @@ pushback_token (enum ch_terminal code, YYSTYPE node)
 {
   int i;
   if (terminal_buffer[MAX_LOOK_AHEAD] != TOKEN_NOT_READ)
-    internal_error ("ch-exp.c - cannot pushback token");
+    internal_error (__FILE__, __LINE__,
+		    "cannot pushback token");
   for (i = MAX_LOOK_AHEAD; i > 0; i--)
     {
       terminal_buffer[i] = terminal_buffer[i - 1];
@@ -266,7 +264,8 @@ require (enum ch_terminal token)
 {
   if (PEEK_TOKEN () != token)
     {
-      internal_error ("ch-exp.c - expected token %d", (int) token);
+      internal_error (__FILE__, __LINE__,
+		      "expected token %d", (int) token);
     }
   FORWARD_TOKEN ();
 }
@@ -1785,7 +1784,7 @@ match_integer_literal (void)
   else
     {
       yylval.typed_val.val = ival;
-#if defined(CC_HAS_LONG_LONG) && defined(__STDC__)
+#if defined(CC_HAS_LONG_LONG)
       if (ival > (LONGEST) 2147483647U || ival < -(LONGEST) 2147483648U)
 	yylval.typed_val.type = builtin_type_long_long;
       else
@@ -1885,15 +1884,15 @@ match_bitstring_literal (void)
       else
 	{
 	  /* Extract bits from digit, packing them into the bitstring byte. */
-	  int k = TARGET_BYTE_ORDER == BIG_ENDIAN ? bits_per_char - 1 : 0;
-	  for (; TARGET_BYTE_ORDER == BIG_ENDIAN ? k >= 0 : k < bits_per_char;
-	       TARGET_BYTE_ORDER == BIG_ENDIAN ? k-- : k++)
+	  int k = TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? bits_per_char - 1 : 0;
+	  for (; TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? k >= 0 : k < bits_per_char;
+	       TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? k-- : k++)
 	    {
 	      bitcount++;
 	      if (digit & (1 << k))
 		{
 		  tempbuf[tempbufindex] |=
-		    (TARGET_BYTE_ORDER == BIG_ENDIAN)
+		    (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
 		    ? (1 << (HOST_CHAR_BIT - 1 - bitoffset))
 		    : (1 << bitoffset);
 		}
@@ -2178,7 +2177,8 @@ ch_lex (void)
 	      error ("Symbol \"%s\" names no location.", inputname);
 	      break;
 	    default:
-	      internal_error ("unhandled SYMBOL_CLASS in ch_lex()");
+	      internal_error (__FILE__, __LINE__,
+			      "unhandled SYMBOL_CLASS in ch_lex()");
 	      break;
 	    }
 	}

@@ -1,0 +1,37 @@
+#! /bin/sh
+
+# Test to make sure that we allow variable names starting in
+# non-letters.
+
+. $srcdir/defs || exit 1
+
+echo AC_PROG_CC >> configure.in
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = 123test
+123test_SOURCES = 123.c
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = _foo
+_foo_SOURCES = foo.c
+END
+
+$AUTOMAKE || exit 1
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = ,foo
+,foo_SOURCES = foo.c
+END
+
+$AUTOMAKE && exit 1
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = ,foo
+_foo_SOURCES = foo.c
+END
+
+$AUTOMAKE

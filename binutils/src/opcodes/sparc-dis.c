@@ -1,5 +1,6 @@
 /* Print SPARC instructions.
-   Copyright (C) 1989, 91-97, 1998, 2000 Free Software Foundation, Inc.
+   Copyright 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -418,7 +419,7 @@ print_insn_sparc (memaddr, info)
 
 		  case 'h':
 		    (*info->fprintf_func) (stream, "%%hi(%#x)",
-					   (0xFFFFFFFF
+					   ((unsigned) 0xFFFFFFFF
 					    & ((int) X_IMM22 (insn) << 10)));
 		    break;
 
@@ -715,7 +716,8 @@ print_insn_sparc (memaddr, info)
 		    {
 		      (*info->fprintf_func) (stream, "\t! ");
 		      info->target = 
-			(0xFFFFFFFF & (int) X_IMM22 (prev_insn) << 10);
+			((unsigned) 0xFFFFFFFF
+			 & ((int) X_IMM22 (prev_insn) << 10));
 		      if (imm_added_to_rs1)
 			info->target += X_SIMM (insn, 13);
 		      else

@@ -1,4 +1,11 @@
 # Microsoft Developer Studio Generated NMAKE File, Based on sdbm.dsp
+
+!IF "$(APACHE)" == ""
+APACHE=\apache-1.3
+!MESSAGE No Apache directory specified, defaulting to $(APACHE)
+!MESSAGE
+!ENDIF
+
 !IF "$(CFG)" == ""
 CFG=sdbm - Win32 Release
 !MESSAGE No configuration specified. Defaulting to sdbm - Win32 Release.
@@ -48,7 +55,7 @@ CLEAN :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
 CPP=cl.exe
-CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "\apache-1.3\src\include" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /Fp"$(INTDIR)\sdbm.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "$(APACHE)\src\include" /I "$(APACHE)\src\os\win32" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /Fp"$(INTDIR)\sdbm.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
 
 .c{$(INTDIR)}.obj::
    $(CPP) @<<
@@ -121,7 +128,7 @@ CLEAN :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
 CPP=cl.exe
-CPP_PROJ=/nologo /MDd /W3 /GX /Z7 /Od /I "\apache-1.3\src\include" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "SHARED_MODULE" /Fp"$(INTDIR)\sdbm.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+CPP_PROJ=/nologo /MDd /W3 /GX /Z7 /Od /I "$(APACHE)\src\os\win32" /I "$(APACHE)\src\include" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "SHARED_MODULE" /Fp"$(INTDIR)\sdbm.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
 
 .c{$(INTDIR)}.obj::
    $(CPP) @<<

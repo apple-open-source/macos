@@ -47,11 +47,24 @@
 		<key>keys</key>
 		<array>
 			<string>State:/Network/Global/DNS</string>
+			<string>Setup:/Network/HostNames</string>
 		</array>
 		<key>execUID</key>
 		<integer>0</integer>
 		<key>execCommand</key>
 		<string>$BUNDLE/Resources/set-hostname</string>
+	</dict>
+	<dict>
+		<key>name</key>
+		<string>enable-network</string>
+		<key>keys</key>
+		<array>
+			<string>File:/var/run/lookupd.pid</string>
+		</array>
+		<key>execUID</key>
+		<integer>0</integer>
+		<key>execCommand</key>
+		<string>$BUNDLE/Resources/enable-network</string>
 	</dict>
 	<dict>
 		<key>name</key>
@@ -76,21 +89,6 @@
 		<integer>0</integer>
 		<key>execCommand</key>
 		<string>/usr/sbin/DirectoryService</string>
-	</dict>
-	<dict>
-		<key>name</key>
-		<string>automount</string>
-		<key>keys</key>
-		<array>
-			<string>File:/var/run/lookupd.pid</string>
-			<string>State:/Users/ConsoleUser</string>
-		</array>
-		<key>execUID</key>
-		<integer>0</integer>
-		<key>execCommand</key>
-		<string>$BUNDLE/Resources/restart-automount</string>
-		<key>changedKeysAsArguments</key>
-		<true/>
 	</dict>
 </array>
 </plist>

@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>Default Attribute Type Map</key>
+	<array>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>cn</string>
+				<string>sn</string>
+				<string>dn</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:RecordName</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>realname</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:RealName</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>unixid</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:UniqueID</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>passwd</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:Password</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>groupid</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:PrimaryGroupID</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>home</string>
+				<string>homeloc</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:HomeDirectory</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>shell</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:UserShell</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>applemail</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:MailAttribute</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>mail</string>
+				<string>email</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:EMailAddress</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>grouplist</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:Group</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>userlist</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:GroupMembership</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>aliasdata</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:RecordAlias</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>phone</string>
+				<string>telephone</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:PhoneNumber</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>nbodata</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:NBPEntry</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>urldata</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:URL</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>networklocurl</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsAttrTypeStandard:URLForNSL</string>
+		</dict>
+	</array>
+	<key>Default Record Type Map</key>
+	<array>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=people, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:Users</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=groups, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:Groups</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=peoplealiases, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:UserAliases</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=groupaliases, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:GroupAliases</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=machines, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:Machines</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=printers, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:Printers</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=afpserver, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:AFPServer</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=smbserver, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:SMBServer</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=ftpserver, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:FTPServer</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=nfs, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:NFS</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=webserver, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:WebServer</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=ldapserver, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:LDAPServer</string>
+		</dict>
+		<dict>
+			<key>Native Map</key>
+			<array>
+				<string>ou=qtsserver, o=company name</string>
+			</array>
+			<key>Standard Name</key>
+			<string>dsRecTypeStandard:QTSServer</string>
+		</dict>
+	</array>
+	<key>LDAP PlugIn Version</key>
+	<string>DSLDAPPlugIn Version 1.5</string>
+</dict>
+</plist>

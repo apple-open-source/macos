@@ -27,6 +27,7 @@
 
 #include "IOHIDDeviceClass.h"
 #include "IOHIDQueueClass.h"
+#include "IOHIDOutputTransactionClass.h"
 #include "IOHIDLibUserClient.h"
 
 #if IOHID_PSEUDODEVICE
@@ -120,6 +121,28 @@ HRESULT	IOHIDDeviceClass::detachQueue (IOHIDQueueClass * iohidQueue)
     return res;
 }
 
+HRESULT IOHIDDeviceClass::attachOutputTransaction (IOHIDOutputTransactionClass * iohidOutputTrans)
+{
+    HRESULT res = S_OK;
+    
+    iohidOutputTrans->setOwningDevice(this);
+
+    // ееее todo add to list
+    
+    return res;
+
+}
+
+HRESULT IOHIDDeviceClass::detachOutputTransaction (IOHIDOutputTransactionClass * iohidOutputTrans)
+{
+    HRESULT res = S_OK;
+
+    iohidOutputTrans->setOwningDevice(NULL);
+    
+    // ееее todo remove from list
+    
+    return res;
+}
 
 HRESULT IOHIDDeviceClass::queryInterfaceQueue (void **ppv)
 {
@@ -142,10 +165,14 @@ HRESULT IOHIDDeviceClass::queryInterfaceQueue (void **ppv)
 
 HRESULT IOHIDDeviceClass::queryInterfaceOutputTransaction (void **ppv)
 {
-    HRESULT res = E_NOINTERFACE;
+    HRESULT res = S_OK;
     
-    *ppv = 0;
+    IOHIDOutputTransactionClass * newOutputTrans = new IOHIDOutputTransactionClass;
     
+    attachOutputTransaction(newOutputTrans);
+    
+    *ppv = newOutputTrans->getInterfaceMap();
+        
     return res;
 }
 
@@ -268,6 +295,13 @@ IOReturn IOHIDDeviceClass::createAsyncPort(mach_port_t *port)
     IOReturn ret;
 
     connectCheck();
+    
+    // If we already have a port, don't create a new one.
+    if (fAsyncPort) {
+        if (port)
+            *port = fAsyncPort;
+        return kIOReturnSuccess;
+    }
 
     ret = IOCreateReceivePort(kOSAsyncCompleteMessageID, &fAsyncPort);
     if (kIOReturnSuccess == ret) {
@@ -384,7 +418,7 @@ IOReturn IOHIDDeviceClass::close()
 }
 
 IOReturn IOHIDDeviceClass::setRemovalCallback(
-                                   IOHIDCallbackFunction *	removalCallback,
+                                   IOHIDCallbackFunction 	removalCallback,
                                    void *			removalTarget,
                                    void *			removalRefcon)
 {
@@ -394,84 +428,24 @@ IOReturn IOHIDDeviceClass::setRemovalCallback(
 IOReturn IOHIDDeviceClass::getElementValue(IOHIDElementCookie	elementCookie,
                                            IOHIDEventStruct *	valueEvent)
 {
-    kern_return_t           	kr = kIOReturnBadArgument;
+    IOReturn 	kr;
     
-    for (long index = 0; index < fElementCount; index++)
+    kr = fillElementValue(elementCookie, valueEvent);
+    
+    // If the timestamp is 0, this element has never
+    // been processed.  We should query the element
+    //  to get the current value.
+    if ( (*(UInt64 *)&valueEvent->timestamp == 0) && 
+        (kr == kIOReturnSuccess))
     {
-        if (fElements[index].cookie == (unsigned long) elementCookie)
-            {
-                // get the value
-                SInt32		value = 0;
-                UInt64		timestamp = 0;
-                
-#if IOHID_PSEUDODEVICE
-                value = fElements[index].currentValue;
-                timestamp = __CFReadTSR();
-                
-                // in pseudo-device increment value
-                
-                // if the pause count is non-zero, then decrment the pause count, but do not change the value
-                if (fElements[index].pauseCount > 0)
-                    fElements[index].pauseCount--;
-                // otherwise increment in direction
-                else 
-                {
-                    fElements[index].currentValue += fElements[index].increment;
-                    
-                    // switch direction at ends
-                    if (fElements[index].currentValue <= fElements[index].min)
-                        fElements[index].increment = 1;
-                    else if (fElements[index].currentValue >= fElements[index].max)
-                        fElements[index].increment = -1;
-
-                    // additional bounds check (in case we make increment greater than 1)
-                    if (fElements[index].currentValue < fElements[index].min)
-                        fElements[index].currentValue = fElements[index].min;
-                    else if (fElements[index].currentValue > fElements[index].max)
-                        fElements[index].currentValue = fElements[index].max;
-                    
-                    // if its a button, lets add a pause
-                    if (fElements[index].type == kIOHIDElementTypeInput_Button)
-                    {
-                        // if we are button up, pause longer (50-1050 polls)
-                        if (fElements[index].currentValue == fElements[index].min)
-                            fElements[index].pauseCount = 50 + (random() % 1000);
-                        // otherwise pause for a short time (0-5 polls)
-                        else
-                            fElements[index].pauseCount = (random() % 5);
-                    }
-                }
-
-#else
-                // get ptr to shared memory for this element
-                if (fElements[index].valueLocation < fCurrentValuesMappedMemorySize)
-                {
-                   IOHIDElementValue * elementValue = (IOHIDElementValue *)
-                            (fCurrentValuesMappedMemory + fElements[index].valueLocation);
-                    
-                    // if size is just one 32bit word
-                    if (elementValue->totalSize == sizeof (IOHIDElementValue))
-                    {
-                        value = elementValue->value[0];
-                        timestamp = *(UInt64 *)& elementValue->timestamp;
-                    }
-                    // еее todo long sizes
-                }
-#endif
-                
-                // fill in the event
-                valueEvent->type = (IOHIDElementType) fElements[index].type;
-                valueEvent->elementCookie = elementCookie;
-                valueEvent->value = value;
-                *(UInt64 *)& valueEvent->timestamp = timestamp;
-                valueEvent->longValueSize = 0;
-                valueEvent->longValue = NULL;
-            
-                kr = kIOReturnSuccess;
-            }
+        kr = queryElementValue (elementCookie,
+                            valueEvent,
+                            0,
+                            NULL,
+                            NULL,
+                            NULL);
     }
-
-
+    
     return kr;
 }
 
@@ -481,9 +455,80 @@ IOReturn IOHIDDeviceClass::setElementValue(
                                 UInt32 				timeoutMS,
                                 IOHIDElementCallbackFunction *	callback,
                                 void * 				callbackTarget,
-                                void *				callbackRefcon)
+                                void *				callbackRefcon,
+                                bool				pushToDevice)
 {
-    return kIOReturnUnsupported;
+    kern_return_t           	kr = kIOReturnBadArgument;
+    IOHIDElementStruct		element;
+    
+    if (!getElement(elementCookie, &element))
+        return kr;
+        
+
+#if ! IOHID_PSEUDODEVICE
+
+    // we are only interested feature and output elements
+    if ((element.type != kIOHIDElementTypeFeature) && 
+            (element.type != kIOHIDElementTypeOutput))
+        return kr;
+                
+    allChecks();
+
+    // get ptr to shared memory for this element
+    if (element.valueLocation < fCurrentValuesMappedMemorySize)
+    {
+        IOHIDElementValue * elementValue = (IOHIDElementValue *)
+                (fCurrentValuesMappedMemory + element.valueLocation);
+                
+        // if size is just one 32bit word
+        if (elementValue->totalSize == sizeof (IOHIDElementValue))
+        {
+            //elementValue->cookie = valueEvent->elementCookie;
+            elementValue->value[0] = valueEvent->value;
+            //elementValue->timestamp = valueEvent->timestamp;
+        }
+        // handle the long value size case.
+        // we are assuming here that the end user has an allocated
+        // longValue buffer.
+        else if (elementValue->totalSize > sizeof (IOHIDElementValue))
+        {
+            UInt32 longValueSize = valueEvent->longValueSize;
+            
+            if ((longValueSize > element.bytes) ||
+                ( valueEvent->longValue == NULL))
+                return kr;
+                
+            bzero(&(elementValue->value), 
+                (elementValue->totalSize - sizeof(IOHIDElementValue)) + sizeof(UInt32));
+            
+            // *** FIX ME ***
+            // Since we are setting mapped memory, we should probably
+            // hold a shared lock
+            convertByteToWord (valueEvent->longValue, elementValue->value, longValueSize<<3);
+            //elementValue->timestamp = valueEvent->timestamp;
+        }
+        
+        // Don't push the value out to the device if not told to.  
+        // This is needed for transactions.
+        if (!pushToDevice)
+            return kIOReturnSuccess;
+                        
+        UInt32			input[1];
+        IOByteCount			outputCount = 0;
+                
+        input[0] = (UInt32) elementCookie;
+        
+        //  kIOHIDLibUserClientPostElementValue,  kIOUCStructIStructO,    1,	0
+        kr = io_connect_method_structureI_structureO(
+                fConnection, kIOHIDLibUserClientPostElementValue, 
+                (UInt8 *)input, sizeof(UInt32), NULL, &outputCount);
+        
+    }
+        
+#endif
+            
+    
+    return kr;
 }
 
 IOReturn IOHIDDeviceClass::queryElementValue(
@@ -494,7 +539,224 @@ IOReturn IOHIDDeviceClass::queryElementValue(
                                 void * 				callbackTarget,
                                 void *				callbackRefcon)
 {
-    return kIOReturnUnsupported;
+    IOReturn			ret = kIOReturnBadArgument;
+    IOHIDElementStruct		element;
+    int				input[1];
+    mach_msg_type_number_t	len = 0;
+        
+    input[0] = (int) elementCookie;
+
+    allChecks();
+
+    if (!getElement(elementCookie, &element))
+        return ret;
+
+    //  kIOHIDLibUserClientUpdateElementValue,  kIOUCScalarIScalarO,    1,	0
+    ret = io_connect_method_scalarI_scalarO(
+            fConnection, 
+            kIOHIDLibUserClientUpdateElementValue, 
+            input, 1, NULL, &len);
+            
+    if (ret == kIOReturnSuccess)
+        ret = fillElementValue(elementCookie, valueEvent);
+    
+    return ret;
+
+}
+
+IOReturn IOHIDDeviceClass::fillElementValue(IOHIDElementCookie		elementCookie,
+                                            IOHIDEventStruct *		valueEvent)
+{
+    IOHIDElementStruct	element;
+    
+    if (!getElement(elementCookie, &element))
+        return kIOReturnBadArgument;
+        
+    // get the value
+    SInt32		value = 0;
+    void *		longValue = 0;
+    UInt32		longValueSize = 0;
+    UInt64		timestamp = 0;
+    
+#if IOHID_PSEUDODEVICE
+    value = element.currentValue;
+    timestamp = __CFReadTSR();
+    
+    // in pseudo-device increment value
+    
+    // if the pause count is non-zero, then decrment the pause count, but do not change the value
+    if (element.pauseCount > 0)
+        element.pauseCount--;
+    // otherwise increment in direction
+    else 
+    {
+        element.currentValue += element.increment;
+        
+        // switch direction at ends
+        if (element.currentValue <= element.min)
+            element.increment = 1;
+        else if (element.currentValue >= element.max)
+            element.increment = -1;
+
+        // additional bounds check (in case we make increment greater than 1)
+        if (element.currentValue < element.min)
+            element.currentValue = element.min;
+        else if (element.currentValue > element.max)
+            element.currentValue = element.max;
+        
+        // if its a button, lets add a pause
+        if (element.type == kIOHIDElementTypeInput_Button)
+        {
+            // if we are button up, pause longer (50-1050 polls)
+            if (element.currentValue == element.min)
+                element.pauseCount = 50 + (random() % 1000);
+            // otherwise pause for a short time (0-5 polls)
+            else
+                element.pauseCount = (random() % 5);
+        }
+    }
+
+#else
+    openCheck();
+    
+    // get ptr to shared memory for this element
+    if (element.valueLocation < fCurrentValuesMappedMemorySize)
+    {
+        IOHIDElementValue * elementValue = (IOHIDElementValue *)
+                (fCurrentValuesMappedMemory + element.valueLocation);
+        
+        // if size is just one 32bit word
+        if (elementValue->totalSize == sizeof (IOHIDElementValue))
+        {
+            value = elementValue->value[0];
+            timestamp = *(UInt64 *)& elementValue->timestamp;
+        }
+        // handle the long value size case.
+        // we are assuming here that the end user will deallocate
+        // the longValue buffer.
+        else if (elementValue->totalSize > sizeof (IOHIDElementValue))
+        {
+            longValueSize = element.bytes;
+            longValue = malloc ( longValueSize );
+            bzero(longValue, longValueSize);
+
+            // *** FIX ME ***
+            // Since we are getting mapped memory, we should probably
+            // hold a shared lock
+            convertWordToByte(elementValue->value, longValue, longValueSize<<3);
+            
+            timestamp = *(UInt64 *)& elementValue->timestamp;
+        }
+    }
+#endif
+    
+    // fill in the event
+    valueEvent->type = (IOHIDElementType) element.type;
+    valueEvent->elementCookie = elementCookie;
+    valueEvent->value = value;
+    *(UInt64 *)& valueEvent->timestamp = timestamp;
+    valueEvent->longValueSize = longValueSize;
+    valueEvent->longValue = longValue;
+
+    return kIOReturnSuccess;
+    
+}
+
+//---------------------------------------------------------------------------
+// Not very efficient, will do for now.
+
+#define BIT_MASK(bits)  ((1 << (bits)) - 1)
+
+#define UpdateByteOffsetAndShift(bits, offset, shift)  \
+    do { offset = bits >> 3; shift = bits & 0x07; } while (0)
+
+#define UpdateWordOffsetAndShift(bits, offset, shift)  \
+    do { offset = bits >> 5; shift = bits & 0x1f; } while (0)
+    
+#ifndef max
+#define max(a, b) \
+    ((a > b) ? a:b)
+#endif
+
+#ifndef min
+#define min(a, b) \
+    ((a < b) ? a:b)
+#endif
+
+void IOHIDDeviceClass::convertByteToWord( const UInt8 * src,
+                           UInt32 *      dst,
+                           UInt32        bitsToCopy)
+{
+    UInt32 srcOffset;
+    UInt32 srcShift;
+    UInt32 srcStartBit   = 0;
+    UInt32 dstShift      = 0;
+    UInt32 dstStartBit   = 0;
+    UInt32 dstOffset     = 0;
+    UInt32 lastDstOffset = 0;
+    UInt32 word          = 0;
+    UInt8  bitsProcessed;
+    UInt32 totalBitsProcessed = 0;
+
+    while ( bitsToCopy )
+    {
+        UInt32 tmp;
+
+        UpdateByteOffsetAndShift( srcStartBit, srcOffset, srcShift );
+
+        bitsProcessed = min( bitsToCopy,
+                             min( 8 - srcShift, 32 - dstShift ) );
+
+        tmp = (src[srcOffset] >> srcShift) & BIT_MASK(bitsProcessed);
+
+        word |= ( tmp << dstShift );
+
+        dstStartBit += bitsProcessed;
+        srcStartBit += bitsProcessed;
+        bitsToCopy  -= bitsProcessed;
+		totalBitsProcessed += bitsProcessed;
+
+        UpdateWordOffsetAndShift( dstStartBit, dstOffset, dstShift );
+
+        if ( ( dstOffset != lastDstOffset ) || ( bitsToCopy == 0 ) )
+        {
+            dst[lastDstOffset] = word;
+            word = 0;
+            lastDstOffset = dstOffset;
+        }
+    }
+}
+
+void IOHIDDeviceClass::convertWordToByte( const UInt32 * src,
+                           UInt8 *        dst,
+                           UInt32         bitsToCopy)
+{
+    UInt32 dstOffset;
+    UInt32 dstShift;
+    UInt32 dstStartBit = 0;
+    UInt32 srcShift    = 0;
+    UInt32 srcStartBit = 0;
+    UInt32 srcOffset   = 0;
+    UInt8  bitsProcessed;
+    UInt32 tmp;
+
+    while ( bitsToCopy )
+    {
+        UpdateByteOffsetAndShift( dstStartBit, dstOffset, dstShift );
+
+        bitsProcessed = min( bitsToCopy,
+                             min( 8 - dstShift, 32 - srcShift ) );
+
+        tmp = (src[srcOffset] >> srcShift) & BIT_MASK(bitsProcessed);
+
+        dst[dstOffset] |= ( tmp << dstShift );
+
+        dstStartBit += bitsProcessed;
+        srcStartBit += bitsProcessed;
+        bitsToCopy  -= bitsProcessed;
+
+        UpdateWordOffsetAndShift( srcStartBit, srcOffset, srcShift );
+    }
 }
 
 IOReturn IOHIDDeviceClass::startAllQueues()
@@ -602,7 +864,7 @@ IOReturn IOHIDDeviceClass::deviceClose(void *self)
     { return getThis(self)->close(); }
 
 IOReturn IOHIDDeviceClass::deviceSetRemovalCallback(void * 	self,
-                                   IOHIDCallbackFunction *	removalCallback,
+                                   IOHIDCallbackFunction	removalCallback,
                                    void *			removalTarget,
                                    void *			removalRefcon)
     { return getThis(self)->setRemovalCallback (removalCallback,
@@ -626,7 +888,8 @@ IOReturn IOHIDDeviceClass::deviceSetElementValue(void *	 	self,
                                                 timeoutMS,
                                                 callback,
                                                 callbackTarget,
-                                                callbackRefcon); }
+                                                callbackRefcon, 
+                                                true); }
 
 IOReturn IOHIDDeviceClass::deviceQueryElementValue(void * 	self,
                                 IOHIDElementCookie		elementCookie,
@@ -890,6 +1153,16 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties,
                 return kIOReturnInternalError;
             hidelement.usagePage = number;
             
+            // get the element size
+            object = CFDictionaryGetValue (dictionary, CFSTR(kIOHIDElementSizeKey));
+            if (object == 0 || CFGetTypeID(object) != CFNumberGetTypeID())
+                return kIOReturnInternalError;
+            if (!CFNumberGetValue((CFNumberRef) object, kCFNumberLongType, &number))
+                return kIOReturnInternalError;
+            hidelement.bytes = number >> 3;
+            hidelement.bytes += (number % 8) ? 1 : 0;
+
+            
             // if pseudo-device, do some additional initialization
 #if IOHID_PSEUDODEVICE
             hidelement.currentValue = hidelement.min;
@@ -925,4 +1198,28 @@ IOHIDElementType IOHIDDeviceClass::getElementType(IOHIDElementCookie elementCook
             type = (IOHIDElementType) fElements[index].type;
     
     return type;
+}
+
+UInt32 IOHIDDeviceClass::getElementByteSize(IOHIDElementCookie elementCookie)
+{
+    UInt32 size = 0;
+    IOHIDElementStruct element;
+    
+    if (getElement(elementCookie, &element))
+            size = element.bytes;
+    
+    return size;
+}
+
+bool IOHIDDeviceClass::getElement(IOHIDElementCookie elementCookie, IOHIDElementStruct *element)
+{
+    
+    for (long index = 0; index < fElementCount; index++)
+        if (fElements[index].cookie == (unsigned long) elementCookie)
+        {
+            *element = fElements[index];
+            return true;
+        }
+            
+    return false;
 }

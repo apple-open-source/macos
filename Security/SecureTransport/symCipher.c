@@ -21,7 +21,7 @@
 
 	Contains:	CDSA-based symmetric cipher module
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -108,7 +108,6 @@ SSLErr CDSASymmInit(
 	CSSM_DATA_PTR		ivDataPtr = NULL;
 	CSSM_KEY_PTR		symKey = NULL;
 	CSSM_CC_HANDLE		ccHand = 0;
-	CSSM_KEYHEADER_PTR	hdr;
 	char				*op;
 	
 	CASSERT(cipherCtx != NULL);
@@ -127,24 +126,13 @@ SSLErr CDSASymmInit(
 	if(symKey == NULL) {
 		return SSLMemoryErr;
 	}
-	memset(symKey, 0, sizeof(CSSM_KEY));
-	serr = stSetUpCssmData(&symKey->KeyData, cipherCtx->symCipher->keySize);
+	serr = sslSetUpSymmKey(symKey, cipherCtx->symCipher->keyAlg, 
+		CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DECRYPT, CSSM_TRUE,
+		key, cipherCtx->symCipher->keySize);
 	if(serr) {
 		sslFree(symKey);
 		return serr;
 	}
-	memmove(symKey->KeyData.Data, key, cipherCtx->symCipher->keySize);
-	
-	/* set up the header */
-	hdr = &symKey->KeyHeader;
-	hdr->BlobType = CSSM_KEYBLOB_RAW;
-	hdr->Format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
-	hdr->AlgorithmId = cipherCtx->symCipher->keyAlg;
-	hdr->KeyClass = CSSM_KEYCLASS_SESSION_KEY;
-	hdr->LogicalKeySizeInBits = cipherCtx->symCipher->keySize * 8;
-	hdr->KeyAttr = CSSM_KEYATTR_MODIFIABLE | CSSM_KEYATTR_EXTRACTABLE;
-	hdr->KeyUsage = CSSM_KEYUSE_ENCRYPT | CSSM_KEYUSE_DECRYPT;
-	hdr->WrapAlgorithmId = CSSM_ALGID_NONE;
 	
 	cipherCtx->symKey = symKey;
 	
@@ -235,9 +223,10 @@ SSLErr CDSASymmEncrypt(
 {
 	CSSM_RETURN			crtn;
 	CSSM_DATA			ptextData;
-	CSSM_DATA			ctextData = {0, NULL};
+	CSSM_DATA			ctextData;
 	uint32				bytesEncrypted;
 	SSLErr				serr = SSLInternalError;
+	uint32				origLen = dest.length;
 	
 	/*
 	 * Valid on entry:
@@ -248,6 +237,9 @@ SSLErr CDSASymmEncrypt(
 	CASSERT(cipherCtx != NULL);
 	logSymmData("Symm encrypt ptext", &src, 48);
 	
+	/* this requirement allows us to avoid a malloc and copy */
+	CASSERT(dest.length >= src.length);
+
 	#if	SSL_DEBUG
 	{
 		unsigned blockSize = cipherCtx->symCipher->blockSize;
@@ -271,6 +263,7 @@ SSLErr CDSASymmEncrypt(
 		return SSLInternalError;
 	}
 	SSLBUF_TO_CSSM(&src, &ptextData);
+	SSLBUF_TO_CSSM(&dest, &ctextData);
 	crtn = CSSM_EncryptDataUpdate(cipherCtx->ccHand,
 		&ptextData,
 		1,
@@ -283,25 +276,15 @@ SSLErr CDSASymmEncrypt(
 		goto errOut;
 	}
 	
-	if(bytesEncrypted > dest.length) {
-		/* FIXME - can this happen? Should we remalloc? */
+	if(bytesEncrypted > origLen) {
+		/* should never happen, callers always give us block-aligned
+		 * plaintext and CSP padding is disabled. */
 		errorLog2("Symmetric encrypt overflow: bytesEncrypted %ld destLen %ld\n",
 			bytesEncrypted, dest.length);
 		serr = SSLDataOverflow;
 		goto errOut;
 	}
-	if(bytesEncrypted) {
-		memmove(dest.data, ctextData.Data, bytesEncrypted);
-	}
 	dest.length = bytesEncrypted;
-	
-	/* CSP mallocd ctext  */
-	/* FIXME - once we're really sure that the caller always mallocs
-	 * dest.data, we should avoid this malloc/copy */
-	stFreeCssmData(&ctextData, CSSM_FALSE);
-	
-	/* FIXME - sure we don't need to do Final()? */
-	
 	logSymmData("Symm encrypt ctext", &dest, 48);
 	serr = SSLNoErr;
 	
@@ -320,7 +303,8 @@ SSLErr CDSASymmDecrypt(
 	CSSM_DATA			ctextData;
 	uint32				bytesDecrypted;
 	SSLErr				serr = SSLInternalError;
-		
+	uint32				origLen = dest.length;
+	
 	/*
 	 * Valid on entry:
 	 * cipherCtx->cspHand
@@ -332,6 +316,8 @@ SSLErr CDSASymmDecrypt(
 		errorLog0("CDSASymmDecrypt: null args\n");
 		return SSLInternalError;
 	}
+	/* this requirement allows us to avoid a malloc and copy */
+	CASSERT(dest.length >= src.length);
 	
 	#if	SSL_DEBUG
 	{
@@ -352,6 +338,7 @@ SSLErr CDSASymmDecrypt(
 	#endif
 
 	SSLBUF_TO_CSSM(&src, &ctextData);
+	SSLBUF_TO_CSSM(&dest, &ptextData);
 	crtn = CSSM_DecryptDataUpdate(cipherCtx->ccHand,
 		&ctextData,
 		1,
@@ -364,21 +351,13 @@ SSLErr CDSASymmDecrypt(
 		goto errOut;
 	}
 	
-	if(bytesDecrypted > dest.length) {
+	if(bytesDecrypted > origLen) {
 		/* FIXME - can this happen? Should we remalloc? */
 		errorLog2("Symmetric decrypt overflow: bytesDecrypted %ld destLen %ld\n",
 			bytesDecrypted, dest.length);
 		serr = SSLDataOverflow;
 		goto errOut;
 	}
-	
-	if(bytesDecrypted) {
-		memmove(dest.data, ptextData.Data, bytesDecrypted);
-	}
-
-	/* CSP mallocd ptext, remData */
-	stFreeCssmData(&ptextData, CSSM_FALSE);
-
 	dest.length = bytesDecrypted;
 	serr = SSLNoErr;
 	logSymmData("Symm decrypt ptext(1)", &dest, 48);

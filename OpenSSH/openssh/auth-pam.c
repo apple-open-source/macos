@@ -28,6 +28,7 @@
 #include "ssh.h"
 #include "xmalloc.h"
 #include "log.h"
+#include "auth.h"
 #include "auth-pam.h"
 #include "servconf.h"
 #include "canohost.h"
@@ -35,7 +36,7 @@
 
 extern char *__progname;
 
-RCSID("$Id: auth-pam.c,v 1.1.1.10 2002/03/08 21:07:17 wsanchez Exp $");
+RCSID("$Id: auth-pam.c,v 1.1.1.11 2002/05/28 18:23:40 zarzycki Exp $");
 
 #define NEW_AUTHTOK_MSG \
 	"Warning: Your password has expired, please change it now"
@@ -199,10 +200,11 @@ void do_pam_cleanup_proc(void *context)
 }
 
 /* Attempt password authentation using PAM */
-int auth_pam_password(struct passwd *pw, const char *password)
+int auth_pam_password(Authctxt *authctxt, const char *password)
 {
 	extern ServerOptions options;
 	int pam_retval;
+	struct passwd *pw = authctxt->pw;
 
 	do_pam_set_conv(&conv);
 
@@ -247,15 +249,18 @@ int do_pam_account(char *username, char *remote_user)
 	}
 
 	pam_retval = pam_acct_mgmt(__pamh, 0);
+	debug2("pam_acct_mgmt() = %d", pam_retval);
 	switch (pam_retval) {
 		case PAM_SUCCESS:
 			/* This is what we want */
 			break;
+#if 0
 		case PAM_NEW_AUTHTOK_REQD:
 			message_cat(&__pam_msg, NEW_AUTHTOK_MSG);
 			/* flag that password change is necessary */
 			password_change_required = 1;
 			break;
+#endif
 		default:
 			log("PAM rejected by account configuration[%d]: "
 			    "%.200s", pam_retval, PAM_STRERROR(__pamh, 
@@ -293,6 +298,9 @@ void do_pam_session(char *username, const char *ttyname)
 void do_pam_setcred(int init)
 {
 	int pam_retval;
+
+	if (__pamh == NULL)
+		return;
 
 	do_pam_set_conv(&conv);
 

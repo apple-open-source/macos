@@ -1,0 +1,167 @@
+<html>
+
+	<head>
+		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
+		<title>Tags for Objective-C Headers</title>
+		<meta http-equiv="expires" content="Sun, 31 Dec 2000 00:00:00 GMT">
+	</head>
+
+	<body bgcolor="white">
+		<a href="HeaderDoc.html">[Overview]</a>
+		<h1>Tags for Objective-C Headers</h1>
+		<ul>
+			<li><a href="#Intro">Introduction</a>
+			<li><a href="#Anchor-Conventions-54980">Conventions Used in this Documentation</a>
+			<li><a href="#AdditionalTags">Additional Tags for Objective-C Declarations</a>
+			<ul>
+				<li><a href="#ClassAndProtocolTags">The @class and @protocol Tags</a>
+				<li><a href="#MethodTag">The @method Tag</a>
+			</ul>
+		</ul>
+		<h2><a name="Intro"></a>Introduction</h2>
+		<p>HeaderDoc processes a Objective-C header in much the same way that it does a C header. In fact, until HeaderDoc encounters a class declaration in an Objective-C header, the processing is identical. This means you can use any of the tags defined for C headers within an Objective-C header. See <a href="CHeaderTags.html">Tags for C Headers</a>.</p>
+		<p>For example, in a header that declares two classes, you may want to use the @header tag to provide a discussion explaining why these classes are grouped, and use the @class tags to provide discussions for each of the classes. Within the class declarations, you can use the @method tag to document each method.  Since Objective-C is a superset of C, the header might also declare types, functions, or other API outside of any class declaration.  You would use @typedef, @function, and other C tags to document these declarations.</p>
+		<h3>Processing Objective-C Classes</h3>
+		<p>Once HeaderDoc encounters an @class tag (with accompanying declaration) in an Objective-C header, it treats all comments and declarations that follow&mdash;until the end of the class declaration&mdash;as belonging to that class, rather than to the header as a whole. When HeaderDoc generates the HTML documentation for an Objective-C header, it creates one frameset for the header as a whole, and separate framesets for each class declared within the header.</p>
+
+		<h3>Processing Objective-C Protocols</h3>
+		<p>HeaderDoc processes Objective-C protocol declarations similarly to class declarations. The documentation for the protocol and the methods it declares are grouped in their own frameset, which is accessed from the documentation for the header that contains the protocol.</p>
+
+		<h3>Processing Objective-C Categories</h3>
+		<p>An Objective-C category lets you add methods to an existing class. When HeaderDoc processes a batch of headers and finds comments for methods declared in a category, it searches for the associated class documentation and adds those methods and their documentation to the class documentation.  If the class is not present in the current batch, HeaderDoc will create a separate frameset of documentation for the category. </p>
+
+		<p>Within a Objective-C class, protocol, or category declaration, HeaderDoc allows the @method tag, as describe below.</p>
+		<p>&nbsp;</p>
+		<h2><a name="Anchor-Conventions-54980"></a>Conventions Used in this Documentation</h2>
+		<p>Depending on their type, tags can introduce either one or two fields of information:</p>
+		<ul>
+			<p><tt>@method [MethodName]</tt><tt><br>
+			@param [parameterName] [Some descriptive text...]</tt></p>
+		</ul>
+		<p>In the tables below, the &quot;Fields&quot; column indicates the number of textual fields each type of tag takes.</p>
+		<p>The tags highlighted in <font size="4" color="#660000"><b>RED</b></font> below are required.</p>
+		<p>&nbsp;</p>
+		
+		
+		<h2><a name="ClassAndProtocolTags"></a>The @class, @protocol, and @category Tags</h2>
+		<p>In Objective-C, class and protocol declarations are quite similar, and consequently HeaderDoc's @class and @protocol tags are parallel in their usage.</p>
+		<h3><a name="Anchor-Class-63388"></a>Class and Protocol Tags</h3>
+		<p>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@class</b></font></td>
+				<td>The name of the class.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@category</b></font></td>
+				<td>The full name of the category, as declared in the header. For example, "MyClass(MyCategory)".  HeaderDoc uses the "MyClass" portion of the name to identify the associated class.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+			<tr>
+				<td><font color="#660000"><b>@protocol</b></font></td>
+				<td>The name of the protocol.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+		</table>
+		</p>
+		<p>Following these tags, you typically provide introductory information about the purpose of the class, protocol, or category. You can divide this material into a summary sentence and in-depth discussion (using the @abstract and @discussion tags), or you can provided the material as an untagged block of text, as the examples below illustrate.</p>
+		<p><b>Example 1 - Documentation tagged as abstract and discussion:</b></p>
+		<pre>/*!
+   @class NSPrinter
+   @abstract An NSPrinter object describes a printer's capabilities.
+   @discussion An NSPrinter object describes a printer's capabilities, such as whether the printer can print in color and whether it provides a particular font. An NSPrinter object represents...  
+*/
+@interface NSPrinter: NSObject <NSCopying, NSCoding>
+...
+@end</pre>
+		<p><b>Example 2 - Documentation as single block of text:</b></p>
+		<pre>/*!
+   @class NSPrinter
+   An NSPrinter object describes a printer's capabilities, such as whether the printer can print in color and whether it provides a particular font. An NSPrinter object represents...  
+*/
+@interface NSPrinter: NSObject <NSCopying, NSCoding>
+...
+@end</pre>
+		<p>&nbsp;</p>
+		<a name="MethodTag"></a><h3>The @method Tag</h3>
+		<p>For methods declared in an Objective-C class, protocol, or category, use the @method tag:</p>
+		<p>
+		<table border="1" cellpadding="0" cellspacing="2" width="92%">
+			<tr>
+				<td>
+					<center>
+						<b>Tag</b></center>
+				</td>
+				<td>
+					<center>
+						<b>Identifies</b></center>
+				</td>
+				<td><b>Fields</b></td>
+			</tr>
+			<tr>
+				<td><font color="black"><b>@method</b></font></td>
+				<td>The method name followed by the discription.</td>
+				<td>
+					<center>
+						2</center>
+				</td>
+			</tr>
+			<tr>
+				<td><b>@param</b></td>
+				<td>The parameter name followed by the discription.</td>
+				<td>
+					<center>
+						2</center>
+				</td>
+			</tr>
+			<tr>
+				<td><b>@result</b></td>
+				<td>The return value of the method. </td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+		</table>
+		</p>
+		<p><b>Example</b></p>
+		<pre>/*! 
+   @method dateWithString:calendarFormat:   
+   @abstract Creates and returns a calendar date initialized with the date 
+             specified in the string description. 
+   @discussion [An extended description of the method...]
+   @param description  A string specifying the date.
+   @param format  Conversion specifiers similar to those used in strftime().
+   @result  Returns the newly initialized date object or nil on error.
+*/
++ (id)dateWithString:(NSString *)description calendarFormat:(NSString *)format;
+</pre>
+<hr>
+<center>
+For more usage examples, see the <b>ExampleHeaders</b> folder that accompanies the HeaderDoc distribution.
+</center>
+
+	</body>
+
+</html>

@@ -102,6 +102,7 @@
  *	
  */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include "error.h"
 #include "lexxer.h"
@@ -175,6 +176,7 @@ parseArgs(argc, argv)
 	        GenSymTab = FALSE;
 		break;
               case 't':
+                warn("Mach RPC traps not fully supported");
 		TestRPCTrap = TRUE;
 		UseRPCTrap = TRUE;
                 break;
@@ -241,14 +243,14 @@ parseArgs(argc, argv)
 		else
 		    fatal("unknown flag: '%s'", argv[0]);
 		break;
-	      case 'x':
-		ShortCircuit = TRUE;
-		break;
 	      case 'X':
 		ShortCircuit = FALSE;
 		break;
+              case 'x':
+                ShortCircuit = TRUE;
+                /* fall thru - no longer supported */
 	      default:
-		fatal("unknown flag: '%s'", argv[0]);
+		fatal("unknown/unsupported flag: '%s'", argv[0]);
 		/*NOTREACHED*/
 	    }
 	}
@@ -258,12 +260,14 @@ parseArgs(argc, argv)
 
 FILE *uheader, *server, *user;
 
-void
+int
 main(argc, argv)
     int argc;
     char *argv[];
 {
-    FILE *iheader, *sheader, *dheader;
+    FILE *iheader = 0;
+    FILE *sheader = 0;
+    FILE *dheader = 0;
     time_t loc;
     extern time_t time();
     extern string_t ctime();
@@ -279,8 +283,8 @@ main(argc, argv)
     LookNormal();
     (void) yyparse();
 
-    if (errors > 0)
-        fatal("%d errors found. Abort.\n", errors);
+    if (mig_errors > 0)
+        fatal("%d errors found. Abort.\n", mig_errors);
 
     more_global();
 

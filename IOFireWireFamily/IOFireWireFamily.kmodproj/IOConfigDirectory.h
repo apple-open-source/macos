@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,6 +33,8 @@ class OSString;
 class OSIterator;
 class IOFireWireDevice;
 
+/*! @class IOConfigDirectory 
+*/
 class IOConfigDirectory : public OSObject
 {
     OSDeclareAbstractStructors(IOConfigDirectory);
@@ -153,13 +155,17 @@ public:
     */
     virtual IOReturn getKeySubdirectories(int key, OSIterator *&iterator);
 
-    int getType() const {
-        return fType;
-    };
-    int getNumEntries() const {
-        return fNumEntries;
-    };
-    
+    int getType() const;
+	
+    int getNumEntries() const;
+
+protected:
+	
+	virtual const UInt32 * lockData( void ) = 0;
+	virtual void unlockData( void ) = 0;
+	virtual IOReturn updateROMCache( UInt32 offset, UInt32 length ) = 0;
+	virtual IOReturn checkROMState( void ) = 0;
+	
 private:
     OSMetaClassDeclareReservedUnused(IOConfigDirectory, 0);
     OSMetaClassDeclareReservedUnused(IOConfigDirectory, 1);

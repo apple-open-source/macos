@@ -1,5 +1,6 @@
 /* Native-dependent definitions for LynxOS.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1999, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -70,7 +71,8 @@
 
 #include "target.h"
 
-extern int child_wait (int pid, struct target_waitstatus *status);
+extern ptid_t child_wait (ptid_t ptid,
+                                struct target_waitstatus *status);
 
 /* Lynx needs a special definition of this so that we can
    print out the pid and thread number seperately.  */
@@ -78,6 +80,6 @@ extern int child_wait (int pid, struct target_waitstatus *status);
 
 /* override child_pid_to_str in inftarg.c */
 #define CHILD_PID_TO_STR
-extern char *lynx_pid_to_str (int pid);
+extern char *lynx_pid_to_str (ptid_t ptid);
 
 #endif /* NM_LYNX_H */

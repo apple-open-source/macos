@@ -1,9 +1,31 @@
 /*
 %%% copyright-cmetz-97
-This software is Copyright 1997-1998 by Craig Metz, All Rights Reserved.
-The Inner Net License Version 2 applies to this software.
-You should have received a copy of the license with this software. If
-you didn't get a copy, you may request one from <license@inner.net>.
+
+  The author(s) grant permission for redistribution and use in source and
+binary forms, with or without modification, of the software and documentation
+provided that the following conditions are met:
+
+1. All terms of the all other applicable copyrights and licenses must be
+   followed.
+2. Redistributions of source code must retain the authors' copyright
+   notice(s), this list of conditions, and the following disclaimer.
+3. Redistributions in binary form must reproduce the authors' copyright
+   notice(s), this list of conditions, and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+4. Neither the name(s) of the author(s) nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY ITS AUTHORS AND CONTRIBUTORS ``AS IS'' AND ANY
+EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 

@@ -47,9 +47,12 @@ const char NAME_LOOPBACK[] = "127.0.0.1";
 const char NAME_UID[] = "uid";
 const char NAME_PASSWD[] = "passwd";
 const char NAME_USERS[] = "users";
+const char NAME_GROUPS[] = "groups";
+const char NAME_ADMIN[] = "admin";
 const char NAME_NETWORKS[] = "networks";
 const char NAME_ADDRESS[] = "address";
 const char NAME_TRUSTED_NETWORKS[] = "trusted_networks";
+const char NAME_AUTHENTICATION_AUTHORITY[] = "authentication_authority";
 const char ACCESS_USER_SUPER[] = "root";
 const char ACCESS_USER_ANYBODY[] = "*";
 const char ACCESS_NAME_PREFIX[] = "_writers_";
@@ -99,6 +102,9 @@ unsigned auth_count[N_AUTH_COUNT];
 
 /* Avoid needless readalls (and race condition handling same) */
 bool_t readall_done = FALSE;
+
+/* Promote members of the admin group to root access */
+bool_t promote_admins = TRUE;
 
 /* Force the domain to be root... */
 bool_t forcedIsRoot = FALSE;

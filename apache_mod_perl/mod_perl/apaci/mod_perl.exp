@@ -1,0 +1,15 @@
+#!
+perl_module
+mod_perl_sent_header
+sv2request_rec
+perl_request_rec
+mod_perl_tie_table
+perl_cmd_perl_FLAG
+perl_cmd_perl_TAKE2
+perl_cmd_perl_TAKE1
+perl_cmd_perl_TAKE123
+perl_perl_cmd_cleanup
+hvrv2table
+perl_call_handler
+perl_clear_symtab
+perl_get_startup_pool

@@ -1,0 +1,400 @@
+! First some easy integer cases.
+3C	ALL	1	1	OK	=
+3C	ALL	1	2	OK	<
+3C	ALL	2	1	OK	>
+3C	ALL	2	2	OK	=
+3C	ALL	2	-2	OK	>
+3C	ALL	5	-5	OK	>
+3C	ALL	1	7	OK	<
+3C	ALL	5	-1	OK	>
+3C	ALL	2	-5	OK	>
+3C	ALL	5	5	OK	=
+3C	ALL	5	-0	OK	>
+3C	ALL	5	+0	OK	>
+! Infinity vs Infinity.
+3C	ALL	H	H	OK	=	always equal
+3C	ALL	-H 	-H	OK	=	always equal
+3C	ALL	H	-H	OK	>
+3C	ALL	-H	H	OK	<
+! Infinity vs huge.
+3C	ALL	H	Hm1	OK	>
+3C	ALL	H	-Hm1	OK	>
+3C	ALL	-H	Hm1	OK	<
+3C	ALL	-H	-Hm1	OK	<
+3C	ALL	H	Hd1	OK	>
+3C	ALL	H	-Hd1	OK	>
+3C	ALL	-H	Hd1	OK	<
+3C	ALL	-H	-Hd1	OK	<
+3C	ALL	Hm1	H	OK	<
+3C	ALL	Hm1	-H	OK	>
+3C	ALL	-Hm1	H	OK	<
+3C	ALL	-Hm1	-H	OK	>
+! Infinity vs 0.
+3C	ALL	H	0	OK	>
+3C	ALL	H	-0	OK	>
+3C	ALL	-H	0	OK	<
+3C	ALL	-H	-0	OK	<
+3C	ALL	0	H	OK	<
+3C	ALL	-0	H	OK	<
+3C	ALL	0	-H	OK	>
+3C	ALL	-0	-H	OK	>
+! Infinity vs denormalized.
+3C	ALL	H	Ed1	OK	>
+3C	ALL	-H	Ed1	OK	<
+3C	ALL	H	-Ed1	OK	>
+3C	ALL	-H	-Ed1	OK	<
+3C	ALL	H	0i1	OK	>
+3C	ALL	-H	0i1	OK	<
+3C	ALL	H	-0i1	OK	>
+3C	ALL	-H	-0i1	OK	<
+3C	ALL	Ed1	H	OK	<
+3C	ALL	Ed1	-H	OK	>
+3C	ALL	-Ed1	H	OK	<
+3C	ALL	-Ed1	-H	OK	>
+! Zero vs finite -- watch that sign of 0 is meaningless.
+3C	ALL	0	Hm1	OK	<
+3C	ALL	-0	Hm1	OK	<
+3C	ALL	-Hm1	0	OK	<
+3C	ALL	-Hm1	-0	OK	<
+3C	ALL	1	-0	OK	>
+3C	ALL	-1	-0	OK	<
+3C	ALL	0	1 	OK	<
+3C	ALL	-0	-1	OK	>
+! Zero vs denormalized.
+3C	ALL	0	Ed1	OK	<
+3C	ALL	-0	Ed1	OK	<
+3C	ALL	0	-Ed1	OK	>
+3C	ALL	-0	-Ed1	OK	>
+3C	ALL	0	0i1	OK	<
+3C	ALL	-0	0i1	OK	<
+3C	ALL	0	-0i1	OK	>
+3C	ALL	-0	-0i1	OK	>
+3C	ALL	Ed1	0	OK	>
+3C	ALL	Ed1	-0	OK	>
+3C	ALL	-Ed1	0	OK	<
+3C	ALL	-Ed1	-0	OK	<
+! Zero vs tiny -- just in case.
+3C	 ALL   -0   -E	 OK	  >
+3C	 ALL   E   0   OK   >
+3C	 ALL   0   -E   OK	 >
+3C	 ALL   -E   0   OK	 <
+! Zero vs Zero -- watch signs and rounding modes.
+3C	 ALL   0   -0   OK	 =
+3C	 ALL   -0   0   OK	 =
+3C	 ALL   0   -0   OK	 =
+3C	 ALL   -0   0   OK	 =
+! Big cancellations.
+3C	 ALL   Hm1	 Hm1   OK   =
+3C	 ALL   -Hm1	  -Hm1	 OK	  =
+3C	 ALL   Hm1d2   Hm1d2   OK   =
+3C	 ALL   -Hm1d2   -Hm1d2	 OK	  =
+3C	 ALL   Hd1	 Hd1   OK   =
+3C	 ALL   -Hd1	  -Hd1	 OK	  =
+! Medium cancellations.
+3C	 ALL   1   1   OK   =
+3C	 ALL   1m1	 1m1   OK   =
+3C	 ALL   3   3   OK   =
+3C	 ALL   E   E   OK   =
+3C	 ALL   Hm2	 Hm2   OK   =
+! Tiny cancellations -- might have underflowed.
+3C	 ALL   Ed1	 Ed1   OK   =
+3C	 ALL   -Ed1	  -Ed1	 OK	  =
+3C	 ALL   0i4	 0i4   OK   =
+3C	 ALL   -0i4	  -0i4	 OK	  =
+3C	 ALL   0i1	 0i1   OK   =
+3C	 ALL   -0i1	  -0i1	 OK	  =
+! Doublings.
+3C	 ALL   Hm1	 -Hm1   OK	 >
+3C	 ALL   -Hm1d2   Hm1d2   OK	 <
+3C	 ALL   1   -1   OK	 >
+3C	 ALL   -3   3   OK	 <
+3C	 ALL   E   -E   OK	 >
+3C	 ALL   -E   E   OK	 <
+3C	 ALL   Ed4	 -Ed4   OK	 >
+3C	 ALL   -Ed1	  Ed1   OK	 <
+3C	 ALL   0i1	 -0i1   OK	 >
+3C	 ALL   -0i1	  0i1   OK	 <
+! Cancellation with diff in LSB
+! Difference is in last place of larger number.
+! Medium numbers...
+3C	 ALL   1i1	 1	 OK	  >
+3C	 ALL   -1i1	  -1   OK   <
+3C	 ALL   1i1	 1i2   OK   <
+3C	 ALL   -1i1	  -1i2	 OK	  >
+3C	 ALL   2   2i1	 OK	  <
+3C	 ALL   -2   -2i1   OK   >
+3C	 ALL   2i4	 2i3   OK   >
+3C	 ALL   -2i4	  -2i3	 OK	  <
+3C	 ALL   4d1	 4d2   OK   >
+3C	 ALL   -4d1	  -4d2	 OK	  <
+3C	 ALL   2d4	 2d3   OK   <
+3C	 ALL   -2d4	  -2d3	 OK	  >
+! Huge numbers...
+3C	 ALL   Hm1i1   Hm1	 OK	  >
+3C	 ALL   -Hm1i1   -Hm1   OK   <
+3C	 ALL   Hm1i1   Hm1i2   OK   <
+3C	 ALL   -Hm1i1   -Hm1i2	 OK	  >
+3C	 ALL   Hm2	 Hm2i1	 OK	  <
+3C	 ALL   -Hm2	  -Hm2i1   OK   >
+3C	 ALL   Hm2i4   Hm2i3   OK   >
+3C	 ALL   -Hm2i4   -Hm2i3	 OK	  <
+3C	 ALL   Hm2d1   Hm2d2   OK   >
+3C	 ALL   -Hm2d1   -Hm2d2	 OK	  <
+3C	 ALL   -Hd2	  -Hd1	 OK	  >
+3C	 ALL   Hd2	 Hd1   OK   <
+! Tiny numbers...
+3C	 ALL   -Ei1	  -E   OK   <
+3C	 ALL   Ei1	 E	 OK	  >
+3C	 ALL   -Ed1	  -E   OK   >
+3C	 ALL   Ed1	 E	 OK	  <
+3C	 ALL   Ei1	 Ei2   OK   <
+3C	 ALL   -Ei1	  -Ei2	 OK	  >
+3C	 ALL   Ed1	 Ed2   OK   >
+3C	 ALL   -Ed1	  -Ed2	 OK	  <
+3C	 ALL   Ed3	 Ed2   OK   <
+3C	 ALL   -Ed3	  -Ed2	 OK	  >
+3C	 ALL   0i2	 0i1   OK   >
+3C	 ALL   -0i2	  -0i1	 OK	  <
+3C	 ALL   0i3	 0i2   OK   >
+3C	 ALL   -0i3	  -0i2	 OK	  <
+! Normalize from round bit -- set up tests so that operands have
+! exponents differing by 1 unit.
+! Medium numbers...
+3C	 ALL   2   2d1	 OK	  >
+3C	 ALL   -2   -2d1   OK   <
+3C	 ALL   -2d1	  -2   OK   >
+3C	 ALL   2d1	 2	 OK	  <
+3C	 ALL   4i1	 4d1   OK   >
+3C	 ALL   -4i1	  -4d1	 OK	  <
+3C	 ALL   4d1	 4i2   OK   <
+3C	 ALL   -4d1	  -4i2	 OK	  >
+3C	 ALL   2i1	 1i1   OK   >
+3C	 ALL   -2i1	  -1i1	 OK	  <
+3C	 ALL   2i2	 1i1   OK   >
+3C	 ALL   -2i2	  -1i1	 OK	  <
+3C	 ALL   2i2	 1i3   OK   >
+3C	 ALL   -2i2	  -1i3	 OK	  <
+! Huge numbers...
+3C	 ALL   Hm2	 Hm2d1	 OK	  >
+3C	 ALL   -Hm2	  -Hm2d1   OK   <
+3C	 ALL   -Hm1d1   -Hm1   OK   >
+3C	 ALL   Hm1d1   Hm1	 OK	  <
+3C	 ALL   Hm4i1   Hm4d1   OK   >
+3C	 ALL   -Hm4i1   -Hm4d1	 OK	  <
+3C	 ALL   Hm2d1   Hm2i2   OK   <
+3C	 ALL   -Hm2d1   -Hm2i2	 OK	  >
+3C	 ALL   Hm2i1   Hm1i1   OK   <
+3C	 ALL   -Hm2i1   -Hm1i1	 OK	  >
+3C	 ALL   Hm1i2   Hm2i1   OK   >
+3C	 ALL   -Hm1i2   -Hm2i1	 OK	  <
+3C	 ALL   Hm2i2   Hm3i3   OK   >
+3C	 ALL   -Hm2i2   -Hm3i3	 OK	  <
+! Tiny numbers...
+3C	 ALL   Ep1	 Ep1d1	 OK	  >
+3C	 ALL   -Ep1	  -Ep1d1   OK   <
+3C	 ALL   -Ep1d1   -Ep1   OK   >
+3C	 ALL   Ep1d1   Ep1	 OK	  <
+3C	 ALL   Ep1i1   Ep1d1   OK   >
+3C	 ALL   -Ep1i1   -Ep1d1	 OK	  <
+3C	 ALL   Ep2	 Ep2d1	 OK	  >
+3C	 ALL   -Ep2	  -Ep2d1   OK   <
+3C	 ALL   -Ep2d1   -Ep2   OK   >
+3C	 ALL   Ep2d1   Ep2	 OK	  <
+3C	 ALL   Ep2i1   Ep2d1   OK   >
+3C	 ALL   -Ep2i1   -Ep2d1	 OK	  <
+3C	 ALL   Ep1d1   Ep1i2   OK   <
+3C	 ALL   -Ep1d1   -Ep1i2	 OK	  >
+3C	 ALL   Ep1d1   Ep1i4   OK   <
+3C	 ALL   -Ep1d1   -Ep1i4	 OK	  >
+3C	 ALL   Ep1i1   Ei1	 OK	  >
+3C	 ALL   -Ep1i1   -Ei1   OK   <
+3C	 ALL   Ep1i2   Ei1	 OK	  >
+3C	 ALL   -Ep1i2   -Ei1   OK   <
+3C	 ALL   Ep2i2   Ep1i3   OK   >
+3C	 ALL   -Ep2i2   -Ep1i3	 OK	  <
+!
+! Add magnitude
+! cases where one operand is off in sticky -- rounding
+! perhaps to an overflow.
+! Huge vs medium
+3C	 ALL   Hm1	 1	 OK	  >
+3C	 ALL   -Hm1	  -1   OK   <
+3C	 ALL   Hm1d1   -1   OK	 >
+3C	 ALL   Hm1d1   1   OK   >
+3C	 ALL   -Hm1d1   1   OK	 <
+3C	 ALL   -Hm1d1   -1	 OK	  <
+3C	 ALL   Hd1	 1	 OK	  >
+3C	 ALL   Hd1	 -1	  OK   >
+3C	 ALL   -Hd1	  1	  OK   <
+3C	 ALL   -Hd1	  -1   OK   <
+3C	 ALL   Hd2	 -1	  OK   >
+3C	 ALL   Hd2	 1	 OK	  >
+3C	 ALL   -Hd2	  1	  OK   <
+3C	 ALL   -Hd2	  -1   OK   <
+! Huge vs tiny.
+3C	 ALL   0i1	 Hm1   OK   <
+3C	 ALL   0i1	 -Hm1   OK	 >
+3C	 ALL   -0i1	  Hm1   OK	 <
+3C	 ALL   -0i1	  -Hm1	 OK	  >
+3C	 ALL   0i1	 Hm1d1	 OK	  <
+3C	 ALL   0i1	 -Hm1d1	  OK   >
+3C	 ALL   -0i1	  Hm1d1	  OK   <
+3C	 ALL   -0i1	  -Hm1d1   OK   >
+3C	 ALL   0i1	 Hd1   OK   <
+3C	 ALL   0i1	 -Hd1   OK	 >
+3C	 ALL   -0i1	  Hd1   OK	 <
+3C	 ALL   -0i1	  -Hd1	 OK	  >
+3C	 ALL   0i1	 Hd2   OK   <
+3C	 ALL   0i1	 -Hd2   OK	 >
+3C	 ALL   -0i1	  Hd2   OK	 <
+3C	 ALL   -0i1	  -Hd2	 OK	  >
+! Medium vs tiny.
+3C	 ALL   0i1	 1	 OK	  <
+3C	 ALL   0i1	 -1	  OK   >
+3C	 ALL   -0i1	  1	  OK   <
+3C	 ALL   -0i1	  -1   OK   >
+3C	 ALL   0i1	 1d1   OK   <
+3C	 ALL   0i1	 -1d1   OK	 >
+3C	 ALL   -0i1	  1d1   OK	 <
+3C	 ALL   -0i1	  -1d1	 OK	  >
+3C	 ALL   0i1	 2d1   OK   <
+3C	 ALL   0i1	 -2d1   OK	 >
+3C	 ALL   -0i1	  2d1   OK	 <
+3C	 ALL   -0i1	  -2d1	 OK	  >
+3C	 ALL   0i1	 2d2   OK   <
+3C	 ALL   0i1	 -2d2   OK	 >
+3C	 ALL   -0i1	  2d2   OK	 <
+3C	 ALL   -0i1	  -2d2	 OK	  >
+!
+! Magnitude subtract when an operand is in the sticky bit.
+! The interesting cases will arise when directed rounding
+! forces a nonzero cancellation.
+! Huge and medium.
+3C	 ALL   Hm1	 1	 OK	  >
+3C	 ALL   Hm1	 -1	  OK   >
+3C	 ALL   -Hm1	  1	  OK   <
+3C	 ALL   -Hm1	  -1   OK   <
+3C	 ALL   Hm1d1   1   OK   >
+3C	 ALL   Hm1d1   -1   OK	 >
+3C	 ALL   -Hm1d1   1   OK	 <
+3C	 ALL   -Hm1d1   -1	 OK	  <
+3C	 ALL   Hd1	 1	 OK	  >
+3C	 ALL   Hd1	 -1	  OK   >
+3C	 ALL   -Hd1	  1	  OK   <
+3C	 ALL   -Hd1	  -1   OK   <
+3C	 ALL   Hd2	 1	 OK	  >
+3C	 ALL   Hd2	 -1	  OK   >
+3C	 ALL   -Hd2	  1	  OK   <
+3C	 ALL   -Hd2	  -1   OK   <
+! Huge and tiny.
+3C	 ALL   Hd1	 0i1   OK   >
+3C	 ALL   Hd1	 -0i1   OK	 >
+3C	 ALL   -Hd1	  0i1   OK	 <
+3C	 ALL   -Hd1	  -0i1	 OK	  <
+3C	 ALL   0i3	 Hm1   OK   <
+3C	 ALL   -0i3	  Hm1   OK	 <
+3C	 ALL   0i3	 -Hm1   OK	 >
+3C	 ALL   -0i3	  -Hm1	 OK	  >
+! Medium and tiny.
+3C	 ALL   1d1	 0i1   OK   >
+3C	 ALL   1d1	 -0i1   OK	 >
+3C	 ALL   2d1	 0i1   OK   >
+3C	 ALL   -2d1	  0i1   OK	 <
+3C	 ALL   0i3	 3	 OK	  <
+3C	 ALL   -0i3	  3	  OK   <
+3C	 ALL   0i3	 5	 OK	  <
+3C	 ALL   0i3	 -5	  OK   >
+!
+! Add magnitude with difference in LSB so, except for denorms,
+! round bit is crucial.	 Half-way cases arise.
+! Medium cases.
+3C	 ALL   1i1	 1	 OK	  >
+3C	 ALL   1i1	 -1	  OK   >
+3C	 ALL   -1i1	  1	  OK   <
+3C	 ALL   -1i1	  -1   OK   <
+3C	 ALL   -2   2i1	  OK   <
+3C	 ALL   -2   -2i1   OK   >
+3C	 ALL   2   -2i1	  OK   >
+3C	 ALL   2   2i1	 OK	  <
+3C	 ALL   1   1i3	 OK	  <
+3C	 ALL   1   -1i3	  OK   >
+3C	 ALL   -1   1i3	  OK   <
+3C	 ALL   -1   -1i3   OK   >
+3C	 ALL   -2i1	  -2i2	 OK	  >
+3C	 ALL   -2i1	  2i2   OK	 <
+3C	 ALL   2i1	 -2i2   OK	 >
+3C	 ALL   2i1	 2i2   OK   <
+! Huge cases.
+3C	 ALL   Hd2	 Hd1   OK   <
+3C	 ALL   Hd2	 -Hd1   OK	 >
+3C	 ALL   -Hd2	  Hd1   OK	 <
+3C	 ALL   -Hd2	  -Hd1	 OK	  >
+3C	 ALL   Hm1d1   Hm1	 OK	  <
+3C	 ALL   Hm1d1   -Hm1	  OK   >
+3C	 ALL   -Hm1d1   Hm1	  OK   <
+3C	 ALL   -Hm1d1   -Hm1   OK   >
+3C	 ALL   Hm1i1   Hm1	 OK	  >
+3C	 ALL   Hm1i1   -Hm1	  OK   >
+3C	 ALL   -Hm1i1   Hm1	  OK   <
+3C	 ALL   -Hm1i1   -Hm1   OK   <
+3C	 ALL   Hm2i1   Hm2	 OK	  >
+3C	 ALL   Hm2i1   -Hm2	  OK   >
+3C	 ALL   -Hm2i1   Hm2	  OK   <
+3C	 ALL   -Hm2i1   -Hm2   OK   <
+3C	 ALL   Hm1d2   Hm1d1   OK   <
+3C	 ALL   Hm1d2   -Hm1d1   OK	 >
+3C	 ALL   -Hm1d2   Hm1d1   OK	 <
+3C	 ALL   -Hm1d2   -Hm1d1	 OK	  >
+! NaN operands.  Signaling NaN cases commented out <JPO, 4/30/93>.
+3C	ALL	Q	0	OK	?
+3C	ALL	Q	-0	OK	?
+3C	ALL	0	Q	OK	?
+3C	ALL	-0	Q	OK	?
+3C	ALL	Q	1	OK	?
+3C	ALL	Q	-1	OK	?
+3C	ALL	1	Q	OK	?
+3C	ALL	-1	Q	OK	?
+3C	ALL	Ed1	 Q		 OK		 ?
+3C	ALL	-Ed1 Q		 OK		 ?
+3C	ALL	Q	Ed1	 OK		 ?
+3C	ALL	Q	-Ed1 OK		 ?
+3C	ALL	Q	0i1	  OK	  ?
+3C	ALL	Q	-0i1  OK	  ?
+3C	ALL	0i1	  Q		  OK	  ?
+3C	ALL	-0i1  Q		  OK	  ?
+3C	ALL	Q	Hd1	 OK		 ?
+3C	ALL	Q	-Hd1 OK		 ?
+3C	ALL	Hd1	 Q		 OK		 ?
+3C	ALL	-Hd1 Q		 OK		 ?
+3C	ALL	Q	H	   OK	   ?
+3C	ALL	Q	-H	   OK	   ?
+3C	ALL	H	   Q	   OK	   ?
+3C	ALL	-H	   Q	   OK	   ?
+3C	ALL	Q	Q	OK	?
+!3C	ALL	S	0	i	?
+!3C	ALL	S	-0	i	?
+!3C	ALL	0	S	i	?
+!3C	ALL	-0	S	i	?
+!3C	ALL	S	1	i	?
+!3C	ALL	S	-1	i	?
+!3C	ALL	1	S	i	?
+!3C	ALL	-1	S	i	?
+!3C	ALL	Ed1	 S		 i		 ?
+!3C	ALL	-Ed1 S		 i		 ?
+!3C	ALL	S	Ed1	 i		 ?
+!3C	ALL	S	-Ed1 i		 ?
+!3C	ALL	S	0i1	  i		  ?
+!3C	ALL	S	-0i1  i		  ?
+!3C	ALL	0i1	  S		  i		  ?
+!3C	ALL	-0i1  S		  i		  ?
+!3C	ALL	S	Hd1	 i		 ?
+!3C	ALL	S	-Hd1 i		 ?
+!3C	ALL	Hd1	 S		 i		 ?
+!3C	ALL	-Hd1 S		 i		 ?
+!3C	ALL	S	H	   i	   ?
+!3C	ALL	S	-H	   i	   ?
+!3C	ALL	H	   S	   i	   ?
+!3C	ALL	-H	   S	   i	   ?
+!3C	ALL	Q	S	i	?
+!3C	ALL	S	Q	i	?
+!3C	ALL	S	S	i	?

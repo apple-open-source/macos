@@ -22,7 +22,7 @@
 /*
  *  ci_io.c - Primitive OF based IO function for libclite.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -33,6 +33,6 @@
 
 void  putchar(int ch)
 {
-  if ((ch == '\r') || (ch == '\n')) CallMethod_0_0(SLWordsIH, "slw_cr");
-  else CallMethod_1_0(SLWordsIH, "slw_emit", ch);
+  if ((ch == '\r') || (ch == '\n')) CallMethod(0, 0, SLWordsIH, "slw_cr");
+  else CallMethod(1, 0, SLWordsIH, "slw_emit", ch);
 }

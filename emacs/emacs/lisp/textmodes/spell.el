@@ -1,4 +1,4 @@
-;;; spell.el --- spelling correction interface for Emacs.
+;;; spell.el --- spelling correction interface for Emacs
 
 ;; Copyright (C) 1985 Free Software Foundation, Inc.
 
@@ -46,7 +46,7 @@
   "*Filter function to process text before passing it to spell program.
 This function might remove text-processor commands.
 nil means don't alter the text before checking it."
-  :type 'function
+  :type '(choice (const nil) function)
   :group 'spell)
 
 ;;;###autoload

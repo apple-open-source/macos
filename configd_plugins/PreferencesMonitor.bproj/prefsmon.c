@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,7 +25,7 @@
  *
  * June 24, 2001		Allan Nathanson <ajn@apple.com>
  * - update to public SystemConfiguration.framework APIs
- * 
+ *
  * November 10, 2000		Allan Nathanson <ajn@apple.com>
  * - initial revision
  */
@@ -99,10 +99,10 @@ flatten(SCPreferencesRef	pSession,
 	CFStringRef		myKey;
 	CFIndex			i;
 	CFIndex			nKeys;
-	void			**keys;
-	void			**vals;
+	const void		**keys;
+	const void		**vals;
 
-	if (!CFDictionaryGetValueIfPresent(base, kSCResvLink, (void **)&link)) {
+	if (!CFDictionaryGetValueIfPresent(base, kSCResvLink, (const void **)&link)) {
 		/* if this dictionary is not linked */
 		subset = base;
 	} else {
@@ -142,32 +142,31 @@ flatten(SCPreferencesRef	pSession,
 	}
 
 	nKeys = CFDictionaryGetCount(subset);
-	keys  = CFAllocatorAllocate(NULL, nKeys * sizeof(CFStringRef)      , 0);
-	vals  = CFAllocatorAllocate(NULL, nKeys * sizeof(CFPropertyListRef), 0);
+	if (nKeys > 0) {
+		keys  = CFAllocatorAllocate(NULL, nKeys * sizeof(CFStringRef)      , 0);
+		vals  = CFAllocatorAllocate(NULL, nKeys * sizeof(CFPropertyListRef), 0);
+		CFDictionaryGetKeysAndValues(subset, keys, vals);
+		for (i=0; i<nKeys; i++) {
+			if (CFGetTypeID((CFTypeRef)vals[i]) != CFDictionaryGetTypeID()) {
+				/* add this key/value to the current dictionary */
+				CFDictionarySetValue(myDict, keys[i], vals[i]);
+			} else {
+				CFStringRef	subKey;
 
-	CFDictionaryGetKeysAndValues(subset, keys, vals);
-
-	for (i=0; i<nKeys; i++) {
-		if (CFGetTypeID((CFTypeRef)vals[i]) != CFDictionaryGetTypeID()) {
-			/* add this key/value to the current dictionary */
-			CFDictionarySetValue(myDict, keys[i], vals[i]);
-		} else {
-			CFStringRef	subKey;
-
-			/* flatten [sub]dictionaries */
-			subKey = CFStringCreateWithFormat(NULL,
-							  NULL,
-							  CFSTR("%@%s%@"),
-							  key,
-							  CFEqual(key, CFSTR("/")) ? "" : "/",
-							  keys[i]);
-			flatten(pSession, subKey, vals[i]);
-			CFRelease(subKey);
+				/* flatten [sub]dictionaries */
+				subKey = CFStringCreateWithFormat(NULL,
+								  NULL,
+								  CFSTR("%@%s%@"),
+								  key,
+								  CFEqual(key, CFSTR("/")) ? "" : "/",
+								  keys[i]);
+				flatten(pSession, subKey, vals[i]);
+				CFRelease(subKey);
+			}
 		}
+		CFAllocatorDeallocate(NULL, keys);
+		CFAllocatorDeallocate(NULL, vals);
 	}
-
-	CFAllocatorDeallocate(NULL, keys);
-	CFAllocatorDeallocate(NULL, vals);
 
 	if (CFDictionaryGetCount(myDict) > 0) {
 		/* add this dictionary to the new preferences */
@@ -226,7 +225,7 @@ updateConfiguration(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 
 	i = CFDictionaryGetCount(currentPrefs);
 	if (i > 0) {
-		void		**keys;
+		const void	**keys;
 		CFArrayRef	array;
 
 		keys = CFAllocatorAllocate(NULL, i * sizeof(CFStringRef), 0);

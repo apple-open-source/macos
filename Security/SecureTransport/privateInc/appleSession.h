@@ -19,9 +19,9 @@
 /*
 	File:		appleSession.h
 
-	Contains:	Session storage module, _APPLE_CDSA_ version. 
+	Contains:	Session storage module, Apple CDSA version. 
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -46,17 +46,16 @@ extern "C" {
 
 extern SSLErr sslAddSession (
 	const SSLBuffer sessionKey, 
-	const SSLBuffer sessionData, 
-	void *sessionRef);
+	const SSLBuffer sessionData);
 
 extern SSLErr sslGetSession (
 	const SSLBuffer sessionKey, 
-	SSLBuffer *sessionData, 
-	void *sessionRef);
+	SSLBuffer *sessionData);
 
 extern SSLErr sslDeleteSession (
-	const SSLBuffer sessionKey, 
-	void *sessionRef);
+	const SSLBuffer sessionKey);
+
+extern SSLErr sslCleanupSession();
 
 #ifdef __cplusplus
 }

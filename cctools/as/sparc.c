@@ -1197,7 +1197,7 @@ md_number_to_imm(unsigned char *buf, long val, int size, fixS *fixP, int nsect)
     buf[3] = val;
     break;
   case SPARC_RELOC_WDISP22:
-    val = (val >>= 2) + 1;
+    val = (val >> 2) + 1;
     buf[1] |= (val >> 16) & 0x3f;
     buf[2] = val >> 8;
     buf[3] = val;

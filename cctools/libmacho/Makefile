@@ -4,16 +4,20 @@ ifeq "macos" "$(RC_OS)"
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double ; \
+	     echo -Wno-long-double -no-cpp-precomp ; \
 	     fi; )
 endif
-ifeq "mwcc" "$(notdir $(CC))"
+ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g \
      -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 else
   CFLAGS = $(OFLAG) -g -Wall -Wno-precomp $(X_CFLAGS) \
      -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
 endif
+
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+	     echo YES ; else echo NO ; \
+	     fi; )
 
 ifneq "" "$(wildcard /bin/mkdirs)"
   MKDIRS = /bin/mkdirs
@@ -207,11 +211,16 @@ dynamic_ofiles: $(OBJROOT)/dynamic_obj $(OBJROOT)/dtmp_obj
 	    cp dylib.ofileList $(OBJROOT)/dynamic_obj/libmacho.ofileList; \
 	fi
 
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+.c.o:
+	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c -o $(OFILE_DIR)/$*.o $<
+else
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c \
 		-MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 clean:
 	-rm -r -f $(OFILE_DIRS) $(OBJROOT)/static_obj
@@ -234,17 +243,32 @@ lib_ofiles_install: $(RC_OS)_lib_ofiles_install
 
 macos_lib_ofiles_install: all
 	$(MKDIRS) $(DSTROOT)$(SYSTEMDIR)
-	install -c -m 444 $(SYMROOT)/libmacho.a \
-		 $(DSTROOT)$(SYSTEMDIR)/libmacho.a
-	ranlib $(DSTROOT)$(SYSTEMDIR)/libmacho.a
-	(cd $(DSTROOT)$(SYSTEMDIR); \
-	rm -f libmacho_debug.a ; ln -s libmacho.a libmacho_debug.a)
-	install -c -m 444 $(SYMROOT)/libmacho_pg.a \
-		 $(DSTROOT)$(SYSTEMDIR)/libmacho_profile.a
-	ranlib $(DSTROOT)$(SYSTEMDIR)/libmacho_profile.a
-	install -c -m 444 $(SYMROOT)/libmacho_static.a \
-		 $(DSTROOT)$(SYSTEMDIR)/libmacho_static.a
-	ranlib $(DSTROOT)$(SYSTEMDIR)/libmacho_static.a
+	if [ $(SRCROOT) = . ];						\
+	then								\
+	    install -c -m 444 dtmp_obj/libmacho.a			\
+		     $(DSTROOT)$(SYSTEMDIR)/libmacho.a;			\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/libmacho.a;			\
+	    (cd $(DSTROOT)$(SYSTEMDIR) ;				\
+	    rm -f libmacho_debug.a ; ln -s libmacho.a libmacho_debug.a); \
+	    install -c -m 444 ptmp_obj/libmacho_pg.a			 \
+		     $(DSTROOT)$(SYSTEMDIR)/libmacho_profile.a;		\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/libmacho_profile.a;		\
+	    install -c -m 444 otmp_obj/libmacho_static.a		\
+		     $(DSTROOT)$(SYSTEMDIR)/libmacho_static.a;		\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/libmacho_static.a;		\
+	else								\
+	    install -c -m 444 $(SYMROOT)/libmacho.a			\
+		     $(DSTROOT)$(SYSTEMDIR)/libmacho.a;			\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/libmacho.a;			\
+	    (cd $(DSTROOT)$(SYSTEMDIR) ;				\
+	    rm -f libmacho_debug.a ; ln -s libmacho.a libmacho_debug.a); \
+	    install -c -m 444 $(SYMROOT)/libmacho_pg.a			 \
+		     $(DSTROOT)$(SYSTEMDIR)/libmacho_profile.a;		\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/libmacho_profile.a;		\
+	    install -c -m 444 $(SYMROOT)/libmacho_static.a		\
+		     $(DSTROOT)$(SYSTEMDIR)/libmacho_static.a;		\
+	    ranlib $(DSTROOT)$(SYSTEMDIR)/libmacho_static.a;		\
+	fi
 
 teflon_lib_ofiles_install nextstep_lib_ofiles_install:
 

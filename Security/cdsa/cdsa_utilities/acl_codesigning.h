@@ -69,7 +69,7 @@ public:
     	Maker(Signer &sgn) 
 		: AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE), signer(sgn) { }
     	CodeSignatureAclSubject *make(const TypedList &list) const;
-    	CodeSignatureAclSubject *make(Reader &pub, Reader &priv) const;
+    	CodeSignatureAclSubject *make(Version version, Reader &pub, Reader &priv) const;
 		
 		Signer &signer;
     };

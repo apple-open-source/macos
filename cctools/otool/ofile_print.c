@@ -1164,6 +1164,10 @@ NS32:
 		printf(" NOMULTIDEFS");
 		flags &= ~MH_NOMULTIDEFS;
 	    }
+	    if(flags & MH_NOFIXPREBINDING){
+		printf(" NOFIXPREBINDING");
+		flags &= ~MH_NOFIXPREBINDING;
+	    }
 	    if(flags != 0 || mh->flags == 0)
 		printf(" 0x%08x", (unsigned int)flags);
 	    printf("\n");
@@ -1212,6 +1216,7 @@ enum bool very_verbose)
     struct dylinker_command dyld;
     struct routines_command rc;
     struct twolevel_hints_command hints;
+    struct prebind_cksum_command cs;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != load_commands_byte_sex;
@@ -1309,6 +1314,7 @@ enum bool very_verbose)
 
 	    case LC_ID_DYLIB:
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 		memset((char *)&dl, '\0', sizeof(struct dylib_command));
 		size = left < sizeof(struct dylib_command) ?
 		       left : sizeof(struct dylib_command);
@@ -1456,8 +1462,19 @@ enum bool very_verbose)
 		print_twolevel_hints_command(&hints, object_size);
 		break;
 
+	    case LC_PREBIND_CKSUM:
+		memset((char *)&cs, '\0', sizeof(struct prebind_cksum_command));
+		size = left < sizeof(struct prebind_cksum_command) ?
+		       left : sizeof(struct prebind_cksum_command);
+		memcpy((char *)&cs, (char *)lc, size);
+		if(swapped)
+		    swap_prebind_cksum_command(&cs, host_byte_sex);
+		print_prebind_cksum_command(&cs);
+		break;
+
 	    default:
-		printf("      cmd ?(%lu) Unknown load command\n", l.cmd);
+		printf("      cmd ?(0x%08x) Unknown load command\n",
+		       (unsigned int)l.cmd);
 		printf("  cmdsize %lu\n", l.cmdsize);
 		if(left < sizeof(struct load_command))
 		    return;
@@ -1489,7 +1506,7 @@ enum bool very_verbose)
 		return;
 	}
 	if((char *)load_commands + mh->sizeofcmds != (char *)lc)
-	    printf("Inconsistant mh_sizeofcmds\n");
+	    printf("Inconsistent mh_sizeofcmds\n");
 }
 
 void
@@ -1497,6 +1514,7 @@ print_libraries(
 struct mach_header *mh,
 struct load_command *load_commands,
 enum byte_sex load_commands_byte_sex,
+enum bool just_id,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
@@ -1526,6 +1544,8 @@ enum bool verbose)
 	    switch(l.cmd){
 	    case LC_IDFVMLIB:
 	    case LC_LOADFVMLIB:
+		if(just_id == TRUE)
+		    break;
 		memset((char *)&fl, '\0', sizeof(struct fvmlib_command));
 		size = left < sizeof(struct fvmlib_command) ?
 		       left : sizeof(struct fvmlib_command);
@@ -1544,8 +1564,11 @@ enum bool verbose)
 		}
 		break;
 
-	    case LC_ID_DYLIB:
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
+		if(just_id == TRUE)
+		    break;
+	    case LC_ID_DYLIB:
 		memset((char *)&dl, '\0', sizeof(struct dylib_command));
 		size = left < sizeof(struct dylib_command) ?
 		       left : sizeof(struct dylib_command);
@@ -1554,8 +1577,11 @@ enum bool verbose)
 		    swap_dylib_command(&dl, host_byte_sex);
 		if(dl.dylib.name.offset < dl.cmdsize){
 		    p = (char *)lc + dl.dylib.name.offset;
-		    printf("\t%s (compatibility version %lu.%lu.%lu, current "
-			   "version %lu.%lu.%lu)\n", p,
+		    if(just_id == TRUE)
+			printf("%s\n", p);
+		    else
+			printf("\t%s (compatibility version %lu.%lu.%lu, "
+			   "current version %lu.%lu.%lu)\n", p,
 			   dl.dylib.compatibility_version >> 16,
 			   (dl.dylib.compatibility_version >> 8) & 0xff,
 			   dl.dylib.compatibility_version & 0xff,
@@ -1570,7 +1596,9 @@ enum bool verbose)
 		else{
 		    printf("\tBad offset (%lu) for name of %s command %lu\n",
 			   dl.dylib.name.offset, l.cmd == LC_ID_DYLIB ?
-			   "LC_ID_DYLIB" : "LC_LOAD_DYLIB" , i);
+			   "LC_ID_DYLIB" :
+			   (l.cmd == LC_LOAD_DYLIB ? "LC_LOAD_DYLIB" :
+			    "LC_LOAD_WEAK_DYLIB") , i);
 		}
 		break;
 	    }
@@ -1584,7 +1612,7 @@ enum bool verbose)
 		return;
 	}
 	if((char *)load_commands + mh->sizeofcmds != (char *)lc)
-	    printf("Inconsistant mh_sizeofcmds\n");
+	    printf("Inconsistent mh_sizeofcmds\n");
 }
 
 /*
@@ -1601,7 +1629,7 @@ enum bool verbose)
 	printf("  cmdsize %lu", sg->cmdsize);
 	if(sg->cmdsize != sizeof(struct segment_command) +
 			  sg->nsects * sizeof(struct section))
-	    printf(" Inconsistant size\n");
+	    printf(" Inconsistent size\n");
 	else
 	    printf("\n");
 	printf("  segname %.16s\n", sg->segname);
@@ -1766,6 +1794,8 @@ enum bool verbose)
 		printf(" PURE_INSTRUCTIONS");
 	    if(section_attributes & S_ATTR_NO_TOC)
 		printf(" NO_TOC");
+	    if(section_attributes & S_ATTR_STRIP_STATIC_SYMS)
+		printf(" STRIP_STATIC_SYMS");
 	    if(section_attributes & S_ATTR_SOME_INSTRUCTIONS)
 		printf(" SOME_INSTRUCTIONS");
 	    if(section_attributes & S_ATTR_EXT_RELOC)
@@ -2005,8 +2035,9 @@ struct load_command *lc)
 }
 
 /*
- * print an LC_ID_DYLIB or LC_LOAD_DYLIB command.  The dylib_command structure
- * specified must be aligned correctly and in the host byte sex.
+ * print an LC_ID_DYLIB, LC_LOAD_DYLIB or LC_LOAD_WEAK_DYLIB command.  The
+ * dylib_command structure specified must be aligned correctly and in the host
+ * byte sex.
  */
 void
 print_dylib_command(
@@ -2017,8 +2048,10 @@ struct load_command *lc)
 
 	if(dl->cmd == LC_ID_DYLIB)
 	    printf("          cmd LC_ID_DYLIB\n");
-	else
+	else if(dl->cmd == LC_LOAD_DYLIB)
 	    printf("          cmd LC_LOAD_DYLIB\n");
+	else
+	    printf("          cmd LC_LOAD_WEAK_DYLIB\n");
 	printf("      cmdsize %lu", dl->cmdsize);
 	if(dl->cmdsize < sizeof(struct dylib_command))
 	    printf(" Incorrect size\n");
@@ -2322,6 +2355,23 @@ unsigned long object_size)
 	    printf(" (past end of file)\n");
 	else
 	    printf("\n");
+}
+
+/*
+ * print an LC_PREBIND_CKSUM command.  The prebind_cksum_command structure
+ * specified must be aligned correctly and in the host byte sex.
+ */
+void
+print_prebind_cksum_command(
+struct prebind_cksum_command *cksum)
+{
+	printf("     cmd LC_PREBIND_CKSUM\n");
+	printf(" cmdsize %lu", cksum->cmdsize);
+	if(cksum->cmdsize != sizeof(struct prebind_cksum_command))
+	    printf(" Incorrect size\n");
+	else
+	    printf("\n");
+	printf("   cksum 0x%08x\n", (unsigned int)cksum->cksum);
 }
 
 /*
@@ -2776,7 +2826,7 @@ enum byte_sex thread_states_byte_sex)
 
 		switch(flavor){
 		case PPC_THREAD_STATE:
-		    printf("      flavor PPC_THREAD_STATE\n");
+		    printf("     flavor PPC_THREAD_STATE\n");
 		    if(count == PPC_THREAD_STATE_COUNT)
 			printf("      count PPC_THREAD_STATE_COUNT\n");
 		    else
@@ -2796,21 +2846,21 @@ enum byte_sex thread_states_byte_sex)
 		    }
 		    if(swapped)
 			swap_ppc_thread_state_t(&cpu, host_byte_sex);
-		    printf("      r0  0x%08x r1  0x%08x r2  0x%08x r3  0x%08x "
-			   "r4  0x%08x\n"
-			   "      r5  0x%08x r6  0x%08x r7  0x%08x r8  0x%08x "
-			   "r9  0x%08x\n"
-			   "      r10 0x%08x r11 0x%08x r12 0x%08x r13 0x%08x "
-			   "r14 0x%08x\n"
-			   "      r15 0x%08x r16 0x%08x r17 0x%08x r18 0x%08x "
-			   "r19 0x%08x\n"
-			   "      r20 0x%08x r21 0x%08x r22 0x%08x r23 0x%08x "
-			   "r24 0x%08x\n"
-			   "      r25 0x%08x r26 0x%08x r27 0x%08x r28 0x%08x "
-			   "r29 0x%08x\n"
-			   "      r30 0x%08x r31 0x%08x cr  0x%08x xer 0x%08x "
-			   "lr  0x%08x\n"
-			   "      ctr 0x%08x mq  0x%08x pad 0x%08x srr0 0x%08x"
+		    printf("    r0  0x%08x r1  0x%08x r2  0x%08x r3   0x%08x "
+			   "r4   0x%08x\n"
+			   "    r5  0x%08x r6  0x%08x r7  0x%08x r8   0x%08x "
+			   "r9   0x%08x\n"
+			   "    r10 0x%08x r11 0x%08x r12 0x%08x r13  0x%08x "
+			   "r14  0x%08x\n"
+			   "    r15 0x%08x r16 0x%08x r17 0x%08x r18  0x%08x "
+			   "r19  0x%08x\n"
+			   "    r20 0x%08x r21 0x%08x r22 0x%08x r23  0x%08x "
+			   "r24  0x%08x\n"
+			   "    r25 0x%08x r26 0x%08x r27 0x%08x r28  0x%08x "
+			   "r29  0x%08x\n"
+			   "    r30 0x%08x r31 0x%08x cr  0x%08x xer  0x%08x "
+			   "lr   0x%08x\n"
+			   "    ctr 0x%08x mq  0x%08x pad 0x%08x srr0 0x%08x "
 			   "srr1 0x%08x\n",
 			   cpu.r0, cpu.r1, cpu.r2, cpu.r3, cpu.r4, cpu.r5,
 			   cpu.r6, cpu.r7, cpu.r8, cpu.r9, cpu.r10, cpu.r11,
@@ -3710,7 +3760,7 @@ enum bool verbose)
 		return;
 	}
 	if((char *)load_commands + mh->sizeofcmds != (char *)lc)
-	    printf("Inconsistant mh_sizeofcmds\n");
+	    printf("Inconsistent mh_sizeofcmds\n");
 }
 
 /*
@@ -3812,7 +3862,7 @@ enum bool verbose)
 		break;
 	}
 	if((char *)load_commands + mh->sizeofcmds != (char *)lc)
-	    printf("Inconsistant mh_sizeofcmds\n");
+	    printf("Inconsistent mh_sizeofcmds\n");
 
 	if(dyst.cmd != 0){
 	    printf("External relocation information %lu entries", dyst.nextrel);
@@ -4509,7 +4559,7 @@ enum bool verbose)
 		break;
 	}
 	if((char *)load_commands + mh->sizeofcmds != (char *)lc)
-	    printf("Inconsistant mh_sizeofcmds\n");
+	    printf("Inconsistent mh_sizeofcmds\n");
 
 	for(i = 0 ; i < nsects ; i++){
 	    section_type = sections[i].flags & SECTION_TYPE;
@@ -4638,6 +4688,7 @@ enum bool verbose)
 		break;
 
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 		memset((char *)&dl, '\0', sizeof(struct dylib_command));
 		size = left < sizeof(struct dylib_command) ?
 		       left : sizeof(struct dylib_command);
@@ -4669,7 +4720,7 @@ enum bool verbose)
 		break;
 	}
 	if((char *)load_commands + mh->sizeofcmds != (char *)lc)
-	    printf("Inconsistant mh_sizeofcmds\n");
+	    printf("Inconsistent mh_sizeofcmds\n");
 
 	printf("Two-level namespace hints table (%lu hints)\n", nhints);
 	printf("index  isub  itoc\n");
@@ -4852,7 +4903,8 @@ long l1,
 double d)
 {
 	printf("0x%08x 0x%08x", (unsigned int)l0, (unsigned int)l1);
-	if(finite(d))
+	/* l0 is the high word, so this is equivalent to if(isfinite(d)) */
+	if((l0 & 0x7ff00000) != 0x7ff00000)
 	    printf(" (%.16e)\n", d);
 	else{
 	    if(l0 == 0x7ff00000 && l1 == 0)

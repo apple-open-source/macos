@@ -1,5 +1,5 @@
-# Download class implementation for GDBtk.
-# Copyright 1999 Cygnus Solutions
+# Download class implementation for Insight.
+# Copyright 1999, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -31,22 +31,24 @@ body Download::constructor {args} {
 
   set i 0
   while {$i <$num_sections} {
-    tixMeter $f.meter$i -value 0 -text 0 
+    iwidgets::feedback $f.meter$i -steps $num_steps -fraction 0.0
+    grid forget [$f.meter$i component percentage]
     label $f.sec$i -text [lindex $section(names) $i] -anchor w
     label $f.num$i -text $bytes($i) -anchor e
     grid $f.sec$i $f.meter$i $f.num$i -padx 4 -pady 4 -sticky news
     incr i
   }
-
-  grid $itk_interior.dload -padx 5 -pady 5
-  grid $itk_interior.stat -padx 5 -pady 5
-  grid $itk_interior.f -padx 5 -pady 5
+  grid columnconfigure $f 1 -weight 1
 
   button $itk_interior.cancel -text Cancel -command "$this cancel" \
     -state active -width 10
-  grid $itk_interior.cancel -padx 5 -pady 5
-#  grid  $itk_interior
-  
+
+  pack $itk_interior.dload -padx 5 -pady 5 -side top -fill x -expand yes
+  pack $itk_interior.stat -padx 5 -pady 5 -expand yes
+  pack $itk_interior.f -padx 5 -pady 5 -fill x -expand yes
+
+  pack $itk_interior.cancel -padx 5 -pady 5 -side bottom
+  ::update idletasks
 }
 
 # ------------------------------------------------------------------
@@ -61,14 +63,14 @@ body Download::update_download { sec num tot } {
     set i $section($s)
 
     if {$s == $sec} {
-      $itk_interior.f.meter$i config -value [expr {$num / $bytes($i)}] -text $num
+      set f [expr {$num / $bytes($i)}]
+      $itk_interior.f.meter$i configure -fraction $f
       break
     } else {
-      if {[expr {double([$itk_interior.f.meter$i cget -value])}] != 1.0} {
-	$itk_interior.f.meter$i config -value 1.0 -text [expr {int($bytes($i))}]
-      }
+      $itk_interior.f.meter$i configure -fraction 1.0
     }
   }
+
   ::update
 }
 
@@ -89,7 +91,7 @@ body Download::done { {msg ""} } {
     # set all indicators to FULL
     foreach sec $section(names) {
       set i $section($sec)
-      $itk_interior.f.meter$i config -value 1.0 -text "DONE"
+      $itk_interior.f.meter$i configure -fraction 1.0
     }
   } else {
     # download failed
@@ -131,7 +133,7 @@ body Download::download_hash { section num } {
     after cancel $download_timer(timer)
   }
   
-  set download_timer(timer) [after 333 Download::do_download_hooks]
+  set download_timer(timer) [after 100 Download::do_download_hooks]
   if {![info exists download_timer(ok)] || $download_timer(ok)} {
     run_hooks download_progress_hook $section $num $total_bytes
     ::update
@@ -148,21 +150,21 @@ body Download::download_it { } {
   global gdb_target_name gdb_pretty_name
   global gdb_running
   global tcl_platform
-  
+
   debug "exe=$gdb_exe_name downloading=$gdb_downloading"
   debug "    loaded=$gdb_loaded target=$gdb_target_name running=$gdb_running"
-  
+
   if {$gdb_downloading || $gdb_exe_name == ""} {
     return 0
   }
-  
+
   set gdb_downloading 1
   set gdb_loaded 0
   # Make sure the source window has had time to be created
   ::update
-  
+
   gdbtk_busy
-  
+
   # Only places that load files should do set_exe
   #set_exe
   switch [set_target] {
@@ -185,7 +187,7 @@ body Download::download_it { } {
       return 1
     }
   }
-  
+
   if {[string compare $tcl_platform(platform) "windows"] == 0} {
     set f [ide_cygwin_path to_win32 $gdb_exe_name]
   } else {
@@ -198,9 +200,9 @@ body Download::download_it { } {
     gdbtk_idle
     return 0
   }
-  
+
   debug "downloading $gdb_exe_name"
-  
+
   set target $gdb_target_name
 
   # get load info and total up number of bytes
@@ -225,7 +227,6 @@ body Download::download_it { } {
 
   set ::download_cancel_ok 0
   set ::download_start_time [clock seconds]
-  
 
   if {[pref getd gdb/load/$target-verbose] == "1"} {
     # open a detailed download dialog window
@@ -238,7 +239,7 @@ body Download::download_it { } {
     }
     set download_dialog ""
   }
-  
+
   set download_error ""
   debug "starting load"
   ::update idletasks
@@ -251,7 +252,7 @@ body Download::download_it { } {
     }
     set ::download_cancel_ok 1
   }
-  
+
   debug "Done loading"
 
   set gdb_downloading 0
@@ -266,7 +267,7 @@ body Download::download_it { } {
       catch {$download_dialog done}
     }
   }
-  
+
   foreach src [ManagedWin::find SrcWin] {
     if {$download_error == "CANCEL"} {
       $src download_progress CANCEL 1 1

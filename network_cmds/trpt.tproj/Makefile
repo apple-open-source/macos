@@ -23,7 +23,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
 WINDOWS_INSTALLDIR = /usr/sbin
 PDO_UNIX_INSTALLDIR = /usr/sbin
-LIBS = 
+LIBS = -lcurses
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

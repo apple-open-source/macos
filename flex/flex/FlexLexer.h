@@ -1,4 +1,4 @@
-// $Header: /cvs/Darwin/Commands/GNU/flex/flex/FlexLexer.h,v 1.1.1.1 1999/04/23 00:46:29 wsanchez Exp $
+// $Header: /cvs/Darwin/flex/flex/FlexLexer.h,v 1.1.1.1 1999/04/23 00:46:29 wsanchez Exp $
 
 // FlexLexer.h -- define interfaces for lexical analyzer classes generated
 //		  by flex

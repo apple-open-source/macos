@@ -113,7 +113,7 @@ LIPO = /usr/bin/lipo
 ifeq "$(LIBRARY_STYLE)" "STATIC"
 LIBTOOL = /usr/bin/libtool
 else
-LIBTOOL = /usr/bin/cc -dynamiclib $(ARCHITECTURE_FLAGS)
+LIBTOOL = $(CC) -dynamiclib $(ARCHITECTURE_FLAGS)
 endif
 
 JAVATOOL = /usr/bin/javatool

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,17 @@
 #include <IOKit/hidsystem/IOHIDParameter.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOPlatformExpert.h>
+
+
+//Need the following to compile with GCC3 
+static inline int
+my_abs(int x)
+{
+   return x < 0 ? -x : x;
+}
+
+
+static bool check_usb_mouse(OSObject *, void *, IOService * );
 
 // ****************************************************************************
 // NewMouseData
@@ -267,6 +278,7 @@ bool AppleADBMouseType4::start(IOService * provider)
   }
 
   _buttonCount = deviceNumButtons;
+  _notifierA = _notifierT = NULL;  //Only used by trackpad, but inspected by all type 4 mice
 
   adbDevice->readRegister(1, adbdata, &adblength);
   if( (adbdata[0] == 't') && (adbdata[1] = 'p') && (adbdata[2] == 'a') && (adbdata[3] == 'd') )
@@ -274,7 +286,6 @@ bool AppleADBMouseType4::start(IOService * provider)
     mach_timespec_t     t;
     OSNumber 		*jitter_num;
 
-    //IOLog("Trackpad detected, ");
     t.tv_sec = 1; //Wait for keyboard driver for up to 1 second
     t.tv_nsec = 0;
     typeTrackpad = TRUE;
@@ -301,11 +312,95 @@ bool AppleADBMouseType4::start(IOService * provider)
 	_jitterdelta = 16;  // pixels;
     }
 
-    setProperty(kIOHIDPointerAccelerationTypeKey, kIOHIDTrackpadAccelerationType);
-  }
+    setProperty(kIOHIDPointerAccelerationTypeKey, kIOHIDTrackpadAccelerationType);        
+  } //end of trackpad processing
   
   return super::start(provider);
 }
+
+
+void AppleADBMouseType4::free( void )
+{
+    if (_notifierA)
+    {
+	_notifierA->remove();
+	_notifierA = NULL;
+    }
+    if (_notifierT)
+    {
+	_notifierT->remove();
+	_notifierT = NULL;
+    }
+    _ignoreTrackpad = false;
+    super::free();
+}
+
+bool check_usb_mouse(OSObject * us, void *, IOService * yourDevice)
+{
+    if (us)
+    {
+	((AppleADBMouseType4 *)us)->_check_usb_mouse();
+    }
+    return true;
+}
+
+/*
+ *  If a USB mouse HID driver is found, then disable the trackpad.
+ */
+void AppleADBMouseType4::_check_usb_mouse( void ) 
+{
+    IOService		*pHIDDevice;
+    bool		foundUSBHIDMouse = false;
+	
+    OSIterator	*iterator = NULL;
+    OSDictionary	*dict = NULL;
+    OSNumber  	*usbClass, *usbPage, *usbUsage;
+
+    dict = IOService::serviceMatching( "IOUSBHIDDriver" );
+    if( dict )
+    {
+	iterator = IOService::getMatchingServices( dict );
+	if( iterator )
+	{
+	    while( (pHIDDevice = (IOHIDDevice *) iterator->getNextObject()) )
+	    {
+		usbClass = OSDynamicCast( OSNumber, pHIDDevice->getProperty("bInterfaceClass"));
+		usbPage = OSDynamicCast( OSNumber, pHIDDevice->getProperty("PrimaryUsagePage"));
+		usbUsage = OSDynamicCast( OSNumber, pHIDDevice->getProperty("PrimaryUsage"));
+
+		if ((usbClass == NULL) || (usbPage == NULL) || (usbUsage == NULL) )
+		{
+		    IOLog("Null found for properties that should exist in IOUSBHIDDriver\n");
+		    continue;
+		}
+
+		//Keithen said the only way to find a USB mouse in either boot or report
+		//  protocol is to make sure the class is 3 (HID) and the page is 1 (desktop)
+		//  and the usage is 2 (mouse).  Subclass is 1 for boot protocol and 0 for
+		//  report protocol.  bInterfaceProtocol does not exist as a property for
+		//  IOUSBHIDDriver objects.
+		if ((usbClass->unsigned16BitValue() == 3) && (usbUsage->unsigned16BitValue() == 2) 
+		    && (usbPage->unsigned16BitValue() == 1))
+		{
+		    _ignoreTrackpad = true;
+		    foundUSBHIDMouse = true;
+		    break;
+		}		
+	    }
+	}
+
+	if( dict ) dict->release();
+	if( iterator ) iterator->release();
+    }
+
+    if (!foundUSBHIDMouse) 
+    {
+	//If USB mouse is unplugged, then restore trackpad operation in ::packet()
+	_ignoreTrackpad = false;
+    }
+    
+}
+
 
 void AppleADBMouseType4::packet(UInt8 /*adbCommand*/, IOByteCount length, UInt8 * data)
 {
@@ -313,6 +408,12 @@ void AppleADBMouseType4::packet(UInt8 /*adbCommand*/, IOByteCount length, UInt8 
   UInt32          buttonState = 0;
   AbsoluteTime	  now;
 
+  if (_notifierA && _notifierT)
+  {
+    if (typeTrackpad && _ignoreTrackpad) 
+      return;
+  }
+  
   numExtraBytes = length - 2;
   dy = data[0] & 0x7f;
   dx = data[1] & 0x7f;
@@ -388,7 +489,7 @@ void AppleADBMouseType4::packet(UInt8 /*adbCommand*/, IOByteCount length, UInt8 
 		absolutetime_to_nanoseconds(keyboardtime, &keytime64);
 		if (nowtime64 - keytime64 < _jitterclicktime64)
 		{
-		    if ((abs(dx) < _jitterdelta) && (abs(dy) < _jitterdelta))
+		    if ((my_abs(dx) < _jitterdelta) && (my_abs(dy) < _jitterdelta))
 		    {
 			if (!buttonState)
 			{
@@ -575,6 +676,39 @@ IOReturn AppleADBMouseType4::setParamProperties( OSDictionary * dict )
 	setProperty("JitterNoMove", _jittermove, sizeof(UInt32));
     }
 
+    if( (datan = OSDynamicCast(OSNumber, dict->getObject("USBMouseStopsTrackpad"))) && (typeTrackpad == TRUE) )
+    {
+	UInt8		mode;
+
+	mode = datan->unsigned32BitValue();	
+        setProperty("USBMouseStopsTrackpad", (unsigned long long)(mode), sizeof(mode)*8);
+	if (mode)
+	{
+	    if ( ! _notifierA)
+		_notifierA = addNotification( gIOFirstMatchNotification, serviceMatching( "IOUSBHIDDriver" ), 
+                     (IOServiceNotificationHandler)check_usb_mouse, this, 0 ); 
+	    if (! _notifierT)
+		_notifierT = addNotification( gIOTerminatedNotification, serviceMatching( "IOUSBHIDDriver" ), 
+                     (IOServiceNotificationHandler)check_usb_mouse, this, 0 ); 
+	    //The same C function can handle both firstmatch and termination notifications
+	}
+	else
+	{
+	    if (_notifierA)
+	    {
+		_notifierA->remove();
+		_notifierA = NULL;
+	    }
+	    if (_notifierT)
+	    {
+		_notifierT->remove();
+		_notifierT = NULL;
+	    }
+	    _ignoreTrackpad = false;
+	}
+
+    }
+
 #if 0
     // For debugging purposes
     adblength = 8;
@@ -591,18 +725,9 @@ IOReturn AppleADBMouseType4::setParamProperties( OSDictionary * dict )
 
     if (err == kIOReturnSuccess)
     {
-	OSData	* p_accel;
-	
-	p_accel = OSDynamicCast(OSData, dict->getObject(kIOHIDTrackpadAccelerationType));
-	if ((p_accel) && (typeTrackpad))
-	{
-	    //Replace overall accel value with one for trackpad to bypass HID bug
-	    dict->setObject (kIOHIDPointerAccelerationKey, p_accel);
-	}
-
         return super::setParamProperties(dict);
     }
-
+    
     IOLog("AppleADBMouseType4::setParamProperties failing here\n");
     return( err );
 }

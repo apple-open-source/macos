@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/ospf6.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL) */
+/* @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/ospf6.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL) */
 /*
  * Copyright (c) 1991, 1993, 1994, 1995, 1996, 1997
  *	The Regents of the University of California.  All rights reserved.

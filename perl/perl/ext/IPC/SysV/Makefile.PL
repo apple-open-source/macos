@@ -1,5 +1,5 @@
 # This -*- perl -*- script makes the Makefile
-# $Id: Makefile.PL,v 1.1.1.3 2000/03/31 05:11:19 wsanchez Exp $
+# $Id: Makefile.PL,v 1.2 2002/03/14 08:56:35 zarzycki Exp $
 
 require 5.002;
 use ExtUtils::MakeMaker;

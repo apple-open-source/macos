@@ -1,7 +1,8 @@
-;;; diff.el --- Run `diff' in compilation-mode.
+;;; diff.el --- run `diff' in compilation-mode
 
 ;; Copyright (C) 1992, 1994, 1996 Free Software Foundation, Inc.
 
+;; Maintainer: FSF
 ;; Keywords: unix, tools
 
 ;; This file is part of GNU Emacs.
@@ -161,11 +162,11 @@ is nil, REGEXP matches only half a section.")
 	      ;; We have found as many new loci as the user wants,
 	      ;; or the user wanted a specific diff, and we're past it.
 	  (setq found-desired t)))
-    (if found-desired
-	(setq compilation-parsing-end (point))
-      ;; Set to point-max, not point, so we don't perpetually
-      ;; parse the last bit of text when it isn't a diff header.
-      (setq compilation-parsing-end (point-max)))
+    (set-marker compilation-parsing-end
+		(if found-desired (point)
+		  ;; Set to point-max, not point, so we don't perpetually
+		  ;; parse the last bit of text when it isn't a diff header.
+		  (point-max)))
     (message "Parsing differences...done"))
   (setq compilation-error-list (nreverse compilation-error-list)))
 

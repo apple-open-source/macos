@@ -57,6 +57,10 @@ void sha1AddData(sha1Obj sha1,
  */
 unsigned char *sha1Digest(sha1Obj sha1);
 
+/* As above, with copy. */
+void sha1GetDigest(sha1Obj sha1,
+	unsigned char *digest);
+	
 /*
  * Obtain the length of the message digest.
  */

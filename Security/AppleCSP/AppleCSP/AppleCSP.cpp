@@ -40,6 +40,9 @@
 #endif
 #include <RSA_DSA/RSA_DSA_csp.h>
 #include <RSA_DSA/RSA_DSA_keys.h>
+#include <DiffieHellman/DH_csp.h>
+#include <DiffieHellman/DH_keys.h>
+
 #include "YarrowConnection.h"
 
 /* 
@@ -73,7 +76,8 @@ AppleCSPPlugin::AppleCSPPlugin() :
 	#ifdef	ASC_CSP_ENABLE
 	ascAlgFactory(new AscAlgFactory(&normAllocator, &privAllocator)),
 	#endif
-	rsaDsaAlgFactory(new RSA_DSA_Factory(&normAllocator, &privAllocator))
+	rsaDsaAlgFactory(new RSA_DSA_Factory(&normAllocator, &privAllocator)),
+	dhAlgFactory(new DH_Factory(&normAllocator, &privAllocator))
 {
 	// misc. once-per-address-space cruft...
 }
@@ -91,6 +95,7 @@ AppleCSPPlugin::~AppleCSPPlugin()
 	delete ascAlgFactory;
 	#endif
 	delete rsaDsaAlgFactory;
+	delete dhAlgFactory;
 }
 
 
@@ -150,7 +155,8 @@ AppleCSPSession::AppleCSPSession(
 		ascAlgFactory(*(dynamic_cast<AscAlgFactory *>(plug.ascAlgFactory))),
 		#endif
 		rsaDsaAlgFactory(*(dynamic_cast<RSA_DSA_Factory *>(plug.rsaDsaAlgFactory))),
-		normAllocator(plug.normAlloc()),
+		dhAlgFactory(*(dynamic_cast<DH_Factory *>(plug.dhAlgFactory))),
+		normAllocator(*this),
 		privAllocator(plug.privAlloc())
 {
 	// anything? 
@@ -200,6 +206,10 @@ void AppleCSPSession::setupContext(
 		return;
 	}
 	if (miscAlgFactory.setup(*this, cspCtx, context)) {
+		CASSERT(cspCtx != NULL);
+		return;
+	}
+	if (dhAlgFactory.setup(*this, cspCtx, context)) {
 		CASSERT(cspCtx != NULL);
 		return;
 	}
@@ -497,11 +507,13 @@ void AppleCSPSession::PassThrough(
 			
 			/* obtain sha1 hash of rawBlob */
 			
-			void *digest = NULL;
-			CssmData *outHash = NULL;
+			CSSM_DATA_PTR outHash = NULL;
 			try {
-				digest = normAllocator.malloc(SHA1_DIGEST_SIZE);
-				outHash = new CssmData(digest, SHA1_DIGEST_SIZE);
+				outHash = 
+					(CSSM_DATA_PTR)normAllocator.malloc(sizeof(CSSM_DATA));
+				outHash->Data = 
+					(uint8 *)normAllocator.malloc(SHA1_DIGEST_SIZE);
+				outHash->Length = SHA1_DIGEST_SIZE;
 			}
 			catch(...) {
 				if(allocdRawBlob) {
@@ -509,7 +521,7 @@ void AppleCSPSession::PassThrough(
 				}
 				throw;
 			}
-			cspGenSha1Hash(rawBlob.data(), rawBlob.length(), digest);
+			cspGenSha1Hash(rawBlob.data(), rawBlob.length(), outHash->Data);
 			if(allocdRawBlob) {
 				freeCssmData(rawBlob, privAllocator);
 			}
@@ -595,68 +607,61 @@ CSPKeyInfoProvider *AppleCSPSession::infoProvider(
 	const CssmKey	&key)
 {
 	CSPKeyInfoProvider *provider = NULL;
-	try {	
-		provider = new RSAKeyInfoProvider(key);
-	}
-	catch(...) {
-	
-	}
-	if(provider != NULL) {
-		return provider;
-	}
 	
 	#ifdef	BSAFE_CSP_ENABLE
-	try {	
-		provider = new BSafe::BSafeKeyInfoProvider(key);
-	}
-	catch(...) {
-	
-	}
+	/* Give BSAFE first shot, if it's here */
+	provider = BSafe::BSafeKeyInfoProvider::provider(key);
 	if(provider != NULL) {
 		return provider;
 	}
 	#endif
-	try {	
-		provider = new SymmetricKeyInfoProvider(key);
-	}
-	catch(...) {
 	
-	}
+	provider = RSAKeyInfoProvider::provider(key);
 	if(provider != NULL) {
 		return provider;
 	}
+	
+	provider = SymmetricKeyInfoProvider::provider(key);
+	if(provider != NULL) {
+		return provider;
+	}
+
 	#ifdef	CRYPTKIT_CSP_ENABLE
-	try {	
-		provider = new CryptKit::FEEKeyInfoProvider(key);
-	}
-	catch(...) {
-	
-	}
+	provider = CryptKit::FEEKeyInfoProvider::provider(key);
 	if(provider != NULL) {
 		return provider;
 	}
 	#endif
+	
+	provider = DSAKeyInfoProvider::provider(key);
+	if(provider != NULL) {
+		return provider;
+	}
+	
 	CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
 }
 
 /*
  * CSPKeyInfoProvider for symmetric keys. 
  */
+CSPKeyInfoProvider *SymmetricKeyInfoProvider::provider(
+		const CssmKey &cssmKey)
+{
+	if(cssmKey.blobType() != CSSM_KEYBLOB_RAW) {
+		errorLog0("KeyInfoProvider deals only with RAW keys!\n");
+		CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);
+	}
+	if(cssmKey.keyClass() != CSSM_KEYCLASS_SESSION_KEY) {
+		/* that's all we need to know */
+		return NULL;
+	}
+	return new SymmetricKeyInfoProvider(cssmKey);
+}
+ 
 SymmetricKeyInfoProvider::SymmetricKeyInfoProvider(
 	const CssmKey &cssmKey) :
 		CSPKeyInfoProvider(cssmKey)
 {
-	if(mKey.blobType() != CSSM_KEYBLOB_RAW) {
-		errorLog0("KeyInfoProvider deals only with RAW keys!\n");
-		CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);
-	}
-	if(mKey.keyClass() == CSSM_KEYCLASS_SESSION_KEY) {
-		/* that's all we need to know */
-		return;
-	}
-	else {
-		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
-	}
 }
 
 /* cook up a Binary key */

@@ -86,11 +86,18 @@ typedef struct Tag_t
 	struct Tag_t *	Next;	/* Next tag in hash chain */
 	struct Tag_t *	Prev;	/* Previous tag in hash chain */
 
+	uint32_t		Flags;	
 	uint32_t		Refs;	/* Reference count */
 	uint64_t		Offset;	/* Offset of the buffer */
 	
 	void *			Buffer;	/* Cache page */
 } Tag_t;
+
+
+/* Tag_t.Flags bit settings */
+enum {
+	kLazyWrite		 = 0x00000001 	/* only write this page when evicting or forced */
+};
 
 /*
  * Cache_t
@@ -161,7 +168,7 @@ int CacheRead (Cache_t *cache, uint64_t start, uint32_t len, Buf_t **buf);
  *
  *  Writes a buffer through the cache.
  */
-int CacheWrite (Cache_t *cache, Buf_t *buf, int age);
+int CacheWrite ( Cache_t *cache, Buf_t *buf, int age, uint32_t writeOptions );
 
 /*
  * CacheRelease
@@ -185,6 +192,13 @@ int CacheRemove (Cache_t *cache, Tag_t *tag);
  */
 int CacheEvict (Cache_t *cache, Tag_t *tag);
 
+/*
+ * CacheFlush
+ *
+ *  Write out any blocks that are marked for lazy write.
+ */
+int 
+CacheFlush( Cache_t *cache );
 
 #endif
 

@@ -29,7 +29,7 @@ xmalloc (int n)
     p = (XMALLOCTYPE *) malloc(n);
     if (p == (XMALLOCTYPE *) 0)
     {
-	report(stderr, _("malloc failed\n"));
+	report(stderr, GT_("malloc failed\n"));
 	exit(PS_UNDEFINED);
     }
     return(p);
@@ -43,7 +43,7 @@ xrealloc (XMALLOCTYPE *p, int n)
     p = (XMALLOCTYPE *) realloc(p, n);
     if (p == (XMALLOCTYPE *) 0)
     {
-	report(stderr, _("realloc failed\n"));
+	report(stderr, GT_("realloc failed\n"));
 	exit(PS_UNDEFINED);
     }
     return p;

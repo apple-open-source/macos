@@ -6,8 +6,7 @@
 # The branch must have been created with cvs-make-branch
 # in order for this to work.
 ##
-# Wilfredo Sanchez Jr. | wsanchez@apple.com
-# Copyright 1998 Apple Computer, Inc.
+# Copyright 1998-2002 Apple Computer, Inc.
 ##
 
 ##

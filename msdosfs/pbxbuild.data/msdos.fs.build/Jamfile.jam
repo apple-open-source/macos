@@ -1,0 +1,68 @@
+# Jamfile for target msdos.fs of project msdosfs
+
+
+PROJECT = msdosfs ;
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# msdos.fs target
+export deferred TARGET_NAME = msdos.fs ;
+export deferred PRODUCT_NAME = msdos ;
+
+export deferred PKGINFO_FILE_CONTENTS = "fs  ????" ;
+export deferred PRODUCT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/msdos.fs.build/Info.plist" ;
+export deferred PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/msdos.fs.build/PkgInfo" ;
+export deferred DEVELOPMENT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/msdos.fs.build/pbdevelopment.plist" ;
+
+export deferred CLONE_HEADERS = NO ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems" ;
+export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_LDFLAGS = -bundle -undefined suppress ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = msdos ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+export deferred WRAPPER_EXTENSION = fs ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+}
+
+commitdeferred ;
+
+
+BeginBundle "<msdos>msdos.fs" ;
+
+# Headers
+HEADERS = ;
+ProcessHeaders "<msdos>msdos.fs" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Resources
+msdos_util.tproj/English.lproj/InfoPlist.strings_REGION = English ;
+RESOURCES = msdos_util.tproj/English.lproj/InfoPlist.strings ;
+ProcessResources "<msdos>msdos.fs" : "$(RESOURCES)" : BPTag000 : BPTag001 ;
+
+# Copy Files
+"$(BUILD_DIR)/msdos.util_ATTRIBUTES" = AbsolutePath ;
+COPY_FILES = "$(BUILD_DIR)/msdos.util" ;
+COPYFILES_DESTINATION_PATH = "$(BUILD_DIR)/msdos.fs" ;
+ProcessCopyFiles "<msdos>msdos.fs" : "$(COPY_FILES)" : BPTag001 : BPTag002 ;
+
+# Sources
+SOURCES = ;
+ProcessSources "<msdos>msdos.fs" : "$(SOURCES)" : BPTag002 : BPTag003 ;
+
+# Frameworks & Libraries
+FRAMEWORKS_AND_LIBRARIES = ;
+ProcessFrameworksAndLibraries "<msdos>msdos.fs" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag003 : BPTag004 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<msdos>msdos.fs" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
+
+EndBundle "<msdos>msdos.fs" ;
+

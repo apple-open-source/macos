@@ -1,7 +1,6 @@
 #!/usr/local/bin/perl -- -*-perl-*-
 
 # helpfiles:  make help files for Z-shell builtins from the manual entries.
-# Author:  Peter Stephenson <pws@ifh.de>
 
 # Create help files for zsh commands in the current directory;
 # assumes no other files are present.
@@ -22,12 +21,12 @@
 # previous line (so you see what we're up against).
 
 # Example usage:
-#    cd ~/zsh-3.0.0				# or wherever
+#    cd ~/zsh-4.0.1				# or wherever
 #    mkdir Help
 #    cd Help
-#    man zsh | colcrt - | helpfiles
+#    man zshbuiltins | colcrt - | helpfiles
 #    run-help() {
-#      typeset zhelp=~/zsh-3.0.0/Help		# or wherever
+#      typeset zhelp=~/zsh-4.0.1/Help		# or wherever
 #      [[ $1 = . ]] && 1=dot
 #      [[ $1 = : ]] && 1=colon
 #      if [[ $1 = compctl ]]; then
@@ -110,8 +109,9 @@ BUILTINS: while (<>) {
 	$undented && &doprint($_);
 	while (defined($_ = <>) && /(^\w)|(^\s*$)/) { 
 	    last BUILTINS if /^STARTUP\/SHUTDOWN FILES/;
+	    last if /^zsh.*\s\d$/; # GNU nroff -man end-of-page marker
 	}
-        if (/^\s*Page/) {
+        if (/^\s*Page/ || /^zsh.*\s\d$/) {
 	    do {
 		$_ = <>;
 	    } while (defined($_) && /^\s*$/);
@@ -122,8 +122,8 @@ BUILTINS: while (<>) {
 	    }
 	}
 	# In zshall, the zshcompctl manual page comes after the
-	# builtins.
-	if (/ZSHCOMPCTL\(1\).*ZSHCOMPCTL\(1\)/) {
+	# builtins for 3.0, and zshzle comes after it for 3.1.
+	if (/ZSH(COMPCTL|ZLE)\(1\).*ZSH(COMPCTL|ZLE)\(1\)/) {
 	    last BUILTINS;
 	}
 	if (/^(\s*)/ && length($1) < $indent) {

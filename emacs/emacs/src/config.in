@@ -1,5 +1,5 @@
 /* GNU Emacs site configuration template file.  -*- C -*-
-   Copyright (C) 1988, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1993, 1994, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -27,10 +27,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* These are all defined in the top-level Makefile by configure.
    They're here only for reference.  */
-
-/* Define LISP_FLOAT_TYPE if you want emacs to support floating-point
-   numbers. */
-#undef LISP_FLOAT_TYPE
 
 /* Define GNU_MALLOC if you want to use the GNU memory allocator. */
 #undef GNU_MALLOC
@@ -72,6 +68,30 @@ Boston, MA 02111-1307, USA.  */
 /* Define if we have the X11R5 or newer version of Xlib.  */
 #undef HAVE_X11R5
 
+/* Define if we have the XPM libary.  */
+#undef HAVE_XPM
+
+/* Define if we have the PNG library.  */
+#undef HAVE_PNG
+
+/* Define if we have the JPEG library.  */
+#undef HAVE_JPEG
+
+/* Define if we have the TIFF library.  */
+#undef HAVE_TIFF
+
+/* Define if we have the GIF library.  */
+#undef HAVE_GIF
+
+/* Define if libXaw3d is available.  */
+#undef HAVE_XAW3D
+
+/* Define if we should use toolkit scroll bars.  */
+#undef USE_TOOLKIT_SCROLL_BARS
+
+/* Define if we should use XIM, if it is available.  */
+#undef USE_XIM
+
 /* Define if netdb.h declares h_errno.  */
 #undef HAVE_H_ERRNO
 
@@ -79,13 +99,8 @@ Boston, MA 02111-1307, USA.  */
 #ifdef HAVE_X_WINDOWS
 #define HAVE_WINDOW_SYSTEM
 #define MULTI_KBOARD
-#define HAVE_FACES
 #define HAVE_MOUSE
 #endif
-
-/* Define USE_TEXT_PROPERTIES to support visual and other properties
-   on text. */
-#define USE_TEXT_PROPERTIES
 
 /* Define USER_FULL_NAME to return a string
    that is the user's full name.
@@ -117,12 +132,35 @@ Boston, MA 02111-1307, USA.  */
 
 /* Define to support using a Hesiod database to find the POP server.  */
 #undef HESIOD
+#undef HAVE_LIBHESIOD
+
+/* Header for Voxware or PCM sound card driver.  */
+#undef HAVE_MACHINE_SOUNDCARD_H
+#undef HAVE_SYS_SOUNDCARD_H
+#undef HAVE_SOUNDCARD_H
+
+/* Define HAVE_SOUND if we have sound support.  We know it works
+   and compiles only on the specified platforms.   For others,
+   it probably doesn't make sense to try.  */
+
+#if defined __FreeBSD__ || defined __NetBSD__ || defined __linux__
+#ifdef HAVE_MACHINE_SOUNDCARD_H
+#define HAVE_SOUND 1
+#endif
+#ifdef HAVE_SYS_SOUNDCARD_H
+#define HAVE_SOUND 1
+#endif
+#ifdef HAVE_SOUNDCARD_H
+#define HAVE_SOUND 1
+#endif
+#endif /* __FreeBSD__ || __NetBSD__ || __linux__  */
 
 /* Some things figured out by the configure script, grouped as they are in
    configure.in.  */
 #ifndef _ALL_SOURCE  /* suppress warning if this is pre-defined */
 #undef _ALL_SOURCE
 #endif
+
 #undef HAVE_SYS_SELECT_H
 #undef HAVE_SYS_TIMEB_H
 #undef HAVE_SYS_TIME_H
@@ -133,8 +171,18 @@ Boston, MA 02111-1307, USA.  */
 #undef HAVE_TERMIOS_H
 #undef HAVE_LIMITS_H
 #undef HAVE_STRING_H
+#undef HAVE_STDLIB_H
+#undef HAVE_TERMCAP_H
+#undef HAVE_TERM_H
+#undef HAVE_STDIO_EXT_H
 #undef STDC_HEADERS
 #undef TIME_WITH_SYS_TIME
+#undef HAVE_VFORK_H
+#undef HAVE_FCNTL_H
+#undef HAVE_SETITIMER
+#undef HAVE_UALARM
+#undef HAVE_SYS_WAIT_H
+#undef HAVE_STRINGS_H
 
 #undef HAVE_LIBDNET
 #undef HAVE_LIBPTHREADS
@@ -152,6 +200,7 @@ Boston, MA 02111-1307, USA.  */
 #undef HAVE_LIBDES425
 #undef HAVE_LIBKRB5
 #undef HAVE_LIBCRYPTO
+#undef HAVE_LIBK5CRYPTO
 #undef HAVE_LIBCOM_ERR
 /* header files */
 #undef HAVE_KRB5_H
@@ -175,6 +224,8 @@ Boston, MA 02111-1307, USA.  */
 
 #undef HAVE_ALLOCA_H
 
+#undef HAVE_DEV_PTMX
+
 #undef HAVE_GETTIMEOFDAY
 /* If we don't have gettimeofday,
    the test for GETTIMEOFDAY_ONE_ARGUMENT may succeed,
@@ -191,6 +242,7 @@ Boston, MA 02111-1307, USA.  */
 #undef TM_IN_SYS_TIME
 #undef HAVE_TM_ZONE
 #undef HAVE_TZNAME
+#undef HAVE_TM_GMTOFF
 
 #undef const
 
@@ -205,6 +257,7 @@ Boston, MA 02111-1307, USA.  */
 #undef HAVE_XSCREENRESOURCESTRING
 #undef HAVE_XSCREENNUMBEROFSCREEN
 #undef HAVE_XSETWMPROTOCOLS
+#undef HAVE_XKBGETKEYBOARD
 
 #undef HAVE_MKDIR
 #undef HAVE_RMDIR
@@ -224,6 +277,7 @@ Boston, MA 02111-1307, USA.  */
 #undef HAVE_FPATHCONF
 #undef HAVE_SELECT
 #undef HAVE_MKTIME
+#undef BROKEN_MKTIME		/* have mktime but it's broken */
 #undef HAVE_EUIDACCESS
 #undef HAVE_GETPAGESIZE
 #undef HAVE_TZSET
@@ -232,15 +286,35 @@ Boston, MA 02111-1307, USA.  */
 #undef HAVE_SETRLIMIT
 #undef HAVE_SETPGID
 #undef HAVE_GETCWD
+#undef HAVE_GETWD
 #undef HAVE_SHUTDOWN
 #undef HAVE_STRFTIME
+#undef HAVE_GETADDRINFO
+#undef HAVE___FPENDING
+#undef HAVE_FSEEKO
+#undef HAVE_GETLOADAVG
+#undef NLIST_STRUCT
+#undef NLIST_NAME_UNION
+#undef HAVE_MBLEN
+#undef HAVE_MBRLEN
+#undef HAVE_STRSIGNAL
 #undef HAVE_GRANTPT
 #undef HAVE_GETPT
+#undef HAVE_SPEED_T		/* speed_t typedef in termios.h */
+#undef HAVE_STRUCT_TIMEZONE
+#undef HAVE_INDEX
+#undef HAVE_RINDEX
+#undef HAVE_MMAP
+#undef HAVE_GAI_STRERROR
+#undef HAVE_MKSTEMP
 
 #undef LOCALTIME_CACHE
 #undef HAVE_INET_SOCKETS
 
 #undef HAVE_AIX_SMT_EXP
+
+#undef vfork
+#undef size_t
 
 /* Define if you have the ANSI `strerror' function.
    Otherwise you must have the variable `char *sys_errlist[]'.  */
@@ -256,11 +330,29 @@ Boston, MA 02111-1307, USA.  */
 #undef HAVE_TIMEVAL
 
 /* If using GNU, then support inline function declarations. */
+/* Don't try to switch on inline handling as detected by AC_C_INLINE
+   generally, because even if non-gcc compilers accept `inline', they
+   may reject `extern inline'.  */
 #ifdef __GNUC__
 #define INLINE __inline__
 #else
 #define INLINE
 #endif
+
+/* Define this if you don't have struct exception in math.h.  */
+#undef NO_MATHERR
+
+/* Define as `void' if your compiler accepts `void *'; otherwise
+   define as `char'.  */
+#undef POINTER_TYPE
+#define PTR POINTER_TYPE *	/* For strftime.c.  */
+
+/* Number of bits in a file offset, on hosts where this is settable.  */
+#undef _FILE_OFFSET_BITS
+/* Define to make ftello visible on some hosts (e.g. HP-UX 10.20).  */
+#undef _LARGEFILE_SOURCE
+/* Define for large files, on AIX-style hosts.  */
+#undef _LARGE_FILES
 
 #undef EMACS_CONFIGURATION
 
@@ -375,12 +467,10 @@ Boston, MA 02111-1307, USA.  */
 #define BSTRING
 #endif
 
-/* Non-ANSI C compilers usually don't have volatile.  */
-#ifndef HAVE_VOLATILE
-#ifndef __STDC__
-#define volatile
-#endif
-#endif
+/* Define to empty if the keyword `volatile' does not work.  Warning:
+   valid code using `volatile' can become incorrect without.  Disable
+   with care. */
+#undef volatile
 
 /* Some of the files of Emacs which are intended for use with other
    programs assume that if you have a config.h file, you must declare
@@ -413,12 +503,57 @@ extern char *getenv ();
 #endif
 
 #ifndef BITS_PER_LONG
+#ifdef _LP64
+#define BITS_PER_LONG 64
+#else
 #define BITS_PER_LONG 32
 #endif
+#endif
 
-/* Don't include <string.h> during configure.  */
+/* Define if the compiler supports function prototypes.  It may do so
+   but not define __STDC__ (e.g. DEC C by default) or may define it as
+   zero.  */
+#undef PROTOTYPES
+/* For mktime.c:  */
+#ifndef __P
+# if defined PROTOTYPES
+#  define __P(args) args
+# else
+#  define __P(args) ()
+# endif  /* GCC.  */
+#endif /* __P */
+
+
+/* Don't include "string.h" or <stdlib.h> in non-C code.  */
 #ifndef NOT_C_CODE
 #ifdef HAVE_STRING_H
 #include "string.h"
 #endif
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#endif
+
+/* Define HAVE_X_I18N if we have usable i18n support.  */
+
+#ifdef HAVE_X11R6
+#define HAVE_X_I18N
+#elif defined HAVE_X11R5 && !defined X11R5_INHIBIT_I18N
+#define HAVE_X_I18N
+#endif
+
+/* Define HAVE_X11R6_XIM if we have usable X11R6-style XIM support.  */
+
+#if defined HAVE_X11R6 && !defined INHIBIT_X11R6_XIM
+#define HAVE_X11R6_XIM
+#endif
+
+/* Should we enable expensive run-time checking of data types?  */
+#undef ENABLE_CHECKING
+
+#if defined __GNUC__ && (__GNUC__ > 2 \
+                         || (__GNUC__ == 2 && __GNUC_MINOR__ >= 5))
+#define NO_RETURN	__attribute__ ((__noreturn__))
+#else
+#define NO_RETURN	/* nothing */
 #endif

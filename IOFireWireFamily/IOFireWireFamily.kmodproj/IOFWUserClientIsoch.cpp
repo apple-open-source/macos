@@ -99,6 +99,12 @@ IOFireWireUserClient::initIsochMethodTable()
 	fMethods[kFWLocalIsochPort_ModifyJumpDCL].count1	= 0 ;
 	fMethods[kFWLocalIsochPort_ModifyJumpDCL].flags	= kIOUCScalarIScalarO ;
 	
+	fMethods[kFWLocalIsochPort_ModifyTransferPacketDCLSize].object	= this ;
+	fMethods[kFWLocalIsochPort_ModifyTransferPacketDCLSize].func	= (IOMethod) & IOFireWireUserClient::localIsochPortModifyJumpDCLSize ;
+	fMethods[kFWLocalIsochPort_ModifyTransferPacketDCLSize].count0	= 3 ;
+	fMethods[kFWLocalIsochPort_ModifyTransferPacketDCLSize].count1	= 0 ;
+	fMethods[kFWLocalIsochPort_ModifyTransferPacketDCLSize].flags	= kIOUCScalarIScalarO ;
+
 	// --- isoch channel methods -------------------------
 	fMethods[kFWIsochChannel_Allocate].object	= this ;
 	fMethods[kFWIsochChannel_Allocate].func		= (IOMethod) & IOFireWireUserClient::isochChannelAllocate ;
@@ -111,42 +117,6 @@ IOFireWireUserClient::initIsochMethodTable()
 	fMethods[kFWIsochChannel_Release].count0	= 1 ;
 	fMethods[kFWIsochChannel_Release].count1	= 0 ;
 	fMethods[kFWIsochChannel_Release].flags		= kIOUCScalarIScalarO ;
-
-/*	fMethods[kFWIsochChannel_SetTalker].object	= this ;
-	fMethods[kFWIsochChannel_SetTalker].func	= (IOMethod) & IOFireWireUserClient::isochChannelSetTalker ;
-	fMethods[kFWIsochChannel_SetTalker].count0	= 2 ;
-	fMethods[kFWIsochChannel_SetTalker].count1	= 0 ;
-	fMethods[kFWIsochChannel_SetTalker].flags	= kIOUCScalarIScalarO ;
-
-	fMethods[kFWIsochChannel_AddListener].object= this ;
-	fMethods[kFWIsochChannel_AddListener].func	= (IOMethod) & IOFireWireUserClient::isochChannelAddListener ;
-	fMethods[kFWIsochChannel_AddListener].count0= 2 ;
-	fMethods[kFWIsochChannel_AddListener].count1= 0 ;
-	fMethods[kFWIsochChannel_AddListener].flags	= kIOUCScalarIScalarO ;
-
-	fMethods[kFWIsochChannel_AllocateChannel].object	= this ;
-	fMethods[kFWIsochChannel_AllocateChannel].func		= (IOMethod) & IOFireWireUserClient::isochChannelAllocateChannel ;
-	fMethods[kFWIsochChannel_AllocateChannel].count0	= 1 ;
-	fMethods[kFWIsochChannel_AllocateChannel].count1	= 0 ;
-	fMethods[kFWIsochChannel_AllocateChannel].flags		= kIOUCScalarIScalarO ;
-
-	fMethods[kFWIsochChannel_ReleaseChannel].object		= this ;
-	fMethods[kFWIsochChannel_ReleaseChannel].func		= (IOMethod) & IOFireWireUserClient::isochChannelReleaseChannel ;
-	fMethods[kFWIsochChannel_ReleaseChannel].count0		= 1 ;
-	fMethods[kFWIsochChannel_ReleaseChannel].count1		= 0 ;
-	fMethods[kFWIsochChannel_ReleaseChannel].flags		= kIOUCScalarIScalarO ;
-
-	fMethods[kFWIsochChannel_Start].object				= this ;
-	fMethods[kFWIsochChannel_Start].func				= (IOMethod) & IOFireWireUserClient::isochChannelStart ;
-	fMethods[kFWIsochChannel_Start].count0				= 1 ;
-	fMethods[kFWIsochChannel_Start].count1				= 0 ;
-	fMethods[kFWIsochChannel_Start].flags				= kIOUCScalarIScalarO ;
-
-	fMethods[kFWIsochChannel_Stop].object				= this ;
-	fMethods[kFWIsochChannel_Stop].func					= (IOMethod) & IOFireWireUserClient::isochChannelStop ;
-	fMethods[kFWIsochChannel_Stop].count0				= 1 ;
-	fMethods[kFWIsochChannel_Stop].count1				= 0 ;
-	fMethods[kFWIsochChannel_Stop].flags				= kIOUCScalarIScalarO ;*/
 
 	fMethods[kFWIsochChannel_UserAllocateChannelBegin].object	= this ;
 	fMethods[kFWIsochChannel_UserAllocateChannelBegin].func		= (IOMethod) & IOFireWireUserClient::isochChannelUserAllocateChannelBegin ;
@@ -188,10 +158,11 @@ IOFireWireUserClient::isochPortAllocate(
 {
 	IOFWUserIsochPortProxy*	newPort	= new IOFWUserIsochPortProxy() ;
 	
-//	IOLog("IOFireWireUserClient::isochPortAllocate: new port @ 0x%08lX\n", newPort) ;
-
 	if (!newPort)
+	{
+		IOLog("%s %u: newPort==nil!\n", __FILE__, __LINE__) ;
 		return kIOReturnNoMemory ;
+	}
 	if (!newPort->init(this))
 	{
 		IOLog("IOFireWireUserClient::isochPortAllocate: port init failed\n") ;
@@ -200,17 +171,12 @@ IOFireWireUserClient::isochPortAllocate(
 		return kIOReturnInternalError ;
 	}
 
-	IOLockLock(fSetLock) ;
-	fUserIsochPorts->setObject(newPort) ;
-	IOLockUnlock(fSetLock) ;
-	
-	// the OSSet has the object, so we can release it
-	newPort->release() ;
+	IOReturn	result = addObjectToSet( newPort, fUserIsochPorts ) ;
 	
 	// pass new port out to user
 	*outPortRef		= newPort ;
 
-	return kIOReturnSuccess ;
+	return result ;
 }
 
 IOReturn
@@ -220,9 +186,7 @@ IOFireWireUserClient::isochPortRelease(
 	if (!OSDynamicCast(IOFWUserIsochPortProxy, inPortRef))
 		return kIOReturnBadArgument ;
 	
-	IOLockLock(fSetLock) ;
-	fUserIsochPorts->removeObject(inPortRef) ;
-	IOLockUnlock(fSetLock) ;
+	removeObjectFromSet( inPortRef, fUserIsochPorts ) ;
 	
 	return kIOReturnSuccess ;
 }
@@ -287,8 +251,6 @@ IOFireWireUserClient::isochPortStop(
 	if (!OSDynamicCast(IOFWUserIsochPortProxy, inPortRef))
 		return kIOReturnBadArgument ;
 
-
-//	IOLog("IOFireWireUserClient::isochPortStop: was going to stop port @ 0x%08lX, fPort 0x%08lX\n", inPortRef, inPortRef->getPort()) ;
 	return inPortRef->stop() ;
 }
 
@@ -300,26 +262,20 @@ IOFireWireUserClient::localIsochPortAllocate(
 	IOReturn						result		= kIOReturnSuccess ;
 	IOFWUserLocalIsochPortProxy*	newPort 	= new IOFWUserLocalIsochPortProxy ;
 	if (!newPort)
+	{
+		IOLog("%s %u: newPort == nil!\n", __FILE__, __LINE__) ;
 		return kIOReturnNoMemory ;
-
-//	IOLog("IOFireWireUserClient::localIsochPortAllocate: new IOFWUserLocalIsochPortProxy @ 0x%08lX\n", newPort) ;
+	}
 
 	if (!newPort->initWithUserDCLProgram(inParams, this))
-		result = kIOReturnNoMemory ;
-
-	if (kIOReturnSuccess != result)
 	{
+		IOLog("%s %u: newPort->initWithUserDCLProgram failed!\n", __FILE__, __LINE__) ;
 		newPort->release() ;
-//		IOLog("%s %u: released newPort\n", __FILE__, __LINE__) ;
+		result = kIOReturnError ;
 	}
 	else
 	{
-		IOLockLock(fSetLock) ;
-		fUserIsochPorts->setObject(newPort) ;
-		IOLockUnlock(fSetLock) ;
-		
-		// the OSSet has the object, so we can release it
-		newPort->release() ;
+		result = addObjectToSet( newPort, fUserIsochPorts ) ;
 		
 		// pass new port out to user
 		*outPortRef = newPort ;
@@ -341,18 +297,28 @@ IOFireWireUserClient::localIsochPortModifyJumpDCL(
 	return portProxy->modifyJumpDCL(inJumpDCLCompilerData, inLabelDCLCompilerData) ;
 }
 
+IOReturn
+IOFireWireUserClient::localIsochPortModifyJumpDCLSize( FWKernIsochPortRef inPortRef, UInt32 dclCompilerData,
+		IOByteCount newSize )
+{
+	IOFWUserLocalIsochPortProxy*	portProxy ;
+	if (NULL == (portProxy = OSDynamicCast( IOFWUserLocalIsochPortProxy, inPortRef)) )
+		return kIOReturnBadArgument ;
+	
+	return portProxy->modifyJumpDCLSize( dclCompilerData, newSize ) ;
+}
 
 IOReturn
 IOFireWireUserClient::setAsyncRef_DCLCallProc(
 	OSAsyncReference		asyncRef,
 	FWKernIsochPortRef		inPortRef,
-	DCLCallCommandProcPtr	inProc)
+	DCLCallCommandProcPtr	inProc )
 {
 	IOFWUserLocalIsochPortProxy*	port = OSDynamicCast(IOFWUserLocalIsochPortProxy, inPortRef) ;
 	if (!port)
 		return kIOReturnBadArgument ;
 	
-	return port->setAsyncRef_DCLCallProc(asyncRef, inProc) ;
+	return port->setAsyncRef_DCLCallProc(asyncRef, inProc ) ;
 }
 
 //
@@ -364,8 +330,6 @@ IOFireWireUserClient::isochChannelForceStopHandler(
 	IOFWIsochChannel*		isochChannelID,
 	UInt32					stopCondition)
 {
-//	IOLog("IOFireWireUserClient::isochChannelForceStopHandler: refCon=0x%08lX, isochChannelID=0x%08lX, stopCondition=0x%08lX\n", refCon, isochChannelID, stopCondition) ;
-
 	return kIOReturnSuccess ;
 }
  
@@ -376,18 +340,18 @@ IOFireWireUserClient::isochChannelAllocate(
 	IOFWSpeed				inPrefSpeed,
 	FWKernIsochChannelRef*	outIsochChannelRef)
 {
-//	IOFWIsochChannel*	newChannel = fOwner->getController()->createIsochChannel(
-//												inDoIRM, inPacketSize, inPrefSpeed, 
-//												& IOFireWireUserClient::isochChannelForceStopHandler, this) ;
-
 	IOReturn	result		= kIOReturnSuccess ;
 
 	// this code the same as IOFireWireController::createIsochChannel
-	// must update this code when controller changes.
+	// must update this code when controller changes. We do this because
+	// we are making IOFWUserIsochChannel objects, not IOFWIsochChannel
+	// objects
 	IOFWUserIsochChannel*	newChannel	= new IOFWUserIsochChannel ;
 	if (!newChannel)
+	{
+		IOLog("%s %u: couldn't make newChannel == nil!\n", __FILE__, __LINE__) ;
 		result = kIOReturnNoMemory ;
-		
+	}	
 	if (kIOReturnSuccess == result)
 		if (!newChannel->init(fOwner->getController(), inDoIRM, inPacketSize, inPrefSpeed, & IOFireWireUserClient::isochChannelForceStopHandler, this))
 		{
@@ -398,13 +362,7 @@ IOFireWireUserClient::isochChannelAllocate(
 
 	if (kIOReturnSuccess == result)
 	{
-		IOLockLock(fSetLock) ;
-		if (!fUserIsochChannels->setObject(newChannel))
-			IOLog("IOFireWireUserClient::isochChannelAllocate: new channel could not be added to set!") ;
-		IOLockUnlock(fSetLock) ;
-		
-		// OSSet has this object, so we can release it
-		newChannel->release() ;
+		result = addObjectToSet( newChannel, fUserIsochChannels ) ;
 	}
 	
 	*outIsochChannelRef = newChannel ;
@@ -418,9 +376,10 @@ IOFireWireUserClient::isochChannelRelease(
 	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
 		return kIOReturnBadArgument ;
 	
-	IOLockLock(fSetLock) ;
-	fUserIsochChannels->removeObject(inChannelRef) ;
-	IOLockUnlock(fSetLock) ;
+//	IOLockLock(fSetLock) ;
+//	fUserIsochChannels->removeObject(inChannelRef) ;
+//	IOLockUnlock(fSetLock) ;
+	removeObjectFromSet( inChannelRef, fUserIsochChannels ) ;
 	
 	return kIOReturnSuccess ;
 }
@@ -431,14 +390,13 @@ IOFireWireUserClient::isochChannelUserAllocateChannelBegin(
 	IOFWSpeed				inSpeed,
 	UInt32					inAllowedChansHi,
 	UInt32					inAllowedChansLo,
-//	UInt64					inAllowedChans,
 	IOFWSpeed*				outSpeed,
 	UInt32*					outChannel)
 {
 	if (!OSDynamicCast(IOFWUserIsochChannel, inChannelRef))
 		return kIOReturnBadArgument ;
 	
-	return inChannelRef->userAllocateChannelBegin(inSpeed, /*inAllowedChans,*/inAllowedChansHi, inAllowedChansLo, outSpeed, outChannel) ;
+	return inChannelRef->userAllocateChannelBegin(inSpeed, inAllowedChansHi, inAllowedChansLo, outSpeed, outChannel) ;
 }
 
 IOReturn

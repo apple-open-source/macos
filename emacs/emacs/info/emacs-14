@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,1141 +11,1154 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
-File: emacs,  Node: Variables for C Indent,  Next: C Indent Styles,  Prev: Syntactic Symbols,  Up: Custom C Indent
+File: emacs,  Node: Sentences,  Next: Paragraphs,  Prev: Words,  Up: Text
 
-Variables for C Indentation
-...........................
+Sentences
+=========
 
-   This section describes additional variables which control the
-indentation behavior of C mode and related mode.
+   The Emacs commands for manipulating sentences and paragraphs are
+mostly on Meta keys, so as to be like the word-handling commands.
 
-`c-offsets-alist'
-     Association list of syntactic symbols and their indentation
-     offsets.  You should not set this directly, only with
-     `c-set-offset'.  *Note Changing Indent Style::, for details.
+`M-a'
+     Move back to the beginning of the sentence (`backward-sentence').
 
-`c-style-alist'
-     Variable for defining indentation styles; see below.
+`M-e'
+     Move forward to the end of the sentence (`forward-sentence').
 
-`c-basic-offset'
-     Amount of basic offset used by `+' and `-' symbols in
-     `c-offsets-alist'.
+`M-k'
+     Kill forward to the end of the sentence (`kill-sentence').
 
-`c-special-indent-hook'
-     Hook for user-defined special indentation adjustments.  This hook
-     is called after a line is indented by C mode and related modes.
+`C-x <DEL>'
+     Kill back to the beginning of the sentence
+     (`backward-kill-sentence').
 
-   The variable `c-style-alist' specifies the predefined indentation
-styles.  Each element has form `(NAME VARIABLE-SETTING...)', where NAME
-is the name of the style.  Each VARIABLE-SETTING has the form `(VARIABLE
-. VALUE)'; VARIABLE is one of the customization variables used by C
-mode, and VALUE is the value for that variable when using the selected
-style.
+   The commands `M-a' and `M-e' (`backward-sentence' and
+`forward-sentence') move to the beginning and end of the current
+sentence, respectively.  They were chosen to resemble `C-a' and `C-e',
+which move to the beginning and end of a line.  Unlike them, `M-a' and
+`M-e' if repeated or given numeric arguments move over successive
+sentences.
 
-   When VARIABLE is `c-offsets-alist', that is a special case: VALUE is
-appended to the front of the value of `c-offsets-alist' instead of
-replacing that value outright.  Therefore, it is not necessary for
-VALUE to specify each and every syntactic symbol--only those for which
-the style differs from the default.
+   Moving backward over a sentence places point just before the first
+character of the sentence; moving forward places point right after the
+punctuation that ends the sentence.  Neither one moves over the
+whitespace at the sentence boundary.
 
-   The indentation of lines containing only comments is also affected by
-the variable `c-comment-only-line-offset' (*note Comments in C::).
+   Just as `C-a' and `C-e' have a kill command, `C-k', to go with them,
+so `M-a' and `M-e' have a corresponding kill command `M-k'
+(`kill-sentence') which kills from point to the end of the sentence.
+With minus one as an argument it kills back to the beginning of the
+sentence.  Larger arguments serve as a repeat count.  There is also a
+command, `C-x <DEL>' (`backward-kill-sentence'), for killing back to
+the beginning of a sentence.  This command is useful when you change
+your mind in the middle of composing text.
 
-
-File: emacs,  Node: C Indent Styles,  Prev: Variables for C Indent,  Up: Custom C Indent
+   The sentence commands assume that you follow the American typist's
+convention of putting two spaces at the end of a sentence; they consider
+a sentence to end wherever there is a `.', `?' or `!' followed by the
+end of a line or two spaces, with any number of `)', `]', `'', or `"'
+characters allowed in between.  A sentence also begins or ends wherever
+a paragraph begins or ends.
 
-C Indentation Styles
-....................
+   The variable `sentence-end' controls recognition of the end of a
+sentence.  It is a regexp that matches the last few characters of a
+sentence, together with the whitespace following the sentence.  Its
+normal value is
 
-   A "C style" is a collection of indentation style customizations.
-Emacs comes with several predefined indentation styles for C and related
-modes, including `gnu', `k&r', `bsd', `stroustrup', `linux', `python',
-`java', `whitesmith', `ellemtel', and `cc-mode'.  The default style is
-`gnu'.
+     "[.?!][]\"')]*\\($\\| $\\|\t\\|  \\)[ \t\n]*"
 
-   To choose the style you want, use the command `M-x c-set-style'.
-Specify a style name as an argument (case is not significant in C style
-names).  The chosen style only affects newly visited buffers, not those
-you are already editing.  You can also set the variable
-`c-default-style' to specify the style for various major modes.  Its
-value should be an alist, in which each element specifies one major
-mode and which indentation style to use for it.  For example,
+This example is explained in the section on regexps.  *Note Regexps::.
 
-     (setq c-default-style
-           '((java-mode . "java") (other . "gnu")))
+   If you want to use just one space between sentences, you should set
+`sentence-end' to this value:
 
-specifies an explicit choice for Java mode, and the default `gnu' style
-for the other C-like modes.
+     "[.?!][]\"')]*\\($\\|\t\\| \\)[ \t\n]*"
 
-   To define a new C indentation style, call the function `c-add-style':
-
-     (c-add-style NAME VALUES USE-NOW)
-
-Here NAME is the name of the new style (a string), and VALUES is an
-alist whose elements have the form `(VARIABLE . VALUE)'.  The variables
-you specify should be among those documented in *Note Variables for C
-Indent::.
-
-   If USE-NOW is non-`nil', `c-add-style' switches to the new style
-after defining it.
+You should also set the variable `sentence-end-double-space' to `nil'
+so that the fill commands expect and leave just one space at the end of
+a sentence.  Note that this makes it impossible to distinguish between
+periods that end sentences and those that indicate abbreviations.
 
 
-File: emacs,  Node: Matching,  Next: Comments,  Prev: Program Indent,  Up: Programs
+File: emacs,  Node: Paragraphs,  Next: Pages,  Prev: Sentences,  Up: Text
 
-Automatic Display Of Matching Parentheses
-=========================================
+Paragraphs
+==========
 
-   The Emacs parenthesis-matching feature is designed to show
-automatically how parentheses match in the text.  Whenever you type a
-self-inserting character that is a closing delimiter, the cursor moves
-momentarily to the location of the matching opening delimiter, provided
-that is on the screen.  If it is not on the screen, some text near it is
-displayed in the echo area.  Either way, you can tell what grouping is
-being closed off.
+   The Emacs commands for manipulating paragraphs are also Meta keys.
 
-   In Lisp, automatic matching applies only to parentheses.  In C, it
-applies to braces and brackets too.  Emacs knows which characters to
-regard as matching delimiters based on the syntax table, which is set
-by the major mode.  *Note Syntax::.
+`M-{'
+     Move back to previous paragraph beginning (`backward-paragraph').
 
-   If the opening delimiter and closing delimiter are mismatched--such
-as in `[x)'--a warning message is displayed in the echo area.  The
-correct matches are specified in the syntax table.
+`M-}'
+     Move forward to next paragraph end (`forward-paragraph').
 
-   Three variables control parenthesis match display.
-`blink-matching-paren' turns the feature on or off; `nil' turns it off,
-but the default is `t' to turn match display on.
-`blink-matching-delay' says how many seconds to wait; the default is 1,
-but on some systems it is useful to specify a fraction of a second.
-`blink-matching-paren-distance' specifies how many characters back to
-search to find the matching opening delimiter.  If the match is not
-found in that far, scanning stops, and nothing is displayed.  This is
-to prevent scanning for the matching delimiter from wasting lots of
-time when there is no match.  The default is 12,000.
+`M-h'
+     Put point and mark around this or next paragraph
+     (`mark-paragraph').
 
-   When using X Windows, you can request a more powerful alternative
-kind of automatic parenthesis matching by enabling Show Paren mode.
-This mode turns off the usual kind of matching parenthesis display and
-instead uses highlighting to show what matches.  Whenever point is after
-a close parenthesis, the close parenthesis and its matching open
-parenthesis are both highlighted; otherwise, if point is before an open
-parenthesis, the matching close parenthesis is highlighted.  (There is
-no need to highlight the open parenthesis after point because the cursor
-appears on top of that character.)  Use the command `M-x
-show-paren-mode' to enable or disable this mode.
+   `M-{' moves to the beginning of the current or previous paragraph,
+while `M-}' moves to the end of the current or next paragraph.  Blank
+lines and text-formatter command lines separate paragraphs and are not
+considered part of any paragraph.  In Fundamental mode, but not in Text
+mode, an indented line also starts a new paragraph.  (If a paragraph is
+preceded by a blank line, these commands treat that blank line as the
+beginning of the paragraph.)
+
+   In major modes for programs, paragraphs begin and end only at blank
+lines.  This makes the paragraph commands continue to be useful even
+though there are no paragraphs per se.
+
+   When there is a fill prefix, then paragraphs are delimited by all
+lines which don't start with the fill prefix.  *Note Filling::.
+
+   When you wish to operate on a paragraph, you can use the command
+`M-h' (`mark-paragraph') to set the region around it.  Thus, for
+example, `M-h C-w' kills the paragraph around or after point.  The
+`M-h' command puts point at the beginning and mark at the end of the
+paragraph point was in.  In Transient Mark mode, it activates the mark.
+If point is between paragraphs (in a run of blank lines, or at a
+boundary), the paragraph following point is surrounded by point and
+mark.  If there are blank lines preceding the first line of the
+paragraph, one of these blank lines is included in the region.
+
+   The precise definition of a paragraph boundary is controlled by the
+variables `paragraph-separate' and `paragraph-start'.  The value of
+`paragraph-start' is a regexp that should match any line that either
+starts or separates paragraphs.  The value of `paragraph-separate' is
+another regexp that should match only lines that separate paragraphs
+without being part of any paragraph (for example, blank lines).  Lines
+that start a new paragraph and are contained in it must match only
+`paragraph-start', not `paragraph-separate'.  For example, in
+Fundamental mode, `paragraph-start' is `"[ \t\n\f]"', and
+`paragraph-separate' is `"[ \t\f]*$"'.
+
+   Normally it is desirable for page boundaries to separate paragraphs.
+The default values of these variables recognize the usual separator for
+pages.
 
 
-File: emacs,  Node: Comments,  Next: Balanced Editing,  Prev: Matching,  Up: Programs
+File: emacs,  Node: Pages,  Next: Filling,  Prev: Paragraphs,  Up: Text
 
-Manipulating Comments
-=====================
+Pages
+=====
 
-   Because comments are such an important part of programming, Emacs
-provides special commands for editing and inserting comments.
+   Files are often thought of as divided into "pages" by the "formfeed"
+character (ASCII control-L, octal code 014).  When you print hardcopy
+for a file, this character forces a page break; thus, each page of the
+file goes on a separate page on paper.  Most Emacs commands treat the
+page-separator character just like any other character: you can insert
+it with `C-q C-l', and delete it with <DEL>.  Thus, you are free to
+paginate your file or not.  However, since pages are often meaningful
+divisions of the file, Emacs provides commands to move over them and
+operate on them.
+
+`C-x ['
+     Move point to previous page boundary (`backward-page').
+
+`C-x ]'
+     Move point to next page boundary (`forward-page').
+
+`C-x C-p'
+     Put point and mark around this page (or another page)
+     (`mark-page').
+
+`C-x l'
+     Count the lines in this page (`count-lines-page').
+
+   The `C-x [' (`backward-page') command moves point to immediately
+after the previous page delimiter.  If point is already right after a
+page delimiter, it skips that one and stops at the previous one.  A
+numeric argument serves as a repeat count.  The `C-x ]' (`forward-page')
+command moves forward past the next page delimiter.
+
+   The `C-x C-p' command (`mark-page') puts point at the beginning of
+the current page and the mark at the end.  The page delimiter at the
+end is included (the mark follows it).  The page delimiter at the front
+is excluded (point follows it).  In Transient Mark mode, this command
+activates the mark.
+
+   `C-x C-p C-w' is a handy way to kill a page to move it elsewhere.
+If you move to another page delimiter with `C-x [' and `C-x ]', then
+yank the killed page, all the pages will be properly delimited once
+again.  The reason `C-x C-p' includes only the following page delimiter
+in the region is to ensure that.
+
+   A numeric argument to `C-x C-p' is used to specify which page to go
+to, relative to the current one.  Zero means the current page.  One
+means the next page, and -1 means the previous one.
+
+   The `C-x l' command (`count-lines-page') is good for deciding where
+to break a page in two.  It displays in the echo area the total number
+of lines in the current page, and then divides it up into those
+preceding the current line and those following, as in
+
+     Page has 96 (72+25) lines
+
+Notice that the sum is off by one; this is correct if point is not at
+the beginning of a line.
+
+   The variable `page-delimiter' controls where pages begin.  Its value
+is a regexp that matches the beginning of a line that separates pages.
+The normal value of this variable is `"^\f"', which matches a formfeed
+character at the beginning of a line.
+
+
+File: emacs,  Node: Filling,  Next: Case,  Prev: Pages,  Up: Text
+
+Filling Text
+============
+
+   "Filling" text means breaking it up into lines that fit a specified
+width.  Emacs does filling in two ways.  In Auto Fill mode, inserting
+text with self-inserting characters also automatically fills it.  There
+are also explicit fill commands that you can use when editing text
+leaves it unfilled.  When you edit formatted text, you can specify a
+style of filling for each portion of the text (*note Formatted Text::).
 
 * Menu:
 
-* Comment Commands::
-* Multi-Line Comments::
-* Options for Comments::
+* Auto Fill::	        Auto Fill mode breaks long lines automatically.
+* Refill::              Keeping paragraphs filled.
+* Fill Commands::       Commands to refill paragraphs and center lines.
+* Fill Prefix::	        Filling paragraphs that are indented
+                          or in a comment, etc.
+* Adaptive Fill::       How Emacs can determine the fill prefix automatically.
 
 
-File: emacs,  Node: Comment Commands,  Next: Multi-Line Comments,  Up: Comments
+File: emacs,  Node: Auto Fill,  Next: Refill,  Up: Filling
 
-Comment Commands
-----------------
+Auto Fill Mode
+--------------
 
-   The comment commands insert, kill and align comments.
+   "Auto Fill" mode is a minor mode in which lines are broken
+automatically when they become too wide.  Breaking happens only when
+you type a <SPC> or <RET>.
 
-`M-;'
-     Insert or align comment (`indent-for-comment').
+`M-x auto-fill-mode'
+     Enable or disable Auto Fill mode.
 
-`C-x ;'
-     Set comment column (`set-comment-column').
+`<SPC>'
+`<RET>'
+     In Auto Fill mode, break lines when appropriate.
 
-`C-u - C-x ;'
-     Kill comment on current line (`kill-comment').
+   `M-x auto-fill-mode' turns Auto Fill mode on if it was off, or off
+if it was on.  With a positive numeric argument it always turns Auto
+Fill mode on, and with a negative argument always turns it off.  You can
+see when Auto Fill mode is in effect by the presence of the word `Fill'
+in the mode line, inside the parentheses.  Auto Fill mode is a minor
+mode which is enabled or disabled for each buffer individually.  *Note
+Minor Modes::.
 
-`C-M-j'
-     Like <RET> followed by inserting and aligning a comment
-     (`indent-new-comment-line').
+   In Auto Fill mode, lines are broken automatically at spaces when they
+get longer than the desired width.  Line breaking and rearrangement
+takes place only when you type <SPC> or <RET>.  If you wish to insert a
+space or newline without permitting line-breaking, type `C-q <SPC>' or
+`C-q C-j' (recall that a newline is really a control-J).  Also, `C-o'
+inserts a newline without line breaking.
 
-`M-x comment-region'
-     Add or remove comment delimiters on all the lines in the region.
+   Auto Fill mode works well with programming-language modes, because it
+indents new lines with <TAB>.  If a line ending in a comment gets too
+long, the text of the comment is split into two comment lines.
+Optionally, new comment delimiters are inserted at the end of the first
+line and the beginning of the second so that each line is a separate
+comment; the variable `comment-multi-line' controls the choice (*note
+Comments::).
 
-   The command that creates a comment is `M-;' (`indent-for-comment').
-If there is no comment already on the line, a new comment is created,
-aligned at a specific column called the "comment column".  The comment
-is created by inserting the string Emacs thinks comments should start
-with (the value of `comment-start'; see below).  Point is left after
-that string.  If the text of the line extends past the comment column,
-then the indentation is done to a suitable boundary (usually, at least
-one space is inserted).  If the major mode has specified a string to
-terminate comments, that is inserted after point, to keep the syntax
-valid.
+   Adaptive filling (*note Adaptive Fill::) works for Auto Filling as
+well as for explicit fill commands.  It takes a fill prefix
+automatically from the second or first line of a paragraph.
 
-   `M-;' can also be used to align an existing comment.  If a line
-already contains the string that starts comments, then `M-;' just moves
-point after it and reindents it to the conventional place.  Exception:
-comments starting in column 0 are not moved.
+   Auto Fill mode does not refill entire paragraphs; it can break lines
+but cannot merge lines.  So editing in the middle of a paragraph can
+result in a paragraph that is not correctly filled.  The easiest way to
+make the paragraph properly filled again is usually with the explicit
+fill commands.  *Note Fill Commands::.
 
-   Some major modes have special rules for indenting certain kinds of
-comments in certain contexts.  For example, in Lisp code, comments which
-start with two semicolons are indented as if they were lines of code,
-instead of at the comment column.  Comments which start with three
-semicolons are supposed to start at the left margin.  Emacs understands
-these conventions by indenting a double-semicolon comment using <TAB>,
-and by not changing the indentation of a triple-semicolon comment at
-all.
-
-     ;; This function is just an example
-     ;;; Here either two or three semicolons are appropriate.
-     (defun foo (x)
-     ;;; And now, the first part of the function:
-       ;; The following line adds one.
-       (1+ x))           ; This line adds one.
-
-   In C code, a comment preceded on its line by nothing but whitespace
-is indented like a line of code.
-
-   Even when an existing comment is properly aligned, `M-;' is still
-useful for moving directly to the start of the comment.
-
-   `C-u - C-x ;' (`kill-comment') kills the comment on the current line,
-if there is one.  The indentation before the start of the comment is
-killed as well.  If there does not appear to be a comment in the line,
-nothing is done.  To reinsert the comment on another line, move to the
-end of that line, do `C-y', and then do `M-;' to realign it.  Note that
-`C-u - C-x ;' is not a distinct key; it is `C-x ;'
-(`set-comment-column') with a negative argument.  That command is
-programmed so that when it receives a negative argument it calls
-`kill-comment'.  However, `kill-comment' is a valid command which you
-could bind directly to a key if you wanted to.
+   Many users like Auto Fill mode and want to use it in all text files.
+The section on init files says how to arrange this permanently for
+yourself.  *Note Init File::.
 
 
-File: emacs,  Node: Multi-Line Comments,  Next: Options for Comments,  Prev: Comment Commands,  Up: Comments
+File: emacs,  Node: Refill,  Next: Fill Commands,  Prev: Auto Fill,  Up: Filling
 
-Multiple Lines of Comments
---------------------------
+Refill Mode
+-----------
 
-   If you are typing a comment and wish to continue it on another line,
-you can use the command `C-M-j' (`indent-new-comment-line').  This
-terminates the comment you are typing, creates a new blank line
-afterward, and begins a new comment indented under the old one.  When
-Auto Fill mode is on, going past the fill column while typing a comment
-causes the comment to be continued in just this fashion.  If point is
-not at the end of the line when `C-M-j' is typed, the text on the rest
-of the line becomes part of the new comment line.
+   Refill minor mode provides support for keeping paragraphs filled as
+you type or modify them in other ways.  It provides an effect similar
+to typical word processor behavior.  This works by running a
+paragraph-filling command at suitable times.
 
-   To turn existing lines into comment lines, use the `M-x
-comment-region' command.  It adds comment delimiters to the lines that
-start in the region, thus commenting them out.  With a negative
-argument, it does the opposite--it deletes comment delimiters from the
-lines in the region.
+   When you are typing text, only characters which normally trigger
+auto filling, like the space character, will trigger refilling.  This
+is to avoid making it too slow.  Apart from self-inserting characters,
+other commands which modify the text cause refilling.
 
-   With a positive argument, `comment-region' duplicates the last
-character of the comment start sequence it adds; the argument specifies
-how many copies of the character to insert.  Thus, in Lisp mode, `C-u 2
-M-x comment-region' adds `;;' to each line.  Duplicating the comment
-delimiter is a way of calling attention to the comment.  It can also
-affect how the comment is indented.  In Lisp, for proper indentation,
-you should use an argument of two, if between defuns, and three, if
-within a defun.
+   The current implementation is preliminary and probably not robust.
+We expect to improve on it.
 
-   The variable `comment-padding' specifies how many spaces
-`comment-region' should insert on each line between the comment
-delimiter and the line's original text.  The default is 1.
+   To toggle the use of Refill mode in the current buffer, type `M-x
+refill-mode'.
 
 
-File: emacs,  Node: Options for Comments,  Prev: Multi-Line Comments,  Up: Comments
+File: emacs,  Node: Fill Commands,  Next: Fill Prefix,  Prev: Refill,  Up: Filling
 
-Options Controlling Comments
-----------------------------
+Explicit Fill Commands
+----------------------
 
-   The comment column is stored in the variable `comment-column'.  You
-can set it to a number explicitly.  Alternatively, the command `C-x ;'
-(`set-comment-column') sets the comment column to the column point is
-at.  `C-u C-x ;' sets the comment column to match the last comment
-before point in the buffer, and then does a `M-;' to align the current
-line's comment under the previous one.  Note that `C-u - C-x ;' runs
-the function `kill-comment' as described above.
+`M-q'
+     Fill current paragraph (`fill-paragraph').
 
-   The variable `comment-column' is per-buffer: setting the variable in
-the normal fashion affects only the current buffer, but there is a
-default value which you can change with `setq-default'.  *Note
-Locals::.  Many major modes initialize this variable for the current
-buffer.
+`C-x f'
+     Set the fill column (`set-fill-column').
 
-   The comment commands recognize comments based on the regular
-expression that is the value of the variable `comment-start-skip'.
-Make sure this regexp does not match the null string.  It may match more
-than the comment starting delimiter in the strictest sense of the word;
-for example, in C mode the value of the variable is `"/\\*+ *"', which
-matches extra stars and spaces after the `/*' itself.  (Note that `\\'
-is needed in Lisp syntax to include a `\' in the string, which is
-needed to deny the first star its special meaning in regexp syntax.
-*Note Regexps::.)
+`M-x fill-region'
+     Fill each paragraph in the region (`fill-region').
 
-   When a comment command makes a new comment, it inserts the value of
-`comment-start' to begin it.  The value of `comment-end' is inserted
-after point, so that it will follow the text that you will insert into
-the comment.  In C mode, `comment-start' has the value `"/* "' and
-`comment-end' has the value `" */"'.
+`M-x fill-region-as-paragraph'
+     Fill the region, considering it as one paragraph.
 
-   The variable `comment-multi-line' controls how `C-M-j'
-(`indent-new-comment-line') behaves when used inside a comment.  If
-`comment-multi-line' is `nil', as it normally is, then the comment on
-the starting line is terminated and a new comment is started on the new
-following line.  If `comment-multi-line' is not `nil', then the new
-following line is set up as part of the same comment that was found on
-the starting line.  This is done by not inserting a terminator on the
-old line, and not inserting a starter on the new line.  In languages
-where multi-line comments work, the choice of value for this variable
-is a matter of taste.
+`M-s'
+     Center a line.
 
-   The variable `comment-indent-function' should contain a function
-that will be called to compute the indentation for a newly inserted
-comment or for aligning an existing comment.  It is set differently by
-various major modes.  The function is called with no arguments, but with
-point at the beginning of the comment, or at the end of a line if a new
-comment is to be inserted.  It should return the column in which the
-comment ought to start.  For example, in Lisp mode, the indent hook
-function bases its decision on how many semicolons begin an existing
-comment, and on the code in the preceding lines.
+   To refill a paragraph, use the command `M-q' (`fill-paragraph').
+This operates on the paragraph that point is inside, or the one after
+point if point is between paragraphs.  Refilling works by removing all
+the line-breaks, then inserting new ones where necessary.
 
-
-File: emacs,  Node: Balanced Editing,  Next: Symbol Completion,  Prev: Comments,  Up: Programs
+   To refill many paragraphs, use `M-x fill-region', which divides the
+region into paragraphs and fills each of them.
 
-Editing Without Unbalanced Parentheses
-======================================
+   `M-q' and `fill-region' use the same criteria as `M-h' for finding
+paragraph boundaries (*note Paragraphs::).  For more control, you can
+use `M-x fill-region-as-paragraph', which refills everything between
+point and mark.  This command deletes any blank lines within the
+region, so separate blocks of text end up combined into one block.
 
-`M-('
-     Put parentheses around next sexp(s) (`insert-parentheses').
+   A numeric argument to `M-q' causes it to "justify" the text as well
+as filling it.  This means that extra spaces are inserted to make the
+right margin line up exactly at the fill column.  To remove the extra
+spaces, use `M-q' with no argument.  (Likewise for `fill-region'.)
+Another way to control justification, and choose other styles of
+filling, is with the `justification' text property; see *Note Format
+Justification::.
 
-`M-)'
-     Move past next close parenthesis and reindent
-     (`move-past-close-and-reindent').
+   The command `M-s' (`center-line') centers the current line within
+the current fill column.  With an argument N, it centers N lines
+individually and moves past them.
 
-   The commands `M-(' (`insert-parentheses') and `M-)'
-(`move-past-close-and-reindent') are designed to facilitate a style of
-editing which keeps parentheses balanced at all times.  `M-(' inserts a
-pair of parentheses, either together as in `()', or, if given an
-argument, around the next several sexps.  It leaves point after the
-open parenthesis.  The command `M-)' moves past the close parenthesis,
-deleting any indentation preceding it, and indenting with `C-j' after
-it.
-
-   For example, instead of typing `( F O O )', you can type `M-( F O
-O', which has the same effect except for leaving the cursor before the
-close parenthesis.
-
-   `M-(' may insert a space before the open parenthesis, depending on
-the syntax class of the preceding character.  Set
-`parens-require-spaces' to `nil' value if you wish to inhibit this.
-
-
-File: emacs,  Node: Symbol Completion,  Next: Which Function,  Prev: Balanced Editing,  Up: Programs
-
-Completion for Symbol Names
-===========================
-
-   Usually completion happens in the minibuffer.  But one kind of
-completion is available in all buffers: completion for symbol names.
-
-   The character `M-<TAB>' runs a command to complete the partial
-symbol before point against the set of meaningful symbol names.  Any
-additional characters determined by the partial name are inserted at
+   The maximum line width for filling is in the variable `fill-column'.
+Altering the value of `fill-column' makes it local to the current
+buffer; until that time, the default value is in effect.  The default
+is initially 70.  *Note Locals::.  The easiest way to set `fill-column'
+is to use the command `C-x f' (`set-fill-column').  With a numeric
+argument, it uses that as the new fill column.  With just `C-u' as
+argument, it sets `fill-column' to the current horizontal position of
 point.
 
-   If the partial name in the buffer has more than one possible
-completion and they have no additional characters in common, a list of
-all possible completions is displayed in another window.
+   Emacs commands normally consider a period followed by two spaces or
+by a newline as the end of a sentence; a period followed by just one
+space indicates an abbreviation and not the end of a sentence.  To
+preserve the distinction between these two ways of using a period, the
+fill commands do not break a line after a period followed by just one
+space.
 
-   In most programming language major modes, `M-<TAB>' runs the command
-`complete-symbol', which provides two kinds of completion.  Normally it
-does completion based on a tags table (*note Tags::); with a numeric
-argument (regardless of the value), it does completion based on the
-names listed in the Info file indexes for your language.  Thus, to
-complete the name of a symbol defined in your own program, use
-`M-<TAB>' with no argument; to complete the name of a standard library
-function, use `C-u M-<TAB>'.  Of course, Info-based completion works
-only if there is an Info file for the standard library functions of
-your language, and only if it is installed at your site.
+   If the variable `sentence-end-double-space' is `nil', the fill
+commands expect and leave just one space at the end of a sentence.
+Ordinarily this variable is `t', so the fill commands insist on two
+spaces for the end of a sentence, as explained above.  *Note
+Sentences::.
 
-   In Emacs-Lisp mode, the name space for completion normally consists
-of nontrivial symbols present in Emacs--those that have function
-definitions, values or properties.  However, if there is an
-open-parenthesis immediately before the beginning of the partial symbol,
-only symbols with function definitions are considered as completions.
-The command which implements this is `lisp-complete-symbol'.
+   If the variable `colon-double-space' is non-`nil', the fill commands
+put two spaces after a colon.
 
-   In Text mode and related modes, `M-<TAB>' completes words based on
-the spell-checker's dictionary.  *Note Spelling::.
+   Some languages do not use period to indicate end of sentence.  For
+example, a sentence in Thai text ends with double space but without a
+period.  Set the variable `sentence-end-without-period' to `t' to tell
+the sentence commands that a period is not necessary.
 
 
-File: emacs,  Node: Which Function,  Next: Documentation,  Prev: Symbol Completion,  Up: Programs
+File: emacs,  Node: Fill Prefix,  Next: Adaptive Fill,  Prev: Fill Commands,  Up: Filling
 
-Which Function Mode
-===================
+The Fill Prefix
+---------------
 
-   Which Function mode is a minor mode that displays the current
-function name in the mode line, as you move around in a buffer.
+   To fill a paragraph in which each line starts with a special marker
+(which might be a few spaces, giving an indented paragraph), you can use
+the "fill prefix" feature.  The fill prefix is a string that Emacs
+expects every line to start with, and which is not included in filling.
+You can specify a fill prefix explicitly; Emacs can also deduce the
+fill prefix automatically (*note Adaptive Fill::).
 
-   To enable (or disable) Which Function mode, use the command `M-x
-which-function-mode'.  This command is global; it applies to all
-buffers, both existing ones and those yet to be created.  However, this
-only affects certain major modes, those listed in the value of
-`which-func-modes'.  (If the value is `t', then Which Function mode
-applies to all major modes that know how to support it--which are the
-major modes that support Imenu.)
+`C-x .'
+     Set the fill prefix (`set-fill-prefix').
 
-
-File: emacs,  Node: Documentation,  Next: Change Log,  Prev: Which Function,  Up: Programs
+`M-q'
+     Fill a paragraph using current fill prefix (`fill-paragraph').
 
-Documentation Commands
-======================
+`M-x fill-individual-paragraphs'
+     Fill the region, considering each change of indentation as
+     starting a new paragraph.
 
-   As you edit Lisp code to be run in Emacs, the commands `C-h f'
-(`describe-function') and `C-h v' (`describe-variable') can be used to
-print documentation of functions and variables that you want to call.
-These commands use the minibuffer to read the name of a function or
-variable to document, and display the documentation in a window.
+`M-x fill-nonuniform-paragraphs'
+     Fill the region, considering only paragraph-separator lines as
+     starting a new paragraph.
 
-   For extra convenience, these commands provide default arguments
-based on the code in the neighborhood of point.  `C-h f' sets the
-default to the function called in the innermost list containing point.
-`C-h v' uses the symbol name around or adjacent to point as its default.
+   To specify a fill prefix, move to a line that starts with the desired
+prefix, put point at the end of the prefix, and give the command
+`C-x .' (`set-fill-prefix').  That's a period after the `C-x'.  To turn
+off the fill prefix, specify an empty prefix: type `C-x .' with point
+at the beginning of a line.
 
-   For Emacs Lisp code, you can also use Eldoc mode.  This minor mode
-constantly displays in the echo area the argument list for the function
-being called at point.  (In other words, it finds the function call that
-point is contained in, and displays the argument list of that function.)
-Eldoc mode applies in Emacs Lisp and Lisp Interaction modes only.  Use
-the command `M-x eldoc-mode' to enable or disable this feature.
+   When a fill prefix is in effect, the fill commands remove the fill
+prefix from each line before filling and insert it on each line after
+filling.  Auto Fill mode also inserts the fill prefix automatically when
+it makes a new line.  The `C-o' command inserts the fill prefix on new
+lines it creates, when you use it at the beginning of a line (*note
+Blank Lines::).  Conversely, the command `M-^' deletes the prefix (if
+it occurs) after the newline that it deletes (*note Indentation::).
 
-   For C, Lisp, and other languages, you can use `C-h C-i'
-(`info-lookup-symbol') to view the Info documentation for a symbol.
-You specify the symbol with the minibuffer; by default, it uses the
-symbol that appears in the buffer at point.  The major mode determines
-where to look for documentation for the symbol--which Info files and
-which indices.  You can also use `M-x info-lookup-file' to look for
-documentation for a file name.
+   For example, if `fill-column' is 40 and you set the fill prefix to
+`;; ', then `M-q' in the following text
 
-   You can read the "man page" for an operating system command, library
-function, or system call, with the `M-x manual-entry' command.  It runs
-the `man' program to format the man page, and runs it asynchronously if
-your system permits, so that you can keep on editing while the page is
-being formatted.  (MS-DOS and MS-Windows 3 do not permit asynchronous
-subprocesses, so on these systems you cannot edit while Emacs waits for
-`man' to exit.)  The result goes in a buffer named `*Man TOPIC*'.
-These buffers use a special major mode, Man mode, that facilitates
-scrolling and examining other manual pages.  For details, type `C-h m'
-while in a man page buffer.
+     ;; This is an
+     ;; example of a paragraph
+     ;; inside a Lisp-style comment.
 
-   For a long man page, setting the faces properly can take substantial
-time.  By default, Emacs uses faces in man pages if Emacs can display
-different fonts or colors.  You can turn off use of faces in man pages
-by setting the variable `Man-fontify-manpage-flag' to `nil'.
+produces this:
 
-   If you insert the text of a man page into an Emacs buffer in some
-other fashion, you can use the command `M-x Man-fontify-manpage' to
-perform the same conversions that `M-x manual-entry' does.
+     ;; This is an example of a paragraph
+     ;; inside a Lisp-style comment.
 
-   Eventually the GNU project hopes to replace most man pages with
-better-organized manuals that you can browse with Info.  *Note Misc
-Help::.  Since this process is only partially completed, it is still
-useful to read manual pages.
+   Lines that do not start with the fill prefix are considered to start
+paragraphs, both in `M-q' and the paragraph commands; this gives good
+results for paragraphs with hanging indentation (every line indented
+except the first one).  Lines which are blank or indented once the
+prefix is removed also separate or start paragraphs; this is what you
+want if you are writing multi-paragraph comments with a comment
+delimiter on each line.
 
-
-File: emacs,  Node: Change Log,  Next: Tags,  Prev: Documentation,  Up: Programs
+   You can use `M-x fill-individual-paragraphs' to set the fill prefix
+for each paragraph automatically.  This command divides the region into
+paragraphs, treating every change in the amount of indentation as the
+start of a new paragraph, and fills each of these paragraphs.  Thus,
+all the lines in one "paragraph" have the same amount of indentation.
+That indentation serves as the fill prefix for that paragraph.
 
-Change Logs
-===========
+   `M-x fill-nonuniform-paragraphs' is a similar command that divides
+the region into paragraphs in a different way.  It considers only
+paragraph-separating lines (as defined by `paragraph-separate') as
+starting a new paragraph.  Since this means that the lines of one
+paragraph may have different amounts of indentation, the fill prefix
+used is the smallest amount of indentation of any of the lines of the
+paragraph.  This gives good results with styles that indent a
+paragraph's first line more or less that the rest of the paragraph.
 
-   The Emacs command `C-x 4 a' adds a new entry to the change log file
-for the file you are editing (`add-change-log-entry-other-window').
+   The fill prefix is stored in the variable `fill-prefix'.  Its value
+is a string, or `nil' when there is no fill prefix.  This is a
+per-buffer variable; altering the variable affects only the current
+buffer, but there is a default value which you can change as well.
+*Note Locals::.
 
-   A change log file contains a chronological record of when and why you
-have changed a program, consisting of a sequence of entries describing
-individual changes.  Normally it is kept in a file called `ChangeLog'
-in the same directory as the file you are editing, or one of its parent
-directories.  A single `ChangeLog' file can record changes for all the
-files in its directory and all its subdirectories.
-
-   A change log entry starts with a header line that contains your name,
-your email address (taken from the variable `user-mail-address'), and
-the current date and time.  Aside from these header lines, every line
-in the change log starts with a space or a tab.  The bulk of the entry
-consists of "items", each of which starts with a line starting with
-whitespace and a star.  Here are two entries, both dated in May 1993,
-each with two items:
-
-     1993-05-25  Richard Stallman  <rms@gnu.org>
-     
-             * man.el: Rename symbols `man-*' to `Man-*'.
-             (manual-entry): Make prompt string clearer.
-     
-             * simple.el (blink-matching-paren-distance):
-             Change default to 12,000.
-     
-     1993-05-24  Richard Stallman  <rms@gnu.org>
-     
-             * vc.el (minor-mode-map-alist): Don't use it if it's void.
-             (vc-cancel-version): Doc fix.
-
-(Previous Emacs versions used a different format for the date.)
-
-   One entry can describe several changes; each change should have its
-own item.  Normally there should be a blank line between items.  When
-items are related (parts of the same change, in different places), group
-them by leaving no blank line between them.  The second entry above
-contains two items grouped in this way.
-
-   `C-x 4 a' visits the change log file and creates a new entry unless
-the most recent entry is for today's date and your name.  It also
-creates a new item for the current file.  For many languages, it can
-even guess the name of the function or other object that was changed.
-
-   The change log file is visited in Change Log mode.  In this major
-mode, each bunch of grouped items counts as one paragraph, and each
-entry is considered a page.  This facilitates editing the entries.
-`C-j' and auto-fill indent each new line like the previous line; this
-is convenient for entering the contents of an entry.
-
-   Version control systems are another way to keep track of changes in
-your program and keep a change log.  *Note Log Buffer::.
+   The `indentation' text property provides another way to control the
+amount of indentation paragraphs receive.  *Note Format Indentation::.
 
 
-File: emacs,  Node: Tags,  Next: Emerge,  Prev: Change Log,  Up: Programs
+File: emacs,  Node: Adaptive Fill,  Prev: Fill Prefix,  Up: Filling
 
-Tags Tables
-===========
+Adaptive Filling
+----------------
 
-   A "tags table" is a description of how a multi-file program is
-broken up into files.  It lists the names of the component files and the
-names and positions of the functions (or other named subunits) in each
-file.  Grouping the related files makes it possible to search or replace
-through all the files with one command.  Recording the function names
-and positions makes possible the `M-.' command which finds the
-definition of a function by looking up which of the files it is in.
+   The fill commands can deduce the proper fill prefix for a paragraph
+automatically in certain cases: either whitespace or certain punctuation
+characters at the beginning of a line are propagated to all lines of the
+paragraph.
 
-   Tags tables are stored in files called "tags table files".  The
-conventional name for a tags table file is `TAGS'.
+   If the paragraph has two or more lines, the fill prefix is taken from
+the paragraph's second line, but only if it appears on the first line as
+well.
 
-   Each entry in the tags table records the name of one tag, the name
-of the file that the tag is defined in (implicitly), and the position
-in that file of the tag's definition.
+   If a paragraph has just one line, fill commands _may_ take a prefix
+from that line.  The decision is complicated because there are three
+reasonable things to do in such a case:
 
-   Just what names from the described files are recorded in the tags
-table depends on the programming language of the described file.  They
-normally include all functions and subroutines, and may also include
-global variables, data types, and anything else convenient.  Each name
-recorded is called a "tag".
+   * Use the first line's prefix on all the lines of the paragraph.
+
+   * Indent subsequent lines with whitespace, so that they line up
+     under the text that follows the prefix on the first line, but
+     don't actually copy the prefix from the first line.
+
+   * Don't do anything special with the second and following lines.
+
+   All three of these styles of formatting are commonly used.  So the
+fill commands try to determine what you would like, based on the prefix
+that appears and on the major mode.  Here is how.
+
+   If the prefix found on the first line matches
+`adaptive-fill-first-line-regexp', or if it appears to be a
+comment-starting sequence (this depends on the major mode), then the
+prefix found is used for filling the paragraph, provided it would not
+act as a paragraph starter on subsequent lines.
+
+   Otherwise, the prefix found is converted to an equivalent number of
+spaces, and those spaces are used as the fill prefix for the rest of the
+lines, provided they would not act as a paragraph starter on subsequent
+lines.
+
+   In Text mode, and other modes where only blank lines and page
+delimiters separate paragraphs, the prefix chosen by adaptive filling
+never acts as a paragraph starter, so it can always be used for filling.
+
+   The variable `adaptive-fill-regexp' determines what kinds of line
+beginnings can serve as a fill prefix: any characters at the start of
+the line that match this regular expression are used.  If you set the
+variable `adaptive-fill-mode' to `nil', the fill prefix is never chosen
+automatically.
+
+   You can specify more complex ways of choosing a fill prefix
+automatically by setting the variable `adaptive-fill-function' to a
+function.  This function is called with point after the left margin of a
+line, and it should return the appropriate fill prefix based on that
+line.  If it returns `nil', that means it sees no fill prefix in that
+line.
+
+
+File: emacs,  Node: Case,  Next: Text Mode,  Prev: Filling,  Up: Text
+
+Case Conversion Commands
+========================
+
+   Emacs has commands for converting either a single word or any
+arbitrary range of text to upper case or to lower case.
+
+`M-l'
+     Convert following word to lower case (`downcase-word').
+
+`M-u'
+     Convert following word to upper case (`upcase-word').
+
+`M-c'
+     Capitalize the following word (`capitalize-word').
+
+`C-x C-l'
+     Convert region to lower case (`downcase-region').
+
+`C-x C-u'
+     Convert region to upper case (`upcase-region').
+
+   The word conversion commands are the most useful.  `M-l'
+(`downcase-word') converts the word after point to lower case, moving
+past it.  Thus, repeating `M-l' converts successive words.  `M-u'
+(`upcase-word') converts to all capitals instead, while `M-c'
+(`capitalize-word') puts the first letter of the word into upper case
+and the rest into lower case.  All these commands convert several words
+at once if given an argument.  They are especially convenient for
+converting a large amount of text from all upper case to mixed case,
+because you can move through the text using `M-l', `M-u' or `M-c' on
+each word as appropriate, occasionally using `M-f' instead to skip a
+word.
+
+   When given a negative argument, the word case conversion commands
+apply to the appropriate number of words before point, but do not move
+point.  This is convenient when you have just typed a word in the wrong
+case: you can give the case conversion command and continue typing.
+
+   If a word case conversion command is given in the middle of a word,
+it applies only to the part of the word which follows point.  This is
+just like what `M-d' (`kill-word') does.  With a negative argument,
+case conversion applies only to the part of the word before point.
+
+   The other case conversion commands are `C-x C-u' (`upcase-region')
+and `C-x C-l' (`downcase-region'), which convert everything between
+point and mark to the specified case.  Point and mark do not move.
+
+   The region case conversion commands `upcase-region' and
+`downcase-region' are normally disabled.  This means that they ask for
+confirmation if you try to use them.  When you confirm, you may enable
+the command, which means it will not ask for confirmation again.  *Note
+Disabling::.
+
+
+File: emacs,  Node: Text Mode,  Next: Outline Mode,  Prev: Case,  Up: Text
+
+Text Mode
+=========
+
+   When you edit files of text in a human language, it's more convenient
+to use Text mode rather than Fundamental mode.  To enter Text mode, type
+`M-x text-mode'.
+
+   In Text mode, only blank lines and page delimiters separate
+paragraphs.  As a result, paragraphs can be indented, and adaptive
+filling determines what indentation to use when filling a paragraph.
+*Note Adaptive Fill::.
+
+   Text mode defines <TAB> to run `indent-relative' (*note
+Indentation::), so that you can conveniently indent a line like the
+previous line.  When the previous line is not indented,
+`indent-relative' runs `tab-to-tab-stop', which uses Emacs tab stops
+that you can set (*note Tab Stops::).
+
+   Text mode turns off the features concerned with comments except when
+you explicitly invoke them.  It changes the syntax table so that periods
+are not considered part of a word, while apostrophes, backspaces and
+underlines are considered part of words.
+
+   If you indent the first lines of paragraphs, then you should use
+Paragraph-Indent Text mode rather than Text mode.  In this mode, you do
+not need to have blank lines between paragraphs, because the first-line
+indentation is sufficient to start a paragraph; however paragraphs in
+which every line is indented are not supported.  Use `M-x
+paragraph-indent-text-mode' to enter this mode.  Use `M-x
+paragraph-indent-minor-mode' to enter an equivalent minor mode, for
+instance during mail composition.
+
+   Text mode, and all the modes based on it, define `M-<TAB>' as the
+command `ispell-complete-word', which performs completion of the
+partial word in the buffer before point, using the spelling dictionary
+as the space of possible words.  *Note Spelling::.
+
+   Entering Text mode runs the hook `text-mode-hook'.  Other major
+modes related to Text mode also run this hook, followed by hooks of
+their own; this includes Paragraph-Indent Text mode, Nroff mode, TeX
+mode, Outline mode, and Mail mode.  Hook functions on `text-mode-hook'
+can look at the value of `major-mode' to see which of these modes is
+actually being entered.  *Note Hooks::.
+
+   Emacs provides two other modes for editing text that is to be passed
+through a text formatter to produce fancy formatted printed output.
+*Note Nroff Mode::, for editing input to the formatter nroff.  *Note
+TeX Mode::, for editing input to the formatter TeX.
+
+   Another mode is used for editing outlines.  It allows you to view the
+text at various levels of detail.  You can view either the outline
+headings alone or both headings and text; you can also hide some of the
+headings at lower levels from view to make the high level structure more
+visible.  *Note Outline Mode::.
+
+
+File: emacs,  Node: Outline Mode,  Next: TeX Mode,  Prev: Text Mode,  Up: Text
+
+Outline Mode
+============
+
+   Outline mode is a major mode much like Text mode but intended for
+editing outlines.  It allows you to make parts of the text temporarily
+invisible so that you can see the outline structure.  Type `M-x
+outline-mode' to switch to Outline mode as the major mode of the current
+buffer.
+
+   When Outline mode makes a line invisible, the line does not appear on
+the screen.  The screen appears exactly as if the invisible line were
+deleted, except that an ellipsis (three periods in a row) appears at the
+end of the previous visible line (only one ellipsis no matter how many
+invisible lines follow).
+
+   Editing commands that operate on lines, such as `C-n' and `C-p',
+treat the text of the invisible line as part of the previous visible
+line.  Killing an entire visible line, including its terminating
+newline, really kills all the following invisible lines along with it.
+
+   Outline minor mode provides the same commands as the major mode,
+Outline mode, but you can use it in conjunction with other major modes.
+Type `M-x outline-minor-mode' to enable the Outline minor mode in the
+current buffer.  You can also specify this in the text of a file, with
+a file local variable of the form `mode: outline-minor' (*note File
+Variables::).
+
+   The major mode, Outline mode, provides special key bindings on the
+`C-c' prefix.  Outline minor mode provides similar bindings with `C-c
+@' as the prefix; this is to reduce the conflicts with the major mode's
+special commands.  (The variable `outline-minor-mode-prefix' controls
+the prefix used.)
+
+   Entering Outline mode runs the hook `text-mode-hook' followed by the
+hook `outline-mode-hook' (*note Hooks::).
 
 * Menu:
 
-* Tag Syntax::		Tag syntax for various types of code and text files.
-* Create Tags Table::	Creating a tags table with `etags'.
-* Select Tags Table::	How to visit a tags table.
-* Find Tag::		Commands to find the definition of a specific tag.
-* Tags Search::		Using a tags table for searching and replacing.
-* List Tags::		Listing and finding tags defined in a file.
+* Format: Outline Format.	   What the text of an outline looks like.
+* Motion: Outline Motion.	   Special commands for moving through
+                                     outlines.
+* Visibility: Outline Visibility.  Commands to control what is visible.
+* Views: Outline Views.            Outlines and multiple views.
+* Foldout::                        Folding editing.
 
 
-File: emacs,  Node: Tag Syntax,  Next: Create Tags Table,  Up: Tags
+File: emacs,  Node: Outline Format,  Next: Outline Motion,  Up: Outline Mode
 
-Source File Tag Syntax
-----------------------
+Format of Outlines
+------------------
 
-   Here is how tag syntax is defined for the most popular languages:
+   Outline mode assumes that the lines in the buffer are of two types:
+"heading lines" and "body lines".  A heading line represents a topic in
+the outline.  Heading lines start with one or more stars; the number of
+stars determines the depth of the heading in the outline structure.
+Thus, a heading line with one star is a major topic; all the heading
+lines with two stars between it and the next one-star heading are its
+subtopics; and so on.  Any line that is not a heading line is a body
+line.  Body lines belong with the preceding heading line.  Here is an
+example:
 
-   * In C code, any C function or typedef is a tag, and so are
-     definitions of `struct', `union' and `enum'.  `#define' macro
-     definitions and `enum' constants are also tags, unless you specify
-     `--no-defines' when making the tags table.  Similarly, global
-     variables are tags, unless you specify `--no-globals'.  Use of
-     `--no-globals' and `--no-defines' can make the tags table file
-     much smaller.
+     * Food
+     This is the body,
+     which says something about the topic of food.
+     
+     ** Delicious Food
+     This is the body of the second-level header.
+     
+     ** Distasteful Food
+     This could have
+     a body too, with
+     several lines.
+     
+     *** Dormitory Food
+     
+     * Shelter
+     Another first-level topic with its header line.
 
-   * In C++ code, in addition to all the tag constructs of C code,
-     member functions are also recognized, and optionally member
-     variables if you use the `--members' option.  Tags for variables
-     and functions in classes are named `CLASS::VARIABLE' and
-     `CLASS::FUNCTION'.
+   A heading line together with all following body lines is called
+collectively an "entry".  A heading line together with all following
+deeper heading lines and their body lines is called a "subtree".
 
-   * In Java code, tags include all the constructs recognized in C++,
-     plus the `extends' and `implements' constructs.  Tags for variables
-     and functions in classes are named `CLASS.VARIABLE' and
-     `CLASS.FUNCTION'.
+   You can customize the criterion for distinguishing heading lines by
+setting the variable `outline-regexp'.  Any line whose beginning has a
+match for this regexp is considered a heading line.  Matches that start
+within a line (not at the left margin) do not count.  The length of the
+matching text determines the level of the heading; longer matches make
+a more deeply nested level.  Thus, for example, if a text formatter has
+commands `@chapter', `@section' and `@subsection' to divide the
+document into chapters and sections, you could make those lines count
+as heading lines by setting `outline-regexp' to
+`"@chap\\|@\\(sub\\)*section"'.  Note the trick: the two words
+`chapter' and `section' are equally long, but by defining the regexp to
+match only `chap' we ensure that the length of the text matched on a
+chapter heading is shorter, so that Outline mode will know that
+sections are contained in chapters.  This works as long as no other
+command starts with `@chap'.
 
-   * In LaTeX text, the argument of any of the commands `\chapter',
-     `\section', `\subsection', `\subsubsection', `\eqno', `\label',
-     `\ref', `\cite', `\bibitem', `\part', `\appendix', `\entry', or
-     `\index', is a tag.
-
-     Other commands can make tags as well, if you specify them in the
-     environment variable `TEXTAGS' before invoking `etags'.  The value
-     of this environment variable should be a colon-separated list of
-     command names.  For example,
-
-          TEXTAGS="def:newcommand:newenvironment"
-          export TEXTAGS
-
-     specifies (using Bourne shell syntax) that the commands `\def',
-     `\newcommand' and `\newenvironment' also define tags.
-
-   * In Lisp code, any function defined with `defun', any variable
-     defined with `defvar' or `defconst', and in general the first
-     argument of any expression that starts with `(def' in column zero,
-     is a tag.
-
-   * In Scheme code, tags include anything defined with `def' or with a
-     construct whose name starts with `def'.  They also include
-     variables set with `set!' at top level in the file.
-
-   Several other languages are also supported:
-
-   * In assembler code, labels appearing at the beginning of a line,
-     followed by a colon, are tags.
-
-   * In Bison or Yacc input files, each rule defines as a tag the
-     nonterminal it constructs.  The portions of the file that contain
-     C code are parsed as C code.
-
-   * In Cobol code, tags are paragraph names; that is, any word
-     starting in column 8 and followed by a period.
-
-   * In Erlang code, the tags are the functions, records, and macros
-     defined in the file.
-
-   * In Fortran code, functions, subroutines and blockdata are tags.
-
-   * In Objective C code, tags include Objective C definitions for
-     classes, class categories, methods, and protocols.
-
-   * In Pascal code, the tags are the functions and procedures defined
-     in the file.
-
-   * In Perl code, the tags are the procedures defined by the `sub'
-     keyword.
-
-   * In Postscript code, the tags are the functions.
-
-   * In Prolog code, a tag name appears at the left margin.
-
-   You can also generate tags based on regexp matching (*note Create
-Tags Table::) to handle other formats and languages.
+   You can change the rule for calculating the level of a heading line
+by setting the variable `outline-level'.  The value of `outline-level'
+should be a function that takes no arguments and returns the level of
+the current heading.  Some major modes such as C, Nroff, and Emacs Lisp
+mode set this variable and `outline-regexp' in order to work with
+Outline minor mode.
 
 
-File: emacs,  Node: Create Tags Table,  Next: Select Tags Table,  Prev: Tag Syntax,  Up: Tags
+File: emacs,  Node: Outline Motion,  Next: Outline Visibility,  Prev: Outline Format,  Up: Outline Mode
 
-Creating Tags Tables
---------------------
+Outline Motion Commands
+-----------------------
 
-   The `etags' program is used to create a tags table file.  It knows
-the syntax of several languages, as described in *Note Tag Syntax::.
-Here is how to run `etags':
+   Outline mode provides special motion commands that move backward and
+forward to heading lines.
 
-     etags INPUTFILES...
+`C-c C-n'
+     Move point to the next visible heading line
+     (`outline-next-visible-heading').
 
-The `etags' program reads the specified files, and writes a tags table
-named `TAGS' in the current working directory.  `etags' recognizes the
-language used in an input file based on its file name and contents.
-You can specify the language with the `--language=NAME' option,
-described below.
+`C-c C-p'
+     Move point to the previous visible heading line
+     (`outline-previous-visible-heading').
 
-   If the tags table data become outdated due to changes in the files
-described in the table, the way to update the tags table is the same
-way it was made in the first place.  It is not necessary to do this
-often.
+`C-c C-f'
+     Move point to the next visible heading line at the same level as
+     the one point is on (`outline-forward-same-level').
 
-   If the tags table fails to record a tag, or records it for the wrong
-file, then Emacs cannot possibly find its definition.  However, if the
-position recorded in the tags table becomes a little bit wrong (due to
-some editing in the file that the tag definition is in), the only
-consequence is a slight delay in finding the tag.  Even if the stored
-position is very wrong, Emacs will still find the tag, but it must
-search the entire file for it.
+`C-c C-b'
+     Move point to the previous visible heading line at the same level
+     (`outline-backward-same-level').
 
-   So you should update a tags table when you define new tags that you
-want to have listed, or when you move tag definitions from one file to
-another, or when changes become substantial.  Normally there is no need
-to update the tags table after each edit, or even every day.
+`C-c C-u'
+     Move point up to a lower-level (more inclusive) visible heading
+     line (`outline-up-heading').
 
-   One tags table can effectively include another.  Specify the included
-tags file name with the `--include=FILE' option when creating the file
-that is to include it.  The latter file then acts as if it contained
-all the files specified in the included file, as well as the files it
-directly contains.
+   `C-c C-n' (`outline-next-visible-heading') moves down to the next
+heading line.  `C-c C-p' (`outline-previous-visible-heading') moves
+similarly backward.  Both accept numeric arguments as repeat counts.
+The names emphasize that invisible headings are skipped, but this is
+not really a special feature.  All editing commands that look for lines
+ignore the invisible lines automatically.
 
-   If you specify the source files with relative file names when you run
-`etags', the tags file will contain file names relative to the
-directory where the tags file was initially written.  This way, you can
-move an entire directory tree containing both the tags file and the
-source files, and the tags file will still refer correctly to the source
-files.
-
-   If you specify absolute file names as arguments to `etags', then the
-tags file will contain absolute file names.  This way, the tags file
-will still refer to the same files even if you move it, as long as the
-source files remain in the same place.  Absolute file names start with
-`/', or with `DEVICE:/' on MS-DOS and MS-Windows.
-
-   When you want to make a tags table from a great number of files, you
-may have problems listing them on the command line, because some systems
-have a limit on its length.  The simplest way to circumvent this limit
-is to tell `etags' to read the file names from its standard input, by
-typing a dash in place of the file names, like this:
-
-     find . -name "*.[chCH]" -print | etags -
-
-   Use the option `--language=NAME' to specify the language explicitly.
-You can intermix these options with file names; each one applies to
-the file names that follow it.  Specify `--language=auto' to tell
-`etags' to resume guessing the language from the file names and file
-contents.  Specify `--language=none' to turn off language-specific
-processing entirely; then `etags' recognizes tags by regexp matching
-alone.  `etags --help' prints the list of the languages `etags' knows,
-and the file name rules for guessing the language.
-
-   The `--regex' option provides a general way of recognizing tags
-based on regexp matching.  You can freely intermix it with file names.
-Each `--regex' option adds to the preceding ones, and applies only to
-the following files.  The syntax is:
-
-     --regex=/TAGREGEXP[/NAMEREGEXP]/
-
-where TAGREGEXP is used to match the lines to tag.  It is always
-anchored, that is, it behaves as if preceded by `^'.  If you want to
-account for indentation, just match any initial number of blanks by
-beginning your regular expression with `[ \t]*'.  In the regular
-expressions, `\' quotes the next character, and `\t' stands for the tab
-character.  Note that `etags' does not handle the other C escape
-sequences for special characters.
-
-   The syntax of regular expressions in `etags' is the same as in
-Emacs, augmented with the "interval operator", which works as in `grep'
-and `ed'.  The syntax of an interval operator is `\{M,N\}', and its
-meaning is to match the preceding expression at least M times and up to
-N times.
-
-   You should not match more characters with TAGREGEXP than that needed
-to recognize what you want to tag.  If the match is such that more
-characters than needed are unavoidably matched by TAGREGEXP, you may
-find useful to add a NAMEREGEXP, in order to narrow the tag scope.  You
-can find some examples below.
-
-   The `-R' option deletes all the regexps defined with `--regex'
-options.  It applies to the file names following it, as you can see
-from the following example:
-
-     etags --regex=/REG1/ voo.doo --regex=/REG2/ \
-         bar.ber -R --lang=lisp los.er
-
-Here `etags' chooses the parsing language for `voo.doo' and `bar.ber'
-according to their contents.  `etags' also uses REG1 to recognize
-additional tags in `voo.doo', and both REG1 and REG2 to recognize
-additional tags in `bar.ber'.  `etags' uses the Lisp tags rules, and no
-regexp matching, to recognize tags in `los.er'.
-
-   Here are some more examples.  The regexps are quoted to protect them
-from shell interpretation.
-
-   * Tag the `DEFVAR' macros in the emacs source files:
-
-          --regex='/[ \t]*DEFVAR_[A-Z_ \t(]+"\([^"]+\)"/'
-
-   * Tag VHDL files (this example is a single long line, broken here for
-     formatting reasons):
-
-          --language=none
-          --regex='/[ \t]*\(ARCHITECTURE\|CONFIGURATION\) +[^ ]* +OF/'
-          --regex='/[ \t]*\(ATTRIBUTE\|ENTITY\|FUNCTION\|PACKAGE\
-          \( BODY\)?\|PROCEDURE\|PROCESS\|TYPE\)[ \t]+\([^ \t(]+\)/\3/'
-
-   * Tag Tcl files (this last example shows the usage of a NAMEREGEXP):
-
-          --lang=none --regex='/proc[ \t]+\([^ \t]+\)/\1/'
-
-   For a list of the other available `etags' options, execute `etags
---help'.
+   More powerful motion commands understand the level structure of
+headings.  `C-c C-f' (`outline-forward-same-level') and `C-c C-b'
+(`outline-backward-same-level') move from one heading line to another
+visible heading at the same depth in the outline.  `C-c C-u'
+(`outline-up-heading') moves backward to another heading that is less
+deeply nested.
 
 
-File: emacs,  Node: Select Tags Table,  Next: Find Tag,  Prev: Create Tags Table,  Up: Tags
+File: emacs,  Node: Outline Visibility,  Next: Outline Views,  Prev: Outline Motion,  Up: Outline Mode
 
-Selecting a Tags Table
-----------------------
+Outline Visibility Commands
+---------------------------
 
-   Emacs has at any time one "selected" tags table, and all the commands
-for working with tags tables use the selected one.  To select a tags
-table, type `M-x visit-tags-table', which reads the tags table file
-name as an argument.  The name `TAGS' in the default directory is used
-as the default file name.
+   The other special commands of outline mode are used to make lines
+visible or invisible.  Their names all start with `hide' or `show'.
+Most of them fall into pairs of opposites.  They are not undoable;
+instead, you can undo right past them.  Making lines visible or
+invisible is simply not recorded by the undo mechanism.
 
-   All this command does is store the file name in the variable
-`tags-file-name'.  Emacs does not actually read in the tags table
-contents until you try to use them.  Setting this variable yourself is
-just as good as using `visit-tags-table'.  The variable's initial value
-is `nil'; that value tells all the commands for working with tags tables
-that they must ask for a tags table file name to use.
+`C-c C-t'
+     Make all body lines in the buffer invisible (`hide-body').
 
-   Using `visit-tags-table' when a tags table is already loaded gives
-you a choice: you can add the new tags table to the current list of
-tags tables, or start a new list.  The tags commands use all the tags
-tables in the current list.  If you start a new list, the new tags table
-is used _instead_ of others.  If you add the new table to the current
-list, it is used _as well as_ the others.  When the tags commands scan
-the list of tags tables, they don't always start at the beginning of
-the list; they start with the first tags table (if any) that describes
-the current file, proceed from there to the end of the list, and then
-scan from the beginning of the list until they have covered all the
-tables in the list.
+`C-c C-a'
+     Make all lines in the buffer visible (`show-all').
 
-   You can specify a precise list of tags tables by setting the variable
-`tags-table-list' to a list of strings, like this:
+`C-c C-d'
+     Make everything under this heading invisible, not including this
+     heading itself (`hide-subtree').
 
-     (setq tags-table-list
-           '("~/emacs" "/usr/local/lib/emacs/src"))
+`C-c C-s'
+     Make everything under this heading visible, including body,
+     subheadings, and their bodies (`show-subtree').
 
-This tells the tags commands to look at the `TAGS' files in your
-`~/emacs' directory and in the `/usr/local/lib/emacs/src' directory.
-The order depends on which file you are in and which tags table
-mentions that file, as explained above.
+`C-c C-l'
+     Make the body of this heading line, and of all its subheadings,
+     invisible (`hide-leaves').
 
-   Do not set both `tags-file-name' and `tags-table-list'.
+`C-c C-k'
+     Make all subheadings of this heading line, at all levels, visible
+     (`show-branches').
 
-
-File: emacs,  Node: Find Tag,  Next: Tags Search,  Prev: Select Tags Table,  Up: Tags
+`C-c C-i'
+     Make immediate subheadings (one level down) of this heading line
+     visible (`show-children').
 
-Finding a Tag
--------------
+`C-c C-c'
+     Make this heading line's body invisible (`hide-entry').
 
-   The most important thing that a tags table enables you to do is to
-find the definition of a specific tag.
+`C-c C-e'
+     Make this heading line's body visible (`show-entry').
 
-`M-. TAG <RET>'
-     Find first definition of TAG (`find-tag').
+`C-c C-q'
+     Hide everything except the top N levels of heading lines
+     (`hide-sublevels').
 
-`C-u M-.'
-     Find next alternate definition of last tag specified.
+`C-c C-o'
+     Hide everything except for the heading or body that point is in,
+     plus the headings leading up from there to the top level of the
+     outline (`hide-other').
 
-`C-u - M-.'
-     Go back to previous tag found.
+   Two commands that are exact opposites are `C-c C-c' (`hide-entry')
+and `C-c C-e' (`show-entry').  They are used with point on a heading
+line, and apply only to the body lines of that heading.  Subheadings
+and their bodies are not affected.
 
-`C-M-. PATTERN <RET>'
-     Find a tag whose name matches PATTERN (`find-tag-regexp').
+   Two more powerful opposites are `C-c C-d' (`hide-subtree') and `C-c
+C-s' (`show-subtree').  Both expect to be used when point is on a
+heading line, and both apply to all the lines of that heading's
+"subtree": its body, all its subheadings, both direct and indirect, and
+all of their bodies.  In other words, the subtree contains everything
+following this heading line, up to and not including the next heading of
+the same or higher rank.
 
-`C-u C-M-.'
-     Find the next tag whose name matches the last pattern used.
+   Intermediate between a visible subtree and an invisible one is having
+all the subheadings visible but none of the body.  There are two
+commands for doing this, depending on whether you want to hide the
+bodies or make the subheadings visible.  They are `C-c C-l'
+(`hide-leaves') and `C-c C-k' (`show-branches').
 
-`C-x 4 . TAG <RET>'
-     Find first definition of TAG, but display it in another window
-     (`find-tag-other-window').
+   A little weaker than `show-branches' is `C-c C-i' (`show-children').
+It makes just the direct subheadings visible--those one level down.
+Deeper subheadings remain invisible, if they were invisible.
 
-`C-x 5 . TAG <RET>'
-     Find first definition of TAG, and create a new frame to select the
-     buffer (`find-tag-other-frame').
+   Two commands have a blanket effect on the whole file.  `C-c C-t'
+(`hide-body') makes all body lines invisible, so that you see just the
+outline structure.  `C-c C-a' (`show-all') makes all lines visible.
+These commands can be thought of as a pair of opposites even though
+`C-c C-a' applies to more than just body lines.
 
-`M-*'
-     Pop back to where you previously invoked `M-.' and friends.
+   The command `C-c C-q' (`hide-sublevels') hides all but the top level
+headings.  With a numeric argument N, it hides everything except the
+top N levels of heading lines.
 
-   `M-.' (`find-tag') is the command to find the definition of a
-specified tag.  It searches through the tags table for that tag, as a
-string, and then uses the tags table info to determine the file that the
-definition is in and the approximate character position in the file of
-the definition.  Then `find-tag' visits that file, moves point to the
-approximate character position, and searches ever-increasing distances
-away to find the tag definition.
+   The command `C-c C-o' (`hide-other') hides everything except the
+heading or body text that point is in, plus its parents (the headers
+leading up from there to top level in the outline).
 
-   If an empty argument is given (just type <RET>), the sexp in the
-buffer before or around point is used as the TAG argument.  *Note
-Lists::, for info on sexps.
+   You can turn off the use of ellipses at the ends of visible lines by
+setting `selective-display-ellipses' to `nil'.  Then there is no
+visible indication of the presence of invisible lines.
 
-   You don't need to give `M-.' the full name of the tag; a part will
-do.  This is because `M-.' finds tags in the table which contain TAG as
-a substring.  However, it prefers an exact match to a substring match.
-To find other tags that match the same substring, give `find-tag' a
-numeric argument, as in `C-u M-.'; this does not read a tag name, but
-continues searching the tags table's text for another tag containing
-the same substring last used.  If you have a real <META> key, `M-0 M-.'
-is an easier alternative to `C-u M-.'.
-
-   Like most commands that can switch buffers, `find-tag' has a variant
-that displays the new buffer in another window, and one that makes a
-new frame for it.  The former is `C-x 4 .', which invokes the command
-`find-tag-other-window'.  The latter is `C-x 5 .', which invokes
-`find-tag-other-frame'.
-
-   To move back to places you've found tags recently, use `C-u - M-.';
-more generally, `M-.' with a negative numeric argument.  This command
-can take you to another buffer.  `C-x 4 .' with a negative argument
-finds the previous tag location in another window.
-
-   As well as going back to places you've found tags recently, you can
-go back to places _from where_ you found them.  Use `M-*', which
-invokes the command `pop-tag-mark', for this.  Typically you would find
-and study the definition of something with `M-.' and then return to
-where you were with `M-*'.
-
-   Both `C-u - M-.' and `M-*' allow you to retrace your steps to a
-depth determined by the variable `find-tag-marker-ring-length'.
-
-   The command `C-M-.' (`find-tag-regexp') visits the tags that match a
-specified regular expression.  It is just like `M-.' except that it
-does regexp matching instead of substring matching.
+   When incremental search finds text that is hidden by Outline mode,
+it makes that part of the buffer visible.  If you exit the search at
+that position, the text remains visible.
 
 
-File: emacs,  Node: Tags Search,  Next: List Tags,  Prev: Find Tag,  Up: Tags
+File: emacs,  Node: Outline Views,  Next: Foldout,  Prev: Outline Visibility,  Up: Outline Mode
 
-Searching and Replacing with Tags Tables
-----------------------------------------
+Viewing One Outline in Multiple Views
+-------------------------------------
 
-   The commands in this section visit and search all the files listed
-in the selected tags table, one by one.  For these commands, the tags
-table serves only to specify a sequence of files to search.
+   You can display two views of a single outline at the same time, in
+different windows.  To do this, you must create an indirect buffer using
+`M-x make-indirect-buffer'.  The first argument of this command is the
+existing outline buffer name, and its second argument is the name to
+use for the new indirect buffer.  *Note Indirect Buffers::.
 
-`M-x tags-search <RET> REGEXP <RET>'
-     Search for REGEXP through the files in the selected tags table.
-
-`M-x tags-query-replace <RET> REGEXP <RET> REPLACEMENT <RET>'
-     Perform a `query-replace-regexp' on each file in the selected tags
-     table.
-
-`M-,'
-     Restart one of the commands above, from the current location of
-     point (`tags-loop-continue').
-
-   `M-x tags-search' reads a regexp using the minibuffer, then searches
-for matches in all the files in the selected tags table, one file at a
-time.  It displays the name of the file being searched so you can
-follow its progress.  As soon as it finds an occurrence, `tags-search'
-returns.
-
-   Having found one match, you probably want to find all the rest.  To
-find one more match, type `M-,' (`tags-loop-continue') to resume the
-`tags-search'.  This searches the rest of the current buffer, followed
-by the remaining files of the tags table.
-
-   `M-x tags-query-replace' performs a single `query-replace-regexp'
-through all the files in the tags table.  It reads a regexp to search
-for and a string to replace with, just like ordinary `M-x
-query-replace-regexp'.  It searches much like `M-x tags-search', but
-repeatedly, processing matches according to your input.  *Note
-Replace::, for more information on query replace.
-
-   It is possible to get through all the files in the tags table with a
-single invocation of `M-x tags-query-replace'.  But often it is useful
-to exit temporarily, which you can do with any input event that has no
-special query replace meaning.  You can resume the query replace
-subsequently by typing `M-,'; this command resumes the last tags search
-or replace command that you did.
-
-   The commands in this section carry out much broader searches than the
-`find-tag' family.  The `find-tag' commands search only for definitions
-of tags that match your substring or regexp.  The commands
-`tags-search' and `tags-query-replace' find every occurrence of the
-regexp, as ordinary search commands and replace commands do in the
-current buffer.
-
-   These commands create buffers only temporarily for the files that
-they have to search (those which are not already visited in Emacs
-buffers).  Buffers in which no match is found are quickly killed; the
-others continue to exist.
-
-   It may have struck you that `tags-search' is a lot like `grep'.  You
-can also run `grep' itself as an inferior of Emacs and have Emacs show
-you the matching lines one by one.  This works much like running a
-compilation; finding the source locations of the `grep' matches works
-like finding the compilation errors.  *Note Compilation::.
+   Once the indirect buffer exists, you can display it in a window in
+the normal fashion, with `C-x 4 b' or other Emacs commands.  The Outline
+mode commands to show and hide parts of the text operate on each buffer
+independently; as a result, each buffer can have its own view.  If you
+want more than two views on the same outline, create additional indirect
+buffers.
 
 
-File: emacs,  Node: List Tags,  Prev: Tags Search,  Up: Tags
+File: emacs,  Node: Foldout,  Prev: Outline Views,  Up: Outline Mode
 
-Tags Table Inquiries
---------------------
+Folding Editing
+---------------
 
-`M-x list-tags <RET> FILE <RET>'
-     Display a list of the tags defined in the program file FILE.
+   The Foldout package extends Outline mode and Outline minor mode with
+"folding" commands.  The idea of folding is that you zoom in on a
+nested portion of the outline, while hiding its relatives at higher
+levels.
 
-`M-x tags-apropos <RET> REGEXP <RET>'
-     Display a list of all tags matching REGEXP.
+   Consider an Outline mode buffer all the text and subheadings under
+level-1 headings hidden.  To look at what is hidden under one of these
+headings, you could use `C-c C-e' (`M-x show-entry') to expose the
+body, or `C-c C-i' to expose the child (level-2) headings.
 
-   `M-x list-tags' reads the name of one of the files described by the
-selected tags table, and displays a list of all the tags defined in
-that file.  The "file name" argument is really just a string to compare
-against the file names recorded in the tags table; it is read as a
-string rather than as a file name.  Therefore, completion and
-defaulting are not available, and you must enter the file name the same
-way it appears in the tags table.  Do not include a directory as part of
-the file name unless the file name recorded in the tags table includes a
-directory.
+   With Foldout, you use `C-c C-z' (`M-x foldout-zoom-subtree').  This
+exposes the body and child subheadings, and narrows the buffer so that
+only the level-1 heading, the body and the level-2 headings are
+visible.  Now to look under one of the level-2 headings, position the
+cursor on it and use `C-c C-z' again.  This exposes the level-2 body
+and its level-3 child subheadings and narrows the buffer again.  Zooming
+in on successive subheadings can be done as much as you like.  A string
+in the mode line shows how deep you've gone.
 
-   `M-x tags-apropos' is like `apropos' for tags (*note Apropos::).  It
-reads a regexp, then finds all the tags in the selected tags table
-whose entries match that regexp, and displays the tag names found.
+   When zooming in on a heading, to see only the child subheadings
+specify a numeric argument: `C-u C-c C-z'.  The number of levels of
+children can be specified too (compare `M-x show-children'), e.g. `M-2
+C-c C-z' exposes two levels of child subheadings.  Alternatively, the
+body can be specified with a negative argument: `M-- C-c C-z'.  The
+whole subtree can be expanded, similarly to `C-c C-s' (`M-x
+show-subtree'), by specifying a zero argument: `M-0 C-c C-z'.
 
-   You can also perform completion in the buffer on the name space of
-tag names in the current tags tables.  *Note Symbol Completion::.
+   While you're zoomed in, you can still use Outline mode's exposure and
+hiding functions without disturbing Foldout.  Also, since the buffer is
+narrowed, "global" editing actions will only affect text under the
+zoomed-in heading.  This is useful for restricting changes to a
+particular chapter or section of your document.
+
+   To unzoom (exit) a fold, use `C-c C-x' (`M-x foldout-exit-fold').
+This hides all the text and subheadings under the top-level heading and
+returns you to the previous view of the buffer.  Specifying a numeric
+argument exits that many levels of folds.  Specifying a zero argument
+exits all folds.
+
+   To cancel the narrowing of a fold without hiding the text and
+subheadings, specify a negative argument.  For example, `M--2 C-c C-x'
+exits two folds and leaves the text and subheadings exposed.
+
+   Foldout mode also provides mouse commands for entering and exiting
+folds, and for showing and hiding text:
+
+`M-C-Mouse-1' zooms in on the heading clicked on
+          single click: expose body.
+
+          double click: expose subheadings.
+
+          triple click: expose body and subheadings.
+
+          quad click: expose entire subtree.
+
+`M-C-Mouse-2' exposes text under the heading clicked on
+          single click: expose body.
+
+          double click: expose subheadings.
+
+          triple click: expose body and subheadings.
+
+          quad click: expose entire subtree.
+
+`M-C-Mouse-3' hides text under the heading clicked on or exits fold
+          single click: hide subtree.
+
+          double click: exit fold and hide text.
+
+          triple click: exit fold without hiding text.
+
+          quad click: exit all folds and hide text.
+
+   You can specify different modifier keys (instead of `Control-Meta-')
+by setting `foldout-mouse-modifiers'; but if you have already loaded
+the `foldout.el' library, you must reload it in order for this to take
+effect.
+
+   To use the Foldout package, you can type `M-x load-library <RET>
+foldout <RET>'; or you can arrange for to do that automatically by
+putting this in your `.emacs' file:
+
+     (eval-after-load "outline" '(require 'foldout))
 
 
-File: emacs,  Node: Emerge,  Next: C Modes,  Prev: Tags,  Up: Programs
+File: emacs,  Node: TeX Mode,  Next: Nroff Mode,  Prev: Outline Mode,  Up: Text
 
-Merging Files with Emerge
-=========================
+TeX Mode
+========
 
-   It's not unusual for programmers to get their signals crossed and
-modify the same program in two different directions.  To recover from
-this confusion, you need to merge the two versions.  Emerge makes this
-easier.  See also *Note Comparing Files::, for commands to compare in a
-more manual fashion, and *Note Emerge: (ediff)Emerge.
+   TeX is a powerful text formatter written by Donald Knuth; it is also
+free, like GNU Emacs.  LaTeX is a simplified input format for TeX,
+implemented by TeX macros; it comes with TeX.  SliTeX is a special form
+of LaTeX.(1)
+
+   Emacs has a special TeX mode for editing TeX input files.  It
+provides facilities for checking the balance of delimiters and for
+invoking TeX on all or part of the file.
+
+   TeX mode has three variants, Plain TeX mode, LaTeX mode, and SliTeX
+mode (these three distinct major modes differ only slightly).  They are
+designed for editing the three different formats.  The command `M-x
+tex-mode' looks at the contents of the buffer to determine whether the
+contents appear to be either LaTeX input or SliTeX input; if so, it
+selects the appropriate mode.  If the file contents do not appear to be
+LaTeX or SliTeX, it selects Plain TeX mode.  If the contents are
+insufficient to determine this, the variable `tex-default-mode'
+controls which mode is used.
+
+   When `M-x tex-mode' does not guess right, you can use the commands
+`M-x plain-tex-mode', `M-x latex-mode', and `M-x slitex-mode' to select
+explicitly the particular variants of TeX mode.
 
 * Menu:
 
-* Overview of Emerge::	How to start Emerge.  Basic concepts.
-* Submodes of Emerge::	Fast mode vs. Edit mode.
-			  Skip Prefers mode and Auto Advance mode.
-* State of Difference::	You do the merge by specifying state A or B
-			  for each difference.
-* Merge Commands::	Commands for selecting a difference,
-			  changing states of differences, etc.
-* Exiting Emerge::	What to do when you've finished the merge.
-* Combining in Emerge::	    How to keep both alternatives for a difference.
-* Fine Points of Emerge::   Misc.
+* Editing: TeX Editing.   Special commands for editing in TeX mode.
+* LaTeX: LaTeX Editing.   Additional commands for LaTeX input files.
+* Printing: TeX Print.    Commands for printing part of a file with TeX.
+* Misc: TeX Misc.         Customization of TeX mode, and related features.
+
+   ---------- Footnotes ----------
+
+   (1) SliTeX is obsoleted by the `slides' document class in recent
+LaTeX versions.
 
 
-File: emacs,  Node: Overview of Emerge,  Next: Submodes of Emerge,  Up: Emerge
+File: emacs,  Node: TeX Editing,  Next: LaTeX Editing,  Up: TeX Mode
 
-Overview of Emerge
-------------------
+TeX Editing Commands
+--------------------
 
-   To start Emerge, run one of these four commands:
+   Here are the special commands provided in TeX mode for editing the
+text of the file.
 
-`M-x emerge-files'
-     Merge two specified files.
+`"'
+     Insert, according to context, either ```' or `"' or `'''
+     (`tex-insert-quote').
 
-`M-x emerge-files-with-ancestor'
-     Merge two specified files, with reference to a common ancestor.
+`C-j'
+     Insert a paragraph break (two newlines) and check the previous
+     paragraph for unbalanced braces or dollar signs
+     (`tex-terminate-paragraph').
 
-`M-x emerge-buffers'
-     Merge two buffers.
+`M-x tex-validate-region'
+     Check each paragraph in the region for unbalanced braces or dollar
+     signs.
 
-`M-x emerge-buffers-with-ancestor'
-     Merge two buffers with reference to a common ancestor in a third
-     buffer.
+`C-c {'
+     Insert `{}' and position point between them (`tex-insert-braces').
 
-   The Emerge commands compare two files or buffers, and display the
-comparison in three buffers: one for each input text (the "A buffer"
-and the "B buffer"), and one (the "merge buffer") where merging takes
-place.  The merge buffer shows the full merged text, not just the
-differences.  Wherever the two input texts differ, you can choose which
-one of them to include in the merge buffer.
+`C-c }'
+     Move forward past the next unmatched close brace (`up-list').
 
-   The Emerge commands that take input from existing buffers use only
-the accessible portions of those buffers, if they are narrowed (*note
-Narrowing::).
+   In TeX, the character `"' is not normally used; we use ```' to start
+a quotation and `''' to end one.  To make editing easier under this
+formatting convention, TeX mode overrides the normal meaning of the key
+`"' with a command that inserts a pair of single-quotes or backquotes
+(`tex-insert-quote').  To be precise, this command inserts ```' after
+whitespace or an open brace, `"' after a backslash, and `''' after any
+other character.
 
-   If a common ancestor version is available, from which the two texts
-to be merged were both derived, Emerge can use it to guess which
-alternative is right.  Wherever one current version agrees with the
-ancestor, Emerge presumes that the other current version is a deliberate
-change which should be kept in the merged version.  Use the
-`with-ancestor' commands if you want to specify a common ancestor text.
-These commands read three file or buffer names--variant A, variant B,
-and the common ancestor.
+   If you need the character `"' itself in unusual contexts, use `C-q'
+to insert it.  Also, `"' with a numeric argument always inserts that
+number of `"' characters.  You can turn off the feature of `"'
+expansion by eliminating that binding in the local map (*note Key
+Bindings::).
 
-   After the comparison is done and the buffers are prepared, the
-interactive merging starts.  You control the merging by typing special
-"merge commands" in the merge buffer.  The merge buffer shows you a
-full merged text, not just differences.  For each run of differences
-between the input texts, you can choose which one of them to keep, or
-edit them both together.
+   In TeX mode, `$' has a special syntax code which attempts to
+understand the way TeX math mode delimiters match.  When you insert a
+`$' that is meant to exit math mode, the position of the matching `$'
+that entered math mode is displayed for a second.  This is the same
+feature that displays the open brace that matches a close brace that is
+inserted.  However, there is no way to tell whether a `$' enters math
+mode or leaves it; so when you insert a `$' that enters math mode, the
+previous `$' position is shown as if it were a match, even though they
+are actually unrelated.
 
-   The merge buffer uses a special major mode, Emerge mode, with
-commands for making these choices.  But you can also edit the buffer
-with ordinary Emacs commands.
+   TeX uses braces as delimiters that must match.  Some users prefer to
+keep braces balanced at all times, rather than inserting them singly.
+Use `C-c {' (`tex-insert-braces') to insert a pair of braces.  It
+leaves point between the two braces so you can insert the text that
+belongs inside.  Afterward, use the command `C-c }' (`up-list') to move
+forward past the close brace.
 
-   At any given time, the attention of Emerge is focused on one
-particular difference, called the "selected" difference.  This
-difference is marked off in the three buffers like this:
+   There are two commands for checking the matching of braces.  `C-j'
+(`tex-terminate-paragraph') checks the paragraph before point, and
+inserts two newlines to start a new paragraph.  It outputs a message in
+the echo area if any mismatch is found.  `M-x tex-validate-region'
+checks a region, paragraph by paragraph.  The errors are listed in the
+`*Occur*' buffer, and you can use `C-c C-c' or `Mouse-2' in that buffer
+to go to a particular mismatch.
 
-     vvvvvvvvvvvvvvvvvvvv
-     TEXT THAT DIFFERS
-     ^^^^^^^^^^^^^^^^^^^^
-
-Emerge numbers all the differences sequentially and the mode line
-always shows the number of the selected difference.
-
-   Normally, the merge buffer starts out with the A version of the text.
-But when the A version of a difference agrees with the common ancestor,
-then the B version is initially preferred for that difference.
-
-   Emerge leaves the merged text in the merge buffer when you exit.  At
-that point, you can save it in a file with `C-x C-w'.  If you give a
-numeric argument to `emerge-files' or `emerge-files-with-ancestor', it
-reads the name of the output file using the minibuffer.  (This is the
-last file name those commands read.)  Then exiting from Emerge saves
-the merged text in the output file.
-
-   Normally, Emerge commands save the output buffer in its file when you
-exit.  If you abort Emerge with `C-]', the Emerge command does not save
-the output buffer, but you can save it yourself if you wish.
+   Note that Emacs commands count square brackets and parentheses in
+TeX mode, not just braces.  This is not strictly correct for the
+purpose of checking TeX syntax.  However, parentheses and square
+brackets are likely to be used in text as matching delimiters and it is
+useful for the various motion commands and automatic match display to
+work with them.
 
 
-File: emacs,  Node: Submodes of Emerge,  Next: State of Difference,  Prev: Overview of Emerge,  Up: Emerge
+File: emacs,  Node: LaTeX Editing,  Next: TeX Print,  Prev: TeX Editing,  Up: TeX Mode
 
-Submodes of Emerge
-------------------
+LaTeX Editing Commands
+----------------------
 
-   You can choose between two modes for giving merge commands: Fast mode
-and Edit mode.  In Fast mode, basic merge commands are single
-characters, but ordinary Emacs commands are disabled.  This is
-convenient if you use only merge commands.  In Edit mode, all merge
-commands start with the prefix key `C-c C-c', and the normal Emacs
-commands are also available.  This allows editing the merge buffer, but
-slows down Emerge operations.
+   LaTeX mode, and its variant, SliTeX mode, provide a few extra
+features not applicable to plain TeX.
 
-   Use `e' to switch to Edit mode, and `C-c C-c f' to switch to Fast
-mode.  The mode line indicates Edit and Fast modes with `E' and `F'.
+`C-c C-o'
+     Insert `\begin' and `\end' for LaTeX block and position point on a
+     line between them (`tex-latex-block').
 
-   Emerge has two additional submodes that affect how particular merge
-commands work: Auto Advance mode and Skip Prefers mode.
+`C-c C-e'
+     Close the innermost LaTeX block not yet closed
+     (`tex-close-latex-block').
 
-   If Auto Advance mode is in effect, the `a' and `b' commands advance
-to the next difference.  This lets you go through the merge faster as
-long as you simply choose one of the alternatives from the input.  The
-mode line indicates Auto Advance mode with `A'.
+   In LaTeX input, `\begin' and `\end' commands are used to group
+blocks of text.  To insert a `\begin' and a matching `\end' (on a new
+line following the `\begin'), use `C-c C-o' (`tex-latex-block').  A
+blank line is inserted between the two, and point is left there.  You
+can use completion when you enter the block type; to specify additional
+block type names beyond the standard list, set the variable
+`latex-block-names'.  For example, here's how to add `theorem',
+`corollary', and `proof':
 
-   If Skip Prefers mode is in effect, the `n' and `p' commands skip
-over differences in states prefer-A and prefer-B (*note State of
-Difference::).  Thus you see only differences for which neither version
-is presumed "correct."  The mode line indicates Skip Prefers mode with
-`S'.
+     (setq latex-block-names '("theorem" "corollary" "proof"))
 
-   Use the command `s a' (`emerge-auto-advance-mode') to set or clear
-Auto Advance mode.  Use `s s' (`emerge-skip-prefers-mode') to set or
-clear Skip Prefers mode.  These commands turn on the mode with a
-positive argument, turns it off with a negative or zero argument, and
-toggle the mode with no argument.
+   In LaTeX input, `\begin' and `\end' commands must balance.  You can
+use `C-c C-e' (`tex-close-latex-block') to insert automatically a
+matching `\end' to match the last unmatched `\begin'.  It indents the
+`\end' to match the corresponding `\begin'.  It inserts a newline after
+`\end' if point is at the beginning of a line.
 

@@ -34,11 +34,18 @@ security API support enabled. The kit can be gotten from
 ftp.ipv6.inner.net:/pub/ipv6 (via IPv6) or ftp.inner.net
 /pub/ipv6 (via IPv4).
 
+Fetchmail has had serious grief from buggy versions of the gettext suite.
+If your version is older than 1.10.40, you should use the configure
+option `--with-included-gettext'.
+
 2. CONFIGURE
 
 Installing fetchmail is easy.  From within this directory, type:
 
 	./configure
+
+(If your getext is old, you need to include the --with-included-gettext
+option, which I recommend anyway). 
 
 The autoconfiguration script will spend a bit of time figuring out the
 specifics of your system.  If you want to specify a particular compiler

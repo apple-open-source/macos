@@ -28,6 +28,8 @@
 #include <mach/boolean.h>
 #include <net/if.h>
 
+#include <ifaddrs.h>
+
 #include <netat/appletalk.h>
 #include <netat/ddp.h>
 #include <netat/nbp.h>
@@ -420,88 +422,66 @@ int main(argc, argv)
 	      if ((!(global_state.flags & AT_ST_MULTIHOME)) && 
 		  (s_option || n_option || h_option || zone_prompt)) {
 
-		/* if in routing and single-port modes, only get the 
-		   default interface */
-		cfg.ifr_name[0] = '\0';
-		if (ioctl(fd, AIOCGETIFCFG, (caddr_t)&cfg) < 0) {
-			(void)close(fd);
-			exit(AT_CMD_SYSTEM_ERROR);
-		}
-		/* if there's room, terminate the zone string for printing */
-		if (cfg.zonename.len < NBP_NVE_STR_SIZE)
-		  cfg.zonename.str[cfg.zonename.len] = '\0';
-
-		if (h_option || zone_prompt)
-		    	displayZoneDef(fd, &cfg);
-		if (s_option || n_option)
-			print_nodeid(&cfg);
-		if (s_option & (!(global_state.flags & AT_ST_ROUTER)))
-			print_routerid(&cfg);  
-	      } else {
-			/* for each interface that is configured for Appletalk */
-			struct ifconf	ifc;
-			struct ifreq	*ifrbuf = NULL, *ifr;
-			int				size = sizeof(struct ifreq) * MAX_IF;
-			
-			while (1) {
-				if (ifrbuf != NULL)
-					ifrbuf = (struct ifreq *)realloc(ifrbuf, size);
-				else
-					ifrbuf = (struct ifreq *)malloc(size);
-					
-				ifc.ifc_req = ifrbuf;
-				ifc.ifc_len = size;
-
-				if (ioctl(fd, SIOCGIFCONF, &ifc) < 0 || ifc.ifc_len <= 0) {
-#ifdef APPLETALK_DEBUG
-					fprintf(stderr, "%s: error calling SIOCGIFCONF", progname);
-#endif
-					(void)close(fd);
-					if ( ifrbuf )
-						free( ifrbuf );
-					exit(AT_CMD_SYSTEM_ERROR);
-				}
-		
-				if ((ifc.ifc_len + sizeof(struct ifreq)) < size)
-					break;
-					
-				size *= 2;
+			/* if in routing and single-port modes, only get the 
+			   default interface */
+			cfg.ifr_name[0] = '\0';
+			if (ioctl(fd, AIOCGETIFCFG, (caddr_t)&cfg) < 0) {
+				(void)close(fd);
+				exit(AT_CMD_SYSTEM_ERROR);
 			}
-
-		for (ifr = (struct ifreq *) ifc.ifc_buf;
-		     (char *) ifr < &ifc.ifc_buf[ifc.ifc_len];
-		     ifr = IFR_NEXT(ifr)) {
-		  	unsigned char *p, c;
-
-			if (ifr->ifr_addr.sa_family != AF_APPLETALK)
-				continue;
-
-			if (*ifr->ifr_name == '\0')
-				continue;
-
-			/*
-			 * Adapt to buggy kernel implementation (> 9 of a type)
-			 */
-			p = &ifr->ifr_name[strlen(ifr->ifr_name)-1];
-			if ((c = *p) > '0'+9)
-			  	sprintf(p, "%d", c-'0');
-
-			strcpy(cfg.ifr_name, ifr->ifr_name);
-			if (ioctl(fd, AIOCGETIFCFG, (caddr_t)&cfg) < 0)
-				continue;
-
 			/* if there's room, terminate the zone string for printing */
 			if (cfg.zonename.len < NBP_NVE_STR_SIZE)
 			  cfg.zonename.str[cfg.zonename.len] = '\0';
-
+	
 			if (h_option || zone_prompt)
-				displayZoneDef(fd, &cfg);
-			else if (n_option || s_option)
+					displayZoneDef(fd, &cfg);
+			if (s_option || n_option)
 				print_nodeid(&cfg);
-			else if (j_option)
-				showRouterStats();
-		} /* for */
-	      } /* multihome mode */
+			if (s_option & (!(global_state.flags & AT_ST_ROUTER)))
+				print_routerid(&cfg);  
+		} else {
+			/* for each interface that is configured for Appletalk */
+			struct ifaddrs *ifaddrs, *ifa;
+			at_if_cfg_t 	cfg;
+			
+			if (getifaddrs(&ifaddrs) < 0)
+				exit(AT_CMD_SYSTEM_ERROR);	/* getifaddrs properly set errno */
+			
+			for (ifa = ifaddrs; ifa != NULL; ifa = ifa->ifa_next) {
+				unsigned char *p, c;
+				
+				if (ifa->ifa_addr->sa_family != AF_APPLETALK)
+					continue;
+	
+				if (*ifa->ifa_name == '\0')
+					continue;
+							
+				/*
+				* Adapt to buggy kernel implementation (> 9 of a type)
+				*/
+				p = &ifa->ifa_name[strlen(ifa->ifa_name)-1];
+				if ((c = *p) > '0'+9)
+					sprintf(p, "%d", c-'0');
+	
+				strcpy(cfg.ifr_name, ifa->ifa_name);
+				if (ioctl(fd, AIOCGETIFCFG, (caddr_t)&cfg) < 0)
+					continue;
+	
+				/* if there's room, terminate the zone string for printing */
+				if (cfg.zonename.len < NBP_NVE_STR_SIZE)
+				  cfg.zonename.str[cfg.zonename.len] = '\0';
+	
+				if (h_option || zone_prompt)
+					displayZoneDef(fd, &cfg);
+				else if (n_option || s_option)
+					print_nodeid(&cfg);
+				else if (j_option)
+					showRouterStats();
+			}
+			
+			freeifaddrs(ifaddrs);
+		}
+	      
 	      if (s_option)
 			(void)print_statistics();
 	    }
@@ -543,65 +523,42 @@ int main(argc, argv)
 			exit(AT_CMD_NOT_RUNNING);
 		}
 	}
+	
 	if (p_option) {
 		/* for each interface that is configured for Appletalk */
-		struct ifconf	ifc;
-		struct ifreq	*ifrbuf = NULL, *ifr;
-		int				size = sizeof(struct ifreq) * MAX_IF;
+		struct ifaddrs *ifaddrs, *ifa, *ifa2;
 		
-		while (1) {
-			if (ifrbuf != NULL)
-				ifrbuf = (struct ifreq *)realloc(ifrbuf, size);
-			else
-				ifrbuf = (struct ifreq *)malloc(size);
-				
-			ifc.ifc_req = ifrbuf;
-			ifc.ifc_len = size;
-	
-			if (ioctl(fd, SIOCGIFCONF, &ifc) < 0 || ifc.ifc_len <= 0) {
-#ifdef APPLETALK_DEBUG
-				fprintf(stderr, "%s: error calling SIOCGIFCONF", progname);
-#endif
-				(void)close(fd);
-				if (ifrbuf)
-					free(ifrbuf);
-				exit(AT_CMD_SYSTEM_ERROR);
-			}
-	
-			if ((ifc.ifc_len + sizeof(struct ifreq)) < size)
-				break;
-				
-			size *= 2;
-		}
-
-		for (ifr = (struct ifreq *) ifc.ifc_buf;
-		     (char *) ifr < &ifc.ifc_buf[ifc.ifc_len];
-		     ifr = IFR_NEXT(ifr)) {
-
+		if (getifaddrs(&ifaddrs) < 0)
+			exit(AT_CMD_SYSTEM_ERROR);	/* getifaddrs properly set errno */
+		
+		for (ifa = ifaddrs; ifa != NULL; ifa = ifa->ifa_next) {
 			unsigned char *p, c;
-			struct ifreq *ifr2;
-
+			
 			/* skip duplicate names */
-			for (ifr2 = (struct ifreq *) ifc.ifc_buf; ifr2 < ifr;
-			     ifr2 = IFR_NEXT(ifr2))
-			  if (strncmp(ifr2->ifr_name, ifr->ifr_name,
-				      sizeof(ifr->ifr_name)) == 0)
-			    break;
-			if (ifr2 < ifr)
-			  continue;
-
-			if (*ifr->ifr_name == '\0')
-			  continue;
+			for (ifa2 = ifaddrs; ifa2 < ifa; ifa2 = ifa2->ifa_next) {
+				if (strncmp(ifa2->ifa_name, ifa->ifa_name, sizeof(ifa->ifa_name)) == 0)
+					break;
+			}
+					
+			if (ifa2 < ifa)
+				continue;
+		
+			if (*ifa->ifa_name == '\0')
+				continue;
+				
 			/*
-			 * Adapt to buggy kernel implementation (> 9 of a type)
-			 */
-			p = &ifr->ifr_name[strlen(ifr->ifr_name)-1];
+			* Adapt to buggy kernel implementation (> 9 of a type)
+			*/
+			p = &ifa->ifa_name[strlen(ifa->ifa_name)-1];
 			if ((c = *p) > '0'+9)
-			  sprintf(p, "%d", c-'0');
-
-			(void)print_pram_info(ifr->ifr_name);
+				sprintf(p, "%d", c-'0');
+			
+			(void)print_pram_info(ifa->ifa_name);
 		}
+		
+		freeifaddrs(ifaddrs);
 	}
+	
 	(void)close(fd);
 	exit(AT_CMD_SUCCESS);
 } /* main */

@@ -209,6 +209,8 @@ int	LogPort;		/* port number for INET connections */
 int	Initialized = 0;	/* set when we have initialized ourselves */
 int	MarkInterval = 20 * 60;	/* interval between marks in seconds */
 int	MarkSeq = 0;		/* mark sequence number */
+int	NoAddressToName = 0;	/* Do not convert address to name */
+int	RcvSockBufSize = 42080;	/* Our default receive socket buffer size */
 
 void	cfline __P((char *, struct filed *));
 char   *cvthname __P((struct sockaddr_in *));
@@ -237,7 +239,7 @@ main(argc, argv)
 	FILE *fp;
 	char *p, line[MSG_BSIZE + 1];
 
-	while ((ch = getopt(argc, argv, "duf:m:p:")) != EOF)
+	while ((ch = getopt(argc, argv, "duf:m:p:ns:")) != EOF)
 		switch(ch) {
 		case 'd':		/* debug */
 			Debug++;
@@ -253,6 +255,13 @@ main(argc, argv)
 			break;
 		case 'p':		/* path */
 			LogName = optarg;
+			break;
+		case 'n':
+			NoAddressToName++;
+			break;
+		case 's':
+			if ((len = atoi(optarg)) > 0)
+				RcvSockBufSize = len;
 			break;
 		case '?':
 		default:
@@ -297,6 +306,8 @@ main(argc, argv)
 		dprintf("cannot create %s (%d)\n", LogName, errno);
 		die(0);
 	}
+	if (setsockopt(funix, SOL_SOCKET, SO_RCVBUF, &RcvSockBufSize, sizeof(int)) < 0)
+		logerror("setsockopt funix");
 	finet = socket(AF_INET, SOCK_DGRAM, 0);
 	inetm = 0;
 	if (finet >= 0) {
@@ -319,6 +330,8 @@ main(argc, argv)
 			inetm = FDMASK(finet);
 			InetInuse = 1;
 		}
+		if (setsockopt(finet, SOL_SOCKET, SO_RCVBUF, &RcvSockBufSize, sizeof(int)) < 0)  
+			logerror("setsockopt finet");
 	}
 	if ((fklog = open(_PATH_KLOG, O_RDONLY, 0)) >= 0)
 		klogm = FDMASK(fklog);
@@ -394,7 +407,7 @@ usage()
 {
 
 	(void)fprintf(stderr,
-	    "usage: syslogd [-f conffile] [-m markinterval] [-p logpath]\n");
+	    "usage: syslogd [-f conffile] [-m markinterval] [-p logpath] [-u] [-n] [-s size]\n");
 	exit(1);
 }
 
@@ -807,13 +820,17 @@ cvthname(f)
 		dprintf("Malformed from address\n");
 		return ("???");
 	}
-	hp = gethostbyaddr((char *)&f->sin_addr,
-	    sizeof(struct in_addr), f->sin_family);
-	if (hp == 0) {
-		dprintf("Host name for your address (%s) unknown\n",
-			inet_ntoa(f->sin_addr));
-		return (inet_ntoa(f->sin_addr));
+	if (NoAddressToName) {
+		hp = 0;
+	} else {
+		hp = gethostbyaddr((char *)&f->sin_addr,
+	    		sizeof(struct in_addr), f->sin_family);
+                dprintf("Host name for your address (%s) unknown\n",
+                        inet_ntoa(f->sin_addr));
 	}
+	if (hp == 0)
+		return (inet_ntoa(f->sin_addr));
+	
 	if ((p = strchr(hp->h_name, '.')) && strcmp(p + 1, LocalDomain) == 0)
 		*p = '\0';
 	return (hp->h_name);

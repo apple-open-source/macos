@@ -1,0 +1,16 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = (); 
+        Resources = (mkversion.sh, bashbug.sh, printenv.sh, install.sh, "xenix-link.sh"); 
+        SUBPROJECTS = (); 
+        Sources = (mksignames.c, recho.c, zecho.c, printenv.c); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = support; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/GNU/flex/flex/MISC/Borland/config.h,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/flex/flex/MISC/Borland/config.h,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ */
 /* ------------------------------------------------ */
 /* version of config.h for Borland C/C++ v4.02      */
 /*                     flex version 2.5.0.6  (beta) */

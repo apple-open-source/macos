@@ -16,7 +16,7 @@ HFILES = ktrace.h
 
 CFILES = ktrace.c subr.c
 
-OTHERSRCS = Makefile.preamble Makefile ktrace.1
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble ktrace.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

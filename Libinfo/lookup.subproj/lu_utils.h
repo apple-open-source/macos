@@ -26,105 +26,60 @@
  * Copyright (C) 1989 by NeXT, Inc.
  */
 
+#ifndef _LU_UTILS_H_
+#define _LU_UTILS_H_
+
 #import <netinfo/lookup_types.h>
 #include <netinfo/ni.h>
 #include <stdarg.h>
+
+#define LU_COPY_STRING(x) strdup(((x) == NULL) ? "" : x)
+
+#define LU_LONG_STRING_LENGTH 8192
+
+#define _lu_data_key_alias       10010
+#define _lu_data_key_bootp       10020
+#define _lu_data_key_bootparams  10030
+#define _lu_data_key_fstab       10040
+#define _lu_data_key_group       10050
+#define _lu_data_key_host        10060
+#define _lu_data_key_netgroup    10070
+#define _lu_data_key_network     10080
+#define _lu_data_key_printer     10090
+#define _lu_data_key_protocol    10100
+#define _lu_data_key_rpc         10110
+#define _lu_data_key_service     10120
+#define _lu_data_key_user        10130
+
+struct lu_thread_info
+{
+	void *lu_entry;
+	XDR *lu_xdr;
+	char *lu_vm;
+	unsigned int lu_vm_length;
+	unsigned int lu_vm_cursor;
+};
 
 extern mach_port_t _lu_port;
 extern unit *_lookup_buf;
 extern int _lu_running(void);
 
+void *_lu_data_create_key(unsigned int key, void (*destructor)(void *));
+void _lu_data_set_key(unsigned int key, void *data);
+void *_lu_data_get_key(unsigned int key);
+void _lu_data_free_vm_xdr(struct lu_thread_info *tdata);
+
+int _lu_xdr_attribute(XDR *xdr, char **key, char ***val, unsigned int *count);
+
+ni_proplist *_lookupd_xdr_dictionary(XDR *inxdr);
 int lookupd_query(ni_proplist *l, ni_proplist ***out);
 ni_proplist *lookupd_make_query(char *cat, char *fmt, ...);
 void ni_property_merge(ni_property *a, ni_property *b);
 void ni_proplist_merge(ni_proplist *a, ni_proplist *b);
 
-typedef enum lookup_state {
-	LOOKUP_CACHE,
-	LOOKUP_FILE,
-} lookup_state;
+kern_return_t _lookup_link(mach_port_t server, lookup_name name, int *procno);
+kern_return_t _lookup_one(mach_port_t server, int proc, inline_data indata, mach_msg_type_number_t indataCnt, inline_data outdata, mach_msg_type_number_t *outdataCnt);
+kern_return_t _lookup_all(mach_port_t server, int proc, inline_data indata, mach_msg_type_number_t indataCnt, ooline_data *outdata, mach_msg_type_number_t *outdataCnt);
+kern_return_t _lookup_ooall(mach_port_t server, int proc, ooline_data indata, mach_msg_type_number_t indataCnt, ooline_data *outdata, mach_msg_type_number_t *outdataCnt);
 
-#define SETSTATE(_lu_set, _old_set, state, stayopen) \
-{ \
-	if (_lu_running()) { \
-		_lu_set(stayopen); \
-		*state = LOOKUP_CACHE; \
-	} else { \
-		_old_set(stayopen); \
-		*state = LOOKUP_FILE; \
-	} \
-} 
-
-#define SETSTATEVOID(_lu_set, _old_set, state) \
-{ \
-	if (_lu_running()) { \
-		_lu_set(); \
-		*state = LOOKUP_CACHE; \
-	} else { \
-		_old_set(); \
-		*state = LOOKUP_FILE; \
-	} \
-} 
-
-#define INTSETSTATEVOID(_lu_set, _old_set, state) \
-{ \
-	int result; \
-	if (_lu_running()) { \
-		result = _lu_set(); \
-		*state = LOOKUP_CACHE; \
-	} else { \
-		result = _old_set(); \
-		*state = LOOKUP_FILE; \
-	} \
-	return result; \
-} 
-
-#define UNSETSTATE(_lu_unset, _old_unset, state) \
-{ \
-	if (_lu_running()) { \
-		_lu_unset(); \
-	} else { \
-		_old_unset(); \
-	} \
-	*state = LOOKUP_CACHE; \
-}
-
-#define GETENT(_lu_get, _old_get, state, res_type) \
-{ \
-	res_type *res; \
-\
-	if (_lu_running()) { \
-		if (*state == LOOKUP_CACHE) { \
-			res = _lu_get(); \
-		} else { \
-			res = _old_get(); \
-		} \
-	} else { \
-		res = _old_get(); \
-	} \
-	return (res); \
-}
-
-#define LOOKUP1(_lu_lookup, _old_lookup, arg, res_type) \
-{ \
-	res_type *res; \
- \
-	if (_lu_running()) { \
-		res = _lu_lookup(arg); \
-	} else { \
-		res = _old_lookup(arg); \
-	} \
-	return (res); \
-}
-
-#define LOOKUP2(_lu_lookup, _old_lookup, arg1, arg2, res_type) \
-{ \
-	res_type *res; \
- \
-	if (_lu_running()) { \
-		res = _lu_lookup(arg1, arg2); \
-	} else { \
-		res = _old_lookup(arg1, arg2); \
-	} \
-	return (res); \
-}
+#endif /* ! _LU_UTILS_H_ */

@@ -1,1345 +1,1349 @@
 This is ../info/gnus, produced by makeinfo version 4.0 from gnus.texi.
 
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Gnus: (gnus).         The newsreader Gnus.
 END-INFO-DIR-ENTRY
 
    This file documents Gnus, the GNU Emacs newsreader.
 
-   Copyright (C) 1995,96 Free Software Foundation, Inc.
+   Copyright (C) 1995,96,97,98,99,2000,2001 Free Software Foundation,
+Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being none, with the Front-Cover texts being "A GNU
+Manual", and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License" in the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the entire resulting derived work is distributed under the terms
-of a permission notice identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions.
-
-
-File: gnus,  Node: Washing Mail,  Next: Duplicates,  Prev: Expiring Mail,  Up: Getting Mail
-
-Washing Mail
-------------
-
-   Mailers and list servers are notorious for doing all sorts of really,
-really stupid things with mail.  "Hey, RFC822 doesn't explicitly
-prohibit us from adding the string `wE aRe ElItE!!!!!1!!' to the end of
-all lines passing through our server, so let's do that!!!!1!"  Yes, but
-RFC822 wasn't designed to be read by morons.  Things that were
-considered to be self-evident were not discussed.  So.  Here we are.
-
-   Case in point:  The German version of Microsoft Exchange adds `AW: '
-to the subjects of replies instead of `Re: '.  I could pretend to be
-shocked and dismayed by this, but I haven't got the energy.  It is to
-laugh.
-
-   Gnus provides a plethora of functions for washing articles while
-displaying them, but it might be nicer to do the filtering before
-storing the mail to disc.  For that purpose, we have three hooks and
-various functions that can be put in these hooks.
-
-`nnmail-prepare-incoming-hook'
-     This hook is called before doing anything with the mail and is
-     meant for grand, sweeping gestures.  Functions to be used include:
-
-    `nnheader-ms-strip-cr'
-          Remove trailing carriage returns from each line.  This is
-          default on Emacs running on MS machines.
-
-`nnmail-prepare-incoming-header-hook'
-     This hook is called narrowed to each header.  It can be used when
-     cleaning up the headers.  Functions that can be used include:
-
-    `nnmail-remove-leading-whitespace'
-          Clear leading white space that "helpful" listservs have added
-          to the headers to make them look nice.  Aaah.
-
-    `nnmail-remove-list-identifiers'
-          Some list servers add an identifier--for example, `(idm)'--to
-          the beginning of all `Subject' headers.  I'm sure that's nice
-          for people who use stone age mail readers.  This function
-          will remove strings that match the `nnmail-list-identifiers'
-          regexp, which can also be a list of regexp.
-
-          For instance, if you want to remove the `(idm)' and the
-          `nagnagnag' identifiers:
-
-               (setq nnmail-list-identifiers
-                     '("(idm)" "nagnagnag"))
-
-    `nnmail-remove-tabs'
-          Translate all `TAB' characters into `SPACE' characters.
-
-`nnmail-prepare-incoming-message-hook'
-     This hook is called narrowed to each message.  Functions to be used
-     include:
-
-    `article-de-quoted-unreadable'
-          Decode Quoted Readable encoding.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
-File: gnus,  Node: Duplicates,  Next: Not Reading Mail,  Prev: Washing Mail,  Up: Getting Mail
+File: gnus,  Node: Rejected Articles,  Prev: Drafts,  Up: Composing Messages
 
-Duplicates
-----------
+Rejected Articles
+=================
 
-   If you are a member of a couple of mailing lists, you will sometimes
-receive two copies of the same mail.  This can be quite annoying, so
-`nnmail' checks for and treats any duplicates it might find.  To do
-this, it keeps a cache of old `Message-ID's--
-`nnmail-message-id-cache-file', which is `~/.nnmail-cache' by default.
-The approximate maximum number of `Message-ID's stored there is
-controlled by the `nnmail-message-id-cache-length' variable, which is
-1000 by default. (So 1000 `Message-ID's will be stored.) If all this
-sounds scary to you, you can set `nnmail-treat-duplicates' to `warn'
-(which is what it is by default), and `nnmail' won't delete duplicate
-mails.  Instead it will insert a warning into the head of the mail
-saying that it thinks that this is a duplicate of a different message.
+   Sometimes a news server will reject an article.  Perhaps the server
+doesn't like your face.  Perhaps it just feels miserable.  Perhaps
+_there be demons_.  Perhaps you have included too much cited text.
+Perhaps the disk is full.  Perhaps the server is down.
 
-   This variable can also be a function.  If that's the case, the
-function will be called from a buffer narrowed to the message in
-question with the `Message-ID' as a parameter.  The function must
-return either `nil', `warn', or `delete'.
+   These situations are, of course, totally beyond the control of Gnus.
+(Gnus, of course, loves the way you look, always feels great, has angels
+fluttering around inside of it, doesn't care about how much cited text
+you include, never runs full and never goes down.)  So Gnus saves these
+articles until some later time when the server feels better.
 
-   You can turn this feature off completely by setting the variable to
-`nil'.
-
-   If you want all the duplicate mails to be put into a special
-"duplicates" group, you could do that using the normal mail split
-methods:
-
-     (setq nnmail-split-fancy
-           '(| ;; Messages duplicates go to a separate group.
-               ("gnus-warning" "duplication of message" "duplicate")
-               ;; Message from daemons, postmaster, and the like to another.
-               (any mail "mail.misc")
-               ;; Other rules.
-               [ ... ] ))
-
-   Or something like:
-     (setq nnmail-split-methods
-           '(("duplicates" "^Gnus-Warning:")
-             ;; Other rules.
-             [...]))
-
-   Here's a neat feature: If you know that the recipient reads her mail
-with Gnus, and that she has `nnmail-treat-duplicates' set to `delete',
-you can send her as many insults as you like, just by using a
-`Message-ID' of a mail that you know that she's already received.
-Think of all the fun!  She'll never see any of it!  Whee!
+   The rejected articles will automatically be put in a special draft
+group (*note Drafts::).  When the server comes back up again, you'd then
+typically enter that group and send all the articles off.
 
 
-File: gnus,  Node: Not Reading Mail,  Next: Choosing a Mail Backend,  Prev: Duplicates,  Up: Getting Mail
+File: gnus,  Node: Select Methods,  Next: Scoring,  Prev: Composing Messages,  Up: Top
 
-Not Reading Mail
-----------------
+Select Methods
+**************
 
-   If you start using any of the mail backends, they have the annoying
-habit of assuming that you want to read mail with them.  This might not
-be unreasonable, but it might not be what you want.
+   A "foreign group" is a group not read by the usual (or default)
+means.  It could be, for instance, a group from a different NNTP
+server, it could be a virtual group, or it could be your own personal
+mail group.
 
-   If you set `nnmail-spool-file' to `nil', none of the backends will
-ever attempt to read incoming mail, which should help.
+   A foreign group (or any group, really) is specified by a "name" and
+a "select method".  To take the latter first, a select method is a list
+where the first element says what back end to use (e.g. `nntp',
+`nnspool', `nnml') and the second element is the "server name".  There
+may be additional elements in the select method, where the value may
+have special meaning for the back end in question.
 
-   This might be too much, if, for instance, you are reading mail quite
-happily with `nnml' and just want to peek at some old RMAIL file you
-have stashed away with `nnbabyl'.  All backends have variables called
-backend-`get-new-mail'.  If you want to disable the `nnbabyl' mail
-reading, you edit the virtual server for the group to have a setting
-where `nnbabyl-get-new-mail' to `nil'.
+   One could say that a select method defines a "virtual server"--so we
+do just that (*note The Server Buffer::).
 
-   All the mail backends will call `nn'*`-prepare-save-mail-hook'
-narrowed to the article to be saved before saving it when reading
-incoming mail.
+   The "name" of the group is the name the back end will recognize the
+group as.
 
-
-File: gnus,  Node: Choosing a Mail Backend,  Prev: Not Reading Mail,  Up: Getting Mail
+   For instance, the group `soc.motss' on the NNTP server
+`some.where.edu' will have the name `soc.motss' and select method
+`(nntp "some.where.edu")'.  Gnus will call this group
+`nntp+some.where.edu:soc.motss', even though the `nntp' back end just
+knows this group as `soc.motss'.
 
-Choosing a Mail Backend
------------------------
-
-   Gnus will read the mail spool when you activate a mail group.  The
-mail file is first copied to your home directory.  What happens after
-that depends on what format you want to store your mail in.
+   The different methods all have their peculiarities, of course.
 
 * Menu:
 
-* Unix Mail Box::               Using the (quite) standard Un*x mbox.
-* Rmail Babyl::                 Emacs programs use the rmail babyl format.
-* Mail Spool::                  Store your mail in a private spool?
-* MH Spool::                    An mhspool-like backend.
-* Mail Folders::                Having one file for each group.
+* The Server Buffer::     Making and editing virtual servers.
+* Getting News::          Reading USENET news with Gnus.
+* Getting Mail::          Reading your personal mail with Gnus.
+* Browsing the Web::      Getting messages from a plethora of Web sources.
+* Other Sources::         Reading directories, files, SOUP packets.
+* Combined Groups::       Combining groups into one group.
+* Gnus Unplugged::        Reading news and mail offline.
 
 
-File: gnus,  Node: Unix Mail Box,  Next: Rmail Babyl,  Up: Choosing a Mail Backend
+File: gnus,  Node: The Server Buffer,  Next: Getting News,  Up: Select Methods
 
-Unix Mail Box
-.............
+The Server Buffer
+=================
 
-   The "nnmbox" backend will use the standard Un*x mbox file to store
-mail.  `nnmbox' will add extra headers to each mail article to say
-which group it belongs in.
+   Traditionally, a "server" is a machine or a piece of software that
+one connects to, and then requests information from.  Gnus does not
+connect directly to any real servers, but does all transactions through
+one back end or other.  But that's just putting one layer more between
+the actual media and Gnus, so we might just as well say that each back
+end represents a virtual server.
 
-   Virtual server settings:
+   For instance, the `nntp' back end may be used to connect to several
+different actual NNTP servers, or, perhaps, to many different ports on
+the same actual NNTP server.  You tell Gnus which back end to use, and
+what parameters to set by specifying a "select method".
 
-`nnmbox-mbox-file'
-     The name of the mail box in the user's home directory.
+   These select method specifications can sometimes become quite
+complicated--say, for instance, that you want to read from the NNTP
+server `news.funet.fi' on port number 13, which hangs if queried for
+NOV headers and has a buggy select.  Ahem.  Anyway, if you had to
+specify that for each group that used this server, that would be too
+much work, so Gnus offers a way of naming select methods, which is what
+you do in the server buffer.
 
-`nnmbox-active-file'
-     The name of the active file for the mail box.
-
-`nnmbox-get-new-mail'
-     If non-`nil', `nnmbox' will read incoming mail and split it into
-     groups.
-
-
-File: gnus,  Node: Rmail Babyl,  Next: Mail Spool,  Prev: Unix Mail Box,  Up: Choosing a Mail Backend
-
-Rmail Babyl
-...........
-
-   The "nnbabyl" backend will use a babyl mail box (aka. "rmail mbox")
-to store mail. `nnbabyl' will add extra headers to each mail article to
-say which group it belongs in.
-
-   Virtual server settings:
-
-`nnbabyl-mbox-file'
-     The name of the rmail mbox file.
-
-`nnbabyl-active-file'
-     The name of the active file for the rmail box.
-
-`nnbabyl-get-new-mail'
-     If non-`nil', `nnbabyl' will read incoming mail.
-
-
-File: gnus,  Node: Mail Spool,  Next: MH Spool,  Prev: Rmail Babyl,  Up: Choosing a Mail Backend
-
-Mail Spool
-..........
-
-   The "nnml" spool mail format isn't compatible with any other known
-format.  It should be used with some caution.
-
-   If you use this backend, Gnus will split all incoming mail into
-files, one file for each mail, and put the articles into the
-corresponding directories under the directory specified by the
-`nnml-directory' variable.  The default value is `~/Mail/'.
-
-   You do not have to create any directories beforehand; Gnus will take
-care of all that.
-
-   If you have a strict limit as to how many files you are allowed to
-store in your account, you should not use this backend.  As each mail
-gets its own file, you might very well occupy thousands of inodes
-within a few weeks.  If this is no problem for you, and it isn't a
-problem for you having your friendly systems administrator walking
-around, madly, shouting "Who is eating all my inodes?! Who? Who!?!",
-then you should know that this is probably the fastest format to use.
-You do not have to trudge through a big mbox file just to read your new
-mail.
-
-   `nnml' is probably the slowest backend when it comes to article
-splitting.  It has to create lots of files, and it also generates NOV
-databases for the incoming mails.  This makes it the fastest backend
-when it comes to reading mail.
-
-   Virtual server settings:
-
-`nnml-directory'
-     All `nnml' directories will be placed under this directory.
-
-`nnml-active-file'
-     The active file for the `nnml' server.
-
-`nnml-newsgroups-file'
-     The `nnml' group descriptions file.  *Note Newsgroups File
-     Format::.
-
-`nnml-get-new-mail'
-     If non-`nil', `nnml' will read incoming mail.
-
-`nnml-nov-is-evil'
-     If non-`nil', this backend will ignore any NOV files.
-
-`nnml-nov-file-name'
-     The name of the NOV files.  The default is `.overview'.
-
-`nnml-prepare-save-mail-hook'
-     Hook run narrowed to an article before saving.
-
-   If your `nnml' groups and NOV files get totally out of whack, you
-can do a complete update by typing `M-x nnml-generate-nov-databases'.
-This command will trawl through the entire `nnml' hierarchy, looking at
-each and every article, so it might take a while to complete.  A better
-interface to this functionality can be found in the server buffer
-(*note Server Commands::).
-
-
-File: gnus,  Node: MH Spool,  Next: Mail Folders,  Prev: Mail Spool,  Up: Choosing a Mail Backend
-
-MH Spool
-........
-
-   `nnmh' is just like `nnml', except that is doesn't generate NOV
-databases and it doesn't keep an active file.  This makes `nnmh' a
-_much_ slower backend than `nnml', but it also makes it easier to write
-procmail scripts for.
-
-   Virtual server settings:
-
-`nnmh-directory'
-     All `nnmh' directories will be located under this directory.
-
-`nnmh-get-new-mail'
-     If non-`nil', `nnmh' will read incoming mail.
-
-`nnmh-be-safe'
-     If non-`nil', `nnmh' will go to ridiculous lengths to make sure
-     that the articles in the folder are actually what Gnus thinks they
-     are.  It will check date stamps and stat everything in sight, so
-     setting this to `t' will mean a serious slow-down.  If you never
-     use anything but Gnus to read the `nnmh' articles, you do not have
-     to set this variable to `t'.
-
-
-File: gnus,  Node: Mail Folders,  Prev: MH Spool,  Up: Choosing a Mail Backend
-
-Mail Folders
-............
-
-   `nnfolder' is a backend for storing each mail group in a separate
-file.  Each file is in the standard Un*x mbox format.  `nnfolder' will
-add extra headers to keep track of article numbers and arrival dates.
-
-   Virtual server settings:
-
-`nnfolder-directory'
-     All the `nnfolder' mail boxes will be stored under this directory.
-
-`nnfolder-active-file'
-     The name of the active file.
-
-`nnfolder-newsgroups-file'
-     The name of the group descriptions file.  *Note Newsgroups File
-     Format::.
-
-`nnfolder-get-new-mail'
-     If non-`nil', `nnfolder' will read incoming mail.
-
-`nnfolder-save-buffer-hook'
-     Hook run before saving the folders.  Note that Emacs does the
-     normal backup renaming of files even with the `nnfolder' buffers.
-     If you wish to switch this off, you could say something like the
-     following in your `.emacs' file:
-
-          (defun turn-off-backup ()
-            (set (make-local-variable 'backup-inhibited) t))
-          
-          (add-hook 'nnfolder-save-buffer-hook 'turn-off-backup)
-
-   If you have lots of `nnfolder'-like files you'd like to read with
-`nnfolder', you can use the `M-x nnfolder-generate-active-file' command
-to make `nnfolder' aware of all likely files in `nnfolder-directory'.
-
-
-File: gnus,  Node: Other Sources,  Next: Combined Groups,  Prev: Getting Mail,  Up: Select Methods
-
-Other Sources
-=============
-
-   Gnus can do more than just read news or mail.  The methods described
-below allow Gnus to view directories and files as if they were
-newsgroups.
+   To enter the server buffer, use the `^'
+(`gnus-group-enter-server-mode') command in the group buffer.
 
 * Menu:
 
-* Directory Groups::      You can read a directory as if it was a newsgroup.
-* Anything Groups::       Dired?  Who needs dired?
-* Document Groups::       Single files can be the basis of a group.
-* SOUP::                  Reading SOUP packets ``offline''.
-* Web Searches::          Creating groups from articles that match a string.
-* Mail-To-News Gateways:: Posting articles via mail-to-news gateways.
+* Server Buffer Format::      You can customize the look of this buffer.
+* Server Commands::           Commands to manipulate servers.
+* Example Methods::           Examples server specifications.
+* Creating a Virtual Server:: An example session.
+* Server Variables::          Which variables to set.
+* Servers and Methods::       You can use server names as select methods.
+* Unavailable Servers::       Some servers you try to contact may be down.
+
+   `gnus-server-mode-hook' is run when creating the server buffer.
 
 
-File: gnus,  Node: Directory Groups,  Next: Anything Groups,  Up: Other Sources
+File: gnus,  Node: Server Buffer Format,  Next: Server Commands,  Up: The Server Buffer
 
-Directory Groups
-----------------
+Server Buffer Format
+--------------------
 
-   If you have a directory that has lots of articles in separate files
-in it, you might treat it as a newsgroup.  The files have to have
-numerical names, of course.
+   You can change the look of the server buffer lines by changing the
+`gnus-server-line-format' variable.  This is a `format'-like variable,
+with some simple extensions:
 
-   This might be an opportune moment to mention `ange-ftp' (and its
-successor `efs'), that most wonderful of all wonderful Emacs packages.
-When I wrote `nndir', I didn't think much about it--a backend to read
-directories.  Big deal.
+`h'
+     How the news is fetched--the back end name.
 
-   `ange-ftp' changes that picture dramatically.  For instance, if you
-enter the `ange-ftp' file name `/ftp.hpc.uh.edu:/pub/emacs/ding-list/'
-as the directory name, `ange-ftp' or `efs' will actually allow you to
-read this directory over at `sina' as a newsgroup.  Distributed news
-ahoy!
+`n'
+     The name of this server.
 
-   `nndir' will use NOV files if they are present.
+`w'
+     Where the news is to be fetched from--the address.
 
-   `nndir' is a "read-only" backend--you can't delete or expire
-articles with this method.  You can use `nnmh' or `nnml' for whatever
-you use `nndir' for, so you could switch to any of those methods if you
-feel the need to have a non-read-only `nndir'.
+`s'
+     The opened/closed/denied status of the server.
+
+   The mode line can also be customized by using the
+`gnus-server-mode-line-format' variable (*note Mode Line Formatting::).
+The following specs are understood:
+
+`S'
+     Server name.
+
+`M'
+     Server method.
+
+   Also *note Formatting Variables::.
 
 
-File: gnus,  Node: Anything Groups,  Next: Document Groups,  Prev: Directory Groups,  Up: Other Sources
+File: gnus,  Node: Server Commands,  Next: Example Methods,  Prev: Server Buffer Format,  Up: The Server Buffer
 
-Anything Groups
+Server Commands
 ---------------
 
-   From the `nndir' backend (which reads a single spool-like
-directory), it's just a hop and a skip to `nneething', which pretends
-that any arbitrary directory is a newsgroup.  Strange, but true.
+`a'
+     Add a new server (`gnus-server-add-server').
 
-   When `nneething' is presented with a directory, it will scan this
-directory and assign article numbers to each file.  When you enter such
-a group, `nneething' must create "headers" that Gnus can use.  After
-all, Gnus is a newsreader, in case you're forgetting. `nneething' does
-this in a two-step process.  First, it snoops each file in question.
-If the file looks like an article (i.e., the first few lines look like
-headers), it will use this as the head.  If this is just some arbitrary
-file without a head (e.g. a C source file), `nneething' will cobble up
-a header out of thin air.  It will use file ownership, name and date
-and do whatever it can with these elements.
+`e'
+     Edit a server (`gnus-server-edit-server').
 
-   All this should happen automatically for you, and you will be
-presented with something that looks very much like a newsgroup.
-Totally like a newsgroup, to be precise.  If you select an article, it
-will be displayed in the article buffer, just as usual.
+`<SPC>'
+     Browse the current server (`gnus-server-read-server').
 
-   If you select a line that represents a directory, Gnus will pop you
-into a new summary buffer for this `nneething' group.  And so on.  You
-can traverse the entire disk this way, if you feel like, but remember
-that Gnus is not dired, really, and does not intend to be, either.
+`q'
+     Return to the group buffer (`gnus-server-exit').
 
-   There are two overall modes to this action--ephemeral or solid.  When
-doing the ephemeral thing (i.e., `G D' from the group buffer), Gnus
-will not store information on what files you have read, and what files
-are new, and so on.  If you create a solid `nneething' group the normal
-way with `G m', Gnus will store a mapping table between article numbers
-and file names, and you can treat this group like any other groups.
-When you activate a solid `nneething' group, you will be told how many
-unread articles it contains, etc., etc.
+`k'
+     Kill the current server (`gnus-server-kill-server').
 
-   Some variables:
+`y'
+     Yank the previously killed server (`gnus-server-yank-server').
 
-`nneething-map-file-directory'
-     All the mapping files for solid `nneething' groups will be stored
-     in this directory, which defaults to `~/.nneething/'.
+`c'
+     Copy the current server (`gnus-server-copy-server').
 
-`nneething-exclude-files'
-     All files that match this regexp will be ignored.  Nice to use to
-     exclude auto-save files and the like, which is what it does by
-     default.
+`l'
+     List all servers (`gnus-server-list-servers').
 
-`nneething-map-file'
-     Name of the map files.
+`s'
+     Request that the server scan its sources for new articles
+     (`gnus-server-scan-server').  This is mainly sensible with mail
+     servers.
+
+`g'
+     Request that the server regenerate all its data structures
+     (`gnus-server-regenerate-server').  This can be useful if you have
+     a mail back end that has gotten out of sync.
 
 
-File: gnus,  Node: Document Groups,  Next: SOUP,  Prev: Anything Groups,  Up: Other Sources
+File: gnus,  Node: Example Methods,  Next: Creating a Virtual Server,  Prev: Server Commands,  Up: The Server Buffer
 
-Document Groups
+Example Methods
 ---------------
 
-   `nndoc' is a cute little thing that will let you read a single file
-as a newsgroup.  Several files types are supported:
+   Most select methods are pretty simple and self-explanatory:
 
-`babyl'
-     The babyl (rmail) mail box.
+     (nntp "news.funet.fi")
 
-`mbox'
-     The standard Unix mbox file.
+   Reading directly from the spool is even simpler:
 
-`mmdf'
-     The MMDF mail box format.
+     (nnspool "")
 
-`news'
-     Several news articles appended into a file.
+   As you can see, the first element in a select method is the name of
+the back end, and the second is the "address", or "name", if you will.
 
-`rnews'
-     The rnews batch transport format.
+   After these two elements, there may be an arbitrary number of
+`(VARIABLE FORM)' pairs.
 
-`forward'
-     Forwarded articles.
+   To go back to the first example--imagine that you want to read from
+port 15 on that machine.  This is what the select method should look
+like then:
 
-`mime-parts'
-     MIME multipart messages, besides digests.
+     (nntp "news.funet.fi" (nntp-port-number 15))
 
-`mime-digest'
-     MIME (RFC 1341) digest format.
+   You should read the documentation to each back end to find out what
+variables are relevant, but here's an `nnmh' example:
 
-`standard-digest'
-     The standard (RFC 1153) digest format.
+   `nnmh' is a mail back end that reads a spool-like structure.  Say
+you have two structures that you wish to access: One is your private
+mail spool, and the other is a public one.  Here's the possible spec for
+your private mail:
 
-`slack-digest'
-     Non-standard digest format--matches most things, but does it badly.
+     (nnmh "private" (nnmh-directory "~/private/mail/"))
 
-   You can also use the special "file type" `guess', which means that
-`nndoc' will try to guess what file type it is looking at.  `digest'
-means that `nndoc' should guess what digest type the file is.
+   (This server is then called `private', but you may have guessed
+that.)
 
-   `nndoc' will not try to change the file or insert any extra headers
-into it--it will simply, like, let you use the file as the basis for a
-group.  And that's it.
+   Here's the method for a public spool:
 
-   If you have some old archived articles that you want to insert into
-your new & spiffy Gnus mail backend, `nndoc' can probably help you with
-that.  Say you have an old `RMAIL' file with mail that you now want to
-split into your new `nnml' groups.  You look at that file using `nndoc'
-(using the `G f' command in the group buffer (*note Foreign Groups::)),
-set the process mark on all the articles in the buffer (`M P b', for
-instance), and then re-spool (`B r') using `nnml'.  If all goes well,
-all the mail in the `RMAIL' file is now also stored in lots of `nnml'
-directories, and you can delete that pesky `RMAIL' file.  If you have
-the guts!
+     (nnmh "public"
+           (nnmh-directory "/usr/information/spool/")
+           (nnmh-get-new-mail nil))
 
-   Virtual server variables:
+   If you are behind a firewall and only have access to the NNTP server
+from the firewall machine, you can instruct Gnus to `rlogin' on the
+firewall machine and telnet from there to the NNTP server.  Doing this
+can be rather fiddly, but your virtual server definition should
+probably look something like this:
 
-`nndoc-article-type'
-     This should be one of `mbox', `babyl', `digest', `news', `rnews',
-     `mmdf', `forward', `rfc934', `rfc822-forward', `mime-parts',
-     `mime-digest', `standard-digest', `slack-digest', `clari-briefs' or
-     `guess'.
+     (nntp "firewall"
+           (nntp-address "the.firewall.machine")
+           (nntp-open-connection-function nntp-open-rlogin)
+           (nntp-end-of-line "\n")
+           (nntp-rlogin-parameters
+            ("telnet" "the.real.nntp.host" "nntp")))
 
-`nndoc-post-type'
-     This variable says whether Gnus is to consider the group a news
-     group or a mail group.  There are two valid values:  `mail' (the
-     default) and `news'.
+   If you want to use the wonderful `ssh' program to provide a
+compressed connection over the modem line, you could create a virtual
+server that would look something like this:
+
+     (nntp "news"
+            (nntp-address "copper.uio.no")
+            (nntp-rlogin-program "ssh")
+            (nntp-open-connection-function nntp-open-rlogin)
+            (nntp-end-of-line "\n")
+            (nntp-rlogin-parameters
+             ("telnet" "news.uio.no" "nntp")))
+
+   This means that you have to have set up `ssh-agent' correctly to
+provide automatic authorization, of course.  And to get a compressed
+connection, you have to have the `Compression' option in the `ssh'
+`config' file.
+
+
+File: gnus,  Node: Creating a Virtual Server,  Next: Server Variables,  Prev: Example Methods,  Up: The Server Buffer
+
+Creating a Virtual Server
+-------------------------
+
+   If you're saving lots of articles in the cache by using persistent
+articles, you may want to create a virtual server to read the cache.
+
+   First you need to add a new server.  The `a' command does that.  It
+would probably be best to use `nnspool' to read the cache.  You could
+also use `nnml' or `nnmh', though.
+
+   Type `a nnspool <RET> cache <RET>'.
+
+   You should now have a brand new `nnspool' virtual server called
+`cache'.  You now need to edit it to have the right definitions.  Type
+`e' to edit the server.  You'll be entered into a buffer that will
+contain the following:
+
+     (nnspool "cache")
+
+   Change that to:
+
+     (nnspool "cache"
+              (nnspool-spool-directory "~/News/cache/")
+              (nnspool-nov-directory "~/News/cache/")
+              (nnspool-active-file "~/News/cache/active"))
+
+   Type `C-c C-c' to return to the server buffer.  If you now press
+<RET> over this virtual server, you should be entered into a browse
+buffer, and you should be able to enter any of the groups displayed.
+
+
+File: gnus,  Node: Server Variables,  Next: Servers and Methods,  Prev: Creating a Virtual Server,  Up: The Server Buffer
+
+Server Variables
+----------------
+
+   One sticky point when defining variables (both on back ends and in
+Emacs in general) is that some variables are typically initialized from
+other variables when the definition of the variables is being loaded.
+If you change the "base" variable after the variables have been loaded,
+you won't change the "derived" variables.
+
+   This typically affects directory and file variables.  For instance,
+`nnml-directory' is `~/Mail/' by default, and all `nnml' directory
+variables are initialized from that variable, so `nnml-active-file'
+will be `~/Mail/active'.  If you define a new virtual `nnml' server, it
+will _not_ suffice to set just `nnml-directory'--you have to explicitly
+set all the file variables to be what you want them to be.  For a
+complete list of variables for each back end, see each back end's
+section later in this manual, but here's an example `nnml' definition:
+
+     (nnml "public"
+           (nnml-directory "~/my-mail/")
+           (nnml-active-file "~/my-mail/active")
+           (nnml-newsgroups-file "~/my-mail/newsgroups"))
+
+
+File: gnus,  Node: Servers and Methods,  Next: Unavailable Servers,  Prev: Server Variables,  Up: The Server Buffer
+
+Servers and Methods
+-------------------
+
+   Wherever you would normally use a select method (e.g.
+`gnus-secondary-select-method', in the group select method, when
+browsing a foreign server) you can use a virtual server name instead.
+This could potentially save lots of typing.  And it's nice all over.
+
+
+File: gnus,  Node: Unavailable Servers,  Prev: Servers and Methods,  Up: The Server Buffer
+
+Unavailable Servers
+-------------------
+
+   If a server seems to be unreachable, Gnus will mark that server as
+`denied'.  That means that any subsequent attempt to make contact with
+that server will just be ignored.  "It can't be opened," Gnus will tell
+you, without making the least effort to see whether that is actually
+the case or not.
+
+   That might seem quite naughty, but it does make sense most of the
+time.  Let's say you have 10 groups subscribed to on server
+`nephelococcygia.com'.  This server is located somewhere quite far away
+from you and the machine is quite slow, so it takes 1 minute just to
+find out that it refuses connection to you today.  If Gnus were to
+attempt to do that 10 times, you'd be quite annoyed, so Gnus won't
+attempt to do that.  Once it has gotten a single "connection refused",
+it will regard that server as "down".
+
+   So, what happens if the machine was only feeling unwell temporarily?
+How do you test to see whether the machine has come up again?
+
+   You jump to the server buffer (*note The Server Buffer::) and poke it
+with the following commands:
+
+`O'
+     Try to establish connection to the server on the current line
+     (`gnus-server-open-server').
+
+`C'
+     Close the connection (if any) to the server
+     (`gnus-server-close-server').
+
+`D'
+     Mark the current server as unreachable (`gnus-server-deny-server').
+
+`M-o'
+     Open the connections to all servers in the buffer
+     (`gnus-server-open-all-servers').
+
+`M-c'
+     Close the connections to all servers in the buffer
+     (`gnus-server-close-all-servers').
+
+`R'
+     Remove all marks to whether Gnus was denied connection from any
+     servers (`gnus-server-remove-denials').
+
+
+File: gnus,  Node: Getting News,  Next: Getting Mail,  Prev: The Server Buffer,  Up: Select Methods
+
+Getting News
+============
+
+   A newsreader is normally used for reading news.  Gnus currently
+provides only two methods of getting news--it can read from an NNTP
+server, or it can read from a local spool.
 
 * Menu:
 
-* Document Server Internals::   How to add your own document types.
+* NNTP::               Reading news from an NNTP server.
+* News Spool::         Reading news from the local spool.
 
 
-File: gnus,  Node: Document Server Internals,  Up: Document Groups
+File: gnus,  Node: NNTP,  Next: News Spool,  Up: Getting News
 
-Document Server Internals
-.........................
-
-   Adding new document types to be recognized by `nndoc' isn't
-difficult.  You just have to whip up a definition of what the document
-looks like, write a predicate function to recognize that document type,
-and then hook into `nndoc'.
-
-   First, here's an example document type definition:
-
-     (mmdf
-      (article-begin .  "^\^A\^A\^A\^A\n")
-      (body-end .  "^\^A\^A\^A\^A\n"))
-
-   The definition is simply a unique "name" followed by a series of
-regexp pseudo-variable settings.  Below are the possible
-variables--don't be daunted by the number of variables; most document
-types can be defined with very few settings:
-
-`first-article'
-     If present, `nndoc' will skip past all text until it finds
-     something that match this regexp.  All text before this will be
-     totally ignored.
-
-`article-begin'
-     This setting has to be present in all document type definitions.
-     It says what the beginning of each article looks like.
-
-`head-begin-function'
-     If present, this should be a function that moves point to the head
-     of the article.
-
-`nndoc-head-begin'
-     If present, this should be a regexp that matches the head of the
-     article.
-
-`nndoc-head-end'
-     This should match the end of the head of the article.  It defaults
-     to `^$'--the empty line.
-
-`body-begin-function'
-     If present, this function should move point to the beginning of
-     the body of the article.
-
-`body-begin'
-     This should match the beginning of the body of the article.  It
-     defaults to `^\n'.
-
-`body-end-function'
-     If present, this function should move point to the end of the body
-     of the article.
-
-`body-end'
-     If present, this should match the end of the body of the article.
-
-`file-end'
-     If present, this should match the end of the file.  All text after
-     this regexp will be totally ignored.
-
-   So, using these variables `nndoc' is able to dissect a document file
-into a series of articles, each with a head and a body.  However, a few
-more variables are needed since not all document types are all that
-news-like--variables needed to transform the head or the body into
-something that's palatable for Gnus:
-
-`prepare-body-function'
-     If present, this function will be called when requesting an
-     article.  It will be called with point at the start of the body,
-     and is useful if the document has encoded some parts of its
-     contents.
-
-`article-transform-function'
-     If present, this function is called when requesting an article.
-     It's meant to be used for more wide-ranging transformation of both
-     head and body of the article.
-
-`generate-head-function'
-     If present, this function is called to generate a head that Gnus
-     can understand.  It is called with the article number as a
-     parameter, and is expected to generate a nice head for the article
-     in question.  It is called when requesting the headers of all
-     articles.
-
-   Let's look at the most complicated example I can come up
-with--standard digests:
-
-     (standard-digest
-      (first-article . ,(concat "^" (make-string 70 ?-) "\n\n+"))
-      (article-begin . ,(concat "\n\n" (make-string 30 ?-) "\n\n+"))
-      (prepare-body-function . nndoc-unquote-dashes)
-      (body-end-function . nndoc-digest-body-end)
-      (head-end . "^ ?$")
-      (body-begin . "^ ?\n")
-      (file-end . "^End of .*digest.*[0-9].*\n\\*\\*\\|^End of.*Digest *$")
-      (subtype digest guess))
-
-   We see that all text before a 70-width line of dashes is ignored; all
-text after a line that starts with that `^End of' is also ignored; each
-article begins with a 30-width line of dashes; the line separating the
-head from the body may contain a single space; and that the body is run
-through `nndoc-unquote-dashes' before being delivered.
-
-   To hook your own document definition into `nndoc', use the
-`nndoc-add-type' function.  It takes two parameters--the first is the
-definition itself and the second (optional) parameter says where in the
-document type definition alist to put this definition.  The alist is
-traversed sequentially, and `nndoc-TYPE-type-p' is called for a given
-type `TYPE'.  So `nndoc-mmdf-type-p' is called to see whether a document
-is of `mmdf' type, and so on.  These type predicates should return
-`nil' if the document is not of the correct type; `t' if it is of the
-correct type; and a number if the document might be of the correct
-type.  A high number means high probability; a low number means low
-probability with `0' being the lowest valid number.
-
-
-File: gnus,  Node: SOUP,  Next: Web Searches,  Prev: Document Groups,  Up: Other Sources
-
-SOUP
+NNTP
 ----
 
-   In the PC world people often talk about "offline" newsreaders.  These
-are thingies that are combined reader/news transport monstrosities.
-With built-in modem programs.  Yecchh!
+   Subscribing to a foreign group from an NNTP server is rather easy.
+You just specify `nntp' as method and the address of the NNTP server as
+the, uhm, address.
 
-   Of course, us Unix Weenie types of human beans use things like
-`uucp' and, like, `nntpd' and set up proper news and mail transport
-things like Ghod intended.  And then we just use normal newsreaders.
+   If the NNTP server is located at a non-standard port, setting the
+third element of the select method to this port number should allow you
+to connect to the right port.  You'll have to edit the group info for
+that (*note Foreign Groups::).
 
-   However, it can sometimes be convenient to do something a that's a
-bit easier on the brain if you have a very slow modem, and you're not
-really that interested in doing things properly.
+   The name of the foreign group can be the same as a native group.  In
+fact, you can subscribe to the same group from as many different servers
+you feel like.  There will be no name collisions.
 
-   A file format called SOUP has been developed for transporting news
-and mail from servers to home machines and back again.  It can be a bit
-fiddly.
+   The following variables can be used to create a virtual `nntp'
+server:
 
-   First some terminology:
+`nntp-server-opened-hook'
+     is run after a connection has been made.  It can be used to send
+     commands to the NNTP server after it has been contacted.  By
+     default it sends the command `MODE READER' to the server with the
+     `nntp-send-mode-reader' function.  This function should always be
+     present in this hook.
 
-"server"
-     This is the machine that is connected to the outside world and
-     where you get news and/or mail from.
+`nntp-authinfo-function'
+     This function will be used to send `AUTHINFO' to the NNTP server.
+     The default function is `nntp-send-authinfo', which looks through
+     your `~/.authinfo' (or whatever you've set the
+     `nntp-authinfo-file' variable to) for applicable entries.  If none
+     are found, it will prompt you for a login name and a password.  The
+     format of the `~/.authinfo' file is (almost) the same as the `ftp'
+     `~/.netrc' file, which is defined in the `ftp' manual page, but
+     here are the salient facts:
 
-"home machine"
-     This is the machine that you want to do the actual reading and
-     responding on.  It is typically not connected to the rest of the
-     world in any way.
+       1. The file contains one or more line, each of which define one
+          server.
 
-"packet"
-     Something that contains messages and/or commands.  There are two
-     kinds of packets:
+       2. Each line may contain an arbitrary number of token/value
+          pairs.
 
-    "message packets"
-          These are packets made at the server, and typically contain
-          lots of messages for you to read.  These are called
-          `SoupoutX.tgz' by default, where X is a number.
-
-    "response packets"
-          These are packets made at the home machine, and typically
-          contains replies that you've written.  These are called
-          `SoupinX.tgz' by default, where X is a number.
-
-  1. You log in on the server and create a SOUP packet.  You can either
-     use a dedicated SOUP thingie (like the `awk' program), or you can
-     use Gnus to create the packet with its SOUP commands (`O s' and/or
-     `G s b'; and then `G s p') (*note SOUP Commands::).
-
-  2. You transfer the packet home.  Rail, boat, car or modem will do
-     fine.
-
-  3. You put the packet in your home directory.
-
-  4. You fire up Gnus on your home machine using the `nnsoup' backend as
-     the native or secondary server.
-
-  5. You read articles and mail and answer and followup to the things
-     you want (*note SOUP Replies::).
-
-  6. You do the `G s r' command to pack these replies into a SOUP
-     packet.
-
-  7. You transfer this packet to the server.
-
-  8. You use Gnus to mail this packet out with the `G s s' command.
-
-  9. You then repeat until you die.
+          The valid tokens include `machine', `login', `password',
+          `default'.  In addition Gnus introduces two new tokens, not
+          present in the original `.netrc'/`ftp' syntax, namely `port'
+          and `force'.  (This is the only way the `.authinfo' file
+          format deviates from the `.netrc' file format.)  `port' is
+          used to indicate what port on the server the credentials
+          apply to and `force' is explained below.
 
 
-   So you basically have a bipartite system--you use `nnsoup' for
-reading and Gnus for packing/sending these SOUP packets.
+     Here's an example file:
+
+          machine news.uio.no login larsi password geheimnis
+          machine nntp.ifi.uio.no login larsi force yes
+
+     The token/value pairs may appear in any order; `machine' doesn't
+     have to be first, for instance.
+
+     In this example, both login name and password have been supplied
+     for the former server, while the latter has only the login name
+     listed, and the user will be prompted for the password.  The
+     latter also has the `force' tag, which means that the authinfo
+     will be sent to the NNTP server upon connection; the default
+     (i.e., when there is not `force' tag) is to not send authinfo to
+     the NNTP server until the NNTP server asks for it.
+
+     You can also add `default' lines that will apply to all servers
+     that don't have matching `machine' lines.
+
+          default force yes
+
+     This will force sending `AUTHINFO' commands to all servers not
+     previously mentioned.
+
+     Remember to not leave the `~/.authinfo' file world-readable.
+
+`nntp-server-action-alist'
+     This is a list of regexps to match on server types and actions to
+     be taken when matches are made.  For instance, if you want Gnus to
+     beep every time you connect to innd, you could say something like:
+
+          (setq nntp-server-action-alist
+                '(("innd" (ding))))
+
+     You probably don't want to do that, though.
+
+     The default value is
+
+          '(("nntpd 1\\.5\\.11t"
+             (remove-hook 'nntp-server-opened-hook
+                          'nntp-send-mode-reader)))
+
+     This ensures that Gnus doesn't send the `MODE READER' command to
+     nntpd 1.5.11t, since that command chokes that server, I've been
+     told.
+
+`nntp-maximum-request'
+     If the NNTP server doesn't support NOV headers, this back end will
+     collect headers by sending a series of `head' commands.  To speed
+     things up, the back end sends lots of these commands without
+     waiting for reply, and then reads all the replies.  This is
+     controlled by the `nntp-maximum-request' variable, and is 400 by
+     default.  If your network is buggy, you should set this to 1.
+
+`nntp-connection-timeout'
+     If you have lots of foreign `nntp' groups that you connect to
+     regularly, you're sure to have problems with NNTP servers not
+     responding properly, or being too loaded to reply within reasonable
+     time.  This is can lead to awkward problems, which can be helped
+     somewhat by setting `nntp-connection-timeout'.  This is an integer
+     that says how many seconds the `nntp' back end should wait for a
+     connection before giving up.  If it is `nil', which is the default,
+     no timeouts are done.
+
+`nntp-server-hook'
+     This hook is run as the last step when connecting to an NNTP
+     server.
+
+`nntp-open-connection-function'
+     This function is used to connect to the remote system.  Four
+     pre-made functions are supplied:
+
+    `nntp-open-network-stream'
+          This is the default, and simply connects to some port or
+          other on the remote system.
+
+    `nntp-open-rlogin'
+          Does an `rlogin' on the remote system, and then does a
+          `telnet' to the NNTP server available there.
+
+          `nntp-open-rlogin'-related variables:
+
+         `nntp-rlogin-program'
+               Program used to log in on remote machines.  The default
+               is `rsh', but `ssh' is a popular alternative.
+
+         `nntp-rlogin-parameters'
+               This list will be used as the parameter list given to
+               `rsh'.
+
+         `nntp-rlogin-user-name'
+               User name on the remote system.
+
+    `nntp-open-telnet'
+          Does a `telnet' to the remote system and then another `telnet'
+          to get to the NNTP server.
+
+          `nntp-open-telnet'-related variables:
+
+         `nntp-telnet-command'
+               Command used to start `telnet'.
+
+         `nntp-telnet-switches'
+               List of strings to be used as the switches to the
+               `telnet' command.
+
+         `nntp-telnet-user-name'
+               User name for log in on the remote system.
+
+         `nntp-telnet-passwd'
+               Password to use when logging in.
+
+         `nntp-telnet-parameters'
+               A list of strings executed as a command after logging in
+               via `telnet'.
+
+         `nntp-telnet-shell-prompt'
+               Regexp matching the shell prompt on the remote machine.
+               The default is `bash\\|\$ *\r?$\\|> *\r?'.
+
+         `nntp-open-telnet-envuser'
+               If non-`nil', the `telnet' session (client and server
+               both) will support the `ENVIRON' option and not prompt
+               for login name.  This works for Solaris `telnet', for
+               instance.
+
+    `nntp-open-ssl-stream'
+          Opens a connection to a server over a "secure" channel.  To
+          use this you must have SSLay installed
+          (`ftp://ftp.psy.uq.oz.au/pub/Crypto/SSL', and you also need
+          `ssl.el' (from the W3 distribution, for instance).  You then
+          define a server as follows:
+
+               ;; Type `C-c C-c' after you've finished editing.
+               ;;
+               ;; "snews" is port 563 and is predefined
+               ;; in our /etc/services
+               ;;
+               (nntp "snews.bar.com"
+                     (nntp-open-connection-function
+                       nntp-open-ssl-stream)
+                     (nntp-port-number "snews")
+                     (nntp-address "snews.bar.com"))
+
+`nntp-end-of-line'
+     String to use as end-of-line marker when talking to the NNTP
+     server.  This is `\r\n' by default, but should be `\n' when using
+     `rlogin' to talk to the server.
+
+`nntp-rlogin-user-name'
+     User name on the remote system when using the `rlogin' connect
+     function.
+
+`nntp-address'
+     The address of the remote system running the NNTP server.
+
+`nntp-port-number'
+     Port number to connect to when using the `nntp-open-network-stream'
+     connect function.
+
+`nntp-buggy-select'
+     Set this to non-`nil' if your select routine is buggy.
+
+`nntp-nov-is-evil'
+     If the NNTP server does not support NOV, you could set this
+     variable to `t', but `nntp' usually checks automatically whether
+     NOV can be used.
+
+`nntp-xover-commands'
+     List of strings used as commands to fetch NOV lines from a server.
+     The default value of this variable is `("XOVER" "XOVERVIEW")'.
+
+`nntp-nov-gap'
+     `nntp' normally sends just one big request for NOV lines to the
+     server.  The server responds with one huge list of lines.  However,
+     if you have read articles 2-5000 in the group, and only want to
+     read article 1 and 5001, that means that `nntp' will fetch 4999 NOV
+     lines that you will not need.  This variable says how big a gap
+     between two consecutive articles is allowed to be before the
+     `XOVER' request is split into several request.  Note that if your
+     network is fast, setting this variable to a really small number
+     means that fetching will probably be slower.  If this variable is
+     `nil', `nntp' will never split requests.  The default is 5.
+
+`nntp-prepare-server-hook'
+     A hook run before attempting to connect to an NNTP server.
+
+`nntp-warn-about-losing-connection'
+     If this variable is non-`nil', some noise will be made when a
+     server closes connection.
+
+`nntp-record-commands'
+     If non-`nil', `nntp' will log all commands it sends to the NNTP
+     server (along with a timestamp) in the `*nntp-log*' buffer.  This
+     is useful if you are debugging a Gnus/NNTP connection that doesn't
+     seem to work.
+
+
+File: gnus,  Node: News Spool,  Prev: NNTP,  Up: Getting News
+
+News Spool
+----------
+
+   Subscribing to a foreign group from the local spool is extremely
+easy, and might be useful, for instance, to speed up reading groups that
+contain very big articles--`alt.binaries.pictures.furniture', for
+instance.
+
+   Anyway, you just specify `nnspool' as the method and `""' (or
+anything else) as the address.
+
+   If you have access to a local spool, you should probably use that as
+the native select method (*note Finding the News::).  It is normally
+faster than using an `nntp' select method, but might not be.  It
+depends.  You just have to try to find out what's best at your site.
+
+`nnspool-inews-program'
+     Program used to post an article.
+
+`nnspool-inews-switches'
+     Parameters given to the inews program when posting an article.
+
+`nnspool-spool-directory'
+     Where `nnspool' looks for the articles.  This is normally
+     `/usr/spool/news/'.
+
+`nnspool-nov-directory'
+     Where `nnspool' will look for NOV files.  This is normally
+     `/usr/spool/news/over.view/'.
+
+`nnspool-lib-dir'
+     Where the news lib dir is (`/usr/lib/news/' by default).
+
+`nnspool-active-file'
+     The path to the active file.
+
+`nnspool-newsgroups-file'
+     The path to the group descriptions file.
+
+`nnspool-history-file'
+     The path to the news history file.
+
+`nnspool-active-times-file'
+     The path to the active date file.
+
+`nnspool-nov-is-evil'
+     If non-`nil', `nnspool' won't try to use any NOV files that it
+     finds.
+
+`nnspool-sift-nov-with-sed'
+     If non-`nil', which is the default, use `sed' to get the relevant
+     portion from the overview file.  If nil, `nnspool' will load the
+     entire file into a buffer and process it there.
+
+
+File: gnus,  Node: Getting Mail,  Next: Browsing the Web,  Prev: Getting News,  Up: Select Methods
+
+Getting Mail
+============
+
+   Reading mail with a newsreader--isn't that just plain WeIrD? But of
+course.
 
 * Menu:
 
-* SOUP Commands::     Commands for creating and sending SOUP packets
-* SOUP Groups::       A backend for reading SOUP packets.
-* SOUP Replies::      How to enable `nnsoup' to take over mail and news.
+* Mail in a Newsreader::         Important introductory notes.
+* Getting Started Reading Mail:: A simple cookbook example.
+* Splitting Mail::               How to create mail groups.
+* Mail Sources::                 How to tell Gnus where to get mail from.
+* Mail Back End Variables::      Variables for customizing mail handling.
+* Fancy Mail Splitting::         Gnus can do hairy splitting of incoming mail.
+* Group Mail Splitting::         Use group customize to drive mail splitting.
+* Incorporating Old Mail::       What about the old mail you have?
+* Expiring Mail::                Getting rid of unwanted mail.
+* Washing Mail::                 Removing gruft from the mail you get.
+* Duplicates::                   Dealing with duplicated mail.
+* Not Reading Mail::             Using mail back ends for reading other files.
+* Choosing a Mail Back End::     Gnus can read a variety of mail formats.
 
 
-File: gnus,  Node: SOUP Commands,  Next: SOUP Groups,  Up: SOUP
+File: gnus,  Node: Mail in a Newsreader,  Next: Getting Started Reading Mail,  Up: Getting Mail
 
-SOUP Commands
-.............
+Mail in a Newsreader
+--------------------
 
-   These are commands for creating and manipulating SOUP packets.
+   If you are used to traditional mail readers, but have decided to
+switch to reading mail with Gnus, you may find yourself experiencing
+something of a culture shock.
 
-`G s b'
-     Pack all unread articles in the current group
-     (`gnus-group-brew-soup').  This command understands the
-     process/prefix convention.
+   Gnus does not behave like traditional mail readers.  If you want to
+make it behave that way, you can, but it's an uphill battle.
 
-`G s w'
-     Save all SOUP data files (`gnus-soup-save-areas').
+   Gnus, by default, handles all its groups using the same approach.
+This approach is very newsreaderly--you enter a group, see the
+new/unread messages, and when you read the messages, they get marked as
+read, and you don't see them any more.  (Unless you explicitly ask for
+them.)
 
-`G s s'
-     Send all replies from the replies packet
-     (`gnus-soup-send-replies').
+   In particular, you do not do anything explicitly to delete messages.
 
-`G s p'
-     Pack all files into a SOUP packet (`gnus-soup-pack-packet').
+   Does this mean that all the messages that have been marked as read
+are deleted?  How awful!
 
-`G s r'
-     Pack all replies into a replies packet (`nnsoup-pack-replies').
+   But, no, it means that old messages are "expired" according to some
+scheme or other.  For news messages, the expire process is controlled by
+the news administrator; for mail, the expire process is controlled by
+you.  The expire process for mail is covered in depth in *note Expiring
+Mail::.
 
-`O s'
-     This summary-mode command adds the current article to a SOUP packet
-     (`gnus-soup-add-article').  It understands the process/prefix
-     convention (*note Process/Prefix::).
+   What many Gnus users find, after using it a while for both news and
+mail, is that the transport mechanism has very little to do with how
+they want to treat a message.
 
-   There are a few variables to customize where Gnus will put all these
-thingies:
+   Many people subscribe to several mailing lists.  These are
+transported via SMTP, and are therefore mail.  But we might go for
+weeks without answering, or even reading these messages very carefully.
+We may not need to save them because if we should need to read one
+again, they are archived somewhere else.
 
-`gnus-soup-directory'
-     Directory where Gnus will save intermediate files while composing
-     SOUP packets.  The default is `~/SoupBrew/'.
+   Some people have local news groups which have only a handful of
+readers.  These are transported via NNTP, and are therefore news.  But
+we may need to read and answer a large fraction of the messages very
+carefully in order to do our work.  And there may not be an archive, so
+we may need to save the interesting messages the same way we would
+personal mail.
 
-`gnus-soup-replies-directory'
-     This is what Gnus will use as a temporary directory while sending
-     our reply packets.  `~/SoupBrew/SoupReplies/' is the default.
+   The important distinction turns out to be not the transport
+mechanism, but other factors such as how interested we are in the
+subject matter, or how easy it is to retrieve the message if we need to
+read it again.
 
-`gnus-soup-prefix-file'
-     Name of the file where Gnus stores the last used prefix.  The
-     default is `gnus-prefix'.
+   Gnus provides many options for sorting mail into "groups" which
+behave like newsgroups, and for treating each group (whether mail or
+news) differently.
 
-`gnus-soup-packer'
-     A format string command for packing a SOUP packet.  The default is
-     `tar cf - %s | gzip > $HOME/Soupout%d.tgz'.
+   Some users never get comfortable using the Gnus (ahem) paradigm and
+wish that Gnus should grow up and be a male, er, mail reader.  It is
+possible to whip Gnus into a more mailreaderly being, but, as said
+before, it's not easy.  People who prefer proper mail readers should
+try VM instead, which is an excellent, and proper, mail reader.
 
-`gnus-soup-unpacker'
-     Format string command for unpacking a SOUP packet.  The default is
-     `gunzip -c %s | tar xvf -'.
-
-`gnus-soup-packet-directory'
-     Where Gnus will look for reply packets.  The default is `~/'.
-
-`gnus-soup-packet-regexp'
-     Regular expression matching SOUP reply packets in
-     `gnus-soup-packet-directory'.
-
-
-File: gnus,  Node: SOUP Groups,  Next: SOUP Replies,  Prev: SOUP Commands,  Up: SOUP
-
-SOUP Groups
-...........
-
-   `nnsoup' is the backend for reading SOUP packets.  It will read
-incoming packets, unpack them, and put them in a directory where you
-can read them at leisure.
-
-   These are the variables you can use to customize its behavior:
-
-`nnsoup-tmp-directory'
-     When `nnsoup' unpacks a SOUP packet, it does it in this directory.
-     (`/tmp/' by default.)
-
-`nnsoup-directory'
-     `nnsoup' then moves each message and index file to this directory.
-     The default is `~/SOUP/'.
-
-`nnsoup-replies-directory'
-     All replies will be stored in this directory before being packed
-     into a reply packet.  The default is `~/SOUP/replies/"'.
-
-`nnsoup-replies-format-type'
-     The SOUP format of the replies packets.  The default is `?n'
-     (rnews), and I don't think you should touch that variable.  I
-     probably shouldn't even have documented it.  Drats!  Too late!
-
-`nnsoup-replies-index-type'
-     The index type of the replies packet.  The default is `?n', which
-     means "none".  Don't fiddle with this one either!
-
-`nnsoup-active-file'
-     Where `nnsoup' stores lots of information.  This is not an "active
-     file" in the `nntp' sense; it's an Emacs Lisp file.  If you lose
-     this file or mess it up in any way, you're dead.  The default is
-     `~/SOUP/active'.
-
-`nnsoup-packer'
-     Format string command for packing a reply SOUP packet.  The default
-     is `tar cf - %s | gzip > $HOME/Soupin%d.tgz'.
-
-`nnsoup-unpacker'
-     Format string command for unpacking incoming SOUP packets.  The
-     default is `gunzip -c %s | tar xvf -'.
-
-`nnsoup-packet-directory'
-     Where `nnsoup' will look for incoming packets.  The default is
-     `~/'.
-
-`nnsoup-packet-regexp'
-     Regular expression matching incoming SOUP packets.  The default is
-     `Soupout'.
-
-`nnsoup-always-save'
-     If non-`nil', save the replies buffer after each posted message.
+   I don't mean to scare anybody off, but I want to make it clear that
+you may be required to learn a new way of thinking about messages.
+After you've been subjected to The Gnus Way, you will come to love it.
+I can guarantee it.  (At least the guy who sold me the Emacs Subliminal
+Brain-Washing Functions that I've put into Gnus did guarantee it.  You
+Will Be Assimilated.  You Love Gnus.  You Love The Gnus Mail Way.  You
+Do.)
 
 
-File: gnus,  Node: SOUP Replies,  Prev: SOUP Groups,  Up: SOUP
+File: gnus,  Node: Getting Started Reading Mail,  Next: Splitting Mail,  Prev: Mail in a Newsreader,  Up: Getting Mail
 
-SOUP Replies
-............
+Getting Started Reading Mail
+----------------------------
 
-   Just using `nnsoup' won't mean that your postings and mailings end
-up in SOUP reply packets automagically.  You have to work a bit more
-for that to happen.
+   It's quite easy to use Gnus to read your new mail.  You just plonk
+the mail back end of your choice into `gnus-secondary-select-methods',
+and things will happen automatically.
 
-   The `nnsoup-set-variables' command will set the appropriate
-variables to ensure that all your followups and replies end up in the
-SOUP system.
+   For instance, if you want to use `nnml' (which is a "one file per
+mail" back end), you could put the following in your `.gnus' file:
 
-   In specific, this is what it does:
+     (setq gnus-secondary-select-methods
+           '((nnml "private")))
 
-     (setq message-send-news-function 'nnsoup-request-post)
-     (setq message-send-mail-function 'nnsoup-request-mail)
+   Now, the next time you start Gnus, this back end will be queried for
+new articles, and it will move all the messages in your spool file to
+its directory, which is `~/Mail/' by default.  The new group that will
+be created (`mail.misc') will be subscribed, and you can read it like
+any other group.
 
-   And that's it, really.  If you only want news to go into the SOUP
-system you just use the first line.  If you only want mail to be SOUPed
-you use the second.
+   You will probably want to split the mail into several groups, though:
+
+     (setq nnmail-split-methods
+           '(("junk" "^From:.*Lars Ingebrigtsen")
+             ("crazy" "^Subject:.*die\\|^Organization:.*flabby")
+             ("other" "")))
+
+   This will result in three new `nnml' mail groups being created:
+`nnml:junk', `nnml:crazy', and `nnml:other'.  All the mail that doesn't
+fit into the first two groups will be placed in the last group.
+
+   This should be sufficient for reading mail with Gnus.  You might
+want to give the other sections in this part of the manual a perusal,
+though.  Especially *note Choosing a Mail Back End:: and *note Expiring
+Mail::.
 
 
-File: gnus,  Node: Web Searches,  Next: Mail-To-News Gateways,  Prev: SOUP,  Up: Other Sources
+File: gnus,  Node: Splitting Mail,  Next: Mail Sources,  Prev: Getting Started Reading Mail,  Up: Getting Mail
 
-Web Searches
+Splitting Mail
+--------------
+
+   The `nnmail-split-methods' variable says how the incoming mail is to
+be split into groups.
+
+     (setq nnmail-split-methods
+       '(("mail.junk" "^From:.*Lars Ingebrigtsen")
+         ("mail.crazy" "^Subject:.*die\\|^Organization:.*flabby")
+         ("mail.other" "")))
+
+   This variable is a list of lists, where the first element of each of
+these lists is the name of the mail group (they do not have to be called
+something beginning with `mail', by the way), and the second element is
+a regular expression used on the header of each mail to determine if it
+belongs in this mail group.  The first string may contain `\\1' forms,
+like the ones used by `replace-match' to insert sub-expressions from
+the matched text.  For instance:
+
+     ("list.\\1" "From:.* \\(.*\\)-list@majordomo.com")
+
+   The second element can also be a function.  In that case, it will be
+called narrowed to the headers with the first element of the rule as the
+argument.  It should return a non-`nil' value if it thinks that the
+mail belongs in that group.
+
+   The last of these groups should always be a general one, and the
+regular expression should _always_ be `' so that it matches any mails
+that haven't been matched by any of the other regexps.  (These rules are
+processed from the beginning of the alist toward the end.  The first
+rule to make a match will "win", unless you have crossposting enabled.
+In that case, all matching rules will "win".)
+
+   If you like to tinker with this yourself, you can set this variable
+to a function of your choice.  This function will be called without any
+arguments in a buffer narrowed to the headers of an incoming mail
+message.  The function should return a list of group names that it
+thinks should carry this mail message.
+
+   Note that the mail back ends are free to maul the poor, innocent,
+incoming headers all they want to.  They all add `Lines' headers; some
+add `X-Gnus-Group' headers; most rename the Unix mbox `From ' line to
+something else.
+
+   The mail back ends all support cross-posting.  If several regexps
+match, the mail will be "cross-posted" to all those groups.
+`nnmail-crosspost' says whether to use this mechanism or not.  Note
+that no articles are crossposted to the general (`') group.
+
+   `nnmh' and `nnml' makes crossposts by creating hard links to the
+crossposted articles.  However, not all file systems support hard
+links.  If that's the case for you, set
+`nnmail-crosspost-link-function' to `copy-file'.  (This variable is
+`add-name-to-file' by default.)
+
+   If you wish to see where the previous mail split put the messages,
+you can use the `M-x nnmail-split-history' command.  If you wish to see
+where re-spooling messages would put the messages, you can use
+`gnus-summary-respool-trace' and related commands (*note Mail Group
+Commands::).
+
+   Gnus gives you all the opportunity you could possibly want for
+shooting yourself in the foot.  Let's say you create a group that will
+contain all the mail you get from your boss.  And then you accidentally
+unsubscribe from the group.  Gnus will still put all the mail from your
+boss in the unsubscribed group, and so, when your boss mails you "Have
+that report ready by Monday or you're fired!", you'll never see it and,
+come Tuesday, you'll still believe that you're gainfully employed while
+you really should be out collecting empty bottles to save up for next
+month's rent money.
+
+
+File: gnus,  Node: Mail Sources,  Next: Mail Back End Variables,  Prev: Splitting Mail,  Up: Getting Mail
+
+Mail Sources
 ------------
 
-   It's, like, too neat to search the Usenet for articles that match a
-string, but it, like, totally _sucks_, like, totally, to use one of
-those, like, Web browsers, and you, like, have to, rilly, like, look at
-the commercials, so, like, with Gnus you can do _rad_, rilly, searches
-without having to use a browser.
+   Mail can be gotten from many different sources--the mail spool, from
+a POP mail server, from a procmail directory, or from a maildir, for
+instance.
 
-   The `nnweb' backend allows an easy interface to the mighty search
-engine.  You create an `nnweb' group, enter a search pattern, and then
-enter the group and read the articles like you would any normal group.
-The `G w' command in the group buffer (*note Foreign Groups::) will do
-this in an easy-to-use fashion.
+* Menu:
 
-   `nnweb' groups don't really lend themselves to being solid
-groups--they have a very fleeting idea of article numbers.  In fact,
-each time you enter an `nnweb' group (not even changing the search
-pattern), you are likely to get the articles ordered in a different
-manner.  Not even using duplicate suppression (*note Duplicate
-Suppression::) will help, since `nnweb' doesn't even know the
-`Message-ID' of the articles before reading them using some search
-engines (DejaNews, for instance).  The only possible way to keep track
-of which articles you've read is by scoring on the `Date' header--mark
-all articles posted before the last date you read the group as read.
-
-   If the search engine changes its output substantially, `nnweb' won't
-be able to parse it and will fail.  One could hardly fault the Web
-providers if they were to do this--their _raison d'être_ is to make
-money off of advertisements, not to provide services to the community.
-Since `nnweb' washes the ads off all the articles, one might think that
-the providers might be somewhat miffed.  We'll see.
-
-   You must have the `url' and `w3' package installed to be able to use
-`nnweb'.
-
-   Virtual server variables:
-
-`nnweb-type'
-     What search engine type is being used.  The currently supported
-     types are `dejanews', `dejanewsold', `altavista' and `reference'.
-
-`nnweb-search'
-     The search string to feed to the search engine.
-
-`nnweb-max-hits'
-     Advisory maximum number of hits per search to display.  The
-     default is 100.
-
-`nnweb-type-definition'
-     Type-to-definition alist.  This alist says what `nnweb' should do
-     with the various search engine types.  The following elements must
-     be present:
-
-    `article'
-          Function to decode the article and provide something that Gnus
-          understands.
-
-    `map'
-          Function to create an article number to message header and
-          URL alist.
-
-    `search'
-          Function to send the search string to the search engine.
-
-    `address'
-          The address the aforementioned function should send the
-          search string to.
-
-    `id'
-          Format string URL to fetch an article by `Message-ID'.
+* Mail Source Specifiers::       How to specify what a mail source is.
+* Mail Source Customization::    Some variables that influence things.
+* Fetching Mail::                Using the mail source specifiers.
 
 
-File: gnus,  Node: Mail-To-News Gateways,  Prev: Web Searches,  Up: Other Sources
+File: gnus,  Node: Mail Source Specifiers,  Next: Mail Source Customization,  Up: Mail Sources
 
-Mail-To-News Gateways
----------------------
+Mail Source Specifiers
+......................
 
-   If your local `nntp' server doesn't allow posting, for some reason
-or other, you can post using one of the numerous mail-to-news gateways.
-The `nngateway' backend provides the interface.
+   You tell Gnus how to fetch mail by setting `mail-sources' (*note
+Fetching Mail::) to a "mail source specifier".
 
-   Note that you can't read anything from this backend--it can only be
-used to post with.
+   Here's an example:
 
-   Server variables:
+     (pop :server "pop3.mailserver.com" :user "myname")
 
-`nngateway-address'
-     This is the address of the mail-to-news gateway.
+   As can be observed, a mail source specifier is a list where the first
+element is a "mail source type", followed by an arbitrary number of
+"keywords".  Keywords that are not explicitly specified are given
+default values.
 
-`nngateway-header-transformation'
-     News headers often have to be transformed in some odd way or other
-     for the mail-to-news gateway to accept it.  This variable says what
-     transformation should be called, and defaults to
-     `nngateway-simple-header-transformation'.  The function is called
-     narrowed to the headers to be transformed and with one
-     parameter--the gateway address.
+   The following mail source types are available:
 
-     This default function just inserts a new `To' header based on the
-     `Newsgroups' header and the gateway address.  For instance, an
-     article with this `Newsgroups' header:
+`file'
+     Get mail from a single file; typically from the mail spool.
 
-          Newsgroups: alt.religion.emacs
+     Keywords:
 
-     will get this `From' header inserted:
+    `:path'
+          The path of the file.  Defaults to the value of the `MAIL'
+          environment variable or `/usr/mail/spool/user-name'.
 
-          To: alt-religion-emacs@GATEWAY
+     An example file mail source:
 
-     The following pre-defined functions exist:
+          (file :path "/usr/spool/mail/user-name")
 
-    `nngateway-simple-header-transformation'
-          Creates a `To' header that looks like
-          NEWSGROUP@`nngateway-address'.
+     Or using the default path:
 
-    `nngateway-mail2news-header-transformation'
-          Creates a `To' header that looks like `nngateway-address'.
+          (file)
 
+     If the mail spool file is not located on the local machine, it's
+     best to use POP or IMAP or the like to fetch the mail.  You can
+     not use ange-ftp file names here--it has no way to lock the mail
+     spool while moving the mail.
+
+     If it's impossible to set up a proper server, you can use ssh
+     instead.
+
+          (setq mail-sources
+                '((file :prescript "ssh host bin/getmail >%t")))
+
+     The `getmail' script would look something like the following:
+
+          #!/bin/sh
+          #  getmail - move mail from spool to stdout
+          #  flu@iki.fi
+          
+          MOVEMAIL=/usr/lib/emacs/20.3/i386-redhat-linux/movemail
+          TMP=$HOME/Mail/tmp
+          rm -f $TMP; $MOVEMAIL $MAIL $TMP >/dev/null && cat $TMP
+
+     Alter this script to fit find the `movemail' you want to use.
+
+`directory'
+     Get mail from several files in a directory.  This is typically
+     used when you have procmail split the incoming mail into several
+     files.  Setting `nnmail-scan-directory-mail-source-once' to
+     non-nil force Gnus to scan the mail source only once.
+
+     Keywords:
+
+    `:path'
+          The path of the directory where the files are.  There is no
+          default value.
+
+    `:suffix'
+          Only files ending with this suffix are used.  The default is
+          `.spool'.
+
+    `:predicate'
+          Only files that have this predicate return non-`nil' are
+          returned.  The default is `identity'.  This is used as an
+          additional filter--only files that have the right suffix
+          _and_ satisfy this predicate are considered.
+
+    `:prescript'
+    `:postscript'
+          Script run before/after fetching mail.
+
+     An example directory mail source:
+
+          (directory :path "/home/user-name/procmail-dir/"
+                     :suffix ".prcml")
+
+`pop'
+     Get mail from a POP server.
+
+     Keywords:
+
+    `:server'
+          The name of the POP server.  The default is taken from the
+          `MAILHOST' environment variable.
+
+    `:port'
+          The port number of the POP server.  This can be a number (e.g.
+          `:port 110') or a string (e.g. `:port "pop3"').  If it is a
+          string, it should be a service name as listed in
+          `/etc/services' on Unix systems.  The default is `"pop3"'.
+          On some systems you might need to specify it as `"pop-3"'
+          instead.
+
+    `:user'
+          The user name to give to the POP server.  The default is the
+          login name.
+
+    `:password'
+          The password to give to the POP server.  If not specified,
+          the user is prompted.
+
+    `:program'
+          The program to use to fetch mail from the POP server.  This
+          should be a `format'-like string.  Here's an example:
+
+               fetchmail %u@%s -P %p %t
+
+          The valid format specifier characters are:
+
+         `t'
+               The name of the file the mail is to be moved to.  This
+               must always be included in this string.
+
+         `s'
+               The name of the server.
+
+         `P'
+               The port number of the server.
+
+         `u'
+               The user name to use.
+
+         `p'
+               The password to use.
+
+          The values used for these specs are taken from the values you
+          give the corresponding keywords.
+
+    `:prescript'
+          A script to be run before fetching the mail.  The syntax is
+          the same as the `:program' keyword.  This can also be a
+          function to be run.
+
+    `:postscript'
+          A script to be run after fetching the mail.  The syntax is
+          the same as the `:program' keyword.  This can also be a
+          function to be run.
+
+    `:function'
+          The function to use to fetch mail from the POP server.  The
+          function is called with one parameter--the name of the file
+          where the mail should be moved to.
+
+    `:authentication'
+          This can be either the symbol `password' or the symbol `apop'
+          and says what authentication scheme to use.  The default is
+          `password'.
+
+     If the `:program' and `:function' keywords aren't specified,
+     `pop3-movemail' will be used.
+
+     Here are some examples.  Fetch from the default POP server, using
+     the default user name, and default fetcher:
+
+          (pop)
+
+     Fetch from a named server with a named user and password:
+
+          (pop :server "my.pop.server"
+               :user "user-name" :password "secret")
+
+     Use `movemail' to move the mail:
+
+          (pop :program "movemail po:%u %t %p")
+
+`maildir'
+     Get mail from a maildir.  This is a type of mailbox that is
+     supported by at least qmail and postfix, where each file in a
+     special directory contains exactly one mail.
+
+     Keywords:
+
+    `:path'
+          The path of the directory where the mails are stored.  The
+          default is taken from the `MAILDIR' environment variable or
+          `~/Maildir/'.
+
+    `:subdirs'
+          The subdirectories of the Maildir.  The default is `("new"
+          "cur")'.
+
+          You can also get mails from remote hosts (because maildirs
+          don't suffer from locking problems).
+
+     Two example maildir mail sources:
+
+          (maildir :path "/home/user-name/Maildir/"
+                   :subdirs ("cur" "new"))
+
+          (maildir :path "/user@remotehost.org:~/Maildir/"
+                   :subdirs ("new"))
+
+`imap'
+     Get mail from a IMAP server.  If you don't want to use IMAP as
+     intended, as a network mail reading protocol (ie with nnimap), for
+     some reason or other, Gnus let you treat it similar to a POP server
+     and fetches articles from a given IMAP mailbox.  *Note IMAP::, for
+     more information.
+
+     Keywords:
+
+    `:server'
+          The name of the IMAP server.  The default is taken from the
+          `MAILHOST' environment variable.
+
+    `:port'
+          The port number of the IMAP server.  The default is `143', or
+          `993' for SSL connections.
+
+    `:user'
+          The user name to give to the IMAP server.  The default is the
+          login name.
+
+    `:password'
+          The password to give to the IMAP server.  If not specified,
+          the user is prompted.
+
+    `:stream'
+          What stream to use for connecting to the server, this is one
+          of the symbols in `imap-stream-alist'.  Right now, this means
+          `kerberos4', `ssl' or the default `network'.
+
+    `:authentication'
+          Which authenticator to use for authenticating to the server,
+          this is one of the symbols in `imap-authenticator-alist'.
+          Right now, this means `kerberos4', `cram-md5', `anonymous' or
+          the default `login'.
+
+    `:program'
+          When using the `shell' :stream, the contents of this variable
+          is mapped into the `imap-shell-program' variable.  This
+          should be a `format'-like string (or list of strings).
           Here's an example:
 
-               (setq gnus-post-method
-                     '(nngateway "mail2news@replay.com"
-                                 (nngateway-header-transformation
-                                  nngateway-mail2news-header-transformation)))
+               ssh %s imapd
 
-   So, to use this, simply say something like:
+          The valid format specifier characters are:
 
-     (setq gnus-post-method '(nngateway "GATEWAY.ADDRESS"))
+         `s'
+               The name of the server.
 
-
-File: gnus,  Node: Combined Groups,  Next: Gnus Unplugged,  Prev: Other Sources,  Up: Select Methods
+         `l'
+               User name from `imap-default-user'.
 
-Combined Groups
-===============
+         `p'
+               The port number of the server.
 
-   Gnus allows combining a mixture of all the other group types into
-bigger groups.
+          The values used for these specs are taken from the values you
+          give the corresponding keywords.
 
-* Menu:
+    `:mailbox'
+          The name of the mailbox to get mail from.  The default is
+          `INBOX' which normally is the mailbox which receive incoming
+          mail.
 
-* Virtual Groups::     Combining articles from many groups.
-* Kibozed Groups::     Looking through parts of the newsfeed for articles.
+    `:predicate'
+          The predicate used to find articles to fetch.  The default,
+          `UNSEEN UNDELETED', is probably the best choice for most
+          people, but if you sometimes peek in your mailbox with a IMAP
+          client and mark some articles as read (or; SEEN) you might
+          want to set this to `nil'.  Then all articles in the mailbox
+          is fetched, no matter what.  For a complete list of
+          predicates, see RFC 2060 §6.4.4.
 
-
-File: gnus,  Node: Virtual Groups,  Next: Kibozed Groups,  Up: Combined Groups
+    `:fetchflag'
+          How to flag fetched articles on the server, the default
+          `\Deleted' will mark them as deleted, an alternative would be
+          `\Seen' which would simply mark them as read.  These are the
+          two most likely choices, but more flags are defined in RFC
+          2060 §2.3.2.
 
-Virtual Groups
---------------
+    `:dontexpunge'
+          If non-nil, don't remove all articles marked as deleted in
+          the mailbox after finishing the fetch.
 
-   An "nnvirtual group" is really nothing more than a collection of
-other groups.
+     An example IMAP mail source:
 
-   For instance, if you are tired of reading many small groups, you can
-put them all in one big group, and then grow tired of reading one big,
-unwieldy group.  The joys of computing!
+          (imap :server "mail.mycorp.com"
+                :stream kerberos4
+                :fetchflag "\\Seen")
 
-   You specify `nnvirtual' as the method.  The address should be a
-regexp to match component groups.
+`webmail'
+     Get mail from a webmail server, such as www.hotmail.com,
+     webmail.netscape.com, www.netaddress.com, www.my-deja.com.
 
-   All marks in the virtual group will stick to the articles in the
-component groups.  So if you tick an article in a virtual group, the
-article will also be ticked in the component group from whence it came.
-(And vice versa--marks from the component groups will also be shown in
-the virtual group.)
+     NOTE: Now mail.yahoo.com provides POP3 service, so POP mail source
+     is suggested.
 
-   Here's an example `nnvirtual' method that collects all Andrea Dworkin
-newsgroups into one, big, happy newsgroup:
+     NOTE: Webmail largely depends cookies. A "one-line-cookie" patch is
+     required for url "4.0pre.46".
 
-     (nnvirtual "^alt\\.fan\\.andrea-dworkin$\\|^rec\\.dworkin.*")
+     WARNING: Mails may lost.  NO WARRANTY.
 
-   The component groups can be native or foreign; everything should work
-smoothly, but if your computer explodes, it was probably my fault.
+     Keywords:
 
-   Collecting the same group from several servers might actually be a
-good idea if users have set the Distribution header to limit
-distribution.  If you would like to read `soc.motss' both from a server
-in Japan and a server in Norway, you could use the following as the
-group regexp:
+    `:subtype'
+          The type of the webmail server.  The default is `hotmail'.
+          The alternatives are `netscape', `netaddress', `my-deja'.
 
-     "^nntp\\+server\\.jp:soc\\.motss$\\|^nntp\\+server\\.no:soc\\.motss$"
+    `:user'
+          The user name to give to the webmail server.  The default is
+          the login name.
 
-   (Remember, though, that if you're creating the group with `G m', you
-shouldn't double the backslashes, and you should leave off the quote
-characters at the beginning and the end of the string.)
+    `:password'
+          The password to give to the webmail server.  If not
+          specified, the user is prompted.
 
-   This should work kinda smoothly--all articles from both groups should
-end up in this one, and there should be no duplicates.  Threading (and
-the rest) will still work as usual, but there might be problems with the
-sequence of articles.  Sorting on date might be an option here (*note
-Selecting a Group::).
+    `:dontexpunge'
+          If non-nil, only fetch unread articles and don't move them to
+          trash folder after finishing the fetch.
 
-   One limitation, however--all groups included in a virtual group have
-to be alive (i.e., subscribed or unsubscribed).  Killed or zombie
-groups can't be component groups for `nnvirtual' groups.
+     An example webmail source:
 
-   If the `nnvirtual-always-rescan' is non-`nil', `nnvirtual' will
-always scan groups for unread articles when entering a virtual group.
-If this variable is `nil' (which is the default) and you read articles
-in a component group after the virtual group has been activated, the
-read articles from the component group will show up when you enter the
-virtual group.  You'll also see this effect if you have two virtual
-groups that have a component group in common.  If that's the case, you
-should set this variable to `t'.  Or you can just tap `M-g' on the
-virtual group every time before you enter it--it'll have much the same
-effect.
+          (webmail :subtype 'hotmail
+                   :user "user-name"
+                   :password "secret")
 
-   `nnvirtual' can have both mail and news groups as component groups.
-When responding to articles in `nnvirtual' groups, `nnvirtual' has to
-ask the backend of the component group the article comes from whether
-it is a news or mail backend.  However, when you do a `^', there is
-typically no sure way for the component backend to know this, and in
-that case `nnvirtual' tells Gnus that the article came from a not-news
-backend.  (Just to be on the safe side.)
+"Common Keywords"
+     Common keywords can be used in any type of mail source.
 
-   `C-c C-t' in the message buffer will insert the `Newsgroups' line
-from the article you respond to in these cases.
+     Keywords:
 
-
-File: gnus,  Node: Kibozed Groups,  Prev: Virtual Groups,  Up: Combined Groups
+    `:plugged'
+          If non-nil, fetch the mail even when Gnus is unplugged.  If
+          you use directory source to get mail, you can specify it as
+          in this example:
 
-Kibozed Groups
---------------
+               (setq mail-sources
+                     '((directory :path "/home/pavel/.Spool/"
+                                  :suffix ""
+                                  :plugged t)))
 
-   "Kibozing" is defined by OED as "grepping through (parts of) the
-news feed".  `nnkiboze' is a backend that will do this for you.  Oh
-joy!  Now you can grind any NNTP server down to a halt with useless
-requests!  Oh happiness!
+          Gnus will then fetch your mail even when you are unplugged.
+          This is useful when you use local mail and news.
 
-   To create a kibozed group, use the `G k' command in the group buffer.
+Function Interface
+..................
 
-   The address field of the `nnkiboze' method is, as with `nnvirtual',
-a regexp to match groups to be "included" in the `nnkiboze' group.
-That's where most similarities between `nnkiboze' and `nnvirtual' end.
+   Some of the above keywords specify a Lisp function to be executed.
+For each keyword `:foo', the Lisp variable `foo' is bound to the value
+of the keyword while the function is executing.  For example, consider
+the following mail-source setting:
 
-   In addition to this regexp detailing component groups, an `nnkiboze'
-group must have a score file to say what articles are to be included in
-the group (*note Scoring::).
+     (setq mail-sources '((pop :user "jrl"
+                               :server "pophost" :function fetchfunc)))
 
-   You must run `M-x nnkiboze-generate-groups' after creating the
-`nnkiboze' groups you want to have.  This command will take time.  Lots
-of time.  Oodles and oodles of time.  Gnus has to fetch the headers from
-all the articles in all the component groups and run them through the
-scoring process to determine if there are any articles in the groups
-that are to be part of the `nnkiboze' groups.
+   While the function `fetchfunc' is executing, the symbol `user' is
+bound to `"jrl"', and the symbol `server' is bound to `"pophost"'.  The
+symbols `port', `password', `program', `prescript', `postscript',
+`function', and `authentication' are also bound (to their default
+values).
 
-   Please limit the number of component groups by using restrictive
-regexps.  Otherwise your sysadmin may become annoyed with you, and the
-NNTP site may throw you off and never let you back in again.  Stranger
-things have happened.
-
-   `nnkiboze' component groups do not have to be alive--they can be
-dead, and they can be foreign.  No restrictions.
-
-   The generation of an `nnkiboze' group means writing two files in
-`nnkiboze-directory', which is `~/News/' by default.  One contains the
-NOV header lines for all the articles in the group, and the other is an
-additional `.newsrc' file to store information on what groups have been
-searched through to find component articles.
-
-   Articles marked as read in the `nnkiboze' group will have their NOV
-lines removed from the NOV file.
+   See above for a list of keywords for each type of mail source.
 
 
-File: gnus,  Node: Gnus Unplugged,  Prev: Combined Groups,  Up: Select Methods
+File: gnus,  Node: Mail Source Customization,  Next: Fetching Mail,  Prev: Mail Source Specifiers,  Up: Mail Sources
 
-Gnus Unplugged
-==============
+Mail Source Customization
+.........................
 
-   In olden times (ca. February '88), people used to run their
-newsreaders on big machines with permanent connections to the net.
-News transport was dealt with by news servers, and all the newsreaders
-had to do was to read news.  Believe it or not.
+   The following is a list of variables that influence how the mail is
+fetched.  You would normally not need to set or change any of these
+variables.
 
-   Nowadays most people read news and mail at home, and use some sort of
-modem to connect to the net.  To avoid running up huge phone bills, it
-would be nice to have a way to slurp down all the news and mail, hang up
-the phone, read for several hours, and then upload any responses you
-have to make.  And then you repeat the procedure.
+`mail-source-crash-box'
+     File where mail will be stored while processing it.  The default is
+     `~/.emacs-mail-crash-box'.
 
-   Of course, you can use news servers for doing this as well.  I've
-used `inn' together with `slurp', `pop' and `sendmail' for some years,
-but doing that's a bore.  Moving the news server functionality up to
-the newsreader makes sense if you're the only person reading news on a
-machine.
+`mail-source-delete-incoming'
+     If non-`nil', delete incoming files after handling them.
 
-   Using Gnus as an "offline" newsreader is quite simple.
+`mail-source-directory'
+     Directory where files (if any) will be stored.  The default is
+     `~/Mail/'.  At present, the only thing this is used for is to say
+     where the incoming files will be stored if the previous variable is
+     `nil'.
 
-   * First, set up Gnus as you would do if you were running it on a
-     machine that has full connection to the net.  Go ahead.  I'll
-     still be waiting here.
+`mail-source-incoming-file-prefix'
+     Prefix for file name for storing incoming mail.  The default is
+     `Incoming', in which case files will end up with names like
+     `Incoming30630D_' or `Incoming298602ZD'.  This is really only
+     relevant if `mail-source-delete-incoming' is `nil'.
 
-   * Then, put the following magical incantation at the end of your
-     `.gnus.el' file:
-
-          (gnus-agentize)
-
-   That's it.  Gnus is now an "offline" newsreader.
-
-   Of course, to use it as such, you have to learn a few new commands.
-
-* Menu:
-
-* Agent Basics::           How it all is supposed to work.
-* Agent Categories::       How to tell the Gnus Agent what to download.
-* Agent Commands::         New commands for all the buffers.
-* Agent Expiry::           How to make old articles go away.
-* Outgoing Messages::      What happens when you post/mail something?
-* Agent Variables::        Customizing is fun.
-* Example Setup::          An example `.gnus.el' file for offline people.
-* Batching Agents::        How to fetch news from a `cron' job.
-
-
-File: gnus,  Node: Agent Basics,  Next: Agent Categories,  Up: Gnus Unplugged
-
-Agent Basics
-------------
-
-   First, let's get some terminology out of the way.
-
-   The Gnus Agent is said to be "unplugged" when you have severed the
-connection to the net (and notified the Agent that this is the case).
-When the connection to the net is up again (and Gnus knows this), the
-Agent is "plugged".
-
-   The "local" machine is the one you're running on, and which isn't
-connected to the net continuously.
-
-   "Downloading" means fetching things from the net to your local
-machine.  "Uploading" is doing the opposite.
-
-   Let's take a typical Gnus session using the Agent.
-
-   * You start Gnus with `gnus-unplugged'.  This brings up the Gnus
-     Agent in a disconnected state.  You can read all the news that you
-     have already fetched while in this mode.
-
-   * You then decide to see whether any new news has arrived.  You
-     connect your machine to the net (using PPP or whatever), and then
-     hit `J j' to make Gnus become "plugged".
-
-   * You can then read the new news immediately, or you can download
-     the news onto your local machine.  If you want to do the latter,
-     you press `J s' to fetch all the eligible articles in all the
-     groups.  (To let Gnus know which articles you want to download,
-     *note Agent Categories::.)
-
-   * After fetching the articles, you press `J j' to make Gnus become
-     unplugged again, and you shut down the PPP thing (or whatever).
-     And then you read the news offline.
-
-   * And then you go to step 2.
-
-   Here are some things you should do the first time (or so) that you
-use the Agent.
-
-   * Decide which servers should be covered by the Agent.  If you have
-     a mail backend, it would probably be nonsensical to have it
-     covered by the Agent.  Go to the server buffer (`^' in the group
-     buffer) and press `J a' the server (or servers) that you wish to
-     have covered by the Agent (*note Server Agent Commands::).  This
-     will typically be only the primary select method, which is listed
-     on the bottom in the buffer.
-
-   * Decide on download policy.  *Note Agent Categories::.
-
-   * Uhm... that's it.
-
-
-File: gnus,  Node: Agent Categories,  Next: Agent Commands,  Prev: Agent Basics,  Up: Gnus Unplugged
-
-Agent Categories
-----------------
-
-   One of the main reasons to integrate the news transport layer into
-the newsreader is to allow greater control over what articles to
-download.  There's not much point in downloading huge amounts of
-articles, just to find out that you're not interested in reading any of
-them.  It's better to be somewhat more conservative in choosing what to
-download, and then mark the articles for downloading manually if it
-should turn out that you're interested in the articles anyway.
-
-   The main way to control what is to be downloaded is to create a
-"category" and then assign some (or all) groups to this category.  Gnus
-has its own buffer for creating and managing categories.
-
-* Menu:
-
-* Category Syntax::       What a category looks like.
-* The Category Buffer::   A buffer for maintaining categories.
-* Category Variables::    Customize'r'Us.
-
-
-File: gnus,  Node: Category Syntax,  Next: The Category Buffer,  Up: Agent Categories
-
-Category Syntax
-...............
-
-   A category consists of two things.
-
-  1. A predicate which (generally) gives a rough outline of which
-     articles are eligible for downloading; and
-
-  2. a score rule which (generally) gives you a finer granularity when
-     deciding what articles to download.  (Note that this "download
-     score" is wholly unrelated to normal scores.)
-
-   A predicate consists of predicates with logical operators sprinkled
-in between.
-
-   Perhaps some examples are in order.
-
-   Here's a simple predicate.  (It's the default predicate, in fact,
-used for all groups that don't belong to any other category.)
-
-     short
-
-   Quite simple, eh?  This predicate is true if and only if the article
-is short (for some value of "short").
-
-   Here's a more complex predicate:
-
-     (or high
-         (and
-          (not low)
-          (not long)))
-
-   This means that an article should be downloaded if it has a high
-score, or if the score is not low and the article is not long.  You get
-the drift.
-
-   The available logical operators are `or', `and' and `not'.  (If you
-prefer, you can use the more "C"-ish operators `|', `&' and `!'
-instead.)
-
-   The following predicates are pre-defined, but if none of these fit
-what you want to do, you can write your own.
-
-`short'
-     True iff the article is shorter than `gnus-agent-short-article'
-     lines; default 100.
-
-`long'
-     True iff the article is longer than `gnus-agent-long-article'
-     lines; default 200.
-
-`low'
-     True iff the article has a download score less than
-     `gnus-agent-low-score'; default 0.
-
-`high'
-     True iff the article has a download score greater than
-     `gnus-agent-high-score'; default 0.
-
-`spam'
-     True iff the Gnus Agent guesses that the article is spam.  The
-     heuristics may change over time, but at present it just computes a
-     checksum and sees whether articles match.
-
-`true'
-     Always true.
-
-`false'
-     Always false.
-
-   If you want to create your own predicate function, here's what you
-have to know:  The functions are called with no parameters, but the
-`gnus-headers' and `gnus-score' dynamic variables are bound to useful
-values.
-
-   Now, the syntax of the download score is the same as the syntax of
-normal score files, except that all elements that require actually
-seeing the article itself are verboten.  This means that only the
-following headers can be scored on: `From', `Subject', `Date', `Xref',
-`Lines', `Chars', `Message-ID', and `References'.
+`mail-source-default-file-modes'
+     All new mail files will get this file mode.  The default is 384.
 

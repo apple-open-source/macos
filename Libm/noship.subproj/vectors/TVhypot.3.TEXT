@@ -1,0 +1,98 @@
+!  hypot(x,y) cases
+!
+!  Exact finite cases with at least one zero argument
+3H	d	1	0	OK	1
+3H	d	-1	0	OK	1
+3H	d	1	-0	OK	1
+3H	d	-1	-0	OK	1
+3H	d	0	1	OK	1
+3H	d	-0	1	OK	1
+3H	d	0	-1	OK	1
+3H	d	-0	1	OK	1
+3H	d	Hd1	0	OK	Hd1
+3H	d	-0	-Hd1	OK	Hd1
+3H	d	E	-0	OK	E
+3H	d	0	-E	OK	E
+3H	d	-Ed1	0	OK	Ed1
+3H	d	-0	Ed1	OK	Ed1
+3H	d	0i1	0	OK	0i1
+3H	d	-0	-0i1	OK	0i1
+3H	d	0	0	OK	0
+3H	d	0	-0	OK	0
+3H	d	-0	0	OK	0
+3H	d	-0	-0	OK	0
+!  Exact finite cases with nonzero arguments (implementation-dependent)
+3H	d	3	4	OK	5
+3H	d	-4	-3	OK	5
+!3H	e		3p16381		4p16381		OK		5p16381		Makes no sense for powerpc <klh 9/30/93>
+!3H	e		-4p16381	3p16381		OK		5p16381		Makes no sense for powerpc <klh 9/30/93>
+!3H	e		4m16384		-3m16384	OK		5m16384		Makes no sense for powerpc <klh 9/30/93>
+!3H	e		3m16384		-4m16384	OK		5m16384		Makes no sense for powerpc <klh 9/30/93>
+3H	d	-0i3	0i4	OK	0i5
+3H	d	-0i4	-0i3	OK	0i5
+!  Infinite case with infinite argument(s)
+3H	d	H	0	OK	H
+3H	d	-0	-H	OK	H
+3H	d	-H	-1	OK	H
+3H	d	-1	H	OK	H
+3H	d	Hd1	-H	OK	H
+3H	d	H	Hd1	OK	H
+3H	d	-Ei1	H	OK	H
+3H	d	-H	Ei1	OK	H
+3H	d	Ed1	H	OK	H
+3H	d	-H	-Ed1	OK	H
+3H	d	0i3	-H	OK	H
+3H	d	H	-0i3	OK	H
+3H	d	-H	H	OK	H
+3H	d	-H	-H	OK	H
+3H	d	H	H	OK	H
+3H	d	H	-H	OK	H
+!  Inexact finite cases (*** NOTE tolerances ***)
+! <scp> Disabled <e and >e variants, since function is computed round-nearest always.
+3H	d	Hm1	1	x	Hm1
+3H	d	-E	1	x	1
+3H	d	127d1	0i1	x	127d1
+3H	d	-5i1	12	x	13
+3H	d	3d1	4	x	5
+!  Overflow cases
+3H	d	Hd1	Hd2	ox	H
+3H	d	-Hm1	-Hd2	ox	H
+!  Underflow cases
+3H	d	0i1	0i1	ux	0i1
+3H	d	-0i3	0i7	ux	0i8
+!  NaN cases
+!  Changed INF/NaN cases to return +INF <6/9/93, JPO>
+3H	d	Q	-H	OK	H
+3H	d	Q	-Hd1	OK	Q
+3H	d	Q	-1	OK	Q
+3H	d	Q	-E	OK	Q
+3H	d	Q	-Ed1	OK	Q
+3H	d	Q	-0i1	OK	Q
+3H	d	Q	-0	OK	Q
+3H	d	-Q	0	OK	Q
+3H	d	-Q	0i1	OK	Q
+3H	d	-Q	Ed1	OK	Q
+3H	d	-Q	E	OK	Q
+3H	d	-Q	1	OK	Q
+3H	d	-Q	Hd1	OK	Q
+3H	d	-Q	H	OK	H
+3H	d	-Q	Q	OK	Q
+3H	d	-Q	-Q	OK	Q
+3H	d	Q	Q	OK	Q
+3H	d	Q	-Q	OK	Q
+3H	d	-H	-Q	OK	H
+3H	d	-Hd1	-Q	OK	Q
+3H	d	-1	-Q	OK	Q
+3H	d	-E	-Q	OK	Q
+3H	d	-Ed1	-Q	OK	Q
+3H	d	-0i1	-Q	OK	Q
+3H	d	-0	-Q	OK	Q
+3H	d	0	Q	OK	Q
+3H	d	0i1	Q	OK	Q
+3H	d	Ed1	Q	OK	Q
+3H	d	E	Q	OK	Q
+3H	d	1	Q	OK	Q
+3H	d	Hd1	Q	OK	Q
+3H	d	H	Q	OK	H
+
+

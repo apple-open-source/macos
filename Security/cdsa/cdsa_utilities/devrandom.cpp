@@ -21,8 +21,16 @@
 //
 #include <Security/devrandom.h>
 
+using namespace UnixPlusPlus;
+
 
 namespace Security {
+
+
+//
+// The common (shared) open file descriptor to /dev/random
+//
+ModuleNexus<FileDesc> DevRandomGenerator::mDevRandom;
 
 
 //
@@ -30,7 +38,14 @@ namespace Security {
 //
 DevRandomGenerator::DevRandomGenerator(bool writable)
 {
-    mDevRandom.open("/dev/random", writable ? O_RDWR : O_RDONLY);
+    FileDesc &fd = mDevRandom();
+    if (!fd) {
+        fd.open("/dev/random", writable ? O_RDWR : O_RDONLY);
+    } else if (writable && !fd.isWritable()) {
+        FileDesc newFd("/dev/random", O_RDWR);
+        fd.close();
+        fd = newFd;
+    }
 }
 
 
@@ -39,7 +54,7 @@ DevRandomGenerator::DevRandomGenerator(bool writable)
 //
 void DevRandomGenerator::random(void *data, size_t length)
 {
-    mDevRandom.read(data, length);
+    mDevRandom().read(data, length);
 }
 
 
@@ -48,7 +63,7 @@ void DevRandomGenerator::random(void *data, size_t length)
 //
 void DevRandomGenerator::addEntropy(const void *data, size_t length)
 {
-    mDevRandom.write(data, length);
+    mDevRandom().write(data, length);
 }
 
 

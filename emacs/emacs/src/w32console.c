@@ -1,5 +1,5 @@
 /* Terminal hooks for GNU Emacs on the Microsoft W32 API.
-   Copyright (C) 1992 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -28,14 +28,20 @@ Boston, MA 02111-1307, USA.
 #include <stdlib.h>
 #include <stdio.h>
 #include <windows.h>
+#include <string.h>
 
 #include "lisp.h"
 #include "charset.h"
 #include "coding.h"
-#include "frame.h"
 #include "disptab.h"
 #include "termhooks.h"
+#include "dispextern.h"
+/* Disable features in frame.h that require a Window System.  */
+#undef HAVE_WINDOW_SYSTEM
+#include "frame.h"
 #include "w32inevt.h"
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 /* from window.c */
 extern Lisp_Object Frecenter ();
@@ -46,7 +52,7 @@ extern int detect_input_pending ();
 /* from sysdep.c */
 extern int read_input_pending ();
 
-extern FRAME_PTR updating_frame;
+extern struct frame * updating_frame;
 extern int meta_key;
 
 static void move_cursor (int row, int col);
@@ -54,27 +60,27 @@ static void clear_to_end (void);
 static void clear_frame (void);
 static void clear_end_of_line (int);
 static void ins_del_lines (int vpos, int n);
-static void change_line_highlight (int, int, int);
+static void change_line_highlight (int, int, int, int);
 static void reassert_line_highlight (int, int);
-static void insert_glyphs (GLYPH *start, int len);
-static void write_glyphs (GLYPH *string, int len);
+static void insert_glyphs (struct glyph *start, int len);
+static void write_glyphs (struct glyph *string, int len);
 static void delete_glyphs (int n);
 void w32_sys_ring_bell (void);
 static void reset_terminal_modes (void);
 static void set_terminal_modes (void);
 static void set_terminal_window (int size);
-static void update_begin (FRAME_PTR f);
-static void update_end (FRAME_PTR f);
-static int  hl_mode (int new_highlight);
+static void update_begin (struct frame * f);
+static void update_end (struct frame * f);
+static WORD w32_face_attributes (struct frame *f, int face_id);
+static int hl_mode (int new_highlight);
 
-COORD	cursor_coords;
-HANDLE	prev_screen, cur_screen;
-UCHAR	char_attr, char_attr_normal, char_attr_reverse;
-HANDLE  keyboard_handle;
-DWORD   prev_console_mode;
+static COORD	cursor_coords;
+static HANDLE	prev_screen, cur_screen;
+static WORD	char_attr_normal;
+static DWORD   prev_console_mode;
 
 #ifndef USE_SEPARATE_SCREEN
-CONSOLE_CURSOR_INFO prev_console_cursor;
+static CONSOLE_CURSOR_INFO prev_console_cursor;
 #endif
 
 /* Determine whether to make frame dimensions match the screen buffer,
@@ -82,6 +88,7 @@ CONSOLE_CURSOR_INFO prev_console_cursor;
    over telnet, while the latter is more useful when working directly at
    the console with a large scroll-back buffer.  */
 int w32_use_full_screen_buffer;
+HANDLE  keyboard_handle;
 
 
 /* Setting this as the ctrl handler prevents emacs from being killed when
@@ -98,7 +105,7 @@ ctrl_c_handler (unsigned long type)
 
 /* If we're updating a frame, use it as the current frame
    Otherwise, use the selected frame.  */
-#define PICK_FRAME() (updating_frame ? updating_frame : selected_frame)
+#define PICK_FRAME() (updating_frame ? updating_frame : SELECTED_FRAME ())
 
 /* Move the cursor to (row, col).  */
 void
@@ -107,7 +114,7 @@ move_cursor (int row, int col)
   cursor_coords.X = col;
   cursor_coords.Y = row;
   
-  if (updating_frame == (FRAME_PTR) NULL)
+  if (updating_frame == (struct frame *) NULL)
     {
       SetConsoleCursorPosition (cur_screen, cursor_coords);
     }
@@ -117,7 +124,7 @@ move_cursor (int row, int col)
 void
 clear_to_end (void)
 {
-  FRAME_PTR f = PICK_FRAME ();
+  struct frame * f = PICK_FRAME ();
   
   clear_end_of_line (FRAME_WIDTH (f) - 1);
   ins_del_lines (cursor_coords.Y, FRAME_HEIGHT (f) - cursor_coords.Y - 1);
@@ -127,27 +134,28 @@ clear_to_end (void)
 void
 clear_frame (void)
 {
-  FRAME_PTR  f = PICK_FRAME ();
+  struct frame *  f = PICK_FRAME ();
   COORD	     dest;
-  int        n, r;
+  int        n;
+  DWORD      r;
   CONSOLE_SCREEN_BUFFER_INFO info;
 
   GetConsoleScreenBufferInfo (GetStdHandle (STD_OUTPUT_HANDLE), &info);
 
   hl_mode (0);
-  
+
   /* Remember that the screen buffer might be wider than the window.  */
   n = FRAME_HEIGHT (f) * info.dwSize.X;
   dest.X = dest.Y = 0;
 
-  FillConsoleOutputAttribute (cur_screen, char_attr, n, dest, &r);
+  FillConsoleOutputAttribute (cur_screen, char_attr_normal, n, dest, &r);
   FillConsoleOutputCharacter (cur_screen, ' ', n, dest, &r);
 
   move_cursor (0, 0);
 }
 
 
-static GLYPH glyph_base[256];
+static struct glyph glyph_base[256];
 static BOOL  ceol_initialized = FALSE;
 
 /* Clear from Cursor to end (what's "standout marker"?).  */
@@ -159,7 +167,7 @@ clear_end_of_line (int end)
       int i;
       for (i = 0; i < 256; i++)
         {
-	  glyph_base[i] = SPACEGLYPH;	/* empty space	*/
+	  memcpy (&glyph_base[i], &space_glyph, sizeof (struct glyph));
         }
       ceol_initialized = TRUE;
     }
@@ -174,7 +182,7 @@ ins_del_lines (int vpos, int n)
   SMALL_RECT scroll;
   COORD	     dest;
   CHAR_INFO  fill;
-  FRAME_PTR  f = PICK_FRAME ();
+  struct frame *  f = PICK_FRAME ();
 
   if (n < 0)
     {
@@ -196,7 +204,7 @@ ins_del_lines (int vpos, int n)
   save_highlight = hl_mode (0);
   
   fill.Char.AsciiChar = 0x20;
-  fill.Attributes = char_attr;
+  fill.Attributes = char_attr_normal;
   
   ScrollConsoleScreenBuffer (cur_screen, &scroll, NULL, dest, &fill);
 
@@ -247,21 +255,15 @@ hl_mode (int new_highlight)
   
   old_highlight = highlight;
   highlight = (new_highlight != 0);
-  if (highlight)
-    {
-      char_attr = char_attr_reverse;
-    }
-  else
-    {
-      char_attr = char_attr_normal;
-    }
+
   return old_highlight;
 }
 
 /* Call this when about to modify line at position VPOS and change whether it
    is highlighted.  */
 void
-change_line_highlight (int new_highlight, int vpos, int first_unused_hpos)
+change_line_highlight (int new_highlight, int vpos, int y, 
+                       int first_unused_hpos)
 {
   hl_mode (new_highlight);
   move_cursor (vpos, 0);
@@ -290,7 +292,7 @@ scroll_line (int dist, int direction)
   SMALL_RECT scroll;
   COORD	     dest;
   CHAR_INFO  fill;
-  FRAME_PTR  f = PICK_FRAME ();
+  struct frame *  f = PICK_FRAME ();
   
   scroll.Top = cursor_coords.Y;
   scroll.Bottom = cursor_coords.Y;
@@ -310,15 +312,15 @@ scroll_line (int dist, int direction)
   dest.Y = cursor_coords.Y;
   
   fill.Char.AsciiChar = 0x20;
-  fill.Attributes = char_attr;
-  
+  fill.Attributes = char_attr_normal;
+
   ScrollConsoleScreenBuffer (cur_screen, &scroll, NULL, dest, &fill);
 }
 
 
 /* If start is zero insert blanks instead of a string at start ?. */
 void
-insert_glyphs (register GLYPH *start, register int len)
+insert_glyphs (register struct glyph *start, register int len)
 {
   scroll_line (len, RIGHT);
 
@@ -337,11 +339,15 @@ insert_glyphs (register GLYPH *start, register int len)
 }
 
 void
-write_glyphs (register GLYPH *string, register int len)
+write_glyphs (register struct glyph *string, register int len)
 {
-  int produced, consumed, i;
-  FRAME_PTR f = PICK_FRAME ();
-  
+  int produced, consumed;
+  DWORD r;
+  struct frame * f = PICK_FRAME ();
+  WORD char_attr;
+  unsigned char conversion_buffer[1024];
+  int conversion_buffer_size = sizeof conversion_buffer;
+
   if (len <= 0)
     return;
 
@@ -351,36 +357,52 @@ write_glyphs (register GLYPH *string, register int len)
 
   while (len > 0)
     {
-      /* We use shared conversion buffer of the current size (1024
-	 bytes at least).  Usually it is sufficient, but if not, we
-	 just repeat the loop.  */
-      produced = encode_terminal_code (string, conversion_buffer,
-				       len, conversion_buffer_size, &consumed);
-      if (produced > 0)
-	{
-          /* Set the attribute for these characters.  */
-          if (!FillConsoleOutputAttribute
-              (cur_screen, char_attr, produced, cursor_coords, &i))
-            {
-              printf ("Failed writing console attributes: %d\n",
-                      GetLastError ());
-              fflush (stdout);
-            }
+      /* Identify a run of glyphs with the same face.  */
+      int face_id = string->face_id;
+      int n;
+      
+      for (n = 1; n < len; ++n)
+	if (string[n].face_id != face_id)
+	  break;
 
-          /* Write the characters.  */
-          if (!WriteConsoleOutputCharacter
-              (cur_screen, conversion_buffer, produced, cursor_coords, &i))
-            {
-              printf ("Failed writing console characters: %d\n",
-                      GetLastError ());
-              fflush (stdout);
-            }
+      /* Turn appearance modes of the face of the run on.  */
+      char_attr = w32_face_attributes (f, face_id);
 
-          cursor_coords.X += produced;
-          move_cursor (cursor_coords.Y, cursor_coords.X);
+      while (n > 0)
+        {
+	  /* We use a fixed size (1024 bytes) of conversion buffer.
+	     Usually it is sufficient, but if not, we just repeat the
+	     loop.  */
+	  produced = encode_terminal_code (string, conversion_buffer,
+					   n, conversion_buffer_size,
+					   &consumed);
+	  if (produced > 0)
+	    {
+              /* Set the attribute for these characters.  */
+              if (!FillConsoleOutputAttribute (cur_screen, char_attr,
+                                               produced, cursor_coords, &r)) 
+                {
+                  printf ("Failed writing console attributes: %d\n",
+                          GetLastError ());
+                  fflush (stdout);
+                }
+
+              /* Write the characters.  */
+              if (!WriteConsoleOutputCharacter (cur_screen, conversion_buffer,
+                                                produced, cursor_coords, &r))
+                {
+                  printf ("Failed writing console characters: %d\n",
+                          GetLastError ());
+                  fflush (stdout);
+                }
+
+              cursor_coords.X += produced;
+              move_cursor (cursor_coords.Y, cursor_coords.X);
+            }    
+          len -= consumed;
+          n -= consumed;
+          string += consumed;
         }
-      len -= consumed;
-      string += consumed;
     }
 
   /* We may have to output some codes to terminate the writing.  */
@@ -391,9 +413,9 @@ write_glyphs (register GLYPH *string, register int len)
 		     0, conversion_buffer_size);
       if (terminal_coding.produced > 0)
         {
-          if (!FillConsoleOutputAttribute (cur_screen, char_attr,
+          if (!FillConsoleOutputAttribute (cur_screen, char_attr_normal,
                                            terminal_coding.produced,
-                                           cursor_coords, &i)) 
+                                           cursor_coords, &r)) 
             {
               printf ("Failed writing console attributes: %d\n",
                       GetLastError ());
@@ -402,7 +424,7 @@ write_glyphs (register GLYPH *string, register int len)
 
           /* Write the characters.  */
           if (!WriteConsoleOutputCharacter (cur_screen, conversion_buffer,
-                                            produced, cursor_coords, &i))
+                                            produced, cursor_coords, &r))
             {
               printf ("Failed writing console characters: %d\n",
                       GetLastError ());
@@ -475,6 +497,8 @@ SOUND is nil to use the normal beep.")
 void
 reset_terminal_modes (void)
 {
+  hl_mode (0);
+
 #ifdef USE_SEPARATE_SCREEN
   SetConsoleActiveScreenBuffer (prev_screen);
 #else
@@ -487,6 +511,8 @@ void
 set_terminal_modes (void)
 {
   CONSOLE_CURSOR_INFO cci;
+
+  hl_mode (0);
 
   /* make cursor big and visible (100 on Win95 makes it disappear)  */
   cci.dwSize = 99;
@@ -507,19 +533,92 @@ set_terminal_modes (void)
    
    we'll start with not moving the cursor while an update is in progress.  */
 void
-update_begin (FRAME_PTR f)
+update_begin (struct frame * f)
 {
+  hl_mode (0);
 }
 
 void
-update_end (FRAME_PTR f)
+update_end (struct frame * f)
 {
+  hl_mode (0);
   SetConsoleCursorPosition (cur_screen, cursor_coords);
 }
 
 void
 set_terminal_window (int size)
 {
+}
+
+/***********************************************************************
+				Faces
+ ***********************************************************************/
+
+
+/* Turn appearances of face FACE_ID on tty frame F on.  */
+
+static WORD
+w32_face_attributes (f, face_id)
+     struct frame *f;
+     int face_id;
+{
+  WORD char_attr;
+  int highlight_on_p;
+  struct face *face = FACE_FROM_ID (f, face_id);
+
+  highlight_on_p = hl_mode (0);
+  hl_mode (highlight_on_p);
+
+  xassert (face != NULL);
+
+  char_attr = char_attr_normal;
+
+  if (face->foreground != FACE_TTY_DEFAULT_FG_COLOR
+      && face->foreground != FACE_TTY_DEFAULT_COLOR)
+    char_attr = (char_attr & 0xfff0) + (face->foreground % 16);
+
+  if (face->background != FACE_TTY_DEFAULT_BG_COLOR
+      && face->background != FACE_TTY_DEFAULT_COLOR)
+    char_attr = (char_attr & 0xff0f) + ((face->background % 16) << 4); 
+
+
+  /* NTEMACS_TODO: Faces defined during startup get both foreground
+     and background of 0. Need a better way around this - for now detect
+     the problem and invert one of the faces to make the text readable. */
+  if (((char_attr & 0x00f0) >> 4) == (char_attr & 0x000f))
+    char_attr ^= 0x0007;
+
+  if (face->tty_reverse_p || highlight_on_p)
+    char_attr = (char_attr & 0xff00) + ((char_attr & 0x000f) << 4)
+      + ((char_attr & 0x00f0) >> 4);
+
+  return char_attr;
+}
+
+
+/* Emulation of some X window features from xfns.c and xfaces.c.  */
+
+extern char unspecified_fg[], unspecified_bg[];
+
+
+/* Given a color index, return its standard name.  */
+Lisp_Object
+vga_stdcolor_name (int idx)
+{
+  /* Standard VGA colors, in the order of their standard numbering
+     in the default VGA palette.  */
+  static char *vga_colors[16] = {
+    "black", "blue", "green", "cyan", "red", "magenta", "brown",
+    "lightgray", "darkgray", "lightblue", "lightgreen", "lightcyan",
+    "lightred", "lightmagenta", "yellow", "white"
+  };
+
+  extern Lisp_Object Qunspecified;
+
+  if (idx >= 0 && idx < sizeof (vga_colors) / sizeof (vga_colors[0]))
+    return build_string (vga_colors[idx]);
+  else
+    return Qunspecified;	/* meaning the default */
 }
 
 typedef int (*term_hook) ();
@@ -549,6 +648,7 @@ initialize_w32_display (void)
   
   read_socket_hook = w32_console_read_socket;
   mouse_position_hook = w32_console_mouse_position;
+  estimate_mode_line_height_hook = 0;
 
   /* Initialize interrupt_handle.  */
   init_crit ();
@@ -614,24 +714,28 @@ initialize_w32_display (void)
   GetConsoleScreenBufferInfo (cur_screen, &info);
   
   meta_key = 1;
-  char_attr = info.wAttributes & 0xFF;
-  char_attr_normal = char_attr;
-  char_attr_reverse = ((char_attr & 0xf) << 4) + ((char_attr & 0xf0) >> 4);
+  char_attr_normal = info.wAttributes;
+  hl_mode (0);
 
   if (w32_use_full_screen_buffer)
     {
-      FRAME_HEIGHT (selected_frame) = info.dwSize.Y;	/* lines per page */
-      SET_FRAME_WIDTH (selected_frame, info.dwSize.X);  /* characters per line */
+      FRAME_HEIGHT (SELECTED_FRAME ()) = info.dwSize.Y;	/* lines per page */
+      SET_FRAME_WIDTH (SELECTED_FRAME (), info.dwSize.X);  /* characters per line */
     }
   else
     {
       /* Lines per page.  Use buffer coords instead of buffer size.  */
-      FRAME_HEIGHT (selected_frame) = 1 + info.srWindow.Bottom - 
+      FRAME_HEIGHT (SELECTED_FRAME ()) = 1 + info.srWindow.Bottom - 
 	info.srWindow.Top; 
       /* Characters per line.  Use buffer coords instead of buffer size.  */
-      SET_FRAME_WIDTH (selected_frame, 1 + info.srWindow.Right - 
+      SET_FRAME_WIDTH (SELECTED_FRAME (), 1 + info.srWindow.Right - 
 		       info.srWindow.Left);
     }
+
+  /* Setup w32_display_info structure for this frame. */
+
+  w32_initialize_display_info (build_string ("Console"));
+
 }
 
 DEFUN ("set-screen-color", Fset_screen_color, Sset_screen_color, 2, 2, 0,
@@ -641,7 +745,6 @@ DEFUN ("set-screen-color", Fset_screen_color, Sset_screen_color, 2, 2, 0,
     Lisp_Object background;
 {
   char_attr_normal = XFASTINT (foreground) + (XFASTINT (background) << 4);
-  char_attr_reverse = XFASTINT (background) + (XFASTINT (foreground) << 4);
 
   Frecenter (Qnil);
   return Qt;
@@ -662,7 +765,7 @@ DEFUN ("set-cursor-size", Fset_cursor_size, Sset_cursor_size, 1, 1, 0,
 
 #ifndef HAVE_NTGUI
 void
-pixel_to_glyph_coords (FRAME_PTR f, int pix_x, int pix_y, int *x, int *y,
+pixel_to_glyph_coords (struct frame * f, int pix_x, int pix_y, int *x, int *y,
 		      void *bounds, int noclip)
 {
   *x = pix_x;
@@ -670,7 +773,7 @@ pixel_to_glyph_coords (FRAME_PTR f, int pix_x, int pix_y, int *x, int *y,
 }
 
 void
-glyph_to_pixel_coords (FRAME_PTR f, int x, int y, int *pix_x, int *pix_y)
+glyph_to_pixel_coords (struct window * f, int x, int y, int *pix_x, int *pix_y)
 {
   *pix_x = x;
   *pix_y = y;

@@ -1,0 +1,1019 @@
+#!/bin/sh
+
+# gcc_select [-n] [-force] [2 | 3] [-h | --help] [-v | --version]
+#            [-root] [ -nc | --no-color] 
+#            
+#
+# Switch the default gcc to either 2.x or 3.x.
+#
+#  2             Select gcc 2.x as the default compiler.
+#  3             Select gcc 3.x as the default compiler.
+#  -force        Ensure the links are correct for the specified version.
+#                even if the one specified is the current version.
+#  -h            Display this help info.
+#  --help        Same as -h.
+#  -n            Show commands to do selection but do not execute them.
+#  -nc           Suppress xterm color.
+#  --no-color    Same as -nc.
+#  -root         Skip 'root' check and assume you have root access.
+#  -v            Display gcc_select version number.
+#  --version     Same as -v.
+#           
+# This script will switch the current compiler installation from 2.x
+# to 3.x or vice versa (or echo the commands to do it if -n is used).
+# The current version is displayed if no arguments are specified.
+#
+# Note, for documentation completeness, there is one additional option.
+#
+#  -dstroot dir  Install the sym links in a /usr directory within the
+#		 specified dir or the dir itself if it specifies a usr
+#                directory (e.g., /foo/bar/usr).  -dstroot /usr is
+#                allowed, in which case, the sytem is changed to the
+#                requested compiler, i.e., the same effect as not
+#                specifying it at all. 
+#
+# This is a special option NOT for general use.  It is deliberately 
+# omitted from the --help info.  It is intended for internal build
+# procedures to install the sym links in the specified dir instead
+# of the system.
+#
+# Copyright Apple Computer, Inc. 2002
+
+#######################################################################
+
+GCC_SELECT_VERSION="1.3"
+
+#######################################################################
+
+# The actual two versions are defined as:
+
+VERSION2=2.95.2
+VERSION3=3.1
+
+# It's not expected that the 2.95.2 will ever change.  But the 3.1
+# may change.  If it does then change VERSION3 appropriately.
+
+# Stan temporarily suppressed some of the validations and lib building.
+# I (Ira) changed his if false's to test the following switch instead
+# so we may control it from this one place.  It makes my testing of the
+# full script easier.
+
+TEMPORARILY_SKIP=
+
+# Normally gcc_select will validate that the sym links and files for the
+# current compiler (and just the files for the one being switched to)
+# to make suure they are in their expected directories.  We may,
+# however, not want to validate the sym links for the current compiler
+# if they are initially not present (which is possible).  The
+# VALIDATE_SYMLINKS switch is used to control whether to validate the
+# sym links or not (the files are always validated but see
+# TEMPORARILY_SKIP above).  If null it will not validate them.  If
+# non-null then only the files are validated.
+
+VALIDATE_SYMLINKS=
+
+# The current gcc2 puts installs libcc.a and libcc_noc++.a into
+# /usr/lib and /usr/local/lib respectively.  This requires us to move
+# them out of the way when we switch to gcc3 since, for libcc_noc++.a
+# we have a collision.  We've changed this for gcc2 so that they live
+# with the other gcc2 libs and /usr/lib/libcc.a and
+# /usr/local/lib/libcc_noc++.a become sym links.  This is what we're
+# doing for gcc3 and flipping sym links makes switching easier.  Just
+# in case the original code to move them is still here.  But it would
+# only execute if the LIBS_ARE_ALL_SYMLINKED is set to null below.
+
+LIBS_ARE_ALL_SYMLINKED=1
+
+# Both gcc2 and 3 sym link a set of headers in /usr/include through
+# /usr/include/gcc/darwin/default, where "default" is a sym link to
+# the 2.95.2 or 3.x directory depending on which compiler we switch
+# to.  Either the compiler builds or gcc_select can set the header
+# sym links.  We do it here under control of C_HDRS_ARE_SYMLINKED.
+# If set to null the sym links will not be generated.
+
+C_HDRS_ARE_SYMLINKED=1
+
+c_hdrs="assert.h  	 \
+	float.h   	 \
+	inttypes.h 	 \
+	machine/limits.h \
+	stdarg.h  	 \
+	stdbool.h 	 \
+	stdint.h  	 \
+	varargs.h 	 \
+	va-ppc.h"
+	
+# Note, in the above list va-ppc.h is only for gcc2.
+
+#######################################################################
+#
+## gcc_select's main control function
+#
+switch_it()
+{
+    local f who status argc=$# cwd="`/bin/pwd`"
+    local n="\n`echo "usage: ${0##*/}" | sed -e 's/./ /g'`"
+    local usage="${0##*/} [-n] [-force] [2 | 3] [-h | --help] [-v | --version]$n [-root] [ -nc | --no-color]"
+    
+    #
+    # Collect the arguments...
+    #
+    dashn=
+    switchto_cc=0
+    forced=
+    usr="/usr"
+    installing=
+    show_ver=
+    show_help=
+    root=
+    no_color=
+    
+    while [ $# -gt 0 ] ; do 
+	case $1 in
+	    2 | -2)
+		if [ $switchto_cc -eq 3 ]; then
+		    echo -e "usage: $usage"
+		    echo    "       You cannot specify both a 2 and a 3!."
+		    exit 1
+		fi
+		switchto_cc=2
+		shift
+		;;
+	    3 | -3)
+		if [ $switchto_cc -eq 2 ]; then
+		    echo -e "usage: $usage"
+		    echo    "       You cannot specify both a 2 and a 3!."
+		    exit 1
+		fi
+		switchto_cc=3
+		shift
+		;;
+	    -force | --force)
+		forced=1
+		shift
+		;;
+	    -h | --help)
+	    	show_help=1
+	    	shift
+		;;
+	    -n)
+		dashn="echo -e ""\040"
+		shift
+		;;
+	    --no-color | -nc)
+	    	no_color=1
+	    	shift
+	    	;;
+	    -dstroot | --dstroot)
+		shift
+		usr="`echo "$1" | sed -e 's,/$,,'`"
+		if [ "${usr##*/}" != "usr" ]; then
+		    usr="$usr/usr"
+		fi
+		installing=1
+		shift
+		;;
+	    -root)
+	    	root=1
+	    	shift
+	    	;;
+	    -v | --version)
+	    	echo "gcc_select v$GCC_SELECT_VERSION"
+	    	show_ver=1
+	    	shift
+	    	;;
+	    --testing)
+	    	shift
+	    	do_testing "$1"
+	    	shift
+	    	;;
+	    *)
+		echo -e "usage: $usage"
+		echo    "       Invalid argument ($1)."
+		exit 1
+		;;
+	esac
+    done
+    
+    if false; then
+	echo "dashn         = $dashn"
+	echo "switchto_cc   = $switchto_cc"
+	echo "forced        = $forced"
+	echo "root          = $root"
+	echo "usr           = $usr"
+	echo "show_ver      = $show_ver"
+	echo "show_help     = $show_help"
+	echo "installing    = $installing"
+	echo "no_color      = $no_color"
+    	exit 0
+    fi
+    
+    if [ "$show_help" ]; then
+	echo
+	echo -e "usage: $usage"
+	echo
+	echo "2          Select gcc 2.x as the default compiler."
+	echo "3          Select gcc 3.x as the default compiler."
+	echo "-force     Ensure the links are correct for the specified version."
+	echo "           even if the one specified is the current version."
+	echo "-h         Display this help info."
+	echo "--help     Same as -h."
+	echo "-n         Show commands to do selection but do not execute them."
+	echo "-nc        Suppress xterm color."
+	echo "--no-color Same as -nc."
+	echo "-root      Skip 'root' check and assume you have root access."
+	echo "-v         Display gcc_select version number."
+	echo "--version  Same as -v."
+	echo
+	exit 0
+    fi
+    
+    #
+    # Set color controls unless user doesn't want 'em...
+    #
+    if [ "$no_color" ]; then
+	color_on=echo
+	color_off=echo
+    else
+	color_on="echo -e \\e[31m"  # red
+	color_off="echo -e \\e[0m"
+    fi
+    
+    #
+    # We determine which compiler is currently installed by looking at
+    # the version number it displays when we do a cc -v...
+    #
+    actual_ver="`cc -v 2>&1  | grep -i 'gcc version'`"
+    current_cc="`echo \"$actual_ver\" | sed -e 's/.*gcc version \([^ ]\).*/\1/'`"
+    if [ $current_cc -ne 2 -a $current_cc -ne 3 ]; then
+    	echo "Error trying to determine current cc version (got $current_cc)"
+    	exit 1
+    fi
+    
+    #
+    # No arguments means display only the current compiler version...
+    #
+    if [ $argc -eq 0 ] || [ $argc -eq 1 -a "$show_ver" ]; then
+    	echo "$actual_ver"
+    	exit 0
+    fi
+    
+    #
+    # From here on we must know what we're switching to...
+    #
+    if [ "$switchto_cc" = "0" ]; then
+    	echo -e "usage: $usage"
+    	echo    "       You specify whether you want to switch to 2.x or 3.x."
+    	exit 1 
+    fi
+    
+    #
+    # If actually modifying the system do additional checks...
+    #
+    if [ ! "$installing" ]; then
+	#
+	# If what we want to switch to is the same as the current installation
+	# we have nothing more to do (unless we're "forced" to do it)...
+	#
+	if [ ! "$forced" -a $switchto_cc -eq $current_cc ]; then
+	    echo "You already are using gcc$current_cc as the default compiler."
+	    exit 0
+	fi
+	
+	#
+	# We are going to add two sym links for unix compatibility; gcc 
+	# and g++.  But someone might have already installed a gcc and/or
+	# g++ that aren't sym links.  If so we cannot (should not) clobber
+	# then.  But we cannot continue either.  So we yell about this and
+	# quit.  Not if the user installed a gcc and/or g++ as a sym link
+	# then we WILL clobber it since there isn't a easy way to tell
+	# one sym link from another.
+	#
+	if [ -e /usr/bin/gcc -a ! -L /usr/bin/gcc ] || \
+	   [ -e /usr/bin/g++ -a ! -L /usr/bin/g++ ]; then
+	    echo "You appear to already have a gcc and/or g++ in /usr/bin and they"
+	    echo "are not sym links.  If you want to switch to gcc$switch_to you need to"
+	    echo "remove these files first."
+	    exit 1
+	fi
+	
+	#
+	# We must be running as "root" to be able to do the switching,
+	# otherwise just preview the effects.  We'll try 'whoami'.  If
+	# that fails, possibly because it's not there since the man 
+	# page for it says it's obsolete and 'id' should be used, then
+	# we'll try 'id'.
+	#
+	if [ "$dashn" = "" -a ! "$root" ]; then
+	    who="`whoami 2>/dev/null`"
+	    if [ $? -ne 0 ]; then
+	    	who="`id -u 2>/dev/null`"
+	    	if [ $? -ne 0 ]; then
+		    echo
+		    echo "Cannot determine if you are running as root because the 'whoami'"
+		    echo "command is not on your system or command path.  If you think"
+		    echo "you have root permission then you can bypass this root check by"
+		    echo "specifying the -root option but the script will, of course,"
+		    echo "still fail if you really don't have root access."
+		    echo
+		    exit 1
+	    	fi
+	    	if [ "$who" = "0" ]; then
+	    	    who=root
+	    	fi
+	    fi
+	    if [ "$who" != "root" ]; then
+		# Radar 2863454 - they asked for it, they're going to get it!
+		$color_on
+		echo -e '*** GCC_SELECT MUST BE RUN AS ROOT.     ***'
+		echo -e '*** NO CHANGES WERE MADE TO YOUR SETUP. ***'
+		$color_off
+		exit 1
+	    fi
+	fi
+	
+	#
+	# Make sure we back up gcc2 if it's the current compiler...
+	#
+	if [ $current_cc -eq 2 ]; then
+	    backup_gcc2
+	fi
+	
+	#
+	# Make sure what's installed is what we think is installed...
+	#
+	validate_current_installation
+	if [ $? -ne 0 ]; then
+	    cd "$cwd"
+	    $color_on
+	    echo -e '*** NO CHANGES WERE MADE TO YOUR SETUP. ***'
+	    $color_off
+	    exit 1
+	fi
+	
+	#
+	# Make sure all the files we're either going to copy or sym link to exist...
+	#
+	validate_what_were_switching_to
+	if [ $? -ne 0 ]; then
+	    cd "$cwd"
+	    $color_on
+	    echo -e '*** NO CHANGES WERE MADE TO YOUR SETUP. ***'
+	    $color_off
+	    exit 1
+	fi
+    fi # usr
+    
+    #
+    # Set the sym links to point to the specified compiler tools.
+    # We make links for gcc, g++, c++filt, cc, and c++.  For gcc3 we also do gcov.
+    #
+    title "Commands to set the gcc$switchto_cc tools sym links..."
+    installdir "$usr/bin"
+    $dashn rm -f "$usr/bin/cc" "$usr/bin/gcc" "$usr/bin/g++" "$usr/bin/c++" \
+		 "$usr/bin/c++filt" "$usr/bin/gcov"
+    if [ $? -ne 0 ]; then
+	echo "Something is wrong; couldn't rm the existing compiler sym links."
+	$color_on
+	echo -e '*** NO CHANGES WERE MADE TO YOUR SETUP. ***'
+	$color_off
+	exit 1
+    fi
+    
+    status=0
+    for f in gcc g++ c++filt; do
+	$dashn ln -s $f$switchto_cc "$usr/bin/$f"
+	if [ $? -ne 0 ]; then
+	  $((status++))
+	fi
+    done
+    $dashn ln -s gcc$switchto_cc "$usr/bin/cc"
+    if [ $? -ne 0 ]; then
+      $((status++))
+    fi
+    $dashn ln -s g++$switchto_cc "$usr/bin/c++"
+    if [ $? -ne 0 -o $status -ne 0 ]; then
+	echo "Something is wrong; couldn't install the gcc$switchto_cc sym links."
+	$color_on
+	echo -e '*** NO CHANGES WERE MADE TO YOUR SETUP. ***'
+	$color_off
+    fi
+    
+    if [ $switchto_cc -eq 3 ]; then
+    	$dashn ln -s gcov3 "$usr/bin/gcov"
+    	#cpp3 doesn't get a sym link
+    	if [ "$dashn" != "" ]; then
+    	    echo '  # Note cpp3 does not get a sym link'
+    	fi
+    fi
+    
+    if [ ! "$TEMPORARILY_SKIP" ]; then
+    #
+    # Change the various "default" sym links...
+    #
+    title "Commands to set the \"default\" sym links..."
+    installdir "$usr/include/gcc/darwin" "$usr/lib/gcc/darwin" \
+    	       "$usr/libexec/gcc/darwin/ppc" "$usr/libexec/gcc/darwin/i386"
+    set_default "$usr/include/gcc/darwin"
+    set_default "$usr/libexec/gcc/darwin/ppc"
+    set_default "$usr/lib/gcc/darwin"
+    if [ -d "$usr/libexec/gcc/darwin/i386" ]; then
+    	set_default "$usr/libexec/gcc/darwin/i386"
+    fi
+    
+    #
+    # /usr/lib/gcc/darwin/default now points to the proper directory
+    # we want to use.  The code below depends on that since we
+    # access the libs through it's default link.
+    #
+    
+    if [ ! "$installing" -a ! "$LIBS_ARE_ALL_SYMLINKED" ]; then
+    	title "Commands to set up the libraries..."
+    else
+    	title "Commands to set the libraries sym links..."
+    	installdir "$usr/lib" "$usr/local/lib"
+    fi
+    
+    #
+    # Make sure all the lib sym links are removed before installing the
+    # proper set.  The gcc2 libcc.a and its gcc3 counterpart, 
+    # libgcc_static.a, need special handling since these are no sym
+    # links.  We need to move the one's being uninstalled so that we
+    # may reinstall it if we switch to it later.
+    #
+    $dashn rm -f "$usr/lib/libgcc.a"     "$usr/lib/libcc_dynamic.a"
+    $dashn rm -f "$usr/lib/libcc.a"      "$usr/lib/libgcc_static.a"
+    $dashn rm -f "$usr/lib/libsupc++.a"  "$usr/lib/libstdc++.a"
+    $dashn rm -f "$usr/lib/libcc_kext.a" "$usr/local/lib/libcc_noc++.a"
+    
+    #
+    # Install the proper libs...
+    #
+    if [ $switchto_cc -eq 2 ]; then
+        #
+        # Squirrel away the gcc3 libgcc_static.a and libcc_noc++.a.
+        # We will save then with the other gcc3 libs.  We skip this
+        # if gcc3 is not currently installed on the system.
+        #
+	#$dashn \cd /usr/lib/gcc/darwin/$VERSION3
+	#$dashn \cd `/bin/ls | fgrep 3`
+	if [ ! "$installing" -a ! "$LIBS_ARE_ALL_SYMLINKED" ]; then
+	    if [ -f /usr/lib/libgcc_static.a ]; then
+		$dashn mv /usr/lib/libgcc_static.a /usr/lib/gcc/darwin/$VERSION3
+	    fi
+	    if [ -f /usr/local/lib/libcc_noc++.a -a ! -L /usr/local/lib/libcc_noc++.a ]; then
+		$dashn mv /usr/local/lib/libcc_noc++.a /usr/lib/gcc/darwin/$VERSION3
+	    fi
+	fi
+ 	
+	#
+	# Install gcc2 sym links...
+	#
+	#$dashn \cd /usr/lib
+    	$dashn ln -s gcc/darwin/default/libcc_dynamic.a "$usr/lib/libcc_dynamic.a"
+    	$dashn ln -s gcc/darwin/default/libstdc++.a     "$usr/lib/libstdc++.a"
+    	if [ -e gcc/darwin/default/libcc_kext.a ]; then
+	    $dashn ln -s gcc/darwin/default/libcc_kext.a "$usr/lib/libcc_kext.a"
+    	fi
+    	
+    	if [ "$LIBS_ARE_ALL_SYMLINKED" ]; then
+    	    if [ "$installing" ]; then
+		$dashn ln -s gcc/darwin/default/libcc.a                 "$usr/lib/libcc.a"
+		$dashn ln -s ../../lib/gcc/darwin/default/libcc_noc++.a "$usr/local/lib/libcc_noc++.a"
+    	    else
+		if [ -e "/usr/lib/gcc/darwin/default/libcc.a" ]; then
+		    $dashn ln -s gcc/darwin/default/libcc.a "$usr/lib/libcc.a"
+		fi
+		if [ -d "$usr/local/lib" -a -e /usr/lib/gcc/darwin/default/libcc_noc++.a ]; then
+		    $dashn ln -s ../../lib/gcc/darwin/default/libcc_noc++.a "$usr/local/lib/libcc_noc++.a"
+		fi
+	    fi
+   	elif [ ! "$installing" ]; then
+	    #
+	    # Reinstall gcc2's libcc.a and libcc_noc++.a.  If we never 
+	    # switched to gcc3 then these files don't need to be
+	    # reinstalled.
+	    #
+	    if [ -f /usr/lib/gcc/darwin/default/libcc.a ]; then
+		$dashn mv /usr/lib/gcc/darwin/default/libcc.a /usr/lib/libcc.a
+	    fi
+	    if [ -f /usr/lib/gcc/darwin/default/libcc_noc++.a -a -d /usr/local/lib ]; then
+		$dashn mv /usr/lib/gcc/darwin/default/libcc_noc++.a /usr/local/lib/libcc_noc++.a
+	    fi
+	fi
+    else # switching to gcc3
+        #
+        # Squirrel away the gcc2 libcc.a and libcc_noc++.a
+        # We will save then with the other gcc2 libs.
+        #
+    	if [ ! "$installing" -a ! "$LIBS_ARE_ALL_SYMLINKED" ]; then
+	    #$dashn \cd /usr/lib/gcc/darwin/$VERSION2
+	    #$dashn \cd `/bin/ls | fgrep 2`
+	    if [ -f /usr/lib/libcc.a -a ! -L /usr/lib/libcc.a ]; then
+	    	$dashn mv /usr/lib/libcc.a /usr/lib/gcc/darwin/$VERSION2/
+	    fi
+	    if [ -f /usr/local/lib/libcc_noc++.a -a ! -L /usr/local/lib/libcc_noc++.a ]; then
+	    	$dashn mv /usr/local/lib/libcc_noc++.a /usr/lib/gcc/darwin/$VERSION2/
+	    fi
+	fi
+	
+	#
+	# Install gcc3 sym links...
+	#
+	# Note that libcc_dynamic.a is sym linked to libgcc.a for compatibility
+	# with gcc2 since some builds that need to build for 2 and 3 need to
+	# reference libgcc.a by it's gcc2 name libcc_dynamic.a.
+	#
+	#$dashn \cd /usr/lib
+	$dashn ln -s gcc/darwin/default/libcc_kext.a "$usr/lib/libcc_kext.a"
+	$dashn ln -s gcc/darwin/default/libgcc.a     "$usr/lib/libgcc.a"
+	$dashn ln -s gcc/darwin/default/libgcc.a     "$usr/lib/libcc_dynamic.a"
+	$dashn ln -s gcc/darwin/default/libstdc++.a  "$usr/lib/libstdc++.a"
+	$dashn ln -s gcc/darwin/default/libsupc++.a  "$usr/lib/libsupc++.a"
+	
+    	#
+    	# Reinstall gcc3's libgcc_static.a and libcc_noc++.a.  We may
+    	# not have switched from 2 to 3 previously.  In that case there
+    	# is no /usr/lib/gcc/darwin/default/libgcc_static.a since that
+    	# is created when we are switching to 2.  
+    	#
+    	if [ "$LIBS_ARE_ALL_SYMLINKED" ]; then
+    	    if [ -f gcc/darwin/default/libgcc_static.a ]; then
+    	    	$dashn ln -s gcc/darwin/default/libgcc_static.a "$usr/lib/libgcc_static.a"
+    	    fi
+    	    if [ -d "$usr/local/lib" -a -f ../../lib/gcc/darwin/default/libcc_noc++.a ]; then
+     	    	$dashn ln -s ../../lib/gcc/darwin/default/libcc_noc++.a "$usr/local/lib/libcc_noc++.a"
+     	    fi
+   	elif [ ! "$installing" ]; then
+	    if [ ! -e /usr/lib/libgcc_static.a -a -f /usr/lib/gcc/darwin/default/libgcc_static.a ]; then
+		$dashn mv /usr/lib/gcc/darwin/default/libgcc_static.a /usr/lib/libgcc_static.a
+	    fi
+	    if [ -d /usr/local/lib ]; then
+	    	$dashn mv /usr/lib/gcc/darwin/default/libcc_noc++.a /usr/local/lib/libcc_noc++.a
+	    fi
+	fi
+    fi
+     
+    #
+    # Install the C headers...
+    #
+    if [ "$C_HDRS_ARE_SYMLINKED" ]; then
+    	title "Commands to set the C header sym links..."
+    	installdir "$usr/include"
+    	$dashn rm -f `echo $c_hdrs | sed -e 's,\([a-zA-Z./-]*\),'"$usr"'/include/\1,g'`
+    	for f in $c_hdrs; do
+    	    if [ "$f" = "machine/limits.h" ]; then
+    	    	installdir "$usr/include/machine"
+    	    	$dashn ln -s ../gcc/darwin/default/machine/limits.h $usr/include/machine/limits.h
+    	    elif [ "$f" = "va-ppc.h" ]; then
+    	    	if [ $switchto_cc -eq 2 ]; then
+     	    	    $dashn ln -s gcc/darwin/default/va-ppc.h $usr/include/va-ppc.h
+    	    	fi
+    	    else
+    	    	$dashn ln -s gcc/darwin/default/$f $usr/include/$f
+    	    fi
+    	done
+    fi
+    fi  # TEMPORARILY_SKIP 
+   
+    if [ ! "$installing" ]; then
+	if [ "$dashn" = "" ]; then
+	    echo "Current default compiler is now gcc$switchto_cc."
+	else
+	    echo
+	    echo "Current default compiler would now be gcc$switchto_cc."
+	fi
+    else
+        if [ "$dashn" = "" ]; then
+	    echo "All gcc$switchto_cc sym links are now installed in the \"$usr\""
+        else
+            echo
+    	    echo "All gcc$switchto_cc sym links would now be installed in the \"$usr\""
+    	fi
+    fi
+    
+    cd "$cwd"
+}
+
+#---------------------------------------------------------------------#
+#
+## Back up gcc2 if it's the current compiler.
+##
+## If gcc2 is currently installed make sure we can always get it
+## back by copying it to the alternate "2 suffix" names.  This also
+## put's gcc2 in its canonical form so it's consistent with gcc3's
+## naming conventions.
+##
+#
+backup_gcc2()
+{
+    local f
+    
+    #
+    # If we already have a gcc2 then assume we have it backed up
+    # and there is no need doing it again...
+    #
+    if [ ! -x /usr/bin/gcc2 -a ! -L /usr/bin/cc ]; then
+    	title "Commands to back up gcc2..."
+	for f in cc c++ c++filt; do
+	    if [ -x /usr/bin/$f ] && [ ! -L /usr/bin/$f ]; then
+		if [ "$f" = "cc" ]; then
+		    $dashn rm -f /usr/bin/gcc2 && \
+		    $dashn cp -p /usr/bin/cc /usr/bin/gcc2
+		elif [ "$f" = "c++" ]; then
+		    $dashn rm -f /usr/bin/g++2 && \
+		    $dashn cp -p /usr/bin/c++ /usr/bin/g++2
+		else
+		    $dashn rm -f /usr/bin/c++filt2 && \
+		    $dashn cp -p /usr/bin/c++filt /usr/bin/c++filt2
+		fi
+	    fi
+	done
+    fi
+    
+    #
+    # Both libcc.a and/or libcc_noc++.a may not be installed...
+    #
+    
+    if [ ! -f /usr/lib/gcc/darwin/2.95.2/libcc.a -a \
+         -f /usr/lib/libcc.a -a ! -L /usr/lib/libcc.a ]; then
+        $dashn cp -p /usr/lib/libcc.a /usr/lib/gcc/darwin/2.95.2/libcc.a
+    fi
+    if [ ! -f /usr/lib/gcc/darwin/2.95.2/libcc_noc++.a -a\
+         -f /usr/local/lib/libcc_noc++.a -a ! -L /usr/local/lib/libcc_noc++.a ]; then
+        $dashn cp -p /usr/local/lib/libcc_noc++.a /usr/lib/gcc/darwin/2.95.2/libcc_noc++.a
+    fi
+}
+
+#---------------------------------------------------------------------#
+#
+## set_default dir - set the "default" sym link to directory for the
+##                   compiler we're switching to.
+#
+set_default()
+{
+    #$dashn \cd "$1"
+    $dashn rm -f "$1/default"
+    #ln -s `/bin/ls | fgrep $switchto_cc | sed -e 's,/,,'` "$1/default"
+    if [ "$switchto_cc" -eq 2 ]; then
+    	$dashn ln -s $VERSION2 "$1/default"
+    else
+    	$dashn ln -s $VERSION3 "$1/default"
+    fi
+}
+
+#---------------------------------------------------------------------#
+#
+## installdir dir ... - install the dir's if they don't alreasy exist
+#
+installdir()
+{
+    if [ "$installing" ]; then
+	for dir; do
+	    if [ ! -d "$dir" ]; then
+	    	$dashn mkdir -p "$dir"
+	    fi
+	done
+    fi
+}
+
+#---------------------------------------------------------------------#
+#
+## Validate the current installation...
+##
+## Checks to see everything is as we expect it for the current compiler.
+#
+validate_current_installation()
+{
+    local f file libs list err=0 default actual_dir
+    
+    #
+    # It's possible that /usr/local/lib doesn't exist so we don't check
+    # for libcc_noc++.a which is for Apple internal use only.
+    #
+    local usr_local_lib_files2= # "/usr/lib/libcc.a /usr/local/lib/libcc_noc++.a"
+    local usr_local_lib_files3= # "/usr/local/lib/libcc_noc++.a"
+
+    if [ "$TEMPORARILY_SKIP" ]; then
+    	return 0
+    fi
+    
+    #
+    # Set up the list of libs to be checked...
+    #
+    if [ $current_cc -eq 2 ]; then
+    	libs="/usr/lib/libcc_dynamic.a /usr/lib/libcc_kext.a /usr/lib/libstdc++.a"
+    	if [ "$LIBS_ARE_ALL_SYMLINKED" ]; then
+    	    libs="$libs $usr_local_lib_files2"
+    	fi
+    else
+    	libs="/usr/lib/libgcc.a /usr/lib/libcc_kext.a /usr/lib/libsupc++.a /usr/lib/libstdc++.a"
+     	if [ "$LIBS_ARE_ALL_SYMLINKED" ]; then
+	    libs="$libs /usr/lib/libgcc_static.a $usr_local_lib_files3"
+    	fi
+    fi
+    
+    #
+    # First check all the sym links...
+    #
+    if [ "$VALIDATE_SYMLINKS" -a ! "$forced" ]; then
+    	#
+    	# Check the "default" sym links...
+    	#
+	list=
+	for f in /usr/include/gcc/darwin      \
+		 /usr/libexec/gcc/darwin/ppc  \
+		 /usr/libexec/gcc/darwin/i386 \
+		 /usr/lib/gcc/darwin; do
+	    if [ ! -L "$f/default" ]; then
+	    	if [ "$f" != "/usr/libexec/gcc/darwin/i386" -o \
+	    	     -d "/usr/libexec/gcc/darwin/i386" ]; then
+		    list="$list $f"
+		fi
+		continue
+	    fi
+	    command cd "$f/default"
+	    default="`/bin/pwd -P`"
+	    command cd $f
+	    if [ $current_cc -eq 2 ]; then
+		actual_dir=$VERSION2
+	    else
+		actual_dir=$VERSION3
+	    fi
+	    if [ ! -d "$actual_dir" ]; then
+		list="$list $f"
+		continue
+	    fi
+	    command cd "$f/$actual_dir"
+	    #command cd $f/`/bin/ls | fgrep $current_cc`
+	    if [ "`/bin/pwd`" != "$default" ]; then
+		list="$list $f"
+	    fi
+	done
+	if [ "$list" != "" ]; then
+	    show_list "The \"default\" sym link in these directories are inconsistent:" "" \
+		      $list
+	    #
+	    # If the "default" sym links are not as expected, we're toast...
+	    #
+	    return 1
+	fi
+	
+	#
+	# Check the /usr/lib sym links...
+	#
+	list=
+	for f in $libs; do
+	    if [ ! -L "$f" ]; then
+		list="$list $f"
+	    fi
+	    if [ "$f" = "/usr/lib/libgcc.a" -a ! -L "/usr/lib/libcc_dynamic.a" ]; then
+		list="$list $f"
+	    fi
+	done
+	if [ "$list" != "" ]; then
+	    show_list "The following libraries don't have sym links installed in /usr/lib:" \
+		      "" $list
+	    err=1
+    	fi
+    fi
+    
+    #
+    # Check for the presence of the installed libs...
+    #
+    if [ $current_cc -eq 2 ]; then
+    	if [ ! "$LIBS_ARE_ALL_SYMLINKED" ]; then
+    	    libs="$libs $usr_local_lib_files2"
+    	fi
+    else
+    	if [ ! "$LIBS_ARE_ALL_SYMLINKED" ]; then
+    	    libs="$libs /usr/lib/libgcc_static.a $usr_local_lib_files3"
+    	fi
+    	#libs="$libs /X/crtbegin.o"
+    fi
+    
+    list=
+    for f in $libs; do
+    	file="${f##*/}"
+    	if [ $current_cc -eq 2 ]; then
+    	    f="/usr/lib/gcc/darwin/$VERSION2/$file"
+    	else
+    	    f="/usr/lib/gcc/darwin/$VERSION3/$file"
+    	fi
+    	
+    	#
+    	# It is possible that the original gcc2 has not yet been backed
+    	# up. In that case libcc.a and libcc_noc++.a are still in their
+    	# old positions (i.e., the files are are not sym links).
+    	#
+    	# Note, libcc_kext.a, libgcc_static.a, and libcc_noc++.a may
+    	# not be installed so we (now) don't insist that they be there.
+    	#
+    	if [ ! -f "$f" ]; then
+    	    if [ "$file" != "libcc_kext.a"    -a \
+    	         "$file" != "libgcc_static.a" -a \
+    	         "$file" != "libcc_noc++.a" ]; then
+		if [ $current_cc -eq 3 ]; then
+		    list="$list $f"
+		elif [ "$file" = "libcc.a" ]; then
+		    if [ ! -f "/usr/lib/libcc.a" ]; then
+			list="$list $f"
+		    fi
+		elif [ "$file" = "libcc_noc++.a" ]; then
+		    if [ ! -f "/usr/local/lib/libcc_noc++.a" ]; then
+			list="$list $f"
+		    fi
+		else
+		    list="$list $f"
+		fi
+    	    fi
+    	fi
+    done
+
+    if [ "$list" != "" ]; then
+    	show_list "The following libraries are not installed:" "" $list
+    	err=1
+    fi
+    
+    if [ $err -ne 0 ]; then
+    	echo
+    	if [ "$dashn" = "" ]; then
+    	   echo "Cannot switch because the current installation is not what was expected."
+    	else
+    	   echo "Wouldn't be able to switch anyway because the current installation was not"
+    	   echo "what was expected."
+    	fi
+    fi
+    
+    return $err
+}
+
+#---------------------------------------------------------------------#
+#
+## Make sure all the files we're either going to copy or sym link to exist...
+#
+validate_what_were_switching_to()
+{
+    local f libs list
+    
+    list=
+    for f in gcc g++ c++filt; do
+	if [ ! -x /usr/bin/$f$switchto_cc ]; then
+	    list="$list $f$switchto_cc"
+	fi
+    done
+    
+    if [ $switchto_cc -eq 3 ]; then
+	for f in c++3 gcov3 cpp3; do
+	    if [ "$f" = "c++3" ]; then
+	    	if [ ! -x /usr/bin/$f ] && [ ! -L /usr/bin/$f ]; then
+	    	    list="$list $f"
+	    	fi
+	    elif [ ! -x /usr/bin/$f ]; then
+		list="$list $f"
+	    fi
+	done
+    fi
+
+    if [ ! "$TEMPORARILY_SKIP" ]; then
+     	#command cd /usr/lib/gcc/darwin/
+    if [ $switchto_cc -eq 2 ]; then
+    	command cd /usr/lib/gcc/darwin/$VERSION2
+    	#command cd `/bin/ls | fgrep 2`
+    	libs="libcc_dynamic.a libcc_kext.a libstdc++.a" # libcc.a libcc_noc++.a
+    else
+    	command cd /usr/lib/gcc/darwin/$VERSION3
+    	#command cd `/bin/ls | fgrep 3`
+    	libs="libgcc.a libcc_kext.a libsupc++.a libstdc++.a libgcc_static.a" # libcc_noc++.a
+    fi
+    
+    for f in $libs; do
+	if [ ! -e $f ]; then
+    	    if [ "$f" != "libcc_kext.a"    -a \
+    	         "$f" != "libgcc_static.a" -a \
+    	         "$f" != "libcc_noc++.a" ]; then
+	        list="$list $f"
+	    fi
+	fi
+    done
+    fi  # TEMPORARILY_SKIP
+    
+    if [ "$list" != "" ]; then
+	show_list "Master copies of the following files are missing:" \
+		  "" $list
+	return 1
+    fi
+    
+    return 0
+}
+
+#---------------------------------------------------------------------#
+#
+## show_list info1 info2 item1 ... - display a list of items
+##
+## This outputs an error message about a list of "bad" items.  The
+## format is:
+##
+## info1
+## info2
+##   item1
+##   - - -
+##
+## The info2 line is not output if it is null.
+#
+show_list()
+{
+    local info1="$1"
+    local info2="$2"
+    
+    shift 2
+    
+    if [ ${#@} -gt 0 ]; then
+    	echo
+	echo "$info1"
+	
+	if [ "$info2" != "" ]; then
+	    echo "$info2"
+	fi
+	
+	for f; do
+	    echo "  $f"
+	done
+    fi
+}
+
+#---------------------------------------------------------------------#
+#
+## title line1 ... - show tracing titles for -n options
+#
+title()
+{
+    if [ "$dashn" != "" ] && [ ${#@} -gt 0 ]; then
+    	echo
+    	for line; do
+    	    echo "$line"
+    	done
+    fi
+}
+
+#---------------------------------------------------------------------#
+#
+## do_testing 'none' | 'move' | 'restore'
+##
+## Both gcc2's libcc.a and libcc_noc++.a may not be in the system. In
+## order to test out this script when they are we have a "secret" 
+## option (--test-optionals) which makes it look as those libraries
+## are not installed.  We come here to make that happen by renaming
+## these libraries.  If the argument is 'move' we "hide" the libs.
+## If the argument is "restore" we put them back in their gcc2
+## canonical locations.
+#
+do_testing()
+{
+    case $1 in
+    	move | save)
+	    if [ -f /usr/lib/libcc.a -a ! -L /usr/lib/libcc.a ]; then
+	    	rm -f /usr/lib/gcc/darwin/2.95.2/Xlibcc.a
+		mv /usr/lib/libcc.a /usr/lib/gcc/darwin/2.95.2/Xlibcc.a
+	    fi
+	    if [ -f /usr/lib/gcc/darwin/2.95.2/libcc.a ]; then
+		rm -f /usr/lib/gcc/darwin/2.95.2/Xlibcc.a
+		mv /usr/lib/gcc/darwin/2.95.2/libcc.a /usr/lib/gcc/darwin/2.95.2/Xlibcc.a
+	    fi
+	    if [ -f /usr/local/lib/libcc_noc++.a -a ! -L /usr/local/lib/libcc_noc++.a ]; then
+	    	rm -f /usr/lib/gcc/darwin/2.95.2/Xlibcc_noc++.a
+		mv /usr/local/lib/libcc_noc++.a /usr/lib/gcc/darwin/2.95.2/Xlibcc_noc++.a
+	    fi
+	    if [ -f /usr/lib/gcc/darwin/2.95.2/libcc_noc++.a ]; then
+		rm -f /usr/lib/gcc/darwin/2.95.2/Xlibcc_noc++.a
+		mv /usr/lib/gcc/darwin/2.95.2/libcc_noc++.a /usr/lib/gcc/darwin/2.95.2/Xlibcc_noc++.a
+	    fi
+	    rm -f /usr/lib/libcc.a /usr/local/lib/libcc_noc++.a
+	    exit 0
+	    ;;
+	restore)
+	    if [ -f /usr/lib/gcc/darwin/2.95.2/Xlibcc.a ]; then
+	    	mv /usr/lib/gcc/darwin/2.95.2/Xlibcc.a /usr/lib/gcc/darwin/2.95.2/libcc.a
+	    fi
+	    if [ -f /usr/lib/gcc/darwin/2.95.2/Xlibcc_noc++.a ]; then
+	    	mv /usr/lib/gcc/darwin/2.95.2/Xlibcc_noc++.a /usr/lib/gcc/darwin/2.95.2/libcc_noc++.a
+	    fi
+	    actual_ver="`cc -v 2>&1  | grep -i 'gcc version'`"
+    	    current_cc="`echo \"$actual_ver\" | sed -e 's/.*gcc version \([^ ]\).*/\1/'`"
+	    if [ $current_cc -eq 2 ]; then
+		rm -f /usr/lib/libcc.a /usr/local/lib/libcc_noc++.a
+		ln -s gcc/darwin/default/libcc.a                 "/usr/lib/libcc.a"
+		ln -s ../../lib/gcc/darwin/default/libcc_noc++.a "/usr/local/lib/libcc_noc++.a"
+	    fi
+	    exit 0
+	    ;;
+	*)
+	    echo "Invalid testing option"
+	    exit 1
+	    ;;
+    esac
+}
+
+#######################################################################
+
+switch_it "$@"

@@ -1,5 +1,3 @@
-/*	$NetBSD: misc.c,v 1.5 1997/10/17 11:46:40 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -31,19 +29,22 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)misc.c	8.1 (Berkeley) 6/6/93
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__RCSID("$NetBSD: misc.c,v 1.5 1997/10/17 11:46:40 lukem Exp $");
-#endif /* not lint */
+#if 0
+static char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/mtree/misc.c,v 1.8.2.1 2000/06/28 02:33:17 joe Exp $";
+#endif /*not lint */
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <err.h>
 #include <fts.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "mtree.h"
 #include "extern.h"
 
@@ -60,21 +61,29 @@ typedef struct _key {
 /* NB: the following table must be sorted lexically. */
 static KEY keylist[] = {
 	{"cksum",	F_CKSUM,	NEEDVALUE},
+	{"flags",	F_FLAGS,	NEEDVALUE},
 	{"gid",		F_GID,		NEEDVALUE},
 	{"gname",	F_GNAME,	NEEDVALUE},
 	{"ignore",	F_IGN,		0},
 	{"link",	F_SLINK,	NEEDVALUE},
+#ifdef MD5
+	{"md5digest",	F_MD5,		NEEDVALUE},
+#endif
 	{"mode",	F_MODE,		NEEDVALUE},
 	{"nlink",	F_NLINK,	NEEDVALUE},
-	{"optional",	F_OPT,		0},
+	{"nochange",	F_NOCHANGE,	0},
+#ifdef RMD160
+	{"ripemd160digest", F_RMD160,	NEEDVALUE},
+#endif
+#ifdef SHA1
+	{"sha1digest",	F_SHA1,		NEEDVALUE},
+#endif
 	{"size",	F_SIZE,		NEEDVALUE},
 	{"time",	F_TIME,		NEEDVALUE},
 	{"type",	F_TYPE,		NEEDVALUE},
 	{"uid",		F_UID,		NEEDVALUE},
-	{"uname",	F_UNAME,	NEEDVALUE}
+	{"uname",	F_UNAME,	NEEDVALUE},
 };
-
-int keycompare __P((const void *, const void *));
 
 u_int
 parsekey(name, needvaluep)
@@ -82,12 +91,13 @@ parsekey(name, needvaluep)
 	int *needvaluep;
 {
 	KEY *k, tmp;
+	int keycompare __P((const void *, const void *));
 
 	tmp.name = name;
 	k = (KEY *)bsearch(&tmp, keylist, sizeof(keylist) / sizeof(KEY),
 	    sizeof(KEY), keycompare);
 	if (k == NULL)
-		mtree_err("unknown keyword %s", name);
+		errx(1, "line %d: unknown keyword %s", lineno, name);
 
 	if (needvaluep)
 		*needvaluep = k->flags & NEEDVALUE ? 1 : 0;
@@ -101,34 +111,19 @@ keycompare(a, b)
 	return (strcmp(((KEY *)a)->name, ((KEY *)b)->name));
 }
 
-#if __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
-void
-#if __STDC__
-mtree_err(const char *fmt, ...)
-#else
-mtree_err(fmt, va_alist)
-	char *fmt;
-        va_dcl
-#endif
+char *
+flags_to_string(fflags)
+	u_long fflags;
 {
-	va_list ap;
-#if __STDC__
-	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
-	(void)fprintf(stderr, "mtree: ");
-	(void)vfprintf(stderr, fmt, ap);
-	va_end(ap);
-	(void)fprintf(stderr, "\n");
-	if (lineno)
-		(void)fprintf(stderr,
-		    "mtree: failed at line %d of the specification\n", lineno);
-	exit(1);
-	/* NOTREACHED */
+	char *string;
+
+	string = fflagstostr(fflags);
+	if (string != NULL && *string == '\0') {
+		free(string);
+		string = strdup("none");
+	}
+	if (string == NULL)
+		err(1, NULL);
+
+	return string;
 }

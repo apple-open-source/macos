@@ -21,7 +21,7 @@
 
 	Contains:	Apple Keychain routines
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -34,14 +34,6 @@
 #ifndef	_SSLCTX_H_
 #include "sslctx.h"
 #endif
-
-#include <CoreFoundation/CFData.h>
-#include <CoreFoundation/CFArray.h>
-
-#if		ST_KEYCHAIN_ENABLE
-#include <MacTypes.h>
-#include <Keychain.h>
-#endif	/* ST_KEYCHAIN_ENABLE */
 
 #ifdef __cplusplus
 extern "C" {
@@ -65,8 +57,14 @@ parseIncomingCerts(
 	SSLCertificate	**destCert,		/* &ctx->{localCert,encryptCert} */
 	CSSM_KEY_PTR	*pubKey,		/* &ctx->signingPubKey, etc. */
 	CSSM_KEY_PTR	*privKey,		/* &ctx->signingPrivKey, etc. */
-	CSSM_CSP_HANDLE	*cspHand,		/* &ctx->signingKeyCsp, etc. */
-	KCItemRef		*privKeyRef);	/* &ctx->signingKeyRef, etc. */
+	CSSM_CSP_HANDLE	*cspHand		/* &ctx->signingKeyCsp, etc. */
+	#if				ST_KC_KEYS_NEED_REF
+	,
+	SecKeychainRef	*privKeyRef);	/* &ctx->signingKeyRef, etc. */
+	#else
+	);
+	#endif			ST_KC_KEYS_NEED_REF
+	
 #endif	/* (ST_SERVER_MODE_ENABLE || ST_CLIENT_AUTHENTICATION) */
 
 /*
@@ -76,7 +74,8 @@ OSStatus
 addBuiltInCerts	(
 	SSLContextRef	ctx);
 
-#if		ST_KEYCHAIN_ENABLE
+#if		ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS
+
 /*
  * Given an open Keychain:
  * -- Get raw cert data, add to array of CSSM_DATAs in 
@@ -88,7 +87,7 @@ addBuiltInCerts	(
 OSStatus
 parseTrustedKeychain(
 	SSLContextRef		ctx,
-	KCRef				keyChainRef);
+	SecKeychainRef		keyChainRef);
 
 /*
  * Given a newly encountered root cert (obtained from a peer's cert chain),
@@ -100,7 +99,7 @@ sslAddNewRoot(
 	SSLContext			*ctx, 
 	const CSSM_DATA_PTR	rootCert);
 
-#endif	/* ST_KEYCHAIN_ENABLE */
+#endif	/* ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS */
 
 #ifdef __cplusplus
 }

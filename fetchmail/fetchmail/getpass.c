@@ -69,7 +69,7 @@ char *prompt;
     char *getpass();
     return getpass(prompt);
 #else
-    fputs(_("ERROR: no support for getpassword() routine\n"),stderr);
+    fputs(GT_("ERROR: no support for getpassword() routine\n"),stderr);
     exit(1);
 #endif
 #else
@@ -191,7 +191,7 @@ static void restore_tty_state(void)
 static RETSIGTYPE sigint_handler(int signum)
 {
     restore_tty_state();
-    report(stderr, _("\nCaught SIGINT... bailing out.\n"));
+    report(stderr, GT_("\nCaught SIGINT... bailing out.\n"));
     exit(1);
 }
 

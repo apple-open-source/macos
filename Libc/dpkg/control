@@ -1,0 +1,4 @@
+Package: libc
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: C library
+Build-Depends: cctools, libsystem, gnumake, libinfo-hdrs, project-makefiles, pb-makefiles, system-cmds, shell-cmds, zsh, file-cmds, bootstrap-cmds, text-cmds, gcc, xnu, architecture, gnutar

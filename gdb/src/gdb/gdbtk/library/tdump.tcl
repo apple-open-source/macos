@@ -1,5 +1,5 @@
-# Trace dump window for GDBtk.
-# Copyright 1998, 1999 Cygnus Solutions
+# Trace dump window for Insight
+# Copyright 1998, 1999, 2001, 2002 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -28,29 +28,16 @@
 #
 # ----------------------------------------------------------------------
 
-itcl_class TdumpWin {
+class TdumpWin {
+  inherit ManagedWin GDBWin
+
   # ------------------------------------------------------------------
   #  CONSTRUCTOR - create new tdump window
   # ------------------------------------------------------------------
-  constructor {config} {
-    #
-    #  Create a window with the same name as this object
-    #
-    set class [$this info class]
-    set hull [namespace tail $this]
-    set old_name $this
-    ::rename $this $this-tmp-
-    ::frame $hull -class $class 
-    ::rename $hull $old_name-win-
-    ::rename $this $old_name
-
-    set top [winfo toplevel [namespace tail $this]]
-    wm withdraw $top
-
+  constructor {args} {
+    window_name "Trace Dump"
     build_win
-    add_hook gdb_update_hook "$this update"
-    after idle [list wm deiconify $top]
-
+    eval itk_initialize $args
   }
 
 
@@ -58,29 +45,39 @@ itcl_class TdumpWin {
   #  METHOD:  build_win - build the main tdump window
   # ------------------------------------------------------------------
   method build_win {} {
+    global tcl_platform
 
-     tixScrolledText [namespace tail $this].stext -scrollbar y -height 200 -width 500
-     set twin [[namespace tail $this].stext subwidget text]
-    
-    # make window non editable
-    $twin configure -insertwidth 0 
+    if {[string compare $tcl_platform(platform) "windows"] == 0} {
+      set mode static
+      ide_sizebox $itk_interior.sbox
+      place $itk_interior.sbox -relx 1.0 -rely 1.0 -anchor se
+    } else {
+      set mode dynamic
+    }
 
-    pack append  [namespace tail $this] [namespace tail $this].stext {left expand fill}
-    update
+    itk_component add stext {
+      iwidgets::scrolledtext $itk_interior.stext -hscrollmode $mode \
+	-vscrollmode $mode -textfont global/fixed \
+	-background [pref get gdb/font/normal_bg]
+    } {}
+    [$itk_component(stext) component text] configure \
+      -background [pref get gdb/font/normal_bg]
+    pack $itk_component(stext) -side left -expand yes -fill both
+    update dummy
   }
 
 
   # ------------------------------------------------------------------
   #  METHOD:  update - update widget when PC changes
   # ------------------------------------------------------------------
-  method update {} {
+  method update {event} {
     #debug "tdump: update"
     gdbtk_busy
     set tframe_num [gdb_get_trace_frame_num]
 
     if { $tframe_num!=-1 } {
       debug "doing tdump"
-      $twin delete 1.0 end
+      $itk_component(stext) delete 1.0 end
 
       if {[catch {gdb_cmd "tdump $tframe_num" 0} tdump_output]} {
 	tk_messageBox -title "Error" -message $tdump_output -icon error \
@@ -88,38 +85,20 @@ itcl_class TdumpWin {
       } else {
 	#debug "tdum output is $tdump_output"
 	
-	$twin insert end $tdump_output
-	$twin see insert
+	$itk_component(stext) insert end $tdump_output
+	$itk_component(stext) see insert
       }
     }
     gdbtk_idle
   }
 
   # ------------------------------------------------------------------
-  #  DESTRUCTOR - destroy window containing widget
-  # ------------------------------------------------------------------
-  destructor {
-    remove_hook gdb_update_hook "$this update"
-    set top [winfo toplevel [namespace tail $this]]
-    destroy $this
-    destroy $top
-  }
-
-  # ------------------------------------------------------------------
-  #  METHOD:  config - used to change public attributes
-  # ------------------------------------------------------------------
-  method config {config} {}
-    
-  # ------------------------------------------------------------------
   #  METHOD:  reconfig - used when preferences change
   # ------------------------------------------------------------------
   method reconfig {} {
+    if {[winfo exists $itk_interior.sbox]} { destroy $itk_interior.sbox }
+    if {[winfo exists $itk_interior.stext]} { destroy $itk_interior.stext }
+    build_win
   }
-  
-  #
-  #  PROTECTED DATA
-  #
-  protected maxwidth 0
-  protected twin
 }
 

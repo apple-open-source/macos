@@ -59,13 +59,13 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
     maj_stat = gss_import_name(&min_stat, &request_buf, GSS_C_NT_HOSTBASED_SERVICE,
         &target_name);
     if (maj_stat != GSS_S_COMPLETE) {
-        report(stderr, _("Couldn't get service name for [%s]\n"), buf1);
+        report(stderr, GT_("Couldn't get service name for [%s]\n"), buf1);
         return PS_AUTHFAIL;
     }
     else if (outlevel >= O_DEBUG) {
         maj_stat = gss_display_name(&min_stat, target_name, &request_buf,
             &mech_name);
-        report(stderr, _("Using service name [%s]\n"),request_buf.value);
+        report(stderr, GT_("Using service name [%s]\n"),request_buf.value);
         maj_stat = gss_release_buffer(&min_stat, &request_buf);
     }
 
@@ -81,7 +81,7 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
     sec_token = GSS_C_NO_BUFFER;
     context = GSS_C_NO_CONTEXT;
     if (outlevel >= O_VERBOSE)
-        report(stdout, _("Sending credentials\n"));
+        report(stdout, GT_("Sending credentials\n"));
     do {
         send_token.length = 0;
 	send_token.value = NULL;
@@ -99,7 +99,7 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
 					NULL, 
 					NULL);
         if (maj_stat!=GSS_S_COMPLETE && maj_stat!=GSS_S_CONTINUE_NEEDED) {
-            report(stderr, _("Error exchanging credentials\n"));
+            report(stderr, GT_("Error exchanging credentials\n"));
             gss_release_name(&min_stat, &target_name);
             /* wake up server and await NO response */
             SockWrite(sock, "\r\n", 2);
@@ -119,7 +119,9 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
 	        gss_release_name(&min_stat, &target_name);
 	        return result;
 	    }
-	    request_buf.length = from64tobits(buf2, buf1 + 2);
+	    request_buf.length = from64tobits(buf2, buf1 + 2, sizeof(buf2));
+	    if (request_buf.length == -1)	/* in case of bad data */
+		request_buf.length = 0;
 	    request_buf.value = buf2;
 	    sec_token = &request_buf;
         }
@@ -131,22 +133,24 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
     if (result = gen_recv(sock, buf1, sizeof buf1))
         return result;
 
-    request_buf.length = from64tobits(buf2, buf1 + 2);
+    request_buf.length = from64tobits(buf2, buf1 + 2, sizeof(buf2));
+    if (request_buf.length == -1)	/* in case of bad data */
+	request_buf.length = 0;
     request_buf.value = buf2;
 
     maj_stat = gss_unwrap(&min_stat, context, 
 			  &request_buf, &send_token, &cflags, &quality);
     if (maj_stat != GSS_S_COMPLETE) {
-        report(stderr, _("Couldn't unwrap security level data\n"));
+        report(stderr, GT_("Couldn't unwrap security level data\n"));
         gss_release_buffer(&min_stat, &send_token);
         return PS_AUTHFAIL;
     }
     if (outlevel >= O_DEBUG)
-        report(stdout, _("Credential exchange complete\n"));
+        report(stdout, GT_("Credential exchange complete\n"));
     /* first octet is security levels supported. We want none, for now */
     server_conf_flags = ((char *)send_token.value)[0];
     if ( !(((char *)send_token.value)[0] & GSSAUTH_P_NONE) ) {
-        report(stderr, _("Server requires integrity and/or privacy\n"));
+        report(stderr, GT_("Server requires integrity and/or privacy\n"));
         gss_release_buffer(&min_stat, &send_token);
         return PS_AUTHFAIL;
     }
@@ -155,11 +159,11 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
     /* we don't care about buffer size if we don't wrap data */
     gss_release_buffer(&min_stat, &send_token);
     if (outlevel >= O_DEBUG) {
-        report(stdout, _("Unwrapped security level flags: %s%s%s\n"),
+        report(stdout, GT_("Unwrapped security level flags: %s%s%s\n"),
             server_conf_flags & GSSAUTH_P_NONE ? "N" : "-",
             server_conf_flags & GSSAUTH_P_INTEGRITY ? "I" : "-",
             server_conf_flags & GSSAUTH_P_PRIVACY ? "C" : "-");
-        report(stdout, _("Maximum GSS token size is %ld\n"),buf_size);
+        report(stdout, GT_("Maximum GSS token size is %ld\n"),buf_size);
     }
 
     /* now respond in kind (hack!!!) */
@@ -172,7 +176,7 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
     maj_stat = gss_wrap(&min_stat, context, 0, GSS_C_QOP_DEFAULT, &request_buf,
         &cflags, &send_token);
     if (maj_stat != GSS_S_COMPLETE) {
-        report(stderr, _("Error creating security level request\n"));
+        report(stderr, GT_("Error creating security level request\n"));
         return PS_AUTHFAIL;
     }
     to64frombits(buf1, send_token.value, send_token.length);
@@ -183,10 +187,10 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
 
     /* flush security context */
     if (outlevel >= O_DEBUG)
-	report(stdout, _("Releasing GSS credentials\n"));
+	report(stdout, GT_("Releasing GSS credentials\n"));
     maj_stat = gss_delete_sec_context(&min_stat, &context, &send_token);
     if (maj_stat != GSS_S_COMPLETE) {
-	report(stderr, _("Error releasing credentials\n"));
+	report(stderr, GT_("Error releasing credentials\n"));
 	return PS_AUTHFAIL;
     }
     /* send_token may contain a notification to the server to flush

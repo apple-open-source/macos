@@ -1,5 +1,7 @@
 /* MI Console code.
-   Copyright (C) 2000, Free Software Foundation, Inc.
+
+   Copyright 2000, 2001, 2002 Free Software Foundation, Inc.
+
    Contributed by Cygnus Solutions (a Red Hat company).
 
    This file is part of GDB.
@@ -21,12 +23,7 @@
 
 #include "defs.h"
 #include "mi-console.h"
-#include <string.h>
-
-/* Convenience macro for allocting typesafe memory. */
-
-#undef XMALLOC
-#define XMALLOC(TYPE) (TYPE*) xmalloc (sizeof (TYPE))
+#include "gdb_string.h"
 
 /* MI-console: send output to std-out but correcty encapsulated */
 
@@ -65,8 +62,9 @@ mi_console_file_delete (struct ui_file *file)
 {
   struct mi_console_file *mi_console = ui_file_data (file);
   if (mi_console->magic != &mi_console_file_magic)
-    internal_error ("mi_console_file_delete: bad magic number");
-  free (mi_console);
+    internal_error (__FILE__, __LINE__,
+		    "mi_console_file_delete: bad magic number");
+  xfree (mi_console);
 }
 
 static void
@@ -75,7 +73,8 @@ mi_console_file_fputs (const char *buf,
 {
   struct mi_console_file *mi_console = ui_file_data (file);
   if (mi_console->magic != &mi_console_file_magic)
-    internal_error ("mi_console_file_fputs: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "mi_console_file_fputs: bad magic number");
   /* Append the text to our internal buffer */
   fputs_unfiltered (buf, mi_console->buffer);
   /* Flush when an embedded \n */
@@ -91,7 +90,8 @@ mi_console_raw_packet (void *data,
 {
   struct mi_console_file *mi_console = data;
   if (mi_console->magic != &mi_console_file_magic)
-    internal_error ("mi_console_file_transform: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "mi_console_file_transform: bad magic number");
 
   if (length_buf > 0)
     {
@@ -108,7 +108,8 @@ mi_console_file_flush (struct ui_file *file)
 {
   struct mi_console_file *mi_console = ui_file_data (file);
   if (mi_console->magic != &mi_console_file_magic)
-    internal_error ("mi_console_file_flush: bad magic number");
+    internal_error (__FILE__, __LINE__,
+		    "mi_console_file_flush: bad magic number");
   ui_file_put (mi_console->buffer, mi_console_raw_packet, mi_console);
   ui_file_rewind (mi_console->buffer);
 }

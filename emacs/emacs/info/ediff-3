@@ -1,17 +1,32 @@
-This is Info file ../info/ediff, produced by Makeinfo version 1.68 from
-the input file ediff.texi.
+This is ../info/ediff, produced by makeinfo version 4.0 from ediff.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Ediff: (ediff).       A visual interface for comparing and merging programs.
 END-INFO-DIR-ENTRY
 
-   This file documents Ediff, a comprehensive visual interface to Unix
-diff and patch utilities.
+   This file documents Ediff, a comprehensive visual interface to diff
+and patch utilities.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software
+Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: ediff,  Node: Index,  Prev: Credits,  Up: Top
@@ -21,25 +36,60 @@ Index
 
 * Menu:
 
+* !:                                     Quick Help Commands.
+* ##:                                    Quick Help Commands.
+* #f:                                    Quick Help Commands.
+* #h:                                    Quick Help Commands.
+* $$:                                    Quick Help Commands.
+* $*:                                    Quick Help Commands.
+* %:                                     Quick Help Commands.
+* &:                                     Quick Help Commands.
+* *:                                     Quick Help Commands.
+* +:                                     Quick Help Commands.
+* /:                                     Quick Help Commands.
+* <:                                     Quick Help Commands.
+* =:                                     Quick Help Commands.
+* >:                                     Quick Help Commands.
+* ?:                                     Quick Help Commands.
+* @:                                     Quick Help Commands.
+* a:                                     Quick Help Commands.
+* A:                                     Quick Help Commands.
+* ab:                                    Quick Help Commands.
+* ac:                                    Quick Help Commands.
+* B:                                     Quick Help Commands.
+* b:                                     Quick Help Commands.
+* ba:                                    Quick Help Commands.
+* bc:                                    Quick Help Commands.
+* C:                                     Quick Help Commands.
+* C-l:                                   Quick Help Commands.
+* ca:                                    Quick Help Commands.
+* cb:                                    Quick Help Commands.
 * Comparing files and buffers:           Introduction.
+* D:                                     Quick Help Commands.
+* DEL:                                   Quick Help Commands.
+* E:                                     Quick Help Commands.
 * ediff:                                 Major Entry Points.
 * ediff-after-flag-eol:                  Highlighting Difference Regions.
 * ediff-after-flag-mol:                  Highlighting Difference Regions.
+* ediff-after-session-group-setup-hook:  Hooks.
 * ediff-after-setup-control-frame-hook:  Hooks.
 * ediff-after-setup-windows-hook:        Hooks.
 * ediff-auto-refine:                     Refinement of Difference Regions.
 * ediff-auto-refine-limit:               Refinement of Difference Regions.
-* ediff-autostore-merges <1>:            Merging and diff3.
+* ediff-autostore-merges <1>:            Session Groups.
 * ediff-autostore-merges <2>:            Hooks.
-* ediff-autostore-merges:                Session Groups.
+* ediff-autostore-merges:                Merging and diff3.
 * ediff-before-flag-bol:                 Highlighting Difference Regions.
 * ediff-before-flag-mol:                 Highlighting Difference Regions.
+* ediff-before-session-group-setup-hook: Hooks.
 * ediff-before-setup-control-frame-hook: Hooks.
+* ediff-before-setup-hook:               Hooks.
 * ediff-before-setup-windows-hook:       Hooks.
 * ediff-brief-help-message-function:     Notes on Heavy-duty Customization.
 * ediff-buffers:                         Major Entry Points.
 * ediff-buffers3:                        Major Entry Points.
 * ediff-cleanup-hook:                    Hooks.
+* ediff-coding-system-for-read:          Patch and Diff Programs.
 * ediff-combination-pattern:             Merging and diff3.
 * ediff-control-buffer:                  Quick Help Customization.
 * ediff-control-frame-parameters:        Window and Frame Configuration.
@@ -94,6 +144,7 @@ Index
 * ediff-merge-directories-with-ancestor: Major Entry Points.
 * ediff-merge-directory-revisions:       Major Entry Points.
 * ediff-merge-directory-revisions-with-ancestor: Major Entry Points.
+* ediff-merge-filename-prefix:           Merging and diff3.
 * ediff-merge-files:                     Major Entry Points.
 * ediff-merge-files-with-ancestor:       Major Entry Points.
 * ediff-merge-revisions:                 Major Entry Points.
@@ -120,8 +171,8 @@ Index
 * ediff-prepare-buffer-hook:             Hooks.
 * ediff-profile:                         Other Session Commands.
 * ediff-quit-hook:                       Hooks.
-* ediff-quit-merge-hook <1>:             Merging and diff3.
-* ediff-quit-merge-hook:                 Hooks.
+* ediff-quit-merge-hook <1>:             Hooks.
+* ediff-quit-merge-hook:                 Merging and diff3.
 * ediff-quit-session-group-hook:         Hooks.
 * ediff-quit-widened:                    Narrowing.
 * ediff-regions-linewise:                Major Entry Points.
@@ -131,7 +182,6 @@ Index
 * ediff-revision:                        Major Entry Points.
 * ediff-save-buffer:                     Patch and Diff Programs.
 * ediff-select-hook:                     Hooks.
-* ediff-session-group-setup-hook:        Hooks.
 * ediff-setup:                           Notes on Heavy-duty Customization.
 * ediff-setup-windows:                   Window and Frame Configuration.
 * ediff-setup-windows-multiframe:        Window and Frame Configuration.
@@ -140,16 +190,16 @@ Index
 * ediff-show-registry:                   Other Session Commands.
 * ediff-split-window-function:           Miscellaneous.
 * ediff-start-narrowed:                  Narrowing.
-* ediff-startup-hook <1>:                Notes on Heavy-duty Customization.
-* ediff-startup-hook <2>:                Quick Help Customization.
-* ediff-startup-hook:                    Hooks.
+* ediff-startup-hook <1>:                Quick Help Customization.
+* ediff-startup-hook <2>:                Hooks.
+* ediff-startup-hook:                    Notes on Heavy-duty Customization.
 * ediff-suspend-hook:                    Hooks.
-* ediff-toggle-multiframe <1>:           Window and Frame Configuration.
-* ediff-toggle-multiframe:               Other Session Commands.
+* ediff-toggle-multiframe <1>:           Other Session Commands.
+* ediff-toggle-multiframe:               Window and Frame Configuration.
 * ediff-toggle-read-only-function:       Miscellaneous.
 * ediff-unselect-hook:                   Hooks.
-* ediff-use-last-dir <1>:                Miscellaneous.
-* ediff-use-last-dir:                    Major Entry Points.
+* ediff-use-last-dir <1>:                Major Entry Points.
+* ediff-use-last-dir:                    Miscellaneous.
 * ediff-use-long-help-message:           Quick Help Customization.
 * ediff-version-control-package:         Support for Version Control.
 * ediff-wide-control-frame-rightward-shift: Window and Frame Configuration.
@@ -173,14 +223,42 @@ Index
 * epatch-buffer:                         Major Entry Points.
 * eregistry:                             Other Session Commands.
 * Finding differences:                   Introduction.
+* G:                                     Quick Help Commands.
+* ga:                                    Quick Help Commands.
+* gb:                                    Quick Help Commands.
+* gc:                                    Quick Help Commands.
 * generic-sc.el:                         Support for Version Control.
+* h:                                     Quick Help Commands.
+* i:                                     Quick Help Commands.
+* j:                                     Quick Help Commands.
+* m:                                     Quick Help Commands.
+* M:                                     Quick Help Commands.
 * Merging files and buffers:             Introduction.
 * mode-line.el:                          Customizing the Mode Line.
 * Multi-file patches:                    Session Groups.
+* n:                                     Quick Help Commands.
+* p:                                     Quick Help Commands.
 * Patching files and buffers:            Introduction.
 * pcl-cvs.el:                            Support for Version Control.
+* q:                                     Quick Help Commands.
+* r:                                     Quick Help Commands.
+* R:                                     Quick Help Commands.
+* ra:                                    Quick Help Commands.
+* rb:                                    Quick Help Commands.
+* rc:                                    Quick Help Commands.
 * rcs.el:                                Support for Version Control.
+* s:                                     Quick Help Commands.
+* SPC:                                   Quick Help Commands.
 * uniquify.el:                           Customizing the Mode Line.
+* v:                                     Quick Help Commands.
+* V:                                     Quick Help Commands.
 * vc.el:                                 Support for Version Control.
+* wa:                                    Quick Help Commands.
+* wb:                                    Quick Help Commands.
+* wc:                                    Quick Help Commands.
+* wd:                                    Quick Help Commands.
+* z:                                     Quick Help Commands.
+* |:                                     Quick Help Commands.
+* ~:                                     Quick Help Commands.
 
 

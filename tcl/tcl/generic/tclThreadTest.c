@@ -11,7 +11,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclThreadTest.c,v 1.1.1.3 2000/12/06 23:03:31 wsanchez Exp $
+ * RCS: @(#) $Id: tclThreadTest.c,v 1.1.1.4 2002/04/05 16:13:27 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -126,7 +126,7 @@ EXTERN int	TclThreadSend _ANSI_ARGS_((Tcl_Interp *interp, Tcl_ThreadId id,
 #undef TCL_STORAGE_CLASS
 #define TCL_STORAGE_CLASS DLLIMPORT
 
-Tcl_ThreadCreateType	NewThread _ANSI_ARGS_((ClientData clientData));
+Tcl_ThreadCreateType	NewTestThread _ANSI_ARGS_((ClientData clientData));
 static void	ListRemove _ANSI_ARGS_((ThreadSpecificData *tsdPtr));
 static void	ListUpdateInner _ANSI_ARGS_((ThreadSpecificData *tsdPtr));
 static int	ThreadEventProc _ANSI_ARGS_((Tcl_Event *evPtr, int mask));
@@ -355,7 +355,7 @@ TclCreateThread(interp, script)
     ctrl.flags = 0;
 
     Tcl_MutexLock(&threadMutex);
-    if (Tcl_CreateThread(&id, NewThread, (ClientData) &ctrl,
+    if (Tcl_CreateThread(&id, NewTestThread, (ClientData) &ctrl,
 		 TCL_THREAD_STACK_DEFAULT, TCL_THREAD_NOFLAGS) != TCL_OK) {
 	Tcl_MutexUnlock(&threadMutex);
         Tcl_AppendResult(interp,"can't create a new thread",0);
@@ -377,7 +377,7 @@ TclCreateThread(interp, script)
 /*
  *------------------------------------------------------------------------
  *
- * NewThread --
+ * NewTestThread --
  *
  *    This routine is the "main()" for a new thread whose task is to
  *    execute a single TCL script.  The argument to this function is
@@ -403,7 +403,7 @@ TclCreateThread(interp, script)
  *------------------------------------------------------------------------
  */
 Tcl_ThreadCreateType
-NewThread(clientData)
+NewTestThread(clientData)
     ClientData clientData;
 {
     ThreadCtrl *ctrlPtr = (ThreadCtrl*)clientData;

@@ -41,7 +41,8 @@
 //#include <err.h>
 #include <locale.h>
 #include <stdlib.h>
-#include <string.h>
+#include <cstring>
+#include <sys/param.h>
 
 #elif _USE_IO == _USE_IO_MACOS
 typedef SInt32 ssize_t;
@@ -174,10 +175,10 @@ AtomicFile::enterRead(const uint8 *&outFileAddress, size_t &outLength)
     // If we never had or no longer have an open read file.  Open it now.
     if (mReadFile == nil)
     {
-        mReadFile = new OpenFile(mReadFilename, false, false, 0);
+        mReadFile = new OpenFile(mReadFilename, false, false, 0, 0);
         mOpenFileMap.insert(OpenFileMap::value_type(mReadFile->versionId(), mReadFile));
     }
-    // Note that mReadFile->isDirty() might actually return true here, but all that mean is
+    // Note that mReadFile->isDirty() might actually return true here, but all that means is
     // that we are looking at data that was commited after we opened the file which might
     // happen in a few miliseconds anyway.
 
@@ -253,7 +254,7 @@ AtomicFile::performDelete()
         // XXX This is a potential infinite loop.
         for (;;)
         {
-            aReadFile = new OpenFile(mReadFilename, true, true, 0);
+            aReadFile = new OpenFile(mReadFilename, true, true, 0, 0);
             if (!aReadFile->isDirty())
                 break;
 
@@ -307,10 +308,10 @@ AtomicFile::enterCreate(FileRef &outWriteRef)
         StLock<Mutex> _(mReadLock);
 
         // Create mReadFilename until the lock has been aquired on a non-dirty file.
-        aReadFile = new OpenFile(mReadFilename, false, true, 1);
+        aReadFile = new OpenFile(mReadFilename, false, true, 1, 0666);
 
         // Open mWriteFile for writing.
-        mWriteFile = new OpenFile(mWriteFilename, true, false, aReadFile->versionId() + 1);
+        mWriteFile = new OpenFile(mWriteFilename, true, false, aReadFile->versionId() + 1, 0666);
 
         // Insert aReadFile into the map (do this after opening mWriteFile just in case that throws).
         mOpenFileMap.insert(OpenFileMap::value_type(-1, aReadFile));
@@ -369,7 +370,7 @@ AtomicFile::enterWrite(const uint8 *&outFileAddress, size_t &outLength, FileRef 
         // XXX This is a potential infinite loop.
         for (;;)
         {
-            aReadFile = new OpenFile(mReadFilename, true, true, 0);
+            aReadFile = new OpenFile(mReadFilename, true, true, 0, 0);
             if (!aReadFile->isDirty())
                 break;
 
@@ -383,7 +384,7 @@ AtomicFile::enterWrite(const uint8 *&outFileAddress, size_t &outLength, FileRef 
         StLock<Mutex> _(mReadLock);
 
         // Open mWriteFile for writing.
-        mWriteFile = new OpenFile(mWriteFilename, true, false, aReadFile->versionId() + 1);
+        mWriteFile = new OpenFile(mWriteFilename, true, false, aReadFile->versionId() + 1, aReadFile->mode());
 
         // Insert aReadFile into the map (do this after opening mWriteFile just in case that throws).
         mOpenFileMap.insert(OpenFileMap::value_type(-1, aReadFile));
@@ -614,13 +615,13 @@ AtomicFile::write(OffsetType inOffsetType, uint32 inOffset, const uint8 *inData,
 
 // AtomicFile::OpenFile implementation
 
-AtomicFile::OpenFile::OpenFile(const string &inFilename, bool write, bool lock, VersionId inVersionId) :
+AtomicFile::OpenFile::OpenFile(const string &inFilename, bool write, bool lock, VersionId inVersionId, mode_t mode) :
     mUseCount(0),
     mVersionId(inVersionId),
     mAddress(NULL),
     mLength(0)
 {
-    int flags, mode = 0;
+    int flags;
     if (write && lock)
     {
         flags = O_RDWR;
@@ -629,13 +630,11 @@ AtomicFile::OpenFile::OpenFile(const string &inFilename, bool write, bool lock, 
     else if (write && !lock)
     {
         flags = O_WRONLY|O_CREAT|O_TRUNC;
-        mode = 0666;
         mState = Write;
     }
     else if (!write && lock)
     {
         flags = O_WRONLY|O_CREAT|O_TRUNC|O_EXCL;
-        mode = 0666;
         mState = Create;
     }
     else
@@ -842,6 +841,16 @@ AtomicFile::OpenFile::unlock()
 #endif
 }
 
+mode_t
+AtomicFile::OpenFile::mode()
+{
+	struct stat st;
+	if (::fstat(mFileRef, &st) == -1)
+		UnixError::throwMe(errno);
+	return st.st_mode;
+}
+
+
 AtomicFile::VersionId
 AtomicFile::OpenFile::readVersionId()
 {
@@ -913,37 +922,31 @@ AtomicFile::OpenFile::writeVersionId(VersionId inVersionId)
 void
 AtomicFile::OpenFile::mkpath(const std::string &inFilename)
 {
-	char *path = const_cast<char *>(inFilename.c_str()); // @@@ Const_cast is a lie!!!
+	const char *path = inFilename.c_str();
 	struct stat sb;
-	char *slash;
-    mode_t dir_mode = (0777 & ~umask(0)) | S_IWUSR | S_IXUSR;
-
-	slash = path;
+	char dirPath[MAXPATHLEN];
+	size_t slash = 0;
 
 	for (;;)
 	{
-		slash += strspn(slash, "/");
-		slash += strcspn(slash, "/");
+		slash += strspn(path + slash, "/");
+		slash += strcspn(path + slash, "/");
 
-		if (*slash == '\0')
+		if (path[slash] == '\0')
 			break;
 
-		*slash = '\0';
+		if (slash >= MAXPATHLEN)
+			UnixError::throwMe(ENAMETOOLONG);
+		strncpy(dirPath, path, slash);
+		dirPath[slash] = '\0';
 
-		if (stat(path, &sb))
+		if (stat(dirPath, &sb))
 		{
-			if (errno != ENOENT || mkdir(path, dir_mode))
-				UnixError::throwMe(errno);
-			/* The mkdir() and umask() calls both honor only the low
-			   nine bits, so if you try to set a mode including the
-			   sticky, setuid, setgid bits you lose them. So chmod().  */
-			if (chmod(path, dir_mode) == -1)
+			if (errno != ENOENT || mkdir(dirPath, 0777))
 				UnixError::throwMe(errno);
 		}
 		else if (!S_ISDIR(sb.st_mode))
 			CssmError::throwMe(CSSM_ERRCODE_OS_ACCESS_DENIED);  // @@@ Should be is a directory
-
-		*slash = '/';
 	}
 }
 

@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -54,13 +31,22 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-static char sccsid[] = "@(#)authenc.c	8.1 (Berkeley) 6/6/93";
-#endif /* not lint */
+#include <sys/cdefs.h>
 
-#if	defined(AUTHENTICATION) || defined(ENCRYPTION)
+#ifdef __FBSDID
+__FBSDID("$FreeBSD: src/crypto/telnet/telnet/authenc.c,v 1.2.8.2 2002/04/13 10:59:08 markm Exp $");
+#endif
+
+#ifndef lint
+static const char sccsid[] = "@(#)authenc.c	8.1 (Berkeley) 6/6/93";
+#endif
+
+#ifdef	AUTHENTICATION
+#ifdef	ENCRYPTION
 #include <sys/types.h>
 #include <arpa/telnet.h>
+#include <pwd.h>
+#include <unistd.h>
 #include <libtelnet/encrypt.h>
 #include <libtelnet/misc.h>
 
@@ -70,10 +56,8 @@ static char sccsid[] = "@(#)authenc.c	8.1 (Berkeley) 6/6/93";
 #include "defines.h"
 #include "types.h"
 
-	int
-net_write(str, len)
-	unsigned char *str;
-	int len;
+int
+net_write(unsigned char *str, int len)
 {
 	if (NETROOM() > len) {
 		ring_supply_data(&netoring, str, len);
@@ -84,8 +68,8 @@ net_write(str, len)
 	return(0);
 }
 
-	void
-net_encrypt()
+void
+net_encrypt(void)
 {
 #ifdef	ENCRYPTION
 	if (encrypt_output)
@@ -95,40 +79,35 @@ net_encrypt()
 #endif	/* ENCRYPTION */
 }
 
-	int
-telnet_spin()
+int
+telnet_spin(void)
 {
 	return(-1);
 }
 
-	char *
-telnet_getenv(val)
-	char *val;
+char *
+telnet_getenv(char *val)
 {
 	return((char *)env_getvalue((unsigned char *)val));
 }
 
-	char *
-telnet_gets(prompt, result, length, echo)
-	char *prompt;
-	char *result;
-	int length;
-	int echo;
+char *
+telnet_gets(const char *prom, char *result, int length, int echo)
 {
-	extern char *getpass();
 	extern int globalmode;
 	int om = globalmode;
 	char *res;
 
 	TerminalNewMode(-1);
 	if (echo) {
-		printf("%s", prompt);
+		printf("%s", prom);
 		res = fgets(result, length, stdin);
-	} else if (res = getpass(prompt)) {
+	} else if ((res = getpass(prom))) {
 		strncpy(result, res, length);
 		res = result;
 	}
 	TerminalNewMode(om);
 	return(res);
 }
-#endif	/* defined(AUTHENTICATION) || defined(ENCRYPTION) */
+#endif	/* ENCRYPTION */
+#endif	/* AUTHENTICATION */

@@ -6,12 +6,10 @@ _SSLSetProtocolVersion
 _SSLGetProtocolVersion
 _SSLSetConnection
 _SSLGetNegotiatedProtocolVersion
-_SSLSetExportable
-_SSLGetExportable
-_SSLSetAllowExpiredCerts
-_SSLGetAllowExpiredCerts
-_SSLSetAllowAnyRoot
-_SSLGetAllowAnyRoot
+_SSLSetAllowsExpiredCerts
+_SSLGetAllowsExpiredCerts
+_SSLSetAllowsAnyRoot
+_SSLGetAllowsAnyRoot
 _SSLGetPeerCertificates
 _SSLSetPeerID
 _SSLGetNegotiatedCipher

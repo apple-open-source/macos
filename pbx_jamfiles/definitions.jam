@@ -1,0 +1,126 @@
+# Copyright (c) 1999-2002 Apple Computer, Inc.
+# All rights reserved.
+
+# Built-in definitions of common build settings.  These can be
+# overridden by any higher layer (project-level, target-level,
+# build-phase-level, command-line etc).
+
+# the four 'root' directories
+export deferred SRCROOT = $(PWD) ;
+export deferred OBJROOT = $(SYMROOT) ;
+export deferred SYMROOT = $(SRCROOT)/build ;
+export deferred DSTROOT = /tmp/$(PROJECT_NAME).dst ;
+
+# synonyms for the above
+export deferred SOURCE_ROOT = $(SRCROOT) ;
+export deferred TEMP_ROOT = $(OBJROOT) ;
+export deferred BUILD_ROOT = $(SYMROOT) ;
+export deferred INSTALL_ROOT = $(DSTROOT) ;
+
+# more specific directories inside the TEMP_ROOT
+export deferred TEMP_DIR = $(OBJROOT)/$(PROJECT_NAME).build/$(TARGET_NAME).build ;
+export deferred DERIVED_FILE_DIR = $(TEMP_DIR)/DerivedSources ;
+       deferred OBJECT_FILE_DIR = $(TEMP_DIR)/Objects ;
+       deferred CLASS_FILE_DIR = $(TEMP_DIR)/JavaClasses ;
+       deferred FILE_LIST = $(OBJECT_FILE_DIR)/LinkFileList ;
+       deferred PRECOMP_TRUSTFILE = $(TEMP_DIR)/TrustedPrecomps.txt ;
+
+# more specific directories inside the BUILD_ROOT
+export deferred BUILD_DIR = $(SYMROOT) ;
+
+# more specific directories inside the INSTALL_ROOT
+export deferred INSTALL_DIR = $(DSTROOT)/$(INSTALL_PATH) ;
+
+# installation parameters
+export deferred INSTALL_OWNER = $(USER) ;
+export deferred INSTALL_GROUP = $(GROUP) ;
+export deferred INSTALL_MODE_FLAG = "a-w,a+rX" ;
+
+# language-independent code generation settings
+       deferred OPTIMIZATION_LEVEL = 0 ;
+       deferred OPTIMIZATION_CFLAGS = -Os ;
+       deferred DEBUGGING_SYMBOLS = YES ;
+       deferred PROFILING_CODE = NO ;
+       deferred PREBINDING = YES ;
+
+# Java-specific (some are marginally obsolete)
+       deferred JAVA_ARCHIVE_CLASSES = YES ;
+       deferred JAVA_ARCHIVE_TYPE = JAR ;
+       deferred JAVA_APP_STUB = $(SYSTEM_LIBRARY_DIR)/Frameworks/JavaVM.framework/Resources/MacOS/JavaApplicationStub ;
+       deferred JAVA_JAR_FLAGS = cv ;
+       deferred JAVA_SOURCE_SUBDIR = . ;
+       deferred JAVA_FRAMEWORK_RESOURCES_DIRS = Resources ;
+       deferred JAVA_FRAMEWORK_JARS = ;
+       deferred JAVA_USE_DEPENDENCIES = YES ;
+       deferred JAVA_ZIP_FLAGS = -urg ;
+       deferred JAVAC_SOURCE_FILE_ENCODING = MACINTOSH ;
+
+# miscellaneous
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred FRAMEWORK_VERSION = A ;
+       deferred REMOVE_CVS_FROM_RESOURCES = YES ;
+       deferred COPY_PHASE_STRIP = NO ;
+       deferred CLONE_HEADERS = NO ;
+       deferred KEEP_PRIVATE_EXTERNS = YES ;   # this currently affects the master.o file only
+
+
+rule ConditionalDefinitions
+{
+    # default mapping of build actions to build variants
+    switch $(ACTION) {
+        case build : deferred BUILD_COMPONENTS = headers build ;
+        case copysrc : deferred BUILD_COMPONENTS = source ;
+        case copyhdrs : deferred BUILD_COMPONENTS = headers ;
+        case copyrsrcs : deferred BUILD_COMPONENTS = resources ;
+        case install : deferred BUILD_COMPONENTS = headers build ; 
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+        case installdebugonly : deferred BUILD_COMPONENTS = build ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+         deferred BUILD_VARIANTS = debug ;
+        case installprofileonly : deferred BUILD_COMPONENTS = build ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+         deferred BUILD_VARIANTS = profile ;
+        case installdebugprofileonly : deferred BUILD_COMPONENTS = build ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+         deferred BUILD_VARIANTS = debug profile ;
+        case installhdrs : deferred BUILD_COMPONENTS = headers ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+        case installsrc : deferred BUILD_COMPONENTS = source ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+        case installrsrcs : deferred BUILD_COMPONENTS = resources ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+    }
+
+    # conditional locations enabling install-in-place
+    if $(DEPLOYMENT_LOCATION) = YES {
+        if $(SKIP_INSTALL) || ! $(INSTALL_PATH) {
+            # !!!:cmolick:20020301 uninstalled products might best go to
+            #  the built products dir, or a subfolder if there are asides
+            export deferred TARGET_BUILD_DIR = $(TEMP_ROOT)/UninstalledProducts ;
+        }
+        else {
+            export deferred TARGET_BUILD_DIR = $(INSTALL_ROOT)/$(INSTALL_PATH) ;
+        }
+        deferred BASE_PROJECT_HEADER_DIR = $(TEMP_ROOT)/ProjectHeaders ;
+        if $(INSTALLED_PRODUCT_ASIDES) = YES {
+            # built products go in subfolder when there are asides
+            export deferred BUILT_PRODUCTS_DIR = $(BUILD_ROOT)/BuiltProducts ;
+        }
+        else {
+            # built products go in build folder when there are no asides
+            export deferred BUILT_PRODUCTS_DIR = $(BUILD_ROOT) ;
+        }
+    }
+    else {
+        export deferred TARGET_BUILD_DIR = $(BUILD_DIR) ;
+        export deferred BUILT_PRODUCTS_DIR = $(BUILD_DIR) ;
+        deferred BASE_PROJECT_HEADER_DIR = $(BUILD_ROOT)/ProjectHeaders ;
+    }
+}

@@ -52,7 +52,7 @@
 ;; a non-nil argument).
 
 ;; More flexible templates can be created by including lisp symbols,
-;; which will be evaluated as variables, or lists, which will will be
+;; which will be evaluated as variables, or lists, which will be
 ;; evaluated as lisp expressions.
 
 ;; See the documentation for tempo-define-template for the different
@@ -101,7 +101,7 @@
 ;; tempo.el. Thanks.
 
 ;; Nelson Minar <nelson@santafe.edu>
-;; Richard Stallman <rms@gnu.ai.mit.edu>
+;; Richard Stallman <rms@gnu.org>
 ;; Lars Lindberg <Lars.Lindberg@sypro.cap.se>
 ;; Glen Whitney <Glen.Whitney@math.lsa.umich.edu>
 
@@ -217,23 +217,6 @@ it recognizes the argument, and NIL otherwise")
 (make-variable-buffer-local 'tempo-dirty-collection)
 
 ;;; Functions
-
-;;; First some useful functions and macros
-
-(defun tempo-mapc (fun lst)
-  (if (null lst) nil
-    (funcall fun (car lst))
-    (tempo-mapc fun (cdr lst))))
-
-(defmacro tempo-dolist (il &rest forms)
-  (let ((i (car il))
-	(l (car (cdr il))))
-    (list 'tempo-mapc
-	  (list 'function (append (list 'lambda
-					(list i))
-				  forms))
-	  l)))
-(put 'tempo-dolist 'lisp-indent-function 1)
 
 ;;
 ;; tempo-define-template
@@ -539,7 +522,7 @@ and insert the results."
 	 (setq string
 	       (funcall tempo-insert-string-functions string)))
 	((listp tempo-insert-string-functions)
-	 (tempo-dolist (fn tempo-insert-string-functions)
+	 (dolist (fn tempo-insert-string-functions)
 	   (setq string (funcall fn string))))
 	(t
 	 (error "Bogus value in tempo-insert-string-functions: %s"
@@ -754,7 +737,7 @@ Returns non-nil if an expansion was made and nil otherwise.
 This could as an example be used in a command that is bound to the
 space bar, and looks something like this:
 
-(defun tempo-space ()
+\(defun tempo-space ()
   (interactive \"*\")
   (or (tempo-expand-if-complete)
       (insert \" \")))"

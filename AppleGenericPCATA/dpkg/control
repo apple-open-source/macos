@@ -1,0 +1,6 @@
+Package: applegenericpcata
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Vendor: Apple Computer, Inc.
+Version: 1
+Description: ATA driver for generic x86 ata chipsets.
+Build-Depends: build-base, jam, xnu, ioatafamily, iokituser, ioatablockstorage

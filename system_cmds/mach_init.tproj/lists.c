@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,6 +62,7 @@ unsigned nservices;		/* number of services in list */
 void
 init_lists(void)
 {
+	bootstraps.ref_count = 2; /* make sure we never deallocate this one */
 	bootstraps.next = bootstraps.prev = &bootstraps;
 	servers.next = servers.prev = &servers;
 	services.next = services.prev = &services;
@@ -70,13 +71,14 @@ init_lists(void)
 
 server_t *
 new_server(
-	servertype_t	servertype,
-	const char	*cmd,
-	int		priority)
+	bootstrap_info_t	*bootstrap,
+	const char		*cmd,
+	int			uid,
+	servertype_t		servertype)
 {
 	server_t *serverp;
 
-	debug("adding new server \"%s\" with priority %d\n", cmd, priority);	
+	debug("adding new server \"%s\" with uid %d\n", cmd, uid);	
 	serverp = NEW(server_t, 1);
 	if (serverp != NULL) {
 		/* Doubly linked list */
@@ -85,15 +87,23 @@ new_server(
 		serverp->next = &servers;
 		servers.prev = serverp;
 
+		bootstrap->ref_count++;
+		serverp->bootstrap = bootstrap;
+
+		serverp->pid = NO_PID;
+		serverp->task_port = MACH_PORT_NULL;
+		serverp->uid = uid;
+
 		serverp->port = MACH_PORT_NULL;
 		serverp->servertype = servertype;
-		serverp->priority = priority;
+		serverp->activity = 0;
+		serverp->active_services = 0;
 		strncpy(serverp->cmd, cmd, sizeof serverp->cmd);
 		LAST_ELEMENT(serverp->cmd) = '\0';
 	}
 	return serverp;
 }
-			
+	
 service_t *
 new_service(
 	bootstrap_info_t	*bootstrap,
@@ -103,10 +113,7 @@ new_service(
 	servicetype_t	servicetype,
 	server_t	*serverp)
 {
-	extern mach_port_t notify_port;
         service_t *servicep;
-	mach_port_t pport;
-        kern_return_t result;
         
 	servicep = NEW(service_t, 1);
 	if (servicep != NULL) {
@@ -120,23 +127,11 @@ new_service(
 		
 		strncpy(servicep->name, name, sizeof servicep->name);
 		LAST_ELEMENT(servicep->name) = '\0';
-		servicep->bootstrap = bootstrap;
-		servicep->server = serverp;
-		servicep->port = service_port;
-                result = mach_port_request_notification(mach_task_self(),
-                                                        service_port,
-                                                        MACH_NOTIFY_DEAD_NAME,
-                                                        0,
-                                                        notify_port,
-                                                        MACH_MSG_TYPE_MAKE_SEND_ONCE,
-                                                        &pport);
-                if (result == KERN_SUCCESS) {
-                    debug("added notification for %s\n", servicep->name);
-                } else {
-                    error("couldn't add notification for %s: %s\n", servicep->name, mach_error_string(result));
-                }
-                servicep->isActive = isActive;
 		servicep->servicetype = servicetype;
+		servicep->bootstrap = bootstrap;
+		servicep->port = service_port;
+		servicep->server = serverp;
+		servicep->isActive = isActive;
 	}
 	return servicep;
 }
@@ -147,10 +142,7 @@ new_bootstrap(
 	mach_port_t	bootstrap_port,
 	mach_port_t	requestor_port)
 {
-	extern mach_port_t notify_port;
 	bootstrap_info_t *bootstrap;
-	mach_port_t pport;
-	kern_return_t result;
 
 	bootstrap = NEW(bootstrap_info_t, 1);
 	if (bootstrap != NULL) {
@@ -162,19 +154,10 @@ new_bootstrap(
 		
 		bootstrap->bootstrap_port = bootstrap_port;
 		bootstrap->requestor_port = requestor_port;
-		bootstrap->parent = parent;
-                result = mach_port_request_notification(mach_task_self(),
-                                                        requestor_port,
-                                                        MACH_NOTIFY_DEAD_NAME,
-                                                        0,
-                                                        notify_port,
-                                                        MACH_MSG_TYPE_MAKE_SEND_ONCE, &pport); 
-                if (result == KERN_SUCCESS) {
-                    info("added notification for sub-bootstrap");
-                } else {
-                    error("couldn't add notification for sub-bootstrap: %s\n", mach_error_string(result));
-                }
 
+		bootstrap->ref_count = 1;
+		bootstrap->parent = parent;
+		parent->ref_count++;
 	}
 	return bootstrap;
 }
@@ -183,20 +166,28 @@ bootstrap_info_t *
 lookup_bootstrap_by_port(mach_port_t port)
 {
 	bootstrap_info_t *bootstrap;
+	bootstrap_info_t *first;
+	server_t *serverp;
 
-	for (  bootstrap = FIRST(bootstraps)
-	     ; !IS_END(bootstrap, bootstraps)
-	     ; bootstrap = NEXT(bootstrap))
-	{
+	bootstrap = first = FIRST(bootstraps);
+	do {  
 		if (bootstrap->bootstrap_port == port)
 			return bootstrap;
+		bootstrap = NEXT(bootstrap);
+	} while (bootstrap != first);
+	
+	for (  serverp = FIRST(servers)
+	     ; !IS_END(serverp, servers)
+	     ; serverp = NEXT(serverp))
+	{
+	  	if (port == serverp->port)
+			return serverp->bootstrap;
 	}
-
-	return &bootstraps;
+	return NULL;
 }
 
 bootstrap_info_t *
-lookup_bootstrap_req_by_port(mach_port_t port)
+lookup_bootstrap_by_req_port(mach_port_t port)
 {
 	bootstrap_info_t *bootstrap;
 
@@ -247,13 +238,32 @@ void
 delete_service(service_t *servicep)
 {
 	unlink_service(servicep);
+	switch (servicep->servicetype) {
+	case REGISTERED:
+		info("Registered service %s deleted", servicep->name);
+		mach_port_deallocate(mach_task_self(), servicep->port);
+		break;
+	case DECLARED:
+		info("Declared service %s now unavailable", servicep->name);
+		mach_port_deallocate(mach_task_self(), servicep->port);
+		mach_port_mod_refs(mach_task_self(), servicep->port,
+				   MACH_PORT_RIGHT_RECEIVE, -1);
+		break;
+	case SELF:
+		error("Self service %s now unavailable", servicep->name);
+		break;
+	default:
+		error("unknown service type %d\n", servicep->servicetype);
+		break;
+	}
 	free(servicep);
 	nservices -= 1;
 }
 
 void
-destroy_services(bootstrap_info_t *bootstrap)
+delete_bootstrap_services(bootstrap_info_t *bootstrap)
 {
+	server_t  *serverp;
 	service_t *servicep;
 	service_t *next;
 	
@@ -264,24 +274,17 @@ destroy_services(bootstrap_info_t *bootstrap)
 		next = NEXT(servicep);
 	  	if (bootstrap != servicep->bootstrap)
 			continue;
-		unlink_service(servicep);
-		switch (servicep->servicetype) {
-		case REGISTERED:
-			log("Service %s deleted - bootstrap deleted", servicep->name);
-			msg_destroy_port(servicep->port);
+
+		if (!servicep->isActive || !servicep->server) {
 			delete_service(servicep);
-			break;
-		case DECLARED:	// don't alter status of (now unavailable) server
-			error("Declared service %s now unavailable", servicep->name);
-			delete_service(servicep);
-			break;
-		case SELF:
-			error("Self service %s now unavailable", servicep->name);
-			break;
-		default:
-			error("unknown service type %d\n", servicep->servicetype);
-			break;
+			continue;
 		}
+
+		serverp = servicep->server;
+		delete_service(servicep);
+		serverp->active_services--;
+		if (!active_server(serverp))
+			delete_server(serverp);
 	}
 }
 
@@ -295,6 +298,21 @@ lookup_service_by_port(mach_port_t port)
 	     ; servicep = NEXT(servicep))
 	{
 	  	if (port == servicep->port)
+			return servicep;
+	}
+        return NULL;
+}
+
+service_t *
+lookup_service_by_server(server_t *serverp)
+{
+	service_t *servicep;
+	
+        for (  servicep = FIRST(services)
+	     ; !IS_END(servicep, services)
+	     ; servicep = NEXT(servicep))
+	{
+	  	if (serverp == servicep->server)
 			return servicep;
 	}
         return NULL;
@@ -315,33 +333,6 @@ lookup_server_by_task_port(mach_port_t port)
 	return NULL;
 }
 
-void
-delete_bootstrap(bootstrap_info_t *bootstrap)
-{
-	bootstrap_info_t *child_bootstrap;
-
-	ASSERT(bootstrap->prev->next == bootstrap);
-	ASSERT(bootstrap->next->prev == bootstrap);
-
-	destroy_services(bootstrap);
-	for (  child_bootstrap = FIRST(bootstraps)
-	     ; !IS_END(child_bootstrap, bootstraps)
-	     ; child_bootstrap = NEXT(child_bootstrap))
-	{
-		if (child_bootstrap->parent == bootstrap)
-			delete_bootstrap(child_bootstrap);
-	}
-
-	debug("deleting bootstrap %d, requestor %d",
-		bootstrap->bootstrap_port,
-		bootstrap->requestor_port);
-	bootstrap->prev->next = bootstrap->next;
-	bootstrap->next->prev = bootstrap->prev;
-	mach_port_destroy(mach_task_self(), bootstrap->bootstrap_port);
-	mach_port_deallocate(mach_task_self(), bootstrap->requestor_port);
-	free(bootstrap);
-}
-
 server_t *
 lookup_server_by_port(mach_port_t port)
 {
@@ -357,19 +348,135 @@ lookup_server_by_port(mach_port_t port)
 	return NULL;
 }
 
-server_t *
-find_init_server(void)
+void
+delete_server(server_t *serverp)
 {
-	server_t *serverp;
-	
-	for (  serverp = FIRST(servers)
-	     ; !IS_END(serverp, servers)
-	     ; serverp = NEXT(serverp))
+	service_t *servicep;
+	service_t *next;
+
+	info("Deleting server %s", serverp->cmd);
+	ASSERT(serverp->prev->next == serverp);
+	ASSERT(serverp->next->prev == serverp);
+	serverp->prev->next = serverp->next;
+	serverp->next->prev = serverp->prev;
+
+	for (  servicep = FIRST(services)
+	     ; !IS_END(servicep, services)
+	     ; servicep = next)
 	{
-	 	if (serverp->servertype == ETCINIT)
-			return serverp;
+		next = NEXT(servicep);
+	  	if (serverp == servicep->server)
+			delete_service(servicep);
 	}
-	return NULL;
+
+	deallocate_bootstrap(serverp->bootstrap);
+
+#ifndef DELAYED_BOOTSTRAP_DESTROY
+	if (serverp->port)
+		mach_port_mod_refs(mach_task_self(), serverp->port,
+				   MACH_PORT_RIGHT_RECEIVE, -1);
+#endif	
+
+	free(serverp);
+}	
+
+void
+deactivate_bootstrap(bootstrap_info_t *bootstrap)
+{
+	bootstrap_info_t *deactivating_bootstraps;
+	bootstrap_info_t *query_bootstrap;
+	bootstrap_info_t *next_limit;
+	bootstrap_info_t *limit;
+
+	/*
+	 * we need to recursively deactivate the whole subset tree below
+	 * this point.  But we don't want to do real recursion because
+	 * we don't have a limit on the depth.  So, build up a chain of
+	 * active bootstraps anywhere underneath this one.
+	 */
+	deactivating_bootstraps = bootstrap;
+	bootstrap->deactivate = NULL;
+	for (next_limit = deactivating_bootstraps, limit = NULL
+			 ; deactivating_bootstraps != limit
+			 ; limit = next_limit, next_limit = deactivating_bootstraps)
+	{
+		for (bootstrap = deactivating_bootstraps
+				 ; bootstrap != limit
+				 ; bootstrap = bootstrap->deactivate)
+		{
+			for (  query_bootstrap = FIRST(bootstraps)
+				   ; !IS_END(query_bootstrap, bootstraps)
+				   ; query_bootstrap = NEXT(query_bootstrap))
+			{
+				if (query_bootstrap->parent == bootstrap &&
+					query_bootstrap->requestor_port != MACH_PORT_NULL) {
+					mach_port_deallocate(
+										 mach_task_self(),
+										 query_bootstrap->requestor_port);
+					query_bootstrap->requestor_port = MACH_PORT_NULL;
+					query_bootstrap->deactivate = deactivating_bootstraps;
+					deactivating_bootstraps = query_bootstrap;
+				}
+			}
+		}
+	}
+
+	/*
+	 * The list is ordered with the furthest away progeny being
+	 * at the front, and concluding with the one we started with.
+	 * This allows us to safely deactivate and remove the reference
+	 * each holds on their parent without fear of the chain getting
+	 * corrupted (because each active parent holds a reference on
+	 * itself and that doesn't get removed until we reach its spot
+	 * in the list).
+	 */
+	do {
+		bootstrap = deactivating_bootstraps;
+		deactivating_bootstraps = bootstrap->deactivate;
+
+		info("deactivating bootstrap %x", bootstrap->bootstrap_port);
+
+		delete_bootstrap_services(bootstrap);
+		
+		mach_port_deallocate(mach_task_self(), bootstrap->bootstrap_port);
+
+#ifdef DELAYED_BOOTSTRAP_DESTROY
+		{
+			mach_port_t previous;
+			mach_port_request_notification(
+					mach_task_self(),
+					bootstrap->bootstrap_port,
+					MACH_NOTIFY_NO_SENDERS,
+					1,
+					bootstrap->bootstrap_port,
+					MACH_MSG_TYPE_MAKE_SEND_ONCE,
+					&previous);
+		}
+#else
+		mach_port_mod_refs(
+					mach_task_self(),
+					bootstrap->bootstrap_port,
+					MACH_PORT_RIGHT_RECEIVE,
+					-1);
+		bootstrap->bootstrap_port = MACH_PORT_NULL;
+		deallocate_bootstrap(bootstrap);
+#endif
+
+	} while (deactivating_bootstraps != NULL);
+}
+
+void
+deallocate_bootstrap(bootstrap_info_t *bootstrap)
+{
+	ASSERT(bootstrap->prev->next == bootstrap);
+	ASSERT(bootstrap->next->prev == bootstrap);
+	if (--bootstrap->ref_count > 0)
+		return;
+
+	bootstrap->prev->next = bootstrap->next;
+	bootstrap->next->prev = bootstrap->prev;
+	deallocate_bootstrap(bootstrap->parent);
+	free(bootstrap);
 }
 
 void *

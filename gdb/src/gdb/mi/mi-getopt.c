@@ -1,5 +1,5 @@
 /* MI Command Set - MI Option Parser.
-   Copyright (C) 2000, Free Software Foundation, Inc.
+   Copyright 2000, 2001 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions (a Red Hat company).
 
    This file is part of GDB.
@@ -21,7 +21,7 @@
 
 #include "defs.h"
 #include "mi-getopt.h"
-#include "string.h"
+#include "gdb_string.h"
 
 int
 mi_getopt (const char *prefix,
@@ -33,7 +33,8 @@ mi_getopt (const char *prefix,
   struct mi_opt *opt;
   /* We assume that argv/argc are ok. */
   if (*optind > argc || *optind < 0)
-    internal_error ("mi_getopt_long: optind out of bounds");
+    internal_error (__FILE__, __LINE__,
+		    "mi_getopt_long: optind out of bounds");
   if (*optind == argc)
     return -1;
   arg = argv[*optind];

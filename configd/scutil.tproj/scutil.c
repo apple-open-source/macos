@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -151,7 +151,7 @@ process_line(FILE *fp)
 		return FALSE;
 
 	if (nesting > 0) {
-		SCPrint(TRUE, stdout, CFSTR("%d> %s"), nesting, line);
+		SCPrint(TRUE, stdout, CFSTR("%d> %s\n"), nesting, line);
 	}
 
 	/* if requested, exit */
@@ -246,7 +246,7 @@ usage(const char *command)
 
 
 int
-main(int argc, const char *argv[])
+main(int argc, char * const argv[])
 {
 	CFSocketContext		context	= { 0, stdin, NULL, NULL, NULL };
 	char			*dest	= NULL;
@@ -285,7 +285,7 @@ main(int argc, const char *argv[])
 		case '?':
 		default :
 			usage(prog);
-	}
+		}
 	argc -= optind;
 	argv += optind;
 

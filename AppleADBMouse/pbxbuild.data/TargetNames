@@ -1,1 +1,5 @@
-Targets='AppleADBMouse'
+if [ "${Target}" = "AppleADBMouse" ]; then
+	Targets='AppleADBMouse'
+else
+	Targets='AppleADBMouse'
+fi

@@ -9,21 +9,24 @@
                  This file may contain unreleased API's
  
      BuildInfo:  Built by:            wgulland
-                 On:                  Wed Oct  3 13:29:45 2001
+                 On:                  Tue Mar 12 16:49:01 2002
                  With Interfacer:     3.0d35   (Mac OS X for PowerPC)
                  From:                IsochronousDataHandler.i
-                     Revision:        1.4
-                     Dated:           2001/09/27 00:43:29
+                     Revision:        1.5
+                     Dated:           2001/10/05 16:46:32
                      Last change by:  wgulland
-                     Last comment:    Keep retrying if starting write fails
+                     Last comment:    Add inputFormat to IDHDeviceStatus structure
  
      Bugs:       Report bugs to Radar component "System Interfaces", "Latest"
                  List the version information (from above) in the Problem Description.
  
 */
 
-#include <Carbon/Carbon.h>
-#include <IsochronousDataHandler.h>
+
+#include <CoreServices/CoreServices.h>
+//#include <CarbonCore/MixedMode.h>
+//#include <CarbonCore/Components.h>
+#include <DVComponentGlue/IsochronousDataHandler.h>
 #if MP_SUPPORT
 	#include "MPMixedModeSupport.h"
 #endif

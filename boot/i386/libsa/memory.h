@@ -27,48 +27,74 @@
 
 /* Memory addresses used by booter and friends */
 
+#define BASE_SEG          0x2000
+#define STACK_SEG         0x3000
+#define STACK_OFS         0xFFF0      // stack pointer
+
+#define BOOT2_SEG         BASE_SEG
+#define BOOT2_OFS         0x0200      // 512 byte disk sector offset
+
+#define BIOS_ADDR         0x0C00      // BIOS disk I/O buffer
+#define BIOS_LEN          0x2400      // 9K
+
 /* These are all "virtual" addresses...
  * which are physical addresses plus MEMBASE.
  */
- 
-#define MEMBASE             0x0
-#define BASE_SEG            0x0
+#define ADDR32(seg, ofs)  (((seg) << 4 ) + (ofs))
 
-#define BIOS_ADDR           0x000C00    // BIOS buffer
-#define BIOS_LEN            0x002400    // 9k
-#define BOOTER_LOAD_ADDR    0x003000    // loaded here for compat.
-#define BOOTER_ADDR         0x003000    // start of booter code
-#define BOOTER_LEN          0x00B000
-#define STACK_ADDR          0x00FFF0
-#define BOOTSTRUCT_ADDR     0x011000    // it's slightly smaller
-#define BOOTSTRUCT_LEN      0x00F000
-#define RLD_ADDR            0x030000    // not used
-#define RLD_LEN             0x070000
-#define VIDEO_ADDR          0x0A0000    // unusable space
-#define VIDEO_LEN           0x060000
-#define KERNEL_ADDR         0x100000    // 14Mb kernel + drivers
-#define KERNEL_LEN          0xe00000
-#define ZALLOC_ADDR         0xf00000    // 1Mb for zalloc
-#define ZALLOC_LEN          0x100000
-#define TFTP_ADDR           0x1000000   // 8Mb download buffer
-#define TFTP_LEN            0x800000
+#define MEMBASE           0x0
 
-/* These are physical values */
+#define BOOTSTRUCT_ADDR   0x011000    // it's slightly smaller
+#define BOOTSTRUCT_LEN    0x00F000
 
-#define CONVENTIONAL_LEN    0x0A0000      // 640k
-#define EXTENDED_ADDR       0x100000      // 1024k
-#define KERNEL_BOOT_ADDR    KERNEL_ADDR   // load at 1Mb
+#define BASE_ADDR         ADDR32(BASE_SEG, 0)
+#define BOOT2_ADDR        ADDR32(BOOT2_SEG, BOOT2_OFS)
 
-#define ptov(paddr) ((paddr) - MEMBASE)
-#define vtop(vaddr) ((vaddr) + MEMBASE)
+#define VIDEO_ADDR        0x0A0000    // unusable space
+#define VIDEO_LEN         0x060000
 
-/*
- * Limits to the size of various things...
- */
+#define KERNEL_ADDR       0x100000    // 15M kernel + drivers
+#define KERNEL_LEN        0xF00000
+
+#define ZALLOC_ADDR       0x1000000   // 4M zalloc area
+#define ZALLOC_LEN        0x400000
+
+#define LOAD_ADDR         0x01400000  // File download buffer
+#define LOAD_LEN          0x800000    // Max file size
+
+#define TFTP_ADDR         LOAD_ADDR   // tftp download buffer
+#define TFTP_LEN          LOAD_LEN
+
+#define kLoadAddr         LOAD_ADDR
+#define kLoadSize         LOAD_LEN
+
+#define CONVENTIONAL_LEN  0x0A0000    // 640k
+#define EXTENDED_ADDR     0x100000    // 1024k
+
+#define ptov(paddr)       ((paddr) - MEMBASE)
+#define vtop(vaddr)       ((vaddr) + MEMBASE)
 
 /*
- * We need a minimum of 24Mb of system memory.
+ * Extract segment/offset from a linear address.
  */
-#define MIN_SYS_MEM_KB  (24 * 1024)
+#define OFFSET16(addr)    ((addr) - BASE_ADDR)
+#define OFFSET(addr)      ((addr) & 0xFFFF)
+#define SEGMENT(addr)     (((addr) & 0xF0000) >> 4)
+
+/*
+ * We need a minimum of 32MB of system memory.
+ */
+#define MIN_SYS_MEM_KB  (32 * 1024)
+
+/*
+ * The number of descriptor entries in the GDT.
+ */
+#define NGDTENT   7
+
+/*
+ * The total size of the GDT in bytes.
+ * Each descriptor entry require 8 bytes.
+ */
+#define GDTLIMIT  ( NGDTENT * 8 )
 
 #endif /* !__BOOT_MEMORY_H */

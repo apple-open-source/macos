@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: attach.c,v 1.1.1.1 1999/04/15 17:45:11 wsanchez Exp $";
+static char rcsid[] = "$Id: attach.c,v 1.2 2002/01/03 22:16:38 jevans Exp $";
 #endif
 /*
  * Program:	Routines to support attachments in the Pine composer 
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: attach.c,v 1.1.1.1 1999/04/15 17:45:11 wsanchez Exp 
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -81,9 +81,9 @@ static char rcsid[] = "$Id: attach.c,v 1.1.1.1 1999/04/15 17:45:11 wsanchez Exp 
 AskAttach(fn, sz, cmnt)
 char *fn, *sz, *cmnt;
 {
-    int	   i, status;
-    long   l = 0;
-    char   bfn[NFILEN];
+    int	    i, status;
+    long    l = 0;
+    char    bfn[NFILEN];
 
     i = 2;
     fn[0] = '\0';
@@ -91,15 +91,18 @@ char *fn, *sz, *cmnt;
     cmnt[0] = '\0';
 
     while(i){
-
 	if(i == 2){
-	    wkeyhelp("GC00000T0000","Get Help,Cancel,To Files");
-	    status = mlreply("File to attach: ", fn, NLINE, QFFILE);
+	    KEYMENU menu_attach[2];
+
+	    menu_attach[0].name  = "^T";
+	    menu_attach[0].label = "To Files";
+	    menu_attach[1].name = NULL;
+	    status = mlreply("File to attach: ", fn, NLINE, QNORML,
+			     menu_attach);
+			     
 	}
-	else{
-	    wkeyhelp("GC0000000000","Get Help,Cancel");
-	    status = mlreply("Attachment comment: ", cmnt, NLINE, QNORML);
-	}
+	else
+	  status = mlreply("Attachment comment: ", cmnt, NLINE, QNORML, NULL);
 
 	switch(status){
 	  case HELPCH:
@@ -122,7 +125,7 @@ char *fn, *sz, *cmnt;
 	    if(*fn == '\0' || !isdir(fn, NULL))
 	      strcpy(fn, gethomedir(NULL));
 
-	    if(FileBrowse(fn, bfn, sz) == 1){
+	    if(FileBrowse(fn, bfn, sz, FB_READ) == 1){
 		strcat(fn, S_FILESEP);
 		strcat(fn, bfn);
 		i--;
@@ -140,8 +143,9 @@ char *fn, *sz, *cmnt;
 	    continue;
 
 	  case ABORT:
-	    emlwrite("\007Cancelled", NULL);
+	    emlwrite("Attach cancelled", NULL);
 	    return(0);
+
 	  case TRUE:				/* some comment */
 	  case FALSE:				/* No comment */
 	    if(i-- == 2){
@@ -169,7 +173,7 @@ char *fn, *sz, *cmnt;
     }
 }
 
-
+extern struct headerentry *headents;
 
 /*
  * SyncAttach - given a pointer to a linked list of attachment structures,
@@ -189,8 +193,13 @@ SyncAttach()
          size[32],
          comment[1024];
     struct hdr_line *lp;			/* current line in header    */
+    struct headerentry *entry;
     PATMT *tp, *knwn[MAXATCH], *bld[MAXATCH];
-    extern struct headerentry headents[];
+
+    for(entry = headents; entry->name != NULL; entry++) {
+      if(entry->is_attach)
+	break;
+    }
 
     if(Pmaster == NULL)
       return(-1);
@@ -205,7 +214,8 @@ SyncAttach()
     }
 
     n = 0;
-    lp = headents[ATTCHDR].hd_text;
+
+    lp = entry->hd_text;
     while(lp != NULL){
 	na = ++n;
 
@@ -291,6 +301,7 @@ SyncAttach()
 		  return(-1);
 		bld[bi++] = tp;
 	    }
+	    else break;
 	}
 
 	if(status < 0)
@@ -339,8 +350,9 @@ int  *no;					/* attachment number        */
          rv = 0,				/* return value             */
          lbln  = 0;				/* label'd attachment	    */
     long l;					/* attachment length        */
-    char c,
-        *p = s,
+    char tmp[1024],
+	 c,
+        *p,
         *lblsz = NULL,				/* label'd attchmnt's size  */
          number[8];
     register struct hdr_line  *lprev;
@@ -356,6 +368,7 @@ int  *no;					/* attachment number        */
 	TG} level;				/* trailing garbage         */
 
     *fn = *sz = *cmnt = '\0';			/* initialize return strings */
+    p   = tmp;
 
     level = LWS;				/* start at beginning */
     while(*lp != NULL){
@@ -379,10 +392,7 @@ int  *no;					/* attachment number        */
 			     0, number, j=strlen(number));
 		*off += j - 1;
 		rv = 1;
-		if(c == ',')			/* special case */
-		  (*off)++;
-		else
-		  level = TAG;			/* interpret the name */
+		level = TAG;			/* interpret the name */
 		break;
 	    }
 	    level = NUMB;
@@ -393,31 +403,36 @@ int  *no;					/* attachment number        */
 		 */
 		*p = '\0';
 		sprintf(number, "%d", *no);	/* record the current...  */
-		*no = atoi(s);			/* and the old place in list */
-		if(strcmp(number, s)){
-		    if(p-s > *off){		/* where to begin replacemnt */
-			j = (p-s) - *off;
+		*no = atoi(tmp);		/* and the old place in list */
+		if(strcmp(number, tmp)){
+		    if(p-tmp > *off){		/* where to begin replacemnt */
+			j = (p-tmp) - *off;
 			sinserts((*lp)->text, *off, "", 0);
 			sinserts(&lprev->text[strlen(lprev->text)-j], j, 
 				 number, strlen(number));
 			*off = 0;
 		    }
 		    else{
-			j = (*off) - (p-s);
+			j = (*off) - (p-tmp);
 			sinserts((*lp == NULL) ? &lprev->text[j] 
 				               : &(*lp)->text[j], 
-				 p-s , number, strlen(number));
-			*off += strlen(number) - (p-s);
+				 p-tmp , number, strlen(number));
+			*off += strlen(number) - (p-tmp);
 		    }
 		    rv = 1;
 		}
-		p = s;
+
+		p = tmp;
 		level = WSN;			/* what's next... */
 	    }
-	    else if(c < '0' || c > '9'){
-		*p = '\0';
-		emlwrite("\007Attchmnt: Number field missing '.': \"%s\"", s);
-		rv = -1;
+	    else if(c < '0' || c > '9'){	/* Must be part of tag */
+		sprintf(number, "%d. ", *no);
+		sinserts((*lp == NULL) ? &lprev->text[(*off) - (p - tmp)]
+			               : &(*lp)->text[(*off) - (p - tmp)],
+			     0, number, j=strlen(number));
+		*off += j;
+		*p++ = c;
+		level = TAG;			/* interpret the name */
 	    }
 	    else
 	      *p++ = c;
@@ -431,7 +446,7 @@ int  *no;					/* attachment number        */
 	    else if(c == '['){			/* labeled attachment */
 		lbln++;
 	    }
-	    else if(!fallowc(c)){
+	    else if(c == ',' || c == ' '){
 		emlwrite("\007Attchmnt: '%c' not allowed in file name", 
 			  (void *)(int)c);
 		rv = -1;
@@ -444,10 +459,10 @@ int  *no;					/* attachment number        */
 						/* enclosed in []         */
 	    if(c == '\0' || (!lbln && (isspace(c) || strchr(",(\"", c)))
 	       || (lbln && c == ']')){
-		if(p != s){
+		if(p != tmp){
 		    *p = '\0';			/* got something */
 
-		    strcpy(fn, s);		/* store file name */
+		    strcpy(fn, tmp);		/* store file name */
 		    if(!lbln){			/* normal file attachment */
 			fixpath(fn, NLINE);
 			if((status=fexist(fn, "r", &l)) != FIOSUC){
@@ -465,13 +480,13 @@ int  *no;					/* attachment number        */
 			    break;
 			}
 
-			if(strcmp(fn, s)){	/* fn changed: display it */
-			    if(*off >=  p - s){	/* room for it? */
+			if(strcmp(fn, tmp)){ 	/* fn changed: display it */
+			    if(*off >=  p - tmp){	/* room for it? */
 				sinserts((*lp == NULL)? 
-					 &lprev->text[(*off)-(p-s)] :
-					 &(*lp)->text[(*off)-(p-s)],
-					 p-s, fn, j=strlen(fn));
-				*off += j - (p - s);	/* advance offset */
+					 &lprev->text[(*off)-(p-tmp)] :
+					 &(*lp)->text[(*off)-(p-tmp)],
+					 p-tmp, fn, j=strlen(fn));
+				*off += j - (p - tmp);	/* advance offset */
 				rv = 1;
 			    }
 			    else{
@@ -524,7 +539,8 @@ int  *no;					/* attachment number        */
 			    lblsz =  "XXX";
 			}
 		    }
-		    p = s;			/* reset p in s */
+
+		    p = tmp;			/* reset p in tmp */
 		    level = WST;
 		}
 
@@ -532,16 +548,16 @@ int  *no;					/* attachment number        */
 		  level = SIZE;
 		else if(c == '\0' || (!lbln && (c == ',' || c == '\"'))){
 		    strcpy(sz, (lblsz) ? lblsz : prettysz(l));
-		    sprintf(s, " (%s) %s", sz, (c == '\"') ? "" : "\"\"");
+		    sprintf(tmp, " (%s) %s", sz, (c == '\"') ? "" : "\"\"");
 		    sinserts((*lp == NULL) ? &lprev->text[*off] 
 			                   : &(*lp)->text[*off],
-			     0, s, j = strlen(s));
+			     0, tmp, j = strlen(tmp));
 		    *off += j;
 		    rv = 1;
 		    level = (c == '\"') ? COMMENT : TG;/* cmnt or eat trash */
 		}
 	    }
-	    else if(!lbln && (!fallowc(c) || c == '[' || c == ']')){
+	    else if(!lbln && (c == ',' || c == ' ' || c == '[' || c == ']')){
 		emlwrite("\007Attchmnt: '%c' not allowed in file name",
 			  (void *)(int)c);
 		rv = -1;			/* bad char in file name */
@@ -559,11 +575,11 @@ int  *no;					/* attachment number        */
 		 */
 		if(c == ',' || c == '\0' || c == '\"'){
 		    strcpy(sz, (lblsz) ? lblsz : prettysz(l));
-		    sprintf(s, " (%s) %s", sz, 
+		    sprintf(tmp, " (%s) %s", sz, 
 				           (c == '\"') ? "" : "\"\"");
 		    sinserts((*lp == NULL) ? &lprev->text[*off]
 				           : &(*lp)->text[*off],
-			     0, s, j = strlen(s));
+			     0, tmp, j = strlen(tmp));
 		    *off += j;
 		    rv = 1;
 		    level = (c == '\"') ? COMMENT : TG;
@@ -586,31 +602,32 @@ int  *no;					/* attachment number        */
 		/*
 		 * replace sizes if they don't match!
 		 */
-		strcpy(sz, s);
+		strcpy(sz, tmp);
 		if(strcmp(sz, (lblsz) ? lblsz : prettysz(l))){
 		    strcpy(sz, (lblsz) ? lblsz : prettysz(l));
-		    if(p-s > *off){		/* where to begin replacemnt */
-			j = (p-s) - *off;
+		    if(p-tmp > *off){		/* where to begin replacemnt */
+			j = (p-tmp) - *off;
 			sinserts((*lp)->text, *off, "", 0);
 			sinserts(&lprev->text[strlen(lprev->text)-j], j, 
 				 sz, strlen(sz));
 			*off = 0;
 		    }
 		    else{
-			j = (*off) - (p-s);
+			j = (*off) - (p-tmp);
 			sinserts((*lp == NULL) ? &lprev->text[j] 
 				               : &(*lp)->text[j], 
-				 p-s , sz, strlen(sz));
-			*off += strlen(sz) - (p-s);
+				 p-tmp , sz, strlen(sz));
+			*off += strlen(sz) - (p-tmp);
 		    }
 		    rv = 1;
 		}
-		p = s;
+
+		p = tmp;
 		level = SWS;			/* what's next... */
 	    }
 	    else if(c == '\0' || c == ','){
 		*p = '\0';
-		emlwrite("\007Attchmnt: Size field missing ')': \"%s\"", s);
+		emlwrite("\007Attchmnt: Size field missing ')': \"%s\"", tmp);
 		rv = -1;
 		level = TG;
 	    }
@@ -638,8 +655,8 @@ int  *no;					/* attachment number        */
 	  case COMMENT:				/* slurp up comment */
 	    if(c == '\"' || c == '\0'){		/* got comment */
 		*p = '\0';			/* cap it off */
-		p = s;				/* reset p */
-		strcpy(cmnt,s);			/* copy the comment  */
+		p = tmp;			/* reset p */
+		strcpy(cmnt,tmp);		/* copy the comment  */
 		if(c == '\0'){
 		    emlwrite("\007Attchmnt: Closing quote required at end of comment", NULL);
 		    rv = -1;
@@ -713,15 +730,15 @@ char *c;
     strcpy(tp->filename, f);
 
     if(l > -1){
-	strcpy(s, prettysz(l));
-	if((tp->size = (char *)malloc(sizeof(char)*(strlen(s)+1))) == NULL){
+	tp->size = (char *)malloc(sizeof(char)*(strlen(prettysz(l))+1));
+	if(tp->size == NULL){
 	    emlwrite("Can't malloc size for attachment", NULL);
 	    free((char *) tp->filename);
 	    free((char *) tp);
 	    return(NULL);
 	}
 	else
-	  strcpy(tp->size, s);
+	  strcpy(tp->size, prettysz(l));
     }
 
     /* description malloc */

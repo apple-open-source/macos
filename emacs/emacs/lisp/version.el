@@ -1,6 +1,7 @@
-;;; version.el --- record version number of Emacs.
+;;; version.el --- record version number of Emacs
 
-;;; Copyright (C) 1985, 1992, 1994, 1995 Free Software Foundation, Inc.
+;;; Copyright (C) 1985, 1992, 1994, 1995, 1999, 2000, 2001
+;;;   Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: internal
@@ -22,9 +23,11 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
-(defconst emacs-version "20.7" "\
+(defconst emacs-version "21.1" "\
 Version numbers of this version of Emacs.")
 
 (defconst emacs-major-version
@@ -52,14 +55,20 @@ to the system configuration; look at `system-configuration' instead."
   (interactive "P")
   (let ((version-string 
          (format (if (not (interactive-p))
-		     "GNU Emacs %s (%s%s)\n of %s on %s"
-		   "GNU Emacs %s (%s%s) of %s on %s")
+		     "GNU Emacs %s (%s%s%s)\n of %s on %s"
+		   "GNU Emacs %s (%s%s%s) of %s on %s")
                  emacs-version
 		 system-configuration
-		 (cond ((featurep 'motif) ", Motif")
+		 (cond ((featurep 'motif) 
+			(concat ", " (substring motif-version-string 4)))
 		       ((featurep 'x-toolkit) ", X toolkit")
 		       (t ""))
-		 (format-time-string "%a %b %e %Y" emacs-build-time)
+		 (if (and (boundp 'x-toolkit-scroll-bars)
+			  (memq x-toolkit-scroll-bars '(xaw xaw3d)))
+		     (format ", %s scroll bars"
+			     (capitalize (symbol-name x-toolkit-scroll-bars)))
+		   "")
+		 (format-time-string "%Y-%m-%d" emacs-build-time)
                  emacs-build-system)))
     (if here 
         (insert version-string)
@@ -70,9 +79,10 @@ to the system configuration; look at `system-configuration' instead."
 ;;; We hope that this alias is easier for people to find.
 (defalias 'version 'emacs-version)
 
-;;; We put version info into the executable in the form that UNIX what(1) uses.
-(or (memq system-type '(vax-vms windows-nt ms-dos))
-    (purecopy (concat "\n@(#)" (emacs-version) "\n")))
+;;; We put version info into the executable in the form that ident(1) uses.
+(or (memq system-type '(vax-vms windows-nt))
+    (purecopy (concat "\n$Id: " (subst-char-in-string ?\n ? (emacs-version))
+		      " $\n")))
 
 ;;Local variables:
 ;;version-control: never

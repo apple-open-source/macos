@@ -82,6 +82,8 @@ void sanitycheck(ni_name mytag)
 
 		checkserves(masteraddr, mastertag, l->interface[i].addr.s_addr, mytag);
 	}
+
+	sys_interfaces_release(l);
 }
 
 ni_status checkserves(unsigned long masteraddr, ni_name mastertag, unsigned long myaddr, ni_name mytag)

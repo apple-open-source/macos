@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,23 +42,21 @@ SCDynamicStoreCopyWatchedKeyList(SCDynamicStoreRef store, Boolean isRegex)
 {
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	CFIndex				keyCnt;
-	void				**keyRefs;
+	CFSetRef			keys;
+	const void			**keyRefs;
 	CFArrayRef			watchedKeys	= NULL;
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyWatchedKeyList:"));
 
-	if (isRegex) {
-		keyCnt  = CFSetGetCount(storePrivate->reKeys);
+	keys   = isRegex ? storePrivate->reKeys : storePrivate->keys;
+	keyCnt = CFSetGetCount(keys);
+	if (keyCnt > 0) {
 		keyRefs = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
-		CFSetGetValues(storePrivate->reKeys, keyRefs);
+		CFSetGetValues(keys, keyRefs);
 		watchedKeys = CFArrayCreate(NULL, keyRefs, keyCnt, &kCFTypeArrayCallBacks);
 		CFAllocatorDeallocate(NULL, keyRefs);
 	} else {
-		keyCnt  = CFSetGetCount(storePrivate->keys);
-		keyRefs = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
-		CFSetGetValues(storePrivate->keys, keyRefs);
-		watchedKeys = CFArrayCreate(NULL, keyRefs, keyCnt, &kCFTypeArrayCallBacks);
-		CFAllocatorDeallocate(NULL, keyRefs);
+		watchedKeys = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
 	}
 
 	return watchedKeys;

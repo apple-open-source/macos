@@ -12,9 +12,10 @@
 # Copyright (c) 1998-1999 by Scriptics Corporation.
 # All rights reserved.
 # 
-# RCS: @(#) $Id: tcltest.tcl,v 1.1.1.2 2000/12/06 23:03:37 wsanchez Exp $
+# RCS: @(#) $Id: tcltest.tcl,v 1.1.1.3 2002/04/05 16:13:39 jevans Exp $
 
-package provide tcltest 1.0
+package require Tcl 8.2
+package provide tcltest 1.0.1
 
 # create the "tcltest" namespace for all testing variables and procedures
 

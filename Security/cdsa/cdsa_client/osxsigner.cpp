@@ -24,6 +24,7 @@
 #endif
 
 #include <Security/osxsigner.h>
+#include <Security/cssmdata.h>
 #include <Security/debugging.h>
 
 
@@ -48,7 +49,7 @@ OSXSigner::OSXSignature *OSXSigner::sign(const Signable &target)
 {
 	Digester digester(*this);
 	scanContents(digester, target);
-	CssmClient::DataBuffer<OSXSignature::hashLength> hash;
+	DataBuffer<OSXSignature::hashLength> hash;
 	digester(hash);
 	IFDUMPING("codesign", Debug::dumpData("sign", hash));
 	return new OSXSignature(hash);
@@ -59,7 +60,7 @@ bool OSXSigner::verify(const Signable &target, const Signature *signature)
 	if (const OSXSignature *sig = dynamic_cast<const OSXSignature *>(signature)) {
 		Digester digester(*this);
 		scanContents(digester, target);
-		CssmClient::DataBuffer<OSXSignature::hashLength> hash;
+		DataBuffer<OSXSignature::hashLength> hash;
 		digester(hash);
 		IFDUMPING("codesign", Debug::dumpData("verify", hash));
 		return (*sig) == hash;

@@ -743,7 +743,12 @@ static void dav_get_propdb_xmlns(dav_propdb *propdb, dav_text_header *phdr)
 
 	len = strlen(p);
 
-	dav_insert_xmlns(propdb->p, "ns", i, p, phdr);
+        /* ### temporary/transitory fix. some old prop databases may have
+           ### namespaces with empty URIs in them. they should not be placed
+           ### into the output, so let's just skip them. new prop database
+           ### will not have them. */
+        if (len)
+            dav_insert_xmlns(propdb->p, "ns", i, p, phdr);
     }
 }
 

@@ -22,7 +22,7 @@
 	Contains:	Glue layer between Apple SecureTransport and 
 				original SSLRef code. 
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -98,7 +98,7 @@ static const _sslErrMap sslErrMap[] = {
  */ 
 SSLErr sslIoRead(
  	SSLBuffer 		buf, 
- 	UInt32 			*actualLength, 
+ 	size_t 			*actualLength, 
  	SSLContext 		*ctx)
  {
  	UInt32 		dataLength = buf.length;
@@ -114,7 +114,7 @@ SSLErr sslIoRead(
  
  SSLErr sslIoWrite(
  	SSLBuffer 		buf, 
- 	UInt32 			*actualLength, 
+ 	size_t 			*actualLength, 
  	SSLContext 		*ctx)
  {
  	UInt32 			dataLength = buf.length;
@@ -163,12 +163,12 @@ OSStatus sslErrToOsStatus(SSLErr s)
 
 /*
  * Time functions - replaces SSLRef's SSLTimeFunc, SSLConvertTimeFunc
- * Weird - this is just used to generate a random number in
- * SSLEncodeRandom
  */
 SSLErr sslTime(UInt32 *tim)
 {
-	time((time_t *)&tim);
+	time_t t;
+	time(&t);
+	*tim = (UInt32)t;
 	return SSLNoErr;
 }
 

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		00C5CD320020E23C7F000001 = {
 			fileRef = 0162E5A8001FB51211CE2124;
@@ -51,14 +51,14 @@
 		};
 		010986470030C60811CE2124 = {
 			children = (
+				0212CDAEFFE5A54911CE206C,
+				0119100000CC4E527F000001,
 				03610215000A549811CE2050,
 				080C09540017B84F7F000001,
-				0212CDAEFFE5A54911CE206C,
 				0162E5A8001FB51211CE2124,
 				013163AE00CC49117F000001,
 				013163AF00CC49117F000001,
 				013163B000CC49117F000001,
-				0119100000CC4E527F000001,
 			);
 			isa = PBXGroup;
 			name = "User Client Source (Kernel)";
@@ -370,6 +370,7 @@
 		};
 		01C27ABDFFE6EE5311CE206C = {
 			children = (
+				F537AEC502B6E1B601CE230E,
 				0212CDA9FFE5A54911CE206C,
 				0212CDBAFFE5A54911CE206C,
 			);
@@ -382,7 +383,9 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/firewire";
 			dstSubfolderSpec = 0;
 			files = (
+				F53EA110029C6A1D01CE230E,
 				01F3CFE4FFE5B82F11CE206C,
+				F5B11EB40299BAA60125EFCB,
 				01F3CFE5FFE5B82F11CE206C,
 				8CC990CA0173CB9504CE206D,
 				01F3CFE7FFE5B82F11CE206C,
@@ -404,7 +407,7 @@
 				01955137003A7B457F000001,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		01F3CFE4FFE5B82F11CE206C = {
 			fileRef = 0212CDC0FFE5A54911CE206C;
@@ -946,6 +949,9 @@
 		};
 		0212CDE7FFE5AB2E11CE206C = {
 			children = (
+				F52DF93702878C0101845C1A,
+				F52DF93802878C0101845C1A,
+				F53D5F0B02B6D57E01CE230E,
 				8C30A5B50111F11D04CE206D,
 				0212CDC3FFE5A54911CE206C,
 				0212CDA2FFE5A54911CE206C,
@@ -1023,7 +1029,8 @@
 				02B2D11FFFFD5D3111CE2050,
 			);
 			buildSettings = {
-				INSTALL_PATH = /System/Library/Extensions;
+				BUILD_SETTING = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireFamily.kext/Contents/PlugIns";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-bundle -undefined error";
 				OTHER_REZFLAGS = "";
@@ -1037,19 +1044,19 @@
 			);
 			isa = PBXBundleTarget;
 			name = IOFireWireLib.plugin;
-			productInstallPath = /System/Library/Extensions;
+			productInstallPath = "";
 			productName = IOFireWireLib.plugin;
 			productReference = 02B2D119FFFD5D3011CE2050;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.2, Copyright Apple Computer, Inc. 2001</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1061,11 +1068,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2d43</string>
+	<string>1.2.0</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>A1478010-F197-11D4-A28B-000502072F80</key>
@@ -1106,7 +1113,7 @@
 				F5FA88FD00D184BD01CE2124,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		02B2D11CFFFD5D3111CE2050 = {
 			buildActionMask = 2147483647;
@@ -1114,7 +1121,7 @@
 				02B2D15EFFFD61CE11CE2050,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		02B2D11DFFFD5D3111CE2050 = {
 			buildActionMask = 2147483647;
@@ -1130,23 +1137,24 @@
 				013163C500CC49C17F000001,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		02B2D11EFFFD5D3111CE2050 = {
 			buildActionMask = 2147483647;
 			files = (
 				02B2D151FFFD600211CE2050,
 				02B2D152FFFD600211CE2050,
+				F5410DC401B8073A01CE2124,
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		02B2D11FFFFD5D3111CE2050 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		02B2D12FFFFD5E6F11CE2050 = {
 			isa = PBXFileReference;
@@ -1313,6 +1321,7 @@
 				02B2D14EFFFD600211CE2050,
 				02B2D14FFFFD600211CE2050,
 				02B2D150FFFD600211CE2050,
+				F5410DC301B8073901CE2124,
 			);
 			isa = PBXGroup;
 			name = "External Frameworks and Libraries";
@@ -1441,9 +1450,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1453,7 +1462,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "\U0001-DIOFIREWIREUSERCLIENTDEBUG=1 -DIOFIREWIRELIBDEBUG=1";
+				OTHER_CFLAGS = "\U0001-DIOFIREWIREDEBUG=1 -DIOFIREWIREUSERCLIENTDEBUG=1 -DIOFIREWIRELIBDEBUG=1 -DFIRELOG=0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -1463,6 +1472,7 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				OTHER_CFLAGS = "\U0001-DIOFIREWIREDEBUG=0 -DIOFIREWIREUSERCLIENTDEBUG=0 -DIOFIREWIRELIBDEBUG=0 -DFIRELOG=0";
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -1474,9 +1484,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1518,6 +1528,7 @@
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
+				F52DF94702878EF001845C1A,
 			);
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
@@ -1560,12 +1571,12 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 1.1.2d43;
+				MODULE_VERSION = 1.2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1579,19 +1590,19 @@
 			);
 			isa = PBXBundleTarget;
 			name = IOFireWireFamily;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productInstallPath = "";
 			productName = IOFireWireFamily;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.2, Copyright Apple Computer, Inc. 2001</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1603,11 +1614,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2d43</string>
+	<string>1.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireUserClient</key>
@@ -1625,7 +1636,7 @@
 				<key>IOCFPlugInTypes</key>
 				<dict>
 					<key>CDCFCA94-F197-11D4-87E6-000502072F80</key>
-					<string>IOFireWireLib.plugin</string>
+					<string>IOFireWireFamily.kext/Contents/PlugIns/IOFireWireLib.plugin</string>
 				</dict>
 				<key>IOUserClientClass</key>
 				<string>IOFireWireUserClient</string>
@@ -1680,9 +1691,13 @@
 				0119100100CC4E527F000001,
 				8C30A5B60111F11D04CE206D,
 				8CC990C90173CB1D04CE206D,
+				F52DF93A02878C0101845C1A,
+				F52DF93B02878C0101845C1A,
+				F53D5F0D02B6D57E01CE230E,
+				F537AEC602B6E1B601CE230E,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -1690,7 +1705,7 @@
 				0297A297FFE6F1A311CE206C,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -1719,23 +1734,25 @@
 				013163B800CC49117F000001,
 				013163B900CC49117F000001,
 				0119100200CC4E527F000001,
+				F52DF93902878C0101845C1A,
+				F53D5F0C02B6D57E01CE230E,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -1791,6 +1808,8 @@
 //244
 		247142CAFF3F8F9811CA285C = {
 			children = (
+				F52DF93602878C0101845C1A,
+				F53D5F0A02B6D57E01CE230E,
 				0212CDA1FFE5A54911CE206C,
 				0212CDC2FFE5A54911CE206C,
 				0212CDA3FFE5A54911CE206C,
@@ -1869,6 +1888,113 @@
 //F52
 //F53
 //F54
+		F52DF93602878C0101845C1A = {
+			isa = PBXFileReference;
+			name = IOFireLog.cpp;
+			path = IOFireWireFamily.kmodproj/IOFireLog.cpp;
+			refType = 4;
+		};
+		F52DF93702878C0101845C1A = {
+			isa = PBXFileReference;
+			name = IOFireLog.h;
+			path = IOFireWireFamily.kmodproj/IOFireLog.h;
+			refType = 4;
+		};
+		F52DF93802878C0101845C1A = {
+			isa = PBXFileReference;
+			name = IOFireLogPriv.h;
+			path = IOFireWireFamily.kmodproj/IOFireLogPriv.h;
+			refType = 4;
+		};
+		F52DF93902878C0101845C1A = {
+			fileRef = F52DF93602878C0101845C1A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F52DF93A02878C0101845C1A = {
+			fileRef = F52DF93702878C0101845C1A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F52DF93B02878C0101845C1A = {
+			fileRef = F52DF93802878C0101845C1A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F52DF94702878EF001845C1A = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "\U0001-DIOFIREWIREDEBUG=1 -DIOFIREWIREUSERCLIENTDEBUG=1 -DIOFIREWIRELIBDEBUG=1 -DFIRELOG=1";
+			};
+			isa = PBXBuildStyle;
+			name = FireLog;
+		};
+		F537AEC502B6E1B601CE230E = {
+			isa = PBXFileReference;
+			name = FWDebugging.h;
+			path = IOFireWireFamily.kmodproj/FWDebugging.h;
+			refType = 4;
+		};
+		F537AEC602B6E1B601CE230E = {
+			fileRef = F537AEC502B6E1B601CE230E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F53D5F0A02B6D57E01CE230E = {
+			isa = PBXFileReference;
+			name = IOFireWireROMCache.cpp;
+			path = IOFireWireFamily.kmodproj/IOFireWireROMCache.cpp;
+			refType = 4;
+		};
+		F53D5F0B02B6D57E01CE230E = {
+			isa = PBXFileReference;
+			name = IOFireWireROMCache.h;
+			path = IOFireWireFamily.kmodproj/IOFireWireROMCache.h;
+			refType = 4;
+		};
+		F53D5F0C02B6D57E01CE230E = {
+			fileRef = F53D5F0A02B6D57E01CE230E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F53D5F0D02B6D57E01CE230E = {
+			fileRef = F53D5F0B02B6D57E01CE230E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F53EA110029C6A1D01CE230E = {
+			fileRef = F52DF93702878C0101845C1A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5410DC301B8073901CE2124 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		F5410DC401B8073A01CE2124 = {
+			fileRef = F5410DC301B8073901CE2124;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5B11EB40299BAA60125EFCB = {
+			fileRef = F52DF93702878C0101845C1A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		F5FA88F400D180FE01CE2124 = {
 			fileRef = 0212CDBAFFE5A54911CE206C;
 			isa = PBXBuildFile;
@@ -1898,7 +2024,7 @@
 				F5FA890600D1860901CE2124,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F5FA890300D1860901CE2124 = {
 			fileRef = 0212CDA9FFE5A54911CE206C;

@@ -26,9 +26,12 @@
  *
  */
 
-extern "C" {
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 #include <ppc/proc_reg.h>
-}
+__END_DECLS
+
 
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOPlatformExpert.h>

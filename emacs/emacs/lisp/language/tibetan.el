@@ -1,4 +1,4 @@
-;;; tibetan.el --- Support for Tibetan language -*- coding: iso-2022-7bit; -*-
+;;; tibetan.el --- support for Tibetan language -*- coding: iso-2022-7bit; -*-
 
 ;; Copyright (C) 1997 Electrotechnical Laboratory, JAPAN.
 ;; Licensed to the Free Software Foundation.
@@ -29,6 +29,8 @@
 ;; History:
 ;; 1997.03.13 Modification for special signs and punctuations. 
 
+;;; Commentary:
+
 ;;; Code:
 
 ;;; Tibetan Character set.
@@ -38,7 +40,7 @@
 ;;; I hope I can add missing characters later.
 ;;;
 ;;;     00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
-;;;2120 // $(7!!(B $(7!"(B $(7!#(B $(7!$(B $(7!%(B $(7!&(B $(7!'(B $(7!((B $(7!)(B $(7!*(B $(7!+(B $(7!,(B $(7!-(B $(7!.(B $(7!/(B ;
+;;;2120 // $(7!!(B $(7!"(B $(7!#(B $(7!$(B $(7!%(B $(7!&(B $(7!'(B $(7!((B $(7!)(B $(7!*(B $(7!+(B $(7!,(B $(7!-(B $(7!.(B $(7!/(B ; obsolete glyphs (2123-5)
 ;;;2130 $(7!0(B $(7!1(B $(7!2(B $(7!3(B $(7!4(B $(7!5(B $(7!6(B $(7!7(B $(7!8(B $(7!9(B $(7!:(B $(7!;(B $(7!<(B $(7!=(B $(7!>(B $(7!?(B ; Punctuations,
 ;;;2140 $(7!@(B $(7!A(B $(7!B(B $(7!C(B $(7!D(B $(7!E(B $(7!F(B $(7!G(B $(7!H(B $(7!I(B $(7!J(B $(7!K(B $(7!L(B $(7!M(B $(7!N(B $(7!O(B ; Digits and
 ;;;2150 $(7!P(B $(7!Q(B $(7!R(B $(7!S(B $(7!T(B $(7!U(B $(7!V(B $(7!W(B $(7!X(B $(7!Y(B $(7!Z(B $(7![(B $(7!\(B $(7!](B $(7!^(B $(7!_(B ; Special signs.
@@ -51,25 +53,17 @@
 ;;;2240 $(7"@(B $(7"A(B $(7"B(B $(7"C(B $(7"D(B $(7"E(B $(7"F(B $(7"G(B $(7"H(B $(7"I(B $(7"J(B $(7"K(B $(7"L(B $(7"M(B $(7"N(B $(7"O(B ; Vowel signs.
 ;;;2250 $(7"P(B $(7"Q(B $(7"R(B $(7"S(B $(7"T(B $(7"U(B $(7"V(B $(7"W(B $(7"X(B $(7"Y(B $(7"Z(B $(7"[(B $(7"\(B $(7"](B $(7"^(B $(7"_(B ; (\x2251 = vowel a)
 ;;;2260 $(7"`(B $(7"a(B $(7"b(B $(7"c(B $(7"d(B $(7"e(B $(7"f(B $(7"g(B $(7"h(B $(7"i(B $(7"j(B $(7"k(B $(7"l(B $(7"m(B $(7"n(B $(7"o(B ; Long vowels and
-;;;2270 $(7"p(B $(7"q(B $(7"r(B $(7"s(B $(7"t(B $(7"u(B $(7"v(B $(7"w(B $(7"x(B $(7"y(B $(7"z(B $(7"{(B $(7"|(B $(7"}(B $(7"~(B // ; vocalic r, l are
-;;;                                                     ; not atomically
+;;;2270 $(7"p(B $(7"q(B $(7"r(B $(7"s(B $(7"t(B $(7"u(B $(7"v(B $(7"w(B $(7"x(B $(7"y(B $(7"z(B $(7"{(B $(7"|(B $(7"}(B $(7"~(B // ; vocalic r, l ARE
+;;;                                                     ; atomically
 ;;;                                                     ; encoded. 
 ;;;     00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
 ;;;2320 // $(7#!(B $(7#"(B $(7##(B $(7#$(B $(7#%(B $(7#&(B $(7#'(B $(7#((B $(7#)(B $(7#*(B $(7#+(B $(7#,(B $(7#-(B $(7#.(B $(7#/(B ; Subjoined consonants
 ;;;2330 $(7#0(B $(7#1(B $(7#2(B $(7#3(B $(7#4(B $(7#5(B $(7#6(B $(7#7(B $(7#8(B $(7#9(B $(7#:(B $(7#;(B $(7#<(B $(7#=(B $(7#>(B $(7#?(B ;
-;;;2340 $(7#@(B $(7#A(B $(7#B(B $(7#C(B $(7#D(B $(7#E(B $(7#F(B $(7#G(B $(7#H(B $(7#I(B $(7#J(B $(7#K(B $(7#L(B $(7#M(B $(7#N(B $(7#O(B ; 'a chung (\x2341)is
-;;;                                                     ; here,
-;;;                                                     ; while in Unicode
-;;;                                                     ; it is classified
-;;;                                                     ; as a vowel sign
-;;;                                                     ; (\x0f71).
-;;;
+;;;2340 $(7#@(B $(7#A(B $(7#B(B $(7#C(B $(7#D(B $(7#E(B $(7#F(B $(7#G(B $(7#H(B $(7#I(B $(7#J(B $(7#K(B $(7#L(B $(7#M(B $(7#N(B $(7#O(B ;
 ;;;2350 $(7#P(B $(7#Q(B $(7#R(B $(7#S(B $(7#T(B $(7#U(B $(7#V(B $(7#W(B $(7#X(B $(7#Y(B $(7#Z(B $(7#[(B $(7#\(B $(7#](B $(7#^(B $(7#_(B ; Hereafter, the chars
 ;;;2360 $(7#`(B $(7#a(B $(7#b(B $(7#c(B $(7#d(B $(7#e(B $(7#f(B $(7#g(B $(7#h(B $(7#i(B $(7#j(B $(7#k(B $(7#l(B $(7#m(B $(7#n(B $(7#o(B ; are not specified
 ;;;2370 $(7#p(B $(7#q(B $(7#r(B $(7#s(B $(7#t(B $(7#u(B $(7#v(B $(7#w(B $(7#x(B $(7#y(B $(7#z(B $(7#{(B $(7#|(B $(7#}(B $(7#~(B // ; in Unicode.
-;;;                                                     ; The character \x2351
-;;;                                                     ; is not used in our
-;;;                                                     ; implementation.
+;;;
 ;;;     00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
 ;;;2420 // $(7$!(B $(7$"(B $(7$#(B $(7$$(B $(7$%(B $(7$&(B $(7$'(B $(7$((B $(7$)(B $(7$*(B $(7$+(B $(7$,(B $(7$-(B $(7$.(B $(7$/(B ; Precomposed
 ;;;2430 $(7$0(B $(7$1(B $(7$2(B $(7$3(B $(7$4(B $(7$5(B $(7$6(B $(7$7(B $(7$8(B $(7$9(B $(7$:(B $(7$;(B $(7$<(B $(7$=(B $(7$>(B $(7$?(B ; consonants for
@@ -106,9 +100,27 @@
 	     (input-method . "tibetan-wylie")
 	     (features tibet-util)
 	     (documentation . t)
-	     (sample-text .
-"Tibetan (2$(7"70"](B1$(7"2$(8!;(B2$(7%P`"Q(B1$(7"2$(8!;(B) 2$(7#RP#SP#S(B1$(7!>"7(B2$(7$P`"Q(B1$(8!;(B2$(7"E0"S(B1$(7"G$(8!;$(7"7(B2$(7"20"[(B1$(8!;(B2$(7"D0"[(B1$(7"#"G!>(B2$(7"I0"]0"_(B1$(8!;(B2$(7"9`"Q(B1$(8!;(B2$(7"/0"S(B1$(8!;(B2$(7"5`"Q(B12$(7#2`#90"[(B1$(8!;(B2$(7"H`#A`"U0"c(B1$(7!>(B")))
+	     (sample-text 
+	      . (tibetan-compose-string
+		 (copy-sequence
+"Tibetan (4$(7"7r'"]0"7"]14"20"21!;4%P0"G#!"Q14"20"21!;(B) $(7!4!5!5!>4"70"714$P0"!#C"Q1!;4"Er'"S0"E"S14"G0"G1!;4"70"714"2r'"[0"2"[1!;4"Dr'"[0"D"[14"#0"#14"G0"G1!>4"Ir'"]r'"_0"I"]"_1!;4"90"9"Q1!;4"/r'"S0"/"S1!;4"50"5"Q14#2x!#9r'"[0"2#9"[1!;4"Hx!"Rx!"Ur'"c0"H"A"U"c1!>(B")))))
 
+
+;; `$(7"A(B' is included in the pattern for subjoined consonants because we
+;; treat it specially in tibetan-add-components.
+;; modified by Tomabechi 1999/12/10
+;; modified by Tomabechi 2000/06/08
+;;          To allow infinite addition of vowels/modifiers
+;;          as specified in Unicode v.3
+;; $(7"A(B is removed from the class of subjoined. Tomabechi 2000/06/08
+;; (for Unicode support)
+(defconst tibetan-composable-pattern
+  "[$(7"!(B-$(7"J"K(B][$(7#!(B-$(7#J#K#L#M(B]*[$(7"Q"R"S(B-$(7"^"a"b"e(B]*[$(7"_"c"d"g(B-$(7"l!I!e!g(B]*"
+  "Regexp matching a composable sequence of Tibetan characters.")
+
+;; Register a function to compose Tibetan characters.
+(aset composition-function-table (make-char 'tibetan)
+      (list (cons tibetan-composable-pattern 'tibetan-composition-function)))
 
 ;;;
 ;;; Definitions of conversion data.
@@ -159,11 +171,26 @@
     ("s" . "$(7"G(B")
     ("h" . "$(7"H(B")
     ("H" . "$(7"H(B")
-    ("A" . "$(7"I(B")))
+    ("A" . "$(7"I(B")
+    ;; Added by Tomabechi 1999/12/10
+    ("R" . "$(7"K(B") ;; fixed form RA
+    ))
 
 
 (defconst tibetan-vowel-transcription-alist
-  '(("ai" . "$(7"\(B")
+  '(
+    ;; Composite Vowels
+    ;; Added by Tomabechi 2000/06/08
+    ("frr" . "$(7"X(B")
+    ("fll" . "$(7"Z(B")
+    ("fa" . "$(7"R(B")
+    ("fi" . "$(7"T(B")
+    ("fu" . "$(7"V(B")
+    ("fr" . "$(7"W(B")
+    ("fl" . "$(7"Y(B")
+    ("fI" . "$(7"b(B")
+    ;; Normal Vowels
+    ("ai" . "$(7"\(B")
     ("au" . "$(7"^(B")
     ("ee" . "$(7"\(B")
     ("oo" . "$(7"^(B")
@@ -175,20 +202,22 @@
     ("E" . "$(7"\(B")
     ("O" . "$(7"^(B")
     ("I" . "$(7"a(B")
-    ("M" . "$(7"_(B")
-    ("~" . "$(7"c(B")			; not specified in Ext.wylie
-    ("`" . "$(7"d(B")			; idem.
     ("," . "$(7"e(B")			; idem.
-    ("v" . "$(7"g(B")			; idem.
-    ("V" . "$(7"h(B")			; idem.
-    ("x" . "$(7"i(B")			; idem.
-    ("X" . "$(7"j(B")			; idem.
-    ("q" . "$(7"k(B")			; idem.
-    ("Q" . "$(7"l(B")			; idem.
-    ("_o" . "$(7!g(B")			; idem.
-    ("_O" . "$(7!e(B")			; idem.
-    ("_/" . "$(7!I(B")                       ; idem.
     ))
+
+(defconst tibetan-modifier-transcription-alist
+  '(("M" . "$(7"_(B")
+    ("~" . "$(7"c(B")
+    ("`" . "$(7"d(B")
+    ("x" . "$(7"i(B")
+    ("X" . "$(7"j(B")
+    ("v" . "$(7"g(B")
+    ("V" . "$(7"h(B")
+    ("q" . "$(7"k(B")
+    ("Q" . "$(7"l(B")
+    ("_/" . "$(7!I(B")
+    ("_o" . "$(7!g(B")
+    ("_O" . "$(7!e(B")))
 
 (defconst tibetan-precomposed-transcription-alist
   '(("phyw" . "$(7$G(B")
@@ -255,7 +284,7 @@
     ("brng" . "$(7"7%#(B")
     ("brj" . "$(7"7%$(B")
     ("brny" . "$(7"7%%(B")
-    ("brt" . "$(7"7%&(B")
+    ("brt" .  "$(7"7%&(B")
     ("brd" . "$(7"7%'(B")
     ("brn" . "$(7"7%((B")
     ("brts" . "$(7"7%+(B")
@@ -299,51 +328,58 @@
     ("sn" . "$(7%V(B")
     ("sp" . "$(7%W(B")
     ("sb" . "$(7%X(B")
-    ("sm" . "$(7%Y(B")))
+    ("sm" . "$(7%Y(B"))
+  )
+
 
 (defconst tibetan-subjoined-transcription-alist
-  '(("+k"  . "$(7#!(B")
-    ("+kh" . "$(7#"(B")
-    ("+g"  . "$(7##(B")
-    ("+gh" . "$(7#$(B")
-    ("+ng" . "$(7#%(B")
-    ("+c"  . "$(7#&(B")
-    ("+ch" . "$(7#'(B")
-    ("+j"  . "$(7#((B")
-    ("+ny"  . "$(7#*(B")
-    ("+T"  . "$(7#+(B")
-    ("+TH" . "$(7#,(B")
-    ("+D"  . "$(7#-(B")
-    ("+DH" . "$(7#.(B")
-    ("+N"  . "$(7#/(B")
-    ("+t"  . "$(7#0(B")
-    ("+th" . "$(7#1(B")
-    ("+d"  . "$(7#2(B")
-    ("+dh" . "$(7#3(B")
-    ("+n"  . "$(7#4(B")
-    ("+p"  . "$(7#5(B")
-    ("+ph" . "$(7#6(B")
-    ("+b"  . "$(7#7(B")
-    ("+bh" . "$(7#8(B")
-    ("+m"  . "$(7#9(B")
-    ("+ts" . "$(7#:(B")
-    ("+tsh" . "$(7#;(B")
-    ("+dz" . "$(7#<(B")
-    ("+dzh" . "$(7#=(B")
-    ("+w"  . "$(7#>(B")
-    ("+zh" . "$(7#?(B")
-    ("+z"  . "$(7#@(B")
-    ("+'"  . "$(7#A(B")
-    ("+y"  . "$(7#B(B")
-    ("+r"  . "$(7#C(B")
-    ("+l"  . "$(7#D(B")
-    ("+sh" . "$(7#E(B")
-    ("+SH" . "$(7#F(B")
-    ("+s"  . "$(7#G(B")
-    ("+h"  . "$(7#H(B")
-    ("+A"  . "$(7#I(B")
-    ("+kSH" . "$(7#J(B")
-    ("R"   . "$(7#P(B")))
+  (sort '(("+k"  . "$(7#!(B")
+	  ("+kh" . "$(7#"(B")
+	  ("+g"  . "$(7##(B")
+	  ("+gh" . "$(7#$(B")
+	  ("+ng" . "$(7#%(B")
+	  ("+c"  . "$(7#&(B")
+	  ("+ch" . "$(7#'(B")
+	  ("+j"  . "$(7#((B")
+	  ("+ny"  . "$(7#*(B")
+	  ("+T"  . "$(7#+(B")
+	  ("+TH" . "$(7#,(B")
+	  ("+D"  . "$(7#-(B")
+	  ("+DH" . "$(7#.(B")
+	  ("+N"  . "$(7#/(B")
+	  ("+t"  . "$(7#0(B")
+	  ("+th" . "$(7#1(B")
+	  ("+d"  . "$(7#2(B")
+	  ("+dh" . "$(7#3(B")
+	  ("+n"  . "$(7#4(B")
+	  ("+p"  . "$(7#5(B")
+	  ("+ph" . "$(7#6(B")
+	  ("+b"  . "$(7#7(B")
+	  ("+bh" . "$(7#8(B")
+	  ("+m"  . "$(7#9(B")
+	  ("+ts" . "$(7#:(B")
+	  ("+tsh" . "$(7#;(B")
+	  ("+dz" . "$(7#<(B")
+	  ("+dzh" . "$(7#=(B")
+	  ("+w"  . "$(7#>(B")
+	  ("+zh" . "$(7#?(B")
+	  ("+z"  . "$(7#@(B")
+	  ("+'"  . "$(7#A(B")
+	  ("+y"  . "$(7#B(B")
+	  ("+r"  . "$(7#C(B")
+	  ("+l"  . "$(7#D(B")
+	  ("+sh" . "$(7#E(B")
+	  ("+SH" . "$(7#F(B")
+	  ("+s"  . "$(7#G(B")
+	  ("+h"  . "$(7#H(B")
+	  ("+A"  . "$(7#I(B")
+	  ("+kSH" . "$(7#J(B")
+	  ;; Added by Tomabechi 1999/12/10
+	  ("+W" . "$(7#K(B") ;; fixed form subscribed WA
+	  ("+Y" . "$(7#L(B") ;; fixed form subscribed YA
+	  ("+R" . "$(7#M(B") ;; fixed form subscribed RA
+	  )
+	(lambda (x y) (> (length (car x)) (length (car y))))))
 
 ;;;
 ;;; alist for Tibetan base consonant <-> subjoined consonant conversion.
@@ -389,14 +425,40 @@
     ("$(7"G(B" . "$(7#G(B")
     ("$(7"H(B" . "$(7#H(B")
     ("$(7"I(B" . "$(7#I(B")
-    ("$(7"J(B" . "$(7#J(B")))
+    ("$(7"J(B" . "$(7#J(B")
+    ;; Added by Tomabechi 1999/12/10
+    ("$(7"K(B" . "$(7#M(B") ;; Fixed form RA (224B->234D)
+    ))
+
+;;; alist for Tibetan composite vowels (long i, vocalic r, etc.)
+;;; New varialble. created by Tomabechi 2000/06/08
+(defconst tibetan-composite-vowel-alist
+  '(;; LONG A
+    ;; ("$(7"R(B" . ((bc . tc) ?$(7"R(B))
+    ;; LONG I
+    ("$(7"T(B" . (?$(7"R(B (tc . bc) ?$(7"S(B))
+    ;; LONG U
+    ("$(7"V(B" . (?$(7"R(B (bc . tc) ?$(7"U(B))
+    ;; VOCALIC R
+    ("$(7"W(B" . (?$(7#C(B (tc . bc) ?$(7"a(B))
+    ;; LONG VOCALIC R
+    ("$(7"X(B" . (?$(7#C(B (bc . tc) ?$(7"R(B (tc . bc) ?$(7"a(B))
+    ;; VOCALIC L
+    ("$(7"Y(B" . (?$(7#D(B (tc . bc) ?$(7"a(B))
+    ;;$(7!;(BLONG VOCALIC L
+    ("$(7"Z(B" . (?$(7#D(B (bc . tc) ?$(7"R(B (tc . bc) ?$(7"a(B))
+    ;; LONG REVERSE I
+    ("$(7"b(B" . (?$(7"R(B (tc . bc) ?$(7"a(B))
+    ))
+
+
 
 ;;;
 ;;; alist for Tibetan consonantic components <-> precomposed glyph conversion.
 ;;; (includes some punctuation conversion rules)
 ;;;
 (defconst tibetan-precomposition-rule-alist
-  '(("$(7"6#B#>(B" . "$(7$G(B")
+  `(("$(7"6#B#>(B" . "$(7$G(B")
     ("$(7"##C#>(B" . "$(7$_(B")
     ("$(7";#>(B" . "$(7$)(B")
     ("$(7"C#:#>(B" . "$(7%.(B")
@@ -476,6 +538,7 @@
     ("$(7"C#9(B" . "$(7%*(B")
     ("$(7"D#!(B" . "$(7%@(B")
     ("$(7"D##(B" . "$(7%A(B")
+    ("$(7"D#4(B" . "$(7!!(B") ; dummy 0x2121 added 2000/06/08 for transition l -> lng
     ("$(7"D#&(B" . "$(7%C(B")
     ("$(7"D#((B" . "$(7%D(B")
     ("$(7"D#0(B" . "$(7%E(B")
@@ -490,36 +553,42 @@
     ("$(7"G#4(B" . "$(7%V(B")
     ("$(7"G#5(B" . "$(7%W(B")
     ("$(7"G#7(B" . "$(7%X(B")
-    ("$(7"G#9(B" . "$(7%Y(B")
-    ("$(7!=(B" . "$(8!=(B")			; 2 col <-> 1 col
+    ("$(7"G#9(B" . "$(7%Y(B")))
+
+(defconst tibetan-obsolete-glyphs
+  `(("$(7!=(B" . "$(8!=(B")			; 2 col <-> 1 col
     ("$(7!?(B" . "$(8!?(B")
     ("$(7!@(B" . "$(8!@(B")
     ("$(7!A(B" . "$(8!A(B")
     ("$(7"`(B" . "$(8"`(B")
     ("$(7!;(B" . "$(8!;(B")
     ("$(7!D(B" . "$(8!D(B")
-    ("$(7!>(B $(7!>(B" . "2$(7!>P(B P$(7!>(B1")			; Yes this is dirty. But ...
-    ("$(7!4!5!5(B" . "2$(7#RP#SP#SP#S(B1")
-    ("$(7!4!5(B" . "2$(7#RP#SP#S(B1")
-    ("$(7!6(B" . "2$(7#RP#S_!I(B1")
-    ("$(7!4(B"   . "2$(7#RP#S(B1")))
+    ;; Yes these are dirty. But ...
+    ("$(7!>(B $(7!>(B" . ,(compose-string "$(7!>(B $(7!>(B" 0 3 [?$(7!>(B (Br . Bl) ?  (Br . Bl) ?$(7!>(B]))
+    ("$(7!4!5!5(B" . ,(compose-string
+		  "$(7#R#S#S#S(B" 0 4
+		  [?$(7#R(B (Br . Bl) ?$(7#S(B (Br . Bl) ?$(7#S(B (Br . Bl) ?$(7#S(B]))
+    ("$(7!4!5(B" . ,(compose-string "$(7#R#S#S(B" 0 3 [?$(7#R(B (Br . Bl) ?$(7#S(B (Br . Bl) ?$(7#S(B]))
+    ("$(7!6(B" . ,(compose-string "$(7#R#S!I(B" 0 3 [?$(7#R(B (Br . Bl) ?$(7#S(B (br . tr) ?$(7!I(B]))
+    ("$(7!4(B"   . ,(compose-string "$(7#R#S(B" 0 2 [?$(7#R(B (Br . Bl) ?$(7#S(B]))))
 
-(defvar tibetan-regexp
-  (let ((l (append tibetan-consonant-transcription-alist
-		   tibetan-vowel-transcription-alist
-		   tibetan-subjoined-transcription-alist))
-	temp)
-    (setq temp "\\(")
-    (setq temp (concat temp (car (car l))))
-    (setq l (cdr l))
+(defconst tibetan-regexp
+  (let ((l (list tibetan-precomposed-transcription-alist
+		 tibetan-consonant-transcription-alist
+		 tibetan-vowel-transcription-alist
+		 tibetan-modifier-transcription-alist
+		 tibetan-subjoined-transcription-alist))
+	(separator "\\|")
+	tail pattern)
     (while l
-      (setq temp (concat temp "\\|" (car (car l))))
-      (setq l (cdr l)))
-    (concat temp "\\)$"))
-  "Regexp string to match a romanized Tibetan character component, i.e.,
-base and subjoined consonant, vowel and vowel modifier. The result of matching
-is to be used for indexing alists at conversion from a roman transcription to
-the corresponding Tibetan character.")
+      (setq tail (car l) l (cdr l))
+      (while tail
+	(setq pattern (cons separator (cons (car (car tail)) pattern))
+	      tail (cdr tail))))
+    (apply 'concat (nreverse (cdr pattern))))
+  "Regexp matching a Tibetan transcription of a composable Tibetan sequence.
+The result of matching is to be used for indexing alists at conversion
+from a roman transcription to the corresponding Tibetan character.")
 
 (defvar tibetan-precomposed-regexp
   (let ((l tibetan-precomposed-transcription-alist)
@@ -556,4 +625,6 @@ This also matches some punctuation characters which need conversion.")
 (defvar tibetan-decomposed nil)
 (defvar tibetan-decomposed-temp nil)
 
-;;; language/tibetan.el ends here
+(provide 'tibetan)
+
+;;; tibetan.el ends here

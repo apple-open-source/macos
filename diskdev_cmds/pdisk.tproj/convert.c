@@ -52,7 +52,7 @@
 
 #import <stdio.h>
 #import <unistd.h>
-#import <bsd/machine/endian.h>
+#import <machine/endian.h>
 
 #include "partition_map.h"
 #include "convert.h"

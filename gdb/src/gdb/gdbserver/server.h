@@ -1,5 +1,6 @@
 /* Common definitions for remote server for GDB.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1995, 1997, 1998, 1999, 2000, 2002
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,7 +19,23 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "defs.h"
+#ifndef SERVER_H
+#define SERVER_H
+
+#include "config.h"
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+
+
+/* FIXME:  Both of these should be autoconf'd for.  */
+#define NORETURN
+typedef long long CORE_ADDR;
+
+#include "regcache.h"
+#include "gdb/signals.h"
+
 #include <setjmp.h>
 
 /* Target-specific functions */
@@ -68,10 +85,18 @@ void decode_m_packet (char *from, CORE_ADDR * mem_addr_ptr,
 void decode_M_packet (char *from, CORE_ADDR * mem_addr_ptr,
 		      unsigned int *len_ptr, char *to);
 
+/* Functions from ``signals.c''.  */
+enum target_signal target_signal_from_host (int hostsig);
+int target_signal_to_host_p (enum target_signal oursig);
+int target_signal_to_host (enum target_signal oursig);
 
 /* Functions from utils.c */
 
 void perror_with_name (char *string);
+void error (const char *string,...);
+void fatal (const char *string,...);
+void warning (const char *string,...);
+
 
 
 /* Maximum number of bytes to read/write at once.  The value here
@@ -80,6 +105,8 @@ void perror_with_name (char *string);
 
 /* Buffer sizes for transferring memory, registers, etc.  Round up PBUFSIZ to
    hold all the registers, at least.  */
-#define	PBUFSIZ ((REGISTER_BYTES > MAXBUFBYTES (2000)) \
-		 ? (REGISTER_BYTES * 2 + 32) \
+#define	PBUFSIZ ((registers_length () + 32 > 2000) \
+		 ? (registers_length () + 32) \
 		 : 2000)
+
+#endif /* SERVER_H */

@@ -31,8 +31,18 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/str-stk.cpp,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/str-stk.cpp,v 1.2 2002/02/07 04:30:04 mb Exp $
 // $Log: str-stk.cpp,v $
+// Revision 1.2  2002/02/07 04:30:04  mb
+// Fixes required to build with gcc3.
+// Merged from branch PR-2848996
+// Bug #: 2848996
+// Submitted by:
+// Reviewed by: Turly O'Connor <turly@apple.com>
+//
+// Revision 1.1.1.1.12.1  2002/02/06 23:45:03  mb
+// Changes to allow building with gcc3
+//
 // Revision 1.1.1.1  2001/05/18 23:14:06  mb
 // Move from private repository to open source repository
 //
@@ -113,7 +123,7 @@ void StrStk::Push (char *str, size_t strLen)
     struct Elmt *tmpStk;
     // alloc bigger stack and copy old elmts to it
     tmpStk = new struct Elmt[size + growSize];
-    for (int i = 0; i < size; i++)
+    for (size_t i = 0; i < size; i++)
       tmpStk[i] = stk[i];
     delete stk;
     stk = tmpStk;

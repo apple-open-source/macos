@@ -229,6 +229,9 @@ typedef u_int  arg_kind_t;
 	akbServerArg|akbServerImplicit|akbSend|akbSendRcv)
 #define akUserSecToken akAddFeature(akeSecToken, \
 	akbUserArg|akbUserImplicit|akbReturn|akbReturnRcv)
+#define akSecToken akAddFeature(akeSecToken, \
+        akbServerArg|akbServerImplicit|akbSend|akbSendRcv| \
+        akbUserArg|akbUserImplicit|akbReturn|akbReturnRcv)
 
 #define akMsgSeqno	akAddFeature(akeMsgSeqno,			\
 	akbServerArg|akbServerImplicit|akbSend|akbSendRcv)

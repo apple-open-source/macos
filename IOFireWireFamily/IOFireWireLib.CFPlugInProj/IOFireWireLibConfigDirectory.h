@@ -28,235 +28,219 @@
  *
  */
 
-#ifndef _IOKIT_IOFireWireLibConfigDirectory_H_
-#define _IOKIT_IOFireWireLibConfigDirectory_H_
+#import "IOFireWireLibPriv.h"
 
-//#include <Carbon/Carbon.h>
-#include <IOKit/IOCFPlugIn.h>
+namespace IOFireWireLib {
 
-#include "IOFireWireLibPriv.h"
-
-class IOFireWireLibConfigDirectoryImp: public IOFireWireIUnknown
-{
- public:
-	IOFireWireLibConfigDirectoryImp(IOFireWireDeviceInterfaceImp& inUserClient, FWKernConfigDirectoryRef inDirRef) ;
-	IOFireWireLibConfigDirectoryImp(IOFireWireDeviceInterfaceImp& inUserClient) ;
-	virtual ~IOFireWireLibConfigDirectoryImp() ;
+	class ConfigDirectory: public IOFireWireIUnknown
+	{
+		protected:
+			typedef ::IOFireWireLibConfigDirectoryRef 	DirRef ;
 	
-    /*!
-        @function update
-        makes sure that the ROM has at least the specified capacity,
-        and that the ROM is uptodate from its start to at least the
-        specified quadlet offset.
-        @result kIOReturnSuccess if the specified offset is now
-        accessable at romBase[offset].
-    */
-	virtual IOReturn Update(UInt32 offset) ;
-
-    /*!
-        @function getKeyType
-        Gets the data type for the specified key
-        @param type on return, set to the data type
-        @result kIOReturnSuccess if the key exists in the dictionary
-    */
-    virtual IOReturn GetKeyType(int key, IOConfigKeyType& type);
+		public:
+			ConfigDirectory( IUnknownVTbl* interface, Device& inUserClient, FWKernConfigDirectoryRef inDirRef ) ;
+			ConfigDirectory( IUnknownVTbl* interface, Device& inUserClient ) ;
+			virtual ~ConfigDirectory() ;
+			
+			/*!
+				@function update
+				makes sure that the ROM has at least the specified capacity,
+				and that the ROM is uptodate from its start to at least the
+				specified quadlet offset.
+				@result kIOReturnSuccess if the specified offset is now
+				accessable at romBase[offset].
+			*/
+			IOReturn Update(UInt32 offset) ;
+		
+			/*!
+				@function getKeyType
+				Gets the data type for the specified key
+				@param type on return, set to the data type
+				@result kIOReturnSuccess if the key exists in the dictionary
+			*/
+			IOReturn GetKeyType(int key, IOConfigKeyType& type);
+			
+			/*!
+				@function getKeyValue
+				Gets the value for the specified key, in a variety of forms.
+				@param value on return, set to the data type
+				@param text if non-zero, on return points to the
+				string description of the field, or NULL if no text found.
+				@result kIOReturnSuccess if the key exists in the dictionary
+				and is of a type appropriate for the value parameter
+				@param value reference to variable to store the entry's value
+			*/
+			IOReturn GetKeyValue(int key, UInt32 &value, CFStringRef*& text);
+			IOReturn GetKeyValue(int key, CFDataRef* value, CFStringRef*& text);
+			IOReturn GetKeyValue(int key, DirRef& value, REFIID iid, CFStringRef*& text);
+			IOReturn GetKeyOffset(int key, FWAddress& value, CFStringRef*& text);
+			IOReturn GetKeyValue(int key, FWKernConfigDirectoryRef& value) ;
+		
+			/*!
+				@function getIndexType
+				Gets the data type for entry at the specified index
+				@param type on return, set to the data type
+				@result kIOReturnSuccess if the index exists in the dictionary
+			*/
+			IOReturn GetIndexType(int index, IOConfigKeyType &type);
+			/*!
+				@function getIndexKey
+				Gets the key for entry at the specified index
+				@param key on return, set to the key
+				@result kIOReturnSuccess if the index exists in the dictionary
+			*/
+			IOReturn GetIndexKey(int index, int &key);
+		
+			/*!
+				@function getIndexValue
+				Gets the value at the specified index of the directory,
+				in a variety of forms.
+				@param type on return, set to the data type
+				@result kIOReturnSuccess if the index exists in the dictionary
+				and is of a type appropriate for the value parameter
+				@param value reference to variable to store the entry's value
+			*/
+			IOReturn GetIndexValue(int index, UInt32& value);
+			IOReturn GetIndexValue(int index, CFDataRef* value);
+			IOReturn GetIndexValue(int index, CFStringRef* value);
+			IOReturn GetIndexValue(int index, FWKernConfigDirectoryRef& value) ;
+			IOReturn GetIndexValue(int index, DirRef& value, REFIID iid);
+		
+			IOReturn GetIndexOffset(int index, FWAddress& value);
+			IOReturn GetIndexOffset(int index, UInt32& value);
+		
+			/*!
+				@function getIndexEntry
+				Gets the entry at the specified index of the directory,
+				as a raw UInt32.
+				@param entry on return, set to the entry value
+				@result kIOReturnSuccess if the index exists in the dictionary
+				@param value reference to variable to store the entry's value
+			*/
+			IOReturn GetIndexEntry(int index, UInt32 &value);
+		
+			/*!
+				@function getSubdirectories
+				Creates an iterator over the subdirectories of the directory.
+				@param iterator on return, set to point to an OSIterator
+				@result kIOReturnSuccess if the iterator could be created
+			*/
+			IOReturn GetSubdirectories(io_iterator_t *outIterator);
+		
+			/*!
+				@function getKeySubdirectories
+				Creates an iterator over subdirectories of a given type of the directory.
+				@param key type of subdirectory to iterate over
+				@param iterator on return, set to point to an io_iterator_t
+				@result kIOReturnSuccess if the iterator could be created
+			*/
+			IOReturn GetKeySubdirectories(int key, io_iterator_t *outIterator);
+			IOReturn GetType(int *outType) ;
+			IOReturn GetNumEntries(int *outNumEntries) ;
+		
+		protected:
+			Device&						mUserClient ;
+			FWKernConfigDirectoryRef	mKernConfigDirectoryRef ;			
+	} ;
 	
-    /*!
-        @function getKeyValue
-        Gets the value for the specified key, in a variety of forms.
-        @param value on return, set to the data type
-        @param text if non-zero, on return points to the
-        string description of the field, or NULL if no text found.
-        @result kIOReturnSuccess if the key exists in the dictionary
-        and is of a type appropriate for the value parameter
-        @param value reference to variable to store the entry's value
-    */
-    virtual IOReturn GetKeyValue(int key, UInt32 &value, CFStringRef*& text);
-    virtual IOReturn GetKeyValue(int key, CFDataRef* value, CFStringRef*& text);
-    virtual IOReturn GetKeyValue(int key, IOFireWireLibConfigDirectoryRef& value, REFIID iid, CFStringRef*& text);
-    virtual IOReturn GetKeyOffset(int key, FWAddress& value, CFStringRef*& text);
-	virtual IOReturn GetKeyValue(int key, FWKernConfigDirectoryRef& value) ;
-
-    /*!
-        @function getIndexType
-        Gets the data type for entry at the specified index
-        @param type on return, set to the data type
-        @result kIOReturnSuccess if the index exists in the dictionary
-    */
-    virtual IOReturn GetIndexType(int index, IOConfigKeyType &type);
-    /*!
-        @function getIndexKey
-        Gets the key for entry at the specified index
-        @param key on return, set to the key
-        @result kIOReturnSuccess if the index exists in the dictionary
-    */
-    virtual IOReturn GetIndexKey(int index, int &key);
-
-    /*!
-        @function getIndexValue
-        Gets the value at the specified index of the directory,
-        in a variety of forms.
-        @param type on return, set to the data type
-        @result kIOReturnSuccess if the index exists in the dictionary
-        and is of a type appropriate for the value parameter
-        @param value reference to variable to store the entry's value
-    */
-    virtual IOReturn GetIndexValue(int index, UInt32& value);
-    virtual IOReturn GetIndexValue(int index, CFDataRef* value);
-    virtual IOReturn GetIndexValue(int index, CFStringRef* value);
-	virtual IOReturn GetIndexValue(int index, FWKernConfigDirectoryRef& value) ;
-    virtual IOReturn GetIndexValue(int index, IOFireWireLibConfigDirectoryRef& value, REFIID iid);
-
-    virtual IOReturn GetIndexOffset(int index, FWAddress& value);
-    virtual IOReturn GetIndexOffset(int index, UInt32& value);
-
-    /*!
-        @function getIndexEntry
-        Gets the entry at the specified index of the directory,
-        as a raw UInt32.
-        @param entry on return, set to the entry value
-        @result kIOReturnSuccess if the index exists in the dictionary
-        @param value reference to variable to store the entry's value
-    */
-    virtual IOReturn GetIndexEntry(int index, UInt32 &value);
-
-    /*!
-        @function getSubdirectories
-        Creates an iterator over the subdirectories of the directory.
-        @param iterator on return, set to point to an OSIterator
-        @result kIOReturnSuccess if the iterator could be created
-    */
-    virtual IOReturn GetSubdirectories(io_iterator_t *outIterator);
-
-    /*!
-        @function getKeySubdirectories
-        Creates an iterator over subdirectories of a given type of the directory.
-        @param key type of subdirectory to iterate over
-        @param iterator on return, set to point to an io_iterator_t
-        @result kIOReturnSuccess if the iterator could be created
-    */
-    virtual IOReturn GetKeySubdirectories(int key, io_iterator_t *outIterator);
-	virtual IOReturn GetType(int *outType) ;
-	virtual IOReturn GetNumEntries(int *outNumEntries) ;
-
-	// my bits:
-	virtual IOReturn 	Init() ;
-
-//	static IUnknownVTbl**	AllocWithDirectoryRef(IOFireWireDeviceInterfaceImp& inUserClient, FWKernConfigDirectoryRef inDirRef) ;
-//	static IUnknownVTbl**	Alloc(IOFireWireDeviceInterfaceImp& inUserClient) ;
+	class ConfigDirectoryCOM: public ConfigDirectory
+	{
+		protected:
+			typedef ::IOFireWireConfigDirectoryInterface	Interface ;
 	
- protected:
-	IOFireWireDeviceInterfaceImp&	mUserClient ;
-	FWKernConfigDirectoryRef		mKernConfigDirectoryRef ;
-	
-} ;
+		public:
+			ConfigDirectoryCOM(Device& inUserClient) ;
+			ConfigDirectoryCOM(Device& inUserClient, FWKernConfigDirectoryRef inDirRef) ;
+			virtual ~ConfigDirectoryCOM() ;
 
-class IOFireWireLibConfigDirectoryCOM: public IOFireWireLibConfigDirectoryImp
-{
- public:
-	IOFireWireLibConfigDirectoryCOM(IOFireWireDeviceInterfaceImp& inUserClient) ;
-	IOFireWireLibConfigDirectoryCOM(IOFireWireDeviceInterfaceImp& inUserClient, FWKernConfigDirectoryRef inDirRef) ;
-	virtual ~IOFireWireLibConfigDirectoryCOM() ;
+		private:
+			static Interface sInterface ;
 
-	// --- COM ---------------
- 	struct InterfaceMap
- 	{
- 		IUnknownVTbl*						pseudoVTable ;
- 		IOFireWireLibConfigDirectoryCOM*	obj ;
- 	} ;
- 
-	static IOFireWireConfigDirectoryInterface	sInterface ;
- 	InterfaceMap								mInterface ;
-
- 	// GetThis()
- 	inline static IOFireWireLibConfigDirectoryCOM* GetThis(IOFireWireLibConfigDirectoryRef self)
-	 	{ return ((InterfaceMap*)self)->obj ;}
-
-	// --- IUNKNOWN support ----------------
-	
-	static IUnknownVTbl**	Alloc(IOFireWireDeviceInterfaceImp& inUserClient, FWKernConfigDirectoryRef inDirRef) ;
-	static IUnknownVTbl**	Alloc(IOFireWireDeviceInterfaceImp& inUserClient) ;
-	virtual HRESULT			QueryInterface(REFIID iid, void ** ppv ) ;
-
-	// --- static methods ------------------
-	static IOReturn SUpdate(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							UInt32 								inOffset) ;
-    static IOReturn SGetKeyType(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inKey, 
-							IOConfigKeyType* 					outType);
-    static IOReturn SGetKeyValue_UInt32(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inKey, 
-							UInt32*								outValue, 
-							CFStringRef*						outText);
-    static IOReturn SGetKeyValue_Data(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inKey, 
-							CFDataRef*							outValue, 
-							CFStringRef*						outText);
-    static IOReturn SGetKeyValue_ConfigDirectory(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inKey, 
-							IOFireWireLibConfigDirectoryRef *	outValue, 
-							REFIID								iid,
-							CFStringRef*						outText);
-    static IOReturn SGetKeyOffset_FWAddress(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inKey, 
-							FWAddress*							outValue, 
-							CFStringRef*						text);
-    static IOReturn SGetIndexType(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inIndex, 
-							IOConfigKeyType*					type);
-    static IOReturn SGetIndexKey(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inIndex, 
-							int *								key);
-    static IOReturn SGetIndexValue_UInt32(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inIndex, 
-							UInt32 *							value);
-    static IOReturn SGetIndexValue_Data(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inIndex, 
-							CFDataRef *							value);
-    static IOReturn SGetIndexValue_String(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inIndex, 
-							CFStringRef*						outValue);
-    static IOReturn SGetIndexValue_ConfigDirectory(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inIndex, 
-							IOFireWireLibConfigDirectoryRef *	outValue,
-							REFIID								iid);
-    static IOReturn SGetIndexOffset_FWAddress(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inIndex, 
-							FWAddress*							outValue);
-    static IOReturn SGetIndexOffset_UInt32(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inIndex, 
-							UInt32*								outValue);
-    static IOReturn SGetIndexEntry(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inIndex, 
-							UInt32*								outValue);
-    static IOReturn SGetSubdirectories(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							io_iterator_t *						outIterator);
-    static IOReturn SGetKeySubdirectories(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int 								inKey, 
-							io_iterator_t *						outIterator);
-	static IOReturn SGetType(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int *								outType) ;
-	static IOReturn SGetNumEntries(
-							IOFireWireLibConfigDirectoryRef 	inDir, 
-							int *								outNumEntries) ;
-} ;
-
-#endif // #ifndef _IOKIT_IOFireWireLibConfigDirectory_H_
+		public:
+			// --- IUNKNOWN support ----------------
+			static IUnknownVTbl**	Alloc(Device& inUserClient, FWKernConfigDirectoryRef inDirRef) ;
+			static IUnknownVTbl**	Alloc(Device& inUserClient) ;
+			virtual HRESULT			QueryInterface(REFIID iid, void ** ppv ) ;
+		
+		protected:
+			// --- static methods ------------------
+			static IOReturn SUpdate(
+									DirRef 	inDir, 
+									UInt32 								inOffset) ;
+			static IOReturn SGetKeyType(
+									DirRef 	inDir, 
+									int 								inKey, 
+									IOConfigKeyType* 					outType);
+			static IOReturn SGetKeyValue_UInt32(
+									DirRef 	inDir, 
+									int 								inKey, 
+									UInt32*								outValue, 
+									CFStringRef*						outText);
+			static IOReturn SGetKeyValue_Data(
+									DirRef 	inDir, 
+									int 								inKey, 
+									CFDataRef*							outValue, 
+									CFStringRef*						outText);
+			static IOReturn SGetKeyValue_ConfigDirectory(
+									DirRef 	inDir, 
+									int 								inKey, 
+									DirRef *	outValue, 
+									REFIID								iid,
+									CFStringRef*						outText);
+			static IOReturn SGetKeyOffset_FWAddress(
+									DirRef 				inDir, 
+									int 				inKey, 
+									FWAddress*			outValue, 
+									CFStringRef*		text);
+			static IOReturn SGetIndexType(
+									DirRef 				inDir, 
+									int 				inIndex, 
+									IOConfigKeyType*	type);
+			static IOReturn SGetIndexKey(
+									DirRef 				inDir, 
+									int 				inIndex, 
+									int *				key);
+			static IOReturn SGetIndexValue_UInt32(
+									DirRef 				inDir, 
+									int 				inIndex, 
+									UInt32 *			value);
+			static IOReturn SGetIndexValue_Data(
+									DirRef 				inDir, 
+									int 				inIndex, 
+									CFDataRef *			value);
+			static IOReturn SGetIndexValue_String(
+									DirRef 				inDir, 
+									int 				inIndex, 
+									CFStringRef*		outValue);
+			static IOReturn SGetIndexValue_ConfigDirectory(
+									DirRef 				inDir, 
+									int 				inIndex, 
+									DirRef *			outValue,
+									REFIID				iid);
+			static IOReturn SGetIndexOffset_FWAddress(
+									DirRef 				inDir, 
+									int 				inIndex, 
+									FWAddress*			outValue);
+			static IOReturn SGetIndexOffset_UInt32(
+									DirRef 				inDir, 
+									int 				inIndex, 
+									UInt32*				outValue);
+			static IOReturn SGetIndexEntry(
+									DirRef 				inDir, 
+									int 				inIndex, 
+									UInt32*				outValue);
+			static IOReturn SGetSubdirectories(
+									DirRef 				inDir, 
+									io_iterator_t*		outIterator);
+			static IOReturn SGetKeySubdirectories(
+									DirRef 				inDir,
+									int 				inKey, 
+									io_iterator_t *		outIterator);
+			static IOReturn SGetType(
+									DirRef 				inDir, 
+									int *				outType) ;
+			static IOReturn SGetNumEntries(
+									DirRef		 		inDir, 
+									int *				outNumEntries) ;
+	} ;
+}

@@ -1,0 +1,28 @@
+Tim Martin <tmartin@andrew.cmu.edu> wrote, debugged, and tested
+most of the code.
+
+Rob Siemborski <rjs3+@andrew.cmu.edu> wrote and tested the conversion
+to the SASLv2 API.
+
+Ken Murchison <ken@oceana.com> worked on the OTP and SRP plugins.
+
+Rob Earhart <earhart@cmu.edu> wrote the build/installation procedure,
+wrote and tested some of the code, and provided general guidance and
+coding advice.
+
+Leif Johansson <leifj@matematik.su.se> wrote the GSSAPI plugin, with
+contributions from Sam Hartman <hartmans@fundsxpress.com>.
+
+Alexey Melnikov <mel@messagingdirect.com> wrote the first pass of the
+DIGEST-MD5 plugin and continues to work on it.
+
+Rainer Schoepf <schoepf@uni-mainz.de> contributed the LOGIN plugin,
+based on Tim Martin's PLAIN plugin.
+
+Larry Greenfield <leg+sasl@andrew.cmu.edu> complained. a lot.
+
+Chris Newman <chris.newman@innosoft.com> wrote the initial version of the
+SASL API, as well as the version 2 SASL API (documented in sasl.h,
+saslutil.h, saslplug.h, and prop.h).
+
+$Id: AUTHORS,v 1.1 2002/02/27 23:54:17 snsimon Exp $

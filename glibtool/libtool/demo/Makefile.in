@@ -1,0 +1,606 @@
+# Makefile.in generated automatically by automake 1.4-p5a from Makefile.am
+
+# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+oldincludedir = /usr/include
+
+DESTDIR =
+
+pkgdatadir = $(datadir)/@PACKAGE@
+pkglibdir = $(libdir)/@PACKAGE@
+pkgincludedir = $(includedir)/@PACKAGE@
+
+top_builddir = .
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+transform = @program_transform_name@
+
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+AMTAR = @AMTAR@
+AS = @AS@
+AWK = @AWK@
+CC = @CC@
+DEPDIR = @DEPDIR@
+DLLTOOL = @DLLTOOL@
+ECHO = @ECHO@
+EXEEXT = @EXEEXT@
+INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LIBM = @LIBM@
+LIBTOOL = @LIBTOOL@
+LIBTOOL_DEPS = @LIBTOOL_DEPS@
+LN_S = @LN_S@
+MAKEINFO = @MAKEINFO@
+OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
+PACKAGE = @PACKAGE@
+RANLIB = @RANLIB@
+STATIC = @STATIC@
+STRIP = @STRIP@
+VERSION = @VERSION@
+am__include = @am__include@
+am__quote = @am__quote@
+install_sh = @install_sh@
+
+AUTOMAKE_OPTIONS = no-dependencies foreign
+
+EXTRA_DIST = acinclude.m4
+
+# Build a libtool library, libhello.la for installation in libdir.
+lib_LTLIBRARIES = libhello.la
+libhello_la_SOURCES = hello.c foo.c
+libhello_la_LIBADD = $(LIBM)
+libhello_la_LDFLAGS = -version-info 3:12:1
+
+include_HEADERS = foo.h
+@BINARY_HELLDL_TRUE@BUILD_helldl = helldl
+@BINARY_HELLDL_FALSE@BUILD_helldl = 
+
+bin_PROGRAMS = hell hell.static $(BUILD_helldl)
+
+# Build hell from main.c and libhello.la
+hell_SOURCES = main.c
+hell_LDADD = libhello.la
+
+# Create a statically linked version of hell.
+hell_static_SOURCES = main.c
+hell_static_LDADD = libhello.la
+hell_static_LDFLAGS = $(STATIC)
+
+# Create a version of hell that does a preloaded dlopen.
+@BINARY_HELLDL_TRUE@helldl_SOURCES = dlmain.c
+@BINARY_HELLDL_TRUE@helldl_LDFLAGS = -export-dynamic -dlpreopen libhello.la
+@BINARY_HELLDL_TRUE@helldl_DEPENDENCIES = libhello.la
+
+@BINARY_HELLDL_FALSE@bin_SCRIPTS = helldl
+
+#----------------------------------------------------------------------
+# The following declarations are only used in the testsuite:
+#----------------------------------------------------------------------
+
+hardcode_tests = hc-direct hc-libflag hc-libpath hc-minusL
+
+CLEANFILES = $(hardcode_tests) $(EXTRA_LIBRARIES) $(EXTRA_LTLIBRARIES) $(EXTRA_PROGRAMS)
+
+# Unfortunately, in order to test libtool thoroughly, we need access
+# to its private directory.
+objdir = `sed -n -e 's/^objdir=\(.*\)$$/\1/p' ../libtool`
+
+# This is one of the essential tests for deplibs_check_method=pass_all.
+# If this one passes with pass_all, it is likely that pass_all works
+EXTRA_LIBRARIES = libhell0.a
+libhell0_a_SOURCES = hello.c foo.c
+EXTRA_LTLIBRARIES = libhell1.la libhell2.la
+libhell1_la_SOURCES = hell1.c
+libhell1_la_LIBADD = -L. -lhell0
+libhell1_la_LDFLAGS = -rpath $(libdir)
+libhell1_la_DEPENDENCIES = libhell0.a
+libhell2_la_SOURCES = hell2.c
+libhell2_la_LIBADD = -L. -lhell0
+libhell2_la_LDFLAGS = -rpath $(libdir)
+libhell2_la_DEPENDENCIES = libhell0.a
+EXTRA_PROGRAMS = hell0
+hell0_SOURCES = main.c
+hell0_LDADD = libhell1.la libhell2.la $(LIBM)
+ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
+mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
+CONFIG_CLEAN_FILES = 
+
+DEFS = @DEFS@ -I. -I$(srcdir) 
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@
+libhell0_a_LIBADD = 
+libhell0_a_OBJECTS =  hello.$(OBJEXT) foo.$(OBJEXT)
+AR = ar
+LTLIBRARIES =  $(lib_LTLIBRARIES)
+
+libhell1_la_OBJECTS =  hell1.lo
+libhell2_la_OBJECTS =  hell2.lo
+libhello_la_DEPENDENCIES = 
+libhello_la_OBJECTS =  hello.lo foo.lo
+@BINARY_HELLDL_TRUE@bin_PROGRAMS =  hell$(EXEEXT) hell.static \
+@BINARY_HELLDL_TRUE@helldl$(EXEEXT)
+@BINARY_HELLDL_FALSE@bin_PROGRAMS =  hell$(EXEEXT) hell.static
+PROGRAMS =  $(bin_PROGRAMS)
+
+hell0_OBJECTS =  main.$(OBJEXT)
+hell0_DEPENDENCIES =  libhell1.la libhell2.la
+hell0_LDFLAGS = 
+hell_OBJECTS =  main.$(OBJEXT)
+hell_DEPENDENCIES =  libhello.la
+hell_LDFLAGS = 
+hell_static_OBJECTS =  main.$(OBJEXT)
+hell_static_DEPENDENCIES =  libhello.la
+@BINARY_HELLDL_TRUE@helldl_OBJECTS =  dlmain.$(OBJEXT)
+helldl_LDADD = $(LDADD)
+SCRIPTS =  $(bin_SCRIPTS)
+
+CFLAGS = @CFLAGS@
+COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+HEADERS =  $(include_HEADERS)
+
+DIST_COMMON =  README Makefile.am Makefile.in acinclude.m4 aclocal.m4 \
+configure configure.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = gtar
+GZIP_ENV = --best
+SOURCES = $(libhell0_a_SOURCES) $(libhell1_la_SOURCES) $(libhell2_la_SOURCES) $(libhello_la_SOURCES) $(hell0_SOURCES) $(hell_SOURCES) $(hell_static_SOURCES) $(helldl_SOURCES)
+OBJECTS = $(libhell0_a_OBJECTS) $(libhell1_la_OBJECTS) $(libhell2_la_OBJECTS) $(libhello_la_OBJECTS) $(hell0_OBJECTS) $(hell_OBJECTS) $(hell_static_OBJECTS) $(helldl_OBJECTS)
+
+all: all-redirect
+.SUFFIXES:
+.SUFFIXES: .S .c .lo .o .obj .s
+$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --foreign Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+$(ACLOCAL_M4):  configure.in  acinclude.m4
+	cd $(srcdir) && $(ACLOCAL)
+
+config.status: $(srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
+	$(SHELL) ./config.status --recheck
+$(srcdir)/configure: $(srcdir)/configure.in $(ACLOCAL_M4) $(CONFIGURE_DEPENDENCIES)
+	cd $(srcdir) && $(AUTOCONF)
+
+.c.o:
+	$(COMPILE) -c $<
+
+# FIXME: We should only use cygpath when building on Windows,
+# and only if it is available.
+.c.obj:
+	$(COMPILE) -c `cygpath -w $<`
+
+.s.o:
+	$(COMPILE) -c $<
+
+.S.o:
+	$(COMPILE) -c $<
+
+mostlyclean-compile:
+	-rm -f *.o core *.core
+	-rm -f *.$(OBJEXT)
+
+clean-compile:
+
+distclean-compile:
+	-rm -f *.tab.c
+
+maintainer-clean-compile:
+
+.c.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.s.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.S.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+mostlyclean-libtool:
+	-rm -f *.lo
+
+clean-libtool:
+	-rm -rf .libs _libs
+
+distclean-libtool:
+
+maintainer-clean-libtool:
+
+libhell0.a: $(libhell0_a_OBJECTS) $(libhell0_a_DEPENDENCIES)
+	-rm -f libhell0.a
+	$(AR) cru libhell0.a $(libhell0_a_OBJECTS) $(libhell0_a_LIBADD)
+	$(RANLIB) libhell0.a
+
+mostlyclean-libLTLIBRARIES:
+
+clean-libLTLIBRARIES:
+	-test -z "$(lib_LTLIBRARIES)" || rm -f $(lib_LTLIBRARIES)
+
+distclean-libLTLIBRARIES:
+
+maintainer-clean-libLTLIBRARIES:
+
+install-libLTLIBRARIES: $(lib_LTLIBRARIES)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(libdir)
+	@list='$(lib_LTLIBRARIES)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo "$(LIBTOOL)  --mode=install $(INSTALL) $$p $(DESTDIR)$(libdir)/$$p"; \
+	    $(LIBTOOL)  --mode=install $(INSTALL) $$p $(DESTDIR)$(libdir)/$$p; \
+	  else :; fi; \
+	done
+
+uninstall-libLTLIBRARIES:
+	@$(NORMAL_UNINSTALL)
+	list='$(lib_LTLIBRARIES)'; for p in $$list; do \
+	  $(LIBTOOL)  --mode=uninstall rm -f $(DESTDIR)$(libdir)/$$p; \
+	done
+
+libhell1.la: $(libhell1_la_OBJECTS) $(libhell1_la_DEPENDENCIES)
+	$(LINK)  $(libhell1_la_LDFLAGS) $(libhell1_la_OBJECTS) $(libhell1_la_LIBADD) $(LIBS)
+
+libhell2.la: $(libhell2_la_OBJECTS) $(libhell2_la_DEPENDENCIES)
+	$(LINK)  $(libhell2_la_LDFLAGS) $(libhell2_la_OBJECTS) $(libhell2_la_LIBADD) $(LIBS)
+
+libhello.la: $(libhello_la_OBJECTS) $(libhello_la_DEPENDENCIES)
+	$(LINK) -rpath $(libdir) $(libhello_la_LDFLAGS) $(libhello_la_OBJECTS) $(libhello_la_LIBADD) $(LIBS)
+
+mostlyclean-binPROGRAMS:
+
+clean-binPROGRAMS:
+	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+
+distclean-binPROGRAMS:
+
+maintainer-clean-binPROGRAMS:
+
+install-binPROGRAMS: $(bin_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(bindir)
+	@list='$(bin_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(bindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`"; \
+	    $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(bindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	  else :; fi; \
+	done
+
+uninstall-binPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	list='$(bin_PROGRAMS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(bindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	done
+
+hell0$(EXEEXT): $(hell0_OBJECTS) $(hell0_DEPENDENCIES)
+	@rm -f hell0$(EXEEXT)
+	$(LINK) $(hell0_LDFLAGS) $(hell0_OBJECTS) $(hell0_LDADD) $(LIBS)
+
+hell$(EXEEXT): $(hell_OBJECTS) $(hell_DEPENDENCIES)
+	@rm -f hell$(EXEEXT)
+	$(LINK) $(hell_LDFLAGS) $(hell_OBJECTS) $(hell_LDADD) $(LIBS)
+
+hell.static: $(hell_static_OBJECTS) $(hell_static_DEPENDENCIES)
+	@rm -f hell.static
+	$(LINK) $(hell_static_LDFLAGS) $(hell_static_OBJECTS) $(hell_static_LDADD) $(LIBS)
+
+helldl$(EXEEXT): $(helldl_OBJECTS) $(helldl_DEPENDENCIES)
+	@rm -f helldl$(EXEEXT)
+	$(LINK) $(helldl_LDFLAGS) $(helldl_OBJECTS) $(helldl_LDADD) $(LIBS)
+
+install-binSCRIPTS: $(bin_SCRIPTS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(bindir)
+	@list='$(bin_SCRIPTS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(INSTALL_SCRIPT) $$p $(DESTDIR)$(bindir)/`echo $$p|sed '$(transform)'`"; \
+	    $(INSTALL_SCRIPT) $$p $(DESTDIR)$(bindir)/`echo $$p|sed '$(transform)'`; \
+	  else if test -f $(srcdir)/$$p; then \
+	    echo " $(INSTALL_SCRIPT) $(srcdir)/$$p $(DESTDIR)$(bindir)/`echo $$p|sed '$(transform)'`"; \
+	    $(INSTALL_SCRIPT) $(srcdir)/$$p $(DESTDIR)$(bindir)/`echo $$p|sed '$(transform)'`; \
+	  else :; fi; fi; \
+	done
+
+uninstall-binSCRIPTS:
+	@$(NORMAL_UNINSTALL)
+	list='$(bin_SCRIPTS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(bindir)/`echo $$p|sed '$(transform)'`; \
+	done
+
+install-includeHEADERS: $(include_HEADERS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(includedir)
+	@list='$(include_HEADERS)'; for p in $$list; do \
+	  if test -f "$$p"; then d= ; else d="$(srcdir)/"; fi; \
+	  echo " $(INSTALL_DATA) $$d$$p $(DESTDIR)$(includedir)/$$p"; \
+	  $(INSTALL_DATA) $$d$$p $(DESTDIR)$(includedir)/$$p; \
+	done
+
+uninstall-includeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	list='$(include_HEADERS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(includedir)/$$p; \
+	done
+
+tags: TAGS
+
+ID: $(HEADERS) $(SOURCES) $(LISP)
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	here=`pwd` && cd $(srcdir) \
+	  && mkid -f$$here/ID $$unique $(LISP)
+
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) $(LISP)
+	tags=; \
+	here=`pwd`; \
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	test -z "$(ETAGS_ARGS)$$unique$(LISP)$$tags" \
+	  || (cd $(srcdir) && etags $(ETAGS_ARGS) $$tags  $$unique $(LISP) -o $$here/TAGS)
+
+mostlyclean-tags:
+
+clean-tags:
+
+distclean-tags:
+	-rm -f TAGS ID
+
+maintainer-clean-tags:
+
+distdir = $(PACKAGE)-$(VERSION)
+top_distdir = $(distdir)
+
+# This target untars the dist file and tries a VPATH configuration.  Then
+# it guarantees that the distribution is self-contained by making another
+# tarfile.
+distcheck: dist
+	-rm -rf $(distdir)
+	GZIP=$(GZIP_ENV) $(TAR) zxf $(distdir).tar.gz
+	mkdir $(distdir)/=build
+	mkdir $(distdir)/=inst
+	dc_install_base=`cd $(distdir)/=inst && pwd`; \
+	cd $(distdir)/=build \
+	  && ../configure --srcdir=.. --prefix=$$dc_install_base \
+	  && $(MAKE) $(AM_MAKEFLAGS) \
+	  && $(MAKE) $(AM_MAKEFLAGS) dvi \
+	  && $(MAKE) $(AM_MAKEFLAGS) check \
+	  && $(MAKE) $(AM_MAKEFLAGS) install \
+	  && $(MAKE) $(AM_MAKEFLAGS) installcheck \
+	  && $(MAKE) $(AM_MAKEFLAGS) dist
+	-rm -rf $(distdir)
+	@banner="$(distdir).tar.gz is ready for distribution"; \
+	dashes=`echo "$$banner" | sed s/./=/g`; \
+	echo "$$dashes"; \
+	echo "$$banner"; \
+	echo "$$dashes"
+dist: distdir
+	-chmod -R a+r $(distdir)
+	GZIP=$(GZIP_ENV) $(TAR) chozf $(distdir).tar.gz $(distdir)
+	-rm -rf $(distdir)
+dist-all: distdir
+	-chmod -R a+r $(distdir)
+	GZIP=$(GZIP_ENV) $(TAR) chozf $(distdir).tar.gz $(distdir)
+	-rm -rf $(distdir)
+distdir: $(DISTFILES)
+	-rm -rf $(distdir)
+	mkdir $(distdir)
+	-chmod 777 $(distdir)
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$d/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
+check-am: all-am
+check: check-am
+installcheck-am:
+installcheck: installcheck-am
+install-exec-am: install-libLTLIBRARIES install-binPROGRAMS \
+		install-binSCRIPTS
+install-exec: install-exec-am
+
+install-data-am: install-includeHEADERS
+install-data: install-data-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+install: install-am
+uninstall-am: uninstall-libLTLIBRARIES uninstall-binPROGRAMS \
+		uninstall-binSCRIPTS uninstall-includeHEADERS
+uninstall: uninstall-am
+all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(HEADERS)
+all-redirect: all-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+	$(mkinstalldirs)  $(DESTDIR)$(libdir) $(DESTDIR)$(bindir) \
+		$(DESTDIR)$(bindir) $(DESTDIR)$(includedir)
+
+
+mostlyclean-generic:
+
+clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+
+maintainer-clean-generic:
+mostlyclean-am:  mostlyclean-compile mostlyclean-libtool \
+		mostlyclean-libLTLIBRARIES mostlyclean-binPROGRAMS \
+		mostlyclean-tags mostlyclean-generic
+
+mostlyclean: mostlyclean-am
+
+clean-am:  clean-compile clean-libtool clean-libLTLIBRARIES \
+		clean-binPROGRAMS clean-tags clean-generic \
+		mostlyclean-am
+
+clean: clean-am
+
+distclean-am:  distclean-compile distclean-libtool \
+		distclean-libLTLIBRARIES distclean-binPROGRAMS \
+		distclean-tags distclean-generic clean-am
+	-rm -f libtool
+
+distclean: distclean-am
+	-rm -f config.status
+
+maintainer-clean-am:  maintainer-clean-compile maintainer-clean-libtool \
+		maintainer-clean-libLTLIBRARIES \
+		maintainer-clean-binPROGRAMS maintainer-clean-tags \
+		maintainer-clean-generic distclean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+	-rm -f config.status
+
+.PHONY: mostlyclean-compile distclean-compile clean-compile \
+maintainer-clean-compile mostlyclean-libtool distclean-libtool \
+clean-libtool maintainer-clean-libtool mostlyclean-libLTLIBRARIES \
+distclean-libLTLIBRARIES clean-libLTLIBRARIES \
+maintainer-clean-libLTLIBRARIES uninstall-libLTLIBRARIES \
+install-libLTLIBRARIES mostlyclean-binPROGRAMS distclean-binPROGRAMS \
+clean-binPROGRAMS maintainer-clean-binPROGRAMS uninstall-binPROGRAMS \
+install-binPROGRAMS uninstall-binSCRIPTS install-binSCRIPTS \
+uninstall-includeHEADERS install-includeHEADERS tags mostlyclean-tags \
+distclean-tags clean-tags maintainer-clean-tags distdir info-am info \
+dvi-am dvi check check-am installcheck-am installcheck install-exec-am \
+install-exec install-data-am install-data install-am install \
+uninstall-am uninstall all-redirect all-am all installdirs \
+mostlyclean-generic distclean-generic clean-generic \
+maintainer-clean-generic clean mostlyclean distclean maintainer-clean
+
+# create a script that says that -dlopen is not supported
+@BINARY_HELLDL_FALSE@helldl helldl$(EXEEXT):
+@BINARY_HELLDL_FALSE@	rm -f $@
+@BINARY_HELLDL_FALSE@	echo '#! /bin/sh' > $@
+@BINARY_HELLDL_FALSE@	echo '-dlopen is unsupported' >> $@
+@BINARY_HELLDL_FALSE@	chmod +x $@
+
+$(OBJECTS): libtool
+libtool: $(LIBTOOL_DEPS)
+	$(SHELL) ./config.status --recheck
+
+# The following rules are only for the libtool demo and tests.
+# Regenerate our acinclude.m4 only if it doesn't exist.
+$(srcdir)/acinclude.m4:
+	rm -f $(srcdir)/acinclude.m4
+	cd $(srcdir) && $(LN_S) ../libtool.m4 acinclude.m4
+
+# Test programs to see what gets hardcoded.
+.PHONY: hardcode
+hardcode: $(hardcode_tests)
+hc-direct: $(hell_OBJECTS) $(hell_DEPENDENCIES) $(libdir)/libhello.la
+	@rm -f hc-direct
+	@echo "You may ignore any linking errors from the following command:"
+	@shlib=./$(objdir)/libhello.a; \
+	  eval "`egrep '^library_names' libhello.la`"; \
+	  for lib in $$library_names; do \
+	    shlib="./$(objdir)/$$lib"; \
+	  done; \
+	  eval `egrep -e '^(hardcode_.*|wl)=' libtool`; \
+	  libdir=$(libdir); \
+	  flag=`eval echo \"$$hardcode_libdir_flag_spec\"`; \
+	  echo "$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(hell_OBJECTS) $$shlib $(LIBS) $(LIBM) $$flag || echo unsupported > $@"; \
+	  eval "$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(hell_OBJECTS) $$shlib $(LIBS) $(LIBM) $$flag || echo unsupported > $@"
+
+hc-libflag: $(hell_OBJECTS) $(hell_DEPENDENCIES) $(libdir)/libhello.la
+	@eval `egrep -e '^(hardcode_.*|wl)=' libtool`; \
+	  libdir=`pwd`/$(objdir); \
+	  flag=`eval echo \"$$hardcode_libdir_flag_spec\"`; \
+	  if test -z "$$flag"; then \
+	    echo "echo unsupported > $@"; \
+	    echo unsupported > $@ || status="$$?"; \
+	  else \
+	    echo "$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(hell_OBJECTS) $$flag -L$(libdir) -lhello $(LIBS) $(LIBM)"; \
+	    $(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(hell_OBJECTS) $$flag -L$(libdir) -lhello $(LIBS) $(LIBM) || status="$$?"; \
+	  fi; \
+	  exit $$status
+
+hc-libpath: $(hell_OBJECTS) $(hell_DEPENDENCIES) $(libdir)/libhello.la
+	@rm -f hc-libpath
+	@echo "You may ignore any linking errors from the following command:"
+	@eval `egrep -e '^(shlibpath_var|hardcode_.*|wl)=' libtool`; \
+	  libdir=$(libdir); \
+	  flag=`eval echo \"$$hardcode_libdir_flag_spec\"`; \
+	  echo "$$shlibpath_var=./$(objdir) $(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(hell_OBJECTS) -lhello $(LIBS) $(LIBM) $$flag || echo unsupported > $@"; \
+	  eval "$$shlibpath_var=./$(objdir) $(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(hell_OBJECTS) -lhello $(LIBS) $(LIBM) $$flag || echo unsupported > $@"
+
+hc-minusL: $(hell_OBJECTS) $(hell_DEPENDENCIES)
+	@rm -f hc-minusL
+	@eval `egrep -e '^(hardcode_.*|wl)=' libtool`; \
+	  libdir=$(libdir); \
+	  flag=`eval echo \"$$hardcode_libdir_flag_spec\"`; \
+	  echo "$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(hell_OBJECTS) -L./$(objdir) -lhello $(LIBS) $(LIBM) $$flag || echo unsupported > $@"; \
+	  eval "$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(hell_OBJECTS) -L./$(objdir) -lhello $(LIBS) $(LIBM) $$flag || echo unsupported > $@"
+
+deplibs-check: hell0
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

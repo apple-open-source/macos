@@ -1,0 +1,35 @@
+#! /bin/sh
+
+# Make sure `../foo/foo.cpp' generates a rule.
+# Report from Dave Brolley.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AM_PROG_CC_C_O
+AC_PROG_CC
+AC_PROG_CXX
+AC_OUTPUT(d1/Makefile d2/Makefile)
+END
+
+mkdir d1 d2
+
+cat > Makefile.am << 'END'
+SUBDIRS = d1 d2
+END
+
+cat > d1/Makefile.am << 'END'
+bin_PROGRAMS = z
+z_SOURCES = ../d2/z.c
+END
+
+cat > d2/Makefile.am << 'END'
+END
+
+: > compile
+: > d2/z.c
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep 'CC.*z' d1/Makefile.in

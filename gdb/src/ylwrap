@@ -1,6 +1,6 @@
 #! /bin/sh
 # ylwrap - wrapper for lex/yacc invocations.
-# Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+# Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
 # Written by Tom Tromey <tromey@cygnus.com>.
 #
 # This program is free software; you can redistribute it and/or modify
@@ -98,7 +98,7 @@ if test $status -eq 0; then
 	   /* | [A-Za-z]:\\*) target="$2";;
 	   *) target="../$2";;
 	 esac
-	 mv "$1" "$target" || status=$?
+	 (rm -f "$target" && mv "$1" "$target") || status=$?
       else
 	 # A missing file is only an error for the first file.  This
 	 # is a blatant hack to let us support using "yacc -d".  If -d

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,14 +20,31 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/IOSCSIProtocolInterface.h>
 
-// For debugging, set SCSI_PROTOCOL_INTERFACE_DEBUGGING_LEVEL to one
-// of the following values:
-//		0	No debugging 	(GM release level)
-// 		1 	PANIC_NOW only
-//		2	PANIC_NOW and ERROR_LOG
-//		3	PANIC_NOW, ERROR_LOG and STATUS_LOG
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 												0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING					"SCSIProtocolInterface"
+
+#if DEBUG
+#define SCSI_PROTOCOL_INTERFACE_DEBUGGING_LEVEL				0
+#endif
+
+
+// This module needs SAM_MODULE defined in order to pick up the
+// static debugging function.
+#define SAM_MODULE	1
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
 
 
 #if ( SCSI_PROTOCOL_INTERFACE_DEBUGGING_LEVEL >= 1 )
@@ -48,13 +65,21 @@
 #define STATUS_LOG(x)
 #endif
 
-#define SERIAL_STATUS_LOG(x)	STATUS_LOG(x)
+#if ( SCSI_PROTOCOL_INTERFACE_POWER_DEBUGGING )
+#define SERIAL_STATUS_LOG(x)	kprintf(x)
+#else
+#define SERIAL_STATUS_LOG(x)
+#endif
 
 
 #define super IOService
 OSDefineMetaClass ( IOSCSIProtocolInterface, IOService );
 OSDefineAbstractStructors ( IOSCSIProtocolInterface, IOService );
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 enum
 {
@@ -78,43 +103,31 @@ enum
  */
 
 
-//---------------------------------------------------------------------------
-// ¥ start - Used to allocate any resources
-//---------------------------------------------------------------------------
+#if 0
+#pragma mark -
+#pragma mark ¥ Public Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ start - Called by IOKit to start our services.		  		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIProtocolInterface::start ( IOService * provider )
 {
 	
-	IOWorkLoop *	workLoop;
-	
-	STATUS_LOG ( ( "IOSCSIProtocolInterface::start.\n" ) );
+	bool			result		= false;
+	IOWorkLoop *	workLoop	= NULL;
 	
 	workLoop = getWorkLoop ( );
+	require_nonzero ( workLoop, ErrorExit );
 	
-	if ( workLoop != NULL )
-	{
-		
-		fCommandGate = IOCommandGate::commandGate ( this );
-		
-		if ( fCommandGate != NULL )
-		{
-			
-			workLoop->addEventSource ( fCommandGate );
-			
-		}
-		
-		else
-		{
-			return false;
-		}
-		
-	}
+	fCommandGate = IOCommandGate::commandGate ( this );
+	require_nonzero ( fCommandGate, ErrorExit );
 	
-	else
-	{
-		return false;
-	}
+	workLoop->addEventSource ( fCommandGate );
 	
 	fPowerAckInProgress				= false;
 	fPowerTransitionInProgress 		= false;
@@ -123,31 +136,40 @@ IOSCSIProtocolInterface::start ( IOService * provider )
 	
 	// Allocate the thread on which to do power management
 	fPowerManagementThread = thread_call_allocate (
-					( thread_call_func_t ) IOSCSIProtocolInterface::sPowerManagement,
-					( thread_call_param_t ) this );
+			( thread_call_func_t ) IOSCSIProtocolInterface::sPowerManagement,
+			( thread_call_param_t ) this );
+	require_nonzero ( fPowerManagementThread, ReleaseCommandGate );
 	
-	if ( fPowerManagementThread == NULL )
-	{
-		
-		STATUS_LOG ( ( "%s::thread allocation failed.\n", getName ( ) ) );
-		return false;
-		
-	}
+	result = true;
 	
-	return true;
+	return result;
+	
+
+ReleaseCommandGate:
+	
+	
+	workLoop->removeEventSource ( fCommandGate );
+	fCommandGate->release ( );
+	fCommandGate = NULL;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//---------------------------------------------------------------------------
-// ¥ free - Used to deallocate any resources
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ free - Called by IOKit to deallocate any resources.	  		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIProtocolInterface::free ( void )
 {
 	
-	IOWorkLoop *	workLoop;
+	IOWorkLoop *	workLoop = NULL;
 	
 	if ( fCommandGate != NULL )
 	{
@@ -177,24 +199,63 @@ IOSCSIProtocolInterface::free ( void )
 	}
 	
 	super::free ( );
-
+	
 }
 
 
-#pragma mark -
-#pragma mark - Power Management Support
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetUserClientExclusivityState - Call to see if user client is in
+//									 exclusive mode.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-
-//---------------------------------------------------------------------------
-// ¥ initialPowerStateForDomainState - 	Returns to the power manager what initial
-//										state the device should be in.
-//---------------------------------------------------------------------------
-
-UInt32
-IOSCSIProtocolInterface::initialPowerStateForDomainState ( IOPMPowerFlags flags )
+bool
+IOSCSIProtocolInterface::GetUserClientExclusivityState ( void )
 {
 	
-	STATUS_LOG ( ( "%s::%s\n", getName ( ), __FUNCTION__ ) );
+	bool	state;
+	
+	fCommandGate->runAction ( ( IOCommandGate::Action )
+					&IOSCSIProtocolInterface::sGetUserClientExclusivityState,
+					( void * ) &state );
+	return state;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetUserClientExclusivityState - Call to see if user client is in
+//									 exclusive mode.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIProtocolInterface::SetUserClientExclusivityState (
+										IOService *		userClient,
+										bool			state )
+{
+	
+	IOReturn	status = kIOReturnExclusiveAccess;
+	
+	fCommandGate->runAction ( ( IOCommandGate::Action )
+					&IOSCSIProtocolInterface::sSetUserClientExclusivityState,
+					( void * ) &status,
+					( void * ) userClient,
+					( void * ) state );
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ initialPowerStateForDomainState - 	Returns to the power manager what
+//										initial state the device should be in.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt32
+IOSCSIProtocolInterface::initialPowerStateForDomainState (
+											IOPMPowerFlags	flags )
+{
 	
 	// We ignore the flags since we are always active at startup time and we
 	// just report what our initial power state is.
@@ -203,126 +264,15 @@ IOSCSIProtocolInterface::initialPowerStateForDomainState ( IOPMPowerFlags flags 
 }
 
 
-//---------------------------------------------------------------------------
-// ¥ InitializePowerManagement - Joins PM tree and initializes pm vars.
-//---------------------------------------------------------------------------
-
-void
-IOSCSIProtocolInterface::InitializePowerManagement ( IOService * provider )
-{
-	
-	STATUS_LOG ( ( "IOSCSIProtocolInterface::InitializePowerManagement.\n" ) );
-	
-	PMinit ( );
-	provider->joinPMtree ( this );
-	setIdleTimerPeriod ( 5 * 60 ); 	// set 5 minute idle timer until system sends us
-									// new values via setAggressiveness()
-	
-	// Call makeUsable here to tell the power manager to put us in our
-	// highest power state when we call registerPowerDriver().
-	makeUsable ( );
-	fPowerManagementInitialized = true;
-	
-}
-
-
-//---------------------------------------------------------------------------
-// ¥ IsPowerManagementIntialized - Returns fPowerManagementInitialized.
-//---------------------------------------------------------------------------
-
-bool
-IOSCSIProtocolInterface::IsPowerManagementIntialized ( void )
-{
-	
-	STATUS_LOG ( ( "IOSCSIProtocolInterface::IsPowerManagementIntialized.\n" ) );
-	return fPowerManagementInitialized;
-	
-}
-
-
-//---------------------------------------------------------------------------
-// ¥ finalize - Terminates all power management.
-//---------------------------------------------------------------------------
-
-bool
-IOSCSIProtocolInterface::finalize ( IOOptionBits options )
-{
-	
-	STATUS_LOG ( ( "IOSCSIProtocolInterface::finalize this = %p\n", this ) );
-	
-	if ( fPowerManagementInitialized )
-	{
-		bool	powerTransistionStillInProgress  =  true;
-		
-		// need to wait for power transistion in progress to
-		// finish before finalizing or the transistion will
-		// attempt to complete after we are gone
-		for ( ; ; )
-		{
-			
-			powerTransistionStillInProgress = ( bool ) fCommandGate->runAction ( ( IOCommandGate::Action )
-							&IOSCSIProtocolInterface::sGetPowerTransistionInProgress );
-			
-			if ( powerTransistionStillInProgress )
-			{
-				IOSleep ( 1 );
-			}
-			
-			else
-			{
-				break;
-			}
-			
-		}
-
-		fCommandGate->commandWakeup ( &fCurrentPowerState, false );
-		fCommandGate->runAction ( ( IOCommandGate::Action )
-							&IOSCSIProtocolInterface::sGetPowerTransistionInProgress );			
-
-		STATUS_LOG ( ( "PMstop about to be called.\n" ) );
-
-		PMstop ( );
-		
-		if ( fPowerManagementThread != NULL )
-		{
-			
-			// If the power management thread is scheduled, unschedule it.
-			thread_call_cancel ( fPowerManagementThread );
-			
-		}
-		
-		fPowerManagementInitialized = false;
-
-	}
-	
-	return super::finalize ( options );
-
-}
-
-
-//---------------------------------------------------------------------------
-// ¥ sGetPowerTransistionInProgress - 
-//---------------------------------------------------------------------------
-
-bool
-IOSCSIProtocolInterface::sGetPowerTransistionInProgress ( IOSCSIProtocolInterface * self )
-{
-	return ( self->fPowerTransitionInProgress );
-}
-
-
-//---------------------------------------------------------------------------
-// ¥ setPowerState - Set/Change the power state of the ATA hard-drive
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ setPowerState - Set/Change the power state of the device		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOSCSIProtocolInterface::setPowerState (
 							UInt32	  powerStateOrdinal,
 							IOService * whichDevice )
 {
-		
-	SERIAL_STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
-	SERIAL_STATUS_LOG ( ( "powerStateOrdinal = %ld\n", powerStateOrdinal ) );
 	
 	return fCommandGate->runAction ( ( IOCommandGate::Action )
 							&IOSCSIProtocolInterface::sHandleSetPowerState,
@@ -331,118 +281,27 @@ IOSCSIProtocolInterface::setPowerState (
 }
 
 
-//---------------------------------------------------------------------------
-// ¥ sHandleSetPowerState - Static member function called by the
-//							IOCommandGate to translate setPowerState() calls
-//							to the synchronized handleSetPowerState() call
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ IsPowerManagementIntialized - Returns fPowerManagementInitialized.[PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-IOReturn
-IOSCSIProtocolInterface::sHandleSetPowerState (
-								IOSCSIProtocolInterface * 	self,
-								UInt32		 				powerStateOrdinal )
+bool
+IOSCSIProtocolInterface::IsPowerManagementIntialized ( void )
 {
 	
-	IOReturn returnValue = 0;
-	
-	if ( self->isInactive ( ) == false )
-	{ 
-		
-		self->HandleSetPowerState ( powerStateOrdinal );
-		returnValue = k100SecondsInMicroSeconds;
-		
-	}
-	
-	return returnValue;
+	return fPowerManagementInitialized;
 	
 }
 
 
-//---------------------------------------------------------------------------
-// ¥ HandleSetPowerState - Synchronized form of changing a power state
-//---------------------------------------------------------------------------
-
-void
-IOSCSIProtocolInterface::HandleSetPowerState ( UInt32 powerStateOrdinal )
-{
-	
-	AbsoluteTime	time;
-
-	SERIAL_STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
-	
-	fProposedPowerState = powerStateOrdinal;
-
-	if ( ( fPowerTransitionInProgress == false ) || fPowerAckInProgress )
-	{
-
-		STATUS_LOG ( ( "IOSCSIProtocolInterface::%s starting transition\n", __FUNCTION__ ) );
-
-		// mark us as being in progress, then call the thread which is
-		// the power management state machine
-		fPowerTransitionInProgress = true;
-		
-		// We use a delayed thread call in order to allow the thread we're
-		// on (the power manager thread) to get back to business doing
-		// whatever it needs to with the rest of the system
-		clock_interval_to_deadline ( kThreadDelayInterval, kMillisecondScale, &time );
-		( void ) thread_call_enter_delayed ( fPowerManagementThread, time );
-		
-	}
-
-	STATUS_LOG ( ( "IOSCSIProtocolInterface::%s exiting\n", __FUNCTION__ ) );
-	
-}
-
-
-//---------------------------------------------------------------------------
-// ¥ sPowerManagement - Called on its own thread to handle power management
-//---------------------------------------------------------------------------
-
-void
-IOSCSIProtocolInterface::sPowerManagement ( thread_call_param_t whichDevice )
-{
-	
-	IOSCSIProtocolInterface *	self;
-	
-	STATUS_LOG ( ( "IOSCSIProtocolInterface::sPowerManagement called\n" ) );
-	
-	self = ( IOSCSIProtocolInterface * ) whichDevice;
-	if ( self != NULL && ( self->isInactive ( ) == false ) )
-	{
-		
-		self->retain ( );
-		self->HandlePowerChange ( );
-		
-		self->fPowerAckInProgress = true;	
-		
-		self->acknowledgeSetPowerState ( );
-		
-		self->fPowerAckInProgress = false;
-		self->fPowerTransitionInProgress = false;
-		self->release ( );
-		
-	}
-	
-	else
-	{
-		
-		self->fPowerTransitionInProgress = false;
-	    
-	}
-	
-}
-
-
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ CheckPowerState - 	Checks if it is ok for I/O to come through. If it is
-//						not ok, then we block the thread.
-//---------------------------------------------------------------------------
+//						not ok, then we block the thread.			   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIProtocolInterface::CheckPowerState ( void )
 {
-	
-	SERIAL_STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
 	
 	// Tell the power manager we must be in active state to handle requests
 	// "active" state means the minimal possible state in which the driver can
@@ -460,29 +319,137 @@ IOSCSIProtocolInterface::CheckPowerState ( void )
 }
 
 
-//---------------------------------------------------------------------------
-// ¥ sHandleCheckPowerState - 	Static routine which calls through to other
-//								side of command gate
-//---------------------------------------------------------------------------
+#if 0
+#pragma mark -
+#pragma mark ¥ Protected Methods
+#pragma mark -
+#endif
 
-void
-IOSCSIProtocolInterface::sHandleCheckPowerState ( IOSCSIProtocolInterface * self )
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ finalize - Terminates all power management.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIProtocolInterface::finalize ( IOOptionBits options )
 {
 	
-	self->HandleCheckPowerState ( );
+	if ( fPowerManagementInitialized )
+	{
+		
+		bool	powerTransistionStillInProgress = true;
+		
+		// need to wait for power transistion in progress to
+		// finish before finalizing or the transistion will
+		// attempt to complete after we are gone
+		while ( 1 )
+		{
+			
+			powerTransistionStillInProgress = ( bool ) fCommandGate->runAction (
+				( IOCommandGate::Action )
+				&IOSCSIProtocolInterface::sGetPowerTransistionInProgress );
+			
+			if ( powerTransistionStillInProgress )
+			{
+				IOSleep ( 1 );
+			}
+			
+			else
+			{
+				break;
+			}
+			
+		}
+		
+		fCommandGate->commandWakeup ( &fCurrentPowerState, false );
+		fCommandGate->runAction (
+				( IOCommandGate::Action )
+				&IOSCSIProtocolInterface::sGetPowerTransistionInProgress );			
+		
+		STATUS_LOG ( ( "PMstop about to be called.\n" ) );
+		
+		PMstop ( );
+		
+		if ( fPowerManagementThread != NULL )
+		{
+			
+			// If the power management thread is scheduled, unschedule it.
+			thread_call_cancel ( fPowerManagementThread );
+			
+		}
+		
+		fPowerManagementInitialized = false;
+		
+	}
+	
+	return super::finalize ( options );
 	
 }
 
 
-//---------------------------------------------------------------------------
-// ¥ HandleCheckPowerState - 	Called on safe side of command gate to serialize
-//								access to the sleep related variables
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ InitializePowerManagement - Joins PM tree and initializes pm vars.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIProtocolInterface::InitializePowerManagement ( IOService * provider )
+{
+	
+	PMinit ( );
+	provider->joinPMtree ( this );
+	setIdleTimerPeriod ( 5 * 60 ); 	// set 5 minute idle timer until system sends us
+									// new values via setAggressiveness()
+	
+	// Call makeUsable here to tell the power manager to put us in our
+	// highest power state when we call registerPowerDriver().
+	makeUsable ( );
+	fPowerManagementInitialized = true;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleSetPowerState - Synchronized form of changing a power state.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIProtocolInterface::HandleSetPowerState ( UInt32 powerStateOrdinal )
+{
+	
+	AbsoluteTime	time;
+	
+	fProposedPowerState = powerStateOrdinal;
+	
+	if ( ( fPowerTransitionInProgress == false ) || fPowerAckInProgress )
+	{
+		
+		// mark us as being in progress, then call the thread which is
+		// the power management state machine
+		fPowerTransitionInProgress = true;
+		
+		// We use a delayed thread call in order to allow the thread we're
+		// on (the power manager thread) to get back to business doing
+		// whatever it needs to with the rest of the system
+		clock_interval_to_deadline ( kThreadDelayInterval, kMillisecondScale, &time );
+		( void ) thread_call_enter_delayed ( fPowerManagementThread, time );
+		
+	}
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleCheckPowerState - 	Called on safe side of command gate to
+//								serialize access to the sleep related
+//								variables.							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIProtocolInterface::HandleCheckPowerState ( UInt32 maxPowerState )
 {
-
+	
 	STATUS_LOG ( ( "IOSCSIProtocolInterface::%s called\n", __FUNCTION__ ) );
 	
 	// A while loop is used here in case the power is changed on us while
@@ -492,26 +459,25 @@ IOSCSIProtocolInterface::HandleCheckPowerState ( UInt32 maxPowerState )
 	// power manager might tell us to change states again, so we guard against
 	// this scenario by looping and verifying that the state does indeed go to
 	// active.
-	while ( fCurrentPowerState != maxPowerState )
+	while ( ( fCurrentPowerState != maxPowerState ) &&
+			( isInactive ( ) == false ) )
 	{
 		
 		fCommandGate->commandSleep ( &fCurrentPowerState, THREAD_UNINT );
 		
 	}
-
+	
 }
 
 
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ TicklePowerManager - 	Convenience function to call power manager's
-//							activity tickle routine.
-//---------------------------------------------------------------------------
+//							activity tickle routine.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIProtocolInterface::TicklePowerManager ( UInt32 maxPowerState )
 {
-
-	STATUS_LOG ( ( "IOSCSIProtocolInterface::%s called\n", __FUNCTION__ ) );
 	
 	// Tell the power manager we must be in active state to handle requests
 	// "active" state means the minimal possible state in which the driver can
@@ -525,104 +491,31 @@ IOSCSIProtocolInterface::TicklePowerManager ( UInt32 maxPowerState )
 }
 
 
-//---------------------------------------------------------------------------
-// ¥ GetUserClientExclusivityState - Call to see if user client is in
-//									 exclusive mode.
-//---------------------------------------------------------------------------
-
-bool
-IOSCSIProtocolInterface::GetUserClientExclusivityState ( void )
-{
-	
-	bool	state;
-	
-	fCommandGate->runAction ( ( IOCommandGate::Action )
-							&IOSCSIProtocolInterface::sGetUserClientExclusivityState,
-							( void * ) &state );
-	return state;
-	
-}
-
-
-//---------------------------------------------------------------------------
-// ¥ sGetUserClientExclusivityState - C->C++ glue.
-//---------------------------------------------------------------------------
-
-void
-IOSCSIProtocolInterface::sGetUserClientExclusivityState ( IOSCSIProtocolInterface * self,
-														  bool * state )
-{
-	
-	*state = self->HandleGetUserClientExclusivityState ( );
-	
-}
-
-
-//---------------------------------------------------------------------------
-// ¥ HandleGetUserClientExclusivityState - Checks to see what state the user client is in
-//							( exclusive vs. non-exclusive ).
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleGetUserClientExclusivityState -	Checks to see what state the user
+//											client is in.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIProtocolInterface::HandleGetUserClientExclusivityState ( void )
 {
 	
-	STATUS_LOG ( ( "IOSCSIProtocolInterface::%s called\n", __FUNCTION__ ) );	
 	return fUserClientExclusiveControlled;
 	
 }
 
-//---------------------------------------------------------------------------
-// ¥ SetUserClientExclusivityState - Call to see if user client is in
-//									 exclusive mode.
-//---------------------------------------------------------------------------
-
-IOReturn
-IOSCSIProtocolInterface::SetUserClientExclusivityState ( IOService * userClient, bool state )
-{
-	
-	IOReturn	status = kIOReturnExclusiveAccess;
-	
-	fCommandGate->runAction ( ( IOCommandGate::Action )
-							&IOSCSIProtocolInterface::sSetUserClientExclusivityState,
-							( void * ) &status,
-							( void * ) userClient,
-							( void * ) state );
-	
-	return status;
-	
-}
-
-
-//---------------------------------------------------------------------------
-// ¥ sSetUserClientExclusivityState - C->C++ glue.
-//---------------------------------------------------------------------------
-
-void
-IOSCSIProtocolInterface::sSetUserClientExclusivityState ( IOSCSIProtocolInterface * self,
-														  IOReturn * status,
-														  IOService * userClient,
-														  bool state )
-{
-	
-	*status = self->HandleSetUserClientExclusivityState ( userClient, state );
-	
-}
-
-
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 // ¥ HandleSetUserClientExclusivityState - Sets the state the user client is in
-//							( exclusive vs. non-exclusive ).
-//---------------------------------------------------------------------------
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
-IOSCSIProtocolInterface::HandleSetUserClientExclusivityState ( IOService * userClient,
-																bool state )
+IOSCSIProtocolInterface::HandleSetUserClientExclusivityState (
+							IOService *		userClient,
+							bool			state )
 {
 	
 	IOReturn		status = kIOReturnExclusiveAccess;
-	
-	STATUS_LOG ( ( "IOSCSIProtocolInterface::%s called\n", __FUNCTION__ ) );	
 	
 	if ( fUserClient == NULL )
 	{
@@ -674,13 +567,205 @@ IOSCSIProtocolInterface::HandleSetUserClientExclusivityState ( IOService * userC
 	
 }
 
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Static Methods (C->C++ glue)
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ sHandleSetPowerState - C->C++ glue.					[STATIC][PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIProtocolInterface::sHandleSetPowerState (
+								IOSCSIProtocolInterface * 	self,
+								UInt32		 				powerStateOrdinal )
+{
+	
+	IOReturn	result = 0;
+	
+	if ( self->isInactive ( ) == false )
+	{ 
+		
+		self->HandleSetPowerState ( powerStateOrdinal );
+		result = k100SecondsInMicroSeconds;
+		
+	}
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ sGetPowerTransistionInProgress - Returns power transition status.
+//															[STATIC][PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIProtocolInterface::sGetPowerTransistionInProgress (
+								IOSCSIProtocolInterface * self )
+{
+	return ( self->fPowerTransitionInProgress );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ sPowerManagement - C->C++ glue.						[STATIC][PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIProtocolInterface::sPowerManagement ( thread_call_param_t whichDevice )
+{
+	
+	IOSCSIProtocolInterface *	self;
+	
+	self = ( IOSCSIProtocolInterface * ) whichDevice;
+	if ( ( self != NULL ) && ( self->isInactive ( ) == false ) )
+	{
+		
+		self->retain ( );
+		self->HandlePowerChange ( );
+		
+		self->fPowerAckInProgress = true;	
+		
+		self->acknowledgeSetPowerState ( );
+		
+		self->fPowerAckInProgress = false;
+		self->fPowerTransitionInProgress = false;
+		self->release ( );
+		
+	}
+	
+	else
+	{
+		
+		self->fPowerTransitionInProgress = false;
+	    
+	}
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ sHandleCheckPowerState - C->C++ glue.					[STATIC][PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIProtocolInterface::sHandleCheckPowerState (
+							IOSCSIProtocolInterface * self )
+{
+	
+	self->HandleCheckPowerState ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ sGetUserClientExclusivityState - C->C++ glue.			[STATIC][PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIProtocolInterface::sGetUserClientExclusivityState (
+								IOSCSIProtocolInterface *	self,
+								bool *						state )
+{
+	
+	*state = self->HandleGetUserClientExclusivityState ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ sSetUserClientExclusivityState - C->C++ glue.			[STATIC][PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIProtocolInterface::sSetUserClientExclusivityState (
+								IOSCSIProtocolInterface *	self,
+								IOReturn *					status,
+								IOService *					userClient,
+								bool						state )
+{
+	
+	*status = self->HandleSetUserClientExclusivityState ( userClient, state );
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Static Debugging Assertion Method
+#pragma mark -
+#endif
+
+
+void
+IOSCSIArchitectureModelFamilyDebugAssert (	const char * componentNameString,
+											const char * assertionString, 
+											const char * exceptionLabelString,
+											const char * errorString,
+											const char * fileName,
+											long lineNumber,
+											int errorCode )
+{
+	
+	IOLog ( "%s Assert failed: %s ", componentNameString, assertionString );
+	
+	if ( exceptionLabelString != NULL )
+		IOLog ( "%s ", exceptionLabelString );
+	
+	if ( errorString != NULL )
+		IOLog ( "%s ", errorString );
+	
+	if ( fileName != NULL )
+		IOLog ( "file: %s ", fileName );
+	
+	if ( lineNumber != 0 )
+		IOLog ( "line: %ld ", lineNumber );
+	
+	if ( ( long ) errorCode != 0 )
+		IOLog ( "error: %ld ", ( long ) errorCode );
+	
+	IOLog ( "\n" );
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ VTable Padding
+#pragma mark -
+#endif
+
+OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 1 );
+// Used by the abstract member routine:
+// virtual SCSIServiceResponse		AbortTask( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag ) = 0;
+
+OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 2 );
+// Used by the abstract member routine:
+// virtual SCSIServiceResponse		AbortTaskSet( UInt8 theLogicalUnit ) = 0;
+
+OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 3 );
+// Used by the abstract member routine:
+// virtual SCSIServiceResponse		ClearACA( UInt8 theLogicalUnit ) = 0;
+
+OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 4 );
+// Used by the abstract member routine:
+// virtual SCSIServiceResponse		ClearTaskSet( UInt8 theLogicalUnit ) = 0;
+
+OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 5 );
+// Used by the abstract member routine:
+// virtual SCSIServiceResponse		LogicalUnitReset( UInt8 theLogicalUnit ) = 0;
+
+OSMetaClassDefineReservedUsed( IOSCSIProtocolInterface, 6 );
+// Used by the abstract member routine:
+// virtual SCSIServiceResponse		TargetReset( void ) = 0;
+
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 1 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 2 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 3 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 4 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 5 );
-OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 6 );
 OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 7 );
 OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 8 );
 OSMetaClassDefineReservedUnused( IOSCSIProtocolInterface, 9 );

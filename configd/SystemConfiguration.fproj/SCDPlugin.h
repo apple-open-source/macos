@@ -24,6 +24,9 @@
 #define _SCDPLUGIN_H
 
 #include <sys/cdefs.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 
@@ -82,7 +85,48 @@ typedef void	(*SCDynamicStoreBundleStartFunction)	(const char	*bundleName,
 typedef void	(*SCDynamicStoreBundlePrimeFunction)	();
 
 
+/*!
+        @typedef SCDPluginExecCallBack
+	@discussion Type of the callback function used when a child process
+		started by a plug-in has exited.
+	@param pid The process id of the child which has exited.
+	@param status The exit status of the child which has exited.
+	@param rusage A summary of the resources used by the child process
+		and all its children.
+	@param context The callback argument specified on the call
+ 		to _SCDPluginExecCommand(). 
+ */
+typedef void (*SCDPluginExecCallBack)	(pid_t		pid,
+                                         int		status,
+                                         struct rusage	*rusage,
+                                         void		*context);
+
+
 __BEGIN_DECLS
+
+/*!
+	@function _SCDPluginExecCommand
+        @discussion Starts a child process.
+        @param callout The function to be called when the child
+		process exits.  A NULL value can be specified if no
+ 		callouts are desired.
+        @param context A argument which will be passed
+ 		to the callout function.
+        @param uid The desired user id of the child process.
+	@param gid The desired group id of the child process.
+	@param path The command to be executed.
+	@param argv The arguments to be passed to the child process.
+        @result The process ID of the child.
+ */
+pid_t
+_SCDPluginExecCommand	(
+                        SCDPluginExecCallBack	callout,
+                        void			*context,
+                        uid_t			uid,
+                        gid_t			gid,
+                        const char		*path,
+                        char * const 		argv[]
+                        );
 
 __END_DECLS
 

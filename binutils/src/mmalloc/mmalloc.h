@@ -45,7 +45,7 @@ extern int mmcheckf PARAMS ((PTR, void (*) (void), int));
 
 extern struct mstats mmstats PARAMS ((PTR));
 
-extern PTR mmalloc_attach PARAMS ((int, PTR));
+extern PTR mmalloc_attach PARAMS ((int, PTR, int));
 
 extern PTR mmalloc_detach PARAMS ((PTR));
 
@@ -57,11 +57,13 @@ extern int mmalloc_errno PARAMS ((PTR));
 
 extern int mmtrace PARAMS ((void));
 
-extern PTR mmalloc_findbase PARAMS ((int));
+extern PTR mmalloc_findbase PARAMS ((size_t));
+extern void mmalloc_endpoints PARAMS ((PTR, size_t *, size_t *));
 
 extern void mmalloc_set_default_allocator PARAMS ((PTR));
 extern PTR mmalloc_default_allocator PARAMS (());
 
 extern struct mdesc * mmalloc_malloc_create PARAMS (());
+extern struct mdesc * mmalloc_check_create PARAMS ((struct mdesc *child));
 
 #endif  /* MMALLOC_H */

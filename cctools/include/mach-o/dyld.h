@@ -32,15 +32,12 @@ extern "C" {
 #define __private_extern__ __declspec(private_extern)
 #endif
 
-#import "mach-o/loader.h"
+#include "mach-o/loader.h"
 
 #ifndef ENUM_DYLD_BOOL
 #define ENUM_DYLD_BOOL
 #undef FALSE
 #undef TRUE
-#if !defined(__cplusplus) && !defined(__ALTIVEC__) && !defined(DYLD_BOOL)
-#define DYLD_BOOL bool
-#endif
 enum DYLD_BOOL {
     FALSE,
     TRUE
@@ -227,14 +224,18 @@ extern enum DYLD_BOOL NSAddLibraryWithSearching(
 extern const struct mach_header * NSAddImage(
     const char *image_name,
     unsigned long options);
-#define NSADDIMAGE_OPTION_NONE                  0x0
-#define NSADDIMAGE_OPTION_RETURN_ON_ERROR       0x1
-#define NSADDIMAGE_OPTION_WITH_SEARCHING        0x2
-#define NSADDIMAGE_OPTION_RETURN_ONLY_IF_LOADED 0x4
+#define NSADDIMAGE_OPTION_NONE                  	0x0
+#define NSADDIMAGE_OPTION_RETURN_ON_ERROR       	0x1
+#define NSADDIMAGE_OPTION_WITH_SEARCHING        	0x2
+#define NSADDIMAGE_OPTION_RETURN_ONLY_IF_LOADED 	0x4
+#define NSADDIMAGE_OPTION_MATCH_FILENAME_BY_INSTALLNAME	0x8
 extern long NSVersionOfRunTimeLibrary(
     const char *libraryName);
 extern long NSVersionOfLinkTimeLibrary(
     const char *libraryName);
+extern int _NSGetExecutablePath( /* SPI first appeared in Mac OS X 10.2 */
+    char *buf,
+    unsigned long *bufsize);
 
 /*
  * The low level _dyld_... API.

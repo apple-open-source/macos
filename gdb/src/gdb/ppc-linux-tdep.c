@@ -1,6 +1,7 @@
 /* Target-dependent code for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 2000
-   Free Software Foundation, Inc.
+
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996,
+   1997, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -28,11 +29,14 @@
 #include "gdbcmd.h"
 #include "symfile.h"
 #include "objfiles.h"
+#include "regcache.h"
+#include "value.h"
 
+#include "solib-svr4.h"
 #include "ppc-tdep.h"
 
 /* The following two instructions are used in the signal trampoline
-   code on linux/ppc */
+   code on GNU/Linux PPC.  */
 #define INSTR_LI_R0_0x7777	0x38007777
 #define INSTR_SC		0x44000002
 
@@ -101,11 +105,11 @@ static int ppc_linux_at_sigtramp_return_path (CORE_ADDR pc);
 
 /* Determine if pc is in a signal trampoline...
 
-   Ha!  That's not what this does at all.  wait_for_inferior in infrun.c
-   calls IN_SIGTRAMP in order to detect entry into a signal trampoline
-   just after delivery of a signal.  But on linux, signal trampolines
-   are used for the return path only.  The kernel sets things up so that
-   the signal handler is called directly.
+   Ha!  That's not what this does at all.  wait_for_inferior in
+   infrun.c calls IN_SIGTRAMP in order to detect entry into a signal
+   trampoline just after delivery of a signal.  But on GNU/Linux,
+   signal trampolines are used for the return path only.  The kernel
+   sets things up so that the signal handler is called directly.
 
    If we use in_sigtramp2() in place of in_sigtramp() (see below)
    we'll (often) end up with stop_pc in the trampoline and prev_pc in
@@ -152,7 +156,7 @@ ppc_linux_in_sigtramp (CORE_ADDR pc, char *func_name)
   char buf[4];
   CORE_ADDR handler;
 
-  lr = read_register (PPC_LR_REGNUM);
+  lr = read_register (gdbarch_tdep (current_gdbarch)->ppc_lr_regnum);
   if (!ppc_linux_at_sigtramp_return_path (lr))
     return 0;
 
@@ -374,14 +378,21 @@ ppc_linux_frame_init_saved_regs (struct frame_info *fi)
       regs_addr =
 	read_memory_integer (fi->frame + PPC_LINUX_REGS_PTR_OFFSET, 4);
       fi->saved_regs[PC_REGNUM] = regs_addr + 4 * PPC_LINUX_PT_NIP;
-      fi->saved_regs[PPC_PS_REGNUM] = regs_addr + 4 * PPC_LINUX_PT_MSR;
-      fi->saved_regs[PPC_CR_REGNUM] = regs_addr + 4 * PPC_LINUX_PT_CCR;
-      fi->saved_regs[PPC_LR_REGNUM] = regs_addr + 4 * PPC_LINUX_PT_LNK;
-      fi->saved_regs[PPC_CTR_REGNUM] = regs_addr + 4 * PPC_LINUX_PT_CTR;
-      fi->saved_regs[PPC_XER_REGNUM] = regs_addr + 4 * PPC_LINUX_PT_XER;
-      fi->saved_regs[PPC_MQ_REGNUM] = regs_addr + 4 * PPC_LINUX_PT_MQ;
+      fi->saved_regs[gdbarch_tdep (current_gdbarch)->ppc_ps_regnum] =
+        regs_addr + 4 * PPC_LINUX_PT_MSR;
+      fi->saved_regs[gdbarch_tdep (current_gdbarch)->ppc_cr_regnum] =
+        regs_addr + 4 * PPC_LINUX_PT_CCR;
+      fi->saved_regs[gdbarch_tdep (current_gdbarch)->ppc_lr_regnum] =
+        regs_addr + 4 * PPC_LINUX_PT_LNK;
+      fi->saved_regs[gdbarch_tdep (current_gdbarch)->ppc_ctr_regnum] =
+        regs_addr + 4 * PPC_LINUX_PT_CTR;
+      fi->saved_regs[gdbarch_tdep (current_gdbarch)->ppc_xer_regnum] =
+        regs_addr + 4 * PPC_LINUX_PT_XER;
+      fi->saved_regs[gdbarch_tdep (current_gdbarch)->ppc_mq_regnum] =
+	regs_addr + 4 * PPC_LINUX_PT_MQ;
       for (i = 0; i < 32; i++)
-	fi->saved_regs[PPC_GP0_REGNUM + i] = regs_addr + 4 * PPC_LINUX_PT_R0 + 4 * i;
+	fi->saved_regs[gdbarch_tdep (current_gdbarch)->ppc_gp0_regnum + i] =
+	  regs_addr + 4 * PPC_LINUX_PT_R0 + 4 * i;
       for (i = 0; i < 32; i++)
 	fi->saved_regs[FP0_REGNUM + i] = regs_addr + 4 * PPC_LINUX_PT_FPR0 + 8 * i;
     }
@@ -403,6 +414,14 @@ ppc_linux_frame_chain (struct frame_info *thisframe)
    it may be used generically by ports which use either the SysV ABI or
    the EABI */
 
+/* Structures 8 bytes or less long are returned in the r3 & r4
+   registers, according to the SYSV ABI. */
+int
+ppc_sysv_abi_use_struct_convention (int gcc_p, struct type *value_type)
+{
+  return (TYPE_LENGTH (value_type) > 8);
+}
+
 /* round2 rounds x up to the nearest multiple of s assuming that s is a
    power of 2 */
 
@@ -421,7 +440,7 @@ ppc_linux_frame_chain (struct frame_info *thisframe)
    starting from r4. */
 
 CORE_ADDR
-ppc_sysv_abi_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+ppc_sysv_abi_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 			     int struct_return, CORE_ADDR struct_addr)
 {
   int argno;
@@ -430,7 +449,7 @@ ppc_sysv_abi_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
   int structstkspace;
   int argoffset;
   int structoffset;
-  value_ptr arg;
+  struct value *arg;
   struct type *type;
   int len;
   char old_sp_buf[4];
@@ -759,4 +778,45 @@ ppc_linux_memory_remove_breakpoint (CORE_ADDR addr, char *contents_cache)
     val = target_write_memory (addr, contents_cache, bplen);
 
   return val;
+}
+
+/* Fetch (and possibly build) an appropriate link_map_offsets
+   structure for GNU/Linux PPC targets using the struct offsets
+   defined in link.h (but without actual reference to that file).
+
+   This makes it possible to access GNU/Linux PPC shared libraries
+   from a GDB that was not built on an GNU/Linux PPC host (for cross
+   debugging).  */
+
+struct link_map_offsets *
+ppc_linux_svr4_fetch_link_map_offsets (void)
+{
+  static struct link_map_offsets lmo;
+  static struct link_map_offsets *lmp = NULL;
+
+  if (lmp == NULL)
+    {
+      lmp = &lmo;
+
+      lmo.r_debug_size = 8;	/* The actual size is 20 bytes, but
+				   this is all we need.  */
+      lmo.r_map_offset = 4;
+      lmo.r_map_size   = 4;
+
+      lmo.link_map_size = 20;	/* The actual size is 560 bytes, but
+				   this is all we need.  */
+      lmo.l_addr_offset = 0;
+      lmo.l_addr_size   = 4;
+
+      lmo.l_name_offset = 4;
+      lmo.l_name_size   = 4;
+
+      lmo.l_next_offset = 12;
+      lmo.l_next_size   = 4;
+
+      lmo.l_prev_offset = 16;
+      lmo.l_prev_size   = 4;
+    }
+
+  return lmp;
 }

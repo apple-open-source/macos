@@ -36,6 +36,7 @@
 #include <sys/cdefs.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
 

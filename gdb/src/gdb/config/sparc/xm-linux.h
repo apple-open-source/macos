@@ -1,6 +1,7 @@
-/* Macro definitions for running gdb on a Sparc running Linux.
-   Copyright (C) 1989, 1993, 1994, 1995, 1996, 1998
-   Free Software Foundation, Inc.
+/* Macro definitions for running gdb on a Sparc running GNU/Linux.
+
+   Copyright 1989, 1993, 1994, 1995, 1996, 1998, 2001, 2002 Free
+   Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,19 +23,11 @@
 #ifndef XM_SPARCLINUX_H
 #define XM_SPARCLINUX_H
 
-#include "sparc/xm-sparc.h"
-
-#define HAVE_TERMIOS
 /* This is the amount to subtract from u.u_ar0
    to get the offset in the core file of the register values.  */
 #define KERNEL_U_ADDR 0x0
 
 #define U_REGS_OFFSET 0
-
-#define NEED_POSIX_SETPGID
-
-/* Need R_OK etc, but USG isn't defined.  */
-#include <unistd.h>
 
 /* If you expect to use the mmalloc package to obtain mapped symbol files,
    for now you have to specify some parameters that determine how gdb places

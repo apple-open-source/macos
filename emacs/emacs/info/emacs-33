@@ -1,0 +1,800 @@
+This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
+
+INFO-DIR-SECTION Emacs
+START-INFO-DIR-ENTRY
+* Emacs: (emacs).	The extensible self-documenting text editor.
+END-INFO-DIR-ENTRY
+
+   Published by the Free Software Foundation 59 Temple Place, Suite 330
+Boston, MA  02111-1307 USA
+
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+
+File: emacs,  Node: Key Index,  Next: Option Index,  Prev: Glossary,  Up: Top
+
+Key (Character) Index
+*********************
+
+* Menu:
+
+* ! (Dired):                             Shell Commands in Dired.
+* " (TeX mode):                          TeX Editing.
+* # (Dired):                             Flagging Many Files.
+* $ (Dired):                             Hiding Subdirectories.
+* % C (Dired):                           Transforming File Names.
+* % d (Dired):                           Flagging Many Files.
+* % g (Dired):                           Marks vs Flags.
+* % H (Dired):                           Transforming File Names.
+* % l (Dired):                           Transforming File Names.
+* % m (Dired):                           Marks vs Flags.
+* % R (Dired):                           Transforming File Names.
+* % S (Dired):                           Transforming File Names.
+* % u (Dired):                           Transforming File Names.
+* & (Dired):                             Flagging Many Files.
+* * ! (Dired):                           Marks vs Flags.
+* * % (Dired):                           Marks vs Flags.
+* * * (Dired):                           Marks vs Flags.
+* * / (Dired):                           Marks vs Flags.
+* * ? (Dired):                           Marks vs Flags.
+* * @ (Dired):                           Marks vs Flags.
+* * c (Dired):                           Marks vs Flags.
+* * C-n (Dired):                         Marks vs Flags.
+* * C-p (Dired):                         Marks vs Flags.
+* * DEL (Dired):                         Marks vs Flags.
+* * m (Dired):                           Marks vs Flags.
+* * s (Dired):                           Marks vs Flags.
+* * t (Dired):                           Marks vs Flags.
+* * u (Dired):                           Marks vs Flags.
+* + (Dired):                             Operating on Files.
+* . (Calendar mode):                     Specified Dates.
+* . (Dired):                             Flagging Many Files.
+* . (Rmail):                             Rmail Scrolling.
+* < (Dired):                             Subdirectory Motion.
+* < (Rmail):                             Rmail Motion.
+* <TAB> (Help mode):                     Help Mode.
+* = (Dired):                             Comparison in Dired.
+* > (Dired):                             Subdirectory Motion.
+* > (Rmail):                             Rmail Motion.
+* ^ (Dired):                             Dired Visiting.
+* a (Calendar mode):                     Holidays.
+* a (Dired):                             Dired Visiting.
+* A (Dired):                             Operating on Files.
+* a (Rmail):                             Rmail Labels.
+* B (Dired):                             Operating on Files.
+* b (Rmail):                             Rmail Basics.
+* BACKSPACE:                             Deletion.
+* BS:                                    Deletion.
+* BS (MS-DOS):                           MS-DOS Input.
+* C (Dired):                             Operating on Files.
+* c (Rmail):                             Rmail Reply.
+* C-<TAB>:                               File Name Cache.
+* C-@:                                   Setting Mark.
+* C-\:                                   Select Input Method.
+* C-]:                                   Quitting.
+* C-_:                                   Undo.
+* C-_ (Dired):                           Marks vs Flags.
+* C-a:                                   Moving Point.
+* C-a (Calendar mode):                   Move to Beginning or End.
+* C-b:                                   Moving Point.
+* C-b (Calendar mode):                   Calendar Unit Motion.
+* C-BREAK (MS-DOS):                      MS-DOS Input.
+* C-c ' (Picture mode):                  Insert in Picture.
+* C-c . (Picture mode):                  Insert in Picture.
+* C-c / (Picture mode):                  Insert in Picture.
+* C-c : (C mode):                        Electric C.
+* C-c ; (Fortran mode):                  Fortran Comments.
+* C-c < (GUD):                           Commands of GUD.
+* C-c < (Picture mode):                  Insert in Picture.
+* C-c > (GUD):                           Commands of GUD.
+* C-c > (Picture mode):                  Insert in Picture.
+* C-c @ (Outline minor mode):            Outline Mode.
+* C-c @ C-h:                             Hideshow.
+* C-c @ C-l:                             Hideshow.
+* C-c @ C-M-h:                           Hideshow.
+* C-c @ C-M-s:                           Hideshow.
+* C-c @ C-r:                             Hideshow.
+* C-c @ C-s:                             Hideshow.
+* C-c \ (Picture mode):                  Insert in Picture.
+* C-c ^ (Picture mode):                  Insert in Picture.
+* C-c ` (Picture mode):                  Insert in Picture.
+* C-c C-\ (C mode):                      Other C Commands.
+* C-c C-\ (Shell mode):                  Shell Mode.
+* C-c C-a (C mode):                      Electric C.
+* C-c C-a (Mail mode):                   Mail Aliases.
+* C-c C-a (Outline mode):                Outline Visibility.
+* C-c C-a (Shell mode):                  Shell Mode.
+* C-c C-b (Outline mode):                Outline Motion.
+* C-c C-b (Picture mode):                Insert in Picture.
+* C-c C-b (Shell mode):                  Shell Mode.
+* C-c C-b (TeX mode):                    TeX Print.
+* C-c C-c (Edit Abbrevs):                Editing Abbrevs.
+* C-c C-c (Edit Tab Stops):              Tab Stops.
+* C-c C-c (Mail mode):                   Mail Sending.
+* C-c C-c (Outline mode):                Outline Visibility.
+* C-c C-c (Shell mode):                  Shell Mode.
+* C-c C-d (C mode):                      Hungry Delete.
+* C-c C-d (Fortran mode):                ForIndent Commands.
+* C-c C-d (GUD):                         Commands of GUD.
+* C-c C-d (Outline mode):                Outline Visibility.
+* C-c C-d (Picture mode):                Basic Picture.
+* C-c C-e (C mode):                      Other C Commands.
+* C-c C-e (LaTeX mode):                  LaTeX Editing.
+* C-c C-e (Outline mode):                Outline Visibility.
+* C-c C-e (Shell mode):                  Shell Mode.
+* C-c C-f (GUD):                         Commands of GUD.
+* C-c C-f (Outline mode):                Outline Motion.
+* C-c C-f (Picture mode):                Insert in Picture.
+* C-c C-f (Shell mode):                  Shell Mode.
+* C-c C-f (TeX mode):                    TeX Print.
+* C-c C-f C-b (Mail mode):               Header Editing.
+* C-c C-f C-c (Mail mode):               Header Editing.
+* C-c C-f C-f (Mail mode):               Header Editing.
+* C-c C-f C-s (Mail mode):               Header Editing.
+* C-c C-f C-t (Mail mode):               Header Editing.
+* C-c C-i (GUD):                         Commands of GUD.
+* C-c C-i (Mail mode):                   Mail Mode Misc.
+* C-c C-i (Outline mode):                Outline Visibility.
+* C-c C-j (Term mode):                   Term Mode.
+* C-c C-k (Outline mode):                Outline Visibility.
+* C-c C-k (Picture mode):                Rectangles in Picture.
+* C-c C-k (Term mode):                   Term Mode.
+* C-c C-k (TeX mode):                    TeX Print.
+* C-c C-l (Calendar mode):               General Calendar.
+* C-c C-l (GUD):                         Commands of GUD.
+* C-c C-l (Outline mode):                Outline Visibility.
+* C-c C-l (Shell mode):                  Shell Mode.
+* C-c C-l (TeX mode):                    TeX Print.
+* C-c C-n (C mode):                      Motion in C.
+* C-c C-n (Fortran mode):                Fortran Motion.
+* C-c C-n (GUD):                         Commands of GUD.
+* C-c C-n (Outline mode):                Outline Motion.
+* C-c C-n (Shell mode):                  Shell History Copying.
+* C-c C-o (LaTeX mode):                  LaTeX Editing.
+* C-c C-o (Outline mode):                Outline Visibility.
+* C-c C-o (Shell mode):                  Shell Mode.
+* C-c C-p (C mode):                      Motion in C.
+* C-c C-p (Fortran mode):                Fortran Motion.
+* C-c C-p (Outline mode):                Outline Motion.
+* C-c C-p (Shell mode):                  Shell History Copying.
+* C-c C-p (TeX mode):                    TeX Print.
+* C-c C-q (C mode):                      C Indent.
+* C-c C-q (Mail mode):                   Citing Mail.
+* C-c C-q (Outline mode):                Outline Visibility.
+* C-c C-q (Term mode):                   Paging in Term.
+* C-c C-q (TeX mode):                    TeX Print.
+* C-c C-r (Fortran mode):                Fortran Columns.
+* C-c C-r (GUD):                         Commands of GUD.
+* C-c C-r (Mail mode):                   Citing Mail.
+* C-c C-r (Shell mode):                  Shell Mode.
+* C-c C-r (TeX mode):                    TeX Print.
+* C-c C-s (C mode):                      Other C Commands.
+* C-c C-s (GUD):                         Commands of GUD.
+* C-c C-s (Mail mode):                   Mail Sending.
+* C-c C-s (Outline mode):                Outline Visibility.
+* C-c C-s (Shell mode):                  Shell Mode.
+* C-c C-t (C mode):                      Hungry Delete.
+* C-c C-t (GUD):                         Commands of GUD.
+* C-c C-t (Mail mode):                   Mail Mode Misc.
+* C-c C-t (Outline mode):                Outline Visibility.
+* C-c C-u (C mode):                      Motion in C.
+* C-c C-u (Outline mode):                Outline Motion.
+* C-c C-u (Shell mode):                  Shell Mode.
+* C-c C-v (TeX mode):                    TeX Print.
+* C-c C-w (Fortran mode):                Fortran Columns.
+* C-c C-w (Mail mode):                   Mail Mode Misc.
+* C-c C-w (Picture mode):                Rectangles in Picture.
+* C-c C-w (Shell mode):                  Shell Mode.
+* C-c C-x:                               Foldout.
+* C-c C-x (Picture mode):                Rectangles in Picture.
+* C-c C-y (Mail mode):                   Citing Mail.
+* C-c C-y (Picture mode):                Rectangles in Picture.
+* C-c C-z:                               Foldout.
+* C-c C-z (Shell mode):                  Shell Mode.
+* C-c RET (Shell mode):                  Shell History Copying.
+* C-c TAB (Picture mode):                Tabs in Picture.
+* C-c TAB (TeX mode):                    TeX Print.
+* C-c { (TeX mode):                      TeX Editing.
+* C-c } (TeX mode):                      TeX Editing.
+* C-d:                                   Deletion.
+* C-d (Rmail):                           Rmail Deletion.
+* C-d (Shell mode):                      Shell Mode.
+* C-Down-Mouse-1:                        Buffer Menus.
+* C-e:                                   Moving Point.
+* C-e (Calendar mode):                   Move to Beginning or End.
+* C-f:                                   Moving Point.
+* C-f (Calendar mode):                   Calendar Unit Motion.
+* C-g:                                   Quitting.
+* C-g (MS-DOS):                          MS-DOS Input.
+* C-h:                                   Help.
+* C-h a:                                 Apropos.
+* C-h b:                                 Misc Help.
+* C-h C:                                 Coding Systems.
+* C-h c:                                 Key Help.
+* C-h C-\:                               Select Input Method.
+* C-h C-c:                               Misc Help.
+* C-h C-d:                               Misc Help.
+* C-h C-f:                               Misc Help.
+* C-h C-h:                               Help.
+* C-h C-i:                               Info Lookup.
+* C-h C-k:                               Misc Help.
+* C-h C-p:                               Misc Help.
+* C-h C-w:                               Misc Help.
+* C-h f:                                 Name Help.
+* C-h F:                                 Misc Help.
+* C-h h:                                 International Chars.
+* C-h i:                                 Misc Help.
+* C-h I:                                 Select Input Method.
+* C-h k:                                 Key Help.
+* C-h l:                                 Misc Help.
+* C-h L:                                 Language Environments.
+* C-h m:                                 Misc Help.
+* C-h n:                                 Misc Help.
+* C-h P:                                 Misc Help.
+* C-h p:                                 Library Keywords.
+* C-h s:                                 Syntax.
+* C-h t:                                 Basic.
+* C-h w:                                 Name Help.
+* C-j:                                   Basic Indent.
+* C-j (and major modes):                 Major Modes.
+* C-j (MS-DOS):                          MS-DOS Input.
+* C-j (TeX mode):                        TeX Editing.
+* C-k:                                   Killing by Lines.
+* C-k (Gnus):                            Summary of Gnus.
+* C-l:                                   Scrolling.
+* C-M-%:                                 Query Replace.
+* C-M-.:                                 Find Tag.
+* C-M-/:                                 Dynamic Abbrevs.
+* C-M-@:                                 Expressions.
+* C-M-\:                                 Indentation Commands.
+* C-M-a:                                 Moving by Defuns.
+* C-M-b:                                 Expressions.
+* C-M-c:                                 Recursive Edit.
+* C-M-d:                                 Moving by Parens.
+* C-M-d (Dired):                         Subdirectory Motion.
+* C-M-DEL:                               Expressions.
+* C-M-e:                                 Moving by Defuns.
+* C-M-f:                                 Expressions.
+* C-M-h:                                 Moving by Defuns.
+* C-M-h (C mode):                        Moving by Defuns.
+* C-M-j:                                 Multi-Line Comments.
+* C-M-j (Fortran mode):                  ForIndent Commands.
+* C-M-k:                                 Expressions.
+* C-M-l:                                 Scrolling.
+* C-M-l (Rmail):                         Rmail Make Summary.
+* C-M-l (Shell mode):                    Shell Mode.
+* C-M-n:                                 Moving by Parens.
+* C-M-n (Dired):                         Subdirectory Motion.
+* C-M-n (Rmail):                         Rmail Labels.
+* C-M-o:                                 Indentation Commands.
+* C-M-p:                                 Moving by Parens.
+* C-M-p (Dired):                         Subdirectory Motion.
+* C-M-p (Rmail):                         Rmail Labels.
+* C-M-q:                                 Multi-line Indent.
+* C-M-q (C mode):                        C Indent.
+* C-M-q (Fortran mode):                  ForIndent Commands.
+* C-M-r:                                 Regexp Search.
+* C-M-r (Rmail):                         Rmail Make Summary.
+* C-M-s:                                 Regexp Search.
+* C-M-s (Rmail):                         Rmail Make Summary.
+* C-M-t:                                 Expressions.
+* C-M-t (Rmail):                         Rmail Make Summary.
+* C-M-u:                                 Moving by Parens.
+* C-M-u (Dired):                         Subdirectory Motion.
+* C-M-v:                                 Other Window.
+* C-M-w:                                 Appending Kills.
+* C-M-x (Emacs-Lisp mode):               Lisp Eval.
+* C-M-x (Lisp mode):                     External Lisp.
+* C-Mouse-1:                             Menu Mouse Clicks.
+* C-Mouse-2:                             Menu Mouse Clicks.
+* C-mouse-2 (mode line):                 Mode Line Mouse.
+* C-Mouse-2 (scroll bar) <1>:            Split Window.
+* C-Mouse-2 (scroll bar):                Mode Line Mouse.
+* C-Mouse-3:                             Menu Mouse Clicks.
+* C-Mouse-3 (when menu bar is disabled): Menu Bars.
+* C-n:                                   Moving Point.
+* C-n (Calendar mode):                   Calendar Unit Motion.
+* C-n (Dired):                           Dired Navigation.
+* C-n (Gnus Group mode):                 Summary of Gnus.
+* C-n (Gnus Summary mode):               Summary of Gnus.
+* C-o:                                   Blank Lines.
+* C-o (Dired):                           Dired Visiting.
+* C-o (Rmail):                           Rmail Output.
+* C-p:                                   Moving Point.
+* C-p (Calendar mode):                   Calendar Unit Motion.
+* C-p (Dired):                           Dired Navigation.
+* C-p (Gnus Group mode):                 Summary of Gnus.
+* C-p (Gnus Summary mode):               Summary of Gnus.
+* C-q:                                   Inserting Text.
+* C-r:                                   Incremental Search.
+* C-s:                                   Incremental Search.
+* C-S-Mouse-3 (FFAP):                    FFAP.
+* C-SPC:                                 Setting Mark.
+* C-t:                                   Transpose.
+* C-u:                                   Arguments.
+* C-u C-@:                               Mark Ring.
+* C-u C-c C-w (Fortran mode):            Fortran Columns.
+* C-u C-SPC:                             Mark Ring.
+* C-u C-x u:                             Undo.
+* C-u M-;:                               Comment Commands.
+* C-u TAB:                               Multi-line Indent.
+* C-v:                                   Scrolling.
+* C-v (Calendar mode):                   Scroll Calendar.
+* C-w:                                   Other Kill Commands.
+* C-x #:                                 Emacs Server.
+* C-x $:                                 Selective Display.
+* C-x (:                                 Basic Kbd Macro.
+* C-x ):                                 Basic Kbd Macro.
+* C-x +:                                 Change Window.
+* C-x -:                                 Change Window.
+* C-x .:                                 Fill Prefix.
+* C-x 0:                                 Change Window.
+* C-x 1:                                 Change Window.
+* C-x 2:                                 Split Window.
+* C-x 3:                                 Split Window.
+* C-x 4:                                 Pop Up Window.
+* C-x 4 .:                               Find Tag.
+* C-x 4 0:                               Change Window.
+* C-x 4 a:                               Change Log.
+* C-x 4 b:                               Select Buffer.
+* C-x 4 b (Iswitchb mode):               Iswitchb.
+* C-x 4 c:                               Indirect Buffers.
+* C-x 4 C-o (Iswitchb mode):             Iswitchb.
+* C-x 4 d:                               Dired Enter.
+* C-x 4 f:                               Visiting.
+* C-x 4 f (FFAP):                        FFAP.
+* C-x 4 m:                               Sending Mail.
+* C-x 5:                                 Creating Frames.
+* C-x 5 .:                               Find Tag.
+* C-x 5 0:                               Frame Commands.
+* C-x 5 1:                               Frame Commands.
+* C-x 5 2:                               Creating Frames.
+* C-x 5 b:                               Select Buffer.
+* C-x 5 b (Iswitchb mode):               Iswitchb.
+* C-x 5 d:                               Dired Enter.
+* C-x 5 f:                               Visiting.
+* C-x 5 f (FFAP):                        FFAP.
+* C-x 5 m:                               Sending Mail.
+* C-x 5 o:                               Frame Commands.
+* C-x 5 r:                               Creating Frames.
+* C-x 6 1:                               Two-Column.
+* C-x 6 2:                               Two-Column.
+* C-x 6 b:                               Two-Column.
+* C-x 6 d:                               Two-Column.
+* C-x 6 RET:                             Two-Column.
+* C-x 6 s:                               Two-Column.
+* C-x 8:                                 Single-Byte Character Support.
+* C-x ;:                                 Options for Comments.
+* C-x <:                                 Horizontal Scrolling.
+* C-x < (Calendar mode):                 Scroll Calendar.
+* C-x =:                                 Position Info.
+* C-x >:                                 Horizontal Scrolling.
+* C-x > (Calendar mode):                 Scroll Calendar.
+* C-x [:                                 Pages.
+* C-x [ (Calendar mode):                 Calendar Unit Motion.
+* C-x ]:                                 Pages.
+* C-x ] (Calendar mode):                 Calendar Unit Motion.
+* C-x ^:                                 Change Window.
+* C-x `:                                 Compilation Mode.
+* C-x a g:                               Defining Abbrevs.
+* C-x a i g:                             Defining Abbrevs.
+* C-x a i l:                             Defining Abbrevs.
+* C-x a l:                               Defining Abbrevs.
+* C-x b:                                 Select Buffer.
+* C-x b (Iswitchb mode):                 Iswitchb.
+* C-x C-<SPC>:                           Global Mark Ring.
+* C-x C-a (GUD):                         Commands of GUD.
+* C-x C-b:                               List Buffers.
+* C-x C-c:                               Exiting.
+* C-x C-d:                               Directories.
+* C-x C-e:                               Lisp Eval.
+* C-x C-f:                               Visiting.
+* C-x C-f (FFAP):                        FFAP.
+* C-x C-k:                               Basic Kbd Macro.
+* C-x C-l:                               Case.
+* C-x C-n:                               Moving Point.
+* C-x C-o:                               Blank Lines.
+* C-x C-p:                               Pages.
+* C-x C-q:                               Misc Buffer.
+* C-x C-q (Version Control):             Basic VC Editing.
+* C-x C-r:                               Visiting.
+* C-x C-s:                               Saving.
+* C-x C-t:                               Transpose.
+* C-x C-u:                               Case.
+* C-x C-v:                               Visiting.
+* C-x C-w:                               Saving.
+* C-x C-x:                               Setting Mark.
+* C-x C-z:                               External Lisp.
+* C-x d:                                 Dired Enter.
+* C-x d (FFAP):                          FFAP.
+* C-x DEL:                               Sentences.
+* C-x e:                                 Basic Kbd Macro.
+* C-x ESC ESC:                           Repetition.
+* C-x f:                                 Fill Commands.
+* C-x h:                                 Marking Objects.
+* C-x i:                                 Misc File Ops.
+* C-x k:                                 Kill Buffer.
+* C-x l:                                 Pages.
+* C-x m:                                 Sending Mail.
+* C-x n d:                               Narrowing.
+* C-x n n:                               Narrowing.
+* C-x n p:                               Narrowing.
+* C-x n w:                               Narrowing.
+* C-x o:                                 Other Window.
+* C-x q:                                 Kbd Macro Query.
+* C-x r +:                               RegNumbers.
+* C-x r b:                               Bookmarks.
+* C-x r d:                               Rectangles.
+* C-x r f:                               RegConfig.
+* C-x r i:                               RegText.
+* C-x r j:                               RegPos.
+* C-x r k:                               Rectangles.
+* C-x r l:                               Bookmarks.
+* C-x r m:                               Bookmarks.
+* C-x r n:                               RegNumbers.
+* C-x r o:                               Rectangles.
+* C-x r r:                               RegRect.
+* C-x r s:                               RegText.
+* C-x r SPC:                             RegPos.
+* C-x r t:                               Rectangles.
+* C-x r w:                               RegConfig.
+* C-x r y:                               Rectangles.
+* C-x RET:                               International Chars.
+* C-x RET c:                             Specify Coding.
+* C-x RET C-\:                           Select Input Method.
+* C-x RET f:                             Specify Coding.
+* C-x RET k:                             Specify Coding.
+* C-x RET p:                             Specify Coding.
+* C-x RET t:                             Specify Coding.
+* C-x RET x:                             Specify Coding.
+* C-x RET X:                             Specify Coding.
+* C-x s:                                 Saving.
+* C-x SPC:                               Commands of GUD.
+* C-x TAB:                               Indentation Commands.
+* C-x TAB (Enriched mode):               Format Indentation.
+* C-x u:                                 Undo.
+* C-x v =:                               Old Versions.
+* C-x v a:                               Change Logs and VC.
+* C-x v b:                               Local Version Control.
+* C-x v c:                               VC Undo.
+* C-x v d:                               VC Dired Mode.
+* C-x v g:                               Old Versions.
+* C-x v h:                               Version Headers.
+* C-x v i:                               Registering.
+* C-x v l:                               VC Status.
+* C-x v m:                               Merging.
+* C-x v r:                               Making Snapshots.
+* C-x v s:                               Making Snapshots.
+* C-x v u:                               VC Undo.
+* C-x v v:                               Basic VC Editing.
+* C-x v ~:                               Old Versions.
+* C-x w b:                               Highlight Interactively.
+* C-x w h:                               Highlight Interactively.
+* C-x w i:                               Highlight Interactively.
+* C-x w l:                               Highlight Interactively.
+* C-x w r:                               Highlight Interactively.
+* C-x z:                                 Repeating.
+* C-x }:                                 Change Window.
+* C-y:                                   Kill Ring.
+* C-z:                                   Exiting.
+* C-z (X windows):                       Frame Commands.
+* d (Calendar mode):                     Diary Commands.
+* D (Dired):                             Operating on Files.
+* d (Dired):                             Dired Deletion.
+* d (Rmail):                             Rmail Deletion.
+* DEL:                                   Deletion.
+* DEL (and major modes):                 Major Modes.
+* DEL (Dired):                           Dired Deletion.
+* DEL (Gnus):                            Summary of Gnus.
+* DEL (MS-DOS):                          MS-DOS Input.
+* DEL (programming modes):               Program Modes.
+* DEL (Rmail):                           Rmail Scrolling.
+* DELETE:                                Deletion.
+* DELETE (and mouse selection):          Mouse Commands.
+* DOWN:                                  Moving Point.
+* e (Dired):                             Dired Visiting.
+* e (Rmail):                             Rmail Editing.
+* ESC a:                                 Motion in C.
+* ESC e:                                 Motion in C.
+* ESC ESC ESC:                           Quitting.
+* f (Dired):                             Dired Visiting.
+* f (Rmail):                             Rmail Reply.
+* F1:                                    Help.
+* F10:                                   Menu Bar.
+* F2 1:                                  Two-Column.
+* F2 2:                                  Two-Column.
+* F2 b:                                  Two-Column.
+* F2 d:                                  Two-Column.
+* F2 RET:                                Two-Column.
+* F2 s:                                  Two-Column.
+* G (Dired):                             Operating on Files.
+* g (Dired):                             Dired Updating.
+* g (Rmail):                             Rmail Files.
+* g CHAR (Calendar mode):                From Other Calendar.
+* g d (Calendar mode):                   Specified Dates.
+* g m (Calendar mode):                   Mayan Calendar.
+* h (Calendar mode):                     Holidays.
+* H (Dired):                             Operating on Files.
+* h (Rmail):                             Rmail Make Summary.
+* Help:                                  Help.
+* i (Dired):                             Subdirectories in Dired.
+* i (Rmail):                             Rmail Files.
+* i a (Calendar mode):                   Special Diary Entries.
+* i b (Calendar mode):                   Special Diary Entries.
+* i c (Calendar mode):                   Special Diary Entries.
+* i d (Calendar mode):                   Adding to Diary.
+* i m (Calendar mode):                   Adding to Diary.
+* i w (Calendar mode):                   Adding to Diary.
+* i y (Calendar mode):                   Adding to Diary.
+* INSERT:                                Minor Modes.
+* j (Rmail):                             Rmail Motion.
+* k (Dired):                             Dired Updating.
+* k (Rmail):                             Rmail Labels.
+* L (Dired):                             Operating on Files.
+* l (Dired):                             Dired Updating.
+* L (Gnus Group mode):                   Summary of Gnus.
+* l (Gnus Group mode):                   Summary of Gnus.
+* l (Rmail):                             Rmail Make Summary.
+* LEFT:                                  Moving Point.
+* M (Calendar mode):                     Lunar Phases.
+* m (Calendar mode):                     Diary Commands.
+* M (Dired):                             Operating on Files.
+* m (Dired):                             Marks vs Flags.
+* m (Rmail):                             Rmail Reply.
+* M-!:                                   Single Shell.
+* M-$:                                   Spelling.
+* M-$ (Dired):                           Hiding Subdirectories.
+* M-%:                                   Query Replace.
+* M-':                                   Expanding Abbrevs.
+* M-*:                                   Find Tag.
+* M-,:                                   Tags Search.
+* M--:                                   Arguments.
+* M-- M-c:                               Fixing Case.
+* M-- M-l:                               Fixing Case.
+* M-- M-u:                               Fixing Case.
+* M-.:                                   Find Tag.
+* M-/:                                   Dynamic Abbrevs.
+* M-1:                                   Arguments.
+* M-::                                   Lisp Eval.
+* M-;:                                   Comment Commands.
+* M-<:                                   Moving Point.
+* M-< (Calendar mode):                   Move to Beginning or End.
+* M-=:                                   Position Info.
+* M-= (Calendar mode):                   Counting Days.
+* M-= (Dired):                           Comparison in Dired.
+* M->:                                   Moving Point.
+* M-> (Calendar mode):                   Move to Beginning or End.
+* M-? (Nroff mode):                      Nroff Mode.
+* M-? (Shell mode):                      Shell Mode.
+* M-@:                                   Words.
+* M-\:                                   Deletion.
+* M-^:                                   Indentation Commands.
+* M-^ (Fortran mode):                    ForIndent Commands.
+* M-`:                                   Menu Bar.
+* M-a:                                   Sentences.
+* M-a (Calendar mode):                   Move to Beginning or End.
+* M-b:                                   Words.
+* M-c:                                   Case.
+* M-d:                                   Words.
+* M-DEL:                                 Words.
+* M-Drag-Mouse-1:                        Secondary Selection.
+* M-e:                                   Sentences.
+* M-e (Calendar mode):                   Move to Beginning or End.
+* M-f:                                   Words.
+* M-g b (Enriched mode):                 Format Faces.
+* M-g d (Enriched mode):                 Format Faces.
+* M-g i (Enriched mode):                 Format Faces.
+* M-g l (Enriched mode):                 Format Faces.
+* M-g o (Enriched mode):                 Format Faces.
+* M-g u (Enriched mode):                 Format Faces.
+* M-h:                                   Paragraphs.
+* M-i:                                   Tab Stops.
+* M-j c (Enriched mode):                 Format Justification.
+* M-j f (Enriched mode):                 Format Justification.
+* M-j l (Enriched mode):                 Format Justification.
+* M-j r (Enriched mode):                 Format Justification.
+* M-j u (Enriched mode):                 Format Justification.
+* M-k:                                   Sentences.
+* M-l:                                   Case.
+* M-m:                                   Indentation Commands.
+* M-m (Rmail):                           Rmail Reply.
+* M-Mouse-1:                             Secondary Selection.
+* M-Mouse-2:                             Secondary Selection.
+* M-Mouse-3:                             Secondary Selection.
+* M-n (minibuffer history):              Minibuffer History.
+* M-n (Nroff mode):                      Nroff Mode.
+* M-n (Rmail):                           Rmail Motion.
+* M-n (Shell mode):                      Shell Ring.
+* M-p (minibuffer history):              Minibuffer History.
+* M-p (Nroff mode):                      Nroff Mode.
+* M-p (Rmail):                           Rmail Motion.
+* M-p (Shell mode):                      Shell Ring.
+* M-q:                                   Fill Commands.
+* M-q (C mode):                          Other C Commands.
+* M-q (Fortran mode):                    ForIndent Commands.
+* M-r:                                   Moving Point.
+* M-r (minibuffer history):              Minibuffer History.
+* M-r (Shell mode):                      Shell Ring.
+* M-S (Enriched mode):                   Format Justification.
+* M-s (Gnus Summary mode):               Summary of Gnus.
+* M-s (minibuffer history):              Minibuffer History.
+* M-s (Rmail):                           Rmail Motion.
+* M-s (Shell mode):                      Shell Ring.
+* M-s (Text mode):                       Fill Commands.
+* M-SPC:                                 Deletion.
+* M-t:                                   Transpose.
+* M-TAB:                                 Symbol Completion.
+* M-TAB (customization buffer):          Changing an Option.
+* M-TAB (Mail mode):                     Header Editing.
+* M-TAB (Picture mode):                  Tabs in Picture.
+* M-TAB (Text mode):                     Text Mode.
+* M-u:                                   Case.
+* M-v:                                   Scrolling.
+* M-v (Calendar mode):                   Scroll Calendar.
+* M-w:                                   Kill Ring.
+* M-x:                                   M-x.
+* M-y:                                   Earlier Kills.
+* M-z:                                   Other Kill Commands.
+* M-{:                                   Paragraphs.
+* M-{ (Calendar mode):                   Calendar Unit Motion.
+* M-|:                                   Single Shell.
+* M-}:                                   Paragraphs.
+* M-} (Calendar mode):                   Calendar Unit Motion.
+* M-~:                                   Saving.
+* Mouse-1:                               Mouse Commands.
+* Mouse-1 (mode line):                   Mode Line Mouse.
+* Mouse-2:                               Mouse Commands.
+* Mouse-2 (mode line):                   Mode Line Mouse.
+* Mouse-2 (selection):                   Mouse References.
+* Mouse-3:                               Mouse Commands.
+* Mouse-3 (mode line):                   Mode Line Mouse.
+* n (Gnus):                              Summary of Gnus.
+* n (Rmail):                             Rmail Motion.
+* NEXT:                                  Scrolling.
+* o (Calendar mode):                     Specified Dates.
+* o (Dired):                             Dired Visiting.
+* O (Dired):                             Operating on Files.
+* o (Rmail):                             Rmail Output.
+* p (Calendar mode):                     To Other Calendar.
+* P (Dired):                             Operating on Files.
+* p (Gnus):                              Summary of Gnus.
+* p (Rmail):                             Rmail Motion.
+* p d (Calendar mode):                   General Calendar.
+* PAGEDOWN:                              Scrolling.
+* PAGEUP:                                Scrolling.
+* PRIOR:                                 Scrolling.
+* q (Calendar mode):                     General Calendar.
+* Q (Dired):                             Operating on Files.
+* q (Gnus Group mode):                   Summary of Gnus.
+* q (Rmail summary):                     Rmail Summary Edit.
+* Q (Rmail summary):                     Rmail Summary Edit.
+* q (Rmail):                             Rmail Basics.
+* R (Dired):                             Operating on Files.
+* r (Rmail):                             Rmail Reply.
+* RET:                                   Inserting Text.
+* RET (Dired):                           Dired Visiting.
+* RET (Occur mode):                      Other Repeating Search.
+* RET (Shell mode):                      Shell Mode.
+* RIGHT:                                 Moving Point.
+* S (Calendar mode):                     Sunrise/Sunset.
+* s (Calendar mode):                     Diary Commands.
+* S (Dired):                             Operating on Files.
+* s (Dired):                             Dired Updating.
+* s (Gnus Summary mode):                 Summary of Gnus.
+* s (Rmail):                             Rmail Basics.
+* S-<TAB> (Help mode):                   Help Mode.
+* S-Mouse-1:                             Frame Parameters.
+* S-Mouse-2:                             Hideshow.
+* S-Mouse-3 (FFAP):                      FFAP.
+* S-TAB (customization buffer):          Changing an Option.
+* SPC:                                   Completion Commands.
+* SPC (Calendar mode):                   General Calendar.
+* SPC (Dired):                           Dired Navigation.
+* SPC (Gnus):                            Summary of Gnus.
+* SPC (Rmail):                           Rmail Scrolling.
+* t (Calendar mode):                     LaTeX Calendar.
+* t (Rmail):                             Rmail Display.
+* TAB:                                   Indentation.
+* TAB (and major modes):                 Major Modes.
+* TAB (completion):                      Completion Example.
+* TAB (customization buffer):            Changing an Option.
+* TAB (GUD):                             Commands of GUD.
+* TAB (programming modes):               Basic Indent.
+* TAB (Shell mode):                      Shell Mode.
+* TAB (Text mode):                       Text Mode.
+* u (Calendar mode):                     Holidays.
+* u (Dired deletion):                    Dired Deletion.
+* u (Dired):                             Marks vs Flags.
+* u (Gnus Group mode):                   Summary of Gnus.
+* u (Rmail):                             Rmail Deletion.
+* UP:                                    Moving Point.
+* v (Dired):                             Dired Visiting.
+* w (Rmail):                             Rmail Output.
+* x (Calendar mode):                     Holidays.
+* X (Dired):                             Shell Commands in Dired.
+* x (Dired):                             Dired Deletion.
+* x (Rmail):                             Rmail Deletion.
+* Z (Dired):                             Operating on Files.
+* ~ (Dired):                             Flagging Many Files.
+
+
+File: emacs,  Node: Option Index,  Next: Command Index,  Prev: Key Index,  Up: Top
+
+Command-Line Options Index
+**************************
+
+* Menu:
+
+* +LINENUM:                              Action Arguments.
+* --background-color:                    Colors X.
+* --batch:                               Initial Options.
+* --border-color:                        Colors X.
+* --border-width:                        Borders X.
+* --cursor-color:                        Colors X.
+* --debug-init:                          Initial Options.
+* --display:                             Initial Options.
+* --eval:                                Action Arguments.
+* --execute:                             Action Arguments.
+* --file:                                Action Arguments.
+* --font:                                Font X.
+* --foreground-color:                    Colors X.
+* --funcall:                             Action Arguments.
+* --geometry:                            Window Size X.
+* --icon-type:                           Icons X.
+* --iconic:                              Icons X.
+* --insert:                              Action Arguments.
+* --internal-border:                     Borders X.
+* --kill:                                Action Arguments.
+* --load:                                Action Arguments.
+* --mouse-color:                         Colors X.
+* --multibyte:                           Initial Options.
+* --name:                                Resources X.
+* --no-init-file:                        Initial Options.
+* --no-site-file:                        Initial Options.
+* --no-windows:                          Initial Options.
+* --reverse-video:                       Colors X.
+* --terminal:                            Initial Options.
+* --title:                               Title X.
+* --unibyte:                             Initial Options.
+* --user:                                Initial Options.
+* --visit:                               Action Arguments.
+* --xrm:                                 Resources X.
+* -bd:                                   Colors X.
+* -bg:                                   Colors X.
+* -bw:                                   Borders X.
+* -cr:                                   Colors X.
+* -d:                                    Initial Options.
+* -f:                                    Action Arguments.
+* -fg:                                   Colors X.
+* -fn:                                   Font X.
+* -g:                                    Window Size X.
+* -i:                                    Icons X.
+* -ib:                                   Borders X.
+* -l:                                    Action Arguments.
+* -ms:                                   Colors X.
+* -nw:                                   Initial Options.
+* -q:                                    Initial Options.
+* -r:                                    Colors X.
+* -rv:                                   Colors X.
+* -t:                                    Initial Options.
+* -T:                                    Title X.
+* -u:                                    Initial Options.
+

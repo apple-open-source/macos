@@ -68,7 +68,6 @@ static char sccsid[] = "@(#)getservent.c	8.1 (Berkeley) 6/4/93";
 #define	MAXALIASES	35
 
 static FILE *servf = NULL;
-static char line[BUFSIZ+1];
 static struct servent serv;
 static char *serv_aliases[MAXALIASES];
 int _serv_stayopen;
@@ -98,10 +97,17 @@ struct servent *
 getservent()
 {
 	char *p;
+	static char *line = NULL;
 	register char *cp, **q;
 
 	if (servf == NULL && (servf = fopen(_PATH_SERVICES, "r" )) == NULL)
 		return (NULL);
+
+	if (line == NULL) {
+		line = malloc(BUFSIZ+1);
+		if (line == NULL)
+			return (NULL);
+	}
 again:
 	if ((p = fgets(line, BUFSIZ, servf)) == NULL)
 		return (NULL);

@@ -19,6 +19,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/storage/IODVDBlockStorageDevice.h>
 #include <IOKit/storage/IODVDBlockStorageDriver.h>
@@ -26,6 +28,9 @@
 
 #define	super	IOCDBlockStorageDriver
 OSDefineMetaClassAndStructors(IODVDBlockStorageDriver,IOCDBlockStorageDriver)
+
+#define reportDiscInfo(x)    reportDiscInfo((CDDiscInfo *)(x))
+#define reportRZoneInfo(y,x) reportTrackInfo((y),(CDTrackInfo *)(x))
 
 IODVDBlockStorageDevice *
 IODVDBlockStorageDriver::getProvider() const
@@ -39,13 +44,77 @@ IODVDBlockStorageDriver::getProvider() const
 IOReturn
 IODVDBlockStorageDriver::acceptNewMedia(void)
 {
-    UInt32 mediaType = getMediaType();
-
-    if (mediaType >= kCDMediaTypeMin && mediaType <= kCDMediaTypeMax) {
+    if (getMediaType() >= kCDMediaTypeMin && getMediaType() <= kCDMediaTypeMax) {
         return IOCDBlockStorageDriver::acceptNewMedia();
-    } else {
-        return IOBlockStorageDriver::acceptNewMedia();
     }
+
+    /* Obtain disc status: */
+
+    switch (getMediaType()) {
+        case kDVDMediaTypeR:
+        case kDVDMediaTypeRW:
+        case kDVDMediaTypePlusRW: {
+            bool checkIsWritable = false;
+            bool checkMediaSize = false;
+            DVDDiscInfo discInfo;
+            DVDRZoneInfo rzoneInfo;
+            IOReturn result;
+            int i;
+
+            result = reportDiscInfo(&discInfo);
+            if (result != kIOReturnSuccess) {
+                break;
+            }
+
+            switch (discInfo.discStatus) {
+                case 0x00: /* is disc blank? */
+                    _maxBlockNumber = 0;
+                    _writeProtected = true;
+                    break;
+                case 0x01: /* is disc appendable? */
+                    checkIsWritable = true;
+                    checkMediaSize  = true;
+                    break;
+                case 0x02: /* is disc complete? */
+                    checkIsWritable = discInfo.erasable ? true : false;
+                    _writeProtected = true;
+                    break;
+            }
+
+            /* Obtain rzone status: */
+
+            if (checkIsWritable) {
+                UInt16 rzoneLast = discInfo.lastRZoneNumberInLastBorderLSB;
+                UInt16 rzoneSecondLast = max(rzoneLast - 1, discInfo.firstRZoneNumberInLastBorderLSB);
+
+                _writeProtected = true;
+
+                for (i = rzoneLast; i >= rzoneSecondLast; i--) {
+                    result = reportRZoneInfo(i,&rzoneInfo);
+                    if (result != kIOReturnSuccess) {
+                        break;
+                    }
+
+                    if (checkMediaSize) { /* get disc capacity? */
+                        if (i == rzoneLast) {
+                            _maxBlockNumber = max( _maxBlockNumber,
+                                                   max( OSSwapBigToHostInt32(rzoneInfo.rzoneStartAddress) +
+                                                        OSSwapBigToHostInt32(rzoneInfo.rzoneSize), 1 ) - 1 );
+                        }
+                    }
+
+                    if (rzoneInfo.incremental) { /* is rzone incremental? */
+                        _writeProtected = false;
+                        break;
+                    }
+                }
+            }
+
+            break;
+        }
+    }
+
+    return IOBlockStorageDriver::acceptNewMedia();
 }
 
 const char *
@@ -57,13 +126,11 @@ IODVDBlockStorageDriver::getDeviceTypeName(void)
 IOMedia *
 IODVDBlockStorageDriver::instantiateDesiredMediaObject(void)
 {
-    UInt32 mediaType = getMediaType();
-
-    if (mediaType >= kCDMediaTypeMin && mediaType <= kCDMediaTypeMax) {
+    if (getMediaType() >= kCDMediaTypeMin && getMediaType() <= kCDMediaTypeMax) {
         return IOCDBlockStorageDriver::instantiateDesiredMediaObject();
-    } else {
-        return(new IODVDMedia);
     }
+
+    return(new IODVDMedia);
 }
 
 IOMedia *
@@ -71,39 +138,67 @@ IODVDBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
                                         UInt32 blockSize,char *mediaName)
 {
     IOMedia *media = NULL;
-    UInt32 mediaType = getMediaType();
 
-    if (mediaType >= kCDMediaTypeMin && mediaType <= kCDMediaTypeMax) {
+    if (getMediaType() >= kCDMediaTypeMin && getMediaType() <= kCDMediaTypeMax) {
         return IOCDBlockStorageDriver::instantiateMediaObject(
-                                             base,byteSize,blockSize,mediaName);
-    } else {
-        media = IOBlockStorageDriver::instantiateMediaObject(
                                              base,byteSize,blockSize,mediaName);
     }
 
+    media = IOBlockStorageDriver::instantiateMediaObject(
+                                             base,byteSize,blockSize,mediaName);
+
     if (media) {
         char *description = NULL;
+        char *picture = NULL;
 
-        switch (mediaType) {
+        switch (getMediaType()) {
             case kDVDMediaTypeROM:
                 description = kIODVDMediaTypeROM;
+                picture = "DVD.icns";
                 break;
             case kDVDMediaTypeRAM:
                 description = kIODVDMediaTypeRAM;
+                picture = "DVD-RAM.icns";
                 break;
             case kDVDMediaTypeR:
                 description = kIODVDMediaTypeR;
+                picture = "DVD-R.icns";
                 break;
             case kDVDMediaTypeRW:
                 description = kIODVDMediaTypeRW;
+                picture = "DVD-RW.icns";
                 break;
             case kDVDMediaTypePlusRW:
                 description = kIODVDMediaTypePlusRW;
+                picture = "DVD-RW.icns";
                 break;
         }
 
         if (description) {
             media->setProperty(kIODVDMediaTypeKey, description);
+        }
+
+        if (picture) {
+            OSDictionary *dictionary = OSDictionary::withCapacity(2);
+            OSString *identifier = OSString::withCString("com.apple.iokit.IODVDStorageFamily");
+            OSString *resourceFile = OSString::withCString(picture);
+
+            if (dictionary && identifier && resourceFile) {
+                dictionary->setObject("CFBundleIdentifier", identifier);
+                dictionary->setObject("IOBundleResourceFile", resourceFile);
+            }
+
+            media->setProperty(kIOMediaIconKey, dictionary);
+
+            if (resourceFile) {
+                resourceFile->release();
+            }
+            if (identifier) {
+                identifier->release();
+            }
+            if (dictionary) {
+                dictionary->release();
+            }
         }
     }
 

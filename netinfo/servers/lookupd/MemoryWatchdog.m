@@ -34,7 +34,7 @@
  */
 
 #import "MemoryWatchdog.h"
-#import "LUAgent.h"
+#import "CacheAgent.h"
 #import <string.h>
 
 @implementation MemoryWatchdog
@@ -61,6 +61,7 @@
 
 - (void)dealloc
 {
+	[Root setWatchdog:nil];
 	[list release];
 	syslock_free(listLock);
 	[super dealloc];
@@ -68,18 +69,23 @@
 
 - (void)showMemory:(FILE *)f
 {
-	int i, len;
+	int i, len, size, totalsize;
 	id obj;
 	char cachecode;
 	BOOL valid;
 
 	syslock_lock(listLock);
+
+	totalsize = 0;
 	len = [list count];
 
 	fprintf(f, "%d object%s in memory\n\n", len, (len == 1) ? "" : "s");
 	for (i = 0; i < len; i++)
 	{
 		obj = [list objectAtIndex:i];
+		size = [obj memorySize];
+		totalsize += size;
+
 		cachecode = ' ';
 		if ([self objectInCache:obj])
 		{
@@ -96,13 +102,15 @@
 			else cachecode = '.';
 		}
 
-		fprintf(f, "%5d %2d %c 0x%08x %s",
+		fprintf(f, "%5d %2d %c 0x%08x %8d %s",
 			i, [obj retainCount] - 1,
 			cachecode,
-			(unsigned int)obj, [obj banner]);
+			(unsigned int)obj, size, [obj banner]);
 		fprintf(f, "\n");
 
 	}
+
+	fprintf(f, "Total Size = %d\n", totalsize);
 	syslock_unlock(listLock);
 }
 
@@ -131,6 +139,28 @@
 	syslock_lock(listLock);
 	[list removeObject:anObject];
 	syslock_unlock(listLock);
+}
+
+- (unsigned int)totalMemory
+{
+	int i, len, size, totalsize;
+	id obj;
+
+	syslock_lock(listLock);
+
+	totalsize = 0;
+	len = [list count];
+
+	for (i = 0; i < len; i++)
+	{
+		obj = [list objectAtIndex:i];
+		size = [obj memorySize];
+		totalsize += size;
+	}
+	
+	syslock_unlock(listLock);
+
+	return totalsize;
 }
 
 @end

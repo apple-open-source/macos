@@ -1,5 +1,5 @@
-# Process window class definition for GDBtk.
-# Copyright 1998, 1999 Cygnus Solutions
+# Process window class definition for Insight.
+# Copyright 1998, 1999, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -16,25 +16,26 @@ class ProcessWin {
   inherit EmbeddedWin GDBWin
   
   private {
-    variable top
-    variable lb
     variable id
     variable Running 0
     variable protect_me 0
 
 
     method build_win {}
-    method change_context {y}
+    method change_context {}
     method cursor {glyph}
-    method change_frame {y}
-    method update {}
-    method busy {}
-    method idle {}
   }
 
   public {
     method reconfig {}
     method constructor {args} 
     method destructor {}
+
+    #
+    # GDB Events
+    #
+    method busy {event}    
+    method idle {event}
+    method update {event}
   }
 }

@@ -43,4 +43,4 @@ bool_t get_sanitycheck(void *ni);
 unsigned short get_port(void *ni, char *proto);
 ni_status get_binding_status(void);
 void set_binding_status(ni_status stat);
-
+bool_t get_promote_admins(void *ni);

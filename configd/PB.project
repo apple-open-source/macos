@@ -2,7 +2,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         H_FILES = (); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, preferences.xml); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 
         PUBLIC_HEADERS = (); 

@@ -26,9 +26,9 @@
  * All rights reserved.
  */
 
-#include <bsd/sys/types.h>
-#include <bsd/sys/param.h>
-#include <bsd/sys/vnode.h>
+#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/vnode.h>
 #include <ufs/ufs/dir.h>
 #include <architecture/byte_order.h>
 #include "ufs_byteorder.h"

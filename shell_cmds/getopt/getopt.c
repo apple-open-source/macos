@@ -8,6 +8,7 @@ __RCSID("$NetBSD: getopt.c,v 1.5 1998/02/03 03:44:22 perry Exp $");
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 int	main __P((int, char **));
 

@@ -37,50 +37,50 @@
 .\"
 .\"	@(#)ar.1	8.1 (Berkeley) 6/29/93
 .\"
-.Dd June 29, 1993
+.Dd November 28, 2001
 .Dt AR 1 
-.Os
+.Os Darwin
 .Sh NAME
 .Nm ar 
 .Nd create and maintain library archives
 .Sh SYNOPSIS
 .Nm ar
 .Fl d 
-.Op Fl \TLv 
+.Op Fl \TLsv 
 .Ar archive file ...
 .Nm ar
 .Fl m
-.Op Fl \TLv 
+.Op Fl \TLsv 
 .Ar archive file ...
 .Nm ar
 .Fl m
-.Op Fl abiTLv 
+.Op Fl abiTLsv 
 .Ar position archive file ...
 .Nm ar
 .Fl p
-.Op Fl \TLv
+.Op Fl \TLsv
 .Ar archive
 .Op Ar file ...
 .Nm ar
 .Fl q
-.Op Fl cTLv
+.Op Fl cTLsv
 .Ar archive file ...
 .Nm ar
 .Fl r
-.Op Fl cuTLv
+.Op Fl cuTLsv
 .Ar archive file ...
 .Nm ar
 .Fl r
-.Op Fl abciuTLv
+.Op Fl abciuTLsv
 .Ar position archive file ...
 .Nm ar
 .Fl t
-.Op Fl \TLv
+.Op Fl \TLsv
 .Ar archive
 .Op Ar file ...
 .Nm ar
 .Fl x
-.Op Fl ouTLv
+.Op Fl ouTLsv
 .Ar archive
 .Op Ar file ...
 .Sh DESCRIPTION
@@ -201,6 +201,11 @@ for more information.)
 .It Fl L
 Used the extended format to allow long archive member names.  This is the
 default.
+.It Fl s
+Write an object-file index into the archive, or update an existing one, even if
+no other change is made to the archive.  You may use this modifier flag either
+with any operation, or alone.  Running `ar s' on an archive is equivalent to
+running `ranlib' on it.
 .It Fl t
 List the specified files in the order in which they appear in the archive,
 each on a separate line.

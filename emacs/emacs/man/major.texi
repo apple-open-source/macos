@@ -1,5 +1,5 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985, 86, 87, 93, 94, 95, 1997 Free Software Foundation, Inc.
+@c Copyright (C) 1985, 86, 87, 93, 94, 95, 97, 2000 Free Software Foundation, Inc.
 @c See file emacs.texi for copying conditions.
 @node Major Modes, Indentation, International, Top
 @chapter Major Modes
@@ -31,13 +31,15 @@ how comments are to be delimited.  Many major modes redefine the
 syntactical properties of characters appearing in the buffer.
 @xref{Syntax}.
 
-  The major modes fall into three major groups.  Lisp mode (which has
-several variants), C mode, Fortran mode and others are for specific
-programming languages.  Text mode, Nroff mode, @TeX{} mode and Outline
-mode are for editing English text.  The remaining major modes are not
+  The major modes fall into three major groups.  The first group
+contains modes for normal text, either plain or with mark-up.  It
+includes Text mode, HTML mode, SGML mode, @TeX{} mode and Outline
+mode.  The second group contains modes for specific programming
+languages.  These include Lisp mode (which has several variants), C
+mode, Fortran mode, and others.  The remaining major modes are not
 intended for use on users' files; they are used in buffers created for
-specific purposes by Emacs, such as Dired mode for buffers made by Dired
-(@pxref{Dired}), Mail mode for buffers made by @kbd{C-x m}
+specific purposes by Emacs, such as Dired mode for buffers made by
+Dired (@pxref{Dired}), Mail mode for buffers made by @kbd{C-x m}
 (@pxref{Sending Mail}), and Shell mode for buffers used for
 communicating with an inferior shell process (@pxref{Interactive
 Shell}).
@@ -46,8 +48,8 @@ Shell}).
 separate paragraphs.  This is to make the paragraph commands useful.
 (@xref{Paragraphs}.)  They also cause Auto Fill mode to use the
 definition of @key{TAB} to indent the new lines it creates.  This is
-because most lines in a program are usually indented.
-(@xref{Indentation}.)
+because most lines in a program are usually indented
+(@pxref{Indentation}).
 
 @menu
 * Choosing Modes::     How major modes are specified or chosen.
@@ -88,12 +90,12 @@ or this form,
 For example, one element normally found in the list has the form
 @code{(@t{"\\.c\\'"} . c-mode)}, and it is responsible for selecting C
 mode for files whose names end in @file{.c}.  (Note that @samp{\\} is
-needed in Lisp syntax to include a @samp{\} in the string, which is
-needed to suppress the special meaning of @samp{.} in regexps.)  If the
+needed in Lisp syntax to include a @samp{\} in the string, which must
+be used to suppress the special meaning of @samp{.} in regexps.)  If the
 element has the form @code{(@var{regexp} @var{mode-function}
 @var{flag})} and @var{flag} is non-@code{nil}, then after calling
-@var{function}, the suffix that matched @var{regexp} is discarded and
-the list is searched again for another match.
+@var{mode-function}, the suffix that matched @var{regexp} is discarded
+and the list is searched again for another match.
 
   You can specify which major mode should be used for editing a certain
 file by a special sort of text in the first nonblank line of the file.  The
@@ -106,7 +108,7 @@ mode name should appear in this line both preceded and followed by
 
 @noindent
 tells Emacs to use Lisp mode.  Such an explicit specification overrides
-any defaulting based on the file name.  Note how the semicolon is used
+any defaults based on the file name.  Note how the semicolon is used
 to make Lisp treat this line as a comment.
 
   Another format of mode specification is
@@ -151,14 +153,14 @@ when you create a new buffer with @kbd{C-x b}, the variable
 @code{default-major-mode} specifies which major mode to use.  Normally
 its value is the symbol @code{fundamental-mode}, which specifies
 Fundamental mode.  If @code{default-major-mode} is @code{nil}, the major
-mode is taken from the previously selected buffer.
+mode is taken from the previously current buffer.
 
 @findex normal-mode
   If you change the major mode of a buffer, you can go back to the major
 mode Emacs would choose automatically: use the command @kbd{M-x
 normal-mode} to do this.  This is the same function that
 @code{find-file} calls to choose the major mode.  It also processes
-the file's local variables list if any.
+the file's local variables list (if any).
 
 @vindex change-major-mode-with-file-name
   The commands @kbd{C-x C-w} and @code{set-visited-file-name} change to

@@ -22,7 +22,7 @@
 /*
  *  sl.h - Headers for configuring the Secondary Loader
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -31,10 +31,6 @@
 #define _BOOTX_SL_H_
 
 #define kFailToBoot (1)
-
-#if ! defined(kMacOSXServer)
-#define kMacOSXServer (0)
-#endif
 
 /*
 
@@ -53,7 +49,7 @@ Open Firmware Version     1x, 2x                        3x
 Logical Address
 
 00000000 - 00003FFF  : Exception Vectors
-00004000 - 013FFFFF  : Kernal Image, Boot Struct and Drivers
+00004000 - 013FFFFF  : Kernel Image, Boot Struct and Drivers
 01400000 - 01BFFFFF  : File Load Area
 01C00000 - 01CFFFFF  : Secondary Loader Image
 01D00000 - 01DFFFFF  : Malloc Area
@@ -105,12 +101,24 @@ enum {
   kBlockDeviceType
 };
 
-// File Type
+// File Permissions and Types
 enum {
-  kUnknownFileType = 0,
-  kFlatFileType,
-  kDirectoryFileType,
-  kLinkFileType
+  kPermOtherExecute  = 1 << 0,
+  kPermOtherWrite    = 1 << 1,
+  kPermOtherRead     = 1 << 2,
+  kPermGroupExecute  = 1 << 3,
+  kPermGroupWrite    = 1 << 4,
+  kPermGroupRead     = 1 << 5,
+  kPermOwnerExecute  = 1 << 6,
+  kPermOwnerWrite    = 1 << 7,
+  kPermOwnerRead     = 1 << 8,
+  kPermMask          = 0x1FF,
+  kOwnerNotRoot      = 1 << 9,
+  kFileTypeUnknown   = 0x0 << 16,
+  kFileTypeFlat      = 0x1 << 16,
+  kFileTypeDirectory = 0x2 << 16,
+  kFileTypeLink      = 0x3 << 16,
+  kFileTypeMask      = 0x3 << 16
 };
 
 // Key Numbers
@@ -122,8 +130,15 @@ enum {
 // Mac OS X Booter Signature 'MOSX'
 #define kMacOSXSignature (0x4D4F5358)
 
+// Boot Modes
+enum {
+  kBootModeNormal = 0,
+  kBootModeSafe,
+  kBootModeSecure
+};
 
-#include <bsd/sys/types.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <ci.h>
 #include <sl_words.h>
@@ -141,6 +156,7 @@ extern long gBootArgsSize;
 extern long gSymbolTableAddr;
 extern long gSymbolTableSize;
 
+extern long gBootMode;
 extern long gBootDeviceType;
 extern long gBootFileType;
 extern char gBootDevice[256];
@@ -187,9 +203,8 @@ extern CICell SearchForNodeMatching(CICell ph, long top, char *value);
 
 // Externs for display.c
 extern long InitDisplays(void);
-extern long LoadDisplayDrivers(void);
-extern long DrawSplashScreen(void);
-extern long DrawBrokenSystemFolder(void);
+extern long DrawSplashScreen(long stage);
+extern long DrawFailedBootPicture(void);
 extern void GetMainScreenPH(Boot_Video_Ptr video);
 
 // Externs for drivers.c
@@ -198,9 +213,5 @@ extern long LoadDrivers(char *dirPath);
 // Externs for config.c
 extern long InitConfig(void);
 extern long ParseConfigFile(char *addr);
-
-// Externs for PEFSupport.c
-extern unsigned long GetSymbolFromPEF(char *name, char *pef,
-				      void *desc, long descSize);
 
 #endif /* ! _BOOTX_SL_H_ */

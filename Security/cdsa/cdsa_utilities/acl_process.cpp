@@ -98,7 +98,7 @@ ProcessAclSubject *ProcessAclSubject::Maker::make(const TypedList &list) const
 	return new ProcessAclSubject(selector);
 }
 
-ProcessAclSubject *ProcessAclSubject::Maker::make(Reader &pub, Reader &priv) const
+ProcessAclSubject *ProcessAclSubject::Maker::make(Version, Reader &pub, Reader &priv) const
 {
     AclProcessSubjectSelector selector; pub(selector);
 	return new ProcessAclSubject(selector);

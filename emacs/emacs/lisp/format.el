@@ -86,9 +86,9 @@
     (gtex  "German TeX (encoding)"
 	   nil
 	   iso-gtex2iso iso-iso2gtex t nil)
-    (html  "HTML (encoding)"
+    (html  "HTML/SGML \"ISO 8879:1986//ENTITIES Added Latin 1//EN\" (encoding)"
 	   nil
-	   "recode -f html:latin1" "recode -f latin1:html" t nil)
+	   iso-sgml2iso iso-iso2sgml t nil)
     (rot13 "rot13"
 	   nil
 	   "tr a-mn-z n-za-m" "tr a-mn-z n-za-m" t nil)
@@ -138,7 +138,9 @@ MODIFY, if non-nil, means the TO-FN wants to modify the region.  If nil,
         TO-FN will not make any changes but will instead return a list of
         annotations.
 
-MODE-FN, if specified, is called when visiting a file with that format.")
+MODE-FN, if specified, is called when visiting a file with that format.
+         It is called with a single positive argument, on the assumption
+         that it turns on some Emacs mode.")
 
 ;;; Basic Functions (called from Lisp)
 
@@ -154,14 +156,15 @@ BUFFER should be the buffer that the output originally came from."
 	(with-current-buffer error-buff
 	  (widen)
 	  (erase-buffer))
-    	(if (and (zerop (shell-command-on-region from to method t t
-						 error-buff))
+    	(if (and (zerop (save-window-excursion
+			  (shell-command-on-region from to method t t
+						   error-buff)))
 		 ;; gzip gives zero exit status with bad args, for instance.
 		 (zerop (with-current-buffer error-buff
 			  (buffer-size))))
 	    (bury-buffer error-buff)
 	  (switch-to-buffer-other-window error-buff)
-	  (error "Format decoding failed")))
+	  (error "Format encoding failed")))
     (funcall method from to buffer)))
 
 (defun format-decode-run-method (method from to &optional buffer)
@@ -190,26 +193,32 @@ a Lisp function.  Decoding is done for the given BUFFER."
 	(point))
     (funcall method from to)))
 
-(defun format-annotate-function (format from to orig-buf)
+(defun format-annotate-function (format from to orig-buf format-count)
   "Return annotations for writing region as FORMAT.
 FORMAT is a symbol naming one of the formats defined in `format-alist',
 it must be a single symbol, not a list like `buffer-file-format'.
 FROM and TO delimit the region to be operated on in the current buffer.
 ORIG-BUF is the original buffer that the data came from.
+
+FORMAT-COUNT is an integer specifying how many times this function has
+been called in the process of decoding ORIG-BUF.
+
 This function works like a function on `write-region-annotate-functions':
 it either returns a list of annotations, or returns with a different buffer
-current, which contains the modified text to write.
+current, which contains the modified text to write.  In the latter case,
+this function's value is nil.
 
 For most purposes, consider using `format-encode-region' instead."
-  ;; This function is called by write-region (actually build-annotations)
-  ;; for each element of buffer-file-format.
+  ;; This function is called by write-region (actually
+  ;; build_annotations) for each element of buffer-file-format.
   (let* ((info (assq format format-alist))
 	 (to-fn  (nth 4 info))
 	 (modify (nth 5 info)))
     (if to-fn
 	(if modify
 	    ;; To-function wants to modify region.  Copy to safe place.
-	    (let ((copy-buf (get-buffer-create " *Format Temp*")))
+	    (let ((copy-buf (get-buffer-create (format " *Format Temp %d*"
+						       format-count))))
 	      (copy-to-buffer copy-buf from to)
 	      (set-buffer copy-buf)
 	      (format-insert-annotations write-region-annotations-so-far from)
@@ -236,45 +245,51 @@ Returns the new length of the decoded region.
 
 For most purposes, consider using `format-decode-region' instead."
   (let ((mod (buffer-modified-p))
-	 (begin (point))
+	(begin (point))
 	(end (+ (point) length)))
-    (if (null format)
-	;; Figure out which format it is in, remember list in `format'.
-	(let ((try format-alist))
-	  (while try
-	    (let* ((f (car try))
-		   (regexp (nth 2 f))
-		   (p (point)))
-	      (if (and regexp (looking-at regexp)
-		       (< (match-end 0) (+ begin length)))
-		  (progn
-		    (setq format (cons (car f) format))
-		    ;; Decode it
-		    (if (nth 3 f)
-			(setq end (format-decode-run-method (nth 3 f) begin end)))
-		    ;; Call visit function if required
-		    (if (and visit-flag (nth 6 f)) (funcall (nth 6 f) 1))
-		    ;; Safeguard against either of the functions changing pt.
-		    (goto-char p)
-		    ;; Rewind list to look for another format
-		    (setq try format-alist))
-		(setq try (cdr try))))))
-      ;; Deal with given format(s)
-      (or (listp format) (setq format (list format)))
-      (let ((do format) f)
-	(while do
-	  (or (setq f (assq (car do) format-alist))
-	      (error "Unknown format" (car do)))
-	  ;; Decode:
-	  (if (nth 3 f)
-	      (setq end (format-decode-run-method (nth 3 f) begin end)))
-	  ;; Call visit function if required
-	  (if (and visit-flag (nth 6 f)) (funcall (nth 6 f) 1))
-	  (setq do (cdr do)))))
-    (if visit-flag
-	(setq buffer-file-format format))
-    (set-buffer-modified-p mod)
-    ;; Return new length of region
+    (unwind-protect
+	(progn
+	  ;; Don't record undo information for the decoding.
+	  
+	  (if (null format)
+	      ;; Figure out which format it is in, remember list in `format'.
+	      (let ((try format-alist))
+		(while try
+		  (let* ((f (car try))
+			 (regexp (nth 2 f))
+			 (p (point)))
+		    (if (and regexp (looking-at regexp)
+			     (< (match-end 0) (+ begin length)))
+			(progn
+			  (setq format (cons (car f) format))
+			  ;; Decode it
+			  (if (nth 3 f)
+			      (setq end (format-decode-run-method (nth 3 f) begin end)))
+			  ;; Call visit function if required
+			  (if (and visit-flag (nth 6 f)) (funcall (nth 6 f) 1))
+			  ;; Safeguard against either of the functions changing pt.
+			  (goto-char p)
+			  ;; Rewind list to look for another format
+			  (setq try format-alist))
+		      (setq try (cdr try))))))
+	    ;; Deal with given format(s)
+	    (or (listp format) (setq format (list format)))
+	    (let ((do format) f)
+	      (while do
+		(or (setq f (assq (car do) format-alist))
+		    (error "Unknown format" (car do)))
+		;; Decode:
+		(if (nth 3 f)
+		    (setq end (format-decode-run-method (nth 3 f) begin end)))
+		;; Call visit function if required
+		(if (and visit-flag (nth 6 f)) (funcall (nth 6 f) 1))
+		(setq do (cdr do)))))
+	  (if visit-flag
+	      (setq buffer-file-format format)))
+      
+      (set-buffer-modified-p mod))
+
+      ;; Return new length of region
     (- end begin)))
 
 ;;;
@@ -447,7 +462,7 @@ the value of `foo'."
       (cdr list)
     (let ((p list))
       (while (not (eq (cdr p) cons))
-	(if (null p) (error "format-delq-cons: not an element."))
+	(if (null p) (error "format-delq-cons: not an element"))
 	(setq p (cdr p)))
       ;; Now (cdr p) is the cons to delete
       (setcdr p (cdr cons))
@@ -483,6 +498,14 @@ returns nil."
 	  b (cdr b)))
   a)
 
+(defun format-proper-list-p (list)
+  "Return t if LIST is a proper list.
+A proper list is a list ending with a nil cdr, not with an atom "
+  (when (listp list)
+    (while (consp list)
+      (setq list (cdr list)))
+    (null list)))
+
 (defun format-reorder (items order)
   "Arrange ITEMS to following partial ORDER.
 Elements of ITEMS equal to elements of ORDER will be rearranged to follow the
@@ -501,6 +524,10 @@ ORDER.  Unmatched items will go last."
 					; should be considered separately.
 					; See format-deannotate-region and
 					; format-annotate-region.
+
+;; This text property has list values, but they are treated atomically.
+
+(put 'display 'format-list-atomic-p t)
 
 ;;;
 ;;; Decoding
@@ -921,24 +948,28 @@ Annotations to open and to close are returned as a dotted pair."
     (if (not prop-alist)
 	nil
       ;; If either old or new is a list, have to treat both that way.
-      (if (or (consp old) (consp new))
-	  (let* ((old (if (listp old) old (list old)))
-		 (new (if (listp new) new (list new)))
-		 (tail (format-common-tail old new))
-		 close open)
-	    (while old
-	      (setq close
-		    (append (car (format-annotate-atomic-property-change
-				  prop-alist (car old) nil))
-			    close)
-		    old (cdr old)))
-	    (while new
-	      (setq open
-		    (append (cdr (format-annotate-atomic-property-change
-				  prop-alist nil (car new)))
-			    open)
-		    new (cdr new)))
-	    (format-make-relatively-unique close open))
+      (if (and (or (listp old) (listp new))
+	       (not (get prop 'format-list-atomic-p)))
+	  (if (or (not (format-proper-list-p old))
+		  (not (format-proper-list-p new)))
+	      (format-annotate-atomic-property-change prop-alist old new)
+	    (let* ((old (if (listp old) old (list old)))
+		   (new (if (listp new) new (list new)))
+		   (tail (format-common-tail old new))
+		   close open)
+	      (while old
+		(setq close
+		      (append (car (format-annotate-atomic-property-change
+				    prop-alist (car old) nil))
+			      close)
+		      old (cdr old)))
+	      (while new
+		(setq open
+		      (append (cdr (format-annotate-atomic-property-change
+				    prop-alist nil (car new)))
+			      open)
+		      new (cdr new)))
+	      (format-make-relatively-unique close open)))
 	(format-annotate-atomic-property-change prop-alist old new)))))
 
 (defun format-annotate-atomic-property-change (prop-alist old new)

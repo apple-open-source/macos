@@ -19,15 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1997 Apple Computer, Inc.
- *
- *
- * HISTORY
- *
- * Simon Douglas  22 Oct 97
- * - first checked in.
- */
 
 
 #include <IOKit/ndrvsupport/IOMacOSTypes.h>

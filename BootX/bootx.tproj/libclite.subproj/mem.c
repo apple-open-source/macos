@@ -22,7 +22,7 @@
 /*
  *  mem.c - Standard memory functions.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -33,8 +33,9 @@
 
 void *memcpy(void *dst, const void *src, size_t len)
 {
-  char *s = src, *d = dst;
-  int pos = 0, dir = 1;
+  const char *s = src;
+  char       *d = dst;
+  int        pos = 0, dir = 1;
 
   if (d > s) {
     dir = -1;

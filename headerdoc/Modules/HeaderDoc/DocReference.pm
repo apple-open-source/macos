@@ -4,7 +4,7 @@
 # Synopsis: 	Used by gatherHeaderDoc.pl to hold references to doc 
 #		for individual headers and classes
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/01/25 22:59:39 $
+# Last Updated: $Date: 2001/11/30 22:43:17 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -36,7 +36,6 @@ sub new {
     my $self = {};
     
     bless($self, $class);
-    #$self->SUPER::_initialize(); # for subclasses
     $self->_initialize();
     # Now grab any key => value pairs passed in
     my (%attributeHash) = @_;

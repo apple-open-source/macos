@@ -1,4 +1,4 @@
-;;; dos-fns.el --- MS-Dos specific functions.
+;;; dos-fns.el --- MS-Dos specific functions
 
 ;; Copyright (C) 1991, 1993, 1995, 1996 Free Software Foundation, Inc.
 
@@ -34,49 +34,170 @@
 This function's standard definition is trivial; it just returns the argument.
 However, on some systems, the function is redefined
 with a definition that really does change some file names."
-  (if (or (msdos-long-file-names)
-	  (not (stringp filename))
-	  (member (file-name-nondirectory filename) '("" "." "..")))
+  (if (or (not (stringp filename))
+	  ;; This catches the case where FILENAME is "x:" or "x:/" or
+	  ;; "/", thus preventing infinite recursion.
+	  (string-match "\\`\\([a-zA-Z]:\\)?[/\\]?\\'" filename))
       filename
-    (let* ((dir (file-name-directory filename))
-	   (string (copy-sequence (file-name-nondirectory filename)))
-	   (lastchar (aref string (1- (length string))))
-	   i firstdot)
-      ;; Change a leading period to a leading underscore.
-      (if (= (aref string 0) ?.)
-	  (aset string 0 ?_))
-      ;; Get rid of invalid characters.
-      (while (setq i (string-match
-		      "[^-a-zA-Z0-9_.%~^$!#&{}@`'()\200-\376]"
-		      string))
-	(aset string i ?_))
-      ;; If we don't have a period,
-      ;; and we have a dash or underscore that isn't the first char,
-      ;; change that to a period.
-      (if (and (not (string-match "\\." string))
-	       (setq i (string-match "[-_]" string 1)))
-	  (aset string i ?\.))
-      ;; If we don't have a period in the first 8 chars, insert one.
-      (if (> (or (string-match "\\." string)
-		 (length string))
-	     8)
-	  (setq string
-		(concat (substring string 0 8)
-			"."
-			(substring string 8))))
-      (setq firstdot (or (string-match "\\." string) (1- (length string))))
-      ;; Truncate to 3 chars after the first period.
-      (if (> (length string) (+ firstdot 4))
-	  (setq string (substring string 0 (+ firstdot 4))))
-      ;; Change all periods except the first one into underscores.
-      (while (string-match "\\." string (1+ firstdot))
-	(setq i (string-match "\\." string (1+ firstdot)))
-	(aset string i ?_))
-      ;; If the last character of the original filename was `~',
-      ;; make sure the munged name ends with it also.
-      (if (equal lastchar ?~)
-	  (aset string (1- (length string)) lastchar))
-      (concat dir string))))
+    (let ((flen (length filename)))
+      ;; If FILENAME has a trailing slash, remove it and recurse.
+      (if (memq (aref filename (1- flen)) '(?/ ?\\))
+	  (concat (convert-standard-filename 
+		   (substring filename 0 (1- flen)))
+		  "/")
+	(let* (;; ange-ftp gets in the way for names like "/foo:bar".
+	       ;; We need to inhibit all magic file names, because
+	       ;; remote file names should never be passed through
+	       ;; this function, as they are not meant for the local
+	       ;; filesystem!
+	       (file-name-handler-alist nil)
+	       (dir
+		;; If FILENAME is "x:foo", file-name-directory returns
+		;; "x:/bar/baz", substituting the current working
+		;; directory on drive x:.  We want to be left with "x:"
+		;; instead.
+		(if (and (< 1 flen)
+			 (eq (aref filename 1) ?:)
+			 (null (string-match "[/\\]" filename)))
+		    (substring filename 0 2)
+		  (file-name-directory filename)))
+	       (dlen-m-1 (1- (length dir)))
+	       (string (copy-sequence (file-name-nondirectory filename)))
+	       (lastchar (aref string (1- (length string))))
+	       i firstdot)
+	  (cond
+	   ((msdos-long-file-names)
+	    ;; Replace characters that are invalid even on Windows.
+	    (while (setq i (string-match "[?*:<>|\"\000-\037]" string))
+	      (aset string i ?!)))
+	   ((not (member string '("" "." "..")))
+	    ;; Change a leading period to a leading underscore.
+	    (if (= (aref string 0) ?.)
+		(aset string 0 ?_))
+	    ;; If the name is longer than 8 chars, and doesn't have a
+	    ;; period, and we have a dash or underscore that isn't too
+	    ;; close to the beginning, change that to a period.  This
+	    ;; is so we could salvage more characters of the original
+	    ;; name by pushing them into the extension.
+	    (if (and (not (string-match "\\." string))
+		     (> (length string) 8)
+		     ;; We don't gain anything if we put the period closer
+		     ;; than 5 chars from the beginning (5 + 3 = 8).
+		     (setq i (string-match "[-_]" string 5)))
+		(aset string i ?\.))
+	    ;; Get rid of invalid characters.
+	    (while (setq i (string-match
+			    "[^-a-zA-Z0-9_.%~^$!#&{}@`'()\200-\376]"
+			    string))
+	      (aset string i ?_))
+	    ;; If we don't have a period in the first 8 chars, insert one.
+	    ;; This enables to have 3 more characters from the original
+	    ;; name in the extension.
+	    (if (> (or (string-match "\\." string) (length string))
+		   8)
+		(setq string
+		      (concat (substring string 0 8)
+			      "."
+			      (substring string 8))))
+	    (setq firstdot (or (string-match "\\." string)
+			       (1- (length string))))
+	    ;; Truncate to 3 chars after the first period.
+	    (if (> (length string) (+ firstdot 4))
+		(setq string (substring string 0 (+ firstdot 4))))
+	    ;; Change all periods except the first one into underscores.
+	    ;; (DOS doesn't allow more than one period.)
+	    (while (string-match "\\." string (1+ firstdot))
+	      (setq i (string-match "\\." string (1+ firstdot)))
+	      (aset string i ?_))
+	    ;; If the last character of the original filename was `~' or `#',
+	    ;; make sure the munged name ends with it also.  This is so that
+	    ;; backup and auto-save files retain their telltale form.
+	    (if (memq lastchar '(?~ ?#))
+		(aset string (1- (length string)) lastchar))))
+	  (concat (if (and (stringp dir)
+			   (memq (aref dir dlen-m-1) '(?/ ?\\)))
+		      (concat (convert-standard-filename
+			       (substring dir 0 dlen-m-1))
+			      "/")
+		    (convert-standard-filename dir))
+		  string))))))
+
+(defun dos-8+3-filename (filename)
+  "Truncate FILENAME to DOS 8+3 limits."
+  (if (or (not (stringp filename))
+	  (< (length filename) 5))	; too short to give any trouble
+      filename
+    (let ((flen (length filename)))
+      ;; If FILENAME has a trailing slash, remove it and recurse.
+      (if (memq (aref filename (1- flen)) '(?/ ?\\))
+	  (concat (dos-8+3-filename (substring filename 0 (1- flen)))
+		  "/")
+	(let* (;; ange-ftp gets in the way for names like "/foo:bar".
+	       ;; We need to inhibit all magic file names, because
+	       ;; remote file names should never be passed through
+	       ;; this function, as they are not meant for the local
+	       ;; filesystem!
+	       (file-name-handler-alist nil)
+	       (dir
+		;; If FILENAME is "x:foo", file-name-directory returns
+		;; "x:/bar/baz", substituting the current working
+		;; directory on drive x:.  We want to be left with "x:"
+		;; instead.
+		(if (and (< 1 flen)
+			 (eq (aref filename 1) ?:)
+			 (null (string-match "[/\\]" filename)))
+		    (substring filename 0 2)
+		  (file-name-directory filename)))
+	       (dlen-m-1 (1- (length dir)))
+	       (string (copy-sequence (file-name-nondirectory filename)))
+	       (strlen (length string))
+	       (lastchar (aref string (1- strlen)))
+	       i firstdot)
+	  (setq firstdot (string-match "\\." string))
+	  (cond
+	   (firstdot
+	    ;; Truncate the extension to 3 characters.
+	    (if (> strlen (+ firstdot 4))
+		(setq string (substring string 0 (+ firstdot 4))))
+	    ;; Truncate the basename to 8 characters.
+	    (if (> firstdot 8)
+		(setq string (concat (substring string 0 8)
+				     "."
+				     (substring string (1+ firstdot))))))
+	   ((> strlen 8)
+	    ;; No dot; truncate file name to 8 characters.
+	    (setq string (substring string 0 8))))
+	  ;; If the last character of the original filename was `~',
+	  ;; make sure the munged name ends with it also.  This is so
+	  ;; a backup file retains its final `~'.
+	  (if (equal lastchar ?~)
+	      (aset string (1- (length string)) lastchar))
+	  (concat (if (and (stringp dir)
+			   (memq (aref dir dlen-m-1) '(?/ ?\\)))
+		      (concat (dos-8+3-filename (substring dir 0 dlen-m-1))
+			      "/")
+		    ;; Recurse to truncate the leading directories.
+		    (dos-8+3-filename dir))
+		  string))))))
+
+;; Make sure auto-save file names don't contain characters invalid for
+;; the underlying filesystem.  This is particularly annoying with
+;; `compose-mail's *mail* buffers: `*' is not allowed in file names on
+;; DOS/Windows, so Emacs bitches on you each time it tries to autosave
+;; the message being composed.
+(fset 'original-make-auto-save-file-name
+      (symbol-function 'make-auto-save-file-name))
+
+(defun make-auto-save-file-name ()
+  "Return file name to use for auto-saves of current buffer.
+Does not consider `auto-save-visited-file-name' as that variable is checked
+before calling this function.  You can redefine this for customization.
+See also `auto-save-file-name-p'."
+  (let ((filename (original-make-auto-save-file-name)))
+    ;; Don't modify remote (ange-ftp) filenames
+    (if (string-match "^/\\w+@[-A-Za-z0-9._]+:" filename)
+	filename
+      (convert-standard-filename filename))))
 
 ;; See dos-vars.el for defcustom.
 (defvar msdos-shells)
@@ -150,4 +271,4 @@ that your video hardware might not support 50-line mode."
 
 (provide 'dos-fns)
 
-; dos-fns.el ends here
+;;; dos-fns.el ends here

@@ -82,6 +82,8 @@ struct dynamic_library {
     char *umbrella_name;
     char *library_name;
     enum bool indirect_twolevel_ref_flagged;
+    enum bool some_non_weak_refs;
+    enum bool some_symbols_referenced;
     struct object_file *definition_obj;
     char *dylib_file; /* argument to -dylib_file "install_name:file_name" */
     struct dylib_table_of_contents *tocs;

@@ -21,7 +21,7 @@
 
 	Contains:	SSLCipherSpec declarations
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -187,7 +187,7 @@ const SSLCipherSpec SSL_NULL_WITH_NULL_NULL_CipherSpec =
 {   SSL_NULL_WITH_NULL_NULL,
     Exportable,
     SSL_NULL_auth,
-    &SSLHashNull,
+    &HashHmacNull,
     &SSLCipherNull
 };
 
@@ -208,7 +208,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA_WITH_3DES_EDE_CBC_SHA, 
 	    	NotExportable, 
 	    	SSL_RSA, 
-	    	&SSLHashSHA1, 
+	    	&HashHmacSHA1, 
 	    	&SSLCipher3DES_CBC 
 	    },
 	#endif
@@ -217,7 +217,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA_WITH_3DES_EDE_CBC_MD5, 
 	    	NotExportable, 
 	    	SSL_RSA, 
-	    	&SSLHashMD5, 
+	    	&HashHmacMD5, 
 	    	&SSLCipher3DES_CBC 
 	    },
 	#endif
@@ -226,7 +226,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA_WITH_RC4_128_SHA, 
 	    	NotExportable, 
 	    	SSL_RSA, 
-	    	&SSLHashSHA1, 
+	    	&HashHmacSHA1, 
 	    	&SSLCipherRC4_128 
 	    },
     #endif
@@ -235,7 +235,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA_WITH_RC4_128_MD5, 
 	    	NotExportable, 
 	    	SSL_RSA, 
-	    	&SSLHashMD5, 
+	    	&HashHmacMD5, 
 	    	&SSLCipherRC4_128 
 	    },
     #endif
@@ -244,7 +244,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA_WITH_DES_CBC_SHA, 
 	    	NotExportable, 
 	    	SSL_RSA, 
-	    	&SSLHashSHA1, 
+	    	&HashHmacSHA1, 
 	    	&SSLCipherDES_CBC 
 	    },
     #endif
@@ -253,7 +253,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA_WITH_DES_CBC_MD5, 
 	    	NotExportable, 
 	    	SSL_RSA, 
-	    	&SSLHashMD5, 
+	    	&HashHmacMD5, 
 	    	&SSLCipherDES_CBC 
 	    },
     #endif
@@ -263,7 +263,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 			SSL_RSA_EXPORT_WITH_RC4_40_MD5, 
 			Exportable, 
 			SSL_RSA_EXPORT, 
-			&SSLHashMD5, 
+			&HashHmacMD5, 
 			&SSLCipherRC4_40 
 		},
 	#endif
@@ -273,7 +273,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_DH_anon_WITH_RC4_128_MD5, 
 	    	NotExportable, 
 	    	SSL_DH_anon, 
-	    	&SSLHashMD5, 
+	    	&HashHmacMD5, 
 	    	&SSLCipherRC4_128 
 	    },
     #endif
@@ -282,7 +282,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA_EXPORT_WITH_DES40_CBC_SHA, 
 	    	Exportable, 
 	    	SSL_RSA_EXPORT, 
-	    	&SSLHashSHA1, 
+	    	&HashHmacSHA1, 
 	    	&SSLCipherDES40_CBC 
 	    },
 	#endif 
@@ -292,7 +292,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA_EXPORT_WITH_RC2_CBC_40_MD5, 
 	    	Exportable, 
 	    	SSL_RSA_EXPORT, 
-	    	&SSLHashMD5, 
+	    	&HashHmacMD5, 
 	    	&SSLCipherRC2_40 
 	    },
     #endif
@@ -301,7 +301,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA_WITH_RC2_CBC_MD5, 
 	    	NotExportable, 
 	    	SSL_RSA, 
-	    	&SSLHashMD5, 
+	    	&HashHmacMD5, 
 	    	&SSLCipherRC2_128 
 	    },
     #endif
@@ -309,7 +309,7 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	SSL_RSA_WITH_NULL_MD5, 
 	    	Exportable, 
 	    	SSL_RSA, 
-	    	&SSLHashMD5, 
+	    	&HashHmacMD5, 
 	    	&SSLCipherNull 
 	    }
 };
@@ -398,7 +398,7 @@ SSLGetSupportedCiphers		 (SSLContextRef		ctx,
 }
 
 /*
- * Specify a (typlically) restricted set of SSLCipherSuites to be enabled by
+ * Specify a (typically) restricted set of SSLCipherSuites to be enabled by
  * the current SSLContext. Can only be called when no session is active. Default
  * set of enabled SSLCipherSuites is the same as the complete set of supported 
  * SSLCipherSuites as obtained by SSLGetSupportedCiphers().

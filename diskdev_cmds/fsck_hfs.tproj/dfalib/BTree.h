@@ -125,7 +125,7 @@ typedef FSBufferDescriptor *FSBufferDescriptorPtr;
 
 
 
-typedef	UInt32	FSSize;
+typedef	UInt64	FSSize;
 typedef	UInt32	ForkBlockNumber;
 
 

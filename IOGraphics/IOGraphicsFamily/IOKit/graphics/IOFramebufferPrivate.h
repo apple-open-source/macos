@@ -28,38 +28,7 @@
     IOReturn setUserRanges( void );
     IOReturn getConnectFlagsForDisplayMode(
                     IODisplayModeID mode, IOIndex connection, UInt32 * flags );
-    IOReturn extGetDisplayModeCount( IOItemCount * count );
-    IOReturn extGetDisplayModes( IODisplayModeID * allModes,
-					IOByteCount * size );
-    IOReturn extSetDisplayMode( IODisplayModeID displayMode,
-                                    IOIndex depth );
-    IOReturn extGetInformationForDisplayMode(
-		IODisplayModeID mode, void * info, IOByteCount length );
 
-    IOReturn extGetVRAMMapOffset( IOPixelAperture aperture,
-				 IOByteCount * offset );
-    IOReturn extSetBounds( Bounds * bounds );
-
-    IOReturn extSetNewCursor( void * cursor, IOIndex frame,
-					IOOptionBits options );
-    IOReturn extSetCursorVisible( bool visible );
-    IOReturn extSetCursorPosition( SInt32 x, SInt32 y );
-    IOReturn extSetColorConvertTable( UInt32 select,
-                                        UInt8 * data, IOByteCount length );
-    IOReturn extSetCLUTWithEntries( UInt32 index, IOOptionBits options,
-                            IOColorEntry * colors, IOByteCount inputCount );
-    IOReturn extSetAttribute(
-            IOSelect attribute, UInt32 value, IOFramebuffer * other );
-
-    IOReturn extGetAttribute(
-            IOSelect attribute, UInt32 * value, IOFramebuffer * other );
-
-    IOReturn makeModeList( void );
-    IOReturn getDefaultMode( IOIndex connection, IODisplayModeID * mode,
-			IOIndex * depth);
-    IOReturn extValidateDetailedTiming(
-                void * description, void * outDescription,
-                IOByteCount inSize, IOByteCount * outSize );
     IOReturn beginSystemSleep( void * ackRef );
 
     static inline void StdFBDisplayCursor( IOFramebuffer * inst );
@@ -69,6 +38,9 @@
     static inline void SysHideCursor( IOFramebuffer * inst );
     static inline void SysShowCursor( IOFramebuffer * inst );
     static inline void CheckShield( IOFramebuffer * inst );
+    inline IOOptionBits _setCursorImage( UInt32 frame );
+    inline IOReturn _setCursorState( SInt32 x, SInt32 y, bool visible );
+    static void cursorWork( OSObject * p0, IOInterruptEventSource * evtSrc, int intCount );
 
     static void StdFBDisplayCursor8P(
                                     IOFramebuffer * inst,
@@ -166,20 +138,67 @@
     IOReturn notifyServer( UInt8 state );
     void notifyServerAll( UInt8 state );
     bool getIsUsable( void );
+    IOReturn postOpen( void );
     static void sleepWork( void * arg );
     static void clamshellWork( thread_call_param_t p0, thread_call_param_t p1 );
     IOOptionBits checkPowerWork( void );
+    IOReturn postWake( IOOptionBits state );
     static IOReturn systemPowerChange( void * target, void * refCon,
                                     UInt32 messageType, IOService * service,
                                     void * messageArgument, vm_size_t argSize );
 
-    IOReturn extRegisterNotificationPort(
+    // --
+
+    IOReturn extCreateSharedCursor( int shmemVersion,
+					int maxWidth, int maxHeight );
+    IOReturn extGetPixelInformation( 
+	IODisplayModeID displayMode, IOIndex depth,
+	IOPixelAperture aperture, IOPixelInformation * pixelInfo );
+    IOReturn extGetCurrentDisplayMode( 
+                            IODisplayModeID * displayMode, IOIndex * depth );
+    IOReturn extSetStartupDisplayMode( 
+                            IODisplayModeID displayMode, IOIndex depth );
+    IOReturn extSetGammaTable( 
+                            UInt32 channelCount, UInt32 dataCount,
+                            UInt32 dataWidth, void * data );
+    IOReturn extGetDisplayModeCount( IOItemCount * count );
+    IOReturn extGetDisplayModes( IODisplayModeID * allModes,
+					IOByteCount * size );
+    IOReturn extSetDisplayMode( IODisplayModeID displayMode,
+                                    IOIndex depth );
+    IOReturn extGetInformationForDisplayMode( 
+		IODisplayModeID mode, void * info, IOByteCount length );
+
+    IOReturn extGetVRAMMapOffset( IOPixelAperture aperture,
+				 IOByteCount * offset );
+    IOReturn extSetBounds( Bounds * bounds );
+
+    IOReturn extSetNewCursor( void * cursor, IOIndex frame,
+					IOOptionBits options );
+    IOReturn extSetCursorVisible( bool visible );
+    IOReturn extSetCursorPosition( SInt32 x, SInt32 y );
+    IOReturn extSetColorConvertTable( UInt32 select,
+                                        UInt8 * data, IOByteCount length );
+    IOReturn extSetCLUTWithEntries( UInt32 index, IOOptionBits options,
+                            IOColorEntry * colors, IOByteCount inputCount );
+    IOReturn extSetAttribute(
+            IOSelect attribute, UInt32 value, IOFramebuffer * other );
+    IOReturn extGetAttribute( 
+            IOSelect attribute, UInt32 * value, IOFramebuffer * other );
+    IOReturn getDefaultMode( 
+                        IOIndex connection, IODisplayModeID * mode, IOIndex * depth);
+    IOReturn extValidateDetailedTiming( 
+                void * description, void * outDescription,
+                IOByteCount inSize, IOByteCount * outSize );
+    IOReturn extRegisterNotificationPort( 
                     mach_port_t 	port,
                     UInt32		type,
                     UInt32		refCon );
     IOReturn extAcknowledgeNotification( void );
     IOReturn extSetProperties( OSDictionary * dict );
+
 public:
     static void clamshellEnable( SInt32 delta );
     static IOOptionBits clamshellState( void );
+    IOWorkLoop * getWorkLoop() const;
 protected:

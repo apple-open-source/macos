@@ -65,6 +65,23 @@ enum read_only_reloc_check_level {
     READ_ONLY_RELOC_SUPPRESS
 };
 
+/* The error level check for section difference relocs */
+enum sect_diff_reloc_check_level {
+    SECT_DIFF_RELOC_ERROR,
+    SECT_DIFF_RELOC_WARNING,
+    SECT_DIFF_RELOC_SUPPRESS
+};
+
+/* The error handling for weak reference mismatches */
+enum weak_reference_mismatches_handling {
+    WEAK_REFS_MISMATCH_ERROR,
+    WEAK_REFS_MISMATCH_WEAK,
+    WEAK_REFS_MISMATCH_NON_WEAK
+};
+
+__private_extern__ enum macosx_deployment_target_value macosx_deployment_target;
+__private_extern__ const char *macosx_deployment_target_name;
+
 /* name of this program as executed (argv[0]) */
 __private_extern__ char *progname;
 /* indication of an error set in error(), for processing a number of errors
@@ -107,10 +124,8 @@ __private_extern__
 enum bool bind_at_load;		/* mark the output for dyld to be bound
 				   when loaded */
 __private_extern__
-enum bool lazy_init;		/* mark the shared library to have its
-				   init routine to be run lazily via
-				   catching memory faults to its
-				   writeable segments */
+enum bool no_fix_prebinding;	/* mark the output for dyld to never
+				   run fix_prebinding */
 __private_extern__
 enum bool load_map;		/* print a load map */
 __private_extern__
@@ -166,16 +181,27 @@ __private_extern__ unsigned long ndylib_files;
 __private_extern__ enum undefined_check_level undefined_flag;
 
 /* The checking for (twolevel namespace) multiply defined symbols */
-__private_extern__ enum multiply_defined_check_level multiply_defined_flag;
+__private_extern__ enum multiply_defined_check_level
+    multiply_defined_flag;
+__private_extern__ enum multiply_defined_check_level
+    multiply_defined_unused_flag;
 /* the -nomultidefs option */
 __private_extern__ enum bool nomultidefs;
 
 /* The checking for read only relocs */
 __private_extern__ enum read_only_reloc_check_level read_only_reloc_flag;
 
+/* The checking for pic relocs */
+__private_extern__ enum sect_diff_reloc_check_level sect_diff_reloc_flag;
+
+/* The handling for weak reference mismatches */
+__private_extern__ enum weak_reference_mismatches_handling
+    weak_reference_mismatches;
+
 /* The prebinding optimization */
 __private_extern__ enum bool prebinding;
 __private_extern__ enum bool prebind_allow_overlap;
+__private_extern__ enum bool prebind_all_twolevel_modules;
 
 /* True if -m is specified to allow multiply symbols, as a warning */
 __private_extern__ enum bool allow_multiply_defined_symbols;
@@ -214,6 +240,11 @@ __private_extern__ enum bool stack_size_specified;
 
 /* The header pad */
 __private_extern__ unsigned long headerpad;
+/*
+ * If specified makes sure the header pad is big enough to change all the
+ * install name of the dylibs in the output to MAXPATHLEN.
+ */
+__private_extern__ enum bool headerpad_max_install_names;
 
 /* The name of the specified entry point */
 __private_extern__ char *entry_point_name;

@@ -1,5 +1,6 @@
 /* Target-machine dependent code for Hitachi H8/300, for GDB.
-   Copyright (C) 1988, 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1988, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999,
+   2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -33,6 +34,7 @@
 #include "gdbcore.h"
 #include "gdb_string.h"
 #include "value.h"
+#include "regcache.h"
 
 extern int h8300hmode, h8300smode;
 
@@ -68,8 +70,6 @@ char **h8300_register_names = original_register_names;
 
 static CORE_ADDR examine_prologue ();
 static void set_machine_hook (char *filename);
-
-void h8300_frame_find_saved_regs ();
 
 CORE_ADDR
 h8300_skip_prologue (CORE_ADDR start_pc)
@@ -432,7 +432,7 @@ h8300_frame_saved_pc (struct frame_info *frame)
 }
 
 CORE_ADDR
-frame_locals_address (struct frame_info *fi)
+h8300_frame_locals_address (struct frame_info *fi)
 {
   if (PC_IN_CALL_DUMMY (fi->pc, fi->frame, fi->frame))
     return (CORE_ADDR) 0;	/* Not sure what else to do... */
@@ -450,7 +450,7 @@ frame_locals_address (struct frame_info *fi)
    described by FI.  Returns 0 if the address is unknown.  */
 
 CORE_ADDR
-frame_args_address (struct frame_info *fi)
+h8300_frame_args_address (struct frame_info *fi)
 {
   if (PC_IN_CALL_DUMMY (fi->pc, fi->frame, fi->frame))
     return (CORE_ADDR) 0;	/* Not sure what else to do... */
@@ -609,7 +609,7 @@ h8300_push_return_address (CORE_ADDR pc, CORE_ADDR sp)
   return sp;
 }
 
-/* Function: pop_frame
+/* Function: h8300_pop_frame
    Restore the machine to the state it had before the current frame 
    was created.  Usually used either by the "RETURN" command, or by
    call_function_by_hand after the dummy_frame is finished. */
@@ -738,7 +738,7 @@ set_register_names (void)
 }
 
 static void
-h8300_command (int args, int from_tty)
+h8300_command (char *args, int from_tty)
 {
   extern int h8300hmode;
   h8300hmode = 0;
@@ -747,7 +747,7 @@ h8300_command (int args, int from_tty)
 }
 
 static void
-h8300h_command (int args, int from_tty)
+h8300h_command (char *args, int from_tty)
 {
   extern int h8300hmode;
   h8300hmode = 1;
@@ -756,7 +756,7 @@ h8300h_command (int args, int from_tty)
 }
 
 static void
-h8300s_command (int args, int from_tty)
+h8300s_command (char *args, int from_tty)
 {
   extern int h8300smode;
   extern int h8300hmode;
@@ -826,7 +826,7 @@ _initialize_h8300m (void)
 
 
 void
-print_register_hook (int regno)
+h8300_print_register_hook (int regno)
 {
   if (regno == 8)
     {

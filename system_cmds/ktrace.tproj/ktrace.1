@@ -30,28 +30,29 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)ktrace.1	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD: src/usr.bin/ktrace/ktrace.1,v 1.8.2.5 2001/08/16 13:16:53 ru Exp $
 .\"
 .Dd June 6, 1993
 .Dt KTRACE 1
-.Os BSD 4.4
+.Os
 .Sh NAME
 .Nm ktrace
 .Nd enable kernel process tracing
 .Sh SYNOPSIS
-.Nm ktrace
+.Nm
 .Op Fl aCcdi
 .Op Fl f Ar trfile
-.Op Fl g Ar pgrp
-.Op Fl p Ar pid
+.Op Fl g Ar pgrp | Fl p Ar pid
 .Op Fl t Ar trstr
-.Nm ktrace
+.Nm
 .Op Fl adi
 .Op Fl f Ar trfile
 .Op Fl t Ar trstr
-command
+.Ar command
 .Sh DESCRIPTION
-.Nm Ktrace
-enables kernel trace logging for the specified processes.
+The
+.Nm
+command enables kernel trace logging for the specified processes.
 Kernel trace data is logged to the file
 .Pa ktrace.out .
 The kernel operations that are traced include system calls, namei
@@ -66,7 +67,7 @@ attempting to trace a process.
 The following command is sufficient to disable tracing on all user owned
 processes, and, if executed by root, all processes:
 .Pp
-.Dl \&$ trace -C
+.Dl \&$ ktrace -C
 .Pp
 The trace file is not human readable; use
 .Xr kdump 1
@@ -75,7 +76,7 @@ to decode it.
 The options are as follows:
 .Bl -tag -width indent
 .It Fl a
-Append to the trace file instead of truncating it.
+Append to the trace file instead of recreating it.
 .It Fl C
 Disable tracing on all user owned processes, and, if executed by root, all
 processes in the system.
@@ -84,23 +85,23 @@ Clear the trace points associated with the specified file or processes.
 .It Fl d
 Descendants; perform the operation for all current children of the
 designated processes.
-.It Fl f Ar file 
+.It Fl f Ar file
 Log trace records to
 .Ar file
 instead of
 .Pa ktrace.out .
-.It Fl g Ar pgid 
+.It Fl g Ar pgid
 Enable (disable) tracing on all processes in the process group (only one
 .Fl g
 flag is permitted).
 .It Fl i
 Inherit; pass the trace flags to all future children of the designated
 processes.
-.It Fl p Ar pid 
+.It Fl p Ar pid
 Enable (disable) tracing on the indicated process id (only one
 .Fl p
 flag is permitted).
-.It Fl t Ar trstr 
+.It Fl t Ar trstr
 The string argument represents the kernel trace points, one per letter.
 The following table equates the letters with the tracepoints:
 .Pp
@@ -114,6 +115,10 @@ trace
 .Tn I/O
 .It Cm s
 trace signal processing
+.It Cm u
+userland traces
+.It Cm w
+context switches
 .El
 .It Ar command
 Execute
@@ -156,8 +161,12 @@ on process 67
 .Dl $ ktrace -C
 .Sh SEE ALSO
 .Xr kdump 1
+.Sh BUGS
+Only works if
+.Ar file
+is a regular file.
 .Sh HISTORY
 The
-.Nm ktrace
-command appears in
+.Nm
+command appeared in
 .Bx 4.4 .

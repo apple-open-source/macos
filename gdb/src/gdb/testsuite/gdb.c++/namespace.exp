@@ -1,4 +1,4 @@
-# Copyright (C) 1997, 1998 Free Software Foundation, Inc.
+# Copyright 1997, 1998, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
+if { [skip_cplus_tests] } { continue }
 
 set testfile "namespace"
 set srcfile ${testfile}.cc
@@ -67,26 +68,19 @@ if ![runto_main] then {
     continue
 }
 
-send_gdb "break marker1\n" ; gdb_expect -re ".*$gdb_prompt $"
-    send_gdb "cont\n"
-    gdb_expect {
-        -re "Break.* marker1 \\(\\) at .*:$decimal.*$gdb_prompt $" {
-            send_gdb "up\n"
-            gdb_expect {
-                -re ".*$gdb_prompt $" { pass "up from marker1" }
-                timeout { fail "up from marker1" }
-            }
-        }
-        -re "$gdb_prompt $" { fail "continue to marker1"  }
-        timeout { fail "(timeout) continue to marker1"  }
-    }
+if ![runto 'marker1'] then {
+    perror "couldn't run to marker1"
+    continue
+}
+
+gdb_test "up" ".*main.*" "up from marker1"
 
 # Access a data item inside a namespace using colons and
 # single quotes :-(
 
 send_gdb "print 'AAA::c'\n"
 gdb_expect {
-   -re "\\$\[0-9\]* = 0 '\\\\000'\r\n$gdb_prompt $" { pass "print 'AAA::c'" }
+   -re "\\$\[0-9\]* = 0 '\\\\(0|000)'\r\n$gdb_prompt $" { pass "print 'AAA::c'" }
    -re ".*$gdb_prompt $" { fail "print 'AAA::c'" }
    timeout { fail "(timeout) print 'AAA::c'" }
 }
@@ -117,6 +111,9 @@ setup_xfail hppa*-*-*11* CLLbs14869
 send_gdb "info func xyzq\n"
 gdb_expect {
    -re "All functions.*File.*namespace.cc:\r\nint AAA::A_xyzq\\(int\\);\r\nint BBB::B_xyzq\\(int\\);\r\nchar AAA::xyzq\\(char\\);\r\nchar BBB::xyzq\\(char\\);\r\nchar BBB::CCC::xyzq\\(char\\);\r\nchar BBB::Class::xyzq\\(char\\);\r\n$gdb_prompt $" {
+       pass "info func xyzq"
+   }    
+   -re "All functions.*File.*namespace.cc:\r\nint AAA::A_xyzq\\(int\\);\r\nchar AAA::xyzq\\(char\\);\r\nint BBB::B_xyzq\\(int\\);\r\nchar BBB::CCC::xyzq\\(char\\);\r\nchar BBB::Class::xyzq\\(char\\);\r\nchar BBB::xyzq\\(char\\);\r\n$gdb_prompt $" {
        pass "info func xyzq"
    }    
    -re ".*$gdb_prompt $" { fail "info func xyzq" }
@@ -171,11 +168,11 @@ gdb_expect {
 
 send_gdb "print 'BBB::Class::xyzq'\n"
 gdb_expect {
-   -re "\\$\[0-9\]* = \{char \\((BBB::|)Class \\*, (char|int)\\)\} $hex <BBB::Class::xyzq\\(char\\)>\r\n$gdb_prompt $" {
-       pass "print 'BBB::Class'::xyzq"
+   -re "\\$\[0-9\]* = \{char \\((BBB::|)Class \\*( const|), (char|int)\\)\} $hex <BBB::Class::xyzq\\(char\\)>\r\n$gdb_prompt $" {
+       pass "print 'BBB::Class::xyzq'"
    }
-   -re ".*$gdb_prompt $" { fail "print 'BBB::Class'::xyzq" }
-   timeout { fail "(timeout) print 'BBB::Class'::xyzq" }
+   -re ".*$gdb_prompt $" { fail "print 'BBB::Class::xyzq'" }
+   timeout { fail "(timeout) print 'BBB::Class::xyzq'" }
 }
 
 # Break on a function in a class in a namespace

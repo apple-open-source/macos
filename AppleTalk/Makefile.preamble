@@ -128,10 +128,10 @@ OTHER_HELP_DIRS =
 
 # Don't add more rules here unless you want the first one to be the default
 # target for make!  Put all your targets in Makefile.postamble.
-include /System/Developer/Makefiles/CoreOS/ProjectBuilder/Makefile.Preamble.Common
+#include /System/Developer/Makefiles/CoreOS/ProjectBuilder/Makefile.Preamble.Common
 MANDIR = /usr/local/share/man
 
-AFTER_INSTALL += install_compat
+AFTER_INSTALL += install_compat remove-header-link
 
 # Additional build flags
 ifeq "$(PLATFORM_OS)" "macos"

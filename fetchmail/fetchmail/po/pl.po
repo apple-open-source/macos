@@ -452,16 +452,16 @@ msgstr "%s: nie mogê znale¼æ nazwy twojego hosta!"
 msgid "gethostbyname failed for %s\n"
 msgstr "gethostbyname zwróci³o b³±d dla %s\n"
 
-#: error.c:101
+#: report.c:101
 msgid "Unknown system error"
 msgstr "Nieznany b³±d systemu"
 
-#: error.c:128
+#: report.c:128
 #, c-format
 msgid "%s (log message incomplete)"
 msgstr "%s (tworzenie listy informacyjnego nie zosta³o zakoñczone)"
 
-#: error.c:286 error.c:314 error.c:386 error.c:414
+#: report.c:286 report.c:314 report.c:386 report.c:414
 msgid "partial error message buffer overflow"
 msgstr "przepe³nienie bufora podczas tworzenia czê¶ci komunikatu o b³êdzie"
 
@@ -735,7 +735,7 @@ msgstr ""
 #: fetchmail.c:1138
 #, c-format
 msgid "couldn't find canonical DNS name of %s\n"
-msgstr "nie mogê znale¼æ kanoniecznej nazwy %s\n"
+msgstr "nie mogê znale¼æ kanonicznej nazwy %s\n"
 
 #: fetchmail.c:1162
 #, c-format

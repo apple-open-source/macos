@@ -78,7 +78,7 @@ public:
     public:
     	Maker() : AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_PROCESS) { }
     	ProcessAclSubject *make(const TypedList &list) const;
-    	ProcessAclSubject *make(Reader &pub, Reader &priv) const;
+    	ProcessAclSubject *make(Version, Reader &pub, Reader &priv) const;
     };
 
 private:

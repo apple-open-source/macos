@@ -3,7 +3,7 @@
  *
  * This file is part of zsh, the Z shell.
  *
- * Copyright (c) 1992-1996 Paul Falstad
+ * Copyright (c) 1992-1997 Paul Falstad
  * All rights reserved.
  *
  * Permission is hereby granted, without written agreement and without
@@ -27,9 +27,175 @@
  *
  */
 
-#include "zsh.h"
+#include "zsh.mdh"
+#include "builtin.pro"
 
-static void printoptions _((int set));
+/* Builtins in the main executable */
+
+static struct builtin builtins[] =
+{
+    BIN_PREFIX("-", BINF_DASH),
+    BIN_PREFIX("builtin", BINF_BUILTIN),
+    BIN_PREFIX("command", BINF_COMMAND),
+    BIN_PREFIX("exec", BINF_EXEC),
+    BIN_PREFIX("noglob", BINF_NOGLOB),
+    BUILTIN("[", 0, bin_test, 0, -1, BIN_BRACKET, NULL, NULL),
+    BUILTIN(".", BINF_PSPECIAL, bin_dot, 1, -1, 0, NULL, NULL),
+    BUILTIN(":", BINF_PSPECIAL, bin_true, 0, -1, 0, NULL, NULL),
+    BUILTIN("alias", BINF_MAGICEQUALS | BINF_PLUSOPTS, bin_alias, 0, -1, 0, "Lgmr", NULL),
+    BUILTIN("autoload", BINF_TYPEOPTS, bin_functions, 0, -1, 0, "tUXwkz", "u"),
+    BUILTIN("bg", 0, bin_fg, 0, -1, BIN_BG, NULL, NULL),
+    BUILTIN("break", BINF_PSPECIAL, bin_break, 0, 1, BIN_BREAK, NULL, NULL),
+    BUILTIN("bye", 0, bin_break, 0, 1, BIN_EXIT, NULL, NULL),
+    BUILTIN("cd", 0, bin_cd, 0, 2, BIN_CD, NULL, NULL),
+    BUILTIN("chdir", 0, bin_cd, 0, 2, BIN_CD, NULL, NULL),
+    BUILTIN("continue", BINF_PSPECIAL, bin_break, 0, 1, BIN_CONTINUE, NULL, NULL),
+    BUILTIN("declare", BINF_TYPEOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, 0, "AEFHLRTUZafghilrtux", NULL),
+    BUILTIN("dirs", 0, bin_dirs, 0, -1, 0, "v", NULL),
+    BUILTIN("disable", 0, bin_enable, 0, -1, BIN_DISABLE, "afmr", NULL),
+    BUILTIN("disown", 0, bin_fg, 0, -1, BIN_DISOWN, NULL, NULL),
+    BUILTIN("echo", BINF_PRINTOPTS | BINF_ECHOPTS, bin_print, 0, -1, BIN_ECHO, "neE", "-"),
+    BUILTIN("emulate", 0, bin_emulate, 1, 1, 0, "LR", NULL),
+    BUILTIN("enable", 0, bin_enable, 0, -1, BIN_ENABLE, "afmr", NULL),
+    BUILTIN("eval", BINF_PSPECIAL, bin_eval, 0, -1, BIN_EVAL, NULL, NULL),
+    BUILTIN("exit", BINF_PSPECIAL, bin_break, 0, 1, BIN_EXIT, NULL, NULL),
+    BUILTIN("export", BINF_TYPEOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, BIN_EXPORT, "EFHLRTUZafhilrtu", "xg"),
+    BUILTIN("false", 0, bin_false, 0, -1, 0, NULL, NULL),
+    BUILTIN("fc", BINF_FCOPTS, bin_fc, 0, -1, BIN_FC, "nlreIRWAdDfEim", NULL),
+    BUILTIN("fg", 0, bin_fg, 0, -1, BIN_FG, NULL, NULL),
+    BUILTIN("float", BINF_TYPEOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, 0, "EFHghlrtux", "E"),
+    BUILTIN("functions", BINF_TYPEOPTS, bin_functions, 0, -1, 0, "mtuU", NULL),
+    BUILTIN("getln", 0, bin_read, 0, -1, 0, "ecnAlE", "zr"),
+    BUILTIN("getopts", 0, bin_getopts, 2, -1, 0, NULL, NULL),
+    BUILTIN("hash", BINF_MAGICEQUALS, bin_hash, 0, -1, 0, "Ldfmrv", NULL),
+
+#ifdef ZSH_HASH_DEBUG
+    BUILTIN("hashinfo", 0, bin_hashinfo, 0, 0, 0, NULL, NULL),
+#endif
+
+    BUILTIN("history", 0, bin_fc, 0, -1, BIN_FC, "nrdDfEim", "l"),
+    BUILTIN("integer", BINF_TYPEOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, 0, "Hghilrtux", "i"),
+    BUILTIN("jobs", 0, bin_fg, 0, -1, BIN_JOBS, "dlpZrs", NULL),
+    BUILTIN("kill", 0, bin_kill, 0, -1, 0, NULL, NULL),
+    BUILTIN("let", 0, bin_let, 1, -1, 0, NULL, NULL),
+    BUILTIN("local", BINF_TYPEOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, 0, "AEFHLRTUZahilrtux", NULL),
+    BUILTIN("log", 0, bin_log, 0, 0, 0, NULL, NULL),
+    BUILTIN("logout", 0, bin_break, 0, 1, BIN_LOGOUT, NULL, NULL),
+
+#if defined(ZSH_MEM) & defined(ZSH_MEM_DEBUG)
+    BUILTIN("mem", 0, bin_mem, 0, 0, 0, "v", NULL),
+#endif
+
+#if defined(ZSH_PAT_DEBUG)
+    BUILTIN("patdebug", 0, bin_patdebug, 1, -1, 0, "p", NULL),
+#endif
+
+    BUILTIN("popd", 0, bin_cd, 0, 2, BIN_POPD, NULL, NULL),
+    BUILTIN("print", BINF_PRINTOPTS, bin_print, 0, -1, BIN_PRINT, "RDPbnrslzNu0123456789pioOcm-", NULL),
+    BUILTIN("pushd", 0, bin_cd, 0, 2, BIN_PUSHD, NULL, NULL),
+    BUILTIN("pushln", BINF_PRINTOPTS, bin_print, 0, -1, BIN_PRINT, NULL, "-nz"),
+    BUILTIN("pwd", 0, bin_pwd, 0, 0, 0, "rLP", NULL),
+    BUILTIN("r", BINF_R, bin_fc, 0, -1, BIN_FC, "nrl", NULL),
+    BUILTIN("read", 0, bin_read, 0, -1, 0, "ceklnpqrtzuAE0123456789", NULL),
+    BUILTIN("readonly", BINF_TYPEOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, 0, "AEFHLRTUZafghiltux", "r"),
+    BUILTIN("rehash", 0, bin_hash, 0, 0, 0, "df", "r"),
+    BUILTIN("return", BINF_PSPECIAL, bin_break, 0, 1, BIN_RETURN, NULL, NULL),
+    BUILTIN("set", BINF_PSPECIAL, bin_set, 0, -1, 0, NULL, NULL),
+    BUILTIN("setopt", 0, bin_setopt, 0, -1, BIN_SETOPT, NULL, NULL),
+    BUILTIN("shift", BINF_PSPECIAL, bin_shift, 0, -1, 0, NULL, NULL),
+    BUILTIN("source", BINF_PSPECIAL, bin_dot, 1, -1, 0, NULL, NULL),
+    BUILTIN("suspend", 0, bin_suspend, 0, 0, 0, "f", NULL),
+    BUILTIN("test", 0, bin_test, 0, -1, BIN_TEST, NULL, NULL),
+    BUILTIN("ttyctl", 0, bin_ttyctl, 0, 0, 0, "fu", NULL),
+    BUILTIN("times", BINF_PSPECIAL, bin_times, 0, 0, 0, NULL, NULL),
+    BUILTIN("trap", BINF_PSPECIAL, bin_trap, 0, -1, 0, NULL, NULL),
+    BUILTIN("true", 0, bin_true, 0, -1, 0, NULL, NULL),
+    BUILTIN("type", 0, bin_whence, 0, -1, 0, "ampfsw", "v"),
+    BUILTIN("typeset", BINF_TYPEOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, 0, "AEFHLRTUZafghilrtuxm", NULL),
+    BUILTIN("umask", 0, bin_umask, 0, 1, 0, "S", NULL),
+    BUILTIN("unalias", 0, bin_unhash, 1, -1, 0, "m", "a"),
+    BUILTIN("unfunction", 0, bin_unhash, 1, -1, 0, "m", "f"),
+    BUILTIN("unhash", 0, bin_unhash, 1, -1, 0, "adfm", NULL),
+    BUILTIN("unset", BINF_PSPECIAL, bin_unset, 1, -1, 0, "fm", NULL),
+    BUILTIN("unsetopt", 0, bin_setopt, 0, -1, BIN_UNSETOPT, NULL, NULL),
+    BUILTIN("wait", 0, bin_fg, 0, -1, BIN_WAIT, NULL, NULL),
+    BUILTIN("whence", 0, bin_whence, 0, -1, 0, "acmpvfsw", NULL),
+    BUILTIN("where", 0, bin_whence, 0, -1, 0, "pmsw", "ca"),
+    BUILTIN("which", 0, bin_whence, 0, -1, 0, "ampsw", "c"),
+    BUILTIN("zmodload", 0, bin_zmodload, 0, -1, 0, "ARILabcfdipue", NULL),
+    BUILTIN("zcompile", 0, bin_zcompile, 0, -1, 0, "tUMRcmzka", NULL),
+};
+
+/****************************************/
+/* Builtin Command Hash Table Functions */
+/****************************************/
+
+/* hash table containing builtin commands */
+
+/**/
+mod_export HashTable builtintab;
+ 
+/**/
+void
+createbuiltintable(void)
+{
+    builtintab = newhashtable(85, "builtintab", NULL);
+
+    builtintab->hash        = hasher;
+    builtintab->emptytable  = NULL;
+    builtintab->filltable   = NULL;
+    builtintab->cmpnodes    = strcmp;
+    builtintab->addnode     = addhashnode;
+    builtintab->getnode     = gethashnode;
+    builtintab->getnode2    = gethashnode2;
+    builtintab->removenode  = removehashnode;
+    builtintab->disablenode = disablehashnode;
+    builtintab->enablenode  = enablehashnode;
+    builtintab->freenode    = freebuiltinnode;
+    builtintab->printnode   = printbuiltinnode;
+
+    addbuiltins("zsh", builtins, sizeof(builtins)/sizeof(*builtins));
+}
+
+/* Print a builtin */
+
+/**/
+static void
+printbuiltinnode(HashNode hn, int printflags)
+{
+    Builtin bn = (Builtin) hn;
+
+    if (printflags & PRINT_WHENCE_WORD) {
+	printf("%s: builtin\n", bn->nam);
+	return;
+    }
+
+    if (printflags & PRINT_WHENCE_CSH) {
+	printf("%s: shell built-in command\n", bn->nam);
+	return;
+    }
+
+    if (printflags & PRINT_WHENCE_VERBOSE) {
+	printf("%s is a shell builtin\n", bn->nam);
+	return;
+    }
+
+    /* default is name only */
+    printf("%s\n", bn->nam);
+}
+
+/**/
+static void
+freebuiltinnode(HashNode hn)
+{
+    Builtin bn = (Builtin) hn;
+ 
+    if(!(bn->flags & BINF_ADDED)) {
+	zsfree(bn->nam);
+	zsfree(bn->optstr);
+	zfree(bn, sizeof(struct builtin));
+    }
+}
 
 static char *auxdata;
 static int auxlen;
@@ -43,9 +209,10 @@ int
 execbuiltin(LinkList args, Builtin bn)
 {
     LinkNode n;
-    char ops[MAX_OPS], *arg, *pp, *name, **argv, **oargv, *optstr;
+    char ops[MAX_OPS], *arg, *pp, *name, *optstr;
     char *oxarg, *xarg = NULL;
-    int flags, sense, argc = 0, execop;
+    char typenumstr[] = TYPESET_OPTNUM;
+    int flags, sense, argc = 0, execop, xtr = isset(XTRACE), lxarg = 0;
 
     /* initialise some static variables */
     auxdata = NULL;
@@ -57,6 +224,11 @@ execbuiltin(LinkList args, Builtin bn)
 
     arg = (char *) ugetnode(args);
 
+    if (!bn->handlerfunc) {
+	zwarnnam(name, "autoload failed", NULL, 0);
+	deletebuiltin(bn->nam);
+	return 1;
+    }
     /* get some information about the command */
     flags = bn->flags;
     optstr = bn->optstr;
@@ -78,12 +250,21 @@ execbuiltin(LinkList args, Builtin bn)
 		    break;
 	    }
 	    /* save the options in xarg, for execution tracing */
-	    if (xarg) {
-		oxarg = tricat(xarg, " ", arg);
-		zsfree(xarg);
-		xarg = oxarg;
-	    } else
-		xarg = ztrdup(arg);
+	    if (xtr) {
+		if (xarg) {
+		    int l = strlen(arg) + lxarg + 1;
+
+		    oxarg = zhalloc(l + 1);
+		    strcpy(oxarg, xarg);
+		    oxarg[lxarg] = ' ';
+		    strcpy(oxarg + lxarg + 1, arg);
+		    xarg = oxarg;
+		    lxarg = l + 1;
+		} else {
+		    xarg = dupstring(arg);
+		    lxarg = strlen(xarg);
+		}
+	    }
 	    /* handle -- or - (ops['-']), and + (ops['-'] and ops['+']) */
 	    if (arg[1] == '-')
 		arg++;
@@ -102,16 +283,14 @@ execbuiltin(LinkList args, Builtin bn)
 	    /* "typeset" may take a numeric argument *
 	     * at the tail of the options            */
 	    if (idigit(*arg) && (flags & BINF_TYPEOPT) &&
-		(arg[-1] == 'L' || arg[-1] == 'R' ||
-		 arg[-1] == 'Z' || arg[-1] == 'i'))
+		strchr(typenumstr, arg[-1]))
 		auxlen = (int)zstrtol(arg, &arg, 10);
 	    /* The above loop may have exited on an invalid option.  (We  *
 	     * assume that any option requiring metafication is invalid.) */
 	    if (*arg) {
 		if(*arg == Meta)
 		    *++arg ^= 32;
-		zerr("bad option: -%c", NULL, *arg);
-		zsfree(xarg);
+		zwarn("bad option: -%c", NULL, *arg);
 		return 1;
 	    }
 	    arg = (char *) ugetnode(args);
@@ -129,9 +308,9 @@ execbuiltin(LinkList args, Builtin bn)
 		auxdata = arg;
 		arg = (char *) ugetnode(args);
 	    }
-	    /* for "typeset", -L, -R, -Z and -i take a numeric extra argument */
-	    if ((flags & BINF_TYPEOPT) && (execop == 'L' || execop == 'R' ||
-		execop == 'Z' || execop == 'i') && arg && idigit(*arg)) {
+	    /* some "typeset" options take a numeric extra argument */
+	    if ((flags & BINF_TYPEOPT) && strchr(typenumstr, execop) &&
+		arg && idigit(*arg)) {
 		auxlen = atoi(arg);
 		arg = (char *) ugetnode(args);
 	    }
@@ -151,39 +330,42 @@ execbuiltin(LinkList args, Builtin bn)
 	while (n)
 	    argc++, incnode(n);
     }
-    /* Get the actual arguments, into argv.  Oargv saves the *
-     * beginning of the array for later reference.           */
-    oargv = argv = (char **)ncalloc(sizeof(char **) * (argc + 1));
-    if ((*argv++ = arg))
-	while ((*argv++ = (char *)ugetnode(args)));
-    argv = oargv;
-    if (errflag) {
-	zsfree(xarg);
-	errflag = 0;
-	return 1;
-    }
+    {
+	VARARR(char *, argarr, (argc + 1));
+	char **argv, **oargv;
 
-    /* check that the argument count lies within the specified bounds */
-    if (argc < bn->minargs || (argc > bn->maxargs && bn->maxargs != -1)) {
-	zwarnnam(name, (argc < bn->minargs)
-		? "not enough arguments" : "too many arguments", NULL, 0);
-	zsfree(xarg);
-	return 1;
-    }
+	/* Get the actual arguments, into argv.  Oargv saves the *
+	 * beginning of the array for later reference.           */
+	oargv = argv = argarr;
+	if ((*argv++ = arg))
+	    while ((*argv++ = (char *)ugetnode(args)));
+	argv = oargv;
+	if (errflag) {
+	    errflag = 0;
+	    return 1;
+	}
 
-    /* display execution trace information, if required */
-    if (isset(XTRACE)) {
-	fprintf(xtrerr, "%s%s", (prompt4) ? prompt4 : "", name);
-	if (xarg)
-	    fprintf(xtrerr, " %s", xarg);
-	while (*oargv)
-	    fprintf(xtrerr, " %s", *oargv++);
-	fputc('\n', xtrerr);
-	fflush(xtrerr);
+	/* check that the argument count lies within the specified bounds */
+	if (argc < bn->minargs || (argc > bn->maxargs && bn->maxargs != -1)) {
+	    zwarnnam(name, (argc < bn->minargs)
+		     ? "not enough arguments" : "too many arguments", NULL, 0);
+	    return 1;
+	}
+
+	/* display execution trace information, if required */
+	if (xtr) {
+	    printprompt4();
+	    fprintf(xtrerr, "%s", name);
+	    if (xarg)
+		fprintf(xtrerr, " %s", xarg);
+	    while (*oargv)
+		fprintf(xtrerr, " %s", *oargv++);
+	    fputc('\n', xtrerr);
+	    fflush(xtrerr);
+	}
+	/* call the handler function, and return its return value */
+	return (*(bn->handlerfunc)) (name, argv, ops, bn->funcid);
     }
-    zsfree(xarg);
-    /* call the handler function, and return its return value */
-    return (*(bn->handlerfunc)) (name, argv, ops, bn->funcid);
 }
 
 /* Enable/disable an element in one of the internal hash tables.  *
@@ -197,7 +379,7 @@ bin_enable(char *name, char **argv, char *ops, int func)
     HashTable ht;
     HashNode hn;
     ScanFunc scanfunc;
-    Comp com;
+    Patprog pprog;
     int flags1 = 0, flags2 = 0;
     int match = 0, returnval = 0;
 
@@ -225,7 +407,9 @@ bin_enable(char *name, char **argv, char *ops, int func)
      * print nodes NOT containing the DISABLED flag, else scanhashtable will *
      * print nodes containing the DISABLED flag.                             */
     if (!*argv) {
+	queue_signals();
 	scanhashtable(ht, 1, flags1, flags2, ht->printnode, 0);
+	unqueue_signals();
 	return 0;
     }
 
@@ -234,8 +418,11 @@ bin_enable(char *name, char **argv, char *ops, int func)
 	for (; *argv; argv++) {
 	    /* parse pattern */
 	    tokenize(*argv);
-	    if ((com = parsereg(*argv)))
-		match += scanmatchtable(ht, com, 0, 0, scanfunc, 0);
+	    if ((pprog = patcompile(*argv, PAT_STATIC, 0))) {
+		queue_signals();
+		match += scanmatchtable(ht, pprog, 0, 0, scanfunc, 0);
+		unqueue_signals();
+	    }
 	    else {
 		untokenize(*argv);
 		zwarnnam(name, "bad pattern : %s", *argv, 0);
@@ -249,6 +436,7 @@ bin_enable(char *name, char **argv, char *ops, int func)
     }
 
     /* Take arguments literally -- do not glob */
+    queue_signals();
     for (; *argv; argv++) {
 	    if ((hn = ht->getnode2(ht, *argv))) {
 		scanfunc(hn, 0);
@@ -257,6 +445,7 @@ bin_enable(char *name, char **argv, char *ops, int func)
 		returnval = 1;
 	    }
 	}
+    unqueue_signals();
     return returnval;
 }
 
@@ -329,6 +518,7 @@ bin_set(char *nam, char **args, char *ops, int func)
     inittyptab();
 
     /* Show the parameters, possibly with values */
+    queue_signals();
     if (!hadopt && !*args)
 	scanhashtable(paramtab, 1, 0, 0, paramtab->printnode,
 	    hadplus ? PRINT_NAMEONLY : 0);
@@ -338,8 +528,10 @@ bin_set(char *nam, char **args, char *ops, int func)
 	scanhashtable(paramtab, 1, PM_ARRAY, 0, paramtab->printnode,
 	    hadplus ? PRINT_NAMEONLY : 0);
     }
-    if (!*args && !hadend)
+    if (!*args && !hadend) {
+	unqueue_signals();
 	return 0;
+    }
     if (array)
 	args++;
     if (sort)
@@ -366,572 +558,15 @@ bin_set(char *nam, char **args, char *ops, int func)
     } else {
 	/* set shell arguments */
 	freearray(pparams);
-	PERMALLOC {
-	    pparams = arrdup(args);
-	} LASTALLOC;
+	pparams = zarrdup(args);
     }
+    unqueue_signals();
     return 0;
-}
-
-/* setopt, unsetopt */
-
-/**/
-int
-bin_setopt(char *nam, char **args, char *ops, int isun)
-{
-    int action, optno, match = 0;
-
-    /* With no arguments or options, display options.  The output *
-     * format is determined by the printoptions function (below). */
-    if (!*args) {
-	printoptions(!isun);
-	return 0;
-    }
-
-    /* loop through command line options (begins with "-" or "+") */
-    while (*args && (**args == '-' || **args == '+')) {
-	action = (**args == '-') ^ isun;
-	if(!args[0][1])
-	    *args = "--";
-	while (*++*args) {
-	    if(**args == Meta)
-		*++*args ^= 32;
-	    /* The pseudo-option `--' signifies the end of options. */
-	    if (**args == '-') {
-		args++;
-		goto doneoptions;
-	    } else if (**args == 'o') {
-		if (!*++*args)
-		    args++;
-		if (!*args) {
-		    zwarnnam(nam, "string expected after -o", NULL, 0);
-		    inittyptab();
-		    return 1;
-		}
-		if(!(optno = optlookup(*args)))
-		    zwarnnam(nam, "no such option: %s", *args, 0);
-		else if(dosetopt(optno, action, 0))
-		    zwarnnam(nam, "can't change option: %s", *args, 0);
-		break;
-	    } else if(**args == 'm') {
-		match = 1;
-	    } else {
-	    	if (!(optno = optlookupc(**args)))
-		    zwarnnam(nam, "bad option: -%c", NULL, **args);
-		else if(dosetopt(optno, action, 0))
-		    zwarnnam(nam, "can't change option: -%c", NULL, **args);
-	    }
-	}
-	args++;
-    }
-    doneoptions:
-
-    if (!match) {
-	/* Not globbing the arguments -- arguments are simply option names. */
-	while (*args) {
-	    if(!(optno = optlookup(*args++)))
-		zwarnnam(nam, "no such option: %s", args[-1], 0);
-	    else if(dosetopt(optno, !isun, 0))
-		zwarnnam(nam, "can't change option: %s", args[-1], 0);
-	}
-    } else {
-	/* Globbing option (-m) set. */
-	while (*args) {
-	    Comp com;
-
-	    /* Expand the current arg. */
-	    tokenize(*args);
-	    if (!(com = parsereg(*args))) {
-		untokenize(*args);
-		zwarnnam(nam, "bad pattern: %s", *args, 0);
-		continue;
-	    }
-	    /* Loop over expansions. */
-	    for(optno = OPT_SIZE; --optno; )
-		if (optno != PRIVILEGED && domatch(optns[optno].name, com, 0))
-	    	    dosetopt(optno, !isun, 0);
-	    args++;
-	}
-    }
-    inittyptab();
-    return 0;
-}
-
-/* print options */
-
-static void
-printoptions(int set)
-{
-    int optno;
-
-    if (isset(KSHOPTIONPRINT)) {
-	/* ksh-style option display -- list all options, *
-	 * with an indication of current status          */
-	printf("Current option settings\n");
-	for(optno = 1; optno < OPT_SIZE; optno++) {
-	    if (defset(optno))
-		printf("no%-20s%s\n", optns[optno].name, isset(optno) ? "off" : "on");
-	    else
-		printf("%-22s%s\n", optns[optno].name, isset(optno) ? "on" : "off");
-	}
-    } else {
-	/* list all options that are on, or all that are off */
-	for(optno = 1; optno < OPT_SIZE; optno++) {
-	    if (set == (isset(optno) ^ defset(optno))) {
-		if (set ^ isset(optno))
-		    fputs("no", stdout);
-		puts(optns[optno].name);
-	    }
-	}
-    }
-}
-
-/**** job control builtins ****/
-
-/* Make sure we have a suitable current and previous job set. */
-
-static void
-setcurjob(void)
-{
-    if (curjob == thisjob ||
-	(curjob != -1 && !(jobtab[curjob].stat & STAT_INUSE))) {
-	curjob = prevjob;
-	setprevjob();
-	if (curjob == thisjob ||
-	    (curjob != -1 && !((jobtab[curjob].stat & STAT_INUSE) &&
-			       curjob != thisjob))) {
-	    curjob = prevjob;
-	    setprevjob();
-	}
-    }
-}
-
-/* bg, disown, fg, jobs, wait: most of the job control commands are     *
- * here.  They all take the same type of argument.  Exception: wait can *
- * take a pid or a job specifier, whereas the others only work on jobs. */
-
-/**/
-int
-bin_fg(char *name, char **argv, char *ops, int func)
-{
-    int job, lng, firstjob = -1, retval = 0;
-
-    if (ops['Z']) {
-	if (*argv)
-	    strcpy(hackzero, *argv);
-	return 0;
-    }
-
-    lng = (ops['l']) ? 1 : (ops['p']) ? 2 : 0;
-    if ((func == BIN_FG || func == BIN_BG) && !jobbing) {
-	/* oops... maybe bg and fg should have been disabled? */
-	zwarnnam(name, "no job control in this shell.", NULL, 0);
-	return 1;
-    }
-
-    /* If necessary, update job table. */
-    if (unset(NOTIFY))
-	scanjobs();
-
-    setcurjob();
-
-    if (func == BIN_JOBS)
-        /* If you immediately type "exit" after "jobs", this      *
-         * will prevent zexit from complaining about stopped jobs */
-	stopmsg = 2;
-    if (!*argv) {
-	/* This block handles all of the default cases (no arguments).  bg,
-	fg and disown act on the current job, and jobs and wait act on all the
-	jobs. */
- 	if (func == BIN_FG || func == BIN_BG || func == BIN_DISOWN) {
-	    /* W.r.t. the above comment, we'd better have a current job at this
-	    point or else. */
-	    if (curjob == -1 || (jobtab[curjob].stat & STAT_NOPRINT)) {
-		zwarnnam(name, "no current job", NULL, 0);
-		return 1;
-	    }
-	    firstjob = curjob;
-	} else if (func == BIN_JOBS) {
-	    /* List jobs. */
-	    for (job = 0; job != MAXJOB; job++)
-		if (job != thisjob && jobtab[job].stat) {
-		    if ((!ops['r'] && !ops['s']) ||
-			(ops['r'] && ops['s']) ||
-			(ops['r'] && !(jobtab[job].stat & STAT_STOPPED)) ||
-			(ops['s'] && jobtab[job].stat & STAT_STOPPED))
-			printjob(job + jobtab, lng, 2);
-		}
-	    return 0;
-	} else {   /* Must be BIN_WAIT, so wait for all jobs */
-	    for (job = 0; job != MAXJOB; job++)
-		if (job != thisjob && jobtab[job].stat)
-		    waitjob(job, SIGINT);
-	    return 0;
-	}
-    }
-
-    /* Defaults have been handled.  We now have an argument or two, or three...
-    In the default case for bg, fg and disown, the argument will be provided by
-    the above routine.  We now loop over the arguments. */
-    for (; (firstjob != -1) || *argv; (void)(*argv && argv++)) {
-	int stopped, ocj = thisjob;
-
-	if (func == BIN_WAIT && isanum(*argv)) {
-	    /* wait can take a pid; the others can't. */
-	    waitforpid((long)atoi(*argv));
-	    retval = lastval2;
-	    thisjob = ocj;
-	    continue;
-	}
-	/* The only type of argument allowed now is a job spec.  Check it. */
-	job = (*argv) ? getjob(*argv, name) : firstjob;
-	firstjob = -1;
-	if (job == -1) {
-	    retval = 1;
-	    break;
-	}
-	if (!(jobtab[job].stat & STAT_INUSE) ||
-	    (jobtab[job].stat & STAT_NOPRINT)) {
-	    zwarnnam(name, "no such job: %d", 0, job);
-	    return 1;
-	}
-	/* We have a job number.  Now decide what to do with it. */
-	switch (func) {
-	case BIN_FG:
-	case BIN_BG:
-	case BIN_WAIT:
-	    if ((stopped = (jobtab[job].stat & STAT_STOPPED)))
-		makerunning(jobtab + job);
-	    else if (func == BIN_BG) {
-		/* Silly to bg a job already running. */
-		zwarnnam(name, "job already in background", NULL, 0);
-		thisjob = ocj;
-		return 1;
-	    }
-	    /* It's time to shuffle the jobs around!  Reset the current job,
-	    and pick a sensible secondary job. */
-	    if (curjob == job) {
-		curjob = prevjob;
-		prevjob = (func == BIN_BG) ? -1 : job;
-	    }
-	    if (prevjob == job || prevjob == -1)
-		setprevjob();
-	    if (curjob == -1) {
-		curjob = prevjob;
-		setprevjob();
-	    }
-	    if (func != BIN_WAIT)
-		/* for bg and fg -- show the job we are operating on */
-		printjob(jobtab + job, (stopped) ? -1 : 0, 1);
-	    if (func == BIN_BG)
-		jobtab[job].stat |= STAT_NOSTTY;
-	    else {				/* fg or wait */
-		if (strcmp(jobtab[job].pwd, pwd)) {
-		    fprintf(shout, "(pwd : ");
-		    fprintdir(jobtab[job].pwd, shout);
-		    fprintf(shout, ")\n");
-		}
-		fflush(shout);
-		if (func != BIN_WAIT) {		/* fg */
-		    thisjob = job;
-		    if ((jobtab[job].stat & STAT_SUPERJOB) &&
-			((!jobtab[job].procs->next ||
-			  (jobtab[job].stat & STAT_SUBLEADER) ||
-			  killpg(jobtab[job].gleader, 0) == -1)) &&
-			jobtab[jobtab[job].other].gleader)
-			attachtty(jobtab[jobtab[job].other].gleader);
-		    else
-			attachtty(jobtab[job].gleader);
-		}
-	    }
-	    if (stopped) {
-		if (func != BIN_BG && jobtab[job].ty)
-		    settyinfo(jobtab[job].ty);
-		killjb(jobtab + job, SIGCONT);
-	    }
-	    if (func == BIN_WAIT)
-	        waitjob(job, SIGINT);
-	    if (func != BIN_BG) {
-		waitjobs();
-		retval = lastval2;
-	    }
-	    break;
-	case BIN_JOBS:
-	    printjob(job + jobtab, lng, 2);
-	    break;
-	case BIN_DISOWN:
-	    {
-		static struct job zero;
-
-		jobtab[job] = zero;
-		break;
-	    }
-	}
-	thisjob = ocj;
-    }
-    return retval;
-}
-
-/* kill: send a signal to a process.  The process(es) may be specified *
- * by job specifier (see above) or pid.  A signal, defaulting to       *
- * SIGTERM, may be specified by name or number, preceded by a dash.    */
-
-/**/
-int
-bin_kill(char *nam, char **argv, char *ops, int func)
-{
-    int sig = SIGTERM;
-    int returnval = 0;
-
-    /* check for, and interpret, a signal specifier */
-    if (*argv && **argv == '-') {
-	if (idigit((*argv)[1]))
-	    /* signal specified by number */
-	    sig = atoi(*argv + 1);
-	else if ((*argv)[1] != '-' || (*argv)[2]) {
-	    char *signame;
-
-	    /* with argument "-l" display the list of signal names */
-	    if ((*argv)[1] == 'l' && (*argv)[2] == '\0') {
-		if (argv[1]) {
-		    while (*++argv) {
-			sig = zstrtol(*argv, &signame, 10);
-			if (signame == *argv) {
-			    for (sig = 1; sig <= SIGCOUNT; sig++)
-				if (!cstrpcmp(sigs + sig, &signame))
-				    break;
-			    if (sig > SIGCOUNT) {
-				zwarnnam(nam, "unknown signal: SIG%s",
-					 signame, 0);
-				returnval++;
-			    } else
-				printf("%d\n", sig);
-			} else {
-			    if (*signame) {
-				zwarnnam(nam, "unknown signal: SIG%s",
-					 signame, 0);
-				returnval++;
-			    } else {
-				if (WIFSIGNALED(sig))
-				    sig = WTERMSIG(sig);
-				else if (WIFSTOPPED(sig))
-				    sig = WSTOPSIG(sig);
-				if (1 <= sig && sig <= SIGCOUNT)
-				    printf("%s\n", sigs[sig]);
-				else
-				    printf("%d\n", sig);
-			    }
-			}
-		    }
-		    return returnval;
-		}
-		printf("%s", sigs[1]);
-		for (sig = 2; sig <= SIGCOUNT; sig++)
-		    printf(" %s", sigs[sig]);
-		putchar('\n');
-		return 0;
-	    }
-	    if ((*argv)[1] == 's' && (*argv)[2] == '\0')
-		signame = *++argv;
-	    else
-		signame = *argv + 1;
-
-	    /* check for signal matching specified name */
-	    for (sig = 1; sig <= SIGCOUNT; sig++)
-		if (!cstrpcmp(sigs + sig, &signame))
-		    break;
-	    if (*signame == '0' && !signame[1])
-		sig = 0;
-	    if (sig > SIGCOUNT) {
-		zwarnnam(nam, "unknown signal: SIG%s", signame, 0);
-		zwarnnam(nam, "type kill -l for a List of signals", NULL, 0);
-		return 1;
-	    }
-	}
-	argv++;
-    }
-
-    setcurjob();
-
-    /* Remaining arguments specify processes.  Loop over them, and send the
-    signal (number sig) to each process. */
-    for (; *argv; argv++) {
-	if (**argv == '%') {
-	    /* job specifier introduced by '%' */
-	    int p;
-
-	    if ((p = getjob(*argv, nam)) == -1) {
-		returnval++;
-		continue;
-	    }
-	    if (killjb(jobtab + p, sig) == -1) {
-		zwarnnam("kill", "kill %s failed: %e", *argv, errno);
-		returnval++;
-		continue;
-	    }
-	    /* automatically update the job table if sending a SIGCONT to a
-	    job, and send the job a SIGCONT if sending it a non-stopping
-	    signal. */
-	    if (jobtab[p].stat & STAT_STOPPED) {
-		if (sig == SIGCONT)
-		    jobtab[p].stat &= ~STAT_STOPPED;
-		if (sig != SIGKILL && sig != SIGCONT && sig != SIGTSTP
-		    && sig != SIGTTOU && sig != SIGTTIN && sig != SIGSTOP)
-		    killjb(jobtab + p, SIGCONT);
-	    }
-	} else if (!isanum(*argv)) {
-	    zwarnnam("kill", "illegal pid: %s", *argv, 0);
-	    returnval++;
-	} else if (kill(atoi(*argv), sig) == -1) {
-	    zwarnnam("kill", "kill %s failed: %e", *argv, errno);
-	    returnval++;
-	}
-    }
-    return returnval < 126 ? returnval : 1;
-}
-
-/* Suspend this shell */
-
-/**/
-int
-bin_suspend(char *name, char **argv, char *ops, int func)
-{
-    /* won't suspend a login shell, unless forced */
-    if (islogin && !ops['f']) {
-	zwarnnam(name, "can't suspend login shell", NULL, 0);
-	return 1;
-    }
-    if (jobbing) {
-	/* stop ignoring signals */
-	signal_default(SIGTTIN);
-	signal_default(SIGTSTP);
-	signal_default(SIGTTOU);
-    }
-    /* suspend ourselves with a SIGTSTP */
-    kill(0, SIGTSTP);
-    if (jobbing) {
-	/* stay suspended */
-	while (gettygrp() != mypgrp) {
-	    sleep(1);
-	    if (gettygrp() != mypgrp)
-		kill(0, SIGTTIN);
-	}
-	/* restore signal handling */
-	signal_ignore(SIGTTOU);
-	signal_ignore(SIGTSTP);
-	signal_ignore(SIGTTIN);
-    }
-    return 0;
-}
-
-/* find a job named s */
-
-/**/
-int
-findjobnam(char *s)
-{
-    int jobnum;
-
-    for (jobnum = MAXJOB - 1; jobnum >= 0; jobnum--)
-	if (!(jobtab[jobnum].stat & (STAT_SUBJOB | STAT_NOPRINT)) &&
-	    jobtab[jobnum].stat && jobtab[jobnum].procs && jobnum != thisjob &&
-	    jobtab[jobnum].procs->text && strpfx(s, jobtab[jobnum].procs->text))
-	    return jobnum;
-    return -1;
-}
-
-/* Convert a job specifier ("%%", "%1", "%foo", "%?bar?", etc.) *
- * to a job number.                                             */
-
-/**/
-int
-getjob(char *s, char *prog)
-{
-    int jobnum, returnval;
-
-    /* if there is no %, treat as a name */
-    if (*s != '%')
-	goto jump;
-    s++;
-    /* "%%", "%+" and "%" all represent the current job */
-    if (*s == '%' || *s == '+' || !*s) {
-	if (curjob == -1) {
-	    zwarnnam(prog, "no current job", NULL, 0);
-	    returnval = -1;
-	    goto done;
-	}
-	returnval = curjob;
-	goto done;
-    }
-    /* "%-" represents the previous job */
-    if (*s == '-') {
-	if (prevjob == -1) {
-	    zwarnnam(prog, "no previous job", NULL, 0);
-	    returnval = -1;
-	    goto done;
-	}
-	returnval = prevjob;
-	goto done;
-    }
-    /* a digit here means we have a job number */
-    if (idigit(*s)) {
-	jobnum = atoi(s);
-	if (jobnum && jobnum < MAXJOB && jobtab[jobnum].stat &&
-	    !(jobtab[jobnum].stat & STAT_SUBJOB) && jobnum != thisjob) {
-	    returnval = jobnum;
-	    goto done;
-	}
-	zwarnnam(prog, "%%%s: no such job", s, 0);
-	returnval = -1;
-	goto done;
-    }
-    /* "%?" introduces a search string */
-    if (*s == '?') {
-	struct process *pn;
-
-	for (jobnum = MAXJOB - 1; jobnum >= 0; jobnum--)
-	    if (jobtab[jobnum].stat && !(jobtab[jobnum].stat & STAT_SUBJOB) &&
-		jobnum != thisjob)
-		for (pn = jobtab[jobnum].procs; pn; pn = pn->next)
-		    if (strstr(pn->text, s + 1)) {
-			returnval = jobnum;
-			goto done;
-		    }
-	zwarnnam(prog, "job not found: %s", s, 0);
-	returnval = -1;
-	goto done;
-    }
-  jump:
-    /* anything else is a job name, specified as a string that begins the
-    job's command */
-    if ((jobnum = findjobnam(s)) != -1) {
-	returnval = jobnum;
-	goto done;
-    }
-    /* if we get here, it is because none of the above succeeded and went
-    to done */
-    zwarnnam(prog, "job not found: %s", s, 0);
-    returnval = -1;
-  done:
-    return returnval;
-}
-
-/* This simple function indicates whether or not s may represent      *
- * a number.  It returns true iff s consists purely of digits and     *
- * minuses.  Note that minus may appear more than once, and the empty *
- * string will produce a `true' response.                             */
-
-/**/
-int
-isanum(char *s)
-{
-    while (*s == '-' || idigit(*s))
-	s++;
-    return *s == '\0';
 }
 
 /**** directory-handling builtins ****/
 
+/**/
 int doprintdir = 0;		/* set in exec.c (for autocd) */
 
 /* pwd: display the name of the current directory */
@@ -940,7 +575,7 @@ int doprintdir = 0;		/* set in exec.c (for autocd) */
 int
 bin_pwd(char *name, char **argv, char *ops, int func)
 {
-    if (ops['r'] || isset(CHASELINKS))
+    if (ops['r'] || ops['P'] || (isset(CHASELINKS) && !ops['L']))
 	printf("%s\n", zgetcwd());
     else {
 	zputs(pwd, stdout);
@@ -949,6 +584,11 @@ bin_pwd(char *name, char **argv, char *ops, int func)
     return 0;
 }
 
+/* the directory stack */
+ 
+/**/
+mod_export LinkList dirstack;
+ 
 /* dirs: list the directory stack, or replace it with a provided list */
 
 /**/
@@ -959,6 +599,7 @@ bin_dirs(char *name, char **argv, char *ops, int func)
 
     /* with the -v option, provide a numbered list of directories, starting at
     zero */
+    queue_signals();
     if (ops['v']) {
 	LinkNode node;
 	int pos = 1;
@@ -970,27 +611,66 @@ bin_dirs(char *name, char **argv, char *ops, int func)
 	    fprintdir(getdata(node), stdout);
 	}
 	putchar('\n');
+	unqueue_signals();
 	return 0;
     }
     /* given no arguments, list the stack normally */
     if (!*argv) {
 	printdirstack();
+	unqueue_signals();
 	return 0;
     }
     /* replace the stack with the specified directories */
-    PERMALLOC {
-	l = newlinklist();
-	if (*argv) {
-	    while (*argv)
-		addlinknode(l, ztrdup(*argv++));
-	    freelinklist(dirstack, freestr);
-	    dirstack = l;
-	}
-    } LASTALLOC;
+    l = znewlinklist();
+    if (*argv) {
+	while (*argv)
+	    zaddlinknode(l, ztrdup(*argv++));
+	freelinklist(dirstack, freestr);
+	dirstack = l;
+    }
+    unqueue_signals();
     return 0;
 }
 
 /* cd, chdir, pushd, popd */
+
+/**/
+void
+set_pwd_env(void)
+{
+    Param pm;
+
+    /* update the PWD and OLDPWD shell parameters */
+
+    pm = (Param) paramtab->getnode(paramtab, "PWD");
+    if (pm && PM_TYPE(pm->flags) != PM_SCALAR) {
+	pm->flags &= ~PM_READONLY;
+	unsetparam_pm(pm, 0, 1);
+    }
+
+    pm = (Param) paramtab->getnode(paramtab, "OLDPWD");
+    if (pm && PM_TYPE(pm->flags) != PM_SCALAR) {
+	pm->flags &= ~PM_READONLY;
+	unsetparam_pm(pm, 0, 1);
+    }
+
+    setsparam("PWD", ztrdup(pwd));
+    setsparam("OLDPWD", ztrdup(oldpwd));
+
+    pm = (Param) paramtab->getnode(paramtab, "PWD");
+    if (!(pm->flags & PM_EXPORTED)) {
+	pm->flags |= PM_EXPORTED;
+	pm->env = addenv("PWD", pwd, pm->flags);
+    }
+    pm = (Param) paramtab->getnode(paramtab, "OLDPWD");
+    if (!(pm->flags & PM_EXPORTED)) {
+	pm->flags |= PM_EXPORTED;
+	pm->env = addenv("OLDPWD", oldpwd, pm->flags);
+    }
+}
+
+/* set if we are resolving links to their true paths */
+static int chasinglinks;
 
 /* The main pwd changing function.  The real work is done by other     *
  * functions.  cd_get_dest() does the initial argument processing;     *
@@ -1005,37 +685,61 @@ bin_cd(char *nam, char **argv, char *ops, int func)
     LinkNode dir;
     struct stat st1, st2;
 
+    if (isset(RESTRICTED)) {
+	zwarnnam(nam, "restricted", NULL, 0);
+	return 1;
+    }
     doprintdir = (doprintdir == -1);
 
-    PERMALLOC {
-	pushnode(dirstack, ztrdup(pwd));
-	if (!(dir = cd_get_dest(nam, argv, ops, func))) {
-	    zsfree(getlinknode(dirstack));
-	    LASTALLOC_RETURN 1;
-	}
-    } LASTALLOC;
+    for (; *argv && **argv == '-'; argv++) {
+	char *s = *argv + 1;
+
+	do {
+	    switch (*s) {
+	    case 's':
+	    case 'P':
+	    case 'L':
+		break;
+	    default:
+		goto brk;
+	    }
+	} while (*++s);
+	for (s = *argv; *++s; ops[STOUC(*s)] = 1);
+    }
+  brk:
+    chasinglinks = ops['P'] || (isset(CHASELINKS) && !ops['L']);
+    queue_signals();
+    zpushnode(dirstack, ztrdup(pwd));
+    if (!(dir = cd_get_dest(nam, argv, ops, func))) {
+	zsfree(getlinknode(dirstack));
+	unqueue_signals();
+	return 1;
+    }
     cd_new_pwd(func, dir);
 
     if (stat(unmeta(pwd), &st1) < 0) {
+	setjobpwd();
 	zsfree(pwd);
-	pwd = metafy(zgetcwd(), -1, META_REALLOC);
+	pwd = metafy(zgetcwd(), -1, META_DUP);
     } else if (stat(".", &st2) < 0)
 	chdir(unmeta(pwd));
     else if (st1.st_ino != st2.st_ino || st1.st_dev != st2.st_dev) {
-	if (isset(CHASELINKS)) {
+	if (chasinglinks) {
+	    setjobpwd();
 	    zsfree(pwd);
-	    pwd = metafy(zgetcwd(), -1, META_REALLOC);
+	    pwd = metafy(zgetcwd(), -1, META_DUP);
 	} else {
 	    chdir(unmeta(pwd));
 	}
     }
+    unqueue_signals();
     return 0;
 }
 
 /* Get directory to chdir to */
 
 /**/
-LinkNode
+static LinkNode
 cd_get_dest(char *nam, char **argv, char *ops, int func)
 {
     LinkNode dir = NULL;
@@ -1050,9 +754,9 @@ cd_get_dest(char *nam, char **argv, char *ops, int func)
 	if (func == BIN_PUSHD && unset(PUSHDTOHOME))
 	    dir = nextnode(firstnode(dirstack));
 	if (dir)
-	    insertlinknode(dirstack, dir, getlinknode(dirstack));
+	    zinsertlinknode(dirstack, dir, getlinknode(dirstack));
 	else if (func != BIN_POPD)
-	    pushnode(dirstack, ztrdup(home));
+	    zpushnode(dirstack, ztrdup(home));
     } else if (!argv[1]) {
 	int dd;
 	char *end;
@@ -1073,8 +777,8 @@ cd_get_dest(char *nam, char **argv, char *ops, int func)
 	    }
 	}
 	if (!dir)
-	    pushnode(dirstack, ztrdup(strcmp(argv[0], "-")
-				      ? (doprintdir--, argv[0]) : oldpwd));
+	    zpushnode(dirstack, ztrdup(strcmp(argv[0], "-")
+				       ? (doprintdir--, argv[0]) : oldpwd));
     } else {
 	char *u, *d;
 	int len1, len2, len3;
@@ -1090,7 +794,7 @@ cd_get_dest(char *nam, char **argv, char *ops, int func)
 	strncpy(d, pwd, len3);
 	strcpy(d + len3, argv[1]);
 	strcat(d, u + len1);
-	pushnode(dirstack, d);
+	zpushnode(dirstack, d);
 	doprintdir++;
     }
 
@@ -1106,14 +810,14 @@ cd_get_dest(char *nam, char **argv, char *ops, int func)
     if (!dir) {
 	dir = firstnode(dirstack);
     }
-    if (!(dest = cd_do_chdir(nam, getdata(dir)))) {
+    if (!(dest = cd_do_chdir(nam, getdata(dir), ops['s']))) {
 	if (!target)
 	    zsfree(getlinknode(dirstack));
 	if (func == BIN_POPD)
 	    zsfree(remnode(dirstack, dir));
 	return NULL;
     }
-    if (dest != getdata(dir)) {
+    if (dest != (char *)getdata(dir)) {
 	zsfree(getdata(dir));
 	setdata(dir, dest);
     }
@@ -1127,21 +831,38 @@ cd_get_dest(char *nam, char **argv, char *ops, int func)
  * particular path.                                                  */
 
 /**/
-char *
-cd_do_chdir(char *cnam, char *dest)
+static char *
+cd_do_chdir(char *cnam, char *dest, int hard)
 {
     char **pp, *ret;
     int hasdot = 0, eno = ENOENT;
-    /* nocdpath indicates that cdpath should not be used.  This is the case iff
-    dest is a relative path whose first segment is . or .., but if the path is
-    absolute then cdpath won't be used anyway. */
-    int nocdpath = dest[0] == '.' &&
-    (dest[1] == '/' || !dest[1] || (dest[1] == '.' &&
+    /*
+     * nocdpath indicates that cdpath should not be used.
+     * This is the case iff dest is a relative path
+     * whose first segment is . or .., but if the path is
+     * absolute then cdpath won't be used anyway.
+     */
+    int nocdpath;
+#ifdef __CYGWIN__
+    /*
+     * Normalize path under Cygwin to avoid messing with
+     * DOS style names with drives in them
+     */
+    static char buf[PATH_MAX];
+    void cygwin_conv_to_posix_path(const char *, char *);
+
+    cygwin_conv_to_posix_path(dest, buf);
+    dest = buf;
+#endif
+    nocdpath = dest[0] == '.' &&
+		(dest[1] == '/' || !dest[1] || (dest[1] == '.' &&
 				    (dest[2] == '/' || !dest[2])));
 
-    /* if we have an absolute path, use it as-is only */
+    /*
+     * If we have an absolute path, use it as-is only
+     */
     if (*dest == '/') {
-	if ((ret = cd_try_chdir(NULL, dest)))
+	if ((ret = cd_try_chdir(NULL, dest, hard)))
 	    return ret;
 	zwarnnam(cnam, "%e: %s", dest, errno);
 	return NULL;
@@ -1155,7 +876,7 @@ cd_do_chdir(char *cnam, char *dest)
     /* if there is no . in cdpath (or it is not being used), try the directory
     as-is (i.e. from .) */
     if (!hasdot) {
-	if ((ret = cd_try_chdir(NULL, dest)))
+	if ((ret = cd_try_chdir(NULL, dest, hard)))
 	    return ret;
 	if (errno != ENOENT)
 	    eno = errno;
@@ -1164,7 +885,7 @@ cd_do_chdir(char *cnam, char *dest)
     cdpath in turn */
     if (!nocdpath)
 	for (pp = cdpath; *pp; pp++) {
-	    if ((ret = cd_try_chdir(*pp, dest))) {
+	    if ((ret = cd_try_chdir(*pp, dest, hard))) {
 		if (strcmp(*pp, ".")) {
 		    doprintdir++;
 		}
@@ -1176,7 +897,7 @@ cd_do_chdir(char *cnam, char *dest)
 
     /* handle the CDABLEVARS option */
     if ((ret = cd_able_vars(dest))) {
-	if ((ret = cd_try_chdir(NULL, ret))) {
+	if ((ret = cd_try_chdir(NULL, ret,hard))) {
 	    doprintdir++;
 	    return ret;
 	}
@@ -1223,71 +944,68 @@ cd_able_vars(char *s)
  * is returned.                                                      */
 
 /**/
-char *
-cd_try_chdir(char *pfix, char *dest)
+static char *
+cd_try_chdir(char *pfix, char *dest, int hard)
 {
-    char buf[PATH_MAX], buf2[PATH_MAX];
-    char *s;
-    int dotsct;
+    char *buf;
+    int dlen, dochaselinks = 0;
 
     /* handle directory prefix */
     if (pfix && *pfix) {
-	if (strlen(dest) + strlen(pfix) + 1 >= PATH_MAX)
-	    return NULL;
-	sprintf(buf, "%s/%s", (!strcmp("/", pfix)) ? "" : pfix, dest);
-    } else {
-	if (strlen(dest) >= PATH_MAX)
-	    return NULL;
-	strcpy(buf, dest);
-    }
-    /* Normalise path.  See the definition of fixdir() for what this means. */
-    dotsct = fixdir(buf2, buf);
+	if (*pfix == '/')
+	    buf = tricat(pfix, "/", dest);
+	else {
+	    int pfl = strlen(pfix);
+	    dlen = strlen(pwd);
 
-    /* if the path is absolute, the test and return value are (relatively)
-    simple */
-    if (buf2[0] == '/')
-	return (chdir(unmeta(buf)) == -1) ? NULL : ztrdup(buf2);
-    /* If the path is a simple `downward' relative path, the test is again
-    fairly simple.  The relative path must be added to the end of the current
-    directory. */
-    if (!dotsct) {
-	if (chdir(unmeta(buf)) == -1)
-	    return NULL;
-	if (*buf2) {
-	    if (strlen(pwd) + strlen(buf2) + 1 >= PATH_MAX)
-		return NULL;
-	    sprintf(buf, "%s/%s", (!strcmp("/", pwd)) ? "" : pwd, buf2);
-	} else
+	    buf = zalloc(dlen + pfl + strlen(dest) + 3);
 	    strcpy(buf, pwd);
-	return ztrdup(buf);
+	    buf[dlen] = '/';
+	    strcpy(buf + dlen + 1, pfix);
+	    buf[dlen + 1 + pfl] = '/';
+	    strcpy(buf + dlen + pfl + 2, dest);
+	}
+    } else if (*dest == '/')
+	buf = ztrdup(dest);
+    else {
+	dlen = strlen(pwd);
+	if (pwd[dlen-1] == '/')
+	    --dlen;
+	buf = zalloc(dlen + strlen(dest) + 2);
+	strcpy(buf, pwd);
+	buf[dlen] = '/';
+	strcpy(buf + dlen + 1, dest);
     }
-    /* There are one or more .. segments at the beginning of the relative path.
-    A corresponding number of segments must be removed from the end of the
-    current directory before the downward relative path is appended. */
-    strcpy(buf, pwd);
-    s = buf + strlen(buf) - 1;
-    while (dotsct--)
-	while (s != buf)
-	    if (*--s == '/')
-		break;
-    if (s == buf || *buf2)
-	s++;
-    strcpy(s, buf2);
-    /* For some reason, this chdir must be attempted with both the newly
-    created path and the original non-normalised version. */
-    if (chdir(unmeta(buf)) != -1 || chdir(unmeta(dest)) != -1)
-	return ztrdup(buf);
-    return NULL;
+
+    /* Normalise path.  See the definition of fixdir() for what this means.
+     * We do not do this if we are chasing links.
+     */
+    if (!chasinglinks)
+	dochaselinks = fixdir(buf);
+    else
+	unmetafy(buf, &dlen);
+
+    /* We try the full path first.  If that fails, try the
+     * argument to cd relatively.  This is useful if the cwd
+     * or a parent directory is renamed in the interim.
+     */
+    if (lchdir(buf, NULL, hard) && lchdir(dest, NULL, hard)) {
+	free(buf);
+	return NULL;
+    }
+    /* the chdir succeeded, so decide if we should force links to be chased */
+    if (dochaselinks)
+	chasinglinks = 1;
+    return metafy(buf, -1, META_NOALLOC);
 }
 
 /* do the extra processing associated with changing directory */
 
 /**/
-void
+static void
 cd_new_pwd(int func, LinkNode dir)
 {
-    Param pm;
-    List l;
+    Eprog prog;
     char *new_pwd, *s;
     int dirstacksize;
 
@@ -1301,7 +1019,7 @@ cd_new_pwd(int func, LinkNode dir)
     } else if (func == BIN_CD && unset(AUTOPUSHD))
 	zsfree(getlinknode(dirstack));
 
-    if (isset(CHASELINKS)) {
+    if (chasinglinks) {
 	s = new_pwd;
 	new_pwd = findpwd(s);
 	zsfree(s);
@@ -1320,14 +1038,10 @@ cd_new_pwd(int func, LinkNode dir)
     current (i.e. new) pwd */
     zsfree(oldpwd);
     oldpwd = pwd;
+    setjobpwd();
     pwd = new_pwd;
-    /* update the PWD and OLDPWD shell parameters */
-    if ((pm = (Param) paramtab->getnode(paramtab, "PWD")) &&
-	(pm->flags & PM_EXPORTED) && pm->env)
-	pm->env = replenv(pm->env, pwd);
-    if ((pm = (Param) paramtab->getnode(paramtab, "OLDPWD")) &&
-	(pm->flags & PM_EXPORTED) && pm->env)
-	pm->env = replenv(pm->env, oldpwd);
+    set_pwd_env();
+
     if (unset(PUSHDSILENT) && func != BIN_CD && isset(INTERACTIVE))
 	printdirstack();
     else if (doprintdir) {
@@ -1336,10 +1050,14 @@ cd_new_pwd(int func, LinkNode dir)
     }
 
     /* execute the chpwd function */
-    if ((l = getshfunc("chpwd"))) {
+    if ((prog = getshfunc("chpwd")) != &dummy_eprog) {
+	int osc = sfcontext;
+
 	fflush(stdout);
 	fflush(stderr);
-	doshfunc(l, NULL, 0, 1);
+	sfcontext = SFC_HOOK;
+	doshfunc("chpwd", prog, NULL, 0, 1);
+	sfcontext = osc;
     }
 
     dirstacksize = getiparam("DIRSTACKSIZE");
@@ -1355,7 +1073,7 @@ cd_new_pwd(int func, LinkNode dir)
 /* Print the directory stack */
 
 /**/
-void
+static void
 printdirstack(void)
 {
     LinkNode node;
@@ -1368,17 +1086,21 @@ printdirstack(void)
     putchar('\n');
 }
 
-/* Normalise a path.  Segments consisting of ., and foo/.. combinations, *
- * are removed.  The number of .. segments at the beginning of the       *
- * path is returned.  The normalised path, minus leading ..s, is copied  *
- * to dest.                                                              */
+/* Normalise a path.  Segments consisting of ., and foo/.. *
+ * combinations, are removed and the path is unmetafied.
+ * Returns 1 if we found a ../ path which should force links to
+ * be chased, 0 otherwise.
+ */
 
 /**/
 int
-fixdir(char *dest, char *src)
+fixdir(char *src)
 {
-    int ct = 0;
-    char *d0 = dest;
+    char *dest = src, *d0 = dest;
+#ifdef __CYGWIN__
+    char *s0 = src;
+#endif
+    int ret = 0;
 
 /*** if have RFS superroot directory ***/
 #ifdef HAVE_SUPERROOT
@@ -1395,6 +1117,11 @@ fixdir(char *dest, char *src)
     for (;;) {
 	/* compress multiple /es into single */
 	if (*src == '/') {
+#ifdef __CYGWIN__
+	    /* allow leading // under cygwin */
+	    if (src == s0 && src[1] == '/')
+		*dest++ = *src++;
+#endif
 	    *dest++ = *src++;
 	    while (*src == '/')
 		src++;
@@ -1405,1046 +1132,53 @@ fixdir(char *dest, char *src)
 	    while (dest > d0 + 1 && dest[-1] == '/')
 		dest--;
 	    *dest = '\0';
-	    return ct;
+	    return ret;
 	}
 	if (src[0] == '.' && src[1] == '.' &&
-	  (src[2] == '\0' || src[2] == '/')) {
-	    /* remove a foo/.. combination, or increment ct, as appropriate */
-	    if (dest > d0 + 1) {
-		for (dest--; dest > d0 + 1 && dest[-1] != '/'; dest--);
-		if (dest[-1] != '/')
-		    dest--;
-	    } else
-		ct++;
-	    src++;
-	    while (*++src == '/');
-	} else if (src[0] == '.' && (src[1] == '/' || src[1] == '\0')) {
+	    (src[2] == '\0' || src[2] == '/')) {
+	    if (isset(CHASEDOTS)) {
+		ret = 1;
+		/* and treat as normal path segment */
+	    } else {
+		if (dest > d0 + 1) {
+		    /*
+		     * remove a foo/.. combination:
+		     * first check foo exists, else return.
+		     */
+		    struct stat st;
+		    *dest = '\0';
+		    if (stat(d0, &st) < 0 || !S_ISDIR(st.st_mode)) {
+			char *ptrd, *ptrs;
+			if (dest == src)
+			    *dest = '.';
+			for (ptrs = src, ptrd = dest; *ptrs; ptrs++, ptrd++)
+			    *ptrd = (*ptrs == Meta) ? (*++ptrs ^ 32) : *ptrs;
+			*ptrd = '\0';
+			return 1;
+		    }
+		    for (dest--; dest > d0 + 1 && dest[-1] != '/'; dest--);
+		    if (dest[-1] != '/')
+			dest--;
+		}
+		src++;
+		while (*++src == '/');
+		continue;
+	    }
+	}
+	if (src[0] == '.' && (src[1] == '/' || src[1] == '\0')) {
 	    /* skip a . section */
 	    while (*++src == '/');
 	} else {
 	    /* copy a normal segment into the output */
 	    while (*src != '/' && *src != '\0')
-		*dest++ = *src++;
+		if ((*dest++ = *src++) == Meta)
+		    dest[-1] = *src++ ^ 32;
 	}
     }
 }
 
-/**** compctl builtin ****/
-
-#define COMP_LIST	(1<<0)	/* -L */
-#define COMP_COMMAND	(1<<1)	/* -C */
-#define COMP_DEFAULT	(1<<2)	/* -D */
-#define COMP_FIRST	(1<<3)	/* -T */
-#define COMP_REMOVE	(1<<4)
-
-#define COMP_SPECIAL (COMP_COMMAND|COMP_DEFAULT|COMP_FIRST)
-
-/* Flag for listing, command, default, or first completion */
-static int cclist;
-
-/* Mask for determining what to print */
-static unsigned long showmask = 0;
-
-/* Main entry point for the `compctl' builtin */
-
 /**/
-int
-bin_compctl(char *name, char **argv, char *ops, int func)
-{
-    Compctl cc = NULL;
-    int ret = 0;
-
-    /* clear static flags */
-    cclist = 0;
-    showmask = 0;
-
-    /* Parse all the arguments */
-    if (*argv) {
-	cc = (Compctl) zcalloc(sizeof(*cc));
-	if (get_compctl(name, &argv, cc, 1, 0)) {
-	    freecompctl(cc);
-	    return 1;
-	}
-
-	/* remember flags for printing */
-	showmask = cc->mask;
-	if ((showmask & CC_EXCMDS) && !(showmask & CC_DISCMDS))
-	    showmask &= ~CC_EXCMDS;
-
-	/* if no command arguments or just listing, we don't want cc */
-	if (!*argv || (cclist & COMP_LIST))
-	    freecompctl(cc);
-    }
-
-    /* If no commands and no -C, -T, or -D, print all the compctl's *
-     * If some flags (other than -C, -T, or -D) were given, then    *
-     * only print compctl containing those flags.                   */
-    if (!*argv && !(cclist & COMP_SPECIAL)) {
-	scanhashtable(compctltab, 1, 0, 0, compctltab->printnode, 0);
-	printcompctl((cclist & COMP_LIST) ? "" : "COMMAND", &cc_compos, 0);
-	printcompctl((cclist & COMP_LIST) ? "" : "DEFAULT", &cc_default, 0);
- 	printcompctl((cclist & COMP_LIST) ? "" : "FIRST", &cc_first, 0);
-	return ret;
-    }
-
-    /* If we're listing and we've made it to here, then there are arguments *
-     * or a COMP_SPECIAL flag (-D, -C, -T), so print only those.            */
-    if (cclist & COMP_LIST) {
-	HashNode hn;
-	char **ptr;
-
-	showmask = 0;
-	for (ptr = argv; *ptr; ptr++) {
-	    if ((hn = compctltab->getnode(compctltab, *ptr))) {
-		compctltab->printnode(hn, 0);
-	    } else {
-		zwarnnam(name, "no compctl defined for %s", *ptr, 0);
-		ret = 1;
-	    }
-	}
-	if (cclist & COMP_COMMAND)
-	    printcompctl("", &cc_compos, 0);
-	if (cclist & COMP_DEFAULT)
-	    printcompctl("", &cc_default, 0);
-	if (cclist & COMP_FIRST)
-	    printcompctl("", &cc_first, 0);
-	return ret;
-    }
-
-    /* Assign the compctl to the commands given */
-    if (*argv) {
-	if(cclist & COMP_SPECIAL)
-	    /* Ideally we'd handle this properly, setting both the *
-	     * special and normal completions.  For the moment,    *
-	     * this is better than silently failing.               */
-	    zwarnnam(name, "extraneous commands ignored", NULL, 0);
-	else
-	    compctl_process_cc(argv, cc);
-    }
-
-    return ret;
-}
-
-/* Parse the basic flags for `compctl' */
-
-/**/
-int
-get_compctl(char *name, char ***av, Compctl cc, int first, int isdef)
-{
-    /* Parse the basic flags for completion:
-     * first is a flag that we are not in extended completion,
-     * while hx indicates or (+) completion (need to know for
-     * default and command completion as the initial compctl is special). 
-     * cct is a temporary just to hold flags; it never needs freeing.
-     */
-    struct compctl cct;
-    char **argv = *av;
-    int ready = 0, hx = 0;
-
-    /* Handle `compctl + foo ...' specially:  turn it into
-     * a default compctl by removing it from the hash table.
-     */
-    if (first && argv[0][0] == '+' && !argv[0][1] &&
-	!(argv[1] && argv[1][0] == '-' && argv[1][1])) {
-	argv++;
-	if(argv[0] && argv[0][0] == '-')
-	    argv++;
-	*av = argv;
-	freecompctl(cc);
- 	cclist = COMP_REMOVE;
-	return 0;
-    }
-
-    memset((void *)&cct, 0, sizeof(cct));
-
-    /* Loop through the flags until we have no more:        *
-     * those with arguments are not properly allocated yet, *
-     * we just hang on to the argument that was passed.     */
-    for (; !ready && argv[0] && argv[0][0] == '-' && (argv[0][1] || !first);) {
-	if (!argv[0][1])
-	    *argv = "-+";
-	while (!ready && *++(*argv)) {
-	    if(**argv == Meta)
-		*++*argv ^= 32;
-	    switch (**argv) {
-	    case 'f':
-		cct.mask |= CC_FILES;
-		break;
-	    case 'c':
-		cct.mask |= CC_COMMPATH;
-		break;
-	    case 'm':
-		cct.mask |= CC_EXTCMDS;
-		break;
-	    case 'w':
-		cct.mask |= CC_RESWDS;
-		break;
-	    case 'o':
-		cct.mask |= CC_OPTIONS;
-		break;
-	    case 'v':
-		cct.mask |= CC_VARS;
-		break;
-	    case 'b':
-		cct.mask |= CC_BINDINGS;
-		break;
-	    case 'A':
-		cct.mask |= CC_ARRAYS;
-		break;
-	    case 'I':
-		cct.mask |= CC_INTVARS;
-		break;
-	    case 'F':
-		cct.mask |= CC_SHFUNCS;
-		break;
-	    case 'p':
-		cct.mask |= CC_PARAMS;
-		break;
-	    case 'E':
-		cct.mask |= CC_ENVVARS;
-		break;
-	    case 'j':
-		cct.mask |= CC_JOBS;
-		break;
-	    case 'r':
-		cct.mask |= CC_RUNNING;
-		break;
-	    case 'z':
-		cct.mask |= CC_STOPPED;
-		break;
-	    case 'B':
-		cct.mask |= CC_BUILTINS;
-		break;
-	    case 'a':
-		cct.mask |= CC_ALREG | CC_ALGLOB;
-		break;
-	    case 'R':
-		cct.mask |= CC_ALREG;
-		break;
-	    case 'G':
-		cct.mask |= CC_ALGLOB;
-		break;
-	    case 'u':
-		cct.mask |= CC_USERS;
-		break;
-	    case 'd':
-		cct.mask |= CC_DISCMDS;
-		break;
-	    case 'e':
-		cct.mask |= CC_EXCMDS;
-		break;
-	    case 'N':
-		cct.mask |= CC_SCALARS;
-		break;
-	    case 'O':
-		cct.mask |= CC_READONLYS;
-		break;
-	    case 'Z':
-		cct.mask |= CC_SPECIALS;
-		break;
-	    case 'q':
-		cct.mask |= CC_REMOVE;
-		break;
-	    case 'U':
-		cct.mask |= CC_DELETE;
-		break;
-	    case 'n':
-		cct.mask |= CC_NAMED;
-		break;
-	    case 'Q':
-		cct.mask |= CC_QUOTEFLAG;
-		break;
-	    case 'k':
-		if ((*argv)[1]) {
-		    cct.keyvar = (*argv) + 1;
-		    *argv = "" - 1;
-		} else if (!argv[1]) {
-		    zwarnnam(name, "variable name expected after -%c", NULL,
-			    **argv);
-		    return 1;
-		} else {
-		    cct.keyvar = *++argv;
-		    *argv = "" - 1;
-		}
-		break;
-	    case 'K':
-		if ((*argv)[1]) {
-		    cct.func = (*argv) + 1;
-		    *argv = "" - 1;
-		} else if (!argv[1]) {
-		    zwarnnam(name, "function name expected after -%c", NULL,
-			    **argv);
-		    return 1;
-		} else {
-		    cct.func = *++argv;
-		    *argv = "" - 1;
-		}
-		break;
-	    case 'X':
-		if ((*argv)[1]) {
-		    cct.explain = (*argv) + 1;
-		    *argv = "" - 1;
-		} else if (!argv[1]) {
-		    zwarnnam(name, "string expected after -%c", NULL, **argv);
-		    return 1;
-		} else {
-		    cct.explain = *++argv;
-		    *argv = "" - 1;
-		}
-		break;
-	    case 'P':
-		if ((*argv)[1]) {
-		    cct.prefix = (*argv) + 1;
-		    *argv = "" - 1;
-		} else if (!argv[1]) {
-		    zwarnnam(name, "string expected after -%c", NULL, **argv);
-		    return 1;
-		} else {
-		    cct.prefix = *++argv;
-		    *argv = "" - 1;
-		}
-		break;
-	    case 'S':
-		if ((*argv)[1]) {
-		    cct.suffix = (*argv) + 1;
-		    *argv = "" - 1;
-		} else if (!argv[1]) {
-		    zwarnnam(name, "string expected after -%c", NULL, **argv);
-		    return 1;
-		} else {
-		    cct.suffix = *++argv;
-		    *argv = "" - 1;
-		}
-		break;
-	    case 'g':
-		if ((*argv)[1]) {
-		    cct.glob = (*argv) + 1;
-		    *argv = "" - 1;
-		} else if (!argv[1]) {
-		    zwarnnam(name, "glob pattern expected after -%c", NULL,
-			    **argv);
-		    return 1;
-		} else {
-		    cct.glob = *++argv;
-		    *argv = "" - 1;
-		}
-		break;
-	    case 's':
-		if ((*argv)[1]) {
-		    cct.str = (*argv) + 1;
-		    *argv = "" - 1;
-		} else if (!argv[1]) {
-		    zwarnnam(name, "command string expected after -%c", NULL,
-			    **argv);
-		    return 1;
-		} else {
-		    cct.str = *++argv;
-		    *argv = "" - 1;
-		}
-		break;
-	    case 'l':
-		if ((*argv)[1]) {
-		    cct.subcmd = (*argv) + 1;
-		    *argv = "" - 1;
-		} else if (!argv[1]) {
-		    zwarnnam(name, "command name expected after -%c", NULL,
-			    **argv);
-		    return 1;
-		} else {
-		    cct.subcmd = *++argv;
-		    *argv = "" - 1;
-		}
-		break;
-	    case 'H':
-		if ((*argv)[1])
-		    cct.hnum = atoi((*argv) + 1);
-		else if (argv[1])
-		    cct.hnum = atoi(*++argv);
-		else {
-		    zwarnnam(name, "number expected after -%c", NULL,
-			    **argv);
-		    return 1;
-		}
-		if (!argv[1]) {
-		    zwarnnam(name, "missing pattern after -%c", NULL,
-			    **argv);
-		    return 1;
-		}
-		cct.hpat = *++argv;
-		if (cct.hnum < 1)
-		    cct.hnum = 0;
-		if (*cct.hpat == '*' && !cct.hpat[1])
-		    cct.hpat = "";
-		*argv = "" - 1;
-		break;
-	    case 'C':
-		if (first && !hx) {
-		    cclist |= COMP_COMMAND;
-		} else {
-		    zwarnnam(name, "misplaced command completion (-C) flag",
-			    NULL, 0);
-		    return 1;
-		}
-		break;
-	    case 'D':
-		if (first && !hx) {
-		    isdef = 1;
-		    cclist |= COMP_DEFAULT;
-		} else {
-		    zwarnnam(name, "misplaced default completion (-D) flag",
-			    NULL, 0);
-		    return 1;
-		}
-		break;
- 	    case 'T':
-              if (first && !hx) {
- 		    cclist |= COMP_FIRST;
- 		} else {
- 		    zwarnnam(name, "misplaced first completion (-T) flag",
- 			    NULL, 0);
- 		    return 1;
- 		}
- 		break;
-	    case 'L':
-		if (!first || hx) {
-		    zwarnnam(name, "illegal use of -L flag", NULL, 0);
-		    return 1;
-		}
-		cclist |= COMP_LIST;
-		break;
-	    case 'x':
-		if (!argv[1]) {
-		    zwarnnam(name, "condition expected after -%c", NULL,
-			    **argv);
-		    return 1;
-		}
-		if (first) {
-		    argv++;
-		    if (get_xcompctl(name, &argv, &cct, isdef)) {
-			if (cct.ext)
-			    freecompctl(cct.ext);
-			return 1;
-		    }
-		    ready = 2;
-		} else {
-		    zwarnnam(name, "recursive extended completion not allowed",
-			    NULL, 0);
-		    return 1;
-		}
-		break;
-	    default:
-		if (!first && (**argv == '-' || **argv == '+'))
-		    (*argv)--, argv--, ready = 1;
-		else {
-		    zwarnnam(name, "bad option: -%c", NULL, **argv);
-		    return 1;
-		}
-	    }
-	}
-
-	if (*++argv && (!ready || ready == 2) &&
-	    **argv == '+' && !argv[0][1]) {
-	    /* There's an alternative (+) completion:  assign
-	     * what we have so far before moving on to that.
-	     */
-	    if (cc_assign(name, &cc, &cct, first && !hx))
-		return 1;
-
-	    hx = 1;
-	    ready = 0;
-
-	    if (!*++argv || **argv != '-' ||
-		(**argv == '-' && (!argv[0][1] ||
-				   (argv[0][1] == '-' && !argv[0][2])))) {
-		/* No argument to +, which means do default completion */
-		if (isdef)
-		    zwarnnam(name,
-			    "recursive xor'd default completions not allowed",
-			    NULL, 0);
-		else
-		    cc->xor = &cc_default;
-	    } else {
-		/* more flags follow:  prepare to loop again */
-		cc->xor = (Compctl) zcalloc(sizeof(*cc));
-		cc = cc->xor;
-		memset((void *)&cct, 0, sizeof(cct));
-	    }
-	}
-    }
-    if (!ready && *argv && **argv == '-')
-	argv++;
-
-    if (! (cct.mask & (CC_EXCMDS | CC_DISCMDS)))
-	cct.mask |= CC_EXCMDS;
-
-    /* assign the last set of flags we parsed */
-    if (cc_assign(name, &cc, &cct, first && !hx))
-	return 1;
-
-    *av = argv;
-
-    return 0;
-}
-
-/* Handle the -x ... -- part of compctl. */
-
-/**/
-int
-get_xcompctl(char *name, char ***av, Compctl cc, int isdef)
-{
-    char **argv = *av, *t, *tt, sav;
-    int n, l = 0, ready = 0;
-    Compcond m, c, o;
-    Compctl *next = &(cc->ext);
-
-    while (!ready) {
-	/* o keeps track of or's, m remembers the starting condition,
-	 * c is the current condition being parsed
-	 */
-	o = m = c = (Compcond) zcalloc(sizeof(*c));
-	/* Loop over each condition:  something like 's[...][...], p[...]' */
-	for (t = *argv; *t;) {
-	    while (*t == ' ')
-		t++;
-	    /* First get the condition code */
-	    switch (*t) {
-	    case 's':
-		c->type = CCT_CURSUF;
-		break;
-	    case 'S':
-		c->type = CCT_CURPRE;
-		break;
-	    case 'p':
-		c->type = CCT_POS;
-		break;
-	    case 'c':
-		c->type = CCT_CURSTR;
-		break;
-	    case 'C':
-		c->type = CCT_CURPAT;
-		break;
-	    case 'w':
-		c->type = CCT_WORDSTR;
-		break;
-	    case 'W':
-		c->type = CCT_WORDPAT;
-		break;
-	    case 'n':
-		c->type = CCT_CURSUB;
-		break;
-	    case 'N':
-		c->type = CCT_CURSUBC;
-		break;
-	    case 'm':
-		c->type = CCT_NUMWORDS;
-		break;
-	    case 'r':
-		c->type = CCT_RANGESTR;
-		break;
-	    case 'R':
-		c->type = CCT_RANGEPAT;
-		break;
-	    default:
-		t[1] = '\0';
-		zwarnnam(name, "unknown condition code: %s", t, 0);
-		zfree(m, sizeof(struct compcond));
-
-		return 1;
-	    }
-	    /* Now get the arguments in square brackets */
-	    if (t[1] != '[') {
-		t[1] = '\0';
-		zwarnnam(name, "expected condition after condition code: %s", t, 0);
-		zfree(m, sizeof(struct compcond));
-
-		return 1;
-	    }
-	    t++;
-	    /* First count how many or'd arguments there are,
-	     * marking the active ]'s and ,'s with unprintable characters.
-	     */
-	    for (n = 0, tt = t; *tt == '['; n++) {
-		for (l = 1, tt++; *tt && l; tt++)
-		    if (*tt == '\\' && tt[1])
-			tt++;
-		    else if (*tt == '[')
-			l++;
-		    else if (*tt == ']')
-			l--;
-		    else if (l == 1 && *tt == ',')
-			*tt = '\201';
-		if (tt[-1] == ']')
-		    tt[-1] = '\200';
-	    }
-
-	    if (l) {
-		t[1] = '\0';
-		zwarnnam(name, "error after condition code: %s", t, 0);
-		zfree(m, sizeof(struct compcond));
-
-		return 1;
-	    }
-	    c->n = n;
-
-	    /* Allocate space for all the arguments of the conditions */
-	    if (c->type == CCT_POS ||
-		c->type == CCT_NUMWORDS) {
-		c->u.r.a = (int *)zcalloc(n * sizeof(int));
-		c->u.r.b = (int *)zcalloc(n * sizeof(int));
-	    } else if (c->type == CCT_CURSUF ||
-		       c->type == CCT_CURPRE)
-		c->u.s.s = (char **)zcalloc(n * sizeof(char *));
-
-	    else if (c->type == CCT_RANGESTR ||
-		     c->type == CCT_RANGEPAT) {
-		c->u.l.a = (char **)zcalloc(n * sizeof(char *));
-		c->u.l.b = (char **)zcalloc(n * sizeof(char *));
-	    } else {
-		c->u.s.p = (int *)zcalloc(n * sizeof(int));
-		c->u.s.s = (char **)zcalloc(n * sizeof(char *));
-	    }
-	    /* Now loop over the actual arguments */
-	    for (l = 0; *t == '['; l++, t++) {
-		for (t++; *t && *t == ' '; t++);
-		tt = t;
-		if (c->type == CCT_POS ||
-		    c->type == CCT_NUMWORDS) {
-		    /* p[...] or m[...]:  one or two numbers expected */
-		    for (; *t && *t != '\201' && *t != '\200'; t++);
-		    if (!(sav = *t)) {
-			zwarnnam(name, "error in condition", NULL, 0);
-			freecompcond(m);
-			return 1;
-		    }
-		    *t = '\0';
-		    c->u.r.a[l] = atoi(tt);
-		    /* Second argument is optional:  see if it's there */
-		    if (sav == '\200')
-			/* no:  copy first argument */
-			c->u.r.b[l] = c->u.r.a[l];
-		    else {
-			tt = ++t;
-			for (; *t && *t != '\200'; t++);
-			if (!*t) {
-			    zwarnnam(name, "error in condition", NULL, 0);
-			    freecompcond(m);
-			    return 1;
-			}
-			*t = '\0';
-			c->u.r.b[l] = atoi(tt);
-		    }
-		} else if (c->type == CCT_CURSUF ||
-			   c->type == CCT_CURPRE) {
-		    /* -s[..] or -S[..]:  single string expected */
-		    for (; *t && *t != '\200'; t++)
-			if (*t == '\201')
-			    *t = ',';
-		    if (!*t) {
-			zwarnnam(name, "error in condition", NULL, 0);
-			freecompcond(m);
-			return 1;
-		    }
-		    *t = '\0';
-		    c->u.s.s[l] = ztrdup(tt);
-		} else if (c->type == CCT_RANGESTR ||
-			   c->type == CCT_RANGEPAT) {
-		    /* -r[..,..] or -R[..,..]:  two strings expected */
-		    for (; *t && *t != '\201'; t++);
-		    if (!*t) {
-			zwarnnam(name, "error in condition", NULL, 0);
-			freecompcond(m);
-			return 1;
-		    }
-		    *t = '\0';
-		    c->u.l.a[l] = ztrdup(tt);
-		    tt = ++t;
-		    /* any more commas are text, not active */
-		    for (; *t && *t != '\200'; t++)
-			if (*t == '\201')
-			    *t = ',';
-		    if (!*t) {
-			zwarnnam(name, "error in condition", NULL, 0);
-			freecompcond(m);
-			return 1;
-		    }
-		    *t = '\0';
-		    c->u.l.b[l] = ztrdup(tt);
-		} else {
-		    /* remaining patterns are number followed by string */
-		    for (; *t && *t != '\200' && *t != '\201'; t++);
-		    if (!*t || *t == '\200') {
-			zwarnnam(name, "error in condition", NULL, 0);
-			freecompcond(m);
-			return 1;
-		    }
-		    *t = '\0';
-		    c->u.s.p[l] = atoi(tt);
-		    tt = ++t;
-		    for (; *t && *t != '\200'; t++)
-			if (*t == '\201')
-			    *t = ',';
-		    if (!*t) {
-			zwarnnam(name, "error in condition", NULL, 0);
-			freecompcond(m);
-			return 1;
-		    }
-		    *t = '\0';
-		    c->u.s.s[l] = ztrdup(tt);
-		}
-	    }
-	    while (*t == ' ')
-		t++;
-	    if (*t == ',') {
-		/* Another condition to `or' */
-		o->or = c = (Compcond) zcalloc(sizeof(*c));
-		o = c;
-		t++;
-	    } else if (*t) {
-		/* Another condition to `and' */
-		c->and = (Compcond) zcalloc(sizeof(*c));
-		c = c->and;
-	    }
-	}
-	/* Assign condition to current compctl */
-	*next = (Compctl) zcalloc(sizeof(*cc));
-	(*next)->cond = m;
-	argv++;
-	/* End of the condition; get the flags that go with it. */
-	if (get_compctl(name, &argv, *next, 0, isdef))
-	    return 1;
- 	if ((!argv || !*argv) && (cclist & COMP_SPECIAL))
- 	    /* default, first, or command completion finished */
-	    ready = 1;
-	else {
-	    /* see if we are looking for more conditions or are
-	     * ready to return (ready = 1)
-	     */
-	    if (!argv || !*argv || **argv != '-' ||
-		((!argv[0][1] || argv[0][1] == '+') && !argv[1])) {
-		zwarnnam(name, "missing command names", NULL, 0);
-		return 1;
-	    }
-	    if (!strcmp(*argv, "--"))
-		ready = 1;
-	    else if (!strcmp(*argv, "-+") && argv[1] &&
-		     !strcmp(argv[1], "--")) {
-		ready = 1;
-		argv++;
-	    }
-	    argv++;
-	    /* prepare to put the next lot of conditions on the end */
-	    next = &((*next)->next);
-	}
-    }
-    /* save position at end of parsing */
-    *av = argv - 1;
-    return 0;
-}
-
-/**/
-int
-cc_assign(char *name, Compctl *ccptr, Compctl cct, int reass)
-{
-    /* Copy over the details from the values in cct to those in *ccptr */
-    Compctl cc;
-
-    if (cct->subcmd && (cct->keyvar || cct->glob || cct->str ||
-			cct->func || cct->explain || cct->prefix)) {
-	zwarnnam(name, "illegal combination of options", NULL, 0);
-	return 1;
-    }
-
-    /* Handle assignment of new default or command completion */
-    if (reass && !(cclist & COMP_LIST)) {
-	/* if not listing */
-	if (cclist == (COMP_COMMAND|COMP_DEFAULT)
-	    || cclist == (COMP_COMMAND|COMP_FIRST)
-	    || cclist == (COMP_DEFAULT|COMP_FIRST)
-	    || cclist == COMP_SPECIAL) {
- 	    zwarnnam(name, "can't set -D, -T, and -C simultaneously", NULL, 0);
-	    /* ... because the following code wouldn't work. */
-	    return 1;
-	}
-	if (cclist & COMP_COMMAND) {
-	    /* command */
-	    *ccptr = &cc_compos;
-	    cc_reassign(*ccptr);
-	} else if (cclist & COMP_DEFAULT) {
-	    /* default */
-	    *ccptr = &cc_default;
-	    cc_reassign(*ccptr);
- 	} else if (cclist & COMP_FIRST) {
- 	    /* first */
- 	    *ccptr = &cc_first;
- 	    cc_reassign(*ccptr);
-	}
-    }
-
-    /* Free the old compctl */
-    cc = *ccptr;
-    zsfree(cc->keyvar);
-    zsfree(cc->glob);
-    zsfree(cc->str);
-    zsfree(cc->func);
-    zsfree(cc->explain);
-    zsfree(cc->prefix);
-    zsfree(cc->suffix);
-    zsfree(cc->subcmd);
-    zsfree(cc->hpat);
-    
-    /* and copy over the new stuff, (permanently) allocating
-     * space for strings.
-     */
-    cc->mask = cct->mask;
-    cc->keyvar = ztrdup(cct->keyvar);
-    cc->glob = ztrdup(cct->glob);
-    cc->str = ztrdup(cct->str);
-    cc->func = ztrdup(cct->func);
-    cc->explain = ztrdup(cct->explain);
-    cc->prefix = ztrdup(cct->prefix);
-    cc->suffix = ztrdup(cct->suffix);
-    cc->subcmd = ztrdup(cct->subcmd);
-    cc->hpat = ztrdup(cct->hpat);
-    cc->hnum = cct->hnum;
-
-    /* careful with extended completion:  it's already allocated */
-    cc->ext = cct->ext;
-
-    return 0;
-}
-
-/**/
-void
-cc_reassign(Compctl cc)
-{
-    /* Free up a new default or command completion:
-     * this is a hack to free up the parts which should be deleted,
-     * without removing the basic variable which is statically allocated
-     */
-    Compctl c2;
-
-    c2 = (Compctl) zcalloc(sizeof *cc);
-    c2->xor = cc->xor;
-    c2->ext = cc->ext;
-    c2->refc = 1;
-
-    freecompctl(c2);
-
-    cc->ext = cc->xor = NULL;
-}
-
-/**/
-void
-compctl_process(char **s, int mask, char *uk, char *gl, char *st, char *fu, char *ex, char *pr, char *su, char *sc, char *hp, int hn)
-{
-    /* Command called internally to initialise some basic compctls */
-    Compctl cc;
-
-    cc = (Compctl) zcalloc(sizeof *cc);
-    cc->mask = mask;
-    cc->keyvar = ztrdup(uk);
-    cc->glob = ztrdup(gl);
-    cc->str = ztrdup(st);
-    cc->func = ztrdup(fu);
-    cc->explain = ztrdup(ex);
-    cc->prefix = ztrdup(pr);
-    cc->suffix = ztrdup(su);
-    cc->subcmd = ztrdup(sc);
-    cc->hpat = ztrdup(hp);
-    cc->hnum = hn;
-
-    cclist = 0;
-    compctl_process_cc(s, cc);
-}
-
-/**/
-void
-compctl_process_cc(char **s, Compctl cc)
-{
-    Compctlp ccp;
-
-    if (cclist & COMP_REMOVE) {
-	/* Delete entries for the commands listed */
-	for (; *s; s++) {
-	    if ((ccp = (Compctlp) compctltab->removenode(compctltab, *s)))
-		compctltab->freenode((HashNode) ccp);
-	}
-    } else {
-	/* Add the compctl just read to the hash table */
-
-	cc->refc = 0;
-	for (; *s; s++) {
-	    cc->refc++;
-	    ccp = (Compctlp) zalloc(sizeof *ccp);
-	    ccp->cc = cc;
-	    compctltab->addnode(compctltab, ztrdup(*s), ccp);
-	}
-    }
-}
-
-/* Print a `compctl' */
-
-/**/
-void
-printcompctl(char *s, Compctl cc, int printflags)
-{
-    Compctl cc2;
-    char *css = "fcqovbAIFpEjrzBRGudeNOZUnQmw";
-    char *mss = " pcCwWsSnNmrR";
-    unsigned long t = 0x7fffffff;
-    unsigned long flags = cc->mask;
-    unsigned long oldshowmask;
-
-    if ((flags & CC_EXCMDS) && !(flags & CC_DISCMDS))
-	flags &= ~CC_EXCMDS;
-
-    /* If showmask is non-zero, then print only those *
-     * commands with that flag set.                   */
-    if (showmask && !(flags & showmask))
-	return;
-
-    /* Temporarily clear showmask in case we make *
-     * recursive calls to printcompctl.           */
-    oldshowmask = showmask;
-    showmask = 0;
-
-    /* print either command name or start of compctl command itself */
-    if (s) {
-	if (cclist & COMP_LIST) {
-	    printf("compctl");
-	    if (cc == &cc_compos)
-		printf(" -C");
-	    if (cc == &cc_default)
-		printf(" -D");
-	    if (cc == &cc_first)
-		printf(" -T");
-	} else
-	    quotedzputs(s, stdout);
-    }
-
-    /* loop through flags w/o args that are set, printing them if so */
-    if (flags & t) {
-	printf(" -");
-	if ((flags & (CC_ALREG | CC_ALGLOB)) == (CC_ALREG | CC_ALGLOB))
-	    putchar('a'), flags &= ~(CC_ALREG | CC_ALGLOB);
-	while (*css) {
-	    if (flags & t & 1)
-		putchar(*css);
-	    css++;
-	    flags >>= 1;
-	    t >>= 1;
-	}
-    }
-
-    /* now flags with arguments */
-    flags = cc->mask;
-    printif(cc->keyvar, 'k');
-    printif(cc->func, 'K');
-    printif(cc->explain, 'X');
-    printif(cc->prefix, 'P');
-    printif(cc->suffix, 'S');
-    printif(cc->glob, 'g');
-    printif(cc->str, 's');
-    printif(cc->subcmd, 'l');
-    if (cc->hpat) {
-	printf(" -H %d ", cc->hnum);
-	quotedzputs(cc->hpat, stdout);
-    }
-
-    /* now the -x ... -- extended completion part */
-    if (cc->ext) {
-	Compcond c, o;
-	int i;
-
-	cc2 = cc->ext;
-	printf(" -x");
-
-	while (cc2) {
-	    /* loop over conditions */
-	    c = cc2->cond;
-
-	    printf(" '");
-	    for (c = cc2->cond; c;) {
-		/* loop over or's */
-		o = c->or;
-		while (c) {
-		    /* loop over and's */
-		    putchar(mss[c->type]);
-
-		    for (i = 0; i < c->n; i++) {
-			/* for all [...]'s of a given condition */
-			putchar('[');
-			switch (c->type) {
-			case CCT_POS:
-			case CCT_NUMWORDS:
-			    printf("%d,%d", c->u.r.a[i], c->u.r.b[i]);
-			    break;
-			case CCT_CURSUF:
-			case CCT_CURPRE:
-			    printqt(c->u.s.s[i]);
-			    break;
-			case CCT_RANGESTR:
-			case CCT_RANGEPAT:
-			    printqt(c->u.l.a[i]);
-			    putchar(',');
-			    printqt(c->u.l.b[i]);
-			    break;
-			default:
-			    printf("%d,", c->u.s.p[i]);
-			    printqt(c->u.s.s[i]);
-			}
-			putchar(']');
-		    }
-		    if ((c = c->and))
-			putchar(' ');
-		}
-		if ((c = o))
-		    printf(" , ");
-	    }
-	    putchar('\'');
-	    c = cc2->cond;
-	    cc2->cond = NULL;
-	    /* now print the flags for the current condition */
-	    printcompctl(NULL, cc2, 0);
-	    cc2->cond = c;
-	    if ((cc2 = (Compctl) (cc2->next)))
-		printf(" -");
-	}
-	if (cclist & COMP_LIST)
-	    printf(" --");
-    }
-    if (cc && cc->xor) {
-	/* print xor'd (+) completions */
-	printf(" +");
-	if (cc->xor != &cc_default)
-	    printcompctl(NULL, cc->xor, 0);
-    }
-    if (s) {
-	if ((cclist & COMP_LIST) && (cc != &cc_compos)
-	    && (cc != &cc_default) && (cc != &cc_first)) {
-	    if(s[0] == '-' || s[0] == '+')
-		printf(" -");
-	    putchar(' ');
-	    quotedzputs(s, stdout);
-	}
-	putchar('\n');
-    }
-
-    showmask = oldshowmask;
-}
-
-/**/
-void
-printcompctlp(HashNode hn, int printflags)
-{
-    Compctlp ccp = (Compctlp) hn;
-
-    /* Function needed for use by scanhashtable() */
-    printcompctl(ccp->nam, ccp->cc, printflags);
-}
-
-/**/
-void
+mod_export void
 printqt(char *str)
 {
     /* Print str, but turn any single quote into '\'' or ''. */
@@ -2456,7 +1190,7 @@ printqt(char *str)
 }
 
 /**/
-void
+mod_export void
 printif(char *str, int c)
 {
     /* If flag c has an argument, print that */
@@ -2474,10 +1208,10 @@ printif(char *str, int c)
 int
 bin_fc(char *nam, char **argv, char *ops, int func)
 {
-    int first = -1, last = -1, retval, delayrem, minflag = 0;
+    int first = -1, last = -1, retval;
     char *s;
     struct asgment *asgf = NULL, *asgl = NULL;
-    Comp com = NULL;
+    Patprog pprog = NULL;
 
     /* fc is only permitted in interactive shells */
     if (!interact) {
@@ -2488,36 +1222,38 @@ bin_fc(char *nam, char **argv, char *ops, int func)
      * as a pattern that history lines have to match   */
     if (*argv && ops['m']) {
 	tokenize(*argv);
-	if (!(com = parsereg(*argv++))) {
+	if (!(pprog = patcompile(*argv++, 0, NULL))) {
 	    zwarnnam(nam, "invalid match pattern", NULL, 0);
 	    return 1;
 	}
     }
-    delayrem = 0;
-    if (!(ops['l'] && unset(HISTNOSTORE)) &&
-	!(ops['R'] || ops['W'] || ops['A']))
-	delayrem = 1;
+    queue_signals();
     if (ops['R']) {
 	/* read history from a file */
-	readhistfile(*argv ? *argv : getsparam("HISTFILE"), 1);
+	readhistfile(*argv, 1, ops['I'] ? HFILE_SKIPOLD : 0);
+	unqueue_signals();
 	return 0;
     }
     if (ops['W']) {
 	/* write history to a file */
-	savehistfile(*argv ? *argv : getsparam("HISTFILE"), 1,
-		     (ops['I'] ? 2 : 0));
+	savehistfile(*argv, 1, ops['I'] ? HFILE_SKIPOLD : 0);
+	unqueue_signals();
 	return 0;
     }
     if (ops['A']) {
 	/* append history to a file */
-	savehistfile(*argv ? *argv : getsparam("HISTFILE"), 1,
-		     (ops['I'] ? 3 : 1));
+	savehistfile(*argv, 1, HFILE_APPEND | (ops['I'] ? HFILE_SKIPOLD : 0));
+	unqueue_signals();
 	return 0;
     }
     /* put foo=bar type arguments into the substitution list */
     while (*argv && equalsplit(*argv, &s)) {
-	Asgment a = (Asgment) alloc(sizeof *a);
+	Asgment a = (Asgment) zhalloc(sizeof *a);
 
+	if (!**argv) {
+	    zwarnnam(nam, "invalid replacement pattern: =%s", s, 0);
+	    return 1;
+	}
 	if (!asgf)
 	    asgf = asgl = a;
 	else {
@@ -2526,15 +1262,14 @@ bin_fc(char *nam, char **argv, char *ops, int func)
 	}
 	a->name = *argv;
 	a->value = s;
+	a->next = NULL;
 	argv++;
     }
     /* interpret and check first history line specifier */
     if (*argv) {
-	minflag = **argv == '-';
 	first = fcgetcomm(*argv);
 	if (first == -1) {
-	    if (delayrem)
-		remhist();
+	    unqueue_signals();
 	    return 1;
 	}
 	argv++;
@@ -2543,8 +1278,7 @@ bin_fc(char *nam, char **argv, char *ops, int func)
     if (*argv) {
 	last = fcgetcomm(*argv);
 	if (last == -1) {
-	    if (delayrem)
-		remhist();
+	    unqueue_signals();
 	    return 1;
 	}
 	argv++;
@@ -2552,25 +1286,30 @@ bin_fc(char *nam, char **argv, char *ops, int func)
     /* There is a maximum of two history specifiers.  At least, there *
      * will be as long as the history list is one-dimensional.        */
     if (*argv) {
+	unqueue_signals();
 	zwarnnam("fc", "too many arguments", NULL, 0);
-	if (delayrem)
-	    remhist();
 	return 1;
     }
     /* default values of first and last, and range checking */
-    if (first == -1)
-	first = (ops['l']) ? curhist - 16 : curhist - 1;
+    if (first == -1) {
+	first = ops['l']? addhistnum(curline.histnum,-16,0)
+			: addhistnum(curline.histnum,-1,0);
+    }
     if (last == -1)
-	last = (ops['l']) ? curhist - 1 : first;
+	last = ops['l']? addhistnum(curline.histnum,-1,0) : first;
     if (first < firsthist())
-	first = firsthist();
-    if (last == -1)
-	last = (minflag) ? curhist : first;
-    if (ops['l'])
+	first = firsthist() - (last < firsthist());
+    if (last > curhist)
+	last = curhist;
+    else if (last < first)
+	last = first;
+    if (ops['l']) {
 	/* list the required part of the history */
 	retval = fclist(stdout, !ops['n'], ops['r'], ops['D'],
 			ops['d'] + ops['f'] * 2 + ops['E'] * 4 + ops['i'] * 8,
-			first, last, asgf, com);
+			first, last, asgf, pprog);
+	unqueue_signals();
+    }
     else {
 	/* edit history file, and (if successful) use the result as a new command */
 	int tempfd;
@@ -2579,34 +1318,33 @@ bin_fc(char *nam, char **argv, char *ops, int func)
 
 	retval = 1;
 	fil = gettempname();
-	if (((tempfd = open(fil, O_WRONLY | O_CREAT | O_EXCL, 0600)) == -1) ||
+	if (((tempfd = open(fil, O_WRONLY | O_CREAT | O_EXCL | O_NOCTTY, 0600))
+	    == -1) ||
 		((out = fdopen(tempfd, "w")) == NULL)) {
+	    unqueue_signals();
 	    zwarnnam("fc", "can't open temp file: %e", NULL, errno);
 	} else {
-	    if (!fclist(out, 0, ops['r'], 0, 0, first, last, asgf, com)) {
+	    if (!fclist(out, 0, ops['r'], 0, 0, first, last, asgf, pprog)) {
 		char *editor;
 
 		editor = auxdata ? auxdata : getsparam("FCEDIT");
 		if (!editor)
 		    editor = DEFAULT_FCEDIT;
 
+		unqueue_signals();
 		if (fcedit(editor, fil)) {
 		    if (stuff(fil))
 			zwarnnam("fc", "%e: %s", s, errno);
 		    else {
-			if (delayrem)
-			    remhist();
-			delayrem = 0;
 			loop(0,1);
 			retval = lastval;
 		    }
 		}
-	    }
+	    } else
+		unqueue_signals();
 	}
 	unlink(fil);
     }
-    if (delayrem)
-	remhist();
     return retval;
 }
 
@@ -2619,20 +1357,18 @@ bin_fc(char *nam, char **argv, char *ops, int func)
 /* get the history event associated with s */
 
 /**/
-int
+static int
 fcgetcomm(char *s)
 {
     int cmd;
 
     /* First try to match a history number.  Negative *
      * numbers indicate reversed numbering.           */
-    if ((cmd = atoi(s))) {
+    if ((cmd = atoi(s)) != 0 || *s == '0') {
 	if (cmd < 0)
-	    cmd = curhist + cmd;
-	if (cmd >= curhist) {
-	    zwarnnam("fc", "bad history number: %d", 0, cmd);
-	    return -1;
-	}
+	    cmd = addhistnum(curline.histnum,cmd,HIST_FOREIGN);
+	if (cmd < 0)
+	    cmd = 0;
 	return cmd;
     }
     /* not a number, so search by string */
@@ -2646,7 +1382,7 @@ fcgetcomm(char *s)
  * which is essentially a linked list of string,replacement pairs.       */
 
 /**/
-int
+static int
 fcsubs(char **sp, struct asgment *sub)
 {
     char *oldstr, *newstr, *oldpos, *newpos, *newmem, *s = *sp;
@@ -2660,7 +1396,7 @@ fcsubs(char **sp, struct asgment *sub)
 	oldpos = s;
 	/* loop over occurences of oldstr in s, replacing them with newstr */
 	while ((newpos = (char *)strstr(oldpos, oldstr))) {
-	    newmem = (char *) alloc(1 + (newpos - s)
+	    newmem = (char *) zhalloc(1 + (newpos - s)
 			+ strlen(newstr) + strlen(newpos + strlen(oldstr)));
 	    ztrncpy(newmem, s, newpos - s);
 	    strcat(newmem, newstr);
@@ -2688,11 +1424,11 @@ fcsubs(char **sp, struct asgment *sub)
  * to dd.mm.yyyy form; d>7 means that yyyy-mm-dd form should be used.   */
 
 /**/
-int
-fclist(FILE *f, int n, int r, int D, int d, int first, int last, struct asgment *subs, Comp com)
+static int
+fclist(FILE *f, int n, int r, int D, int d, int first, int last, struct asgment *subs, Patprog pprog)
 {
     int fclistdone = 0;
-    char *s, *hs;
+    char *s;
     Histent ent;
 
     /* reverse range if required */
@@ -2705,28 +1441,31 @@ fclist(FILE *f, int n, int r, int D, int d, int first, int last, struct asgment 
     if (!subs)
 	fclistdone = 1;
 
-    for (;;) {
-	hs = quietgetevent(first);
-	if (!hs) {
+    ent = gethistent(first, first < last? GETHIST_DOWNWARD : GETHIST_UPWARD);
+    if (!ent || (first < last? ent->histnum > last : ent->histnum < last)) {
+	if (first == last)
 	    zwarnnam("fc", "no such event: %d", NULL, first);
-	    return 1;
-	}
-	s = dupstring(hs);
+	else
+	    zwarnnam("fc", "no events in that range", NULL, 0);
+	return 1;
+    }
+
+    for (;;) {
+	s = dupstring(ent->text);
 	/* this if does the pattern matching, if required */
-	if (!com || domatch(s, com, 0)) {
+	if (!pprog || pattry(pprog, s)) {
 	    /* perform substitution */
 	    fclistdone |= fcsubs(&s, subs);
 
 	    /* do numbering */
-	    if (n)
-		fprintf(f, "%5d  ", first);
-	    ent = NULL;
+	    if (n) {
+		fprintf(f, "%5d%c ", ent->histnum,
+			ent->flags & HIST_FOREIGN? '*' : ' ');
+	    }
 	    /* output actual time (and possibly date) of execution of the
 	    command, if required */
 	    if (d) {
 		struct tm *ltm;
-		if (!ent)
-		    ent = gethistent(first);
 		ltm = localtime(&ent->stim);
 		if (d >= 2) {
 		    if (d >= 8) {
@@ -2748,8 +1487,6 @@ fclist(FILE *f, int n, int r, int D, int d, int first, int last, struct asgment 
 	    /* display the time taken by the command, if required */
 	    if (D) {
 		long diff;
-		if (!ent)
-		    ent = gethistent(first);
 		diff = (ent->ftim) ? ent->ftim - ent->stim : 0;
 		fprintf(f, "%ld:%02ld  ", diff / 60, diff % 60);
 	    }
@@ -2762,12 +1499,14 @@ fclist(FILE *f, int n, int r, int D, int d, int first, int last, struct asgment 
 		fprintf(f, "%s\n", s);
 	}
 	/* move on to the next history line, or quit the loop */
-	if (first == last)
-	    break;
-	else if (first > last)
-	    first--;
-	else
-	    first++;
+	if (first < last) {
+	    if (!(ent = down_histent(ent)) || ent->histnum > last)
+		break;
+	}
+	else {
+	    if (!(ent = up_histent(ent)) || ent->histnum < last)
+		break;
+	}
     }
 
     /* final processing */
@@ -2783,7 +1522,7 @@ fclist(FILE *f, int n, int r, int D, int d, int first, int last, struct asgment 
 /* edit a history file */
 
 /**/
-int
+static int
 fcedit(char *ename, char *fn)
 {
     char *s;
@@ -2800,52 +1539,127 @@ fcedit(char *ename, char *fn)
 
 /**** parameter builtins ****/
 
+/* Separate an argument into name=value parts, returning them in an     *
+ * asgment structure.  Because the asgment structure used is global,    *
+ * only one of these can be active at a time.  The string s gets placed *
+ * in this global structure, so it needs to be in permanent memory.     */
+
+/**/
+static Asgment
+getasg(char *s)
+{
+    static struct asgment asg;
+
+    /* sanity check for valid argument */
+    if (!s)
+	return NULL;
+
+    /* check if name is empty */
+    if (*s == '=') {
+	zerr("bad assignment", NULL, 0);
+	return NULL;
+    }
+    asg.name = s;
+
+    /* search for `=' */
+    for (; *s && *s != '='; s++);
+
+    /* found `=', so return with a value */
+    if (*s) {
+	*s = '\0';
+	asg.value = s + 1;
+    } else {
+    /* didn't find `=', so we only have a name */
+	asg.value = NULL;
+    }
+    return &asg;
+}
+
 /* function to set a single parameter */
 
 /**/
-int
-typeset_single(char *cname, char *pname, Param pm, int func, int on, int off, int roff, char *value)
+Param
+typeset_single(char *cname, char *pname, Param pm, int func,
+	       int on, int off, int roff, char *value, Param altpm)
 {
-    int usepm, tc;
+    int usepm, tc, keeplocal = 0, newspecial = 0;
+    char *subscript;
 
-    on &= ~PM_ARRAY;
-
-    /* use the existing pm? */
+    /*
+     * Do we use the existing pm?  Note that this isn't the end of the
+     * story, because if we try and create a new pm at the same
+     * locallevel as an unset one we use the pm struct anyway: that's
+     * handled in createparam().  Here we just avoid using it for the
+     * present tests if it's unset.
+     */
     usepm = pm && !(pm->flags & PM_UNSET);
 
-    /* Always use an existing pm if special at current locallevel */
-    if (pm && (pm->flags & PM_SPECIAL) && pm->level == locallevel)
+    /*
+     * We need to compare types with an existing pm if special,
+     * even if that's unset
+     */
+    if (pm && (pm->flags & PM_SPECIAL))
 	usepm = 1;
 
     /*
-     * Don't use a non-special existing param if
+     * Don't use an existing param if
      *   - the local level has changed, and
-     *   - the function is not `export'.
+     *   - we are really locallizing the parameter
      */
-    if (usepm && !(pm->flags & PM_SPECIAL) &&
-	locallevel != pm->level && func != BIN_EXPORT)
+    if (usepm && locallevel != pm->level && (on & PM_LOCAL)) {
+	/*
+	 * If the original parameter was special and we're creating
+	 * a new one, we need to keep it special.
+	 *
+	 * The -h (hide) flags prevents an existing special being made
+	 * local.  It can be applied either to the special or in the
+	 * typeset/local statement for the local variable.
+	 */
+	newspecial = (pm->flags & PM_SPECIAL)
+	    && !(on & PM_HIDE) && !(pm->flags & PM_HIDE & ~off);
 	usepm = 0;
+    }
 
-    /* attempting a type conversion? */
-    if ((tc = usepm && (((off & pm->flags) | (on & ~pm->flags)) & PM_INTEGER)
-	 && !(pm->flags & PM_SPECIAL)))
-	usepm = 0;
-
-    if (usepm) {
+    /* attempting a type conversion, or making a tied colonarray? */
+    tc = 0;
+    if (usepm || newspecial) {
+	int chflags = ((off & pm->flags) | (on & ~pm->flags)) &
+	     (PM_INTEGER|PM_EFLOAT|PM_FFLOAT|PM_HASHED|
+	      PM_ARRAY|PM_TIED|PM_AUTOLOAD);
+	/* keep the parameter if just switching between floating types */
+	if ((tc = chflags && chflags != (PM_EFLOAT|PM_FFLOAT)))
+	    usepm = 0;
+    }
+    if (tc){
 	if (pm->flags & PM_SPECIAL) {
-	    func = 0;
-	    on = (PM_TYPE(pm->flags) == PM_INTEGER) ?
-		(on &= ~(PM_LEFT | PM_RIGHT_B | PM_RIGHT_Z | PM_UPPER)) :
-		(on & ~PM_INTEGER);
-	    off &= ~PM_INTEGER;
+	    zerrnam(cname, "%s: can't change type of a special parameter",
+		    pname, 0);
+	    return NULL;
+	} else if (pm->flags & PM_AUTOLOAD) {
+	    zerrnam(cname, "%s: can't change type of autoloaded parameter",
+		    pname, 0);
+	    return NULL;
 	}
-	if (pm->level) {
-	    if ((on & PM_EXPORTED) && !(on &= ~PM_EXPORTED) && !off)
-		return 1;
-	}
+    }
+
+    /*
+     * A parameter will be local if
+     * 1. we are re-using an existing local parameter
+     *    or
+     * 2. we are not using an existing parameter, but
+     *   i. there is already a parameter, which will be hidden
+     *     or
+     *   ii. we are creating a new local parameter
+     */
+    if (usepm) {
+	on &= ~PM_LOCAL;
 	if (!on && !roff && !value) {
-	    paramtab->printnode((HashNode)pm, 0);
-	    return 0;
+	    paramtab->printnode((HashNode)pm, PRINT_INCLUDEVALUE);
+	    return pm;
+	}
+	if ((pm->flags & PM_RESTRICTED) && isset(RESTRICTED)) {
+	    zerrnam(cname, "%s: restricted", pname, 0);
+	    return pm;
 	}
 	if ((on & PM_UNIQUE) && !(pm->flags & PM_READONLY & ~off)) {
 	    Param apm;
@@ -2864,24 +1678,28 @@ typeset_single(char *cname, char *pname, Param pm, int func, int on, int off, in
 		    arrfixenv(pm->nam, x);
 	    }
 	}
-	pm->flags = (pm->flags | on) & ~(off | PM_UNSET);
+	pm->flags = (pm->flags | (on & ~PM_READONLY)) & ~(off | PM_UNSET);
 	/* This auxlen/pm->ct stuff is a nasty hack. */
-	if ((on & (PM_LEFT | PM_RIGHT_B | PM_RIGHT_Z | PM_INTEGER)) &&
+	if ((on & (PM_LEFT | PM_RIGHT_B | PM_RIGHT_Z | PM_INTEGER |
+		   PM_EFLOAT | PM_FFLOAT)) &&
 	    auxlen)
 	    pm->ct = auxlen;
-	if (PM_TYPE(pm->flags) != PM_ARRAY) {
+	if (!(pm->flags & (PM_ARRAY|PM_HASHED))) {
 	    if (pm->flags & PM_EXPORTED) {
-		if (!(pm->flags & PM_UNSET) && !pm->env)
-		    pm->env = addenv(pname, value ? value : getsparam(pname));
-	    } else if (pm->env) {
+		if (!(pm->flags & PM_UNSET) && !pm->env && !value)
+		    pm->env = addenv(pname, getsparam(pname), pm->flags);
+	    } else if (pm->env && !(pm->flags & PM_HASHELEM)) {
 		delenv(pm->env);
-		zsfree(pm->env);
 		pm->env = NULL;
 	    }
-	    if (value)
-		setsparam(pname, ztrdup(value));
+	    if (value && !(pm = setsparam(pname, ztrdup(value))))
+		return NULL;
+	} else if (value) {
+	    zwarnnam(cname, "can't assign new value for array %s", pname, 0);
+	    return NULL;
 	}
-	return 0;
+	pm->flags |= (on & PM_READONLY);
+	return pm;
     }
 
     /*
@@ -2891,34 +1709,185 @@ typeset_single(char *cname, char *pname, Param pm, int func, int on, int off, in
      * last case only, we need to delete the old parameter.
      */
     if (tc) {
-	if (pm->flags & PM_READONLY) {
-	    on |= ~off & PM_READONLY;
-	    pm->flags &= ~PM_READONLY;
-	}
-	if (!value)
+	/* Maintain existing readonly/exported status... */
+	on |= ~off & (PM_READONLY|PM_EXPORTED) & pm->flags;
+	/* ...but turn off existing readonly so we can delete it */
+	pm->flags &= ~PM_READONLY;
+	/*
+	 * If we're just changing the type, we should keep the
+	 * variable at the current level of localness.
+	 */
+	keeplocal = pm->level;
+	/*
+	 * Try to carry over a value, but not when changing from,
+	 * to, or between non-scalar types.
+	 */
+	if (!value && !((pm->flags|on) & (PM_ARRAY|PM_HASHED)))
 	    value = dupstring(getsparam(pname));
 	/* pname may point to pm->nam which is about to disappear */
 	pname = dupstring(pname);
-	unsetparam_pm(pm, 0);
-    } else if (locallist && func != BIN_EXPORT) {
-	PERMALLOC {
-	    addlinknode(locallist, ztrdup(pname));
-	} LASTALLOC;
+	unsetparam_pm(pm, 0, 1);
     }
-    /*
-     * Create a new node for a parameter with the flags in `on' minus the
-     * readonly flag
-     */
-    pm = createparam(ztrdup(pname), on & ~PM_READONLY);
-    DPUTS(!pm, "BUG: parameter not created");
-    pm->ct = auxlen;
-    if (func != BIN_EXPORT)
-	pm->level = locallevel;
-    if (value)
-	setsparam(pname, ztrdup(value));
-    pm->flags |= (on & PM_READONLY);
 
-    return 0;
+    if (newspecial) {
+	Param tpm, pm2;
+	if ((pm->flags & PM_RESTRICTED) && isset(RESTRICTED)) {
+	    zerrnam(cname, "%s: restricted", pname, 0);
+	    return pm;
+	}
+	/*
+	 * For specials, we keep the same struct but zero everything.
+	 * Maybe it would be easier to create a new struct but copy
+	 * the get/set methods.
+	 */
+	tpm = (Param) zalloc(sizeof *tpm);
+
+	tpm->nam = pm->nam;
+	if (pm->ename &&
+	    (pm2 = (Param) paramtab->getnode(paramtab, pm->ename)) &&
+	    pm2->level == locallevel) {
+	    /* This is getting silly, but anyway:  if one of a path/PATH
+	     * pair has already been made local at the current level, we
+	     * have to make sure that the other one does not have its value
+	     * saved:  since that comes from an internal variable it will
+	     * already reflect the local value, so restoring it on exit
+	     * would be wrong.
+	     *
+	     * This problem is also why we make sure we have a copy
+	     * of the environment entry in tpm->env, rather than relying
+	     * on the restored value to provide it.
+	     */
+	    tpm->flags = pm->flags | PM_NORESTORE;
+	} else {
+	    copyparam(tpm, pm, 1);
+	}
+	tpm->old = pm->old;
+	tpm->level = pm->level;
+	tpm->ct = pm->ct;
+	if (pm->env) {
+	    delenv(pm->env);
+	}
+	tpm->env = pm->env = NULL;
+
+	pm->old = tpm;
+	/*
+	 * The remaining on/off flags should be harmless to use,
+	 * because we've checked for unpleasant surprises above.
+	 */
+	pm->flags = (PM_TYPE(pm->flags) | on | PM_SPECIAL) & ~off;
+	/*
+	 * Final tweak: if we've turned on one of the flags with
+	 * numbers, we should use the appropriate integer.
+	 */
+	if (on & (PM_LEFT|PM_RIGHT_B|PM_RIGHT_Z|PM_INTEGER|
+		  PM_EFLOAT|PM_FFLOAT))
+	    pm->ct = auxlen;
+	else
+	    pm->ct = 0;
+    } else if ((subscript = strchr(pname, '['))) {
+	if (on & PM_READONLY) {
+	    zerrnam(cname,
+		    "%s: can't create readonly array elements", pname, 0);
+	    return NULL;
+	} else if (on & PM_LOCAL) {
+	    *subscript = 0;
+	    pm = (Param) (paramtab == realparamtab ?
+			  gethashnode2(paramtab, pname) :
+			  paramtab->getnode(paramtab, pname));
+	    *subscript = '[';
+	    if (!pm || pm->level != locallevel) {
+		zerrnam(cname,
+			"%s: can't create local array elements", pname, 0);
+		return NULL;
+	    }
+	}
+	if (PM_TYPE(on) == PM_SCALAR) {
+	    /*
+	     * This will either complain about bad identifiers, or will set
+	     * a hash element or array slice.  This once worked by accident,
+	     * creating a stray parameter along the way via createparam(),
+	     * now called below in the isident() branch.
+	     */
+	    if (!(pm = setsparam(pname, ztrdup(value ? value : ""))))
+		return NULL;
+	    value = NULL;
+	    keeplocal = 0;
+	    on = pm->flags;
+	} else {
+	    zerrnam(cname,
+		    "%s: array elements must be scalar", pname, 0);
+	    return NULL;
+	}
+    } else if (isident(pname)) {
+	/*
+	 * Create a new node for a parameter with the flags in `on' minus the
+	 * readonly flag
+	 */
+	pm = createparam(pname, on & ~PM_READONLY);
+	DPUTS(!pm, "BUG: parameter not created");
+	pm->ct = auxlen;
+    } else {
+	zerr("not an identifier: %s", pname, 0);
+	return NULL;
+    }
+
+    if (altpm && PM_TYPE(pm->flags) == PM_SCALAR) {
+	/*
+	 * It seems safer to set this here than in createparam(),
+	 * to make sure we only ever use the colonarr functions
+	 * when u.data is correctly set.
+	 */
+	pm->sets.cfn = colonarrsetfn;
+	pm->gets.cfn = colonarrgetfn;
+	pm->u.data = &altpm->u.arr;
+    }
+
+    if (keeplocal)
+	pm->level = keeplocal;
+    else if (on & PM_LOCAL)
+	pm->level = locallevel;
+    if (value && !(pm->flags & (PM_ARRAY|PM_HASHED))) {
+	Param ipm = pm;
+	if (!(pm = setsparam(pname, ztrdup(value))))
+	    return NULL;
+	if (pm != ipm) {
+	    DPUTS(ipm->flags != pm->flags,
+		  "BUG: parameter recreated with wrong flags");
+	    unsetparam_pm(ipm, 0, 1);
+	}
+    } else if (newspecial && !(pm->old->flags & PM_NORESTORE)) {
+	/*
+	 * We need to use the special setting function to re-initialise
+	 * the special parameter to empty.
+	 */
+	switch (PM_TYPE(pm->flags)) {
+	case PM_SCALAR:
+	    pm->sets.cfn(pm, ztrdup(""));
+	    break;
+	case PM_INTEGER:
+	    pm->sets.ifn(pm, 0);
+	    break;
+	case PM_EFLOAT:
+	case PM_FFLOAT:
+	    pm->sets.ffn(pm, 0.0);
+	    break;
+	case PM_ARRAY:
+	    pm->sets.afn(pm, mkarray(NULL));
+	    break;
+	case PM_HASHED:
+	    pm->sets.hfn(pm, newparamtable(17, pm->nam));
+	    break;
+	}
+    }
+    pm->flags |= (on & PM_READONLY);
+    if (value && (pm->flags & (PM_ARRAY|PM_HASHED))) {
+	zerrnam(cname, "%s: can't assign initial value for array", pname, 0);
+	/* the only safe thing to do here seems to be unset the param */
+	unsetparam_pm(pm, 0, 1);
+	return NULL;
+    }
+
+    return pm;
 }
 
 /* declare, export, integer, local, readonly, typeset */
@@ -2929,9 +1898,9 @@ bin_typeset(char *name, char **argv, char *ops, int func)
 {
     Param pm;
     Asgment asg;
-    Comp com;
-    char *optstr = "iLRZlurtxU";
-    int on = 0, off = 0, roff, bit = PM_INTEGER;
+    Patprog pprog;
+    char *optstr = TYPESET_OPTSTR;
+    int on = 0, off = 0, roff, bit = PM_ARRAY;
     int i;
     int returnval = 0, printflags = 0;
 
@@ -2942,30 +1911,44 @@ bin_typeset(char *name, char **argv, char *ops, int func)
     /* Translate the options into PM_* flags.   *
      * Unfortunately, this depends on the order *
      * these flags are defined in zsh.h         */
-    for (; *optstr; optstr++, bit <<= 1) {
-	if (ops[*(unsigned char *)optstr] == 1)
+    for (; *optstr; optstr++, bit <<= 1)
+	if (ops[STOUC(*optstr)] == 1)
 	    on |= bit;
-	else if (ops[*(unsigned char *)optstr] == 2)
+	else if (ops[STOUC(*optstr)] == 2)
 	    off |= bit;
-    }
     roff = off;
 
     /* Sanity checks on the options.  Remove conficting options. */
-    if ((on | off) & PM_EXPORTED)
-	func = BIN_EXPORT;
+    if (on & PM_FFLOAT) {
+	off |= PM_RIGHT_B | PM_LEFT | PM_RIGHT_Z | PM_UPPER | PM_ARRAY |
+	    PM_HASHED | PM_INTEGER | PM_EFLOAT;
+	/* Allow `float -F' to work even though float sets -E by default */
+	on &= ~PM_EFLOAT;
+    }
+    if (on & PM_EFLOAT)
+	off |= PM_RIGHT_B | PM_LEFT | PM_RIGHT_Z | PM_UPPER | PM_ARRAY |
+	    PM_HASHED | PM_INTEGER | PM_FFLOAT;
     if (on & PM_INTEGER)
-	off |= PM_RIGHT_B | PM_LEFT | PM_RIGHT_Z | PM_UPPER | PM_ARRAY;
+	off |= PM_RIGHT_B | PM_LEFT | PM_RIGHT_Z | PM_UPPER | PM_ARRAY |
+	    PM_HASHED | PM_EFLOAT | PM_FFLOAT;
     if (on & PM_LEFT)
-	off |= PM_RIGHT_B | PM_INTEGER;
+	off |= PM_RIGHT_B | PM_INTEGER | PM_EFLOAT | PM_FFLOAT;
     if (on & PM_RIGHT_B)
-	off |= PM_LEFT | PM_INTEGER;
+	off |= PM_LEFT | PM_INTEGER | PM_EFLOAT | PM_FFLOAT;
     if (on & PM_RIGHT_Z)
-	off |= PM_INTEGER;
+	off |= PM_INTEGER | PM_EFLOAT | PM_FFLOAT;
     if (on & PM_UPPER)
 	off |= PM_LOWER;
     if (on & PM_LOWER)
 	off |= PM_UPPER;
+    if (on & PM_HASHED)
+	off |= PM_ARRAY;
+    if (on & PM_TIED)
+	off |= PM_INTEGER | PM_EFLOAT | PM_FFLOAT | PM_ARRAY | PM_HASHED;
+
     on &= ~off;
+
+    queue_signals();
 
     /* Given no arguments, list whatever the options specify. */
     if (!*argv) {
@@ -2974,21 +1957,123 @@ bin_typeset(char *name, char **argv, char *ops, int func)
 	if (roff || ops['+'])
 	    printflags |= PRINT_NAMEONLY;
 	scanhashtable(paramtab, 1, on|roff, 0, paramtab->printnode, printflags);
+	unqueue_signals();
 	return 0;
+    }
+
+    if (!(ops['g'] || ops['x'] || ops['m']) || ops['g'] == 2 || *name == 'l' ||
+	(!isset(GLOBALEXPORT) && !ops['g']))
+	on |= PM_LOCAL;
+
+    if (on & PM_TIED) {
+	Param apm;
+	struct asgment asg0;
+	char *oldval = NULL;
+
+	if (ops['m']) {
+	    zwarnnam(name, "incompatible options for -T", NULL, 0);
+	    unqueue_signals();
+	    return 1;
+	}
+	on &= ~off;
+	if (!argv[1] || argv[2]) {
+	    zwarnnam(name, "-T requires names of scalar and array", NULL, 0);
+	    unqueue_signals();
+	    return 1;
+	}
+
+	if (!(asg = getasg(argv[0]))) {
+	    unqueue_signals();
+	    return 1;
+	}
+	asg0 = *asg;
+	if (!(asg = getasg(argv[1]))) {
+	    unqueue_signals();
+	    return 1;
+	}
+	if (!strcmp(asg0.name, asg->name)) {
+	    unqueue_signals();
+	    zerrnam(name, "can't tie a variable to itself", NULL, 0);
+	    return 1;
+	}
+	/*
+	 * Keep the old value of the scalar.  We need to do this
+	 * here as if it is already tied to the same array it
+	 * will be unset when we retie the array.  This is all
+	 * so that typeset -T is idempotent.
+	 *
+	 * We also need to remember here whether the damn thing is
+	 * exported and pass that along.  Isn't the world complicated?
+	 */
+	if ((pm = (Param) paramtab->getnode(paramtab, asg0.name))
+	    && !(pm->flags & PM_UNSET)
+	    && (locallevel == pm->level || !(on & PM_LOCAL))) {
+	    if (!asg0.value && !(PM_TYPE(pm->flags) & (PM_ARRAY|PM_HASHED)))
+		oldval = ztrdup(getsparam(asg0.name));
+	    on |= (pm->flags & PM_EXPORTED);
+	}
+	/*
+	 * Create the tied array; this is normal except that
+	 * it has the PM_TIED flag set.  Do it first because
+	 * we need the address.
+	 */
+	if (!(apm=typeset_single(name, asg->name,
+				 (Param)paramtab->getnode(paramtab,
+							  asg->name),
+				 func, (on | PM_ARRAY) & ~PM_EXPORTED,
+				 off, roff, asg->value, NULL))) {
+	    unqueue_signals();
+	    return 1;
+	}
+	/*
+	 * Create the tied colonarray.  We make it as a normal scalar
+	 * and fix up the oddities later.
+	 */
+	if (!(pm=typeset_single(name, asg0.name,
+				(Param)paramtab->getnode(paramtab,
+							 asg0.name),
+				func, on, off, roff, asg0.value, apm))) {
+	    if (oldval)
+		zsfree(oldval);
+	    unsetparam_pm(apm, 1, 1);
+	    unqueue_signals();
+	    return 1;
+	}
+
+	pm->ename = ztrdup(asg->name);
+	apm->ename = ztrdup(asg0.name);
+	if (oldval)
+	    setsparam(asg0.name, oldval);
+	unqueue_signals();
+
+	return 0;
+    }
+    if (off & PM_TIED) {
+	zerrnam(name, "use unset to remove tied variables", NULL, 0);
+	return 1;
     }
 
     /* With the -m option, treat arguments as glob patterns */
     if (ops['m']) {
-	MUSTUSEHEAP("typeset -m");
+	if (!(on|roff))
+	    printflags |= PRINT_TYPE;
+	if (!on)
+	    printflags |= PRINT_NAMEONLY;
+
 	while ((asg = getasg(*argv++))) {
 	    LinkList pmlist = newlinklist();
 	    LinkNode pmnode;
 
 	    tokenize(asg->name);   /* expand argument */
-	    if (!(com = parsereg(asg->name))) {
+	    if (!(pprog = patcompile(asg->name, 0, NULL))) {
 		untokenize(asg->name);
 		zwarnnam(name, "bad pattern : %s", argv[-1], 0);
 		returnval = 1;
+		continue;
+	    }
+	    if (ops['m'] == 2 && !asg->value) {
+		scanmatchtable(paramtab, pprog, on|roff, 0,
+			       paramtab->printnode, printflags);
 		continue;
 	    }
 	    /*
@@ -3002,35 +2087,60 @@ bin_typeset(char *name, char **argv, char *ops, int func)
 	    for (i = 0; i < paramtab->hsize; i++) {
 		for (pm = (Param) paramtab->nodes[i]; pm;
 		     pm = (Param) pm->next) {
-		    if (pm->flags & PM_UNSET)
+		    if (((pm->flags & PM_RESTRICTED) && isset(RESTRICTED)) ||
+			(pm->flags & PM_UNSET))
 			continue;
-		    if (domatch(pm->nam, com, 0))
+		    if (pattry(pprog, pm->nam))
 			addlinknode(pmlist, pm);
 		}
 	    }
 	    for (pmnode = firstnode(pmlist); pmnode; incnode(pmnode)) {
 		pm = (Param) getdata(pmnode);
-		if (typeset_single(name, pm->nam, pm, func, on, off, roff,
-				   asg->value))
+		if (!typeset_single(name, pm->nam, pm, func, on, off, roff,
+				    asg->value, NULL))
 		    returnval = 1;
 	    }
 	}
+	unqueue_signals();
 	return returnval;
     }
 
     /* Take arguments literally.  Don't glob */
     while ((asg = getasg(*argv++))) {
-	/* check if argument is a valid identifier */
-	if (!isident(asg->name)) {
-	    zerr("not an identifier: %s", asg->name, 0);
+	if (!typeset_single(name, asg->name,
+			    (Param) (paramtab == realparamtab ?
+				     gethashnode2(paramtab, asg->name) :
+				     paramtab->getnode(paramtab, asg->name)),
+			    func, on, off, roff, asg->value, NULL))
 	    returnval = 1;
-	    continue;
-	}
-	typeset_single(name, asg->name,
-		       (Param) paramtab->getnode(paramtab, asg->name),
-		       func, on, off, roff, asg->value);
     }
+    unqueue_signals();
     return returnval;
+}
+
+/* Helper for bin_functions() when run as "autoload -X" */
+
+/**/
+int
+eval_autoload(Shfunc shf, char *name, char *ops, int func)
+{
+    if (!(shf->flags & PM_UNDEFINED))
+	return 1;
+
+    if (shf->funcdef) {
+	freeeprog(shf->funcdef);
+	shf->funcdef = &dummy_eprog;
+    }
+    if (ops['X'] == 1) {
+	char *fargv[3];
+	fargv[0] = name;
+	fargv[1] = "\"$@\"";
+	fargv[2] = 0;
+	shf->funcdef = mkautofn(shf);
+	return bin_eval(name, fargv, ops, func);
+    }
+
+    return !loadautofn(shf, (ops['k'] ? 2 : (ops['z'] ? 0 : 1)), 1);
 }
 
 /* Display or change the attributes of shell functions.   *
@@ -3041,25 +2151,28 @@ bin_typeset(char *name, char **argv, char *ops, int func)
 int
 bin_functions(char *name, char **argv, char *ops, int func)
 {
-    Comp com;
+    Patprog pprog;
     Shfunc shf;
     int i, returnval = 0;
     int on = 0, off = 0, pflags = 0;
 
     /* Do we have any flags defined? */
-    if (ops['u'] || ops['t']) {
-	if (ops['u'] == 1)
-	    on |= PM_UNDEFINED;
-	else if (ops['u'] == 2)
-	    off |= PM_UNDEFINED;
+    if (ops['u'] == 2)
+	off |= PM_UNDEFINED;
+    else if (ops['u'] == 1 || ops['X'])
+	on |= PM_UNDEFINED;
+    if (ops['U'] == 1)
+	on |= PM_UNALIASED|PM_UNDEFINED;
+    else if (ops['U'] == 2)
+	off |= PM_UNALIASED;
+    if (ops['t'] == 1)
+	on |= PM_TAGGED;
+    else if (ops['t'] == 2)
+	off |= PM_TAGGED;
 
-	if (ops['t'] == 1)
-	    on |= PM_TAGGED;
-	else if (ops['t'] == 2)
-	    off |= PM_TAGGED;
-    }
-
-    if (off & PM_UNDEFINED) {
+    if ((off & PM_UNDEFINED) || (ops['k'] && ops['z']) ||
+	(ops['X'] != 2 && (ops['k'] || ops['z'])) ||
+	(ops['X'] == 1 && (ops['m'] || *argv || !scriptname))) {
 	zwarnnam(name, "invalid option(s)", NULL, 0);
 	return 1;
     }
@@ -3071,9 +2184,27 @@ bin_functions(char *name, char **argv, char *ops, int func)
      * are given, we will print only functions containing these  *
      * flags, else we'll print them all.                         */
     if (!*argv) {
-	scanhashtable(shfunctab, 1, on|off, DISABLED, shfunctab->printnode,
-		      pflags);
-	return 0;
+	int ret = 0;
+
+	queue_signals();
+	if (ops['X'] == 1) {
+	    if ((shf = (Shfunc) shfunctab->getnode(shfunctab, scriptname))) {
+		DPUTS(!shf->funcdef,
+		      "BUG: Calling autoload from empty function");
+	    } else {
+		shf = (Shfunc) zcalloc(sizeof *shf);
+		shfunctab->addnode(shfunctab, ztrdup(scriptname), shf);
+	    }
+	    shf->flags = on;
+	    ret = eval_autoload(shf, scriptname, ops, func);
+	} else {
+	    if (ops['U'] && !ops['u'])
+		on &= ~PM_UNDEFINED;
+	    scanhashtable(shfunctab, 1, on|off, DISABLED, shfunctab->printnode,
+			  pflags);
+	}
+	unqueue_signals();
+	return ret;
     }
 
     /* With the -m option, treat arguments as glob patterns */
@@ -3082,19 +2213,29 @@ bin_functions(char *name, char **argv, char *ops, int func)
 	for (; *argv; argv++) {
 	    /* expand argument */
 	    tokenize(*argv);
-	    if ((com = parsereg(*argv))) {
+	    if ((pprog = patcompile(*argv, PAT_STATIC, 0))) {
 		/* with no options, just print all functions matching the glob pattern */
+		queue_signals();
 		if (!(on|off)) {
-		    scanmatchtable(shfunctab, com, 0, DISABLED,
+		    scanmatchtable(shfunctab, pprog, 0, DISABLED,
 				   shfunctab->printnode, pflags);
 		} else {
 		/* apply the options to all functions matching the glob pattern */
 		    for (i = 0; i < shfunctab->hsize; i++) {
-			for (shf = (Shfunc) shfunctab->nodes[i]; shf; shf = (Shfunc) shf->next)
-			    if (domatch(shf->nam, com, 0) && !(shf->flags & DISABLED))
-				shf->flags = (shf->flags | on) & (~off);
+			for (shf = (Shfunc) shfunctab->nodes[i]; shf;
+			     shf = (Shfunc) shf->next)
+			    if (pattry(pprog, shf->nam) &&
+				!(shf->flags & DISABLED)) {
+				shf->flags = (shf->flags |
+					      (on & ~PM_UNDEFINED)) & ~off;
+				if (ops['X'] &&
+				    eval_autoload(shf, shf->nam, ops, func)) {
+				    returnval = 1;
+				}
+			    }
 		    }
 		}
+		unqueue_signals();
 	    } else {
 		untokenize(*argv);
 		zwarnnam(name, "bad pattern : %s", *argv, 0);
@@ -3105,13 +2246,18 @@ bin_functions(char *name, char **argv, char *ops, int func)
     }
 
     /* Take the arguments literally -- do not glob */
+    queue_signals();
     for (; *argv; argv++) {
-	if ((shf = (Shfunc) shfunctab->getnode(shfunctab, *argv))) {
+	if (ops['w'])
+	    returnval = dump_autoload(name, *argv, on, ops, func);
+	else if ((shf = (Shfunc) shfunctab->getnode(shfunctab, *argv))) {
 	    /* if any flag was given */
-	    if (on|off)
+	    if (on|off) {
 		/* turn on/off the given flags */
 		shf->flags = (shf->flags | (on & ~PM_UNDEFINED)) & ~off;
-	    else
+		if (ops['X'] && eval_autoload(shf, shf->nam, ops, func))
+		    returnval = 1;
+	    } else
 		/* no flags, so just print */
 		shfunctab->printnode((HashNode) shf, pflags);
 	} else if (on & PM_UNDEFINED) {
@@ -3119,11 +2265,40 @@ bin_functions(char *name, char **argv, char *ops, int func)
 	     * hash table with the corresponding flags set.     */
 	    shf = (Shfunc) zcalloc(sizeof *shf);
 	    shf->flags = on;
+	    shf->funcdef = mkautofn(shf);
 	    shfunctab->addnode(shfunctab, ztrdup(*argv), shf);
+	    if (ops['X'] && eval_autoload(shf, shf->nam, ops, func))
+		returnval = 1;
 	} else
 	    returnval = 1;
     }
+    unqueue_signals();
     return returnval;
+}
+
+/**/
+Eprog
+mkautofn(Shfunc shf)
+{
+    Eprog p;
+
+    p = (Eprog) zalloc(sizeof(*p));
+    p->len = 5 * sizeof(wordcode);
+    p->prog = (Wordcode) zalloc(p->len);
+    p->strs = NULL;
+    p->shf = shf;
+    p->npats = 0;
+    p->pats = (Patprog *) p->prog;
+    p->flags = EF_REAL;
+    p->dump = NULL;
+
+    p->prog[0] = WCB_LIST((Z_SYNC | Z_END), 0);
+    p->prog[1] = WCB_SUBLIST(WC_SUBLIST_END, 0, 3);
+    p->prog[2] = WCB_PIPE(WC_PIPE_END, 0);
+    p->prog[3] = WCB_AUTOFN();
+    p->prog[4] = WCB_END();
+
+    return p;
 }
 
 /* unset: unset parameters */
@@ -3133,7 +2308,7 @@ int
 bin_unset(char *name, char **argv, char *ops, int func)
 {
     Param pm, next;
-    Comp com;
+    Patprog pprog;
     char *s;
     int match = 0, returnval = 0;
     int i;
@@ -3147,18 +2322,22 @@ bin_unset(char *name, char **argv, char *ops, int func)
 	while ((s = *argv++)) {
 	    /* expand */
 	    tokenize(s);
-	    if ((com = parsereg(s))) {
+	    if ((pprog = patcompile(s, PAT_STATIC, NULL))) {
 		/* Go through the parameter table, and unset any matches */
+		queue_signals();
 		for (i = 0; i < paramtab->hsize; i++) {
 		    for (pm = (Param) paramtab->nodes[i]; pm; pm = next) {
 			/* record pointer to next, since we may free this one */
 			next = (Param) pm->next;
-			if (domatch(pm->nam, com, 0)) {
-			    unsetparam(pm->nam);
+			if ((!(pm->flags & PM_RESTRICTED) ||
+			    unset(RESTRICTED)) &&
+			    pattry(pprog, pm->nam)) {
+			    unsetparam_pm(pm, 0, 1);
 			    match++;
 			}
 		    }
 		}
+		unqueue_signals();
 	    } else {
 		untokenize(s);
 		zwarnnam(name, "bad pattern : %s", s, 0);
@@ -3172,134 +2351,46 @@ bin_unset(char *name, char **argv, char *ops, int func)
     }
 
     /* do not glob -- unset the given parameter */
+    queue_signals();
     while ((s = *argv++)) {
-	if (paramtab->getnode(paramtab, s)) {
-	    unsetparam(s);
-	} else {
-	    returnval = 1;
-	}
-    }
-    return returnval;
-}
-
-/* vared: edit (literally) a parameter value */
-
-/**/
-int
-bin_vared(char *name, char **args, char *ops, int func)
-{
-    char *s;
-    char *t;
-    Param pm;
-    int create = 0, obreaks = breaks, haso = 0;
-    char *p1 = NULL, *p2 = NULL;
-    FILE *oshout = shout;
-
-    /* all options are handled as arguments */
-    while (*args && **args == '-') {
-	while (*++(*args))
-	    switch (**args) {
-	    case 'c':
-		/* -c option -- allow creation of the parameter if it doesn't
-		yet exist */
-		create = 1;
-		break;
-	    case 'p':
-		/* -p option -- set main prompt string */
-		if ((*args)[1])
-		    p1 = *args + 1, *args = "" - 1;
-		else if (args[1])
-		    p1 = *(++args), *args = "" - 1;
-		else {
-		    zwarnnam(name, "prompt string expected after -%c", NULL,
-			     **args);
-		    return 1;
-		}
-		break;
-	    case 'r':
-		/* -r option -- set right prompt string */
-		if ((*args)[1])
-		    p2 = *args + 1, *args = "" - 1;
-		else if (args[1])
-		    p2 = *(++args), *args = "" - 1;
-		else {
-		    zwarnnam(name, "prompt string expected after -%c", NULL,
-			     **args);
-		    return 1;
-		}
-		break;
-	    case 'h':
-		/* -h option -- enable history */
-		ops['h'] = 1;
-		break;
-	    default:
-		/* unrecognised option character */
-		zwarnnam(name, "unknown option: %s", *args, 0);
-		return 1;
+	char *ss = strchr(s, '[');
+	char *sse = ss;
+	if (ss) {
+	    if (skipparens('[', ']', &sse) || *sse) {
+		zerrnam(name, "%s: invalid parameter name", s, 0);
+		returnval = 1;
+		continue;
 	    }
-	args++;
-    }
-
-    /* check we have a parameter name */
-    if (!*args) {
-	zwarnnam(name, "missing variable", NULL, 0);
-	return 1;
-    }
-    /* handle non-existent parameter */
-    if (!(s = getsparam(args[0]))) {
-	if (create)
-	    createparam(args[0], PM_SCALAR);
-	else {
-	    zwarnnam(name, "no such variable: %s", args[0], 0);
-	    return 1;
+	    *ss = 0;
 	}
+	pm = (Param) (paramtab == realparamtab ?
+		      gethashnode2(paramtab, s) :
+		      paramtab->getnode(paramtab, s));
+	if (!pm)
+	    returnval = 1;
+	else if ((pm->flags & PM_RESTRICTED) && isset(RESTRICTED)) {
+	    zerrnam(name, "%s: restricted", pm->nam, 0);
+	    returnval = 1;
+	} else if (ss) {
+	    if (PM_TYPE(pm->flags) == PM_HASHED) {
+		HashTable tht = paramtab;
+		if ((paramtab = pm->gets.hfn(pm))) {
+		    *--sse = 0;
+		    unsetparam(ss+1);
+		    *sse = ']';
+		}
+		paramtab = tht;
+	    } else {
+		zerrnam(name, "%s: invalid element for unset", s, 0);
+		returnval = 1;
+	    }
+	} else
+	    unsetparam_pm(pm, 0, 1);
+	if (ss)
+	    *ss = '[';
     }
-
-    if (SHTTY == -1) {
-	/* need to open /dev/tty specially */
-	if ((SHTTY = open("/dev/tty", O_RDWR|O_NOCTTY)) == -1) {
-	    zerrnam(name, "can't access terminal", NULL, 0);
-	    return 1;
-	}
-	init_shout();
-
-	haso = 1;
-    }
-
-    /* edit the parameter value */
-    PERMALLOC {
-	pushnode(bufstack, ztrdup(s));
-    } LASTALLOC;
-    in_vared = !ops['h'];
-    t = (char *) zleread(p1, p2);
-    in_vared = 0;
-    if (haso) {
-	close(SHTTY);
-	fclose(shout);
-	shout = oshout;
-	SHTTY = -1;
-    }
-    if (!t || errflag) {
-	/* error in editing */
-	errflag = 0;
-	breaks = obreaks;
-	return 1;
-    }
-    /* strip off trailing newline, if any */
-    if (t[strlen(t) - 1] == '\n')
-	t[strlen(t) - 1] = '\0';
-    /* final assignment of parameter value */
-    pm = (Param) paramtab->getnode(paramtab, args[0]);
-    if (pm && PM_TYPE(pm->flags) == PM_ARRAY) {
-	char **a;
-
-	PERMALLOC {
-	    a = spacesplit(t, 1);
-	} LASTALLOC;
-	setaparam(args[0], a);
-    } else
-	setsparam(args[0], t);
-    return 0;
+    unqueue_signals();
+    return returnval;
 }
 
 /* type, whence, which */
@@ -3309,10 +2400,10 @@ int
 bin_whence(char *nam, char **argv, char *ops, int func)
 {
     HashNode hn;
-    Comp com;
+    Patprog pprog;
     int returnval = 0;
     int printflags = 0;
-    int csh, all, v;
+    int csh, all, v, wd;
     int informed;
     char *cnam;
 
@@ -3320,14 +2411,17 @@ bin_whence(char *nam, char **argv, char *ops, int func)
     csh = ops['c'];
     v   = ops['v'];
     all = ops['a'];
+    wd  = ops['w'];
 
-    if (ops['c'])
+    if (ops['w'])
+	printflags |= PRINT_WHENCE_WORD;
+    else if (ops['c'])
 	printflags |= PRINT_WHENCE_CSH;
     else if (ops['v'])
 	printflags |= PRINT_WHENCE_VERBOSE;
     else
 	printflags |= PRINT_WHENCE_SIMPLE;
-    if(ops['f'])
+    if (ops['f'])
 	printflags |= PRINT_WHENCE_FUNCDEF;
 
     /* With -m option -- treat arguments as a glob patterns */
@@ -3335,38 +2429,46 @@ bin_whence(char *nam, char **argv, char *ops, int func)
 	for (; *argv; argv++) {
 	    /* parse the pattern */
 	    tokenize(*argv);
-	    if (!(com = parsereg(*argv))) {
+	    if (!(pprog = patcompile(*argv, PAT_STATIC, NULL))) {
 		untokenize(*argv);
 		zwarnnam(nam, "bad pattern : %s", *argv, 0);
 		returnval = 1;
 		continue;
 	    }
+	    queue_signals();
 	    if (!ops['p']) {
 		/* -p option is for path search only.    *
 		 * We're not using it, so search for ... */
 
 		/* aliases ... */
-		scanmatchtable(aliastab, com, 0, DISABLED, aliastab->printnode, printflags);
+		scanmatchtable(aliastab, pprog, 0, DISABLED,
+			       aliastab->printnode, printflags);
 
 		/* and reserved words ... */
-		scanmatchtable(reswdtab, com, 0, DISABLED, reswdtab->printnode, printflags);
+		scanmatchtable(reswdtab, pprog, 0, DISABLED,
+			       reswdtab->printnode, printflags);
 
 		/* and shell functions... */
-		scanmatchtable(shfunctab, com, 0, DISABLED, shfunctab->printnode, printflags);
+		scanmatchtable(shfunctab, pprog, 0, DISABLED,
+			       shfunctab->printnode, printflags);
 
 		/* and builtins. */
-		scanmatchtable(builtintab, com, 0, DISABLED, builtintab->printnode, printflags);
+		scanmatchtable(builtintab, pprog, 0, DISABLED,
+			       builtintab->printnode, printflags);
 	    }
 	    /* Done search for `internal' commands, if the -p option *
 	     * was not used.  Now search the path.                   */
 	    cmdnamtab->filltable(cmdnamtab);
-	    scanmatchtable(cmdnamtab, com, 0, 0, cmdnamtab->printnode, printflags);
+	    scanmatchtable(cmdnamtab, pprog, 0, 0,
+			   cmdnamtab->printnode, printflags);
 
+	    unqueue_signals();
 	}
-    return returnval;
+	return returnval;
     }
 
     /* Take arguments literally -- do not glob */
+    queue_signals();
     for (; *argv; argv++) {
 	informed = 0;
 
@@ -3412,43 +2514,54 @@ bin_whence(char *nam, char **argv, char *ops, int func)
 	/* Option -a is to search the entire path, *
 	 * rather than just looking for one match. */
 	if (all) {
-	    char **pp, buf[PATH_MAX], *z;
+	    char **pp, *buf;
 
+	    pushheap();
 	    for (pp = path; *pp; pp++) {
-		z = buf;
 		if (**pp) {
-		    strucpy(&z, *pp);
-		    *z++ = '/';
-		}
-		if ((z - buf) + strlen(*argv) >= PATH_MAX)
-		    continue;
-		strcpy(z, *argv);
+		    buf = zhtricat(*pp, "/", *argv);
+		} else buf = ztrdup(*argv);
+
 		if (iscom(buf)) {
-		    if (v && !csh)
-			printf("%s is %s\n", *argv, buf);
-		    else
-			puts(buf);
+		    if (wd) {
+			printf("%s: command\n", *argv);
+		    } else {
+			if (v && !csh)
+			    zputs(*argv, stdout), fputs(" is ", stdout);
+			zputs(buf, stdout);
+			if (ops['s'])
+			    print_if_link(buf);
+			fputc('\n', stdout);
+		    }
 		    informed = 1;
 		}
 	    }
-	    if (!informed && (v || csh)) {
-		printf("%s not found\n", *argv);
+	    if (!informed && (wd || v || csh)) {
+		zputs(*argv, stdout);
+		puts(wd ? ": none" : " not found");
 		returnval = 1;
 	    }
-	} else if ((cnam = findcmd(*argv))) {
+	    popheap();
+	} else if ((cnam = findcmd(*argv, 1))) {
 	    /* Found external command. */
-	    if (v && !csh)
-		printf("%s is %s\n", *argv, cnam);
-	    else
-		puts(cnam);
-	    zsfree(cnam);
+	    if (wd) {
+		printf("%s: command\n", *argv);
+	    } else {
+		if (v && !csh)
+		    zputs(*argv, stdout), fputs(" is ", stdout);
+		zputs(cnam, stdout);
+		if (ops['s'])
+		    print_if_link(cnam);
+		fputc('\n', stdout);
+	    }
 	} else {
 	    /* Not found at all. */
-	    if (v || csh)
-		printf("%s not found\n", *argv);
+	    if (v || csh || wd)
+		zputs(*argv, stdout), puts(wd ? ": none" : " not found");
 	    returnval = 1;
 	}
     }
+    unqueue_signals();
     return returnval;
 }
 
@@ -3477,9 +2590,10 @@ int
 bin_hash(char *name, char **argv, char *ops, int func)
 {
     HashTable ht;
-    Comp com;
+    Patprog pprog;
     Asgment asg;
     int returnval = 0;
+    int printflags = 0;
 
     if (ops['d'])
 	ht = nameddirtab;
@@ -3504,51 +2618,71 @@ bin_hash(char *name, char **argv, char *ops, int func)
 	return 0;
     }
 
+    if (ops['L']) printflags |= PRINT_LIST;
+
     /* Given no arguments, display current hash table. */
     if (!*argv) {
-	scanhashtable(ht, 1, 0, 0, ht->printnode, 0);
+	queue_signals();
+	scanhashtable(ht, 1, 0, 0, ht->printnode, printflags);
+	unqueue_signals();
 	return 0;
     }
 
-    while ((asg = getasg(*argv))) {
-	if (asg->value) {
-	    /* The argument is of the form foo=bar, *
-	     * so define an entry for the table.    */
-	    if(ops['d']) {
-		Nameddir nd = (Nameddir) zcalloc(sizeof *nd);
-		nd->flags = 0;
-		nd->dir = ztrdup(asg->value);
-		ht->addnode(ht, ztrdup(asg->name), nd);
-	    } else {
-		Cmdnam cn = (Cmdnam) zcalloc(sizeof *cn);
-		cn->flags = HASHED;
-		cn->u.cmd = ztrdup(asg->value);
-		ht->addnode(ht, ztrdup(asg->name), cn);
-	    }
-	} else if (ops['m']) {
+    queue_signals();
+    while (*argv) {
+	void *hn;
+	if (ops['m']) {
 	    /* with the -m option, treat the argument as a glob pattern */
 	    tokenize(*argv);  /* expand */
-	    if ((com = parsereg(*argv))) {
+	    if ((pprog = patcompile(*argv, PAT_STATIC, NULL))) {
 		/* display matching hash table elements */
-		scanmatchtable(ht, com, 0, 0, ht->printnode, 0);
+		scanmatchtable(ht, pprog, 0, 0, ht->printnode, printflags);
 	    } else {
 		untokenize(*argv);
 		zwarnnam(name, "bad pattern : %s", *argv, 0);
 		returnval = 1;
 	    }
-	} else if (!ht->getnode2(ht, asg->name)) {
+	} else if((asg = getasg(*argv))->value) {
+	    if(isset(RESTRICTED)) {
+		zwarnnam(name, "restricted: %s", asg->value, 0);
+		returnval = 1;
+	    } else {
+		/* The argument is of the form foo=bar, *
+		 * so define an entry for the table.    */
+		if(ops['d']) {
+		    Nameddir nd = hn = zcalloc(sizeof *nd);
+		    nd->flags = 0;
+		    nd->dir = ztrdup(asg->value);
+		} else {
+		    Cmdnam cn = hn = zcalloc(sizeof *cn);
+		    cn->flags = HASHED;
+		    cn->u.cmd = ztrdup(asg->value);
+		}
+		ht->addnode(ht, ztrdup(asg->name), hn);
+		if(ops['v'])
+		    ht->printnode(hn, 0);
+	    }
+	} else if (!(hn = ht->getnode2(ht, asg->name))) {
 	    /* With no `=value' part to the argument, *
 	     * work out what it ought to be.          */
-	    if(ops['d'] && !getnameddir(asg->name)) {
-		zwarnnam(name, "no such directory name: %s", asg->name, 0);
-		returnval = 1;
-	    } else if (!hashcmd(asg->name, path)) {
-		zwarnnam(name, "no such command: %s", asg->name, 0);
-		returnval = 1;
+	    if(ops['d']) {
+		if(!getnameddir(asg->name)) {
+		    zwarnnam(name, "no such directory name: %s", asg->name, 0);
+		    returnval = 1;
+		}
+	    } else {
+		if (!hashcmd(asg->name, path)) {
+		    zwarnnam(name, "no such command: %s", asg->name, 0);
+		    returnval = 1;
+		}
 	    }
-	}
+	    if(ops['v'] && (hn = ht->getnode2(ht, asg->name)))
+		ht->printnode(hn, 0);
+	} else if(ops['v'])
+	    ht->printnode(hn, 0);
 	argv++;
     }
+    unqueue_signals();
     return returnval;
 }
 
@@ -3560,7 +2694,7 @@ bin_unhash(char *name, char **argv, char *ops, int func)
 {
     HashTable ht;
     HashNode hn, nhn;
-    Comp com;
+    Patprog pprog;
     int match = 0, returnval = 0;
     int i;
 
@@ -3580,18 +2714,20 @@ bin_unhash(char *name, char **argv, char *ops, int func)
 	for (; *argv; argv++) {
 	    /* expand argument */
 	    tokenize(*argv);
-	    if ((com = parsereg(*argv))) {
+	    if ((pprog = patcompile(*argv, PAT_STATIC, NULL))) {
 		/* remove all nodes matching glob pattern */
+		queue_signals();
 		for (i = 0; i < ht->hsize; i++) {
 		    for (hn = ht->nodes[i]; hn; hn = nhn) {
 			/* record pointer to next, since we may free this one */
 			nhn = hn->next;
-			if (domatch(hn->nam, com, 0)) {
+			if (pattry(pprog, hn->nam)) {
 			    ht->freenode(ht->removenode(ht, hn->nam));
 			    match++;
 			}
 		    }
 		}
+		unqueue_signals();
 	    } else {
 		untokenize(*argv);
 		zwarnnam(name, "bad pattern : %s", *argv, 0);
@@ -3605,6 +2741,7 @@ bin_unhash(char *name, char **argv, char *ops, int func)
     }
 
     /* Take arguments literally -- do not glob */
+    queue_signals();
     for (; *argv; argv++) {
 	if ((hn = ht->removenode(ht, *argv))) {
 	    ht->freenode(hn);
@@ -3613,6 +2750,7 @@ bin_unhash(char *name, char **argv, char *ops, int func)
 	    returnval = 1;
 	}
     }
+    unqueue_signals();
     return returnval;
 }
 
@@ -3625,7 +2763,7 @@ int
 bin_alias(char *name, char **argv, char *ops, int func)
 {
     Alias a;
-    Comp com;
+    Patprog pprog;
     Asgment asg;
     int haveflags = 0, returnval = 0;
     int flags1 = 0, flags2 = DISABLED;
@@ -3646,11 +2784,15 @@ bin_alias(char *name, char **argv, char *ops, int func)
 
     if (ops['L'])
 	printflags |= PRINT_LIST;
+    else if (ops['r'] == 2 || ops['g'] == 2 || ops['m'] == 2 || ops['+'])
+	printflags |= PRINT_NAMEONLY;
 
     /* In the absence of arguments, list all aliases.  If a command *
      * line flag is specified, list only those of that type.        */
     if (!*argv) {
+	queue_signals();
 	scanhashtable(aliastab, 1, flags1, flags2, aliastab->printnode, printflags);
+	unqueue_signals();
 	return 0;
     }
 
@@ -3659,9 +2801,12 @@ bin_alias(char *name, char **argv, char *ops, int func)
     if (ops['m']) {
 	for (; *argv; argv++) {
 	    tokenize(*argv);  /* expand argument */
-	    if ((com = parsereg(*argv))) {
+	    if ((pprog = patcompile(*argv, PAT_STATIC, NULL))) {
 		/* display the matching aliases */
-		scanmatchtable(aliastab, com, flags1, flags2, aliastab->printnode, printflags);
+		queue_signals();
+		scanmatchtable(aliastab, pprog, flags1, flags2,
+			       aliastab->printnode, printflags);
+		unqueue_signals();
 	    } else {
 		untokenize(*argv);
 		zwarnnam(name, "bad pattern : %s", *argv, 0);
@@ -3672,6 +2817,7 @@ bin_alias(char *name, char **argv, char *ops, int func)
     }
 
     /* Take arguments literally.  Don't glob */
+    queue_signals();
     while ((asg = getasg(*argv++))) {
 	if (asg->value && !ops['L']) {
 	    /* The argument is of the form foo=bar and we are not *
@@ -3687,634 +2833,10 @@ bin_alias(char *name, char **argv, char *ops, int func)
 	} else
 	    returnval = 1;
     }
+    unqueue_signals();
     return returnval;
 }
 
-
-/**** resource limit builtins ****/
-
-#ifdef HAVE_GETRLIMIT
-
-#if defined(RLIM_T_IS_QUAD_T) || defined(RLIM_T_IS_UNSIGNED)
-# define ZSTRTORLIMT(a, b, c)	zstrtorlimit((a), (b), (c))
-#else
-# define ZSTRTORLIMT(a, b, c)	zstrtol((a), (b), (c))
-#endif
-
-/* Generated rec array containing limits required for the limit builtin.
- * They must appear in this array in numerical order of the RLIMIT_* macros.
- */
-
-#include "rlimits.h"
-
-#endif /* HAVE_GETRLIMIT */
-
-/* limit: set or show resource limits.  The variable hard indicates *
- * whether `hard' or `soft' resource limits are being set/shown.    */
-
-/**/
-int
-bin_limit(char *nam, char **argv, char *ops, int func)
-{
-#ifndef HAVE_GETRLIMIT
-    /* limit builtin not appropriate to this system */
-    zwarnnam(nam, "not available on this system", NULL, 0);
-    return 1;
-#else
-    char *s;
-    int hard, limnum, lim;
-    rlim_t val;
-    int ret = 0;
-
-    hard = ops['h'];
-    if (ops['s'] && !*argv)
-	return setlimits(NULL);
-    /* without arguments, display limits */
-    if (!*argv) {
-	showlimits(hard, -1);
-	return 0;
-    }
-    while ((s = *argv++)) {
-	/* Search for the appropriate resource name.  When a name matches (i.e. *
-	 * starts with) the argument, the lim variable changes from -1 to the   *
-	 * number of the resource.  If another match is found, lim goes to -2.  */
-	for (lim = -1, limnum = 0; limnum < ZSH_NLIMITS; limnum++)
-	    if (!strncmp(recs[limnum], s, strlen(s))) {
-		if (lim != -1)
-		    lim = -2;
-		else
-		    lim = limnum;
-	    }
-	/* lim==-1 indicates that no matches were found.       *
-	 * lim==-2 indicates that multiple matches were found. */
-	if (lim < 0) {
-	    zwarnnam("limit",
-		     (lim == -2) ? "ambiguous resource specification: %s"
-		     : "no such resource: %s", s, 0);
-	    return 1;
-	}
-	/* without value for limit, display the current limit */
-	if (!(s = *argv++)) {
-	    showlimits(hard, lim);
-	    return 0;
-	}
-	if (lim==RLIMIT_CPU) {
-	    /* time-type resource -- may be specified as seconds, or minutes or *
-	     * hours with the `m' and `h' modifiers, and `:' may be used to add *
-	     * together more than one of these.  It's easier to understand from *
-	     * the code:                                                        */
-	    val = ZSTRTORLIMT(s, &s, 10);
-	    if (*s) {
-		if ((*s == 'h' || *s == 'H') && !s[1])
-		    val *= 3600L;
-		else if ((*s == 'm' || *s == 'M') && !s[1])
-		    val *= 60L;
-		else if (*s == ':')
-		    val = val * 60 + ZSTRTORLIMT(s + 1, &s, 10);
-		else {
-		    zwarnnam("limit", "unknown scaling factor: %s", s, 0);
-		    return 1;
-		}
-	    }
-	}
-# ifdef RLIMIT_NPROC
-	else if (lim == RLIMIT_NPROC)
-	    /* pure numeric resource -- only a straight decimal number is
-	    permitted. */
-	    val = ZSTRTORLIMT(s, &s, 10);
-# endif /* RLIMIT_NPROC */
-# ifdef RLIMIT_NOFILE
-	else if (lim == RLIMIT_NOFILE)
-	    /* pure numeric resource -- only a straight decimal number is
-	    permitted. */
-	    val = ZSTRTORLIMT(s, &s, 10);
-# endif /* RLIMIT_NOFILE */
-# ifdef RLIMIT_AIO_OPS
-	else if (lim == RLIMIT_AIO_OPS)
-	    /* pure numeric resource -- only a straight decimal number is
-	    permitted. */
-	    val = ZSTRTORLIMT(s, &s, 10);
-# endif /* RLIMIT_AIO_OPS */
-# ifdef RLIMIT_PTHREAD
-	else if (lim == RLIMIT_PTHREAD)
-	    /* pure numeric resource -- only a straight decimal number is
-	    permitted. */
-	    val = ZSTRTORLIMT(s, &s, 10);
-# endif /* RLIMIT_PTHREAD */
-	else {
-	    /* memory-type resource -- `k' and `M' modifiers are permitted,
-	    meaning (respectively) 2^10 and 2^20. */
-	    val = ZSTRTORLIMT(s, &s, 10);
-	    if (!*s || ((*s == 'k' || *s == 'K') && !s[1]))
-		val *= 1024L;
-	    else if ((*s == 'M' || *s == 'm') && !s[1])
-		val *= 1024L * 1024;
-	    else {
-		zwarnnam("limit", "unknown scaling factor: %s", s, 0);
-		return 1;
-	    }
-	}
-	/* new limit is valid and has been interpreted; apply it to the
-	specified resource */
-	if (hard) {
-	    /* can only raise hard limits if running as root */
-	    if (val > current_limits[lim].rlim_max && geteuid()) {
-		zwarnnam("limit", "can't raise hard limits", NULL, 0);
-		return 1;
-	    } else {
-		limits[lim].rlim_max = val;
-		if (val < limits[lim].rlim_cur)
-		    limits[lim].rlim_cur = val;
-	    }
-	} else if (val > limits[lim].rlim_max) {
-	    zwarnnam("limit", "limit exceeds hard limit", NULL, 0);
-	    return 1;
-	} else
-	    limits[lim].rlim_cur = val;
-	if (ops['s'] && zsetlimit(lim, "limit"))
-	    ret++;
-    }
-    return ret;
-#endif /* HAVE_GETRLIMIT */
-}
-
-/* unlimit: remove resource limits.  Much of this code is the same as *
- * that in bin_limit().                                               */
-
-/**/
-int
-bin_unlimit(char *nam, char **argv, char *ops, int func)
-{
-#ifndef HAVE_GETRLIMIT
-    /* unlimit builtin not appropriate to this system */
-    zwarnnam(nam, "not available on this system", NULL, 0);
-    return 1;
-#else
-    int hard, limnum, lim;
-    int ret = 0;
-    uid_t euid = geteuid();
-
-    hard = ops['h'];
-    /* Without arguments, remove all limits. */
-    if (!*argv) {
-	for (limnum = 0; limnum != RLIM_NLIMITS; limnum++) {
-	    if (hard) {
-		if (euid && current_limits[limnum].rlim_max != RLIM_INFINITY)
-		    ret++;
-		else
-		    limits[limnum].rlim_max = RLIM_INFINITY;
-	    }
-	    else
-		limits[limnum].rlim_cur = limits[limnum].rlim_max;
-	}
-	if (ops['s'])
-	    ret += setlimits(nam);
-	if (ret)
-	    zwarnnam(nam, "can't remove hard limits", NULL, 0);
-    } else {
-	for (; *argv; argv++) {
-	    /* Search for the appropriate resource name.  When a name     *
-	     * matches (i.e. starts with) the argument, the lim variable  *
-	     * changes from -1 to the number of the resource.  If another *
-	     * match is found, lim goes to -2.                            */
-	    for (lim = -1, limnum = 0; limnum < ZSH_NLIMITS; limnum++)
-		if (!strncmp(recs[limnum], *argv, strlen(*argv))) {
-		    if (lim != -1)
-			lim = -2;
-		    else
-			lim = limnum;
-		}
-	    /* lim==-1 indicates that no matches were found.       *
-	     * lim==-2 indicates that multiple matches were found. */
-	    if (lim < 0) {
-		zwarnnam(nam,
-			 (lim == -2) ? "ambiguous resource specification: %s"
-			 : "no such resource: %s", *argv, 0);
-		return 1;
-	    }
-	    /* remove specified limit */
-	    if (hard) {
-		if (euid && current_limits[lim].rlim_max != RLIM_INFINITY) {
-		    zwarnnam(nam, "can't remove hard limits", NULL, 0);
-		    ret++;
-		} else
-		    limits[lim].rlim_max = RLIM_INFINITY;
-	    } else
-		limits[lim].rlim_cur = limits[lim].rlim_max;
-	    if (ops['s'] && zsetlimit(lim, nam))
-		ret++;
-	}
-    }
-    return ret;
-#endif /* HAVE_GETRLIMIT */
-}
-
-/* ulimit: set or display resource limits */
-
-/**/
-int
-bin_ulimit(char *name, char **argv, char *ops, int func)
-{
-#ifndef HAVE_GETRLIMIT
-    /* builtin not appropriate */
-    zwarnnam(name, "not available on this system", NULL, 0);
-    return 1;
-#else
-    int res, resmask = 0, hard = 0, soft = 0, nres = 0;
-    char *options;
-
-    do {
-	options = *argv;
-	if (options && *options == '-' && !options[1]) {
-	    zwarnnam(name, "missing option letter", NULL, 0);
-	    return 1;
-	}
-	res = -1;
-	if (options && *options == '-') {
-	    argv++;
-	    while (*++options) {
-		if(*options == Meta)
-		    *++options ^= 32;
-		res = -1;
-		switch (*options) {
-		case 'H':
-		    hard = 1;
-		    continue;
-		case 'S':
-		    soft = 1;
-		    continue;
-		case 'a':
-		    if (*argv || options[1] || resmask) {
-			zwarnnam(name, "no arguments required after -a",
-				 NULL, 0);
-			return 1;
-		    }
-		    resmask = (1 << RLIM_NLIMITS) - 1;
-		    nres = RLIM_NLIMITS;
-		    continue;
-		case 't':
-		    res = RLIMIT_CPU;
-		    break;
-		case 'f':
-		    res = RLIMIT_FSIZE;
-		    break;
-		case 'd':
-		    res = RLIMIT_DATA;
-		    break;
-		case 's':
-		    res = RLIMIT_STACK;
-		    break;
-		case 'c':
-		    res = RLIMIT_CORE;
-		    break;
-# ifdef RLIMIT_RSS
-		case 'm':
-		    res = RLIMIT_RSS;
-		    break;
-# endif /* RLIMIT_RSS */
-# ifdef RLIMIT_MEMLOCK
-		case 'l':
-		    res = RLIMIT_MEMLOCK;
-		    break;
-# endif /* RLIMIT_MEMLOCK */
-# ifdef RLIMIT_NOFILE
-		case 'n':
-		    res = RLIMIT_NOFILE;
-		    break;
-# endif /* RLIMIT_NOFILE */
-# ifdef RLIMIT_NPROC
-		case 'u':
-		    res = RLIMIT_NPROC;
-		    break;
-# endif /* RLIMIT_NPROC */
-# ifdef RLIMIT_VMEM
-		case 'v':
-		    res = RLIMIT_VMEM;
-		    break;
-# endif /* RLIMIT_VMEM */
-		default:
-		    /* unrecognised limit */
-		    zwarnnam(name, "bad option: -%c", NULL, *options);
-		    return 1;
-		}
-		if (options[1]) {
-		    resmask |= 1 << res;
-		    nres++;
-		}
-	    }
-	}
-	if (!*argv || **argv == '-') {
-	    if (res < 0) {
-		if (*argv || nres)
-		    continue;
-		else
-		    res = RLIMIT_FSIZE;
-	    }
-	    resmask |= 1 << res;
-	    nres++;
-	    continue;
-	}
-	if (res < 0)
-	    res = RLIMIT_FSIZE;
-	if (strcmp(*argv, "unlimited")) {
-	    /* set limit to specified value */
-	    rlim_t limit;
-
-	    limit = ZSTRTORLIMT(*argv, NULL, 10);
-	    /* scale appropriately */
-	    switch (res) {
-	    case RLIMIT_FSIZE:
-	    case RLIMIT_CORE:
-		limit *= 512;
-		break;
-	    case RLIMIT_DATA:
-	    case RLIMIT_STACK:
-# ifdef RLIMIT_RSS
-	    case RLIMIT_RSS:
-# endif /* RLIMIT_RSS */
-# ifdef RLIMIT_MEMLOCK
-	    case RLIMIT_MEMLOCK:
-# endif /* RLIMIT_MEMLOCK */
-# ifdef RLIMIT_VMEM
-	    case RLIMIT_VMEM:
-# endif /* RLIMIT_VMEM */
-# ifdef RLIMIT_AIO_MEM
-	    case RLIMIT_AIO_MEM:
-# endif /* RLIMIT_AIO_MEM */
-		limit *= 1024;
-		break;
-	    }
-	    if (hard) {
-		/* can't raise hard limit unless running as root */
-		if (limit > current_limits[res].rlim_max && geteuid()) {
-		    zwarnnam(name, "can't raise hard limits", NULL, 0);
-		    return 1;
-		}
-		limits[res].rlim_max = limit;
-		if (limit < limits[res].rlim_cur)
-		    limits[res].rlim_cur = limit;
-	    }
-	    if (!hard || soft) {
-		/* can't raise soft limit above hard limit */
-		if (limit > limits[res].rlim_max) {
-		    if (limit > current_limits[res].rlim_max && geteuid()) {
-			zwarnnam(name, "value exceeds hard limit", NULL, 0);
-			return 1;
-		    }
-		    limits[res].rlim_max = limits[res].rlim_cur = limit;
-		} else
-		    limits[res].rlim_cur = limit;
-	    }
-	} else {
-	    /* remove specified limit */
-	    if (hard) {
-		/* can't remove hard limit unless running as root */
-		if (current_limits[res].rlim_max != RLIM_INFINITY && geteuid()) {
-		    zwarnnam(name, "can't remove hard limits", NULL, 0);
-		    return 1;
-		}
-		limits[res].rlim_max = RLIM_INFINITY;
-	    }
-	    if (!hard || soft)
-		/* `removal' of soft limit means setting it equal to the
-		   corresponding hard limit */
-		limits[res].rlim_cur = limits[res].rlim_max;
-	}
-	if (zsetlimit(res, name))
-	    return 1;
-	argv++;
-    } while (*argv);
-    for (res = 0; res < RLIM_NLIMITS; res++, resmask >>= 1)
-	if (resmask & 1)
-	    printulimit(res, hard, nres > 1);
-    return 0;
-#endif /* HAVE_GETRLIMIT */
-}
-
-/* Display resource limits.  hard indicates whether `hard' or `soft'  *
- * limits should be displayed.  lim specifies the limit, or may be -1 *
- * to show all.                                                       */
-
-#ifdef HAVE_GETRLIMIT
-/**/
-void
-showlimits(int hard, int lim)
-{
-    int rt;
-    rlim_t val;
-
-    /* main loop over resource types */
-    for (rt = 0; rt != ZSH_NLIMITS; rt++)
-	if (rt == lim || lim == -1) {
-	    /* display limit for resource number rt */
-	    printf("%-16s", recs[rt]);
-	    val = (hard) ? limits[rt].rlim_max : limits[rt].rlim_cur;
-	    if (val == RLIM_INFINITY)
-		printf("unlimited\n");
-	    else if (rt==RLIMIT_CPU)
-		/* time-type resource -- display as hours, minutes and
-		seconds. */
-		printf("%d:%02d:%02d\n", (int)(val / 3600),
-		       (int)(val / 60) % 60, (int)(val % 60));
-# ifdef RLIMIT_NPROC
-	    else if (rt == RLIMIT_NPROC)
-		/* pure numeric resource */
-		printf("%d\n", (int)val);
-# endif /* RLIMIT_NPROC */
-# ifdef RLIMIT_NOFILE
-	    else if (rt == RLIMIT_NOFILE)
-		/* pure numeric resource */
-		printf("%d\n", (int)val);
-# endif /* RLIMIT_NOFILE */
-# ifdef RLIMIT_AIO_OPS
-	    else if (rt == RLIMIT_AIO_OPS)
-		/* pure numeric resource */
-		printf("%d\n", (int)val);
-# endif /* RLIMIT_AIO_OPS */
-# ifdef RLIMIT_PTHREAD
-	    else if (rt == RLIMIT_PTHREAD)
-		/* pure numeric resource */
-		printf("%d\n", (int)val);
-# endif /* RLIMIT_PTHREAD */
-	    else if (val >= 1024L * 1024L)
-		/* memory resource -- display with `K' or `M' modifier */
-# ifdef RLIM_T_IS_LONG_LONG
-#  ifdef RLIM_T_IS_UNSIGNED
-		printf("%lluMB\n", val / (1024L * 1024L));
-	    else
-		printf("%llukB\n", val / 1024L);
-#  else
-		printf("%lldMB\n", val / (1024L * 1024L));
-	    else
-		printf("%lldkB\n", val / 1024L);
-#  endif /* RLIM_T_IS_UNSIGNED */
-# else
-# ifdef RLIM_T_IS_QUAD_T
-		printf("%qdMB\n", val / (1024L * 1024L));
-	    else
-		printf("%qdkB\n", val / 1024L);
-# else
-#  ifdef RLIM_T_IS_UNSIGNED
-		printf("%luMB\n", val / (1024L * 1024L));
-            else
-		printf("%lukB\n", val / 1024L);
-#  else
-		printf("%ldMB\n", val / (1024L * 1024L));
-            else
-		printf("%ldkB\n", val / 1024L);
-#  endif /* RLIM_T_IS_UNSIGNED */
-# endif /* RLIM_T_IS_QUAD_T */
-# endif /* RLIM_T_IS_LONG_LONG */
-	}
-}
-#endif  /* HAVE_GETRLIMIT */
-
-/* Display a resource limit, in ulimit style.  lim specifies which   *
- * limit should be displayed, and hard indicates whether the hard or *
- * soft limit should be displayed.                                   */
-
-#ifdef HAVE_GETRLIMIT
-/**/
-void
-printulimit(int lim, int hard, int head)
-{
-    rlim_t limit;
-
-    /* get the limit in question */
-    limit = (hard) ? limits[lim].rlim_max : limits[lim].rlim_cur;
-    /* display the appropriate heading */
-    switch (lim) {
-    case RLIMIT_CPU:
-	if (head)
-	    printf("cpu time (seconds)         ");
-	break;
-    case RLIMIT_FSIZE:
-	if (head)
-	    printf("file size (blocks)         ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 512;
-	break;
-    case RLIMIT_DATA:
-	if (head)
-	    printf("data seg size (kbytes)     ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 1024;
-	break;
-    case RLIMIT_STACK:
-	if (head)
-	    printf("stack size (kbytes)        ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 1024;
-	break;
-    case RLIMIT_CORE:
-	if (head)
-	    printf("core file size (blocks)    ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 512;
-	break;
-# ifdef RLIMIT_RSS
-    case RLIMIT_RSS:
-	if (head)
-	    printf("resident set size (kbytes) ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 1024;
-	break;
-# endif /* RLIMIT_RSS */
-# ifdef RLIMIT_MEMLOCK
-    case RLIMIT_MEMLOCK:
-	if (head)
-	    printf("locked-in-memory size (kb) ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 1024;
-	break;
-# endif /* RLIMIT_MEMLOCK */
-# ifdef RLIMIT_NPROC
-    case RLIMIT_NPROC:
-	if (head)
-	    printf("processes                  ");
-	break;
-# endif /* RLIMIT_NPROC */
-# ifdef RLIMIT_NOFILE
-    case RLIMIT_NOFILE:
-	if (head)
-	    printf("file descriptors           ");
-	break;
-# endif /* RLIMIT_NOFILE */
-# ifdef RLIMIT_VMEM
-    case RLIMIT_VMEM:
-	if (head)
-	    printf("virtual memory size (kb)   ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 1024;
-	break;
-# endif /* RLIMIT_VMEM */
-# if defined RLIMIT_AS && RLIMIT_AS != RLIMIT_VMEM
-    case RLIMIT_AS:
-	if (head)
-	    printf("address space (kb)         ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 1024;
-	break;
-# endif /* RLIMIT_AS */
-# ifdef RLIMIT_TCACHE
-    case RLIMIT_TCACHE:
-	if (head)
-	    printf("cached threads             ");
-	break;
-# endif /* RLIMIT_TCACHE */
-# ifdef RLIMIT_AIO_OPS
-    case RLIMIT_AIO_OPS:
-	if (head)
-	    printf("AIO operations             ");
-	break;
-# endif /* RLIMIT_AIO_OPS */
-# ifdef RLIMIT_AIO_MEM
-    case RLIMIT_AIO_MEM:
-	if (head)
-	    printf("AIO locked-in-memory (kb)  ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 1024;
-	break;
-# endif /* RLIMIT_AIO_MEM */
-# ifdef RLIMIT_SBSIZE
-    case RLIMIT_SBSIZE:
-	if (head)
-	    printf("socket buffer size (kb)    ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 1024;
-	break;
-# endif /* RLIMIT_SBSIZE */
-# ifdef RLIMIT_PTHREAD
-    case RLIMIT_PTHREAD:
-	if (head)
-	    printf("threads per process        ");
-	break;
-# endif /* RLIMIT_PTHREAD */
-    }
-    /* display the limit */
-    if (limit == RLIM_INFINITY)
-	printf("unlimited\n");
-    else {
-# ifdef RLIM_T_IS_QUAD_T
-	printf("%qd\n", limit);
-# else
-#  ifdef RLIM_T_IS_LONG_LONG
-#    ifdef RLIM_T_IS_UNSIGNED
-	printf("%llu\n", limit);
-#    else
-	printf("%lld\n", limit);
-#    endif /* RLIM_T_IS_UNSIGNED */
-#  else
-#   ifdef RLIM_T_IS_UNSIGNED
-	printf("%lu\n", limit);
-#   else
-	printf("%ld\n", limit);
-#   endif /* RLIM_T_IS_UNSIGNED */
-#  endif /* RLIM_T_IS_LONG_LONG */
-# endif /* RLIM_T_IS_QUAD_T */
-    }
-}
-#endif /* HAVE_GETRLIMIT */
 
 /**** miscellaneous builtins ****/
 
@@ -4336,6 +2858,11 @@ bin_false(char *name, char **argv, char *ops, int func)
     return 1;
 }
 
+/* the zle buffer stack */
+ 
+/**/
+mod_export LinkList bufstack;
+
 /* echo, print, pushln */
 
 /**/
@@ -4350,56 +2877,63 @@ bin_print(char *name, char **args, char *ops, int func)
     /* -m option -- treat the first argument as a pattern and remove
      * arguments not matching */
     if (ops['m']) {
-	Comp com;
+	Patprog pprog;
 	char **t, **p;
 
 	tokenize(*args);
-	if (!(com = parsereg(*args))) {
+	if (!(pprog = patcompile(*args, PAT_STATIC, NULL))) {
 	    untokenize(*args);
 	    zwarnnam(name, "bad pattern : %s", *args, 0);
 	    return 1;
 	}
 	for (p = ++args; *p; p++)
-	    if (!domatch(*p, com, 0))
+	    if (!pattry(pprog, *p))
 		for (t = p--; (*t = t[1]); t++);
     }
     /* compute lengths, and interpret according to -P, -D, -e, etc. */
     argc = arrlen(args);
-    len = (int *)ncalloc(argc * sizeof(int));
+    len = (int *) hcalloc(argc * sizeof(int));
     for(n = 0; n < argc; n++) {
 	/* first \ sequences */
 	if (!ops['e'] && (ops['R'] || ops['r'] || ops['E']))
 	    unmetafy(args[n], &len[n]);
 	else
-	    args[n] = getkeystring(args[n], &len[n],
-				    func != BIN_ECHO && !ops['e'], &nnl);
+	    args[n] = getkeystring(args[n], &len[n], ops['b'] ? 2 :
+				    (func != BIN_ECHO && !ops['e']), &nnl);
 	/* -P option -- interpret as a prompt sequence */
 	if(ops['P']) {
-	    char *arg = putprompt(metafy(args[n], len[n], META_NOALLOC),
-				  &len[n], NULL, 0);
-	    args[n] = (char *)alloc(len[n] + 1);
-	    memcpy(args[n], arg, len[n]);
-	    args[n][len[n]] = 0;
-	    free(arg);
+	    /*
+	     * promptexpand uses permanent storage: to avoid
+	     * messy memory management, stick it on the heap
+	     * instead.
+	     */
+	    char *str = unmetafy(promptexpand(metafy(args[n], len[n],
+				   META_NOALLOC), 0, NULL, NULL), &len[n]);
+	    args[n] = dupstring(str);
+	    free(str);
 	}
 	/* -D option -- interpret as a directory, and use ~ */
 	if(ops['D']) {
-	    Nameddir d = finddir(args[n]);
+	    Nameddir d;
+
+	    queue_signals();
+	    d = finddir(args[n]);
 	    if(d) {
-		char *arg = alloc(strlen(args[n]) + 1);
+		char *arg = zhalloc(strlen(args[n]) + 1);
 		sprintf(arg, "~%s%s", d->nam,
 			args[n] + strlen(d->dir));
 		args[n] = arg;
 		len[n] = strlen(args[n]);
 	    }
+	    unqueue_signals();
 	}
     }
 
     /* -z option -- push the arguments onto the editing buffer stack */
     if (ops['z']) {
-	PERMALLOC {
-	    pushnode(bufstack, sepjoin(args, NULL));
-	} LASTALLOC;
+	queue_signals();
+	zpushnode(bufstack, sepjoin(args, NULL, 0));
+	unqueue_signals();
 	return 0;
     }
     /* -s option -- add the arguments to the history list */
@@ -4407,28 +2941,26 @@ bin_print(char *name, char **args, char *ops, int func)
 	int nwords = 0, nlen, iwords;
 	char **pargs = args;
 
-	PERMALLOC {
-	    ent = gethistent(++curhist);
-	    zsfree(ent->text);
-	    if (ent->nwords)
-		zfree(ent->words, ent->nwords*2*sizeof(short));
-	    while (*pargs++)
-		nwords++;
-	    if ((ent->nwords = nwords)) {
-		ent->words = (short *)zalloc(nwords*2*sizeof(short));
-		nlen = iwords = 0;
-		for (pargs = args; *pargs; pargs++) {
-		    ent->words[iwords++] = nlen;
-		    nlen += strlen(*pargs);
-		    ent->words[iwords++] = nlen;
-		    nlen++;
-		}
-	    } else
-		ent->words = (short *)NULL;
-	    ent->text = zjoin(args, ' ');
-	    ent->stim = ent->ftim = time(NULL);
-	    ent->flags = 0;
-	} LASTALLOC;
+	queue_signals();
+	ent = prepnexthistent();
+	while (*pargs++)
+	    nwords++;
+	if ((ent->nwords = nwords)) {
+	    ent->words = (short *)zalloc(nwords*2*sizeof(short));
+	    nlen = iwords = 0;
+	    for (pargs = args; *pargs; pargs++) {
+		ent->words[iwords++] = nlen;
+		nlen += strlen(*pargs);
+		ent->words[iwords++] = nlen;
+		nlen++;
+	    }
+	} else
+	    ent->words = (short *)NULL;
+	ent->text = zjoin(args, ' ', 0);
+	ent->stim = ent->ftim = time(NULL);
+	ent->flags = 0;
+	addhistnode(histtab, ent->text, ent);
+	unqueue_signals();
 	return 0;
     }
     /* -u and -p -- output to other than standard output */
@@ -4514,76 +3046,6 @@ bin_print(char *name, char **args, char *ops, int func)
     return 0;
 }
 
-/* echotc: output a termcap */
-
-/**/
-int
-bin_echotc(char *name, char **argv, char *ops, int func)
-{
-    char *s, buf[2048], *t, *u;
-    int num, argct;
-
-    s = *argv++;
-    if (termflags & TERM_BAD)
-	return 1;
-    if ((termflags & TERM_UNKNOWN) && (isset(INTERACTIVE) || !init_term()))
-	return 1;
-    /* if the specified termcap has a numeric value, display it */
-    if ((num = tgetnum(s)) != -1) {
-	printf("%d\n", num);
-	return 0;
-    }
-    /* if the specified termcap is boolean, and set, say so  *
-     * ncurses can tell if an existing boolean capability is *
-     * off so in this case we print "no".                    */
-#ifndef NCURSES_VERSION
-    if (tgetflag(s) > 0) {
-	puts("yes");
-	return (0);
-    }
-#else
-    switch (tgetflag(s)) {
-    case -1:
-	break;
-    case 0:
-	puts("no");
-	return 0;
-    default:
-	puts("yes");
-	return 0;
-    }
-#endif
-    /* get a string-type capability */
-    u = buf;
-    t = tgetstr(s, &u);
-    if (!t || !*t) {
-	/* capability doesn't exist, or (if boolean) is off */
-	zwarnnam(name, "no such capability: %s", s, 0);
-	return 1;
-    }
-    /* count the number of arguments required */
-    for (argct = 0, u = t; *u; u++)
-	if (*u == '%') {
-	    if (u++, (*u == 'd' || *u == '2' || *u == '3' || *u == '.' ||
-		      *u == '+'))
-		argct++;
-	}
-    /* check that the number of arguments provided is correct */
-    if (arrlen(argv) != argct) {
-	zwarnnam(name, (arrlen(argv) < argct) ? "not enough arguments" :
-		 "too many arguments", NULL, 0);
-	return 1;
-    }
-    /* output string, through the proper termcap functions */
-    if (!argct)
-	tputs(t, 1, putraw);
-    else {
-	num = (argv[1]) ? atoi(argv[1]) : atoi(*argv);
-	tputs(tgoto(t, atoi(*argv), num), num, putraw);
-    }
-    return 0;
-}
-
 /* shift builtin */
 
 /**/
@@ -4594,10 +3056,12 @@ bin_shift(char *name, char **argv, char *ops, int func)
     char **s;
  
     /* optional argument can be either numeric or an array */
+    queue_signals();
     if (*argv && !getaparam(*argv))
-        num = matheval(*argv++);
+        num = mathevali(*argv++);
  
     if (num < 0) {
+	unqueue_signals();
         zwarnnam(name, "argument to shift must be non-negative", NULL, 0);
         return 1;
     }
@@ -4610,9 +3074,7 @@ bin_shift(char *name, char **argv, char *ops, int func)
 		    ret++;
 		    continue;
 		}
-                PERMALLOC {
-		    s = arrdup(s + num);
-                } LASTALLOC;
+		s = zarrdup(s + num);
                 setaparam(*argv, s);
             }
     } else {
@@ -4628,8 +3090,12 @@ bin_shift(char *name, char **argv, char *ops, int func)
 	    pparams = s;
 	}
     }
+    unqueue_signals();
     return ret;
 }
+
+/**/
+int optcind;
 
 /* getopts: automagical option handling for shell scripts */
 
@@ -4637,89 +3103,95 @@ bin_shift(char *name, char **argv, char *ops, int func)
 int
 bin_getopts(char *name, char **argv, char *ops, int func)
 {
-    int lenstr, lenoptstr, i, plus;
+    int lenstr, lenoptstr, quiet, lenoptbuf;
     char *optstr = unmetafy(*argv++, &lenoptstr), *var = *argv++;
     char **args = (*argv) ? argv : pparams;
-    static int optcind = 1, quiet;
-    char *str, optbuf[2], *opch = optbuf + 1;
+    char *str, optbuf[2] = " ", *p, opch;
 
-    /* zoptind keeps count of the current argument number */
-    if (zoptind < 1)
+    /* zoptind keeps count of the current argument number.  The *
+     * user can set it to zero to start a new option parse.     */
+    if (zoptind < 1) {
 	/* first call */
 	zoptind = 1;
-    if (zoptind == 1)
-	quiet = 0;
-    optbuf[0] = '+';
-    zsfree(zoptarg);
-    zoptarg = ztrdup("");
-    setsparam(var, ztrdup(""));
-    if (*optstr == ':') {
-	quiet = 1;
-	optstr++;
-	lenoptstr--;
+	optcind = 0;
     }
-    if (zoptind > arrlen(args))
+    if(zoptind > arrlen(args))
+	/* no more options */
 	return 1;
-    str = unmetafy(args[zoptind - 1], &lenstr);
-    if ((*str != '+' && *str != '-') || optcind >= lenstr ||
-	(lenstr == 2 && str[0] == '-' && str[1] == '-')) {
-	/* current argument doesn't contain options, or optcind is impossibly
-	large */
-	if (*str == '+' || *str == '-')
+
+    /* leading ':' in optstr means don't print an error message */
+    quiet = *optstr == ':';
+    optstr += quiet;
+    lenoptstr -= quiet;
+
+    /* find place in relevant argument */
+    str = unmetafy(dupstring(args[zoptind - 1]), &lenstr);
+    if(optcind >= lenstr) {
+	optcind = 0;
+	if(!args[zoptind++])
+	    return 1;
+	str = unmetafy(dupstring(args[zoptind - 1]), &lenstr);
+    }
+    if(!optcind) {
+	if(lenstr < 2 || (*str != '-' && *str != '+'))
+	    return 1;
+	if(lenstr == 2 && str[0] == '-' && str[1] == '-') {
 	    zoptind++;
-	optcind = 0;
-	return 1;
-    }
-    /* Get the option character.  optcind records the current position within
-    the argument. */
-    if (!optcind)
-	optcind = 1;
-    *opch = str[optcind++];
-    plus = (*str == '+');
-    if (optcind == lenstr) {
-	if(args[zoptind++])
-	    str = unmetafy(args[zoptind - 1], &lenstr);
-	optcind = 0;
-    }
-    /* look for option in the provided optstr */
-    for (i = 0; i != lenoptstr; i++)
-	if (*opch == optstr[i])
-	    break;
-    if (i == lenoptstr || *opch == ':') {
-	/* not a valid option */
-	setsparam(var, ztrdup("?"));
-	if (quiet) {
-	    zsfree(zoptarg);
-	    zoptarg = metafy(opch, 1, META_DUP);
-	    return 0;
+	    return 1;
 	}
-	zerr("bad option: -%c", NULL, *opch);
-	errflag = 0;
+	optcind++;
+    }
+    opch = str[optcind++];
+    if(str[0] == '+') {
+	optbuf[0] = '+';
+	lenoptbuf = 2;
+    } else
+	lenoptbuf = 1;
+    optbuf[lenoptbuf - 1] = opch;
+
+    /* check for legality */
+    if(opch == ':' || !(p = memchr(optstr, opch, lenoptstr))) {
+	p = "?";
+err:
+	zsfree(zoptarg);
+	setsparam(var, ztrdup(p));
+	if(quiet) {
+	    zoptarg = metafy(optbuf, lenoptbuf, META_DUP);
+	} else {
+	    zwarn(*p == '?' ? "bad option: -%c" :
+		  "argument expected after -%c option", NULL, opch);
+	    zoptarg=ztrdup("");
+	}
 	return 0;
     }
-    /* copy option into specified parameter, with + if required */
-    setsparam(var, metafy(opch - plus, 1 + plus, META_DUP));
-    /* handle case of an expected extra argument */
-    if (optstr[i + 1] == ':') {
-	if (!args[zoptind - 1]) {
-	    /* no extra argument was provided */
-	    if (quiet) {
-		zsfree(zoptarg);
-		zoptarg = metafy(opch, 1, META_DUP);
-		setsparam(var, ztrdup(":"));
-		return 0;
+
+    /* check for required argument */
+    if(p[1] == ':') {
+	if(optcind == lenstr) {
+	    if(!args[zoptind]) {
+		p = ":";
+		goto err;
 	    }
-	    setsparam(var, ztrdup("?"));
-	    zerr("argument expected after -%c option", NULL, *opch);
-	    errflag = 0;
-	    return 0;
-	}
-	/* skip over the extra argument */
-	zsfree(zoptarg);
-	zoptarg = metafy(str + optcind, lenstr - optcind, META_DUP);
-	zoptind++;
+	    p = ztrdup(args[zoptind++]);
+	} else
+	    p = metafy(str+optcind, lenstr-optcind, META_DUP);
+	/*
+	 * Careful:  I've just changed the following two lines from
+	 *   optcind = ztrlen(args[zoptind - 1]);
+	 * and it's a rigorous theorem that every change in getopts breaks
+	 * something.  See zsh-workers/9095 for the bug fixed here.
+	 *   PWS 2000/05/02
+	 */
 	optcind = 0;
+	zoptind++;
+	zsfree(zoptarg);
+	zoptarg = p;
+    } else {
+	zsfree(zoptarg);
+	zoptarg = ztrdup("");
     }
+
+    setsparam(var, metafy(optbuf, lenoptbuf, META_DUP));
     return 0;
 }
 
@@ -4735,7 +3207,7 @@ bin_break(char *name, char **argv, char *ops, int func)
 
     /* handle one optional numeric argument */
     if (*argv) {
-	num = matheval(*argv++);
+	num = mathevali(*argv++);
 	nump = 1;
     }
 
@@ -4778,47 +3250,82 @@ bin_break(char *name, char **argv, char *ops, int func)
     return 0;
 }
 
+/* we have printed a 'you have stopped (running) jobs.' message */
+ 
+/**/
+mod_export int stopmsg;
+ 
+/* check to see if user has jobs running/stopped */
+
+/**/
+static void
+checkjobs(void)
+{
+    int i;
+
+    for (i = 1; i < MAXJOB; i++)
+	if (i != thisjob && (jobtab[i].stat & STAT_LOCKED) &&
+	    !(jobtab[i].stat & STAT_NOPRINT))
+	    break;
+    if (i < MAXJOB) {
+	if (jobtab[i].stat & STAT_STOPPED) {
+
+#ifdef USE_SUSPENDED
+	    zerr("you have suspended jobs.", NULL, 0);
+#else
+	    zerr("you have stopped jobs.", NULL, 0);
+#endif
+
+	} else
+	    zerr("you have running jobs.", NULL, 0);
+	stopmsg = 1;
+    }
+}
+
 /* exit the shell.  val is the return value of the shell.  *
  * from_signal should be non-zero if zexit is being called *
  * because of a signal.                                    */
 
 /**/
-void
+mod_export void
 zexit(int val, int from_signal)
 {
     static int in_exit;
 
-    HEAPALLOC {
-	if (isset(MONITOR) && !stopmsg && !from_signal) {
-	    scanjobs();    /* check if jobs need printing           */
+    if (isset(MONITOR) && !stopmsg && !from_signal) {
+	scanjobs();    /* check if jobs need printing           */
+	if (isset(CHECKJOBS))
 	    checkjobs();   /* check if any jobs are running/stopped */
-	    if (stopmsg) {
-		stopmsg = 2;
-		LASTALLOC_RETURN;
-	    }
+	if (stopmsg) {
+	    stopmsg = 2;
+	    return;
 	}
-	if (in_exit++ && from_signal)
-	    LASTALLOC_RETURN;
-	if (isset(MONITOR))
-	    /* send SIGHUP to any jobs left running  */
-	    killrunjobs(from_signal);
-	if (isset(RCS) && interact) {
-	    if (!nohistsave)
-		savehistfile(getsparam("HISTFILE"), 1, isset(APPENDHISTORY) ? 3 : 0);
-	    if (islogin && !subsh) {
-		sourcehome(".zlogout");
+    }
+    if (in_exit++ && from_signal)
+	    return;
+
+    if (isset(MONITOR)) {
+	/* send SIGHUP to any jobs left running  */
+	killrunjobs(from_signal);
+    }
+    if (isset(RCS) && interact) {
+	if (!nohistsave)
+	    savehistfile(NULL, 1, HFILE_USE_OPTIONS);
+	if (islogin && !subsh) {
+	    sourcehome(".zlogout");
 #ifdef GLOBAL_ZLOGOUT
+	    if (isset(RCS) && isset(GLOBALRCS))
 		source(GLOBAL_ZLOGOUT);
 #endif
-	    }
 	}
-	if (sigtrapped[SIGEXIT])
-	    dotrap(SIGEXIT);
-	if (mypid != getpid())
-	    _exit(val);
-	else
-	    exit(val);
-    } LASTALLOC;
+    }
+    if (sigtrapped[SIGEXIT])
+	dotrap(SIGEXIT);
+    runhookdef(EXITHOOK, NULL);
+    if (mypid != getpid())
+	_exit(val);
+    else
+	exit(val);
 }
 
 /* . (dot), source */
@@ -4829,19 +3336,16 @@ bin_dot(char *name, char **argv, char *ops, int func)
 {
     char **old, *old0 = NULL;
     int ret, diddot = 0, dotdot = 0;
-    char buf[PATH_MAX];
-    char *s, **t, *enam, *arg0;
+    char *s, **t, *enam, *arg0, *buf;
     struct stat st;
 
-    if (!*argv || strlen(*argv) >= PATH_MAX)
+    if (!*argv)
 	return 0;
     old = pparams;
     /* get arguments for the script */
-    if (argv[1]) {
-	PERMALLOC {
-	    pparams = arrdup(argv + 1);
-	} LASTALLOC;
-    }
+    if (argv[1])
+	pparams = zarrdup(argv + 1);
+
     enam = arg0 = ztrdup(*argv);
     if (isset(FUNCTIONARGZERO)) {
 	old0 = argzero;
@@ -4870,18 +3374,17 @@ bin_dot(char *name, char **argv, char *ops, int func)
 		break;
 	    }
 	if (!*s || (ret && isset(PATHDIRS) && diddot < 2 && dotdot == 0)) {
+	    pushheap();
 	    /* search path for script */
 	    for (t = path; *t; t++) {
 		if (!(*t)[0] || ((*t)[0] == '.' && !(*t)[1])) {
 		    if (diddot)
 			continue;
 		    diddot = 1;
-		    strcpy(buf, arg0);
-		} else {
-		    if (strlen(*t) + strlen(arg0) + 1 >= PATH_MAX)
-			continue;
-		    sprintf(buf, "%s/%s", *t, arg0);
-		}
+		    buf = dupstring(arg0);
+		} else
+		    buf = zhtricat(*t, "/", arg0);
+
 		s = unmeta(buf);
 		if (access(s, F_OK) == 0 && stat(s, &st) >= 0
 		    && !S_ISDIR(st.st_mode)) {
@@ -4889,6 +3392,7 @@ bin_dot(char *name, char **argv, char *ops, int func)
 		    break;
 		}
 	    }
+	    popheap();
 	}
     }
     /* clean up and return */
@@ -4910,7 +3414,7 @@ bin_emulate(char *nam, char **argv, char *ops, int func)
 {
     emulate(*argv, ops['R']);
     if (ops['L'])
-	dosetopt(LOCALOPTIONS, 1, 0);
+	opts[LOCALOPTIONS] = opts[LOCALTRAPS] = 1;
     return 0;
 }
 
@@ -4920,14 +3424,14 @@ bin_emulate(char *nam, char **argv, char *ops, int func)
 int
 bin_eval(char *nam, char **argv, char *ops, int func)
 {
-    List list;
+    Eprog prog;
 
-    list = parse_string(zjoin(argv, ' '), 0);
-    if (!list) {
+    prog = parse_string(zjoin(argv, ' ', 1), 0);
+    if (!prog) {
 	errflag = 0;
 	return 1;
     }
-    execlist(list, 1, 0);
+    execode(prog, 1, 0);
     if (errflag) {
 	lastval = errflag;
 	errflag = 0;
@@ -4940,8 +3444,6 @@ static int readfd;
 
 /* Read a character from readfd, or from the buffer zbuf.  Return EOF on end of
 file/buffer. */
-
-extern int cs;
 
 /* read: get a line of input, or (for compctl functions) return some *
  * useful data about the state of the editing line.  The -E and -e   *
@@ -4956,26 +3458,32 @@ bin_read(char *name, char **args, char *ops, int func)
     char *reply, *readpmpt;
     int bsiz, c = 0, gotnl = 0, al = 0, first, nchars = 1, bslash, keys = 0;
     int haso = 0;	/* true if /dev/tty has been opened specially */
-    int isem = !strcmp(term, "emacs");
+    int isem = !strcmp(term, "emacs"), izle = zleactive && getkeyptr;
     char *buf, *bptr, *firstarg, *zbuforig;
     LinkList readll = newlinklist();
     FILE *oshout = NULL;
+    int readchar = -1, val;
+    char d;
+
 
     if ((ops['k'] || ops['b']) && *args && idigit(**args)) {
 	if (!(nchars = atoi(*args)))
 	    nchars = 1;
 	args++;
     }
-
-    firstarg = *args;
-    if (*args && **args == '?')
-	args++;
-    /* default result parameter */
+    /* This `*args++ : *args' looks a bit weird, but it works around a bug
+     * in gcc-2.8.1 under DU 4.0. */
+    firstarg = (*args && **args == '?' ? *args++ : *args);
     reply = *args ? *args++ : ops['A'] ? "reply" : "REPLY";
+
     if (ops['A'] && *args) {
 	zwarnnam(name, "only one array argument allowed", NULL, 0);
 	return 1;
     }
+
+    /* handle compctl case */
+    if(ops['l'] || ops['c'])
+	return compctlread(name, args, ops, reply);
 
     if ((ops['k'] && !ops['u'] && !ops['p']) || ops['q']) {
 	if (!zleactive) {
@@ -5010,10 +3518,23 @@ bin_read(char *name, char **args, char *ops, int func)
 	/* -u means take input from the specified file descriptor. *
 	 * -up means take input from the coprocess.                */
 	for (readfd = 9; readfd && !ops[readfd + '0']; --readfd);
-    } else if (ops['p'])
+	izle = 0;
+    } else if (ops['p']) {
 	readfd = coprocin;
-    else
-	readfd = 0;
+	izle = 0;
+    } else
+	readfd = izle = 0;
+
+    if (ops['t'] && !read_poll(readfd, &readchar, keys && !zleactive)) {
+	if (ops['k'] && !zleactive && !isem)
+	    settyinfo(&shttyinfo);
+	if (haso) {
+	    fclose(shout);
+	    shout = oshout;
+	    SHTTY = -1;
+	}
+	return 1;
+    }
 
     /* handle prompt */
     if (firstarg) {
@@ -5030,25 +3551,33 @@ bin_read(char *name, char **args, char *ops, int func)
 
     /* option -k means read only a given number of characters (default 1) */
     if (ops['k']) {
-	int val;
-	char d;
-
 	/* allocate buffer space for result */
 	bptr = buf = (char *)zalloc(nchars+1);
 
 	do {
-	    /* If read returns 0, is end of file */
-	    if ((val = read(readfd, bptr, nchars)) <= 0)
-		break;
+	    if (izle) {
+		if ((val = getkeyptr(0)) < 0)
+		    break;
+		*bptr++ = (char) val;
+		nchars--;
+	    } else {
+		/* If read returns 0, is end of file */
+		if (readchar >= 0) {
+		    *bptr = readchar;
+		    val = 1;
+		    readchar = -1;
+		} else if ((val = read(readfd, bptr, nchars)) <= 0)
+		    break;
 	    
-	    /* decrement number of characters read from number required */
-	    nchars -= val;
+		/* decrement number of characters read from number required */
+		nchars -= val;
 
-	    /* increment pointer past read characters */
-	    bptr += val;
+		/* increment pointer past read characters */
+		bptr += val;
+	    }
 	} while (nchars > 0);
 	
-	if (!ops['u'] && !ops['p']) {
+	if (!izle && !ops['u'] && !ops['p']) {
 	    /* dispose of result appropriately, etc. */
 	    if (isem)
 		while (val > 0 && read(SHTTY, &d, 1) == 1 && d != '\n');
@@ -5070,105 +3599,6 @@ bin_read(char *name, char **args, char *ops, int func)
 	return val <= 0;
     }
 
-    /* option -l is used in compctl functions */
-    if (ops['l']) {
-	/* only allowed to be called by ZLE */
-	if (!inzlefunc) {
-	    zwarnnam(name, "option valid only in functions called from zle",
-		     NULL, 0);
-	    return 1;
-	}
-	/* -ln gives the index of the word the cursor is currently on, which is
-	available in cs (but remember that Zsh counts from one, not zero!) */
-	if (ops['n']) {
-	    char nbuf[14];
-
-	    if (ops['e'] || ops['E'])
-		printf("%d\n", cs + 1);
-	    if (!ops['e']) {
-		sprintf(nbuf, "%d", cs + 1);
-		setsparam(reply, ztrdup(nbuf));
-	    }
-	    return 0;
-	}
-	/* without -n, the current line is assigned to the given parameter as a
-	scalar */
-	if (ops['e'] || ops['E']) {
-	    zputs((char *) line, stdout);
-	    putchar('\n');
-	}
-	if (!ops['e'])
-	    setsparam(reply, ztrdup((char *) line));
-	return 0;
-    }
-
-    /* option -c is used in compctl functions */
-    if (ops['c']) {
-	int i;
-
-	/* only allowed to be called by ZLE */
-	if (!inzlefunc) {
-	    zwarnnam(name, "option valid only in functions called from zle",
-		     NULL, 0);
-	    return 1;
-	}
-	/* -cn gives the current cursor position within the current word, which
-	is available in clwpos (but remember that Zsh counts from one, not
-	zero!) */
-	if (ops['n']) {
-	    char nbuf[14];
-
-	    if (ops['e'] || ops['E'])
-		printf("%d\n", clwpos + 1);
-	    if (!ops['e']) {
-		sprintf(nbuf, "%d", clwpos + 1);
-		setsparam(reply, ztrdup(nbuf));
-	    }
-	    return 0;
-	}
-	/* without -n, the words of the current line are assigned to the given
-	parameters separately */
-	if (ops['A'] && !ops['e']) {
-	    /* the -A option means that one array is specified, instead of
-	    many parameters */
-	    char **p, **b = (char **)zcalloc((clwnum + 1) * sizeof(char *));
-
-	    for (i = 0, p = b; i < clwnum; p++, i++)
-		*p = ztrdup(clwords[i]);
-
-	    setaparam(reply, b);
-	    return 0;
-	}
-	if (ops['e'] || ops['E']) {
-	    for (i = 0; i < clwnum; i++) {
-		zputs(clwords[i], stdout);
-		putchar('\n');
-	    }
-
-	    if (ops['e'])
-		return 0;
-	}
-
-	for (i = 0; i < clwnum && *args; reply = *args++, i++)
-	    setsparam(reply, ztrdup(clwords[i]));
-
-	if (i < clwnum) {
-	    int j, len;
-
-	    for (j = i, len = 0; j < clwnum; len += strlen(clwords[j++]));
-	    bptr = buf = zalloc(len + j - i);
-	    while (i < clwnum) {
-		strucpy(&bptr, clwords[i++]);
-		*bptr++ = ' ';
-	    }
-	    bptr[-1] = '\0';
-	} else
-	    buf = ztrdup("");
-	setsparam(reply, buf);
-
-	return 0;
-    }
-
     /* option -q means get one character, and interpret it as a Y or N */
     if (ops['q']) {
 	char readbuf[2];
@@ -5177,15 +3607,20 @@ bin_read(char *name, char **args, char *ops, int func)
 	readbuf[1] = '\0';
 
 	/* get, and store, reply */
-	readbuf[0] = ((char)getquery(NULL)) == 'y' ? 'y' : 'n';
+	if (izle) {
+	    int key = getkeyptr(0);
 
-	/* dispose of result appropriately, etc. */
-	if (haso) {
-	    fclose(shout);	/* close(SHTTY) */
-	    shout = oshout;
-	    SHTTY = -1;
+	    readbuf[0] = (key == 'y' ? 'y' : 'n');
+	} else {
+	    readbuf[0] = ((char)getquery(NULL, 0)) == 'y' ? 'y' : 'n';
+
+	    /* dispose of result appropriately, etc. */
+	    if (haso) {
+		fclose(shout);	/* close(SHTTY) */
+		shout = oshout;
+		SHTTY = -1;
+	    }
 	}
-
 	if (ops['e'] || ops['E'])
 	    printf("%s\n", readbuf);
 	if (!ops['e'])
@@ -5208,7 +3643,7 @@ bin_read(char *name, char **args, char *ops, int func)
 	buf = bptr = (char *)zalloc(bsiz = 64);
 	/* get input, a character at a time */
 	while (!gotnl) {
-	    c = zread();
+	    c = zread(izle, &readchar);
 	    /* \ at the end of a line indicates a continuation *
 	     * line, except in raw mode (-r option)            */
 	    if (bslash && c == '\n') {
@@ -5217,6 +3652,15 @@ bin_read(char *name, char **args, char *ops, int func)
 	    }
 	    if (c == EOF || c == '\n')
 		break;
+	    /*
+	     * `first' is non-zero if any separator we encounter is a
+	     * non-whitespace separator, which means that anything
+	     * (even an empty string) between, before or after separators
+	     * is significant.  If it is zero, we have a whitespace
+	     * separator, which shouldn't cause extra empty strings to
+	     * be emitted.  Hence the test for (*buf || first) when
+	     * we assign the result of reading a word.
+	     */
 	    if (!bslash && isep(c)) {
 		if (bptr != buf || (!iwsep(c) && first)) {
 		    first |= !iwsep(c);
@@ -5251,7 +3695,7 @@ bin_read(char *name, char **args, char *ops, int func)
 	    zputs(buf, stdout);
 	    putchar('\n');
 	}
-	if (!ops['e']) {
+	if (!ops['e'] && (*buf || first)) {
 	    if (ops['A']) {
 		addlinknode(readll, buf);
 		al++;
@@ -5300,7 +3744,7 @@ bin_read(char *name, char **args, char *ops, int func)
     if (!gotnl) {
 	sigset_t s = child_unblock();
 	for (;;) {
-	    c = zread();
+	    c = zread(izle, &readchar);
 	    /* \ at the end of a line introduces a continuation line, except in
 	    raw mode (-r option) */
 	    if (bslash && c == '\n') {
@@ -5365,11 +3809,17 @@ bin_read(char *name, char **args, char *ops, int func)
 }
 
 /**/
-int
-zread(void)
+static int
+zread(int izle, int *readchar)
 {
     char cc, retry = 0;
+    int ret;
 
+    if (izle) {
+	int c = getkeyptr(0);
+
+	return (c < 0 ? EOF : c);
+    }
     /* use zbuf if possible */
     if (zbuf) {
 	/* If zbuf points to anything, it points to the next character in the
@@ -5380,9 +3830,15 @@ zread(void)
 	else
 	    return (*zbuf) ? STOUC(*zbuf++) : EOF;
     }
+    if (*readchar >= 0) {
+	cc = *readchar;
+	*readchar = -1;
+	return STOUC(cc);
+    }
     for (;;) {
 	/* read a character from readfd */
-	switch (read(readfd, &cc, 1)) {
+	ret = read(readfd, &cc, 1);
+	switch (ret) {
 	case 1:
 	    /* return the character read */
 	    return STOUC(cc);
@@ -5411,121 +3867,8 @@ zread(void)
     }
 }
 
-/* sched: execute commands at scheduled times */
-
-/**/
-int
-bin_sched(char *nam, char **argv, char *ops, int func)
-{
-    char *s = *argv++;
-    time_t t;
-    long h, m;
-    struct tm *tm;
-    struct schedcmd *sch, *sch2, *schl;
-    int sn;
-
-    /* If the argument begins with a -, remove the specified item from the
-    schedule. */
-    if (s && *s == '-') {
-	sn = atoi(s + 1);
-
-	if (!sn) {
-	    zwarnnam("sched", "usage for delete: sched -<item#>.", NULL, 0);
-	    return 1;
-	}
-	for (schl = (struct schedcmd *)&schedcmds, sch = schedcmds, sn--;
-	     sch && sn; sch = (schl = sch)->next, sn--);
-	if (!sch) {
-	    zwarnnam("sched", "not that many entries", NULL, 0);
-	    return 1;
-	}
-	schl->next = sch->next;
-	zsfree(sch->cmd);
-	zfree(sch, sizeof(struct schedcmd));
-
-	return 0;
-    }
-
-    /* given no arguments, display the schedule list */
-    if (!s) {
-	char tbuf[40];
-
-	for (sn = 1, sch = schedcmds; sch; sch = sch->next, sn++) {
-	    t = sch->time;
-	    tm = localtime(&t);
-	    ztrftime(tbuf, 20, "%a %b %e %k:%M:%S", tm);
-	    printf("%3d %s %s\n", sn, tbuf, sch->cmd);
-	}
-	return 0;
-    } else if (!*argv) {
-	/* other than the two cases above, sched *
-	 *requires at least two arguments        */
-	zwarnnam("sched", "not enough arguments", NULL, 0);
-	return 1;
-    }
-
-    /* The first argument specifies the time to schedule the command for.  The
-    remaining arguments form the command. */
-    if (*s == '+') {
-	/* + introduces a relative time.  The rest of the argument is an
-	hour:minute offset from the current time.  Once the hour and minute
-	numbers have been extracted, and the format verified, the resulting
-	offset is simply added to the current time. */
-	h = zstrtol(s + 1, &s, 10);
-	if (*s != ':') {
-	    zwarnnam("sched", "bad time specifier", NULL, 0);
-	    return 1;
-	}
-	m = zstrtol(s + 1, &s, 10);
-	if (*s) {
-	    zwarnnam("sched", "bad time specifier", NULL, 0);
-	    return 1;
-	}
-	t = time(NULL) + h * 3600 + m * 60;
-    } else {
-	/* If there is no +, an absolute time of day must have been given.
-	This is in hour:minute format, optionally followed by a string starting
-	with `a' or `p' (for a.m. or p.m.).  Characters after the `a' or `p'
-	are ignored. */
-	h = zstrtol(s, &s, 10);
-	if (*s != ':') {
-	    zwarnnam("sched", "bad time specifier", NULL, 0);
-	    return 1;
-	}
-	m = zstrtol(s + 1, &s, 10);
-	if (*s && *s != 'a' && *s != 'A' && *s != 'p' && *s != 'P') {
-	    zwarnnam("sched", "bad time specifier", NULL, 0);
-	    return 1;
-	}
-	t = time(NULL);
-	tm = localtime(&t);
-	t -= tm->tm_sec + tm->tm_min * 60 + tm->tm_hour * 3600;
-	if (*s == 'p' || *s == 'P')
-	    h += 12;
-	t += h * 3600 + m * 60;
-	/* If the specified time is before the current time, it must refer to
-	tomorrow. */
-	if (t < time(NULL))
-	    t += 3600 * 24;
-    }
-    /* The time has been calculated; now add the new entry to the linked list
-    of scheduled commands. */
-    sch = (struct schedcmd *) zcalloc(sizeof *sch);
-    sch->time = t;
-    PERMALLOC {
-	sch->cmd = zjoin(argv, ' ');
-    } LASTALLOC;
-    sch->next = NULL;
-    for (sch2 = (struct schedcmd *)&schedcmds; sch2->next; sch2 = sch2->next);
-    sch2->next = sch;
-    return 0;
-}
-
-
-/* holds lexer for par_cond():  normally yylex(), testlex() for bin_test() */
-extern void (*condlex) _((void));
-
 /* holds arguments for testlex() */
+/**/
 char **testargs;
 
 /* test, [: the old-style general purpose logical expression builtin */
@@ -5562,7 +3905,8 @@ int
 bin_test(char *name, char **argv, char *ops, int func)
 {
     char **s;
-    Cond c;
+    Eprog prog;
+    struct estate state;
 
     /* if "test" was invoked as "[", it needs a matching "]" *
      * which is subsequently ignored                         */
@@ -5582,7 +3926,7 @@ bin_test(char *name, char **argv, char *ops, int func)
     tok = NULLTOK;
     condlex = testlex;
     testlex();
-    c = par_cond();
+    prog = parse_cond();
     condlex = yylex;
 
     if (errflag) {
@@ -5590,13 +3934,19 @@ bin_test(char *name, char **argv, char *ops, int func)
 	return 1;
     }
 
-    if (!c || tok == LEXERR) {
+    if (!prog || tok == LEXERR) {
 	zwarnnam(name, tokstr ? "parse error" : "argument expected", NULL, 0);
 	return 1;
     }
 
     /* syntax is OK, so evaluate */
-    return !evalcond(c);
+
+    state.prog = prog;
+    state.pc = prog->prog;
+    state.strs = prog->strs;
+
+
+    return !evalcond(&state);
 }
 
 /* display a time, provided in units of 1/60s, as minutes and seconds */
@@ -5631,7 +3981,7 @@ bin_times(char *name, char **argv, char *ops, int func)
 int
 bin_trap(char *name, char **argv, char *ops, int func)
 {
-    List l;
+    Eprog prog;
     char *arg, *s;
     int sig;
 
@@ -5640,6 +3990,7 @@ bin_trap(char *name, char **argv, char *ops, int func)
 
     /* If given no arguments, list all currently-set traps */
     if (!*argv) {
+	queue_signals();
 	for (sig = 0; sig < VSIGCOUNT; sig++) {
 	    if (sigtrapped[sig] & ZSIG_FUNC) {
 		char fname[20];
@@ -5653,7 +4004,7 @@ bin_trap(char *name, char **argv, char *ops, int func)
 		if (!sigfuncs[sig])
 		    printf("trap -- '' %s\n", sigs[sig]);
 		else {
-		    s = getpermtext((void *) dupstruct((void *) sigfuncs[sig]));
+		    s = getpermtext(sigfuncs[sig], NULL);
 		    printf("trap -- ");
 		    quotedzputs(s, stdout);
 		    printf(" %s\n", sigs[sig]);
@@ -5661,6 +4012,7 @@ bin_trap(char *name, char **argv, char *ops, int func)
 		}
 	    }
 	}
+	unqueue_signals();
 	return 0;
     }
 
@@ -5679,26 +4031,24 @@ bin_trap(char *name, char **argv, char *ops, int func)
     /* Sort out the command to execute on trap */
     arg = *argv++;
     if (!*arg)
-	l = NULL;
-    else if (!(l = parse_string(arg, 0))) {
+	prog = &dummy_eprog;
+    else if (!(prog = parse_string(arg, 0))) {
 	zwarnnam(name, "couldn't parse trap command", NULL, 0);
 	return 1;
     }
 
     /* set traps */
     for (; *argv; argv++) {
-	List t;
+	Eprog t;
 
 	sig = getsignum(*argv);
 	if (sig == -1) {
 	    zwarnnam(name, "undefined signal: %s", *argv, 0);
 	    break;
 	}
-	PERMALLOC {
-	    t = (List) dupstruct(l);
-	} LASTALLOC;
+	t = dupeprog(prog, 0);
 	if (settrap(sig, t))
-	    freestruct(t);
+	    freeeprog(t);
     }
     return *argv != NULL;
 }
@@ -5725,7 +4075,7 @@ bin_let(char *name, char **argv, char *ops, int func)
     zlong val = 0;
 
     while (*argv)
-	val = matheval(*argv++);
+	val = mathevali(*argv++);
     /* Errors in math evaluation in let are non-fatal. */
     errflag = 0;
     return !val;
@@ -5845,94 +4195,12 @@ bin_umask(char *nam, char **args, char *ops, int func)
     return 0;
 }
 
-/*** debugging functions ***/
-
-#ifdef ZSH_HASH_DEBUG
-/**/
-int
-bin_hashinfo(char *nam, char **args, char *ops, int func)
-{
-    printf("----------------------------------------------------\n");
-    cmdnamtab->printinfo(cmdnamtab);
-    printf("----------------------------------------------------\n");
-    shfunctab->printinfo(shfunctab);
-    printf("----------------------------------------------------\n");
-    builtintab->printinfo(builtintab);
-    printf("----------------------------------------------------\n");
-    paramtab->printinfo(paramtab);
-    printf("----------------------------------------------------\n");
-    compctltab->printinfo(compctltab);
-    printf("----------------------------------------------------\n");
-    aliastab->printinfo(aliastab);
-    printf("----------------------------------------------------\n");
-    reswdtab->printinfo(reswdtab);
-    printf("----------------------------------------------------\n");
-    emkeybindtab->printinfo(emkeybindtab);
-    printf("----------------------------------------------------\n");
-    vikeybindtab->printinfo(vikeybindtab);
-    printf("----------------------------------------------------\n");
-    nameddirtab->printinfo(nameddirtab);
-    printf("----------------------------------------------------\n");
-    return 0;
-}
-#endif
-
-/**** utility functions -- should go in utils.c ****/
-
-/* Separate an argument into name=value parts, returning them in an     *
- * asgment structure.  Because the asgment structure used is global,    *
- * only one of these can be active at a time.  The string s gets placed *
- * in this global structure, so it needs to be in permanent memory.     */
+/* Generic builtin for facilities not available on this OS */
 
 /**/
-Asgment
-getasg(char *s)
+mod_export int
+bin_notavail(char *nam, char **argv, char *ops, int func)
 {
-    static struct asgment asg;
-
-    /* sanity check for valid argument */
-    if (!s)
-	return NULL;
-
-    /* check if name is empty */
-    if (*s == '=') {
-	zerr("bad assignment", NULL, 0);
-	return NULL;
-    }
-    asg.name = s;
-
-    /* search for `=' */
-    for (; *s && *s != '='; s++);
-
-    /* found `=', so return with a value */
-    if (*s) {
-	*s = '\0';
-	asg.value = s + 1;
-    } else {
-    /* didn't find `=', so we only have a name */
-	asg.value = NULL;
-    }
-    return &asg;
-}
-
-/* Get a signal number from a string */
-
-/**/
-int
-getsignum(char *s)
-{
-    int x, i;
-
-    /* check for a signal specified by number */
-    x = atoi(s);
-    if (idigit(*s) && x >= 0 && x < VSIGCOUNT)
-	return x;
-
-    /* search for signal by name */
-    for (i = 0; i < VSIGCOUNT; i++)
-	if (!strcmp(s, sigs[i]))
-	    return i;
-
-    /* no matching signal */
-    return -1;
+    zwarnnam(nam, "not available on this system", NULL, 0);
+    return 1;
 }

@@ -51,7 +51,12 @@ Boston, MA 02111-1307, USA.  */
 
 #define GETPGRP_NO_ARG
 
-#define TERMCAP_FILE "/usr/share/misc/termcap"
+#ifdef HAVE_LIBNCURSES
+#define TERMINFO
+#define LIBS_TERMCAP -lncurses
+#else
+#define TERMCAP_FILE "/usr/share/misc/termcap" 
+#endif
 
 #define PENDING_OUTPUT_COUNT(FILE) ((FILE)->_p - (FILE)->_bf._base)
 
@@ -59,6 +64,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* Data type of load average, as read out of kmem.  */
 #define LOAD_AVE_TYPE long
+
+#define ABORT_RETURN_TYPE __private_extern__ void
 
 /* Convert that into an integer that is 100 for a load average of 1.0  */
 #define LOAD_AVE_CVT(x) (int) (((double)(x)) * 100.0 / FSCALE)
@@ -91,3 +98,7 @@ Boston, MA 02111-1307, USA.  */
 /* This seems to be right for end_of_data, but it may not be used anyway.  */
 #define DATA_END get_edata()
 
+/* Don't close pty in process.c to make it a controlling terminal.  It is
+ * already the controlling terminal of the subprocess, because we did ioctl
+ * TIOCSCTTY.  */
+#define DONT_REOPEN_PTY

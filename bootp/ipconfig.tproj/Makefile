@@ -28,6 +28,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+HEADER_PATHS = -I../bootplib
 FRAMEWORK_PATHS = -F$(NEXT_ROOT)/System/Library/PrivateFrameworks
 FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
 

@@ -415,9 +415,12 @@ private:
 	 */
 	class BSafeKeyInfoProvider : public CSPKeyInfoProvider 
 	{
-	public:
+private:
 		BSafeKeyInfoProvider(
 			const CssmKey		&cssmKey);
+	public:
+		static CSPKeyInfoProvider *provider(
+		const CssmKey &cssmKey);
 		~BSafeKeyInfoProvider() { }
 		void CssmKeyToBinary(
 			BinaryKey			**binKey);	// RETURNED

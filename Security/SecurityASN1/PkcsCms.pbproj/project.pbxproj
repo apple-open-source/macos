@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 33;
+	objectVersion = 36;
 	objects = {
 		01C17CFFFF16DC3011CD283A = {
 			children = (
@@ -55,20 +55,19 @@
 				022D30C7FEF8308ED0A17CE7,
 				01C17CFFFF16DC3011CD283A,
 				022D30AFFEF8301ED0A17CE7,
-				141E8021FFE9D5767F000001,
+				9D8FD570024790F700003D05,
 			);
 			isa = PBXGroup;
 			refType = 4;
 		};
 		022D30AEFEF82D08D0A17CE7 = {
-			buildArgumentsString = "-f $(SRCROOT)/Makefile $ACTION SRCROOT=$(SRCROOT) SYMROOT=$(SYMROOT)";
+			buildArgumentsString = "-f $(SRCROOT)/Makefile $ACTION SRCROOT=$(SRCROOT) BUILT_PRODUCTS_DIR=$(BUILT_PRODUCTS_DIR)";
 			buildPhases = (
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Libraries/CIncludes\"";
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -108,10 +107,9 @@
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_VERSION = A;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/inc\" \"$(SYMROOT)/SecuritySNACCRuntime.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/SecuritySNACCRuntime.framework/Headers\"";
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/inc\" \"$(BUILT_PRODUCTS_DIR)/SecuritySNACCRuntime.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/SecuritySNACCRuntime.framework/Headers\"";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "-DVDADER_RULES";
 				OTHER_LDFLAGS = "\"-lstdc++\"";
 				OTHER_LIBTOOL_FLAGS = "";
@@ -180,14 +178,12 @@
 				022D30E5FEF8308ED0A17CE7,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		022D30B3FEF8301ED0A17CE7 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		022D30B4FEF8301ED0A17CE7 = {
 			buildActionMask = 2147483647;
@@ -209,23 +205,20 @@
 				022D30F4FEF8308ED0A17CE7,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		022D30B5FEF8301ED0A17CE7 = {
 			buildActionMask = 2147483647;
 			files = (
 				01C17D01FF16DC3011CD283A,
-				141E8022FFE9D5767F000001,
+				9D8FD66D024790F800003D05,
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		022D30B6FEF8301ED0A17CE7 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		022D30B7FEF8308ED0A17CE7 = {
 			children = (
@@ -714,7 +707,6 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Libraries/CIncludes\"";
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -754,28 +746,6 @@
 //052
 //053
 //054
-//140
-//141
-//142
-//143
-//144
-		141E8021FFE9D5767F000001 = {
-			isa = PBXFrameworkReference;
-			name = cdsa_utilities.framework;
-			path = /System/Library/PrivateFrameworks/cdsa_utilities.framework;
-			refType = 0;
-		};
-		141E8022FFE9D5767F000001 = {
-			fileRef = 141E8021FFE9D5767F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-//140
-//141
-//142
-//143
-//144
 //2B0
 //2B1
 //2B2
@@ -786,7 +756,7 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				OPTIMIZATION_CFLAGS = "";
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -799,6 +769,28 @@
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
+		};
+//2B0
+//2B1
+//2B2
+//2B3
+//2B4
+//9D0
+//9D1
+//9D2
+//9D3
+//9D4
+		9D8FD570024790F700003D05 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		9D8FD66D024790F800003D05 = {
+			fileRef = 9D8FD570024790F700003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 	};
 	rootObject = 022D30ACFEF82B87D0A17CE7;

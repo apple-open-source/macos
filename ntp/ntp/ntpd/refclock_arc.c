@@ -303,10 +303,13 @@ Also note h<cr> command which starts a resync to MSF signal.
 */
 
 
+#include "ntpd.h"
+#include "ntp_io.h"
+#include "ntp_refclock.h"
+#include "ntp_stdlib.h"
 
 #include <stdio.h>
 #include <ctype.h>
-#include <sys/time.h>
 
 #if defined(HAVE_BSD_TTYS)
 #include <sgtty.h>
@@ -319,11 +322,6 @@ Also note h<cr> command which starts a resync to MSF signal.
 #if defined(HAVE_TERMIOS)
 #include <termios.h>
 #endif
-
-#include "ntpd.h"
-#include "ntp_io.h"
-#include "ntp_refclock.h"
-#include "ntp_stdlib.h"
 
 /*
  * This driver supports the ARCRON MSF Radio Controlled Clock
@@ -779,7 +777,7 @@ arc_receive(
 	struct peer *peer;
 	char c;
 	int i, n, wday, month, bst, status;
-	int last_offset;
+	int arc_last_offset;
 
 	/*
 	 * Initialize pointers and read the timecode and timestamp
@@ -801,7 +799,7 @@ arc_receive(
 	}
 
 	/*
-	  The `last_offset' is the offset in lastcode[] of the last byte
+	  The `arc_last_offset' is the offset in lastcode[] of the last byte
 	  received, and which we assume actually received the input
 	  timestamp.
 
@@ -810,7 +808,7 @@ arc_receive(
 	  trailing \r, and that that \r will be timestamped.  But this
 	  assumption also works if receive the characters one-by-one.)
 	*/
-	last_offset = pp->lencode+rbufp->recv_length - 1;
+	arc_last_offset = pp->lencode+rbufp->recv_length - 1;
 
 	/*
 	  We catch a timestamp iff:
@@ -837,7 +835,7 @@ arc_receive(
 	   (pp->lencode == 1) &&
 #endif
 	   ((pp->lencode != 1) || (c != '\r')) &&
-	   (last_offset >= 1)) {
+	   (arc_last_offset >= 1)) {
 		/* Note that the timestamp should be corrected if >1 char rcvd. */
 		l_fp timestamp;
 		timestamp = rbufp->recv_time;
@@ -858,11 +856,11 @@ arc_receive(
 		  allow for the trailing \r, normally not used but a good
 		  handle for tty_clk or somesuch kernel timestamper.
 		*/
-		if(last_offset > LENARC) {
+		if(arc_last_offset > LENARC) {
 #ifdef ARCRON_DEBUG
 			if(debug) {
 				printf("arc: input code too long (%d cf %d); rejected.\n",
-				       last_offset, LENARC);
+				       arc_last_offset, LENARC);
 			}
 #endif
 			pp->lencode = 0;
@@ -870,16 +868,16 @@ arc_receive(
 			return;
 		}
 
-		L_SUBUF(&timestamp, charoffsets[last_offset]);
+		L_SUBUF(&timestamp, charoffsets[arc_last_offset]);
 #ifdef ARCRON_DEBUG
 		if(debug > 1) {
 			printf(
 				"arc: %s%d char(s) rcvd, the last for lastcode[%d]; -%sms offset applied.\n",
 				((rbufp->recv_length > 1) ? "*** " : ""),
 				rbufp->recv_length,
-				last_offset,
+				arc_last_offset,
 				mfptoms((unsigned long)0,
-					charoffsets[last_offset],
+					charoffsets[arc_last_offset],
 					1));
 		}
 #endif
@@ -1079,15 +1077,15 @@ arc_receive(
 
 	/* Year-2000 alert! */
 	/* Attempt to wrap 2-digit date into sensible window. */
-	/* This code was written in 1997, so that is the window start. */
-	if(pp->year < 97) { pp->year += 2000; }
-	else /* if(pp->year < 100) */ { pp->year += 1900; }
+	if(pp->year < YEAR_PIVOT) { pp->year += 100; }		/* Y2KFixes */
+	pp->year += 1900;	/* use full four-digit year */	/* Y2KFixes */
 	/*
 	  Attempt to do the right thing by screaming that the code will
 	  soon break when we get to the end of its useful life.  What a
 	  hero I am...  PLEASE FIX LEAP-YEAR AND WRAP CODE IN 209X!
 	*/
-	if(pp->year >= 2090) {          /* This should get attention B^> */
+	if(pp->year >= YEAR_PIVOT+2000-2 ) {  			/* Y2KFixes */
+		/*This should get attention B^> */
 		msyslog(LOG_NOTICE,
 		       "ARCRON: fix me!  EITHER YOUR DATE IS BADLY WRONG or else I will break soon!");
 	}
@@ -1124,8 +1122,7 @@ arc_receive(
 
 	pp->day += moff[month - 1];
 
-	/* Good 'til 1st March 2100 */
-	if(((pp->year % 4) == 0) && month > 2) { pp->day++; }
+	if(isleap_4(pp->year) && month > 2) { pp->day++; }	/* Y2KFixes */
 
 	/* Convert to UTC if required */
 	if(bst & 2) {
@@ -1187,7 +1184,10 @@ arc_receive(
 	}
 #endif
 
-	refclock_process(pp);
+	if (!refclock_process(pp)) {
+		refclock_report(peer, CEVNT_BADTIME);
+		return;
+	}
 	refclock_receive(peer);
 }
 

@@ -1,8 +1,8 @@
-;;; battery.el --- display battery status information.
+;;; battery.el --- display battery status information
 
-;; Copyright (C) 1997, 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1998, 2000, 2001 Free Software Foundation, Inc.
 
-;; Author: Ralph Schleicher <rs@purple.UL.BaWue.DE>
+;; Author: Ralph Schleicher <rs@nunatak.allgaeu.org>
 ;; Keywords: hardware
 
 ;; This file is part of GNU Emacs.
@@ -26,7 +26,7 @@
 
 ;; There is at present only a function interpreting the new `/proc/apm'
 ;; file format of Linux version 1.3.58 or newer.  That is, what a lucky
-;; coincidence, exactly the interface provided by the author's labtop.
+;; coincidence, exactly the interface provided by the author's laptop.
 
 ;;; Code:
 
@@ -42,16 +42,16 @@
 (defcustom battery-status-function
   (cond ((and (eq system-type 'gnu/linux)
 	      (file-readable-p "/proc/apm"))
-	 'battery-linux-proc-apm))  
+	 'battery-linux-proc-apm))
   "*Function for getting battery status information.
-The function have to return an alist of conversion definitions.
-Cons cells are of the form
+The function has to return an alist of conversion definitions.
+Its cons cells are of the form
 
     (CONVERSION . REPLACEMENT-TEXT)
 
 CONVERSION is the character code of a \"conversion specification\"
 introduced by a `%' character in a control string."
-  :type 'function
+  :type '(choice (const nil) function)
   :group 'battery)
 
 (defcustom battery-echo-area-format
@@ -90,7 +90,7 @@ string are substituted as defined by the current value of the variable
 ;;;###autoload
 (defun battery ()
   "Display battery status information in the echo area.
-The text beeing displayed in the echo area is controlled by the variables
+The text being displayed in the echo area is controlled by the variables
 `battery-echo-area-format' and `battery-status-function'."
   (interactive)
   (message "%s" (if (and battery-echo-area-format battery-status-function)
@@ -101,16 +101,14 @@ The text beeing displayed in the echo area is controlled by the variables
 ;;;###autoload
 (defun display-battery ()
   "Display battery status information in the mode line.
-The text beeing displayed in the mode line is controlled by the variables
+The text being displayed in the mode line is controlled by the variables
 `battery-mode-line-format' and `battery-status-function'.
 The mode line will be updated automatically every `battery-update-interval'
 seconds."
   (interactive)
   (setq battery-mode-line-string "")
   (or global-mode-string (setq global-mode-string '("")))
-  (or (memq 'battery-mode-line-string global-mode-string)
-      (setq global-mode-string (append global-mode-string
-				       '(battery-mode-line-string))))
+  (add-to-list 'global-mode-string 'battery-mode-line-string t)
   (and battery-update-timer (cancel-timer battery-update-timer))
   (setq battery-update-timer (run-at-time nil battery-update-interval
 					  'battery-update-handler))
@@ -122,12 +120,13 @@ seconds."
 
 (defun battery-update ()
   "Update battery status information in the mode line."
-  (setq battery-mode-line-string (if (and battery-mode-line-format
-					  battery-status-function)
-				     (battery-format
-				      battery-mode-line-format
-				      (funcall battery-status-function))
-				   ""))
+  (setq battery-mode-line-string (propertize (if (and battery-mode-line-format
+						      battery-status-function)
+						 (battery-format
+						  battery-mode-line-format
+						  (funcall battery-status-function))
+					       "")
+					     'help-echo "Battery status information"))
   (force-mode-line-update))
 
 

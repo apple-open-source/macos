@@ -47,7 +47,6 @@
 #define PCI_PERIOD_66MHz        15
 #define RX_INT_LATENCY_uS       250             
 
-#define CACHE_LINE_SIZE			32	/* Bytes */
 #define kRxHwCksumStartOffset	34 	/* have hardware start Rx checksumming at byte 34	*/
 
 
@@ -505,6 +504,3 @@
 
 #define kGEMTxDescFlags1_Int				0x00000001
 #define kGEMTxDescFlags1_NoCRC				0x00000002
-
-
-#define kGEMBurstSize	(CACHE_LINE_SIZE / 8)           

@@ -1,5 +1,7 @@
-/* Native definitions for alpha running Linux.
-   Copyright (C) 1993, 1994 Free Software Foundation, Inc.
+/* Native definitions for alpha running GNU/Linux.
+
+   Copyright 1993, 1994, 1996, 1998, 2000, 2001, 2002 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -36,7 +38,7 @@ extern int get_longjmp_target (CORE_ADDR *);
 
 #define U_REGS_OFFSET 0
 
-/* FIXME: This is probably true, or should be, on all Linux ports.
+/* FIXME: This is probably true, or should be, on all GNU/Linux ports.
    IA64?  Sparc64?  */
 #define PTRACE_ARG3_TYPE long
 
@@ -48,19 +50,9 @@ extern int get_longjmp_target (CORE_ADDR *);
 
 #define CANNOT_STEP_BREAKPOINT
 
-/* Linux has shared libraries.  */
+/* GNU/Linux has shared libraries.  */
 
 #define GDB_TARGET_HAS_SHARED_LIBS
-
-/* Support for shared libraries.  */
-
-#ifdef __ELF__
-#define TARGET_ELF64
-#endif
-
-/* This is a lie.  It's actually in stdio.h. */
-
-#define PSIGNAL_IN_SIGNAL_H
 
 /* Given a pointer to either a gregset_t or fpregset_t, return a
    pointer to the first register.  */

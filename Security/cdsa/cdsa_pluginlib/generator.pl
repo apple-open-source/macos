@@ -12,19 +12,10 @@
         "CL" => "cssmcli.h", "TP"  => "cssmtpi.h");
         
 $SOURCEDIR=$ARGV[0];			# where all the input files are
-$HTARGETDIR=$ARGV[1];			# where the generated headers go
-$CTARGETDIR=$ARGV[2];			# where the generated sources go
+$APICFG=$ARGV[1];				# configuration file 
+$HTARGETDIR=$ARGV[2];			# where the generated headers go
+$CTARGETDIR=$ARGV[3];			# where the generated sources go
 
-(${D}) = $HTARGETDIR =~ m@([/:])@;		# guess directory delimiter
-sub macintosh() { return ${D} eq ':'; }
-
-# XXX The configuration file should be passed in as a command line argument
-if( macintosh() ) {
-$APICFG=":::cdsa:cdsa_pluginlib:generator.cfg";		# configuration file
-}
- else{
-	$APICFG="generator.cfg";		# configuration file 
- }
 
 $tabs = "\t\t\t";	# argument indentation (noncritical)
 $warning = "This file was automatically generated. Do not edit on penalty of futility!";
@@ -37,7 +28,6 @@ $/=undef;	# gulp file
 open(APICFG, $APICFG) or die "Cannot open $APICFG: $^E";
 $_=<APICFG>;
 close(APICFG);
-tr/\012/\015/ if macintosh;
 %optionals = /^\s*optional\s+(\w+)\s+(.*)$/gm;
 
 
@@ -56,11 +46,10 @@ while (($type, $header) = each %SPI_H) {
   ($typelower = $type) =~ tr/A-Z/a-z/;	# lowercase version of type
 
   # start in on the $type header file
-  open(SPI, "$SOURCEDIR${D}$header") or die "cannot open $SOURCEDIR${D}$header: $^E";
+  open(SPI, "$SOURCEDIR/$header") or die "cannot open $SOURCEDIR/$header: $^E";
   $/=undef;		# big gulp mode
   $_ = <SPI>;	# aaaaah...
   close(SPI);	# done
-  tr/\012/\015/ if macintosh;
   # throw away leading and trailing crud (only interested in SPI structure)
   s/^.*struct cssm_spi.*{(.*)} CSSM_SPI.*$/$1/s
     or die "bad format in $SPI_H{$name}";
@@ -146,8 +135,8 @@ while (($type, $header) = each %SPI_H) {
   #
   # Prepare to write header and source files
   #
-  open(H, ">$HTARGETDIR${D}${type}abstractsession.h") or die "cannot write ${type}abstractsession.h: $^E";
-  open(C, ">$CTARGETDIR${D}${type}abstractsession.cpp") or die "cannot write ${type}abstractsession.cpp: $^E";
+  open(H, ">$HTARGETDIR/${type}abstractsession.h") or die "cannot write ${type}abstractsession.h: $^E";
+  open(C, ">$CTARGETDIR/${type}abstractsession.cpp") or die "cannot write ${type}abstractsession.cpp: $^E";
 
   #
   # Create header file

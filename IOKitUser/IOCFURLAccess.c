@@ -171,10 +171,10 @@ static Boolean _IOFileURLWritePropertiesToResource(CFURLRef url, CFDictionaryRef
     for (index = 0; index < count; index ++) {
         CFStringRef key = keys[index];
         CFTypeRef value = values[index];
-        if (key == kIOFileURLPOSIXMode || key == kIOURLFilePOSIXMode) {
+        if (CFEqual(key, kIOFileURLPOSIXMode) || CFEqual(key, kIOURLFilePOSIXMode)) {
             SInt32 mode;
             int err;
-            if (key == kIOURLFilePOSIXMode) {
+            if (CFEqual(key, kIOURLFilePOSIXMode)) {
                 CFNumberRef modeNum = (CFNumberRef)value;
                 CFNumberGetValue(modeNum, kCFNumberSInt32Type, &mode);
             } else {
@@ -230,14 +230,14 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
     if (count == 0) return propertyDict;
     for (index = 0; index < count; index ++) {
         CFStringRef key = (CFMutableStringRef )CFArrayGetValueAtIndex(desiredProperties, index);
-        if (!statCompleted && (key == kIOURLFilePOSIXMode || key == kIOURLFileDirectoryContents || key == kIOURLFileLength ||  key == kIOURLFileLastModificationTime || key == kIOURLFileExists || key == kIOFileURLExists || key == kIOFileURLPOSIXMode || key == kIOFileURLSize || key == kIOURLFileOwnerID)) {
+        if (!statCompleted && (CFEqual(key, kIOURLFilePOSIXMode) || CFEqual(key, kIOURLFileDirectoryContents) || CFEqual(key, kIOURLFileLength) ||  CFEqual(key, kIOURLFileLastModificationTime) || CFEqual(key, kIOURLFileExists) || CFEqual(key, kIOFileURLExists) || CFEqual(key, kIOFileURLPOSIXMode) || CFEqual(key, kIOFileURLSize) || CFEqual(key, kIOURLFileOwnerID))) {
             statResult = stat(cPath, &statBuf);
             if (statResult != 0) statResult = thread_errno();
             statCompleted = TRUE;
         } else if (errorCode) {
             *errorCode = kIOURLUnknownError;
         }
-        if (key == kIOFileURLPOSIXMode) {
+        if (CFEqual(key, kIOFileURLPOSIXMode)) {
             if (statResult == 0) {
                 CFDataRef modeData = CFDataCreate(alloc, (void *)(&(statBuf.st_mode)), sizeof(statBuf.st_mode));
                 CFDictionarySetValue(propertyDict, kIOFileURLPOSIXMode, modeData);
@@ -245,7 +245,7 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
             } else if (errorCode) {
                 *errorCode = kIOURLUnknownError;
             }
-        } else if (key == kIOURLFilePOSIXMode) {
+        } else if (CFEqual(key, kIOURLFilePOSIXMode)) {
             if (statResult == 0) {
                 SInt32 value = statBuf.st_mode;
                 CFNumberRef num = CFNumberCreate(alloc, kCFNumberSInt32Type, &value);
@@ -254,7 +254,7 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
             } else if (errorCode) {
                 *errorCode = kIOURLUnknownError;
             }
-        } else if (key == kIOURLFileDirectoryContents) {
+        } else if (CFEqual(key, kIOURLFileDirectoryContents)) {
             if (statResult == 0 && (statBuf.st_mode & S_IFMT) == S_IFDIR) {
                 CFMutableArrayRef contents = _IOContentsOfDirectory(alloc, cPath, url, NULL);
                 if (contents) {
@@ -266,7 +266,7 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
             } else if (errorCode) {
                 *errorCode = kIOURLUnknownError;
             }
-        } else if (key == kIOFileURLSize) {
+        } else if (CFEqual(key, kIOFileURLSize)) {
             if (statResult == 0) {
                 UInt64 length = statBuf.st_size;
                 CFDataRef tmpData = CFDataCreate(alloc, (void *)(&length), sizeof(UInt64));
@@ -275,7 +275,7 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
             } else if (errorCode) {
                 *errorCode = kIOURLUnknownError;
             }
-        } else if (key == kIOURLFileLength) {
+        } else if (CFEqual(key, kIOURLFileLength)) {
             if (statResult == 0) {
                 SInt64 length = statBuf.st_size;
                 CFNumberRef num = CFNumberCreate(alloc, kCFNumberSInt64Type, &length);
@@ -284,7 +284,7 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
             } else if (errorCode) {
                 *errorCode = kIOURLUnknownError;
             }
-        } else if (key == kIOURLFileLastModificationTime) {
+        } else if (CFEqual(key, kIOURLFileLastModificationTime)) {
             if (statResult == 0) {
                 CFDateRef date = CFDateCreate(alloc, statBuf.st_mtime - kCFAbsoluteTimeIntervalSince1970);
                 CFDictionarySetValue(propertyDict, kIOURLFileLastModificationTime, date);
@@ -292,7 +292,7 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
             } else if (errorCode) {
                 *errorCode = kIOURLUnknownError;
             }
-        } else if (key == kIOURLFileExists) {
+        } else if (CFEqual(key, kIOURLFileExists)) {
             if (statResult == 0) {
                 CFDictionarySetValue(propertyDict, kIOURLFileExists, kCFBooleanTrue);
             } else if (statResult == ENOENT) {
@@ -300,7 +300,7 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
             } else if (errorCode) {
                 *errorCode = kIOURLUnknownError;
             }
-        } else if (key == kIOFileURLExists) {
+        } else if (CFEqual(key, kIOFileURLExists)) {
             if (statResult == 0) {
                 CFDictionarySetValue(propertyDict, kIOFileURLExists, kIOFileURLExists);
             } else if (statResult == ENOENT) {
@@ -308,7 +308,7 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
             } else if (errorCode) {
                 *errorCode = kIOURLUnknownError;
             }
-        } else if (key == kIOURLFileOwnerID) {
+        } else if (CFEqual(key, kIOURLFileOwnerID)) {
             if (statResult == 0) {
                 SInt32 uid = statBuf.st_uid;
                 CFNumberRef num  = CFNumberCreate(alloc, kCFNumberSInt32Type, &uid);

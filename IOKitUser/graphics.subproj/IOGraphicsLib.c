@@ -49,7 +49,6 @@ enum {
 };
 
 #define kIOFirstBootFlagPath	"/var/db/.com.apple.iokit.graphics"
-//#define LOG 1
 
 static kern_return_t 
 IOFramebufferServerOpen( mach_port_t connect );
@@ -760,12 +759,14 @@ IOFBRebuild( IOFBConnectRef connectRef )
             connectRef->mirrorDefaultFlags);
 #endif
 
-    connectRef->trimToDependent  = (kIOMirrorForced & connectRef->mirrorDefaultFlags)
+    connectRef->trimToDependent  = (kIOMirrorForced == ((kIOMirrorForced | kIOMirrorNoTrim)
+                                                    & connectRef->mirrorDefaultFlags))
                                 && (0 != connectRef->dependentIndex)
                                 && (connectRef->nextDependent)
                                 && (0 != (kIOMirrorHint & connectRef->mirrorDefaultFlags));
 
-    connectRef->defaultToDependent = (kIOMirrorDefault & connectRef->mirrorDefaultFlags)
+    connectRef->defaultToDependent = false 
+				&& (kIOMirrorDefault & connectRef->mirrorDefaultFlags)
                                 && (0 != connectRef->dependentIndex)
                                 && (connectRef->nextDependent)
                                 && (0 != (kIOMirrorHint & connectRef->mirrorDefaultFlags));
@@ -776,7 +777,8 @@ IOFBRebuild( IOFBConnectRef connectRef )
 
     IOFBLookDefaultDisplayMode( connectRef );
 
-    connectRef->make4By3	 = (kIOMirrorDefault & connectRef->mirrorDefaultFlags)
+    connectRef->make4By3	 = false
+				&& (kIOMirrorDefault & connectRef->mirrorDefaultFlags)
                                 && (connectRef->defaultNot4By3)
                                 && (0 == connectRef->dependentIndex)
                                 && (0 != (kIOMirrorHint & connectRef->mirrorDefaultFlags));
@@ -1010,6 +1012,8 @@ IOFBCreateOverrides( IOFBConnectRef connectRef )
             CFDictionarySetValue( ovr, CFSTR("sync"), obj );
         if( (obj = CFDictionaryGetValue( oldOvr, CFSTR("scale-resolutions")) ))
             CFDictionarySetValue( ovr, CFSTR("scale-resolutions"), obj );
+        if( (obj = CFDictionaryGetValue( oldOvr, CFSTR("default-resolution")) ))
+            CFDictionarySetValue( ovr, CFSTR("default-resolution"), obj );
         if( (obj = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &connectRef->ovrFlags ))) {
             CFDictionarySetValue( ovr, CFSTR("IOGFlags"), obj );
             CFRelease(obj);
@@ -1049,7 +1053,7 @@ IOFBShouldDefaultDeep( IOFBConnectRef connectRef )
 {
     CFNumberRef			num;
     SInt32			vramBytes;
-#define kIOFBSmallVRAMBytes	(10 * 1024 * 1024)
+#define kIOFBSmallVRAMBytes	(8 * 1024 * 1024)
 
     num = IORegistryEntryCreateCFProperty( connectRef->framebuffer, CFSTR(kIOFBMemorySizeKey),
                                             kCFAllocatorDefault, kNilOptions );
@@ -1114,15 +1118,28 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
         tinf = 0;
 
     desireHPix = desireVPix = 0;
-    if( ovr && (num = CFDictionaryGetValue( ovr, CFSTR(kDisplayHorizontalImageSize) ))) {
-        CFNumberGetValue( num, kCFNumberFloatType, &desireHPix );
-        if( desireHPix)
-            desireHPix = desireHPix / mmPerInch * desireDPI;
-    } 
-    if( ovr && (num = CFDictionaryGetValue( ovr, CFSTR(kDisplayVerticalImageSize) ))) {
-        CFNumberGetValue( num, kCFNumberFloatType, &desireVPix );
-        if( desireVPix)
-            desireVPix = desireVPix / mmPerInch * desireDPI;
+    desireRefresh = (86 << 16);
+
+    if( ovr 
+     && !CFDictionaryGetValue( ovr, CFSTR(kDisplayFixedPixelFormat))
+     && !CFDictionaryGetValue( ovr, CFSTR(kIODisplayIsDigitalKey))) {
+	if( (num = CFDictionaryGetValue( ovr, CFSTR(kDisplayHorizontalImageSize) ))) {
+	    CFNumberGetValue( num, kCFNumberFloatType, &desireHPix );
+	    if( desireHPix)
+		desireHPix = desireHPix / mmPerInch * desireDPI;
+	} 
+	if( (num = CFDictionaryGetValue( ovr, CFSTR(kDisplayVerticalImageSize) ))) {
+	    CFNumberGetValue( num, kCFNumberFloatType, &desireVPix );
+	    if( desireVPix)
+		desireVPix = desireVPix / mmPerInch * desireDPI;
+	}
+    }
+
+    if( ovr && (data = CFDictionaryGetValue( ovr, CFSTR("default-resolution") ))) {
+        UInt32 * value = (UInt32 *) CFDataGetBytePtr((CFDataRef) data);
+        desireHPix    = (float) value[0];
+        desireVPix    = (float) value[1];
+        desireRefresh = value[2];
     }
 
     bestQuality = bestDefault = 0;
@@ -1144,7 +1161,6 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
 
     } while( false );
     
-    desireRefresh = (86 << 16);
     biggest4By3 = 0;
     connectRef->default4By3Mode = 0;
 
@@ -1196,7 +1212,7 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
 
         if( (info->nominalWidth < kAquaMinWidth) || (info->nominalHeight < kAquaMinHeight))
             rDefault--;
-        else if (!defaultToDependent && (0 != (info->flags & kDisplayModeDefaultFlag)))
+        else if (!defaultToDependent && !desireHPix && (0 != (info->flags & kDisplayModeDefaultFlag)))
             rDefault++;
 
         if( !bestMode)
@@ -1490,28 +1506,6 @@ IOFBInstallScaledModes( IOFBConnectRef connectRef, IOFBDisplayModeDescription * 
     if( kOvrFlagDisableScaling & connectRef->ovrFlags)
         return( kIOReturnSuccess );
 
-    data = IORegistryEntryCreateCFProperty( connectRef->framebuffer, CFSTR(kIOFBScalerInfoKey),
-						kCFAllocatorDefault, kNilOptions );
-    if( !data)
-        return( kIOReturnSuccess );
-
-    scalerInfo = (VDScalerInfoRec *) CFDataGetBytePtr(data);
-
-    if( true ) {
-        IODetailedTimingInformationV2 preflightTiming;
-        unsigned int		      len;
-    
-        len = sizeof( IODetailedTimingInformationV2);
-        err = io_connect_method_structureI_structureO( connectRef->connect, 17, /*index*/
-                        (void *) &scaleBase->timingInfo.detailedInfo.v2, len, (void *) &preflightTiming, &len);
-        if( kIOReturnSuccess != err) {
-#if LOG
-            printf("Scale base mode preflight failed\n");
-#endif
-            return( err );
-        }
-    }
-
     array1 = CFDictionaryGetValue( gIOGraphicsProperties, CFSTR("scale-resolutions") );
     if( !array1)
         return( kIOReturnSuccess );
@@ -1529,7 +1523,13 @@ IOFBInstallScaledModes( IOFBConnectRef connectRef, IOFBDisplayModeDescription * 
     } else
         array = CFRetain(array1);
 
+    data = IORegistryEntryCreateCFProperty( connectRef->framebuffer, CFSTR(kIOFBScalerInfoKey),
+						kCFAllocatorDefault, kNilOptions );
+    if( !data)
+        return( kIOReturnSuccess );
+
     scalerInfo = (VDScalerInfoRec *) CFDataGetBytePtr(data);
+
 
     nh = (float) scaleBase->timingInfo.detailedInfo.v2.horizontalActive;
     nv = (float) scaleBase->timingInfo.detailedInfo.v2.verticalActive;
@@ -1756,9 +1756,6 @@ IOFBCreateDisplayModeInformation(
         if( kDisplayModeNeverShowFlag & allInfo->info.flags)
             continue;
 #endif
-        if( CFDictionaryGetValue( ovr, CFSTR(kIODisplayIsDigitalKey)))
-            // Install no detailed timings from digital displays
-            continue;
 
         edidData = CFDictionaryGetValue( ovr, CFSTR(kIODisplayEDIDKey));
         if( edidData)
@@ -1779,6 +1776,10 @@ IOFBCreateDisplayModeInformation(
         }
 
         if( kDisplayModeInterlacedFlag & allInfo->info.flags)
+            continue;
+
+        if( CFDictionaryGetValue( ovr, CFSTR(kIODisplayIsDigitalKey)))
+            // Install no detailed timings from digital displays
             continue;
 
         data = CFDictionaryGetValue( ovr, CFSTR("trng") );
@@ -1973,8 +1974,8 @@ IOFramebufferServerOpen( mach_port_t connect )
     firstBoot = ((0 != stat( kIOFirstBootFlagPath, &statResult)) && (ENOENT == errno));
     if( firstBoot) {
         int ifd;
-        if( (ifd = open( kIOFirstBootFlagPath, O_CREAT | O_RDWR, 0)) >= 0) {
-            fchmod(ifd, DEFFILEMODE);
+        if( (ifd = open( kIOFirstBootFlagPath, O_CREAT | O_WRONLY, 0)) >= 0) {
+            fchmod(ifd, (S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH));
             close(ifd);
         }
     }
@@ -2013,7 +2014,7 @@ IOFramebufferServerOpen( mach_port_t connect )
     
                 otherInfo = (IODisplayModeInformation *) CFDataGetBytePtr(data);
                 if( (otherInfo->nominalWidth  != info.nominalWidth)
-                || (otherInfo->nominalHeight != info.nominalHeight)) {
+                   || (otherInfo->nominalHeight != info.nominalHeight)) {
                     err = kIOReturnNoResources;
                     continue;
                 }
@@ -2039,6 +2040,8 @@ IOFramebufferServerOpen( mach_port_t connect )
     } while( false );
 
     if( err
+	|| (firstBoot && (kDisplayVendorIDUnknown  != connectRef->displayVendor)
+		      && (kDisplayProductIDGeneric != connectRef->displayProduct))
         || (startMode == kDisplayModeIDBootProgrammable)
         || ((startFlags & kDisplayModeValidFlag)
                         != kDisplayModeValidFlag) ) {

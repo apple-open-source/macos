@@ -1,6 +1,16 @@
+#import <assert.h>
 #import "RExplorer.h"
 
 mach_port_t gMasterPort;
+
+@implementation NSDictionary (Compare)
+
+- (NSComparisonResult)compareNames:(NSDictionary *)dict2
+{
+    return [(NSString *)[self objectForKey:@"name"] caseInsensitiveCompare:(NSString *)[dict2 objectForKey:@"name"]];
+}
+
+@end
 
 @implementation RExplorer
 
@@ -34,9 +44,10 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 
 - (id)init
 {
+    io_registry_entry_t		entry;
     kern_return_t		kr;
     IONotificationPortRef	notifyPort;
-    io_object_t			notification;
+    io_object_t		notification;
 
     self = [super init];
 
@@ -50,17 +61,42 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     assert( KERN_SUCCESS == (
     kr = IOServiceAddInterestNotification( notifyPort,
                                            IORegistryEntryFromPath( gMasterPort, kIOServicePlane ":/"),
-					   kIOBusyInterest, 0, 0, &notification )
+                                           kIOBusyInterest, 0, 0, &notification )
     ));
+
+    assert( KERN_SUCCESS == (
+    kr = IOServiceAddMatchingNotification( notifyPort, kIOFirstMatchNotification,
+                                           IOServiceMatching("IOService"),
+                                           0, 0, &notification )
+    ));
+
+    while ( (entry = IOIteratorNext( notification )) ) {
+        IOObjectRelease( entry );
+    }
+
+    assert( KERN_SUCCESS == (
+    kr = IOServiceAddMatchingNotification( notifyPort, kIOTerminatedNotification,
+                                           IOServiceMatching("IOService"),
+                                           0, 0, &notification )
+    ));
+
+    while ( (entry = IOIteratorNext( notification )) ) {
+        IOObjectRelease( entry );
+    }
 
     // create a timer to check for hardware additions/removals, etc.
     updateTimer = [[NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(checkForUpdate:) userInfo:nil repeats:YES] retain];
+
+    // register services
+    [NSApp registerServicesMenuSendTypes: [NSArray arrayWithObjects: NSStringPboardType, nil] returnTypes: [NSArray arrayWithObjects: NSStringPboardType, nil]];
 
     return self;
 }
 
 - (void)awakeFromNib
 {
+    int prefsSetting = 0;
+        
     [self initializeRegistryDictionaryWithPlane:kIOServicePlane];
     [splitView setVertical:NO];
     [propertiesOutlineView setDelegate:self];
@@ -82,6 +118,13 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     [inspectorWindow setFrameUsingName:@"InspectorWindow"];
 
     [browser setPathSeparator:@":"];
+
+    prefsSetting = [[NSUserDefaults standardUserDefaults] integerForKey:@"UpdatePrefs"];
+
+    [updatePrefsMatrix selectCellAtRow:prefsSetting column:0];
+
+    [objectDescription setStringValue:@""];
+
         
     return;
 }
@@ -98,7 +141,8 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 {
     kern_return_t       status;
     io_name_t		name;
-    io_string_t		ioPath;
+    io_name_t		className;
+    io_name_t           location;
 
     io_registry_entry_t iterated;
     io_iterator_t       regIterator;
@@ -111,16 +155,13 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     status = IORegistryEntryGetNameInPlane(passedEntry, currentPlane, name);
     assert(status == KERN_SUCCESS);
 
-    status = IORegistryEntryGetPath(passedEntry, currentPlane, ioPath);
+    status = IOObjectGetClass(passedEntry, className);
+    assert(status == KERN_SUCCESS);
+
+    status = IORegistryEntryGetLocationInPlane(passedEntry, currentPlane, location);
     if (status == KERN_SUCCESS) {
-        const char * p;
-        for (p = ioPath + strlen(ioPath) - 1; p >= ioPath; p--) {
-            if (*p == '@' || *p == '/') {
-                if (*p == '@')
-                    strcat(name, p);
-                break;
-            }
-        }
+        strcat(name, "@");
+        strcat(name, location);
     }
 
     while ( (iterated = IOIteratorNext(regIterator)) != NULL ) {
@@ -131,7 +172,8 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     IOObjectRelease(regIterator);
 
     [localDict setObject:localArray forKey:@"children"];
-    [localDict setObject:[NSString stringWithCString:name] forKey:@"name"];
+    [localDict setObject:[NSString stringWithFormat:@"%s", name] forKey:@"name"];
+    [localDict setObject:[NSString stringWithFormat:@"%s", className] forKey:@"className"];
     [localDict setObject:[NSNumber numberWithInt:passedEntry] forKey:@"regEntry"];
 
     return [NSDictionary dictionaryWithDictionary:localDict];
@@ -151,7 +193,7 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 
     rootEntry = IORegistryGetRootEntry(gMasterPort);
 
-    localDict = [self dictForIterated:rootEntry];
+    localDict = (NSMutableDictionary *)[self dictForIterated:rootEntry];
 
     registryDict = [localDict retain];
 }
@@ -209,6 +251,8 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
         [inspectorText display];
     }
 
+    [objectDescription setStringValue:[NSString stringWithFormat:@"%@ : %@", [object objectForKey:@"name"], [object objectForKey:@"className"]]];
+
     // go through and create a uniqued dictionary where all the values are uniqued and all the keys are uniqued
     if ([currentSelectedItemDict count]) {
         NSMutableDictionary *newDict = [NSMutableDictionary dictionary];
@@ -261,10 +305,12 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     NSArray * localArray = nil;
 
     for (i = 0; (i < column); i++ ) {
-	if (localArray)
-            lastDict = [localArray objectAtIndex:[browser selectedRowInColumn:i]];
+        if (localArray) {
+            lastDict = [localArray objectAtIndex:[browser selectedRowInColumn:i]];            
+        }
 
-        localArray = [lastDict objectForKey:@"children"];
+        localArray = [[lastDict objectForKey:@"children"] sortedArrayUsingSelector:@selector(compareNames:)];
+        //NSLog(@"array = %@", localArray);
     }
 
     return localArray;
@@ -315,22 +361,34 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     return;
 }
 
+- (void)reload
+{
+    // reload
+    NSString *currentPath = [browser path];
+    [self initializeRegistryDictionaryWithPlane:currentPlane];
+    [browser loadColumnZero];
+    [browser setPath:currentPath];
+    [self doUpdate];
+}
+
 - (void)sheetDidEnd:(NSWindow *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo
 {
         if (NSAlertDefaultReturn == returnCode) {
-                // reload
-                NSString *currentPath = [browser path];
-                [self initializeRegistryDictionaryWithPlane:currentPlane];
-                [browser loadColumnZero];
-                [browser setPath:currentPath];
-                [self doUpdate];
+            [self reload];
         }
         [NSApp endSheet:window];
 }
 
 - (void)registryHasChanged
 {
+    int prefsSetting = [[NSUserDefaults standardUserDefaults] integerForKey:@"UpdatePrefs"];
+
+    if (prefsSetting == 1) {
+        [self reload];
+    } else if (prefsSetting == 0) {
         NSBeginInformationalAlertSheet(NSLocalizedString(@"The IOKit Registry has been changed.\nDo you wish to update your display or skip this update?", @""), NSLocalizedString(@"Update", @""), NSLocalizedString(@"Skip", @""), NULL, window, self, @selector(sheetDidEnd:returnCode:contextInfo:), NULL, NULL, @"");
+    }
+    
         
 }
 
@@ -378,25 +436,45 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 - (void)checkForUpdate:(NSTimer *)timer
 {
     kern_return_t	kr;
-    unsigned long int  	ref;
+    unsigned long int	type;
+    Boolean		registryHasQuieted = FALSE;
     struct {
-        mach_msg_header_t	msgHdr;
-        OSNotificationHeader	notifyHeader;
-	IOServiceInterestContent content;
-        mach_msg_trailer_t	trailer;
+        mach_msg_header_t		msgHdr;
+        OSNotificationHeader		notifyHeader;
+        IOServiceInterestContent	content;
+        mach_msg_trailer_t		trailer;
     } msg;
 
+    do {
 
-    //assert( KERN_SUCCESS == (
-    kr = mach_msg(&msg.msgHdr, MACH_RCV_MSG | MACH_RCV_TIMEOUT,
-                  0, sizeof(msg), port, 0, MACH_PORT_NULL);
-    //));
+        kr = mach_msg(&msg.msgHdr, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof(msg), port, 0, MACH_PORT_NULL);
+        if (kr != KERN_SUCCESS) {
+            break;
+        }
 
-    if ( KERN_SUCCESS == kr ) { // if it was not a timeout or error
+        kr = OSGetNotificationFromMessage(&msg.msgHdr, 0, &type, 0, 0, 0);
+        if (kr != KERN_SUCCESS) {
+            continue;
+        }
 
-	if (0 == msg.content.messageArgument[0])	// going non-busy
-            [self registryHasChanged];
+        if (type == kIOServiceMatchedNotificationType || type == kIOServiceTerminatedNotificationType) {
+            io_registry_entry_t	entry;
+            io_iterator_t	notification = (io_iterator_t) msg.msgHdr.msgh_remote_port;
 
+            while ( (entry = IOIteratorNext( notification )) ) {
+                IOObjectRelease( entry );
+            }
+
+            registryHasChanged = TRUE;
+        } else if (type == kIOServiceMessageNotificationType) {
+            registryHasQuieted = (msg.content.messageArgument[0]) ? FALSE : TRUE;
+        }
+
+    } while ( TRUE );
+
+    if (registryHasChanged && registryHasQuieted) {
+        registryHasChanged = FALSE;
+        [self registryHasChanged];
     } else if (autoUpdate)
         [self doUpdate];
 
@@ -435,7 +513,7 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
     id aKid = nil;
     NSMutableArray *array = [NSMutableArray array];
 
-    if ([[dict objectForKey:@"name"] length]) {
+    if ([(NSString *)[dict objectForKey:@"name"] length]) {
         if ([[[dict objectForKey:@"name"] uppercaseString] rangeOfString:[text uppercaseString]].length > 0) {
             [array addObject:[NSString stringWithFormat:@"%@:%@", path, [dict objectForKey:@"name"]]];
         }
@@ -450,21 +528,33 @@ static void addChildrenOfPlistToMapsRecursively(id plist, NSMapTable *_parentMap
 
 - (void)goToPath:(NSString *)path
 {
-        NSString *newPath = [@":Root" stringByAppendingString:path];
-        int count = [[path componentsSeparatedByString:@":"] count];
+    NSString *newPath = [@":Root" stringByAppendingString:path];
+    int count = [[path componentsSeparatedByString:@":"] count];
    
-        
     if (count > 2) {
         count -= 2;
     }
-
-    
 
     [browser setPath:newPath];
     [self changeLevel:browser];
     [browser scrollColumnToVisible:count];
 
     return;
+}
+
+- (void)copy:(id)sender
+{
+        NSString *currentPath = [[browser path] substringFromIndex:5];
+
+        [[NSPasteboard generalPasteboard] declareTypes: [NSArray arrayWithObject:NSStringPboardType] owner: [self class]];
+        [[NSPasteboard generalPasteboard] setString:currentPath forType:NSStringPboardType];
+}
+
+- (void)updatePrefs:(id)sender
+{
+    [[NSUserDefaults standardUserDefaults] setInteger:[updatePrefsMatrix selectedRow] forKey:@"UpdatePrefs"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    
 }
 
 @end

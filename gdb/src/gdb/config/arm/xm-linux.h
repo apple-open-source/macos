@@ -1,5 +1,5 @@
 /* Host definitions for ARM GNU/Linux, for GDB, the GNU debugger.
-   Copyright 1999 Free Software Foundation, Inc.
+   Copyright 1999, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,15 +23,8 @@
 
 #define HOST_BYTE_ORDER		LITTLE_ENDIAN
 
-#define HAVE_TERMIOS
-
 /* This is the amount to subtract from u.u_ar0
    to get the offset in the core file of the register values.  */
 #define KERNEL_U_ADDR 0x0
-
-#define NEED_POSIX_SETPGID
-
-/* Need R_OK etc, but USG isn't defined.  */
-#include <unistd.h>
 
 #endif /* XM_ARMLINUX_H */

@@ -1,5 +1,5 @@
 /* Target-dependent code for the NEC V850 for GDB, the GNU debugger.
-   Copyright 1996, 2000 Free Software Foundation, Inc.
+   Copyright 1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -29,6 +29,7 @@
 #include "gdbcore.h"
 #include "symfile.h"
 #include "arch-utils.h"
+#include "regcache.h"
 
 
 static char *v850_generic_reg_names[] = REGISTER_NAMES;
@@ -355,11 +356,12 @@ v850_scan_prologue (CORE_ADDR pc, struct prologue_info *pi)
 
   for (current_pc = func_addr; current_pc < prologue_end;)
     {
-      int insn, insn2;
+      int insn;
+      int insn2 = -1; /* dummy value */
 
 #ifdef DEBUG
       printf_filtered ("0x%.8lx ", (long) current_pc);
-      (*tm_print_insn) (current_pc, &tm_print_insn_info);
+      TARGET_PRINT_INSN (current_pc, &tm_print_insn_info);
 #endif
 
       insn = read_memory_unsigned_integer (current_pc, 2);
@@ -703,7 +705,7 @@ v850_pop_frame (struct frame_info *frame)
  */
 
 CORE_ADDR
-v850_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+v850_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		     unsigned char struct_return, CORE_ADDR struct_addr)
 {
   int argreg;
@@ -815,7 +817,7 @@ v850_frame_saved_pc (struct frame_info *fi)
 
 int
 v850_fix_call_dummy (char *dummy, CORE_ADDR sp, CORE_ADDR fun, int nargs,
-		     value_ptr *args, struct type *type, int gcc_p)
+		     struct value **args, struct type *type, int gcc_p)
 {
   long offset24;
 
@@ -848,7 +850,8 @@ v850_target_architecture_hook (const bfd_arch_info_type *ap)
 	}
     }
 
-  internal_error ("Architecture `%s' unrecognized", ap->printable_name);
+  internal_error (__FILE__, __LINE__,
+		  "Architecture `%s' unrecognized", ap->printable_name);
 }
 
 void

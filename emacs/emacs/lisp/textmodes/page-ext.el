@@ -2,7 +2,8 @@
 
 ;; Copyright (C) 1990, 1991, 1993, 1994 Free Software Foundation
 
-;; Maintainer: Robert J. Chassell <bob@gnu.ai.mit.edu>
+;; Maintainer: Robert J. Chassell <bob@gnu.org>
+;; Keywords: wp data
 
 ;; This file is part of GNU Emacs.
 
@@ -122,7 +123,7 @@
 ;;     59 Temple Place - Suite 330
 ;;     Boston, MA 02111-1307  USA.
 ;;     (617) 542-5942
-;;     gnu@prep.ai.mit.edu
+;;     gnu@gnu.org
 ;; 
 ;;     
 ;;     House Subcommittee on Intellectual Property,
@@ -640,6 +641,10 @@ directory for only the accessible portion of the buffer."
     (forward-line (if (= 0 pages-buffer-original-page)
                       1
                     pages-buffer-original-page))))
+(eval-when-compile
+  (defvar pages-buffer-original-position)
+  (defvar pages-buffer-original-page)
+  (defvar pages-buffer-original-page))
 
 (defun pages-copy-header-and-position (count-lines-p)
   "Copy page header and its position to the Pages Directory.
@@ -676,8 +681,9 @@ Used by `pages-directory' function."
         ;; insert page header
 	(setq inserted-at (point))
 	(insert-buffer-substring target-buffer start end)
-	(put-text-property inserted-at (point) 
-			   'mouse-face 'highlight)
+	(add-text-properties inserted-at (point) 
+			     '(mouse-face highlight
+			       help-echo "mouse-2: go to this page"))
 	(put-text-property inserted-at (point) 'rear-nonsticky 'highlight))
       
       (if count-lines-p
@@ -713,7 +719,7 @@ to the same line in the pages buffer."
       (progn
 	(setq pages-buffer nil
 	      pages-pos-list nil)
-	(error "Buffer in which pages were found is deleted.")))
+	(error "Buffer in which pages were found is deleted")))
   (beginning-of-line)
   (let* ((pages-number (1- (count-lines (point-min) (point))))
 	 (pos (nth pages-number pages-pos-list))
@@ -801,5 +807,4 @@ to the same line in the pages buffer."
 ;;; Place `provide' at end of file.
 (provide 'page-ext)
 
-;;;;;;;;;;;;;;;; end of page-ext.el ;;;;;;;;;;;;;;;;
-
+;;; page-ext.el ends here

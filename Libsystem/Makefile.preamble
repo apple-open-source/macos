@@ -4,8 +4,8 @@ AFTER_INSTALL  += compat-next compat-bsd copy_plist
 PROFILE_BUILD_LIBS := $(foreach LIBS, $(LIBS), $(LIBS)_profile) -lcc_noc++
 DEBUG_BUILD_LIBS := $(foreach LIBS, $(LIBS), $(LIBS)_debug  ) -lcc_noc++
 
-OTHER_LIBTOOL_FLAGS = -sectorder __TEXT __text System.order
+OTHER_LIBTOOL_FLAGS = -L/usr/lib/system -sub_library libmathCommon -lmathCommon -sectorder __TEXT __text System.order
 
-BSD_LIBS = c curses info kvm m pthread
+BSD_LIBS = c info kvm m pthread
 
 include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

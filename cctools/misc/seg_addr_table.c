@@ -14,13 +14,20 @@
 #include "stuff/guess_short_name.h"
 #include "stuff/dylib_table.h"
 #include "stuff/dylib_roots.h"
+#include "stuff/macosx_deployment_target.h"
 
 /*
- * These are the default addresses use when re-laying out the images.
+ * These are the default addresses use when re-laying out the images.  These
+ * changed in Mac OS X in the 10.2 release.
  */
-#define DEFAULT_SEG1ADDR	0x41300000
-#define DEFAULT_READ_ONLY_ADDR	0x70000000
-#define DEFAULT_READ_WRITE_ADDR	0x80000000
+#define DEFAULT_SEG1ADDR_X10_1		0x41300000 /* low to high allocation */
+#define DEFAULT_READ_ONLY_ADDR_X10_1	0x70000000
+#define DEFAULT_READ_WRITE_ADDR_X10_1	0x80000000
+
+#define DEFAULT_SEG1ADDR_X10_2		0x8fe00000 /* high to low allocation */
+#define DEFAULT_READ_ONLY_ADDR_X10_2	0x90000000
+#define DEFAULT_READ_WRITE_ADDR_X10_2	0xa0000000
+
 /*
  * The 256meg regions can only have at most 128meg allocated from them leaving
  * half of them for the "alternate" area.  So if any library starts at an
@@ -119,6 +126,7 @@ struct info {
     /* The first segment address for non-split images */
     unsigned long seg1addr;
     unsigned long next_flat_line;
+    enum bool allocate_flat_increasing;
 
     /* read-only and read-write segment addresses for split images*/
     unsigned long start_segs_read_only_addr;
@@ -126,6 +134,8 @@ struct info {
     unsigned long segs_read_only_addr;
     unsigned long segs_read_write_addr;
     unsigned long next_split_line;
+    unsigned long default_read_only_addr;
+    unsigned long default_read_write_addr;
 
     /* the specified -arch flags */
     struct arch_flag *arch_flags;
@@ -190,7 +200,8 @@ static unsigned long next_flat_seg1addr(
 static char * get_image_file_name(
     struct info *info,
     char *install_name,
-    enum bool split);
+    enum bool try_symroot,
+    enum bool no_error_if_missing);
 
 static void new_table_processor(
     struct seg_addr_table *entry,
@@ -235,11 +246,14 @@ char **envp)
     struct layout_info *layout_info;
     enum bool seg1addr_specified, segs_read_only_addr_specified,
 	      segs_read_write_addr_specified, relayout, update, create,
-	      checkonly, update_overlaps;
+	      checkonly, update_overlaps, allocate_flat_specified,
+	      relayout_nonsplit;
     enum bool found, is_framework, next_flat, next_split;
     enum bool operation_specified, from_dylib_table, create_dylib_table;
     char *install_name, *has_suffix;
     struct stat stat_buf;
+    enum macosx_deployment_target_value macosx_deployment_target;
+    const char *macosx_deployment_target_name;
 
 	progname = argv[0];
 
@@ -265,21 +279,40 @@ char **envp)
 	create = FALSE;
 	from_dylib_table = FALSE;
 	create_dylib_table = FALSE;
-
+	relayout_nonsplit = FALSE;
+        
 	info.output_file_name = NULL;
 	out_fp = NULL;
 
 	seg1addr_specified = FALSE;
+	allocate_flat_specified = FALSE;
 	segs_read_only_addr_specified = FALSE;
 	segs_read_write_addr_specified = FALSE;
 
-	info.seg1addr = DEFAULT_SEG1ADDR;
-	info.segs_read_only_addr = DEFAULT_READ_ONLY_ADDR;
-	info.start_segs_read_only_addr = info.segs_read_only_addr;
-	info.segs_read_write_addr = DEFAULT_READ_WRITE_ADDR;
-	info.start_segs_read_write_addr = info.segs_read_write_addr;
 	info.factor = DEFAULT_FACTOR;
 	info.round = DEFAULT_ROUND;
+	/*
+	 * Pick up the Mac OS X deployment target and set the defaults based
+	 * on it.
+	 */
+	get_macosx_deployment_target(&macosx_deployment_target,
+				     &macosx_deployment_target_name);
+	if(macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_2){
+	    info.allocate_flat_increasing = FALSE;
+	    info.seg1addr = DEFAULT_SEG1ADDR_X10_2;
+	    info.segs_read_only_addr  = DEFAULT_READ_ONLY_ADDR_X10_2;
+	    info.segs_read_write_addr = DEFAULT_READ_WRITE_ADDR_X10_2;
+	}
+	else{
+	    info.allocate_flat_increasing = TRUE;
+	    info.seg1addr = DEFAULT_SEG1ADDR_X10_1;
+	    info.segs_read_only_addr  = DEFAULT_READ_ONLY_ADDR_X10_1;
+	    info.segs_read_write_addr = DEFAULT_READ_WRITE_ADDR_X10_1;
+	}
+	info.default_read_only_addr  = info.segs_read_only_addr;
+	info.default_read_write_addr = info.segs_read_write_addr;
+	info.start_segs_read_only_addr = info.segs_read_only_addr;
+	info.start_segs_read_write_addr = info.segs_read_write_addr;
 
 	info.release_name = NULL;
 
@@ -310,7 +343,8 @@ char **envp)
 		    checkonly = TRUE;
 		}
 		else if(strcmp(argv[i], "-update_overlaps") == 0){
-		    if(operation_specified == TRUE){
+		    if(operation_specified == TRUE &&
+		       relayout_nonsplit == FALSE){
 			error("more than one operation specified");
 			usage();
 		    }
@@ -324,6 +358,14 @@ char **envp)
 		    }
 		    operation_specified = TRUE;
 		    create = TRUE;
+		}
+		else if(strcmp(argv[i], "-relayout_nonsplit") == 0){
+		    if(operation_specified == TRUE && update_overlaps == FALSE){
+			error("more than one operation specified");
+			usage();
+		    }
+		    operation_specified = TRUE;
+	 	    relayout_nonsplit = TRUE;
 		}
 		else if(strcmp(argv[i], "-from_dylib_table") == 0){
 		    if(operation_specified == TRUE){
@@ -387,9 +429,32 @@ char **envp)
 		    seg1addr_specified = TRUE;
 		    i++;
 		}
+		/* specify which way to allocate flat libraries
+		   -allocate_flat increasing
+			or
+		   -allocate_flat decreasing */
+		else if(strcmp(argv[i], "-allocate_flat") == 0){
+		    if(i + 1 >= argc){
+			error("%s: argument missing", argv[i]);
+			usage();
+		    }
+		    if(allocate_flat_specified == TRUE){
+			error("more than one: %s option", argv[i]);
+			usage();
+		    }
+		    if(strcmp(argv[i+1], "increasing") == 0)
+			info.allocate_flat_increasing = TRUE;
+		    else if(strcmp(argv[i+1], "decreasing") == 0)
+			info.allocate_flat_increasing = FALSE;
+		    else
+			fatal("argument: %s for %s not valid (can be either "
+			      "increasing or decreasing)", argv[i+1], argv[i]);
+		    allocate_flat_specified = TRUE;
+		    i++;
+		}
 		/* specify the address (in hex) of the read-only segments
 		   -segs_read_only_addr <address> */
-		else if(strcmp(argv[i], "segs_read_only_addr") == 0){
+		else if(strcmp(argv[i], "-segs_read_only_addr") == 0){
 		    if(i + 1 >= argc){
 			error("%s: argument missing", argv[i]);
 			usage();
@@ -409,7 +474,7 @@ char **envp)
 		}
 		/* specify the address (in hex) of the read-write segments
 		   -segs_read_write_addr <address> */
-		else if(strcmp(argv[i], "segs_read_write_addr") == 0){
+		else if(strcmp(argv[i], "-segs_read_write_addr") == 0){
 		    if(i + 1 >= argc){
 			error("%s: argument missing", argv[i]);
 			usage();
@@ -635,7 +700,8 @@ char **envp)
 			      "a single address", info.seg_addr_table_name,
 			      NEXT_FLAT_ADDRESS_TO_ASSIGN);
 		    next_flat = TRUE;
-		    info.seg1addr = entry->seg1addr;
+		    if(relayout_nonsplit == FALSE)
+			info.seg1addr = entry->seg1addr;
 		    info.next_flat_line = entry->line;
 		}
 		else if(strcmp(entry->install_name,
@@ -674,7 +740,8 @@ char **envp)
 	 * segs_read_write_addr.
 	 */
 	if(relayout == TRUE || update == TRUE || checkonly == TRUE ||
-	   create == TRUE || update_overlaps == TRUE){
+	   create == TRUE || update_overlaps == TRUE ||
+	   relayout_nonsplit == TRUE){
     	    layout_info = allocate(sizeof(struct layout_info) *
 				   (info.table_size + 2));
 	    memset(layout_info, '\0', sizeof(struct layout_info) *
@@ -705,7 +772,7 @@ char **envp)
 	    layout_info[used].image_file_name = READ_ONLY_SEGMENT_NAME;
 	    layout_info[used].short_name = READ_ONLY_SEGMENT_NAME;
 	    layout_info[used].split = FALSE;
-	    layout_info[used].seg1addr = DEFAULT_READ_ONLY_ADDR;
+	    layout_info[used].seg1addr = info.default_read_only_addr;
 	    layout_info[used].max_sizes.all = 0x10000000;
 	    info.sorted_flat_layout_info[info.nsorted_flat++] =
 		layout_info + used;
@@ -718,14 +785,15 @@ char **envp)
 	    layout_info[used].current_entry->install_name =
 		READ_ONLY_SEGMENT_NAME;
 	    layout_info[used].current_entry->split = FALSE;
-	    layout_info[used].current_entry->seg1addr = DEFAULT_READ_ONLY_ADDR;
+	    layout_info[used].current_entry->seg1addr =
+		info.default_read_only_addr;
 	    used++;
 
 	    layout_info[used].install_name = READ_WRITE_SEGMENT_NAME;
 	    layout_info[used].image_file_name = READ_WRITE_SEGMENT_NAME;
 	    layout_info[used].short_name = READ_WRITE_SEGMENT_NAME;
 	    layout_info[used].split = FALSE;
-	    layout_info[used].seg1addr = DEFAULT_READ_WRITE_ADDR;
+	    layout_info[used].seg1addr = info.default_read_write_addr;
 	    layout_info[used].max_sizes.all = 0x10000000;
 	    info.sorted_flat_layout_info[info.nsorted_flat++] =
 		layout_info + used;
@@ -738,7 +806,8 @@ char **envp)
 	    layout_info[used].current_entry->install_name = 
 		READ_WRITE_SEGMENT_NAME;
 	    layout_info[used].current_entry->split = FALSE;
-	    layout_info[used].current_entry->seg1addr = DEFAULT_READ_WRITE_ADDR;
+	    layout_info[used].current_entry->seg1addr =
+		info.default_read_write_addr;
 	    used++;
 
 	    for(i = 0 ; i < info.table_size; i++){
@@ -787,14 +856,16 @@ char **envp)
 		    continue;
 		}
 		/*
-		 * Get the SYMROOT file or the DSTROOT file for this install
+		 * Get the DSTROOT file for this install
 		 * name if we are given a -release option.
+		 * No longer are we giving enough room for the SYMROOT.
 		 */
 		image_file_name = get_image_file_name(&info,
-						      entry->install_name,
-						      entry->split);
+			    entry->install_name, FALSE,
+			    update == TRUE || update_overlaps == TRUE);
 		if(image_file_name == NULL){
-		    if(info.disablewarnings == FALSE)
+		    if(info.disablewarnings == FALSE &&
+		       update == FALSE && update_overlaps == FALSE)
 			error("from seg_addr_table: %s line: %lu can't find "
 			      "file for install name: %s in -release %s",
 			      info.seg_addr_table_name, entry->line,
@@ -802,7 +873,8 @@ char **envp)
 		    continue;
 		}
 		if(stat(image_file_name, &stat_buf) == -1){
-		    if(info.disablewarnings == FALSE)
+		    if(info.disablewarnings == FALSE &&
+		       update == FALSE && update_overlaps == FALSE)
 			error("from seg_addr_table: %s line: %lu can't open "
 			      "file: %s", info.seg_addr_table_name, entry->line,
 			      image_file_name);
@@ -838,6 +910,7 @@ char **envp)
 			info.layout_info[i] = layout_info + used;
 			if((update == TRUE || checkonly == TRUE ||
 			    update_overlaps == TRUE) &&
+			   relayout_nonsplit == FALSE &&
 			   entry->seg1addr != 0)
 			    info.sorted_flat_layout_info
 				[info.nsorted_flat++] = layout_info + used;
@@ -863,7 +936,7 @@ char **envp)
 		info.layout_info[i]->current_entry = entry;
 		ofile_process(image_file_name, info.arch_flags,
 			      info.narch_flags, info.all_archs, FALSE,
-			      TRUE, sizes_and_addresses,
+			      TRUE, FALSE, sizes_and_addresses,
 			      info.layout_info[i]);
 
 	    }
@@ -891,7 +964,9 @@ char **envp)
 		  (int (*)(const void *, const void *))qsort_split_read_write);
 
 	    /* check the sorted flat libraries for overlaps */
-	    for(i = 0 ; i < info.nsorted_flat; i++){
+	    for(i = 0 ;
+		i < info.nsorted_flat && relayout_nonsplit == FALSE;
+		i++){
 		for(j = i + 1; j < info.nsorted_flat; j++){
 		    if(info.sorted_flat_layout_info[i]->current_entry->
 		            seg1addr +
@@ -909,14 +984,16 @@ char **envp)
 		/*
 		 * If the operation is update check the last assigned address
 		 * (excluding fixed regions) so that it does not overlap with
-		 * the next address to be assigned.
+		 * the next address to be assigned.  If
+		 * info.allocate_flat_increasing is TRUE we need to also check.
 		 */
-		if((update == TRUE || checkonly == TRUE ||
+		if((info.allocate_flat_increasing == FALSE) &&
+		   (update == TRUE || checkonly == TRUE ||
 		    update_overlaps == TRUE) &&
 		   strcmp(info.sorted_flat_layout_info[i]->install_name,
 			  FIXED_ADDRESS_AND_SIZE) != 0 &&
-		   info.sorted_flat_layout_info[i]->current_entry->seg1addr +
-		   info.sorted_flat_layout_info[i]->max_sizes.all >
+		   info.sorted_flat_layout_info[i]->current_entry->seg1addr -
+		   info.sorted_flat_layout_info[i]->max_sizes.all <
 		   info.seg1addr &&
 		   info.sorted_flat_layout_info[i]->seg1addr < info.seg1addr){
 		    if(update_overlaps == TRUE)
@@ -925,9 +1002,23 @@ char **envp)
 			    current_entry->seg1addr = 0;
 		    else
 			flat_overlap_error(&info, i, ULONG_MAX, TRUE);
+		} else if((info.allocate_flat_increasing == TRUE) &&
+		   (update == TRUE || checkonly == TRUE || 
+		    update_overlaps == TRUE) &&
+		   strcmp(info.sorted_flat_layout_info[i]->install_name,
+		   FIXED_ADDRESS_AND_SIZE) != 0 &&
+		   info.sorted_flat_layout_info[i]->current_entry->seg1addr +
+		   info.sorted_flat_layout_info[i]->max_sizes.all >
+		   info.seg1addr &&
+		   info.sorted_flat_layout_info[i]->seg1addr < info.seg1addr){
+			if(update_overlaps == TRUE)
+			    /* Zero out the address for the overlap */  
+			    info.sorted_flat_layout_info[i]->
+				current_entry->seg1addr = 0;
+			else
+			    flat_overlap_error(&info, i, ULONG_MAX, TRUE);
 		}
 	    }
-
 	    /*
 	     * Check the sorted split libraries read-only segments for
 	     * overlaps.
@@ -1040,7 +1131,7 @@ char **envp)
 	 * If the -relayout option is specified then re-layout all images in
 	 * the seg_addr_table.
 	 */
-	if(relayout == TRUE){
+	if(relayout == TRUE || relayout_nonsplit == TRUE){
 	    /*
 	     * Since we are relaying out all libraries and not just updating
 	     * the table for unassigned addresses clear the assigned feild
@@ -1068,9 +1159,15 @@ char **envp)
 			size = round(info.layout_info[i]->max_sizes.all <<
 				     info.factor, info.round);
 			info.seg1addr = next_flat_seg1addr(&info, size);
-			info.layout_info[i]->seg1addr = info.seg1addr;
+			if(info.allocate_flat_increasing == TRUE){
+			    info.layout_info[i]->seg1addr = info.seg1addr;
+			    info.seg1addr += size;
+			}
+			else{
+			    info.layout_info[i]->seg1addr = info.seg1addr;
+			    info.seg1addr -= size;
+			}
 			info.layout_info[i]->assigned = TRUE;
-			info.seg1addr += size;
 			if(info.seg1addr > MAX_ADDR)
 			    error("address assignment: 0x%x plus size 0x%x for "
 				  "%s greater maximum address 0x%x",
@@ -1079,7 +1176,7 @@ char **envp)
 				  entry->install_name, (unsigned int)MAX_ADDR);
 		    }
 		}
-		else{
+		else if (relayout_nonsplit == FALSE){
 		    info.layout_info[i]->segs_read_only_addr =
 			info.segs_read_only_addr;
 		    info.layout_info[i]->segs_read_write_addr =
@@ -1110,49 +1207,71 @@ char **envp)
 				info.layout_info[i]->segs_read_write_addr,
 			      (unsigned int)size, 
 			      entry->install_name);
+                }
+            }
+	    if(update_overlaps == FALSE){
+		next_split = FALSE;
+		for(i = 0 ; i < info.table_size; i++){
+		    entry = info.seg_addr_table + i;
+		    if(strcmp(entry->install_name,
+  			      NEXT_SPLIT_ADDRESS_TO_ASSIGN) == 0){
+			if(next_split == TRUE)
+			    fatal("segment address table: %s has more than one "
+				  "entry for %s", info.seg_addr_table_name,
+				  NEXT_SPLIT_ADDRESS_TO_ASSIGN);
+			if(entry->split == FALSE)
+			    fatal("segment address table: %s entry for %s is "
+				  "a single address", info.seg_addr_table_name,
+				  NEXT_SPLIT_ADDRESS_TO_ASSIGN);
+			next_split = TRUE;
+			info.segs_read_only_addr = entry->segs_read_only_addr;
+			info.segs_read_write_addr = entry->segs_read_write_addr;
+			info.next_split_line = entry->line;
+		    }
 		}
-	    }
-
+	    }   
 	    /*
 	     * Now with the addresses assigned write out the new table.
 	     */
-	    out_fp = create_output_file(info.output_file_name);
-	    fprintf(out_fp, "#%s -relayout", progname);
-	    user = getenv("USER");
-	    if(user != NULL)
-		fprintf(out_fp, " DEVELOPER:%s", user);
-	    if(time(&tloc) != -1)
-		fprintf(out_fp, " BUILT:%s", ctime(&tloc));
-	    else
-		fprintf(out_fp, "\n");
+ 	    if(update_overlaps == FALSE){
+		out_fp = create_output_file(info.output_file_name);
+		fprintf(out_fp, "#%s -relayout", progname);
+		user = getenv("USER");
+		if(user != NULL)
+	 	    fprintf(out_fp, " DEVELOPER:%s", user);
+		if(time(&tloc) != -1)
+		    fprintf(out_fp, " BUILT:%s", ctime(&tloc));
+		else
+		    fprintf(out_fp, "\n");
 
-	    process_seg_addr_table(info.seg_addr_table_name, out_fp, progname,
-				   new_table_processor, &info);
+		process_seg_addr_table(info.seg_addr_table_name, out_fp, 
+				       progname, new_table_processor, &info);
 
-	    fprintf(out_fp, "#%s: Do not remove the following line, "
-		    "it is used by the %s tool\n", progname, progname);
-	    fprintf(out_fp, "0x%08x\t0x%08x\t%s\n",
-		    (unsigned int)info.segs_read_only_addr,
-		    (unsigned int)info.segs_read_write_addr,
-		    NEXT_SPLIT_ADDRESS_TO_ASSIGN);
-	    if(info.segs_read_only_addr >
-	       info.start_segs_read_only_addr + 0x08000000)
-		error("segs_read_only_addr over flow (more than 128meg's of "
+		fprintf(out_fp, "#%s: Do not remove the following line, "
+	 		    "it is used by the %s tool\n", progname, progname);
+		fprintf(out_fp, "0x%08x\t0x%08x\t%s\n",
+			    (unsigned int)info.segs_read_only_addr,
+		  	    (unsigned int)info.segs_read_write_addr,
+		    	    NEXT_SPLIT_ADDRESS_TO_ASSIGN);
+		if(info.segs_read_only_addr >
+	       		info.start_segs_read_only_addr + 0x08000000)
+		 error("segs_read_only_addr over flow (more than 128meg's of "
 		      "address space assigned, 0x%08x - 0x%08x)",
 		      (unsigned int)info.start_segs_read_only_addr,
 		      (unsigned int)info.segs_read_only_addr);
-	    if(info.segs_read_write_addr >
-	       info.start_segs_read_write_addr + 0x08000000)
-		error("segs_read_write_addr over flow (more than 128meg's of "
+		if(info.segs_read_write_addr >
+	       		info.start_segs_read_write_addr + 0x08000000)
+		 error("segs_read_write_addr over flow (more than 128meg's of "
 		      "address space assigned, 0x%08x - 0x%08x)",
 		      (unsigned int)info.start_segs_read_write_addr,
 		      (unsigned int)info.segs_read_write_addr);
 
-	    fprintf(out_fp, "#%s: Do not remove the following line, "
-		    "it is used by the %s tool\n", progname, progname);
-	    fprintf(out_fp, "0x%08x\t%s\n",
-		    (unsigned int)info.seg1addr,
-		    NEXT_FLAT_ADDRESS_TO_ASSIGN);
+		fprintf(out_fp, "#%s: Do not remove the following line, "
+		  	    "it is used by the %s tool\n", progname, progname);
+		fprintf(out_fp, "0x%08x\t%s\n",
+		       (unsigned int)info.seg1addr,
+		       NEXT_FLAT_ADDRESS_TO_ASSIGN);
+	    }
 	}
 
 	/*
@@ -1163,66 +1282,6 @@ char **envp)
 	 * NEXT_SPLIT_ADDRESS_TO_ASSIGN and were picked up above.
 	 */
 	if(update == TRUE || update_overlaps == TRUE){
-	    for(i = 0 ; i < info.table_size; i++){
-		entry = info.seg_addr_table + i;
-		if(info.layout_info[i] != NULL &&
-		   info.disablewarnings == FALSE){
-		    if(entry->split == FALSE && entry->seg1addr != 0){
-			if(info.layout_info[i]->split == TRUE)
-			    error("file: %s is split layout which does not "
-				  "match the table entry in seg_addr_table: %s "
-				  "line: %lu", info.layout_info[i]->
-				  image_file_name, info.seg_addr_table_name,
-				  entry->line);
-			else if(info.layout_info[i]->seg1addr !=
-				entry->seg1addr)
-			    error("seg1addr (0x%x) of file: %s does not "
-				  "match the table entry (0x%x) in "
-				  "seg_addr_table: %s line: %lu",
-				  (unsigned int)info.layout_info[i]->seg1addr,
-				  info.layout_info[i]->image_file_name,
-				  (unsigned int)entry->seg1addr,
-				  info.seg_addr_table_name,
-				  entry->line);
-		    }
-		    else if(entry->split == TRUE &&
-			    entry->segs_read_only_addr != 0){
-			if(info.layout_info[i]->split == FALSE)
-			    error("file: %s is flat layout which does not "
-				  "match the table entry in seg_addr_table: %s "
-				  "line: %lu", info.layout_info[i]->
-				  image_file_name, info.seg_addr_table_name,
-				  entry->line);
-			else{
-			    if(info.layout_info[i]->segs_read_only_addr !=
-			       entry->segs_read_only_addr)
-				error("segs_read_only_addr (0x%x) of file: %s "
-				      "does not match the table entry (0x%x) "
-				      "in seg_addr_table: %s line: %lu",
-				      (unsigned int)info.layout_info[i]->
-					    segs_read_only_addr,
-				      info.layout_info[i]->image_file_name,
-				      (unsigned int)entry->segs_read_only_addr,
-				      info.seg_addr_table_name,
-				      entry->line);
-			    if(entry->segs_read_write_addr != 0 &&
-			       info.layout_info[i]->segs_read_write_addr !=
-			       entry->segs_read_write_addr)
-				error("segs_read_write_addr (0x%x) of file: %s "
-				      "does not match the table entry (0x%x) "
-				      "in seg_addr_table: %s line: %lu",
-				      (unsigned int)info.layout_info[i]->
-					    segs_read_write_addr,
-				      info.layout_info[i]->image_file_name,
-				      (unsigned int)entry->segs_read_write_addr,
-				      info.seg_addr_table_name,
-				      entry->line);
-			}
-		    }
-		}
-	    }
-	    if(errors != 0)
-		exit(EXIT_FAILURE);
 	    /*
 	     * Now with all the maximum sizes known for the libraries assign
 	     * them addresses.
@@ -1242,14 +1301,21 @@ char **envp)
 		    continue;
 		if(info.layout_info[i] == NULL)
 		    continue;
-		if(entry->split == FALSE && entry->seg1addr == 0){
+		if(entry->split == FALSE && entry->seg1addr == 0 &&
+					    relayout_nonsplit == FALSE){
 		    if(info.layout_info[i]->assigned == FALSE){
 			size = round(info.layout_info[i]->max_sizes.all <<
 				     info.factor, info.round);
 			info.seg1addr = next_flat_seg1addr(&info, size);
-			info.layout_info[i]->seg1addr = info.seg1addr;
+			if(info.allocate_flat_increasing == TRUE){
+			    info.layout_info[i]->seg1addr = info.seg1addr;
+			    info.seg1addr += size;
+			}
+			else{
+			    info.layout_info[i]->seg1addr = info.seg1addr;
+			    info.seg1addr -= size;
+			}
 			info.layout_info[i]->assigned = TRUE;
-			info.seg1addr += size;
 			if(info.seg1addr > MAX_ADDR)
 			    error("address assignment: 0x%x plus size 0x%x for "
 				  "%s greater maximum address 0x%x",
@@ -1266,7 +1332,8 @@ char **envp)
 		 * copy the table entries that are non-zero into the layout
 		 * info.
 		 */
-		if(entry->split == FALSE && entry->seg1addr != 0){
+		if(entry->split == FALSE && entry->seg1addr != 0 &&
+					    relayout_nonsplit == FALSE){
 		    info.layout_info[i]->seg1addr = entry->seg1addr;
 		}
 		else if(entry->split == TRUE &&
@@ -1361,9 +1428,10 @@ usage(
 void)
 {
 	fprintf(stderr, "Usage: %s [[[-relayout | -update " 
-		"| -update_overlaps] -o output_file] |  "
+		"| [-update_overlaps  [-relayout_nonsplit]] -o output_file] |  "
 		"-checkonly ] [-seg_addr_table input_file] "
 		"[-disablewarnings] [-seg1addr hex_address] "
+		"[-allocate_flat increasing | decreasing]] "
 		"[-segs_read_only_addr hex_address] "
 		"[-segs_read_write_addr hex_address] "
 		"[-release <release_name> ] [[-arch <arch_flag>] ...]\n",
@@ -1458,10 +1526,14 @@ unsigned long i2,
 enum bool next_address)
 {
     struct layout_info *p1, *p2;
-    struct seg_addr_table *f1, *f2;
+    struct seg_addr_table *f1, *f2, fake;
 
+	fake.line = 0;
 	p1 = info->sorted_flat_layout_info[i1];
-	if(strcmp(p1->install_name, FIXED_ADDRESS_AND_SIZE) == 0)
+	if(strcmp(p1->install_name, READ_ONLY_SEGMENT_NAME) == 0 ||
+	   strcmp(p1->install_name, READ_WRITE_SEGMENT_NAME) == 0)
+	    f1 = &fake;
+	else if(strcmp(p1->install_name, FIXED_ADDRESS_AND_SIZE) == 0)
 	    f1 = search_seg_addr_table_for_fixed(info->seg_addr_table,
 					         p1->seg1addr,
 					         p1->max_sizes.all);
@@ -1473,7 +1545,10 @@ enum bool next_address)
 
 	if(next_address == FALSE){
 	    p2 = info->sorted_flat_layout_info[i2];
-	    if(strcmp(p2->install_name, FIXED_ADDRESS_AND_SIZE) == 0)
+	    if(strcmp(p2->install_name, READ_ONLY_SEGMENT_NAME) == 0 ||
+	       strcmp(p2->install_name, READ_WRITE_SEGMENT_NAME) == 0)
+		f2 = &fake;
+	    else if(strcmp(p2->install_name, FIXED_ADDRESS_AND_SIZE) == 0)
 		f2 = search_seg_addr_table_for_fixed(info->seg_addr_table,
 						     p2->seg1addr,
 						     p2->max_sizes.all);
@@ -1585,25 +1660,49 @@ next_flat_seg1addr(
 struct info *info,
 unsigned long size)
 {
-    unsigned long i, seg1addr, start, end;
+    unsigned long seg1addr, start, end;
+    long i;
 
-	seg1addr = info->seg1addr;
-	/*
-	 * Go through the flat libraries sorted by address to see if
-	 * seg1addr for size overlaps with anything.  If so move seg1addr
-	 * past that region.  When all regions have been checked then
-	 * return the seg1addr to be used.
-	 */
-	for(i = 0 ; i < info->nsorted_flat; i++){
-	    start = info->sorted_flat_layout_info[i]->seg1addr;
-	    end = start + info->sorted_flat_layout_info[i]->max_sizes.all;
-	    if((seg1addr <= start && seg1addr + size > start) ||
-	       (seg1addr < end && seg1addr + size > end)){
+	if(info->allocate_flat_increasing == TRUE){
+	    seg1addr = info->seg1addr;
+	    /*
+	     * Go through the flat libraries sorted by address to see if
+	     * seg1addr for size overlaps with anything.  If so move seg1addr
+	     * past that region.  When all regions have been checked then
+	     * return the seg1addr to be used.
+	     */
+	    for(i = 0 ; i < info->nsorted_flat; i++){
+		start = info->sorted_flat_layout_info[i]->seg1addr;
+		end = start + info->sorted_flat_layout_info[i]->max_sizes.all;
+		if((seg1addr <= start && seg1addr + size > start) ||
+		   (seg1addr < end && seg1addr + size > end)){
 #ifdef DEBUG
 printf("next_flat_seg1addr() stepping over region start = 0x%x  end = 0x%x\n",
        (unsigned int)start, (unsigned int)end);
 #endif
-		seg1addr = end;
+		    seg1addr = end;
+		}
+	    }
+	}
+	else{ /* allocate in decreasing order */
+	    seg1addr = info->seg1addr - size;
+	    /*
+	     * Go through the flat libraries sorted by address to see if
+	     * seg1addr for size overlaps with anything.  If so move seg1addr
+	     * past that region.  When all regions have been checked then
+	     * return the seg1addr to be used.
+	     */
+	    for(i = info->nsorted_flat-1 ; i >= 0; i--){
+		start = info->sorted_flat_layout_info[i]->seg1addr;
+		end = start + info->sorted_flat_layout_info[i]->max_sizes.all;
+		if((seg1addr <= start && seg1addr + size > start) ||
+		   (seg1addr < end && seg1addr + size > end)){
+#ifdef DEBUG
+printf("next_flat_seg1addr() stepping back over region start = 0x%x "
+       "end = 0x%x\n", (unsigned int)start, (unsigned int)end);
+#endif
+		    seg1addr = start;
+		}
 	    }
 	}
 #ifdef DEBUG
@@ -1626,7 +1725,8 @@ char *
 get_image_file_name(
 struct info *info,
 char *install_name,
-enum bool split)
+enum bool try_symroot,
+enum bool no_error_if_missing)
 {
     char *image_file_name;
     enum bool found_project;
@@ -1639,15 +1739,16 @@ enum bool split)
 	if(info->release_name != NULL){
 	    /*
 	     * There is not enough room in the shared regions to use the full
-	     * debugging SYMROOT files.  So only look for there if the library
-	     * is not split.
+	     * debugging SYMROOT files.  And we only want to us the DSTROOT when
+	     * update_overlaps. So only look there if the caller wants to.
 	     */
-	    if(split == FALSE)
+	    if(try_symroot == TRUE)
 		image_file_name = get_symfile_for_dylib(
 					 install_name,
 					 info->release_name,
 					 &found_project,
-					 info->disablewarnings);
+					 info->disablewarnings,
+					 no_error_if_missing);
 	    else
 		found_project = TRUE;
 	    if(image_file_name == NULL && found_project == TRUE){
@@ -1655,7 +1756,8 @@ enum bool split)
 					 install_name,
 					 info->release_name,
 					 &found_project,
-					 info->disablewarnings);
+					 info->disablewarnings,
+					 no_error_if_missing);
 	    }
 	}
 	else{
@@ -1708,7 +1810,8 @@ void *cookie)
 	 * If the file exist then print out its previously assigned address.
 	 */
 	image_file_name = get_image_file_name(info, entry->install_name,
-					      entry->split);
+					      FALSE,
+					      TRUE);
 	if(image_file_name == NULL)
 	    return;
 	if(stat(image_file_name, &stat_buf) != -1){
@@ -1789,26 +1892,10 @@ void *cookie)
 		if(first == NULL){
 		    first = sg;
 		    if(split == FALSE && first->vmaddr != 0){
-			if(layout_info->seg1addr != 0 &&
-			   layout_info->seg1addr != first->vmaddr){
-			    if(layout_info->current_entry->seg1addr != 0){
-				if(arch_name != NULL)
-				    error("first segment address in: %s (for "
-				      "architecture %s) different than "
-				      "in previous architectures or files for "
-				      "library: %s in file %s",ofile->file_name,
-				      arch_name, layout_info->short_name, 
-				      layout_info->image_file_name);
-				else
-				    error("first segment address in: %s "
-				      "different than in previous architectures"
-				      " or files for library: %s in file %s",
-				      ofile->file_name, layout_info->short_name,
-				      layout_info->image_file_name);
-			    }
-			}
-			else
+			if(layout_info->seg1addr == 0 || 
+			   layout_info->seg1addr == first->vmaddr){
 			    layout_info->seg1addr = first->vmaddr;
+			}
 		    }
 		}
 		if((sg->initprot & VM_PROT_WRITE) == 0){
@@ -1877,7 +1964,8 @@ void *cookie)
 	if(stat(image_file_name, &stat_buf) != -1){
 	    seg1addr = 0;
 	    ofile_process(image_file_name, info->arch_flags, info->narch_flags,
-			  info->all_archs, FALSE, TRUE, get_seg1addr,&seg1addr);
+			  info->all_archs, FALSE, TRUE, FALSE,
+			  get_seg1addr,&seg1addr);
 	    short_name = guess_short_name(entry->install_name, &is_framework,
 					  &has_suffix);
 	    if(short_name == NULL){

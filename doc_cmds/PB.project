@@ -1,7 +1,7 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, Makefile.inc); 
         SUBPROJECTS = (apropos, catman, checknr, colcrt, getNAME, makewhatis, man, whatis); 
     }; 
     LANGUAGE = English; 

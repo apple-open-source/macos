@@ -32,6 +32,7 @@
  */
 
 #import "Root.h"
+#import <string.h>
 #import <stdlib.h>
 #import <NetInfo/dsutil.h>
 
@@ -44,6 +45,7 @@ static id watchdog = nil;
 #import "MemoryWatchdog.h"
 
 //#define _ALLOC_DEBUG_
+//#define _RETAIN_DEBUG_
 //#define _INIT_DEBUG_
 //#define _DEALLOC_DEBUG_
 
@@ -112,6 +114,12 @@ static id watchdog = nil;
 	spin_lock(&rootLock);
 	refCount++;
 	spin_unlock(&rootLock);
+	
+#ifdef _RETAIN_DEBUG_
+	fprintf(stderr, "-retain 0x%08x %u", (unsigned int)self, refCount);
+	if (banner != NULL) fprintf(stderr, "   %s", banner);
+	fprintf(stderr, "\n");
+#endif
 
 	return self;
 }
@@ -127,8 +135,23 @@ static id watchdog = nil;
 	else if (refCount == 0) pleaseReleaseMe = YES;
 	spin_unlock(&rootLock);
 
+#ifdef _RETAIN_DEBUG_
+	fprintf(stderr, "-release 0x%08x %u", (unsigned int)self, refCount);
+	if (banner != NULL) fprintf(stderr, "   %s", banner);
+	fprintf(stderr, "\n");
+#endif
+
 	if (callOffTheDog) [watchdog removeObject:self];
-	if (pleaseReleaseMe) [self dealloc];
+	if (pleaseReleaseMe)
+	{
+#ifdef _RETAIN_DEBUG_
+		fprintf(stderr, "-release -> dealloc 0x%08x\n", (unsigned int)self);
+#endif
+		[self dealloc];
+#ifdef _RETAIN_DEBUG_
+		fprintf(stderr, "-release <- dealloc 0x%08x\n", (unsigned int)self);
+#endif
+	}
 }
 
 - (void)dealloc
@@ -178,6 +201,12 @@ static id watchdog = nil;
 + (void)print:(FILE *)f
 {
 	fprintf(f, "Class %s\n", [self name]);
+}
+
+- (unsigned int)memorySize
+{
+	if (banner == NULL) return 12;
+	return (13 + strlen(banner));
 }
 
 @end

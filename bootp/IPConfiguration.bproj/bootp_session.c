@@ -34,36 +34,36 @@
  */
 
 
-#import <stdlib.h>
-#import <unistd.h>
-#import <string.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <sys/wait.h>
-#import <sys/errno.h>
-#import <sys/socket.h>
-#import <sys/ioctl.h>
-#import <sys/sockio.h>
-#import <sys/filio.h>
-#import <ctype.h>
-#import <net/if.h>
-#import <net/etherdefs.h>
-#import <netinet/in.h>
-#import <netinet/udp.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/bootp.h>
-#import <arpa/inet.h>
-#import <net/if_types.h>
-#import "dhcp_options.h"
-#import "util.h"
-#import <syslog.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/errno.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/sockio.h>
+#include <sys/filio.h>
+#include <ctype.h>
+#include <net/if.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/bootp.h>
+#include <arpa/inet.h>
+#include <net/if_types.h>
+#include "dhcp_options.h"
+#include "util.h"
+#include <syslog.h>
 
-#import "dhcplib.h"
-#import "dynarray.h"
-#import "bootp_session.h"
-#import "bootp_transmit.h"
-#import "ipconfigd_globals.h"
+#include "dhcplib.h"
+#include "dynarray.h"
+#include "bootp_session.h"
+#include "bootp_transmit.h"
+#include "ipconfigd_globals.h"
 
 static void
 bootp_session_read(void * arg1, void * arg2);

@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/print-frag6.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $";
+    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-frag6.c,v 1.1.1.2 2002/05/29 00:05:36 landonf Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -52,12 +52,8 @@ frag6_print(register const u_char *bp, register const u_char *bp2)
 	register const struct ip6_hdr *ip6;
 	register const u_char *ep;
 
-#if 0
-#define TCHECK(var) if ((u_char *)&(var) >= ep - sizeof(var)) goto trunc
-#endif
-
-	dp = (struct ip6_frag *)bp;
-	ip6 = (struct ip6_hdr *)bp2;
+	dp = (const struct ip6_frag *)bp;
+	ip6 = (const struct ip6_hdr *)bp2;
 
 	/* 'ep' points to the end of available data. */
 	ep = snapend;

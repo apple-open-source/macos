@@ -1,4 +1,3 @@
-# compctl-examples
 #
 # This file gives examples of possible programmable completions (compctl).
 # You can either put the compctl commands in your .zshrc file, or put them
@@ -12,14 +11,15 @@
 # page.
 #
 #------------------------------------------------------------------------------
-hosts=("${(s: :)${(s:	:)${${(f)$(</etc/hosts)}%%\#*}#*[ 	]*}}")
+hosts=( ${(s: :)${(ps:\t:)${${(f)"$(</etc/hosts)"}%%\#*}##[:blank:]#[^[:blank:]]#}} )
+ports=( "${(@)${(@)${(@f)$(</etc/services)}:#\#*}%%[ 	]*}" )
 
 # groups=( $(cut -d: -f1 /etc/group) )
 # groups=( $(ypcat group.byname | cut -d: -f1) ) # if you use NIS
 
 # It can be done without forking, but it used too much memory in old zsh's:
-groups=( "${${(f)$(</etc/group)}%%:*}" )
-#groups=( "${${(f)$(ypcat groups)}%%:*}" ) # if you use NIS
+groups=( ${${(s: :)$(</etc/group)}%%:*} )
+#groups=( ${${(s: :)$(ypcat groups)}%%:*} ) # if you use NIS
 
 # Completion for zsh builtins.
 compctl -z -P '%' bg
@@ -28,8 +28,8 @@ compctl -j -P '%' + -s '`ps -x | tail +2 | cut -c1-5`' wait
 compctl -A shift
 compctl -c type whence where which
 compctl -m -x 'W[1,-*d*]' -n - 'W[1,-*a*]' -a - 'W[1,-*f*]' -F -- unhash
-compctl -m -q -S '=' -x 'W[1,-*d*] n[1,=]' -g '*(-/)' - \
-	'W[1,-*d*]' -n -q -S '=' - 'n[1,=]' -g '*(*)' -- hash
+compctl -m -q -S '=' -x 'W[1,-*d*] n[1,=]' -/ - \
+	'W[1,-*d*]' -n -q -S '=' - 'n[1,=]' -/g '*(*)' -- hash
 compctl -F functions unfunction
 compctl -k '(al dc dl do le up al bl cd ce cl cr
 	dc dl do ho is le ma nd nl se so up)' echotc
@@ -43,14 +43,18 @@ compctl -dB -x 'p[1] s[-]' -k '(a f m r)' - \
 compctl -k "(${(j: :)${(f)$(limit)}%% *})" limit unlimit
 compctl -l '' -x 'p[1]' -f -- . source
 # Redirection below makes zsh silent when completing unsetopt xtrace
-compctl -s '$(setopt 2>/dev/null)' + -o + -x 's[no]' -o -- unsetopt
-compctl -s '$(unsetopt)' + -o + -x 's[no]' -o -- setopt
+compctl -s '$({ unsetopt kshoptionprint; setopt } 2>/dev/null)' + -o + -x 's[no]' -o -- unsetopt
+compctl -s '$({ unsetopt kshoptionprint; unsetopt } 2>/dev/null)' + -o + -x 's[no]' -o -- setopt
 compctl -s '${^fpath}/*(N:t)' autoload
-compctl -b bindkey
+compctl -b -x 'W[1,-*[DAN]*],C[-1,-*M]' -s '$(bindkey -l)' -- bindkey
 compctl -c -x 'C[-1,-*k]' -A - 'C[-1,-*K]' -F -- compctl
 compctl -x 'C[-1,-*e]' -c - 'C[-1,-[ARWI]##]' -f -- fc
 compctl -x 'p[1]' - 'p[2,-1]' -l '' -- sched
 compctl -x 'C[-1,[+-]o]' -o - 'c[-1,-A]' -A -- set
+compctl -b -x 'w[1,-N] p[3]' -F -- zle
+compctl -s '${^module_path}/*(N:t:r)' -x \
+	'W[1,-*(a*u|u*a)*],W[1,-*a*]p[3,-1]' -B - \
+	'W[1,-*u*]' -s '$(zmodload)' -- zmodload
 
 # Anything after nohup is a command by itself with its own completion
 compctl -l '' nohup noglob exec nice eval - time rusage
@@ -67,20 +71,96 @@ compctl -s '$(groups)' + -k groups newgrp
 compctl -f -x 'p[1], p[2] C[-1,-*]' -k groups -- chgrp
 compctl -f -x 'p[1] n[-1,.], p[2] C[-1,-*] n[-1,.]' -k groups - \
 	'p[1], p[2] C[-1,-*]' -u -S '.' -q -- chown
-compctl -g '*.x' + -g '*(-/)' rpcgen
-compctl -u -x 's[+] c[-1,-f],s[-f+]' -g '~/Mail/*(:t)' - \
+compctl -/g '*.x' rpcgen
+compctl -u -x 's[+] c[-1,-f],s[-f+]' -W ~/Mail -f - \
 	's[-f],c[-1,-f]' -f -- mail elm
+compctl -x 'c[-1,-f]' -W ~/Mail -f -- pine
 #------------------------------------------------------------------------------
 compctl -s "\$(awk '/^[a-zA-Z0-9][^ 	]+:/ {print \$1}' FS=: [mM]akefile)" -x \
 	'c[-1,-f]' -f -- make gmake pmake
-compctl -f -x 'W[1,*(z*f|f*z)*] p[2]' -g '*.(tar.gz|tgz|tar.Z|taz)' - \
-	'W[1,*f*] p[2]' -g '*.tar' -- gnutar gtar tar
+#------------------------------------------------------------------------------
+# tar
+tarnames () {
+	# Completion function for use with tar:
+	# get the names of files in the tar archive to extract.
+	#
+	# The main claim to fame of this particular function is that it
+	# completes directories in the tar-file in a manner very roughly
+	# consistent with `compctl -f'.  There are two bugs:  first, the whole
+	# path prefix up to the present is listed with ^D, not just the new
+	# part to add; second, after a unique completion a space is always
+	# inserted, even if the completion ends with a slash.  These are
+	# currently limitations of zsh.
+	#
+	# This only works for the (fairly common) tar argument style where
+	# the arguments are bunched into the first argument, and the second
+	# argument is the name of the tarfile.  For example,
+	#  tar xvzf zsh-3.1.2.tar.gz ...
+	# You can only use compressed/gzipped files if tar is GNU tar,
+	# although the correct name for the tar programme will be inferred.
+
+	local line list=tf
+	read -cA line
+	# $line[2] is the first argument:  check for possible compression args.
+	# (This is harmless when used with non-GNU tar, but then the file must
+	# be uncompressed to be able to use it with tar anyway.)
+	[[ $line[2] = *[Zz]* ]] && list=tfz
+	# $line[1] is the command name:  something like tar or gnutar.
+	# $line[3] is the name of the tar archive.
+
+	# cache contents for multiple completion: note tar_cache_name
+	# and tar_cache_list are not local.  Assumes all files with the
+	# same name are the same file, even if in different directories:
+	# you can trick it with $PWD/file on the command line.
+	if [[ $line[3] != $tar_cache_name ]]; then
+	  tar_cache_list=($($line[1] $list $line[3]))
+	  tar_cache_name=$line[3]
+	fi
+
+	# Now prune the list to include only appropriate directories.
+	local file new
+	reply=()
+	if [[ $1 = */* ]]; then
+	  local sofar=${1%/*}/
+	  for file in $tar_cache_list; do
+	    if [[ $file = $sofar* ]]; then
+	      new=${file#$sofar}
+	      if [[ $new = */* ]]; then
+		new=$sofar${new%%/*}/
+	      else
+		new=$file
+	      fi
+	      if [[ $1 != */ || $new != $1 ]]; then
+		reply=($reply $new)
+	      fi
+	    fi
+	  done
+	else
+	  for file in $tar_cache_list; do
+	    if [[ $file = */* ]]; then
+	      new=${file%%/*}/
+	    else
+	      new=$file
+	    fi
+	    reply=($reply $new)
+	  done
+	fi
+}
+
+compctl -f \
+	-x 'p[2] C[-1,*(z*f|f*z)*]' -/g '*.(taz|tar.(gz|z|Z)|tgz)' \
+	- 'p[2] C[-1,*(Z*f|f*Z)*]' -/g '*.(tar.Z|taz)' \
+	- 'p[2] C[-1,*f*]' -/g '*.tar' \
+	- 'p[1] N[-1,ctxvzZ]' -k "(v z f)" \
+	- 'p[1] s[]' -k "(c t x)" -S '' \
+	- 'p[3,-1] W[1,*x*]' -K tarnames \
+	-- tar gtar gnutar
 #------------------------------------------------------------------------------
 # rmdir only real directories
-compctl -g '*(/)' rmdir dircmp
+compctl -/g '*(/)' rmdir dircmp
 #------------------------------------------------------------------------------
 # cd/pushd only directories or symbolic links to directories
-compctl -g '*(-/)' cd chdir dirs pushd
+compctl -/ cd chdir dirs pushd
 
 # Another possibility for cd/pushd is to use it in conjunction with the
 # cdmatch function (in the Functions subdirectory of zsh distribution).
@@ -102,12 +182,12 @@ compctl -u -k hosts -f -x 'n[1,:]' -f - 'n[1,@]' -k hosts -S ':' - \
 	'p[1] W[2,*:*]' -f - 'p[1] W[2,*?*]' -u -k hosts -S ':' - \
 	'p[2] W[1,*:*]' -f - 'p[2] W[1,*?*]' -u -k hosts -S ':' -- rcp
 
-compctl -k hosts host nslookup rup rusers
+compctl -k hosts host rup rusers ping
 #------------------------------------------------------------------------------
 # strip, profile, and debug only executables.  The compctls for the
 # debuggers could be better, of course.
-compctl -g '*(*)' strip gprof adb dbx xdbx ups
-compctl -g '*.[ao]' -g '*(*)' nm
+compctl -/g '*(*)' strip gprof adb dbx xdbx ups
+compctl -/g '*.[ao]' -/g '*(*)' nm
 #------------------------------------------------------------------------------
 # shells: compctl needs some more enhancement to do -c properly.
 compctl -f -x 'C[-1,-*c]' -c - 'C[-1,[-+]*o]' -o -- bash ksh sh zsh
@@ -118,24 +198,24 @@ compctl -u -x 'w[1,-]p[3,-1]' -l sh - 'w[1,-]' -u - 'p[2,-1]' -l sh -- su
 # Run ghostscript on postscript files, but if no postscript file matches what
 # we already typed, complete directories as the postscript file may not be in
 # the current directory.
-compctl -g '*.(e|E|)(ps|PS)' + -g '*(-/)' \
+compctl -/g '*.(e|E|)(ps|PS)' \
 	gs ghostview nup psps pstops psmulti psnup psselect
 #------------------------------------------------------------------------------
 # Similar things for tex, texinfo and dvi files.
-compctl -g '*.tex*' + -g '*(-/)' {,la,gla,ams{la,},{g,}sli}tex texi2dvi
-compctl -g '*.dvi' + -g '*(-/)' xdvi dvips
+compctl -/g '*.tex*' {,la,gla,ams{la,},{g,}sli}tex texi2dvi
+compctl -/g '*.dvi' xdvi dvips
 #------------------------------------------------------------------------------
 # For rcs users, co and rlog from the RCS directory.  We don't want to see
 # the RCS and ,v though.
 compctl -g 'RCS/*(:s@RCS/@@:s/,v//)' co rlog rcs rcsdiff
 #------------------------------------------------------------------------------
 # gzip uncompressed files, but gzip -d only gzipped or compressed files
-compctl -x 'R[-*[dt],^*]' -g '*.(gz|z|Z|t[agp]z|tarZ|tz)' + -g '*(-/)' + -f - \
-    's[]' -g '^*(.(tz|gz|t[agp]z|tarZ|zip|ZIP|jpg|JPG|gif|GIF|[zZ])|[~#])' \
+compctl -x 'R[-*[dt],^*]' -/g '*.(gz|z|Z|t[agp]z|tarZ|tz)' + -f - \
+    's[]' -/g '^*(.(tz|gz|t[agp]z|tarZ|zip|ZIP|jpg|JPG|gif|GIF|[zZ])|[~#])' \
     + -f -- gzip
-compctl -g '*.(gz|z|Z|t[agp]z|tarZ|tz)' + -g '*(-/)' gunzip gzcat zcat
-compctl -g '*.Z' + -g '*(-/)' uncompress zmore
-compctl -g '*.F' + -g '*(-/)' melt fcat
+compctl -/g '*.(gz|z|Z|t[agp]z|tarZ|tz)' gunzip gzcat zcat
+compctl -/g '*.Z' uncompress zmore
+compctl -/g '*.F' melt fcat
 #------------------------------------------------------------------------------
 # ftp takes hostnames
 ftphosts=(prep.ai.mit.edu wuarchive.wustl.edu ftp.uu.net ftp.math.gatech.edu)
@@ -171,7 +251,7 @@ compctl -k ftphosts ftp
 # Note that 'r[-exec,;]' must come first
 if [[ -r /proc/filesystems ]]; then
     # Linux
-    filesystems='"${${(f)$(</proc/filesystems)}#*	}"'
+    filesystems='"${(@)${(@f)$(</proc/filesystems)}#*	}"'
 else
     filesystems='ufs 4.2 4.3 nfs tmp mfs S51K S52K'
 fi
@@ -187,7 +267,7 @@ compctl -x 'r[-exec,;][-ok,;]' -l '' - \
 	'c[-1,-user]' -u -- find
 #------------------------------------------------------------------------------
 # Generic completion for C compiler.
-compctl -g "*.[cCoa]" -x 's[-I]' -g "*(/)" - \
+compctl -/g "*.[cCoa]" -x 's[-I]' -/ - \
 	's[-l]' -s '${(s.:.)^LD_LIBRARY_PATH}/lib*.a(:t:r:s/lib//)' -- cc
 #------------------------------------------------------------------------------
 # GCC completion, by Andrew Main
@@ -196,14 +276,14 @@ compctl -g "*.[cCoa]" -x 's[-I]' -g "*(/)" - \
 # couple of other things at different points.
 # The -l completion is nicked from the cc compctl above.
 # The -m completion should be tailored to each system; the one below is i386.
-compctl -g '*.([cCmisSoak]|cc|cxx|ii|k[ih])' -x \
+compctl -/g '*.([cCmisSoak]|cc|cxx|ii|k[ih])' -x \
 	's[-l]' -s '${(s.:.)^LD_LIBRARY_PATH}/lib*.a(:t:r:s/lib//)' - \
 	'c[-1,-x]' -k '(none c objective-c c-header c++ cpp-output
 	assembler assembler-with-cpp)' - \
 	'c[-1,-o]' -f - \
-	'C[-1,-i(nclude|macros)]' -g '*.h' - \
-	'C[-1,-i(dirafter|prefix)]' -g '*(-/)' - \
-	's[-B][-I][-L]' -g '*(-/)' - \
+	'C[-1,-i(nclude|macros)]' -/g '*.h' - \
+	'C[-1,-i(dirafter|prefix)]' -/ - \
+	's[-B][-I][-L]' -/ - \
 	's[-fno-],s[-f]' -k '(all-virtual cond-mismatch dollars-in-identifiers
 	enum-int-equiv external-templates asm builtin strict-prototype
 	signed-bitfields signd-char this-is-variable unsigned-bitfields
@@ -232,11 +312,11 @@ compctl -g '*.([cCmisSoak]|cc|cxx|ii|k[ih])' -x \
 man_var() {
     man_pages=( ${^manpath}/man*/*(N:t:r) )
     compctl -k man_pages -x 'C[-1,-P]' -m - \
-	    'R[-*l*,;]' -g '*.(man|[0-9nlpo](|[a-z]))' + -g '*(-/)' -- man
+	    'R[-*l*,;]' -/g '*.(man|[0-9](|[a-z]))' -- man
     reply=( $man_pages )
 }
 compctl -K man_var -x 'C[-1,-P]' -m - \
-	'R[-*l*,;]' -g '*.(man|[0-9nlpo](|[a-z]))' + -g '*(-/)' -- man
+	'R[-*l*,;]' -/g '*.(man|[0-9](|[a-z]))' -- man
 
 # This one isn't that expensive but somewhat slower
 man_glob () {
@@ -249,13 +329,12 @@ man_glob () {
    fi
 }
 #compctl -K man_glob -x 'C[-1,-P]' -m - \
-#	'R[-*l*,;]' -g '*.(man|[0-9nlpo](|[a-z]))' + -g '*(-/)' -- man
+#	'R[-*l*,;]' -/g '*.(man|[0-9nlpo](|[a-z]))' -- man
 #------------------------------------------------------------------------------
 # xsetroot: gets possible colours, cursors and bitmaps from wherever.
 # Uses two auxiliary functions.  You might need to change the path names.
-# The =:- can be omitted if you use a beta6-hzoli4 or later version.
 Xcolours() {
-  reply=( ${(L)=:-$(awk '{ if (NF = 4) print $4 }' \
+  reply=( ${(L)$(awk '{ if (NF = 4) print $4 }' \
 	< /usr/openwin/lib/X11/rgb.txt)} )
 }
 Xcursor() {
@@ -435,63 +514,101 @@ compctl -K mhfseq -x 's[+][@]' -K mhcomp -S / -q - 's[-]' \
   'C[-1,-[rw]cache]' -k '(public private never ask)' -- mhn
 compctl -K mhfseq -x 's[+][@]' -K mhcomp -S / -q - 's[-]' -k '(help)' -- mhpath
 #------------------------------------------------------------------------------
-# By Bart Schaefer
-# CVS -- there's almost no way to make this all-inclusive, but ...
+# CVS
 #
-cvsflags=(-H -Q -q -r -w -l -n -t -v -b -e -d)
-cvscmds=(add admin checkout commit diff history import export log rdiff
-	    release remove status tag rtag update)
+cvscmds=(add admin rcs checkout commit diff rdiff export history import log rlog
+         release remove status tag rtag update annotate)
+cvsignore="*~ *# .#* *.o *.a CVS . .."
 
-# diff assumes gnu rcs using gnu diff
-# log assumes gnu rcs
-
-compctl -k "($cvscmds $cvsflags)" \
+compctl -k cvscmds \
     -x "c[-1,-D]" -k '(today yesterday 1\ week\ ago)' \
-    - "r[add,;][ad,;][new,;]" -k "(-k -m)" -f \
-    - "r[admin,;][adm,;][rcs,;]" -K cvstargets \
-    - "r[checkout,;][co,;][get,;]" -k "(-A -N -P -Q -c -f -l -n -p -q -s -r -D -d -k -j)" \
-    - "r[commit,;][ci,;][com,;]" -k "(-n -R -l -f -m -r)"  -K cvstargets \
-    - "r[diff,;][di,;][dif,;]" -k "(-l -D -r -c -u -b -w)" -K cvstargets \
-    - "r[history,;][hi,;][his,;] c[-1,-u]" -u \
-    - "r[history,;][hi,;][his,;]" \
-	-k "(-T -c -o -m -x -a -e -l -w -D -b -f -n -p -r -t -u)" \
-	-K cvstargets \
-    - "r[import,;][im,;][imp,;]" -k "(-Q -q -I -b -m)" -f \
-    - "r[export,;][ex,;][exp,;]" -k "(-N -Q -f -l -n -q -r -D -d)" -f \
-    - "r[rlog,;][log,;][lo,;]" -k "(-l -R -h -b -t -r -w)" -K cvstargets \
-    - 'r[rlog,;][log,;][lo,;] s[-w] n[-1,,],s[-w]' -u -S , -q \
-    - "r[rdiff,;][patch,;][pa,;]" -k "(-Q -f -l -c -u -s -t -D -r -V)" -K cvstargets \
-    - "r[release,;][re,;][rel,;]" -k "(-Q -d -q)" -f \
-    - "r[remove,;][rm,;][delete,;]" -k "(-l -R)" -K cvstargets \
-    - "r[status,;][st,;][stat,;]" -k "(-v -l -R)" -K cvstargets \
-    - "r[tag,;][ta,;][freeze,;]" -k "(-Q -l -R -q -d -b)" -K cvstargets \
-    - "r[rtag,;][rt,;][rfreeze,;]" -k "(-Q -a -f -l -R -n -q -d -b -r -D)" -f \
-    - "r[update,;][up,;][upd,;]" -k "(-A -P -Q -d -f -l -R -p -q -k -r -D -j -I)" \
-	-K cvstargets \
-    -- cvs
-unset cvsflags cvscmds
+    - "c[-1,-m]" -k '(bugfix cosmetic\ fix ... added\ functionality foo)' \
+    - "c[-1,-F]" -f \
+    - "c[-1,-r]" -K cvsrevisions \
+    - "c[-1,-I]" -f \
+    - "R[add,;]" -K cvsaddp \
+    - "R[(admin|rcs),;]" -/K cvstargets \
+    - "R[(checkout|co),;]" -K cvsrepositories \
+    - "R[(commit|ci),;]" -/K cvstargets \
+    - "R[(r|)diff,;]" -/K cvstargets \
+    - "R[export,;]" -f \
+    - "R[history,;]" -/K cvstargets \
+    - "R[history,;] c[-1,-u]" -u \
+    - "R[import,;]" -K cvsrepositories \
+    - "R[(r|)log,;]" -/K cvstargets \
+    - 'R[(r|)log,;] s[-w] n[-1,,],s[-w]' -u -S , -q \
+    - "R[rel(|ease),;]" -f \
+    - "R[(remove|rm),;] R[-f,;]" -/K cvstargets \
+    - "R[(remove|rm),;]" -K cvsremovep \
+    - "R[status,;]" -/K cvstargets \
+    - "R[(r|)tag,;]" -/K cvstargets \
+    - "R[up(|date),;]" -/K cvstargets \
+    - "R[annotate,;]" -/K cvstargets \
+    -- cvs 
 
-cvstargets() {
-    local nword args pref f
-    setopt localoptions nullglob
+compctl -/K cvstargets cvstest 
+
+cvsprefix() {
+    local nword args f
     read -nc nword; read -Ac args
     pref=$args[$nword]
-    if [[ -d $pref:h && ! -d $pref ]]
-    then
+    if [[ -d $pref:h && ! -d $pref ]]; then
 	pref=$pref:h
-    elif [[ $pref != */* ]]
-    then
+    elif [[ $pref != */* ]]; then
 	pref=
     fi
     [[ -n "$pref" && "$pref" != */ ]] && pref=$pref/
-    if [[ -f ${pref}CVS/Entries ]]
-    then
-	reply=( "${pref}${^${${(f@)$(<${pref}CVS/Entries)}#/}%%/*}"
-		${pref}*/**/CVS(:h) )
-    else
-	reply=( ${pref}*/**/CVS(:h) )
+}
+
+cvsentries() {
+    setopt localoptions nullglob unset
+    if [[ -f ${pref}CVS/Entries ]]; then
+	reply=( "${pref}${(@)^${(@)${(@)${(f@)$(<${pref}CVS/Entries)}:#D*}#/}%%/*}" )
     fi
 }
+
+cvstargets() {
+    local pref
+    cvsprefix
+    cvsentries
+}
+
+cvsrevisions() {
+    reply=( "${(@)${(@)${(@M)${(@f)$(cvs -q status -vl .)}:#	*}##[ 	]##}%%[ 	]*}" )
+}
+
+cvsrepositories() {
+    local root=$CVSROOT
+    [[ -f CVS/Root ]] && root=$(<CVS/Root)
+    reply=(
+	$root/^CVSROOT(:t)
+	"${(@)${(@M)${(@f)$(<$root/CVSROOT/modules)}:#[^#]*}%%[ 	]*}"
+    )
+}
+
+cvsremovep() {
+    local pref
+    cvsprefix
+    cvsentries
+    setopt localoptions unset
+    local omit
+    omit=( ${pref}*(D) )
+    eval 'reply=( ${reply:#('${(j:|:)omit}')} )'
+}
+
+cvsaddp() {
+    local pref
+    cvsprefix
+    cvsentries
+    setopt localoptions unset
+    local all omit
+    all=( ${pref}*(D) )
+    omit=( $reply ${pref}${^${=cvsignore}} )
+    [[ -r ~/.cvsignore ]] && omit=( $omit ${pref}${^$(<~/.cvsignore)} )
+    [[ -r ${pref}.cvsignore ]] && omit=( $omit ${pref}${^$(<${pref}.cvsignore)} )
+    eval 'reply=( ${all:#('${(j:|:)omit}')} )' 
+}
+
 #------------------------------------------------------------------------------
 # RedHat Linux rpm utility
 #
@@ -501,24 +618,99 @@ compctl -s '$(rpm -qa)' \
 		       short-circuit sign recompile rebuild resign querytags
 		       queryformat version help quiet rcfile force hash' - \
 	's[ftp:]' -P '//' -s '$(</u/zsh/ftphosts)' -S '/' - \
-	'c[-1,--root]' -g '*(-/)' - \
+	'c[-1,--root]' -/ - \
 	'c[-1,--rcfile]' -f - \
 	'p[1] s[-b]' -k '(p l c i b a)' - \
 	'c[-1,--queryformat] N[-1,{]' \
-		-s '"${${(f)$(rpm --querytags)}#RPMTAG_}"' -S '}' - \
+		-s '"${(@)${(@f)$(rpm --querytags)}#RPMTAG_}"' -S '}' - \
 	'W[1,-q*] C[-1,-([^-]*|)f*]' -f - \
 	'W[1,-i*], W[1,-q*] C[-1,-([^-]*|)p*]' \
-		-g '*.rpm' + -g '*(-/)' + -f -- rpm
+		-/g '*.rpm' + -f -- rpm
 #------------------------------------------------------------------------------
 compctl -u -x 'c[-1,-w]' -f -- ac
-compctl -g '*.m(D.)' + -g '*(D-/)' mira
+compctl -/g '*.m(.)' mira
 #------------------------------------------------------------------------------
 # talk completion: complete local users, or users at hosts listed via rwho
 compctl -K talkmatch talk ytalk ytalk3
 function talkmatch {
     local u
     reply=($(users))
-    for u in "${${(f)$(rwho 2>/dev/null)}%%:*}"; do
+    for u in "${(@)${(@f)$(rwho 2>/dev/null)}%%:*}"; do
 	reply=($reply ${u%% *}@${u##* })
     done
 }
+#------------------------------------------------------------------------------
+# Linux mount
+comp_fsmount () {
+    local tmp; if [[ $UID = 0 ]]; then tmp=""; else tmp="user"; fi
+    sed -n -e "s|^[^# 	][^ 	]*[ 	][ 	]*\(/[^ 	]*\)[ 	].*$tmp.*|\1|p" /etc/fstab
+}
+comp_nfsmount () {
+    local cmd args host
+    read -Ac cmd; read -cn where
+    host=${${cmd[$where]}%%:*}
+    reply=("${(@f)$(showmount -e $host | sed -n -e "s|^/\([^ ]*\) .*|$host:/\1|p")}")
+}
+compctl -s '$(mount | \
+	      sed -e "s/^[^ ]* on \\([^ ]*\\) type.*/\\1/"'"$(
+	      if [[ ! $UID = 0 ]]; then
+		  echo ' | egrep "^${(j:|:)$(comp_fsmount)}\$"'
+	      fi)"')' umount
+compctl -s '$(comp_fsmount)' + \
+	-x 'S[/]' -f -- + \
+	-x 'C[0,*:*]' -K comp_nfsmount -- + \
+	-s '$(< /etc/hosts)' \
+	mount
+#------------------------------------------------------------------------------
+# Lynx (web browser)
+compctl -k '(http:// file: ftp:// gopher:// news://)' -S '' \
+        -x 's[ftp://]' -k ftphosts -S/ \
+        - 'n[1,://]' -k hosts -S/ \
+        - 's[file:/]' -/g '*.html' -W/ \
+	- 's[file:]' -s '~+' -S '/' \
+        - 's[-]' -k '(anonymous auth base book buried_news cache case
+		cfg child cookies crawl display dump editor emacskeys
+		enable_scrollback error_file fileversions force_html
+		from ftp get_data head help historical homepage
+		image_links index link localhost locexec mime_header
+		minimal newschunksize newsmaxchunk nobrowse noexec
+		nofilereferer nofilereferer nolist nolog nopause
+		noprint noredir noreferer nosocks nostatus number_links
+		popup post_data print pseudo_inlines raw realm reload
+		restrictions resubmit_posts rlogin selective show_cursor
+		source startfile_ok telnet term trace traversal underscore
+		validate version vikeys)' \
+        -- lynx
+#------------------------------------------------------------------------------
+# ssh (secure shell)
+compctl -k hosts \
+	-x "c[-1,-l]" -u \
+	- "c[-1,-i]" -f \
+	- "c[-1,-e]" -k "(~ none)" \
+	- "c[-1,-c]" -k "(idea des 3des tss arcfour none)" \
+	- "c[-1,-p]" -k ports \
+	- "c[-1,-L] c[-1,-R] c[-1,-o]" -k "()" \
+	-- ssh
+#------------------------------------------------------------------------------
+# network stuff
+compctl -k hosts \
+	-x "s[-class=]" -k "(any in chaos hesiod)" \
+	- "s[-query=]" -k "(a cname hinfo md mx mb mg minfo ns ptr soa txt uinfo wks any)" \
+	- "s[-]" -Q -S '' -k "(query= all\  class= d2\  nod2\  debug\  nodebug\  defname\  nodefname\  domain= ignoretc\  noignoretc\ )" \
+	-- nslookup
+
+compctl -k hosts \
+	-x "C[-1,[^-]*] p[2,-1]" -k ports \
+	-- telnet
+
+compctl -x 'N[-1,@]' -k hosts - 's[]' -u -qS '@' -- finger
+#------------------------------------------------------------------------------
+# gdb
+compctl -/g "*(*)" \
+	-x "s[-]" -k "(help nx q batch cd f b tty exec se core symbols c x d)" \
+	- "C[-1,(-cd|-directory)]" -/ \
+	- "C[-1,(-core|-c)]" -/g 'core*' \
+	- "C[-1,(-se|-exec)]" -f \
+	- "C[-1,(-symbols|-command|-x)]" -f \
+	- "p[2,-1] C[-1,[^-]*]" -/g "core*" \
+	-- gdb

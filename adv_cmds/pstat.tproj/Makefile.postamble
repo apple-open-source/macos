@@ -107,3 +107,7 @@ INSTALL_PERMISSIONS = 2555        # If set, 'install' chmod's executable to this
 # Makefile API), which are rules that get invoked before and after the install 
 # target runs.  Such rules should be specified with the '::' syntax rather than 
 # a single colon.
+
+after_install:
+	mkdir -p "$(DSTROOT)/usr/share/man/man8"
+	install -c -m 644 pstat.8 "$(DSTROOT)/usr/share/man/man8"

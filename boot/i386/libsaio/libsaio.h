@@ -27,7 +27,9 @@
 #define __LIBSAIO_LIBSAIO_H
 
 #include "libsa.h"
-#include "saio.h"
+#include "memory.h"
+#include "kernBootStruct.h"
+#include "io_inline.h"
 #include "saio_types.h"
 #include "saio_internal.h"
 

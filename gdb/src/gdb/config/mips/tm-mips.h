@@ -1,5 +1,6 @@
 /* Definitions to make GDB run on a mips box under 4.3bsd.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000
    Free Software Foundation, Inc.
    Contributed by Per Bothner (bothner@cs.wisc.edu) at U.Wisconsin
    and by Alessandro Forin (af@cs.cmu.edu) at CMU..
@@ -26,6 +27,8 @@
 
 #define GDB_MULTI_ARCH 1
 
+#include "regcache.h"
+
 struct frame_info;
 struct symbol;
 struct type;
@@ -51,11 +54,6 @@ struct value;
    system.  */
 
 #define DEFAULT_MIPS_TYPE "generic"
-
-/* Remove useless bits from an instruction address.  */
-
-#define ADDR_BITS_REMOVE(addr) mips_addr_bits_remove(addr)
-CORE_ADDR mips_addr_bits_remove (CORE_ADDR addr);
 
 /* Remove useless bits from the stack pointer.  */
 
@@ -177,14 +175,6 @@ extern void mips_do_registers_info (int, int);
 
 #define REGISTER_BYTE(N) ((N) * MIPS_REGSIZE)
 
-/* Number of bytes of storage in the actual machine representation for
-   register N.  NOTE: This indirectly defines the register size
-   transfered by the GDB protocol. */
-
-extern int mips_register_raw_size (int reg_nr);
-#define REGISTER_RAW_SIZE(N) (mips_register_raw_size ((N)))
-
-
 /* Covert between the RAW and VIRTUAL registers.
 
    Some MIPS (SR, FSR, FIR) have a `raw' size of MIPS_REGSIZE but are
@@ -235,7 +225,7 @@ void mips_register_convert_to_raw (struct type *virtual_type, int reg_nr,
    between memory and register formats.  */
 
 #define REGISTER_CONVERT_TO_TYPE(n, type, buffer)			\
-  do {if (TARGET_BYTE_ORDER == BIG_ENDIAN				\
+  do {if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG				\
 	  && REGISTER_RAW_SIZE (n) == 4					\
 	  && (n) >= FP0_REGNUM && (n) < FP0_REGNUM + 32			\
 	  && TYPE_CODE(type) == TYPE_CODE_FLT				\
@@ -246,7 +236,7 @@ void mips_register_convert_to_raw (struct type *virtual_type, int reg_nr,
 	memcpy (((char *)(buffer)), __temp, 4); }} while (0)
 
 #define REGISTER_CONVERT_FROM_TYPE(n, type, buffer)			\
-  do {if (TARGET_BYTE_ORDER == BIG_ENDIAN				\
+  do {if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG				\
 	  && REGISTER_RAW_SIZE (n) == 4					\
 	  && (n) >= FP0_REGNUM && (n) < FP0_REGNUM + 32			\
 	  && TYPE_CODE(type) == TYPE_CODE_FLT				\
@@ -380,19 +370,8 @@ extern void mips_pop_frame (void);
 #define FIX_CALL_DUMMY(dummyname, start_sp, fun, nargs, args, rettype, gcc_p) \
     write_register(T9_REGNUM, fun)
 
-#define CALL_DUMMY_LOCATION AT_ENTRY_POINT
-
 #define CALL_DUMMY_ADDRESS() (mips_call_dummy_address ())
 extern CORE_ADDR mips_call_dummy_address (void);
-
-/* There's a mess in stack frame creation.  See comments in blockframe.c
-   near reference to INIT_FRAME_PC_FIRST.  */
-
-#define	INIT_FRAME_PC(fromleaf, prev)	/* nada */
-
-#define INIT_FRAME_PC_FIRST(fromleaf, prev) \
-   mips_init_frame_pc_first(fromleaf, prev)
-extern void mips_init_frame_pc_first (int, struct frame_info *);
 
 /* Special symbol found in blocks associated with routines.  We can hang
    mips_extra_func_info_t's off of this.  */
@@ -436,14 +415,6 @@ extern void mips_print_extra_frame_info (struct frame_info *frame);
 
 #define SETUP_ARBITRARY_FRAME(argc, argv) setup_arbitrary_frame (argc, argv)
 extern struct frame_info *setup_arbitrary_frame (int, CORE_ADDR *);
-
-/* Convert a dbx stab register number (from `r' declaration) to a gdb REGNUM */
-
-#define STAB_REG_TO_REGNUM(num) ((num) < 32 ? (num) : (num)+FP0_REGNUM-38)
-
-/* Convert a ecoff register number to a gdb REGNUM */
-
-#define ECOFF_REG_TO_REGNUM(num) ((num) < 32 ? (num) : (num)+FP0_REGNUM-32)
 
 /* Select the default mips disassembler */
 
@@ -518,6 +489,5 @@ typedef unsigned long t_inst;	/* Integer big enough to hold an instruction */
 extern void mips_set_processor_type_command (char *, int);
 
 
-/* MIPS sign extends addresses */
-#define POINTER_TO_ADDRESS(TYPE,BUF) (signed_pointer_to_address (TYPE, BUF))
-#define ADDRESS_TO_POINTER(TYPE,BUF,ADDR) (address_to_signed_pointer (TYPE, BUF, ADDR))
+/* Single step based on where the current instruction will take us.  */
+extern void mips_software_single_step (enum target_signal, int);

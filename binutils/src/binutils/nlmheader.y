@@ -1,5 +1,6 @@
 %{/* nlmheader.y - parse NLM header specification keywords.
-     Copyright (C) 1993, 94, 95, 97, 1998 Free Software Foundation, Inc.
+     Copyright 1993, 1994, 1995, 1997, 1998, 2001, 2002
+     Free Software Foundation, Inc.
 
 This file is part of GNU Binutils.
 
@@ -28,7 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <ansidecl.h>
 #include <stdio.h>
-#include <ctype.h>
+#include "safe-ctype.h"
 #include "bfd.h"
 #include "bucomm.h"
 #include "nlm/common.h"
@@ -497,7 +498,7 @@ string_list:
 /* If strerror is just a macro, we want to use the one from libiberty
    since it will handle undefined values.  */
 #undef strerror
-extern char *strerror ();
+extern char *strerror PARAMS ((int));
 
 /* The lexer is simple, too simple for flex.  Keywords are only
    recognized at the start of lines.  Everything else must be an
@@ -685,7 +686,7 @@ tail_recurse:
   c = getc (current.file);
 
   /* Commas are treated as whitespace characters.  */
-  while (isspace ((unsigned char) c) || c == ',')
+  while (ISSPACE (c) || c == ',')
     {
       current.state = IN_LINE;
       if (c == '\n')
@@ -738,9 +739,9 @@ tail_recurse:
 	  if (c == '\n')
 	    ++current.lineno;
 	}
-      while (isspace ((unsigned char) c));
+      while (ISSPACE (c));
       BUF_INIT ();
-      while (! isspace ((unsigned char) c) && c != EOF)
+      while (! ISSPACE (c) && c != EOF)
 	{
 	  BUF_ADD (c);
 	  c = getc (current.file);
@@ -758,17 +759,14 @@ tail_recurse:
   if (current.state == BEGINNING_OF_LINE)
     {
       BUF_INIT ();
-      while (isalnum ((unsigned char) c) || c == '_')
+      while (ISALNUM (c) || c == '_')
 	{
-	  if (islower ((unsigned char) c))
-	    BUF_ADD (toupper ((unsigned char) c));
-	  else
-	    BUF_ADD (c);
+	  BUF_ADD (TOUPPER (c));
 	  c = getc (current.file);
 	}
       BUF_FINISH ();
 
-      if (c != EOF && ! isspace ((unsigned char) c) && c != ',')
+      if (c != EOF && ! ISSPACE (c) && c != ',')
 	{
 	  nlmheader_identify ();
 	  fprintf (stderr, _("%s:%d: illegal character in keyword: %c\n"),
@@ -841,7 +839,7 @@ tail_recurse:
 
   /* Gather a generic argument.  */
   BUF_INIT ();
-  while (! isspace (c)
+  while (! ISSPACE (c)
 	 && c != ','
 	 && c != COMMENT_CHAR
 	 && c != '('

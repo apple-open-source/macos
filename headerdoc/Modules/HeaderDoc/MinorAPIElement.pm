@@ -5,9 +5,9 @@
 #           is to hold info for data export to Inside Mac Database
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/03/01 07:25:08 $
+# Last Updated: $Date: 2001/11/30 22:43:17 $
 #
-# Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
+# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
 # subject to the Apple Public Source License Version 1.1 (the "License").
 # You may not use this file except in compliance with the License.  Please
@@ -42,20 +42,15 @@ sub new {
     
     bless($self, $class);
     $self->_initialize();
-    # Now grab any key => value pairs passed in
-    my (%attributeHash) = @_;
-    foreach my $key (keys(%attributeHash)) {
-        my $ucKey = uc($key);
-        $self->{$ucKey} = $attributeHash{$key};
-    }  
     return ($self);
 }
 
 sub _initialize {
     my($self) = shift;
+    $self->SUPER::_initialize();
     $self->{POSITION} = undef;
     $self->{TYPE} = undef;
-    $self->{USERDICTARRAY} = [];
+    $self->{USERDICTARRAY} = ();
 }
 
 sub position {
@@ -84,7 +79,7 @@ sub userDictArray {
     if (@_) {
         @{ $self->{USERDICTARRAY} } = @_;
     }
-    return @{ $self->{USERDICTARRAY} };
+    ($self->{USERDICTARRAY}) ? return @{ $self->{USERDICTARRAY} } : return ();
 }
 
 sub addToUserDictArray {

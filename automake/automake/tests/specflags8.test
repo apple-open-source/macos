@@ -1,0 +1,49 @@
+#! /bin/sh
+
+# Like the ctags/etags example from the manual,
+# with one extra indirection in the sources.
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_OUTPUT
+END
+
+# Using a separate variable to hold all the sources for a program is
+# common when building many flavors of this program, each with
+# different flags.
+
+cat > Makefile.am << 'END'
+ETAGSSOURCE = etags.c
+bin_PROGRAMS = etags ctags
+ctags_SOURCES = $(ETAGSSOURCE)
+ctags_CFLAGS = -DCTAGS
+etags_SOURCES = $(ETAGSSOURCE)
+etags_CFLAGS = -DETAGS
+END
+
+cat > etags.c << 'END'
+#include <stdio.h>
+int
+main (int argc, char *argv[])
+{
+#ifdef CTAGS
+   puts ("ctags");
+#else
+   puts ("etags");
+#endif
+   return 0;
+}
+END
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+./configure
+$MAKE
+./ctags | grep ctags
+./etags | grep etags

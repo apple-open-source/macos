@@ -32,8 +32,12 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/IOSyncer.h>
+#include <IOKit/IOKitKeys.h>
+#include <IOKit/storage/IOMedia.h>
+
 #include "IOATABlockStorageDriver.h"
 
+#define ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL 0
 
 #if ( ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL >= 1 )
 #define PANIC_NOW(x)			IOPanic x
@@ -59,6 +63,10 @@
 #define SERIAL_STATUS_LOG(x)
 #endif
 
+// Media icon keys
+#define kCFBundleIdentifierKey				"CFBundleIdentifier"
+#define kIOATABlockStorageIdentifierKey		"com.apple.iokit.IOATABlockStorage"
+#define kPCCardIconFileKey					"PCCard.icns"
 
 // Configuration state machine
 enum
@@ -131,7 +139,10 @@ IOATABlockStorageDriver::identifyATADevice ( void )
 		return status;
 	
 	}
-		
+	
+	// Validate the identify data before the swap!
+	status = sValidateIdentifyData ( ( UInt8 * ) fDeviceIdentifyData );
+	
 	#if defined(__BIG_ENDIAN__)
 		// The identify device info needs to be byte-swapped on big-endian (ppc) 
 		// systems becuase it is data that is produced by the drive, read across a 
@@ -140,7 +151,6 @@ IOATABlockStorageDriver::identifyATADevice ( void )
 		// read from the host and is intrinsically byte-order correct.	
 		sSwapBytes16 ( ( UInt8 * ) fDeviceIdentifyData, 512 );
 	#endif
-
 	
 	STATUS_LOG ( ( "IOATABlockStorageDriver::identifyATADevice exiting with status = %ld.\n", ( UInt32 ) status ) );
 	
@@ -412,7 +422,7 @@ IOATABlockStorageDriver::ataCommandFlushCache ( void )
 	// Zero the command
 	cmd->zeroCommand ( );
 	
-	if ( fUseExtendedLBA )
+	if ( fDeviceIdentifyData[kATAIdentifyCommandSetSupported2] & kATASupportsFlushCacheExtendedMask )
 	{
 		
 		IOExtendedLBA *		extLBA = cmd->getExtendedLBA ( );
@@ -732,10 +742,14 @@ IOATABlockStorageDriver::identifyAndConfigureATADevice ( void )
 	IOReturn			status				= kIOReturnSuccess;
 	IOATABusInfo *		busInfoPtr			= NULL;
 	IOATADevConfig *	deviceConfigPtr		= NULL;
+	UInt16				tempWord			= 0;
+	UInt16				maxBlocks			= 0;
+	UInt64				maxSize				= 0;
 	
 	// Get some info about the ATA bus
 	busInfoPtr = IOATABusInfo::atabusinfo ( );
-	assert ( busInfoPtr != NULL );
+	if ( busInfoPtr == NULL )
+		return kIOReturnNoResources;
 	
 	// Zero the data, and then get the information from the ATA controller
 	busInfoPtr->zeroData ( );
@@ -747,10 +761,44 @@ IOATABlockStorageDriver::identifyAndConfigureATADevice ( void )
 		goto ReleaseBusInfoAndBail;
 		
 	}
-	
+		
 	// Get the socket type
 	fATASocketType = busInfoPtr->getSocketType ( );
 	STATUS_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice socket type = %d.\n", ( UInt8 ) fATASocketType ) );
+	
+	// Set the media icon to PC-Card if it is a PC Card device
+	if ( fATASocketType == kPCCardSocket )
+	{
+		
+		OSDictionary *	dict = OSDictionary::withCapacity ( 2 );
+		
+		if ( dict != NULL )
+		{
+			
+			OSString *	identifier 		= OSString::withCString ( kIOATABlockStorageIdentifierKey );
+			OSString *	resourceFile	= OSString::withCString ( kPCCardIconFileKey );
+			
+			if ( ( identifier != NULL ) && ( resourceFile != NULL ) )
+			{
+			
+				dict->setObject ( kCFBundleIdentifierKey, identifier );
+				dict->setObject ( kIOBundleResourceFileKey, resourceFile );
+				
+				setProperty ( kIOMediaIconKey, dict );
+			
+			}
+			
+			if ( identifier != NULL )
+				identifier->release ( );
+			
+			if ( resourceFile != NULL )
+				resourceFile->release ( );
+			
+			dict->release ( );
+			
+		}
+		
+	}
 	
 	// Execute an ATA device identify
 	status = identifyATADevice ( );
@@ -758,6 +806,70 @@ IOATABlockStorageDriver::identifyAndConfigureATADevice ( void )
 	{
 		goto ReleaseBusInfoAndBail;		
 	}
+	
+	// Parse the identify data
+	tempWord = fDeviceIdentifyData[kATAIdentifyCommandSetSupported];
+	
+	// Check for S.M.A.R.T.
+	if ( ( tempWord & kATASupportsSMARTMask ) == kATASupportsSMARTMask )
+		fSupportedFeatures |= kIOATAFeatureSMART;
+	
+	// Check for power management
+	if ( ( tempWord & kATASupportsPowerManagementMask ) == kATASupportsPowerManagementMask )
+		fSupportedFeatures |= kIOATAFeaturePowerManagement;
+	
+	// Check for write cache
+	if ( ( tempWord & kATASupportsWriteCacheMask ) == kATASupportsWriteCacheMask )
+		fSupportedFeatures |= kIOATAFeatureWriteCache;
+	
+	tempWord = fDeviceIdentifyData[kATAIdentifyCommandSetSupported2];
+	if ( ( tempWord & kATADataIsValidMask ) == 0x4000 )
+	{
+		
+		// Check for APM
+		if ( ( tempWord & kATASupportsAdvancedPowerManagementMask ) == kATASupportsAdvancedPowerManagementMask )
+			fSupportedFeatures |= kIOATAFeatureAdvancedPowerManagement;
+		
+		// Check for CF
+		if ( ( tempWord & kATASupportsCompactFlashMask ) == kATASupportsCompactFlashMask )
+			fSupportedFeatures |= kIOATAFeatureCompactFlash;
+		
+	}
+	
+	// Sanity check. CHS is rarely used, but it is still good to do things correctly.
+	if ( fDeviceIdentifyData[kATAIdentifyDriveCapabilities] & kLBASupportedMask )
+		fUseLBAAddressing = true;
+	
+	// Check for ExtendedLBA (48-bit) support from the bus.
+	fUseExtendedLBA = busInfoPtr->supportsExtendedLBA ( );
+	
+	// Mask with drive support
+	fUseExtendedLBA &= IOATADevConfig::sDriveSupports48BitLBA ( fDeviceIdentifyData );
+	if ( fUseExtendedLBA )
+	{
+		
+		maxBlocks = busInfoPtr->maxBlocksExtended ( );
+		
+		// 48-bit LBA supported
+		fSupportedFeatures |= kIOATAFeature48BitLBA;
+		
+	}
+	
+	else
+	{
+		
+		// Not using 48-bit LBA, so use normal constraints
+		maxBlocks = kIOATAMaximumBlockCount8Bit;
+		
+	}
+	
+	maxSize = ( UInt64 ) maxBlocks * ( UInt64 ) kATADefaultSectorSize;
+	
+	// Publish some constraints
+	setProperty ( kIOMaximumBlockCountReadKey, maxBlocks, 64 );
+	setProperty ( kIOMaximumBlockCountWriteKey, maxBlocks, 64 );
+	setProperty ( kIOMaximumSegmentCountReadKey, maxSize / PAGE_SIZE, 64 );
+	setProperty ( kIOMaximumSegmentCountWriteKey, maxSize / PAGE_SIZE, 64 );
 	
 	deviceConfigPtr = IOATADevConfig::atadevconfig ( );
 	assert ( deviceConfigPtr != NULL );
@@ -786,7 +898,7 @@ IOATABlockStorageDriver::identifyAndConfigureATADevice ( void )
 	{
 		
 		ERROR_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice selectConfig returned error = %ld.\n", ( UInt32 ) status ) );
-	
+		
 	}
 	
 	// Store the PIOModes, DMAModes and UltraDMAModes supported
@@ -808,6 +920,15 @@ ReleaseBusInfoAndBail:
 		STATUS_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice releasing bus info.\n" ) );
 		busInfoPtr->release ( );
 		busInfoPtr = NULL;
+		
+	}
+	
+	if ( deviceConfigPtr != NULL )
+	{
+		
+		STATUS_LOG ( ( "IOATABlockStorageDriver::identifyAndConfigureATADevice releasing device config.\n" ) );
+		deviceConfigPtr->release ( );
+		deviceConfigPtr = NULL;
 		
 	}
 	
@@ -868,7 +989,13 @@ IOATABlockStorageDriver::reconfigureATADevice ( void )
 		// all of these commands synchronously.	
 		setPIOTransferMode ( true );
 		setDMATransferMode ( true );
-		setAdvancedPowerManagementLevel ( fAPMLevel, true );
+		
+		// Check if a client has previously set the APM level. If so,
+		// reconfigure the device with that value.
+		if ( fAPMLevel != 0xFF )
+		{
+			setAdvancedPowerManagementLevel ( fAPMLevel, true );
+		}
 		
 		ataCommandSetFeatures ( kATAEnableReadAhead,
 								0,
@@ -1198,7 +1325,7 @@ IOATABlockStorageDriver::sHandleCommandCompletion ( IOATACommand * cmd )
 		
 		case kATADeviceError:
 			
-			ERROR_LOG ( ( "IOATABlockStorageDriver::sHandleCommandCompletion result = %d.\n", result ) );
+			ERROR_LOG ( ( "IOATABlockStorageDriver::sHandleCommandCompletion result = %ld.\n", result ) );
 			
 			// Reissue the command if the max number of retries is greater
 			// than zero, else return an error
@@ -1428,5 +1555,38 @@ IOATABlockStorageDriver::sSaveStateData ( IOATACommand * cmd )
 	clientData->cylHigh			= cmd->getCylHi ( );
 	clientData->cylLow			= cmd->getCylLo ( );
 	clientData->sdhReg			= cmd->getDevice_Head ( );
+	
+}
+
+
+//--------------------------------------------------------------------------------------
+//	¥ sValidateIdentifyData	-	Validates identify data by checksumming it
+//--------------------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::sValidateIdentifyData ( UInt8 * deviceIdentifyData )
+{
+	
+	IOReturn	status		= kIOReturnSuccess;
+	UInt8		checkSum 	= 0;
+	UInt32		index		= 0;
+	UInt16		offset		= kATAIdentifyIntegrity * sizeof ( UInt16 );
+	
+	if ( deviceIdentifyData[offset] == kChecksumValidCookie )
+	{
+		
+		for ( index = 0; index < 512; index++ )
+			checkSum += deviceIdentifyData[index];
+		
+		if ( checkSum != 0 )
+		{
+			
+			IOLog ( "Identify data is incorrect - bad checksum\n" );
+			
+		}
+		
+	}
+	
+	return status;
 	
 }

@@ -1044,9 +1044,73 @@ enum bool sectdiff_reloc)
 #ifndef SA_RLD
     unsigned long to_section_type, from_section_type;
     unsigned long *indirect_symtab;
+    struct fine_reloc *to_fine_reloc, *from_fine_reloc;
+    struct merged_symbol *merged_symbol;
+
+	from_section_type = from_map->s->flags & SECTION_TYPE;
+	/*
+	 * If we are not using the block where this reference is coming from
+	 * then we don't care if this is an illegal reference or not.
+	 */
+	if(from_section_type == S_COALESCED){
+	    from_fine_reloc =
+		fine_reloc_for_input_offset(from_map, from_offset);
+	    if(from_fine_reloc->use_contents == FALSE)
+		return(TRUE);
+	}
 
 	to_section_type = to_map->s->flags & SECTION_TYPE;
-	from_section_type = from_map->s->flags & SECTION_TYPE;
+	/*
+	 * If this is a coalesced section then the reference may not be to this
+	 * coalesced section if the referenced block's contents is not used,
+	 * because the block could have been for a weak definition symbol.
+	 */
+	if(to_section_type == S_COALESCED){
+	    to_fine_reloc = fine_reloc_for_input_offset(to_map, to_offset);
+	    /*
+	     * If this reference is to a local symbol then it is ok to reference
+	     * this coalesced symbol directly from anywhere.
+	     */
+	    if(to_fine_reloc->local_symbol == TRUE)
+		return(TRUE);
+	    if(to_fine_reloc->use_contents == FALSE){
+		merged_symbol = (struct merged_symbol *)
+				(to_fine_reloc->output_offset);
+		if(merged_symbol->defined_in_dylib == TRUE){
+		    if(sectdiff_reloc == TRUE && dynamic == TRUE){
+			error_with_cur_obj("illegal reference for -dynamic "
+			    "code (section difference reference from section "
+			    "(%.16s,%.16s) relocation entry (%lu) "
+			    "to symbol: %s defined in dylib: %s)",
+			    from_map->s->segname, from_map->s->sectname,
+			    from_reloc_index, merged_symbol->nlist.n_un.n_name,
+			    merged_symbol->definition_object->file_name);
+			return(FALSE);
+		    }
+		    to_section_type = S_REGULAR;
+		}
+		else if((merged_symbol->nlist.n_type & N_TYPE) == N_SECT){
+		    to_section_type = merged_symbol->definition_object->
+				section_maps[merged_symbol->nlist.n_sect - 1].
+				s->flags & SECTION_TYPE;
+		}
+		else{
+		    if(sectdiff_reloc == TRUE && dynamic == TRUE){
+			if((merged_symbol->nlist.n_type & N_TYPE) == N_ABS){
+			    error_with_cur_obj("illegal reference for -dynamic "
+				"code (section difference reference from "
+				"section (%.16s,%.16s) relocation entry (%lu) "
+				"to absolute symbol: %s)",
+				from_map->s->segname, from_map->s->sectname,
+				from_reloc_index,
+				merged_symbol->nlist.n_un.n_name);
+			    return(FALSE);
+			}
+		    }
+		    to_section_type = S_REGULAR;
+		}
+	    }
+	}
 
 	/*
 	 * To allow the dynamic linker to use the same coalesced symbol through

@@ -1,4 +1,4 @@
-;;; timer.el --- run a function with args at some time in future.
+;;; timer.el --- run a function with args at some time in future
 
 ;; Copyright (C) 1996 Free Software Foundation, Inc.
 
@@ -183,8 +183,11 @@ fire repeatedly that many seconds apart."
 	nil)
     (error "Invalid or uninitialized timer")))
 
-(defun timer-activate-when-idle (timer)
-  "Arrange to activate TIMER whenever Emacs is next idle."
+(defun timer-activate-when-idle (timer &optional dont-wait)
+  "Arrange to activate TIMER whenever Emacs is next idle.
+If optional argument DONT-WAIT is non-nil, then enable the
+timer to activate immediately, or at the right time, if Emacs
+is already idle."
   (if (and (timerp timer)
 	   (integerp (aref timer 1))
 	   (integerp (aref timer 2))
@@ -206,7 +209,7 @@ fire repeatedly that many seconds apart."
 	(if last
 	    (setcdr last (cons timer timers))
 	  (setq timer-idle-list (cons timer timers)))
-	(aset timer 0 t)
+	(aset timer 0 (not dont-wait))
 	(aset timer 7 t)
 	nil)
     (error "Invalid or uninitialized timer")))
@@ -370,9 +373,11 @@ This function is for compatibility; see also `run-with-timer'."
 ;;;###autoload
 (defun run-with-idle-timer (secs repeat function &rest args)
   "Perform an action the next time Emacs is idle for SECS seconds.
-If REPEAT is non-nil, do this each time Emacs is idle for SECS seconds.
-SECS may be an integer or a floating point number.
 The action is to call FUNCTION with arguments ARGS.
+SECS may be an integer or a floating point number.
+
+If REPEAT is non-nil, do the action each time Emacs has been idle for
+exactly SECS seconds (that is, only once for each time Emacs becomes idle).
 
 This function returns a timer object which you can use in `cancel-timer'."
   (interactive

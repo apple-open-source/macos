@@ -1,0 +1,41 @@
+#! /bin/sh
+
+# Make sure libtool clean targets exist.
+# Report from Eric Magnien.
+required=libtool
+. $srcdir/defs || exit 1
+
+# This test requires libtoolize.
+libtoolize --version || exit 77
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(mypackage,0.1)
+
+AC_PROG_CC
+AC_PROG_LIBTOOL
+
+AC_CONFIG_FILES([
+  sub/Makefile
+  Makefile
+])
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+SUBDIR = subdir
+lib_LTLIBRARIES = libfoo.la
+libfoo_la_SOURCES = foo.c
+END
+
+mkdir sub
+cat > sub/Makefile.am << 'END'
+lib_LTLIBRARIES = libfoo.la
+libfoo_la_SOURCES = foo.c
+END
+
+$ACLOCAL || exit 1
+: > ltmain.sh
+$AUTOMAKE -a || exit 1
+
+grep 'rm -f .*\.lo' sub/Makefile.in

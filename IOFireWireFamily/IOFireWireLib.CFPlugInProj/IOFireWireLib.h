@@ -23,8 +23,8 @@
  *  IOFireWireLib.h
  *  IOFireWireLib
  *
- *  Created by NWG on Thu Apr 27 2000.
- *  Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ *  Created on Thu Apr 27 2000.
+ *  Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  */
 
@@ -33,8 +33,8 @@ IOFireWireLib is the software used by user space software to communicate with Fi
 devices and control the FireWire bus. IOFireWireLib is the lowest-level FireWire interface available
 in user space.
 
-To communicate with a device on the FireWire bus, an instance of $link IOFireWireDeviceInterface (a struct
-which is defined below) is created (see below). The methods of IOFireWireDeviceInterface allow you
+To communicate with a device on the FireWire bus, an instance of IOFireWireDeviceInterface (a struct
+which is defined below) is created. The methods of IOFireWireDeviceInterface allow you
 to communicate with the device and create instances of other interfaces which provide extended 
 functionality (for example, creation of unit directories on the local machine).
 
@@ -53,8 +53,9 @@ always upper-case.) Quick usage reference:<br>
 	<li>'plugInType' should be CFUUIDGetUUIDBytes(kIOCFPlugInInterfaceID)</li>
 	<li>'interfaceType' should be CFUUIDGetUUIDBytes(kIOFireWireLibTypeID) when using IOFireWireLib</li>
 </ul>
-The interface returned by $link IOCreatePlugInInterfaceForService() should be deallocated using 
+The interface returned by IOCreatePlugInInterfaceForService() should be deallocated using 
 IODestroyPlugInInterface(). Do not call Release() on it.
+
 */
 
 #ifndef __IOFireWireLib_H__
@@ -74,6 +75,62 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 // device/unit/nub interfaces (newest first)
 // ============================================================
 
+//
+// 	version 4 interfaces
+//
+//		availability: 
+//				Mac OS X "Jaguar" and later
+//
+//	kIOFireWireNubInterface_v4
+//		uuid string: 939151B8-6945-11D6-BEC7-0003933F84F0
+#define kIOFireWireNubInterfaceID_v4	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0x93, 0x91, 0x51, 0xB8, 0x69, 0x45, 0x11, 0xD6,\
+											0xBE, 0xC7, 0x00, 0x03, 0x93, 0x3F, 0x84, 0xF0 )
+
+//	kIOFireWireUnitInterface_v4
+//		uuid string: D1A395C9-6945-11D6-9B32-0003933F84F0
+#define kIOFireWireUnitInterfaceID_v4	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0xD1, 0xA3, 0x95, 0xC9, 0x69, 0x45, 0x11, 0xD6,\
+											0x9B, 0x32, 0x00, 0x03, 0x93, 0x3F, 0x84, 0xF0 )
+
+//	kIOFireWireDeviceInterface_v4
+//		uuid string: F4B3748B-6945-11D6-8299-0003933F84F0
+#define kIOFireWireDeviceInterfaceID_v4	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0xF4, 0xB3, 0x74, 0x8B, 0x69, 0x45, 0x11, 0xD6,\
+											0x82, 0x99, 0x00, 0x03, 0x93, 0x3F, 0x84, 0xF0 )
+
+//
+// 	version 3 interfaces (include isochronous functions)
+//
+//		availability: 
+//				Mac OS X 10.1.2 and later
+//
+
+//	kIOFireWireNubInterfaceID_v3
+//		uuid string: F70FE149-E393-11D5-958A-0003933F84F0
+#define kIOFireWireNubInterfaceID_v3	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0xF7, 0x0F, 0xE1, 0x49, 0xE3, 0x93, 0x11, 0xD5,\
+											0x95, 0x8A, 0x00, 0x03, 0x93, 0x3F, 0x84, 0xF0 )
+
+//	kIOFireWireUnitInterfaceID_v3
+//		uuid string: FE7A02EB-E393-11D5-8A61-0003933F84F0
+#define kIOFireWireUnitInterfaceID_v3	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0xFE, 0x7A, 0x02, 0xEB, 0xE3, 0x93, 0x11, 0xD5,\
+											0x8A, 0x61, 0x00, 0x03, 0x93, 0x3F, 0x84, 0xF0 )
+											
+//	kIOFireWireDeviceInterfaceID_v3
+//  	uuid string: 00EB71A0-E394-11D5-829A-0003933F84F0
+#define kIOFireWireDeviceInterfaceID_v3	CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0x00, 0xEB, 0x71, 0xA0, 0xE3, 0x94, 0x11, 0xD5,\
+											0x82, 0x9A, 0x00, 0x03, 0x93, 0x3F, 0x84, 0xF0 )
+
+//
+// 	version 2 interfaces (include isochronous functions)
+//
+//		availability: 
+//				Mac OS X 10.1 and later
+//
+
 //	kIOFireWireNubInterfaceID
 //		uuid string: 2575E4C4-B6C1-11D5-8F73-003065AF75CC
 #define kIOFireWireNubInterfaceID		CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
@@ -85,14 +142,6 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 #define kIOFireWireUnitInterfaceID		CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
 											0xA0, 0x2C, 0xC5, 0xD4, 0xB6, 0xC1, 0x11, 0xD5,\
 											0xAE, 0xA8, 0x00, 0x30, 0x65, 0xAF, 0x75, 0xCC )
-
-
-//
-// 	version 2 interfaces (include isochronous functions)
-//
-//		availability: 
-//				Mac OS X 10.1 and later
-//
 
 //	kIOFireWireDeviceInterfaceID_v2
 //  	uuid string: B3993EB8-56E2-11D5-8BD0-003065423456
@@ -134,6 +183,23 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 // ============================================================
 // command objects
 // ============================================================
+
+//
+//	version 2 interfaces:
+//
+//		availability: 
+//				Mac OS X "Jaguar" and later
+//
+
+//	kIOFireWireCompareSwapCommandInterfaceID_v2
+//	uuid string: 6100FEC9-6946-11D6-8A49-0003933F84F0
+#define kIOFireWireCompareSwapCommandInterfaceID_v2		CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0x61, 0x00, 0xFE, 0xC9, 0x69, 0x46, 0x11, 0xD6,\
+											0x8A, 0x49, 0x00, 0x03, 0x93, 0x3F, 0x84, 0xF0 )
+
+//
+//	version 1 interfaces
+//
 
 //	uuid string: F8B6993A-F197-11D4-A3F1-000502072F80
 #define kIOFireWireCommandInterfaceID	CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
@@ -345,6 +411,9 @@ typedef struct IOFireWirePseudoAddressSpaceCallbacks_t
 	IOFireWirePseudoAddressSpaceSkippedPacketHandler	skippedPacketHandler ;
 	IOFireWirePseudoAddressSpaceWriteHandler			writeHandler ;
 } IOFireWirePseudoAddressSpaceCallbacks ;
+
+#pragma mark -
+#pragma mark --- IOFireWireDeviceInterface ----------
 
 // ============================================================
 //
@@ -606,7 +675,7 @@ typedef struct IOFireWireDeviceInterface_t
 		@param val The value to write
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling $link GetGenerationAndNodeID()
+			obtained by calling GetGenerationAndNodeID()
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
 			if failOnReset is false.
 		@result An IOReturn error code
@@ -626,7 +695,7 @@ typedef struct IOFireWireDeviceInterface_t
 		@param newVal Value to set
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling $link GetGenerationAndNodeID()
+			obtained by calling GetGenerationAndNodeID()
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
 			if failOnReset is false.
 		@result An IOReturn error code
@@ -642,16 +711,17 @@ typedef struct IOFireWireDeviceInterface_t
 		@param device The service (representing an attached FireWire device) to which to write.
 			For 48-bit, device relative addressing, pass the service used to create the device interface. This
 			can be obtained by calling GetDevice(). For 64-bit absolute addressing, pass 0. Other values are
-			unsupported.
+			unsupported. Setting the callback value to nil defaults to synchronous execution.
 		@param addr Command target address
 		@param buf A pointer to a buffer where the results will be stored
 		@param size Number of bytes to read
+		@param callback Command completion callback.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling $link GetGenerationAndNodeID()
+			obtained by calling GetGenerationAndNodeID()
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
 			if failOnReset is false.
-		@result An IOFireWireLibCommandRef interface. See $link IOFireWireLibCommandRef.
+		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.
 	*/
 	IOFireWireLibCommandRef (*CreateReadCommand)( IOFireWireLibDeviceRef self, io_object_t device, const FWAddress * addr, void* buf, UInt32 size, IOFireWireLibCommandCallback callback, Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
 
@@ -661,17 +731,17 @@ typedef struct IOFireWireDeviceInterface_t
 		@param device The service (representing an attached FireWire device) to which to write.
 			For 48-bit, device relative addressing, pass the service used to create the device interface. This
 			can be obtained by calling GetDevice(). For 64-bit absolute addressing, pass 0. Other values are
-			unsupported.
+			unsupported. Setting the callback value to nil defaults to synchronous execution.
 		@param addr Command target address
 		@param quads An array of quadlets where results should be stored
 		@param numQuads Number of quadlets to read
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling $link GetGenerationAndNodeID()
+			obtained by calling GetGenerationAndNodeID()
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
 			if failOnReset is false.
 		@param 
-		@result An IOFireWireLibCommandRef interface. See $link IOFireWireLibCommandRef.*/
+		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.*/
 	IOFireWireLibCommandRef (*CreateReadQuadletCommand)( IOFireWireLibDeviceRef self, io_object_t device, const FWAddress * addr, UInt32 quads[], UInt32 numQuads, IOFireWireLibCommandCallback callback, Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
 
 	/*!	@function CreateWriteCommand
@@ -680,16 +750,17 @@ typedef struct IOFireWireDeviceInterface_t
 		@param device The service (representing an attached FireWire device) to which to write.
 			For 48-bit, device relative addressing, pass the service used to create the device interface. This
 			can be obtained by calling GetDevice(). For 64-bit absolute addressing, pass 0. Other values are
-			unsupported.
+			unsupported. Setting the callback value to nil defaults to synchronous execution.
 		@param addr Command target address
 		@param buf A pointer to the buffer containing the data to be written
 		@param size Number of bytes to write
+		@param callback Command completion callback.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling $link GetGenerationAndNodeID()
+			obtained by calling GetGenerationAndNodeID()
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
 			if failOnReset is false.
-		@result An IOFireWireLibCommandRef interface. See $link IOFireWireLibCommandRef.*/
+		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.*/
 	IOFireWireLibCommandRef (*CreateWriteCommand)( IOFireWireLibDeviceRef self, io_object_t device, const FWAddress * addr, void* buf, UInt32  size, IOFireWireLibCommandCallback callback, Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
 
 	/*!
@@ -699,16 +770,16 @@ typedef struct IOFireWireDeviceInterface_t
 		@param device The service (representing an attached FireWire device) to which to write.
 			For 48-bit, device relative addressing, pass the service used to create the device interface. This
 			can be obtained by calling GetDevice(). For 64-bit absolute addressing, pass 0. Other values are
-			unsupported.
+			unsupported. Setting the callback value to nil defaults to synchronous execution.
 		@param addr Command target address
 		@param quads An array of quadlets containing quadlets to be written
 		@param numQuads Number of quadlets to write
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling $link GetGenerationAndNodeID()
+			obtained by calling GetGenerationAndNodeID()
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
 			if failOnReset is false.
-		@result An IOFireWireLibCommandRef interface. See $link IOFireWireLibCommandRef.
+		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.
 	*/
 	IOFireWireLibCommandRef (*CreateWriteQuadletCommand)(IOFireWireLibDeviceRef	self, io_object_t device, const FWAddress *	addr, UInt32 quads[], UInt32 numQuads, IOFireWireLibCommandCallback callback, Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
 
@@ -719,16 +790,17 @@ typedef struct IOFireWireDeviceInterface_t
 		@param device The service (representing an attached FireWire device) to which to write.
 			For 48-bit, device relative addressing, pass the service used to create the device interface. This
 			can be obtained by calling GetDevice(). For 64-bit absolute addressing, pass 0. Other values are
-			unsupported.
+			unsupported. Setting the callback value to nil defaults to synchronous execution.
 		@param addr Command target address
-		@param quads An array of quadlets containing quadlets to be written
-		@param numQuads Number of quadlets to write
+		@param cmpVal 32-bit value expected at target address
+		@param newVal 32-bit value to be set at target address
+		@param callback Command completion callback.
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
-			obtained by calling $link GetGenerationAndNodeID()
+			obtained by calling GetGenerationAndNodeID()
 		@param generation The FireWire bus generation during which the command should be executed. Ignored
 			if failOnReset is false.
-		@result An IOFireWireLibCommandRef interface. See $link IOFireWireLibCommandRef.	*/
+		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.	*/
 	IOFireWireLibCommandRef (*CreateCompareSwapCommand)( IOFireWireLibDeviceRef self, io_object_t device, const FWAddress *  addr, UInt32      cmpVal, UInt32      newVal, IOFireWireLibCommandCallback callback, Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
 
 		// --- other methods ---------------------------
@@ -745,7 +817,9 @@ typedef struct IOFireWireDeviceInterface_t
 	IOReturn (*GetCycleTime)( IOFireWireLibDeviceRef  self, UInt32*  outCycleTime) ;
 
 	/*!	@function GetGenerationAndNodeID
-		@abstract Get bus generation and remote device node ID.
+		@abstract (Obsolete) Get bus generation and remote device node ID.
+		@discussion Obsolete -- Please use GetBusGeneration() and/or GetRemoteNodeID() in
+			interface v4.
 		@param self The device interface to use.
 		@param outGeneration A pointer to a UInt32 to hold the generation result
 		@param outNodeID A pointer to a UInt16 to hold the remote device node ID
@@ -753,7 +827,9 @@ typedef struct IOFireWireDeviceInterface_t
 	IOReturn (*GetGenerationAndNodeID)( IOFireWireLibDeviceRef  self, UInt32*  outGeneration, UInt16*  outNodeID) ;
 
 	/*!	@function GetLocalNodeID
-		@abstract Get local node ID.
+		@abstract (Obsolete) Get local node ID.
+		@discussion Obsolete -- Please use GetBusGeneration() and GetLocalNodeIDWithGeneration() in
+			interface v4.
 		@param self The device interface to use.
 		@param outNodeID A pointer to a UInt16 to hold the local device node ID
 		@result An IOReturn error code.	*/	
@@ -811,7 +887,7 @@ typedef struct IOFireWireDeviceInterface_t
 		@param inRefCon A user specified reference value. This will be passed to all callback functions.
 		@param inQueueBufferSize The size of the queue which receives packets from the bus before they are handed to
 			the client and/or put in the backing store. A larger queue can help eliminate dropped packets
-			when receiving large busts of data. When a packet is received which can not fit into the queue, 
+			when receiving large bursts of data. When a packet is received which can not fit into the queue, 
 			the packet dropped callback will be called. 
 		@param inBackingStore An optional block of allocated memory representing the contents of the address space.
 		@param inFlags A UInt32 with bits set corresponding to the flags that should be set
@@ -832,7 +908,14 @@ typedef struct IOFireWireDeviceInterface_t
 		@param iid An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the
 			type of interface to be returned for the created pseudo address space object.
 		@result An IOFireWireLibPseudoAddressSpaceRef. Returns 0 upon failure */
-	IOFireWireLibPseudoAddressSpaceRef (*CreatePseudoAddressSpace)( IOFireWireLibDeviceRef  self, UInt32  inSize, void*  inRefCon, UInt32  inQueueBufferSize, void*  inBackingStore, UInt32  inFlags, REFIID  iid) ;
+	IOFireWireLibPseudoAddressSpaceRef	(*CreatePseudoAddressSpace)( 
+												IOFireWireLibDeviceRef  	self, 
+												UInt32  					inSize, 
+												void*  						inRefCon, 
+												UInt32  					inQueueBufferSize, 
+												void*  						inBackingStore, 
+												UInt32  					inFlags, 
+												REFIID  					iid) ;
 
 	/*!	@function CreatePhysicalAddressSpace
 		@abstract Creates a physical address space object and returns an interface to it. This
@@ -856,9 +939,9 @@ typedef struct IOFireWireDeviceInterface_t
 
 		// --- eye-sock-run-U.S. -----------------------
 	/*!	@function AddIsochCallbackDispatcherToRunLoop
-		@abstract This function add an event source for the isochronous callback dispatcher
+		@abstract This function adds an event source for the isochronous callback dispatcher
 			to the specified CFRunLoop. Isochronous related callbacks will not function
-			before this function is called. This functions is similar to $link 
+			before this function is called. This functions is similar to 
 			AddCallbackDispatcherToRunLoop. The passed CFRunLoop can be different
 			from that passed to AddCallbackDispatcherToRunLoop. 
 		@param self The device interface to use.
@@ -985,6 +1068,7 @@ typedef struct IOFireWireDeviceInterface_t
 								void*					interface,
 								CFStringRef				inPropertyName,
 								CFTypeID*				outPropertyType) ;
+
 	/*!	@function PrintDCLProgram
 		@abstract Walk a DCL program linked list and print its contents
 		@param self The device interface to use.
@@ -996,6 +1080,268 @@ typedef struct IOFireWireDeviceInterface_t
 								IOFireWireLibDeviceRef	self, 
 								const DCLCommandPtr		inProgram, 
 								UInt32 					inLength) ;
+
+	//
+	// NOTE: the following methods available only in interface v3 and later
+	//
+
+	// --- v3 functions ----------
+	/*!	@function CreateInitialUnitsPseudoAddressSpace
+		@abstract Creates a pseudo address space in initial units space.
+		@discussion Creates a pseudo address space object in initial units space and returns an interface to it. This
+			will create a pseudo address space (software-backed) on the local machine.
+			
+			Availablilty: IOFireWireDeviceInterface_v3,  and newer
+			
+		@param self The device interface to use.
+		@param inAddressLo The lower 32 bits of the base address of the address space to be created. The address is always
+			in initial units space.
+		@param inSize The size in bytes of this address space
+		@param inRefCon A user specified reference value. This will be passed to all callback functions.
+		@param inQueueBufferSize The size of the queue which receives packets from the bus before they are handed to
+			the client and/or put in the backing store. A larger queue can help eliminate dropped packets
+			when receiving large bursts of data. When a packet is received which can not fit into the queue, 
+			the packet dropped callback will be called. 
+		@param inBackingStore An optional block of allocated memory representing the contents of the address space.
+		@param inFlags A UInt32 with bits set corresponding to the flags that should be set
+			for this address space.
+			<ul>
+				<li>kFWAddressSpaceNoFlags -- All flags off</li>
+				<li>kFWAddressSpaceNoWriteAccess -- Write access to this address space will be disallowed. 
+					Setting this flag also disables compare/swap transactions on this address space.</li>
+				<li>kFWAddressSpaceNoReadAccess -- Read access access to this address space will be disallowed. 
+					Setting this flag also disables compare/swap transactions on this address space.</li>
+				<li>kFWAddressSpaceAutoWriteReply -- Writes will be made automatically, directly modifying the contents
+					of the backing store. The user process will not be notified of writes.</li>
+				<li>kFWAddressSpaceAutoReadReply -- Reads to this address space will be answered automagically
+					using the contents of the backing store. The user process will not be notified of reads.</li>
+				<li>kFWAddressSpaceAutoCopyOnWrite -- Writes to this address space will be made directly
+					to the backing store at the same time the user process is notified of a write. Clients
+					will only be notified of a write if kFWAddressSpaceAutoWriteReply is not set.</li>
+				<li>kFWAddressSpaceShareIfExists -- Allows creation of this address space even if another client
+					already has an address space at the requested address. All clients will be notified of writes to
+					covered addresses.</li>
+			</ul>
+		@param iid An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the
+			type of interface to be returned for the created pseudo address space object.
+		@result An IOFireWireLibPseudoAddressSpaceRef. Returns 0 upon failure */
+	IOFireWireLibPseudoAddressSpaceRef	(*CreateInitialUnitsPseudoAddressSpace)( 
+												IOFireWireLibDeviceRef  	self,
+												UInt32						inAddressLo,
+												UInt32  					inSize, 
+												void*  						inRefCon, 
+												UInt32  					inQueueBufferSize, 
+												void*  						inBackingStore, 
+												UInt32  					inFlags,
+												REFIID  					iid) ;
+	/*!
+		@function AddCallbackDispatcherToRunLoopForMode
+		@abstract Add a run loop event source to allow IOFireWireLib callbacks to function.
+        @discussion Installs the proper run loop event source to allow callbacks to function. This method
+			must be called before callback notifications for this interface or any interfaces
+			created using this interface can function. With this function, you can additionally specify
+			for which run loop modes this source should be added.
+			
+			Availability: IOFireWireDeviceInterface_v3, and newer
+			
+		@param self The device interface to use.
+		@param inRunLoop The run loop on which to install the event source
+		@param inRunLoopMode The run loop mode(s) for which to install the event source
+		@result An IOReturn error code.	*/	
+	IOReturn 			(*AddCallbackDispatcherToRunLoopForMode)(
+								IOFireWireLibDeviceRef 	self, 
+								CFRunLoopRef 			inRunLoop,
+								CFStringRef				inRunLoopMode ) ;
+	/*!	@function AddIsochCallbackDispatcherToRunLoop
+		@abstract Add a run loop event source to allow IOFireWireLib isoch callbacks to function.
+		@discussion This function adds an event source for the isochronous callback dispatcher
+			to the specified CFRunLoop. Isochronous related callbacks will not be called unless
+			this function has been called. This function is similar to AddCallbackDispatcherToRunLoop. 
+			The passed CFRunLoop can be different from that passed to AddCallbackDispatcherToRunLoop. 
+
+			Availability: IOFireWireDeviceInterface_v3, and newer
+
+		@param self The device interface to use.
+		@param inRunLoop A CFRunLoopRef for the run loop to which the event loop source 
+			should be added
+		@param inRunLoopMode The run loop mode(s) for which to install the event source
+		@result An IOReturn error code.	*/	
+	IOReturn			(*AddIsochCallbackDispatcherToRunLoopForMode)(
+								IOFireWireLibDeviceRef 	self,
+								CFRunLoopRef			inRunLoop,
+								CFStringRef 			inRunLoopMode ) ;
+	/*!
+		@function RemoveIsochCallbackDispatcherFromRunLoop
+		@abstract Removes an IOFireWireLib-added run loop event source.
+		@discussion Reverses the effects of AddIsochCallbackDispatcherToRunLoop(). This method removes 
+			the run loop event source that was added to the specified run loop preventing any 
+			future callbacks from being called.
+			
+			Availability: IOFireWireDeviceInterface_v3, and newer
+
+        @param self The device interface to use.			
+	*/
+	void				(*RemoveIsochCallbackDispatcherFromRunLoop)(
+								IOFireWireLibDeviceRef 	self) ;
+
+	/*!
+		@function Seize
+		@abstract Seize control of device/unit
+		@discussion Allows a user space client to seize control of an in-kernel service even if
+			that service has been Opened() by another client or in-kernel driver. This function should be
+			used with care. Admin rights are required to use this function.
+			
+			Calling this method makes it appear to all other drivers that the device has been unplugged.
+			Open() should be called after this method has been invoked.
+			
+			When access is complete, Close() and then IOServiceRequestProbe() should be called to restore 
+			normal operation. Calling IOServiceRequestProbe() makes it appear that the device has been "re-plugged."
+        @param self The device interface to use.
+		@param reserved Reserved for future use. Set to NULL.
+	*/
+	IOReturn			(*Seize)(
+								IOFireWireLibDeviceRef 	self,
+								IOOptionBits			inFlags,
+								... ) ;
+
+	/*!
+		@function FireLog
+		@abstract Logs string to in-kernel debug buffer
+        @param self The device interface to use.
+	*/
+	IOReturn			(*FireLog)(
+								IOFireWireLibDeviceRef 	self,
+								const char*				format,
+								... ) ;
+
+	/*!	@function GetBusCycleTime
+		@abstract Get bus and cycle time.
+		@param self The device interface to use.
+		@param outBusTime A pointer to a UInt32 to hold the bus time
+		@param outCycleTime A pointer to a UInt32 to hold the cycle time
+		@result An IOReturn error code.	*/	
+	IOReturn (*GetBusCycleTime)( IOFireWireLibDeviceRef  self, UInt32*  outBusTime, UInt32*  outCycleTime) ;
+
+	//
+	// v4
+	//
+
+	/*!
+		@function CreateCompareSwapCommand64
+		@abstract Create a quadlet compare/swap command object and initialize it with 64-bit values.
+		@param self The device interface to use.
+		@param device The service (representing an attached FireWire device) to which to write.
+			For 48-bit, device relative addressing, pass the service used to create the device interface. This
+			can be obtained by calling GetDevice(). For 64-bit absolute addressing, pass 0. Other values are
+			unsupported. Setting the callback value to nil defaults to synchronous execution.
+		@param addr Command target address
+		@param cmpVal 64-bit value expected at target address
+		@param newVal 64-bit value to be set at target address
+		@param callback Command completion callback.
+		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
+			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
+			obtained by calling GetGenerationAndNodeID()
+		@param generation The FireWire bus generation during which the command should be executed. Ignored
+			if failOnReset is false.
+		@result An IOFireWireLibCommandRef interface. See IOFireWireLibCommandRef.	*/
+	IOFireWireLibCommandRef (*CreateCompareSwapCommand64)( IOFireWireLibDeviceRef self, io_object_t device, const FWAddress* addr, 
+																UInt64 cmpVal, UInt64 newVal, IOFireWireLibCommandCallback callback, 
+																Boolean failOnReset, UInt32 generation, void* inRefCon, REFIID iid) ;
+
+	/*!
+		@function CompareSwap64
+		@abstract Perform synchronous lock operation
+		@param self The device interface to use.
+		@param device The service (representing an attached FireWire device) to which to write.
+			For 48-bit, device relative addressing, pass the service used to create the device interface. This
+			can be obtained by calling GetDevice(). For 64-bit absolute addressing, pass 0. Other values are
+			unsupported.
+			
+			If the quadlets stored at 'oldVal' match those passed to 'expectedVal', the lock operation was
+			successful.
+		@param addr Command target address
+		@param expectedVal Pointer to quadlets expected at target.
+		@param newVal Pointer to quadlets to atomically set at target if compare is successful.
+		@param oldVal Pointer to quadlets to hold value found at target address after transaction if completed.
+		@param size Size in bytes of compare swap transaction to perform. Value values are 4 and 8.
+		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
+			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
+			obtained by calling GetGenerationAndNodeID()
+		@param generation The FireWire bus generation during which the command should be executed. Ignored
+			if failOnReset is false.
+		@result An IOReturn error code
+	*/
+	IOReturn (*CompareSwap64)( IOFireWireLibDeviceRef self, io_object_t device, const FWAddress* addr, 
+										UInt32* expectedVal, UInt32* newVal, UInt32* oldVal, IOByteCount size, 
+										Boolean failOnReset, UInt32 generation) ;
+
+	/*!	@function GetBusGeneration
+		@abstract Get bus generation number.
+		@discussion The bus generation number stays constant between bus resets and can be
+			used in combination with a FireWire node ID to uniquely identify nodes on the bus.
+			Pass the generation number to functions that take or return FireWire node IDs.
+		
+			Availability: IOFireWireDeviceInterface_v4 and newer
+			
+		@param self The device interface to use.
+		@param outGeneration A pointer to a UInt32 to hold the bus generation  number
+		@result Returns kIOReturnSuccess if a valid bus generation has been returned in 'outGeneration'.*/	
+	IOReturn (*GetBusGeneration)( IOFireWireLibDeviceRef self, UInt32* outGeneration ) ;
+
+	/*!	@function GetLocalNodeIDWithGeneration
+		@abstract Get node ID of local machine.
+		@discussion Use this function instead of GetLocalNodeID().
+		
+			Availability: IOFireWireDeviceInterface_v4 and newer
+			
+		@param self The device interface to use.
+		@param checkGeneration A bus generation number obtained from GetBusGeneration()
+		@param outLocalNodeID A pointer to a UInt16 to hold the node ID of the local machine.
+		@result Returns kIOReturnSuccess if a valid nodeID has been returned in 'outLocalNodeID'. Returns
+			kIOFireWireBusReset if 'checkGeneration' does not match the current bus generation number.*/
+	IOReturn (*GetLocalNodeIDWithGeneration)( IOFireWireLibDeviceRef self, UInt32 checkGeneration, UInt16* outLocalNodeID ) ;
+
+	/*!	@function GetRemoteNodeID
+		@abstract Get node ID of device to which this interface is attached.
+		@discussion
+		
+			Availability: IOFireWireDeviceInterface_v4 and newer
+			
+		@param self The device interface to use.
+		@param checkGeneration A bus generation number obtained from GetBusGeneration()
+		@param outRemoteNodeID A pointer to a UInt16 to hold the node ID of the remote device.
+		@result Returns kIOReturnSuccess if a valid nodeID has been returned in 'outRemoteNodeID'. Returns
+			kIOFireWireBusReset if 'checkGeneration' does not match the current bus generation number.*/
+	IOReturn (*GetRemoteNodeID)( IOFireWireLibDeviceRef self, UInt32 checkGeneration, UInt16* outRemoteNodeID ) ;
+
+	/*!	@function GetSpeedToNode
+		@abstract Get maximum transfer speed to device to which this interface is attached.
+		@discussion
+		
+			Availability: IOFireWireDeviceInterface_v4 and newer
+			
+		@param self The device interface to use.
+		@param checkGeneration A bus generation number obtained from GetBusGeneration()
+		@param outSpeed A pointer to an IOFWSpeed to hold the maximum speed to the remote device.
+		@result Returns kIOReturnSuccess if a valid speed has been returned in 'outSpeed'. Returns
+			kIOFireWireBusReset if 'checkGeneration' does not match the current bus generation number.*/
+	IOReturn (*GetSpeedToNode)( IOFireWireLibDeviceRef self, UInt32 checkGeneration, IOFWSpeed* outSpeed) ;
+
+	/*!	@function GetSpeedBetweenNodes
+		@abstract Get maximum transfer speed to device to which this interface is attached.
+		@discussion
+		
+			Availability: IOFireWireDeviceInterface_v4 and newer
+			
+		@param self The device interface to use.
+		@param checkGeneration A bus generation number obtained from GetBusGeneration()
+		@param srcNodeID A FireWire node ID.
+		@param destNodeID A FireWire node ID.
+		@param outSpeed A pointer to an IOFWSpeed to hold the maximum transfer speed between node 'srcNodeID' and 'destNodeID'.
+		@result Returns kIOReturnSuccess if a valid speed has been returned in 'outSpeed'. Returns
+			kIOFireWireBusReset if 'checkGeneration' does not match the current bus generation number.*/
+	IOReturn (*GetSpeedBetweenNodes)( IOFireWireLibDeviceRef self, UInt32 checkGeneration, UInt16 srcNodeID, UInt16 destNodeID,  IOFWSpeed* outSpeed) ;
+
 } IOFireWireDeviceInterface, IOFireWireUnitInterface, IOFireWireNubInterface ;
 
 // ============================================================
@@ -1020,15 +1366,15 @@ typedef struct IOFireWirePseudoAddressSpaceInterface_t
 		@param self The address space interface to use.
 		@param inWriter The callback to set.
 		@result Returns the callback that was previously set or nil for none.*/
-	const IOFireWirePseudoAddressSpaceWriteHandler (*SetWriteHandler)( IOFireWireLibPseudoAddressSpaceRef self, IOFireWirePseudoAddressSpaceWriteHandler	inWriter) ;
+	const IOFireWirePseudoAddressSpaceWriteHandler (*SetWriteHandler)( IOFireWireLibPseudoAddressSpaceRef self, IOFireWirePseudoAddressSpaceWriteHandler inWriter) ;
 
-	/*!	@function SetWriteHandler
+	/*!	@function SetReadHandler
 		@abstract Set the callback that should be called to handle read accesses to
 			the corresponding address space
 		@param self The address space interface to use.
 		@param inReader The callback to set.
 		@result Returns the callback that was previously set or nil for none.*/
-	const IOFireWirePseudoAddressSpaceReadHandler (*SetReadHandler)( IOFireWireLibPseudoAddressSpaceRef self, IOFireWirePseudoAddressSpaceReadHandler		inReader) ;
+	const IOFireWirePseudoAddressSpaceReadHandler (*SetReadHandler)( IOFireWireLibPseudoAddressSpaceRef self, IOFireWirePseudoAddressSpaceReadHandler inReader) ;
 
 	/*!	@function SetSkippedPacketHandler
 		@abstract Set the callback that should be called when incoming packets are
@@ -1216,19 +1562,23 @@ typedef struct IOFireWirePhysicalAddressSpaceInterface_t
 	/*!	@function GetFWAddress
 		@abstract Get the FireWire address of this address space
 		@param self The address space interface to use.	*/
-	void				(*GetFWAddress)(void* self, FWAddress* outAddr) ;
+	void				(*GetFWAddress)(
+								IOFireWireLibPhysicalAddressSpaceRef self, 
+								FWAddress* outAddr) ;
 
 	/*!	@function GetBuffer
 		@abstract Get a pointer to the backing store for this address space
 		@param self The address space interface to use.
 		@result A pointer to the backing store of this address space.*/
-	void*				(*GetBuffer)(void* self) ;
+	void*				(*GetBuffer)(
+								IOFireWireLibPhysicalAddressSpaceRef self) ;
 
 	/*!	@function GetBufferSize
 		@abstract Get the size in bytes of this address space.
 		@param self The address space interface to use.
 		@result Size of the pseudo address space in bytes.	*/
-	const UInt32		(*GetBufferSize)(void* self) ;
+	const UInt32		(*GetBufferSize)(
+								IOFireWireLibPhysicalAddressSpaceRef self) ;
 
 } IOFireWirePhysicalAddressSpaceInterface ;
 
@@ -1945,7 +2295,7 @@ typedef struct IOFireWireCommandInterface_t
 		*/
 		
 	/*!	@function SetFlags
-		@abstract Set flags governing this command objects execution.
+		@abstract Set flags governing this command's execution.
 		@discussion Availability: (for interfaces obtained with ID)
 		<table border="0" rules="all">
 			<tr>
@@ -2060,7 +2410,61 @@ typedef struct IOFireWireCompareSwapCommandInterface_t
 	
 	IOFIREWIRELIBCOMMAND_C_GUTS ;
 
+	/*!	@function SetValues
+		@abstract Set values for 32-bit compare swap operation. Calling this function will
+			make the command object perform 32-bit compare swap transactions on the bus. To perform
+			64-bit compare swap operations, use the SetValues64() call, below.
+		@discussion Available in v2 and newer.
+		@param self The command object interface of interest
+		@param cmpVal The value expected at the address targeted by this command object
+		@param newVal The value to be written at the address targeted by this command object */
 	void	(*SetValues)(IOFireWireLibCompareSwapCommandRef self, UInt32 cmpVal, UInt32 newVal) ;
+	
+	// --- v2 ---
+	
+	/*!	@function SetValues64
+		@abstract Set values for 64-bit compare swap operation. Calling this function will
+			make the command object perform 64-bit compare swap transactions on the bus. To perform
+			32-bit compare swap operations, use the SetValues() call, above.
+		@discussion Available in v2 and newer.
+		@param self The command object interface of interest
+		@param cmpVal The value expected at the address targeted by this command object
+		@param newVal The value to be written at the address targeted by this command object */
+	void	(*SetValues64)(IOFireWireLibCompareSwapCommandRef self, UInt64 cmpVal, UInt64 newVal) ;
+
+	/*!	@function DidLock
+		@abstract Was the last lock operation successful?
+		@discussion Available in v2 and newer.
+		@param self The command object interface of interest
+		@result Returns true if the last lock operation performed by this command object was successful,
+			false otherwise. */
+	Boolean	(*DidLock)(IOFireWireLibCompareSwapCommandRef self) ;
+
+	/*!	@function Locked
+		@abstract Get the 32-bit value returned on the last compare swap operation.
+		@discussion Available in v2 and newer.
+		@param self The command object interface of interest
+		@param oldValue A pointer to contain the value returned by the target of this command
+			on the last compare swap operation
+		@result Returns kIOReturnBadArgument if the last compare swap operation performed was 64-bit. */
+	IOReturn (*Locked)(IOFireWireLibCompareSwapCommandRef self, UInt32* oldValue) ;
+
+	/*!	@function Locked64
+		@abstract Get the 64-bit value returned on the last compare swap operation.
+		@discussion Available in v2 and newer.
+		@param self The command object interface of interest
+		@param oldValue A pointer to contain the value returned by the target of this command
+			on the last compare swap operation
+		@result Returns kIOReturnBadArgument if the last compare swap performed was 32-bit. */
+	IOReturn (*Locked64)(IOFireWireLibCompareSwapCommandRef self, UInt64* oldValue) ;
+
+	/*!	@function SetFlags
+		@abstract Set flags governing this command's execution.
+		@discussion Available in v2 and newer. Same as SetFlags() above.
+		@param self The command object interface of interest.
+		@param inFlags A UInt32 with bits set corresponding to the flags that should be set. */
+	void (*SetFlags)(IOFireWireLibCompareSwapCommandRef self, UInt32 inFlags) ;
+	
 } IOFireWireCompareSwapCommandInterface ;
 
 //

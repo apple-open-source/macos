@@ -47,6 +47,7 @@
 #include <kern/thread.h>
 #include <net/dlil.h>
 #include <sys/systm.h>
+#include <netinet/in.h>
 
 #include "ppp_defs.h"		// public ppp values
 #include "if_ppp.h"		// public ppp API
@@ -56,6 +57,8 @@
 #include "ppp_if.h"
 #include "ppp_link.h"
 #include "ppp_fam.h"
+#include "ppp_comp.h"
+#include "ppp_compress.h"
 
 #include "ppp_serial.h"
 #include "ppp_ip.h"
@@ -132,6 +135,7 @@ int ppp_init(int init_arg)
     /* now init the if and link structures */
     ppp_if_init();
     ppp_link_init();
+    ppp_comp_init();
 
     /* init ip protocol */
     ppp_ip_init(0);
@@ -170,6 +174,8 @@ int ppp_terminate(int term_arg)
     LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: ppp_if_dispose error = 0x%x\n");
     ret = ppp_link_dispose();
     LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: ppp_link_dispose error = 0x%x\n");
+    ret = ppp_comp_dispose();
+    LOGRETURN(ret, KERN_FAILURE, "ppp_terminate: ppp_comp_dispose error = 0x%x\n");
 
     /* remove the pppdomain */
     ret = ppp_domain_dispose();

@@ -17,7 +17,8 @@
    should issue an ERROR result.. */
 
 #ifdef __linux__
-#define  _MIT_POSIX_THREADS 1	/* Linux (or at least RedHat 4.0) needs this */
+#define  _MIT_POSIX_THREADS 1	/* GNU/Linux (or at least RedHat 4.0)
+                                   needs this */
 #endif
 
 #include <pthread.h>
@@ -79,6 +80,7 @@ thread1 (void *arg)
       common_routine (1);
       sleep(1);
     }
+  return (void *) 0;
 }
 
 static void *
@@ -96,9 +98,10 @@ thread2 (void * arg)
       sleep(1);
     }
   sleep(100);
+  return (void *) 0;
 }
 
-int
+void
 foo (a, b, c)
      int a, b, c;
 {

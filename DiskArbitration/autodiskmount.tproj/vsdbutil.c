@@ -1158,9 +1158,17 @@ kern_return_t DiskArbVSDBAdoptVolume_rpc(
     
     dwarning(("Adopting volume %s\n", diskPtr->mountpoint));
 
-
     // get the volume path and "adopt it"
-    AdoptVolume(diskPtr->mountpoint);
+    if ( AdoptVolume(diskPtr->mountpoint) == 0) {
+        if (clientPtr) {
+            SendCallSucceededMessage(clientPtr, diskPtr, kDiskArbVSDBAdoptRequestSucceeded);
+        }
+
+    } else {
+        if (clientPtr) {
+            SendCallFailedMessage(clientPtr, diskPtr, kDiskArbVSDBAdoptRequestFailed, kDiskArbVSDBCannotAdopt);
+        }
+    }
 
     return 0;
 }
@@ -1190,7 +1198,17 @@ kern_return_t DiskArbVSDBDisownVolume_rpc(
     dwarning(("Disowning volume %s\n", diskPtr->mountpoint));
 
     // get the volume path and "disown it"
-    DisownVolume(diskPtr->mountpoint);
+
+    if ( DisownVolume(diskPtr->mountpoint) == 0) {
+        if (clientPtr) {
+            SendCallSucceededMessage(clientPtr, diskPtr, kDiskArbVSDBDisownRequestSucceeded);
+        }
+        
+    } else {
+        if (clientPtr) {
+            SendCallFailedMessage(clientPtr, diskPtr, kDiskArbVSDBDisownRequestFailed, kDiskArbVSDBCannotDisown);
+        }
+    }
 
     return 0;
 }

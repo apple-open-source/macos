@@ -1,0 +1,28 @@
+#! /bin/sh
+
+# Test for bug with conditional library.
+# From Harlan Stenn
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_RANLIB
+AM_MAINTAINER_MODE
+AC_EXEEXT
+AC_PROG_CC
+END
+
+cat > Makefile.am << 'END'
+noinst_LIBRARIES = @LIBRSAREF@
+EXTRA_LIBRARIES = librsaref.a
+
+nodist_librsaref_a_SOURCES = desc.c digit.c
+
+BUILT_SOURCES = $(nodist_librsaref_a_SOURCES)
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+fgrep librsaref.a.c Makefile.in && exit 1
+exit 0

@@ -1,0 +1,26 @@
+#! /bin/sh
+
+# Test for PR 72
+required=libtool
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_LIBTOOL
+END
+
+cat > Makefile.am << 'END'
+lib_LTLIBRARIES = libviewer.la
+libviewer_la_SOURCES =
+libviewer_la_LIBADD = libphony.la
+END
+
+: > ltconfig
+: > ltmain.sh
+: > config.guess
+: > config.sub
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^LINK ' Makefile.in

@@ -1,9 +1,9 @@
-;;; mh-seq --- mh-e sequences support
-;; Time-stamp: <95/08/19 16:45:15 gildea>
+;;; mh-seq.el --- mh-e sequences support
+;; Time-stamp: <2001-07-14 13:10:33 pavel>
 
 ;; Copyright (C) 1993, 1995 Free Software Foundation, Inc.
 
-;; This file is part of mh-e, part of GNU Emacs.
+;; This file is part of GNU Emacs.
 
 ;; GNU Emacs is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@
 
 ;;; Change Log:
 
-;; $Id: mh-seq.el,v 1.1.1.2 2000/06/30 17:52:41 wsanchez Exp $
+;; $Id: mh-seq.el,v 1.1.1.3 2001/10/31 17:57:16 jevans Exp $
 
 ;;; Code:
 
@@ -235,3 +235,4 @@ If optional prefix argument provided, then prompt for the message sequence."
       (goto-char location)
       (insert-buffer-substring (current-buffer) beginning-of-line end))))
 
+;;; mh-seq.el ends here

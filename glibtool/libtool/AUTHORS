@@ -1,0 +1,10 @@
+Authors of GNU Libtool.  The following people contributed enough in
+order to warrant exchanging legal papers with the Free Software
+Foundation.
+
+Gordon Matzigkeit.  Designed and implemented libtool.
+Alexandre Oliva <oliva@dcc.unicamp.br>.  Co-maintainer.
+Thomas Tanner <tanner@ffii.org>.  Co-maintainer.
+Gary V. Vaughan <gvv@techie.com>.  Co-maintainer.
+Ossama Othman <ossama@debian.org>.  Co-maintainer.
+Robert Boehne <rboehne@ricardo-us.com>.  Co-maintainer.

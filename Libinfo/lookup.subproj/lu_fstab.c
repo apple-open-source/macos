@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,212 +33,348 @@
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 #include <fstab.h>
+#include <pthread.h>
 
 #include "lookup.h"
 #include "_lu_types.h"
 #include "lu_utils.h"
 #include "lu_overrides.h"
 
-static struct fstab global_fs;
-static int global_free = 1;
-static char *fs_data = NULL;
-static unsigned fs_datalen = 0;
-static int fs_nentries = 0;
-static int fs_start = 1;
-static XDR fs_xdr = { 0 };
+static pthread_mutex_t _fstab_lock = PTHREAD_MUTEX_INITIALIZER;
+
+#define FS_GET_SPEC 1
+#define FS_GET_FILE 2
+#define FS_GET_ENT 3
 
 static void
-freeold(void)
+free_fstab_data(struct fstab *f)
 {
-	if (global_free == 1) return;
+	if (f == NULL) return;
 
-	free(global_fs.fs_spec);
-	free(global_fs.fs_file);
-	free(global_fs.fs_type);
-	free(global_fs.fs_vfstype);
-	free(global_fs.fs_mntops);
-
-	global_free = 1;
+	if (f->fs_spec != NULL) free(f->fs_spec);
+	if (f->fs_file != NULL) free(f->fs_file);
+	if (f->fs_vfstype != NULL) free(f->fs_vfstype);
+	if (f->fs_mntops != NULL) free(f->fs_mntops);
+	if (f->fs_type != NULL) free(f->fs_type);
 }
 
 static void
-convert_fs(_lu_fsent *lu_fs)
+free_fstab(struct fstab *f)
 {
-	freeold();
+	if (f == NULL) return;
+	free_fstab_data(f);
+	free(f);
+}
 
-	global_fs.fs_spec = strdup(lu_fs->fs_spec);
-	global_fs.fs_file = strdup(lu_fs->fs_file);
+static void
+free_lu_thread_info_fstab(void *x)
+{
+	struct lu_thread_info *tdata;
 
-	/*
-	 * Special case - if vfstype is unknown and spec is
-	 * of the form foo:bar, then assume nfs.
-	 */
-	if (lu_fs->fs_vfstype[0] == '\0')
+	if (x == NULL) return;
+
+	tdata = (struct lu_thread_info *)x;
+	
+	if (tdata->lu_entry != NULL)
 	{
-		if (strchr(lu_fs->fs_spec, ':') != NULL)
-		{
-			global_fs.fs_vfstype = malloc(4);
-			strcpy(global_fs.fs_vfstype, "nfs");
-		}
-		else global_fs.fs_vfstype = strdup(lu_fs->fs_vfstype);
-	}
-	else
-	{
-		global_fs.fs_vfstype = strdup(lu_fs->fs_vfstype);
+		free_fstab((struct fstab *)tdata->lu_entry);
+		tdata->lu_entry = NULL;
 	}
 
-	global_fs.fs_mntops = strdup(lu_fs->fs_mntops);
-	global_fs.fs_type = strdup(lu_fs->fs_type);
-	global_fs.fs_freq = lu_fs->fs_freq;
-	global_fs.fs_passno = lu_fs->fs_passno;
+	_lu_data_free_vm_xdr(tdata);
 
-	global_free = 0;
+	free(tdata);
 }
 
 static struct fstab *
-lu_getfsbyname(const char *name)
+extract_fstab(XDR *xdr)
 {
+	int i, j, nkeys, nvals, status;
+	char *key, **vals;
+	struct fstab *f;
+
+	if (xdr == NULL) return NULL;
+
+	if (!xdr_int(xdr, &nkeys)) return NULL;
+
+	f = (struct fstab *)calloc(1, sizeof(struct fstab));
+
+	for (i = 0; i < nkeys; i++)
+	{
+		key = NULL;
+		vals = NULL;
+		nvals = 0;
+
+		status = _lu_xdr_attribute(xdr, &key, &vals, &nvals);
+		if (status < 0)
+		{
+			free_fstab(f);
+			return NULL;
+		}
+
+		if (nvals == 0)
+		{
+			free(key);
+			continue;
+		}
+
+		j = 0;
+
+		if ((f->fs_spec == NULL) && (!strcmp("name", key)))
+		{
+			f->fs_spec = vals[0];
+			j = 1;
+		}
+		else if ((f->fs_file == NULL) && (!strcmp("dir", key)))
+		{
+			f->fs_file = vals[0];
+			j = 1;
+		}
+		else if ((f->fs_vfstype == NULL) && (!strcmp("vfstype", key)))
+		{
+			f->fs_vfstype = vals[0];
+			j = 1;
+		}
+		else if ((f->fs_mntops == NULL) && (!strcmp("opts", key)))
+		{
+			f->fs_mntops = vals[0];
+			j = 1;
+		}
+		else if ((f->fs_type == NULL) && (!strcmp("type", key)))
+		{
+			f->fs_type = vals[0];
+			j = 1;
+		}
+		else if (!strcmp("freq", key))
+		{
+			f->fs_freq = atoi(vals[0]);
+		}
+		else if (!strcmp("passno", key))
+		{
+			f->fs_passno = atoi(vals[0]);
+		}
+
+		free(key);
+		if (vals != NULL)
+		{
+			for (; j < nvals; j++) free(vals[j]);
+			free(vals);
+		}
+	}
+
+	if (f->fs_spec == NULL) f->fs_spec = strdup("");
+	if (f->fs_file == NULL) f->fs_file = strdup("");
+	if (f->fs_vfstype == NULL) f->fs_vfstype = strdup("");
+	if (f->fs_mntops == NULL) f->fs_mntops = strdup("");
+	if (f->fs_type == NULL) f->fs_type = strdup("");
+
+	return f;
+}
+
+static struct fstab *
+copy_fstab(struct fstab *in)
+{
+	struct fstab *f;
+
+	if (in == NULL) return NULL;
+
+	f = (struct fstab *)calloc(1, sizeof(struct fstab));
+
+	f->fs_spec = LU_COPY_STRING(in->fs_spec);
+	f->fs_file = LU_COPY_STRING(in->fs_file);
+	f->fs_vfstype = LU_COPY_STRING(in->fs_vfstype);
+	f->fs_mntops = LU_COPY_STRING(in->fs_mntops);
+	f->fs_type = LU_COPY_STRING(in->fs_type);
+
+	f->fs_freq = in->fs_freq;
+	f->fs_passno = in->fs_passno;
+
+	return f;
+}
+
+static void
+recycle_fstab(struct lu_thread_info *tdata, struct fstab *in)
+{
+	struct fstab *f;
+
+	if (tdata == NULL) return;
+	f = (struct fstab *)tdata->lu_entry;
+
+	if (in == NULL)
+	{
+		free_fstab(f);
+		tdata->lu_entry = NULL;
+	}
+
+	if (tdata->lu_entry == NULL)
+	{
+		tdata->lu_entry = in;
+		return;
+	}
+
+	free_fstab_data(f);
+
+	f->fs_spec = in->fs_spec;
+	f->fs_file = in->fs_file;
+	f->fs_vfstype = in->fs_vfstype;
+	f->fs_mntops = in->fs_mntops;
+	f->fs_type = in->fs_type;
+	f->fs_freq = in->fs_freq;
+	f->fs_passno = in->fs_passno;
+
+	free(in);
+}
+
+static struct fstab *
+lu_getfsspec(const char *name)
+{
+	struct fstab *f;
 	unsigned datalen;
 	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
 	XDR outxdr;
 	XDR inxdr;
-	_lu_fsent_ptr lu_fs;
 	static int proc = -1;
-	unit lookup_buf[MAX_INLINE_UNITS];
+	char *lookup_buf;
+	int count;
 
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "getfsbyname", &proc) != KERN_SUCCESS)
 		{
-			return (NULL);
+			return NULL;
 		}
 	}
 
 	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, &name))
+	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, (unit *)namebuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, lookup_buf, &datalen)
+	datalen = 0;
+	lookup_buf = NULL;
+
+	if (_lookup_all(_lu_port, proc, (unit *)namebuf, xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen)
 		!= KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 
 	xdr_destroy(&outxdr);
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&inxdr, lookup_buf, datalen,
-		XDR_DECODE);
-	lu_fs = NULL;
-	if (!xdr__lu_fsent_ptr(&inxdr, &lu_fs) || (lu_fs == NULL))
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	count = 0;
+	if (!xdr_int(&inxdr, &count))
 	{
 		xdr_destroy(&inxdr);
-		return (NULL);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
 	}
 
-	xdr_destroy(&inxdr);
+	if (count == 0)
+	{
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
+	}
 
-	convert_fs(lu_fs);
-	xdr_free(xdr__lu_fsent_ptr, &lu_fs);
-	return (&global_fs);
+	f = extract_fstab(&inxdr);
+	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
+	return f;
 }
 
 static void
 lu_endfsent(void)
 {
-	fs_nentries = 0;
-	if (fs_data != NULL)
-	{
-		freeold();
-		vm_deallocate(mach_task_self(), (vm_address_t)fs_data, fs_datalen);
-		fs_data = NULL;
-	}
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_fstab, free_lu_thread_info_fstab);
+	_lu_data_free_vm_xdr(tdata);
 }
 
 static int
 lu_setfsent(void)
 {
 	lu_endfsent();
-	fs_start = 1;
-	return (1);
+	return 1;
 }
 
 static struct fstab *
 lu_getfsent()
 {
 	static int proc = -1;
-	_lu_fsent lu_fs;
+	struct lu_thread_info *tdata;
+	struct fstab *f;
 
-	if (fs_start == 1)
+	tdata = _lu_data_create_key(_lu_data_key_fstab, free_lu_thread_info_fstab);
+	if (tdata == NULL)
 	{
-		fs_start = 0;
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_fstab, tdata);
+	}
 
+	if (tdata->lu_vm == NULL)
+	{
 		if (proc < 0)
 		{
-			if (_lookup_link(_lu_port, "getfsent", &proc) !=
-				KERN_SUCCESS)
+			if (_lookup_link(_lu_port, "getfsent", &proc) != KERN_SUCCESS)
 			{
 				lu_endfsent();
-				return (NULL);
+				return NULL;
 			}
 		}
 
-		if (_lookup_all(_lu_port, proc, NULL, 0, &fs_data, &fs_datalen)
-			!= KERN_SUCCESS)
+		if (_lookup_all(_lu_port, proc, NULL, 0, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
 		{
 			lu_endfsent();
-			return (NULL);
+			return NULL;
 		}
 
-#ifdef NOTDEF
-/* NOTDEF because OOL buffers are counted in bytes with untyped IPC */
-		fs_datalen *= BYTES_PER_XDR_UNIT;
-#endif
-		xdrmem_create(&fs_xdr, fs_data,
-			fs_datalen, XDR_DECODE);
-		if (!xdr_int(&fs_xdr, &fs_nentries))
+		/* mig stubs measure size in words (4 bytes) */
+		tdata->lu_vm_length *= 4;
+
+		if (tdata->lu_xdr != NULL)
 		{
-			xdr_destroy(&fs_xdr);
+			xdr_destroy(tdata->lu_xdr);
+			free(tdata->lu_xdr);
+		}
+		tdata->lu_xdr = (XDR *)calloc(1, sizeof(XDR));
+
+		xdrmem_create(tdata->lu_xdr, tdata->lu_vm, tdata->lu_vm_length, XDR_DECODE);
+		if (!xdr_int(tdata->lu_xdr, &tdata->lu_vm_cursor))
+		{
 			lu_endfsent();
-			return (NULL);
+			return NULL;
 		}
 	}
 
-	if (fs_nentries == 0)
+	if (tdata->lu_vm_cursor == 0)
 	{
-		xdr_destroy(&fs_xdr);
 		lu_endfsent();
-		return (NULL);
+		return NULL;
 	}
 
-	bzero(&lu_fs, sizeof(lu_fs));
-	if (!xdr__lu_fsent(&fs_xdr, &lu_fs))
+	f = extract_fstab(tdata->lu_xdr);
+	if (f == NULL)
 	{
-		xdr_destroy(&fs_xdr);
 		lu_endfsent();
-		return (NULL);
+		return NULL;
 	}
 
-	fs_nentries--;
-	convert_fs(&lu_fs);
-	xdr_free(xdr__lu_fsent, &lu_fs);
-	return (&global_fs);
+	tdata->lu_vm_cursor--;
+	
+	return f;
 }
 
-struct fstab *
-lu_getfsspec(const char *name)
-{
-	if (name == NULL) return (struct fstab *)NULL;
-	return lu_getfsbyname(name);
-}
-
-struct fstab *
+static struct fstab *
 lu_getfsfile(const char *name)
 {
 	struct fstab *fs;
@@ -253,18 +389,81 @@ lu_getfsfile(const char *name)
 	return (struct fstab *)NULL;
 }
 
+static struct fstab *
+getfs(const char *spec, const char *file, int source)
+{
+	struct fstab *res = NULL;
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_fstab, free_lu_thread_info_fstab);
+	if (tdata == NULL)
+	{
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_fstab, tdata);
+	}
+
+	if (_lu_running())
+	{
+		switch (source)
+		{
+			case FS_GET_SPEC:
+				res = lu_getfsspec(spec);
+				break;
+			case FS_GET_FILE:
+				res = lu_getfsfile(file);
+				break;
+			case FS_GET_ENT:
+				res = lu_getfsent();
+				break;
+			default: res = NULL;
+		}
+	}
+	else
+	{
+		pthread_mutex_lock(&_fstab_lock);
+		switch (source)
+		{
+			case FS_GET_SPEC:
+				res = copy_fstab(_old_getfsspec(spec));
+				break;
+			case FS_GET_FILE:
+				res = copy_fstab(_old_getfsfile(file));
+				break;
+			case FS_GET_ENT:
+				res = copy_fstab(_old_getfsent());
+				break;
+			default: res = NULL;
+		}
+		pthread_mutex_unlock(&_fstab_lock);
+	}
+
+	recycle_fstab(tdata, res);
+	return (struct fstab *)tdata->lu_entry;
+}
+
+
 struct fstab *
 getfsbyname(const char *name)
 {
-	if (_lu_running()) return (lu_getfsbyname(name));
-	return (NULL);
+	return getfs(name, NULL, FS_GET_SPEC);
+}
+
+struct fstab *
+getfsspec(const char *name)
+{
+	return getfs(name, NULL, FS_GET_SPEC);
+}
+
+struct fstab *
+getfsfile(const char *name)
+{
+	return getfs(NULL, name, FS_GET_FILE);
 }
 
 struct fstab *
 getfsent(void)
 {
-	if (_lu_running()) return (lu_getfsent());
-	return (_old_getfsent());
+	return getfs(NULL, NULL, FS_GET_ENT);
 }
 
 int
@@ -281,16 +480,3 @@ endfsent(void)
 	else _old_endfsent();
 }
 
-struct fstab *
-getfsspec(const char *name)
-{
-	if (_lu_running()) return (lu_getfsspec(name));
-	return (_old_getfsspec(name));
-}
-
-struct fstab *
-getfsfile(const char *name)
-{
-	if (_lu_running()) return (lu_getfsfile(name));
-	return (_old_getfsfile(name));
-}

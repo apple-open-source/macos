@@ -129,3 +129,22 @@ void IOFireWireUnit::handleClose(   IOService *	  forClient,
     fDevice->close(this, options);
 }
 
+void IOFireWireUnit::setNodeFlags( UInt32 flags )
+{
+	if( fDevice )
+		fDevice->setNodeFlags( flags );
+}
+
+void IOFireWireUnit::clearNodeFlags( UInt32 flags )
+{
+	if( fDevice )
+		fDevice->clearNodeFlags( flags );
+}
+
+UInt32 IOFireWireUnit::getNodeFlags( void )
+{
+	if( fDevice )
+		return fDevice->getNodeFlags();
+	else
+		return 0;
+}

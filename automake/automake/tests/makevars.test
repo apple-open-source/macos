@@ -1,0 +1,19 @@
+#! /bin/sh
+
+# Test to make sure that automake includes the needed variables,
+# but not too many.
+
+. $srcdir/defs || exit 1
+
+# Find the macros wanted by Automake.
+$ACLOCAL || exit 1
+
+# Create some dummy Makefile.in.
+: > Makefile.am
+
+$AUTOMAKE || exit 1
+
+# We are definitely not needing a compiler or preprocessor.
+egrep '^(CC|CPP|CXX|CXXCPP) =' Makefile.in && exit 1
+
+exit 0

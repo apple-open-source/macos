@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = bpwhoami.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble bpwhoami.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

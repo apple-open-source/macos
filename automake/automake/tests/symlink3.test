@@ -1,0 +1,19 @@
+#! /bin/sh
+
+# Test to make sure that `automake --force-missing' works.
+
+. $srcdir/defs || exit 1
+
+rm -f install-sh
+rm -f mkinstalldirs
+
+echo zot > zot
+echo zot > mkinstalldirs
+
+: > Makefile.am
+
+$ACLOCAL || exit 1
+$AUTOMAKE --add-missing --force-missing || exit 1
+
+grep zot mkinstalldirs && exit 1
+exit 0

@@ -70,7 +70,7 @@ static void builtin_echo();
 static void builtin_exit();
 static void builtin_flags();
 
-int glob();
+int jam_glob();
 
 
 
@@ -772,7 +772,7 @@ LOL		*args;
 
 	for( parse = parse->left; parse; parse = parse->right )
 	{
-	    if( !glob( parse->left->string, nt ? nt->string : "" ) )
+	    if( !jam_glob( parse->left->string, nt ? nt->string : "" ) )
 	    {
 		/* Get & exec parse tree for this case */
 		parse = parse->left->left;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,6 +70,8 @@ struct IOFWCmdQ
 /*
  * Base class for FireWire commands
  */
+/*! @class IOFWCommand
+*/
 class IOFWCommand : public IOCommand
 {
     OSDeclareAbstractStructors(IOFWCommand)
@@ -168,6 +170,8 @@ private:
 /*
  * Bus control commands
  */
+/*! @class IOFWBusCommand
+*/
 class IOFWBusCommand : public IOFWCommand
 {
     OSDeclareAbstractStructors(IOFWBusCommand)
@@ -201,6 +205,8 @@ private:
  * All it does is timeout after the specified delay, hence calling the completion
  * callback.
  */
+/*! @class IOFWDelayCommand
+*/
 class IOFWDelayCommand : public IOFWBusCommand
 {
     OSDeclareDefaultStructors(IOFWDelayCommand)
@@ -232,13 +238,17 @@ private:
  */
 class IOFWUserReadQuadletCommand ;
 class IOFWUserWriteCommand ;
+
+/*! @class IOFWAsyncCommand
+*/
 class IOFWAsyncCommand : public IOFWCommand
 {
 	// temporary for debugging:
-	friend class IOFWUserReadQuadletCommand ;
-	friend class IOFWUserWriteCommand ;
+//	friend class IOFWUserReadQuadletCommand ;
+//	friend class IOFWUserWriteCommand ;
+	friend class IOFireWireUserClient ;
 
-    OSDeclareAbstractStructors(IOFWAsyncCommand)
+	OSDeclareAbstractStructors(IOFWAsyncCommand)
 
 protected:
     IOFireWireNub *	fDevice;
@@ -489,6 +499,8 @@ private:
  * May need more parameters for some of these,
  * and/or derive from a base Lock transaction command
  */
+/*! @class IOFWCompareAndSwapCommand
+*/
 class IOFWCompareAndSwapCommand : public IOFWAsyncCommand
 {
     OSDeclareDefaultStructors(IOFWCompareAndSwapCommand)

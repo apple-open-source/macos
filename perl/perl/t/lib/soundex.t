@@ -1,10 +1,13 @@
 #!./perl
 #
-# $Id: soundex.t,v 1.1.1.2 2000/03/31 05:12:37 wsanchez Exp $
+# $Id: soundex.t,v 1.3 2002/03/14 09:02:28 zarzycki Exp $
 #
 # test module for soundex.pl
 #
 # $Log: soundex.t,v $
+# Revision 1.3  2002/03/14 09:02:28  zarzycki
+# Revert HEAD back to perl-17
+#
 # Revision 1.1.1.2  2000/03/31 05:12:37  wsanchez
 # Import of perl 5.6.0
 #

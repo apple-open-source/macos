@@ -1,5 +1,5 @@
 /* Process support for GNU Emacs on the Microsoft W32 API.
-   Copyright (C) 1992, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1995, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -38,6 +38,10 @@ Boston, MA 02111-1307, USA.
 #undef kill
 
 #include <windows.h>
+#ifdef __GNUC__
+/* This definition is missing from mingw32 headers. */
+extern BOOL WINAPI IsValidLocale(LCID, DWORD);
+#endif
 
 #include "lisp.h"
 #include "w32.h"
@@ -45,6 +49,7 @@ Boston, MA 02111-1307, USA.
 #include "systime.h"
 #include "syswait.h"
 #include "process.h"
+#include "syssignal.h"
 #include "w32term.h"
 
 /* Control whether spawnve quotes arguments as necessary to ensure
@@ -90,10 +95,6 @@ Lisp_Object Vw32_generate_fake_inodes;
 Lisp_Object Vw32_get_true_file_attributes;
 
 Lisp_Object Qhigh, Qlow;
-
-#ifndef SYS_SIGLIST_DECLARED
-extern char *sys_siglist[];
-#endif
 
 #ifdef EMACSDEBUG
 void _DebPrint (const char *fmt, ...)
@@ -308,7 +309,9 @@ create_child (char *exe, char *cmdline, char *env, int is_gui_app,
 {
   STARTUPINFO start;
   SECURITY_ATTRIBUTES sec_attrs;
+#if 0
   SECURITY_DESCRIPTOR sec_desc;
+#endif
   DWORD flags;
   char dir[ MAXPATHLEN ];
   
@@ -329,13 +332,15 @@ create_child (char *exe, char *cmdline, char *env, int is_gui_app,
   start.hStdError = GetStdHandle (STD_ERROR_HANDLE);
 #endif /* HAVE_NTGUI */
 
+#if 0
   /* Explicitly specify no security */
   if (!InitializeSecurityDescriptor (&sec_desc, SECURITY_DESCRIPTOR_REVISION))
     goto EH_Fail;
   if (!SetSecurityDescriptorDacl (&sec_desc, TRUE, NULL, FALSE))
     goto EH_Fail;
+#endif
   sec_attrs.nLength = sizeof (sec_attrs);
-  sec_attrs.lpSecurityDescriptor = &sec_desc;
+  sec_attrs.lpSecurityDescriptor = NULL /* &sec_desc */;
   sec_attrs.bInheritHandle = FALSE;
   
   strcpy (dir, process_dir);
@@ -546,13 +551,11 @@ get_result:
       else if (WIFSIGNALED (retval))
 	{
 	  int code = WTERMSIG (retval);
-	  char *signame = 0;
-	  
-	  if (code < NSIG)
-	    {
-	      /* Suppress warning if the table has const char *.  */
-	      signame = (char *) sys_siglist[code];
-	    }
+	  char *signame;
+
+	  synchronize_system_messages_locale ();
+	  signame = strsignal (code);
+
 	  if (signame == 0)
 	    signame = "unknown";
 
@@ -662,15 +665,17 @@ unwind:
 }
 
 int
-compare_env (const char **strp1, const char **strp2)
+compare_env (const void *strp1, const void *strp2)
 {
-  const char *str1 = *strp1, *str2 = *strp2;
+  const char *str1 = *(const char **)strp1, *str2 = *(const char **)strp2;
 
   while (*str1 && *str2 && *str1 != '=' && *str2 != '=')
     {
-      if (tolower (*str1) > tolower (*str2))
+      /* Sort order in command.com/cmd.exe is based on uppercasing
+         names, so do the same here.  */
+      if (toupper (*str1) > toupper (*str2))
 	return 1;
-      else if (tolower (*str1) < tolower (*str2))
+      else if (toupper (*str1) < toupper (*str2))
 	return -1;
       str1++, str2++;
     }
@@ -722,6 +727,7 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
      variable in their environment.  */
   char ppid_env_var_buffer[64];
   char *extra_env[] = {ppid_env_var_buffer, NULL};
+  char *sepchars = " \t";
 
   /* We don't care about the other modes */
   if (mode != _P_NOWAIT)
@@ -820,6 +826,10 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
 	escape_char = is_cygnus_app ? '"' : '\\';
     }
   
+  /* Cygwin apps needs quoting a bit more often */ 
+  if (escape_char == '"')
+    sepchars = "\r\n\t\f '";
+
   /* do argv...  */
   arglen = 0;
   targ = argv;
@@ -833,7 +843,10 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
 	need_quotes = 1;
       for ( ; *p; p++)
 	{
-	  if (*p == '"')
+	  if (escape_char == '"' && *p == '\\')
+	    /* If it's a Cygwin app, \ needs to be escaped.  */
+	    arglen++;
+	  else if (*p == '"')
 	    {
 	      /* allow for embedded quotes to be escaped */
 	      arglen++;
@@ -847,7 +860,7 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
 		  arglen += escape_char_run;
 		}
 	    }
-	  else if (*p == ' ' || *p == '\t')
+	  else if (strchr (sepchars, *p) != NULL)
 	    {
 	      need_quotes = 1;
 	    }
@@ -881,7 +894,7 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
       if (do_quoting)
 	{
 	  for ( ; *p; p++)
-	    if (*p == ' ' || *p == '\t' || *p == '"')
+	    if ((strchr (sepchars, *p) != NULL) || *p == '"')
 	      need_quotes = 1;
 	}
       if (need_quotes)
@@ -921,6 +934,8 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
 		  /* escape all quote chars, even at beginning or end */
 		  *parg++ = escape_char;
 		}
+	      else if (escape_char == '"' && *p == '\\')
+		*parg++ = '\\';
 	      *parg++ = *p;
 
 	      if (*p == escape_char && escape_char != '"')
@@ -1317,8 +1332,9 @@ count_children:
 /* Substitute for certain kill () operations */
 
 static BOOL CALLBACK
-find_child_console (HWND hwnd, child_process * cp)
+find_child_console (HWND hwnd, LPARAM arg)
 {
+  child_process * cp = (child_process *) arg;
   DWORD thread_id;
   DWORD process_id;
 
@@ -2078,11 +2094,11 @@ If successful, the new layout id is returned, otherwise nil.")
   DWORD kl;
 
   CHECK_CONS (layout, 0);
-  CHECK_NUMBER (XCONS (layout)->car, 0);
-  CHECK_NUMBER (XCONS (layout)->cdr, 0);
+  CHECK_NUMBER (XCAR (layout), 0);
+  CHECK_NUMBER (XCDR (layout), 0);
 
-  kl = (XINT (XCONS (layout)->car) & 0xffff)
-    | (XINT (XCONS (layout)->cdr) << 16);
+  kl = (XINT (XCAR (layout)) & 0xffff)
+    | (XINT (XCDR (layout)) << 16);
 
   /* Synchronize layout with input thread.  */
   if (dwWindowsThreadId)
@@ -2182,7 +2198,10 @@ process temporarily).  A value of zero disables waiting entirely.");
 
   DEFVAR_LISP ("w32-downcase-file-names", &Vw32_downcase_file_names,
     "Non-nil means convert all-upper case file names to lower case.\n\
-This applies when performing completions and file name expansion.");
+This applies when performing completions and file name expansion.\n\
+Note that the value of this setting also affects remote file names,\n\
+so you probably don't want to set to non-nil if you use case-sensitive\n\
+filesystems via ange-ftp."); 
   Vw32_downcase_file_names = Qnil;
 
 #if 0

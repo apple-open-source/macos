@@ -301,7 +301,7 @@ authors
 
 =back
 
-=head2 perlfaq1 - General Questions About Perl ($Revision: 1.1.1.4 $, $Date:
+=head2 perlfaq1 - General Questions About Perl ($Revision: 1.2 $, $Date:
 1999/05/23 16:08:30 $)
 
 =over
@@ -348,8 +348,8 @@ Scheme, or Tcl?
 
 =back
 
-=head2 perlfaq2 - Obtaining and Learning about Perl ($Revision: 1.1.1.4 $,
-$Date: 2000/03/31 05:12:22 $)
+=head2 perlfaq2 - Obtaining and Learning about Perl ($Revision: 1.2 $,
+$Date: 2002/03/14 09:01:49 $)
 
 =over
 
@@ -404,7 +404,7 @@ References, Tutorials, Task-Oriented, Special Topics
 
 =back
 
-=head2 perlfaq3 - Programming Tools ($Revision: 1.1.1.4 $, $Date: 1999/05/23
+=head2 perlfaq3 - Programming Tools ($Revision: 1.2 $, $Date: 1999/05/23
 16:08:30 $)
 
 =over
@@ -485,7 +485,7 @@ mean?
 
 =back
 
-=head2 perlfaq4 - Data Manipulation ($Revision: 1.1.1.4 $, $Date: 1999/05/23
+=head2 perlfaq4 - Data Manipulation ($Revision: 1.2 $, $Date: 1999/05/23
 20:37:49 $)
 
 =over
@@ -698,7 +698,7 @@ array of hashes or arrays?
 
 =back
 
-=head2 perlfaq5 - Files and Formats ($Revision: 1.1.1.4 $, $Date: 1999/05/23
+=head2 perlfaq5 - Files and Formats ($Revision: 1.2 $, $Date: 1999/05/23
 16:08:30 $)
 
 =over
@@ -788,7 +788,7 @@ protected files?  Isn't this a bug in Perl?
 
 =back
 
-=head2 perlfaq6 - Regexes ($Revision: 1.1.1.4 $, $Date: 2000/03/31 05:12:22 $)
+=head2 perlfaq6 - Regexes ($Revision: 1.2 $, $Date: 2002/03/14 09:01:49 $)
 
 =over
 
@@ -854,7 +854,7 @@ file?
 
 =back
 
-=head2 perlfaq7 - Perl Language Issues ($Revision: 1.1.1.4 $, $Date:
+=head2 perlfaq7 - Perl Language Issues ($Revision: 1.2 $, $Date:
 1999/05/23 20:36:18 $)
 
 =over
@@ -933,7 +933,7 @@ is in scope?
 
 =back
 
-=head2 perlfaq8 - System Interaction ($Revision: 1.1.1.4 $, $Date: 1999/05/23
+=head2 perlfaq8 - System Interaction ($Revision: 1.2 $, $Date: 1999/05/23
 18:37:57 $)
 
 =over
@@ -1063,7 +1063,7 @@ search path?
 
 =back
 
-=head2 perlfaq9 - Networking ($Revision: 1.1.1.4 $, $Date: 1999/05/23 16:08:30
+=head2 perlfaq9 - Networking ($Revision: 1.2 $, $Date: 1999/05/23 16:08:30
 $)
 
 =over

@@ -29,6 +29,8 @@
 #ifndef _IOMEDIA_H
 #define _IOMEDIA_H
 
+#include <IOKit/IOTypes.h>
+
 /*!
  * @defined kIOMediaClass
  * @abstract
@@ -46,11 +48,11 @@
  * value.
  * @discussion
  * The kIOMediaContentKey property contains a description of the media's
- * contents.  The description is the same as the hint at the time of the object's
- * creation, but it is possible that the description be overrided by a client
- * (which has probed the media and identified the content correctly) of the media
- * object.  It is more accurate than the hint for this reason.  The string is
- * formed in the likeness of Apple's "Apple_HFS" strings.
+ * contents.  The description is the same as the hint at the time of the
+ * object's creation, but it is possible that the description be overrided
+ * by a client (which has probed the media and identified the content correctly)
+ * of the media object.  It is more accurate than the hint for this reason.  The
+ * string is formed in the likeness of Apple's "Apple_HFS" strings.
  */
 
 #define kIOMediaContentKey "Content"
@@ -77,7 +79,9 @@
  * kIOMediaEjectableKey is a property of IOMedia objects.  It has an OSBoolean
  * value.
  * @discussion
- * The kIOMediaEjectableKey property describes whether the media is ejectable.
+ * The kIOMediaEjectableKey property describes whether the media is ejectable
+ * from the drive mechanism under software control.  Implies IOMediaRemovable
+ * is also true.
  */
 
 #define kIOMediaEjectableKey "Ejectable"
@@ -101,19 +105,32 @@
  * kIOMediaPreferredBlockSizeKey is a property of IOMedia objects.  It has an
  * OSNumber value.
  * @discussion
- * The kIOMediaPreferredBlockSizeKey property describes the media's natural block
- * size in bytes.  This information is useful to clients that want to optimize
- * access to the media.
+ * The kIOMediaPreferredBlockSizeKey property describes the media's natural
+ * block size in bytes.  This information is useful to clients that want to
+ * optimize access to the media.
  */
 
 #define kIOMediaPreferredBlockSizeKey "Preferred Block Size"
+
+/*!
+ * @defined kIOMediaRemovableKey
+ * @abstract
+ * kIOMediaRemovableKey is a property of IOMedia objects.  It has an OSBoolean
+ * value.
+ * @discussion
+ * The kIOMediaRemovableKey property describes whether the media is removable
+ * from the drive mechanism.
+ */
+
+#define kIOMediaRemovableKey "Removable"
 
 /*!
  * @defined kIOMediaSizeKey
  * @abstract
  * kIOMediaSizeKey is a property of IOMedia objects.  It has an OSNumber value.
  * @discussion
- * The kIOMediaSizeKey property describes the total length of the media in bytes.
+ * The kIOMediaSizeKey property describes the total length of the media in
+ * bytes.
  */
 
 #define kIOMediaSizeKey "Size"
@@ -122,7 +139,8 @@
 /*!
  * @defined kIOMediaWholeKey
  * @abstract
- * kIOMediaWholeKey is a property of IOMedia objects.  It has an OSBoolean value.
+ * kIOMediaWholeKey is a property of IOMedia objects.  It has an OSBoolean
+ * value.
  * @discussion
  * The kIOMediaWholeKey property describes whether the media is whole, that is,
  * it represents the whole disk (the physical disk, or a virtual replica
@@ -158,11 +176,45 @@
 
 #define kIOMediaContentMaskKey "Content Mask"
 
+/*!
+ * @defined kIOMediaIconKey
+ * @abstract
+ * kIOMediaIconKey is a property of any object in the media stack.  It has an
+ * OSDictionary value, with properties identical to the kIOIconKey definition.
+ * @discussion
+ * kIOMediaIconKey is a property of any object in the media stack that wishes
+ * to override the default icon shown for the media objects in the stack.  It
+ * is usually defined in a provider object below the media object.  It has an
+ * OSDictionary value, with properties identical to the kIOIconKey definition,
+ * that is, kCFBundleIdentifierKey and kIOBundleResourceFileKey.
+ */
+
+#define kIOMediaIconKey "IOMediaIcon"
+
+/*!
+ * @enum IOMediaAttributeMask
+ * @discussion
+ * The IOMediaAttributeMask bit mask describes various attributes of
+ * the media object, such as its ejectability and its removability.
+ * @constant kIOMediaAttributeEjectableMask
+ * Indicates whether the media is ejectable from the drive mechanism
+ * under software control.  Implies kIOMediaAttributeRemovableMask.
+ * @constant kIOMediaAttributeRemovableMask
+ * Indicates whether the media is removable from the drive mechanism.
+ */
+
+typedef UInt32 IOMediaAttributeMask;
+
+#define kIOMediaAttributeEjectableMask 0x00000001UL
+#define kIOMediaAttributeRemovableMask 0x00000002UL
+#define kIOMediaAttributeReservedMask  0xFFFFFFFCUL
+
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IOStorage.h>
 
@@ -199,7 +251,8 @@ protected:
     struct ExpansionData { /* */ };
     ExpansionData * _expansionData;
 
-    bool            _isEjectable;
+    UInt32          _attributes;
+
     bool            _isWhole;
     bool            _isWritable;
 
@@ -280,12 +333,10 @@ protected:
 
 public:
 
-///m:2333367:workaround:commented:start
-//  using read;
-//  using write;
-///m:2333367:workaround:commented:stop
+    using IOStorage::read;
+    using IOStorage::write;
 
-    /*!
+    /*
      * @function init
      * @discussion
      * Initialize this object's minimal state.
@@ -298,7 +349,7 @@ public:
      * @param isEjectable
      * Indicates whether the media is ejectable.
      * @param isWhole
-     * Indicated whether the media represents the whole disk.
+     * Indicates whether the media represents the whole disk.
      * @param isWritable
      * Indicates whether the media is writable.
      * @param contentHint
@@ -389,6 +440,16 @@ public:
                        UInt64               byteStart,
                        IOMemoryDescriptor * buffer,
                        IOStorageCompletion  completion);
+
+    /*!
+     * @function synchronizeCache
+     * @discussion
+     * Flush the cached data in the storage object, if any, synchronously.
+     * @param client
+     * Client requesting the cache synchronization.
+     * @result
+     * Returns the status of the cache synchronization.
+     */
 
     virtual IOReturn synchronizeCache(IOService * client);
 
@@ -504,8 +565,55 @@ public:
 
     virtual IOStorage * getProvider() const;
 
-    OSMetaClassDeclareReservedUnused(IOMedia,  0);
-    OSMetaClassDeclareReservedUnused(IOMedia,  1);
+    /*!
+     * @function init
+     * @discussion
+     * Initialize this object's minimal state.
+     * @param base
+     * Media offset, in bytes.
+     * @param size
+     * Media size, in bytes.
+     * @param preferredBlockSize
+     * Natural block size, in bytes.
+     * @param attributes
+     * Media attributes, such as ejectability and removability.  See
+     * IOMediaAttributeMask.
+     * @param isWhole
+     * Indicates whether the media represents the whole disk.
+     * @param isWritable
+     * Indicates whether the media is writable.
+     * @param contentHint
+     * Hint of media's contents (optional).  See getContentHint().
+     * @param properties
+     * Substitute property table for this object (optional).
+     * @result
+     * Returns true on success, false otherwise.
+     */
+
+    virtual bool init(UInt64               base,
+                      UInt64               size,
+                      UInt64               preferredBlockSize,
+                      IOMediaAttributeMask attributes,
+                      bool                 isWhole,
+                      bool                 isWritable,
+                      const char *         contentHint = 0,
+                      OSDictionary *       properties  = 0);
+
+    OSMetaClassDeclareReservedUsed(IOMedia, 0); /* 10.2.0 */
+
+    /*!
+     * @function getAttributes
+     * @discussion
+     * Ask the media object for its attributes.
+     * @result
+     * Media attributes, such as ejectability and removability.  See
+     * IOMediaAttributeMask.
+     */
+
+    virtual IOMediaAttributeMask getAttributes() const;
+
+    OSMetaClassDeclareReservedUsed(IOMedia, 1); /* 10.2.0 */
+
     OSMetaClassDeclareReservedUnused(IOMedia,  2);
     OSMetaClassDeclareReservedUnused(IOMedia,  3);
     OSMetaClassDeclareReservedUnused(IOMedia,  4);
@@ -522,6 +630,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOMedia, 15);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IOMEDIA_H */

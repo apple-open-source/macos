@@ -22,25 +22,9 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
-
-;;;###autoload
-(defun setup-chinese-gb-environment ()
-  "Setup multilingual environment (MULE) for Chinese GB2312 users."
-  (interactive)
-  (set-language-environment "Chinese-GB"))
-
-;;;###autoload
-(defun setup-chinese-big5-environment ()
-  "Setup multilingual environment (MULE) for Chinese Big5 users."
-  (interactive)
-  (set-language-environment "Chinese-BIG5"))
-
-;;;###autoload
-(defun setup-chinese-cns-environment ()
-  "Setup multilingual environment (MULE) for Chinese CNS11643 family users."
-  (interactive)
-  (set-language-environment "Chinese-CNS"))
 
 ;; Hz/ZW encoding stuffs
 

@@ -21,7 +21,7 @@
 
 	Contains:	memory allocator declarations
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -76,15 +76,15 @@ SSLErr SSLFreeBuffer(SSLBuffer *buf, const SystemContext *ctx);
 SSLErr SSLReallocBuffer(SSLBuffer *buf, UInt32 newSize, const SystemContext *ctx);
 
 /*
- * Set up/tear down CF allocators.
- */
-OSStatus cfSetUpAllocators(SSLContext *ctx);
-void cfTearDownAllocators(SSLContext *ctx);
-
-/*
  * Convenience routines.
  */
 UInt8 *sslAllocCopy(const UInt8 *src, UInt32 len);
+SSLErr SSLAllocCopyBuffer(
+	const SSLBuffer *src, 
+	SSLBuffer **dst);		// buffer itself and data mallocd and returned 
+SSLErr SSLCopyBuffer(
+	const SSLBuffer *src, 
+	SSLBuffer *dst);		// data mallocd and returned 
 
 #ifdef __cplusplus
 }

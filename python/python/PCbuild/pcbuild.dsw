@@ -1,0 +1,281 @@
+Microsoft Developer Studio Workspace File, Format Version 6.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "_socket"=.\_socket.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "_sre"=.\_sre.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "_symtable"=.\_symtable.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "_testcapi"=.\_testcapi.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "_tkinter"=.\_tkinter.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "bsddb"=.\bsddb.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "mmap"=.\mmap.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "parser"=.\parser.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "pyexpat"=.\pyexpat.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "python"=.\python.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "pythoncore"=.\pythoncore.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "pythonw"=.\pythonw.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "select"=.\select.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "unicodedata"=.\unicodedata.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "w9xpopen"=.\w9xpopen.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "winreg"=.\winreg.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "winsound"=.\winsound.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "zlib"=.\zlib.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name pythoncore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

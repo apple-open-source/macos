@@ -1,5 +1,5 @@
 /* YACC parser for Pascal expressions, for GDB.
-   Copyright (C) 2000
+   Copyright 2000
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -58,6 +58,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "symfile.h" /* Required by objfiles.h.  */
 #include "objfiles.h" /* For have_full_symbols and have_partial_symbols */
 #include "top.h"
+#include "completer.h"
 
 /* Remap normal yacc parser interface names (yyparse, yylex, yyerror, etc),
    as well as gratuitiously global symbol names, so we can have multiple
@@ -854,14 +855,13 @@ parse_number (p, len, parsed_float, putithere)
     }
   else
     {
-      high_bit = (((ULONGEST)1)
-		  << (TARGET_LONG_LONG_BIT - 32 - 1)
-		  << 16
-		  << 16);
-      if (high_bit == 0)
+      int shift;
+      if (sizeof (ULONGEST) * HOST_CHAR_BIT < TARGET_LONG_LONG_BIT)
 	/* A long long does not fit in a LONGEST.  */
-	high_bit =
-	  (ULONGEST)1 << (sizeof (LONGEST) * HOST_CHAR_BIT - 1);
+	shift = (sizeof (ULONGEST) * HOST_CHAR_BIT - 1);
+      else
+	shift = (TARGET_LONG_LONG_BIT - 1);
+      high_bit = (ULONGEST) 1 << shift;
       unsigned_type = builtin_type_unsigned_long_long;
       signed_type = builtin_type_long_long;
     }
@@ -943,30 +943,37 @@ yylex ()
   char *uptokstart;
   char *tokptr;
   char *p;
-  int tempbufindex;
+  int explen, tempbufindex;
   static char *tempbuf;
   static int tempbufsize;
 
  retry:
 
   tokstart = lexptr;
+  explen = strlen (lexptr);
   /* See if it is a special token of length 3.  */
-  for (i = 0; i < sizeof tokentab3 / sizeof tokentab3[0]; i++)
-    if (STREQN (tokstart, tokentab3[i].operator, 3))
-      {
-	lexptr += 3;
-	yylval.opcode = tokentab3[i].opcode;
-	return tokentab3[i].token;
-      }
+  if (explen > 2)
+    for (i = 0; i < sizeof (tokentab3) / sizeof (tokentab3[0]); i++)
+      if (strncasecmp (tokstart, tokentab3[i].operator, 3) == 0
+          && (!isalpha (tokentab3[i].operator[0]) || explen == 3
+              || (!isalpha (tokstart[3]) && !isdigit (tokstart[3]) && tokstart[3] != '_')))
+        {
+          lexptr += 3;
+          yylval.opcode = tokentab3[i].opcode;
+          return tokentab3[i].token;
+        }
 
   /* See if it is a special token of length 2.  */
-  for (i = 0; i < sizeof tokentab2 / sizeof tokentab2[0]; i++)
-    if (STREQN (tokstart, tokentab2[i].operator, 2))
-      {
-	lexptr += 2;
-	yylval.opcode = tokentab2[i].opcode;
-	return tokentab2[i].token;
-      }
+  if (explen > 1)
+  for (i = 0; i < sizeof (tokentab2) / sizeof (tokentab2[0]); i++)
+      if (strncasecmp (tokstart, tokentab2[i].operator, 2) == 0
+          && (!isalpha (tokentab2[i].operator[0]) || explen == 2
+              || (!isalpha (tokstart[2]) && !isdigit (tokstart[2]) && tokstart[2] != '_')))
+        {
+          lexptr += 2;
+          yylval.opcode = tokentab2[i].opcode;
+          return tokentab2[i].token;
+        }
 
   switch (c = *tokstart)
     {
@@ -1294,21 +1301,55 @@ yylex ()
 			 VAR_NAMESPACE,
 			 &is_a_field_of_this,
 			 (struct symtab **) NULL);
-    /* second chance uppercased ! */
+    /* second chance uppercased (as Free Pascal does).  */
     if (!sym)
       {
-       for (i = 0;i <= namelen;i++)
+       for (i = 0; i <= namelen; i++)
          {
-           if ((tmp[i]>='a' && tmp[i]<='z'))
+           if ((tmp[i] >= 'a' && tmp[i] <= 'z'))
              tmp[i] -= ('a'-'A');
-           /* I am not sure that copy_name gives excatly the same result ! */
-           if ((tokstart[i]>='a' && tokstart[i]<='z'))
-             tokstart[i] -= ('a'-'A');
          }
-        sym = lookup_symbol (tmp, expression_context_block,
-			 VAR_NAMESPACE,
-			 &is_a_field_of_this,
-			 (struct symtab **) NULL);
+       sym = lookup_symbol (tmp, expression_context_block,
+                        VAR_NAMESPACE,
+                        &is_a_field_of_this,
+                        (struct symtab **) NULL);
+       if (sym)
+         for (i = 0; i <= namelen; i++)
+           {
+             if ((tokstart[i] >= 'a' && tokstart[i] <= 'z'))
+               tokstart[i] -= ('a'-'A');
+           }
+      }
+    /* Third chance Capitalized (as GPC does).  */
+    if (!sym)
+      {
+       for (i = 0; i <= namelen; i++)
+         {
+           if (i == 0)
+             {
+              if ((tmp[i] >= 'a' && tmp[i] <= 'z'))
+                tmp[i] -= ('a'-'A');
+             }
+           else
+           if ((tmp[i] >= 'A' && tmp[i] <= 'Z'))
+             tmp[i] -= ('A'-'a');
+          }
+       sym = lookup_symbol (tmp, expression_context_block,
+                         VAR_NAMESPACE,
+                         &is_a_field_of_this,
+                         (struct symtab **) NULL);
+        if (sym)
+          for (i = 0; i <= namelen; i++)
+            {
+              if (i == 0)
+                {
+                  if ((tokstart[i] >= 'a' && tokstart[i] <= 'z'))
+                    tokstart[i] -= ('a'-'A');
+                }
+              else
+                if ((tokstart[i] >= 'A' && tokstart[i] <= 'Z'))
+                  tokstart[i] -= ('A'-'a');
+            }
       }
     /* Call lookup_symtab, not lookup_partial_symtab, in case there are
        no psymtabs (coff, xcoff, or some future change to blow away the
@@ -1444,4 +1485,3 @@ yyerror (msg)
 {
   error ("A %s in expression, near `%s'.", (msg ? msg : "error"), lexptr);
 }
-

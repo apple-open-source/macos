@@ -42,6 +42,7 @@
 #endif
 #import <mach/mach_error.h>
 
+#import "stuff/bool.h"
 #import "mach-o/dyld.h"
 #import "stuff/ofile.h"
 #import "stuff/arch.h"

@@ -1,5 +1,6 @@
 /* Native-dependent definitions for FreeBSD/i386.
-   Copyright (C) 1986, 87, 89, 92, 96, 2000 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1992, 1994, 1996, 1997, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,11 +22,42 @@
 #ifndef NM_FBSD_H
 #define NM_FBSD_H
 
+#ifdef HAVE_PT_GETDBREGS
+#define I386_USE_GENERIC_WATCHPOINTS
+#endif
+
+#include "i386/nm-i386.h"
+
+/* Provide access to the i386 hardware debugging registers.  */
+
+#define I386_DR_LOW_SET_CONTROL(control) \
+  i386bsd_dr_set_control (control)
+extern void i386bsd_dr_set_control (unsigned long control);
+
+#define I386_DR_LOW_SET_ADDR(regnum, addr) \
+  i386bsd_dr_set_addr (regnum, addr)
+extern void i386bsd_dr_set_addr (int regnum, CORE_ADDR addr);
+
+#define I386_DR_LOW_RESET_ADDR(regnum) \
+  i386bsd_dr_reset_addr (regnum)
+extern void i386bsd_dr_reset_addr (int regnum);
+
+#define I386_DR_LOW_GET_STATUS() \
+  i386bsd_dr_get_status ()
+extern unsigned long i386bsd_dr_get_status (void);
+
+
 /* Type of the third argument to the `ptrace' system call.  */
 #define PTRACE_ARG3_TYPE caddr_t
 
 /* Override copies of {fetch,store}_inferior_registers in `infptrace.c'.  */
 #define FETCH_INFERIOR_REGISTERS
+
+/* Override child_resume in `infptrace.c' to work around a kernel bug.  */
+#define CHILD_RESUME
+
+/* Override child_pid_to_exec_file in 'inftarg.c'.  */
+#define CHILD_PID_TO_EXEC_FILE
 
 /* We can attach and detach.  */
 #define ATTACH_DETACH

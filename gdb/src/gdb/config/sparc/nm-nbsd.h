@@ -1,5 +1,5 @@
 /* Native-dependent definitions for Sparc running NetBSD, for GDB.
-   Copyright (C) 1986, 1987, 1989, 1992, 1995, 1996
+   Copyright 1986, 1987, 1989, 1992, 1994, 1996, 1999, 2000
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -21,6 +21,8 @@
 
 #ifndef NM_NBSD_H
 #define NM_NBSD_H
+
+#include "regcache.h"
 
 /* Get generic NetBSD native definitions. */
 

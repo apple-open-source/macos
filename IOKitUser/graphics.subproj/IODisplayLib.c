@@ -40,6 +40,8 @@
 
 #define DEBUGPARAMS	0
 
+#define MACOS9_RANGE_LIMIT	0
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -143,6 +145,7 @@ IODisplayCreateOverrides( IOOptionBits options,
         if( !string)
             continue;
         url = CFURLCreateWithString( kCFAllocatorDefault, string, NULL);
+	CFRelease(string);
         if( !url)
             continue;
         bdl = CFBundleCreate( kCFAllocatorDefault, url);
@@ -150,6 +153,7 @@ IODisplayCreateOverrides( IOOptionBits options,
             CFDictionarySetValue( dict, CFSTR(kDisplayBundleKey), bdl);
             CFRelease(bdl);
         }
+	CFRelease(url);
     
     } while( false );
 
@@ -282,7 +286,7 @@ static void MakeOneLocalization( const void * item, void * context )
 }
 
 static void GenerateProductName( CFMutableDictionaryRef dict,
-                                        EDID * edid, SInt32 displayType )
+                                        EDID * edid, SInt32 displayType, IOOptionBits options )
 {
     CFStringRef		key;
     CFBundleRef		bdl;
@@ -349,12 +353,17 @@ static void GenerateProductName( CFMutableDictionaryRef dict,
                         &kCFTypeDictionaryValueCallBacks);
         ctx.key = key;
     
-        localizations = CFBundleCopyBundleLocalizations( bdl);
-        CFArrayApplyFunction( localizations,
-                            CFRangeMake(0, CFArrayGetCount(localizations)),
-                            &MakeOneLocalization,
-                            &ctx);
-    
+	localizations = CFBundleCopyBundleLocalizations( bdl);
+	if( kIODisplayOnlyPreferredName & options) {
+	    CFArrayRef temp = localizations;
+	    localizations = CFBundleCopyPreferredLocalizationsFromArray( temp );
+	    CFRelease( temp );
+	}
+
+	CFArrayApplyFunction( localizations,
+			    CFRangeMake(0, CFArrayGetCount(localizations)),
+			    &MakeOneLocalization,
+			    &ctx);
         CFDictionarySetValue( dict, CFSTR(kDisplayProductName), ctx.dict);
     
         CFRelease( localizations );
@@ -438,11 +447,19 @@ EDIDDescToDisplayTimingRangeRec( EDID * edid, EDIDGeneralDesc * desc,
 //-- these from DM:
     range->csMinHorizontalActiveClocks = 640;
     range->csMinVerticalActiveClocks   = 480;
+#if MACOS9_RANGE_LIMIT
     if( range->csMaxLineRate)
         range->csMaxHorizontalActiveClocks = range->csMaxPixelClock / range->csMaxLineRate;
     if( range->csMaxFrameRate)
         range->csMaxVerticalActiveClocks   = range->csMaxPixelClock
                                             / (range->csMinHorizontalActiveClocks * range->csMaxFrameRate);
+#else
+    if( range->csMinLineRate)
+        range->csMaxHorizontalActiveClocks = range->csMaxPixelClock / range->csMinLineRate;
+    if( range->csMinFrameRate)
+        range->csMaxVerticalActiveClocks   = range->csMaxPixelClock
+                                            / (range->csMinHorizontalActiveClocks * range->csMinFrameRate);
+#endif
 //--
     return( true );
 }
@@ -907,7 +924,9 @@ IODisplayCreateInfoDictionary(
         data = CFDictionaryGetValue( regDict, CFSTR(kIODisplayEDIDKey) );
 
 #if SPOOF_EDID
-#warning SPOOF_EDID
+#warning             ****************
+#warning             ** SPOOF_EDID **
+#warning             ****************
         data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
                                             spoofEDID, 128, kCFAllocatorNull );
         vendor = product = 0;
@@ -1003,7 +1022,7 @@ IODisplayCreateInfoDictionary(
         if( kDisplayGestaltViewAngleAffectsGammaMask & sint)
             CFDictionaryAddValue( dict, CFSTR(kDisplayViewAngleAffectsGamma), kCFBooleanTrue );
 
-        GenerateProductName( dict, edid, displayType );
+        GenerateProductName( dict, edid, displayType, options );
 
         if( !edid)
             continue;

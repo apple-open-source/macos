@@ -1,0 +1,7 @@
+Package: apache_mod_perl
+Maintainer: Wilfredo Sanchez <wsanchez@opensource.apple.com>
+Vendor: Apache Software Foundation
+Version: 1.25
+URL: http://perl.apache.org/
+Build-Depends: build-base
+Description: Apache Perl Module

@@ -27,8 +27,8 @@ In principle,
 .IR name
 can be any string.  In practice, not all strings will be accepted.
 Old world machines have a fixed set of Open Firmware variables.
-New World machines can create new varibles as desired.  Some variables
-require adminstrator privilege to get or set.
+New World machines can create new variables as desired.  Some variables
+require administrator privilege to get or set.
 .LP
 The given
 .IR value
@@ -72,14 +72,14 @@ list name=value statements.  If the last character of a line is
 example% nvram boot-args="-s rd=*hd:10"
 .RE
 .LP
-Set the boot-args variable to "-s rd=*hd:10".  This would specifiy
+Set the boot-args variable to "-s rd=*hd:10".  This would specify
 single user mode with the root device in hard drive partition 10.
 .LP
 .RS
 example% nvram my-variable="String One%00String Two%00%00"
 .RE
 .LP
-Create a new variable, my-variable, containging a list of two
+Create a new variable, my-variable, containing a list of two
 C-strings that is terminated by a NUL.
 .SH FILES
 .PD 0

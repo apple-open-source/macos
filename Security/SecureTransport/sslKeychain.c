@@ -21,7 +21,7 @@
 
 	Contains:	Apple Keychain routines
 
-	Written by:	Doug Mitchell, based on Netscape RSARef 3.0
+	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -36,52 +36,157 @@
 #include "sslDebug.h"
 #include "sslKeychain.h"
 #include "sslutil.h"
-
-#if		ST_KEYCHAIN_ENABLE
-#include <Keychain.h>
-#include <KeychainPriv.h>
-#endif	/* ST_KEYCHAIN_ENABLE */
-
 #include <string.h>
+#include <assert.h>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <Security/cssm.h>
+/* these are to be replaced by Security/Security.h */
+#include <Security/SecCertificate.h>
+#include <Security/SecKeychainItem.h>
+#include <Security/SecKeychain.h>
+#include <Security/SecIdentity.h>
+#include <Security/SecIdentitySearch.h>
+#include <Security/SecKey.h>
 
-#if		ST_KEYCHAIN_ENABLE
+#if		ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS
 static OSStatus
 addCertData(
 	SSLContext		*ctx,
 	KCItemRef		kcItem,
 	CSSM_DATA_PTR	certData,
 	Boolean			*goodCert);		/* RETURNED */
+#endif	/* ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS */
 
+#if		(ST_SERVER_MODE_ENABLE || ST_CLIENT_AUTHENTICATION)
+
+#if		ST_FAKE_KEYCHAIN
 /*
- * Given a KCItemRef: is this item a cert?
+ * Routines which will be replaced by SecKeychainAPI. 
  */
-static Boolean
-isItemACert(KCItemRef kcItem)
-{	
-	KCAttribute		attr;
-	FourCharCode	itemClass;
-	OSStatus		ortn;
-	UInt32			len;
+ 
+/*
+ * Given a DLDB, find the first private key in the DB. It's the application's
+ * responsibility to ensure that there is only one private key. The returned
+ * PrintName attribute will be used to search for an associated cert using
+ * TBD.
+ *
+ * Caller must free returned key and PrintName.
+ */
+static OSStatus 
+findPrivateKeyInDb(
+	SSLContext			*ctx,
+	CSSM_DL_DB_HANDLE	dlDbHand,
+	CSSM_KEY_PTR		*privKey,		// mallocd and RETURNED
+	CSSM_DATA			*printName)		// referent mallocd and RETURNED
+{
+	CSSM_QUERY						query;
+	CSSM_DB_UNIQUE_RECORD_PTR		record = NULL;
+	CSSM_RETURN						crtn;
+	CSSM_HANDLE 					resultHand;
+	CSSM_DB_RECORD_ATTRIBUTE_DATA	recordAttrs;
+	CSSM_DB_ATTRIBUTE_DATA			theAttr;
+	CSSM_DB_ATTRIBUTE_INFO_PTR		attrInfo = &theAttr.Info;
+	CSSM_DATA						theData = {0, NULL};
 	
-	attr.tag = kClassKCItemAttr;
-	attr.length = sizeof(FourCharCode);
-	attr.data = &itemClass;
+	/* search by record type, no predicates (though we do want the PrintName
+	 * attr returned). */
+	query.RecordType = CSSM_DL_DB_RECORD_PRIVATE_KEY;
+	query.Conjunctive = CSSM_DB_NONE;
+	query.NumSelectionPredicates = 0;
+	query.SelectionPredicate = NULL;	
+	query.QueryLimits.TimeLimit = 0;	// FIXME - meaningful?
+	query.QueryLimits.SizeLimit = 1;	// FIXME - meaningful?
+	query.QueryFlags = CSSM_QUERY_RETURN_DATA;	// FIXME - used?
+
+	recordAttrs.DataRecordType = CSSM_DL_DB_RECORD_PRIVATE_KEY;
+	recordAttrs.SemanticInformation = 0;
+	recordAttrs.NumberOfAttributes = 1;
+	recordAttrs.AttributeData = &theAttr;
 	
-	ortn = KCGetAttribute (kcItem, &attr, &len);
-	if (ortn == noErr) {
-		return((itemClass == kCertificateKCItemClass) ? true : false);
+	attrInfo->AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
+	attrInfo->Label.AttributeName = "PrintName";
+	attrInfo->AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
+	
+	theAttr.NumberOfValues = 1;
+	theAttr.Value = NULL;			
+		
+	crtn = CSSM_DL_DataGetFirst(dlDbHand,
+		&query,
+		&resultHand,
+		&recordAttrs,
+		&theData,
+		&record);
+	/* terminate query only on success */
+	if(crtn == CSSM_OK) {
+		CSSM_DL_DataAbortQuery(dlDbHand, resultHand);
+		*privKey = (CSSM_KEY_PTR)theData.Data;
+		/*
+		 * Both the struct and the referent are mallocd by DL. Give our
+		 * caller the referent; free the struct. 
+		 */
+		*printName = *theAttr.Value;
+		stAppFree(theAttr.Value, NULL);
+		return noErr;
 	}
 	else {
-		errorLog1("isItemACert: KCGetAttribute returned %d\n", ortn);
-		return false;
+		stPrintCdsaError("CSSM_DL_DataGetFirst", crtn);
+		errorLog0("findCertInDb: cert not found\n");
+		return errSSLBadCert;
 	}
 }
 
-#endif	/* ST_KEYCHAIN_ENABLE */
+static OSStatus
+findCertInDb(
+	SSLContext			*ctx,
+	CSSM_DL_DB_HANDLE	dlDbHand,
+	const CSSM_DATA		*printName,		// obtained from findPrivateKeyInDb
+	CSSM_DATA			*certData)		// referent mallocd and RETURNED
+{
+	CSSM_QUERY						query;
+	CSSM_SELECTION_PREDICATE		predicate;
+	CSSM_DB_UNIQUE_RECORD_PTR		record = NULL;
+	CSSM_RETURN						crtn;
+	CSSM_HANDLE 					resultHand;
+	
+	predicate.DbOperator = CSSM_DB_EQUAL;	
+	predicate.Attribute.Info.AttributeNameFormat = 
+		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
+	predicate.Attribute.Info.Label.AttributeName = "PrintName";
+	predicate.Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
+	/* hope this const_cast is OK */
+	predicate.Attribute.Value = (CSSM_DATA_PTR)printName;
+	predicate.Attribute.NumberOfValues = 1;
 
-#if		(ST_SERVER_MODE_ENABLE || ST_CLIENT_AUTHENTICATION)
+	query.RecordType = CSSM_DL_DB_RECORD_X509_CERTIFICATE;
+	query.Conjunctive = CSSM_DB_NONE;
+	query.NumSelectionPredicates = 1;
+	query.SelectionPredicate = &predicate;
+	query.QueryLimits.TimeLimit = 0;	// FIXME - meaningful?
+	query.QueryLimits.SizeLimit = 1;	// FIXME - meaningful?
+	query.QueryFlags = 0;				// FIXME - used?
+	
+	crtn = CSSM_DL_DataGetFirst(dlDbHand,
+		&query,
+		&resultHand,
+		NULL,				// no attrs returned
+		certData,
+		&record);
+	/* terminate query only on success */
+	if(crtn == CSSM_OK) {
+		CSSM_DL_DataAbortQuery(dlDbHand, resultHand);
+		return noErr;
+	}
+	else {
+		stPrintCdsaError("CSSM_DL_DataGetFirst", crtn);
+		errorLog0("findCertInDb: cert not found\n");
+		return errSSLBadCert;
+	}
+}
+
+
+#endif	/* ST_FAKE_KEYCHAIN */
 /*
- * Given an array of certs (as KCItemRefs, specified by caller
+ * Given an array of certs (as SecIdentityRefs, specified by caller
  * in SSLSetCertificate or SSLSetEncryptionCertificate) and a 
  * destination SSLCertificate:
  *
@@ -90,6 +195,15 @@ isItemACert(KCItemRef kcItem)
  * -- validate cert chain
  * -- get pub, priv keys from certRef[0], store in *pubKey, *privKey
  */
+ 
+#if		ST_FAKE_KEYCHAIN
+/*
+ * In this incarnation, the certs array actually holds one pointer to a 
+ * CSSM_DL_DB_HANDLE. In that DL/DB is exactly one private key; that's
+ * our privKey. We use the KeyLabel of that key to look up a cert with  
+ * the same label. We get the public key from the cert. Other certs and 
+ * public keys in the DL/DB are ignored.
+ */
 OSStatus 
 parseIncomingCerts(
 	SSLContext		*ctx,
@@ -97,28 +211,200 @@ parseIncomingCerts(
 	SSLCertificate	**destCert,		/* &ctx->{localCert,encryptCert} */
 	CSSM_KEY_PTR	*pubKey,		/* &ctx->signingPubKey, etc. */
 	CSSM_KEY_PTR	*privKey,		/* &ctx->signingPrivKey, etc. */
-	CSSM_CSP_HANDLE	*cspHand,		/* &ctx->signingKeyCsp, etc. */
-	KCItemRef		*privKeyRef)	/* &ctx->signingKeyRef, etc. */
+	CSSM_CSP_HANDLE	*cspHand		/* &ctx->signingKeyCsp, etc. */
+	#if		ST_KC_KEYS_NEED_REF
+	,
+	SecKeychainRef	*privKeyRef)	/* &ctx->signingKeyRef, etc. */
+	#else
+	)
+	#endif	/* ST_KC_KEYS_NEED_REF */
 {
+	CSSM_DL_DB_HANDLE_PTR dlDbHand = NULL;
 	CFIndex			numCerts;
-	CFIndex			cert;
+	CSSM_KEY_PTR	lookupPriv = NULL;
+	CSSM_DATA		lookupLabel = {0, NULL};
+	CSSM_DATA		lookupCert = {0, NULL};
+	OSStatus 		ortn;
 	SSLCertificate	*certChain = NULL;
 	SSLCertificate	*thisSslCert;
-	KCItemRef		kcItem;
-	SSLBuffer		*derSubjCert = NULL;
-	UInt32			certLen;
-	OSStatus		ortn;
 	SSLErr			srtn;
-	FromItemGetPrivateKeyParams	keyParams = {NULL, NULL};
-	FromItemGetKeyInfoParams	keyInfo = {NULL, NULL, 0};
-	CSSM_CSP_HANDLE				dummyCsp;
+	CSSM_CSP_HANDLE	dummyCsp;
+	
+	assert(ctx != NULL);
+	assert(destCert != NULL);		/* though its referent may be NULL */
+	assert(pubKey != NULL);
+	assert(privKey != NULL);
+	assert(cspHand != NULL);
+
+	sslDeleteCertificateChain(*destCert, ctx);
+	*destCert = NULL;
+	*pubKey   = NULL;
+	*privKey  = NULL;
+	*cspHand  = 0;
+
+	if(certs == NULL) {
+		dprintf0("parseIncomingCerts: NULL incoming cert (DLDB) array\n");
+		return errSSLBadCert;
+	}
+	numCerts = CFArrayGetCount(certs);
+	if(numCerts != 1) {
+		dprintf0("parseIncomingCerts: empty incoming cert (DLDB) array\n");
+		return errSSLBadCert;
+	}
+	dlDbHand = (CSSM_DL_DB_HANDLE_PTR)CFArrayGetValueAtIndex(certs, 0);
+	if(dlDbHand == NULL) {
+		errorLog0("parseIncomingCerts: bad cert (DLDB) array\n");
+		return paramErr;
+	}	
+
+	/* get private key - app has to ensure there is only one (for now) */
+	ortn = findPrivateKeyInDb(ctx, *dlDbHand, &lookupPriv, &lookupLabel);
+	if(ortn) {
+		errorLog0("parseIncomingCerts: no private key\n");
+		return ortn;
+	}
+	assert(lookupPriv->KeyHeader.BlobType == CSSM_KEYBLOB_REFERENCE);
+	assert(lookupPriv->KeyHeader.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY);
+	
+	/* get associated cert */
+	ortn = findCertInDb(ctx, *dlDbHand, &lookupLabel, &lookupCert);
+	if(ortn) {
+		errorLog0("parseIncomingCerts: no cert\n");
+		return ortn;
+	}
+	sslFree(lookupLabel.Data);
+	assert(lookupCert.Length > 100);			// quickie check 
+	
+	/* 
+	 * Cook up an SSLCertificate and its associated SSLBuffer.
+	 */
+	thisSslCert = sslMalloc(sizeof(SSLCertificate));
+	if(thisSslCert == NULL) {
+		return memFullErr;
+	}
+	if(SSLAllocBuffer(&thisSslCert->derCert, lookupCert.Length, &ctx->sysCtx)) {
+		return memFullErr;
+	}
+	
+	/* copy cert data mallocd by DL */
+	memmove(thisSslCert->derCert.data, lookupCert.Data, lookupCert.Length);
+	sslFree(lookupCert.Data);
+	
+	/* enqueue onto head of cert chain */
+	thisSslCert->next = certChain;
+	certChain = thisSslCert;
+
+	/* TBD - we might fetch other certs from CFArrayRef certs here and enqueue 
+	 * them on certChain */
+	 
+	/* now the public key of the first cert, from CL */
+	srtn = sslPubKeyFromCert(ctx, 
+		&certChain->derCert, 
+		pubKey,
+		&dummyCsp);
+	if(srtn) {
+		errorLog1("sslPubKeyFromCert returned %d\n", srtn);
+		ortn = sslErrToOsStatus(srtn);
+		goto errOut;
+	}
+	assert((*pubKey)->KeyHeader.BlobType == CSSM_KEYBLOB_RAW);
+	assert((*pubKey)->KeyHeader.KeyClass == CSSM_KEYCLASS_PUBLIC_KEY);
+	
+	/*
+	 * NOTE: as of 2/7/02, the size of the extracted public key will NOT
+	 * always equal the size of the private key. Non-byte-aligned key sizes 
+	 * for RSA keys result in the extracted public key's size to be rounded
+	 * UP to the next byte boundary. 
+	 */
+	assert((*pubKey)->KeyHeader.LogicalKeySizeInBits == 
+		  ((lookupPriv->KeyHeader.LogicalKeySizeInBits + 7) & ~7));
+	
+	/* SUCCESS */ 
+	*destCert = certChain;
+	*privKey = lookupPriv;
+	
+	/* we get this at context create time */
+	assert(ctx->cspDlHand != 0);
+	*cspHand = ctx->cspDlHand;
+	*privKeyRef = NULL;				// not used 
+	return noErr;
+	
+errOut:
+	/* free certChain, everything in it, other vars, return ortn */
+	sslDeleteCertificateChain(certChain, ctx);
+	if(lookupPriv != NULL) {
+		sslFreeKey(ctx->cspDlHand, &lookupPriv, NULL);
+	}
+	return ortn;
+}
+
+#else	/* !ST_FAKE_KEYCHAIN */
+
+/* Convert a SecCertificateRef to an SSLCertificate * */
+static OSStatus secCertToSslCert(
+	SSLContext			*ctx,
+	SecCertificateRef 	certRef,
+	SSLCertificate		**sslCert)
+{
+	CSSM_DATA		certData;		// struct is transient, referent owned by 
+									//   Sec layer
+	OSStatus		ortn;
+	SSLCertificate	*thisSslCert = NULL;
+	
+	ortn = SecCertificateGetData(certRef, &certData);
+	if(ortn) {
+		errorLog1("SecCertificateGetData() returned %d\n", (int)ortn);
+		return ortn;
+	}
+	
+	thisSslCert = sslMalloc(sizeof(SSLCertificate));
+	if(thisSslCert == NULL) {
+		return memFullErr;
+	}
+	if(SSLAllocBuffer(&thisSslCert->derCert, certData.Length, 
+			&ctx->sysCtx)) {
+		return memFullErr;
+	}
+	memcpy(thisSslCert->derCert.data, certData.Data, certData.Length);
+	thisSslCert->derCert.length = certData.Length;
+	*sslCert = thisSslCert;
+	return noErr;
+}
+
+OSStatus 
+parseIncomingCerts(
+	SSLContext		*ctx,
+	CFArrayRef		certs,
+	SSLCertificate	**destCert,		/* &ctx->{localCert,encryptCert} */
+	CSSM_KEY_PTR	*pubKey,		/* &ctx->signingPubKey, etc. */
+	CSSM_KEY_PTR	*privKey,		/* &ctx->signingPrivKey, etc. */
+	CSSM_CSP_HANDLE	*cspHand		/* &ctx->signingKeyCsp, etc. */
+	#if		ST_KC_KEYS_NEED_REF
+	,
+	SecKeychainRef	*privKeyRef)	/* &ctx->signingKeyRef, etc. */
+	#else
+	)
+	#endif	/* ST_KC_KEYS_NEED_REF */
+{
+	CFIndex				numCerts;
+	CFIndex				cert;
+	SSLCertificate		*certChain = NULL;
+	SSLCertificate		*thisSslCert;
+	SecKeychainRef		kcRef;
+	OSStatus			ortn;
+	SSLErr				srtn;
+	SecIdentityRef 		identity;
+	SecCertificateRef	certRef;
+	SecKeyRef			keyRef;
+	CSSM_DATA			certData;
+	CSSM_CL_HANDLE		clHand;		// carefully derive from a SecCertificateRef
+	CSSM_RETURN			crtn;
 	
 	CASSERT(ctx != NULL);
 	CASSERT(destCert != NULL);		/* though its referent may be NULL */
 	CASSERT(pubKey != NULL);
 	CASSERT(privKey != NULL);
 	CASSERT(cspHand != NULL);
-	CASSERT(privKeyRef != NULL);
 	
 	sslDeleteCertificateChain(*destCert, ctx);
 	*destCert = NULL;
@@ -137,57 +423,116 @@ parseIncomingCerts(
 	}
 	
 	/* 
-	 * Convert: CFArray of KCItemRefs --> chain of SSLCertificates. 
+	 * Certs[0] is an SecIdentityRef from which we extract subject cert,
+	 * privKey, pubKey, and cspHand.
+	 *
+	 * 1. ensure the first element is a SecIdentityRef.
+	 */
+	identity = (SecIdentityRef)CFArrayGetValueAtIndex(certs, 0);
+	if(identity == NULL) {
+		errorLog0("parseIncomingCerts: bad cert array (1)\n");
+		return paramErr;
+	}	
+	if(CFGetTypeID(identity) != SecIdentityGetTypeID()) {
+		errorLog0("parseIncomingCerts: bad cert array (2)\n");
+		return paramErr;
+	}
+	
+	/* 
+	 * 2. Extract cert, keys, CSP handle and convert to local format. 
+	 */
+	ortn = SecIdentityCopyCertificate(identity, &certRef);
+	if(ortn) {
+		errorLog0("parseIncomingCerts: bad cert array (3)\n");
+		return ortn;
+	}
+	ortn = secCertToSslCert(ctx, certRef, &thisSslCert);
+	if(ortn) {
+		errorLog0("parseIncomingCerts: bad cert array (4)\n");
+		return ortn;
+	}
+	/* enqueue onto head of cert chain */
+	thisSslCert->next = certChain;
+	certChain = thisSslCert;
+
+	/* fetch private key from identity */
+	ortn = SecIdentityCopyPrivateKey(identity, &keyRef);
+	if(ortn) {
+		errorLog1("parseIncomingCerts: SecIdentityCopyPrivateKey err %d\n",
+			(int)ortn);
+		return ortn;
+	}
+	ortn = SecKeyGetCSSMKey(keyRef, (const CSSM_KEY **)privKey);
+	if(ortn) {
+		errorLog1("parseIncomingCerts: SecKeyGetCSSMKey err %d\n",
+			(int)ortn);
+		return ortn;
+	}
+	/* FIXME = release keyRef? */
+	
+	/* obtain public key from cert */
+	ortn = SecCertificateGetCLHandle(certRef, &clHand);
+	if(ortn) {
+		errorLog1("parseIncomingCerts: SecCertificateGetCLHandle err %d\n",
+			(int)ortn);
+		return ortn;
+	}
+	certData.Data = thisSslCert->derCert.data;
+	certData.Length = thisSslCert->derCert.length;
+	crtn = CSSM_CL_CertGetKeyInfo(clHand, &certData, pubKey);
+	if(crtn) {
+		errorLog0("parseIncomingCerts: CSSM_CL_CertGetKeyInfo err\n");
+		return (OSStatus)crtn;
+	}
+	
+	#if		ST_FAKE_GET_CSPDL_HANDLE
+	/* we get this at context create time until SecKeychainGetCSPHandle
+	 * is working */
+	assert(ctx->cspDlHand != 0);
+	*cspHand = ctx->cspDlHand;
+	#else	/* ST_FAKE_GET_CSPDL_HANDLE */
+	/* obtain keychain from key, CSP handle from keychain */
+	ortn = SecKeychainItemCopyKeychain((SecKeychainItemRef)keyRef, &kcRef);
+	if(ortn) {
+		errorLog1("parseIncomingCerts: SecKeychainItemCopyKeychain err %d\n",
+			(int)ortn);
+		return ortn;
+	}
+	ortn = SecKeychainGetCSPHandle(kcRef, cspHand);
+	if(ortn) {
+		errorLog1("parseIncomingCerts: SecKeychainGetCSPHandle err %d\n",
+			(int)ortn);
+		return ortn;
+	}
+	#endif	/* ST_FAKE_GET_CSPDL_HANDLE */
+	
+	/* OK, that's the subject cert. Fetch optional remaining certs. */
+	/* 
+	 * Convert: CFArray of SecCertificateRefs --> chain of SSLCertificates. 
 	 * Incoming certs have root last; SSLCertificate chain has root
 	 * first.
 	 */
-	for(cert=0; cert<numCerts; cert++) {
-		kcItem = (KCItemRef)CFArrayGetValueAtIndex(certs, cert);
-		if(kcItem == NULL) {
-			errorLog0("parseIncomingCerts: bad cert array\n");
+	for(cert=1; cert<numCerts; cert++) {
+		certRef = (SecCertificateRef)CFArrayGetValueAtIndex(certs, cert);
+		if(certRef == NULL) {
+			errorLog0("parseIncomingCerts: bad cert array (5)\n");
 			return paramErr;
 		}	
-		if(!isItemACert(kcItem)) {
-			/* client app error, not ours */
+		if(CFGetTypeID(certRef) != SecCertificateGetTypeID()) {
+			errorLog0("parseIncomingCerts: bad cert array (6)\n");
 			return paramErr;
 		}
 		
-		/* 
-		 * OK, cook up an SSLCertificate and its associated SSLBuffer.
-		 * First the size of the actual cert data...
-		 */
-		ortn = KCGetData(kcItem, 0,  NULL, &certLen);
-		if(ortn != noErr) {
-			errorLog1("parseIncomingCerts: KCGetData(1) returned %d\n", ortn);
-			return ortn;
-		}
-		thisSslCert = sslMalloc(sizeof(SSLCertificate));
-		if(thisSslCert == NULL) {
-			return memFullErr;
-		}
-		if(SSLAllocBuffer(&thisSslCert->derCert, certLen, &ctx->sysCtx)) {
-			return memFullErr;
-		}
-		
-		/* now the data itself */
-		ortn = KCGetData (kcItem, 
-			certLen, 
-			thisSslCert->derCert.data, 
-			&certLen);
+		/* Extract cert, convert to local format. 
+		*/
+		ortn = secCertToSslCert(ctx, certRef, &thisSslCert);
 		if(ortn) {
-			errorLog1("parseIncomingCerts: KCGetData(2) returned %d\n", ortn);
-			SSLFreeBuffer(&thisSslCert->derCert, &ctx->sysCtx);
+			errorLog0("parseIncomingCerts: bad cert array (7)\n");
 			return ortn;
 		}
-		
 		/* enqueue onto head of cert chain */
 		thisSslCert->next = certChain;
 		certChain = thisSslCert;
-		
-		if(derSubjCert == NULL) {
-			/* Save this ptr for obtaining public key */
-			derSubjCert = &thisSslCert->derCert;
-		}
 	}
 	
 	/* validate the whole mess */
@@ -196,39 +541,7 @@ parseIncomingCerts(
 		ortn = sslErrToOsStatus(srtn);
 		goto errOut;
 	}
-	
-	/* 
-	 * Get privKey, pubKey, KCItem of certs[0].
-	 * First, the private key, from the Keychain, using crufy private API.
-	 */
-	keyParams.item = (KCItemRef)CFArrayGetValueAtIndex(certs, 0);
-	ortn = KCDispatch(kKCFromItemGetPrivateKey, &keyParams);
-	if(ortn) {
-		errorLog1("KCDispatch(kKCFromItemGetPrivateKey) returned %d\n", ortn);
-		goto errOut;
-	}
-	keyInfo.item = keyParams.privateKeyItem;
-	ortn = KCDispatch(kKCFromItemGetKeyInfo, &keyInfo);
-	if(ortn) {
-		errorLog1("KCDispatch(kKCFromItemGetKeyInfo) returned %d\n", ortn);
-		goto errOut;
-	}
-	*privKey = (CSSM_KEY_PTR)keyInfo.keyPtr;
-	*cspHand = keyInfo.cspHandle;
-	*privKeyRef = keyParams.privateKeyItem;
-	
-	/* now the public key, from CL */
-	/* FIXME - what if this CSP differs from the one we got from KC??? */
-	srtn = sslPubKeyFromCert(ctx, 
-		derSubjCert, 
-		pubKey,
-		&dummyCsp);
-	if(srtn) {
-		errorLog1("sslPubKeyFromCert returned %d\n", srtn);
-		ortn = sslErrToOsStatus(srtn);
-		goto errOut;
-	}
-	
+		
 	/* SUCCESS */ 
 	*destCert = certChain;
 	return noErr;
@@ -236,14 +549,10 @@ parseIncomingCerts(
 errOut:
 	/* free certChain, everything in it, other vars, return ortn */
 	sslDeleteCertificateChain(certChain, ctx);
-	if(keyInfo.keyPtr != NULL) {
-		sslFreeKey(keyInfo.cspHandle, &keyInfo.keyPtr, NULL);
-	}
-	if(keyParams.privateKeyItem != NULL) {
-		KCReleaseItem(&keyParams.privateKeyItem);
-	}
+	/* FIXME - anything else? */
 	return ortn;
 }
+#endif	/* ST_FAKE_KEYCHAIN */
 #endif	/* (ST_SERVER_MODE_ENABLE || ST_CLIENT_AUTHENTICATION) */
 
 /*
@@ -251,7 +560,7 @@ errOut:
  */
 OSStatus addBuiltInCerts	(SSLContextRef		ctx)
 {
-	#if		ST_KEYCHAIN_ENABLE
+	#if		ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS
 	OSStatus 			ortn;
 	KCRef				kc = nil;
 	
@@ -265,10 +574,10 @@ OSStatus addBuiltInCerts	(SSLContextRef		ctx)
 	#else
 	/* nothing for now */
 	return noErr;
-	#endif	/* ST_KEYCHAIN_ENABLE */
+	#endif	/* ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS */
 }
 
-#if		ST_KEYCHAIN_ENABLE 
+#if		ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS
 
 /*
  * Given an open Keychain:
@@ -393,7 +702,7 @@ errOut:
 }
 
 /*
- * Given a cert as a KCItemRef:
+ * Given a (supposedly) root cert as a KCItemRef:
  * -- verify that the cert self-verifies
  * -- add its DER-encoded data *certData.
  * -- Add its subjectName to acceptableDNList.
@@ -559,5 +868,5 @@ sslAddNewRoot(
 	return SSLNoErr;
 }
 
-#endif	/* ST_KEYCHAIN_ENABLE */
+#endif	/* ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS */
 

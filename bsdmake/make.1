@@ -36,10 +36,10 @@
 .Dt MAKE 1
 .Os
 .Sh NAME
-.Nm make
+.Nm bsdmake
 .Nd maintain program dependencies
 .Sh SYNOPSIS
-.Nm make
+.Nm bsdmake
 .Op Fl BPSeiknqrstv
 .Op Fl D Ar variable
 .Op Fl d Ar flags
@@ -54,6 +54,9 @@
 .Op Ar variable Ns No = Ns Ar value
 .Op Ar target ...
 .Sh DESCRIPTION
+bsdmake is the BSD make program.  On Darwin, 'make' is a symlink to 'gnumake',
+the GNU make program.
+
 .Nm Make
 is a program designed to simplify the maintenance of other programs.
 Its input is a list of specifications 
@@ -1027,7 +1030,7 @@ any suffix so declared will have the directories on its search path (see
 .Ic .PATH )
 placed in the
 .Va .INCLUDES
-special variable, each preceeded by a
+special variable, each preceded by a
 .Fl I
 flag.
 .It Ic .INTERRUPT

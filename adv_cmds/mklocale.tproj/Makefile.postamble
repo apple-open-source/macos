@@ -1,0 +1,2 @@
+after_install::
+	cd $(SRCROOT)/mklocale.tproj/share ; bsdmake DESTDIR=$(DSTROOT) all install

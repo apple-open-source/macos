@@ -1,7 +1,6 @@
-This is Info file ../info/cl, produced by Makeinfo version 1.68 from
-the input file cl.texi.
+This is ../info/cl, produced by makeinfo version 4.0 from cl.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * CL: (cl).		Partial Common Lisp support for Emacs Lisp.
 END-INFO-DIR-ENTRY
@@ -10,98 +9,96 @@ END-INFO-DIR-ENTRY
 
    Copyright (C) 1993 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the section entitled "GNU General Public License" is included
-exactly as in the original, and provided that the entire resulting
-derived work is distributed under the terms of a permission notice
-identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the section entitled "GNU General Public License"
-may be included in a translation approved by the author instead of in
-the original English.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 Indirect:
-cl-1: 1173
-cl-2: 46380
-cl-3: 89879
-cl-4: 139553
-cl-5: 183825
-cl-6: 224841
+cl-1: 1223
+cl-2: 44045
+cl-3: 87066
+cl-4: 135445
+cl-5: 170960
+cl-6: 220746
 
 Tag Table:
 (Indirect)
-Node: Top1173
-Node: Overview2586
-Node: Usage4864
-Node: Organization5509
-Node: Installation7327
-Node: Naming Conventions8475
-Node: Program Structure10621
-Node: Argument Lists11084
-Node: Time of Evaluation20864
-Node: Function Aliases26839
-Node: Predicates27418
-Node: Type Predicates27733
-Node: Equality Predicates32539
-Node: Control Structure35772
-Node: Assignment36571
-Node: Generalized Variables37808
-Node: Basic Setf39110
-Node: Modify Macros46380
-Node: Customizing Setf53585
-Node: Variable Bindings60870
-Node: Dynamic Bindings61446
-Node: Lexical Bindings62331
-Node: Function Bindings66430
-Node: Macro Bindings69593
-Node: Conditionals72512
-Node: Blocks and Exits75588
-Node: Iteration78639
-Node: Loop Facility84108
-Node: Loop Basics85030
-Node: Loop Examples87625
-Node: For Clauses89879
-Node: Iteration Clauses101765
-Node: Accumulation Clauses103601
-Node: Other Clauses105940
-Node: Multiple Values112004
-Node: Macros113892
-Node: Declarations117105
-Node: Symbols125590
-Node: Property Lists125885
-Node: Creating Symbols129081
-Node: Numbers131128
-Node: Predicates on Numbers131603
-Node: Numerical Functions132627
-Node: Random Numbers136849
-Node: Implementation Parameters139553
-Node: Sequences143120
-Node: Sequence Basics143788
-Node: Mapping over Sequences147362
-Node: Sequence Functions153211
-Node: Searching Sequences159381
-Node: Sorting Sequences162414
-Node: Lists164957
-Node: List Functions165378
-Node: Substitution of Expressions169749
-Node: Lists as Sets171630
-Node: Association Lists175687
-Node: Hash Tables177385
-Node: Structures183825
-Node: Assertions198603
-Node: Efficiency Concerns201540
-Node: Common Lisp Compatibility207860
-Node: Old CL Compatibility211013
-Node: Porting Common Lisp215391
-Node: Function Index224841
-Node: Variable Index236477
+Node: Top1223
+Node: Overview2582
+Node: Usage4860
+Node: Organization5505
+Node: Installation7323
+Node: Naming Conventions8455
+Node: Program Structure10156
+Node: Argument Lists10569
+Node: Time of Evaluation19629
+Node: Predicates25486
+Node: Type Predicates25801
+Node: Equality Predicates30606
+Node: Control Structure33545
+Node: Assignment34326
+Node: Generalized Variables35562
+Node: Basic Setf36864
+Node: Modify Macros44045
+Node: Customizing Setf51249
+Node: Variable Bindings58533
+Node: Dynamic Bindings59109
+Node: Lexical Bindings59994
+Node: Function Bindings64082
+Node: Macro Bindings67245
+Node: Conditionals70163
+Node: Blocks and Exits72741
+Node: Iteration75744
+Node: Loop Facility81295
+Node: Loop Basics82217
+Node: Loop Examples84812
+Node: For Clauses87066
+Node: Iteration Clauses98347
+Node: Accumulation Clauses100183
+Node: Other Clauses102522
+Node: Multiple Values108586
+Node: Macros110474
+Node: Declarations113687
+Node: Symbols122031
+Node: Property Lists122326
+Node: Creating Symbols125522
+Node: Numbers127569
+Node: Predicates on Numbers128036
+Node: Numerical Functions129060
+Node: Random Numbers132741
+Node: Implementation Parameters135445
+Node: Sequences138978
+Node: Sequence Basics139646
+Node: Mapping over Sequences143202
+Node: Sequence Functions149120
+Node: Searching Sequences154622
+Node: Sorting Sequences157654
+Node: Lists160197
+Node: List Functions160608
+Node: Substitution of Expressions163887
+Node: Lists as Sets165768
+Node: Association Lists169519
+Node: Structures170960
+Node: Assertions185732
+Node: Efficiency Concerns188669
+Node: Common Lisp Compatibility193642
+Node: Old CL Compatibility196477
+Node: Porting Common Lisp200823
+Node: Function Index210251
+Node: Variable Index220746
 
 End Tag Table

@@ -62,7 +62,7 @@ public:
     public:
     	Maker() : AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_THRESHOLD) { }
     	ThresholdAclSubject *make(const TypedList &list) const;
-    	ThresholdAclSubject *make(Reader &pub, Reader &priv) const;
+    	ThresholdAclSubject *make(Version, Reader &pub, Reader &priv) const;
     };
     
 private:

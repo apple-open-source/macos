@@ -1,12 +1,14 @@
-/* Dummy header for libintl.h */
-
+/* Dummy header for libintl.h
+ *
+ * For license terms, see the file COPYING in this directory.
+ */
 #undef _
 #ifdef ENABLE_NLS
 #undef __OPTIMIZE__
 #include <libintl.h>
-#define _(String) gettext((String))
-#define N_(String) (String)
+#define GT_(String) gettext((String))
+#define NGT_(String) (String)
 #else
-#define _(String) (String)
-#define N_(String) (String)
+#define GT_(String) (String)
+#define NGT_(String) (String)
 #endif

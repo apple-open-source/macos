@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: browse.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $";
+static char rcsid[] = "$Id: browse.c,v 1.2 2002/01/03 22:16:39 jevans Exp $";
 #endif
 /*
  * Program:	Routines to support file browser in pico and Pine composer
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: browse.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp 
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -127,6 +127,15 @@ static struct bmaster {
 #endif
 
 
+static	KEYMENU menu_browse[] = {
+    {"?", "Get Help"},	{NULL, NULL},		{"R", "Rename"},
+    {"-", "Back Pg"},	{"D", "Del File"},	{"M","Make Copy"},
+    {"S", "[Select]"},	{"G", "Goto Dir"},	{"W", "Where is"},
+    {"Spc", "Fwd Pg"},	{NULL, NULL},		{NULL, NULL}
+};
+#define	QUIT_KEY	1
+
+
 /*
  * function key mappings...
  */
@@ -176,20 +185,28 @@ NULL
 /*
  * FileBrowse - display contents of given directory dir
  *
+ *	    intput:  
+ *		     dir points to initial dir to browse.
+ *		     fn  initial file name. 
+ *		     flags
+ *
  *         returns:
- *                   dir points to currently selected directory
+ *                   dir points to currently selected directory (without
+ *			trailing file system delimiter)
  *                   fn  points to currently selected file
  *                   sz  points to size of file if ptr passed was non-NULL
+ *
  *                   1 if a file's been selected
  *                   0 if no files seleted
  *                  -1 if there where problems
  */
-FileBrowse(dir, fn, sz)
+FileBrowse(dir, fn, sz, flags)
 char *dir, *fn, *sz;			/* dir, name and optional size */
+int   flags;
 {
     int status, i, j, c;
     int row, col;
-    char *p, child[NLINE];
+    char *p, child[NLINE], tmp[NLINE];
     struct bmaster *mp, *getfcells();
     struct fcell *tp;
 
@@ -200,6 +217,8 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 	sleep(2);
 	return(0);
     }
+
+    emlwrite("Building file list...", NULL);
 
     /* build contents of cell structures */
     if((gmp = getfcells(dir)) == NULL)
@@ -459,18 +478,18 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 	    while(i++ < 2){		/* verify twice!! */
 		if(i == 1){
 		    if(fexist(child, "w", (long *)NULL) != FIOSUC)
-		      sprintf(s,"File is write protected! OVERRIDE", child);
+		      strcpy(tmp, "File is write protected! OVERRIDE");
 		    else
-		      sprintf(s, "Delete file \"%s\"", child);
+		      sprintf(tmp, "Delete file \"%.*s\"", NLINE - 20, child);
 		}
 		else
-		  strcpy(s, "File CANNOT be UNdeleted!  Really delete");
+		  strcpy(tmp, "File CANNOT be UNdeleted!  Really delete");
 
-		if((status = mlyesno(s, FALSE)) != TRUE){
-		    if(status ==  ABORT)
-		      emlwrite("\007Delete Cancelled", NULL);
-		    else
-		      emlwrite("File Not Deleted", NULL);
+		if((status = mlyesno(tmp, FALSE)) != TRUE){
+		    emlwrite((status ==  ABORT)
+			       ? "Delete Cancelled"
+			       : "File Not Deleted",
+			     NULL);
 		    break;
 		}
 	    }
@@ -506,6 +525,8 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 		    mlerase();
 		}
 	    }
+
+	    BrowserKeys();
 	    break;
 
 	  case '?':					/* HELP! */
@@ -527,9 +548,8 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 
 	    while(!i){
 
-		wkeyhelp("GC0000000000", "Get Help,Cancel");
-
-		status = mlreply("Directory to go to: ", child, NLINE, QFFILE);
+		status = mlreply("Directory to go to: ", child, NLINE, QNORML,
+				 NULL);
 
 		switch(status){
 		  case HELPCH:
@@ -541,7 +561,7 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 		    PaintBrowser(gmp, 0);
 		    break;
 		  case ABORT:
-		    emlwrite("Cancelled", NULL);
+		    emlwrite("Goto cancelled", NULL);
 		    i++;
 		    break;
 		  case FALSE:
@@ -600,9 +620,8 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 
 	    while(!i){
 
-		wkeyhelp("GC0000000000", "Get Help,Cancel");
-
-		switch(status=mlreply("Name of new copy: ", child, NLINE, QFFILE)){
+		switch(status=mlreply("Name of new copy: ", child, NLINE,
+				      QFFILE, NULL)){
 		  case HELPCH:
 		    emlwrite("\007No help yet!", NULL);
 /* remove break and sleep after help text is installed */
@@ -632,16 +651,17 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 			break;
 		    }
 
-		    strcpy(s, child); 		/* add full path! */
-		    sprintf(child, "%s%c%s", gmp->dname, C_FILESEP, s);
+		    strcpy(tmp, child); 		/* add full path! */
+		    sprintf(child, "%s%c%s", gmp->dname, C_FILESEP, tmp);
 
 		    if((status = fexist(child, "w", (long *)NULL)) == FIOSUC){
-			sprintf(s,"File \"%s\" exists! OVERWRITE", child);
-			if((status = mlyesno(s, 0)) != TRUE){
-			    if(status == ABORT)
-			      emlwrite("\007Make Copy Cancelled", NULL);
-			    else
-			      emlwrite("File Not Renamed", NULL);
+			sprintf(tmp,"File \"%.*s\" exists! OVERWRITE",
+				NLINE - 20, child);
+			if((status = mlyesno(tmp, 0)) != TRUE){
+			    emlwrite((status == ABORT)
+				      ? "Make copy cancelled" 
+				      : "File Not Renamed",
+				     NULL);
 			    break;
 			}
 		    }
@@ -650,10 +670,10 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 			break;
 		    }
 
-		    sprintf(s, "%s%c%s", gmp->dname, C_FILESEP, 
+		    sprintf(tmp, "%s%c%s", gmp->dname, C_FILESEP, 
 			    gmp->current->fname);
 
-		    if(copy(s, child) < 0){
+		    if(copy(tmp, child) < 0){
 			/* copy()  will report any error messages */
 			break;
 		    }
@@ -666,13 +686,13 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 			}
 
 			*p = '\0';
-			strcpy(s, (p == child) ? S_FILESEP: child);
+			strcpy(tmp, (p == child) ? S_FILESEP: child);
 
 			/*
 			 * new file in same dir? if so, refigure files
 			 * and redraw...
 			 */
-			if(!strcmp(s, gmp->dname)){ 
+			if(!strcmp(tmp, gmp->dname)){ 
 			    strcpy(child, gmp->current->fname);
 			    if((mp = getfcells(gmp->dname)) == NULL)
 			      /* getfcells should explain what happened */
@@ -713,9 +733,8 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 
 	    while(!i){
 
-		wkeyhelp("GC0000000000", "Get Help,Cancel");
-
-		switch(status=mlreply("Rename file to: ", child, NLINE, QFFILE)){
+		switch(status=mlreply("Rename file to: ", child, NLINE, QFFILE,
+				      NULL)){
 		  case HELPCH:
 		    emlwrite("\007No help yet!", NULL);
 /* remove break and sleep after help text is installed */
@@ -725,7 +744,7 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 		    PaintBrowser(gmp, 0);
 		    break;
 		  case ABORT:
-		    emlwrite("Cancelled", NULL);
+		    emlwrite("Rename cancelled", NULL);
 		    i++;
 		    break;
 		  case FALSE:
@@ -737,27 +756,28 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 			break;
 		    }
 
-		    strcpy(s, child);
-		    sprintf(child, "%s%c%s", gmp->dname, C_FILESEP, s);
+		    strcpy(tmp, child);
+		    sprintf(child, "%s%c%s", gmp->dname, C_FILESEP, tmp);
 
 		    status = fexist(child, "w", (long *)NULL);
 		    if(status == FIOSUC || status == FIOFNF){
 			if(status == FIOSUC){
-			    sprintf(s,"File \"%s\" exists! OVERWRITE", child);
+			    sprintf(tmp,"File \"%.*s\" exists! OVERWRITE",
+				    NLINE - 20, child);
 
-			    if((status = mlyesno(s, FALSE)) != TRUE){
-				if(status ==  ABORT)
-				  emlwrite("\007Cancelled", NULL);
-				else
-				  emlwrite("Not Renamed", NULL);
+			    if((status = mlyesno(tmp, FALSE)) != TRUE){
+				emlwrite((status ==  ABORT)
+					  ? "Rename cancelled"
+					  : "Not Renamed",
+					 NULL);
 				break;
 			    }
 			}
 
-			sprintf(s, "%s%c%s", gmp->dname, C_FILESEP, 
+			sprintf(tmp, "%s%c%s", gmp->dname, C_FILESEP, 
 				gmp->current->fname);
 
-			if(rename(s, child) < 0){
+			if(rename(tmp, child) < 0){
 			    emlwrite("Rename Failed: %s", errstr(errno));
 			}
 			else{
@@ -767,9 +787,9 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 			    }
 			    
 			    *p = '\0';
-			    strcpy(s, (p == child) ? S_FILESEP: child);
+			    strcpy(tmp, (p == child) ? S_FILESEP: child);
 
-			    if((mp = getfcells(s)) == NULL)
+			    if((mp = getfcells(tmp)) == NULL)
 			      /* getfcells should explain what happened */
 			      break;
 
@@ -806,29 +826,29 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 		while(1){
 		    i = mlyesno("A directory is selected, enter it", 1);
 		    if(i == TRUE){
-			strcpy(s, gmp->dname);
+			strcpy(tmp, gmp->dname);
 			p = gmp->current->fname;
 			if(p[0] == '.' && p[1] == '.' && p[2] == '\0'){
 
-			    if((p=strrchr(s, C_FILESEP)) != NULL){
+			    if((p=strrchr(tmp, C_FILESEP)) != NULL){
 				*p = '\0';
 
-				if((gmode&MDSCUR) && homeless(s)){
+				if((gmode&MDSCUR) && homeless(tmp)){
 				    emlwrite("\007Can't visit parent in restricted mode", NULL);
 				    break;
 				}
 
 				strcpy(child, &p[1]);
-				if(p == s
+				if(p == tmp
 #ifdef	DOS
-				   || (s[1] == ':' && s[2] == '\0')
+				   || (tmp[1] == ':' && tmp[2] == '\0')
 #endif
 				         ){	/* is it root? */
 				    if(*child)
 #ifdef	DOS
-				      strcat(s, S_FILESEP);
+				      strcat(tmp, S_FILESEP);
 #else
-				      strcpy(s, S_FILESEP);
+				      strcpy(tmp, S_FILESEP);
 #endif
 				    else{
 					emlwrite("\007Can't move up a directory", NULL);
@@ -838,12 +858,12 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 			    }
 			}
 			else{
-			    if(s[1] != '\0')		/* were in root? */
-			      strcat(s, S_FILESEP);
-			    strcat(s, gmp->current->fname);
+			    if(tmp[1] != '\0')		/* were in root? */
+			      strcat(tmp, S_FILESEP);
+			    strcat(tmp, gmp->current->fname);
 			}
 
-			if((mp = getfcells(s)) == NULL)
+			if((mp = getfcells(tmp)) == NULL)
 			  /* getfcells should explain what happened */
 			  break;
 
@@ -867,7 +887,7 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 			break;
 		    }
 		    else if(i == ABORT){
-			emlwrite("Cancelled", NULL);
+			emlwrite("Select cancelled", NULL);
 			break;
 		    }
 		    else if(i == (CTRL|'L')){
@@ -883,6 +903,7 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 		if(sz != NULL)			/* size uninteresting */
 		  strcpy(sz, gmp->current->size);
 
+#ifndef	_WINDOWS
 		if(gmode&MDBRONLY){
 		    i = 0;
 		    sprintf(child, "%s%c%s", gmp->dname, C_FILESEP, fn);
@@ -893,8 +914,10 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 			      case TRUE:
 				strcpy(child, fn);
 				while(!i){
-				    switch(status=mlreply("Command line : ",
-						       child, NLINE, QNORML)){
+				    status = mlreply("Command line : ",
+						     child, NLINE, QNORML,
+						     NULL);
+				    switch(status){
 				      case HELPCH:
 					emlwrite("\007No help yet!", NULL);
 /* remove break and sleep after help text is installed */
@@ -904,7 +927,7 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 					PaintBrowser(gmp, 0);
 					break;
 				      case ABORT:
-					emlwrite("Cancelled", NULL);
+					emlwrite("Command cancelled", NULL);
 					i++;
 					break;
 				      case FALSE:
@@ -936,7 +959,7 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 				break;
 			      case ABORT:
 				i++;
-				emlwrite("Cancelled", NULL);
+				emlwrite("Command cancelled", NULL);
 				break;
 			      case (CTRL|'L'):
 				PaintBrowser(gmp, 0);
@@ -953,9 +976,9 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 
 		    while(!i){
 			*child = '\0';
-			wkeyhelp("GC0000000000", "Get Help,Cancel");
-			switch(status=mlreply("Program to use on file : ",
-					      child, NLINE, QNORML)){
+			status = mlreply("Program to use on file : ",
+				       child, NLINE, QNORML, NULL);
+			switch(status){
 			  case HELPCH:
 			    emlwrite("\007No help yet!", NULL);
 /* remove break and sleep after help text is installed */
@@ -965,7 +988,7 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 			    PaintBrowser(gmp, 0);
 			    break;
 			  case ABORT:
-			    emlwrite("Cancelled", NULL);
+			    emlwrite("Command cancelled", NULL);
 			    i++;
 			    break;
 			  case FALSE:
@@ -1001,6 +1024,11 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 		    zotmaster(&gmp);
 		    return(1);
 		}
+#else
+		/* xxx Can't execute files under windoes, do this... */
+		zotmaster (&gmp);
+		return (1);
+#endif
 	    }
 	    break;
 
@@ -1009,8 +1037,6 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 	    i = 0;
 
 	    while(!i){
-
-		wkeyhelp("GC0000000000", "Get Help,Cancel");
 
 		switch(readpattern("File name to find")){
 		  case HELPCH:
@@ -1022,7 +1048,7 @@ char *dir, *fn, *sz;			/* dir, name and optional size */
 		    PaintBrowser(gmp, 0);
 		    break;
 		  case ABORT:
-		    emlwrite("Cancelled", NULL);
+		    emlwrite("Whereis cancelled", NULL);
 		    i++;
 		    break;
 		  case FALSE:
@@ -1338,22 +1364,9 @@ int level;
  */
 BrowserKeys()
 {
-    char *oldkeys;
-
-    /* reassign HelpKeyNames temporarily */
-    oldkeys = HelpKeyNames;
-    if(gmode&MDBRONLY)
-      HelpKeyNames = "~?,~X,~R,~-,~D,~M,~S,~G,~W,~ ,~U,~K,                             "; 
-    else if(!(gmode&MDFKEY))
-      HelpKeyNames = "~?,~E,~R,~-,~D,~M,~S,~G,~W,~ ,~U,~K,                             "; 
-
-    if(gmode&MDBRONLY)
-      wkeyhelp("GXR-DMSJW 00", "Help,Exit,Rename,Back Pg,Del File,Make Copy,Select,Goto Dir,Where is,Fwd Pg");
-    else
-      wkeyhelp("GER-DMSJW 00", "Help,Exit Brwsr,Rename,Back Pg,Del File,Make Copy,Select,Goto Dir,Where is,Fwd Pg");
-    
-    if(!(gmode&MDFKEY))
-      HelpKeyNames = oldkeys;			/* retore HelpKeyNames */
+    menu_browse[QUIT_KEY].name  = (gmode&MDBRONLY) ? "X" : "E";
+    menu_browse[QUIT_KEY].label = (gmode&MDBRONLY) ? "Exit" : "Exit Brwsr";
+    wkeyhelp(menu_browse);
 }
 
 
@@ -1531,6 +1544,7 @@ char *dir;
 {
     register char *p;
     register int  i, j, l;
+    char          buf[NLINE];
 
     movecursor(0, 0);
     (*term.t_rev)(1);
@@ -1540,11 +1554,11 @@ char *dir;
     j = (term.t_ncol-(l+16))/2;
 
     if(Pmaster)
-      sprintf(s,"   PINE %s", Pmaster->pine_version);
+      sprintf(buf, "   PINE %s", Pmaster->pine_version);
     else
-      sprintf(s,"   UW PICO(tm) %s", (gmode&MDBRONLY) ? "BROWSER" : version);
+      sprintf(buf,"   UW PICO(tm) %s", (gmode&MDBRONLY) ? "BROWSER" : version);
 
-    p = s;
+    p = buf;
     while(*p){
 	pputc(*p++, 0);
 	i++;
@@ -1561,10 +1575,10 @@ char *dir;
 	if(*p == '\0')				/* no suitable length! */
 	  p = &dir[l-(term.t_ncol-i-19)];
 
-	sprintf(s,"%s Dir ...%s", (gmode&MDBRONLY) ? "" : " BROWSER  ", p);
+	sprintf(buf, "%s Dir ...%s", (gmode&MDBRONLY) ? "" : " BROWSER  ", p);
     }
     else 
-      sprintf(s,"%s  Dir: %s", (gmode&MDBRONLY) ? "" : " BROWSER  ", dir);
+      sprintf(buf,"%s  Dir: %s", (gmode&MDBRONLY) ? "" : " BROWSER  ", dir);
 
     if(i < j)					/* keep it centered */
       j = j - i;				/* as long as we can */
@@ -1573,12 +1587,12 @@ char *dir;
 
     while(j-- && i++)
       pputc(' ', 0);
-    p = s;
 
+    p = buf;
     while(i++ < term.t_ncol && *p)		/* show directory */
       pputc(*p++, 0);
 
-    while(i++<term.t_ncol)
+    while(i++ < term.t_ncol)
       pputc(' ', 0);
 
     (*term.t_rev)(0);

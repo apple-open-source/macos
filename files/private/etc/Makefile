@@ -4,7 +4,7 @@ Destination = $(DSTROOT)/private/etc
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 # Subdirectories with their own makefiles
-SubDirs =
+SubDirs = resolver
 
 install::
 	$(_v) for subdir in $(SubDirs); do						\
@@ -17,23 +17,18 @@ install-sysconf:
 	@echo "Installing $(Destination)"
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
 	$(_v) $(INSTALL_FILE) -c -m 644 afpovertcp.cfg	 "$(Destination)/afpovertcp.cfg"
-	$(_v) $(INSTALL_FILE) -c -m 644 bootstrap.conf	 "$(Destination)/bootstrap.conf"
-	$(_v) $(INSTALL_FILE) -c -m 644 crontab		 "$(Destination)/crontab"
-	$(_v) $(INSTALL_FILE) -c -m 644 daily		 "$(Destination)/daily"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/find.codes"
 	$(_v) $(INSTALL_FILE) -c -m 644 ftpusers	 "$(Destination)/ftpusers"
-	$(_v) $(INSTALL_FILE) -c	fstab.hd	 "$(Destination)/fstab.hd"
-	$(_v) $(INSTALL_FILE) -c	fstab.rd	 "$(Destination)/fstab.rd"
-	$(_v) $(INSTALL_FILE) -c	fstab.sd	 "$(Destination)/fstab.sd"
+	$(_v) $(INSTALL_FILE) -c -m 644 fstab.hd	 "$(Destination)/fstab.hd"
+	$(_v) $(INSTALL_FILE) -c -m 644 fstab.rd	 "$(Destination)/fstab.rd"
+	$(_v) $(INSTALL_FILE) -c -m 644 fstab.sd	 "$(Destination)/fstab.sd"
 	$(_v) $(INSTALL_FILE) -c -m 644 gettytab	 "$(Destination)/gettytab"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/hosts.lpd"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/hosts.equiv"
 	$(_v) $(INSTALL_FILE) -c -m 644 iftab		 "$(Destination)/iftab"
 	$(_v) $(INSTALL_FILE) -c -m 644 inetd.conf	 "$(Destination)/inetd.conf"
 	$(_v) $(INSTALL_FILE) -c -m 644 kern_loader.conf "$(Destination)/kern_loader.conf"
-	$(_v) $(INSTALL_FILE) -c -m 644 monthly		 "$(Destination)/monthly"
 	$(_v) $(INSTALL_FILE) -c -m 644 motd		 "$(Destination)/motd"
-	$(_v) $(INSTALL_FILE) -c -m 644 printcap	 "$(Destination)/printcap"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/rmtab"
 	$(_v) $(INSTALL_FILE) -c -m 644 shells		 "$(Destination)/shells"
 	$(_v) $(INSTALL_FILE) -c -m 644 syslog.conf	 "$(Destination)/syslog.conf"
@@ -44,7 +39,6 @@ else
 	$(_v) $(INSTALL_FILE) -c -m 644 ttys		 "$(Destination)/ttys"
 endif
 	$(_v) $(INSTALL_FILE) -c	ttys.installer	 "$(Destination)/ttys.installer"
-	$(_v) $(INSTALL_FILE) -c -m 644 weekly		 "$(Destination)/weekly"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/xtab"
 	$(_v) $(LN) -s /var/run/resolv.conf              "$(Destination)"
 

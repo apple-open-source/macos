@@ -75,11 +75,12 @@ typedef UInt32 IOStorageAccess;
 
 #define kIOStorageCategory "IOStorage"                /* (as IOMatchCategory) */
 
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/assert.h>
 #include <IOKit/IOMemoryDescriptor.h>
@@ -204,10 +205,6 @@ protected:
 
 public:
 
-///m:2333367:workaround:commented:start
-//  using open;
-///m:2333367:workaround:commented:stop
-
     /*!
      * @function open
      * @discussion
@@ -327,6 +324,16 @@ public:
                            IOMemoryDescriptor * buffer,
                            UInt64 *             actualByteCount = 0);
 
+    /*!
+     * @function synchronizeCache
+     * @discussion
+     * Flush the cached data in the storage object, if any, synchronously.
+     * @param client
+     * Client requesting the cache synchronization.
+     * @result
+     * Returns the status of the cache synchronization.
+     */
+
     virtual IOReturn synchronizeCache(IOService * client) = 0;
 
     /*!
@@ -343,9 +350,9 @@ public:
      * Actual number of bytes transferred in the data transfer.
      */
 
-    static inline void complete(IOStorageCompletion completion,
-                                IOReturn            status,
-                                UInt64              actualByteCount = 0);
+    static void complete(IOStorageCompletion completion,
+                         IOReturn            status,
+                         UInt64              actualByteCount = 0);
 
     OSMetaClassDeclareReservedUnused(IOStorage,  0);
     OSMetaClassDeclareReservedUnused(IOStorage,  1);
@@ -365,26 +372,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOStorage, 15);
 };
 
-/*
- * Inline Functions
- */
-
-inline void IOStorage::complete(IOStorageCompletion completion,
-                                IOReturn            status,
-                                UInt64              actualByteCount)
-{
-    /*
-     * Invokes the specified completion action of the read/write request.  If
-     * the completion action is unspecified, no action is taken.  This method
-     * serves simply as a convenience to storage subclass developers.
-     */
-
-    if (completion.action)  (*completion.action)(completion.target, 
-                                                 completion.parameter,
-                                                 status,
-                                                 actualByteCount);
-}
-
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IOSTORAGE_H */

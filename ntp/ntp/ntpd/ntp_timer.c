@@ -5,20 +5,27 @@
 # include <config.h>
 #endif
 
-#include <stdio.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/time.h>
-#include <signal.h>
-#include <sys/signal.h>
-
 #include "ntp_machine.h"
 #include "ntpd.h"
 #include "ntp_stdlib.h"
+
+#include <stdio.h>
+#include <signal.h>
+#ifdef HAVE_SYS_SIGNAL_H
+# include <sys/signal.h>
+#endif
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+
 #if defined(HAVE_IO_COMPLETION_PORT)
 # include "ntp_iocompletionport.h"
 # include "ntp_timer.h"
 #endif
+
+#ifdef PUBKEY
+#include "ntp_crypto.h"
+#endif /* PUBKEY */
 
 /*
  * These routines provide support for the event timer.	The timer is
@@ -42,8 +49,11 @@ volatile int alarm_flag;
 static	u_long adjust_timer;		/* second timer */
 static	u_long keys_timer;		/* minute timer */
 static	u_long hourly_timer;		/* hour timer */
+static	u_long huffpuff_timer;		/* huff-n'-puff timer */
+#ifdef AUTOKEY
 static	u_long revoke_timer;		/* keys revoke timer */
-u_long	sys_revoke = KEY_REVOKE;	/* keys revoke timeout */
+u_long	sys_revoke = 1 << KEY_REVOKE;	/* keys revoke timeout */
+#endif /* AUTOKEY */
 
 /*
  * Statistics counter for the interested.
@@ -62,10 +72,6 @@ u_long timer_timereset;
 u_long timer_overflows;
 u_long timer_xmtcalls;
 
-#ifndef SYS_WINNT
-static	RETSIGTYPE alarming P((int));
-#endif /* SYS_WINNT */
-
 #if defined(VMS)
 static int vmstimer[2]; 	/* time for next timer AST */
 static int vmsinc[2];		/* timer increment */
@@ -73,6 +79,8 @@ static int vmsinc[2];		/* timer increment */
 
 #if defined SYS_WINNT
 static HANDLE WaitableTimerHandle = NULL;
+#else
+static	RETSIGTYPE alarming P((int));
 #endif /* SYS_WINNT */
 
 
@@ -104,6 +112,7 @@ init_timer(void)
 	alarm_overflow = 0;
 	adjust_timer = 1;
 	hourly_timer = HOUR;
+	huffpuff_timer = 0;
 	current_time = 0;
 	timer_overflows = 0;
 	timer_xmtcalls = 0;
@@ -148,26 +157,6 @@ init_timer(void)
 	lib$addx(&vmsinc, &vmstimer, &vmstimer);
 	sys$setimr(0, &vmstimer, alarming, alarming, 0);
 # endif /* VMS */
-# ifdef SYS_CYGWIN32
-	/*
-	 * Get privileges needed for fiddling with the clock
-	 */
-
-	/* get the current process token handle */
-	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
-		msyslog(LOG_ERR, "OpenProcessToken failed: %m");
-		exit(1);
-	}
-	/* get the LUID for system-time privilege. */
-	LookupPrivilegeValue(NULL, SE_SYSTEMTIME_NAME, &tkp.Privileges[0].Luid);
-	tkp.PrivilegeCount = 1;  /* one privilege to set */
-	tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-	/* get set-time privilege for this process. */
-	AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, (PTOKEN_PRIVILEGES) NULL, 0);
-	/* cannot test return value of AdjustTokenPrivileges. */
-	if (GetLastError() != ERROR_SUCCESS)
-		msyslog(LOG_ERR, "AdjustTokenPrivileges failed: %m");
-# endif /* SYS_CYGWIN32 */
 #else /* SYS_WINNT */
 	_tzset();
 
@@ -229,7 +218,7 @@ void
 timer(void)
 {
 	register struct peer *peer, *next_peer;
-	int n;
+	u_int n;
 
 	current_time += (1<<EVENT_TIMEOUT);
 
@@ -273,12 +262,27 @@ timer(void)
 	}
 
 	/*
-	 * Garbage collect revoked keys
+	 * Huff-n'-puff filter
+	 */
+	if (huffpuff_timer <= current_time) {
+		huffpuff_timer += HUFFPUFF;
+		huffpuff();
+	}
+
+#ifdef AUTOKEY
+	/*
+	 * Garbage collect old keys and generate new private value
 	 */
 	if (revoke_timer <= current_time) {
-		revoke_timer += RANDPOLL(sys_revoke);
-		key_expire_all();
+		revoke_timer += sys_revoke;
+		expire_all();
+#ifdef DEBUG
+		if (debug)
+			printf("key expire: at %lu next %lu\n",
+			    current_time, revoke_timer);
+#endif
 	}
+#endif /* AUTOKEY */
 
 	/*
 	 * Finally, call the hourly routine.

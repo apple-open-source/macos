@@ -17,11 +17,11 @@ TOOLS = badsect.tproj clri.tproj dev_mkdb.tproj dump.tproj\
         fsck_hfs.tproj fsck_msdos.tproj fstat.tproj mount.tproj\
         mountd.tproj mount_cd9660.tproj mount_devfs.tproj\
         mount_fdesc.tproj mount_hfs.tproj mount_nfs.tproj\
-        mount_udf.tproj newfs.tproj newfs_hfs.tproj newfs_msdos.tproj\
-        pdisk.tproj quot.tproj quota.tproj quotacheck.tproj\
-        quotaon.tproj repquota.tproj restore.tproj showmount.tproj tunefs.tproj\
-        umount.tproj udf.tproj ufs.tproj vsdbutil.tproj\
-        mount_synthfs.tproj
+        mount_synthfs.tproj newfs.tproj newfs_hfs.tproj\
+        newfs_msdos.tproj pdisk.tproj quot.tproj quota.tproj\
+        quotacheck.tproj quotaon.tproj repquota.tproj restore.tproj\
+        showmount.tproj tunefs.tproj umount.tproj ufs.tproj\
+        vsdbutil.tproj vndevice.tproj
 
 LIBRARIES = disklib
 

@@ -9,7 +9,7 @@
 # ORIGINAL SOURCES: /usr/athena/lib/init/cshrc (ATHENA REL 7.3P)
 ##
 
-set default_tcsh_initdir = /usr/share/init/tcsh
+set default_tcsh_initdir = /usr/share/tcsh/examples/
 set user_tcsh_initdir    = ~/Library/init/tcsh
 
 if (-r "${user_tcsh_initdir}") then
@@ -23,8 +23,6 @@ set host = `hostname`
 set host = `echo $host | tr A-Z a-z`
 
 set user=`whoami`
-
-set symlinks=ignore
 
 setenv HOST "${host}"
 setenv USER "${user}"
@@ -49,16 +47,16 @@ endif
 
 if ($?prompt) set interactive
 
+if (-r "${default_tcsh_initdir}/tcsh.defaults") then
+    source "${default_tcsh_initdir}/tcsh.defaults"
+endif
+
 if (! $?ENV_SET) then	# Top-most shell
   if (-r "${default_tcsh_initdir}/environment" && ($?prompt || $?XSESSION)) then
     source "${default_tcsh_initdir}/environment"
   endif
 else  			# NON ENV_SET, 2nd+ shells
   # noop
-endif
-
-if (-r "${default_tcsh_initdir}/tcsh.defaults") then
-    source "${default_tcsh_initdir}/tcsh.defaults"
 endif
 
 # DEFAULT KEY BINDINGS

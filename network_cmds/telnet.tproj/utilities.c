@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,18 +31,25 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
+#ifdef __FBSDID
+__FBSDID("$FreeBSD: src/crypto/telnet/telnet/utilities.c,v 1.2.8.2 2002/04/13 10:59:08 markm Exp $");
+#endif
+
 #ifndef lint
-static char sccsid[] = "@(#)utilities.c	8.3 (Berkeley) 5/30/95";
-#endif /* not lint */
+static const char sccsid[] = "@(#)utilities.c	8.3 (Berkeley) 5/30/95";
+#endif
 
 #define	TELOPTS
 #define	TELCMDS
 #define	SLC_NAMES
 #include <arpa/telnet.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/time.h>
-
 #include <ctype.h>
+#include <unistd.h>
 
 #include "general.h"
 
@@ -77,6 +61,13 @@ static char sccsid[] = "@(#)utilities.c	8.3 (Berkeley) 5/30/95";
 
 #include "externs.h"
 
+#ifdef	AUTHENTICATION
+#include <libtelnet/auth.h>
+#endif
+#ifdef	ENCRYPTION
+#include <libtelnet/encrypt.h>
+#endif
+
 FILE	*NetTrace = 0;		/* Not in bss, since needs to stay */
 int	prettydump;
 
@@ -86,11 +77,10 @@ int	prettydump;
  *	Upcase (in place) the argument.
  */
 
-    void
-upcase(argument)
-    register char *argument;
+void
+upcase(char *argument)
 {
-    register int c;
+    int c;
 
     while ((c = *argument) != 0) {
 	if (islower(c)) {
@@ -106,21 +96,11 @@ upcase(argument)
  * Compensate for differences in 4.2 and 4.3 systems.
  */
 
-    int
-SetSockOpt(fd, level, option, yesno)
-    int fd, level, option, yesno;
+int
+SetSockOpt(int fd, int level, int option, int yesno)
 {
-#ifndef	NOT43
     return setsockopt(fd, level, option,
 				(char *)&yesno, sizeof yesno);
-#else	/* NOT43 */
-    if (yesno == 0) {		/* Can't do that in 4.2! */
-	fprintf(stderr, "Error: attempt to turn off an option 0x%x.\n",
-				option);
-	return -1;
-    }
-    return setsockopt(fd, level, option, 0, 0);
-#endif	/* NOT43 */
 }
 
 /*
@@ -129,9 +109,8 @@ SetSockOpt(fd, level, option, yesno)
 
 unsigned char NetTraceFile[256] = "(standard output)";
 
-    void
-SetNetTrace(file)
-    register char *file;
+void
+SetNetTrace(char *file)
 {
     if (NetTrace && NetTrace != stdout)
 	fclose(NetTrace);
@@ -147,17 +126,13 @@ SetNetTrace(file)
     strcpy((char *)NetTraceFile, "(standard output)");
 }
 
-    void
-Dump(direction, buffer, length)
-    char direction;
-    unsigned char *buffer;
-    int length;
+void
+Dump(char direction, unsigned char *buffer, int length)
 {
 #   define BYTES_PER_LINE	32
 #   define min(x,y)	((x<y)? x:y)
     unsigned char *pThis;
     int offset;
-    extern pettydump;
 
     offset = 0;
 
@@ -199,10 +174,8 @@ Dump(direction, buffer, length)
 }
 
 
-	void
-printoption(direction, cmd, option)
-	char *direction;
-	int cmd, option;
+void
+printoption(const char *direction, int cmd, int option)
 {
 	if (!showoptions)
 		return;
@@ -212,7 +185,7 @@ printoption(direction, cmd, option)
 		else
 		    fprintf(NetTrace, "%s IAC %d", direction, option);
 	} else {
-		register char *fmt;
+		const char *fmt;
 		fmt = (cmd == WILL) ? "WILL" : (cmd == WONT) ? "WONT" :
 			(cmd == DO) ? "DO" : (cmd == DONT) ? "DONT" : 0;
 		if (fmt) {
@@ -235,10 +208,10 @@ printoption(direction, cmd, option)
 	return;
 }
 
-    void
-optionstatus()
+void
+optionstatus(void)
 {
-    register int i;
+    int i;
     extern char will_wont_resp[], do_dont_resp[];
 
     for (i = 0; i < 256; i++) {
@@ -312,14 +285,13 @@ optionstatus()
 
 }
 
-    void
-printsub(direction, pointer, length)
-    char direction;	/* '<' or '>' */
-    unsigned char *pointer;	/* where suboption data sits */
-    int		  length;	/* length of suboption data */
+void
+printsub(char direction, unsigned char *pointer, int length)
 {
-    register int i;
+    int i;
+#ifdef	AUTHENTICATION
     char buf[512];
+#endif
     extern int want_status_response;
 
     if (showoptions || direction == 0 ||
@@ -328,7 +300,7 @@ printsub(direction, pointer, length)
 	    fprintf(NetTrace, "%s IAC SB ",
 				(direction == '<')? "RCVD":"SENT");
 	    if (length >= 3) {
-		register int j;
+		int j;
 
 		i = pointer[length-2];
 		j = pointer[length-1];
@@ -442,7 +414,7 @@ printsub(direction, pointer, length)
 		fprintf(NetTrace, " ?%d?", pointer[i]);
 	    break;
 
-#if	defined(AUTHENTICATION)
+#ifdef	AUTHENTICATION
 	case TELOPT_AUTHENTICATION:
 	    fprintf(NetTrace, "AUTHENTICATION");
 	    if (length < 2) {
@@ -679,8 +651,8 @@ printsub(direction, pointer, length)
 	    break;
 
 	case TELOPT_STATUS: {
-	    register char *cp;
-	    register int j, k;
+	    const char *cp;
+	    int j, k;
 
 	    fprintf(NetTrace, "STATUS");
 
@@ -793,7 +765,7 @@ printsub(direction, pointer, length)
 		fprintf(NetTrace, "INFO ");
 	    env_common:
 		{
-		    register int noquote = 2;
+		    int noquote = 2;
 #if defined(ENV_HACK) && defined(OLD_ENVIRON)
 		    extern int old_env_var, old_env_value;
 #endif
@@ -842,7 +814,6 @@ printsub(direction, pointer, length)
 			    break;
 
 			default:
-			def_case:
 			    if (isprint(pointer[i]) && pointer[i] != '"') {
 				if (noquote) {
 				    putc('"', NetTrace);
@@ -889,72 +860,52 @@ printsub(direction, pointer, length)
  *			way to the kernel (thus the select).
  */
 
-    void
-EmptyTerminal()
+static void
+EmptyTerminal(void)
 {
-#if	defined(unix) || defined(__APPLE__)
     fd_set	o;
 
     FD_ZERO(&o);
-#endif	/* defined(unix) || defined(__APPLE__) */
 
     if (TTYBYTES() == 0) {
-#if	defined(unix) || defined(__APPLE__)
 	FD_SET(tout, &o);
 	(void) select(tout+1, (fd_set *) 0, &o, (fd_set *) 0,
 			(struct timeval *) 0);	/* wait for TTLOWAT */
-#endif	/* defined(unix) || defined(__APPLE__) */
     } else {
 	while (TTYBYTES()) {
 	    (void) ttyflush(0);
-#if	defined(unix) || defined(__APPLE__)
 	    FD_SET(tout, &o);
 	    (void) select(tout+1, (fd_set *) 0, &o, (fd_set *) 0,
 				(struct timeval *) 0);	/* wait for TTLOWAT */
-#endif	/* defined(unix) || defined(__APPLE__) */
 	}
     }
 }
 
-    void
-SetForExit()
+static void
+SetForExit(void)
 {
     setconnmode(0);
-#if	defined(TN3270)
-    if (In3270) {
-	Finish3270();
-    }
-#else	/* defined(TN3270) */
     do {
 	(void)telrcv();			/* Process any incoming data */
 	EmptyTerminal();
     } while (ring_full_count(&netiring));	/* While there is any */
-#endif	/* defined(TN3270) */
     setcommandmode();
     fflush(stdout);
     fflush(stderr);
-#if	defined(TN3270)
-    if (In3270) {
-	StopScreen(1);
-    }
-#endif	/* defined(TN3270) */
     setconnmode(0);
     EmptyTerminal();			/* Flush the path to the tty */
     setcommandmode();
 }
 
-    void
-Exit(returnCode)
-    int returnCode;
+void
+Exit(int returnCode)
 {
     SetForExit();
     exit(returnCode);
 }
 
-    void
-ExitString(string, returnCode)
-    char *string;
-    int returnCode;
+void
+ExitString(const char *string, int returnCode)
 {
     SetForExit();
     fwrite(string, 1, strlen(string), stderr);

@@ -1,0 +1,129 @@
+This is automake.info, produced by makeinfo version 4.1 from
+automake.texi.
+
+INFO-DIR-SECTION GNU programming tools
+START-INFO-DIR-ENTRY
+* automake: (automake).		Making Makefile.in's
+END-INFO-DIR-ENTRY
+
+INFO-DIR-SECTION Individual utilities
+START-INFO-DIR-ENTRY
+* aclocal: (automake)Invoking aclocal.          Generating aclocal.m4
+END-INFO-DIR-ENTRY
+
+   This file documents GNU automake 1.6.1
+
+   Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free
+Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+
+Indirect:
+automake.info-1: 1147
+automake.info-2: 49364
+automake.info-3: 99128
+automake.info-4: 147498
+
+Tag Table:
+(Indirect)
+Node: Top1147
+Node: Introduction2957
+Ref: Introduction-Footnote-14414
+Node: Generalities4615
+Node: General Operation5222
+Node: Strictness8053
+Node: Uniform9792
+Node: Canonicalization13649
+Node: User Variables14668
+Node: Auxiliary Programs15905
+Node: Examples18219
+Node: Complete18544
+Node: Hello20543
+Node: etags23171
+Node: Invoking Automake25942
+Node: configure30432
+Node: Requirements31352
+Node: Optional32429
+Node: Invoking aclocal37950
+Node: Macros40222
+Node: Public macros40704
+Node: Private macros46937
+Node: Extending aclocal48331
+Node: Top level49364
+Node: Alternative52578
+Ref: Alternative-Footnote-153949
+Node: Rebuilding54074
+Node: Programs54839
+Node: A Program55883
+Node: A Library62039
+Node: A Shared Library63309
+Node: Program and Library Variables65448
+Ref: Program and Library Variables-Footnote-173501
+Node: LIBOBJS73584
+Node: Program variables74242
+Node: Yacc and Lex76426
+Node: C++ Support80626
+Node: Assembly Support81460
+Node: Fortran 77 Support82235
+Ref: Fortran 77 Support-Footnote-183816
+Node: Preprocessing Fortran 7784019
+Node: Compiling Fortran 77 Files84611
+Node: Mixing Fortran 77 With C and C++85172
+Ref: Mixing Fortran 77 With C and C++-Footnote-187536
+Node: How the Linker is Chosen87839
+Node: Fortran 77 and Autoconf90387
+Node: Java Support90805
+Node: Support for Other Languages91831
+Node: ANSI92387
+Node: Dependencies95046
+Ref: Dependencies-Footnote-196766
+Node: EXEEXT96932
+Node: Other objects99128
+Node: Scripts99719
+Node: Headers100805
+Ref: Headers-Footnote-1101509
+Node: Data101742
+Node: Sources102394
+Node: Other GNU Tools103316
+Node: Emacs Lisp103804
+Node: gettext104861
+Node: Libtool105361
+Node: Java105609
+Node: Python107241
+Node: Documentation109975
+Node: Texinfo110276
+Node: Man pages113525
+Node: Install115813
+Node: Clean120194
+Node: Dist121391
+Node: Tests127812
+Node: Options130908
+Node: Miscellaneous135794
+Node: Tags136184
+Node: Suffixes137901
+Node: Multilibs139452
+Node: Include140080
+Node: Conditionals140855
+Ref: Conditional Append143011
+Node: Gnits144079
+Node: Cygnus145676
+Node: Extending147498
+Node: Distributing149237
+Node: API versioning149870
+Node: Macro and Variable Index152531
+Node: General Index163105
+
+End Tag Table

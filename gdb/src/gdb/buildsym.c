@@ -1,5 +1,6 @@
 /* Support routines for building symbol tables in GDB's internal format.
-   Copyright 1986-2000 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
+   1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -37,7 +38,7 @@
 #include "expression.h"		/* For "enum exp_opcode" used by... */
 #include "language.h"		/* For "longest_local_hex_string_custom" */
 #include "bcache.h"
-
+#include "filenames.h"		/* For DOSish file names */
 /* Ask buildsym.h to define the vars it normally declares `extern'.  */
 #define	EXTERN
 /**/
@@ -172,7 +173,7 @@ really_free_pendings (PTR dummy)
   for (next = free_pendings; next; next = next1)
     {
       next1 = next->next;
-      free ((void *) next);
+      xfree ((void *) next);
     }
   free_pendings = NULL;
 
@@ -181,14 +182,14 @@ really_free_pendings (PTR dummy)
   for (next = file_symbols; next != NULL; next = next1)
     {
       next1 = next->next;
-      free ((void *) next);
+      xfree ((void *) next);
     }
   file_symbols = NULL;
 
   for (next = global_symbols; next != NULL; next = next1)
     {
       next1 = next->next;
-      free ((void *) next);
+      xfree ((void *) next);
     }
   global_symbols = NULL;
 }
@@ -206,7 +207,7 @@ free_pending_blocks (void)
   for (bnext = pending_blocks; bnext; bnext = bnext1)
     {
       bnext1 = bnext->next;
-      free ((void *) bnext);
+      xfree ((void *) bnext);
     }
 #endif
   pending_blocks = NULL;
@@ -254,7 +255,6 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 
   BLOCK_START (block) = start;
   BLOCK_END (block) = end;
-
   /* Superblock filled in when containing block is made */
   BLOCK_SUPERBLOCK (block) = NULL;
 
@@ -275,9 +275,8 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 	     parameter symbols. */
 	  int nparams = 0, iparams;
 	  struct symbol *sym;
-	  for (i = 0; i < BLOCK_NSYMS (block); i++)
+	  ALL_BLOCK_SYMBOLS (block, i, sym)
 	    {
-	      sym = BLOCK_SYM (block, i);
 	      switch (SYMBOL_CLASS (sym))
 		{
 		case LOC_ARG:
@@ -323,6 +322,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 		    case LOC_BASEREG_ARG:
 		    case LOC_LOCAL_ARG:
 		      TYPE_FIELD_TYPE (ftype, iparams) = SYMBOL_TYPE (sym);
+		      TYPE_FIELD_ARTIFICIAL (ftype, iparams) = 0;
 		      iparams++;
 		      break;
 		    case LOC_UNDEF:
@@ -517,7 +517,7 @@ make_blockvector (struct objfile *objfile)
   for (next = pending_blocks; next; next = next1)
     {
       next1 = next->next;
-      free (next);
+      xfree (next);
     }
 #endif
   pending_blocks = NULL;
@@ -587,7 +587,7 @@ start_subfile (char *name, char *dirname)
 
   for (subfile = subfiles; subfile; subfile = subfile->next)
     {
-      if (STREQ (subfile->name, name))
+      if (FILENAME_CMP (subfile->name, name) == 0)
 	{
 	  current_subfile = subfile;
 	  return;
@@ -723,7 +723,7 @@ push_subfile (void)
   subfile_stack = tem;
   if (current_subfile == NULL || current_subfile->name == NULL)
     {
-      error ("no entry to push onto subfile stack");
+      internal_error (__FILE__, __LINE__, "failed internal consistency check");
     }
   tem->name = current_subfile->name;
 }
@@ -736,11 +736,11 @@ pop_subfile (void)
 
   if (link == NULL)
     {
-      error ("subfile stack empty");
+      internal_error (__FILE__, __LINE__, "failed internal consistency check");
     }
   name = link->name;
   subfile_stack = link->next;
-  free ((void *) link);
+  xfree ((void *) link);
   return (name);
 }
 
@@ -782,7 +782,7 @@ record_line (register struct subfile *subfile, int line, CORE_ADDR pc)
 
   e = subfile->line_vector->item + subfile->line_vector->nitems++;
   e->line = line;
-  e->pc = pc;
+  e->pc = ADDR_BITS_REMOVE(pc);
 }
 
 /* Needed in order to sort line tables from IBM xcoff files.  Sigh!  */
@@ -950,9 +950,12 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
     }
   else
     {
-      /* Define STATIC_BLOCK and GLOBAL_BLOCK and build the blockvector. */
-      finish_block (0, &file_symbols, 0, last_source_start_addr, end_addr, objfile);
-      finish_block (0, &global_symbols, 0, last_source_start_addr, end_addr, objfile);
+      /* Define STATIC_BLOCK and GLOBAL_BLOCK and build the
+	 blockvector. */
+      finish_block (0, &file_symbols, 0, last_source_start_addr, end_addr,
+		    objfile);
+      finish_block (0, &global_symbols, 0, last_source_start_addr, end_addr,
+		    objfile);
       blockvector = make_blockvector (objfile);
     }
 
@@ -1051,23 +1054,23 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 	}
       if (subfile->name != NULL)
 	{
-	  free ((void *) subfile->name);
+	  xfree ((void *) subfile->name);
 	}
       if (subfile->dirname != NULL)
 	{
-	  free ((void *) subfile->dirname);
+	  xfree ((void *) subfile->dirname);
 	}
       if (subfile->line_vector != NULL)
 	{
-	  free ((void *) subfile->line_vector);
+	  xfree ((void *) subfile->line_vector);
 	}
       if (subfile->debugformat != NULL)
 	{
-	  free ((void *) subfile->debugformat);
+	  xfree ((void *) subfile->debugformat);
 	}
 
       nextsub = subfile->next;
-      free ((void *) subfile);
+      xfree ((void *) subfile);
     }
 
   /* Set this for the main source file.  */

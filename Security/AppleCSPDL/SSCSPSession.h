@@ -37,7 +37,8 @@ class SSCSPSession : public CSPFullPluginSession
 public:
 	SSCSPDLSession &mSSCSPDLSession;
 	SSFactory &mSSFactory;
-
+	CssmClient::CSP &mRawCsp;
+	
 	SSCSPSession(CSSM_MODULE_HANDLE handle,
 				 CSPDLPlugin &plug,
 				 const CSSM_VERSION &version,
@@ -45,10 +46,11 @@ public:
 				 CSSM_SERVICE_TYPE subserviceType,
 				 CSSM_ATTACH_FLAGS attachFlags,
 				 const CSSM_UPCALLS &upcalls,
-				 SSCSPDLSession &ssCSPDLSession);
+				 SSCSPDLSession &ssCSPDLSession,
+				 CssmClient::CSP &rawCsp);
 
 	SecurityServer::ClientSession &clientSession()
-	{ return mSSCSPDLSession.clientSession(); }
+	{ return mClientSession; }
 
 	CSPContext *contextCreate(CSSM_CC_HANDLE handle, const Context &context);
 #if 0
@@ -159,6 +161,12 @@ public:
 					uint32 PassThroughId,
 					const void *InData,
 					void **OutData);
+private:
+	/* Validate requested key attr flags for newly generated keys */
+	void validateKeyAttr(uint32 reqKeyAttr);
+
+	SecurityServer::ClientSession mClientSession;
+	
 };
 
 

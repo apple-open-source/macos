@@ -1,6 +1,6 @@
 ;;; backquote.el --- implement the ` Lisp construct
 
-;;; Copyright (C) 1990, 1992, 1994 Free Software Foundation, Inc.
+;;; Copyright (C) 1990, 1992, 1994, 2001 Free Software Foundation, Inc.
 
 ;; Author: Rick Sladkey <jrs@world.std.com>
 ;; Maintainer: FSF
@@ -69,27 +69,16 @@ For example (backquote-list* 'a 'b 'c) => (a b . c)"
 
 (defalias 'backquote-list* (symbol-function 'backquote-list*-macro))
 
-(defgroup backquote nil
-  "Implement the ` Lisp construct."
-  :prefix "backquote-"
-  :group 'lisp)
-
 ;; A few advertised variables that control which symbols are used
 ;; to represent the backquote, unquote, and splice operations.
-(defcustom backquote-backquote-symbol '\`
-  "*Symbol used to represent a backquote or nested backquote (e.g. `)."
-  :type 'symbol
-  :group 'backquote)
+(defconst backquote-backquote-symbol '\`
+  "Symbol used to represent a backquote or nested backquote.")
 
-(defcustom backquote-unquote-symbol ',
-  "*Symbol used to represent an unquote (e.g. `,') inside a backquote."
-  :type 'symbol
-  :group 'backquote)
+(defconst backquote-unquote-symbol ',
+  "Symbol used to represent an unquote inside a backquote.")
 
-(defcustom backquote-splice-symbol ',@
-  "*Symbol used to represent a splice (e.g. `,@') inside a backquote."
-  :type 'symbol
-  :group 'backquote)
+(defconst backquote-splice-symbol ',@
+  "Symbol used to represent a splice inside a backquote.")
 
 ;;;###autoload
 (defmacro backquote (arg)
@@ -125,6 +114,8 @@ Vectors work just like lists.  Nested backquotes are permitted."
       (if (= (car n) 0)
 	  (cons 0 s)
 	(cons 1 (cond
+		 ((not (listp (cdr n)))
+		  (list 'vconcat (cdr n)))
 		 ((eq (nth 1 n) 'list)
 		  (cons 'vector (nthcdr 2 n)))
 		 ((eq (nth 1 n) 'append)
@@ -219,4 +210,4 @@ Vectors work just like lists.  Nested backquotes are permitted."
 	tail))
      (t (cons 'list heads)))))
 
-;; backquote.el ends here
+;;; backquote.el ends here

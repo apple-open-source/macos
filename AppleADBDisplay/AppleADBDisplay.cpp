@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1997-1998 Apple Computer, Inc.
+ * Copyright (c) 1997-2002 Apple Computer, Inc.
  *
  *
  * HISTORY
@@ -29,6 +29,8 @@
  * sdouglas  23 Jul 98 - start IOKit
  * suurballe 17 Nov 98 - ported to C++
  * adam.w    27 Mar 01 - Made into KEXT
+ * adam.w    30 Jan 02 - Fixed local mode and use new CPU-SW versioning 102.0.1
+ *                       which is 1.0.2d1
  */
 
 #include <IOKit/assert.h>
@@ -144,15 +146,17 @@ IOReturn AppleADBDisplay::doConnect( void )
 IOReturn AppleADBDisplay::setLocalMode( void )
 {
     IOReturn   		err;
-    UInt16 		value;
+    UInt16 		value = 0;
     IOByteCount		length;
 
-    adbDevice->readRegister( 3, (UInt8 *) &value, &length );
-    value &= ~0x6000;	//zeros out 13th and 14th bits
-    value |= (adbDevice->address() << 8); 
+    //Following 3 lines cause 1710AV to ignore command
+    //adbDevice->readRegister( kADBReg3, (UInt8 *) &value, &length );
+    //value &= ~0x6000;	//zeros out 13th and 14th bits
+    //value |= (adbDevice->address() << 8); 
+    value = (adbDevice->address() << 8); 
     length = sizeof( value);    
-    err = adbDevice->writeRegister( 3, (UInt8 *) &value, &length );
-    
+    err = adbDevice->writeRegister( kADBReg3, (UInt8 *) &value, &length ); 
+
     return err;
 }
 
@@ -359,6 +363,8 @@ bool AppleADBDisplay::tryAttach( IODisplayConnect * connect )
 	attached = true;
 
     } while( false);
+	    
+    setLocalMode();
 
     return( attached);
 }
@@ -375,8 +381,9 @@ IOService * AppleADBDisplay::probe( IOService * nub, SInt32 * score )
 
         if( (connect = OSDynamicCast( IODisplayConnect, nub))
          && tryAttach( connect))
+	{
 	    continue;
-
+	}
 	nub = 0;
 
     } while( false );

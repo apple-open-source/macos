@@ -1,5 +1,6 @@
 /* Remote serial interface using Hitachi E7000 PC ISA card in a PC
-   Copyright 1994, 1999, 2000 Free Software Foundation, Inc.
+   Copyright 1994, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,13 +24,8 @@
 #include "serial.h"
 #include "gdb_string.h"
 
-/* MSVC uses strnicmp instead of strncasecmp */
-#ifdef _MSC_VER
-#define strncasecmp strnicmp
-#define WIN32_LEAN_AND_MEAN
-#endif
-
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
 
@@ -37,14 +33,14 @@
 #include <sys/dos.h>
 #endif
 
-static int e7000pc_open (serial_t scb, const char *name);
-static void e7000pc_raw (serial_t scb);
-static int e7000pc_readchar (serial_t scb, int timeout);
-static int e7000pc_setbaudrate (serial_t scb, int rate);
-static int e7000pc_write (serial_t scb, const char *str, int len);
-static void e7000pc_close (serial_t scb);
-static serial_ttystate e7000pc_get_tty_state (serial_t scb);
-static int e7000pc_set_tty_state (serial_t scb, serial_ttystate state);
+static int e7000pc_open (struct serial *scb, const char *name);
+static void e7000pc_raw (struct serial *scb);
+static int e7000pc_readchar (struct serial *scb, int timeout);
+static int e7000pc_setbaudrate (struct serial *scb, int rate);
+static int e7000pc_write (struct serial *scb, const char *str, int len);
+static void e7000pc_close (struct serial *scb);
+static serial_ttystate e7000pc_get_tty_state (struct serial *scb);
+static int e7000pc_set_tty_state (struct serial *scb, serial_ttystate state);
 
 #define OFF_DPD 	0x0000
 #define OFF_DDP 	0x1000
@@ -128,36 +124,7 @@ sigs[] =
     0
 };
 
-#ifdef _MSC_VER
-/* Get the base of the data segment.  This is needed to calculate the offset
-   between data segment addresses and the base of linear memory, which is where
-   device registers reside.  Note that this is really only necessary for
-   Win32s, since Win95 and NT keep the data segment at linear 0.  */
-
-static unsigned long
-get_ds_base (void)
-{
-  unsigned short dsval;
-  LDT_ENTRY ldt;
-  unsigned long dsbase;
-
-  __asm
-  {
-    mov dsval, ds
-  }
-
-  dsbase = 0;
-
-  GetThreadSelectorEntry (GetCurrentThread (), dsval, &ldt);
-
-  dsbase = ldt.HighWord.Bits.BaseHi << 24 | ldt.HighWord.Bits.BaseMid << 16
-    | ldt.BaseLow;
-
-  return dsbase;
-}
-#else /* !_MSC_VER */
 #define get_ds_base() 0
-#endif /* _MSC_VER */
 
 static int
 e7000pc_init (void)
@@ -324,7 +291,7 @@ dosasync_write (int fd, const char *buf, int len)
 }
 
 static int
-e7000pc_open (serial_t scb, const char *name)
+e7000pc_open (struct serial *scb, const char *name)
 {
   if (strncasecmp (name, "pc", 2) != 0)
     {
@@ -341,19 +308,19 @@ e7000pc_open (serial_t scb, const char *name)
 }
 
 static int
-e7000pc_noop (serial_t scb)
+e7000pc_noop (struct serial *scb)
 {
   return 0;
 }
 
 static void
-e7000pc_raw (serial_t scb)
+e7000pc_raw (struct serial *scb)
 {
   /* Always in raw mode */
 }
 
 static int
-e7000pc_readchar (serial_t scb, int timeout)
+e7000pc_readchar (struct serial *scb, int timeout)
 {
   char buf;
 
@@ -378,7 +345,7 @@ struct e7000pc_ttystate
    vector.  Someday, they may do something real... */
 
 static serial_ttystate
-e7000pc_get_tty_state (serial_t scb)
+e7000pc_get_tty_state (struct serial *scb)
 {
   struct e7000pc_ttystate *state;
 
@@ -388,20 +355,21 @@ e7000pc_get_tty_state (serial_t scb)
 }
 
 static int
-e7000pc_set_tty_state (serial_t scb, serial_ttystate ttystate)
+e7000pc_set_tty_state (struct serial *scb, serial_ttystate ttystate)
 {
   return 0;
 }
 
 static int
-e7000pc_noflush_set_tty_state (serial_t scb, serial_ttystate new_ttystate,
+e7000pc_noflush_set_tty_state (struct serial *scb,
+			       serial_ttystate new_ttystate,
 			       serial_ttystate old_ttystate)
 {
   return 0;
 }
 
 static void
-e7000pc_print_tty_state (serial_t scb,
+e7000pc_print_tty_state (struct serial *scb,
 			 serial_ttystate ttystate,
 			 struct ui_file *stream)
 {
@@ -410,13 +378,19 @@ e7000pc_print_tty_state (serial_t scb,
 }
 
 static int
-e7000pc_setbaudrate (serial_t scb, int rate)
+e7000pc_setbaudrate (struct serial *scb, int rate)
 {
   return 0;
 }
 
 static int
-e7000pc_write (serial_t scb, const char *str, int len)
+e7000pc_setstopbits (struct serial *scb, int rate)
+{
+  return 0;
+}
+
+static int
+e7000pc_write (struct serial *scb, const char *str, int len)
 {
   dosasync_write (scb->fd, str, len);
 
@@ -424,7 +398,7 @@ e7000pc_write (serial_t scb, const char *str, int len)
 }
 
 static void
-e7000pc_close (serial_t scb)
+e7000pc_close (struct serial *scb)
 {
 }
 
@@ -445,6 +419,7 @@ static struct serial_ops e7000pc_ops =
   e7000pc_print_tty_state,
   e7000pc_noflush_set_tty_state,
   e7000pc_setbaudrate,
+  e7000pc_setstopbits,
   e7000pc_noop,			/* wait for output to drain */
 };
 

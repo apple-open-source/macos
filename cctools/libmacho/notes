@@ -1,3 +1,24 @@
+Changes for the 5.10 release (the cctools-414 release):
+- Changed the calls to mach_host_self() in NXGetLocalArchInfo() in arch.c to
+  call mach_port_deallocate() on the port after the call.  Radar bug #2895931.
+
+Changes for the 5.10 release (the cctools-403 release):
+- Changed the macos_lib_ofiles_install target in the Makefile to work when
+  $SYMROOT is not set.  So the top level Makefile can do a make install and
+  work by default.
+
+Changes for the 5.10 release (the cctools-400 release):
+- Changed the Makefile back to again use the -dependency-file with gcc.
+
+Changes for the 5.10 release (the cctools-396 release):
+- Changed the Makefile to not use the -dependency-file with gcc as well as
+  mwccppc.
+- Added an include <string.h> to i386_swap.c, sparc_swap.c and m88k_swap.c to
+  pick up the prototype for memcpy().
+
+Changes for the 5.10 release (the cctools-386 release):
+- Added the swap_prebind_cksum_command() to to swap.c.
+
 Changes for the 5.9 release (the cctools-367 release):
 - Added swap_sub_library_command() to swap.c.  Radar bug #2697458.
 - Added swap_twolevel_hint(), swap_twolevel_hints_command() and the missing

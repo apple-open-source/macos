@@ -297,7 +297,7 @@ yylex()
 		else
 		    *b++ = c;
 
-		if( ( c = yychar() ) == EOF || !inquote && isspace( c ) )
+		if( ( c = yychar() ) == EOF || (!inquote && isspace( c )) )
 		    break;
 	    }
 

@@ -1,4 +1,4 @@
-#   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+#   Copyright 1999, 2000 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@
 #
 
 load_lib mi-support.exp
+set MIFLAGS "-i=mi"
 
 gdb_exit
 if [mi_gdb_start] {
@@ -77,7 +78,7 @@ proc test_breakpoints_creation_and_listing {} {
              "insert breakpoint at \"<fullfilename>\":6 (callee4)"
 
     mi_gdb_test "204-break-list" \
-                "204\\^done,BreakpointTable=\{hdr=\{.*\},bkpt=\{number=\"1\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"main\",file=\".*basics.c\",line=\"32\",times=\"0\"\},.*\}\}" \
+	    "204\\^done,BreakpointTable=\{.*,hdr=\\\[.*\\\],body=\\\[bkpt=\{number=\"1\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"main\",file=\".*basics.c\",line=\"32\",times=\"0\"\},.*\}\\\]\}" \
                 "list of breakpoints"
 
     mi_gdb_test "205-break-disable 2 3 4" \
@@ -85,7 +86,7 @@ proc test_breakpoints_creation_and_listing {} {
                 "disabling of breakpoints"
 
     mi_gdb_test "206-break-info 2" \
-                "206\\^done,BreakpointTable=\{hdr=\{.*\},bkpt=\{number=\"2\",.*,enabled=\"n\",.*\}\}" \
+	    "206\\^done,BreakpointTable=\{.*,hdr=\\\[.*\\\],body=\\\[bkpt=\{number=\"2\",.*,enabled=\"n\",.*\}\\\]\}" \
                 "list of breakpoints, 16 disabled"
 }
 
@@ -103,8 +104,11 @@ proc test_running_the_program {} {
     # The following is equivalent to a send_gdb "000-exec-run\n"
     mi_run_cmd
     gdb_expect {
-	-re "000\\*stopped,reason=\"breakpoint-hit\",bkptno=\"1\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"main\",args=\{\},file=\".*basics.c\",line=\"32\"\}\r\n$mi_gdb_prompt$" {
+	-re "000\\*stopped,reason=\"breakpoint-hit\",bkptno=\"1\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"main\",args=\\\[\\\],file=\".*basics.c\",line=\"32\"\}\r\n$mi_gdb_prompt$" {
 	    pass "run to main"
+	}
+	-re ".*$mi_gdb_prompt$" {
+	    fail "run to main (2)"
 	}
 	timeout {
 	    fail "run to main (timeout)"
@@ -125,55 +129,24 @@ proc test_controlled_execution {} {
     # -exec-step
     # -exec-finish
 
-    # mi_gdb_test cannot be used for asynchronous commands because there are
-    # two prompts involved and this can lead to a race condition.
-    send_gdb "220-exec-next\n"
-    gdb_expect {
-	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"end-stepping-range\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"main\",args=\{\},file=\".*basics.c\",line=\"33\"\}\r\n$mi_gdb_prompt$" {
-	    pass "next at main"
-	}
-	timeout {
-	    fail "next at main (timeout)"
-	}
-    }
+    mi_next_to "main" "" "basics.c" "33" "next at main"
 
     # FIXME: A string argument is not printed right; should be fixed and
     #        we should look for the right thing here.
     # NOTE: The ``\\\\\"'' is for \".
-    send_gdb "221-exec-step\n"
-    gdb_expect {
-	-re "221\\^running\r\n${mi_gdb_prompt}221\\*stopped,reason=\"end-stepping-range\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"callee1\",args=\{\{name=\"intarg\",value=\"2\"\},\{name=\"strarg\",value=\"$hex \\\\\"A string argument\.\\\\\"\"\},\{name=\"fltarg\",value=\"3.5\"\}\},file=\".*basics.c\",line=\"27\"\}\r\n$mi_gdb_prompt$" {
-            pass "step at main"
-	}
-	timeout {
-	    fail "step at main (timeout)"
-        }
-    }
+    mi_step_to "callee1" \
+	"\{name=\"intarg\",value=\"2\"\},\{name=\"strarg\",value=\"$hex \\\\\"A string argument\.\\\\\"\"\},\{name=\"fltarg\",value=\"3.5\"\}" \
+	"basics.c" "27" "step at main"
 
     # FIXME: A string argument is not printed right; should be fixed and
     #        we should look for the right thing here.
-    send_gdb "222-exec-step 3\n"
-    gdb_expect 30 {
-	-re "222\\^running\r\n${mi_gdb_prompt}222\\*stopped,reason=\"end-stepping-range\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"callee4\",args=\{\},file=\".*basics.c\",line=\"8\"\}\r\n$mi_gdb_prompt$" {
-            pass "step to callee4"
-	}
-	timeout {
-	    fail "step to callee4 (timeout)"
-	}
-    }
+    mi_run_to "exec-step 3" "end-stepping-range" "callee4" "" \
+	"basics.c" "8" "" "step to callee4"
 
     # FIXME: A string argument is not printed right; should be fixed and
     #        we should look for the right thing here.
     # NOTE: The ``.'' is part of ``gdb-result-var="$1"''
-    send_gdb "223-exec-finish\n"
-    gdb_expect 30 {
-	-re "223\\^running\r\n${mi_gdb_prompt}223\\*stopped,reason=\"function-finished\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"callee3\",args=\{.*\},file=\".*basics.c\",line=\"18\"\},gdb-result-var=\".1\",return-value=\"0\"\r\n$mi_gdb_prompt$" {
-            pass "exec-finish"
-	}
-	timeout {
-	    fail "exec-finish (timeout)"
-	}
-    }
+    mi_finish_to "callee3" ".*" "basics.c" "18" ".1" "0" "exec-finish"
 }
 
 proc test_controlling_breakpoints {} {
@@ -224,9 +197,3 @@ test_program_termination
 
 mi_gdb_exit
 return 0
-
-# Local variables: 
-# change-log-default-name: "ChangeLog-mi"
-# End: 
-
-

@@ -585,8 +585,7 @@ IOUFIStorageServices::reportMediaState ( 	bool * mediaPresent,
 	
 	*mediaPresent 	= fMediaPresent;
 	*changed 		= fMediaChanged;
-
-
+	
 	if ( fMediaChanged )
 	{
 		fMediaChanged = !fMediaChanged;

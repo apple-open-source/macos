@@ -185,7 +185,7 @@ unsigned long nfat_archs)
 	     * that will work (contains altivec if needed):
 	     *	7450, 7400, 750, 604e, 604, 603ev, 603e, 603, ALL
 	     * Note the 601 is NOT in the list above.  It is only picked via
-	     * an exact match.  For an unknown subtype pick obly the ALL type if
+	     * an exact match.  For an unknown subtype pick only the ALL type if
 	     * it exists.
 	     */
 	    switch(cpusubtype){

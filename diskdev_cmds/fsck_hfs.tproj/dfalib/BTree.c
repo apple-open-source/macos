@@ -1131,52 +1131,53 @@ OSStatus	BTInsertRecord		(SFCB						*filePtr,
 	switch (err)				// set/replace/insert decision point
 	{
 		case noErr:			err = fsBTDuplicateRecordErr;
-								goto ErrorExit;
+							goto ErrorExit;
 
 		case fsBTRecordNotFoundErr:	break;
 
 		case fsBTEmptyErr:	// if tree empty add 1st leaf node
 
-								if (btreePtr->freeNodes == 0)
-								{
-									err = ExtendBTree (btreePtr, btreePtr->totalNodes + 1);
-									M_ExitOnError (err);
-								}
+			if (btreePtr->freeNodes == 0)
+			{
+				err = ExtendBTree (btreePtr, btreePtr->totalNodes + 1);
+				M_ExitOnError (err);
+			}
 
-								err = AllocateNode (btreePtr, &insertNodeNum);
-								M_ExitOnError (err);
+			err = AllocateNode (btreePtr, &insertNodeNum);
+			M_ExitOnError (err);
 
-								err = GetNewNode (btreePtr, insertNodeNum, &nodeRec);
-								M_ExitOnError (err);
+			err = GetNewNode (btreePtr, insertNodeNum, &nodeRec);
+			M_ExitOnError (err);
 
-								((NodeDescPtr)nodeRec.buffer)->kind		= kBTLeafNode;
-								((NodeDescPtr)nodeRec.buffer)->height	= 1;
+			((NodeDescPtr)nodeRec.buffer)->kind		= kBTLeafNode;
+			((NodeDescPtr)nodeRec.buffer)->height	= 1;
 
-								recordFit = InsertKeyRecord (btreePtr, nodeRec.buffer, 0,
-															 &iterator->key, KeyLength(btreePtr, &iterator->key),
-															 record->bufferAddress, recordLen );
-								if (recordFit != true)
-								{
-									err = fsBTRecordTooLargeErr;
-									goto ErrorExit;
-								}
+			recordFit = InsertKeyRecord (btreePtr, nodeRec.buffer, 0,
+										 &iterator->key, KeyLength(btreePtr, &iterator->key),
+										 record->bufferAddress, recordLen );
+			if (recordFit != true)
+			{
+				err = fsBTRecordTooLargeErr;
+				goto ErrorExit;
+			}
 
-								err = UpdateNode (btreePtr, &nodeRec);
-								M_ExitOnError (err);
+			err = UpdateNode (btreePtr, &nodeRec);
+			M_ExitOnError (err);
 
-								// update BTreeControlBlock
-								btreePtr->treeDepth	 		= 1;
-								btreePtr->rootNode	 		= insertNodeNum;
-								btreePtr->firstLeafNode		= insertNodeNum;
-								btreePtr->lastLeafNode		= insertNodeNum;
-								M_BTreeHeaderDirty (btreePtr);
+			// update BTreeControlBlock
+			btreePtr->treeDepth	 		= 1;
+			btreePtr->rootNode	 		= insertNodeNum;
+			btreePtr->firstLeafNode		= insertNodeNum;
+			btreePtr->lastLeafNode		= insertNodeNum;
+			M_BTreeHeaderDirty (btreePtr);
 
-								goto Success;
+			goto Success;
 
-		default:				goto ErrorExit;
+		default:				
+			goto ErrorExit;
 	}
 
-	if (index > 0)
+	if (index > 0) 
 	{
 		recordFit = InsertKeyRecord (btreePtr, nodeRec.buffer, index,
 										&iterator->key, KeyLength(btreePtr, &iterator->key),
@@ -1232,7 +1233,6 @@ Success:
 	////////////////////////////// Error Exit ///////////////////////////////////
 
 ErrorExit:
-
 	(void) ReleaseNode (btreePtr, &nodeRec);
 
 	iterator->hint.writeCount 	= 0;
@@ -1755,5 +1755,4 @@ OSStatus	BTInvalidateHint	(BTreeIterator				*iterator )
 
 	return	noErr;
 }
-
 

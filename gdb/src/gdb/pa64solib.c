@@ -1,5 +1,5 @@
 /* Handle HP ELF shared libraries for GDB, the GNU Debugger.
-   Copyright 1999 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -49,6 +49,7 @@
 #include "gdbcmd.h"
 #include "assert.h"
 #include "language.h"
+#include "regcache.h"
 
 #include <fcntl.h>
 
@@ -88,20 +89,20 @@ static struct so_list *so_list_head;
    shared objects on the so_list_head list.  (When we say size, here
    we mean of the information before it is brought into memory and
    potentially expanded by GDB.)  When adding a new shlib, this value
-   is compared against the threshold size, held by auto_solib_add
-   (in megabytes).  If adding symbols for the new shlib would cause
-   the total size to exceed the threshold, then the new shlib's symbols
-   are not loaded.  */
+   is compared against a threshold size, held by auto_solib_limit (in
+   megabytes).  If adding symbols for the new shlib would cause the
+   total size to exceed the threshold, then the new shlib's symbols
+   are not loaded. */
 static LONGEST pa64_solib_total_st_size;
 
 /* When the threshold is reached for any shlib, we refuse to add
    symbols for subsequent shlibs, even if those shlibs' symbols would
-   be small enough to fit under the threshold.  (Although this may
+   be small enough to fit under the threshold.  Although this may
    result in one, early large shlib preventing the loading of later,
-   smalller shlibs' symbols, it allows us to issue one informational
+   smaller shlibs' symbols, it allows us to issue one informational
    message.  The alternative, to issue a message for each shlib whose
    symbols aren't loaded, could be a big annoyance where the threshold
-   is exceeded due to a very large number of shlibs.) */
+   is exceeded due to a very large number of shlibs. */
 static int pa64_solib_st_size_threshold_exceeded;
 
 /* When adding fields, be sure to clear them in _initialize_pa64_solib. */
@@ -126,11 +127,11 @@ static void pa64_solib_sharedlibrary_command (char *, int);
 
 static void *pa64_target_read_memory (void *, CORE_ADDR, size_t, int);
 
-static boolean read_dld_descriptor (struct target_ops *);
+static boolean read_dld_descriptor (struct target_ops *, int readsyms);
 
 static boolean read_dynamic_info (asection *, dld_cache_t *);
 
-static void add_to_solist (boolean, char *, struct load_module_desc *,
+static void add_to_solist (boolean, char *, int, struct load_module_desc *,
 			   CORE_ADDR, struct target_ops *);
 
 /* When examining the shared library for debugging information we have to
@@ -168,7 +169,7 @@ pa64_solib_sizeof_symbol_table (char *filename)
   if (!abfd)
     {
       close (desc);
-      make_cleanup (free, filename);
+      make_cleanup (xfree, filename);
       error ("\"%s\": can't open to read symbols: %s.", filename,
 	     bfd_errmsg (bfd_get_error ()));
     }
@@ -176,7 +177,7 @@ pa64_solib_sizeof_symbol_table (char *filename)
   if (!bfd_check_format (abfd, bfd_object))
     {
       bfd_close (abfd);
-      make_cleanup (free, filename);
+      make_cleanup (xfree, filename);
       error ("\"%s\": can't read symbols: %s.", filename,
 	     bfd_errmsg (bfd_get_error ()));
     }
@@ -192,7 +193,7 @@ pa64_solib_sizeof_symbol_table (char *filename)
     }
 
   bfd_close (abfd);
-  free (filename);
+  xfree (filename);
 
   /* Unfortunately, just summing the sizes of various debug info
      sections isn't a very accurate measurement of how much heap
@@ -367,11 +368,11 @@ pa64_solib_load_symbols (struct so_list *so, char *name, int from_tty,
 
 
 /* Add symbols from shared libraries into the symtab list, unless the
-   size threshold (specified by auto_solib_add, in megabytes) would
+   size threshold specified by auto_solib_limit (in megabytes) would
    be exceeded.  */
 
 void
-pa64_solib_add (char *arg_string, int from_tty, struct target_ops *target)
+pa64_solib_add (char *arg_string, int from_tty, struct target_ops *target, int readsyms)
 {
   struct minimal_symbol *msymbol;
   CORE_ADDR addr;
@@ -414,7 +415,7 @@ pa64_solib_add (char *arg_string, int from_tty, struct target_ops *target)
 
   /* Read in the load map pointer if we have not done so already.  */
   if (! dld_cache.have_read_dld_descriptor)
-    if (! read_dld_descriptor (target))
+    if (! read_dld_descriptor (target, readsyms))
       return;
 
   /* If the libraries were not mapped private, warn the user.  */
@@ -438,7 +439,7 @@ pa64_solib_add (char *arg_string, int from_tty, struct target_ops *target)
       if (!dll_path)
 	error ("pa64_solib_add, unable to read shared library path.");
 
-      add_to_solist (from_tty, dll_path, &dll_desc, 0, target);
+      add_to_solist (from_tty, dll_path, readsyms, &dll_desc, 0, target);
     }
 }
 
@@ -573,7 +574,7 @@ get_out:
       struct so_list *temp;
 
       temp = so_list_head;
-      free (so_list_head);
+      xfree (so_list_head);
       so_list_head = temp->next;
     }
   clear_symtab_users ();
@@ -699,7 +700,7 @@ pa64_solib_in_dynamic_linker (int pid, CORE_ADDR pc)
     return 0;
 
   if (!dld_cache.have_read_dld_descriptor)
-    if (!read_dld_descriptor (&current_target))
+    if (!read_dld_descriptor (&current_target, auto_solib_add))
       return 0;
 
   return (pc >= dld_cache.dld_desc.text_base
@@ -817,7 +818,7 @@ static void
 pa64_solib_sharedlibrary_command (char *args, int from_tty)
 {
   dont_repeat ();
-  pa64_solib_add (args, from_tty, (struct target_ops *) 0);
+  pa64_solib_add (args, from_tty, (struct target_ops *) 0, 1);
 }
 
 /* Return the name of the shared library containing ADDR or NULL if ADDR
@@ -860,7 +861,7 @@ pa64_solib_restart (void)
   while (sl)
     {
       struct so_list *next_sl = sl->next;
-      free (sl);
+      xfree (sl);
       sl = next_sl;
     }
   so_list_head = NULL;
@@ -885,28 +886,37 @@ _initialize_pa64_solib (void)
 	   "Load shared object library symbols for files matching REGEXP.");
   add_info ("sharedlibrary", pa64_sharedlibrary_info_command,
 	    "Status of loaded shared object libraries.");
+
   add_show_from_set
-    (add_set_cmd ("auto-solib-add", class_support, var_zinteger,
+    (add_set_cmd ("auto-solib-add", class_support, var_boolean,
 		  (char *) &auto_solib_add,
-		  "Set autoloading size threshold (in megabytes) of shared library symbols.\n\
-If nonzero, symbols from all shared object libraries will be loaded\n\
-automatically when the inferior begins execution or when the dynamic linker\n\
-informs gdb that a new library has been loaded, until the symbol table\n\
-of the program and libraries exceeds this threshold.\n\
-Otherwise, symbols must be loaded manually, using `sharedlibrary'.",
+		  "Set autoloading of shared library symbols.\n\
+If \"on\", symbols from all shared object libraries will be loaded\n\
+automatically when the inferior begins execution, when the dynamic linker\n\
+informs gdb that a new library has been loaded, or when attaching to the\n\
+inferior.  Otherwise, symbols must be loaded manually, using `sharedlibrary'.",
 		  &setlist),
      &showlist);
 
-  /* ??rehrauer: On HP-UX, the kernel parameter MAXDSIZ limits how much
-     data space a process can use.  We ought to be reading MAXDSIZ and
-     setting auto_solib_add to some large fraction of that value.  If
-     not that, we maybe ought to be setting it smaller than the default
-     for MAXDSIZ (that being 64Mb, I believe).  However, [1] this threshold
-     is only crudely approximated rather than actually measured, and [2]
-     50 Mbytes is too small for debugging gdb itself.  Thus, the arbitrary
-     100 figure.
-   */
-  auto_solib_add = 100;		/* Megabytes */
+  add_show_from_set
+    (add_set_cmd ("auto-solib-limit", class_support, var_zinteger,
+		  (char *) &auto_solib_limit,
+		  "Set threshold (in Mb) for autoloading shared library symbols.\n\
+When shared library autoloading is enabled, new libraries will be loaded\n\
+only until the total size of shared library symbols exceeds this\n\
+threshold in megabytes.  Is ignored when using `sharedlibrary'.",
+		  &setlist),
+     &showlist);
+
+  /* ??rehrauer: On HP-UX, the kernel parameter MAXDSIZ limits how
+     much data space a process can use.  We ought to be reading
+     MAXDSIZ and setting auto_solib_limit to some large fraction of
+     that value.  If not that, we maybe ought to be setting it smaller
+     than the default for MAXDSIZ (that being 64Mb, I believe).
+     However, [1] this threshold is only crudely approximated rather
+     than actually measured, and [2] 50 Mbytes is too small for
+     debugging gdb itself.  Thus, the arbitrary 100 figure.  */
+  auto_solib_limit = 100;	/* Megabytes */
 
   pa64_solib_restart ();
 }
@@ -926,7 +936,7 @@ so_lib_thread_start_addr (struct so_list *so)
    return nonzero.  */
 
 static boolean
-read_dld_descriptor (struct target_ops *target)
+read_dld_descriptor (struct target_ops *target, int readsyms)
 {
   char *dll_path;
   asection *dyninfo_sect;
@@ -985,7 +995,7 @@ read_dld_descriptor (struct target_ops *target)
 			pa64_target_read_memory, 
 			0, 
 			dld_cache.load_map);
-  add_to_solist(0, dll_path,  &dld_cache.dld_desc, 0, target);
+  add_to_solist(0, dll_path, readsyms, &dld_cache.dld_desc, 0, target);
   
   return 1;
 }
@@ -1092,7 +1102,7 @@ pa64_target_read_memory (void *buffer, CORE_ADDR ptr, size_t bufsiz, int ident)
    be read from the inferior process at the address load_module_desc_addr.  */
 
 static void
-add_to_solist (boolean from_tty, char *dll_path,
+add_to_solist (boolean from_tty, char *dll_path, int readsyms,
 	       struct load_module_desc *load_module_desc_p,
 	       CORE_ADDR load_module_desc_addr, struct target_ops *target)
 {
@@ -1156,8 +1166,9 @@ add_to_solist (boolean from_tty, char *dll_path,
   st_size = pa64_solib_sizeof_symbol_table (dll_path);
   pa64_solib_st_size_threshhold_exceeded =
        !from_tty 
+    && readsyms
     && (  (st_size + pa64_solib_total_st_size) 
-	> (auto_solib_add * (LONGEST)1000000));
+	> (auto_solib_limit * (LONGEST) (1024 * 1024)));
   if (pa64_solib_st_size_threshhold_exceeded)
     {
       pa64_solib_add_solib_objfile (new_so, dll_path, from_tty, 1);
@@ -1171,7 +1182,8 @@ add_to_solist (boolean from_tty, char *dll_path,
   pa64_solib_load_symbols (new_so, 
 			   dll_path,
 			   from_tty, 
-			   0);
+			   0,
+			   target);
   return;
 }
 
@@ -1212,7 +1224,7 @@ bfd_lookup_symbol (bfd *abfd, char *symname)
   if (storage_needed > 0)
     {
       symbol_table = (asymbol **) xmalloc (storage_needed);
-      back_to = make_cleanup (free, (PTR) symbol_table);
+      back_to = make_cleanup (xfree, (PTR) symbol_table);
       number_of_symbols = bfd_canonicalize_symtab (abfd, symbol_table);
 
       for (i = 0; i < number_of_symbols; i++)

@@ -7,6 +7,9 @@ TODO:
 - Add MMX stuff.
 
 Known bugs:
+- The assembly line:
+	bl ""foo""
+  causes the symbol name "" to be used.
 - cmpwi seems to be the same as cmpi for PowerPC.
 - Can't optimize because of compiler bug #50416 prevents line 235 in symbols.c
   from working (currently has #pragma CC_OPT_OFF and  #pragma CC_OPT_RESUME
@@ -22,6 +25,67 @@ Bugs to be fixed:
 - The m68k "jmp @(_foo)" is not legal and needs to be flaged.
 - The PowerPC extended branch mnemonic like beqlrl need to take a CRFONLY or
   a number shifted over by 2 (like the fcmpu instruction).
+
+Changes for the 5.10 release (the cctools-422 release):
+- Added some pentium pro instructions.  Radar bug #2928507.
+- Added the strip_static_syms section attribute.  Radar bug #2945659.
+
+Changes for the 5.10 release (the cctools-418 release):
+- Changed s_section() in read.c to not cause an error if a section attribute
+  is used with out -dynamic.  Radar bug #2929120.
+
+Changes for the 5.10 release (the cctools-416 release):
+- Added the .weak_definition directive to read.c in the routine
+  s_weak_definition().  An error check was also added in colon() of symbols.c,
+  and error checks were added to layout_symbols() in write_object.c .
+- Removed the weak_definitions attribute from the attribute_names[] array in
+  read.c.  Also removed the check in s_section() in read.c to only allow
+  S_ATTR_WEAK_DEFS with a coalesced section type.
+- Fixed a bug in the PowerPC assembler that did not detect instructions with
+  more than 5 parameters as an error.  The fix is in calcop() in ppc.c.
+  Radar bug #2911611.
+
+Changes for the 5.10 release (the cctools-415 release):
+- Added i386 opcode "fildll" to be the same as "fildq" and "fistpll" to be the
+  same as "fistpq".  Radar bug #2909568.
+
+Changes for the 5.10 release (the cctools-414 release):
+- Added the weak_definitions attribute to the attribute_names[] array in read.c.
+  Also added a check in s_section() in read.c to only allow S_ATTR_WEAK_DEFS
+  with a coalesced section type. Radar bug #2898558.
+- Fixed two places in md_number_to_imm() in ppc.c that was checking to make sure
+  the value used for a branch displacement was in range but the check was made
+  before the final adjustment of the value by 4.  Radar bug #2890217.
+  
+Changes for the 5.10 release (the cctools-400 release):
+- Added the i386 instruction fistp to be the same as fistps.  Radar bug
+  #2851846.
+
+Changes for the 5.10 release (the cctools-400 release):
+- Changed the Makefile back to again use the -dependency-file with gcc.
+
+Changes for the 5.10 release (the cctools-399 release):
+- Changed BUFFER_SIZE in input-file.c from 32k to 64k as gcc3 is puting out
+  single stab lengths that are longer than 32k.  Radar bug #2840883.
+
+Changes for the 5.10 release (the cctools-396 release):
+- Added the .weak_reference directive to read.c.  A change was also needed in
+  colon() of symbols.c.
+- Fixed a bad line of code in md_number_to_imm() in sparc.c that was:
+    val = (val >>= 2) + 1;
+  where it should have been:
+    val = (val >> 2) + 1;
+- Changed the Makefile to not use the -dependency-file with gcc as well as
+  mwccppc.
+- Added an include for <stdlib.h> in obstack.c, m88k.c, i860.c, ppc.c and
+  hppa.c to pick up the prototype for abort().
+- Added an include for <stdlib.h> in as.c and i860.c to pick up the prototype
+  for exit().
+- Added guards for the header files read.h, expr.h, struc-symbol.h, flonum.h,
+  frags.h, fixes.h, hash.h
+
+Changes for the 5.10 release (the cctools-389 release):
+- Changed the PowerPC fsel instruction to not be marked as optional.
 
 Changes for the 5.9 release (the cctools-375 release):
 - Picked up patches to add ()'s around builtin ppc macros.  Radar bug #2717461.

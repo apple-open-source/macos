@@ -1,26 +1,31 @@
-This is Info file ../info/message, produced by Makeinfo version 1.68
-from the input file message.texi.
+This is ../info/message, produced by makeinfo version 4.0 from
+message.texi.
 
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Message: (message).   Mail and news composition mode that goes with Gnus.
 END-INFO-DIR-ENTRY
 
    This file documents Message, the Emacs message composition mode.
 
-   Copyright (C) 1996 Free Software Foundation, Inc.
+   Copyright (C) 1996,97,98,99,2000,2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the entire resulting derived work is distributed under the terms
-of a permission notice identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: message,  Node: Top,  Next: Interface,  Up: (dir)
@@ -41,9 +46,9 @@ Message mode buffers.
 * Index::             Variable, function and concept index.
 * Key Index::         List of Message mode keys.
 
-   This manual corresponds to Message 5.7.  Message is distributed with
-the Gnus distribution bearing the same version number as this manual
-has.
+   This manual corresponds to Message 5.9.0.  Message is distributed
+with the Gnus distribution bearing the same version number as this
+manual.
 
 
 File: message,  Node: Interface,  Next: Commands,  Prev: Top,  Up: Top
@@ -104,7 +109,7 @@ Reply
 to the message in the current buffer.
 
    Message uses the normal methods to determine where replies are to go
-(*note Responses::.), but you can change the behavior to suit your needs
+(*note Responses::), but you can change the behavior to suit your needs
 by fiddling with the `message-reply-to-function' variable.
 
    If you want the replies to go to the `Sender' instead of the `From',
@@ -113,7 +118,7 @@ you could do something like this:
      (setq message-reply-to-function
            (lambda ()
             (cond ((equal (mail-fetch-field "from") "somebody")
-                    (mail-fetch-field "sender"))
+                    (list (cons 'To (mail-fetch-field "sender"))))
                   (t
                    nil))))
 
@@ -145,9 +150,9 @@ and `Cc' headers.
    Message uses the normal methods to determine where wide replies are
 to go, but you can change the behavior to suit your needs by fiddling
 with the `message-wide-reply-to-function'.  It is used in the same way
-as `message-reply-to-function' (*note Reply::.).
+as `message-reply-to-function' (*note Reply::).
 
-   Addresses that match the `rmail-dont-reply-to-names' regular
+   Addresses that match the `message-dont-reply-to-names' regular
 expression will be removed from the `Cc' header.
 
 
@@ -162,7 +167,7 @@ followup to the message in the current buffer.
    Message uses the normal methods to determine where followups are to
 go, but you can change the behavior to suit your needs by fiddling with
 the `message-followup-to-function'.  It is used in the same way as
-`message-reply-to-function' (*note Reply::.).
+`message-reply-to-function' (*note Reply::).
 
    The `message-use-followup-to' variable says what to do about
 `Followup-To' headers.  If it is `use', always use the value.  If it is
@@ -203,21 +208,9 @@ Forwarding
 the message in the current buffer.  If given a prefix, forward using
 news.
 
-`message-forward-start-separator'
-     Delimiter inserted before forwarded messages.  The default is
-     `------- Start of forwarded message -------\n'.
-
-`message-forward-end-separator'
-     Delimiter inserted after forwarded messages.  The default is
-     `------- End of forwarded message -------\n'.
-
-`message-signature-before-forwarded-message'
-     If this variable is `t', which it is by default, your personal
-     signature will be inserted before the forwarded message.  If not,
-     the forwarded message will be inserted first in the new mail.
-
-`message-included-forward-headers'
-     Regexp matching header lines to be included in forwarded messages.
+`message-forward-ignored-headers'
+     All headers that match this regexp will be deleted when forwarding
+     a message.
 
 `message-make-forward-subject-function'
      A list of functions that are called to generate a subject header
@@ -238,6 +231,12 @@ news.
      the evidence of previous forwards (such as `Fwd:', `Re:', `(fwd)')
      removed before the new subject is constructed.  The default value
      is `nil'.
+
+`message-forward-as-mime'
+     If this variable is `t' (the default), forwarded messages are
+     included as inline MIME RFC822 parts.  If it's `nil', forwarded
+     messages will just be copied inline to the new message, like
+     previous, non MIME-savvy versions of gnus would do.
 
 
 File: message,  Node: Resending,  Next: Bouncing,  Prev: Forwarding,  Up: Interface
@@ -275,15 +274,34 @@ Commands
 
 * Menu:
 
+* Buffer Entry::        Commands after entering a Message buffer.
 * Header Commands::     Commands for moving to headers.
 * Movement::            Moving around in message buffers.
 * Insertion::           Inserting things into message buffers.
+* MIME::                MIME considerations.
 * Various Commands::    Various things.
 * Sending::             Actually sending the message.
 * Mail Aliases::        How to use mail aliases.
+* Spelling::            Having Emacs check your spelling.
 
 
-File: message,  Node: Header Commands,  Next: Movement,  Up: Commands
+File: message,  Node: Buffer Entry,  Next: Header Commands,  Up: Commands
+
+Buffer Entry
+============
+
+   You most often end up in a Message buffer when responding to some
+other message of some sort.  Message does lots of handling of quoted
+text, and may remove signatures, reformat the text, or the
+like--depending on which used settings you're using.  Message usually
+gets things right, but sometimes it stumbles.  To help the user unwind
+these stumblings, Message sets the undo boundary before each major
+automatic action it takes.  If you press the undo key (usually located
+at `C-_') a few times, you will get back the un-edited message you're
+responding to.
+
+
+File: message,  Node: Header Commands,  Next: Movement,  Prev: Buffer Entry,  Up: Commands
 
 Header Commands
 ===============
@@ -300,7 +318,7 @@ exist, it will be inserted.
 `C-c C-f C-b'
      Go to the `Bcc' header (`message-goto-bcc').
 
-`C-c C-f C-f'
+`C-c C-f C-w'
      Go to the `Fcc' header (`message-goto-fcc').
 
 `C-c C-f C-c'
@@ -318,7 +336,7 @@ exist, it will be inserted.
 `C-c C-f C-d'
      Go to the `Distribution' header (`message-goto-distribution').
 
-`C-c C-f C-o'
+`C-c C-f C-f'
      Go to the `Followup-To' header (`message-goto-followup-to').
 
 `C-c C-f C-k'
@@ -341,7 +359,7 @@ Movement
      Move to the signature of the message (`message-goto-signature').
 
 
-File: message,  Node: Insertion,  Next: Various Commands,  Prev: Movement,  Up: Commands
+File: message,  Node: Insertion,  Next: MIME,  Prev: Movement,  Up: Commands
 
 Insertion
 =========
@@ -349,6 +367,10 @@ Insertion
 `C-c C-y'
      Yank the message that's being replied to into the message buffer
      (`message-yank-original').
+
+`C-c M-C-y'
+     Prompt for a buffer name and yank the contents of that buffer into
+     the message buffer (`message-yank-buffer').
 
 `C-c C-q'
      Fill the yanked message (`message-fill-yanked-message').  Warning:
@@ -360,6 +382,9 @@ Insertion
 `C-c C-w'
      Insert a signature at the end of the buffer
      (`message-insert-signature').
+
+`C-c M-h'
+     Insert the message headers (`message-insert-headers').
 
 `message-ignored-cited-headers'
      All headers that match this regexp will be removed from yanked
@@ -380,8 +405,7 @@ Insertion
      When you are replying to or following up an article, you normally
      want to quote the person you are answering.  Inserting quoted text
      is done by "yanking", and each quoted line you yank will have
-     `message-yank-prefix' prepended to it.  The default is `> '.  If
-     it is `nil', just indent the message.
+     `message-yank-prefix' prepended to it.  The default is `> '.
 
 `message-indentation-spaces'
      Number of spaces to indent yanked messages.
@@ -409,8 +433,9 @@ Insertion
      inserted at all.
 
 `message-signature-file'
-     File containing the signature to be inserted at the end of the
-     buffer.  The default is `~/.signature'.
+     If non-`nil' the name of a file containing the signature to be
+     inserted at the end of the buffer.  This is ignored if the file
+     doesn't exist.  The default is `~/.signature'.
 
    Note that RFC1036bis says that a signature should be preceded by the
 three characters `-- ' on a line by themselves.  This is to make it
@@ -423,7 +448,26 @@ Including ASCII graphics is an efficient way to get everybody to believe
 that you are silly and have nothing important to say.
 
 
-File: message,  Node: Various Commands,  Next: Sending,  Prev: Insertion,  Up: Commands
+File: message,  Node: MIME,  Next: Various Commands,  Prev: Insertion,  Up: Commands
+
+MIME
+====
+
+   Message is a MIME-compliant posting agent.  The user generally
+doesn't have to do anything to make the MIME happen--Message will
+automatically add the `Content-Type' and `Content-Transfer-Encoding'
+headers.
+
+   The most typical thing users want to use the multipart things in
+MIME for is to add "attachments" to mail they send out.  This can be
+done with the `C-c C-a' command, which will prompt for a file name and
+a MIME type.
+
+   You can also create arbitrarily complex multiparts using the MML
+language (*note Composing: (emacs-mime)Composing.).
+
+
+File: message,  Node: Various Commands,  Next: Sending,  Prev: MIME,  Up: Commands
 
 Various Commands
 ================
@@ -436,8 +480,9 @@ Various Commands
 
 `C-c C-e'
      Elide the text between point and mark (`message-elide-region').
-     The text is killed and an ellipsis (`[...]') will be inserted in
-     its place.
+     The text is killed and replaced with the contents of the variable
+     `message-elide-ellipsis'. The default value is to use an ellipsis
+     (`[...]').
 
 `C-c C-z'
      Kill all the text up to the signature, or if that's missing, up to
@@ -497,7 +542,7 @@ Sending
      Kill the message buffer and exit (`message-kill-buffer').
 
 
-File: message,  Node: Mail Aliases,  Prev: Sending,  Up: Commands
+File: message,  Node: Mail Aliases,  Next: Spelling,  Prev: Sending,  Up: Commands
 
 Mail Aliases
 ============
@@ -519,6 +564,43 @@ press `SPC' to expand the alias.
 
    No expansion will be performed upon sending of the message--all
 expansions have to be done explicitly.
+
+
+File: message,  Node: Spelling,  Prev: Mail Aliases,  Up: Commands
+
+Spelling
+========
+
+   There are two popular ways to have Emacs spell-check your messages:
+`ispell' and `flyspell'.  `ispell' is the older and probably more
+popular package.  You typically first write the message, and then run
+the entire thing through `ispell' and fix all the typos.  To have this
+happen automatically when you send a message, put something like the
+following in your `.emacs' file:
+
+     (add-hook 'message-send-hook 'ispell-message)
+
+   If you're in the habit of writing in different languages, this can be
+controlled by the `ispell-message-dictionary-alist' variable:
+
+     (setq ispell-message-dictionary-alist
+           '(("^Newsgroups:.*\\bde\\." . "deutsch8")
+     	(".*" . "default")))
+
+   `ispell' depends on having the external `ispell' command installed.
+
+   The other popular method is using `flyspell'.  This package checks
+your spelling while you're writing, and marks any mis-spelled words in
+various ways.
+
+   To use `flyspell', put something like the following in your `.emacs'
+file:
+
+     (defun my-message-setup-routine ()
+       (flyspell-mode 1))
+     (add-hook 'message-setup-hook 'my-message-setup-routine)
+
+   `flyspell' depends on having the external `ispell' command installed.
 
 
 File: message,  Node: Variables,  Next: Compatibility,  Prev: Commands,  Up: Top
@@ -551,8 +633,11 @@ letting the mail/news system do it) to ensure that mail and news copies
 of messages look sufficiently similar.
 
 `message-generate-headers-first'
-     If non-`nil', generate all headers before starting to compose the
-     message.
+     If non-`nil', generate all required headers before starting to
+     compose the message.
+
+     The variables `message-required-mail-headers' and
+     `message-required-news-headers' specify which headers are required.
 
 `message-from-style'
      Specifies how `From' headers should look.  There are four valid
@@ -589,7 +674,7 @@ of messages look sufficiently similar.
 
 `message-subject-re-regexp'
      Responses to messages have subjects that start with `Re: '.  This
-     is *not* an abbreviation of the English word "response", but in
+     is _not_ an abbreviation of the English word "response", but is
      Latin, and means "in response to".  Some illiterate nincompoops
      have failed to grasp this fact, and have "internationalized" their
      software to use abonimations like `Aw: ' ("antwort") or `Sv: '
@@ -597,6 +682,10 @@ of messages look sufficiently similar.
      have to deal with users that use these evil tools, in which case
      you may set this variable to a regexp that matches these prefixes.
      Myself, I just throw away non-compliant mail.
+
+`message-alternative-emails'
+     A regexp to match the alternative email addresses.  The first
+     matched address (not primary one) is used in the `From' field.
 
 
 File: message,  Node: Mail Headers,  Next: Mail Variables,  Prev: Message Headers,  Up: Variables
@@ -607,11 +696,11 @@ Mail Headers
 `message-required-mail-headers'
      *Note News Headers::, for the syntax of this variable.  It is
      `(From Date Subject (optional . In-Reply-To) Message-ID Lines
-     (optional . X-Mailer))' by default.
+     (optional . User-Agent))' by default.
 
 `message-ignored-mail-headers'
      Regexp of headers to be removed before mailing.  The default is
-     `^[GF]cc:\\|^Resent-Fcc:'.
+     `^[GF]cc:\|^Resent-Fcc:\|^Xref:'.
 
 `message-default-mail-headers'
      This string is inserted at the end of the headers in all message
@@ -634,6 +723,12 @@ Mail Variables
      (which is the default), these headers will be removed before
      mailing when sending messages via MH.  Set it to `nil' if your MH
      can handle these headers.
+
+`message-send-mail-partially-limit'
+     The limit on the size of messages sent as `message/partial'.  This
+     is the minimum message size in characters beyond which the message
+     should be sent in several parts.  If it is `nil', the size is
+     unlimited.
 
 
 File: message,  Node: News Headers,  Next: News Variables,  Prev: Mail Variables,  Up: Variables
@@ -672,19 +767,13 @@ impossible, they will be prompted for.  The following symbols are valid:
 `Message-ID'
      This required header will be generated by Message.  A unique ID
      will be created based on the date, time, user name and system
-     name.  Message will use `mail-host-address' as the fully qualified
-     domain name (FQDN) of the machine if that variable is defined.  If
-     not, it will use `system-name', which doesn't report a FQDN on
-     some machines - notably Suns.
+     name.  Message will use `system-name' to determine the name of the
+     system.  If this isn't a fully qualified domain name (FQDN),
+     Message will use `mail-host-address' as the FQDN of the machine.
 
-`X-Newsreader'
+`User-Agent'
      This optional header will be filled out according to the
      `message-newsreader' local variable.
-
-`X-Mailer'
-     This optional header will be filled out according to the
-     `message-mailer' local variable, unless there already is an
-     `X-Newsreader' header present.
 
 `In-Reply-To'
      This optional header is filled out using the `Date' and `From'
@@ -702,7 +791,7 @@ impossible, they will be prompted for.  The following symbols are valid:
 
 `Path'
      This extremely optional header should probably never be used.
-     However, some *very* old servers require that this header is
+     However, some _very_ old servers require that this header is
      present.  `message-user-path' further controls how this `Path'
      header is to look.  If it is `nil', use the server name as the
      leaf node.  If it is a string, use the string.  If it is neither a
@@ -774,6 +863,9 @@ the cdr of this cons will only be inserted if it is non-`nil'.
     `empty'
           Check whether the article is empty.
 
+    `invisible-text'
+          Check whether there is any invisible text in the buffer.
+
     `empty-headers'
           Check whether any of the headers are empty.
 
@@ -823,6 +915,13 @@ File: message,  Node: Various Message Variables,  Next: Sending Variables,  Prev
 Various Message Variables
 =========================
 
+`message-default-charset'
+     Symbol naming a MIME charset.  Non-ASCII characters in messages are
+     assumed to be encoded using this charset.  The default is `nil',
+     which means ask the user.  (This variable is used only on non-MULE
+     Emacsen.  *Note Charset Translation: (emacs-mime)Charset
+     Translation, for details on the MULE-to-MIME translation process.
+
 `message-signature-separator'
      Regexp matching the signature separator.  It is `^-- *$' by
      default.
@@ -869,10 +968,8 @@ Various Message Variables
 
           (add-hook 'message-send-hook 'my-message-add-content)
           (defun my-message-add-content ()
-            (message-add-header
-             "Mime-Version: 1.0"
-             "Content-Type: text/plain"
-             "Content-Transfer-Encoding: 7bit"))
+            (message-add-header "X-In-No-Sense: Nonsense")
+            (message-add-header "X-Whatever: no"))
 
      This function won't add the header if the header is already
      present.
@@ -916,9 +1013,8 @@ Sending Variables
 
 `message-fcc-handler-function'
      A function called to save outgoing articles.  This function will be
-     called with the name of the file to store the article in. The
-     default function is `message-output' which saves in Unix mailbox
-     format.
+     called with the name of the file to store the article in.  The
+     default function is `message-output' which saves in inbox format.
 
 `message-courtesy-message'
      When sending combined messages, this string is inserted at the
@@ -1035,7 +1131,7 @@ Responses
 used by default.
 
 "reply"
-     A "reply" is when you want to respond *just* to the person who
+     A "reply" is when you want to respond _just_ to the person who
      sent the message via mail.  There will only be one recipient.  To
      determine who the recipient will be, the following headers are
      consulted, in turn:
@@ -1045,7 +1141,7 @@ used by default.
     `From'
 
 "wide reply"
-     A "wide reply" is a mail response that includes *all* entities
+     A "wide reply" is a mail response that includes _all_ entities
      mentioned in the message you are responded to.  All mailboxes from
      the following headers will be concatenated to form the outgoing
      `To'/`Cc' headers:
@@ -1082,16 +1178,21 @@ Index
 
 * aliases:                               Mail Aliases.
 * approved:                              News Headers.
+* attachment:                            MIME.
+* charset:                               Various Message Variables.
 * compatibility:                         Compatibility.
 * Distribution:                          News Headers.
 * Expires:                               News Headers.
 * From:                                  News Headers.
+* ispell-message:                        Spelling.
+* ispell-message-dictionary-alist:       Spelling.
 * Lines:                                 News Headers.
 * long lines:                            News Headers.
 * mail aliases:                          Mail Aliases.
 * mail-header-separator:                 Various Message Variables.
 * mail-host-address:                     News Headers.
 * message-add-header:                    Various Message Variables.
+* message-alternative-emails:            Message Headers.
 * message-bounce:                        Bouncing.
 * message-caesar-buffer-body:            Various Commands.
 * message-cancel-news:                   Canceling News.
@@ -1100,12 +1201,14 @@ Index
 * message-cite-original:                 Insertion.
 * message-cite-original-without-signature: Insertion.
 * message-courtesy-message:              Sending Variables.
+* message-default-charset:               Various Message Variables.
 * message-default-headers:               Message Headers.
 * message-default-mail-headers:          Mail Headers.
 * message-default-news-headers:          News Headers.
 * message-deletable-headers:             Message Headers.
 * message-delete-not-region:             Various Commands.
 * message-directory:                     Various Message Variables.
+* message-dont-reply-to-names:           Wide Reply.
 * message-dont-send:                     Sending.
 * message-elide-region:                  Various Commands.
 * message-exit-actions:                  Message Actions.
@@ -1114,8 +1217,8 @@ Index
 * message-followup:                      Followup.
 * message-followup-to-function:          Followup.
 * message-forward:                       Forwarding.
-* message-forward-end-separator:         Forwarding.
-* message-forward-start-separator:       Forwarding.
+* message-forward-as-mime:               Forwarding.
+* message-forward-ignored-headers:       Forwarding.
 * message-forward-subject-author-subject: Forwarding.
 * message-from-style:                    Message Headers.
 * message-generate-headers-first:        Message Headers.
@@ -1141,9 +1244,9 @@ Index
 * message-ignored-news-headers:          News Headers.
 * message-ignored-resent-headers:        Resending.
 * message-ignored-supersedes-headers:    Superseding.
-* message-included-forward-headers:      Forwarding.
 * message-indent-citation-function:      Insertion.
 * message-indentation-spaces:            Insertion.
+* message-insert-headers:                Insertion.
 * message-insert-newsgroups:             Various Commands.
 * message-insert-signature:              Insertion.
 * message-insert-to:                     Various Commands.
@@ -1172,6 +1275,7 @@ Index
 * message-send-hook:                     Various Message Variables.
 * message-send-mail-function:            Mail Variables.
 * message-send-mail-hook:                Various Message Variables.
+* message-send-mail-partially-limit:     Mail Variables.
 * message-send-method-alist:             Various Message Variables.
 * message-send-news-function:            News Variables.
 * message-send-news-hook:                Various Message Variables.
@@ -1179,7 +1283,6 @@ Index
 * message-sent-hook:                     Various Message Variables.
 * message-setup-hook:                    Various Message Variables.
 * message-signature:                     Insertion.
-* message-signature-before-forwarded-message: Forwarding.
 * message-signature-file:                Insertion.
 * message-signature-separator:           Various Message Variables.
 * message-signature-setup-hook:          Various Message Variables.
@@ -1190,24 +1293,29 @@ Index
 * message-wash-forwarded-subjects:       Forwarding.
 * message-wide-reply:                    Wide Reply.
 * message-wide-reply-to-function:        Wide Reply.
+* message-yank-buffer:                   Insertion.
 * message-yank-original:                 Insertion.
 * message-yank-prefix:                   Insertion.
+* MIME:                                  MIME.
 * Mime-Version:                          News Headers.
+* MML:                                   MIME.
+* multipart:                             MIME.
 * Newsgroups:                            News Headers.
 * organization:                          News Headers.
 * path:                                  News Headers.
 * quoting:                               Insertion.
-* rmail-dont-reply-to-names:             Wide Reply.
 * sc-cite-original:                      Insertion.
 * Sender:                                News Headers.
 * sendsys:                               News Headers.
+* spelling:                              Spelling.
 * Subject:                               News Headers.
 * Sun:                                   News Headers.
 * Supercite:                             Insertion.
 * system-name:                           News Headers.
+* undo:                                  Buffer Entry.
+* User-Agent:                            News Headers.
 * user-full-name:                        News Headers.
 * user-mail-address:                     News Headers.
-* X-Newsreader:                          News Headers.
 * yanking:                               Insertion.
 * yow:                                   News Headers.
 
@@ -1219,6 +1327,7 @@ Key Index
 
 * Menu:
 
+* C-_:                                   Buffer Entry.
 * C-c ?:                                 Header Commands.
 * C-c C-b:                               Movement.
 * C-c C-c:                               Sending.
@@ -1230,11 +1339,11 @@ Key Index
 * C-c C-f C-f:                           Header Commands.
 * C-c C-f C-k:                           Header Commands.
 * C-c C-f C-n:                           Header Commands.
-* C-c C-f C-o:                           Header Commands.
 * C-c C-f C-r:                           Header Commands.
 * C-c C-f C-s:                           Header Commands.
 * C-c C-f C-t:                           Header Commands.
 * C-c C-f C-u:                           Header Commands.
+* C-c C-f C-w:                           Header Commands.
 * C-c C-i:                               Movement.
 * C-c C-k:                               Sending.
 * C-c C-n:                               Various Commands.
@@ -1246,6 +1355,8 @@ Key Index
 * C-c C-w:                               Insertion.
 * C-c C-x:                               Various Commands.
 * C-c C-y:                               Insertion.
+* C-c M-C-y:                             Insertion.
+* C-c M-h:                               Insertion.
 * C-c M-r:                               Various Commands.
 * M-RET:                                 Various Commands.
 * message-newline-and-reformat:          Various Commands.
@@ -1253,39 +1364,42 @@ Key Index
 
 
 Tag Table:
-Node: Top915
-Node: Interface1634
-Node: New Mail Message2631
-Node: New News Message2988
-Node: Reply3376
-Node: Wide Reply4733
-Node: Followup5443
-Node: Canceling News6214
-Node: Superseding6419
-Node: Forwarding6906
-Node: Resending8597
-Node: Bouncing8982
-Node: Commands9509
-Node: Header Commands9938
-Node: Movement10978
-Node: Insertion11262
-Node: Various Commands14604
-Node: Sending16257
-Node: Mail Aliases16658
-Node: Variables17504
-Node: Message Headers18150
-Node: Mail Headers20559
-Node: Mail Variables21173
-Node: News Headers21868
-Node: News Variables27756
-Node: Various Message Variables28158
-Node: Sending Variables31168
-Node: Message Buffers32036
-Node: Message Actions33466
-Node: Compatibility34934
-Node: Appendices35376
-Node: Responses35565
-Node: Index36909
-Node: Key Index44323
+Node: Top1271
+Node: Interface1988
+Node: New Mail Message2985
+Node: New News Message3342
+Node: Reply3730
+Node: Wide Reply5104
+Node: Followup5815
+Node: Canceling News6585
+Node: Superseding6790
+Node: Forwarding7277
+Node: Resending8712
+Node: Bouncing9097
+Node: Commands9624
+Node: Buffer Entry10222
+Node: Header Commands10888
+Node: Movement11949
+Node: Insertion12233
+Node: MIME15797
+Node: Various Commands16450
+Node: Sending18170
+Node: Mail Aliases18571
+Node: Spelling19434
+Node: Variables20726
+Node: Message Headers21372
+Node: Mail Headers24084
+Node: Mail Variables24707
+Node: News Headers25666
+Node: News Variables31427
+Node: Various Message Variables31829
+Node: Sending Variables35170
+Node: Message Buffers36027
+Node: Message Actions37457
+Node: Compatibility38925
+Node: Appendices39367
+Node: Responses39556
+Node: Index40900
+Node: Key Index48954
 
 End Tag Table

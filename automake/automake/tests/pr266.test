@@ -1,0 +1,29 @@
+#! /bin/sh
+
+# Test for PR 266.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(foo, 0.1, dev@null)
+AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
+AC_PROG_CC
+AM_CONDITIONAL(FOOTEST, false)
+AC_CONFIG_FILES(Maudefile)
+AC_OUTPUT
+END
+
+cat > Maudefile.am << 'END'
+include_HEADERS         = 3dfx.h linutil.h
+noinst_HEADERS          = fx64.h fxdll.h fximg.h fxglob.h \
+                          fxos.h fxver.h glob.h
+noinst_PROGRAMS = fxmisc
+fxmisc_SOURCES    = fx64.c fximg.c fxos.c linutil.c
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+$AUTOCONF || exit 1
+./configure || exit 1
+
+test -f .deps/fx64.Po

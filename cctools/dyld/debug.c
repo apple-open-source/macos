@@ -754,7 +754,7 @@ struct dyld_debug_module *module
 	}
 
 	/* look up this symbol name */
-	lookup_symbol(name, NULL, NULL, &defined_symbol, &defined_module,
+	lookup_symbol(name, NULL, NULL, FALSE, &defined_symbol, &defined_module,
 		      &defined_image, &defined_library_image, NULL);
 
 	/*

@@ -1,9 +1,9 @@
-;;; refer.el --- look up references in bibliography files.
+;;; refer.el --- look up references in bibliography files
 
-;; Copyright (C) 1992, 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1996, 2001 Free Software Foundation, Inc.
 
 ;; Author: Ashwin Ram <ashwin@cc.gatech.edu>
-;; Maintainer: Gernot Heiser <gernot@jungfrau.disy.cse.unsw.EDU.AU>
+;; Maintainer: Gernot Heiser <gernot@acm.org>
 ;; Adapted-By: ESR
 ;; Keywords: bib
 
@@ -175,7 +175,7 @@ found on the last refer-find-entry or refer-find-next-entry."
          (if (looking-at
               "[ \t\n]*@\\s-*[a-zA-Z][a-zA-Z0-9]*\\s-*{\\s-*\\([^ \t\n,]+\\)\\s-*,")
              (buffer-substring (match-beginning 1) (match-end 1))
-           (error "Cannot find key for entry in file %s."
+           (error "Cannot find key for entry in file %s"
                   (car refer-saved-state))))))
     (if (not (= (point) old-point))
       (set-mark old-point))))
@@ -195,21 +195,20 @@ found on the last refer-find-entry or refer-find-next-entry."
      ;; find window in which to display bibliography file.
      ;; if a bibliography file is already displayed in a window, use
      ;; that one, otherwise use any window other than the current one
-     (while (not found)
-       (while (and (not (null (setq file (nth n files))))
-                   (setq n (1+ n))
-                   (not (string-equal file
-                                      (buffer-file-name
-                                       (window-buffer new-window))))))
-       (setq found
-             (if (null file)
-                 (eq (setq new-window (next-window new-window 'nomini))
-                     old-window)
-               't)))
-     (if (null file)                     ; didn't find bib file in any window:
-         (progn (if (one-window-p 'nomini)
-                    (setq old-window (split-window)))
-                (setq new-window (next-window old-window 'nomini))))
+     (setq new-window
+	   (get-window-with-predicate
+	    (lambda (w)
+	      (while (and (not (null (setq file (nth n files))))
+			  (setq n (1+ n))
+			  (not (string-equal file
+					     (buffer-file-name
+					      (window-buffer w))))))
+	      file)))
+     (unless new-window
+       ;; didn't find bib file in any window:
+       (when (one-window-p 'nomini)
+	 (setq old-window (split-window)))
+       (setq new-window (next-window old-window 'nomini)))
      (select-window (if refer-same-file
                         old-window
                       new-window))  ; the window in which to show the bib file
@@ -397,4 +396,3 @@ found on the last refer-find-entry or refer-find-next-entry."
     files))
 
 ;;; refer.el ends here
-

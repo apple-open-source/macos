@@ -1,5 +1,3 @@
-/*	$NetBSD: rm.c,v 1.24 1998/07/28 11:41:51 mycroft Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -33,24 +31,25 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1990, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1990, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
-static char sccsid[] = "@(#)rm.c	8.8 (Berkeley) 4/27/95";
+static char sccsid[] = "@(#)rm.c	8.5 (Berkeley) 4/18/94";
 #else
-__RCSID("$NetBSD: rm.c,v 1.24 1998/07/28 11:41:51 mycroft Exp $");
+static const char rcsid[] =
+  "$FreeBSD: src/bin/rm/rm.c,v 1.33 2001/06/13 15:01:25 ru Exp $";
 #endif
 #endif /* not lint */
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/param.h>
+#include <sys/mount.h>
 
-#include <locale.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -58,11 +57,11 @@ __RCSID("$NetBSD: rm.c,v 1.24 1998/07/28 11:41:51 mycroft Exp $");
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 #include <unistd.h>
-#include <pwd.h>
-#include <grp.h>
 
-int dflag, eval, fflag, iflag, Pflag, Wflag, stdin_ok;
+int dflag, eval, fflag, iflag, Pflag, vflag, Wflag, stdin_ok;
+uid_t uid;
 
 int	check __P((char *, char *, struct stat *));
 void	checkdot __P((char **));
@@ -70,19 +69,17 @@ void	rm_file __P((char **));
 void	rm_overwrite __P((char *, struct stat *));
 void	rm_tree __P((char **));
 void	usage __P((void));
-int	main __P((int, char *[]));
 
-#ifdef __APPLE__ /* We're missing this prototype */
+#ifdef __APPLE__
+/* We lack fflagstostr(), but ls has a flags_to_string function
+ * that does the same thing.  So...  We really use that.
+ */
+char * flags_to_string(u_long, char *);
+#define fflagstostr(x) flags_to_string((x), NULL)
+
+/* We're missing this prototype */
 int undelete __P((char *));
 #endif
-
-/*
- * For the sake of the `-f' flag, check whether an error number indicates the
- * failure of an operation due to an non-existent file, either per se (ENOENT)
- * or because its filename argument was illegal (ENAMETOOLONG, ENOTDIR).
- */
-#define NONEXISTENT(x) \
-    ((x) == ENOENT || (x) == ENAMETOOLONG || (x) == ENOTDIR)
 
 /*
  * rm --
@@ -97,11 +94,27 @@ main(argc, argv)
 	char *argv[];
 {
 	int ch, rflag;
+	char *p;
 
-	(void)setlocale(LC_ALL, "");
+	/*
+	 * Test for the special case where the utility is called as
+	 * "unlink", for which the functionality provided is greatly
+	 * simplified.
+	 */
+	if ((p = rindex(argv[0], '/')) == NULL)
+		p = argv[0];
+	else
+		++p;
+	if (strcmp(p, "unlink") == 0) {
+		if (argc == 2) {
+			rm_file(&argv[1]);
+			exit(eval);
+		} else 
+			usage();
+	}
 
 	Pflag = rflag = 0;
-	while ((ch = getopt(argc, argv, "dfiPRrW")) != -1)
+	while ((ch = getopt(argc, argv, "dfiPRrvW")) != -1)
 		switch(ch) {
 		case 'd':
 			dflag = 1;
@@ -121,20 +134,26 @@ main(argc, argv)
 		case 'r':			/* Compatibility. */
 			rflag = 1;
 			break;
+		case 'v':
+			vflag = 1;
+			break;
 		case 'W':
 			Wflag = 1;
 			break;
-		case '?':
 		default:
 			usage();
 		}
 	argc -= optind;
 	argv += optind;
 
-	if (argc < 1)
+	if (argc < 1) {
+		if (fflag)
+			return 0;
 		usage();
+	}
 
 	checkdot(argv);
+	uid = geteuid();
 
 	if (*argv) {
 		stdin_ok = isatty(STDIN_FILENO);
@@ -145,8 +164,7 @@ main(argc, argv)
 			rm_file(argv);
 	}
 
-	exit(eval);
-	/* NOTREACHED */
+	exit (eval);
 }
 
 void
@@ -157,12 +175,13 @@ rm_tree(argv)
 	FTSENT *p;
 	int needstat;
 	int flags;
+	int rval;
 
 	/*
 	 * Remove a file hierarchy.  If forcing removal (-f), or interactive
 	 * (-i) or can't ask anyway (stdin_ok), don't stat the file.
 	 */
-	needstat = !fflag && !iflag && stdin_ok;
+	needstat = !uid || (!fflag && !iflag && stdin_ok);
 
 	/*
 	 * If the -i option is specified, the user can skip on the pre-order
@@ -175,9 +194,8 @@ rm_tree(argv)
 		flags |= FTS_NOSTAT;
 	if (Wflag)
 		flags |= FTS_WHITEOUT;
-	if (!(fts = fts_open(argv, flags,
-		(int (*) __P((const FTSENT **, const FTSENT **)))NULL)))
-		err(1, "%s", "");
+	if (!(fts = fts_open(argv, flags, NULL)))
+		err(1, NULL);
 	while ((p = fts_read(fts)) != NULL) {
 		switch (p->fts_info) {
 		case FTS_DNR:
@@ -189,7 +207,6 @@ rm_tree(argv)
 			continue;
 		case FTS_ERR:
 			errx(1, "%s: %s", p->fts_path, strerror(p->fts_errno));
-			/* NOTREACHED */
 		case FTS_NS:
 			/*
 			 * FTS_NS: assume that if can't stat the file, it
@@ -197,7 +214,7 @@ rm_tree(argv)
 			 */
 			if (!needstat)
 				break;
-			if (!fflag || !NONEXISTENT(p->fts_errno)) {
+			if (!fflag || p->fts_errno != ENOENT) {
 				warnx("%s: %s",
 				    p->fts_path, strerror(p->fts_errno));
 				eval = 1;
@@ -210,6 +227,12 @@ rm_tree(argv)
 				(void)fts_set(fts, p, FTS_SKIP);
 				p->fts_number = SKIPPED;
 			}
+			else if (!uid &&
+				 (p->fts_statp->st_flags & (UF_APPEND|UF_IMMUTABLE)) &&
+				 !(p->fts_statp->st_flags & (SF_APPEND|SF_IMMUTABLE)) &&
+				 chflags(p->fts_accpath,
+					 p->fts_statp->st_flags &= ~(UF_APPEND|UF_IMMUTABLE)) < 0)
+				goto err;
 			continue;
 		case FTS_DP:
 			/* Post-order: see if user skipped. */
@@ -222,32 +245,53 @@ rm_tree(argv)
 				continue;
 		}
 
-		/*
-		 * If we can't read or search the directory, may still be
-		 * able to remove it.  Don't print out the un{read,search}able
-		 * message unless the remove fails.
-		 */
-		switch (p->fts_info) {
-		case FTS_DP:
-		case FTS_DNR:
-			if (!rmdir(p->fts_accpath) ||
-			    (fflag && errno == ENOENT))
-				continue;
-			break;
+		rval = 0;
+		if (!uid &&
+		    (p->fts_statp->st_flags & (UF_APPEND|UF_IMMUTABLE)) &&
+		    !(p->fts_statp->st_flags & (SF_APPEND|SF_IMMUTABLE)))
+			rval = chflags(p->fts_accpath,
+				       p->fts_statp->st_flags &= ~(UF_APPEND|UF_IMMUTABLE));
+		if (rval == 0) {
+			/*
+			 * If we can't read or search the directory, may still be
+			 * able to remove it.  Don't print out the un{read,search}able
+			 * message unless the remove fails.
+			 */
+			switch (p->fts_info) {
+			case FTS_DP:
+			case FTS_DNR:
+				rval = rmdir(p->fts_accpath);
+				if (rval == 0 || (fflag && errno == ENOENT)) {
+					if (rval == 0 && vflag)
+						(void)printf("%s\n",
+						    p->fts_path);
+					continue;
+				}
+				break;
 
-		case FTS_W:
-			if (!undelete(p->fts_accpath) ||
-			    (fflag && errno == ENOENT))
-				continue;
-			break;
+			case FTS_W:
+				rval = undelete(p->fts_accpath);
+				if (rval == 0 && (fflag && errno == ENOENT)) {
+					if (vflag)
+						(void)printf("%s\n",
+						    p->fts_path);
+					continue;
+				}
+				break;
 
-		default:
-			if (Pflag)
-				rm_overwrite(p->fts_accpath, NULL);
-			if (!unlink(p->fts_accpath) ||
-			    (fflag && NONEXISTENT(errno)))
-				continue;
+			default:
+				if (Pflag)
+					rm_overwrite(p->fts_accpath, NULL);
+				rval = unlink(p->fts_accpath);
+				if (rval == 0 || (fflag && errno == ENOENT)) {
+					if (rval == 0 && vflag)
+						(void)printf("%s\n",
+						    p->fts_path);
+					continue;
+				}
+			}
 		}
+err:
 		warn("%s", p->fts_path);
 		eval = 1;
 	}
@@ -273,7 +317,7 @@ rm_file(argv)
 			if (Wflag) {
 				sb.st_mode = S_IFWHT|S_IWUSR|S_IRUSR;
 			} else {
-				if (!fflag || !NONEXISTENT(errno)) {
+				if (!fflag || errno != ENOENT) {
 					warn("%s", f);
 					eval = 1;
 				}
@@ -292,19 +336,28 @@ rm_file(argv)
 		}
 		if (!fflag && !S_ISWHT(sb.st_mode) && !check(f, f, &sb))
 			continue;
-		if (S_ISWHT(sb.st_mode))
-			rval = undelete(f);
-		else if (S_ISDIR(sb.st_mode))
-			rval = rmdir(f);
-		else {
-			if (Pflag)
-				rm_overwrite(f, &sb);
-			rval = unlink(f);
+		rval = 0;
+		if (!uid &&
+		    (sb.st_flags & (UF_APPEND|UF_IMMUTABLE)) &&
+		    !(sb.st_flags & (SF_APPEND|SF_IMMUTABLE)))
+			rval = chflags(f, sb.st_flags & ~(UF_APPEND|UF_IMMUTABLE));
+		if (rval == 0) {
+			if (S_ISWHT(sb.st_mode))
+				rval = undelete(f);
+			else if (S_ISDIR(sb.st_mode))
+				rval = rmdir(f);
+			else {
+				if (Pflag)
+					rm_overwrite(f, &sb);
+				rval = unlink(f);
+			}
 		}
-		if (rval && (!fflag || !NONEXISTENT(errno))) {
+		if (rval && (!fflag || errno != ENOENT)) {
 			warn("%s", f);
 			eval = 1;
 		}
+		if (vflag && rval == 0)
+			(void)printf("%s\n", f);
 	}
 }
 
@@ -325,9 +378,10 @@ rm_overwrite(file, sbp)
 	struct stat *sbp;
 {
 	struct stat sb;
+	struct statfs fsb;
 	off_t len;
-	int fd, wlen;
-	char buf[8 * 1024];
+	int bsize, fd, wlen;
+	char *buf = NULL;
 
 	fd = -1;
 	if (sbp == NULL) {
@@ -339,11 +393,16 @@ rm_overwrite(file, sbp)
 		return;
 	if ((fd = open(file, O_WRONLY, 0)) == -1)
 		goto err;
+	if (fstatfs(fd, &fsb) == -1)
+		goto err;
+	bsize = MAX(fsb.f_iosize, 1024);
+	if ((buf = malloc(bsize)) == NULL)
+		err(1, "malloc");
 
 #define	PASS(byte) {							\
-	memset(buf, byte, sizeof(buf));					\
+	memset(buf, byte, bsize);					\
 	for (len = sbp->st_size; len > 0; len -= wlen) {		\
-		wlen = len < sizeof(buf) ? len : sizeof(buf);		\
+		wlen = len < bsize ? len : bsize;			\
 		if (write(fd, buf, wlen) != wlen)			\
 			goto err;					\
 	}								\
@@ -355,10 +414,14 @@ rm_overwrite(file, sbp)
 	if (fsync(fd) || lseek(fd, (off_t)0, SEEK_SET))
 		goto err;
 	PASS(0xff);
-	if (!fsync(fd) && !close(fd))
+	if (!fsync(fd) && !close(fd)) {
+		free(buf);
 		return;
+	}
 
 err:	eval = 1;
+	if (buf)
+		free(buf);
 	warn("%s", file);
 }
 
@@ -369,7 +432,7 @@ check(path, name, sp)
 	struct stat *sp;
 {
 	int ch, first;
-	char modep[15];
+	char modep[15], *flagsp;
 
 	/* Check -i first. */
 	if (iflag)
@@ -381,13 +444,23 @@ check(path, name, sp)
 		 * because their permissions are meaningless.  Check stdin_ok
 		 * first because we may not have stat'ed the file.
 		 */
-		if (!stdin_ok || S_ISLNK(sp->st_mode) || !access(name, W_OK))
+		if (!stdin_ok || S_ISLNK(sp->st_mode) ||
+		    (!access(name, W_OK) &&
+		    !(sp->st_flags & (SF_APPEND|SF_IMMUTABLE)) &&
+		    (!(sp->st_flags & (UF_APPEND|UF_IMMUTABLE)) || !uid)))
 			return (1);
 		strmode(sp->st_mode, modep);
-		(void)fprintf(stderr, "override %s%s%s/%s for %s? ",
+		if ((flagsp = fflagstostr(sp->st_flags)) == NULL)
+			err(1, NULL);
+		(void)fprintf(stderr, "override %s%s%s/%s %s%sfor %s? ",
 		    modep + 1, modep[9] == ' ' ? "" : " ",
 		    user_from_uid(sp->st_uid, 0),
-		    group_from_gid(sp->st_gid, 0), path);
+		    group_from_gid(sp->st_gid, 0),
+		    *flagsp ? flagsp : "", *flagsp ? " " : "", 
+		    path);
+#ifndef __APPLE__
+		free(flagsp);
+#endif
 	}
 	(void)fflush(stderr);
 
@@ -397,15 +470,7 @@ check(path, name, sp)
 	return (first == 'y' || first == 'Y');
 }
 
-/*
- * POSIX.2 requires that if "." or ".." are specified as the basename
- * portion of an operand, a diagnostic message be written to standard
- * error and nothing more be done with such operands.
- *
- * Since POSIX.2 defines basename as the final portion of a path after
- * trailing slashes have been removed, we'll remove them here.
- */
-#define ISDOT(a) ((a)[0] == '.' && (!(a)[1] || ((a)[1] == '.' && !(a)[2])))
+#define ISDOT(a)	((a)[0] == '.' && (!(a)[1] || ((a)[1] == '.' && !(a)[2])))
 void
 checkdot(argv)
 	char **argv;
@@ -415,17 +480,10 @@ checkdot(argv)
 
 	complained = 0;
 	for (t = argv; *t;) {
-		/* strip trailing slashes */
-		p = strrchr (*t, '\0');
-		while (--p > *t && *p == '/')
-			*p = '\0';
-
-		/* extract basename */
 		if ((p = strrchr(*t, '/')) != NULL)
 			++p;
 		else
 			p = *t;
-
 		if (ISDOT(p)) {
 			if (!complained++)
 				warnx("\".\" and \"..\" may not be removed");
@@ -442,7 +500,8 @@ void
 usage()
 {
 
-	(void)fprintf(stderr, "usage: rm [-dfiPRrW] file ...\n");
-	exit(1);
-	/* NOTREACHED */
+	(void)fprintf(stderr, "%s\n%s\n",
+	    "usage: rm [-f | -i] [-dPRrvW] file ...",
+	    "       unlink file");
+	exit(EX_USAGE);
 }

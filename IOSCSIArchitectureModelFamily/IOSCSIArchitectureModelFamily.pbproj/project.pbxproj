@@ -3,12 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		0119F4B100753D057F000001 = {
 			children = (
 				0119F4B200753D057F000001,
 				01473FDE00CE990F11CE15BF,
+				5CC2E11601F793AD05CE15BF,
+				5CC2E11701F793AD05CE15BF,
 				019DFCD000A8A23B11CE15BF,
 				019DFCD100A8A23B11CE15BF,
 				01481DF000AB6A1111CE15BF,
@@ -85,7 +87,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.SCSITaskUserClient;
-				MODULE_VERSION = 1.1.5;
+				MODULE_VERSION = 1.2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -102,15 +104,15 @@
 			productName = IOSAMUserClient;
 			productReference = 0119F4C200753D057F000001;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.5, Copyright Apple Computer, Inc. 1999-2002</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -122,11 +124,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>CDIniter</key>
@@ -220,9 +222,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -237,7 +239,7 @@
 				044BEABF00CEE78211CE15BF,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0119F4C600753D057F000001 = {
 			buildActionMask = 2147483647;
@@ -246,21 +248,21 @@
 				06A89158007A75C111CE15C0,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0119F4C700753D057F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0119F4C800753D057F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0119F4C900753D057F000001 = {
 			buildActionMask = 2147483647;
@@ -269,9 +271,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -318,15 +320,15 @@
 			productName = IOSAMUserClientLib;
 			productReference = 0119F4CA00753D9B7F000001;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.5, Copyright Apple Computer, Inc. 1999-2002</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -338,17 +340,17 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>63326D72-08A2-11D5-865F-0030657D052A</key>
-		<string>SCSITaskUserClientLibFactory</string>
+		<string>SCSITaskLibFactory</string>
 	</dict>
 	<key>CFPlugInTypes</key>
 	<dict>
@@ -373,9 +375,11 @@
 				0EC44BFF00A73A5A11CE15BF,
 				019DFCD200A8A23B11CE15BF,
 				01473FDF00CE990F11CE15BF,
+				5CC2E11801F793AD05CE15BF,
+				5CC2E11A01F7947D05CE15BF,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0119F4D500753D9B7F000001 = {
 			fileRef = 0119F4B200753D057F000001;
@@ -388,7 +392,7 @@
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0119F4DA00753D9B7F000001 = {
 			buildActionMask = 2147483647;
@@ -396,9 +400,10 @@
 				0EC44C0000A73A5A11CE15BF,
 				019DFCD300A8A23B11CE15BF,
 				01481DF300AB6A1111CE15BF,
+				5CC2E11901F793AD05CE15BF,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0119F4DE00753D9B7F000001 = {
 			buildActionMask = 2147483647;
@@ -407,14 +412,14 @@
 				5C596BDA00BF110C05CE15C0,
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0119F4DF00753D9B7F000001 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0119F4E000753E927F000001 = {
 			buildActionMask = 2147483647;
@@ -424,7 +429,7 @@
 				0119F4E100753E927F000001,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0119F4E100753E927F000001 = {
 			fileRef = 0119F4CA00753D9B7F000001;
@@ -478,8 +483,10 @@
 		};
 		0143F20BFFE0C65311CE15BF = {
 			children = (
+				5C9C0FA7026F72FF05CE15BF,
 				11CABE34007A981F11CE15C0,
 				11CABE35007A981F11CE15C0,
+				5C30251702AE7F3205CE68BB,
 				0143F272FFE0C65311CE15BF,
 				0EC44BFC00A727E411CE15BF,
 				0EC44C0100A7508211CE15BF,
@@ -505,6 +512,7 @@
 				084398BD002809C411CE15B4,
 				084398C0002809C411CE15B4,
 				084398BF002809C411CE15B4,
+				5C9C0FAA026F731605CE15BF,
 				084398C8002809C411CE15B4,
 				084398C7002809C411CE15B4,
 			);
@@ -518,6 +526,7 @@
 				0143F235FFE0C65311CE15BF,
 				0143F239FFE0C65311CE15BF,
 				0143F233FFE0C65311CE15BF,
+				5C9C0FAC026F732805CE15BF,
 				070FC9DF002AABCE11CE15C0,
 				0143F23AFFE0C65311CE15BF,
 				0143F234FFE0C65311CE15BF,
@@ -586,6 +595,7 @@
 				0143F253FFE0C65311CE15BF,
 				0143F259FFE0C65311CE15BF,
 				0143F254FFE0C65311CE15BF,
+				5C9C0FB0026F734F05CE15BF,
 				070FC9E1002AABCE11CE15C0,
 				0143F25AFFE0C65311CE15BF,
 				0143F255FFE0C65311CE15BF,
@@ -652,6 +662,7 @@
 				0143F266FFE0C65311CE15BF,
 				0143F26AFFE0C65311CE15BF,
 				0143F265FFE0C65311CE15BF,
+				5C9C0FAE026F734005CE15BF,
 				070FC9E0002AABCE11CE15C0,
 				0143F269FFE0C65311CE15BF,
 				0143F264FFE0C65311CE15BF,
@@ -752,7 +763,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIArchitectureModelFamily;
-				MODULE_VERSION = 1.1.5;
+				MODULE_VERSION = 1.2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -774,15 +785,15 @@
 			productName = "IOSCSIArchitectureModelFamily (Bundle)";
 			productReference = 0143F273FFE0C65311CE15BF;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIArchitectureModelFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.5, Copyright Apple Computer, Inc. 1999-2002</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -794,11 +805,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceNub</key>
@@ -850,7 +861,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIBlockCommandsDevice;
-				MODULE_VERSION = 1.1.5;
+				MODULE_VERSION = 1.2.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -866,15 +877,15 @@
 			productName = "IOSCSIBlockCommandsDevice (Bundle)";
 			productReference = 0143F277FFE0C65311CE15BF;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.5, Copyright Apple Computer, Inc. 1999-2002</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -886,11 +897,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType00</key>
@@ -939,9 +950,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -955,7 +966,7 @@
 				0143F2A5FFE0C65311CE15BF,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2A1FFE0C65311CE15BF = {
 			fileRef = 0143F238FFE0C65311CE15BF;
@@ -1004,7 +1015,7 @@
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2A7FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1015,9 +1026,10 @@
 				0143F2ABFFE0C65311CE15BF,
 				0143F2ACFFE0C65311CE15BF,
 				070FC9E2002AABCE11CE15C0,
+				5C9C0FAD026F732805CE15BF,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2A8FFE0C65311CE15BF = {
 			fileRef = 0143F232FFE0C65311CE15BF;
@@ -1064,14 +1076,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2AEFFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2AFFFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1080,9 +1092,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1107,7 +1119,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIMultimediaCommandsDevice;
-				MODULE_VERSION = 1.1.5;
+				MODULE_VERSION = 1.2.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1123,15 +1135,15 @@
 			productName = "IOSCSIMultimediaCommandsDevice (Bundle)";
 			productReference = 0143F279FFE0C65311CE15BF;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIMultimediaCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.5, Copyright Apple Computer, Inc. 1999-2002</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1143,11 +1155,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType05</key>
@@ -1191,9 +1203,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1209,7 +1221,7 @@
 				044BEABE00CEE6E211CE15BF,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2C4FFE0C65311CE15BF = {
 			fileRef = 0143F258FFE0C65311CE15BF;
@@ -1252,7 +1264,7 @@
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2C9FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1263,9 +1275,10 @@
 				0143F2CDFFE0C65311CE15BF,
 				017A6218FFE0DFEE11CE15BF,
 				070FC9E4002AABCE11CE15C0,
+				5C9C0FB1026F734F05CE15BF,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2CAFFE0C65311CE15BF = {
 			fileRef = 0143F253FFE0C65311CE15BF;
@@ -1304,14 +1317,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2CFFFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2D0FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1320,9 +1333,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1347,7 +1360,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIReducedBlockCommandsDevice;
-				MODULE_VERSION = 1.1.5;
+				MODULE_VERSION = 1.2.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1363,15 +1376,15 @@
 			productName = "IOSCSIReducedBlockCommandsDevice (Bundle)";
 			productReference = 0143F27AFFE0C65311CE15BF;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIReducedBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.5, Copyright Apple Computer, Inc. 1999-2002</string>
+	<string>1.2.0, Copyright Apple Computer, Inc. 1999-2001</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1383,11 +1396,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.5</string>
+	<string>1.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType0E</key>
@@ -1425,9 +1438,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1440,7 +1453,7 @@
 				0143F2D8FFE0C65311CE15BF,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2D5FFE0C65311CE15BF = {
 			fileRef = 0143F268FFE0C65311CE15BF;
@@ -1483,7 +1496,7 @@
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2DAFFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1493,9 +1506,10 @@
 				0143F2DDFFE0C65311CE15BF,
 				0143F2DEFFE0C65311CE15BF,
 				070FC9E3002AABCE11CE15C0,
+				5C9C0FAF026F734005CE15BF,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2DBFFE0C65311CE15BF = {
 			fileRef = 0143F263FFE0C65311CE15BF;
@@ -1534,14 +1548,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2E0FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2E1FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1550,9 +1564,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1573,16 +1587,24 @@
 				5C6FEC9700FCF31305CE15BF,
 				5C40544A011E259A05CE1791,
 				5CA6136B01B4986605CE15BF,
+				5C9C0FA9026F72FF05CE15BF,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2E3FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
 			files = (
+				5C30252302AE8A3E05CE68BB,
+				5CE8CCF002B6A26C05CE68BB,
+				5CF1981B02BFE3FC05CE15BF,
+				F550F7E902DBD9B401CE15B4,
+				5CB3784902DF9E2405CE68BB,
+				5CB3784A02DF9E2405CE68BB,
+				5CB3784B02DF9E2405CE68BB,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2E4FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1593,23 +1615,24 @@
 				014DE87400CEED1F11CE15BF,
 				014DE87500CEED1F11CE15BF,
 				014DE87600CEED1F11CE15BF,
+				5C9C0FAB026F731605CE15BF,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2E5FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2E6FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2E7FFE0C65311CE15BF = {
 			buildActionMask = 2147483647;
@@ -1622,7 +1645,7 @@
 				13F35A7200794DB211CE15C0,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0143F2EBFFE0C65311CE15BF = {
 			fileRef = 0143F277FFE0C65311CE15BF;
@@ -1781,9 +1804,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1794,9 +1817,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -2003,7 +2026,7 @@
 				5C2661E1011E340205CE15C0,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		038CD68300B2FEB311CE15BF = {
 			fileRef = 084398C3002809C411CE15B4;
@@ -2188,28 +2211,28 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071C63C7FFF0984511CE15B4 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071C63C8FFF0984511CE15B4 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071C63C9FFF0984511CE15B4 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		071C63CBFFF0988711CE15B4 = {
 			buildActionMask = 8;
@@ -2242,7 +2265,7 @@
 				071C63DAFFF0994111CE15B4,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		071C63CDFFF0994111CE15B4 = {
 			fileRef = 0143F258FFE0C65311CE15BF;
@@ -2590,6 +2613,32 @@
 			settings = {
 			};
 		};
+		5C30251702AE7F3205CE68BB = {
+			children = (
+				5C30252102AE8A3E05CE68BB,
+				5CE8CCEF02B6A26C05CE68BB,
+				5CF1981A02BFE3FC05CE15BF,
+				F550F7E802DBD9B401CE15B4,
+				5CB3784602DF9E2405CE68BB,
+				5CB3784702DF9E2405CE68BB,
+				5CB3784802DF9E2405CE68BB,
+			);
+			isa = PBXGroup;
+			name = Icons;
+			refType = 4;
+		};
+		5C30252102AE8A3E05CE68BB = {
+			isa = PBXFileReference;
+			name = FireWireHD.icns;
+			path = Icons/FireWireHD.icns;
+			refType = 4;
+		};
+		5C30252302AE8A3E05CE68BB = {
+			fileRef = 5C30252102AE8A3E05CE68BB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		5C405449011E259A05CE1791 = {
 			isa = PBXFileReference;
 			path = IOStorageDeviceCharacteristics.h;
@@ -2609,7 +2658,7 @@
 				5C40544C011E262405CE1791,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		5C40544C011E262405CE1791 = {
 			fileRef = 5C405449011E259A05CE1791;
@@ -2625,7 +2674,7 @@
 				5C40544E011E262405CE1791,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		5C40544E011E262405CE1791 = {
 			fileRef = 5C405449011E259A05CE1791;
@@ -2660,8 +2709,175 @@
 			isa = PBXBuildStyle;
 			name = Development;
 		};
+		5C9C0FA7026F72FF05CE15BF = {
+			isa = PBXFileReference;
+			path = IOSCSIArchitectureModelFamilyDebugging.h;
+			refType = 4;
+		};
+		5C9C0FA9026F72FF05CE15BF = {
+			fileRef = 5C9C0FA7026F72FF05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C9C0FAA026F731605CE15BF = {
+			isa = PBXFileReference;
+			path = IOSCSIPrimaryCommandsBuilder.cpp;
+			refType = 4;
+		};
+		5C9C0FAB026F731605CE15BF = {
+			fileRef = 5C9C0FAA026F731605CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C9C0FAC026F732805CE15BF = {
+			isa = PBXFileReference;
+			path = IOSCSIBlockCommandsBuilder.cpp;
+			refType = 4;
+		};
+		5C9C0FAD026F732805CE15BF = {
+			fileRef = 5C9C0FAC026F732805CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C9C0FAE026F734005CE15BF = {
+			isa = PBXFileReference;
+			path = IOSCSIReducedBlockCommandsBuilder.cpp;
+			refType = 4;
+		};
+		5C9C0FAF026F734005CE15BF = {
+			fileRef = 5C9C0FAE026F734005CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5C9C0FB0026F734F05CE15BF = {
+			isa = PBXFileReference;
+			path = IOSCSIMultimediaCommandsBuilder.cpp;
+			refType = 4;
+		};
+		5C9C0FB1026F734F05CE15BF = {
+			fileRef = 5C9C0FB0026F734F05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		5CA6136B01B4986605CE15BF = {
 			fileRef = 0143F25BFFE0C65311CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CB3784602DF9E2405CE68BB = {
+			isa = PBXFileReference;
+			name = MagnetoOptical.icns;
+			path = Icons/MagnetoOptical.icns;
+			refType = 4;
+		};
+		5CB3784702DF9E2405CE68BB = {
+			isa = PBXFileReference;
+			name = SmartMedia.icns;
+			path = Icons/SmartMedia.icns;
+			refType = 4;
+		};
+		5CB3784802DF9E2405CE68BB = {
+			isa = PBXFileReference;
+			name = SuperDisk.icns;
+			path = Icons/SuperDisk.icns;
+			refType = 4;
+		};
+		5CB3784902DF9E2405CE68BB = {
+			fileRef = 5CB3784602DF9E2405CE68BB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CB3784A02DF9E2405CE68BB = {
+			fileRef = 5CB3784702DF9E2405CE68BB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CB3784B02DF9E2405CE68BB = {
+			fileRef = 5CB3784802DF9E2405CE68BB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CC2E11601F793AD05CE15BF = {
+			isa = PBXFileReference;
+			name = SCSITaskIUnknown.h;
+			path = UserClientLib/SCSITaskIUnknown.h;
+			refType = 4;
+		};
+		5CC2E11701F793AD05CE15BF = {
+			isa = PBXFileReference;
+			name = SCSITaskIUnknown.cpp;
+			path = UserClientLib/SCSITaskIUnknown.cpp;
+			refType = 4;
+		};
+		5CC2E11801F793AD05CE15BF = {
+			fileRef = 5CC2E11601F793AD05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CC2E11901F793AD05CE15BF = {
+			fileRef = 5CC2E11701F793AD05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CC2E11A01F7947D05CE15BF = {
+			fileRef = 01481DF000AB6A1111CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CE8CCEF02B6A26C05CE68BB = {
+			isa = PBXFileReference;
+			name = USBHD.icns;
+			path = Icons/USBHD.icns;
+			refType = 4;
+		};
+		5CE8CCF002B6A26C05CE68BB = {
+			fileRef = 5CE8CCEF02B6A26C05CE68BB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5CF1981A02BFE3FC05CE15BF = {
+			isa = PBXFileReference;
+			name = Floppy.icns;
+			path = Icons/Floppy.icns;
+			refType = 4;
+		};
+		5CF1981B02BFE3FC05CE15BF = {
+			fileRef = 5CF1981A02BFE3FC05CE15BF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//5C0
+//5C1
+//5C2
+//5C3
+//5C4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F550F7E802DBD9B401CE15B4 = {
+			isa = PBXFileReference;
+			name = MemoryStick.icns;
+			path = Icons/MemoryStick.icns;
+			refType = 4;
+		};
+		F550F7E902DBD9B401CE15B4 = {
+			fileRef = F550F7E802DBD9B401CE15B4;
 			isa = PBXBuildFile;
 			settings = {
 			};

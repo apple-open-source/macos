@@ -1,5 +1,5 @@
 /*
-     File:       IsochronousDataHandler.h
+     File:       DVComponentGlue/IsochronousDataHandler.h
  
      Contains:   Component Manager based Isochronous Data Handler
  
@@ -9,13 +9,13 @@
                  This file may contain unreleased API's
  
      BuildInfo:  Built by:            wgulland
-                 On:                  Wed Oct  3 13:29:25 2001
+                 On:                  Tue Mar 19 11:37:55 2002
                  With Interfacer:     3.0d35   (Mac OS X for PowerPC)
                  From:                IsochronousDataHandler.i
-                     Revision:        1.4
-                     Dated:           2001/09/27 00:43:29
+                     Revision:        1.5
+                     Dated:           2001/10/05 16:46:32
                      Last change by:  wgulland
-                     Last comment:    Keep retrying if starting write fails
+                     Last comment:    Add inputFormat to IDHDeviceStatus structure
  
      Bugs:       Report bugs to Radar component "System Interfaces", "Latest"
                  List the version information (from above) in the Problem Description.
@@ -32,16 +32,16 @@
 #ifndef __ISOCHRONOUSDATAHANDLER__
 #define __ISOCHRONOUSDATAHANDLER__
 
-#ifndef __MACTYPES__
-#include <MacTypes.h>
+#ifndef __CORESERVICES__
+#include <CoreServices/CoreServices.h>
 #endif
 
 #ifndef __MOVIESFORMAT__
-#include <MoviesFormat.h>
+#include <QuickTime/MoviesFormat.h>
 #endif
 
 #ifndef __QUICKTIMECOMPONENTS__
-#include <QuickTimeComponents.h>
+#include <QuickTime/QuickTimeComponents.h>
 #endif
 
 
@@ -58,10 +58,6 @@
 extern "C" {
 #endif
 
-#if PRAGMA_IMPORT
-#pragma import on
-#endif
-
 #if PRAGMA_STRUCT_ALIGN
     #pragma options align=mac68k
 #elif PRAGMA_STRUCT_PACKPUSH
@@ -71,9 +67,9 @@ extern "C" {
 #endif
 
 enum {
-  kIDHComponentType             = FOUR_CHAR_CODE('ihlr'), /* Component type*/
-  kIDHSubtypeDV                 = FOUR_CHAR_CODE('dv  '), /* Subtype for DV (over FireWire)*/
-  kIDHSubtypeFireWireConference = FOUR_CHAR_CODE('fwc ') /* Subtype for FW Conference*/
+  kIDHComponentType             = 'ihlr', /* Component type*/
+  kIDHSubtypeDV                 = 'dv  ', /* Subtype for DV (over FireWire)*/
+  kIDHSubtypeFireWireConference = 'fwc ' /* Subtype for FW Conference*/
 };
 
 
@@ -86,36 +82,36 @@ enum {
 /* atom types*/
 
 enum {
-  kIDHDeviceListAtomType        = FOUR_CHAR_CODE('dlst'),
-  kIDHDeviceAtomType            = FOUR_CHAR_CODE('devc'), /* to be defined elsewhere*/
-  kIDHIsochServiceAtomType      = FOUR_CHAR_CODE('isoc'),
-  kIDHIsochModeAtomType         = FOUR_CHAR_CODE('mode'),
-  kIDHDeviceIDType              = FOUR_CHAR_CODE('dvid'),
-  kIDHDefaultIOType             = FOUR_CHAR_CODE('dfio'),
-  kIDHIsochVersionAtomType      = FOUR_CHAR_CODE('iver'),
-  kIDHUniqueIDType              = FOUR_CHAR_CODE('unid'),
-  kIDHNameAtomType              = FOUR_CHAR_CODE('name'),
-  kIDHUseCMPAtomType            = FOUR_CHAR_CODE('ucmp'),
-  kIDHIsochMediaType            = FOUR_CHAR_CODE('av  '),
-  kIDHDataTypeAtomType          = FOUR_CHAR_CODE('dtyp'),
-  kIDHDataSizeAtomType          = FOUR_CHAR_CODE('dsiz'), /* ??? packet size vs. buffer size*/
-  kIDHDataBufferSizeAtomType    = FOUR_CHAR_CODE('dbuf'), /* ??? packet size vs. buffer size*/
-  kIDHDataIntervalAtomType      = FOUR_CHAR_CODE('intv'),
-  kIDHDataIODirectionAtomType   = FOUR_CHAR_CODE('ddir'),
-  kIDHSoundMediaAtomType        = FOUR_CHAR_CODE('soun'),
-  kIDHSoundTypeAtomType         = FOUR_CHAR_CODE('type'),
-  kIDHSoundChannelCountAtomType = FOUR_CHAR_CODE('ccnt'),
-  kIDHSoundSampleSizeAtomType   = FOUR_CHAR_CODE('ssiz'),
-  kIDHSoundSampleRateAtomType   = FOUR_CHAR_CODE('srat'), /* same as video out... (what does this comment mean?)*/
-  kIDHVideoMediaAtomType        = FOUR_CHAR_CODE('vide'),
-  kIDHVideoDimensionsAtomType   = FOUR_CHAR_CODE('dimn'),
-  kIDHVideoResolutionAtomType   = FOUR_CHAR_CODE('resl'),
-  kIDHVideoRefreshRateAtomType  = FOUR_CHAR_CODE('refr'),
-  kIDHVideoPixelTypeAtomType    = FOUR_CHAR_CODE('pixl'),
-  kIDHVideoDecompressorAtomType = FOUR_CHAR_CODE('deco'),
-  kIDHVideoDecompressorTypeAtomType = FOUR_CHAR_CODE('dety'),
-  kIDHVideoDecompressorContinuousAtomType = FOUR_CHAR_CODE('cont'),
-  kIDHVideoDecompressorComponentAtomType = FOUR_CHAR_CODE('cmpt')
+  kIDHDeviceListAtomType        = 'dlst',
+  kIDHDeviceAtomType            = 'devc', /* to be defined elsewhere*/
+  kIDHIsochServiceAtomType      = 'isoc',
+  kIDHIsochModeAtomType         = 'mode',
+  kIDHDeviceIDType              = 'dvid',
+  kIDHDefaultIOType             = 'dfio',
+  kIDHIsochVersionAtomType      = 'iver',
+  kIDHUniqueIDType              = 'unid',
+  kIDHNameAtomType              = 'name',
+  kIDHUseCMPAtomType            = 'ucmp',
+  kIDHIsochMediaType            = 'av  ',
+  kIDHDataTypeAtomType          = 'dtyp',
+  kIDHDataSizeAtomType          = 'dsiz', /* ??? packet size vs. buffer size*/
+  kIDHDataBufferSizeAtomType    = 'dbuf', /* ??? packet size vs. buffer size*/
+  kIDHDataIntervalAtomType      = 'intv',
+  kIDHDataIODirectionAtomType   = 'ddir',
+  kIDHSoundMediaAtomType        = 'soun',
+  kIDHSoundTypeAtomType         = 'type',
+  kIDHSoundChannelCountAtomType = 'ccnt',
+  kIDHSoundSampleSizeAtomType   = 'ssiz',
+  kIDHSoundSampleRateAtomType   = 'srat', /* same as video out... (what does this comment mean?)*/
+  kIDHVideoMediaAtomType        = 'vide',
+  kIDHVideoDimensionsAtomType   = 'dimn',
+  kIDHVideoResolutionAtomType   = 'resl',
+  kIDHVideoRefreshRateAtomType  = 'refr',
+  kIDHVideoPixelTypeAtomType    = 'pixl',
+  kIDHVideoDecompressorAtomType = 'deco',
+  kIDHVideoDecompressorTypeAtomType = 'dety',
+  kIDHVideoDecompressorContinuousAtomType = 'cont',
+  kIDHVideoDecompressorComponentAtomType = 'cmpt'
 };
 
 /* I/O Flags */
@@ -216,7 +212,7 @@ enum {
   kIDHEventDeviceRemoved        = 1L << 1, /* A device has been removed from the bus*/
   kIDHEventDeviceChanged        = 1L << 2, /* Some device has changed state on the bus*/
   kIDHEventReadEnabled          = 1L << 3, /* A client has enabled a device for read*/
-  kIDHEventReserved1            = 1L << 4, /* Reserved for future use*/
+  kIDHEventFrameDropped         = 1L << 4, /* software failed to keep up with isoc data flow*/
   kIDHEventReadDisabled         = 1L << 5, /* A client has disabled a device from read*/
   kIDHEventWriteEnabled         = 1L << 6, /* A client has enabled a device for write*/
   kIDHEventReserved2            = 1L << 7, /* Reserved for future use*/
@@ -269,10 +265,20 @@ struct IDHDeviceIOEnableEvent {
   IDHEventHeader      eventHeader;
 };
 typedef struct IDHDeviceIOEnableEvent   IDHDeviceIOEnableEvent;
+/*
+   IDHDeviceFrameDroppedEvent
+    For kIDHEventFrameDropped
+*/
+struct IDHDeviceFrameDroppedEvent {
+  IDHEventHeader      eventHeader;
+  UInt32              totalDropped;
+  UInt32              newlyDropped;
+};
+typedef struct IDHDeviceFrameDroppedEvent IDHDeviceFrameDroppedEvent;
 typedef CALLBACK_API_C( OSStatus , IDHNotificationProcPtr )(IDHGenericEvent *event, void *userData);
 
 typedef IDHNotificationProcPtr          IDHNotificationProc;
-typedef TVECTOR_UPP_TYPE(IDHNotificationProcPtr)                IDHNotificationUPP;
+typedef STACK_UPP_TYPE(IDHNotificationProcPtr)                  IDHNotificationUPP;
 struct IDHParameterBlock {
   UInt32              reserved1;
   UInt16              reserved2;
@@ -295,163 +301,325 @@ struct IDHDimension {
 };
 typedef struct IDHDimension             IDHDimension;
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHGetDeviceList()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHGetDeviceList(
   ComponentInstance   idh,
-  QTAtomContainer *   deviceList)                             FIVEWORDINLINE(0x2F3C, 0x0004, 0x0001, 0x7000, 0xA82A);
+  QTAtomContainer *   deviceList);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHGetDeviceConfiguration()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHGetDeviceConfiguration(
   ComponentInstance   idh,
-  QTAtomSpec *        configurationID)                        FIVEWORDINLINE(0x2F3C, 0x0004, 0x0002, 0x7000, 0xA82A);
+  QTAtomSpec *        configurationID);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHSetDeviceConfiguration()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHSetDeviceConfiguration(
   ComponentInstance   idh,
-  const QTAtomSpec *  configurationID)                        FIVEWORDINLINE(0x2F3C, 0x0004, 0x0003, 0x7000, 0xA82A);
+  const QTAtomSpec *  configurationID);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHGetDeviceStatus()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHGetDeviceStatus(
   ComponentInstance   idh,
   const QTAtomSpec *  configurationID,
-  IDHDeviceStatus *   status)                                 FIVEWORDINLINE(0x2F3C, 0x0008, 0x0004, 0x7000, 0xA82A);
+  IDHDeviceStatus *   status);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHGetDeviceClock()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHGetDeviceClock(
   ComponentInstance   idh,
-  Component *         clock)                                  FIVEWORDINLINE(0x2F3C, 0x0004, 0x0005, 0x7000, 0xA82A);
+  Component *         clock);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHOpenDevice()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHOpenDevice(
   ComponentInstance   idh,
-  UInt32              permissions)                            FIVEWORDINLINE(0x2F3C, 0x0004, 0x0006, 0x7000, 0xA82A);
+  UInt32              permissions);
 
 
-EXTERN_API( ComponentResult )
-IDHCloseDevice(ComponentInstance idh)                         FIVEWORDINLINE(0x2F3C, 0x0000, 0x0007, 0x7000, 0xA82A);
+/*
+ *  IDHCloseDevice()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
+IDHCloseDevice(ComponentInstance idh);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHRead()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHRead(
   ComponentInstance    idh,
-  IDHParameterBlock *  pb)                                    FIVEWORDINLINE(0x2F3C, 0x0004, 0x0008, 0x7000, 0xA82A);
+  IDHParameterBlock *  pb);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHWrite()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHWrite(
   ComponentInstance    idh,
-  IDHParameterBlock *  pb)                                    FIVEWORDINLINE(0x2F3C, 0x0004, 0x0009, 0x7000, 0xA82A);
+  IDHParameterBlock *  pb);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHNewNotification()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHNewNotification(
   ComponentInstance    idh,
   IDHDeviceID          deviceID,
   IDHNotificationUPP   notificationProc,
   void *               userData,
-  IDHNotificationID *  notificationID)                        FIVEWORDINLINE(0x2F3C, 0x0010, 0x000A, 0x7000, 0xA82A);
+  IDHNotificationID *  notificationID);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHNotifyMeWhen()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHNotifyMeWhen(
   ComponentInstance   idh,
   IDHNotificationID   notificationID,
-  IDHEvent            events)                                 FIVEWORDINLINE(0x2F3C, 0x0008, 0x000B, 0x7000, 0xA82A);
+  IDHEvent            events);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHCancelNotification()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHCancelNotification(
   ComponentInstance   idh,
-  IDHNotificationID   notificationID)                         FIVEWORDINLINE(0x2F3C, 0x0004, 0x000C, 0x7000, 0xA82A);
+  IDHNotificationID   notificationID);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHDisposeNotification()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHDisposeNotification(
   ComponentInstance   idh,
-  IDHNotificationID   notificationID)                         FIVEWORDINLINE(0x2F3C, 0x0004, 0x000D, 0x7000, 0xA82A);
+  IDHNotificationID   notificationID);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHReleaseBuffer()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHReleaseBuffer(
   ComponentInstance    idh,
-  IDHParameterBlock *  pb)                                    FIVEWORDINLINE(0x2F3C, 0x0004, 0x000E, 0x7000, 0xA82A);
+  IDHParameterBlock *  pb);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHCancelPendingIO()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHCancelPendingIO(
   ComponentInstance    idh,
-  IDHParameterBlock *  pb)                                    FIVEWORDINLINE(0x2F3C, 0x0004, 0x000F, 0x7000, 0xA82A);
+  IDHParameterBlock *  pb);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHGetDeviceControl()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHGetDeviceControl(
   ComponentInstance    idh,
-  ComponentInstance *  deviceControl)                         FIVEWORDINLINE(0x2F3C, 0x0004, 0x0010, 0x7000, 0xA82A);
+  ComponentInstance *  deviceControl);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHUpdateDeviceList()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.3 and later
+ *    Non-Carbon CFM:   in IDHLib 1.0 and later
+ */
+extern ComponentResult 
 IDHUpdateDeviceList(
   ComponentInstance   idh,
-  QTAtomContainer *   deviceList)                             FIVEWORDINLINE(0x2F3C, 0x0004, 0x0011, 0x7000, 0xA82A);
+  QTAtomContainer *   deviceList);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHGetDeviceTime()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.4 and later
+ *    Non-Carbon CFM:   not available
+ */
+extern ComponentResult 
 IDHGetDeviceTime(
   ComponentInstance   idh,
-  TimeRecord *        deviceTime)                             FIVEWORDINLINE(0x2F3C, 0x0004, 0x0012, 0x7000, 0xA82A);
+  TimeRecord *        deviceTime);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHSetFormat()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.5 and later
+ *    Non-Carbon CFM:   not available
+ */
+extern ComponentResult 
 IDHSetFormat(
   ComponentInstance   idh,
-  UInt32              format)                                 FIVEWORDINLINE(0x2F3C, 0x0004, 0x0013, 0x7000, 0xA82A);
+  UInt32              format);
 
 
-EXTERN_API( ComponentResult )
+/*
+ *  IDHGetFormat()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.5 and later
+ *    Non-Carbon CFM:   not available
+ */
+extern ComponentResult 
 IDHGetFormat(
   ComponentInstance   idh,
-  UInt32 *            format)                                 FIVEWORDINLINE(0x2F3C, 0x0004, 0x0014, 0x7000, 0xA82A);
+  UInt32 *            format);
 
 
 
-EXTERN_API_C( IDHNotificationUPP )
+/*
+ *  NewIDHNotificationUPP()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.4 and later
+ *    Non-Carbon CFM:   available as macro/inline
+ */
+extern IDHNotificationUPP
 NewIDHNotificationUPP(IDHNotificationProcPtr userRoutine);
-#if !OPAQUE_UPP_TYPES
-  enum { uppIDHNotificationProcInfo = 0x000003F1 };  /* 4_bytes Func(4_bytes, 4_bytes) */
-  #ifdef __cplusplus
-    inline IDHNotificationUPP NewIDHNotificationUPP(IDHNotificationProcPtr userRoutine) { return userRoutine; }
-  #else
-    #define NewIDHNotificationUPP(userRoutine) (userRoutine)
-  #endif
-#endif
 
-EXTERN_API_C( void )
+/*
+ *  DisposeIDHNotificationUPP()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.4 and later
+ *    Non-Carbon CFM:   available as macro/inline
+ */
+extern void
 DisposeIDHNotificationUPP(IDHNotificationUPP userUPP);
-#if !OPAQUE_UPP_TYPES
-  #ifdef __cplusplus
-    inline void DisposeIDHNotificationUPP(IDHNotificationUPP) {}
-  #else
-    #define DisposeIDHNotificationUPP(userUPP)
-  #endif
-#endif
 
-EXTERN_API_C( OSStatus )
+/*
+ *  InvokeIDHNotificationUPP()
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.0 and later in DVComponentGlue.framework
+ *    CarbonLib:        in CarbonLib 1.4 and later
+ *    Non-Carbon CFM:   available as macro/inline
+ */
+extern OSStatus
 InvokeIDHNotificationUPP(
   IDHGenericEvent *   event,
   void *              userData,
   IDHNotificationUPP  userUPP);
-#if !OPAQUE_UPP_TYPES
-  #ifdef __cplusplus
-    inline OSStatus InvokeIDHNotificationUPP(IDHGenericEvent * event, void * userData, IDHNotificationUPP userUPP) { return (*userUPP)(event, userData); }
-  #else
-    #define InvokeIDHNotificationUPP(event, userData, userUPP) (*userUPP)(event, userData)
-  #endif
-#endif
 
 
 /* selectors for component calls */
@@ -487,12 +655,6 @@ enum {
     #pragma pack(pop)
 #elif PRAGMA_STRUCT_PACK
     #pragma pack()
-#endif
-
-#ifdef PRAGMA_IMPORT_OFF
-#pragma import off
-#elif PRAGMA_IMPORT
-#pragma import reset
 #endif
 
 #ifdef __cplusplus

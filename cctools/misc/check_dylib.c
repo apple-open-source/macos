@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <limits.h>
 #include "stuff/ofile.h"
 #include "stuff/errors.h"
@@ -29,28 +30,29 @@ static void check_for_addresses(
 
 /*
  * The check_dylib program.  It takes a dynamic library file, an -install_name
- * argument and a -seg_addr_table argument.  Then it preforms the following
- * checks in the following order and if the specific check fails it returns a
- * specific error code:
+ * argument, a -seg_addr_table argument and a -seg_addr_table_filename argument.
+ * Then it preforms the following checks in the following order and if the
+ * specific check fails it returns a specific error code:
  *
  * Check:
- *	Checks the install_name of the dynamic library file against the
- * 	specified -install_name argument and if it does not match it
+ *	If the install_name of the dynamic library does not start with
+ *	@executable_path checks the install_name of the dynamic library file
+ *	against the specified -install_name argument and if it does not match it
  * Returns: 2
  *
  * Check:
- *	Checks the specified -seg_addr_table for the install_name and if
- *	not found in the table it
+ *	Checks the specified -seg_addr_table for the -seg_addr_table_filename
+ *	and if not found in the table it
  * Returns: 3
  *
  * Check:
  *	Checks that the specified address in the -seg_addr_table for the
- *	install_name matches the dynamic library file.  If not it
+ *	-seg_addr_table_filename matches the dynamic library file.  If not it
  * Returns: 4
  *
  * Check:
  *	Checks that the specified address in the -seg_addr_table for the
- *	install_name and if it is zero then it
+ *	-seg_addr_table_filename and if it is zero then it
  * Returns: 5
  *
  * If there is any other errors it returns 1 (EXIT_FAILURE).  If all checks
@@ -63,7 +65,8 @@ char **argv,
 char **envp)
 {
     unsigned long i, table_size;
-    char *install_name, *image_file_name, *seg_addr_table_name;
+    char *install_name, *image_file_name, *seg_addr_table_name,
+         *seg_addr_table_filename;
     struct check_block block;
     struct seg_addr_table *seg_addr_table, *entry;
 
@@ -71,6 +74,7 @@ char **envp)
 	install_name = NULL;
 	image_file_name = NULL;
 	seg_addr_table = NULL;
+	seg_addr_table_filename = NULL;
 
 	for(i = 1; i < argc; i++){
 	    if(argv[i][0] == '-'){
@@ -100,6 +104,22 @@ char **envp)
 					  argv[i], argv[i+1], &table_size);
 		    i++;
 		}
+		else if(strcmp(argv[i], "-seg_addr_table_filename") == 0){
+		    if(i + 1 == argc){
+			error("missing argument(s) to %s option", argv[i]);
+			usage();
+		    }
+		    if(seg_addr_table_filename != NULL){
+			error("more than one: %s option", argv[i]);
+			usage();
+		    }
+		    seg_addr_table_filename = argv[i+1];
+		    i++;
+		}
+		else{
+		    error("unknown option %s\n", argv[i]);
+		    usage();
+		}
 	    }
 	    else{
 		if(image_file_name != NULL){
@@ -122,6 +142,10 @@ char **envp)
 	    error("must specify the -seg_addr_table <table_name> option");
 	    usage();
 	}
+	if(seg_addr_table_filename == NULL){
+	    error("must specify the -seg_addr_table_filename <pathname> "			  "option");
+	    usage();
+	}
 
 	/*
 	 * The first check to perform is checking the install name to match
@@ -130,16 +154,16 @@ char **envp)
 	block.install_name = install_name;
 	block.check_result = TRUE;
 	ofile_process(image_file_name, NULL, 0, TRUE,
-		      TRUE, TRUE, check_for_install_name, &block);
+		      TRUE, TRUE, FALSE, check_for_install_name, &block);
 	if(block.check_result == FALSE)
 	    return(2);
 
 
 	/*
-	 * The next check to perform is to see if the install name has an entry
-	 * in the specified -seg_addr_table.
+	 * The next check to perform is to see if the -seg_addr_table_filename
+	 *  has an entry in the specified -seg_addr_table.
 	 */
-	entry = search_seg_addr_table(seg_addr_table, install_name);
+	entry = search_seg_addr_table(seg_addr_table, seg_addr_table_filename);
 	if(entry == NULL)
 	    return(3);
 
@@ -150,13 +174,13 @@ char **envp)
 	block.entry = entry;
 	block.check_result = TRUE;
 	ofile_process(image_file_name, NULL, 0, TRUE,
-		      TRUE, TRUE, check_for_addresses, &block);
+		      TRUE, TRUE, FALSE, check_for_addresses, &block);
 	if(block.check_result == FALSE)
 	    return(4);
 
 	/*
 	 * The next check to perform is to see address in the -seg_addr_table
-	 * for the install_name is zero.
+	 * for the -seg_addr_table_filename is zero.
 	 */
 	if((entry->split == FALSE && entry->seg1addr == 0) ||
 	   (entry->split == TRUE && (entry->segs_read_only_addr == 0 ||
@@ -175,7 +199,8 @@ usage(
 void)
 {
 	fprintf(stderr, "Usage: %s <file_name> -install_name <install_name> "
-		"-seg_addr_table <table_name>\n", progname);
+		"-seg_addr_table <table_name> -seg_addr_table_filename "
+		"<path_name>\n", progname);
 	exit(EXIT_FAILURE);
 }
 
@@ -212,6 +237,9 @@ void *cookie)
 	    if(lc->cmd == LC_ID_DYLIB){
 		dl = (struct dylib_command *)lc;
 		name = (char *)lc + dl->dylib.name.offset;
+		if(strncmp(name, "@executable_path",
+		   sizeof("@executable_path") - 1) == 0)
+		    return;
 		if(strcmp(name, block->install_name) != 0)
 		    block->check_result = FALSE;
 		return;

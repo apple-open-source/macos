@@ -79,7 +79,7 @@
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
 #include <ufs/ufs/ufsmount.h>
-#include <bsd/isofs/cd9660/cd9660_mount.h>	/* XXX need isofs in include */
+#include <isofs/cd9660/cd9660_mount.h>	/* XXX need isofs in include */
 
 #include <net/if.h>
 #include <net/if_types.h>
@@ -103,9 +103,10 @@
 
 #include <stdarg.h>
 
-#define EXPORT_FROM_NETINFO 0
-#define EXPORT_FROM_FILE 1
-static int source = EXPORT_FROM_NETINFO;
+#define EXPORT_FROM_NETINFO 0	/* export list from NetInfo */
+#define EXPORT_FROM_FILE 1	/* export list from file only */
+#define EXPORT_FROM_FILEFIRST 2	/* export list from file first, then NetInfo */
+static int source = EXPORT_FROM_FILEFIRST;
 
 #include <netinfo/ni.h>
 
@@ -298,8 +299,6 @@ main(int argc, char *argv[])
 {
 	SVCXPRT *udptransp, *tcptransp;
 	int c, i;
-
-	source = EXPORT_FROM_NETINFO;
 
 	while ((c = getopt(argc, argv, "dfnr")) != EOF) {
 		switch (c) {
@@ -1101,13 +1100,17 @@ get_exportlist()
 				    fsp->f_mntonname);
 		}
 
-	if (source == EXPORT_FROM_NETINFO)
+	if ((exp_file = fopen(exname, "r")) != NULL) {
+		source = EXPORT_FROM_FILE;
+	} else {
+		if (source == EXPORT_FROM_FILE) {
+			log(LOG_ERR, "Can't open %s", exname);
+			exit(2);
+		}
 		ni_exports_open();
-	else if ((exp_file = fopen(exname, "r")) == NULL) {
-		log(LOG_ERR, "Can't open %s", exname);
-		exit(2);
+		source = EXPORT_FROM_NETINFO;
 	}
-
+		
 	/*
 	 * Read in the exports and build the list, calling mount()
 	 * as we go along to push the export rules into the kernel.

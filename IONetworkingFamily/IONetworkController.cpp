@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,6 +37,8 @@
 #include <IOKit/network/IONetworkController.h>
 #include <IOKit/network/IOOutputQueue.h>
 #include <IOKit/network/IONetworkMedium.h>
+#include <IOKit/IOMessage.h>
+#include "IONetworkControllerPrivate.h"
 
 // IONetworkController (and its subclasses) needs to know about mbufs,
 // but it shall have no further dependencies on BSD networking.
@@ -43,11 +48,7 @@ extern "C" {
 #include <sys/mbuf.h>
 #include <sys/kdebug.h>
 #include <machine/machine_routines.h>
-//
-// osfmk/kern/spl.h - Need splimp for mbuf macros.
-//
-typedef unsigned spl_t;
-extern spl_t    (splimp)(void);
+struct mbuf * m_getpackets(int num_needed, int num_with_pkthdrs, int how);
 }
 
 //-------------------------------------------------------------------------
@@ -112,6 +113,7 @@ static const OSSymbol * gIOCurrentMediumKey;
 static const OSSymbol * gIODefaultMediumKey;
 static const OSSymbol * gIONullMediumName;
 static const OSSymbol * gIOLinkDataKey;
+static const OSSymbol * gIOControllerEnabledKey;
 static const OSData   * gIONullLinkData;
 
 // Global symbols.
@@ -122,9 +124,10 @@ const OSSymbol * gIOEthernetWakeOnLANFilterGroup;
 // Constants for handleCommand().
 //
 enum {
-    kCommandEnable  = 1,
-    kCommandDisable = 2,
-    kCommandPrepare = 3
+    kCommandEnable       = 1,
+    kCommandDisable      = 2,
+    kCommandPrepare      = 3,
+    kCommandInitDebugger = 4
 };
 
 class IONetworkControllerGlobals
@@ -146,10 +149,15 @@ IONetworkControllerGlobals::IONetworkControllerGlobals()
     gIONullMediumName   = OSSymbol::withCStringNoCopy("");
     gIOLinkDataKey      = OSSymbol::withCStringNoCopy(kIOLinkData);
     gIONullLinkData     = OSData::withCapacity(0);
-    gIONetworkFilterGroup
-                        = OSSymbol::withCStringNoCopy(kIONetworkFilterGroup);
-    gIOEthernetWakeOnLANFilterGroup
-        = OSSymbol::withCStringNoCopy("IOEthernetWakeOnLANFilterGroup");
+    
+    gIONetworkFilterGroup =
+        OSSymbol::withCStringNoCopy(kIONetworkFilterGroup);
+    
+    gIOEthernetWakeOnLANFilterGroup =
+        OSSymbol::withCStringNoCopy("IOEthernetWakeOnLANFilterGroup");
+    
+    gIOControllerEnabledKey = 
+        OSSymbol::withCStringNoCopy("IOControllerEnabled");
 }
 
 IONetworkControllerGlobals::~IONetworkControllerGlobals()
@@ -162,6 +170,7 @@ IONetworkControllerGlobals::~IONetworkControllerGlobals()
     RELEASE( gIONullLinkData );
     RELEASE( gIONetworkFilterGroup );
     RELEASE( gIOEthernetWakeOnLANFilterGroup );
+    RELEASE( gIOControllerEnabledKey );
 }
 
 bool IONetworkControllerGlobals::isValid() const
@@ -173,7 +182,8 @@ bool IONetworkControllerGlobals::isValid() const
              gIOLinkDataKey        &&
              gIONullLinkData       &&
              gIONetworkFilterGroup &&
-             gIOEthernetWakeOnLANFilterGroup );
+             gIOEthernetWakeOnLANFilterGroup &&
+             gIOControllerEnabledKey );
 }
 
 //---------------------------------------------------------------------------
@@ -312,7 +322,8 @@ bool IONetworkController::start(IOService * provider)
     }
     _workLoop->retain();
 
-    ml_thread_policy(_workLoop->getThread(), MACHINE_GROUP, (MACHINE_NETWORK_GROUP|MACHINE_NETWORK_WORKLOOP));
+    ml_thread_policy( _workLoop->getThread(), MACHINE_GROUP, 
+                      (MACHINE_NETWORK_GROUP|MACHINE_NETWORK_WORKLOOP) );
 
     // Create a 'private' IOCommandGate object and attach it to
     // our workloop created above. This is used by executeCommand().
@@ -461,7 +472,7 @@ IOOutputAction IONetworkController::getOutputHandler() const
 
 bool
 IONetworkController::attachInterface(IONetworkInterface ** interfaceP,
-                                     bool  doRegister = true)
+                                     bool  doRegister)
 {
     IONetworkInterface * netif;
 
@@ -521,7 +532,7 @@ IONetworkController::attachInterface(IONetworkInterface ** interfaceP,
 
 void
 IONetworkController::detachInterface(IONetworkInterface * interface,
-                                     bool                 sync = false)
+                                     bool                 sync)
 {
     IOOptionBits options = kIOServiceRequired;
 
@@ -783,7 +794,7 @@ bool IONetworkController::publishProperties()
 //---------------------------------------------------------------------------
 // Send a network event to all attached interface objects.
 
-bool IONetworkController::_broadcastEvent(UInt32 type, void * data = 0)
+bool IONetworkController::_broadcastEvent(UInt32 type, void * data)
 {
     IONetworkInterface * netif;
 
@@ -1006,7 +1017,10 @@ void IONetworkController::getPacketBufferConstraints(
     (m)->m_len = ((size) - (smask)) & ~(lmask);  \
 }
 
-static struct mbuf * allocateMbuf( UInt32 size, UInt32 smask, UInt32 lmask )
+static struct mbuf * allocateMbuf( UInt32 size,
+                                   UInt32 how,
+                                   UInt32 smask,
+                                   UInt32 lmask )
 {
     struct mbuf * m;
     struct mbuf * head = 0;
@@ -1020,12 +1034,12 @@ static struct mbuf * allocateMbuf( UInt32 size, UInt32 smask, UInt32 lmask )
 
         if ( head == 0 )
         {
-            MGETHDR( m, M_DONTWAIT, MT_DATA );
+            MGETHDR( m, how, MT_DATA );
             capacity = MHLEN;
         }
         else
         {
-            MGET( m, M_DONTWAIT, MT_DATA );
+            MGET( m, how, MT_DATA );
             capacity = MLEN;
         }
 
@@ -1041,7 +1055,7 @@ static struct mbuf * allocateMbuf( UInt32 size, UInt32 smask, UInt32 lmask )
 
         if ( ( size + smask + lmask ) > capacity )
         {
-            MCLGET( m, M_DONTWAIT );
+            MCLGET( m, how );
             if ( (m->m_flags & M_EXT) == 0 ) goto error;
             capacity = MCLBYTES;
         }
@@ -1070,30 +1084,34 @@ error:
     return 0;
 }
 
-struct mbuf * IONetworkController::allocatePacket( UInt32 size )
+static struct mbuf * getPacket( UInt32 size,
+                                UInt32 how,
+                                UInt32 smask,
+                                UInt32 lmask )
 {
     struct mbuf * m;
 
     do {
-        // Handle the simple case where the requested size
-        // is small enough for a single mbuf. Otherwise,
-        // go to the more costly route and call the
-        // generic mbuf allocation routine.
+        // Handle the simple case where the requested size is small
+        // enough for a single mbuf. Otherwise, go to the more costly
+        // route and call the generic mbuf allocation routine.
 
-        if ( ( size + _alignStart ) <= MCLBYTES ) {
-            if ( ( size + _alignStart ) > MHLEN ) {
-		m = m_getpacket(); /* MGETHDR+MCLGET under one single lock */
-                if ( m == 0 ) break;
-	    }
-	    else
+        if ( ( size + smask ) <= MCLBYTES )
+        {
+            if ( ( size + smask ) > MHLEN )
             {
-                MGETHDR( m, M_DONTWAIT, MT_DATA );
-                if ( m == 0 ) break;
+                /* MGETHDR+MCLGET under one single lock */
+                m = m_getpackets( 1, 1, how );
             }
+            else
+            {
+                MGETHDR( m, how, MT_DATA );
+            }
+            if ( m == 0 ) break;
 
             // Align start of mbuf buffer.
 
-            IO_ALIGN_MBUF_START( m, _alignStart );
+            IO_ALIGN_MBUF_START( m, smask );
 
             // No length adjustment for single mbuf.
             // Driver gets what it asked for.
@@ -1102,11 +1120,17 @@ struct mbuf * IONetworkController::allocatePacket( UInt32 size )
         }
         else
         {
-            m = allocateMbuf(size, _alignStart, _alignLength);
+            m = allocateMbuf( size, how, smask, lmask );
         }
-    } while ( false );
+    }
+    while ( false );
 
     return m;
+}
+
+struct mbuf * IONetworkController::allocatePacket( UInt32 size )
+{
+    return getPacket( size, M_WAIT, _alignStart, _alignLength );
 }
 
 //---------------------------------------------------------------------------
@@ -1215,7 +1239,7 @@ static inline bool IO_COPY_MBUF(
 // a NULL is returned.
 
 struct mbuf * IONetworkController::replacePacket(struct mbuf ** mp,
-                                                 UInt32 size = 0)
+                                                 UInt32 size)
 {   
     assert((mp != NULL) && (*mp != NULL));
 
@@ -1227,7 +1251,7 @@ struct mbuf * IONetworkController::replacePacket(struct mbuf ** mp,
     
     // Allocate a new packet to replace the current packet.
 
-    if ( (*mp = allocatePacket(size)) == 0 )
+    if ( (*mp = getPacket(size, M_DONTWAIT, _alignStart, _alignLength)) == 0 )
     {
         *mp = m; m = 0;
     }
@@ -1245,7 +1269,7 @@ struct mbuf * IONetworkController::replacePacket(struct mbuf ** mp,
 // Returns a new mbuf created from the source packet.
 
 struct mbuf * IONetworkController::copyPacket(const struct mbuf * m,
-                                              UInt32 size = 0)
+                                              UInt32 size)
 {
     struct mbuf * mn;
 
@@ -1258,7 +1282,8 @@ struct mbuf * IONetworkController::copyPacket(const struct mbuf * m,
     // Copy the current mbuf to the new mbuf, and return the new mbuf.
     // The input mbuf is left intact.
 
-    if ( (mn = allocatePacket(size)) == 0 ) return 0;
+    if ( (mn = getPacket(size, M_DONTWAIT, _alignStart, _alignLength)) == 0 )
+        return 0;
 
     if (!IO_COPY_MBUF(m, mn, size))
     {
@@ -1303,7 +1328,8 @@ struct mbuf * IONetworkController::replaceOrCopyPacket(struct mbuf ** mp,
 
         m = *mp;
 
-        if ( (*mp = allocatePacket(m->m_pkthdr.len)) == 0 )
+        if ( (*mp = getPacket( m->m_pkthdr.len, M_DONTWAIT,
+                               _alignStart, _alignLength)) == 0 )
         {
             *mp = m; m = 0;  // error recovery
         }
@@ -1316,7 +1342,8 @@ struct mbuf * IONetworkController::replaceOrCopyPacket(struct mbuf ** mp,
         // of the original mbuf instead of replacing it. We only copy
         // the rcvlen bytes, not the entire source mbuf.
 
-        if ( (m = allocatePacket(rcvlen)) == 0 ) return 0;
+        if ( (m = getPacket( rcvlen, M_DONTWAIT,
+                             _alignStart, _alignLength )) == 0 ) return 0;
 
         if (!IO_COPY_MBUF(*mp, m, rcvlen))
         {
@@ -1356,8 +1383,8 @@ IONetworkController::setChecksumResult( struct mbuf * m,
                                         UInt32        family,
                                         UInt32        result,
                                         UInt32        valid,
-                                        UInt32        param0 = 0,
-                                        UInt32        param1 = 0 )
+                                        UInt32        param0,
+                                        UInt32        param1 )
 {
     // Reporting something that is valid without checking for it
     // is forbidden.
@@ -1425,8 +1452,8 @@ void
 IONetworkController::getChecksumDemand( const struct mbuf * m,
                                         UInt32              checksumFamily,
                                         UInt32 *            demandMask,
-                                        void *              param0 = 0,
-                                        void *              param1 = 0 )
+                                        void *              param0,
+                                        void *              param1 )
 {
     if ( checksumFamily != kChecksumFamilyTCPIP )
     {
@@ -1523,6 +1550,10 @@ bool IONetworkController::attachDebuggerClient(IOKernelDebugger ** debugger)
 
     if ( client )
     {
+        executeCommand( this, &IONetworkController::handleCommand,
+                        this, (void *) kCommandInitDebugger,
+                              (void *) client );
+
         client->registerService();
         ret = true;
     }
@@ -1926,8 +1957,8 @@ const IONetworkMedium * IONetworkController::getSelectedMedium() const
 
             aString = OSDynamicCast( OSString,
                                      getProperty(gIODefaultMediumKey) );
-            
-            medium = (IONetworkMedium *) mediumDict->getObject(aString);
+            if ( aString )
+                medium = (IONetworkMedium *) mediumDict->getObject(aString);
         }
     }
     while (0);
@@ -2050,33 +2081,22 @@ IOReturn IONetworkController::executeCommandAction(OSObject * owner,
 {
     IONetworkController * self = (IONetworkController *) owner;
     cmdStruct *           cmdP = (cmdStruct *) arg0;
-    IOReturn              ret;
-    bool                  accept = true;
+    IOReturn              ret  = kIOReturnSuccess;
     OSObject *            oldClient;
 
     assert(cmdP && self);
 
     oldClient = self->_cmdClient;
 
-    if (accept != true)
-    {
-        // Command rejected.
-        ret = kIOReturnNotPermitted;
-    }
-    else
-    {
-        self->_cmdClient = cmdP->client;
+    self->_cmdClient = cmdP->client;
 
-        cmdP->ret = (*cmdP->action)( cmdP->target,
-                                     cmdP->param0,
-                                     cmdP->param1,
-                                     cmdP->param2,
-                                     cmdP->param3 );
+    cmdP->ret = (*cmdP->action)( cmdP->target,
+                                 cmdP->param0,
+                                 cmdP->param1,
+                                 cmdP->param2,
+                                 cmdP->param3 );
 
-        self->_cmdClient = oldClient;
-
-        ret = kIOReturnSuccess;
-    }
+    self->_cmdClient = oldClient;
 
     return ret;
 }
@@ -2123,6 +2143,13 @@ IOReturn IONetworkController::executeCommand(OSObject * client,
 // Called by executeCommand() to handle the client command on the
 // workloop context.
 
+void countBSDEnablesApplier( IOService * client, void * context )
+{
+    if ( OSDynamicCast( IONetworkInterface, client ) &&
+         client->getProperty( gIOControllerEnabledKey ) == kOSBooleanTrue )
+        (*(UInt32 *)context)++;
+}
+
 IOReturn IONetworkController::handleCommand(void * target,
                                             void * param0,
                                             void * param1,
@@ -2133,20 +2160,59 @@ IOReturn IONetworkController::handleCommand(void * target,
     IONetworkController * self    = (IONetworkController *) target;
     UInt32                command = (UInt32) param0;
     IOService *           client  = (IOService *) param1;
-    IOReturn              ret;
+    IOReturn              ret     = kIOReturnSuccess;
+    UInt32                count   = 0;
 
-    switch (command)
+    switch ( command )
     {
         case kCommandEnable:
-            ret = self->enable(client);
+            if (( ret = self->enable(client) ) == kIOReturnSuccess )
+            {
+                // Record the client enable, and send messages to inform
+                // interested clients.
+
+                client->setProperty( gIOControllerEnabledKey, kOSBooleanTrue );
+                if ( OSDynamicCast( IONetworkInterface, client ) )
+                {
+                    self->applyToClients( countBSDEnablesApplier, &count );
+                    if ( count == 1 )
+                        self->messageClients(kMessageControllerWasEnabledForBSD);
+                }
+                self->messageClients(kMessageControllerWasEnabled, client);
+            }
             break;
 
         case kCommandDisable:
-            ret = self->disable(client);
+            if (( ret = self->disable(client) ) == kIOReturnSuccess )
+            {
+                // Record the client disable, and send messages to inform
+                // interested clients.
+
+                client->setProperty( gIOControllerEnabledKey, kOSBooleanFalse );
+                if ( OSDynamicCast( IONetworkInterface, client ) )
+                {
+                    self->applyToClients( countBSDEnablesApplier, &count );
+                    if ( count == 0 )
+                        self->messageClients(kMessageControllerWasDisabledForBSD);
+                }
+                self->messageClients(kMessageControllerWasDisabled, client);
+            }
             break;
 
         case kCommandPrepare:
             ret = self->prepare();
+            break;
+
+        case kCommandInitDebugger:
+            // Send a message to the debugger to announce the controller's
+            // enable/disable state when the debugger is first attached as
+            // a client. This eliminate problems with lost messages if the
+            // debugger is attached after the BSD client has attached and
+            // enabled the controller, and early debugging is not active.
+
+            self->applyToClients( countBSDEnablesApplier, &count );
+            if ( count )
+                client->message( kMessageControllerWasEnabledForBSD, self );
             break;
 
         default:
@@ -2179,4 +2245,18 @@ IOReturn IONetworkController::doDisable(IOService * client)
                            this,
                            (void *) kCommandDisable,
                            (void *) client);
+}
+
+//---------------------------------------------------------------------------
+// Inlined functions pulled from header file to ensure
+// binary compatibility with drivers built with gcc2.95.
+
+const IONetworkMedium * IONetworkController::getCurrentMedium() const
+{
+    return getSelectedMedium();
+}
+
+bool IONetworkController::setCurrentMedium(const IONetworkMedium * medium)
+{
+    return setSelectedMedium(medium);
 }

@@ -33,6 +33,7 @@
  */
 
 #import "Root.h"
+#import <NetInfo/dsrecord.h>
 
 @interface LUArray : Root
 {
@@ -67,3 +68,5 @@
 - (LUArray *)filter:(id)pattern;
 
 @end
+
+LUArray *dsrecordToArray(dsrecord *rl);

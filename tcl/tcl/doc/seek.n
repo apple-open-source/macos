@@ -5,7 +5,7 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: seek.n,v 1.1.1.3 2000/04/12 02:02:04 wsanchez Exp $
+'\" RCS: @(#) $Id: seek.n,v 1.1.1.4 2002/04/05 16:13:07 jevans Exp $
 '\" 
 .so man.macros
 .TH seek n 8.1 Tcl "Tcl Built-In Commands"
@@ -57,5 +57,8 @@ offsets.  Both \fBseek\fR and \fBtell\fR operate in terms of bytes,
 not characters, unlike \fBread\fR.
 .VE 8.1
 
+.SH "SEE ALSO"
+file(n), open(n), close(n), gets(n), tell(n)
+ 
 .SH KEYWORDS
 access position, file, seek

@@ -1,5 +1,8 @@
 /* Remote debugging interface for boot monitors, for GDB.
-   Copyright 1990-1993, 1995-1997, 1999-2000 Free Software Foundation, Inc.
+
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+
    Contributed by Cygnus Support.  Written by Rob Savoye for Cygnus.
    Resurrected from the ashes by Stu Grossman.
 
@@ -40,7 +43,6 @@
 #include "defs.h"
 #include "gdbcore.h"
 #include "target.h"
-#include "gdb_wait.h"
 #include <signal.h>
 #include <ctype.h>
 #include "gdb_string.h"
@@ -52,6 +54,7 @@
 #include "inferior.h"
 #include "gdb_regex.h"
 #include "srec.h"
+#include "regcache.h"
 
 static char *dev_name;
 static struct target_ops *targ_ops;
@@ -66,18 +69,20 @@ static void monitor_store_register (int regno);
 static void monitor_printable_string (char *newstr, char *oldstr, int len);
 static void monitor_error (char *function, char *message, CORE_ADDR memaddr, int len, char *string, int final_char);
 static void monitor_detach (char *args, int from_tty);
-static void monitor_resume (int pid, int step, enum target_signal sig);
+static void monitor_resume (ptid_t ptid, int step, enum target_signal sig);
 static void monitor_interrupt (int signo);
 static void monitor_interrupt_twice (int signo);
 static void monitor_interrupt_query (void);
 static void monitor_wait_cleanup (void *old_timeout);
 
-static int monitor_wait (int pid, struct target_waitstatus *status);
+static ptid_t monitor_wait (ptid_t ptid, struct target_waitstatus *status);
 static void monitor_fetch_registers (int regno);
 static void monitor_store_registers (int regno);
 static void monitor_prepare_to_store (void);
 static int monitor_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len,
-				int write, struct target_ops *target);
+				int write, 
+				struct mem_attrib *attrib,
+				struct target_ops *target);
 static void monitor_files_info (struct target_ops *ops);
 static int monitor_insert_breakpoint (CORE_ADDR addr, char *shadow);
 static int monitor_remove_breakpoint (CORE_ADDR addr, char *shadow);
@@ -116,7 +121,7 @@ static CORE_ADDR *breakaddr;
    that monitor_open knows that we don't have a file open when the
    program starts.  */
 
-static serial_t monitor_desc = NULL;
+static struct serial *monitor_desc = NULL;
 
 /* Pointer to regexp pattern matching data */
 
@@ -125,6 +130,12 @@ static char register_fastmap[256];
 
 static struct re_pattern_buffer getmem_resp_delim_pattern;
 static char getmem_resp_delim_fastmap[256];
+
+static struct re_pattern_buffer setmem_resp_delim_pattern;
+static char setmem_resp_delim_fastmap[256];
+
+static struct re_pattern_buffer setreg_resp_delim_pattern;
+static char setreg_resp_delim_fastmap[256];
 
 static int dump_reg_flag;	/* Non-zero means do a dump_registers cmd when
 				   monitor_wait wakes up.  */
@@ -334,7 +345,7 @@ monitor_printf_noecho (char *pattern,...)
 
   len = strlen (sndbuf);
   if (len + 1 > sizeof sndbuf)
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
 
   if (monitor_debug_p)
     {
@@ -362,7 +373,7 @@ monitor_printf (char *pattern,...)
 
   len = strlen (sndbuf);
   if (len + 1 > sizeof sndbuf)
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
 
   if (monitor_debug_p)
     {
@@ -387,8 +398,8 @@ monitor_printf (char *pattern,...)
 void
 monitor_write (char *buf, int buflen)
 {
-  if (SERIAL_WRITE (monitor_desc, buf, buflen))
-    fprintf_unfiltered (gdb_stderr, "SERIAL_WRITE failed: %s\n",
+  if (serial_write (monitor_desc, buf, buflen))
+    fprintf_unfiltered (gdb_stderr, "serial_write failed: %s\n",
 			safe_strerror (errno));
 }
 
@@ -406,7 +417,7 @@ monitor_readchar (void)
   do
     {
       looping = 0;
-      c = SERIAL_READCHAR (monitor_desc, timeout);
+      c = serial_readchar (monitor_desc, timeout);
 
       if (c >= 0)
 	c &= 0xff;		/* don't lose bit 7 */
@@ -440,7 +451,7 @@ readchar (int timeout)
   do
     {
       looping = 0;
-      c = SERIAL_READCHAR (monitor_desc, timeout);
+      c = serial_readchar (monitor_desc, timeout);
 
       if (c >= 0)
 	{
@@ -749,33 +760,41 @@ monitor_open (char *args, struct monitor_ops *mon_ops, int from_tty)
     compile_pattern (mon_ops->getmem.resp_delim, &getmem_resp_delim_pattern,
 		     getmem_resp_delim_fastmap);
 
+  if (mon_ops->setmem.resp_delim)
+    compile_pattern (mon_ops->setmem.resp_delim, &setmem_resp_delim_pattern,
+                     setmem_resp_delim_fastmap);
+
+  if (mon_ops->setreg.resp_delim)
+    compile_pattern (mon_ops->setreg.resp_delim, &setreg_resp_delim_pattern,
+                     setreg_resp_delim_fastmap);
+  
   unpush_target (targ_ops);
 
   if (dev_name)
-    free (dev_name);
-  dev_name = strsave (args);
+    xfree (dev_name);
+  dev_name = xstrdup (args);
 
-  monitor_desc = SERIAL_OPEN (dev_name);
+  monitor_desc = serial_open (dev_name);
 
   if (!monitor_desc)
     perror_with_name (dev_name);
 
   if (baud_rate != -1)
     {
-      if (SERIAL_SETBAUDRATE (monitor_desc, baud_rate))
+      if (serial_setbaudrate (monitor_desc, baud_rate))
 	{
-	  SERIAL_CLOSE (monitor_desc);
+	  serial_close (monitor_desc);
 	  perror_with_name (dev_name);
 	}
     }
 
-  SERIAL_RAW (monitor_desc);
+  serial_raw (monitor_desc);
 
-  SERIAL_FLUSH_INPUT (monitor_desc);
+  serial_flush_input (monitor_desc);
 
   /* some systems only work with 2 stop bits */
 
-  SERIAL_SETSTOPBITS (monitor_desc, mon_ops->stopbits);
+  serial_setstopbits (monitor_desc, mon_ops->stopbits);
 
   current_monitor = mon_ops;
 
@@ -805,7 +824,7 @@ monitor_open (char *args, struct monitor_ops *mon_ops, int from_tty)
       monitor_expect_prompt (NULL, 0);
     }
 
-  SERIAL_FLUSH_INPUT (monitor_desc);
+  serial_flush_input (monitor_desc);
 
   /* Alloc breakpoints */
   if (mon_ops->set_break != NULL)
@@ -830,7 +849,7 @@ monitor_open (char *args, struct monitor_ops *mon_ops, int from_tty)
 
   push_target (targ_ops);
 
-  inferior_pid = 42000;		/* Make run command think we are busy... */
+  inferior_ptid = pid_to_ptid (42000);	/* Make run command think we are busy... */
 
   /* Give monitor_wait something to read */
 
@@ -846,12 +865,12 @@ void
 monitor_close (int quitting)
 {
   if (monitor_desc)
-    SERIAL_CLOSE (monitor_desc);
+    serial_close (monitor_desc);
 
   /* Free breakpoint memory */
   if (breakaddr != NULL)
     {
-      free (breakaddr);
+      xfree (breakaddr);
       breakaddr = NULL;
     }
 
@@ -903,7 +922,7 @@ monitor_supply_register (int regno, char *valstr)
     }
   monitor_debug ("Supplying Register %d %s\n", regno, valstr);
 
-  if (*p != '\0')
+  if (val == 0 && valstr == p)
     error ("monitor_supply_register (%d):  bad value from monitor: %s.",
 	   regno, valstr);
 
@@ -919,7 +938,7 @@ monitor_supply_register (int regno, char *valstr)
 /* Tell the remote machine to resume.  */
 
 static void
-monitor_resume (int pid, int step, enum target_signal sig)
+monitor_resume (ptid_t ptid, int step, enum target_signal sig)
 {
   /* Some monitors require a different command when starting a program */
   monitor_debug ("MON resume\n");
@@ -1017,7 +1036,7 @@ monitor_interrupt_query (void)
 Give up (and stop debugging it)? "))
     {
       target_mourn_inferior ();
-      return_to_top_level (RETURN_QUIT);
+      throw_exception (RETURN_QUIT);
     }
 
   target_terminal_inferior ();
@@ -1069,8 +1088,8 @@ monitor_wait_filter (char *buf,
 /* Wait until the remote machine stops, then return, storing status in
    status just as `wait' would.  */
 
-static int
-monitor_wait (int pid, struct target_waitstatus *status)
+static ptid_t
+monitor_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   int old_timeout = timeout;
   char buf[TARGET_BUF_SIZE];
@@ -1146,7 +1165,7 @@ monitor_wait (int pid, struct target_waitstatus *status)
 
   in_monitor_wait = 0;
 
-  return inferior_pid;
+  return inferior_ptid;
 }
 
 /* Fetch register REGNO, or all registers if REGNO is -1. Returns
@@ -1285,7 +1304,7 @@ monitor_dump_regs (void)
       parse_register_dump (buf, resp_len);
     }
   else
-    abort ();			/* Need some way to read registers */
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");			/* Need some way to read registers */
 }
 
 static void
@@ -1337,6 +1356,13 @@ monitor_store_register (int regno)
   else
     monitor_printf (current_monitor->setreg.cmd, name, val);
 
+  if (current_monitor->setreg.resp_delim)
+    {
+      monitor_debug ("EXP setreg.resp_delim\n");
+      monitor_expect_regexp (&setreg_resp_delim_pattern, NULL, 0);
+      if (current_monitor->flags & MO_SETREG_INTERACTIVE)
+	monitor_printf ("%s\r", paddr_nz (val));
+    }
   if (current_monitor->setreg.term)
     {
       monitor_debug ("EXP setreg.term\n");
@@ -1463,6 +1489,12 @@ monitor_write_memory (CORE_ADDR memaddr, char *myaddr, int len)
 
       monitor_printf_noecho (cmd, memaddr);
 
+      if (current_monitor->setmem.resp_delim)
+        {
+          monitor_debug ("EXP setmem.resp_delim");
+          monitor_expect_regexp (&setmem_resp_delim_pattern, NULL, 0); 
+	  monitor_printf ("%x\r", val);
+       }
       if (current_monitor->setmem.term)
 	{
 	  monitor_debug ("EXP setmem.term");
@@ -1688,7 +1720,6 @@ monitor_read_memory_single (CORE_ADDR memaddr, char *myaddr, int len)
   char membuf[sizeof (int) * 2 + 1];
   char *p;
   char *cmd;
-  int i;
 
   monitor_debug ("MON read single\n");
 #if 0
@@ -1748,29 +1779,31 @@ monitor_read_memory_single (CORE_ADDR memaddr, char *myaddr, int len)
       else
 	monitor_error ("monitor_read_memory_single", 
 		       "bad response from monitor",
-		       memaddr, i, membuf, c);
+		       memaddr, 0, NULL, 0);
     }
-  for (i = 0; i < len * 2; i++)
-    {
-      int c;
 
-      while (1)
-	{
-	  c = readchar (timeout);
-	  if (isxdigit (c))
-	    break;
-	  if (c == ' ')
-	    continue;
+  {
+    int i;
+    for (i = 0; i < len * 2; i++)
+      {
+	int c;
 
-	  monitor_error ("monitor_read_memory_single",
-			 "bad response from monitor",
-			 memaddr, i, membuf, c);
-	}
-
+	while (1)
+	  {
+	    c = readchar (timeout);
+	    if (isxdigit (c))
+	      break;
+	    if (c == ' ')
+	      continue;
+	    
+	    monitor_error ("monitor_read_memory_single",
+			   "bad response from monitor",
+			   memaddr, i, membuf, 0);
+	  }
       membuf[i] = c;
     }
-
-  membuf[i] = '\000';		/* terminate the number */
+    membuf[i] = '\000';		/* terminate the number */
+  }
 
 /* If TERM is present, we wait for that to show up.  Also, (if TERM is
    present), we will send TERM_CMD if that is present.  In any case, we collect
@@ -1872,7 +1905,7 @@ monitor_read_memory (CORE_ADDR memaddr, char *myaddr, int len)
 
       if (current_monitor->getmem.term_cmd)
 	{
-	  SERIAL_WRITE (monitor_desc, current_monitor->getmem.term_cmd,
+	  serial_write (monitor_desc, current_monitor->getmem.term_cmd,
 			strlen (current_monitor->getmem.term_cmd));
 	  monitor_expect_prompt (NULL, 0);
 	}
@@ -1988,7 +2021,7 @@ monitor_read_memory (CORE_ADDR memaddr, char *myaddr, int len)
 
 static int
 monitor_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
-		     struct target_ops *target)
+		     struct mem_attrib *attrib, struct target_ops *target)
 {
   int res;
 
@@ -2170,20 +2203,23 @@ monitor_load (char *file, int from_tty)
       monitor_expect_prompt (NULL, 0);
     }
 
-/* Finally, make the PC point at the start address */
-
+  /* Finally, make the PC point at the start address */
   if (exec_bfd)
     write_pc (bfd_get_start_address (exec_bfd));
 
-  inferior_pid = 0;		/* No process now */
+  /* There used to be code here which would clear inferior_ptid and
+     call clear_symtab_users.  None of that should be necessary:
+     monitor targets should behave like remote protocol targets, and
+     since generic_load does none of those things, this function
+     shouldn't either.
 
-/* This is necessary because many things were based on the PC at the time that
-   we attached to the monitor, which is no longer valid now that we have loaded
-   new code (and just changed the PC).  Another way to do this might be to call
-   normal_stop, except that the stack may not be valid, and things would get
-   horribly confused... */
-
-  clear_symtab_users ();
+     Furthermore, clearing inferior_ptid is *incorrect*.  After doing
+     a load, we still have a valid connection to the monitor, with a
+     live processor state to fiddle with.  The user can type
+     `continue' or `jump *start' and make the program run.  If they do
+     these things, however, GDB will be talking to a running program
+     while inferior_ptid is null_ptid; this makes things like
+     reinit_frame_cache very confused.  */
 }
 
 static void
@@ -2191,7 +2227,7 @@ monitor_stop (void)
 {
   monitor_debug ("MON stop\n");
   if ((current_monitor->flags & MO_SEND_BREAK_ON_STOP) != 0)
-    SERIAL_SEND_BREAK (monitor_desc);
+    serial_send_break (monitor_desc);
   if (current_monitor->stop)
     monitor_printf_noecho (current_monitor->stop);
 }
@@ -2304,7 +2340,6 @@ init_base_monitor_ops (void)
   monitor_ops.to_stop = monitor_stop;
   monitor_ops.to_rcmd = monitor_rcmd;
   monitor_ops.to_pid_to_exec_file = NULL;
-  monitor_ops.to_core_file_to_sym_file = NULL;
   monitor_ops.to_stratum = process_stratum;
   monitor_ops.DONT_USE = 0;
   monitor_ops.to_has_all_memory = 1;

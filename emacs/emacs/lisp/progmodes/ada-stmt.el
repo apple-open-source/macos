@@ -1,10 +1,14 @@
-;;; ada-stmt.el - An extension to Ada mode for inserting statement templates.
+;;; ada-stmt.el --- an extension to Ada mode for inserting statement templates
 
-;; Copyright (C) 1987, 1993, 1994, 1996, 1997 Free Software Foundation, Inc.
+;; Copyright(C) 1987, 1993, 1994, 1996, 1997, 1998, 1999
+;;   Free Software Foundation, Inc.
 
-;; Authors: Daniel Pfeiffer <occitan@esperanto.org>, Markus Heritsch,
-;;   Rolf Ebert <ebert@waporo.muc.de>
-;; Maintainer: Rolf Ebert <ebert@waporo.muc.de>
+;; Ada Core Technologies's version:   $Revision: 1.1.1.4 $
+
+;; This file is part of GNU Emacs.
+
+;; Authors: Daniel Pfeiffer, Markus Heritsch, Rolf Ebert <ebert@waporo.muc.de>
+;; Maintainer: Emmanuel Briot <briot@gnat.com>
 ;; Keywords: languages, ada
 ;; Rolf Ebert's version: 2.26
 
@@ -37,7 +41,7 @@
 ;; General cleanup and bug fixes.
 ;;
 ;; 1995/12/20  John Hutchison <hutchiso@epi.syr.ge.com>
-;; made it work with skeleton.el from emacs-19.30. Several
+;; made it work with skeleton.el from Emacs-19.30. Several
 ;; enhancements and bug fixes.
 
 ;; BUGS:
@@ -60,32 +64,68 @@
 
 ;;; Code:
 
-(require 'ada-mode)
-(require 'skeleton)
+(eval-when-compile
+  (condition-case nil  (require 'skeleton)
+    (error nil)))
+
 (require 'easymenu)
 
-(defgroup ada-stmt nil
-  "Extension to Ada mode for inserting statement templates"
-  :group 'ada)
+(defun ada-stmt-add-to-ada-menu ()
+  "Add a new submenu to the Ada menu."
+  (interactive)
+  (let ((menu  '(["Header" ada-header t]
+		 ["-" nil nil]
+		 ["Package Body" ada-package-body t]
+		 ["Package Spec" ada-package-spec t]
+		 ["Function Spec" ada-function-spec t]
+		 ["Procedure Spec" ada-procedure-spec t]
+		 ["Proc/func Body" ada-subprogram-body t]
+		 ["Task Body" ada-task-body t]
+		 ["Task Spec" ada-task-spec t]
+		 ["Declare Block" ada-declare-block t]
+		 ["Exception Block" ada-exception-block t]
+		 ["--" nil nil]
+		 ["Entry" ada-entry t]
+		 ["Entry family" ada-entry-family t]
+		 ["Select" ada-select t]
+		 ["Accept" ada-accept t]
+		 ["Or accept" ada-or-accep t]
+		 ["Or delay" ada-or-delay t]
+		 ["Or terminate" ada-or-terminate t]
+		 ["---" nil nil]
+		 ["Type" ada-type t]
+		 ["Private" ada-private t]
+		 ["Subtype" ada-subtype t]
+		 ["Record" ada-record t]
+		 ["Array" ada-array t]
+		 ["----" nil nil]
+		 ["If" ada-if t]
+		 ["Else" ada-else t]
+		 ["Elsif" ada-elsif t]
+		 ["Case" ada-case t]
+		 ["-----" nil nil]
+		 ["While Loop" ada-while-loop t]
+		 ["For Loop" ada-for-loop t]
+		 ["Loop" ada-loop t]
+		 ["------" nil nil]
+		 ["Exception" ada-exception t]
+		 ["Exit" ada-exit t]
+		 ["When" ada-when t])))
+    (if ada-xemacs
+	(funcall (symbol-function 'add-submenu)
+		 '("Ada") (append (list "Statements"
+					:included '(string= mode-name "Ada"))
+				  menu))
 
-(defcustom ada-stmt-use-debug t
-  "*Toggle to insert ada debug code parts."
-  :type 'boolean
-  :group 'ada-stmt)
+      (define-key-after (lookup-key ada-mode-map [menu-bar Ada]) [Statements]
+	(list 'menu-item
+	      "Statements"
+	      (easy-menu-create-menu "Statements" menu)
+	      :visible '(string= mode-name "Ada"))
+	t))))
 
 
-(defcustom ada-debug-call-str "pragma Debug (%s);"
-  "*Debug call code to insert."
-  :type 'string
-  :group 'ada-stmt)
 
-
-(defcustom ada-debug-exception-str "pragma Debug (%s);"
-  "*Debug exception code to insert."
-  :type 'string
-  :group 'ada-stmt)
-
-  
 
 (defun ada-func-or-proc-name ()
   ;; Get the name of the current function or procedure."
@@ -95,74 +135,53 @@
 	  (buffer-substring (match-beginning 2) (match-end 2))
 	"NAME?"))))
 
-
-(defun ada-toggle-debugging ()
-  "Toggles behaviour of `ada-debug-info-insertion'."
-  (interactive)
-  (setq ada-stmt-use-debug (not ada-stmt-use-debug))
-  (if ada-stmt-use-debug
-      (message "Debugging enabled")
-    (message "Debugging disabled")))
-
-
-(defvar ada-template-map nil
+(defvar ada-template-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "h" 'ada-header)
+    (define-key map "\C-a" 'ada-array)
+    (define-key map "b" 'ada-exception-block)
+    (define-key map "d" 'ada-declare-block)
+    (define-key map "c" 'ada-case)
+    (define-key map "\C-e"  'ada-elsif)
+    (define-key map "e"      'ada-else)
+    (define-key map "\C-k"   'ada-package-spec)
+    (define-key map "k"      'ada-package-body)
+    (define-key map "\C-p"   'ada-procedure-spec)
+    (define-key map "p"      'ada-subprogram-body)
+    (define-key map "\C-f"   'ada-function-spec)
+    (define-key map "f"      'ada-for-loop)
+    (define-key map "i"      'ada-if)
+    (define-key map "l"      'ada-loop)
+    (define-key map "\C-r"   'ada-record)
+    (define-key map "\C-s"   'ada-subtype)
+    (define-key map "S"      'ada-tabsize)
+    (define-key map "\C-t"   'ada-task-spec)
+    (define-key map "t"      'ada-task-body)
+    (define-key map "\C-y"   'ada-type)
+    (define-key map "\C-v"   'ada-private)
+    (define-key map "u"      'ada-use)
+    (define-key map "\C-u"   'ada-with)
+    (define-key map "\C-w"   'ada-when)
+    (define-key map "w"      'ada-while-loop)
+    (define-key map "\C-x"   'ada-exception)
+    (define-key map "x"      'ada-exit)
+    map)
   "Keymap used in Ada mode for smart template operations.")
 
-
-(let ((ada-mp (make-sparse-keymap)))
-  (define-key ada-mp "h" 'ada-header)
-;  (define-key ada-mp "p" 'ada-toggle-prompt-pseudo)
-  (define-key ada-mp "(" 'insert-parentheses)
-  (define-key ada-mp "\C-a" 'ada-array)
-  (define-key ada-mp "b" 'ada-exception-block)
-  (define-key ada-mp "d" 'ada-declare-block)
-  (define-key ada-mp "c" 'ada-case)
-  (define-key ada-mp "\C-e" 'ada-elsif)
-  (define-key ada-mp "e" 'ada-else)
-  (define-key ada-mp "\C-k" 'ada-package-spec)
-  (define-key ada-mp "k" 'ada-package-body)
-  (define-key ada-mp "\C-p" 'ada-procedure-spec)
-  (define-key ada-mp "\C-f" 'ada-function-spec)
-  (define-key ada-mp "p" 'ada-subprogram-body)
-  (define-key ada-mp "f" 'ada-for-loop)
-  (define-key ada-mp "i" 'ada-if)
-  (define-key ada-mp "l" 'ada-loop)
-  (define-key ada-mp "\C-r" 'ada-record)
-  (define-key ada-mp "\C-s" 'ada-subtype)
-  (define-key ada-mp "S" 'ada-tabsize)
-  (define-key ada-mp "\C-t" 'ada-task-spec)
-  (define-key ada-mp "t" 'ada-task-body)
-  (define-key ada-mp "\C-y" 'ada-type)
-  (define-key ada-mp "\C-v" 'ada-private)
-  (define-key ada-mp "u" 'ada-use)
-  (define-key ada-mp "\C-u" 'ada-with)
-  (define-key ada-mp "\C-w" 'ada-when)
-  (define-key ada-mp "w" 'ada-while-loop)
-  (define-key ada-mp "\C-x" 'ada-exception)
-  (define-key ada-mp "x" 'ada-exit)
-  (setq ada-template-map ada-mp))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Place the templates into Ada Mode.  They may be inserted under any key.
-;; C-c C-t will be the default.  If you use templates alot, you
-;; may want to consider moving the binding to another key in your .emacs
-;; file.  Be sure to (require 'ada-stmt) first.
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;(define-key ada-mode-map "\C-ct" ada-template-map)
-(define-key ada-mode-map "\C-c\C-t" ada-template-map)
+(define-key ada-mode-map "\C-ct" ada-template-map)
 
 ;;; ---- statement skeletons ------------------------------------------
 
 (define-skeleton ada-array
-  "Insert array type definition.  Uses the minibuffer to prompt
-for component type and index subtypes."
+  "Insert array type definition.
+Prompt for component type and index subtypes."
   ()
   "array (" ("index definition: " str ", " ) -2 ") of " _ ?\;)
 
 
 (define-skeleton ada-case
-  "Build skeleton case statement, prompting for the selector expression.
-Also builds the first when clause."
+  "Build skeleton case statement.
+Prompt for the selector expression. Also builds the first when clause."
   "[selector expression]: "
   "case " str " is" \n
   > "when " ("discrete choice: " str " | ") -3 " =>" \n
@@ -217,18 +236,16 @@ Indent for the first line of code."
 (define-skeleton ada-exit
   "Insert an exit statement, prompting for loop name and condition."
   "[name of loop to exit]: "
-  "exit " str & ?\ 
-  (ada-exit-1)
-  | -1 ?\;)
+  "exit " str & ?\  (ada-exit-1) | -1 ?\;)
 
-
+;;;###autoload
 (defun ada-header ()
   "Insert a descriptive header at the top of the file."
   (interactive "*")
   (save-excursion
     (goto-char (point-min))
     (if (fboundp 'make-header)
-	(make-header)
+	(funcall (symbol-function 'make-header))
       (ada-header-tmpl))))
 
 
@@ -236,21 +253,21 @@ Indent for the first line of code."
   "Insert a comment block containing the module title, author, etc."
   "[Description]: "
   "--                              -*- Mode: Ada -*-"
-  "\n-- Filename        : " (buffer-name)
-  "\n-- Description     : " str
-  "\n-- Author          : " (user-full-name) 
-  "\n-- Created On      : " (current-time-string)
-  "\n-- Last Modified By: ."
-  "\n-- Last Modified On: ."
-  "\n-- Update Count    : 0"
-  "\n-- Status          : Unknown, Use with caution!"
+  "\n" ada-fill-comment-prefix "Filename        : " (buffer-name)
+  "\n" ada-fill-comment-prefix "Description     : " str
+  "\n" ada-fill-comment-prefix "Author          : " (user-full-name)
+  "\n" ada-fill-comment-prefix "Created On      : " (current-time-string)
+  "\n" ada-fill-comment-prefix "Last Modified By: ."
+  "\n" ada-fill-comment-prefix "Last Modified On: ."
+  "\n" ada-fill-comment-prefix "Update Count    : 0"
+  "\n" ada-fill-comment-prefix "Status          : Unknown, Use with caution!"
   "\n")
 
 
 (define-skeleton ada-display-comment
   "Inserts three comment lines, making a display comment."
   ()
-  "--\n-- " _ "\n--")
+  "--\n" ada-fill-comment-prefix _ "\n--")
 
 
 (define-skeleton ada-if
@@ -262,7 +279,7 @@ Indent for the first line of code."
 
 
 (define-skeleton ada-elsif
-  "Add an elsif clause to an if statement, 
+  "Add an elsif clause to an if statement,
 prompting for the boolean-expression."
   "[condition]: "
   < "elsif " str " then" \n
@@ -360,7 +377,7 @@ prompting for the boolean-expression."
 (define-skeleton ada-function-spec
   "Insert a function specification.  Prompts for name and arguments."
   "[function name]: "
-  "function " str 
+  "function " str
   " (" ("[parameter_specification]: " str "; " ) -2 ")"
   " return "
   (ada-function-spec-prompt-return)
@@ -370,7 +387,7 @@ prompting for the boolean-expression."
 (define-skeleton ada-procedure-spec
   "Insert a procedure specification, prompting for its name and arguments."
   "[procedure name]: "
-  "procedure " str 
+  "procedure " str
   " (" ("[parameter_specification]: " str "; " ) -2 ")"
   ";" \n )
 
@@ -381,27 +398,22 @@ Invoke right after `ada-function-spec' or `ada-procedure-spec'."
   ()
   ;; Remove `;' from subprogram decl
   (save-excursion
-    (ada-search-ignore-string-comment ada-subprog-start-re t nil)
-    (ada-search-ignore-string-comment "(" nil nil t)
-    (backward-char 1)
-    (forward-sexp 1)
+    (let ((pos (1+ (point))))
+      (ada-search-ignore-string-comment ada-subprog-start-re t nil)
+      (when (ada-search-ignore-string-comment "(" nil pos t 'search-forward)
+	(backward-char 1)
+	(forward-sexp 1)))
     (if (looking-at ";")
         (delete-char 1)))
-  < "is" \n
-  > _ \n
-  < "begin" \n
-  > (if ada-stmt-use-debug
-	(format ada-debug-call-str (ada-func-or-proc-name))) \n
-  > \n
-  < (if ada-stmt-use-debug
-      "exception") & \n
-  > (if ada-stmt-use-debug
-      "when others =>") & \n
-  > (if ada-stmt-use-debug
-      (format ada-debug-exception-str (ada-func-or-proc-name))) \n
-  < < "end "
+  " is" \n
+   _ \n
+   < "begin" \n
+   \n
+   < "exception" \n
+   "when others => null;" \n
+   < < "end "
   (ada-func-or-proc-name)
-  ?\;)
+  ";" \n)
 
 
 (define-skeleton ada-separate
@@ -459,7 +471,7 @@ Invoke right after `ada-function-spec' or `ada-procedure-spec'."
 (define-skeleton ada-task-spec
   "Insert a task specification, prompting for the task name."
   "[task name]: "
-  "task " str 
+  "task " str
   " (" ("[discriminant]: " str "; ") ") is\n"
   > "entry " _ \n
   <"end " str ";" )
@@ -468,26 +480,22 @@ Invoke right after `ada-function-spec' or `ada-procedure-spec'."
 (define-skeleton ada-get-param1
   "Prompt for arguments and if any enclose them in brackets."
   ()
-  ("[parameter_specification]: " str "; " ) & -2 & ")"
-  )
+  ("[parameter_specification]: " str "; " ) & -2 & ")")
 
 
 (define-skeleton ada-get-param
   "Prompt for arguments and if any enclose them in brackets."
   ()
-  " (" 
-  (ada-get-param1) | -2
-  )
+  " ("
+  (ada-get-param1) | -2)
 
 
 (define-skeleton ada-entry
   "Insert a task entry, prompting for the entry name."
   "[entry name]: "
-  "entry " str   
+  "entry " str
   (ada-get-param)
-  ";" \n
-;  (ada-indent-current)
-)
+  ";" \n)
 
 
 (define-skeleton ada-entry-family-prompt-discriminant
@@ -502,9 +510,7 @@ Invoke right after `ada-function-spec' or `ada-procedure-spec'."
   "entry " str
   " (" (ada-entry-family-prompt-discriminant) ")"
   (ada-get-param)
-  ";" \n
-  ;(ada-indent-current)
-)
+  ";" \n)
 
 
 (define-skeleton ada-select
@@ -517,16 +523,16 @@ Invoke right after `ada-function-spec' or `ada-procedure-spec'."
 
 (define-skeleton ada-accept-1
   "Insert a condition statement, prompting for the condition name."
-  "[condition]: " 
+  "[condition]: "
   "when " str | -5 )
 
 
 (define-skeleton ada-accept-2
   "Insert an accept statement, prompting for the name and arguments."
-  "[accept name]: " 
-  > "accept " str 
+  "[accept name]: "
+  > "accept " str
   (ada-get-param)
-;  " (" ("[parameter_specification]: " str "; ") -2 ")"
+;;;  " (" ("[parameter_specification]: " str "; ") -2 ")"
   " do" \n
   > _ \n
   < "end " str ";" )
@@ -536,21 +542,19 @@ Invoke right after `ada-function-spec' or `ada-procedure-spec'."
   "Insert an accept statement (prompt for condition, name and arguments)."
   ()
   > (ada-accept-1) & " =>\n"
-  (ada-accept-2)
-)
+  (ada-accept-2))
 
 
 (define-skeleton ada-or-accept
-  "Insert a or statement, prompting for the condition name."
+  "Insert an or statement, prompting for the condition name."
   ()
   < "or\n"
-  (ada-accept)
-)
+  (ada-accept))
 
 
 (define-skeleton ada-or-delay
   "Insert a delay statement, prompting for the delay value."
-  "[delay value]: " 
+  "[delay value]: "
   < "or\n"
   > "delay " str ";")
   
@@ -562,79 +566,24 @@ Invoke right after `ada-function-spec' or `ada-procedure-spec'."
   > "terminate;")
 
 
-;; ---- 
+;; ----
 (defun ada-adjust-case-skeleton ()
-  "Adjusts the case of the text inserted by a skeleton."
-  (save-excursion 
+  "Adjust the case of the text inserted by a skeleton."
+  (save-excursion
     (let ((aa-end (point)))
-      (ada-adjust-case-region 
-       (progn (goto-char beg) (forward-word -1) (point)) 
-       (goto-char aa-end))
-      )))
+      (ada-adjust-case-region
+       (progn (goto-char (symbol-value 'beg)) (forward-word -1) (point))
+       (goto-char aa-end)))))
 
+(defun ada-stmt-mode-hook ()
+  (set (make-local-variable 'skeleton-further-elements)
+       '((< '(backward-delete-char-untabify
+	      (min ada-indent (current-column))))))
+  (add-hook 'skeleton-end-hook
+	    'ada-adjust-case-skeleton nil t)
+  (ada-stmt-add-to-ada-menu))
 
-;; ---- add menu 'Statements' in Ada mode (MH)
-(defun ada-add-statement-menu ()
-  "Adds the menu 'Statements' to the menu bar in Ada mode."
-  (easy-menu-define ada-stmt-menu ada-mode-map
-		    "Menu for statement templates in Ada."
-		    '("Statements"
-;		      ["Toggle Prompt/Pseudo Code" toggle-skeleton-no-prompt t]
-		      ["Toggle: Debugging" ada-toggle-debugging t]
-;		      ["-------" nil nil]
-		      ["Header" (ada-header) t]
-		      ["-------" nil nil]
-		      ["package Body" (ada-package-body) t]
-		      ["package Spec" (ada-package-spec) t]
-		      ["function Spec" (ada-function-spec) t]
-		      ["procedure Spec" (ada-procedure-spec) t]
-		      ["proc/func Body" (ada-subprogram-body) t]
-		      ["task Body" (ada-task-body) t]
-		      ["task Spec" (ada-task-spec) t]
-		      ["declare Block" (ada-declare-block) t]
-		      ["exception Block" (ada-exception-block) t]
-		      ["------" nil nil]
-		      ["entry" (ada-entry) t]
-		      ["entry family" (ada-entry-family) t]
-		      ["select" (ada-select) t]
-		      ["accept" (ada-accept) t]
-		      ["or accept" (ada-or-accept) t]
-		      ["or delay" (ada-or-delay) t]
-		      ["or terminate" (ada-or-terminate) t]
-		      ["-----" nil nil]
-		      ["type" (ada-type) t]
-		      ["private" (ada-private) t]
-		      ["subtype" (ada-subtype) t]
-		      ["record" (ada-record) t]
-		      ["array" (ada-array) t]
-		      ["------" nil nil]
-		      ["if" (ada-if) t]
-		      ["else" (ada-else) t]
-		      ["elsif" (ada-elsif) t]
-		      ["case" (ada-case) t]
-		      ["-----" nil nil]
-		      ["while Loop" (ada-while-loop) t]
-		      ["for Loop" (ada-for-loop) t]
-		      ["loop" (ada-loop) t]
-		      ["---" nil nil]
-		      ["exception" (ada-exception) t]
-		      ["exit" (ada-exit) t]
-		      ["when" (ada-when) t]
-		      ))
-    (if (ada-xemacs) 
-	(progn
-	  (easy-menu-add ada-stmt-menu)
-	  (setq mode-popup-menu (cons "Ada Mode" ada-stmt-menu)))))
-
-
-
-(add-hook 'ada-mode-hook 'ada-add-statement-menu)
-(add-hook 'ada-mode-hook '(lambda ()
-                            (setq skeleton-further-elements 
-                                  '((< '(backward-delete-char-untabify
-                                         (min ada-indent (current-column))))))
-                            (add-hook 'skeleton-end-hook
-                                      'ada-adjust-case-skeleton)))
+(add-hook 'ada-mode-hook 'ada-stmt-mode-hook)
 
 (provide 'ada-stmt)
 

@@ -37,7 +37,23 @@ protected:
     struct ExpansionData { };
     
     ExpansionData *reserved;
-    
+
+// New code added here
+public:
+    /*!
+     * @function createPassThruMuteControl
+     * @abstract Allocates a new pass through mute control with the given attributes
+     * @param initialValue The initial value of the control
+     * @param channelID The ID of the channel(s) that the control acts on.  Common IDs are located in IOAudioTypes.h.
+     * @param channelName An optional name for the channel.  Common names are located in IOAudioPort.h.
+     * @param cntrlID An optional ID for the control that can be used to uniquely identify controls
+     * @result Returns a newly allocated and initialized mute IOAudioControl
+     */
+	static IOAudioToggleControl *createPassThruMuteControl (bool initialValue,
+																UInt32 channelID,
+																const char *channelName,
+																UInt32 cntrlID);
+
 private:
     OSMetaClassDeclareReservedUnused(IOAudioToggleControl, 0);
     OSMetaClassDeclareReservedUnused(IOAudioToggleControl, 1);

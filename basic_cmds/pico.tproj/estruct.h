@@ -1,5 +1,5 @@
 /*
- * $Id: estruct.h,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $
+ * $Id: estruct.h,v 1.2 2002/01/03 22:16:39 jevans Exp $
  *
  * Program:	Struct and preprocessor definitions
  *
@@ -14,7 +14,7 @@
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -64,7 +64,6 @@
 #define NBUFN   16                      /* # of bytes, buffer name      */
 #define NLINE   256                     /* # of bytes, line             */
 #define	NSTRING	256			/* # of bytes, string buffers	*/
-#define NKBDM   256                     /* # of strokes, keyboard macro */
 #define NPAT    80                      /* # of bytes, pattern          */
 #undef	HUGE
 #define HUGE    1000                    /* Huge number                  */
@@ -91,6 +90,7 @@
 #define	QNORML	0x0000			/* Flag meaning no flag ;)	*/
 #define	QFFILE	0x0001			/* Flag buffer for file neme	*/
 #define	QDEFLT	0x0002			/* Flag to use default answer	*/
+#define	QPAGE	0x0004			/* Flag to allow ^V and ^Y	*/
 
 #undef	FALSE
 #define FALSE   0                       /* False, no, bad, etc.         */
@@ -264,11 +264,12 @@ typedef struct  {
         int     (*k_fp)();              /* Routine to handle it         */
 }       KEYTAB;
 
-/*	structure for the name binding table		*/
+/*      sturcture used for key menu painting         */
 
 typedef struct {
-	char *n_name;		/* name of function key */
-	int (*n_func)();	/* function name is bound to */
-}	NBIND;
+	char	*name;			/* key to display  		*/
+	char	*label;			/* function name key envokes	*/
+}	KEYMENU;
+
 
 #endif	/* ESTRUCT_H */

@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: main.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $";
+static char rcsid[] = "$Id: main.c,v 1.2 2002/01/03 22:16:39 jevans Exp $";
 #endif
 /*
  * Program:	Main stand-alone Pine Composer routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: main.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $"
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -88,7 +88,11 @@ static int fkm[12][2] = {
 /*
  * main standalone pico routine
  */
+#ifdef _WINDOWS
+app_main (argc, argv)
+#else
 main(argc, argv)
+#endif
 char    *argv[];
 {
     register int    c;
@@ -134,6 +138,28 @@ char    *argv[];
 	      case 'w':			/* -w turn off word wrap */
 		gmode ^= MDWRAP;
 		break;
+#if	defined(DOS)
+	      case 'c':			/* -c[nr][fb] colors */
+		if(carg + 1 < argc){
+		    if(argv[carg][2] == 'n'){
+			if(argv[carg][3] == 'f')
+			  pico_nfcolor(argv[++carg]);
+			else if(argv[carg][3] == 'b')
+			  pico_nbcolor(argv[++carg]);
+		    }
+		    else if(argv[carg][2] == 'r'){
+			if(argv[carg][3] == 'f')
+			  pico_rfcolor(argv[++carg]);
+			else if(argv[carg][3] == 'b')
+			  pico_rbcolor(argv[++carg]);
+		    }
+		}
+		else{
+		    clerr = "insufficient args for \"-c\"";
+		    break;
+		}
+		break;
+#endif
 	      default:			/* huh? */
 		clerr = argv[carg];
 		break;
@@ -155,6 +181,12 @@ char    *argv[];
     edinit(bname);			/* Buffers, windows.   */
 
     update();				/* let the user know we are here */
+
+#ifdef	_WINDOWS
+    mswin_allowpaste(MSWIN_PASTE_FULL);
+    mswin_setclosetext("Use the ^X command to exit Pico.");
+    mswin_allowexit (MSWIN_EXIT_SENDCHAR, NULL, 0x18);
+#endif
 
 #if	TERMCAP
     if(kpadseqs == NULL){		/* will arrow keys work ? */

@@ -1,5 +1,5 @@
 /* Definitions file for GNU Emacs running on Stride Micro System-V.2.2
-   Copyright (C) 1985, 1986 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -87,7 +87,6 @@ Boston, MA 02111-1307, USA.  */
 /* The STRIDE system is more powerful than standard USG5.  */
 
 #define HAVE_PTYS
-#define HAVE_GETTIMEOFDAY
 #define BSTRING
 #define SKTPAIR
 #define HAVE_SOCKETS
@@ -101,7 +100,7 @@ Boston, MA 02111-1307, USA.  */
    signals without losing them.  So, I've gone back to non-SIGIO mode, so
    please append this line to the file "stride.h":
  */
-#undef SIGIO
+#define BROKEN_SIGIO
 
 /* Specify alignment requirement for start of text and data sections
    in the executable file.  */
@@ -112,10 +111,6 @@ Boston, MA 02111-1307, USA.  */
  * UniStride has this in /lib/libc.a.
  */
 #undef NONSYSTEM_DIR_LIBRARY
-
-/* UniStride defines getwd.  */
-
-#define HAVE_GETWD
 
 /* Define this macro if system defines a type `union wait'.  */
 

@@ -48,7 +48,7 @@ public:
 	public:
 		Maker() : AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_ANY) { }
 		AnyAclSubject *make(const TypedList &list) const;
-    	AnyAclSubject *make(Reader &pub, Reader &priv) const;
+    	AnyAclSubject *make(Version, Reader &pub, Reader &priv) const;
 	};
 };
 

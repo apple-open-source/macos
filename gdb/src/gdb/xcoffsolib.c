@@ -1,5 +1,6 @@
 /* Shared library support for RS/6000 (xcoff) object files, for GDB.
-   Copyright 1991, 1992 Free Software Foundation.
+   Copyright 1991, 1992, 1995, 1996, 1999, 2000, 2001
+   Free Software Foundation, Inc.
    Contributed by IBM Corporation.
 
    This file is part of GDB.
@@ -29,29 +30,32 @@
 #include "gdb_regex.h"
 
 
-/* Return the module name of a given text address. Note that returned buffer
-   is not persistent. */
+/* If ADDR lies in a shared library, return its name.
+   Note that returned name points to static data whose content is overwritten
+   by each call.  */
 
 char *
-pc_load_segment_name (CORE_ADDR addr)
+xcoff_solib_address (CORE_ADDR addr)
 {
-  static char buffer[BUFSIZ];
+  static char *buffer = NULL;
   struct vmap *vp = vmap;
 
-  buffer[0] = buffer[1] = '\0';
-  for (; vp; vp = vp->nxt)
+  /* The first vmap entry is for the exec file.  */
+
+  if (vp == NULL)
+    return NULL;
+  for (vp = vp->nxt; vp; vp = vp->nxt)
     if (vp->tstart <= addr && addr < vp->tend)
       {
-	if (*vp->member)
-	  {
-	    buffer[0] = '(';
-	    strcat (&buffer[1], vp->member);
-	    strcat (buffer, ")");
-	  }
-	strcat (buffer, vp->name);
+	xfree (buffer);
+	xasprintf (&buffer, "%s%s%s%s",
+			    vp->name,
+			    *vp->member ? "(" : "",
+			    vp->member,
+			    *vp->member ? ")" : "");
 	return buffer;
       }
-  return "(unknown load module)";
+  return NULL;
 }
 
 static void solib_info (char *, int);
@@ -63,8 +67,8 @@ solib_info (char *args, int from_tty)
   struct vmap *vp = vmap;
 
   /* Check for new shared libraries loaded with load ().  */
-  if (inferior_pid)
-    xcoff_relocate_symtab (inferior_pid);
+  if (! ptid_equal (inferior_ptid, null_ptid))
+    xcoff_relocate_symtab (PIDGET (inferior_ptid));
 
   if (vp == NULL || vp->nxt == NULL)
     {
@@ -84,10 +88,10 @@ Text Range		Data Range		Syms	Shared Object Library\n");
 			 paddr (vp->tstart),paddr (vp->tend),
 			 paddr (vp->dstart), paddr (vp->dend),
 			 vp->loaded ? "Yes" : "No ",
+			 vp->name,
 			 *vp->member ? "(" : "",
 			 vp->member,
-			 *vp->member ? ") " : "",
-			 vp->name);
+			 *vp->member ? ")" : "");
     }
 }
 
@@ -97,8 +101,8 @@ sharedlibrary_command (char *pattern, int from_tty)
   dont_repeat ();
 
   /* Check for new shared libraries loaded with load ().  */
-  if (inferior_pid)
-    xcoff_relocate_symtab (inferior_pid);
+  if (! ptid_equal (inferior_ptid, null_ptid))
+    xcoff_relocate_symtab (PIDGET (inferior_ptid));
 
   if (pattern)
     {
@@ -153,8 +157,26 @@ sharedlibrary_command (char *pattern, int from_tty)
   }
 }
 
+/* LOCAL FUNCTION
+
+   no_shared_libraries -- handle command to explicitly discard symbols
+   from shared libraries.
+
+   DESCRIPTION
+
+   Implements the command "nosharedlibrary", which discards symbols
+   that have been auto-loaded from shared libraries.  Symbols from
+   shared libraries that were added by explicit request of the user
+   are not discarded.  Also called from remote.c.  */
+
 void
-_initialize_solib (void)
+no_shared_libraries (char *ignored, int from_tty)
+{
+  /* FIXME */
+}
+
+void
+_initialize_xcoffsolib (void)
 {
   add_com ("sharedlibrary", class_files, sharedlibrary_command,
 	   "Load shared object library symbols for files matching REGEXP.");
@@ -162,13 +184,13 @@ _initialize_solib (void)
 	    "Status of loaded shared object libraries");
 
   add_show_from_set
-    (add_set_cmd ("auto-solib-add", class_support, var_zinteger,
+    (add_set_cmd ("auto-solib-add", class_support, var_boolean,
 		  (char *) &auto_solib_add,
 		  "Set autoloading of shared library symbols.\n\
-If nonzero, symbols from all shared object libraries will be loaded\n\
-automatically when the inferior begins execution or when the dynamic linker\n\
-informs gdb that a new library has been loaded.  Otherwise, symbols\n\
-must be loaded manually, using `sharedlibrary'.",
+If \"on\", symbols from all shared object libraries will be loaded\n\
+automatically when the inferior begins execution, when the dynamic linker\n\
+informs gdb that a new library has been loaded, or when attaching to the\n\
+inferior.  Otherwise, symbols must be loaded manually, using `sharedlibrary'.",
 		  &setlist),
      &showlist);
 }

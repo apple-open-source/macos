@@ -1,5 +1,6 @@
 /* Print in infix form a struct expression.
-   Copyright (C) 1986, 1989, 1991, 2000 Free Software Foundation, Inc.
+   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -61,7 +62,7 @@ print_subexp (register struct expression *exp, register int *pos,
   enum precedence myprec = PREC_NULL;
   /* Set to 1 for a right-associative operator.  */
   int assoc = 0;
-  value_ptr val;
+  struct value *val;
   char *tempstr = NULL;
 
   op_print_tab = exp->language_defn->la_op_print_tab;
@@ -214,7 +215,7 @@ print_subexp (register struct expression *exp, register int *pos,
 	    fprintf_unfiltered (stream, " %s", selector);
 	  }
 	fprintf_unfiltered (stream, "]");
-	free (selector);
+	xfree (selector);
 	return;
       }
 

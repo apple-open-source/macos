@@ -1,6 +1,6 @@
-;;; paths.el --- define pathnames for use by various Emacs commands.
+;;; paths.el --- define pathnames for use by various Emacs commands
 
-;; Copyright (C) 1986, 1988, 1994, 1999 Free Software Foundation, Inc.
+;; Copyright (C) 1986, 1988, 1994, 1999, 2000 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: internal
@@ -32,33 +32,68 @@
 
 ;;; Code:
 
+;; Docstrings in this file should, where reasonable, follow the
+;; conventions described in bindings.el, so that they get put in the
+;; DOC file rather than in memory.
+
+(defun prune-directory-list (dirs &optional keep reject)
+  "Returns a copy of DIRS with all non-existant directories removed.
+The optional argument KEEP is a list of directories to retain even if
+they don't exist, and REJECT is a list of directories to remove from
+DIRS, even if they exist; REJECT takes precedence over KEEP.
+
+Note that membership in REJECT and KEEP is checked using simple string
+comparision."
+  (apply #'nconc
+	 (mapcar (lambda (dir)
+		   (and (not (member dir reject))
+			(or (member dir keep) (file-directory-p dir))
+			(list dir)))
+		    dirs)))
+
 (defvar Info-default-directory-list
-  (let* ((start (list "/usr/local/lib/info/"
-		      ;; This comes second so that, if it is the same
-		      ;; as configure-info-directory (which is usually true)
-		      ;; and Emacs has been installed (also usually true)
-		      ;; then the list will end with two copies of this;
-		      ;; which means that the last dir file Info-insert-dir
-		      ;; finds will be the one in this directory.
-		      "/usr/local/info/"))
-	 ;; Typically on a GNU system, installed info files are found
-	 ;; in /usr/info, but the default prefix is /usr/local.
-	 ;; (Standalone info has a long list of alternative
-	 ;; directories to search; perhaps we should try to be more
-	 ;; consistent.)
-	 (usrdir "/usr/info")
-	 (sysdir (and (file-directory-p usrdir)
-		      (not (string= configure-info-directory usrdir))
-		      (list usrdir)))
-	 (configdir (file-name-as-directory configure-info-directory)))
-    ;; configdir comes last so that we can identify it as such, but we
-    ;; also we override sysdir, hence the two occurrences.
-    (setq start (nconc start (list configdir) sysdir (list configdir)))
-    start)
+  (let* ((config-dir
+	  (file-name-as-directory configure-info-directory))
+	 (config
+	  (list config-dir))
+	 (unpruned-prefixes
+	  ;; Directory trees that may not exist at installation time, and
+	  ;; so shouldn't be pruned based on existance.
+	  '("/usr/local/"))
+	 (prefixes
+	  ;; Directory trees in which to look for info subdirectories
+	  (prune-directory-list '("/usr/local/" "/usr/" "/opt/" "/")
+				unpruned-prefixes))
+	 (suffixes
+	  ;; Subdirectories in each directory tree that may contain info
+	  ;; directories.
+	  '("" "share/" "gnu/" "gnu/lib/" "gnu/lib/emacs/"
+	    "emacs/" "lib/" "lib/emacs/"))
+	 (standard-info-dirs
+	  (apply #'nconc
+		 (mapcar (lambda (pfx)
+			   (let ((dirs
+				  (mapcar (lambda (sfx)
+					    (concat pfx sfx "info/"))
+					  suffixes)))
+			     (if (member pfx unpruned-prefixes)
+				 dirs
+			       (prune-directory-list dirs config))))
+			 prefixes))))
+    ;; If $(prefix)/info is not one of the standard info directories,
+    ;; they are probably installing an experimental version of Emacs,
+    ;; so make sure that experimental version's Info files override
+    ;; the ones in standard directories.
+    (if (member config-dir standard-info-dirs)
+	(nconc standard-info-dirs config)
+      (cons config-dir standard-info-dirs)))
   "Default list of directories to search for Info documentation files.
 They are searched in the order they are given in the list.
 Therefore, the directory of Info files that come with Emacs
-normally should come last (so that local files override standard ones).
+normally should come last (so that local files override standard ones),
+unless Emacs is installed into a non-standard directory.  In the latter
+case, the directory of Info files that come with Emacs should be
+first in this list.
 
 Once Info is started, the list of directories to search
 comes from the variable `Info-directory-list'.
@@ -81,9 +116,9 @@ the environment variable INFOPATH is set.")
 	(t "inews"))
   "Program to post news.")
 
-(defvar gnus-default-nntp-server ""
-  ;; set this to your local server
-  "The name of the host running an NNTP server.
+;; set this to your local server
+(defvar gnus-default-nntp-server "" "\
+The name of the host running an NNTP server.
 The null string means use the local host as the server site.")
 
 (defvar gnus-nntp-service "nntp"
@@ -91,16 +126,19 @@ The null string means use the local host as the server site.")
 Go to a local news spool if its value is nil, in which case `gnus-nntp-server'
 should be set to `(system-name)'.")
 
-(defvar gnus-local-organization nil
-  "*The name of your organization, as a string.
+(defvar gnus-local-organization nil "\
+*The name of your organization, as a string.
 The `ORGANIZATION' environment variable is used instead if defined.")
 
-(defvar gnus-startup-file "~/.newsrc"
-  "The file listing groups to which user is subscribed.
+(defvar gnus-startup-file "~/.newsrc" "\
+The file listing groups to which user is subscribed.
 Will use `gnus-startup-file'-SERVER instead if exists.")
 
-(defvar rmail-file-name "~/RMAIL"
-  "Name of user's primary mail file.")
+(defcustom rmail-file-name "~/RMAIL"
+  "*Name of user's primary mail file."
+  :type 'string
+  :group 'rmail
+  :version "21.1")
 
 (defconst rmail-spool-directory
   (cond ((string-match "^[^-]+-[^-]+-sco3.2v4" system-configuration)
@@ -153,8 +191,8 @@ Its name should end with a slash.")
    ((file-exists-p "/usr/bin/rsh") "/usr/bin/rsh")
    (t "rsh")))
 
-(defconst term-file-prefix (if (eq system-type 'vax-vms) "[.term]" "term/")
-  "If non-nil, Emacs startup does (load (concat term-file-prefix (getenv \"TERM\")))
+(defconst term-file-prefix (if (eq system-type 'vax-vms) "[.term]" "term/") "\
+If non-nil, Emacs startup does (load (concat term-file-prefix (getenv \"TERM\")))
 You may set this variable to nil in your `.emacs' file if you do not wish
 the terminal-initialization file to be loaded.")
 

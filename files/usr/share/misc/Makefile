@@ -28,5 +28,3 @@ install::
 	$(_v) $(INSTALL_FILE) -c operator	"$(Destination)/operator"
 	$(_v) $(INSTALL_FILE) -c style		"$(Destination)/style"
 	$(_v) $(INSTALL_FILE) -c zipcodes	"$(Destination)/zipcodes"
-	$(_v) $(INSTALL_FILE) -c termcap	"$(Destination)/termcap"
-	$(_v) cap_mkdb -f "$(Destination)/termcap" "$(Destination)/termcap"

@@ -1,0 +1,1320 @@
+This is ../info/efaq, produced by makeinfo version 4.0 from faq.texi.
+
+INFO-DIR-SECTION Emacs
+START-INFO-DIR-ENTRY
+* Emacs FAQ: (efaq).	Frequently Asked Questions about Emacs.
+END-INFO-DIR-ENTRY
+
+   Copyright 1994,1995,1996,1997,1998,1999,2000 Reuven M. Lerner
+Copyright 1992,1993 Steven Byrnes
+Copyright 1990,1991,1992 Joseph Brian Wells
+This list of frequently asked questions about GNU Emacs with answers
+("FAQ") may be translated into other languages, transformed into other
+formats (e.g. Texinfo, Info, WWW, WAIS), and updated with new
+information.
+
+   The same conditions apply to any derivative of the FAQ as apply to
+the FAQ itself.  Every copy of the FAQ must include this notice or an
+approved translation, information on who is currently maintaining the
+FAQ and how to contact them (including their e-mail address), and
+information on where the latest version of the FAQ is archived
+(including FTP information).
+
+   The FAQ may be copied and redistributed under these conditions,
+except that the FAQ may not be embedded in a larger literary work
+unless that work itself allows free copying and redistribution.
+
+   [This version has been somewhat edited from the last-posted version
+(as of August 1999) for inclusion in the Emacs distribution.]
+
+
+File: efaq,  Node: Spontaneous entry into isearch-mode,  Next: Problems talking to certain hosts,  Prev: Termcap/Terminfo entries for Emacs,  Up: Bugs and problems
+
+Why does Emacs spontaneously start displaying "I-search:" and beeping?
+======================================================================
+
+   Your terminal (or something between your terminal and the computer)
+is sending `C-s' and `C-q' for flow control, and Emacs is receiving
+these characters and interpreting them as commands.  (The `C-s'
+character normally invokes the `isearch-forward' command.)  For
+possible solutions, see *Note Handling C-s and C-q with flow control::.
+
+
+File: efaq,  Node: Problems talking to certain hosts,  Next: Errors with init files,  Prev: Spontaneous entry into isearch-mode,  Up: Bugs and problems
+
+Why can't Emacs talk to certain hosts (or certain hostnames)?
+=============================================================
+
+   The problem may be that Emacs is linked with a wimpier version of
+`gethostbyname' than the rest of the programs on the machine.  This is
+often manifested as a message on startup of "X server not responding.
+Check your `DISPLAY' environment variable." or a message of "Unknown
+host" from `open-network-stream'.
+
+   On a Sun, this may be because Emacs had to be linked with the static
+C library.  The version of `gethostbyname' in the static C library may
+only look in `/etc/hosts' and the NIS (YP) maps, while the version in
+the dynamic C library may be smart enough to check DNS in addition to
+or instead of NIS.  On a Motorola Delta running System V R3.6, the
+version of `gethostbyname' in the standard library works, but the one
+that works with NIS doesn't (the one you get with -linet).  Other
+operating systems have similar problems.
+
+   Try these options:
+
+   * Explicitly add the host you want to communicate with to
+     `/etc/hosts'.
+
+   * Relink Emacs with this line in `src/config.h':
+
+          #define LIBS_SYSTEM -lresolv
+
+   * Replace `gethostbyname' and friends in `libc.a' with more useful
+     versions such as the ones in `libresolv.a'.  Then relink Emacs.
+
+   * If you are actually running NIS, make sure that `ypbind' is
+     properly told to do DNS lookups with the correct command line
+     switch.
+
+
+
+File: efaq,  Node: Errors with init files,  Next: Emacs ignores X resources,  Prev: Problems talking to certain hosts,  Up: Bugs and problems
+
+Why does Emacs say "Error in init file"?
+========================================
+
+   An error occurred while loading either your `.emacs' file or the
+system-wide file `lisp/default.el'.  Emacs 21.1 and later pops the
+`*Messages*' buffer, and puts there some additional information about
+the error, to provide some hints for debugging.
+
+   For information on how to debug your `.emacs' file, see *Note
+Debugging a customization file::.
+
+   It may be the case that you need to load some package first, or use a
+hook that will be evaluated after the package is loaded.  A common case
+of this is explained in *Note Terminal setup code works after Emacs has
+begun::.
+
+
+File: efaq,  Node: Emacs ignores X resources,  Next: Emacs ignores frame parameters,  Prev: Errors with init files,  Up: Bugs and problems
+
+Why does Emacs ignore my X resources (my .Xdefaults file)?
+==========================================================
+
+   As of version 19, Emacs searches for X resources in the files
+specified by the following environment variables:
+
+   * `XFILESEARCHPATH'
+
+   * `XUSERFILESEARCHPATH'
+
+   * `XAPPLRESDIR'
+
+
+   This emulates the functionality provided by programs written using
+the Xt toolkit.
+
+   `XFILESEARCHPATH' and `XUSERFILESEARCHPATH' should be a list of file
+names separated by colons.  `XAPPLRESDIR' should be a list of directory
+names separated by colons.
+
+   Emacs searches for X resources:
+
+  1. specified on the command line, with the `-xrm RESOURCESTRING'
+     option,
+
+  2. then in the value of the `XENVIRONMENT' environment variable,
+
+        - or if that is unset, in the file named
+          `~/.Xdefaults-HOSTNAME' if it exists (where HOSTNAME is the
+          name of the machine Emacs is running on),
+
+
+  3. then in the screen-specific and server-wide resource properties
+     provided by the server,
+
+        - or if those properties are unset, in the file named
+          `~/.Xdefaults' if it exists,
+
+
+  4. then in the files listed in `XUSERFILESEARCHPATH',
+
+        - or in files named `LANG/Emacs' in directories listed in
+          `XAPPLRESDIR' (where LANG is the value of the `LANG'
+          environment variable), if the `LANG' environment variable is
+          set,
+
+        - or in files named Emacs in the directories listed in
+          `XAPPLRESDIR'
+
+        - or in `~/LANG/Emacs' (if the `LANG' environment variable is
+          set),
+
+        - or in `~/Emacs',
+
+
+  5. then in the files listed in  `XFILESEARCHPATH'.
+
+
+
+File: efaq,  Node: Emacs ignores frame parameters,  Next: Emacs takes a long time to visit files,  Prev: Emacs ignores X resources,  Up: Bugs and problems
+
+Why don't my customizations of the frame parameters work?
+=========================================================
+
+   This probably happens because you have set the frame parameters in
+the variable `initial-frame-alist'.  That variable holds parameters
+used only for the first frame created when Emacs starts.  To customize
+the parameters of all frames, change the variable `default-frame-alist'
+instead.
+
+   These two variables exist because many users customize the initial
+frame in a special way.  For example, you could determine the position
+and size of the initial frame, but would like to control the geometry
+of the other frames by individually positioning each one of them.
+
+
+File: efaq,  Node: Emacs takes a long time to visit files,  Next: Editing files with $ in the name,  Prev: Emacs ignores frame parameters,  Up: Bugs and problems
+
+Why does Emacs take 20 seconds to visit a file?
+===============================================
+
+   Old versions of Emacs (i.e., versions before Emacs 20.x) often
+encountered this when the master lock file, `!!!SuperLock!!!', has been
+left in the lock directory somehow.  Delete it.
+
+   Mark Meuer <meuer@geom.umn.edu> says that NeXT NFS has a bug where
+an exclusive create succeeds but returns an error status.  This can
+cause the same problem.  Since Emacs's file locking doesn't work over
+NFS anyway, the best solution is to recompile Emacs with
+`CLASH_DETECTION' undefined.
+
+
+File: efaq,  Node: Editing files with $ in the name,  Next: Shell mode loses the current directory,  Prev: Emacs takes a long time to visit files,  Up: Bugs and problems
+
+How do I edit a file with a `$' in its name?
+============================================
+
+   When entering a file name in the minibuffer, Emacs will attempt to
+expand a `$' followed by a word as an environment variable.  To suppress
+this behavior, type `$$' instead.
+
+
+File: efaq,  Node: Shell mode loses the current directory,  Next: Security risks with Emacs,  Prev: Editing files with $ in the name,  Up: Bugs and problems
+
+Why does shell mode lose track of the shell's current directory?
+================================================================
+
+   Emacs has no way of knowing when the shell actually changes its
+directory.  This is an intrinsic limitation of Unix.  So it tries to
+guess by recognizing `cd' commands.  If you type `cd' followed by a
+directory name with a variable reference (`cd $HOME/bin') or with a
+shell metacharacter (`cd ../lib*'), Emacs will fail to correctly guess
+the shell's new current directory.  A huge variety of fixes and
+enhancements to shell mode for this problem have been written to handle
+this problem.  Check the Lisp Code Directory (*note Finding a package
+with particular functionality::).
+
+   You can tell Emacs the shell's current directory with the command
+`M-x dirs'.
+
+
+File: efaq,  Node: Security risks with Emacs,  Next: Dired claims that no file is on this line,  Prev: Shell mode loses the current directory,  Up: Bugs and problems
+
+Are there any security risks in Emacs?
+======================================
+
+   * The `movemail' incident.  (No, this is not a risk.)
+
+     In his book `The Cuckoo's Egg', Cliff Stoll describes this in
+     chapter 4.  The site at LBL had installed the `/etc/movemail'
+     program setuid root.  (As of version 19, `movemail' is in your
+     architecture-specific directory; type `C-h v exec-directory <RET>'
+     to see what it is.)  Since `movemail' had not been designed for
+     this situation, a security hole was created and users could get
+     root privileges.
+
+     `movemail' has since been changed so that this security hole will
+     not exist, even if it is installed setuid root.  However,
+     `movemail' no longer needs to be installed setuid root, which
+     should eliminate this particular risk.
+
+     We have heard unverified reports that the 1988 Internet worm took
+     advantage of this configuration problem.
+
+   * The `file-local-variable' feature.  (Yes, a risk, but easy to
+     change.)
+
+     There is an Emacs feature that allows the setting of local values
+     for variables when editing a file by including specially formatted
+     text near the end of the file.  This feature also includes the
+     ability to have arbitrary Emacs Lisp code evaluated when the file
+     is visited.  Obviously, there is a potential for Trojan horses to
+     exploit this feature.
+
+     Emacs 18 allowed this feature by default; users could disable it by
+     setting the variable `inhibit-local-variables' to a non-nil value.
+
+     As of Emacs 19, Emacs has a list of local variables that create a
+     security risk.  If a file tries to set one of them, it asks the
+     user to confirm whether the variables should be set.  You can also
+     tell Emacs whether to allow the evaluation of Emacs Lisp code
+     found at the bottom of files by setting the variable
+     `enable-local-eval'.
+
+     For more information, *note File Variables: (emacs)File Variables.
+
+   * Synthetic X events.  (Yes, a risk; use `MIT-MAGIC-COOKIE-1' or
+     better.)
+
+     Emacs accepts synthetic X events generated by the `SendEvent'
+     request as though they were regular events.  As a result, if you
+     are using the trivial host-based authentication, other users who
+     can open X connections to your X workstation can make your Emacs
+     process do anything, including run other processes with your
+     privileges.
+
+     The only fix for this is to prevent other users from being able to
+     open X connections.  The standard way to prevent this is to use a
+     real authentication mechanism, such as `MIT-MAGIC-COOKIE-1'.  If
+     using the `xauth' program has any effect, then you are probably
+     using `MIT-MAGIC-COOKIE-1'.  Your site may be using a superior
+     authentication method; ask your system administrator.
+
+     If real authentication is not a possibility, you may be satisfied
+     by just allowing hosts access for brief intervals while you start
+     your X programs, then removing the access.  This reduces the risk
+     somewhat by narrowing the time window when hostile users would
+     have access, but _does not eliminate the risk_.
+
+     On most computers running Unix and X, you enable and disable
+     access using the `xhost' command.  To allow all hosts access to
+     your X server, use
+
+          xhost +
+
+     at the shell prompt, which (on an HP machine, at least) produces
+     the following message:
+
+          access control disabled, clients can connect from any host
+
+     To deny all hosts access to your X server (except those explicitly
+     allowed by name), use
+
+          xhost -
+
+     On the test HP computer, this command generated the following
+     message:
+
+          access control enabled, only authorized clients can connect
+
+
+
+File: efaq,  Node: Dired claims that no file is on this line,  Prev: Security risks with Emacs,  Up: Bugs and problems
+
+Dired says, "no file on this line" when I try to do something.
+==============================================================
+
+   Chances are you're using a localized version of Unix that doesn't
+use US date format in dired listings.  You can check this by looking at
+dired listings or by typing `ls -l' to a shell and looking at the dates
+that come out.
+
+   Dired uses a regular expression to find the beginning of a file name.
+In a long Unix-style directory listing (`ls -l'), the file name starts
+after the date.  The regexp has thus been written to look for the date,
+the format of which can vary on non-US systems.
+
+   There are two approaches to solving this.  The first one involves
+setting things up so that `ls -l' outputs US date format.  This can be
+done by setting the locale.  See your OS manual for more information.
+
+   The second approach involves changing the regular expression used by
+dired, `dired-move-to-filename-regexp'.
+
+
+File: efaq,  Node: Compiling and installing Emacs,  Next: Finding Emacs and related packages,  Prev: Bugs and problems,  Up: Top
+
+Compiling and installing Emacs
+******************************
+
+* Menu:
+
+* Installing Emacs::
+* Updating Emacs::
+* Problems building Emacs::
+* Linking with -lX11 fails::
+
+
+File: efaq,  Node: Installing Emacs,  Next: Updating Emacs,  Prev: Compiling and installing Emacs,  Up: Compiling and installing Emacs
+
+How do I install Emacs?
+=======================
+
+   This answer is meant for users of Unix and Unix-like systems.  Users
+of other operating systems should see the series of questions beginning
+with *Note Emacs for MS-DOS::, which describe where to get non-Unix
+source and binaries, and how to install Emacs on those systems.
+
+   For Unix and Unix-like systems, the easiest way is often to compile
+it from scratch.  You will need:
+
+   * Emacs sources.  *Note Current GNU distributions::, for a list of
+     ftp sites that make them available.  On `ftp.gnu.org', the main GNU
+     distribution site, sources are available as
+
+     `ftp://ftp.gnu.org/pub/gnu/emacs/emacs-21.1.tar.gz'
+
+     The above will obviously change as new versions of Emacs come out.
+     For instance, when Emacs 21.42 is released, it will most probably
+     be available as
+
+     `ftp://ftp.gnu.org/pub/gnu/emacs/emacs-21.42.tar.gz'
+
+     Again, you should use one of the GNU mirror sites (see *Note
+     Current GNU distributions::, and adjust the URL accordingly) so as
+     to reduce load on `ftp.gnu.org'.
+
+   * `gzip', the GNU compression utility.  You can get `gzip' via
+     anonymous ftp at mirrors of `ftp.gnu.org' sites; it should compile
+     and install without much trouble on most systems.  Once you have
+     retrieved the Emacs sources, you will probably be able to
+     uncompress them with the command
+
+          gunzip --verbose emacs-21.1.tar.gz
+
+     changing the Emacs version (21.1), as necessary.  Once `gunzip'
+     has finished doing its job, a file by the name of `emacs-21.1.tar'
+     should be in your build directory.
+
+   * `tar', the "tape archiving" program, which moves multiple files
+     into and out of archive files, or "tarfiles".  All of the files
+     comprising the Emacs source come in a single tarfile, and must be
+     extracted using `tar' before you can build Emacs.  Typically, the
+     extraction command would look like
+
+          tar -xvvf emacs-21.1.tar
+
+     The `x' indicates that we want to extract files from this tarfile,
+     the two `v's force verbose output, and the `f' tells `tar' to use
+     a disk file, rather than one on the tape drive.
+
+     If you're using GNU `tar' (available at mirrors of `ftp.gnu.org'),
+     you can combine this step and the previous one by using the command
+
+          tar -zxvvf emacs-21.1.tar.gz
+
+     The additional `z' at the beginning of the options list tells GNU
+     `tar' to uncompress the file with `gunzip' before extracting the
+     tarfile's components.
+
+
+   At this point, the Emacs sources (all 70+ megabytes of them) should
+be sitting in a directory called `emacs-21.1'.  On most common Unix and
+Unix-like systems, you should be able to compile Emacs (with X Window
+system support) with the following commands:
+
+     cd emacs-21.1       # change directory to emacs-21.1
+     ./configure         # configure Emacs for your particular system
+     make                # use Makefile to build components, then Emacs
+
+   If the `make' completes successfully, the odds are fairly good that
+the build has gone well.  (*Note Problems building Emacs::, if you
+weren't successful.)
+
+   By default, Emacs is installed in the following directories:
+
+`/usr/local/bin'
+     binaries.
+
+`/usr/local/share/emacs/21.1'
+     Lisp code and support files.
+
+`/usr/local/info'
+     Info documentation.
+
+   To install files in those default directories, become the superuser
+and type
+
+     make install
+
+   Note that `make install' will overwrite `/usr/local/bin/emacs' and
+any Emacs Info files that might be in `/usr/local/info'.
+
+   Much more verbose instructions (with many more hints and suggestions)
+come with the Emacs sources, in the file `INSTALL'.
+
+
+File: efaq,  Node: Updating Emacs,  Next: Problems building Emacs,  Prev: Installing Emacs,  Up: Compiling and installing Emacs
+
+How do I update Emacs to the latest version?
+============================================
+
+   *Note Installing Emacs::, and follow the instructions there for
+installation.
+
+   Most files are placed in version-specific directories.  Emacs 21.1,
+for instance, places files in `/usr/local/share/emacs/21.1'.
+
+   Upgrading should overwrite only, `/usr/local/bin/emacs' (the Emacs
+binary) and documentation in `/usr/local/info'.  Back up these files
+before you upgrade, and you shouldn't have too much trouble.
+
+
+File: efaq,  Node: Problems building Emacs,  Next: Linking with -lX11 fails,  Prev: Updating Emacs,  Up: Compiling and installing Emacs
+
+What should I do if I have trouble building Emacs?
+==================================================
+
+   First look in the file `etc/PROBLEMS' (where you unpack the Emacs
+source) to see if there is already a solution for your problem.  Next,
+look for other questions in this FAQ that have to do with Emacs
+installation and compilation problems.
+
+   If you'd like to have someone look at your problem and help solve it,
+see *Note Help installing Emacs::.
+
+   If you cannot find a solution in the documentation, send a message to
+<bug-gnu-emacs@gnu.org>.
+
+   Please don't post it to `news:gnu.emacs.help' or send e-mail to
+<help-gnu-emacs@gnu.org>.  For further guidelines, see *Note Guidelines
+for newsgroup postings:: and *Note Reporting bugs::.
+
+
+File: efaq,  Node: Linking with -lX11 fails,  Prev: Problems building Emacs,  Up: Compiling and installing Emacs
+
+Why does linking Emacs with -lX11 fail?
+=======================================
+
+   Emacs needs to be linked with the static version of the X11 library,
+`libX11.a'.  This may be missing.
+
+   On OpenWindows, you may need to use `add_services' to add the
+"OpenWindows Programmers" optional software category from the CD-ROM.
+
+   On HP-UX 8.0, you may need to run `update' again to load the X11-PRG
+"fileset".  This may be missing even if you specified "all filesets"
+the first time.  If `libcurses.a' is missing, you may need to load the
+"Berkeley Development Option."
+
+   David Zuhn <zoo@armadillo.com> says that MIT X builds shared
+libraries by default, and only shared libraries, on those platforms that
+support them.  These shared libraries can't be used when undumping
+`temacs' (the last stage of the Emacs build process).  To get regular
+libraries in addition to shared libraries, add this to `site.cf':
+
+     #define ForceNormalLib YES
+
+   Other systems may have similar problems.  You can always define
+`CANNOT_DUMP' and link with the shared libraries instead.
+
+   To get the Xmenu stuff to work, you need to find a copy of MIT's
+`liboldX.a'.
+
+
+File: efaq,  Node: Finding Emacs and related packages,  Next: Major packages and programs,  Prev: Compiling and installing Emacs,  Up: Top
+
+Finding Emacs and related packages
+**********************************
+
+* Menu:
+
+* Finding Emacs on the Internet::
+* Finding a package with particular functionality::
+* Packages that do not come with Emacs::
+* Submitting to the Emacs Lisp Archive::
+* Current GNU distributions::
+* Difference between Emacs and XEmacs::
+* Emacs for MS-DOS::
+* Emacs for Windows::
+* Emacs for OS/2::
+* Emacs for Atari ST::
+* Emacs for the Amiga ::
+* Emacs for NeXTSTEP::
+* Emacs for Apple computers::
+* Emacs for VMS and DECwindows::
+* Modes for various languages::
+* Translating names to IP addresses::
+
+
+File: efaq,  Node: Finding Emacs on the Internet,  Next: Finding a package with particular functionality,  Prev: Finding Emacs and related packages,  Up: Finding Emacs and related packages
+
+Where can I get Emacs on the net (or by snail mail)?
+====================================================
+
+   Look in the files `etc/DISTRIB' and `etc/FTP' for information on
+nearby archive sites and `etc/ORDERS' for mail orders.  If you don't
+already have Emacs, see *Note Informational files for Emacs::, for how
+to get these files.
+
+   *Note Installing Emacs::, for information on how to obtain and build
+the latest version of Emacs, and see *Note Current GNU distributions::,
+for a list of archive sites that make GNU software available.
+
+
+File: efaq,  Node: Finding a package with particular functionality,  Next: Packages that do not come with Emacs,  Prev: Finding Emacs on the Internet,  Up: Finding Emacs and related packages
+
+How do I find a Emacs Lisp package that does XXX?
+=================================================
+
+   First of all, you should check to make sure that the package isn't
+already available.  For example, typing `M-x apropos <RET> wordstar
+<RET>' lists all functions and variables containing the string
+`wordstar'.
+
+   It is also possible that the package is on your system, but has not
+been loaded.  To see which packages are available for loading, look
+through your computer's lisp directory (*note File-name conventions::).
+The Lisp source to most packages contains a short description of how
+they should be loaded, invoked, and configured--so before you use or
+modify a Lisp package, see if the author has provided any hints in the
+source code.
+
+   If a package does not come with Emacs, check the Lisp Code Directory.
+The LCD was originally maintained by Dave Brennan <brennan@hal.com>,
+but was recently taken over by toby knudsen <toby@world.std.com>, who
+maintains `http://www.emacs.org'.  The LCD is currently being
+reorganized and updated, but you can meanwhile find many packages at
+`ftp://ftp.emacs.org/pub'.
+
+   For now, you can search through the LCD with `lispdir.el', which is
+in the process of being updated.  Download it from the LCD, in the
+`emacs-lisp-attic/misc' directory, and then evaluate the following Lisp
+form (*note Evaluating Emacs Lisp code::):
+
+     (setq lisp-code-directory
+      "/anonymous@ftp.emacs.org:pub/emacs-lisp-attic/emacs-lisp/LCD-datafile.gz"
+       elisp-archive-host "ftp.emacs.org"
+       elisp-archive-directory "/pub/emacs-lisp-attic/emacs-lisp/")
+
+   Once you have installed `lispdir.el', you can use `M-x
+lisp-dir-apropos' to search the listing.  For example, `M-x
+lisp-dir-apropos <RET> ange-ftp <RET>' produces this output:
+
+              GNU Emacs Lisp Code Directory Apropos --- "ange-ftp"
+     "~/" refers to archive.cis.ohio-state.edu:pub/elisp-archive/
+     
+          ange-ftp (4.18)       15-Jul-1992
+               Andy Norman, <ange@hplb.hpl.hp.com>
+               ~/packages/ange-ftp.tar.Z
+               transparent FTP Support for GNU Emacs
+          auto-save (1.19)      01-May-1992
+               Sebastian Kremer, <sk@thp.uni-koeln.de>
+               ~/misc/auto-save.el.Z
+               Safer autosaving with support for ange-ftp and /tmp
+          ftp-quik (1.0)        28-Jul-1993
+               Terrence Brannon, <tb06@pl122f.eecs.lehigh.edu>
+               ~/modes/ftp-quik.el.Z
+               Quik access to dired'ing of ange-ftp and normal paths
+
+
+File: efaq,  Node: Packages that do not come with Emacs,  Next: Submitting to the Emacs Lisp Archive,  Prev: Finding a package with particular functionality,  Up: Finding Emacs and related packages
+
+Where can I get Emacs Lisp packages that don't come with Emacs?
+===============================================================
+
+   First, check the Lisp Code Directory to find the name of the package
+you are looking for (*note Finding a package with particular
+functionality::).  Next, check local archives and the Emacs Lisp Archive
+to find a copy of the relevant files.  If you still haven't found it,
+you can send e-mail to the author asking for a copy.  If you find Emacs
+Lisp code that doesn't appear in the LCD, please submit a copy to the
+LCD (*note Submitting to the Emacs Lisp Archive::).
+
+   You can access the Emacs Lisp Archive at
+
+   `ftp://archive.cis.ohio-state.edu/pub/emacs-lisp/'
+
+or at
+
+   `http://www.cis.ohio-state.edu/emacs-lisp'
+
+Retrieve and read the file `README' first.
+
+   * The archive maintainers do not have time to answer individual
+     requests for packages or the list of packages in the archive.  If
+     you cannot use FTP or UUCP to access the archive yourself, try to
+     find a friend who can, but please don't ask the maintainers.
+
+   * Any files with names ending in `.Z', `.z', or `.gz' are
+     compressed, so you should use "binary" mode in FTP to retrieve
+     them.  You should also use binary mode whenever you retrieve any
+     files with names ending in `.elc'.
+
+
+
+File: efaq,  Node: Submitting to the Emacs Lisp Archive,  Next: Current GNU distributions,  Prev: Packages that do not come with Emacs,  Up: Finding Emacs and related packages
+
+How do I submit code to the Emacs Lisp Archive?
+===============================================
+
+   Guidelines and procedures for submission to the archive can be found
+in the file `GUIDELINES' in the archive directory (*note Packages that
+do not come with Emacs::).  It covers documentation, copyrights,
+packaging, submission, and the Lisp Code Directory Record.  Anonymous
+FTP uploads are not permitted.  Instead, all submissions are mailed to
+<elisp-archive@cis.ohio-state.edu>.  The `lispdir.el' package has a
+function named `submit-lcd-entry' which will help you with this.
+
+
+File: efaq,  Node: Current GNU distributions,  Next: Difference between Emacs and XEmacs,  Prev: Submitting to the Emacs Lisp Archive,  Up: Finding Emacs and related packages
+
+Where can I get other up-to-date GNU stuff?
+===========================================
+
+   The most up-to-date official GNU software is normally kept at
+
+   `ftp://ftp.gnu.org/pub/gnu'
+
+   Read the files `etc/DISTRIB' and `etc/FTP' for more information.
+
+   A list of sites mirroring `ftp.gnu.org' can be found at
+
+   `http://www.gnu.org/order/ftp.html'
+
+
+File: efaq,  Node: Difference between Emacs and XEmacs,  Next: Emacs for MS-DOS,  Prev: Current GNU distributions,  Up: Finding Emacs and related packages
+
+What is the difference between Emacs and XEmacs (formerly "Lucid Emacs")?
+=========================================================================
+
+   First of all, they're both GNU Emacs.  XEmacs is just as much a later
+version of GNU Emacs as the FSF-distributed version.  This FAQ refers to
+the latest version to be distributed by the FSF as "Emacs," partly
+because the XEmacs maintainers now refer to their product using the
+"XEmacs" name, and partly because there isn't any accurate way to
+differentiate between the two without getting mired in paragraphs of
+legalese and history.
+
+   XEmacs, which began life as Lucid Emacs, is based on an early
+version of Emacs 19 and Epoch, an X-aware version of Emacs 18.
+
+   Emacs (i.e., the version distributed by the FSF) has a larger
+installed base and now always contains the MULE multilingual facilities.
+XEmacs can do some clever tricks with X and MS-Windows, such as putting
+arbitrary graphics in a buffer.  Similar facilities have been
+implemented for Emacs as part of a new redisplay implementation for
+Emacs 21, and are available in the latest Emacs releases.  Emacs and
+XEmacs each come with Lisp packages that are lacking in the other; RMS
+says that the FSF would include more packages that come with XEmacs,
+but that the XEmacs maintainers don't always keep track of the authors
+of contributed code, which makes it impossible for the FSF to have
+certain legal papers signed.  (Without these legal papers, the FSF will
+not distribute Lisp packages with Emacs.)  The two versions have some
+significant differences at the Lisp programming level.
+
+   Many XEmacs features have found their way into recent versions of
+Emacs, and more features can be expected in the future, but there are
+still many differences between the two.
+
+   The latest stable version of XEmacs as of this writing is 21.1; you
+can get it at
+
+   `ftp://ftp.xemacs.org/pub/xemacs/current/xemacs-21.1.13.tar.gz'
+
+   More information about XEmacs, including a list of frequently asked
+questions (FAQ), is available at
+
+   `http://www.xemacs.org/'
+
+
+File: efaq,  Node: Emacs for MS-DOS,  Next: Emacs for Windows,  Prev: Difference between Emacs and XEmacs,  Up: Finding Emacs and related packages
+
+Where can I get Emacs for my PC running MS-DOS?
+===============================================
+
+   A pre-built binary distribution of Emacs is available from the
+SimTel.NET archives.  This version apparently works under MS-DOS and
+Windows (3.X, 9X, ME, NT, and 2000) and supports long file names under
+Windows 9X, Windows ME, and Windows 2000.  More information is available
+from
+
+   `ftp://ftp.simtel.net/pub/simtelnet/gnu/djgpp/v2gnu/emacs.README'
+
+   The binary itself is available in the files `em*.zip' in the
+directory
+
+   `ftp://ftp.simtel.net/pub/simtelnet/gnu/djgpp/v2gnu/'
+
+   If you prefer to compile Emacs for yourself, you can do so with the
+current distribution directly.  You will need a 386 (or better)
+processor, and to be running MS-DOS 3.0 or later.  According to Eli
+Zaretskii <eliz@is.elta.co.il> and Darrel Hankerson
+<hankedr@dms.auburn.edu>, you will need the following:
+
+_Compiler_
+     DJGPP version 1.12 maint 1 or later.  Djgpp 2.0 or later is
+     recommended, since 1.x is very old an unmaintained.  Djgpp 2
+     supports long file names on Windows 9X/ME/2K.
+
+     You can get the latest release of DJGPP by retrieving all of the
+     files in
+
+     `ftp://ftp.simtel.net/pub/simtelnet/gnu/djgpp/v2*'
+
+_Unpacking program_
+     The easiest way is to use `djtar' which comes with DJGPP v2.x,
+     because it can open gzip'ed tarfiles (i.e., those ending with
+     `.tar.gz') in one step.  `Djtar' comes in `djdevNNN.zip' archive
+     (where NNN is the DJGPP version number), from the URL mentioned
+     above.
+
+     *Warning!*  Do *not* use the popular WinZip program to unpack the
+     Emacs distribution!  WinZip is known to corrupt some of the files
+     by converting them to the DOS CR-LF format, it doesn't always
+     preserve the directory structure recorded in the compressed Emacs
+     archive, and commits other atrocities.  Some of these problems
+     could actually prevent Emacs from building successfully!
+
+_make, mv, sed, and rm_
+     All of these utilities are available at
+
+     `ftp://ftp.simtel.net/pub/simtelnet/gnu/djgpp/v2gnu'
+
+     16-bit utilities can be found in GNUish, at
+
+     `ftp://ftp.simtel.net/pub/simtelnet/gnu/gnuish'
+
+     (`mv' and `rm' are in the Fileutils package, `sed' and `make' are
+     each one in a separate package named after them.)
+
+   The files `INSTALL' (near its end) and `etc/PROBLEMS' in the
+directory of the Emacs sources contains some additional information
+regarding Emacs under MS-DOS.
+
+   For a list of other MS-DOS implementations of Emacs (and Emacs
+look-alikes), consult the list of "Emacs implementations and
+literature," available at
+
+   `ftp://rtfm.mit.edu/pub/usenet/comp.emacs/'
+
+   Note that while many of these programs look similar to Emacs, they
+often lack certain features, such as the Emacs Lisp extension language.
+
+
+File: efaq,  Node: Emacs for Windows,  Next: Emacs for OS/2,  Prev: Emacs for MS-DOS,  Up: Finding Emacs and related packages
+
+Where can I get Emacs for Microsoft Windows
+===========================================
+
+   For information on Emacs for Windows 95 and NT, read the FAQ
+produced by Geoff Voelker <voelker@cs.washington.edu>, available at
+
+   `http://www.gnu.org/software/emacs/windows/ntemacs.html'
+
+   *Note Emacs for MS-DOS::, for Windows 3.1.
+
+   A port of Emacs 20.7 for Windows CE, based on NTEmacs, is available
+at
+
+   `http://www.rainer-keuchel.de/software.html'
+
+This port was done by Rainer Keuchel <coyxc@rainer-keuchel.de>, and
+supports all Emacs features except async subprocesses and menus.  You
+will need MSVC 6.0 and a Windows CE SDK to build this port.
+
+
+File: efaq,  Node: Emacs for OS/2,  Next: Emacs for Atari ST,  Prev: Emacs for Windows,  Up: Finding Emacs and related packages
+
+Where can I get Emacs for my PC running OS/2?
+=============================================
+
+   Emacs 20.6 is ported for emx on OS/2 2.0 or 2.1, and is available at
+
+   `ftp://hobbes.nmsu.edu/pub/os2/apps/editors/emacs/e206*.zip'
+
+and also at
+
+   `http://archiv.leo.org/pub/comp/os/os2/leo/gnu/emacs%2d20/'
+
+   Instructions for installation, basic setup, and other useful
+information for OS/2 users of Emacs can be found at
+
+   `http://userpage.fu-berlin.de/~oheiabbd/emacs/emacs206-os2.html'
+
+
+File: efaq,  Node: Emacs for Atari ST,  Next: Emacs for the Amiga,  Prev: Emacs for OS/2,  Up: Finding Emacs and related packages
+
+Where can I get Emacs for my Atari ST?
+======================================
+
+   Roland Schäuble reports that Emacs 18.58 running on plain TOS and
+MiNT is available at
+`ftp://atari.archive.umich.edu/Editors/Emacs-18-58/1858b-d3.zoo'.
+
+
+File: efaq,  Node: Emacs for the Amiga,  Next: Emacs for NeXTSTEP,  Prev: Emacs for Atari ST,  Up: Finding Emacs and related packages
+
+Where can I get Emacs for my Amiga?
+===================================
+
+   The files you need are available at
+
+   `ftp://ftp.wustl.edu/pub/aminet/util/gnu/'
+
+   David Gilbert <dgilbert@gamiga.guelphnet.dweomer.org> has released a
+beta version of Emacs 19.25 for the Amiga.  You can get the binary at
+
+   `ftp://ftp.wustl.edu/pub/aminet/util/gnu/a2.0bEmacs-bin.lha'
+
+
+File: efaq,  Node: Emacs for NeXTSTEP,  Next: Emacs for Apple computers,  Prev: Emacs for the Amiga,  Up: Finding Emacs and related packages
+
+Where can I get Emacs for NeXTSTEP?
+===================================
+
+   Emacs.app is a NeXTSTEP version of Emacs 19.34 which supports colors,
+menus, and multiple frames.  You can get it from
+
+`ftp://next-ftp.peak.org/pub/next/apps/emacs/Emacs_for_NeXTstep.4.20a1.NIHS.b.tar.gz'
+
+
+File: efaq,  Node: Emacs for Apple computers,  Next: Emacs for VMS and DECwindows,  Prev: Emacs for NeXTSTEP,  Up: Finding Emacs and related packages
+
+Where can I get Emacs for my Apple computer?
+============================================
+
+   An unofficial port of GNU Emacs 18.59 to the Macintosh is available
+at a number of ftp sites, the home being
+`ftp://ftp.cs.cornell.edu/pub/parmet/Emacs-1.17.sit.bin'.
+
+   A port of Emacs 20.4 is available at
+`http://www.cs.hku.hk/~choi/emacs/index.html'.
+
+   Beginning with version 21.1, the Macintosh is supported in the
+official Emacs distribution; see the files `mac/README' and
+`mac/INSTALL' in the Emacs distribution for build instructions.
+
+   Apple's forthcoming "OS X" is based largely on NeXTSTEP and OpenStep.
+*Note Emacs for NeXTSTEP::, for more details about that version.
+
+
+File: efaq,  Node: Emacs for VMS and DECwindows,  Next: Modes for various languages,  Prev: Emacs for Apple computers,  Up: Finding Emacs and related packages
+
+Where do I get Emacs that runs on VMS under DECwindows?
+=======================================================
+
+   Up-to-date information about GNU software (including Emacs) for VMS
+is available at `http://vms.gnu.org/'.
+
+
+File: efaq,  Node: Modes for various languages,  Next: Translating names to IP addresses,  Prev: Emacs for VMS and DECwindows,  Up: Finding Emacs and related packages
+
+Where can I get modes for Lex, Yacc/Bison, Bourne shell, csh, C++, Objective-C, Pascal, Java, and Awk?
+======================================================================================================
+
+   Most of these modes are now available in standard Emacs distribution.
+To get additional modes, look in the Lisp Code Directory (*note Finding
+a package with particular functionality::).  For C++, if you use
+`lisp-dir-apropos', you must specify the pattern with something like
+`M-x lisp-dir-apropos <RET> c\+\+ <RET>'.(1)
+
+   Barry Warsaw's `cc-mode' now works for C, C++, Objective-C, and Java
+code.  You can get the latest version from the Emacs Lisp Archive;
+*note Packages that do not come with Emacs:: for details.  A FAQ for
+`cc-mode' is available at `http://www.python.org/emacs/cc-mode/'.
+
+   ---------- Footnotes ----------
+
+   (1) The backslashes in `\+\+' are required because `M-x
+lisp-dir-apropos' expects a regular expression as its argument (*note
+Using regular expressions::), and `+' has a special meaning in regular
+expressions.
+
+
+File: efaq,  Node: Translating names to IP addresses,  Prev: Modes for various languages,  Up: Finding Emacs and related packages
+
+What is the IP address of XXX.YYY.ZZZ?
+======================================
+
+   If you are on a Unix machine, try using the `nslookup' command,
+included in the Berkeley BIND package.  For example, to find the IP
+address of `ftp.gnu.org', you would type `nslookup ftp.gnu.org'.
+
+   Your computer should then provide the IP address of that machine.
+
+   If your site's nameserver is deficient, you can use IP addresses to
+FTP files.  You can get this information by e-mail:
+
+     To: dns@[134.214.84.25]    (to grasp.insa-lyon.fr)
+     Body: ip XXX.YYY.ZZZ        (or "help" for more information
+                                  and options - no quotes)
+
+or:
+
+     To: resolve@[147.31.254.130]         (to laverne.cs.widener.edu)
+     Body: site XXX.YYY.ZZZ
+
+
+File: efaq,  Node: Major packages and programs,  Next: Key bindings,  Prev: Finding Emacs and related packages,  Up: Top
+
+Major packages and programs
+***************************
+
+* Menu:
+
+* VM::
+* Supercite::
+* Calc::
+* VIPER::
+* AUC-TeX::
+* BBDB::
+* Ispell::
+* w3-mode::
+* EDB::
+* Mailcrypt::
+* JDE::
+* Patch::
+
+
+File: efaq,  Node: VM,  Next: Supercite,  Prev: Major packages and programs,  Up: Major packages and programs
+
+VM (View Mail) -- another mail reader within Emacs, with MIME support
+=====================================================================
+
+Author
+     Kyle Jones <kyle@uunet.uu.net>
+
+Latest version
+     6.72
+
+Distribution
+     `ftp://ftp.wonderworks.com/pub/vm/vm.tar.gz'
+
+Informational newsgroup/mailing list
+     `news:gnu.emacs.vm.info'
+     Subscription requests to <info-vm-request@uunet.uu.net>
+     Submissions to <info-vm@uunet.uu.net>
+
+Bug reports newsgroup/mailing list
+     `news:gnu.emacs.vm.bug'
+     Subscription requests to <bug-vm-request@uunet.uu.net>
+     Submissions to <bug-vm@uunet.uu.net>
+
+   VM 6 works with Emacs 20.4, and may cause problems with Emacs 20.3
+and below.  (But note that many people seem to use Emacs 20.3 with VM 6,
+without any problems.)  Risk-averse users might wish to try VM 5.97,
+available from the same FTP site (ftp://ftp.wonderworks.com/pub/vm/).
+
+
+File: efaq,  Node: Supercite,  Next: Calc,  Prev: VM,  Up: Major packages and programs
+
+Supercite -- mail and news citation package within Emacs
+========================================================
+
+Author
+     Barry Warsaw <bwarsaw@cen.com>
+
+Latest version
+     3.54 (comes bundled with Emacs 20)
+
+Distribution
+     `http://www.python.org/emacs/supercite.tar.gz'
+
+Mailing list
+     Subscription requests to <supercite-request@python.org>
+     Submissions <supercite@python.org>
+
+   Superyank is an old version of Supercite.
+
+
+File: efaq,  Node: Calc,  Next: VIPER,  Prev: Supercite,  Up: Major packages and programs
+
+Calc -- poor man's Mathematica within Emacs
+===========================================
+
+Author
+     Dave Gillespie <daveg@csvax.cs.caltech.edu>
+
+Latest version
+     2.02f
+
+Distribution
+     `ftp://ftp.gnu.org/pub/gnu/calc/calc-2.02f.tar.gz'
+
+   Note that Calc 2.02f needs patching to work with Emacs 21 and later.
+
+   Emacs 21.1 and later comes with a package called `calculator.el'.
+It doesn't support all the mathematical wizardry offered by Calc, such
+as matrices, special functions, and statistics, but is more than
+adequate as a replacement for `xcalc' and similar programs.
+
+
+File: efaq,  Node: VIPER,  Next: AUC-TeX,  Prev: Calc,  Up: Major packages and programs
+
+VIPER -- `vi' emulation for Emacs
+=================================
+
+   Since Emacs 19.29, the preferred `vi' emulation in Emacs is VIPER
+(`M-x viper-mode <RET>'), which comes with Emacs.  It extends and
+supersedes VIP (including VIP 4.3) and provides `vi' emulation at
+several levels, from one that closely follows `vi' to one that departs
+from `vi' in several significant ways.
+
+   For Emacs 19.28 and earlier, the following version of VIP is
+generally better than the one distributed with Emacs:
+
+Author
+     Aamod Sane <sane@cs.uiuc.edu>
+
+Latest version
+     4.3
+
+Distribution
+     `ftp://archive.cis.ohio-state.edu/pub/emacs-lisp/modes/vip-mode.tar.Z'
+
+
+File: efaq,  Node: AUC-TeX,  Next: BBDB,  Prev: VIPER,  Up: Major packages and programs
+
+AUC TeX -- enhanced LaTeX mode with debugging facilities
+========================================================
+
+Authors
+     Kresten Krab Thorup <krab@iesd.auc.dk> and
+     Per Abrahamsen <abraham@dina.kvl.dk>
+
+Latest version
+     9.9p
+
+Distribution
+     `ftp://sunsite.auc.dk/packages/auctex/auctex.tar.gz'
+
+Web site
+     `http://sunsite.auc.dk/auctex/'
+
+Mailing list:
+     Subscription requests to <auc-tex-request@iesd.auc.dk>
+     Submissions to <auc-tex@iesd.auc.dk>
+     Development team is at <auc-tex_mgr@iesd.auc.dk>
+
+
+File: efaq,  Node: BBDB,  Next: Ispell,  Prev: AUC-TeX,  Up: Major packages and programs
+
+BBDB -- personal Info Rolodex integrated with mail/news readers
+===============================================================
+
+Maintainer
+     Matt Simmons <simmonmt@acm.org>
+
+Latest version
+     2.00
+
+Distribution
+     `http://www.netcom.com/~simmonmt/bbdb/index.html'
+
+Mailing lists
+     Subscription requests to <info-bbdb-request@xemacs.org>
+     Submissions to <info-bbdb@xemacs.org>
+     Release announcements: <bbdb-announce-request@xemacs.org>
+
+
+File: efaq,  Node: Ispell,  Next: w3-mode,  Prev: BBDB,  Up: Major packages and programs
+
+Ispell -- spell checker in C with interface for Emacs
+=====================================================
+
+Author
+     Geoff Kuenning <geoff@itcorp.com>
+
+Latest version
+     3.1.20
+
+Distribution
+     `ftp://ftp.cs.ucla.edu/pub/ispell/ispell-3.1.20.tar.gz'
+Web site
+     `http://fmg-www.cs.ucla.edu/geoff/ispell.html'
+
+   * Do not ask Geoff to send you the latest version of Ispell. He does
+     not have free e-mail.
+
+   * This Ispell program is distinct from GNU Ispell 4.0. GNU Ispell
+     4.0 is no longer a supported product.
+
+
+
+File: efaq,  Node: w3-mode,  Next: EDB,  Prev: Ispell,  Up: Major packages and programs
+
+w3-mode -- A World Wide Web browser inside of Emacs
+===================================================
+
+Author
+     Bill Perry <wmperry@spry.com>
+
+Latest version
+     4.0pre.39
+
+Distribution
+     `ftp://ftp.cs.indiana.edu/pub/elisp/w3/w3.tar.gz'
+
+Mailing lists
+     Receive announcements from <w3-announce-request@indiana.edu>
+     Become a beta tester at <w3-beta-request@indiana.edu>
+     Help to develop `w3-mode' at <w3-dev@indiana.edu>
+
+
+File: efaq,  Node: EDB,  Next: Mailcrypt,  Prev: w3-mode,  Up: Major packages and programs
+
+EDB -- Database program for Emacs; replaces forms editing modes
+===============================================================
+
+Author
+     Michael Ernst <mernst@theory.lcs.mit.edu>
+
+Latest version
+     1.21
+
+Distribution
+     `ftp://theory.lcs.mit.edu/pub/emacs/edb'
+
+
+File: efaq,  Node: Mailcrypt,  Next: JDE,  Prev: EDB,  Up: Major packages and programs
+
+Mailcrypt -- PGP interface within Emacs mail and news
+=====================================================
+
+Authors
+     Patrick J. LoPresti <patl@lcs.mit.edu> and Jin S. Choi
+     <jin@atype.com>
+
+Maintainer
+     Len Budney <lbudney@pobox.com>
+
+Latest version
+     3.5.3
+
+Distribution
+     `http://www.nb.net/~lbudney/linux/software/mailcrypt/mailcrypt-3.5.3.tar.gz'
+
+Web site
+     `http://www.nb.net/~lbudney/linux/software/mailcrypt.html'
+
+
+File: efaq,  Node: JDE,  Next: Patch,  Prev: Mailcrypt,  Up: Major packages and programs
+
+JDE -- Integrated development environment for Java
+==================================================
+
+Author
+     Paul Kinnucan <paulk@mathworks.com>
+
+Mailing list
+     jde-subscribe@sunsite.auc.dk
+
+Latest version
+     2.1.1
+
+Web site
+     `http://sunsite.auc.dk/jde/'
+
+
+File: efaq,  Node: Patch,  Prev: JDE,  Up: Major packages and programs
+
+Patch -- program to apply "diffs" for updating files
+====================================================
+
+Author
+     Larry Wall <lwall@wall.org> (with GNU modifications)
+
+Latest version
+     2.5.4
+
+Distribution
+     *Note Current GNU distributions::.
+
+
+File: efaq,  Node: Key bindings,  Next: Alternate character sets,  Prev: Major packages and programs,  Up: Top
+
+Key bindings
+************
+
+* Menu:
+
+* Binding keys to commands::
+* Invalid prefix characters::
+* Terminal setup code works after Emacs has begun::
+* Using function keys under X::
+* Working with function and arrow keys::
+* X key translations for Emacs::
+* Handling C-s and C-q with flow control::
+* Binding C-s and C-q::
+* Backspace invokes help::
+* stty and Backspace key::
+* Swapping keys::
+* Producing C-XXX with the keyboard::
+* No Meta key::
+* No Escape key::
+* Compose Character::
+* Binding combinations of modifiers and function keys::
+* Meta key does not work in xterm::
+* ExtendChar key does not work as Meta::
+
+
+File: efaq,  Node: Binding keys to commands,  Next: Invalid prefix characters,  Prev: Key bindings,  Up: Key bindings
+
+How do I bind keys (including function keys) to commands?
+=========================================================
+
+   Keys can be bound to commands either interactively or in your
+`.emacs' file.  To interactively bind keys for all modes, type `M-x
+global-set-key <RET> KEY CMD <RET>'.
+
+   To bind a key just in the current major mode, type `M-x
+local-set-key <RET> KEY CMD <RET>'.
+
+   *note Key Bindings: (emacs)Key Bindings, for further details.
+
+   To make the process of binding keys interactively eaiser, use the
+following "trick": First bind the key interactively, then immediately
+type `C-x <ESC> <ESC> C-a C-k C-g'.  Now, the command needed to bind
+the key is in the kill ring, and can be yanked into your `.emacs' file.
+If the key binding is global, no changes to the command are required.
+For example,
+
+     (global-set-key (quote [f1]) (quote help-for-help))
+
+can be placed directly into the `.emacs' file.  If the key binding is
+local, the command is used in conjunction with the "add-hook" command.
+For example, in tex-mode, a local binding might be
+
+     (add-hook 'tex-mode-hook
+       (lambda ()
+        (local-set-key (quote [f1]) (quote help-for-help))))
+
+   * Control characters in key sequences, in the form yanked from the
+     kill ring are given in their graphic form--i.e., <CTRL> is shown as
+     `^', <TAB> as a set of spaces (usually 8), etc.  You may want to
+     convert these into their vector or string forms.
+
+   * If a prefix key of the character sequence to be bound is already
+     bound as a complete key, then you must unbind it before the new
+     binding.  For example, if `ESC {' is previously bound:
+
+          (global-unset-key [?\e ?{])   ;;   or
+          (local-unset-key [?\e ?{])
+
+   * Aside from commands and "lambda lists," a vector or string also
+     can be bound to a key and thus treated as a macro.  For example:
+
+          (global-set-key [f10] [?\C-x?\e?\e?\C-a?\C-k?\C-g])  ;;  or
+          (global-set-key [f10] "\C-x\e\e\C-a\C-k\C-g")
+
+
+
+File: efaq,  Node: Invalid prefix characters,  Next: Terminal setup code works after Emacs has begun,  Prev: Binding keys to commands,  Up: Key bindings
+
+Why does Emacs say "Key sequence XXX uses invalid prefix characters"?
+=====================================================================
+
+   Usually, one of two things has happened.  In one case, the control
+character in the key sequence has been misspecified (e.g. `C-f' used
+instead of `\C-f' within a Lisp expression).  In the other case, a
+"prefix key" in the keystroke sequence you were trying to bind was
+already bound as a "complete key".  Historically, the `ESC [' prefix
+was usually the problem, in which case you should evaluate either of
+these forms before attempting to bind the key sequence:
+
+     (global-unset-key [?\e ?[])  ;;  or
+     (global-unset-key "\e[")
+

@@ -1,0 +1,25 @@
+#! /bin/sh
+
+# Make sure no-exeext option works.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_EXEEXT
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = maude 
+
+maude:
+	yeah
+END
+
+$ACLOCAL
+
+$AUTOMAKE --Werror && exit 1
+
+echo 'AUTOMAKE_OPTIONS = no-exeext' >> Makefile.am
+
+$AUTOMAKE --Werror

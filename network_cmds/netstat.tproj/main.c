@@ -65,7 +65,7 @@ char const copyright[] =
 static char sccsid[] = "@(#)main.c	8.4 (Berkeley) 3/1/94";
 #endif
 static const char rcsid[] =
-	"$Id: main.c,v 1.2 2000/06/16 03:37:29 lindak Exp $";
+	"$Id: main.c,v 1.4 2002/03/05 20:35:14 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -100,7 +100,7 @@ static const char rcsid[] =
  * this stuff is worth it, you can buy me a beer in return.   Poul-Henning Kamp
  * ----------------------------------------------------------------------------
  *
- * $Id: main.c,v 1.2 2000/06/16 03:37:29 lindak Exp $
+ * $Id: main.c,v 1.4 2002/03/05 20:35:14 lindak Exp $
  *
  */
 
@@ -160,8 +160,38 @@ static struct nlist nl[] = {
 	{ "_ddpstat"},
 #define N_DDPCB		26
 	{ "_ddpcb"},
-#define N_MBSTAT	27
-	{"_mbstat"},
+#define N_NGSOCKS	27
+	{ "_ngsocklist"},
+#define N_IP6STAT	28
+	{ "_ip6stat" },
+#define N_ICMP6STAT	29
+	{ "_icmp6stat" },
+#define N_IPSECSTAT	30
+	{ "_ipsecstat" },
+#define N_IPSEC6STAT	31
+	{ "_ipsec6stat" },
+#define N_PIM6STAT	32
+	{ "_pim6stat" },
+#define N_MRT6PROTO	33
+	{ "_ip6_mrtproto" },
+#define N_MRT6STAT	34
+	{ "_mrt6stat" },
+#define N_MF6CTABLE	35
+	{ "_mf6ctable" },
+#define N_MIF6TABLE	36
+	{ "_mif6table" },
+#define N_PFKEYSTAT	37
+	{ "_pfkeystat" },
+#define N_MBSTAT	38
+	{ "_mbstat" },
+#define N_MBTYPES	39
+	{ "_mbtypes" },
+#define N_NMBCLUSTERS	40
+	{ "_nmbclusters" },
+#define N_NMBUFS	41
+	{ "_nmbufs" },
+#define	N_RTTRASH	42
+	{ "_rttrash" },
 	{ "" },
 };
 
@@ -171,85 +201,140 @@ struct protox {
 	u_char	pr_index;		/* index into nlist of cb head */
 	u_char	pr_sindex;		/* index into nlist of stat block */
 	u_char	pr_wanted;		/* 1 if wanted, 0 otherwise */
-	void	(*pr_cblocks)();	/* control blocks printing routine */
-	void	(*pr_stats)();		/* statistics printing routine */
+	void	(*pr_cblocks)(u_long, char *, int);
+					/* control blocks printing routine */
+	void	(*pr_stats)(u_long, char *, int);
+					/* statistics printing routine */
+	void	(*pr_istats)(char *);	/* per/if statistics printing routine */
 	char	*pr_name;		/* well-known name */
 	int	pr_usesysctl;		/* true if we use sysctl, not kvm */
 } protox[] = {
 	{ -1,		-1,		1,	protopr,
-	  tcp_stats,	"tcp",		IPPROTO_TCP },
+	  tcp_stats,	NULL,		"tcp",	IPPROTO_TCP },
 	{ -1,		-1,		1,	protopr,
-	  udp_stats,	"udp",		IPPROTO_UDP },
+	  udp_stats,	NULL,		"udp",	IPPROTO_UDP },
 	{ -1,		-1,		1,	protopr,
-	  NULL,		"divert",	IPPROTO_DIVERT },
+	  NULL,		NULL,		"divert",IPPROTO_DIVERT },
 	{ -1,		-1,		1,	protopr,
-	  ip_stats,	"ip",		IPPROTO_RAW },
+	  ip_stats,	NULL,		"ip",	IPPROTO_RAW },
 	{ -1,		-1,		1,	protopr,
-	  icmp_stats,	"icmp",		IPPROTO_ICMP },
+	  icmp_stats,	NULL,		"icmp",	IPPROTO_ICMP },
 	{ -1,		-1,		1,	protopr,
-	  igmp_stats,	"igmp",		IPPROTO_IGMP },
+	  igmp_stats,	NULL,		"igmp",	IPPROTO_IGMP },
+#ifdef IPSEC
+	{ -1,		N_IPSECSTAT,	1,	0,
+	  ipsec_stats,	NULL,		"ipsec",	0},
+#endif
+#if 0
+	{ -1,		-1,		1,	0,
+	  bdg_stats,	NULL,		"bdg",	1 /* bridging... */ },
+#endif
 	{ -1,		-1,		0,	0,
-	  0,		0 }
+	  0,		NULL,		0 }
 };
 
-#ifdef UNIX_ATALK
+#ifdef INET6
+struct protox ip6protox[] = {
+	{ -1,		-1,		1,	protopr,
+	  tcp_stats,	NULL,		"tcp",	IPPROTO_TCP },
+	{ -1,		-1,		1,	protopr,
+	  udp_stats,	NULL,		"udp",	IPPROTO_UDP },
+	{ -1,		N_IP6STAT,	1,	protopr,
+	  ip6_stats,	ip6_ifstats,	"ip6",	IPPROTO_RAW },
+	{ -1,		N_ICMP6STAT,	1,	protopr,
+	  icmp6_stats,	icmp6_ifstats,	"icmp6",IPPROTO_ICMPV6 },
+#ifdef IPSEC
+	{ -1,		N_IPSEC6STAT,	1,	0,
+	  ipsec_stats,	NULL,		"ipsec6",0 },
+#endif
+#ifdef notyet
+	{ -1,		N_PIM6STAT,	1,	0,
+	  pim6_stats,	NULL,		"pim6",	0 },
+#endif
+	{ -1,		-1,		1,	0,
+	  rip6_stats,	NULL,		"rip6",	0 },
+#if 0
+	{ -1,		-1,		1,	0,
+	  bdg_stats,	NULL,		"bdg",	1 /* bridging... */ },
+#endif
+	{ -1,		-1,		0,	0,
+	  0,		NULL,		0,	0 }
+};
+#endif /*INET6*/
+
+#ifdef IPSEC
+struct protox pfkeyprotox[] = {
+	{ -1,		N_PFKEYSTAT,	1,	0,
+	  pfkey_stats,	NULL,		"pfkey", 0 },
+	{ -1,		-1,		0,	0,
+	  0,		NULL,		0,	0 }
+};
+#endif
+#ifndef __APPLE__
 struct protox atalkprotox[] = {
 	{ N_DDPCB,	N_DDPSTAT,	1,	atalkprotopr,
-	  ddp_stats,	"ddp" },
+	  ddp_stats,	NULL,		"ddp" },
 	{ -1,		-1,		0,	0,
-	  0,		0 }
+	  0,		NULL,		0 }
 };
-#endif
 
-#ifdef IPX
+struct protox netgraphprotox[] = {
+	{ N_NGSOCKS,	-1,		1,	netgraphprotopr,
+	  NULL,		NULL,		"ctrl" },
+	{ N_NGSOCKS,	-1,		1,	netgraphprotopr,
+	  NULL,		NULL,		"data" },
+	{ -1,		NULL,		0,	0,
+	  0,		NULL,		0 }
+};
+
 struct protox ipxprotox[] = {
 	{ N_IPX,	N_IPXSTAT,	1,	ipxprotopr,
-	  ipx_stats,	"ipx",		0 },
+	  ipx_stats,	NULL,		"ipx",	0 },
 	{ N_IPX,	N_SPXSTAT,	1,	ipxprotopr,
-	  spx_stats,	"spx",		0 },
+	  spx_stats,	NULL,		"spx",	0 },
 	{ -1,		-1,		0,	0,
-	  0,		0,		0 }
+	  0,		NULL,		0,	0 }
 };
 #endif
-
 #ifdef NS
 struct protox nsprotox[] = {
 	{ N_IDP,	N_IDPSTAT,	1,	nsprotopr,
-	  idp_stats,	"idp" },
+	  idp_stats,	NULL,		"idp" },
 	{ N_IDP,	N_SPPSTAT,	1,	nsprotopr,
-	  spp_stats,	"spp" },
+	  spp_stats,	NULL,		"spp" },
 	{ -1,		N_NSERR,	1,	0,
-	  nserr_stats,	"ns_err" },
+	  nserr_stats,	NULL,		"ns_err" },
 	{ -1,		-1,		0,	0,
-	  0,		0 }
+	  0,		NULL,		0 }
 };
 #endif
 
 #ifdef ISO
 struct protox isoprotox[] = {
 	{ ISO_TP,	N_TPSTAT,	1,	iso_protopr,
-	  tp_stats,	"tp" },
+	  tp_stats,	NULL,		"tp" },
 	{ N_CLTP,	N_CLTPSTAT,	1,	iso_protopr,
-	  cltp_stats,	"cltp" },
+	  cltp_stats,	NULL,		"cltp" },
 	{ -1,		N_CLNPSTAT,	1,	 0,
-	  clnp_stats,	"clnp"},
+	  clnp_stats,	NULL,		"clnp"},
 	{ -1,		N_ESISSTAT,	1,	 0,
-	  esis_stats,	"esis"},
+	  esis_stats,	NULL,		"esis"},
 	{ -1,		-1,		0,	0,
-	  0,		0 }
+	  0,		NULL,		0 }
 };
 #endif
 
-struct protox *protoprotox[] = { protox, 
-
-#ifdef IPX
-ipxprotox, 
+struct protox *protoprotox[] = {
+					 protox,
+#ifdef INET6
+					 ip6protox,
 #endif
-
-#ifdef UNIX_ATALK
-atalkprotox,
+#ifdef IPSEC
+					 pfkeyprotox,
 #endif
-
+#ifndef __APPLE__
+					 ipxprotox, atalkprotox,
+#endif
 #ifdef NS
 					 nsprotox, 
 #endif
@@ -258,26 +343,48 @@ atalkprotox,
 #endif
 					 NULL };
 
-static void printproto __P((struct protox *, char *));
-static void usage __P((void));
-static struct protox *name2protox __P((char *));
-static struct protox *knownname __P((char *));
+static void printproto (struct protox *, char *);
+static void usage (void);
+static struct protox *name2protox (char *);
+static struct protox *knownname (char *);
 
 static kvm_t *kvmd;
-char *nlistf = NULL, *memf = NULL;
+static char *nlistf = NULL, *memf = NULL;
+
+int	Aflag;		/* show addresses of protocol control block */
+int	aflag;		/* show all sockets (including servers) */
+int	bflag;		/* show i/f total bytes in/out */
+int	dflag;		/* show i/f dropped packets */
+int	gflag;		/* show group (multicast) routing or stats */
+int	iflag;		/* show interfaces */
+int	lflag;		/* show routing table with use and ref */
+int	Lflag;		/* show size of listen queues */
+int	mflag;		/* show memory stats */
+int	nflag;		/* show addresses numerically */
+static int pflag;	/* show given protocol */
+int	rflag;		/* show routing tables (or routing stats) */
+int	sflag;		/* show protocol statistics */
+int	tflag;		/* show i/f watchdog timers */
+int	Wflag;		/* wide display */
+
+int	interval;	/* repeat interval for i/f stats */
+
+char	*interface;	/* desired i/f for stats, or NULL for all i/fs */
+int	unit;		/* unit number for above */
+
+int	af;		/* address family */
 
 int
 main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	register struct protoent *p;
-	register struct protox *tp;	/* for printing cblocks & stats */
+	register struct protox *tp = NULL;  /* for printing cblocks & stats */
 	int ch;
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabdf:ghI:iM:mN:np:rstuw:")) != -1)
+	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlM:mN:np:rstuWw:")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -301,12 +408,23 @@ main(argc, argv)
 				af = AF_IPX;
 			else if (strcmp(optarg, "inet") == 0)
 				af = AF_INET;
+#ifdef INET6
+			else if (strcmp(optarg, "inet6") == 0)
+				af = AF_INET6;
+#endif /*INET6*/
+#ifdef INET6
+			else if (strcmp(optarg, "pfkey") == 0)
+				af = PF_KEY;
+#endif /*INET6*/
 			else if (strcmp(optarg, "unix") == 0)
 				af = AF_UNIX;
-			else if (strcmp(optarg, "local") == 0)
-				af = AF_LOCAL;
+#ifndef __APPLE__
 			else if (strcmp(optarg, "atalk") == 0)
 				af = AF_APPLETALK;
+			else if (strcmp(optarg, "ng") == 0
+			    || strcmp(optarg, "netgraph") == 0)
+				af = AF_NETGRAPH;
+#endif
 #ifdef ISO
 			else if (strcmp(optarg, "iso") == 0)
 				af = AF_ISO;
@@ -329,6 +447,12 @@ main(argc, argv)
 		}
 		case 'i':
 			iflag = 1;
+			break;
+		case 'l':
+			lflag = 1;
+			break;
+		case 'L':
+			Lflag = 1;
 			break;
 		case 'M':
 			memf = optarg;
@@ -361,6 +485,9 @@ main(argc, argv)
 			break;
 		case 'u':
 			af = AF_UNIX;
+			break;
+		case 'W':
+			Wflag = 1;
 			break;
 		case 'w':
 			interval = atoi(optarg);
@@ -399,22 +526,16 @@ main(argc, argv)
 		setgid(getgid());
 
 	if (mflag) {
-		kread(0,0,0);
-		mbpr(nl[N_MBSTAT].n_value);
-		exit(0);
-	}
-	if (pflag) {
-		if (!tp->pr_stats) {
-			printf("%s: no stats routine\n", tp->pr_name);
-			exit(0);
-		}
-		if (tp->pr_usesysctl) {
-			(*tp->pr_stats)(tp->pr_usesysctl, tp->pr_name);
-		} else {
-			kread(0, 0, 0);
-			(*tp->pr_stats)(nl[tp->pr_sindex].n_value,
-					tp->pr_name);
-		}
+		 //if (memf != NULL) {
+			if (kread(0, 0, 0) == 0)
+				mbpr(nl[N_MBSTAT].n_value);
+				//mbpr(nl[N_MBSTAT].n_value,
+				    // nl[N_MBTYPES].n_value,
+				    // nl[N_NMBCLUSTERS].n_value,
+				    // nl[N_NMBUFS].n_value);
+		//} else
+		//	mbpr(0, 0, 0, 0);
+			//mbpr(0) ;
 		exit(0);
 	}
 #if 0
@@ -431,53 +552,70 @@ main(argc, argv)
 	 * used for the queries, which is slower.
 	 */
 #endif
-	if (iflag) {
+	if (iflag && !sflag) {
 		kread(0, 0, 0);
-		intpr(interval, nl[N_IFNET].n_value);
+		intpr(interval, nl[N_IFNET].n_value, NULL);
 		exit(0);
 	}
 	if (rflag) {
 		kread(0, 0, 0);
 		if (sflag)
-			rt_stats(nl[N_RTSTAT].n_value);
+			rt_stats(nl[N_RTSTAT].n_value, nl[N_RTTRASH].n_value);
 		else
 			routepr(nl[N_RTREE].n_value);
 		exit(0);
 	}
 	if (gflag) {
 		kread(0, 0, 0);
-		if (sflag)
-			mrt_stats(nl[N_MRTSTAT].n_value);
-		else
-			mroutepr(nl[N_MFCTABLE].n_value,
-			    nl[N_VIFTABLE].n_value);
+		if (sflag) {
+			if (af == AF_INET || af == AF_UNSPEC)
+				mrt_stats(nl[N_MRTSTAT].n_value);
+#ifdef INET6
+			if (af == AF_INET6 || af == AF_UNSPEC)
+				mrt6_stats(nl[N_MRT6STAT].n_value);
+#endif
+		} else {
+			if (af == AF_INET || af == AF_UNSPEC)
+				mroutepr(nl[N_MFCTABLE].n_value,
+					 nl[N_VIFTABLE].n_value);
+#ifdef INET6
+			if (af == AF_INET6 || af == AF_UNSPEC)
+				mroute6pr(nl[N_MF6CTABLE].n_value,
+					  nl[N_MIF6TABLE].n_value);
+#endif
+		}
 		exit(0);
 	}
-	if (af == AF_INET || af == AF_UNSPEC) {
-		setprotoent(1);
-		setservent(1);
-		/* ugh, this is O(MN) ... why do we do this? */
-		while ((p = getprotoent())) {
-			for (tp = protox; tp->pr_name; tp++)
-				if (strcmp(tp->pr_name, p->p_name) == 0)
-					break;
-			if (tp->pr_name == 0 || tp->pr_wanted == 0)
-				continue;
-			printproto(tp, p->p_name);
-		}
-		endprotoent();
-	}
 
-#ifdef IPX
+	kread(0, 0, 0);
+	if (tp) {
+		printproto(tp, tp->pr_name);
+		exit(0);
+	}
+	if (af == AF_INET || af == AF_UNSPEC)
+		for (tp = protox; tp->pr_name; tp++)
+			printproto(tp, tp->pr_name);
+#ifdef INET6
+	if (af == AF_INET6 || af == AF_UNSPEC)
+		for (tp = ip6protox; tp->pr_name; tp++)
+			printproto(tp, tp->pr_name);
+#endif /*INET6*/
+#ifdef IPSEC
+	if (af == PF_KEY || af == AF_UNSPEC)
+		for (tp = pfkeyprotox; tp->pr_name; tp++)
+			printproto(tp, tp->pr_name);
+#endif /*IPSEC*/
+#ifndef __APPLE__
 	if (af == AF_IPX || af == AF_UNSPEC) {
 		kread(0, 0, 0);
 		for (tp = ipxprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
 	}
-#endif
-#ifdef UNIX_ATALK
 	if (af == AF_APPLETALK || af == AF_UNSPEC)
 		for (tp = atalkprotox; tp->pr_name; tp++)
+			printproto(tp, tp->pr_name);
+	if (af == AF_NETGRAPH || af == AF_UNSPEC)
+		for (tp = netgraphprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
 #endif
 #ifdef NS
@@ -490,7 +628,7 @@ main(argc, argv)
 		for (tp = isoprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
 #endif
-	if ((af == AF_UNIX || af == AF_LOCAL || af == AF_UNSPEC) && !sflag)
+	if ((af == AF_UNIX || af == AF_UNSPEC) && !Lflag && !sflag)
 		unixpr();
 	exit(0);
 }
@@ -505,30 +643,49 @@ printproto(tp, name)
 	register struct protox *tp;
 	char *name;
 {
-	void (*pr)();
+	void (*pr)(u_long, char *, int);
 	u_long off;
 
 	if (sflag) {
-		pr = tp->pr_stats;
-		off = tp->pr_usesysctl ? tp->pr_usesysctl 
-			: nl[tp->pr_sindex].n_value;
+		if (iflag) {
+			if (tp->pr_istats)
+				intpr(interval, nl[N_IFNET].n_value,
+				      tp->pr_istats);
+			else if (pflag)
+				printf("%s: no per-interface stats routine\n",
+				    tp->pr_name);
+			return;
+		}
+		else {
+			pr = tp->pr_stats;
+			if (!pr) {
+				if (pflag)
+					printf("%s: no stats routine\n",
+					    tp->pr_name);
+				return;
+			}
+			off = tp->pr_usesysctl ? tp->pr_usesysctl 
+				: nl[tp->pr_sindex].n_value;
+		}
 	} else {
 		pr = tp->pr_cblocks;
+		if (!pr) {
+			if (pflag)
+				printf("%s: no PCB routine\n", tp->pr_name);
+			return;
+		}
 		off = tp->pr_usesysctl ? tp->pr_usesysctl
 			: nl[tp->pr_index].n_value;
 	}
 	if (pr != NULL && (off || af != AF_UNSPEC))
-		(*pr)(off, name);
+		(*pr)(off, name, af);
 }
 
 /*
  * Read kernel memory, return 0 on success.
  */
 int
-kread(addr, buf, size)
-	u_long addr;
-	char *buf;
-	int size;
+kread(u_long addr, char *buf, int size)
 {
 	if (kvmd == 0) {
 		/*
@@ -565,15 +722,13 @@ kread(addr, buf, size)
 }
 
 char *
-plural(n)
-	int n;
+plural(int n)
 {
 	return (n != 1 ? "s" : "");
 }
 
 char *
-plurales(n)
-	int n;
+plurales(int n)
 {
 	return (n != 1 ? "es" : "");
 }
@@ -582,8 +737,7 @@ plurales(n)
  * Find the protox for the given "well-known" name.
  */
 static struct protox *
-knownname(name)
-	char *name;
+knownname(char *name)
 {
 	struct protox **tpp, *tp;
 
@@ -598,8 +752,7 @@ knownname(name)
  * Find the protox corresponding to name.
  */
 static struct protox *
-name2protox(name)
-	char *name;
+name2protox(char *name)
 {
 	struct protox *tp;
 	char **alias;			/* alias from p->aliases */
@@ -609,11 +762,11 @@ name2protox(name)
 	 * Try to find the name in the list of "well-known" names. If that
 	 * fails, check if name is an alias for an Internet protocol.
 	 */
-	if ((tp = knownname(name)))
+	if ((tp = knownname(name)) != NULL)
 		return (tp);
 
 	setprotoent(1);			/* make protocol lookup cheaper */
-	while ((p = getprotoent())) {
+	while ((p = getprotoent()) != NULL) {
 		/* assert: name not same as p->name */
 		for (alias = p->p_aliases; *alias; alias++)
 			if (strcmp(name, *alias) == 0) {
@@ -626,42 +779,13 @@ name2protox(name)
 }
 
 static void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n",
 "usage: netstat [-Aan] [-f address_family] [-M core] [-N system]",
 "       netstat [-bdghimnrs] [-f address_family] [-M core] [-N system]",
 "       netstat [-bdn] [-I interface] [-M core] [-N system] [-w wait]",
+"       netstat -m [-M core] [-N system]",
 "       netstat [-M core] [-N system] [-p protocol]");
 	exit(1);
 }
-
-void
-trimdomain(cp)
-	char *cp;
-{
-	static char domain[MAXHOSTNAMELEN + 1];
-	static int first = 1;
-	char *s;
-
-	if (first) {
-		first = 0;
-		if (gethostname(domain, MAXHOSTNAMELEN) == 0 &&
-		    (s = strchr(domain, '.')))
-			(void) strcpy(domain, s + 1);
-		else
-			domain[0] = 0;
-	}
-
-	if (domain[0]) {
-		while ((cp = strchr(cp, '.'))) {
-			if (!strcasecmp(cp + 1, domain)) {
-				*cp = 0;	/* hit it */
-				break;
-			} else {
-				cp++;
-			}
-		}
-	}
-}
-

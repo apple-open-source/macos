@@ -20,6 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/storage/IOCDBlockStorageDriver.h>
 #include <IOKit/storage/IOCDMedia.h>
@@ -32,44 +33,7 @@
 #define	super	IOBlockStorageDriver
 OSDefineMetaClassAndStructors(IOCDBlockStorageDriver,IOBlockStorageDriver)
 
-#define kCDPMAMaxSize 8192                                         /* private */
 #define kCDTOCMaxSize 8192                                         /* private */
-
-static char * strclean(char * s)
-{
-    //
-    // strclean() trims any spaces at either end of the string, strips any
-    // control characters within the string, and collapses any sequence of
-    // spaces within the string into a single space.
-    //
- 
-    int sourceIndex = 0, targetIndex = 0, targetLength = 0;
-
-    for ( ; s[sourceIndex] > '\0' && s[sourceIndex] <= ' '; sourceIndex++ );
-
-    for ( ; s[sourceIndex]; sourceIndex++ )
-    {
-        if ( s[sourceIndex] < '\0' || s[sourceIndex] >= ' ' )
-        {
-            if ( s[sourceIndex] != ' ' )
-            {
-                if ( targetLength < targetIndex )
-                {
-                    targetIndex = targetLength + 1;
-                }
-
-                targetLength = targetIndex + 1;
-            }
-
-            s[targetIndex++] = s[sourceIndex];
-        }
-
-    }
-
-    s[targetLength] = '\0';
-
-    return s;
-}
 
 IOCDBlockStorageDevice *
 IOCDBlockStorageDriver::getProvider() const
@@ -88,12 +52,8 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
     IOReturn result;
     bool ok;
     int i;
-    UInt64 nbytes;
     int nentries;
-    int nDataTracks;
     int nAudioTracks;
-    char name[128];
-    bool nameSep;
 
     /* First, we cache information about the tracks on the disc: */
     
@@ -104,7 +64,6 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
 
     /* Scan thru the track list, counting up the number of Data and Audio tracks. */
     
-    nDataTracks = 0;
     nAudioTracks = 0;
 
     _minBlockNumberAudio = 0xFFFFFFFF;
@@ -114,12 +73,11 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
         nentries = CDTOCGetDescriptorCount(_toc);
 
         for (i = 0; i < nentries; i++) {   
-            UInt32 lba = CDConvertMSFToLBA(_toc->descriptors[i].p);
+            UInt32 lba = CDConvertMSFToClippedLBA(_toc->descriptors[i].p);
             /* tracks 1-99, not leadout or skip intervals */
             if (_toc->descriptors[i].point <= 99 && _toc->descriptors[i].adr == 1) {
                 if ((_toc->descriptors[i].control & 0x04)) {
                     /* it's a data track */
-                    nDataTracks++;
                     _maxBlockNumberAudio = min(_maxBlockNumberAudio, lba ? (lba - 1) : 0);
                 } else {
                     nAudioTracks++;
@@ -137,7 +95,7 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
 
             /* find first data track or leadout after the audio tracks */
             for (i = 0; i < nentries; i++) {   
-                UInt32 lba = CDConvertMSFToLBA(_toc->descriptors[i].p);
+                UInt32 lba = CDConvertMSFToClippedLBA(_toc->descriptors[i].p);
                 /* tracks 1-99, not leadout or skip intervals */
                 if (_toc->descriptors[i].point <= 99 && _toc->descriptors[i].adr == 1) {
                     if ((_toc->descriptors[i].control & 0x04)) {
@@ -154,95 +112,67 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
                 }
             }
         }
-    } else {
-        /* Obtain information about the unfinalized tracks on the disc: */
+    }
 
-        switch (getMediaType()) {
-            case kCDMediaTypeR:
-            case kCDMediaTypeRW: {
-                IOBufferMemoryDescriptor *buffer;
-                CDPMA *pma;
-                UInt16 pmaSize;
+    /* Obtain disc status: */
 
-                /* Read the PMA in full: */
+    switch (getMediaType()) {
+        case kCDMediaTypeR:
+        case kCDMediaTypeRW: {
+            bool checkIsWritable = false;
+            CDDiscInfo discInfo;
+            CDTrackInfo trackInfo;
 
-                buffer = IOBufferMemoryDescriptor::withCapacity(kCDPMAMaxSize,kIODirectionIn);
-                if (buffer == NULL) {
-                    break;
-                }
-
-                getProvider()->readTOC(buffer,kCDTOCFormatPMA,true,0,&pmaSize);
-
-                /* Reject the PMA if its size is too small: */
-
-                if (pmaSize <= sizeof(CDPMA)) {
-                    break;
-                }
-
-                pma = (CDPMA *) buffer->getBytesNoCopy();
-                pmaSize = min(pmaSize,OSSwapBigToHostInt16(pma->dataLength) + sizeof(pma->dataLength));
-                if (pmaSize <= sizeof(CDPMA)) {
-                    break;
-                }
-
-                /* Scan thru the track list. */
-
-                nentries = (pmaSize - sizeof(UInt32)) / sizeof(CDPMADescriptor);
-
-                for (i = 0; i < nentries; i++) {
-                    UInt32 lba = CDConvertMSFToLBA(pma->descriptors[i].address);
-
-                    /* tracks 1-99, not skip intervals */
-                    if (pma->descriptors[i].point <= 99 && pma->descriptors[i].adr == 1) {
-                        _maxBlockNumber = max(_maxBlockNumber, lba ? (lba - 1) : 0);
-                    }
-                }
-
-                buffer->release();
+            result = reportDiscInfo(&discInfo);
+            if (result != kIOReturnSuccess) {
                 break;
             }
-            default:
-                break;
+
+            switch (discInfo.discStatus) {
+                case 0x00: /* is disc blank? */
+                    _maxBlockNumber = 0;
+                    _writeProtected = true;
+                    break;
+                case 0x01: /* is disc appendable? */
+                    checkIsWritable = true;
+                    _maxBlockNumber = CDConvertMSFToClippedLBA(discInfo.lastPossibleStartTimeOfLeadOut);
+                    break;
+                case 0x02: /* is disc complete? */
+                    checkIsWritable = discInfo.erasable ? true : false;
+                    _writeProtected = true;
+                    break;
+            }
+
+            /* Obtain track status: */
+
+            if (checkIsWritable) {
+                UInt16 trackLast = discInfo.lastTrackNumberInLastSessionLSB;
+                UInt16 trackSecondLast = max(trackLast - 1, discInfo.firstTrackNumberInLastSessionLSB);
+
+                _writeProtected = true;
+
+                for (i = trackLast; i >= trackSecondLast; i--) {
+                    result = reportTrackInfo(i,&trackInfo);
+                    if (result != kIOReturnSuccess) {
+                        break;
+                    }
+
+                    if (trackInfo.packet) { /* is track incremental? */
+                        _writeProtected = false;
+                        break;
+                    }
+                }
+            }
+
+            break;
         }
     }
 
-    if (_maxBlockNumber) {
-        nbytes = kBlockSizeCD * (_maxBlockNumber + 1);  
-    } else {
-        nbytes = 0;
-    }
+    /* Instantiate a media object and attach it to ourselves. */
 
-    /* Instantiate a CD Media nub above ourselves. */
-
-    name[0] = 0;
-    nameSep = false;
-    if (getProvider()->getVendorString()) {
-        strcat(name, getProvider()->getVendorString());
-        nameSep = true;
-    }
-    if (getProvider()->getProductString()) {
-        if (nameSep == true)  strcat(name, " ");
-        strcat(name, getProvider()->getProductString());
-        nameSep = true;
-    }
-    if (nameSep == true)  strcat(name, " ");
-    strcat(name, "Media");
-    strclean(name);
-
-    _mediaObject = instantiateMediaObject(0,nbytes,kBlockSizeCD,name);
-    result = (_mediaObject) ? kIOReturnSuccess : kIOReturnBadArgument;
-
-    if (result == kIOReturnSuccess) {
-        ok = _mediaObject->attach(this);
-    } else {
-        IOLog("%s[IOCDBlockStorageDriver]::acceptNewMedia; can't instantiate CD media nub.\n",getName());
+    result = super::acceptNewMedia();
+    if (result != kIOReturnSuccess) {
         return(result);			/* give up now */
-    }
-    if (!ok) {
-        IOLog("%s[IOCDBlockStorageDriver]::acceptNewMedia; can't attach CD media nub.\n",getName());
-        _mediaObject->release();
-        _mediaObject = NULL;
-        return(kIOReturnNoMemory);	/* give up now */
     }
         
     /* Instantiate an audio control nub for the audio portion of the media. */
@@ -252,27 +182,13 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
         if (_acNub) {
             _acNub->init();
             ok = _acNub->attach(this);
-            if (!ok) {
-                IOLog("%s[IOCDBlockStorageDriver]::acceptNewMedia; can't attach audio control nub.\n",getName());
+            if (ok) {
+                _acNub->registerService();
+            } else {
                 _acNub->release();
-                _acNub = NULL;
+                _acNub = 0;
             }
-        } else {
-            IOLog("%s[IOCDBlockStorageDriver]::acceptNewMedia; can't instantiate audio control nub.\n",
-                  getName());
         }
-    }
-
-    /* Now that the nubs are attached, register them. */
-
-    _mediaPresent = true;
-    if (_toc) {
-        _mediaObject->setProperty(kIOCDMediaTOCKey,(void*)_toc,_tocSize);
-    }
-    _mediaObject->registerService();
-
-    if (_acNub) {
-        _acNub->registerService();
     }
 
     return(result);
@@ -305,7 +221,7 @@ IOCDBlockStorageDriver::audioStop()
 IOReturn
 IOCDBlockStorageDriver::cacheTocInfo(void)
 {
-    IOBufferMemoryDescriptor *buffer = NULL;
+    IOBufferMemoryDescriptor *buffer;
     IOReturn result;
     CDTOC *toc;
     UInt16 tocSize;
@@ -476,10 +392,15 @@ IOCDBlockStorageDriver::executeRequest(UInt64 byteStart,
             }
         }
 
-        result = getProvider()->doAsyncReadCD(buffer,block,nblks,
-                               (CDSectorArea)context->block.typeSub[0],
-                               (CDSectorType)context->block.typeSub[1],
-                               completion);
+        if (buffer->getDirection() == kIODirectionIn) {
+            result = getProvider()->doAsyncReadCD(buffer,block,nblks,
+                                   (CDSectorArea)context->block.typeSub[0],
+                                   (CDSectorType)context->block.typeSub[1],
+                                   completion);
+        } else {
+            complete(completion,kIOReturnUnsupported);
+            return;
+        }
     } else {
         result = getProvider()->doAsyncReadWrite(buffer,block,nblks,completion);
     }
@@ -550,7 +471,7 @@ IOCDBlockStorageDriver::getMediaBlockSize(CDSectorArea area,CDSectorType type)
 UInt32
 IOCDBlockStorageDriver::getMediaType(void)
 {
-    return(getProvider()->getMediaType());
+    return(_mediaType);
 }
 
 CDTOC *
@@ -575,6 +496,8 @@ IOCDBlockStorageDriver::init(OSDictionary * properties)
     _acNub = NULL;
     _minBlockNumberAudio = 0;
     _maxBlockNumberAudio = 0;
+    _maxReadByteTransfer = 196608;
+    _maxWriteByteTransfer = 196608;
     _toc = NULL;
     _tocSize = 0;
 
@@ -593,25 +516,60 @@ IOCDBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
 {
     IOMedia *media;
 
+    byteSize /= blockSize;
+    byteSize *= kBlockSizeCD;
+    blockSize = kBlockSizeCD;
+
     media = super::instantiateMediaObject(base,byteSize,blockSize,mediaName);
 
     if (media) {
         char *description = NULL;
+        char *picture = NULL;
 
         switch (getMediaType()) {
             case kCDMediaTypeROM:
                 description = kIOCDMediaTypeROM;
+                picture = "CD.icns";
                 break;
             case kCDMediaTypeR:
                 description = kIOCDMediaTypeR;
+                picture = "CD-R.icns";
                 break;
             case kCDMediaTypeRW:
                 description = kIOCDMediaTypeRW;
+                picture = "CD-RW.icns";
                 break;
         }
 
         if (description) {
             media->setProperty(kIOCDMediaTypeKey, description);
+        }
+
+        if (picture) {
+            OSDictionary *dictionary = OSDictionary::withCapacity(2);
+            OSString *identifier = OSString::withCString("com.apple.iokit.IOCDStorageFamily");
+            OSString *resourceFile = OSString::withCString(picture);
+
+            if (dictionary && identifier && resourceFile) {
+                dictionary->setObject("CFBundleIdentifier", identifier);
+                dictionary->setObject("IOBundleResourceFile", resourceFile);
+            }
+
+            media->setProperty(kIOMediaIconKey, dictionary);
+
+            if (resourceFile) {
+                resourceFile->release();
+            }
+            if (identifier) {
+                identifier->release();
+            }
+            if (dictionary) {
+                dictionary->release();
+            }
+        }
+
+        if (_toc) {
+            media->setProperty(kIOCDMediaTOCKey,(void*)_toc,_tocSize);
         }
     }
 
@@ -631,6 +589,84 @@ IOCDBlockStorageDriver::readCD(IOService *client,
     prepareRequest(byteStart, buffer, sectorArea, sectorType, completion);
 }
 
+IOReturn
+IOCDBlockStorageDriver::reportDiscInfo(CDDiscInfo *discInfo)
+{
+    IOMemoryDescriptor *buffer;
+    IOReturn result;
+    UInt16 discInfoSize;
+
+    bzero(discInfo,sizeof(CDDiscInfo));
+
+    /* Read the Disc Information in full: */
+
+    buffer = IOMemoryDescriptor::withAddress(discInfo,sizeof(CDDiscInfo),kIODirectionIn);
+    if (buffer == NULL) {
+        return(kIOReturnNoMemory);
+    }
+
+    result = getProvider()->readDiscInfo(buffer,&discInfoSize);
+    if (result != kIOReturnSuccess) {
+        buffer->release();
+        return(result);
+    }
+
+    buffer->release();
+
+    /* Reject the Disc Information if its size is too small: */
+
+    if (discInfoSize < sizeof(CDDiscInfo)) {
+        return(kIOReturnNotFound);
+    }
+
+    discInfoSize = OSSwapBigToHostInt16(discInfo->dataLength) + sizeof(discInfo->dataLength);
+
+    if (discInfoSize < sizeof(CDDiscInfo)) {
+        return(kIOReturnNotFound);
+    }
+
+    return(result);
+}
+
+IOReturn
+IOCDBlockStorageDriver::reportTrackInfo(UInt16 track,CDTrackInfo *trackInfo)
+{
+    IOMemoryDescriptor *buffer;
+    IOReturn result;
+    UInt16 trackInfoSize;
+
+    bzero(trackInfo,sizeof(CDTrackInfo));
+
+    /* Read the Track Information in full: */
+
+    buffer = IOMemoryDescriptor::withAddress(trackInfo,sizeof(CDTrackInfo),kIODirectionIn);
+    if (buffer == NULL) {
+        return(kIOReturnNoMemory);
+    }
+
+    result = getProvider()->readTrackInfo(buffer,track,kCDTrackInfoAddressTypeTrackNumber,&trackInfoSize);
+    if (result != kIOReturnSuccess) {
+        buffer->release();
+        return(result);
+    }
+
+    buffer->release();
+
+    /* Reject the Track Information if its size is too small: */
+
+    if (trackInfoSize < offsetof(CDTrackInfo, lastRecordedAddress)) {
+        return(kIOReturnNotFound);
+    }
+
+    trackInfoSize = OSSwapBigToHostInt16(trackInfo->dataLength) + sizeof(trackInfo->dataLength);
+
+    if (trackInfoSize < offsetof(CDTrackInfo, lastRecordedAddress)) {
+        return(kIOReturnNotFound);
+    }
+
+    return(result);
+}
+
 void
 IOCDBlockStorageDriver::prepareRequest(UInt64 byteStart,
                                        IOMemoryDescriptor *buffer,
@@ -639,6 +675,14 @@ IOCDBlockStorageDriver::prepareRequest(UInt64 byteStart,
                                        IOStorageCompletion completion)
 {
     Context * context;
+
+    // Determine whether an undefined sector area or sector type was specified.
+
+    if (sectorType >= kCDSectorTypeCount || (sectorArea & 0x04) == 0x04)
+    {
+        complete(completion, kIOReturnBadArgument);
+        return;
+    }
 
     // For a transfer that involves an unknown sector type, the sector area must
     // not describe a vague sector size (and hence, a vague transfer size).  The
@@ -674,7 +718,7 @@ IOCDBlockStorageDriver::prepareRequest(UInt64 byteStart,
          ( sectorType == kCDSectorTypeMode1      ||
            sectorType == kCDSectorTypeMode2Form1 )  )
     {
-        context->block.size       = _mediaBlockSize;
+        context->block.size       = getMediaBlockSize();
         context->block.type       = kBlockTypeStandard;
     }
     else
@@ -709,6 +753,21 @@ IOReturn
 IOCDBlockStorageDriver::readMCN(CDMCN mcn)
 {
     return(getProvider()->readMCN(mcn));
+}
+
+IOReturn
+IOCDBlockStorageDriver::recordMediaParameters(void)
+{
+    IOReturn result;
+
+    result = super::recordMediaParameters();
+    if (result != kIOReturnSuccess) {
+        return(result);
+    }
+
+    _mediaType = getProvider()->getMediaType();
+
+    return(kIOReturnSuccess);
 }
 
 IOReturn
@@ -762,7 +821,21 @@ IOCDBlockStorageDriver::readTrackInfo(IOMemoryDescriptor *buffer,UInt32 address,
 
 OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver, 4);
 
-OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  5);
+void
+IOCDBlockStorageDriver::writeCD(IOService *client,
+                                UInt64 byteStart,
+                                IOMemoryDescriptor *buffer,
+                                CDSectorArea sectorArea,
+                                CDSectorType sectorType,
+                                IOStorageCompletion completion)
+{
+    assert(buffer->getDirection() == kIODirectionOut);
+
+    prepareRequest(byteStart, buffer, sectorArea, sectorType, completion);
+}
+
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver, 5);
+
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  6);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  7);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  8);

@@ -1,7 +1,7 @@
 Package: emacs
 Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
 Vendor: GNU Project
-Version: 20.7
+Version: 21.1
 URL: ftp://prep.ai.mit.edu/pub/gnu/emacs
 Build-Depends: build-base, gnudiff, perl, texi2html
 Description: GNU Emacs

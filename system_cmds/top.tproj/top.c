@@ -69,6 +69,7 @@
 #include <mach/vm_map.h>
 #include <mach/vm_types.h>
 #include <mach/vm_prot.h>
+#include <mach/shared_memory_server.h>
 
 #include <device/device_types.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -82,7 +83,8 @@
 
 #include <libc.h>
 #include <termios.h>
-#include <bsd/curses.h>
+#include <curses.h>
+#include <sys/ioctl.h>
 
 /* Number of lines of header information on the standard screen */
 #define	HEADER_LINES	8
@@ -120,7 +122,6 @@ int werase(WINDOW *win);
 int total_threads;
 unsigned long long total_fw_private;
 
-struct termios tmode, omode;
 char   bytesread[128];
 
 host_cpu_load_info_data_t lastcounters, curcounters, startcounters;
@@ -227,10 +228,6 @@ struct object_info {
 struct object_info      *shared_hash_table[OBJECT_TABLE_SIZE];
 
 struct object_info *of_free_list = 0;
-
-#define FW_CODE_BEG_ADDR  0x70000000
-#define FW_DATA_BEG_ADDR  0x80000000
-#define FW_DATA_END_ADDR  0x90000000
 
 /*
  *	Translate thread state to a number in an ordered scale.
@@ -451,7 +448,7 @@ pmem_doit(task_port_t task, int pid, int *shared, int *private, int *aliased, in
 				    &count, &object_name))
 		        break;
 
-		if (address >= FW_CODE_BEG_ADDR && address < FW_DATA_END_ADDR) {
+		if (address >= GLOBAL_SHARED_TEXT_SEGMENT && address < (GLOBAL_SHARED_DATA_SEGMENT + SHARED_DATA_REGION_SIZE)) {
 
 			*fw_private += info.private_pages_resident * vm_page_size;
 
@@ -529,13 +526,13 @@ pmem_doit(task_port_t task, int pid, int *shared, int *private, int *aliased, in
 		}
 	}
 	if (split)
-	        *vsize -= (FW_DATA_END_ADDR - FW_CODE_BEG_ADDR);
+	        *vsize -= (SHARED_TEXT_REGION_SIZE + SHARED_DATA_REGION_SIZE);
 }
 
 
 void
 pmem_fw_resident(unsigned int *num_fw, unsigned long long *vsize, unsigned int *code_size, unsigned int *data_size, unsigned int *linkedit_size)
-{       vm_address_t	address = FW_CODE_BEG_ADDR;
+{       vm_address_t	address = GLOBAL_SHARED_TEXT_SEGMENT;
 	kern_return_t	err = 0;
 	int             state = 0;
 
@@ -545,7 +542,7 @@ pmem_fw_resident(unsigned int *num_fw, unsigned long long *vsize, unsigned int *
         *data_size = 0;
         *linkedit_size = 0;
 
-	while (address < FW_DATA_END_ADDR) {
+	while (address < (GLOBAL_SHARED_DATA_SEGMENT + SHARED_DATA_REGION_SIZE)) {
 	        vm_region_submap_info_data_64_t   s_info;
 		mach_msg_type_number_t         count;
 	        vm_size_t	size;
@@ -557,9 +554,9 @@ pmem_fw_resident(unsigned int *num_fw, unsigned long long *vsize, unsigned int *
 		if (err = vm_region_recurse_64(mach_task_self(), &address, &size, &nesting_depth, (vm_region_info_t)&s_info, &count))
 		        break;
 
-		if (address >= FW_DATA_END_ADDR)
+		if (address >= (GLOBAL_SHARED_DATA_SEGMENT + SHARED_DATA_REGION_SIZE))
 		        break;
-		if (address < FW_DATA_BEG_ADDR) {
+		if (address < GLOBAL_SHARED_DATA_SEGMENT) {
 
 			if (s_info.share_mode == SM_SHARED || s_info.share_mode == SM_COW) {
 			        if (s_info.max_protection & VM_PROT_EXECUTE) {
@@ -884,8 +881,6 @@ void leave()			/* exit under normal conditions -- INT handler */
 	        move(LINES - 1, 0);
 		refresh();
 		endwin();
-
-		tcsetattr(0, TCSANOW, &omode);
 	}
 	exit(0);
 }
@@ -893,10 +888,8 @@ void leave()			/* exit under normal conditions -- INT handler */
 void quit(status)		/* exit under duress */
 	int status;
 {
-        if (!oneshot) {
+        if (!oneshot)
 	        endwin();
-		tcsetattr(0, TCSANOW, &omode);
-	}
 	exit(status);
 }
 
@@ -1313,22 +1306,10 @@ main(argc, argv)
 	/* initializes curses and screen (last) */
 
 	if (!oneshot) {
-	        if (tcgetattr(0, &tmode) < 0) {
-		        printf("can't get terminal attributes\n");
-			exit(1);
-		}
-		omode = tmode;
-	
-		tmode.c_lflag &= ~ICANON;
-		tmode.c_cc[VMIN] = 0;
-		tmode.c_cc[VTIME] = (delay * 10);
-
-		if (tcsetattr(0, TCSANOW, &tmode) < 0) {
-		        printf("can't set terminal attributes\n");
-			exit(1);
-		}
 		initscr();
-		refresh();
+		cbreak();
+		timeout(delay * 1000);
+		noecho();
 		erase();
 		clear();
 		refresh();
@@ -1387,12 +1368,16 @@ main(argc, argv)
 	        int   n;
 
 	        if (newLINES) {
+		        newLINES = 0;
 
 		        if (!oneshot) {
-			        initscr();
-				erase();
-				clear();
-				refresh();
+				struct winsize size;
+
+				if (ioctl(1, TIOCGWINSZ, &size) != -1) {
+					resizeterm(size.ws_row, size.ws_col);
+					erase();
+					clear();
+				}
 			}
 		        n = LINES - Header_lines;
 
@@ -1408,19 +1393,14 @@ main(argc, argv)
 					        topn = n;
 				}
 			}
-		        newLINES = 0;
 		}
 		(void)screen_update();
 
 		if (!oneshot) {
+			int	c;
 
-		        if ((n = read(0, &bytesread, 128)) > 0) {
-			        int   i;
-
-				for (i = 0; i < n; i++)
-				        if (bytesread[i] == 'q')
-					        leave();
-			}
+			if ((c = getch()) != ERR && (char)c == 'q') 
+				leave();
 		} else
 		        sleep(delay);
 	}
@@ -2241,11 +2221,12 @@ getDISKcounters()
                                                             (CFMutableDictionaryRef *) &properties,
 	                                                    kCFAllocatorDefault,
 	                                                    kNilOptions);
+                if (properties) {
 
-		/* Obtain the statistics from the drive properties */
-	        statistics = (CFDictionaryRef) CFDictionaryGetValue(properties, CFSTR(kIOBlockStorageDriverStatisticsKey));
+                    /* Obtain the statistics from the drive properties */
+                    statistics = (CFDictionaryRef) CFDictionaryGetValue(properties, CFSTR(kIOBlockStorageDriverStatisticsKey));
 
-		if (statistics) {
+                    if (statistics) {
 			/* Obtain the number of bytes read from the drive statistics */
 			number = (CFNumberRef) CFDictionaryGetValue (statistics,
 								     CFSTR(kIOBlockStorageDriverStatisticsBytesReadKey));
@@ -2275,10 +2256,11 @@ getDISKcounters()
 				status = CFNumberGetValue(number, kCFNumberSInt64Type, &value);
 				totalWriteBytes += value;
 			}
-		}
-		/* Release resources */
+                    }
+                    /* Release resources */
 
-		CFRelease(properties); properties = 0;
+                    CFRelease(properties); properties = 0;
+                }
 		IOObjectRelease(drive); drive = 0;
 	}
 	IOIteratorReset(drivelist);

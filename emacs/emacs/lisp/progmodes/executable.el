@@ -1,6 +1,6 @@
-;;; executable.el --- base functionality for executable interpreter scripts
+;;; executable.el --- base functionality for executable interpreter scripts -*- byte-compile-dynamic: t -*-
 
-;; Copyright (C) 1994, 1995, 1996 by Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1995, 1996, 2000 by Free Software Foundation, Inc.
 
 ;; Author: Daniel Pfeiffer <occitan@esperanto.org>
 ;; Keywords: languages, unix
@@ -56,15 +56,18 @@
   "Base functionality for executable interpreter scripts"
   :group 'processes)
 
-(defcustom executable-insert 'other
+;; This used to default to `other', but that doesn't seem to have any
+;; significance.  fx 2000-02-11.
+(defcustom executable-insert t		; 'other
   "*Non-nil means offer to add a magic number to a file.
 This takes effect when you switch to certain major modes,
 including Shell-script mode (`sh-mode').
 When you type \\[executable-set-magic], it always offers to add or
 update the magic number."
-  :type '(choice (const :tag "off" nil)
-		 (const :tag "on" t)
-		 symbol)
+;;;   :type '(choice (const :tag "off" nil)
+;;; 		 (const :tag "on" t)
+;;; 		 symbol)
+  :type 'boolean
   :group 'executable)
 
 
@@ -103,7 +106,7 @@ Typical values are 73 (+x) or -493 (rwxr-xr-x)."
 
 (defcustom executable-self-display "tail"
   "*Command you use with argument `+2' to make text files self-display.
-Note that the like of `more' doesn't work too well under Emacs  \\[shell]."
+Note that the like of `more' doesn't work too well under Emacs \\[shell]."
   :type 'string
   :group 'executable)
 
@@ -139,6 +142,8 @@ See `compilation-error-regexp-alist'.")
   (if (memq system-type '(ms-dos windows-nt))
       '(".exe" ".com" ".bat" ".cmd" ".btm" "")
     '("")))
+
+;;;###autoload
 (defun executable-find (command)
   "Search for COMMAND in exec-path and return the absolute file name.
 Return nil if COMMAND is not found anywhere in `exec-path'."
@@ -205,13 +210,19 @@ executable."
    (let* ((name (read-string "Name or file name of interpreter: "))
 	  (arg (read-string (format "Argument for %s: " name))))
      (list name arg (eq executable-query 'function) t)))
+
   (setq interpreter (if (file-name-absolute-p interpreter)
 			interpreter
 		      (or (executable-find interpreter)
-			  (error "Interpreter %s not recognized" interpreter)))
-	argument (concat interpreter
+			  (error "Interpreter %s not recognized"
+				 interpreter))))
+
+  (setq argument (concat (if (string-match "\\`/:" interpreter)
+			     (replace-match "" nil nil interpreter)
+			   interpreter)
 			 (and argument (string< "" argument) " ")
 			 argument))
+
   (or buffer-read-only
       (if buffer-file-name
 	  (string-match executable-magicless-file-regexp
@@ -248,7 +259,7 @@ executable."
 ;;;	      (eq executable-insert t)
 ;;;	      (set-buffer-modified-p buffer-modified-p))
 	  )))
-  interpreter)
+    interpreter)
 
 
 
@@ -261,8 +272,22 @@ The magic number of such a command displays all lines but itself."
       (setq this-command 'executable-set-magic))
   (executable-set-magic executable-self-display "+2"))
 
-
+;;;###autoload
+(defun executable-make-buffer-file-executable-if-script-p ()
+  "Make file executable according to umask if not already executable.
+If file already has any execute bits set at all, do not change existing
+file modes."
+  (and (>= (buffer-size) 2)
+       (save-restriction
+	 (widen)
+	 (string= "#!" (buffer-substring 1 3)))
+       (let* ((current-mode (file-modes (buffer-file-name)))
+              (add-mode (logand ?\111 (default-file-modes))))
+         (or (/= (logand ?\111 current-mode) 0)
+             (zerop add-mode)
+             (set-file-modes (buffer-file-name)
+                             (logior current-mode add-mode))))))
 
 (provide 'executable)
 
-;; executable.el ends here
+;;; executable.el ends here

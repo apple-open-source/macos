@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -128,4 +128,16 @@ IOFWWorkLoop * IOFireWireLink::getFireWireWorkLoop() const
     return fWorkLoop;
 }
 
+void
+IOFireWireLink::closeIsochGate()
+{
+	if ( fIsocInterruptEventSource )
+		fIsocInterruptEventSource->closeGate() ;
+}
 
+void
+IOFireWireLink::openIsochGate()
+{
+	if ( fIsocInterruptEventSource )
+		fIsocInterruptEventSource->openGate() ;
+}

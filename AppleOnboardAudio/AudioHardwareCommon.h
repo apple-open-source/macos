@@ -27,7 +27,7 @@
 #ifndef __AUDIOHARDWARECOMMON__
 #define __AUDIOHARDWARECOMMON__ 
 
-    //common headers
+// common headers
 #include <IOKit/assert.h>
 #include <IOKit/system.h>
 
@@ -40,8 +40,8 @@
 #include <IOKit/audio/IOAudioPort.h>
 #include <IOKit/audio/IOAudioControl.h>
 #include <IOKit/audio/IOAudioLevelControl.h>
-#include <IOKit/audio/IOAudioToggleControl.h>
 #include <IOKit/audio/IOAudioSelectorControl.h>
+#include <IOKit/audio/IOAudioToggleControl.h>
 #include <IOKit/audio/IOAudioTypes.h>
 #include <IOKit/audio/IOAudioDefines.h>
 #include <IOKit/audio/IOAudioDevice.h>

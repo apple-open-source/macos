@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -35,17 +38,19 @@
 #include <IOKit/network/IOEthernetInterface.h>
 #include <IOKit/network/IOEthernetController.h>
 #include "IONetworkUserClient.h"
+#include <IOKit/pwr_mgt/RootDomain.h>	// publishFeature()
 
 extern "C" {
 #include <sys/param.h>
 #include <sys/errno.h>
 #include <sys/socket.h>
 #include <net/if.h>
-#include <net/etherdefs.h>
+#include <net/ethernet.h>
+#include <net/if_arp.h>
 #include <net/if_dl.h>
 #include <net/if_types.h>
+#include <net/dlil.h>
 #include <sys/sockio.h>
-#include <netinet/in_var.h>
 #include <sys/malloc.h>
 void arpwhohas(struct arpcom * ac, struct in_addr * addr);
 }
@@ -148,11 +153,47 @@ bool IOEthernetInterface::setFilters(OSDictionary *   dict,
 
 bool IOEthernetInterface::init(IONetworkController * controller)
 {
-    // Allocate an arpcom structure, then call super::init().
-    // We expect our superclass to call getIfnet() during its init()
-    // method, so arpcom must be allocated before calling super::init().
+    OSData * macAddr;
 
-    if ( (_arpcom = (struct arpcom *) IOMalloc(sizeof(*_arpcom))) == 0 )
+    // IONetworkInterface will call getIfnet() in its init() method,
+    // so arpcom must be available before calling super::init().
+    // First, fetch the controller's MAC/Ethernet address.
+
+    macAddr = OSDynamicCast(OSData, controller->getProperty(kIOMACAddress));
+    if ( (macAddr == 0) || (macAddr->getLength() != ETHER_ADDR_LEN) )
+    {
+        DLOG("%s: kIOMACAddress property access error (len %d)\n",
+             getName(), macAddr ? macAddr->getLength() : 0);
+        return false;
+    }
+
+    // Fetch an ifnet from DLIL. Depending on the 'uniqueid' provided,
+    // an existing ifnet may be returned, or a new ifnet may be allocated.
+    // For Ethernet interface, the MAC address of the controller is used
+    // as the unique ID. The size of the ifnet structure returned will be
+    // large enough to hold the expanded arpcom structure.
+
+    for ( int attempts = 0;
+              attempts < 3 &&
+                dlil_if_acquire(
+                /* DLIL family  */ APPLE_IF_FAM_ETHERNET,
+                /* uniqueid     */ (void *) macAddr->getBytesNoCopy(),
+                /* uniqueid_len */ macAddr->getLength(),
+                /* ifp          */ (struct ifnet **) &_arpcom ) != 0;
+              attempts++ )
+	{
+        // Perhaps the hardware was removed and then quickly re-inserted
+        // into the system, and the stale interface object has not yet
+        // released the ifnet back to DLIL. Since the new interface will
+        // provide the same MAC address, DLIL will return an error and
+        // refuse to allow multiple interfaces to share the same ifnet.
+        // Wait a bit and hope the old driver stack terminates quickly.
+        
+        DLOG("dlil_if_acquire() failed, sleeping...\n");
+        IOSleep( 50 );
+    }
+
+    if ( _arpcom == 0 )
     {
         DLOG("IOEthernetInterface: arpcom allocation failed\n");
         return false;
@@ -223,25 +264,18 @@ bool IOEthernetInterface::init(IONetworkController * controller)
 
 bool IOEthernetInterface::initIfnet(struct ifnet * ifp)
 {
-    struct arpcom * ac = (struct arpcom *) ifp;
-
-    assert(ac);
-
-    lock();
-
-    bzero(ac, sizeof(*ac));
+    super::initIfnet( ifp );
 
     // Set defaults suitable for Ethernet interfaces.
 
     setInterfaceType( IFT_ETHER );
     setMaxTransferUnit( ETHERMTU );
-    setMediaAddressLength( NUM_EN_ADDR_BYTES );
-    setMediaHeaderLength( ETHERHDRSIZE );
-    setFlags( IFF_BROADCAST | IFF_SIMPLEX | IFF_NOTRAILERS );
+    setMediaAddressLength( ETHER_ADDR_LEN );
+    setMediaHeaderLength( ETHER_HDR_LEN );
+    setFlags( IFF_BROADCAST | IFF_SIMPLEX | IFF_NOTRAILERS,
+              IFF_RUNNING   | IFF_MULTICAST );
 
-    unlock();
-
-    return super::initIfnet(ifp);
+    return true;
 }
 
 //---------------------------------------------------------------------------
@@ -252,7 +286,8 @@ void IOEthernetInterface::free()
 {
     if ( _arpcom )
     {
-        IOFree(_arpcom, sizeof(*_arpcom));
+        DLOG("%s%d: release ifnet %p\n", getNamePrefix(), getUnitNumber(), _arpcom);
+        dlil_if_release( (struct ifnet *) _arpcom );
         _arpcom = 0;
     }
 
@@ -336,10 +371,19 @@ bool IOEthernetInterface::controllerDidOpen(IONetworkController * ctr)
             setFlags(IFF_MULTICAST);
         }
 
+        // Advertise Wake on Magic Packet feature if supported.
+        
+        if ( GET_SUPPORTED_FILTERS( gIOEthernetWakeOnLANFilterGroup ) &
+             kIOEthernetWakeOnMagicPacket )
+        {
+            IOPMrootDomain * root = getPMRootDomain();
+            if ( root ) root->publishFeature( "WakeOnMagicPacket" );
+        }
+
         // Get the controller's MAC/Ethernet address.
 
         addrData = OSDynamicCast(OSData, ctr->getProperty(kIOMACAddress));
-        if ( (addrData == 0) || (addrData->getLength() != NUM_EN_ADDR_BYTES) )
+        if ( (addrData == 0) || (addrData->getLength() != ETHER_ADDR_LEN) )
         {
             DLOG("%s: kIOMACAddress property access error (len %d)\n",
                  getName(), addrData ? addrData->getLength() : 0);
@@ -362,7 +406,7 @@ bool IOEthernetInterface::controllerDidOpen(IONetworkController * ctr)
         // Copy the hardware address we obtained from the controller
         // to the arpcom structure.
 
-        bcopy(addr, _arpcom->ac_enaddr, NUM_EN_ADDR_BYTES);
+        bcopy(addr, _arpcom->ac_enaddr, ETHER_ADDR_LEN);
         
         ret = true;
     }
@@ -421,7 +465,8 @@ SInt32 IOEthernetInterface::performCommand( IONetworkController * ctr,
         case SIOCADDMULTI:
         case SIOCDELMULTI:
         case SIOCSIFADDR:
-        
+        case SIOCSIFMTU:
+
             ret = (int) ctr->executeCommand(
                              this,            /* client */
                              (IONetworkController::Action)
@@ -453,14 +498,15 @@ int IOEthernetInterface::performGatedCommand(void * target,
 {
     IOEthernetInterface * self = (IOEthernetInterface *) target;
     IONetworkController * ctr  = (IONetworkController *) arg1_ctr;
+    struct ifreq *        ifr  = (struct ifreq *) arg4_1;
     SInt                  ret  = EOPNOTSUPP;
 
     // Refuse to perform controller I/O if the controller is in a
     // low-power state that makes it "unusable".
 
-    if ( self->_controllerLostPower ) return EPWROFF;
-
-    self->lock();
+    if ( self->_controllerLostPower ||
+        ( self->getInterfaceState() & kIONetworkInterfaceDisabledState ) )
+         return EPWROFF;
 
     switch ( (UInt32) arg2_cmd )
     {
@@ -479,9 +525,11 @@ int IOEthernetInterface::performGatedCommand(void * target,
         case SIOCDELMULTI:
             ret = self->syncSIOCDELMULTI(ctr);
             break;
-    }
 
-    self->unlock();
+        case SIOCSIFMTU:
+            ret = self->syncSIOCSIFMTU( ctr, ifr );
+            break;
+    }
 
     return ret;
 }
@@ -508,7 +556,7 @@ IOReturn IOEthernetInterface::enableController(IONetworkController * ctr)
 
         // Send the controller an enable command.
    
-        if ( (ret = ctr->enable((IOService *) this)) != kIOReturnSuccess )
+        if ( (ret = ctr->doEnable(this)) != kIOReturnSuccess )
             break;     // unable to enable the controller.
 
         enabled = true;
@@ -538,7 +586,7 @@ IOReturn IOEthernetInterface::enableController(IONetworkController * ctr)
 
     if ( enabled && (ret != kIOReturnSuccess) )
     {
-        ctr->disable((IOService *) this);
+        ctr->doDisable(this);
     }
 
     return ret;
@@ -564,7 +612,7 @@ int IOEthernetInterface::syncSIOCSIFFLAGS(IONetworkController * ctr)
         // If interface is marked down and it is currently running,
         // then stop it.
 
-        ctr->disable((IOService *) this);
+        ctr->doDisable(this);
         flags &= ~IFF_RUNNING;
         _ctrEnabled = false;
     }
@@ -675,6 +723,53 @@ SInt IOEthernetInterface::syncSIOCDELMULTI(IONetworkController * ctr)
 }
 
 //---------------------------------------------------------------------------
+// Handle SIOCSIFMTU ioctl.
+
+int IOEthernetInterface::syncSIOCSIFMTU( IONetworkController * ctr,
+                                         struct ifreq *        ifr )
+{
+#define MTU_TO_FRAMESIZE(x) \
+        ((x) + kIOEthernetCRCSize + sizeof(struct ether_header))
+
+    SInt32  error = 0;
+    UInt32  size;
+    UInt32  maxSize = kIOEthernetMaxPacketSize;  // 1518
+    UInt32  ifrSize = MTU_TO_FRAMESIZE( ifr->ifr_mtu );
+    UInt32  ctrSize = MTU_TO_FRAMESIZE( getMaxTransferUnit() );
+
+    // If change is not necessary, return success without getting the
+    // controller involved.
+
+    if ( ctrSize == ifrSize )
+        return 0;  // no change required
+
+    if ( ctr->getMaxPacketSize( &size ) == kIOReturnSuccess )
+        maxSize = max( size, kIOEthernetMaxPacketSize );
+
+    if ( ifrSize > maxSize )
+        return EINVAL;	// MTU is too large for the controller.
+
+    // Message the controller if the new MTU requires a non standard
+    // frame size, or if the controller is currently programmed to
+    // support an extended frame size which is no longer required.
+
+    if ( max( ifrSize, ctrSize ) > kIOEthernetMaxPacketSize )
+    {
+        IOReturn ret;
+        ret = ctr->setMaxPacketSize( max(ifrSize, kIOEthernetMaxPacketSize) );
+        error = errnoFromReturn( ret );
+    }
+
+	if ( error == 0 )
+    {
+        // Success, update the MTU in ifnet.
+        setMaxTransferUnit( ifr->ifr_mtu );
+    }
+
+    return error;
+}
+
+//---------------------------------------------------------------------------
 // Enable a packet filter.
 
 #define getOneFilter(x)   ((x) & (~((x) - 1)))
@@ -683,7 +778,7 @@ IOReturn
 IOEthernetInterface::enableFilter(IONetworkController * ctr,
                                   const OSSymbol *      group,
                                   UInt32                filters,
-                                  IOOptionBits          options = 0)
+                                  IOOptionBits          options)
 {
     IOReturn ret = kIOReturnSuccess;
 
@@ -757,7 +852,7 @@ IOReturn
 IOEthernetInterface::disableFilter(IONetworkController * ctr,
                                    const OSSymbol *      group,
                                    UInt32                filters,
-                                   IOOptionBits          options = 0)
+                                   IOOptionBits          options)
 {
     IOReturn ret = kIOReturnSuccess;
 
@@ -842,7 +937,7 @@ IOEthernetInterface::setupMulticastFilter(IONetworkController * ctr)
     {
         char * addrp;
             
-        mcData = OSData::withCapacity(mcount * NUM_EN_ADDR_BYTES);
+        mcData = OSData::withCapacity(mcount * ETHER_ADDR_LEN);
         if (!mcData)
         {
             DLOG("%s: no memory for multicast address list\n", getName());
@@ -864,7 +959,7 @@ IOEthernetInterface::setupMulticastFilter(IONetworkController * ctr)
                 else
                 continue;
 
-            ok = mcData->appendBytes((const void *) addrp, NUM_EN_ADDR_BYTES);
+            ok = mcData->appendBytes((const void *) addrp, ETHER_ADDR_LEN);
             assert(ok);
         }
 
@@ -1023,6 +1118,30 @@ IOReturn IOEthernetInterface::setProperties( OSObject * properties )
                 }
             }
         }
+    }
+
+    return ret;
+}
+
+//---------------------------------------------------------------------------
+// willTerminate
+
+bool IOEthernetInterface::willTerminate( IOService *  provider,
+                                         IOOptionBits options )
+{
+    bool ret = super::willTerminate( provider, options );
+
+    // We assume that willTerminate() is always called from the
+    // provider's work loop context.
+
+    // Once the gated ioctl path has been blocked, disable the controller.
+    // The hardware may have already been removed from the system.
+
+    if ( _ctrEnabled && getController() )
+    {
+        DLOG("IOEthernetInterface::willTerminate disabling controller\n");
+        getController()->doDisable( this );
+        _ctrEnabled = false;
     }
 
     return ret;

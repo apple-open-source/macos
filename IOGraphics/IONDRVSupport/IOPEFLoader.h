@@ -19,16 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1997 Apple Computer, Inc.
- *
- *
- * HISTORY
- *
- * sdouglas  22 Oct 97 - first checked in.
- * sdouglas  21 July 98 - start IOKit
- * sdouglas  21 July 98 - start IOKit
- */
 
 
 #ifndef _IOKIT_IOPEFLOADER_H

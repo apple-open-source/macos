@@ -1522,7 +1522,7 @@ down:
 		       undefined->merged_symbol->nlist.n_type == (N_UNDF|N_EXT)
 		       && undefined->merged_symbol->nlist.n_value == 0){
 			error("malformed table of contents in library: %s "
-			      "(member %.*s did not defined symbol %s)",
+			      "(member %.*s did not define symbol %s)",
 			      file_name, (int)j, ar_name,
 			      undefined->merged_symbol->nlist.n_un.n_name);
 		    }
@@ -1746,7 +1746,8 @@ unsigned long file_size)
 	    length = round(obj_size, sizeof(short));
 	    offset += length;
 	}
-	if(arch_flag.cputype != 0 && mixed_types == FALSE &&
+	if(no_arch_warnings == FALSE &&
+	   arch_flag.cputype != 0 && mixed_types == FALSE &&
 	   arch_flag.cputype != cputype && cputype != 0){
 	    new_arch = get_arch_name_from_types(cputype, cpusubtype);
 	    prev_arch = get_arch_name_from_types(arch_flag.cputype,
@@ -1961,10 +1962,10 @@ void)
 
 	/*
 	 * For dynamic libraries on the dynamic library search list that are
-	 * from LC_LOAD_DYLIB references convert them into using a dylib file
-	 * so it can be searched.  Or remove them from the search list if it
-	 * can't be converted.  Then add all the dependent libraries for that
-	 * library to the search list.
+	 * from LC_LOAD_DYLIB or LC_LOAD_WEAK_DYLIB references convert them into
+	 * using a dylib file so it can be searched.  Or remove them from the
+	 * search list if it can't be converted.  Then add all the dependent
+	 * libraries for that library to the search list.
 	 */
 	indirect_dylib = TRUE;
 	prev = NULL;
@@ -1972,10 +1973,13 @@ void)
 	    removed = FALSE;
 	    /*
 	     * If this element on the dynamic library list comes from a
-	     * LC_LOAD_DYLIB reference try to convert them into using a dylib
-	     * file so it can be searched.  If not take it off the list.
+	     * LC_LOAD_DYLIB or LC_LOAD_WEAK_DYLIB reference try to convert them
+	     * into using a dylib file so it can be searched.  If not take it
+	     * off the list.
 	     */
-	    if(p->type == DYLIB && p->dl->cmd == LC_LOAD_DYLIB){
+	    if(p->type == DYLIB &&
+	       (p->dl->cmd == LC_LOAD_DYLIB ||
+		p->dl->cmd == LC_LOAD_WEAK_DYLIB)){
 		if(open_dylib(p) == FALSE){
 		    if(prebinding == TRUE){
 			warning("prebinding disabled because dependent "
@@ -2027,7 +2031,8 @@ void)
 			((char *)p->definition_obj->obj_addr +
 			 sizeof(struct mach_header));
 		for(i = 0; i < mh->ncmds; i++){
-		    if(lc->cmd == LC_LOAD_DYLIB){
+		    if(lc->cmd == LC_LOAD_DYLIB ||
+		       lc->cmd == LC_LOAD_WEAK_DYLIB){
 			dl = (struct dylib_command *)lc;
 			dep = add_dynamic_lib(DYLIB, dl, p->definition_obj);
 			p->dependent_images[p->ndependent_images++] = dep;
@@ -2308,12 +2313,14 @@ void)
 	if(rc_trace_dylibs == TRUE){
 	    for(p = dynamic_libs; p != NULL; p = p->next){
 		if(p->type == DYLIB){
-		    if(p->dylib_file != NULL)
+		    char resolvedname[MAXPATHLEN];
+		    if(realpath(p->definition_obj->file_name, resolvedname) !=
+		       NULL)
 			print("[Logging for Build & Integration] Used dynamic "
-			      "library: %s\n", p->file_name);
+			      "library: %s\n", resolvedname);
 		    else
 			print("[Logging for Build & Integration] Used dynamic "
-			      "library: %s\n", p->dylib_name);
+			      "library: %s\n", p->definition_obj->file_name);
 		}
 	    }
 	}
@@ -2347,10 +2354,11 @@ void)
 		q = p;
 		/*
 		 * This could be a dylib that was missing so its dynamic_library
-		 * struct will be just an LC_LOAD_DYLIB command and a name with
-		 * no strings, symbols, sub_images, etc.
+		 * struct will be just an LC_LOAD_DYLIB or LC_LOAD_WEAK_DYLIB
+		 * command and a name with no strings, symbols, sub_images, etc.
 	 	 */
-		if(p->dl->cmd == LC_LOAD_DYLIB)
+		if(p->dl->cmd == LC_LOAD_DYLIB ||
+		   p->dl->cmd == LC_LOAD_WEAK_DYLIB)
 		    goto undefined_twolevel_reference;
 		bsearch_strings = q->strings;
 		bsearch_symbols = q->symbols;
@@ -2362,7 +2370,8 @@ void)
 		if(toc == NULL){
 		    for(i = 0; toc == NULL && i < p->nsub_images; i++){
 			q = p->sub_images[i];
-			if(q->dl->cmd == LC_LOAD_DYLIB)
+			if(q->dl->cmd == LC_LOAD_DYLIB ||
+			   q->dl->cmd == LC_LOAD_WEAK_DYLIB)
 			    break;
 			bsearch_strings = q->strings;
 			bsearch_symbols = q->symbols;
@@ -2472,11 +2481,12 @@ undefined_twolevel_reference:
 			break;
 		    /*
 		     * This could be a dylib that was missing so its
-		     * dynamic_library struct will be just an LC_LOAD_DYLIB
-		     * command and a name with no strings, symbols, sub_images,
-		     * etc.
+		     * dynamic_library struct will be just an LC_LOAD_DYLIB or
+		     * LC_LOAD_WEAK_DYLIB command and a name with no strings,
+		     * symbols, sub_images, etc.
 		     */
-		    if(p->dl->cmd == LC_LOAD_DYLIB)
+		    if(p->dl->cmd == LC_LOAD_DYLIB ||
+		       p->dl->cmd == LC_LOAD_WEAK_DYLIB)
 			break;
 		    q = p;
 		    bsearch_strings = q->strings;
@@ -2491,7 +2501,8 @@ undefined_twolevel_reference:
 			for(i = 0; toc == NULL && i < p->nsub_images; i++){
 			    q = p->sub_images[i];
 			    q->twolevel_searched = TRUE;
-			    if(q->dl->cmd == LC_LOAD_DYLIB)
+			    if(q->dl->cmd == LC_LOAD_DYLIB ||
+			       q->dl->cmd == LC_LOAD_WEAK_DYLIB)
 				break;
 			    bsearch_strings = q->strings;
 			    bsearch_symbols = q->symbols;
@@ -2526,7 +2537,7 @@ undefined_twolevel_reference:
 			    (N_UNDF|N_EXT)
 			   && undefined->merged_symbol->nlist.n_value == 0){
 			    error("malformed table of contents in library: "
-			       "%s (module %s did not defined symbol %s)",
+			       "%s (module %s did not define symbol %s)",
 			       cur_obj->file_name, bsearch_strings +
 			       cur_obj->dylib_module->module_name,
 			       undefined->merged_symbol->nlist.n_un.n_name);
@@ -2611,7 +2622,7 @@ undefined_twolevel_reference:
 			   (N_UNDF|N_EXT)
 			   && undefined->merged_symbol->nlist.n_value == 0){
 			    error("malformed table of contents in library: %s "
-				  "(member %.*s did not defined symbol %s)",
+				  "(member %.*s did not define symbol %s)",
 				  p->file_name, (int)j, ar_name,
 				  undefined->merged_symbol->nlist.n_un.n_name);
 			}
@@ -2684,7 +2695,7 @@ undefined_twolevel_reference:
 			       (N_UNDF|N_EXT)
 			       && undefined->merged_symbol->nlist.n_value == 0){
 				error("malformed table of contents in library: "
-				   "%s (member %.*s did not defined symbol %s)",
+				   "%s (member %.*s did not define symbol %s)",
 				   p->file_name, (int)j, ar_name,
 				   undefined->merged_symbol->nlist.n_un.n_name);
 			    }
@@ -2728,7 +2739,7 @@ undefined_twolevel_reference:
 			    (N_UNDF|N_EXT)
 			   && undefined->merged_symbol->nlist.n_value == 0){
 			    error("malformed external defined symbols of "
-			       "-bundle_loader: %s (it did not defined symbol "
+			       "-bundle_loader: %s (it did not define symbol "
 			       "%s)", cur_obj->file_name,
 			       undefined->merged_symbol->nlist.n_un.n_name);
 			}
@@ -2768,7 +2779,8 @@ undefined_twolevel_reference:
 			       p->twolevel_searched == TRUE)
 				break;
 			    q = p;
-			    if(q->dl->cmd == LC_LOAD_DYLIB)
+			    if(q->dl->cmd == LC_LOAD_DYLIB ||
+			       q->dl->cmd == LC_LOAD_WEAK_DYLIB)
 				break;
 			    bsearch_strings = q->strings;
 			    bsearch_symbols = q->symbols;
@@ -2784,7 +2796,8 @@ undefined_twolevel_reference:
 				    j++){
 				    q = p->sub_images[j];
 				    q->twolevel_searched = TRUE;
-				    if(q->dl->cmd == LC_LOAD_DYLIB)
+				    if(q->dl->cmd == LC_LOAD_DYLIB ||
+				       q->dl->cmd == LC_LOAD_WEAK_DYLIB)
 					break;
 				    bsearch_strings = q->strings;
 				    bsearch_symbols = q->symbols;
@@ -2825,6 +2838,29 @@ undefined_twolevel_reference:
 					    toc->module_index)->module_name);
 				}
 			    }
+			}
+		    }
+		}
+	    }
+	}
+
+	/*
+	 * If the -prebind_all_twolevel_modules is specified and prebinding is
+	 * is still enabled and the output is an executable and we are not
+	 * building with -force_flat_namespace then change the bit vectors in
+	 * the two-level dynamic libraries to mark all modules as used.
+	 */
+	if(prebind_all_twolevel_modules == TRUE && prebinding == TRUE &&
+	   filetype == MH_EXECUTE && force_flat_namespace == FALSE){
+	    for(p = dynamic_libs; p != NULL; p = p->next){
+		if(p->type == DYLIB &&
+		   p->dl->cmd == LC_ID_DYLIB &&
+		   p->linked_modules != NULL){
+		    mh = (struct mach_header *)(p->definition_obj->obj_addr);
+		    if((mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL){
+			nmodules = p->definition_obj->dysymtab->nmodtab;
+			for(i = 0; i < nmodules; i++){
+			    p->linked_modules[i / 8] |= 1 << i % 8;
 			}
 		    }
 		}
@@ -3201,7 +3237,8 @@ enum bool twolevel_namespace_check)
 			   == TRUE)
 			    continue;
 			if(printed_unused == FALSE){
-			    if(multiply_defined_flag == MULTIPLY_DEFINED_ERROR)
+			    if(multiply_defined_unused_flag ==
+			       MULTIPLY_DEFINED_ERROR)
 				error("unused multiple definitions of symbol "
 				      "%s", merged_symbol->nlist.n_un.n_name);
 			    else
@@ -3641,8 +3678,9 @@ struct object_file *definition_obj)
 			/*
 			 * If the new one is also a LC_ID_DYLIB use the one
 			 * with the highest compatiblity number.  Else if the
-			 * new one is just an LC_LOAD_DYLIB ignore it and use
-			 * the one that is on the list which is a LC_ID_DYLIB.
+			 * new one is just an LC_LOAD_DYLIB or
+			 * LC_LOAD_WEAK_DYLIB ignore it and use the one that is
+			 * on the list which is a LC_ID_DYLIB.
 			 */
 			if(dl->cmd == LC_ID_DYLIB){
 			   if(dl->dylib.compatibility_version >
@@ -3858,7 +3896,8 @@ merge_return:
  * allocates the section_map structures and fills them in too), the fvmlib_
  * stuff field is set if any SG_FVMLIB segments or LC_LOADFVMLIB commands are
  * seen and the dylib_stuff field is set if the file is a MH_DYLIB type and
- * has a LC_ID_DYLIB command or a LC_LOAD_DYLIB command is seen.
+ * has a LC_ID_DYLIB command or a LC_LOAD_DYLIB or LC_LOAD_WEAK_DLIB command is 
+ * seen.
  */
 static
 void
@@ -3883,6 +3922,7 @@ enum bool bundle_loader)
     struct sub_library_command *lsub;
     struct sub_client_command *csub;
     struct twolevel_hints_command *hints;
+    struct prebind_cksum_command *cs;
     char *fvmlib_name, *dylib_name, *dylib_id_name, *dylinker_name,
 	 *umbrella_name, *sub_umbrella_name, *sub_library_name,*sub_client_name;
     cpu_subtype_t new_cpusubtype;
@@ -4262,10 +4302,7 @@ enum bool bundle_loader)
 		       section_type != S_NON_LAZY_SYMBOL_POINTERS &&
 		       section_type != S_LAZY_SYMBOL_POINTERS &&
 		       section_type != S_SYMBOL_STUBS &&
-#define ENABLE_COALESCED
-#ifdef ENABLE_COALESCED
 		       section_type != S_COALESCED &&
-#endif
 		       section_type != S_MOD_INIT_FUNC_POINTERS &&
 		       section_type != S_MOD_TERM_FUNC_POINTERS){
 			error_with_cur_obj("unknown flags (type) of section %lu"
@@ -4567,11 +4604,14 @@ enum bool bundle_loader)
 		break;
 
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 		if(filetype == MH_FVMLIB ||
 		   filetype == MH_DYLINKER){
-		    error_with_cur_obj("LC_LOAD_DYLIB load command in object "
+		    error_with_cur_obj("%s load command in object "
 			"file (should not be in an input file to the link "
 			"editor for the output file type %s)",
+			l.cmd == LC_LOAD_DYLIB ? "LC_LOAD_DYLIB" : 
+			"LC_LOAD_WEAK_DYLIB",
 			filetype == MH_FVMLIB ? "MH_FVMLIB" : "MH_DYLINKER");
 		    return;
 		}
@@ -4580,7 +4620,8 @@ enum bool bundle_loader)
 		    swap_dylib_command(dl, host_byte_sex);
 		if(dl->cmdsize < sizeof(struct dylib_command)){
 		    error_with_cur_obj("cmdsize of load command %lu incorrect "
-				       "for LC_LOAD_DYLIB", i);
+			"for %s", i, l.cmd == LC_LOAD_DYLIB ?  "LC_LOAD_DYLIB" :
+			"LC_LOAD_WEAK_DYLIB");
 		    return;
 		}
 		if(dl->dylib.name.offset >= dl->cmdsize){
@@ -4861,6 +4902,19 @@ enum bool bundle_loader)
 				  hints->offset, sizeof(long),
 				  "nhints * sizeof(struct twolevel_hint)",
 				  "offset", i);
+		if(errors)
+		    return;
+		break;
+
+	    case LC_PREBIND_CKSUM:
+		cs = (struct prebind_cksum_command *)lc;
+		if(cur_obj->swapped)
+		    swap_prebind_cksum_command(cs, host_byte_sex);
+		if(cs->cmdsize != sizeof(struct prebind_cksum_command)){
+		    error_with_cur_obj("cmdsize of load command %lu incorrect "
+				       "for LC_PREBIND_CKSUM", i);
+		    return;
+		}
 		if(errors)
 		    return;
 		break;
@@ -5263,9 +5317,7 @@ unsigned long strsize)
 		       section_type != S_NON_LAZY_SYMBOL_POINTERS &&
 		       section_type != S_LAZY_SYMBOL_POINTERS &&
 		       section_type != S_SYMBOL_STUBS &&
-#ifdef ENABLE_COALESCED
 		       section_type != S_COALESCED &&
-#endif
 		       section_type != S_MOD_INIT_FUNC_POINTERS &&
 		       section_type != S_MOD_TERM_FUNC_POINTERS){
 			error_with_cur_obj("unknown flags (type) of section %lu"
@@ -5318,6 +5370,7 @@ unsigned long strsize)
 	    case LC_LOADFVMLIB:
 	    case LC_ID_DYLIB:
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 	    case LC_ID_DYLINKER:
 	    case LC_LOAD_DYLINKER:
 	    case LC_UNIXTHREAD:

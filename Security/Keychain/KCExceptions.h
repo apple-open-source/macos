@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,11 +17,10 @@
 
 
 /*
-    KCExceptions.h
-*/
-
-#ifndef _H_KCEXCEPTIONS
-#define _H_KCEXCEPTIONS
+ *  KCExceptions.h
+ */
+#ifndef _SECURITY_KCEXCEPTIONS_H_
+#define _SECURITY_KCEXCEPTIONS_H_
 
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
@@ -88,4 +87,4 @@ inline void KCUnimplemented_()
 
 } // end namespace Security
 
-#endif /* _H_KCEXCEPTIONS */
+#endif /* !_SECURITY_KCEXCEPTIONS_H_ */

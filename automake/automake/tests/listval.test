@@ -1,0 +1,27 @@
+#! /bin/sh
+
+# Test to make sure variable is expanded properly.
+# From Adam J. Richter.
+required=libtool
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_SUBST(LTLIBOBJS)
+AC_PROG_LIBTOOL
+END
+
+cat > Makefile.am << 'END'
+lib_LTLIBRARIES = libpanel_applet.la
+libpanel_applet_la_SOURCES = \
+	applet-widget.c
+libpanel_applet_la_LDFLAGS = -version-info 0:1:0 -rpath $(libdir)
+libpanel_applet_la_LIBADD = -lm
+END
+
+: > ltconfig
+: > ltmain.sh
+: > config.guess
+: > config.sub
+
+$ACLOCAL -I $aclocaldir || exit 1
+$AUTOMAKE

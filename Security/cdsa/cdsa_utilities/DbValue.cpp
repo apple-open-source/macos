@@ -21,6 +21,7 @@
 //
 
 #include "DbValue.h"
+#include <ctype.h>
 
 //
 // DbValue
@@ -389,7 +390,7 @@ int
 BigNumValue::compare(const uint8 *a, const uint8 *b, int length)
 {
 	for (int diff, i = length - 1; i >= 1; i--)
-		if (diff = a[i] - b[i])
+		if ((diff = a[i] - b[i]))
 			return diff;
 
 	// for the last (i.e. first) byte, mask out the sign bit

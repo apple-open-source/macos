@@ -2,6 +2,7 @@
 
 ;; Copyright (C) 1990, 1993 Free Software Foundation, Inc.
 
+;; Maintainer: FSF
 ;; Keywords: emulations
 
 ;; This won't completely work until we support or emulate Lucid-style extents.
@@ -23,6 +24,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;;; Code:
 
@@ -229,4 +232,4 @@ the kill ring or the Clipboard."
 
 (provide 'lselect)
 
-;;; lselect.el ends here.
+;;; lselect.el ends here

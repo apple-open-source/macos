@@ -1,5 +1,6 @@
 /* Macro definitions for i386 running under BSD Unix.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996
+   Free Software Foundation, Inc.
 
 
    This program is free software; you can redistribute it and/or modify
@@ -33,7 +34,7 @@
    scheme (which is the same as the 386 scheme) and also regmap in the various
    *-nat.c files. */
 
-#undef  REGISTER_NAMES
+#undef REGISTER_NAME
 #define REGISTER_NAMES { "eax", "ecx", "edx", "ebx", \
                          "esp", "ebp", "esi", "edi", \
                          "eip", "eflags", "cs", "ss", \

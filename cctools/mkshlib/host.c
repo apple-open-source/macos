@@ -441,7 +441,7 @@ scan_objects(void)
 
 	for(i = 0; i < nobject_list; i++){
 	    ofile_process(object_list[i]->name, &arch_flag, 1, FALSE, FALSE,
-			  TRUE, scan_objects_processor, (void *)&i);
+			  TRUE, FALSE, scan_objects_processor, (void *)&i);
 	}
 }
 

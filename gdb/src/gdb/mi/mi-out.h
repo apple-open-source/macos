@@ -1,5 +1,5 @@
 /* MI Command Set - MI output generating routines for GDB.
-   Copyright (C) 2000, Free Software Foundation, Inc.
+   Copyright 2000 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions (a Red Hat company).
 
    This file is part of GDB.
@@ -22,12 +22,10 @@
 #ifndef MI_OUT_H
 #define MI_OUT_H 1
 
-#if __STDC__
 struct ui_out;
 struct ui_file;
-#endif
 
-extern struct ui_out *mi_out_new (void);
+extern struct ui_out *mi_out_new (int mi_version);
 extern void mi_out_put (struct ui_out *uiout, struct ui_file *stream);
 extern void mi_out_rewind (struct ui_out *uiout);
 extern void mi_out_buffered (struct ui_out *uiout, char *string);

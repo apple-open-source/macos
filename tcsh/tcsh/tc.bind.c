@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/tc.bind.c,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/tc.bind.c,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $ */
 /*
  * tc.bind.c: Key binding functions
  */

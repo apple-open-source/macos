@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,22 +17,13 @@
 
 
 /*
-	File:		KCEventObserver.h
-
-	Contains:	OS X CF Observer for Keychain Events
-
-	Written by:	Craig Mortensen
-
-	Copyright:	2000 by Apple Computer, Inc., All rights reserved.
-
-	Change History (most recent first):
-
-	To Do:
-*/
+ *  KCEventObserver.h -- OS X CF Observer for Keychain Events
+ */
+#ifndef _SECURITY_KCEVENTOBSERVER_H_
+#define _SECURITY_KCEVENTOBSERVER_H_
 
 #include <CoreFoundation/CFNotificationCenter.h>
 #include <CoreFoundation/CFString.h>
-#include <Security/SecKeychainAPI.h>
 
 namespace Security
 {
@@ -66,3 +57,5 @@ public:
 };
 
 } // end namespace Security
+
+#endif // !_SECURITY_KCEVENTOBSERVER_H_

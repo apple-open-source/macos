@@ -1,0 +1,125 @@
+# This is a replacement for bsd.lib.mk for the libc project to get it
+# doing the Right Thing in XBS, which is substantially different than
+# the BSD build system.
+#
+# The main problems arise when libc.a isn't meant to be static, but
+# libc_static.a is.  We also build a debug version of the library
+# in addition to shared, static, and profile.  Also, we build all 
+# versions of libc with debugging enabled, unstripped.  The BSD style
+# is to strip every object file after it is built but here, libc.a
+# will get merged into the larger libSystem.dylib, which will eventually
+# be stripped.  We also don't build a libc.dylib, since it will be
+# munged into libSystem.dylib.
+#
+# And another difference, B&I wishes to build the 4 incarnations of Libc
+# in parallel on different machines.  To do this, we must look at the
+# RC_ProjectName variable (which B&I sets) to determine which of the 4
+# versions of Libc we will be building.  Remember that the installhdrs
+# pass should only be invoked on one of the 4 versions, and man pages
+# should only be installed once as well.  Both of these get done when
+# we're invoked as "Libc".
+
+.PATH: .
+.MAIN: all
+all: libc.a libc_static.a libc_debug.a libc_profile.a
+install: installhdrs install_libc.a install_libc_static.a \
+         install_libc_profile.a install_libc_debug.a maninstall
+
+.SUFFIXES:
+.SUFFIXES: .o .po .So .do .S .s .c .cc .cpp .cxx .m .C .f .y .l .defs .h
+
+OBJS+=  ${SRCS:N*.h:R:S/$/.o/g}
+POBJS+= ${OBJS:.o=.po} ${STATICOBJS:.o=.po}
+SOBJS+= ${OBJS:.o=.So}
+
+.c.o:
+	${CC} -static ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
+.c.po: 
+	${CC} -pg -DPROFILE ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
+.c.So:
+	${CC} ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
+.c.do:
+	${CC} -g -DDEBUG ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
+.s.o:
+	${CC} -x assembler-with-cpp ${CFLAGS:M-[BID]*} -static ${AINC} -c \
+            ${.IMPSRC} -o ${.TARGET}
+.s.po:
+	${CC} -pg -DPROFILE -x assembler-with-cpp ${CFLAGS:M-[BID]*} -Os \
+            ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+.s.So:
+	${CC} -x assembler-with-cpp \
+            ${CFLAGS:M-[BID]*} -Os ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+.s.do:
+	${CC} -DDEBUG -g -x assembler-with-cpp ${CFLAGS:M-[BID]*} ${AINC} -c \
+            ${.IMPSRC} -o ${.TARGET}
+.defs.h:
+	mig -user ${.TARGET:S/.h$/User.c/} \
+		-server ${.TARGET:S/.h$/Server.c/} -header ${.TARGET} ${.IMPSRC}
+
+gen_mig_defs: ${SRVMIGHDRS} ${MIGHDRS} 
+lib${LIB}_static.a:: ${OBJS} ${STATICOBJS} 
+	@${ECHO} building static ${LIB} library
+	@rm -f lib${LIB}_static.a
+	@${AR} cq lib${LIB}_static.a `lorder ${OBJS} ${STATICOBJS} | tsort -q` ${ARADD}
+	${RANLIB} lib${LIB}_static.a
+
+lib${LIB}_profile.a:: ${POBJS} 
+	@${ECHO} building profiled ${LIB} library
+	@rm -f lib${LIB}_profile.a
+	@${AR} cq lib${LIB}_profile.a `lorder ${POBJS} | tsort -q` ${ARADD}
+	${RANLIB} lib${LIB}_profile.a
+
+DOBJS+= ${OBJS:.o=.do}
+lib${LIB}_debug.a:: ${DOBJS}
+	@${ECHO} building debug ${LIB} library
+	@rm -f lib${LIB}_debug.a
+	@${AR} cq lib${LIB}_debug.a `lorder ${DOBJS} | tsort -q` ${ARADD}
+	${RANLIB} lib${LIB}_debug.a
+
+lib${LIB}.a:: ${SOBJS}
+	@${ECHO} building standard ${LIB} library
+	@rm -f lib${LIB}.a
+	@${AR} cq lib${LIB}.a `lorder ${SOBJS} | tsort -q` ${ARADD}
+	${RANLIB} lib${LIB}.a
+
+CLEANFILES += ${DOBJS} libc_static.a libc_profile.a libc_debug.a
+
+installhdrs: gen_mig_defs
+	mkdir -p ${DESTDIR}/usr/include/arpa
+	mkdir -p ${DESTDIR}/usr/include/protocols
+	mkdir -p ${DESTDIR}/usr/include/mach
+	mkdir -p ${DESTDIR}/usr/include/objc
+	mkdir -p ${DESTDIR}/usr/include/servers
+	${INSTALL} -c -m 444 ${INSTHDRS} ${DESTDIR}/usr/include
+	${INSTALL} -c -m 444 ${ARPA_INSTHDRS} ${DESTDIR}/usr/include/arpa
+	${INSTALL} -c -m 444 ${PROTO_INSTHDRS} ${DESTDIR}/usr/include/protocols
+	${INSTALL} -c -m 444 ${MACH_INSTHDRS} ${DESTDIR}/usr/include/mach
+	${INSTALL} -c -m 444 ${OBJC_INSTHDRS} ${DESTDIR}/usr/include/objc
+	${INSTALL} -c -m 444 ${SRVHDRS} ${DESTDIR}/usr/include/servers
+	mv ${DESTDIR}/usr/include/servers/srvbootstrap.h ${DESTDIR}/usr/include/servers/bootstrap.h
+	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/
+	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture
+	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture/ppc
+	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/btree
+	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/machine
+	mkdir -p ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/objc
+	install -c -m 444 ${SRCROOT}/db/btree/btree.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/btree
+	install -c -m 444 ${SRCROOT}/db/btree/bt_extern.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/btree
+	install -c -m 444 ${SRCROOT}/ppc/sys/processor_facilities.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture/ppc
+	install -c -m 444 ${SRCROOT}/internat/NXCType.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/objc
+	install -c -m 444 ${SRCROOT}/gen/stack_logging.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/
+	mv ${DESTDIR}/usr/include/asm.h ${DESTDIR}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/machine
+
+install_lib${LIB}_static.a:
+	${INSTALL} -c -m 444 lib${LIB}_static.a ${DESTDIR}/usr/local/lib/system/
+install_lib${LIB}_profile.a:
+	${INSTALL} -c -m 444 lib${LIB}_profile.a ${DESTDIR}/usr/local/lib/system
+install_lib${LIB}_debug.a:
+	${INSTALL} -c -m 444 lib${LIB}_debug.a ${DESTDIR}/usr/local/lib/system/
+install_lib${LIB}.a:
+	${INSTALL} -c -m 444 lib${LIB}.a ${DESTDIR}/usr/local/lib/system/
+
+clean:
+	rm -f ${OBJS} ${POBJS} ${DOBJS} ${SOBJS} ${CLEANFILES}
+	rm -f lib${LIB}.a lib${LIB}_static.a lib${LIB}_profile.a \
+		lib${LIB}_debug.a 

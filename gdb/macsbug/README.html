@@ -11,7 +11,7 @@
 MacsBug Interface for GDB
 </FONT>
 <BR><FONT SIZE=3>
-6/8/01</FONT>
+1/18/02</FONT>
 </B></CENTER></P>
 
 <FONT SIZE=4><P><B>1. Introduction</B></P></FONT>
@@ -267,9 +267,47 @@ this should happen while the MacsBug screen is up you will need to type a <b>ref
 to restore the proper display.
 </P>
 
+<P>&nbsp;</P>
+<FONT SIZE=4><P><B>7. Changes in MacsBug 1.3</B></P></FONT>
+<UL>
+<LI type=square>
+Fixed typeo in the <B>fb</B> help info in the reference to <B>future-break</B>.
+
+</LI></P><P><LI type=square>
+Fixed memory write commands (e.g., <B>sb</B>, <B>sw</B>, etc.) to detect when the memory is
+inaccessible.
+</P>
+</LI>
+</UL>
 
 <P>&nbsp;</P>
-<FONT SIZE=4><P><B>7. Changes in MacsBug 1.1</B></P></FONT>
+<FONT SIZE=4><P><B>8. Changes in MacsBug 1.2</B></P></FONT>
+<UL>
+<LI type=square>
+Fixed all commands that potentially bcak up over gdb prompt to produce
+a contiguous display to ensure the line is cleared before writing.
+Previously, under certain conditions, a portion of the gdb prompt
+would remain.  Commands affect are: list, next, step, nexti, stepi, db,
+dw, dl, dm, dma, dp, id, il, ip.
+
+</LI></P><P><LI type=square>
+Added two new <b>set</b> commands:
+</P><P>
+<b>set</b> <FONT FACE="Courier" SIZE=+0>mb-hexdump-width</FONT> <i>w</i><br>
+<b>set</b> <FONT FACE="Courier" SIZE=+0>mb-hexdump-group</FONT> <i>g</i>
+</P><P>
+These control the hexdump display width and byte grouping (e.g., the
+output of the DM command).  The width is the number of bytes shown per
+line.  The grouping is the number of bytes shown without intervening
+spaces.  The default is a width of 16 bytes per line in 4 groups of 4
+bytes each.  The width must be a multiple of the group.  Previously
+the width was fixed at 16 in groups of 2.
+</P>
+</LI>
+</UL>
+
+<P>&nbsp;</P>
+<FONT SIZE=4><P><B>9. Changes in MacsBug 1.1</B></P></FONT>
 <UL>
 <LI type=square>Removed all references to the install-MacsBug script which was documented 
 but never installed in 1.0.

@@ -970,7 +970,7 @@ file_write(sp, fm, tm, name, flags)
 			*--s = '.';
 		}
 	}
-	msgq(sp, M_INFO, s);
+	msgq(sp, M_INFO, "%s", s);
 	if (nf)
 		FREE_SPACE(sp, p, 0);
 	return (0);

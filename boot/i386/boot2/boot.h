@@ -29,36 +29,42 @@
 #ifndef __BOOT2_BOOT_H
 #define __BOOT2_BOOT_H
 
+#include "libsaio.h"
+
 /*
  * Keys used in system Default.table / Instance0.table
  */
 #define kGraphicsModeKey    "Graphics Mode"
+#define kTextModeKey        "Text Mode"
 #define kBootGraphicsKey    "Boot Graphics"
 #define kQuietBootKey       "Quiet Boot"
 #define kKernelFlagsKey     "Kernel Flags"
 #define kKernelNameKey      "Kernel"
 
 /*
- * Possible values for the bootdev argument passed to boot().
- */
-enum {
-	kBootDevHardDisk = 0,
-	kBootDevFloppyDisk,
-	kBootDevNetwork
-};
-
-/*
  * A global set by boot() to record the device that the booter
  * was loaded from.
  */
-extern int gBootDev;
+extern int  gBIOSDev;
+extern BOOL gBootGraphics;
+extern long gBootMode;
+extern BOOL sysConfigValid;
+extern char bootBanner[];
+extern char bootPrompt[];
+
+// Boot Modes
+enum {
+    kBootModeNormal = 0,
+    kBootModeSafe,
+    kBootModeSecure
+};
 
 /*
  * graphics.c
  */
-extern void message(char * str, int centered);
-extern void setMode(int mode);
-extern int  currentMode();
+extern void printVBEInfo();
+extern void setVideoMode(int mode);
+extern int  getVideoMode();
 extern void spinActivityIndicator();
 extern void clearActivityIndicator();
 
@@ -66,5 +72,11 @@ extern void clearActivityIndicator();
  * drivers.c
  */
 extern long LoadDrivers(char * dirSpec);
+
+/*
+ * options.c
+ */
+extern void getBootOptions();
+extern int  processBootOptions();
 
 #endif /* !__BOOT2_BOOT_H */

@@ -51,8 +51,14 @@ void MD5Object::digestFinal(
 	if(mIsDone) {
 		throw std::runtime_error("MD5 digestFinal after final");
 	}
-	MD5Final((unsigned char *)digest, &mCtx);
+	MD5Final(&mCtx, (unsigned char *)digest);
 	mIsDone = true;
+}
+
+/* use default memberwise init */
+DigestObject *MD5Object::digestClone() const
+{
+	return new MD5Object(*this);
 }
 
 UInt32 MD5Object::digestSizeInBytes() const
@@ -125,6 +131,12 @@ void SHA1Object::digestFinal(
 	shsFinal(&mCtx);
 	memcpy(digest, mCtx.digest, SHS_DIGESTSIZE);
 	mIsDone = true;
+}
+
+/* use default memberwise init */
+DigestObject *SHA1Object::digestClone() const
+{
+	return new SHA1Object(*this);
 }
 
 UInt32 SHA1Object::digestSizeInBytes() const

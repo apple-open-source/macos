@@ -1,6 +1,7 @@
 /* Target machine sub-parameters for SPARC, for GDB, the GNU debugger.
    This is included by other tm-*.h files to define SPARC cpu-related info.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@mcc.com)
 
@@ -20,6 +21,8 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
+
+#include "regcache.h"
 
 struct type;
 struct value;
@@ -155,8 +158,6 @@ extern int sparc_intreg_size (void);
                                                                 \
   "y", "psr", "wim", "tbr", "pc", "npc", "fpsr", "cpsr" 	\
 }
-
-#define TARGET_BYTE_ORDER BIG_ENDIAN
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -294,9 +295,6 @@ extern CORE_ADDR sparc_extract_struct_value_address (char *);
 
 #define STACK_ALIGN(ADDR) sparc32_stack_align (ADDR)
 extern CORE_ADDR sparc32_stack_align (CORE_ADDR addr);
-
-/* Floating point is IEEE compatible.  */
-#define IEEE_FLOAT (1)
 
 /* The Sparc returns long doubles on the stack.  */
 
@@ -736,8 +734,8 @@ extern void sparc32_extract_return_value (struct type *, char[], char *);
 
 /* Sparc has no reliable single step ptrace call */
 
-#define SOFTWARE_SINGLE_STEP_P 1
-extern void sparc_software_single_step (unsigned int, int);
+#define SOFTWARE_SINGLE_STEP_P() 1
+extern void sparc_software_single_step (enum target_signal, int);
 #define SOFTWARE_SINGLE_STEP(sig,bp_p) sparc_software_single_step (sig,bp_p)
 
 /* We need more arguments in a frame specification for the

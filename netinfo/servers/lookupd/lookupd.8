@@ -42,7 +42,7 @@
 The
 .Nm
 daemon
-acts as an information broker and cache.  It is called by various routines in the System framework to find information about user accounts, groups, printers, e-mail aliases and distribution lists, computer names, Internet addresses, and several other kinds of information.
+acts as an information broker and cache.  It is called by various routines in the System framework to find information about user accounts, groups, printers, e-mail aliases and distribution lists, computer names, and Internet addresses; and several other kinds of information.
 .Pp
 .Nm
 keeps a cache of recently located items to improve system performance.  It also implements a search strategy used to find information from the many information sources that are potentially available to a computer.  These include the Domain Name System (DNS), Sun Microsystem's Network Information Services (NIS),  Apple's NetInfo system, and a set of files found in the /etc directory.  X.500-style databases that implement the schema described in RFC 2307 may be accessed using the LDAP protocol.
@@ -251,7 +251,7 @@ section.
 .It Em LogFile
 Name of a log file that contains a copy of all messages sent to syslog.  There is no default (i.e. no log file is kept).
 .It Em LogPriority
-Sets the maximum priority that will be logged.  Note that syslog's highest priority (LOG_EMERG) is 0, with priority 8 being the lowest priority (LOG_DEBUG).  The default is LOG_NOTICE, meaning that only messages of LOG_NOTICE or higher priority will be logged.  This value can also be set on the command line using the
+Sets the maximum priority that will be logged.  Note that syslog's highest priority (LOG_EMERG) is 0, with priority 7 being the lowest priority (LOG_DEBUG).  The default is LOG_NOTICE, meaning that only messages of LOG_NOTICE or higher priority will be logged.  This value can also be set on the command line using the
 .Fl l Ar priority
 option.
 .It Em MaxThreads
@@ -324,7 +324,7 @@ The
 option specifies a NetInfo read timeout in seconds.  This timeout is applied to all NetInfo lookups.
 .Pp
 .Em ConnectTimeout
-controls timeouts on initial NetInfo connections done at startup time, and applies to all domains other than the local domain.  The default value is 300 seconds.  A zero value indicates an unlimitied timeout.  
+controls timeouts on initial NetInfo connections done at startup time, and applies to all domains other than the local domain.  The default value is 300 seconds.  A zero value indicates an unlimited timeout.  
 .Pp
 .Em ValidationLatency
 is described above in the
@@ -335,7 +335,7 @@ The
 .Em DomainOrder
 option was the original mechanism implemented to allow you to specify a list of NetInfo domains (or specific NetInfo servers) that should be queried for information.  A search order may now be specified by using the startup argument (see below).  However, the
 .Em DomainOrder
-option is still supported for backward compatability.
+option is still supported for backward compatibility.
 .Pp
 By default, the NetInfo agent starts with a computer's local domain, then climbs the NetInfo hierarchy until reaching the root domain.  In very rare cases, you might find that you can solve a difficult configuration problem by altering the default lookup order.  Using this option can make your information systems configuration very confusing and spaghetti-like, so exercise great caution in its use!
 .Pp
@@ -532,14 +532,14 @@ will enable support for fetching a list of all hosts from DNS.  The DNSAgent imp
 .Pp
 DNSAgent supports a domain name as an optional startup argument.  For example:
 .Pp
-.Dl DNS:example.net
+.Dl DNS:zippy.net
 or
 .Dl DNS:local
 .Pp
 This allows you to configure lookupd to be a client of several different DNS domains.  Each domain named as an optional startup argument to DNSAgent must be defined in NetInfo.  In the case of the example 
-.Dq example.net
+.Dq zippy.net
 there must be a NetInfo directory with the path
-.Dq /domains/example.net.
+.Dq /domains/zippy.net.
 The directory should have the same format as the
 .Dq /locations/resolver
 directory, as described above.
@@ -678,7 +678,7 @@ can be obtained using:
 .It lookupd Fl statistics
 .El
 .Pp
-This will print version and build information, as well as a summary of calls and time useage.  Statistics are given for each information system, for each query, and for each qury within each information system.  For example:
+This will print version and build information, as well as a summary of calls and time usage.  Statistics are given for each information system, for each query, and for each query within each information system.  For example:
 .Bd -literal -offset indent
 Cache: 1676 1153 24285
 Cache all group: 3 0 18

@@ -1,5 +1,8 @@
 
-#import <mach/boolean.h>
+#ifndef _S_PTRLIST_H
+#define _S_PTRLIST_H
+
+#include <mach/boolean.h>
 
 /* the initial number of elements in the list */
 #define PTRLIST_NUMBER		16
@@ -21,3 +24,5 @@ int		ptrlist_count(ptrlist_t * list);
 void *		ptrlist_element(ptrlist_t * list, int i);
 boolean_t	ptrlist_remove(ptrlist_t * list, int i, void * * ret);
 int		ptrlist_index(ptrlist_t * list, void * element);
+
+#endif _S_PTRLIST_H

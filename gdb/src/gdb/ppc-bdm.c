@@ -1,6 +1,7 @@
 /* Remote target communications for the Macraigor Systems BDM Wiggler
    talking to a Motorola PPC 8xx ADS board
-   Copyright 1996, 1997 Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -28,19 +29,19 @@
 #include "bfd.h"
 #include "symfile.h"
 #include "target.h"
-#include "gdb_wait.h"
 #include "gdbcmd.h"
 #include "objfiles.h"
 #include "gdb-stabs.h"
 #include <sys/types.h>
-#include <signal.h>
 #include "serial.h"
 #include "ocd.h"
 #include "ppc-tdep.h"
+#include "regcache.h"
 
 static void bdm_ppc_open (char *name, int from_tty);
 
-static int bdm_ppc_wait (int pid, struct target_waitstatus *target_status);
+static ptid_t bdm_ppc_wait (ptid_t ptid,
+                            struct target_waitstatus *target_status);
 
 static void bdm_ppc_fetch_registers (int regno);
 
@@ -97,8 +98,8 @@ bdm_ppc_open (char *name, int from_tty)
    Returns "pid" (though it's not clear what, if anything, that
    means in the case of this target).  */
 
-static int
-bdm_ppc_wait (int pid, struct target_waitstatus *target_status)
+static ptid_t
+bdm_ppc_wait (ptid_t ptid, struct target_waitstatus *target_status)
 {
   int stop_reason;
 
@@ -109,7 +110,7 @@ bdm_ppc_wait (int pid, struct target_waitstatus *target_status)
   if (stop_reason)
     {
       target_status->value.sig = TARGET_SIGNAL_INT;
-      return inferior_pid;
+      return inferior_ptid;
     }
 
   target_status->value.sig = TARGET_SIGNAL_TRAP;	/* XXX for now */
@@ -124,7 +125,7 @@ bdm_ppc_wait (int pid, struct target_waitstatus *target_status)
   }
 #endif
 
-  return inferior_pid;
+  return inferior_ptid;
 }
 
 static int bdm_regmap[] =
@@ -199,8 +200,8 @@ bdm_ppc_fetch_registers (int regno)
 /*      printf("Asking for register %d\n", first_regno); */
 
       /* if asking for an invalid register */
-      if ((first_regno == PPC_MQ_REGNUM) ||
-	  ((first_regno >= FP0_REGNUM) && (first_regno <= FPLAST_REGNUM)))
+      if ((first_regno == gdbarch_tdep (current_gdbarch)->ppc_mq_regnum)
+	  || ((first_regno >= FP0_REGNUM) && (first_regno <= FPLAST_REGNUM)))
 	{
 /*          printf("invalid reg request!\n"); */
 	  supply_register (first_regno, NULL);
@@ -288,13 +289,13 @@ bdm_ppc_store_registers (int regno)
 
       /* only attempt to write if it's a valid ppc 8xx register */
       /* (need to avoid FP regs and MQ reg) */
-      if ((i != PPC_MQ_REGNUM) && ((i < FP0_REGNUM) || (i > FPLAST_REGNUM)))
+      if ((i != gdbarch_tdep (current_gdbarch)->ppc_mq_regnum) && ((i < FP0_REGNUM) || (i > FPLAST_REGNUM)))
 	{
 /*          printf("write valid reg %d\n", bdm_regno); */
 	  ocd_write_bdm_registers (bdm_regno, registers + REGISTER_BYTE (i), 4);
 	}
 /*
-   else if (i == PPC_MQ_REGNUM)
+   else if (i == gdbarch_tdep (current_gdbarch)->ppc_mq_regnum)
    printf("don't write invalid reg %d (PPC_MQ_REGNUM)\n", bdm_regno);
    else
    printf("don't write invalid reg %d\n", bdm_regno);
@@ -364,7 +365,6 @@ a wiggler, specify wiggler and then the port it is connected to\n\
   bdm_ppc_ops.to_thread_alive = ocd_thread_alive;
   bdm_ppc_ops.to_stop = ocd_stop;
   bdm_ppc_ops.to_pid_to_exec_file = NULL;
-  bdm_ppc_ops.to_core_file_to_sym_file = NULL;
   bdm_ppc_ops.to_stratum = process_stratum;
   bdm_ppc_ops.DONT_USE = NULL;
   bdm_ppc_ops.to_has_all_memory = 1;

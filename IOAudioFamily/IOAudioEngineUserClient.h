@@ -53,6 +53,16 @@ typedef struct IOAudioClientBuffer {
     struct IOAudioClientBuffer	*nextClient;
 } IOAudioClientBuffer;
 
+typedef struct IOAudioClientBufferExtendedInfo {
+	// Added stuff for registerClientParameterBuffer
+	UInt32						bufferSetID;
+	void						*paramBuffer;
+	IOMemoryDescriptor			*paramBufferDescriptor;
+	IOMemoryMap					*paramBufferMap;
+	void						*unmappedParamBuffer;
+	struct IOAudioClientBufferExtendedInfo	*next;
+} IOAudioClientBufferExtendedInfo;
+
 class IOAudioEngineUserClient : public IOUserClient
 {
     OSDeclareDefaultStructors(IOAudioEngineUserClient)
@@ -69,9 +79,9 @@ protected:
 
     IOExternalMethod			methods[kIOAudioEngineNumCalls];
     IOExternalTrap				trap;
-    
+
     task_t						clientTask;
-    UInt32						numSampleFrames;
+    UInt32						numSampleFrames;		// Never used...
     
     IOAudioClientBufferSet		*clientBufferSetList;
     IORecursiveLock 			*clientBufferLock;
@@ -81,13 +91,21 @@ protected:
     bool						online;
     
 protected:
-    struct ExpansionData { };
+    struct ExpansionData {
+		IOAudioClientBufferExtendedInfo		*extendedInfo;
+	};
     
     ExpansionData *reserved;
-    
+
+public:
+	// New code added here...
+	virtual IOReturn registerClientParameterBuffer (void *parameterBuffer, UInt32 bufferSetID);
+	virtual IOAudioClientBufferExtendedInfo * findExtendedInfo(UInt32 bufferSetID);
+
 private:
-    OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 0);
-    OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 1);
+    OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 0);
+    OSMetaClassDeclareReservedUsed(IOAudioEngineUserClient, 1);
+
     OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 2);
     OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 3);
     OSMetaClassDeclareReservedUnused(IOAudioEngineUserClient, 4);

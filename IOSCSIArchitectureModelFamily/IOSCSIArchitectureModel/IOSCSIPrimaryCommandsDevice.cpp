@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,17 +20,36 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// Libkern includes
 #include <libkern/OSByteOrder.h>
+
+// Generic IOKit related headers
 #include <IOKit/IOMessage.h>
+#include <IOKit/IOKitKeys.h>
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
 #include "IOSCSIPrimaryCommandsDevice.h"
 
-// For debugging, set SCSI_SPC_DEVICE_DEBUGGING_LEVEL to one
-// of the following values:
-//		0	No debugging 	(GM release level)
-// 		1 	PANIC_NOW only
-//		2	PANIC_NOW and ERROR_LOG
-//		3	PANIC_NOW, ERROR_LOG and STATUS_LOG
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"SPC"
+
+#if DEBUG
+#define SCSI_SPC_DEVICE_DEBUGGING_LEVEL			0
+#endif
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
+
 
 #if ( SCSI_SPC_DEVICE_DEBUGGING_LEVEL >= 1 )
 #define PANIC_NOW(x)		IOPanic x
@@ -51,6 +70,15 @@
 #endif
 
 
+#define super IOSCSIProtocolInterface
+OSDefineMetaClass ( IOSCSIPrimaryCommandsDevice, IOSCSIProtocolInterface );
+OSDefineAbstractStructors ( IOSCSIPrimaryCommandsDevice, IOSCSIProtocolInterface );
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 enum
 {
 	kSecondsInAMinute = 60
@@ -59,93 +87,97 @@ enum
 #define	kPowerConditionsModePage					0x1A
 #define	kPowerConditionsModePageSize				12
 #define kIOPropertyPowerConditionsSupportedKey		"PowerConditionsSupported"
+#define kAppleKeySwitchProperty						"AppleKeyswitch"
+#define kKeySwitchProperty							"Keyswitch"
+
+// Reserved fields
+#define fKeySwitchNotifier							fIOSCSIPrimaryCommandsDeviceReserved->fKeySwitchNotifier
+#define fANSIVersion								fIOSCSIPrimaryCommandsDeviceReserved->fANSIVersion
 
 
-#define super IOSCSIProtocolInterface
-OSDefineMetaClass ( IOSCSIPrimaryCommandsDevice, IOSCSIProtocolInterface );
-OSDefineAbstractStructors ( IOSCSIPrimaryCommandsDevice, IOSCSIProtocolInterface );
+#if 0
+#pragma mark -
+#pragma mark ¥ Public Methods
+#pragma mark -
+#endif
 
 
-bool 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ init - Called by IOKit to initialize us.						   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 IOSCSIPrimaryCommandsDevice::init ( OSDictionary * propTable )
 {
 	
-	STATUS_LOG ( ( "IOSCSIPrimaryCommandsDevice init called.\n" ) );
+	bool	result = false;
 	
-	if ( super::init ( propTable ) == false )
-	{
-		
-		ERROR_LOG ( ( "IOSCSIPrimaryCommandsDevice super didn't like the property table\n" ) );
-		return false;
-		
-	}
+	require ( super::init ( propTable ), ErrorExit );
+	result = true;
 	
-	return true;
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-bool 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ start - Called by IOKit to start our services.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 {
 	
-	OSString *	string;
-	
-	STATUS_LOG ( ( "%s: start called.\n", getName ( ) ) );
+	OSString *		string			= NULL;
+	OSIterator *	iterator		= NULL;
+	OSObject *		obj				= NULL;
+	UInt64			maxByteCount	= 0;
+	bool			result			= false;
 	
 	// Call our super class' start routine so that all inherited
 	// behavior is initialized.	
-	if ( !super::start ( provider ) )
-	{
-		
-		ERROR_LOG ( ( "%s: super didn't want to start.\n", getName ( ) ) );
-		return false;
-		
-	}
+	require ( super::start ( provider ), ErrorExit );
 	
 	fDeviceAccessEnabled 			= false;
 	fDeviceAccessSuspended			= false;
 	fDeviceSupportsPowerConditions 	= false;
 	fNumCommandsOutstanding 		= 0;
-
-	fProtocolDriver = OSDynamicCast ( IOSCSIProtocolInterface, provider );
 	
-	if ( fProtocolDriver == NULL )
-	{
-		
-		ERROR_LOG ( ( "%s: provider is not a IOSCSIProtocolInterface\n", getName ( ) ) );
-		return false;
-		
-	}
+	fIOSCSIPrimaryCommandsDeviceReserved = ( IOSCSIPrimaryCommandsDeviceExpansionData * )
+			IOMalloc ( sizeof ( IOSCSIPrimaryCommandsDeviceExpansionData ) );
+	require_nonzero ( fIOSCSIPrimaryCommandsDeviceReserved, ErrorExit );
+	
+	bzero ( fIOSCSIPrimaryCommandsDeviceReserved,
+			sizeof ( IOSCSIPrimaryCommandsDeviceExpansionData ) );
+	
+	fANSIVersion = kINQUIRY_ANSI_VERSION_NoClaimedConformance;
+	
+	fProtocolDriver = OSDynamicCast ( IOSCSIProtocolInterface, provider );
+	require_nonzero ( fProtocolDriver, FreeReservedMemory );
 	
 	fDeviceCharacteristicsDictionary = OSDictionary::withCapacity ( 1 );
-	if ( fDeviceCharacteristicsDictionary == NULL )
-	{
-		
-		ERROR_LOG ( ( "%s: couldn't device characteristics dictionary.\n", getName ( ) ) );
-		return false;
-		
-	}
+	require_nonzero ( fDeviceCharacteristicsDictionary, FreeReservedMemory );
 	
 	string = ( OSString * ) GetProtocolDriver ( )->getProperty ( kIOPropertySCSIVendorIdentification );	
+	check ( string );
 	fDeviceCharacteristicsDictionary->setObject ( kIOPropertyVendorNameKey, string );
 	
 	string = ( OSString * ) GetProtocolDriver ( )->getProperty ( kIOPropertySCSIProductIdentification );	
+	check ( string );
 	fDeviceCharacteristicsDictionary->setObject ( kIOPropertyProductNameKey, string );
 	
 	string = ( OSString * ) GetProtocolDriver ( )->getProperty ( kIOPropertySCSIProductRevisionLevel );	
+	check ( string );
 	fDeviceCharacteristicsDictionary->setObject ( kIOPropertyProductRevisionLevelKey, string );
 	
-	// Now create the required command sets used the class
-	if ( CreateCommandSetObjects ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "%s: couldn't create command set objects.\n", getName ( ) ) );
-		return false;
-		
-	}
+	// Now create the required command sets used by the class
+	require ( CreateCommandSetObjects ( ), FreeDeviceDictionary );
 	
-	// open out provider so it can't slip out from under us
+	// Open our provider so it can't slip out from under us
 	GetProtocolDriver ( )->open ( this );
 	
 	STATUS_LOG ( ( "%s: Check for the SCSI Device Characteristics property from provider.\n", getName ( ) ) );
@@ -195,30 +227,123 @@ IOSCSIPrimaryCommandsDevice::start ( IOService * provider )
 		}
 		
 	}
-	
-	fProtocolAccessEnabled = true;
-		
-	if ( InitializeDeviceSupport ( ) == false )
+
+	// See if the transport driver wants us to limit the transfer byte count
+	// if so, publish the keys to get the system to deblock with desired contraints
+	if ( IsProtocolServiceSupported ( kSCSIProtocolFeature_MaximumReadTransferByteCount, &maxByteCount ) )
 	{
 		
-		ERROR_LOG ( ( "%s: InitializeDeviceSupport failed\n", getName ( ) ) );
-		return false;
+		if ( maxByteCount > 0 )
+		{
+			
+			setProperty ( kIOMaximumSegmentCountReadKey, maxByteCount / page_size, 64 );
+			
+		}
+		
+	}
+	
+	maxByteCount = 0;
+	
+	if ( IsProtocolServiceSupported ( kSCSIProtocolFeature_MaximumWriteTransferByteCount, &maxByteCount ) )
+	{
+		
+		if ( maxByteCount > 0 )
+		{
+			
+			setProperty ( kIOMaximumSegmentCountWriteKey, maxByteCount / page_size, 64 );
+			
+		}
+		
+	}
+	
+	fProtocolAccessEnabled = true;
+	
+	require ( InitializeDeviceSupport ( ), CloseProvider );
+	
+	iterator = getMatchingServices ( nameMatching ( kAppleKeySwitchProperty  ) );
+	if ( iterator != NULL )
+	{
+		
+		while ( obj = iterator->getNextObject ( ) )
+		{
+			
+			IOService *		service = ( IOService * ) obj;
+			OSBoolean *		boolKey = NULL;
+			
+			boolKey = OSDynamicCast (
+								OSBoolean,
+								service->getProperty ( kKeySwitchProperty ) );
+			
+			setProperty ( kAppleKeySwitchProperty, boolKey );
+			
+		}
+		
+		iterator->release ( );
+		iterator = NULL;
 		
 	}
 	
 	fDeviceAccessEnabled = true;
 	StartDeviceSupport ( );
 	
-	return true;
+	if ( getProperty ( kAppleKeySwitchProperty ) )
+	{
+		
+		removeProperty ( kAppleKeySwitchProperty );
+		
+	}
+	
+	// Add a notification for the Apple KeySwitch on the servers.
+	fKeySwitchNotifier = addNotification (
+			gIOMatchedNotification,
+			nameMatching ( kAppleKeySwitchProperty ),
+			( IOServiceNotificationHandler ) &IOSCSIPrimaryCommandsDevice::ServerKeyswitchCallback,
+			this,
+			0 );
+	
+	result = true;
+	
+	return result;
+	
+	
+CloseProvider:
+	
+	
+	GetProtocolDriver ( )->close ( this );
+	
+	
+FreeDeviceDictionary:
+	
+	
+	require_nonzero ( fDeviceCharacteristicsDictionary, FreeReservedMemory );
+	fDeviceCharacteristicsDictionary->release ( );
+	fDeviceCharacteristicsDictionary = NULL;
+	
+	
+FreeReservedMemory:
+	
+	
+	require_nonzero ( fIOSCSIPrimaryCommandsDeviceReserved, ErrorExit );
+	IOFree ( fIOSCSIPrimaryCommandsDeviceReserved,
+		sizeof ( IOSCSIPrimaryCommandsDeviceExpansionData ) );
+	fIOSCSIPrimaryCommandsDeviceReserved = NULL;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ stop - Called by IOKit to stop our services.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
 IOSCSIPrimaryCommandsDevice::stop ( IOService * provider )
 {
-	
-	STATUS_LOG ( ( "%s: stop called.\n", getName ( ) ) );
 	
 	fProtocolAccessEnabled = false;
 	
@@ -232,11 +357,10 @@ IOSCSIPrimaryCommandsDevice::stop ( IOService * provider )
 		
 	}
 	
-
-	if ( fProtocolDriver && ( fProtocolDriver == provider ) )
+	if ( ( fProtocolDriver != NULL ) && ( fProtocolDriver == provider ) )
 	{
 		
-		fProtocolDriver->close( this );
+		fProtocolDriver->close ( this );
 		fProtocolDriver = NULL;
 		
 		super::stop ( provider );
@@ -246,6 +370,10 @@ IOSCSIPrimaryCommandsDevice::stop ( IOService * provider )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ free - Called by IOKit to free any resources.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
 IOSCSIPrimaryCommandsDevice::free ( void )
 {
@@ -254,11 +382,25 @@ IOSCSIPrimaryCommandsDevice::free ( void )
 	// CreateCommandSetObjects()
 	FreeCommandSetObjects ( );
 	
+	// Free our reserved data
+	if ( fIOSCSIPrimaryCommandsDeviceReserved != NULL )
+	{
+		
+		IOFree ( fIOSCSIPrimaryCommandsDeviceReserved,
+				 sizeof ( IOSCSIPrimaryCommandsDeviceExpansionData ) );
+		fIOSCSIPrimaryCommandsDeviceReserved = NULL;
+		
+	}
+	
 	// Make sure to call our super
 	super::free ( );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ message - Called by IOKit to deliver messages.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOSCSIPrimaryCommandsDevice::message (	UInt32 		type,
@@ -286,6 +428,14 @@ IOSCSIPrimaryCommandsDevice::message (	UInt32 		type,
 				
 				fDeviceAccessEnabled = false;
 				StopDeviceSupport ( );
+				
+			}
+			
+			if ( fKeySwitchNotifier != NULL )
+			{
+				
+				fKeySwitchNotifier->remove ( );
+				fKeySwitchNotifier = NULL;
 				
 			}
 			
@@ -345,12 +495,22 @@ IOSCSIPrimaryCommandsDevice::message (	UInt32 		type,
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ VerifyDeviceState - Used to verify that device is in a known state.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 IOReturn
 IOSCSIPrimaryCommandsDevice::VerifyDeviceState ( void )
 {
 	return kIOReturnSuccess;
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IsProtocolAccessEnabled - Returns whether protocol access is enabled
+//								or not.								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIPrimaryCommandsDevice::IsProtocolAccessEnabled ( void )
@@ -359,12 +519,22 @@ IOSCSIPrimaryCommandsDevice::IsProtocolAccessEnabled ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IsDeviceAccessEnabled - Returns whether device access is enabled or not.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 IOSCSIPrimaryCommandsDevice::IsDeviceAccessEnabled ( void )
 {
 	return fDeviceAccessEnabled;
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IsDeviceAccessSuspended - Returns whether device access is suspended
+//								or not.								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIPrimaryCommandsDevice::IsDeviceAccessSuspended ( void )
@@ -373,17 +543,23 @@ IOSCSIPrimaryCommandsDevice::IsDeviceAccessSuspended ( void )
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark Power Management Methods
+#pragma mark ¥ Power Management Methods
+#pragma mark -
+#endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ setAggressiveness - 	Called by power management to tell us to change
+//							the device aggressiveness values.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOReturn
 IOSCSIPrimaryCommandsDevice::setAggressiveness ( UInt32 type, UInt32 minutes )
 {
 	
 	UInt32	numStateTransitions = 0;
-		
-	STATUS_LOG ( ( "IOSCSIPrimaryCommandsDevice::setAggressiveness called\n" ) );
 	
 	if ( type == kPMMinutesToSpinDown )
 	{
@@ -415,6 +591,10 @@ IOSCSIPrimaryCommandsDevice::setAggressiveness ( UInt32 type, UInt32 minutes )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ClearPowerOnReset - 	Clears any power-on sense data.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
 IOSCSIPrimaryCommandsDevice::ClearPowerOnReset ( void )
 {
@@ -425,8 +605,6 @@ IOSCSIPrimaryCommandsDevice::ClearPowerOnReset ( void )
 	bool						driveReady 		= false;
 	bool						result 			= true;
 	SCSIServiceResponse 		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	
-	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
 	
 	bufferDesc = IOMemoryDescriptor::withAddress( ( void * ) &senseBuffer,
 													kSenseDefaultSize,
@@ -441,7 +619,7 @@ IOSCSIPrimaryCommandsDevice::ClearPowerOnReset ( void )
 		{
 			
 			// The command was successfully built, now send it
-			serviceResponse = SendCommand ( request, 0 );
+			serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
 			
 		}
 		
@@ -458,14 +636,16 @@ IOSCSIPrimaryCommandsDevice::ClearPowerOnReset ( void )
 			if ( GetTaskStatus ( request ) == kSCSITaskStatus_CHECK_CONDITION )
 			{
 				
-				validSense = GetAutoSenseData ( request, &senseBuffer );
+				validSense = GetAutoSenseData ( request, &senseBuffer, sizeof ( senseBuffer ) );
 				if ( validSense == false )
 				{
 					
 					if ( REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize, 0  ) == true )
 					{
+						
 						// The command was successfully built, now send it
-						serviceResponse = SendCommand ( request, 0 );
+						serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
+						
 					}
 					
 					else
@@ -556,15 +736,19 @@ IOSCSIPrimaryCommandsDevice::ClearPowerOnReset ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ CheckPowerConditionsModePage - Checks the power conditions mode page.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void
 IOSCSIPrimaryCommandsDevice::CheckPowerConditionsModePage ( void )
 {
-	
-	SCSI_Sense_Data				senseBuffer;
+
+	UInt8						buffer[kPowerConditionsModePageSize];	
 	IOMemoryDescriptor *		bufferDesc;
-	SCSITaskIdentifier			request;
-	SCSIServiceResponse 		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	UInt8						buffer[kPowerConditionsModePageSize];
+	IOReturn					status;
+	bool						use10Byte = true;
 	
 	STATUS_LOG ( ( "%s::%s called\n", getName ( ), __FUNCTION__ ) );
 	
@@ -572,34 +756,15 @@ IOSCSIPrimaryCommandsDevice::CheckPowerConditionsModePage ( void )
 													kPowerConditionsModePageSize,
 													kIODirectionIn );
 	
-	request = GetSCSITask ( );
-	
-	if ( MODE_SENSE_10 ( request,
-						 bufferDesc,
-						 0x00,
-						 0x01,	/* Disable block descriptors */
-						 0x00,
-						 kPowerConditionsModePage,
-						 kPowerConditionsModePageSize,
-						 0x00 ) == true )
+	if ( bufferDesc != NULL )
 	{
-		
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, 0 );
-		
-	}
 	
-	else
-	{
-		PANIC_NOW ( ( "IOSCSIPrimaryCommandsDevice::CheckPowerConditionsModePage malformed command" ) );
-	}
 	
-	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-	{
-		
-		bool validSense = false;
-		
-		if ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD )
+		status = GetModeSense ( bufferDesc,
+								kPowerConditionsModePage,
+								kPowerConditionsModePageSize,
+								&use10Byte );
+		if ( status == kIOReturnSuccess )
 		{
 			
 			if ( ( buffer[8] & 0x3F ) == kPowerConditionsModePage )
@@ -615,53 +780,9 @@ IOSCSIPrimaryCommandsDevice::CheckPowerConditionsModePage ( void )
 			
 		}
 		
-		if ( GetTaskStatus ( request ) == kSCSITaskStatus_CHECK_CONDITION )
-		{
-			
-			STATUS_LOG ( ( "Device gave check condition to power conditions page\n" ) );
-			
-			validSense = GetAutoSenseData ( request, &senseBuffer );
-			if ( validSense == false )
-			{
-				
-				if ( REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize, 0  ) == true )
-				{
-					
-					// The command was successfully built, now send it
-					serviceResponse = SendCommand ( request, 0 );
-					
-				}
-				
-				else
-				{
-					PANIC_NOW ( ( "IOSCSIPrimaryCommandsDevice::CheckPowerConditionsModePage malformed command" ) );
-				}
-				
-				if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
-				{
-					
-					validSense = true;
-					
-				}
-				
-			}
-			
-			if ( validSense == true )
-			{
-				
-				STATUS_LOG ( ( "sense data: %01x, %02x, %02x\n",
-						( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ),
-						senseBuffer.ADDITIONAL_SENSE_CODE,
-						senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
-				
-			}
-			
-		}
+		bufferDesc->release ( );
 		
 	}
-	
-	bufferDesc->release ( );
-	ReleaseSCSITask ( request );
 	
 	#if ( SCSI_SPC_DEVICE_DEBUGGING_LEVEL > 0 )
 		setProperty ( kIOPropertyPowerConditionsSupportedKey, fDeviceSupportsPowerConditions );
@@ -669,26 +790,30 @@ IOSCSIPrimaryCommandsDevice::CheckPowerConditionsModePage ( void )
 	
 }
 
-//---------------------------------------------------------------------------
-// ¥ IncrementOutstandingCommandsCount - Call to increment outstanding command								
-//---------------------------------------------------------------------------
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IncrementOutstandingCommandsCount - 	Called to increment the number of
+//											outstanding commands.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIPrimaryCommandsDevice::IncrementOutstandingCommandsCount ( void )
 {
 	
 	fCommandGate->runAction ( ( IOCommandGate::Action )
-							&IOSCSIPrimaryCommandsDevice::sIncrementOutstandingCommandsCount );
+		&IOSCSIPrimaryCommandsDevice::sIncrementOutstandingCommandsCount );
 	
 }
 
 
-//---------------------------------------------------------------------------
-// ¥ sIncrementOutstandingCommandsCount - C->C++ glue.
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sIncrementOutstandingCommandsCount - C->C++ glue code.
+//															[STATIC][PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
-IOSCSIPrimaryCommandsDevice::sIncrementOutstandingCommandsCount ( IOSCSIPrimaryCommandsDevice * self )
+IOSCSIPrimaryCommandsDevice::sIncrementOutstandingCommandsCount (
+									IOSCSIPrimaryCommandsDevice * self )
 {
 	
 	self->HandleIncrementOutstandingCommandsCount ( );
@@ -696,34 +821,44 @@ IOSCSIPrimaryCommandsDevice::sIncrementOutstandingCommandsCount ( IOSCSIPrimaryC
 }
 
 
-//---------------------------------------------------------------------------
-// ¥ HandleIncrementOutstandingCommandsCount -
-//---------------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleIncrementOutstandingCommandsCount - 	Increments number of
+//												outstanding commands.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIPrimaryCommandsDevice::HandleIncrementOutstandingCommandsCount ( void )
 {
 	
-	STATUS_LOG ( ( "IOSCSIPrimaryCommandsDevice::%s called\n", __FUNCTION__ ) );	
 	fNumCommandsOutstanding++;	
 	
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark SCSI Task Get and Release
+#pragma mark ¥ÊSCSI Task Get and Release
+#pragma mark -
+#endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetSCSITask - 	Gets a SCSITask for use by the caller.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSITaskIdentifier 
 IOSCSIPrimaryCommandsDevice::GetSCSITask ( void )
 {
 	
-	SCSITask	* newTask = new SCSITask;
+	SCSITask *	newTask = new SCSITask;
+	
+	check ( newTask );
 	
 	newTask->SetTaskOwner ( this );
-
+	
 	// thread safe increment outstanding command count
-	IncrementOutstandingCommandsCount ();
+	IncrementOutstandingCommandsCount ( );
 	
 	// Make sure the object is not removed if there is a pending
 	// command.
@@ -734,40 +869,59 @@ IOSCSIPrimaryCommandsDevice::GetSCSITask ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ ReleaseSCSITask - 	Releases a SCSITask.						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void 
 IOSCSIPrimaryCommandsDevice::ReleaseSCSITask ( SCSITaskIdentifier request )
 {
 	
-	if ( request != NULL )
-	{
-		
-		// decrement outstanding command count
-		fNumCommandsOutstanding--;
+	require_nonzero ( request, Exit );
 	
-		request->release ( );
-		
-		// Since the command has been released, let go of the retain on this
-		// object.
-		release ( );
-		
-	}
+	// decrement outstanding command count
+	fNumCommandsOutstanding--;
+	
+	request->release ( );
+	
+	// Since the command has been released, let go of the retain on this
+	// object.
+	release ( );
+	
+	
+Exit:
+	
+	
+	return;
 	
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark Supporting Object Accessor Methods
+#pragma mark ¥ Supporting Object Accessor Methods
+#pragma mark -
+#endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetProtocolDriver - Returns the protocol driver.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOSCSIProtocolInterface *
 IOSCSIPrimaryCommandsDevice::GetProtocolDriver ( void )
 {
 	
-	STATUS_LOG ( ( "%s: GetProtocolDriver called.\n", getName ( ) ) );
+	check ( fProtocolDriver );
 	return fProtocolDriver;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetSCSIPrimaryCommandObject - Returns SCSIPrimaryCommands object.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSIPrimaryCommands	*
 IOSCSIPrimaryCommandsDevice::GetSCSIPrimaryCommandObject ( void )
@@ -779,33 +933,41 @@ IOSCSIPrimaryCommandsDevice::GetSCSIPrimaryCommandObject ( void )
 }
 
 
-bool 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ CreateCommandSetObjects - Called to create command set objects.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
 IOSCSIPrimaryCommandsDevice::CreateCommandSetObjects ( void )
 {
 	
-	STATUS_LOG ( ( "%s: CreateCommandSetObjects called.\n", getName ( ) ) );
+	bool	result = false;
 	
-	fSCSIPrimaryCommandObject = SCSIPrimaryCommands::CreateSCSIPrimaryCommandObject ( );
-	if ( fSCSIPrimaryCommandObject == NULL )
-	{
-		
-		ERROR_LOG ( ( "%s: Could not allocate an SPC object\n", getName ( ) ) );
-		return false;
-		
-	}
+	fSCSIPrimaryCommandObject =
+		SCSIPrimaryCommands::CreateSCSIPrimaryCommandObject ( );
+	require_nonzero ( fSCSIPrimaryCommandObject, ErrorExit );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ FreeCommandSetObjects - Called to free command set objects.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIPrimaryCommandsDevice::FreeCommandSetObjects ( void )
 {
 	
-	STATUS_LOG ( ( "%s: FreeCommandSetObjects called.\n", getName ( ) ) );
-	
-	if ( fSCSIPrimaryCommandObject )
+	if ( fSCSIPrimaryCommandObject != NULL )
 	{
 		
 		fSCSIPrimaryCommandObject->release( );
@@ -816,9 +978,16 @@ IOSCSIPrimaryCommandsDevice::FreeCommandSetObjects ( void )
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark Task Execution Support Methods
+#pragma mark ¥ Task Execution Support Methods
+#pragma mark -
+#endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ TaskCallback - Called to complete a task.						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIPrimaryCommandsDevice::TaskCallback ( SCSITaskIdentifier completedTask )
@@ -828,83 +997,84 @@ IOSCSIPrimaryCommandsDevice::TaskCallback ( SCSITaskIdentifier completedTask )
 	SCSITask *				scsiRequest;
 	IOSyncer *				fSyncLock;
 	
-	STATUS_LOG ( ( "IOSCSIPrimaryCommandsDevice::TaskCallback called\n.") );
-		
 	scsiRequest = OSDynamicCast ( SCSITask, completedTask );
-	if ( scsiRequest == NULL )
-	{
-		
-		PANIC_NOW ( ( "IOSCSIPrimaryCommandsDevice::TaskCallback scsiRequest==NULL." ) );
-		ERROR_LOG ( ( "IOSCSIPrimaryCommandsDevice::TaskCallback scsiRequest==NULL." ) );
-		return;
-		
-	}
+	require_nonzero ( scsiRequest, ErrorExit );
 	
 	fSyncLock = ( IOSyncer * ) scsiRequest->GetApplicationLayerReference ( );
+	check ( fSyncLock );
+	
 	serviceResponse = scsiRequest->GetServiceResponse ( );
 	fSyncLock->signal ( serviceResponse, false );
+	
+	return;
+	
+	
+ErrorExit:
+	
+	
+	IOPanic ( "IOSCSIPrimaryCommandsDevice::TaskCallback called with no SCSITask\n" );
+	return;
 	
 }
 
 
-SCSIServiceResponse 
-IOSCSIPrimaryCommandsDevice::SendCommand ( SCSITaskIdentifier request, UInt32 timeoutDuration )
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SendCommand - Called to send a command synchronously.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPrimaryCommandsDevice::SendCommand (
+					SCSITaskIdentifier	request,
+					UInt32				timeoutDuration )
 {
 	
-	SCSIServiceResponse 	serviceResponse;
-	IOSyncer *				fSyncLock;
+	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	IOSyncer *				fSyncLock		= NULL;
 	
-	if ( IsProtocolAccessEnabled ( ) == false )
-	{
-		
-		SetServiceResponse ( request, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE );
-		
-		// Save that status into the Task object.
-		SetTaskStatus ( request, kSCSITaskStatus_No_Status );
-		
-		return kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-		
-	}
-
+	require ( IsProtocolAccessEnabled ( ), ProtocolAccessDisabledError );
+	
 	fSyncLock = IOSyncer::create ( false );
-	if ( fSyncLock == NULL )
-	{
-		
-		PANIC_NOW ( ( "IOSCSIPrimaryCommandsDevice::SendCommand Allocate fSyncLock failed." ) );
-		ERROR_LOG ( ( "IOSCSIPrimaryCommandsDevice::SendCommand Allocate fSyncLock failed." ) );
-		
-		SetServiceResponse ( request, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE );
-		
-		// Save that status into the Task object.
-		SetTaskStatus ( request, kSCSITaskStatus_No_Status );
-		
-		return kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-		
-	}
+	require_nonzero ( fSyncLock, SyncerCreationFailedError );
 	
 	fSyncLock->signal ( kIOReturnSuccess, false );
 	
 	SetTimeoutDuration ( request, timeoutDuration );
-	SetTaskCompletionCallback ( request, &this->TaskCallback );
+	SetTaskCompletionCallback ( request, &IOSCSIPrimaryCommandsDevice::TaskCallback );
 	SetApplicationLayerReference ( request, ( void * ) fSyncLock );
 	
-	SetAutosenseCommand ( request, kSCSICmd_REQUEST_SENSE, 0x00, 0x00, 0x00, sizeof ( SCSI_Sense_Data ), 0x00 );
+	SetAutosenseCommand ( request,
+						  kSCSICmd_REQUEST_SENSE,
+						  0x00,
+						  0x00,
+						  0x00,
+						  sizeof ( SCSI_Sense_Data ),
+						  0x00 );
 	
-	STATUS_LOG ( ( "%s:SendCommand Reinit the syncer.\n", getName ( ) ) );
 	fSyncLock->reinit ( );
-	
-	STATUS_LOG ( ( "%s:SendCommand Execute the command.\n", getName ( ) ) );
 	GetProtocolDriver ( )->ExecuteCommand ( request );
 	
 	// Wait for the completion routine to get called
 	serviceResponse = ( SCSIServiceResponse) fSyncLock->wait ( false );
 	fSyncLock->release ( );
 	
-	STATUS_LOG ( ( "%s:SendCommand return the service response.\n", getName ( ) ) );
+	return serviceResponse;
+	
+	
+SyncerCreationFailedError:
+ProtocolAccessDisabledError:
+	
+	
+	SetServiceResponse ( request, serviceResponse );
+	SetTaskStatus ( request, kSCSITaskStatus_No_Status );
+	
 	return serviceResponse;
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SendCommand - Called to send a command asynchronously.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void 
 IOSCSIPrimaryCommandsDevice::SendCommand ( 
@@ -913,49 +1083,69 @@ IOSCSIPrimaryCommandsDevice::SendCommand (
 						SCSITaskCompletion 	taskCompletion )
 {
 	
-	STATUS_LOG ( ( "%s: SendCommand called.\n", getName ( ) ) );
+	SetTaskCompletionCallback ( request, taskCompletion );
 	
-	if ( IsProtocolAccessEnabled ( ) == false )
-	{
-		
-		SetServiceResponse ( request, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE );
-		
-		// Save that status into the Task object.
-		SetTaskStatus ( request, kSCSITaskStatus_No_Status );
-		
-		// The task has completed, execute the callback.
-		TaskCompletedNotification ( request );
-		
-		return;
-		
-	}
+	require ( IsProtocolAccessEnabled ( ), ProtocolAccessDisabledError );
 	
 	SetTimeoutDuration ( request, timeoutDuration );
 	
-	SetTaskCompletionCallback ( request, taskCompletion );
+	SetAutosenseCommand ( request,
+						  kSCSICmd_REQUEST_SENSE,
+						  0x00,
+						  0x00,
+						  0x00,
+						  sizeof ( SCSI_Sense_Data ),
+						  0x00 );
 	
-	SetAutosenseCommand ( request, kSCSICmd_REQUEST_SENSE, 0x00, 0x00, 0x00, sizeof ( SCSI_Sense_Data ), 0x00 );
 	GetProtocolDriver ( )->ExecuteCommand ( request );
+	
+	return;
+	
+	
+ProtocolAccessDisabledError:
+	
+	
+	SetServiceResponse ( request,
+						 kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE );
+	SetTaskStatus ( request, kSCSITaskStatus_No_Status );
+	// The task has completed, execute the callback.
+	TaskCompletedNotification ( request );
+	
+	return;
 	
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark SCSI Task Field Accessors
+#pragma mark ¥ SCSI Task Field Accessors
+#pragma mark -
+#endif
 
 
-// ---- Utility methods for accessing SCSITask attributes ----
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetTaskAttribute - Sets the SCSITaskAttribute.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::SetTaskAttribute ( SCSITaskIdentifier request, SCSITaskAttribute newAttribute )
+IOSCSIPrimaryCommandsDevice::SetTaskAttribute (
+									SCSITaskIdentifier	request,
+									SCSITaskAttribute	newAttribute )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetTaskAttribute ( newAttribute );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetTaskAttribute - Gets the SCSITaskAttribute.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSITaskAttribute
 IOSCSIPrimaryCommandsDevice::GetTaskAttribute ( SCSITaskIdentifier request )
@@ -964,23 +1154,35 @@ IOSCSIPrimaryCommandsDevice::GetTaskAttribute ( SCSITaskIdentifier request )
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->GetTaskAttribute ( );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetTaskState - Sets the SCSITaskState.							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::SetTaskState ( SCSITaskIdentifier request,
-											SCSITaskState newTaskState )
+IOSCSIPrimaryCommandsDevice::SetTaskState ( SCSITaskIdentifier	request,
+											SCSITaskState		newTaskState )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetTaskState ( newTaskState );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetTaskState - Gets the SCSITaskState.							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSITaskState
 IOSCSIPrimaryCommandsDevice::GetTaskState ( SCSITaskIdentifier request )
@@ -994,18 +1196,28 @@ IOSCSIPrimaryCommandsDevice::GetTaskState ( SCSITaskIdentifier request )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetTaskStatus - Sets the SCSITaskStatus.						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::SetTaskStatus ( SCSITaskIdentifier request,
-											 SCSITaskStatus newStatus )
+IOSCSIPrimaryCommandsDevice::SetTaskStatus ( SCSITaskIdentifier	request,
+											 SCSITaskStatus		newStatus )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetTaskStatus ( newStatus );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetTaskStatus - Gets the SCSITaskStatus.						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSITaskStatus
 IOSCSIPrimaryCommandsDevice::GetTaskStatus ( SCSITaskIdentifier request )
@@ -1014,102 +1226,155 @@ IOSCSIPrimaryCommandsDevice::GetTaskStatus ( SCSITaskIdentifier request )
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->GetTaskStatus ( );
 	
 }
 
 
-// Get the control information for the transfer, including
-// the transfer direction and the number of bytes to transfer.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetDataTransferDirection - Sets the data transfer direction.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::SetDataTransferDirection ( SCSITaskIdentifier request,
-														UInt8 newDirection )
+IOSCSIPrimaryCommandsDevice::SetDataTransferDirection (
+									SCSITaskIdentifier	request,
+									UInt8				newDirection )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
 	return scsiRequest->SetDataTransferDirection ( newDirection );
 	
 }
 
 
-// Get the control information for the transfer, including
-// the transfer direction and the number of bytes to transfer.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetDataTransferDirection - Gets the data transfer direction.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 UInt8
-IOSCSIPrimaryCommandsDevice::GetDataTransferDirection ( SCSITaskIdentifier request )
+IOSCSIPrimaryCommandsDevice::GetDataTransferDirection (
+										SCSITaskIdentifier	request )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->GetDataTransferDirection ( );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetRequestedDataTransferCount - Sets the requested data transfer count.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::SetRequestedDataTransferCount ( SCSITaskIdentifier request,
-															 UInt64 newRequestedCount )
+IOSCSIPrimaryCommandsDevice::SetRequestedDataTransferCount (
+										SCSITaskIdentifier	request,
+										UInt64				newRequestedCount )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetRequestedDataTransferCount ( newRequestedCount );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetRequestedDataTransferCount - Gets the requested data transfer count.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 UInt64
-IOSCSIPrimaryCommandsDevice::GetRequestedDataTransferCount ( SCSITaskIdentifier request )
+IOSCSIPrimaryCommandsDevice::GetRequestedDataTransferCount (
+										SCSITaskIdentifier	request )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->GetRequestedDataTransferCount ( );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetRealizedDataTransferCount - Sets the realized data transfer count.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::SetRealizedDataTransferCount ( SCSITaskIdentifier request,
-															UInt64 newRealizedDataCount )
+IOSCSIPrimaryCommandsDevice::SetRealizedDataTransferCount (
+										SCSITaskIdentifier	request,
+										UInt64				newRealizedDataCount )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetRealizedDataTransferCount ( newRealizedDataCount );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetRealizedDataTransferCount - Gets the realized data transfer count.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 UInt64
-IOSCSIPrimaryCommandsDevice::GetRealizedDataTransferCount ( SCSITaskIdentifier request )
+IOSCSIPrimaryCommandsDevice::GetRealizedDataTransferCount (
+										SCSITaskIdentifier	request )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->GetRealizedDataTransferCount ( );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetDataBuffer - Sets the data buffer.							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::SetDataBuffer ( SCSITaskIdentifier request,
-											 IOMemoryDescriptor * newBuffer )
+IOSCSIPrimaryCommandsDevice::SetDataBuffer ( SCSITaskIdentifier		request,
+											 IOMemoryDescriptor *	newBuffer )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetDataBuffer ( newBuffer );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetDataBuffer - Gets the data buffer.							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 IOMemoryDescriptor *
 IOSCSIPrimaryCommandsDevice::GetDataBuffer ( SCSITaskIdentifier request )
@@ -1118,23 +1383,38 @@ IOSCSIPrimaryCommandsDevice::GetDataBuffer ( SCSITaskIdentifier request )
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->GetDataBuffer ( );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetTimeoutDuration - Sets the timeout duration in milliseconds.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::SetTimeoutDuration ( SCSITaskIdentifier request,
-												  UInt32 newTimeout )
+IOSCSIPrimaryCommandsDevice::SetTimeoutDuration (
+											SCSITaskIdentifier	request,
+											UInt32				newTimeout )
 {
 	
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetTimeoutDuration ( newTimeout );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetTimeoutDuration - Gets the timeout duration in milliseconds.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt32
 IOSCSIPrimaryCommandsDevice::GetTimeoutDuration ( SCSITaskIdentifier request )
@@ -1143,10 +1423,16 @@ IOSCSIPrimaryCommandsDevice::GetTimeoutDuration ( SCSITaskIdentifier request )
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->GetTimeoutDuration ( );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetTaskCompletionCallback - Sets the completion routine.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIPrimaryCommandsDevice::SetTaskCompletionCallback ( 
@@ -1157,10 +1443,16 @@ IOSCSIPrimaryCommandsDevice::SetTaskCompletionCallback (
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetTaskCompletionCallback ( newCallback );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ TaskCompletedNotification - Calls the completion routine.		[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIPrimaryCommandsDevice::TaskCompletedNotification (  
@@ -1170,10 +1462,16 @@ IOSCSIPrimaryCommandsDevice::TaskCompletedNotification (
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->TaskCompletedNotification ( );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetServiceResponse - Sets the SCSIServiceResponse.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIPrimaryCommandsDevice::SetServiceResponse ( 
@@ -1184,10 +1482,16 @@ IOSCSIPrimaryCommandsDevice::SetServiceResponse (
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetServiceResponse ( serviceResponse );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetServiceResponse - Gets the SCSIServiceResponse.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSIServiceResponse
 IOSCSIPrimaryCommandsDevice::GetServiceResponse ( 
@@ -1197,10 +1501,16 @@ IOSCSIPrimaryCommandsDevice::GetServiceResponse (
 	SCSITask *	scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->GetServiceResponse ( );
 	
 }
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetAutosenseCommand - Sets the autosense command.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSIPrimaryCommandsDevice::SetAutosenseCommand (
@@ -1216,56 +1526,115 @@ IOSCSIPrimaryCommandsDevice::SetAutosenseCommand (
 	SCSITask *		scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetAutosenseCommand ( cdbByte0, cdbByte1, cdbByte2,
 											  cdbByte3, cdbByte4, cdbByte5 );
 	
 }
 
 
-// Set the auto sense data that was returned for the SCSI Task.
-// A return value if true indicates that the data copied to the member 
-// sense data structure, false indicates that the data could not be saved.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetAutoSenseData - Gets the autosense data.		[DEPRECATED][PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::GetAutoSenseData ( SCSITaskIdentifier request,
-												SCSI_Sense_Data * senseData )
+IOSCSIPrimaryCommandsDevice::GetAutoSenseData ( SCSITaskIdentifier	request,
+												SCSI_Sense_Data *	senseData )
+{
+	return GetAutoSenseData ( request, senseData, sizeof ( SCSI_Sense_Data ) );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetAutoSenseData - Gets the autosense data.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::GetAutoSenseData ( SCSITaskIdentifier	request,
+												SCSI_Sense_Data *	senseData,
+												UInt8				senseDataSize )
 {
 	
 	SCSITask *		scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
-	return scsiRequest->GetAutoSenseData ( senseData );
+	check ( scsiRequest );
+	
+	return scsiRequest->GetAutoSenseData ( senseData, senseDataSize );
 	
 }
 
 
-bool
-IOSCSIPrimaryCommandsDevice::SetApplicationLayerReference ( SCSITaskIdentifier request,
-															void * newReferenceValue )
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetAutoSenseDataSize - Gets the autosense data size.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt8
+IOSCSIPrimaryCommandsDevice::GetAutoSenseDataSize ( SCSITaskIdentifier request )
 {
 	
 	SCSITask *		scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
+	return scsiRequest->GetAutoSenseDataSize ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetApplicationLayerReference - Sets the application layer refcon.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::SetApplicationLayerReference (
+									SCSITaskIdentifier	request,
+									void *				newReferenceValue )
+{
+	
+	SCSITask *		scsiRequest;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->SetApplicationLayerReference ( newReferenceValue );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetApplicationLayerReference - Gets the application layer refcon.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 void *
-IOSCSIPrimaryCommandsDevice::GetApplicationLayerReference ( SCSITaskIdentifier request )
+IOSCSIPrimaryCommandsDevice::GetApplicationLayerReference (
+										SCSITaskIdentifier	request )
 {
 	
 	SCSITask *		scsiRequest;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, request );
+	check ( scsiRequest );
+	
 	return scsiRequest->GetApplicationLayerReference ( );
 	
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark Device Information Retrieval Methods
+#pragma mark ¥ Device Information Methods
+#pragma mark -
+#endif
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetVendorString - Gets the vendor string.						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 char *
 IOSCSIPrimaryCommandsDevice::GetVendorString ( void )
@@ -1273,9 +1642,8 @@ IOSCSIPrimaryCommandsDevice::GetVendorString ( void )
 	
 	OSString *		vendorString;
 	
-	STATUS_LOG ( ( "%s::%s\n", getName ( ), __FUNCTION__ ) );
-	
-	vendorString = ( OSString * ) GetProtocolDriver ( )->getProperty ( kIOPropertySCSIVendorIdentification );
+	vendorString = ( OSString * ) GetProtocolDriver ( )->getProperty (
+										kIOPropertySCSIVendorIdentification );
 	if ( vendorString != NULL )
 	{
 		return ( ( char * ) vendorString->getCStringNoCopy ( ) );
@@ -1289,15 +1657,18 @@ IOSCSIPrimaryCommandsDevice::GetVendorString ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetProductString - Gets the product string.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 char *
 IOSCSIPrimaryCommandsDevice::GetProductString ( void )
 {
 	
 	OSString *		productString;
 	
-	STATUS_LOG ( ( "%s::%s\n", getName ( ), __FUNCTION__ ) );
-	
-	productString = ( OSString * ) GetProtocolDriver ( )->getProperty ( kIOPropertySCSIProductIdentification );
+	productString = ( OSString * ) GetProtocolDriver ( )->getProperty (
+										kIOPropertySCSIProductIdentification );
 	if ( productString != NULL )
 	{
 		return ( ( char * ) productString->getCStringNoCopy ( ) );
@@ -1311,6 +1682,10 @@ IOSCSIPrimaryCommandsDevice::GetProductString ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetRevisionString - Gets the product revision level string.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 char *
 IOSCSIPrimaryCommandsDevice::GetRevisionString ( void )
 {
@@ -1319,9 +1694,10 @@ IOSCSIPrimaryCommandsDevice::GetRevisionString ( void )
 	
 	STATUS_LOG ( ( "%s::%s\n", getName ( ), __FUNCTION__ ) );
 	
-	revisionString = ( OSString * ) GetProtocolDriver ( )->getProperty ( kIOPropertySCSIProductRevisionLevel );
+	revisionString = ( OSString * ) GetProtocolDriver ( )->getProperty (
+										kIOPropertySCSIProductRevisionLevel );
 	
-	if ( revisionString )
+	if ( revisionString != NULL )
 	{
 		return ( ( char * ) revisionString->getCStringNoCopy ( ) );
 	}
@@ -1334,1489 +1710,435 @@ IOSCSIPrimaryCommandsDevice::GetRevisionString ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetProtocolCharacteristicsDictionary - Gets the protocol characteristics
+//											dictionary.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 OSDictionary *
 IOSCSIPrimaryCommandsDevice::GetProtocolCharacteristicsDictionary ( void )
 {
 	
-	STATUS_LOG ( ( "%s::%s\n", getName ( ), __FUNCTION__ ) );
-	return ( OSDictionary * ) GetProtocolDriver ( )->getProperty ( kIOPropertyProtocolCharacteristicsKey );
+	return ( OSDictionary * ) GetProtocolDriver ( )->getProperty (
+										kIOPropertyProtocolCharacteristicsKey );
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetDeviceCharacteristicsDictionary - 	Gets the device characteristics
+//											dictionary.				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 OSDictionary *
 IOSCSIPrimaryCommandsDevice::GetDeviceCharacteristicsDictionary ( void )
 {
-
-	STATUS_LOG ( ( "%s::%s\n", getName ( ), __FUNCTION__ ) );	
+	
+	check ( fDeviceCharacteristicsDictionary );
 	return fDeviceCharacteristicsDictionary;
 	
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetANSIVersion - Gets the ANSI version the device claims conformance to.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+UInt8
+IOSCSIPrimaryCommandsDevice::GetANSIVersion ( void )
+{
+	
+	return fANSIVersion;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ SetANSIVersion - Sets the ANSI version the device claims conformance to.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIPrimaryCommandsDevice::SetANSIVersion ( UInt8 newVersion )
+{
+	
+	fANSIVersion = newVersion;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GetModeSense - Called to get mode sense data from the device.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIPrimaryCommandsDevice::GetModeSense ( 
+						IOMemoryDescriptor *		dataBuffer,
+						SCSICmdField6Bit 			PAGE_CODE,
+						SCSICmdField2Byte 			ALLOCATION_LENGTH,
+						bool *						use10ByteModeSense )
+{
+	
+	SCSIServiceResponse			serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	SCSITaskIdentifier			request			= NULL;
+	SCSICmdField1Bit			DBD				= 0;
+	IOReturn					status			= kIOReturnNoResources;
+	bool						commandOK		= false;
+	
+	request = GetSCSITask ( );
+	require_nonzero ( request, ErrorExit );
+	
+OUTERLOOP:
+		
+		
+		DBD = 1;	/* Disable block descriptors */
+		
+		
+	INNERLOOP:
+		
+		
+		if ( *use10ByteModeSense )
+		{
+			
+			commandOK = MODE_SENSE_10 ( request,
+										dataBuffer,
+										0x00,
+										DBD,	
+										0x00,
+										PAGE_CODE,
+										ALLOCATION_LENGTH,
+										0 );
+			
+		}
+		
+		else
+		{
+			
+			commandOK = MODE_SENSE_6 (	request,
+										dataBuffer,
+										DBD,	
+										0x00,
+										PAGE_CODE,
+										ALLOCATION_LENGTH & 0xFF,
+										0 );
+			
+		}
+		
+		if ( commandOK )
+		{
+			
+			// The command was successfully built, now send it
+			serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
+			
+		}
+		
+		else
+		{
+			PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilitiesSize malformed command" ) );
+		}
+		
+		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+		{
+ 			
+			if ( GetRealizedDataTransferCount ( request ) == GetRequestedDataTransferCount ( request ) )
+			{
+				
+				status = kIOReturnSuccess;
+				
+			}
+			
+			else if ( GetRealizedDataTransferCount ( request ) < GetRequestedDataTransferCount ( request ) )
+ 			{
+ 				
+				status 	= kIOReturnUnderrun;
+				
+			}
+			
+			else
+			{
+				
+				status = kIOReturnIOError;
+				
+			}
+			
+		}
+		
+		else
+		{
+			
+			// Something went wrong. Try again with DBD=0
+			if ( DBD == 1 )
+			{
+				
+				ERROR_LOG ( ( "Trying again with DBD=0\n" ) );
+				
+				DBD = 0;
+				goto INNERLOOP;
+				
+			}
+			
+			ERROR_LOG ( ( "Modes sense returned error\n" ) );
+			
+		}
+		
+		if ( status != kIOReturnSuccess )
+		{
+			
+			// Something went wrong. Try again with use10Byte = false
+			if ( *use10ByteModeSense )
+			{
+				
+				ERROR_LOG ( ( "Trying again with MODE_SENSE_6 command\n" ) );
+				
+				*use10ByteModeSense = false;
+				goto OUTERLOOP;
+				
+			}
+			
+			ERROR_LOG ( ( "Modes sense returned error\n" ) );
+			
+		}
+	
+	ReleaseSCSITask ( request );
+	
+	
+ErrorExit:
+	
+	
+	return status;
+	
+}
+
+
+#if 0
 #pragma mark -
-#pragma mark SCSI Protocol Interface Implementations
+#pragma mark ¥ SCSI Protocol Interface Implementations
+#pragma mark -
+#endif
 
 
-// The ExecuteCommand method will take a SCSI Task and transport
-// it across the physical wire(s) to the device
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ ExecuteCommand - 	The ExecuteCommand method will take a SCSI Task and
+//						transport it across the physical wire(s) to the device.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+
 void
 IOSCSIPrimaryCommandsDevice::ExecuteCommand ( SCSITaskIdentifier request )
 {
 	GetProtocolDriver ( )->ExecuteCommand ( request );
 }
-	
-// The AbortCommand method will abort the indicated SCSI Task,
-// if it is possible and the task has not already completed.
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ AbortCommand -	The AbortCommand method is replaced by the AbortTask
+//					Management function and should no longer be called.
+//														  			[PROTECTED]
+// [OBSOLETE - DO NOT USE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 SCSIServiceResponse
 IOSCSIPrimaryCommandsDevice::AbortCommand ( SCSITaskIdentifier request )
 {
 	return GetProtocolDriver ( )->AbortCommand ( request );
 }
-	
-// The IsProtocolServiceSupported will return true if the specified
-// feature is supported by the protocol layer.  If the service has a value that must be
-// returned, it will be returned in the serviceValue output parameter.
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ AbortTask -	The Task Management function to allow the SCSI Application
+// 					Layer client to request that a specific task be aborted.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPrimaryCommandsDevice::AbortTask (
+								UInt8						theLogicalUnit,
+								SCSITaggedTaskIdentifier	theTag )
+{
+	return GetProtocolDriver ( )->AbortTask ( theLogicalUnit, theTag );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ AbortTaskSet -	The Task Management function to allow the SCSI Application
+//					Layer client to request that a all tasks currently in the
+//					task set be aborted.							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPrimaryCommandsDevice::AbortTaskSet ( UInt8 theLogicalUnit )
+{
+	return GetProtocolDriver ( )->AbortTaskSet ( theLogicalUnit );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ ClearACA -	The Task Management function to allow the SCSI Application
+//				Layer client to request that an Auto-Contingent Allegiance
+//				be cleared.											[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPrimaryCommandsDevice::ClearACA ( UInt8 theLogicalUnit )
+{
+	return GetProtocolDriver ( )->ClearACA ( theLogicalUnit );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ ClearTaskSet -	The Task Management function to allow the SCSI Application
+//					Layer client to request that the task set be cleared.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse		
+IOSCSIPrimaryCommandsDevice::ClearTaskSet ( UInt8 theLogicalUnit )
+{
+	return GetProtocolDriver ( )->ClearTaskSet ( theLogicalUnit );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ LogicalUnitReset -	The Task Management function to allow the SCSI Application
+//						Layer client to request that the Logical Unit be reset.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPrimaryCommandsDevice::LogicalUnitReset ( UInt8 theLogicalUnit )
+{
+	return GetProtocolDriver ( )->LogicalUnitReset ( theLogicalUnit );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ TargetReset -	The Task Management function to allow the SCSI Application
+//					Layer client to request that the Target Device be reset.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse
+IOSCSIPrimaryCommandsDevice::TargetReset ( void )
+{
+	return GetProtocolDriver ( )->TargetReset ( );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ IsProtocolServiceSupported -	The IsProtocolServiceSupported will return
+//									true if the specified feature is supported
+//									by the protocol layer. If the service has
+//									a value that must be returned, it will be
+//									returned in the serviceValue output
+//									parameter.						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::IsProtocolServiceSupported ( SCSIProtocolFeature feature,
-														  void * serviceValue )
+IOSCSIPrimaryCommandsDevice::IsProtocolServiceSupported (
+										SCSIProtocolFeature		feature,
+										void *					serviceValue )
 {
 	return GetProtocolDriver ( )->IsProtocolServiceSupported ( feature, serviceValue );
 }
 
 
-// The HandleProtocolServiceFeature will return true if the specified feature could
-// be done by the protocol layer.  If the service has a value that must be
-// sent, it will be sent in the serviceValue input parameter.
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ HandleProtocolServiceFeature -	The HandleProtocolServiceFeature will
+//									return true if the specified feature could
+//									be done by the protocol layer. If the
+//									service has a value that must be sent, it
+//									will be sent in the serviceValue input
+//									parameter.						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 bool
-IOSCSIPrimaryCommandsDevice::HandleProtocolServiceFeature ( SCSIProtocolFeature feature,
-															void * serviceValue )
+IOSCSIPrimaryCommandsDevice::HandleProtocolServiceFeature (
+										SCSIProtocolFeature		feature,
+										void *					serviceValue )
 {
 	return GetProtocolDriver ( )->HandleProtocolServiceFeature ( feature, serviceValue );
 }
 
 
+#if 0
 #pragma mark -
-#pragma mark SCSI Primary Commands Builders
+#pragma mark ¥ Static Methods C->C++ Glue
+#pragma mark -
+#endif
 
 
-// SCSI Primary command implementations
-bool 	
-IOSCSIPrimaryCommandsDevice::CHANGE_DEFINITION (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor *		dataBuffer,
-						SCSICmdField1Bit 			SAVE,
-						SCSICmdField7Bit 			DEFINITION_PARAMETER,
-						SCSICmdField1Byte 			PARAMETER_DATA_LENGTH,
-		 				SCSICmdField1Byte 			CONTROL )
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ ServerKeyswitchCallback -	Called when notifications about the server
+//								keyswitch are broadcast.	  [STATIC][PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIPrimaryCommandsDevice::ServerKeyswitchCallback (
+									void *			target,
+									void * 			refCon,
+									IOService * 	newDevice )
 {
 	
-	SCSITask *	scsiRequest;
+	OSBoolean *						shouldNotPoll	= NULL;
+	IOSCSIPrimaryCommandsDevice *	device			= NULL;
 	
-	STATUS_LOG ( ( "%s: CHANGE_DEFINITION called.\n", getName ( ) ) );
+	shouldNotPoll = OSDynamicCast (
+							OSBoolean,
+							newDevice->getProperty ( kKeySwitchProperty ) );
 	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
+	device = OSDynamicCast ( IOSCSIPrimaryCommandsDevice, ( OSObject * ) target );
+	
+	if ( ( shouldNotPoll != NULL ) && ( device != NULL ) )
 	{
 		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
+		// Is the key unlocked?
+		if ( shouldNotPoll->isFalse ( ) )
+		{
+			
+			// Key is unlocked, start resuming device support
+			device->ResumeDeviceSupport ( );
+			
+		}
+		
+		else if ( shouldNotPoll->isTrue ( ) )
+		{
+			
+			// Key is locked, suspend device support
+			device->SuspendDeviceSupport ( );
+			
+		}
 		
 	}
 	
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->CHANGE_DEFINITION (
-											scsiRequest,
-											dataBuffer,
-											SAVE,
-											DEFINITION_PARAMETER,
-											PARAMETER_DATA_LENGTH,
-											CONTROL );
-	
-}
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::COMPARE (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor *		dataBuffer,
- 						SCSICmdField1Bit 			PAD,
-						SCSICmdField3Byte 			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte 			CONTROL )
-{
-	
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: COMPARE called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->COMPARE (
-											scsiRequest,
-											dataBuffer,
-											PAD,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
+	return true;
 	
 }
 
 
+#if 0
+#pragma mark -
+#pragma mark ¥ VTable Padding
+#pragma mark -
+#endif
 
-bool	
-IOSCSIPrimaryCommandsDevice::COPY (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit 			PAD, 
-						SCSICmdField3Byte 			PARAMETER_LIST_LENGTH,  
-						SCSICmdField1Byte 			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: COPY called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->COPY (
-											scsiRequest,
-											dataBuffer,
-											PAD,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::COPY_AND_VERIFY (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit 			BYTCHK, 
-						SCSICmdField1Bit 			PAD, 
-						SCSICmdField3Byte 			PARAMETER_LIST_LENGTH, 
-						SCSICmdField1Byte 			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: COPY_AND_VERIFY called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->COPY_AND_VERIFY (
-											scsiRequest,
-											dataBuffer,
-											BYTCHK,
-											PAD,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::EXTENDED_COPY (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField3Byte			PARAMETER_LIST_LENGTH, 
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: EXTENDED_COPY called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->EXTENDED_COPY (
-											scsiRequest,
-											dataBuffer,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::INQUIRY (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor			*dataBuffer,
-						SCSICmdField1Bit			CMDDT,
-						SCSICmdField1Bit			EVPD,
-						SCSICmdField1Byte			PAGE_OR_OPERATION_CODE,
-						SCSICmdField1Byte			ALLOCATION_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{	
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: INQUIRY called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->INQUIRY (
-											scsiRequest,
-											dataBuffer,
-											CMDDT,
-											EVPD,
-											PAGE_OR_OPERATION_CODE,
-											ALLOCATION_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::LOG_SELECT (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			PCR,
-						SCSICmdField1Bit			SP,
-						SCSICmdField2Bit			PC,
-						SCSICmdField2Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: LOG_SELECT called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->LOG_SELECT (
-											scsiRequest,
-											dataBuffer,
-											PCR,
-											SP,
-											PC,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::LOG_SENSE (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			PPC,
-						SCSICmdField1Bit			SP,
-						SCSICmdField2Bit 			PC,
-						SCSICmdField6Bit			PAGE_CODE,
-						SCSICmdField2Byte			PARAMETER_POINTER,
-						SCSICmdField2Byte			ALLOCATION_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: LOG_SENSE called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->LOG_SENSE (
-											scsiRequest,
-											dataBuffer,
-											PPC,
-											SP,
-											PC,
-											PAGE_CODE,
-											PARAMETER_POINTER,
-											ALLOCATION_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::MODE_SELECT_6 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit 			PF,
-						SCSICmdField1Bit			SP,
-						SCSICmdField1Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte 			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: MODE_SELECT_6 called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->MODE_SELECT_6 (
-											scsiRequest,
-											dataBuffer,
-											PF,
-											SP,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::MODE_SELECT_10 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			PF,
-						SCSICmdField1Bit			SP,
-						SCSICmdField2Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: MODE_SELECT_10 called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->MODE_SELECT_10 (
-											scsiRequest,
-											dataBuffer,
-											PF,
-											SP,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::MODE_SENSE_6 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			DBD,
-						SCSICmdField2Bit			PC,
-						SCSICmdField6Bit			PAGE_CODE,
-						SCSICmdField1Byte			ALLOCATION_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: MODE_SENSE_6 called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->MODE_SENSE_6 (
-											scsiRequest,
-											dataBuffer,
-											DBD,
-											PC,
-											PAGE_CODE,
-											ALLOCATION_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::MODE_SENSE_10 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			LLBAA,
-						SCSICmdField1Bit 			DBD,
-						SCSICmdField2Bit 			PC,
-						SCSICmdField6Bit 			PAGE_CODE,
-						SCSICmdField2Byte 			ALLOCATION_LENGTH,
-						SCSICmdField1Byte 			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: MODE_SENSE_10 called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->MODE_SENSE_10 (
-											scsiRequest,
-											dataBuffer,
-											LLBAA,
-											DBD,
-											PC,
-											PAGE_CODE,
-											ALLOCATION_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::PERSISTENT_RESERVE_IN (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField5Bit			SERVICE_ACTION,
-						SCSICmdField2Byte			ALLOCATION_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: PERSISTENT_RESERVE_IN called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->PERSISTENT_RESERVE_IN (
-											scsiRequest,
-											dataBuffer,
-											SERVICE_ACTION,
-											ALLOCATION_LENGTH,
-											CONTROL );
-	
-}
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::PERSISTENT_RESERVE_OUT (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField5Bit			SERVICE_ACTION, 
-   						SCSICmdField4Bit			SCOPE, 
-   						SCSICmdField4Bit			TYPE,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: PERSISTENT_RESERVE_OUT called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->PERSISTENT_RESERVE_OUT (
-											scsiRequest,
-											dataBuffer,
-											SERVICE_ACTION,
-											SCOPE,
-											TYPE,
-											CONTROL );
-	
-}
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::PREVENT_ALLOW_MEDIUM_REMOVAL (
-						SCSITaskIdentifier			request,
-						SCSICmdField2Bit			PREVENT,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: PREVENT_ALLOW_MEDIUM_REMOVAL called.\n", getName ( ) ) );
-
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->PREVENT_ALLOW_MEDIUM_REMOVAL (
-											scsiRequest,
-											PREVENT,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::READ_BUFFER (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField4Bit			MODE,
-						SCSICmdField1Byte			BUFFER_ID,
-						SCSICmdField3Byte			BUFFER_OFFSET,
-						SCSICmdField3Byte			ALLOCATION_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: READ_BUFFER called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->READ_BUFFER (
-											scsiRequest,
-											dataBuffer,
-											MODE,
-											BUFFER_ID,
-											BUFFER_OFFSET,
-											ALLOCATION_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::RECEIVE (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField3Byte			TRANSFER_LENGTH, 
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: RECEIVE called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->RECEIVE(
-											scsiRequest,
-											dataBuffer,
-											TRANSFER_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::RECEIVE_DIAGNOSTICS_RESULTS (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			PCV,
-						SCSICmdField1Byte			PAGE_CODE,
-						SCSICmdField2Byte			ALLOCATION_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: RECEIVE_DIAGNOSTICS_RESULTS called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->RECEIVE_DIAGNOSTICS_RESULTS (
-											scsiRequest,
-											dataBuffer,
-											PCV,
-											PAGE_CODE,
-											ALLOCATION_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::RELEASE_6 (
-						SCSITaskIdentifier			request,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: RELEASE_6 called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->RELEASE_6 (
-										scsiRequest,
-										CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::RELEASE_6 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor			*dataBuffer,
-						SCSICmdField1Bit			EXTENT,
-						SCSICmdField1Byte			RESERVATION_IDENTIFICATION,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: RELEASE_6 *OBSOLETE* called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->RELEASE_6 (
-										scsiRequest,
-										EXTENT,
-										RESERVATION_IDENTIFICATION,
-										CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::RELEASE_10 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			THRDPTY,
-						SCSICmdField1Bit			LONGID,
-						SCSICmdField1Byte			THIRD_PARTY_DEVICE_ID,
-						SCSICmdField2Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: RELEASE_10 called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->RELEASE_10 (
-											scsiRequest,
-											dataBuffer,
-											THRDPTY,
-											LONGID,
-											THIRD_PARTY_DEVICE_ID,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::RELEASE_10 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			THRDPTY,
-						SCSICmdField1Bit			LONGID,
-						SCSICmdField1Bit			EXTENT,
-						SCSICmdField1Byte			RESERVATION_IDENTIFICATION,
-						SCSICmdField1Byte			THIRD_PARTY_DEVICE_ID,
-						SCSICmdField2Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: RELEASE_10 *OBSOLETE* called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->RELEASE_10 (
-											scsiRequest,
-											dataBuffer,
-											THRDPTY,
-											LONGID,
-											EXTENT,
-											RESERVATION_IDENTIFICATION,
-											THIRD_PARTY_DEVICE_ID,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::REPORT_DEVICE_IDENTIFIER (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField4Byte			ALLOCATION_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: REPORT_DEVICE_IDENTIFIER called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->REPORT_DEVICE_IDENTIFIER (
-											scsiRequest,
-											dataBuffer,
-											ALLOCATION_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::REPORT_LUNS (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField4Byte			ALLOCATION_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: REPORT_LUNS called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->REPORT_LUNS (
-											scsiRequest,
-											dataBuffer,
-											ALLOCATION_LENGTH,
-											CONTROL );
-	
-}
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::REQUEST_SENSE (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Byte			ALLOCATION_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: REQUEST_SENSE called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->REQUEST_SENSE (
-											scsiRequest,
-											dataBuffer,
-											ALLOCATION_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::RESERVE_6 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: RESERVE_6 called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->RESERVE_6 (
-											scsiRequest,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::RESERVE_6 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor	 		*dataBuffer, 
-						SCSICmdField1Bit			EXTENT, 
-						SCSICmdField1Byte			RESERVATION_IDENTIFICATION,
-						SCSICmdField2Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: RESERVE_6 *OBSOLETE* called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->RESERVE_6 (
-											scsiRequest,
-											dataBuffer,
-											EXTENT,
-											RESERVATION_IDENTIFICATION,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::RESERVE_10 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			THRDPTY,
-						SCSICmdField1Bit			LONGID,
-						SCSICmdField1Byte			THIRD_PARTY_DEVICE_ID,
-						SCSICmdField2Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: RESERVE_10 called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->RESERVE_10 (
-											scsiRequest,
-											dataBuffer,
-											THRDPTY,
-											LONGID,
-											THIRD_PARTY_DEVICE_ID,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::RESERVE_10 (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			THRDPTY,
-						SCSICmdField1Bit			LONGID,
-						SCSICmdField1Bit			EXTENT,
-						SCSICmdField1Byte			RESERVATION_IDENTIFICATION,
-						SCSICmdField1Byte			THIRD_PARTY_DEVICE_ID,
-						SCSICmdField2Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: RESERVE_10 *OBSOLETE* called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->RESERVE_10 (
-											scsiRequest,
-											dataBuffer,
-											THRDPTY,
-											LONGID,
-											EXTENT,
-											RESERVATION_IDENTIFICATION,
-											THIRD_PARTY_DEVICE_ID,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::SEND (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField1Bit			AER,
-						SCSICmdField3Byte			TRANSFER_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: SEND called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->SEND (
-											scsiRequest,
-											dataBuffer,
-											AER,
-											TRANSFER_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::SEND_DIAGNOSTICS (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField3Bit			SELF_TEST_CODE,
-						SCSICmdField1Bit			PF,
-						SCSICmdField1Bit			SELF_TEST,
-						SCSICmdField1Bit			DEVOFFL,
-						SCSICmdField1Bit			UNITOFFL,
-						SCSICmdField2Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: SEND_DIAGNOSTICS called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->SEND_DIAGNOSTICS (
-											scsiRequest,
-											dataBuffer,
-											SELF_TEST_CODE,
-											PF,
-											SELF_TEST,
-											DEVOFFL,
-											UNITOFFL,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::SET_DEVICE_IDENTIFIER (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField5Bit			SERVICE_ACTION,
-						SCSICmdField4Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: SET_DEVICE_IDENTIFIER called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->SET_DEVICE_IDENTIFIER (
-											scsiRequest,
-											dataBuffer,
-											SERVICE_ACTION,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
-
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::TEST_UNIT_READY (
-						SCSITaskIdentifier			request,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: TEST_UNIT_READY called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->TEST_UNIT_READY (
-											scsiRequest,
-											CONTROL );
-	
-}
-
-
-bool	
-IOSCSIPrimaryCommandsDevice::WRITE_BUFFER (
-						SCSITaskIdentifier			request,
-						IOMemoryDescriptor 			*dataBuffer,
-						SCSICmdField4Bit			MODE,
-						SCSICmdField1Byte			BUFFER_ID,
-						SCSICmdField3Byte			BUFFER_OFFSET,
-						SCSICmdField3Byte			PARAMETER_LIST_LENGTH,
-						SCSICmdField1Byte			CONTROL )
-{
-	SCSITask *	scsiRequest;
-	
-	STATUS_LOG ( ( "%s: WRITE_BUFFER called.\n", getName ( ) ) );
-	
-	scsiRequest = OSDynamicCast ( SCSITask, request );
-	if ( scsiRequest == NULL )
-	{
-		
-		ERROR_LOG ( ( "OSDynamicCast on the request SCSITaskIdentifier failed.\n" ) );
-		return false;
-		
-	}
-	
-	if ( scsiRequest->ResetForNewTask ( ) == false )
-	{
-		
-		ERROR_LOG ( ( "ResetForNewTask on the request SCSITask failed.\n" ) );
-		return false;
-		
-	}
-	
-	return GetSCSIPrimaryCommandObject ( )->WRITE_BUFFER (
-											scsiRequest,
-											dataBuffer,
-											MODE,
-											BUFFER_ID,
-											BUFFER_OFFSET,
-											PARAMETER_LIST_LENGTH,
-											CONTROL );
-	
-}
 
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 1 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 2 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 3 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 4 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 5 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 6 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 7 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 8 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 9 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 10 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 11 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 12 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 13 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 14 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 15 );
-OSMetaClassDefineReservedUnused( IOSCSIPrimaryCommandsDevice, 16 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice,  1 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice,  2 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice,  3 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice,  4 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice,  5 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice,  6 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice,  7 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice,  8 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice,  9 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice, 10 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice, 11 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice, 12 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice, 13 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice, 14 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice, 15 );
+OSMetaClassDefineReservedUnused ( IOSCSIPrimaryCommandsDevice, 16 );

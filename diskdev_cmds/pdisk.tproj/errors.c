@@ -78,9 +78,6 @@
 // Global Variables
 //
 char *program_name;
-extern int errno;
-extern int sys_nerr;
-extern const char * const sys_errlist[];
 
 
 //

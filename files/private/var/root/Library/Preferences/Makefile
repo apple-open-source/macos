@@ -7,7 +7,4 @@ Install_File_Mode = 600
 
 install::
 	@echo "Installing $(Destination)"
-	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
-	$(_v) $(INSTALL_FILE) -c "LSApplications"      "$(Destination)"
-	$(_v) $(INSTALL_FILE) -c "LSClaimedTypes"      "$(Destination)"
-	$(_v) $(INSTALL_FILE) -c "LSSchemes"      "$(Destination)"
+	$(_v) $(INSTALL_DIRECTORY) -m 700 "$(Destination)"

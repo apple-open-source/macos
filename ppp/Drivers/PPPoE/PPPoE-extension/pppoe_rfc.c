@@ -137,6 +137,7 @@ struct pppoe_rfc {
     pppoe_rfc_event_callback 	eventcb;		/* callback function for events */
     u_int16_t	    		unit;			/* associated interface unit number */
     u_int32_t  			flags;			/* is client in loopback mode ? */
+    u_int32_t  			uniqueid;		/* unique id (currently used for loopback) */
 
     // current state
     u_int16_t 			state;			/* PPPoE current state */
@@ -198,6 +199,7 @@ static u_int16_t get_tag(struct mbuf *m, u_int16_t tag, struct pppoe_tag *val);
 u_int16_t pppoe_rfc_input(struct pppoe_rfc *rfc, struct mbuf *m, u_int8_t *from, u_int16_t typ);
 void pppoe_rfc_lower_output(struct pppoe_rfc *rfc, struct mbuf *m, u_int8_t *to, u_int16_t typ);
 
+extern void    m_copydata __P((struct mbuf *, int, int, caddr_t));
 
 
 /* -----------------------------------------------------------------------------
@@ -244,6 +246,7 @@ u_int16_t pppoe_rfc_new_client(void *host, void **data,
 
     rfc->host = host;
     rfc->unit = 0xFFFF;
+    rfc->uniqueid = pppoe_unique_address++;
     rfc->inputcb = input;
     rfc->eventcb = event;
     rfc->timer_connect_setup = PPPOE_TIMER_CONNECT;
@@ -509,7 +512,8 @@ void pppoe_rfc_timer()
                     rfc->state = PPPOE_STATE_DISCONNECTED;
                     bzero(rfc->peer_address, sizeof(rfc->peer_address));
                     // double-check for the error number ?
-                    send_event(rfc, PPPOE_EVT_DISCONNECTED, EHOSTUNREACH);
+                    send_event(rfc, PPPOE_EVT_DISCONNECTED, 
+                        PPPOE_STATE_LOOKING ? EHOSTUNREACH : ECONNREFUSED);
                     break;
                 }
                 if (rfc->timer_connect == rfc->timer_connect_resend) {
@@ -1139,7 +1143,7 @@ u_int16_t handle_data(struct pppoe_rfc *rfc, struct mbuf *m, u_int8_t *from)
     struct pppoe 	*p = mtod(m, struct pppoe *);
     u_int16_t 		sessid = ntohs(p->sessid);
 
-    //log(LOG_INFO, "handle_data, rfc = 0x%x\n", rfc);
+    //log(LOG_INFO, "handle_data, rfc = 0x%x, from %x:%x:%x:%x:%x:%x\n", rfc, from[0],from[1],from[2],from[3],from[4],from[5] );
 
     // check identify the session, we must check the session id AND the address of the peer
     // we could be connected to 2 different AC with the same session id
@@ -1179,11 +1183,29 @@ called from pppoe_rfc when data need to be sent
 ----------------------------------------------------------------------------- */
 void pppoe_rfc_lower_output(struct pppoe_rfc *rfc, struct mbuf *m, u_int8_t *to, u_int16_t typ)
 {
-    u_int8_t		from[ETHER_ADDR_LEN] = { 1, 2, 3, 4, 5, 6 };
 
     //log(LOG_INFO, "PPPoE_output\n");
     if (rfc->flags & PPPOE_FLAG_LOOPBACK) {
-        pppoe_rfc_lower_input(rfc->dl_tag, m, from, typ);
+        struct mbuf 	*m1;
+        u_int8_t 	from[ETHER_ADDR_LEN] = { 0, 0, 0, 0, 0, 0 };
+        *(u_int32_t *)&from[0] = rfc->uniqueid;        
+    
+        MGETHDR(m1, M_DONTWAIT, MT_DATA);
+        if (m1 == 0) {
+            m_freem(m);
+            return;
+        }
+        MCLGET(m1, M_DONTWAIT);
+        if (!(m1->m_flags & M_EXT)) {
+            m_freem(m);
+            m_freem(m1);
+            return;
+        }
+        m_copydata(m, 0, m->m_pkthdr.len, mtod(m1, caddr_t));
+        m1->m_len = m->m_pkthdr.len;
+        m1->m_pkthdr.len = m->m_pkthdr.len;
+        m_freem(m);
+        pppoe_rfc_lower_input(rfc->dl_tag, m1, from, typ);
         return;
     }
 
@@ -1225,4 +1247,32 @@ void pppoe_rfc_lower_input(u_long dl_tag, struct mbuf *m, u_int8_t *from, u_int1
     
     // nobody was intersted in the packet, just ignore it
     m_freem(m);
+}
+
+/* -----------------------------------------------------------------------------
+calls when the lower layer is detaching
+----------------------------------------------------------------------------- */
+void pppoe_rfc_lower_detaching(u_long dl_tag)
+{
+    struct pppoe_rfc  	*rfc;
+    
+    TAILQ_FOREACH(rfc, &pppoe_rfc_head, next) {
+
+        if (rfc->dl_tag == dl_tag) {
+
+            if (rfc->flags & PPPOE_FLAG_DEBUG)
+                log(LOG_INFO, "PPPoE lower layer detaching (0x%x): ethernet unit = %d\n", rfc, rfc->unit);
+        
+            pppoe_dlil_detach(rfc->dl_tag);
+            rfc->dl_tag = 0;
+            rfc->unit = 0xFFFF;
+        
+            if (rfc->state != PPPOE_STATE_DISCONNECTED) {
+        
+                rfc->state = PPPOE_STATE_DISCONNECTED;
+                bzero(rfc->peer_address, sizeof(rfc->peer_address));
+                send_event(rfc, PPPOE_EVT_DISCONNECTED, ENXIO);
+            }
+        }
+    }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,26 +20,36 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * IOCompactDiscServices.h
- *
- * This subclass implements a relay to a protocol and device-specific
- * provider.
- *
- */
 
 #ifndef _IOKIT_IO_COMPACT_DISC_SERVICES_H_
 #define _IOKIT_IO_COMPACT_DISC_SERVICES_H_
 
 #if defined(KERNEL) && defined(__cplusplus)
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// IOKit includes
+#include <IOKit/IOTypes.h>
+
+// Generic IOKit storage related headers
+#include <IOKit/storage/IOCDTypes.h>
 #include <IOKit/storage/IOCDBlockStorageDevice.h>
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/IOSCSIPeripheralDeviceType05.h>
 
 class IOMemoryDescriptor;
 
 // Use this switch to turn off the data cache.
 #define _USE_DATA_CACHING_		1
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class IOCompactDiscServices : public IOCDBlockStorageDevice
 {
@@ -72,11 +82,11 @@ protected:
 
     // Reserve space for future expansion.
     struct IOCompactDiscServicesExpansionData { };
-    IOCompactDiscServicesExpansionData *fIOCompactDiscServicesReserved;
+    IOCompactDiscServicesExpansionData * fIOCompactDiscServicesReserved;
 
 public:
 
-	static 	void 		AsyncReadWriteComplete( 	void * 			clientData,
+	static 	void 		AsyncReadWriteComplete ( 	void * 			clientData,
                                 					IOReturn		status,
                                 					UInt64 			actualByteCount );
 

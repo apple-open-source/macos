@@ -16,8 +16,8 @@ Tue May 10 00:08:19 1994  David J. MacKenzie  (djm@nutrimat.gnu.ai.mit.edu)
 
 Sat May  7 20:06:59 1994  Noah Friedman  (friedman@kropotkin.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_PROG_INSTALL): If using install.sh, add `-c'
-        to INSTALL.
+	* acspecific.m4 (AC_PROG_INSTALL): If using install.sh, add `-c'
+	to INSTALL.
 
 Sat May  7 15:36:22 1994  David J. MacKenzie  (djm@aria.eng.umd.edu)
 
@@ -243,7 +243,7 @@ Wed Mar 30 20:01:57 1994  David J. MacKenzie  (djm@nutrimat.gnu.ai.mit.edu)
 Mon Mar 28 17:43:22 1994  David J. MacKenzie  (djm@nutrimat.gnu.ai.mit.edu)
 
 	* acgeneral.m4 (AC_PARSEARGS): Make multiple non-option args a
-	fatal error. 
+	fatal error.
 
 	* acspecific.m4: Change all occurrences of $(MAKE_VAR) to
 	${MAKE_VAR}.
@@ -403,19 +403,19 @@ Fri Mar 18 00:43:21 1994  David J. MacKenzie  (djm@goldman.gnu.ai.mit.edu)
 
 	* acgeneral.m4 (AC_OUTPUT): Remove VPATH lines if srcdir=., to
 	work around Sun make bug.  From Karl Berry.
-	
+
 	Rename internal use shell variables to start with "ac_".
-	
+
 	Trap signal 2 (SIGINT), not signal 3 (SIGQUIT), which means stop
 	without cleaning up.  From eggert@twinsun.com (Paul Eggert).
 
 	* acspecific.m4 (AC_FIND_XTRA): New macro from Karl Berry
 	(karl@cs.umb.edu).
 	(AC_FIND_X, AC_ISC_POSIX): Provide self.
-	
+
 	(AC_DECLARE_YYTEXT): Move AC_SUBST.  Don't quote value of
 	DECLARE_YYTEXT.  From Karl Berry.
-	
+
 	(AC_PROG_CPP): Include $CFLAGS in CPP.
 
 	Rename internal use shell variables to start with "ac_".
@@ -427,11 +427,11 @@ Fri Mar 18 00:43:21 1994  David J. MacKenzie  (djm@goldman.gnu.ai.mit.edu)
 	* autoconf.texi: Mention shell variable prefixes.
 
 	* autoconf.texi: Work around RCS substitution in AC_REVISION
-	example.   
+	example.
 
 Wed Mar 16 19:55:17 1994  Noah Friedman  (friedman@prep.ai.mit.edu)
 
-        * acgeneral.m4 (compile): Include $LDFLAGS.
+	* acgeneral.m4 (compile): Include $LDFLAGS.
 
 Thu Mar 10 01:27:20 1994  David J. MacKenzie  (djm@churchy.gnu.ai.mit.edu)
 
@@ -441,12 +441,12 @@ Thu Mar 10 01:27:20 1994  David J. MacKenzie  (djm@churchy.gnu.ai.mit.edu)
 
 Tue Feb 15 16:02:19 1994  Noah Friedman  (friedman@prep.ai.mit.edu)
 
-        * acspecific.m4 (AC_PROG_INSTALL): Reject /sbin/install.
+	* acspecific.m4 (AC_PROG_INSTALL): Reject /sbin/install.
 
 Sun Feb 13 21:15:45 1994  Noah Friedman  (friedman@prep.ai.mit.edu)
 
-        * autoconf.texi (Setting Variables, Sample configure.in): Replace
-        references to AC_UNISTD_H with AC_HAVE_HEADERS(unistd.h).
+	* autoconf.texi (Setting Variables, Sample configure.in): Replace
+	references to AC_UNISTD_H with AC_HAVE_HEADERS(unistd.h).
 
 Thu Feb 10 21:39:43 1994  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -471,29 +471,29 @@ Fri Jan 21 16:35:00 1994  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
 Thu Jan  6 16:22:25 1994  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acgeneral.m4 (AC_DEFINE): Use AC_QUOTE_SQUOTE instead of
-        AC_DEFINE_QUOTE on AC_VAL.  From Bruno Haible
-        <haible@ma2s2.mathematik.uni-karlsruhe.de>.
-        * acgeneral.m4 (AC_DEFINE_UNQUOTED): pushdef/popdef
-        AC_QUOTE_SQUOTE instead of AC_DEFINE_QUOTE.
+	* acgeneral.m4 (AC_DEFINE): Use AC_QUOTE_SQUOTE instead of
+	AC_DEFINE_QUOTE on AC_VAL.  From Bruno Haible
+	<haible@ma2s2.mathematik.uni-karlsruhe.de>.
+	* acgeneral.m4 (AC_DEFINE_UNQUOTED): pushdef/popdef
+	AC_QUOTE_SQUOTE instead of AC_DEFINE_QUOTE.
 
 Wed Dec 22 03:51:53 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acgeneral.m4 (AC_DEFINE): in verbose strings, put
-        AC_DEFINE_QUOTE exprs in double quotes to avoid shell wildcard
-        expansion.
-        
-        * acgeneral.m4 (AC_PROGRAM_PATH, AC_PROGRAMS_PATH): New macros.
-        * autoconf.texi (General Tests): Document them.
+	* acgeneral.m4 (AC_DEFINE): in verbose strings, put
+	AC_DEFINE_QUOTE exprs in double quotes to avoid shell wildcard
+	expansion.
 
-        * configure.in: Use AC_PROGRAMS_PATH to find m4, not AC_PROGRAMS_CHECK.
-        Put `m4' in the list of progs-to-check, since we want the absolute
-        pathname for that too if we can get it.
+	* acgeneral.m4 (AC_PROGRAM_PATH, AC_PROGRAMS_PATH): New macros.
+	* autoconf.texi (General Tests): Document them.
+
+	* configure.in: Use AC_PROGRAMS_PATH to find m4, not AC_PROGRAMS_CHECK.
+	Put `m4' in the list of progs-to-check, since we want the absolute
+	pathname for that too if we can get it.
 
 Fri Dec 17 13:44:24 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_ALLOCA): define HAVE_ALLOCA if alloca is
-        present in system libraries.
+	* acspecific.m4 (AC_ALLOCA): define HAVE_ALLOCA if alloca is
+	present in system libraries.
 
 Tue Dec 14 14:53:55 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -503,7 +503,7 @@ Tue Dec 14 14:53:55 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
 Fri Dec 10 06:35:25 1993  Noah Friedman  (friedman@gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_PROG_INSTALL): Don't look for install in `.'.
+	* acspecific.m4 (AC_PROG_INSTALL): Don't look for install in `.'.
 
 Wed Dec  8 12:10:59 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -514,36 +514,36 @@ Wed Dec  8 12:10:59 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
 Mon Dec  6 23:41:05 1993  Noah Friedman  (friedman@gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_PROG_CPP): Try 'cc -E -traditional-cpp' for NeXT.
+	* acspecific.m4 (AC_PROG_CPP): Try 'cc -E -traditional-cpp' for NeXT.
 
 Thu Dec  2 02:25:39 1993  Noah Friedman  (friedman@gnu.ai.mit.edu)
 
-        * acgeneral.m4 (AC_PREPARE): use rm -r to remove conftest* both in
-        exit traps and at start of script.
+	* acgeneral.m4 (AC_PREPARE): use rm -r to remove conftest* both in
+	exit traps and at start of script.
 
 Wed Dec  1 03:22:21 1993  Noah Friedman  (friedman@gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_FIND_X_DIRECT): Search for includes and libs
-        in more places.
+	* acspecific.m4 (AC_FIND_X_DIRECT): Search for includes and libs
+	in more places.
 
 Sun Nov 28 21:57:31 1993  Noah Friedman  (friedman@gnu.ai.mit.edu)
 
-        * acgeneral.m4 (AC_NOTICE): Replace "this program" with "this
-        configure script" to disambiguate between configure and the
-        program it is distributed with (which can have different terms).
+	* acgeneral.m4 (AC_NOTICE): Replace "this program" with "this
+	configure script" to disambiguate between configure and the
+	program it is distributed with (which can have different terms).
 
 Tue Nov 23 19:41:53 1993  Noah Friedman  (friedman@gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_FIND_X_DIRECT): Use the shell variable
-        `x_direct_test_include' to choose the include file to search for.
+	* acspecific.m4 (AC_FIND_X_DIRECT): Use the shell variable
+	`x_direct_test_include' to choose the include file to search for.
 
 Sat Nov 20 17:58:09 1993  Noah Friedman  (friedman@gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_FIND_X_DIRECT): Search for R6 includes & libs
-        in various places.  Look for /usr/athena/include & /usr/athena/lib.
-        Make AC_HAVE_LIBRARY check for the library specified by the shell
-        variable `x_direct_test_library', rather than hardcoding Xt (to
-        which the shell variable now defaults).
+	* acspecific.m4 (AC_FIND_X_DIRECT): Search for R6 includes & libs
+	in various places.  Look for /usr/athena/include & /usr/athena/lib.
+	Make AC_HAVE_LIBRARY check for the library specified by the shell
+	variable `x_direct_test_library', rather than hardcoding Xt (to
+	which the shell variable now defaults).
 
 Thu Nov 18 18:17:21 1993  David J. MacKenzie  (djm@kropotkin.gnu.ai.mit.edu)
 
@@ -562,16 +562,16 @@ Sat Nov 13 12:24:57 1993  David J. MacKenzie  (djm@kropotkin.gnu.ai.mit.edu)
 
 Wed Nov 10 09:26:35 1993  Noah Friedman  (friedman@gnu.ai.mit.edu)
 
-        * acgeneral.m4 (AC_OUTPUT): When substituting .c or .h files, put
-        autoconf-added comments in '/* ... */'.
+	* acgeneral.m4 (AC_OUTPUT): When substituting .c or .h files, put
+	autoconf-added comments in '/* ... */'.
 
 Mon Nov  8 16:22:48 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acgeneral.m4 (AC_NOTICE): Put autoconf version number in configure.
+	* acgeneral.m4 (AC_NOTICE): Put autoconf version number in configure.
 
 Fri Nov  5 23:31:28 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_FIND_X_XMKMF): properly quote `acfindx' rule.
+	* acspecific.m4 (AC_FIND_X_XMKMF): properly quote `acfindx' rule.
 
 Fri Oct 29 21:46:57 1993  Jim Meyering  (meyering@comco.com)
 
@@ -685,8 +685,8 @@ Mon Sep 20 15:32:30 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
 Sat Sep 18 14:32:04 1993  Ian Lance Taylor  (ian@airs.com)
 
-        * acgeneral.m4: Substitute for CONFIG_FILES and CONFIG_HEADERS
-        before using them, in case they have multiple values.
+	* acgeneral.m4: Substitute for CONFIG_FILES and CONFIG_HEADERS
+	before using them, in case they have multiple values.
 
 Fri Sep 17 14:40:20 1993  David J. MacKenzie  (djm@goldman.gnu.ai.mit.edu)
 
@@ -773,7 +773,7 @@ Thu Aug 19 14:53:29 1993  David J. MacKenzie  (djm@goldman.gnu.ai.mit.edu)
 
 	* acgeneral.m4 (AC_PARSEARGS): Use case instead of sed and
 	test to detect invalid package names.  Remove =value from
-	--with options until we support it. 
+	--with options until we support it.
 
 Wed Aug 11 18:52:41 1993  David J. MacKenzie  (djm@goldman.gnu.ai.mit.edu)
 
@@ -805,7 +805,7 @@ Sun Aug  1 19:13:08 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
 Sat Jul 31 17:28:48 1993  Karl Berry  (karl@cs.umb.edu)
 
-        * acspecific.m4 (AC_PROG_INSTALL): Report results under -v.
+	* acspecific.m4 (AC_PROG_INSTALL): Report results under -v.
 
 Fri Jul 30 18:08:30 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -845,7 +845,7 @@ Mon Jul 26 14:01:38 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 Mon Jul 26 13:58:39 1993  David J. MacKenzie  (djm@wookumz.gnu.ai.mit.edu)
 
 	* acspecific.m4 (AC_SCO_INTL, AC_IRIX_SUN, AC_DYNIX_SEQ): Use
-	AC_HAVE_LIBRARY. 
+	AC_HAVE_LIBRARY.
 
 Mon Jul 26 13:55:17 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -962,7 +962,7 @@ Tue Jul  6 19:15:17 1993  David J. MacKenzie  (djm@goldman.gnu.ai.mit.edu)
 
 Wed Jun 30 22:08:22 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_MINUS_C_MINUS_O): Remove spurious `then'.
+	* acspecific.m4 (AC_MINUS_C_MINUS_O): Remove spurious `then'.
 
 Fri Jun 25 23:16:42 1993  Paul Eggert  (eggert@twinsun.com)
 
@@ -972,26 +972,26 @@ Fri Jun 25 23:16:42 1993  Paul Eggert  (eggert@twinsun.com)
 
 Fri Jun 25 13:26:34 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_LONG_FILE_NAMES): Redirect rm's stderr to
-        /dev/null.
+	* acspecific.m4 (AC_LONG_FILE_NAMES): Redirect rm's stderr to
+	/dev/null.
 
 Thu Jun 24 15:58:04 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * autoconf.sh, autoheader.sh, acgeneral.m4 (AC_PREPARE): Undo
-        change of Jun 16 1993.  Only set `LANG' and `LC_ALL' to "C" if
-        already set. 
+	* autoconf.sh, autoheader.sh, acgeneral.m4 (AC_PREPARE): Undo
+	change of Jun 16 1993.  Only set `LANG' and `LC_ALL' to "C" if
+	already set.
 
 Sat Jun 19 00:01:51 1993  Jim Meyering  (meyering@comco.com)
 
 	* acgeneral.m4: Undefine m4's `format' builtin.
-        * acspecific.m4 (AC_HAVE_POUNDBANG): Make conftest executable,
+	* acspecific.m4 (AC_HAVE_POUNDBANG): Make conftest executable,
 	but not necessarily writable by group or other.
 
 Thu Jun 17 21:10:33 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_PROG_CPP): Put double quotes around ${CC-cc},
-        not single quotes.
-        If --verbose option given, say what CPP is being set to. 
+	* acspecific.m4 (AC_PROG_CPP): Put double quotes around ${CC-cc},
+	not single quotes.
+	If --verbose option given, say what CPP is being set to.
 
 Wed Jun 16 17:50:00 1993  Jim Blandy  (jimb@wookumz.gnu.ai.mit.edu)
 
@@ -1001,8 +1001,8 @@ Wed Jun 16 17:50:00 1993  Jim Blandy  (jimb@wookumz.gnu.ai.mit.edu)
 
 Wed Jun 16 16:17:05 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * autoconf.sh, autoheader.sh, acgeneral.m4 (AC_PREPARE): Always set
-        `LANG' and `LC_ALL' environment variables to `C'. 
+	* autoconf.sh, autoheader.sh, acgeneral.m4 (AC_PREPARE): Always set
+	`LANG' and `LC_ALL' environment variables to `C'.
 
 Fri Jun 11 14:29:31 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -1026,30 +1026,30 @@ Mon Jun  7 20:11:50 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
 Mon Jun  7 06:48:49 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * Makefile.in (dist): Change gzipped tar file extension to `.gz'.
-        Use explicit --gzip option to tar to make sure tar uses the right
-        compression program (or else exits from failure to understand the
-        option). 
+	* Makefile.in (dist): Change gzipped tar file extension to `.gz'.
+	Use explicit --gzip option to tar to make sure tar uses the right
+	compression program (or else exits from failure to understand the
+	option).
 
-        * acgeneral.m4 (AC_OUTPUT): Don't split sed expr for exec_prefix
-        across two lines, since not all versions of sed understand that.
+	* acgeneral.m4 (AC_OUTPUT): Don't split sed expr for exec_prefix
+	across two lines, since not all versions of sed understand that.
 
-        * acspecific.m4 (AC_HAVE_POUNDBANG): Complete rewrite which doesn't
-        depend on csh.
+	* acspecific.m4 (AC_HAVE_POUNDBANG): Complete rewrite which doesn't
+	depend on csh.
 
 Tue Jun  1 03:06:28 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * Version 1.4.1 (not announced to the general public, but
-        a snapshot was put on the June '93 GNU CDROM).
+	* Version 1.4.1 (not announced to the general public, but
+	a snapshot was put on the June '93 GNU CDROM).
 
-        * Makefile.in (dist): If ln fails (e.g. because of cross-device
-        links), mention on stdout that file is being copied. 
+	* Makefile.in (dist): If ln fails (e.g. because of cross-device
+	links), mention on stdout that file is being copied.
 
-        * acgeneral.m4 (AC_PREPARE): Use `[$]*' in assignment to
-        configure_args to get shell positional args, rather than m4 args to
-        AC_PREPARE.
-        (AC_OUTPUT): Use `configure_args' in config.status
-        when invoked with --recheck, rather than $*. 
+	* acgeneral.m4 (AC_PREPARE): Use `[$]*' in assignment to
+	configure_args to get shell positional args, rather than m4 args to
+	AC_PREPARE.
+	(AC_OUTPUT): Use `configure_args' in config.status
+	when invoked with --recheck, rather than $*.
 
 Mon May 31 13:12:56 1993  Paul Eggert  (eggert@twinsun.com)
 
@@ -1058,7 +1058,7 @@ Mon May 31 13:12:56 1993  Paul Eggert  (eggert@twinsun.com)
 
 Mon May 31 04:18:18 1993  Roland McGrath  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acgeneral.m4 (AC_HAVE_LIBRARY): Quote libname in define.
+	* acgeneral.m4 (AC_HAVE_LIBRARY): Quote libname in define.
 
 Sun May 30 19:52:24 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -1072,8 +1072,8 @@ Thu May 27 20:30:53 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
 Wed May 26 16:19:51 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * autoconf.texi (AC_PROG_INSTALL): Doc fix.
-        (Automatic Remaking): Put code fragment in @example ... @end example.
+	* autoconf.texi (AC_PROG_INSTALL): Doc fix.
+	(Automatic Remaking): Put code fragment in @example ... @end example.
 
 Mon May 24 15:46:47 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -1084,7 +1084,7 @@ Mon May 24 15:46:47 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
 Sat May 22 17:45:19 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * Version 1.4 released.
+	* Version 1.4 released.
 
 Thu May 20 20:25:45 1993  Jim Blandy  (jimb@geech.gnu.ai.mit.edu)
 
@@ -1095,19 +1095,19 @@ Thu May 20 20:25:45 1993  Jim Blandy  (jimb@geech.gnu.ai.mit.edu)
 
 Thu May 20 09:21:55 1993  Jim Meyering  (meyering@comco.com)
 
-        * acspecific.m4 (AC_ALLOCA) [find_stack_direction]: Return the
+	* acspecific.m4 (AC_ALLOCA) [find_stack_direction]: Return the
 	value from the recursive call.  If it worked before, it was by luck.
 	From Bruno Haible <haible@ma2s2.mathematik.uni-karlsruhe.de>.
 
 Tue May 18 23:40:21 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_STDC_HEADERS): Require AC_PROG_CPP. 
+	* acspecific.m4 (AC_STDC_HEADERS): Require AC_PROG_CPP.
 
 Mon May 17 18:01:09 1993  Karl Berry  (karl@hal.gnu.ai.mit.edu)
 
-        * acgeneral.m4 (AC_OUTPUT): Use variables gen_files and
-        gen_config in the loop that generates the output (Make)files,
-        instead of hardwiring the filenames.
+	* acgeneral.m4 (AC_OUTPUT): Use variables gen_files and
+	gen_config in the loop that generates the output (Make)files,
+	instead of hardwiring the filenames.
 
 Sat May 15 17:23:19 1993  Roland McGrath  (roland@geech.gnu.ai.mit.edu)
 
@@ -1116,9 +1116,9 @@ Sat May 15 17:23:19 1993  Roland McGrath  (roland@geech.gnu.ai.mit.edu)
 
 Fri May 14 12:41:02 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * autoheader.sh, acspecific.m4 (AC_PREPARE): If `LANG' environment
-        variable is set, reset its value to `C'.  This is so `tr [...]'
-        works more portably.
+	* autoheader.sh, acspecific.m4 (AC_PREPARE): If `LANG' environment
+	variable is set, reset its value to `C'.  This is so `tr [...]'
+	works more portably.
 
 Thu May 13 22:56:20 1993  Paul Eggert  (eggert@twinsun.com)
 
@@ -1147,10 +1147,10 @@ Wed May 12 15:07:36 1993  Roland McGrath  (roland@geech.gnu.ai.mit.edu)
 
 Mon May 10 14:24:27 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_HAVE_POUNDBANG): New feature.
+	* acspecific.m4 (AC_HAVE_POUNDBANG): New feature.
 
-        * acgeneral.m4 (AC_OUTPUT): Add more backslashes to character class
-        in DEFS filter (sigh). 
+	* acgeneral.m4 (AC_OUTPUT): Add more backslashes to character class
+	in DEFS filter (sigh).
 
 Sun May  9 14:04:31 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -1194,8 +1194,8 @@ Fri May  7 15:56:26 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
 Fri May  7 04:59:25 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_PROG_INSTALL): Don't look for `install' in
-          /usr/ucb. 
+	* acspecific.m4 (AC_PROG_INSTALL): Don't look for `install' in
+	/usr/ucb.
 
 Thu May  6 20:41:35 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -1261,9 +1261,9 @@ Wed Apr 21 18:14:19 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
 Tue Apr 20 18:02:46 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_DECLARE_YYTEXT): Guess name of lex output file
-        and do AC_SUBST of `LEX_OUTPUT_ROOT'.
-        Add `dnl' after calling some autoconf macros. 
+	* acspecific.m4 (AC_DECLARE_YYTEXT): Guess name of lex output file
+	and do AC_SUBST of `LEX_OUTPUT_ROOT'.
+	Add `dnl' after calling some autoconf macros.
 
 Mon Apr 19 15:46:24 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -1282,8 +1282,8 @@ Sat Apr 17 17:26:12 1993  Jim Meyering  (meyering@comco.com)
 
 Sat Apr 17 01:18:41 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * acspecific.m4 (AC_PID_T): provide self.
-        (AC_VFORK): Require AC_PID_T.
+	* acspecific.m4 (AC_PID_T): provide self.
+	(AC_VFORK): Require AC_PID_T.
 
 Fri Apr 16 11:57:35 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
@@ -1381,18 +1381,18 @@ Mon Mar 22 13:08:10 1993  Jim Meyering  (meyering@comco.com)
 
 Wed Mar 17 18:08:30 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * autoconf.sh, autoheader.sh (MACRODIR): Variable renamed to
+	* autoconf.sh, autoheader.sh (MACRODIR): Variable renamed to
 	AC_MACRODIR.  Don't initialize it at runtime if it is already set
-	in the environment.  
+	in the environment.
 	(MACROFILES): Don't set until after options are processed.
 	(print_version): New temp variable.
-          
-        * autoconf.sh, autoheader.sh: Rewrote argument parsing.  
-	Added `-m', `--macrodir', `-h', `--help', and `--' options.  
-	Updated usage string. 
 
-        * autoconf.texi: Documented --macrodir option and its effects for
-        both scripts. 
+	* autoconf.sh, autoheader.sh: Rewrote argument parsing.
+	Added `-m', `--macrodir', `-h', `--help', and `--' options.
+	Updated usage string.
+
+	* autoconf.texi: Documented --macrodir option and its effects for
+	both scripts.
 
 Tue Mar 16 09:10:48 1993  Jim Meyering  (meyering@comco.com)
 
@@ -1443,9 +1443,9 @@ Mon Mar  8 14:40:53 1993  Roland McGrath  (roland@geech.gnu.ai.mit.edu)
 
 Tue Mar  2 01:06:25 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
 
-        * autoheader.sh: Don't use /p1/,/p2/ construct with sed---it's not
-          portable.  Handle broken AIX sed that strips \n from hold space
-          when it shouldn't.  From Jun Hamano <junio@twinsun.com>. 
+	* autoheader.sh: Don't use /p1/,/p2/ construct with sed---it's not
+	portable.  Handle broken AIX sed that strips \n from hold space
+	when it shouldn't.  From Jun Hamano <junio@twinsun.com>.
 
 Tue Mar 02 00:08:39 1993  Jim Meyering  (meyering@comco.com)
 
@@ -1710,7 +1710,7 @@ Sun Dec 20 18:12:33 1992  Roland McGrath  (roland@albert.gnu.ai.mit.edu)
 Fri Dec 18 00:21:23 1992  David J. MacKenzie  (djm@kropotkin.gnu.ai.mit.edu)
 
 	* acgeneral.m4 (AC_HAVE_FUNCS, AC_HAVE_HEADERS): Change method
-	of tr quoting to keep old shells happy.  From Ian Lance Taylor.	
+	of tr quoting to keep old shells happy.  From Ian Lance Taylor.
 
 	* acgeneral.m4 (AC_DEFINE): Add to SEDDEFS.
 	(AC_OUTPUT): Use sed instead of awk.
@@ -1779,8 +1779,8 @@ Thu Nov 12 22:49:35 1992  David J. MacKenzie  (djm@goldman.gnu.ai.mit.edu)
 
 Sun Nov  8 23:33:23 1992  david d `zoo' zuhn  (zoo at cirdan.cygnus.com)
 
-       * acspecific.m4 (AC_GETLOADAVG): Check for dwarf.h for general
-       svr4, then elf.h for Solaris 2, which needs additional libraries.
+	* acspecific.m4 (AC_GETLOADAVG): Check for dwarf.h for general
+	svr4, then elf.h for Solaris 2, which needs additional libraries.
 
 Thu Nov 12 22:18:54 1992  David J. MacKenzie  (djm@goldman.gnu.ai.mit.edu)
 

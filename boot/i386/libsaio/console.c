@@ -47,7 +47,7 @@
 #include "libsaio.h"
 
 BOOL gVerboseMode;
-BOOL errors;
+BOOL gErrors;
 
 /*
  * write one character to console
@@ -117,7 +117,7 @@ int verbose(const char * fmt, ...)
 int error(const char * fmt, ...)
 {
     va_list ap;
-    errors = YES;
+    gErrors = YES;
     va_start(ap, fmt);
     prf(fmt, ap, putchar, 0);
     va_end(ap);

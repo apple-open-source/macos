@@ -25,8 +25,14 @@
 #include <Security/c++plugin.h>
 #include <Security/globalizer.h>
 #include <Security/callback.h>
-#include <hash_map>
 #include <set>
+
+#if __GNUC__ > 2
+#include <ext/hash_map>
+using __gnu_cxx::hash_map;
+#else
+#include <hash_map>
+#endif
 
 namespace Security
 {

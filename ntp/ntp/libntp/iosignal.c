@@ -3,45 +3,43 @@
  *		   was shamelessly stolen from ntpd.
  */
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
-#include <stdio.h>
-#include <signal.h>
-#include <errno.h>
-#include <sys/types.h>
-#ifdef HAVE_SYS_PARAM_H
-# include <sys/param.h>
-#endif /* HAVE_SYS_PARAM_H */
-#ifdef HAVE_SYS_TIME_H
-# include <sys/time.h>
-#endif
-#ifdef HAVE_NETINET_IN_H
-# include <netinet/in.h>
-#endif
-#ifdef HAVE_SYS_IOCTL_H
-# include <sys/ioctl.h>
-#endif
-#ifdef HAVE_SYS_SOCKIO_H	/* UXPV: SIOC* #defines (Frank Vance <fvance@waii.com>) */
-# include <sys/sockio.h>
-#endif
-#include <arpa/inet.h>
-
-#if _BSDI_VERSION >= 199510
-# include <ifaddrs.h>
-#endif
-/*	98/06/01  */
-#include "ntp_machine.h"	/*  98/06/01  */
+#include "ntp_machine.h"
 #include "ntpd.h"
-#include "ntp_select.h"
 #include "ntp_io.h"
 #include "ntp_if.h"
 #include "ntp_stdlib.h"
 #include "iosignal.h"
 
+#include <stdio.h>
+#include <signal.h>
+#ifdef HAVE_SYS_PARAM_H
+# include <sys/param.h>
+#endif /* HAVE_SYS_PARAM_H */
+#ifdef HAVE_SYS_IOCTL_H
+# include <sys/ioctl.h>
+#endif
+
+#include <arpa/inet.h>
+
+#if _BSDI_VERSION >= 199510
+# include <ifaddrs.h>
+#endif
+
 #if defined(HAVE_SIGNALED_IO)
 static int sigio_block_count = 0;
+# if defined(HAVE_SIGACTION)
+/*
+ * If sigaction() is used for signal handling and a signal is
+ * pending then the kernel blocks the signal before it calls
+ * the signal handler.
+ *
+ * The variable below is used to take care that the SIGIO signal
+ * is not unintentionally unblocked inside the sigio_handler()
+ * if the handler executes a piece of code that is normally
+ * bracketed by BLOCKIO()/UNBLOCKIO() calls.
+ */
+static int sigio_handler_active = 0;
+# endif
 extern	void	input_handler	P((l_fp *));
 
 /*
@@ -297,7 +295,21 @@ sigio_handler(
 	l_fp ts;
 
 	get_systime(&ts);
+
+# if defined(HAVE_SIGACTION)
+	sigio_handler_active++;
+	if (sigio_handler_active != 1)  /* This should never happen! */
+	    msyslog(LOG_ERR, "sigio_handler: sigio_handler_active != 1");
+# endif
+
 	(void)input_handler(&ts);
+
+# if defined(HAVE_SIGACTION)
+	sigio_handler_active--;
+	if (sigio_handler_active != 0)  /* This should never happen! */
+	    msyslog(LOG_ERR, "sigio_handler: sigio_handler_active != 0");
+# endif
+
 	errno = saved_errno;
 }
 
@@ -341,27 +353,30 @@ block_io_and_alarm(void)
 void
 block_sigio(void)
 {
-	sigset_t set;
+	if ( sigio_handler_active == 0 )  /* not called from within signal handler */
+	{
+		sigset_t set;
 
-	++sigio_block_count;
-	if (sigio_block_count > 1)
-	    msyslog(LOG_INFO, "block_sigio: sigio_block_count > 1");
-	if (sigio_block_count < 1)
-	    msyslog(LOG_INFO, "block_sigio: sigio_block_count < 1");
+		++sigio_block_count;
+		if (sigio_block_count > 1)
+		    msyslog(LOG_INFO, "block_sigio: sigio_block_count > 1");
+		if (sigio_block_count < 1)
+		    msyslog(LOG_INFO, "block_sigio: sigio_block_count < 1");
 
-	if (sigemptyset(&set))
-	    msyslog(LOG_ERR, "block_sigio: sigemptyset() failed: %m");
-#  if defined(USE_SIGIO)
-	if (sigaddset(&set, SIGIO))
-	    msyslog(LOG_ERR, "block_sigio: sigaddset(SIGIO) failed: %m");
-#  endif
-#  if defined(USE_SIGPOLL)
-	if (sigaddset(&set, SIGPOLL))
-	    msyslog(LOG_ERR, "block_sigio: sigaddset(SIGPOLL) failed: %m");
-#  endif
+		if (sigemptyset(&set))
+		    msyslog(LOG_ERR, "block_sigio: sigemptyset() failed: %m");
+#	if defined(USE_SIGIO)
+		if (sigaddset(&set, SIGIO))
+		    msyslog(LOG_ERR, "block_sigio: sigaddset(SIGIO) failed: %m");
+#	endif
+#	if defined(USE_SIGPOLL)
+		if (sigaddset(&set, SIGPOLL))
+		    msyslog(LOG_ERR, "block_sigio: sigaddset(SIGPOLL) failed: %m");
+#	endif
 
-	if (sigprocmask(SIG_BLOCK, &set, NULL))
-	    msyslog(LOG_ERR, "block_sigio: sigprocmask() failed: %m");
+		if (sigprocmask(SIG_BLOCK, &set, NULL))
+		    msyslog(LOG_ERR, "block_sigio: sigprocmask() failed: %m");
+	}
 }
 
 void
@@ -390,28 +405,31 @@ unblock_io_and_alarm(void)
 void
 unblock_sigio(void)
 {
-	sigset_t unset;
+	if ( sigio_handler_active == 0 )  /* not called from within signal handler */
+	{
+		sigset_t unset;
 
-	--sigio_block_count;
-	if (sigio_block_count > 0)
-	    msyslog(LOG_INFO, "unblock_sigio: sigio_block_count > 0");
-	if (sigio_block_count < 0)
-	    msyslog(LOG_INFO, "unblock_sigio: sigio_block_count < 0");
+		--sigio_block_count;
+		if (sigio_block_count > 0)
+		    msyslog(LOG_INFO, "unblock_sigio: sigio_block_count > 0");
+		if (sigio_block_count < 0)
+		    msyslog(LOG_INFO, "unblock_sigio: sigio_block_count < 0");
 
-	if (sigemptyset(&unset))
-	    msyslog(LOG_ERR, "unblock_sigio: sigemptyset() failed: %m");
+		if (sigemptyset(&unset))
+		    msyslog(LOG_ERR, "unblock_sigio: sigemptyset() failed: %m");
 
-#  if defined(USE_SIGIO)
-	if (sigaddset(&unset, SIGIO))
-	    msyslog(LOG_ERR, "unblock_sigio: sigaddset(SIGIO) failed: %m");
-#  endif
-#  if defined(USE_SIGPOLL)
-	if (sigaddset(&unset, SIGPOLL))
-	    msyslog(LOG_ERR, "unblock_sigio: sigaddset(SIGPOLL) failed: %m");
-#  endif
+#	if defined(USE_SIGIO)
+		if (sigaddset(&unset, SIGIO))
+		    msyslog(LOG_ERR, "unblock_sigio: sigaddset(SIGIO) failed: %m");
+#	endif
+#	if defined(USE_SIGPOLL)
+		if (sigaddset(&unset, SIGPOLL))
+		    msyslog(LOG_ERR, "unblock_sigio: sigaddset(SIGPOLL) failed: %m");
+#	endif
 
-	if (sigprocmask(SIG_UNBLOCK, &unset, NULL))
-	    msyslog(LOG_ERR, "unblock_sigio: sigprocmask() failed: %m");
+		if (sigprocmask(SIG_UNBLOCK, &unset, NULL))
+		    msyslog(LOG_ERR, "unblock_sigio: sigprocmask() failed: %m");
+	}
 }
 
 void
@@ -516,5 +534,5 @@ wait_for_signal(void)
 
 # endif /* HAVE_SIGACTION */
 #else
-static int  NotAnEmptyCompilationUnit;
+int  NotAnEmptyCompilationUnit;
 #endif 

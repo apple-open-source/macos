@@ -6,7 +6,7 @@
 Project  = rsync
 UserType = Administration
 ToolType = Commands
-Extra_Configure_Flags = --with-included-popt --disable-ipv6
+Extra_Configure_Flags = --with-included-popt
 Extra_CC_Flags = -DHAVE_CONFIG_H
 
 # It's a GNU Source project

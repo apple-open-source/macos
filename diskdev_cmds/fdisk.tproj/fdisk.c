@@ -31,16 +31,19 @@
 #define DRIVER_PRIVATE
 
 #include <IOKit/storage/IOFDiskPartitionScheme.h>
-#include <bsd/dev/disk.h>
-#include <bsd/sys/fcntl.h>
-#include <bsd/sys/file.h>
+#include <dev/disk.h>
+#include <sys/fcntl.h>
+#include <sys/file.h>
 #include <stdlib.h>
 #include <strings.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <machine/byte_order.h>
 #include <machdep/i386/kernBootStruct.h>
 #include <ctype.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 
 int devblklen;
@@ -54,6 +57,7 @@ int useBoot0;
 int bootsectorOnly;
 int megsForDos;
 char *deviceName = "none";
+char *boot0file = "/usr/standalone/i386/boot0";
 
 KERNBOOTSTRUCT kernbootstruct;
 struct disk_blk0 bootsector;
@@ -79,7 +83,6 @@ typedef struct {
 block_info zalloced[NODES];
 block_info zavailable[NODES];
 short availableNodes, allocedNodes;
-static int zalloc_base;
 
 
 void		activateUFS();
@@ -145,38 +148,73 @@ usage()
 //	"-setExtAndAvailableToUFS	(delete current extended partition, then\n"
 //	"				 reserve all free space for UFS)\n"
 	"-setExtendedToUFS		(Change extended partition to UFS)\n"
-	"-setUFSActive			(Make the UFS partition active)\n");
+	"-setUFSActive			(Make the UFS partition active)\n"
+        "-script			(Read partition entries from stdin)\n");
 
-	fprintf(stderr, "--------  Flags  --------\n");
-	fprintf(stderr, 
-	"-useAllSectors		(don't limit disk to bios accessible sectors)\n"
+        fprintf(stderr, "--------  Flags  --------\n");
+	fprintf(stderr,
+        "-useAllSectors		(don't limit disk to bios accessible sectors)\n"
 	"-useBoot0		(use /usr/standalone/i386/boot0 as the boot program)\n");
 	fprintf(stderr, 
 	"-bootsectorOnly		(modify only the bootsector)\n");
 
+        fprintf(stderr, "--------  Arguments  --------\n");
+        fprintf(stderr,
+        "-heads <n>    		(force number of heads for disk geometry)\n"
+        "-cylinders <n>		(force number of cylinders for disk geometry)\n"
+        "-sectors <n>  		(force number of sectors per track for disk geometry)\n"
+        "-boot0 <file> 		(file to use for boot0)\n");
 	exit(-1);
 }
 
 void
-bomb(s1, a1)
+bomb(s1, a1, a2)
 	char *s1;
 	char *a1;
+        char *a2;
 {
-	fprintf(stderr,s1,a1);
+	fprintf(stderr,s1,a1,a2);
 	exit(-1);
 }
+
+void
+swap_bootsector_in(struct disk_blk0 *bs)
+{
+    int i;
+    for (i=0; i<DISK_NPART; i++)
+    {
+        bs->parts[i].relsect = NXSwapLittleLongToHost(bs->parts[i].relsect);
+        bs->parts[i].numsect = NXSwapLittleLongToHost(bs->parts[i].numsect);
+    }
+    bs->signature = NXSwapLittleShortToHost(bs->signature);
+}
+
+void
+swap_bootsector_out(struct disk_blk0 *bs)
+{
+    int i;
+    for (i=0; i<DISK_NPART; i++)
+    {
+        bs->parts[i].relsect = NXSwapHostLongToLittle(bs->parts[i].relsect);
+        bs->parts[i].numsect = NXSwapHostLongToLittle(bs->parts[i].numsect);
+    }
+    bs->signature = NXSwapHostShortToLittle(bs->signature);
+}
+
 
 static char *devs[1] = {
 	"/dev/rdisk0"
 	};
 
-void
+int
 main(int argc, char *argv[])
 {
 	int kmfd, tfd;
 	int diskInfo, ndx = 0;
 	int i;
 	char *cp = argv[1];
+        int is_raw_disk = 0;
+        struct stat sb;
 
 	if (argc < 2)
 	{
@@ -192,10 +230,16 @@ main(int argc, char *argv[])
 		bomb("fdisk: unable to access IDE or SCSI drive\n"
 			"    (Must be run as root)\n");
 	}
-	else if (strncmp(cp, "/dev/rdisk", 10) || (cp[11] != '\0'))
-	{
-		usage();
-	}
+
+        if (stat(cp, &sb) != 0)
+        {
+            bomb("fdisk: unable to stat %s: %s\n", cp, strerror(errno));
+        }
+
+        if ((sb.st_mode & S_IFCHR) != 0)
+        {
+            is_raw_disk = 1;
+        }
 
 fbegin:
 	deviceName = cp;
@@ -209,39 +253,61 @@ fbegin:
 		bomb("fdisk: unable to open %s\n",cp);
 	}
 
-	if (ioctl (fd, DKIOCBLKSIZE, &devblklen) < 0)
-	{
-		bomb("fdisk: unable to get disk block size\n");
-	}
+        if (is_raw_disk)
+        {
 
-	if (devblklen != 512)
-	{
-		bomb("fdisk: DOS partitioning requires 512 byte block size\n");
-	}
+            if (ioctl (fd, DKIOCBLKSIZE, &devblklen) < 0)
+            {
+                bomb("fdisk: unable to get disk block size\n");
+            }
 
-	if ((kmfd = open ("/dev/kmem", O_RDONLY)) < 0)
-	{
-		bomb("fdisk: can't get kernel boot structure\n");
-	}
+            if (devblklen != 512)
+            {
+                bomb("fdisk: DOS partitioning requires 512 byte block size\n");
+            }
 
-	lseek(kmfd, (off_t)KERNSTRUCT_ADDR, L_SET);
-	read(kmfd, &kernbootstruct, sizeof(KERNBOOTSTRUCT)-CONFIG_SIZE);
-	if (kernbootstruct.magicCookie != KERNBOOTMAGIC)
-	{
-		bomb("fdisk: kernbootstruct invalid\n");
-	}
+            if ((kmfd = open ("/dev/kmem", O_RDONLY)) < 0)
+            {
+                bomb("fdisk: can't get kernel boot structure\n");
+            }
 
-	ndx += cp[10] - '0';
-	if (ndx < 0 || ndx > 3)
-	{
-		bomb("fdisk: no bios info for this device\n");
-	}
+            lseek(kmfd, (off_t)KERNSTRUCT_ADDR, L_SET);
+            read(kmfd, &kernbootstruct, sizeof(KERNBOOTSTRUCT)-CONFIG_SIZE);
+            if (kernbootstruct.magicCookie != KERNBOOTMAGIC)
+            {
+                bomb("fdisk: kernbootstruct invalid\n");
+            }
 
-	diskInfo = kernbootstruct.diskInfo[ndx];
-	heads = ((diskInfo >> 8) & 0xff) + 1;
-	spt = diskInfo & 0xff;
-	spc = spt * heads;
-	cylinders = (diskInfo >> 16) + 1;
+            ndx += cp[10] - '0';
+            if (ndx < 0 || ndx > 3)
+            {
+                bomb("fdisk: no bios info for this device\n");
+            }
+
+            diskInfo = kernbootstruct.diskInfo[ndx];
+            heads = ((diskInfo >> 8) & 0xff) + 1;
+            spt = diskInfo & 0xff;
+            spc = spt * heads;
+            cylinders = (diskInfo >> 16) + 1;
+
+            if (ioctl(fd, DKIOCNUMBLKS, &devNumBlks) < 0)
+            {
+                    bomb("fdisk: no bios info for this device\n");
+            }
+
+        }
+        else
+        {
+            devblklen = 512;
+            
+            if (heads <= 0 || spt <= 0 || cylinders <= 0)
+            {
+                bomb("Must specify heads, sectors, cylinders\n");
+            }
+            spc = spt * heads;
+
+            devNumBlks = sb.st_size / devblklen;
+        }
 
 	if (heads == 1 || spt == 0)
 	{
@@ -251,21 +317,16 @@ fbegin:
 		    "    UFS will be unable to get proper disk information.\n");
 	}
 
-	if (ioctl(fd, DKIOCNUMBLKS, &devNumBlks) < 0)
-	{
-		bomb("fdisk: no bios info for this device\n");
-	}
-
 	// read the current bootsector
 	read(fd, &bootsector, sizeof(struct disk_blk0));
+        swap_bootsector_in(&bootsector);
 
 	// if no signature, we'll read in boot0 to use as the boot code
-	if (bootsector.signature != DISK_SIGNATURE || useBoot0 || (!diskPartitioned()))
+	if (NXSwapLittleShortToHost(bootsector.signature) != DISK_SIGNATURE || useBoot0 || (!diskPartitioned()))
 	{
-		char *tcp = "/usr/standalone/i386/boot0";
-		if ((tfd = open (tcp, O_RDONLY)) < 0)
+		if ((tfd = open (boot0file, O_RDONLY)) < 0)
 		{
-			bomb("fdisk: can't read %s\n",tcp);
+			bomb("fdisk: can't read %s\n",boot0file);
 		}
 
 		if (bootsector.signature == DISK_SIGNATURE && diskPartitioned())
@@ -569,6 +630,7 @@ save_changes()
 
 	// write bootsector
 	lseek(fd, 0, L_SET);
+        swap_bootsector_out(&bootsector);
 	write(fd, &bootsector, sizeof(struct disk_blk0));
 
 	if (!bootsectorOnly)
@@ -1104,7 +1166,8 @@ enum {
 	SETEXTTONEXT,
 	SETNEXTACTIVE,
 	DISKSIZE,
-	INSTALLSIZE
+	INSTALLSIZE,
+        SCRIPT
 	} whichAction;
 
 void
@@ -1174,6 +1237,41 @@ examineArgs(int argc, char *argv[])
 			whichAction = INSTALLSIZE;
 		}
 
+                // Arguments
+                
+                else if (!strcmp(argv[i],"-heads"))
+                {
+                    if (++i >= argc)
+                    {
+                        bomb("fdisk: not enough arguments for -heads\n");
+                    }
+                    heads = atoi(argv[i]);
+                }
+                else if (!strcmp(argv[i],"-sectors"))
+                {
+                    if (++i >= argc)
+                    {
+                        bomb("fdisk: not enough arguments for -sectors\n");
+                    }
+                    spt = atoi(argv[i]);
+                }
+                else if (!strcmp(argv[i],"-cylinders"))
+                {
+                    if (++i >= argc)
+                    {
+                        bomb("fdisk: not enough arguments for -cylinders\n");
+                    }
+                    cylinders = atoi(argv[i]);
+                }
+                else if (!strcmp(argv[i],"-boot0"))
+                {
+                    if (++i >= argc)
+                    {
+                        bomb("fdisk: not enough arguments for -boot0\n");
+                    }
+                    boot0file = argv[i];
+                }
+
 	// Actions
 		else if (!strcmp(argv[i],"-removepartitioning"))
 		{
@@ -1213,6 +1311,11 @@ examineArgs(int argc, char *argv[])
 			interactive--;
 			whichAction = SETNEXTACTIVE;
 		}
+                else if (!strcmp(argv[i],"-script"))
+                {
+                    interactive--;
+                    whichAction = SCRIPT;
+                }
 
 		else {
 		    usage();
@@ -1221,6 +1324,83 @@ examineArgs(int argc, char *argv[])
 
 	if (interactive < 0)
 	    bomb("fdisk: only one action or inquiry allowed\n");
+}
+
+void
+readScript()
+{
+    int lineno;
+    int boot_part = -1;
+    
+    /* Read commands from stdin and execute them. */
+    /* Commands are of the form: */
+    /* <size>,<label>,<bootable> */
+    /* size is in megabytes (decimal), */
+    /* label is in hex, */
+    /* bootable is optional; if "*" then bootable. */
+    nukeAll();
+    for (lineno = 0; lineno < 4 && !feof(stdin); lineno++)
+    {
+        char line[80];
+        char *str;
+        char *args[3];
+        int i;
+        int size=0, type=0;
+
+        str = fgets(line, 80, stdin);
+        if (str == NULL)
+        {
+            break;
+        }
+
+        args[0] = args[1] = args[2] = NULL;
+        for (i=0; i<3; i++)
+        {
+            char *arg;
+            while (isspace(*str))
+                str++;
+            arg = strsep(&str, ",\n");
+            if (arg == NULL || str == NULL)
+            {
+                break;
+            }
+            args[i] = arg;
+        }
+        if (args[0] != NULL)
+        {
+            size = (int)strtol(args[0], NULL, 10);
+        }
+        else
+        {
+            size = 0;
+        }
+        if (size == 0)
+        {
+            size = maxFreeBlocks();
+        }
+        if (args[1] != NULL)
+        {
+            type = (int)strtol(args[1], NULL, 0x10);
+        }
+        else
+        {
+            bomb("fdisk: missing hex partition type argument\n");
+        }
+        if (args[2] != NULL)
+        {
+            if (*args[2] == '*')
+            {
+                boot_part = lineno;
+            }
+        }
+        printf("allocating %d sectors for partition type 0x%02x\n", size, type);
+        zalloc(size, type);
+    }
+    if (boot_part != -1)
+    {
+        printf("marking partition %d bootable\n", boot_part);
+        activateByIndex(boot_part);
+    }
 }
 
 void
@@ -1314,6 +1494,10 @@ doActionOrInquiry()
 		activateUFS();
 		writeBoot = 1;
 		break;
+        case SCRIPT:
+                readScript();
+                writeBoot = 1;
+                break;
 	}
 
 	if (writeBoot)

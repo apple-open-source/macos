@@ -32,8 +32,14 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-real.cpp,v 1.3 2001/06/27 23:09:15 dmitch Exp $
+// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/asn-real.cpp,v 1.4 2002/03/21 05:38:45 dmitch Exp $
 // $Log: asn-real.cpp,v $
+// Revision 1.4  2002/03/21 05:38:45  dmitch
+// Radar 2868524: no more setjmp/longjmp in SNACC-generated code.
+//
+// Revision 1.3.44.1  2002/03/20 00:36:50  dmitch
+// Radar 2868524: SNACC-generated code now uses throw/catch instead of setjmp/longjmp.
+//
 // Revision 1.3  2001/06/27 23:09:15  dmitch
 // Pusuant to Radar 2664258, avoid all cerr-based output in NDEBUG configuration.
 //
@@ -553,7 +559,7 @@ double AsnPlusInfinity()
 {
     double d;
     unsigned char *c;
-    int i;
+    unsigned i;
 
     c = (unsigned char*)&d;
     c[0] = 0x7f;
@@ -584,7 +590,7 @@ AsnLen AsnReal::BEncContent (BUF_TYPE b)
     unsigned int expLen;
     int sign;
     unsigned char buf[sizeof (double)];
-    int i, mantissaLen;
+    unsigned i, mantissaLen;
     unsigned char firstOctet;
 
     /* no contents for 0.0 reals */
@@ -715,7 +721,7 @@ AsnLen AsnReal::BEncContent (BUF_TYPE b)
         for (i = expLen; i > 0; i--)
         {
             b.PutByteRvs (exponent);
-            exponent >> 8;
+            exponent >>= 8;
         }
 
         /* write the exponents length if nec */
@@ -745,7 +751,7 @@ void AsnReal::BDecContent (BUF_TYPE b, AsnTag tagId, AsnLen elmtLen, AsnLen &byt
 {
     unsigned char firstOctet;
     unsigned char firstExpOctet;
-    int i;
+    unsigned i;
     unsigned int expLen;
     double mantissa;
     unsigned short base;
@@ -771,7 +777,11 @@ void AsnReal::BDecContent (BUF_TYPE b, AsnTag tagId, AsnLen elmtLen, AsnLen &byt
         else
         {
             Asn1Error << "AsnReal::BDecContent: ERROR - unrecognized 1 octet length real number" << endl;
+			#if SNACC_EXCEPTION_ENABLE
+			SnaccExcep::throwMe(-18);
+			#else
             longjmp (env, -18);
+			#endif
         }
     }
     else
@@ -838,8 +848,12 @@ void AsnReal::BDecContent (BUF_TYPE b, AsnTag tagId, AsnLen elmtLen, AsnLen &byt
 
                 default:
                     Asn1Error << "AsnReal::BDecContent: ERROR - unsupported base for a binary real number." << endl;
-                   longjmp (env, -19);
-                   break;
+					#if SNACC_EXCEPTION_ENABLE
+					SnaccExcep::throwMe(-19);
+					#else
+                    longjmp (env, -19);
+					#endif
+                    break;
 
             }
 
@@ -856,7 +870,11 @@ void AsnReal::BDecContent (BUF_TYPE b, AsnTag tagId, AsnLen elmtLen, AsnLen &byt
         else /* decimal version */
         {
             Asn1Error << "AsnReal::BDecContent: ERROR - decimal REAL form is not currently supported" << endl;
+			#if SNACC_EXCEPTION_ENABLE
+			SnaccExcep::throwMe(-20);
+			#else
             longjmp (env, -20);
+			#endif
         }
     }
 
@@ -877,7 +895,11 @@ void AsnReal::BDec (BUF_TYPE b, AsnLen &bytesDecoded, ENV_TYPE env)
     if (BDecTag (b, bytesDecoded, env) != MAKE_TAG_ID (UNIV, PRIM, REAL_TAG_CODE))
     {
 	Asn1Error << "AsnReal::BDec: ERROR tag on REAL is wrong." << endl;
+	#if SNACC_EXCEPTION_ENABLE
+	SnaccExcep::throwMe(-58);
+	#else
 	longjmp (env,-58);
+	#endif
     }
     elmtLen = BDecLen (b, bytesDecoded, env);
 

@@ -46,9 +46,6 @@
  
 #include "memory.h"
 
-#define NGDTENT		6
-#define GDTLIMIT	48	/* NGDTENT * 8 */
-
 /*  Segment Descriptor
  *
  * 31          24         19   16                 7           0
@@ -64,23 +61,39 @@
  */
 
 struct seg_desc {
-	unsigned short	limit_15_0;
-	unsigned short	base_15_0;
-	unsigned char	base_23_16;
-	unsigned char	bit_15_8;
-	unsigned char	bit_23_16;
-	unsigned char	base_31_24;
-	};
-
-
-struct seg_desc	Gdt[NGDTENT] = {
-    {0x0,    0x0,     0x0, 0x0,  0x0,  0x0},    /*  0x0 : null */
-    // byte granularity, 1Mb limit, MEMBASE offset
-    {0xFFFF, MEMBASE, 0x0, 0x9E, 0x4F, 0x0},    /*  0x8 : boot code */
-    // dword granularity, 2Gb limit, MEMBASE offset
-    {0xFFFF, MEMBASE, 0x0, 0x92, 0xCF, 0x0},    /* 0x10 : boot data */
-    {0xFFFF, MEMBASE, 0x0, 0x9E, 0xF,  0x0},    /* 0x18 : boot code, 16 bits */
-    {0xFFFF, 0x0,     0x0, 0x92, 0xCF, 0x0},    /* 0x20 : init data */
-    {0xFFFF, 0x0,     0x0, 0x9E, 0xCF, 0x0}     /* 0x28 : init code */
+    unsigned short  limit_15_0;
+    unsigned short  base_15_0;
+    unsigned char   base_23_16;
+    unsigned char   bit_15_8;
+    unsigned char   bit_23_16;
+    unsigned char   base_31_24;
 };
 
+struct seg_desc Gdt[ NGDTENT ] = {
+    /*  0x0 : null */
+    {0x0000, 0x0000,  0x00, 0x00, 0x00, 0x00},
+
+    /*  0x8 : boot protected mode 32-bit code segment
+              byte granularity, 1MB limit, MEMBASE offset */
+    {0xFFFF, MEMBASE, 0x00, 0x9E, 0x4F, 0x00},    
+    
+    /* 0x10 : boot protected mode data segment
+              page granularity, 4GB limit, MEMBASE offset */
+    {0xFFFF, MEMBASE, 0x00, 0x92, 0xCF, 0x00},
+
+    /* 0x18 : boot protected mode 16-bit code segment
+              byte granularity, 1MB limit, MEMBASE offset */
+    {0xFFFF, MEMBASE, 0x00, 0x9E, 0x0F, 0x00},
+
+    /* 0x20 : kernel init 32-bit data segment
+              page granularity, 4GB limit, zero offset */
+    {0xFFFF, 0x0000,  0x00, 0x92, 0xCF, 0x00},
+
+    /* 0x28 : kernel init 32-bit code segment
+              page granularity, 4GB limit, zero offset */
+    {0xFFFF, 0x0000,  0x00, 0x9E, 0xCF, 0x00},
+
+    /* 0x30 : boot real mode data/stack segment
+              byte granularity, 64K limit, MEMBASE offset, expand-up */
+    {0xFFFF, MEMBASE, 0x00, 0x92, 0x00, 0x00},    
+};

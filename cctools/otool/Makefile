@@ -1,3 +1,4 @@
+RC_OS = macos
 export USE_APPLE_PB_SUPPORT = all
 OFLAG = -O
 ifeq "macos" "$(RC_OS)"
@@ -5,15 +6,22 @@ ifeq "macos" "$(RC_OS)"
 			 [ "$(RC_RELEASE)" != "Bunsen" ] &&    \
 			 [ "$(RC_RELEASE)" != "Gonzo"  ] &&    \
 			 [ "$(RC_RELEASE)" != "Kodiak" ]; then \
-	     echo -Wno-long-double ; \
+	     echo -Wno-long-double -no-cpp-precomp ; \
 	     fi; )
 endif
-ifeq "mwcc" "$(notdir $(CC))"
+
+STATIC = -static
+ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g -I../include -I$(SRCROOT)
 else
-  CFLAGS = -static $(OFLAG) -g -Wall -Wno-precomp -I../include -I$(SRCROOT) \
+  CFLAGS = $(STATIC) $(OFLAG) -g -Wall -Wno-precomp -I../include -I$(SRCROOT) \
 	   $(X_CFLAGS)
 endif
+
+USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \
+	     echo YES ; else echo NO ; \
+	     fi; )
+
 LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
 
 ifeq "macos" "$(RC_OS)"
@@ -25,9 +33,9 @@ else
   SYSTEMDIR = /Local/Developer/System
 endif
 ifeq "macos" "$(RC_OS)"
-  LIBS = -L$(NEXT_ROOT)$(SYSTEMDIR) -lm_static -lc_static
+  LIBS = -L$(NEXT_ROOT)$(SYSTEMDIR) -lc_static
 else
-  LIBS = -lm -lc_static
+  LIBS = -lc_static
 endif
 
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -57,7 +65,7 @@ PRODUCT = otool
 all: $(OFILE_DIR) $(SYMROOT) $(PRODUCT).NEW
 
 $(PRODUCT).NEW:	$(OFILE_DIR) $(SYMROOT) $(OBJS)
-ifeq "mwcc" "$(notdir $(CC))"
+ifeq "mwccppc" "$(notdir $(CC))"
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/$@ $(OBJS) $(LIBSTUFF)
 else
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/$@ $(OBJS) \
@@ -67,20 +75,34 @@ endif
 vers.c:
 	vers_string -c $(VERS_STRING_FLAGS) $(PRODUCT) > $(OFILE_DIR)/$@
 
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+.c.o:
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $<
+else
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 print_objc.o: print_objc.c
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $< -ObjC
+else
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $< -ObjC
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 ofile.o: $(SRCROOT)/../libstuff/ofile.c
+ifeq "NO" "$(USE_DEPENDENCY_FILE)"
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o \
+		$(SRCROOT)/../libstuff/ofile.c -DOTOOL
+else
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
 		-o $(OFILE_DIR)/$*.o $(SRCROOT)/../libstuff/ofile.c -DOTOOL
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
+endif
 
 clean: shlib_clean
 	-rm -f $(SYMROOT)/$(PRODUCT).NEW $(OFILE_DIR)/vers.c

@@ -1,6 +1,7 @@
 Package: apache-mod-dav
 Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Vendor: Greg Stein
+Vendor: Greg Stein <gstein@lyra.org>
 Version: 1.0.2
+URL: http://www.webdav.org/mod_dav/
 Description: Apache WebDAV module
 Build-Depends: build-base, apache, perl

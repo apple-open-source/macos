@@ -463,16 +463,16 @@ msgstr "%s: non se pode determina-la súa máquina"
 msgid "gethostbyname failed for %s\n"
 msgstr "o gethostbyname fallou para %s\n"
 
-#: error.c:101
+#: report.c:101
 msgid "Unknown system error"
 msgstr "Erro de sistema descoñecido"
 
-#: error.c:128
+#: report.c:128
 #, c-format
 msgid "%s (log message incomplete)"
 msgstr "%s (mensaxe de rexistro incompleta)"
 
-#: error.c:286 error.c:314 error.c:386 error.c:414
+#: report.c:286 report.c:314 report.c:386 report.c:414
 msgid "partial error message buffer overflow"
 msgstr "erro parcial de sobrecarga no buffer de mensaxe"
 

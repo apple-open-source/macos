@@ -1,4 +1,4 @@
-;;; scheme.el --- Scheme (and DSSSL) editing mode.
+;;; scheme.el --- Scheme (and DSSSL) editing mode
 
 ;; Copyright (C) 1986, 87, 88, 97, 1998 Free Software Foundation, Inc.
 
@@ -53,7 +53,7 @@
 
 (require 'lisp-mode)
 
-(defvar scheme-mode-syntax-table nil "")
+(defvar scheme-mode-syntax-table nil)
 (if (not scheme-mode-syntax-table)
     (let ((i 0))
       (setq scheme-mode-syntax-table (make-syntax-table))
@@ -107,13 +107,13 @@
       (modify-syntax-entry ?# "_ p14")
       (modify-syntax-entry ?\\ "\\   ")))
 
-(defvar scheme-mode-abbrev-table nil "")
+(defvar scheme-mode-abbrev-table nil)
 (define-abbrev-table 'scheme-mode-abbrev-table ())
 
 (defvar scheme-imenu-generic-expression
-      '((nil 
+      '((nil
 	 "^(define\\(\\|-\\(generic\\(\\|-procedure\\)\\|method\\)\\)*\\s-+(?\\(\\sw+\\)" 4)
-	("Types" 
+	("Types"
 	 "^(define-class\\s-+(?\\(\\sw+\\)" 1)
 	("Macros"
 	 "^(\\(defmacro\\|define-macro\\|define-syntax\\)\\s-+(?\\(\\sw+\\)" 2))
@@ -158,13 +158,11 @@
   (make-local-variable 'lisp-indent-function)
   (set lisp-indent-function 'scheme-indent-function)
   (setq mode-line-process '("" scheme-mode-line-process))
-  (make-local-variable 'imenu-case-fold-search)
-  (setq imenu-case-fold-search t)
-  (make-local-variable 'imenu-generic-expression)
+  (set (make-local-variable 'imenu-case-fold-search) t)
   (setq imenu-generic-expression scheme-imenu-generic-expression)
-  (make-local-variable 'imenu-syntax-alist)
-  (setq imenu-syntax-alist '(("+-*/.<>=?!$%_&~^:" . "w")))
-  (make-local-variable 'font-lock-defaults)  
+  (set (make-local-variable 'imenu-syntax-alist)
+	'(("+-*/.<>=?!$%_&~^:" . "w")))
+  (make-local-variable 'font-lock-defaults)
   (setq font-lock-defaults
         '((scheme-font-lock-keywords
            scheme-font-lock-keywords-1 scheme-font-lock-keywords-2)
@@ -175,13 +173,12 @@
 
 (defvar scheme-mode-map nil
   "Keymap for Scheme mode.
-All commands in `shared-lisp-mode-map' are inherited by this map.")
+All commands in `lisp-mode-shared-map' are inherited by this map.")
 
-(if scheme-mode-map
-    ()
+(unless scheme-mode-map
   (let ((map (make-sparse-keymap "Scheme")))
-    (setq scheme-mode-map
-	  (nconc (make-sparse-keymap) shared-lisp-mode-map))
+    (setq scheme-mode-map (make-sparse-keymap))
+    (set-keymap-parent scheme-mode-map lisp-mode-shared-map)
     (define-key scheme-mode-map [menu-bar] (make-sparse-keymap))
     (define-key scheme-mode-map [menu-bar scheme]
       (cons "Scheme" map))
@@ -206,20 +203,22 @@ All commands in `shared-lisp-mode-map' are inherited by this map.")
 ;;;###autoload
 (defun scheme-mode ()
   "Major mode for editing Scheme code.
-Editing commands are similar to those of lisp-mode.
+Editing commands are similar to those of `lisp-mode'.
 
 In addition, if an inferior Scheme process is running, some additional
 commands will be defined, for evaluating expressions and controlling
 the interpreter, and the state of the process will be displayed in the
 modeline of all Scheme buffers.  The names of commands that interact
-with the Scheme process start with \"xscheme-\".  For more information
-see the documentation for xscheme-interaction-mode.
+with the Scheme process start with \"xscheme-\" if you use the MIT
+Scheme-specific `xscheme' package; for more information see the
+documentation for `xscheme-interaction-mode'.  Use \\[run-scheme] to
+start an inferior Scheme using the more general `cmuscheme' package.
 
 Commands:
 Delete converts tabs to spaces as it moves back.
 Blank lines separate paragraphs.  Semicolons start comments.
 \\{scheme-mode-map}
-Entry to this mode calls the value of scheme-mode-hook
+Entry to this mode calls the value of `scheme-mode-hook'
 if that value is non-nil."
   (interactive)
   (kill-all-local-variables)
@@ -247,22 +246,28 @@ Set this to nil if you normally use another dialect."
 "
   "*An SGML declaration for the DSSSL file.
 If it is defined as a string this will be inserted into an empty buffer
-which is in dsssl-mode.  It is typically James Clark's style-sheet
+which is in `dsssl-mode'.  It is typically James Clark's style-sheet
 doctype, as required for Jade."
-  :type '(choice (string :tag "Specified string") 
+  :type '(choice (string :tag "Specified string")
                  (const :tag "None" :value nil))
   :group 'scheme)
 
 (defcustom scheme-mode-hook nil
-  "Normal hook (list of functions) run when entering scheme-mode.
+  "Normal hook run when entering `scheme-mode'.
 See `run-hooks'."
   :type 'hook
   :group 'scheme)
 
 (defcustom dsssl-mode-hook nil
-  "Normal hook (list of functions) run when entering dsssl-mode.
+  "Normal hook run when entering `dsssl-mode'.
 See `run-hooks'."
   :type 'hook
+  :group 'scheme)
+
+;; This is shared by cmuscheme and xscheme.
+(defcustom scheme-program-name "scheme"
+  "*Program invoked by the `run-scheme' command."
+  :type 'string
   :group 'scheme)
 
 (defvar dsssl-imenu-generic-expression
@@ -270,7 +275,7 @@ See `run-hooks'."
   ;; not sure it's the best way to organize it; perhaps one type
   ;; should be at the first level, though you don't see this anyhow if
   ;; it gets split up.
-  '(("Defines" 
+  '(("Defines"
      "^(define\\s-+(?\\(\\sw+\\)" 1)
     ("Modes"
      "^\\s-*(mode\\s-+\\(\\(\\sw\\|\\s-\\)+\\)" 1)
@@ -278,7 +283,7 @@ See `run-hooks'."
      ;; (element foo ...) or (element (foo bar ...) ...)
      ;; Fixme: Perhaps it should do `root'.
      "^\\s-*(element\\s-+(?\\(\\(\\sw\\|\\s-\\)+\\))?" 1)
-    ("Declarations" 
+    ("Declarations"
      "^(declare\\(-\\sw+\\)+\\>\\s-+\\(\\sw+\\)" 2))
   "Imenu generic expression for DSSSL mode.  See `imenu-generic-expression'.")
 
@@ -292,7 +297,7 @@ See `run-hooks'."
 		   ;; Function names.
 		   "\\(\\|-public\\|-method\\|-generic\\(-procedure\\)?\\)\\|"
 		   ;; Macro names, as variable names.  A bit dubious, this.
-		   "\\(-syntax\\)\\|"
+		   "\\(-syntax\\|-macro\\)\\|"
 		   ;; Class names.
 		   "-class"
                    ;; Guile modules.
@@ -343,7 +348,7 @@ See `run-hooks'."
 ;;;###autoload
 (defun dsssl-mode ()
   "Major mode for editing DSSSL code.
-Editing commands are similar to those of lisp-mode.
+Editing commands are similar to those of `lisp-mode'.
 
 Commands:
 Delete converts tabs to spaces as it moves back.
@@ -370,9 +375,10 @@ that variable's value is a string."
 			     nil t (("+-*/.<>=?$%_&~^:" . "w"))
 			     beginning-of-defun
 			     (font-lock-mark-block-function . mark-defun)))
-  (setq imenu-case-fold-search nil)
+  (set (make-local-variable 'imenu-case-fold-search) nil)
   (setq imenu-generic-expression dsssl-imenu-generic-expression)
-  (setq imenu-syntax-alist '(("+-*/.<>=?$%_&~^:" . "w")))
+  (set (make-local-variable 'imenu-syntax-alist)
+       '(("+-*/.<>=?$%_&~^:" . "w")))
   (run-hooks 'scheme-mode-hook)
   (run-hooks 'dsssl-mode-hook))
 
@@ -461,7 +467,7 @@ that variable's value is a string."
   (not (string-equal (substring string 0 1) "(")))
 
 (defun next-sexp-as-string ()
-  ;; Assumes that protected by a save-excursion
+  ;; Assumes that it is protected by a save-excursion
   (forward-sexp 1)
   (let ((the-end (point)))
     (backward-sexp 1)

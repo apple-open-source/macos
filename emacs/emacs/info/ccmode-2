@@ -1,13 +1,567 @@
 This is ../info/ccmode, produced by makeinfo version 4.0 from
 cc-mode.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
-* CC mode: (ccmode).	The GNU Emacs mode for editing C, C++, Objective-C
-			  and Java code.
+* CC Mode: (ccmode).   Emacs mode for editing C, C++, Objective-C,
+                          Java, Pike, and IDL code.
 END-INFO-DIR-ENTRY
 
-   Copyright (C) 1995,96,97,98 Free Software Foundation, Inc.
+   Copyright (C) 1995, 96, 97, 98, 99, 2000, 2001 Free Software
+Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual", and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License" in the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
+
+
+File: ccmode,  Node: Movement Commands,  Next: Other Commands,  Prev: Indentation Commands,  Up: Commands
+
+Movement Commands
+=================
+
+   CC Mode contains some useful command for moving around in C code.
+
+`M-x c-beginning-of-defun'
+     Moves point back to the least-enclosing brace.  This function is
+     analogous to the Emacs built-in command `beginning-of-defun',
+     except it eliminates the constraint that the top-level opening
+     brace must be in column zero.  See `beginning-of-defun' for more
+     information.
+
+     Depending on the coding style being used, you might prefer
+     `c-beginning-of-defun' to `beginning-of-defun'.  If so, consider
+     binding `C-M-a' to the former instead.  For backwards
+     compatibility reasons, the default binding remains in effect.
+
+`M-x c-end-of-defun'
+     Moves point to the end of the current top-level definition.  This
+     function is analogous to the Emacs built-in command `end-of-defun',
+     except it eliminates the constraint that the top-level opening
+     brace of the defun must be in column zero.  See
+     `beginning-of-defun' for more information.
+
+     Depending on the coding style being used, you might prefer
+     `c-end-of-defun' to `end-of-defun'.  If so, consider binding
+     `C-M-e' to the former instead.  For backwards compatibility
+     reasons, the default binding remains in effect.
+
+`C-c C-u' (`c-up-conditional')
+     Move point back to the containing preprocessor conditional,
+     leaving the mark behind.  A prefix argument acts as a repeat
+     count.  With a negative argument, move point forward to the end of
+     the containing preprocessor conditional.
+
+     `#elif' is treated like `#else' followed by `#if', so the function
+     stops at them when going backward, but not when going forward.
+
+`M-x c-up-conditional-with-else'
+     A variety of `c-up-conditional' that also stops at `#else' lines.
+     Normally those lines are ignored.
+
+`M-x c-down-conditional'
+     Move point forward into the next nested preprocessor conditional,
+     leaving the mark behind.  A prefix argument acts as a repeat count.
+     With a negative argument, move point backward into the previous
+     nested preprocessor conditional.
+
+     `#elif' is treated like `#else' followed by `#if', so the function
+     stops at them when going forward, but not when going backward.
+
+`M-x c-down-conditional-with-else'
+     A variety of `c-down-conditional' that also stops at `#else'
+     lines.  Normally those lines are ignored.
+
+`C-c C-p' (`c-backward-conditional')
+     Move point back over a preprocessor conditional, leaving the mark
+     behind.  A prefix argument acts as a repeat count.  With a negative
+     argument, move forward.
+
+`C-c C-n' (`c-forward-conditional')
+     Move point forward across a preprocessor conditional, leaving the
+     mark behind.  A prefix argument acts as a repeat count.  With a
+     negative argument, move backward.
+
+`M-a' (`c-beginning-of-statement')
+     Move point to the beginning of the innermost C statement.  If
+     point is already at the beginning of a statement, move to the
+     beginning of the closest preceding statement, even if that means
+     moving into a block (you can use `M-C-b' to move over a balanced
+     block).  With prefix argument N, move back N - 1 statements.
+
+     If point is within or next to a comment or a string which spans
+     more than one line, this command moves by sentences instead of
+     statements.
+
+     When called from a program, this function takes three optional
+     arguments: the repetition count, a buffer position limit which is
+     the farthest back to search for the syntactic context, and a flag
+     saying whether to do sentence motion in or near comments and
+     multiline strings.
+
+`M-e' (`c-end-of-statement')
+     Move point to the end of the innermost C statement.  If point is
+     at the end of a statement, move to the end of the next statement,
+     even if it's inside a nested block (use `M-C-f' to move to the
+     other side of the block).  With prefix argument N, move forward N
+     - 1 statements.
+
+     If point is within or next to a comment or a string which spans
+     more than one line, this command moves by sentences instead of
+     statements.
+
+     When called from a program, this function takes three optional
+     arguments: the repetition count, a buffer position limit which is
+     the farthest back to search for the syntactic context, and a flag
+     saying whether to do sentence motion in or near comments and
+     multiline strings.
+
+`M-x c-forward-into-nomenclature'
+     A popular programming style, especially for object-oriented
+     languages such as C++ is to write symbols in a mixed case format,
+     where the first letter of each word is capitalized, and not
+     separated by underscores.  E.g.
+     `SymbolsWithMixedCaseAndNoUnderlines'.
+
+     This command moves point forward to next capitalized word.  With
+     prefix argument N, move N times.
+
+`M-x c-backward-into-nomenclature'
+     Move point backward to beginning of the next capitalized word.
+     With prefix argument N, move N times.  If N is negative, move
+     forward.
+
+
+File: ccmode,  Node: Other Commands,  Prev: Movement Commands,  Up: Commands
+
+Other Commands
+==============
+
+   CC Mode contains a few other useful commands:
+
+`C-c :' (`c-scope-operator')
+     In C++, it is also sometimes desirable to insert the double-colon
+     scope operator without performing the electric behavior of colon
+     insertion.  `C-c :' does just this.
+
+`C-c C-\' (`c-backslash-region')
+     This function is handy when editing macros split over several
+     lines by ending each line with a backslash.  It inserts and
+     aligns, or deletes these end-of-line backslashes in the current
+     region.
+
+     With no prefix argument, it inserts any missing backslashes and
+     aligns them to the column specified by the `c-backslash-column'
+     style variable.  With a prefix argument, it deletes any
+     backslashes.
+
+     The function does not modify blank lines at the start of the
+     region.  If the region ends at the start of a line, it always
+     deletes the backslash (if any) at the end of the previous line.
+
+
+File: ccmode,  Node: Customizing Indentation,  Next: Syntactic Symbols,  Prev: Commands,  Up: Top
+
+Customizing Indentation
+***********************
+
+   The style variable `c-offsets-alist' contains the mappings between
+syntactic symbols and the offsets to apply for those symbols.  It's set
+at mode initialization from a _style_ you may specify.  Styles are
+groupings of syntactic symbol offsets and other style variable values.
+Most likely, you'll find that one of the pre-defined styles will suit
+your needs.  *Note Styles::, for an explanation of how to set up named
+styles.
+
+   Only syntactic symbols not already bound on `c-offsets-alist' will
+be set from styles.  This means that any association you set on it, be
+it before or after mode initialization, will not be changed.  The
+`c-offsets-alist' variable may therefore be used from e.g. the
+Customization interface(1) to easily change indentation offsets without
+having to bother about styles.  Initially `c-offsets-alist' is empty,
+so that all syntactic symbols are set by the style system.
+
+   You can use the command `C-c C-o' (`c-set-offset') as the way to set
+offsets, both interactively and from your mode hook(2).
+
+   The offset associated with any particular syntactic symbol can be
+any of an integer, a function or lambda expression, a variable name, a
+vector, a list, or one of the following symbols: `+', `-', `++', `--',
+`*', or `/'.
+
+   Those last special symbols describe an offset in multiples of the
+value of the style variable `c-basic-offset'.  By defining a style's
+indentation in terms of this fundamental variable, you can change the
+amount of whitespace given to an indentation level while maintaining the
+same basic shape of your code.  Here are the values that the special
+symbols correspond to:
+
+`+'
+     `c-basic-offset' times 1
+
+`-'
+     `c-basic-offset' times -1
+
+`++'
+     `c-basic-offset' times 2
+
+`--'
+     `c-basic-offset' times -2
+
+`*'
+     `c-basic-offset' times 0.5
+
+`/'
+     `c-basic-offset' times -0.5
+
+   When a function is used as offset, it's called an "indentation
+function".  Such functions are useful when more context than just the
+syntactic symbol is needed to get the desired indentation.  *Note
+Indentation Functions::, and *Note Custom Indentation Functions::, for
+details about them.
+
+   If the offset is a vector, its first element sets the absolute
+indentation column, which will override any relative indentation.
+
+   The offset can also be a list, in which case it is evaluated
+recursively using the semantics described above.  The first element of
+the list that returns a non-`nil' value succeeds and the evaluation
+stops.  If none of the list elements return a non-`nil' value, then an
+offset of 0 (zero) is used(3).
+
+   So, for example, because most of the default offsets are defined in
+terms of `+', `-', and `0', if you like the general indentation style,
+but you use 4 spaces instead of 2 spaces per level, you can probably
+achieve your style just by changing `c-basic-offset' like so(4):
+
+     _M-x set-variable RET_
+     Set variable: _c-basic-offset RET_
+     Set c-basic-offset to value: _4 RET_
+
+This would change
+
+     int add( int val, int incr, int doit )
+     {
+       if( doit )
+         {
+           return( val + incr );
+         }
+       return( val );
+     }
+
+to
+
+     int add( int val, int incr, int doit )
+     {
+         if( doit )
+             {
+                 return( val + incr );
+             }
+         return( val );
+     }
+
+   To change indentation styles more radically, you will want to change
+the offsets associated with other syntactic symbols.  First, I'll show
+you how to do that interactively, then I'll describe how to make
+changes to your `.emacs' file so that your changes are more permanent.
+
+* Menu:
+
+* Interactive Customization::
+* Permanent Customization::
+* Hooks::
+* Styles::
+* Advanced Customizations::
+
+   ---------- Footnotes ----------
+
+   (1) Available in Emacs 20 and later, and XEmacs 19.15 and later.
+
+   (2) Obviously, you use the key binding interactively, and the
+function call programmatically!
+
+   (3) There is however a variable `c-strict-syntax-p' that, when set
+to non-`nil', will cause an error to be signalled in that case.  It's
+now considered obsolete since it doesn't work well with some of the
+alignment functions that now returns `nil' instead of zero to be more
+usable in lists.  You should therefore leave `c-strict-syntax-p' set to
+`nil'.
+
+   (4) You can try this interactively in a C buffer by typing the text
+that appears in italics.
+
+
+File: ccmode,  Node: Interactive Customization,  Next: Permanent Customization,  Up: Customizing Indentation
+
+Interactive Customization
+=========================
+
+   As an example of how to customize indentation, let's change the
+style of this example(1):
+
+     1: int add( int val, int incr, int doit )
+     2: {
+     3:   if( doit )
+     4:     {
+     5:       return( val + incr );
+     6:     }
+     7:   return( val );
+     8: }
+
+to:
+
+     1: int add( int val, int incr, int doit )
+     2: {
+     3:   if( doit )
+     4:   {
+     5:     return( val + incr );
+     6:   }
+     7:   return( val );
+     8: }
+
+   In other words, we want to change the indentation of braces that
+open a block following a condition so that the braces line up under the
+conditional, instead of being indented.  Notice that the construct we
+want to change starts on line 4.  To change the indentation of a line,
+we need to see which syntactic components affect the offset calculations
+for that line.  Hitting `C-c C-s' on line 4 yields:
+
+     ((substatement-open . 44))
+
+so we know that to change the offset of the open brace, we need to
+change the indentation for the `substatement-open' syntactic symbol.
+To do this interactively, just hit `C-c C-o'.  This prompts you for the
+syntactic symbol to change, providing a reasonable default.  In this
+case, the default is `substatement-open', which is just the syntactic
+symbol we want to change!
+
+   After you hit return, CC Mode will then prompt you for the new
+offset value, with the old value as the default.  The default in this
+case is `+', but we want no extra indentation so enter `0' and `RET'.
+This will associate the offset 0 with the syntactic symbol
+`substatement-open'.
+
+   To check your changes quickly, just hit `C-c C-q' (`c-indent-defun')
+to reindent the entire function.  The example should now look like:
+
+     1: int add( int val, int incr, int doit )
+     2: {
+     3:   if( doit )
+     4:   {
+     5:     return( val + incr );
+     6:   }
+     7:   return( val );
+     8: }
+
+   Notice how just changing the open brace offset on line 4 is all we
+needed to do.  Since the other affected lines are indented relative to
+line 4, they are automatically indented the way you'd expect.  For more
+complicated examples, this may not always work.  The general approach to
+take is to always start adjusting offsets for lines higher up in the
+file, then re-indent and see if any following lines need further
+adjustments.
+
+   ---------- Footnotes ----------
+
+   (1) In this an subsequent examples, the original code is formatted
+using the `gnu' style unless otherwise indicated.  *Note Styles::.
+
+
+File: ccmode,  Node: Permanent Customization,  Next: Hooks,  Prev: Interactive Customization,  Up: Customizing Indentation
+
+Permanent Customization
+=======================
+
+   To make your changes permanent, you need to add some lisp code to
+your `.emacs' file.  CC Mode supports many different ways to be
+configured, from the straightforward way by setting variables globally
+in `.emacs' or in the Customization interface, to the complex and
+precisely controlled way by using styles and hook functions.
+
+   The simplest way of customizing CC Mode permanently is to set the
+variables in your `.emacs' with `setq' and similar commands.  So to
+make the setting of `substatement-open' permanent, add this to the
+`.emacs' file:
+
+     (require 'cc-mode)
+     (c-set-offset 'substatement-open 0)
+
+   The `require' line is only needed once in the beginning to make sure
+CC Mode is loaded so that the `c-set-offset' function is defined.
+
+   You can also use the more user friendly Customization interface, but
+this manual does not cover how that works.
+
+   Variables set like this at the top level in `.emacs' take effect in
+all CC Mode buffers, regardless of language.  The indentation style
+related variables, e.g. `c-basic-offset', that you don't set this way
+get their value from the style system (*note Styles::), and they
+therefore depend on the setting of `c-default-style'.  Note that if you
+use Customize, this means that the greyed-out default values presented
+there might not be the ones you actually get, since the actual values
+depend on the style, which may very well be different for different
+languages.
+
+   If you want to make more advanced configurations, e.g.
+language-specific customization, global variable settings isn't enough.
+For that you can use the language hooks, see *Note Hooks::, and/or the
+style system, see *Note Styles::.
+
+   By default, all style variables are global, so that every buffer will
+share the same style settings.  This is fine if you primarily edit one
+style of code, but if you edit several languages and want to use
+different styles for them, you need finer control by making the style
+variables buffer local.  The recommended way to do this is to set the
+variable `c-style-variables-are-local-p' to `t'.  The variables will be
+made buffer local when CC Mode is activated in a buffer for the first
+time in the Emacs session.  Note that once the style variables are made
+buffer local, they cannot be made global again, without restarting
+Emacs.
+
+
+File: ccmode,  Node: Hooks,  Next: Styles,  Prev: Permanent Customization,  Up: Customizing Indentation
+
+Hooks
+=====
+
+   CC Mode provides several hooks that you can use to customize the mode
+according to your coding style.  Each language mode has its own hook,
+adhering to standard Emacs major mode conventions.  There is also one
+general hook and one package initialization hook:
+
+   * `c-mode-hook' -- For C buffers only.
+
+   * `c++-mode-hook' -- For C++ buffers only.
+
+   * `objc-mode-hook' -- For Objective-C buffers only.
+
+   * `java-mode-hook' -- For Java buffers only.
+
+   * `idl-mode-hook' -- For CORBA IDL buffers only.
+
+   * `pike-mode-hook' -- For Pike buffers only.
+
+   * `c-mode-common-hook' -- Common across all languages.
+
+   * `c-initialization-hook' -- Hook run only once per Emacs session,
+     when CC Mode is initialized.
+
+
+   The language hooks get run as the last thing when you enter that
+language mode.  The `c-mode-common-hook' is run by all supported modes
+_before_ the language specific hook, and thus can contain
+customizations that are common across all languages.  Most of the
+examples in this section will assume you are using the common hook.
+
+   Note that all the language-specific mode setup that CC Mode does is
+done prior to both `c-mode-common-hook' and the language specific hook.
+That includes installing the indentation style, which can be mode
+specific (and also is by default for Java mode).  Thus, any style
+settings done in `c-mode-common-hook' will override whatever
+language-specific style is chosen by `c-default-style'.
+
+   Here's a simplified example of what you can add to your `.emacs'
+file to do things whenever any CC Mode language is edited.  See the
+Emacs manuals for more information on customizing Emacs via hooks.
+*Note Sample .emacs File::, for a more complete sample `.emacs' file.
+
+     (defun my-c-mode-common-hook ()
+       ;; my customizations for all of c-mode and related modes
+       (no-case-fold-search)
+       )
+     (add-hook 'c-mode-common-hook 'my-c-mode-common-hook)
+
+
+File: ccmode,  Node: Styles,  Next: Advanced Customizations,  Prev: Hooks,  Up: Customizing Indentation
+
+Styles
+======
+
+   Most people only need to edit code formatted in just a few
+well-defined and consistent styles.  For example, their organization
+might impose a "blessed" style that all its programmers must conform
+to.  Similarly, people who work on GNU software will have to use the
+GNU coding style.  Some shops are more lenient, allowing a variety of
+coding styles, and as programmers come and go, there could be a number
+of styles in use.  For this reason, CC Mode makes it convenient for you
+to set up logical groupings of customizations called "styles",
+associate a single name for any particular style, and pretty easily
+start editing new or existing code using these styles.
+
+   The variables that the style system affect are called "style
+variables".  They are handled specially in several ways:
+
+   * Style variables are by default global variables, i.e. they have
+     the same value in all Emacs buffers.  However, they can instead be
+     made always buffer local by setting
+     `c-style-variables-are-local-p' to non-`nil' before CC Mode is
+     initialized.
+
+   * The default value of any style variable (with two exceptions -- see
+     below) is the special symbol `set-from-style'.  Variables that are
+     still set to that symbol when a CC Mode buffer is initialized will
+     be set according to the current style, otherwise they will keep
+     their current value(1).
+
+     Note that when we talk about the "default value" for a style
+     variable, we don't mean the `set-from-style' symbol that all style
+     variables are set to initially, but instead the value it will get
+     at mode initialization when neither a style nor a global setting
+     has set its value.
+
+     The style variable `c-offsets-alist' is handled a little
+     differently from the other style variables.  It's an association
+     list, and is thus by default set to the empty list, `nil'.  When
+     the style system is initialized, any syntactic symbols already on
+     it are kept -- only the missing ones are filled in from the chosen
+     style.
+
+     The style variable `c-special-indent-hook' is also handled in a
+     special way.  Styles may only add more functions on this hook, so
+     the global settings on it are always preserved(2).
+
+   * The global settings of style variables get captured in the special
+     `user' style, which is used as the base for all the other styles.
+     *Note Built-in Styles::, for details.
+
+
+   The style variables are: `c-basic-offset',
+`c-comment-only-line-offset', `c-block-comment-prefix',
+`c-comment-prefix-regexp', `c-cleanup-list', `c-hanging-braces-alist',
+`c-hanging-colons-alist', `c-hanging-semi&comma-criteria',
+`c-backslash-column', `c-special-indent-hook',
+`c-label-minimum-indentation', and `c-offsets-alist'.
+
+* Menu:
+
+* Built-in Styles::
+* Adding Styles::
+* File Styles::
+
+   ---------- Footnotes ----------
+
+   (1) This is a big change from versions of CC Mode earlier than 5.26,
+where such settings would get overridden by the style system unless
+special precautions were taken.  That was changed since it was
+counterintuitive and confusing, especially to novice users.  If your
+configuration depends on the old overriding behavior, you can set the
+variable `c-old-style-variable-behavior' to non-`nil'.
+
+   (2) This did not change in version 5.26.
 
 
 File: ccmode,  Node: Built-in Styles,  Next: Adding Styles,  Up: Styles
@@ -18,10 +572,8 @@ Built-in Styles
    If you're lucky, one of CC Mode's built-in styles might be just what
 you're looking for.  These include:
 
-   * `gnu' -- coding style blessed by the Free Software Foundation for
-     C code in GNU programs.  This is the default style for all newly
-     created buffers, but you can change this by setting the variable
-     `c-default-style'.
+   * `gnu' -- Coding style blessed by the Free Software Foundation for
+     C code in GNU programs.
 
    * `k&r' -- The classic Kernighan and Ritchie style for C code.
 
@@ -33,32 +585,58 @@ you're looking for.  These include:
    * `stroustrup' -- The classic Stroustrup style for C++ code.
 
    * `ellemtel' -- Popular C++ coding standards as defined by
-     "Programming in C++, Rules and Recommendations", Erik Nyquist and
-     Mats Henricson, Ellemtel (1).
+     "Programming in C++, Rules and Recommendations," Erik Nyquist and
+     Mats Henricson, Ellemtel(1).
 
-   * `linux' -- C coding standard for Linux development.
+   * `linux' -- C coding standard for Linux (the kernel).
 
    * `python' -- C coding standard for Python extension modules(2).
 
-   * `java' -- The style for editing Java code.  Note that this style is
-     automatically installed when you enter `java-mode'.
+   * `java' -- The style for editing Java code.  Note that the default
+     value for `c-default-style' installs this style when you enter
+     `java-mode'.
 
-   * `user' -- This is a special style for several reasons.  First, if
-     you customize CC Mode by using either the new Custom interface or
-     by doing `setq''s at the top level of your `.emacs' file, these
-     settings will be captured in the `user' style.  Also, all other
-     styles implicitly inherit their settings from `user' style.  This
-     means that for any styles you add via `c-add-style' (*note Adding
-     Styles::) you need only define the differences between your new
-     style and `user' style.
+   * `user' -- This is a special style for several reasons.  First, the
+     CC Mode customizations you do by using either the Customization
+     interface, or by writing `setq''s at the top level of your
+     `.emacs' file, will be captured in the `user' style.  Also, all
+     other styles implicitly inherit their settings from `user' style.
+     This means that for any styles you add via `c-add-style' (*note
+     Adding Styles::) you need only define the differences between your
+     new style and `user' style.
 
-     Note however that `user' style is _not_ the default style.  `gnu'
-     is the default style for all newly created buffers, but you can
-     change this by setting variable `c-default-style'.  Be careful if
-     you customize CC Mode as described above; since your changes will
-     be captured in the `user' style, you will also have to change
-     `c-default-style' to "user" to see the effect of your
-     customizations.
+
+   The default style in all newly created buffers is `gnu', but you can
+change this by setting variable `c-default-style'.  Although the `user'
+style is not the default style, any style variable settings you do with
+the Customization interface or on the top level in your `.emacs' file
+will by default override the style system, so you don't need to set
+`c-default-style' to `user' to see the effect of these settings.
+
+   `c-default-style' takes either a style name string, or an
+association list of major mode symbols to style names.  Thus you can
+control exactly which default style is used for which CC Mode language
+mode.  Here are the rules:
+
+  1. When `c-default-style' is a string, it must be an existing style
+     name as found in `c-style-alist'.  This style is then used for all
+     modes.
+
+  2. When `c-default-style' is an association list, the current major
+     mode is looked up to find a style name string.  In this case, this
+     style is always used exactly as specified and an error will occur
+     if the named style does not exist.
+
+  3. If `c-default-style' is an association list, but the current major
+     mode isn't found, then the special symbol `other' is looked up.  If
+     this value is found, the associated style is used.
+
+  4. If `other' is not found, then the `gnu' style is used.
+
+  5. In all cases, the style described in `c-default-style' is installed
+     _before_ the language hooks are run, so you can always override
+     this setting by including an explicit call to `c-set-style' in your
+     language mode hook, or in `c-mode-common-hook'.
 
 
    If you'd like to experiment with these built-in styles you can simply
@@ -73,32 +651,20 @@ case insensitive, even the ones you define.
 file.  For commands that you can use to view the effect of your changes,
 see *Note Commands::.
 
-   Once you find a built-in style you like, you can make the change
-permanent by adding some lisp to your `.emacs' file.  Let's say for
-example that you want to use the `ellemtel' style in all your files.
-You would add this:
-
-     (defun my-c-mode-common-hook ()
-       ;; use Ellemtel style for all C like languages
-       (c-set-style "ellemtel")
-       ;; other customizations can go here
-       )
-     (add-hook 'c-mode-common-hook 'my-c-mode-common-hook)
-
    Note that for BOCM compatibility, `gnu' is the default style, and
 any non-style based customizations you make (i.e. in
 `c-mode-common-hook' in your `.emacs' file) will be based on `gnu'
-style unless you do a `c-set-style' as the first thing in your hook.
-The variable `c-indentation-style' always contains the buffer's current
-style name, as a string.
+style unless you set `c-default-style' or do a `c-set-style' as the
+first thing in your hook.  The variable `c-indentation-style' always
+contains the buffer's current style name, as a string.
 
    ---------- Footnotes ----------
 
-   (1) This document is ftp'able from `euagate.eua.ericsson.se'
+   (1) This document is available at
+`http://www.doc.ic.ac.uk/lab/cplus/c++.rules/' among other places.
 
    (2) Python is a high level scripting language with a C/C++ foreign
-function interface.  For more information, see
-`<http://www.python.org/>'.
+function interface.  For more information, see `http://www.python.org/'.
 
 
 File: ccmode,  Node: Adding Styles,  Next: File Styles,  Prev: Built-in Styles,  Up: Styles
@@ -132,8 +698,7 @@ on a per-file basis by including a "Local Variable" block at the end of
 the file.  So far, you've only seen a functional interface to CC Mode
 customization, which is highly inconvenient for use in a Local Variable
 block.  CC Mode provides two variables that make it easier for you to
-customize your style on a per-file basis.  It works via the standard
-Emacs hook variable `hack-local-variables-hook'.
+customize your style on a per-file basis.
 
    The variable `c-file-style' can be set to a style name string.  When
 the file is visited, CC Mode will automatically set the file's style to
@@ -141,7 +706,7 @@ this style using `c-set-style'.
 
    Another variable, `c-file-offsets', takes an association list
 similar to what is allowed in `c-offsets-alist'.  When the file is
-visited, CC Mode will automatically institute these offets using
+visited, CC Mode will automatically institute these offsets using
 `c-set-offset'.
 
    Note that file style settings (i.e. `c-file-style') are applied
@@ -166,21 +731,6 @@ model provides just such a framework. This allows you to implement
 custom indentation calculations for situations not handled by the mode
 directly.
 
-   Note that the style controlling variables can either have global
-values, or can be buffer local (e.g. different in every buffer).  If
-all the C files you edit tend to have the same style, you might want to
-keep the variables global.  If you tend to edit files with many
-different styles, you will have to make the variables buffer local.
-The variable `c-style-variables-are-local-p' controls this.
-
-   When `c-style-variables-are-local-p' is non-nil, then the style
-variables will have a different settable value for each buffer,
-otherwise all buffers will share the same values.  By default, its value
-is `nil' (i.e. global values).  You *must* set this variable before CC
-Mode is loaded into your Emacs session, and once the variables are made
-buffer local, they cannot be made global again (unless you restart
-Emacs of course!)
-
 * Menu:
 
 * Custom Indentation Functions::
@@ -194,11 +744,11 @@ File: ccmode,  Node: Custom Indentation Functions,  Next: Custom Brace and Colon
 Custom Indentation Functions
 ----------------------------
 
-   The most flexible way to customize CC Mode is by writing "custom
-indentation functions" and associating them with specific syntactic
-symbols (see *Note Syntactic Symbols::).  CC Mode itself uses custom
-indentation functions to provide more sophisticated indentation, for
-example when lining up C++ stream operator blocks:
+   The most flexible way to customize CC Mode is by writing custom
+indentation functions, and associating them with specific syntactic
+symbols (*note Syntactic Symbols::).  CC Mode itself uses indentation
+functions to provide more sophisticated indentation, for example when
+lining up C++ stream operator blocks:
 
      1: void main(int argc, char**)
      2: {
@@ -228,15 +778,20 @@ this:
            (goto-char (match-beginning 0))
            (- (current-column) curcol))))
 
-Custom indent functions take a single argument, which is a syntactic
-component cons cell (see *Note Syntactic Analysis::).  The function
-returns an integer offset value that will be added to the running total
+Indentation functions take a single argument, which is a syntactic
+component cons cell (*note Syntactic Analysis::).  The function returns
+an integer offset value that will be added to the running total
 indentation for the line.  Note that what actually gets returned is the
 difference between the column that the first stream operator is on, and
 the column of the buffer relative position passed in the function's
 argument.  Remember that CC Mode automatically adds in the column of
 the component's relative buffer position and we don't the column offset
 added in twice.
+
+   The function should return `nil' if it's used in a situation where
+it doesn't want to do any decision.  If the function is used in a list
+expression (*note Customizing Indentation::), that will cause CC Mode
+to go on and check the next entry in the list.
 
    Now, to associate the function `c-lineup-streamop' with the
 `stream-op' syntactic symbol, we can add something like the following
@@ -251,79 +806,25 @@ C-q'):
      2: {
      3:   cout << "There were "
      4:        << argc
-     5:        << "arguments passed to the program"
+     5:        << " arguments passed to the program"
      6:        << endl;
      7: }
 
    Custom indentation functions can be as simple or as complex as you
 like, and any syntactic symbol that appears in `c-offsets-alist' can
-have a custom indentation function associated with it.  CC Mode comes
-with several standard custom indentation functions, not all of which are
-used by the default styles.
+have a custom indentation function associated with it.
 
-   * `c-lineup-arglist' -- lines up function argument lines under the
-     argument on the previous line.
-
-   * `c-lineup-arglist-intro-after-paren' -- similar to
-     `c-lineup-arglist', but works for argument lists that begin with an
-     open parenthesis followed by a newline.
-
-   * `c-lineup-arglist-close-under-paren' -- set your `arglist-close'
-     syntactic symbol to this line-up function so that parentheses that
-     close argument lists will line up under the parenthesis that
-     opened the argument list.
-
-   * `c-lineup-close-paren' -- lines up the closing parenthesis under
-     its corresponding open parenthesis if that one is followed by code.
-     Otherwise, if the open parenthesis ends its line, no indentation is
-     added.  Works with any `...-close' symbol.
-
-   * `c-lineup-streamop' -- lines up C++ stream operators (e.g. `<<'
-     and `>>').
-
-   * `c-lineup-multi-inher' -- lines up multiple inheritance lines.
-
-   * `c-indent-one-line-block' -- adds `c-basic-offset' to the
-     indentation if the line is a one line block, otherwise 0.
-     Intended to be used with any opening brace symbol, e.g.
-     `substatement-open'.
-
-   * `c-lineup-C-comments' -- lines up C block comment continuation
-     lines.
-
-   * `c-lineup-comment' -- lines up comment only lines according to the
-     variable `c-comment-only-line-offset'.
-
-   * `c-lineup-runin-statements' -- lines up `statement's for coding
-     standards which place the first statement in a block on the same
-     line as the block opening brace(2).
-
-   * `c-lineup-math' -- lines up math `statement-cont' lines under the
-     previous line after the equals sign.
-
-   * `c-lineup-ObjC-method-call' -- for Objective-C code, lines up
-     selector arguments just after the message receiver.
-
-   * `c-lineup-ObjC-method-args' -- for Objective-C code, lines up the
-     colons that separate arguments by aligning colons vertically.
-
-   * `c-lineup-ObjC-method-args-2' -- similar to
-     `c-lineup-ObjC-method-args' but lines up the colon on the current
-     line with the colon on the previous line.
-
-   * `c-lineup-dont-change' -- this lineup function returns the
-     indentation of the current line.  Think of it as an identity
-     function for lineups; it is used for `cpp-macro-cont' lines.
-
+   CC Mode comes with an extensive set of predefined indentation
+functions, not all of which are used by the default styles.  So there's
+a good chance the function you want already exists.  *Note Indentation
+Functions::, for a list of them.  If you have written an indentation
+function that you think is generally useful, you're very welcome to
+contribute it; please contact <bug-cc-mode@gnu.org>.
 
    ---------- Footnotes ----------
 
    (1) It probably makes more sense to add this to `c++-mode-hook' than
-`c-mode-common-hook' since stream operators are only relevent for C++.
-
-   (2) Run-in style doesn't really work too well.  You might need to
-write your own custom indentation functions to better support this
-style.
+`c-mode-common-hook' since stream operators are only relevant for C++.
 
 
 File: ccmode,  Node: Custom Brace and Colon Hanging,  Next: Customizing Semi-colons and Commas,  Prev: Custom Indentation Functions,  Up: Advanced Customizations
@@ -334,17 +835,17 @@ Custom Brace and Colon Hanging
    Syntactic symbols aren't the only place where you can customize CC
 Mode with the lisp equivalent of callback functions.  Brace "hanginess"
 can also be determined by custom functions associated with syntactic
-symbols on the `c-hanging-braces-alist' variable.  Remember that
+symbols on the `c-hanging-braces-alist' style variable.  Remember that
 ACTION's are typically a list containing some combination of the
-symbols `before' and `after' (see *Note Hanging Braces::).  However, an
+symbols `before' and `after' (*note Hanging Braces::).  However, an
 ACTION can also be a function which gets called when a brace matching
 that syntactic symbol is entered.
 
    These ACTION functions are called with two arguments: the syntactic
 symbol for the brace, and the buffer position at which the brace was
 inserted.  The ACTION function is expected to return a list containing
-some combination of `before' and `after'.  The function can also return
-`nil'.  This return value has the normal brace hanging semantics.
+some combination of `before' and `after', including neither of them
+(i.e. `nil').  This return value has the normal brace hanging semantics.
 
    As an example, CC Mode itself uses this feature to dynamically
 determine the hanginess of braces which close "do-while" constructs:
@@ -394,8 +895,8 @@ on a line by itself.
 
    Note that for symmetry, colon hanginess should be customizable by
 allowing function symbols as ACTIONs on the `c-hanging-colon-alist'
-variable.  Since no use has actually been found for this feature, it
-isn't currently implemented!
+style variable.  Since no use has actually been found for this feature,
+it isn't currently implemented!
 
 
 File: ccmode,  Node: Customizing Semi-colons and Commas,  Next: Other Special Indentations,  Prev: Custom Brace and Colon Hanging,  Up: Advanced Customizations
@@ -404,8 +905,8 @@ Customizing Semi-colons and Commas
 ----------------------------------
 
    You can also customize the insertion of newlines after semi-colons
-and commas, when the auto-newline minor mode is enabled (see *Note
-Minor Modes::).  This is controlled by the variable
+and commas, when the auto-newline minor mode is enabled (*note Minor
+Modes::).  This is controlled by the style variable
 `c-hanging-semi&comma-criteria', which contains a list of functions
 that are called in the order they appear.  Each function is called with
 zero arguments, and is expected to return one of the following values:
@@ -440,12 +941,10 @@ use, add this to the front of the `c-hanging-semi&comma-criteria' list.
              'stop
            nil)))
 
-   The default value of `c-hanging-semi&comma-criteria' is a list
-containing just the function `c-semi&comma-inside-parenlist', which
-suppresses newlines after semicolons inside parenthesis lists (e.g.
-`for'-loops).  In addition to
-`c-semi&comma-no-newlines-before-nonblanks' described above, CC Mode
-also comes with the criteria function
+   The function `c-semi&comma-inside-parenlist' is what prevents
+newlines from being inserted inside the parenthesis list of `for'
+statements.  In addition to `c-semi&comma-no-newlines-before-nonblanks'
+described above, CC Mode also comes with the criteria function
 `c-semi&comma-no-newlines-for-oneline-inliners', which suppresses
 newlines after semicolons inside one-line inline method definitions
 (i.e. in C++ or Java).
@@ -456,20 +955,19 @@ File: ccmode,  Node: Other Special Indentations,  Prev: Customizing Semi-colons 
 Other Special Indentations
 --------------------------
 
-   In `gnu' style (see *Note Built-in Styles::), a minimum indentation
-is imposed on lines inside top-level constructs.  This minimum
-indentation is controlled by the variable
-`c-label-minimum-indentation'.  The default value for this variable is
-1.
+   In `gnu' style (*note Built-in Styles::), a minimum indentation is
+imposed on lines inside top-level constructs.  This minimum indentation
+is controlled by the style variable `c-label-minimum-indentation'.  The
+default value for this variable is 1.
 
-   One other customization variable is available in CC Mode:
-`c-special-indent-hook'.  This is a standard hook variable that is
-called after every line is indented by CC Mode.  You can use it to do
-any special indentation or line adjustments your style dictates, such
-as adding extra indentation to constructors or destructor declarations
-in a class definition, etc.  Note however, that you should not change
-point or mark inside your `c-special-indent-hook' functions (i.e.
-you'll probably want to wrap your function in a `save-excursion').
+   One other customization variable is available in CC Mode: The style
+variable `c-special-indent-hook'.  This is a standard hook variable
+that is called after every line is indented by CC Mode.  You can use it
+to do any special indentation or line adjustments your style dictates,
+such as adding extra indentation to constructors or destructor
+declarations in a class definition, etc.  Note however, that you should
+not change point or mark inside your `c-special-indent-hook' functions
+(i.e. you'll probably want to wrap your function in a `save-excursion').
 
    Setting `c-special-indent-hook' in your style definition is handled
 slightly differently than other variables.  In your style definition,
@@ -488,752 +986,7 @@ indent as they would for normal code, regardless of whether `TAB' or
 indents comment-only lines to `comment-column', otherwise, they are
 indented just as they would be if `TAB' were typed.
 
-
-File: ccmode,  Node: Syntactic Symbols,  Next: Performance Issues,  Prev: Customizing Indentation,  Up: Top
-
-Syntactic Symbols
-*****************
-
-   Here is a complete list of the recognized syntactic symbols as
-described in the `c-offsets-alist' variable, along with a brief
-description.  More detailed descriptions follow below.
-
-   * `string' -- inside multi-line string
-
-   * `c' -- inside a multi-line C style block comment
-
-   * `defun-open' -- brace that opens a function definition
-
-   * `defun-close' -- brace that closes a function definition
-
-   * `defun-block-intro' -- the first line in a top-level defun
-
-   * `class-open' -- brace that opens a class definition
-
-   * `class-close' -- brace that closes a class definition
-
-   * `inline-open' -- brace that opens an in-class inline method
-
-   * `inline-close' -- brace that closes an in-class inline method
-
-   * `func-decl-cont' -- the region between a function definition's
-     argument list and the function opening brace (excluding K&R
-     argument declarations).  In C, you cannot put anything but
-     whitespace and comments between them; in C++ and Java, `throws'
-     declarations and other things can appear in this context.
-
-   * `knr-argdecl-intro' -- first line of a K&R C argument declaration
-
-   * `knr-argdecl' -- subsequent lines in a K&R C argument declaration
-
-   * `topmost-intro' -- the first line in a topmost definition
-
-   * `topmost-intro-cont' -- topmost definition continuation lines
-
-   * `member-init-intro' -- first line in a member initialization list
-
-   * `member-init-cont' -- subsequent member initialization list lines
-
-   * `inher-intro' -- first line of a multiple inheritance list
-
-   * `inher-cont' -- subsequent multiple inheritance lines
-
-   * `block-open' -- statement block open brace
-
-   * `block-close' -- statement block close brace
-
-   * `brace-list-open' -- open brace of an enum or static array list
-
-   * `brace-list-close' -- close brace of an enum or static array list
-
-   * `brace-list-intro' -- first line in an enum or static array list
-
-   * `brace-list-entry' -- subsequent lines in an enum or static array
-     list
-
-   * `statement' -- a C statement
-
-   * `statement-cont' -- a continuation of a C statement
-
-   * `statement-block-intro' -- the first line in a new statement block
-
-   * `statement-case-intro' -- the first line in a case `block'
-
-   * `statement-case-open' -- the first line in a case block starting
-     with brace
-
-   * `substatement' -- the first line after a conditional
-
-   * `substatement-open' -- the brace that opens a substatement block
-
-   * `case-label' -- a case or default label
-
-   * `access-label' -- C++ access control label
-
-   * `label' -- any non-special C label
-
-   * `do-while-closure' -- the `while' that ends a `do'-`while'
-     construct
-
-   * `else-clause' -- the `else' of an `if'-`else' construct
-
-   * `comment-intro' -- a line containing only a comment introduction
-
-   * `arglist-intro' -- the first line in an argument list
-
-   * `arglist-cont' -- subsequent argument list lines when no arguments
-     follow on the same line as the the arglist opening paren
-
-   * `arglist-cont-nonempty' -- subsequent argument list lines when at
-     least one argument follows on the same line as the arglist opening
-     paren
-
-   * `arglist-close' -- the solo close paren of an argument list
-
-   * `stream-op' -- lines continuing a stream operator
-
-   * `inclass' -- the line is nested inside a class definition
-
-   * `cpp-macro' -- the start of a C preprocessor macro definition
-
-   * `cpp-macro-cont' -- subsequent lines of a multi-line C
-     preprocessor macro definition
-
-   * `friend' -- a C++ friend declaration
-
-   * `objc-method-intro' -- the first line of an Objective-C method
-     definition
-
-   * `objc-method-args-cont' -- lines continuing an Objective-C method
-     definition
-
-   * `objc-method-call-cont' -- lines continuing an Objective-C method
-     call
-
-   * `extern-lang-open' -- brace that opens an external language block
-
-   * `extern-lang-close' -- brace that closes an external language block
-
-   * `inextern-lang' -- analogous to `inclass' syntactic symbol, but
-     used inside external language blocks (e.g. `extern "C" {').
-
-   * `namespace-open' -- brace that opens a C++ namespace block.
-
-   * `namespace-close' -- brace that closes a C++ namespace block.
-
-   * `innamespace' -- analogous to `inextern-lang' syntactic symbol,
-     but used inside C++ namespace blocks.
-
-   * `template-args-cont' -- C++ template argument list continuations
-
-   Most syntactic symbol names follow a general naming convention.
-When a line begins with an open or close brace, the syntactic symbol
-will contain the suffix `-open' or `-close' respectively.
-
-   Usually, a distinction is made between the first line that
-introduces a construct and lines that continue a construct, and the
-syntactic symbols that represent these lines will contain the suffix
-`-intro' or `-cont' respectively.  As a sub-classification of this
-scheme, a line which is the first of a particular brace block construct
-will contain the suffix `-block-intro'.
-
-   Let's look at some examples to understand how this works.  Remember
-that you can check the syntax of any line by using `C-c C-s'.
-
-       1: void
-       2: swap( int& a, int& b )
-       3: {
-       4:     int tmp = a;
-       5:     a = b;
-       6:     b = tmp;
-       7:     int ignored =
-       8:         a + b;
-       9: }
-
-   Line 1 shows a `topmost-intro' since it is the first line that
-introduces a top-level construct.  Line 2 is a continuation of the
-top-level construct introduction so it has the syntax
-`topmost-intro-cont'.  Line 3 shows a `defun-open' since it is the
-brace that opens a top-level function definition.  Line 9 is a
-`defun-close' since it contains the brace that closes the top-level
-function definition.  Line 4 is a `defun-block-intro', i.e. it is the
-first line of a brace-block, enclosed in a top-level function
-definition.
-
-   Lines 5, 6, and 7 are all given `statement' syntax since there isn't
-much special about them.  Note however that line 8 is given
-`statement-cont' syntax since it continues the statement begun on the
-previous line.
-
-   Here's another example, which illustrates some C++ class syntactic
-symbols:
-
-        1: class Bass
-        2:     : public Guitar,
-        3:       public Amplifiable
-        4: {
-        5: public:
-        6:     Bass()
-        7:         : eString( new BassString( 0.105 )),
-        8:           aString( new BassString( 0.085 )),
-        9:           dString( new BassString( 0.065 )),
-       10:           gString( new BassString( 0.045 ))
-       11:     {
-       12:         eString.tune( 'E' );
-       13:         aString.tune( 'A' );
-       14:         dString.tune( 'D' );
-       15:         gString.tune( 'G' );
-       16:     }
-       17:     friend class Luthier;
-       18: }
-
-   As in the previous example, line 1 has the `topmost-intro' syntax.
-Here however, the brace that opens a C++ class definition on line 4 is
-assigned the `class-open' syntax.  Note that in C++, classes, structs,
-and unions are essentially equivalent syntactically (and are very
-similar semantically), so replacing the `class' keyword in the example
-above with `struct' or `union' would still result in a syntax of
-`class-open' for line 4 (1).  Similarly, line 18 is assigned
-`class-close' syntax.
-
-   Line 2 introduces the inheritance list for the class so it is
-assigned the `inher-intro' syntax, and line 3, which continues the
-inheritance list is given `inher-cont' syntax.
-
-   Hitting `C-c C-s' on line 5 shows the following analysis:
-
-
-     `((inclass . 1) (access-label . 67))'
-
-The primary syntactic symbol for this line is `access-label' as this a
-label keyword that specifies access protection in C++.  However,
-because this line is also a top-level construct inside a class
-definition, the analysis actually shows two syntactic symbols.  The
-other syntactic symbol assigned to this line is `inclass'.  Similarly,
-line 6 is given both `inclass' and `topmost-intro' syntax:
-
-
-     `((inclass . 58) (topmost-intro . 60))'
-
-   Line 7 introduces a C++ member initialization list and as such is
-given `member-init-intro' syntax.  Note that in this case it is _not_
-assigned `inclass' since this is not considered a top-level construct.
-Lines 8 through 10 are all assigned `member-init-cont' since they
-continue the member initialization list started on line 7.
-
-   Line 11's analysis is a bit more complicated:
-
-
-     `((inclass . 1) (inline-open))'
-
-   This line is assigned a syntax of both `inline-open' and `inclass'
-because it opens an "in-class" C++ inline method definition.  This is
-distinct from, but related to, the C++ notion of an inline function in
-that its definition occurs inside an enclosing class definition, which
-in C++ implies that the function should be inlined.  If though, the
-definition of the `Bass' constructor appeared outside the class
-definition, the construct would be given the `defun-open' syntax, even
-if the keyword `inline' appeared before the method name, as in:
-
-     class Bass
-         : public Guitar,
-           public Amplifiable
-     {
-     public:
-         Bass();
-     }
-     
-     inline
-     Bass::Bass()
-         : eString( new BassString( 0.105 )),
-           aString( new BassString( 0.085 )),
-           dString( new BassString( 0.065 )),
-           gString( new BassString( 0.045 ))
-     {
-         eString.tune( 'E' );
-         aString.tune( 'A' );
-         dString.tune( 'D' );
-         gString.tune( 'G' );
-     }
-
-   Returning to the previous example, line 16 is given `inline-close'
-syntax, while line 12 is given `defun-block-open' syntax, and lines 13
-through 15 are all given `statement' syntax.  Line 17 is interesting in
-that its syntactic analysis list contains three elements:
-
-
-     `((friend) (inclass . 58) (topmost-intro . 380))'
-
-   The `friend' syntactic symbol is a modifier that typically does not
-have a relative buffer position.
-
-   Template definitions introduce yet another syntactic symbol:
-
-
-        1: ThingManager <int,
-        2:    Framework::Callback *,
-        3:    Mutex> framework_callbacks;
-
-   Here, line 1 is analyzed as a `topmost-intro', but lines 2 and 3 are
-both analyzed as `template-args-cont' lines.
-
-   Here is another (totally contrived) example which illustrates how
-syntax is assigned to various conditional constructs:
-
-        1: void spam( int index )
-        2: {
-        3:     for( int i=0; i<index; i++ )
-        4:     {
-        5:         if( i == 10 )
-        6:         {
-        7:             do_something_special();
-        8:         }
-        9:         else
-       10:             do_something( i );
-       11:     }
-       12:     do {
-       13:         another_thing( i-- );
-       14:     }
-       15:     while( i > 0 );
-       16: }
-
-Only the lines that illustrate new syntactic symbols will be discussed.
-
-   Line 4 has a brace which opens a conditional's substatement block.
-It is thus assigned `substatement-open' syntax, and since line 5 is the
-first line in the substatement block, it is assigned
-`substatement-block-intro' syntax.  Lines 6 and 7 are assigned similar
-syntax.  Line 8 contains the brace that closes the inner substatement
-block.  It is given the syntax `block-close', as are lines 11 and 14.
-
-   Line 9 is a little different -- since it contains the keyword `else'
-matching the `if' statement introduced on line 5, it is given the
-`else-clause' syntax.  Note also that line 10 is slightly different
-too.  Because `else' is considered a conditional introducing keyword
-(2), and because the following substatement is not a brace block, line
-10 is assigned the `substatement' syntax.
-
-   One other difference is seen on line 15.  The `while' construct that
-closes a `do' conditional is given the special syntax
-`do-while-closure' if it appears on a line by itself.  Note that if the
-`while' appeared on the same line as the preceding close brace, that
-line would have been assigned `block-close' syntax instead.
-
-   Switch statements have their own set of syntactic symbols.  Here's an
-example:
-
-        1: void spam( enum Ingredient i )
-        2: {
-        3:     switch( i ) {
-        4:     case Ham:
-        5:         be_a_pig();
-        6:         break;
-        7:     case Salt:
-        8:         drink_some_water();
-        9:         break;
-       10:     default:
-       11:         {
-       12:             what_is_it();
-       13:             break;
-       14:         }
-       15:     }
-       14: }
-
-   Here, lines 4, 7, and 10 are all assigned `case-label' syntax, while
-lines 5 and 8 are assigned `statement-case-intro'.  Line 11 is treated
-slightly differently since it contains a brace that opens a block -- it
-is given `statement-case-open' syntax.
-
-   There are a set of syntactic symbols that are used to recognize
-constructs inside of brace lists.  A brace list is defined as an `enum'
-or aggregate initializer list, such as might statically initialize an
-array of structs.  For example:
-
-       1: static char* ingredients[] =
-       2: {
-       3:     "Ham",
-       4:     "Salt",
-       5:     NULL
-       6: }
-
-   Following convention, line 2 in this example is assigned
-`brace-list-open' syntax, and line 3 is assigned `brace-list-intro'
-syntax.  Likewise, line 6 is assigned `brace-list-close' syntax.  Lines
-4 and 5 however, are assigned `brace-list-entry' syntax, as would all
-subsequent lines in this initializer list.
-
-   External language definition blocks also have their own syntactic
-symbols.  In this example:
-
-        1: extern "C"
-        2: {
-        3:     int thing_one( int );
-        4:     int thing_two( double );
-        5: }
-
-line 2 is given the `extern-lang-open' syntax, while line 5 is given
-the `extern-lang-close' syntax.  The analysis for line 3 yields:
-`((inextern-lang) (topmost-intro . 14))', where `inextern-lang' is a
-modifier similar in purpose to `inclass'.
-
-   Similarly, C++ namespace constructs have their own associated
-syntactic symbols.  In this example:
-
-        1: namespace foo
-        2: {
-        3:     void xxx() {}
-        4: }
-
-line 2 is given the `namespace-open' syntax, while line 4 is given the
-`namespace-close' syntax.  The analysis for line 3 yields:
-`((innamespace) (topmost-intro . 17))', where `innamespace' is a
-modifier similar in purpose to `inextern-lang' and `inclass'.
-
-   A number of syntactic symbols are associated with parenthesis lists,
-a.k.a argument lists, as found in function declarations and function
-calls.  This example illustrates these:
-
-        1: void a_function( int line1,
-        2:                  int line2 );
-        3:
-        4: void a_longer_function(
-        5:     int line1,
-        6:     int line2
-        7:     );
-        8:
-        9: void call_them( int line1, int line2 )
-       10: {
-       11:     a_function(
-       12:         line1,
-       13:         line2
-       14:         );
-       15:
-       16:     a_longer_function( line1,
-       17:                        line2 );
-       18: }
-
-   Lines 5 and 12 are assigned `arglist-intro' syntax since they are
-the first line following the open parenthesis, and lines 7 and 14 are
-assigned `arglist-close' syntax since they contain the parenthesis that
-closes the argument list.
-
-   Lines that continue argument lists can be assigned one of two
-syntactic symbols.  For example, Lines 2 and 17 are assigned
-`arglist-cont-nonempty' syntax.  What this means is that they continue
-an argument list, but that the line containing the parenthesis that
-opens the list is _not empty_ following the open parenthesis.  Contrast
-this against lines 6 and 13 which are assigned `arglist-cont' syntax.
-This is because the parenthesis that opens their argument lists is the
-last character on that line.
-
-   Note that there is no `arglist-open' syntax.  This is because any
-parenthesis that opens an argument list, appearing on a separate line,
-is assigned the `statement-cont' syntax instead.
-
-   A few miscellaneous syntactic symbols that haven't been previously
-covered are illustrated by this C++ example:
-
-        1: void Bass::play( int volume )
-        2: const
-        3: {
-        4:     /* this line starts a multi-line
-        5:      * comment.  This line should get `c' syntax */
-        6:
-        7:     char* a_multiline_string = "This line starts a multi-line \
-        8: string.  This line should get `string' syntax.";
-        9:
-       10:   note:
-       11:     {
-       12: #ifdef LOCK
-       13:         Lock acquire();
-       14: #endif // LOCK
-       15:         slap_pop();
-       16:         cout << "I played "
-       17:              << "a note\n";
-       18:     }
-       19: }
-
-   The lines to note in this example include:
-
-   * line 2, assigned the `func-decl-cont' syntax;
-
-   * line 4, assigned both `defun-block-intro' _and_ `comment-intro'
-     syntax;
-
-   * line 5, assigned `c' syntax;
-
-   * line 6 which, even though it contains nothing but whitespace, is
-     assigned `defun-block-intro'.  Note that the appearance of the
-     comment on lines 4 and 5 do not cause line 6 to be assigned
-     `statement' syntax because comments are considered to be
-     "syntactic whitespace", which are ignored when analyzing code;
-
-   * line 8, assigned `string' syntax;
-
-   * line 10, assigned `label' syntax;
-
-   * line 11, assigned `block-open' syntax;
-
-   * lines 12 and 14, assigned `cpp-macro' syntax.
-
-   * line 17, assigned `stream-op' syntax.
-
-
-   Multi-line C preprocessor macros are now (somewhat) supported.  At
-least CC Mode now recognizes the fact that it is inside a multi-line
-macro, and it properly skips such macros as syntactic whitespace.  In
-this example:
-
-        1: #define LIST_LOOP(cons, listp)                           \
-        2:   for (cons = listp; !NILP (cons); cons = XCDR (cons))   \
-        3:      if (!CONSP (cons))                                  \
-        4:        signal_error ("Invalid list format", listp);      \
-        5:      else
-
-line 1 is given the syntactic symbol `cpp-macro'.  This first line of a
-macro is always given this symbol.  The second and subsequent lines
-(e.g. lines 2 through 5) are given the `cpp-macro-cont' syntactic
-symbol, with a relative buffer position pointing to the `#' which
-starts the macro definition.
-
-   In Objective-C buffers, there are three additional syntactic symbols
-assigned to various message calling constructs.  Here's an example
-illustrating these:
-
-       1: - (void)setDelegate:anObject
-       2:           withStuff:stuff
-       3: {
-       4:     [delegate masterWillRebind:self
-       5:               toDelegate:anObject
-       6:               withExtraStuff:stuff];
-       7: }
-
-   Here, line 1 is assigned `objc-method-intro' syntax, and line 2 is
-assigned `objc-method-args-cont' syntax.  Lines 5 and 6 are both
-assigned `objc-method-call-cont' syntax.
-
-   Two other syntactic symbols can appear in old style, non-prototyped C
-code (3):
-
-       1: int add_three_integers(a, b, c)
-       2:      int a;
-       3:      int b;
-       4:      int c;
-       5: {
-       6:     return a + b + c;
-       7: }
-
-   Here, line 2 is the first line in an argument declaration list and
-so is given the `knr-argdecl-intro' syntactic symbol.  Subsequent lines
-(i.e. lines 3 and 4 in this example), are given `knr-argdecl' syntax.
-
-   ---------- Footnotes ----------
-
-   (1) This is the case even for C and Objective-C.  For consistency,
-structs in all supported languages are syntactically equivalent to
-classes.  Note however that the keyword `class' is meaningless in C and
-Objective-C.
-
-   (2) The list of conditional keywords are (in C, C++, Objective-C,
-and Java): `for', `if', `do', `else', `while', and `switch'.  C++ and
-Java have two additional conditional keywords: `try' and `catch'.  Java
-also has the `finally' and `synchronized' keywords.
-
-   (3) a.k.a. K&R C, or Kernighan & Ritchie C
-
-
-File: ccmode,  Node: Performance Issues,  Next: Frequently Asked Questions,  Prev: Syntactic Symbols,  Up: Top
-
-Performance Issues
-******************
-
-   C and its derivative languages are highly complex creatures.  Often,
-ambiguous code situations arise that require CC Mode to scan large
-portions of the buffer to determine syntactic context.  Such
-pathological code(1) can cause CC Mode to perform fairly badly.  This
-section identifies some of the coding styles to watch out for, and
-suggests some workarounds that you can use to improve performance.
-
-   Because CC Mode has to scan the buffer backwards from the current
-insertion point, and because C's syntax is fairly difficult to parse in
-the backwards direction, CC Mode often tries to find the nearest
-position higher up in the buffer from which to begin a forward scan.
-The farther this position is from the current insertion point, the
-slower the mode gets.  Some coding styles can even force CC Mode to
-scan from the beginning of the buffer for every line of code!
-
-   One of the simplest things you can do to reduce scan time, is make
-sure any brace that opens a top-level construct(2) always appears in the
-leftmost column.  This is actually an Emacs constraint, as embodied in
-the `beginning-of-defun' function which CC Mode uses heavily.  If you
-insist on hanging top-level open braces on the right side of the line,
-then you might want to set the variable `defun-prompt-regexp' to
-something reasonable (3), however that "something reasonable" is
-difficult to define, so CC Mode doesn't do it for you.
-
-   A special note about `defun-prompt-regexp' in Java mode: while much
-of the early sample Java code seems to encourage a style where the brace
-that opens a class is hung on the right side of the line, this is not a
-good style to pursue in Emacs.  CC Mode comes with a variable
-`c-Java-defun-prompt-regexp' which tries to define a regular expression
-usable for this style, but there are problems with it.  In some cases
-it can cause `beginning-of-defun' to hang(4).  For this reason, it is
-not used by default, but if you feel adventurous, you can set
-`defun-prompt-regexp' to it in your mode hook.  In any event, setting
-and rely on `defun-prompt-regexp' will definitely slow things down!
-
-   You will probably notice pathological behavior from CC Mode when
-working in files containing large amounts of C preprocessor macros.
-This is because Emacs cannot skip backwards over these lines as quickly
-as it can comment.
-
-   Previous versions of CC Mode had potential performance problems when
-recognizing K&R style function argument declarations.  This was because
-there are ambiguities in the C syntax when K&R style argument lists are
-used(5).  CC Mode has adopted BOCM's convention for limiting the
-search: it assumes that argdecls are indented at least one space, and
-that the function headers are not indented at all.  With current
-versions of CC Mode, user customization of `c-recognize-knr-p' is
-deprecated.  Just don't put argdecls in column zero!
-
-   You might want to investigate the speed-ups contained in the file
-`cc-lobotomy.el', which comes as part of the CC Mode distribution, but
-is completely unsupported.  As mentioned previous, CC Mode always
-trades speed for accuracy, however it is recognized that sometimes you
-need speed and can sacrifice some accuracy in indentation.  The file
-`cc-lobotomy.el' contains hacks that will "dumb down" CC Mode in some
-specific ways, making that trade-off of accurancy for speed.  I won't
-go into details of its use here; you should read the comments at the
-top of the file, and look at the variable `cc-lobotomy-pith-list' for
-details.
-
-   ---------- Footnotes ----------
-
-   (1) such as the output of `lex(1)'!
-
-   (2) e.g. a function in C, or outermost class definition in C++ or
-Java.
-
-   (3) Note that this variable is only defined in Emacs 19.
-
-   (4) This has been observed in Emacs 19.34 and XEmacs 19.15.
-
-   (5) It is hard to distinguish them from top-level declarations.
-
-
-File: ccmode,  Node: Frequently Asked Questions,  Next: Getting the latest CC Mode release,  Prev: Performance Issues,  Up: Top
-
-Frequently Asked Questions
-**************************
-
-     *Q.* _How do I re-indent the whole file?_
-
-     *A.* Visit the file and hit `C-x h' to mark the whole buffer. Then
-     hit `ESC C-\'.
-
-
-     *Q.* _How do I re-indent the entire function?  `ESC C-x' doesn't
-     work._
-
-     *A.* `ESC C-x' is reserved for future Emacs use.  To re-indent the
-     entire function hit `C-c C-q'.
-
-
-     *Q.* _How do I re-indent the current block?_
-
-     *A.* First move to the brace which opens the block with `ESC C-u',
-     then re-indent that expression with `ESC C-q'.
-
-
-     *Q.* _Why doesn't the `RET' key indent the line to where the new
-     text should go after inserting the newline?_
-
-     *A.* Emacs' convention is that `RET' just adds a newline, and that
-     `C-j' adds a newline and indents it.  You can make `RET' do this
-     too by adding this to your `c-mode-common-hook' (see the sample
-     `.emacs' file *Note Sample .emacs File::):
-
-          (define-key c-mode-base-map "\C-m" 'newline-and-indent)
-
-     This is a very common question.  If you want this to be the default
-     behavior, don't lobby me, lobby RMS!  `:-)'
-
-
-     *Q.* _I put `(c-set-offset 'substatement-open 0)' in my `.emacs'
-     file but I get an error saying that `c-set-offset''s function
-     definition is void._
-
-     *A.* This means that CC Mode wasn't loaded into your Emacs session
-     by the time the `c-set-offset' call was reached, mostly likely
-     because CC Mode is being autoloaded.  Instead of putting the
-     `c-set-offset' line in your top-level `.emacs' file, put it in
-     your `c-mode-common-hook', or simply add the following to the top
-     of your `.emacs' file:
-
-          (require 'cc-mode)
-
-     See the sample `.emacs' file *Note Sample .emacs File:: for
-     details.
-
-
-     *Q.* _How do I make strings, comments, keywords, and other
-     constructs appear in different colors, or in bold face, etc.?_
-
-     *A.* "Syntax Colorization" is a standard Emacs feature, controlled
-     by `font-lock-mode'.  It is not part of CC Mode.
-
-
-     *Q.* _`M-a' and `M-e' used to move over entire balanced brace
-     lists, but now they move into blocks.  How do I get the old
-     behavior back?_
-
-     *A.* Use `C-M-f' and `C-M-b' to move over balanced brace blocks.
-     Use `M-a' and `M-e' to move by statements, which will move into
-     blocks.
-
-
-
-File: ccmode,  Node: Getting the latest CC Mode release,  Next: Sample .emacs File,  Prev: Frequently Asked Questions,  Up: Top
-
-Getting the latest CC Mode release
-**********************************
-
-   CC Mode is now standard with the latest versions of Emacs 19 and
-XEmacs 19.  It is also the standard for Emacs 20 and XEmacs 20.  You
-would typically just use the version that comes with your X/Emacs.
-These may be slightly out of date due to release schedule skew, so you
-should always check the canonical site for the latest version.
-
-
-         World Wide Web:
-     
-             `http://www.python.org/ftp/emacs/'
-     
-         Anonymous FTP:
-     
-             `ftp://ftp.python.org/pub/emacs/'
-
-   There are many files under these directories; you can pick up the
-entire distribution (named `cc-mode.tar.gz'; a gzip'd tar file), or any
-of the individual files, including PostScript documentation.
-
-   If you do not have World Wide Web, or anonymous ftp access, you can
-get the distribution through an anonymous ftp-to-mail gateway, such as
-the one run by DEC at:
-
-     `ftpmail@decwrl.dec.com'
-   To get CC Mode via email, send the following message in the body of
-your mail to that address:
-
-     reply <a valid net address back to you>
-     connect ftp.python.org
-     binary
-     uuencode
-     chdir pub/emacs
-     get cc-mode.tar.gz
-
-or just send the message "help" for more information on ftpmail.
-Response times will vary with the number of requests in the queue.  I am
-in no way connected to this service, so I make no claims or guarantees
-about its availability!
+   Note that this has no effect for comment lines that are inserted with
+`M-;' at the end of regular code lines.  These comments will always
+start at `comment-column'.
 

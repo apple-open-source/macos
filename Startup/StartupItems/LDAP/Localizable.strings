@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>Starting LDAP server</key>
+	<string>Starting LDAP server</string>
+	<key>Stopping LDAP server</key>
+	<string>Stopping LDAP server</string>
+	<key>LDAP server is not running.</key>
+	<string>LDAP server is not running.</string>
+</dict>
+</plist>

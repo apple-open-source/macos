@@ -1,0 +1,183 @@
+#ident $Id: netinfo.schema,v 1.5 2002/07/28 21:18:33 jtownsen Exp $
+#
+# NetInfo attribute mapping schema.
+#
+
+#
+# Schema mapping for NetInfo users. 
+#
+objectclassmap /users inetOrgPerson posixAccount shadowAccount apple-user extensibleObject
+attributemap /users name uid
+attributemap /users realname cn
+attributemap /users uid uidNumber
+attributemap /users gid gidNumber
+attributemap /users home homeDirectory
+attributemap /users shell loginShell
+attributemap /users expire shadowExpire
+attributemap /users change shadowLastChange
+#attributemap /users principal krbName
+attributemap /users class apple-user-class
+attributemap /users home_loc apple-user-homeurl
+attributemap /users homedirectoryquota apple-user-homequota
+attributemap /users applemail apple-user-mailattribute
+attributemap /users appleprintservice apple-user-printattribute
+attributemap /users admin_limits apple-user-adminlimits
+attributemap /users picture apple-user-picture
+attributemap /users hint apple-user-authenticationhint
+attributemap /users authentication_authority authAuthority
+attributemap /users lastname sn
+attributemap /users firstname givenName
+attributemap /users state stateOrProvinceName
+attributemap /users zip postalCode
+attributemap /users address1 streetAddress
+attributemap /users phonenumber telephoneNumber
+
+#
+# Schema mapping for NetInfo groups.
+#
+objectclassmap /groups posixGroup apple-group extensibleObject
+attributemap /groups users memberUid
+attributemap /groups gid gidNumber
+attributemap /groups realname apple-group-realname
+attributemap /groups home_loc apple-group-homeurl
+attributemap /groups home_loc_owner apple-group-homeowner
+
+#
+# Schema mapping for NetInfo hosts.
+#
+objectclassmap /machines device ipHost ieee802Device bootableDevice apple-machine
+attributemap /machines name cn
+attributemap /machines ip_address ipHostNumber
+#attributemap /machines ipv6_address ipHostNumber
+attributemap /machines en_address macAddress
+attributemap /machines bootfile bootFile
+attributemap /machines bootparams bootParameter
+attributemap /machines serves apple-machine-serves 
+attributemap /machines suffix apple-machine-suffix
+attributemap /machines hardware apple-machine-hardware
+attributemap /machines software apple-machine-software
+
+#
+# Schema mapping for NetInfo protocols.
+#
+objectclassmap /protocols ipProtocol
+attributemap /protocols number ipProtocolNumber
+
+#
+# Schema mapping for NetInfo RPCs.
+#
+objectclassmap /rpcs oncRpc
+attributemap /rpcs number oncRpcNumber
+
+#
+# Schema mapping for NetInfo services.
+#
+objectclassmap /services ipService
+attributemap /services port ipServicePort
+attributemap /services protocol ipServiceProtocol
+
+#
+# Schema mapping for NetInfo networks.
+#
+objectclassmap /networks ipNetwork
+attributemap /networks address ipNetworkNumber
+attributemap /networks netmask ipNetmaskNumber
+
+#
+# Schema mapping for NetInfo mounts.
+#
+objectclassmap /mounts mount
+attributemap /mounts dir mountDirectory
+attributemap /mounts vfstype mountType
+attributemap /mounts opts mountOption
+attributemap /mounts dump_freq mountDumpFrequency
+attributemap /mounts passno mountPassNo
+
+#
+# Schema mapping for NetInfo printers.
+#
+objectclassmap /printers apple-printer
+attributemap /printers attributes apple-printer-attributes
+
+#
+# Schema mapping for NetInfo mail aliases.
+#
+objectclassmap /aliases nisMailAlias
+attributemap /aliases members rfc822MailMember
+
+#
+# Schema mapping for NetInfo computers.
+#
+objectclassmap /computers apple-computer
+attributemap /computers comment description
+attributemap /computers en_address macAddress
+
+#
+# Schema mapping for NetInfo computer lists.
+#
+objectclassmap /computer_lists apple-computer-list
+attributemap /computer_lists computers apple-computers
+attributemap /computer_lists groups apple-computer-list-groups
+
+#
+# Schema mapping for NetInfo configurations.
+#
+#objectclassmap /config apple-configuration extensibleObject
+attributemap /config passwordserverlocation apple-password-server-location
+attributemap /config realname apple-config-realname
+attributemap /config data_stamp apple-data-stamp
+
+#
+# Schema mapping for NetInfo preset computer lists.
+#
+objectclassmap /presets_computer_lists apple-preset-computer-list
+
+#
+# Schema mapping for NetInfo preset groups.
+#
+objectclassmap /presets_groups apple-preset-group
+attributemap /presets_groups realname apple-group-realname
+attributemap /presets_groups gid gidNumber
+attributemap /presets_groups home_loc apple-group-homeurl
+attributemap /presets_groups home_loc_owner apple-group-homeowner
+
+#
+# Schema mapping for NetInfo preset users.
+#
+objectclassmap /presets_users apple-preset-user
+attributemap /presets_users users memberUid
+attributemap /presets_users gid gidNumber
+attributemap /presets_users home homeDirectory
+attributemap /presets_users homedirectoryquota apple-user-homequota
+attributemap /presets_users applemail apple-user-mailattribute
+attributemap /presets_users appleprintservice apple-user-printattribute
+attributemap /presets_users admin_limits apple-user-adminlimits
+attributemap /presets_users picture apple-user-picture
+attributemap /presets_users shell loginShell
+attributemap /presets_users change shadowLastChange
+attributemap /presets_users expire shadowExpire
+attributemap /presets_users authentication_authority authAuthority
+attributemap /presets_users preset_user_is_admin apple-preset-user-is-admin
+
+objectclassmap /people inetOrgPerson
+
+#
+# Top-level directories are mapped the "container"
+# object class.
+#
+objectclassmap / container
+
+#
+# The "passwd" NetInfo property is mapped to comply
+# with RFC 2307.
+# 
+attributemap passwd userPassword appendPrefixTransform:{CRYPT} removePrefixTransform:{CRYPT}
+
+#
+# The "cn" LDAP attribute is mapped to NetInfo property
+# "name" for compatibility with existing NetInfo clients.
+#
+attributemap name cn
+
+attributemap mcx_flags apple-mcxflags
+attributemap mcx_settings apple-mcxsettings

@@ -20,6 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef _S_HFSVOLS_H
+#define _S_HFSVOLS_H
+
 /*
  * hfsvols.h
  */
@@ -55,4 +58,4 @@ boolean_t		hfs_get_dirID(u_int32_t volumeID,
 int			hfs_set_file_size(int fd, off_t size);
 boolean_t		hfs_copy_finder_info(u_char * target_path,
 					     u_char * source_path);
-
+#endif _S_HFSVOLS_H

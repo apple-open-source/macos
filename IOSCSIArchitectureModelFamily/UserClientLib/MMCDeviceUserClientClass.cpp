@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,183 +20,248 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	Includes
+//—————————————————————————————————————————————————————————————————————————————
+
+// Core Foundation includes
 #include <CoreFoundation/CFMachPort.h>
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CoreFoundation.h>
+
+// IOKit includes
+#include <IOKit/IOKitLib.h>
+
+// IOSCSIArchitectureModelFamily includes
 #include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
+
+// Private includes
 #include "MMCDeviceUserClientClass.h"
 #include "SCSITaskDeviceClass.h"
+
+// C Library includes
 #include <string.h>
 
-__BEGIN_DECLS
+// Since mach headers don’t have C++ wrappers we have to
+// declare extern “C” before including them.
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
-__END_DECLS
 
-#define MMC_DEVICE_CLASS_DEBUGGING_LEVEL 0
+#ifdef __cplusplus
+}
+#endif
 
-#if ( MMC_DEVICE_CLASS_DEBUGGING_LEVEL > 0 )
-#define PRINT(x)	printf x
+
+//—————————————————————————————————————————————————————————————————————————————
+//	Macros
+//—————————————————————————————————————————————————————————————————————————————
+
+#define DEBUG									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"MMCDeviceClass"
+
+#if DEBUG
+#define PRINT(x)		printf x
 #else
 #define PRINT(x)
 #endif
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	Static variable initialization
+//—————————————————————————————————————————————————————————————————————————————
 
 IOCFPlugInInterface
 MMCDeviceUserClientClass::sIOCFPlugInInterface =
 {
 	0,
-	&MMCDeviceUserClientClass::staticQueryInterface,
-	&MMCDeviceUserClientClass::staticAddRef,
-	&MMCDeviceUserClientClass::staticRelease,
+	&MMCDeviceUserClientClass::sQueryInterface,
+	&MMCDeviceUserClientClass::sAddRef,
+	&MMCDeviceUserClientClass::sRelease,
 	1, 0, // version/revision
-	&MMCDeviceUserClientClass::staticProbe,
-	&MMCDeviceUserClientClass::staticStart,
-	&MMCDeviceUserClientClass::staticStop
+	&MMCDeviceUserClientClass::sProbe,
+	&MMCDeviceUserClientClass::sStart,
+	&MMCDeviceUserClientClass::sStop
 };
+
 
 MMCDeviceInterface
 MMCDeviceUserClientClass::sMMCDeviceInterface =
 {
 	0,
-	&MMCDeviceUserClientClass::staticQueryInterface,
-	&MMCDeviceUserClientClass::staticAddRef,
-	&MMCDeviceUserClientClass::staticRelease,
+	&MMCDeviceUserClientClass::sQueryInterface,
+	&MMCDeviceUserClientClass::sAddRef,
+	&MMCDeviceUserClientClass::sRelease,
 	1, 0, // version/revision
-	&MMCDeviceUserClientClass::staticInquiry,
-	&MMCDeviceUserClientClass::staticTestUnitReady,
-	&MMCDeviceUserClientClass::staticGetPerformance,
-	&MMCDeviceUserClientClass::staticGetConfiguration,
-	&MMCDeviceUserClientClass::staticModeSense10,
-	&MMCDeviceUserClientClass::staticSetWriteParametersModePage,
-	&MMCDeviceUserClientClass::staticGetTrayState,
-	&MMCDeviceUserClientClass::staticSetTrayState,
-	&MMCDeviceUserClientClass::staticReadTableOfContents,
-	&MMCDeviceUserClientClass::staticReadDiscInformation,
-	&MMCDeviceUserClientClass::staticReadTrackInformation,
-	&MMCDeviceUserClientClass::staticReadDVDStructure,
-	&MMCDeviceUserClientClass::staticGetSCSITaskDeviceInterface
+	&MMCDeviceUserClientClass::sInquiry,
+	&MMCDeviceUserClientClass::sTestUnitReady,
+	&MMCDeviceUserClientClass::sGetPerformance,
+	&MMCDeviceUserClientClass::sGetConfiguration,
+	&MMCDeviceUserClientClass::sModeSense10,
+	&MMCDeviceUserClientClass::sSetWriteParametersModePage,
+	&MMCDeviceUserClientClass::sGetTrayState,
+	&MMCDeviceUserClientClass::sSetTrayState,
+	&MMCDeviceUserClientClass::sReadTableOfContents,
+	&MMCDeviceUserClientClass::sReadDiscInformation,
+	&MMCDeviceUserClientClass::sReadTrackInformation,
+	&MMCDeviceUserClientClass::sReadDVDStructure,
+	&MMCDeviceUserClientClass::sGetSCSITaskDeviceInterface,
+	&MMCDeviceUserClientClass::sGetPerformanceV2
 };
 
 
+#if 0
+#pragma mark -
 #pragma mark Public Methods
+#pragma mark -
+#endif
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• alloc - Called to allocate an instance of the class			[PUBLIC]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOCFPlugInInterface **
 MMCDeviceUserClientClass::alloc ( void )
 {
 	
-	MMCDeviceUserClientClass * 	userClient;
-	IOCFPlugInInterface ** 		interface = NULL;
-
+	MMCDeviceUserClientClass * 	userClient	= NULL;
+	IOCFPlugInInterface ** 		interface 	= NULL;
+	
 	PRINT ( ( "MMCDeviceUserClientClass::alloc called\n" ) );
 	
 	userClient = new MMCDeviceUserClientClass;
-	if ( userClient != NULL )
-	{
-		
-		userClient->AddRef ( );
-		interface = ( IOCFPlugInInterface ** ) &userClient->fMMCDeviceInterfaceMap.pseudoVTable;
-		
-	}
-	else
-	{
-		PRINT ( ( "userClient is null\n" ) );
-	}
+	require_nonzero_string ( userClient, Error_Exit, "new failed" );
 	
-	PRINT ( ( "returning interface\n" ) );
-
+	userClient->AddRef ( );
+	interface = ( IOCFPlugInInterface ** ) &userClient->fInterfaceMap.pseudoVTable;
+	
+	
+Error_Exit:
+	
+	
 	return interface;
 	
 }
 
 
+inline bool
+MMCDeviceUserClientClass::IsParameterValid ( 	SCSICmdField1Byte 	param,
+												SCSICmdField1Byte 	mask )
+{
+	
+	bool	valid = false;
+	
+	require ( ( ( param | mask ) == mask ), Error_Exit );
+	valid = true;
+	
+	
+Error_Exit:
+	
+	
+	return valid;
+	
+}
+
+
+inline bool
+MMCDeviceUserClientClass::IsParameterValid ( 	SCSICmdField2Byte 	param,
+												SCSICmdField2Byte 	mask )
+{
+	
+	bool	valid = false;
+	
+	require ( ( ( param | mask ) == mask ), Error_Exit );
+	valid = true;
+	
+	
+Error_Exit:
+	
+	
+	return valid;
+	
+}
+
+
+inline bool
+MMCDeviceUserClientClass::IsParameterValid ( 	SCSICmdField4Byte 	param,
+												SCSICmdField4Byte 	mask )
+{
+	
+	bool	valid = false;
+	
+	require ( ( ( param | mask ) == mask ), Error_Exit );
+	valid = true;
+	
+	
+Error_Exit:
+	
+	
+	return valid;
+	
+}
+
+
+#if 0
 #pragma mark -
 #pragma mark Protected Methods
+#pragma mark -
+#endif
 
-// Constructor
-MMCDeviceUserClientClass::MMCDeviceUserClientClass ( void )
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• Default Constructor - Called on allocation					[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+MMCDeviceUserClientClass::MMCDeviceUserClientClass ( void ) :
+				SCSITaskIUnknown ( &sIOCFPlugInInterface )
 {
 	
 	PRINT ( ( "MMCDeviceUserClientClass constructor called\n" ) );
-		
-	// init cf plugin ref counting
-	fRefCount = 0;
 	
 	// init user client connection
 	fConnection = MACH_PORT_NULL;
 	fService 	= MACH_PORT_NULL;
-		
-	// create plugin interface map
-    fIOCFPlugInInterface.pseudoVTable 	= ( IUnknownVTbl * ) &sIOCFPlugInInterface;
-    fIOCFPlugInInterface.obj 			= this;
 	
-	// create test driver interface map
+	// create driver interface map
 	fMMCDeviceInterfaceMap.pseudoVTable = ( IUnknownVTbl * ) &sMMCDeviceInterface;
 	fMMCDeviceInterfaceMap.obj 			= this;
 	
-	fFactoryId = kIOSCSITaskLibFactoryID;
-	CFRetain ( fFactoryId );
-	CFPlugInAddInstanceForFactory ( fFactoryId );
-	
 }
 
 
-// Destructor
+//—————————————————————————————————————————————————————————————————————————————
+//	• Default Destructor - Called on deallocation					[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
 MMCDeviceUserClientClass::~MMCDeviceUserClientClass ( void )
 {
 	
-	kern_return_t	err = 0;
-	
 	PRINT ( ( "MMCDeviceUserClientClass destructor called\n" ) );
-	
-	if ( fConnection != MACH_PORT_NULL )
-	{
-		
-		err = IOServiceClose ( fConnection );
-		fConnection = MACH_PORT_NULL;
-		
-		PRINT ( ( "MMCDeviceUserClientClass : IOServiceClose returned err = 0x%08x\n", err ) );
-		
-	}
-	
-	PRINT ( ( "MMCDeviceUserClientClass : calling CFPlugInRemoveInstanceForFactory\n" ) );
-	
-	CFPlugInRemoveInstanceForFactory ( fFactoryId );
-	PRINT ( ( "MMCDeviceUserClientClass : CFPlugInRemoveInstanceForFactory called\n" ) );
-
-	CFRelease ( fFactoryId );
-	PRINT ( ( "MMCDeviceUserClientClass : CFRelease called\n" ) );
+	Stop ( );
 	
 }
 
 
+#if 0
+#pragma mark -
+#endif
 
-//////////////////////////////////////////////////////////////////
-// IUnknown methods
-//
 
-// staticQueryInterface
-//
-//
-
-//////////////////////////////////////////////////////////////////
-// IUnknown methods
-//
-
-// staticQueryInterface
-//
+//—————————————————————————————————————————————————————————————————————————————
+//	• QueryInterface - Called to obtain the presence of an interface
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 HRESULT
-MMCDeviceUserClientClass::staticQueryInterface ( void * self, REFIID iid, void ** ppv )
-{
-	return getThis ( self )->QueryInterface ( iid, ppv );
-}
-
-
-// QueryInterface
-//
-
-HRESULT
-MMCDeviceUserClientClass::QueryInterface ( REFIID iid, void ** ppv )
+MMCDeviceUserClientClass::QueryInterface ( 	REFIID 	iid,
+											void ** ppv )
 {
 	
 	CFUUIDRef 	uuid 	= CFUUIDCreateFromUUIDBytes ( NULL, iid );
@@ -204,31 +269,34 @@ MMCDeviceUserClientClass::QueryInterface ( REFIID iid, void ** ppv )
 	
 	PRINT ( ( "MMCDeviceUserClientClass QueryInterface called\n" ) );
 	
-	if ( CFEqual ( uuid, IUnknownUUID ) || CFEqual ( uuid, kIOCFPlugInInterfaceID ) ) 
+	if ( CFEqual ( uuid, IUnknownUUID ) ||
+		 CFEqual ( uuid, kIOCFPlugInInterfaceID ) ) 
 	{
 		
 		PRINT ( ( "UUID recognized, unknownUUID or IOCFPlugin UUID\n" ) );
 		
-		*ppv = &fIOCFPlugInInterface;
+		*ppv = &fInterfaceMap;
         AddRef ( );
 		
     }
 	
 	else if ( CFEqual ( uuid, kIOMMCDeviceInterfaceID ) ) 
 	{
+		
 		PRINT ( ( "MMC UUID recognized\n" ) );
 		*ppv = &fMMCDeviceInterfaceMap;
 		AddRef ( );
+		
     }
-
+	
     else
 	{
+		
 		PRINT ( ( "UUID unrecognized\n" ) );
 		*ppv = 0;
-	}
-	
-	if ( !*ppv )
 		result = E_NOINTERFACE;
+		
+	}
 	
 	CFRelease ( uuid );
 	
@@ -237,181 +305,105 @@ MMCDeviceUserClientClass::QueryInterface ( REFIID iid, void ** ppv )
 }
 
 
-// staticAddRef
-//
-
-UInt32
-MMCDeviceUserClientClass::staticAddRef ( void * self )
-{
-	return getThis ( self )->AddRef ( );
-}
-
-
-// AddRef
-//
-
-UInt32
-MMCDeviceUserClientClass::AddRef ( void )
-{
-
-	PRINT ( ( "MMCDeviceUserClientClass AddRef called\n" ) );
-	
-	fRefCount += 1;
-
-	PRINT ( ( "fRefCount = %ld\n", fRefCount ) );
-
-	return fRefCount;
-	
-}
-
-// staticRelease
-//
-
-UInt32
-MMCDeviceUserClientClass::staticRelease ( void * self )
-{
-	return getThis ( self )->Release ( );
-}
-
-
-// Release
-//
-
-UInt32
-MMCDeviceUserClientClass::Release ( void )
-{
-	
-	UInt32		retVal = fRefCount;
-
-	PRINT ( ( "MMCDeviceUserClientClass Release called\n" ) );
-	
-	if ( 1 == fRefCount-- ) 
-	{
-		delete this;
-    }
-	
-    else if ( fRefCount < 0 )
-	{
-        fRefCount = 0;
-	}
-
-	PRINT ( ( "fRefCount = %ld\n", fRefCount ) );
-	
-	return retVal;
-	
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• Probe - 	Called by IOKit to ascertain whether we can drive the provided
+//				io_service_t										[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
-MMCDeviceUserClientClass::staticProbe ( void * self, CFDictionaryRef propertyTable, 
-										io_service_t service, SInt32 * order )
-{
-	return getThis ( self )->Probe ( propertyTable, service, order );
-}
-
-
-IOReturn
-MMCDeviceUserClientClass::Probe ( CFDictionaryRef propertyTable,
-								  io_service_t inService,
-								  SInt32 * order )
+MMCDeviceUserClientClass::Probe ( CFDictionaryRef 	propertyTable,
+								  io_service_t 		inService,
+								  SInt32 * 			order )
 {
 	
-	CFMutableDictionaryRef	dict;
-	kern_return_t			kernErr;
-	
-	PRINT ( ( "MMCDeviceUserClientClass::Probe called\n" ) );
+	CFMutableDictionaryRef	dict	= 0;
+	IOReturn				status 	= kIOReturnBadArgument;
+	Boolean					ok		= false;
+
+	PRINT ( ( "MMC::Probe called\n" ) );
 	
 	// Sanity check
-	if ( inService == NULL )
-		return kIOReturnBadArgument;
-	
-	kernErr = IORegistryEntryCreateCFProperties ( inService, &dict, NULL, 0 );
-	if ( kernErr != KERN_SUCCESS )
-	{
-		return kIOReturnBadArgument;
-	}
-	
-	if ( CFDictionaryContainsKey ( dict, CFSTR ( kIOPropertySCSITaskUserClientInstanceGUID ) ) )
-	{
+	require_nonzero ( inService, Error_Exit );
 		
-		// Check to see if it conforms to CD or DVD services layer object names
-		if ( !IOObjectConformsTo ( inService, "IOCompactDiscServices" ) &&
-			!IOObjectConformsTo ( inService, "IODVDServices" ) )
-		{
-			
-			PRINT ( ( "MMCDeviceUserClientClass::Probe not our service type\n" ) );
-			return kIOReturnBadArgument;
-			
-		}
-		
-	}
+	status = IORegistryEntryCreateCFProperties ( inService, &dict, NULL, 0 );
+	require_success ( status, Error_Exit );
 	
-	else
-	{
-		return kIOReturnBadArgument;
-	}
+	ok = CFDictionaryContainsKey (
+				dict,
+				CFSTR ( kIOPropertySCSITaskUserClientInstanceGUID ) );
+	require_action ( ok, ReleaseDictionary, status = kIOReturnNoDevice );
 	
-	return kIOReturnSuccess;
+	// Check to see if it conforms to CD or DVD services layer object names
+	ok = IOObjectConformsTo ( inService, "IOCDBlockStorageDevice" ) ? true : false;
+	require_action ( ok, ReleaseDictionary, status = kIOReturnNoDevice );
 	
-}
 	
-
-IOReturn
-MMCDeviceUserClientClass::staticStart ( void * self,
-										CFDictionaryRef propertyTable,
-										io_service_t service )
-{
-	return getThis ( self )->Start ( propertyTable, service );
-}
-
-
-IOReturn
-MMCDeviceUserClientClass::Start ( CFDictionaryRef propertyTable, io_service_t service )
-{
+ReleaseDictionary:
 	
-	IOReturn 	status 		= kIOReturnSuccess;
 	
-	PRINT ( ( "MMCDeviceUserClientClass : start\n" ) );
+	require_nonzero ( dict, Error_Exit );
+	CFRelease ( dict );
 	
-	fService = service;
-	status = IOServiceOpen ( fService, mach_task_self ( ), 
-							 kSCSITaskLibConnection, &fConnection );
 	
-	if ( !fConnection )
-		status = kIOReturnNoDevice;
-		
-	PRINT ( ( "MMCDeviceUserClientClass : IOServiceOpen status = 0x%08lx, connection = %d\n",
-			( UInt32 ) status, fConnection ) );
+Error_Exit:
+	
 	
 	return status;
 	
 }
 
 
+//—————————————————————————————————————————————————————————————————————————————
+//	• Start - Called to start providing our services.				[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
 IOReturn
-MMCDeviceUserClientClass::staticStop ( void * self )
+MMCDeviceUserClientClass::Start (	CFDictionaryRef 	propertyTable,
+									io_service_t 		service )
 {
-	return getThis ( self )->Stop ( );
+	
+	IOReturn 	status = kIOReturnNoDevice;
+	
+	PRINT ( ( "SCSITaskDeviceClass : Start\n" ) );
+	
+	fService = service;
+	status = IOServiceOpen ( fService,
+							 mach_task_self ( ),
+							 kSCSITaskLibConnection,
+							 &fConnection );
+	
+	require_success ( status, Error_Exit );
+	require_nonzero_action ( fConnection, Error_Exit, status = kIOReturnNoDevice );
+	
+	
+Error_Exit:
+	
+	
+	PRINT ( ( "MMC : IOServiceOpen status = 0x%08lx, connection = %d\n",
+			( UInt32 ) status, fConnection ) );
+
+	return status;
+	
 }
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• Stop - Called to stop providing our services.					[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 MMCDeviceUserClientClass::Stop ( void )
 {
 	
-	IOReturn	status = kIOReturnSuccess;
+	PRINT ( ( "MMC : stop\n" ) );
 	
-	PRINT ( ( "MMCDeviceUserClientClass : stop\n" ) );
-	
-	if ( fConnection )
+	if ( fConnection != 0 )
 	{
 		
-		PRINT ( ( "MMCDeviceUserClientClass : IOServiceClose connection = %d\n", fConnection ) );
-        status = IOServiceClose ( fConnection );
+		PRINT ( ( "MMC : IOServiceClose connection = %d\n", fConnection ) );
+        IOServiceClose ( fConnection );
         fConnection = MACH_PORT_NULL;
-        
-        PRINT ( ( "IOServiceClose status = 0x%08x\n", status ) );
-    	
+		
 	}
 	
 	return kIOReturnSuccess;
@@ -419,85 +411,87 @@ MMCDeviceUserClientClass::Stop ( void )
 }
 
 
-//////////////////////////////////////////////////////////////////
-// MMCDeviceInterface methods
-//
+#if 0
+#pragma mark -
+#endif
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• Inquiry - Called to issue an INQUIRY command as defined in SPC-2.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
-MMCDeviceUserClientClass::staticInquiry ( void * self,
-										  SCSICmd_INQUIRY_StandardData * inquiryBuffer,
-										  UInt32 inqBufferSize,
-										  SCSITaskStatus * outTaskStatus,
-										  SCSI_Sense_Data * senseDataBuffer )
-{
-	return getThis ( self )->Inquiry ( inquiryBuffer, inqBufferSize, outTaskStatus, senseDataBuffer );
-}
-
-
-IOReturn
-MMCDeviceUserClientClass::Inquiry ( SCSICmd_INQUIRY_StandardData * inquiryBuffer,
-									UInt32 inqBufferSize,
-									SCSITaskStatus * outTaskStatus,
-									SCSI_Sense_Data * senseDataBuffer  )
+MMCDeviceUserClientClass::Inquiry (
+					SCSICmd_INQUIRY_StandardData *	inquiryBuffer,
+					SCSICmdField1Byte 				inqBufferSize,
+					SCSITaskStatus *				taskStatus,
+					SCSI_Sense_Data *				senseDataBuffer  )
 {
 	
-	IOReturn					status;
-	UInt32						params[3];
-	UInt32						outParams[1];
-	mach_msg_type_number_t 		len = 1;
+	IOReturn					status		= kIOReturnSuccess;
+	IOByteCount					byteCount	= 0;
+	AppleInquiryStruct			inquiryData	= { 0 };
 	
-	params[0] = ( UInt32 ) inqBufferSize;
-	params[1] = ( UInt32 ) inquiryBuffer;
-	params[2] = ( UInt32 ) senseDataBuffer;
+	PRINT ( ( "MMC::Inquiry called\n" ) );
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kMMCDeviceInquiry,
-												 ( int * ) params, 3,
-												 ( int * ) outParams, &len );
+	check ( inquiryBuffer );
+	check ( taskStatus );
+	check ( senseDataBuffer );
 	
-	PRINT ( ( "MMCDeviceUserClientClass : Inquiry status = 0x%08x\n", status ) );
+	inquiryData.buffer 			= ( void * ) inquiryBuffer;
+	inquiryData.bufferSize		= inqBufferSize;
+	inquiryData.senseDataBuffer	= ( void * ) senseDataBuffer;
+	byteCount 					= sizeof ( SCSITaskStatus );
 	
-	*outTaskStatus = ( SCSITaskStatus ) outParams[0];
+	status = IOConnectMethodStructureIStructureO ( 	fConnection, 	
+												 	kMMCDeviceInquiry,
+												 	sizeof ( inquiryData ),
+													&byteCount,
+													( void * ) &inquiryData,
+													( void * ) taskStatus );
+	
+	PRINT ( ( "MMC : Inquiry status = 0x%08x\n", status ) );
 	
 	return status;
 	
 }
 
 
-IOReturn
-MMCDeviceUserClientClass::staticTestUnitReady ( void * self,
-												SCSITaskStatus * outTaskStatus,
-												SCSI_Sense_Data * senseDataBuffer  )
-{
-	return getThis ( self )->TestUnitReady ( outTaskStatus, senseDataBuffer );	
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• TestUnitReady - 	Called to issue a TEST_UNIT_READY command as defined
+//						 in SPC-2.									[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
-MMCDeviceUserClientClass::TestUnitReady ( SCSITaskStatus * outTaskStatus,
+MMCDeviceUserClientClass::TestUnitReady ( SCSITaskStatus * 	taskStatus,
 										  SCSI_Sense_Data * senseDataBuffer  )
 {
 	
-	IOReturn					status;
-	UInt32						params[1];
-	UInt32						outParams[1];
-	mach_msg_type_number_t 		len = 1;
+	IOReturn		status 		= kIOReturnSuccess;
+	IOByteCount		byteCount	= 0;
 	
-	params[0] = ( UInt32 ) senseDataBuffer;
+	PRINT ( ( "MMC::TestUnitReady called\n" ) );
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
+	check ( taskStatus );
+	check ( senseDataBuffer );
+	
+	byteCount = sizeof ( SCSITaskStatus );
+	
+	status = IOConnectMethodScalarIStructureO (  fConnection, 	
 												 kMMCDeviceTestUnitReady, 
-												 ( int * ) params, 1,
-												 ( int * ) outParams, &len );
+												 1,
+												 &byteCount,
+												 ( int ) senseDataBuffer,
+												 ( void * ) taskStatus );
 	
-	*outTaskStatus = ( SCSITaskStatus ) outParams[0];
+	PRINT ( ( "MMC : TestUnitReady status = %d\n", status ) );		
+	PRINT ( ( "MMC : TestUnitReady taskStatus = %d\n", *taskStatus ) );
 	
-	PRINT ( ( "MMCDeviceUserClientClass : TestUnitReady taskStatus = %d\n", *outTaskStatus ) );
-	
-	if ( *outTaskStatus == kSCSITaskStatus_CHECK_CONDITION )
+	if ( *taskStatus == kSCSITaskStatus_CHECK_CONDITION )
 	{
 		
-		PRINT ( ( "SENSE_KEY_CODE: 0x%08x, ASC: 0x%08x, ASCQ: 0x%08x\n",
+		PRINT ( ( "SENSE_KEY_CODE: 0x%02x, ASC: 0x%02x, ASCQ: 0x%02x\n",
 			   senseDataBuffer->SENSE_KEY & kSENSE_KEY_Mask,
 			   senseDataBuffer->ADDITIONAL_SENSE_CODE,
 			   senseDataBuffer->ADDITIONAL_SENSE_CODE_QUALIFIER ) );
@@ -509,441 +503,940 @@ MMCDeviceUserClientClass::TestUnitReady ( SCSITaskStatus * outTaskStatus,
 }
 
 
-IOReturn
-MMCDeviceUserClientClass::staticGetPerformance ( void * self, UInt8 TOLERANCE, UInt8 WRITE, UInt8 EXCEPT,
-											   UInt32 STARTING_LBA, UInt16 MAXIMUM_NUMBER_OF_DESCRIPTORS,
-											   void * buffer, UInt16 bufferSize, SCSITaskStatus * taskStatus,
-											   SCSI_Sense_Data * senseDataBuffer )
-{
-	
-	return getThis ( self )->GetPerformance ( TOLERANCE, WRITE, EXCEPT, STARTING_LBA, MAXIMUM_NUMBER_OF_DESCRIPTORS,
-											  buffer, bufferSize, taskStatus, senseDataBuffer );
-										 
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetPerformance - 	Called to issue a GET_PERFORMANCE command as defined
+//						in Mt Fuji 5.								[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
-MMCDeviceUserClientClass::GetPerformance ( UInt8 TOLERANCE, UInt8 WRITE, UInt8 EXCEPT, UInt32 STARTING_LBA,
-										  UInt16 MAXIMUM_NUMBER_OF_DESCRIPTORS, void * buffer, UInt16 bufferSize,
-										  SCSITaskStatus * outTaskStatus, SCSI_Sense_Data * senseDataBuffer )
+MMCDeviceUserClientClass::GetPerformance (
+						SCSICmdField5Bit 	DATA_TYPE,
+						SCSICmdField4Byte	STARTING_LBA,
+						SCSICmdField2Byte	MAXIMUM_NUMBER_OF_DESCRIPTORS,
+						SCSICmdField1Byte	TYPE,
+						void *				buffer,
+						SCSICmdField2Byte	bufferSize,
+						SCSITaskStatus *	taskStatus,
+						SCSI_Sense_Data *	senseDataBuffer )
 {
 	
-	IOReturn					status;
-	mach_msg_type_number_t 		len = 1;
-	UInt32 						params[5];
-	UInt32						outParams[1];
-		
-	params[0] = ( UInt32 ) ( ( TOLERANCE << 16 ) | ( WRITE << 8 ) | EXCEPT );
-	params[1] = ( UInt32 ) ( STARTING_LBA );
-	params[2] = ( UInt32 ) ( ( MAXIMUM_NUMBER_OF_DESCRIPTORS << 16 ) | bufferSize );
-	params[3] = ( UInt32 ) buffer;
-	params[4] = ( UInt32 ) senseDataBuffer;
+	IOReturn					status			= kIOReturnBadArgument;
+	IOByteCount					byteCount		= 0;
+	AppleGetPerformanceStruct	performanceData = { 0 };
+	bool						valid 			= false;
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kMMCDeviceGetConfiguration, 
-												 ( int * ) params, 5,
-												 ( int * ) outParams, &len );
+	PRINT ( ( "MMC::GetPerformance called\n" ) );
 	
-	*outTaskStatus = ( SCSITaskStatus ) outParams[0];
+	check ( buffer );
+	check ( taskStatus );
+	check ( senseDataBuffer );
 	
-	PRINT ( ( "MMCDeviceUserClientClass : GetConfiguration status = %d\n", status ) );
+	valid = IsParameterValid ( DATA_TYPE, kSCSICmdFieldMask5Bit );
+	require ( valid, Error_Exit );
 	
-	return status;
+	performanceData.DATA_TYPE						= DATA_TYPE;
+	performanceData.STARTING_LBA					= STARTING_LBA;
+	performanceData.MAXIMUM_NUMBER_OF_DESCRIPTORS	= MAXIMUM_NUMBER_OF_DESCRIPTORS;
+	performanceData.TYPE							= TYPE;
+	performanceData.buffer							= buffer;
+	performanceData.bufferSize						= bufferSize;
+	performanceData.senseDataBuffer					= senseDataBuffer;
 	
-}
-
-		
-IOReturn
-MMCDeviceUserClientClass::staticGetConfiguration ( void * self, UInt8 RT, UInt16 STARTING_FEATURE_NUMBER,
-												 void * buffer, UInt16 bufferSize, SCSITaskStatus * taskStatus,
-												 SCSI_Sense_Data * senseDataBuffer )
-{
+	byteCount = sizeof ( SCSITaskStatus );
 	
-	return getThis ( self )->GetConfiguration ( RT, STARTING_FEATURE_NUMBER, buffer, bufferSize,
-												taskStatus, senseDataBuffer );
+	status = IOConnectMethodStructureIStructureO ( 	fConnection, 	
+													kMMCDeviceGetPerformance, 
+													sizeof ( performanceData ),
+													&byteCount,
+													( void * ) &performanceData,
+													( void * ) taskStatus );
 	
-}
-
-IOReturn
-MMCDeviceUserClientClass::GetConfiguration ( UInt8 RT, UInt16 STARTING_FEATURE_NUMBER,
-											void * buffer, UInt16 bufferSize, SCSITaskStatus * outTaskStatus,
-											SCSI_Sense_Data * senseDataBuffer )
-{
 	
-	IOReturn					status;
-	mach_msg_type_number_t 		len = 1;
-	UInt32 						params[5];
-	UInt32						outParams[1];
+Error_Exit:
 	
-	if ( RT > 0x02 )
-		return kIOReturnBadArgument;
 	
-	params[0] = ( UInt32 ) ( RT );
-	params[1] = ( UInt32 ) ( STARTING_FEATURE_NUMBER );
-	params[2] = ( UInt32 ) buffer;
-	params[3] = ( UInt32 ) bufferSize;
-	params[4] = ( UInt32 ) senseDataBuffer;
-	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kMMCDeviceGetConfiguration, 
-												 ( int * ) params, 5,
-												 ( int * ) outParams, &len );
-	
-	*outTaskStatus = ( SCSITaskStatus ) outParams[0];
-	
-	PRINT ( ( "MMCDeviceUserClientClass : GetConfiguration status = %d\n", status ) );
+	PRINT ( ( "MMC : GetPerformance status = %d\n", status ) );
 	
 	return status;
 	
 }
 
 
-IOReturn
-MMCDeviceUserClientClass::staticModeSense10 ( void * self, UInt8 LLBAA, UInt8 DBD, UInt8 PC,
-											  UInt8 PAGE_CODE, void * buffer, UInt16 bufferSize,
-											  SCSITaskStatus * outTaskStatus, SCSI_Sense_Data * senseDataBuffer )
-{
-	return getThis ( self )->ModeSense10 ( LLBAA, DBD, PC, PAGE_CODE, buffer,
-										   bufferSize, outTaskStatus, senseDataBuffer );	
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetConfiguration - 	Called to issue a GET_CONFIGURATION command as
+//						 	defined in MMC-2.						[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
-MMCDeviceUserClientClass::ModeSense10 ( UInt8 LLBAA, UInt8 DBD, UInt8 PC, UInt8 PAGE_CODE,
-										void * buffer, UInt16 bufferSize,
-										SCSITaskStatus * outTaskStatus,
-										SCSI_Sense_Data * senseDataBuffer )
+MMCDeviceUserClientClass::GetConfiguration (
+						SCSICmdField1Byte	RT,
+						SCSICmdField2Byte	STARTING_FEATURE_NUMBER,
+						void *				buffer,
+						SCSICmdField2Byte	bufferSize,
+						SCSITaskStatus *	taskStatus,
+						SCSI_Sense_Data *	senseDataBuffer )
 {
 	
-	IOReturn					status;
-	mach_msg_type_number_t 		len = 1;
-	UInt32 						params[5];
-	UInt32						outParams[1];
+	IOReturn						status 		= kIOReturnBadArgument;
+	IOByteCount						byteCount	= 0;
+	AppleGetConfigurationStruct		configData	= { 0 };
 	
-	params[0] = ( UInt32 ) ( ( DBD & 0x01 << 2 ) | ( LLBAA & 0x01 << 3 ) );
-	params[1] = ( UInt32 ) ( ( PC & 0x04 << 5 ) | ( PAGE_CODE & 0x3F ) );
-	params[2] = ( UInt32 ) buffer;
-	params[3] = ( UInt32 ) bufferSize;
-	params[4] = ( UInt32 ) senseDataBuffer;
+	PRINT ( ( "MMC::GetConfiguration called\n" ) );
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kMMCDeviceModeSense10, 
-												 ( int * ) params, 5,
-												 ( int * ) outParams, &len );
+	check ( buffer );
+	check ( taskStatus );
+	check ( senseDataBuffer );
 	
-	*outTaskStatus = ( SCSITaskStatus ) outParams[0];
+	require ( ( RT < 0x03 ), Error_Exit );
 	
-	PRINT ( ( "MMCDeviceUserClientClass : ModeSense10 status = %d\n", status ) );
+	configData.RT 						= RT;
+	configData.STARTING_FEATURE_NUMBER	= STARTING_FEATURE_NUMBER;
+	configData.buffer					= buffer;
+	configData.bufferSize				= bufferSize;
+	configData.senseDataBuffer			= ( void * ) senseDataBuffer;
+	byteCount 							= sizeof ( SCSITaskStatus );
+
+	status = IOConnectMethodStructureIStructureO (  fConnection, 	
+												 	kMMCDeviceGetConfiguration,
+												 	sizeof ( configData ),
+												 	&byteCount,
+												 	( void * ) &configData,
+												 	( void * ) taskStatus );
+	
+	
+Error_Exit:
+	
+	
+	PRINT ( ( "MMC : GetConfiguration status = %d\n", status ) );
 	
 	return status;
 	
 }
 
 
-IOReturn
-MMCDeviceUserClientClass::staticSetWriteParametersModePage ( void * self, void * buffer, UInt8 bufferSize,
-														     SCSITaskStatus * taskStatus, SCSI_Sense_Data * senseDataBuffer )
-{
-	
-	return getThis ( self )->SetWriteParametersModePage ( buffer, bufferSize, taskStatus, senseDataBuffer );
-	
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• ModeSense10 - Called to issue a MODE_SENSE_10 command as defined in
+//					SPC-2.											[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
-MMCDeviceUserClientClass::SetWriteParametersModePage ( void * buffer, UInt8 bufferSize,
-													   SCSITaskStatus * outTaskStatus,
-													   SCSI_Sense_Data * senseDataBuffer )
+MMCDeviceUserClientClass::ModeSense10 (
+						SCSICmdField1Bit	LLBAA,
+						SCSICmdField1Bit	DBD,
+						SCSICmdField2Bit	PC,
+						SCSICmdField6Bit	PAGE_CODE,
+						void *				buffer,
+						SCSICmdField2Byte	bufferSize,
+						SCSITaskStatus * 	taskStatus,
+						SCSI_Sense_Data * 	senseDataBuffer )
 {
 	
-	IOReturn					status;
-	mach_msg_type_number_t 		len = 1;
-	UInt32 						params[3];
-	UInt32						outParams[1];
+	IOReturn					status			= kIOReturnBadArgument;
+	AppleModeSense10Struct 		modeSenseStruct = { 0 };
+	IOByteCount					byteCount		= 0;
+	bool						valid			= false;
 	
-	if ( ( ( ( UInt8 * ) buffer )[8] & 0x3F ) != 0x05 )
-		return kIOReturnBadArgument;
+	PRINT ( ( "MMC::ModeSense10 called\n" ) );
 	
-	params[0] = ( UInt32 ) buffer;
-	params[1] = bufferSize;
-	params[2] = ( UInt32 ) senseDataBuffer;
+	check ( buffer );
+	check ( taskStatus );
+	check ( senseDataBuffer );
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kMMCDeviceSetWriteParametersModePage, 
-												 ( int * ) params, 3,
-												 ( int * ) outParams, &len );
+	valid = ( 	IsParameterValid ( LLBAA, kSCSICmdFieldMask1Bit ) 	&&
+				IsParameterValid ( DBD, kSCSICmdFieldMask1Bit ) 	&&
+				IsParameterValid ( PC, kSCSICmdFieldMask2Bit )		&&
+				IsParameterValid ( PAGE_CODE, kSCSICmdFieldMask6Bit ) );
 	
-	*outTaskStatus = ( SCSITaskStatus ) outParams[0];
+	require ( valid, Error_Exit );
 	
-	PRINT ( ( "MMCDeviceUserClientClass : SetWriteParametersModePage status = %d\n", status ) );
+	modeSenseStruct.LLBAA 				= LLBAA;
+	modeSenseStruct.DBD					= DBD;
+	modeSenseStruct.PC					= PC;
+	modeSenseStruct.PAGE_CODE			= PAGE_CODE;
+	modeSenseStruct.buffer				= buffer;
+	modeSenseStruct.bufferSize			= bufferSize;
+	modeSenseStruct.senseDataBuffer		= senseDataBuffer;
+	byteCount 							= sizeof ( SCSITaskStatus );
+	
+	status = IOConnectMethodStructureIStructureO ( 	fConnection, 	
+													kMMCDeviceModeSense10, 
+													sizeof ( modeSenseStruct ),
+													&byteCount,
+													( void * ) &modeSenseStruct,
+													( void * ) taskStatus );
+	
+	
+Error_Exit:
+	
+	
+	PRINT ( ( "MMC : ModeSense10 status = %d\n", status ) );
 	
 	return status;
 	
 }
 
 
+//—————————————————————————————————————————————————————————————————————————————
+//	• SetWriteParametersModePage - 	Called to issue a MODE_SELECT_10 with the
+//									Write Parameters Mode Page value set as
+//									defined in SPC-2 and MMC-2.		[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
 IOReturn
-MMCDeviceUserClientClass::staticGetTrayState ( void * self, UInt8 * trayState )
+MMCDeviceUserClientClass::SetWriteParametersModePage (
+						void *				buffer,
+						SCSICmdField2Byte	bufferSize,
+						SCSITaskStatus * 	taskStatus,
+						SCSI_Sense_Data *	senseDataBuffer )
 {
-	return getThis ( self )->GetTrayState ( trayState );	
+	
+	IOReturn							status		= kIOReturnBadArgument;
+	IOByteCount 						byteCount	= 0;
+	AppleWriteParametersModePageStruct	paramsData	= { 0 };
+	UInt8								pageCode	= 0;
+	UInt8 *								buf			= ( UInt8 * ) buffer;
+	
+	PRINT ( ( "MMC::SetWriteParametersModePage called\n" ) );
+	
+	check ( buf );
+	check ( taskStatus );
+	check ( senseDataBuffer );
+	
+	pageCode = ( buf[8] & 0x3F );
+	require ( ( pageCode == 0x05 ), Error_Exit );
+	
+	paramsData.buffer 			= buffer;
+	paramsData.bufferSize		= bufferSize;
+	paramsData.senseDataBuffer	= ( void * ) senseDataBuffer;
+	byteCount					= sizeof ( SCSITaskStatus );
+	
+	status = IOConnectMethodStructureIStructureO ( 	fConnection, 	
+													kMMCDeviceSetWriteParametersModePage, 
+													sizeof ( paramsData ),
+													&byteCount,
+													( void * ) &paramsData,
+													( void * ) taskStatus );
+	
+	
+Error_Exit:
+	
+	
+	PRINT ( ( "MMC : SetWriteParametersModePage status = %d\n", status ) );
+	
+	return status;
+	
 }
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetTrayState - Called to determine the status of the drive tray.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 MMCDeviceUserClientClass::GetTrayState ( UInt8 * trayState )
 {
 	
-	IOReturn				status;
-	UInt32					outParams[1];
-	mach_msg_type_number_t 	len = 1;
-		
-	status = io_connect_method_scalarI_scalarO ( fConnection, 					 
-												 kMMCDeviceGetTrayState, 
-												 NULL, 0,
-												 ( int * ) outParams, &len );
+	IOReturn		status			= kIOReturnSuccess;
+	UInt32			outParams[1]	= { 0 };
+	
+	PRINT ( ( "MMC::GetTrayState called\n" ) );
+	
+	status = IOConnectMethodScalarIScalarO ( fConnection, 					 
+											 kMMCDeviceGetTrayState, 
+											 0,
+											 1,
+											 ( int * ) outParams );
+	
+	require_success ( status, ErrorExit );
 	
 	*trayState = ( UInt8 )( ( outParams[0] != 0 ) ? kMMCDeviceTrayOpen : kMMCDeviceTrayClosed );
+	
+	
+ErrorExit:
+	
+
+	PRINT ( ( "MMC::GetTrayState status = 0x%x\n", status) );
 	
 	return status;
 	
 }
 
 
-IOReturn
-MMCDeviceUserClientClass::staticSetTrayState ( void * self, UInt8 trayState )
-{
-	return getThis ( self )->SetTrayState ( trayState );	
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• SetTrayState - Called to set the status of the drive tray.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 MMCDeviceUserClientClass::SetTrayState ( UInt8 trayState )
 {
 	
-	IOReturn				status;
-	UInt32					params[1];
-	mach_msg_type_number_t 	len = 0;
+	IOReturn		status = kIOReturnBadArgument;
+	UInt32			param;
 	
-	if ( ( trayState != kMMCDeviceTrayOpen ) &&
-		 ( trayState != kMMCDeviceTrayClosed ) )
-		return kIOReturnBadArgument;
+	PRINT ( ( "MMC::SetTrayState called\n" ) );
 	
-	params[0] = trayState;
+	require ( ( trayState == kMMCDeviceTrayOpen ) ||
+			  ( trayState == kMMCDeviceTrayClosed ),
+			  Error_Exit );
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 					 
-												 kMMCDeviceSetTrayState, 
-												 ( int * ) params, 1,
-												 NULL, &len );
+	param = trayState;
+	
+	status = IOConnectMethodScalarIScalarO ( fConnection, 					 
+											 kMMCDeviceSetTrayState, 
+											 1,
+											 0,
+											 param );
+	
+	
+Error_Exit:
+	
+
+	PRINT ( ( "MMC::SetTrayState status = 0x%x\n", status) );
 	
 	return status;
 	
 }
 
 
-IOReturn
-MMCDeviceUserClientClass::staticReadTableOfContents ( void * self, UInt8 MSF,
-													  UInt8 format, UInt8 trackSessionNumber,
-													  void * buffer, UInt16 bufferSize,
-													  SCSITaskStatus * outTaskStatus,
-													  SCSI_Sense_Data * senseDataBuffer )
-{
-	return getThis ( self )->ReadTableOfContents ( MSF, format, trackSessionNumber,
-												   buffer, bufferSize, outTaskStatus,
-												   senseDataBuffer );	
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• ReadTableOfContents - Called to issue a READ_TOC_PMA_ATIP command to the
+//							drive.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
-MMCDeviceUserClientClass::ReadTableOfContents ( UInt8 MSF,
-												UInt8 format,
-												UInt8 trackSessionNumber,
-												void * buffer,
-												UInt16 bufferSize,
-												SCSITaskStatus * outTaskStatus,
-												SCSI_Sense_Data * senseDataBuffer )
+MMCDeviceUserClientClass::ReadTableOfContents (
+						SCSICmdField1Bit 	MSF,
+						SCSICmdField4Bit 	FORMAT,
+						SCSICmdField1Byte	TRACK_SESSION_NUMBER,
+						void *				buffer,
+						SCSICmdField2Byte	bufferSize,
+						SCSITaskStatus *	taskStatus,
+						SCSI_Sense_Data *	senseDataBuffer )
 {
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 1;
-	UInt32						params[5];
-	UInt32						outParams[1];
+	IOReturn							status 		= kIOReturnBadArgument;
+	AppleReadTableOfContentsStruct 		readTOCData = { 0 };
+	IOByteCount							byteCount	= 0;
+	bool								valid 		= false;
 	
-	params[0] = ( UInt32 ) ( ( MSF << 8 ) | format );
-	params[1] = ( UInt32 ) trackSessionNumber;
-	params[2] = ( UInt32 ) buffer;
-	params[3] = ( UInt32 ) bufferSize;
-	params[4] = ( UInt32 ) senseDataBuffer;
+	PRINT ( ( "MMC::ReadTableOfContents called\n" ) );
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kMMCDeviceReadTableOfContents, 
-												 ( int * ) params, 5,
-												 ( int * ) outParams, &len );
+	valid = IsParameterValid ( MSF, kSCSICmdFieldMask1Bit ) &&
+			IsParameterValid ( FORMAT, kSCSICmdFieldMask4Bit );
 	
-	*outTaskStatus = ( SCSITaskStatus ) outParams[0];
+	require ( valid, Error_Exit );
 	
-	PRINT ( ( "MMCDeviceUserClientClass : ReadTableOfContents status = 0x%08x\n", status ) );
+	readTOCData.MSF 					= MSF;
+	readTOCData.FORMAT					= FORMAT;
+	readTOCData.TRACK_SESSION_NUMBER	= TRACK_SESSION_NUMBER;
+	readTOCData.buffer					= buffer;
+	readTOCData.bufferSize				= bufferSize;
+	readTOCData.senseDataBuffer			= ( void * ) senseDataBuffer;
+	byteCount							= sizeof ( SCSITaskStatus );
+	
+	status = IOConnectMethodStructureIStructureO ( 	fConnection, 	
+													kMMCDeviceReadTableOfContents, 
+													sizeof ( readTOCData ),
+													&byteCount,
+													( void * ) &readTOCData,
+													( void * ) taskStatus );
+	
+	PRINT ( ( "MMC : ReadTableOfContents status = %d\n", status ) );
+	
+	
+Error_Exit:
+	
 	
 	return status;
 	
 }
 
 
-IOReturn
-MMCDeviceUserClientClass::staticReadDiscInformation ( void * self,
-													  void * buffer,
-													  UInt16 bufferSize,
-													  SCSITaskStatus * outTaskStatus,
-													  SCSI_Sense_Data * senseDataBuffer )
-{
-	return getThis ( self )->ReadDiscInformation ( buffer, bufferSize, outTaskStatus, senseDataBuffer );	
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• ReadDiscInformation - Called to issue a READ_DISC_INFORMATION command
+//							to the drive.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
-MMCDeviceUserClientClass::ReadDiscInformation ( void * buffer, UInt16 bufferSize,
-												SCSITaskStatus * outTaskStatus,
-												SCSI_Sense_Data * senseDataBuffer )
+MMCDeviceUserClientClass::ReadDiscInformation (
+						void *				buffer,
+						SCSICmdField2Byte	bufferSize,
+						SCSITaskStatus *	taskStatus,
+						SCSI_Sense_Data *	senseDataBuffer )
 {
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 1;
-	UInt32						params[3];
-	UInt32						outParams[1];
+	IOReturn					status			= kIOReturnSuccess;
+	AppleReadDiscInfoStruct 	discInfoData	= { 0 };
+	IOByteCount					byteCount		= 0;
 	
-	params[0] = ( UInt32 ) buffer;
-	params[1] = ( UInt32 ) bufferSize;
-	params[2] = ( UInt32 ) senseDataBuffer;
+	PRINT ( ( "MMC::ReadDiscInformation called\n" ) );
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kMMCDeviceReadDiscInformation, 
-												 ( int * ) params, 3,
-												 ( int * ) outParams, &len );
+	check ( buffer );
+	check ( taskStatus );
+	check ( senseDataBuffer );
 	
-	*outTaskStatus = ( SCSITaskStatus ) outParams[0];
+	discInfoData.buffer				= buffer;
+	discInfoData.bufferSize			= bufferSize;
+	discInfoData.senseDataBuffer	= ( void * ) senseDataBuffer;
+	byteCount						= sizeof ( SCSITaskStatus );
 	
-	PRINT ( ( "MMCDeviceUserClientClass : ReadDiscInformation status = 0x%08x\n", status ) );
+	status = IOConnectMethodStructureIStructureO ( 	fConnection, 	
+													kMMCDeviceReadDiscInformation, 
+													sizeof ( discInfoData ),
+													&byteCount,
+													( void * ) &discInfoData,
+													( void * ) taskStatus );
+	
+	PRINT ( ( "MMC : ReadDiscInformation status = 0x%08x\n", status ) );
 	
 	return status;
 	
 }
 
 
-IOReturn
-MMCDeviceUserClientClass::staticReadTrackInformation ( void * self,
-													  UInt8 addressNumberType,
-													  UInt32 lbaTrackSessionNumber,
-													  void * buffer,
-													  UInt16 bufferSize,
-													  SCSITaskStatus * outTaskStatus,
-													  SCSI_Sense_Data * senseDataBuffer )
-{
-	return getThis ( self )->ReadTrackInformation ( addressNumberType,
-													lbaTrackSessionNumber,
-													buffer,
-													bufferSize,
-													outTaskStatus,
-													senseDataBuffer );	
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• ReadTrackInformation -	Called to issue a READ_TRACK/RZONE_INFORMATION
+//								command to the drive.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
-MMCDeviceUserClientClass::ReadTrackInformation ( UInt8 addressNumberType,
-												 UInt32 lbaTrackSessionNumber,
-												 void * buffer,
-												 UInt16 bufferSize,
-												 SCSITaskStatus * outTaskStatus,
-												 SCSI_Sense_Data * senseDataBuffer )
+MMCDeviceUserClientClass::ReadTrackInformation (
+				SCSICmdField2Bit	ADDRESS_NUMBER_TYPE,
+				SCSICmdField4Byte	LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER,
+				void *				buffer,
+				SCSICmdField2Byte	bufferSize,
+				SCSITaskStatus *	taskStatus,
+				SCSI_Sense_Data *	senseDataBuffer )
 {
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 1;
-	UInt32						params[5];
-	UInt32						outParams[1];
-
-	params[0] = ( UInt32 ) addressNumberType;
-	params[1] = ( UInt32 ) lbaTrackSessionNumber;
-	params[2] = ( UInt32 ) buffer;
-	params[3] = ( UInt32 ) bufferSize;
-	params[4] = ( UInt32 ) senseDataBuffer;
+	IOReturn					status 			= kIOReturnBadArgument;
+	AppleReadTrackInfoStruct 	trackInfoData	= { 0 };
+	IOByteCount					byteCount		= 0;
+	bool						valid			= false;
 	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kMMCDeviceReadTrackInformation, 
-												 ( int * ) params, 5,
-												 ( int * ) outParams, &len );
+	PRINT ( ( "MMC::ReadTrackInformation called\n" ) );
 	
-	*outTaskStatus = ( SCSITaskStatus ) outParams[0];
+	check ( buffer );
+	check ( taskStatus );
+	check ( senseDataBuffer );
 	
-	PRINT ( ( "MMCDeviceUserClientClass : ReadTrackInformation status = 0x%08x\n", status ) );
+	valid = IsParameterValid ( ADDRESS_NUMBER_TYPE, kSCSICmdFieldMask2Bit );
+	require ( valid, Error_Exit );
 	
-	return status;
+	trackInfoData.ADDRESS_NUMBER_TYPE							= ADDRESS_NUMBER_TYPE & 0x03;
+	trackInfoData.LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER	= LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER;
+	trackInfoData.buffer										= buffer;
+	trackInfoData.bufferSize									= bufferSize;
+	trackInfoData.senseDataBuffer								= ( void * ) senseDataBuffer;
+	byteCount													= sizeof ( SCSITaskStatus );
 	
-}
-
-
-IOReturn
-MMCDeviceUserClientClass::staticReadDVDStructure ( void * self,
-										 		   UInt32 logicalBlockAddress,
-										 		   UInt8 layerNumber,
-										 		   UInt8 format,
-										 		   void * buffer,
-										 		   UInt16 bufferSize,
-												   SCSITaskStatus * outTaskStatus,
-												   SCSI_Sense_Data * senseDataBuffer )
-{
-	return getThis ( self )->ReadDVDStructure ( logicalBlockAddress,
-												layerNumber,
-												format,
-												buffer,
-												bufferSize,
-												outTaskStatus,
-												senseDataBuffer );	
-}
-
-
-IOReturn
-MMCDeviceUserClientClass::ReadDVDStructure ( UInt32 logicalBlockAddress,
-											 UInt8 layerNumber,
-										 	 UInt8 format,
-										 	 void * buffer,
-										 	 UInt16 bufferSize,
-											 SCSITaskStatus * outTaskStatus,
-											 SCSI_Sense_Data * senseDataBuffer )
-{
+	status = IOConnectMethodStructureIStructureO ( 	fConnection, 	
+													kMMCDeviceReadTrackInformation, 
+													sizeof ( trackInfoData ),
+													&byteCount,
+													( void * ) &trackInfoData,
+													( void * ) taskStatus );
 	
-	IOReturn 					status = kIOReturnSuccess;
-	mach_msg_type_number_t 		len = 1;
-	UInt32						params[5];
-	UInt32						outParams[1];
+	
+Error_Exit:
+	
 		
-	params[0] = ( UInt32 ) logicalBlockAddress;
-	params[1] = ( UInt32 ) ( layerNumber << 8 ) | format;
-	params[2] = ( UInt32 ) buffer;
-	params[3] = ( UInt32 ) bufferSize;
-	params[4] = ( UInt32 ) senseDataBuffer;
-	
-	status = io_connect_method_scalarI_scalarO ( fConnection, 	
-												 kMMCDeviceReadDVDStructure, 
-												 ( int * ) params, 5,
-												 ( int * ) outParams, &len );
-
-	*outTaskStatus = ( SCSITaskStatus ) outParams[0];
-	
-	PRINT ( ( "MMCDeviceUserClientClass : ReadDVDStructure status = 0x%08x\n", status ) );
+	PRINT ( ( "MMC : ReadTrackInformation status = 0x%08x\n", status ) );
 	
 	return status;
 	
 }
 
 
-SCSITaskDeviceInterface **
-MMCDeviceUserClientClass::staticGetSCSITaskDeviceInterface ( void * self )
+//—————————————————————————————————————————————————————————————————————————————
+//	• ReadDVDStructure -	Called to issue a READ_DVD_STRUCTURE command to
+//							the drive.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::ReadDVDStructure (
+					SCSICmdField4Byte	ADDRESS,
+					SCSICmdField1Byte	LAYER_NUMBER,
+					SCSICmdField1Byte	FORMAT,
+					void *				buffer,
+					SCSICmdField2Byte	bufferSize,
+					SCSITaskStatus *	taskStatus,
+					SCSI_Sense_Data *	senseDataBuffer )
 {
-	return getThis ( self )->GetSCSITaskDeviceInterface ( );
+	
+	IOReturn						status			= kIOReturnSuccess;
+	AppleReadDVDStructureStruct 	dvdStructData	= { 0 };
+	IOByteCount						byteCount		= 0;
+	
+	PRINT ( ( "MMC::ReadDVDStructure called\n" ) );
+	
+	check ( buffer );
+	check ( taskStatus );
+	check ( senseDataBuffer );
+	
+	dvdStructData.ADDRESS 				= ADDRESS;
+	dvdStructData.LAYER_NUMBER			= LAYER_NUMBER;
+	dvdStructData.FORMAT				= FORMAT;
+	dvdStructData.buffer				= buffer;
+	dvdStructData.bufferSize			= bufferSize;
+	dvdStructData.AGID					= 0x00;
+	dvdStructData.senseDataBuffer		= senseDataBuffer;
+	byteCount 							= sizeof ( SCSITaskStatus );
+	
+	status = IOConnectMethodStructureIStructureO ( 	fConnection, 	
+													kMMCDeviceReadDVDStructure, 
+													sizeof ( dvdStructData ),
+													&byteCount,
+													( void * ) &dvdStructData,
+													( void * ) taskStatus );
+	
+	PRINT ( ( "MMC : ReadDVDStructure status = %d\n", status ) );
+	
+	return status;
+	
 }
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetSCSITaskDeviceInterface -	Called to obtain a handle to the
+//									SCSITaskDeviceInterface.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 SCSITaskDeviceInterface **
 MMCDeviceUserClientClass::GetSCSITaskDeviceInterface ( void )
 {
-	return ( SCSITaskDeviceInterface ** ) SCSITaskDeviceClass::alloc ( fService, fConnection );
+	
+	PRINT ( ( "MMC::GetSCSITaskDeviceInterface called\n" ) );
+	return ( SCSITaskDeviceInterface ** ) SCSITaskDeviceClass::alloc (
+															fService,
+															fConnection );
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark Static C->C++ Glue Functions
+#pragma mark -
+#endif
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sProbe - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sProbe ( 	void * 			self,
+									CFDictionaryRef propertyTable, 
+									io_service_t	service,
+									SInt32 *		order )
+{
+	
+	check ( self );
+	return getThis ( self )->Probe ( propertyTable, service, order );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sStart - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sStart ( 	void * 			self,
+									CFDictionaryRef propertyTable,
+									io_service_t 	service )
+{
+	
+	check ( self );
+	return getThis ( self )->Start ( propertyTable, service );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sStop - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sStop ( void * self )
+{
+	
+	check ( self );
+	return getThis ( self )->Stop ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sInquiry - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sInquiry (  
+					void *							self,
+					SCSICmd_INQUIRY_StandardData *	inquiryBuffer,
+					UInt32							inqBufferSize,
+					SCSITaskStatus *				taskStatus,
+					SCSI_Sense_Data *				senseDataBuffer )
+{
+	
+	IOReturn	status = kIOReturnBadArgument;
+	
+	require ( ( inqBufferSize <= 0xFF ), Error_Exit );
+	
+	status = getThis ( self )->Inquiry ( inquiryBuffer,
+										 inqBufferSize & 0xFF,
+										 taskStatus,
+										 senseDataBuffer );
+	
+	
+Error_Exit:
+	
+	
+	return status;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sTestUnitReady - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sTestUnitReady (
+					void * 				self,
+					SCSITaskStatus * 	taskStatus,
+					SCSI_Sense_Data * 	senseDataBuffer  )
+{
+	
+	check ( self );
+	return getThis ( self )->TestUnitReady ( taskStatus, senseDataBuffer );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetPerformance - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sGetPerformance (
+					void *				self,
+					SCSICmdField2Bit	TOLERANCE,
+					SCSICmdField1Bit	WRITE,
+					SCSICmdField2Bit	EXCEPT,
+					SCSICmdField4Byte	STARTING_LBA,
+					SCSICmdField2Byte	MAXIMUM_NUMBER_OF_DESCRIPTORS,
+					void *				buffer,
+					SCSICmdField2Byte	bufferSize,
+					SCSITaskStatus * 	taskStatus,
+					SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	bool		valid 	= false;
+	IOReturn	status 	= kIOReturnBadArgument;
+	
+	check ( self );
+
+	valid = getThis ( self )->IsParameterValid ( TOLERANCE, kSCSICmdFieldMask2Bit ) &&
+			getThis ( self )->IsParameterValid ( WRITE, kSCSICmdFieldMask1Bit ) &&
+			getThis ( self )->IsParameterValid ( EXCEPT, kSCSICmdFieldMask2Bit );
+	
+	require ( valid, Error_Exit );
+		
+	status = getThis ( self )->GetPerformance ( TOLERANCE << 3 | WRITE << 2 | EXCEPT,
+												STARTING_LBA,
+												MAXIMUM_NUMBER_OF_DESCRIPTORS,
+												0,
+												buffer,
+												bufferSize,
+												taskStatus,
+												senseDataBuffer );
+	
+	
+Error_Exit:
+	
+	
+	return status;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetPerformanceV2 - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sGetPerformanceV2 (
+					void * 				self,
+					SCSICmdField5Bit 	DATA_TYPE,
+					SCSICmdField4Byte	STARTING_LBA,
+					SCSICmdField2Byte	MAXIMUM_NUMBER_OF_DESCRIPTORS,
+					SCSICmdField1Byte	TYPE,
+					void *				buffer,
+					SCSICmdField2Byte	bufferSize,
+					SCSITaskStatus *	taskStatus,
+					SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	check ( self );
+	return getThis ( self )->GetPerformance ( 	DATA_TYPE,
+												STARTING_LBA,
+												MAXIMUM_NUMBER_OF_DESCRIPTORS,
+												TYPE,
+												buffer,
+												bufferSize,
+												taskStatus,
+												senseDataBuffer );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetConfiguration - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sGetConfiguration (
+					void *				self,
+					SCSICmdField1Byte	RT,
+					SCSICmdField2Byte	STARTING_FEATURE_NUMBER,
+					void *				buffer,
+					SCSICmdField2Byte	bufferSize,
+					SCSITaskStatus *	taskStatus,
+					SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	check ( self );
+	return getThis ( self )->GetConfiguration ( RT,
+												STARTING_FEATURE_NUMBER,
+												buffer,
+												bufferSize,
+												taskStatus,
+												senseDataBuffer );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sModeSense10 - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sModeSense10 ( 
+					void *				self,
+					SCSICmdField1Bit	LLBAA,
+					SCSICmdField1Bit	DBD,
+					SCSICmdField2Bit	PC,
+					SCSICmdField6Bit	PAGE_CODE,
+					void *				buffer,
+					SCSICmdField2Byte	bufferSize,
+					SCSITaskStatus * 	taskStatus,
+					SCSI_Sense_Data * 	senseDataBuffer )
+{
+	
+	check ( self );
+	return getThis ( self )->ModeSense10 ( 	LLBAA,
+											DBD,
+											PC,
+											PAGE_CODE,
+											buffer,
+											bufferSize,
+											taskStatus,
+											senseDataBuffer );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sSetWriteParametersModePage - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sSetWriteParametersModePage (  
+					void *				self,
+					void *				buffer,
+					SCSICmdField1Byte	bufferSize,
+					SCSITaskStatus *	taskStatus,
+					SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	check ( self );
+	return getThis ( self )->SetWriteParametersModePage ( 	buffer,
+															bufferSize,
+															taskStatus,
+															senseDataBuffer );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetTrayState - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sGetTrayState ( void * self, UInt8 * trayState )
+{
+	
+	check ( self );
+	return getThis ( self )->GetTrayState ( trayState );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sSetTrayState - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sSetTrayState ( void * self, UInt8 trayState )
+{
+	
+	check ( self );
+	return getThis ( self )->SetTrayState ( trayState );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sReadTableOfContents - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sReadTableOfContents (  
+					void *				self,
+					SCSICmdField1Bit 	MSF,
+					SCSICmdField4Bit 	FORMAT,
+					SCSICmdField1Byte	TRACK_SESSION_NUMBER,
+					void *				buffer,
+					SCSICmdField2Byte	bufferSize,
+					SCSITaskStatus *	taskStatus,
+					SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	check ( self );
+	return getThis ( self )->ReadTableOfContents ( 	MSF,
+													FORMAT,
+													TRACK_SESSION_NUMBER,
+													buffer,
+													bufferSize,
+													taskStatus,
+													senseDataBuffer );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sReadDiscInformation - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sReadDiscInformation (  
+					void *				self,
+					void *				buffer,
+					SCSICmdField2Byte	bufferSize,
+					SCSITaskStatus *	taskStatus,
+					SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	check ( self );
+	return getThis ( self )->ReadDiscInformation ( 	buffer,
+													bufferSize,
+													taskStatus,
+													senseDataBuffer );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sReadTrackInformation - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sReadTrackInformation ( 
+				void *				self,
+				SCSICmdField2Bit	ADDRESS_NUMBER_TYPE,
+				SCSICmdField4Byte	LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER,
+				void *				buffer,
+				SCSICmdField2Byte	bufferSize,
+				SCSITaskStatus *	taskStatus,
+				SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	check ( self );
+	return getThis ( self )->ReadTrackInformation (
+									ADDRESS_NUMBER_TYPE,
+									LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER,
+									buffer,
+									bufferSize,
+									taskStatus,
+									senseDataBuffer );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sReadDVDStructure - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+MMCDeviceUserClientClass::sReadDVDStructure (  
+					void *				self,
+					SCSICmdField4Byte	ADDRESS,
+					SCSICmdField1Byte	LAYER_NUMBER,
+					SCSICmdField1Byte	FORMAT,
+					void *				buffer,
+					SCSICmdField2Byte	bufferSize,
+					SCSITaskStatus *	taskStatus,
+					SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	check ( self );
+	return getThis ( self )->ReadDVDStructure ( ADDRESS,
+												LAYER_NUMBER,
+												FORMAT,
+												buffer,
+												bufferSize,
+												taskStatus,
+												senseDataBuffer );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetSCSITaskDeviceInterface - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+SCSITaskDeviceInterface **
+MMCDeviceUserClientClass::sGetSCSITaskDeviceInterface ( void * self )
+{
+	
+	check ( self );
+	return getThis ( self )->GetSCSITaskDeviceInterface ( );
+	
 }

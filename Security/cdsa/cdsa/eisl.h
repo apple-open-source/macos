@@ -64,7 +64,6 @@ typedef enum isl_status {
 	ISL_FAIL = -1
 } ISL_STATUS;
 
-typedef void (*ISL_FUNCTION_PTR)(void);
 
 /* Embedded Integrity Services Library Functions */
 

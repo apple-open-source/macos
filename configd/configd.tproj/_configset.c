@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -154,13 +154,9 @@ _configset(mach_port_t			server,
 	   int				*sc_status
 )
 {
-	kern_return_t		status;
 	serverSessionRef	mySession = getSession(server);
-	CFDataRef		xmlKey;		/* key  (XML serialized) */
 	CFStringRef		key;		/* key  (un-serialized) */
-	CFDataRef		xmlData;	/* data (XML serialized) */
 	CFPropertyListRef	data;		/* data (un-serialized) */
-	CFStringRef		xmlError;
 
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Set key to configuration database."));
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
@@ -168,50 +164,20 @@ _configset(mach_port_t			server,
 	*sc_status = kSCStatusOK;
 
 	/* un-serialize the key */
-	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	key = CFPropertyListCreateFromXMLData(NULL,
-					      xmlKey,
-					      kCFPropertyListImmutable,
-					      &xmlError);
-	CFRelease(xmlKey);
-	if (!key) {
-		if (xmlError) {
-			SCLog(_configd_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	if (!_SCUnserialize((CFPropertyListRef *)&key, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
-	} else if (!isA_CFString(key)) {
+	}
+
+	if (!isA_CFString(key)) {
 		*sc_status = kSCStatusInvalidArgument;
 	}
 
 	/* un-serialize the data */
-	xmlData = CFDataCreate(NULL, dataRef, dataLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	data = CFPropertyListCreateFromXMLData(NULL,
-					       xmlData,
-					       kCFPropertyListImmutable,
-					       &xmlError);
-	CFRelease(xmlData);
-	if (!data) {
-		if (xmlError) {
-			SCLog(_configd_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() data: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	if (!_SCUnserialize((CFPropertyListRef *)&data, (void *)dataRef, dataLen)) {
 		*sc_status = kSCStatusFailed;
-	} else if (!isA_CFPropertyList(data)) {
+	}
+
+	if (!isA_CFPropertyList(data)) {
 		*sc_status = kSCStatusInvalidArgument;
 	}
 
@@ -290,7 +256,6 @@ _configset_m(mach_port_t		server,
 	     mach_msg_type_number_t	notifyLen,
 	     int			*sc_status)
 {
-	kern_return_t		status;
 	serverSessionRef	mySession = getSession(server);
 	CFDictionaryRef		dict	= NULL;		/* key/value dictionary (un-serialized) */
 	CFArrayRef		remove	= NULL;		/* keys to remove (un-serialized) */
@@ -302,88 +267,34 @@ _configset_m(mach_port_t		server,
 	*sc_status = kSCStatusOK;
 
 	if (dictRef && (dictLen > 0)) {
-		CFDataRef	xmlDict;	/* key/value dictionary (XML serialized) */
-		CFStringRef	xmlError;
-
 		/* un-serialize the key/value pairs to set */
-		xmlDict = CFDataCreate(NULL, dictRef, dictLen);
-		status = vm_deallocate(mach_task_self(), (vm_address_t)dictRef, dictLen);
-		if (status != KERN_SUCCESS) {
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-			/* non-fatal???, proceed */
-		}
-		dict = CFPropertyListCreateFromXMLData(NULL,
-						       xmlDict,
-						       kCFPropertyListImmutable,
-						       &xmlError);
-		CFRelease(xmlDict);
-		if (!dict) {
-			if (xmlError) {
-				SCLog(_configd_verbose, LOG_DEBUG,
-				       CFSTR("CFPropertyListCreateFromXMLData() dict: %@"),
-				       xmlError);
-				CFRelease(xmlError);
-			}
+		if (!_SCUnserialize((CFPropertyListRef *)&dict, (void *)dictRef, dictLen)) {
 			*sc_status = kSCStatusFailed;
-		} else if (!isA_CFDictionary(dict)) {
+		}
+
+		if (!isA_CFDictionary(dict)) {
 			*sc_status = kSCStatusInvalidArgument;
 		}
 	}
 
 	if (removeRef && (removeLen > 0)) {
-		CFDataRef	xmlRemove;	/* keys to remove (XML serialized) */
-		CFStringRef	xmlError;
-
 		/* un-serialize the keys to remove */
-		xmlRemove = CFDataCreate(NULL, removeRef, removeLen);
-		status = vm_deallocate(mach_task_self(), (vm_address_t)removeRef, removeLen);
-		if (status != KERN_SUCCESS) {
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-			/* non-fatal???, proceed */
-		}
-		remove = CFPropertyListCreateFromXMLData(NULL,
-							 xmlRemove,
-							 kCFPropertyListImmutable,
-							 &xmlError);
-		CFRelease(xmlRemove);
-		if (!remove) {
-			if (xmlError) {
-				SCLog(_configd_verbose, LOG_DEBUG,
-				       CFSTR("CFPropertyListCreateFromXMLData() remove: %@"),
-				       xmlError);
-				CFRelease(xmlError);
-			}
+		if (!_SCUnserialize((CFPropertyListRef *)&remove, (void *)removeRef, removeLen)) {
 			*sc_status = kSCStatusFailed;
-		} else if (!isA_CFArray(remove)) {
+		}
+
+		if (!isA_CFArray(remove)) {
 			*sc_status = kSCStatusInvalidArgument;
 		}
 	}
 
 	if (notifyRef && (notifyLen > 0)) {
-		CFDataRef	xmlNotify;	/* keys to notify (XML serialized) */
-		CFStringRef	xmlError;
-
 		/* un-serialize the keys to notify */
-		xmlNotify = CFDataCreate(NULL, notifyRef, notifyLen);
-		status = vm_deallocate(mach_task_self(), (vm_address_t)notifyRef, notifyLen);
-		if (status != KERN_SUCCESS) {
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-			/* non-fatal???, proceed */
-		}
-		notify = CFPropertyListCreateFromXMLData(NULL,
-						       xmlNotify,
-						       kCFPropertyListImmutable,
-						       &xmlError);
-		CFRelease(xmlNotify);
-		if (!notify) {
-			if (xmlError) {
-				SCLog(_configd_verbose, LOG_DEBUG,
-				       CFSTR("CFPropertyListCreateFromXMLData() notify: %@"),
-				       xmlError);
-				CFRelease(xmlError);
-			}
+		if (!_SCUnserialize((CFPropertyListRef *)&notify, (void *)notifyRef, notifyLen)) {
 			*sc_status = kSCStatusFailed;
-		} else if (!isA_CFArray(notify)) {
+		}
+
+		if (!isA_CFArray(notify)) {
 			*sc_status = kSCStatusInvalidArgument;
 		}
 	}

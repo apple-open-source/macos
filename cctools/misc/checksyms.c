@@ -84,11 +84,18 @@ static struct dylib_table *dylib_table = NULL;
 static char *dylib_table_name = NULL;
 
 /*
- * The segment address table.  This is specified with the -seg_addr_option.
+ * The segment address table.  This is specified with the -seg_addr_table
+ * option.
  */
 static struct seg_addr_table *seg_addr_table = NULL;
-static char *seg_addr_table_name;
+static char *seg_addr_table_name = NULL;
 static enum bool seg_addr_table_specified = FALSE;
+/*
+ * The pathname to use instead of the install name for matching an entry in the
+ * segment address table.  his is specified with the -seg_addr_table_filename
+ * option.
+ */
+static char *seg_addr_table_filename = NULL;
 
 int
 main(
@@ -175,6 +182,18 @@ char **envp)
 					      argv[i], argv[i+1], &table_size);
 		    i++;
 		}
+		else if(strcmp(argv[i], "-seg_addr_table_filename") == 0){
+		    if(i + 1 == argc){
+			error("missing argument(s) to %s option", argv[i]);
+			usage();
+		    }
+		    if(seg_addr_table_filename != NULL){
+			error("more than one: %s option", argv[i]);
+			usage();
+		    }
+		    seg_addr_table_filename = argv[i+1];
+		    i++;
+		}
 		else{
 		    for(j = 1; argv[i][j] != '\0'; j++){
 			switch(argv[i][j]){
@@ -212,7 +231,7 @@ char **envp)
 
 	for(i = 0; i < cmd_flags.nfiles; i++)
 	    ofile_process(files[i], arch_flags, narch_flags, all_archs, TRUE,
-			  TRUE, checksyms, &cmd_flags);
+			  TRUE, FALSE, checksyms, &cmd_flags);
 
 	if(errors == 0)
 	    return(exit_status);
@@ -229,7 +248,8 @@ usage(
 void)
 {
 	fprintf(stderr, "Usage: %s [-r] [-d] [-t] [-b] [-] [-dylib_table file] "
-		"[-seg_addr_table file] [[-arch <arch_flag>] ...] file\n",
+		"[-seg_addr_table file] [-seg_addr_table_filename pathname] "
+		"[[-arch <arch_flag>] ...] file\n",
 		progname);
 	exit(EXIT_FAILURE);
 }
@@ -497,8 +517,11 @@ enum bool verification)
 
 /*
  * check_dylib() checks the dynamic library against the Apple conventions.
- * This includes the linked address and the setting of compatibility and
- * current versions.
+ * This includes
+ifdef CHECK_ADDRESS
+ * the linked address and
+endif CHECK_ADDRESS
+ * the setting of compatibility and current versions.
  */
 static
 void
@@ -510,14 +533,17 @@ enum bool verification,
 enum bool *debug)
 {
     unsigned long i, seg1addr, segs_read_only_addr, segs_read_write_addr;
-    unsigned long table_size;
     struct load_command *lc;
     struct segment_command *sg;
     struct dylib_command *dlid;
-    char *install_name, *suffix;
+    char *install_name;
+#ifdef CHECK_ADDRESS
+    unsigned long table_size;
+    char *suffix;
     struct seg_addr_table *entry;
     char *short_name;
     enum bool is_framework;
+#endif /* CHECK_ADDRESS */
 
 	*debug = FALSE;
 
@@ -593,6 +619,11 @@ enum bool *debug)
 	    exit_status = EXIT_FAILURE;
 	}
 
+	/*
+	 * With the change in B&I to slide addresses at make logical time this
+	 * check is no longer needed and this code is not used.
+	 */
+#ifdef CHECK_ADDRESS
 	short_name = guess_short_name(install_name, &is_framework, &suffix);
 	if(suffix != NULL && strcmp(suffix, "_debug") == 0)
 	    *debug = TRUE;
@@ -611,7 +642,11 @@ enum bool *debug)
 	 * if not fall back to using the the dylib table.
 	 */
 	if(seg_addr_table != NULL){
-	    entry = search_seg_addr_table(seg_addr_table, install_name);
+	    if(seg_addr_table_filename != NULL)
+		entry = search_seg_addr_table(seg_addr_table,
+					      seg_addr_table_filename);
+	    else
+		entry = search_seg_addr_table(seg_addr_table, install_name);
 	    if(entry != NULL){
 		if(entry->split == TRUE){
 		    if(entry->segs_read_only_addr != segs_read_only_addr ||
@@ -623,7 +658,8 @@ enum bool *debug)
 			    printf("dynamic library (%s) not linked at its "
 				   "expected segs_read_only_addr (0x%x) and "
 				   "segs_read_write_addr (0x%x)\n",
-				   install_name, 
+				   seg_addr_table_filename != NULL ?
+				   seg_addr_table_filename : install_name, 
 				   (unsigned int)entry->segs_read_only_addr,
 				   (unsigned int)entry->segs_read_write_addr);
 			}
@@ -641,7 +677,8 @@ enum bool *debug)
 				printf("(for architecture %s): ", arch_name);
 			    printf("dynamic library (%s) not linked at its "
 				   "expected seg1addr (0x%x)\n",
-				   install_name,
+				   seg_addr_table_filename != NULL ?
+				   seg_addr_table_filename : install_name, 
 				   (unsigned int)entry->seg1addr);
 			}
 			if(verification == TRUE)
@@ -710,6 +747,7 @@ enum bool *debug)
 		printf("dylib_wrong_address\n");
 	    exit_status = EXIT_FAILURE;
 	}
+#endif /* CHECK_ADDRESS */
 
 	return;
 }

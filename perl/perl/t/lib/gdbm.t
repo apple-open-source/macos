@@ -1,6 +1,6 @@
 #!./perl
 
-# $RCSfile: gdbm.t,v $$Revision: 1.1.1.3 $$Date: 2000/03/31 05:12:33 $
+# $RCSfile: gdbm.t,v $$Revision: 1.3 $$Date: 2002/03/14 09:02:21 $
 
 BEGIN {
     unshift @INC, '../lib';

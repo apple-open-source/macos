@@ -530,16 +530,16 @@ msgstr "%s: jméno va¹eho stroje nelze zjistit!"
 msgid "gethostbyname failed for %s\n"
 msgstr "volání gethostbyname pro %s selhalo\n"
 
-#: error.c:101
+#: report.c:101
 msgid "Unknown system error"
 msgstr "neznámá systémová chyba"
 
-#: error.c:128
+#: report.c:128
 #, c-format
 msgid "%s (log message incomplete)"
 msgstr "%s (nedokonèený záznam èinnosti)"
 
-#: error.c:286 error.c:314 error.c:386 error.c:414
+#: report.c:286 report.c:314 report.c:386 report.c:414
 msgid "partial error message buffer overflow"
 msgstr "pøeteèení bufferu pøi tvoøení chybové zprávy"
 

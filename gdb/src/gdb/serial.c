@@ -1,5 +1,7 @@
 /* Generic serial interface routines
-   Copyright 1992, 1993, 1996, 1997, 1999, 2000 Free Software Foundation, Inc.
+
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -36,11 +38,11 @@ static struct serial_ops *serial_ops_list = NULL;
 
 /* This is the last serial stream opened.  Used by connect command. */
 
-static serial_t last_serial_opened = NULL;
+static struct serial *last_serial_opened = NULL;
 
 /* Pointer to list of scb's. */
 
-static serial_t scb_base;
+static struct serial *scb_base;
 
 /* Non-NULL gives filename which contains a recording of the remote session,
    suitable for playback by gdbserver. */
@@ -57,7 +59,6 @@ static const char *logbase_enums[] =
 {logbase_hex, logbase_octal, logbase_ascii, NULL};
 static const char *serial_logbase = logbase_ascii;
 
-
 
 static int serial_current_type = 0;
 
@@ -167,10 +168,10 @@ serial_add_interface (struct serial_ops *optable)
 
 /* Open up a device or a network socket, depending upon the syntax of NAME. */
 
-serial_t
+struct serial *
 serial_open (const char *name)
 {
-  serial_t scb;
+  struct serial *scb;
   struct serial_ops *ops;
   const char *open_name = name;
 
@@ -181,9 +182,7 @@ serial_open (const char *name)
 	return scb;
       }
 
-  if (strcmp (name, "ocd") == 0)
-    ops = serial_interface_lookup ("ocd");
-  else if (strcmp (name, "pc") == 0)
+  if (strcmp (name, "pc") == 0)
     ops = serial_interface_lookup ("pc");
   else if (strchr (name, ':'))
     ops = serial_interface_lookup ("tcp");
@@ -200,7 +199,7 @@ serial_open (const char *name)
   if (!ops)
     return NULL;
 
-  scb = (serial_t) xmalloc (sizeof (struct _serial_t));
+  scb = XMALLOC (struct serial);
 
   scb->ops = ops;
 
@@ -209,11 +208,11 @@ serial_open (const char *name)
 
   if (scb->ops->sopen (scb, open_name))
     {
-      free (scb);
+      xfree (scb);
       return NULL;
     }
 
-  scb->name = strsave (name);
+  scb->name = xstrdup (name);
   scb->next = scb_base;
   scb->refcnt = 1;
   scb->debug_p = 0;
@@ -234,10 +233,10 @@ serial_open (const char *name)
   return scb;
 }
 
-serial_t
+struct serial *
 serial_fdopen (const int fd)
 {
-  serial_t scb;
+  struct serial *scb;
   struct serial_ops *ops;
 
   for (scb = scb_base; scb; scb = scb->next)
@@ -252,7 +251,7 @@ serial_fdopen (const int fd)
   if (!ops)
     return NULL;
 
-  scb = (serial_t) xmalloc (sizeof (struct _serial_t));
+  scb = XMALLOC (struct serial);
 
   scb->ops = ops;
 
@@ -276,9 +275,9 @@ serial_fdopen (const int fd)
 }
 
 static void
-do_serial_close (serial_t scb, int really_close)
+do_serial_close (struct serial *scb, int really_close)
 {
-  serial_t tmp_scb;
+  struct serial *tmp_scb;
 
   last_serial_opened = NULL;
 
@@ -310,7 +309,7 @@ do_serial_close (serial_t scb, int really_close)
     scb->ops->sclose (scb);
 
   if (scb->name)
-    free (scb->name);
+    xfree (scb->name);
 
   if (scb_base == scb)
     scb_base = scb_base->next;
@@ -324,30 +323,31 @@ do_serial_close (serial_t scb, int really_close)
 	break;
       }
 
-  free (scb);
+  xfree (scb);
 }
 
 void
-serial_close (serial_t scb)
+serial_close (struct serial *scb)
 {
   do_serial_close (scb, 1);
 }
 
 void
-serial_un_fdopen (serial_t scb)
+serial_un_fdopen (struct serial *scb)
 {
   do_serial_close (scb, 0);
 }
 
 int
-serial_readchar (serial_t scb, int timeout)
+serial_readchar (struct serial *scb, int timeout)
 {
   int ch;
 
   /* FIXME: cagney/1999-10-11: Don't enable this check until the ASYNC
      code is finished. */
-  if (0 && SERIAL_IS_ASYNC_P (scb) && timeout < 0)
-    internal_error ("serial_readchar: blocking read in async mode");
+  if (0 && serial_is_async_p (scb) && timeout < 0)
+    internal_error (__FILE__, __LINE__,
+		    "serial_readchar: blocking read in async mode");
 
   ch = scb->ops->readchar (scb, timeout);
   if (serial_logfp != NULL)
@@ -358,7 +358,7 @@ serial_readchar (serial_t scb, int timeout)
          in case we are getting ready to dump core or something. */
       gdb_flush (serial_logfp);
     }
-  if (SERIAL_DEBUG_P (scb))
+  if (serial_debug_p (scb))
     {
       fprintf_unfiltered (gdb_stdlog, "[");
       serial_logchar (gdb_stdlog, 'r', ch, timeout);
@@ -370,7 +370,7 @@ serial_readchar (serial_t scb, int timeout)
 }
 
 int
-serial_write (serial_t scb, const char *str, int len)
+serial_write (struct serial *scb, const char *str, int len)
 {
   if (serial_logfp != NULL)
     {
@@ -388,39 +388,39 @@ serial_write (serial_t scb, const char *str, int len)
 }
 
 void
-serial_printf (serial_t desc, const char *format,...)
+serial_printf (struct serial *desc, const char *format,...)
 {
   va_list args;
   char *buf;
   va_start (args, format);
 
-  vasprintf (&buf, format, args);
-  SERIAL_WRITE (desc, buf, strlen (buf));
+  xvasprintf (&buf, format, args);
+  serial_write (desc, buf, strlen (buf));
 
-  free (buf);
+  xfree (buf);
   va_end (args);
 }
 
 int
-serial_drain_output (serial_t scb)
+serial_drain_output (struct serial *scb)
 {
   return scb->ops->drain_output (scb);
 }
 
 int
-serial_flush_output (serial_t scb)
+serial_flush_output (struct serial *scb)
 {
   return scb->ops->flush_output (scb);
 }
 
 int
-serial_flush_input (serial_t scb)
+serial_flush_input (struct serial *scb)
 {
   return scb->ops->flush_input (scb);
 }
 
 int
-serial_send_break (serial_t scb)
+serial_send_break (struct serial *scb)
 {
   if (serial_logfp != NULL)
     serial_logchar (serial_logfp, 'w', SERIAL_BREAK, 0);
@@ -429,25 +429,25 @@ serial_send_break (serial_t scb)
 }
 
 void
-serial_raw (serial_t scb)
+serial_raw (struct serial *scb)
 {
   scb->ops->go_raw (scb);
 }
 
 serial_ttystate
-serial_get_tty_state (serial_t scb)
+serial_get_tty_state (struct serial *scb)
 {
   return scb->ops->get_tty_state (scb);
 }
 
 int
-serial_set_tty_state (serial_t scb, serial_ttystate ttystate)
+serial_set_tty_state (struct serial *scb, serial_ttystate ttystate)
 {
   return scb->ops->set_tty_state (scb, ttystate);
 }
 
 void
-serial_print_tty_state (serial_t scb,
+serial_print_tty_state (struct serial *scb,
 			serial_ttystate ttystate,
 			struct ui_file *stream)
 {
@@ -455,7 +455,7 @@ serial_print_tty_state (serial_t scb,
 }
 
 int
-serial_noflush_set_tty_state (serial_t scb,
+serial_noflush_set_tty_state (struct serial *scb,
 			      serial_ttystate new_ttystate,
 			      serial_ttystate old_ttystate)
 {
@@ -463,31 +463,31 @@ serial_noflush_set_tty_state (serial_t scb,
 }
 
 int
-serial_setbaudrate (serial_t scb, int rate)
+serial_setbaudrate (struct serial *scb, int rate)
 {
   return scb->ops->setbaudrate (scb, rate);
 }
 
 int
-serial_setstopbits (serial_t scb, int num)
+serial_setstopbits (struct serial *scb, int num)
 {
   return scb->ops->setstopbits (scb, num);
 }
 
 int
-serial_can_async_p (serial_t scb)
+serial_can_async_p (struct serial *scb)
 {
   return (scb->ops->async != NULL);
 }
 
 int
-serial_is_async_p (serial_t scb)
+serial_is_async_p (struct serial *scb)
 {
   return (scb->ops->async != NULL) && (scb->async_handler != NULL);
 }
 
 void
-serial_async (serial_t scb,
+serial_async (struct serial *scb,
 	      serial_event_ftype *handler,
 	      void *context)
 {
@@ -500,35 +500,35 @@ serial_async (serial_t scb,
 }
 
 int
-deprecated_serial_fd (serial_t scb)
+deprecated_serial_fd (struct serial *scb)
 {
   /* FIXME: should this output a warning that deprecated code is being
      called? */
   if (scb->fd < 0)
     {
-      internal_error ("serial: FD not valid");
+      internal_error (__FILE__, __LINE__,
+		      "serial: FD not valid");
     }
   return scb->fd; /* sigh */
 }
 
 void
-serial_debug (serial_t scb, int debug_p)
+serial_debug (struct serial *scb, int debug_p)
 {
   scb->debug_p = debug_p;
 }
 
 int
-serial_debug_p (serial_t scb)
+serial_debug_p (struct serial *scb)
 {
   return scb->debug_p || global_serial_debug_p;
 }
 
 
 #if 0
-/*
-   The connect command is #if 0 because I hadn't thought of an elegant
-   way to wait for I/O on two serial_t's simultaneously.  Two solutions
-   came to mind:
+/* The connect command is #if 0 because I hadn't thought of an elegant
+   way to wait for I/O on two `struct serial *'s simultaneously.  Two
+   solutions came to mind:
 
    1) Fork, and have have one fork handle the to user direction,
    and have the other hand the to target direction.  This
@@ -538,21 +538,20 @@ serial_debug_p (serial_t scb)
    the target side can both be waited on via the same
    mechanism.  This may not be true for DOS, if GDB is
    talking to the target via a TCP socket.
-   -grossman, 8 Jun 93
- */
+   -grossman, 8 Jun 93 */
 
 /* Connect the user directly to the remote system.  This command acts just like
    the 'cu' or 'tip' command.  Use <CR>~. or <CR>~^D to break out.  */
 
-static serial_t tty_desc;	/* Controlling terminal */
+static struct serial *tty_desc;	/* Controlling terminal */
 
 static void
 cleanup_tty (serial_ttystate ttystate)
 {
   printf_unfiltered ("\r\n[Exiting connect mode]\r\n");
-  SERIAL_SET_TTY_STATE (tty_desc, ttystate);
-  free (ttystate);
-  SERIAL_CLOSE (tty_desc);
+  serial_set_tty_state (tty_desc, ttystate);
+  xfree (ttystate);
+  serial_close (tty_desc);
 }
 
 static void
@@ -561,7 +560,7 @@ connect_command (char *args, int fromtty)
   int c;
   char cur_esc = 0;
   serial_ttystate ttystate;
-  serial_t port_desc;		/* TTY port */
+  struct serial *port_desc;		/* TTY port */
 
   dont_repeat ();
 
@@ -570,13 +569,13 @@ connect_command (char *args, int fromtty)
 
   printf_unfiltered ("[Entering connect mode.  Use ~. or ~^D to escape]\n");
 
-  tty_desc = SERIAL_FDOPEN (0);
+  tty_desc = serial_fdopen (0);
   port_desc = last_serial_opened;
 
-  ttystate = SERIAL_GET_TTY_STATE (tty_desc);
+  ttystate = serial_get_tty_state (tty_desc);
 
-  SERIAL_RAW (tty_desc);
-  SERIAL_RAW (port_desc);
+  serial_raw (tty_desc);
+  serial_raw (port_desc);
 
   make_cleanup (cleanup_tty, ttystate);
 
@@ -584,7 +583,7 @@ connect_command (char *args, int fromtty)
     {
       int mask;
 
-      mask = SERIAL_WAIT_2 (tty_desc, port_desc, -1);
+      mask = serial_wait_2 (tty_desc, port_desc, -1);
 
       if (mask & 2)
 	{			/* tty input */
@@ -592,7 +591,7 @@ connect_command (char *args, int fromtty)
 
 	  while (1)
 	    {
-	      c = SERIAL_READCHAR (tty_desc, 0);
+	      c = serial_readchar (tty_desc, 0);
 
 	      if (c == SERIAL_TIMEOUT)
 		break;
@@ -601,7 +600,7 @@ connect_command (char *args, int fromtty)
 		perror_with_name ("connect");
 
 	      cx = c;
-	      SERIAL_WRITE (port_desc, &cx, 1);
+	      serial_write (port_desc, &cx, 1);
 
 	      switch (cur_esc)
 		{
@@ -630,7 +629,7 @@ connect_command (char *args, int fromtty)
 
 	  while (1)
 	    {
-	      c = SERIAL_READCHAR (port_desc, 0);
+	      c = serial_readchar (port_desc, 0);
 
 	      if (c == SERIAL_TIMEOUT)
 		break;
@@ -640,12 +639,31 @@ connect_command (char *args, int fromtty)
 
 	      cx = c;
 
-	      SERIAL_WRITE (tty_desc, &cx, 1);
+	      serial_write (tty_desc, &cx, 1);
 	    }
 	}
     }
 }
 #endif /* 0 */
+
+/* Serial set/show framework.  */
+
+static struct cmd_list_element *serial_set_cmdlist;
+static struct cmd_list_element *serial_show_cmdlist;
+
+static void
+serial_set_cmd (char *args, int from_tty)
+{
+  printf_unfiltered ("\"set serial\" must be followed by the name of a command.\n");
+  help_list (serial_set_cmdlist, "set serial ", -1, gdb_stdout);
+}
+
+static void
+serial_show_cmd (char *args, int from_tty)
+{
+  cmd_show_list (serial_show_cmdlist, from_tty, "");
+}
+
 
 void
 _initialize_serial (void)
@@ -655,6 +673,18 @@ _initialize_serial (void)
 	   "Connect the terminal directly up to the command monitor.\n\
 Use <CR>~. or <CR>~^D to break out.");
 #endif /* 0 */
+
+  add_prefix_cmd ("serial", class_maintenance, serial_set_cmd, "\
+Set default serial/parallel port configuration.",
+		  &serial_set_cmdlist, "set serial ",
+		  0/*allow-unknown*/,
+		  &setlist);
+
+  add_prefix_cmd ("serial", class_maintenance, serial_show_cmd, "\
+Show default serial/parallel port configuration.",
+		  &serial_show_cmdlist, "show serial ",
+		  0/*allow-unknown*/,
+		  &showlist);
 
   add_show_from_set
     (add_set_cmd ("remotelogfile", no_class,

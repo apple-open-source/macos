@@ -1,5 +1,5 @@
-# Local preferences functions for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Local preferences functions for Insight.
+# Copyright 1997, 1998, 1999, 2002 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -72,10 +72,16 @@ proc pref_read {} {
 
     if {$file_opened == "1"} {
       set section gdb
+      set version 0
       while {[gets $fd line] >= 0} {
 	switch -regexp -- $line {
 	  {^[ \t\n]*#.*} {
-	    ;# comment; ignore it
+	    # Comment.  We recognize one magic comment that includes
+	    # the version number.
+	    if {[regexp -- "^# GDBtkInitVersion: (\[0-9\]+)\$" $line \
+		   dummy v]} {
+	      set version $v
+	    }
 	  }
 
 	  {^[ \t\n]*$} {
@@ -94,7 +100,7 @@ proc pref_read {} {
 	  default {
 	    regexp "\[ \t\n\]*\(.+\)=\(.+\)" $line a name val
 	    # Must unescape equal signs in val
-	    set val [unescape_value $val]
+	    set val [unescape_value $val $version]
 	    if {$section == "gdb"} {
 	      pref setd gdb/$name $val
 	    } elseif {$section == "global" && [regexp "^font/" $name]} {
@@ -111,6 +117,8 @@ proc pref_read {} {
 	    } elseif {$section == "global"} {
 	      pref setd $section/$name $val
 	    } else {
+	      # backwards compatibility. recognize old src-font name
+	      if {$val == "src-font"} {set val "global/fixed"}
 	      pref setd gdb/$section/$name $val
 	    }
 	  }
@@ -141,6 +149,7 @@ proc pref_save {{win {}}} {
     }
   
     puts $fd "\# GDBtk Init file"
+    puts $fd {# GDBtkInitVersion: 1}
 
     set plist [pref list]
     # write out global options
@@ -161,7 +170,12 @@ proc pref_save {{win {}}} {
     puts $fd "\[gdb\]"
     foreach var $plist {
       set t [split $var /]
-      if {[lindex $t 0] == "gdb" && [lindex $t 2] == ""} {
+      # We use the funny join/lreplace code because the session code
+      # can generate a key where [lindex $t 2] is empty but there is
+      # still stuff after that.  This happens because the session code
+      # uses filenames, which can start with `/'.
+      if {[lindex $t 0] == "gdb"
+	  && [string compare [join [lreplace $t 0 1] /] ""] == 0} {
 	set x [lindex $t 1]
 	if {$x != ""} {
 	  set v [escape_value [pref get $var]]
@@ -170,16 +184,18 @@ proc pref_save {{win {}}} {
       }
     }
 
-    #now loop through all sections writing out values
+    # now loop through all sections writing out values
+    # FIXME: this is broken.  We should discover the list
+    # dynamically.
     lappend secs load console src reg stack locals watch bp search \
-      process geometry help browser kod window
+      process geometry help browser kod window session mem
 
     foreach section $secs {
       puts $fd "\[$section\]"
       foreach var $plist {
 	set t [split $var /]
 	if {[lindex $t 0] == "gdb" && [lindex $t 1] == $section} {
-	set x [lindex $t 2]
+	  set x [join [lrange $t 2 end] /]
 	  set v [escape_value [pref get $var]]
 	  if {$x != "" && $v != ""} {
 	    puts $fd "\t$x=$v"
@@ -200,22 +216,45 @@ proc pref_save {{win {}}} {
 #         prefs to a file
 # -------------------------------------------------------
 proc escape_value {val} {
-
-  if {[regsub -all -- = $val {!%} newval]} {
-    return $newval
+  # We use a URL-style quoting.  We encode `=', `%', the `[]'
+  # characters and newlines.  We use a cute trick here: we regsub in
+  # command expressions which we then expand using subst.
+  if {[info tclversion] >= 8.1} {
+    set expr {([\[\]=%\n])}
+  } else {
+    set expr "(\[\]\[=%\n\])"
   }
-
-  return $val
+  regsub -all -- $expr $val \
+    {[format "%%%02x" [scan {\1} %c x; set x]]} newval
+  return [subst -nobackslashes -novariables $newval]
 }
 
 # -------------------------------------------------------
 #  PROC: unescape_value - unescape all equal signs for
-#         reading prefs from a file
+#         reading prefs from a file.  VERSION is the version
+#         number of the encoding.
+#  version 0 only encoded `='.
+#  version 1 correctly encoded more values
 # -------------------------------------------------------
-proc unescape_value {val} {
+proc unescape_value {val version} {
+  switch -exact -- $version {
+    0 {
+      # Old-style encoding.
+      if {[regsub -all -- {!%} $val = newval]} {
+	return $newval
+      }
+    }
 
-  if {[regsub -all -- {!%} $val = newval]} {
-    return $newval
+    1 {
+      # Version 1 uses URL encoding.
+      regsub -all -- "%(..)" $val \
+	{[format %c 0x\1]} newval
+      return [subst -nobackslashes -novariables $newval]
+    }
+
+    default {
+      error "Unknown encoding version $version"
+    }
   }
 
   return $val  
@@ -237,6 +276,26 @@ proc pref_set_defaults {} {
                                                  # 1 means set/clear tracepoints.
   pref define gdb/use_icons		  1;	 # For Unix, use gdbtk_icon.gif as an icon
 						 # some window managers can't deal with it.
+
+  #
+  # Font attributes
+  #
+
+  # "Normal" font attributes
+  pref define gdb/font/normal_fg    black
+  pref define gdb/font/normal_bg    gray92
+
+  # Selection foreground/background
+  pref define gdb/font/select_fg    black
+  pref define gdb/font/select_bg    lightgray
+
+  # Highlight used when something changes (variable value changes, etc)
+  pref define gdb/font/highlight_fg blue
+  pref define gdb/font/highlight_bg gray92
+
+  # "Header" foreground and background. Used by table headers and such.
+  pref define gdb/font/header_fg    gray92
+  pref define gdb/font/header_bg    darkgray
 
   # set download and execution options
   pref define gdb/load/verbose 0
@@ -261,7 +320,9 @@ proc pref_set_defaults {} {
   pref define gdb/console/wrap            0
   pref define gdb/console/prompt_fg       DarkGreen
   pref define gdb/console/error_fg        red
-  pref define gdb/console/font            src-font
+  pref define gdb/console/log_fg          green 
+  pref define gdb/console/target_fg       blue
+  pref define gdb/console/font            global/fixed
 
   # Source window defaults
   pref define gdb/src/PC_TAG              green
@@ -271,7 +332,7 @@ proc pref_set_defaults {} {
   pref define gdb/src/bp_fg               red
   pref define gdb/src/temp_bp_fg          orange
   pref define gdb/src/disabled_fg         black
-  pref define gdb/src/font                src-font
+  pref define gdb/src/font                global/fixed
   pref define gdb/src/break_fg            black
   pref define gdb/src/source2_fg          navy
   pref define gdb/src/variableBalloons    1
@@ -279,6 +340,7 @@ proc pref_set_defaults {} {
   pref define gdb/src/tab_size            8
   pref define gdb/src/linenums		  1
   pref define gdb/src/thread_fg           pink
+  pref define gdb/src/top_control	  1;	# 1 srctextwin controls on top, 0 bottom
 
   # Define the run button's functions. These are defined here in case
   # we do a "run" with an exec target (which never causes target.tcl to 
@@ -293,23 +355,14 @@ proc pref_set_defaults {} {
 
   pref define gdb/src/disassembly-flavor  ""
 
-  # set up src-font
-  set val [pref get global/font/fixed]
-  eval font create src-font $val
-
-  # Trace the global/font/fixed preference
-  pref add_hook global/font/fixed pref_src-font_trace
-
   # Variable Window defaults
-  pref define gdb/variable/font           src-font
-  pref define gdb/variable/highlight_fg   blue
+  pref define gdb/variable/font           global/fixed
   pref define gdb/variable/disabled_fg    gray
 
   # Stack Window
-  pref define gdb/stack/font              src-font
+  pref define gdb/stack/font              global/fixed
 
   # Register Window
-  pref define gdb/reg/highlight_fg        blue
   pref define gdb/reg/rows                16
 
   # Global Prefs Dialogs
@@ -337,15 +390,22 @@ proc pref_set_defaults {} {
   pref define gdb/kod/show_icon           0
 
   # Various possible "main" functions. What's for Java?
-  pref define gdb/main_names              [list MAIN___ MAIN__ main]
+  pref define gdb/main_names              [list MAIN___ MAIN__ main cyg_user_start cyg_start ]
 
   # These are the classes of warning dialogs, and whether the user plans
   # to ignore them.
   pref define gdb/warnings/signal         0
+
+  # Memory window.
+  pref define gdb/mem/size 4
+  pref define gdb/mem/numbytes 0
+  pref define gdb/mem/format x
+  pref define gdb/mem/ascii 1
+  pref define gdb/mem/ascii_char .
+  pref define gdb/mem/bytes_per_row 16
+  pref define gdb/mem/color green
+
+  # External editor.
+  pref define gdb/editor ""
 }
 
-# This traces the global/fixed font and forces src-font to
-# to be the same.
-proc pref_src-font_trace {varname val} {
-  eval font configure src-font $val
-}

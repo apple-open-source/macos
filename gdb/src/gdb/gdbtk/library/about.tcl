@@ -1,5 +1,5 @@
 # About window for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Copyright 1997, 1998, 1999, 2000, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -21,14 +21,15 @@ class About {
   constructor {args} {
     global gdb_ImageDir
     set f [frame $itk_interior.f]
-    label $f.image1 -bg white -image \
+    label $f.image1 -bg #ee0000 -image \
       [image create photo -file [file join $gdb_ImageDir insight.gif]]
-    message $f.m -bg white -fg black -text [gdb_cmd {show version}] -aspect 500 -relief flat
+    message $f.m -bg #ee0000 -fg white -text [gdb_cmd {show version}] \
+      -aspect 500 -relief flat
     pack $f.image1 $f.m $itk_interior.f -fill both -expand yes
     pack  $itk_interior
     bind $f.image1 <1> [code $this unpost]
     bind $f.m <1> [code $this unpost]
-    window_name "About Cygnus Insight"
+    window_name "About Red Hat Insight"
   }
 
   # Don't quit if this is the last window.  The only way that this can

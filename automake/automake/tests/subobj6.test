@@ -1,0 +1,73 @@
+#! /bin/sh
+
+# Test of subdir make distclean rules.
+# From Robert Collins
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(f)
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AM_PROG_CC_C_O
+AC_PROG_CC
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = subdir-objects
+bin_PROGRAMS = wish
+wish_SOURCES = generic/a.c
+END
+
+# The ac-init file.
+: > f
+
+mkdir generic
+cat > generic/a.c << 'END'
+#include <stdio.h>
+int main ()
+{
+   printf ("maude!\n");
+   return 0;
+}
+END
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --include-deps --copy --add-missing
+
+mkdir build
+cd build
+
+../configure
+$MAKE
+
+$MAKE mostlyclean
+test -f generic/a.o && exit 1
+
+$MAKE distclean
+test -f generic/.dirstamp && exit 1
+
+cd ..
+
+# Now test without the subdir.
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = subdir-objects
+bin_PROGRAMS = wish
+wish_SOURCES = a.c
+END
+
+mv generic/a.c a.c
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --include-deps --copy --add-missing
+
+mkdir build2
+cd build2
+
+../configure
+$MAKE
+$MAKE mostlyclean

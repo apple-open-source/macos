@@ -24,6 +24,7 @@
 
 
 load_lib mi-support.exp
+set MIFLAGS "-i=mi"
 
 gdb_exit
 if [mi_gdb_start] {
@@ -48,7 +49,7 @@ mi_gdb_test "200-break-insert 260" \
 mi_run_cmd
 # The running part has been checked already by mi_run_cmd
 gdb_expect {
-    -re "\[\r\n\]*000\\*stopped,reason=\"breakpoint-hit\",bkptno=\"1\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"do_children_tests\",args=\{\},file=\".*var-cmd.c\",line=\"260\"\}\r\n$mi_gdb_prompt$" {
+    -re "\[\r\n\]*000\\*stopped,reason=\"breakpoint-hit\",bkptno=\"1\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"do_children_tests\",args=\\\[\\\],file=\".*var-cmd.c\",line=\"260\"\}\r\n$mi_gdb_prompt$" {
 	pass "run to do_children_tests"
     }
     -re ".*$mi_gdb_prompt$" {fail "run to do_children_tests (2)"}
@@ -182,7 +183,7 @@ mi_gdb_test "-var-create weird * weird" \
 	"create local variable weird"
 
 mi_gdb_test "-var-list-children weird" \
-	"\\^done,numchild=\"11\",children=\{child=\{name=\"weird.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"weird.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child={name=\"weird.char_ptr\",exp=\"char_ptr\",numchild=\"0\",type=\"char \\*\"\},child=\{name=\"weird.long_int\",exp=\"long_int\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.int_ptr_ptr\",exp=\"int_ptr_ptr\",numchild=\"1\",type=\"int \\*\\*\"\},child=\{name=\"weird.long_array\",exp=\"long_array\",numchild=\"10\",type=\"long int \\\[10\\\]\"\},child=\{name=\"weird.func_ptr\",exp=\"func_ptr\",numchild=\"0\",type=\"void \\(\\*\\)\\(\\)\"\},child=\{name=\"weird.func_ptr_struct\",exp=\"func_ptr_struct\",numchild=\"0\",type=\"struct _struct_decl \\(\\*\\)\\(\\)\"\},child=\{name=\"weird.func_ptr_ptr\",exp=\"func_ptr_ptr\",numchild=\"0\",type=\"struct _struct_decl \\*\\(\\*\\)\\(\\)\"\},child=\{name=\"weird.u1\",exp=\"u1\",numchild=\"4\",type=\"union \{\\.\\.\\.\}\"\},child=\{name=\"weird.s2\",exp=\"s2\",numchild=\"4\",type=\"struct \{\\.\\.\\.\}\"\}\}" \
+	"\\^done,numchild=\"11\",children=\{child=\{name=\"weird.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"weird.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child={name=\"weird.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\},child=\{name=\"weird.long_int\",exp=\"long_int\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.int_ptr_ptr\",exp=\"int_ptr_ptr\",numchild=\"1\",type=\"int \\*\\*\"\},child=\{name=\"weird.long_array\",exp=\"long_array\",numchild=\"10\",type=\"long int \\\[10\\\]\"\},child=\{name=\"weird.func_ptr\",exp=\"func_ptr\",numchild=\"0\",type=\"void \\(\\*\\)\\(\\)\"\},child=\{name=\"weird.func_ptr_struct\",exp=\"func_ptr_struct\",numchild=\"0\",type=\"struct _struct_decl \\(\\*\\)\\(\\)\"\},child=\{name=\"weird.func_ptr_ptr\",exp=\"func_ptr_ptr\",numchild=\"0\",type=\"struct _struct_decl \\*\\(\\*\\)\\(\\)\"\},child=\{name=\"weird.u1\",exp=\"u1\",numchild=\"4\",type=\"union \{\\.\\.\\.\}\"\},child=\{name=\"weird.s2\",exp=\"s2\",numchild=\"4\",type=\"struct \{\\.\\.\\.\}\"\}\}" \
 	"get children local variable weird"
 
 
@@ -329,7 +330,7 @@ mi_gdb_test "200-break-insert do_special_tests" \
 
 send_gdb "-exec-continue\n"
 gdb_expect {
-    -re "\\^running\r\n${mi_gdb_prompt}\\*stopped,reason=\"breakpoint-hit\",bkptno=\"2\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"do_special_tests\",args=\{\},file=\".*var-cmd.c\",line=\"282\"\}\r\n$mi_gdb_prompt$" {
+    -re "\\^running\r\n${mi_gdb_prompt}\\*stopped,reason=\"breakpoint-hit\",bkptno=\"2\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"do_special_tests\",args=\\\[\\\],file=\".*var-cmd.c\",line=\"282\"\}\r\n$mi_gdb_prompt$" {
 	pass "continue to do_special_tests"
     }
     timeout {
@@ -370,7 +371,7 @@ mi_gdb_test "-var-info-num-children u" \
 # Test: c_variable-7.15
 # Desc: children of u
 mi_gdb_test "-var-list-children u" \
-	"\\^done,numchild=\"2\",children=\{child=\{name=\"u.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"u.char_ptr\",exp=\"char_ptr\",numchild=\"0\",type=\"char \\*\"\}\}" \
+	"\\^done,numchild=\"2\",children=\{child=\{name=\"u.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"u.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\}\}" \
 	"get children of u"
 
 # Test: c_variable-7.20
@@ -443,7 +444,7 @@ mi_gdb_test "-var-info-num-children s" \
 # Test: c_variable-7.35
 # Desc: children of s
 mi_gdb_test "-var-list-children s" \
-	"\\^done,numchild=\"6\",children=\{child=\{name=\"s.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"s.unsigned_integer\",exp=\"unsigned_integer\",numchild=\"0\",type=\"unsigned int\"\},child=\{name=\"s.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child=\{name=\"s.signed_character\",exp=\"signed_character\",numchild=\"0\",type=\"signed char\"\},child=\{name=\"s.char_ptr\",exp=\"char_ptr\",numchild=\"0\",type=\"char \\*\"\},child=\{name=\"s.array_of_10\",exp=\"array_of_10\",numchild=\"10\",type=\"int \\\[10\\\]\"\}\}" \
+	"\\^done,numchild=\"6\",children=\{child=\{name=\"s.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"s.unsigned_integer\",exp=\"unsigned_integer\",numchild=\"0\",type=\"unsigned int\"\},child=\{name=\"s.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child=\{name=\"s.signed_character\",exp=\"signed_character\",numchild=\"0\",type=\"signed char\"\},child=\{name=\"s.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\},child=\{name=\"s.array_of_10\",exp=\"array_of_10\",numchild=\"10\",type=\"int \\\[10\\\]\"\}\}" \
 	"get children of s"
 #} {integer unsigned_integer character signed_character char_ptr array_of_10}
 
@@ -587,8 +588,14 @@ mi_gdb_test "200-break-insert incr_a" \
 	"break-insert operation"
 send_gdb "-exec-continue\n"
 gdb_expect {
-    -re "\\^running\r\n${mi_gdb_prompt}\\*stopped,reason=\"breakpoint-hit\",bkptno=\"3\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"incr_a\",args=\{\{name=\"a\",value=\"2\.*\"\}\},file=\".*var-cmd.c\",line=\"85\"\}\r\n$mi_gdb_prompt$" {
+    -re "\\^running\r\n${mi_gdb_prompt}\\*stopped,reason=\"breakpoint-hit\",bkptno=\"3\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"incr_a\",args=\\\[\{name=\"a\",value=\"2\.*\"\}\\\],file=\".*var-cmd.c\",line=\"85\"\}\r\n$mi_gdb_prompt$" {
 	pass "continue to incr_a"
+    }
+    -re "\\^running\r\n${mi_gdb_prompt}\\*stopped,reason=\"breakpoint-hit\",bkptno=\"3\",thread-id=\"\[01\]\",frame=\{addr=\"$hex\",func=\"incr_a\",args=\\\[\{name=\"a\",value=\"\.*\"\}\\\],file=\".*var-cmd.c\",line=\"8\[345\]\"\}\r\n$mi_gdb_prompt$" {
+	fail "continue to incr_a (compiler debug info incorrect)"
+    }
+    -re "\\^running\r\n${mi_gdb_prompt}.*\r\n$mi_gdb_prompt$" {
+	fail "continue to incr_a (unknown output)"
     }
     timeout {
 	fail "continue to incr_a (timeout)"
@@ -618,11 +625,3 @@ mi_gdb_test "-var-create a2 $fp a" \
 
 mi_gdb_exit
 return 0
-
-# Local variables: 
-# change-log-default-name: "ChangeLog-mi"
-# End:
-
-
-
-

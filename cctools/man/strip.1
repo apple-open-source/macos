@@ -1,4 +1,4 @@
-.TH STRIP 1 "May 18, 1998" "Apple Computer, Inc."
+.TH STRIP 1 "October 29, 2001" "Apple Computer, Inc."
 .SH NAME
 strip \- remove symbols
 .SH SYNOPSIS
@@ -97,10 +97,9 @@ new symbol table.
 For dynamic shared libraries, the maximum level of stripping is usually
 .B \-x
 (to remove all non-global symbols).
-.SH STRIPPING FILES FOR USE WITH RLD(3)
+.SH STRIPPING FILES FOR USE WITH RUNTIME LOADED CODE
 .PP
-Trimming the symbol table for files linked with 
-.IR rld (3)
+Trimming the symbol table for programs that load code at runtime
 allows you to control the interface that the executable
 wants to provide to the objects that it will load;
 it will not have to publish symbols that
@@ -113,8 +112,7 @@ globals to be used would be stripped with:
 where the file
 .I interface_symbols
 would contain only those symbols from the executable
-that it wishes the objects loaded with 
-.I rld 
+that it wishes the code loaded at runtime
 to have access to.
 Another example is an object that is made up of a number of other objects that
 will be loaded into an executable would built and then stripped with:
@@ -185,9 +183,8 @@ without any leading directories.
 .TP
 .B \-A
 Save all global absolute symbols except those with a value of zero, and save
-Objective C class symbols.  This is intended for use of programs that use
-.IR rld (3)
-and want the loaded code to use symbols from the shared libraries
+Objective C class symbols.  This is intended for use of programs that load code
+at runtime and want the loaded code to use symbols from the shared libraries
 (this is only used with
 .SM NEXTSTEP
 3.3 and earlier releases).
@@ -197,8 +194,7 @@ Save all N_SECT global symbols.  This is intended for use with executable
 programs in combination with 
 .B \-A 
 to remove the symbols needed for correct static
-link editing which are not needed for use with
-.IR rld (3)
+link editing which are not needed for use with runtime loading interfaces
 where using the
 .BI \-s " filename"
 would be too much trouble
@@ -230,7 +226,7 @@ Treat all remaining arguments as file names and not options.
 Write the result into the file
 .I output.
 .SH "SEE ALSO"
-ld(1), rld(3), cc(1)
+ld(1), cc(1)
 .SH LIMITATIONS
 Not every layout of a Mach-O file can be stripped by this program.  But all 
 layouts produced by the Apple compiler system can be stripped.

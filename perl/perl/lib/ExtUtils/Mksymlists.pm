@@ -9,7 +9,7 @@ use Exporter;
 our(@ISA, @EXPORT, $VERSION);
 @ISA = 'Exporter';
 @EXPORT = '&Mksymlists';
-$VERSION = substr q$Revision: 1.1.1.4 $, 10;
+$VERSION = substr q$Revision: 1.2 $, 10;
 
 sub Mksymlists {
     my(%spec) = @_;

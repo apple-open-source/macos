@@ -49,7 +49,7 @@
 static void initialize_interps (void);
 
 static void set_interpreter_cmd (char *args, int from_tty, 
-				 struct cmd_list_element * c);
+				 struct cmd_list_element *c);
 static void list_interpreter_cmd (char *args, int from_tty);
 static void do_set_interpreter (int not_an_fd);
 
@@ -72,16 +72,16 @@ static int initialized = 0;
  */
 
 struct gdb_interpreter *
-gdb_new_interpreter ( char *name, 
-		      void *data, 
-		      struct ui_out *uiout,
-		      interp_init_ftype init_proc, 
-		      interp_resume_ftype  resume_proc,
-		      interp_do_one_event_ftype do_one_event_proc,
-		      interp_suspend_ftype suspend_proc, 
-		      interp_delete_ftype delete_proc,
-		      interp_exec_ftype    exec_proc,
-		      interp_prompt_ftype prompt_proc)
+gdb_new_interpreter (char *name, 
+		     void *data, 
+		     struct ui_out *uiout,
+		     interp_init_ftype init_proc, 
+		     interp_resume_ftype  resume_proc,
+		     interp_do_one_event_ftype do_one_event_proc,
+		     interp_suspend_ftype suspend_proc, 
+		     interp_delete_ftype delete_proc,
+		     interp_exec_ftype exec_proc,
+		     interp_prompt_ftype prompt_proc)
 {
   struct gdb_interpreter *new_interp;
   
@@ -115,14 +115,12 @@ gdb_new_interpreter ( char *name,
 int 
 gdb_add_interpreter (struct gdb_interpreter *interp)
 {
-  
   if (!initialized)
     initialize_interps ();
 
   if (gdb_lookup_interpreter (interp->name) != NULL) 
-    {
       return 0;
-    }
+
   interp->next = interp_list;
   interp_list = interp;
   
@@ -234,8 +232,8 @@ gdb_set_interpreter (struct gdb_interpreter *interp)
       if (current->suspend_proc &&
           !current->suspend_proc (current->data))
 	{
-	  error ("Could not suspend interpreter \"%\"\n",
-			  current->name);
+	  error ("Could not suspend interpreter \"%s\"\n",
+		 current->name);
 	}
     }
   else
@@ -249,7 +247,7 @@ gdb_set_interpreter (struct gdb_interpreter *interp)
      to make sure we have a malloc'ed copy for the set command to free. */
   if (interpreter_p != NULL && strcmp (current->name, interpreter_p) != 0)
     {
-      free (interpreter_p);
+      xfree (interpreter_p);
 
       interpreter_p = strsave (current->name);
     }
@@ -319,8 +317,8 @@ struct gdb_interpreter *
 gdb_lookup_interpreter(char *name)
 {
   struct gdb_interpreter *interp;
-  
-  if (name == NULL || strlen (name) == 0)
+
+  if (name == NULL || strlen(name) == 0)
     return NULL;
 
   for (interp = interp_list; interp != NULL; interp = interp->next)
@@ -340,6 +338,12 @@ struct gdb_interpreter *
 gdb_current_interpreter()
 {
   return current;
+}
+
+struct ui_out *
+gdb_interpreter_ui_out (struct gdb_interpreter *interp)
+{
+  return interp->interpreter_out;
 }
 
 /*
@@ -423,6 +427,7 @@ clear_interpreter_hooks ()
 {
   init_ui_hook = 0;
   print_frame_info_listing_hook = 0;
+  print_frame_more_info_hook = 0;
   query_hook = 0;
   warning_hook = 0;
   create_breakpoint_hook = 0;
@@ -440,7 +445,7 @@ clear_interpreter_hooks ()
   call_command_hook = 0;
   error_hook = 0;
   error_begin_hook = 0;
-  command_loop_hook = 0;  
+  command_loop_hook = 0; 
 }
 
 /*
@@ -457,8 +462,7 @@ initialize_interps (void)
   /* Don't know if anything needs to be done here... */    
 }
 
-/* set_interpreter_cmd - This implements "set interpreter foo".  
- */
+/* set_interpreter_cmd - This implements "set interpreter foo". */
 
 static void 
 set_interpreter_cmd (char *args, int from_tty, struct cmd_list_element * c)
@@ -467,7 +471,7 @@ set_interpreter_cmd (char *args, int from_tty, struct cmd_list_element * c)
 
   dont_repeat ();
 
-  if (c->type != set_cmd)
+  if (cmd_type (c) != set_cmd)
     return;
 
   interp_ptr = gdb_lookup_interpreter (interpreter_p);
@@ -542,7 +546,7 @@ interpreter_exec_cmd (char *args, int from_tty)
     error ("Could not switch to interpreter \"%s\".", prules[0]);
   
   for (i = 1; i < nrules; i++) {
-    if (! safe_execute_command (prules[i], 0)) {
+    if (! gdb_interpreter_exec (prules[i])) {
       gdb_set_interpreter (old_interp);
       gdb_interpreter_set_quiet (interp_to_use, old_quiet);
       error ("interpreter-exec: mi_interpreter_execute: error in command: \"%s\".", prules[i]);
@@ -568,8 +572,7 @@ _initialize_interpreter (void)
 		   &interpreter_p,
 		   "Set the interpreter for gdb.",
 		   &setlist);
-  c->function.sfunc = set_interpreter_cmd;
-
+  set_cmd_sfunc (c, set_interpreter_cmd);
   add_show_from_set(c, &showlist);
 
   add_cmd ("interpreters", class_support,

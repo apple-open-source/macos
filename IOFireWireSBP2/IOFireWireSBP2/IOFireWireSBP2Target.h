@@ -33,7 +33,8 @@
 
 enum
 {
-    kIOFWSBP2FailsOnAckBusy = (1 << 0)
+    kIOFWSBP2FailsOnAckBusy = (1 << 0),
+	kIOFWSBP2FailsOnBusResetsDuringIO = (1 << 1)
 };
 
 /*!
@@ -61,7 +62,8 @@ protected:
         kFirmwareRevKey	 			= 0x3c,
         kLUNKey						= 0x14,
         kLUNDirectoryKey			= 0xd4,
-        kManagementAgentOffsetKey	= 0x54
+        kManagementAgentOffsetKey	= 0x54,
+		kUnitCharacteristicsKey 	= 0x3A,
     };
 
     // reserved for future use
@@ -76,6 +78,8 @@ protected:
     IOFireWireUnit * 	fProviderUnit;
     UInt32				fFlags;
     
+	IOFireWireController * fControl;
+	
 	/////////////////////////////////////////
 	// private internals
 	
@@ -90,7 +94,9 @@ protected:
 												UInt32 softwareRev,
 												UInt32 firmwareRev, 
 												UInt32 lun, 
-												UInt32 devType );
+												UInt32 devType,
+												UInt32 unitCharacteristics,
+												UInt32 managementOffset );
 
 public:
 
@@ -168,6 +174,11 @@ public:
 
 protected:
     virtual void configurePhysicalFilter( void );
+
+public:
+    virtual void clearTargetFlags( UInt32 flags );
+	virtual IOReturn beginIOCriticalSection( void );
+	virtual void endIOCriticalSection( void );
 
 protected:
 

@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)authunix_prot.c 1.15 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)authunix_prot.c	2.1 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: authunix_prot.c,v 1.3 2001/01/17 19:05:42 majka Exp $";
+static char *rcsid = "$Id: authunix_prot.c,v 1.4 2002/02/19 20:36:22 epeyton Exp $";
 #endif
 
 /*
@@ -64,6 +64,8 @@ static char *rcsid = "$Id: authunix_prot.c,v 1.3 2001/01/17 19:05:42 majka Exp $
  */
 
 
+#include <sys/types.h>
+#include <netinet/in.h>
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 #include <rpc/auth.h>

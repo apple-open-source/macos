@@ -1,8 +1,8 @@
-;;; hide-ifdef-mode.el --- hides selected code within ifdef.
+;;; hideif.el --- hides selected code within ifdef
 
 ;; Copyright (C) 1988, 1994 Free Software Foundation, Inc.
 
-;; Author: Dan LaLiberte <liberte@a.cs.uiuc.edu>
+;; Author: Daniel LaLiberte <liberte@holonexus.org>
 ;; Maintainer: FSF
 ;; Keywords: c, outlines
 
@@ -67,7 +67,7 @@
 ;; following example:
 ;;
 ;; (setq hide-ifdef-mode-hook
-;;      '(lambda ()
+;;      (lambda ()
 ;;	 (if (not hide-ifdef-define-alist)
 ;;	     (setq hide-ifdef-define-alist
 ;;		  '((list1 ONE TWO)
@@ -76,7 +76,7 @@
 ;;	 (hide-ifdef-use-define-alist 'list2) ; use list2 by default
 ;;	 ))
 ;;
-;; You can call hide-ifdef-use-define-alist (C-c @ u) at any time to specify
+;; You can call hide-ifdef-use-define-alist (C-c @ U) at any time to specify
 ;; another list to use.
 ;;
 ;; To cause ifdefs to be hidden as soon as hide-ifdef-mode is called,
@@ -154,6 +154,8 @@
   (define-key hide-ifdef-mode-map hide-ifdef-mode-prefix-key
     hide-ifdef-mode-submap))
 
+;; Autoload for the benefit of `make-mode-line-mouse-sensitive'.
+;;;###autoload
 (defvar hide-ifdef-mode nil
   "Non-nil when hide-ifdef-mode is activated.")
 
@@ -354,9 +356,9 @@ that form should be displayed.")
 
 (defun hif-infix-to-prefix (token-list)
   "Convert list of tokens in infix into prefix list"
-;  (message "hif-infix-to-prefix: %s" token-list)
+					;  (message "hif-infix-to-prefix: %s" token-list)
   (if (= 1 (length token-list))
-      (` (hif-lookup (quote (, (car token-list)))))
+      `(hif-lookup (quote ,(car token-list)))
     (hif-parse-if-exp token-list))
   )
 
@@ -487,41 +489,41 @@ that form should be displayed.")
 (defun hif-factor ()
   "Parse a factor: '!' factor | '(' expr ')' | 'defined(' id ')' | id."
   (cond
-    ((eq hif-token 'not)
-     (hif-nexttoken)
-     (list 'not (hif-factor)))
+   ((eq hif-token 'not)
+    (hif-nexttoken)
+    (list 'not (hif-factor)))
 
-    ((eq hif-token 'lparen)
-     (hif-nexttoken)
-     (let ((result (hif-expr)))
-       (if (not (eq hif-token 'rparen))
-	   (error "Bad token in parenthesized expression: %s" hif-token)
-	 (hif-nexttoken)
-	 result)))
-
-    ((eq hif-token 'hif-defined)
-     (hif-nexttoken)
-     (if (not (eq hif-token 'lparen))
-	 (error "Error: expected \"(\" after \"defined\""))
-     (hif-nexttoken)
-     (let ((ident hif-token))
-       (if (memq hif-token '(or and not hif-defined lparen rparen))
-	   (error "Error: unexpected token: %s" hif-token))
-       (hif-nexttoken)
-       (if (not (eq hif-token 'rparen))
-	   (error "Error: expected \")\" after identifier"))
-       (hif-nexttoken)
-       (` (hif-defined (quote (, ident))))
-       ))
-
-    (t ; identifier
-      (let ((ident hif-token))
-	(if (memq ident '(or and))
-	    (error "Error: missing identifier"))
+   ((eq hif-token 'lparen)
+    (hif-nexttoken)
+    (let ((result (hif-expr)))
+      (if (not (eq hif-token 'rparen))
+	  (error "Bad token in parenthesized expression: %s" hif-token)
 	(hif-nexttoken)
-	(` (hif-lookup (quote (, ident))))
-	))
-    ))
+	result)))
+
+   ((eq hif-token 'hif-defined)
+    (hif-nexttoken)
+    (if (not (eq hif-token 'lparen))
+	(error "Error: expected \"(\" after \"defined\""))
+    (hif-nexttoken)
+    (let ((ident hif-token))
+      (if (memq hif-token '(or and not hif-defined lparen rparen))
+	  (error "Error: unexpected token: %s" hif-token))
+      (hif-nexttoken)
+      (if (not (eq hif-token 'rparen))
+	  (error "Error: expected \")\" after identifier"))
+      (hif-nexttoken)
+      `(hif-defined (quote ,ident))
+      ))
+
+   (t					; identifier
+    (let ((ident hif-token))
+      (if (memq ident '(or and))
+	  (error "Error: missing identifier"))
+      (hif-nexttoken)
+      `(hif-lookup (quote ,ident))
+      ))
+   ))
 
 (defun hif-mathify (val)
   "Treat VAL as a number: if it's t or nil, use 1 or 0."
@@ -1042,8 +1044,8 @@ Return as (TOP . BOTTOM) the extent of ifdef block."
 
 (defun hif-compress-define-list (env)
   "Compress the define list ENV into a list of defined symbols only."
-  (let ((defs (mapcar '(lambda (arg)
-			 (if (hif-lookup (car arg)) (car arg)))
+  (let ((defs (mapcar (lambda (arg)
+			(if (hif-lookup (car arg)) (car arg)))
 		      env))
 	(new-defs nil))
     (while defs
@@ -1065,7 +1067,7 @@ Return as (TOP . BOTTOM) the extent of ifdef block."
   (let ((define-list (assoc name hide-ifdef-define-alist)))
     (if define-list
 	(setq hide-ifdef-env
-	      (mapcar '(lambda (arg) (cons arg t))
+	      (mapcar (lambda (arg) (cons arg t))
 		      (cdr define-list)))
       (error "No define list for %s" name))
     (if hide-ifdef-hiding (hide-ifdefs))))
@@ -1073,4 +1075,3 @@ Return as (TOP . BOTTOM) the extent of ifdef block."
 (provide 'hideif)
 
 ;;; hideif.el ends here
-

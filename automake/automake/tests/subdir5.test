@@ -1,0 +1,61 @@
+#! /bin/sh
+
+# Test to make sure that adding a new directory works.
+# PR automake/46
+
+. $srcdir/defs || exit 1
+
+# This test assumes that the `make' utility is able to start
+# over and reload Makefiles which have been remade (a non-POSIX feature).
+$needs_gnu_make
+
+cat > configure.in << 'END'
+AC_INIT(a.c)
+AM_INIT_AUTOMAKE(maude, 1.0)
+AM_PROG_CC_C_O
+AC_PROG_CC
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = wish
+wish_SOURCES = a.c
+END
+
+cat > a.c << 'END'
+#include <stdio.h>
+int main ()
+{
+   printf ("hi liver!\n");
+   return 0;
+}
+END
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --include-deps --copy --add-missing
+./configure
+$MAKE
+
+# Now add a new directory.
+cat > configure.in << 'END'
+AC_INIT(a.c)
+AM_INIT_AUTOMAKE(maude, 1.0)
+AM_PROG_CC_C_O
+AC_PROG_CC
+AC_OUTPUT(Makefile maude/Makefile)
+END
+
+mkdir maude
+cat > maude/Makefile.am << 'END'
+include_HEADERS = foo.h
+END
+
+: > maude/foo.h
+
+echo 'SUBDIRS = maude' >> Makefile.am
+
+# We want a simple rebuild to create maude/Makefile automatically.
+$MAKE

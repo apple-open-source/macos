@@ -1,0 +1,17 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = (); 
+        Resources = (bison); 
+        SUBPROJECTS = (); 
+        Sources = (pid.c, sigstat.c, "open-files.c", sigs.c); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = misc; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

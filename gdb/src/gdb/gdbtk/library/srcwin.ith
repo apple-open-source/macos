@@ -1,5 +1,5 @@
 # Source window class definition for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -27,7 +27,6 @@ class SrcWin {
   inherit TopLevelWin GDBWin
 
   public {
-    method busy {}
     method constructor {args}
     method destructor {}
     method download_progress { section num tot {msg ""} }
@@ -36,7 +35,6 @@ class SrcWin {
     method fillNameCB {}
     method fillFuncCB {name}
     method goto_func {w {val ""}}
-    method idle {}
     method location {tag linespec}
     method mode {w new_mode {go 1}}
     method no_inferior {}
@@ -48,25 +46,40 @@ class SrcWin {
     method stack {cmd}
     method test_get {var {private_func 0}}
     method toggle_updates {value}
-    method update {}
     method toolbar {state}
     method inferior {action}
     method clear_file {}
+    method get_file {}
+    method is_fixed {}
+    method search {direction string}
 
+    proc choose_and_update {}
+    proc choose_and_display {tag linespec}
     proc point_to_main {}
+
+    #
+    # GDB Events
+    #
+    method busy {event}
+    method idle {event}
+    method update {event}
   }
 
   private {
     method _build_win {}
     method _exit {}
     method _name {w {val ""}}
-    method _search {direction}
     method _set_name { val {found 1} }
     method _set_state {varname}
     method _update_title {name}
+    method _update {loc}
+    method get_top {}
+    method _set_tag_to_stack {}
+    proc _choose_window {file}
     variable _statbar
     variable _status
     variable _toolbar
+    variable _statusframe
     variable top
     variable twin
     variable current
@@ -75,12 +88,17 @@ class SrcWin {
     variable _mangled_func
     variable Tracing  
     variable saved_msg ""	;# static
-    
+
     # statics used for downloads
     variable last_section ""
     variable last_section_start 0
     variable last_done 0
-    
+
+    # These keep track of the current PC window and the list of all
+    # source windows.
+    common window_list ""
+    common pc_window ""
+
     # fenceposts
     variable Running 0
     variable NoRun 0

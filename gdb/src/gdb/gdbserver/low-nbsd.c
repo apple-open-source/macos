@@ -1,5 +1,5 @@
 /* Low level interface to ptrace, for the remote server for GDB.
-   Copyright (C) 1986, 1987, 1993, 2000 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1993, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "defs.h"
+#include "server.h"
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "frame.h"
@@ -27,24 +27,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <errno.h>
 
 /***************Begin MY defs*********************/
-int quit_flag = 0;
 static char my_registers[REGISTER_BYTES];
 char *registers = my_registers;
-
-/* Index within `registers' of the first byte of the space for
-   register N.  */
-
-char buf2[MAX_REGISTER_RAW_SIZE];
 /***************End MY defs*********************/
 
 #include <sys/ptrace.h>
 #include <machine/reg.h>
-
-extern int sys_nerr;
-// extern char **sys_errlist;
-extern char **environ;
-extern int inferior_pid;
-void quit (), perror_with_name ();
 
 #define RF(dst, src) \
 	memcpy(&registers[REGISTER_BYTE(dst)], &src, sizeof(src))
@@ -106,7 +94,23 @@ initialize_arch (void)
 }       
 #endif	/* !__i386__ */
 
+#ifdef __m68k__
+static void
+initialize_arch (void)
+{
+}
+#endif	/* !__m68k__ */
+
+#ifdef __ns32k__
+static void
+initialize_arch (void)
+{
+}
+#endif	/* !__ns32k__ */
+
 #ifdef __powerpc__
+#include "ppc-tdep.h"
+
 static void
 initialize_arch (void)
 {
@@ -115,8 +119,7 @@ initialize_arch (void)
 
 
 /* Start an inferior process and returns its pid.
-   ALLARGS is a vector of program-name and args.
-   ENV is the environment vector to pass.  */
+   ALLARGS is a vector of program-name and args. */
 
 int
 create_inferior (char *program, char **allargs)
@@ -140,6 +143,13 @@ create_inferior (char *program, char **allargs)
     }
 
   return pid;
+}
+
+/* Attaching is not supported.  */
+int
+myattach (int pid)
+{
+  return -1;
 }
 
 /* Kill the inferior process.  Make us have no inferior.  */
@@ -169,7 +179,9 @@ mywait (char *status)
   int pid;
   int w;
 
-  pid = wait (&w);
+  enable_async_io ();
+  pid = waitpid (inferior_pid, &w, 0);
+  disable_async_io ();
   if (pid != inferior_pid)
     perror_with_name ("wait");
 
@@ -240,23 +252,23 @@ fetch_inferior_registers (int ignored)
   RF (14, inferior_registers.r_fs);
   RF (15, inferior_registers.r_gs);
 
-  RF (FP0_REGNUM,     inferior_fpregisters.regs[0]);
-  RF (FP0_REGNUM + 1, inferior_fpregisters.regs[1]);
-  RF (FP0_REGNUM + 2, inferior_fpregisters.regs[2]);
-  RF (FP0_REGNUM + 3, inferior_fpregisters.regs[3]);
-  RF (FP0_REGNUM + 4, inferior_fpregisters.regs[4]);
-  RF (FP0_REGNUM + 5, inferior_fpregisters.regs[5]);
-  RF (FP0_REGNUM + 6, inferior_fpregisters.regs[6]);
-  RF (FP0_REGNUM + 7, inferior_fpregisters.regs[7]);
+  RF (FP0_REGNUM,     inferior_fp_registers.regs[0]);
+  RF (FP0_REGNUM + 1, inferior_fp_registers.regs[1]);
+  RF (FP0_REGNUM + 2, inferior_fp_registers.regs[2]);
+  RF (FP0_REGNUM + 3, inferior_fp_registers.regs[3]);
+  RF (FP0_REGNUM + 4, inferior_fp_registers.regs[4]);
+  RF (FP0_REGNUM + 5, inferior_fp_registers.regs[5]);
+  RF (FP0_REGNUM + 6, inferior_fp_registers.regs[6]);
+  RF (FP0_REGNUM + 7, inferior_fp_registers.regs[7]);
   
-  RF (FCTRL_REGNUM,   inferior_fpregisters.control);
-  RF (FSTAT_REGNUM,   inferior_fpregisters.status);
-  RF (FTAG_REGNUM,    inferior_fpregisters.tag);
-  RF (FCS_REGNUM,     inferior_fpregisters.code_seg);
-  RF (FCOFF_REGNUM,   inferior_fpregisters.eip);
-  RF (FDS_REGNUM,     inferior_fpregisters.operand_seg);
-  RF (FDOFF_REGNUM,   inferior_fpregisters.operand);
-  RF (FOP_REGNUM,     inferior_fpregisters.opcode);
+  RF (FCTRL_REGNUM,   inferior_fp_registers.control);
+  RF (FSTAT_REGNUM,   inferior_fp_registers.status);
+  RF (FTAG_REGNUM,    inferior_fp_registers.tag);
+  RF (FCS_REGNUM,     inferior_fp_registers.code_seg);
+  RF (FCOFF_REGNUM,   inferior_fp_registers.eip);
+  RF (FDS_REGNUM,     inferior_fp_registers.operand_seg);
+  RF (FDOFF_REGNUM,   inferior_fp_registers.operand);
+  RF (FOP_REGNUM,     inferior_fp_registers.opcode);
 }
 
 /* Store our register values back into the inferior.
@@ -286,23 +298,23 @@ store_inferior_registers (int ignored)
   RS (14, inferior_registers.r_fs);
   RS (15, inferior_registers.r_gs);
 
-  RS (FP0_REGNUM,     inferior_fpregisters.regs[0]);
-  RS (FP0_REGNUM + 1, inferior_fpregisters.regs[1]);
-  RS (FP0_REGNUM + 2, inferior_fpregisters.regs[2]);
-  RS (FP0_REGNUM + 3, inferior_fpregisters.regs[3]);
-  RS (FP0_REGNUM + 4, inferior_fpregisters.regs[4]);
-  RS (FP0_REGNUM + 5, inferior_fpregisters.regs[5]);
-  RS (FP0_REGNUM + 6, inferior_fpregisters.regs[6]);
-  RS (FP0_REGNUM + 7, inferior_fpregisters.regs[7]);
+  RS (FP0_REGNUM,     inferior_fp_registers.regs[0]);
+  RS (FP0_REGNUM + 1, inferior_fp_registers.regs[1]);
+  RS (FP0_REGNUM + 2, inferior_fp_registers.regs[2]);
+  RS (FP0_REGNUM + 3, inferior_fp_registers.regs[3]);
+  RS (FP0_REGNUM + 4, inferior_fp_registers.regs[4]);
+  RS (FP0_REGNUM + 5, inferior_fp_registers.regs[5]);
+  RS (FP0_REGNUM + 6, inferior_fp_registers.regs[6]);
+  RS (FP0_REGNUM + 7, inferior_fp_registers.regs[7]);
   
-  RS (FCTRL_REGNUM,   inferior_fpregisters.control);
-  RS (FSTAT_REGNUM,   inferior_fpregisters.status);
-  RS (FTAG_REGNUM,    inferior_fpregisters.tag);
-  RS (FCS_REGNUM,     inferior_fpregisters.code_seg);
-  RS (FCOFF_REGNUM,   inferior_fpregisters.eip);
-  RS (FDS_REGNUM,     inferior_fpregisters.operand_seg);
-  RS (FDOFF_REGNUM,   inferior_fpregisters.operand);
-  RS (FOP_REGNUM,     inferior_fpregisters.opcode);
+  RS (FCTRL_REGNUM,   inferior_fp_registers.control);
+  RS (FSTAT_REGNUM,   inferior_fp_registers.status);
+  RS (FTAG_REGNUM,    inferior_fp_registers.tag);
+  RS (FCS_REGNUM,     inferior_fp_registers.code_seg);
+  RS (FCOFF_REGNUM,   inferior_fp_registers.eip);
+  RS (FDS_REGNUM,     inferior_fp_registers.operand_seg);
+  RS (FDOFF_REGNUM,   inferior_fp_registers.operand);
+  RS (FOP_REGNUM,     inferior_fp_registers.opcode);
 
   ptrace (PT_SETREGS, inferior_pid,
 	  (PTRACE_ARG3_TYPE) &inferior_registers, 0);
@@ -311,7 +323,7 @@ store_inferior_registers (int ignored)
 }
 #endif	/* !__i386__ */
 
-#ifdef __powerpc__
+#ifdef __m68k__
 /* Fetch one or more registers from the inferior.  REGNO == -1 to get
    them all.  We actually fetch more than requested, when convenient,
    marking them as valid so we won't fetch them again.  */
@@ -321,23 +333,16 @@ fetch_inferior_registers (int regno)
 {
   struct reg inferior_registers;
   struct fpreg inferior_fp_registers;
-  int i;
 
   ptrace (PT_GETREGS, inferior_pid,
-	  (PTRACE_ARG3_TYPE) & inferior_registers, 0);
+          (PTRACE_ARG3_TYPE) & inferior_registers, 0);
+  memcpy (&registers[REGISTER_BYTE (0)], &inferior_registers,
+          sizeof (inferior_registers));
+
   ptrace (PT_GETFPREGS, inferior_pid,
-	  (PTRACE_ARG3_TYPE) & inferior_fp_registers, 0);
-
-  for (i = 0; i < 32; i++)
-    RF (i, inferior_registers.fixreg[i]);
-  RF (LR_REGNUM, inferior_registers.lr);
-  RF (CR_REGNUM, inferior_registers.cr);
-  RF (XER_REGNUM, inferior_registers.xer);
-  RF (CTR_REGNUM, inferior_registers.ctr);
-  RF (PC_REGNUM, inferior_registers.pc);
-
-  for (i = 0; i < 32; i++)
-    RF (FP0_REGNUM + i, inferior_fp_registers.r_regs[i]);
+          (PTRACE_ARG3_TYPE) & inferior_fp_registers, 0);
+  memcpy (&registers[REGISTER_BYTE (FP0_REGNUM)], &inferior_fp_registers,
+          sizeof (inferior_fp_registers));
 }
 
 /* Store our register values back into the inferior.
@@ -349,23 +354,164 @@ store_inferior_registers (int regno)
 {
   struct reg inferior_registers;
   struct fpreg inferior_fp_registers;
+
+  memcpy (&inferior_registers, &registers[REGISTER_BYTE (0)],
+          sizeof (inferior_registers));
+  ptrace (PT_SETREGS, inferior_pid,
+          (PTRACE_ARG3_TYPE) & inferior_registers, 0);
+
+  memcpy (&inferior_fp_registers, &registers[REGISTER_BYTE (FP0_REGNUM)],
+          sizeof (inferior_fp_registers));
+  ptrace (PT_SETFPREGS, inferior_pid,
+          (PTRACE_ARG3_TYPE) & inferior_fp_registers, 0);
+}
+#endif	/* !__m68k__ */
+
+
+#ifdef __ns32k__
+/* Fetch one or more registers from the inferior.  REGNO == -1 to get
+   them all.  We actually fetch more than requested, when convenient,
+   marking them as valid so we won't fetch them again.  */
+
+void
+fetch_inferior_registers (int regno)
+{
+  struct reg inferior_registers;
+  struct fpreg inferior_fpregisters;
+
+  ptrace (PT_GETREGS, inferior_pid,
+          (PTRACE_ARG3_TYPE) & inferior_registers, 0);
+  ptrace (PT_GETFPREGS, inferior_pid,
+          (PTRACE_ARG3_TYPE) & inferior_fpregisters, 0);
+
+  RF (R0_REGNUM + 0, inferior_registers.r_r0);
+  RF (R0_REGNUM + 1, inferior_registers.r_r1);
+  RF (R0_REGNUM + 2, inferior_registers.r_r2);
+  RF (R0_REGNUM + 3, inferior_registers.r_r3);
+  RF (R0_REGNUM + 4, inferior_registers.r_r4);
+  RF (R0_REGNUM + 5, inferior_registers.r_r5);
+  RF (R0_REGNUM + 6, inferior_registers.r_r6);
+  RF (R0_REGNUM + 7, inferior_registers.r_r7);
+
+  RF (SP_REGNUM, inferior_registers.r_sp);
+  RF (FP_REGNUM, inferior_registers.r_fp);
+  RF (PC_REGNUM, inferior_registers.r_pc);
+  RF (PS_REGNUM, inferior_registers.r_psr);
+
+  RF (FPS_REGNUM, inferior_fpregisters.r_fsr);
+  RF (FP0_REGNUM + 0, inferior_fpregisters.r_freg[0]);
+  RF (FP0_REGNUM + 2, inferior_fpregisters.r_freg[2]);
+  RF (FP0_REGNUM + 4, inferior_fpregisters.r_freg[4]);
+  RF (FP0_REGNUM + 6, inferior_fpregisters.r_freg[6]);
+  RF (LP0_REGNUM + 1, inferior_fpregisters.r_freg[1]);
+  RF (LP0_REGNUM + 3, inferior_fpregisters.r_freg[3]);
+  RF (LP0_REGNUM + 5, inferior_fpregisters.r_freg[5]);
+  RF (LP0_REGNUM + 7, inferior_fpregisters.r_freg[7]);
+}
+
+/* Store our register values back into the inferior.
+   If REGNO is -1, do this for all registers.
+   Otherwise, REGNO specifies which register (so we can save time).  */
+
+void
+store_inferior_registers (int regno)
+{
+  struct reg inferior_registers;
+  struct fpreg inferior_fpregisters;
+
+  RS (R0_REGNUM + 0, inferior_registers.r_r0);
+  RS (R0_REGNUM + 1, inferior_registers.r_r1);
+  RS (R0_REGNUM + 2, inferior_registers.r_r2);
+  RS (R0_REGNUM + 3, inferior_registers.r_r3);
+  RS (R0_REGNUM + 4, inferior_registers.r_r4);
+  RS (R0_REGNUM + 5, inferior_registers.r_r5);
+  RS (R0_REGNUM + 6, inferior_registers.r_r6);
+  RS (R0_REGNUM + 7, inferior_registers.r_r7);
+  
+  RS (SP_REGNUM, inferior_registers.r_sp);
+  RS (FP_REGNUM, inferior_registers.r_fp);
+  RS (PC_REGNUM, inferior_registers.r_pc);
+  RS (PS_REGNUM, inferior_registers.r_psr);
+  
+  RS (FPS_REGNUM, inferior_fpregisters.r_fsr);
+  RS (FP0_REGNUM + 0, inferior_fpregisters.r_freg[0]);
+  RS (FP0_REGNUM + 2, inferior_fpregisters.r_freg[2]);
+  RS (FP0_REGNUM + 4, inferior_fpregisters.r_freg[4]);
+  RS (FP0_REGNUM + 6, inferior_fpregisters.r_freg[6]);
+  RS (LP0_REGNUM + 1, inferior_fpregisters.r_freg[1]);
+  RS (LP0_REGNUM + 3, inferior_fpregisters.r_freg[3]);
+  RS (LP0_REGNUM + 5, inferior_fpregisters.r_freg[5]);
+  RS (LP0_REGNUM + 7, inferior_fpregisters.r_freg[7]);
+  
+  ptrace (PT_SETREGS, inferior_pid,
+          (PTRACE_ARG3_TYPE) & inferior_registers, 0);
+  ptrace (PT_SETFPREGS, inferior_pid,
+          (PTRACE_ARG3_TYPE) & inferior_fpregisters, 0);
+
+}
+#endif	/* !__ns32k__ */
+
+#ifdef __powerpc__
+/* Fetch one or more registers from the inferior.  REGNO == -1 to get
+   them all.  We actually fetch more than requested, when convenient,
+   marking them as valid so we won't fetch them again.  */
+
+void
+fetch_inferior_registers (int regno)
+{
+  struct reg inferior_registers;
+#ifdef PT_GETFPREGS
+  struct fpreg inferior_fp_registers;
+#endif
+  int i;
+
+  ptrace (PT_GETREGS, inferior_pid,
+	  (PTRACE_ARG3_TYPE) & inferior_registers, 0);
+  for (i = 0; i < 32; i++)
+    RF (i, inferior_registers.fixreg[i]);
+  RF (PPC_LR_REGNUM, inferior_registers.lr);
+  RF (PPC_CR_REGNUM, inferior_registers.cr);
+  RF (PPC_XER_REGNUM, inferior_registers.xer);
+  RF (PPC_CTR_REGNUM, inferior_registers.ctr);
+  RF (PC_REGNUM, inferior_registers.pc);
+
+#ifdef PT_GETFPREGS
+  ptrace (PT_GETFPREGS, inferior_pid,
+	  (PTRACE_ARG3_TYPE) & inferior_fp_registers, 0);
+  for (i = 0; i < 32; i++)
+    RF (FP0_REGNUM + i, inferior_fp_registers.r_regs[i]);
+#endif
+}
+
+/* Store our register values back into the inferior.
+   If REGNO is -1, do this for all registers.
+   Otherwise, REGNO specifies which register (so we can save time).  */
+
+void
+store_inferior_registers (int regno)
+{
+  struct reg inferior_registers;
+#ifdef PT_SETFPREGS
+  struct fpreg inferior_fp_registers;
+#endif
   int i;
 
   for (i = 0; i < 32; i++)
     RS (i, inferior_registers.fixreg[i]);
-  RS (LR_REGNUM, inferior_registers.lr);
-  RS (CR_REGNUM, inferior_registers.cr);
-  RS (XER_REGNUM, inferior_registers.xer);
-  RS (CTR_REGNUM, inferior_registers.ctr);
+  RS (PPC_LR_REGNUM, inferior_registers.lr);
+  RS (PPC_CR_REGNUM, inferior_registers.cr);
+  RS (PPC_XER_REGNUM, inferior_registers.xer);
+  RS (PPC_CTR_REGNUM, inferior_registers.ctr);
   RS (PC_REGNUM, inferior_registers.pc);
-
-  for (i = 0; i < 32; i++)
-    RS (FP0_REGNUM + i, inferior_fp_registers.r_regs[i]);
-
   ptrace (PT_SETREGS, inferior_pid,
 	  (PTRACE_ARG3_TYPE) & inferior_registers, 0);
+
+#ifdef PT_SETFPREGS
+  for (i = 0; i < 32; i++)
+    RS (FP0_REGNUM + i, inferior_fp_registers.r_regs[i]);
   ptrace (PT_SETFPREGS, inferior_pid,
 	  (PTRACE_ARG3_TYPE) & inferior_fp_registers, 0);
+#endif
 }
 #endif	/* !__powerpc__ */
 
@@ -378,11 +524,12 @@ store_inferior_registers (int regno)
 /* Copy LEN bytes from inferior's memory starting at MEMADDR
    to debugger memory starting at MYADDR.  */
 
+void
 read_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (int);
+  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (int);
   /* Round ending address up; get number of longwords that makes.  */
   register int count
   = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
@@ -409,7 +556,7 @@ write_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (int);
+  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (int);
   /* Round ending address up; get number of longwords that makes.  */
   register int count
   = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);

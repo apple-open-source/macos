@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/ed.screen.c,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/ed.screen.c,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $ */
 /*
  * ed.screen.c: Editor/termcap-curses interface
  */

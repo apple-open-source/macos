@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,184 +37,407 @@
 #include <netinet/in.h>
 #include <sys/param.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "_lu_types.h"
 #include "lookup.h"
 #include "lu_utils.h"
 #include "lu_overrides.h"
 
-#define GROUP_SENTINEL	-99
+static pthread_mutex_t _group_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static lookup_state gr_state = LOOKUP_CACHE;
-static struct group global_gr;
-static int global_free = 1;
-static char *gr_data;
-static unsigned gr_datalen = 0;
-static int gr_nentries = 0;
-static int gr_start = 1;
-static XDR gr_xdr;
+#define GR_GET_NAME 1
+#define GR_GET_GID 2
+#define GR_GET_ENT 3
 
 static void 
-freeold(void)
+free_group_data(struct group *g)
 {
 	char **mem;
 
-	if (global_free == 1) return;
+	if (g == NULL) return;
 
-	free(global_gr.gr_name);
-	global_gr.gr_name = NULL;
+	if (g->gr_name != NULL) free(g->gr_name);
+	if (g->gr_passwd != NULL) free(g->gr_passwd);
 
-	free(global_gr.gr_passwd);
-	global_gr.gr_passwd = NULL;
-
-	mem = global_gr.gr_mem;
+	mem = g->gr_mem;
 	if (mem != NULL)
 	{
 		while (*mem != NULL) free(*mem++);
-		free(global_gr.gr_mem);
-		global_gr.gr_mem = NULL;
+		free(g->gr_mem);
 	}
- 
-	global_free = 1;
+}
+
+static void 
+free_group(struct group *g)
+{
+	if (g == NULL) return;
+	free_group_data(g);
+	free(g);
+ }
+
+static void
+free_lu_thread_info_group(void *x)
+{
+	struct lu_thread_info *tdata;
+
+	if (x == NULL) return;
+
+	tdata = (struct lu_thread_info *)x;
+	
+	if (tdata->lu_entry != NULL)
+	{
+		free_group((struct group *)tdata->lu_entry);
+		tdata->lu_entry = NULL;
+	}
+
+	_lu_data_free_vm_xdr(tdata);
+
+	free(tdata);
+}
+
+static struct group *
+extract_group(XDR *xdr)
+{
+	int i, j, nkeys, nvals, status;
+	char *key, **vals;
+	struct group *g;
+
+	if (xdr == NULL) return NULL;
+
+	if (!xdr_int(xdr, &nkeys)) return NULL;
+
+	g = (struct group *)calloc(1, sizeof(struct group));
+	g->gr_gid = -2;
+
+	for (i = 0; i < nkeys; i++)
+	{
+		key = NULL;
+		vals = NULL;
+		nvals = 0;
+
+		status = _lu_xdr_attribute(xdr, &key, &vals, &nvals);
+		if (status < 0)
+		{
+			free_group(g);
+			return NULL;
+		}
+
+		if (nvals == 0)
+		{
+			free(key);
+			continue;
+		}
+
+		j = 0;
+
+		if ((g->gr_name == NULL) && (!strcmp("name", key)))
+		{
+			g->gr_name = vals[0];
+			j = 1;
+		}
+		else if ((g->gr_passwd == NULL) && (!strcmp("passwd", key)))
+		{
+			g->gr_passwd = vals[0];
+			j = 1;
+		}
+		else if ((g->gr_gid == -2) && (!strcmp("gid", key)))
+		{
+			g->gr_gid = atoi(vals[0]);
+		}
+		else if ((g->gr_mem == NULL) && (!strcmp("users", key)))
+		{
+			g->gr_mem = vals;
+			j = nvals;
+			vals = NULL;
+		}
+
+		free(key);
+		if (vals != NULL)
+		{
+			for (; j < nvals; j++) free(vals[j]);
+			free(vals);
+		}
+	}
+
+	if (g->gr_name == NULL) g->gr_name = strdup("");
+	if (g->gr_passwd == NULL) g->gr_passwd = strdup("");
+	if (g->gr_mem == NULL) g->gr_mem = (char **)calloc(1, sizeof(char *));
+
+	return g;
+}
+
+static struct group *
+copy_group(struct group *in)
+{
+	struct group *g;
+	int i, len;
+
+	if (in == NULL) return NULL;
+
+	g = (struct group *)calloc(1, sizeof(struct group));
+
+	g->gr_name = LU_COPY_STRING(in->gr_name);
+	g->gr_passwd = LU_COPY_STRING(in->gr_passwd);
+	g->gr_gid = in->gr_gid;
+
+	len = 0;
+	if (in->gr_mem != NULL)
+	{
+		for (len = 0; in->gr_mem[len] != NULL; len++);
+	}
+
+	g->gr_mem = (char **)calloc(len + 1, sizeof(char *));
+	for (i = 0; i < len; i++)
+	{
+		g->gr_mem[i] = strdup(in->gr_mem[i]);
+	}
+
+	return g;
+}
+
+static int
+copy_group_r(struct group *in, struct group *out, char *buffer, int buflen)
+{
+	int i, len, hsize;
+	unsigned long addr;
+	char *bp, *ap;
+
+	if (in == NULL) return -1;
+	if (out == NULL) return -1;
+
+	if (buffer == NULL) buflen = 0;
+
+	/* Calculate size of input */
+	hsize = 0;
+	if (in->gr_name != NULL) hsize += strlen(in->gr_name);
+	if (in->gr_passwd != NULL) hsize += strlen(in->gr_passwd);
+
+	/* NULL pointer at end of list */
+	hsize += sizeof(char *);
+
+	len = 0;
+	if (in->gr_mem != NULL)
+	{
+		for (len = 0; in->gr_mem[len] != NULL; len++)
+		{
+			hsize += sizeof(char *);
+			hsize += strlen(in->gr_mem[len]);
+		}
+	}
+
+	/* Check buffer space */
+	if (hsize > buflen) return -1;
+
+	/* Copy result into caller's struct group, using buffer for memory */
+	bp = buffer;
+
+	out->gr_name = NULL;
+	if (in->gr_name != NULL)
+	{
+		out->gr_name = bp;
+		hsize = strlen(in->gr_name) + 1;
+		memmove(bp, in->gr_name, hsize);
+		bp += hsize;
+	}
+
+	out->gr_passwd = NULL;
+	if (in->gr_passwd != NULL)
+	{
+		out->gr_passwd = bp;
+		hsize = strlen(in->gr_passwd) + 1;
+		memmove(bp, in->gr_passwd, hsize);
+		bp += hsize;
+	}
+
+	out->gr_gid = in->gr_gid;
+
+	out->gr_mem = NULL;
+	ap = bp + ((len + 1) * sizeof(char *));
+
+	if (in->gr_mem != NULL)
+	{
+		out->gr_mem = (char **)bp;
+		for (i = 0; i < len; i++)
+		{
+			addr = (unsigned long)ap;
+			memmove(bp, &addr, sizeof(unsigned long));
+			bp += sizeof(unsigned long);
+
+			hsize = strlen(in->gr_mem[i]) + 1;
+			memmove(ap, in->gr_mem[i], hsize);
+			ap += hsize;
+		}
+	}
+	
+	memset(bp, 0, sizeof(unsigned long));
+	bp = ap;
+
+	return 0;
 }
 
 static void
-convert_gr(_lu_group *lu_gr)
+recycle_group(struct lu_thread_info *tdata, struct group *in)
 {
-	int i, len;
+	struct group *g;
 
-	freeold();
+	if (tdata == NULL) return;
+	g = (struct group *)tdata->lu_entry;
 
-	global_gr.gr_name = strdup(lu_gr->gr_name);
-	global_gr.gr_passwd = strdup(lu_gr->gr_passwd);
-	global_gr.gr_gid = lu_gr->gr_gid;
-
-	len = lu_gr->gr_mem.gr_mem_len;
-	global_gr.gr_mem = (char **)malloc((len + 1) * sizeof(char *));
-
-	for (i = 0; i < len; i++)
+	if (in == NULL)
 	{
-		global_gr.gr_mem[i] = strdup(lu_gr->gr_mem.gr_mem_val[i]);
+		free_group(g);
+		tdata->lu_entry = NULL;
 	}
 
-	global_gr.gr_mem[len] = NULL;
+	if (tdata->lu_entry == NULL)
+	{
+		tdata->lu_entry = in;
+		return;
+	}
 
-	global_free = 0;
+	free_group_data(g);
+
+	g->gr_name = in->gr_name;
+	g->gr_passwd = in->gr_passwd;
+	g->gr_gid = in->gr_gid;
+	g->gr_mem = in->gr_mem;
+
+	free(in);
 }
 
 static struct group *
 lu_getgrgid(int gid)
 {
-	unsigned datalen;
-	_lu_group_ptr lu_gr;
-	XDR xdr;
+	struct group *g;
+	unsigned int datalen;
+	XDR inxdr;
 	static int proc = -1;
-	unit lookup_buf[MAX_INLINE_UNITS];
+	int count;
+	char *lookup_buf;
 	
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "getgrgid", &proc) != KERN_SUCCESS)
 		{
-			return (NULL);
+			return NULL;
 		}
 	}
 
 	gid = htonl(gid);
-	datalen = MAX_INLINE_UNITS;
+	datalen = 0;
+	lookup_buf = NULL;
 
-	if (_lookup_one(_lu_port, proc, (unit *)&gid, 1, lookup_buf, &datalen)
-		!= KERN_SUCCESS)
+	if (_lookup_all(_lu_port, proc, (unit *)&gid, 1, &lookup_buf, &datalen) != KERN_SUCCESS)
 	{
-		return (NULL);
+		return NULL;
 	}
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&xdr, lookup_buf, datalen, XDR_DECODE);
-	lu_gr = NULL;
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
 
-	if (!xdr__lu_group_ptr(&xdr, &lu_gr) || lu_gr == NULL)
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	count = 0;
+	if (!xdr_int(&inxdr, &count))
 	{
-		xdr_destroy(&xdr);
-		return (NULL);
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
 	}
 
-	xdr_destroy(&xdr);
+	if (count == 0)
+	{
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
+	}
 
-	convert_gr(lu_gr);
-	xdr_free(xdr__lu_group_ptr, &lu_gr);
-	return (&global_gr);
+	g = extract_group(&inxdr);
+	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
+	return g;
 }
 
 static struct group *
 lu_getgrnam(const char *name)
 {
-	unsigned datalen;
+	struct group *g;
+	unsigned int datalen;
 	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
 	XDR outxdr;
 	XDR inxdr;
-	_lu_group_ptr lu_gr;
 	static int proc = -1;
-	unit lookup_buf[MAX_INLINE_UNITS];
+	int count;
+	char *lookup_buf;
 
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "getgrnam", &proc) != KERN_SUCCESS)
 		{
-			return (NULL);
+			return NULL;
 		}
 	}
 
 	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
 
-	if (!xdr__lu_string(&outxdr, &name))
+	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
 	{
 		xdr_destroy(&outxdr);
-		return (NULL);
+		return NULL;
 	}
 
-	datalen = MAX_INLINE_UNITS;
+	datalen = 0;
+	lookup_buf = NULL;
 
-	if (_lookup_one(_lu_port, proc, (unit *)namebuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, lookup_buf, &datalen)
-		!= KERN_SUCCESS)
+	if (_lookup_all(_lu_port, proc, (unit *)namebuf, xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen) != KERN_SUCCESS)
 	{
-		return (NULL);
+		return NULL;
 	}
 
 	xdr_destroy(&outxdr);
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&inxdr, lookup_buf, datalen,
-		XDR_DECODE);
-	lu_gr = NULL;
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
 
-	if (!xdr__lu_group_ptr(&inxdr, &lu_gr) || (lu_gr == NULL))
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	count = 0;
+	if (!xdr_int(&inxdr, &count))
 	{
 		xdr_destroy(&inxdr);
-		return (NULL);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
 	}
 
+	if (count == 0)
+	{
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return NULL;
+	}
+
+	g = extract_group(&inxdr);
 	xdr_destroy(&inxdr);
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
 
-	convert_gr(lu_gr);
-	xdr_free(xdr__lu_group_ptr, &lu_gr);
-	return (&global_gr);
+	return g;
 }
-
 
 static int
 lu_initgroups(const char *name, int basegid)
 {
-	unsigned datalen;
+	unsigned int datalen;
 	XDR outxdr;
 	XDR inxdr;
 	static int proc = -1;
-	unit lookup_buf[MAX_INLINE_UNITS];
+	char *lookup_buf;
 	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
 	int groups[NGROUPS];
-	int ngroups = 1;
+	int ngroups;
 	int a_group;
-	int count;
+	int i, j, count;
 
 	groups[0] = basegid;
 	
@@ -227,15 +450,17 @@ lu_initgroups(const char *name, int basegid)
 	}
 
 	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, &name))
+	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
 	{
 		xdr_destroy(&outxdr);
 		return -1;
 	}
 
-	datalen = MAX_INLINE_UNITS;
-	if (_lookup_one(_lu_port, proc, (unit *)namebuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, lookup_buf, &datalen)
+	datalen = 0;
+	lookup_buf = NULL;
+
+	if (_lookup_all(_lu_port, proc, (unit *)namebuf,
+		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen)
 		!= KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
@@ -245,116 +470,206 @@ lu_initgroups(const char *name, int basegid)
 	xdr_destroy(&outxdr);
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	xdrmem_create(&inxdr, lookup_buf, datalen,
-		XDR_DECODE);
+	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
 
-	while (xdr_int(&inxdr, &a_group))
+	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
+
+	if (!xdr_int(&inxdr, &count))
 	{
-		if (a_group == GROUP_SENTINEL) break;
+		xdr_destroy(&inxdr);
+		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+		return -1;
+	}
 
-		for (count = 0; count < ngroups; count++)
+	if (count > NGROUPS) count = NGROUPS;
+
+	ngroups = 0;
+
+	for (i = 0; i < count; i++)
+	{
+		if (!xdr_int(&inxdr, &a_group)) break;
+
+		for (j = 0; j < ngroups; j++)
 		{
-			if (groups[count] == a_group) break;
+			if (groups[j] == a_group) break;
 		}
-
-		if (count >= ngroups) groups[ngroups++] = a_group;
+		if (j >= ngroups) groups[ngroups++] = a_group;
+		
 	}
 	xdr_destroy(&inxdr);
-	
+	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+
 	return setgroups(ngroups, groups);
 }
 
 static void
 lu_endgrent(void)
 {
-	gr_nentries = 0;
-	if (gr_data != NULL)
-	{
-		freeold();
-		vm_deallocate(mach_task_self(), (vm_address_t)gr_data, gr_datalen);
-		gr_data = NULL;
-	}
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_group, free_lu_thread_info_group);
+	_lu_data_free_vm_xdr(tdata);
 }
 
 static int
 lu_setgrent(void)
 {
 	lu_endgrent();
-	gr_start = 1;
-	return (1);
+	return 1;
 }
 
 static struct group *
 lu_getgrent()
 {
+	struct group *g;
 	static int proc = -1;
-	_lu_group lu_gr;
+	struct lu_thread_info *tdata;
 
-	if (gr_start == 1)
+	tdata = _lu_data_create_key(_lu_data_key_group, free_lu_thread_info_group);
+	if (tdata == NULL)
 	{
-		gr_start = 0;
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_group, tdata);
+	}
 
+	if (tdata->lu_vm == NULL)
+	{
 		if (proc < 0)
 		{
 			if (_lookup_link(_lu_port, "getgrent", &proc) != KERN_SUCCESS)
 			{
 				lu_endgrent();
-				return (NULL);
+				return NULL;
 			}
 		}
 
-		if (_lookup_all(_lu_port, proc, NULL, 0, &gr_data, &gr_datalen)
-			!= KERN_SUCCESS)
+		if (_lookup_all(_lu_port, proc, NULL, 0, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
 		{
 			lu_endgrent();
-			return (NULL);
+			return NULL;
 		}
 
-#ifdef NOTDEF
-/* NOTDEF because OOL buffers are counted in bytes with untyped IPC */
-		gr_datalen *= BYTES_PER_XDR_UNIT;
-#endif
-		xdrmem_create(&gr_xdr, gr_data, gr_datalen,
-			XDR_DECODE);
-		if (!xdr_int(&gr_xdr, &gr_nentries))
+		/* mig stubs measure size in words (4 bytes) */
+		tdata->lu_vm_length *= 4;
+
+		if (tdata->lu_xdr != NULL)
 		{
-			xdr_destroy(&gr_xdr);
+			xdr_destroy(tdata->lu_xdr);
+			free(tdata->lu_xdr);
+		}
+		tdata->lu_xdr = (XDR *)calloc(1, sizeof(XDR));
+
+		xdrmem_create(tdata->lu_xdr, tdata->lu_vm, tdata->lu_vm_length, XDR_DECODE);
+		if (!xdr_int(tdata->lu_xdr, &tdata->lu_vm_cursor))
+		{
 			lu_endgrent();
-			return (NULL);
+			return NULL;
 		}
 	}
 
-	if (gr_nentries == 0)
+	if (tdata->lu_vm_cursor == 0)
 	{
-		xdr_destroy(&gr_xdr);
 		lu_endgrent();
-		return (NULL);
+		return NULL;
 	}
 
-	bzero(&lu_gr, sizeof(lu_gr));
-	if (!xdr__lu_group(&gr_xdr, &lu_gr))
+	g = extract_group(tdata->lu_xdr);
+	if (g == NULL)
 	{
-		xdr_destroy(&gr_xdr);
 		lu_endgrent();
-		return (NULL);
+		return NULL;
 	}
 
-	gr_nentries--;
-	convert_gr(&lu_gr);
-	xdr_free(xdr__lu_group, &lu_gr);
-	return (&global_gr);
+	tdata->lu_vm_cursor--;
+	
+	return g;
 }
 
-struct group *
-getgrgid(gid_t gid)
+static struct group *
+getgr_internal(const char *name, gid_t gid, int source)
 {
-	LOOKUP1(lu_getgrgid, _old_getgrgid, gid, struct group);
+	struct group *res = NULL;
+
+	if (_lu_running())
+	{
+		switch (source)
+		{
+			case GR_GET_NAME:
+				res = lu_getgrnam(name);
+				break;
+			case GR_GET_GID:
+				res = lu_getgrgid(gid);
+				break;
+			case GR_GET_ENT:
+				res = lu_getgrent();
+				break;
+			default: res = NULL;
+		}
+	}
+	else
+	{
+		pthread_mutex_lock(&_group_lock);
+		switch (source)
+		{
+			case GR_GET_NAME:
+				res = copy_group(_old_getgrnam(name));
+				break;
+			case GR_GET_GID:
+				res = copy_group(_old_getgrgid(gid));
+				break;
+			case GR_GET_ENT:
+				res = copy_group(_old_getgrent());
+				break;
+			default: res = NULL;
+		}
+		pthread_mutex_unlock(&_group_lock);
+	}
+
+	return res;
 }
 
-struct group *
-getgrnam(const char *name)
+static struct group *
+getgr(const char *name, gid_t gid, int source)
 {
-	LOOKUP1(lu_getgrnam, _old_getgrnam, name, struct group);
+	struct group *res = NULL;
+	struct lu_thread_info *tdata;
+
+	tdata = _lu_data_create_key(_lu_data_key_group, free_lu_thread_info_group);
+	if (tdata == NULL)
+	{
+		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
+		_lu_data_set_key(_lu_data_key_group, tdata);
+	}
+
+	res = getgr_internal(name, gid, source);
+
+	recycle_group(tdata, res);
+	return (struct group *)tdata->lu_entry;
+}
+
+static int
+getgr_r(const char *name, gid_t gid, int source, struct group *grp, char *buffer, size_t bufsize, struct group **result)
+{
+	struct group *res = NULL;
+	int status;
+
+	*result = NULL;
+	errno = 0;
+
+	res = getgr_internal(name, gid, source);
+	if (res == NULL) return -1;
+
+	status = copy_group_r(res, grp, buffer, bufsize);
+	free_group(res);
+
+	if (status != 0)
+	{
+		errno = ERANGE;
+		return -1;
+	}
+
+	*result = grp;
+	return 0;
 }
 
 int
@@ -380,19 +695,46 @@ initgroups(const char *name, int basegid)
 }
 
 struct group *
+getgrnam(const char *name)
+{
+	return getgr(name, -2, GR_GET_NAME);
+}
+
+struct group *
+getgrgid(gid_t gid)
+{
+	return getgr(NULL, gid, GR_GET_GID);
+}
+
+struct group *
 getgrent(void)
 {
-	GETENT(lu_getgrent, _old_getgrent, &gr_state, struct group);
+	return getgr(NULL, -2, GR_GET_ENT);
 }
 
 int
 setgrent(void)
 {
-	INTSETSTATEVOID(lu_setgrent, _old_setgrent, &gr_state);
+	if (_lu_running()) lu_setgrent();
+	else _old_setgrent();
+	return 1;
 }
 
 void
 endgrent(void)
 {
-	UNSETSTATE(lu_endgrent, _old_endgrent, &gr_state);
+	if (_lu_running()) lu_endgrent();
+	else _old_endgrent();
+}
+
+int
+getgrnam_r(const char *name, struct group *grp, char *buffer, size_t bufsize, struct group **result)
+{
+	return getgr_r(name, -2, GR_GET_NAME, grp, buffer, bufsize, result);
+}
+
+int
+getgrgid_r(gid_t gid, struct group *grp, char *buffer, size_t bufsize, struct group **result)
+{
+	return getgr_r(NULL, gid, GR_GET_GID, grp, buffer, bufsize, result);
 }

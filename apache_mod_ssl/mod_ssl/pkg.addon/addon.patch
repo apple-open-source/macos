@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: addon.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 23-Feb-2002
+## Created on: 24-Jun-2002
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -40,8 +40,8 @@ Index: src/Configuration.tmpl
 | Add more beautiful optic to the status page table..
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_status.c
---- src/modules/standard/mod_status.c	28 Jan 2002 19:21:28 -0000	1.1.1.13
-+++ src/modules/standard/mod_status.c	28 Jan 2002 19:40:57 -0000	1.10
+--- src/modules/standard/mod_status.c	27 Mar 2002 15:23:06 -0000	1.1.1.14
++++ src/modules/standard/mod_status.c	27 Mar 2002 15:30:03 -0000	1.11
 @@ -484,12 +484,33 @@
  	    if (no_table_report)
  		ap_rputs("<p><hr><h2>Server Details</h2>\n\n", r);
@@ -145,9 +145,9 @@ Index: htdocs/manual/mod/index.html.en
 | Add a hyperlink for the Define directives.
 +---------------------------------------------------------------------------
 Index: htdocs/manual/mod/directives.html.en
---- htdocs/manual/mod/directives.html.en	28 Jan 2002 19:21:43 -0000	1.1.1.2
-+++ htdocs/manual/mod/directives.html.en	28 Jan 2002 19:40:56 -0000	1.3
-@@ -214,6 +214,8 @@
+--- htdocs/manual/mod/directives.html.en	27 Mar 2002 15:23:17 -0000	1.1.1.3
++++ htdocs/manual/mod/directives.html.en	27 Mar 2002 15:30:01 -0000	1.4
+@@ -220,6 +220,8 @@
  
        <li><a href="core.html#defaulttype">DefaultType</a></li>
  

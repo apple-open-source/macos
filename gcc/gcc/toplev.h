@@ -120,7 +120,7 @@ typedef enum c_language_kind
   clk_objective_cplusplus   /* Objective C++ */
 }c_language_kind;
 
-int c_language;
+extern int c_language;
 #undef trim_filename
 extern const char *trim_filename	PROTO ((const char *));
 extern int wrapup_global_declarations   PROTO ((union tree_node **, int));

@@ -213,12 +213,7 @@ OSSet * IOFDiskPartitionScheme::scan(SInt32 * score)
     {
         // Read the next FDisk map into our buffer.
 
-///m:2333367:workaround:commented:start
-//      status = media->read(this, fdiskBlock * mediaBlockSize, buffer);
-///m:2333367:workaround:commented:stop
-///m:2333367:workaround:added:start
-        status = media->IOStorage::read(this, fdiskBlock * mediaBlockSize, buffer);
-///m:2333367:workaround:added:stop
+        status = media->read(this, fdiskBlock * mediaBlockSize, buffer);
         if ( status != kIOReturnSuccess )  goto scanErr;
 
         fdiskMap = (disk_blk0 *) buffer->getBytesNoCopy();
@@ -387,6 +382,10 @@ bool IOFDiskPartitionScheme::isPartitionInvalid( fdisk_part * partition,
     partitionBase *= mediaBlockSize;
     partitionSize *= mediaBlockSize;
 
+    // Determine whether the partition shares space with the partition map.
+
+    if ( partitionBase == fdiskBlock )  return true;
+
     // Determine whether the partition starts at (or past) the end-of-media.
 
     if ( partitionBase >= media->getSize() )  return true;
@@ -456,7 +455,7 @@ IOMedia * IOFDiskPartitionScheme::instantiateMediaObject(
                 /* base               */ partitionBase,
                 /* size               */ partitionSize,
                 /* preferredBlockSize */ mediaBlockSize,
-                /* isEjectable        */ media->isEjectable(),
+                /* attributes         */ media->getAttributes(),
                 /* isWhole            */ false,
                 /* isWritable         */ media->isWritable(),
                 /* contentHint        */ partitionHint ) )

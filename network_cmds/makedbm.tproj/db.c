@@ -59,7 +59,6 @@ static char rcsid[] = "$OpenBSD: db.c,v 1.1 1997/07/22 10:52:59 maja Exp $";
 #endif
 
 #include <sys/types.h>
-#include <bsd/db.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/param.h>

@@ -22,14 +22,14 @@
 
 #include "Scavenger.h"
 
-#define FILE_ID_COUNT	10
+#define DEBUG_HARDLINKCHECK 0
+
 #define kBadLinkID 0xffffffff
 
 /* info saved for each indirect link encountered */
 struct IndirectLinkInfo {
 	UInt32	linkID;
 	UInt32	linkCount;
-	UInt32  linkFileID[FILE_ID_COUNT];
 };
 
 struct HardLinkInfo {
@@ -37,7 +37,7 @@ struct HardLinkInfo {
 	UInt32	linkSlots;
 	UInt32	slotsUsed;
 	SGlobPtr globals;
-	struct IndirectLinkInfo linkInfo[1];
+	struct IndirectLinkInfo *linkInfo;
 };
 
 
@@ -61,6 +61,16 @@ static int  GetPrivateDir(SGlobPtr gp, CatalogRecord *rec);
 static int  RecordOrphanINode(SGlobPtr gp, UInt32 parID, char * filename);
 static int  RecordBadLinkCount(SGlobPtr gp, UInt32 parID, char * filename,
                                 int badcnt, int goodcnt);
+static void hash_insert(UInt32 linkID, int m, int n, struct IndirectLinkInfo *linkInfo);
+static struct IndirectLinkInfo * hash_search(UInt32 linkID, int m, int n, struct IndirectLinkInfo *linkInfo);
+
+int average_miss_probe = 0;
+int average_hit_probe = 0;
+
+#if DEBUG_HARDLINKCHECK
+int hash_search_hits = 0;
+int hash_search_misses = 0;
+#endif // DEBUG_HARDLINKCHECK
 
 /*
  * HardLinkCheckBegin
@@ -77,17 +87,24 @@ HardLinkCheckBegin(SGlobPtr gp, void** cookie)
 	int entries, slots;
 
 	if (GetPrivateDir(gp, &rec) == 0 && rec.hfsPlusFolder.valence != 0) {
-		entries = rec.hfsPlusFolder.valence;
+		entries = rec.hfsPlusFolder.valence + 10;
 		folderID = rec.hfsPlusFolder.folderID;
 	} else {
-		entries = 0;
+		entries = 100;
 		folderID = 0;
-	};
+	}
+	
+	for (slots = 1; slots <= entries; slots <<= 1)
+		continue;
+	if (slots < (entries + (entries/3)))
+		slots <<= 1;
+		
+#if DEBUG_HARDLINKCHECK
+	printf("hash table size is %d for %d entries\n", slots, entries); 
+#endif // DEBUG_HARDLINKCHECK
 
-	slots = entries ? entries + 10 : 100;
-
-	info = (struct HardLinkInfo *) AllocateClearMemory(
-		sizeof(struct HardLinkInfo) + sizeof(struct IndirectLinkInfo) * slots);
+	info = (struct HardLinkInfo *) malloc(sizeof(struct HardLinkInfo));
+	info->linkInfo = (struct IndirectLinkInfo *) calloc(slots, sizeof(struct IndirectLinkInfo));
 
 	info->privDirID = folderID;
 	info->linkSlots = slots;
@@ -107,21 +124,28 @@ HardLinkCheckBegin(SGlobPtr gp, void** cookie)
 void
 HardLinkCheckEnd(void * cookie)
 {
-#if 0
-	struct HardLinkInfo * info = (struct HardLinkInfo *) cookie;
-	struct IndirectLinkInfo *linkInfo;
-	int i, j;
+	if (cookie) {
+		struct HardLinkInfo *		infoPtr;
+		
+		infoPtr = (struct HardLinkInfo *) cookie;
+		if (infoPtr->linkInfo) {
 
-	linkInfo = &info->linkInfo[0];
-	for (i = 0; i < info->slotsUsed; ++linkInfo, ++i) {
-		printf(" link %d has %d links: ", linkInfo->linkID, linkInfo->linkCount);
-		for (j = 0; j < linkInfo->linkCount; ++j)
-			printf(", %d", linkInfo->linkFileID[j]);
-		printf("\n");
+#if DEBUG_HARDLINKCHECK
+{
+	struct IndirectLinkInfo *	linkInfoPtr;
+	int		i;
+	printf("hash table summary:\n");
+	linkInfoPtr = infoPtr->linkInfo;
+	for (i = 0; i < infoPtr->linkSlots; ++linkInfoPtr, ++i) {
+		printf("%5d --> %d (%d)\n", i, linkInfoPtr->linkID, linkInfoPtr->linkCount);
 	}
-#endif
-	if (cookie)
+}
+#endif // DEBUG_HARDLINKCHECK
+
+			DisposeMemory(infoPtr->linkInfo);
+		}
 		DisposeMemory(cookie);
+	}
 }
 
 /*
@@ -131,35 +155,18 @@ HardLinkCheckEnd(void * cookie)
  * Called for every indirect link in the catalog.
  */
 void
-CaptureHardLink(void * cookie, UInt32 linkID, UInt32 fileID)
+CaptureHardLink(void * cookie, UInt32 linkID)
 {
 	struct HardLinkInfo * info = (struct HardLinkInfo *) cookie;
 	struct IndirectLinkInfo *linkInfo;
-	int linkCount;
-	int i;
-
-	if (info == NULL)
-		return;
 
 	if (linkID == 0)
 		linkID = kBadLinkID;	/* reported later */
-
-	linkInfo = &info->linkInfo[0];
-	for (i = 0; i < info->linkSlots; ++linkInfo, ++i) {
-		if (linkInfo->linkID == kBadLinkID)
-			continue;
-		if (linkInfo->linkID == linkID || linkInfo->linkID == 0) {
-			linkCount = linkInfo->linkCount;
-			++linkInfo->linkCount;
-			if (linkCount < FILE_ID_COUNT)
-				linkInfo->linkFileID[linkCount] = fileID;
-			if (linkInfo->linkID == 0) {
-				linkInfo->linkID = linkID;
-				++info->slotsUsed;
-			}
-			break;
-		}
-	}
+	linkInfo = hash_search(linkID, info->linkSlots, info->slotsUsed, info->linkInfo);
+	if (linkInfo)
+		++linkInfo->linkCount;
+	else
+		hash_insert(linkID, info->linkSlots, info->slotsUsed++, info->linkInfo);
 }
 
 /*
@@ -187,7 +194,6 @@ CheckHardLinks(void *cookie)
 	FSBufferDescriptor  btrec;
 	UInt16              reclen;
 	size_t              len;
-	int                 i;
 	int linkCount;
 	int prefixlen;
 	int result;
@@ -202,7 +208,15 @@ CheckHardLinks(void *cookie)
 	PrintStatus(gp, M_MultiLinkChk, 0);
 
 	folderID = info->privDirID;
-	linkInfo = &info->linkInfo[0];
+	linkInfo = info->linkInfo;
+
+#if DEBUG_HARDLINKCHECK
+	printf("hashtable: %d entries inserted, %d search hits, %d search misses\n",
+			info->slotsUsed, hash_search_hits, hash_search_misses);
+	printf("average_miss_probe = %d, average_hit_probe = %d\n",
+			average_miss_probe/hash_search_misses, average_hit_probe/hash_search_hits);
+#endif // DEBUG_HARDLINKCHECK
+
 	fcb = gp->calculatedCatalogFCB;
 	prefixlen = strlen(HFS_INODE_PREFIX);
 	ClearMemory(&iterator, sizeof(iterator));
@@ -246,25 +260,15 @@ CheckHardLinks(void *cookie)
 		
 		linkID = atol(&filename[prefixlen]);
 		linkCount = rec.hfsPlusFile.bsdInfo.special.linkCount;
-
-		/* look for matching links */
-		for (i = 0; i < info->slotsUsed; ++i) {
-			if (linkID == linkInfo[i].linkID) {
-#if 0
-				printf("   found match for link %d\n", linkID);
-#endif
-				if (linkCount != linkInfo[i].linkCount)
-					RecordBadLinkCount(gp, folderID, filename,
-					                   linkCount, linkInfo[i].linkCount);
-				linkInfo[i].linkID = 0;
-				break;
-			}
-		}
-
-		/* no match means this is an orphan indirect node */
-		if (i == info->slotsUsed)
+		linkInfo = hash_search(linkID, info->linkSlots, info->slotsUsed, info->linkInfo);
+		if (linkInfo) {
+			if (linkCount != linkInfo->linkCount)
+				RecordBadLinkCount(gp, folderID, filename,
+						   linkCount, linkInfo->linkCount);
+		} else {
+			/* no match means this is an orphan indirect node */
 			RecordOrphanINode(gp, folderID, filename);
-
+		}
 		filename[0] = '\0';
 	}
 
@@ -390,4 +394,59 @@ RecordBadLinkCount(SGlobPtr gp, UInt32 parID, char * filename,
 
 	gp->CatStat |= S_LinkCount;
 	return (0);
+}
+
+
+static void
+hash_insert(UInt32 linkID, int m, int n, struct IndirectLinkInfo *linkInfo)
+{
+	int i, last;
+	
+	i = linkID & (m - 1);
+	
+	last = (i + (m-1)) % m;
+	while ((i != last) && (linkInfo[i].linkID != 0) && (linkInfo[i].linkID != linkID))
+		i = (i + 1) % m;
+	
+	if (linkInfo[i].linkID == 0) {
+		linkInfo[i].linkID = linkID;
+		linkInfo[i].linkCount = 1;
+	} else if (linkInfo[i].linkID == linkID) {
+		printf("hash: duplicate insert! (%d)\n", linkID);
+		exit(13);
+	} else {
+		printf("hash table full (%d entries) \n", n);
+		exit(14);
+	}
+}
+
+
+static struct IndirectLinkInfo *
+hash_search(UInt32 linkID, int m, int n, struct IndirectLinkInfo *linkInfo)
+{
+	int i, last;
+	int p = 1;
+
+	
+	i = linkID & (m - 1);
+
+	last = (i + (n-1)) % m;
+	while ((i != last) && linkInfo[i].linkID && (linkInfo[i].linkID != linkID)) {
+		i = (i + 1) % m;
+		++p;
+	}
+	
+	if (linkInfo[i].linkID == linkID) {
+#if DEBUG_HARDLINKCHECK
+		++hash_search_hits;
+#endif // DEBUG_HARDLINKCHECK
+		average_hit_probe += p;
+		return (&linkInfo[i]);
+	} else {
+#if DEBUG_HARDLINKCHECK
+		++hash_search_misses;
+#endif // DEBUG_HARDLINKCHECK
+		average_miss_probe += p;
+		return (NULL);
+	}
 }

@@ -1,0 +1,27 @@
+#! /bin/sh
+
+# Do not complain about the inexistence of a source for LIBOBJS if
+# it's in BUILT_SOURCES.  Reported by Erez Zadok
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_PROG_CC
+AC_PROG_RANLIB
+LIBOBJS="$LIBOBJS foo.o"
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+noinst_LIBRARIES = libfoo.a
+libfoo_a_LIBADD = @LIBOBJS@
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE && exit 1
+
+echo 'BUILT_SOURCES = foo.c' >> Makefile.am
+
+$AUTOMAKE || exit 1

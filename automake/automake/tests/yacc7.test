@@ -1,0 +1,39 @@
+#! /bin/sh
+
+# Test to make sure dependencies are generated correctly for .h files.
+# Report from Richard Boulton.
+
+. $srcdir/defs || exit 1
+
+$needs_gnu_make
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_PROG_CC
+AC_PROG_YACC
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = foo
+foo_SOURCES = foo.y
+AM_YFLAGS = -d
+END
+
+cat > foo.y << 'END'
+%%
+WORD: "up";
+%%
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE -a || exit 1
+$AUTOCONF || exit 1
+./configure || exit 1
+
+$MAKE foo.h || exit 1
+
+test -f foo.h || exit 1
+
+exit 0

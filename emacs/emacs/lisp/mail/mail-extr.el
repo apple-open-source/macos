@@ -1,6 +1,7 @@
-;;; mail-extr.el --- extract full name and address from RFC 822 mail header.
+;;; mail-extr.el --- extract full name and address from RFC 822 mail header
 
-;; Copyright (C) 1991, 1992, 1993, 1994, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1991, 1992, 1993, 1994, 1997, 2001
+;;   Free Software Foundation, Inc.
 
 ;; Author: Joe Wells <jbw@cs.bu.edu>
 ;; Maintainer: FSF
@@ -299,7 +300,7 @@ by translating things like \"foo!bar!baz@host\" into \"baz@bar.UUCP\"."
 ;; You will also notice the consideration for the
 ;; Swedish/Finnish/Norwegian character set.
 (defconst mail-extr-all-letters-but-separators
-  (purecopy "][A-Za-z{|}'~0-9`\240-\377"))
+  (purecopy "][[:alnum:]{|}'~`"))
 
 ;; Any character that can occur in a name in an RFC822 address including
 ;; the separator (hyphen and possibly period) for multipart names.
@@ -309,11 +310,11 @@ by translating things like \"foo!bar!baz@host\" into \"baz@bar.UUCP\"."
 
 ;; Any character that can start a name.
 ;; Keep this set as minimal as possible.
-(defconst mail-extr-first-letters (purecopy "A-Za-z\240-\377"))
+(defconst mail-extr-first-letters (purecopy "[:alpha:]"))
 
 ;; Any character that can end a name.
 ;; Keep this set as minimal as possible.
-(defconst mail-extr-last-letters (purecopy "A-Za-z\240-\377`'."))
+(defconst mail-extr-last-letters (purecopy "[:alpha:]`'."))
 
 (defconst mail-extr-leading-garbage
   (purecopy (format "[^%s]+" mail-extr-first-letters)))
@@ -618,37 +619,36 @@ by translating things like \"foo!bar!baz@host\" into \"baz@bar.UUCP\"."
 ;; Utility functions and macros.
 ;;
 
-(defmacro mail-extr-delete-char (n)
+(defsubst mail-extr-delete-char (n)
   ;; in v19, delete-char is compiled as a function call, but delete-region
   ;; is byte-coded, so it's much much faster.
-  (list 'delete-region '(point) (list '+ '(point) n)))
+  (delete-region (point) (+ (point) n)))
 
-(defmacro mail-extr-skip-whitespace-forward ()
+(defsubst mail-extr-skip-whitespace-forward ()
   ;; v19 fn skip-syntax-forward is more tasteful, but not byte-coded.
-  '(skip-chars-forward " \t\n\r\240"))
+  (skip-chars-forward " \t\n\r\240"))
 
-(defmacro mail-extr-skip-whitespace-backward ()
+(defsubst mail-extr-skip-whitespace-backward ()
   ;; v19 fn skip-syntax-backward is more tasteful, but not byte-coded.
-  '(skip-chars-backward " \t\n\r\240"))
+  (skip-chars-backward " \t\n\r\240"))
 
 
-(defmacro mail-extr-undo-backslash-quoting (beg end)
-  (`(save-excursion
-      (save-restriction
-	(narrow-to-region (, beg) (, end))
-	(goto-char (point-min))
-	;; undo \ quoting
-	(while (search-forward "\\" nil t)
-	  (mail-extr-delete-char -1)
-	  (or (eobp)
-	      (forward-char 1))
-	  )))))
+(defsubst mail-extr-undo-backslash-quoting (beg end)
+  (save-excursion
+    (save-restriction
+      (narrow-to-region beg end)
+      (goto-char (point-min))
+      ;; undo \ quoting
+      (while (search-forward "\\" nil t)
+	(mail-extr-delete-char -1)
+	(or (eobp)
+	    (forward-char 1))))))
 
-(defmacro mail-extr-nuke-char-at (pos)
-  (` (save-excursion
-       (goto-char (, pos))
-       (mail-extr-delete-char 1)
-       (insert ?\ ))))
+(defsubst mail-extr-nuke-char-at (pos)
+  (save-excursion
+    (goto-char pos)
+    (mail-extr-delete-char 1)
+    (insert ?\ )))
 
 (put 'mail-extr-nuke-outside-range
      'edebug-form-spec '(symbolp &optional form form atom))
@@ -693,26 +693,18 @@ by translating things like \"foo!bar!baz@host\" into \"baz@bar.UUCP\"."
       pos
     (copy-marker pos)))
 
-(defmacro mail-extr-last (list)
-  ;; Returns last element of LIST.
-  ;; Could be a subst.
-  (` (let ((list (, list)))
-       (while (not (null (cdr list)))
-	 (setq list (cdr list)))
-       (car list))))
-  
-(defmacro mail-extr-safe-move-sexp (arg)
+(defsubst mail-extr-safe-move-sexp (arg)
   ;; Safely skip over one balanced sexp, if there is one.  Return t if success.
-  (` (condition-case error
-	 (progn
-	   (goto-char (or (scan-sexps (point) (, arg)) (point)))
-	   t)
-       (error
-	;; #### kludge kludge kludge kludge kludge kludge kludge !!!
-	(if (string-equal (nth 1 error) "Unbalanced parentheses")
-	    nil
-	  (while t
-	    (signal (car error) (cdr error))))))))
+  (condition-case error
+      (progn
+	(goto-char (or (scan-sexps (point) arg) (point)))
+	t)
+    (error
+     ;; #### kludge kludge kludge kludge kludge kludge kludge !!!
+     (if (string-equal (nth 1 error) "Unbalanced parentheses")
+	 nil
+       (while t
+	 (signal (car error) (cdr error)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -735,7 +727,7 @@ the form ((FULL-NAME CANONICAL-ADDRESS) ...) with one element for
 each recipient.  If ALL is nil, then if ADDRESS contains more than
 one recipients, all but the first is ignored.
 
-ADDRESS may be a string or a buffer.  If it is a buffer, the visible 
+ADDRESS may be a string or a buffer.  If it is a buffer, the visible
  (narrowed) portion of the buffer will be interpreted as the address.
  (This feature exists so that the clever caller might be able to avoid
  consing a string.)"
@@ -743,8 +735,7 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
 	(extraction-buffer (get-buffer-create " *extract address components*"))
 	value-list)
 
-    (save-excursion
-      (set-buffer extraction-buffer)
+    (with-current-buffer (get-buffer-create extraction-buffer)
       (fundamental-mode)
       (buffer-disable-undo extraction-buffer)
       (set-syntax-table mail-extr-address-syntax-table)
@@ -766,11 +757,9 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
 
       (set-text-properties (point-min) (point-max) nil)
 
-      (save-excursion
-	(set-buffer canonicalization-buffer)
+      (with-current-buffer (get-buffer-create canonicalization-buffer)
 	(fundamental-mode)
 	(buffer-disable-undo canonicalization-buffer)
-	(set-syntax-table mail-extr-address-syntax-table)
 	(setq case-fold-search nil))
 
       
@@ -804,6 +793,7 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
 	      ;;	mailbox-name-processed-flag
 	      disable-initial-guessing-flag) ; dynamically set from -voodoo
 
+	  (set-syntax-table mail-extr-address-syntax-table)
 	  (goto-char (point-min))
 
 	  ;; Insert extra space at beginning to allow later replacement with <
@@ -868,12 +858,12 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
 			    ;; BUG FIX: This test was reversed.  Thanks to the
 			    ;; brilliant Rod Whitby <rwhitby@research.canon.oz.au>
 			    ;; for discovering this!
-			    (< (mail-extr-last <-pos) (car >-pos)))))
+			    (< (car (last <-pos)) (car >-pos)))))
 	      ;; The argument contains more than one address.
 	      ;; Temporarily hide everything after this one.
-	      (setq end-of-address (copy-marker (1+ (point))))
+	      (setq end-of-address (copy-marker (1+ (point)) t))
 	      (narrow-to-region (point-min) (1+ (point)))
-	      (mail-extr-delete-char 1)
+	      (delete-char 1)
 	      (setq char ?\() ; HAVE I NO SHAME??
 	      )
 	     ;; record the position of various interesting chars, determine
@@ -1145,7 +1135,7 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
 			       (mail-extr-@-binds-tighter-than-!
 				(setq insert-point (point-max)))
 			       (%-pos
-				(setq insert-point (mail-extr-last %-pos)
+				(setq insert-point (car (last %-pos))
 				      saved-%-pos (mapcar 'mail-extr-markerize %-pos)
 				      %-pos nil
 				      @-pos (mail-extr-markerize @-pos)))
@@ -1853,7 +1843,7 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
 ;; abbreviations.
 
 (defconst mail-extr-all-top-level-domains
-  (let ((ob (make-vector 509 0)))
+  (let ((ob (make-vector 739 0)))
     (mapcar
      (function
       (lambda (x)
@@ -1866,14 +1856,19 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
        ;; ISO 3166 codes:
        ("ad" "Andorra")
        ("ae" "United Arab Emirates")
+       ("af" "Afghanistan")
        ("ag" "Antigua and Barbuda")
+       ("ai" "Anguilla")
        ("al" "Albania")
        ("am" "Armenia")
+       ("an" "Netherlands Antilles")
        ("ao" "Angola")
        ("aq" "Antarctica")		; continent
        ("ar" "Argentina"	"Argentine Republic")
+       ("as" "American Samoa")
        ("at" "Austria"		"The Republic of %s")
        ("au" "Australia")
+       ("aw" "Aruba")
        ("az" "Azerbaijan")
        ("ba" "Bosnia-Herzegovina")
        ("bb" "Barbados")
@@ -1882,27 +1877,38 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
        ("bf" "Burkina Faso")
        ("bg" "Bulgaria")
        ("bh" "Bahrain")
+       ("bi" "Burundi")
+       ("bj" "Benin")
        ("bm" "Bermuda")
+       ("bn" "Brunei Darussalam")
        ("bo" "Bolivia"		"Republic of %s")
        ("br" "Brazil"		"The Federative Republic of %s")
        ("bs" "Bahamas")
+       ("bt" "Bhutan")
+       ("bv" "Bouvet Island")
        ("bw" "Botswana")
        ("by" "Belarus")
        ("bz" "Belize")
        ("ca" "Canada")
+       ("cc" "Cocos (Keeling) Islands")
+       ("cd" "The Democratic Republic of The Congo")
+       ("cf" "Central African Republic")
        ("cg" "Congo")
        ("ch" "Switzerland"	"The Swiss Confederation")
-       ("ci" "Ivory Coast")
+       ("ci" "Ivory Coast")		; Cote D'ivoire
+       ("ck" "Cook Islands")
        ("cl" "Chile"		"The Republic of %s")
        ("cm" "Cameroon")		; In .fr domain
        ("cn" "China"		"The People's Republic of %s")
        ("co" "Colombia")
        ("cr" "Costa Rica"	"The Republic of %s")
-       ("cs" "Czechoslovakia")
        ("cu" "Cuba")
+       ("cv" "Cape Verde")
+       ("cx" "Christmas Island")
        ("cy" "Cyprus")
        ("cz" "Czech Republic")
        ("de" "Germany")
+       ("dj" "Djibouti")
        ("dk" "Denmark")
        ("dm" "Dominica")
        ("do" "Dominican Republic"	"The %s")
@@ -1910,25 +1916,36 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
        ("ec" "Ecuador"		"The Republic of %s")
        ("ee" "Estonia")
        ("eg" "Egypt"		"The Arab Republic of %s")
+       ("eh" "Western Sahara")
        ("er" "Eritrea")
        ("es" "Spain"		"The Kingdom of %s")
        ("et" "Ethiopia")
        ("fi" "Finland"		"The Republic of %s")
+       ("fj" "Fiji")
+       ("fk" "Falkland Islands (Malvinas)")
+       ("fm" "Micronesia"	"Federated States of %s")
        ("fo" "Faroe Islands")
        ("fr" "France")
        ("ga" "Gabon")
        ("gb" "United Kingdom")
        ("gd" "Grenada")
        ("ge" "Georgia")
-       ("gf" "Guyana (Fr.)")
-       ("gj" "Fiji")
+       ("gf" "French Guiana")
+       ("gh" "Ghana")
+       ("gi" "Gibraltar")
        ("gl" "Greenland")
        ("gm" "Gambia")
+       ("gn" "Guinea")
        ("gp" "Guadeloupe (Fr.)")
+       ("gq" "Equatorial Guinea")
        ("gr" "Greece"		"The Hellenic Republic (%s)")
+       ("gs" "South Georgia And The South Sandwich Islands")
        ("gt" "Guatemala")
        ("gu" "Guam (U.S.)")
+       ("gw" "Guinea-Bissau")
+       ("gy" "Guyana")
        ("hk" "Hong Kong")
+       ("hm" "Heard Island And Mcdonald Islands")
        ("hn" "Honduras")
        ("hr" "Croatia"		"Croatia (Hrvatska)")
        ("ht" "Haiti")
@@ -1936,35 +1953,52 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
        ("id" "Indonesia")
        ("ie" "Ireland")
        ("il" "Israel"		"The State of %s")
-       ("im" "Isle of Man"	"The %s")
+       ("im" "Isle of Man"	"The %s") ; NOT in ISO 3166-1 of 2001-02-26
        ("in" "India"		"The Republic of %s")
-       ("ir" "Iran")
+       ("io" "British Indian Ocean Territory")
+       ("iq" "Iraq")
+       ("ir" "Iran"		"Islamic Republic of %s")
        ("is" "Iceland"		"The Republic of %s")
        ("it" "Italy"		"The Italian Republic")
        ("jm" "Jamaica")
        ("jo" "Jordan")
        ("jp" "Japan")
        ("ke" "Kenya")
-       ("kn" "St. Kitts, Nevis, and Anguilla")
-       ("kp" "Korea (North)")
-       ("kr" "Korea (South)")
+       ("kg" "Kyrgyzstan")
+       ("kh" "Cambodia")
+       ("ki" "Kiribati")
+       ("km" "Comoros")
+       ("kn" "Saint Kitts and Nevis")
+       ("kp" "Korea (North)"	"Democratic People's Republic of Korea")
+       ("kr" "Korea (South)"	"Republic of Korea")
        ("kw" "Kuwait")
-       ("kz" "Kazakhstan")
+       ("ky" "Cayman Islands")
+       ("kz" "Kazakstan")
+       ("la" "Lao People's Democratic Republic")
        ("lb" "Lebanon")
-       ("lc" "St. Lucia")
+       ("lc" "Saint Lucia")
        ("li" "Liechtenstein")
        ("lk" "Sri Lanka"	"The Democratic Socialist Republic of %s")
+       ("lr" "Liberia")
        ("ls" "Lesotho")
        ("lt" "Lithuania")
        ("lu" "Luxembourg")
        ("lv" "Latvia")
+       ("ly" "Libyan Arab Jamahiriya")
        ("ma" "Morocco")
        ("mc" "Monaco")
        ("md" "Moldova"		"The Republic of %s")
        ("mg" "Madagascar")
-       ("mk" "Macedonia")
+       ("mh" "Marshall Islands")
+       ("mk" "Macedonia"	"The Former Yugoslav Republic of %s")
        ("ml" "Mali")
+       ("mm" "Myanmar")
+       ("mn" "Mongolia")
        ("mo" "Macau")
+       ("mp" "Northern Mariana Islands")
+       ("mq" "Martinique")
+       ("mr" "Mauritania")
+       ("ms" "Montserrat")
        ("mt" "Malta")
        ("mu" "Mauritius")
        ("mv" "Maldives")
@@ -1975,12 +2009,16 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
        ("na" "Namibia")
        ("nc" "New Caledonia (Fr.)")
        ("ne" "Niger")			; In .fr domain
+       ("nf" "Norfolk Island")
+       ("ng" "Nigeria")
        ("ni" "Nicaragua"	"The Republic of %s")
        ("nl" "Netherlands"	"The Kingdom of the %s")
        ("no" "Norway"		"The Kingdom of %s")
        ("np" "Nepal")			; Via .in domain
+       ("nr" "Nauru")
        ("nu" "Niue")
        ("nz" "New Zealand")
+       ("om" "Oman")
        ("pa" "Panama")
        ("pe" "Peru")
        ("pf" "Polynesia (Fr.)")
@@ -1988,45 +2026,75 @@ ADDRESS may be a string or a buffer.  If it is a buffer, the visible
        ("ph" "Philippines"	"The Republic of the %s")
        ("pk" "Pakistan")
        ("pl" "Poland")
+       ("pm" "Saint Pierre and Miquelon")
+       ("pn" "Pitcairn")
        ("pr" "Puerto Rico (U.S.)")
+       ("ps" "Palestinian Territory, Occupied")
        ("pt" "Portugal"		"The Portuguese Republic")
+       ("pw" "Palau")
        ("py" "Paraguay")
        ("qa" "Qatar")
        ("re" "Reunion (Fr.)")		; In .fr domain
        ("ro" "Romania")
-       ("ru" "Russian Federation")
+       ("ru" "Russia"		"Russian Federation")
+       ("rw" "Rwanda")
        ("sa" "Saudi Arabia")
+       ("sb" "Solomon Islands")
        ("sc" "Seychelles")
        ("sd" "Sudan")
        ("se" "Sweden"		"The Kingdom of %s")
        ("sg" "Singapore"	"The Republic of %s")
+       ("sh" "Saint Helena")
        ("si" "Slovenia")
-       ("sj" "Svalbard and Jan Mayen Is.") ; In .no domain
+       ("sj" "Svalbard and Jan Mayen") ; In .no domain
        ("sk" "Slovakia"		"The Slovak Republic")
+       ("sl" "Sierra Leone")
        ("sm" "San Marino")
        ("sn" "Senegal")
+       ("so" "Somalia")
        ("sr" "Suriname")
-       ("su" "U.S.S.R."		"The Union of Soviet Socialist Republics")
+       ("st" "Sao Tome And Principe")
+       ("su" "U.S.S.R." "The Union of Soviet Socialist Republics")
+       ("sv" "El Salvador")
+       ("sy" "Syrian Arab Republic")
        ("sz" "Swaziland")
+       ("tc" "Turks And Caicos Islands")
+       ("td" "Chad")
+       ("tf" "French Southern Territories")
        ("tg" "Togo")
        ("th" "Thailand"		"The Kingdom of %s")
-       ("tm" "Turkmenistan")		; In .su domain
+       ("tj" "Tajikistan")
+       ("tk" "Tokelau")
+       ("tm" "Turkmenistan")
        ("tn" "Tunisia")
        ("to" "Tonga")
+       ("tp" "East Timor")
        ("tr" "Turkey"		"The Republic of %s")
        ("tt" "Trinidad and Tobago")
-       ("tw" "Taiwan")
+       ("tv" "Tuvalu")
+       ("tw" "Taiwan"		"%s, Province of China")
+       ("tz" "Tanzania"		"United Republic of %s")
        ("ua" "Ukraine")
+       ("ug" "Uganda")
        ("uk" "United Kingdom"	"The %s of Great Britain and Northern Ireland")
+       ("um" "United States Minor Outlying Islands")
        ("us" "United States"	"The %s of America")
        ("uy" "Uruguay"		"The Eastern Republic of %s")
+       ("uz" "Uzbekistan")
+       ("va" "Holy See (Vatican City State)")
        ("vc" "St. Vincent and the Grenadines")
        ("ve" "Venezuela"	"The Republic of %s")
-       ("vi" "Virgin Islands (U.S.)")
+       ("vg" "Virgin Islands, British")
+       ("vi" "Virgin Islands, U.S.")
        ("vn" "Vietnam")
        ("vu" "Vanuatu")
+       ("wf" "Wallis and Futuna")
+       ("ws" "Samoa")
+       ("ye" "Yemen")
+       ("yt" "Mayotte")
        ("yu" "Yugoslavia"	"Yugoslavia, AKA Serbia-Montenegro")
        ("za" "South Africa"	"The Republic of %s")
+       ("zm" "Zambia")
        ("zw" "Zimbabwe"		"Republic of %s")
        ;; Special top-level domains:
        ("arpa" t		"Advanced Research Projects Agency (U.S. DoD)")

@@ -1,5 +1,5 @@
 /* Support for printing Pascal values for GDB, the GNU debugger.
-   Copyright 2000
+   Copyright 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -31,10 +31,12 @@
 #include "gdbcore.h"
 #include "demangle.h"
 #include "valprint.h"
+#include "typeprint.h"
 #include "language.h"
 #include "target.h"
 #include "annotate.h"
 #include "p-lang.h"
+#include "cp-abi.h"
 
 
 
@@ -62,6 +64,8 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
   unsigned len;
   struct type *elttype;
   unsigned eltlen;
+  int length_pos, length_size, string_pos;
+  int char_size;
   LONGEST val;
   CORE_ADDR addr;
 
@@ -186,16 +190,17 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
 	     as GDB does not recognize stabs pascal strings
 	     Pascal strings are mapped to records
 	     with lowercase names PM  */
-	  /* I don't know what GPC does :( PM */
-	  if (TYPE_CODE (elttype) == TYPE_CODE_STRUCT &&
-	      TYPE_NFIELDS (elttype) == 2 &&
-	      strcmp (TYPE_FIELDS (elttype)[0].name, "length") == 0 &&
-	      strcmp (TYPE_FIELDS (elttype)[1].name, "st") == 0 &&
-	      addr != 0)
+          if (is_pascal_string_type (elttype, &length_pos,
+                                     &length_size, &string_pos, &char_size)
+	      && addr != 0)
 	    {
-	      char bytelength;
-	      read_memory (addr, &bytelength, 1);
-	      i = val_print_string (addr + 1, bytelength, 1, stream);
+	      ULONGEST string_length;
+              void *buffer;
+              buffer = xmalloc (length_size);
+              read_memory (addr + length_pos, buffer, length_size);
+	      string_length = extract_unsigned_integer (buffer, length_size);
+              xfree (buffer);
+              i = val_print_string (addr + string_pos, string_length, char_size, stream);
 	    }
 	  else if (pascal_object_is_vtbl_member (type))
 	    {
@@ -204,8 +209,8 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
 
 	      struct minimal_symbol *msymbol =
 	      lookup_minimal_symbol_by_pc (vt_address);
-	      if ((msymbol != NULL) &&
-		  (vt_address == SYMBOL_VALUE_ADDRESS (msymbol)))
+	      if ((msymbol != NULL)
+		  && (vt_address == SYMBOL_VALUE_ADDRESS (msymbol)))
 		{
 		  fputs_filtered (" <", stream);
 		  fputs_filtered (SYMBOL_SOURCE_NAME (msymbol), stream);
@@ -213,7 +218,7 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
 		}
 	      if (vt_address && vtblprint)
 		{
-		  value_ptr vt_val;
+		  struct value *vt_val;
 		  struct symbol *wsym = (struct symbol *) NULL;
 		  struct type *wtype;
 		  struct symtab *s;
@@ -278,7 +283,7 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
 	{
 	  if (TYPE_CODE (elttype) != TYPE_CODE_UNDEF)
 	    {
-	      value_ptr deref_val =
+	      struct value *deref_val =
 	      value_at
 	      (TYPE_TARGET_TYPE (type),
 	       unpack_pointer (lookup_pointer_type (builtin_type_void),
@@ -314,12 +319,11 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
 	}
       else
 	{
-	  if ((TYPE_NFIELDS (type) == 2) &&
-	      (strcmp (TYPE_FIELDS (type)[0].name, "length") == 0) &&
-	      (strcmp (TYPE_FIELDS (type)[1].name, "st") == 0))
+          if (is_pascal_string_type (type, &length_pos, &length_size,
+                                     &string_pos, &char_size))
 	    {
-	      len = (*(valaddr + embedded_offset)) & 0xff;
-	      LA_PRINT_STRING (stream, valaddr + embedded_offset + 1, len, /* width ?? */ 0, 0);
+	      len = extract_unsigned_integer (valaddr + embedded_offset + length_pos, length_size);
+	      LA_PRINT_STRING (stream, valaddr + embedded_offset + string_pos, len, char_size, 0);
 	    }
 	  else
 	    pascal_object_print_value_fields (type, valaddr + embedded_offset, address, stream, format,
@@ -442,7 +446,7 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
     case TYPE_CODE_SET:
       elttype = TYPE_INDEX_TYPE (type);
       CHECK_TYPEDEF (elttype);
-      if (TYPE_FLAGS (elttype) & TYPE_FLAG_STUB)
+      if (TYPE_STUB (elttype))
 	{
 	  fprintf_filtered (stream, "<incomplete type>");
 	  gdb_flush (stream);
@@ -528,7 +532,7 @@ pascal_val_print (struct type *type, char *valaddr, int embedded_offset,
 }
 
 int
-pascal_value_print (value_ptr val, struct ui_file *stream, int format,
+pascal_value_print (struct value *val, struct ui_file *stream, int format,
 		    enum val_prettyprint pretty)
 {
   struct type *type = VALUE_TYPE (val);
@@ -576,9 +580,9 @@ static int pascal_static_field_print;	/* Controls printing of static fields. */
 static struct obstack dont_print_vb_obstack;
 static struct obstack dont_print_statmem_obstack;
 
-static void
-  pascal_object_print_static_field (struct type *, value_ptr, struct ui_file *, int, int,
-				    enum val_prettyprint);
+static void pascal_object_print_static_field (struct type *, struct value *,
+					      struct ui_file *, int, int,
+					      enum val_prettyprint);
 
 static void
   pascal_object_print_value (struct type *, char *, CORE_ADDR, struct ui_file *,
@@ -669,7 +673,7 @@ common:
       else
 	{
 	  fputs_filtered (demangled_name, stream);
-	  free (demangled_name);
+	  xfree (demangled_name);
 	}
     }
   else
@@ -831,7 +835,7 @@ pascal_object_print_value_fields (struct type *type, char *valaddr,
 
 	  if (!TYPE_FIELD_STATIC (type, i) && TYPE_FIELD_PACKED (type, i))
 	    {
-	      value_ptr v;
+	      struct value *v;
 
 	      /* Bitfields require special handling, especially due to byte
 	         order problems.  */
@@ -856,8 +860,8 @@ pascal_object_print_value_fields (struct type *type, char *valaddr,
 		}
 	      else if (TYPE_FIELD_STATIC (type, i))
 		{
-		  /* value_ptr v = value_static_field (type, i); v4.17 specific */
-		  value_ptr v;
+		  /* struct value *v = value_static_field (type, i); v4.17 specific */
+		  struct value *v;
 		  v = value_from_longest (TYPE_FIELD_TYPE (type, i),
 				   unpack_field_as_long (type, valaddr, i));
 
@@ -966,6 +970,7 @@ pascal_object_print_value (struct type *type, char *valaddr, CORE_ADDR address,
 
       if (boffset != -1 && (boffset < 0 || boffset >= TYPE_LENGTH (type)))
 	{
+	  /* FIXME (alloc): not safe is baseclass is really really big. */
 	  base_valaddr = (char *) alloca (TYPE_LENGTH (baseclass));
 	  if (target_read_memory (address + boffset, base_valaddr,
 				  TYPE_LENGTH (baseclass)) != 0)
@@ -1008,7 +1013,7 @@ pascal_object_print_value (struct type *type, char *valaddr, CORE_ADDR address,
    have the same meanings as in c_val_print.  */
 
 static void
-pascal_object_print_static_field (struct type *type, value_ptr val,
+pascal_object_print_static_field (struct type *type, struct value *val,
 				  struct ui_file *stream, int format,
 				  int recurse, enum val_prettyprint pretty)
 {

@@ -25,7 +25,7 @@
 #ifndef _MACHO_LDSYMS_H_
 #define _MACHO_LDSYMS_H_
 
-#import <mach-o/loader.h>
+#include <mach-o/loader.h>
 
 /*
  * This file describes the link editor defined symbols.  The semantics of a

@@ -1,7 +1,7 @@
 /*
- * /src/NTP/ntp-4/libparse/parse.c,v 4.13 1999/02/28 11:50:20 kardel RELEASE_19990228_A
+ * /src/NTP/ntp-4/libparse/parse.c,v 4.14 1999/11/28 09:13:52 kardel RELEASE_19991128_A
  *  
- * parse.c,v 4.13 1999/02/28 11:50:20 kardel RELEASE_19990228_A
+ * parse.c,v 4.14 1999/11/28 09:13:52 kardel RELEASE_19991128_A
  *
  * Parser module for reference clock
  *
@@ -21,49 +21,29 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
-#if 0 
-#ifdef NeXT
-/*
- * This is lame, but gets us a symbol for the libparse library so the NeXTstep
- * ranlib doesn't stop the compile.
- */
-void
-token_libparse_symbol(void)
-{
-}
-#endif
+# include <config.h>
 #endif
 
 #if defined(REFCLOCK) && defined(CLOCK_PARSE)
 
 #if	!(defined(lint) || defined(__GNUC__))
-static char rcsid[] = "parse.c,v 4.13 1999/02/28 11:50:20 kardel RELEASE_19990228_A";
+static char rcsid[] = "parse.c,v 4.14 1999/11/28 09:13:52 kardel RELEASE_19991128_A";
 #endif
-
-#include <sys/types.h>
-#include <sys/time.h>
-#include <errno.h>
 
 #include "ntp_fp.h"
 #include "ntp_unixtime.h"
 #include "ntp_calendar.h"
-
+#include "ntp_stdlib.h"
 #include "ntp_machine.h"
+#include "ntp.h"		/* (get Y2KFixes definitions) 	Y2KFixes */
 
 #include "parse.h"
 
 #ifndef PARSESTREAM
-#include <stdio.h>
+# include <stdio.h>
 #else
-#include "sys/parsestreams.h"
+# include "sys/parsestreams.h"
 #endif
-
-#include "ntp_stdlib.h"
-
-#include "ntp_stdlib.h"
 
 extern clockformat_t *clockformats[];
 extern unsigned short nformats;
@@ -417,13 +397,12 @@ parse_to_unixtime(
 	if (clock_time->utctime)
 	    return clock_time->utctime;	/* if the conversion routine gets it right away - why not */
 
-	if (clock_time->year < 100)
+	if ( clock_time->year < YEAR_PIVOT )			/* Y2KFixes [ */
+	    clock_time->year += 100;	/* convert 20xx%100 to 20xx-1900 */
+	if ( clock_time->year < YEAR_BREAK )	/* expand to full four-digits */
 	    clock_time->year += 1900;
 
-	if (clock_time->year < 1998)
-	    clock_time->year += 100;		/* XXX this will do it till <2098 */
-
-	if (clock_time->year < 1998)
+	if (clock_time->year < 1970 )				/* Y2KFixes ] */
 	{
 		SETRTC(CVT_FAIL|CVT_BADDATE);
 		return -1;
@@ -432,20 +411,22 @@ parse_to_unixtime(
 	/*
 	 * sorry, slow section here - but it's not time critical anyway
 	 */
-	t =  (clock_time->year - 1970) * 365;
-	t += (clock_time->year >> 2) - (1970 >> 2);
-	t -= clock_time->year / 100 - 1970 / 100;
-	t += clock_time->year / 400 - 1970 / 400;
-
+	t = julian0(clock_time->year) - julian0(1970);		/* Y2kFixes */
   				/* month */
 	if (clock_time->month <= 0 || clock_time->month > 12)
 	{
 		SETRTC(CVT_FAIL|CVT_BADDATE);
 		return -1;		/* bad month */
 	}
+
+#if 0								/* Y2KFixes */
 				/* adjust leap year */
 	if (clock_time->month < 3 && days_per_year(clock_time->year) == 366)
 	    t--;
+#else								/* Y2KFixes [ */
+	if ( clock_time->month >= 3  &&  isleap_4(clock_time->year) )
+	    t++;		/* add one more if within leap year */
+#endif								/* Y2KFixes ] */
 
 	for (i = 1; i < clock_time->month; i++)
 	{
@@ -885,6 +866,9 @@ int parse_bs;
  * History:
  *
  * parse.c,v
+ * Revision 4.14  1999/11/28 09:13:52  kardel
+ * RECON_4_0_98F
+ *
  * Revision 4.13  1999/02/28 11:50:20  kardel
  * (timepacket): removed unecessary code
  *

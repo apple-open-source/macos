@@ -1,0 +1,52 @@
+#ifndef __GDB_MACOSX_NAT_EXCTHREAD_H__
+#define __GDB_MACOSX_NAT_EXCTHREAD_H__
+
+#include "defs.h"
+#include "macosx-nat-mutils.h"
+#include "macosx-nat-threads.h"
+
+#include <sys/wait.h>
+
+struct macosx_exception_info
+{
+  exception_mask_t masks[EXC_TYPES_COUNT];
+  mach_port_t ports[EXC_TYPES_COUNT];
+  exception_behavior_t behaviors[EXC_TYPES_COUNT];
+  thread_state_flavor_t flavors[EXC_TYPES_COUNT];
+  mach_msg_type_number_t count;
+};
+typedef struct macosx_exception_info macosx_exception_info;
+
+struct macosx_exception_thread_status
+{
+  gdb_thread_t exception_thread;
+
+  int transmit_from_fd;
+  int receive_from_fd;
+  int transmit_to_fd;
+  int receive_to_fd;
+
+  mach_port_t inferior_exception_port;
+
+  macosx_exception_info saved_exceptions;
+  macosx_exception_info saved_exceptions_step;
+  int saved_exceptions_stepping;
+};
+typedef struct macosx_exception_thread_status macosx_exception_thread_status;
+
+struct macosx_exception_thread_message
+{
+  task_t task_port;
+  thread_t thread_port;
+  exception_type_t exception_type;
+  exception_data_t exception_data;
+  mach_msg_type_number_t data_count;
+};
+typedef struct macosx_exception_thread_message macosx_exception_thread_message;
+
+void macosx_exception_thread_init (macosx_exception_thread_status *s);
+
+void macosx_exception_thread_create (macosx_exception_thread_status *s, task_t task);
+void macosx_exception_thread_destroy (macosx_exception_thread_status *s);
+
+#endif /* __GDB_MACOSX_NAT_EXCTHREAD_H__ */

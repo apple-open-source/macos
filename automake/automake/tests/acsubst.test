@@ -1,0 +1,18 @@
+#! /bin/sh
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_SUBST([FOOBAR_LDFLAGS],[blablabla])
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = mumble
+mumble_SOURCES = a.c b.c d.h
+mumble_LDFLAGS = $(FOOBAR_LDFLAGS)
+END
+
+$ACLOCAL
+$AUTOMAKE -a

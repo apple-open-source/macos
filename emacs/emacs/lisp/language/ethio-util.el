@@ -1,6 +1,6 @@
-;;; ethio-util.el --- utilities for Ethiopic
+;;; ethio-util.el --- utilities for Ethiopic -*- coding: iso-2022-7bit; -*-
 
-;; Copyright (C) 1997 Electrotechnical Laboratory, JAPAN.
+;; Copyright (C) 1997, 2001 Electrotechnical Laboratory, JAPAN.
 ;; Licensed to the Free Software Foundation.
 
 ;; Keywords: mule, multilingual, Ethiopic
@@ -22,7 +22,9 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
-;; Author: TAKAHASHI Naoto <ntakahas@etl.go.jp>
+;; Author: TAKAHASHI Naoto <ntakahas@m17n.org>
+
+;;; Commentary:
 
 ;;; Code:
 
@@ -30,27 +32,42 @@
 (defvar exit-ethiopic-environment-data nil)
 
 ;;;###autoload
-(defun setup-ethiopic-environment ()
-  "Setup multilingual environment for Ethiopic."
-  (set-language-environment "Ethiopic"))
-
-;;;###autoload
 (defun setup-ethiopic-environment-internal ()
   (let ((key-bindings '((" " . ethio-insert-space)
 			([?\S- ] . ethio-insert-ethio-space)
 			([?\C-'] . ethio-gemination)
-			([f2] . ethio-toggle-space)
-			([S-f2] . ethio-replace-space) ; as requested
-			([f3] . ethio-toggle-punctuation)
+
+			;; these old bindings conflict
+			;; with Emacs' binding policy
+
+			;; ([f2] . ethio-toggle-space)
+			;; ([S-f2] . ethio-replace-space) ; as requested
+			;; ([f3] . ethio-toggle-punctuation)
+			;; ([f4] . ethio-sera-to-fidel-buffer)
+			;; ([S-f4] . ethio-sera-to-fidel-region)
+			;; ([C-f4] . ethio-sera-to-fidel-mail-or-marker)
+			;; ([f5] . ethio-fidel-to-sera-buffer)
+			;; ([S-f5] . ethio-fidel-to-sera-region)
+			;; ([C-f5] . ethio-fidel-to-sera-mail-or-marker)
+			;; ([f6] . ethio-modify-vowel)
+			;; ([f7] . ethio-replace-space)
+			;; ([f8] . ethio-input-special-character)
+
+			;; this is the rewritten bindings
+
+			([f3] . ethio-fidel-to-sera-buffer)
+			([S-f3] . ethio-fidel-to-sera-region)
+			([C-f3] . ethio-fidel-to-sera-mail-or-marker)
 			([f4] . ethio-sera-to-fidel-buffer)
 			([S-f4] . ethio-sera-to-fidel-region)
 			([C-f4] . ethio-sera-to-fidel-mail-or-marker)
-			([f5] . ethio-fidel-to-sera-buffer)
-			([S-f5] . ethio-fidel-to-sera-region)
-			([C-f5] . ethio-fidel-to-sera-mail-or-marker)
-			([f6] . ethio-modify-vowel)
-			([f7] . ethio-replace-space)
-			([f8] . ethio-input-special-character)))
+			([S-f5] . ethio-toggle-punctuation)
+			([S-f6] . ethio-modify-vowel)
+			([S-f7] . ethio-replace-space)
+			([S-f8] . ethio-input-special-character)
+			([C-f9] . ethio-toggle-space)
+			([S-f9] . ethio-replace-space) ; as requested
+			))
 	kb)
     (while key-bindings
       (setq kb (car (car key-bindings)))
@@ -1281,7 +1298,7 @@ The markers \"<sera>\" and \"</sera>\" themselves are not deleted."
 	    composite t))
      ;; neither gemination nor fidel
      ((not (eq (char-charset ch) 'ethiopic))
-      (error "Not a valid character.")))
+      (error "Not a valid character")))
 
     ;; set frequently referred character features
     (setq ch     (ethio-char-to-ethiocode ch)
@@ -1291,7 +1308,7 @@ The markers \"<sera>\" and \"</sera>\" themselves are not deleted."
     (if (or (and (>= ch 344) (<= ch 380)) ;; mYa - `10000
 	    (and (>= ch 448) (<= ch 452)) ;; \~X - \~A
 	    (>= ch 458))		  ;; private punctuations
-	(error "Not a valid character."))
+	(error "Not a valid character"))
 
     (setq
      newch
@@ -1900,6 +1917,8 @@ Otherwise, [0-9A-F]."
   (interactive)
   (setq ethio-prefer-ascii-space
 	(not ethio-prefer-ascii-space))
+  (if (equal current-input-method "ethiopic")
+      (setq current-input-method-title (quail-title)))
   (force-mode-line-update))
 
 (defun ethio-insert-space (arg)
@@ -1955,6 +1974,8 @@ With ARG, insert that many delimiters."
       (quail-defrule (car keys) (car puncs) "ethiopic")
       (setq keys (cdr keys)
 	    puncs (cdr puncs)))
+    (if (equal current-input-method "ethiopic")
+	(setq current-input-method-title (quail-title)))
     (force-mode-line-update)))
 
 ;;

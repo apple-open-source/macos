@@ -2,16 +2,18 @@
 
 	<head>
 		<title>HeaderDoc Class Hierarchy</title>
+		<meta http-equiv="expires" content="Sun, 31 Dec 2000 00:00:00 GMT">
 	</head>
 
 	<body bgcolor="white">
 		<h2>HeaderDoc Class Hierarchy</h2>
 		<address>
         author: Matt Morse (matt@apple.com)<br>
-		last updated: 01/21/2001
+		last updated: 11/29/2001
 		</address>
 <pre>
-HeaderElement                              (Root Class)
+HeaderElement                              (Root Class--any header entity that's significant)
+        |                                  (to HeaderDoc is a HeaderElement)
         |
         |
         |-----------APIOwner               (Object that owns declared API)
@@ -19,20 +21,32 @@ HeaderElement                              (Root Class)
         |               |-------Header     (Owner for header-wide API)
         |               |                
         |               |-------CPPClass   (Owner for C++ class API)
+        |               |                
+        |               |-------ObjCContainer
+        |                           |
+        |                           |
+        |                           |-------ObjCClass     (Owner for Objective-C class API)
+        |                           |
+        |                           |-------ObjCCategory  (Owner for Objective-C category API)
+        |                           |
+        |                           |-------ObjCProtocol  (Owner for Objective-C protocol API)
         |
+        |
+        |-----------Method              (an Objective-C method)
+        |               
         |-----------Constant
         |                
         |-----------Enum
         |                
-        |-----------Function
+        |-----------Function            (a C function or a C++ member function)
         |                
-        |-----------MinorAPIElement        (parameter, members of structs)
+        |-----------MinorAPIElement     (parameter, members of structs)
         |                
         |-----------PDefine
         |                
         |-----------Struct
         |                |        
-        |                |-------Var        
+        |                |-------Var    (subclass of Struct so that it can contain fields)     
         |                
         |-----------Typedef
 

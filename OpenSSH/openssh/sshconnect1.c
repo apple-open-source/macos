@@ -13,7 +13,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: sshconnect1.c,v 1.48 2002/02/11 16:15:46 markus Exp $");
+RCSID("$OpenBSD: sshconnect1.c,v 1.51 2002/05/23 19:24:30 markus Exp $");
 
 #include <openssl/bn.h>
 #include <openssl/md5.h>
@@ -23,6 +23,9 @@ RCSID("$OpenBSD: sshconnect1.c,v 1.48 2002/02/11 16:15:46 markus Exp $");
 #endif
 #ifdef KRB5
 #include <krb5.h>
+#ifndef HEIMDAL
+#define krb5_get_err_text(context,code) error_message(code)
+#endif /* !HEIMDAL */
 #endif
 #ifdef AFS
 #include <kafs.h>
@@ -459,6 +462,8 @@ try_krb4_authentication(void)
 
 		/* Get server's response. */
 		reply = packet_get_string((u_int *) &auth.length);
+		if (auth.length >= MAX_KTXT_LEN)
+			fatal("Kerberos v4: Malformed response from server");
 		memcpy(auth.dat, reply, auth.length);
 		xfree(reply);
 
@@ -519,6 +524,23 @@ try_krb5_authentication(krb5_context *context, krb5_auth_context *auth_context)
 		ret = 0;
 		goto out;
 	}
+	
+	problem = krb5_auth_con_init(*context, auth_context);
+	if (problem) {
+		debug("Kerberos v5: krb5_auth_con_init failed");
+		ret = 0;
+		goto out;
+	}
+
+#ifndef HEIMDAL
+	problem = krb5_auth_con_setflags(*context, *auth_context,
+					 KRB5_AUTH_CONTEXT_RET_TIME);
+	if (problem) {
+		debug("Keberos v5: krb5_auth_con_setflags failed");
+		ret = 0;
+		goto out;
+	}
+#endif
 
 	tkfile = krb5_cc_default_name(*context);
 	if (strncmp(tkfile, "FILE:", 5) == 0)
@@ -595,7 +617,11 @@ try_krb5_authentication(krb5_context *context, krb5_auth_context *auth_context)
 	if (reply != NULL)
 		krb5_free_ap_rep_enc_part(*context, reply);
 	if (ap.length > 0)
+#ifdef HEIMDAL
 		krb5_data_free(&ap);
+#else
+		krb5_free_data_contents(*context, &ap);
+#endif
 
 	return (ret);
 }
@@ -608,7 +634,11 @@ send_krb5_tgt(krb5_context context, krb5_auth_context auth_context)
 	krb5_data outbuf;
 	krb5_ccache ccache = NULL;
 	krb5_creds creds;
+#ifdef HEIMDAL
 	krb5_kdc_flags flags;
+#else
+	int forwardable;
+#endif
 	const char *remotehost;
 
 	memset(&creds, 0, sizeof(creds));
@@ -616,7 +646,13 @@ send_krb5_tgt(krb5_context context, krb5_auth_context auth_context)
 
 	fd = packet_get_connection_in();
 
+#ifdef HEIMDAL
 	problem = krb5_auth_con_setaddrs_from_fd(context, auth_context, &fd);
+#else
+	problem = krb5_auth_con_genaddrs(context, auth_context, fd,
+			KRB5_AUTH_CONTEXT_GENERATE_REMOTE_FULL_ADDR |
+			KRB5_AUTH_CONTEXT_GENERATE_LOCAL_FULL_ADDR);
+#endif
 	if (problem)
 		goto out;
 
@@ -628,23 +664,35 @@ send_krb5_tgt(krb5_context context, krb5_auth_context auth_context)
 	if (problem)
 		goto out;
 
+	remotehost = get_canonical_hostname(1);
+	
+#ifdef HEIMDAL
 	problem = krb5_build_principal(context, &creds.server,
 	    strlen(creds.client->realm), creds.client->realm,
 	    "krbtgt", creds.client->realm, NULL);
+#else
+	problem = krb5_build_principal(context, &creds.server,
+	    creds.client->realm.length, creds.client->realm.data,
+	    "host", remotehost, NULL);
+#endif
 	if (problem)
 		goto out;
 
 	creds.times.endtime = 0;
 
+#ifdef HEIMDAL
 	flags.i = 0;
 	flags.b.forwarded = 1;
 	flags.b.forwardable = krb5_config_get_bool(context,  NULL,
 	    "libdefaults", "forwardable", NULL);
-
-	remotehost = get_canonical_hostname(1);
-
 	problem = krb5_get_forwarded_creds(context, auth_context,
 	    ccache, flags.i, remotehost, &creds, &outbuf);
+#else
+	forwardable = 1;
+	problem = krb5_fwd_tgt_creds(context, auth_context, remotehost,
+	    creds.client, creds.server, ccache, forwardable, &outbuf);
+#endif
+
 	if (problem)
 		goto out;
 
@@ -843,7 +891,7 @@ try_challenge_response_authentication(void)
 			error("Permission denied, please try again.");
 		if (options.cipher == SSH_CIPHER_NONE)
 			log("WARNING: Encryption is disabled! "
-			    "Reponse will be transmitted in clear text.");
+			    "Response will be transmitted in clear text.");
 		response = read_passphrase(prompt, 0);
 		if (strcmp(response, "") == 0) {
 			xfree(response);
@@ -1090,7 +1138,7 @@ ssh_kex(char *host, struct sockaddr *hostaddr)
  */
 void
 ssh_userauth1(const char *local_user, const char *server_user, char *host,
-    Key **keys, int nkeys)
+    Sensitive *sensitive)
 {
 #ifdef KRB5
 	krb5_context context = NULL;
@@ -1176,9 +1224,11 @@ ssh_userauth1(const char *local_user, const char *server_user, char *host,
 	 */
 	if ((supported_authentications & (1 << SSH_AUTH_RHOSTS_RSA)) &&
 	    options.rhosts_rsa_authentication) {
-		for (i = 0; i < nkeys; i++) {
-			if (keys[i] != NULL && keys[i]->type == KEY_RSA1 &&
-			    try_rhosts_rsa_authentication(local_user, keys[i]))
+		for (i = 0; i < sensitive->nkeys; i++) {
+			if (sensitive->keys[i] != NULL &&
+			    sensitive->keys[i]->type == KEY_RSA1 &&
+			    try_rhosts_rsa_authentication(local_user,
+			    sensitive->keys[i]))
 				goto success;
 		}
 	}

@@ -20,8 +20,8 @@
 // machrunloopserver - C++ shell for writing Mach 3 servers called by CFRunLoop
 //
 #include "machrunloopserver.h"
+#include <Security/cfutilities.h>
 #include <mach/mach_error.h>
-#include <CoreFoundation/CoreFoundation.h>
 #include <Security/debugging.h>
 
 
@@ -154,7 +154,7 @@ void MachRunLoopServer::oneRequest(mach_msg_header_t *request)
 	// MIG dispatch handled the call. Send reply back to caller.
 	// This boilerplate stolen from mach_msg_server, since MIG can't seem to
 	// generate send-only code for replies (without explicit simpleroutines).
-	if (kern_return_t err =	mach_msg_overwrite_trap(replyBuffer,
+	if (kern_return_t err =	mach_msg_overwrite(replyBuffer,
 		(MACH_MSGH_BITS_REMOTE(replyBuffer->msgh_bits) == MACH_MSG_TYPE_MOVE_SEND_ONCE) ?
 		MACH_SEND_MSG :	MACH_SEND_MSG|MACH_SEND_TIMEOUT,
 		replyBuffer->msgh_size, 0, MACH_PORT_NULL,

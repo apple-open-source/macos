@@ -26,6 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 /* bytesex.h */
+#ifndef _STUFF_BYTESEX_H_
+#define _STUFF_BYTESEX_H_
 
 #if defined(__MWERKS__) && !defined(__private_extern__)
 #define __private_extern__ __declspec(private_extern)
@@ -237,6 +239,10 @@ __private_extern__ void swap_twolevel_hints_command(
     struct twolevel_hints_command *hints_cmd,
     enum byte_sex target_byte_sex);
 
+__private_extern__ void swap_prebind_cksum_command(
+    struct prebind_cksum_command *cksum_cmd,
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_nlist(
     struct nlist *symbols,
     unsigned long nsymbols,
@@ -296,3 +302,5 @@ __private_extern__ enum bool swap_object_headers(
 __private_extern__ enum byte_sex get_toc_byte_sex(
     char *addr,
     unsigned long size);
+
+#endif /* _STUFF_BYTESEX_H_ */

@@ -20,7 +20,7 @@
  */
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/Libraries/Other/libpcap/libpcap/pcap-bpf.c,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/Darwin/src/live/libpcap/libpcap/pcap-bpf.c,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H

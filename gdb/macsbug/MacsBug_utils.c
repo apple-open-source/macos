@@ -644,73 +644,97 @@ static void __getenv(char *arg, int from_tty)
 "doesn't exist.  $__undefenv__ is still set accordingly."
 
 
-/*------------------------------------------------------------------------------*
- | __hexdump [addr [n]] dump n (default 16) bytes starting at addr (default pc) |
- *------------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------*
+ | __hexdump [addr [n]] dump n bytes starting at addr (default pc) |
+ *-----------------------------------------------------------------*
+ 
+ The bytes are shown as hexdump_width bytes per line in groups of hexdump_width.
+*/
  
 void __hexdump(char *arg, int from_tty)
 {
-    int  	  argc, i, j, k, n, offset, repeated, repcnt;
+    int  	  argc, i, j, k, n, offset, repeated, repcnt, extra_space_ok, show_line, width;
     unsigned long addr;
     char 	  *start, *argv[5], tmpCmdLine[1024];
-    unsigned char *c, x, data[16], prev[16], charline[17], addrexp[1024];
+    unsigned char *c, x, data[1024], prev[1024], charline[1024], addrexp[1024];
     
     gdb_setup_argv(safe_strcpy(tmpCmdLine, arg), "__hexdump", &argc, argv, 4);
     
     if (argc == 1) {
     	start = "$pc";
-    	n     = 16;
+    	n     = hexdump_width;
     } else if (argc == 2) {
     	start = argv[1];
-    	n     = 16;
+    	n     = hexdump_width;
     } else if (argc == 3) {
     	start = argv[1];
     	n     = gdb_get_int(argv[2]);
     } else
     	gdb_error("__hexdump called with wrong number of arguments.");
     
-    for (repcnt = offset = 0; offset < n; offset += 16) {
+    width = hexdump_width < n ? hexdump_width : n;
+    extra_space_ok = (n % 4) == 0 &&
+    		     ((hexdump_group % 4) == 0 || hexdump_group == 2) &&
+    		     hexdump_group < n;
+    
+    for (repcnt = offset = 0; offset < n; offset += width) {
     	sprintf(addrexp, "(char *)(%s)+%ld", start, offset);
 	
-    	if (offset + 16 < n) {
-    	    addr     = gdb_read_memory(data, addrexp, 16);
-    	    repeated = ditto && (memcmp(data, prev, 16) == 0);
+    	if (offset + width < n) {
+    	    addr     = gdb_read_memory(data, addrexp, width);
+    	    repeated = ditto && (memcmp(data, prev, width) == 0);
     	} else {
     	    addr     = gdb_read_memory(data, addrexp, n - offset);
     	    repeated = 0;
     	}
     	
-    	memcpy(prev, data, 16);
-
-    	if (repeated) {
-    	    if (repcnt++ == 0)
-    	    	gdb_printf(" %.8lX: '''' '''' '''' ''''  '''' '''' '''' ''''  ''''''''''''''''\n", addr);
-    	} else {
-    	    repcnt = 0;
+    	memcpy(prev, data, width);
+	
+    	if (repeated)
+	    show_line = (repcnt++ == 0);
+    	else {
+	    repcnt = 0;
+    	    show_line = 1;
+    	}
+    	
+    	if (show_line) {
     	    gdb_printf(" %.8lX: ", addr);
-    	                
-            for (k = i = 0, c = charline; i < 8; ++i) {
-            	for (j = 0; j < 2; ++j) {
-            	    if (offset + k < n) {
-            	    	x = data[k++];
-            	    	gdb_printf("%1X%1X", (x>>4) & 0x0F, x & 0x0F);
-            	    	*c++ = isprint((int)x) ? (unsigned char)x : (unsigned char)'.';
-            	    } else
-            	    	gdb_printf("  ");
-            	}
-            	gdb_printf(" ");
-            	if (i == 3)
-            	    gdb_printf(" ");
-            }
+    	    
+	    for (i = j = 0, c = charline; i < width; ++i) {
+		if (i > 0) {
+		    if (extra_space_ok && (addr % 8) == 0 && (i % 8) == 0)
+			gdb_printf(" ");
+		    if (++j >= hexdump_group) {
+			gdb_printf(" ");
+			j = 0;
+		    }
+		}
+		
+		if (offset + i < n) {
+		    if (repcnt != 1) {
+		      x = data[i];
+		      gdb_printf("%1X%1X", (x>>4) & 0x0F, x & 0x0F);
+		      *c++ = isprint((int)x) ? (unsigned char)x : (unsigned char)'.';
+		    } else {
+		      gdb_printf("''");
+		      *c++ = (unsigned char)'\'';
+		    }
+		} else
+		    gdb_printf("  ");
+	    }
             
 	    *c = '\0';
-	    gdb_printf(" %s\n", charline);
+	    gdb_printf("  %s\n", charline);
     	}
     }
 }
 
 #define __HEXDUMP_HELP \
-"__HEXDUMP [addr [n]] -- Dump n (default 16) bytes starting at addr (default pc)."
+"__HEXDUMP [addr [n]] -- Dump n bytes starting at addr (default pc).\n"			\
+"\n"											\
+"The default number of bytes dumped is 16 in groups of 4 bytes.  Both\n"		\
+"the default width and grouping may be set by the SET mb-hexdump-width\n"		\
+"and SET mb-macsbug-group commands respectively."
 
 
 /*-------------------------------------------------------------------*

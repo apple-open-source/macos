@@ -1,0 +1,5 @@
+if [ "${Target}" = "IPFirewall (Kernel Extension)" ]; then
+	Targets='IPFirewall (Kernel Extension)'
+else
+	Targets='IPFirewall (Kernel Extension)'
+fi

@@ -124,6 +124,8 @@ tree build_encode_expr				PROTO((tree));
 #define CLASS_RAW_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 1)
 #define CLASS_NST_METHODS(CLASS) ((CLASS)->type.minval)
 #define CLASS_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
+/* APPLE LOCAL bitfield alignment */
+#define CLASS_OWN_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 5)
 #define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 2)
 #define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 3)
 #define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 4)
@@ -134,6 +136,22 @@ tree build_encode_expr				PROTO((tree));
 #define PROTOCOL_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 1)
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
 #define TYPE_PROTOCOL_LIST(TYPE) ((TYPE)->type.context)
+
+/* Type checking macros.  */
+
+extern tree super_type, selector_type, id_type, objc_class_type;
+#define IS_ID(TYPE) \
+  (id_type && TYPE_MAIN_VARIANT (TYPE) == TYPE_MAIN_VARIANT (id_type))
+#define IS_PROTOCOL_QUALIFIED_ID(TYPE) \
+  (IS_ID (TYPE) && TYPE_PROTOCOL_LIST (TYPE))
+#define IS_SUPER(TYPE) \
+  (super_type && TYPE_MAIN_VARIANT (TYPE) == TYPE_MAIN_VARIANT (super_type))
+
+/* Set by `continue_class' and checked by `is_public'.  */
+
+#define TREE_STATIC_TEMPLATE(record_type) (TREE_PUBLIC (record_type))
+#define TYPED_OBJECT(type) \
+       (TREE_CODE (type) == RECORD_TYPE && TREE_STATIC_TEMPLATE (type))
 
 /* Define the Objective-C or Objective-C++ language-specific tree codes.  */
 

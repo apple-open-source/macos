@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -70,39 +70,25 @@ _configget(mach_port_t			server,
 	   int				*sc_status
 )
 {
-	kern_return_t		status;
-	serverSessionRef	mySession = getSession(server);
-	CFDataRef		xmlKey;		/* key  (XML serialized) */
 	CFStringRef		key;		/* key  (un-serialized) */
-	CFDataRef		xmlData;	/* data (XML serialized) */
+	serverSessionRef	mySession = getSession(server);
+	Boolean			ok;
 	CFPropertyListRef	value;
-	CFStringRef		xmlError;
 
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Get key from configuration database."));
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
+	*dataRef = NULL;
+	*dataLen = 0;
+
 	/* un-serialize the key */
-	xmlKey = CFDataCreate(NULL, keyRef, keyLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)keyRef, keyLen);
-	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	key = CFPropertyListCreateFromXMLData(NULL,
-					      xmlKey,
-					      kCFPropertyListImmutable,
-					      &xmlError);
-	CFRelease(xmlKey);
-	if (!key) {
-		if (xmlError) {
-			SCLog(_configd_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() key: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	if (!_SCUnserialize((CFPropertyListRef *)&key, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
-	} else if (!isA_CFString(key)) {
+	}
+
+	if (!isA_CFString(key)) {
+		CFRelease(key);
 		*sc_status = kSCStatusInvalidArgument;
 		return KERN_SUCCESS;
 	}
@@ -110,30 +96,16 @@ _configget(mach_port_t			server,
 	*sc_status = __SCDynamicStoreCopyValue(mySession->store, key, &value);
 	CFRelease(key);
 	if (*sc_status != kSCStatusOK) {
-		*dataRef = NULL;
-		*dataLen = 0;
 		return KERN_SUCCESS;
 	}
 
-	/*
-	 * serialize the data, copy it into an allocated buffer which will be
-	 * released when it is returned as part of a Mach message.
-	 */
-	xmlData = CFPropertyListCreateXMLData(NULL, value);
+	/* serialize the data */
+	ok = _SCSerialize(value, NULL, (void **)dataRef, (CFIndex *)dataLen);
 	CFRelease(value);
-	*dataLen = CFDataGetLength(xmlData);
-	status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
-	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_allocate(): %s"), mach_error_string(status));
+	if (!ok) {
 		*sc_status = kSCStatusFailed;
-		CFRelease(xmlData);
-		*dataRef = NULL;
-		*dataLen = 0;
 		return KERN_SUCCESS;
 	}
-
-	bcopy((char *)CFDataGetBytePtr(xmlData), *dataRef, *dataLen);
-	CFRelease(xmlData);
 
 	/*
 	 * return the instance number associated with the returned data.
@@ -206,72 +178,37 @@ _configget_m(mach_port_t		server,
 	     mach_msg_type_number_t	*dataLen,
 	     int			*sc_status)
 {
-	kern_return_t		status;
-	serverSessionRef	mySession = getSession(server);
 	CFArrayRef		keys		= NULL;	/* keys (un-serialized) */
-	CFArrayRef		patterns	= NULL;	/* patterns (un-serialized) */
-	CFDataRef		xmlData;		/* data (XML serialized) */
 	addSpecific		myContext;
+	serverSessionRef	mySession	= getSession(server);
+	Boolean			ok;
+	CFArrayRef		patterns	= NULL;	/* patterns (un-serialized) */
 
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Get key from configuration database."));
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
+	*dataRef = NULL;
+	*dataLen = 0;
 	*sc_status = kSCStatusOK;
 
 	if (keysRef && (keysLen > 0)) {
-		CFDataRef	xmlKeys;		/* keys (XML serialized) */
-		CFStringRef	xmlError;
-
 		/* un-serialize the keys */
-		xmlKeys = CFDataCreate(NULL, keysRef, keysLen);
-		status = vm_deallocate(mach_task_self(), (vm_address_t)keysRef, keysLen);
-		if (status != KERN_SUCCESS) {
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-			/* non-fatal???, proceed */
-		}
-		keys = CFPropertyListCreateFromXMLData(NULL,
-						       xmlKeys,
-						       kCFPropertyListImmutable,
-						       &xmlError);
-		CFRelease(xmlKeys);
-		if (!keys) {
-			if (xmlError) {
-				SCLog(_configd_verbose, LOG_DEBUG,
-				       CFSTR("CFPropertyListCreateFromXMLData() keys: %@"),
-				       xmlError);
-				CFRelease(xmlError);
-			}
+		if (!_SCUnserialize((CFPropertyListRef *)&keys, (void *)keysRef, keysLen)) {
 			*sc_status = kSCStatusFailed;
-		} else if (!isA_CFArray(keys)) {
+		}
+
+		if (!isA_CFArray(keys)) {
 			*sc_status = kSCStatusInvalidArgument;
 		}
 	}
 
 	if (patternsRef && (patternsLen > 0)) {
-		CFDataRef	xmlPatterns;		/* patterns (XML serialized) */
-		CFStringRef	xmlError;
-
 		/* un-serialize the patterns */
-		xmlPatterns = CFDataCreate(NULL, patternsRef, patternsLen);
-		status = vm_deallocate(mach_task_self(), (vm_address_t)patternsRef, patternsLen);
-		if (status != KERN_SUCCESS) {
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-			/* non-fatal???, proceed */
-		}
-		patterns = CFPropertyListCreateFromXMLData(NULL,
-							   xmlPatterns,
-							   kCFPropertyListImmutable,
-							   &xmlError);
-		CFRelease(xmlPatterns);
-		if (!patterns) {
-			if (xmlError) {
-				SCLog(_configd_verbose, LOG_DEBUG,
-				       CFSTR("CFPropertyListCreateFromXMLData() patterns: %@"),
-				       xmlError);
-				CFRelease(xmlError);
-			}
+		if (!_SCUnserialize((CFPropertyListRef *)&patterns, (void *)patternsRef, patternsLen)) {
 			*sc_status = kSCStatusFailed;
-		} else if (!isA_CFArray(patterns)) {
+		}
+
+		if (!isA_CFArray(patterns)) {
 			*sc_status = kSCStatusInvalidArgument;
 		}
 	}
@@ -279,8 +216,6 @@ _configget_m(mach_port_t		server,
 	if (*sc_status != kSCStatusOK) {
 		if (keys)	CFRelease(keys);
 		if (patterns)	CFRelease(patterns);
-		*dataRef = NULL;
-		*dataLen = 0;
 		return KERN_SUCCESS;
 	}
 
@@ -306,26 +241,13 @@ _configget_m(mach_port_t		server,
 		CFRelease(patterns);
 	}
 
-	/*
-	 * serialize the dictionary of matching keys/patterns, copy it into an
-	 * allocated buffer which will be released when it is returned as part
-	 * of a Mach message.
-	 */
-	xmlData = CFPropertyListCreateXMLData(NULL, myContext.dict);
+	/* serialize the dictionary of matching keys/patterns */
+	ok = _SCSerialize(myContext.dict, NULL, (void **)dataRef, (CFIndex *)dataLen);
 	CFRelease(myContext.dict);
-	*dataLen = CFDataGetLength(xmlData);
-	status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
-	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_allocate(): %s"), mach_error_string(status));
+	if (!ok) {
 		*sc_status = kSCStatusFailed;
-		CFRelease(xmlData);
-		*dataRef = NULL;
-		*dataLen = 0;
 		return KERN_SUCCESS;
 	}
-
-	bcopy((char *)CFDataGetBytePtr(xmlData), *dataRef, *dataLen);
-	CFRelease(xmlData);
 
 	return KERN_SUCCESS;
 }

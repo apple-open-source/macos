@@ -1,30 +1,31 @@
 /* ar.c - Archive modify and extract.
-   Copyright 1991, 92, 93, 94, 95, 96, 97, 98, 99, 2000
+   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002
    Free Software Foundation, Inc.
 
-This file is part of GNU Binutils.
+   This file is part of GNU Binutils.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /*
    Bugs: should use getopt the way tar does (complete w/optional -) and
    should have long options too. GNU ar used to check file against filesystem
    in quick_update and replace operations (would check mtime). Doesn't warn
    when name truncated. No way to specify pos_end. Error messages should be
-   more consistant.
-*/
+   more consistant.  */
+
 #include "bfd.h"
 #include "libiberty.h"
 #include "progress.h"
@@ -33,6 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "libbfd.h"
 #include "arsup.h"
 #include "filenames.h"
+#include "binemul.h"
 #include <sys/stat.h>
 
 #ifdef __GO32___
@@ -250,7 +252,7 @@ usage (help)
   if (! is_ranlib)
     {
       /* xgettext:c-format */
-      fprintf (s, _("Usage: %s [-X32_64] [-]{dmpqrstx}[abcfilNoPsSuvV] [member-name] [count] archive-file file...\n"),
+      fprintf (s, _("Usage: %s [emulation options] [-]{dmpqrstx}[abcfilNoPsSuvV] [member-name] [count] archive-file file...\n"),
 	       program_name);
       /* xgettext:c-format */
       fprintf (s, _("       %s -M [<mri-script]\n"), program_name);
@@ -276,11 +278,18 @@ usage (help)
       fprintf (s, _("  [S]          - do not build a symbol table\n"));
       fprintf (s, _("  [v]          - be verbose\n"));
       fprintf (s, _("  [V]          - display the version number\n"));
-      fprintf (s, _("  [-X32_64]    - (ignored)\n"));
+
+      ar_emul_usage (s);
     }
   else
+    {
     /* xgettext:c-format */
-    fprintf (s, _("Usage: %s [-vV] archive\n"), program_name);
+      fprintf (s, _("Usage: %s [options] archive\n"), program_name);
+      fprintf (s, _(" Generate an index to speed access to archives\n"));
+      fprintf (s, _(" The options are:\n\
+  -h --help                    Print this help message\n\
+  -V --version                 Print version information\n"));
+    }
 
   list_supported_targets (program_name, stderr);
 
@@ -357,6 +366,8 @@ remove_output ()
 /* The option parsing should be in its own function.
    It will be when I have getopt working.  */
 
+int main PARAMS ((int, char **));
+
 int
 main (argc, argv)
      int argc;
@@ -374,9 +385,13 @@ main (argc, argv)
   int file_count;
   char *inarch_filename;
   int show_version;
+  int i;
 
 #if defined (HAVE_SETLOCALE) && defined (HAVE_LC_MESSAGES)
   setlocale (LC_MESSAGES, "");
+#endif
+#if defined (HAVE_SETLOCALE)
+  setlocale (LC_CTYPE, "");
 #endif
   bindtextdomain (PACKAGE, LOCALEDIR);
   textdomain (PACKAGE);
@@ -432,22 +447,20 @@ main (argc, argv)
 
   xatexit (remove_output);
 
-  /* Ignored for (partial) AIX compatibility.  On AIX,
-     the -X option can be used to ignore certain kinds
-     of object files in the archive (the 64-bit objects
-     or the 32-bit objects).  GNU ar always looks at all
-     kinds of objects in an archive.  */
-  while (argc > 1 && strcmp (argv[1], "-X32_64") == 0)
-    {
-      argv++;
-      argc--;
-    }
-
+  for (i = 1; i < argc; i++)
+    if (! ar_emul_parse_arg (argv[i]))
+      break;
+  argv += (i - 1);
+  argc -= (i - 1);
+  	  
   if (is_ranlib)
     {
       boolean touch = false;
 
-      if (argc < 2 || strcmp (argv[1], "--help") == 0)
+      if (argc < 2
+	  || strcmp (argv[1], "--help") == 0
+	  || strcmp (argv[1], "-h") == 0
+	  || strcmp (argv[1], "-H") == 0)
 	usage (0);
       if (strcmp (argv[1], "-V") == 0
 	  || strcmp (argv[1], "-v") == 0
@@ -827,7 +840,7 @@ print_contents (abfd)
     /* xgettext:c-format */
     printf (_("\n<member %s>\n\n"), bfd_get_filename (abfd));
 
-  bfd_seek (abfd, 0, SEEK_SET);
+  bfd_seek (abfd, (file_ptr) 0, SEEK_SET);
 
   size = buf.st_size;
   while (ncopied < size)
@@ -838,8 +851,7 @@ print_contents (abfd)
       if (tocopy > BUFSIZE)
 	tocopy = BUFSIZE;
 
-      nread = bfd_read (cbuf, 1, tocopy, abfd);	/* oops -- broke
-							   abstraction!  */
+      nread = bfd_bread (cbuf, (bfd_size_type) tocopy, abfd);
       if (nread != tocopy)
 	/* xgettext:c-format */
 	fatal (_("%s is not a valid archive"),
@@ -883,7 +895,7 @@ extract_file (abfd)
   if (verbose)
     printf ("x - %s\n", bfd_get_filename (abfd));
 
-  bfd_seek (abfd, 0, SEEK_SET);
+  bfd_seek (abfd, (file_ptr) 0, SEEK_SET);
 
   ostream = NULL;
   if (size == 0)
@@ -907,7 +919,7 @@ extract_file (abfd)
 	if (tocopy > BUFSIZE)
 	  tocopy = BUFSIZE;
 
-	nread = bfd_read (cbuf, 1, tocopy, abfd);
+	nread = bfd_bread (cbuf, (bfd_size_type) tocopy, abfd);
 	if (nread != tocopy)
 	  /* xgettext:c-format */
 	  fatal (_("%s is not a valid archive"),
@@ -1327,24 +1339,13 @@ replace_members (arch, files_to_move, quick)
 
 		  after_bfd = get_pos_bfd (&arch->next, pos_after,
 					   current->filename);
-		  temp = *after_bfd;
-
-		  *after_bfd = bfd_openr (*files_to_move, NULL);
-		  if (*after_bfd == (bfd *) NULL)
+		  if (ar_emul_replace (after_bfd, *files_to_move, 
+				       verbose))
 		    {
-		      bfd_fatal (*files_to_move);
+		      /* Snip out this entry from the chain.  */
+		      *current_ptr = (*current_ptr)->next;
+		      changed = true;
 		    }
-		  (*after_bfd)->next = temp;
-
-		  /* snip out this entry from the chain */
-		  *current_ptr = (*current_ptr)->next;
-
-		  if (verbose)
-		    {
-		      printf ("r - %s\n", *files_to_move);
-		    }
-
-		  changed = true;
 
 		  goto next_file;
 		}
@@ -1353,22 +1354,9 @@ replace_members (arch, files_to_move, quick)
 	}
 
       /* Add to the end of the archive.  */
-
       after_bfd = get_pos_bfd (&arch->next, pos_end, NULL);
-      temp = *after_bfd;
-      *after_bfd = bfd_openr (*files_to_move, NULL);
-      if (*after_bfd == (bfd *) NULL)
-	{
-	  bfd_fatal (*files_to_move);
-	}
-      if (verbose)
-	{
-	  printf ("a - %s\n", *files_to_move);
-	}
-
-      (*after_bfd)->next = temp;
-
-      changed = true;
+      if (ar_emul_append (after_bfd, *files_to_move, verbose))
+	changed = true;
 
     next_file:;
 

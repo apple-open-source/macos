@@ -1,6 +1,6 @@
 #!./perl
 
-# $RCSfile: do.t,v $$Revision: 1.1.1.3 $$Date: 2000/03/31 05:12:40 $
+# $RCSfile: do.t,v $$Revision: 1.2 $$Date: 2002/03/14 09:02:58 $
 
 sub foo1
 {

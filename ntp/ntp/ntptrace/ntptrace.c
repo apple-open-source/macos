@@ -8,19 +8,9 @@
  *
  *	Large portions stolen from ntpdate.c
  */
-#include <stdio.h>
-#include <signal.h>
-#include <ctype.h>
-#include <errno.h>
-#include <netdb.h>
-#include <sys/types.h>
-#include <sys/signal.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
-#include <sys/resource.h>
 
-#if defined(SYS_HPUX)
-#include <utmp.h>
+#ifdef HAVE_CONFIG_H
+# include <config.h>
 #endif
 
 #include "ntp_fp.h"
@@ -33,6 +23,23 @@
 #include "ntp_select.h"
 #include "ntp_stdlib.h"
 #include "recvbuff.h"
+
+#include <stdio.h>
+#include <signal.h>
+#include <ctype.h>
+#include <netdb.h>
+#ifdef HAVE_SYS_SIGNAL_H
+# include <sys/signal.h>
+#else
+# include <signal.h>
+#endif
+#ifdef HAVE_SYS_IOCTL_H
+# include <sys/ioctl.h>
+#endif
+#ifdef HAVE_SYS_RESOURCE_H
+# include <sys/resource.h>
+#endif
+
 /*
  * only 16 stratums, so this is more than enough.
  */
@@ -60,7 +67,7 @@ int sys_retries = 5;			/* # of retry attempts per server */
 int sys_timeout = 2;			/* timeout time, in seconds */
 struct server **sys_servers;		/* the server list */
 int sys_numservers = 0;			/* number of servers to poll */
-int sys_maxservers = NTP_MAXSTRATUM+1;	/* max number of servers to deal with */
+int sys_maxservers = STRATUM_UNSPEC;	/* max number of servers to deal with */
 int sys_version = NTP_OLDVERSION;	/* version to poll with */
 
 
@@ -89,6 +96,7 @@ static	int		getipaddr	P((const char *, u_int32 *));
 static	int		decodeipaddr	P((const char *, u_int32 *));
 static	void	printserver	P((struct server *, FILE *));
 static	void	printrefid	P((FILE *, struct server *));
+void		input_handler	P((l_fp * x));
 
 #ifdef SYS_WINNT
 int on = 1;
@@ -99,7 +107,10 @@ HANDLE	TimerThreadHandle = NULL;	/* 1998/06/03 - Used in ntplib/machines.c */
 void timer(void)	{  ; };	/* 1998/06/03 - Used in ntplib/machines.c */
 #endif /* SYS_WINNT */
 
-extern void input_handler(l_fp * x) { ; };
+void
+input_handler(l_fp * x)
+{ ;
+}
 
 #ifdef NO_MAIN_ALLOWED
 CALL(ntptrace,"ntptrace",ntptracemain);
@@ -238,6 +249,15 @@ DoTrace(
 	)
 {
 	int retries = sys_retries;
+
+	if (!server->srcadr.sin_addr.s_addr) {
+		if (nonames)
+		    printf("%s:\t*Not Synchronized*\n", ntoa(&server->srcadr));
+		else
+		    printf("%s:\t*Not Synchronized*\n", ntohost(&server->srcadr));
+		fflush(stdout);
+		return;
+	}
 
 	if (!verbose) {
 		if (nonames)
@@ -423,7 +443,7 @@ ReceiveBuf(
 
 	if ((PKT_MODE(rpkt->li_vn_mode) != MODE_SERVER
 	     && PKT_MODE(rpkt->li_vn_mode) != MODE_PASSIVE)
-	    || rpkt->stratum > NTP_MAXSTRATUM) {
+	    || rpkt->stratum >= STRATUM_UNSPEC) {
 		if (debug)
 		    printf("receive: mode %d stratum %d\n",
 			   PKT_MODE(rpkt->li_vn_mode), rpkt->stratum);
@@ -501,7 +521,8 @@ ReceiveBuf(
 
 	nextia.s_addr = server->refid;
 	nextserver = addserver(&nextia);
-	DoTrace(nextserver);
+	if (nextserver)
+	  DoTrace(nextserver);
 	return(1);
 }
 
@@ -603,7 +624,7 @@ sendpkt(
 {
 	int cc;
 
-	cc = sendto(fd, (char *)pkt, len, 0, (struct sockaddr *)dest,
+	cc = sendto(fd, (char *)pkt, (size_t)len, 0, (struct sockaddr *)dest,
 		    sizeof(struct sockaddr_in));
 	if (cc == -1) {
 #ifndef SYS_WINNT

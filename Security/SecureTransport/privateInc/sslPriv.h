@@ -67,11 +67,16 @@ typedef enum
 } SSLProtocolSide;
 
 typedef enum
-{   SSL_Version_Undetermined = 0,
+{   
+	/* These values never appear in the actual protocol */
+	SSL_Version_Undetermined = 0,
     SSL_Version_3_0_With_2_0_Hello = 100,
     SSL_Version_3_0_Only = 101,
+	TLS_Version_1_0_Only = 202,
+	/* actual protocol values */
     SSL_Version_2_0 = 0x0002,
-    SSL_Version_3_0 = 0x0300
+    SSL_Version_3_0 = 0x0300,
+	TLS_Version_1_0 = 0x0301		/* TLS 1.0 == SSL 3.1 */
 } SSLProtocolVersion;
 
 /*
@@ -80,6 +85,16 @@ typedef enum
  */
 typedef struct SSLContext SSLContext;
 
+/*
+ * Some hard-coded constants. 
+ */
+
+/* The size of of client- and server-generated random numbers in hello messages. */
+#define SSL_CLIENT_SRVR_RAND_SIZE		32
+
+/* The size of the pre-master and master secrets. */
+#define SSL_RSA_PREMASTER_SECRET_SIZE	48
+#define SSL_MASTER_SECRET_SIZE			48
 
 #ifdef __cplusplus
 }

@@ -73,6 +73,11 @@ if test "$gcc" -eq 1 && ($cc -c $cflags $test.c) 2>/dev/null; then
   CFLAGS="$cflags"
   case `(uname -s || echo unknown) 2>/dev/null` in
   Linux | linux) LDSHARED=${LDSHARED-"gcc -shared -Wl,-soname,libz.so.1"};;
+  Darwin*)   SFLAGS=${CFLAGS-"-O3"}
+	     CFLAGS=${CFLAGS-"-O3"}
+	     SHAREDEXT='.dylib'
+	     LDSHARED=${LDSHARED-'$(CC) $(CFLAGS) -dynamiclib -install_name "$(libdir)/$(SHAREDLIB).$(VER)$(SHAREDEXT)" -current_version $(VER) -compatibility_version 1'}
+	     LDTEST=NO;;
   *)             LDSHARED=${LDSHARED-"gcc -shared"};;
   esac
 else

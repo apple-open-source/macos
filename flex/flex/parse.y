@@ -33,7 +33,7 @@
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* $Header: /cvs/Darwin/Commands/GNU/flex/flex/parse.y,v 1.1.1.2 1999/04/23 00:46:45 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/flex/flex/parse.y,v 1.1.1.2 1999/04/23 00:46:45 wsanchez Exp $ */
 
 
 /* Some versions of bison are broken in that they use alloca() but don't

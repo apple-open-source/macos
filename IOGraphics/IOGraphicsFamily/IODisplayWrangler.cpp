@@ -19,14 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1999 Apple Computer, Inc.
- *
- *
- * HISTORY
- *
- * sdouglas  18 Mar 99 - first checked in.
- */
 
 
 #include <IOKit/assert.h>

@@ -1,0 +1,37 @@
+#! /bin/sh
+
+# Test to make sure the C++ linker is used when appropriate.
+# Matthew D. Langston <langston@SLAC.Stanford.EDU>
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_F77
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = lavalamp
+lavalamp_SOURCES = lava.c lamp.cxx lamp2.f
+END
+
+: > lava.c
+: > lamp.cxx
+: > lamp2.f
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+
+# We should only see the C++ linker in the rules of `Makefile.in'.
+
+# Look for this macro not at the beginning of any line; that will have
+# to be good enough for now.
+grep '.\$(CXXLINK)' Makefile.in  || exit 1
+
+# We should not see these patterns:
+grep '.\$(F77LINK)' Makefile.in && exit 1
+grep '.\$(LINK)'    Makefile.in && exit 1
+
+exit 0

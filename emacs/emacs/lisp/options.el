@@ -1,4 +1,4 @@
-;;; options.el --- edit Options command for Emacs.
+;;; options.el --- edit Options command for Emacs
 
 ;; Copyright (C) 1985 Free Software Foundation, Inc.
 
@@ -35,7 +35,8 @@
 
 ;;;###autoload
 (defun list-options ()
-  "Display a list of Emacs user options, with values and documentation."
+  "Display a list of Emacs user options, with values and documentation.
+It is now better to use Customize instead."
   (interactive)
   (with-output-to-temp-buffer "*List Options*"
     (let (vars)
@@ -112,16 +113,16 @@ For convenience, the characters \\[backward-paragraph] and \\[forward-paragraph]
 
 (defun Edit-options-set () (interactive)
   (Edit-options-modify
-   '(lambda (var) (eval-minibuffer (concat "New " (symbol-name var) ": ")))))
+   (lambda (var) (eval-minibuffer (concat "New " (symbol-name var) ": ")))))
 
 (defun Edit-options-toggle () (interactive)
-  (Edit-options-modify '(lambda (var) (not (symbol-value var)))))
+  (Edit-options-modify (lambda (var) (not (symbol-value var)))))
 
 (defun Edit-options-t () (interactive)
-  (Edit-options-modify '(lambda (var) t)))
+  (Edit-options-modify (lambda (var) t)))
 
 (defun Edit-options-nil () (interactive)
-  (Edit-options-modify '(lambda (var) nil)))
+  (Edit-options-modify (lambda (var) nil)))
 
 (defun Edit-options-modify (modfun)
   (save-excursion

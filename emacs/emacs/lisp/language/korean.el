@@ -1,4 +1,4 @@
-;;; korean.el --- Support for Korean -*- coding: iso-2022-7bit; -*-
+;;; korean.el --- support for Korean -*- coding: iso-2022-7bit; -*-
 
 ;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
 ;; Licensed to the Free Software Foundation.
@@ -66,5 +66,7 @@ The following key bindings are available while using Korean input methods:
   Control-F9:	quail-hangul-switch-symbol-ksc
   F9:		quail-hangul-switch-hanja")
 	    ))
+
+(provide 'korean)
 
 ;;; korean.el ends here

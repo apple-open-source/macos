@@ -26,9 +26,7 @@
  * All rights reserved.
  */
 
-#include "io_inline.h"
 #include "libsaio.h"
-#include "kernBootStruct.h"
 
 // CMOS access ports in I/O space.
 //
@@ -40,8 +38,7 @@
  * Returns the number of active ATA drives since these will increment the
  * bios device numbers of SCSI drives.
  */
-static int
-countIDEDisks()
+static int countIDEDisks()
 {
     int            count = 0;
     unsigned short hdtype;
@@ -84,20 +81,29 @@ countIDEDisks()
 
 KERNBOOTSTRUCT * kernBootStruct = (KERNBOOTSTRUCT *) KERNSTRUCT_ADDR;
 
-void
-initKernBootStruct()
+void initKernBootStruct( int biosdev )
 {
+    static int init_done = 0;
     unsigned char i;
 
-    bzero( (char *) kernBootStruct, sizeof(*kernBootStruct) );    
+    if ( !init_done )
+    {
+        bzero( (char *) kernBootStruct, sizeof(*kernBootStruct) );    
     
-    // Get size of conventional memory.
-
-    kernBootStruct->convmem = memsize(0);
-
-    // Get size of extended memory.
-
-    kernBootStruct->extmem  = memsize(1);    
+        // Get size of conventional memory.
+    
+        kernBootStruct->convmem = memsize(0);
+    
+        // Get size of extended memory.
+    
+        kernBootStruct->extmem  = memsize(1);
+    
+        kernBootStruct->magicCookie  = KERNBOOTMAGIC;
+        kernBootStruct->configEnd    = kernBootStruct->config;
+        kernBootStruct->graphicsMode = TEXT_MODE;
+        
+        init_done = 1;
+    }
 
     // Get number of ATA devices.
 
@@ -110,7 +116,15 @@ initKernBootStruct()
         kernBootStruct->diskInfo[i] = get_diskinfo(0x80 + i);
     }
 
-    kernBootStruct->magicCookie  = KERNBOOTMAGIC;
-    kernBootStruct->configEnd    = kernBootStruct->config;
-    kernBootStruct->graphicsMode = GRAPHICS_MODE;
+    // Update kernDev from biosdev.
+
+    switch ( BIOS_DEV_TYPE( biosdev ) )
+    {
+        case kBIOSDevTypeNetwork:
+            kernBootStruct->kernDev = B_TYPE(DEV_EN); break;
+        case kBIOSDevTypeHardDrive:
+            kernBootStruct->kernDev = B_TYPE(DEV_HD); break;
+        case kBIOSDevTypeFloppy:
+            kernBootStruct->kernDev = B_TYPE(DEV_FD); break;
+    }
 }

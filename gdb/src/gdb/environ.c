@@ -1,5 +1,6 @@
 /* environ.c -- library for manipulating environments for GNU.
-   Copyright (C) 1986, 1989 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 2000
+   Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -22,7 +23,6 @@
 #include "defs.h"
 #include "environ.h"
 #include "gdb_string.h"
-#include "gdbcore.h"
 
 
 /* Return a new environment object.  */
@@ -48,9 +48,9 @@ free_environ (register struct environ *e)
   register char **vector = e->vector;
 
   while (*vector)
-    free (*vector++);
+    xfree (*vector++);
 
-  free (e);
+  xfree (e);
 }
 
 /* Copy the environment given to this process into E.
@@ -142,7 +142,7 @@ set_in_environ (struct environ *e, const char *var, const char *value)
       vector[i + 1] = 0;
     }
   else
-    free (s);
+    xfree (s);
 
   s = (char *) xmalloc (len + strlen (value) + 2);
   strcpy (s, var);
@@ -176,7 +176,7 @@ unset_in_environ (struct environ *e, char *var)
     {
       if (STREQN (s, var, len) && s[len] == '=')
 	{
-	  free (s);
+	  xfree (s);
 	  /* Walk through the vector, shuffling args down by one, including
 	     the NULL terminator.  Can't use memcpy() here since the regions
 	     overlap, and memmove() might not be available. */

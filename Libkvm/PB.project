@@ -30,7 +30,6 @@
     LANGUAGE = English; 
     LOCALIZABLE_FILES = {}; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
-    NEXTSTEP_BUILDDIR = "/Local/Public/$(USER)/BUILD/$(NAME)"; 
     NEXTSTEP_BUILDTOOL = /bin/gnumake; 
     NEXTSTEP_INSTALLDIR = /usr/local/lib/system; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 

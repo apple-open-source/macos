@@ -1,3 +1,24 @@
+/*
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 /*-
  * Copyright (c) 1998 Brian Somers <brian@Awfulhak.org>
  *                    with the aid of code written by
@@ -25,7 +46,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	$Id: alias_cuseeme.c,v 1.1.1.1 2000/01/11 01:48:42 wsanchez Exp $
+ * Based upon:
+ * $FreeBSD: src/lib/libalias/alias_cuseeme.c,v 1.2.2.2 2000/10/31 08:48:21 ru Exp $
  */
 
 #include <sys/types.h>
@@ -70,7 +92,7 @@ AliasHandleCUSeeMeOut(struct ip *pip, struct alias_link *link)
   struct udphdr *ud;
 
   ud = (struct udphdr *)((char *)pip + (pip->ip_hl << 2));
-  if(ud->uh_ulen >= sizeof(struct cu_header)) {
+  if (ntohs(ud->uh_ulen) - sizeof(struct udphdr) >= sizeof(struct cu_header)) {
     struct cu_header *cu;
     struct alias_link *cu_link;
 
@@ -79,7 +101,7 @@ AliasHandleCUSeeMeOut(struct ip *pip, struct alias_link *link)
       cu->addr = (u_int32_t)GetAliasAddress(link).s_addr;
 
     cu_link = FindUdpTcpOut(pip->ip_src, GetDestAddress(link),
-                            ud->uh_dport, 0, IPPROTO_UDP);
+                            ud->uh_dport, 0, IPPROTO_UDP, 1);
                          
 #ifndef NO_FW_PUNCH
     if (cu_link)
@@ -104,7 +126,7 @@ AliasHandleCUSeeMeIn(struct ip *pip, struct in_addr original_addr)
   cu = (struct cu_header *)(ud + 1);
   oc = (struct oc_header *)(cu + 1);
   ci = (struct client_info *)(oc + 1);
-  end = (char *)cu + ud->uh_ulen;
+  end = (char *)ud + ntohs(ud->uh_ulen);
 
   if ((char *)oc <= end) {
     if(cu->dest_addr)

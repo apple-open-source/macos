@@ -1,0 +1,113 @@
+\declaremodule{standard}{email.Parser}
+\modulesynopsis{Parse flat text email messages to produce a message
+	        object tree.}
+
+Message object trees can be created in one of two ways: they can be
+created from whole cloth by instantiating \class{Message} objects and
+stringing them together via \method{add_payload()} and
+\method{set_payload()} calls, or they can be created by parsing a flat text
+representation of the email message.
+
+The \module{email} package provides a standard parser that understands
+most email document structures, including MIME documents.  You can
+pass the parser a string or a file object, and the parser will return
+to you the root \class{Message} instance of the object tree.  For
+simple, non-MIME messages the payload of this root object will likely
+be a string containing the text of the message.  For MIME
+messages, the root object will return true from its
+\method{is_multipart()} method, and the subparts can be accessed via
+the \method{get_payload()} and \method{walk()} methods.
+
+Note that the parser can be extended in limited ways, and of course
+you can implement your own parser completely from scratch.  There is
+no magical connection between the \module{email} package's bundled
+parser and the \class{Message} class, so your custom parser can create
+message object trees in any way it find necessary.
+
+The primary parser class is \class{Parser} which parses both the
+headers and the payload of the message.  In the case of
+\mimetype{multipart} messages, it will recursively parse the body of
+the container message.  The \module{email.Parser} module also provides
+a second class, called \class{HeaderParser} which can be used if
+you're only interested in the headers of the message.
+\class{HeaderParser} can be much faster in this situations, since it
+does not attempt to parse the message body, instead setting the
+payload to the raw body as a string.  \class{HeaderParser} has the
+same API as the \class{Parser} class.
+
+\subsubsection{Parser class API}
+
+\begin{classdesc}{Parser}{\optional{_class}}
+The constructor for the \class{Parser} class takes a single optional
+argument \var{_class}.  This must be a callable factory (such as a
+function or a class), and it is used whenever a sub-message object
+needs to be created.  It defaults to \class{Message} (see
+\refmodule{email.Message}).  The factory will be called without
+arguments.
+\end{classdesc}
+
+The other public \class{Parser} methods are:
+
+\begin{methoddesc}[Parser]{parse}{fp}
+Read all the data from the file-like object \var{fp}, parse the
+resulting text, and return the root message object.  \var{fp} must
+support both the \method{readline()} and the \method{read()} methods
+on file-like objects.
+
+The text contained in \var{fp} must be formatted as a block of \rfc{2822}
+style headers and header continuation lines, optionally preceeded by a
+\emph{Unix-From} header.  The header block is terminated either by the
+end of the data or by a blank line.  Following the header block is the
+body of the message (which may contain MIME-encoded subparts).
+\end{methoddesc}
+
+\begin{methoddesc}[Parser]{parsestr}{text}
+Similar to the \method{parse()} method, except it takes a string
+object instead of a file-like object.  Calling this method on a string
+is exactly equivalent to wrapping \var{text} in a \class{StringIO}
+instance first and calling \method{parse()}.
+\end{methoddesc}
+
+Since creating a message object tree from a string or a file object is
+such a common task, two functions are provided as a convenience.  They
+are available in the top-level \module{email} package namespace.
+
+\begin{funcdesc}{message_from_string}{s\optional{, _class}}
+Return a message object tree from a string.  This is exactly
+equivalent to \code{Parser().parsestr(s)}.  Optional \var{_class} is
+interpreted as with the \class{Parser} class constructor.
+\end{funcdesc}
+
+\begin{funcdesc}{message_from_file}{fp\optional{, _class}}
+Return a message object tree from an open file object.  This is exactly
+equivalent to \code{Parser().parse(fp)}.  Optional \var{_class} is
+interpreted as with the \class{Parser} class constructor.
+\end{funcdesc}
+
+Here's an example of how you might use this at an interactive Python
+prompt:
+
+\begin{verbatim}
+>>> import email
+>>> msg = email.message_from_string(myString)
+\end{verbatim}
+
+\subsubsection{Additional notes}
+
+Here are some notes on the parsing semantics:
+
+\begin{itemize}
+\item Most non-\mimetype{multipart} type messages are parsed as a single
+      message object with a string payload.  These objects will return
+      0 for \method{is_multipart()}.
+\item One exception is for \mimetype{message/delivery-status} type
+      messages.  Because the body of such messages consist of
+      blocks of headers, \class{Parser} will create a non-multipart
+      object containing non-multipart subobjects for each header
+      block.
+\item Another exception is for \mimetype{message/*} types (more
+      general than \mimetype{message/delivery-status}).  These are
+      typically \mimetype{message/rfc822} messages, represented as a
+      non-multipart object containing a singleton payload which is
+      another non-multipart \class{Message} instance.
+\end{itemize}

@@ -1,25 +1,25 @@
 {
-    DYNAMIC_CODE_GEN = YES; 
+    "DYNAMIC_CODE_GEN" = YES; 
     FILESTABLE = {
         FRAMEWORKS = (); 
-        OTHER_LINKED = (hostconfig, rc.common, rc.boot, rc); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
+        "OTHER_LINKED" = (hostconfig, "rc.common", "rc.boot", rc, "rc.netboot", "rc.cleanup"); 
+        "OTHER_SOURCES" = ("Makefile.preamble", Makefile, "Makefile.postamble"); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
-    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
-    NEXTSTEP_INSTALLDIR = "$(ETCDIR)"; 
-    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
-    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
-    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
-    PDO_UNIX_INSTALLDIR = /bin; 
-    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
-    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    "NEXTSTEP_BUILDTOOL" = "/usr/bin/gnumake"; 
+    "NEXTSTEP_INSTALLDIR" = "$(ETCDIR)"; 
+    "NEXTSTEP_JAVA_COMPILER" = "/usr/bin/javac"; 
+    "NEXTSTEP_OBJCPLUS_COMPILER" = "/usr/bin/cc"; 
+    "PDO_UNIX_BUILDTOOL" = "$NEXT_ROOT/Developer/bin/make"; 
+    "PDO_UNIX_INSTALLDIR" = "/bin"; 
+    "PDO_UNIX_JAVA_COMPILER" = "$(JDKBINDIR)/javac"; 
+    "PDO_UNIX_OBJCPLUS_COMPILER" = "$(NEXTDEV_BIN)/gcc"; 
     PROJECTNAME = "init-rc"; 
     PROJECTTYPE = Tool; 
-    PROJECTVERSION = 2.8; 
-    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
-    WINDOWS_INSTALLDIR = /Library/Executables; 
-    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
-    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+    PROJECTVERSION = "2.8"; 
+    "WINDOWS_BUILDTOOL" = "$NEXT_ROOT/Developer/Executables/make"; 
+    "WINDOWS_INSTALLDIR" = "/Library/Executables"; 
+    "WINDOWS_JAVA_COMPILER" = "$(JDKBINDIR)/javac.exe"; 
+    "WINDOWS_OBJCPLUS_COMPILER" = "$(DEVDIR)/gcc"; 
 }

@@ -80,6 +80,7 @@ private:
 	AppleCSPAlgorithmFactory	*ascAlgFactory;
 	#endif
 	AppleCSPAlgorithmFactory	*rsaDsaAlgFactory;
+	AppleCSPAlgorithmFactory	*dhAlgFactory;
 };
 
 

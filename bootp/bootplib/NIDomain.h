@@ -1,3 +1,7 @@
+
+#ifndef _S_NIDOMAIN_H
+#define _S_NIDOMAIN_H
+
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -33,12 +37,12 @@
  * - converted to straight C
  */
 
-#import	<mach/boolean.h>
-#import <netinet/if_ether.h>
-#import <netinet/in.h>
-#import <netinfo/ni.h>
-#import <netinfo/ni_util.h>
-#import "dynarray.h"
+#include <mach/boolean.h>
+#include <netinet/if_ether.h>
+#include <netinet/in.h>
+#include <netinfo/ni.h>
+#include <netinfo/ni_util.h>
+#include "dynarray.h"
 
 #define NI_DOMAIN_LOCAL		"."
 #define NI_DOMAIN_PARENT	".."
@@ -104,3 +108,5 @@ NIDomainList_count(NIDomainList_t * list);
 
 NIDomain_t *
 NIDomainList_find(NIDomainList_t * list, NIDomain_t * domain);
+
+#endif _S_NIDOMAIN_H

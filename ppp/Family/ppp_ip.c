@@ -53,6 +53,7 @@ Includes
 #include "ppp_defs.h"		// public ppp values
 #include "ppp_fam.h"
 #include "ppp_ip.h"
+#include "ppp_if.h"
 #include "if_ppplink.h"
 #include "ppp_domain.h"
 
@@ -94,7 +95,7 @@ int ppp_ip_dispose(int term_arg)
 attach the PPPx interface ifp to the network protocol IP,
 called when the ppp interface is ready for ppp traffic
 ----------------------------------------------------------------------------- */
-int ppp_ip_attach(struct ifnet *ifp, u_long *tag)
+int ppp_ip_attach(struct ifnet *ifp, struct sockaddr_in *addr, u_long *tag)
 {
     int 			ret;
     struct dlil_proto_reg_str   reg;
@@ -122,12 +123,13 @@ int ppp_ip_attach(struct ifnet *ifp, u_long *tag)
     reg.unit_number      = ifp->if_unit;
     reg.input            = ppp_ip_input;
     reg.pre_output       = ppp_ip_preoutput;
-    ret = dlil_attach_protocol(&reg, &fam->ip_tag);
+    ret = dlil_attach_protocol(&reg, tag);
     LOGRETURN(ret, ret, "ppp_attach_ip: dlil_attach_protocol error = 0x%x\n");
 
-    LOGDBG(ifp, (LOGVAL, "ppp_attach_ip: dlil_attach_protocol tag = 0x%x\n", fam->ip_tag));
-
-    *tag = fam->ip_tag;
+    fam->ip_addr.s_addr = addr->sin_addr.s_addr;
+    dlil_find_dltag(APPLE_IF_FAM_LOOPBACK, 0, PF_INET, &fam->ip_lotag);
+     
+    LOGDBG(ifp, (LOGVAL, "ppp_attach_ip: dlil_attach_protocol tag = 0x%x\n", *tag));
     return 0;
 }
 
@@ -163,7 +165,7 @@ int ppp_ip_input(struct mbuf *m, char *frame_header, struct ifnet *ifp,
                  u_long dl_tag, int sync_ok)
 {
     int  s;
-
+    
     LOGMBUF("ppp_ip_input", m);
 
     if (ipflow_fastforward(m)) {
@@ -194,6 +196,9 @@ int ppp_ip_preoutput(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *dst_n
                      caddr_t route, char *type, char *edst, u_long dl_tag)
 {
 //    struct ip 		*ip;
+    int 		err;
+    struct ppp_fam	*fam = (struct ppp_fam *)ifp->family_cookie;
+    struct ppp_if      *wan = (struct ppp_if *)ifp;
 
     LOGMBUF("ppp_ip_preoutput", *m0);
 
@@ -206,6 +211,12 @@ int ppp_ip_preoutput(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *dst_n
     if (ip->ip_tos & IPTOS_LOWDELAY)
         (*m0)->m_flags |= M_HIGHPRI;
 #endif
+
+    if ((wan->sc_flags & SC_LOOP_LOCAL)
+        && (((struct sockaddr_in *)dst_netaddr)->sin_addr.s_addr == fam->ip_addr.s_addr)) {
+        err = dlil_output(fam->ip_lotag, *m0, 0, dst_netaddr, 0);
+        return (err ? err : EJUSTRETURN);
+    }
 
     *(u_int16_t *)type = PPP_IP;
     return 0;

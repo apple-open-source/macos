@@ -1,4 +1,19 @@
+#include <libc.h>
 #include "vers_rsrc.h"
+
+int vers_isdigit(char c) {
+    return (c == '0' ||
+        c == '1' || c == '2' || c == '3' ||
+        c == '4' || c == '5' || c == '6' ||
+        c == '7' || c == '8' || c == '9');
+}
+
+int vers_isspace(char c) {
+    return (c == ' ' ||
+        c == '\t' ||
+        c == '\r' ||
+        c == '\n');
+}
 
 
 int isreleasestate(char c) {
@@ -51,33 +66,33 @@ VERS_revision VERS_revision_for_string(char ** string_p) {
 
     string = *string_p;
 
-    if (isspace(string[0]) || string[0] == '\0') {
+    if (vers_isspace(string[0]) || string[0] == '\0') {
         return VERS_release;
     } else {
         switch (string[0]) {
           case 'd':
-              if (isdigit(string[1])) {
+              if (vers_isdigit(string[1])) {
                   *string_p = &string[1];
                   return VERS_development;
               }
               break;
           case 'a':
-              if (isdigit(string[1])) {
+              if (vers_isdigit(string[1])) {
                   *string_p = &string[1];
                   return VERS_alpha;
               }
               break;
           case 'b':
-              if (isdigit(string[1])) {
+              if (vers_isdigit(string[1])) {
                   *string_p = &string[1];
                   return VERS_beta;
               }
               break;
           case 'f':
-              if (isdigit(string[1])) {
+              if (vers_isdigit(string[1])) {
                   *string_p = &string[1];
                   return VERS_candidate;
-              } else if (string[1] == 'c' && isdigit(string[2])) {
+              } else if (string[1] == 'c' && vers_isdigit(string[2])) {
                   *string_p = &string[2];
                   return VERS_candidate;
               } else {
@@ -127,7 +142,7 @@ int VERS_parse_string(char * vers_string, UInt32 * version_num) {
         vers.bytes[2] = VERS_release;
         vers.bytes[3] = 0xff;
         goto finish;
-    } else if (isdigit(*current_char_p)) {
+    } else if (vers_isdigit(*current_char_p)) {
         scratch = BCD_digit_for_char(*current_char_p);
         if (scratch == BCD_illegal) {
             return 0;
@@ -162,7 +177,7 @@ int VERS_parse_string(char * vers_string, UInt32 * version_num) {
         vers.bytes[2] = VERS_release;
         vers.bytes[3] = 0xff;
         goto finish;
-    } else if (isdigit(*current_char_p)) {
+    } else if (vers_isdigit(*current_char_p)) {
         vers.bytes[1] = BCD_digit_for_char(*current_char_p);
         if (vers.bytes[1] == BCD_illegal) {
             return 0;
@@ -196,7 +211,7 @@ int VERS_parse_string(char * vers_string, UInt32 * version_num) {
         vers.bytes[2] = VERS_release;
         vers.bytes[3] = 0xff;
         goto finish;
-    } else if (isdigit(*current_char_p)) {
+    } else if (vers_isdigit(*current_char_p)) {
         scratch = BCD_digit_for_char(*current_char_p);
         if (scratch == BCD_illegal) {
             return 0;
@@ -245,7 +260,7 @@ release_state:
         UInt32 revision_num = 0;
         int    i;
 
-        if (*current_char_p == '\0' || !isdigit(*current_char_p)) {
+        if (*current_char_p == '\0' || !vers_isdigit(*current_char_p)) {
             return 0;
         }
         for (i = 0; i < 3 && *current_char_p != '\0'; i++, current_char_p++) {
@@ -257,7 +272,7 @@ release_state:
             revision_num *= 10;
             revision_num += scratch_digit;
         }
-        if (isdigit(*current_char_p) || revision_num > 255) {
+        if (vers_isdigit(*current_char_p) || revision_num > 255) {
             return 0;
         }
         vers.bytes[3] = (UInt8)revision_num;
@@ -277,7 +292,7 @@ release_state:
     }
 
 finish:
-    *version_num = vers.vnum;
+    *version_num = CFSwapInt32BigToHost(vers.vnum);
     return result;
 }
 
@@ -287,20 +302,20 @@ finish:
 int VERS_string(char * buffer, UInt32 length, UInt32 vers) {
     VERS_version version;
     int cpos = 0;
-    int result = 1;
+    int result = 1;  // assume success
 
     char major1;
     char major2;
     char minor;
     char bugfix;
 
-    version.vnum = vers;
+    version.vnum = CFSwapInt32HostToBig(vers);
 
-   /* No buffer, length less than longest possible vers string,
+   /* No buffer or length less than longest possible vers string,
     * return 0.
     */
     if (!buffer || length < VERS_STRING_MAX_LEN) {
-        result = -1;
+        result = 0;
         goto finish;
     }
 
@@ -362,7 +377,6 @@ int VERS_string(char * buffer, UInt32 length, UInt32 vers) {
    /* If the release state is final, we're done!
     */
     if (version.bytes[2] == VERS_release && version.bytes[3] == 255) {
-        result = 0;
         goto finish;
     }
 
@@ -383,13 +397,12 @@ int VERS_string(char * buffer, UInt32 length, UInt32 vers) {
         buffer[cpos] = 'b';
         cpos++;
         break;
-      case VERS_release: 
+      case VERS_release:
         if (version.bytes[3] < 255) {
             buffer[cpos] = 'f';
             buffer[cpos+1] = 'c';
             cpos += 2;
         } else {
-            result = 1;
             goto finish;
         }
         break;

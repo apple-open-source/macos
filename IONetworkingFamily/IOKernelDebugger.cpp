@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,15 +37,10 @@
 #include <IOKit/network/IONetworkController.h>
 #include <IOKit/network/IOKernelDebugger.h>
 #include <libkern/OSAtomic.h>
+#include "IONetworkControllerPrivate.h"
 
 //---------------------------------------------------------------------------
 // IOKDP
-
-#define kIOKDPEnableKDP            "IOEnableKDP"
-#define kIOKDPDriverMatchPPC       "IODriverMatchPPC"
-#define kIOKDPDriverNubMatchPPC    "IODriverNubMatchPPC"
-#define kIOKDPDriverMatchI386      "IODriverMatchI386"
-#define kIOKDPDriverNubMatchI386   "IODriverNubMatchI386"
 
 class IOKDP : public IOService
 {
@@ -53,11 +51,6 @@ public:
 
     virtual void stop( IOService * provider );
 
-    virtual bool matchProvider( IOService * provider );
-
-    virtual bool matchServiceWithDictionary( IOService *    service,
-                                             OSDictionary * match );
-
     virtual IOReturn message( UInt32       type,
                               IOService *  provider,
                               void *       argument = 0 );
@@ -66,8 +59,9 @@ public:
 //---------------------------------------------------------------------------
 // IOKDP defined globals.
 
-static IOLock * gIOKDPLock = 0;
-static IOKDP *  gIOKDP     = 0;
+static IOLock * gIOKDPLock    = 0;
+static IOKDP *  gIOKDP        = 0;
+static UInt32   gDebugBootArg = 0;
 
 class IOKDPGlobals
 {
@@ -83,6 +77,8 @@ static IOKDPGlobals gIOKDPGlobals;
 IOKDPGlobals::IOKDPGlobals()
 {
     gIOKDPLock = IOLockAlloc();
+
+    PE_parse_boot_arg( "debug", &gDebugBootArg );
 }
 
 IOKDPGlobals::~IOKDPGlobals()
@@ -103,111 +99,6 @@ bool IOKDPGlobals::isValid() const
 OSDefineMetaClassAndStructors( IOKDP, IOService )
 
 //---------------------------------------------------------------------------
-// Match the provider with the matching dictionary in our property table.
-
-bool IOKDP::matchProvider(IOService * provider)
-{
-    IOService * driver    = 0;
-    IOService * driverNub = 0;
-    OSBoolean * aBool;
-
-    if ( provider )  driver = provider->getProvider();
-    if ( driver ) driverNub = driver->getProvider();
-
-    if ( (driver == 0) || (driverNub == 0) )
-        return false;
-
-    if ( ( aBool = OSDynamicCast(OSBoolean, getProperty(kIOKDPEnableKDP)) ) &&
-         ( aBool->isTrue() == false ) )
-        return false;
-
-#if defined (__ppc__)
-
-    if ( matchServiceWithDictionary( driver, (OSDictionary *)
-                                     getProperty(kIOKDPDriverMatchPPC)) )
-    {
-        // IOLog("IOKDP: %s\n", kIOKDPDriverMatch);
-        return true;
-    }
-
-    if ( matchServiceWithDictionary( driverNub, (OSDictionary *) 
-                                     getProperty(kIOKDPDriverNubMatchPPC)) )
-    {
-        // IOLog("IOKDP: %s\n", kIOKDPDriverNubMatch);
-        return true;
-    }
-
-#elif defined (__i386__)
-
-	return true;
-
-#else
-#error unknown architecture
-#endif
-
-    return false;
-}
-
-//---------------------------------------------------------------------------
-// Match an IOService with a matching dictionary.
-
-bool IOKDP::matchServiceWithDictionary(IOService *    service,
-                                       OSDictionary * match)
-{
-    OSCollectionIterator * matchIter;
-    OSCollectionIterator * arrayIter = 0;
-    OSCollection *         array;
-    OSObject *             objM;
-    OSObject *             objP;
-    OSSymbol *             sym;
-    bool                   isMatch = false;
-
-    if ( ( OSDynamicCast(OSDictionary, match) == 0 ) ||
-         ( match->getCount() == 0 )                  ||
-         ( (matchIter = OSCollectionIterator::withCollection(match)) == 0 ) )
-        return false;
-
-    while ( ( sym = OSDynamicCast(OSSymbol, matchIter->getNextObject()) ) )
-    {
-        objM = match->getObject(sym);
-        objP = service->getProperty(sym);
-
-        isMatch = false;
-
-        if ( arrayIter )
-        {
-            arrayIter->release();
-            arrayIter = 0;
-        }
-
-        if ( (array = OSDynamicCast( OSCollection, objM )) )
-        {
-            arrayIter = OSCollectionIterator::withCollection( array );
-            if ( arrayIter == 0 ) break;
-        }
-
-        do {
-            if ( arrayIter && ((objM = arrayIter->getNextObject()) == 0) )
-                break;
-
-            if ( objM && objP && objM->isEqualTo(objP) )
-            {
-                isMatch = true;
-                break;
-            }
-        }
-        while ( arrayIter );
-
-        if ( isMatch == false ) break;
-    }
-
-    if ( arrayIter ) arrayIter->release();
-    matchIter->release();
-
-    return isMatch;
-}
-
-//---------------------------------------------------------------------------
 // start/stop/message.
 
 bool IOKDP::start( IOService * provider )
@@ -226,13 +117,8 @@ bool IOKDP::start( IOService * provider )
         if ( gIOKDP )
             break;
 
-        if ( matchProvider(provider) == false )
-            break;
-
         if ( provider->open(this) == false )
             break;
-
-        publishResource("kdp");
 
         gIOKDP = this;
         ret    = true;
@@ -240,6 +126,8 @@ bool IOKDP::start( IOService * provider )
     while ( false );
 
     IOLockUnlock( gIOKDPLock );
+    
+    if ( ret ) registerService();
 
     return ret;
 }
@@ -280,15 +168,16 @@ extern "C" {
 typedef void (*kdp_send_t)( void * pkt, UInt pkt_len );
 typedef void (*kdp_receive_t)( void * pkt, UInt * pkt_len, UInt timeout );
 void kdp_register_send_receive( kdp_send_t send, kdp_receive_t receive );
+void kdp_unregister_send_receive( kdp_send_t send, kdp_receive_t receive );
 }
 
 #undef  super
 #define super IOService
 OSDefineMetaClassAndStructors( IOKernelDebugger, IOService )
-OSMetaClassDefineReservedUnused( IOKernelDebugger,  0);
-OSMetaClassDefineReservedUnused( IOKernelDebugger,  1);
-OSMetaClassDefineReservedUnused( IOKernelDebugger,  2);
-OSMetaClassDefineReservedUnused( IOKernelDebugger,  3);
+OSMetaClassDefineReservedUnused( IOKernelDebugger, 0 );
+OSMetaClassDefineReservedUnused( IOKernelDebugger, 1 );
+OSMetaClassDefineReservedUnused( IOKernelDebugger, 2 );
+OSMetaClassDefineReservedUnused( IOKernelDebugger, 3 );
 
 // IOKernelDebugger global variables.
 //
@@ -301,11 +190,22 @@ SInt32               gIODebuggerSemaphore = 0;
 UInt32               gIODebuggerFlag      = 0;
 
 // Global debugger flags.
-// 
+//
 enum {
     kIODebuggerFlagRegistered       = 0x01,
     kIODebuggerFlagWarnNullHandler  = 0x02
 };
+
+#define _enableDebuggerThreadCall   _reserved->enableDebuggerThreadCall
+#define _disableDebuggerThreadCall  _reserved->disableDebuggerThreadCall
+#define _state                      _reserved->stateVars[0]
+#define _activationChangeThreadCall _reserved->activationChangeThreadCall
+
+#define EARLY_DEBUG_SUPPORT         (gDebugBootArg != 0)
+#define kIOPrimaryDebugPortKey      "IOPrimaryDebugPort"
+
+static void handleActivationChange( IOKernelDebugger * debugger,
+                                    void *             change );
 
 //---------------------------------------------------------------------------
 // The KDP receive dispatch function. Dispatches KDP receive requests to the
@@ -397,11 +297,38 @@ bool IOKernelDebugger::init( IOService *          target,
         return false;
     }
 
+    // Allocate memory for the ExpansionData structure.
+
+    _reserved = IONew( ExpansionData, 1 );
+    if ( _reserved == 0 )
+    {
+        return false;
+    }
+
+    _enableDebuggerThreadCall = thread_call_allocate( 
+                                (thread_call_func_t)  pmEnableDebugger,
+                                (thread_call_param_t) this );
+    
+    _disableDebuggerThreadCall = thread_call_allocate( 
+                                (thread_call_func_t)  pmDisableDebugger,
+                                (thread_call_param_t) this );
+
+    _activationChangeThreadCall = thread_call_allocate( 
+                                (thread_call_func_t)  handleActivationChange,
+                                (thread_call_param_t) this );
+
+    if ( !_enableDebuggerThreadCall || !_disableDebuggerThreadCall ||
+         !_activationChangeThreadCall )
+    {
+        return false;
+    }
+
     // Cache the target and handlers provided.
 
     _target     = target;
     _txHandler  = txHandler;
     _rxHandler  = rxHandler;
+    _state      = 0;
 
     return true;
 }
@@ -422,6 +349,16 @@ IOKernelDebugger * IOKernelDebugger::debugger( IOService *          target,
         debugger = 0;
     }
 
+#if defined (__ppc__)
+    IOService * device = target->getProvider();
+    if ( device && device->getProperty( "built-in" ) )
+        debugger->setProperty( kIOPrimaryDebugPortKey, true );
+    else
+        debugger->setProperty( kIOPrimaryDebugPortKey, false );
+#else
+    debugger->setProperty( kIOPrimaryDebugPortKey, true );
+#endif
+
     return debugger;
 }
 
@@ -440,12 +377,21 @@ void IOKernelDebugger::registerHandler( IOService *          target,
 
     doRegister = ( target && ( txHandler != 0 ) && ( rxHandler != 0 ) );
 
+    if ( !doRegister && ( gIODebuggerFlag & kIODebuggerFlagRegistered ) )
+    {
+        // Unregister the polling functions from KDP.
+        kdp_unregister_send_receive( (kdp_send_t) kdpTransmitDispatcher,
+                                     (kdp_receive_t) kdpReceiveDispatcher );
+
+        gIODebuggerFlag &= ~kIODebuggerFlagRegistered;
+    }
+
     if ( txHandler == 0 ) txHandler = &IOKernelDebugger::nullTxHandler;
     if ( rxHandler == 0 ) rxHandler = &IOKernelDebugger::nullRxHandler;    
 
     OSIncrementAtomic( &gIODebuggerSemaphore );
 
-    gIODebuggerDevice    = target;  
+    gIODebuggerDevice    = target;
     gIODebuggerTxHandler = txHandler;
     gIODebuggerRxHandler = rxHandler;
     gIODebuggerFlag     |= kIODebuggerFlagWarnNullHandler;
@@ -466,7 +412,59 @@ void IOKernelDebugger::registerHandler( IOService *          target,
         // Limit ourself to a single real KDP registration.
 
         gIODebuggerFlag |= kIODebuggerFlagRegistered;
+        
+        publishResource("kdp");
     }
+}
+
+//---------------------------------------------------------------------------
+// enableTarget / disableTarget
+
+enum {
+    kEventClientOpen     = 0x0001,
+    kEventTargetUsable   = 0x0002,
+    kEventDebuggerActive = 0x0004,
+    kTargetIsEnabled     = 0x0100,
+    kTargetWasEnabled    = 0x0200,
+};
+
+static void enableTarget( IOKernelDebugger * self,
+                          IOService *        target,
+                          UInt32 *           state,
+                          UInt32             event )
+{
+    IONetworkController * ctr = OSDynamicCast( IONetworkController, target );
+
+    #define kReadyMask ( kEventClientOpen     | \
+                         kEventTargetUsable   | \
+                         kEventDebuggerActive )
+
+    *state |= event;
+    *state &= ~kTargetWasEnabled;
+
+    if ( ( *state & kReadyMask ) == kReadyMask )
+    {
+        if ( !ctr || ( *state & kTargetIsEnabled ) ||
+             ctr->doEnable( self ) == kIOReturnSuccess )
+        {
+            if ( ( *state & kTargetIsEnabled ) == 0 )
+                *state |= kTargetWasEnabled;
+            *state |= kTargetIsEnabled;
+        }
+    }
+}
+
+static void disableTarget( IOKernelDebugger * self,
+                           IOService *        target,
+                           UInt32 *           state,
+                           UInt32             event )
+{
+    IONetworkController * ctr = OSDynamicCast( IONetworkController, target );
+    UInt32                on  = *state & kTargetIsEnabled;
+
+    *state &= ~( event | kTargetIsEnabled | kTargetWasEnabled );
+
+    if ( ctr && on ) ctr->doDisable( self );
 }
 
 //---------------------------------------------------------------------------
@@ -476,13 +474,12 @@ bool IOKernelDebugger::handleOpen( IOService *    forClient,
                                    IOOptionBits   options,
                                    void *         arg )
 {
-    IONetworkController * ctr = OSDynamicCast(IONetworkController, _target);
-    bool                  ret = false;
+    bool ret = false;
 
     do {
         // Only a single client at a time.
 
-        if ( _client ) break;
+        if ( _client || !_target ) break;
 
         // Register the target to prime the lock()/unlock() functionality
         // before opening the target.
@@ -495,34 +492,31 @@ bool IOKernelDebugger::handleOpen( IOService *    forClient,
         if ( _target->open( this ) == false )
             break;
 
+        // For early debugging, the debugger must become active and enable
+        // the controller as early as possible. Otherwise, the debugger is
+        // not activated until the controller is enabled by BSD.
+
+        if ( EARLY_DEBUG_SUPPORT )
+            _state |= kEventDebuggerActive;
+
         // Register interest in receiving notifications about controller
-        // power state changes.
-        //
-        // We are making an assumption that the controller is 'usable' and
-        // the next notification will inform this object that the controller
-        // has become unusable, there is no support for cases when the
-        // controller is already in an 'unusable' state.
+        // power state changes. The controller is usable if it is power
+        // managed, and is in an usable state, or if the controller is
+        // not power managed.
 
-        _pmDisabled = false;
+        if ( _target->registerInterestedDriver(this) &
+             ( kIOPMDeviceUsable | kIOPMNotPowerManaged ) )
+            _state |= kEventTargetUsable;
 
-        if ( ctr )
+        // Enable the target if possible.
+
+        enableTarget( this, _target, &_state, kEventClientOpen );
+        if ( _state & kTargetWasEnabled )
         {
-            // Register to receive PM notifications for controller power
-            // state changes.
-
-            ctr->registerInterestedDriver( this );
-        
-            if ( ctr->doEnable( this ) != kIOReturnSuccess )
-            {
-                ctr->deRegisterInterestedDriver( this );
-                break;
-            }
+            // If the target was enabled, complete the registration.
+            IOLog("%s: registering debugger\n", getName());
+            registerHandler( _target, _txHandler, _rxHandler );
         }
-
-        // After the target has been opened, complete the registration.
-
-        IOLog("%s: Debugger attached\n", getName());
-        registerHandler( _target, _txHandler, _rxHandler );
 
         // Remember the client.
 
@@ -547,29 +541,19 @@ bool IOKernelDebugger::handleOpen( IOService *    forClient,
 void IOKernelDebugger::handleClose( IOService *   forClient,
                                     IOOptionBits  options )
 {
-    IONetworkController * ctr = OSDynamicCast(IONetworkController, _target);
-
-    if ( _client && ( _client == forClient ) )
+    if ( _target && _client && ( _client == forClient ) )
     {
         // There is no KDP un-registration. The best we can do is to
         // register dummy handlers.
 
         registerHandler( 0 );
 
-        if ( ctr )
-        {
-            // Disable controller if it is not already disabled.
+        disableTarget( this, _target, &_state, kEventClientOpen );
 
-            if ( _pmDisabled == false )
-            {
-                ctr->doDisable( this );
-            }
+        // Before closing the controller, remove interest in receiving
+        // notifications about controller power state changes.
 
-            // Before closing the controller, remove interest in receiving
-            // notifications about controller power state changes.
-
-            ctr->deRegisterInterestedDriver( this );
-        }
+        _target->deRegisterInterestedDriver( this );
 
         _client = 0;
 
@@ -593,7 +577,21 @@ bool IOKernelDebugger::handleIsOpen( const IOService * forClient ) const
 
 void IOKernelDebugger::free()
 {
-    // IOLog("IOKernelDebugger::%s %p\n", __FUNCTION__, this);
+    if ( _reserved )
+    {
+        if ( _enableDebuggerThreadCall )
+            thread_call_free( _enableDebuggerThreadCall );
+
+        if ( _disableDebuggerThreadCall )
+            thread_call_free( _disableDebuggerThreadCall );
+
+        if ( _activationChangeThreadCall )
+            thread_call_free( _activationChangeThreadCall );
+
+        IODelete( _reserved, ExpansionData, 1 );
+        _reserved = 0;
+    }
+
     super::free();
 }
 
@@ -614,11 +612,12 @@ IOKernelDebugger::powerStateWillChangeTo( IOPMPowerFlags  flags,
         // Controller is about to transition to an un-usable state.
         // The debugger nub should be disabled.
 
-        this->retain();
-
-        thread_call_func( (thread_call_func_t) pmDisableDebugger,
-                          this,    /* parameter */
-                          FALSE ); /* disable unique call filter */
+        retain();
+        if ( thread_call_enter( _disableDebuggerThreadCall ) == TRUE )
+        {
+            // Remove the extra retain if callout is pending.
+            release();
+        }
 
         ret = PM_SECS(3);  /* Must ACK within 3 seconds */
     }
@@ -637,12 +636,13 @@ IOKernelDebugger::powerStateDidChangeTo( IOPMPowerFlags  flags,
     {
         // Controller has transitioned to an usable state.
         // The debugger nub should be enabled if necessary.
-
-        this->retain();
-
-        thread_call_func( (thread_call_func_t) pmEnableDebugger,
-                          this,    /* parameter */
-                          FALSE ); /* disable unique call filter */
+        
+        retain();
+        if ( thread_call_enter( _enableDebuggerThreadCall ) == TRUE )
+        {
+            // Remove the extra retain if callout is pending.
+            release();
+        }
 
         ret = PM_SECS(3);  /* Must ACK within 3 seconds */
     }
@@ -656,32 +656,24 @@ IOKernelDebugger::powerStateDidChangeTo( IOPMPowerFlags  flags,
 
 void IOKernelDebugger::pmEnableDebugger( IOKernelDebugger * debugger )
 {
-    IONetworkController * ctr;
     assert( debugger );
-
-    ctr = OSDynamicCast( IONetworkController, debugger->_target );
+    assert( debugger->_target );
 
     debugger->lockForArbitration();
 
-    if ( debugger->_client && ( debugger->_pmDisabled == true ) )
-    {
-        if ( ctr && ( ctr->doEnable( debugger ) != kIOReturnSuccess ) )
-        {
-            // This is bad, unable to re-enable the controller after sleep.
-            IOLog("IOKernelDebugger: Unable to re-enable controller\n");
-        }
-        else
-        {
-            registerHandler( debugger->_target, debugger->_txHandler, 
-                                                debugger->_rxHandler );
+    enableTarget( debugger, debugger->_target, &debugger->_state,
+                  kEventTargetUsable );
 
-            debugger->_pmDisabled = false;
-        }
+    if ( debugger->_state & kTargetWasEnabled )
+    {
+        registerHandler( debugger->_target,
+                         debugger->_txHandler, 
+                         debugger->_rxHandler );
     }
 
     debugger->unlockForArbitration();
 
-    // Ack the power state change.
+    // Ack the target's power state change.
     debugger->_target->acknowledgePowerChange( debugger );
 
     debugger->release();
@@ -693,29 +685,91 @@ void IOKernelDebugger::pmEnableDebugger( IOKernelDebugger * debugger )
 
 void IOKernelDebugger::pmDisableDebugger( IOKernelDebugger * debugger )
 {
-    IONetworkController * ctr;
     assert( debugger );
-
-    ctr = OSDynamicCast( IONetworkController, debugger->_target );
+    assert( debugger->_target );
 
     debugger->lockForArbitration();
 
-    if ( debugger->_client && ( debugger->_pmDisabled == false ) )
-    {
-        // Keep an open on the controller, but inhibit access to the
-        // controller's debugger handlers, and disable controller's
-        // hardware support for the debugger.
+    // Keep an open on the controller, but inhibit access to the
+    // controller's debugger handlers, and disable controller's
+    // hardware support for the debugger.
 
-        registerHandler( 0 );
-        if ( ctr ) ctr->doDisable( debugger );
+    if ( debugger->_client ) registerHandler( 0 );
 
-        debugger->_pmDisabled = true;
-    }
+    disableTarget( debugger, debugger->_target, &debugger->_state,
+                   kEventTargetUsable );
 
     debugger->unlockForArbitration();
 
-    // Ack the power state change.
+    // Ack the target's power state change.
     debugger->_target->acknowledgePowerChange( debugger );
 
     debugger->release();
+}
+
+//---------------------------------------------------------------------------
+// handleActivationChange
+
+static void
+handleActivationChange( IOKernelDebugger * debugger, void * change )
+{
+    debugger->message( kMessageDebuggerActivationChange, 0, change );
+    debugger->release();
+}
+
+//---------------------------------------------------------------------------
+// message()
+
+IOReturn IOKernelDebugger::message( UInt32 type, IOService * provider,
+                                    void * argument )
+{
+    IOReturn ret = kIOReturnSuccess;
+
+	switch ( type )
+    {
+        case kMessageControllerWasEnabledForBSD:
+        case kMessageControllerWasDisabledForBSD:
+            // For early debugging support, these messages are ignored.
+            // The debugger will enable the controller independently
+            // from BSD.
+
+            if ( EARLY_DEBUG_SUPPORT ) break;
+
+            // Process this change in another thread to avoid deadlocks
+            // between the controller's work loop, and our arbitration
+            // lock.
+
+            retain();
+            if ( thread_call_enter1( _activationChangeThreadCall,
+                                     (void *) type ) == TRUE )
+                release();
+
+            break;
+
+        case kMessageDebuggerActivationChange:
+            lockForArbitration();
+
+            // If controller was enabled, activate the debugger.
+            // Otherwise make the debugger inactive.
+
+            if ( (void *) kMessageControllerWasEnabledForBSD == argument )
+            {
+                enableTarget( this, _target, &_state, kEventDebuggerActive );
+                if ( _state & kTargetWasEnabled )
+                    registerHandler( _target, _txHandler, _rxHandler );
+            }
+            else
+            {
+                if ( _client ) registerHandler( 0 );
+                disableTarget( this, _target, &_state, kEventDebuggerActive );
+            }
+
+            unlockForArbitration();
+            break;
+
+        default:
+            ret = super::message( type, provider, argument );
+    }
+
+    return ret;
 }

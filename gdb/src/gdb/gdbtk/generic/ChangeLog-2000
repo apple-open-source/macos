@@ -1,0 +1,211 @@
+2000-11-29  Tom Tromey  <tromey@cygnus.com>
+
+	* gdbtk-cmds.c (Gdbtk_Init): Create gdb_current_directory,
+	gdb_inferior_args, and gdb_source_path variables.
+
+2000-11-29  Tom Tromey  <tromey@cygnus.com>
+
+	* gdbtk-cmds.c (call_wrapper): Don't reset result if wrapped
+	command returned error.
+
+2000-11-28  Tom Tromey  <tromey@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_clear_file): Use Tcl_WrongNumArgs.
+	(gdb_confirm_quit): Likewise.
+	(gdb_force_quit): Likewise.
+	(gdb_eval): Likewise.
+	(gdb_immediate_command): Likewise.
+	(gdb_get_vars_command): Likewise.
+	(gdb_get_line_command): Likewise.
+	(gdb_get_file_command): Likewise.
+	(gdb_get_function_command): Likewise.
+	(gdb_cmd): Likewise.  Also, don't allow more than 2 arguments.
+	(gdb_listfiles): Corrected usage of Tcl_WrongNumArgs.
+	(gdb_listfuncs): Use Tcl_WrongNumArgs.  Return error.
+	(gdb_fetch_registers): Likewise.
+	(gdb_tracepoint_exists_command): Use Tcl_WrongNumArgs.
+	(gdb_get_tracepoint_info): Likewise.
+	(gdb_get_trace_frame_num): Likewise.
+	(gdb_actions_command): Likewise.
+	(gdb_disassemble): Likewise.  Also, return error.
+	(gdb_get_breakpoint_list): Likewise.
+	(gdb_path_conv): Likewise.
+	(gdb_load_disassembly): Use Tcl_WrongNumArgs.
+	(gdb_loc): Likewise.
+	(gdb_set_bp): Likewise.
+	(gdb_set_bp_addr): Likewise.
+	(gdb_get_breakpoint_info): Likewise.
+
+2000-10-23  Fernando Nasser  <fnasser@redhat.com>
+
+	From 2000-10-19  Steven Johnson  <sbjohnson@ozemail.com.au>
+        Note: The original patch used asprintf/vasprintf.  I changed it to
+	use the new xasprintf/xvasprintf gdb functions.
+        * gdbtk.c (TclDebug, gdbtk_init): Replaced the vast majority of
+	sprintf/vsprintf calls with asprintf and vasprintf respectively.
+	Should prevent any possible buffer overruns possible with
+	fixed size sprintf buffers. Specifically fixes a problem with long
+	filenames and clearing breakpoints overflowing their buffers when
+	using sprintf, causing a segfault. Generically should also prevent
+	any other similar problems from occuring.
+        * gdbtk-cmds.c (sprintf_append_element_to_obj, get_pc_register,
+	gdb_get_tracepoint_info, gdb_load_disassembly, gdbtk_load_source,
+	gdbtk_load_asm, gdb_set_bp, gdb_set_bp_addr, gdb_get_breakpoint_info,
+	gdb_selected_frame, gdb_selected_block, gdb_get_blocks): Ditto.
+        * gdbtk-hooks.c (gdbtk_warning, gdbtk_ignorable_warning,
+	gdbtk_readline_begin, gdbtk_set_hook, breakpoint_notify,
+	gdbtk_query, tracepoint_notify, gdbtk_error_begin,
+	gdbtk_annotate_signal): Ditto.
+
+2000-10-23  Fernando Nasser  <fnasser@totem.to.cygnus.com>
+
+	* gdbtk-hooks.c (x_event): Only process events if the target is
+	running.
+
+2000-10-23  Fernando Nasser  <fnasser@totem.to.cygnus.com>
+
+	* gdbtk-variable.c: Removed. Obsolete file.
+
+2000-10-13  Fernando Nasser  <fnasser@totem.to.cygnus.com>
+
+	* gdbtk.c (target_is_native): The "multi-thread" target is native.
+
+2000-09-15  Fernando Nasser  <fnasser@totem.to.cygnus.com>
+
+	* gdbtk-varobj.c (variable_value): Send back the error text issued
+	by gdb so it can be displayed in a pop-up box.
+
+2000-07-25  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+        * gdbtk-cmds.c (map_arg_registers): Set numregs to include the
+        pseudo regs as well.
+
+2000-07-10  Kevin Buettner  <kevinb@redhat.com>
+
+	* gdbtk-cmds.c, gdbtk-hooks.c, gdbtk-variable.c: Eliminate use
+	of PARAMS in function pointer declarations.
+
+2000-07-02  Kevin Buettner  <kevinb@redhat.com>
+
+	* gdbtk-cmds.c, gdbtk-hooks.c, gdbtk-variable.c,
+	gdbtk-varobj.c, gdbtk-wrapper.c, gdbtk-wrapper.h, gdbtk.c,
+	gdbtk.h: Eliminate use of PARAMS from declarations in these
+	files.
+
+2000-06-08  Fernando Nasser  <fnasser@cygnus.com>
+
+	* gdbtk-cmds.c (get_register):  Allow editing of typed registers if
+	the type is a union with the first tag equal to the register name.
+
+Thu Jun  8 17:59:01 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	(gdb_load_info): Use make_cleanup_bfd_close.
+	(gdb_search): Use make_cleanup_free_search_symbols.
+	* gdbtk.c (cleanup_init): Change signature to match make_cleanups.
+	(gdbtk_init): Discard make_cleanup_func cast.
+	* gdbtk-cmds.c (gdb_eval): Ditto.
+
+2000-06-06  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	* gdbtk.c: Remove CYGWIN32 conditional around timer machinery.
+  	Cygwin can handle timers fine now.	
+
+2000-04-17  Jonathan Larmour  <jlarmour@redhat.co.uk>
+
+	* ChangeLog-gdbtk: Renamed to ChangeLog
+	* ChangeLog: New file
+	* gdbtk-cmds.c, gdbtk-hooks.c, gdbtk-variable.c, gdbtk-varobj.c,
+	gdbtk-wrapper.h, gdbtk-wrapper.c, gdbtk.h, gdbtk.c: No need for
+	changelog-default-name hint for Emacs now
+
+2000-04-14  Jonathan Larmour  <jlarmour@redhat.co.uk>
+
+	* gdbtk.c (gdbtk_init): For now, reset gdb_stdtarg to gdb_stdout
+	when using gdbtk.
+
+2000-04-01  Jim Blandy  <jimb@redhat.com>
+
+	* gdbtk-hooks.c (gdbtk_restore_result_ptr): New function.
+	* gdbtk.h (gdbtk_restore_result_ptr): Declare it.
+	* gdbtk-cmds.c (gdbtk_load_asm): Use it to restore the old value
+	of result_ptr, in case we get errors while disassembling things.
+
+2000-03-28  Jim Blandy  <jimb@redhat.com>
+
+	Handle the fact that there are holes in the register numbering.
+	* gdbtk-cmds.c (gdb_regnames): If given the -numbers option,
+	return the register numbers along with their names.
+ 	(get_register_name): Record both the register name and number, if
+ 	requested.
+
+2000-03-13  James Ingham  <jingham@leda.cygnus.com>
+
+	* gdbtk-varobj.c (variable_create): Pass the correct
+	"how_specified" flag to the varobj_create routine.
+
+2000-02-29  James Ingham  <jingham@leda.cygnus.com>
+
+	* gdbtk-cmds.c (gdb_disassemble_driver): The to_shortname for
+	Linux is "linuxthreads", not "linux-threads", so we have to change 
+	the heuristic to account for this.  This fixes a crash when trying 
+	to disassemble from shared libraries.
+
+2000-02-23  Keith R Seitz  <kseitz@nwlink.com>
+
+	* gdbtk-wrapper.h: Add declarations for GDB_get_prev_frame, GDB_get_next_frame,
+	GDB_find_relative_frame, GDB_get_current_frame.
+	* gdbtk-wrapper.c (GDB_get_prev_frame, wrap_get_prev_frame): New functions.
+	(GDB_get_next_frame, wrap_get_next_frame): New functions.
+	(GDB_find_relative_frame, wrap_find_relative_frame): New functions.
+	(GDB_get_current_frame, wrap_get_current_frame): New functions.
+
+	* gdbtk-hooks.c (gdbtk_add_hooks): Use "specify_exec_file_hook" so
+	that our hook is added to the list of hooks run instead of overwriting
+	all other hooks.
+
+	* gdbtk-cmds.c (gdb_stack): Wrap all calls to internal functions and
+	deal with errors more gracefully.
+
+Wed Feb 23 13:01:36 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbtk-cmds.c (gdbtk_dis_asm_read_memory): Change LEN to unsigned
+ 	long.  Match ../include/dis-asm.h change.
+
+Fri Feb  4 23:19:03 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbtk.c (gdbtk_init): Update default path to tcl code - now
+ 	gdbtk/library.
+
+Fri Feb  4 23:19:03 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* ChangeLog-gdbtk, gdbtk-cmds.c, gdbtk-hooks.c, gdbtk-variable.c,
+ 	gdbtk-varobj.c, gdbtk-wrapper.c, gdbtk-wrapper.h, gdbtk.c,
+ 	gdbtk.h: Moved here from the top level GDB directory.
+	
+Tue Feb  1 00:17:12 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbtk-hooks.c, gdbtk-variable.c, gdbtk-wrapper.c,
+ 	gdbtk-wrapper.h, gdbtk.h: Update to reflect rename of gdb-file /
+ 	GDB_FILE to ui-file / ``struct ui_file''.
+
+2000-01-31  Keith Seitz  <kseitz@nwlink.com>
+
+        * gdbtk-cmds.c (gdb_disassemble_driver) If using multi-arch, set the
+        architecture in the disassembly info.
+
+Mon Jan 31 18:32:06 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbtk-variable.c, gdbtk-cmds.c, gdbtk.c: Include "tui/tui-file.h"
+
+Mon Jan  3 01:09:24 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbtk-cmds.c (gdb_get_mem): Use builtin_type_int32 et.al. to
+ 	force the word size to 32 bits.
+
+
+Local Variables:
+mode: change-log
+left-margin: 8
+fill-column: 74
+version-control: never
+End:

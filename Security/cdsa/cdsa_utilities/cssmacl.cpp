@@ -19,10 +19,6 @@
 //
 // cssmacl - core ACL management interface
 //
-#ifdef __MWERKS__
-#define _CPP_CSSMACL
-#endif
-
 #include <Security/cssmacl.h>
 #include <Security/debugging.h>
 #include <algorithm>
@@ -102,13 +98,15 @@ ObjectAcl::~ObjectAcl()
 void ObjectAcl::cssmSetInitial(const AclEntryPrototype &proto)
 {
     owner = OwnerEntry(proto);
-    entries.insert(EntryMap::value_type("", proto))->second.handle = nextHandle++;
+    entries.insert(EntryMap::value_type(proto.tag(), proto))->second.handle = nextHandle++;
+	IFDUMPING("acl", debugDump("create/proto"));
 }
 
 void ObjectAcl::cssmSetInitial(const AclSubjectPointer &subject)
 {
     owner = OwnerEntry(subject);
     entries.insert(EntryMap::value_type("", subject))->second.handle = nextHandle++;
+	IFDUMPING("acl", debugDump("create/subject"));
 }
 
 ObjectAcl::Entry::~Entry()
@@ -190,6 +188,7 @@ void ObjectAcl::exportBlob(CssmData &publicBlob, CssmData &privateBlob)
 	pubWriter(entryCount);
     for (Iterator it = begin(); it != end(); it++)
         it->second.exportBlob(pubWriter, privWriter);
+	IFDUMPING("acl", debugDump("exported"));
 }
 
 
@@ -215,17 +214,29 @@ void ObjectAcl::importBlob(const void *publicBlob, const void *privateBlob)
 
 
 //
+// Import/export helpers for subjects.
+// This is exported to (subject implementation) callers to maintain consistency
+// in binary format handling.
+//
+AclSubject *ObjectAcl::importSubject(Reader &pub, Reader &priv)
+{
+    uint32 typeAndVersion; pub(typeAndVersion);
+	return make(typeAndVersion, pub, priv);
+}
+
+
+//
 // ACL utility methods
 //
 unsigned int ObjectAcl::getRange(const char *tag, pair<ConstIterator, ConstIterator> &range) const
 {
-    if (tag) {
+    if (tag && tag[0]) {	// tag restriction in effect
         range = entries.equal_range(tag);
         uint32 count = entries.count(tag);
         if (count == 0)
             CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_ENTRY_TAG);
         return count;
-    } else {
+    } else {				// try all tags
         range.first = entries.begin();
         range.second = entries.end();
         return entries.size();
@@ -289,7 +300,7 @@ void ObjectAcl::cssmChangeAcl(const AclEdit &edit,
         CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_EDIT_MODE);
     }
 
-	IFDUMPING("acl", debugDump("owner-change-to"));
+	IFDUMPING("acl", debugDump("acl-change-to"));
 }
 
 void ObjectAcl::cssmGetOwner(AclOwnerPrototype &outOwner)
@@ -324,12 +335,8 @@ void ObjectAcl::Entry::init(const AclSubjectPointer &subject, bool delegate)
 
 void ObjectAcl::Entry::importBlob(Reader &pub, Reader &priv)
 {
-    // delegate is trivial
-    pub(delegate);
-    
-    // now reconstruct the (polymorphic) subject
-    CSSM_ACL_SUBJECT_TYPE subjectType; pub(subjectType);
-	subject = make(subjectType, pub, priv);
+    uint32 del; pub(del); delegate = del;	// 4 bytes delegate flag
+	subject = importSubject(pub, priv);
 }
 
 
@@ -396,7 +403,12 @@ void ObjectAcl::AclEntry::importBlob(Reader &pub, Reader &priv)
 {
     Entry::importBlob(pub, priv);
     const char *s; pub(s); tag = s;
-    pub(authorizesAnything);
+    
+	// authorizesAnything is on disk as a 4-byte flag
+    uint32 tmpAuthorizesAnything;
+    pub(tmpAuthorizesAnything);
+    authorizesAnything = tmpAuthorizesAnything;
+	
     authorizations.erase(authorizations.begin(), authorizations.end());
     if (!authorizesAnything) {
         uint32 count; pub(count);
@@ -424,9 +436,10 @@ AclSubject *ObjectAcl::make(const TypedList &list)
     return makerFor(list.type()).make(list);
 }
 
-AclSubject *ObjectAcl::make(CSSM_ACL_SUBJECT_TYPE type, Reader &pub, Reader &priv)
+AclSubject *ObjectAcl::make(uint32 typeAndVersion, Reader &pub, Reader &priv)
 {
-    return makerFor(type).make(pub, priv);
+	// this type is encode as (version << 24) | type
+    return makerFor(typeAndVersion & ~AclSubject::versionMask).make(typeAndVersion >> AclSubject::versionShift, pub, priv);
 }
 
 AclSubject::Maker &ObjectAcl::makerFor(CSSM_ACL_SUBJECT_TYPE type)
@@ -473,12 +486,14 @@ CSSM_WORDID_TYPE AclSubject::Maker::getWord(const ListElement &elem,
 
 
 //
-// Debug dumping support
+// Debug dumping support.
+// Leave the ObjectAcl::debugDump method in (stubbed out)
+// to keep the virtual table layout stable, and to allow
+// proper linking in weird mix-and-match scenarios.
 //
-#if defined(DEBUGDUMP)
-
 void ObjectAcl::debugDump(const char *what) const
 {
+#if defined(DEBUGDUMP)
 	if (!what)
 		what = "Dump";
 	Debug::dump("%p ACL %s: %d entries\n", this, what, int(entries.size()));
@@ -490,10 +505,29 @@ void ObjectAcl::debugDump(const char *what) const
 		Debug::dump("]\n");
 	}
 	Debug::dump("%p ACL END\n", this);
+#endif //DEBUGDUMP
 }
+
+void AclSubject::debugDump() const
+{
+#if defined(DEBUGDUMP)
+	switch (type()) {
+	case CSSM_ACL_SUBJECT_TYPE_ANY:
+		Debug::dump("ANY");
+		break;
+	default:
+		Debug::dump("subject type=%d", int(type()));
+		break;
+	}
+#endif //DEBUGDUMP
+}
+
+#if defined(DEBUGDUMP)
 
 void ObjectAcl::Entry::debugDump() const
 {
+	if (AclSubject::Version v = subject->version())
+		Debug::dump("V=%d ", v);
 	subject->debugDump();
 	if (delegate)
 		Debug::dump(" DELEGATE");
@@ -510,18 +544,6 @@ void ObjectAcl::AclEntry::debugDump() const
 				it != authorizations.end(); it++)
 			Debug::dump(" %ld", *it);
 		Debug::dump(")");
-	}
-}
-
-void AclSubject::debugDump() const
-{
-	switch (type()) {
-	case CSSM_ACL_SUBJECT_TYPE_ANY:
-		Debug::dump("ANY");
-		break;
-	default:
-		Debug::dump("subject type=%d", int(type()));
-		break;
 	}
 }
 

@@ -1,4 +1,4 @@
-# $Id: configure.ac,v 1.1.1.2 2002/03/08 21:07:24 wsanchez Exp $
+# $Id: configure.ac,v 1.4 2002/06/26 19:01:47 zarzycki Exp $
 
 AC_INIT
 AC_CONFIG_SRCDIR([ssh.c])
@@ -21,6 +21,7 @@ AC_PATH_PROGS(FILEPRIV, filepriv, true, /sbin:/usr/sbin)
 AC_PATH_PROG(TEST_MINUS_S_SH, bash)
 AC_PATH_PROG(TEST_MINUS_S_SH, ksh)
 AC_PATH_PROG(TEST_MINUS_S_SH, sh)
+AC_PATH_PROG(SH, sh)
 
 # System features
 AC_SYS_LARGEFILE
@@ -57,13 +58,25 @@ case "$host" in
 	CPPFLAGS="$CPPFLAGS -I/usr/local/include"
 	LDFLAGS="$LDFLAGS -L/usr/local/lib"
 	if (test "$LD" != "gcc" && test -z "$blibpath"); then
-		blibpath="/usr/lib:/lib:/usr/local/lib"
+		AC_MSG_CHECKING([if linkage editor ($LD) accepts -blibpath])
+		saved_LDFLAGS="$LDFLAGS"
+		LDFLAGS="$LDFLAGS -blibpath:/usr/lib:/lib:/usr/local/lib"
+		AC_TRY_LINK([],
+			[],
+			[
+				AC_MSG_RESULT(yes)
+				blibpath="/usr/lib:/lib:/usr/local/lib"
+			],
+			[ AC_MSG_RESULT(no) ]
+		)
+		LDFLAGS="$saved_LDFLAGS"
 	fi
 	AC_CHECK_FUNC(authenticate, [AC_DEFINE(WITH_AIXAUTHENTICATE)])
 	AC_DEFINE(BROKEN_GETADDRINFO)
+	AC_DEFINE(BROKEN_REALPATH)
 	dnl AIX handles lastlog as part of its login message
 	AC_DEFINE(DISABLE_LASTLOG)
-	AC_DEFINE(HAVE_BOGUS_SYS_QUEUE_H)
+	AC_DEFINE(LOGIN_NEEDS_UTMPX)
 	;;
 *-*-cygwin*)
 	LIBS="$LIBS /usr/lib/textmode.o"
@@ -73,12 +86,30 @@ case "$host" in
 	AC_DEFINE(IPV4_DEFAULT)
 	AC_DEFINE(IP_TOS_IS_BROKEN)
 	AC_DEFINE(NO_X11_UNIX_SOCKETS)
+	AC_DEFINE(BROKEN_FD_PASSING)
+	AC_DEFINE(SETGROUPS_NOOP)
 	;;
 *-*-dgux*)
 	AC_DEFINE(IP_TOS_IS_BROKEN)
 	;;
 *-*-darwin*)
 	AC_DEFINE(BROKEN_GETADDRINFO)
+	;;
+*-*-hpux10.26)
+	if test -z "$GCC"; then
+		CFLAGS="$CFLAGS -Ae"
+	fi
+	CPPFLAGS="$CPPFLAGS -D_HPUX_SOURCE -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED=1"
+	IPADDR_IN_DISPLAY=yes
+	AC_DEFINE(HAVE_SECUREWARE)
+	AC_DEFINE(USE_PIPES)
+	AC_DEFINE(LOGIN_NO_ENDOPT)
+	AC_DEFINE(LOGIN_NEEDS_UTMPX)
+	AC_DEFINE(DISABLE_SHADOW)
+	AC_DEFINE(DISABLE_UTMP)
+	AC_DEFINE(SPT_TYPE,SPT_PSTAT)
+	LIBS="$LIBS -lxnet -lsec -lsecpw"
+	disable_ptmx_check=yes
 	;;
 *-*-hpux10*)
 	if test -z "$GCC"; then
@@ -87,6 +118,8 @@ case "$host" in
 	CPPFLAGS="$CPPFLAGS -D_HPUX_SOURCE -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED=1"
 	IPADDR_IN_DISPLAY=yes
 	AC_DEFINE(USE_PIPES)
+	AC_DEFINE(LOGIN_NO_ENDOPT)
+	AC_DEFINE(LOGIN_NEEDS_UTMPX)
 	AC_DEFINE(DISABLE_SHADOW)
 	AC_DEFINE(DISABLE_UTMP)
 	AC_DEFINE(SPT_TYPE,SPT_PSTAT)
@@ -97,6 +130,8 @@ case "$host" in
 	IPADDR_IN_DISPLAY=yes
 	AC_DEFINE(PAM_SUN_CODEBASE)
 	AC_DEFINE(USE_PIPES)
+	AC_DEFINE(LOGIN_NO_ENDOPT)
+	AC_DEFINE(LOGIN_NEEDS_UTMPX)
 	AC_DEFINE(DISABLE_SHADOW)
 	AC_DEFINE(DISABLE_UTMP)
 	AC_DEFINE(SPT_TYPE,SPT_PSTAT)
@@ -107,6 +142,7 @@ case "$host" in
 	LDFLAGS="$LDFLAGS"
 	PATH="$PATH:/usr/etc"
 	AC_DEFINE(BROKEN_INET_NTOA)
+	AC_DEFINE(WITH_ABBREV_NO_TTY)
 	;;
 *-*-irix6*)
 	CPPFLAGS="$CPPFLAGS -I/usr/local/include"
@@ -117,21 +153,18 @@ case "$host" in
 	AC_DEFINE(WITH_IRIX_AUDIT)
 	AC_CHECK_FUNC(jlimit_startjob, [AC_DEFINE(WITH_IRIX_JOBS)])
 	AC_DEFINE(BROKEN_INET_NTOA)
+	AC_DEFINE(WITH_ABBREV_NO_TTY)
 	;;
 *-*-linux*)
 	no_dev_ptmx=1
 	check_for_libcrypt_later=1
 	AC_DEFINE(DONT_TRY_OTHER_AF)
 	AC_DEFINE(PAM_TTY_KLUDGE)
-	AC_DEFINE(HAVE_BOGUS_SYS_QUEUE_H)
 	inet6_default_4in6=yes
 	;;
 mips-sony-bsd|mips-sony-newsos4)
 	AC_DEFINE(HAVE_NEWS4)
 	SONY=1
-	AC_CHECK_LIB(iberty, xatexit, AC_DEFINE(HAVE_XATEXIT),
-		AC_MSG_ERROR([*** libiberty missing - please install first or check config.log ***])
-        )
 	;;
 *-*-netbsd*)
 	need_dash_r=1
@@ -175,7 +208,6 @@ mips-sony-bsd|mips-sony-newsos4)
 	CPPFLAGS="$CPPFLAGS -DSUNOS4"
 	AC_CHECK_FUNCS(getpwanam)
 	AC_DEFINE(PAM_SUN_CODEBASE)
-	AC_DEFINE(HAVE_BOGUS_SYS_QUEUE_H)
 	conf_utmp_location=/etc/utmp
 	conf_wtmp_location=/var/adm/wtmp
 	conf_lastlog_location=/var/adm/lastlog
@@ -185,7 +217,6 @@ mips-sony-bsd|mips-sony-newsos4)
 	CPPFLAGS="$CPPFLAGS -I/usr/local/include"
 	LDFLAGS="$LDFLAGS -L/usr/local/lib"
 	LIBS="$LIBS -lc89"
-	AC_DEFINE(HAVE_BOGUS_SYS_QUEUE_H)
 	AC_DEFINE(USE_PIPES)
 	;;
 *-sni-sysv*)
@@ -195,7 +226,6 @@ mips-sony-bsd|mips-sony-newsos4)
 	IPADDR_IN_DISPLAY=yes
 	AC_DEFINE(USE_PIPES)
 	AC_DEFINE(IP_TOS_IS_BROKEN)
-	AC_DEFINE(HAVE_BOGUS_SYS_QUEUE_H)
 	# /usr/ucblib/libucb.a no longer needed on ReliantUNIX
 	# Attention: always take care to bind libsocket and libnsl before libc,
 	# otherwise you will find lots of "SIOCGPGRP errno 22" on syslog
@@ -203,13 +233,11 @@ mips-sony-bsd|mips-sony-newsos4)
 *-*-sysv4.2*)
 	CPPFLAGS="$CPPFLAGS -I/usr/local/include"
 	LDFLAGS="$LDFLAGS -L/usr/local/lib"
-#	enable_suid_ssh=no
 	AC_DEFINE(USE_PIPES)
 	;;
 *-*-sysv5*)
 	CPPFLAGS="$CPPFLAGS -I/usr/local/include"
 	LDFLAGS="$LDFLAGS -L/usr/local/lib"
-#	enable_suid_ssh=no
 	AC_DEFINE(USE_PIPES)
 	;;
 *-*-sysv*)
@@ -220,14 +248,12 @@ mips-sony-bsd|mips-sony-newsos4)
 	CPPFLAGS="$CPPFLAGS -Dftruncate=chsize -I/usr/local/include"
 	LDFLAGS="$LDFLAGS -L/usr/local/lib"
 	LIBS="$LIBS -los -lprot -lx -ltinfo -lm"
-	rsh_path="/usr/bin/rcmd"
 	RANLIB=true
 	no_dev_ptmx=1
 	AC_DEFINE(BROKEN_SYS_TERMIO_H)
 	AC_DEFINE(USE_PIPES)
-	AC_DEFINE(HAVE_SCO_PROTECTED_PW)
+	AC_DEFINE(HAVE_SECUREWARE)
 	AC_DEFINE(DISABLE_SHADOW)
-	AC_DEFINE(HAVE_BOGUS_SYS_QUEUE_H)
 	AC_DEFINE(BROKEN_SAVED_UIDS)
 	AC_CHECK_FUNCS(getluid setluid)
 	MANTYPE=man
@@ -238,11 +264,10 @@ mips-sony-bsd|mips-sony-newsos4)
 	LDFLAGS="$LDFLAGS -L/usr/local/lib"
 	LIBS="$LIBS -lprot -lx -ltinfo -lm"
 	no_dev_ptmx=1
-	rsh_path="/usr/bin/rcmd"
 	AC_DEFINE(USE_PIPES)
-	AC_DEFINE(HAVE_SCO_PROTECTED_PW)
+	AC_DEFINE(HAVE_SECUREWARE)
 	AC_DEFINE(DISABLE_SHADOW)
-	AC_DEFINE(HAVE_BOGUS_SYS_QUEUE_H)
+	AC_DEFINE(BROKEN_FD_PASSING)
 	AC_CHECK_FUNCS(getluid setluid)
 	MANTYPE=man
 	;;
@@ -250,6 +275,7 @@ mips-sony-bsd|mips-sony-newsos4)
 	no_libsocket=1
 	no_libnsl=1
 	AC_DEFINE(USE_PIPES)
+	AC_DEFINE(BROKEN_FD_PASSING)
 	LDFLAGS="$LDFLAGS -Wl,-Dmsglevel=334:fatal,-L/usr/local/lib"
 	LIBS="$LIBS -lgen -lrsc"
 	;;
@@ -324,12 +350,12 @@ AC_ARG_WITH(libs,
 AC_CHECK_HEADERS(bstring.h crypt.h endian.h floatingpoint.h \
 	getopt.h glob.h lastlog.h limits.h login.h \
 	login_cap.h maillock.h netdb.h netgroup.h \
-	netinet/in_systm.h paths.h poll.h pty.h \
-	security/pam_appl.h shadow.h stddef.h stdint.h \
+	netinet/in_systm.h paths.h pty.h readpassphrase.h \
+	rpc/types.h pam/pam_appl.h shadow.h stddef.h stdint.h \
 	strings.h sys/bitypes.h sys/bsdtty.h sys/cdefs.h \
-	sys/poll.h sys/queue.h sys/select.h sys/stat.h \
+	sys/mman.h sys/select.h sys/stat.h \
 	sys/stropts.h sys/sysmacros.h sys/time.h \
-	sys/ttcompat.h sys/un.h time.h ttyent.h usersec.h \
+	sys/un.h time.h ttyent.h usersec.h \
 	util.h utime.h utmp.h utmpx.h)
 
 # Checks for libraries.
@@ -539,17 +565,41 @@ AC_ARG_WITH(tcp-wrappers,
 )
 
 dnl    Checks for library functions.
-AC_CHECK_FUNCS(arc4random atexit b64_ntop bcopy bindresvport_sa \
+AC_CHECK_FUNCS(arc4random b64_ntop bcopy bindresvport_sa \
 	clock fchmod fchown freeaddrinfo futimes gai_strerror \
 	getaddrinfo getcwd getgrouplist getnameinfo getopt \
 	getrlimit getrusage getttyent glob inet_aton inet_ntoa \
 	inet_ntop innetgr login_getcapbool md5_crypt memmove \
-	mkdtemp on_exit openpty readpassphrase realpath \
-	rresvport_af setdtablesize setegid setenv seteuid \
-	setlogin setproctitle setresgid setreuid setrlimit \
-	setsid setvbuf sigaction sigvec snprintf strerror \
-	strlcat strlcpy strmode strsep sysconf tcgetpgrp utimes \
-	vhangup vsnprintf waitpid __b64_ntop _getpty)
+	mkdtemp mmap ngetaddrinfo openpty ogetaddrinfo readpassphrase \
+	realpath recvmsg rresvport_af sendmsg setdtablesize setegid \
+	setenv seteuid setgroups setlogin setproctitle setresgid setreuid \
+	setrlimit setsid setpcred setvbuf sigaction sigvec snprintf \
+	socketpair strerror strlcat strlcpy strmode strsep sysconf tcgetpgrp \
+	truncate utimes vhangup vsnprintf waitpid __b64_ntop _getpty)
+
+if test $ac_cv_func_mmap = yes ; then
+AC_MSG_CHECKING([for mmap anon shared])
+AC_TRY_RUN(
+	[
+#include <stdio.h>
+#include <sys/mman.h>
+#if !defined(MAP_ANON) && defined(MAP_ANONYMOUS)
+#define MAP_ANON MAP_ANONYMOUS
+#endif
+main() { char *p;
+p = (char *) mmap(NULL, 10, PROT_WRITE|PROT_READ, MAP_ANON|MAP_SHARED, -1, 0);
+if (p == (char *)-1)
+	exit(1);
+exit(0);
+}
+	],
+	[
+		AC_MSG_RESULT(yes)
+		AC_DEFINE(HAVE_MMAP_ANON_SHARED)
+	],
+	[ AC_MSG_RESULT(no) ] 
+)
+fi
 
 dnl IRIX and Solaris 2.5.1 have dirname() in libgen
 AC_CHECK_FUNCS(dirname, [AC_CHECK_HEADERS(libgen.h)] ,[
@@ -597,11 +647,6 @@ dnl    Checks for utmpx functions
 AC_CHECK_FUNCS(endutxent getutxent getutxid getutxline pututxline )
 AC_CHECK_FUNCS(setutxent utmpxname)
 
-AC_CHECK_FUNC(getuserattr, 
-	[AC_DEFINE(HAVE_GETUSERATTR)],
-	[AC_CHECK_LIB(s, getuserattr, [LIBS="$LIBS -ls"; AC_DEFINE(HAVE_GETUSERATTR)])]
-)
-
 AC_CHECK_FUNC(daemon, 
 	[AC_DEFINE(HAVE_DAEMON)],
 	[AC_CHECK_LIB(bsd, daemon, [LIBS="$LIBS -lbsd"; AC_DEFINE(HAVE_DAEMON)])]
@@ -637,7 +682,7 @@ AC_ARG_WITH(pam,
 	[  --with-pam              Enable PAM support ],
 	[
 		if test "x$withval" != "xno" ; then
-			if test "x$ac_cv_header_security_pam_appl_h" != "xyes" ; then
+			if test "x$ac_cv_header_pam_pam_appl_h" != "xyes" ; then
 				AC_MSG_ERROR([PAM headers not found])
 			fi
 
@@ -666,7 +711,7 @@ if test "x$PAM_MSG" = "xyes" ; then
 	AC_TRY_COMPILE(
 		[
 #include <stdlib.h>
-#include <security/pam_appl.h>
+#include <pam/pam_appl.h>
 		], 
 		[(void)pam_strerror((pam_handle_t *)NULL, -1);], 
 		[AC_MSG_RESULT(no)],
@@ -678,169 +723,52 @@ if test "x$PAM_MSG" = "xyes" ; then
 	)
 fi
 
-# The big search for OpenSSL
+# Search for OpenSSL
+saved_CPPFLAGS="$CPPFLAGS"
+saved_LDFLAGS="$LDFLAGS"
 AC_ARG_WITH(ssl-dir,
 	[  --with-ssl-dir=PATH     Specify path to OpenSSL installation ],
 	[
 		if test "x$withval" != "xno" ; then
-			tryssldir=$withval
+			if test -d "$withval/lib"; then
+				if test -n "${need_dash_r}"; then
+					LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
+				else
+					LDFLAGS="-L${withval}/lib ${LDFLAGS}"
+				fi
+			else
+				if test -n "${need_dash_r}"; then
+					LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
+				else
+					LDFLAGS="-L${withval} ${LDFLAGS}"
+				fi
+			fi
+			if test -d "$withval/include"; then
+				CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
+			else
+				CPPFLAGS="-I${withval} ${CPPFLAGS}"
+			fi
 		fi
 	]
 )
-
-saved_LIBS="$LIBS"
-saved_LDFLAGS="$LDFLAGS"
-saved_CPPFLAGS="$CPPFLAGS"
-if test "x$prefix" != "xNONE" ; then
-	tryssldir="$tryssldir $prefix"
-fi
-AC_CACHE_CHECK([for OpenSSL directory], ac_cv_openssldir, [
-	for ssldir in $tryssldir "" /usr/local/openssl /usr/lib/openssl /usr/local/ssl /usr/lib/ssl /usr/local /usr/pkg /opt /opt/openssl ; do
-		CPPFLAGS="$saved_CPPFLAGS"
-		LDFLAGS="$saved_LDFLAGS"
-		LIBS="$saved_LIBS -lcrypto"
-		
-		# Skip directories if they don't exist
-		if test ! -z "$ssldir" -a ! -d "$ssldir" ; then
-			continue;
-		fi
-		if test ! -z "$ssldir" -a "x$ssldir" != "x/usr"; then
-			# Try to use $ssldir/lib if it exists, otherwise 
-			# $ssldir
-			if test -d "$ssldir/lib" ; then
-				LDFLAGS="-L$ssldir/lib $saved_LDFLAGS"
-				if test ! -z "$need_dash_r" ; then
-					LDFLAGS="-R$ssldir/lib $LDFLAGS"
-				fi
-			else
-				LDFLAGS="-L$ssldir $saved_LDFLAGS"
-				if test ! -z "$need_dash_r" ; then
-					LDFLAGS="-R$ssldir $LDFLAGS"
-				fi
-			fi
-			# Try to use $ssldir/include if it exists, otherwise 
-			# $ssldir
-			if test -d "$ssldir/include" ; then
-				CPPFLAGS="-I$ssldir/include $saved_CPPFLAGS"
-			else
-				CPPFLAGS="-I$ssldir $saved_CPPFLAGS"
-			fi
-		fi
-
-		# Basic test to check for compatible version and correct linking
-		# *does not* test for RSA - that comes later.
-		AC_TRY_RUN(
-			[
-#include <string.h>
-#include <openssl/rand.h>
-int main(void) 
-{
-	char a[2048];
-	memset(a, 0, sizeof(a));
-	RAND_add(a, sizeof(a), sizeof(a));
-	return(RAND_status() <= 0);
-}
-			],
-			[
-				found_crypto=1
-				break;
-			], []
-		)
-
-		if test ! -z "$found_crypto" ; then
-			break;
-		fi
-	done
-
-	if test -z "$found_crypto" ; then
-		AC_MSG_ERROR([Could not find working OpenSSL library, please install or check config.log])	
-	fi
-	if test -z "$ssldir" ; then
-		ssldir="(system)"
-	fi
-
-	ac_cv_openssldir=$ssldir
-])
-
-if (test ! -z "$ac_cv_openssldir" && test "x$ac_cv_openssldir" != "x(system)") ; then
-	AC_DEFINE(HAVE_OPENSSL)
-	dnl Need to recover ssldir - test above runs in subshell
-	ssldir=$ac_cv_openssldir
-	if test ! -z "$ssldir" -a "x$ssldir" != "x/usr"; then
-		# Try to use $ssldir/lib if it exists, otherwise 
-		# $ssldir
-		if test -d "$ssldir/lib" ; then
-			LDFLAGS="-L$ssldir/lib $saved_LDFLAGS"
-			if test ! -z "$need_dash_r" ; then
-				LDFLAGS="-R$ssldir/lib $LDFLAGS"
-			fi
-		else
-			LDFLAGS="-L$ssldir $saved_LDFLAGS"
-			if test ! -z "$need_dash_r" ; then
-				LDFLAGS="-R$ssldir $LDFLAGS"
-			fi
-		fi
-		# Try to use $ssldir/include if it exists, otherwise 
-		# $ssldir
-		if test -d "$ssldir/include" ; then
-			CPPFLAGS="-I$ssldir/include $saved_CPPFLAGS"
-		else
-			CPPFLAGS="-I$ssldir $saved_CPPFLAGS"
-		fi
-	fi
-fi
-LIBS="$saved_LIBS -lcrypto"
-
-# Now test RSA support
-saved_LIBS="$LIBS"
-AC_MSG_CHECKING([for RSA support])
-for WANTS_RSAREF in "" 1 ; do
-	if test -z "$WANTS_RSAREF" ; then
-		LIBS="$saved_LIBS"
-	else
-		LIBS="$saved_LIBS -lRSAglue -lrsaref"
-	fi
-	AC_TRY_RUN([
-#include <string.h>
-#include <openssl/rand.h>
-#include <openssl/rsa.h>
-#include <openssl/bn.h>
-#include <openssl/sha.h>
-int main(void) 
-{
-	int num; RSA *key; static unsigned char p_in[] = "blahblah";
-	unsigned char c[256], p[256];
-	memset(c, 0, sizeof(c)); RAND_add(c, sizeof(c), sizeof(c));
-	if ((key=RSA_generate_key(512, 3, NULL, NULL))==NULL) return(1);
-	num = RSA_public_encrypt(sizeof(p_in) - 1, p_in, c, key, RSA_PKCS1_PADDING);
-	return(-1 == RSA_private_decrypt(num, c, p, key, RSA_PKCS1_PADDING));
-}
-	],
+LIBS="$LIBS -lcrypto"
+AC_TRY_LINK_FUNC(RAND_add, AC_DEFINE(HAVE_OPENSSL),
 	[
-		rsa_works=1
-		break;
-	], [])
-done
-LIBS="$saved_LIBS"
-
-if test ! -z "$no_rsa" ; then
-	AC_MSG_RESULT(disabled)
-	RSA_MSG="disabled"
-else
-	if test -z "$rsa_works" ; then
-		AC_MSG_WARN([*** No RSA support found *** ])
-		RSA_MSG="no"
-	else
-		if test -z "$WANTS_RSAREF" ; then
-			AC_MSG_RESULT(yes)
-			RSA_MSG="yes"
+		dnl Check default openssl install dir
+		if test -n "${need_dash_r}"; then
+			LDFLAGS="-L/usr/local/ssl/lib -R/usr/local/ssl/lib ${saved_LDFLAGS}"
 		else
-			RSA_MSG="yes (using RSAref)"
-			AC_MSG_RESULT(using RSAref)
-			LIBS="$LIBS -lcrypto -lRSAglue -lrsaref"
+			LDFLAGS="-L/usr/local/ssl/lib ${saved_LDFLAGS}"
 		fi
-	fi
-fi
+		CPPFLAGS="-I/usr/local/ssl/include ${saved_CPPFLAGS}"
+		AC_TRY_LINK_FUNC(RAND_add, AC_DEFINE(HAVE_OPENSSL),
+			[
+				AC_MSG_ERROR([*** Can't find recent OpenSSL libcrypto (see config.log for details) ***])
+			]
+		)
+	]
+)
+
 
 # Sanity check OpenSSL headers
 AC_MSG_CHECKING([whether OpenSSL's headers match the library])
@@ -1003,8 +931,33 @@ AC_ARG_WITH(entropy-timeout,
 		fi
 	]	
 )
-
 AC_DEFINE_UNQUOTED(ENTROPY_TIMEOUT_MSEC, $entropy_timeout)
+
+SSH_PRIVSEP_USER=sshd
+AC_ARG_WITH(privsep-user,
+	[  --with-privsep-user=user Specify non-privileged user for privilege separation],
+	[
+		if test -n "$withval"; then
+			SSH_PRIVSEP_USER=$withval
+		fi
+	]	
+)
+AC_DEFINE_UNQUOTED(SSH_PRIVSEP_USER, "$SSH_PRIVSEP_USER")
+AC_SUBST(SSH_PRIVSEP_USER)
+
+# We do this little dance with the search path to insure
+# that programs that we select for use by installed programs
+# (which may be run by the super-user) come from trusted
+# locations before they come from the user's private area.
+# This should help avoid accidentally configuring some
+# random version of a program in someone's personal bin.
+
+OPATH=$PATH
+PATH=/bin:/usr/bin
+test -h /bin 2> /dev/null && PATH=/usr/bin
+test -d /sbin && PATH=$PATH:/sbin
+test -d /usr/sbin && PATH=$PATH:/usr/sbin
+PATH=$PATH:/etc:$OPATH
 
 # These programs are used by the command hashing source to gather entropy 
 OSSH_PATH_ENTROPY_PROG(PROG_LS, ls)
@@ -1023,6 +976,8 @@ OSSH_PATH_ENTROPY_PROG(PROG_VMSTAT, vmstat)
 OSSH_PATH_ENTROPY_PROG(PROG_UPTIME, uptime)
 OSSH_PATH_ENTROPY_PROG(PROG_IPCS, ipcs)
 OSSH_PATH_ENTROPY_PROG(PROG_TAIL, tail)
+# restore PATH
+PATH=$OPATH
 
 # Where does ssh-rand-helper get its randomness from?
 INSTALL_SSH_PRNG_CMDS=""
@@ -1051,6 +1006,11 @@ AC_CHECK_SIZEOF(short int, 2)
 AC_CHECK_SIZEOF(int, 4)
 AC_CHECK_SIZEOF(long int, 4)
 AC_CHECK_SIZEOF(long long int, 8)
+
+# Sanity check long long for some platforms (AIX)
+if test "x$ac_cv_sizeof_long_long_int" = "x4" ; then
+	ac_cv_sizeof_long_long_int=0
+fi
 
 # More checks for data types
 AC_CACHE_CHECK([for u_int type], ac_cv_have_u_int, [
@@ -1560,6 +1520,55 @@ if test "x$ac_cv_have_pw_change_in_struct_passwd" = "xyes" ; then
 	AC_DEFINE(HAVE_PW_CHANGE_IN_PASSWD)
 fi
 
+dnl make sure we're using the real structure members and not defines
+AC_CACHE_CHECK([for msg_accrights field in struct msghdr],
+		ac_cv_have_accrights_in_msghdr, [
+	AC_TRY_RUN(
+		[
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+int main() {
+#ifdef msg_accrights
+exit(1);
+#endif
+struct msghdr m;
+m.msg_accrights = 0;
+exit(0);
+}
+		],
+		[ ac_cv_have_accrights_in_msghdr="yes" ],
+		[ ac_cv_have_accrights_in_msghdr="no" ]
+	)
+])
+if test "x$ac_cv_have_accrights_in_msghdr" = "xyes" ; then
+	AC_DEFINE(HAVE_ACCRIGHTS_IN_MSGHDR)
+fi
+
+AC_CACHE_CHECK([for msg_control field in struct msghdr],
+		ac_cv_have_control_in_msghdr, [
+	AC_TRY_RUN(
+		[
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+int main() {
+#ifdef msg_control
+exit(1);
+#endif
+struct msghdr m;
+m.msg_control = 0;
+exit(0);
+}
+		],
+		[ ac_cv_have_control_in_msghdr="yes" ],
+		[ ac_cv_have_control_in_msghdr="no" ]
+	)
+])
+if test "x$ac_cv_have_control_in_msghdr" = "xyes" ; then
+	AC_DEFINE(HAVE_CONTROL_IN_MSGHDR)
+fi
+
 AC_CACHE_CHECK([if libc defines __progname], ac_cv_libc_defines___progname, [
 	AC_TRY_LINK([], 
 		[ extern char *__progname; printf("%s", __progname); ], 
@@ -1569,6 +1578,32 @@ AC_CACHE_CHECK([if libc defines __progname], ac_cv_libc_defines___progname, [
 ])
 if test "x$ac_cv_libc_defines___progname" = "xyes" ; then
 	AC_DEFINE(HAVE___PROGNAME)
+fi
+
+AC_CACHE_CHECK([whether $CC implements __FUNCTION__], ac_cv_cc_implements___FUNCTION__, [
+	AC_TRY_LINK([
+#include <stdio.h>
+], 
+		[ printf("%s", __FUNCTION__); ], 
+		[ ac_cv_cc_implements___FUNCTION__="yes" ],
+		[ ac_cv_cc_implements___FUNCTION__="no" ]
+	)
+])
+if test "x$ac_cv_cc_implements___FUNCTION__" = "xyes" ; then
+	AC_DEFINE(HAVE___FUNCTION__)
+fi
+
+AC_CACHE_CHECK([whether $CC implements __func__], ac_cv_cc_implements___func__, [
+	AC_TRY_LINK([
+#include <stdio.h>
+], 
+		[ printf("%s", __func__); ], 
+		[ ac_cv_cc_implements___func__="yes" ],
+		[ ac_cv_cc_implements___func__="no" ]
+	)
+])
+if test "x$ac_cv_cc_implements___func__" = "xyes" ; then
+	AC_DEFINE(HAVE___func__)
 fi
 
 AC_CACHE_CHECK([whether getopt has optreset support],
@@ -1609,11 +1644,11 @@ if test "x$ac_cv_libc_defines_sys_nerr" = "xyes" ; then
 	AC_DEFINE(HAVE_SYS_NERR)
 fi
 
-
-# Check whether user wants Kerberos support
 SCARD_MSG="no" 
-AC_ARG_WITH(smartcard,
-	[  --with-smartcard        Enable smartcard support],
+
+# Check whether user wants sectok support
+AC_ARG_WITH(sectok,
+	[  --with-sectok           Enable smartcard support using libsectok],
 	[
 		if test "x$withval" != "xno" ; then
 			if test "x$withval" != "xyes" ; then
@@ -1635,12 +1670,70 @@ AC_ARG_WITH(smartcard,
 				AC_MSG_ERROR(Can't find libsectok)
 			fi
 			AC_DEFINE(SMARTCARD)
-			SCARD_MSG="yes" 
+			AC_DEFINE(USE_SECTOK)
+			SCARD_MSG="yes, using sectok" 
 		fi
 	]
 )
 
-# Check whether user wants Kerberos support
+# Check whether user wants OpenSC support
+AC_ARG_WITH(opensc,
+	AC_HELP_STRING([--with-opensc=PFX],
+		       [Enable smartcard support using OpenSC]),
+	opensc_config_prefix="$withval", opensc_config_prefix="")
+if test x$opensc_config_prefix != x ; then
+  OPENSC_CONFIG=$opensc_config_prefix/bin/opensc-config
+  AC_PATH_PROG(OPENSC_CONFIG, opensc-config, no)
+  if test "$OPENSC_CONFIG" != "no"; then
+    LIBOPENSC_CFLAGS=`$OPENSC_CONFIG --cflags`
+    LIBOPENSC_LIBS=`$OPENSC_CONFIG --libs`
+    CPPFLAGS="$CPPFLAGS $LIBOPENSC_CFLAGS"
+    LDFLAGS="$LDFLAGS $LIBOPENSC_LIBS"
+    AC_DEFINE(SMARTCARD)
+    AC_DEFINE(USE_OPENSC)
+    SCARD_MSG="yes, using OpenSC" 
+  fi
+fi
+
+# Check whether user wants Kerberos 5 support
+KRB5_MSG="no" 
+AC_ARG_WITH(kerberos5,
+        [  --with-kerberos5=PATH   Enable Kerberos 5 support],
+        [
+                if test "x$withval" != "xno" ; then
+                        if test "x$withval" = "xyes" ; then
+                                KRB5ROOT="/usr/local"
+                        else
+                                KRB5ROOT=${withval}
+                        fi
+			CPPFLAGS="$CPPFLAGS -I${KRB5ROOT}/include"
+                        LDFLAGS="$LDFLAGS -L${KRB5ROOT}/lib"
+                        AC_DEFINE(KRB5)
+			KRB5_MSG="yes"
+                        AC_MSG_CHECKING(whether we are using Heimdal)
+                        AC_TRY_COMPILE([ #include <krb5.h> ],
+                                       [ char *tmp = heimdal_version; ],
+                                       [ AC_MSG_RESULT(yes)
+                                         AC_DEFINE(HEIMDAL)
+                                         K5LIBS="-lkrb5 -ldes -lcom_err -lasn1 -lroken"
+                                       ],
+                                       [ AC_MSG_RESULT(no)
+                                         K5LIBS="-lkrb5 -lk5crypto -lcom_err"
+                                       ]
+                        )
+                        if test ! -z "$need_dash_r" ; then
+                                LDFLAGS="$LDFLAGS -R${KRB5ROOT}/lib"
+                        fi
+                        if test ! -z "$blibpath" ; then
+                                blibpath="$blibpath:${KRB5ROOT}/lib"
+                        fi
+                        AC_CHECK_LIB(resolv, dn_expand, , )
+
+                        KRB5=yes
+                fi
+        ]
+)
+# Check whether user wants Kerberos 4 support
 KRB4_MSG="no" 
 AC_ARG_WITH(kerberos4,
 	[  --with-kerberos4=PATH   Enable Kerberos 4 support],
@@ -1720,20 +1813,20 @@ AC_ARG_WITH(afs,
 		fi
 	]
 )
-LIBS="$LIBS $KLIBS"
+LIBS="$LIBS $KLIBS $K5LIBS"
 
 # Looking for programs, paths and files
-AC_ARG_WITH(rsh,
-	[  --with-rsh=PATH         Specify path to remote shell program ],
+
+PRIVSEP_PATH=/var/empty
+AC_ARG_WITH(privsep-path,
+	[  --with-privsep-path=xxx Path for privilege separation chroot ],
 	[
 		if test "x$withval" != "$no" ; then
-			rsh_path=$withval
+			PRIVSEP_PATH=$withval
 		fi
-	],
-	[
-		AC_PATH_PROG(rsh_path, rsh)
 	]
 )
+AC_SUBST(PRIVSEP_PATH)
 
 AC_ARG_WITH(xauth,
 	[  --with-xauth=PATH       Specify path to xauth program ],
@@ -1758,9 +1851,6 @@ else
 	XAUTH_PATH=$xauth_path
 	AC_SUBST(XAUTH_PATH)
 fi
-if test ! -z "$rsh_path" ; then
-	AC_DEFINE_UNQUOTED(RSH_PATH, "$rsh_path")
-fi
 
 # Check for mail directory (last resort if we cannot get it from headers)
 if test ! -z "$MAIL" ; then
@@ -1769,12 +1859,14 @@ if test ! -z "$MAIL" ; then
 fi
 
 if test -z "$no_dev_ptmx" ; then
-	AC_CHECK_FILE("/dev/ptmx", 
-		[
-			AC_DEFINE_UNQUOTED(HAVE_DEV_PTMX)
-			have_dev_ptmx=1
-		]
-	)
+	if test "x$disable_ptmx_check" != "xyes" ; then
+		AC_CHECK_FILE("/dev/ptmx", 
+			[
+				AC_DEFINE_UNQUOTED(HAVE_DEV_PTMX)
+				have_dev_ptmx=1
+			]
+		)
+	fi
 fi
 AC_CHECK_FILE("/dev/ptc", 
 	[
@@ -1874,17 +1966,28 @@ else
 	)
 fi
 
+dnl BSD systems use /etc/login.conf so --with-default-path= has no effect
+if test $ac_cv_func_login_getcapbool = "yes" -a \
+	$ac_cv_header_login_cap_h = "yes" ; then
+	USES_LOGIN_CONF=yes
+fi
 # Whether to mess with the default path
 SERVER_PATH_MSG="(default)" 
 AC_ARG_WITH(default-path,
-	[  --with-default-path=PATH Specify default \$PATH environment for server],
+	[  --with-default-path=    Specify default \$PATH environment for server],
 	[
-		if test "x$withval" != "xno" ; then	
+		if test "$USES_LOGIN_CONF" = "yes" ; then
+			AC_MSG_WARN([
+--with-default-path=PATH has no effect on this system.
+Edit /etc/login.conf instead.])
+		elif test "x$withval" != "xno" ; then	
 			user_path="$withval"
 			SERVER_PATH_MSG="$withval" 
 		fi
 	],
-	[
+	[ if test "$USES_LOGIN_CONF" = "yes" ; then
+	AC_MSG_WARN([Make sure the path to scp is in /etc/login.conf])
+	else
 	AC_TRY_RUN(
 		[
 /* find out what STDPATH is */
@@ -1934,10 +2037,24 @@ main()
 				AC_MSG_RESULT(Adding $t_bindir to USER_PATH so scp will work)
 			fi
 		fi
+	fi ]
+)
+if test "$USES_LOGIN_CONF" != "yes" ; then
+	AC_DEFINE_UNQUOTED(USER_PATH, "$user_path")
+	AC_SUBST(user_path)
+fi
+
+# Set superuser path separately to user path
+AC_ARG_WITH(superuser-path,
+	[  --with-superuser-path=  Specify different path for super-user],
+	[
+		if test "x$withval" != "xno" ; then
+			AC_DEFINE_UNQUOTED(SUPERUSER_PATH, "$withval")
+			superuser_path=$withval
+		fi
 	]
 )
-AC_DEFINE_UNQUOTED(USER_PATH, "$user_path")
-AC_SUBST(user_path)
+
 
 # Whether to force IPv4 by default (needed on broken glibc Linux)
 IPV4_HACK_MSG="no" 
@@ -1986,36 +2103,8 @@ AC_ARG_WITH(bsd-auth,
 	]
 )
 
-AC_MSG_CHECKING(whether to install ssh as suid root)
-AC_ARG_ENABLE(suid-ssh,
-[  --enable-suid-ssh       Install ssh as suid root (default)
-  --disable-suid-ssh      Install ssh without suid bit],
-[ case "$enableval" in
-  no)
-       AC_MSG_RESULT(no)
-       SSHMODE=0711
-       ;;
-  *)   AC_MSG_RESULT(yes)
-       SSHMODE=4711
-       ;;
-  esac ],
-  AC_MSG_RESULT(yes)
-  SSHMODE=4711
-)
-AC_SUBST(SSHMODE)
-
-
 # Where to place sshd.pid
 piddir=/var/run
-AC_ARG_WITH(pid-dir,
-	[  --with-pid-dir=PATH     Specify location of ssh.pid file],
-	[
-		if test "x$withval" != "xno" ; then	
-			piddir=$withval
-		fi
-	]
-)
-
 # make sure the directory exists
 if test ! -d $piddir ; then	
 	piddir=`eval echo ${sysconfdir}`
@@ -2023,6 +2112,18 @@ if test ! -d $piddir ; then
  		NONE/*) piddir=`echo $piddir | sed "s~NONE~$ac_default_prefix~"` ;;
 	esac
 fi
+
+AC_ARG_WITH(pid-dir,
+	[  --with-pid-dir=PATH     Specify location of ssh.pid file],
+	[
+		if test "x$withval" != "xno" ; then	
+			piddir=$withval
+			if test ! -d $piddir ; then	
+			AC_MSG_WARN([** no $piddir directory on this system **])
+			fi
+		fi
+	]
+)
 
 AC_DEFINE_UNQUOTED(_PATH_SSH_PIDDIR, "$piddir")
 AC_SUBST(piddir)
@@ -2275,32 +2376,43 @@ D=`eval echo ${sysconfdir}` ; D=`eval echo ${D}`
 E=`eval echo ${libexecdir}/ssh-askpass` ; E=`eval echo ${E}`
 F=`eval echo ${mandir}/${mansubdir}X` ; F=`eval echo ${F}`
 G=`eval echo ${piddir}` ; G=`eval echo ${G}`
-H=`eval echo ${user_path}` ; H=`eval echo ${H}`
+H=`eval echo ${PRIVSEP_PATH}` ; H=`eval echo ${H}`
+I=`eval echo ${user_path}` ; I=`eval echo ${I}`
+J=`eval echo ${superuser_path}` ; J=`eval echo ${J}`
 
 echo ""
 echo "OpenSSH has been configured with the following options:"
-echo "                 User binaries: $B"
-echo "               System binaries: $C"
-echo "           Configuration files: $D"
-echo "               Askpass program: $E"
-echo "                  Manual pages: $F"
-echo "                      PID file: $G"
-echo "        sshd default user PATH: $H"
-echo "                Manpage format: $MANTYPE"
-echo "                   PAM support: ${PAM_MSG}"
-echo "            KerberosIV support: $KRB4_MSG"
-echo "             Smartcard support: $SCARD_MSG"
-echo "                   AFS support: $AFS_MSG"
-echo "                 S/KEY support: $SKEY_MSG"
-echo "          TCP Wrappers support: $TCPW_MSG"
-echo "          MD5 password support: $MD5_MSG"
-echo "   IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
-echo "      Use IPv4 by default hack: $IPV4_HACK_MSG"
-echo "       Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
-echo "              BSD Auth support: $BSD_AUTH_MSG"
-echo "          Random number source: $RAND_MSG"
+echo "                     User binaries: $B"
+echo "                   System binaries: $C"
+echo "               Configuration files: $D"
+echo "                   Askpass program: $E"
+echo "                      Manual pages: $F"
+echo "                          PID file: $G"
+echo "  Privilege separation chroot path: $H"
+if test "$USES_LOGIN_CONF" = "yes" ; then
+echo "   At runtime, sshd will use the path defined in /etc/login.conf"
+else
+echo "            sshd default user PATH: $I"
+fi
+if test ! -z "$superuser_path" ; then
+echo "          sshd superuser user PATH: $J"
+fi
+echo "                    Manpage format: $MANTYPE"
+echo "                       PAM support: ${PAM_MSG}"
+echo "                KerberosIV support: $KRB4_MSG"
+echo "                 KerberosV support: $KRB5_MSG"
+echo "                 Smartcard support: $SCARD_MSG"
+echo "                       AFS support: $AFS_MSG"
+echo "                     S/KEY support: $SKEY_MSG"
+echo "              TCP Wrappers support: $TCPW_MSG"
+echo "              MD5 password support: $MD5_MSG"
+echo "       IP address in \$DISPLAY hack: $DISPLAY_HACK_MSG"
+echo "          Use IPv4 by default hack: $IPV4_HACK_MSG"
+echo "           Translate v4 in v6 hack: $IPV4_IN6_HACK_MSG"
+echo "                  BSD Auth support: $BSD_AUTH_MSG"
+echo "              Random number source: $RAND_MSG"
 if test ! -z "$USE_RAND_HELPER" ; then
-	echo " ssh-rand-helper collects from: $RAND_HELPER_MSG"
+echo "     ssh-rand-helper collects from: $RAND_HELPER_MSG"
 fi
 
 echo ""

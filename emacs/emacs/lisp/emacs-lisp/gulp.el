@@ -1,4 +1,4 @@
-;;; gulp.el --- Ask for updates for Lisp packages
+;;; gulp.el --- ask for updates for Lisp packages
 
 ;; Copyright (C) 1996 Free Software Foundation, Inc.
 
@@ -103,11 +103,11 @@ is left in the `*gulp*' buffer at the end."
       (while (setq node (car m-p-alist))
 	(setq msg (gulp-create-message (cdr node) time))
 	(setq mail-setup-hook
-	      '(lambda () 
-		 (mail-subject)
-		 (insert "It's time for Emacs updates again")
-		 (goto-char (point-max))
-		 (insert msg)))
+	      (lambda () 
+		(mail-subject)
+		(insert "It's time for Emacs updates again")
+		(goto-char (point-max))
+		(insert msg)))
 	(mail nil (car node))
 	(goto-char (point-min))
 	(if (y-or-n-p "Send? ") (mail-send)
@@ -152,7 +152,7 @@ That is a list of elements, each of the form (MAINTAINER PACKAGES...)."
 (defun gulp-maintainer (filenm dir)
   "Return a list (MAINTAINER TIMESTAMP) for the package FILENM in directory DIR."
   (save-excursion
-    (let* ((fl (concat dir filenm)) mnt
+    (let* ((fl (expand-file-name filenm dir)) mnt
 	   (timest (format-time-string "%Y-%m-%d %a %T %Z"
 				       (elt (file-attributes fl) 5))))
       (set-buffer gulp-tmp-buffer)

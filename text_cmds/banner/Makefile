@@ -12,11 +12,11 @@ NAME = banner
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = banner.h
+HFILES = 
 
-CFILES = banner.c chset.c
+CFILES = banner.c 
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble banner.1
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble banner.1 banner.6
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

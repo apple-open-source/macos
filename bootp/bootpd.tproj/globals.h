@@ -1,7 +1,10 @@
 
+#ifndef _S_GLOBALS_H
+#define _S_GLOBALS_H
+
 #import <objc/Object.h>
-#import "NIDomain.h"
-#import "NICache.h"
+#include "NIDomain.h"
+#include "NICache.h"
 
 extern NICache_t	cache;
 extern int		bootp_socket;
@@ -16,3 +19,4 @@ extern id		subnets;
 extern char *		testing_control;
 extern char		transmit_buffer[];
 extern int		verbose;
+#endif _S_GLOBALS_H

@@ -1,11 +1,6 @@
 {
   Description     = "local disks";
   Provides        = ("Disks");
-  Requires        = ("System Tuning");
-  OrderPreference = "First";
-  Messages =
-  {
-    start = "Checking disks";
-    stop  = "Unmounting disks";
-  };
+  Uses            = ("System Tuning");
+  OrderPreference = "Early";
 }

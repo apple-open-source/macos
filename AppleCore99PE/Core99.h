@@ -60,7 +60,8 @@ private:
   class IOPMPagingPlexus * plexus;
   class IOPMSlots99 * slots99;
   IOLock    * mutex;
-
+  bool		isPortable;
+  
   virtual unsigned long readUniNReg(unsigned long offest);
   virtual void writeUniNReg(unsigned long offest, unsigned long data);
   

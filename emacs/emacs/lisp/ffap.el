@@ -1,6 +1,6 @@
 ;;; ffap.el --- find file (or url) at point
 ;;
-;; Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 96, 97, 2000  Free Software Foundation, Inc.
 ;;
 ;; Author: Michelangelo Grigni <mic@mathcs.emory.edu>
 ;; Created: 29 Mar 1993
@@ -35,9 +35,8 @@
 ;; README's, MANIFEST's, and so on.  Submit bugs or suggestions with
 ;; M-x ffap-bug.
 ;;
-;; For the default installation, add these two lines to your .emacs file:
+;; For the default installation, add this line to your .emacs file:
 ;;
-;; (require 'ffap)                      ; load the package
 ;; (ffap-bindings)                      ; do default key bindings
 ;;
 ;; ffap-bindings makes the following global key bindings:
@@ -164,7 +163,7 @@ Note this name may be omitted if it equals the default
    "\\`\\("
    "news\\(post\\)?:\\|mailto:\\|file:" ; no host ok
    "\\|"
-   "\\(ftp\\|http\\|telnet\\|gopher\\|www\\|wais\\)://" ; needs host
+   "\\(ftp\\|https?\\|telnet\\|gopher\\|www\\|wais\\)://" ; needs host
    "\\)."				; require one more character
    )
    "Regexp matching URL's.  nil to disable URL features in ffap.")
@@ -397,6 +396,7 @@ Returned values:
       (cond
        ((eq strategy 'accept) 'accept)
        ((eq strategy 'reject) nil)
+       ((not (fboundp 'open-network-stream)) nil)
        ;; assume (eq strategy 'ping)
        (t
 	(or quiet
@@ -1216,6 +1216,10 @@ which may actually result in an url rather than a filename."
      (t t))))
 
 (defun ffap-read-file-or-url-internal (string dir action)
+  (unless dir
+    (setq dir default-directory))
+  (unless string
+    (setq string default-directory))
   (if (ffap-url-p string)
       (ffap-read-url-internal string dir action)
     (read-file-name-internal string dir action)))
@@ -1257,7 +1261,7 @@ which may actually result in an url rather than a filename."
 ;;
 ;; Based on overlay highlighting in Emacs 19.28 isearch.el.
 
-(defvar ffap-highlight (and window-system t)
+(defvar ffap-highlight t
   "If non-nil, ffap highlights the current buffer substring.")
 
 (defvar ffap-highlight-overlay nil
@@ -1284,8 +1288,7 @@ Uses the face `ffap' if it is defined, or else `highlight'."
     (setq ffap-highlight-overlay
 	  (apply 'make-overlay ffap-string-at-point-region))
     (overlay-put ffap-highlight-overlay 'face
-		      (if (internal-find-face 'ffap)
-			  'ffap 'highlight)))))
+		      (if (facep 'ffap) 'ffap 'highlight)))))
 
 
 ;;; Main Entrance (`find-file-at-point' == `ffap'):
@@ -1351,12 +1354,7 @@ See <ftp://ftp.mathcs.emory.edu/pub/mic/emacs/> for latest version."
 				filename))))))
 
 ;; Shortcut: allow {M-x ffap} rather than {M-x find-file-at-point}.
-;; The defun is for autoload.el; the defalias takes over at load time.
-;;;###autoload
-(defun ffap (&optional filename)
-  "A short alias for the find-file-at-point command.")
-(defalias 'ffap 'find-file-at-point)
-
+;;;###autoload(defalias 'ffap 'find-file-at-point)
 
 ;;; Menu support (`ffap-menu'):
 
@@ -1371,8 +1369,8 @@ For example, try \":/\" for URL (and some ftp) references.")
 
 (defvar ffap-menu-text-plist
   (cond
-   ((not window-system) nil)
-   (t '(face bold mouse-face highlight))) ; keymap <mousy-map>
+   ((display-mouse-p) '(face bold mouse-face highlight)) ; keymap <mousy-map>
+   (t nil))
   "Text properties applied to strings found by `ffap-menu-rescan'.
 These properties may be used to fontify the menu references.")
 
@@ -1692,13 +1690,14 @@ ffap most of the time."
      ;; (setq dired-x-hands-off-my-keys t) ; the default
      )
      "List of binding forms evaluated by function `ffap-bindings'.
-A reasonable ffap installation needs just these two lines:
-  (require 'ffap)
+A reasonable ffap installation needs just this one line:
   (ffap-bindings)
 Of course if you do not like these bindings, just roll your own!")
 
+;;;###autoload
 (defun ffap-bindings nil
   "Evaluate the forms in variable `ffap-bindings'."
+  (interactive)
   (eval (cons 'progn ffap-bindings)))
 
 

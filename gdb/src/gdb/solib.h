@@ -1,5 +1,6 @@
 /* Shared library declarations for GDB, the GNU Debugger.
-   Copyright (C) 1992, 1998 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1995, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -30,10 +31,10 @@ extern void clear_solib (void);
 
 /* Called to add symbols from a shared library to gdb's symbol table. */
 
-#define SOLIB_ADD(filename, from_tty, targ) \
-    solib_add (filename, from_tty, targ)
+#define SOLIB_ADD(filename, from_tty, targ, readsyms) \
+    solib_add (filename, from_tty, targ, readsyms)
 
-extern void solib_add (char *, int, struct target_ops *);
+extern int solib_add (char *, int, struct target_ops *, int);
 
 /* Function to be called when the inferior starts up, to discover the names
    of shared libraries that are dynamically linked, the base addresses to
@@ -186,13 +187,13 @@ extern char *solib_address (CORE_ADDR);	/* solib.c */
 
 #define PC_SOLIB(addr)	solib_address (addr)
 
-#ifdef SVR4_SHARED_LIBS
-
 /* Return 1 if PC lies in the dynamic symbol resolution code of the
-   SVR4 run time loader.  */
+   run time loader.  */
 
-#define IN_SOLIB_DYNSYM_RESOLVE_CODE(pc) in_svr4_dynsym_resolve_code (pc)
+#define IN_SOLIB_DYNSYM_RESOLVE_CODE(pc) in_solib_dynsym_resolve_code (pc)
 
-extern int in_svr4_dynsym_resolve_code (CORE_ADDR);
+extern int in_solib_dynsym_resolve_code (CORE_ADDR);	/* solib.c */
 
-#endif
+/* Discard symbols that were auto-loaded from shared libraries. */
+
+extern void no_shared_libraries (char *ignored, int from_tty);

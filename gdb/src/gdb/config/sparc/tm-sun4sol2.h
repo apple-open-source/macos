@@ -1,5 +1,5 @@
 /* Macro definitions for GDB for a Sun 4 running Solaris 2
-   Copyright 1989, 1992, 1993, 1994, 1995, 1997, 1998
+   Copyright 1989, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -19,7 +19,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#define GDB_MULTI_ARCH 2
+#define GDB_MULTI_ARCH GDB_MULTI_ARCH_PARTIAL
 
 #include "sparc/tm-sparc.h"
 #include "tm-sysv4.h"
@@ -80,8 +80,3 @@ extern char *sunpro_static_transform_name (char *);
 
 /* Enable handling of shared libraries for a.out executables.  */
 #define HANDLE_SVR4_EXEC_EMULATORS
-
-/* Macros to extract process id and thread id from a composite pid/tid */
-#define PIDGET(PID)		(((PID) & 0xffff))
-#define TIDGET(PID)		(((PID) & 0x7fffffff) >> 16)
-#define MERGEPID(PID, TID)	(((PID) & 0xffff) | ((TID) << 16))

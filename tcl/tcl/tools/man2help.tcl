@@ -6,7 +6,7 @@
 #
 # Copyright (c) 1996 by Sun Microsystems, Inc.
 #
-# RCS: @(#) $Id: man2help.tcl,v 1.1.1.2 2000/04/12 02:02:43 wsanchez Exp $
+# RCS: @(#) $Id: man2help.tcl,v 1.1.1.3 2002/04/05 16:14:01 jevans Exp $
 # 
 
 #
@@ -98,7 +98,7 @@ proc doFile {file} {
 
 proc doDir dir {
     puts "Generating man pages for $dir..."
-    foreach f [lsort [glob [file join $dir *.\[13n\]]]] {
+    foreach f [lsort [glob -directory $dir "*.\[13n\]"]] {
 	do $f
     }
 }
@@ -116,7 +116,7 @@ set files {}
 foreach i [lrange $argv 2 end] {
     set i [file join $i]
     if {[file isdir $i]} {
-	foreach f [lsort [glob [file join $i *.\[13n\]]]] {
+	foreach f [lsort [glob -directory $i "*.\[13n\]"]] {
 	    lappend files $f
 	}
     } elseif {[file exists $i]} {

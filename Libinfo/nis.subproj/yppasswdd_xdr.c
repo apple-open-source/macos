@@ -54,7 +54,7 @@
  * SUCH DAMAGE.
  */
 
-#ifndef LINT
+#if defined(LIBC_SCCS) && !defined(lint)
 static char rcsid[] = "$OpenBSD: yppasswdd_xdr.c,v 1.4 1997/08/19 07:00:52 niklas Exp $";
 #endif
 

@@ -98,6 +98,9 @@ timeout		{ return TIMEOUT;}
 envelope	{ return ENVELOPE; }
 qvirtual	{ return QVIRTUAL; }
 principal	{ return PRINCIPAL; }
+esmtpname	{ return ESMTPNAME; }
+esmtppassword	{ return ESMTPPASSWORD; }
+
 
 user(name)?	{SETSTATE(NAME); return USERNAME; }
 <INITIAL,NAME>pass(word)?	{SETSTATE(NAME); return PASSWORD; }

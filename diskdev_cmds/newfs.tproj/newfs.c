@@ -593,19 +593,27 @@ main(argc, argv)
 //	printf("MKFS done\n");
 
 	if (!Nflag) {
-	    close(fso);
+		close(fso);
 #ifdef __APPLE__
-	    {
-		int fd;
-		
-		fd = dkopen(device, O_RDWR, 0);
-		if (ufslabel_set(fd, filesystem_name, 
-				 strlen(filesystem_name)) == FALSE) {
-		    fatal("%s: couldn't name the filesystem on %s", argv[0],
-			  special);
+		fso = dkopen(device, O_RDWR, 0);
+		if (fso < 0) {
+		    fatal("%s: couldn't label the filesystem on %s",
+			  argv[0], special);
+		} else {
+			struct ufslabel ul;
+			ufslabel_init(&ul);
+			ufslabel_set_uuid(&ul);
+			if (ufslabel_set_name(&ul, filesystem_name, 
+					 strlen(filesystem_name)) == FALSE) {
+			    fatal("%s: couldn't name the filesystem on %s",
+				  argv[0], special);
+			}
+			if (ufslabel_set(fso, &ul) == FALSE) {
+			    fatal("%s: couldn't label the filesystem on %s",
+				  argv[0], special);
+			}
+			close(fso);
 		}
-		close(fd);
-	    }
 #endif __APPLE__
 	}
 	close(fsi);

@@ -11,7 +11,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclInt.h,v 1.1.1.4 2000/12/06 23:03:33 wsanchez Exp $
+ * RCS: @(#) $Id: tclInt.h,v 1.1.1.5 2002/04/05 16:13:20 jevans Exp $
  */
 
 #ifndef _TCLINT
@@ -1549,6 +1549,8 @@ extern Tcl_Obj *	tclFreeObjList;
 #ifdef TCL_COMPILE_STATS
 extern long		tclObjsAlloced;
 extern long		tclObjsFreed;
+#define TCL_MAX_SHARED_OBJ_STATS 5
+extern long		tclObjsShared[TCL_MAX_SHARED_OBJ_STATS];
 #endif /* TCL_COMPILE_STATS */
 
 /*
@@ -1625,6 +1627,7 @@ EXTERN void		TclFinalizeIOSubsystem _ANSI_ARGS_((void));
 EXTERN void		TclFinalizeLoad _ANSI_ARGS_((void));
 EXTERN void		TclFinalizeMemorySubsystem _ANSI_ARGS_((void));
 EXTERN void		TclFinalizeNotifier _ANSI_ARGS_((void));
+EXTERN void		TclFinalizeAsync _ANSI_ARGS_((void));
 EXTERN void		TclFinalizeSynchronization _ANSI_ARGS_((void));
 EXTERN void		TclFinalizeThreadData _ANSI_ARGS_((void));
 EXTERN void		TclFindEncodings _ANSI_ARGS_((CONST char *argv0));
@@ -2086,6 +2089,37 @@ EXTERN int	TclCompileWhileCmd _ANSI_ARGS_((Tcl_Interp *interp,
 	if ((objPtr)->refCount < -1) \
 	    panic("Reference count for %lx was negative: %s line %d", \
 		  (objPtr), __FILE__, __LINE__); \
+	if (((objPtr)->bytes != NULL) \
+		&& ((objPtr)->bytes != tclEmptyStringRep)) { \
+	    ckfree((char *) (objPtr)->bytes); \
+	} \
+	if (((objPtr)->typePtr != NULL) \
+		&& ((objPtr)->typePtr->freeIntRepProc != NULL)) { \
+	    (objPtr)->typePtr->freeIntRepProc(objPtr); \
+	} \
+	ckfree((char *) (objPtr)); \
+	TclIncrObjsFreed(); \
+    }
+
+#elif defined(PURIFY)
+
+/*
+ * The PURIFY mode is like the regular mode, but instead of doing block
+ * Tcl_Obj allocation and keeping a freed list for efficiency, it always
+ * allocates and frees a single Tcl_Obj so that tools like Purify can
+ * better track memory leaks
+ */
+
+#  define TclNewObj(objPtr) \
+    (objPtr) = (Tcl_Obj *) Tcl_Ckalloc(sizeof(Tcl_Obj)); \
+    (objPtr)->refCount = 0; \
+    (objPtr)->bytes    = tclEmptyStringRep; \
+    (objPtr)->length   = 0; \
+    (objPtr)->typePtr  = NULL; \
+    TclIncrObjsAllocated();
+
+#  define TclDecrRefCount(objPtr) \
+    if (--(objPtr)->refCount <= 0) { \
 	if (((objPtr)->bytes != NULL) \
 		&& ((objPtr)->bytes != tclEmptyStringRep)) { \
 	    ckfree((char *) (objPtr)->bytes); \

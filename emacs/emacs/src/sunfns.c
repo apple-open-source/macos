@@ -1,5 +1,5 @@
 /* Functions for Sun Windows menus and selection buffer.
-   Copyright (C) 1987 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1999 Free Software Foundation, Inc.
 
 This file is probably totally obsolete.  In any case, the FSF is
 unwilling to support it.  We agreed to include it in our distribution
@@ -120,7 +120,7 @@ or -1 if can not open it.")
 
   if ((! already_initialized) || (!NILP(force))) {
     cp = getenv("WINDOW_GFX");
-    if (cp != 0) win_fd = open(cp, 2);
+    if (cp != 0) win_fd = emacs_open (cp, O_RDWR, 0);
     if (win_fd > 0)
       {
 	Sun_Font = pf_default();
@@ -164,7 +164,7 @@ Redisplay does not happen if input is available before it starts.")
   Timeout.tv_usec = (XINT(n) - (Timeout.tv_sec * 1000)) * 1000;
 
   if (detect_input_pending()) return(Qnil);
-  redisplay_preserve_echo_area ();
+  redisplay_preserve_echo_area (16);
   /*
    *	Check for queued keyboard input/mouse hits again
    *	(A bit screen update can take some time!)
@@ -197,7 +197,7 @@ DEFUN ("update-display", Fupdate_display, Supdate_display, 0, 0, 0,
        "Perform redisplay.")
      ()
 {
-  redisplay_preserve_echo_area ();
+  redisplay_preserve_echo_area (17);
   return(Qt);
 }
 
@@ -459,8 +459,8 @@ as a menu label.")
   {static Lisp_Object symbol[2];
    symbol[0] = Fintern (sm_kludge_string, Qnil);
    Pair = Ffuncall (1, symbol);
-   xpos += XINT (XCONS (Pair)->cdr);
-   ypos += XINT (XCONS (Pair)->car);
+   xpos += XINT (XCDR (Pair));
+   ypos += XINT (XCAR (Pair));
  }
 #endif
 

@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: tcap.c,v 1.1.1.1 1999/04/15 17:45:14 wsanchez Exp $";
+static char rcsid[] = "$Id: tcap.c,v 1.2 2002/01/03 22:16:42 jevans Exp $";
 #endif
 /*
  * Program:	Display routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: tcap.c,v 1.1.1.1 1999/04/15 17:45:14 wsanchez Exp $"
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -78,12 +78,11 @@ extern char     *tgoto();
 
 #define TCAPSLEN 315
 char tcapbuf[TCAPSLEN];
-extern char *UP, PC, *CM, *CE, *CL, *SO, *SE;
+char *UP, PC, *CM, *CE, *CL, *SO, *SE;
 /* 
  * PICO extentions 
  */
-extern char
-	*DL,			/* delete line */
+char	*DL,			/* delete line */
 	*AL,			/* insert line */
 	*CS,			/* define a scrolling region, vt100 */
 	*IC,			/* insert character, preferable to : */
@@ -97,7 +96,7 @@ extern char
 	*TI,			/* string to start termcap */
         *TE;			/* string to end termcap */
 
-extern char *KU, *KD, *KL, *KR;
+char *KU, *KD, *KL, *KR;
 char *KPPU, *KPPD, *KPHOME, *KPEND;
 
 struct KBSTREE *kpadseqs = NULL;
@@ -275,12 +274,6 @@ tcapopen()
 	kpinsert("[=j",F10);
 	kpinsert("[=k",F11);
 	kpinsert("[=l",F12);
-
-	HelpKeyNames = funckeynames;
-
-    }
-    else{
-	HelpKeyNames = NULL;
     }
 
     kpinsert("OA",K_PAD_UP);	/* DEC vt100, ANSI and cursor key mode. */

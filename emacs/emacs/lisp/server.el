@@ -1,6 +1,7 @@
-;;; server.el --- Lisp code for GNU Emacs running as server process.
+;;; server.el --- Lisp code for GNU Emacs running as server process
 
-;; Copyright (C) 1986, 87, 92, 94, 95, 96, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1986, 87, 92, 94, 95, 96, 97, 98, 99, 2000, 2001
+;;	 Free Software Foundation, Inc.
 
 ;; Author: William Sommerfeld <wesommer@athena.mit.edu>
 ;; Maintainer: FSF
@@ -100,7 +101,7 @@
   :type '(repeat function))
 
 (defvar server-process nil 
-  "the current server process")
+  "The current server process")
 
 (defvar server-previous-string "")
 
@@ -111,7 +112,7 @@ that can be given to the server process to identify a client.
 When a buffer is marked as \"done\", it is removed from this list.")
 
 (defvar server-buffer-clients nil
-  "List of clientids for clients requesting editing of current buffer.")
+  "List of client ids for clients requesting editing of current buffer.")
 (make-variable-buffer-local 'server-buffer-clients)
 ;; Changing major modes should not erase this local.
 (put 'server-buffer-clients 'permanent-local t)
@@ -124,12 +125,28 @@ If it is a frame, use the frame's selected window.")
 (defcustom server-temp-file-regexp "^/tmp/Re\\|/draft$"
   "*Regexp which should match filenames of temporary files
 which are deleted and reused after each edit
-by the programs that invoke the emacs server."
+by the programs that invoke the Emacs server."
   :group 'server
   :type 'regexp)
 
+(defcustom server-kill-new-buffers t
+  "*Whether to kill buffers when done with them.
+If non-nil, kill a buffer unless it already existed before editing
+it with Emacs server. If nil, kill only buffers as specified by
+`server-temp-file-regexp'.
+Please note that only buffers are killed that still have a client,
+i.e. buffers visited which \"emacsclient --no-wait\" are never killed in
+this way."
+  :group 'server
+  :type 'boolean
+  :version "21.1")
+
 (or (assq 'server-buffer-clients minor-mode-alist)
     (setq minor-mode-alist (cons '(server-buffer-clients " Server") minor-mode-alist)))
+
+(defvar server-existing-buffer nil
+  "Non-nil means a server buffer existed before visiting a file.")
+(make-variable-buffer-local 'server-existing-buffer)
 
 ;; If a *server* buffer exists,
 ;; write STRING to it for logging purposes.
@@ -215,7 +232,8 @@ Prefix arg means just kill any existing server communications subprocess."
 				  default-file-name-coding-system)))
 	  client nowait
 	  (files nil)
-	  (lineno 1))
+	  (lineno 1)
+	  (columnno 0))
       ;; Remove this line from STRING.
       (setq string (substring string (match-end 0)))	  
       (if (string-match "^Error: " request)
@@ -232,9 +250,15 @@ Prefix arg means just kill any existing server communications subprocess."
 		  (setq request (substring request (match-end 0)))
 		  (if (string-match "\\`-nowait" arg)
 		      (setq nowait t)
-		    (if (string-match "\\`\\+[0-9]+\\'" arg)
-			;; ARG is a line number option.
-			(setq lineno (read (substring arg 1)))
+		    (cond
+    			;; ARG is a line number option.
+		     ((string-match "\\`\\+[0-9]+\\'" arg)
+		      (setq lineno (string-to-int (substring arg 1))))
+		     ;; ARG is line number:column option. 
+		     ((string-match "\\`+\\([0-9]+\\):\\([0-9]+\\)\\'" arg)
+		      (setq lineno (string-to-int (match-string 1 arg))
+			    columnno (string-to-int (match-string 2 arg))))
+		     (t
 		      ;; ARG is a file name.
 		      ;; Collapse multiple slashes to single slashes.
 		      (setq arg (command-line-normalize-file-name arg))
@@ -253,23 +277,31 @@ Prefix arg means just kill any existing server communications subprocess."
 		      (if coding-system
 			  (setq arg (decode-coding-string arg coding-system)))
 		      (setq files
-			    (cons (list arg lineno)
+			    (cons (list arg lineno columnno)
 				  files))
-		      (setq lineno 1)))))
+		      (setq lineno 1)
+		      (setq columnno 0))))))
 	      (server-visit-files files client nowait)
 	      ;; CLIENT is now a list (CLIENTNUM BUFFERS...)
-	      (or nowait
-		  (setq server-clients (cons client server-clients)))
-	      (server-switch-buffer (nth 1 client))
-	      (run-hooks 'server-switch-hook)
-	      (message (substitute-command-keys
-			"When done with a buffer, type \\[server-edit]")))))))
+	      (if (null (cdr client))
+		  ;; This client is empty; get rid of it immediately.
+		  (progn
+		    (send-string server-process 
+				 (format "Close: %s Done\n" (car client)))
+		    (server-log (format "Close empty client: %s Done\n" (car client))))
+		;; We visited some buffer for this client.
+		(or nowait
+		    (setq server-clients (cons client server-clients)))
+		(server-switch-buffer (nth 1 client))
+		(run-hooks 'server-switch-hook)
+		(message (substitute-command-keys
+			  "When done with a buffer, type \\[server-edit]"))))))))
   ;; Save for later any partial line that remains.
   (setq server-previous-string string))
 
 (defun server-visit-files (files client &optional nowait)
   "Finds FILES and returns the list CLIENT with the buffers nconc'd.
-FILES is an alist whose elements are (FILENAME LINENUMBER).
+FILES is an alist whose elements are (FILENAME LINENUMBER COLUMNNUMBER).
 NOWAIT non-nil means this client is not waiting for the results,
 so don't mark these buffers specially, just visit them normally."
   ;; Bind last-nonmenu-event to force use of keyboard, not mouse, for queries.
@@ -279,24 +311,32 @@ so don't mark these buffers specially, just visit them normally."
     ;; if it happens to be one of those specified by the server.
     (unwind-protect
 	(while files
-	  ;; If there is an existing buffer modified or the file is modified,
-	  ;; revert it.
-	  ;; If there is an existing buffer with deleted file, offer to write it.
+	  ;; If there is an existing buffer modified or the file is
+	  ;; modified, revert it.  If there is an existing buffer with
+	  ;; deleted file, offer to write it.
 	  (let* ((filen (car (car files)))
 		 (obuf (get-file-buffer filen)))
+	    (push filen file-name-history)
 	    (if (and obuf (set-buffer obuf))
-		(if (file-exists-p filen)
-		    (if (or (not (verify-visited-file-modtime obuf))
-			    (buffer-modified-p obuf))
-			(revert-buffer t nil))
-		  (if (y-or-n-p
-		       (concat "File no longer exists: "
-			       filen
-			       ", write buffer to file? "))
-		      (write-file filen)))
+		(progn
+		  (cond ((file-exists-p filen)
+			 (if (or (not (verify-visited-file-modtime obuf))
+				 (buffer-modified-p obuf))
+			     (revert-buffer t nil)))
+			(t
+			 (if (y-or-n-p
+			      (concat "File no longer exists: "
+				      filen
+				      ", write buffer to file? "))
+			     (write-file filen))))
+		  (setq server-existing-buffer t)
+		  (goto-line (nth 1 (car files))))
 	      (set-buffer (find-file-noselect filen))
+	      (goto-line (nth 1 (car files)))
+	      (let ((column-number (nth 2 (car files))))
+		(when (> column-number 0)
+		  (move-to-column (1- column-number))))
 	      (run-hooks 'server-visit-hook)))
-	  (goto-line (nth 1 (car files)))
 	  (if (not nowait)
 	      (setq server-buffer-clients
 		    (cons (car client) server-buffer-clients)))
@@ -357,10 +397,20 @@ or nil.  KILLED is t if we killed BUFFER
 	    ;; Don't bother killing or burying the buffer
 	    ;; when we are called from kill-buffer.
 	    (unless for-killing
-	      (if (server-temp-file-p buffer)
-		  (progn (kill-buffer buffer)
-			 (setq killed t))
-		(bury-buffer buffer))))))
+	      (when (and (not killed)
+			 server-kill-new-buffers
+			 (save-excursion
+			   (set-buffer buffer)
+			   server-existing-buffer))
+		(setq killed t)
+		(bury-buffer buffer)
+		(kill-buffer buffer))
+	      (unless killed
+		(if (server-temp-file-p buffer)
+		    (progn
+		      (kill-buffer buffer)
+		      (setq killed t))
+		  (bury-buffer buffer)))))))
     (list next-buffer killed)))
 
 (defun server-temp-file-p (buffer)
@@ -470,10 +520,10 @@ Arg NEXT-BUFFER is a suggestion; if it is a live buffer, use it."
   (if (window-minibuffer-p (selected-window))
       (select-window (next-window nil 'nomini 0)))
   ;; Move to a non-dedicated window, if we have one.
-  (let ((last-window (previous-window nil 'nomini 0)))
-    (while (and (window-dedicated-p (selected-window))
-		(not (eq last-window (selected-window))))
-      (select-window (next-window nil 'nomini 0))))
+  (when (window-dedicated-p (selected-window))
+    (select-window (get-window-with-predicate
+		    (lambda (w) (not (window-dedicated-p w)))
+		    'nomini 'visible (selected-window))))
   (set-window-dedicated-p (selected-window) nil)
   (if next-buffer
       (if (and (bufferp next-buffer)

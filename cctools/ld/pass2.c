@@ -49,6 +49,7 @@
 #include <mach-o/reloc.h>
 #include "stuff/bool.h"
 #include "stuff/bytesex.h"
+#include "stuff/macosx_deployment_target.h"
 
 #include "ld.h"
 #include "objects.h"
@@ -1016,6 +1017,7 @@ output_headers(void)
     struct merged_dylib *mdl;
     struct dylib_command *dl;
     struct dynamic_library *dp;
+    enum bool some_symbols_referenced, some_non_weak_refs;
 #endif !defined(RLD)
     struct mach_header *mh;
     struct load_command *lc;
@@ -1081,7 +1083,40 @@ output_headers(void)
 	    memcpy(output_addr + header_offset, mdl->dl, mdl->dl->cmdsize);
 	    if(mdl->output_id == FALSE){
 		dl = (struct dylib_command *)(output_addr + header_offset);
-		dl->cmd = LC_LOAD_DYLIB;
+		/*
+		 * Propagate the some_non_weak_refs and some_non_weak_refs 
+		 * booleans up through the sub images for this dylib.
+		 */
+		some_symbols_referenced =
+		    mdl->dynamic_library->some_symbols_referenced;
+		some_non_weak_refs = 
+		    mdl->dynamic_library->some_non_weak_refs;
+		for(i = 0; i < mdl->dynamic_library->nsub_images; i++){
+		    if(mdl->dynamic_library->sub_images[i]->
+		       some_symbols_referenced == TRUE){
+			some_symbols_referenced = TRUE;
+			if(mdl->dynamic_library->sub_images[i]->
+			   some_non_weak_refs == TRUE)
+			    some_non_weak_refs = TRUE;
+		    }
+		}
+		if(some_symbols_referenced == TRUE &&
+		   some_non_weak_refs == FALSE){
+		    if(macosx_deployment_target >=
+		       MACOSX_DEPLOYMENT_TARGET_10_2){
+			dl->cmd = LC_LOAD_WEAK_DYLIB;
+		    }
+		    else{
+			warning("dynamic shared library: %s not made a weak "
+				"library in output with "
+				"MACOSX_DEPLOYMENT_TARGET environment variable "
+				"set to: %s", mdl->definition_object->file_name,
+				macosx_deployment_target_name);
+			dl->cmd = LC_LOAD_DYLIB;
+		    }
+		}
+		else
+		    dl->cmd = LC_LOAD_DYLIB;
 	    }
 	    header_offset += mdl->dl->cmdsize;
 	    mdl = mdl->next;
@@ -1150,6 +1185,14 @@ output_headers(void)
 	    	   &(output_hints_info.twolevel_hints_command),
 		   output_hints_info.twolevel_hints_command.cmdsize);
 	    header_offset += output_hints_info.twolevel_hints_command.cmdsize;
+	}
+
+	/* next the prebind cksum load command */
+	if(output_cksum_info.prebind_cksum_command.cmdsize != 0){
+	    memcpy(output_addr + header_offset,
+	    	   &(output_cksum_info.prebind_cksum_command),
+		   output_cksum_info.prebind_cksum_command.cmdsize);
+	    header_offset += output_cksum_info.prebind_cksum_command.cmdsize;
 	}
 
 	/* next the thread command if the output file has one */

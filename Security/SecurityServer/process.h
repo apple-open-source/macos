@@ -25,7 +25,9 @@
 #include "securityserver.h"
 #include "SecurityAgentClient.h"
 #include <Security/osxsigning.h>
+#include <Security/refcount.h>
 #include "key.h"
+#include "notifications.h"
 #include <string>
 
 using MachPlusPlus::Port;
@@ -41,8 +43,10 @@ class AuthorizationToken;
 //
 class Process {
 public:
-	Process(TaskPort tPort, const char *identity, uid_t uid, gid_t gid);
+	Process(Port servicePort, TaskPort tPort, const char *identity, uid_t uid, gid_t gid);
+#if 0
     Process(Process &prior);	// specialized reclone facility
+#endif
 	virtual ~Process();
     
     uid_t uid() const			{ return mUid; }
@@ -50,7 +54,7 @@ public:
     pid_t pid() const			{ return mPid; }
     TaskPort taskPort() const	{ return mTaskPort; }
 	
-	const CodeSigning::OSXCode *clientCode() const	{ return mClientCode; }
+	CodeSigning::OSXCode *clientCode() const	{ return mClientCode; }
 	bool verifyCodeSignature(const CodeSigning::Signature *signature);
 	
 	void addAuthorization(AuthorizationToken *auth);
@@ -63,10 +67,11 @@ public:
     void addDatabase(Database *database);
     void removeDatabase(Database *database);
     
+    void requestNotifications(Port port, Listener::Domain domain, Listener::EventMask events);
+    void stopNotifications(Port port);
+    void postNotification(Listener::Domain domain, Listener::Event event, const CssmData &data);
+    
     Session &session;
-	
-protected:
-	static Session &sessionForPort(TaskPort taskPort);
 	
 private:
 	Mutex mLock;						// object lock
@@ -79,7 +84,7 @@ private:
     uid_t mUid;							// UNIX uid credential
     gid_t mGid;							// primary UNIX gid credential
 	
-	CodeSigning::OSXCode *mClientCode;	// code object for client
+	RefPointer<CodeSigning::OSXCode> mClientCode;	// code object for client
 	
 	// authorization dictionary
 	typedef multiset<AuthorizationToken *> AuthorizationSet;

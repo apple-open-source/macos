@@ -2,8 +2,4 @@
   Description     = "system performance tuning";
   Provides        = ("System Tuning");
   OrderPreference = "First";
-  Messages =
-  {
-    start = "Tuning system";
-  };
 }

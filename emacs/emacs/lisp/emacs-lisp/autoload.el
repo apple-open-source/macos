@@ -1,8 +1,9 @@
-;;; autoload.el --- maintain autoloads in loaddefs.el.
+;;; autoload.el --- maintain autoloads in loaddefs.el
 
-;; Copyright (C) 1991, 92, 93, 94, 95, 96, 97 Free Software Foundation, Inc.
+;; Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996, 1997, 2001
+;;   Free Software Foundation, Inc.
 
-;; Author: Roland McGrath <roland@gnu.ai.mit.edu>
+;; Author: Roland McGrath <roland@gnu.org>
 ;; Keywords: maint
 
 ;; This file is part of GNU Emacs.
@@ -62,51 +63,60 @@ that text will be copied verbatim to `generated-autoload-file'.")
 
 (defun make-autoload (form file)
   "Turn FORM into an autoload or defvar for source file FILE.
-Returns nil if FORM is not a `defun', `define-skeleton',
-`define-derived-mode', `define-generic-mode', `defmacro', `defcustom'
-or `easy-mmode-define-minor-mode'."
-  (let ((car (car-safe form)))
-    (if (memq car '(defun define-skeleton defmacro define-derived-mode 
-		     define-generic-mode easy-mmode-define-minor-mode))
-	(let ((macrop (eq car 'defmacro))
-	      name doc)
-	  (setq form (cdr form)
-		name (car form)
-		;; Ignore the arguments.
-		form (cdr (cond 
-			   ((memq car '(define-skeleton 
-					 easy-mmode-define-minor-mode)) form)
-			   ((eq car 'define-derived-mode) (cdr (cdr form)))
-			   ((eq car 'define-generic-mode) 
-			    (cdr (cdr (cdr (cdr (cdr form))))))
-			   (t (cdr form))))
-		doc (car form))
-	  (if (stringp doc)
-	      (setq form (cdr form))
-	    (setq doc nil))
-	  ;; `define-generic-mode' quotes the name, so take care of that
-	  (list 'autoload (if (listp name) name (list 'quote name)) file doc
-		(or (eq car 'define-skeleton) (eq car 'define-derived-mode)
-		    (eq car 'define-generic-mode) 
-		    (eq car 'easy-mmode-define-minor-mode)
-		    (eq (car-safe (car form)) 'interactive))
-		(if macrop (list 'quote 'macro) nil)))
-      ;; Convert defcustom to a simpler (and less space-consuming) defvar,
-      ;; but add some extra stuff if it uses :require.
-      (if (eq car 'defcustom)
-	  (let ((varname (car-safe (cdr-safe form)))
-		(init (car-safe (cdr-safe (cdr-safe form))))
-		(doc (car-safe (cdr-safe (cdr-safe (cdr-safe form)))))
-		(rest (cdr-safe (cdr-safe (cdr-safe (cdr-safe form))))))
-	    (if (not (plist-get rest :require))
-		`(defvar ,varname ,init ,doc)
-	      `(progn
-		 (defvar ,varname ,init ,doc)
-		 (custom-add-to-group ,(plist-get rest :group)
-				      ',varname 'custom-variable)
-		 (custom-add-load ',varname
-				  ,(plist-get rest :require)))))
-	nil))))
+Returns nil if FORM is not a special autoload form (i.e. a function definition
+or macro definition or a defcustom)."
+  (let ((car (car-safe form)) expand)
+    (cond
+     ;; For complex cases, try again on the macro-expansion.
+     ((and (memq car '(easy-mmode-define-global-mode
+		       easy-mmode-define-minor-mode define-minor-mode))
+	   (setq expand (let ((load-file-name file)) (macroexpand form)))
+	   (eq (car expand) 'progn)
+	   (memq :autoload-end expand))
+      (let ((end (memq :autoload-end expand)))
+	;; Cut-off anything after the :autoload-end marker.
+	(setcdr end nil)
+	(cons 'progn
+	      (mapcar (lambda (form) (make-autoload form file))
+		      (cdr expand)))))
+
+     ;; For special function-like operators, use the `autoload' function.
+     ((memq car '(defun define-skeleton defmacro define-derived-mode
+		   define-generic-mode easy-mmode-define-minor-mode
+		   easy-mmode-define-global-mode
+		   define-minor-mode defun*))
+      (let* ((macrop (eq car 'defmacro))
+	     (name (nth 1 form))
+	     (body (nthcdr (get car 'doc-string-elt) form))
+	     (doc (if (stringp (car body)) (pop body))))
+	;; `define-generic-mode' quotes the name, so take care of that
+	(list 'autoload (if (listp name) name (list 'quote name)) file doc
+	      (or (and (memq car '(define-skeleton define-derived-mode
+				    define-generic-mode
+				    easy-mmode-define-global-mode
+				    easy-mmode-define-minor-mode
+				    define-minor-mode)) t)
+		  (eq (car-safe (car body)) 'interactive))
+	      (if macrop (list 'quote 'macro) nil))))
+
+     ;; Convert defcustom to a simpler (and less space-consuming) defvar,
+     ;; but add some extra stuff if it uses :require.
+     ((eq car 'defcustom)
+      (let ((varname (car-safe (cdr-safe form)))
+	    (init (car-safe (cdr-safe (cdr-safe form))))
+	    (doc (car-safe (cdr-safe (cdr-safe (cdr-safe form)))))
+	    (rest (cdr-safe (cdr-safe (cdr-safe (cdr-safe form))))))
+	(if (not (plist-get rest :require))
+	    `(defvar ,varname ,init ,doc)
+	  `(progn
+	     (defvar ,varname ,init ,doc)
+	     (custom-add-to-group ,(plist-get rest :group)
+				  ',varname 'custom-variable)
+	     (custom-add-load ',varname
+			      ,(plist-get rest :require))))))
+
+     ;; nil here indicates that this is not a special autoload form.
+     (t nil))))
 
 ;;; Forms which have doc-strings which should be printed specially.
 ;;; A doc-string-elt property of ELT says that (nth ELT FORM) is
@@ -128,14 +138,19 @@ or `easy-mmode-define-minor-mode'."
 
 (put 'autoload 'doc-string-elt 3)
 (put 'defun    'doc-string-elt 3)
+(put 'defun*    'doc-string-elt 3)
 (put 'defvar   'doc-string-elt 3)
 (put 'defcustom 'doc-string-elt 3)
 (put 'defconst 'doc-string-elt 3)
 (put 'defmacro 'doc-string-elt 3)
-(put 'define-skeleton 'doc-string-elt 3)
-(put 'define-derived-mode 'doc-string-elt 3)
-(put 'easy-mmode-define-minor-mode 'doc-string-elt 3)
-(put 'define-generic-mode 'doc-string-elt 3)
+(put 'defsubst 'doc-string-elt 3)
+(put 'define-skeleton 'doc-string-elt 2)
+(put 'define-derived-mode 'doc-string-elt 4)
+(put 'easy-mmode-define-minor-mode 'doc-string-elt 2)
+(put 'define-minor-mode 'doc-string-elt 2)
+(put 'define-generic-mode 'doc-string-elt 7)
+;; defin-global-mode has no explicit docstring.
+(put 'easy-mmode-define-global-mode 'doc-string-elt 1000)
 
 
 (defun autoload-trim-file-name (file)
@@ -168,6 +183,52 @@ markers before we call `read'."
 	  (replace-match " "))
 	(goto-char (point-min))
 	(read (current-buffer))))))
+
+;; !! Requires OUTBUF to be bound !!
+(defun autoload-print-form (form)
+  "Print FORM such that make-docfile will find the docstrings."
+  (cond
+   ;; If the form is a sequence, recurse.
+   ((eq (car form) 'progn) (mapcar 'autoload-print-form (cdr form)))
+   ;; Symbols at the toplevel are meaningless.
+   ((symbolp form) nil)
+   (t
+    (let ((doc-string-elt (get (car-safe form) 'doc-string-elt)))
+      (if (and doc-string-elt (stringp (nth doc-string-elt form)))
+	  ;; We need to hack the printing because the
+	  ;; doc-string must be printed specially for
+	  ;; make-docfile (sigh).
+	  (let* ((p (nthcdr (1- doc-string-elt) form))
+		 (elt (cdr p)))
+	    (setcdr p nil)
+	    (princ "\n(" outbuf)
+	    (let ((print-escape-newlines t)
+		  (print-escape-nonascii t))
+	      (mapcar (lambda (elt)
+			(prin1 elt outbuf)
+			(princ " " outbuf))
+		      form))
+	    (princ "\"\\\n" outbuf)
+	    (let ((begin (with-current-buffer outbuf (point))))
+	      (princ (substring (prin1-to-string (car elt)) 1)
+		     outbuf)
+	      ;; Insert a backslash before each ( that
+	      ;; appears at the beginning of a line in
+	      ;; the doc string.
+	      (with-current-buffer outbuf
+		(save-excursion
+		  (while (search-backward "\n(" begin t)
+		    (forward-char 1)
+		    (insert "\\"))))
+	      (if (null (cdr elt))
+		  (princ ")" outbuf)
+		(princ " " outbuf)
+		(princ (substring (prin1-to-string (cdr elt)) 1)
+		       outbuf))
+	      (terpri outbuf)))
+	(let ((print-escape-newlines t)
+	      (print-escape-nonascii t))
+	  (print form outbuf)))))))
 
 (defun generate-file-autoloads (file)
   "Insert at point a loaddefs autoload section for FILE.
@@ -233,68 +294,15 @@ are used."
 		    (if (eolp)
 			;; Read the next form and make an autoload.
 			(let* ((form (prog1 (read (current-buffer))
-				       (or (bolp) (forward-line 1))))
-			       (autoload-1 (make-autoload form load-name))
-			       (autoload (if (eq (car autoload-1) 'progn)
-					     (cadr autoload-1)
-					   autoload-1))
-			       (doc-string-elt (get (car-safe form)
-						    'doc-string-elt)))
+					       (or (bolp) (forward-line 1))))
+			       (autoload (make-autoload form load-name)))
 			  (if autoload
 			      (setq autoloads-done (cons (nth 1 form)
 							 autoloads-done))
 			    (setq autoload form))
-			  (if (and doc-string-elt
-				   (stringp (nth doc-string-elt autoload)))
-			      ;; We need to hack the printing because the
-			      ;; doc-string must be printed specially for
-			      ;; make-docfile (sigh).
-			      (let* ((p (nthcdr (1- doc-string-elt)
-						autoload))
-				     (elt (cdr p)))
-				(setcdr p nil)
-				(princ "\n(" outbuf)
-				(let ((print-escape-newlines t)
-				      (print-escape-nonascii t))
-				  (mapcar (function (lambda (elt)
-						      (prin1 elt outbuf)
-						      (princ " " outbuf)))
-					  autoload))
-				(princ "\"\\\n" outbuf)
-				(let ((begin (save-excursion
-					       (set-buffer outbuf)
-					       (point))))
-				  (princ (substring
-					  (prin1-to-string (car elt)) 1)
-					 outbuf)
-				  ;; Insert a backslash before each ( that
-				  ;; appears at the beginning of a line in
-				  ;; the doc string.
-				  (save-excursion
-				    (set-buffer outbuf)
-				    (save-excursion
-				      (while (search-backward "\n(" begin t)
-					(forward-char 1)
-					(insert "\\"))))
-				  (if (null (cdr elt))
-				      (princ ")" outbuf)
-				    (princ " " outbuf)
-				    (princ (substring
-					    (prin1-to-string (cdr elt))
-					    1)
-					   outbuf))
-				  (terpri outbuf)))
-			    (let ((print-escape-newlines t)
-				  (print-escape-nonascii t))
-			      (print autoload outbuf)))
-			  (if (eq (car autoload-1) 'progn)
-			      ;; Print the rest of the form
-			      (let ((print-escape-newlines t)
-				    (print-escape-nonascii t))
-				(mapcar (function (lambda (elt)
-						    (print elt outbuf)))
-					(cddr autoload-1)))))
-			  ;; Copy the rest of the line to the output.
+			  (autoload-print-form autoload))
+	 
+		      ;; Copy the rest of the line to the output.
 		      (princ (buffer-substring
 			      (progn
 				;; Back up over whitespace, to preserve it.
@@ -338,17 +346,6 @@ are used."
 		    (insert "\n" generate-autoload-section-continuation)))))
 	  (insert ";;; Generated autoloads from "
 		  (autoload-trim-file-name file) "\n")
-	  ;; Warn if we put a line in loaddefs.el
-	  ;; that is long enough to cause trouble.
-	  (while (< (point) output-end)
-	    (let ((beg (point)))
-	      (end-of-line)
-	      (if (> (- (point) beg) 900)
-		  (progn
-		    (message "A line is too long--over 900 characters")
-		    (sleep-for 2)
-		    (goto-char output-end))))
-	    (forward-line 1))
 	  (goto-char output-end)
 	  (insert generate-autoload-section-trailer)))
     (message "Generating autoloads for %s...done" file)))
@@ -369,12 +366,16 @@ are used."
       ;; the local variables section if it's there.
       (if existing-buffer
 	  (set-buffer existing-buffer))
-      ;; We must read/write the file without any code conversion.
-      (let ((coding-system-for-read 'no-conversion))
+      ;; We must read/write the file without any code conversion,
+      ;; but still decode EOLs.
+      (let ((coding-system-for-read 'raw-text))
 	(set-buffer (find-file-noselect
 		     (expand-file-name generated-autoload-file
 				       (expand-file-name "lisp"
-							 source-directory)))))
+							 source-directory))))
+	;; This is to make generated-autoload-file have Unix EOLs, so
+	;; that it is portable to all platforms.
+	(setq buffer-file-coding-system 'raw-text-unix))
       (or (> (buffer-size) 0)
 	  (error "Autoloads file %s does not exist" buffer-file-name))
       (or (file-writable-p buffer-file-name)

@@ -19,12 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved. 
- *
- * HISTORY
- * 30 Nov 98 sdouglas created.
- */
  
 
 #include <IOKit/graphics/IOGraphicsDevice.h>

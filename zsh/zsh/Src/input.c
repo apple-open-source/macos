@@ -3,7 +3,7 @@
  *
  * This file is part of zsh, the Z shell.
  *
- * Copyright (c) 1992-1996 Paul Falstad
+ * Copyright (c) 1992-1997 Paul Falstad
  * All rights reserved.
  *
  * Permission is hereby granted, without written agreement and without
@@ -67,9 +67,34 @@
  * PWS 1996/12/10
  */
 
-#include "zsh.h"
+#include "zsh.mdh"
+#include "input.pro"
 
-/* Input buffer variables:  inbufct and inbufflags are in globals.h. */
+/* the shell input fd */
+
+/**/
+int SHIN;
+
+/* buffered shell input for non-interactive shells */
+
+/**/
+FILE *bshin;
+
+/* != 0 means we are reading input from a string */
+ 
+/**/
+int strin;
+ 
+/* total # of characters waiting to be read. */
+
+/**/
+mod_export int inbufct;
+
+/* the flags controlling the input routines in input.c: see INP_* in zsh.h */
+
+/**/
+int inbufflags;
+
 static char *inbuf;		/* Current input buffer */
 static char *inbufptr;		/* Pointer into input buffer */
 static char *inbufpush;		/* Character at which to re-push alias */
@@ -102,7 +127,8 @@ static int instacksz = INSTACK_INITIAL;
 /* Read a line from bshin.  Convert tokens and   *
  * null characters to Meta c^32 character pairs. */
 
-static char *
+/**/
+mod_export char *
 shingetline(void)
 {
     char *line = NULL;
@@ -189,19 +215,19 @@ ingetc(void)
 /* Read a line from the current command stream and store it as input */
 
 /**/
-int
+static int
 inputline(void)
 {
-    unsigned char *ingetcline, *ingetcpmptl = NULL, *ingetcpmptr = NULL;
+    char *ingetcline, *ingetcpmptl = NULL, *ingetcpmptr = NULL;
 
     /* If reading code interactively, work out the prompts. */
     if (interact && isset(SHINSTDIN)) {
 	if (!isfirstln)
-	    ingetcpmptl = (unsigned char *)prompt2;
+	    ingetcpmptl = prompt2;
 	else {
-	    ingetcpmptl = (unsigned char *)prompt;
+	    ingetcpmptl = prompt;
 	    if (rprompt)
-		ingetcpmptr = (unsigned char *)rprompt;
+		ingetcpmptr = rprompt;
 	}
     }
     if (!(interact && isset(SHINSTDIN) && SHTTY != -1 && isset(USEZLE))) {
@@ -220,11 +246,11 @@ inputline(void)
 	     */
 	    char *pptbuf;
 	    int pptlen;
-	    pptbuf = putprompt((char *)ingetcpmptl, &pptlen, NULL, 1);
+	    pptbuf = unmetafy(promptexpand(ingetcpmptl, 0, NULL, NULL), &pptlen);
 	    write(2, (WRITE_ARG_2_T)pptbuf, pptlen);
 	    free(pptbuf);
 	}
-	ingetcline = (unsigned char *)shingetline();
+	ingetcline = shingetline();
     } else {
 	/*
 	 * Since we may have to read multiple lines before getting
@@ -235,9 +261,10 @@ inputline(void)
 	 * This is supposed to minimise problems on systems that clobber
 	 * typeahead when the terminal settings are altered.
 	 *                     pws 1998/03/12
-	 */	
+	 */
+	ingetcline = (char *)zleread(ingetcpmptl, ingetcpmptr,
+				     ZLRF_HISTORY|ZLRF_NOSETTY);
 	histdone |= HISTFLAG_SETTY;
-	ingetcline = zleread((char *)ingetcpmptl, (char *)ingetcpmptr);
     }
     if (!ingetcline) {
 	return lexstop = 1;
@@ -246,21 +273,18 @@ inputline(void)
 	free(ingetcline);
 	return lexstop = errflag = 1;
     }
-    /* Look for a space, to see if this shouldn't be put into history */
-    if (isfirstln)
-	spaceflag = *ingetcline == ' ';
     if (isset(VERBOSE)) {
 	/* Output the whole line read so far. */
-	zputs((char *)ingetcline, stderr);
+	zputs(ingetcline, stderr);
 	fflush(stderr);
     }
-    if (*ingetcline && ingetcline[strlen((char *)ingetcline) - 1] == '\n' &&
+    if (*ingetcline && ingetcline[strlen(ingetcline) - 1] == '\n' &&
 	interact && isset(SUNKEYBOARDHACK) && isset(SHINSTDIN) &&
 	SHTTY != -1 && *ingetcline && ingetcline[1] &&
-	ingetcline[strlen((char *)ingetcline) - 2] == '`') {
+	ingetcline[strlen(ingetcline) - 2] == '`') {
 	/* Junk an unmatched "`" at the end of the line. */
 	int ct;
-	unsigned char *ptr;
+	char *ptr;
 
 	for (ct = 0, ptr = ingetcline; *ptr; ptr++)
 	    if (*ptr == '`')
@@ -272,7 +296,7 @@ inputline(void)
     }
     isfirstch = 1;
     /* Put this into the input channel. */
-    inputsetline((char *)ingetcline, INP_FREE);
+    inputsetline(ingetcline, INP_FREE);
 
     return 0;
 }
@@ -283,7 +307,7 @@ inputline(void)
  */
 
 /**/
-void
+static void
 inputsetline(char *str, int flags)
 {
     if ((inbufflags & INP_FREE) && inbuf) {
@@ -410,11 +434,6 @@ stuff(char *fn)
 void
 inerrflush(void)
 {
-    /*
-     * This always goes character by character, but at present
-     * it is only used in the history code, where that is the only
-     * completely safe way of discarding input.
-     */
     while (!lexstop && inbufct)
 	ingetc();
 }
@@ -422,7 +441,7 @@ inerrflush(void)
 /* Set some new input onto a new element of the input stack */
 
 /**/
-void
+mod_export void
 inpush(char *str, int flags, Alias inalias)
 {
     if (!instack) {
@@ -479,7 +498,7 @@ inpush(char *str, int flags, Alias inalias)
 /* Remove the top element of the stack */
 
 /**/
-void
+static void
 inpoptop(void)
 {
     if (inbuf && (inbufflags & INP_FREE))
@@ -510,7 +529,7 @@ inpoptop(void)
 /* Remove the top element of the stack and all its continuations. */
 
 /**/
-void
+mod_export void
 inpop(void)
 {
     int remcont;

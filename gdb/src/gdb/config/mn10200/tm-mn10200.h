@@ -1,5 +1,5 @@
 /* Parameters for execution on a Matsushita mn10200 processor.
-   Copyright 1997 Free Software Foundation, Inc. 
+   Copyright 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
    Contributed by Geoffrey Noer <noer@cygnus.com>
 
@@ -20,8 +20,10 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-/* The mn10200 is little endian.  */
-#define TARGET_BYTE_ORDER LITTLE_ENDIAN
+/* FIXME: cagney/2001-03-01: The below macros refer to functions
+   declared in "regcache.h".  The ``correct fix'' is to convert those
+   macros into functions.  */
+#include "regcache.h"
 
 /* ints are only 16bits on the mn10200.  */
 #undef TARGET_INT_BIT
@@ -122,7 +124,7 @@ extern CORE_ADDR mn10200_frame_saved_pc (struct frame_info *);
 #define EXTRACT_RETURN_VALUE(TYPE, REGBUF, VALBUF) \
   { \
     if (TYPE_LENGTH (TYPE) > 8) \
-      abort (); \
+      internal_error (__FILE__, __LINE__, "failed internal consistency check"); \
     else if (TYPE_LENGTH (TYPE) > 2 && TYPE_CODE (TYPE) != TYPE_CODE_PTR) \
       { \
 	memcpy (VALBUF, REGBUF + REGISTER_BYTE (0), 2); \
@@ -145,7 +147,7 @@ extern CORE_ADDR mn10200_frame_saved_pc (struct frame_info *);
 #define STORE_RETURN_VALUE(TYPE, VALBUF) \
   { \
     if (TYPE_LENGTH (TYPE) > 8) \
-      abort (); \
+      internal_error (__FILE__, __LINE__, "failed internal consistency check"); \
     else if (TYPE_LENGTH (TYPE) > 2 && TYPE_CODE (TYPE) != TYPE_CODE_PTR) \
       { \
 	write_register_bytes (REGISTER_BYTE (0), VALBUF, 2); \

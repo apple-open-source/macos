@@ -1,10 +1,11 @@
 # This file contains support code for the gdbtk test suite.
+# Copyright 2001 Red Hat, Inc.
 #
 # Based on the Tcl testsuite support code, portions of this file
 # are Copyright (c) 1990-1994 The Regents of the University of California and
 # Copyright (c) 1994-1996 Sun Microsystems, Inc.
 #
-global srcdir _test env srcdir objdir
+global _test env srcdir objdir
 
 if {![info exists srcdir]} {
   if {[info exists env(SRCDIR)]} {
@@ -30,7 +31,7 @@ if {![info exists _test(verbose)]} {
   if {[info exists env(GDBTK_VERBOSE)]} {
     set _test(verbose) $env(GDBTK_VERBOSE)
   } else {
-    set _test(verbose)
+    set _test(verbose) 0
   }
 }
 if {![info exists _test(tests)]} {
@@ -54,6 +55,81 @@ if {[info exists env(GDBTK_LOGFILE)]} {
 # all windows at some place on the screen so that the system's
 # window manager does not interfere. This is reset in gdbtk_test_done.
 set env(GDBTK_TEST_RUNNING) 1
+
+# The gdb "file" command to use for gdbtk testing
+# NOTE: This proc appends ".exe" to all windows' programs
+proc gdbtk_test_file {filename} {
+  global tcl_platform
+
+  if {$tcl_platform(platform) == "windows"} {
+    append filename ".exe"
+  }
+
+  set err [catch {gdb_cmd "file $filename" 1} text]
+  if {$err} {
+    error $text
+  }
+
+  return $text
+}
+
+proc gdbtk_test_run {{prog_args {}}} {
+  global env
+
+  # Get the target_info array from the testsuite
+  array set target_info $env(TARGET_INFO)
+
+  # We get the target ready by:
+  # 1. Run all init commands
+  # 2. Issue target command
+  # 3. Issue load command
+  # 4. Issue run command
+  foreach cmd $target_info(init) {
+    set err [catch {gdb_cmd $cmd 0} txt]
+    if {$err} {
+      _report_error "Target initialization command \"$cmd\" failed: $txt"
+      return 0
+    }
+  }
+
+  if {$target_info(target) != ""} {
+    set err [catch {gdb_cmd $target_info(target) 0} txt]
+    if {$err} {
+      _report_error "Failed to connect to target: $txt"
+      return 0
+    }
+  }
+
+  if {$target_info(load) != ""} {
+    set err [catch {gdb_cmd $target_info(load) 0} txt]
+    if {$err} {
+      _report_error "Failed to load: $txt"
+      return 0
+    }
+  }
+
+  if {$target_info(run) != ""} {
+    set err [catch {gdb_cmd $target_info(run) 0} txt]
+    if {$err} {
+      _report_error "Could not run target with \"$target_info(run)\": $txt"
+      return 0
+    }
+  }
+
+  return 1
+}
+
+proc _report_error {msg} {
+  global _test
+
+  if {[info exists _test(interactive)] && $_test(interactive)} {
+    # Dialog
+    tk_messageBox -message $msg -icon error -type ok
+  } else {
+    # to stderr
+    puts stderr $msg
+  }
+}
 
 proc gdbtk_print_verbose {status name description script code answer} {
   global _test
@@ -215,4 +291,16 @@ proc gdbtk_test_error {desc} {
   set desc [join [split $desc \n] |]
   puts "ERROR \{$desc\} \{\} \{\}"
   gdbtk_test_done
+}
+
+# Override the warning dialog. We don't want to see them.
+rename show_warning real_show_warning
+proc show_warning {msg} {
+  global _test
+
+  set str "INSIGHT TESTSUITE WARNING: $msg"
+  puts stdout $str
+  if {$_test(logfile) != ""} {
+    puts $_test(logfile) $str
+  }
 }

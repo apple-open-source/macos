@@ -1,5 +1,7 @@
-/* Functions specific to running gdb native on IA-64 running Linux.
-   Copyright 1999, 2000 Free Software Foundation, Inc.
+/* Functions specific to running gdb native on IA-64 running
+   GNU/Linux.
+
+   Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,6 +24,7 @@
 #include "inferior.h"
 #include "target.h"
 #include "gdbcore.h"
+#include "regcache.h"
 
 #include <signal.h>
 #include <sys/ptrace.h>
@@ -337,7 +340,7 @@ int ia64_cannot_store_register (regno)
      to be changed by (roughly) N as well.  (It could be N-1 or N+1
      depending upon where the NaT collection bits fall.)
 
-     OTOH, the linux kernel provides read/write access to bsp (and
+     OTOH, the Linux kernel provides read/write access to bsp (and
      currently read/write access to bspstore as well).  But it
      is definitely the case that if you change one, the other
      will change at the same time.  It is more useful to gdb to
@@ -473,28 +476,28 @@ fill_fpregset (fpregset_t *fpregsetp, int regno)
 #define IA64_PSR_DD (1UL << 39)
 
 static void
-enable_watchpoints_in_psr (int pid)
+enable_watchpoints_in_psr (ptid_t ptid)
 {
   CORE_ADDR psr;
 
-  psr = read_register_pid (IA64_PSR_REGNUM, pid);
+  psr = read_register_pid (IA64_PSR_REGNUM, ptid);
   if (!(psr & IA64_PSR_DB))
     {
       psr |= IA64_PSR_DB;	/* Set the db bit - this enables hardware
 			           watchpoints and breakpoints. */
-      write_register_pid (IA64_PSR_REGNUM, psr, pid);
+      write_register_pid (IA64_PSR_REGNUM, psr, ptid);
     }
 }
 
 static long
-fetch_debug_register (int pid, int idx)
+fetch_debug_register (ptid_t ptid, int idx)
 {
   long val;
   int tid;
 
-  tid = TIDGET(pid);
+  tid = TIDGET (ptid);
   if (tid == 0)
-    tid = pid;
+    tid = PIDGET (ptid);
 
   val = ptrace (PT_READ_U, tid, (PTRACE_ARG3_TYPE) (PT_DBR + 8 * idx), 0);
 
@@ -502,33 +505,33 @@ fetch_debug_register (int pid, int idx)
 }
 
 static void
-store_debug_register (int pid, int idx, long val)
+store_debug_register (ptid_t ptid, int idx, long val)
 {
   int tid;
 
-  tid = TIDGET(pid);
+  tid = TIDGET (ptid);
   if (tid == 0)
-    tid = pid;
+    tid = PIDGET (ptid);
 
   (void) ptrace (PT_WRITE_U, tid, (PTRACE_ARG3_TYPE) (PT_DBR + 8 * idx), val);
 }
 
 static void
-fetch_debug_register_pair (int pid, int idx, long *dbr_addr, long *dbr_mask)
+fetch_debug_register_pair (ptid_t ptid, int idx, long *dbr_addr, long *dbr_mask)
 {
   if (dbr_addr)
-    *dbr_addr = fetch_debug_register (pid, 2 * idx);
+    *dbr_addr = fetch_debug_register (ptid, 2 * idx);
   if (dbr_mask)
-    *dbr_mask = fetch_debug_register (pid, 2 * idx + 1);
+    *dbr_mask = fetch_debug_register (ptid, 2 * idx + 1);
 }
 
 static void
-store_debug_register_pair (int pid, int idx, long *dbr_addr, long *dbr_mask)
+store_debug_register_pair (ptid_t ptid, int idx, long *dbr_addr, long *dbr_mask)
 {
   if (dbr_addr)
-    store_debug_register (pid, 2 * idx, *dbr_addr);
+    store_debug_register (ptid, 2 * idx, *dbr_addr);
   if (dbr_mask)
-    store_debug_register (pid, 2 * idx + 1, *dbr_mask);
+    store_debug_register (ptid, 2 * idx + 1, *dbr_mask);
 }
 
 static int
@@ -545,7 +548,7 @@ is_power_of_2 (int val)
 }
 
 int
-ia64_linux_insert_watchpoint (int pid, CORE_ADDR addr, int len, int rw)
+ia64_linux_insert_watchpoint (ptid_t ptid, CORE_ADDR addr, int len, int rw)
 {
   int idx;
   long dbr_addr, dbr_mask;
@@ -556,7 +559,7 @@ ia64_linux_insert_watchpoint (int pid, CORE_ADDR addr, int len, int rw)
 
   for (idx = 0; idx < max_watchpoints; idx++)
     {
-      fetch_debug_register_pair (pid, idx, NULL, &dbr_mask);
+      fetch_debug_register_pair (ptid, idx, NULL, &dbr_mask);
       if ((dbr_mask & (0x3UL << 62)) == 0)
 	{
 	  /* Exit loop if both r and w bits clear */
@@ -585,14 +588,14 @@ ia64_linux_insert_watchpoint (int pid, CORE_ADDR addr, int len, int rw)
       return -1;
     }
 
-  store_debug_register_pair (pid, idx, &dbr_addr, &dbr_mask);
-  enable_watchpoints_in_psr (pid);
+  store_debug_register_pair (ptid, idx, &dbr_addr, &dbr_mask);
+  enable_watchpoints_in_psr (ptid);
 
   return 0;
 }
 
 int
-ia64_linux_remove_watchpoint (int pid, CORE_ADDR addr, int len)
+ia64_linux_remove_watchpoint (ptid_t ptid, CORE_ADDR addr, int len)
 {
   int idx;
   long dbr_addr, dbr_mask;
@@ -603,12 +606,12 @@ ia64_linux_remove_watchpoint (int pid, CORE_ADDR addr, int len)
 
   for (idx = 0; idx < max_watchpoints; idx++)
     {
-      fetch_debug_register_pair (pid, idx, &dbr_addr, &dbr_mask);
+      fetch_debug_register_pair (ptid, idx, &dbr_addr, &dbr_mask);
       if ((dbr_mask & (0x3UL << 62)) && addr == (CORE_ADDR) dbr_addr)
 	{
 	  dbr_addr = 0;
 	  dbr_mask = 0;
-	  store_debug_register_pair (pid, idx, &dbr_addr, &dbr_mask);
+	  store_debug_register_pair (ptid, idx, &dbr_addr, &dbr_mask);
 	  return 0;
 	}
     }
@@ -616,26 +619,26 @@ ia64_linux_remove_watchpoint (int pid, CORE_ADDR addr, int len)
 }
 
 CORE_ADDR
-ia64_linux_stopped_by_watchpoint (int pid)
+ia64_linux_stopped_by_watchpoint (ptid_t ptid)
 {
   CORE_ADDR psr;
   int tid;
   struct siginfo siginfo;
 
-  tid = TIDGET(pid);
+  tid = TIDGET(ptid);
   if (tid == 0)
-    tid = pid;
+    tid = PIDGET (ptid);
   
   errno = 0;
   ptrace (PTRACE_GETSIGINFO, tid, (PTRACE_ARG3_TYPE) 0, &siginfo);
 
-  if (errno != 0 || siginfo.si_code != 4 /* TRAP_HWBKPT */)
+  if (errno != 0 || (siginfo.si_code & 0xffff) != 0x0004 /* TRAP_HWBKPT */)
     return 0;
 
-  psr = read_register_pid (IA64_PSR_REGNUM, pid);
+  psr = read_register_pid (IA64_PSR_REGNUM, ptid);
   psr |= IA64_PSR_DD;	/* Set the dd bit - this will disable the watchpoint
                            for the next instruction */
-  write_register_pid (IA64_PSR_REGNUM, psr, pid);
+  write_register_pid (IA64_PSR_REGNUM, psr, ptid);
 
   return (CORE_ADDR) siginfo.si_addr;
 }

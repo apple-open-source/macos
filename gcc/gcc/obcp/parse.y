@@ -1602,12 +1602,6 @@ primary:
                 { $$ = finish_object_call_expr ($2, $1, $4); }
 	| object unqualified_id LEFT_RIGHT
                 { $$ = finish_object_call_expr ($2, $1, NULL_TREE); }
-/*	| object OBJECTNAME LEFT_RIGHT   
-		{ *** MODERN OBJ-C++? COMMENT OUT, AND SEE IF WE MISS IT... ***
-		  got_object = NULL_TREE;
-		  $$ = build_method_call ($$, $2, NULL_TREE, NULL_TREE,
-					  (LOOKUP_NORMAL|LOOKUP_AGGR));
-		} */
 	| object overqualified_id '(' nonnull_exprlist ')'
                 { $$ = finish_qualified_object_call_expr ($2, $1, $4); }
 	| object overqualified_id LEFT_RIGHT
@@ -2542,6 +2536,8 @@ opt.component_decl_list:
 	| component_decl_list
 	| opt.component_decl_list access_specifier component_decl_list
 	| opt.component_decl_list access_specifier 
+	/* ObjC @defs(class) construct.  Note that the trailing semicolon
+	   is optional.  */
         | DEFS '(' CLASSNAME ')' 
                 { emit_class_ivars($3); }
         | DEFS '(' CLASSNAME ')' ';'
@@ -4528,22 +4524,22 @@ reservedword:
 keyworddecl:
 	  selector ':' methodtype identifier
 		{ 
-		  $$ = build_keyword_decl($1, $3, $4);
+		  $$ = build_keyword_decl ($1, $3, $4);
 		}
 
 	| selector ':' identifier
 		{ 
-		  $$ = build_keyword_decl($1, NULL_TREE, $3);
+		  $$ = build_keyword_decl ($1, NULL_TREE, $3);
 		}
 
 	| ':' methodtype identifier
 		{ 
-		  $$ = build_keyword_decl(NULL_TREE, $2, $3);
+		  $$ = build_keyword_decl (NULL_TREE, $2, $3);
 		}
 
 	| ':' identifier
 		{ 
-		  $$ = build_keyword_decl(NULL_TREE, NULL_TREE, $2);
+		  $$ = build_keyword_decl (NULL_TREE, NULL_TREE, $2);
 		}
 	;
 
@@ -4564,9 +4560,9 @@ keywordarglist:
 keywordexpr:	
 	  nonnull_exprlist
 		{ 
-		  if (TREE_CHAIN($1) == NULL_TREE)
+		  if (TREE_CHAIN ($1) == NULL_TREE)
 		    /* just return the expr., remove a level of indirection */
-		    $$ = TREE_VALUE($1);
+		    $$ = TREE_VALUE ($1);
                   else
 		    /* we have a comma expr., we will collapse later */
 		    $$ = $1;
@@ -4576,11 +4572,11 @@ keywordexpr:
 keywordarg:
 	  selector ':' keywordexpr
 		{
-		  $$ = build_tree_list($1, $3);
+		  $$ = build_tree_list ($1, $3);
 		}
 	| ':' keywordexpr
 		{
-		  $$ = build_tree_list(NULL_TREE,$2);
+		  $$ = build_tree_list (NULL_TREE, $2);
 		}
 	;
 
@@ -4591,7 +4587,11 @@ receiver:
 		}
 	| CLASSNAME
 		{
-		  $$ = get_class_reference($1);
+		  $$ = get_class_reference ($1);
+		}
+	| complete_type_name
+		{
+		  $$ = get_class_reference ($1);
 		}
 	;
 

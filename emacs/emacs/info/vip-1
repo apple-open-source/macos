@@ -1,7 +1,6 @@
-This is Info file ../info/vip, produced by Makeinfo version 1.68 from
-the input file vip.texi.
+This is ../info/vip, produced by makeinfo version 4.0 from vip.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * VIP: (vip).		An older VI-emulation for Emacs.
 END-INFO-DIR-ENTRY
@@ -9,20 +8,24 @@ END-INFO-DIR-ENTRY
 Distribution
 ************
 
-   Copyright (C) 1987 Masahiko Sato.
+   Copyright (C) 1987, 2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided that
-the entire resulting derived work is distributed under the terms of a
-permission notice identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the same conditions as for modified
-versions.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: vip,  Node: Top,  Next: Survey,  Up: (DIR)
@@ -700,8 +703,8 @@ Buffers and Windows
 ===================
 
    In Emacs the text you edit is stored in a "buffer".  See GNU Emacs
-Manual, for details.  There is always one "selected" buffer which is
-called the "current buffer".
+Manual, for details.  There is always one "current" buffer, also called
+the "selected buffer".
 
    You can see the contents of buffers through "windows" created by
 Emacs.  When you have multiple windows on the screen only one of them

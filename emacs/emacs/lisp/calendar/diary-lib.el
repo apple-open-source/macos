@@ -1,4 +1,4 @@
-;;; diary-lib.el --- diary functions.
+;;; diary-lib.el --- diary functions
 
 ;; Copyright (C) 1989, 1990, 1992, 1993, 1994, 1995 Free Software
 ;; Foundation, Inc.
@@ -197,6 +197,7 @@ It is the standard syntax table used in Fundamental mode, but with the
 syntax of `*' changed to be a word constituent.")
 
 (modify-syntax-entry ?* "w" diary-syntax-table)
+(modify-syntax-entry ?: "w" diary-syntax-table)
 
 (defun list-diary-entries (date number)
   "Create and display a buffer containing the relevant lines in diary-file.
@@ -254,10 +255,12 @@ These hooks have the following distinct roles:
             (let ((buffer-read-only nil)
                   (diary-modified (buffer-modified-p))
                   (mark (regexp-quote diary-nonmarking-symbol)))
+              ;; First and last characters must be ^M or \n for
+              ;; selective display to work properly
               (goto-char (1- (point-max)))
               (if (not (looking-at "\^M\\|\n"))
                   (progn
-                    (forward-char 1)
+                    (goto-char (point-max))
                     (insert-string "\^M")))
               (goto-char (point-min))
               (if (not (looking-at "\^M\\|\n"))
@@ -362,20 +365,29 @@ changing the variable `diary-include-string'."
            (regexp-quote diary-include-string)
            " \"\\([^\"]*\\)\"")
           nil t)
-    (let ((diary-file (substitute-in-file-name
-                       (buffer-substring-no-properties
-                        (match-beginning 2) (match-end 2))))
-          (diary-list-include-blanks nil)
-          (list-diary-entries-hook 'include-other-diary-files)
-          (diary-display-hook 'ignore)
-          (diary-hook nil))
+    (let* ((diary-file (substitute-in-file-name
+                        (buffer-substring-no-properties
+                         (match-beginning 2) (match-end 2))))
+           (diary-list-include-blanks nil)
+           (list-diary-entries-hook 'include-other-diary-files)
+           (diary-display-hook 'ignore)
+           (diary-hook nil)
+           (d-buffer (find-buffer-visiting diary-file))
+           (diary-modified (if d-buffer
+                               (save-excursion
+                                 (set-buffer d-buffer)
+                                 (buffer-modified-p)))))
       (if (file-exists-p diary-file)
           (if (file-readable-p diary-file)
               (unwind-protect
                   (setq diary-entries-list
                         (append diary-entries-list
                                 (list-diary-entries original-date number)))
-                (kill-buffer (find-buffer-visiting diary-file)))
+                (save-excursion
+                  (set-buffer (find-buffer-visiting diary-file))
+                  (subst-char-in-region (point-min) (point-max) ?\^M ?\n t)
+                  (setq selective-display nil)
+                  (set-buffer-modified-p diary-modified)))
             (beep)
             (message "Can't read included diary file %s" diary-file)
             (sleep-for 2))
@@ -490,10 +502,10 @@ This function is provided for optional use as the `diary-display-hook'."
                   (if date-holiday-list (insert ":  "))
                   (let* ((l (current-column))
                          (longest 0))
-                    (insert (mapconcat '(lambda (x)
-                                          (if (< longest (length x))
-                                              (setq longest (length x)))
-                                          x)
+                    (insert (mapconcat (lambda (x)
+					 (if (< longest (length x))
+					     (setq longest (length x)))
+					 x)
                                        date-holiday-list
                                        (concat "\n" (make-string l ? ))))
                     (insert ?\n (make-string (+ l longest) ?=) ?\n)))))
@@ -621,29 +633,20 @@ You may have to tweak the syntax of the `at' command to suit your
 system.  Alternatively, you can specify a cron entry:
 0 1 * * * diary-rem.sh
 to run it every morning at 1am."
-  (interactive "p")
-  (let ((text nil)
-	;; Use the fancy-diary-display as it doesn't hide rest of
-	;; diary file with ^M characters.  It also looks nicer.
-	(diary-display-hook 'fancy-diary-display))	
-    (if (not current-prefix-arg)
-	(setq ndays diary-mail-days))
-    (calendar)
-    (view-diary-entries ndays)
-    (set-buffer fancy-diary-buffer)
-    (setq text (buffer-substring (point-min) (point-max)))
-
-    ;; Now send text as a mail message.
+  (interactive "P")
+  (let* ((diary-display-hook 'fancy-diary-display)
+         (diary-list-include-blanks t)
+         (text (progn (list-diary-entries (calendar-current-date)
+                                          (if ndays ndays diary-mail-days))
+                      (set-buffer fancy-diary-buffer)
+                      (buffer-substring (point-min) (point-max)))))
     (mail)
-    (mail-to)
-    (insert diary-mail-addr)
-    (mail-subject)
-    (insert "Diary entries generated ")
-    (insert (format-time-string "%a %d %b %Y" (current-time)))
-    (mail-text)
-    (insert text)
-    (mail-send-and-exit nil)
-    (exit-calendar)))
+    (mail-to) (insert diary-mail-addr)
+    (mail-subject) (insert "Diary entries generated "
+                           (calendar-date-string (calendar-current-date)))
+    (mail-text) (insert text)
+    (mail-send-and-exit nil)))
+
 
 (defun diary-name-pattern (string-array &optional fullname)
   "Convert an STRING-ARRAY, an array of strings to a pattern.
@@ -770,7 +773,7 @@ After the entries are marked, the hooks `nongregorian-diary-marking-hook' and
                                    (calendar-make-alist
                                     calendar-day-name-array
                                     0
-                                    '(lambda (x) (substring x 0 3))))))
+                                    (lambda (x) (substring x 0 3))))))
                           (if mm-name
                               (if (string-equal mm-name "*")
                                   (setq mm 0)
@@ -780,7 +783,7 @@ After the entries are marked, the hooks `nongregorian-diary-marking-hook' and
                                             (calendar-make-alist
                                              calendar-month-name-array
                                              1
-                                             '(lambda (x) (substring x 0 3)))
+                                             (lambda (x) (substring x 0 3)))
                                             )))))
                           (mark-calendar-date-pattern mm dd yy))))
                     (setq d (cdr d))))
@@ -965,19 +968,19 @@ XX:XX (military time), and XXam, XXAM, XXpm, XXPM, XX:XXam, XX:XXAM XX:XXpm,
 or XX:XXPM."
   (let ((case-fold-search nil))
     (cond ((string-match;; Military time  
-	    "^[ \t]*\\([0-9]?[0-9]\\):?\\([0-9][0-9]\\)\\(\\>\\|[^ap]\\)" s)
+	    "\\`[ \t\n\\^M]*\\([0-9]?[0-9]\\):?\\([0-9][0-9]\\)\\(\\>\\|[^ap]\\)" s)
 	   (+ (* 100 (string-to-int
 		      (substring s (match-beginning 1) (match-end 1))))
 	      (string-to-int (substring s (match-beginning 2) (match-end 2)))))
 	  ((string-match;; Hour only  XXam or XXpm
-	    "^[ \t]*\\([0-9]?[0-9]\\)\\([ap]\\)m\\>" s)
+	    "\\`[ \t\n\\^M]*\\([0-9]?[0-9]\\)\\([ap]\\)m\\>" s)
 	   (+ (* 100 (% (string-to-int
 			   (substring s (match-beginning 1) (match-end 1)))
 			  12))
 	      (if (equal ?a (downcase (aref s (match-beginning 2))))
 		  0 1200)))
 	  ((string-match;; Hour and minute  XX:XXam or XX:XXpm
-	    "^[ \t]*\\([0-9]?[0-9]\\):\\([0-9][0-9]\\)\\([ap]\\)m\\>" s)
+	    "\\`[ \t\n\\^M]*\\([0-9]?[0-9]\\):\\([0-9][0-9]\\)\\([ap]\\)m\\>" s)
 	   (+ (* 100 (% (string-to-int
 			   (substring s (match-beginning 1) (match-end 1)))
 			  12))
@@ -985,6 +988,8 @@ or XX:XXPM."
 	      (if (equal ?a (downcase (aref s (match-beginning 3))))
 		  0 1200)))
 	  (t diary-unknown-time))));; Unrecognizable
+
+;; Unrecognizable
 
 (defun list-sexp-diary-entries (date)
   "Add sexp entries for DATE from the diary file to `diary-entries-list'.
@@ -1281,9 +1286,10 @@ An optional parameter DAY means the Nth DAYNAME on or after/before MONTH DAY."
               (d2 (extract-calendar-day last))
               (y2 (extract-calendar-year last)))
 	 (if (or (and (= m1 m2)	; only possible base dates in one month
-		      (or (and (listp month) (memq m1 month))
-			  (eq month t)
-			  (= m1 month))
+		      (or (eq month t)
+			  (if (listp month)
+                              (memq m1 month)
+			    (= m1 month)))
 		      (let ((d (or day (if (> n 0)
 					   1
 					 (calendar-last-day-of-month m1 y1)))))
@@ -1294,21 +1300,24 @@ An optional parameter DAY means the Nth DAYNAME on or after/before MONTH DAY."
 		      (or
 		       ;; m1, d1 works as a base date
 		       (and
-			(or (and (listp month) (memq m1 month))
-			    (eq month t)
-			    (= m1 month))
+			(or (eq month t)
+			    (if (listp month)
+                                (memq m1 month)
+			      (= m1 month)))
 			(<= d1 (or day (if (> n 0)
 					   1
 					 (calendar-last-day-of-month m1 y1)))))
 		       ;; m2, d2 works as a base date
-		       (and (or (and (listp month) (memq m2 month))
-				(eq month t)
-				(= m2 month))
+		       (and (or (eq month t)
+				(if (listp month)
+                                    (memq m2 month)
+				  (= m2 month)))
 			    (<= (or day (if (> n 0)
 					    1
 					  (calendar-last-day-of-month m2 y2)))
 				d2)))))
 	     entry))))
+
 
 (defun diary-anniversary (month day year)
   "Anniversary diary entry.
@@ -1337,8 +1346,9 @@ to be March 1 in non-leap years."
   "Cycle diary entry--entry applies every N days starting at MONTH, DAY, YEAR.
 If `european-calendar-style' is t, parameters are N, DAY, MONTH, YEAR.
 ENTRY can contain `%d' or `%d%s'; the %d will be replaced by the number of
-years since the MONTH DAY, YEAR and the %s will be replaced by the ordinal
-ending of that number (that is, `st', `nd', `rd' or `th', as appropriate."
+repetitions since the MONTH DAY, YEAR and %s will be replaced by the
+ordinal ending of that number (that is, `st', `nd', `rd' or `th', as
+appropriate."
   (let* ((d (if european-calendar-style
                 month
               day))
@@ -1520,7 +1530,7 @@ Prefix arg will make the entry nonmarking."
      (format "%s(diary-cyclic %d %s)"
              sexp-diary-entry-symbol
              (calendar-read "Repeat every how many days: "
-                            '(lambda (x) (> x 0)))
+                            (lambda (x) (> x 0)))
              (calendar-date-string (calendar-cursor-to-date t) nil t))
      arg)))
 

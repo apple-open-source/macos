@@ -1,5 +1,6 @@
 /* Data structures for RS/6000 shared libraries, for GDB.
-   Copyright 1991, 1992, 1994, 1997 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994, 1996, 1997, 2000
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -25,6 +26,9 @@
    These are either in response to exec()ing the file, in which case all
    shared libraries are loaded, or a "load" system call, followed by the
    user's issuance of a "load" command.  */
+
+#ifndef XCOFFSOLIB_H
+#define XCOFFSOLIB_H
 
 struct vmap
   {
@@ -58,3 +62,5 @@ extern struct vmap *vmap;
 
 /* Add symbols for a vmap.  */
 extern int vmap_add_symbols (struct vmap *vp);
+
+#endif

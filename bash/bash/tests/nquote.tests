@@ -1,0 +1,80 @@
+expect()
+{
+        echo expect "$@"
+}
+
+expect '<^J^J^J>'
+recho $'\n\n\n'
+
+expect '<++^J++>'
+f=$'\n'
+recho "++$f++"
+unset f
+
+z1=$''
+expect '<>'
+recho "$z1"
+
+ZIFS=$'\n'$'\t'$' '
+
+expect '<^J^I >'
+recho "$ZIFS"
+
+expect '<abc>'
+recho $'abc'
+
+expect '<^M^[^Gabc>'
+recho $'\r\e\aabc'
+
+D=$"hello"," "$"world"
+
+expect '<hello,> <world>'
+recho $D
+
+expect '<hello, world>'
+recho "$D"
+
+D=$""
+expect '<>'
+recho "$D"
+
+world=chet
+
+expect '<$hello, world>'
+recho \$"hello, world"
+
+expect '<hello, $world>'
+recho $"hello, \$world"
+
+expect '<hello, "world">'
+recho $"hello, \"world\""
+
+expect '<hello, $"world">'
+recho $"hello"', $"world"'
+
+expect '<hello, $"world">'
+recho $'hello, $"world"'
+
+expect '<$hello, chet>'
+recho \$"hello, $world"
+
+expect '<hello, chet>'
+recho $"hello, $world"
+
+z=$'\v\f\a\b'
+case "$z" in
+$'\v\f\a\b')	echo ok;;
+*)		echo bad;;
+esac
+
+# Dave Korn says this should be allowed and echo 'abcd'
+echo $'\'abcd\''
+
+# printf translates \' to ' ...
+printf "\'abcd\'\n"
+
+# but echo -e doesn't
+echo -e "\'abcd\'"
+echo -e "\\'abcd\\'"
+
+

@@ -35,6 +35,7 @@
 #import <NetInfo/config.h>
 #import "FFParser.h"
 #import <NetInfo/dsutil.h>
+#import <string.h>
 
 @implementation FFParser
 

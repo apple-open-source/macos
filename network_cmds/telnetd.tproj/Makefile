@@ -26,7 +26,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/libexec
 WINDOWS_INSTALLDIR = /usr/libexec
 PDO_UNIX_INSTALLDIR = /usr/libexec
-LIBS = 
+LIBS = -lcurses
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

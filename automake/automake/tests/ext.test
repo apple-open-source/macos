@@ -1,0 +1,24 @@
+#! /bin/sh
+
+# Test to make sure extensions are set correctly for various languages.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_F77
+AC_SUBST(OBJC)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = foo
+foo_SOURCES = 1.f 2.for 3.f90 4.F 5.r 6.m
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+for ext in f for f90 F r m
+do
+   grep "^$ext\.o:" Makefile.in && exit 1
+done
+exit 0

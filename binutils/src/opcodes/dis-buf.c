@@ -1,5 +1,6 @@
 /* Disassemble from a buffer, for GNU.
-   Copyright (C) 1993, 1994, 1998, 1999 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1996, 1997, 1998, 1999, 2000
+   Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -79,9 +80,12 @@ generic_print_address (addr, info)
   (*info->fprintf_func) (info->stream, "0x%s", buf);
 }
 
+#if 0
 /* Just concatenate the address as hex.  This is included for
    completeness even though both GDB and objdump provide their own (to
    print symbolic addresses).  */
+
+void generic_strcat_address PARAMS ((bfd_vma, char *, int));
 
 void
 generic_strcat_address (addr, buf, len)
@@ -101,6 +105,7 @@ generic_strcat_address (addr, buf, len)
     }
   return;
 }
+#endif
 
 /* Just return the given address.  */
 

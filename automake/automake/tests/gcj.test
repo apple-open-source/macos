@@ -1,0 +1,20 @@
+#! /bin/sh
+
+# Test of compiled java.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+_AM_DEPENDENCIES(GCJ)
+AC_SUBST(GCJ)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = convert
+convert_SOURCES = x/y/convert.java
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^x/y/convert' Makefile.in

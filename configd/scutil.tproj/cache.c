@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -59,7 +59,11 @@ do_list(int argc, char **argv)
 	list = SCDynamicStoreCopyKeyList(store, pattern);
 	CFRelease(pattern);
 	if (!list) {
-		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+		if (SCError() != kSCStatusOK) {
+			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("  no keys.\n"));
+		}
 		return;
 	}
 
@@ -80,7 +84,7 @@ do_list(int argc, char **argv)
 				CFArrayGetValueAtIndex(sortedList, i));
 		}
 	} else {
-		SCPrint(TRUE, stdout, CFSTR("  no subKey's.\n"));
+		SCPrint(TRUE, stdout, CFSTR("  no keys.\n"));
 	}
 	CFRelease(sortedList);
 

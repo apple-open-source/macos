@@ -1,14 +1,14 @@
 #!/bin/sh
 
 ##
-# Copyright 1997-2001 Apple Computer, Inc.
+# Copyright 1997-2002 Apple Computer, Inc.
 #
 # This script sets up the machine enough to run single-user
 ##
 
 ##
 # Set shell to ignore Control-C, etc.
-# Prevent lusers from shooting themselves in the foot.
+# Prevent inadvertent problems caused by interrupting the shell during boot.
 ##
 stty intr  undef
 stty kill  undef
@@ -20,12 +20,28 @@ stty dsusp undef
 
 . /etc/rc.common
 
-PATH=/bin:/sbin
 
 ##
 # Arguments
 ##
-BootType=${1-Multiuser}
+BootType=${1-multiuser}
+
+
+##
+# Handle options
+##
+
+SafeBoot=""
+
+args=$(getopt x $*)
+set -- ${args};
+for option; do
+    case "${option}" in
+      -x)
+        SafeBoot="-x"
+	;;
+    esac;
+done;
 
 ##
 # Start with some a reasonable hostname
@@ -44,9 +60,27 @@ else
 fi
 
 ##
+# Are we netbooted?
+##
+netboot=$(/usr/sbin/sysctl kern.netboot | /usr/bin/sed -e 's/^[^0-9]*//')
+
+##
 # Output the date for reference.
 ##
 date
+
+##
+# Initialize netboot
+##
+if [ ${iscdrom} -ne 1 -a  "${netboot}" = "1" ] ; then
+    ConsoleMessage "Initializing NetBoot"
+    if ! sh /etc/rc.netboot start ; then
+	echo NetBoot initialization failed, shut down in 10 seconds...
+	sleep 10
+	echo Shutting down.
+	halt
+    fi
+fi
 
 ##
 # We must fsck here before we touch anything in the filesystems.
@@ -68,7 +102,12 @@ if [ ${iscdrom} -ne 1 ]; then
 	# Benignly clean up ("preen") any dirty filesystems. 
 	# fsck -p will skip disks which were properly unmounted during
 	# a normal shutdown.
-	fsck -p
+	# fsck always runs during SafeBoot
+	if [ "${SafeBoot}" = "-x" ]; then
+	    fsck -fy
+	else
+	    fsck -p
+	fi
 
 	# fsck's success is reflected in its status.
 	case $? in

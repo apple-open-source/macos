@@ -72,6 +72,7 @@ HTTPProtocol::HTTPTransfer *HTTPProtocol::makeTransfer(const Target &target, Ope
 HTTPProtocol::HTTPConnection::HTTPConnection(Protocol &proto,
     const HostTarget &hostTarget)
     : TCPConnection(proto, hostTarget),
+    subVersion(defaultSubVersion),
     state(errorState), deferSendRequest(false)
 {
     const HostTarget &host = proxyHostTarget();
@@ -96,15 +97,17 @@ void HTTPProtocol::HTTPConnection::sendRequest()
 {
     assert(state == idle);
 
+    // what version of HTTP/1 shall we use?
+    subVersion = getv<int>(kNetworkHttpUseVersion, defaultSubVersion);
+
     flushOutput(false);	// hold output until we're done
     const Target &target = this->target();
     if (transfer().useProxyHeaders()) {
-        printfe("%s %s HTTP/1.1",
-            mOperation.c_str(), target.urlForm().c_str());
+        printfe("%s %s HTTP/1.%d", mOperation.c_str(), target.urlForm().c_str(), subVersion);
         authorizationHeader("Proxy-Authorization", hostTarget,
             kNetworkGenericProxyUsername, kNetworkGenericProxyPassword);
     } else {
-        printfe("%s %s HTTP/1.1", mOperation.c_str(), target.path.c_str());
+        printfe("%s %s HTTP/1.%d", mOperation.c_str(), target.path.c_str(), subVersion);
     }
     hostHeader();
     authorizationHeader("Authorization", target,
@@ -144,6 +147,7 @@ void HTTPProtocol::HTTPConnection::sendRequest()
         } else {
             printfe("Content-length: %ld", size);
         }
+        printfe("Content-Type: %s", getv<string>(kNetworkHttpPostContentType, "text/plain").c_str());
         printfe("");					// end of headers
         mode(source);					// initiate autoWrite mode
     } else {
@@ -274,6 +278,7 @@ void HTTPProtocol::HTTPConnection::transit(Event event, char *input, size_t leng
             } else {			// end of headers
                 // we are now handling the transition from response headers to response body
                 observe(Observer::protocolReceive, "** END OF HEADER **");
+                observe(Observer::downloading, input);
                 
                 // Transfer-Encoding overrides Content-Length as per RFC2616 p.34
                 if (const char *encoding = headers().find("Transfer-Encoding")) {

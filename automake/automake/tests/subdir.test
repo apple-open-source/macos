@@ -1,0 +1,25 @@
+#! /bin/sh
+
+# Test to make sure install-sh and mkinstalldirs correctly found in
+# subdirs.
+
+. $srcdir/defs || exit 1
+
+mkdir zot
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_OUTPUT(Makefile zot/Makefile)
+END
+
+cat > Makefile.am << 'END'
+SUBDIRS = zot
+END
+
+cat > zot/Makefile.am << 'END'
+pkgdata_DATA =
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE

@@ -1,7 +1,6 @@
-This is Info file ../info/forms, produced by Makeinfo version 1.68 from
-the input file forms.texi.
+This is ../info/forms, produced by makeinfo version 4.0 from forms.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Forms: (forms).	Emacs package for editing data bases
 			  by filling in forms.
@@ -10,9 +9,24 @@ END-INFO-DIR-ENTRY
    This file documents Forms mode, a form-editing major mode for GNU
 Emacs.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Copyright 1989, 1997, 2001 Free Software Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 File: forms,  Node: Top,  Next: Forms Example,  Up: (dir)
@@ -186,7 +200,7 @@ provide its own menu with a number of Forms mode commands.
      Create a new record and insert it before the current record
      (`forms-insert-record').  It starts out with empty (or default)
      contents for its fields; you can then edit the fields.  With a
-     numeric argument, the new record is created *after* the current
+     numeric argument, the new record is created _after_ the current
      one.  See also `forms-modified-record-filter' in *Note Modifying
      Forms Contents::.
 
@@ -374,7 +388,7 @@ applications.
      for details.
 
 `forms-insert-after'
-     If this variable is not `nil', new records are created *after* the
+     If this variable is not `nil', new records are created _after_ the
      current record. Also, upon visiting a file, the initial position
      will be at the last record instead of the first one.
 
@@ -800,15 +814,15 @@ Index
 * forms-check-number-of-fields:          Control File Format.
 * forms-delete-record:                   Forms Commands.
 * forms-enumerate:                       Miscellaneous.
-* forms-field-sep <1>:                   Control File Format.
-* forms-field-sep:                       Data File Format.
+* forms-field-sep <1>:                   Data File Format.
+* forms-field-sep:                       Control File Format.
 * forms-fields:                          Format Description.
 * forms-file:                            Control File Format.
 * forms-find-file:                       Entering and Exiting Forms Mode.
 * forms-find-file-other-window:          Entering and Exiting Forms Mode.
 * forms-first-record:                    Forms Commands.
-* forms-format-list <1>:                 Format Description.
-* forms-format-list:                     Control File Format.
+* forms-format-list <1>:                 Control File Format.
+* forms-format-list:                     Format Description.
 * forms-insert-after:                    Control File Format.
 * forms-insert-record:                   Forms Commands.
 * forms-jump-record:                     Forms Commands.
@@ -816,8 +830,8 @@ Index
 * forms-mode:                            Miscellaneous.
 * forms-mode-hooks:                      Entering and Exiting Forms Mode.
 * forms-modified-record-filter:          Control File Format.
-* forms-multi-line <1>:                  Control File Format.
-* forms-multi-line:                      Data File Format.
+* forms-multi-line <1>:                  Data File Format.
+* forms-multi-line:                      Control File Format.
 * forms-new-record-filter:               Control File Format.
 * forms-next-field:                      Forms Commands.
 * forms-next-record:                     Forms Commands.
@@ -825,8 +839,8 @@ Index
 * forms-prev-field:                      Forms Commands.
 * forms-prev-record:                     Forms Commands.
 * forms-print:                           Forms Commands.
-* forms-read-file-filter <1>:            Control File Format.
-* forms-read-file-filter:                Data File Format.
+* forms-read-file-filter <1>:            Data File Format.
+* forms-read-file-filter:                Control File Format.
 * forms-read-only:                       Control File Format.
 * forms-save-buffer:                     Forms Commands.
 * forms-search-backward:                 Forms Commands.
@@ -845,18 +859,18 @@ Index
 
 
 Tag Table:
-Node: Top490
-Node: Forms Example1896
-Node: Entering and Exiting Forms Mode3115
-Node: Forms Commands5321
-Node: Data File Format9121
-Node: Control File Format10460
-Node: Format Description15088
-Node: Modifying Forms Contents18430
-Node: Miscellaneous20317
-Node: Error Messages21855
-Node: Long Example26098
-Node: Credits29189
-Node: Index29942
+Node: Top1269
+Node: Forms Example2675
+Node: Entering and Exiting Forms Mode3894
+Node: Forms Commands6100
+Node: Data File Format9900
+Node: Control File Format11239
+Node: Format Description15867
+Node: Modifying Forms Contents19209
+Node: Miscellaneous21096
+Node: Error Messages22634
+Node: Long Example26877
+Node: Credits29968
+Node: Index30721
 
 End Tag Table

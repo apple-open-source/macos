@@ -196,15 +196,13 @@ bool
 IOPCCard16Enabler::configure(UInt32 index = 0)
 {
     bool success;
-    IODeviceMemory::InitElement rangeList[CISTPL_MEM_MAX_WIN + CISTPL_IO_MAX_WIN];
     IOPCCardBridge * bridge;
+    IODeviceMemory * ioMemory;
 
     DEBUG(0, "IOPCCard16Enabler::configure(0x%x)\n", index);
 
-    // get starting address of the physical memory that is mapped to io space
-    IODeviceMemory *ioSpace = device->ioDeviceMemory();
-    if (!ioSpace) return false;
-    UInt32 ioSpaceOffset = ioSpace->getPhysicalAddress() & 0xffff0000;
+    OSArray * array = OSArray::withCapacity(1);
+    if (success = !array) goto exit;
 
     /* Configure card */
     state |= DEV_CONFIG | DEV_CONFIG_PENDING;
@@ -245,42 +243,59 @@ IOPCCard16Enabler::configure(UInt32 index = 0)
     for (int i=0; i < CISTPL_MEM_MAX_WIN; i++) {
 	if (win[i]) {
 	    printk(", mem 0x%06lx-0x%06lx", req[i].Base, req[i].Base+req[i].Size-1);
-	    rangeList[memoryWindowCount].start  = req[i].Base;
-	    rangeList[memoryWindowCount].length = req[i].Size;
+
+	    IODeviceMemory * range = IODeviceMemory::withRange(req[i].Base, req[i].Size);
+	    if (success = !range) goto exit;
+	    range->setTag(req[i].Attributes);
+	    success = array->setObject(range);
+	    range->release();
+	    if (!success) goto exit;
+
 	    memoryWindowCount++;
 	}
     }
 
+    ioMemory = device->ioDeviceMemory();
+    if (!ioMemory) goto exit;	// this platform doesn't support i/o access
+
     ioWindowCount = 0;
     if (io.NumPorts1) {
 	printk(", io 0x%04x-0x%04x", io.BasePort1, io.BasePort1+io.NumPorts1-1);
-	rangeList[memoryWindowCount + ioWindowCount].start  = io.BasePort1 | ioSpaceOffset;
-	rangeList[memoryWindowCount + ioWindowCount].length = io.NumPorts1;
+
+	IODeviceMemory * range = IODeviceMemory::withSubRange(ioMemory, io.BasePort1, io.NumPorts1);
+	if (!range) goto exit;
+	range->setTag(io.Attributes1);
+	success = array->setObject(range);
+	range->release();
+	if (!success) goto exit;
+
 	ioWindowCount++;
     }
     if (io.NumPorts2) {
 	printk(" & 0x%04x-0x%04x", io.BasePort2, io.BasePort2+io.NumPorts2-1);
-	rangeList[memoryWindowCount + ioWindowCount].start  = io.BasePort2 | ioSpaceOffset;
-	rangeList[memoryWindowCount + ioWindowCount].length = io.NumPorts2;
+
+	IODeviceMemory * range = IODeviceMemory::withSubRange(ioMemory, io.BasePort2, io.NumPorts2);
+	if (!range) goto exit;
+	range->setTag(io.Attributes2);
+	success = array->setObject(range);
+	range->release();
+	if (!success) goto exit;
+
 	ioWindowCount++;
     }
     printk("\n");
 
-    // setup nub's "IODeviceMemory" property, memory first, io second
-    {
-	OSArray * array = IODeviceMemory::arrayFromList(rangeList, memoryWindowCount + ioWindowCount);
-	if (!array) goto exit;
-
-	device->setDeviceMemory(array);
-	array->release();
-    }
+    // set the nub's "IODeviceMemory" property, memory windows first, io windows second
+    device->setDeviceMemory(array);
 
  exit:
     
     DEBUG(0, "IOPCCard16Enabler::configure(0x%x) was %ssuccessful.\n", index, success ? "" : "un");
+    if (array) array->release();
 
     return success;
 }
+
 
 bool
 IOPCCard16Enabler::unconfigure()

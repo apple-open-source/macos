@@ -1,5 +1,6 @@
 /* Parameters for execution on a H8/500 series machine.
-   Copyright (C) 1993, 1995 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,15 +19,11 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#include "regcache.h"
+
 /* Contributed by Steve Chamberlain sac@cygnus.com */
 
 #define GDB_TARGET_IS_H8500
-
-#define IEEE_FLOAT (1)
-
-/* Define the bit, byte, and word ordering of the machine.  */
-
-#define TARGET_BYTE_ORDER BIG_ENDIAN
 
 /* Define the sizes of integers and pointers.  */
 
@@ -159,7 +156,7 @@ extern struct type *h8500_register_virtual_type (int regno);
    subroutine will return.  This is called from call_function. */
 
 /*#define STORE_STRUCT_RETURN(ADDR, SP) \
-   { write_register (0, (ADDR)); abort(); } */
+   { write_register (0, (ADDR)); internal_error (__FILE__, __LINE__, "failed internal consistency check"); } */
 
 /* Extract from an array REGBUF containing the (raw) register state
    a function return value of type TYPE, and copy that, in virtual format,
@@ -278,10 +275,9 @@ extern CORE_ADDR h8500_read_sp (void);
 extern void h8500_write_sp (CORE_ADDR);
 
 extern CORE_ADDR h8500_read_fp (void);
-extern void h8500_write_fp (CORE_ADDR);
 
-extern CORE_ADDR h8500_read_pc (int);
-extern void h8500_write_pc (CORE_ADDR, int);
+extern CORE_ADDR h8500_read_pc (ptid_t);
+extern void h8500_write_pc (CORE_ADDR, ptid_t);
 
 #define TARGET_READ_SP() h8500_read_sp()
 #define TARGET_WRITE_SP(x) h8500_write_sp(x)
@@ -290,4 +286,3 @@ extern void h8500_write_pc (CORE_ADDR, int);
 #define TARGET_WRITE_PC(x,pid) h8500_write_pc(x,pid)
 
 #define TARGET_READ_FP() h8500_read_fp()
-#define TARGET_WRITE_FP(x) h8500_write_fp(x)

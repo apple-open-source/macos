@@ -1,5 +1,8 @@
 /* Remote debugging interface for Tandem ST2000 phone switch, for GDB.
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1998, 1999, 2000,
+   2001, 2002 Free Software Foundation, Inc.
+
    Contributed by Cygnus Support.  Written by Jim Kingdon for Cygnus.
 
    This file is part of GDB.
@@ -38,11 +41,10 @@
 #include "defs.h"
 #include "gdbcore.h"
 #include "target.h"
-#include "gdb_wait.h"
-#include <signal.h>
 #include "gdb_string.h"
 #include <sys/types.h>
 #include "serial.h"
+#include "regcache.h"
 
 extern struct target_ops st2000_ops;	/* Forward declaration */
 
@@ -61,7 +63,7 @@ static int timeout = 24;
    st2000_open knows that we don't have a file open when the program
    starts.  */
 
-static serial_t st2000_desc;
+static struct serial *st2000_desc;
 
 /* Send data to stdebug.  Works just like printf. */
 
@@ -76,8 +78,8 @@ printf_stdebug (char *pattern,...)
   vsprintf (buf, pattern, args);
   va_end (args);
 
-  if (SERIAL_WRITE (st2000_desc, buf, strlen (buf)))
-    fprintf (stderr, "SERIAL_WRITE failed: %s\n", safe_strerror (errno));
+  if (serial_write (st2000_desc, buf, strlen (buf)))
+    fprintf (stderr, "serial_write failed: %s\n", safe_strerror (errno));
 }
 
 /* Read a character from the remote system, doing all the fancy timeout
@@ -88,7 +90,7 @@ readchar (int timeout)
 {
   int c;
 
-  c = SERIAL_READCHAR (st2000_desc, timeout);
+  c = serial_readchar (st2000_desc, timeout);
 
 #ifdef LOG_FILE
   putc (c & 0x7f, log_file);
@@ -280,14 +282,18 @@ or target st2000 <host> <port>\n");
 
   st2000_close (0);
 
-  st2000_desc = SERIAL_OPEN (dev_name);
+  st2000_desc = serial_open (dev_name);
 
   if (!st2000_desc)
     perror_with_name (dev_name);
 
-  SERIAL_SETBAUDRATE (st2000_desc, baudrate);
+  if (serial_setbaudrate (st2000_desc, baudrate))
+    {
+      serial_close (dev_name);
+      perror_with_name (dev_name);
+    }
 
-  SERIAL_RAW (st2000_desc);
+  serial_raw (st2000_desc);
 
   push_target (&st2000_ops);
 
@@ -312,7 +318,7 @@ or target st2000 <host> <port>\n");
 static void
 st2000_close (int quitting)
 {
-  SERIAL_CLOSE (st2000_desc);
+  serial_close (st2000_desc);
 
 #if defined (LOG_FILE)
   if (log_file)
@@ -339,7 +345,7 @@ st2000_detach (int from_tty)
 /* Tell the remote machine to resume.  */
 
 static void
-st2000_resume (int pid, int step, enum target_signal sig)
+st2000_resume (ptid_t ptid, int step, enum target_signal sig)
 {
   if (step)
     {
@@ -358,8 +364,8 @@ st2000_resume (int pid, int step, enum target_signal sig)
 /* Wait until the remote machine stops, then return,
    storing status in STATUS just as `wait' would.  */
 
-static int
-st2000_wait (struct target_waitstatus *status)
+static ptid_t
+st2000_wait (ptid_t ptid, struct target_waitstatus *status)
 {
   int old_timeout = timeout;
 
@@ -375,7 +381,7 @@ st2000_wait (struct target_waitstatus *status)
 
   timeout = old_timeout;
 
-  return 0;
+  return inferior_ptid;
 }
 
 /* Return the name of register number REGNO in the form input and output by
@@ -556,7 +562,8 @@ st2000_read_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 
 static int
 st2000_xfer_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len,
-			     int write, struct target_ops *target)
+			     int write, struct mem_attrib *attrib,
+			     struct target_ops *target)
 {
   if (write)
     return st2000_write_inferior_memory (memaddr, myaddr, len);
@@ -658,7 +665,7 @@ static void
 cleanup_tty (void)
 {
   printf ("\r\n[Exiting connect mode]\r\n");
-/*  SERIAL_RESTORE(0, &ttystate); */
+/*  serial_restore(0, &ttystate); */
 }
 
 #if 0
@@ -693,7 +700,7 @@ connect_command (char *args, int fromtty)
       do
 	{
 	  FD_SET (0, &readfds);
-	  FD_SET (DEPRECATED_SERIAL_FD (st2000_desc), &readfds);
+	  FD_SET (deprecated_serial_fd (st2000_desc), &readfds);
 	  numfds = select (sizeof (readfds) * 8, &readfds, 0, 0, 0);
 	}
       while (numfds == 0);
@@ -728,7 +735,7 @@ connect_command (char *args, int fromtty)
 	    }
 	}
 
-      if (FD_ISSET (DEPRECATED_SERIAL_FD (st2000_desc), &readfds))
+      if (FD_ISSET (deprecated_serial_fd (st2000_desc), &readfds))
 	{
 	  while (1)
 	    {
@@ -805,7 +812,6 @@ the speed to connect at in bits per second.";
   st2000_ops.to_thread_alive = 0;	/* thread alive */
   st2000_ops.to_stop = 0;	/* to_stop */
   st2000_ops.to_pid_to_exec_file = NULL;
-  st2000_run_ops.to_core_file_to_sym_file = NULL;
   st2000_ops.to_stratum = process_stratum;
   st2000_ops.DONT_USE = 0;	/* next */
   st2000_ops.to_has_all_memory = 1;

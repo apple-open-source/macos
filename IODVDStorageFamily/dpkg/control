@@ -1,0 +1,6 @@
+Package: iodvdstoragefamily
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: Apple Computer, Inc.
+Version: 4
+Build-Depends: cctools, libsystem, gcc, zsh, files, file-cmds, system-cmds, text-cmds, grep, shell-cmds, iokituser, jam, iostoragefamily, xnu, iocdstoragefamily
+Description: IOKit DVD Storage Family Framework

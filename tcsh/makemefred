@@ -1,0 +1,14 @@
+#!/bin/sh
+
+CSHRC=".cshrc"
+if [ -f "${HOME}/.tcshrc" ]; then
+	CSHRC=".tcshrc"
+fi
+echo "source /usr/share/tcsh/examples/rc" >> "${HOME}/${CSHRC}"
+echo "source /usr/share/tcsh/examples/login" >> "${HOME}/.login"
+echo "source /usr/share/tcsh/examples/logout" >> "${HOME}/.logout"
+
+echo "Your ${CSHRC}, .login, and .logout files have been modified to use Fred's"
+echo "shell configuration scripts."
+echo ""
+echo "Congratulations, you are now Fred."

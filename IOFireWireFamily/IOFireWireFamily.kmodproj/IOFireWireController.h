@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
  *
  * HISTORY
  *
@@ -42,12 +42,16 @@ class IOTimerEventSource;
 class IOMemoryDescriptor;
 class IOFireWireController;
 class IOFWAddressSpace;
+class IOFWPseudoAddressSpace;
 class IOFireWireNub;
 class IOFireWireDevice;
 class IOFireWireUnit;
 class IODCLProgram;
 class IOLocalConfigDirectory;
 class IOFireWireLink;
+class IOFireLogPublisher;
+class IOFireWireSBP2ORB;
+class IOFireWireROMCache;
 
 struct AsyncPendingTrans {
     IOFWAsyncCommand *	fHandler;
@@ -66,24 +70,9 @@ struct IOFWNodeScan {
     IOFWReadQuadCommand *	fCmd;
 };
 
-class IOFWQEventSource : public IOEventSource
-{
-    OSDeclareDefaultStructors(IOFWQEventSource)
-
-protected:
-    IOFWCmdQ *fQueue;
-    virtual bool checkForWork();
-
-public:
-    bool init(IOFireWireController *owner);
-    inline void signalWorkAvailable()	{IOEventSource::signalWorkAvailable();};
-    inline void openGate()		{IOEventSource::openGate();};
-    inline void closeGate()		{IOEventSource::closeGate();};
-};
-
-
 #define kMaxPendingTransfers kFWAsynchTTotal
-
+/*! @class IOFireWireController
+*/
 class IOFireWireController : public IOFireWireBus
 {
     OSDeclareAbstractStructors(IOFireWireController)
@@ -95,10 +84,16 @@ protected:
         kWaitingScan,		// Got selfIDs, waiting a bit before hitting lame devices
         kScanning,			// Reading node ROMs
         kWaitingPrune,		// Read all ROMs, pausing before pruning missing devices
-        kPendingReset,		// Running, but we're about to issue a bus reset
         kRunning			// Normal happy state
     };
     
+	enum ResetState
+	{
+		kResetStateResetting,
+		kResetStateDisabled,
+		kResetStateArbitrated
+	};
+	
     struct timeoutQ: public IOFWCmdQ
     {
         IOTimerEventSource *fTimer;
@@ -113,7 +108,14 @@ protected:
 
     friend class IOFireWireLink;
     friend class IOFWAddressSpace;
-    
+    friend class IOFWPseudoAddressSpace;
+    friend class IOFireWireSBP2ORB;
+	friend class IOFWLocalIsochPort;
+	friend class IOFWCommand;
+	friend class IOFireWireDevice;
+    friend class IOFireWirePCRSpace;
+    friend class IOFireWireROMCache;
+	
     IOFireWireLink *		fFWIM;
     IOFWWorkLoop *	fWorkLoop;
     IOTimerEventSource *fTimer;
@@ -171,6 +173,16 @@ protected:
     IOFWDelayCommand *	fDelayedStateChangeCmd;
     bool fDelayedStateChangeCmdNeedAbort;
     
+	UInt32				fDelayedPhyPacket;
+	bool 				fBusResetScheduled;
+	ResetState			fBusResetState;
+	IOFWDelayCommand *	fBusResetStateChangeCmd;
+	UInt32 				fBusResetDisabledCount;
+
+    IOFireLogPublisher * fFireLogPublisher;
+
+    OSData * fAllocatedAddresses;
+
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
@@ -227,6 +239,7 @@ public:
 
     // Initialization
     virtual bool init(IOFireWireLink *fwim);
+    virtual void free();
     virtual bool start(IOService *provider);
     virtual void stop( IOService * provider );
     virtual bool finalize( IOOptionBits options );
@@ -274,6 +287,10 @@ public:
                                        IOMemoryDescriptor *buf, IOByteCount offset, int len,
                                        IOFWRequestRefCon refcon);
 
+    virtual IOReturn asyncLockResponse( UInt32 generation, UInt16 nodeID, int speed,
+                                        IOMemoryDescriptor *buf, IOByteCount offset, int len,
+                                        IOFWRequestRefCon refcon );
+                                       
     // Try to fix whatever might have caused the other device to not respond
     virtual IOReturn handleAsyncTimeout(IOFWAsyncCommand *cmd);
 
@@ -315,26 +332,21 @@ public:
     virtual UInt32 getExtendedTCode(IOFWRequestRefCon refcon);
     
     // Inline accessors for protected member variables
-    IOFWCmdQ &getTimeoutQ() { return fTimeoutQ; };
-    IOFWCmdQ &getPendingQ() { return fPendingQ; };
-    IOFWCmdQ &getAfterResetHandledQ() { return fAfterResetHandledQ; };
-    IOFireWireLink * getLink() const { return fFWIM; };
+    IOFWCmdQ &getTimeoutQ();
+	IOFWCmdQ &getPendingQ();
+    IOFWCmdQ &getAfterResetHandledQ();
+    IOFireWireLink * getLink() const;
 
-    IOLocalConfigDirectory *getRootDir() const { return fRootDir;};
-    bool checkGeneration(UInt32 gen) const {return gen == fBusGeneration;};
-    UInt32 getGeneration() const {return fBusGeneration;};
-    UInt16 getLocalNodeID() const {
-        return fLocalNodeID;
-    };
-    IOReturn getIRMNodeID(UInt32 &generation, UInt16 &id) const
-        {generation = fBusGeneration; id = fIRMNodeID; return kIOReturnSuccess;};
+    IOLocalConfigDirectory *getRootDir() const;
+    bool checkGeneration(UInt32 gen) const;
+    UInt32 getGeneration() const;
+    UInt16 getLocalNodeID() const;
+    IOReturn getIRMNodeID(UInt32 &generation, UInt16 &id) const;
     
-    const AbsoluteTime * getResetTime() const {return &fResetTime;};
+    const AbsoluteTime * getResetTime() const;
 
-    IOFWSpeed FWSpeed(UInt16 nodeAddress) const
-	{return (IOFWSpeed)fSpeedCodes[(kFWMaxNodesPerBus+1)*(nodeAddress & 63)+(fLocalNodeID & 63)];};
-    IOFWSpeed FWSpeed(UInt16 nodeA, UInt16 nodeB) const
-      {return (IOFWSpeed)fSpeedCodes[(kFWMaxNodesPerBus+1)*(nodeA & 63)+(nodeB & 63)];};
+    IOFWSpeed FWSpeed(UInt16 nodeAddress) const;
+    IOFWSpeed FWSpeed(UInt16 nodeA, UInt16 nodeB) const;
 
     // How big (as a power of two) can packets sent to/received from the node be?
     virtual int maxPackLog(bool forSend, UInt16 nodeAddress) const;
@@ -351,12 +363,27 @@ public:
     virtual IOFWAddressSpace *getAddressSpace(FWAddress address);
     
     // Are we currently scanning the bus?
-    bool scanningBus() const
-        {return fBusState == kWaitingSelfIDs || fBusState == kWaitingScan || fBusState == kScanning;};
+    bool scanningBus() const;
 
-    inline void openGate()		{fPendingQ.fSource->openGate();};
-    inline void closeGate()		{fPendingQ.fSource->closeGate();};
-    
+protected:
+    void openGate();
+    void closeGate();
+		
+protected:    
+	virtual void doBusReset( void );
+	static void resetStateChange( void *refcon, IOReturn status,
+								   IOFireWireBus *bus, IOFWBusCommand *fwCmd);
+
+public:
+	virtual IOReturn disableSoftwareBusResets( void );
+	virtual void enableSoftwareBusResets( void );
+
+protected:
+	bool inGate();
+
+    virtual IOReturn allocatePseudoAddress(FWAddress *addr, UInt32 lenDummy);
+    virtual void freePseudoAddress(FWAddress addr, UInt32 lenDummy);
+
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireController, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireController, 1);

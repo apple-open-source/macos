@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,238 +20,269 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	Includes
+//—————————————————————————————————————————————————————————————————————————————
+
+// Core Foundation includes
 #include <CoreFoundation/CoreFoundation.h>
+
+// IOSCSIArchitectureModelFamily includes
 #include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
+
+// Private includes
 #include "SCSITaskDeviceClass.h"
 #include "SCSITaskClass.h"
 
+// C Library includes
 #include <string.h>
 
-__BEGIN_DECLS
+// Since mach headers don’t have C++ wrappers we have to
+// declare extern “C” before including them.
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
-__END_DECLS
 
-#define SCSI_TASK_DEVICE_CLASS_DEBUGGING_LEVEL 0
+#ifdef __cplusplus
+}
+#endif
 
-#if ( SCSI_TASK_DEVICE_CLASS_DEBUGGING_LEVEL > 0 )
-#define PRINT(x)	printf x
+
+//—————————————————————————————————————————————————————————————————————————————
+//	Macros
+//—————————————————————————————————————————————————————————————————————————————
+
+#define DEBUG									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"SCSITaskDeviceClass"
+
+#if DEBUG
+#define PRINT(x)		printf x
 #else
 #define PRINT(x)
 #endif
 
 
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	Static variable initialization
+//—————————————————————————————————————————————————————————————————————————————
+
 IOCFPlugInInterface
 SCSITaskDeviceClass::sIOCFPlugInInterface = 
 {
 	0,
-	&SCSITaskDeviceClass::staticQueryInterface,
-	&SCSITaskDeviceClass::staticAddRef,
-	&SCSITaskDeviceClass::staticRelease,
+	&SCSITaskIUnknown::sQueryInterface,
+	&SCSITaskIUnknown::sAddRef,
+	&SCSITaskIUnknown::sRelease,
 	1, 0, // version/revision
-	&SCSITaskDeviceClass::staticProbe,
-	&SCSITaskDeviceClass::staticStart,
-	&SCSITaskDeviceClass::staticStop
+	&SCSITaskDeviceClass::sProbe,
+	&SCSITaskDeviceClass::sStart,
+	&SCSITaskDeviceClass::sStop
 };
 
 SCSITaskDeviceInterface
 SCSITaskDeviceClass::sSCSITaskDeviceInterface =
 {
 	0,
-	&SCSITaskDeviceClass::staticQueryInterface,
-	&SCSITaskDeviceClass::staticAddRef,
-	&SCSITaskDeviceClass::staticRelease,
+	&SCSITaskDeviceClass::sQueryInterface,
+	&SCSITaskDeviceClass::sAddRef,
+	&SCSITaskDeviceClass::sRelease,
 	1, 0, // version/revision
-	&SCSITaskDeviceClass::staticIsExclusiveAccessAvailable,
-	&SCSITaskDeviceClass::staticAddCallbackDispatcherToRunLoop,
-	&SCSITaskDeviceClass::staticRemoveCallbackDispatcherFromRunLoop,
-	&SCSITaskDeviceClass::staticObtainExclusiveAccess,
-	&SCSITaskDeviceClass::staticReleaseExclusiveAccess,
-	&SCSITaskDeviceClass::staticCreateSCSITask,
+	&SCSITaskDeviceClass::sIsExclusiveAccessAvailable,
+	&SCSITaskDeviceClass::sAddCallbackDispatcherToRunLoop,
+	&SCSITaskDeviceClass::sRemoveCallbackDispatcherFromRunLoop,
+	&SCSITaskDeviceClass::sObtainExclusiveAccess,
+	&SCSITaskDeviceClass::sReleaseExclusiveAccess,
+	&SCSITaskDeviceClass::sCreateSCSITask,
 };
 
 
+#if 0
+#pragma mark -
 #pragma mark Public Methods
+#pragma mark -
+#endif
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• alloc - Called to allocate an instance of the class			[PUBLIC]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOCFPlugInInterface **
 SCSITaskDeviceClass::alloc ( void )
 {
 	
-	SCSITaskDeviceClass * 		userClient;
-	IOCFPlugInInterface ** 		interface = NULL;
-	IOReturn					status;
+	SCSITaskDeviceClass * 		userClient	= NULL;
+	IOCFPlugInInterface ** 		interface 	= NULL;
+	IOReturn					status		= kIOReturnSuccess;
 	
 	PRINT ( ( "SCSITaskDeviceClass::alloc called\n" ) );
 	
 	userClient = new SCSITaskDeviceClass;
-	if ( userClient != NULL )
-	{
-		
-		status = userClient->init ( );
-		if ( status == kIOReturnSuccess )
-		{
-		
-			userClient->AddRef ( );
-			interface = ( IOCFPlugInInterface ** ) &userClient->fSCSITaskDeviceInterfaceMap.pseudoVTable;
-		
-		}
-		
-		else
-		{
-			delete userClient;
-		}
-		
-	}
+	require_nonzero ( userClient, Error_Exit );
+	
+	status = userClient->Init ( );
+	require_success_action_string ( status, Error_Exit, delete userClient, "Init failed" );
+	
+	userClient->AddRef ( );
+	interface = ( IOCFPlugInInterface ** ) &userClient->fInterfaceMap.pseudoVTable;
+	
+	
+Error_Exit:
+	
 	
 	return interface;
 	
 }
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• alloc - Called to allocate an instance of the class			[PUBLIC]
+//—————————————————————————————————————————————————————————————————————————————
 
 SCSITaskDeviceInterface **
 SCSITaskDeviceClass::alloc ( io_service_t service, io_connect_t connection )
 {
 	
-	SCSITaskDeviceClass * 		userClient;
-	SCSITaskDeviceInterface ** 	interface = NULL;
-	IOReturn					status = kIOReturnSuccess;
+	SCSITaskDeviceClass * 		userClient	= NULL;
+	SCSITaskDeviceInterface ** 	interface 	= NULL;
+	IOReturn					status 		= kIOReturnSuccess;
 	
 	PRINT ( ( "SCSITaskDeviceClass::alloc called\n" ) );
 	
 	userClient = new SCSITaskDeviceClass;
-	if ( userClient != NULL )
-	{
-		
-		status = userClient->initWithConnection ( service, connection );
-		if ( status == kIOReturnSuccess )
-		{
-			
-			userClient->AddRef ( );
-			interface = ( SCSITaskDeviceInterface ** ) &userClient->fSCSITaskDeviceInterfaceMap.pseudoVTable;
-			
-		}
-		
-		else
-		{
-			
-			delete userClient;
-			
-		}
-		
-	}
+	require_nonzero ( userClient, Error_Exit );
+	
+	status = userClient->InitWithConnection ( service, connection );
+	require_success_action_string ( status, Error_Exit, delete userClient, "InitWithConnection failed" );
+	
+	userClient->AddRef ( );
+	interface = ( SCSITaskDeviceInterface ** ) &userClient->fSCSITaskDeviceInterfaceMap.pseudoVTable;
+	
+	
+Error_Exit:
+	
 	
 	return interface;
 	
 }
 
 
+//—————————————————————————————————————————————————————————————————————————————
+//	• Init - Called to initialize an instance of the class			[PUBLIC]
+//—————————————————————————————————————————————————————————————————————————————
+
 IOReturn
-SCSITaskDeviceClass::init ( void )
+SCSITaskDeviceClass::Init ( void )
 {
 	
-	fTaskSet = CFSetCreateMutable ( kCFAllocatorDefault, 0, NULL );
-	if ( fTaskSet == NULL )
-		return kIOReturnNoMemory;
+	IOReturn	status = kIOReturnNoResources;
 	
-	return kIOReturnSuccess;
+	PRINT ( ( "SCSITaskDeviceClass::Init called\n" ) );
+	
+	fTaskSet = CFSetCreateMutable ( kCFAllocatorDefault, 0, NULL );
+	require_nonzero ( fTaskSet, Error_Exit );
+	
+	status = kIOReturnSuccess;
+	
+	
+Error_Exit:
+	
+	
+	return status;
 	
 }
 
 
+//—————————————————————————————————————————————————————————————————————————————
+//	• Init - 	Called to initialize an instance of the class with a connection
+//				established by another object						[PUBLIC]
+//—————————————————————————————————————————————————————————————————————————————
+
 IOReturn
-SCSITaskDeviceClass::initWithConnection ( io_service_t service, io_connect_t connection )
+SCSITaskDeviceClass::InitWithConnection ( 	io_service_t	service,
+											io_connect_t	connection )
 {
 	
-	IOReturn	status = kIOReturnSuccess;
+	IOReturn	status = kIOReturnBadArgument;
 	
-	if ( ( service == NULL ) || ( connection == NULL ) )
-	{
-		return kIOReturnBadArgument;
-	}
+	PRINT ( ( "SCSITaskDeviceClass::InitWithConnection called\n" ) );
 	
-	status = init ( );
-	if ( status != kIOReturnSuccess )
-	{
-		return status;
-	}
+	require_nonzero ( service, Error_Exit );
+	require_nonzero ( connection, Error_Exit );
+	
+	status = Init ( );
+	require_success ( status, Error_Exit );
 	
 	fService 					= service;
 	fConnection 				= connection;
 	fIsServicesLayerInterface 	= true;
+	status						= kIOReturnSuccess;
 	
-	status = IOConnectAddRef ( fConnection );
-	fAddedConnectRef = true;
 	
-	PRINT ( ( "IOConnectAddRef status = 0x%08x\n", status ) );
+Error_Exit:
 	
-	return kIOReturnSuccess;
+	
+	return status;
 	
 }
 
 
+#if 0
 #pragma mark -
 #pragma mark Protected Methods
+#pragma mark -
+#endif
 
-// Default Constructor
-SCSITaskDeviceClass::SCSITaskDeviceClass ( void )
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• Default Constructor - Called on allocation					[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+SCSITaskDeviceClass::SCSITaskDeviceClass ( void ) :
+			SCSITaskIUnknown ( &sIOCFPlugInInterface )
 {
 	
 	PRINT ( ( "SCSITaskDeviceClass constructor called\n" ) );
 	
-	// init CFPlugIn refcounting
-	fRefCount = 0;
-	
 	// Init callback stuff
-	fAsyncPort 			= MACH_PORT_NULL;
-	fCFRunLoop 			= 0;
-	fCFRunLoopSource 	= 0;
-	fTaskSet			= 0;
+	fAsyncPort 					= MACH_PORT_NULL;
+	fCFRunLoop 					= 0;
+	fCFRunLoopSource 			= 0;
+	fTaskSet					= 0;
 	
 	// init user client connection
 	fConnection 				= MACH_PORT_NULL;
 	fService 					= MACH_PORT_NULL;
-	fAddedConnectRef 			= false;
 	fHasExclusiveAccess 		= false;
 	fIsServicesLayerInterface 	= false;
 	
-	// create plugin interface map
-    fIOCFPlugInInterface.pseudoVTable = ( IUnknownVTbl * ) &sIOCFPlugInInterface;
-    fIOCFPlugInInterface.obj 		  = this;
-	
-	// create test driver interface map
+	// create driver interface map
 	fSCSITaskDeviceInterfaceMap.pseudoVTable = ( IUnknownVTbl * ) &sSCSITaskDeviceInterface;
 	fSCSITaskDeviceInterfaceMap.obj 		 = this;
-	
-	fFactoryId = kIOSCSITaskLibFactoryID;
-	CFRetain ( fFactoryId );
-	CFPlugInAddInstanceForFactory ( fFactoryId );
 	
 }
 
 
-// Destructor
+//—————————————————————————————————————————————————————————————————————————————
+//	• Default Destructor - Called on deallocation					[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
 SCSITaskDeviceClass::~SCSITaskDeviceClass ( void )
 {
 	
-	IOReturn	status = kIOReturnSuccess;
-	
 	PRINT ( ( "SCSITaskDeviceClass : Destructor called\n" ) );
 	
-	if ( fAddedConnectRef )
+	if ( fAsyncPort != MACH_PORT_NULL )
 	{
 		
-		PRINT ( ( "SCSITaskDeviceClass : fAddedConnectRef = true\n" ) );
-		status = IOConnectRelease ( fConnection );
-		fAddedConnectRef = false;
-		
-		PRINT ( ( "IOConnectRelease status = 0x%08x\n", status ) );
-		
-	}
-	
-	if ( fAsyncPort != NULL )
-	{
-		
-		PRINT ( ( "SCSITaskDeviceClass : fAsyncPort != NULL\n" ) );
+		PRINT ( ( "SCSITaskDeviceClass : fAsyncPort != MACH_PORT_NULL\n" ) );
 		IOObjectRelease ( fAsyncPort );
 		fAsyncPort = MACH_PORT_NULL;
 		
@@ -265,35 +296,18 @@ SCSITaskDeviceClass::~SCSITaskDeviceClass ( void )
 		
 	}
 	
-	PRINT ( ( "SCSITaskDeviceClass : calling CFPlugInRemoveInstanceForFactory\n" ) );
-	
-	CFPlugInRemoveInstanceForFactory ( fFactoryId );
-	PRINT ( ( "SCSITaskDeviceClass : CFPlugInRemoveInstanceForFactory called\n" ) );
-	
-	CFRelease ( fFactoryId );
-	PRINT ( ( "SCSITaskDeviceClass : CFRelease called\n" ) );
-	
 }
 
 
-
-//////////////////////////////////////////////////////////////////
-// IUnknown methods
-//
-
-// staticQueryInterface
-//
-//
-
-HRESULT
-SCSITaskDeviceClass::staticQueryInterface ( void * self, REFIID iid, void ** ppv )
-{
-	return getThis ( self )->QueryInterface ( iid, ppv );
-}
+#if 0
+#pragma mark -
+#endif
 
 
-// QueryInterface
-//
+//—————————————————————————————————————————————————————————————————————————————
+//	• QueryInterface - Called to obtain the presence of an interface
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 HRESULT
 SCSITaskDeviceClass::QueryInterface ( REFIID iid, void ** ppv )
@@ -301,32 +315,35 @@ SCSITaskDeviceClass::QueryInterface ( REFIID iid, void ** ppv )
 	
 	CFUUIDRef 	uuid 	= CFUUIDCreateFromUUIDBytes ( NULL, iid );
 	HRESULT 	result 	= S_OK;
-
+	
 	PRINT ( ( "SCSITaskDeviceClass : QueryInterface called\n" ) );
-
-	if ( CFEqual ( uuid, IUnknownUUID ) || CFEqual ( uuid, kIOCFPlugInInterfaceID ) ) 
+	
+	if ( CFEqual ( uuid, IUnknownUUID ) ||
+		 CFEqual ( uuid, kIOCFPlugInInterfaceID ) ) 
 	{
         
-		*ppv = &fIOCFPlugInInterface;
+		*ppv = &fInterfaceMap;
         AddRef ( );
 		
     }
 	
 	else if ( CFEqual ( uuid, kIOSCSITaskDeviceInterfaceID ) ) 
 	{
-
+		
 		PRINT ( ( "kSCSITaskDeviceUserClientInterfaceID requested\n" ) );
-
+		
 		*ppv = &fSCSITaskDeviceInterfaceMap;
         AddRef ( );
 		
     }
-
-    else
-		*ppv = 0;
 	
-	if ( !*ppv )
+    else
+	{
+		
+		*ppv = 0;
 		result = E_NOINTERFACE;
+		
+	}
 	
 	CFRelease ( uuid );
 	
@@ -335,77 +352,10 @@ SCSITaskDeviceClass::QueryInterface ( REFIID iid, void ** ppv )
 }
 
 
-// staticAddRef
-//
-
-UInt32
-SCSITaskDeviceClass::staticAddRef ( void * self )
-{
-	return getThis ( self )->AddRef ( );
-}
-
-
-// AddRef
-//
-
-UInt32
-SCSITaskDeviceClass::AddRef ( void )
-{
-
-	PRINT ( ( "SCSITaskDeviceClass : AddRef\n" ) );
-	
-	fRefCount += 1;
-
-	PRINT ( ( "fRefCount = %ld\n", fRefCount ) );
-
-	return fRefCount;
-	
-}
-
-// staticRelease
-//
-
-UInt32
-SCSITaskDeviceClass::staticRelease ( void * self )
-{
-	return getThis ( self )->Release ( );
-}
-
-
-// Release
-//
-
-UInt32
-SCSITaskDeviceClass::Release ( void )
-{
-	
-	UInt32		retVal = fRefCount;
-
-	PRINT ( ( "SCSITaskDeviceClass : Release\n" ) );
-	PRINT ( ( "fRefCount = %ld\n", fRefCount ) );
-	
-	if ( 1 == fRefCount-- ) 
-	{
-		delete this;
-    }
-	
-    else if ( fRefCount < 0 )
-	{
-        fRefCount = 0;
-	}
-	
-	return retVal;
-	
-}
-
-
-IOReturn
-SCSITaskDeviceClass::staticProbe ( void * self, CFDictionaryRef propertyTable, 
-								   io_service_t service, SInt32 * order )
-{
-	return getThis ( self )->Probe ( propertyTable, service, order );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• Probe - 	Called by IOKit to ascertain whether we can drive the provided
+//				io_service_t										[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskDeviceClass::Probe ( CFDictionaryRef propertyTable,
@@ -413,71 +363,78 @@ SCSITaskDeviceClass::Probe ( CFDictionaryRef propertyTable,
 							 SInt32 * order )
 {
 	
-	CFMutableDictionaryRef	dict;
-	kern_return_t			kernErr;
+	CFMutableDictionaryRef	dict	= 0;
+	IOReturn				status 	= kIOReturnBadArgument;
+	Boolean					ok		= false;
 	
 	PRINT ( ( "SCSITaskDeviceClass::Probe called\n" ) );
 	
 	// Sanity check
-	if ( inService == NULL )
-		return kIOReturnBadArgument;
+	require_nonzero ( inService, Error_Exit );
 	
-	kernErr = IORegistryEntryCreateCFProperties ( inService, &dict, NULL, 0 );
-	if ( kernErr != KERN_SUCCESS )
-	{
-		return kIOReturnBadArgument;
-	}
+	status = IORegistryEntryCreateCFProperties ( inService, &dict, NULL, 0 );
+	require_success ( status, Error_Exit );
 	
-	if ( !CFDictionaryContainsKey ( dict, CFSTR ( "IOCFPlugInTypes" ) ) )
-	{
-		return kIOReturnBadArgument;
-	}
-		
-	return kIOReturnSuccess;
+	ok = CFDictionaryContainsKey ( dict, CFSTR ( "IOCFPlugInTypes" ) );
+	require_action ( ok, ReleaseDictionary, status = kIOReturnNoDevice );
+	
+	status = kIOReturnSuccess;
+	
+	
+ReleaseDictionary:
+	
+	
+	require_nonzero ( dict, Error_Exit );
+	CFRelease ( dict );
+	
+	
+Error_Exit:
+	
+	
+	return status;
 	
 }
 	
 
-IOReturn
-SCSITaskDeviceClass::staticStart ( void * self,
-										CFDictionaryRef propertyTable,
-										io_service_t service )
-{
-	return getThis ( self )->Start ( propertyTable, service );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• Start - Called to start providing our services.				[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
-SCSITaskDeviceClass::Start ( CFDictionaryRef propertyTable, io_service_t service )
+SCSITaskDeviceClass::Start ( CFDictionaryRef	propertyTable,
+							 io_service_t		service )
 {
 	
-	IOReturn 	status = kIOReturnSuccess;
+	IOReturn 	status = kIOReturnNoDevice;
 	
 	PRINT ( ( "SCSITaskDeviceClass : Start\n" ) );
 	
 	fService = service;
-	status = IOServiceOpen ( fService, mach_task_self ( ), 
-							 kSCSITaskLibConnection, &fConnection );
+	status = IOServiceOpen ( 	fService,
+								mach_task_self ( ),
+								kSCSITaskLibConnection,
+								&fConnection );
 	
-	if ( !fConnection )
-		status = kIOReturnNoDevice;
-	else
-		fHasExclusiveAccess = true;
+	require_success ( status, Error_Exit );
+	require_nonzero_action ( fConnection, Error_Exit, status = kIOReturnNoDevice );
+	
+	fHasExclusiveAccess = true;
 	
 	PRINT ( ( "SCSITaskDeviceClass : IOServiceOpen status = 0x%08lx, connection = %d\n",
 			( UInt32 ) status, fConnection ) );
+	
+	
+Error_Exit:
+	
 	
 	return status;
 	
 }
 
 
-IOReturn
-SCSITaskDeviceClass::staticStop ( void * self )
-{
-	return getThis ( self )->Stop ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• Stop - Called to stop providing our services.					[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskDeviceClass::Stop ( void )
@@ -485,13 +442,16 @@ SCSITaskDeviceClass::Stop ( void )
 	
 	PRINT ( ( "SCSITaskDeviceClass : Stop\n" ) );
 	
-	if ( fTaskSet )
+	if ( fTaskSet != 0 )
 	{
+		
+//		CFSetApplyFunction ( fTaskSet, &SCSITaskClass::sAbortAndReleaseTasks, 0 );
 		CFRelease ( fTaskSet );
 		fTaskSet = 0;
+		
 	}
 	
-	if ( fConnection )
+	if ( fConnection != 0 )
 	{
 		
 		PRINT ( ( "SCSITaskDeviceClass : IOServiceClose connection = %d\n", fConnection ) );
@@ -504,257 +464,330 @@ SCSITaskDeviceClass::Stop ( void )
 	
 }
 
-//////////////////////////////////////////////////////////////////
-// SCSITaskDeviceInterface Methods
+
+#if 0
+#pragma mark -
+#endif
 
 
-Boolean
-SCSITaskDeviceClass::staticIsExclusiveAccessAvailable ( void * self )
-{
-	return getThis ( self )->IsExclusiveAccessAvailable ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• IsExclusiveAccessAvailable - 	Called to ascertain if exclusive access is
+//									available.						[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 Boolean
 SCSITaskDeviceClass::IsExclusiveAccessAvailable ( void )
 {
 	
-	Boolean					result 	= false;
-	IOReturn				status 	= kIOReturnSuccess;
-	mach_msg_type_number_t 	len 	= 0;
-	
-	if ( !fConnection )
-		return result;	
-	
+	Boolean			result 	= false;
+	IOReturn		status 	= kIOReturnSuccess;
+
 	PRINT ( ( "SCSITaskDeviceClass : IsExclusiveAccessAvailable\n" ) );
+	
+	require_nonzero ( fConnection, Error_Exit );
 	
 	// We only have to do this if the services layer
 	// is involved. Otherwise, its handled in Start.
 	if ( fIsServicesLayerInterface )
 	{
 		
-		status = io_connect_method_scalarI_scalarO ( fConnection,
-												 kSCSITaskUserClientIsExclusiveAccessAvailable,
-												 NULL, 0, NULL, &len );
+		status = IOConnectMethodScalarIScalarO ( fConnection, 					 
+												 kSCSITaskUserClientIsExclusiveAccessAvailable, 
+												 0,
+												 0 );
 		
 		if ( status == kIOReturnSuccess )
 		{
+			
 			result = true;
+			
 		}
 		
 	}
-		
+	
 	else
 	{
 		result = true;
 	}
+	
+	
+Error_Exit:
+	
 	
 	return result;
 	
 }
 
 
+//—————————————————————————————————————————————————————————————————————————————
+//	• CreateDeviceAsyncEventSource - 	Called to create an async event source
+//										in the form of a CFRunLoopSourceRef.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
 IOReturn
-SCSITaskDeviceClass::staticAddCallbackDispatcherToRunLoop ( void * self, CFRunLoopRef cfRunLoopRef )
+SCSITaskDeviceClass::CreateDeviceAsyncEventSource ( CFRunLoopSourceRef * source )
 {
-	return getThis ( self )->AddCallbackDispatcherToRunLoop ( cfRunLoopRef );
+	
+	IOReturn 			status 		= kIOReturnNoDevice;
+	CFMachPortRef		cfMachPort 	= NULL;
+	CFMachPortContext	context;
+	Boolean				shouldFreeInfo; // zzz what's this for?
+	
+	PRINT ( ( "SCSITaskDeviceClass : CreateDeviceAsyncEventSource\n" ) );
+	
+	require_nonzero ( fConnection, Error_Exit );
+	
+	status = CreateDeviceAsyncPort ( NULL );
+	require ( ( status == kIOReturnNotPermitted ) || ( status == kIOReturnSuccess ), Error_Exit );
+	
+	context.version 		= 1;
+	context.info 			= this;
+	context.retain 			= NULL;
+	context.release 		= NULL;
+	context.copyDescription = NULL;
+	
+	cfMachPort = CFMachPortCreateWithPort (
+							kCFAllocatorDefault,
+							fAsyncPort,
+							( CFMachPortCallBack ) IODispatchCalloutFromMessage,
+							&context,
+							&shouldFreeInfo );
+	
+	require_nonzero_action ( cfMachPort, Error_Exit, status = kIOReturnNoMemory );
+	
+	PRINT ( ( "CFMachPortCreateWithPort\n" ) );
+	
+	fCFRunLoopSource = CFMachPortCreateRunLoopSource ( kCFAllocatorDefault, cfMachPort, 0 );
+	require_nonzero_action ( fCFRunLoopSource, Error_Exit, status = kIOReturnNoMemory );
+	
+	PRINT ( ( "CFMachPortCreateRunLoopSource\n" ) );
+	
+	status = kIOReturnSuccess;
+	
+	require_nonzero ( source, Error_Exit );
+	*source = fCFRunLoopSource;
+	
+	
+Error_Exit:
+	
+	
+	if ( cfMachPort != 0 )
+	{
+		CFRelease ( cfMachPort );
+	}
+	
+	return status;
+	
 }
 
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetDeviceAsyncEventSource - 	Called to get the CFRunLoopSourceRef.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+CFRunLoopSourceRef
+SCSITaskDeviceClass::GetDeviceAsyncEventSource ( void )
+{
+	
+	PRINT ( ( "GetDeviceAsyncEventSource, %p\n", fCFRunLoopSource ) );
+	return fCFRunLoopSource;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• CreateDeviceAsyncPort - 	Called to create a mach port on which
+//								to receive an async callback notification.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskDeviceClass::CreateDeviceAsyncPort ( mach_port_t * port )
+{
+	
+	IOReturn					status = kIOReturnNotPermitted;
+	MyConnectionAndPortContext	context;	
+
+	PRINT ( ( "CreateDeviceAsyncPort called\n" ) );
+	
+	require ( ( fAsyncPort == MACH_PORT_NULL ), Error_Exit );
+	
+	IOCreateReceivePort ( kOSAsyncCompleteMessageID, &fAsyncPort );
+	context.connection 	= fConnection;
+	context.asyncPort 	= fAsyncPort;
+	CFSetApplyFunction ( fTaskSet, &SCSITaskClass::sSetConnectionAndPort, &context );
+	
+	status = kIOReturnSuccess;
+	
+	require_nonzero ( port, Error_Exit );
+	*port = fAsyncPort;
+	
+	
+Error_Exit:
+	
+	
+	return status;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• GetDeviceAsyncPort - 	Called to get the mach port used for async
+//							callback notifications.					[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+mach_port_t
+SCSITaskDeviceClass::GetDeviceAsyncPort ( void )
+{
+	
+	PRINT ( ( "GetDeviceAsyncPort : %d\n", fAsyncPort ) );
+	return fAsyncPort;
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• AddCallbackDispatcherToRunLoop - 	Called to add an async callback
+//										dispatch mechanism to the runloop
+//										provided.					[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskDeviceClass::AddCallbackDispatcherToRunLoop ( CFRunLoopRef cfRunLoopRef )
 {
 	
-	IOReturn 			status = kIOReturnSuccess;
-	CFMachPortRef		cfMachPort = NULL;
+	IOReturn 	status 	= kIOReturnNoDevice;
 	
 	PRINT ( ( "SCSITaskDeviceClass : AddCallbackDispatcherToRunLoop\n" ) );
 	
-	if ( !fConnection )		    
-		return kIOReturnNoDevice;
+	require_nonzero ( fConnection, Error_Exit );
 	
-	if ( status == kIOReturnSuccess )
-	{
-		
-		CFMachPortContext	context;
-		Boolean				shouldFreeInfo; // zzz what's this for?
-		
-		context.version 		= 1;
-		context.info 			= this;
-		context.retain 			= NULL;
-		context.release 		= NULL;
-		context.copyDescription = NULL;
-		
-		if ( fAsyncPort == NULL )
-		{
-			
-			MyConnectionAndPortContext	context;
-			IOCreateReceivePort ( kOSAsyncCompleteMessageID, &fAsyncPort );
-			context.connection 	= fConnection;
-			context.asyncPort 	= fAsyncPort;
-			CFSetApplyFunction ( fTaskSet, &SCSITaskClass::sSetConnectionAndPort, &context );
-			
-		}
-		
-		cfMachPort = CFMachPortCreateWithPort ( kCFAllocatorDefault, fAsyncPort, 
-							( CFMachPortCallBack ) IODispatchCalloutFromMessage,
-							&context, &shouldFreeInfo );
-		if ( !cfMachPort )
-		{
-			status = kIOReturnNoMemory;
-		}
-		
-		PRINT ( ( "CFMachPortCreateWithPort\n" ) );
-		
-	}
-		
-	if ( status == kIOReturnSuccess )
-	{
-		
-		fCFRunLoopSource = CFMachPortCreateRunLoopSource ( kCFAllocatorDefault, cfMachPort, 0 );
-		if ( !fCFRunLoopSource )
-			status = kIOReturnNoMemory;
-		
-		PRINT ( ( "CFMachPortCreateRunLoopSource\n" ) );
-		
-	}
+	status = CreateDeviceAsyncEventSource ( NULL );
+	require_success ( status, Error_Exit );
 	
-	if ( cfMachPort != NULL )
-		CFRelease ( cfMachPort );
-		
-	if ( status == kIOReturnSuccess )
-	{
-		
-		fCFRunLoop = cfRunLoopRef;
-		CFRunLoopAddSource ( fCFRunLoop, fCFRunLoopSource, kCFRunLoopDefaultMode );
-
-		PRINT ( ( "CFRunLoopAddSource\n" ) );
-
-	}
+	fCFRunLoop = cfRunLoopRef;
+	CFRunLoopAddSource ( fCFRunLoop, fCFRunLoopSource, kCFRunLoopDefaultMode );
 	
-	if ( fCFRunLoopSource != NULL )
-		CFRelease ( fCFRunLoopSource );
+	PRINT ( ( "CFRunLoopAddSource\n" ) );
+	
+	
+Error_Exit:
+	
 	
 	return status;
 	
 }
 
 
-void
-SCSITaskDeviceClass::staticRemoveCallbackDispatcherFromRunLoop ( void * self )
-{
-	return getThis ( self )->RemoveCallbackDispatcherFromRunLoop ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• RemoveCallbackDispatcherFromRunLoop - Called to remove an async callback
+//											dispatch mechanism from the runloop.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 void
 SCSITaskDeviceClass::RemoveCallbackDispatcherFromRunLoop ( void )
 {
-
+	
 	PRINT ( ( "SCSITaskDeviceClass : RemoveCallbackDispatcherFromRunLoop\n" ) );
 	
-	if ( fCFRunLoopSource )
+	if ( fCFRunLoopSource != 0 )
 	{
 		
 		CFRunLoopRemoveSource ( fCFRunLoop, fCFRunLoopSource, kCFRunLoopDefaultMode );
-		fCFRunLoopSource = NULL;
+		fCFRunLoopSource = 0;
 		
-		if ( fAsyncPort != NULL )
-		{
-			
-			MyConnectionAndPortContext	context;
-			
-			IOObjectRelease ( fAsyncPort );
-			fAsyncPort = MACH_PORT_NULL;
-			
-			context.connection 	= fConnection;
-			context.asyncPort 	= fAsyncPort;
-			
-//			CFSetApplyFunction ( fTaskSet, &SCSITaskClass::sSetConnectionAndPort, &context );
-			
-		}
+	}
+	
+	if ( fAsyncPort != MACH_PORT_NULL )
+	{
+		
+		IOObjectRelease ( fAsyncPort );
+		fAsyncPort = MACH_PORT_NULL;
 		
 	}
 	
 }
 
 
-IOReturn
-SCSITaskDeviceClass::staticObtainExclusiveAccess ( void * self )
-{
-	return getThis ( self )->ObtainExclusiveAccess ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• ObtainExclusiveAccess - Called to obtain exclusive access to the device.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskDeviceClass::ObtainExclusiveAccess ( void )
 {
 	
-	IOReturn				status = kIOReturnSuccess;
-	mach_msg_type_number_t 	len = 0;
+	IOReturn	status = kIOReturnSuccess;
 	
 	PRINT ( ( "SCSITaskDeviceClass : ObtainExclusiveAccess\n" ) );
 	
-
 	// We only have to do this if the services layer
-	// is involved. Otherwise, its handled in Start.
-	status = io_connect_method_scalarI_scalarO ( fConnection,
-												 kSCSITaskUserClientObtainExclusiveAccess,
-												 NULL, 0, NULL, &len );
-	if ( status == kIOReturnSuccess )
-	{
-		
-		PRINT ( ( "we have exclusive access\n" ) );
-		fHasExclusiveAccess = true;
-		
-	}
+	// is involved. Otherwise, it's handled in Start.
+	require ( fIsServicesLayerInterface, Exit );
+	
+	status = IOConnectMethodScalarIScalarO ( fConnection,
+											 kSCSITaskUserClientObtainExclusiveAccess,
+											 0,
+											 0 );
+	
+	require_success ( status, Error_Exit );
+	
+	PRINT ( ( "we have exclusive access\n" ) );
+	fHasExclusiveAccess = true;
+	
+	
+Error_Exit:	
+Exit:
+	
 	
 	return status;
 	
 }
 
 
-IOReturn
-SCSITaskDeviceClass::staticReleaseExclusiveAccess ( void * self )
-{
-	return getThis ( self )->ReleaseExclusiveAccess ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• ReleaseExclusiveAccess - Called to release exclusive access to the device.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 IOReturn
 SCSITaskDeviceClass::ReleaseExclusiveAccess ( void )
 {
 	
-	IOReturn				status = kIOReturnExclusiveAccess;
-	mach_msg_type_number_t 	len = 0;
+	IOReturn	status = kIOReturnExclusiveAccess;
 	
 	PRINT ( ( "SCSITaskDeviceClass : ReleaseExclusiveAccess\n" ) );
 	
-	if ( !fHasExclusiveAccess )
-		return status;
+	// Sanity check: make sure we have exclusive access already
+	require ( fHasExclusiveAccess, Error_Exit );
 	
-	if ( fIsServicesLayerInterface )
-	{
+	// If this isn't the services layer, short-circuit out
+	require_action ( fIsServicesLayerInterface, Exit, status = kIOReturnSuccess );
 	
-		status = io_connect_method_scalarI_scalarO ( fConnection,
-												 kSCSITaskUserClientReleaseExclusiveAccess,
-												 NULL, 0, NULL, &len );
-		
-		PRINT ( ( "ReleaseExclusiveAccess status = 0x%08x\n", status ) );
-		
-	}
+	status = IOConnectMethodScalarIScalarO (	fConnection,
+												kSCSITaskUserClientReleaseExclusiveAccess,
+												0,
+												0 );
+	
+	PRINT ( ( "ReleaseExclusiveAccess status = 0x%08x\n", status ) );
+	
+	
+Error_Exit:
+Exit:	
 	
 	return status;
 	
 }
 
 
-SCSITaskInterface **
-SCSITaskDeviceClass::staticCreateSCSITask ( void * self )
-{
-	return getThis ( self )->CreateSCSITask ( );
-}
-
+//—————————————————————————————————————————————————————————————————————————————
+//	• CreateSCSITask - Called to create a SCSITaskInterface object.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
 
 SCSITaskInterface **
 SCSITaskDeviceClass::CreateSCSITask ( void )
@@ -764,29 +797,249 @@ SCSITaskDeviceClass::CreateSCSITask ( void )
 
 	PRINT ( ( "SCSITaskDeviceClass : CreateSCSITask\n" ) );
 	
-	if ( !fHasExclusiveAccess )
-		return NULL;
+	require ( fHasExclusiveAccess, Error_Exit );
 	
 	interface = SCSITaskClass::alloc ( this, fConnection, fAsyncPort );
-	if ( interface != NULL )
-	{
-		
-		CFSetAddValue ( fTaskSet, interface );
-		
-	}
+	require_nonzero ( interface, Error_Exit );
 	
+	CFSetAddValue ( fTaskSet, interface );
+	
+	
+Error_Exit:
+	
+		
 	return interface;
 	
 }
 
 
+//—————————————————————————————————————————————————————————————————————————————
+//	• RemoveTaskFromTaskSet - 	Called to remove a SCSITaskInterface object
+//								from the set of tasks.
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
 void
 SCSITaskDeviceClass::RemoveTaskFromTaskSet ( SCSITaskInterface ** task )
 {
+	
+	PRINT ( ( "SCSITaskDeviceClass : RemoveTaskFromTaskSet called\n" ) );
+	check ( task );
 	
 	if ( fTaskSet )
 	{
 		CFSetRemoveValue ( fTaskSet, task );
 	}
+	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark Static C->C++ Glue Functions
+#pragma mark -
+#endif
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sProbe - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskDeviceClass::sProbe ( void *			self,
+							  CFDictionaryRef	propertyTable,
+							  io_service_t		service,
+							  SInt32 *			order )
+{
+	
+	check ( self );
+	return getThis ( self )->Probe ( propertyTable, service, order );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sStart - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskDeviceClass::sStart ( void *			self,
+							  CFDictionaryRef	propertyTable,
+							  io_service_t		service )
+{
+	
+	check ( self );
+	return getThis ( self )->Start ( propertyTable, service );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sStop - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskDeviceClass::sStop ( void * self )
+{
+	
+	check ( self );
+	return getThis ( self )->Stop ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sIsExclusiveAccessAvailable - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+Boolean
+SCSITaskDeviceClass::sIsExclusiveAccessAvailable ( void * self )
+{
+	
+	check ( self );
+	return getThis ( self )->IsExclusiveAccessAvailable ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sCreateDeviceAsyncEventSource - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskDeviceClass::sCreateDeviceAsyncEventSource (
+						void *					self,
+						CFRunLoopSourceRef *	source )
+{
+	
+	check ( self );
+	return getThis ( self )->CreateDeviceAsyncEventSource ( source );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetDeviceAsyncEventSource - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+CFRunLoopSourceRef
+SCSITaskDeviceClass::sGetDeviceAsyncEventSource ( void * self )
+{
+	
+	check ( self );
+	return getThis ( self )->GetDeviceAsyncEventSource ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sCreateDeviceAsyncPort - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskDeviceClass::sCreateDeviceAsyncPort ( void * self, mach_port_t * port )
+{
+	
+	check ( self );
+	return getThis ( self )->CreateDeviceAsyncPort ( port );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sGetDeviceAsyncPort - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+mach_port_t
+SCSITaskDeviceClass::sGetDeviceAsyncPort ( void * self )
+{
+	
+	check ( self );
+	return getThis ( self )->GetDeviceAsyncPort ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sAddCallbackDispatcherToRunLoop - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskDeviceClass::sAddCallbackDispatcherToRunLoop (
+									void * 			self,
+									CFRunLoopRef	cfRunLoopRef )
+{
+	
+	check ( self );
+	return getThis ( self )->AddCallbackDispatcherToRunLoop ( cfRunLoopRef );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sRemoveCallbackDispatcherFromRunLoop - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+void
+SCSITaskDeviceClass::sRemoveCallbackDispatcherFromRunLoop ( void * self )
+{
+	
+	check ( self );
+	return getThis ( self )->RemoveCallbackDispatcherFromRunLoop ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sObtainExclusiveAccess - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskDeviceClass::sObtainExclusiveAccess ( void * self )
+{
+	
+	check ( self );
+	return getThis ( self )->ObtainExclusiveAccess ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sReleaseExclusiveAccess - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+IOReturn
+SCSITaskDeviceClass::sReleaseExclusiveAccess ( void * self )
+{
+	
+	check ( self );
+	return getThis ( self )->ReleaseExclusiveAccess ( );
+	
+}
+
+
+//—————————————————————————————————————————————————————————————————————————————
+//	• sCreateSCSITask - Static function for C->C++ glue
+//																	[PROTECTED]
+//—————————————————————————————————————————————————————————————————————————————
+
+SCSITaskInterface **
+SCSITaskDeviceClass::sCreateSCSITask ( void * self )
+{
+	
+	check ( self );
+	return getThis ( self )->CreateSCSITask ( );
 	
 }

@@ -1,3 +1,5 @@
+#ifndef _S_RFC_OPTIONS_H
+#define _S_RFC_OPTIONS_H
 /*
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
@@ -29,4 +31,5 @@
 
 #define RFC_MAGIC_SIZE			4 /* bytes */
 
-#import "gen_dhcp_tags.h"
+#include "gen_dhcp_tags.h"
+#endif _S_RFC_OPTIONS_H

@@ -1,7 +1,8 @@
 /* Machine-dependent hooks for the unix child process stratum.  This
    code is for the HP PA-RISC cpu.
 
-   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1998,
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -26,6 +27,7 @@
 #include "defs.h"
 #include "inferior.h"
 #include "target.h"
+#include "regcache.h"
 #include <sys/ptrace.h>
 
 /* Use an extra level of indirection for ptrace calls.
@@ -42,7 +44,7 @@
 /* U_REGS_OFFSET is the offset of the registers within the u area.  */
 #if !defined (U_REGS_OFFSET)
 #define U_REGS_OFFSET \
-  ptrace (PT_READ_U, inferior_pid, \
+  ptrace (PT_READ_U, PIDGET (inferior_ptid), \
           (PTRACE_ARG3_TYPE) (offsetof (struct user, u_ar0)), 0) \
     - KERNEL_U_ADDR
 #endif
@@ -65,7 +67,7 @@ fetch_register (int regno)
   for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (int))
     {
       errno = 0;
-      *(int *) &buf[i] = ptrace (PT_RUREGS, inferior_pid,
+      *(int *) &buf[i] = ptrace (PT_RUREGS, PIDGET (inferior_ptid),
 				 (PTRACE_ARG3_TYPE) regaddr, 0);
       regaddr += sizeof (int);
       if (errno != 0)
@@ -117,7 +119,7 @@ store_inferior_registers (int regno)
       if (regno == PCOQ_HEAD_REGNUM || regno == PCOQ_TAIL_REGNUM)
 	{
 	  scratch = *(int *) &registers[REGISTER_BYTE (regno)] | 0x3;
-	  ptrace (PT_WUREGS, inferior_pid, (PTRACE_ARG3_TYPE) regaddr,
+	  ptrace (PT_WUREGS, PIDGET (inferior_ptid), (PTRACE_ARG3_TYPE) regaddr,
 		  scratch);
 	  if (errno != 0)
 	    {
@@ -131,7 +133,8 @@ store_inferior_registers (int regno)
 	for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (int))
 	  {
 	    errno = 0;
-	    ptrace (PT_WUREGS, inferior_pid, (PTRACE_ARG3_TYPE) regaddr,
+	    ptrace (PT_WUREGS, PIDGET (inferior_ptid),
+	            (PTRACE_ARG3_TYPE) regaddr,
 		    *(int *) &registers[REGISTER_BYTE (regno) + i]);
 	    if (errno != 0)
 	      {
@@ -207,5 +210,5 @@ hppa_set_watchpoint (int addr, int len, int flag)
   pt_args[1] <<= 12;
 
   /* Do it.  */
-  return ptrace (PT_PROT, inferior_pid, (PTRACE_ARG3_TYPE) pt_args, 0);
+  return ptrace (PT_PROT, PIDGET (inferior_ptid), (PTRACE_ARG3_TYPE) pt_args, 0);
 }

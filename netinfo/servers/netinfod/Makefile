@@ -13,15 +13,19 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
 HFILES =\
-	alert.h event.h getstuff.h index.h index_manager.h listops.h multi_call.h\
-	ni_dir.h ni_file.h ni_globals.h ni_server.h notify.h proxy_pids.h\
-	ranstrcmp.h safe_stdio.h sanitycheck.h strstore.h
+       alert.h bsd-base64.h bufaux.h buffer.h cipher.h compat.h dsa.h entropy.h\
+       event.h fake-socket.h getput.h getstuff.h index.h index_manager.h kex.h\
+       key.h listops.h multi_call.h ni_dir.h ni_file.h ni_globals.h ni_server.h\
+       notify.h proxy_pids.h psauth.h ranstrcmp.h readconf.h rsa.h safe_stdio.h\
+       sanitycheck.h ssh.h strstore.h uuencode.h xmalloc.h
 		 
 CFILES =\
-	alert.c event.c getstuff.c index.c index_manager.c listops.c multi_call.c\
-	ni.c ni_dir.c ni_file.c ni_globals.c ni_lookupprop.c ni_main.c\
-	ni_prot_proc.c ni_svc_run.c notify.c proxy_pids.c\
-	ranstrcmp.c readall.c safe_stdio.c sanitycheck.c strstore.c 
+       alert.c atomicio.c bsd-base64.c bufaux.c buffer.c cipher.c dsa.c\
+       entropy.c event.c getstuff.c index.c index_manager.c key.c listops.c\
+       multi_call.c ni.c ni_dir.c ni_file.c ni_globals.c ni_lookupprop.c\
+       ni_main.c ni_prot_proc.c ni_svc_run.c notify.c proxy_pids.c psauth.c\
+       ranstrcmp.c readall.c rsa.c safe_stdio.c sanitycheck.c strstore.c\
+       uuencode.c xmalloc.c	 
 
 OTHERSRCS =\
 	Makefile.preamble Makefile Makefile.postamble\
@@ -32,7 +36,7 @@ MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
-LIBS = 
+LIBS = -lcrypto -lsasl2.2.0.1
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -573,7 +573,7 @@ static const char *set_nonce_lifetime(cmd_parms *cmd, void *config,
     char *endptr;
     long  lifetime;
 
-    lifetime = strtol(t, &endptr, 10);
+    lifetime = ap_strtol(t, &endptr, 10);
     if (endptr < (t+strlen(t)) && !ap_isspace(*endptr))
 	return ap_pstrcat(cmd->pool, "Invalid time in AuthDigestNonceLifetime: ", t, NULL);
 
@@ -933,7 +933,7 @@ static int get_digest_rec(request_rec *r, digest_header_rec *resp)
     }
 
     if (resp->opaque)
-	resp->opaque_num = (unsigned long) strtol(resp->opaque, NULL, 16);
+	resp->opaque_num = (unsigned long) ap_strtol(resp->opaque, NULL, 16);
 
     resp->auth_hdr_sts = VALID;
     return OK;
@@ -1375,7 +1375,7 @@ static int check_nc(const request_rec *r, const digest_header_rec *resp,
     if (!conf->check_nc || !client_mm)
 	return OK;
 
-    nc = strtol(snc, &endptr, 16);
+    nc = ap_strtol(snc, &endptr, 16);
     if (endptr < (snc+strlen(snc)) && !ap_isspace(*endptr)) {
 	ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, r,
 		      "Digest: invalid nc %s received - not a number", snc);

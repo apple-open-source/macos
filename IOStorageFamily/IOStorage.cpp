@@ -46,6 +46,24 @@ static void storageCompletion(void *   target,
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+void IOStorage::complete(IOStorageCompletion completion,
+                         IOReturn            status,
+                         UInt64              actualByteCount)
+{
+    //
+    // Invokes the specified completion action of the read/write request.  If
+    // the completion action is unspecified, no action is taken.  This method
+    // serves simply as a convenience to storage subclass developers.
+    //
+
+    if (completion.action)  (*completion.action)(completion.target, 
+                                                 completion.parameter,
+                                                 status,
+                                                 actualByteCount);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 bool IOStorage::open(IOService *     client,
                      IOOptionBits    options,
                      IOStorageAccess access)

@@ -157,13 +157,16 @@ Definitions
 
 
 /*
- * State bits in sc_flags, not changeable by user.
+ * State bits in flags.
  */
 #define STATE_TIMEOUT	0x00000400	/* timeout is currently pending */
 #define STATE_TBUSY	0x10000000	/* xmitter doesn't need a packet yet */
 #define STATE_PKTLOST	0x20000000	/* have lost or dropped a packet */
 #define	STATE_FLUSH	0x40000000	/* flush input until next PPP_FLAG */
 #define	STATE_ESCAPED	0x80000000	/* saw a PPP_ESCAPE */
+#define STATE_RBUSY	0x01000000	/* reception in progress */
+#define STATE_CLOSING	0x02000000	/* closing the line discipline */
+#define STATE_LKBUSY	0x04000000	/* activity in the link in progress */
 
 /*  We steal two bits in the mbuf m_flags, to mark high-priority packets
 for output, and received packets following lost/corrupted packets. */
@@ -368,14 +371,21 @@ int pppserial_attach(void *ttyp, struct ppp_link **link)
 
     //log(LOG_INFO, "pppserial_attach\n");
 
-    if (pppserial_findfreeunit(&unit))
-        return ENOMEM;
+    // Note : we allocate/find number/insert in queue in that specific order
+    // because of funnels and race condition issues
 
-    MALLOC(ld, struct pppserial *, sizeof(struct pppserial), M_DEVBUF, M_NOWAIT);
+    MALLOC(ld, struct pppserial *, sizeof(struct pppserial), M_DEVBUF, M_WAITOK);
     if (!ld)
         return ENOMEM;
 
+    if (pppserial_findfreeunit(&unit)) {
+        FREE(ld, M_DEVBUF);
+        return ENOMEM;
+    }
+        
     bzero(ld, sizeof(struct pppserial));
+    
+    TAILQ_INSERT_TAIL(&pppserial_head, ld, next);
     lk = (struct ppp_link *) ld;
 
     // it's time now to register our brand new link
@@ -396,16 +406,20 @@ int pppserial_attach(void *ttyp, struct ppp_link **link)
     ld->outq.ifq_maxlen = IFQ_MAXLEN;
     pppserial_getm(ld);
     
+
+   thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
     ret = ppp_link_attach(&ld->link);
     if (ret) {
+        thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
         log(LOG_INFO, "pppserial_attach, error = %d, (ld = 0x%x)\n", ret, &ld->link);
+        TAILQ_REMOVE(&pppserial_head, ld, next);
         FREE(ld, M_DEVBUF);
         return ret;
     }
-    
+    thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
+
     //log(LOG_INFO, "pppserial_attach, link index = %d, (ld = 0x%x)\n", lk->lk_index, lk);
 
-    TAILQ_INSERT_TAIL(&pppserial_head, ld, next);
     *link = lk;
 
     return 0;
@@ -417,7 +431,13 @@ int pppserial_detach(struct ppp_link *link)
 {
     struct pppserial  	*ld = (struct pppserial *)link;
     struct mbuf		*m;
+
+    ld->state |= STATE_CLOSING; 
     
+    while (ld->state & (STATE_LKBUSY | STATE_TIMEOUT)) {
+        sleep(&ld->state, PZERO+1);
+    }
+
     for (;;) {
         IF_DEQUEUE(&ld->inq, m);
         if (m == NULL)
@@ -431,9 +451,16 @@ int pppserial_detach(struct ppp_link *link)
             break;
         m_freem(m);
     }
-
-    ppp_link_detach(link);
+    
+    if (ld->outm) {
+        m_freem(ld->outm);
+        ld->outm = 0;
+    }
+    
     TAILQ_REMOVE(&pppserial_head, ld, next);
+    thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
+    ppp_link_detach(link);
+    thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
     FREE(ld, M_DEVBUF);
     return 0;
 }
@@ -446,7 +473,7 @@ void pppisr_thread_continue(void)
 {
     boolean_t 	funnel_state;
 
-    funnel_state = thread_funnel_set(network_flock, TRUE);
+    funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
     while (!pppsoft_net_terminate) {
         if (pppnetisr) {
@@ -460,7 +487,7 @@ void pppisr_thread_continue(void)
 
     wakeup(&pppsoft_net_terminate);
 
-    thread_funnel_set(network_flock, funnel_state);
+    thread_funnel_set(kernel_flock, funnel_state);
 
     thread_terminate_self();
     /* NOTREACHED */
@@ -570,6 +597,13 @@ int pppserial_ioctl(struct tty *tp, u_long cmd, caddr_t data, int flag, struct p
 {
     struct pppserial 	*ld = (struct pppserial *) tp->t_sc;
     
+    /*
+        return -1 is the ioctl is ignored by the line discipline, 
+           ttioctl will then be called for further processing
+        return 0 is the ioctl is successfully processed
+        return any positive error if ioctl is processed with an error
+    */
+    
     switch (cmd) {
         case TIOCGETD:
             LOGLKDBG(ld, (LOGVAL, "pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TIOCGETD\n", 
@@ -587,6 +621,10 @@ int pppserial_ioctl(struct tty *tp, u_long cmd, caddr_t data, int flag, struct p
             LOGLKDBG(ld, (LOGVAL, "pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TCSAFLUSH\n", 
                 LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
             return -1;
+        case TIOCMGET:
+            LOGLKDBG(ld, (LOGVAL, "pppserial_ioctl: (ifnet = %s%d) (link = %s%d) TIOCMGET\n", 
+                LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
+            return -1;
 
 	case PPPIOCGCHAN:
             LOGLKDBG(ld, (LOGVAL, "pppserial_ioctl: (ifnet = %s%d) (link = %s%d) PPPIOCGCHAN = %d\n", 
@@ -594,10 +632,10 @@ int pppserial_ioctl(struct tty *tp, u_long cmd, caddr_t data, int flag, struct p
             if (!ld)
                 return ENXIO;	// can it happen ?
             *(u_int32_t *)data = ld->link.lk_index;
-            break;
+            return 0;
                         
     }
-    return 0;
+    return EINVAL;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1099,17 +1137,18 @@ void pppserial_timeout(void *arg)
 {
     struct pppserial 	*ld = (struct pppserial *) arg;
     struct tty 		*tp = (struct tty *) ld->devp;
-    int 		s;
     boolean_t 		funnel_state;
 
     funnel_state = thread_funnel_set(kernel_flock, TRUE);
-    s = spltty();
+    
     ld->state &= ~STATE_TIMEOUT;
-    pppserial_start(tp);
-    splx(s);
-    (void) thread_funnel_set(kernel_flock, funnel_state);
 
-   
+    if (ld->state & STATE_CLOSING)
+        wakeup(&ld->state);
+    else 
+        pppserial_start(tp);
+        
+    thread_funnel_set(kernel_flock, funnel_state);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1240,7 +1279,7 @@ when there is data ready to be sent
 int pppserial_lk_output(struct ppp_link *link, struct mbuf *m)
 {
     struct pppserial 	*ld = (struct pppserial *)link;
-    int 		ret = ENOMEM, len;
+    int 		ret = ENOMEM;
 
 #if 0
     int i;
@@ -1251,19 +1290,18 @@ int pppserial_lk_output(struct ppp_link *link, struct mbuf *m)
     log(LOGVAL, "\n");
 #endif
     
-    len = m->m_pkthdr.len;
-    
     thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
     if (IF_QFULL(&ld->outq)) {
         IF_DROP(&ld->outq);
         thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
         link->lk_oerrors++;
+        link->lk_flags |= SC_XMIT_FULL;
         return ret;
     }
     IF_ENQUEUE(&ld->outq, m);
+    schedpppnetisr();
     thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 
-    schedpppnetisr();
 
     return 0;
 }
@@ -1275,41 +1313,60 @@ all line discipline share the same interrupt, so loop to process each one.
 void pppserial_intr()
 {
     struct pppserial 	*ld;
+    struct ppp_link 	*link;
     struct mbuf	 	*m;
-    u_char 		*p;
 
     TAILQ_FOREACH(ld, &pppserial_head, next) {
 
         // try to output data
-        thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
         if (!(ld->state & STATE_TBUSY)
             && (ld->outq.ifq_head || ld->outm)) {
+            
             ld->state |= STATE_TBUSY;
             pppserial_ouput(ld);
+            
+            link = (struct ppp_link *)ld;
+            if (link->lk_flags & SC_XMIT_FULL
+                && !IF_QFULL(&ld->outq)) {
+                
+                ld->state |= STATE_LKBUSY;
+                thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
+                link->lk_flags &= ~SC_XMIT_FULL;
+                ppp_link_event(link, PPP_LINK_EVT_XMIT_OK, 0);
+                thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
+                ld->state &= ~STATE_LKBUSY;
+                
+                if (ld->state & STATE_CLOSING) {
+                    wakeup(&ld->state);
+                    goto nextlink;
+                }
+            }
         }
-        thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
-
 
         // try to input data
         for (;;) {
         
-            thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
             IF_DEQUEUE(&ld->inq, m);
-            thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
-
             if (m == NULL)
                 break;
 
+            ld->state |= STATE_LKBUSY;
+            thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
             if (m->m_flags & M_ERRMARK) {
-
                 ppp_link_event((struct ppp_link *)ld, PPP_LINK_EVT_INPUTERROR, 0);
                 m->m_flags &= ~M_ERRMARK;
             }
-
-            /* detach the ppp header from the buffer */
-            p = mtod(m, u_char *);
-            //log(LOGVAL, "pppserial_intr, input packet = 0x %x %x %x %x %x %x %x %x\n", p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
             ppp_link_input(&ld->link, m);	
+            thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
+            ld->state &= ~STATE_LKBUSY;
+            
+            if (ld->state & STATE_CLOSING) {
+                wakeup(&ld->state);
+                goto nextlink;
+            }
         }
+        
+nextlink:
+    ;
     }
 }  

@@ -1,25 +1,29 @@
 /*
  * ntpdc - control and monitor your ntpd daemon
  */
+
 #include <stdio.h>
-#include <ctype.h>
-#include <signal.h>
-#include <setjmp.h>
-#include <sys/types.h>
-#include <sys/time.h>
-#include <netdb.h>
-
-#ifdef SYS_WINNT
-#include <io.h>
-#else
-#define closesocket close
-#endif /* SYS_WINNT */
-
 
 #include "ntpdc.h"
 #include "ntp_select.h"
 #include "ntp_io.h"
 #include "ntp_stdlib.h"
+
+#include <ctype.h>
+#include <signal.h>
+#include <setjmp.h>
+#include <netdb.h>
+
+#ifdef SYS_WINNT
+# include <io.h>
+#else
+# define closesocket close
+#endif /* SYS_WINNT */
+
+#ifdef HAVE_LIBREADLINE
+# include <readline/readline.h>
+# include <readline/history.h>
+#endif /* HAVE_LIBREADLINE */
 
 #ifdef SYS_VXWORKS
 /* vxWorks needs mode flag -casey*/
@@ -186,6 +190,11 @@ void timer(void)	{  ; };	/* 1998/06/03 - Used in ntplib/machines.c */
 
 static	char *pktdata;
 static	int pktdatasize;
+
+/*
+ * These are used to help the magic with old and new versions of ntpd.
+ */
+static int req_pkt_size = REQ_LEN_NOMAC;
 
 /*
  * For commands typed on the command line (with the -c option)
@@ -470,6 +479,7 @@ openhost(
 	    error("connect", "", "");
 	
 	havehost = 1;
+	req_pkt_size = REQ_LEN_NOMAC;
 	return 1;
 }
 
@@ -484,7 +494,7 @@ sendpkt(
 	int xdatalen
 	)
 {
-	if (send(sockfd, xdata, xdatalen, 0) == -1) {
+	if (send(sockfd, xdata, (size_t)xdatalen, 0) == -1) {
 		warning("write to %s failed", currenthost, "");
 		return -1;
 	}
@@ -766,11 +776,15 @@ sendrequest(
 
 	if (!auth) {
 		qpkt.auth_seq = AUTH_SEQ(0, 0);
-		return sendpkt((char *)&qpkt, REQ_LEN_NOMAC);
+		return sendpkt((char *)&qpkt, req_pkt_size);
 	} else {
 		l_fp ts;
 		int maclen = 0;
 		const char *pass = "\0";
+		struct req_pkt_tail *qpktail;
+
+		qpktail = (struct req_pkt_tail *)((char *)&qpkt + req_pkt_size
+		    + MAX_MAC_LEN - sizeof(struct req_pkt_tail));
 
 		if (info_auth_keyid == 0) {
 			maclen = getkeyid("Keyid: ");
@@ -793,17 +807,17 @@ sendrequest(
 		authusekey(info_auth_keyid, info_auth_keytype, (const u_char *)pass);
 		authtrust(info_auth_keyid, 1);
 		qpkt.auth_seq = AUTH_SEQ(1, 0);
-		qpkt.keyid = htonl(info_auth_keyid);
+		qpktail->keyid = htonl(info_auth_keyid);
 		get_systime(&ts);
 		L_ADD(&ts, &delay_time);
-		HTONL_FP(&ts, &qpkt.tstamp);
+		HTONL_FP(&ts, &qpktail->tstamp);
 		maclen = authencrypt(info_auth_keyid, (u_int32 *)&qpkt,
-		    REQ_LEN_NOMAC);
+		    req_pkt_size);
 		if (maclen == 0) {  
 			(void) fprintf(stderr, "Key not found\n");
 			return (1);
 		}
-		return sendpkt((char *)&qpkt, (int)(REQ_LEN_NOMAC + maclen));
+		return sendpkt((char *)&qpkt, (int)(req_pkt_size + maclen));
 	}
 	/*NOTREACHED*/
 }
@@ -842,6 +856,7 @@ doquery(
 	/*
 	 * Poll the socket and clear out any pending data
 	 */
+again:
 	do {
 		tvzero.tv_sec = tvzero.tv_usec = 0;
 		FD_ZERO(&fds);
@@ -868,6 +883,26 @@ doquery(
 	 * Get the response.  If we got a standard error, print a message
 	 */
 	res = getresponse(implcode, reqcode, ritems, rsize, rdata);
+
+	/*
+	 * Try to be compatible with older implementations of ntpd.
+	 */
+	if (res == INFO_ERR_FMT && req_pkt_size != 48) {
+		int oldsize;
+
+		oldsize = req_pkt_size;
+
+		switch(req_pkt_size) {
+		case REQ_LEN_NOMAC:
+			req_pkt_size = 48;
+			break;
+		}
+
+		fprintf(stderr,
+		    "***Warning changing the request packet size from %d to %d\n",
+		    oldsize, req_pkt_size);
+		goto again;
+	}
 
  	/* log error message if not told to be quiet */
  	if ((res > 0) && (((1 << res) & quiet_mask) == 0)) {
@@ -914,6 +949,16 @@ doquery(
 static void
 getcmds(void)
 {
+#ifdef HAVE_LIBREADLINE
+	char *line;
+
+	for (;;) {
+		if ((line = readline(interactive?prompt:"")) == NULL) return;
+		if (*line) add_history(line);
+		docmd(line);
+		free(line);
+	}
+#else /* not HAVE_LIBREADLINE */
 	char line[MAXLINE];
 
 	for (;;) {
@@ -930,6 +975,7 @@ getcmds(void)
 
 		docmd(line);
 	}
+#endif /* not HAVE_LIBREADLINE */
 }
 
 
@@ -1206,14 +1252,14 @@ getarg(
  */
 static int
 getnetnum(
-	const char *host,
+	const char *hname,
 	u_int32 *num,
 	char *fullhost
 	)
 {
 	struct hostent *hp;
 
-	if (decodenetnum(host, num)) {
+	if (decodenetnum(hname, num)) {
 		if (fullhost != 0) {
 			(void) sprintf(fullhost,
 				       "%u.%u.%u.%u", (u_int)((htonl(*num)>>24)&0xff),
@@ -1221,13 +1267,13 @@ getnetnum(
 				       (u_int)(htonl(*num)&0xff));
 		}
 		return 1;
-	} else if ((hp = gethostbyname(host)) != 0) {
+	} else if ((hp = gethostbyname(hname)) != 0) {
 		memmove((char *)num, hp->h_addr, sizeof(u_int32));
 		if (fullhost != 0)
 		    (void) strcpy(fullhost, hp->h_name);
 		return 1;
 	} else {
-		(void) fprintf(stderr, "***Can't find host %s\n", host);
+		(void) fprintf(stderr, "***Can't find host %s\n", hname);
 		return 0;
 	}
 	/*NOTREACHED*/
@@ -1283,9 +1329,9 @@ help(
 		    cmdsort[n++] = xcp->keyword;
 
 #ifdef QSORT_USES_VOID_P
-		qsort(cmdsort, n, sizeof(char *), helpsort);
+		qsort(cmdsort, (size_t)n, sizeof(char *), helpsort);
 #else
-		qsort((char *)cmdsort, n, sizeof(char *), helpsort);
+		qsort((char *)cmdsort, (size_t)n, sizeof(char *), helpsort);
 #endif
 
 		maxlength = 0;
@@ -1528,6 +1574,7 @@ passwd(
 	if (!interactive) {
 		authusekey(info_auth_keyid, info_auth_keytype,
 			   (u_char *)pcmd->argval[0].string);
+		authtrust(info_auth_keyid, 1);
 	} else {
 		pass = getpass((info_auth_keytype == KEY_TYPE_DES)
 			       ? "DES Password: "
@@ -1535,9 +1582,11 @@ passwd(
 			       );
 		if (*pass == '\0')
 		    (void) fprintf(fp, "Password unchanged\n");
-		else
+		else {
 		    authusekey(info_auth_keyid, info_auth_keytype,
 			       (u_char *)pass);
+		    authtrust(info_auth_keyid, 1);
+		}
 	}
 }
 
@@ -1661,7 +1710,7 @@ error(
  */
 static u_long
 getkeyid(
-	const char *prompt
+	const char *keyprompt
 	)
 {
 	register char *p;
@@ -1677,7 +1726,7 @@ getkeyid(
 		fi = stdin;
 	    else
 		setbuf(fi, (char *)NULL);
-	fprintf(stderr, "%s", prompt); fflush(stderr);
+	fprintf(stderr, "%s", keyprompt); fflush(stderr);
 	for (p=pbuf; (c = getc(fi))!='\n' && c!=EOF;) {
 		if (p < &pbuf[18])
 		    *p++ = c;

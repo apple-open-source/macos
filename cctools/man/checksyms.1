@@ -1,9 +1,9 @@
-.TH CHECKSYMS 1 "June 30, 2000" "Apple Computer, Inc."
+.TH CHECKSYMS 1 "September 10, 2000" "Apple Computer, Inc."
 .SH NAME
 checksyms \- check Mach-O production binary for proper conventions
 .SH SYNOPSIS
 .B checksyms
-[\-r] [\-d] [\-t] [\-b] [-v] [-] [-arch arch_flag] [-dylib_table filename] [-seg_addr_table filename] file [...]
+[\-r] [\-d] [\-t] [\-b] [-v] [-] [-arch arch_flag] [-dylib_table filename] [-seg_addr_table filename] [-seg_addr_table_filename pathname] file [...]
 .sp .5
 .SH DESCRIPTION
 .I Checksyms
@@ -99,3 +99,9 @@ If the the environment variable
 is set it is also used instead of the table specified with the
 .B \-dylib_table
 option.
+.TP
+.BI "\-seg_addr_table_filename" " pathname"
+Use
+.B pathname
+instead of the install name of the library for matching an entry in the segment
+address table.

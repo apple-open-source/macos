@@ -1,5 +1,5 @@
 # Managed window class definition for GDBtk.
-# Copyright 1998, 1999 Cygnus Solutions
+# Copyright 1998, 1999, 2000, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -16,18 +16,18 @@ class ManagedWin {
   inherit itk::Widget
   
   public {
-    method reconfig {}
+    method constructor {args}
+    method destructor {}
+
+    method reconfig {} {}
     method destroy_toplevel {}
     method quit_if_last {} {return 1}
-    method enable {on}
     method pickle {}
     method reveal {}
     method window_name {wname {iname ""}}
 
-    variable nosize 0
-    
     proc find {win}
-    proc open {args}
+    proc open {class args}
     proc open_dlg {class args}
     proc init {}
     proc restart {}
@@ -36,70 +36,28 @@ class ManagedWin {
   }
 
   protected {
-    proc dont_remember_size {} {
-      return 0
-    }
-    method freeze_me {}
-    method thaw_me {}
+    # The Tk's toplevel window for this ManagedWin
+    variable _top
 
-    variable Top
-  }
-
-  private {
-    proc _create {class args}
-    proc _open {class args}
-    proc make_icon_window {name {file "gdbtk_icon"}}
-  }
-
-  protected {
-    # manage_active - list of active window objects 
-    common manage_active ""
+    # Variable which holds the geometry of this window
+    variable _geometry {}
 
     # this is the counter of TopLevelWins open
     # when it hits 0, exit.
     common numTopWins 0
 
-    common screenwidth
-    common screenheight
-    common mainwindow
+    common _screenwidth
+    common _screenheight
+
+    method _freeze_me {}
+    method _thaw_me {}
+
+    proc dont_remember_size {} { return 0 }
   }
 
-  constructor {args} {
-    debug "$this args=$args"
-    lappend manage_active $this
-    set Top [winfo toplevel $itk_interior]
-    
+  private {
+    proc _create {class args}
+    proc _open {class args}
+    proc _make_icon_window {name {file "gdbtk_icon"}}
   }
-
-  destructor {
-
-    set infoList [after info]
-
-    # remove object from list
-    set i [lsearch -exact $manage_active $this]
-    if {$i != -1} {
-      set manage_active [lreplace $manage_active $i $i]
-    }
-
-    # save geometry
-    set g [wm geometry [winfo toplevel [namespace tail $this]]]
-    pref setd gdb/geometry/[namespace tail $this] $g
-
-    # If no toplevels remain, quit.  However, check the quit_if_last
-    # flag since we might be doing something like displaying a 
-    # splash screen at startup...
-
-    if {!$numTopWins && [quit_if_last]} {
-      # save window positions of remaining windows
-      foreach obj $manage_active {
-	set g [wm geometry [winfo toplevel [namespace tail $obj]]]
-	pref setd gdb/geometry/[namespace tail $obj] $g
-      }
-      pref_save
-      gdb_force_quit
-    } else {
-      destroy_toplevel
-    }
- }
-
 }

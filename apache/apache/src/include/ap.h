@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -74,6 +74,10 @@ int ap_slack(int, int);
 int ap_execle(const char *, const char *, ...);
 int ap_execve(const char *, char * const argv[], char * const envp[]);
 API_EXPORT(int) ap_getpass(const char *prompt, char *pwbuf, size_t bufsiz);
+
+#ifndef ap_strtol
+API_EXPORT(long) ap_strtol(const char *nptr, char **endptr, int base);
+#endif
 
 /* small utility macros to make things easier to read */
 

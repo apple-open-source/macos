@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -19,31 +19,25 @@
 /*
 	File:		SecureTransport.h
 
-	Contains:	Public API for Apple SSL 3.0 Implementation
+	Contains:	Public API for Apple SSL/TLS Implementation
 
-	Written by:	Doug Mitchell
-
-	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright: (c) 1999-2002 by Apple Computer, Inc., all rights reserved.
 
 */
 
-#ifndef _SECURE_TRANSPORT_H_
-#define _SECURE_TRANSPORT_H_
+#ifndef _SECURITY_SECURETRANSPORT_H_
+#define _SECURITY_SECURETRANSPORT_H_
 
-/*
- * Initial X port: no keychain storage of certs; no server mode, no
- * client-side authentication. 
- */
-#define ST_KEYCHAIN_ENABLE			0
-#define ST_SERVER_MODE_ENABLE		0
+/* Current capabilities */
+#define ST_SERVER_MODE_ENABLE		1
 #define ST_CLIENT_AUTHENTICATION	0
 
 /*
  * This file describes the public API for an implementation of the 
- * Secure Socket Layer, V. 3.0. This implementation is based on Netscape's
- * SSLRef 3.0, modified for Apple use. (Appropriate copyrights and
- * acknowledgements are found elsewhere, and in all files containing 
- * Netscape code.)
+ * Secure Socket Layer, V. 3.0, and Transport Layer Security, V. 1.0.
+ * This implementation is based on Netscape's SSLRef 3.0, modified 
+ * for Apple use. (Appropriate copyrights and acknowledgements are 
+ * found elsewhere, and in all files containing Netscape code.)
  *
  * As in SSLRef 3.0, there no transport layer dependencies in this library;
  * it can be used with sockets, Open Transport, etc. Applications using
@@ -51,7 +45,7 @@
  * on underlying network connections. Applications are also responsible
  * for setting up raw network connections; the application passes in
  * an opaque reference to the underlying (connected) entity at the 
- * start of an SSL session.
+ * start of an SSL session in the form of an SSLConnectionRef.
  *
  * Some terminology:
  *
@@ -66,18 +60,14 @@
  * two calls, inclusive.
  * 
  * An SSL Session Context, or SSLContextRef, is an opaque reference in this
- * library to the state associated with one session.  
+ * library to the state associated with one session. A SSLContextRef cannot
+ * be reused for multiple sessions.  
  */ 
  
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
-//#include <CoreServices/CoreServices.h>
-#include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFArray.h>
 #include <Security/CipherSuite.h>
-
-#if		ST_KEYCHAIN_ENABLE
-#include <Keychain.h>
-#endif	/* ST_KEYCHAIN_ENABLE */
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,11 +86,13 @@ typedef const void *		SSLConnectionRef;
 
 /* SSL Protocol version */
 typedef enum {
-	kSSLProtocolUnknown,		/* no protocol negotiated/specified */
+	kSSLProtocolUnknown,		/* no protocol negotiated/specified; use default */
 	kSSLProtocol2,				/* SSL 2.0 only */
 	kSSLProtocol3,				/* SSL 3.0 preferred, 2.0 OK if peer requires */
-	kSSLProtocol3Only			/* use SSL 3.0 only, fail if peer tries to
+	kSSLProtocol3Only,			/* use SSL 3.0 only, fail if peer tries to
 								 * negotiate 2.0 */
+	kTLSProtocol1,				/* TLS 1.0 preferred, lower versions OK */
+	kTLSProtocol1Only			/* TLS 1.0 only */
 } SSLProtocol;
 
 /* State of an SSLSession */
@@ -134,11 +126,11 @@ typedef OSStatus
 							 void 				*data, 			/* owned by 
 							 									 * caller, data
 							 									 * RETURNED */
-							 UInt32 			*dataLength);	/* IN/OUT */ 
+							 size_t 			*dataLength);	/* IN/OUT */ 
 typedef OSStatus 
 (*SSLWriteFunc) 			(SSLConnectionRef 	connection,
 							 const void 		*data, 
-							 UInt32 			*dataLength);	/* IN/OUT */ 
+							 size_t 			*dataLength);	/* IN/OUT */ 
 
 
 /*************************************************
@@ -211,10 +203,9 @@ SSLSetIOFuncs				(SSLContextRef		context,
 							 SSLWriteFunc		write);
 							 
 /* 
- * Get/set SSL protocol version; optional. Default for client is is 
- * kSSLProtocolUnknown (which works with whatever the server prefers);
- * default for server side is kSSLProtocol3 (which prefers SSL3 but
- * works with SSL2-only clients). 
+ * Get/set SSL protocol version; optional. Default is kSSLProtocolUnknown, 
+ * in which case the highest possible version (currently kTLSProtocol1) 
+ * is attempted, but a lower version is accepted if the peer requires it. 
  *
  * SSLSetProtocolVersion can not be called when a session is active. 
  */
@@ -232,11 +223,12 @@ SSLGetProtocolVersion		(SSLContextRef		context,
  * Specify this connection's certificate(s). This is mandatory for
  * server connections, optional for clients. Specifying a certificate
  * for a client enables SSL client-side authentication. The end-entity
- * cert is in certRef[0]. Specifying a root cert is optional; if it's
+ * cert is in certRefs[0]. Specifying a root cert is optional; if it's
  * not specified, the root cert which verifies the cert chain specified
- * here must have been specified in SSLSetTrustedRootCertKC().
+ * here must be present in the system-wide set of trusted anchor certs.
  *
- * The certRefs argument is a CFArray containing KCItemRefs. 
+ * The certRefs argument is a CFArray containing SecCertificateRefs,
+ * except for certRefs[0], which is a SecIdentityRef.
  *
  * Can only be called when no session is active. 
  *
@@ -244,49 +236,18 @@ SSLGetProtocolVersion		(SSLContextRef		context,
  *   
  *	-- The certRef references remains valid for the lifetime of the 
  *     session.
- *  -- The specified certRef[0] is capable of signing. 
- *  -- In order for a server connection to work with SSL3 protocol,
- *     the private key associated with certRef[0] must ALSO be
- *	   capable of decryption. This is a workaround for a known 
- * 	   Netscape bug.  
+ *  -- The specified certRefs[0] is capable of signing. 
+ *  -- The required capabilities of the certRef[0], and of the optional cert
+ *     specified in SSLSetEncryptionCertificate (see below), are highly
+ *     dependent on the application. For example, to work as a server with
+ *     Netscape clients, the cert specified here must be capable of both
+ *     signing and encrypting. 
  */
 OSStatus
 SSLSetCertificate			(SSLContextRef		context,
 							 CFArrayRef			certRefs);
 
 #endif	/* (ST_SERVER_MODE_ENABLE || ST_CLIENT_AUTHENTICATION) */
-
-#if		ST_KEYCHAIN_ENABLE
-
-/*
- * Specify a Keychain containing trusted root certificates.
- * Optional; the Keychain's root certs either are appended to or 
- * replace the existing SSLContextRef's root certs, which are initialized
- * to a system-wide set of trusted roots at SSLContextAlloc().
- *
- * Can not be called while a session is active.
- */
-OSStatus
-SSLSetTrustedRootCertKC		(SSLContextRef		context,
-							 KCRef				keyChainRef,
-							 Boolean			deleteExisting);
-							 
-/*
- * Specify a Keychain (and access credentials for the keychain)
- * to which newly encountered root certs are attempted to be
- * added. This may or may not result in user interaction, depending
- * on the configuration of the keychain and of the specified
- * accesssCreds.
- *
- * Can not be called while a session is active and can only be
- * called a maximum of one time per SSLContextRef.
- */
-OSStatus 
-SSLSetNewRootKC				(SSLContextRef		context,
-							 KCRef				keyChainRef,
-							 void				*accessCreds);
-	
-#endif	/* ST_KEYCHAIN_ENABLE */
 
 /*
  * Specify I/O connection - a socket, endpoint, etc., which is
@@ -301,6 +262,33 @@ SSLSetNewRootKC				(SSLContextRef		context,
 OSStatus
 SSLSetConnection			(SSLContextRef		context,
 							 SSLConnectionRef	connection);
+
+/* 
+ * Specify the fully qualified doman name of the peer, e.g., "store.apple.com."
+ * Optional; used to verify the common name field in peer's certificate. 
+ * Name is in the form of a C string; NULL termination optional, i.e., 
+ * peerName[peerNameLen[1] may or may not have a NULL. In any case peerNameLen
+ * is the number of bytes of the peer domain name.
+ */
+OSStatus
+SSLSetPeerDomainName		(SSLContextRef		context,
+							 const char			*peerName,
+							 size_t				peerNameLen);
+							 
+/*
+ * Determine the buffer size needed for SSLGetPeerDomainName().
+ */
+OSStatus 
+SSLGetPeerDomainNameLength	(SSLContextRef		context,
+							 size_t				*peerNameLen);	// RETURNED
+
+/*
+ * Obtain the value specified in SSLSetPeerDomainName().
+ */
+OSStatus 
+SSLGetPeerDomainName		(SSLContextRef		context,
+							 char				*peerName,		// returned here
+							 size_t				*peerNameLen);	// IN/OUT
 
 /*
  * Obtain the actual negotiated protocol version of the active
@@ -320,15 +308,15 @@ SSLGetNegotiatedProtocolVersion		(SSLContextRef		context,
  */
 OSStatus
 SSLGetNumberSupportedCiphers (SSLContextRef			context,
-							  UInt32				*numCiphers);
+							  size_t				*numCiphers);
 			
 OSStatus
 SSLGetSupportedCiphers		 (SSLContextRef			context,
 							  SSLCipherSuite		*ciphers,		/* RETURNED */
-							  UInt32				*numCiphers);	/* IN/OUT */
+							  size_t				*numCiphers);	/* IN/OUT */
 
 /*
- * Specify a (typlically) restricted set of SSLCipherSuites to be enabled by
+ * Specify a (typically) restricted set of SSLCipherSuites to be enabled by
  * the current SSLContext. Can only be called when no session is active. Default
  * set of enabled SSLCipherSuites is the same as the complete set of supported 
  * SSLCipherSuites as obtained by SSLGetSupportedCiphers().
@@ -336,7 +324,7 @@ SSLGetSupportedCiphers		 (SSLContextRef			context,
 OSStatus 
 SSLSetEnabledCiphers		(SSLContextRef			context,
 							 const SSLCipherSuite	*ciphers,	
-							 UInt32					numCiphers);
+							 size_t					numCiphers);
 							 
 /*
  * Determine number and values of all of the SSLCipherSuites currently enabled.
@@ -346,12 +334,12 @@ SSLSetEnabledCiphers		(SSLContextRef			context,
  */
 OSStatus
 SSLGetNumberEnabledCiphers 	(SSLContextRef			context,
-							 UInt32					*numCiphers);
+							 size_t					*numCiphers);
 			
 OSStatus
 SSLGetEnabledCiphers		(SSLContextRef			context,
 							 SSLCipherSuite			*ciphers,		/* RETURNED */
-							 UInt32					*numCiphers);	/* IN/OUT */
+							 size_t					*numCiphers);	/* IN/OUT */
 
 
 /*
@@ -361,15 +349,15 @@ SSLGetEnabledCiphers		(SSLContextRef			context,
  * errSSLCertExpired error.
  */ 
 OSStatus 
-SSLSetAllowExpiredCerts		(SSLContextRef		context,
-							 Boolean			allowExpired);
+SSLSetAllowsExpiredCerts	(SSLContextRef		context,
+							 Boolean			allowsExpired);
 							 
 /* 
  * Obtain the current value of an SSLContext's "allowExpiredCerts" flag. 
  */
 OSStatus
-SSLGetAllowExpiredCerts		(SSLContextRef		context,
-							 Boolean			*allowExpired); /* RETURNED */
+SSLGetAllowsExpiredCerts	(SSLContextRef		context,
+							 Boolean			*allowsExpired); /* RETURNED */
 
 /*
  * Specify option of allowing for an unknown root cert, i.e., one which
@@ -387,14 +375,14 @@ SSLGetAllowExpiredCerts		(SSLContextRef		context,
  * allowing connection to a totally untrusted peer. 
  */
 OSStatus 
-SSLSetAllowAnyRoot			(SSLContextRef		context,
+SSLSetAllowsAnyRoot			(SSLContextRef		context,
 							 Boolean			anyRoot);
 
 /* 
  * Obtain the current value of an SSLContext's "allow any root" flag. 
  */
 OSStatus
-SSLGetAllowAnyRoot			(SSLContextRef		context,
+SSLGetAllowsAnyRoot			(SSLContextRef		context,
 							 Boolean			*anyRoot); /* RETURNED */
 
 /*
@@ -402,10 +390,11 @@ SSLGetAllowAnyRoot			(SSLContextRef		context,
  * a handshake attempt.
  *
  * The certs argument is a CFArray containing CFDataRefs, each
- * of which is one DER-encoded cert. The entire array is mallocd
- * by the SecureTransport library. The cert at the end of the 
- * returned array is the subject (end entity) cert; the root cert
- * (or the closest cert to it) is in index 0 of the returned array. 
+ * of which is one DER-encoded cert. The entire array is created
+ * by the SecureTransport library and must be released by the caller. 
+ * The cert at the end of the returned array is the subject (end 
+ * entity) cert; the root cert (or the closest cert to it) is in 
+ * index 0 of the returned array. 
  */	
 OSStatus 
 SSLGetPeerCertificates		(SSLContextRef 		context, 
@@ -417,10 +406,27 @@ SSLGetPeerCertificates		(SSLContextRef 		context,
  * would be IP address and port, stored in some caller-private manner.
  * To be optionally called prior to SSLHandshake for the current 
  * session. This is mandatory if this session is to be resumable. 
+ *
+ * SecureTransport allocates its own copy of the incoming peerID. The 
+ * data provided in *peerID, while opaque to SecureTransport, is used
+ * in a byte-for-byte compare to other previous peerID values set by the 
+ * current application. Matching peerID blobs result in SecureTransport
+ * attempting to resume an SSL session with the same parameters as used
+ * in the previous session which specified the same peerID bytes. 
  */
 OSStatus 
 SSLSetPeerID				(SSLContextRef 		context, 
-							 CFDataRef 			peerID);
+							 const void 		*peerID,
+							 size_t				peerIDLen);
+
+/*
+ * Obtain current PeerID. Returns NULL pointer, zero length if
+ * SSLSetPeerID has not been called for this context.
+ */
+OSStatus
+SSLGetPeerID				(SSLContextRef 		context, 
+							 const void 		**peerID,
+							 size_t				*peerIDLen);
 
 /*
  * Obtain the SSLCipherSuite (e.g., SSL_RSA_WITH_DES_CBC_SHA) negotiated
@@ -441,26 +447,21 @@ SSLGetNegotiatedCipher		(SSLContextRef 		context,
  * used in one of the following cases:
  *
  *	-- The end-entity certificate specified in SSLSetCertificate() is 
- *	   not capable of encryption. (THIS REQUIREMENT IS OBSOLETE due
- *	   due a workaround for a Netscape bug.)
+ *	   not capable of encryption.  
  *
  *  -- The end-entity certificate specified in SSLSetCertificate() 
  * 	   contains a key which is too large (i.e., too strong) for legal 
  *	   encryption in this session. In this case a weaker cert is 
  *     specified here and is used for server-initiated key exchange. 
  *
- *  -- Servers which establsh an SSL level 2 connection require
- *     encryption certs. (SSL2 does not perform signing and verification,
- *     only asymmetric encryption and decryption.)
- *
- *  The encryptionCertRef argument is a CFArray containing 
- *  KCItemRefs. 
+ * The certRefs argument is a CFArray containing SecCertificateRefs,
+ * except for certRefs[0], which is a SecIdentityRef.
  *
  * The following assumptions are made:
  *
- *	-- The encryptionCertRef references remains valid for the lifetime of the 
+ *	-- The certRefs references remains valid for the lifetime of the 
  *     connection.
- *  -- The specified encryptionCertRef[0] is capable of encryption. 
+ *  -- The specified certRefs[0] is capable of encryption. 
  *
  * Can only be called when no session is active. 
  *
@@ -471,7 +472,7 @@ SSLGetNegotiatedCipher		(SSLContextRef 		context,
  *    not accept encryption certs with key sizes larger than 512
  *    bits for exportable ciphers. Apps which wish to use encryption 
  *    certs with key sizes larger than 512 bits should disable the 
- *    use of exportable ciphers via the SSLSetExportEnable() call. 
+ *    use of exportable ciphers via the SSLSetEnabledCiphers() call. 
  */
 OSStatus
 SSLSetEncryptionCertificate	(SSLContextRef		context,
@@ -479,8 +480,7 @@ SSLSetEncryptionCertificate	(SSLContextRef		context,
 
 /*
  * Specify requirements for client-side authentication.
- * Optional; Default is kNeverAuthenticate, unless SSLSetTrustedRootCertKC
- * has been called, in which case the default is kTryAuthenticate.
+ * Optional; Default is kNeverAuthenticate.
  *
  * Can only be called when no session is active.  
  */
@@ -546,8 +546,8 @@ SSLHandshake				(SSLContextRef		context);
 OSStatus 
 SSLWrite					(SSLContextRef		context,
 							 const void *		data,
-							 UInt32				dataLength,
-							 UInt32 			*processed);	/* RETURNED */ 
+							 size_t				dataLength,
+							 size_t 			*processed);	/* RETURNED */ 
 
 /*
  * data is mallocd by caller; available size specified in
@@ -557,9 +557,18 @@ SSLWrite					(SSLContextRef		context,
 OSStatus 
 SSLRead						(SSLContextRef		context,
 							 void *				data,			/* RETURNED */
-							 UInt32				dataLength,
-							 UInt32 			*processed);	/* RETURNED */ 
-							 
+							 size_t				dataLength,
+							 size_t 			*processed);	/* RETURNED */ 
+
+/*
+ * Determine how much data the client can be guaranteed to 
+ * obtain via SSLRead() without blocking or causing any low-level 
+ * read operations to occur.
+ */
+OSStatus 
+SSLGetBufferedReadSize		(SSLContextRef context,
+							 size_t *bufSize);      			/* RETURNED */
+
 /*
  * Terminate current SSL session. 
  */
@@ -570,4 +579,4 @@ SSLClose					(SSLContextRef		context);
 }
 #endif
 
-#endif /* _SECURE_TRANSPORT_H_ */
+#endif /* !_SECURITY_SECURETRANSPORT_H_ */

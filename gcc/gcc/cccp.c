@@ -33,6 +33,9 @@ typedef unsigned char U_CHAR;
 #include "intl.h"
 #include "prefix.h"
 
+#include "genindex.h"
+int c_language = -1;
+
 #ifdef MULTIBYTE_CHARS
 #include "mbchar.h"
 #include <locale.h>
@@ -330,19 +333,6 @@ static unsigned num_stats = 0;
 
 static FILE * inclusion_log_file = NULL;
 #endif /* APPLE_CPP_INCLUSION_LOGS */
-
-/* dump records for includes and macros */
-static int flag_dump_symbols;
-/* Flag to indicate, if indexing information needs to be generated */
-static int flag_gen_index;
-/* socket used to put indexing information.  */
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-static int index_socket_fd = -1;
-const char *index_host_name = 0;       /* Hostname used for indexing */
-const char *index_port_string = 0;     /* port string used for indexing */
-unsigned index_port_number = 0;  /* port number used for indexing */
 
 /* I/O buffer structure.
    The `fname' field is nonzero for source files and #include files
@@ -1267,60 +1257,6 @@ static void ilog_write (const char * chars, unsigned length);
 #define fstat(file,sbf)        ( num_stats++, fstat(file,sbf) )
 #endif /* APPLE_CPP_INCLUSION_LOGS */
 
-/* Establish socket connection to put the indexing information.  */
-int 
-connect_to_socket (hostname, port_number)
-    char *hostname;
-    unsigned port_number;
-{
-    int socket_fd;
-    struct sockaddr_in addr;
-
-    bzero ((char *)&addr, sizeof (addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = (hostname == NULL) ?
-                           INADDR_LOOPBACK :
-                           inet_addr (hostname);
-    addr.sin_port = htons (port_number);
-
-    socket_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (socket_fd < 0)     
-      {
-         warning("Can not create socket: %s", strerror (errno));
-         return -1;
-      }
-    if (connect (socket_fd, (struct sockaddr *)&addr, sizeof (addr)) < 0)
-      {
-         warning("Can not connect to socket: %s", strerror (errno));
-         return -1;
-      }
-    return socket_fd; 
-}        
-
-/* Dump the indexing information using already established socket connection */
-void 
-dump_symbol_info_0 (info, name, number)
-    char *info; /* symbol information */
-    char *name; /* name of the symbol */
-    int  number; /* line number */
-{
-    char buf[25];
-
-    if (info)
-      write (index_socket_fd, (void *) info, strlen(info)); 
-
-    if (!name && number == -1)
-      return;
-
-    if (name)
-      write (index_socket_fd, (void *) name, strlen(name));
-    if (number != -1)
-      sprintf(&buf[0]," %u\n",number); /* Max buf length is 25 */
-    else
-      sprintf(&buf[0],"\n");
-    write (index_socket_fd, (void *) buf, strlen (buf));
-
-}
 
 /* Read LEN bytes at PTR from descriptor DESC, for file FILENAME,
    retrying if necessary.  If MAX_READ_LEN is defined, read at most
@@ -2449,32 +2385,45 @@ main (argc, argv)
        else
          flag_gen_index = 0;
   }
+  if (flag_dump_symbols)
+    {     
+      flag_dump_symbols = 0;
+      flag_gen_index = 0;
+      flag_gen_index_original = 0;
+    }   
   if (flag_gen_index)
-  {
-    /* open named pipe */
-    index_socket_fd = connect_to_socket(index_host_name, index_port_number);
-    if (index_socket_fd == -1)
-      {
-        /* can not open named pipe */
-        warning ("Can not open socket. Indexing information is not produced");
-      }
-    else
-      {
-        /* Put the index begin marker */
-        /* 1, 2 = 1st Part of 2-part info */
-        int length;
-        char * buf = NULL;
-        if (in_fname)
-          length = strlen (in_fname);
-        else
-          length = 1;
-        buf = (char *) malloc (sizeof (char) * (40 + length));
-        sprintf (buf, "pbxindex-begin v1.0 0x%08lX %02u/%02u %s\n", 
-                (unsigned long) getppid(), 1, 2, in_fname ? in_fname : " ");
-        write (index_socket_fd, buf, strlen (buf));
-        free (buf);
-      }
-  }
+    {   
+      flag_gen_index_original = 1;
+      /* See if the list of indexed header file is to be checked
+         before generating index information for  the headers.  */
+      index_header_list_filename = getenv ("PB_INDEXED_HEADERS_FILE");
+      if (index_header_list_filename && *index_header_list_filename)
+        flag_check_indexed_header_list = read_indexed_header_list ();
+  
+      /* open named pipe */
+      index_socket_fd = connect_to_socket(index_host_name, index_port_number);
+      if (index_socket_fd == -1)
+        {
+          /* can not open named pipe */
+          warning ("Can not open socket. Indexing information is not produced");
+        }
+      else
+        {
+          /* Put the index begin marker */
+          /* 1, 2 = 1st Part of 2-part info */
+          int length;
+          char * buf = NULL;
+          if (in_fname)
+            length = strlen (in_fname);
+          else
+            length = 1;
+          buf = (char *) malloc (sizeof (char) * (40 + length));
+          sprintf (buf, "pbxindex-begin v1.0 0x%08lX %02u/%02u %s\n", 
+                  (unsigned long) getppid(), 1, 2, in_fname ? in_fname : " ");
+          write (index_socket_fd, buf, strlen (buf));
+          free (buf);
+        }
+    }
 
 #ifdef NEXT_CPP_SERVER
   if (serverized && requested_cwd && strcmp(actual_cwd, requested_cwd) != 0) {
@@ -2966,6 +2915,12 @@ main (argc, argv)
 
   output_line_directive (fp, &outbuf, 0, same_file);
 
+  /* print file begin record */
+  if (flag_dump_symbols)
+    printf ("+Fm %s\n", in_fname);
+  if (flag_gen_index)   
+    dump_symbol_info ("+Fm ", in_fname, -1);
+  
   /* Scan the -include files before the main input.  */
 
   no_record_file++;
@@ -2990,12 +2945,6 @@ main (argc, argv)
     }
   no_record_file--;
 
-  /* print file begin record */
-  if (flag_dump_symbols)
-    printf ("+Fm %s\n", in_fname);
-  if (flag_gen_index)   
-    dump_symbol_info_0 ("+Fm ", in_fname, -1);
-  
 #ifdef APPLE_CPP_INCLUSION_LOGS
   ilog_printf("\"%s\" {\n", in_fname);
 #endif
@@ -3012,7 +2961,7 @@ main (argc, argv)
   if (flag_dump_symbols)
         printf ("*Fm %s\n", in_fname);
   if (flag_gen_index)   
-        dump_symbol_info_0 ("*Fm ", in_fname, -1);
+        dump_symbol_info ("*Fm ", in_fname, -1);
   
   if (missing_newline)
     fp->lineno--;
@@ -3023,6 +2972,10 @@ main (argc, argv)
   if (flag_gen_index)
     {
       char buf[16] = "pbxindex-end ?\n";
+
+      if (index_buffer_count != 0)
+        flush_index_buffer ();
+
       /* Put the index end marker */  
       write (index_socket_fd, &buf[0], strlen (&buf[0]));
       /* close named pipe */
@@ -5465,7 +5418,7 @@ struct stat * pstatbuf;
 	       if (flag_dump_symbols)
 	         printf ("+Fi %s\n", path);
 	       if (flag_gen_index)
-             dump_symbol_info_0 ("+Fi ", path, -1);
+             dump_symbol_info ("+Fi ", path, -1);
                return REDUNDANT_HEADER;
          }
       }
@@ -5483,7 +5436,7 @@ struct stat * pstatbuf;
 	    if (flag_dump_symbols)
             printf ("+Fi %s\n", path);
 	    if (flag_gen_index)
-          dump_symbol_info_0 ("+Fi ", path, -1);
+          dump_symbol_info ("+Fi ", path, -1);
             return REDUNDANT_HEADER;
          }
       }
@@ -5496,7 +5449,7 @@ struct stat * pstatbuf;
 	 if (flag_dump_symbols)
        printf ("+Fi %s\n", path);
 	 if (flag_gen_index)
-       dump_symbol_info_0 ("+Fi ", path, -1);
+       dump_symbol_info ("+Fi ", path, -1);
          return GOOD_HEADER;
       }
       if (f >= 0) {
@@ -5511,7 +5464,7 @@ struct stat * pstatbuf;
 	 if (flag_dump_symbols)
       printf ("+Fi %s\n", path);
 	 if (flag_gen_index)
-      dump_symbol_info_0 ("+Fi ", path, -1);
+      dump_symbol_info ("+Fi ", path, -1);
          return GOOD_HEADER;
       }
 #ifdef APPLE_CPP_INCLUSION_LOGS
@@ -6967,10 +6920,17 @@ finclude (f, inc, op, system_header_p, dirptr, fileptr, sb)
 
   CHECK_DEPTH (return;);
 
+  if (flag_gen_index)
+    dump_symbol_info ("+Fi ", fname, -1);
+  /* Find out if index is already generated or not.
+     If generated than turn off index generation for this file.  */
+  if (flag_check_indexed_header_list)
+    process_header_indexing (fname, PB_INDEX_BEGIN);
+
   if (flag_dump_symbols)
     printf ("+Fm %s\n", fname);
   if (flag_gen_index)
-    dump_symbol_info_0 ("+Fm ", fname, -1);
+    dump_symbol_info ("+Fm ", fname, -1);
   fp = &instack[indepth + 1];
   bzero ((char *) fp, sizeof (FILE_BUF));
   fp->nominal_fname = fp->fname = fname;
@@ -7045,6 +7005,7 @@ finclude (f, inc, op, system_header_p, dirptr, fileptr, sb)
   }
   fp->buf[fp->length] = '\0';
 
+
   /* Close descriptor now, so nesting does not use lots of descriptors.  */
   close (f);
 
@@ -7101,7 +7062,9 @@ dorescan:
   if (flag_dump_symbols)
     printf ("*Fm %s\n", fname);
   if (flag_gen_index)
-    dump_symbol_info_0 ("*Fm ", fname, -1);
+    dump_symbol_info ("*Fm ", fname, -1);
+  if (flag_check_indexed_header_list)
+    process_header_indexing (fname, PB_INDEX_END);
 
   indepth--;
   input_file_stack_tick++;
@@ -7908,7 +7871,7 @@ do_define (buf, limit, op, keyword)
   {
     char buf[mdef.symlen+1];
     sprintf (&buf[0],"%*.*s",mdef.symlen, mdef.symlen, mdef.symnam);
-    dump_symbol_info_0 ("+Mh ", buf, instack[indepth].lineno);
+    dump_symbol_info ("+Mh ", buf, instack[indepth].lineno);
   }
 
 #ifdef NEXT_CPP_SERVER

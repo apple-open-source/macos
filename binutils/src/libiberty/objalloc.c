@@ -90,14 +90,14 @@ objalloc_create ()
   struct objalloc *ret;
   struct objalloc_chunk *chunk;
 
-  ret = (struct objalloc *) malloc (sizeof *ret);
+  ret = (struct objalloc *) xmalloc (sizeof *ret);
   if (ret == NULL)
     return NULL;
 
-  ret->chunks = (PTR) malloc (CHUNK_SIZE);
+  ret->chunks = (PTR) xmalloc (CHUNK_SIZE);
   if (ret->chunks == NULL)
     {
-      free (ret);
+      xfree (ret);
       return NULL;
     }
 
@@ -137,7 +137,7 @@ _objalloc_alloc (o, len)
       char *ret;
       struct objalloc_chunk *chunk;
 
-      ret = (char *) malloc (CHUNK_HEADER_SIZE + len);
+      ret = (char *) xmalloc (CHUNK_HEADER_SIZE + len);
       if (ret == NULL)
 	return NULL;
 
@@ -153,7 +153,7 @@ _objalloc_alloc (o, len)
     {
       struct objalloc_chunk *chunk;
 
-      chunk = (struct objalloc_chunk *) malloc (CHUNK_SIZE);
+      chunk = (struct objalloc_chunk *) xmalloc (CHUNK_SIZE);
       if (chunk == NULL)
 	return NULL;
       chunk->next = (struct objalloc_chunk *) o->chunks;
@@ -182,11 +182,11 @@ objalloc_free (o)
       struct objalloc_chunk *next;
 
       next = l->next;
-      free (l);
+      xfree (l);
       l = next;
     }
 
-  free (o);
+  xfree (o);
 }
 
 /* Free a block from an objalloc structure.  This also frees all more
@@ -245,10 +245,10 @@ objalloc_free_block (o, block)
 	    {
 	      if (small == q)
 		small = NULL;
-	      free (q);
+	      xfree (q);
 	    }
 	  else if (q->current_ptr > b)
-	    free (q);
+	    xfree (q);
 	  else if (first == NULL)
 	    first = q;
 
@@ -283,7 +283,7 @@ objalloc_free_block (o, block)
 	  struct objalloc_chunk *next;
 
 	  next = q->next;
-	  free (q);
+	  xfree (q);
 	  q = next;
 	}
 

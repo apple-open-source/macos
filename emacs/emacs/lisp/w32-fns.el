@@ -1,8 +1,9 @@
-;;; w32-fns.el --- Lisp routines for Windows NT.
+;;; w32-fns.el --- Lisp routines for Windows NT
 
-;; Copyright (C) 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 2001 Free Software Foundation, Inc.
 
 ;; Author: Geoff Voelker <voelker@cs.washington.edu>
+;; Keywords: internal
 
 ;; This file is part of GNU Emacs.
 
@@ -39,9 +40,6 @@
 (define-key function-key-map [M-backspace] [?\M-\177])
 (define-key function-key-map [C-M-backspace] [\C-\M-delete])
 
-;; Ignore language-change events in isearch.
-(define-key isearch-mode-map [language-change] nil)
-
 ;; Ignore case on file-name completion
 (setq completion-ignore-case t)
 
@@ -49,13 +47,19 @@
 ;; same buffer.
 (setq find-file-visit-truename t)
 
+(defun w32-version ()
+  "Return the MS-Windows version numbers.
+The value is a list of three integers: the major and minor version
+numbers, and the build number."
+  (x-server-version))
+
 (defvar w32-system-shells '("cmd" "cmd.exe" "command" "command.com"
 			    "4nt" "4nt.exe" "4dos" "4dos.exe"
 			    "ndos" "ndos.exe")
   "List of strings recognized as Windows NT/9X system shells.")
 
 (defun w32-using-nt ()
-  "Return t if literally running on Windows NT (i.e., not Windows 9X)."
+  "Return non-nil if literally running on Windows NT (i.e., not Windows 9X)."
   (and (eq system-type 'windows-nt) (getenv "SystemRoot")))
 
 (defun w32-shell-name ()
@@ -226,10 +230,10 @@ You should set this to t when using a non-system shell.\n\n"))))
 ;;; source-directory, set it to something that is a reasonable approximation
 ;;; on the user's machine.
 
-(add-hook 'before-init-hook 
-	  '(lambda ()
-	     (setq source-directory (file-name-as-directory 
-				     (expand-file-name ".." exec-directory)))))
+;(add-hook 'before-init-hook 
+;	  '(lambda ()
+;	     (setq source-directory (file-name-as-directory 
+;				     (expand-file-name ".." exec-directory)))))
 
 ;; Avoid creating auto-save file names containing invalid characters.
 (fset 'original-make-auto-save-file-name
@@ -240,7 +244,11 @@ You should set this to t when using a non-system shell.\n\n"))))
 Does not consider `auto-save-visited-file-name' as that variable is checked
 before calling this function.  You can redefine this for customization.
 See also `auto-save-file-name-p'."
-  (convert-standard-filename (original-make-auto-save-file-name)))
+  (let ((filename (original-make-auto-save-file-name)))
+    ;; Don't modify remote (ange-ftp) filenames
+    (if (string-match "^/\\w+@[-A-Za-z0-9._]+:" filename)
+	filename
+      (convert-standard-filename filename))))
 
 (defun convert-standard-filename (filename)
   "Convert a standard file's name to something suitable for the current OS.
@@ -250,7 +258,8 @@ with a definition that really does change some file names."
   (let ((name (copy-sequence filename))
 	(start 0))
     ;; leave ':' if part of drive specifier
-    (if (eq (aref name 1) ?:)
+    (if (and (> (length name) 1)
+	     (eq (aref name 1) ?:))
 	(setq start 2))
     ;; destructively replace invalid filename characters with !
     (while (string-match "[?*:<>|\"\000-\037]" name start)
@@ -258,11 +267,12 @@ with a definition that really does change some file names."
       (setq start (match-end 0)))
     ;; convert directory separators to Windows format
     ;; (but only if the shell in use requires it)
-    (if (w32-shell-dos-semantics)
-	(while (string-match "/" name start)
-	  (aset name (match-beginning 0) ?\\)
-	  (setq start (match-end 0))))
-      name))
+    (when (w32-shell-dos-semantics)
+      (setq start 0)
+      (while (string-match "/" name start)
+	(aset name (match-beginning 0) ?\\)
+	(setq start (match-end 0))))
+    name))
 
 ;;; Fix interface to (X-specific) mouse.el
 (defun x-set-selection (type data)
@@ -326,5 +336,134 @@ CODING-SYSTEM, use \\[list-coding-systems]."
 (put 'escape 'ascii-character ?\e)
 (put 'backspace 'ascii-character 127)
 (put 'delete 'ascii-character 127)
+
+;; W32 uses different color indexes than standard:
+
+(defvar w32-tty-standard-colors
+  '(("white"         15 65535 65535 65535)
+    ("yellow"        14 65535 65535     0) ; Yellow
+    ("lightmagenta"  13 65535     0 65535) ; Magenta
+    ("lightred"      12 65535     0     0) ; Red
+    ("lightcyan"     11     0 65535 65535) ; Cyan
+    ("lightgreen"    10     0 65535     0) ; Green
+    ("lightblue"      9     0     0 65535) ; Blue
+    ("darkgray"       8 26112 26112 26112) ; Gray40
+    ("lightgray"      7 48640 48640 48640) ; Gray
+    ("brown"          6 40960 20992 11520) ; Sienna
+    ("magenta"        5 35584     0 35584) ; DarkMagenta
+    ("red"            4 45568  8704  8704) ; FireBrick
+    ("cyan"           3     0 52736 53504) ; DarkTurquoise
+    ("green"          2  8704 35584  8704) ; ForestGreen
+    ("blue"           1     0     0 52480) ; MediumBlue
+    ("black"          0     0     0     0))
+"A list of VGA console colors, their indices and 16-bit RGB values.")
+
+
+(defun w32-add-charset-info (xlfd-charset windows-charset codepage)
+  "Function to add character sets to display with Windows fonts.
+Creates entries in `w32-charset-info-alist'.
+XLFD-CHARSET is a string which will appear in the XLFD font name to
+identify the character set. WINDOWS-CHARSET is a symbol identifying
+the Windows character set this maps to. For the list of possible
+values, see the documentation for `w32-charset-info-alist'. CODEPAGE
+can be a numeric codepage that Windows uses to display the character
+set, t for Unicode output with no codepage translation or nil for 8
+bit output with no translation."
+  (add-to-list 'w32-charset-info-alist
+               (cons xlfd-charset (cons windows-charset codepage)))
+  )
+
+(w32-add-charset-info "iso8859-1" 'w32-charset-ansi 1252)
+(w32-add-charset-info "iso8859-14" 'w32-charset-ansi  28604)
+(w32-add-charset-info "iso8859-15" 'w32-charset-ansi  28605)
+(w32-add-charset-info "jisx0208-sjis" 'w32-charset-shiftjis 932)
+(w32-add-charset-info "jisx0201-latin" 'w32-charset-shiftjis 932)
+(w32-add-charset-info "jisx0201-katakana" 'w32-charset-shiftjis 932)
+(w32-add-charset-info "ksc5601.1987" 'w32-charset-hangeul 949)
+(w32-add-charset-info "big5" 'w32-charset-chinesebig5 950)
+(w32-add-charset-info "gb2312" 'w32-charset-gb2312 936)
+(w32-add-charset-info "ms-symbol" 'w32-charset-symbol nil)
+(w32-add-charset-info "ms-oem" 'w32-charset-oem 437)
+(w32-add-charset-info "ms-oemlatin" 'w32-charset-oem 850)
+(if (boundp 'w32-extra-charsets-defined)
+    (progn
+      (w32-add-charset-info "iso8859-2" 'w32-charset-easteurope 28592)
+      (w32-add-charset-info "iso8859-3" 'w32-charset-turkish 28593)
+      (w32-add-charset-info "iso8859-4" 'w32-charset-baltic 28594)
+      (w32-add-charset-info "iso8859-5" 'w32-charset-russian 28595)
+      (w32-add-charset-info "iso8859-6" 'w32-charset-arabic 28596)
+      (w32-add-charset-info "iso8859-7" 'w32-charset-greek 28597)
+      (w32-add-charset-info "iso8859-8" 'w32-charset-hebrew 1255)
+      (w32-add-charset-info "iso8859-9" 'w32-charset-turkish 1254)
+      (w32-add-charset-info "iso8859-13" 'w32-charset-baltic 1257)
+      (w32-add-charset-info "koi8-r" 'w32-charset-russian 20866)
+      (w32-add-charset-info "tis620" 'w32-charset-thai 874)
+      (w32-add-charset-info "ksc5601.1992" 'w32-charset-johab 1361)
+      (w32-add-charset-info "mac" 'w32-charset-mac nil)))
+(if (boundp 'w32-unicode-charset-defined)
+    (progn
+      (w32-add-charset-info "iso10646" 'w32-charset-unicode t)
+      (w32-add-charset-info "unicode" 'w32-charset-unicode t)))
+
+
+(make-obsolete-variable 'w32-enable-italics
+                        'w32-enable-synthesized-fonts "21.1")
+(make-obsolete-variable 'w32-charset-to-codepage-alist
+                        'w32-charset-info-alist "21.1")
+
+
+;;;; Selections and cut buffers
+
+;;; We keep track of the last text selected here, so we can check the
+;;; current selection against it, and avoid passing back our own text
+;;; from x-cut-buffer-or-selection-value.
+(defvar x-last-selected-text nil)
+
+;;; It is said that overlarge strings are slow to put into the cut buffer.
+;;; Note this value is overridden below.
+(defvar x-cut-buffer-max 20000
+  "Max number of characters to put in the cut buffer.")
+
+(defcustom x-select-enable-clipboard t
+  "Non-nil means cutting and pasting uses the clipboard.
+This is in addition to the primary selection."
+  :type 'boolean
+  :group 'killing)
+
+(defun x-select-text (text &optional push)
+  "Make TEXT the last selected text.
+If `x-select-enable-clipboard' is non-nil, copy the text to the system
+clipboard as well. Optional PUSH is ignored on Windows."
+  (if x-select-enable-clipboard
+      (w32-set-clipboard-data text))
+  (setq x-last-selected-text text))
+    
+(defun x-get-selection-value ()
+  "Return the value of the current selection.
+Consult the selection, then the cut buffer.  Treat empty strings as if
+they were unset."
+  (if x-select-enable-clipboard
+      (let (text)
+	;; Don't die if x-get-selection signals an error.
+	(condition-case c
+	    (setq text (w32-get-clipboard-data))
+	  (error (message "w32-get-clipboard-data:%s" c)))
+	(if (string= text "") (setq text nil))
+	(cond
+	 ((not text) nil)
+	 ((eq text x-last-selected-text) nil)
+	 ((string= text x-last-selected-text)
+	  ;; Record the newer string, so subsequent calls can use the 'eq' test.
+	  (setq x-last-selected-text text)
+	  nil)
+	 (t
+	  (setq x-last-selected-text text))))))
+
+(defalias 'x-cut-buffer-or-selection-value 'x-get-selection-value)
+
+;;; Arrange for the kill and yank functions to set and check the clipboard.
+(setq interprogram-cut-function 'x-select-text)
+(setq interprogram-paste-function 'x-get-selection-value)
+
 
 ;;; w32-fns.el ends here

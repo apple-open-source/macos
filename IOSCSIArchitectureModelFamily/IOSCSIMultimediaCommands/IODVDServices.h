@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,22 +20,25 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * IODVDServices.h
- *
- * This subclass implements a relay to a protocol and device-specific
- * provider.
- *
- */
 
 #ifndef _IOKIT_IO_DVD_SERVICES_H_
 #define _IOKIT_IO_DVD_SERVICES_H_
 
 #if defined(KERNEL) && defined(__cplusplus)
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// IOKit includes
 #include <IOKit/IOTypes.h>
+
+// Generic IOKit storage related headers
 #include <IOKit/storage/IODVDTypes.h>
 #include <IOKit/storage/IODVDBlockStorageDevice.h>
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/IOSCSIPeripheralDeviceType05.h>
 
 class IOMemoryDescriptor;
@@ -44,11 +47,15 @@ class IOMemoryDescriptor;
 #define _DVD_USE_DATA_CACHING_		1
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 class IODVDServices : public IODVDBlockStorageDevice
 {
 	
 	OSDeclareDefaultStructors ( IODVDServices )
-
+	
 #if (_DVD_USE_DATA_CACHING_)
 	// Data Cache members
 	bool				fUseDataCache;			// Indicates if cache should be used.  This
@@ -75,8 +82,8 @@ protected:
 	
     // Reserve space for future expansion.
     struct IODVDServicesExpansionData { };
-    IODVDServicesExpansionData *fIODVDServicesReserved;
-
+    IODVDServicesExpansionData * fIODVDServicesReserved;
+	
 public:
 	
 	static void			AsyncReadWriteComplete ( void * 		clientData,
@@ -228,3 +235,4 @@ private:
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */
 
+#endif /* _IOKIT_IO_DVD_SERVICES_H_ */

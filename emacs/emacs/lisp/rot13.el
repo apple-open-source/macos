@@ -1,8 +1,8 @@
-;;; rot13.el --- display a buffer in rot13.
+;;; rot13.el --- display a buffer in rot13
 
 ;; Copyright (C) 1988 Free Software Foundation, Inc.
 
-;; Author: Howard Gayle:
+;; Author: Howard Gayle
 ;; Maintainer: FSF
 
 ;; This file is part of GNU Emacs.
@@ -48,7 +48,13 @@
 ;;;###autoload
 (defun rot13-other-window ()
   "Display current buffer in rot 13 in another window.
-To terminate the rot13 display, delete that window."
+The text itself is not modified, only the way it is displayed is affected.
+
+To terminate the rot13 display, delete that window.  As long as that window
+is not deleted, any buffer displayed in it will become instantly encoded
+in rot 13.
+
+See also `toggle-rot13-mode'."
   (interactive)
   (let ((w (display-buffer (current-buffer) t)))
     (set-window-display-table w rot13-display-table)))

@@ -12,3 +12,7 @@ install_bundles:
 		NEXTSTEP_INSTALLDIR="$(BundleInstallDir)"     	\
 		BUNDLE_EXTENSION="$(BundleExtension)";		\
 	done
+
+after_install:
+	mkdir -p $(DSTROOT)/usr/share/man/man8
+	install -c -m 0644 SystemStarter.8 $(DSTROOT)/usr/share/man/man8

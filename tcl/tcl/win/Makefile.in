@@ -5,7 +5,7 @@
 # "autoconf" program (constructs like "@foo@" will get replaced in the
 # actual Makefile.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.1.1.2 2000/12/06 23:04:25 wsanchez Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.1.1.3 2002/04/05 16:14:13 jevans Exp $
 
 VERSION = @TCL_VERSION@
 
@@ -80,22 +80,18 @@ CFLAGS_WARNING = @CFLAGS_WARNING@
 CFLAGS_DEBUG    = @CFLAGS_DEBUG@
 CFLAGS_OPTIMIZE	= @CFLAGS_OPTIMIZE@
 
-# To enable compilation debugging reverse the comment characters on
-# one of the following lines.
-COMPILE_DEBUG_FLAGS =
-#COMPILE_DEBUG_FLAGS = -DTCL_COMPILE_DEBUG
-#COMPILE_DEBUG_FLAGS = -DTCL_COMPILE_DEBUG -DTCL_COMPILE_STATS
-
-# The default switches for optimization or debugging
-LDFLAGS_DEBUG    = @LDFLAGS_DEBUG@
-LDFLAGS_OPTIMIZE = @LDFLAGS_OPTIMIZE@
-
 # To change the compiler switches, for example to change from optimization to
 # debugging symbols, change the following line:
 #CFLAGS = 		$(CFLAGS_DEBUG)
 #CFLAGS = 		$(CFLAGS_OPTIMIZE)
 #CFLAGS = 		$(CFLAGS_DEBUG) $(CFLAGS_OPTIMIZE)
-CFLAGS = 		@CFLAGS@
+CFLAGS =		@CFLAGS@ @CFLAGS_DEFAULT@
+
+# To enable compilation debugging reverse the comment characters on
+# one of the following lines.
+COMPILE_DEBUG_FLAGS =
+#COMPILE_DEBUG_FLAGS = -DTCL_COMPILE_DEBUG
+#COMPILE_DEBUG_FLAGS = -DTCL_COMPILE_DEBUG -DTCL_COMPILE_STATS
 
 # Special compiler flags to use when building man2tcl on Windows.
 MAN2TCLFLAGS =		@MAN2TCLFLAGS@
@@ -106,16 +102,12 @@ GENERIC_DIR		= @srcdir@/../generic
 WIN_DIR			= @srcdir@
 COMPAT_DIR		= @srcdir@/../compat
 
-# This is a switch passed to a Cygwin script that generates file
-# names based on the platform.
-PATHTYPE		= @PATHTYPE@
-
-# This program converts between Windows native and Cygwin POSIX pathnames.
+# Converts a POSIX path to a Windows native path.
 CYGPATH			= @CYGPATH@
 
-GENERIC_DIR_NATIVE	= $(shell $(CYGPATH) $(PATHTYPE) '$(GENERIC_DIR)')
-WIN_DIR_NATIVE		= $(shell $(CYGPATH) $(PATHTYPE) '$(WIN_DIR)')
-ROOT_DIR_NATIVE		= $(shell $(CYGPATH) $(PATHTYPE) '$(ROOT_DIR)')
+GENERIC_DIR_NATIVE	= $(shell $(CYGPATH) '$(GENERIC_DIR)')
+WIN_DIR_NATIVE		= $(shell $(CYGPATH) '$(WIN_DIR)')
+ROOT_DIR_NATIVE		= $(shell $(CYGPATH) '$(ROOT_DIR)')
 
 LIBRARY_DIR   = $(shell echo '$(ROOT_DIR_NATIVE)/library' | sed 's/\\/\//g' )
 
@@ -143,17 +135,11 @@ MAN2TCL			= man2tcl$(EXEEXT)
 
 @SET_MAKE@
 
-# Macro that expands to the first dependency argument with the appropriate
-# path type already resolved.
-
-DEPARG = "$(shell $(CYGPATH) $(PATHTYPE) $<)"
-
 # Setting the VPATH variable to a list of paths will cause the 
 # makefile to look into these paths when resolving .c to .obj
-# dependencies. Note the ':' to avoid autoconf's habit of deleting
-# all VPATH lines without an explicit ':' in it. 
+# dependencies.
 
-VPATH = $(GENERIC_DIR)@VPSEP@$(WIN_DIR)@VPSEP@$(COMPAT_DIR) # : 
+VPATH = $(GENERIC_DIR):$(WIN_DIR):$(COMPAT_DIR)
 
 AR		= @AR@
 RANLIB		= @RANLIB@
@@ -162,7 +148,9 @@ RC		= @RC@
 RES		= @RES@
 AC_FLAGS	= @EXTRA_CFLAGS@ @DEFS@
 CPPFLAGS	= @CPPFLAGS@
-LDFLAGS		= @LDFLAGS@
+LDFLAGS_DEBUG	= @LDFLAGS_DEBUG@
+LDFLAGS_OPTIMIZE = @LDFLAGS_OPTIMIZE@
+LDFLAGS		= @LDFLAGS@ @LDFLAGS_DEFAULT@
 LDFLAGS_CONSOLE	= @LDFLAGS_CONSOLE@
 LDFLAGS_WINDOW	= @LDFLAGS_WINDOW@
 EXEEXT		= @EXEEXT@
@@ -316,16 +304,16 @@ winhelp: $(ROOT_DIR)/tools/man2help.tcl $(MAN2TCL)
 $(MAN2TCL): $(ROOT_DIR)/tools/man2tcl.c
 	$(CC) $(CFLAGS_OPTIMIZE) $(MAN2TCLFLAGS) -o $(MAN2TCL) "$(ROOT_DIR_NATIVE)"/tools/man2tcl.c
 
-$(TCLSH): $(TCL_LIB_FILE) $(TCLSH_OBJS) tclsh.$(RES)
+$(TCLSH): $(TCL_LIB_FILE) $(TCL_STUB_LIB_FILE) $(TCLSH_OBJS) tclsh.$(RES)
 	$(CC) $(CFLAGS) $(TCLSH_OBJS) $(TCL_LIB_FILE) $(LIBS) \
-        tclsh.$(RES) $(CC_EXENAME) 
+        tclsh.$(RES) $(CC_EXENAME) $(LDFLAGS_CONSOLE)
 
 $(TCLTEST): $(TCL_LIB_FILE) $(TCLTEST_OBJS) $(CAT32) tclsh.$(RES)
 	$(CC) $(CFLAGS) $(TCLTEST_OBJS) $(TCL_LIB_FILE) $(LIBS) \
-        tclsh.$(RES) $(CC_EXENAME) 
+        tclsh.$(RES) $(CC_EXENAME) $(LDFLAGS_CONSOLE)
 
 cat32.$(OBJEXT): cat.c
-	$(CC) -c $(CC_SWITCHES) $(DEPARG) $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) @DEPARG@ $(CC_OBJNAME)
 
 $(CAT32): cat32.$(OBJEXT)
 	$(CC) $(CFLAGS) cat32.$(OBJEXT) $(CC_EXENAME) $(LDFLAGS_CONSOLE)
@@ -357,7 +345,7 @@ ${DDE_LIB_FILE}: ${DDE_OBJS} ${TCL_LIB_FILE}
 
 ${REG_DLL_FILE}: ${REG_OBJS} ${TCL_STUB_LIB_FILE}
 	@$(RM) ${REG_DLL_FILE}
-	@MAKE_DLL@ ${REG_OBJS} ${TCL_STUB_LIB_FILE} $(SHLIB_LD_LIBS)
+	@MAKE_DLL@ ${REG_OBJS} $(TCL_STUB_LIB_FILE) $(SHLIB_LD_LIBS)
 
 ${REG_LIB_FILE}: ${REG_OBJS} ${TCL_LIB_FILE}
 	@$(RM) ${REG_LIB_FILE}
@@ -368,7 +356,7 @@ ${REG_LIB_FILE}: ${REG_OBJS} ${TCL_LIB_FILE}
 
 ${PIPE_DLL_FILE}: ${PIPE_OBJS}
 	@$(RM) ${PIPE_DLL_FILE}
-	@MAKE_EXE@ $(CFLAGS) ${PIPE_OBJS} $(LIBS)
+	@MAKE_EXE@ $(CFLAGS) ${PIPE_OBJS} $(LIBS) $(LDFLAGS_CONSOLE)
 
 # Add the object extension to the implicit rules.  By default .obj is not
 # automatically added.
@@ -380,52 +368,58 @@ ${PIPE_DLL_FILE}: ${PIPE_OBJS}
 # Special case object targets
 
 tclWinInit.${OBJEXT}: tclWinInit.c
-	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl $(EXTFLAGS) $(DEPARG) $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl $(EXTFLAGS) @DEPARG@ $(CC_OBJNAME)
 
 testMain.${OBJEXT}: tclAppInit.c
-	$(CC) -c $(CC_SWITCHES) -DTCL_TEST $(DEPARG) $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) -DTCL_TEST @DEPARG@ $(CC_OBJNAME)
 
 tclTest.${OBJEXT}: tclTest.c
-	$(CC) -c $(CC_SWITCHES) $(DEPARG) $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) @DEPARG@ $(CC_OBJNAME)
 
 tclTestObj.${OBJEXT}: tclTestObj.c
-	$(CC) -c $(CC_SWITCHES) $(DEPARG) $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) @DEPARG@ $(CC_OBJNAME)
 
 tclWinTest.${OBJEXT}: tclWinTest.c
-	$(CC) -c $(CC_SWITCHES) $(DEPARG) $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) @DEPARG@ $(CC_OBJNAME)
 
 tclAppInit.${OBJEXT} : tclAppInit.c
-	$(CC) -c $(CC_SWITCHES) $(DEPARG) $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) @DEPARG@ $(CC_OBJNAME)
 
 # The following objects should be built using the stub interfaces
 
 tclWinReg.${OBJEXT} : tclWinReg.c
-	$(CC) -c $(CC_SWITCHES) -DUSE_TCL_STUBS $(DEPARG) $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) -DUSE_TCL_STUBS @DEPARG@ $(CC_OBJNAME)
 
 tclWinDde.${OBJEXT} : tclWinDde.c
-	$(CC) -c $(CC_SWITCHES) -DUSE_TCL_STUBS $(DEPARG) $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) -DUSE_TCL_STUBS @DEPARG@ $(CC_OBJNAME)
 
 # The following objects are part of the stub library and should not
 # be built as DLL objects but none of the symbols should be exported
 
 tclStubLib.${OBJEXT}: tclStubLib.c
-	$(CC) -c $(CC_SWITCHES) -DSTATIC_BUILD $(DEPARG) $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) -DSTATIC_BUILD @DEPARG@ $(CC_OBJNAME)
 
 
 # Implicit rule for all object files that will end up in the Tcl library
 
 .c.${OBJEXT}:
-	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl ${DEPARG} $(CC_OBJNAME)
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(CC_OBJNAME)
 
 .rc.$(RES):
-	$(RC) @RC_OUT@ $@ @RC_TYPE@ @RC_INCLUDE@ "$(GENERIC_DIR_NATIVE)" @RC_INCLUDE@ "$(WIN_DIR_NATIVE)" $(DEPARG)
+	$(RC) @RC_OUT@ $@ @RC_TYPE@ @RC_DEFINES@ @RC_INCLUDE@ "$(GENERIC_DIR_NATIVE)" @RC_INCLUDE@ "$(WIN_DIR_NATIVE)" @DEPARG@
 
 install: all install-binaries install-libraries install-doc
 
-install-binaries:
-	@$(MKDIR) -p "$(BIN_INSTALL_DIR)"
-	@$(MKDIR) -p "$(LIB_INSTALL_DIR)"
-	$(COPY) tclConfig.sh $(LIB_INSTALL_DIR)/tclConfig.sh
+install-binaries: binaries
+	@for i in "$(LIB_INSTALL_DIR)" "$(BIN_INSTALL_DIR)" ; \
+	    do \
+	    if [ ! -d $$i ] ; then \
+		echo "Making directory $$i"; \
+		$(MKDIR) $$i; \
+		chmod 755 $$i; \
+		else true; \
+		fi; \
+	    done;
 	@for i in dde1.1 reg1.0; \
 	    do \
 	    if [ ! -d $(LIB_INSTALL_DIR)/$$i ] ; then \
@@ -437,14 +431,14 @@ install-binaries:
 	@for i in $(TCL_DLL_FILE) $(TCLSH) $(PIPE_DLL_FILE); \
 	    do \
 	    if [ -f $$i ]; then \
-		echo "Installing $$i"; \
+		echo "Installing $$i to $(BIN_INSTALL_DIR)/"; \
 		$(COPY) $$i "$(BIN_INSTALL_DIR)"; \
 	    fi; \
 	    done
-	@for i in $(TCL_LIB_FILE) $(TCL_STUB_LIB_FILE); \
+	@for i in tclConfig.sh $(TCL_LIB_FILE) $(TCL_STUB_LIB_FILE); \
 	    do \
 	    if [ -f $$i ]; then \
-		echo "Installing $$i"; \
+		echo "Installing $$i to $(LIB_INSTALL_DIR)/"; \
 		$(COPY) $$i "$(LIB_INSTALL_DIR)"; \
 	    fi; \
 	    done
@@ -467,7 +461,7 @@ install-binaries:
 	    $(COPY) $(REG_LIB_FILE) $(LIB_INSTALL_DIR)/reg1.0; \
 	    fi
 
-install-libraries:
+install-libraries: libraries
 	@for i in $(prefix)/lib $(INCLUDE_INSTALL_DIR) \
 		$(SCRIPT_INSTALL_DIR); \
 	    do \
@@ -477,7 +471,7 @@ install-libraries:
 		else true; \
 		fi; \
 	    done;
-	@for i in http1.0 http2.3 opt0.4 encoding msgcat1.0 tcltest1.0; \
+	@for i in http1.0 http2.4 opt0.4 encoding msgcat1.1 tcltest1.0; \
 	    do \
 	    if [ ! -d $(SCRIPT_INSTALL_DIR)/$$i ] ; then \
 		echo "Making directory $(SCRIPT_INSTALL_DIR)/$$i"; \
@@ -486,7 +480,8 @@ install-libraries:
 		fi; \
 	    done;
 	@echo "Installing header files";
-	@for i in "$(GENERIC_DIR)/tcl.h" "$(GENERIC_DIR)/tclDecls.h" ; \
+	@for i in "$(GENERIC_DIR)/tcl.h" "$(GENERIC_DIR)/tclDecls.h" \
+		"$(GENERIC_DIR)/tclPlatDecls.h" ; \
 	    do \
 	    $(COPY) "$$i" "$(INCLUDE_INSTALL_DIR)"; \
 	    done;
@@ -495,20 +490,41 @@ install-libraries:
 	    do \
 	    $(COPY) "$$i" "$(SCRIPT_INSTALL_DIR)"; \
 	    done;
-	@for i in http2.3 http1.0 opt0.4 msgcat1.0 tcltest1.0; \
+	@echo "Installing library http1.0 directory";
+	@for j in $(ROOT_DIR)/library/http1.0/*.tcl; \
 	    do \
-	    echo "Installing library $$i directory"; \
-	    for j in $(ROOT_DIR)/library/$$i/*.tcl; \
-		do \
-		$(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/$$i"; \
-		done; \
+	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/http1.0"; \
 	    done;
-	@echo "Installing encodings"
+	@echo "Installing library http2.4 directory";
+	@for j in $(ROOT_DIR)/library/http/*.tcl; \
+	    do \
+	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/http2.4"; \
+	    done;
+	@echo "Installing library opt0.4 directory";
+	@for j in $(ROOT_DIR)/library/opt/*.tcl; \
+	    do \
+	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/opt0.4"; \
+	    done;
+	@echo "Installing library msgcat1.1 directory";
+	@for j in $(ROOT_DIR)/library/msgcat/*.tcl; \
+	    do \
+	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/msgcat1.1"; \
+	    done;
+	@echo "Installing library tcltest1.0 directory";
+	@for j in $(ROOT_DIR)/library/tcltest1.0/*.tcl; \
+	    do \
+	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/tcltest1.0"; \
+	    done;
+	@echo "Installing encodings";
 	@for i in $(ROOT_DIR)/library/encoding/*.enc ; do \
 		$(COPY) "$$i" "$(SCRIPT_INSTALL_DIR)/encoding"; \
 	done;
 
-install-doc:
+install-doc: doc
+
+# Specifying TESTFLAGS on the command line is the standard way to pass
+# args to tcltest, ie:
+#	% make test TESTFLAGS="-verbose bps -file fileName.test"
 
 test: binaries $(TCLTEST)
 	TCL_LIBRARY="$(LIBRARY_DIR)"; export TCL_LIBRARY; \

@@ -9,12 +9,12 @@
 
 ;; This file is part of GNU Emacs.
 
-;; This program is free software; you can redistribute it and/or modify
+;; GNU Emacs is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 
-;; This program is distributed in the hope that it will be useful,
+;; GNU Emacs is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
@@ -280,7 +280,10 @@ can be modified by the global variable `repeat-on-final-keystroke'."
 	(let ((indirect (indirect-function real-last-command)))
 	  (if (or (stringp indirect)
 		  (vectorp indirect))
-	      (execute-kbd-macro real-last-command)
+	      ;; Bind real-last-command so that executing the macro
+	      ;; does not alter it.
+	      (let ((real-last-command real-last-command))
+		(execute-kbd-macro real-last-command))
 	    (call-interactively real-last-command)))))
     (when repeat-repeat-char
       ;; A simple recursion here gets into trouble with max-lisp-eval-depth

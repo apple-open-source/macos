@@ -1,5 +1,6 @@
 /* Read a symbol table in MIPS' format (Third-Eye).
-   Copyright 1986, 87, 89, 90, 91, 92, 93, 94, 95, 96, 1998
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
+   1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
    Contributed by Alessandro Forin (af@cs.cmu.edu) at CMU.  Major work
    by Per Bothner, John Gilmore and Ian Lance Taylor at Cygnus Support.
@@ -32,7 +33,6 @@
 #include "objfiles.h"
 #include "buildsym.h"
 #include "stabsread.h"
-#include "gdb-stabs.h"
 
 #include "coff/sym.h"
 #include "coff/internal.h"
@@ -185,15 +185,13 @@ struct alphacoff_dynsecinfo
     asection *got_sect;		/* Section pointer for .got section */
   };
 
-static void alphacoff_locate_sections (bfd *, asection *, void *);
-
 /* We are called once per section from read_alphacoff_dynamic_symtab.
    We need to examine each section we are passed, check to see
    if it is something we are interested in processing, and
    if so, stash away some access information for the section.  */
 
 static void
-alphacoff_locate_sections (bfd *ignore_abfd, asection *sectp, PTR sip)
+alphacoff_locate_sections (bfd *ignore_abfd, asection *sectp, void *sip)
 {
   register struct alphacoff_dynsecinfo *si;
 
@@ -243,6 +241,7 @@ read_alphacoff_dynamic_symtab (struct section_offsets *section_offsets,
   int got_entry_size = 8;
   int dt_mips_local_gotno = -1;
   int dt_mips_gotsym = -1;
+  struct cleanup *cleanups;
 
 
   /* We currently only know how to handle alpha dynamic symbols.  */
@@ -251,7 +250,7 @@ read_alphacoff_dynamic_symtab (struct section_offsets *section_offsets,
 
   /* Locate the dynamic symbols sections and read them in.  */
   memset ((char *) &si, 0, sizeof (si));
-  bfd_map_over_sections (abfd, alphacoff_locate_sections, (PTR) & si);
+  bfd_map_over_sections (abfd, alphacoff_locate_sections, (void *) & si);
   if (si.sym_sect == NULL
       || si.str_sect == NULL
       || si.dyninfo_sect == NULL
@@ -262,10 +261,14 @@ read_alphacoff_dynamic_symtab (struct section_offsets *section_offsets,
   str_secsize = bfd_get_section_size_before_reloc (si.str_sect);
   dyninfo_secsize = bfd_get_section_size_before_reloc (si.dyninfo_sect);
   got_secsize = bfd_get_section_size_before_reloc (si.got_sect);
-  sym_secptr = alloca (sym_secsize);
-  str_secptr = alloca (str_secsize);
-  dyninfo_secptr = alloca (dyninfo_secsize);
-  got_secptr = alloca (got_secsize);
+  sym_secptr = xmalloc (sym_secsize);
+  cleanups = make_cleanup (free, sym_secptr);
+  str_secptr = xmalloc (str_secsize);
+  make_cleanup (free, str_secptr);
+  dyninfo_secptr = xmalloc (dyninfo_secsize);
+  make_cleanup (free, dyninfo_secptr);
+  got_secptr = xmalloc (got_secsize);
+  make_cleanup (free, got_secptr);
 
   if (!bfd_get_section_contents (abfd, si.sym_sect, sym_secptr,
 				 (file_ptr) 0, sym_secsize))
@@ -418,6 +421,8 @@ read_alphacoff_dynamic_symtab (struct section_offsets *section_offsets,
 
       prim_record_minimal_symbol (name, sym_value, ms_type, objfile);
     }
+
+  do_cleanups (cleanups);
 }
 
 /* Initialization */

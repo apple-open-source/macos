@@ -64,39 +64,17 @@ private:
 
 
 //
-// A CssmData initialized from a string constant.
-// Note that the trailing null terminator is not part of the Data.
-//
-// @@@ This is obsoleted by CssmPolyData in <cdsa_utilities/cssmdata.h>
-class StringData : public CssmData {
-public:
-	StringData(const char *s) : CssmData(const_cast<char *>(s), strlen(s)) { }
-	operator char * () const { return CssmData::operator char * (); }
-};
-
-
-//
 // Exceptions are based on the CssmError utility class. We add our own class of client-side exceptions.
 //
 class Error : public CssmError {
 public:
 	Error(int err) : CssmError(err) { }
 	CSSM_RETURN cssmError() const;
-	virtual const char *what () const;
+	virtual const char *what () const throw();
 	
 	enum {
 		objectBusy = -1,
 	};
-};
-
-
-//
-// A CssmData bundled up with a data buffer it refers to
-//
-template <size_t size>
-struct DataBuffer : public CssmData {
-	unsigned char buffer[size];
-	DataBuffer() : CssmData(buffer, size) { }
 };
 
 
@@ -135,7 +113,7 @@ protected:
 	void removeChild();
 	bool isIdle() const { return mChildCount == 0; }
 
-	// {de,}allocate() assume you have locked *this
+	// {de,}activate() assume you have locked *this
 	virtual void activate() = 0;
 	virtual void deactivate() = 0;
 
@@ -143,8 +121,6 @@ private:
 	RefPointer<ObjectImpl> mParent;		// parent object
 	AtomicCounter<uint32> mChildCount;
 };
-
-
 
 
 class Object
@@ -169,6 +145,9 @@ public:
 
 	bool operator !() const { return !mImpl; }
 	operator bool() const { return mImpl; }
+    
+    bool isActive() const				{ return mImpl && mImpl->isActive(); }
+    CssmAllocator &allocator() const	{ return mImpl->allocator(); }
 
 	bool operator <(const Object &other) const
 	{ return mImpl && other.mImpl ? *mImpl < *other.mImpl : mImpl < other.mImpl; }
@@ -218,7 +197,7 @@ public:
 
 
 //
-// An Attachment object. This is the parent of all typed attachment classes.
+// An Attachment object. This is the base class of all typed attachment classes.
 //
 class AttachmentImpl : public ObjectImpl
 {

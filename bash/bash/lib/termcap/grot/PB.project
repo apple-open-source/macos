@@ -1,0 +1,31 @@
+{
+    FILESTABLE = {
+        Documentation = (
+            termcap.info, 
+            texinfo.tex, 
+            termcap.texi, 
+            "termcap.info-4", 
+            "termcap.info-3", 
+            "termcap.info-2", 
+            "termcap.info-1", 
+            INSTALL, 
+            ChangeLog, 
+            COPYING, 
+            README, 
+            NEWS
+        ); 
+        Headers = (); 
+        Makefiles = (configure, configure.in, Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = grot; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,27 +1,44 @@
 #!/bin/sh
 
 ##
-# Run the Internet super-server.
+# IP Services
 ##
 
 . /etc/rc.common
 
-ConsoleMessage "Starting TCP/IP services"
+StartService ()
+{
+    ##
+    # Internet super-server.
+    ##
+    ConsoleMessage "Starting internet services"
+    inetd
+    xinetd -pidfile /var/run/xinetd.pid 
 
-inetd 
+    ##
+    # Start up network boot cofiguration services.
+    ##
+    if [ "${CONFIGSERVER:=-NO-}" = "-YES-" ]; then
+	ConsoleMessage "Starting host configuration services"
 
-##
-# Start up network boot cofiguration services.
-##
+	if [ "${NETBOOTSERVER:=-NO-}" = "-YES-" ]; then
+	    bootpd -m
+	else
+	    bootpd
+	fi
 
-if [ "${CONFIGSERVER:=-NO-}" = "-YES-" ]; then
-    ConsoleMessage "Starting host configuration services"
-
-    if [ "${NETBOOTSERVER:=-NO-}" = "-YES-" ]; then
-	bootpd -m
-    else
-	bootpd
+	bootparamd
     fi
+}
 
-    bootparamd
-fi
+StopService ()
+{
+    return 0
+}
+
+RestartService ()
+{
+    return 0
+}
+
+RunService "$1"

@@ -1,0 +1,962 @@
+2002-06-12  Klee Dienes  <kdienes@law.apple.com>
+
+	* config/i386/xm-i386-macosx.h: Remove the definitions for
+	HOST_FLOAT_FORMAT, HOST_DOUBLE_FORMAT, and HOST_LONG_DOUBLE_FORMAT
+	(they are in xm-i386.h).
+
+2002-06-12  Klee Dienes  <kdienes@law.apple.com>
+
+	* i386-tdep.c (i386_skip_prologue): This should take a CORE_ADDR,
+	not an int.
+	* config/i386/tm-i386.h (i386_skip_prologue): Update prototype.
+
+2002-06-10  Jim Ingham  <jingham@apple.com>
+
+	* breakpoint.c (breakpoint_stop_status): If we threw away the 
+        previous expression for the breakpoint condition, rebuild it here. 
+        (breakpoint_re_set_one): Discard & null out the parsed expression,
+        but don't try to reparse it here, or we will recurse infinitely
+        trying to reset the breakpoint if we need to call into the 
+        inferior to parse the expression.
+        
+        * minsyms.c (install_minimal_symbols): when we demangle symbols
+        for an objfile, set the minimal_symbols_demangled flag so we
+        don't do it all over again in objfile_demangle_msymbols.
+        FIXME: in the long run, we should see whether we really need to
+        do objfile_demangle_msymbols, since the net version doesn't need
+        to...
+        
+2002-06-07  Jim Ingham  <jingham@apple.com>
+
+	* breakpoint.c (bpstat_do_actions): Notice whether we have run
+	any commands, and if so, emit a ui_out "notify" message when
+	we are done running them.
+	(print_it_typical): add a uiout field to the breakpoint hit
+	stopped message saying whether there are any commands associated
+	with this stop.
+	* ui-out.h: Add notify_begin & notify_end function slots to the
+	ui_out_impl structure.  Also declare ui_out_notify_begin & 
+	ui_out_notify_end.
+	* ui-out.c: Add the default_notify_begin & _end functions to the 
+        default impl, and implement the ui_out & uo_out versions.
+	Also added a make_cleanup_ui_out_notify_begin_end function,
+	for use if you are going to do any work between starting & 
+	ending the notify session.
+	* cli-out.c: Add NULL's for the cli version of the notify functions.
+	
+2002-05-31  Jim Ingham  <jingham@apple.com>
+
+	* config/powerpc/xm-ppc-macosx.h: Add defines for HOST_*_FORMAT
+	for floats, doubles & long doubles.  This will sidestep trying to 
+	convert floats from ppc native format to ppc native format, an 
+	amusing but pointless exercise...
+	* config/i386/xm-i386-macosx.h: ditto.
+
+2002-05-30  Rab Hagy <rhagy@apple.com>
+
+      * varobj.c, varobj.h: added "unsigned" format specification
+      * stack.c: added frame pointer to output of a stack frame (for MI only)
+
+2002-05-21  Jim Ingham  <jingham@apple.com>
+
+	* varobj.c (create_child): Don't do strncmp to set fake_child, or
+	you will get false positives...
+	(cplus_make_name_of_child): The logic for doing index -> {"public",
+	"private", "protected"} was faulty.
+
+2002-05-16  Klee Dienes  <kdienes@bluegill.localnet>
+
+	* Makefile.in: no longer define free to xfree; all instances of
+	free in the sources should now be converted.
+
+	* xm-macosx.h: ditto.
+
+	* Makefile.in: add cached-symfile.{c,o}
+
+	* breakpoint.c: convert instances of free to xfree.
+	* expprint.c: convert instances of free to xfree.
+	* interpreter.c: convert instances of free to xfree.
+	* linespec.c:  convert instances of free to xfree.
+	* objc-lang.c: convert instances of free to xfree.
+	* core-macho.c: convert instances of free to xfree.
+	* macosx-nat-dyld-info.c: convert instances of free to xfree.
+	* macosx-nat-dyld-info.c: convert instances of asprintf to xasprintf.
+	* macosx-nat-dyld-io.c: convert instances of asprintf to xasprintf.
+	* macosx-nat-dyld-path.c: define strsave as xstrdup, not savestring.
+	* macosx-nat-dyld-path.c: convert instances of free to xfree.
+	* macosx-nat-dyld-process.c: convert instances of free to xfree.
+	* macosx-nat-dyld.c: define strsave as xstrdup, not savestring.
+	* macosx-nat-info.c: convert instances of free to xfree.
+	* macosx-nat-info.c: convert instances of malloc to xmalloc.
+	
+	* utils.c (xvasprintf): use xstrdup to malloc the resulting string
+	instead of the system malloc, so it can be passed to xfree without
+	incident.
+
+	* mi-main.c: add mi_interpreter_exec; add to the interpreter struct
+	(so that interpreter-exec can also run MI commands).
+
+	* dbxread.c: disable mapping string tables (mmap_strtabflag) by
+	default.
+
+	* defs.h: init_malloc now returns a mmalloc pool, possibly
+	different from the one passed in (to support returning a
+	mmalloc_check pool based on the pool passed in).
+
+	* doublest.c: define NaN to be 0.0 regardless if it is defined by
+	the system, to work around __nan issues on WWDC build.
+
+	* objfiles.c: remove allocate_objfile and all related functions;
+	replace with new functions in cached-symfile.c
+
+	* objfiles.c: add new variables	'generate-persistent-symbol-tables'
+	and 'use-persistent-symbol-tables'.
+
+	* symfile.c: no longer force HAVE_MMAP to 0.  remove test for
+	bfd_supports_mmmap (bfd can simply return error from
+	bfd_mmap_file).  add "mapaddr" agrument to add-symbol-file.
+	re-enable zeroing of msymbol table hash when creating objfile.
+	
+	* thread.c: properly cleanup the ui_out when there is an error
+	generating the thread list.
+
+	* utils.c (init_mmalloc_default_pool): create a mmalloc pool that
+	defaults to system malloc, using mmalloc_malloc_create.
+	(init_malloc): create a mmalloc_checked_malloc zone based on the
+	mmalloc zone passed in, rather than modifying it in place using th
+	mmcheckf interface.
+
+	
+2002-05-14  Jim Ingham   <jingham@apple.com>
+
+	* linespec.c (decode_line_1): don't use gdb_completer_word_break_characters 
+	when allow_objc_selectors_flag is false.  This only happens when we are
+	resetting breakpoints after shared library loads, so it just causes future-break
+	to fail on ObjC symbols.
+	
+2002-05-03  Jim Ingham   <jingham@apple.com>
+
+	* objc-lang.c (_initialize_objc_lang): New function, set the 
+	lookup_objc_class_p.
+	* (should_lookup_objc_class): New function, should we look up 
+	objc classes as an ordinary part of symbol lookup?
+	* c-exp.y: Use should_lookup_objc_class.
+
+2002-05-01  Klee Dienes  <kdienes@apple.com>
+
+	* infcmd.c (do_registers_info): Print only things with type INT
+	as both int and hex.
+
+	* infcmd.c (do_registers_info): Don't check AltiVec types;
+	instead treat all non-INT registers as "info all-regs" only.
+
+2002-04-24  James Ingham <jingham@apple.com>
+
+      * varobj.c (varobj_in_scope_p): New function, tell whether a variable is
+      in scope.
+      (c_type_of_child): A pointer type might point to a typedef, so you have
+      to also call check_typedef on the target before creating its children.
+      * varobj.h: declare varobj_in_scope_p.
+
+2002-04-24  Klee Dienes  <kdienes@bluegill.localnet>
+
+        * linespec.c (decode_line_1): Ignore most word separators when
+        scanning for breakpoint expression, to allow for better Obj-C
+        method parsing.
+
+2002-04-23  Klee Dienes  <kdienes@apple.com>
+
+	* infcmd.c (do_registers_info): Check for AltiVec types when deciding 
+	whether to print a register as float or int.
+
+2002-04-19  James Ingham <jingham@apple.com>
+
+	* varobj.c (type_changeable): Another place where we want to protect
+	against accessing a NULL type structure in the varobj.
+
+2002-04-18  James Ingham <jingham@apple.com>
+
+	* varobj.c (varobj_create): Add a real block parameter to varobj_create.
+	I was overloading the frame for this case, which is fragile, and broke
+	in the latest merge.
+	* (c_type_of_child): Call check_typedef on parent->type before using it
+	to get the type of the child.
+	* varobj.h: mutatis mutandi for varobj_create change.
+
+2002-04-18  James Ingham <jingham@apple.com>
+
+	(This is from Jason Merrill  <jason@redhat.com>):
+
+	* gnu-v3-abi.c (gnuv3_rtti_type): If we get confused, just warn
+	and return NULL.
+
+2002-04-15  James Ingham <jingham@apple.com>
+
+	* varobj.c (varobj_create): Make it possible to create a
+	USE_SELECTED_FRAME varobj when the variable is not currently
+	defined, and defer defining it till it shows up.
+	(varobj_get_num_children): if we couldn't parse the expression
+	yet, return -1 for number of children.
+	(free_variable): Don't free the current expression if it is NULL.
+	(variable_language): Punt (say it is C) for variables we couldn't
+	find yet.
+	(value_of_root): varobj_create can now return a non-null varobj,
+	with a NULL exp struct.
+	
+2002-04-08  James Ingham <jingham@apple.com>
+
+	* target.h: Add to_bind_function entry to target_ops.
+	* target.c: initialize to_bind_function appropriately.
+	* valops.c (create_cached_function): Initialize "bound" flag.
+	(lookup_cached_function): bind the function before calling.
+	* values.h: Add bound field to the cached_value struct.
+	
+2002-04-05  James Ingham <jingham@apple.com>
+
+	* ui_out.c (ui_out_is_mi_like_p): Check for the uiout being NULL.
+
+2002-04-04  James Ingham <jingham@apple.com>
+
+	* valarith.c (find_size_for_pointer_math): New function, return
+	the size of a pointer's target, or 1 for void *, or error with
+	an appropriate message for incomplete types.
+	(value_sub, value_add): use find_size_for_pointer_math.
+
+2002-04-04  James Ingham <jingham@apple.com>
+
+	* varobj.c (cplus_make_name_of_child, cplus_make_path_expr_of_child):
+	Don't skip over the vptr entry, that is already taken care of in
+	cplus_real_type_index_for_fake_child_index.
+
+2002-04-03  James Ingham <jingham@apple.com>
+
+	* infrun.c (restore_selected_frame): The code here was misusing
+	fr->level, which is an absolute frame (coming from selected_frame_level) 
+	and not a relative frame level.
+	* varobj.c (c_value_of_root): Restore both the selected_frame and
+	the selected_frame_level.
+
+2002-04-02  James Ingham <jingham@apple.com>
+
+	* symtab.c (make_symbol_completion_list): Don't try to get the
+	length of sym_text till after you've made sure it is not NULL.
+	(make_symbol_file_completion_list): ditto.
+
+2002-04-01  James Ingham <jingham@apple.com>
+
+	* linespec.c (decode_line_1): When handling file:line specs,
+	if funfirstline is 1, actually move the breakpoint past the
+	prologue.  This is done for functions, and the same rationale
+	holds for source line specifications.
+	* symtab.c (find_pc_line): fix silly bug - NB, this is already
+	fixed on the FSF head, but that code relies on some other changes.
+
+	* varobj.c (varobj_update): If selected_frame is NULL, then
+	just don't bother with trying to restore it.
+
+2002-03-29  James Ingham <jingham@apple.com>
+
+	* valarith.c (value_sub): If you are doing pointer - integer,
+	and TYPE_LENGTH of the pointer's target comes back 0, set it 
+	to 1.  This is what value_add does, and we should be consistent.
+
+2002-03-28  James Ingham <jingham@apple.com>
+
+	* varobj.c (child_exists): New function.  This is a fast way to
+	get the child corresponding to a given index.
+	(get_type_deref): Pass out whether the original was a pointer or not.
+	(path_expr_of_variable): New function.  This returns the full path
+	expression to a variable.  The intent here is that you could use
+	this to make a new root varobj corresponding to the child varobj
+	whose path expression you are getting.
+	(varobj_get_path_expr): New function.  External wrapper for 
+	path_expr_of_variable.
+	(c_path_expr_of_child, cplus_path_expr_of_child, java_path_expr_of_child):
+	New functions, return the path expr of a child in its parent.  Also caches
+	the expr for later use.
+	(make_name_of_child, c_make_name_of_child,
+	cplus_make_name_of_child, java_make_name_of_child):
+	"name_of_variable" used to serve both the create name and the
+	return name functions.  This was inefficient; since you only need
+	to compute the name when you make the variable, you ended up doing a whole
+	bunch of work just to do simple lookups.  So I split the two functions, and
+	made separate calls for them.  These are the make name calls.
+	(name_of_variable): This now just returns the name, it doesn't recompute it.
+	(is_root_p): New convenience function, returns whether a variable is a root.
+	Then I changed all the uses of var->name to use name_of_variable, and the test
+	for is this a root were changed to use is_root_p.
+
+	(varobj_set_value): Remove the baseclass offsetting, since value_cast now
+	handles this properly (Keith took this out of the FSF version too).
+
+	* varobj.h: Added def'n of varobj_get_path_expr.
+	
+2002-03-27  James Ingham <jingham@apple.com>
+
+	* config/i386/tm-i386-next.h: Define HAVE_I387_REGS properly so gdb doesn't
+	think ALL registers are floating point registers.
+
+2002-03-19  James Ingham  <jingham@inghji.apple.com>
+
+	* defs.h: Add test for gcc 3 to test of whether to use __PRETTY_FUNCTION__.
+
+2002-03-15  James Ingham <jingham@apple.com>
+
+	*c-exp.y: If you have found a variable that is a field of this, don't ALWAYS
+	make it hang off "self" check the language first!
+
+2002-03-12  James Ingham <jingham@apple.com>
+
+	* cp-abi.c (set_cp_abi_cmd, show_cp_abi_cmd,): New functions, 
+	allow you to set & show cplus abi's in case gdb gets it wrong.
+	(set_cp_abi_as_auto_default): New function, set the "auto" abi
+	to be this abi.
+	(is_cp_abi_auto_p): New function, say whether the current abi
+	is the default or not.
+	(_initialize_cp_abi): Define the cp-abi switching commands.
+	* cp-abi.h: declare the new functions.
+	* minsyms.c (install_minimal_symbols): don't switch the cp_abi
+	unless the current abi is auto.
+	* gnu-v2-abi.c (_initialize_gnu_v2_abi): don't switch to gnu-v2,
+	but set it as the auto_default instead.	
+
+2002-03-05  James Ingham <jingham@apple.com>
+	
+	* stack.c (print_frame): restore the (local) print_frame_more_info_hook that
+	got dropped in one of the merges.
+
+2002-03-05  James Ingham <jingham@apple.com>
+
+	* target.h: add print_section_info_objfile, it is used in next code.
+
+	* utils.c (error_stream): Don't dump error info to the console for mi-like
+	interpreters - it is already added to the command return.
+
+	* valops.c (set_unwind_on_signal): New function, allow C-code to
+	set the unwind_on_signal flag.
+	* value.h: declare set_unwind_on_signal.
+
+	* mi-cmd-var.c (mi_cmd_var_evaluate_expression): Add -u flag to unwind on
+	signal for inferior function execution.
+	
+2002-02-21  James Ingham <jingham@inghji.apple.com>
+
+	* valops.c (find_overload_match): remove some useless code that was removed
+	from the FSF version but somehow didn't get expunged in the merge.
+
+	* symtab.c (make_file_symbol_completion_list): remembet to set sym_text
+	to the place in the input string where we think the symbol begins.
+
+2002-02-20  James Ingham  <jingham@inghji.apple.com>
+	* event-top.c (gdb_setup_readline): Don't turn on readline event
+	handling if instream is NULL (usually when reading script commands)
+	since there is no input to wait on anyway...
+
+2002-02-06  Klee Dienes  <klee@apple.com>
+
+	* fork-inferior.c (fork_inferior): Add '!' to the list of
+	characters that need to be quoted when building a string for the
+	shell.  Quote '!' specifically with a backslash, since CSH chokes
+	when trying to evaluate "str!str".
+
+2002-01-29  James Ingham  <jingham@inghji.apple.com>
+	* interpreter.c (gdb_interpreter_ui_out): Add accessor function.
+	* interpreter.h: declare it.
+
+2002-01-28  James Ingham  <jingham@inghji.apple.com>
+	* stabsread.c (read_type): Handle the case where there is a type
+	def'n WITHIN the argument list for a class method.  Need to step
+	over the ";" that terminates the def'n or read_args will lose it.
+	* (read_args): If for some reason you find NO types, return an
+	error rather than crashing.
+
+2002-01-25  James Ingham  <jingham@inghji.apple.com>
+	Generalize the gdb_event, and allow clients outside of event-loop.c
+	to create & queue gdb events.  Also, make sure that the client_data
+	that gets passed into fetch_inferior_event makes it down to 
+	target_wait, which very well might need it.
+
+	* defs.h: add client_data to target_wait_hook.
+	* event-loop.c: export event_handler_func type.
+	  generalize the "fd" field of the gdb_event structure - make it
+ 	  a void *.
+	* (gdb_create_event): New internal function, implements the generic
+	parts of creating a new event structure.
+	* (gdb_queue_event): New function, how clients will create & queue
+	a new event.
+	* various places - mutatis mutandi for the type changes in the 
+	gdb_event structure.
+	* event-loop.h: declare gdb_client_data, the event_handler_func
+	and gdb_queue_event.
+	* infrun.c: Pass NULL (in the non-async case) or the client_data 
+	(in the async case) to target wait where appropriate.
+	* inftarg.c: add gdb_client_data to child_wait.
+	* target.c: add gdb_client_data to debug_to_wait.
+	* target.h: fix declaration of to_wait element of the target vector.
+	* thread-db.c: add gdb_client_data to thread_db_wait.
+	* top.c: fix another call to target_wait_hook.
+	* config/nm-nextstep.h: Fix declaration of child_wait.
+
+	* dbxread.c (_initialize_dbxread): Add a flag: read_type_psyms
+	to control whether we construct psyms for types.
+	* (read_dbx_symtab): Check the flag.
+
+2002-01-15  James Ingham  <jingham@inghji.apple.com>
+
+	* objc-lang.c: Have to include regcache.h or FETCH_ARGUMENT will
+	not convert the return value from read_register correctly, and
+	will mangle the value.
+
+	* infcmd.c (attach_command): Guard use of SOLIB_ADD with #ifdef.
+
+2002-01-15  James Ingham  <jingham@inghji.apple.com>
+
+	* ui-out.c (ui_out_end): Remove some bits of my patch to the list 
+	elements in a table bug that were superceded by Andrew's subsequent
+	patch, and caused a crash if left in place.
+
+2002-01-15  James Ingham <jingham@inghji.apple.com>
+	stabsread.c (read_one_struct_field): gcc 3.1 inserts type def'ns into the
+	class stab, and terminates the embedded type def'n with a ";", which gdb is
+	not expecting.  Strip it off if it does that.
+
+2001-12-11  James Ingham <jingham@inghji.apple.com>
+	utils.c (gdb_check_fatal): mutatis mutandi for changes to
+	internal error.
+
+2001-12-11  James Ingham <jingham@inghji.apple.com>
+
+	These changes are a start at making varobj more robust when
+	you get an error generating a type for a varobj you can't
+	ignore.  This arises, for instance, if you have an error
+	in generating the varobj for a child variable.
+
+	* varobj.c: Add fake_child element to the varobj structure.
+	This is better than relying on type == NULL, value == NULL,
+	since you can't tell the difference between a fake child and
+	an error.
+	(varobj_get_type): If we can't get the variable's type, don't 
+	continue as you will only crash...
+	(create_child): set fake_child appropriately.
+	(cplus_number_of_children): If you can't get the type, you can
+	count the number of children.  Just return 0.
+	(cplus_value_of_child): If gdb_value_struct_elt returned an error,
+	don't go on to try c_value_of_child.  It won't work either...
+	(cplus_type_of_child): skip over fake child to its parent when
+	getting the type.
+
+2001-12-03  James Ingham <jingham@inghji.apple.com>
+
+	* breakpoint.c (bpstat_do_actions): Allow an async target
+	to run breakpoint commands in an asynchronous fashion.  The 
+	code before this was forcing the target to look synchronous
+	to get the breakpoint commands to work right.
+	(async_breakpoint_command_continuation): New function, the
+	continuation for commands that run the inferior in a breakpoint
+	command.
+	* inf-loop.c (inferior_event_handler): reorder the 
+	complete_execution and the continuations to handle breakpoint
+	commands that continue the target.
+	* cli/cli-script.c (execute_control_command): If we are in 
+	the mi, then breakpoint commands should get run under the
+	"interpreter execute" command to get the output right.
+	
+	* breakpoint.c, breakpoint.h (find_finish_breakpoint): Need
+	access to the finish breakpoint so we can make the finish - 
+	hit solib breakpoint - continue sequence look like finish.
+	* infrun.c (handle_inferior_event): store away the current 
+	finish breakpoint if we actually stop for a solib event while
+	a finish is queued up.
+	(normal_stop): print the function-finished result if we have
+	hit the ersatz finish breakpoint.
+
+	* symtab.c (find_line_pc_range): Don't error out if you can't 
+	find the source file.  It is not needed to get the linetable 
+	mapping.
+	
+2001-12-03  James Ingham <jingham@inghji.apple.com>
+	Import from Neutrino tools branch:
+
+	* utils.c (make_my_cleanup): Add a guard for a null cleanup
+	function.  I have one bug report that this had happened, but I
+	can't get it to repeat.  This will hopefully help catch the bug...
+ 
+       * ui-file.c (fputs_unfiltered): Don't pass null buffers to the
+       lower layers of the ui_file code.
+
+       * varobj.c (varobj_create): Remember to release the "type" value
+       from the value chain if we make a varobj that we can't resolve
+       immediately.  Otherwise we will get a double free.
+
+       * symtab.c (in_prologue): The check for metrowerks_stepping and NO
+       metrowerks function range caused unnecessary stops.  Remove it.
+ 
+       * breakpoint.c (print_one_breakpoint): Print the address string of
+       an unset future breakpoint.  This was coming up empty before the
+       change.
+ 
+       * infrun.c (handle_inferior_event): Handle nexti when in a
+       function prologue by ONLY continuing if we are at the beginning
+       the prologue.
+	
+	* gdb/infrun.c, gdb/symtab.c, gdb-next/macosx-metrowerks.c: Add
+	support for metrowerks step_func_start & step_func_end
+	so we can more easily run under MW with no symbols.
+	
+2001-11-28  James Ingham  <jingham@inghji.apple.com>
+
+	* inferior.h: restore STARTUP_WITH_SHELL, and add the
+        start_with_shell_flag variable to here.
+	* infcmd.c: define start_with_shell_flag here, and prime it
+	with STARTUP_WITH_SHELL.
+	* fork-child.c: remove def'n of start_with_shell_flag from here
+	but this is where you can dynamically change it still...
+
+	* ui-out.c (verify_field_alignment): Don't verify the field
+	alignment if you are building a table, but not at the table level
+	(which is currently fixed at 1.).
+	(ui_out_end): If you are building a table, and return to the table
+	level you have just finished the current table column, and should
+	begin the next.
+	
+2001-11-01  Klee Dienes  (kdienes@apple.com)
+
+	* Makefile.in: Remove objc-exp.y 
+	* c-exp.y: Pull Objective-C changes from objc-exp.y.
+	* symfile.c (init_filename_language_table): Change ".M" and
+	".mm" to language_objcplus.
+	* c-typeprint.c: Add test for language_objcplus to test for
+	language_objc.
+	* utils.c: Ditto.
+	* symtab.h: Ditto.
+	* symtab.c: Ditto.
+	* stabsread.c: Ditto.
+	* printcmd.c: Ditto.
+	* language.c: Ditto.
+	* maint.c: Ditto.
+	* c-typeprint.c: Ditto.
+	* partial-stab.h: Ditto.
+	* language.h: Ditto.
+	* objc-lang.h: Remove prototypes for objc-parse.y; reformat.
+	* objc-lang.c: Add objcplus_language_defn; change parser for
+	objc_language_defn to c_parse.
+	* eval.c (evaluage_subexp): Remove objc_msgsend_typed; pass
+	appropriate values to call_function_by_hand_expecting type
+	instead.
+
+2001-10-31 Jason Molenda (jmolenda@apple.com)
+
+	* symtab.c (gdb_mangle_name): Merge didn't pull in FSF changes to
+	this function.
+	(lookup_partial_symbol): Fix language conditional.
+	(make_symbol_overload_list):  Move symbol check from here.
+	(make_symbol_completion_list): To here, where it was pre-merge.
+
+	* varobj.c: Comment typo.
+
+2001-10-15  Jason Molenda  (jmolenda@apple.com)
+
+        * symtab.c (lookup_block_symbol): Remove this wrapper function.
+        (lookup_block_symbol_helper):  Rename to lookup_block_symbol() as
+        it was originally; remove special handling for ObjC which assumes
+        that lookup_block_symbol doesn't work correctly for unmangled
+        identifiers (i.e. identifiers with spaces in them).
+
+2001-10-12  Jim Ingham  <jingham@w098.z064220144.sjc-ca.dsl.cnc.net>
+
+       * valarith.c (value_sub): Don't pass a raw type to
+       value_from_pointer, it has to go through check_typedef first.
+
+2001-10-09  James Ingham  <jingham@inghji.apple.com>
+
+       * dbxread.c (process_one_symbol): Use complain, not warn, so
+       we don't spam users too much.
+
+2001-10-08  Jason Molenda  (jmolenda@apple.com)
+
+       * symtab.h (symtab_and_line):  Revert kdienes' patch of 2000-05-22
+       and make sal.line a (signed int) again.
+
+2001-10-05  James Ingham  <jingham@inghji.apple.com>
+
+       * dbxread.c (process_one_symbol): Ignore function end stabs when
+       we are not currently in a function.  Some linkers neglect to clean
+       up properly when coalescing functions.
+
+2001-09-07  Jason Molenda  (jmolenda@apple.com)
+
+        * symtab.c (lookup_block_symbol):  Break out of linear search
+        if we're past the range of possible matches.
+
+2001-08-31  Jason Molenda  (jmolenda@apple.com)
+
+	* c-valprint.c (c_val_print):  Second call to check_typedef ()
+	is no longer necessary.
+
+2001-08-06  James Ingham  <jingham@inghji.apple.com>
+
+	* symtab.c (in_prologue): If the function start address doesn't
+	look like a prologue start, try also scanning from the pc.  This
+	helps us in some cases where we have bad debug info so the
+	function address is off in never-never land.  I have seen this
+	happen in PEF binaries where there are some functions with
+	traceback tables inlined, but not all.
+
+2001-08-02  James Ingham  <jingham@inghji.apple.com>
+
+	* varobj.c (cplus_real_type_index_for_fake_child_index): New
+	function, return the index in the class type for the n'th child of
+	one of the varobj fake children.
+	(cplus_name_of_child): Use this function rather than just assume 
+	the class writer had ordered her variables in a particular order.
+
+	(c_value_of_variable): Make sure you count the number of children
+	before reporting it in an Array's value string.
+
+2001-08-01  James Ingham  <jingham@inghji.apple.com>
+
+	* command.c (_initialize_command): The file name completer is more
+	appropriate for "shell" than the default completer...
+
+2001-07-09  James Ingham  <jingham@inghji.apple.com>
+
+	* valops.c (value_rtti_type): Check for minsym == NULL BEFORE using it.
+
+2001-07-06  James Ingham  <jingham@inghji.apple.com>
+
+	* wrapper.c (gdb_varobj_get_value): provide a save
+	varobj_get_value.
+        * wrapper.h: declare it.
+	* cli-out.c: wrapper.h now requires varobj.h.
+	* gdbtypes.c: ditto
+	* values.c: ditto
+	* varobj.h: ditto
+	
+2001-06-21  James Ingham  <jingham@inghji.apple.com>
+
+	* varobj.c (cplus_value_of_child): Just cosmetic - I find the
+	added brackets more readable.
+
+2001-06-20  Ira L. Ruben  <ira@apple.com>
+	* breakpoint.c (parse_breakpoint_sals): Handle case where address
+	is NULL and default_breakpoint_valid to set addr_string to "*pc"
+	(sal.pc) to avoid warning from breakpoint_re_set_one().
+
+2001-06-15  Ira L. Ruben  <ira@apple.com>
+
+	* Makefile.in: Update dependencies for breakpoint.o
+	
+	* breakpoint.c (set_raw_breakpoint): init new original_type field.
+	(create_breakpoints): Handle new original_type argument.
+	(break_command_1): Ditto. 
+	(do_captured_breakpoint): Pass new original type to create_breakpoints.
+	(break_at_finish_at_depth_command_1): pass original type to
+	break_command_1.
+	(break_at_finish_command_1): Ditto.
+	(break_command): Ditto.
+	(future_break_command_1): Ditto.
+	(tbreak_command): Ditto.
+	(hbreak_command): Ditto.
+	(thbreak_command): Ditto.
+	(stopin_command): Ditto.
+	(stopat_command): Ditto.
+	(watch_command_1): Handle new original_type argument.
+	(watch_command): Pass new original type to watch_command_1.
+	(rwatch_command_wrapper): Ditto.
+	(awatch_command): Ditto.
+	(ignore_command): Suppress newline if from_tty is false.
+	(write_one_breakpoint): new routine for save_breakpoints_command.
+	(save_breakpoints_command): Add save-breakpoints command.
+	(_initialize_breakpoint): Define save-breakpoints and its aliases.
+	
+	* breakpoint.h (enum bptype): Add new breakpoint types.
+	(struct breakpoint): Add field to recore original breakpoint type.
+	
+	* main.c (captured_main): Initialize $input_radix and $output_radix.
+	These are referenced by a save-breakpoints file to preserve radix
+	across the breakpoint restoration.
+	
+	* tracepoint.c (tracepoint_save_command): Fix fopen error reporting to
+	show errno information just like save-breakpoints command.
+	
+	* valprint.c (set_input_radix_1): Set $input_radix.
+	(set_output_radix_1): Set $output_radix.
+
+2001-06-15  James Ingham  <jingham@inghji.apple.com>
+
+	* infcmd.c (_initialize_infcmd): If the "run" completer is the
+	file completer, then the "set args" should be as well.  Make it
+	so...
+
+2001-06-13  Jim Ingham  <jingham@inghji.apple.com>
+
+	* infcmd.c: Make the completer for run be the file completer.  It
+	is very common for file names to be the arguments to programs,
+	nothing else really makes sense...
+
+	* valops.c (value_cast): When you are consing up the pointer type
+	for a superclass, set the enclosing type as well or all the
+	superclass fields will be incorrect.
+
+2001-06-08  James Ingham  <jingham@inghji.apple.com>
+
+	* breakpoint.c (_initialize_breakpoint): Add "break ... if <cond>
+	to the documentation for the breakpoint command.
+
+2001-04-17  James Ingham  <jingham@inghji.apple.com>
+
+	* blockframe.c (create_new_frame): move the INIT_EXTRA_FRAME_INFO
+	call to BEFORE the find_pc_partial_function.  This ensures that we
+	will never get a frame without an extra_info because of an error
+	in find_pc_partial_function.
+
+2001-04-09  James Ingham  <jingham@inghji.apple.com>
+
+	* symtab.c (find_line_pc_range): Check that linetable is not null
+	before you dereference it.
+
+	* varobj.c (cplus_value_of_child): check that gdb_value_ind does
+	not return null.  In the C++ case, gdb_value_ind tries to look up
+	the superclass, and sometimes fails miserable.  Protect against
+	that.
+
+2001-03-12  James Ingham  <jingham@inghji.apple.com>
+
+	* valops.c (value_rtti_type): Remove the attempt to offset to 
+	the full type, since that never worked for the hard cases were
+	it might be useful, and failed for the easy cases...  NB. This
+	code is pretty useless for GCC right now.  But at least this
+	renders it harmless.
+
+2001-02-13  James Ingham  <jingham@inghji.apple.com>
+
+	* event-top.c (display_gdb_prompt): Call target_terminal_ours
+	before we reinsert the readline callback handler.  This is
+	necessary if the inferior dies unexpectedly, and the code doesn't
+	clean up.
+
+2001-02-12  James Ingham  <jingham@inghji.apple.com>
+
+	* infrun.c (proceed): set target_executing to 0.  normal_stop
+	doesn't do this, and in the non-asynchronous case,
+	complete_execution doesn't get called either.
+
+2001-02-05  James Ingham  <jingham@inghji.apple.com>
+
+	* objc-lang.c: If syms is NULL, don't try to dereference it!
+
+2001-01-25  James Ingham  <jingham@inghji.apple.com>
+
+	* infrun.c: Initialize sync_execution to 1 - this is the default
+	mode for running gdb...
+
+	* event-top.c (async_enable_stdin): Don't mess with sync_execution
+	in this function.  You should not lie about the mode of execution
+	just to get the terminal multiplexing to work.  It adds a lot of
+	fragility to the code.
+        (async_disable_stdin): ditto.
+	
+	FIXME: These changes reverse some hacks to get the remote target
+	to work with async.  The remote hacks are evil & bad, but these
+	changes will have to be revised before we can submit the code
+	to the FSF.
+	
+	* cli-out.c (cli_interpreter_resume): Initialize the sync_execution to 1 
+	when you resume the cli interpreter.  This is the correct value for the
+	cli interpreter.
+
+2001-01-24  James Ingham  <jingham@inghji.apple.com>
+
+	* inflow.c (terminal_ours_1): When you are attaching, don't try to
+	get the inferior_process_group from the controlling terminal.
+	This is almost never right, and will cause ^C not to work.
+
+2001-01-17  James Ingham  <jingham@inghji.apple.com>
+
+	* varobj.c: Add in_scope field to the root structure.
+	(new_root_variable): Initialize in_scope.
+	(varobj_update): Better track variables going into &
+	out of scope.
+	(varobj_create): For non-use_selected_frame variables, always
+	check whether the variable is in scope.  Evaluation will often
+	return true even when the variable is not in scope, but it is
+	bogus...
+
+2001-01-10  James Ingham  <jingham@inghji.apple.com>
+
+	* stack.c (print_frame): Add a call to print_frame_more_info_hook
+	so other interpreters than the CLI can add info to the stack
+	printing without affecting the CLI output.
+	* defs.h: Added def'n of print_frame_more_info_hook.
+	* top.c: Added declaration of print_frame_more_info_hook.
+
+2001-01-09  James Ingham  <jingham@inghji.apple.com>
+
+	* symtab.c (lookup_symbol_aux): Call lookup_symbol_aux to lookup a
+	mangled symbol rather than recursing into lookup_symbol, since this
+	will just re-unmangle the name & call lookup_symbol_aux - leading to 
+	an infinite recursion.
+
+2000-12-18  James Ingham  <jingham@inghji.apple.com>
+
+	* breakpoint.c (bpstat_do_actions): Force the execution of breakpoint
+	commands to be synchronous.  This is a hack to work around the fact
+	that asynchronous execution of breakpoint commands doesn't work for
+	truely synchronous commands.  The correct fix is for synchronous 
+	versions of commands (like "continue" as opposed to "continue&")
+	not to return till they have finished execution.  Stay tuned.
+
+	* gdbtypes.c (check_typedef): Make sure check_typedef never creates
+	a type structure where the type & the target_type point to the same
+	memory.  This was happening when you had a typedef for an incomplete
+	type.  This is not the complete fix, since such types should not get
+	get created in the first place, but this keeps the error from hanging
+	gdb.
+
+2000-12-15  James Ingham  <jingham@inghji.apple.com>
+
+	* varobj.c (varobj_create): Added USE_BLOCK_IN_FRAME which treats
+	the "frame" variable as the address of a block structure.  The
+	varobj will be bound to that block.  FIXME - need to come up with
+	a type-safe interface to this.
+	(varobj_get_valid_block): New function, returns the startaddr &
+	endaddr for the valid block for a varobj.
+	(value_of_root): Check that we are in the local block in which the
+	varobj is defined (as opposed to the frame in which it is defined).
+	(varobj_pc_in_valid_block_p): New function, returns whether the pc
+	in the frame for this varobj is in the block in which this varobj 
+	is valid.
+	
+
+2000-12-12  James Ingham  <jingham@inghji.apple.com>
+
+	* breakpoint.c (do_captured_breakpoint): Move test for sals.nelts -
+	i.e. "Did we find a breakpoint" AFTER test for "is this a future
+	break..."
+
+2000-12-04  James Ingham  <jingham@inghji.apple.com>
+
+	* main.c (captured_main): The coreargs variable has been quoted,
+	so it is no longer a number, and fails the "could be a PID" test.  
+	Strip the quotes before the test...
+
+	* top.c (execute_user_command): Set the target to synchronous
+	during the execution of user defined commands.  Otherwise the 
+	command execution will get out of order.
+
+	* target.c (gdb_set_async_override): New function, overrides the 
+	target's can_async method when we really need to ensure that a
+	command gets run synchronously...
+
+2000-11-22  James Ingham  <jingham@inghji.apple.com>
+
+	* varobj.c (varobj_get_type_struct): New function, return the
+	type structure (as opposed to a printed string) for the varobj.
+
+	* event-top.c (_initialize_event_loop): Don't use the
+	cli_command_hook if you are not using the event loop.
+	(gdb_setup_readline): Don't muck with gdb_stdout & friends if 
+	you are not using the event loop.  These ui_out's don't work
+	right in that case.  NB The non-event loop version of gdb should
+	fade away at some point...
+	(gdb_disable_readline): remove the gdb_stdout & gdb_stderr ui_outs
+	when you disable readline.
+
+2000-11-09  James Ingham  <jingham@inghji.apple.com>
+
+	* breakpoint.c (captured_parse_breakpoint_sals): New function, need
+	to catch this call in gdb_breakpoint so I can implement future
+	break in the mi.
+	(do_captured_breakpoint): Add a futureflag, and if it is yes, then
+	catch the error, and set a future breakpoint instead.
+	* defs.h: Change definition of gdb_breakpoint to match.
+
+2000-11-08  James Ingham  <jingham@inghji.apple.com>
+
+	* interpreter.c: Add an exec_proc to the interpreter structure, so
+	you can instruct an interpreter to execute a text string -
+	bypassing the UI.
+	* cli-out.c (cli_interpreter_exec): New function, implements
+	exec'ing a command in a safe way.
+
+	* wrapper.c (safe_execute_command): New function - a catch_errors
+	wrapper for execute_command.
+	(wrap_execute_command): The wrapped function implementing
+	safe_execute_command.
+	* interpreter.c: Add the ability to set an interpreter into
+	"quiet" mode where it doesn't print a startup notice, and
+	supresses prompt printing.
+	(gdb_interpreter_set_quiet): Sets the quiet flag
+	(gdb_interpreter_is_quiet): Returns whether the interp is quiet or
+	not.
+	(gdb_set_interpreter): Don't print interpreter switch banner if we
+	are quiet.  
+	* cli-out.c (cli_interpreter_display_prompt): Use the quiet flag
+	in prompt display.
+
+2000-11-07  James Ingham  <jingham@inghji.apple.com>
+
+	* infrun.c (handle_inferior_event): Add a separate test to handle the case where you
+	are nexti'ing in code with NO symbols.  In this case the old code assumed you were 
+	always in a function prologue, test if you are not, and stepi correctly...
+
+2000-11-01  James Ingham  <jingham@inghji.apple.com>
+
+	* interpreter.c: New file, implements switchable interpreters
+	for gdb.
+	* interpreter.h: Ditto.
+	* cli-out.c, cli-out.h: Add the interpreter functions.
+	* event-loop.c (start_event_loop): Poll the interpreter's event loop
+	as well as gdb...
+	* event-top.c (gdb_setup_readline, gdb_disable_readline): New functions,
+	used by console & mi to grab & relinquish control of the readline input.
+	* main.c (captured_main): strsave the interpreter name, since we will
+	eventually use it as a set variable.
+	* top.c (gdb_init): Use the interpreter mechanism to startup the stdin 
+	handling.
+	* mi/mi-cmds.c, mi/mi-cmds.h: Add mi command -interpreter-set.
+	* (captured_mi_execute_command): actually return the MI result
+	code out of this function.
+	* (mi_execute_command): Don't print the prompt if the command return
+	is MI_CMD_QUIET.
+	* mi/mi-main.c: Add the interpreter functions.
+	* mi/mi-main.c (mi_set_interpreter): implements -interpreter-set.
+	* mi/mi-main.c (_initialize_mi): This now just registers the mi interpreter.
+	
+2000-10-19  James Ingham  <jingham@inghji.apple.com>
+
+	* partial-stab.h (switch): Add the N_BNSYM & N_ENSYM stabs to the stabs list.
+	* dbxread.c (process_one_symbol): ditto.
+
+2000-09-22  James Ingham  <jingham@inghji.apple.com>
+
+	* infrun.c (handle_inferior_event): Errors in the call to
+	breakpoint_re_set will cause async_enable_stdin to get called from
+	the exec_error_cleanup.  So we need to disable stdin again before
+	proceeding.
+
+2000-09-06  Jim Ingham  <jingham@localhost>
+
+	* exec.c (init_exec_ops): make function not static.  We use it in
+	the next nat code.
+	* inftarg.c (init_child_ops): ditto
+
+	* config/powerpc/macosx-mh: Move nextstep-nat-cfmthread.o to the
+	to the CFM_FILES.
+	
+2000-08-09  James Ingham  <jingham@inghji.apple.com>
+
+	* values.c (value_change_enclosing_type): New function.
+	* value.h: New function value_change_enclosing_type.
+	* valops.c (value_cast): use the value_change_enclosing_type
+	function rather than directly setting VALUE_ENCLOSING_TYPE.
+	(value_assign): ditto.
+	(value_assign): ditto.
+	(value_addr): ditto.
+	(value_ind): ditto.
+	(value_ind): ditto.
+
+	* buildsym.c (finish_block): Add the addresses to the Inner block
+	outside outer block complaint even when we know the function name.
+	No reason not to provide the info in this case, and it might be
+	useful...

@@ -159,12 +159,7 @@ mkpath(path, mode, dir_mode)
 		done = (*slash == '\0');
 		*slash = '\0';
 
-		if (stat(path, &sb)) {
-			if (errno != ENOENT
-			    || mkdir(path, done ? mode : dir_mode)) {
-				warn("%s", path);
-				return (-1);
-			}
+		if (!mkdir(path, done ? mode : dir_mode)) {
                 	/*
                          * The mkdir() and umask() calls both honor only the low
                 	 * nine bits, so if you try to set a mode including the
@@ -174,11 +169,15 @@ mkpath(path, mode, dir_mode)
                             	warn("%s", path);
                             	return (-1);
                         }
-		} else if (!S_ISDIR(sb.st_mode)) {
-		        warnx("%s: %s", path, strerror(ENOTDIR));
-			return (-1);
+		} else {
+			if (stat(path, &sb)) {
+				warnx("%s: %s", path, strerror(errno));
+				return (-1);
+			} else if (!S_ISDIR(sb.st_mode)) {
+				warnx("%s: %s", path, strerror(ENOTDIR));
+				return (-1);
+			}
 		}
-		    
 		*slash = '/';
 	}
 

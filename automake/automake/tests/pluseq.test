@@ -1,0 +1,17 @@
+#! /bin/sh
+
+# Test `+=' functionality.
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+data_DATA = zar
+data_DATA += doz
+END
+
+: > zar
+: > doz
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+fgrep 'zar doz' Makefile.in

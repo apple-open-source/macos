@@ -29,6 +29,8 @@ u_long ppp_status (struct client *client, struct msg *msg);
 u_long ppp_connect (struct client *client, struct msg *msg);
 u_long ppp_disconnect (struct client *client, struct msg *msg);
 u_long ppp_listen (struct client *client, struct msg *msg);
+u_long ppp_suspend (struct client *client, struct msg *msg);
+u_long ppp_resume (struct client *client, struct msg *msg);
 
 u_long ppp_enable_event (struct client *client, struct msg *msg);
 u_long ppp_disable_event (struct client *client, struct msg *msg);
@@ -36,5 +38,8 @@ u_long ppp_disable_event (struct client *client, struct msg *msg);
 u_long ppp_getnblinks (struct client *client, struct msg *msg);
 u_long ppp_getlinkbyindex (struct client *client, struct msg *msg);
 u_long ppp_getlinkbyserviceid (struct client *client, struct msg *msg);
+u_long ppp_getlinkbyifname (struct client *client, struct msg *msg);
+
+void ppp_event(struct client *client, struct msg *msg);
 
 #endif

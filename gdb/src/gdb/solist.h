@@ -1,5 +1,6 @@
 /* Shared library declarations for GDB, the GNU Debugger.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 98, 1999, 2000
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000,
+   2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -18,6 +19,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
+
+#ifndef SOLIST_H
+#define SOLIST_H
 
 #define SO_NAME_MAX_PATH_SIZE 512	/* FIXME: Should be dynamic */
 
@@ -51,7 +55,9 @@ struct so_list
 
     /* The following fields of the structure are built from
        information gathered from the shared object file itself, and
-       are initialized when we actually add it to our symbol tables.  */
+       are set when we actually add it to our symbol tables.
+
+       current_sos must initialize these fields to 0.  */
 
     bfd *abfd;
     char symbols_loaded;	/* flag: symbols read in yet? */
@@ -89,9 +95,16 @@ struct target_so_ops
 
     /* Find, open, and read the symbols for the main executable.  */
     int (*open_symbol_file_object) (void *from_ttyp);
+
+    /* Determine if PC lies in the dynamic symbol resolution code of
+       the run time loader */
+    int (*in_dynsym_resolve_code) (CORE_ADDR pc);
   };
 
 void free_so (struct so_list *so);
+
+/* Find solib binary file and open it.  */
+extern int solib_open (char *in_pathname, char **found_pathname);
 
 /* FIXME: gdbarch needs to control this variable */
 extern struct target_so_ops *current_target_so_ops;
@@ -107,3 +120,7 @@ extern struct target_so_ops *current_target_so_ops;
 #define TARGET_SO_CURRENT_SOS (current_target_so_ops->current_sos)
 #define TARGET_SO_OPEN_SYMBOL_FILE_OBJECT \
   (current_target_so_ops->open_symbol_file_object)
+#define TARGET_SO_IN_DYNSYM_RESOLVE_CODE \
+  (current_target_so_ops->in_dynsym_resolve_code)
+
+#endif

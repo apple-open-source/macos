@@ -26,12 +26,40 @@
 #include <Security/cssmalloc.h>
 #include <Security/refcount.h>
 
-#ifdef _CPP_CDSA_UTILITIES_CSSMDATA
-#pragma export on
-#endif
 
-namespace Security
-{
+namespace Security {
+
+
+//
+// A convenient way to make a CssmData from a (const) string.
+// Note that the underlying string is not memory-managed, so it
+// should either be static or of sufficient (immutable) lifetime.
+//
+class StringData : public CssmData {
+public:
+    StringData(const char *s) : CssmData(const_cast<char *>(s), strlen(s)) { }
+};
+
+
+//
+// A CssmData bundled up with a data buffer it refers to
+//
+template <size_t size>
+struct DataBuffer : public CssmData {
+	unsigned char buffer[size];
+	DataBuffer() : CssmData(buffer, size) { }
+};
+
+
+//
+// Comparing CssmDatas for equality.
+// Note: No ordering is established here.
+// Both CSSM_DATAs have to exist.
+//
+bool operator == (const CSSM_DATA &d1, const CSSM_DATA &d2);
+inline bool operator != (const CSSM_DATA &d1, const CSSM_DATA &d2)
+{ return !(d1 == d2); }
+
 
 //
 // The following pseudo-code describes what (at minimum) is required for a class
@@ -43,7 +71,7 @@ namespace Security
 //  operator const CssmData &() const ...
 // }
 //
-// All this can be satisfied, of course, by inheriting form CssmData.
+// All this can be satisfied, of course, by inheriting from CssmData.
 //
 
 
@@ -196,7 +224,10 @@ public:
 	template <class Data>
 	CssmAutoData(CssmAllocator &alloc, const Data &source) : CssmOwnedData(alloc, mData)
 	{ *this = source; }
-	
+
+    CssmAutoData(CssmAutoData &source) : CssmOwnedData(source.allocator, mData)
+    { set(source); }
+
 	explicit CssmAutoData(CssmManagedData &source) : CssmOwnedData(source.allocator, mData)
 	{ set(source); }
 	
@@ -274,6 +305,7 @@ public:
 	CssmPolyData(const sint32 &t) : CssmData(set(t), sizeof(t)) { }
 	CssmPolyData(const sint64 &t) : CssmData(set(t), sizeof(t)) { }
 	CssmPolyData(const double &t) : CssmData(set(t), sizeof(t)) { }
+	CssmPolyData(const StringPtr s) : CssmData (reinterpret_cast<char*>(s + 1), uint32 (s[0])) {}
 };
 
 class CssmDateData : public CssmData
@@ -414,10 +446,7 @@ public:
 	bool CssmBuffer::operator < (const CssmBuffer &other) const { return (**this) < (*other); }
 };
 
-} // end namespace Security
 
-#ifdef _CPP_CSSMDATA
-#pragma export off
-#endif
+} // end namespace Security
 
 #endif // _H_CDSA_UTILITIES_CSSMDATA

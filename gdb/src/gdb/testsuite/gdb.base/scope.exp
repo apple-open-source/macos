@@ -1,4 +1,5 @@
-# Copyright (C) 1992, 1994, 1997, 1998 Free Software Foundation, Inc.
+# Copyright 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+# Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -452,7 +453,7 @@ proc test_at_autovars {} {
 	gdb_suppress_tests;
     }
 
-    if [gdb_test "up" ".*" "" ] { 
+    if [gdb_test "up" ".*autovars.*" "up from marker1 in scope.exp" ] { 
 	gdb_suppress_tests ; 
     }
 
@@ -484,7 +485,7 @@ proc test_at_localscopes {} {
     if [gdb_test "cont" "Break.* marker2 \\(\\) at .*:$decimal.*" "continue to marker2"] {
 	gdb_suppress_tests;
     }
-    if [gdb_test "up" ".*" "" ] { 
+    if [gdb_test "up" ".*localscopes.*" "up from marker2 in scopes.exp" ] { 
 	gdb_suppress_tests ; 
     }
 
@@ -499,7 +500,9 @@ proc test_at_localscopes {} {
 
     if [gdb_test "cont" "Break.* marker3 \\(\\) at .*:$decimal.*" \
 	"continue to marker3 in scope.exp"] then { gdb_suppress_tests }
-    if [gdb_test "up" "" "up from marker3 in scope.exp"] then { gdb_suppress_tests }
+    if [gdb_test "up" ".*localscopes.*" "up from marker3 in scope.exp"] { 
+	gdb_suppress_tests 
+    }
 
     # Should be at next (first nested) scope.  Check values.
 
@@ -512,10 +515,12 @@ proc test_at_localscopes {} {
 
     # This test will only fail if the file was compiled by gcc, but
     # there's no way to check that.
-    setup_xfail "a29k-*-udi" 2423
+    # OBSOLETE setup_xfail "a29k-*-udi" 2423
     if [gdb_test "cont" "Break.* marker4.*at .*:$decimal.*" \
 	"continue to marker4 in scope.exp"] then { gdb_suppress_tests }
-    if [gdb_test "up" "" "up from marker4 in scope.exp"] then { gdb_suppress_tests }
+    if [gdb_test "up" ".*localscopes.*" "up from marker4 in scope.exp"] {
+	gdb_suppress_tests 
+    }
 
     gdb_test "print localval" " = 30" "print localval, innermost scope"
     gdb_test "print localval1" " = 11" "print localval1, innermost scope"
@@ -554,7 +559,7 @@ gdb_test "print 'scope0.c'::filelocal_ro" "= 201"
 # is responsible for clearing bss and that hasnt' happened yet.
 #
 # This is a problem for all non-native targets. -- manson
-if ![isnative] {
+if [is_remote target] {
     unsupported "print 'scope0.c'::filelocal_bss before run"
 } else {
     gdb_test "print 'scope0.c'::filelocal_bss" "= 0" \

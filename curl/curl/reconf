@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# $Id: reconf,v 1.1.1.1 2001/02/15 19:52:28 wsanchez Exp $
+#
+# re autoconf/automake shell script
+#
+
+die(){
+	echo "$@" ; exit
+}
+
+aclocal -I .	|| die "ahhhhh"
+autoheader	|| die "ahhhhh"
+automake	|| die "ahhhhh"
+autoconf	|| die "ahhhhh"

@@ -36,9 +36,9 @@ struct IODBDMADescriptor;
 #define kSpeakerConnectError		"SpeakerConnectError"
 
 enum  {
-	kMaximumVolume = 140,
+	kMaximumVolume = 141,
 	kMinimumVolume = 0,
-	kInitialVolume = 100
+	kInitialVolume = 101
 };
 
 typedef Boolean GpioActiveState;
@@ -84,8 +84,6 @@ class AppleTexasAudio : public AppleOnboardAudio
 	friend class AudioHardwareMux;
 
 protected:
-	UInt32					gVolLeft;
-	UInt32					gVolRight;
 	SInt32					minVolume;
 	SInt32					maxVolume;
 	Boolean					gVolMuteActive;
@@ -132,7 +130,7 @@ protected:
 	UInt64					savedNanos; 
 	Boolean					speakerConnectFailed;
 	IOAudioDevicePowerState previousPowerState;
-	Boolean					removeRightVolControl;
+	Boolean					useMasterVolumeControl;
 	UInt32					lastLeftVol;
 	UInt32					lastRightVol;
 	Boolean					dallasSpeakersProbed;						// So we only probe the speakers once when they are plugged in
@@ -221,7 +219,7 @@ public:
 	virtual IOReturn performDeviceSleep ();
 
 	virtual IOReturn setModemSound(bool state);
-//	virtual IOReturn callPlatformFunction( const OSSymbol *functionName , bool waitForFunction, void *param1, void *param2, void *param3, void *param4 );
+	// virtual IOReturn callPlatformFunction( const OSSymbol *functionName , bool waitForFunction, void *param1, void *param2, void *param3, void *param4 );
 
 protected:
 	// activation functions
@@ -297,7 +295,7 @@ protected:
 	void	GpioWriteByte( UInt8* gpioAddress, UInt8 data );
 	UInt8	GpioReadByte( UInt8* gpioAddress );
 
-			// User Client calls
+	// User Client calls
 	virtual UInt8	readGPIO (UInt32 selector);
 	virtual void	writeGPIO (UInt32 selector, UInt8 data);
 	virtual Boolean	getGPIOActiveState (UInt32 gpioSelector);

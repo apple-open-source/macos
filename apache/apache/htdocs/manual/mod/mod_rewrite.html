@@ -736,15 +736,21 @@ RewriteMap servers rnd:/path/to/file/map.txt
 ##  txt2dbm -- convert txt map to dbm format
 ##
 
+use NDBM_File;
+use Fcntl;
+
 ($txtmap, $dbmmap) = @ARGV;
-open(TXT, "&lt;$txtmap");
-dbmopen(%DB, $dbmmap, 0644);
+
+open(TXT, "&lt;$txtmap") or die "Couldn't open $txtmap!\n";
+tie (%DB, 'NDBM_File', $dbmmap,O_RDWR|O_TRUNC|O_CREAT, 0644) or die "Couldn't create $dbmmap!\n";
+
 while (&lt;TXT&gt;) {
-    next if (m|^s*#.*| or m|^s*$|);
-    $DB{$1} = $2 if (m|^\s*(\S+)\s+(\S+)$|);
+  next if (/^\s*#/ or /^\s*$/);
+  $DB{$1} = $2 if (/^\s*(\S+)\s+(\S+)/);
 }
-dbmclose(%DB);
-close(TXT)
+
+untie %DB;
+close(TXT);
 </pre>
               </td>
             </tr>
@@ -2086,13 +2092,14 @@ SCRIPT_URI=http://en1.engelschall.com/u/rse/
       Rewriting Guide</a> available, which provides a collection of
       practical solutions for URL-based problems. There you can
       find real-life rulesets and additional information about
-      mod_rewrite.     <hr />
+      mod_rewrite. 
+    </blockquote>
+        <hr />
 
     <h3 align="CENTER">Apache HTTP Server Version 1.3</h3>
     <a href="./"><img src="../images/index.gif" alt="Index" /></a>
     <a href="../"><img src="../images/home.gif" alt="Home" /></a>
 
-    </blockquote>
     <!-- page indentation -->
     <!--/%hypertext -->
   </body>

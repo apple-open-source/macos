@@ -1,0 +1,19 @@
+#! /bin/sh
+
+# Make sure AC_CYGWIN requires config.{sub,guess}.
+# Reported by James Youngman.
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in <<EOF
+AC_CYGWIN
+EOF
+
+: > Makefile.am
+
+$ACLOCAL
+$AUTOMAKE -a
+test -f config.sub
+test -f config.guess

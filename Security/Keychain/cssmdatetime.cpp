@@ -42,6 +42,7 @@
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <CoreFoundation/CFDate.h>
 #include <CoreFoundation/CFTimeZone.h>
+#include <ctype.h>
 
 namespace Security
 {
@@ -219,9 +220,15 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, SInt64 &outMacDate)
   	//tmp->tm_sec = x;
   	date.second = x;
 
-	CFTimeZoneRef timeZone = CFTimeZoneCopyDefault();
+	CFTimeZoneRef timeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0);
 	CFAbsoluteTime absTime = CFGregorianDateGetAbsoluteTime(date, timeZone);
 	CFRelease(timeZone);
+
+	// Adjust abstime to local timezone
+	timeZone = CFTimeZoneCopyDefault();
+	absTime += CFTimeZoneGetSecondsFromGMT(timeZone, absTime);
+	CFRelease(timeZone);
+
 	outMacDate = SInt64(double(absTime + kCFAbsoluteTimeIntervalSince1904));
 }
 
@@ -234,8 +241,15 @@ void MacSecondsToTimeString(UInt32 inMacDate, UInt32 inLength, void *outData)
 void MacLongDateTimeToTimeString(const SInt64 &inMacDate,
                                         UInt32 inLength, void *outData)
 {
+	// @@@ this code is close, but on the fringe case of a daylight savings time it will be off for a little while
 	CFAbsoluteTime absTime = inMacDate - kCFAbsoluteTimeIntervalSince1904;
+
+	// Remove local timezone component from absTime
 	CFTimeZoneRef timeZone = CFTimeZoneCopyDefault();
+	absTime -= CFTimeZoneGetSecondsFromGMT(timeZone, absTime);
+	CFRelease(timeZone);
+
+	timeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0);
 	CFGregorianDate date = CFAbsoluteTimeGetGregorianDate(absTime, timeZone);
 	CFRelease(timeZone);
 

@@ -1,0 +1,1272 @@
+/*
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*
+ * BSDPClient.c
+ * - BSDP client library functions
+ */
+
+/* 
+ * Modification History
+ *
+ * February 25, 2002	Dieter Siegmund (dieter@apple.com)
+ * - initial revision
+ */
+
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/errno.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/fcntl.h>
+#include <ctype.h>
+#include <net/if.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
+#include <netinet/udp.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/bootp.h>
+#include <arpa/inet.h>
+
+#include <CoreFoundation/CFDictionary.h>
+#include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFNumber.h>
+#include <CoreFoundation/CFRunLoop.h>
+#include <CoreFoundation/CFSocket.h>
+
+#include "ioregpath.h"
+#include "BSDPClient.h"
+#include "BSDPClientPrivate.h"
+#include "rfc_options.h"
+#include "dhcp_options.h"
+#include "bsdp.h"
+#include "util.h"
+#include "cfutil.h"
+#include "dhcplib.h"
+#include "interfaces.h"
+
+#define BSDPCLIENT_LIST_MAX_TRIES		4
+#define BSDPCLIENT_SELECT_MAX_TRIES		2
+#define BSDPCLIENT_INITIAL_TIMEOUT_SECS		4
+
+static const unsigned char	rfc_magic[4] = RFC_OPTIONS_MAGIC;
+
+extern struct ether_addr *ether_aton(char *);
+
+static u_char dhcp_params[] = {
+    dhcptag_vendor_class_identifier_e,
+    dhcptag_vendor_specific_e,
+};
+static int	n_dhcp_params = sizeof(dhcp_params) / sizeof(dhcp_params[0]);
+
+#define NetBoot2InfoVersion	0x33000
+typedef enum {
+    kNetBootVersionNone = 0,
+    kNetBootVersion1 = 1,
+    kNetBootVersion2 = 2
+} NetBootVersion;
+
+typedef enum {
+    kBSDPClientStateInit = 0,
+    kBSDPClientStateList = 1,
+    kBSDPClientStateSelect = 2,
+} BSDPClientState;
+
+typedef void (*BSDPClientTimerCallBack)(BSDPClientRef client);
+
+typedef union {
+    BSDPClientListCallBack	list;
+    BSDPClientSelectCallBack	select;
+} BSDPClientCallBackUnion;
+
+struct BSDPClient_s {
+    char *				system_id;
+    bsdp_version_t			client_version; /* network order */
+    boolean_t				old_firmware;
+    int					fd;
+    u_short				client_port;
+    CFSocketRef				socket;
+    CFRunLoopSourceRef			rls;
+    interface_t *			if_p;
+    u_int32_t				xid;
+    BSDPClientState			state;
+    CFRunLoopTimerRef			timer;
+    BSDPClientTimerCallBack		timer_callback;
+    int					try;
+    int					wait_secs;
+
+    /* values provided by caller */
+    struct {
+	BSDPClientCallBackUnion		func;
+	void *				arg;
+	struct in_addr			server_ip;
+	bsdp_image_id_t			image_identifier;
+    } callback;
+
+};
+
+static void
+BSDPClientProcessList(BSDPClientRef client, struct in_addr server_ip,
+		      struct dhcp * reply, int reply_len,
+		      dhcpol_t * options_p, dhcpol_t * bsdp_options_p);
+static void
+BSDPClientProcessSelect(BSDPClientRef client, bsdp_msgtype_t bsdp_msg);
+
+
+static struct in_addr
+cfstring_to_ip(CFStringRef str)
+{
+    char		buf[32];
+    struct in_addr	ip = { 0 };
+    CFIndex		l;
+    int			n;
+    CFRange		range;
+
+    if (str == NULL)
+	return ip;
+
+    range = CFRangeMake(0, CFStringGetLength(str));
+    n = CFStringGetBytes(str, range, kCFStringEncodingMacRoman,
+			 0, FALSE, buf, sizeof(buf), &l);
+    buf[l] = '\0';	
+    inet_aton(buf, &ip);
+    return (ip);
+}
+
+static NetBootVersion
+NetBootVersionGet()
+{
+    CFDictionaryRef		properties = NULL;
+    CFDataRef			info = NULL;
+    u_int32_t			version;
+    NetBootVersion		support = kNetBootVersionNone;
+
+    properties = myIORegistryEntryCopyValue("IODeviceTree:/rom/boot-rom");
+    if (properties != NULL) {
+	info = CFDictionaryGetValue(properties, CFSTR("info"));
+    }
+    if (info == NULL) {
+	goto done;
+    }
+    CFDataGetBytes(info, CFRangeMake(8, sizeof(version)), (void *)&version);
+    if (ntohl(version) < NetBoot2InfoVersion) {
+	support = kNetBootVersion1;
+    }
+    else {
+	support = kNetBootVersion2;
+    }
+ done:
+    my_CFRelease(&properties);
+    return (support);
+}
+
+static char *
+SystemIdentifierCopy()
+{
+    CFDictionaryRef		properties = NULL;
+    char *			system_id = NULL;
+    CFDataRef			system_id_data = NULL;
+    int				system_id_len = 0;
+
+    properties = myIORegistryEntryCopyValue("IODeviceTree:/");
+    if (properties != NULL) {
+	system_id_data = CFDictionaryGetValue(properties, CFSTR("model"));
+	if (system_id_data) {
+	    system_id_len = CFDataGetLength(system_id_data);
+	}
+    }
+    if (system_id_len == 0) {
+	goto done;
+    }
+    system_id = (char *)malloc(system_id_len + 1);
+    if (system_id == NULL) {
+	goto done;
+    }
+    CFDataGetBytes(system_id_data, CFRangeMake(0, system_id_len), system_id);
+    system_id[system_id_len] = '\0';
+    my_CFRelease(&properties);
+    return (system_id);
+
+ done:
+    my_CFRelease(&properties);
+    return (NULL);
+}
+
+static u_long
+my_random()
+{
+    static int inited = 0;
+
+    if (inited == 0) {
+	struct timeval	start_time;
+	gettimeofday(&start_time, 0);
+	srandom(start_time.tv_usec & ~start_time.tv_sec);
+	inited = 1;
+    }
+    return (random());
+}
+
+static struct dhcp * 
+make_bsdp_request(char * system_id, struct dhcp * request, int pkt_size,
+		  dhcp_msgtype_t msg, u_char * hwaddr, u_char hwtype, 
+		  u_char hwlen, dhcpoa_t * options_p)
+{
+    char	vendor_class_id[DHCP_OPTION_SIZE_MAX];
+    u_int16_t	max_message_size = htons(1500); /* max receive size */
+
+    bzero(request, pkt_size);
+    request->dp_op = BOOTREQUEST;
+    request->dp_htype = hwtype;
+    request->dp_hlen = hwlen;
+    bcopy(hwaddr, request->dp_chaddr, hwlen);
+    bcopy(rfc_magic, request->dp_options, sizeof(rfc_magic));
+    dhcpoa_init(options_p, request->dp_options + sizeof(rfc_magic),
+		pkt_size - sizeof(struct dhcp) - sizeof(rfc_magic));
+    
+    /* make the request a dhcp message */
+    if (dhcpoa_add_dhcpmsg(options_p, msg) != dhcpoa_success_e) {
+	fprintf(stderr,
+	       "make_bsdp_request: couldn't add dhcp message tag %d, %s", msg,
+	       dhcpoa_err(options_p));
+	goto err;
+    }
+
+    /* add the list of required parameters */
+    if (dhcpoa_add(options_p, dhcptag_parameter_request_list_e,
+		   n_dhcp_params, dhcp_params)
+	!= dhcpoa_success_e) {
+	fprintf(stderr, "make_bsdp_request: "
+	       "couldn't add parameter request list, %s",
+	       dhcpoa_err(options_p));
+	goto err;
+    }
+    /* add the max message size */
+    if (dhcpoa_add(options_p, dhcptag_max_dhcp_message_size_e,
+		   sizeof(max_message_size), &max_message_size)
+	!= dhcpoa_success_e) {
+	fprintf(stderr, "make_bsdp_request: "
+	       "couldn't add max message size, %s",
+	       dhcpoa_err(options_p));
+	goto err;
+    }
+    /* add our vendor class identifier */
+    snprintf(vendor_class_id, sizeof(vendor_class_id),
+	     BSDP_VENDOR_CLASS_ID "/ppc/%s", system_id);
+    if (dhcpoa_add(options_p, 
+		   dhcptag_vendor_class_identifier_e, 
+		   strlen(vendor_class_id), vendor_class_id) 
+	!= dhcpoa_success_e) {
+	fprintf(stderr, "make_bsdp_request: add class id failed, %s",
+		dhcpoa_err(options_p));
+	goto err;
+    }
+    return (request);
+
+  err:
+    return (NULL);
+}
+
+static boolean_t
+send_packet(int sockfd, void * pkt, int pkt_len, struct in_addr iaddr)
+{
+    struct sockaddr_in 	dst;
+    int 		status;
+
+    bzero(&dst, sizeof(dst));
+    dst.sin_len = sizeof(struct sockaddr_in);
+    dst.sin_family = AF_INET;
+    dst.sin_port = htons(IPPORT_BOOTPS);
+    dst.sin_addr = iaddr;
+
+    status = sendto(sockfd, pkt, pkt_len, 0,
+		    (struct sockaddr *)&dst, sizeof(struct sockaddr_in));
+    if (status < 0) {
+	perror("sendto");
+	return (FALSE);
+    }
+    return (TRUE);
+}
+
+static int
+S_open_socket(u_short * ret_port)
+{
+    u_short			client_port;
+    struct sockaddr_in 		me;
+    int			   	me_len;
+    int 			opt;
+    int				sockfd;
+    int 			status;
+
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+	perror("socket");
+	goto failed;
+    }
+
+    bzero((char *)&me, sizeof(me));
+    me.sin_family = AF_INET;
+
+    /* get a privileged port */
+    opt = IP_PORTRANGE_LOW;
+    status = setsockopt(sockfd, IPPROTO_IP, IP_PORTRANGE, &opt, 
+			sizeof(opt));
+    if (status < 0) {
+	perror("setsockopt IPPROTO_IP IP_PORTRANGE");
+	goto failed;
+    }
+    status = bind(sockfd, (struct sockaddr *)&me, sizeof(me));
+    if (status != 0) {
+	perror("bind");
+	goto failed;
+    }
+    me_len = sizeof(me);
+    if (getsockname(sockfd, (struct sockaddr *)&me,  &me_len) < 0) {
+	perror("getsockname");
+	goto failed;
+    }
+    client_port = ntohs(me.sin_port);
+    opt = 1;
+    status = setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &opt, 
+			sizeof(opt));
+    if (status < 0) {
+	perror("setsockopt SO_BROADCAST");
+	goto failed;
+    }
+    opt = 1;
+    status = ioctl(sockfd, FIONBIO, &opt);
+    if (status < 0) {
+	perror("FIONBIO");
+	goto failed;
+    }
+    *ret_port = client_port;
+    return sockfd;
+
+ failed:
+    if (sockfd >= 0) {
+	close(sockfd);
+    }
+    return (-1);
+}
+
+/* deprecated: BSDPImageDescriptionIndexIsServerLocal */
+Boolean
+BSDPImageDescriptionIndexIsServerLocal(CFNumberRef index)
+{
+    u_int16_t	index_val = 1;
+
+    (void)CFNumberGetValue(index, kCFNumberShortType, &index_val);
+    return (bsdp_image_index_is_server_local(index_val));
+}
+
+Boolean
+BSDPImageDescriptionIdentifierIsServerLocal(CFNumberRef identifier)
+{
+    u_int32_t	identifier_val = 1;
+
+    (void)CFNumberGetValue(identifier, kCFNumberSInt32Type, &identifier_val);
+    return (bsdp_image_identifier_is_server_local(identifier_val));
+}
+
+Boolean
+BSDPImageDescriptionIdentifierIsInstall(CFNumberRef identifier)
+{
+    u_int32_t	identifier_val = 1;
+
+    (void)CFNumberGetValue(identifier, kCFNumberSInt32Type, &identifier_val);
+    return (bsdp_image_identifier_is_install(identifier_val));
+}
+
+BSDPImageKind
+BSDPImageDescriptionIdentifierImageKind(CFNumberRef identifier)
+{
+    u_int32_t	identifier_val = 1;
+
+    (void)CFNumberGetValue(identifier, kCFNumberSInt32Type, &identifier_val);
+    return (bsdp_image_kind_from_attributes(bsdp_image_attributes(identifier_val)));
+}
+
+/**
+ ** BSDPClient timer functions
+ **/
+
+static void
+BSDPClientProcessTimer(CFRunLoopTimerRef timer, void * info)
+{
+    BSDPClientRef	client;
+
+    client = (BSDPClientRef)info;
+    (*client->timer_callback)(client);
+    return;
+}
+
+static void
+BSDPClientCancelTimer(BSDPClientRef client)
+{
+    if (client->timer) {
+	CFRunLoopTimerInvalidate(client->timer);
+	my_CFRelease(&client->timer);
+    }
+    client->timer_callback = NULL;
+    return;
+}
+
+static void
+BSDPClientSetTimer(BSDPClientRef client, struct timeval rel_time,
+		   BSDPClientTimerCallBack callback)
+{
+    CFRunLoopTimerContext 	context =  { 0, NULL, NULL, NULL, NULL };
+    CFAbsoluteTime 		wakeup_time;
+
+    BSDPClientCancelTimer(client);
+    client->timer_callback = callback;
+    wakeup_time = CFAbsoluteTimeGetCurrent() + rel_time.tv_sec 
+	  + ((double)rel_time.tv_usec / USECS_PER_SEC);
+    context.info = client;
+    client->timer
+	= CFRunLoopTimerCreate(NULL, wakeup_time,
+			       0.0, 0, 0,
+			       BSDPClientProcessTimer,
+			       &context);
+    CFRunLoopAddTimer(CFRunLoopGetCurrent(), client->timer,
+		      kCFRunLoopDefaultMode);
+    return;
+}
+
+/*
+ * Function: BSDPClientProcess
+ * Purpose:
+ *   Process a packet received on our open socket.
+ *   Ensure that the packet is a BSDP packet[DHCP ACK] that 
+ *   matches our currently outstanding request.
+ *
+ *   Dispatch to the appropriate handler (list or select) 
+ *   depending on our current running state.
+ */
+static void
+BSDPClientProcess(CFSocketRef s, CFSocketCallBackType type, 
+		  CFDataRef address, const void *data, void *info)
+{
+    dhcpol_t			bsdp_options;
+    bsdp_msgtype_t		bsdp_msg;
+    BSDPClientRef 		client = (BSDPClientRef)info;
+    char			err[256];
+    struct sockaddr_in 		from;
+    int 			fromlen;
+    int 			n;
+    void *			opt;
+    int				opt_len;
+    dhcpol_t			options;
+    char			receive_buf[1500];
+    struct dhcp *		reply;
+    struct in_addr		server_ip;
+
+    n = recvfrom(client->fd, receive_buf,
+		 sizeof(receive_buf), 0,
+		 (struct sockaddr *)&from, &fromlen);
+    if (n < 0) {
+	if (errno != EAGAIN) {
+	    fprintf(stderr, "BSDPClientProcess: recvfrom %s", 
+		    strerror(errno));
+	}
+	return;
+    }
+    if (n < sizeof(struct dhcp)) {
+	/* packet is too short */
+	return;
+    }
+
+    switch (client->state) {
+    case kBSDPClientStateInit:
+    default:
+	/* throw it away */
+	return;
+    case kBSDPClientStateList:
+    case kBSDPClientStateSelect:
+	break;
+    }
+
+    reply = (struct dhcp *)receive_buf;
+    if (dhcp_packet_match((struct bootp *)receive_buf, client->xid, 
+			  (u_char) if_link_arptype(client->if_p),
+			  if_link_address(client->if_p),
+			  if_link_length(client->if_p)) == FALSE
+	|| reply->dp_ciaddr.s_addr != if_inet_addr(client->if_p).s_addr) {
+	/* wasn't us */
+	return;
+    }
+
+    dhcpol_init(&options);
+    dhcpol_init(&bsdp_options);
+
+    if (dhcpol_parse_packet(&options, reply, n, err) == FALSE) {
+	fprintf(stderr, 
+		"BSDPClientProcess: dhcpol_parse_packet failed, %s\n",
+		err);
+	goto done;
+    }
+
+    /* get the DHCP message type */
+    opt = dhcpol_find(&options, dhcptag_dhcp_message_type_e, NULL, NULL);
+    if (opt == NULL || *((unsigned char *)opt) != dhcp_msgtype_ack_e) {
+	goto done; /* response must be a DHCP ack */
+    }
+
+    /* get the vendor class identifier */
+    opt = dhcpol_find(&options, dhcptag_vendor_class_identifier_e,
+		      &opt_len, NULL);
+    if (opt == NULL
+	|| opt_len != strlen(BSDP_VENDOR_CLASS_ID)
+	|| bcmp(opt, BSDP_VENDOR_CLASS_ID, opt_len)) {
+	goto done; /* not BSDP */
+    }
+    /* get the server identifier */
+    opt = dhcpol_find(&options, dhcptag_server_identifier_e,
+		      &opt_len, NULL);
+    if (opt == NULL || opt_len != sizeof(server_ip)) {
+	goto done;
+    }
+    server_ip = *((struct in_addr *)opt);
+
+    /* decode the BSDP options */
+    if (dhcpol_parse_vendor(&bsdp_options, &options, err) == FALSE) {
+	fprintf(stderr, 
+		"BSDPClientProcess: dhcpol_parse_vendor failed, %s", err);
+	goto done;
+    }
+    /* get the BSDP message type */
+    opt = dhcpol_find(&bsdp_options, bsdptag_message_type_e,
+		      &opt_len, NULL);
+    if (opt == NULL || opt_len != 1) {
+	goto done; /* no message id */
+    }
+    bsdp_msg = *((unsigned char *)opt);
+    switch (client->state) {
+    case kBSDPClientStateInit:
+    default:
+	break;
+    case kBSDPClientStateList:
+	/* ACK[LIST] */
+	if (bsdp_msg == bsdp_msgtype_list_e) {
+	    BSDPClientProcessList(client, server_ip,
+				  (struct dhcp *)receive_buf, n,
+				  &options,
+				  &bsdp_options);
+	}
+	break;
+    case kBSDPClientStateSelect:
+	/* ACK[SELECT] or ACK[FAILED] */
+	if (bsdp_msg == bsdp_msgtype_select_e 
+	    || bsdp_msg == bsdp_msgtype_failed_e) {
+	    BSDPClientProcessSelect(client, bsdp_msg);
+	}
+	break;
+    }
+ done:
+    dhcpol_free(&options);
+    dhcpol_free(&bsdp_options);
+    return;
+}
+
+/*
+ * Function: BSDPClientCreateWithInterface
+ * Purpose:
+ *   Instantiate a BSDPClientRef, checking to ensure that the machine
+ *   is NetBoot-compatible.
+ */
+BSDPClientRef
+BSDPClientCreateWithInterface(BSDPClientStatus * status_p,
+			      const char * ifname)
+{
+    BSDPClientRef	client = NULL;
+    u_short		client_port;
+    bsdp_version_t	client_version = htons(BSDP_VERSION_1_1);
+    CFSocketContext	context = { 0, NULL, NULL, NULL, NULL };
+    interface_t *	if_p = NULL;
+    interface_list_t *	ifl = NULL;
+    int			fd = -1;
+    boolean_t		old_firmware = FALSE;
+    CFRunLoopSourceRef	rls = NULL;
+    CFSocketRef		socket = NULL;
+    BSDPClientStatus	status = kBSDPClientStatusAllocationError;
+    char *		system_id = NULL;
+    NetBootVersion	version = NetBootVersionGet();
+
+    switch (version) {
+    case kNetBootVersionNone:
+    default:
+	status = kBSDPClientStatusUnsupportedFirmware;
+	goto cleanup;
+	break;
+    case kNetBootVersion1:
+	old_firmware = TRUE;
+	client_version = htons(BSDP_VERSION_1_1);
+	break;
+    case kNetBootVersion2:
+	client_version = htons(BSDP_VERSION_1_1);
+	break;
+    }
+    system_id = SystemIdentifierCopy();
+    if (system_id == NULL) {
+	goto cleanup;
+    }
+    ifl = ifl_init();
+    if (ifl == NULL) {
+	goto cleanup;
+    }
+
+    if_p = ifl_find_name(ifl, ifname);
+    if (if_p == NULL) {
+	status = kBSDPClientStatusNoSuchInterface;
+	goto cleanup;
+    }
+    /* make a persistent copy */
+    if_p = if_dup(if_p);
+    if (if_p == NULL) {
+	goto cleanup;
+    }
+    if (if_inet_addr(if_p).s_addr == 0) {
+	status = kBSDPClientStatusInterfaceNotConfigured;
+	goto cleanup;
+    }
+    client = malloc(sizeof(*client));
+    if (client == NULL) {
+	goto cleanup;
+    }
+    bzero(client, sizeof(*client));
+
+    fd = S_open_socket(&client_port);
+    if (fd < 0) {
+	if (errno == EPERM || errno == EACCES) {
+	    perror("socket");
+	    status = kBSDPClientStatusPermissionDenied;
+	}
+	goto cleanup;
+    }
+    context.info = client;
+    socket = CFSocketCreateWithNative(NULL, fd, kCFSocketReadCallBack,
+				      BSDPClientProcess, &context);
+    if (socket == NULL) {
+	goto cleanup;
+    }
+    rls = CFSocketCreateRunLoopSource(NULL, socket, 0);
+    if (rls == NULL) {
+	goto cleanup;
+    }
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, 
+		       kCFRunLoopDefaultMode);
+    client->system_id = system_id;
+    client->client_version = client_version;
+    client->old_firmware = old_firmware;
+    client->fd = fd;
+    client->rls = rls;
+    client->client_port = client_port;
+    client->socket = socket;
+    client->xid = my_random();
+    client->if_p = if_p;
+    client->state = kBSDPClientStateInit;
+    ifl_free(&ifl);
+    *status_p = kBSDPClientStatusOK;
+    return (client);
+
+ cleanup:
+    if (rls != NULL) {
+	CFRunLoopRemoveSource(CFRunLoopGetCurrent(), rls, 
+			      kCFRunLoopDefaultMode);
+	/* release the run loop source */
+	CFRelease(rls);
+    }
+    if (socket != NULL) {
+	/* remove one socket reference, close the file descriptor */
+	CFSocketInvalidate(socket);
+
+	/* release the socket */
+	CFRelease(socket);
+	fd = -1;
+    }
+    if (fd >= 0) {
+	close(fd);
+    }
+    if (client != NULL) {
+	free(client);
+    }
+    if (ifl != NULL) {
+	ifl_free(&ifl);
+    }
+    if (if_p != NULL) {
+	if_free(&if_p);
+    }
+    if (system_id != NULL) {
+	free(system_id);
+    }
+    *status_p = status;
+    return (NULL);
+}
+
+/*
+ * Function: BSDPClientCreate
+ * Purpose:
+ *   Published entry point to instantiate a BSDPClientRef over "en0".
+ *   XXX we should ask IOKit which interface is the primary.
+ */
+BSDPClientRef
+BSDPClientCreate(BSDPClientStatus * status_p)
+{
+    return (BSDPClientCreateWithInterface(status_p, "en0"));
+}
+
+void
+BSDPClientFree(BSDPClientRef * client_p)
+{
+    BSDPClientRef client;
+
+    if (client_p == NULL) {
+	return;
+    }
+    client = *client_p;
+    if (client == NULL) {
+	return;
+    }
+    BSDPClientCancelTimer(client);
+    if (client->socket != NULL) {
+	/* remove one socket reference, close the file descriptor */
+	CFSocketInvalidate(client->socket);
+
+	/* release the socket */
+	CFRelease(client->socket);
+    }
+    if (client->rls != NULL) {
+	CFRunLoopRemoveSource(CFRunLoopGetCurrent(), client->rls, 
+			      kCFRunLoopDefaultMode);
+	/* release the run loop source */
+	CFRelease(client->rls);
+    }
+    if (client->if_p != NULL) {
+	if_free(&client->if_p);
+    }
+    if (client->system_id != NULL) {
+	free(client->system_id);
+    }
+    free(client);
+    *client_p = NULL;
+    return;
+}
+
+/**
+ ** BSDP List Routines
+ **/
+
+static CFArrayRef
+BSDPClientCreateImageList(BSDPClientRef client,
+			  bsdp_image_id_t default_image_id,
+			  bsdp_image_id_t selected_image_id,
+			  void * image_list, int image_list_len)
+{
+    bsdp_image_description_t *	descr;
+    CFMutableArrayRef		images = NULL;
+    int				length;
+
+    images = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    descr = image_list;
+    for (length = image_list_len; length > sizeof(*descr); ) {
+	bsdp_image_id_t		boot_image_id;
+	CFMutableDictionaryRef	this_dict = NULL;
+	int			this_len;
+	CFStringRef		cf_image_name = NULL;
+	CFNumberRef		cf_image_id = NULL;
+	CFNumberRef		cf_image_index = NULL;
+
+	this_len = sizeof(*descr) + descr->name_length;
+	if (length < this_len) {
+	    fprintf(stderr, "short image list at offset %d\n",
+		    (void *)descr - image_list);
+	    goto failed;
+	}
+	boot_image_id = ntohl(*((bsdp_image_id_t *)descr->boot_image_id));
+	if (boot_image_id != BOOT_IMAGE_ID_NULL) {
+	    u_int16_t	attributes;
+	    u_int16_t	index;
+
+	    this_dict
+		= CFDictionaryCreateMutable(NULL, 0,
+					    &kCFTypeDictionaryKeyCallBacks,
+					    &kCFTypeDictionaryValueCallBacks);
+	    cf_image_id = CFNumberCreate(NULL, kCFNumberSInt32Type, 
+					 &boot_image_id);
+	    index = bsdp_image_index(boot_image_id);
+	    attributes = bsdp_image_attributes(boot_image_id);
+	    cf_image_index = CFNumberCreate(NULL, kCFNumberShortType, 
+					    &index);
+	    cf_image_name = CFStringCreateWithBytes(NULL, 
+						    descr->name,
+						    descr->name_length,
+						    kCFStringEncodingUTF8,
+						    TRUE);
+	    if (this_dict != NULL && cf_image_id != NULL 
+		&& cf_image_index != NULL && cf_image_name != NULL) {
+		CFDictionarySetValue(this_dict, 
+				     kBSDPImageDescriptionName, cf_image_name);
+		CFDictionarySetValue(this_dict, 
+				     kBSDPImageDescriptionIdentifier, 
+				     cf_image_id);
+		CFDictionarySetValue(this_dict, kBSDPImageDescriptionIndex,
+				     cf_image_index);
+		if (attributes & BSDP_IMAGE_ATTRIBUTES_INSTALL) {
+		    CFDictionarySetValue(this_dict, 
+					 kBSDPImageDescriptionIsInstall,
+					 kCFBooleanTrue);
+		}
+		if (boot_image_id == default_image_id) {
+		    CFDictionarySetValue(this_dict, 
+					 kBSDPImageDescriptionIsDefault,
+					 kCFBooleanTrue);
+		}
+		if (boot_image_id == selected_image_id) {
+		    CFDictionarySetValue(this_dict, 
+					 kBSDPImageDescriptionIsSelected,
+					 kCFBooleanTrue);
+		}
+		CFArrayAppendValue(images, this_dict);
+	    }
+	    my_CFRelease(&cf_image_index);
+	    my_CFRelease(&cf_image_id);
+	    my_CFRelease(&cf_image_name);
+	    my_CFRelease(&this_dict);
+	}
+	descr = ((void *)descr) + this_len;
+	length -= this_len;
+    }
+    if (CFArrayGetCount(images) == 0) {
+	goto failed;
+    }
+    return ((CFArrayRef)images);
+
+ failed:
+    my_CFRelease(&images);
+    return (NULL);
+}
+
+static void
+BSDPClientProcessList(BSDPClientRef client, struct in_addr server_ip,
+		      struct dhcp * reply, int reply_len,
+		      dhcpol_t * options_p, dhcpol_t * bsdp_options_p)
+{
+    CFNumberRef			cf_priority = NULL;
+    CFStringRef			cf_server_ip = NULL;
+    bsdp_image_id_t		default_image_id = BOOT_IMAGE_ID_NULL;
+    void *			image_list = NULL;
+    int				image_list_len = 0;
+    void *			opt;
+    int				opt_len;
+    CFArrayRef			images = NULL;
+    bsdp_priority_t		priority = 0;
+    bsdp_image_id_t		selected_image_id = BOOT_IMAGE_ID_NULL;
+
+    /* get the server priority */
+    opt = dhcpol_find(bsdp_options_p, bsdptag_server_priority_e, &opt_len,
+		      NULL);
+    if (opt != NULL && opt_len == sizeof(bsdp_priority_t)) {
+	priority = ntohs(*((bsdp_priority_t *)opt));
+    }
+    /* get the default boot image */
+    opt = dhcpol_find(bsdp_options_p, bsdptag_default_boot_image_e, &opt_len,
+		      NULL);
+    if (opt != NULL && opt_len == sizeof(default_image_id)) {
+	default_image_id = ntohl(*((bsdp_image_id_t *)opt));
+    }
+    /* get the selected boot image */
+    opt = dhcpol_find(bsdp_options_p, bsdptag_selected_boot_image_e, &opt_len,
+		      NULL);
+    if (opt && opt_len == sizeof(selected_image_id)) {
+	selected_image_id = ntohl(*((bsdp_image_id_t *)opt));
+    }
+    /* get the list of images */
+    image_list = dhcpol_get(bsdp_options_p, bsdptag_boot_image_list_e,
+			    &image_list_len);
+    if (image_list == NULL) {
+	goto done;
+    }
+    cf_priority = CFNumberCreate(NULL, kCFNumberShortType, &priority);
+    cf_server_ip = CFStringCreateWithCString(NULL, inet_ntoa(server_ip),
+					     kCFStringEncodingASCII);
+    images = BSDPClientCreateImageList(client, default_image_id, 
+				       selected_image_id,
+				       image_list, image_list_len);
+    if (images != NULL && cf_priority != NULL && cf_server_ip != NULL) {
+	BSDPClientCancelTimer(client);
+	(*client->callback.func.list)(client, 
+				      kBSDPClientStatusOK,
+				      cf_server_ip,
+				      cf_priority,
+				      images,
+				      client->callback.arg);
+    }
+
+ done:
+    my_CFRelease(&images);
+    my_CFRelease(&cf_priority);
+    my_CFRelease(&cf_server_ip);
+    if (image_list != NULL) {
+	free(image_list);
+    }
+    my_CFRelease(&images);
+    return;
+}
+
+static BSDPClientStatus
+BSDPClientSendListRequest(BSDPClientRef client)
+{
+    char		bsdp_buf[DHCP_OPTION_SIZE_MAX];
+    dhcpoa_t		bsdp_options;
+    char		buf[DHCP_PACKET_MIN];
+    dhcpoa_t		options;
+    unsigned char	msgtype;
+    u_int16_t		port = htons(client->client_port);
+    struct dhcp *	request;
+    int 		request_size = 0;
+    BSDPClientStatus	status = kBSDPClientStatusAllocationError;
+
+    client->xid++;
+    request = make_bsdp_request(client->system_id,
+				(struct dhcp *)buf, sizeof(buf),
+				dhcp_msgtype_inform_e, 
+				if_link_address(client->if_p),
+				if_link_arptype(client->if_p), 
+				if_link_length(client->if_p), 
+				&options);
+    if (request == NULL) {
+	goto failed;
+    }
+    request->dp_xid = htonl(client->xid);
+    request->dp_ciaddr = if_inet_addr(client->if_p);
+    dhcpoa_init_no_end(&bsdp_options, bsdp_buf, sizeof(bsdp_buf));
+    msgtype = bsdp_msgtype_list_e;
+    if (dhcpoa_add(&bsdp_options, bsdptag_message_type_e,
+		   sizeof(msgtype), &msgtype) 
+	!= dhcpoa_success_e) {
+	fprintf(stderr, "BSDPClientSendListRequest add message type failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
+    if (dhcpoa_add(&bsdp_options, bsdptag_version_e, 
+		   sizeof(client->client_version),
+		   &client->client_version) != dhcpoa_success_e) {
+	fprintf(stderr, "BSDPClientSendListRequest add version failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
+    if (client->old_firmware == TRUE) {
+	if (dhcpoa_add(&bsdp_options, bsdptag_netboot_1_0_firmware_e,
+		       0, NULL) != dhcpoa_success_e) {
+	    fprintf(stderr, "BSDPClientSendListRequest old_firmware failed, %s",
+		    dhcpoa_err(&bsdp_options));
+	    goto failed;
+	}
+    }
+    if (dhcpoa_add(&bsdp_options, bsdptag_reply_port_e, sizeof(port), 
+		   &port) != dhcpoa_success_e) {
+	fprintf(stderr, "BSDPClientSendListRequest add reply port failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
+    if (dhcpoa_add(&options, dhcptag_vendor_specific_e,
+		   dhcpoa_used(&bsdp_options), &bsdp_buf)
+	!= dhcpoa_success_e) {
+	fprintf(stderr, 
+		"BSDPClientSendListRequest add vendor specific failed, %s",
+	       dhcpoa_err(&options));
+	goto failed;
+    }
+    if (dhcpoa_add(&options, dhcptag_end_e, 0, NULL)
+	!= dhcpoa_success_e) {
+	fprintf(stderr, 
+		"BSDPClientSendListRequest add dhcp options end failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
+    request_size = sizeof(*request) + sizeof(rfc_magic) 
+	+ dhcpoa_used(&options);
+    if (request_size < sizeof(struct bootp)) {
+	/* pad out to BOOTP-sized packet */
+	request_size = sizeof(struct bootp);
+    }
+    /* send the packet */
+    if (send_packet(client->fd, request, request_size, 
+		    if_inet_broadcast(client->if_p)) == FALSE) {
+	status = kBSDPClientStatusTransmitFailed;
+	goto failed;
+    }
+    status = kBSDPClientStatusOK;
+
+ failed:
+    return (status);
+}
+
+static void
+BSDPClientListTimeout(BSDPClientRef client)
+{
+    BSDPClientStatus	status = kBSDPClientStatusOK;
+    struct timeval	t;
+
+    if (client->try == BSDPCLIENT_LIST_MAX_TRIES) {
+	status = kBSDPClientStatusOperationTimedOut;
+	goto report_error;
+    }
+    client->try++;
+    client->xid++;
+    client->wait_secs *= 2;
+    status = BSDPClientSendListRequest(client);
+    if (status != kBSDPClientStatusOK) {
+	goto report_error;
+    }
+    t.tv_sec = client->wait_secs;
+    t.tv_usec = 0;
+    BSDPClientSetTimer(client, t, BSDPClientListTimeout);
+    return;
+
+ report_error:
+    (*client->callback.func.list)(client, status, NULL, NULL,
+				  NULL, client->callback.arg);
+    return;
+}
+
+BSDPClientStatus
+BSDPClientList(BSDPClientRef client, BSDPClientListCallBack callback,
+	       void * info)
+{
+    struct timeval	t;
+    BSDPClientStatus	status = kBSDPClientStatusAllocationError;
+
+    client->state = kBSDPClientStateInit;
+    BSDPClientCancelTimer(client);
+    if (callback == NULL) {
+	status = kBSDPClientStatusInvalidArgument;
+	goto failed;
+    }
+    client->xid++;
+    status = BSDPClientSendListRequest(client);
+    if (status != kBSDPClientStatusOK) {
+	goto failed;
+    }
+    client->state = kBSDPClientStateList;
+    client->try = 1;
+    client->callback.func.list = callback;
+    client->callback.arg = info;
+    client->wait_secs = BSDPCLIENT_INITIAL_TIMEOUT_SECS;
+    t.tv_sec = client->wait_secs;
+    t.tv_usec = 0;
+    BSDPClientSetTimer(client, t, BSDPClientListTimeout);
+
+ failed:
+    return (status);
+}
+
+/**
+ ** BSDP Select Routines
+ **/
+
+static void
+BSDPClientProcessSelect(BSDPClientRef client, bsdp_msgtype_t bsdp_msg)
+{
+    BSDPClientStatus	status;
+
+    BSDPClientCancelTimer(client);
+    if (bsdp_msg == bsdp_msgtype_select_e) {
+	status = kBSDPClientStatusOK;
+    }
+    else {
+	status = kBSDPClientStatusServerSentFailure;
+    }
+    (*client->callback.func.select)(client, status, client->callback.arg);
+    return;
+}
+
+static BSDPClientStatus
+BSDPClientSendSelectRequest(BSDPClientRef client)
+{
+    char		bsdp_buf[DHCP_OPTION_SIZE_MAX];
+    dhcpoa_t		bsdp_options;
+    char		buf[DHCP_PACKET_MIN];
+    bsdp_image_id_t	image_id = htonl(client->callback.image_identifier);
+    dhcpoa_t		options;
+    unsigned char	msgtype;
+    u_int16_t		port = htons(client->client_port);
+    struct dhcp *	request;
+    int 		request_size = 0;
+    BSDPClientStatus	status = kBSDPClientStatusAllocationError;
+
+    request = make_bsdp_request(client->system_id,
+				(struct dhcp *)buf, sizeof(buf),
+				dhcp_msgtype_inform_e, 
+				if_link_address(client->if_p),
+				if_link_arptype(client->if_p), 
+				if_link_length(client->if_p), 
+				&options);
+    if (request == NULL) {
+	goto failed;
+    }
+    request->dp_xid = htonl(client->xid);
+    request->dp_ciaddr = if_inet_addr(client->if_p);
+    dhcpoa_init_no_end(&bsdp_options, bsdp_buf, sizeof(bsdp_buf));
+    msgtype = bsdp_msgtype_select_e;
+    if (dhcpoa_add(&bsdp_options, bsdptag_message_type_e,
+		   sizeof(msgtype), &msgtype) 
+	!= dhcpoa_success_e) {
+	fprintf(stderr, 
+		"BSDPClientSendSelectRequest add message type failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
+    if (dhcpoa_add(&bsdp_options, bsdptag_version_e, 
+		   sizeof(client->client_version),
+		   &client->client_version) != dhcpoa_success_e) {
+	fprintf(stderr, "BSDPClientSendSelectRequest add version failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
+    if (client->old_firmware == TRUE) {
+	if (dhcpoa_add(&bsdp_options, bsdptag_netboot_1_0_firmware_e,
+		       0, NULL) != dhcpoa_success_e) {
+	    fprintf(stderr, "BSDPClientSendListRequest old_firmware failed, %s",
+		    dhcpoa_err(&bsdp_options));
+	    goto failed;
+	}
+    }
+    if (dhcpoa_add(&bsdp_options, bsdptag_reply_port_e, sizeof(port), 
+		   &port) != dhcpoa_success_e) {
+	fprintf(stderr, "BSDPClientSendSelectRequest add reply port failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
+    if (dhcpoa_add(&bsdp_options, bsdptag_server_identifier_e,
+		   sizeof(struct in_addr), 
+		   &client->callback.server_ip) != dhcpoa_success_e) {
+	fprintf(stderr, 
+		"BSDPClientSendSelectRequest: add server identifier failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
+    if (dhcpoa_add(&bsdp_options, bsdptag_selected_boot_image_e,
+		   sizeof(image_id), &image_id) != dhcpoa_success_e) {
+	fprintf(stderr, 
+		"BSDPClientSendSelectRequest: add selected image failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
+    if (dhcpoa_add(&options, dhcptag_vendor_specific_e,
+		   dhcpoa_used(&bsdp_options), &bsdp_buf)
+	!= dhcpoa_success_e) {
+	fprintf(stderr, 
+		"BSDPClientSendSelectRequest add vendor specific failed, %s",
+	       dhcpoa_err(&options));
+	goto failed;
+    }
+    if (dhcpoa_add(&options, dhcptag_end_e, 0, NULL)
+	!= dhcpoa_success_e) {
+	fprintf(stderr, 
+		"BSDPClientSendSelectRequest add dhcp options end failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
+    request_size = sizeof(*request) + sizeof(rfc_magic) 
+	+ dhcpoa_used(&options);
+    if (request_size < sizeof(struct bootp)) {
+	/* pad out to BOOTP-sized packet */
+	request_size = sizeof(struct bootp);
+    }
+    /* send the packet */
+    if (send_packet(client->fd, request, request_size, 
+		    if_inet_broadcast(client->if_p)) == FALSE) {
+	status = kBSDPClientStatusTransmitFailed;
+	goto failed;
+    }
+    status = kBSDPClientStatusOK;
+
+ failed:
+    return (status);
+}
+
+static void
+BSDPClientSelectTimeout(BSDPClientRef client)
+{
+    BSDPClientStatus	status = kBSDPClientStatusOK;
+    struct timeval	t;
+
+    if (client->try == BSDPCLIENT_SELECT_MAX_TRIES) {
+	status = kBSDPClientStatusOperationTimedOut;
+	goto report_error;
+    }
+    client->try++;
+    client->xid++;
+    client->wait_secs *= 2;
+    status = BSDPClientSendSelectRequest(client);
+    if (status != kBSDPClientStatusOK) {
+	goto report_error;
+    }
+    t.tv_sec = client->wait_secs;
+    t.tv_usec = 0;
+    BSDPClientSetTimer(client, t, BSDPClientSelectTimeout);
+    return;
+
+ report_error:
+    (*client->callback.func.select)(client, status, client->callback.arg);
+    return;
+}
+
+BSDPClientStatus
+BSPPClientSelect(BSDPClientRef client, 
+		 CFStringRef ServerAddress,
+		 CFNumberRef Identifier,
+		 BSDPClientSelectCallBack callback, void * info)
+{
+    struct timeval	t;
+    BSDPClientStatus	status = kBSDPClientStatusAllocationError;
+
+    client->callback.server_ip = cfstring_to_ip(ServerAddress);
+    client->state = kBSDPClientStateInit;
+    BSDPClientCancelTimer(client);
+    if (callback == NULL
+	|| CFNumberGetValue(Identifier, kCFNumberLongType, 
+			    &client->callback.image_identifier) == FALSE) {
+	status = kBSDPClientStatusInvalidArgument;
+	goto failed;
+    }
+    client->xid++;
+    status = BSDPClientSendSelectRequest(client);
+    if (status != kBSDPClientStatusOK) {
+	goto failed;
+    }
+    client->state = kBSDPClientStateSelect;
+    client->try = 1;
+    client->callback.func.select = callback;
+    client->callback.arg = info;
+    client->wait_secs = BSDPCLIENT_INITIAL_TIMEOUT_SECS;
+    t.tv_sec = client->wait_secs;
+    t.tv_usec = 0;
+    BSDPClientSetTimer(client, t, BSDPClientSelectTimeout);
+
+ failed:
+    return (status);
+}

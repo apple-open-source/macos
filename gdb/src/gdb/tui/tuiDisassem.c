@@ -1,20 +1,57 @@
-/*
-   ** tuiDisassem.c
-   **         This module contains functions for handling disassembly display.
- */
+/* Disassembly display.
 
+   Copyright 1998, 1999, 2000, 2001, 2002 Free Software Foundation,
+   Inc.
+
+   Contributed by Hewlett-Packard Company.
+
+   This file is part of GDB.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
+
+/* FIXME: cagney/2002-02-28: The GDB coding standard indicates that
+   "defs.h" should be included first.  Unfortunatly some systems
+   (currently Debian GNU/Linux) include the <stdbool.h> via <curses.h>
+   and they clash with "bfd.h"'s definiton of true/false.  The correct
+   fix is to remove true/false from "bfd.h", however, until that
+   happens, hack around it by including "config.h" and <curses.h>
+   first.  */
+
+#include "config.h"
+#ifdef HAVE_NCURSES_H       
+#include <ncurses.h>
+#else
+#ifdef HAVE_CURSES_H
+#include <curses.h>
+#endif
+#endif
 
 #include "defs.h"
 #include "symtab.h"
 #include "breakpoint.h"
 #include "frame.h"
+#include "value.h"
 
 #include "tui.h"
-#include "tui-file.h"
 #include "tuiData.h"
+#include "tuiWin.h"
 #include "tuiLayout.h"
 #include "tuiSourceWin.h"
 #include "tuiStack.h"
+#include "tui-file.h"
 
 
 /*****************************************
@@ -33,20 +70,12 @@ static struct breakpoint *_hasBreak (CORE_ADDR);
    **        Function to set the disassembly window's content.
  */
 TuiStatus
-#ifdef __STDC__
-tuiSetDisassemContent (
-			struct symtab *s,
-			Opaque startAddr)
-#else
-tuiSetDisassemContent (s, startAddr)
-     struct symtab *s;
-     Opaque startAddr;
-#endif
+tuiSetDisassemContent (struct symtab *s, CORE_ADDR startAddr)
 {
   TuiStatus ret = TUI_FAILURE;
   struct ui_file *gdb_dis_out;
 
-  if (startAddr != (Opaque) NULL)
+  if (startAddr != 0)
     {
       register int i, desc;
 
@@ -69,14 +98,13 @@ extern void strcat_address_numeric (CORE_ADDR, int, char *, int);
 	  /* now init the ui_file structure */
 	  gdb_dis_out = tui_sfileopen (threshold);
 
-	  INIT_DISASSEMBLE_INFO_NO_ARCH (asmInfo, gdb_dis_out, (fprintf_ftype) fprintf_filtered);
-	  asmInfo.read_memory_func = dis_asm_read_memory;
-	  asmInfo.memory_error_func = dis_asm_memory_error;
+          asmInfo = tm_print_insn_info;
+          asmInfo.stream = gdb_dis_out;
 
 	  disassemWin->detail.sourceInfo.startLineOrAddr.addr = startAddr;
 
 	  /* Now construct each line */
-	  for (curLine = 0, pc = (CORE_ADDR) startAddr; (curLine < maxLines);)
+	  for (curLine = 0, pc = startAddr; (curLine < maxLines);)
 	    {
 	      TuiWinElementPtr element = (TuiWinElementPtr) disassemWin->generic.content[curLine];
 	      struct breakpoint *bp;
@@ -106,14 +134,14 @@ extern void strcat_address_numeric (CORE_ADDR, int, char *, int);
 			&(tui_file_get_strbuf (gdb_dis_out)[offset]));
 	      else
 		element->whichElement.source.line[0] = '\0';
-	      element->whichElement.source.lineOrAddr.addr = (Opaque) pc;
+	      element->whichElement.source.lineOrAddr.addr = pc;
 	      element->whichElement.source.isExecPoint =
 		(pc == (CORE_ADDR) ((TuiWinElementPtr) locator->content[0])->whichElement.locator.addr);
 	      bp = _hasBreak (pc);
 	      element->whichElement.source.hasBreak =
 		(bp != (struct breakpoint *) NULL &&
 		 (!element->whichElement.source.isExecPoint ||
-		  (bp->disposition != del || bp->hit_count <= 0)));
+		  (bp->disposition != disp_del || bp->hit_count <= 0)));
 	      curLine++;
 	      pc = newpc;
 	      /* reset the buffer to empty */
@@ -135,19 +163,15 @@ extern void strcat_address_numeric (CORE_ADDR, int, char *, int);
    **        Function to display the disassembly window with disassembled code.
  */
 void
-#ifdef __STDC__
-tuiShowDisassem (
-		  Opaque startAddr)
-#else
-tuiShowDisassem (startAddr)
-     Opaque startAddr;
-#endif
+tuiShowDisassem (CORE_ADDR startAddr)
 {
-  struct symtab *s = find_pc_symtab ((CORE_ADDR) startAddr);
+  struct symtab *s = find_pc_symtab (startAddr);
   TuiWinInfoPtr winWithFocus = tuiWinWithFocus ();
+  TuiLineOrAddress val;
 
+  val.addr = startAddr;
   tuiAddWinToLayout (DISASSEM_WIN);
-  tuiUpdateSourceWindow (disassemWin, s, startAddr, FALSE);
+  tuiUpdateSourceWindow (disassemWin, s, val, FALSE);
   /*
      ** if the focus was in the src win, put it in the asm win, if the
      ** source view isn't split
@@ -164,86 +188,55 @@ tuiShowDisassem (startAddr)
    **        Function to display the disassembly window.
  */
 void
-#ifdef __STDC__
-tuiShowDisassemAndUpdateSource (
-				 Opaque startAddr)
-#else
-tuiShowDisassemAndUpdateSource (startAddr)
-     Opaque startAddr;
-#endif
+tuiShowDisassemAndUpdateSource (CORE_ADDR startAddr)
 {
   struct symtab_and_line sal;
 
   tuiShowDisassem (startAddr);
   if (currentLayout () == SRC_DISASSEM_COMMAND)
     {
+      TuiLineOrAddress val;
       TuiGenWinInfoPtr locator = locatorWinInfoPtr ();
       /*
          ** Update what is in the source window if it is displayed too,
          ** note that it follows what is in the disassembly window and visa-versa
        */
-      sal = find_pc_line ((CORE_ADDR) startAddr, 0);
-      current_source_symtab = sal.symtab;
-      tuiUpdateSourceWindow (srcWin, sal.symtab, (Opaque) sal.line, TRUE);
-      tuiUpdateLocatorFilename (sal.symtab->filename);
+      sal = find_pc_line (startAddr, 0);
+      val.lineNo = sal.line;
+      tuiUpdateSourceWindow (srcWin, sal.symtab, val, TRUE);
+      if (sal.symtab)
+	{
+	  current_source_symtab = sal.symtab;
+	  tuiUpdateLocatorFilename (sal.symtab->filename);
+	}
+      else
+	tuiUpdateLocatorFilename ("?");
     }
 
   return;
 }				/* tuiShowDisassemAndUpdateSource */
 
-
-/*
-   ** tuiShowDisassemAsIs().
-   **        Function to display the disassembly window.  This function shows
-   **        the disassembly as specified by the horizontal offset.
- */
-void
-#ifdef __STDC__
-tuiShowDisassemAsIs (
-		      Opaque addr)
-#else
-tuiShowDisassemAsIs (addr)
-     Opaque addr;
-#endif
-{
-  tuiAddWinToLayout (DISASSEM_WIN);
-  tuiUpdateSourceWindowAsIs (disassemWin, (struct symtab *) NULL, addr, FALSE);
-  /*
-     ** Update what is in the source window if it is displayed too, not that it
-     ** follows what is in the disassembly window and visa-versa
-   */
-  if (currentLayout () == SRC_DISASSEM_COMMAND)
-    tuiShowSourceContent (srcWin);	/*????  Need to do more? */
-
-  return;
-}				/* tuiShowDisassem */
-
-
 /*
    ** tuiGetBeginAsmAddress().
  */
-Opaque
-#ifdef __STDC__
+CORE_ADDR
 tuiGetBeginAsmAddress (void)
-#else
-tuiGetBeginAsmAddress ()
-#endif
 {
   TuiGenWinInfoPtr locator;
   TuiLocatorElementPtr element;
-  Opaque addr;
+  CORE_ADDR addr;
 
   locator = locatorWinInfoPtr ();
   element = &((TuiWinElementPtr) locator->content[0])->whichElement.locator;
 
-  if (element->addr == (Opaque) 0)
+  if (element->addr == 0)
     {
       /*the target is not executing, because the pc is 0 */
 
-      addr = (Opaque) parse_and_eval_address ("main");
+      addr = parse_and_eval_address ("main");
 
-      if (addr == (Opaque) 0)
-	addr = (Opaque) parse_and_eval_address ("MAIN");
+      if (addr == 0)
+	addr = parse_and_eval_address ("MAIN");
 
     }
   else				/* the target is executing */
@@ -258,19 +251,12 @@ tuiGetBeginAsmAddress ()
    **      Scroll the disassembly forward or backward vertically
  */
 void
-#ifdef __STDC__
-tuiVerticalDisassemScroll (
-			    TuiScrollDirection scrollDirection,
-			    int numToScroll)
-#else
-tuiVerticalDisassemScroll (scrollDirection, numToScroll)
-     TuiScrollDirection scrollDirection;
-     int numToScroll;
-#endif
+tuiVerticalDisassemScroll (TuiScrollDirection scrollDirection,
+                           int numToScroll)
 {
   if (disassemWin->generic.content != (OpaquePtr) NULL)
     {
-      Opaque pc, lowAddr;
+      CORE_ADDR pc, lowAddr;
       TuiWinContent content;
       struct symtab *s;
 
@@ -281,16 +267,15 @@ tuiVerticalDisassemScroll (scrollDirection, numToScroll)
 	s = current_source_symtab;
 
       pc = content[0]->whichElement.source.lineOrAddr.addr;
-      if (find_pc_partial_function ((CORE_ADDR) pc,
-				    (char **) NULL,
-				    (CORE_ADDR *) & lowAddr,
-				    (CORE_ADDR) NULL) == 0)
-	error ("No function contains prgram counter for selected frame.\n");
+      if (find_pc_partial_function (pc, (char **) NULL, &lowAddr,
+				    (CORE_ADDR) 0) == 0)
+	error ("No function contains program counter for selected frame.\n");
       else
 	{
 	  register int line = 0;
-	  register Opaque newLow;
+	  register CORE_ADDR newLow;
 	  bfd_byte buffer[4];
+	  TuiLineOrAddress val;
 
 	  newLow = pc;
 	  if (scrollDirection == FORWARD_SCROLL)
@@ -300,10 +285,11 @@ tuiVerticalDisassemScroll (scrollDirection, numToScroll)
 	    }
 	  else
 	    {
-	      for (; newLow >= (Opaque) 0 && line < numToScroll; line++)
+	      for (; newLow != 0 && line < numToScroll; line++)
 		newLow -= sizeof (bfd_getb32 (buffer));
 	    }
-	  tuiUpdateSourceWindowAsIs (disassemWin, s, newLow, FALSE);
+	  val.addr = newLow;
+	  tuiUpdateSourceWindowAsIs (disassemWin, s, val, FALSE);
 	}
     }
 
@@ -321,13 +307,7 @@ tuiVerticalDisassemScroll (scrollDirection, numToScroll)
    **      source file indicated
  */
 static struct breakpoint *
-#ifdef __STDC__
-_hasBreak (
-	    CORE_ADDR addr)
-#else
-_hasBreak (addr)
-     CORE_ADDR addr;
-#endif
+_hasBreak (CORE_ADDR addr)
 {
   struct breakpoint *bpWithBreak = (struct breakpoint *) NULL;
   struct breakpoint *bp;

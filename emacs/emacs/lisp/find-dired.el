@@ -1,8 +1,8 @@
 ;;; find-dired.el --- run a `find' command and dired the output
 
-;; Copyright (C) 1992, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1994, 1995, 2000 Free Software Foundation, Inc.
 
-;; Author: Roland McGrath <roland@gnu.ai.mit.edu>,
+;; Author: Roland McGrath <roland@gnu.org>,
 ;;	   Sebastian Kremer <sk@thp.uni-koeln.de>
 ;; Maintainer: FSF
 ;; Keywords: unix
@@ -24,6 +24,8 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
 (require 'dired)
@@ -32,6 +34,11 @@
   "Run a `find' command and dired the output."
   :group 'dired
   :prefix "find-")
+
+(defcustom find-dired-find-program "find"
+  "Program used to find files."
+  :group 'dired
+  :type 'file)
 
 ;; find's -ls corresponds to these switches.
 ;; Note -b, at least GNU find quotes spaces etc. in filenames
@@ -86,13 +93,28 @@ as the final argument."
     (or (file-directory-p dir)
 	(error "find-dired needs a directory: %s" dir))
     (switch-to-buffer (get-buffer-create "*Find*"))
+
+    ;; See if there's still a `find' running, and offer to kill
+    ;; it first, if it is.
+    (let ((find (get-buffer-process (current-buffer))))
+      (when find
+	(if (or (not (eq (process-status find) 'run))
+		(yes-or-no-p "A `find' process is running; kill it? "))
+	    (condition-case nil
+		(progn
+		  (interrupt-process find)
+		  (sit-for 1)
+		  (delete-process find))
+	      (error nil))
+	  (error "Cannot have two processes in `%s' at once" (buffer-name)))))
+      
     (widen)
     (kill-all-local-variables)
     (setq buffer-read-only nil)
     (erase-buffer)
     (setq default-directory dir
 	  find-args args		; save for next interactive call
-	  args (concat "find . "
+	  args (concat find-dired-find-program " . "
 		       (if (string= args "")
 			   ""
 			 (concat "\\( " args " \\) "))
@@ -120,7 +142,7 @@ as the final argument."
     ;; ``wildcard'' line. 
     (insert "  " args "\n")
     ;; Start the find process.
-    (let ((proc (start-process-shell-command "find" (current-buffer) args)))
+    (let ((proc (start-process-shell-command find-dired-find-program (current-buffer) args)))
       (set-process-filter proc (function find-dired-filter))
       (set-process-sentinel proc (function find-dired-sentinel))
       ;; Initialize the process marker; it is used by the filter.

@@ -1,4 +1,4 @@
-;;; xscheme.el --- run Scheme under Emacs
+;;; xscheme.el --- run MIT Scheme under Emacs
 
 ;; Copyright (C) 1986, 1987, 1989, 1990 Free Software Foundation, Inc.
 
@@ -36,11 +36,6 @@
 (defgroup xscheme nil
   "Major mode for editing Scheme and interacting with MIT's C-Scheme."
   :group 'lisp)
-
-(defcustom scheme-program-name "scheme"
-  "*Program invoked by the `run-scheme' command."
-  :type 'string
-  :group 'xscheme)
 
 (defcustom scheme-band-name nil
   "*Band loaded by the `run-scheme' command."

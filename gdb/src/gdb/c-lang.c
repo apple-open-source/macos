@@ -1,5 +1,6 @@
 /* C language support routines for GDB, the GNU debugger.
-   Copyright 1992, 1993, 1994, 2000 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2002
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -66,12 +67,18 @@ c_emit_char (register int c, struct ui_file *stream, int quoter)
 	case '\r':
 	  fputs_filtered ("\\r", stream);
 	  break;
+        case '\013':
+          fputs_filtered ("\\v", stream);
+          break;
 	case '\033':
 	  fputs_filtered ("\\e", stream);
 	  break;
 	case '\007':
 	  fputs_filtered ("\\a", stream);
 	  break;
+        case '\0':
+          fputs_filtered ("\\0", stream);
+          break;
 	default:
 	  fprintf_filtered (stream, "\\%.3o", (unsigned int) c);
 	  break;
@@ -108,7 +115,8 @@ c_printstr (struct ui_file *stream, char *string, unsigned int length,
      style.  */
   if (!force_ellipses
       && length > 0
-  && extract_unsigned_integer (string + (length - 1) * width, width) == '\0')
+      && (extract_unsigned_integer (string + (length - 1) * width, width)
+          == '\0'))
     length--;
 
   if (length == 0)
@@ -239,13 +247,11 @@ c_create_fundamental_type (struct objfile *objfile, int typeid)
       type = init_type (TYPE_CODE_BOOL,
 			TARGET_CHAR_BIT / TARGET_CHAR_BIT,
 			0, "bool", objfile);
-
       break;
     case FT_CHAR:
       type = init_type (TYPE_CODE_INT,
 			TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-			0, "char", objfile);
-      TYPE_FLAGS (type) |= TYPE_FLAG_NOSIGN;
+			TYPE_FLAG_NOSIGN, "char", objfile);
       break;
     case FT_SIGNED_CHAR:
       type = init_type (TYPE_CODE_INT,
@@ -332,11 +338,34 @@ c_create_fundamental_type (struct objfile *objfile, int typeid)
 			TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT,
 			0, "long double", objfile);
       break;
+    case FT_COMPLEX:
+      type = init_type (TYPE_CODE_FLT,
+			2 * TARGET_FLOAT_BIT / TARGET_CHAR_BIT,
+			0, "complex float", objfile);
+      TYPE_TARGET_TYPE (type)
+	= init_type (TYPE_CODE_FLT, TARGET_FLOAT_BIT / TARGET_CHAR_BIT,
+		     0, "float", objfile);
+      break;
+    case FT_DBL_PREC_COMPLEX:
+      type = init_type (TYPE_CODE_FLT,
+			2 * TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
+			0, "complex double", objfile);
+      TYPE_TARGET_TYPE (type)
+	= init_type (TYPE_CODE_FLT, TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
+		     0, "double", objfile);
+      break;
+    case FT_EXT_PREC_COMPLEX:
+      type = init_type (TYPE_CODE_FLT,
+			2 * TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT,
+			0, "complex long double", objfile);
+      TYPE_TARGET_TYPE (type)
+	= init_type (TYPE_CODE_FLT, TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT,
+		     0, "long double", objfile);
+      break;
     case FT_TEMPLATE_ARG:
       type = init_type (TYPE_CODE_TEMPLATE_ARG,
 			0,
 			0, "<template arg>", objfile);
-
       break;
     }
   return (type);
@@ -380,26 +409,26 @@ const struct op_print c_op_print_tab[] =
   {NULL, 0, 0, 0}
 };
 
-struct type **CONST_PTR (c_builtin_types[]) =
+struct type **const (c_builtin_types[]) =
 {
   &builtin_type_int,
-    &builtin_type_long,
-    &builtin_type_short,
-    &builtin_type_char,
-    &builtin_type_float,
-    &builtin_type_double,
-    &builtin_type_void,
-    &builtin_type_long_long,
-    &builtin_type_signed_char,
-    &builtin_type_unsigned_char,
-    &builtin_type_unsigned_short,
-    &builtin_type_unsigned_int,
-    &builtin_type_unsigned_long,
-    &builtin_type_unsigned_long_long,
-    &builtin_type_long_double,
-    &builtin_type_complex,
-    &builtin_type_double_complex,
-    0
+  &builtin_type_long,
+  &builtin_type_short,
+  &builtin_type_char,
+  &builtin_type_float,
+  &builtin_type_double,
+  &builtin_type_void,
+  &builtin_type_long_long,
+  &builtin_type_signed_char,
+  &builtin_type_unsigned_char,
+  &builtin_type_unsigned_short,
+  &builtin_type_unsigned_int,
+  &builtin_type_unsigned_long,
+  &builtin_type_unsigned_long_long,
+  &builtin_type_long_double,
+  &builtin_type_complex,
+  &builtin_type_double_complex,
+  0
 };
 
 const struct language_defn c_language_defn =
@@ -434,24 +463,24 @@ const struct language_defn c_language_defn =
 struct type **const (cplus_builtin_types[]) =
 {
   &builtin_type_int,
-    &builtin_type_long,
-    &builtin_type_short,
-    &builtin_type_char,
-    &builtin_type_float,
-    &builtin_type_double,
-    &builtin_type_void,
-    &builtin_type_long_long,
-    &builtin_type_signed_char,
-    &builtin_type_unsigned_char,
-    &builtin_type_unsigned_short,
-    &builtin_type_unsigned_int,
-    &builtin_type_unsigned_long,
-    &builtin_type_unsigned_long_long,
-    &builtin_type_long_double,
-    &builtin_type_complex,
-    &builtin_type_double_complex,
-    &builtin_type_bool,
-    0
+  &builtin_type_long,
+  &builtin_type_short,
+  &builtin_type_char,
+  &builtin_type_float,
+  &builtin_type_double,
+  &builtin_type_void,
+  &builtin_type_long_long,
+  &builtin_type_signed_char,
+  &builtin_type_unsigned_char,
+  &builtin_type_unsigned_short,
+  &builtin_type_unsigned_int,
+  &builtin_type_unsigned_long,
+  &builtin_type_unsigned_long_long,
+  &builtin_type_long_double,
+  &builtin_type_complex,
+  &builtin_type_double_complex,
+  &builtin_type_bool,
+  0
 };
 
 const struct language_defn cplus_language_defn =

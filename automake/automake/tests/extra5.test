@@ -1,0 +1,26 @@
+#! /bin/sh
+
+# Check to make sure EXTRA_DIST can contain a directory from $buildir.
+# From Dean Povey.
+
+. $srcdir/defs || exit 1
+
+echo AC_OUTPUT >> configure.in
+
+cat > Makefile.am << 'END'
+EXTRA_DIST=foo
+
+foo:
+	mkdir foo
+	touch foo/bar
+END
+
+set -e
+
+$ACLOCAL
+$AUTOMAKE
+$AUTOCONF
+mkdir build
+cd build
+../configure
+$MAKE distdir

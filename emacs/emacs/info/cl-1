@@ -1,7 +1,6 @@
-This is Info file ../info/cl, produced by Makeinfo version 1.68 from
-the input file cl.texi.
+This is ../info/cl, produced by makeinfo version 4.0 from cl.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * CL: (cl).		Partial Common Lisp support for Emacs Lisp.
 END-INFO-DIR-ENTRY
@@ -10,25 +9,25 @@ END-INFO-DIR-ENTRY
 
    Copyright (C) 1993 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the section entitled "GNU General Public License" is included
-exactly as in the original, and provided that the entire resulting
-derived work is distributed under the terms of a permission notice
-identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the section entitled "GNU General Public License"
-may be included in a translation approved by the author instead of in
-the original English.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
-File: cl,  Node: Top,  Next: Overview,  Up: (dir)
+File: cl,  Node: Top,  Next: Overview,  Prev: (dir),  Up: (dir)
 
 Common Lisp Extensions
 **********************
@@ -43,14 +42,13 @@ does assume a basic familiarity with Emacs Lisp.
 * Overview::             Installation, usage, etc.
 * Program Structure::    Arglists, `eval-when', `defalias'
 * Predicates::           `typep', `eql', and `equalp'
-* Control Structure::    `setf', `when', `do', `loop', etc.
+* Control Structure::    `setf', `do', `loop', etc.
 * Macros::               Destructuring, `define-compiler-macro'
 * Declarations::         `proclaim', `declare', etc.
 * Symbols::              Property lists, `gensym'
 * Numbers::              Predicates, functions, random numbers
 * Sequences::            Mapping, functions, searching, sorting
 * Lists::                `cadr', `sublis', `member*', `assoc*', etc.
-* Hash Tables::          `make-hash-table', `gethash', etc.
 * Structures::           `defstruct'
 * Assertions::           `check-type', `assert', `ignore-errors'.
 
@@ -205,8 +203,8 @@ in the `info/' directory or another suitable place.
 
    You may instead wish to leave this package's components all in their
 own directory, and then add this directory to your `load-path' and
-(Emacs 19 only) `Info-directory-list'.  Add the directory to the front
-of the list so the old "CL" package and its documentation are hidden.
+`Info-directory-list'.  Add the directory to the front of the list so
+the old "CL" package and its documentation are hidden.
 
 
 File: cl,  Node: Naming Conventions,  Prev: Installation,  Up: Overview
@@ -226,34 +224,27 @@ name:
      member*       assoc*        rassoc*       get*
      remove*       delete*       mapcar*       sort*
      floor*        ceiling*      truncate*     round*
-     mod*          rem*          random*       last*
+     mod*          rem*          random*
 
    Internal function and variable names in the package are prefixed by
-`cl-'.  Here is a complete list of functions *not* prefixed by `cl-'
+`cl-'.  Here is a complete list of functions _not_ prefixed by `cl-'
 which were not taken from Common Lisp:
 
-     member        delete        remove        remq
-     rassoc        floatp-safe   lexical-let   lexical-let*
+     floatp-safe   lexical-let   lexical-let*
      callf         callf2        letf          letf*
-     defsubst*     defalias      add-hook      eval-when-compile
-
-(Most of these are Emacs 19 features provided to Emacs 18 users, or
-introduced, like `remq', for reasons of symmetry with similar features.)
+     defsubst*
 
    The following simple functions and macros are defined in `cl.el';
 they do not cause other components like `cl-extra' to be loaded.
 
-     eql           floatp-safe   abs           endp
+     eql           floatp-safe   endp
      evenp         oddp          plusp         minusp
-     butlast       nbutlast                    caar .. cddddr
+     caaar .. cddddr
      list*         ldiff         rest          first .. tenth
-     member [1]    copy-list     subst         mapcar* [2]
-     adjoin [3]    acons         pairlis       when
-     unless        pop [4]       push [4]      pushnew [3,4]
-     incf [4]      decf [4]      proclaim      declaim
-     add-hook
-
-[1] This is the Emacs 19-compatible function, not `member*'.
+     copy-list     subst         mapcar* [2]
+     adjoin [3]    acons         pairlis       pop [4]
+     push [4]      pushnew [3,4] incf [4]      decf [4]
+     proclaim      declaim
 
 [2] Only for one sequence argument or two list arguments.
 
@@ -276,7 +267,6 @@ the `eval-when' construct.
 
 * Argument Lists::       `&key', `&aux', `defun*', `defmacro*'.
 * Time of Evaluation::   The `eval-when' construct.
-* Function Aliases::     The `defalias' function.
 
 
 File: cl,  Node: Argument Lists,  Next: Time of Evaluation,  Prev: Program Structure,  Up: Program Structure
@@ -295,24 +285,24 @@ this package to implement Common Lisp argument lists seamlessly.
 Instead, this package defines alternates for several Lisp forms which
 you must use if you need Common Lisp argument lists.
 
- - Special Form: defun* NAME ARGLIST BODY...
+ - Special Form: defun* name arglist body...
      This form is identical to the regular `defun' form, except that
      ARGLIST is allowed to be a full Common Lisp argument list.  Also,
      the function body is enclosed in an implicit block called NAME;
-     *note Blocks and Exits::..
+     *note Blocks and Exits::.
 
- - Special Form: defsubst* NAME ARGLIST BODY...
+ - Special Form: defsubst* name arglist body...
      This is just like `defun*', except that the function that is
      defined is automatically proclaimed `inline', i.e., calls to it
      may be expanded into in-line code by the byte compiler.  This is
-     analogous to the `defsubst' form in Emacs 19; `defsubst*' uses a
-     different method (compiler macros) which works in all version of
-     Emacs, and also generates somewhat more efficient inline
-     expansions.  In particular, `defsubst*' arranges for the
-     processing of keyword arguments, default values, etc., to be done
-     at compile-time whenever possible.
+     analogous to the `defsubst' form; `defsubst*' uses a different
+     method (compiler macros) which works in all version of Emacs, and
+     also generates somewhat more efficient inline expansions.  In
+     particular, `defsubst*' arranges for the processing of keyword
+     arguments, default values, etc., to be done at compile-time
+     whenever possible.
 
- - Special Form: defmacro* NAME ARGLIST BODY...
+ - Special Form: defmacro* name arglist body...
      This is identical to the regular `defmacro' form, except that
      ARGLIST is allowed to be a full Common Lisp argument list.  The
      `&environment' keyword is supported as described in Steele.  The
@@ -321,7 +311,7 @@ you must use if you need Common Lisp argument lists.
      Emacs Lisp interpreter.  The macro expander body is enclosed in an
      implicit block called NAME.
 
- - Special Form: function* SYMBOL-OR-LAMBDA
+ - Special Form: function* symbol-or-lambda
      This is identical to the regular `function' form, except that if
      the argument is a `lambda' form then that form may use a full
      Common Lisp argument list.
@@ -330,7 +320,7 @@ you must use if you need Common Lisp argument lists.
 package that include ARGLISTs in their syntax allow full Common Lisp
 argument lists.
 
-   Note that it is *not* necessary to use `defun*' in order to have
+   Note that it is _not_ necessary to use `defun*' in order to have
 access to most "CL" features in your function.  These features are
 always present; `defun*''s only difference from `defun' is its more
 flexible argument lists and its implicit block.
@@ -419,17 +409,6 @@ keyword arguments which are passed on to the `member*' function.
 `allow-other-keys' is used to keep both `find-thing' and `member*' from
 complaining about each others' keywords in the arguments.
 
-   As a (significant) performance optimization, this package implements
-the scan for keyword arguments by calling `memq' to search for keywords
-in a "rest" argument.  Technically speaking, this is incorrect, since
-`memq' looks at the odd-numbered values as well as the even-numbered
-keywords.  The net effect is that if you happen to pass a keyword symbol
-as the *value* of another keyword argument, where that keyword symbol
-happens to equal the name of a valid keyword argument of the same
-function, then the keyword parser will become confused.  This minor bug
-can only affect you if you use keyword symbols as general-purpose data
-in your program; this practice is strongly discouraged in Emacs Lisp.
-
    The fifth section of the argument list consists of "auxiliary
 variables".  These are not really arguments at all, but simply
 variables which are bound to `nil' or to the specified INITFORMS during
@@ -471,12 +450,12 @@ dotted, so that the argument list `(a b . c)' is functionally
 equivalent to `(a b &rest c)'.
 
    If the optimization quality `safety' is set to 0 (*note
-Declarations::.), error checking for wrong number of arguments and
+Declarations::), error checking for wrong number of arguments and
 invalid keyword arguments is disabled.  By default, argument lists are
 rigorously checked.
 
 
-File: cl,  Node: Time of Evaluation,  Next: Function Aliases,  Prev: Argument Lists,  Up: Program Structure
+File: cl,  Node: Time of Evaluation,  Prev: Argument Lists,  Up: Program Structure
 
 Time of Evaluation
 ==================
@@ -490,7 +469,7 @@ certain top-level forms evaluated at compile-time.  For example, the
 compiler effectively evaluates `defmacro' forms at compile-time so that
 later parts of the file can refer to the macros that are defined.
 
- - Special Form: eval-when (SITUATIONS...) FORMS...
+ - Special Form: eval-when (situations...) forms...
      This form controls when the body FORMS are evaluated.  The
      SITUATIONS list may contain any set of the symbols `compile',
      `load', and `eval' (or their long-winded ANSI equivalents,
@@ -552,16 +531,15 @@ later parts of the file can refer to the macros that are defined.
      forms, like `defmacro' (sort-of) and `require', as if they were
      wrapped in `(eval-when (compile load eval) ...)'.
 
-   Emacs 19 includes two special forms related to `eval-when'.  One of
+   Emacs includes two special forms related to `eval-when'.  One of
 these, `eval-when-compile', is not quite equivalent to any `eval-when'
-construct and is described below.  This package defines a version of
-`eval-when-compile' for the benefit of Emacs 18 users.
+construct and is described below.
 
    The other form, `(eval-and-compile ...)', is exactly equivalent to
 `(eval-when (compile load eval) ...)' and so is not itself defined by
 this package.
 
- - Special Form: eval-when-compile FORMS...
+ - Special Form: eval-when-compile forms...
      The FORMS are evaluated at compile-time; at execution time, this
      form acts like a quoted constant of the resulting value.  Used at
      top-level, `eval-when-compile' is just like `eval-when (compile
@@ -570,7 +548,7 @@ this package.
 
      This form is similar to the `#.' syntax of true Common Lisp.
 
- - Special Form: load-time-value FORM
+ - Special Form: load-time-value form
      The FORM is evaluated at load-time; at execution time, this form
      acts like a quoted constant of the resulting value.
 
@@ -607,23 +585,6 @@ this package.
                     --temp--))
 
 
-File: cl,  Node: Function Aliases,  Prev: Time of Evaluation,  Up: Program Structure
-
-Function Aliases
-================
-
-This section describes a feature from GNU Emacs 19 which this package
-makes available in other versions of Emacs.
-
- - Function: defalias SYMBOL FUNCTION
-     This function sets SYMBOL's function cell to FUNCTION.  It is
-     equivalent to `fset', except that in GNU Emacs 19 it also records
-     the setting in `load-history' so that it can be undone by a later
-     `unload-feature'.
-
-     In other versions of Emacs, `defalias' is a synonym for `fset'.
-
-
 File: cl,  Node: Predicates,  Next: Control Structure,  Prev: Program Structure,  Up: Top
 
 Predicates
@@ -645,7 +606,7 @@ Type Predicates
 
 The "CL" package defines a version of the Common Lisp `typep' predicate.
 
- - Function: typep OBJECT TYPE
+ - Function: typep object type
      Check if OBJECT is of type TYPE, where TYPE is a (quoted) type
      name of the sort used by Common Lisp.  For example, `(typep foo
      'integer)' is equivalent to `(integerp foo)'.
@@ -699,7 +660,7 @@ beginning with a symbol.
    The following function and macro (not technically predicates) are
 related to `typep'.
 
- - Function: coerce OBJECT TYPE
+ - Function: coerce object type
      This function attempts to convert OBJECT to the specified TYPE.
      If OBJECT is already of that type as determined by `typep', it is
      simply returned.  Otherwise, certain types of conversions will be
@@ -710,13 +671,13 @@ related to `typep'.
      integers can be coerced in versions of Emacs that support floats.
      In all other circumstances, `coerce' signals an error.
 
- - Special Form: deftype NAME ARGLIST FORMS...
+ - Special Form: deftype name arglist forms...
      This macro defines a new type called NAME.  It is similar to
      `defmacro' in many ways; when NAME is encountered as a type name,
      the body FORMS are evaluated and should return a type specifier
      that is equivalent to the type.  The ARGLIST is a Common Lisp
      argument list of the sort accepted by `defmacro*'.  The type
-     specifier `(NAME ARGS...)'  is expanded by calling the expander
+     specifier `(NAME ARGS...)' is expanded by calling the expander
      with those arguments; the type symbol `NAME' is expanded by
      calling the expander with no arguments.  The ARGLIST is processed
      the same as for `defmacro*' except that optional arguments without
@@ -748,16 +709,16 @@ Equality Predicates
 
 This package defines two Common Lisp predicates, `eql' and `equalp'.
 
- - Function: eql A B
+ - Function: eql a b
      This function is almost the same as `eq', except that if A and B
      are numbers of the same type, it compares them for numeric
      equality (as if by `equal' instead of `eq').  This makes a
      difference only for versions of Emacs that are compiled with
-     floating-point support, such as Emacs 19.  Emacs floats are
-     allocated objects just like cons cells, which means that `(eq 3.0
-     3.0)' will not necessarily be true--if the two `3.0's were
-     allocated separately, the pointers will be different even though
-     the numbers are the same.  But `(eql 3.0 3.0)' will always be true.
+     floating-point support.  Emacs floats are allocated objects just
+     like cons cells, which means that `(eq 3.0 3.0)' will not
+     necessarily be true--if the two `3.0's were allocated separately,
+     the pointers will be different even though the numbers are the
+     same.  But `(eql 3.0 3.0)' will always be true.
 
      The types of the arguments must match, so `(eql 3 3.0)' is still
      false.
@@ -779,7 +740,7 @@ This package defines two Common Lisp predicates, `eql' and `equalp'.
      fact the only known way to distinguish between the two zeros in
      Emacs Lisp is to `format' them and check for a minus sign.
 
- - Function: equalp A B
+ - Function: equalp a b
      This function is a more flexible version of `equal'.  In
      particular, it compares strings case-insensitively, and it compares
      numbers without regard to type (so that `(equalp 3 3.0)' is true).
@@ -788,15 +749,11 @@ This package defines two Common Lisp predicates, `eql' and `equalp'.
 
      This function differs from Common Lisp `equalp' in several
      respects.  First, Common Lisp's `equalp' also compares
-     *characters* case-insensitively, which would be impractical in
+     _characters_ case-insensitively, which would be impractical in
      this package since Emacs does not distinguish between integers and
      characters.  In keeping with the idea that strings are less
      vector-like in Emacs Lisp, this package's `equalp' also will not
-     compare strings against vectors of integers.  Finally, Common
-     Lisp's `equalp' compares hash tables without regard to ordering,
-     whereas this package simply compares hash tables in terms of their
-     underlying structure (which means vectors for Lucid Emacs 19 hash
-     tables, or lists for other hash tables).
+     compare strings against vectors of integers.
 
    Also note that the Common Lisp functions `member' and `assoc' use
 `eql' to compare elements, whereas Emacs Lisp follows the MacLisp
@@ -818,7 +775,7 @@ a number of looping and conditional constructs.
 * Assignment::             The `psetq' form
 * Generalized Variables::  `setf', `incf', `push', etc.
 * Variable Bindings::      `progv', `lexical-let', `flet', `macrolet'
-* Conditionals::           `when', `unless', `case', `typecase'
+* Conditionals::           `case', `typecase'
 * Blocks and Exits::       `block', `return', `return-from'
 * Iteration::              `do', `dotimes', `dolist', `do-symbols'
 * Loop Facility::          The Common Lisp `loop' macro
@@ -833,7 +790,7 @@ Assignment
 The `psetq' form is just like `setq', except that multiple assignments
 are done in parallel rather than sequentially.
 
- - Special Form: psetq [SYMBOL FORM]...
+ - Special Form: psetq [symbol form]...
      This special form (actually a macro) is used to assign to several
      variables simultaneously.  Given only one SYMBOL and FORM, it has
      the same effect as `setq'.  Given several SYMBOL and FORM pairs,
@@ -855,7 +812,7 @@ are done in parallel rather than sequentially.
 
      The simplest use of `psetq' is `(psetq x y y x)', which exchanges
      the values of two variables.  (The `rotatef' form provides an even
-     more convenient way to swap two variables; *note Modify Macros::..)
+     more convenient way to swap two variables; *note Modify Macros::.)
 
      `psetq' always returns `nil'.
 
@@ -898,7 +855,7 @@ Basic Setf
 The `setf' macro is the most basic way to operate on generalized
 variables.
 
- - Special Form: setf [PLACE FORM]...
+ - Special Form: setf [place form]...
      This macro evaluates FORM and stores it in PLACE, which must be a
      valid generalized variable form.  If there are several PLACE and
      FORM pairs, the assignments are done sequentially just as with
@@ -933,8 +890,6 @@ variables.
           Lisp.
 
         * The following Emacs-specific functions are also `setf'-able.
-          (Some of these are defined only in Emacs 19 or only in Lucid
-          Emacs.)
 
                buffer-file-name                  marker-position
                buffer-modified-p                 match-data

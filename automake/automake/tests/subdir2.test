@@ -1,0 +1,37 @@
+#! /bin/sh
+
+# Test to make sure sub-sub-dirs work correctly.
+
+. $srcdir/defs || exit 1
+
+mkdir one
+mkdir one/two
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_OUTPUT(Makefile one/Makefile one/two/Makefile)
+END
+
+# Files required because we are using `--gnu'.
+: > INSTALL
+: > NEWS
+: > README
+: > COPYING
+: > AUTHORS
+: > ChangeLog
+
+cat > Makefile.am << 'END'
+SUBDIRS = one
+END
+
+cat > one/Makefile.am << 'END'
+SUBDIRS = two
+END
+
+cat > one/two/Makefile.am << 'END'
+pkgdata_DATA =
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE --gnu

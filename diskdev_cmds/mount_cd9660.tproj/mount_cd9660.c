@@ -67,6 +67,7 @@
 #include <sys/../isofs/cd9660/cd9660_mount.h>
 
 #include <err.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -287,8 +288,31 @@ get_ssector(const char *devpath)
 			 * to find the latest valid PVD.
 			 */
 			lseek(devfd, ((16 + sector) * CDROM_BLOCK_SIZE), 0);
-			if (read(devfd, iobuf, CDROM_BLOCK_SIZE) != CDROM_BLOCK_SIZE)
-				continue;
+			if (read(devfd, iobuf, CDROM_BLOCK_SIZE) != CDROM_BLOCK_SIZE) {
+				/*
+				 * Re-try using the raw device.
+				 */
+				if (errno == EIO) {
+					int rawfd;
+					ssize_t readlen;
+					char rawname[32];
+					char *dp;
+
+					if ((dp = strrchr(devpath, '/')) == 0)
+						continue;
+					sprintf(rawname, "/dev/r%s", dp + 1);
+					rawfd = open(rawname, O_RDONLY | O_NDELAY , 0);
+					if (rawfd <= 0)
+						continue;
+					lseek(rawfd, ((16 + sector) * CDROM_BLOCK_SIZE), 0);
+					readlen = read(rawfd, iobuf, CDROM_BLOCK_SIZE);
+					close(rawfd);
+					if (readlen != CDROM_BLOCK_SIZE)
+						continue;
+				} else {
+					continue;
+				}
+			}
 		
 			if ((memcmp(&isovdp->id[0], ISO_STANDARD_ID, cmpsize) == 0)
 				&& (isovdp->type[0] == ISO_VD_PRIMARY)) {

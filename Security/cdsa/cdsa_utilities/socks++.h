@@ -70,6 +70,7 @@ class SocksClientSocket;
 // You can express "no socks server" (direct connect) with a NULL pointer (or version==0).
 //
 class SocksServer {
+public:
     class Support; friend class Support;
 
 private:

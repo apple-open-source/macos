@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -82,6 +85,10 @@ OSMetaClassDefineReservedUnused( IONetworkInterface, 15);
 #define DLOG(fmt, args...)
 #endif
 
+#define _powerChangeThreadCall  _reserved->powerChangeThreadCall
+#define _powerChangeNoticeLock  _reserved->powerChangeNoticeLock
+#define _powerChangeNoticeList  _reserved->powerChangeNoticeList
+
 //---------------------------------------------------------------------------
 // Initialize an IONetworkInterface instance.
 //
@@ -89,6 +96,8 @@ OSMetaClassDefineReservedUnused( IONetworkInterface, 15);
 
 bool IONetworkInterface::init(IONetworkController * controller)
 {
+    bool ret = false;
+
     // Propagate the init() call to our superclass.
 
     if ( super::init() == false )
@@ -100,6 +109,29 @@ bool IONetworkInterface::init(IONetworkController * controller)
         return false;
 
     _controller = controller;
+
+    // Allocate memory for the ExpansionData structure.
+
+    _reserved = IONew( ExpansionData, 1 );
+    if ( _reserved == 0 )
+        return false;
+
+    // Initialize the fields in the ExpansionData structure.
+
+    bzero( _reserved, sizeof(ExpansionData) );
+
+	queue_init( &_powerChangeNoticeList );
+
+    _powerChangeThreadCall = thread_call_allocate( 
+                            (thread_call_func_t)  powerChangeHandler,
+                            (thread_call_param_t) this );
+
+    if ( !_powerChangeThreadCall )
+        return false;
+
+    _powerChangeNoticeLock = IOSimpleLockAlloc();
+    if ( _powerChangeNoticeLock == 0 )
+        return false;
 
     // Create interface lock to serialize ifnet updates.
 
@@ -132,11 +164,6 @@ bool IONetworkInterface::init(IONetworkController * controller)
         return false;
     }
 
-    // Intialize the ifnet structure.
-
-    if ( initIfnet(_ifp) == false )
-        return false;
-
     // Create a data dictionary.
 
     if ( (_dataDict = OSDictionary::withCapacity(5)) == 0 )
@@ -160,6 +187,12 @@ bool IONetworkInterface::init(IONetworkController * controller)
         return false;
     }
 
+    // Intialize the ifnet structure.
+
+    boolean_t funnel_state = thread_funnel_set( network_flock, TRUE );
+	ret = initIfnet(_ifp);
+    thread_funnel_set( network_flock, funnel_state );
+
     // Set the kIOInterfaceNamePrefix and kIOPrimaryInterface properties.
     // These may be used by an user space agent as hints when assigning a
     // BSD name for the interface.
@@ -167,7 +200,7 @@ bool IONetworkInterface::init(IONetworkController * controller)
     setProperty( kIOInterfaceNamePrefix, getNamePrefix() );
     setProperty( kIOPrimaryInterface, isPrimaryInterface() );
 
-    return true;
+    return ret;
 }
 
 //---------------------------------------------------------------------------
@@ -194,6 +227,21 @@ void IONetworkInterface::free()
         _ifLock = 0;
     }
 
+    // Free resources referenced through fields in the ExpansionData
+    // structure, and also the structure itself.
+
+    if ( _reserved )
+    {
+        if ( _powerChangeThreadCall )
+            thread_call_free( _powerChangeThreadCall );
+
+        if ( _powerChangeNoticeLock )
+            IOSimpleLockFree( _powerChangeNoticeLock );
+
+        IODelete( _reserved, ExpansionData, 1 );
+        _reserved = 0;
+    }
+
     clearInputQueue();
 
     super::free();
@@ -211,15 +259,9 @@ bool IONetworkInterface::isPrimaryInterface() const
 
     if ( provider ) provider = provider->getProvider();
 
-    // FIXME: Should rely on a single property, and the platform
-    // expert should patch the device tree if necessary to make
-    // it so.
+    // Look for the built-in property in the ethernet entry.
 
-    if ( provider &&
-        ( provider->getProperty( "AAPL,slot-name" ) == 0 ) &&
-        ( provider->getProperty( "built-in" )                 ||
-          provider->getProperty( "AAPL,connector" )           ||    
-          ( strcmp( provider->getName(), "ethernet" ) == 0 ) ) )
+    if ( provider && provider->getProperty( "built-in" ) )
     {
         isPrimary = true;
     }
@@ -296,20 +338,14 @@ bool IONetworkInterface::initIfnet(struct ifnet * ifp)
 {
     UInt32 hwassist = getIfnetHardwareAssistValue( getController() );
 
-    lock();
-
     // Register our 'shim' functions. These function pointers
     // points to static member functions inside this class.
 
-    ifp->if_output      = output_shim;
-    ifp->if_ioctl       = ioctl_shim;
-    ifp->if_set_bpf_tap = set_bpf_tap_shim;
     ifp->if_private     = this;
-    ifp->if_free        = &IONetworkStack::bsdInterfaceWasUnregistered;
+    ifp->if_output      = output_shim;
+    ifp->if_set_bpf_tap = set_bpf_tap_shim;
     ifp->if_name        = (char *) getNamePrefix();
     ifp->if_hwassist    = hwassist;
-
-    unlock();
 
     return true;
 }
@@ -507,8 +543,7 @@ bool IONetworkInterface::registerOutputHandler(OSObject *      target,
     return true;
 }
 
-//---------------------------------------------------------------------------
-// Feed packets to the input/output BPF packet filter taps.
+//---------------------------------------------------------------------------Feed packets to the input/output BPF packet filter taps.
 
 static inline void _feedPacketTap(struct ifnet * ifp,
                                   struct mbuf *  m,
@@ -565,9 +600,9 @@ UInt32 IONetworkInterface::clearInputQueue()
 }
 
 UInt32 IONetworkInterface::inputPacket(struct mbuf * pkt,
-                                       UInt32        length  = 0,
-                                       IOOptionBits  options = 0,
-                                       void *        param   = 0)
+                                       UInt32        length,
+                                       IOOptionBits  options,
+                                       void *        param)
 {
     UInt32 count;
 
@@ -737,7 +772,7 @@ SInt32 IONetworkInterface::syncSIOCSIFMEDIA(IONetworkController * ctr,
     OSDictionary *    mediumDict;
     IONetworkMedium * medium;
     SInt32            error;
-
+   
     mediumDict = ctr->copyMediumDictionary();  // creates a copy
     if ( mediumDict == 0 )
     {
@@ -745,22 +780,47 @@ SInt32 IONetworkInterface::syncSIOCSIFMEDIA(IONetworkController * ctr,
         return EOPNOTSUPP;
     }
 
-    medium = IONetworkMedium::getMediumWithType(mediumDict, ifr->ifr_media);
-    if ( medium == 0 )
-    {
-        // Exact type was not found. Try a partial match.
-        // ifconfig program sets the media type and media
-        // options separately. This should not be allowed!
+    do {
+        // Look for an exact match on the media type.
 
-        medium = IONetworkMedium::getMediumWithType(mediumDict,
-                                                    ifr->ifr_media,
-                                                    ~(IFM_TMASK | IFM_NMASK));
-        if ( medium == 0 )
+        medium = IONetworkMedium::getMediumWithType(
+                                  mediumDict,
+                                  ifr->ifr_media );
+        if ( medium ) break;
+
+        // Try a partial match. ifconfig tool sets the media type and media
+        // options separately. When media options are changed, the options
+        // bits are set or cleared based on the current media selection.
+
+        OSSymbol * selMediumName = (OSSymbol *)
+                                   ctr->copyProperty( kIOSelectedMedium );
+        if ( selMediumName )
         {
-            mediumDict->release();
-            return EINVAL;       // requested medium not found.
+            UInt32            modMediumBits;
+            IONetworkMedium * selMedium = (IONetworkMedium *)
+                              mediumDict->getObject( selMediumName );
+
+            if ( selMedium &&
+                (modMediumBits = selMedium->getType() ^ ifr->ifr_media) )
+            {
+                medium = IONetworkMedium::getMediumWithType(
+                                  mediumDict,
+                                  ifr->ifr_media,
+                                  ~( IFM_TMASK | IFM_NMASK | modMediumBits));                
+            }
+
+            selMediumName->release();
         }
-    }
+        if ( medium ) break;
+
+        // Still no match, look for a medium that matches the network type
+        // and sub-type.
+        
+        medium = IONetworkMedium::getMediumWithType(
+                                  mediumDict,
+                                  ifr->ifr_media,
+                                  ~( IFM_TMASK | IFM_NMASK ));
+    } while ( false );
 
     // It may be possible for the controller to update the medium
     // dictionary and perhaps delete the medium entry that we have
@@ -768,7 +828,11 @@ SInt32 IONetworkInterface::syncSIOCSIFMEDIA(IONetworkController * ctr,
     // harmless since IONetworkController will filter out invalid
     // selections before calling the driver.
 
-    error = errnoFromReturn( ctr->selectMediumWithName(medium->getName()) );
+    if ( medium )
+        error = errnoFromReturn(
+                ctr->selectMediumWithName(medium->getName()) );
+    else
+        error = EINVAL;
 
     mediumDict->release();
 
@@ -943,6 +1007,7 @@ SInt32 IONetworkInterface::performCommand(IONetworkController * ctr,
 
         case SIOCSIFMTU:
         case SIOCSIFMEDIA:
+        case SIOCSIFLLADDR:
             ret = (int) ctr->executeCommand(
                              this,            /* client */
                              (IONetworkController::Action)
@@ -995,6 +1060,14 @@ int IONetworkInterface::performGatedCommand(void * target,
         case SIOCSIFMEDIA:
             ret = self->syncSIOCSIFMEDIA(ctr, ifr);
             break;
+
+        // Set link layer address.
+
+        case SIOCSIFLLADDR:
+            ret = ctr->errnoFromReturn(
+                  ctr->setHardwareAddress( ifr->ifr_addr.sa_data,
+                                           ifr->ifr_addr.sa_len ) );
+            break;
     }
 
     return ret;
@@ -1005,7 +1078,7 @@ int IONetworkInterface::performGatedCommand(void * target,
 // from DLIL.
 
 int
-IONetworkInterface::ioctl_shim(struct ifnet * ifp, u_long cmd, caddr_t data)
+IONetworkInterface::ioctl_shim(struct ifnet * ifp, u_long cmd, void * data)
 {
     assert(ifp && ifp->if_private);
 
@@ -1016,7 +1089,7 @@ IONetworkInterface::ioctl_shim(struct ifnet * ifp, u_long cmd, caddr_t data)
     return self->performCommand( self->_controller,
                                  cmd,
                                  (void *) ifp,
-                                 (void *) data );
+                                 data );
 }
 
 //---------------------------------------------------------------------------
@@ -1075,8 +1148,6 @@ int IONetworkInterface::set_bpf_tap_shim(struct ifnet * ifp,
 
     assert(ifp == self->_ifp);
 
-    self->lock();
-
     switch ( mode )
     {
         case BPF_TAP_DISABLE:
@@ -1103,8 +1174,6 @@ int IONetworkInterface::set_bpf_tap_shim(struct ifnet * ifp,
             break;
     }
 
-    self->unlock();
-
     return 0;
 }
 
@@ -1128,11 +1197,8 @@ bool IONetworkInterface::_setInterfaceProperty(UInt32  value,
                                                void *  addr,
                                                char *  key)
 {
-    bool       updateOk = false;
-    UInt32     newValue;
-    OSNumber * number;
-
-    lock();
+    bool    updateOk = true;
+    UInt32  newValue;
 
     // Update the property in ifnet.
 
@@ -1151,57 +1217,38 @@ bool IONetworkInterface::_setInterfaceProperty(UInt32  value,
             *((UInt32 *) addr) = (UInt32) newValue;
             break;
         default:
-            goto abort;
+            updateOk = false;
+            break;
     }
 
-    // Update the OSNumber in the property table.
-
-    if ( key )
-    {
-        if ( (number = (OSNumber *) getProperty(key)) )
-        {
-            number->setValue(newValue);
-            updateOk = true;
-        }
-        else
-        {
-            updateOk = setProperty(key, newValue, bytes * 8);
-        }
-    }
-abort:
-    unlock();
     return updateOk;
 }
 
 #define IO_IFNET_GET(func, type, field)                        \
-type IONetworkInterface:: ## func() const                      \
+type IONetworkInterface::func() const                          \
 {                                                              \
-    type ret;                                                  \
-    ((IONetworkInterface *) this)->lock();                     \
-    ret = _ifp ? _ifp-> ## field : 0;                          \
-    ((IONetworkInterface *) this)->unlock();                   \
-    return ret;                                                \
+    return ( _ifp ? _ifp->field : 0 );                         \
 }
 
 #define IO_IFNET_SET(func, type, field, propName)              \
-bool IONetworkInterface:: ## func(type value)                  \
+bool IONetworkInterface::func(type value)                      \
 {                                                              \
     return _setInterfaceProperty(                              \
         (UInt32) value,                                        \
         0,                                                     \
         sizeof(type),                                          \
-        (void *) &_ifp-> ## field,                             \
+        (void *) &_ifp->field,                                 \
         propName);                                             \
 }
 
 #define IO_IFNET_RMW(func, type, field, propName)              \
-bool IONetworkInterface:: ## func(type value, type clear = 0)  \
+bool IONetworkInterface::func(type value, type clear)          \
 {                                                              \
     return _setInterfaceProperty(                              \
         (UInt32) value,                                        \
         (UInt32) ~clear,                                       \
         sizeof(type),                                          \
-        (void *) &_ifp-> ## field,                             \
+        (void *) &_ifp->field,                                 \
         propName);                                             \
 }
 
@@ -1246,7 +1293,17 @@ IO_IFNET_GET(getMediaHeaderLength, UInt8, if_hdrlen)
 // Interface unit number. The unit number for the interface is assigned
 // by our client.
 
-IO_IFNET_SET(setUnitNumber, UInt16, if_unit, kIOInterfaceUnit)
+bool IONetworkInterface::setUnitNumber( UInt16 value )
+{
+    if ( setProperty( kIOInterfaceUnit, value, 16 ) )
+    {
+        _ifp->if_unit = value;
+        return true;
+    }
+    else
+        return false;
+}
+
 IO_IFNET_GET(getUnitNumber, UInt16, if_unit)
 
 //---------------------------------------------------------------------------
@@ -1256,6 +1313,23 @@ IO_IFNET_GET(getUnitNumber, UInt16, if_unit)
 bool IONetworkInterface::isRegistered() const
 {
     return (bool)(getInterfaceState() & kIONetworkInterfaceRegisteredState);
+}
+
+//---------------------------------------------------------------------------
+// serialize
+
+bool IONetworkInterface::serializeProperties( OSSerialize * s ) const
+{
+    IONetworkInterface * self = (IONetworkInterface *) this;
+
+    self->setProperty( kIOInterfaceType,       getInterfaceType(),       8 );
+    self->setProperty( kIOMaxTransferUnit,     getMaxTransferUnit(),    32 );
+    self->setProperty( kIOInterfaceFlags,      getFlags(),              16 );
+    self->setProperty( kIOInterfaceExtraFlags, getExtraFlags(),         32 );
+    self->setProperty( kIOMediaAddressLength,  getMediaAddressLength(),  8 );
+    self->setProperty( kIOMediaHeaderLength,   getMediaHeaderLength(),   8 );
+
+    return super::serializeProperties( s );
 }
 
 //---------------------------------------------------------------------------
@@ -1422,6 +1496,27 @@ IOReturn IONetworkInterface::newUserClient(task_t           owningTask,
 }
 
 //---------------------------------------------------------------------------
+// Power change notices are posted by the controller's policy-maker to
+// inform the interface that the controller is changing power states.
+// There are two notifications for each state change, delivered prior
+// to the state change, and after the state change has occurred.
+
+struct IONetworkPowerChangeNotice {
+	queue_chain_t  link;
+    IOPMPowerFlags powerFlags;
+    UInt32         stateNumber;
+    IOService *    policyMaker;
+    UInt32         phase;
+};
+
+enum {
+    kPhasePowerStateWillChange = 1,
+    kPhasePowerStateDidChange
+};
+
+#define kMaxAckDelayUS (10 * 1000 * 1000)
+
+//---------------------------------------------------------------------------
 // Handle controller's power state transitions.
 
 IOReturn
@@ -1457,73 +1552,174 @@ IONetworkInterface::controllerDidChangePowerState(
 // Act as stub functions that will simply forward the call to virtual member
 // functions.
 
-IOReturn
-IONetworkInterface::sControllerWillChangePowerState(
-                               IONetworkInterface *   netif,
-                               void *                 param0,
-                               void *                 param1,
-                               void *                 param2,
-                               void *                 param3 )
+void
+IONetworkInterface::powerChangeHandler( void * param0,
+                                        void * param1,
+                                        void * param2,
+                                        void * param3,
+                                        void * param4 )
 {
-    return netif->controllerWillChangePowerState(
-                            (IONetworkController *) param0,
-                            (IOPMPowerFlags)        param1,
-                            (UInt32)                param2,
-                            (IOService *)           param3 );
-}
+    IONetworkInterface *         self = (IONetworkInterface *) param0;
+	IONetworkPowerChangeNotice * notice;
+    IOService *                  policyMaker = 0;
 
-IOReturn
-IONetworkInterface::sControllerDidChangePowerState(
-                               IONetworkInterface *   netif,
-                               void *                 param0,
-                               void *                 param1,
-                               void *                 param2,
-                               void *                 param3 )
-{
-    return netif->controllerDidChangePowerState( 
-                            (IONetworkController *) param0,
-                            (IOPMPowerFlags)        param1,
-                            (UInt32)                param2,
-                            (IOService *)           param3 );
+    assert( self );
+
+    if ( param1 == 0 )
+    {
+        // Issue a call to this same function synchronized with the
+        // work loop thread.
+
+        self->getController()->executeCommand(
+              /* client */ self,
+              /* action */ (IONetworkController::Action) powerChangeHandler,
+              /* target */ self,
+              /* param1 */ (void *) 1 );
+
+        return;
+    }
+
+    do {
+        notice = 0;
+
+        IOSimpleLockLock( self->_powerChangeNoticeLock );
+
+        if ( queue_empty( &self->_powerChangeNoticeList ) == false )
+        {
+            queue_remove_first( &self->_powerChangeNoticeList,
+                                notice,
+                                IONetworkPowerChangeNotice *,
+                                link );
+        }
+
+        IOSimpleLockUnlock( self->_powerChangeNoticeLock );
+
+        if ( notice )
+        {
+            DLOG("%s: power change fl:%08lx, st:%ld, pm:%p, ph:%ld\n",
+                 self->getName(), notice->powerFlags, notice->stateNumber,
+                 notice->policyMaker, notice->phase );
+
+            if ( notice->phase == kPhasePowerStateWillChange )
+            {
+                self->controllerWillChangePowerState(
+                      self->getController(),
+                      notice->powerFlags,
+                      notice->stateNumber,
+                      notice->policyMaker );
+            }
+            else if ( notice->phase == kPhasePowerStateDidChange )
+            {
+                self->controllerDidChangePowerState(
+                      self->getController(),
+                      notice->powerFlags,
+                      notice->stateNumber,
+                      notice->policyMaker );
+            }
+            else
+            {
+                IOPanic("Invalid power change phase\n");
+            }
+
+            policyMaker = notice->policyMaker;
+
+            IODelete( notice, IONetworkPowerChangeNotice, 1 );
+        }
+    }
+    while ( notice );
+
+    if ( policyMaker )
+    {
+        policyMaker->acknowledgePowerChange( self );
+    }
+
+    // offset the retain following the call to thread_call_enter().
+
+    assert( self->getRetainCount() > 0 );
+	self->release();
 }
 
 //---------------------------------------------------------------------------
 // Handle notitifications triggered by controller's power state change.
 
 IOReturn
-IONetworkInterface::powerStateWillChangeTo( IOPMPowerFlags  flags,
+IONetworkInterface::powerStateWillChangeTo( IOPMPowerFlags  powerFlags,
                                             UInt32          stateNumber,
                                             IOService *     policyMaker )
 {
-    _controller->executeCommand(
-                    this,                   /* client */
-                    (IONetworkController::Action)
-                    &IONetworkInterface::sControllerWillChangePowerState,
-                    this,                   /* target */
-                    (void *) _controller,   /* param0 */
-                    (void *) flags,         /* param1 */
-                    (void *) stateNumber,   /* param2 */
-                    (void *) policyMaker);  /* param3 */
+    IONetworkPowerChangeNotice * notice;
 
-    return IOPMAckImplied;
+    notice = IONew( IONetworkPowerChangeNotice, 1 );
+    if ( notice == 0 )
+        return kIOReturnNoMemory;
+
+    notice->powerFlags  = powerFlags;
+    notice->stateNumber = stateNumber;
+    notice->policyMaker = policyMaker;
+    notice->phase       = kPhasePowerStateWillChange;
+
+    // Queue the power change notice atomically.
+
+    IOSimpleLockLock( _powerChangeNoticeLock );
+
+    queue_enter( &_powerChangeNoticeList,       // queue head
+                 notice,                        // new queue element
+                 IONetworkPowerChangeNotice *,  // element type
+                 link );                        // element linkage field
+
+    IOSimpleLockUnlock( _powerChangeNoticeLock );
+
+    // Schedule a callout to service the power change notice.
+    // Increment the retain count to ensure that the object
+    // won't be freed while the callout is still pending.
+    
+    retain();
+    if ( thread_call_enter( _powerChangeThreadCall ) == TRUE )
+    {
+        release();
+    }
+
+    return kMaxAckDelayUS;
 }
 
 IOReturn
-IONetworkInterface::powerStateDidChangeTo( IOPMPowerFlags  flags,
+IONetworkInterface::powerStateDidChangeTo( IOPMPowerFlags  powerFlags,
                                            UInt32          stateNumber,
                                            IOService *     policyMaker )
 {
-    _controller->executeCommand(
-                    this,                   /* client */
-                    (IONetworkController::Action)
-                    &IONetworkInterface::sControllerDidChangePowerState,
-                    this,                   /* target */
-                    (void *) _controller,   /* param0 */
-                    (void *) flags,         /* param1 */
-                    (void *) stateNumber,   /* param2 */
-                    (void *) policyMaker);  /* param3 */
+    IONetworkPowerChangeNotice * notice;
 
-    return IOPMAckImplied;
+    notice = IONew( IONetworkPowerChangeNotice, 1 );
+    if ( notice == 0 )
+        return kIOReturnNoMemory;
+
+    notice->powerFlags  = powerFlags;
+    notice->stateNumber = stateNumber;
+    notice->policyMaker = policyMaker;
+    notice->phase       = kPhasePowerStateDidChange;
+
+    // Queue the power change notice atomically.
+
+    IOSimpleLockLock( _powerChangeNoticeLock );
+
+    queue_enter( &_powerChangeNoticeList,       // queue head
+                 notice,                        // new queue element
+                 IONetworkPowerChangeNotice *,  // element type
+                 link );                        // element linkage field
+
+    IOSimpleLockUnlock( _powerChangeNoticeLock );
+
+    // Schedule a callout to service the power change notice.
+    // Increment the retain count to ensure that the object
+    // won't be freed while the callout is still pending.
+    
+    retain();
+    if ( thread_call_enter( _powerChangeThreadCall ) == TRUE )
+    {
+        release();
+    }
+
+    return kMaxAckDelayUS;
 }
 
 #define kIONetworkControllerProperties  "IONetworkControllerProperties"
@@ -1553,3 +1749,28 @@ IOReturn IONetworkInterface::setProperties( OSObject * properties )
 
     return ret;
 }
+
+//---------------------------------------------------------------------------
+// willTerminate
+
+bool IONetworkInterface::willTerminate( IOService *  provider,
+                                        IOOptionBits options )
+{
+    DLOG("%s::%s\n", getName(), __FUNCTION__);
+
+    // Mark the interface as disabled.
+
+    setInterfaceState( kIONetworkInterfaceDisabledState );
+
+    return super::willTerminate( provider, options );
+}
+
+//---------------------------------------------------------------------------
+// Inlined functions pulled from header file to ensure
+// binary compatibility with drivers built with gcc2.95.
+
+IONetworkData * IONetworkInterface::getParameter(const char * aKey) const
+{ return getNetworkData(aKey); }
+
+bool IONetworkInterface::setExtendedFlags(UInt32 flags, UInt32 clear)
+{ return true; }

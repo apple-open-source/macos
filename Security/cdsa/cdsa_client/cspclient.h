@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -41,7 +41,7 @@ public:
 	CSPImpl(const Guid &guid);
 	CSPImpl(const Module &module);
 	virtual ~CSPImpl();
-    
+
     // the least inappropriate place for this one
     void freeKey(CssmKey &key, const AccessCredentials *cred = NULL, bool permanent = false);
 };
@@ -77,6 +77,9 @@ public:
 
 public:
 	CSSM_CC_HANDLE handle() { activate(); return mHandle; }
+    
+    uint32 getOutputSize(uint32 inputSize, bool encrypt = true);
+    void getOutputSize(CSSM_QUERY_SIZE_DATA &sizes, uint32 count, bool encrypt = true);
 	
 public:
 	// don't use this section unless you know what you're doing!
@@ -87,7 +90,7 @@ public:
 	{
 		if (isActive()) {
 			::Context::Attr attr(type, value);
-			check(CSSM_UpdateContextAttributes(handle(), 1, &attr));
+			check(CSSM_UpdateContextAttributes(mHandle, 1, &attr));
 		}
 	}
 
@@ -95,7 +98,7 @@ public:
 	{
 		if (isActive()) {
 			::Context::Attr attr(type, value);
-			check(CSSM_UpdateContextAttributes(handle(), 1, &attr));
+			check(CSSM_UpdateContextAttributes(mHandle, 1, &attr));
 		}
 	}
     
@@ -105,7 +108,7 @@ public:
     
     void add(CSSM_ATTRIBUTE_TYPE type, uint32 value)
     { activate(); set(type, value); }
-	
+
 protected:
 	CSSM_ALGORITHMS mAlgorithm;		// intended algorithm
 	CSSM_CC_HANDLE mHandle;			// CSSM CC handle
@@ -120,6 +123,28 @@ protected:
 	
 	void staged()
 	{ if (!mStaged) init(); }
+};
+
+
+//
+// A PassThough context
+//
+class PassThrough : public Context
+{
+public:
+	PassThrough(const CSP &csp) : Context(csp) { }
+
+public:
+	void operator () (uint32 passThroughId, const void *inData, void **outData);
+
+	const CSSM_KEY *key() const { return mKey; }
+	void key(const CSSM_KEY *k) { mKey = k; set(CSSM_ATTRIBUTE_KEY, k); }
+
+protected:
+	void activate();
+
+protected:
+	const CSSM_KEY *mKey;
 };
 
 

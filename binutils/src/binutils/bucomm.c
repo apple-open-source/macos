@@ -1,5 +1,5 @@
 /* bucomm.c -- Bin Utils COMmon code.
-   Copyright (C) 1991, 92, 93, 94, 95, 97, 98, 2000
+   Copyright 1991, 1992, 1993, 1994, 1995, 1997, 1998, 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GNU Binutils.
@@ -75,55 +75,26 @@ report (format, args)
   putc ('\n', stderr);
 }
 
-#ifdef ANSI_PROTOTYPES
 void
-fatal (const char *format, ...)
+fatal VPARAMS ((const char *format, ...))
 {
-  va_list args;
+  VA_OPEN (args, format);
+  VA_FIXEDARG (args, const char *, format);
 
-  va_start (args, format);
   report (format, args);
-  va_end (args);
+  VA_CLOSE (args);
   xexit (1);
 }
 
 void
-non_fatal (const char *format, ...)
+non_fatal VPARAMS ((const char *format, ...))
 {
-  va_list args;
+  VA_OPEN (args, format);
+  VA_FIXEDARG (args, const char *, format);
 
-  va_start (args, format);
   report (format, args);
-  va_end (args);
+  VA_CLOSE (args);
 }
-#else
-void 
-fatal (va_alist)
-     va_dcl
-{
-  char *Format;
-  va_list args;
-
-  va_start (args);
-  Format = va_arg (args, char *);
-  report (Format, args);
-  va_end (args);
-  xexit (1);
-}
-
-void 
-non_fatal (va_alist)
-     va_dcl
-{
-  char *Format;
-  va_list args;
-
-  va_start (args);
-  Format = va_arg (args, char *);
-  report (Format, args);
-  va_end (args);
-}
-#endif
 
 /* Set the default BFD target based on the configured target.  Doing
    this permits the binutils to be configured for a particular target,
@@ -162,7 +133,7 @@ list_supported_targets (name, f)
      const char *name;
      FILE *f;
 {
-  extern bfd_target *bfd_target_vector[];
+  extern const bfd_target *const *bfd_target_vector;
   int t;
 
   if (name == NULL)
@@ -171,6 +142,25 @@ list_supported_targets (name, f)
     fprintf (f, _("%s: supported targets:"), name);
   for (t = 0; bfd_target_vector[t] != NULL; t++)
     fprintf (f, " %s", bfd_target_vector[t]->name);
+  fprintf (f, "\n");
+}
+
+/* List the supported architectures.  */
+
+void
+list_supported_architectures (name, f)
+     const char *name;
+     FILE *f;
+{
+  const char** arch;
+
+  if (name == NULL)
+    fprintf (f, _("Supported architectures:"));
+  else
+    fprintf (f, _("%s: supported architectures:"), name);
+
+  for (arch = bfd_arch_list (); *arch; arch++)
+    fprintf (f, " %s", *arch);
   fprintf (f, "\n");
 }
 

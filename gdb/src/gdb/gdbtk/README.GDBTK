@@ -11,7 +11,7 @@ Introduction
 
 GDBtk is a version of GDB that uses Tcl/Tk to implement a graphical
 user inter-face.  It is a fully integrated GUI, not a separate
-front-end program.  The interface consists of several seperate
+front-end program.  The interface consists of several separate
 windows, which use standard elements like buttons, scrollbars, entry
 boxes and such to create a fairly easy to use interface.  Each window
 has a distinct content and purpose, and can be enabled or disabled
@@ -141,8 +141,8 @@ Expressions:
 Customizing GDBtk
 =================
 
-There are three primary ways to customize GDBtk.  One is to modifiy the 
-appropriate X resources.  The other is to hack a ~/.gdbtkinit file.  The last 
+There are three primary ways to customize GDBtk.  One is to modify the 
+appropriate X resources.  Another is to hack a ~/.gdbtkinit file.  The last 
 is to change the files in gdbtcl, which defines the most basic interface 
 elements.
 
@@ -185,7 +185,7 @@ name.  The fourth item is the default value, and the last item is the current
 value.
 
 To get info about a single resource, add the config option name to the end of
-the previous command.  Ie:
+the previous command.  I.e.:
 
 	tk .asm.text config -font
 
@@ -200,9 +200,9 @@ particular, the `tk colormodel . monochrome' command should probably be
 disabled if you want to use color.
 
 Hacking ~/.gdbtkinit and gdbtcl
-==================================
+===============================
 ~/.gdbtkinit is sourced at the end of gdbtk.tcl.  Currently there is no good
-doc on this.  See gdbtcl/main.tcl for see what you can change.
+doc on this.  See gdbtcl/main.tcl to see what you can change.
 
 The GUI is primarily implemented by Tcl/Tk code which lives in gdbtcl and a
 C file called gdbtk.c.  The Tcl/Tk code determines the look and feel, the
@@ -215,7 +215,7 @@ changing the framework, you will have to hack the tcl code.  This directory is
 installed in $(libdir) (probably /usr/local/lib/).  But, you will probably want
 to hack on your own private copy before putting it up for the rest of the
 users.  To find the GDB tcl code, GDB first checks for the environment variable
-GDBTK_LIBRARY.  This can be a directory name or a list of directories seperated
+GDBTK_LIBRARY.  This can be a directory name or a list of directories separated
 by colons (semicolons on Windows). GDB will check each directory in order until
 it finds "main.tcl".  If GDBTK_LIBRARY is not set, GDB will look for 
 "gdbtcl/main.tcl" in the current directory, and finally, it will try to find 
@@ -330,7 +330,7 @@ generic problems
 	open a Breakpoint window.
 
     o	Sometimes while an expression window is active you get a dialog box
-	that complains "Error: invalide command name ".expr.e5.expr" for 
+	that complains "Error: invalid command name ".expr.e5.expr" for 
 	example.  The Tcl stack trace looks something like:
 
 		invalid command name ".expr.e5.expr"

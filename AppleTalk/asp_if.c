@@ -330,17 +330,11 @@ asp_init(void)
 		return;
 	
 	if (!Session) {
-		if (Session = malloc(sizeof(session_t *)*ASPDEF_DefMaxDescr)) {
-			for (i = 0; i < ASPDEF_DefMaxDescr; i++) {
-				Session[i] = (session_t *)NULL;
-			}
-		}
+		Session = calloc(ASPDEF_DefMaxDescr, sizeof(session_t *));
 	}
 	
 	if (!Listener) {
-		if (Listener = malloc(sizeof(listener_t)*ASPDEF_MaxNumOfSLS)) {
-			bzero(Listener, sizeof(listener_t)*ASPDEF_MaxNumOfSLS);
-		}
+		Listener = calloc(ASPDEF_MaxNumOfSLS, sizeof(listener_t));
 	}
 	
 }
@@ -995,7 +989,7 @@ SPInit(at_inet_t *SLSEntityIdentifier,
 	LOG_MSG(rn, *SLSRefNum);
 	
 	if (!FSStatusBlk) {
-		if (!(FSStatusBlk = malloc(sizeof(asp_fspkt_t)+ASPDEF_QuantumSize))) {
+		if (!(FSStatusBlk = calloc(sizeof(asp_fspkt_t)+ASPDEF_QuantumSize, sizeof(char)))) {
 			SET_ERRNO(ENOMEM);
 			*SPError = ASPERR_SystemErr;
 			LOG_ERR(rn);

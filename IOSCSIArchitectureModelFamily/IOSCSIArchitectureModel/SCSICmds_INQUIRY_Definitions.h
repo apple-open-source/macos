@@ -119,6 +119,59 @@ enum
 	kINQUIRY_ANSI_VERSION_Mask									= 0x07
 };
 
+// Inquiry Byte 7 features (flags2 field)
+enum
+{
+	// Byte offset
+	kINQUIRY_Byte7_Offset					= 7,
+	
+	// Bit definitions
+	kINQUIRY_Byte7_VS_Bit					= 0,
+	kINQUIRY_Byte7_CMDQUE_Bit				= 1,
+	kINQUIRY_Byte7_TRANDIS_Bit				= 2,	// SPI Specific
+	kINQUIRY_Byte7_LINKED_Bit				= 3,
+	kINQUIRY_Byte7_SYNC_Bit					= 4,	// SPI Specific
+	kINQUIRY_Byte7_WBUS16_Bit				= 5,	// SPI Specific
+	// Bit 6 is Obsolete
+	kINQUIRY_Byte7_RELADR_Bit				= 7,
+	
+	// Masks
+	kINQUIRY_Byte7_VS_Mask					= (1 << kINQUIRY_Byte7_VS_Bit),
+	kINQUIRY_Byte7_CMDQUE_Mask				= (1 << kINQUIRY_Byte7_CMDQUE_Bit),
+	kINQUIRY_Byte7_TRANDIS_Mask				= (1 << kINQUIRY_Byte7_TRANDIS_Bit),// SPI Specific
+	kINQUIRY_Byte7_LINKED_Mask				= (1 << kINQUIRY_Byte7_LINKED_Bit),
+	kINQUIRY_Byte7_SYNC_Mask				= (1 << kINQUIRY_Byte7_SYNC_Bit),	// SPI Specific
+	kINQUIRY_Byte7_WBUS16_Mask				= (1 << kINQUIRY_Byte7_WBUS16_Bit),	// SPI Specific
+	// Bit 6 is Obsolete
+	kINQUIRY_Byte7_RELADR_Mask				= (1 << kINQUIRY_Byte7_RELADR_Bit)
+};
+
+// Inquiry Byte 56 features (for devices that report an ANSI VERSION of
+// kINQUIRY_ANSI_VERSION_SCSI_SPC_2_Compliant or later)
+// These are SPI-3 Specific
+enum
+{
+	// Byte offset
+	kINQUIRY_Byte56_Offset					= 56,
+
+	// Bit definitions
+	kINQUIRY_Byte56_IUS_Bit					= 0,
+	kINQUIRY_Byte56_QAS_Bit					= 1,
+	// Bits 2 and 3 are the CLOCKING bits
+	// All other bits are reserved
+	
+	kINQUIRY_Byte56_IUS_Mask				= (1 << kINQUIRY_Byte56_IUS_Bit),
+	kINQUIRY_Byte56_QAS_Mask				= (1 << kINQUIRY_Byte56_QAS_Bit),
+	kINQUIRY_Byte56_CLOCKING_Mask			= 0x0C,
+
+	// Definitions for the CLOCKING bits
+	kINQUIRY_Byte56_CLOCKING_ONLY_ST		= 0x00,
+	kINQUIRY_Byte56_CLOCKING_ONLY_DT		= 0x01,
+	// kINQUIRY_Byte56_CLOCKING_RESERVED	= 0x10,
+	kINQUIRY_Byte56_CLOCKING_ST_AND_DT		= 0x11
+};
+
+
 // IORegistry property names for information derived from the Inquiry data.
 // The Peripheral Device Type is the only property that the 
 // generic Logical Unit Drivers will use to match.

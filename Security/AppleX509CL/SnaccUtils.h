@@ -30,6 +30,7 @@
 #include <Security/x509defs.h>
 #include <Security/certextensions.h>
 #include <Security/cssmdata.h>
+#include "DecodedCert.h"
 
 /* ghastly requirements of snacc-generated cert code */
 #include <Security/asn-incl.h>
@@ -115,6 +116,25 @@ void CL_normalizeString(
 void CL_normalizeX509Name(
 	Name 			&name,
 	CssmAllocator 	&alloc);
+
+/*
+ * Obtain a CSSM_KEY from a SubjectPublicKeyInfo, inferring as much as we can
+ * from required fields (subjectPublicKeyInfo) and extensions (for 
+ * KeyUse, obtained from the optional DecodedCert).
+ */
+CSSM_KEY_PTR CL_extractCSSMKey(
+	SubjectPublicKeyInfo	&snaccKeyInfo,
+	CssmAllocator			&alloc,
+	const DecodedCert		*decodedCert);			// optional
+
+/*
+ * Free key obtained in CL_extractCSSMKey().
+ */
+void CL_freeCSSMKey(
+		CSSM_KEY_PTR		cssmKey,
+		CssmAllocator		&alloc,
+		bool				freeTop = true);	// delete the actual key
+												// as well as contents
 
 #ifdef __cplusplus
 }

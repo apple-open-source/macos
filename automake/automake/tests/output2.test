@@ -1,0 +1,24 @@
+#! /bin/sh
+
+# Another AC_OUTPUT test.  From report by Ulrich Drepper.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_OUTPUT(Makefile intl/intlh.inst po/Makefile.in misc/gettextize)
+END
+
+: > Makefile.am
+
+mkdir intl po misc
+: > intl/intlh.inst.in
+: > po/Makefile.in.am
+: > misc/gettextize.in
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^gettextize' Makefile.in && exit 1
+exit 0

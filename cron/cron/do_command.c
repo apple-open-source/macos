@@ -34,7 +34,17 @@ static const char rcsid[] =
 # include <login_cap.h>
 #endif
 
-
+#include <IOKit/IOKitLib.h>
+#include <IOKit/pwr_mgt/IOPMLib.h>
+#include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/IOReturn.h>
+#include <CoreFoundation/CFArray.h>
+#include <CoreFoundation/CFBase.h>
+#include <CoreFoundation/CFNumber.h>
+#include <CoreFoundation/CFData.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <mach/mach_init.h>        /* for bootstrap_port */
+ 
 static void		child_process __P((entry *, user *)),
 			do_univ __P((user *));
 
@@ -44,8 +54,33 @@ do_command(e, u)
 	entry	*e;
 	user	*u;
 {
+	CFArrayRef cfarray;
+	static mach_port_t master = 0;
+	static io_connect_t pmcon = 0;
+
 	Debug(DPROC, ("[%d] do_command(%s, (%s,%d,%d))\n",
 		getpid(), e->cmd, u->name, e->uid, e->gid))
+
+	if( e->flags & NOT_BATTERY ) {
+		if( master == 0 ) {
+			IOMasterPort(bootstrap_port, &master);
+			pmcon = IOPMFindPowerManagement(master);
+		}
+
+		if( IOPMCopyBatteryInfo(master, &cfarray) == kIOReturnSuccess) {
+			CFDictionaryRef dict;
+			CFNumberRef cfnum;
+			int flags;
+	
+			dict = CFArrayGetValueAtIndex(cfarray, 0);
+			cfnum = CFDictionaryGetValue(dict, CFSTR(kIOBatteryFlagsKey));
+			CFNumberGetValue(cfnum, kCFNumberLongType, &flags);
+	
+			if( !(flags & kIOBatteryChargerConnect) ) {
+				return;
+			} 
+		}
+	}
 
 	/* fork to become asynchronous -- parent process is done immediately,
 	 * and continues to run the normal cron code, which means return to

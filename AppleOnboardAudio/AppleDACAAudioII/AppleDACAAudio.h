@@ -62,11 +62,11 @@ protected:
     virtual  IOReturn  	sndHWSetSystemMute(bool mutestate);
     virtual  bool   	sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume);
     virtual  IOReturn   sndHWSetSystemVolume(UInt32 value);
-    virtual  IOReturn	sndHWSetPlayThrough(bool playthroughstate);
+    virtual  IOReturn	sndHWSetPlayThrough(bool playthroughState);
     virtual  IOReturn   sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain) ;
    
 
-    //Identification
+    // Identification
     virtual UInt32 	sndHWGetType( void );
     virtual UInt32	sndHWGetManufacturer( void );
 
@@ -82,7 +82,7 @@ public:
 
     virtual IOService* probe(IOService *provider, SInt32*);
 
-    //IOAudioDevice subclass
+    // IOAudioDevice subclass
     virtual bool initHardware(IOService *provider);
             
     // Turn detects on and off
@@ -103,21 +103,19 @@ private:
     // it's not possible to read the daca registers back so it is important to maintain
     // a copy of the resisters here, it effect a set of shadow registers for the device.
     
-    UInt8  	sampleRateReg;
-    UInt16 	analogVolumeReg;
-    UInt8  	configurationReg;
+    UInt8					sampleRateReg;
+    UInt16					analogVolumeReg;
+    UInt8					configurationReg;
 
-    const OSSymbol		*fAppleAudioVideoJackStateKey;
+    const OSSymbol *		fAppleAudioVideoJackStateKey;
     
-    bool			fIsMuted ;			// true if we are muted
-    bool			fHeadphonesInserted ;		// true if headphones (or speakers) are inserted in the jack
-    UInt16			fCachedAnalogVolumeReg ;	// used to store the last volume reg before mute
-    UInt8			fActiveInput ;			// used to store the currently selected input
-    AudioI2SControl 		*myAudioI2SControl ;    	// this class is an abstraction for i2s services
+    bool					fHeadphonesInserted;		// true if headphones (or speakers) are inserted in the jack
+    UInt8					fActiveInput;			// used to store the currently selected input
+    AudioI2SControl *		myAudioI2SControl;    	// this class is an abstraction for i2s services
 
       
     // Remember the provider
-    IORegistryEntry *sound;
+    IORegistryEntry *		sound;
 
     // *********************************
     // * I 2 C  DATA & Member Function *
@@ -125,7 +123,7 @@ private:
 
 
     // This provides access to the DACA registers:
-    PPCI2CInterface *interface;
+    PPCI2CInterface *		interface;
 
     // private routines for accessing i2c
     bool findAndAttachI2C( IOService *provider ) ;
@@ -141,8 +139,8 @@ private:
     bool setDACASampleRate( UInt rate ) ;
     bool writeRegisterBits( UInt8 subAddress,  UInt32 bitMaskOn,  UInt32 bitMaskOff) ;
     
-    //These will probably change when we have a general method
-    //to verify the Detects.  Wait til we figure out how to do 
+    // These will probably change when we have a general method
+    // to verify the Detects.  Wait til we figure out how to do 
     // this with interrupts and then make that generic.
     virtual void checkStatus(bool force);
     static void timerCallback(OSObject *target, IOAudioDevice *device);
@@ -179,6 +177,8 @@ private:
         
         // place contents of reg into temp value
         newValue = analogVolumeReg ;
+//		newValue &= ~(mask & 0x0000FFFF);
+//		newValue |= value & 0x0000FFFF;
         
         // zero values specified by the mask, leaving the rest of the register intact
         newValue &= ~mask ;
@@ -204,7 +204,7 @@ private:
         
         // place contents of reg into temp value
         newValue = sampleRateReg;
-        
+
         // zero values specified by the mask, leaving the rest of the register intact
         newValue &= ~mask;
         
@@ -228,13 +228,15 @@ private:
         UInt8	newValue ;
         
         // place contents of reg into temp value
-        newValue = configurationReg;
+//        newValue = configurationReg;
+        newValue = configurationReg | (value & 0x000000FF);
         
         // zero values specified by the mask, leaving the rest of the register intact
-        newValue &= ~mask;
+//        newValue &= ~mask;
         
         // or in the bits passed in newvalue
-        newValue |= (value & mask);
+//        newValue |= (value & mask);
+        newValue |= (value & ~(mask & 0x000000FF));	// new code
 
         // set the value of the shadow register
         configurationReg = newValue ;

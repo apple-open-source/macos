@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -65,6 +65,7 @@
 	@constant kSCStatusNoConfigFile		Configuration file not found
 	@constant kSCStatusNoLink		No such link
 	@constant kSCStatusStale		Write attempted on stale version of object
+	@constant kSCStatusMaxLink		Maximum link count exceeded
 
 	@constant kSCStatusReachabilityUnknown
 		A determination could not be made regarding the reachability
@@ -99,6 +100,7 @@ enum {
 	kSCStatusNoConfigFile			= 3003,	/* Configuration file not found */
 	kSCStatusNoLink				= 3004,	/* No such link */
 	kSCStatusStale				= 3005,	/* Write attempted on stale version of object */
+	kSCStatusMaxLink			= 3006,	/* Maximum link count exceeded */
 	/*
 	 * SCNetwork status codes
 	 */

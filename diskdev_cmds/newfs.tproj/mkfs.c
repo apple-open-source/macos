@@ -183,8 +183,7 @@ union {
 #define	acg	cgun.cg
 
 #ifdef __APPLE__
-struct dinode zino[ MAXPHYSIO / sizeof(struct dinode)];
-#define ZINOSIZE sizeof(zino)
+#define ZINOSIZE ( sizeof(struct dinode) * (MAXPHYSIO / sizeof(struct dinode)) )
 #else
 struct dinode zino[MAXBSIZE / sizeof(struct dinode)];
 #endif /* __APPLE__ */
@@ -796,6 +795,9 @@ initcg(cylno, utime)
 	long i;
 #ifdef __APPLE__
 	daddr_t wtfsbno;
+	char *	bufferPtr = NULL;
+	char * 	alignedBufPtr;
+	int	pageSize;
 	int zbufsize;
 #endif /* __APPLE__ */
 	register struct csum *cs;
@@ -866,32 +868,37 @@ initcg(cylno, utime)
 #endif /* BIG_ENDIAN_INTEL_FS */
 
 #ifdef __APPLE__
+	// make sure our buffer is page aligned (works around write errors on some drivers)
+	pageSize = getpagesize() - 1;
+	bufferPtr = calloc( ZINOSIZE + pageSize, sizeof( char ) );
+	if ( bufferPtr == NULL ) {
+		printf("calloc failed \n");
+		exit(38);
+	}
+	alignedBufPtr = (char *) ( (u_long)(bufferPtr + pageSize) &~ pageSize );
+	
 	/* Coalesce sequential writes for dinode initialization */
 	for (i = 0, zbufsize=0; i < sblock.fs_ipg / INOPF(&sblock); i += sblock.fs_frag)
-	  {
-	    if (zbufsize + sblock.fs_bsize <= ZINOSIZE)
-	      {
-		if (zbufsize == 0)
-		  wtfsbno = fsbtodb(&sblock, cgimin(&sblock, cylno) + i);
-
+	{
+	    if (zbufsize + sblock.fs_bsize <= ZINOSIZE) {
+			if (zbufsize == 0)
+		  		wtfsbno = fsbtodb(&sblock, cgimin(&sblock, cylno) + i);
 	        zbufsize += sblock.fs_bsize;
 
-		if (zbufsize == ZINOSIZE)
-		  {
-		    wtfs(wtfsbno, zbufsize, (char *)zino);
-		    zbufsize=0;
-		  }
-	      }
-	    else if (zbufsize != 0)
-	      {
-		wtfs(wtfsbno, zbufsize, (char *)zino);
-		wtfsbno = fsbtodb(&sblock, cgimin(&sblock, cylno) + i);
-		zbufsize = sblock.fs_bsize;
-	      }
-
-	  }
+			if (zbufsize == ZINOSIZE) {
+		    	wtfs(wtfsbno, zbufsize, alignedBufPtr);
+		    	zbufsize=0;
+		  	}
+		}
+	    else if (zbufsize != 0) {
+			wtfs(wtfsbno, zbufsize, alignedBufPtr);
+			wtfsbno = fsbtodb(&sblock, cgimin(&sblock, cylno) + i);
+			zbufsize = sblock.fs_bsize;
+		}
+	}
 	if (zbufsize)
-	  wtfs(wtfsbno, zbufsize, (char *)zino);
+	  wtfs(wtfsbno, zbufsize, alignedBufPtr);
+	free( bufferPtr );
 #else
 	for (i = 0; i < sblock.fs_ipg / INOPF(&sblock); i += sblock.fs_frag)
 		wtfs(fsbtodb(&sblock, cgimin(&sblock, cylno) + i),

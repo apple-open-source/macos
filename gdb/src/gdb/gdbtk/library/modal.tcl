@@ -56,7 +56,7 @@ class ModalDialog {
   # ------------------------------------------------------------------
   #  METHOD:  post - posts the dialog box...
   # ------------------------------------------------------------------
-  public method post {{on_top 0}} {
+  public method post {{on_top 0} {expire 0}} {
 
     debug "POST $this"
     set top [winfo toplevel [namespace tail $this]]

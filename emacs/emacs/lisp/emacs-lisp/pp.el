@@ -1,8 +1,9 @@
 ;;; pp.el --- pretty printer for Emacs Lisp
 
-;; Copyright (C) 1989, 1993 Free Software Foundation, Inc.
+;; Copyright (C) 1989, 1993, 2001 Free Software Foundation, Inc.
 
 ;; Author: Randal Schwartz <merlyn@stonehenge.com>
+;; Keywords: lisp
 
 ;; This file is part of GNU Emacs.
 
@@ -21,7 +22,10 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
+
 (defgroup pp nil
   "Pretty printer for Emacs Lisp."
   :prefix "pp-"
@@ -162,4 +166,4 @@ Ignores leading comment characters."
 
 (provide 'pp)				; so (require 'pp) works
 
-;;; pp.el ends here.
+;;; pp.el ends here

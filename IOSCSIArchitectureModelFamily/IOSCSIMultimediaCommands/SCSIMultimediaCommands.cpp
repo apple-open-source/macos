@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,16 +20,35 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
-#include <IOKit/scsi-commands/SCSIMultimediaCommands.h>
+#include "SCSIMultimediaCommands.h"
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Macros
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+#define DEBUG 									0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING		"MMC Command Set"
+
+#if DEBUG
+#define SCSI_MMC_COMMANDS_DEBUGGING_LEVEL		0
+#endif
+
+
+#include "IOSCSIArchitectureModelFamilyDebugging.h"
 
 
 #if ( SCSI_MMC_COMMANDS_DEBUGGING_LEVEL >= 1 )
 #define PANIC_NOW(x)		IOPanic x
-#define DEBUG_ASSERT(x)		assert x
 #else
 #define PANIC_NOW(x)
-#define DEBUG_ASSERT(x)
 #endif
 
 #if ( SCSI_MMC_COMMANDS_DEBUGGING_LEVEL >= 2 )
@@ -49,40 +68,25 @@
 OSDefineMetaClassAndStructors ( SCSIMultimediaCommands, SCSIPrimaryCommands );
 
 
-//----------------------------------------------------------------------
-//
-//		SCSIMultimediaCommands::CreateSCSIMultimediaCommandObject
-//
-//----------------------------------------------------------------------
-//
-//		return instance of the command builder
-//
-//----------------------------------------------------------------------
-
-SCSIMultimediaCommands *
-SCSIMultimediaCommands::CreateSCSIMultimediaCommandObject ( void )
-{
-
-	return new SCSIMultimediaCommands;
-
-}
-
+#if 0
 #pragma mark -
 #pragma mark MMC Command Methods
+#pragma mark -
+#endif
+
 
 // SCSI Multimedia Commands as defined in T10:1228-D MMC
 // Revision 11a, August 30, 1999
 
-
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::BLANK
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The BLANK command as defined in section 6.1.1.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::BLANK (
@@ -93,48 +97,16 @@ SCSIMultimediaCommands::BLANK (
 				SCSICmdField1Byte			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::BLANK called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid IMMED?
-	if ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "IMMED = %x not valid \n", IMMED ) );
-		return false;
-		
-	}
-
-	// did we receive a valid BLANKING_TYPE?
-	if ( IsParameterValid ( BLANKING_TYPE, kSCSICmdFieldMask3Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "BLANKING_TYPE = %x not valid \n",
-						BLANKING_TYPE ) );
-		return false;
-		
-	}
-
-	// did we receive a valid START_ADDRESS_TRACK_NUMBER?
-	if ( IsParameterValid ( START_ADDRESS_TRACK_NUMBER,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "START_ADDRESS_TRACK_NUMBER = %x not valid \n",
-						START_ADDRESS_TRACK_NUMBER ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
+	STATUS_LOG ( ( "SCSIMultimediaCommands::BLANK called\n" ) );
+	
+	require ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( BLANKING_TYPE, kSCSICmdFieldMask3Bit ), ErrorExit );
+	require ( IsParameterValid ( START_ADDRESS_TRACK_NUMBER,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_BLANK,
@@ -154,20 +126,26 @@ SCSIMultimediaCommands::BLANK (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
-    
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::CLOSE_TRACK_SESSION
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The CLOSE TRACK/SESSION command as defined in section 6.1.2.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::CLOSE_TRACK_SESSION (
@@ -179,56 +157,16 @@ SCSIMultimediaCommands::CLOSE_TRACK_SESSION (
 						SCSICmdField1Byte			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::CLOSE_TRACK_SESSION called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid IMMED?
-	if ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "IMMED = %x not valid \n", IMMED ) );
-		return false;
-		
-	}
-
-	// did we receive a valid SESSION?
-	if ( IsParameterValid ( SESSION, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "SESSION = %x not valid \n", SESSION ) );
-		return false;
-		
-	}
-
-	// did we receive a valid TRACK?
-	if ( IsParameterValid ( TRACK, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "TRACK = %x not valid \n", TRACK ) );
-		return false;
-		
-	}
-
-	// did we receive a valid TRACK_NUMBER?
-	if ( IsParameterValid ( TRACK_NUMBER,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "TRACK_NUMBER = %x not valid \n",
-						TRACK_NUMBER ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
+	STATUS_LOG ( ( "SCSIMultimediaCommands::CLOSE_TRACK_SESSION called\n" ) );
+	
+	require ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( SESSION, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( TRACK, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( TRACK_NUMBER, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_CLOSE_TRACK_SESSION,
@@ -246,20 +184,26 @@ SCSIMultimediaCommands::CLOSE_TRACK_SESSION (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::FORMAT_UNIT
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The FORMAT UNIT command as defined in section 6.1.3.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::FORMAT_UNIT (
@@ -273,122 +217,41 @@ SCSIMultimediaCommands::FORMAT_UNIT (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::FORMAT_UNIT called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid FMT_DATA?
-	if ( IsParameterValid ( FMT_DATA, kSCSICmdFieldMask1Bit ) == false )
+	require ( IsParameterValid ( FMT_DATA, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( CMP_LIST, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( INTERLEAVE_VALUE, kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( ( FORMAT_CODE == FORMAT_CODE_CD_RW ) ||
+			  ( FORMAT_CODE == FORMAT_CODE_DVD_RAM ), ErrorExit );
+	
+	if ( FORMAT_CODE == FORMAT_CODE_CD_RW )
 	{
 		
-		ERROR_LOG ( ( "FMT_DATA = %x not valid \n", FMT_DATA ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CMP_LIST?
-	if ( IsParameterValid ( CMP_LIST, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "CMP_LIST = %x not valid \n", CMP_LIST ) );
-		return false;
-		
-	}
-
-	// did we receive a valid INTERLEAVE_VALUE?
-	if ( IsParameterValid ( INTERLEAVE_VALUE,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "INTERLEAVE_VALUE = %x not valid \n",
-						INTERLEAVE_VALUE ) );
-		return false;
+		require ( ( INTERLEAVE_VALUE == INTERLEAVE_VALUE_CD_RW ), ErrorExit );
 		
 	}
 	
-	// did we receive a valid FORMAT_CODE?
-	switch ( FORMAT_CODE )
+	else if ( FORMAT_CODE == FORMAT_CODE_DVD_RAM )
 	{
 		
-		case FORMAT_CODE_CD_RW:
-		{
-			
-			STATUS_LOG ( ( "Using FORMAT_CODE_CD_RW\n" ) );
-			
-			if ( INTERLEAVE_VALUE != INTERLEAVE_VALUE_CD_RW )
-			{
-				
-				ERROR_LOG ( ( "INTERLEAVE_VALUE = %x not valid \n",
-								INTERLEAVE_VALUE ) );
-				return false;
-				
-			}
-			
-			break;
-			
-		}
-		
-		case FORMAT_CODE_DVD_RAM:
-		{
-			
-			STATUS_LOG ( ( "Using FORMAT_CODE_DVD_RAM\n" ) );
-			
-			if ( INTERLEAVE_VALUE != INTERLEAVE_VALUE_DVD_RAM )
-			{
-				
-				ERROR_LOG ( ( "INTERLEAVE_VALUE = %x not valid \n",
-								INTERLEAVE_VALUE ) );
-				return false;
-				
-			}
-			
-			break;
-			
-		}
-		
-		default:
-		{
-			
-			ERROR_LOG ( ( "FORMAT_CODE = %x not valid \n",
-							FORMAT_CODE ) );
-			return false;
-			
-		}
+		require ( ( INTERLEAVE_VALUE == INTERLEAVE_VALUE_DVD_RAM ), ErrorExit );
 		
 	}
+		
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	// should we send a parameter list?
 	if ( FMT_DATA == FMT_DATA_PRESENT )
 	{
 		
-		// we should have a parameter list
-		if ( parameterListSize == 0 )
-		{
-			
-			ERROR_LOG ( ( "parameterListSize = %x not valid \n",
-							parameterListSize ) );
-			return false;
-			
-		}
+		// Make sure we have a parameter list
+		require_nonzero ( parameterListSize, ErrorExit );
 		
 		// is the buffer large enough to accomodate this request?
-		if ( IsBufferAndCapacityValid ( dataBuffer,
-										parameterListSize ) == false )
-		{
-			
-			ERROR_LOG ( ( "dataBuffer = %x not valid, parameterListSize = %ld\n",
-							dataBuffer, parameterListSize ) );
-			return false;
-			
-		}
+		require ( IsBufferAndCapacityValid ( dataBuffer,
+											 parameterListSize ), ErrorExit );
 		
 	}
 	
@@ -425,20 +288,26 @@ SCSIMultimediaCommands::FORMAT_UNIT (
 		
 	}
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::GET_CONFIGURATION
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The GET CONFIGURATION command as defined in section 6.1.4.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::GET_CONFIGURATION (
@@ -450,58 +319,17 @@ SCSIMultimediaCommands::GET_CONFIGURATION (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::GET_CONFIGURATION called\n" ) );	
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid RT?
-	if ( IsParameterValid ( RT, kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "RT = %x not valid \n", RT ) );
-		return false;
-		
-	}
-
-	// did we receive a valid STARTING_FEATURE_NUMBER?
-	if ( IsParameterValid ( STARTING_FEATURE_NUMBER,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "STARTING_FEATURE_NUMBER = %x not valid \n",
-						STARTING_FEATURE_NUMBER ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-	
-	}
-
-	// did we receive a valid CONTROL field?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( RT, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( STARTING_FEATURE_NUMBER,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer, ALLOCATION_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -521,22 +349,28 @@ SCSIMultimediaCommands::GET_CONFIGURATION (
 								kSCSIDataTransfer_FromTargetToInitiator,
 								dataBuffer,
 								ALLOCATION_LENGTH );	
+		
+	result = true;
 	
-	return true;
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::GET_EVENT_STATUS_NOTIFICATION
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The GET EVENT/STATUS NOTIFICATION command as defined in
 //		section 6.1.5.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::GET_EVENT_STATUS_NOTIFICATION (
@@ -548,58 +382,18 @@ SCSIMultimediaCommands::GET_EVENT_STATUS_NOTIFICATION (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::GET_EVENT_STATUS_NOTIFICATION called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid IMMED?
-	if ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "IMMED = %x not valid \n", IMMED ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid NOTIFICATION_CLASS_REQUEST?
-	if ( IsParameterValid ( NOTIFICATION_CLASS_REQUEST,
-							kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "NOTIFICATION_CLASS_REQUEST = %x not valid \n",
-						NOTIFICATION_CLASS_REQUEST ) );
-		return false;
-		
-	}
-
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( NOTIFICATION_CLASS_REQUEST,
+								 kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -620,20 +414,26 @@ SCSIMultimediaCommands::GET_EVENT_STATUS_NOTIFICATION (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::GET_PERFORMANCE
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The GET PERFORMANCE command as defined in section 6.1.6.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::GET_PERFORMANCE (
@@ -647,81 +447,25 @@ SCSIMultimediaCommands::GET_PERFORMANCE (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool		result			= false;
 	UInt32		returnDataCount = 0;
 	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::GET_PERFORMANCE called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid TOLERANCE?
-	if ( IsParameterValid ( TOLERANCE, kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "TOLERANCE = %x not valid \n", TOLERANCE ) );
-		return false;
-		
-	}
-
-	// did we receive a valid WRITE?
-	if ( IsParameterValid ( WRITE, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "WRITE = %x not valid \n", WRITE ) );
-		return false;
-		
-	}
-
-	// did we receive a valid EXCEPT?
-	if ( IsParameterValid ( EXCEPT, kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "EXCEPT = %x not valid \n", EXCEPT ) );
-		return false;
-		
-	}
-
-	// did we receive a valid STARTING_LBA?
-	if ( IsParameterValid ( STARTING_LBA,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "STARTING_LBA = %x not valid \n",
-						STARTING_LBA ) );
-		return false;
-		
-	}
-
-	// did we receive a valid MAXIMUM_NUMBER_OF_DESCRIPTORS?
-	if ( IsParameterValid ( MAXIMUM_NUMBER_OF_DESCRIPTORS,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "MAXIMUM_NUMBER_OF_DESCRIPTORS = %x not valid \n",
-						MAXIMUM_NUMBER_OF_DESCRIPTORS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( TOLERANCE, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( WRITE, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( EXCEPT, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( STARTING_LBA,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( MAXIMUM_NUMBER_OF_DESCRIPTORS,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// Compute the data count size
 	returnDataCount = PERFORMANCE_HEADER_SIZE +
 			( PERFORMANCE_DESCRIPTOR_SIZE * MAXIMUM_NUMBER_OF_DESCRIPTORS );
 	
-	if ( IsBufferAndCapacityValid ( dataBuffer, returnDataCount ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, returnDataCount = %ld\n",
-						dataBuffer, returnDataCount ) );
-		return false;
-		
-	}
+	require ( IsBufferAndCapacityValid ( dataBuffer, returnDataCount ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -744,20 +488,26 @@ SCSIMultimediaCommands::GET_PERFORMANCE (
 								dataBuffer,
 								returnDataCount );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::LOAD_UNLOAD_MEDIUM
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The LOAD/UNLOAD MEDIUM command as defined in section 6.1.7.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::LOAD_UNLOAD_MEDIUM (
@@ -769,54 +519,16 @@ SCSIMultimediaCommands::LOAD_UNLOAD_MEDIUM (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::LOAD_UNLOAD_MEDIUM called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid IMMED?
-	if ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "IMMED = %x not valid \n", IMMED ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid LO_UNLO?
-	if ( IsParameterValid ( LO_UNLO, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "LO_UNLO = %x not valid \n", LO_UNLO ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid START?
-	if ( IsParameterValid ( START, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "START = %x not valid \n", START ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid SLOT?
-	if ( IsParameterValid ( SLOT, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "SLOT = %x not valid \n", SLOT ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-	
+	require ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( LO_UNLO, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( START, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( SLOT, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_LOAD_UNLOAD_MEDIUM,
@@ -836,20 +548,26 @@ SCSIMultimediaCommands::LOAD_UNLOAD_MEDIUM (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::MECHANISM_STATUS
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The MECHANISM STATUS command as defined in section 6.1.8.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::MECHANISM_STATUS (
@@ -859,38 +577,15 @@ SCSIMultimediaCommands::MECHANISM_STATUS (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::MECHANISM_STATUS called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -913,20 +608,26 @@ SCSIMultimediaCommands::MECHANISM_STATUS (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::PAUSE_RESUME
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The PAUSE/RESUME command as defined in section 6.1.9.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::PAUSE_RESUME (
@@ -935,26 +636,12 @@ SCSIMultimediaCommands::PAUSE_RESUME (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::PAUSE_RESUME called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid RESUME?
-	if ( IsParameterValid ( RESUME, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "RESUME = %x not valid \n", RESUME ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( RESUME, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -968,25 +655,31 @@ SCSIMultimediaCommands::PAUSE_RESUME (
 								0x00,
 								RESUME,
 								CONTROL );
-
+	
 	SetDataTransferControl ( 	request,
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::PLAY_AUDIO_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The PLAY AUDIO (10) command as defined in section 6.1.10.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::PLAY_AUDIO_10 (
@@ -997,47 +690,16 @@ SCSIMultimediaCommands::PLAY_AUDIO_10 (
 			SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::PLAY_AUDIO_10 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid RELADR?
-	if ( RELADR != 0 )
-	{
-		
-		ERROR_LOG ( ( "RELADR = %x not valid \n", RELADR ) );
-		return false;
-	
-	}
-	
-	// did we receive a valid STARTING_LOGICAL_BLOCK_ADDRESS?
-	if ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "STARTING_LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						STARTING_LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid PLAY_LENGTH?
-	if ( IsParameterValid ( PLAY_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "PLAY_LENGTH = %x not valid \n", PLAY_LENGTH ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( ( RELADR == 0 ), ErrorExit );
+	require ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( PLAY_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1051,25 +713,31 @@ SCSIMultimediaCommands::PLAY_AUDIO_10 (
 								( PLAY_LENGTH >> 8 ) & 0xFF,
 								  PLAY_LENGTH        & 0xFF,
 								CONTROL );
-
+	
 	SetDataTransferControl ( 	request,
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::PLAY_AUDIO_12
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The PLAY AUDIO (12) command as defined in section 6.1.11.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::PLAY_AUDIO_12 (
@@ -1080,47 +748,16 @@ SCSIMultimediaCommands::PLAY_AUDIO_12 (
 			SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::PLAY_AUDIO_12 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid RELADR?
-	if ( RELADR != 0 )
-	{
-		
-		ERROR_LOG ( ( "RELADR = %x not valid \n", RELADR ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid STARTING_LOGICAL_BLOCK_ADDRESS?
-	if ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "STARTING_LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						STARTING_LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid PLAY_LENGTH?
-	if ( IsParameterValid ( PLAY_LENGTH,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "PLAY_LENGTH = %x not valid \n", PLAY_LENGTH ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( ( RELADR == 0 ), ErrorExit );
+	require ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( PLAY_LENGTH,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1141,20 +778,26 @@ SCSIMultimediaCommands::PLAY_AUDIO_12 (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::PLAY_AUDIO_MSF
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The PLAY AUDIO MSF command as defined in section 6.1.12.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::PLAY_AUDIO_MSF (
@@ -1164,72 +807,29 @@ SCSIMultimediaCommands::PLAY_AUDIO_MSF (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::PLAY_AUDIO_MSF called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid STARTING_MSF?
-	if ( IsParameterValid ( STARTING_MSF,
-							kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "STARTING_MSF = %x not valid \n",
-						STARTING_MSF ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::PLAY_AUDIO_MSF called\n" ) );
+	
+	require ( IsParameterValid ( STARTING_MSF,
+								 kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( ENDING_MSF,
+								 kSCSICmdFieldMask3Byte ), ErrorExit );
 	
 	if ( ( ( STARTING_MSF & 0xFF ) >= FRAMES_IN_A_SECOND )  ||
 		 ( ( ( STARTING_MSF >> 8 ) & 0xFF ) >= SECONDS_IN_A_MINUTE ) )
 	{
 		
-		if ( STARTING_MSF != 0xFFFFFF )
-		{
-			
-			ERROR_LOG ( ( "STARTING_MSF = %x not valid \n",
-							STARTING_MSF ) );
-			return false;
-		
-		}
+		require ( ( STARTING_MSF == 0xFFFFFF ), ErrorExit );
 		
 	}
 	
-	// did we receive a valid ENDING_MSF?
-	if ( IsParameterValid ( ENDING_MSF,
-							kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ENDING_MSF = %x not valid \n", ENDING_MSF ) );
-		return false;
-		
-	}
+	require ( ( ( ENDING_MSF & 0xFF ) < FRAMES_IN_A_SECOND ) &&
+			  ( ( ( ENDING_MSF >> 8 ) & 0xFF ) < SECONDS_IN_A_MINUTE ),
+			  ErrorExit );
 	
-	if ( ( ( ENDING_MSF & 0xFF ) >= FRAMES_IN_A_SECOND )  ||
-		 ( ( ( ENDING_MSF >> 8 ) & 0xFF ) >= SECONDS_IN_A_MINUTE ) )
-	{
-		
-		ERROR_LOG ( ( "ENDING_MSF = %x not valid \n", ENDING_MSF ) );
-		return false;
-		
-	}
-	
-	// did we receive compatible STARTING_MSF and ENDING_MSF?
-	if ( STARTING_MSF > ENDING_MSF )
-	{
-		
-		ERROR_LOG ( ( "STARTING_MSF > ENDING_MSF : %x, %x\n",
-						STARTING_MSF, ENDING_MSF ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( ( STARTING_MSF <= ENDING_MSF ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1248,23 +848,29 @@ SCSIMultimediaCommands::PLAY_AUDIO_MSF (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::PLAY_CD
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //	¥¥¥ OBSOLETE ¥¥¥
 //
 //		The PLAY CD command as defined in section 6.1.13. PLAY CD
 //		is obsoleted by the MMC-2 specification.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::PLAY_CD (
@@ -1281,18 +887,11 @@ SCSIMultimediaCommands::PLAY_CD (
 			SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::PLAY_CD *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid EXPECTED_SECTOR_TYPE?
-	if ( EXPECTED_SECTOR_TYPE > 5 )
-	{
-		
-		ERROR_LOG ( ( "EXPECTED_SECTOR_TYPE = %x not valid \n",
-						EXPECTED_SECTOR_TYPE ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::PLAY_CD *OBSOLETE* called\n" ) );
+	
+	require ( ( EXPECTED_SECTOR_TYPE < 6 ), ErrorExit );
 	
 	// Check if CMSF is set for LBA mode
 	if ( CMSF == 0 )
@@ -1300,28 +899,11 @@ SCSIMultimediaCommands::PLAY_CD (
 		
 		STATUS_LOG ( ( "Using LBA Addressing Mode\n" ) );
 		
-		// did we receive a valid LBA STARTING_LOGICAL_BLOCK_ADDRESS?
-		if ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
-								kSCSICmdFieldMask4Byte ) == false )
-		{
-			
-			ERROR_LOG ( ( "STARTING_LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-							STARTING_LOGICAL_BLOCK_ADDRESS ) );
-			return false;
-			
-		}
+		require ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
+									 kSCSICmdFieldMask4Byte ), ErrorExit );
+		require ( IsParameterValid ( PLAY_LENGTH_IN_BLOCKS,
+									 kSCSICmdFieldMask4Byte ), ErrorExit );
 		
-		// did we receive a valid LBA PLAY_LENGTH_IN_BLOCKS?
-		if ( IsParameterValid ( PLAY_LENGTH_IN_BLOCKS,
-								kSCSICmdFieldMask4Byte ) == false )
-		{
-			
-			ERROR_LOG ( ( "PLAY_LENGTH_IN_BLOCKS = %x not valid \n",
-							PLAY_LENGTH_IN_BLOCKS ) );
-			return false;
-			
-		}
-	
 	}
 	
 	else
@@ -1329,104 +911,30 @@ SCSIMultimediaCommands::PLAY_CD (
 		
 		STATUS_LOG ( ( "Using MSF Addressing Mode\n" ) );
 		
-		// did we receive a valid MSF STARTING_LOGICAL_BLOCK_ADDRESS?
-		if ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
-								kSCSICmdFieldMask3Byte ) == false )
-		{
-			
-			ERROR_LOG ( ( "STARTING_LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-							STARTING_LOGICAL_BLOCK_ADDRESS ) );
-			return false;
-			
-		}
+		require ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
+									 kSCSICmdFieldMask3Byte ), ErrorExit );
 		
-		if ( ( ( STARTING_LOGICAL_BLOCK_ADDRESS & 0xFF ) >= FRAMES_IN_A_SECOND ) ||
-			 ( ( ( STARTING_LOGICAL_BLOCK_ADDRESS >> 8 ) & 0xFF ) >= SECONDS_IN_A_MINUTE ) )
-		{
-			
-			ERROR_LOG ( ( "STARTING_LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-							STARTING_LOGICAL_BLOCK_ADDRESS ) );
-			return false;
-			
-		}
+		require ( ( ( STARTING_LOGICAL_BLOCK_ADDRESS & 0xFF ) < FRAMES_IN_A_SECOND ) &&
+				  ( ( ( STARTING_LOGICAL_BLOCK_ADDRESS >> 8 ) & 0xFF ) < SECONDS_IN_A_MINUTE ),
+				  ErrorExit );
 		
 		// since CMSF is set to 1, bytes 6-8 (the high three bytes of
 		// PLAY_LENGTH_IN_BLOCKS) is where our end MSF address is.
-		if ( IsParameterValid ( PLAY_LENGTH_IN_BLOCKS >> 8,
-								kSCSICmdFieldMask3Byte ) == false )
-		{
-			
-			ERROR_LOG ( ( "PLAY_LENGTH_IN_BLOCKS = %x not valid \n",
-							PLAY_LENGTH_IN_BLOCKS ) );
-			return false;
-			
-		}
+		require ( IsParameterValid ( PLAY_LENGTH_IN_BLOCKS >> 8,
+									 kSCSICmdFieldMask3Byte ), ErrorExit );
 		
-		if ( ( ( PLAY_LENGTH_IN_BLOCKS >> 8 & 0xFF ) >= FRAMES_IN_A_SECOND ) ||
-			 ( ( ( PLAY_LENGTH_IN_BLOCKS >> 16 ) & 0xFF ) >= SECONDS_IN_A_MINUTE ) )
-		{
-			
-			ERROR_LOG ( ( "PLAY_LENGTH_IN_BLOCKS = %x not valid \n",
-							PLAY_LENGTH_IN_BLOCKS ) );
-			return false;
-			
-		}
+		require ( ( ( PLAY_LENGTH_IN_BLOCKS >> 8 & 0xFF ) < FRAMES_IN_A_SECOND ) &&
+				  ( ( ( PLAY_LENGTH_IN_BLOCKS >> 16 ) & 0xFF ) < SECONDS_IN_A_MINUTE ),
+				  ErrorExit );
 		
 	}
 
-	// did we receive a valid SPEED?
-	if ( IsParameterValid ( SPEED, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "SPEED = %x not valid \n", SPEED ) );
-		return false;
-		
-	}
-
-	// did we receive a valid PORT2?
-	if ( IsParameterValid ( PORT2, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "PORT2 = %x not valid \n", PORT2 ) );
-		return false;
-		
-	}
-
-	// did we receive a valid PORT1?
-	if ( IsParameterValid ( PORT1, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "PORT1 = %x not valid \n", PORT1 ) );
-		return false;
-		
-	}
-
-	// did we receive a valid COMPOSITE?
-	if ( IsParameterValid ( COMPOSITE, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "COMPOSITE = %x not valid \n", COMPOSITE ) );
-		return false;
-		
-	}
-
-	// did we receive a valid AUDIO?
-	if ( IsParameterValid ( AUDIO, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "AUDIO = %x not valid \n", AUDIO ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( SPEED, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PORT2, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PORT1, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( COMPOSITE, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( AUDIO, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	if ( CMSF == 0 )
@@ -1472,23 +980,29 @@ SCSIMultimediaCommands::PLAY_CD (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_BUFFER_CAPACITY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //	¥¥¥ OBSOLETE ¥¥¥
 //		
 //		The READ BUFFER CAPACITY command as defined in section 6.1.14.
 //		READ BUFFER CAPACITY is obsoleted by the MMC-2 specification.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_BUFFER_CAPACITY (
@@ -1498,38 +1012,15 @@ SCSIMultimediaCommands::READ_BUFFER_CAPACITY (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_BUFFER_CAPACITY *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL field?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-	
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1550,20 +1041,26 @@ SCSIMultimediaCommands::READ_BUFFER_CAPACITY (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_CD
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The READ CD command as defined in section 6.1.15.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_CD (
@@ -1582,62 +1079,20 @@ SCSIMultimediaCommands::READ_CD (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
-	UInt32			blockSize;
-	UInt32 			requestedByteCount;
-	bool			validBlockSize;
+	UInt32			blockSize			= 0;
+	UInt32 			requestedByteCount	= 0;
+	bool			validBlockSize		= false;
+	bool			result				= false
 	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_CD called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid RELADR?
-	if ( RELADR != 0 )
-	{
-
-		ERROR_LOG ( ( "RELADR = %x not valid \n", RELADR ) );
-		return false;
-
-	}
-
-	// did we receive a valid STARTING_LOGICAL_BLOCK_ADDRESS?
-	if ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "STARTING_LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						STARTING_LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid TRANSFER_LENGTH?
-	if ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "TRANSFER_LENGTH = %x not valid \n",
-						TRANSFER_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid SUBCHANNEL_SELECTION_BITS?
-	if ( IsParameterValid ( SUBCHANNEL_SELECTION_BITS,
-							kSCSICmdFieldMask3Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "SUBCHANNEL_SELECTION_BITS = %x not valid \n",
-						SUBCHANNEL_SELECTION_BITS ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( ( RELADR == 0 ), ErrorExit );
+	require ( IsParameterValid ( STARTING_LOGICAL_BLOCK_ADDRESS,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( SUBCHANNEL_SELECTION_BITS,
+								 kSCSICmdFieldMask3Bit ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// determine the size of the transfer
 	validBlockSize = GetBlockSize (	&blockSize,
@@ -1646,30 +1101,18 @@ SCSIMultimediaCommands::READ_CD (
 									HEADER_CODES,
 									USER_DATA,
 									EDC_ECC,
-									ERROR_FIELD );
+									ERROR_FIELD,
+									SUBCHANNEL_SELECTION_BITS );
 	
-	if ( validBlockSize == false )
-	{
-		
-		ERROR_LOG ( ( "blockSize = %x not valid \n", blockSize ) );
-		return false;
-		
-	}
+	require ( validBlockSize, ErrorExit );
 	
 	requestedByteCount = TRANSFER_LENGTH * blockSize;
 	
 	STATUS_LOG ( ( "blockSize = %ld\n", blockSize ) );
 	STATUS_LOG ( ( "TRANSFER_LENGTH = %ld\n", TRANSFER_LENGTH ) );
 	STATUS_LOG ( ( "requestedByteCount = %ld\n", requestedByteCount ) );
-
-	if ( IsBufferAndCapacityValid ( dataBuffer, requestedByteCount ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, requestedByteCount = %ld\n",
-						dataBuffer, requestedByteCount ) );
-		return false;
-		
-	}
+	
+	require ( IsBufferAndCapacityValid ( dataBuffer, requestedByteCount ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1692,20 +1135,26 @@ SCSIMultimediaCommands::READ_CD (
 								dataBuffer,
 								requestedByteCount );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_CD_MSF
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The READ CD MSF command as defined in section 6.1.16.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_CD_MSF (
@@ -1723,84 +1172,27 @@ SCSIMultimediaCommands::READ_CD_MSF (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
-	UInt32			blockSize;
-	UInt32 			requestedByteCount;
-	bool			validBlockSize;
-
+	UInt32			blockSize			= 0;
+	UInt32 			requestedByteCount	= 0;
+	bool			validBlockSize		= 0;
+	bool			result				= 0;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_CD_MSF called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid STARTING_MSF?
-	if ( IsParameterValid ( STARTING_MSF,
-							kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "STARTING_MSF = %x not valid \n",
-						STARTING_MSF ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( STARTING_MSF,
+								 kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( ENDING_MSF,
+								 kSCSICmdFieldMask3Byte ), ErrorExit );
 	
-	if ( ( ( STARTING_MSF & 0xFF ) >= FRAMES_IN_A_SECOND ) ||
-		 ( ( ( STARTING_MSF >> 8 ) & 0xFF ) >= SECONDS_IN_A_MINUTE ) )
-	{
-		
-		ERROR_LOG ( ( "STARTING_MSF = %x not valid \n",
-						STARTING_MSF ) );
-		return false;
-		
-	}
+	require ( ( ( STARTING_MSF & 0xFF ) < FRAMES_IN_A_SECOND ) &&
+		 	  ( ( ( STARTING_MSF >> 8 ) & 0xFF ) < SECONDS_IN_A_MINUTE ), ErrorExit );
+	require ( ( ( ENDING_MSF & 0xFF ) < FRAMES_IN_A_SECOND ) &&
+		 	  ( ( ( ENDING_MSF >> 8 ) & 0xFF ) >= SECONDS_IN_A_MINUTE ), ErrorExit );
 	
-	// did we receive a valid ENDING_MSF?
-	if ( IsParameterValid ( ENDING_MSF,
-							kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ENDING_MSF = %x not valid \n",
-						ENDING_MSF ) );
-		return false;
-		
-	}
-	
-	if ( ( ( ENDING_MSF & 0xFF ) >= FRAMES_IN_A_SECOND ) ||
-		 ( ( ( ENDING_MSF >> 8 ) & 0xFF ) >= SECONDS_IN_A_MINUTE ) )
-	{
-		
-		ERROR_LOG ( ( "ENDING_MSF = %x not valid \n",
-						ENDING_MSF ) );
-		return false;
-		
-	}
-
-	// did we receive compatible STARTING_MSF and ENDING_MSF?
-	if ( STARTING_MSF > ENDING_MSF )
-	{
-		
-		ERROR_LOG ( ( "STARTING_MSF > ENDING_MSF : %x %x\n",
-						STARTING_MSF, ENDING_MSF ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid SUBCHANNEL_SELECTION_BITS?
-	if ( IsParameterValid ( SUBCHANNEL_SELECTION_BITS,
-							kSCSICmdFieldMask3Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "SUBCHANNEL_SELECTION_BITS = %x not valid \n",
-						SUBCHANNEL_SELECTION_BITS ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( ( STARTING_MSF <= ENDING_MSF ), ErrorExit );
+	require ( IsParameterValid ( SUBCHANNEL_SELECTION_BITS,
+								 kSCSICmdFieldMask3Bit ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// determine the size of the transfer
 	validBlockSize = GetBlockSize (	&blockSize,
@@ -1809,30 +1201,18 @@ SCSIMultimediaCommands::READ_CD_MSF (
 									HEADER_CODES,
 									USER_DATA,
 									EDC_ECC,
-									ERROR_FIELD );
+									ERROR_FIELD,
+									SUBCHANNEL_SELECTION_BITS );
 	
-	if ( validBlockSize == false )
-	{
-		
-		ERROR_LOG ( ( "blockSize = %x not valid \n", blockSize ) );
-		return false;
-		
-	}
+	require ( validBlockSize, ErrorExit );
 	
 	requestedByteCount = ( ConvertMSFToLBA ( ENDING_MSF ) -
 							ConvertMSFToLBA ( STARTING_MSF ) ) * blockSize;
 	
 	STATUS_LOG ( ( "requestedByteCount = %x\n", requestedByteCount ) );
 	
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									requestedByteCount ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, requestedByteCount = %ld\n",
-						dataBuffer, requestedByteCount ) );
-		return false;
-		
-	}
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 requestedByteCount ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1855,20 +1235,26 @@ SCSIMultimediaCommands::READ_CD_MSF (
 								dataBuffer,
 								requestedByteCount );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_CAPACITY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The READ CAPACITY command as defined in section 6.1.17.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_CAPACITY (
@@ -1879,56 +1265,17 @@ SCSIMultimediaCommands::READ_CAPACITY (
 					SCSICmdField1Bit 			PMI,
 					SCSICmdField1Byte 			CONTROL )
 {
-
-	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_CAPACITY called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid RELADR?
-	if ( RELADR != 0 )
-	{
-		
-		ERROR_LOG ( ( "RELADR = %x not valid \n", RELADR ) );
-		return false;
-		
-	}
-
-	// did we receive a valid LOGICAL_BLOCK_ADDRESS?
-	if ( LOGICAL_BLOCK_ADDRESS != 0 )
-	{
-		
-		ERROR_LOG ( ( "LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid PMI?
-	if ( PMI != 0 )
-	{
-		
-		ERROR_LOG ( ( "PMI = %x not valid \n", PMI ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									READ_CAPACITY_MAX_DATA ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, READ_CAPACITY_MAX_DATA = %ld\n",
-						dataBuffer, READ_CAPACITY_MAX_DATA ) );
-		return false;
-		
-	}
+	bool	result = false;
+	
+	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_CAPACITY called\n" ) );
+	
+	require ( ( RELADR == 0 ), ErrorExit );
+	require ( ( LOGICAL_BLOCK_ADDRESS == 0 ), ErrorExit );
+	require ( ( PMI == 0 ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 READ_CAPACITY_MAX_DATA ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -1949,20 +1296,26 @@ SCSIMultimediaCommands::READ_CAPACITY (
 								dataBuffer,
 								READ_CAPACITY_MAX_DATA );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_DISC_INFORMATION
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The READ DISC INFORMATION command as defined in section 6.1.18.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_DISC_INFORMATION (
@@ -1972,38 +1325,15 @@ SCSIMultimediaCommands::READ_DISC_INFORMATION (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_DISC_INFORMATION called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL field?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_DISC_INFORMATION called\n" ) );
+	
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2024,20 +1354,26 @@ SCSIMultimediaCommands::READ_DISC_INFORMATION (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_DVD_STRUCTURE
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The READ DVD STRUCTURE command as defined in section 6.1.19.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_DVD_STRUCTURE (
@@ -2051,77 +1387,21 @@ SCSIMultimediaCommands::READ_DVD_STRUCTURE (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_DVD_STRUCTURE called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid ADDRESS?
-	if ( IsParameterValid ( ADDRESS,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ADDRESS = %x not valid \n", ADDRESS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid LAYER_NUMBER?
-	if ( IsParameterValid ( LAYER_NUMBER,
-							kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "LAYER_NUMBER = %x not valid \n",
-						LAYER_NUMBER ) );
-		return false;
-		
-	}
-
-	// did we receive a valid FORMAT?
-	if ( IsParameterValid ( FORMAT, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "FORMAT = %x not valid \n", FORMAT ) );
-		return false;
-		
-	}
-
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid AGID?
-	if ( IsParameterValid ( AGID, kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "AGID = %x not valid \n", AGID ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_DVD_STRUCTURE called\n" ) );
+	
+	require ( IsParameterValid ( ADDRESS,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( LAYER_NUMBER,
+								 kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( FORMAT, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( AGID, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2144,20 +1424,26 @@ SCSIMultimediaCommands::READ_DVD_STRUCTURE (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_FORMAT_CAPACITIES
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The READ FORMAT CAPACITIES command as defined in section 6.1.20.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_FORMAT_CAPACITIES (
@@ -2167,39 +1453,16 @@ SCSIMultimediaCommands::READ_FORMAT_CAPACITIES (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_FORMAT_CAPACITIES called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL field?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
+	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_FORMAT_CAPACITIES called\n" ) );
+	
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
+	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_READ_FORMAT_CAPACITIES,
@@ -2219,23 +1482,29 @@ SCSIMultimediaCommands::READ_FORMAT_CAPACITIES (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_HEADER
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //	¥¥¥ OBSOLETE ¥¥¥
 //		
 //		The READ HEADER command as defined in section 6.1.21. READ HEADER
 //		is obsoleted by the MMC-2 specification.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_HEADER (
@@ -2247,58 +1516,18 @@ SCSIMultimediaCommands::READ_HEADER (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_HEADER *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid MSF?
-	if ( IsParameterValid ( MSF, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "MSF = %x not valid \n", MSF ) );
-		return false;
-		
-	}
-
-	// did we receive a valid LOGICAL_BLOCK_ADDRESS?
-	if ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_HEADER *OBSOLETE* called\n" ) );
+	
+	require ( IsParameterValid ( MSF, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2319,23 +1548,29 @@ SCSIMultimediaCommands::READ_HEADER (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_MASTER_CUE
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //	¥¥¥ OBSOLETE ¥¥¥
 //		
 //		The READ MASTER CUE command as defined in section 6.1.22.
 //		READ MASTER CUE is obsoleted by the MMC-2 specification.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_MASTER_CUE (
@@ -2346,50 +1581,18 @@ SCSIMultimediaCommands::READ_MASTER_CUE (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_MASTER_CUE *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid SHEET_NUMBER?
-	if ( IsParameterValid ( SHEET_NUMBER,
-							kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "SHEET_NUMBER = %x not valid \n",
-						SHEET_NUMBER ) );
-		return false;
-		
-	}
-
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL field?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
+	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_MASTER_CUE *OBSOLETE* called\n" ) );
+	
+	require ( IsParameterValid ( SHEET_NUMBER,
+								 kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
+	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_READ_MASTER_CUE,
@@ -2409,20 +1612,26 @@ SCSIMultimediaCommands::READ_MASTER_CUE (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_SUB_CHANNEL
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The READ SUB-CHANNEL command as defined in section 6.1.23.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_SUB_CHANNEL (
@@ -2436,83 +1645,28 @@ SCSIMultimediaCommands::READ_SUB_CHANNEL (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_SUB_CHANNEL called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid MSF?
-	if ( IsParameterValid ( MSF, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "MSF = %x not valid \n", MSF ) );
-		return false;
-		
-	}
-
-	// did we receive a valid SUBQ?
-	if ( IsParameterValid ( SUBQ, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "SUBQ = %x not valid \n", SUBQ ) );
-		return false;
-		
-	}
-
-	// did we receive a valid SUB_CHANNEL_PARAMETER_LIST?
-	if ( IsParameterValid ( SUB_CHANNEL_PARAMETER_LIST,
-							kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "SUB_CHANNEL_PARAMETER_LIST = %x not valid \n",
-						SUB_CHANNEL_PARAMETER_LIST ) );
-		return false;
-		
-	}
-
-	// did we receive a valid TRACK_NUMBER?
+	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_SUB_CHANNEL called\n" ) );
+	
+	require ( IsParameterValid ( MSF, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( SUBQ, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( SUB_CHANNEL_PARAMETER_LIST,
+								 kSCSICmdFieldMask1Byte ), ErrorExit );
+	
 	if ( SUB_CHANNEL_PARAMETER_LIST == 3 )
 	{
 		
-		if ( TRACK_NUMBER > MAX_TRACK_NUMBER )
-		{
-			
-			ERROR_LOG ( ( "TRACK_NUMBER = %x not valid \n",
-							TRACK_NUMBER ) );
-			return false;
-			
-		}
+		require ( TRACK_NUMBER <= MAX_TRACK_NUMBER, ErrorExit );
 		
 	}
-
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
+	
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
+	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_READ_SUB_CHANNEL,
@@ -2532,20 +1686,26 @@ SCSIMultimediaCommands::READ_SUB_CHANNEL (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_TOC_PMA_ATIP
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The READ TOC/PMA/ATIP command as defined in section 6.1.24/25.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_TOC_PMA_ATIP (
@@ -2557,71 +1717,23 @@ SCSIMultimediaCommands::READ_TOC_PMA_ATIP (
 					SCSICmdField2Byte 			ALLOCATION_LENGTH,
 					SCSICmdField1Byte 			CONTROL )
 {
+	
+	bool	result = false;
 		
 	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_TOC_PMA_ATIP called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid MSF parameter?
-	if ( IsParameterValid ( MSF, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "MSF = %x not valid \n", MSF ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid FORMAT parameter?
-	if ( ( FORMAT & kSCSICmdFieldMask4Bit ) > 5 )
-	{
-		
-		ERROR_LOG ( ( "FORMAT = %x not valid \n", FORMAT ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid TRACK_SESSION_NUMBER?
-	if ( IsParameterValid ( TRACK_SESSION_NUMBER,
-							kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "TRACK_SESSION_NUMBER = %x not valid \n",
-						TRACK_SESSION_NUMBER ) );
-		return false;
-		
-	}
-
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL field?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( MSF, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( ( ( FORMAT & kSCSICmdFieldMask4Bit ) <= 5 ), ErrorExit );
+	require ( IsParameterValid ( TRACK_SESSION_NUMBER,
+								 kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
 	
 	// Should we use Òold-styleÓ ATAPI SFF-8020i way?
-	if ( FORMAT <= 0x03 )
+	if ( FORMAT <= 0x02 )
 	{
 		
 		// Use the ATAPI-SFF 8020i "old style" way of issuing READ_TOC_PMA_ATIP
@@ -2667,20 +1779,26 @@ SCSIMultimediaCommands::READ_TOC_PMA_ATIP (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::READ_TRACK_INFORMATION
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The READ TRACK INFORMATION command as defined in section 6.1.26.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::READ_TRACK_INFORMATION (
@@ -2692,61 +1810,19 @@ SCSIMultimediaCommands::READ_TRACK_INFORMATION (
 			SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::READ_TRACK_INFORMATION called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid ADDRESS_NUMBER_TYPE?
-	if ( IsParameterValid ( ADDRESS_NUMBER_TYPE,
-							kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "ADDRESS_NUMBER_TYPE = %x not valid \n",
-						ADDRESS_NUMBER_TYPE ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER?
-	if ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER = %x not valid \n",
-						LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-	
-	// is the buffer large enough to accomodate this request?
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									ALLOCATION_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-						dataBuffer, ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( ADDRESS_NUMBER_TYPE,
+								 kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS_TRACK_SESSION_NUMBER,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 ALLOCATION_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -2767,23 +1843,29 @@ SCSIMultimediaCommands::READ_TRACK_INFORMATION (
 								dataBuffer,
 								ALLOCATION_LENGTH );	
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::REPAIR_TRACK
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //	¥¥¥ OBSOLETE ¥¥¥
 //		
 //		The REPAIR TRACK command as defined in section 6.1.27.
 //		REPAIR TRACK is obsoleted by the MMC-2 specification.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::REPAIR_TRACK (
@@ -2793,29 +1875,14 @@ SCSIMultimediaCommands::REPAIR_TRACK (
 
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::REPAIR_TRACK *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid TRACK_NUMBER?
-	if ( IsParameterValid ( TRACK_NUMBER,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "TRACK_NUMBER = %x not valid \n",
-						TRACK_NUMBER ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
+	STATUS_LOG ( ( "SCSIMultimediaCommands::REPAIR_TRACK *OBSOLETE* called\n" ) );
+	
+	require ( IsParameterValid ( TRACK_NUMBER,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_REPAIR_TRACK,
@@ -2833,20 +1900,26 @@ SCSIMultimediaCommands::REPAIR_TRACK (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::REPORT_KEY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The REPORT KEY command as defined in section 6.1.28.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::REPORT_KEY (
@@ -2859,73 +1932,26 @@ SCSIMultimediaCommands::REPORT_KEY (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::REPORT_KEY called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid LOGICAL_BLOCK_ADDRESS?
-	if ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid ALLOCATION_LENGTH?
-	if ( IsParameterValid ( ALLOCATION_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "ALLOCATION_LENGTH = %x not valid \n",
-						ALLOCATION_LENGTH ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid AGID?
-	if ( IsParameterValid ( AGID, kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "AGID = %x not valid \n", AGID ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid KEY_FORMAT?
-	if ( IsParameterValid ( KEY_FORMAT,
-							kSCSICmdFieldMask6Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "KEY_FORMAT = %x not valid \n", KEY_FORMAT ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( ALLOCATION_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( AGID, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( KEY_FORMAT,
+								 kSCSICmdFieldMask6Bit ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// Only check the buffer if the key format is not INVALIDATE_AGID
 	if ( KEY_FORMAT != 0x3F )
 	{
 		
 		// is the buffer large enough to accomodate this request?
-		if ( IsBufferAndCapacityValid ( dataBuffer,
-										ALLOCATION_LENGTH ) == false )
-		{
-			
-			ERROR_LOG ( ( "dataBuffer = %x not valid, ALLOCATION_LENGTH = %ld\n",
-							dataBuffer, ALLOCATION_LENGTH ) );
-			return false;
-			
-		}
+		require ( IsBufferAndCapacityValid ( dataBuffer,
+											 ALLOCATION_LENGTH ), ErrorExit );
 		
 		SetDataTransferControl (	request,
 									0,
@@ -2959,20 +1985,26 @@ SCSIMultimediaCommands::REPORT_KEY (
 								( AGID << 6 ) | KEY_FORMAT,
 								CONTROL );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::RESERVE_TRACK
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The RESERVE TRACK command as defined in section 6.1.29.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::RESERVE_TRACK (
@@ -2981,28 +2013,13 @@ SCSIMultimediaCommands::RESERVE_TRACK (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::RESERVE_TRACK called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid RESERVATION_SIZE?
-	if ( IsParameterValid ( RESERVATION_SIZE,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "RESERVATION_SIZE = %x not valid \n",
-						RESERVATION_SIZE ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::RESERVE_TRACK called\n" ) );
+	
+	require ( IsParameterValid ( RESERVATION_SIZE,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3021,20 +2038,26 @@ SCSIMultimediaCommands::RESERVE_TRACK (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::SCAN
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SCAN command as defined in section 6.1.30.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::SCAN (
@@ -3046,97 +2069,52 @@ SCSIMultimediaCommands::SCAN (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::SCAN called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid DIRECT?
-	if ( IsParameterValid ( DIRECT, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "DIRECT = %x not valid \n", DIRECT ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid RELADR?
-	if ( RELADR != 0 )
-	{
-		
-		ERROR_LOG ( ( "RELADR = %x not valid \n", RELADR ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( DIRECT, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( ( RELADR == 0 ), ErrorExit );
 	
 	// did we receive a valid TYPE?
 	switch ( TYPE )
 	{
 		
 		// LBA
-		case	0:
+		case 0:
 		{
 			
 			STATUS_LOG ( ( "Using LBA TYPE\n" ) );
 			
-			// did we receive a valid LBA SCAN_STARTING_ADDRESS_FIELD?
-			if ( IsParameterValid ( SCAN_STARTING_ADDRESS_FIELD,
-									kSCSICmdFieldMask4Byte ) == false )
-			{
-				
-				ERROR_LOG ( ( "SCAN_STARTING_ADDRESS_FIELD = %x not valid \n",
-								SCAN_STARTING_ADDRESS_FIELD ) );
-				return false;
-				
-			}
-			
+			require ( IsParameterValid ( SCAN_STARTING_ADDRESS_FIELD,
+										 kSCSICmdFieldMask4Byte ), ErrorExit );
 			break;
 			
 		}
 		
 		// MSF
-		case	1:
+		case 1:
 		{
 			
 			STATUS_LOG ( ( "Using MSF TYPE\n" ) );
 			
-			// did we receive a valid MSF SCAN_STARTING_ADDRESS_FIELD?
-			if ( IsParameterValid ( SCAN_STARTING_ADDRESS_FIELD,
-									kSCSICmdFieldMask3Byte ) == false )
-			{
-				
-				ERROR_LOG ( ( "SCAN_STARTING_ADDRESS_FIELD = %x not valid \n",
-								SCAN_STARTING_ADDRESS_FIELD ) );
-				return false;
-				
-			}
+			require ( IsParameterValid ( SCAN_STARTING_ADDRESS_FIELD,
+										 kSCSICmdFieldMask3Byte ), ErrorExit );
 			
-			if ( ( ( SCAN_STARTING_ADDRESS_FIELD & 0xFF ) >= FRAMES_IN_A_SECOND ) ||
-				 ( ( ( SCAN_STARTING_ADDRESS_FIELD >> 8 ) & 0xFF ) >= SECONDS_IN_A_MINUTE ) )
-			{
-				
-				ERROR_LOG ( ( "SCAN_STARTING_ADDRESS_FIELD = %x not valid \n",
-								SCAN_STARTING_ADDRESS_FIELD ) );
-				return false;
-				
-			}
+			require ( ( ( SCAN_STARTING_ADDRESS_FIELD & 0xFF ) < FRAMES_IN_A_SECOND ) &&
+				 	  ( ( ( SCAN_STARTING_ADDRESS_FIELD >> 8 ) & 0xFF ) < SECONDS_IN_A_MINUTE ),
+				 	  ErrorExit );
 			break;
 			
 		}
 		
 		// track number
-		case	2:
+		case 2:
 		{
 			
 			STATUS_LOG ( ( "Using Track Number TYPE\n" ) );
 			
-			// did we receive a valid track SCAN_STARTING_ADDRESS_FIELD?
-			if ( SCAN_STARTING_ADDRESS_FIELD > MAX_TRACK_NUMBER )
-			{
-				
-				ERROR_LOG ( ( "SCAN_STARTING_ADDRESS_FIELD = %x not valid \n",
-								SCAN_STARTING_ADDRESS_FIELD ) );
-				return false;
-				
-			}
+			require ( ( SCAN_STARTING_ADDRESS_FIELD <= MAX_TRACK_NUMBER ), ErrorExit );
 			
 			break;
 			
@@ -3147,7 +2125,7 @@ SCSIMultimediaCommands::SCAN (
 		{
 			
 			ERROR_LOG ( ( "TYPE = %x not valid \n", TYPE ) );
-			return false;
+			goto ErrorExit;
 			break;
 			
 		}
@@ -3155,13 +2133,7 @@ SCSIMultimediaCommands::SCAN (
 	}
 	
 	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3182,20 +2154,26 @@ SCSIMultimediaCommands::SCAN (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::SEND_CUE_SHEET
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SEND CUE SHEET command as defined in section 6.1.31.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::SEND_CUE_SHEET (
@@ -3205,47 +2183,16 @@ SCSIMultimediaCommands::SEND_CUE_SHEET (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::SEND_CUE_SHEET called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// did we receive a valid CUE_SHEET_SIZE?
-	if ( IsParameterValid ( CUE_SHEET_SIZE,
-							kSCSICmdFieldMask3Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CUE_SHEET_SIZE = %x not valid \n",
-						CUE_SHEET_SIZE ) );
-		return false;
-		
-	}
-	
-	if ( CUE_SHEET_SIZE == 0 )
-	{
-		
-		ERROR_LOG ( ( "CUE_SHEET_SIZE = %x not valid \n", CUE_SHEET_SIZE ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	// is the buffer large enough to accomodate this request?
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									CUE_SHEET_SIZE ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, CUE_SHEET_SIZE = %ld\n",
-						dataBuffer, CUE_SHEET_SIZE ) );
-		return false;
-		
-	}
+	require_nonzero ( CUE_SHEET_SIZE, ErrorExit );
+	require ( IsParameterValid ( CUE_SHEET_SIZE,
+								 kSCSICmdFieldMask3Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 CUE_SHEET_SIZE ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3266,20 +2213,26 @@ SCSIMultimediaCommands::SEND_CUE_SHEET (
 								dataBuffer,
 								CUE_SHEET_SIZE );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::SEND_DVD_STRUCTURE
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SEND DVD STRUCTURE command as defined in section 6.1.32.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::SEND_DVD_STRUCTURE (
@@ -3290,48 +2243,16 @@ SCSIMultimediaCommands::SEND_DVD_STRUCTURE (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::SEND_DVD_STRUCTURE called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid FORMAT?
-	if ( IsParameterValid ( FORMAT, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "FORMAT = %x not valid \n", FORMAT ) );
-		return false;
-		
-	}
-
-	// did we receive a valid STRUCTURE_DATA_LENGTH?
-	if ( IsParameterValid ( STRUCTURE_DATA_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "STRUCTURE_DATA_LENGTH = %x not valid \n",
-						STRUCTURE_DATA_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	// is the buffer large enough to accomodate this request?
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									STRUCTURE_DATA_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, STRUCTURE_DATA_LENGTH = %ld\n",
-						dataBuffer, STRUCTURE_DATA_LENGTH ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::SEND_DVD_STRUCTURE called\n" ) );
+	
+	require ( IsParameterValid ( FORMAT, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsParameterValid ( STRUCTURE_DATA_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 STRUCTURE_DATA_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3372,20 +2293,26 @@ SCSIMultimediaCommands::SEND_DVD_STRUCTURE (
 		
 	}
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::SEND_EVENT
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SEND EVENT command as defined in section 6.1.33.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::SEND_EVENT (
@@ -3397,48 +2324,16 @@ SCSIMultimediaCommands::SEND_EVENT (
 
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::SEND_EVENT called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid IMMED?
-	if ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "IMMED = %x not valid \n", IMMED ) );
-		return false;
-		
-	}
-
-	// did we receive a valid PARAMETER_LIST_LENGTH?
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid \n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	// is the buffer large enough to accomodate this request?
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									PARAMETER_LIST_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %ld\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::SEND_EVENT called\n" ) );
+	
+	require ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3461,19 +2356,24 @@ SCSIMultimediaCommands::SEND_EVENT (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	
+ErrorExit:
+	
+	
+	return result;
+	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::SEND_KEY
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SEND KEY command as defined in section 6.1.34.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::SEND_KEY (
@@ -3485,60 +2385,23 @@ SCSIMultimediaCommands::SEND_KEY (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
+	bool	result = false;
+	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::SEND_KEY called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid \n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid AGID?
-	if ( IsParameterValid ( AGID, kSCSICmdFieldMask2Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "AGID = %x not valid \n", AGID ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid KEY_FORMAT?
-	if ( IsParameterValid ( KEY_FORMAT, kSCSICmdFieldMask6Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "KEY_FORMAT = %x not valid \n", KEY_FORMAT ) );
-		return false;
-		
-	}
-	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( AGID, kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( KEY_FORMAT, kSCSICmdFieldMask6Bit ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// Only check the buffer if the key format is not INVALIDATE_AGID
 	if ( KEY_FORMAT != 0x3F )
 	{
 		
 		// is the buffer large enough to accomodate this request?
-		if ( IsBufferAndCapacityValid ( dataBuffer,
-										PARAMETER_LIST_LENGTH ) == false )
-		{
-			
-			ERROR_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %ld\n",
-							dataBuffer, PARAMETER_LIST_LENGTH ) );
-			return false;
-			
-		}
+		require ( IsBufferAndCapacityValid ( dataBuffer,
+											 PARAMETER_LIST_LENGTH ), ErrorExit );
 		
 		SetDataTransferControl (	request,
 									0,
@@ -3572,20 +2435,26 @@ SCSIMultimediaCommands::SEND_KEY (
 								( AGID << 6 ) | KEY_FORMAT,
 								CONTROL );
 		
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::SEND_OPC_INFORMATION
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SEND OPC INFORMATION command as defined in section 6.1.35.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::SEND_OPC_INFORMATION (
@@ -3597,47 +2466,16 @@ SCSIMultimediaCommands::SEND_OPC_INFORMATION (
 
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::SEND_OPC_INFORMATION called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid DO_OPC?
-	if ( IsParameterValid ( DO_OPC, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "DO_OPC = %x not valid \n", DO_OPC ) );
-		return false;
-		
-	}
-
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid \n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	// is the buffer large enough to accomodate this request?
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									PARAMETER_LIST_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %ld\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::SEND_OPC_INFORMATION called\n" ) );
+	
+	require ( IsParameterValid ( DO_OPC, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 PARAMETER_LIST_LENGTH ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3658,23 +2496,29 @@ SCSIMultimediaCommands::SEND_OPC_INFORMATION (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::SET_CD_SPEED
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //		
 //	¥¥¥ OBSOLETE ¥¥¥
 //		
 //		The SET CD SPEED command as defined in section 6.1.36.
 //		SET CD SPEED is obsoleted by the MMC-2 specification.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::SET_CD_SPEED (
@@ -3684,39 +2528,15 @@ SCSIMultimediaCommands::SET_CD_SPEED (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::SET_CD_SPEED *OBSOLETE* called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid LOGICAL_UNIT_READ_SPEED?
-	if ( IsParameterValid ( LOGICAL_UNIT_READ_SPEED,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "LOGICAL_UNIT_READ_SPEED = %x not valid \n",
-						LOGICAL_UNIT_READ_SPEED ) );
-		return false;
-		
-	}
-
-	// did we receive a valid LOGICAL_UNIT_WRITE_SPEED?
-	if ( IsParameterValid ( LOGICAL_UNIT_WRITE_SPEED,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "LOGICAL_UNIT_WRITE_SPEED = %x not valid \n",
-						LOGICAL_UNIT_WRITE_SPEED ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::SET_CD_SPEED *OBSOLETE* called\n" ) );
+	
+	require ( IsParameterValid ( LOGICAL_UNIT_READ_SPEED,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( LOGICAL_UNIT_WRITE_SPEED,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3737,20 +2557,26 @@ SCSIMultimediaCommands::SET_CD_SPEED (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::SET_READ_AHEAD
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SET READ AHEAD command as defined in section 6.1.37.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::SET_READ_AHEAD (
@@ -3760,40 +2586,16 @@ SCSIMultimediaCommands::SET_READ_AHEAD (
 				SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::SET_READ_AHEAD called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid TRIGGER_LOGICAL_BLOCK_ADDRESS?
-	if ( IsParameterValid ( TRIGGER_LOGICAL_BLOCK_ADDRESS,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "TRIGGER_LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						TRIGGER_LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid READ_AHEAD_LOGICAL_BLOCK_ADDRESS?
-	if ( IsParameterValid ( READ_AHEAD_LOGICAL_BLOCK_ADDRESS,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "READ_AHEAD_LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						READ_AHEAD_LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
+	STATUS_LOG ( ( "SCSIMultimediaCommands::SET_READ_AHEAD called\n" ) );
+	
+	require ( IsParameterValid ( TRIGGER_LOGICAL_BLOCK_ADDRESS,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( READ_AHEAD_LOGICAL_BLOCK_ADDRESS,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_SET_READ_AHEAD,
@@ -3813,20 +2615,26 @@ SCSIMultimediaCommands::SET_READ_AHEAD (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::SET_STREAMING
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SET STREAMING command as defined in section 6.1.38.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::SET_STREAMING (
@@ -3836,39 +2644,16 @@ SCSIMultimediaCommands::SET_STREAMING (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::SET_STREAMING called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	if ( IsParameterValid ( PARAMETER_LIST_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "PARAMETER_LIST_LENGTH = %x not valid \n",
-						PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
-	// is the buffer large enough to accomodate this request?
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									PARAMETER_LIST_LENGTH ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %ld\n",
-						dataBuffer, PARAMETER_LIST_LENGTH ) );
-		return false;
-		
-	}
-
+	STATUS_LOG ( ( "SCSIMultimediaCommands::SET_STREAMING called\n" ) );
+	
+	require ( IsParameterValid ( PARAMETER_LIST_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
+	require ( IsBufferAndCapacityValid ( dataBuffer,
+										 PARAMETER_LIST_LENGTH ), ErrorExit );
+	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_SET_STREAMING,
@@ -3890,20 +2675,26 @@ SCSIMultimediaCommands::SET_STREAMING (
 								dataBuffer,
 								PARAMETER_LIST_LENGTH );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::STOP_PLAY_SCAN
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The STOP PLAY/SCAN command as defined in section 6.1.39.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::STOP_PLAY_SCAN (
@@ -3911,17 +2702,11 @@ SCSIMultimediaCommands::STOP_PLAY_SCAN (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::STOP_PLAY_SCAN called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::STOP_PLAY_SCAN called\n" ) );
+	
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -3940,20 +2725,26 @@ SCSIMultimediaCommands::STOP_PLAY_SCAN (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::SYNCHRONIZE_CACHE
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The SYNCHRONIZE CACHE command as defined in section 6.1.40.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::SYNCHRONIZE_CACHE (
@@ -3965,55 +2756,15 @@ SCSIMultimediaCommands::SYNCHRONIZE_CACHE (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	STATUS_LOG ( ( "SCSIMultimediaCommands::SYNCHRONIZE_CACHE called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
+	bool	result = false;
 	
-	// did we receive a valid IMMED?
-	if ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "IMMED = %x not valid \n", IMMED ) );
-		return false;
-		
-	}
-
-	// did we receive a valid RELADR?
-	if ( RELADR != 0 )
-	{
-		
-		ERROR_LOG ( ( "RELADR = %x not valid \n", RELADR ) );
-		return false;
-		
-	}
-
-	// did we receive a valid LOGICAL_BLOCK_ADDRESS?
-	if ( LOGICAL_BLOCK_ADDRESS != 0 )
-	{
-		
-		ERROR_LOG ( ( "LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid NUMBER_OF_BLOCKS?
-	if ( NUMBER_OF_BLOCKS != 0 )
-	{
-		
-		ERROR_LOG ( ( "NUMBER_OF_BLOCKS = %x not valid \n",
-						NUMBER_OF_BLOCKS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
+	STATUS_LOG ( ( "SCSIMultimediaCommands::SYNCHRONIZE_CACHE called\n" ) );
+	
+	require ( IsParameterValid ( IMMED, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( ( RELADR == 0 ), ErrorExit );
+	require ( ( LOGICAL_BLOCK_ADDRESS == 0 ), ErrorExit );
+	require ( ( NUMBER_OF_BLOCKS == 0 ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -4032,20 +2783,26 @@ SCSIMultimediaCommands::SYNCHRONIZE_CACHE (
 								0,
 								kSCSIDataTransfer_NoDataTransfer );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::WRITE_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The WRITE (10) command as defined in section 6.1.41.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::WRITE_10 (
@@ -4060,91 +2817,26 @@ SCSIMultimediaCommands::WRITE_10 (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	UInt32 		requestedByteCount;
+	UInt32 		requestedByteCount	= 0;
+	bool		result 				= false;
 	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::WRITE_10 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// Make sure that we were given a valid blockSize
-	if ( blockSize == 0 )
-	{
-		
-		ERROR_LOG ( ( "blockSize = %x not valid \n", blockSize ) );
-		return false;
-		
-	}
+	require_nonzero ( blockSize, ErrorExit );
+	require ( ( DPO == 0 ), ErrorExit );
+	require ( IsParameterValid ( FUA, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( ( RELADR == 0 ), ErrorExit );
+	require ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS,
+								 kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( TRANSFER_LENGTH,
+								 kSCSICmdFieldMask2Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
-	// did we receive a valid DPO?
-	if ( DPO != 0 )
-	{
-		
-		ERROR_LOG ( ( "DPO = %x not valid \n", DPO ) );
-		return false;
-		
-	}
-
-	// did we receive a valid FUA?
-	if ( IsParameterValid ( FUA, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "FUA = %x not valid \n", FUA ) );
-		return false;
-		
-	}
-
-	// did we receive a valid RELADR?
-	if ( RELADR != 0 )
-	{
-		
-		ERROR_LOG ( ( "RELADR = %x not valid \n", RELADR ) );
-		return false;
-		
-	}
-
-	// did we receive a valid LOGICAL_BLOCK_ADDRESS?
-	if ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid TANSFER_LENGTH?
-	if ( IsParameterValid ( TRANSFER_LENGTH,
-							kSCSICmdFieldMask2Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "TRANSFER_LENGTH = %x not valid \n",
-						TRANSFER_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
 	// is the buffer large enough to accomodate this request?
 	requestedByteCount = TRANSFER_LENGTH * blockSize;
 	
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									requestedByteCount ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, requestedByteCount = %ld\n",
-						dataBuffer, requestedByteCount ) );
-		return false;
-		
-	}
-
+	require ( IsBufferAndCapacityValid ( dataBuffer, requestedByteCount ), ErrorExit );
+	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
 								kSCSICmd_WRITE_10,
@@ -4164,20 +2856,26 @@ SCSIMultimediaCommands::WRITE_10 (
 								dataBuffer,
 								requestedByteCount );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::WRITE_AND_VERIFY_10
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The WRITE AND VERIFY (10) command as defined in section 6.1.42.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::WRITE_AND_VERIFY_10 (
@@ -4192,90 +2890,23 @@ SCSIMultimediaCommands::WRITE_AND_VERIFY_10 (
 					SCSICmdField1Byte 			CONTROL )
 {
 	
-	UInt32 		requestedByteCount;
+	UInt32 		requestedByteCount 	= 0;
+	bool		result				= false;
 	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::WRITE_AND_VERIFY_10 called\n" ) );
-	DEBUG_ASSERT ( ( request != NULL ) );
 	
-	// Make sure that we were given a valid blockSize
-	if ( blockSize == 0 )
-	{
-		
-		ERROR_LOG ( ( "blockSize = %x not valid \n", blockSize ) );
-		return false;
-		
-	}
+	require_nonzero ( blockSize, ErrorExit );
+	require ( ( DPO == 0 ), ErrorExit );
+	require ( ( BYT_CHK == 0 ), ErrorExit );
+	require ( ( RELADR == 0 ), ErrorExit );
+	require ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( TRANSFER_LENGTH, kSCSICmdFieldMask4Byte ), ErrorExit );
+	require ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ), ErrorExit );
 	
-	// did we receive a valid DPO?
-	if ( DPO != 0 )
-	{
-		
-		ERROR_LOG ( ( "DPO = %x not valid \n", DPO ) );
-		return false;
-		
-	}
-
-	// did we receive a valid BYT_CHK?
-	if ( BYT_CHK != 0 )
-	{
-		
-		ERROR_LOG ( ( "BYT_CHK = %x not valid \n", BYT_CHK ) );
-		return false;
-		
-	}
-
-	// did we receive a valid RELADR?
-	if ( RELADR != 0 )
-	{
-		
-		ERROR_LOG ( ( "RELADR = %x not valid \n", RELADR ) );
-		return false;
-		
-	}
-
-	// did we receive a valid LOGICAL_BLOCK_ADDRESS?
-	if ( IsParameterValid ( LOGICAL_BLOCK_ADDRESS,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "LOGICAL_BLOCK_ADDRESS = %x not valid \n",
-						LOGICAL_BLOCK_ADDRESS ) );
-		return false;
-		
-	}
-
-	// did we receive a valid TANSFER_LENGTH?
-	if ( IsParameterValid ( TRANSFER_LENGTH,
-							kSCSICmdFieldMask4Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "TRANSFER_LENGTH = %x not valid \n",
-						TRANSFER_LENGTH ) );
-		return false;
-		
-	}
-
-	// did we receive a valid CONTROL?
-	if ( IsParameterValid ( CONTROL, kSCSICmdFieldMask1Byte ) == false )
-	{
-		
-		ERROR_LOG ( ( "CONTROL = %x not valid \n", CONTROL ) );
-		return false;
-		
-	}
-
 	// is the buffer large enough to accomodate this request?
 	requestedByteCount = TRANSFER_LENGTH * blockSize;
 	
-	if ( IsBufferAndCapacityValid ( dataBuffer,
-									requestedByteCount ) == false )
-	{
-		
-		ERROR_LOG ( ( "dataBuffer = %x not valid, requestedByteCount = %ld\n",
-						dataBuffer, requestedByteCount ) );
-		return false;
-		
-	}
+	require ( IsBufferAndCapacityValid ( dataBuffer, requestedByteCount ), ErrorExit );
 	
 	// fill out the cdb appropriately  
 	SetCommandDescriptorBlock (	request,
@@ -4298,21 +2929,27 @@ SCSIMultimediaCommands::WRITE_AND_VERIFY_10 (
 								dataBuffer,
 								requestedByteCount );
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::GetBlockSize
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The block size decoding for Read CD and Read CD MSF as
 //		defined in table 255.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 SCSIMultimediaCommands::GetBlockSize (
@@ -4322,9 +2959,11 @@ SCSIMultimediaCommands::GetBlockSize (
 					SCSICmdField2Bit 			HEADER_CODES,
 					SCSICmdField1Bit 			USER_DATA,
 					SCSICmdField1Bit 			EDC_ECC,
-					SCSICmdField2Bit 			ERROR_FIELD )
+					SCSICmdField2Bit 			ERROR_FIELD,
+					SCSICmdField3Bit 			SUBCHANNEL_SELECTION_BITS )
 {
 	
+	bool			result			= false;
 	UInt32			userDataSize	= 0;
 	UInt32			edcEccSize		= 0;
 	UInt32			headerSize		= 0;
@@ -4332,68 +2971,19 @@ SCSIMultimediaCommands::GetBlockSize (
 	UInt32			syncSize		= 0;
 	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::GetBlockSize called\n" ) );
-	DEBUG_ASSERT ( ( requestedByteCount != NULL ) );
 	
-	// did we receive a valid EXPECTED_SECTOR_TYPE?
-	if ( EXPECTED_SECTOR_TYPE > 5 )
-	{
-		
-		ERROR_LOG ( ( "EXPECTED_SECTOR_TYPE = %x not valid \n",
-						EXPECTED_SECTOR_TYPE ) );
-		return false;
+	check ( requestedByteCount );
 	
-	}
-
-	// did we receive a valid SYNC?
-	if ( IsParameterValid ( SYNC, kSCSICmdFieldMask1Bit ) == false )
-	{
-		
-		ERROR_LOG ( ( "SYNC = %x not valid \n", SYNC ) );
-		return false;
-		
-	}
-
-	// did we receive a valid HEADER_CODES?
-	if ( IsParameterValid ( HEADER_CODES,
-							kSCSICmdFieldMask2Bit ) == false )
-	{
+	require ( ( EXPECTED_SECTOR_TYPE < 6 ), ErrorExit );
+	require ( IsParameterValid ( SYNC, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( HEADER_CODES,
+								 kSCSICmdFieldMask2Bit ), ErrorExit );
+	require ( IsParameterValid ( USER_DATA,
+								 kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( EDC_ECC, kSCSICmdFieldMask1Bit ), ErrorExit );
+	require ( IsParameterValid ( ERROR_FIELD,
+								 kSCSICmdFieldMask2Bit ), ErrorExit );
 	
-		ERROR_LOG ( ( "HEADER_CODES = %x not valid \n",
-						HEADER_CODES ) );
-		return false;
-		
-	}
-
-	// did we receive a valid USER_DATA?
-	if ( IsParameterValid ( USER_DATA,
-							kSCSICmdFieldMask1Bit ) == false )
-	{
-	
-		ERROR_LOG ( ( "USER_DATA = %x not valid \n", USER_DATA ) );
-		return false;
-		
-	}
-
-	// did we receive a valid EDC_ECC?
-	if ( IsParameterValid ( EDC_ECC, kSCSICmdFieldMask1Bit ) == false )
-	{
-
-		ERROR_LOG ( ( "EDC_ECC = %x not valid \n", EDC_ECC ) );
-		return false;
-
-	}
-
-	// did we receive a valid ERROR_FIELD?
-	if ( IsParameterValid ( ERROR_FIELD,
-							kSCSICmdFieldMask2Bit ) == false )
-	{
-
-		ERROR_LOG ( ( "ERROR_FIELD = %x not valid \n",
-						ERROR_FIELD ) );
-		return false;
-
-	}
-
 	// valid flag combination?
 	switch ( ( SYNC << 4 ) | ( HEADER_CODES << 2 ) | ( USER_DATA << 1 ) |  EDC_ECC )
 	{
@@ -4448,38 +3038,32 @@ SCSIMultimediaCommands::GetBlockSize (
 		{
 			
 			// illegal for mode 2, form 1 and mode 2, form 2 sectors
-			if ( EXPECTED_SECTOR_TYPE > 3 )
-			{
-				
-				ERROR_LOG ( ( "invalid flag combo for mode 2, form 1 and mode 2 form 2\n" ) );
-				return false;
 			
-			}
-			
+			require ( ( EXPECTED_SECTOR_TYPE < 4 ), ErrorExit );			
 			break;
 			
 		}
 		
 		default:
 		{
-			return false;
+			goto ErrorExit;
 		}
 		
 	}
-
+	
 	headerSize	= 4;
 	syncSize	= 12;
-
+	
 	switch ( EXPECTED_SECTOR_TYPE )
 	{
 		
-		case	0:		// all types
-		case	1:		// CD-DA
+		case 0:		// all types
+		case 1:		// CD-DA
 		{
 			break;
 		}
 		
-		case	2:		// mode 1
+		case 2:		// mode 1
 		{
 			userDataSize	= 2048;
 			edcEccSize		= 288;
@@ -4487,7 +3071,7 @@ SCSIMultimediaCommands::GetBlockSize (
 			break;
 		}
 		
-		case	3:		// mode 2, formless
+		case 3:		// mode 2, formless
 		{
 			userDataSize	= 2048 + 288;
 			edcEccSize		= 0;
@@ -4495,7 +3079,7 @@ SCSIMultimediaCommands::GetBlockSize (
 			break;
 		}
 		
-		case	4:		// mode 2, form 1
+		case 4:		// mode 2, form 1
 		{
 			userDataSize	= 2048;
 			edcEccSize		= 280;
@@ -4503,7 +3087,7 @@ SCSIMultimediaCommands::GetBlockSize (
 			break;
 		}
 		
-		case	5:		// mode 2, form 2
+		case 5:		// mode 2, form 2
 		{
 			userDataSize	= 2048 + 280;
 			edcEccSize		= 0;
@@ -4513,11 +3097,11 @@ SCSIMultimediaCommands::GetBlockSize (
 		
 		default:
 		{
-			return false;
+			goto ErrorExit;
 		}
 		
 	}
-
+	
 	if ( ( EXPECTED_SECTOR_TYPE == 0 ) || ( EXPECTED_SECTOR_TYPE == 1 ) )
 	{
 		
@@ -4581,35 +3165,42 @@ SCSIMultimediaCommands::GetBlockSize (
 		
 	}
 	
-	else if ( ERROR_FIELD != 0 )
+	require ( ( ERROR_FIELD == 0 ), ErrorExit );
+	
+	if ( SUBCHANNEL_SELECTION_BITS != 0 )
 	{
 		
-		ERROR_LOG ( ( "ERROR_FIELD is non-zero\n" ) );
-		return false;
+		*requestedByteCount += SUBCHANNEL_DATA_SIZE;
 		
 	}
 	
-	return true;
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
 
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		SCSIMultimediaCommands::ConvertMSFToLBA
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //
 //		The MSF to LBA conversion routine.
 //
-//----------------------------------------------------------------------
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSICmdField4Byte
 SCSIMultimediaCommands::ConvertMSFToLBA (
 								SCSICmdField3Byte 	MSF )
 {
 	
-	SCSICmdField4Byte	LBA;
+	SCSICmdField4Byte	LBA = 0;
 	
 	STATUS_LOG ( ( "SCSIMultimediaCommands::ConvertMSFToLBA called\n" ) );
 	
@@ -4619,22 +3210,40 @@ SCSIMultimediaCommands::ConvertMSFToLBA (
 	LBA *= FRAMES_IN_A_SECOND;		// convert seconds to frames
 	LBA += MSF & 0xFF;				// add frames
 	
-	// valid LBA?
-	if ( LBA < LBA_0_OFFSET )
-	{
-		
-		ERROR_LOG ( ( "LBA was less than LBA_0_OFFSET, setting LBA to 0.\n" ) );
-		LBA  = 0;
-		
-	}
+	require_action ( ( LBA >= LBA_0_OFFSET ), ErrorExit, LBA = 0 );
 	
-	else
-	{
-		
-		LBA -= LBA_0_OFFSET;		// subtract the offset of LBA 0
-		
-	}
+	LBA -= LBA_0_OFFSET;		// subtract the offset of LBA 0
+	
+	
+ErrorExit:
+	
 	
 	return LBA;
 	
+}
+
+
+#if 0
+#pragma mark -
+#pragma mark ¥ Static Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		SCSIMultimediaCommands::CreateSCSIMultimediaCommandObject
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//
+//		return instance of the command builder
+//
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIMultimediaCommands *
+SCSIMultimediaCommands::CreateSCSIMultimediaCommandObject ( void )
+{
+
+	return new SCSIMultimediaCommands;
+
 }

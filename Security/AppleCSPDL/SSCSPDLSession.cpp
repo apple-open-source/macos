@@ -30,8 +30,6 @@ using namespace SecurityServer;
 // SSCSPDLSession -- Security Server CSP session
 //
 SSCSPDLSession::SSCSPDLSession()
-// @@@ FIXME allocators needs to change.
-: mClientSession(CssmAllocator::standard(), CssmAllocator::standard())
 {
 }
 
@@ -51,12 +49,28 @@ SSCSPDLSession::makeReferenceKey(SSCSPSession &session, KeyHandle inKeyHandle,
 SSKey &
 SSCSPDLSession::lookupKey(const CssmKey &inKey)
 {
-	if (inKey.blobType() == CSSM_KEYBLOB_REFERENCE)
-		return find<SSKey>(inKey);
-	else if (inKey.blobType() == CSSM_KEYBLOB_RAW)
-	{
-		// @@@ How can we deal with this?
+	/* for now we only allow ref keys */
+	if(inKey.blobType() != CSSM_KEYBLOB_REFERENCE) {
+		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
 	}
-
-	CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
+	
+	/* fetch key (this is just mapping the value in inKey.KeyData to an SSKey) */
+	SSKey &theKey = find<SSKey>(inKey);
+	
+	#ifdef someday 
+	/* 
+	 * Make sure caller hasn't changed any crucial header fields.
+	 * Some fields were changed by makeReferenceKey, so make a local copy....
+	 */
+	CSSM_KEYHEADER localHdr = cssmKey.KeyHeader;
+	get binKey-like thing from SSKey, maybe SSKey should keep a copy of 
+	hdr...but that's' not supersecure....;
+	
+	localHdr.BlobType = binKey->mKeyHeader.BlobType;
+	localHdr.Format = binKey->mKeyHeader.Format;
+	if(memcmp(&localHdr, &binKey->mKeyHeader, sizeof(CSSM_KEYHEADER))) {
+		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
+	}
+	#endif
+	return theKey;
 }

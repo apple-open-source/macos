@@ -1,9 +1,9 @@
 ;;; texnfo-upd.el --- utilities for updating nodes and menus in Texinfo files
 
-;; Copyright (C) 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
+;; Copyright (C) 1989, 1990, 1991, 1992, 2001 Free Software Foundation, Inc.
 
 ;; Author: Robert J. Chassell
-;; Maintainer: bug-texinfo@prep.ai.mit.edu
+;; Maintainer: bug-texinfo@gnu.org
 ;; Keywords: maint, tex, docs
 
 ;; This file is part of GNU Emacs.
@@ -149,12 +149,8 @@
 
 ;;; Code:
 
-(or (fboundp 'defgroup)
-    (defmacro defgroup (&rest ignore) nil))
+(require 'texinfo)
 
-(or (fboundp 'defcustom)
-    (defmacro defcustom (var value doc &rest ignore)
-      `(defvar ,var ,value ,doc)))
 
 (defvar texinfo-master-menu-header
   " --- The Detailed Node Listing ---\n"
@@ -294,7 +290,10 @@ of the node if one is found; else do not move point."
 	       "\\(^@node\\).*\n"         ; match node line
 	       "\\(\\(\\(^@c\\).*\n\\)"   ; match comment line, if any
 	       "\\|"                      ; or
-	       "\\(^@ifinfo[ ]*\n\\)\\)?" ; ifinfo line, if any
+	       "\\(^@ifinfo[ ]*\n\\)"     ; ifinfo line, if any
+               "\\|"                      ; or
+               "\\(^@ifnottex[ ]*\n\\)"   ; ifnottex line, if any
+               "\\)?"                     ; end of expression
 	       (eval (cdr (assoc level texinfo-update-menu-lower-regexps))))
 	      ;; the next higher level node marks the end of this
 	      ;; section, and no lower level node will be found beyond
@@ -315,7 +314,7 @@ if the match is found there, the value is t and point does not move."
 
   (let ((case-fold-search t))
     (cond
-     ((or (string-equal "top" level) (string-equal "chapter" level))
+     ((< level 3)
       (if (re-search-forward "^@node [ \t]*top[ \t]*\\(,\\|$\\)" region-end t)
 	  (progn (beginning-of-line) t)))
      (t
@@ -324,7 +323,10 @@ if the match is found there, the value is t and point does not move."
 	    "\\(^@node\\).*\n"              ; match node line
 	    "\\(\\(\\(^@c\\).*\n\\)"        ; match comment line, if any
 	    "\\|"                           ; or
-	    "\\(^@ifinfo[ ]*\n\\)\\)?"      ; ifinfo line, if any
+	    "\\(^@ifinfo[ ]*\n\\)"          ; ifinfo line, if any
+            "\\|"                           ; or
+            "\\(^@ifnottex[ ]*\n\\)"        ; ifnottex line, if any
+            "\\)?"                          ; end of expression
 	    (eval (cdr (assoc level texinfo-update-menu-higher-regexps))))
 	   region-end t)
 	  (progn (beginning-of-line) t))))))
@@ -372,7 +374,10 @@ The function finds entries of the same type.  Thus `subsections' and
 	  "\\(^@node\\).*\n"              ; match node line
 	  "\\(\\(\\(^@c\\).*\n\\)"        ; match comment line, if any
 	  "\\|"                           ; or
-	  "\\(^@ifinfo[ ]*\n\\)\\)?"      ; ifinfo line, if any
+	  "\\(^@ifinfo[ ]*\n\\)"          ; ifinfo line, if any
+	  "\\|"                           ; or
+	  "\\(^@ifnottex[ ]*\n\\)"        ; ifnottex line, if any
+          "\\)?"                          ; end of expression
 	  (eval
 	   (cdr (assoc level texinfo-update-menu-same-level-regexps))))
 	 search-end
@@ -542,7 +547,7 @@ Signal an error if not end of menu."
   (save-excursion
     (if (re-search-forward "^@end menu" nil t)
 	(point)
-      (error "Menu does not have an end."))))
+      (error "Menu does not have an end"))))
 
 (defun texinfo-delete-old-menu (beginning first)
   "Delete the old menu.  Point must be in or after menu.
@@ -624,13 +629,13 @@ complements the node name rather than repeats it as a title does."
       (if (search-forward "* " (save-excursion (end-of-line) (point)) t)
 	  (progn (skip-chars-forward " \t")
 		 (setq beginning (point)))
-	(error "This is not a line in a menu!"))
+	(error "This is not a line in a menu"))
 
       (cond
 	;; "Double colon" entry line; menu entry and node name are the same,
        ((search-forward "::" (save-excursion (end-of-line) (point)) t)
 	(if (looking-at "[ \t]*[^ \t\n]+")
-	    (error "Descriptive text already exists."))
+	    (error "Descriptive text already exists"))
 	(skip-chars-backward ": \t")
 	(setq node-name (buffer-substring beginning (point))))
 
@@ -643,7 +648,7 @@ complements the node name rather than repeats it as a title does."
 			       (save-excursion (forward-line 1) (point)) t)
 	    (progn
 	      (if (looking-at "[ \t]*[^ \t\n]+")
-		  (error "Descriptive text already exists."))
+		  (error "Descriptive text already exists"))
 	      (skip-chars-backward "., \t")
 	      (setq node-name (buffer-substring beginning (point))))
 	  ;; Menu entry line ends in a return.
@@ -652,9 +657,9 @@ complements the node name rather than repeats it as a title does."
 	  (skip-chars-backward " \t\n")
 	  (setq node-name (buffer-substring beginning (point)))
 	  (if (= 0 (length node-name))
-	      (error "No node name on this line.")
+	      (error "No node name on this line")
 	    (insert "."))))
-       (t (error "No node name on this line.")))
+       (t (error "No node name on this line")))
       ;; Search for node that matches node name, and copy the section title.
       (if (re-search-forward
 	   (concat
@@ -665,6 +670,9 @@ complements the node name rather than repeats it as a title does."
 	    "\\(\\(^@c \\|^@comment\\).*\n\\)" ; match comment line, if any
 	    "\\|"                              ; or
 	    "\\(^@ifinfo[ ]*\n\\)"             ; ifinfo line, if any
+            "\\|"                              ; or
+            "\\(^@ifnottex[ ]*\n\\)"           ; ifnottex line, if any
+            "\\)?"                             ; end of expression
 	    "\\)?")
 	   nil t)
 	  (progn
@@ -678,7 +686,7 @@ complements the node name rather than repeats it as a title does."
 		   (progn (end-of-line)
 			  (skip-chars-backward " \t")
 			  (point)))))
-	(error "Cannot find node to match node name in menu entry.")))
+	(error "Cannot find node to match node name in menu entry")))
     ;; Return point to the menu and insert the title.
     (end-of-line)
     (delete-region
@@ -789,12 +797,12 @@ title of the section containing the menu."
 
     ;; Move point to location after `top'.
     (if (not (re-search-forward "^@node [ \t]*top[ \t]*\\(,\\|$\\)" nil t))
-	(error "This buffer needs a Top node!"))
+	(error "This buffer needs a Top node"))
 
     (let ((first-chapter
 	   (save-excursion
 	     (or (re-search-forward "^@node" nil t)
-		 (error "Too few nodes for a master menu!"))
+		 (error "Too few nodes for a master menu"))
 	     (point))))
       (if (search-forward texinfo-master-menu-header first-chapter t)
 	  (progn
@@ -884,12 +892,12 @@ However, there does not need to be a title field."
   ;; Insert a master menu only after `Top' node and before next node
   ;; \(or include file if there is no next node\).
   (if (not (re-search-forward "^@node [ \t]*top[ \t]*\\(,\\|$\\)" nil t))
-      (error "This buffer needs a Top node!"))
+      (error "This buffer needs a Top node"))
   (let ((first-chapter
 	 (save-excursion (re-search-forward "^@node\\|^@include") (point))))
     (if (not (re-search-forward "^@menu" first-chapter t))
 	(error
-	 "Buffer lacks ordinary `Top' menu in which to insert master.")))
+	 "Buffer lacks ordinary `Top' menu in which to insert master")))
   (beginning-of-line)
   (delete-region      ; buffer must have ordinary top menu
    (point)
@@ -994,7 +1002,7 @@ and leave point on the line before the `@end menu' line."
 		      (goto-char end-of-menu)
 		      ;; handle multi-line description
 		      (if (not (re-search-backward "^\\* " nil t))
-			  (error "No entries in menu."))
+			  (error "No entries in menu"))
 		      (point))))
     (while (< (point) last-entry)
       (if (re-search-forward  "^\\* " end-of-menu t)
@@ -1039,15 +1047,15 @@ error if the node is not the top node and a section is not found."
 		(point))))
        (t
 	(error
-	 "texinfo-specific-section-type: Chapter or section not found."))))))
+	 "texinfo-specific-section-type: Chapter or section not found"))))))
 
 (defun texinfo-hierarchic-level ()
   "Return the general hierarchal level of the next node in a texinfo file.
 Thus, a subheading or appendixsubsec is of type subsection."
   (let ((case-fold-search t))
-    (cdr (assoc
+    (cadr (assoc
 	  (texinfo-specific-section-type)
-	  texinfo-section-to-generic-alist))))
+	  texinfo-section-list))))
 
 
 ;;; Locating the major positions
@@ -1062,8 +1070,7 @@ Only argument is a string of the general type of section."
     ;; returns the beginning of the buffer as the beginning of the
     ;; higher level section.
     (cond
-     ((or (string-equal "top" level)
-	  (string-equal "chapter" level))
+     ((< level 3)
       (save-excursion
 	(goto-char (point-min))
 	(re-search-forward "^@node [ \t]*top[ \t]*\\(,\\|$\\)" nil t)
@@ -1076,7 +1083,10 @@ Only argument is a string of the general type of section."
 	  "\\(^@node\\).*\n"              ; match node line
 	  "\\(\\(\\(^@c\\).*\n\\)"        ; match comment line, if any
 	  "\\|"                           ; or
-	  "\\(^@ifinfo[ ]*\n\\)\\)?"      ; ifinfo line, if any
+	  "\\(^@ifinfo[ ]*\n\\)"          ; ifinfo line, if any
+	  "\\|"                           ; or
+	  "\\(^@ifnottex[ ]*\n\\)"        ; ifnottex line, if any
+          "\\)?"                          ; end of expression
 	  (eval
 	   (cdr (assoc level texinfo-update-menu-higher-regexps))))
 	 nil
@@ -1096,7 +1106,10 @@ string of the general type of section."
 	    "\\(^@node\\).*\n"            ; match node line
 	    "\\(\\(\\(^@c\\).*\n\\)"      ; match comment line, if any
 	    "\\|"                         ; or
-	    "\\(^@ifinfo[ ]*\n\\)\\)?"    ; ifinfo line, if any
+            "\\(^@ifinfo[ ]*\n\\)"        ; ifinfo line, if any
+            "\\|"                         ; or
+            "\\(^@ifnottex[ ]*\n\\)"      ; ifnottex line, if any
+            "\\)?"                        ; end of expression
 	    (eval
 	     ;; Never finds end of level above chapter so goes to end.
 	     (cdr (assoc level texinfo-update-menu-higher-regexps))))
@@ -1122,86 +1135,49 @@ end of that region; it limits the search."
     (point)))
 
 
-;;; Alists and regular expressions for defining hierarchical levels
-
-(defvar texinfo-section-to-generic-alist
-  '(("top" . "top")
-
-    ("chapter" . "chapter")
-    ("unnumbered" . "chapter")
-    ("majorheading" . "chapter")
-    ("chapheading" . "chapter")
-    ("appendix" . "chapter")
-
-    ("section" . "section")
-    ("unnumberedsec" . "section")
-    ("heading" . "section")
-    ("appendixsec" . "section")
-
-    ("subsection" . "subsection")
-    ("unnumberedsubsec" . "subsection")
-    ("subheading" . "subsection")
-    ("appendixsubsec" . "subsection")
-
-    ("subsubsection" . "subsubsection")
-    ("unnumberedsubsubsec" . "subsubsection")
-    ("subsubheading" . "subsubsection")
-    ("appendixsubsubsec" . "subsubsection"))
-  "*An alist of specific and corresponding generic Texinfo section types.
-The keys are strings specifying specific types of section; the values
-are strings of their corresponding general types.")
-
 ;; We used to look for just sub, but that found @subtitle.
 (defvar texinfo-section-types-regexp
   "^@\\(chapter \\|sect\\|subs\\|subh\\|unnum\\|major\\|chapheading \\|heading \\|appendix\\)"
   "Regexp matching chapter, section, other headings (but not the top node).")
 
-(defvar texinfo-chapter-level-regexp
-  "chapter\\|unnumbered \\|appendix \\|majorheading\\|chapheading"
-  "Regular expression matching just the Texinfo chapter level headings.")
-
 (defvar texinfo-section-level-regexp
-  "section\\|unnumberedsec\\|heading \\|appendixsec"
+  (regexp-opt (texinfo-filter 3 texinfo-section-list))
   "Regular expression matching just the Texinfo section level headings.")
 
 (defvar texinfo-subsection-level-regexp
-  "subsection\\|unnumberedsubsec\\|subheading\\|appendixsubsec"
+  (regexp-opt (texinfo-filter 4 texinfo-section-list))
   "Regular expression matching just the Texinfo subsection level headings.")
 
 (defvar texinfo-subsubsection-level-regexp
-  "subsubsection\\|unnumberedsubsubsec\\|subsubheading\\|appendixsubsubsec"
+  (regexp-opt (texinfo-filter 5 texinfo-section-list))
   "Regular expression matching just the Texinfo subsubsection level headings.")
 
 (defvar texinfo-update-menu-same-level-regexps
-  '(("top" . "top[ \t]+")
-    ("chapter" .
-     (concat "\\(^@\\)\\(" texinfo-chapter-level-regexp "\\)[ \t]*"))
-    ("section" .
-     (concat "\\(^@\\)\\(" texinfo-section-level-regexp "\\)[ \t]*"))
-    ("subsection" .
-     (concat "\\(^@\\)\\(" texinfo-subsection-level-regexp "\\)[ \t]+"))
-    ("subsubsection" .
-     (concat "\\(^@\\)\\(" texinfo-subsubsection-level-regexp "\\)[ \t]+")))
+  '((1 . "top[ \t]+")
+    (2 . (concat "\\(^@\\)\\(" texinfo-chapter-level-regexp "\\)\\>[ \t]*"))
+    (3 . (concat "\\(^@\\)\\(" texinfo-section-level-regexp "\\)\\>[ \t]*"))
+    (4 . (concat "\\(^@\\)\\(" texinfo-subsection-level-regexp "\\)\\>[ \t]+"))
+    (5 . (concat "\\(^@\\)\\(" texinfo-subsubsection-level-regexp "\\)\\>[ \t]+")))
   "*Regexps for searching for same level sections in a Texinfo file.
 The keys are strings specifying the general hierarchical level in the
 document; the values are regular expressions.")
 
 (defvar texinfo-update-menu-higher-regexps
-  '(("top" . "^@node [ \t]*DIR")
-    ("chapter" . "^@node [ \t]*top[ \t]*\\(,\\|$\\)")
-    ("section" .
+  '((1 . "^@node [ \t]*DIR")
+    (2 . "^@node [ \t]*top[ \t]*\\(,\\|$\\)")
+    (3 .
      (concat
       "\\(^@\\("
       texinfo-chapter-level-regexp
-      "\\)[ \t]*\\)"))
-    ("subsection" .
+      "\\)\\>[ \t]*\\)"))
+    (4 .
      (concat
       "\\(^@\\("
       texinfo-section-level-regexp
       "\\|"
       texinfo-chapter-level-regexp
-      "\\)[ \t]*\\)"))
-    ("subsubsection" .
+      "\\)\\>[ \t]*\\)"))
+    (5 .
      (concat
       "\\(^@\\("
       texinfo-subsection-level-regexp
@@ -1209,13 +1185,13 @@ document; the values are regular expressions.")
       texinfo-section-level-regexp
       "\\|"
       texinfo-chapter-level-regexp
-      "\\)[ \t]*\\)")))
+      "\\)\\>[ \t]*\\)")))
   "*Regexps for searching for higher level sections in a Texinfo file.
 The keys are strings specifying the general hierarchical level in the
 document; the values are regular expressions.")
 
 (defvar texinfo-update-menu-lower-regexps
-  '(("top" .
+  '((1 .
      (concat
       "\\(^@\\("
       texinfo-chapter-level-regexp
@@ -1225,8 +1201,8 @@ document; the values are regular expressions.")
       texinfo-subsection-level-regexp
       "\\|"
       texinfo-subsubsection-level-regexp
-      "\\)[ \t]*\\)"))
-    ("chapter" .
+      "\\)\\>[ \t]*\\)"))
+    (2 .
      (concat
       "\\(^@\\("
       texinfo-section-level-regexp
@@ -1234,20 +1210,21 @@ document; the values are regular expressions.")
       texinfo-subsection-level-regexp
       "\\|"
       texinfo-subsubsection-level-regexp
-      "\\)[ \t]*\\)"))
-    ("section" .
+      "\\)\\>[ \t]*\\)"))
+    (3 .
      (concat
       "\\(^@\\("
       texinfo-subsection-level-regexp
       "\\|"
       texinfo-subsubsection-level-regexp
-      "\\)[ \t]+\\)"))
-    ("subsection" .
+      "\\)\\>[ \t]+\\)"))
+    (4 .
      (concat
       "\\(^@\\("
       texinfo-subsubsection-level-regexp
-      "\\)[ \t]+\\)"))
-    ("subsubsection" . "nothing lower"))
+      "\\)\\>[ \t]+\\)"))
+    ;; There's nothing below 5, use a bogus regexp that can't match.
+    (5 . "a\\(^\\)"))
   "*Regexps for searching for lower level sections in a Texinfo file.
 The keys are strings specifying the general hierarchical level in the
 document; the values are regular expressions.")
@@ -1255,7 +1232,6 @@ document; the values are regular expressions.")
 
 ;;; Updating a node
 
-;;;###autoload
 (defun texinfo-update-node (&optional beginning end)
   "Without any prefix argument, update the node in which point is located.
 Interactively, a prefix argument means to operate on the region.
@@ -1299,13 +1275,12 @@ which menu descriptions are indented. Its default value is 32."
 	  (goto-char (point-max))
 	  (message "Done...nodes updated in region.  You may save the buffer."))))))
 
-;;;###autoload
 (defun texinfo-every-node-update ()
   "Update every node in a Texinfo file."
   (interactive)
   (save-excursion
     (texinfo-update-node (point-min) (point-max))
-    (message "Done...updated every node.       You may save the buffer.")))
+    (message "Done...updated every node.  You may save the buffer.")))
 
 (defun texinfo-update-the-node ()
   "Update one node.  Point must be at the beginning of node line.
@@ -1320,7 +1295,7 @@ Leave point at the end of the node line."
 	 (level (texinfo-hierarchic-level))
 	 (beginning (texinfo-update-menu-region-beginning level))
 	 (end (texinfo-update-menu-region-end level)))
-      (if (string-equal level "top")
+      (if (eq level 1)
 	  (texinfo-top-pointer-case)
 	;; else
 	(texinfo-insert-pointer beginning end level 'next)
@@ -1398,12 +1373,19 @@ will be at some level higher in the Texinfo file.  The fourth argument
 	   ;; Search for section commands accompanied by node lines;
 	   ;; ignore section commands in the middle of nodes.
 	   (if (re-search-forward
-		;; A `Top' node is never a next pointer, so won't find it.
+                ;; A `Top' node is never a next pointer, so won't find it.
 		(concat
 		 ;; Match node line.
 		 "\\(^@node\\).*\n"
-		 ;; Match comment or ifinfo line, if any
-		 "\\(\\(\\(^@c\\).*\n\\)\\|\\(^@ifinfo[ ]*\n\\)\\)?"
+		 ;; Match comment, ifinfo, ifnottex line, if any
+		 (concat
+                  "\\(\\("
+                  "\\(^@c\\).*\n\\)"
+                  "\\|"
+                  "\\(^@ifinfo[ ]*\n\\)"
+                  "\\|"
+                  "\\(^@ifnottex[ ]*\n\\)"
+                  "\\)?")
 		 (eval
 		  (cdr (assoc level texinfo-update-menu-same-level-regexps))))
 		end
@@ -1416,15 +1398,29 @@ will be at some level higher in the Texinfo file.  The fourth argument
 		 "\\("
 		 ;; Match node line.
 		 "\\(^@node\\).*\n"
-		 ;; Match comment or ifinfo line, if any
-		 "\\(\\(\\(^@c\\).*\n\\)\\|\\(^@ifinfo[ ]*\n\\)\\)?"
+		 ;; Match comment, ifinfo, ifnottex line, if any
+		 (concat
+                  "\\(\\("
+                  "\\(^@c\\).*\n\\)"
+                  "\\|"
+                  "\\(^@ifinfo[ ]*\n\\)"
+                  "\\|"
+                  "\\(^@ifnottex[ ]*\n\\)"
+                  "\\)?")
 		 (eval
 		  (cdr (assoc level texinfo-update-menu-same-level-regexps)))
 		 "\\|"
 		 ;; Match node line.
 		 "\\(^@node\\).*\n"
-		 ;; Match comment or ifinfo line, if any
-		 "\\(\\(\\(^@c\\).*\n\\)\\|\\(^@ifinfo[ ]*\n\\)\\)?"
+		 ;; Match comment, ifinfo, ifnottex line, if any
+		 (concat
+                  "\\(\\("
+                  "\\(^@c\\).*\n\\)"
+                  "\\|"
+                  "\\(^@ifinfo[ ]*\n\\)"
+                  "\\|"
+                  "\\(^@ifnottex[ ]*\n\\)"
+                  "\\)?")
 		 (eval
 		  (cdr (assoc level texinfo-update-menu-higher-regexps)))
 		 "\\|"
@@ -1441,8 +1437,15 @@ will be at some level higher in the Texinfo file.  The fourth argument
 		 "\\("
 		 ;; Match node line.
 		 "\\(^@node\\).*\n"
-		 ;; Match comment or ifinfo line, if any
-		 "\\(\\(\\(^@c\\).*\n\\)\\|\\(^@ifinfo[ ]*\n\\)\\)?"
+		 ;; Match comment, ifinfo, ifnottex line, if any
+		 (concat
+                  "\\(\\("
+                  "\\(^@c\\).*\n\\)"
+                  "\\|"
+                  "\\(^@ifinfo[ ]*\n\\)"
+                  "\\|"
+                  "\\(^@ifnottex[ ]*\n\\)"
+                  "\\)?")
 		 (eval (cdr (assoc level texinfo-update-menu-higher-regexps)))
 		 "\\|"
 		 ;; Handle `Top' node specially.
@@ -1508,7 +1511,6 @@ towards which the pointer is directed, one of `next', `previous', or `up'."
 ;; (The subsection to which `Next' points will most likely be the first
 ;; item on the section's menu.)
 
-;;;###autoload
 (defun texinfo-sequential-node-update (&optional region-p)
   "Update one node (or many) in a Texinfo file with sequential pointers.
 
@@ -1531,7 +1533,7 @@ Info `g*' command is inadequate."
       ;; update a single node
       (let ((auto-fill-function nil) (auto-fill-hook nil))
 	(if (not (re-search-backward "^@node" (point-min) t))
-	    (error "Node line not found before this position."))
+	    (error "Node line not found before this position"))
 	(texinfo-sequentially-update-the-node)
 	(message
 	 "Done...sequentially updated the node .  You may save the buffer."))
@@ -1541,7 +1543,7 @@ Info `g*' command is inadequate."
 	  (beginning (region-beginning))
 	  (end (region-end)))
       (if (= end beginning)
-	  (error "Please mark a region!"))
+	  (error "Please mark a region"))
       (save-restriction
 	(narrow-to-region beginning end)
 	(goto-char beginning)
@@ -1557,22 +1559,21 @@ Info `g*' command is inadequate."
 A `Next' or `Previous' pointer points to any preceding or following node,
 regardless of its hierarchical level."
 
-	(texinfo-check-for-node-name)
-	(texinfo-delete-existing-pointers)
-	(message
-	 "Sequentially updating node: %s ... " (texinfo-copy-node-name))
-	(save-restriction
-	  (widen)
-	  (let*
-	      ((case-fold-search t)
-	       (level (texinfo-hierarchic-level)))
-	    (if (string-equal level "top")
-		(texinfo-top-pointer-case)
-	      ;; else
-	      (texinfo-sequentially-insert-pointer level 'next)
-	      (texinfo-sequentially-insert-pointer level 'previous)
-	      (texinfo-sequentially-insert-pointer level 'up)
-	      (texinfo-clean-up-node-line)))))
+  (texinfo-check-for-node-name)
+  (texinfo-delete-existing-pointers)
+  (message
+   "Sequentially updating node: %s ... " (texinfo-copy-node-name))
+  (save-restriction
+    (widen)
+    (let* ((case-fold-search t)
+	   (level (texinfo-hierarchic-level)))
+      (if (eq level 1)
+	  (texinfo-top-pointer-case)
+	;; else
+	(texinfo-sequentially-insert-pointer level 'next)
+	(texinfo-sequentially-insert-pointer level 'previous)
+	(texinfo-sequentially-insert-pointer level 'up)
+	(texinfo-clean-up-node-line)))))
 
 (defun texinfo-sequentially-find-pointer (level direction)
   "Find next or previous pointer sequentially in Texinfo file, or up pointer.
@@ -1819,7 +1820,7 @@ Thus, normally, each included file contains one, and only one, chapter."
     (widen)
     (goto-char (point-min))
     (if (not (re-search-forward "^@node" nil t))
-	(error "No `@node' line found in %s !" (buffer-name)))
+	(error "No `@node' line found in %s" (buffer-name)))
     (beginning-of-line)
     (texinfo-check-for-node-name)
     (setq next-node-name (texinfo-copy-node-name))
@@ -1836,7 +1837,7 @@ Thus, normally, each included file contains one, and only one, chapter."
     (switch-to-buffer (find-file-noselect (car files)))
     (goto-char (point-min))
     (if (not (re-search-forward "^@node [ \t]*top[ \t]*\\(,\\|$\\)" nil t))
-	(error "This buffer needs a Top node!"))
+	(error "This buffer needs a Top node"))
     (beginning-of-line)
     (texinfo-delete-existing-pointers)
     (end-of-line)
@@ -1856,7 +1857,7 @@ Thus, normally, each included file contains one, and only one, chapter."
 	(widen)
 	(goto-char (point-min))
 	(if (not (re-search-forward "^@node" nil t))
-	    (error "No `@node' line found in %s !" (buffer-name)))
+	    (error "No `@node' line found in %s" (buffer-name)))
 	(beginning-of-line)
 	(texinfo-check-for-node-name)
 	(setq next-node-name (texinfo-copy-node-name))
@@ -1872,7 +1873,7 @@ Thus, normally, each included file contains one, and only one, chapter."
       (switch-to-buffer (find-file-noselect (car files)))
       (goto-char (point-min))
       (if (not (re-search-forward "^@node" nil t))
-	  (error "No `@node' line found in %s !" (buffer-name)))
+	  (error "No `@node' line found in %s" (buffer-name)))
       (beginning-of-line)
 
       ;; Update other menus and nodes if requested.

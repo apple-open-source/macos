@@ -12,7 +12,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclEnv.c,v 1.1.1.7 2000/12/06 23:03:25 wsanchez Exp $
+ * RCS: @(#) $Id: tclEnv.c,v 1.1.1.8.2.1 2002/06/11 02:02:49 gcollyer Exp $
  */
 
 #include "tclInt.h"
@@ -188,7 +188,7 @@ TclSetEnv(name, value)
     if (index == -1) {
 #ifndef USE_PUTENV
 	if ((length + 2) > environSize) {
-	    char **newEnviron;
+	    char **newEnviron, ***e;
 
 	    newEnviron = (char **) ckalloc((unsigned)
 		    ((length + 5) * sizeof(char *)));
@@ -199,6 +199,8 @@ TclSetEnv(name, value)
 	    }
 	    environ = newEnviron;
 	    environSize = length + 5;
+	    e = _NSGetEnviron();
+	    *e = environ;
 	}
 	index = length;
 	environ[index + 1] = NULL;
@@ -356,7 +358,7 @@ TclUnsetEnv(name)
     CONST char *name;		/* Name of variable to remove (UTF-8). */
 {
     char *oldValue;
-    unsigned int length;
+    int length;
     int index;
 #ifdef USE_PUTENV
     Tcl_DString envString;

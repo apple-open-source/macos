@@ -28,105 +28,92 @@
  *
  */
 
-#ifndef __IOFireWirePhysicalAddressSpace_H__
-#define __IOFireWirePhysicalAddressSpace_H__
+#import <IOKit/IOKitLib.h>
+#import "IOFireWireLibPriv.h"
 
-//#include <Carbon/Carbon.h>
-#include <IOKit/IOKitLib.h>
+namespace IOFireWireLib {
 
-#include "IOFireWireLibPriv.h"
-
-class IOFireWirePhysicalAddressSpaceImp: IOFireWireIUnknown
-{
- public:
- 	//
- 	// === COM =====================================
- 	//
- 
-	struct InterfaceMap
+	class PhysicalAddressSpace: IOFireWireIUnknown
 	{
-        IUnknownVTbl *						pseudoVTable;
-        IOFireWirePhysicalAddressSpaceImp*	obj;
-    };
-
-	// interfaces
-	static IOFireWirePhysicalAddressSpaceInterface	sInterface ;
-	InterfaceMap									mInterface ;
-
-	// QueryInterface
-	virtual HRESULT				QueryInterface(
-										REFIID 				iid, 
-										LPVOID*				ppv) ;
-	// static allocator
-	static IUnknownVTbl**		Alloc(
-									IOFireWireDeviceInterfaceImp&	inUserClient,
-									FWKernPhysicalAddrSpaceRef inKernPhysicalAddrSpaceRef,
-									UInt32 					inSize, 
-									void* 					inBackingStore, 
-									UInt32 					inFlags) ;
-
- 	// GetThis
- 	inline static IOFireWirePhysicalAddressSpaceImp* GetThis(IOFireWireLibPhysicalAddressSpaceRef interface)
-		{ return ((InterfaceMap *) interface)->obj; };
-
-	//
-	// === STATIC METHODS ==========================						
-	//
-	static void					SGetPhysicalSegments(
-										IOFireWireLibPhysicalAddressSpaceRef self,
-										UInt32*				ioSegmentCount,
-										IOByteCount			outSegments[],
-										IOPhysicalAddress	outAddresses[]) ;
-	static IOPhysicalAddress	SGetPhysicalSegment(
-										IOFireWireLibPhysicalAddressSpaceRef self,
-										IOByteCount 		offset,
-										IOByteCount*		length) ;
-	static IOPhysicalAddress	SGetPhysicalAddress(
-										IOFireWireLibPhysicalAddressSpaceRef self) ;
-
-	static void					SGetFWAddress(
-										IOFireWireLibPhysicalAddressSpaceRef self,
-										FWAddress*			outAddr ) ;
-	static void*				SGetBuffer(
-										IOFireWireLibPhysicalAddressSpaceRef self) ;
-	static const UInt32			SGetBufferSize(
-										IOFireWireLibPhysicalAddressSpaceRef self) ;
-
-	// --- constructor/destructor ------------------
-							IOFireWirePhysicalAddressSpaceImp(
-									IOFireWireDeviceInterfaceImp& inUserClient,
-									FWKernPhysicalAddrSpaceRef    inKernPhysicalAddrSpaceRef,
-									UInt32 					inSize, 
-									void* 					inBackingStore, 
-									UInt32 					inFlags) ;
-	virtual					~IOFireWirePhysicalAddressSpaceImp() ;
-	IOReturn				Init() ;
-
-	// --- accessors -------------------------------
-	virtual void				GetPhysicalSegments(
-										UInt32*				ioSegmentCount,
-										IOByteCount			outSegments[],
-										IOPhysicalAddress	outAddresses[]) ;
-	virtual IOPhysicalAddress	GetPhysicalSegment(
-										IOByteCount 		offset,
-										IOByteCount*		length) ;
-	virtual IOPhysicalAddress	GetPhysicalAddress() ;
-	virtual const FWAddress&	GetFWAddress() ;
-	virtual void*				GetBuffer() ;
-	virtual const UInt32		GetBufferSize() ;
-//	virtual UInt32				GetRefCon() ;
-
- protected:
-	// --- member data -----------------------------
-	IOFireWireDeviceInterfaceImp&	mUserClient ;
-	FWKernPhysicalAddrSpaceRef		mKernPhysicalAddrSpaceRef ;
-	UInt32							mSize ;
-	void*							mBackingStore ;
-	FWAddress						mFWAddress ;
+		typedef ::IOFireWirePhysicalAddressSpaceInterface	Interface ;
 	
-	IOPhysicalAddress*				mSegments ;
-	IOByteCount*					mSegmentLengths ;
-	UInt32							mSegmentCount ;
-} ;
-
-#endif //__IOFireWirePhysicalAddressSpace_H__
+		public:
+			//
+			// === COM =====================================
+			//
+		
+			struct InterfaceMap
+			{
+				IUnknownVTbl *						pseudoVTable;
+				PhysicalAddressSpace*	obj;
+			};
+		
+			// interfaces
+			static Interface	sInterface ;
+		
+			// QueryInterface
+			virtual HRESULT				QueryInterface(
+												REFIID 				iid, 
+												LPVOID*				ppv) ;
+			// static allocator
+			static IUnknownVTbl**		Alloc(
+											Device&	inUserClient,
+											FWKernPhysicalAddrSpaceRef inKernPhysicalAddrSpaceRef,
+											UInt32 					inSize, 
+											void* 					inBackingStore, 
+											UInt32 					inFlags) ;
+		
+			//
+			// === STATIC METHODS ==========================						
+			//
+			static void					SGetPhysicalSegments(
+												IOFireWireLibPhysicalAddressSpaceRef self,
+												UInt32*				ioSegmentCount,
+												IOByteCount			outSegments[],
+												IOPhysicalAddress	outAddresses[]) ;
+			static IOPhysicalAddress	SGetPhysicalSegment(
+												IOFireWireLibPhysicalAddressSpaceRef self,
+												IOByteCount 		offset,
+												IOByteCount*		length) ;
+			static IOPhysicalAddress	SGetPhysicalAddress(
+												IOFireWireLibPhysicalAddressSpaceRef self) ;
+		
+			static void					SGetFWAddress(
+												IOFireWireLibPhysicalAddressSpaceRef self,
+												FWAddress*			outAddr ) ;
+			static void*				SGetBuffer(
+												IOFireWireLibPhysicalAddressSpaceRef self) ;
+			static const UInt32			SGetBufferSize(
+												IOFireWireLibPhysicalAddressSpaceRef self) ;
+		
+			// --- constructor/destructor ------------------
+									PhysicalAddressSpace(
+											Device& inUserClient,
+											FWKernPhysicalAddrSpaceRef    inKernPhysicalAddrSpaceRef,
+											UInt32 					inSize, 
+											void* 					inBackingStore, 
+											UInt32 					inFlags) ;
+			virtual					~PhysicalAddressSpace() ;
+			IOReturn				Init() ;
+		
+			// --- accessors -------------------------------
+			virtual void				GetPhysicalSegments(
+												UInt32*				ioSegmentCount,
+												IOByteCount			outSegments[],
+												IOPhysicalAddress	outAddresses[]) ;
+			virtual IOPhysicalAddress	GetPhysicalSegment(
+												IOByteCount 		offset,
+												IOByteCount*		length) ;
+		protected:
+			// --- member data -----------------------------
+			Device&	mUserClient ;
+			FWKernPhysicalAddrSpaceRef		mKernPhysicalAddrSpaceRef ;
+			UInt32							mSize ;
+			void*							mBackingStore ;
+			FWAddress						mFWAddress ;
+			
+			IOPhysicalAddress*				mSegments ;
+			IOByteCount*					mSegmentLengths ;
+			UInt32							mSegmentCount ;
+	} ;
+}

@@ -186,7 +186,7 @@ be on a single line."
 (defcustom dirtrack-directory-change-hook nil
   "Hook that is called when a directory change is made."
   :group 'dirtrack
-  :type 'function
+  :type 'hook
   )
 
 
@@ -319,7 +319,7 @@ You can enable directory tracking by adding this function to
 		(if (file-accessible-directory-p prompt-path)
 		    ;; Change directory
 		    (and (shell-process-cd prompt-path)
-			 (run-hooks dirtrack-directory-change-hook)
+			 (run-hooks 'dirtrack-directory-change-hook)
 			 dirtrack-debug
 			 (dirtrack-debug-message 
 			  (format "Changing directory to %s" prompt-path)))

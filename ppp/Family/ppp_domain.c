@@ -40,6 +40,7 @@ Includes
 #include <sys/protosw.h>
 #include <sys/domain.h>
 #include <net/if_var.h>
+#include <net/if_var.h>
 
 #include "if_ppplink.h"		// public link API
 #include "ppp_domain.h"
@@ -284,7 +285,7 @@ int ppp_proto_input(void *data, struct mbuf *m)
 
     // if there is no pppd attached yet, or if buffer is full, free the packet
     if (!so || sbspace(&so->so_rcv) < m->m_pkthdr.len) {
-        m_free(m);
+        m_freem(m);
         log(LOGVAL, "ppp_proto_input no space, so = 0x%x, len = %d\n", so, m->m_pkthdr.len);
         return 0;
     }

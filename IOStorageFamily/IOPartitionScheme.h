@@ -54,11 +54,12 @@
 #define kIOMediaPartitionIDKey "Partition ID"
 #define kIOMediaPartitionID "Partition ID" ///d:deprecated
 
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/IOStorage.h>
@@ -160,10 +161,8 @@ protected:
 
 public:
 
-///m:2333367:workaround:commented:start
-//  using read;
-//  using write;
-///m:2333367:workaround:commented:stop
+    using IOStorage::read;
+    using IOStorage::write;
 
     /*
      * Initialize this object's minimal state.
@@ -227,6 +226,16 @@ public:
                        IOMemoryDescriptor * buffer,
                        IOStorageCompletion  completion);
 
+    /*!
+     * @function synchronizeCache
+     * @discussion
+     * Flush the cached data in the storage object, if any, synchronously.
+     * @param client
+     * Client requesting the cache synchronization.
+     * @result
+     * Returns the status of the cache synchronization.
+     */
+
     virtual IOReturn synchronizeCache(IOService * client);
 
     /*
@@ -271,6 +280,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOPartitionScheme, 31);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IOPARTITIONSCHEME_H */

@@ -52,6 +52,7 @@ __RCSID("$NetBSD: renice.c,v 1.5 1997/10/19 14:01:38 lukem Exp $");
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int	donice __P((int, int, int));
 int	main __P((int, char **));

@@ -1,5 +1,5 @@
-# Source window for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Source window for Insight.
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -19,28 +19,25 @@ body SrcWin::constructor {args} {
   debug "$args"
   eval itk_initialize $args
   set top [winfo toplevel $itk_interior]
-  
+
   _update_title ""
-  
+
   # On Windows, create a sizebox.
   if {$::tcl_platform(platform) == "windows"} {
     ide_sizebox $itk_interior.sizebox
   }
-  
+
   set Tracing [pref get gdb/mode]
   set current(filename) ""
-  
+
   if {[catch {_build_win} mssg]} {
     dbug E "_build_win returned: $::errorInfo"
   }
-  
+
   # add special delete handler
   wm protocol $top WM_DELETE_WINDOW "[code $this _exit]"
-  
+
   # add hooks
-  add_hook gdb_update_hook "$this update"
-  add_hook gdb_busy_hook "$this busy"
-  add_hook gdb_idle_hook "$this idle"
   add_hook gdb_no_inferior_hook "$this no_inferior"
   add_hook download_progress_hook "$this download_progress"
   add_hook state_hook [code $this _set_state]
@@ -48,6 +45,8 @@ body SrcWin::constructor {args} {
   after idle "
       update idletasks
       $this sizeWinByChild toolbar"
+
+  lappend window_list $this
 }
 
 # ------------------------------------------------------------------
@@ -55,13 +54,14 @@ body SrcWin::constructor {args} {
 # ------------------------------------------------------------------
 body SrcWin::destructor {} {
   debug
-  remove_hook gdb_update_hook "$this update"
-  remove_hook gdb_busy_hook "$this busy"
   remove_hook gdb_no_inferior_hook "$this no_inferior"
-  remove_hook gdb_idle_hook "$this idle"
   remove_hook download_progress_hook "$this download_progress"
   remove_hook state_hook [code $this _set_state]
   remove_hook gdb_clear_file_hook [code $this clear_file]
+  set window_list [lremove $window_list $this]
+  if {$pc_window == $this} then {
+    set pc_window ""
+  }
 }
 
 # ------------------------------------------------------------------
@@ -72,58 +72,85 @@ body SrcWin::_build_win {} {
 
   # build source toolbar
   set _toolbar [conAdd toolbar -resizable 0]
-  GDBSrcBar $_toolbar $this \
+  SrcBar $_toolbar $this \
     -updatecommand [list $this toggle_updates] \
     -updatevalue $do_updates
+  pack $_toolbar -expand 1 -fill both
 
-  # add a SrcTextWin container
-  set srcwin [conAdd src]
-  set twin [SrcTextWin $srcwin -Tracing $Tracing -parent $this]
-  pack $srcwin -expand 1 -fill both
+  # if user likes control on bottom...
+  if {! [pref get gdb/src/top_control]} {
 
-  # add status line
-  set _status [conAdd status -resizable 0]
-  label $_status -relief sunken -bd 3 -font global/status -height 1
-  pack $_status -expand 1 -fill both
+    # add a SrcTextWin container
+    set srcwin [conAdd src]
+    set twin [SrcTextWin $srcwin -Tracing $Tracing -parent $this]
+    pack $srcwin -expand 1 -fill both
+
+    # add status line
+    set _status [conAdd status -resizable 0]
+    label $_status -relief sunken -bd 3 -font global/status -height 1
+    pack $_status -expand 1 -fill both
+  }
   
   # add a status bar container
   set _statbar [conAdd stat -resizable 0]
   frame $_statbar
   pack $_statbar -expand 1 -fill both
 
-  combobox::combobox $_statbar.name -maxheight 15 -font src-font\
+  combobox::combobox $_statbar.name -maxheight 15 -font global/fixed\
     -command [code $this _name]
   
   set need_files 1
   
-  combobox::combobox $_statbar.func -maxheight 15 -font src-font\
+  combobox::combobox $_statbar.func -maxheight 15 -font global/fixed\
     -command [code $this goto_func]
   combobox::combobox $_statbar.mode -width 9 -editable false \
-    -font src-font -command [code $this mode]
+    -font global/fixed -command [code $this mode]
   
   $_statbar.mode list insert end SOURCE
   $_statbar.mode list insert end ASSEMBLY
   $_statbar.mode list insert end MIXED
   $_statbar.mode list insert end SRC+ASM
 
-
-  # Search/download progress frame
-  frame $_statbar.frame
-  entry $_statbar.frame.search -bd 3 -font src-font -width 10
-  bind_plain_key $_statbar.frame.search \
-    Return [code $this _search forwards]
-  bind_plain_key $_statbar.frame.search \
-    Shift-Return [code $this _search backwards]
-  canvas $_statbar.frame.progress -relief sunken -borderwidth 2 \
-    -highlightthickness 0 -takefocus 0 -width 100 -height 0 -confine 1
-  $_statbar.frame.progress create rectangle 0 0 0 \
-    [winfo height $_statbar.frame.progress] -outline blue -fill blue -tags rect
-
-  pack $_statbar.frame -side right -pady 4 -padx 10 -fill y -expand 1 -anchor e
   pack $_statbar.mode -side right -padx 10 -pady 4
   pack $_statbar.name $_statbar.func -side left -pady 4 -padx 10
 
-  pack $_statbar.frame.search -fill x -expand yes  
+  # if user likes control on top...
+  if {[pref get gdb/src/top_control]} {
+  
+    # add a SrcTextWin container
+    set srcwin [conAdd src]
+    set twin [SrcTextWin $srcwin -Tracing $Tracing -parent $this]
+    pack $srcwin -expand 1 -fill both
+
+    # add status line
+    set _status [conAdd status -resizable 0]
+    set _statusframe [frame $_status]
+    set _status $_statusframe.con
+    label $_status -relief sunken -bd 3 -font global/status -height 1
+
+    # add download progress meter
+    canvas $_statusframe.progress -relief sunken -borderwidth 2 \
+      -highlightthickness 0 -takefocus 0 -width 100 -height 0 -confine 1
+    $_statusframe.progress create rectangle 0 0 0 \
+      [winfo height $_statusframe.progress] -outline blue -fill blue -tags rect
+
+    # add address and line number indicators
+    label $_statusframe.addr -text "" -width 10 -relief sunken \
+      -bd 1 -anchor e -font global/fixed
+    label $_statusframe.line -text "" -width 6 -relief sunken \
+      -bd 1 -anchor e -font global/fixed
+
+    balloon register $_statusframe.addr "Address"
+    balloon register $_statusframe.line "Line number"
+
+    pack $_statusframe -expand 1 -fill both
+    grid $_status -row 0 -column 1 -sticky news -pady 2 -padx 2
+    grid $_statusframe.addr -row 0 -column 3 -sticky nes -pady 4
+    grid $_statusframe.line -row 0 -column 4 -sticky nws -pady 4
+    grid columnconfigure $_statusframe 1 -weight 10
+    grid columnconfigure $_statusframe 2 -minsize 5
+    grid columnconfigure $_statusframe 5 -minsize 5
+  }
 
   set_execution_status
 
@@ -133,7 +160,6 @@ body SrcWin::_build_win {} {
     balloon register $_statbar.func.$i "Current function name"
     balloon register $_statbar.mode.$i "Source mode"
   }
-  balloon register $_statbar.frame.search "Search for text"
   balloon variable $_status ${twin}_balloon
 
   $_statbar.mode entryset [$twin mode_get]
@@ -142,7 +168,11 @@ body SrcWin::_build_win {} {
   # If this is a new widget and the program is
   # not yet being debugged, load the file with "main" in it.
   if {$gdb_running} {
-    update
+    if {[catch {gdb_loc} loc]} {
+      # Nothing we can do but leave the window empty.
+    } else {
+      _update $loc
+    }
   } else {
     if {[set linespec [gdbtk_locate_main]] != ""} {
       location BROWSE_TAG $linespec
@@ -183,8 +213,8 @@ body SrcWin::download_progress { section num tot {msg ""} } {
 
   #debug "$section $num $tot $msg"
   if {$last_section_start == 0} {
-    pack forget $_statbar.frame.search
-    pack $_statbar.frame.progress -fill both -expand yes
+    grid forget $_statusframe.addr $_statusframe.line
+    grid $_statusframe.progress -row 0 -column 4 -padx 4 -sticky news
     ::update idletasks
   }
 
@@ -209,7 +239,7 @@ body SrcWin::download_progress { section num tot {msg ""} } {
     set_status "Downloading section $section - $num bytes"
   }
 
-  set canvas $_statbar.frame.progress
+  set canvas $_statusframe.progress
   set height [winfo height $canvas]
   if {$last_done} {
     set width [winfo width $canvas]
@@ -221,7 +251,7 @@ body SrcWin::download_progress { section num tot {msg ""} } {
   if {$last_done == $tot || $section == "CANCEL"} {
     $_toolbar configure -runstop normal
     if {!$gdb_loaded} {
-      update
+      ::update
       # errored or canceled
       if {$msg != ""} {
 	set_status "DOWNLOAD FAILED: $msg"
@@ -236,8 +266,9 @@ body SrcWin::download_progress { section num tot {msg ""} } {
     set last_done 0
     set last_section_start 0
 
-    pack forget $_statbar.frame.progress
-    pack $_statbar.frame.search -fill x -expand yes
+    grid forget $_statusframe.progress
+    grid $_statusframe.addr -row 0 -column 3 -sticky new -pady 4
+    grid $_statusframe.line -row 0 -column 4 -sticky nws -pady 4
     ::update idletasks
   }
 }
@@ -264,7 +295,11 @@ body SrcWin::_name {w {val ""}} {
   if {$val != ""} {
     if {![info exists _files(short,$val)]} {
       if {![info exists _files(full,$val)]} {
-	set full [gdb_find_file $val]
+	if [catch {gdb_find_file $val} full] {
+	  set_status "Cannot find source file \"$val\": $full"
+	  $_statbar.name entryset [lindex [file split $current(filename)] end]
+	  return
+	}
 	if {$full == ""} {
 	  set_status "Cannot find source file \"$val\""
 	  $_statbar.name entryset [lindex [file split $current(filename)] end]
@@ -287,13 +322,6 @@ body SrcWin::_name {w {val ""}} {
 #  PRIVATE PUBLIC METHOD:  toggle_updates - update toggle callback
 # ------------------------------------------------------------------
 body SrcWin::toggle_updates {value} {
-  if {$value} {
-    add_hook gdb_update_hook "$this update"
-    add_hook gdb_busy_hook "$this busy"
-  } else {
-    remove_hook gdb_update_hook "$this update"
-    remove_hook gdb_busy_hook "$this busy"
-  }
   # save state in do_updates so it will be preserved
   # in window reconfigs
   set do_updates $value
@@ -336,8 +364,9 @@ body SrcWin::goto_func {w {val ""}} {
 body SrcWin::fillNameCB {} {
   global _files
   set allfiles [gdb_listfiles]
-  debug "gdb_listfiles returned $allfiles"
   foreach f $allfiles {
+    # FIXME: If you reactivate this code add a catch as gdb_find_file can err
+    # (P.S.: I don't know why this is commented out)
     #set fullname [gdb_find_file $f]
     #set _files(full,$f) $fullname
     #set _files(short,$fullname) $f
@@ -364,7 +393,7 @@ body SrcWin::fillFuncCB {name} {
       _set_name ""
       return
     }
-    foreach f $listfuncs {
+    foreach f [lsort -increasing $listfuncs] {
       lassign $f func mang
       set _mangled_func($func) $mang
       $_statbar.func list insert end $func
@@ -436,7 +465,15 @@ body SrcWin::location {tag linespec} {
   }
 
   # set address and line widgets
-  $_toolbar configure -address $addr -line $line
+  if {[string length $addr] > 10} {
+    # 64-bit address plus "0x"
+    set width 18
+  } else {
+    # 32-bit address plus "0x"
+    set width 10
+  }
+  $_statusframe.addr configure -text $addr -font global/fixed -width $width
+  $_statusframe.line configure -text $line
 
   # set function combobox
   $_statbar.func entryset $funcname
@@ -463,26 +500,22 @@ body SrcWin::stack {cmd} {
 }
 
 # ------------------------------------------------------------------
-#  PUBLIC METHOD:  update - update widget when PC changes
+#  METHOD:  _update - update widget when PC changes
 # ------------------------------------------------------------------
-body SrcWin::update {} {
-  if {[catch {gdb_loc} loc]} {
-    set_execution_status
-  } else {
-    debug "loc=$loc"
-    # See if name combobox needs filled.
-    if {$need_files} {
-      fillNameCB
-    }
-    location "" $loc
+body SrcWin::_update {loc} {
+  debug "loc=$loc"
+  # See if name combobox needs filled.
+  if {$need_files} {
+    fillNameCB
   }
+  location "" $loc
 }
 
 # ------------------------------------------------------------------
 #  PUBLIC METHOD:  idle - callback for gdbtk_idle
 #  Called when the target is idle, so enable all buttons.
 # ------------------------------------------------------------------
-body SrcWin::idle {} {
+body SrcWin::idle {event} {
   $_toolbar configure -runstop normal
   enable_ui 1
 }
@@ -514,19 +547,37 @@ body SrcWin::_update_title {name} {
 # ------------------------------------------------------------------
 #  PUBLIC METHOD:  busy - disable things when gdb is busy
 # ------------------------------------------------------------------
-body SrcWin::busy {} {
+body SrcWin::busy {event} {
   global gdb_loaded gdb_target_name
 #  debug "gdb_loaded=$gdb_loaded, gdb_target_name=$gdb_target_name"
 
-  enable_ui 0
-  if {$Running} {
-    $_toolbar configure -runstop running
-    if {$gdb_loaded || \
-	  ([TargetSelection::native_debugging] && $gdb_target_name != "remote")} {
-      set_status "Program is running."
-    } 
-  } else {
-    $_toolbar configure -runstop busy
+  if {$do_updates} {
+    enable_ui 0
+    if {$Running} {
+      $_toolbar configure -runstop running
+      if {$gdb_loaded || \
+	    ([TargetSelection::native_debugging] && $gdb_target_name != "remote")} {
+	set_status "Program is running."
+      } 
+    } else {
+      $_toolbar configure -runstop busy
+    }
+  }
+}
+
+# ------------------------------------------------------------------
+#   PUBLIC METHOD:  update - The inferior's state has changed.
+# ------------------------------------------------------------------
+body SrcWin::update {event} {
+
+  # FIXME: This is kinda lame. We need to run this only once
+  # as it is now written, so only the first window in the list
+  # will actually call choose_and_update.
+  # This is still better than before, since it will not
+  # matter if this window is destroyed: as long as _a_
+  # SrcWin exists, this will get called.
+  if {[lindex $window_list 0] == $this} {
+    choose_and_update
   }
 }
 
@@ -648,26 +699,20 @@ body SrcWin::set_execution_status { {line ""} {pc ""}} {
 #  PUBLIC METHOD:  edit - invoke external editor
 # ------------------------------------------------------------------
 body SrcWin::edit {} {
-  global enable_external_editor external_editor_command
+  global external_editor_command
   # If external editor is enabled, pass the file to the specified command
-    
+
   if {$current(filename) == ""} {
     tk_dialog .warn {Edit} {No file is loaded in the source window.} error 0 Ok
     return
   }
-  
+
   if {[catch {$twin report_source_location} loc_info]} {
     tk_dialog .warn "Edit" "No source file selected" error 0 Ok
     return
   }
-  
-  
-  if {[info exists enable_external_editor] && $enable_external_editor} {
-    if {[catch {eval $external_editor_command edit $loc_info} err]} {
-      tk_dialog .warn-sn "Edit" $err error 0 Ok
-    }
-    return
-  }  
+
+  Editor::edit $loc_info
 }
 
 # ------------------------------------------------------------------
@@ -746,14 +791,12 @@ body SrcWin::reset {} {
 }
 
 # ------------------------------------------------------------------
-#  PRIVATE METHOD:  _search - search for text or jump to a specific line
+#  PUBLIC METHOD:  search - search for a STRING or jump to a specific line
 #           in source window, going in the specified DIRECTION.
 # ------------------------------------------------------------------
-body SrcWin::_search {direction} {
-  set exp [$_statbar.frame.search get]
-  #debug "searching $direction for \"$exp\""
+body SrcWin::search {direction string} {
   set_status
-  set_status [$twin search $exp $direction] 1
+  set_status [$twin search $string $direction] 1
 }
 
 # ------------------------------------------------------------------
@@ -859,7 +902,7 @@ body SrcWin::clear_file {} {
 
   # Reset to Source mode
   if {[$twin mode_get] != "SOURCE"} {
-    mode {} SOURCE
+    mode {} SOURCE 0
   }
 
   no_inferior
@@ -867,4 +910,122 @@ body SrcWin::clear_file {} {
 
   # run srctextwin clear_file
   $twin clear_file
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  get_file
+#  Return name of displayed file, or empty string if no file.
+# ------------------------------------------------------------------
+body SrcWin::get_file {} {
+  if {$twin == ""} {
+    return ""
+  } else {
+    return [$twin get_file]
+  }
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  is_fixed
+#  Return boolean indicating whether this window is fixed.
+# ------------------------------------------------------------------
+body SrcWin::is_fixed {} {
+  return 0
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  get_top
+#  Return toplevel
+# ------------------------------------------------------------------
+body SrcWin::get_top {} {
+  return $top
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  _set_tag_to_stack
+#  Set tag to `stack' and update the underlying window.
+# ------------------------------------------------------------------
+body SrcWin::_set_tag_to_stack {} {
+  set tag STACK_TAG
+  if {$twin != ""} then {
+    $twin set_tag_to_stack
+  }
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  _choose_window
+#  Choose the right source window.
+# ------------------------------------------------------------------
+body SrcWin::_choose_window {file} {
+  # Find the next available source window.  The rules are:
+  # 1. LRU overall
+  # 2. Skip iconified windows
+  # 3. If a window already shows the file, use it.  Prefer the
+  #    window currently showing the PC
+  # 4. If the window is fixed, skip it
+  if {$pc_window != ""} then {
+    if {[$pc_window get_file] == $file} then {
+      return $pc_window
+    }
+  }
+
+  set choice ""
+  foreach win $window_list {
+    if {[wm state [$win get_top]] != "normal"} then {
+      continue
+    }
+
+    if {[$win get_file] == ""
+	|| [$win get_file] == $file
+	|| ! [$win is_fixed]} then {
+      set choice $win
+      break
+    }
+  }
+
+  # If we didn't find an available window, then pick the current PC
+  # window.
+  if {$choice == ""} then {
+    set choice $pc_window
+  }
+
+  set window_list [lremove $window_list $choice]
+  lappend window_list $choice
+
+  return $choice
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  choose_and_update
+#  Choose the right source window and then cause it to be updated
+# ------------------------------------------------------------------
+body SrcWin::choose_and_update {} {
+  if {$pc_window == ""} then {
+    set pc_window [lindex $window_list 0]
+  }
+
+  if {$pc_window == ""} then {
+    # Nothing.
+  } elseif {[catch {gdb_loc} loc]} {
+    $pc_window set_execution_status
+  } else {
+    set prev $pc_window
+    set file [lindex $loc 2]
+    set pc_window [_choose_window $file]
+    debug "chose window $pc_window"
+    $pc_window _update $loc
+    if {$pc_window != $prev} then {
+      $pc_window reveal
+      $prev _set_tag_to_stack
+    }
+  }
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  choose_and_display
+#  Choose the right source window for a given file
+# ------------------------------------------------------------------
+body SrcWin::choose_and_display {tag linespec} {
+  set file [lindex $linespec 2]
+  set window [_choose_window $file]
+  $window location $tag $linespec
 }

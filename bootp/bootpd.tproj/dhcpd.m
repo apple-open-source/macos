@@ -29,39 +29,40 @@
  * June 17, 1998 	Dieter Siegmund (dieter@apple.com)
  * - initial revision
  */
-#import <unistd.h>
-#import <stdlib.h>
-#import <sys/stat.h>
-#import <sys/socket.h>
-#import <sys/ioctl.h>
-#import <sys/file.h>
-#import <sys/time.h>
-#import <errno.h>
-#import <net/if.h>
-#import <netinet/in.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/udp.h>
-#import <netinet/bootp.h>
-#import <netinet/if_ether.h>
-#import <syslog.h>
-#import <arpa/inet.h>
-#import <net/if_arp.h>
-#import <mach/boolean.h>
-#import "netinfo.h"
-#import "dhcp.h"
-#import "rfc_options.h"
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/file.h>
+#include <sys/time.h>
+#include <errno.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <netinet/bootp.h>
+#include <netinet/if_ether.h>
+#include <syslog.h>
+#include <arpa/inet.h>
+#include <net/if_arp.h>
+#include <mach/boolean.h>
+#include "netinfo.h"
+#include "dhcp.h"
+#include "rfc_options.h"
+#include "dhcp_options.h"
+#include "host_identifier.h"
+#include "hostlist.h"
+#include "interfaces.h"
+#include "dhcpd.h"
+#include "NIDomain.h"
+#include "NICache.h"
+#include "NICachePrivate.h"
+#include "dhcplib.h"
+#include "bootpd.h"
+
 #import "subnetDescr.h"
-#import "dhcp_options.h"
-#import "host_identifier.h"
-#import "hostlist.h"
-#import "interfaces.h"
-#import "bootpd.h"
-#import "dhcpd.h"
-#import "NIDomain.h"
-#import "NICache.h"
-#import "NICachePrivate.h"
-#import "dhcplib.h"
 
 #define MAX_RETRY	5
 
@@ -133,9 +134,8 @@ DHCPLeases_reclaim(DHCPLeases_t * leases, interface_t * if_p,
 	if (time_in_p->tv_sec > expiry
 	    && ip_address_reachable(iaddr, giaddr, if_p)) {
 	    if (S_remove_host(&scan)) {
-		if (verbose)
-		    syslog(LOG_INFO, "dhcp: reclaimed address %s",
-			   inet_ntoa(iaddr));
+		my_log(LOG_DEBUG, "dhcp: reclaimed address %s",
+		       inet_ntoa(iaddr));
 		*client_ip = iaddr;
 		return (TRUE);
 	    }
@@ -143,6 +143,27 @@ DHCPLeases_reclaim(DHCPLeases_t * leases, interface_t * if_p,
 	}
     }
     return (FALSE);
+}
+
+
+int
+dhcp_max_message_size(dhcpol_t * options) 
+{
+    u_char * 	opt;
+    int 	opt_len;
+    int		val = DHCP_PACKET_MIN;
+
+    opt = dhcpol_find(options, dhcptag_max_dhcp_message_size_e,
+		      &opt_len, NULL);
+    if (opt != NULL && opt_len == 2) {
+	u_int16_t 	sval;
+
+	sval = ntohs(*((u_int16_t *)opt));
+	if (sval > val && sval <= 1500) {
+	    val = sval;
+	}
+    }
+    return (val);
 }
 
 void
@@ -159,7 +180,7 @@ dhcp_init()
     else {
 	DHCPLeases_t new_leases;
 
-	syslog(LOG_INFO, "dhcp: re-reading lease list");
+	my_log(LOG_INFO, "dhcp: re-reading lease list");
 	if (DHCPLeases_init(&new_leases) == TRUE) {
 	    DHCPLeases_free(&S_leases);
 	    S_leases = new_leases;
@@ -221,7 +242,7 @@ S_lease_time_expiry(ni_proplist * pl_p)
     if (str) {
 	expiry = strtol(str, NULL, NULL);
 	if (expiry == LONG_MAX && errno == ERANGE) {
-	    syslog(LOG_INFO, "S_lease_time_expiry: lease '%s' bad", str);
+	    my_log(LOG_INFO, "S_lease_time_expiry: lease '%s' bad", str);
 	    return (0);
 	}
     }
@@ -267,10 +288,10 @@ make_dhcp_reply(struct dhcp * reply, int pkt_size,
     reply->dp_op = BOOTREPLY;
     bcopy(rfc_magic, reply->dp_options, sizeof(rfc_magic));
     dhcpoa_init(options, reply->dp_options + sizeof(rfc_magic),
-		DHCP_MIN_OPTIONS_SIZE - sizeof(rfc_magic));
+		pkt_size - sizeof(struct dhcp) - sizeof(rfc_magic));
     /* make the reply a dhcp message */
     if (dhcpoa_add_dhcpmsg(options, msg) != dhcpoa_success_e) {
-	syslog(LOG_INFO, 
+	my_log(LOG_INFO, 
 	       "make_dhcp_reply: couldn't add dhcp message tag %d: %s", msg,
 	       dhcpoa_err(options));
 	goto err;
@@ -278,7 +299,7 @@ make_dhcp_reply(struct dhcp * reply, int pkt_size,
     /* add our server identifier */
     if (dhcpoa_add(options, dhcptag_server_identifier_e,
 		   sizeof(server_id), &server_id) != dhcpoa_success_e) {
-	syslog(LOG_INFO, 
+	my_log(LOG_INFO, 
 	       "make_dhcp_reply: couldn't add server identifier tag: %s",
 	       dhcpoa_err(options));
 	goto err;
@@ -310,13 +331,13 @@ make_dhcp_nak(struct dhcp * reply, int pkt_size,
     if (nak_msg) {
 	if (dhcpoa_add(options, dhcptag_message_e, strlen(nak_msg),
 		       nak_msg) != dhcpoa_success_e) {
-	    syslog(LOG_INFO, "dhcpd: couldn't add NAK message type: %s",
+	    my_log(LOG_INFO, "dhcpd: couldn't add NAK message type: %s",
 		   dhcpoa_err(options));
 	    goto err;
 	}
     }
     if (dhcpoa_add(options, dhcptag_end_e, 0, 0) != dhcpoa_success_e) {
-	syslog(LOG_INFO, "dhcpd: couldn't add end tag: %s",
+	my_log(LOG_INFO, "dhcpd: couldn't add end tag: %s",
 	       dhcpoa_err(options));
 	goto err;
     }
@@ -347,9 +368,8 @@ S_ipinuse(void * arg, struct in_addr ip)
 	u_long pending_secs = time_in_p->tv_sec - hp->tv.tv_sec;
 
 	if (pending_secs < DEFAULT_PENDING_SECS) {
-	    if (verbose)
-		syslog(LOG_INFO, "dhcpd: %s will remain pending %d secs",
-		       inet_ntoa(ip), DEFAULT_PENDING_SECS - pending_secs);
+	    my_log(LOG_DEBUG, "dhcpd: %s will remain pending %d secs",
+		   inet_ntoa(ip), DEFAULT_PENDING_SECS - pending_secs);
 	    return (TRUE);
 	}
 	hostfree(&S_pending_hosts, hp); /* remove it from the list */
@@ -438,6 +458,36 @@ typedef enum {
     dhcp_binding_temporary_e,
 } dhcp_binding_t;
 
+static id
+acquire_ip(struct in_addr giaddr, interface_t * if_p,
+	   struct timeval * time_in_p, struct in_addr * iaddr_p)
+{
+    id subnet = nil;
+
+    if (giaddr.s_addr) {
+	*iaddr_p = giaddr;
+	subnet = [subnets acquireIpSupernet:iaddr_p
+			  ClientType:DHCP_CLIENT_TYPE Func:S_ipinuse 
+			  Arg:time_in_p];
+    }
+    else {
+	int 			i;
+	inet_addrinfo_t *	info;
+
+	for (i = 0; i < if_inet_count(if_p); i++) {
+	    info = if_inet_addr_at(if_p, i);
+	    *iaddr_p = info->netaddr;
+	    subnet = [subnets acquireIpSupernet:iaddr_p
+			      ClientType:DHCP_CLIENT_TYPE Func:S_ipinuse 
+			      Arg:time_in_p];
+	    if (subnet != nil) {
+		break;
+	    }
+	}
+    }
+    return (subnet);
+}
+
 boolean_t
 dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
 		    interface_t * if_p, struct timeval * time_in_p,
@@ -494,16 +544,7 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
 	entry = NULL;
     }
 
-    if (rq->dp_giaddr.s_addr) {
-	iaddr = rq->dp_giaddr;
-    }
-    else {
-	iaddr = if_inet_netaddr(if_p);
-    }
-
-    subnet = [subnets acquireIpSupernet:&iaddr 
-		      ClientType:DHCP_CLIENT_TYPE Func:S_ipinuse 
-		      Arg:time_in_p];
+    subnet = acquire_ip(rq->dp_giaddr, if_p, time_in_p, &iaddr);
     if (subnet == nil) {
 	if (DHCPLeases_reclaim(&S_leases, if_p, rq->dp_giaddr, 
 			       time_in_p, &iaddr)) {
@@ -531,9 +572,8 @@ dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
 }
 
 void
-dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
-	     interface_t * if_p, u_char * rxpkt, int n, dhcpol_t * rq_options, 
-	     struct in_addr * dstaddr_p, struct timeval * time_in_p)
+dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
+	     boolean_t dhcp_allocate)
 {
     dhcp_binding_t	binding = dhcp_binding_none_e;
     u_char *		bootfile = NULL;
@@ -552,6 +592,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
     dhcp_lease_t	lease = 0;
     dhcp_time_secs_t	lease_time_expiry = 0;
     int			len;
+    int			max_packet = dhcp_max_message_size(request->options_p);
     dhcp_lease_t	min_lease = min_lease_length;
     dhcp_lease_t	max_lease = max_lease_length;
     boolean_t		modified = FALSE;
@@ -559,7 +600,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
     boolean_t		orphan = FALSE;
     struct dhcp *	reply = NULL;
     dhcp_msgtype_t	reply_msgtype = dhcp_msgtype_none_e;
-    struct dhcp *	rq = (struct dhcp *)rxpkt;
+    struct dhcp *	rq = request->pkt;
     id 			subnet = nil;
     dhcp_lease_t *	suggested_lease = NULL;
     dhcp_cstate_t	state = dhcp_cstate_none_e;
@@ -568,7 +609,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
     iaddr.s_addr = 0;
 
     /* check for a client identifier */
-    cid = dhcpol_find(rq_options, dhcptag_client_identifier_e, 
+    cid = dhcpol_find(request->options_p, dhcptag_client_identifier_e, 
 		      &cid_len, NULL);
     if (cid && cid_len > 1) {
 	/* use the client identifier as provided */
@@ -589,34 +630,32 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	hwstr = idstr;
     }
 
-    hostname_opt = dhcpol_find(rq_options, dhcptag_host_name_e,
+    hostname_opt = dhcpol_find(request->options_p, dhcptag_host_name_e,
 			       &hostname_opt_len, NULL);
-    if (!quiet) {
-	if (hostname_opt && hostname_opt_len) {
-	    syslog(LOG_INFO, "DHCP %s [%s]: %s <%.*s>", 
-		   dhcp_msgtype_names(msgtype), if_name(if_p), idstr,
-		   hostname_opt_len, hostname_opt);
-	}
-	else {
-	    syslog(LOG_INFO, "DHCP %s [%s]: %s", 
-		   dhcp_msgtype_names(msgtype), if_name(if_p), idstr);
-	}
+    if (hostname_opt && hostname_opt_len) {
+	my_log(LOG_INFO, "DHCP %s [%s]: %s <%.*s>", 
+	       dhcp_msgtype_names(msgtype), if_name(request->if_p), idstr,
+	       hostname_opt_len, hostname_opt);
+    }
+    else {
+	my_log(LOG_INFO, "DHCP %s [%s]: %s", 
+	       dhcp_msgtype_names(msgtype), if_name(request->if_p), idstr);
     }
 
     suggested_lease = 
-	(dhcp_lease_t *)dhcpol_find(rq_options, dhcptag_lease_time_e,
+	(dhcp_lease_t *)dhcpol_find(request->options_p, dhcptag_lease_time_e,
 				    &len, NULL);
     if (cid_type != 0) { 
 	subnet_match_args_t	match;
 
 	bzero(&match, sizeof(match));
-	match.if_p = if_p;
+	match.if_p = request->if_p;
 	match.giaddr = rq->dp_giaddr;
 	match.ciaddr = rq->dp_ciaddr;
 	match.has_binding = FALSE;
 
 	/* identifier is a h/w address - check for a permanent binding */
-	entry = NICache_lookup_hw(&cache, time_in_p, 
+	entry = NICache_lookup_hw(&cache, request->time_in_p, 
 				  cid_type, cid, cid_len,
 				  subnet_match, &match,
 				  &domain, &iaddr);
@@ -634,7 +673,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	subnet_match_args_t	match;
 
 	bzero(&match, sizeof(match));
-	match.if_p = if_p;
+	match.if_p = request->if_p;
 	match.giaddr = rq->dp_giaddr;
 	match.ciaddr = rq->dp_ciaddr;
 
@@ -649,7 +688,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	    subnet = [subnets entry:iaddr];
 	    if (subnet == nil) {
 		S_remove_host(&entry);
-		syslog(LOG_INFO, "dhcpd: removing %s binding for %s",
+		my_log(LOG_INFO, "dhcpd: removing %s binding for %s",
 		       idstr, inet_ntoa(iaddr));
 		orphan = TRUE;
 		entry = NULL;
@@ -686,13 +725,13 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 		else if (lease < min_lease)
 		    lease = min_lease;
 	    }
-	    else if ((time_in_p->tv_sec + min_lease) 
+	    else if ((request->time_in_p->tv_sec + min_lease) 
 		     >= lease_time_expiry) {
 		/* expired lease: give it the default lease */
 		lease = min_lease;
 	    }
 	    else { /* give the host the remaining time on the lease */
-		lease = lease_time_expiry - time_in_p->tv_sec;
+		lease = lease_time_expiry - request->time_in_p->tv_sec;
 	    }
 	}
     }
@@ -717,17 +756,12 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	  }
 	  else { /* find an ip address */
 	      /* allocate a new ip address */
-	      if (rq->dp_giaddr.s_addr)
-		  iaddr = rq->dp_giaddr;
-	      else
-		  iaddr = if_inet_netaddr(if_p);
-
-	      subnet = [subnets acquireIpSupernet:&iaddr 
-				ClientType:DHCP_CLIENT_TYPE Func:S_ipinuse 
-				Arg:time_in_p];
+	      subnet = acquire_ip(rq->dp_giaddr, 
+				  request->if_p, request->time_in_p, &iaddr);
 	      if (subnet == nil) {
-		  if (DHCPLeases_reclaim(&S_leases, if_p, rq->dp_giaddr, 
-					 time_in_p, &iaddr)) {
+		  if (DHCPLeases_reclaim(&S_leases, request->if_p, 
+					 rq->dp_giaddr, 
+					 request->time_in_p, &iaddr)) {
 		      subnet = [subnets entry:iaddr];
 		  }
 		  if (subnet == nil) {
@@ -753,7 +787,8 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	  { /* keep track of this offer in the pending hosts list */
 	      struct hosts *	hp;
 
-	      hp = hostadd(&S_pending_hosts, time_in_p, cid_type, cid, cid_len,
+	      hp = hostadd(&S_pending_hosts, request->time_in_p, 
+			   cid_type, cid, cid_len,
 			   &iaddr, hostname, NULL);
 	      if (hp == NULL)
 		  goto no_reply;
@@ -769,8 +804,8 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	      lease = dhcp_lease_hton(lease_prorate(lease));
 
 	  /* form a reply */
-	  reply = make_dhcp_reply((struct dhcp *)txbuf, sizeof(txbuf),
-				  if_inet_addr(if_p), 
+	  reply = make_dhcp_reply((struct dhcp *)txbuf, max_packet,
+				  if_inet_addr(request->if_p), 
 				  reply_msgtype = dhcp_msgtype_offer_e,
 				  rq, &options);
 	  if (reply == NULL)
@@ -779,7 +814,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	  reply->dp_yiaddr = iaddr;
 	  if (dhcpoa_add(&options, dhcptag_lease_time_e, sizeof(lease),
 			 &lease) != dhcpoa_success_e) {
-	      syslog(LOG_INFO, "dhcpd: couldn't add lease time tag: %s",
+	      my_log(LOG_INFO, "dhcpd: couldn't add lease time tag: %s",
 		     dhcpoa_err(&options));
 	      goto no_reply;
 	  }
@@ -792,10 +827,10 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	  struct in_addr * 	server_id;
 
 	  server_id = (struct in_addr *)
-	      dhcpol_find(rq_options, dhcptag_server_identifier_e,
+	      dhcpol_find(request->options_p, dhcptag_server_identifier_e,
 			  &optlen, NULL);
 	  req_ip = (struct in_addr *)
-	      dhcpol_find(rq_options, dhcptag_requested_ip_address_e,
+	      dhcpol_find(request->options_p, dhcptag_requested_ip_address_e,
 			  &optlen, NULL);
 	  if (server_id) { /* SELECT */
 	      struct hosts *	hp = hostbyaddr(S_pending_hosts, cid_type,
@@ -804,7 +839,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 		  printf("SELECT\n");
 	      state = dhcp_cstate_select_e;
 
-	      if (server_id->s_addr != if_inet_addr(if_p).s_addr) {
+	      if (server_id->s_addr != if_inet_addr(request->if_p).s_addr) {
 		  if (debug)
 		      printf("client selected %s\n", inet_ntoa(*server_id));
 		  /* clean up */
@@ -827,7 +862,8 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 		  if (hp->lease == DHCP_INFINITE_LEASE)
 		      lease_time_expiry = DHCP_INFINITE_LEASE;
 		  else {
-		      lease_time_expiry = hp->lease + time_in_p->tv_sec;
+		      lease_time_expiry 
+			  = hp->lease + request->time_in_p->tv_sec;
 		  }
 		  lease = hp->lease;
 		  if (hp->hostname) {
@@ -849,19 +885,21 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	      }
 	      if (req_ip == NULL
 		  || req_ip->s_addr != iaddr.s_addr) {
-		  if (req_ip == NULL)
-		      syslog(LOG_INFO,
+		  if (req_ip == NULL) {
+		      my_log(LOG_INFO,
 			     "dhcpd: host %s sends SELECT without"
 			     " Requested IP option", idstr);
+		  }
 		  else {
-		      syslog(LOG_INFO, 
+		      my_log(LOG_INFO, 
 			     "dhcpd: host %s sends SELECT with wrong"
 			     " IP address %s, should be " IP_FORMAT,
 			     idstr, inet_ntoa(*req_ip), IP_LIST(&iaddr));
 		  }
 		  use_broadcast = TRUE;
-		  reply = make_dhcp_nak((struct dhcp *)txbuf, sizeof(txbuf),
-					if_inet_addr(if_p), &reply_msgtype, 
+		  reply = make_dhcp_nak((struct dhcp *)txbuf, max_packet,
+					if_inet_addr(request->if_p), 
+					&reply_msgtype, 
 					"protocol error in SELECT state",
 					rq, &options);
 		  if (reply)
@@ -896,8 +934,8 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 		      || S_create_host(idstr, hwstr, iaddr, hostname,
 				       lease_time_expiry) == FALSE) {
 		      reply = make_dhcp_nak((struct dhcp *)txbuf, 
-					    sizeof(txbuf),
-					    if_inet_addr(if_p), 
+					    max_packet,
+					    if_inet_addr(request->if_p), 
 					    &reply_msgtype, 
 					    "unexpected server failure",
 					    rq, &options);
@@ -914,11 +952,9 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 		  state = dhcp_cstate_init_reboot_e;
 		  if (binding == dhcp_binding_none_e) {
 		      if (orphan == FALSE) {
-			  if (verbose) {
-			      syslog(LOG_INFO, "dhcpd: INIT-REBOOT host "
-				     "%s binding for %s with another server",
-				     idstr, inet_ntoa(*req_ip));
-			  }
+			  my_log(LOG_DEBUG, "dhcpd: INIT-REBOOT host "
+				 "%s binding for %s with another server",
+				 idstr, inet_ntoa(*req_ip));
 			  goto no_reply;
 		      }
 		      nak = "requested address no longer available";
@@ -933,8 +969,9 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	      } /* init-reboot */
 	      else if (rq->dp_ciaddr.s_addr) { /* renew/rebind */
 		  if (debug) {
-		      if (dstaddr_p == NULL 
-			  || ntohl(dstaddr_p->s_addr) == INADDR_BROADCAST)
+		      if (request->dstaddr_p == NULL 
+			  || ntohl(request->dstaddr_p->s_addr) 
+			  == INADDR_BROADCAST)
 			  printf("rebind\n");
 		      else
 			  printf("renew\n");
@@ -953,8 +990,8 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 		      use_broadcast = TRUE;
 		      goto send_nak;
 		  }
-		  if (dstaddr_p == NULL
-		      || ntohl(dstaddr_p->s_addr) == INADDR_BROADCAST
+		  if (request->dstaddr_p == NULL
+		      || ntohl(request->dstaddr_p->s_addr) == INADDR_BROADCAST
 		      || rq->dp_giaddr.s_addr) { /* REBIND */
 		      state = dhcp_cstate_rebind_e;
 		      if (rq->dp_ciaddr.s_addr != iaddr.s_addr) {
@@ -969,7 +1006,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 		  else { /* RENEW */
 		      state = dhcp_cstate_renew_e;
 		      if (rq->dp_ciaddr.s_addr != iaddr.s_addr) {
-			  syslog(LOG_INFO, 
+			  my_log(LOG_INFO, 
 				 "dhcpd: client ciaddr=%s should use "
 				 IP_FORMAT, inet_ntoa(rq->dp_ciaddr), 
 				 IP_LIST(&iaddr));
@@ -978,9 +1015,8 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 		  }
 	      } /* renew/rebind */
 	      else {
-		  if (verbose)
-		      syslog(LOG_INFO,
-			     "dhcpd: host %s in unknown state", idstr);
+		  my_log(LOG_DEBUG,
+			 "dhcpd: host %s in unknown state", idstr);
 		  goto no_reply;
 	      }
 
@@ -1007,33 +1043,32 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 		  else if (S_extend_leases) {
 		      /* automatically extend the lease */
 		      lease = min_lease;
-		      if (verbose)
-			  syslog(LOG_INFO, 
-				 "dhcpd: %s lease extended to %s client",
-				 inet_ntoa(iaddr), dhcp_cstate_str(state));
+		      my_log(LOG_DEBUG, 
+			     "dhcpd: %s lease extended to %s client",
+			     inet_ntoa(iaddr), dhcp_cstate_str(state));
 		  }
 		  else {
-		      if (time_in_p->tv_sec >= lease_time_expiry) {
+		      if (request->time_in_p->tv_sec >= lease_time_expiry) {
 			  /* send a nak */
 			  nak = "lease expired";
 			  goto send_nak;
 		      }
 		      /* give the host the remaining time on the lease */
-		      lease = lease_time_expiry - time_in_p->tv_sec;
+		      lease = lease_time_expiry - request->time_in_p->tv_sec;
 		  }
 		  if (lease == DHCP_INFINITE_LEASE) {
 		      lease_time_expiry = DHCP_INFINITE_TIME;
 		  }
 		  else {
-		      lease_time_expiry = lease + time_in_p->tv_sec;
+		      lease_time_expiry = lease + request->time_in_p->tv_sec;
 		  }
 		  S_set_lease(&entry->pl, lease_time_expiry, &modified);
 	      }
 	  } /* init-reboot/renew/rebind */
       send_nak:
 	  if (nak) {
-	      reply = make_dhcp_nak((struct dhcp *)txbuf, sizeof(txbuf),
-				    if_inet_addr(if_p), 
+	      reply = make_dhcp_nak((struct dhcp *)txbuf, max_packet,
+				    if_inet_addr(request->if_p), 
 				    &reply_msgtype, nak,
 				    rq, &options);
 	      if (reply)
@@ -1048,14 +1083,14 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	      lease = dhcp_lease_hton(lease);
 	  else
 	      lease = dhcp_lease_hton(lease_prorate(lease));
-	  reply = make_dhcp_reply((struct dhcp *)txbuf, sizeof(txbuf),
-				  if_inet_addr(if_p),
+	  reply = make_dhcp_reply((struct dhcp *)txbuf, max_packet,
+				  if_inet_addr(request->if_p),
 				  reply_msgtype = dhcp_msgtype_ack_e,
 				  rq, &options);
 	  reply->dp_yiaddr = iaddr;
 	  if (dhcpoa_add(&options, dhcptag_lease_time_e,
 			 sizeof(lease), &lease) != dhcpoa_success_e) {
-	      syslog(LOG_INFO, "dhcpd: couldn't add lease time tag: %s",
+	      my_log(LOG_INFO, "dhcpd: couldn't add lease time tag: %s",
 		     dhcpoa_err(&options));
 	      goto no_reply;
 	  }
@@ -1067,20 +1102,18 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	  struct in_addr * 	server_id;
 
 	  server_id = (struct in_addr *)
-	      dhcpol_find(rq_options, dhcptag_server_identifier_e,
+	      dhcpol_find(request->options_p, dhcptag_server_identifier_e,
 			  &optlen, NULL);
 	  req_ip = (struct in_addr *)
-	      dhcpol_find(rq_options, dhcptag_requested_ip_address_e,
+	      dhcpol_find(request->options_p, dhcptag_requested_ip_address_e,
 			  &optlen, NULL);
 	  if (server_id == NULL || req_ip == NULL) {
 	      goto no_reply;
 	  }
-	  if (server_id->s_addr != if_inet_addr(if_p).s_addr) {
-	      if (verbose) {
-		  syslog(LOG_INFO, "dhcpd: host %s "
-			 "declines IP %s from server " IP_FORMAT,
-			 idstr, inet_ntoa(*req_ip), IP_LIST(server_id));
-	      }
+	  if (server_id->s_addr != if_inet_addr(request->if_p).s_addr) {
+	      my_log(LOG_DEBUG, "dhcpd: host %s "
+		     "declines IP %s from server " IP_FORMAT,
+		     idstr, inet_ntoa(*req_ip), IP_LIST(server_id));
 	      goto no_reply;
 	  }
 
@@ -1092,7 +1125,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	      ni_delete_prop(&entry->pl, NIPROP_DHCP_LEASE, &modified);
 	      ni_set_prop(&entry->pl, NIPROP_DHCP_DECLINED, 
 			  idstr, &modified);
-	      syslog(LOG_INFO, "dhcpd: IP %s declined by %s",
+	      my_log(LOG_INFO, "dhcpd: IP %s declined by %s",
 		     inet_ntoa(iaddr), idstr);
 	      if (debug) {
 		  printf("marking host %s as declined\n", inet_ntoa(iaddr));
@@ -1107,14 +1140,14 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 			 inet_ntoa(iaddr));
 	      }
 	      /* set the lease expiration time to now */
-	      S_set_lease(&entry->pl, time_in_p->tv_sec, &modified);
+	      S_set_lease(&entry->pl, request->time_in_p->tv_sec, &modified);
 	  }
 	  break;
       }
       case dhcp_msgtype_inform_e: {
 	  iaddr = rq->dp_ciaddr;
-	  reply = make_dhcp_reply((struct dhcp *)txbuf, sizeof(txbuf),
-				  if_inet_addr(if_p),
+	  reply = make_dhcp_reply((struct dhcp *)txbuf, max_packet,
+				  if_inet_addr(request->if_p),
 				  reply_msgtype = dhcp_msgtype_ack_e,
 				  rq, &options);
 	  if (reply)
@@ -1143,19 +1176,20 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	    int		num_params;
 	    u_char *	params;
 
-	    params = (char *) 
-		dhcpol_find(rq_options, dhcptag_parameter_request_list_e,
-			    &num_params, NULL);
+	    params = (char *) dhcpol_find(request->options_p, 
+					  dhcptag_parameter_request_list_e,
+					  &num_params, NULL);
 
 	    bzero(reply->dp_file, sizeof(reply->dp_file));
 
-	    reply->dp_siaddr = if_inet_addr(if_p);
+	    reply->dp_siaddr = if_inet_addr(request->if_p);
 	    strcpy(reply->dp_sname, server_name);
 
 	    /* add the client-specified parameters */
 	    if (params)
-		num_added =  add_subnet_options(domain, hostname, iaddr, if_p, 
-						&options, params, num_params);
+		num_added = add_subnet_options(domain, hostname, iaddr, 
+					       request->if_p, 
+					       &options, params, num_params);
 	    if (bootfile) {
 #if 0
 		char 	file[PATH_MAX];
@@ -1166,7 +1200,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 #if 0		
 		if (dhcpoa_add(&options, dhcptag_bootfile_name_e
 			       strlen(file), file) != dhcpoa_success_e) {
-		    syslog(LOG_INFO, "couldn't add bootfile name option: %s",
+		    my_log(LOG_INFO, "couldn't add bootfile name option: %s",
 			   dhcpoa_err(&options));
 		    goto no_reply;
 		}
@@ -1176,7 +1210,7 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 	    /* terminate the options */
 	    if (dhcpoa_add(&options, dhcptag_end_e, 0, NULL)
 		!= dhcpoa_success_e) {
-		syslog(LOG_INFO, "couldn't add end tag: %s",
+		my_log(LOG_INFO, "couldn't add end tag: %s",
 		       dhcpoa_err(&options));
 		goto no_reply;
 	    }
@@ -1193,14 +1227,13 @@ dhcp_request(dhcp_msgtype_t msgtype, boolean_t dhcp_allocate,
 		printf("\nSending: DHCP %s (size %d)\n", 
 		       dhcp_msgtype_names(reply_msgtype), size);
 	    }
-	    if (sendreply(if_p, (struct bootp *)reply, size, 
+	    if (sendreply(request->if_p, (struct bootp *)reply, size, 
 			  use_broadcast, &iaddr)) {
-		if (!quiet)
-		    syslog(LOG_INFO, "%s sent %s %s pktsize %d",
-			   dhcp_msgtype_names(reply_msgtype),
-			   (hostname != NULL) 
-			   ? hostname : (char *)"<no hostname>", 
-			   inet_ntoa(iaddr), size);
+		my_log(LOG_INFO, "%s sent %s %s pktsize %d",
+		       dhcp_msgtype_names(reply_msgtype),
+		       (hostname != NULL) 
+		       ? hostname : (char *)"<no hostname>", 
+		       inet_ntoa(iaddr), size);
 	    }
 	}
     }

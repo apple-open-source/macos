@@ -102,7 +102,7 @@ struct arglist {
 static char	*copynext __P((char *, char *));
 static int	 fcmp __P((const void *, const void *));
 static void	 formatf __P((struct afile *, int));
-static void	 getcmd __P((char *, char *, char *, struct arglist *));
+static void	 getcmd __P((char *, char *, char *, int, struct arglist *));
 struct dirent	*glob_readdir __P((RST_DIR *dirp));
 static int	 glob_stat __P((const char *, struct stat *));
 static void	 mkentry __P((char *, struct direct *, struct afile *));
@@ -141,7 +141,7 @@ loop:
 		volno = 0;
 	}
 	runshell = 1;
-	getcmd(curdir, cmd, name, &arglist);
+	getcmd(curdir, cmd, name, sizeof(name), &arglist);
 	switch (cmd[0]) {
 	/*
 	 * Add elements to the extraction list.
@@ -320,9 +320,10 @@ loop:
  * eliminate any embedded ".." components.
  */
 static void
-getcmd(curdir, cmd, name, ap)
+getcmd(curdir, cmd, name, size, ap)
 	char *curdir, *cmd, *name;
 	struct arglist *ap;
+	int size;
 {
 	register char *cp;
 	static char input[BUFSIZ];
@@ -360,7 +361,8 @@ getcmd(curdir, cmd, name, ap)
 	 * If no argument, use curdir as the default.
 	 */
 	if (*cp == '\0') {
-		(void) strcpy(name, curdir);
+		(void) strncpy(name, curdir, size);
+		name[size - 1] = '\0';
 		return;
 	}
 	nextarg = cp;
@@ -383,9 +385,7 @@ getnext:
 		 * For relative pathnames, prepend the current directory to
 		 * it then canonicalize and return it.
 		 */
-		(void) strcpy(output, curdir);
-		(void) strcat(output, "/");
-		(void) strcat(output, rawname);
+		snprintf(output, sizeof(output), "%s/%s", curdir, rawname);
 		canon(output, name);
 	}
 	if (glob(name, GLOB_ALTDIRFUNC, NULL, &ap->glob) < 0)

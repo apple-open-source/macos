@@ -1,0 +1,29 @@
+#! /bin/sh
+
+# Test to make sure EXTRA_..._SOURCES actually works.
+# Bug report from Henrik Frystyk Nielsen.
+
+. $srcdir/defs || exit 1
+
+$needs_gnu_make
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = www
+www_SOURCES = www.c
+EXTRA_www_SOURCES = xtra.c
+www_LDADD = @extra_stuff@
+magic:
+	@echo $(DEP_FILES)
+END
+
+: > www.c
+: > xtra.c
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '@am__include@ .*/xtra\.P' Makefile.in

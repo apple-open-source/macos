@@ -86,9 +86,12 @@ public:
  */
 class FEEKeyInfoProvider : public CSPKeyInfoProvider 
 {
-public:
+private:
 	FEEKeyInfoProvider(
 		const CssmKey		&cssmKey);
+public:
+	static CSPKeyInfoProvider *provider(
+		const CssmKey &cssmKey);
 	~FEEKeyInfoProvider() { }
 	void CssmKeyToBinary(
 		BinaryKey			**binKey);	// RETURNED

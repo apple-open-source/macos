@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1994, 1995 Free Software Foundation, Inc.
+# Copyright 1992, 1994, 1995, 1999 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,11 +30,25 @@ set timeout 200
 
 gdb_exit
 gdb_start
-gdb_test "set pagination off" ""
-gdb_test "info set" ".*pagination:  State of pagination is off.*"
-gdb_test "set pagination on" ""
-gdb_test "info set" ".*pagination:  State of pagination is on.*"
 
+gdb_test "set pagination off" ""
+
+send_gdb "info set\n"
+gdb_expect {
+    -re ".*pagination:  State of pagination is off.*" {pass "set pagination off"}
+    -re ".*$gdb_prompt $" { fail "set pagination off" }
+    timeout {fail "set pagination off (timeout)"}
+}
+
+gdb_test "set pagination on" ""
+
+send_gdb "info set\n"
+gdb_expect {
+    -re ".*pagination:  State of pagination is on.*" {pass "set pagination on"}
+    -re ".*$gdb_prompt $" { fail "set pagination on" }
+    timeout {fail "set pagination off (timeout)"}
+}
+#
 gdb_exit
 return 0
 

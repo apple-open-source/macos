@@ -1,0 +1,71 @@
+<HTML><HEAD>
+<title>Upgrading from Cyrus SASLv1 to Cyrus SASLv2</title>
+<!-- $Id: upgrading.html,v 1.1 2002/02/28 00:00:14 snsimon Exp $ -->
+</HEAD>
+<BODY>
+<H1>Upgrading from Cyrus SASLv1 to Cyrus SASLv2</H1>
+
+This document covers issues with upgrading from SASLv1 to SASLv2.
+To upgrade:
+
+<ol>
+<li> Install Cyrus SASLv2 as normal according to <a
+href="install.html">the installation guide</a>.  This will overwrite
+some manpages, but will not affect your current applications.  Do NOT
+attempt to make it use the same directories.</li>
+
+<li> If you are using <tt>/etc/sasldb</tt> for any authentication, run
+<tt>utils/dbconverter-2</tt> after installation.</li>
+
+<li> If you are continuing to use libsaslv1 applications, read onwards
+to understand the ramifications.</li>
+
+<li> If you want to learn how to port applications from SASLv1 to SASLv2,
+you should read <A HREF=appconvert.html>this document</A>.
+</ol>
+
+<h2><A NAME="overview">Backwards Compatibility</A></h2>
+
+Cyrus SASLv2 is completely incompatible with applications that use
+Cyrus SASLv1.  This means that applications are unable to
+simultaneously link both versions of the library, and developers are
+encouraged to instead develop or upgrade their applications to link
+against the new libsasl.<p>
+
+Likewise, the format for the sasldb database has been completely
+revamped.  See <A HREF="#db">here</A> for a discussion of the relevant
+upgrade issues related to sasldb.  All new passwords stored in the
+sasldb database will be in plaintext, meaning that a compromised
+sasldb will compromise all services with the same passwords.  (This
+situation isn't significantly worse, cryptographicly speaking, than
+the old method and allows the database to be easy to transition to
+another format, when the need arises.)  Mechanisms requiring a more
+secure password database backend (e.g. SRP) should implement their own
+or use alternate property names within sasldb.<P>
+
+<h2><A NAME="coexist">Coexistence with SASLv1</A></h2>
+
+The two library versions and the associated utilities should be able
+to coexist on the same system.  The man pages will be unable to
+coexist (but luckily the new manpages are much better!).  The libsasl
+v2-specific utilities have had a "2" appended to their name for this
+purpose (e.g. <tt>saslpasswd2</tt>, <tt>sasldblistusers2</tt>).  The
+new-style sasldb now defaults to the name <tt>/etc/sasldb2</tt>, but
+this is configurable.
+
+<h2><A NAME="db">Database Upgrades</A></h2>
+
+While there does not seem to be any conflict with the keys stored in
+the database, it is not recommended for both versions of the library
+to use the same database file.  Included in the utils directory is a
+program called <tt>dbconverter-2</tt> which will allow you to convert
+from the old-format database to the new format.  If you continue to
+run applications that rely on Cyrus SASLv2 the databases will not be
+kept in sync by any automatic means.<p>
+
+<hr>
+Back to the <A href=index.html>index</a>
+
+</body>
+</html>
+

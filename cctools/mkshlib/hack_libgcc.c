@@ -425,7 +425,7 @@ enum libgcc libgcc)
 	input_changed = FALSE;
 
 	/* breakout the input file for processing */
-	breakout(filename, &archs, &narchs);
+	breakout(filename, &archs, &narchs, FALSE);
 	if(errors)
 	    exit(EXIT_FAILURE);
 
@@ -446,7 +446,7 @@ enum libgcc libgcc)
 	    if(stat(filename, &stat_buf) == -1)
 		system_error("can't stat file: %s", filename);
 	    writeout(archs, narchs, filename, stat_buf.st_mode & 0777, TRUE,
-		     FALSE, FALSE);
+		     FALSE, FALSE, NULL);
 	}
 
 	if(errors)

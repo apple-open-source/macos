@@ -1,5 +1,7 @@
 /* Select target systems and architectures at runtime for GDB.
-   Copyright 1990, 1992-1995, 1998-2000 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000, 2001, 2002
+   Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
    This file is part of GDB.
@@ -21,7 +23,6 @@
 
 #include "defs.h"
 #include <errno.h>
-#include <ctype.h>
 #include "gdb_string.h"
 #include "target.h"
 #include "gdbcmd.h"
@@ -33,6 +34,8 @@
 #include "gdb_wait.h"
 #include "dcache.h"
 #include <signal.h>
+#include "regcache.h"
+#include "event-loop.h"
 
 extern int errno;
 
@@ -70,9 +73,9 @@ void update_current_target (void);
 
 static void nosupport_runtime (void);
 
-static void normal_target_post_startup_inferior (int pid);
+static void normal_target_post_startup_inferior (ptid_t ptid);
 
-char *normal_pid_to_str (int pid);
+char *normal_pid_to_str (ptid_t pid);
 
 /* Transfer LEN bytes between target address MEMADDR and GDB address
    MYADDR.  Returns 0 for success, errno code for failure (which
@@ -93,9 +96,9 @@ static void debug_to_attach (char *, int);
 
 static void debug_to_detach (char *, int);
 
-static void debug_to_resume (int, int, enum target_signal);
+static void debug_to_resume (ptid_t, int, enum target_signal);
 
-static int debug_to_wait (int, struct target_waitstatus *);
+static ptid_t debug_to_wait (ptid_t, struct target_waitstatus *, gdb_client_data client_data);
 
 static void debug_to_fetch_registers (int);
 
@@ -104,7 +107,8 @@ static void debug_to_store_registers (int);
 static void debug_to_prepare_to_store (void);
 
 static int
-debug_to_xfer_memory (CORE_ADDR, char *, int, int, struct target_ops *);
+debug_to_xfer_memory (CORE_ADDR, char *, int, int, struct mem_attrib *, 
+		      struct target_ops *);
 
 static void debug_to_files_info (struct target_ops *);
 
@@ -134,11 +138,11 @@ static void debug_to_mourn_inferior (void);
 
 static int debug_to_can_run (void);
 
-static void debug_to_notice_signals (int);
+static void debug_to_notice_signals (ptid_t);
 
-static int debug_to_thread_alive (int);
+static int debug_to_thread_alive (ptid_t);
 
-static char *debug_to_pid_to_str (int);
+static char *debug_to_pid_to_str (ptid_t);
 
 static void debug_to_stop (void);
 
@@ -277,7 +281,7 @@ nosymbol (char *name, CORE_ADDR *addrp)
 static void
 nosupport_runtime (void)
 {
-  if (!inferior_pid)
+  if (ptid_equal (inferior_ptid, null_ptid))
     noprocess ();
   else
     error ("No run-time support for this");
@@ -369,13 +373,13 @@ cleanup_target (struct target_ops *t)
 	    (void (*) (int, char *, int)) 
 	    target_ignore);
   de_fault (to_resume, 
-	    (void (*) (int, int, enum target_signal)) 
+	    (void (*) (ptid_t, int, enum target_signal)) 
 	    noprocess);
   de_fault (to_wait, 
-	    (int (*) (int, struct target_waitstatus *)) 
+	    (ptid_t (*) (ptid_t, struct target_waitstatus *, gdb_client_data client_data)) 
 	    noprocess);
   de_fault (to_post_wait, 
-	    (void (*) (int, int)) 
+	    (void (*) (ptid_t, int)) 
 	    target_ignore);
   de_fault (to_fetch_registers, 
 	    (void (*) (int)) 
@@ -387,7 +391,7 @@ cleanup_target (struct target_ops *t)
 	    (void (*) (void)) 
 	    noprocess);
   de_fault (to_xfer_memory, 
-	    (int (*) (CORE_ADDR, char *, int, int, struct target_ops *)) 
+	    (int (*) (CORE_ADDR, char *, int, int, struct mem_attrib *, struct target_ops *)) 
 	    nomemory);
   de_fault (to_files_info, 
 	    (void (*) (struct target_ops *)) 
@@ -422,7 +426,7 @@ cleanup_target (struct target_ops *t)
   de_fault (to_create_inferior, 
 	    maybe_kill_then_create_inferior);
   de_fault (to_post_startup_inferior, 
-	    (void (*) (int)) 
+	    (void (*) (ptid_t)) 
 	    target_ignore);
   de_fault (to_acknowledge_created_inferior, 
 	    (void (*) (int)) 
@@ -480,10 +484,10 @@ cleanup_target (struct target_ops *t)
   de_fault (to_can_run, 
 	    return_zero);
   de_fault (to_notice_signals, 
-	    (void (*) (int)) 
+	    (void (*) (ptid_t)) 
 	    target_ignore);
   de_fault (to_thread_alive, 
-	    (int (*) (int)) 
+	    (int (*) (ptid_t)) 
 	    return_zero);
   de_fault (to_find_new_threads, 
 	    (void (*) (void)) 
@@ -494,9 +498,6 @@ cleanup_target (struct target_ops *t)
   de_fault (to_stop, 
 	    (void (*) (void)) 
 	    target_ignore);
-  de_fault (to_query, 
-	    (int (*) (int, char *, char *, int *)) 
-	    return_zero);
   de_fault (to_rcmd, 
 	    (void (*) (char *, struct ui_file *)) 
 	    tcomplain);
@@ -509,9 +510,6 @@ cleanup_target (struct target_ops *t)
   de_fault (to_pid_to_exec_file, 
 	    (char *(*) (int)) 
 	    return_zero);
-  de_fault (to_core_file_to_sym_file, 
-	    (char *(*) (char *)) 
-	    return_zero);
   de_fault (to_can_async_p, 
 	    (int (*) (void)) 
 	    return_zero);
@@ -522,8 +520,10 @@ cleanup_target (struct target_ops *t)
 	    (void (*) (void (*) (enum inferior_event_type, void*), void*)) 
 	    tcomplain);
   de_fault (to_pid_to_str,
-	    (char * (*) (int))
+	    (char * (*) (ptid_t))
 	    normal_pid_to_str);
+  de_fault (to_bind_function,
+	    (int (*) (char *)) return_one);
 #undef de_fault
 }
 
@@ -601,7 +601,6 @@ update_current_target (void)
       INHERIT (to_thread_alive, t);
       INHERIT (to_pid_to_str, t);
       INHERIT (to_find_new_threads, t);
-      INHERIT (to_pid_to_str, t);
       INHERIT (to_extra_thread_info, t);
       INHERIT (to_stop, t);
       INHERIT (to_query, t);
@@ -609,7 +608,6 @@ update_current_target (void)
       INHERIT (to_enable_exception_callback, t);
       INHERIT (to_get_current_exception_event, t);
       INHERIT (to_pid_to_exec_file, t);
-      INHERIT (to_core_file_to_sym_file, t);
       INHERIT (to_stratum, t);
       INHERIT (DONT_USE, t);
       INHERIT (to_has_all_memory, t);
@@ -624,6 +622,9 @@ update_current_target (void)
       INHERIT (to_is_async_p, t);
       INHERIT (to_async, t);
       INHERIT (to_async_mask_value, t);
+      INHERIT (to_find_memory_regions, t);
+      INHERIT (to_make_corefile_notes, t);
+      INHERIT (to_bind_function, t);
       INHERIT (to_magic, t);
 
 #undef INHERIT
@@ -652,7 +653,7 @@ push_target (struct target_ops *t)
       fprintf_unfiltered (gdb_stderr,
 			  "Magic number of %s target struct wrong\n",
 			  t->to_shortname);
-      abort ();
+      internal_error (__FILE__, __LINE__, "failed internal consistency check");
     }
 
   /* Find the proper stratum to install this target in. */
@@ -676,7 +677,7 @@ push_target (struct target_ops *t)
 	else
 	  target_stack = cur->next;	/* Unchain first on list */
 	tmp = cur->next;
-	free (cur);
+	xfree (cur);
 	cur = tmp;
       }
 
@@ -730,7 +731,7 @@ unpush_target (struct target_ops *t)
   else
     prev->next = cur->next;
 
-  free (cur);			/* Release the target_stack_item */
+  xfree (cur);			/* Release the target_stack_item */
 
   update_current_target ();
   cleanup_target (&current_target);
@@ -748,7 +749,7 @@ pop_target (void)
   fprintf_unfiltered (gdb_stderr,
 		      "pop_target couldn't find target %s\n",
 		      current_target.to_shortname);
-  abort ();
+  internal_error (__FILE__, __LINE__, "failed internal consistency check");
 }
 
 #undef	MIN
@@ -849,13 +850,16 @@ target_write_memory (CORE_ADDR memaddr, char *myaddr, int len)
   return target_xfer_memory (memaddr, myaddr, len, 1);
 }
 
+static int trust_readonly = 0;
+
 /* Move memory to or from the targets.  The top target gets priority;
    if it cannot handle it, it is offered to the next one down, etc.
 
    Result is -1 on error, or the number of bytes transfered.  */
 
 int
-do_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write)
+do_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
+		struct mem_attrib *attrib)
 {
   int res;
   int done = 0;
@@ -870,9 +874,29 @@ do_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write)
      0.  */
   errno = 0;
 
+  if (!write && trust_readonly)
+    {
+      /* User-settable option, "trust-readonly".  If true, then
+	 memory from any SEC_READONLY bfd section may be read
+	 directly from the bfd file. */
+
+      struct section_table *secp;
+
+      for (secp = current_target.to_sections;
+	   secp < current_target.to_sections_end;
+	   secp++)
+	{
+	  if (bfd_get_section_flags (secp->bfd, secp->the_bfd_section) 
+	      & SEC_READONLY)
+	    if (memaddr >= secp->addr && memaddr < secp->endaddr)
+	      return xfer_memory (memaddr, myaddr, len, 0, 
+				  attrib, &current_target);
+	}
+    }
+
   /* The quick case is that the top target can handle the transfer.  */
   res = current_target.to_xfer_memory
-    (memaddr, myaddr, len, write, &current_target);
+    (memaddr, myaddr, len, write, attrib, &current_target);
 
   /* If res <= 0 then we call it again in the loop.  Ah well. */
   if (res <= 0)
@@ -883,7 +907,7 @@ do_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write)
 	  if (!t->to_has_memory)
 	    continue;
 
-	  res = t->to_xfer_memory (memaddr, myaddr, len, write, t);
+	  res = t->to_xfer_memory (memaddr, myaddr, len, write, attrib, t);
 	  if (res > 0)
 	    break;		/* Handled all or part of xfer */
 	  if (t->to_has_all_memory)
@@ -907,6 +931,8 @@ static int
 target_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write)
 {
   int res;
+  int reg_len;
+  struct mem_region *region;
 
   /* Zero length requests are ok and require no work.  */
   if (len == 0)
@@ -916,22 +942,52 @@ target_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write)
 
   while (len > 0)
     {
-      res = dcache_xfer_memory(target_dcache, memaddr, myaddr, len, write);
-      if (res <= 0)
+      region = lookup_mem_region(memaddr);
+      if (memaddr + len < region->hi)
+	reg_len = len;
+      else
+	reg_len = region->hi - memaddr;
+
+      switch (region->attrib.mode)
 	{
-	  /* If this address is for nonexistent memory,
-	     read zeros if reading, or do nothing if writing.  Return error. */
-	  if (!write)
-	    memset (myaddr, 0, len);
-	  if (errno == 0)
+	case MEM_RO:
+	  if (write)
 	    return EIO;
-	  else
-	    return errno;
+	  break;
+	  
+	case MEM_WO:
+	  if (!write)
+	    return EIO;
+	  break;
 	}
 
-      memaddr += res;
-      myaddr  += res;
-      len     -= res;
+      while (reg_len > 0)
+	{
+	  if (region->attrib.cache)
+	    res = dcache_xfer_memory (target_dcache, memaddr, myaddr,
+				     reg_len, write);
+	  else
+	    res = do_xfer_memory (memaddr, myaddr, reg_len, write,
+				 &region->attrib);
+	      
+	  if (res <= 0)
+	    {
+	      /* If this address is for nonexistent memory, read zeros
+		 if reading, or do nothing if writing.  Return
+		 error. */
+	      if (!write)
+		memset (myaddr, 0, len);
+	      if (errno == 0)
+		return EIO;
+	      else
+		return errno;
+	    }
+
+	  memaddr += res;
+	  myaddr  += res;
+	  len     -= res;
+	  reg_len -= res;
+	}
     }
   
   return 0;			/* We managed to cover it all somehow. */
@@ -946,6 +1002,8 @@ target_xfer_memory_partial (CORE_ADDR memaddr, char *myaddr, int len,
 			    int write_p, int *err)
 {
   int res;
+  int reg_len;
+  struct mem_region *region;
 
   /* Zero length requests are ok and require no work.  */
   if (len == 0)
@@ -954,7 +1012,38 @@ target_xfer_memory_partial (CORE_ADDR memaddr, char *myaddr, int len,
       return 0;
     }
 
-  res = dcache_xfer_memory (target_dcache, memaddr, myaddr, len, write_p);
+  region = lookup_mem_region(memaddr);
+  if (memaddr + len < region->hi)
+    reg_len = len;
+  else
+    reg_len = region->hi - memaddr;
+
+  switch (region->attrib.mode)
+    {
+    case MEM_RO:
+      if (write_p)
+	{
+	  *err = EIO;
+	  return -1;
+	}
+      break;
+
+    case MEM_WO:
+      if (write_p)
+	{
+	  *err = EIO;
+	  return -1;
+	}
+      break;
+    }
+
+  if (region->attrib.cache)
+    res = dcache_xfer_memory (target_dcache, memaddr, myaddr,
+			      reg_len, write_p);
+  else
+    res = do_xfer_memory (memaddr, myaddr, reg_len, write_p,
+			  &region->attrib);
+      
   if (res <= 0)
     {
       if (errno != 0)
@@ -1338,7 +1427,7 @@ generic_mourn_inferior (void)
 {
   extern int show_breakpoint_hit_counts;
 
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
   attach_flag = 0;
   breakpoint_init_inferior (inf_exited);
   registers_changed ();
@@ -1362,708 +1451,6 @@ generic_mourn_inferior (void)
     detach_hook ();
 }
 
-/* This table must match in order and size the signals in enum target_signal
-   in target.h.  */
-/* *INDENT-OFF* */
-static struct {
-  char *name;
-  char *string;
-  } signals [] =
-{
-  {"0", "Signal 0"},
-  {"SIGHUP", "Hangup"},
-  {"SIGINT", "Interrupt"},
-  {"SIGQUIT", "Quit"},
-  {"SIGILL", "Illegal instruction"},
-  {"SIGTRAP", "Trace/breakpoint trap"},
-  {"SIGABRT", "Aborted"},
-  {"SIGEMT", "Emulation trap"},
-  {"SIGFPE", "Arithmetic exception"},
-  {"SIGKILL", "Killed"},
-  {"SIGBUS", "Bus error"},
-  {"SIGSEGV", "Segmentation fault"},
-  {"SIGSYS", "Bad system call"},
-  {"SIGPIPE", "Broken pipe"},
-  {"SIGALRM", "Alarm clock"},
-  {"SIGTERM", "Terminated"},
-  {"SIGURG", "Urgent I/O condition"},
-  {"SIGSTOP", "Stopped (signal)"},
-  {"SIGTSTP", "Stopped (user)"},
-  {"SIGCONT", "Continued"},
-  {"SIGCHLD", "Child status changed"},
-  {"SIGTTIN", "Stopped (tty input)"},
-  {"SIGTTOU", "Stopped (tty output)"},
-  {"SIGIO", "I/O possible"},
-  {"SIGXCPU", "CPU time limit exceeded"},
-  {"SIGXFSZ", "File size limit exceeded"},
-  {"SIGVTALRM", "Virtual timer expired"},
-  {"SIGPROF", "Profiling timer expired"},
-  {"SIGWINCH", "Window size changed"},
-  {"SIGLOST", "Resource lost"},
-  {"SIGUSR1", "User defined signal 1"},
-  {"SIGUSR2", "User defined signal 2"},
-  {"SIGPWR", "Power fail/restart"},
-  {"SIGPOLL", "Pollable event occurred"},
-  {"SIGWIND", "SIGWIND"},
-  {"SIGPHONE", "SIGPHONE"},
-  {"SIGWAITING", "Process's LWPs are blocked"},
-  {"SIGLWP", "Signal LWP"},
-  {"SIGDANGER", "Swap space dangerously low"},
-  {"SIGGRANT", "Monitor mode granted"},
-  {"SIGRETRACT", "Need to relinquish monitor mode"},
-  {"SIGMSG", "Monitor mode data available"},
-  {"SIGSOUND", "Sound completed"},
-  {"SIGSAK", "Secure attention"},
-  {"SIGPRIO", "SIGPRIO"},
-  {"SIG33", "Real-time event 33"},
-  {"SIG34", "Real-time event 34"},
-  {"SIG35", "Real-time event 35"},
-  {"SIG36", "Real-time event 36"},
-  {"SIG37", "Real-time event 37"},
-  {"SIG38", "Real-time event 38"},
-  {"SIG39", "Real-time event 39"},
-  {"SIG40", "Real-time event 40"},
-  {"SIG41", "Real-time event 41"},
-  {"SIG42", "Real-time event 42"},
-  {"SIG43", "Real-time event 43"},
-  {"SIG44", "Real-time event 44"},
-  {"SIG45", "Real-time event 45"},
-  {"SIG46", "Real-time event 46"},
-  {"SIG47", "Real-time event 47"},
-  {"SIG48", "Real-time event 48"},
-  {"SIG49", "Real-time event 49"},
-  {"SIG50", "Real-time event 50"},
-  {"SIG51", "Real-time event 51"},
-  {"SIG52", "Real-time event 52"},
-  {"SIG53", "Real-time event 53"},
-  {"SIG54", "Real-time event 54"},
-  {"SIG55", "Real-time event 55"},
-  {"SIG56", "Real-time event 56"},
-  {"SIG57", "Real-time event 57"},
-  {"SIG58", "Real-time event 58"},
-  {"SIG59", "Real-time event 59"},
-  {"SIG60", "Real-time event 60"},
-  {"SIG61", "Real-time event 61"},
-  {"SIG62", "Real-time event 62"},
-  {"SIG63", "Real-time event 63"},
-  {"SIGCANCEL", "LWP internal signal"},
-  {"SIG32", "Real-time event 32"},
-
-#if defined(MACH) || defined(__MACH__)
-  /* Mach exceptions */
-  {"EXC_BAD_ACCESS", "Could not access memory"},
-  {"EXC_BAD_INSTRUCTION", "Illegal instruction/operand"},
-  {"EXC_ARITHMETIC", "Arithmetic exception"},
-  {"EXC_EMULATION", "Emulation instruction"},
-  {"EXC_SOFTWARE", "Software generated exception"},
-  {"EXC_BREAKPOINT", "Breakpoint"},
-#endif
-  {"SIGINFO", "Information request"},
-
-  {NULL, "Unknown signal"},
-  {NULL, "Internal error: printing TARGET_SIGNAL_DEFAULT"},
-
-  /* Last entry, used to check whether the table is the right size.  */
-  {NULL, "TARGET_SIGNAL_MAGIC"}
-};
-/* *INDENT-ON* */
-
-
-
-/* Return the string for a signal.  */
-char *
-target_signal_to_string (enum target_signal sig)
-{
-  if ((sig >= TARGET_SIGNAL_FIRST) && (sig <= TARGET_SIGNAL_LAST))
-    return signals[sig].string;
-  else
-    return signals[TARGET_SIGNAL_UNKNOWN].string;
-}
-
-/* Return the name for a signal.  */
-char *
-target_signal_to_name (enum target_signal sig)
-{
-  if (sig == TARGET_SIGNAL_UNKNOWN)
-    /* I think the code which prints this will always print it along with
-       the string, so no need to be verbose.  */
-    return "?";
-  return signals[sig].name;
-}
-
-/* Given a name, return its signal.  */
-enum target_signal
-target_signal_from_name (char *name)
-{
-  enum target_signal sig;
-
-  /* It's possible we also should allow "SIGCLD" as well as "SIGCHLD"
-     for TARGET_SIGNAL_SIGCHLD.  SIGIOT, on the other hand, is more
-     questionable; seems like by now people should call it SIGABRT
-     instead.  */
-
-  /* This ugly cast brought to you by the native VAX compiler.  */
-  for (sig = TARGET_SIGNAL_HUP;
-       signals[sig].name != NULL;
-       sig = (enum target_signal) ((int) sig + 1))
-    if (STREQ (name, signals[sig].name))
-      return sig;
-  return TARGET_SIGNAL_UNKNOWN;
-}
-
-/* The following functions are to help certain targets deal
-   with the signal/waitstatus stuff.  They could just as well be in
-   a file called native-utils.c or unixwaitstatus-utils.c or whatever.  */
-
-/* Convert host signal to our signals.  */
-enum target_signal
-target_signal_from_host (int hostsig)
-{
-  /* A switch statement would make sense but would require special kludges
-     to deal with the cases where more than one signal has the same number.  */
-
-  if (hostsig == 0)
-    return TARGET_SIGNAL_0;
-
-#if defined (SIGHUP)
-  if (hostsig == SIGHUP)
-    return TARGET_SIGNAL_HUP;
-#endif
-#if defined (SIGINT)
-  if (hostsig == SIGINT)
-    return TARGET_SIGNAL_INT;
-#endif
-#if defined (SIGQUIT)
-  if (hostsig == SIGQUIT)
-    return TARGET_SIGNAL_QUIT;
-#endif
-#if defined (SIGILL)
-  if (hostsig == SIGILL)
-    return TARGET_SIGNAL_ILL;
-#endif
-#if defined (SIGTRAP)
-  if (hostsig == SIGTRAP)
-    return TARGET_SIGNAL_TRAP;
-#endif
-#if defined (SIGABRT)
-  if (hostsig == SIGABRT)
-    return TARGET_SIGNAL_ABRT;
-#endif
-#if defined (SIGEMT)
-  if (hostsig == SIGEMT)
-    return TARGET_SIGNAL_EMT;
-#endif
-#if defined (SIGFPE)
-  if (hostsig == SIGFPE)
-    return TARGET_SIGNAL_FPE;
-#endif
-#if defined (SIGKILL)
-  if (hostsig == SIGKILL)
-    return TARGET_SIGNAL_KILL;
-#endif
-#if defined (SIGBUS)
-  if (hostsig == SIGBUS)
-    return TARGET_SIGNAL_BUS;
-#endif
-#if defined (SIGSEGV)
-  if (hostsig == SIGSEGV)
-    return TARGET_SIGNAL_SEGV;
-#endif
-#if defined (SIGSYS)
-  if (hostsig == SIGSYS)
-    return TARGET_SIGNAL_SYS;
-#endif
-#if defined (SIGPIPE)
-  if (hostsig == SIGPIPE)
-    return TARGET_SIGNAL_PIPE;
-#endif
-#if defined (SIGALRM)
-  if (hostsig == SIGALRM)
-    return TARGET_SIGNAL_ALRM;
-#endif
-#if defined (SIGTERM)
-  if (hostsig == SIGTERM)
-    return TARGET_SIGNAL_TERM;
-#endif
-#if defined (SIGUSR1)
-  if (hostsig == SIGUSR1)
-    return TARGET_SIGNAL_USR1;
-#endif
-#if defined (SIGUSR2)
-  if (hostsig == SIGUSR2)
-    return TARGET_SIGNAL_USR2;
-#endif
-#if defined (SIGCLD)
-  if (hostsig == SIGCLD)
-    return TARGET_SIGNAL_CHLD;
-#endif
-#if defined (SIGCHLD)
-  if (hostsig == SIGCHLD)
-    return TARGET_SIGNAL_CHLD;
-#endif
-#if defined (SIGPWR)
-  if (hostsig == SIGPWR)
-    return TARGET_SIGNAL_PWR;
-#endif
-#if defined (SIGWINCH)
-  if (hostsig == SIGWINCH)
-    return TARGET_SIGNAL_WINCH;
-#endif
-#if defined (SIGURG)
-  if (hostsig == SIGURG)
-    return TARGET_SIGNAL_URG;
-#endif
-#if defined (SIGIO)
-  if (hostsig == SIGIO)
-    return TARGET_SIGNAL_IO;
-#endif
-#if defined (SIGPOLL)
-  if (hostsig == SIGPOLL)
-    return TARGET_SIGNAL_POLL;
-#endif
-#if defined (SIGSTOP)
-  if (hostsig == SIGSTOP)
-    return TARGET_SIGNAL_STOP;
-#endif
-#if defined (SIGTSTP)
-  if (hostsig == SIGTSTP)
-    return TARGET_SIGNAL_TSTP;
-#endif
-#if defined (SIGCONT)
-  if (hostsig == SIGCONT)
-    return TARGET_SIGNAL_CONT;
-#endif
-#if defined (SIGTTIN)
-  if (hostsig == SIGTTIN)
-    return TARGET_SIGNAL_TTIN;
-#endif
-#if defined (SIGTTOU)
-  if (hostsig == SIGTTOU)
-    return TARGET_SIGNAL_TTOU;
-#endif
-#if defined (SIGVTALRM)
-  if (hostsig == SIGVTALRM)
-    return TARGET_SIGNAL_VTALRM;
-#endif
-#if defined (SIGPROF)
-  if (hostsig == SIGPROF)
-    return TARGET_SIGNAL_PROF;
-#endif
-#if defined (SIGXCPU)
-  if (hostsig == SIGXCPU)
-    return TARGET_SIGNAL_XCPU;
-#endif
-#if defined (SIGXFSZ)
-  if (hostsig == SIGXFSZ)
-    return TARGET_SIGNAL_XFSZ;
-#endif
-#if defined (SIGWIND)
-  if (hostsig == SIGWIND)
-    return TARGET_SIGNAL_WIND;
-#endif
-#if defined (SIGPHONE)
-  if (hostsig == SIGPHONE)
-    return TARGET_SIGNAL_PHONE;
-#endif
-#if defined (SIGLOST)
-  if (hostsig == SIGLOST)
-    return TARGET_SIGNAL_LOST;
-#endif
-#if defined (SIGWAITING)
-  if (hostsig == SIGWAITING)
-    return TARGET_SIGNAL_WAITING;
-#endif
-#if defined (SIGCANCEL)
-  if (hostsig == SIGCANCEL)
-    return TARGET_SIGNAL_CANCEL;
-#endif
-#if defined (SIGLWP)
-  if (hostsig == SIGLWP)
-    return TARGET_SIGNAL_LWP;
-#endif
-#if defined (SIGDANGER)
-  if (hostsig == SIGDANGER)
-    return TARGET_SIGNAL_DANGER;
-#endif
-#if defined (SIGGRANT)
-  if (hostsig == SIGGRANT)
-    return TARGET_SIGNAL_GRANT;
-#endif
-#if defined (SIGRETRACT)
-  if (hostsig == SIGRETRACT)
-    return TARGET_SIGNAL_RETRACT;
-#endif
-#if defined (SIGMSG)
-  if (hostsig == SIGMSG)
-    return TARGET_SIGNAL_MSG;
-#endif
-#if defined (SIGSOUND)
-  if (hostsig == SIGSOUND)
-    return TARGET_SIGNAL_SOUND;
-#endif
-#if defined (SIGSAK)
-  if (hostsig == SIGSAK)
-    return TARGET_SIGNAL_SAK;
-#endif
-#if defined (SIGPRIO)
-  if (hostsig == SIGPRIO)
-    return TARGET_SIGNAL_PRIO;
-#endif
-
-  /* Mach exceptions.  Assumes that the values for EXC_ are positive! */
-#if defined (EXC_BAD_ACCESS) && defined (_NSIG)
-  if (hostsig == _NSIG + EXC_BAD_ACCESS)
-    return TARGET_EXC_BAD_ACCESS;
-#endif
-#if defined (EXC_BAD_INSTRUCTION) && defined (_NSIG)
-  if (hostsig == _NSIG + EXC_BAD_INSTRUCTION)
-    return TARGET_EXC_BAD_INSTRUCTION;
-#endif
-#if defined (EXC_ARITHMETIC) && defined (_NSIG)
-  if (hostsig == _NSIG + EXC_ARITHMETIC)
-    return TARGET_EXC_ARITHMETIC;
-#endif
-#if defined (EXC_EMULATION) && defined (_NSIG)
-  if (hostsig == _NSIG + EXC_EMULATION)
-    return TARGET_EXC_EMULATION;
-#endif
-#if defined (EXC_SOFTWARE) && defined (_NSIG)
-  if (hostsig == _NSIG + EXC_SOFTWARE)
-    return TARGET_EXC_SOFTWARE;
-#endif
-#if defined (EXC_BREAKPOINT) && defined (_NSIG)
-  if (hostsig == _NSIG + EXC_BREAKPOINT)
-    return TARGET_EXC_BREAKPOINT;
-#endif
-
-#if defined (SIGINFO)
-  if (hostsig == SIGINFO)
-    return TARGET_SIGNAL_INFO;
-#endif
-
-#if defined (REALTIME_LO)
-  if (hostsig >= REALTIME_LO && hostsig < REALTIME_HI)
-    {
-      /* This block of TARGET_SIGNAL_REALTIME value is in order.  */
-      if (33 <= hostsig && hostsig <= 63)
-	return (enum target_signal)
-	  (hostsig - 33 + (int) TARGET_SIGNAL_REALTIME_33);
-      else if (hostsig == 32)
-	return TARGET_SIGNAL_REALTIME_32;
-      else
-	error ("GDB bug: target.c (target_signal_from_host): unrecognized real-time signal");
-    }
-#endif
-
-#if defined (SIGRTMIN)
-  if (hostsig >= SIGRTMIN && hostsig <= SIGRTMAX)
-    {
-      /* This block of TARGET_SIGNAL_REALTIME value is in order.  */
-      if (33 <= hostsig && hostsig <= 63)
-	return (enum target_signal)
-	  (hostsig - 33 + (int) TARGET_SIGNAL_REALTIME_33);
-      else
-	error ("GDB bug: target.c (target_signal_from_host): unrecognized real-time signal");
-    }
-#endif
-  return TARGET_SIGNAL_UNKNOWN;
-}
-
-/* Convert a OURSIG (an enum target_signal) to the form used by the
-   target operating system (refered to as the ``host'') or zero if the
-   equivalent host signal is not available.  Set/clear OURSIG_OK
-   accordingly. */
-
-static int
-do_target_signal_to_host (enum target_signal oursig,
-			  int *oursig_ok)
-{
-  *oursig_ok = 1;
-  switch (oursig)
-    {
-    case TARGET_SIGNAL_0:
-      return 0;
-
-#if defined (SIGHUP)
-    case TARGET_SIGNAL_HUP:
-      return SIGHUP;
-#endif
-#if defined (SIGINT)
-    case TARGET_SIGNAL_INT:
-      return SIGINT;
-#endif
-#if defined (SIGQUIT)
-    case TARGET_SIGNAL_QUIT:
-      return SIGQUIT;
-#endif
-#if defined (SIGILL)
-    case TARGET_SIGNAL_ILL:
-      return SIGILL;
-#endif
-#if defined (SIGTRAP)
-    case TARGET_SIGNAL_TRAP:
-      return SIGTRAP;
-#endif
-#if defined (SIGABRT)
-    case TARGET_SIGNAL_ABRT:
-      return SIGABRT;
-#endif
-#if defined (SIGEMT)
-    case TARGET_SIGNAL_EMT:
-      return SIGEMT;
-#endif
-#if defined (SIGFPE)
-    case TARGET_SIGNAL_FPE:
-      return SIGFPE;
-#endif
-#if defined (SIGKILL)
-    case TARGET_SIGNAL_KILL:
-      return SIGKILL;
-#endif
-#if defined (SIGBUS)
-    case TARGET_SIGNAL_BUS:
-      return SIGBUS;
-#endif
-#if defined (SIGSEGV)
-    case TARGET_SIGNAL_SEGV:
-      return SIGSEGV;
-#endif
-#if defined (SIGSYS)
-    case TARGET_SIGNAL_SYS:
-      return SIGSYS;
-#endif
-#if defined (SIGPIPE)
-    case TARGET_SIGNAL_PIPE:
-      return SIGPIPE;
-#endif
-#if defined (SIGALRM)
-    case TARGET_SIGNAL_ALRM:
-      return SIGALRM;
-#endif
-#if defined (SIGTERM)
-    case TARGET_SIGNAL_TERM:
-      return SIGTERM;
-#endif
-#if defined (SIGUSR1)
-    case TARGET_SIGNAL_USR1:
-      return SIGUSR1;
-#endif
-#if defined (SIGUSR2)
-    case TARGET_SIGNAL_USR2:
-      return SIGUSR2;
-#endif
-#if defined (SIGCHLD) || defined (SIGCLD)
-    case TARGET_SIGNAL_CHLD:
-#if defined (SIGCHLD)
-      return SIGCHLD;
-#else
-      return SIGCLD;
-#endif
-#endif /* SIGCLD or SIGCHLD */
-#if defined (SIGPWR)
-    case TARGET_SIGNAL_PWR:
-      return SIGPWR;
-#endif
-#if defined (SIGWINCH)
-    case TARGET_SIGNAL_WINCH:
-      return SIGWINCH;
-#endif
-#if defined (SIGURG)
-    case TARGET_SIGNAL_URG:
-      return SIGURG;
-#endif
-#if defined (SIGIO)
-    case TARGET_SIGNAL_IO:
-      return SIGIO;
-#endif
-#if defined (SIGPOLL)
-    case TARGET_SIGNAL_POLL:
-      return SIGPOLL;
-#endif
-#if defined (SIGSTOP)
-    case TARGET_SIGNAL_STOP:
-      return SIGSTOP;
-#endif
-#if defined (SIGTSTP)
-    case TARGET_SIGNAL_TSTP:
-      return SIGTSTP;
-#endif
-#if defined (SIGCONT)
-    case TARGET_SIGNAL_CONT:
-      return SIGCONT;
-#endif
-#if defined (SIGTTIN)
-    case TARGET_SIGNAL_TTIN:
-      return SIGTTIN;
-#endif
-#if defined (SIGTTOU)
-    case TARGET_SIGNAL_TTOU:
-      return SIGTTOU;
-#endif
-#if defined (SIGVTALRM)
-    case TARGET_SIGNAL_VTALRM:
-      return SIGVTALRM;
-#endif
-#if defined (SIGPROF)
-    case TARGET_SIGNAL_PROF:
-      return SIGPROF;
-#endif
-#if defined (SIGXCPU)
-    case TARGET_SIGNAL_XCPU:
-      return SIGXCPU;
-#endif
-#if defined (SIGXFSZ)
-    case TARGET_SIGNAL_XFSZ:
-      return SIGXFSZ;
-#endif
-#if defined (SIGWIND)
-    case TARGET_SIGNAL_WIND:
-      return SIGWIND;
-#endif
-#if defined (SIGPHONE)
-    case TARGET_SIGNAL_PHONE:
-      return SIGPHONE;
-#endif
-#if defined (SIGLOST)
-    case TARGET_SIGNAL_LOST:
-      return SIGLOST;
-#endif
-#if defined (SIGWAITING)
-    case TARGET_SIGNAL_WAITING:
-      return SIGWAITING;
-#endif
-#if defined (SIGCANCEL)
-    case TARGET_SIGNAL_CANCEL:
-      return SIGCANCEL;
-#endif
-#if defined (SIGLWP)
-    case TARGET_SIGNAL_LWP:
-      return SIGLWP;
-#endif
-#if defined (SIGDANGER)
-    case TARGET_SIGNAL_DANGER:
-      return SIGDANGER;
-#endif
-#if defined (SIGGRANT)
-    case TARGET_SIGNAL_GRANT:
-      return SIGGRANT;
-#endif
-#if defined (SIGRETRACT)
-    case TARGET_SIGNAL_RETRACT:
-      return SIGRETRACT;
-#endif
-#if defined (SIGMSG)
-    case TARGET_SIGNAL_MSG:
-      return SIGMSG;
-#endif
-#if defined (SIGSOUND)
-    case TARGET_SIGNAL_SOUND:
-      return SIGSOUND;
-#endif
-#if defined (SIGSAK)
-    case TARGET_SIGNAL_SAK:
-      return SIGSAK;
-#endif
-#if defined (SIGPRIO)
-    case TARGET_SIGNAL_PRIO:
-      return SIGPRIO;
-#endif
-
-      /* Mach exceptions.  Assumes that the values for EXC_ are positive! */
-#if defined (EXC_BAD_ACCESS) && defined (_NSIG)
-    case TARGET_EXC_BAD_ACCESS:
-      return _NSIG + EXC_BAD_ACCESS;
-#endif
-#if defined (EXC_BAD_INSTRUCTION) && defined (_NSIG)
-    case TARGET_EXC_BAD_INSTRUCTION:
-      return _NSIG + EXC_BAD_INSTRUCTION;
-#endif
-#if defined (EXC_ARITHMETIC) && defined (_NSIG)
-    case TARGET_EXC_ARITHMETIC:
-      return _NSIG + EXC_ARITHMETIC;
-#endif
-#if defined (EXC_EMULATION) && defined (_NSIG)
-    case TARGET_EXC_EMULATION:
-      return _NSIG + EXC_EMULATION;
-#endif
-#if defined (EXC_SOFTWARE) && defined (_NSIG)
-    case TARGET_EXC_SOFTWARE:
-      return _NSIG + EXC_SOFTWARE;
-#endif
-#if defined (EXC_BREAKPOINT) && defined (_NSIG)
-    case TARGET_EXC_BREAKPOINT:
-      return _NSIG + EXC_BREAKPOINT;
-#endif
-
-#if defined (SIGINFO)
-    case TARGET_SIGNAL_INFO:
-      return SIGINFO;
-#endif
-
-    default:
-#if defined (REALTIME_LO)
-      if (oursig >= TARGET_SIGNAL_REALTIME_33
-	  && oursig <= TARGET_SIGNAL_REALTIME_63)
-	{
-	  /* This block of signals is continuous, and
-             TARGET_SIGNAL_REALTIME_33 is 33 by definition.  */
-	  int retsig =
-	    (int) oursig - (int) TARGET_SIGNAL_REALTIME_33 + 33;
-	  if (retsig >= REALTIME_LO && retsig < REALTIME_HI)
-	    return retsig;
-	}
-#if (REALTIME_LO < 33)
-      else if (oursig == TARGET_SIGNAL_REALTIME_32)
-	{
-	  /* TARGET_SIGNAL_REALTIME_32 isn't contiguous with
-             TARGET_SIGNAL_REALTIME_33.  It is 32 by definition.  */
-	  return 32;
-	}
-#endif
-#endif
-
-#if defined (SIGRTMIN)
-      if (oursig >= TARGET_SIGNAL_REALTIME_33
-	  && oursig <= TARGET_SIGNAL_REALTIME_63)
-	{
-	  /* This block of signals is continuous, and
-             TARGET_SIGNAL_REALTIME_33 is 33 by definition.  */
-	  int retsig =
-	    (int) oursig - (int) TARGET_SIGNAL_REALTIME_33 + 33;
-	  if (retsig >= SIGRTMIN && retsig <= SIGRTMAX)
-	    return retsig;
-	}
-#endif
-      *oursig_ok = 0;
-      return 0;
-    }
-}
-
-int
-target_signal_to_host_p (enum target_signal oursig)
-{
-  int oursig_ok;
-  do_target_signal_to_host (oursig, &oursig_ok);
-  return oursig_ok;
-}
-
-int
-target_signal_to_host (enum target_signal oursig)
-{
-  int oursig_ok;
-  int targ_signo = do_target_signal_to_host (oursig, &oursig_ok);
-  if (!oursig_ok)
-    {
-      /* The user might be trying to do "signal SIGSAK" where this system
-         doesn't have SIGSAK.  */
-      warning ("Signal %s does not exist on this system.\n",
-	       target_signal_to_name (oursig));
-      return 0;
-    }
-  else
-    return targ_signo;
-}
-
 /* Helper function for child_wait and the Lynx derivatives of child_wait.
    HOSTSTATUS is the waitstatus from wait() or the equivalent; store our
    translation of that in OURSTATUS.  */
@@ -2094,23 +1481,6 @@ store_waitstatus (struct target_waitstatus *ourstatus, int hoststatus)
     }
 }
 
-/* In some circumstances we allow a command to specify a numeric
-   signal.  The idea is to keep these circumstances limited so that
-   users (and scripts) develop portable habits.  For comparison,
-   POSIX.2 `kill' requires that 1,2,3,6,9,14, and 15 work (and using a
-   numeric signal at all is obsolescent.  We are slightly more
-   lenient and allow 1-15 which should match host signal numbers on
-   most systems.  Use of symbolic signal names is strongly encouraged.  */
-
-enum target_signal
-target_signal_from_command (int num)
-{
-  if (num >= 1 && num <= 15)
-    return (enum target_signal) num;
-  error ("Only signals 1-15 are valid as numeric signals.\n\
-Use \"info signals\" for a list of symbolic signals.");
-}
-
 /* Returns zero to leave the inferior alone, one to interrupt it.  */
 int (*target_activity_function) (void);
 int target_activity_fd;
@@ -2119,15 +1489,11 @@ int target_activity_fd;
    buffer.  */
 
 char *
-normal_pid_to_str (int pid)
+normal_pid_to_str (ptid_t ptid)
 {
   static char buf[30];
 
-  if (STREQ (current_target.to_shortname, "remote"))
-    sprintf (buf, "thread %d", pid);
-  else
-    sprintf (buf, "process %d", pid);
-
+  sprintf (buf, "process %d", PIDGET (ptid));
   return buf;
 }
 
@@ -2144,9 +1510,25 @@ normal_pid_to_str (int pid)
    target_acknowledge_forked_child.
  */
 static void
-normal_target_post_startup_inferior (int pid)
+normal_target_post_startup_inferior (ptid_t ptid)
 {
   /* This space intentionally left blank. */
+}
+
+/* Error-catcher for target_find_memory_regions */
+/* ARGSUSED */
+static int dummy_find_memory_regions (int (*ignore1) (), void *ignore2)
+{
+  error ("No target.");
+  return 0;
+}
+
+/* Error-catcher for target_make_corefile_notes */
+/* ARGSUSED */
+static char * dummy_make_corefile_notes (bfd *ignore1, int *ignore2)
+{
+  error ("No target.");
+  return NULL;
 }
 
 /* Set up the handful of non-empty slots needed by the dummy target
@@ -2165,6 +1547,8 @@ init_dummy_target (void)
   dummy_target.to_clone_and_follow_inferior = find_default_clone_and_follow_inferior;
   dummy_target.to_pid_to_str = normal_pid_to_str;
   dummy_target.to_stratum = dummy_stratum;
+  dummy_target.to_find_memory_regions = dummy_find_memory_regions;
+  dummy_target.to_make_corefile_notes = dummy_make_corefile_notes;
   dummy_target.to_magic = OPS_MAGIC;
 }
 
@@ -2231,24 +1615,25 @@ debug_to_require_detach (int pid, char *args, int from_tty)
 }
 
 static void
-debug_to_resume (int pid, int step, enum target_signal siggnal)
+debug_to_resume (ptid_t ptid, int step, enum target_signal siggnal)
 {
-  debug_target.to_resume (pid, step, siggnal);
+  debug_target.to_resume (ptid, step, siggnal);
 
-  fprintf_unfiltered (gdb_stdlog, "target_resume (%d, %s, %s)\n", pid,
+  fprintf_unfiltered (gdb_stdlog, "target_resume (%d, %s, %s)\n", PIDGET (ptid),
 		      step ? "step" : "continue",
 		      target_signal_to_name (siggnal));
 }
 
-static int
-debug_to_wait (int pid, struct target_waitstatus *status)
+static ptid_t
+debug_to_wait (ptid_t ptid, struct target_waitstatus *status, gdb_client_data client_data)
 {
-  int retval;
+  ptid_t retval;
 
-  retval = debug_target.to_wait (pid, status);
+  retval = debug_target.to_wait (ptid, status, client_data);
 
   fprintf_unfiltered (gdb_stdlog,
-		      "target_wait (%d, status) = %d,   ", pid, retval);
+		      "target_wait (%d, status) = %d,   ", PIDGET (ptid),
+		      PIDGET (retval));
   fprintf_unfiltered (gdb_stdlog, "status->kind = ");
   switch (status->kind)
     {
@@ -2288,12 +1673,12 @@ debug_to_wait (int pid, struct target_waitstatus *status)
 }
 
 static void
-debug_to_post_wait (int pid, int status)
+debug_to_post_wait (ptid_t ptid, int status)
 {
-  debug_target.to_post_wait (pid, status);
+  debug_target.to_post_wait (ptid, status);
 
   fprintf_unfiltered (gdb_stdlog, "target_post_wait (%d, %d)\n",
-		      pid, status);
+		      PIDGET (ptid), status);
 }
 
 static void
@@ -2336,11 +1721,13 @@ debug_to_prepare_to_store (void)
 
 static int
 debug_to_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
+		      struct mem_attrib *attrib,
 		      struct target_ops *target)
 {
   int retval;
 
-  retval = debug_target.to_xfer_memory (memaddr, myaddr, len, write, target);
+  retval = debug_target.to_xfer_memory (memaddr, myaddr, len, write,
+					attrib, target);
 
   /* FIXME-32x64--assumes memaddr fits in unsigned long. */
   fprintf_unfiltered (gdb_stdlog,
@@ -2485,12 +1872,12 @@ debug_to_create_inferior (char *exec_file, char *args, char **env)
 }
 
 static void
-debug_to_post_startup_inferior (int pid)
+debug_to_post_startup_inferior (ptid_t ptid)
 {
-  debug_target.to_post_startup_inferior (pid);
+  debug_target.to_post_startup_inferior (ptid);
 
   fprintf_unfiltered (gdb_stdlog, "target_post_startup_inferior (%d)\n",
-		      pid);
+		      PIDGET (ptid));
 }
 
 static void
@@ -2740,22 +2127,23 @@ debug_to_can_run (void)
 }
 
 static void
-debug_to_notice_signals (int pid)
+debug_to_notice_signals (ptid_t ptid)
 {
-  debug_target.to_notice_signals (pid);
+  debug_target.to_notice_signals (ptid);
 
-  fprintf_unfiltered (gdb_stdlog, "target_notice_signals (%d)\n", pid);
+  fprintf_unfiltered (gdb_stdlog, "target_notice_signals (%d)\n",
+                      PIDGET (ptid));
 }
 
 static int
-debug_to_thread_alive (int pid)
+debug_to_thread_alive (ptid_t ptid)
 {
   int retval;
 
-  retval = debug_target.to_thread_alive (pid);
+  retval = debug_target.to_thread_alive (ptid);
 
   fprintf_unfiltered (gdb_stdlog, "target_thread_alive (%d) = %d\n",
-		      pid, retval);
+		      PIDGET (ptid), retval);
 
   return retval;
 }
@@ -2770,13 +2158,13 @@ debug_to_find_new_threads (void)
 
 static char *
 debug_to_pid_to_str (pid)
-     int pid;
+     ptid_t pid;
 {
   char *retval;
 
   retval = debug_target.to_pid_to_str (pid);
 
-  fprintf_unfiltered (gdb_stdlog, "target_thread_alive (%d) = %s\n", pid, retval);
+  fprintf_unfiltered (gdb_stdlog, "target_thread_alive (%d) = %s\n", PIDGET (pid), retval);
 
   return retval;
 }
@@ -2842,6 +2230,7 @@ debug_to_pid_to_exec_file (int pid)
   return exec_file;
 }
 
+#if 0
 static char *
 debug_to_core_file_to_sym_file (char *core)
 {
@@ -2854,6 +2243,7 @@ debug_to_core_file_to_sym_file (char *core)
 
   return sym_file;
 }
+#endif
 
 static void
 setup_target_debug (void)
@@ -2916,7 +2306,6 @@ setup_target_debug (void)
   current_target.to_enable_exception_callback = debug_to_enable_exception_callback;
   current_target.to_get_current_exception_event = debug_to_get_current_exception_event;
   current_target.to_pid_to_exec_file = debug_to_pid_to_exec_file;
-  current_target.to_core_file_to_sym_file = debug_to_core_file_to_sym_file;
 
 }
 
@@ -2950,19 +2339,26 @@ initialize_targets (void)
   add_info ("target", target_info, targ_desc);
   add_info ("files", target_info, targ_desc);
 
-  add_show_from_set (
-		add_set_cmd ("target", class_maintenance, var_zinteger,
-			     (char *) &targetdebug,
-			     "Set target debugging.\n\
+  add_show_from_set 
+    (add_set_cmd ("target", class_maintenance, var_zinteger,
+		  (char *) &targetdebug,
+		  "Set target debugging.\n\
 When non-zero, target debugging is enabled.", &setdebuglist),
-		      &showdebuglist);
+     &showdebuglist);
 
+  add_show_from_set 
+    (add_set_boolean_cmd 
+     ("trust-readonly-sections", class_support, 
+      &trust_readonly, 
+      "Set mode for reading from readonly sections.\n\
+When this mode is on, memory reads from readonly sections (such as .text)\n\
+will be read from the object file instead of from the target.  This will\n\
+result in significant performance improvement for remote targets.",
+      &setlist),
+     &showlist);
 
   add_com ("monitor", class_obscure, do_monitor_command,
 	   "Send a command to the remote monitor (remote targets only).");
 
-  target_dcache = dcache_init();
-
-  if (!STREQ (signals[TARGET_SIGNAL_LAST].string, "TARGET_SIGNAL_MAGIC"))
-    abort ();
+  target_dcache = dcache_init ();
 }

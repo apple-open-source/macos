@@ -1,5 +1,5 @@
 /* Define wait system call interface for Emacs.
-   Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -22,7 +22,62 @@ Boston, MA 02111-1307, USA.  */
    On many systems, there is a structure defined for this.
    But on vanilla-ish USG systems there is not.  */
 
+#ifndef EMACS_SYSWAIT_H
+#define EMACS_SYSWAIT_H
+
 #ifndef VMS
+
+/* Try the approach recommended by autoconf.  If this doesn't cause
+   trouble anywhere, remove the original code, which is #if'd out
+   below.  */
+
+#if 1
+#include <sys/types.h>
+
+/* Old code included a comment that HPUX version 7 has broken
+   definitions of some of the macros and `the convex' does too.
+   HAVE_SYS_WAIT_H probably won't be defined on them if they still get
+   used, but for safety...  -- fx */
+#if (defined (HPUX) && !defined (HPUX8)) || defined (convex)
+#undef HAVE_SYS_WAIT_H
+#endif
+
+#if defined HAVE_SYS_WAIT_H	/* We have sys/wait.h with POSIXoid
+				   definitions. */
+
+#include <sys/wait.h>
+#ifndef WCOREDUMP		/* not POSIX */
+#define WCOREDUMP(status) ((status) & 0x80)
+#endif
+
+#else  /* !HAVE_SYS_WAIT_H */
+
+/* Note that sys/wait.h may still be included by stdlib.h or something
+   according to XPG.  */
+
+#undef WEXITSTATUS
+#define WEXITSTATUS(status) (((status)  & 0xff00) >> 8)
+#undef WIFEXITED
+#define WIFEXITED(status) (WTERMSIG(status) == 0)
+#undef WIFSTOPPED
+#define WIFSTOPPED(status) (((status) & 0xff) == 0x7f)
+#undef WIFSIGNALED
+#define WIFSIGNALED(status) (!WIFSTOPPED(status) && !WIFEXITED(status))
+#undef WSTOPSIG
+#define WSTOPSIG(status) WEXITSTATUS(status)
+#undef WTERMSIG
+#define WTERMSIG(status) ((status) & 0x7f)
+#undef WCOREDUMP
+#define WCOREDUMP(status) ((status) & 0x80)
+#endif /* HAVE_SYS_WAIT_H */
+
+#undef WAITTYPE
+#define WAITTYPE int
+#undef WRETCODE
+#define WRETCODE(status) WEXITSTATUS (status)
+
+#else  /* !1 */
+
 #ifndef WAITTYPE
 
 #ifdef WAIT_USE_INT
@@ -41,7 +96,7 @@ Boston, MA 02111-1307, USA.  */
 #define WIFEXITED(w) ((w&0377) == 0)
 #define WRETCODE(w) (w >> 8)
 #define WSTOPSIG(w) (w >> 8)
-#define WTERMSIG(w) (w & 0377)
+#define WTERMSIG(w) (w & 0177)
 #ifndef WCOREDUMP
 #define WCOREDUMP(w) ((w&0200) != 0)
 #endif
@@ -88,6 +143,8 @@ Boston, MA 02111-1307, USA.  */
 #endif /* not WAIT_USE_INT */
 #endif /* no WAITTYPE */
 
+#endif /* 1 */
+
 #else /* VMS */
 
 #define WAITTYPE int
@@ -104,3 +161,5 @@ Boston, MA 02111-1307, USA.  */
 #include "vmsproc.h"
 
 #endif /* VMS */
+
+#endif /* EMACS_SYSWAIT_H */

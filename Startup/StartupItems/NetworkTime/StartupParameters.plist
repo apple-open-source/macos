@@ -1,11 +1,6 @@
 {
   Description     = "network time syncronization";
   Provides        = ("Network Time");
-  Requires        = ("Resolver");
-  OrderPreference = "Early";
-  Messages =
-  {
-    start = "Configuring network time";
-    stop  = "Stopping network time";
-  };
+  Requires        = ("DirectoryServices");
+  OrderPreference = "First";
 }

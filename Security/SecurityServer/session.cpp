@@ -40,23 +40,65 @@ Mutex Session::sessionMapLock;
 //
 // Create a Session object from initial parameters (create)
 //
-Session::Session(Bootstrap bootstrap, SessionAttributeBits attrs) 
-    : mBootstrap(bootstrap), mAttributes(attrs), mProcessCount(0), mAuthCount(0), mDying(false)
+Session::Session(Bootstrap bootstrap, Port servicePort, SessionAttributeBits attrs) 
+    : mBootstrap(bootstrap), mServicePort(servicePort),
+	  mAttributes(attrs), mProcessCount(0), mAuthCount(0), mDying(false)
 {
-    debug("SSsession", "%p CREATED: handle=0x%lx bootstrap=%d attrs=0x%lx",
-        this, handle(), mBootstrap.port(), mAttributes);
+    debug("SSsession", "%p CREATED: handle=0x%lx bootstrap=%d service=%d attrs=0x%lx",
+        this, handle(), mBootstrap.port(), mServicePort.port(), mAttributes);
 }
 
-RootSession::RootSession()
-    : Session(Bootstrap(), sessionIsRoot | sessionWasInitialized)
+
+void Session::release()
 {
-    // self-install
-    sessionMap[mBootstrap] = this;
+	// nothing by default
 }
 
-DynamicSession::DynamicSession(Bootstrap bootstrap) : Session(bootstrap)
+
+//
+// The root session inherits the startup bootstrap and service port
+//
+RootSession::RootSession(Port servicePort, SessionAttributeBits attrs)
+    : Session(Bootstrap(), servicePort, sessionIsRoot | sessionWasInitialized | attrs)
 {
-    Server::active().notifyIfDead(bootstrapPort());
+    // self-install (no thread safety issues here)
+    sessionMap[mServicePort] = this;
+}
+
+
+//
+// Dynamic sessions use the given bootstrap and re-register in it
+//
+DynamicSession::DynamicSession(const Bootstrap &bootstrap)
+	: ReceivePort(Server::active().bootstrapName(), bootstrap),
+	  Session(bootstrap, *this)
+{
+	// tell the server to listen to our port
+	Server::active().add(*this);
+	
+	// register for port notifications
+    Server::active().notifyIfDead(bootstrapPort());	//@@@??? still needed?
+	Server::active().notifyIfUnused(*this);
+
+	// self-register
+	StLock<Mutex> _(sessionMapLock);
+	sessionMap[*this] = this;
+}
+
+DynamicSession::~DynamicSession()
+{
+	// remove our service port from the server
+	Server::active().remove(*this);
+
+	// if this is a (the) graphic login session, lock all databases
+	if (attribute(sessionHasGraphicAccess))
+		Database::lockAllDatabases();
+}
+
+
+void DynamicSession::release()
+{
+	mBootstrap.destroy();
 }
 
 
@@ -66,25 +108,20 @@ DynamicSession::DynamicSession(Bootstrap bootstrap) : Session(bootstrap)
 Session::~Session()
 {
     assert(mProcessCount == 0);	// can't die with processes still alive
-    Database::lockAllDatabases();
     debug("SSsession", "%p DESTROYED: handle=0x%lx bootstrap=%d",
         this, handle(), mBootstrap.port());
 }
 
 
 //
-// Retrieve or create a session object
+// Locate a session object by service port or (Session API) identifier
 //
-Session &Session::find(Bootstrap bootstrap, bool makeNew)
+Session &Session::find(Port servicePort)
 {
     StLock<Mutex> _(sessionMapLock);
-    Session * &slot = sessionMap[bootstrap];
-    if (slot == NULL)
-        if (makeNew)
-            slot = new DynamicSession(bootstrap);
-        else
-            Authorization::Error::throwMe(errAuthorizationInvalidRef);
-    return *slot;
+	SessionMap::const_iterator it = sessionMap.find(servicePort);
+	assert(it != sessionMap.end());
+	return *it->second;
 }
 
 Session &Session::find(SecuritySessionId id)
@@ -103,14 +140,17 @@ Session &Session::find(SecuritySessionId id)
 // We may not destroy the Session outright here (due to processes that use it),
 // but we do clear out its accumulated wealth.
 //
-void Session::eliminate(Bootstrap bootstrap)
+void Session::eliminate(Port servPort)
 {
     // remove session from session map
     StLock<Mutex> _(sessionMapLock);
-    SessionMap::iterator it = sessionMap.find(bootstrap);
+    SessionMap::iterator it = sessionMap.find(servPort);
     assert(it != sessionMap.end());
     Session *session = it->second;
     sessionMap.erase(it);
+	
+	// destroy the session service port (this releases mach_init to proceed)
+	session->release();
 
     // clear resources
     if (session->clearResources())
@@ -128,12 +168,15 @@ bool Session::clearResources()
     mDying = true;
     
     // invalidate shared credentials
-    IFDEBUG(if (!mSessionCreds.empty()) 
-        debug("SSauth", "session %p clearing %d shared credentials", 
-            this, int(mSessionCreds.size())));
-    for (CredentialSet::iterator it = mSessionCreds.begin(); it != mSessionCreds.end(); it++)
-        (*it)->invalidate();
-    
+    {
+        StLock<Mutex> _(mCredsLock);
+        
+        IFDEBUG(if (!mSessionCreds.empty()) 
+            debug("SSauth", "session %p clearing %d shared credentials", 
+                this, int(mSessionCreds.size())));
+        for (CredentialSet::iterator it = mSessionCreds.begin(); it != mSessionCreds.end(); it++)
+            (*it)->invalidate();
+    }
     // let the caller know if we are ready to die NOW
     return mProcessCount == 0 && mAuthCount == 0;
 }
@@ -186,21 +229,26 @@ OSStatus Session::authCreate(const RightSet &rights,
 	
 	// this will acquire mLock, so we delay acquiring it
 	auto_ptr<AuthorizationToken> auth(new AuthorizationToken(*this, resultCreds));
-	
+
+    // Make a copy of the mSessionCreds
+    CredentialSet sessionCreds;
+    {
+        StLock<Mutex> _(mCredsLock);
+        sessionCreds = mSessionCreds;
+    }
+        
 	OSStatus result = Server::authority().authorize(rights, environment, flags,
-        &mSessionCreds, &resultCreds, NULL, *auth);
+        &sessionCreds, &resultCreds, NULL, *auth);
 	newHandle = auth->handle();
 
-	{
-		StLock<Mutex> _(mLock);
-
-		// merge resulting creds into shared pool
-		if ((flags & kAuthorizationFlagExtendRights) && 
-			!(flags & kAuthorizationFlagDestroyRights)) {
-			mergeCredentials(resultCreds);
-			auth->mergeCredentials(resultCreds);
-		}
-	}
+    // merge resulting creds into shared pool
+    if ((flags & kAuthorizationFlagExtendRights) && 
+        !(flags & kAuthorizationFlagDestroyRights))
+    {
+        StLock<Mutex> _(mCredsLock);
+        mergeCredentials(resultCreds);
+        auth->mergeCredentials(resultCreds);
+    }
 
 	// Make sure that this isn't done until the auth(AuthorizationToken) is guaranteed to 
 	// not be destroyed anymore since it's destructor asserts it has no processes
@@ -231,17 +279,22 @@ OSStatus Session::authGetRights(const AuthorizationBlob &authBlob,
 	AuthorizationFlags flags,
 	MutableRightSet &grantedRights)
 {
-	StLock<Mutex> _(mLock);
-	CredentialSet resultCreds;
-	AuthorizationToken &auth = authorization(authBlob);
-	CredentialSet effective = auth.effectiveCreds();
+    CredentialSet resultCreds;
+    AuthorizationToken &auth = authorization(authBlob);
+    CredentialSet effective;
+    {
+        StLock<Mutex> _(mCredsLock);
+        effective	 = auth.effectiveCreds();
+    }
 	OSStatus result = Server::authority().authorize(rights, environment, flags, 
         &effective, &resultCreds, &grantedRights, auth);
 
 	// merge resulting creds into shared pool
-	if ((flags & kAuthorizationFlagExtendRights) && !(flags & kAuthorizationFlagDestroyRights)) {
-		mergeCredentials(resultCreds);
-		auth.mergeCredentials(resultCreds);
+	if ((flags & kAuthorizationFlagExtendRights) && !(flags & kAuthorizationFlagDestroyRights))
+    {
+        StLock<Mutex> _(mCredsLock);
+        mergeCredentials(resultCreds);
+        auth.mergeCredentials(resultCreds);
 	}
 
 	IFDEBUG(debug("SSauth", "Authorization %p copyRights asked for %d got %d",
@@ -251,15 +304,15 @@ OSStatus Session::authGetRights(const AuthorizationBlob &authBlob,
 
 OSStatus Session::authGetInfo(const AuthorizationBlob &authBlob,
 	const char *tag,
-	MutableRightSet &grantedRights)
+	AuthorizationItemSet *&contextInfo)
 {
 	StLock<Mutex> _(mLock);
 	AuthorizationToken &auth = authorization(authBlob);
-	debug("SSauth", "Authorization %p get-info not implemented", &auth);
-    if (tag) {	// no such tag (no info support)
+	debug("SSauth", "Authorization %p get-info", &auth);
+    if (tag) {	// @@@ no tag support yet
         return errAuthorizationInvalidTag;
-    } else {	// return no tags (no info support)
-        grantedRights = RightSet();	// return no entries
+    } else {	// return all tags
+        contextInfo = &auth.infoSet();
         return noErr;
     }
 }
@@ -314,8 +367,10 @@ void Session::setup(SessionCreationFlags flags, SessionAttributeBits attrs)
 {
     // check current process object - it may have been cached before the client's bootstrap switch
     Process *process = &Server::connection().process;
+#if 0
     if (process->taskPort().bootstrap() != process->session.bootstrapPort())
         process = Server::active().resetConnection();
+#endif
     process->session.setupAttributes(attrs);
 }
 
@@ -334,8 +389,10 @@ void Session::setupAttributes(SessionAttributeBits attrs)
 //
 // Merge a set of credentials into the shared-session credential pool
 //
+// must hold mCredsLock
 void Session::mergeCredentials(CredentialSet &creds)
 {
+    debug("SSsession", "%p merge creds @%p", this, &creds);
 	for (CredentialSet::const_iterator it = creds.begin(); it != creds.end(); it++)
 		if (((*it)->isShared() && (*it)->isValid())) {
 			CredentialSet::iterator old = mSessionCreds.find(*it);

@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -346,6 +346,10 @@ static void *merge_core_dir_configs(pool *a, void *basev, void *newv)
         conf->etag_bits &= (~ ETAG_NONE);
     }
 
+    if (new->cgi_command_args != AP_FLAG_UNSET) {
+        conf->cgi_command_args = new->cgi_command_args;
+    }
+
     return (void*)conf;
 }
 
@@ -619,6 +623,19 @@ API_EXPORT(char *) ap_response_code_string(request_rec *r, int error_index)
 
 
 /* Code from Harald Hanche-Olsen <hanche@imf.unit.no> */
+/* Note: the function returns its result in conn->double_reverse:
+ *       +1: forward lookup of the previously reverse-looked-up
+ *           hostname in conn->remote_host succeeded, and at
+ *           least one of its IP addresses matches the client.
+ *       -1: forward lookup of conn->remote_host failed, or
+ *           none of the addresses found matches the client connection
+ *           (possible DNS spoof in the reverse zone!)
+ *       If do_double_reverse() returns -1, then it also invalidates
+ *       conn->remote_host to prevent an invalid name from appearing
+ *       in the log files. Conn->remote_host is set to "", because
+ *       a setting of NULL would allow another reverse lookup,
+ *       depending on the flags given to ap_get_remote_host().
+ */
 static ap_inline void do_double_reverse (conn_rec *conn)
 {
     struct hostent *hptr;
@@ -630,6 +647,7 @@ static ap_inline void do_double_reverse (conn_rec *conn)
     if (conn->remote_host == NULL || conn->remote_host[0] == '\0') {
 	/* single reverse failed, so don't bother */
 	conn->double_reverse = -1;
+        conn->remote_host = ""; /* prevent another lookup */
 	return;
     }
     hptr = gethostbyname(conn->remote_host);
@@ -645,6 +663,8 @@ static ap_inline void do_double_reverse (conn_rec *conn)
 	}
     }
     conn->double_reverse = -1;
+    /* invalidate possible reverse-resolved hostname if forward lookup fails */
+    conn->remote_host = "";
 }
 
 API_EXPORT(const char *) ap_get_remote_host(conn_rec *conn, void *dir_config,
@@ -683,9 +703,6 @@ API_EXPORT(const char *) ap_get_remote_host(conn_rec *conn, void *dir_config,
 	   
 	    if (hostname_lookups == HOSTNAME_LOOKUP_DOUBLE) {
 		do_double_reverse(conn);
-		if (conn->double_reverse != 1) {
-		    conn->remote_host = NULL;
-		}
 	    }
 	}
 	/* if failed, set it to the NULL string to indicate error */
@@ -962,15 +979,11 @@ API_EXPORT (file_type_e) ap_get_win32_interpreter(const  request_rec *r,
     }
     ext = strrchr(exename, '.');
 
-    if (ext && (!strcasecmp(ext,".bat") || !strcasecmp(ext,".cmd")) &&
-        d->script_interpreter_source != INTERPRETER_SOURCE_REGISTRY) 
+    if (ext && (!strcasecmp(ext,".bat") || !strcasecmp(ext,".cmd"))) 
     {
-        /* The registry does these for us unless INTERPRETER_SOURCE_REGISTRY
-         * was not enabled.
-         */
         char *p, *shellcmd = getenv("COMSPEC");
         if (!shellcmd)
-            shellcmd = SHELL_PATH;
+            return eFileTypeUNKNOWN;
         p = strchr(shellcmd, '\0');
         if ((p - shellcmd >= 11) && !strcasecmp(p - 11, "command.com")) 
         {
@@ -979,12 +992,16 @@ API_EXPORT (file_type_e) ap_get_win32_interpreter(const  request_rec *r,
             if (!strcasecmp(ext,".cmd"))
                 return eFileTypeUNKNOWN;
             *interpreter = ap_pstrcat(r->pool, "\"", shellcmd, "\" /C %1", NULL);
+            return eCommandShell16;
         }
-        else
-            /* Assume any other likes long paths, and knows .cmd
+        else {
+            /* Assume any other likes long paths, and knows .cmd,
+             * but the entire /c arg should be double quoted, e.g.
+             * "c:\path\cmd.exe" /c ""prog" "arg" "arg""
              */
-            *interpreter = ap_pstrcat(r->pool, "\"", shellcmd, "\" /C \"%1\"", NULL);
-        return eFileTypeSCRIPT;
+            *interpreter = ap_pstrcat(r->pool, "\"", shellcmd, "\" /C \"\"%1\" %*\"", NULL);
+            return eCommandShell32;
+        }
     }
 
     /* If the file has an extension and it is not .com and not .exe and
@@ -2874,7 +2891,7 @@ static const char *set_limit_req_body(cmd_parms *cmd, core_dir_config *conf,
      *      Instead we have an idiotic define in httpd.h that prevents
      *      it from being used even when it is available. Sheesh.
      */
-    conf->limit_req_body = (unsigned long)strtol(arg, (char **)NULL, 10);
+    conf->limit_req_body = (unsigned long)ap_strtol(arg, (char **)NULL, 10);
     return NULL;
 }
 
@@ -2895,6 +2912,14 @@ static const char *set_interpreter_source(cmd_parms *cmd, core_dir_config *d,
 }
 #endif
 
+static const char *set_cgi_command_args(cmd_parms *cmd,
+                                              void *mconfig,
+                                              int arg)
+{
+    core_dir_config *cfg = (core_dir_config *)mconfig;
+    cfg->cgi_command_args = arg ? AP_FLAG_ON : AP_FLAG_OFF;
+    return NULL;
+}
 
 #ifdef CHARSET_EBCDIC
 
@@ -3372,6 +3397,8 @@ static const command_rec core_cmds[] = {
 { "ScriptInterpreterSource", set_interpreter_source, NULL, OR_FILEINFO, TAKE1,
   "Where to find interpreter to run Win32 scripts - Registry or Script (shebang line)" },
 #endif
+{ "CGICommandArgs", set_cgi_command_args, NULL, OR_OPTIONS, FLAG,
+  "Allow or Disallow CGI requests to pass args on the command line" },
 { "ServerTokens", set_serv_tokens, NULL, RSRC_CONF, TAKE1,
   "Tokens displayed in the Server: header - Min[imal], OS, Prod[uctOnly], Full" },
 { "LimitRequestLine", set_limit_req_line, NULL, RSRC_CONF, TAKE1,
@@ -3807,7 +3834,7 @@ static int default_handler(request_rec *r)
         return METHOD_NOT_ALLOWED;
     }
 	
-#if defined(OS2) || defined(WIN32) || defined(NETWARE)
+#if defined(OS2) || defined(WIN32) || defined(NETWARE) || defined(CYGWIN)
     /* Need binary mode for OS/2 */
     f = ap_pfopen(r->pool, r->filename, "rb");
 #else

@@ -33,7 +33,7 @@
             mount_hfs.tproj, 
             mount_nfs.tproj, 
             mount_udf.tproj, 
-            mount_synthfs.tproj,
+            mount_synthfs.tproj, 
             newfs.tproj, 
             newfs_hfs.tproj, 
             newfs_msdos.tproj, 
@@ -49,7 +49,8 @@
             umount.tproj, 
             udf.tproj, 
             ufs.tproj, 
-            vsdbutil.tproj
+            vsdbutil.tproj, 
+            vndevice.tproj
         ); 
         TOOLS = (); 
     }; 

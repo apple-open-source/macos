@@ -245,8 +245,7 @@ complete gdb	'c/-cd=/d/'								\
 		'c/-command=/f/'   'n/-x/f/'						\
 		'c/-core=/f/'      'n/-c/f/'						\
 		'c/-directory=/d/' 'n/-d/d/'						\
-		'c/-/(help nx n q batch b s se write e c x d quiet q fullname f)/'	\
-		'n/*/c/'
+		'c/-/(help nx n q batch b s se write e c x d quiet q fullname f)/'
 
 complete javac	'n/*/f:*.java/'
 

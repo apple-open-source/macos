@@ -80,25 +80,23 @@
 #endif
 
 #include <string.h>
-
-static SSLErr SSLGenerateKeyMaterial(SSLBuffer key, SSLContext *ctx);
+#include <assert.h>
 
 SSLErr
 SSLEncodeRSAPremasterSecret(SSLContext *ctx)
 {   SSLBuffer           randData;
     SSLErr              err;
     
-    if (ERR(err = SSLAllocBuffer(&ctx->preMasterSecret, 48, &ctx->sysCtx)) != 0)
+    if (ERR(err = SSLAllocBuffer(&ctx->preMasterSecret, 
+			SSL_RSA_PREMASTER_SECRET_SIZE, &ctx->sysCtx)) != 0)
         return err;
     
-    SSLEncodeInt(ctx->preMasterSecret.data, SSL_Version_3_0, 2);
+	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+		   (ctx->negProtocolVersion == TLS_Version_1_0));
+    SSLEncodeInt(ctx->preMasterSecret.data, ctx->maxProtocolVersion, 2);
     randData.data = ctx->preMasterSecret.data+2;
-    randData.length = 46;
-    #ifdef	_APPLE_CDSA_
+    randData.length = SSL_RSA_PREMASTER_SECRET_SIZE - 2;
     if ((err = sslRand(ctx, &randData)) != 0)
-    #else
-    if ((err = ctx->sysCtx.random(randData, ctx->sysCtx.randomRef)) != 0)
-    #endif
         return err;
     
     DUMP_BUFFER_NAME("premaster secret", ctx->preMasterSecret);
@@ -118,9 +116,6 @@ SSLEncodeDHPremasterSecret(SSLContext *ctx)
 	SSLErr              err;
     int                 rsaResult;
     SSLRandomCtx        rsaRandom;
-#if RSAREF
-    SSLBuffer           privateValue;
-#endif
 
 /* Given the server's Diffie-Hellman parameters, prepare a public & private value,
  *  then use the public value provided by the server and our private value to
@@ -194,86 +189,23 @@ fail:
 #endif	/* APPLE_DH */
 
 SSLErr
-SSLCalculateMasterSecret(SSLContext *ctx)
-{   SSLErr      err;
-    SSLBuffer   shaState, md5State, clientRandom,
-                serverRandom, shaHash, md5Hash, leader;
-    UInt8       *masterProgress, shaHashData[20], leaderData[3];
-    int         i;
-    
-    md5State.data = shaState.data = 0;
-    if ((err = SSLAllocBuffer(&md5State, SSLHashMD5.contextSize, &ctx->sysCtx)) != 0)
-        goto fail;
-    if ((err = SSLAllocBuffer(&shaState, SSLHashSHA1.contextSize, &ctx->sysCtx)) != 0)
-        goto fail;
-    
-    clientRandom.data = ctx->clientRandom;
-    clientRandom.length = 32;
-    serverRandom.data = ctx->serverRandom;
-    serverRandom.length = 32;
-    shaHash.data = shaHashData;
-    shaHash.length = 20;
-    
-    masterProgress = ctx->masterSecret;
-    
-    for (i = 1; i <= 3; i++)
-    {   if ((err = SSLHashMD5.init(md5State)) != 0)
-            goto fail;
-        if ((err = SSLHashSHA1.init(shaState)) != 0)
-            goto fail;
-        
-        leaderData[0] = leaderData[1] = leaderData[2] = 0x40 + i;   /* 'A', 'B', etc. */
-        leader.data = leaderData;
-        leader.length = i;
-        
-        if ((err = SSLHashSHA1.update(shaState, leader)) != 0)
-            goto fail;
-        if ((err = SSLHashSHA1.update(shaState, ctx->preMasterSecret)) != 0)
-            goto fail;
-        if ((err = SSLHashSHA1.update(shaState, clientRandom)) != 0)
-            goto fail;
-        if ((err = SSLHashSHA1.update(shaState, serverRandom)) != 0)
-            goto fail;
-        if ((err = SSLHashSHA1.final(shaState, shaHash)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.update(md5State, ctx->preMasterSecret)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.update(md5State, shaHash)) != 0)
-            goto fail;
-        md5Hash.data = masterProgress;
-        md5Hash.length = 16;
-        if ((err = SSLHashMD5.final(md5State, md5Hash)) != 0)
-            goto fail;
-        masterProgress += 16;
-    }
-    
-    DUMP_DATA_NAME("master secret",ctx->masterSecret, 48);
-    
-    err = SSLNoErr;
-fail:
-    SSLFreeBuffer(&shaState, &ctx->sysCtx);
-    SSLFreeBuffer(&md5State, &ctx->sysCtx);
-    return err;
-}
-
-SSLErr
 SSLInitPendingCiphers(SSLContext *ctx)
 {   SSLErr          err;
-    SSLBuffer       key, hashCtx;
+    SSLBuffer       key;
     UInt8           *keyDataProgress, *keyPtr, *ivPtr;
     int             keyDataLen;
     CipherContext   *serverPending, *clientPending;
         
-    key.data = hashCtx.data = 0;
+    key.data = 0;
     
-    ctx->readPending.hash = ctx->selectedCipherSpec->macAlgorithm;
-    ctx->writePending.hash = ctx->selectedCipherSpec->macAlgorithm;
+    ctx->readPending.macRef = ctx->selectedCipherSpec->macAlgorithm;
+    ctx->writePending.macRef = ctx->selectedCipherSpec->macAlgorithm;
     ctx->readPending.symCipher = ctx->selectedCipherSpec->cipher;
     ctx->writePending.symCipher = ctx->selectedCipherSpec->cipher;
     ctx->readPending.sequenceNum.high = ctx->readPending.sequenceNum.low = 0;
     ctx->writePending.sequenceNum.high = ctx->writePending.sequenceNum.low = 0;
     
-    keyDataLen = ctx->selectedCipherSpec->macAlgorithm->digestSize +
+    keyDataLen = ctx->selectedCipherSpec->macAlgorithm->hash->digestSize +
                      ctx->selectedCipherSpec->cipher->secretKeySize;
     if (ctx->selectedCipherSpec->isExportable == NotExportable)
         keyDataLen += ctx->selectedCipherSpec->cipher->ivSize;
@@ -281,9 +213,9 @@ SSLInitPendingCiphers(SSLContext *ctx)
     
     if ((err = SSLAllocBuffer(&key, keyDataLen, &ctx->sysCtx)) != 0)
         return err;
-    if ((err = SSLGenerateKeyMaterial(key, ctx)) != 0)
+	assert(ctx->sslTslCalls != NULL);
+    if ((err = ctx->sslTslCalls->generateKeyMaterial(key, ctx)) != 0)
         goto fail;
-    DUMP_BUFFER_NAME("key data",key);
     
     if (ctx->protocolSide == SSL_ServerSide)
     {   serverPending = &ctx->writePending;
@@ -295,13 +227,23 @@ SSLInitPendingCiphers(SSLContext *ctx)
     }
     
     keyDataProgress = key.data;
-    memcpy(clientPending->macSecret, keyDataProgress, ctx->selectedCipherSpec->macAlgorithm->digestSize);
-    DUMP_DATA_NAME("client write mac secret", keyDataProgress, ctx->selectedCipherSpec->macAlgorithm->digestSize);
-    keyDataProgress += ctx->selectedCipherSpec->macAlgorithm->digestSize;
-    memcpy(serverPending->macSecret, keyDataProgress, ctx->selectedCipherSpec->macAlgorithm->digestSize);
-    DUMP_DATA_NAME("server write mac secret", keyDataProgress, ctx->selectedCipherSpec->macAlgorithm->digestSize);
-    keyDataProgress += ctx->selectedCipherSpec->macAlgorithm->digestSize;
+    memcpy(clientPending->macSecret, keyDataProgress, 
+		ctx->selectedCipherSpec->macAlgorithm->hash->digestSize);
+    keyDataProgress += ctx->selectedCipherSpec->macAlgorithm->hash->digestSize;
+    memcpy(serverPending->macSecret, keyDataProgress, 
+		ctx->selectedCipherSpec->macAlgorithm->hash->digestSize);
+    keyDataProgress += ctx->selectedCipherSpec->macAlgorithm->hash->digestSize;
     
+	/* init the reusable-per-record MAC contexts */
+	err = ctx->sslTslCalls->initMac(clientPending, ctx);
+	if(err) {
+		goto fail;
+	}
+	err = ctx->sslTslCalls->initMac(serverPending, ctx);
+	if(err) {
+		goto fail;
+	}
+	
     if (ctx->selectedCipherSpec->isExportable == NotExportable)
     {   keyPtr = keyDataProgress;
         keyDataProgress += ctx->selectedCipherSpec->cipher->secretKeySize;
@@ -311,8 +253,6 @@ SSLInitPendingCiphers(SSLContext *ctx)
         if ((err = ctx->selectedCipherSpec->cipher->initialize(keyPtr, ivPtr,
                                     clientPending, ctx)) != 0)
             goto fail;
-        DUMP_DATA_NAME("client write key", keyPtr, ctx->selectedCipherSpec->cipher->secretKeySize);
-        DUMP_DATA_NAME("client write iv", ivPtr, ctx->selectedCipherSpec->cipher->ivSize);
         keyPtr = keyDataProgress;
         keyDataProgress += ctx->selectedCipherSpec->cipher->secretKeySize;
         /* Skip client write IV to get to server write IV */
@@ -320,226 +260,59 @@ SSLInitPendingCiphers(SSLContext *ctx)
         if ((err = ctx->selectedCipherSpec->cipher->initialize(keyPtr, ivPtr,
                                     serverPending, ctx)) != 0)
             goto fail;
-        DUMP_DATA_NAME("server write key", keyPtr, ctx->selectedCipherSpec->cipher->secretKeySize);
-        DUMP_DATA_NAME("server write iv", ivPtr, ctx->selectedCipherSpec->cipher->ivSize);
     }
-    else
-    {   UInt8           exportKey[16], exportIV[16];
-        SSLBuffer       hashOutput, clientWrite, serverWrite, clientRandom,
-                        serverRandom;
+    else {
+        UInt8		clientExportKey[16], serverExportKey[16], 
+					clientExportIV[16],  serverExportIV[16];
+        SSLBuffer   clientWrite, serverWrite;
+        SSLBuffer	finalClientWrite, finalServerWrite;
+		SSLBuffer	finalClientIV, finalServerIV;
+		
+        assert(ctx->selectedCipherSpec->cipher->keySize <= 16);
+        assert(ctx->selectedCipherSpec->cipher->ivSize <= 16);
         
-        CASSERT(ctx->selectedCipherSpec->cipher->keySize <= 16);
-        CASSERT(ctx->selectedCipherSpec->cipher->ivSize <= 16);
-        
+		/* Inputs to generateExportKeyAndIv are clientRandom, serverRandom,
+		 *    clientWriteKey, serverWriteKey. The first two are already present
+		 *    in ctx.
+		 * Outputs are a key and IV for each of {server, client}.
+		 */
         clientWrite.data = keyDataProgress;
         clientWrite.length = ctx->selectedCipherSpec->cipher->secretKeySize;
         serverWrite.data = keyDataProgress + clientWrite.length;
         serverWrite.length = ctx->selectedCipherSpec->cipher->secretKeySize;
-        clientRandom.data = ctx->clientRandom;
-        clientRandom.length = 32;
-        serverRandom.data = ctx->serverRandom;
-        serverRandom.length = 32;
-        
-        if ((err = SSLAllocBuffer(&hashCtx, SSLHashMD5.contextSize, &ctx->sysCtx)) != 0)
+		finalClientWrite.data = clientExportKey;
+		finalServerWrite.data   = serverExportKey;
+		finalClientIV.data      = clientExportIV;
+		finalServerIV.data      = serverExportIV;
+		finalClientWrite.length = 16;
+		finalServerWrite.length = 16;
+		/* these can be zero */
+		finalClientIV.length    = ctx->selectedCipherSpec->cipher->ivSize;
+		finalServerIV.length    = ctx->selectedCipherSpec->cipher->ivSize;
+
+		assert(ctx->sslTslCalls != NULL);
+		err = ctx->sslTslCalls->generateExportKeyAndIv(ctx, clientWrite, serverWrite,
+			finalClientWrite, finalServerWrite, finalClientIV, finalServerIV);
+		if(err) {
+			goto fail;
+		}
+        if ((err = ctx->selectedCipherSpec->cipher->initialize(clientExportKey, 
+				clientExportIV, clientPending, ctx)) != 0)
             goto fail;
-        if ((err = SSLHashMD5.init(hashCtx)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.update(hashCtx, clientWrite)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.update(hashCtx, clientRandom)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.update(hashCtx, serverRandom)) != 0)
-            goto fail;
-        hashOutput.data = exportKey;
-        hashOutput.length = 16;
-        if ((err = SSLHashMD5.final(hashCtx, hashOutput)) != 0)
-            goto fail;
-        
-        if (ctx->selectedCipherSpec->cipher->ivSize > 0)
-        {   if ((err = SSLHashMD5.init(hashCtx)) != 0)
-                goto fail;
-            if ((err = SSLHashMD5.update(hashCtx, clientRandom)) != 0)
-                goto fail;
-            if ((err = SSLHashMD5.update(hashCtx, serverRandom)) != 0)
-                goto fail;
-            hashOutput.data = exportIV;
-            hashOutput.length = 16;
-            if ((err = SSLHashMD5.final(hashCtx, hashOutput)) != 0)
-                goto fail;
-        }
-        if ((err = ctx->selectedCipherSpec->cipher->initialize(exportKey, exportIV,
-                                    clientPending, ctx)) != 0)
-            goto fail;
-        
-        if ((err = SSLHashMD5.init(hashCtx)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.update(hashCtx, serverWrite)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.update(hashCtx, serverRandom)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.update(hashCtx, clientRandom)) != 0)
-            goto fail;
-        hashOutput.data = exportKey;
-        hashOutput.length = 16;
-        if ((err = SSLHashMD5.final(hashCtx, hashOutput)) != 0)
-            goto fail;
-        
-        if (ctx->selectedCipherSpec->cipher->ivSize > 0)
-        {   if ((err = SSLHashMD5.init(hashCtx)) != 0)
-                goto fail;
-            if ((err = SSLHashMD5.update(hashCtx, serverRandom)) != 0)
-                goto fail;
-            if ((err = SSLHashMD5.update(hashCtx, clientRandom)) != 0)
-                goto fail;
-            hashOutput.data = exportIV;
-            hashOutput.length = 16;
-            if ((err = SSLHashMD5.final(hashCtx, hashOutput)) != 0)
-                goto fail;
-        }
-        if ((err = ctx->selectedCipherSpec->cipher->initialize(exportKey, exportIV,
-                                    serverPending, ctx)) != 0)
+        if ((err = ctx->selectedCipherSpec->cipher->initialize(serverExportKey, 
+				serverExportIV, serverPending, ctx)) != 0)
             goto fail;
     }
     
-/* Ciphers are ready for use */
+	/* Ciphers are ready for use */
     ctx->writePending.ready = 1;
     ctx->readPending.ready = 1;
     
-/* Ciphers get swapped by sending or receiving a change cipher spec message */
+	/* Ciphers get swapped by sending or receiving a change cipher spec message */
     
     err = SSLNoErr;
 fail:
     SSLFreeBuffer(&key, &ctx->sysCtx);
-    SSLFreeBuffer(&hashCtx, &ctx->sysCtx);
     return err;
 }
 
-static SSLErr
-SSLGenerateKeyMaterial(SSLBuffer key, SSLContext *ctx)
-{   SSLErr      err;
-    UInt8       leaderData[10];     /* Max of 10 hashes (* 16 bytes/hash = 160 bytes of key) */
-    UInt8       shaHashData[20], md5HashData[16];
-    SSLBuffer   shaContext, md5Context;
-    UInt8       *keyProgress;
-    int         i,j,remaining, satisfied;
-    SSLBuffer   leader, masterSecret, serverRandom, clientRandom, shaHash, md5Hash;
-    
-    CASSERT(key.length <= 16 * sizeof(leaderData));
-    
-    leader.data = leaderData;
-    masterSecret.data = ctx->masterSecret;
-    masterSecret.length = 48;
-    serverRandom.data = ctx->serverRandom;
-    serverRandom.length = 32;
-    clientRandom.data = ctx->clientRandom;
-    clientRandom.length = 32;
-    shaHash.data = shaHashData;
-    shaHash.length = 20;
-    md5Hash.data = md5HashData;
-    md5Hash.length = 20;
-    
-    md5Context.data = 0;
-    shaContext.data = 0;
-    if ((err = ReadyHash(&SSLHashMD5, &md5Context, ctx)) != 0)
-        goto fail;
-    if ((err = ReadyHash(&SSLHashSHA1, &shaContext, ctx)) != 0)
-        goto fail;  
-    
-    keyProgress = key.data;
-    remaining = key.length;
-    
-    for (i = 0; remaining > 0; ++i)
-    {   for (j = 0; j <= i; j++)
-            leaderData[j] = 0x41 + i;   /* 'A', 'BB', 'CCC', etc. */
-        leader.length = i+1;
-        
-        if ((err = SSLHashSHA1.update(shaContext, leader)) != 0)
-            goto fail;
-        if ((err = SSLHashSHA1.update(shaContext, masterSecret)) != 0)
-            goto fail;
-        if ((err = SSLHashSHA1.update(shaContext, serverRandom)) != 0)
-            goto fail;
-        if ((err = SSLHashSHA1.update(shaContext, clientRandom)) != 0)
-            goto fail;
-        if ((err = SSLHashSHA1.final(shaContext, shaHash)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.update(md5Context, masterSecret)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.update(md5Context, shaHash)) != 0)
-            goto fail;
-        if ((err = SSLHashMD5.final(md5Context, md5Hash)) != 0)
-            goto fail;
-        
-        satisfied = 16;
-        if (remaining < 16)
-            satisfied = remaining;
-        memcpy(keyProgress, md5HashData, satisfied);
-        remaining -= satisfied;
-        keyProgress += satisfied;
-        
-        if ((err = SSLHashMD5.init(md5Context)) != 0)
-            goto fail;
-        if ((err = SSLHashSHA1.init(shaContext)) != 0)
-            goto fail;
-    }
-    
-    CASSERT(remaining == 0 && keyProgress == (key.data + key.length));
-    err = SSLNoErr;
-fail:
-    SSLFreeBuffer(&md5Context, &ctx->sysCtx);
-    SSLFreeBuffer(&shaContext, &ctx->sysCtx);
-    
-    return err;
-}
-
-#ifndef	_APPLE_CDSA_
-/* I'm not sure what this is for */
-SSLErr
-ReadyRandom(SSLRandomCtx *rsaRandom, SSLContext *ctx)
-{   SSLErr              err;
-    SSLBuffer           randomSeedBuf;
-    UInt8               randomSeed[32];
-    int                 rsaResult;
-#if RSAREF
-    unsigned int        bytesNeeded;
-    
-    if (R_RandomInit(rsaRandom) != 0)
-        return ERR(SSLUnknownErr);
-    if (R_GetRandomBytesNeeded(&bytesNeeded, rsaRandom) != 0)
-        return ERR(SSLUnknownErr);
-    
-    randomSeedBuf.data = randomSeed;
-    randomSeedBuf.length = 32;
-    
-    while (bytesNeeded > 0)
-    {   if (ERR(err = ctx->sysCtx.random(randomSeedBuf, ctx->sysCtx.randomRef)) != 0)
-            return err;
-        if ((rsaResult = R_RandomUpdate(rsaRandom, randomSeed, 32)) != 0)
-            return ERR(SSLUnknownErr);
-        
-        if (bytesNeeded >= 32)
-            bytesNeeded -= 32;
-        else
-            bytesNeeded = 0;
-    }
-#elif BSAFE
-    static B_ALGORITHM_OBJ  random;
-    B_ALGORITHM_METHOD      *chooser[] = { &AM_MD5_RANDOM, 0 };
-    
-    if ((rsaResult = B_CreateAlgorithmObject(rsaRandom)) != 0)
-        return ERR(SSLUnknownErr);
-    if ((rsaResult = B_SetAlgorithmInfo(*rsaRandom, AI_MD5Random, 0)) != 0)
-        return ERR(SSLUnknownErr);
-    if ((rsaResult = B_RandomInit(*rsaRandom, chooser, NO_SURR)) != 0)
-        return ERR(SSLUnknownErr);
-    randomSeedBuf.data = randomSeed;
-    randomSeedBuf.length = 32;
-    if (ERR(err = ctx->sysCtx.random(randomSeedBuf, ctx->sysCtx.randomRef)) != 0)
-        return err;
-    if ((rsaResult = B_RandomUpdate(*rsaRandom, randomSeedBuf.data, randomSeedBuf.length, NO_SURR)) != 0)
-        return ERR(SSLUnknownErr);
-#endif /* RSAREF / BSAFE */
-        
-    return SSLNoErr;
-}
-#endif	/* APPLE_CDSA */

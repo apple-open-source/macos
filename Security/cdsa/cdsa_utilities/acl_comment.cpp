@@ -60,7 +60,7 @@ CommentAclSubject *CommentAclSubject::Maker::make(const TypedList &list) const
 	return new CommentAclSubject(comment, commentSize);
 }
 
-CommentAclSubject *CommentAclSubject::Maker::make(Reader &pub, Reader &) const
+CommentAclSubject *CommentAclSubject::Maker::make(Version, Reader &pub, Reader &) const
 {
 	CSSM_LIST *base; pub(base);	// get original pointer base
 	const void *data; uint32 length; pub.countedData(data, length);	// data blob

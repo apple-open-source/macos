@@ -3,6 +3,19 @@
 */
 
 /*!
+    @struct SimpleStruct
+    @abstract Abstract for this API.
+    @discussion Discussion that applies to the entire simple struct.
+    @field firstField Description of first field
+    @field secondField Description of second field
+*/
+
+struct _structTag {
+    short firstField;
+    unsigned long secondField
+} SimpleStruct;
+
+/*!
     @typedef TypedefdSimpleStruct
     @abstract Abstract for this API.
     @discussion Discussion that applies to the entire typedef'd simple struct.

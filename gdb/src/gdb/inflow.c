@@ -1,5 +1,6 @@
 /* Low level interface to ptrace, for GDB when running under Unix.
-   Copyright 1986-87, 1989, 1991-92, 1995, 1998 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
+   1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -22,7 +23,6 @@
 #include "frame.h"
 #include "inferior.h"
 #include "command.h"
-#include "signals.h"
 #include "serial.h"
 #include "terminal.h"
 #include "target.h"
@@ -71,7 +71,7 @@ static void terminal_ours_1 (int);
 
 /* Record terminal status separately for debugger and inferior.  */
 
-static serial_t stdin_serial;
+static struct serial *stdin_serial;
 
 /* TTY state for the inferior.  We save it whenever the inferior stops, and
    restore it when it resumes.  */
@@ -130,19 +130,20 @@ gdb_has_a_terminal (void)
     case no:
       return 0;
     case have_not_checked:
-      /* Get all the current tty settings (including whether we have a tty at
-         all!).  Can't do this in _initialize_inflow because SERIAL_FDOPEN
-         won't work until the serial_ops_list is initialized.  */
+      /* Get all the current tty settings (including whether we have a
+         tty at all!).  Can't do this in _initialize_inflow because
+         serial_fdopen() won't work until the serial_ops_list is
+         initialized.  */
 
 #ifdef F_GETFL
       tflags_ours = fcntl (0, F_GETFL, 0);
 #endif
 
       gdb_has_a_terminal_flag = no;
-      stdin_serial = SERIAL_FDOPEN (0);
+      stdin_serial = serial_fdopen (0);
       if (stdin_serial != NULL)
 	{
-	  our_ttystate = SERIAL_GET_TTY_STATE (stdin_serial);
+	  our_ttystate = serial_get_tty_state (stdin_serial);
 
 	  if (our_ttystate != NULL)
 	    {
@@ -171,7 +172,7 @@ gdb_has_a_terminal (void)
 #define	OOPSY(what)	\
   if (result == -1)	\
     fprintf_unfiltered(gdb_stderr, "[%s failed in terminal_inferior: %s]\n", \
-	    what, strerror (errno))
+	    what, safe_strerror (errno))
 
 static void terminal_ours_1 (int);
 
@@ -183,11 +184,11 @@ terminal_init_inferior_with_pgrp (int pgrp)
 {
   if (gdb_has_a_terminal ())
     {
-      /* We could just as well copy our_ttystate (if we felt like adding
-         a new function SERIAL_COPY_TTY_STATE).  */
+      /* We could just as well copy our_ttystate (if we felt like
+         adding a new function serial_copy_tty_state()).  */
       if (inferior_ttystate)
-	free (inferior_ttystate);
-      inferior_ttystate = SERIAL_GET_TTY_STATE (stdin_serial);
+	xfree (inferior_ttystate);
+      inferior_ttystate = serial_get_tty_state (stdin_serial);
 
 #ifdef PROCESS_GROUP_TYPE
       inferior_process_group = pgrp;
@@ -208,9 +209,9 @@ terminal_init_inferior (void)
      debugging target with a version of target_terminal_init_inferior which
      passes in the process group to a generic routine which does all the work
      (and the non-threaded child_terminal_init_inferior can just pass in
-     inferior_pid to the same routine).  */
+     inferior_ptid to the same routine).  */
   /* We assume INFERIOR_PID is also the child's process group.  */
-  terminal_init_inferior_with_pgrp (PIDGET (inferior_pid));
+  terminal_init_inferior_with_pgrp (PIDGET (inferior_ptid));
 #endif /* PROCESS_GROUP_TYPE */
 }
 
@@ -237,7 +238,7 @@ terminal_inferior (void)
       /* Because we were careful to not change in or out of raw mode in
          terminal_ours, we will not change in our out of raw mode with
          this call, so we don't flush any input.  */
-      result = SERIAL_SET_TTY_STATE (stdin_serial, inferior_ttystate);
+      result = serial_set_tty_state (stdin_serial, inferior_ttystate);
       OOPSY ("setting tty state");
 
       if (!job_control)
@@ -319,9 +320,11 @@ terminal_ours_1 (int output_only)
 
   if (!terminal_is_ours)
     {
+#ifdef SIGTTOU
       /* Ignore this signal since it will happen when we try to set the
          pgrp.  */
-      void (*osigttou) ();
+      void (*osigttou) () = NULL;
+#endif
       int result;
 
       terminal_is_ours = 1;
@@ -332,8 +335,8 @@ terminal_ours_1 (int output_only)
 #endif
 
       if (inferior_ttystate)
-	free (inferior_ttystate);
-      inferior_ttystate = SERIAL_GET_TTY_STATE (stdin_serial);
+	xfree (inferior_ttystate);
+      inferior_ttystate = serial_get_tty_state (stdin_serial);
 
       /* FIXME: For MacOS X: if you are attaching then the most common
 	 case is that the process you are attaching to is NOT running
@@ -372,7 +375,7 @@ terminal_ours_1 (int output_only)
          though, since readline will deal with raw mode when/if it needs to.
        */
 
-      SERIAL_NOFLUSH_SET_TTY_STATE (stdin_serial, our_ttystate,
+      serial_noflush_set_tty_state (stdin_serial, our_ttystate,
 				    inferior_ttystate);
 
       if (job_control)
@@ -386,7 +389,7 @@ terminal_ours_1 (int output_only)
 	     such situations as well.  */
 	  if (result == -1)
 	    fprintf_unfiltered (gdb_stderr, "[tcsetpgrp failed in terminal_ours: %s]\n",
-				strerror (errno));
+				safe_strerror (errno));
 #endif
 #endif /* termios */
 
@@ -500,7 +503,7 @@ child_terminal_info (char *args, int from_tty)
 #endif
 
   printf_filtered ("tty state:\n");
-  SERIAL_PRINT_TTY_STATE (stdin_serial, inferior_ttystate, gdb_stdout);
+  serial_print_tty_state (stdin_serial, inferior_ttystate, gdb_stdout);
   
   printf_filtered ("GDB's terminal status (currently in use):\n");
   
@@ -509,7 +512,7 @@ child_terminal_info (char *args, int from_tty)
 #endif
   
   printf_filtered ("tty state:\n");
-  SERIAL_PRINT_TTY_STATE (stdin_serial, our_ttystate, gdb_stdout);
+  serial_print_tty_state (stdin_serial, our_ttystate, gdb_stdout);
 }
 
 /* NEW_TTY_PREFORK is called before forking a new child process,
@@ -593,11 +596,11 @@ new_tty (void)
 static void
 kill_command (char *arg, int from_tty)
 {
-  /* FIXME:  This should not really be inferior_pid (or target_has_execution).
+  /* FIXME:  This should not really be inferior_ptid (or target_has_execution).
      It should be a distinct flag that indicates that a target is active, cuz
      some targets don't have processes! */
 
-  if (inferior_pid == 0)
+  if (ptid_equal (inferior_ptid, null_ptid))
     error ("The program is not being run.");
   if (!query ("Kill the program being debugged? "))
     error ("Not confirmed.");
@@ -629,7 +632,7 @@ static void
 pass_signal (int signo)
 {
 #ifndef _WIN32
-  kill (PIDGET (inferior_pid), SIGINT);
+  kill (PIDGET (inferior_ptid), SIGINT);
 #endif
 }
 
@@ -671,7 +674,7 @@ handle_sigio (int signo)
     {
 #ifndef _WIN32
       if ((*target_activity_function) ())
-	kill (inferior_pid, SIGINT);
+	kill (PIDGET (inferior_ptid), SIGINT);
 #endif
     }
 }
@@ -704,14 +707,14 @@ void
 set_sigio_trap (void)
 {
   if (target_activity_function)
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
 }
 
 void
 clear_sigio_trap (void)
 {
   if (target_activity_function)
-    abort ();
+    internal_error (__FILE__, __LINE__, "failed internal consistency check");
 }
 #endif /* No SIGIO.  */
 
@@ -732,21 +735,24 @@ gdb_setpgid (void)
 
   if (job_control)
     {
-#if defined (NEED_POSIX_SETPGID) || (defined (HAVE_TERMIOS) && defined (HAVE_SETPGID))
-      /* setpgid (0, 0) is supposed to work and mean the same thing as
-         this, but on Ultrix 4.2A it fails with EPERM (and
+#if defined (HAVE_TERMIOS) || defined (TIOCGPGRP)
+#ifdef HAVE_SETPGID
+      /* The call setpgid (0, 0) is supposed to work and mean the same
+         thing as this, but on Ultrix 4.2A it fails with EPERM (and
          setpgid (getpid (), getpid ()) succeeds).  */
       retval = setpgid (getpid (), getpid ());
 #else
-#if defined (TIOCGPGRP)
-#if defined(USG) && !defined(SETPGRP_ARGS)
+#ifdef HAVE_SETPGRP
+#ifdef SETPGRP_VOID 
       retval = setpgrp ();
 #else
       retval = setpgrp (getpid (), getpid ());
-#endif /* USG */
-#endif /* TIOCGPGRP.  */
-#endif /* NEED_POSIX_SETPGID */
+#endif
+#endif /* HAVE_SETPGRP */
+#endif /* HAVE_SETPGID */
+#endif /* defined (HAVE_TERMIOS) || defined (TIOCGPGRP) */
     }
+
   return retval;
 }
 
@@ -759,7 +765,7 @@ _initialize_inflow (void)
   add_com ("kill", class_run, kill_command,
 	   "Kill execution of program being debugged.");
 
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
 
   terminal_is_ours = 1;
 

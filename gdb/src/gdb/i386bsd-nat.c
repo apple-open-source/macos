@@ -1,5 +1,5 @@
 /* Native-dependent code for modern i386 BSD's.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -20,7 +20,11 @@
 
 #include "defs.h"
 #include "inferior.h"
+#include "regcache.h"
 
+#include "gdb_assert.h"
+#include <signal.h>
+#include <stddef.h>
 #include <sys/types.h>
 #include <sys/ptrace.h>
 #include <machine/reg.h>
@@ -67,7 +71,7 @@ static int reg_offset[] =
   REG_OFFSET (r_eax),
   REG_OFFSET (r_ecx),
   REG_OFFSET (r_edx),
-  REG_OFFSET (r_edx),
+  REG_OFFSET (r_ebx),
   REG_OFFSET (r_esp),
   REG_OFFSET (r_ebp),
   REG_OFFSET (r_esi),
@@ -92,6 +96,16 @@ static int reg_offset[] =
 
 #define REG_ADDR(regset, regno) ((char *) (regset) + reg_offset[regno])
 
+/* Macro to determine if a register is fetched with PT_GETREGS.  */
+#define GETREGS_SUPPLIES(regno) \
+  ((0 <= (regno) && (regno) <= 15))
+
+#ifdef HAVE_PT_GETXMMREGS
+/* Set to 1 if the kernel supports PT_GETXMMREGS.  Initialized to -1
+   so that we try PT_GETXMMREGS the first time around.  */
+static int have_ptrace_xmmregs = -1;
+#endif
+
 /* Return nonzero if we shouldn't try to fetch register REGNO.  */
 
 static int
@@ -103,7 +117,7 @@ cannot_fetch_register (int regno)
 
 /* Transfering the registers between GDB, inferiors and core files.  */
 
-/* Fill GDB's register array with the genereal-purpose register values
+/* Fill GDB's register array with the general-purpose register values
    in *GREGSETP.  */
 
 void
@@ -131,8 +145,7 @@ fill_gregset (gregset_t *gregsetp, int regno)
 
   for (i = 0; i < NUM_GREGS; i++)
     if ((regno == -1 || regno == i) && ! CANNOT_STORE_REGISTER (i))
-      memcpy (REG_ADDR (gregsetp, i), &registers[REGISTER_BYTE (i)],
-	      REGISTER_RAW_SIZE (i));
+      regcache_collect (i, REG_ADDR (gregsetp, i));
 }
 
 #include "i387-nat.h"
@@ -162,22 +175,48 @@ fill_fpregset (fpregset_t *fpregsetp, int regno)
 void
 fetch_inferior_registers (int regno)
 {
-  gregset_t gregs;
 
-  if (ptrace (PT_GETREGS, inferior_pid, (PTRACE_ARG3_TYPE) &gregs, 0) == -1)
-    perror_with_name ("Couldn't get registers");
+  if (regno == -1 || GETREGS_SUPPLIES (regno))
+    {
+      gregset_t gregs;
 
-  supply_gregset (&gregs);
+      if (ptrace (PT_GETREGS, PIDGET (inferior_ptid),
+		  (PTRACE_ARG3_TYPE) &gregs, 0) == -1)
+	perror_with_name ("Couldn't get registers");
+
+      supply_gregset (&gregs);
+      if (regno != -1)
+	return;
+    }
 
   if (regno == -1 || regno >= FP0_REGNUM)
     {
       fpregset_t fpregs;
+#ifdef HAVE_PT_GETXMMREGS
+      char xmmregs[512];
 
-      if (ptrace (PT_GETFPREGS, inferior_pid,
+      if (have_ptrace_xmmregs != 0 &&
+	  ptrace(PT_GETXMMREGS, PIDGET (inferior_ptid),
+		 (PTRACE_ARG3_TYPE) xmmregs, 0) == 0)
+	{
+	  have_ptrace_xmmregs = 1;
+	  i387_supply_fxsave (xmmregs);
+	}
+      else
+	{
+          if (ptrace (PT_GETFPREGS, PIDGET (inferior_ptid),
+		      (PTRACE_ARG3_TYPE) &fpregs, 0) == -1)
+	    perror_with_name ("Couldn't get floating point status");
+
+	  supply_fpregset (&fpregs);
+	}
+#else
+      if (ptrace (PT_GETFPREGS, PIDGET (inferior_ptid),
 		  (PTRACE_ARG3_TYPE) &fpregs, 0) == -1)
 	perror_with_name ("Couldn't get floating point status");
 
       supply_fpregset (&fpregs);
+#endif
     }
 }
 
@@ -187,31 +226,138 @@ fetch_inferior_registers (int regno)
 void
 store_inferior_registers (int regno)
 {
-  gregset_t gregs;
 
-  if (ptrace (PT_GETREGS, inferior_pid, (PTRACE_ARG3_TYPE) &gregs, 0) == -1)
-    perror_with_name ("Couldn't get registers");
+  if (regno == -1 || GETREGS_SUPPLIES (regno))
+    {
+      gregset_t gregs;
 
-  fill_gregset (&gregs, regno);
+      if (ptrace (PT_GETREGS, PIDGET (inferior_ptid),
+                  (PTRACE_ARG3_TYPE) &gregs, 0) == -1)
+        perror_with_name ("Couldn't get registers");
 
-  if (ptrace (PT_SETREGS, inferior_pid, (PTRACE_ARG3_TYPE) &gregs, 0) == -1)
-    perror_with_name ("Couldn't write registers");
+      fill_gregset (&gregs, regno);
+
+      if (ptrace (PT_SETREGS, PIDGET (inferior_ptid),
+	          (PTRACE_ARG3_TYPE) &gregs, 0) == -1)
+        perror_with_name ("Couldn't write registers");
+
+      if (regno != -1)
+	return;
+    }
 
   if (regno == -1 || regno >= FP0_REGNUM)
     {
       fpregset_t fpregs;
+#ifdef HAVE_PT_GETXMMREGS
+      char xmmregs[512];
 
-      if (ptrace (PT_GETFPREGS, inferior_pid,
-		  (PTRACE_ARG3_TYPE) &fpregs, 0) == -1)
-	perror_with_name ("Couldn't get floating point status");
+      if (have_ptrace_xmmregs != 0 &&
+	  ptrace(PT_GETXMMREGS, PIDGET (inferior_ptid),
+		 (PTRACE_ARG3_TYPE) xmmregs, 0) == 0)
+	{
+	  have_ptrace_xmmregs = 1;
 
-      fill_fpregset (&fpregs, regno);
+	  i387_fill_fxsave (xmmregs, regno);
+
+	  if (ptrace (PT_SETXMMREGS, PIDGET (inferior_ptid),
+		      (PTRACE_ARG3_TYPE) xmmregs, 0) == -1)
+            perror_with_name ("Couldn't write XMM registers");
+	}
+      else
+	{
+	  have_ptrace_xmmregs = 0;
+#endif
+          if (ptrace (PT_GETFPREGS, PIDGET (inferior_ptid),
+		      (PTRACE_ARG3_TYPE) &fpregs, 0) == -1)
+	    perror_with_name ("Couldn't get floating point status");
+
+          fill_fpregset (&fpregs, regno);
   
-      if (ptrace (PT_SETFPREGS, inferior_pid,
-		  (PTRACE_ARG3_TYPE) &fpregs, 0) == -1)
-	perror_with_name ("Couldn't write floating point status");
+          if (ptrace (PT_SETFPREGS, PIDGET (inferior_ptid),
+		      (PTRACE_ARG3_TYPE) &fpregs, 0) == -1)
+	    perror_with_name ("Couldn't write floating point status");
+#ifdef HAVE_PT_GETXMMREGS
+        }
+#endif
     }
 }
+
+
+/* Support for debug registers.  */
+
+#ifdef HAVE_PT_GETDBREGS
+
+/* Not all versions of FreeBSD/i386 that support the debug registers
+   have this macro.  */
+#ifndef DBREG_DRX
+#define DBREG_DRX(d, x) ((&d->dr0)[x])
+#endif
+
+static void
+i386bsd_dr_set (int regnum, unsigned int value)
+{
+  struct dbreg dbregs;
+
+  if (ptrace (PT_GETDBREGS, PIDGET (inferior_ptid),
+              (PTRACE_ARG3_TYPE) &dbregs, 0) == -1)
+    perror_with_name ("Couldn't get debug registers");
+
+  /* For some mysterious reason, some of the reserved bits in the
+     debug control register get set.  Mask these off, otherwise the
+     ptrace call below will fail.  */
+  dbregs.dr7 &= ~(0x0000fc00);
+
+  DBREG_DRX ((&dbregs), regnum) = value;
+
+  if (ptrace (PT_SETDBREGS, PIDGET (inferior_ptid),
+              (PTRACE_ARG3_TYPE) &dbregs, 0) == -1)
+    perror_with_name ("Couldn't write debug registers");
+}
+
+void
+i386bsd_dr_set_control (unsigned long control)
+{
+  i386bsd_dr_set (7, control);
+}
+
+void
+i386bsd_dr_set_addr (int regnum, CORE_ADDR addr)
+{
+  gdb_assert (regnum >= 0 && regnum <= 4);
+
+  i386bsd_dr_set (regnum, addr);
+}
+
+void
+i386bsd_dr_reset_addr (int regnum)
+{
+  gdb_assert (regnum >= 0 && regnum <= 4);
+
+  i386bsd_dr_set (regnum, 0);
+}
+
+unsigned long
+i386bsd_dr_get_status (void)
+{
+  struct dbreg dbregs;
+
+  /* FIXME: kettenis/2001-03-31: Calling perror_with_name if the
+     ptrace call fails breaks debugging remote targets.  The correct
+     way to fix this is to add the hardware breakpoint and watchpoint
+     stuff to the target vector.  For now, just return zero if the
+     ptrace call fails.  */
+  if (ptrace (PT_GETDBREGS, PIDGET (inferior_ptid),
+	      (PTRACE_ARG3_TYPE) & dbregs, 0) == -1)
+#if 0
+    perror_with_name ("Couldn't read debug registers");
+#else
+    return 0;
+#endif
+
+  return dbregs.dr6;
+}
+
+#endif /* PT_GETDBREGS */
 
 
 /* Support for the user struct.  */
@@ -234,4 +380,21 @@ int
 kernel_u_size (void)
 {
   return (sizeof (struct user));
+}
+
+/* See i386bsd-tdep.c.  */
+extern int i386bsd_sigcontext_pc_offset;
+
+void
+_initialize_i386bsd_nat (void)
+{
+  /* To support the recognition of signal handlers, i386bsd-tdep.c
+     hardcodes some constants.  Inclusion of this file means that we
+     are compiling a native debugger, which means that we can use the
+     system header files and sysctl(3) to get at the relevant
+     information.  */
+
+  /* Override the default value for the offset of the program counter
+     in the sigcontext structure.  */
+  i386bsd_sigcontext_pc_offset = offsetof (struct sigcontext, sc_pc);
 }

@@ -201,8 +201,10 @@ r_buf(fp)
 			tl->prev = mark->prev;
 			mark->prev->next = tl;
 			mark->prev = tl;
-		} else
-			mark->next = mark->prev = (mark = tl);
+		} else {
+			mark = tl;
+			mark->next = mark->prev = mark;
+		}
 
 		/* Fill the block with input data. */
 		for (p = tl->l, len = 0;

@@ -36,7 +36,7 @@
 
 typedef struct
 {
-	char name[IFNAMSIZ];
+	char *name;
 	short flags;
 	struct in_addr addr;
 	struct in_addr mask;
@@ -51,7 +51,7 @@ typedef struct
 } interface_list_t;
 
 interface_list_t *sys_interfaces(void);
-void sys_interfaces_release(void);
+void sys_interfaces_release(interface_list_t *);
 
 int sys_is_my_address(struct in_addr *);
 int sys_is_my_network(struct in_addr *);

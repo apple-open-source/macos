@@ -7,7 +7,7 @@
 #undef NEXT_SPEC
 #define NEXT_SPEC(lang_flag,predef_macros,compiler_flags)\
    " %{traditional:cpp}%{traditional-cpp:%{!traditional:cpp}}\
-    %{!traditional:%{!traditional-cpp:cpp-precomp -smart}}\
+    %{!traditional:%{!traditional-cpp:cpp-precomp -smart %y}}\
     %{.m:%BCompiling}%{!.m:%BCompiling} " # lang_flag "\
         %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
@@ -61,7 +61,7 @@
    "%{!E:%{!precomp:%eCompilation of header file requested}}\
     %{.h:%BPrecompiling} \
     %{traditional:cpp}%{traditional-cpp:%{!traditional:cpp}}\
-    %{!traditional:%{!traditional-cpp:cpp-precomp -smart}}\
+    %{!traditional:%{!traditional-cpp:cpp-precomp -smart %y}}\
     %{fno-objc:-lang-c}%{!fno-objc:-lang-objc} \
     %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
@@ -179,7 +179,7 @@
 	%{!traditional-cpp:%{no-cpp-precomp:cpp}\
 	    %{!no-cpp-precomp:%{faltivec:cpp}\
 		%{!faltivec:%{--help:cpp}\
-		%{!--help:cpp-precomp -smart %{precomp-trustfile}}}}}}\
+		%{!--help:cpp-precomp -smart %y %{precomp-trustfile}}}}}}\
     %{.m:%BCompiling}%{!.m:%BCompiling} " # lang_flag "\
     %{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
@@ -243,7 +243,7 @@
 	%{traditional:cpp}\
 	%{!traditional:%{traditional-cpp:cpp}\
 		%{!traditional-cpp:%{faltivec:cpp}\
-			%{!faltivec:cpp-precomp -smart %{precomp-trustfile}}}}\
+			%{!faltivec:cpp-precomp -smart %y %{precomp-trustfile}}}}\
 	%{fno-objc:-lang-c}%{!fno-objc:-lang-objc} \
     	%{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %I\
 	%{C:%{!E:%eGNU C does not support -C without using -E}}\
@@ -271,10 +271,10 @@
 	%{M:%eCannot use -M with multiple architectures}\
 	%{MM:%eCannot use -MM with multiple architectures}\
 	%{S:%eCannot use -S with multiple architectures}}\
-    %{precomp:cpp-precomp -smart %{precomp-trustfile}}\
+    %{precomp:cpp-precomp -smart %y %{precomp-trustfile}}\
     %{!precomp:%{traditional-cpp:cpp}\
 	%{!traditional-cpp:%{no-cpp-precomp:cpp}\
-	    %{!no-cpp-precomp:%{cpp-precomp:cpp-precomp -smart %{precomp-trustfile}}\
+	    %{!no-cpp-precomp:%{cpp-precomp:cpp-precomp -smart %y %{precomp-trustfile}}\
 		%{!cpp-precomp:cpp}}}}\
 	%{.M:%BCompiling}%{!.M:%BCompiling} " # lang_flag "\
  	%{nostdinc*} %{C} %{v} %{A*} %{I*} %{P} %I\

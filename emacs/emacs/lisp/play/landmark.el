@@ -1,8 +1,8 @@
 ;;; landmark.el --- neural-network robot that learns landmarks
 
-;; Copyright (c) 1996, 1997 Free Software Foundation, Inc.
+;; Copyright (c) 1996, 1997, 2000 Free Software Foundation, Inc.
 
-;; Author: Terrence Brannon <brannon@rana.usc.edu>
+;; Author: Terrence Brannon (was: <brannon@rana.usc.edu>)
 ;; Created: December 16, 1996 - first release to usenet
 ;; Keywords: gomoku neural network adaptive search chemotaxis
 
@@ -30,7 +30,7 @@
 ;; Boston, MA 02111-1307, USA.
 
 
-;;;_* Commentary
+;;; Commentary:
 ;;; Lm is a relatively non-participatory game in which a robot
 ;;; attempts to maneuver towards a tree at the center of the window
 ;;; based on unique olfactory cues from each of the 4 directions. If
@@ -54,19 +54,15 @@
 ;;; a single move, one moves east,west and south, then both east and
 ;;; west will be improved when they shouldn't
 
-;;; For further references see
-;;; http://rana.usc.edu:8376/~brannon/warez/yours-truly/lm/
 ;;; Many thanks to Yuri Pryadkin (yuri@rana.usc.edu) for this
 ;;; concise problem description.
 
-;;;_* Provide
-
-(provide 'lm)
-
 ;;;_* Require
-(require 'cl)
+(eval-when-compile (require 'cl))
 
 ;;;_* From Gomoku
+
+;;; Code:
 
 (defgroup lm nil
   "Neural-network robot that learns landmarks."
@@ -221,12 +217,12 @@
   "*For making font-lock use the winner's face for the line.")
 
 (defvar lm-font-lock-face-O
-  (if window-system
+  (if (display-color-p)
       (list (facemenu-get-face 'fg:red) 'bold))
   "*Face to use for Emacs' O.")
 
 (defvar lm-font-lock-face-X
-  (if window-system
+  (if (display-color-p)
       (list (facemenu-get-face 'fg:green) 'bold))
   "*Face to use for your X.")
 
@@ -897,9 +893,11 @@ If the game is finished, this command requests for another game."
 			      ((= value 5) ?W)
 			      ((= value 6) ?^)))
 
-    (and window-system
-	 (zerop value)
-	 (put-text-property (1- (point)) (point) 'mouse-face 'highlight))
+    (and (zerop value)
+	 (add-text-properties (1- (point)) (point)
+			      '(mouse-face highlight
+				help-echo "\
+mouse-1: get robot moving, mouse-2: play on this square")))
     (delete-char 1)
     (backward-char 1))
   (sit-for 0))	; Display NOW
@@ -938,9 +936,9 @@ If the game is finished, this command requests for another game."
 		      (goto-char (point-max))))
 	       (setq point (point))
 	       (insert ?=)
-	       (if window-system
-		   (put-text-property point (point)
-				      'mouse-face 'highlight)))
+	       (add-text-properties point (point)
+				    '(mouse-face highlight help-echo "\
+mouse-1: get robot moving, mouse-2: play on this square")))
 	     (> (setq i (1- i)) 0))
       (if (= i (1- m))
 	  (setq opoint point))
@@ -1096,8 +1094,6 @@ If the game is finished, this command requests for another game."
   (move-to-column (+ lm-x-offset
 		     (* lm-square-width (1- lm-board-width)))))
 
-(provide 'lm)
-
 
 ;;;_ + Simulation variables
 
@@ -1125,8 +1121,6 @@ this program to add a random element to the way moves were made.")
 
 ;;;_* Terry's mods to create lm.el
 
-;;;_ + Debugging things
-(setq debug-on-error t)
 ;;;(setq lm-debug nil)
 (defvar lm-debug nil
   "If non-nil, debugging is printed.")
@@ -1161,7 +1155,7 @@ because it is overwritten by \"One moment please\"."
 ;;(setq direction 'lm-n)
 ;;(get 'lm-n 'lm-s)
 (defun lm-nslify-wts-int (direction)
-  (mapcar '(lambda (target-direction)
+  (mapcar (lambda (target-direction)
 	     (get direction target-direction))
 	  lm-directions))
 
@@ -1174,7 +1168,7 @@ because it is overwritten by \"One moment please\"."
 		  (eval (cons 'max l)) (eval (cons 'min l))))))
 
 (defun lm-print-wts-int (direction)
-  (mapc '(lambda (target-direction)
+  (mapc (lambda (target-direction)
 	     (insert (format "%S %S %S "
 			      direction
 			      target-direction
@@ -1241,14 +1235,14 @@ because it is overwritten by \"One moment please\"."
     (set-buffer "*lm-blackbox*")
     (insert "==============================\n")
     (insert "I smell: ")
-    (mapc '(lambda (direction)
+    (mapc (lambda (direction)
 	       (if (> (get direction 'smell) 0)
 		   (insert (format "%S " direction))))
 	    lm-directions)
     (insert "\n")
 
     (insert "I move: ")
-    (mapc '(lambda (direction)
+    (mapc (lambda (direction)
 	       (if (> (get direction 'y_t) 0)
 		   (insert (format "%S " direction))))
 	    lm-directions)
@@ -1303,7 +1297,7 @@ After this limit is reached, lm-random-move is called to push him out of it."
 ;   (* (/ (random 900000) 900000.0) .0001)))
 ;;;_   : lm-randomize-weights-for (direction)
 (defun lm-randomize-weights-for (direction)
-  (mapc '(lambda (target-direction)
+  (mapc (lambda (target-direction)
 	     (put direction
 		  target-direction
 		  (* (lm-flip-a-coin) (/  (random 10000) 10000.0))))
@@ -1314,7 +1308,7 @@ After this limit is reached, lm-random-move is called to push him out of it."
 
 ;;;_   : lm-fix-weights-for (direction)
 (defun lm-fix-weights-for (direction)
-  (mapc '(lambda (target-direction)
+  (mapc (lambda (target-direction)
 	     (put direction
 		  target-direction
 		  lm-initial-wij))
@@ -1398,7 +1392,7 @@ After this limit is reached, lm-random-move is called to push him out of it."
 	   0.0))))
 
 (defun lm-update-normal-weights (direction)
-  (mapc '(lambda (target-direction)
+  (mapc (lambda (target-direction)
 	     (put direction target-direction
 		  (+
 		   (get direction target-direction)
@@ -1409,7 +1403,7 @@ After this limit is reached, lm-random-move is called to push him out of it."
 	  lm-directions))
 
 (defun lm-update-naught-weights (direction)
-  (mapc '(lambda (target-direction)
+  (mapc (lambda (target-direction)
 	     (put direction 'w0
 		  (lm-f
 		   (+
@@ -1423,7 +1417,7 @@ After this limit is reached, lm-random-move is called to push him out of it."
 ;;;_ + Statistics gathering and creating functions
 
 (defun lm-calc-current-smells ()
-  (mapc '(lambda (direction)
+  (mapc (lambda (direction)
 	     (put direction 'smell (calc-smell-internal direction)))
 	  lm-directions))
 
@@ -1435,7 +1429,7 @@ After this limit is reached, lm-random-move is called to push him out of it."
     (setf lm-no-payoff 0)))
 
 (defun lm-store-old-y_t ()
-  (mapc '(lambda (direction)
+  (mapc (lambda (direction)
 	     (put direction 'y_t-1 (get direction 'y_t)))
 	  lm-directions))
 
@@ -1443,35 +1437,33 @@ After this limit is reached, lm-random-move is called to push him out of it."
 ;;;_ + Functions to move robot
 
 (defun lm-confidence-for (target-direction)
-  (+
-   (get target-direction 'w0)
-   (reduce '+
-    (mapcar '(lambda (direction)
-	       (*
-		(get direction target-direction)
-		(get direction 'smell))
-			)
-	    lm-directions))))
+  (apply '+
+	 (get target-direction 'w0)
+	 (mapcar (lambda (direction)
+		   (*
+		    (get direction target-direction)
+		    (get direction 'smell)))
+		 lm-directions)))
 
 
 (defun lm-calc-confidences ()
-  (mapc '(lambda (direction)
+  (mapc (lambda (direction)
 	     (put direction 's (lm-confidence-for direction)))
 	     lm-directions))
 
 (defun lm-move ()
   (if (and (= (get 'lm-n 'y_t) 1.0) (= (get 'lm-s 'y_t) 1.0))
       (progn
-	(mapc '(lambda (dir) (put dir 'y_t 0)) lm-ns)
+	(mapc (lambda (dir) (put dir 'y_t 0)) lm-ns)
 	(if lm-debug
 	    (message "n-s normalization."))))
   (if (and (= (get 'lm-w 'y_t) 1.0) (= (get 'lm-e 'y_t) 1.0))
       (progn
-	(mapc '(lambda (dir) (put dir 'y_t 0)) lm-ew)
+	(mapc (lambda (dir) (put dir 'y_t 0)) lm-ew)
 	(if lm-debug
 	    (message "e-w normalization"))))
 
-  (mapc '(lambda (pair)
+  (mapc (lambda (pair)
 	     (if (> (get (car pair) 'y_t) 0)
 		 (funcall (car (cdr pair)))))
 	  '(
@@ -1487,7 +1479,7 @@ After this limit is reached, lm-random-move is called to push him out of it."
 
 (defun lm-random-move ()
   (mapc
-   '(lambda (direction) (put direction 'y_t 0))
+   (lambda (direction) (put direction 'y_t 0))
    lm-directions)
   (dolist (direction (nth (random 8) lm-8-directions))
     (put direction 'y_t 1.0))
@@ -1583,14 +1575,14 @@ If the game is finished, this command requests for another game."
 
   (lm-set-landmark-signal-strengths)
 
-  (mapc '(lambda (direction)
+  (mapc (lambda (direction)
 	     (put direction 'y_t 0.0))
 	  lm-directions)
 
   (if (not save-weights)
       (progn
 	(mapc 'lm-fix-weights-for lm-directions)
-	(mapc '(lambda (direction)
+	(mapc (lambda (direction)
 		   (put direction 'w0 lm-initial-w0))
 	lm-directions))
     (message "Weights preserved for this run."))
@@ -1620,10 +1612,10 @@ If the game is finished, this command requests for another game."
 
   (setq lm-tree-r       (* (sqrt (+ (square lm-cx) (square lm-cy))) 1.5))
 
-  (mapc '(lambda (direction)
+  (mapc (lambda (direction)
 	     (put direction 'r (* lm-cx 1.1)))
 	lm-ew)
-  (mapc '(lambda (direction)
+  (mapc (lambda (direction)
 	     (put direction 'r (* lm-cy 1.1)))
 	lm-ns)
   (put 'lm-tree 'r lm-tree-r))
@@ -1711,5 +1703,7 @@ Use \\[describe-mode] for more info."
 ;;;Local variables:
 ;;;outline-layout: (0 : -1 -1 0)
 ;;;End:
+
+(provide 'landmark)
 
 ;;; landmark.el ends here

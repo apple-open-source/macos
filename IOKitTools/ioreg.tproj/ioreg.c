@@ -7,7 +7,8 @@
 #include <CoreFoundation/CoreFoundation.h>            // (CFDictionary, ...)
 #include <IOKit/IOCFSerialize.h>                      // (IOCFSerialize, ...)
 #include <IOKit/IOKitLib.h>                           // (IOMasterPort, ...)
-#include <curses.h>                                   // (tgetstr, ...)
+#include <sys/ioctl.h>                                // (TIOCGWINSZ, ...)
+#include <term.h>                                     // (tputs, ...)
 #include <unistd.h>                                   // (getopt, ...)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -16,7 +17,6 @@ static void assertion(int condition, char * message); // (support routine)
 static void boldinit();                               // (support routine)
 static void boldon();                                 // (support routine)
 static void boldoff();                                // (support routine)
-static void printinit(int width);                     // (support routine)
 static void print(const char * format, ...);          // (support routine)
 static void println(const char * format, ...);        // (support routine)
 
@@ -42,6 +42,7 @@ struct options
     char * name;                                      // (-n option)
     char * plane;                                     // (-p option)
     UInt32 width;                                     // (-w option)
+    Boolean hex;                                      // (-x option)
 };
 
 struct context
@@ -51,6 +52,8 @@ struct context
 };
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static void printinit(struct options opt);            // (support routine)
 
 static void indent( Boolean isNode,
                     UInt32  serviceDepth,
@@ -82,20 +85,27 @@ int main(int argc, char ** argv)
     struct options      options;
     io_registry_entry_t service   = 0; // (needs release)
     kern_return_t       status    = KERN_SUCCESS;
+    struct winsize      winsize;
 
-    // Initialize curses (initializes COLS variable).
-
-    initscr();
-
-    // Obtain the command-line arguments.
+    // Initialize our minimal state.
 
     options.class = 0;
     options.flags = 0;
     options.name  = 0;
     options.plane = kIOServicePlane;
-    options.width = COLS;
+    options.width = 0;
+    options.hex   = 0;
 
-    while ( (argument = getopt(argc, argv, ":bc:ln:p:sw:")) != -1 )
+    // Obtain the screen width.
+
+    if (ioctl(fileno(stdout), TIOCGWINSZ, &winsize) == 0)
+        options.width = winsize.ws_col;
+    else if (ioctl(fileno(stdin), TIOCGWINSZ, &winsize) == 0)
+        options.width = winsize.ws_col;
+
+    // Obtain the command-line arguments.
+
+    while ( (argument = getopt(argc, argv, ":bc:ln:p:sw:x")) != -1 )
     {
         switch (argument)
         {
@@ -121,6 +131,9 @@ int main(int argc, char ** argv)
                 options.width = atoi(optarg);
                 assertion(options.width >= 0, "invalid width");
                 break;
+	    case 'x':
+		options.hex = TRUE;
+		break;
             default:
                 usage();
                 break;
@@ -129,7 +142,7 @@ int main(int argc, char ** argv)
 
     // Initialize text output functions.
 
-    printinit(options.width);
+    printinit(options);
 
     if (options.flags & kIORegFlagShowBold)  boldinit();
 
@@ -227,8 +240,8 @@ static void show( io_registry_entry_t service,
     io_name_t       class;          // (don't release)
     struct context  context    = { serviceDepth, stackOfBits };
     int             integer    = 0; // (don't release)
+    io_name_t       location;       // (don't release)
     io_name_t       name;           // (don't release)
-    io_string_t     path;           // (don't release)
     CFDictionaryRef properties = 0; // (needs release)
     kern_return_t   status     = KERN_SUCCESS;
 
@@ -245,24 +258,10 @@ static void show( io_registry_entry_t service,
 
     if (options.flags & kIORegFlagShowBold)  boldoff();
 
-    // Print out the location of the service (roundabout technique).
+    // Print out the location of the service.
 
-    status = IORegistryEntryGetPath(service, options.plane, path);
-
-    if (status == KERN_SUCCESS)
-    {
-        const char * location = 0; // (don't release)
-
-        for (location = path + strlen(path) - 1; location >= path; location--)
-        {
-            if (*location == '@' || *location == '/')
-            {
-                if (*location == '@')  print(location);
-
-                break;
-            }
-        }
-    }
+    status = IORegistryEntryGetLocationInPlane(service, options.plane, location);
+    if (status == KERN_SUCCESS)  print("@%s", location);
 
     // Print out the class of the service.
 
@@ -377,7 +376,7 @@ static void indent(Boolean isNode, UInt32 depth, UInt64 stackOfBits)
 void usage()
 {
     fprintf( stderr,
-     "usage: ioreg [-b] [-c class | -l | -n name] [-p plane] [-s] [-w width]\n"
+     "usage: ioreg [-b] [-c class | -l | -n name] [-p plane] [-s] [-w width] [-x]\n"
      "where options are:\n"
      "\t-b show object name in bold\n"
      "\t-c list properties of objects with the given class\n"
@@ -386,6 +385,7 @@ void usage()
      "\t-p traverse registry over the given plane (IOService is default)\n"
      "\t-s show object state (eg. busy state, retain count)\n"
      "\t-w clip output to the given line width (0 is unlimited)\n"
+     "\t-x print numeric property values in hexadecimal\n"
      );
     exit(1);
 }
@@ -406,20 +406,29 @@ static void assertion(int condition, char * message)
 static char * termcapstr_boldon  = 0;
 static char * termcapstr_boldoff = 0;
 
-static void termcapstr_outc(int c)
+static int termcapstr_outc(int c)
 {
-    putchar(c);
+    return putchar(c);
 }
 
 static void boldinit()
 {
+    char *      term;
     static char termcapbuf[64];
     char *      termcapbufptr = termcapbuf;
 
-    termcapstr_boldon  = tgetstr("md", &termcapbufptr);
-    termcapstr_boldoff = tgetstr("me", &termcapbufptr);
+    term = getenv("TERM");
 
-    assertion(termcapbufptr - termcapbuf <= sizeof(termcapbuf), NULL);
+    if (term)
+    {
+        if (tgetent(NULL, term) > 0)
+        {
+            termcapstr_boldon  = tgetstr("md", &termcapbufptr);
+            termcapstr_boldoff = tgetstr("me", &termcapbufptr);
+
+            assertion(termcapbufptr - termcapbuf <= sizeof(termcapbuf), NULL);
+        }
+    }
 
     if (termcapstr_boldon  == 0)  termcapstr_boldon  = "";
     if (termcapstr_boldoff == 0)  termcapstr_boldoff = "";
@@ -441,17 +450,19 @@ static char * printbuf     = 0;
 static int    printbufclip = FALSE;
 static int    printbufleft = 0;
 static int    printbufsize = 0;
+static Boolean printhex = FALSE;
 
-static void printinit(int width)
+static void printinit(struct options opt)
 {
-    if (width)
+    if (opt.width)
     {
-        printbuf     = malloc(width);
-        printbufleft = width;
-        printbufsize = width;
+        printbuf     = malloc(opt.width);
+        printbufleft = opt.width;
+        printbufsize = opt.width;
 
         assertion(printbuf != NULL, "can't allocate buffer");
     }
+    printhex = opt.hex;
 }
 
 static void printva(const char * format, va_list arguments)
@@ -655,7 +666,11 @@ static void CFNumberShow(CFNumberRef object)
 
     if (CFNumberGetValue(object, kCFNumberLongLongType, &number))
     {
-        print("%qd", number); 
+        if (printhex) {
+            print("0x%qx", number); 
+        } else {
+            print("%qu", number); 
+        }
     }
 }
 

@@ -1,0 +1,27 @@
+#! /bin/sh
+
+# Test for an odd conditional bug.  Report from Pavel Roskin.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT()
+AM_INIT_AUTOMAKE(test,0.1)
+compat=yes
+AM_CONDITIONAL(Compatible, test x$compat = xyes)
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS=foreign
+if Compatible
+abdir = none
+ab_HEADERS = \
+        minus.h
+endif
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+grep '^[^#].*002' Makefile.in && exit 1
+exit 0

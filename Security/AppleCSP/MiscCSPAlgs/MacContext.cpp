@@ -50,14 +50,29 @@ void MacContext::init(const Context &context, bool isSigning)
 	UInt32 		keyLen;
 	UInt8 		*keyData 	= NULL;
 	
-	symmetricKeyBits(context, CSSM_ALGID_SHA1HMAC, 
+	symmetricKeyBits(context, mAlg, 
 		isSigning ? CSSM_KEYUSE_SIGN : CSSM_KEYUSE_VERIFY,
 		keyData, keyLen);
-	if((keyLen < HMAC_MIN_KEY_SIZE) || (keyLen > HMAC_MAX_KEY_SIZE)) {
+	UInt32 minKey = 0;
+	switch(mAlg) {
+		case CSSM_ALGID_SHA1HMAC:
+			minKey = HMAC_SHA_MIN_KEY_SIZE;
+			mDigestSize = kHMACSHA1DigestSize;
+			break;
+		case CSSM_ALGID_MD5HMAC:
+			minKey = HMAC_MD5_MIN_KEY_SIZE;
+			mDigestSize = kHMACMD5DigestSize;
+			break;
+		default:
+			assert(0);			// factory should not have called us
+			CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+	}
+	if((keyLen < minKey) || (keyLen > HMAC_MAX_KEY_SIZE)) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
 	}
 	
-	CSSM_RETURN crtn = hmacInit(mHmac, keyData, keyLen);
+	CSSM_RETURN crtn = hmacInit(mHmac, keyData, keyLen,
+		(mAlg == CSSM_ALGID_SHA1HMAC) ? CSSM_TRUE : CSSM_FALSE);
 	if(crtn) {
 		CssmError::throwMe(crtn);
 	}
@@ -76,7 +91,7 @@ void MacContext::update(const CssmData &data)
 /* generate only */
 void MacContext::final(CssmData &out)
 {
-	if(out.length() < kHMACSHA1DigestSize) {
+	if(out.length() < mDigestSize) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
 	hmacFinal(mHmac, out.data());
@@ -87,14 +102,14 @@ void MacContext::final(const CssmData &in)
 {
 	unsigned char mac[kHMACSHA1DigestSize];
 	hmacFinal(mHmac, mac);
-	if(memcmp(mac, in.data(), kHMACSHA1DigestSize)) {
+	if(memcmp(mac, in.data(), mDigestSize)) {
 		CssmError::throwMe(CSSMERR_CSP_VERIFY_FAILED);
 	}
 }
 
 size_t MacContext::outputSize(bool final, size_t inSize)
 {
-	return kHMACSHA1DigestSize;
+	return mDigestSize;
 }
 
 #ifdef 	CRYPTKIT_CSP_ENABLE
@@ -126,7 +141,7 @@ void MacLegacyContext::init(const Context &context, bool isSigning)
 	symmetricKeyBits(context, CSSM_ALGID_SHA1HMAC, 
 		isSigning ? CSSM_KEYUSE_SIGN : CSSM_KEYUSE_VERIFY,
 		keyData, keyLen);
-	if((keyLen < HMAC_MIN_KEY_SIZE) || (keyLen > HMAC_MAX_KEY_SIZE)) {
+	if((keyLen < HMAC_SHA_MIN_KEY_SIZE) || (keyLen > HMAC_MAX_KEY_SIZE)) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
 	}
 	

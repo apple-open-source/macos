@@ -1,6 +1,7 @@
 ;;; startup.el --- process Emacs shell arguments
 
-;; Copyright (C) 1985, 86, 92, 94, 95, 96, 97, 1998, 1999 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 86, 92, 94, 95, 96, 97, 98, 99, 2000, 2001
+;;   Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: internal
@@ -50,7 +51,7 @@
 ;; --terminal FILE           Using this implies "-nw" also.
 ;;                           This option is handled by emacs.c
 ;; -------------------------
-;; -d DISPNAME               Use DISPNAME as the name of the X-windows
+;; -d DISPNAME               Use DISPNAME as the name of the X
 ;; -display DISPNAME         display for the initial frame.
 ;; --display DISPNAME        This option is handled by emacs.c
 ;; -------------------------
@@ -77,17 +78,20 @@
 ;; --debug-init              debugger run.
 ;; -------------------------
 ;; -i ICONTYPE               Set type of icon using when Emacs is
-;; -itype ICONTYPE           iconified under X-windows.
+;; -itype ICONTYPE           iconified under X.
 ;; --icon-type ICONTYPE      This option is passed on to term/x-win.el
 ;;
-;; -iconic                   Start Emacs iconified under X-windows.
+;; -iconic                   Start Emacs iconified.
 ;; --iconic                  This option is passed on to term/x-win.el
 ;; -------------------------
-;; Various X-windows options for colors/fonts/geometry/title etc.
-;; These options are passed on to term/x-win.el which see.  Certain
-;; of these are also found in term/pc-win.el
+;; Various X options for colors/fonts/geometry/title etc.
+;; These options are passed on to term/x-win.el which see.
 ;; -------------------------
 ;; FILE                      Visit FILE.
+;; -visit FILE
+;; --visit FILE
+;; -file FILE
+;; --file FILE
 ;;
 ;; -L DIRNAME                Add DIRNAME to load-path
 ;; -directory DIRNAME
@@ -104,6 +108,8 @@
 ;;
 ;; -eval FORM                Execute Emacs lisp form FORM.
 ;; --eval FORM
+;; -execute EXPR
+;; --execute EXPR
 ;;
 ;; -insert FILE              Insert the contents of FILE into buffer.
 ;; --insert FILE
@@ -172,7 +178,7 @@ This is normally copied from `default-directory' when Emacs starts.")
 
 ;;; This is here, rather than in x-win.el, so that we can ignore these
 ;;; options when we are not using X.
-(defvar command-line-x-option-alist
+(defconst command-line-x-option-alist
   '(("-bw" 1 x-handle-numeric-switch border-width)
     ("-d" 1 x-handle-display)
     ("-display" 1 x-handle-display)
@@ -187,6 +193,7 @@ This is normally copied from `default-directory' when Emacs starts.")
     ("-font" 1 x-handle-switch font)
     ("-ib" 1 x-handle-numeric-switch internal-border-width)
     ("-g" 1 x-handle-geometry)
+    ("-lsp" 1 x-handle-numeric-switch line-spacing)
     ("-geometry" 1 x-handle-geometry)
     ("-fg" 1 x-handle-switch foreground-color)
     ("-foreground" 1 x-handle-switch foreground-color)
@@ -217,6 +224,7 @@ This is normally copied from `default-directory' when Emacs starts.")
     ("--xrm" 1 x-handle-xrm-switch)
     ("--cursor-color" 1 x-handle-switch cursor-color)
     ("--vertical-scroll-bars" 0 x-handle-switch vertical-scroll-bars t)
+    ("--line-spacing" 1 x-handle-numeric-switch line-spacing)
     ("--border-color" 1 x-handle-switch border-width))
   "Alist of X Windows options.
 Each element has the form
@@ -296,15 +304,6 @@ is less convenient."
   :type '(choice (const :tag "none" nil) string)
   :group 'initialization)
 
-(defconst iso-8859-n-locale-regexp "8859[-_]?\\([1-49]\\)\\>"
-  "Regexp that specifies when to enable an ISO 8859-N character set.
-We do that if this regexp matches the locale name specified by
-one of the environment variables LC_ALL, LC_CTYPE, or LANG.
-The paren group in the regexp should match the specific character
-set number, N.  Currently only Latin-[12345] are supported.
-\(Note that Latin-5 is ISO 8859-9, because 8859-[678] are non-Latin
-alphabets; hence, supported values of N are [12349].\)")
-
 (defcustom mail-host-address nil
   "*Name of this machine, for purposes of naming users."
   :type '(choice (const nil) string)
@@ -318,32 +317,21 @@ after your init file is read, in case it sets `mail-host-address'."
   :group 'mail)
 
 (defcustom auto-save-list-file-prefix
-  (if (eq system-type 'ms-dos)
-      "~/_s"  ; MS-DOS cannot have initial dot, and allows only 8.3 names
-    "~/.saves-")
+  (cond ((eq system-type 'ms-dos)
+	 ;; MS-DOS cannot have initial dot, and allows only 8.3 names
+	 "~/_emacs.d/auto-save.list/_s")
+	(t
+	 "~/.emacs.d/auto-save-list/.saves-"))
   "Prefix for generating `auto-save-list-file-name'.
 This is used after reading your `.emacs' file to initialize
 `auto-save-list-file-name', by appending Emacs's pid and the system name,
 if you have not already set `auto-save-list-file-name' yourself.
+Directories in the prefix will be created if necessary.
 Set this to nil if you want to prevent `auto-save-list-file-name'
 from being initialized."
   :type '(choice (const :tag "Don't record a session's auto save list" nil)
 		 string)
   :group 'auto-save)
-
-(defvar locale-translation-file-name
-  (let ((files '("/usr/lib/X11/locale/locale.alias" ; e.g. X11R6.4
-		 "/usr/X11R6/lib/X11/locale/locale.alias" ; e.g. RedHat 4.2
-		 "/usr/openwin/lib/locale/locale.alias" ; e.g. Solaris 2.6
-		 ;;
-		 ;; The following name appears after the X-related names above,
-		 ;; since the X-related names are what X actually uses.
-		 "/usr/share/locale/locale.alias" ; GNU/Linux sans X
-		 )))
-    (while (and files (not (file-exists-p (car files))))
-      (setq files (cdr files)))
-    (car files))
-  "*File name for the system's file of locale-name aliases, or nil if none.")
 
 (defvar init-file-debug nil)
 
@@ -364,15 +352,23 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
     (while pending
       (setq dirs (cons (car pending) dirs))
       (setq pending (cdr pending))
-      (setq attrs (nthcdr 10 (file-attributes (car dirs))))
-      (let ((contents (directory-files (car dirs)))
-	    (default-directory (car dirs)))
+      (let* ((this-dir (car dirs))
+	     (contents (directory-files this-dir))
+	     (default-directory this-dir)
+	     (canonicalized (and (eq system-type 'windows-nt)
+				 (untranslated-canonical-name this-dir))))
+	;; The Windows version doesn't report meaningful inode
+	;; numbers, so use the canonicalized absolute file name of the
+	;; directory instead.
+	(setq attrs (or canonicalized
+			(nthcdr 10 (file-attributes this-dir))))
 	(unless (member attrs normal-top-level-add-subdirs-inode-list)
 	  (setq normal-top-level-add-subdirs-inode-list
 		(cons attrs normal-top-level-add-subdirs-inode-list))
 	  (while contents
-	    (unless (member (car contents) '("." ".." "RCS" "CVS"))
-	      (when (and (string-match "\\`[a-zA-Z0-9]" (car contents))
+	    ;; The lower-case variants of RCS and CVS are for DOS/Windows.
+	    (unless (member (car contents) '("." ".." "RCS" "CVS" "rcs" "cvs"))
+	      (when (and (string-match "\\`[[:alnum:]]" (car contents))
 			 ;; Avoid doing a `stat' when it isn't necessary
 			 ;; because that can cause trouble when an NFS server
 			 ;; is down.
@@ -394,11 +390,15 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
   (let ((tail load-path)
 	(thisdir (directory-file-name default-directory)))
     (while (and tail
+		;;Don't go all the way to the nil terminator.
+		(cdr tail)
 		(not (equal thisdir (car tail)))
 		(not (and (memq system-type '(ms-dos windows-nt))
 			  (equal (downcase thisdir) (downcase (car tail))))))
       (setq tail (cdr tail)))
-    (setcdr tail (append (mapcar 'expand-file-name dirs) (cdr tail)))))
+    ;;Splice the new section in.
+    (when tail
+      (setcdr tail (append (mapcar 'expand-file-name dirs) (cdr tail))))))
 
 (defun normal-top-level ()
   (if command-line-processed
@@ -416,12 +416,18 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
     ;; Look in each dir in load-path for a subdirs.el file.
     ;; If we find one, load it, which will add the appropriate subdirs
     ;; of that dir into load-path,
+    ;; Look for a leim-list.el file too.  Loading it will register
+    ;; available input methods.
     (let ((tail load-path)
 	  new)
       (while tail
 	(setq new (cons (car tail) new))
-	(let ((default-directory (car tail)))
-	  (load (expand-file-name "subdirs.el" (car tail)) t t t))
+	(condition-case nil
+	    (let ((default-directory (car tail)))
+	      (load (expand-file-name "subdirs.el" (car tail)) t t t)))
+	(condition-case nil
+	    (let ((default-directory (car tail)))
+	      (load (expand-file-name "leim-list.el" (car tail)) t t t)))
 	(setq tail (cdr tail))))
     (if (not (eq system-type 'vax-vms))
 	(progn
@@ -451,30 +457,63 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 		 (setq auto-save-list-file-name
 		       ;; Under MS-DOS our PID is almost always reused between
 		       ;; Emacs invocations.  We need something more unique.
-		       (if (eq system-type 'ms-dos)
-			   (concat 
-			    (make-temp-name
-			     (expand-file-name auto-save-list-file-prefix))
-			    "~")
-
-			 (expand-file-name (format "%s%d-%s~"
-						   auto-save-list-file-prefix
-						   (emacs-pid)
-						   (system-name)))))))
+		       (cond ((eq system-type 'ms-dos)
+			      ;; We are going to access the auto-save
+			      ;; directory, so make sure it exists.
+			      (make-directory
+			       (file-name-directory auto-save-list-file-prefix)
+			       t)
+			      (concat 
+			       (make-temp-name
+				(expand-file-name
+				 auto-save-list-file-prefix))
+			       "~"))
+			     (t
+			      (expand-file-name
+			       (format "%s%d-%s~"
+				       auto-save-list-file-prefix
+				       (emacs-pid)
+				       (system-name))))))))
 	(run-hooks 'emacs-startup-hook)
 	(and term-setup-hook
 	     (run-hooks 'term-setup-hook))
-	;; Modify the initial frame based on what .emacs puts into
-	;; ...-frame-alist.
-	(if (fboundp 'frame-notice-user-settings)
-	    (frame-notice-user-settings))
+
+	;; Don't do this if we failed to create the initial frame,
+	;; for instance due to a dense colormap.
+	(when frame-initial-frame
+	  ;; Modify the initial frame based on what .emacs puts into
+	  ;; ...-frame-alist.
+	  (if (fboundp 'frame-notice-user-settings)
+	      (frame-notice-user-settings))
+	  (if (fboundp 'frame-set-background-mode)
+	      ;; Set the faces for the initial background mode even if
+	      ;; frame-notice-user-settings didn't (such as on a tty).
+	      ;; frame-set-background-mode is idempotent, so it won't
+	      ;; cause any harm if it's already been done.
+	      (let ((frame-background-mode frame-background-mode)
+		    (frame (selected-frame))
+		    term)
+		(when (and (null window-system)
+			   ;; Don't override a possibly customized value.
+			   (null frame-background-mode)
+			   ;; Don't override user specifications.
+			   (null (frame-parameter frame 'reverse))
+			   (let ((bg (frame-parameter frame 'background-color)))
+			     (or (null bg)
+				 (member bg '(unspecified "unspecified-bg")))))
+		  (setq term (getenv "TERM"))
+		  (if (string-match "^\\(xterm\\|rxvt\\|dtterm\\|eterm\\)"
+				    term)
+		      (setq frame-background-mode 'light)))
+		(frame-set-background-mode (selected-frame)))))
+
 	;; Now we know the user's default font, so add it to the menu.
 	(if (fboundp 'font-menu-add-default)
 	    (font-menu-add-default))
 	(and window-setup-hook
 	     (run-hooks 'window-setup-hook))
 	(or menubar-bindings-done
-	    (if (memq window-system '(x w32))
+	    (if (display-popup-menus-p)
 		(precompute-menubar-bindings)))))))
 
 ;; Precompute the keyboard equivalents in the menu bar items.
@@ -490,7 +529,86 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 	     (if purify-flag
 		 (garbage-collect))))
       (setq submap (cdr submap))))
-  (setq define-key-rebound-commands t))
+    (setq define-key-rebound-commands t))
+
+;; Command-line options supported by tty's:
+(defconst tty-long-option-alist
+  '(("--name" .		"-name")
+    ("--title" .	"-T")
+    ("--reverse-video" . "-reverse")
+    ("--foreground-color" . "-fg")
+    ("--background-color" . "-bg")))
+
+(defconst tool-bar-images-pixel-height 24
+  "Height in pixels of images in the tool bar.")
+
+(defvar tool-bar-originally-present nil
+  "Non-nil if tool-bars are present before user and site init files are read.")
+
+;; Handle the X-like command line parameters "-fg", "-bg", "-name", etc.
+(defun tty-handle-args (args)
+  (let ((rest nil))
+    (message "%s" args)
+    (while (and args
+		(not (equal (car args) "--")))
+      (let* ((this (car args))
+	     (orig-this this)
+	     completion argval)
+	(setq args (cdr args))
+	;; Check for long options with attached arguments
+	;; and separate out the attached option argument into argval.
+	(if (string-match "^--[^=]*=" this)
+	    (setq argval (substring this (match-end 0))
+		  this (substring this 0 (1- (match-end 0)))))
+	(when (string-match "^--" this)
+	  (setq completion (try-completion this tty-long-option-alist))
+	  (if (eq completion t)
+	      ;; Exact match for long option.
+	      (setq this (cdr (assoc this tty-long-option-alist)))
+	    (if (stringp completion)
+		(let ((elt (assoc completion tty-long-option-alist)))
+		  ;; Check for abbreviated long option.
+		  (or elt
+		      (error "Option `%s' is ambiguous" this))
+		  (setq this (cdr elt)))
+	      ;; Check for a short option.
+	      (setq argval nil this orig-this))))
+	(cond ((or (string= this "-fg") (string= this "-foreground"))
+	       (or argval (setq argval (car args) args (cdr args)))
+	       (setq default-frame-alist
+		     (cons (cons 'foreground-color argval)
+			   default-frame-alist)))
+	      ((or (string= this "-bg") (string= this "-background"))
+	       (or argval (setq argval (car args) args (cdr args)))
+	       (setq default-frame-alist
+		     (cons (cons 'background-color argval)
+			   default-frame-alist)))
+	      ((or (string= this "-T") (string= this "-name"))
+	       (or argval (setq argval (car args) args (cdr args)))
+	       (setq default-frame-alist
+		     (cons
+		      (cons 'title
+			    (if (stringp argval)
+				argval
+			      (let ((case-fold-search t)
+				    i)
+				(setq argval (invocation-name))
+
+				;; Change any . or * characters in name to
+				;; hyphens, so as to emulate behavior on X.
+				(while
+				    (setq i (string-match "[.*]" argval))
+				  (aset argval i ?-))
+				argval)))
+		      default-frame-alist)))
+	      ((or (string= this "-r")
+		   (string= this "-rv")
+		   (string= this "-reverse"))
+	       (setq default-frame-alist
+		     (cons '(reverse . t)
+			   default-frame-alist)))
+	      (t (setq rest (cons this rest))))))
+      (nreverse rest)))
 
 (defun command-line ()
   (setq command-line-default-directory default-directory)
@@ -504,6 +622,9 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 		(or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "SYS$SCRATCH:"))
 	       (t
 		(or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "/tmp")))))
+  (setq small-temporary-file-directory
+	(if (eq system-type 'ms-dos)
+	    (getenv "TMPDIR")))
 
   ;; See if we should import version-control from the environment variable.
   (let ((vc (getenv "VERSION_CONTROL")))
@@ -517,46 +638,6 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 	  ((or (string= vc "never")
 	       (string= vc "simple"))
 	   (setq version-control 'never))))
-
-  (let ((ctype
-	 ;; Use the first of these three envvars that has a nonempty value.
-	 (or (let ((string (getenv "LC_ALL")))
-	       (and (not (equal string "")) string))
-	     (let ((string (getenv "LC_CTYPE")))
-	       (and (not (equal string "")) string))
-	     (let ((string (getenv "LANG")))
-	       (and (not (equal string "")) string)))))
-    ;; Translate "swedish" into "sv_SE.ISO-8859-1", and so on,
-    ;; using the translation file that GNU/Linux systems have.
-    (and ctype
-	 locale-translation-file-name
-	 (not (string-match iso-8859-n-locale-regexp ctype))
-	 (with-temp-buffer
-	   (insert-file-contents locale-translation-file-name)
-	   (if (re-search-forward
-		(concat "^" (regexp-quote ctype) ":?[ \t]+") nil t)
-	       (setq ctype (buffer-substring (point)
-					     (progn (end-of-line) (point)))))))
-    ;; Now see if the locale specifies an ISO 8859 character set.
-    (when (and ctype
-	       (string-match iso-8859-n-locale-regexp ctype))
-      (let (charset (which (match-string 1 ctype)))
-	(if (equal "9" which)
-	    (setq which "5"))
-	(setq charset (concat "latin-" which))
-	(when (string-match "latin-[12345]" charset)
-	  ;; Set up for this character set.
-	  ;; This is now the right way to do it
-	  ;; for both unibyte and multibyte modes.
-	  (set-language-environment charset)
-	  (unless (or noninteractive (eq window-system 'x))
-	    ;; Send those codes literally to a non-X terminal.
-	    (when default-enable-multibyte-characters
-	      ;; If this is nil, we are using single-byte characters,
-	      ;; so the terminal coding system is irrelevant.
-	      (set-terminal-coding-system
-	       (intern (downcase charset)))))
-	  (standard-display-european-internal)))))
 
   ;;! This has been commented out; I currently find the behavior when
   ;;! split-window-keep-point is nil disturbing, but if I can get used
@@ -593,15 +674,23 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 	(if (memq 'file-error (get (car error) 'error-conditions))
 	    (format "%s: %s"
 		     (nth 1 error)
-		     (mapconcat '(lambda (obj) (prin1-to-string obj t))
+		     (mapconcat (lambda (obj) (prin1-to-string obj t))
 				(cdr (cdr error)) ", "))
 	  (format "%s: %s"
 		   (get (car error) 'error-message)
-		   (mapconcat '(lambda (obj) (prin1-to-string obj t))
+		   (mapconcat (lambda (obj) (prin1-to-string obj t))
 			      (cdr error) ", "))))
       'external-debugging-output)
+     (terpri 'external-debugging-output)
      (setq window-system nil)
      (kill-emacs)))
+
+  ;; Windowed displays do this inside their *-win.el.
+  (when (and (not (display-graphic-p))
+	     (not noninteractive))
+    (setq command-line-args (tty-handle-args command-line-args)))
+
+  (set-locale-environment nil)
 
   (let ((done nil)
 	(args (cdr command-line-args)))
@@ -674,109 +763,215 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
     (and command-line-args (setcdr command-line-args args)))
 
   ;; Under X Windows, this creates the X frame and deletes the terminal frame.
-  (if (fboundp 'frame-initialize)
-      (frame-initialize))
+  (when (fboundp 'frame-initialize)
+    (frame-initialize))
+
   ;; If frame was created with a menu bar, set menu-bar-mode on.
-  (if (or (not (memq window-system '(x w32)))
-	  (> (cdr (assq 'menu-bar-lines (frame-parameters))) 0))
+  (if (and (not noninteractive)
+	   (or (not (memq window-system '(x w32)))
+	       (> (cdr (assq 'menu-bar-lines (frame-parameters))) 0)))
       (menu-bar-mode t))
 
-  (run-hooks 'before-init-hook)
+  ;; If frame was created with a tool bar, switch tool-bar-mode on.
+  (when (and (not noninteractive)
+	     (display-graphic-p)
+	     (> (frame-parameter nil 'tool-bar-lines) 0))
+    (tool-bar-mode 1))
 
-  ;; Run the site-start library if it exists.  The point of this file is
-  ;; that it is run before .emacs.  There is no point in doing this after
-  ;; .emacs; that is useless.
-  (if site-run-file 
-      (load site-run-file t t))
+  ;; Can't do this init in defcustom because window-system isn't set.
+  (when (and (not noninteractive)
+	     (not (eq system-type 'ms-dos))
+	     (memq window-system '(x w32)))
+    (setq-default blink-cursor t)
+    (blink-cursor-mode 1))
 
-  ;; Register available input methods by loading LEIM list file.
-  (load "leim-list.el" 'noerror 'nomessage 'nosuffix)
+  (unless noninteractive
+    ;; DOS/Windows systems have a PC-type keyboard which has both
+    ;; <delete> and <backspace> keys.
+    (when (or (memq system-type '(ms-dos windows-nt))
+	      (and (memq window-system '(x))
+		   (fboundp 'x-backspace-delete-keys-p)
+		   (x-backspace-delete-keys-p)))
+      (setq-default normal-erase-is-backspace t)
+      (normal-erase-is-backspace-mode 1)))
 
-  ;; Sites should not disable this.  Only individuals should disable
-  ;; the startup message.
-  (setq inhibit-startup-message nil)
+  (when (and (not noninteractive)
+	     (display-graphic-p)
+	     (fboundp 'x-show-tip))
+    (setq-default tooltip-mode t)
+    (tooltip-mode 1))
 
-  ;; Load that user's init file, or the default one, or none.
-  (let (debug-on-error-from-init-file
-	debug-on-error-should-be-set
-	(debug-on-error-initial
-	 (if (eq init-file-debug t) 'startup init-file-debug))
-	(orig-enable-multibyte default-enable-multibyte-characters))
-    (let ((debug-on-error debug-on-error-initial)
-	  ;; This function actually reads the init files.
-	  (inner
-	   (function
-	    (lambda ()
-	      (if init-file-user
-		  (let ((user-init-file-1
-			  (cond 
-			   ((eq system-type 'ms-dos)
-			    (concat "~" init-file-user "/_emacs"))
-			   ((eq system-type 'windows-nt)
-			    (if (directory-files "~" nil "^\\.emacs\\(\\.elc?\\)?$")
-				"~/.emacs"
-			      "~/_emacs"))
-			   ((eq system-type 'vax-vms) 
-			    "sys$login:.emacs")
-			   (t 
-			    (concat "~" init-file-user "/.emacs")))))
-		    ;; This tells `load' to store the file name found
-		    ;; into user-init-file.
-		    (setq user-init-file t)
-		    (load user-init-file-1 t t)
-		    ;; If we did not find the user's init file,
-		    ;; set user-init-file conclusively to nil;
-		    ;; don't let it be set from default.el.
-		    (if (eq user-init-file t)
-			(setq user-init-file nil))
-		    (or inhibit-default-init
-			(let ((inhibit-startup-message nil))
-			  ;; Users are supposed to be told their rights.
-			  ;; (Plus how to get help and how to undo.)
-			  ;; Don't you dare turn this off for anyone
-			  ;; except yourself.
-			  (load "default" t t)))))))))
-      (if init-file-debug
-	  ;; Do this without a condition-case if the user wants to debug.
-	  (funcall inner)
-	(condition-case error
-	    (progn
-	      (funcall inner)
-	      (setq init-file-had-error nil))
-	  (error (message "Error in init file: %s%s%s"
-			  (get (car error) 'error-message)
-			  (if (cdr error) ": " "")
-			  (mapconcat 'prin1-to-string (cdr error) ", "))
-		 (setq init-file-had-error t))))
-      ;; If we can tell that the init file altered debug-on-error,
-      ;; arrange to preserve the value that it set up.
-      (or (eq debug-on-error debug-on-error-initial)
-	  (setq debug-on-error-should-be-set t
-		debug-on-error-from-init-file debug-on-error)))
-    (if debug-on-error-should-be-set
-	(setq debug-on-error debug-on-error-from-init-file))
-    (unless (or default-enable-multibyte-characters
-		(eq orig-enable-multibyte default-enable-multibyte-characters))
-      ;; Init file changed to unibyte.  Reset existing multibyte
-      ;; buffers (probably *scratch*, *Messages*, *Minibuff-0*).
-      ;; Arguably this should only be done if they're free of
-      ;; multibyte characters.
-      (mapcar (lambda (buffer)
-		(with-current-buffer buffer
-		  (if enable-multibyte-characters
-		      (set-buffer-multibyte nil))))
-	      (buffer-list))
-      ;; Also re-set the language environment in case it was
-      ;; originally done before unibyte was set and is sensitive to
-      ;; unibyte (display table, terminal coding system &c).
-      (set-language-environment current-language-environment)))
+  ;; Register default TTY colors for the case the terminal hasn't a
+  ;; terminal init file.
+  (or (memq window-system '(x w32))
+      (not (tty-display-color-p))
+      (let* ((colors (cond ((eq window-system 'pc)
+                            msdos-color-values)
+                           ((eq system-type 'windows-nt)
+                            w32-tty-standard-colors)
+                           (t tty-standard-colors)))
+	     (color (car colors)))
+	(while colors
+	  (tty-color-define (car color) (cadr color) (cddr color))
+	  (setq colors (cdr colors) color (car colors)))
+	;; Modifying color mappings means realized faces don't
+	;; use the right colors, so clear them.
+	(clear-face-cache)))
 
-  ;; Do this here in case the init file sets mail-host-address.
-  (or user-mail-address
-      (setq user-mail-address (concat (user-login-name) "@"
-				      (or mail-host-address
-					  (system-name)))))
+  ;; Record whether the tool-bar is present before the user and site
+  ;; init files are processed.  frame-notice-user-settings uses this
+  ;; to determine if the tool-bar has been disabled by the init files,
+  ;; and the frame needs to be resized.
+  (when (fboundp 'frame-notice-user-settings)
+    (let ((tool-bar-lines (or (assq 'tool-bar-lines initial-frame-alist)
+                              (assq 'tool-bar-lines default-frame-alist))))
+      (setq tool-bar-originally-present
+            (not (or (null tool-bar-lines)
+                     (null (cdr tool-bar-lines))
+                     (eq 0 (cdr tool-bar-lines)))))))
 
+  (let ((old-scalable-fonts-allowed scalable-fonts-allowed)
+	(old-font-list-limit font-list-limit)
+	(old-face-ignored-fonts face-ignored-fonts))
+
+    (run-hooks 'before-init-hook)
+
+    ;; Run the site-start library if it exists.  The point of this file is
+    ;; that it is run before .emacs.  There is no point in doing this after
+    ;; .emacs; that is useless.
+    (if site-run-file 
+	(load site-run-file t t))
+
+    ;; Sites should not disable this.  Only individuals should disable
+    ;; the startup message.
+    (setq inhibit-startup-message nil)
+
+    ;; Load that user's init file, or the default one, or none.
+    (let (debug-on-error-from-init-file
+	  debug-on-error-should-be-set
+	  (debug-on-error-initial
+	   (if (eq init-file-debug t) 'startup init-file-debug))
+	  (orig-enable-multibyte default-enable-multibyte-characters))
+      (let ((debug-on-error debug-on-error-initial)
+	    ;; This function actually reads the init files.
+	    (inner
+	     (function
+	      (lambda ()
+		(if init-file-user
+		    (let ((user-init-file-1
+			   (cond 
+			    ((eq system-type 'ms-dos)
+			     (concat "~" init-file-user "/_emacs"))
+			    ((eq system-type 'windows-nt)
+			     (if (directory-files "~" nil "^\\.emacs\\(\\.elc?\\)?$")
+				 "~/.emacs"
+			       "~/_emacs"))
+			    ((eq system-type 'vax-vms) 
+			     "sys$login:.emacs")
+			    (t 
+			     (concat "~" init-file-user "/.emacs")))))
+		      ;; This tells `load' to store the file name found
+		      ;; into user-init-file.
+		      (setq user-init-file t)
+		      (load user-init-file-1 t t)
+		      
+		      ;; If we did not find the user's init file,
+		      ;; set user-init-file conclusively to nil;
+		      ;; don't let it be set from default.el.
+		      (if (eq user-init-file t)
+			  (setq user-init-file nil))
+		      
+		      ;; If we loaded a compiled file, set
+		      ;; `user-init-file' to the source version if that
+		      ;; exists.
+		      (when (and user-init-file
+				 (equal (file-name-extension user-init-file)
+					"elc"))
+			(let* ((source (file-name-sans-extension user-init-file))
+			       (alt (concat source ".el")))
+			  (setq source (cond ((file-exists-p alt) alt)
+					     ((file-exists-p source) source)
+					     (t nil)))
+			  (when source
+			    (when (file-newer-than-file-p source user-init-file)
+			      (message "Warning: %s is newer than %s"
+				       source user-init-file)
+			      (sit-for 1))
+			    (setq user-init-file source))))
+		      
+		      (or inhibit-default-init
+			  (let ((inhibit-startup-message nil))
+			    ;; Users are supposed to be told their rights.
+			    ;; (Plus how to get help and how to undo.)
+			    ;; Don't you dare turn this off for anyone
+			    ;; except yourself.
+			    (load "default" t t)))))))))
+	(if init-file-debug
+	    ;; Do this without a condition-case if the user wants to debug.
+	    (funcall inner)
+	  (condition-case error
+	      (progn
+		(funcall inner)
+		(setq init-file-had-error nil))
+	    (error
+	     (let ((message-log-max nil))
+	       (save-excursion
+		 (set-buffer (get-buffer-create "*Messages*"))
+		 (insert "\n\n"
+			 (format "An error has occurred while loading `%s':\n\n"
+				 user-init-file)
+			 (format "%s%s%s"
+				 (get (car error) 'error-message)
+				 (if (cdr error) ": " "")
+				 (mapconcat 'prin1-to-string (cdr error) ", "))
+			 "\n\n"
+			 "To ensure normal operation, you should investigate the cause\n"
+			 "of the error in your initialization file and remove it.  Start\n"
+			 "Emacs with the `--debug-init' option to view a complete error\n"
+			 "backtrace\n"))
+	       (message "Error in init file: %s%s%s"
+			(get (car error) 'error-message)
+			(if (cdr error) ": " "")
+			(mapconcat 'prin1-to-string (cdr error) ", "))
+	       (pop-to-buffer "*Messages*")
+	       (setq init-file-had-error t)))))
+	;; If we can tell that the init file altered debug-on-error,
+	;; arrange to preserve the value that it set up.
+	(or (eq debug-on-error debug-on-error-initial)
+	    (setq debug-on-error-should-be-set t
+		  debug-on-error-from-init-file debug-on-error)))
+      (if debug-on-error-should-be-set
+	  (setq debug-on-error debug-on-error-from-init-file))
+      (unless (or default-enable-multibyte-characters
+		  (eq orig-enable-multibyte default-enable-multibyte-characters))
+	;; Init file changed to unibyte.  Reset existing multibyte
+	;; buffers (probably *scratch*, *Messages*, *Minibuff-0*).
+	;; Arguably this should only be done if they're free of
+	;; multibyte characters.
+	(mapcar (lambda (buffer)
+		  (with-current-buffer buffer
+		    (if enable-multibyte-characters
+			(set-buffer-multibyte nil))))
+		(buffer-list))
+	;; Also re-set the language environment in case it was
+	;; originally done before unibyte was set and is sensitive to
+	;; unibyte (display table, terminal coding system &c).
+	(set-language-environment current-language-environment)))
+    
+    ;; Do this here in case the init file sets mail-host-address.
+    (or user-mail-address
+	(setq user-mail-address (concat (user-login-name) "@"
+					(or mail-host-address
+					    (system-name)))))
+
+    ;; If parameter have been changed in the init file which influence
+    ;; face realization, clear the face cache so that new faces will
+    ;; be realized.
+    (unless (and (eq scalable-fonts-allowed old-scalable-fonts-allowed)
+		 (eq font-list-limit old-font-list-limit)
+		 (eq face-ignored-fonts old-face-ignored-fonts))
+      (clear-face-cache)))
+    
   (run-hooks 'after-init-hook)
 
   ;; If *scratch* exists and init file didn't change its mode, initialize it.
@@ -785,6 +980,7 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 	(set-buffer "*scratch*")
 	(if (eq major-mode 'fundamental-mode)
 	    (funcall initial-major-mode))))
+  
   ;; Load library for our terminal type.
   ;; User init file can set term-file-prefix to nil to prevent this.
   (and term-file-prefix (not noninteractive) (not window-system)
@@ -803,49 +999,276 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
   ;; If -batch, terminate after processing the command options.
   (if noninteractive (kill-emacs t)))
 
-(defcustom initial-scratch-message "\
-This buffer is for notes you don't want to save, and for Lisp evaluation.
-If you want to create a file, visit that file with C-x C-f,
-then enter the text in that file's own buffer.
+(defcustom initial-scratch-message (purecopy "\
+;; This buffer is for notes you don't want to save, and for Lisp evaluation.
+;; If you want to create a file, visit that file with C-x C-f,
+;; then enter the text in that file's own buffer.
 
-"
+")
   "Initial message displayed in *scratch* buffer at startup.
 If this is nil, no message will be displayed."
   :type 'string)
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Fancy splash screen
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar fancy-splash-text
+  '((:face variable-pitch
+	   "You can do basic editing with the menu bar and scroll bar \
+using the mouse.\n\n"
+	   :face (variable-pitch :weight bold)
+	   "Important Help menu items:\n"
+	   :face variable-pitch "\
+Emacs Tutorial\tLearn-by-doing tutorial for using Emacs efficiently
+Emacs FAQ\tFrequently asked questions and answers
+\(Non)Warranty\tGNU Emacs comes with "
+	   :face (variable-pitch :slant oblique)
+	   "ABSOLUTELY NO WARRANTY\n"
+	   :face variable-pitch
+	   "\
+Copying Conditions\tConditions for redistributing and changing Emacs
+Ordering Manuals\tHow to order Emacs manuals from the Free Software Foundation\n")
+  (:face variable-pitch
+	   "You can do basic editing with the menu bar and scroll bar \
+using the mouse.\n\n"
+	   :face (variable-pitch :weight bold)
+	   "Useful File menu items:\n"
+	   :face variable-pitch "\
+Exit Emacs\t(Or type Control-x followed by Control-c)
+Recover Session\tRecover files you were editing before a crash
+
+
+
+"
+	   ))
+  "A list of texts to show in the middle part of splash screens.
+Each element in the list should be a list of strings or pairs
+`:face FACE', like `fancy-splash-insert' accepts them.")
+
+
+(defgroup fancy-splash-screen ()
+  "Fancy splash screen when Emacs starts."
+  :version "21.1"
+  :group 'initialization)
+
+
+(defcustom fancy-splash-delay 10
+  "*Delay in seconds between splash screens."
+  :group 'fancy-splash-screen
+  :type 'integer)
+
+
+(defcustom fancy-splash-max-time 60
+  "*Show splash screens for at most this number of seconds.
+Values less than 60 seconds are ignored."
+  :group 'fancy-splash-screen
+  :type 'integer)
+
+
+(defcustom fancy-splash-image nil
+  "*The image to show in the splash screens, or nil for defaults."
+  :group 'fancy-splash-screen
+  :type '(choice (const :tag "Default" nil)
+		 (file :tag "File")))
+
+
+;; These are temporary storage areas for the splash screen display.
+
+(defvar fancy-current-text nil)
+(defvar fancy-splash-help-echo nil)
+(defvar fancy-splash-stop-time nil)
+
+
+(defun fancy-splash-insert (&rest args)
+  "Insert text into the current buffer, with faces.
+Arguments from ARGS should be either strings or pairs `:face FACE',
+where FACE is a valid face specification, as it can be used with
+`put-text-properties'."
+  (let ((current-face nil))
+    (while args
+      (if (eq (car args) :face)
+	  (setq args (cdr args) current-face (car args))
+	(insert (propertize (car args)
+			    'face current-face
+			    'help-echo fancy-splash-help-echo)))
+      (setq args (cdr args)))))
+
+
+(defun fancy-splash-head ()
+  "Insert the head part of the splash screen into the current buffer."
+  (let* ((image-file (cond ((stringp fancy-splash-image)
+			    fancy-splash-image)
+			   ((and (display-color-p)
+				 (image-type-available-p 'xpm))
+			    (if (and (fboundp 'x-display-planes)
+				     (= (funcall 'x-display-planes) 8))
+				"splash8.xpm"
+			      "splash.xpm"))
+			   (t "splash.pbm")))
+	 (img (create-image image-file))
+	 (image-width (and img (car (image-size img))))
+	 (window-width (window-width (selected-window))))
+    (when img
+      (when (> window-width image-width)
+	;; Center the image in the window.
+	(let ((pos (/ (- window-width image-width) 2)))
+	  (insert (propertize " " 'display `(space :align-to ,pos))))
+
+	;; Insert the image with a help-echo and a keymap.
+	(let ((map (make-sparse-keymap))
+	      (help-echo "mouse-2: browse http://www.gnu.org/"))
+	  (define-key map [mouse-2]
+	    (lambda ()
+	      (interactive)
+	      (browse-url "http://www.gnu.org/")
+	      (throw 'exit nil)))
+	  (define-key map [down-mouse-2] 'ignore)
+	  (define-key map [up-mouse-2] 'ignore)
+	  (insert-image img (propertize "xxx" 'help-echo help-echo
+					'keymap map)))
+	(insert "\n"))))
+  (if (eq system-type 'gnu/linux)
+      (fancy-splash-insert
+       :face '(variable-pitch :foreground "red")
+       "GNU Emacs is one component of a Linux-based GNU system.")
+    (fancy-splash-insert
+     :face '(variable-pitch :foreground "red")
+     "GNU Emacs is one component of the GNU operating system."))
+  (insert "\n"))
+
+
+(defun fancy-splash-tail ()
+  "Insert the tail part of the splash screen into the current buffer."
+  (let ((fg (if (eq (frame-parameter nil 'background-mode) 'dark)
+		"cyan" "darkblue")))
+    (fancy-splash-insert :face `(variable-pitch :foreground ,fg)
+			 "\nThis is "
+			 (emacs-version)
+			 "\n"
+			 :face '(variable-pitch :height 0.5)
+			 "Copyright (C) 2001 Free Software Foundation, Inc.")))
+
+
+(defun fancy-splash-screens-1 (buffer)
+  "Timer function displaying a splash screen."
+  (when (> (float-time) fancy-splash-stop-time)
+    (throw 'stop-splashing nil))
+  (unless fancy-current-text
+    (setq fancy-current-text fancy-splash-text))
+  (let ((text (car fancy-current-text)))
+    (set-buffer buffer)
+    (erase-buffer)
+    (fancy-splash-head)
+    (apply #'fancy-splash-insert text)
+    (fancy-splash-tail)
+    (unless (current-message)
+      (message fancy-splash-help-echo))
+    (set-buffer-modified-p nil)
+    (goto-char (point-min))
+    (force-mode-line-update)
+    (setq fancy-current-text (cdr fancy-current-text))))
+
+
+(defun fancy-splash-default-action ()
+  "Default action for events in the splash screen buffer."
+  (interactive)
+  (push last-command-event unread-command-events)
+  (throw 'exit nil))
+
+
+(defun fancy-splash-screens ()
+  "Display fancy splash screens when Emacs starts."
+  (setq fancy-splash-help-echo (startup-echo-area-message))
+  (switch-to-buffer "GNU Emacs")
+  (setq tab-width 20)
+  (let ((old-hourglass display-hourglass)
+	(splash-buffer (current-buffer))
+	(old-minor-mode-map-alist minor-mode-map-alist)
+	timer)
+    (catch 'stop-splashing
+      (unwind-protect
+	  (let ((map (make-sparse-keymap)))
+	    (use-local-map map)
+	    (define-key map [t] 'fancy-splash-default-action)
+	    (define-key map [mouse-movement] 'ignore)
+	    (define-key map [mode-line t] 'ignore)
+	    (setq cursor-type nil
+		  display-hourglass nil
+		  minor-mode-map-alist nil
+		  buffer-undo-list t
+		  mode-line-format (propertize "---- %b %-" 
+					       'face '(:weight bold))
+		  fancy-splash-stop-time (+ (float-time)
+					    (max 60 fancy-splash-max-time))
+		  timer (run-with-timer 0 fancy-splash-delay
+					#'fancy-splash-screens-1
+					splash-buffer))
+	    (recursive-edit))
+	  (cancel-timer timer)
+	  (setq display-hourglass old-hourglass
+		minor-mode-map-alist old-minor-mode-map-alist)
+	  (kill-buffer splash-buffer)))))
+
+
+(defun use-fancy-splash-screens-p ()
+  "Return t if fancy splash screens should be used."
+  (when (or (and (display-color-p)
+		 (image-type-available-p 'xpm))
+	    (image-type-available-p 'pbm))
+    (let* ((img (create-image (or fancy-splash-image
+				  (if (and (display-color-p)
+					   (image-type-available-p 'xpm))
+				      "splash.xpm" "splash.pbm"))))
+	   (image-height (and img (cdr (image-size img))))
+	   (window-height (1- (window-height (selected-window)))))
+      (> window-height (+ image-height 15)))))
+
+
+(defun startup-echo-area-message ()
+  (if (eq (key-binding "\C-h\C-p") 'describe-project)
+      "For information about the GNU Project and its goals, type C-h C-p."
+    (substitute-command-keys
+     "For information about the GNU Project and its goals, type \
+\\[describe-project].")))
+
+
+(defun display-startup-echo-area-message ()
+  (let ((resize-mini-windows t))
+    (message (startup-echo-area-message))))
+
+
 (defun command-line-1 (command-line-args-left)
   (or noninteractive (input-pending-p) init-file-had-error
-      (and inhibit-startup-echo-area-message
-	   user-init-file
-	   (or (and (get 'inhibit-startup-echo-area-message 'saved-value)
-		    (equal inhibit-startup-echo-area-message
-			   (if (string= init-file-user "")
-			       (user-login-name)
-			     init-file-user)))
-	       ;; Wasn't set with custom; see if .emacs has a setq.
-	       (let ((buffer (get-buffer-create " *temp*")))
-		 (prog1
-		     (condition-case nil
-			 (save-excursion
-			   (set-buffer buffer)
-			   (insert-file-contents user-init-file)
-			   (re-search-forward
-			    (concat
-			     "([ \t\n]*setq[ \t\n]+"
-			     "inhibit-startup-echo-area-message[ \t\n]+"
-			     (regexp-quote
-			      (prin1-to-string
-			       (if (string= init-file-user "")
-				   (user-login-name)
-				 init-file-user)))
-			     "[ \t\n]*)")
-			    nil t))
-		       (error nil))
-		   (kill-buffer buffer)))))
-      (message (if (eq (key-binding "\C-h\C-p") 'describe-project)
-		   "For information about the GNU Project and its goals, type C-h C-p."
-		 (substitute-command-keys
-		  "For information about the GNU Project and its goals, type \\[describe-project]."))))
+	(and inhibit-startup-echo-area-message
+	     user-init-file
+	     (or (and (get 'inhibit-startup-echo-area-message 'saved-value)
+		      (equal inhibit-startup-echo-area-message
+			     (if (string= init-file-user "")
+				 (user-login-name)
+			       init-file-user)))
+		 ;; Wasn't set with custom; see if .emacs has a setq.
+		 (let ((buffer (get-buffer-create " *temp*")))
+		   (prog1
+		       (condition-case nil
+			   (save-excursion
+			     (set-buffer buffer)
+			     (insert-file-contents user-init-file)
+			     (re-search-forward
+			      (concat
+			       "([ \t\n]*setq[ \t\n]+"
+			       "inhibit-startup-echo-area-message[ \t\n]+"
+			       (regexp-quote
+				(prin1-to-string
+				 (if (string= init-file-user "")
+				     (user-login-name)
+				   init-file-user)))
+			       "[ \t\n]*)")
+			      nil t))
+			 (error nil))
+		     (kill-buffer buffer)))))
+	(display-startup-echo-area-message))
   (if (null command-line-args-left)
       (cond ((and (not inhibit-startup-message) (not noninteractive)
 		  ;; Don't clobber a non-scratch buffer if init file
@@ -863,19 +1286,23 @@ If this is nil, no message will be displayed."
 	     ;; display the startup message; otherwise, the settings
 	     ;; won't take effect until the user gives the first
 	     ;; keystroke, and that's distracting.
-	     (if (fboundp 'frame-notice-user-settings)
-		 (frame-notice-user-settings))
+	     (when (fboundp 'frame-notice-user-settings)
+	       (frame-notice-user-settings))
 
-	     (and window-setup-hook
-		  (run-hooks 'window-setup-hook))
-	     (setq window-setup-hook nil)
+	     (when window-setup-hook
+	       (run-hooks 'window-setup-hook)
+	       (setq window-setup-hook nil))
+	     
+ 	     (when (display-popup-menus-p)
+ 	       (precompute-menubar-bindings))
+ 	     (setq menubar-bindings-done t)
+	     
 	     ;; Do this now to avoid an annoying delay if the user
 	     ;; clicks the menu bar during the sit-for.
-	     (if (memq window-system '(x w32))
-		 (precompute-menubar-bindings))
-	     (setq menubar-bindings-done t)
 	     (when (= (buffer-size) 0)
-	       (let ((buffer-undo-list t))
+	       (let ((buffer-undo-list t)
+		     (tab-width 8)
+		     (wait-for-input t))
 		 (unwind-protect
 		     (when (not (input-pending-p))
 		       (goto-char (point-max))
@@ -886,24 +1313,33 @@ If this is nil, no message will be displayed."
 		       (if (eq system-type 'gnu/linux)
 			   (insert ", one component of a Linux-based GNU system."))
 		       (insert "\n")
+		       
 		       (if (assq 'display (frame-parameters))
-			   (progn
-			     (insert "\
-The menu bar and scroll bar are sufficient for basic editing with the mouse.
+			   
+			   (if (use-fancy-splash-screens-p)
+			       (progn
+				 (setq wait-for-input nil)
+				 (fancy-splash-screens))
+			     (progn
+			       (insert "\
+You can do basic editing with the menu bar and scroll bar using the mouse.
 
-Useful Files menu items:
+Useful File menu items:
 Exit Emacs		(or type Control-x followed by Control-c)
 Recover Session		recover files you were editing before a crash
 
 Important Help menu items:
 Emacs Tutorial		Learn-by-doing tutorial for using Emacs efficiently.
+Emacs FAQ		Frequently asked questions and answers
 \(Non)Warranty		GNU Emacs comes with ABSOLUTELY NO WARRANTY
 Copying Conditions	Conditions for redistributing and changing Emacs.
 Getting New Versions	How to obtain the latest version of Emacs.
+Ordering Manuals	How to order manuals from the FSF.
 ")
-			     (insert "\n\n" (emacs-version)
-				     "
-Copyright (C) 1999 Free Software Foundation, Inc."))
+			       (insert "\n\n" (emacs-version)
+				       "
+Copyright (C) 2001 Free Software Foundation, Inc.")))
+			 
 			 ;; If keys have their default meanings,
 			 ;; use precomputed string to save lots of time.
 			 (if (and (eq (key-binding "\C-h") 'help-command)
@@ -915,14 +1351,16 @@ Copyright (C) 1999 Free Software Foundation, Inc."))
 			     (insert "
 Get help	   C-h  (Hold down CTRL and press h)
 Undo changes	   C-x u       Exit Emacs		C-x C-c
-Get a tutorial	   C-h t       Use Info to read docs	C-h i")
+Get a tutorial	   C-h t       Use Info to read docs	C-h i
+Ordering manuals   C-h RET")
 			   (insert (substitute-command-keys
 				    (format "\n
 Get help	   %s
 Undo changes	   \\[advertised-undo]
 Exit Emacs	   \\[save-buffers-kill-emacs]
 Get a tutorial	   \\[help-with-tutorial]
-Use Info to read docs	\\[info]"
+Use Info to read docs	\\[info]
+Ordering manuals   \\[view-order-manuals]"
 					    (let ((where (where-is-internal
 							  'help-command nil t)))
 					      (if where
@@ -937,9 +1375,7 @@ Activate menubar   F10  or  ESC `  or   M-`")
 			   (insert (substitute-command-keys "
 Activate menubar     \\[tmm-menubar]")))
 
-		       ;; Windows and MSDOS (currently) do not count as
-		       ;; window systems, but do have mouse support.
-			 (if window-system
+			 (if (display-mouse-p)
 			     (insert "
 Mode-specific menu   C-mouse-3 (third button, with CTRL)"))
 			 ;; Many users seem to have problems with these.
@@ -947,6 +1383,11 @@ Mode-specific menu   C-mouse-3 (third button, with CTRL)"))
 \(`C-' means use the CTRL key.  `M-' means use the Meta (or Alt) key.
 If you have no Meta key, you may instead type ESC followed by the character.)")
 			 (and auto-save-list-file-prefix
+			      ;; Don't signal an error if the
+			      ;; directory for auto-save-list files
+			      ;; does not yet exist.
+			      (file-directory-p (file-name-directory
+						 auto-save-list-file-prefix))
 			      (directory-files
 			       (file-name-directory auto-save-list-file-prefix)
 			       nil
@@ -960,7 +1401,7 @@ If you have no Meta key, you may instead type ESC followed by the character.)")
 
 			 (insert "\n\n" (emacs-version)
 				 "
-Copyright (C) 1999 Free Software Foundation, Inc.")
+Copyright (C) 2001 Free Software Foundation, Inc.")
 			 (if (and (eq (key-binding "\C-h\C-c") 'describe-copying)
 				  (eq (key-binding "\C-h\C-d") 'describe-distribution)
 				  (eq (key-binding "\C-h\C-w") 'describe-no-warranty))
@@ -979,12 +1420,15 @@ Type \\[describe-distribution] for information on getting the latest version."))
 		       (goto-char (point-min))
 
 		       (set-buffer-modified-p nil)
-		       (sit-for 120))
+		       (when wait-for-input
+			 (sit-for 120)))
+		   
 		   (with-current-buffer (get-buffer "*scratch*")
 		     (erase-buffer)
-		     (and initial-scratch-message
-			  (insert initial-scratch-message))
+		     (when initial-scratch-message
+		       (insert initial-scratch-message))
 		     (set-buffer-modified-p nil)))))))
+    
     ;; Delay 2 seconds after the init file error message
     ;; was displayed, so user can read it.
     (if init-file-had-error
@@ -993,16 +1437,18 @@ Type \\[describe-distribution] for information on getting the latest version."))
 	  (file-count 0)
 	  first-file-buffer
 	  tem
-	  just-files  ;; t if this follows the magic -- option.
+	  just-files;; t if this follows the magic -- option.
 	  ;; This includes our standard options' long versions
 	  ;; and long versions of what's on command-switch-alist.
 	  (longopts
 	   (append '(("--funcall") ("--load") ("--insert") ("--kill")
-		     ("--directory") ("--eval") ("--find-file") ("--visit"))
-		   (mapcar '(lambda (elt)
-			      (list (concat "-" (car elt))))
+		     ("--directory") ("--eval") ("--execute")
+		     ("--find-file") ("--visit") ("--file"))
+		   (mapcar (lambda (elt)
+			     (list (concat "-" (car elt))))
 			   command-switch-alist)))
-	  (line 0))
+	  (line 0)
+	  (column 0))
 
       ;; Add the long X options to longopts.
       (setq tem command-line-x-option-alist)
@@ -1050,7 +1496,8 @@ Type \\[describe-distribution] for information on getting the latest version."))
 			    (cons argval command-line-args-left)))
 		       (funcall (cdr tem) argi))
 		   (funcall (cdr tem) argi)))
-		((or (string-equal argi "-f")  ;what the manual claims
+		
+		((or (string-equal argi "-f") ;what the manual claims
 		     (string-equal argi "-funcall")
 		     (string-equal argi "-e")) ; what the source used to say
 		 (if argval
@@ -1060,13 +1507,16 @@ Type \\[describe-distribution] for information on getting the latest version."))
 		 (if (arrayp (symbol-function tem))
 		     (command-execute tem)
 		   (funcall tem)))
-		((string-equal argi "-eval")
+		
+		((or (string-equal argi "-eval")
+		     (string-equal argi "-execute"))
 		 (if argval
 		     (setq tem argval)
 		   (setq tem (car command-line-args-left))
 		   (setq command-line-args-left (cdr command-line-args-left)))
 		 (eval (read tem)))
 		;; Set the default directory as specified in -L.
+		
 		((or (string-equal argi "-L")
 		     (string-equal argi "-directory"))
 		 (if argval
@@ -1078,6 +1528,7 @@ Type \\[describe-distribution] for information on getting the latest version."))
 		       (cons (expand-file-name tem) extra-load-path))
 		 (setq load-path (append (nreverse extra-load-path)
 					 initial-load-path)))
+		
 		((or (string-equal argi "-l")
 		     (string-equal argi "-load"))
 		 (if argval
@@ -1090,6 +1541,7 @@ Type \\[describe-distribution] for information on getting the latest version."))
 		   (if (file-exists-p (expand-file-name file))
 		       (setq file (expand-file-name file)))
 		   (load file nil t)))
+		
 		((string-equal argi "-insert")
 		 (if argval
 		     (setq tem argval)
@@ -1098,28 +1550,45 @@ Type \\[describe-distribution] for information on getting the latest version."))
 		 (or (stringp tem)
 		     (error "File name omitted from `-insert' option"))
 		 (insert-file-contents (command-line-normalize-file-name tem)))
+		
 		((string-equal argi "-kill")
 		 (kill-emacs t))
+		
 		((string-match "^\\+[0-9]+\\'" argi)
 		 (setq line (string-to-int argi)))
+		
+		((string-match "^\\+\\([0-9]+\\):\\([0-9]+\\)\\'" argi)
+		 (setq line (string-to-int (match-string 1 argi))
+		       column (string-to-int (match-string 2 argi))))
+
 		((setq tem (assoc argi command-line-x-option-alist))
 		 ;; Ignore X-windows options and their args if not using X.
 		 (setq command-line-args-left
 		       (nthcdr (nth 1 tem) command-line-args-left)))
+		
 		((or (string-equal argi "-find-file")
+		     (string-equal argi "-file")
 		     (string-equal argi "-visit"))
 		 ;; An explicit option to specify visiting a file.
+		 (if argval
+		     (setq tem argval)
+		   (setq tem (car command-line-args-left)
+			 command-line-args-left (cdr command-line-args-left)))
+		 (unless (stringp tem)
+		   (error "File name omitted from `%s' option" argi))
 		 (setq file-count (1+ file-count))
-		 (let ((file
-			(expand-file-name
-			 (command-line-normalize-file-name orig-argi)
-			 dir)))
+		 (let ((file (expand-file-name
+			      (command-line-normalize-file-name tem) dir)))
 		   (if (= file-count 1)
 		       (setq first-file-buffer (find-file file))
 		     (find-file-other-window file)))
 		 (or (zerop line)
 		     (goto-line line))
-		 (setq line 0))
+		 (setq line 0)
+		 (unless (< column 1)
+		   (move-to-column (1- column)))
+		 (setq column 0))
+		
 		((equal argi "--")
 		 (setq just-files t))
 		(t
@@ -1145,14 +1614,17 @@ Type \\[describe-distribution] for information on getting the latest version."))
 			     (find-file-other-window file)))
 			 (or (zerop line)
 			     (goto-line line))
-			 (setq line 0))))))))
+			 (setq line 0)
+			 (unless (< column 1)
+			   (move-to-column (1- column)))
+			 (setq column 0))))))))
       ;; If 3 or more files visited, and not all visible,
-      ;; show user what they all are.
+      ;; show user what they all are.  But leave the last one current.
       (and (> file-count 2)
 	   (not noninteractive)
 	   (or (get-buffer-window first-file-buffer)
-	       (progn (other-window 1)
-		      (buffer-menu)))))))
+	       (list-buffers))))))
+
 
 (defun command-line-normalize-file-name (file)
   "Collapse multiple slashes to one, to handle non-Emacs file names."

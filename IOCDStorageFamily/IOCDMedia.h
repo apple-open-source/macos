@@ -88,11 +88,12 @@
 
 #define kIOCDMediaTypeRW "CD-RW"
 
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IOCDBlockStorageDriver.h>
 #include <IOKit/storage/IOMedia.h>
@@ -118,9 +119,8 @@ protected:
 
 public:
 
-///m:2333367:workaround:commented:start
-//  using read;
-///m:2333367:workaround:commented:stop
+    using IOStorage::read;
+    using IOStorage::write;
 
     /*
      * Obtain this object's provider.  We override the superclass's method to
@@ -154,6 +154,30 @@ public:
                       IOMemoryDescriptor * buffer,
                       IOStorageCompletion  completion);
 
+    /*
+     * @function write
+     * @discussion
+     * Write data into the storage object at the specified byte offset from the
+     * specified buffer, asynchronously.   When the write completes, the caller
+     * will be notified via the specified completion action.
+     *
+     * The buffer will be retained for the duration of the write.
+     * @param client
+     * Client requesting the write.
+     * @param byteStart
+     * Starting byte offset for the data transfer.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param completion
+     * Completion routine to call once the data transfer is complete.
+     */
+
+    virtual void write(IOService *          client,
+                       UInt64               byteStart,
+                       IOMemoryDescriptor * buffer,
+                       IOStorageCompletion  completion);
+
     /*!
      * @function readCD
      * @discussion
@@ -167,13 +191,13 @@ public:
      * @param client
      * Client requesting the read.
      * @param byteStart
-     * Starting byte offset for the data transfer (see withAreas parameter).
+     * Starting byte offset for the data transfer (see sectorArea parameter).
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
      * @param sectorArea
-     * Sector area(s) to read.  The sum of each area's size defines the "natural
-     * block size" of the media for the call, which should be taken into account
+     * Sector area(s) to read.  The sum of each area's size defines the natural
+     * block size of the media for the call.  This should be taken into account
      * when computing the address of byteStart.  See IOCDTypes.h.
      * @param sectorType
      * Sector type that is expected.  The data transfer is terminated as soon as
@@ -200,13 +224,13 @@ public:
      * @param client
      * Client requesting the read.
      * @param byteStart
-     * Starting byte offset for the data transfer.
+     * Starting byte offset for the data transfer (see sectorArea parameter).
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
      * @param sectorArea
-     * Sector area(s) to read.  The sum of each area's size defines the "natural
-     * block size" of the media for the call, which should be taken into account
+     * Sector area(s) to read.  The sum of each area's size defines the natural
+     * block size of the media for the call.  This should be taken into account
      * when computing the address of byteStart.  See IOCDTypes.h.
      * @param sectorType
      * Sector type that is expected.  The data transfer is terminated as soon as
@@ -366,8 +390,74 @@ public:
 
     OSMetaClassDeclareReservedUsed(IOCDMedia, 4); /* 10.1.3 */
 
-    OSMetaClassDeclareReservedUnused(IOCDMedia,  5);
-    OSMetaClassDeclareReservedUnused(IOCDMedia,  6);
+    /*
+     * @function writeCD
+     * @discussion
+     * Write data into the CD media object at the specified byte offset from the
+     * specified buffer, asynchronously.    When the write completes, the caller
+     * will be notified via the specified completion action.
+     *
+     * The buffer will be retained for the duration of the write.
+     * @param client
+     * Client requesting the write.
+     * @param byteStart
+     * Starting byte offset for the data transfer (see sectorArea parameter).
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param sectorArea
+     * Sector area(s) to write.  The sum of each area's size defines the natural
+     * block size of the media for the call.   This should be taken into account
+     * when computing the address of byteStart.  See IOCDTypes.h.
+     * @param sectorType
+     * Sector type that is expected.
+     * @param completion
+     * Completion routine to call once the data transfer is complete.
+     */
+
+    virtual void writeCD(IOService *          client,
+                         UInt64               byteStart,
+                         IOMemoryDescriptor * buffer,
+                         CDSectorArea         sectorArea,
+                         CDSectorType         sectorType,
+                         IOStorageCompletion  completion);
+
+    OSMetaClassDeclareReservedUsed(IOCDMedia, 5); /* 10.2.0 */
+
+    /*
+     * @function writeCD
+     * @discussion
+     * Write data into the CD media object at the specified byte offset from the
+     * specified buffer, synchronously.    When the write completes, this method
+     * will return to the caller.  The actual byte count field is optional.
+     * @param client
+     * Client requesting the write.
+     * @param byteStart
+     * Starting byte offset for the data transfer (see sectorArea parameter).
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param sectorArea
+     * Sector area(s) to write.  The sum of each area's size defines the natural
+     * block size of the media for the call.   This should be taken into account
+     * when computing the address of byteStart.  See IOCDTypes.h.
+     * @param sectorType
+     * Sector type that is expected.
+     * @param actualByteCount
+     * Returns the actual number of bytes transferred in the data transfer.
+     * @result
+     * Returns the status of the data transfer.
+     */
+
+    virtual IOReturn writeCD(IOService *          client,
+                             UInt64               byteStart,
+                             IOMemoryDescriptor * buffer,
+                             CDSectorArea         sectorArea,
+                             CDSectorType         sectorType,
+                             UInt64 *             actualByteCount = 0);
+
+    OSMetaClassDeclareReservedUsed(IOCDMedia, 6); /* 10.2.0 */
+
     OSMetaClassDeclareReservedUnused(IOCDMedia,  7);
     OSMetaClassDeclareReservedUnused(IOCDMedia,  8);
     OSMetaClassDeclareReservedUnused(IOCDMedia,  9);
@@ -379,6 +469,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOCDMedia, 15);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IOCDMEDIA_H */

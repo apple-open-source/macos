@@ -436,22 +436,26 @@ ni_find(void **dom, ni_id *nid, ni_name dirname, unsigned int timeout)
 	void *d, *p;
 	ni_id n;
 	ni_status status;
+	struct sockaddr_in addr;
 
 	*dom = NULL;
 	nid->nii_object = NI_INDEX_NULL;
 	nid->nii_instance = NI_INDEX_NULL;
 	
-	status = ni_open(NULL, ".", &d);
-	if (status != NI_OK) return status;
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
-	if (timeout > 0)
-	{
-		ni_setreadtimeout(d, timeout);
-		ni_setabort(d, 1);
-	}
+	d = ni_connect(&addr, "local");
+	if (d == NULL) return NI_FAILED;
 
 	while (d != NULL)
 	{
+		if (timeout > 0)
+		{
+			ni_setreadtimeout(d, timeout);
+			ni_setabort(d, 1);
+		}
+
 		status = ni_pathsearch(d, &n, dirname);
 		if (status == NI_OK)
 		{
@@ -478,11 +482,7 @@ ni_search(void *handle, ni_id *dir, ni_name name, ni_name expr, int flags, ni_en
 	ni_namelist *nl;
 	ni_status status;
 
-	/* get subdirectory list */
-	NI_INIT(&el);
-	status = ni_list(handle, dir, name, &el);
-	if (status != NI_OK) return status;
-
+	/* compile the regular expression */
 	cexp = (regex_t *)malloc(sizeof(regex_t));
 	memset(cexp, 0, sizeof(regex_t));
 	i = regcomp(cexp, expr, flags);
@@ -490,6 +490,16 @@ ni_search(void *handle, ni_id *dir, ni_name name, ni_name expr, int flags, ni_en
 	{
 		free(cexp);
 		return NI_FAILED;
+	}
+
+	/* get subdirectory list */
+	NI_INIT(&el);
+	status = ni_list(handle, dir, name, &el);
+	if (status != NI_OK)
+	{
+		regfree(cexp);
+		free(cexp);
+		return status;
 	}
 
 	for (i = 0; i < el.ni_entrylist_len; i++)

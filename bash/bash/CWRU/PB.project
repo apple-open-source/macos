@@ -1,0 +1,17 @@
+{
+    FILESTABLE = {
+        Documentation = (README, POSIX.NOTES, PLATFORMS, changelog); 
+        Headers = (); 
+        Resources = ("mh-folder-comp", "sh-redir-hack"); 
+        SUBPROJECTS = (misc); 
+        Sources = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = CWRU; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

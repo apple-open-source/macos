@@ -22,6 +22,10 @@ Boston, MA 02111-1307, USA.  */
 #undef __STRICT_BSD__ /* ick */
 #endif
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <sys/types.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -29,10 +33,6 @@ Boston, MA 02111-1307, USA.  */
 #include "lwlib-utils.h"
 #include <X11/StringDefs.h>
 
-#ifdef __osf__
-#include <string.h>
-#include <stdlib.h>
-#endif
 extern long *xmalloc();
 
 #if defined (USE_LUCID)
@@ -74,10 +74,48 @@ char *lwlib_toolkit_type = "motif";
 #else
 char *lwlib_toolkit_type = "lucid";
 #endif
-/* Forward declarations */
-static void
-instantiate_widget_instance (/* widget_instance* instance */);
 
+#if defined __STDC__ || defined PROTOTYPES
+#define P_(x)	x
+#else
+#define P_(x)	()
+#endif
+
+static widget_value *merge_widget_value P_ ((widget_value *,
+					     widget_value *,
+					     int, int *));
+static void instantiate_widget_instance P_ ((widget_instance *));
+static int my_strcasecmp P_ ((char *, char *));
+static void safe_free_str P_ ((char *));
+static void free_widget_value_tree P_ ((widget_value *));
+static widget_value *copy_widget_value_tree P_ ((widget_value *,
+						 change_type));
+static widget_info *allocate_widget_info P_ ((char *, char *, LWLIB_ID,
+					      widget_value *,
+					      lw_callback, lw_callback,
+					      lw_callback, lw_callback));
+static void free_widget_info P_ ((widget_info *));
+static void mark_widget_destroyed P_ ((Widget, XtPointer, XtPointer));
+static widget_instance *allocate_widget_instance P_ ((widget_info *,
+						      Widget, Boolean));
+static void free_widget_instance P_ ((widget_instance *));
+static widget_info *get_widget_info P_ ((LWLIB_ID, Boolean));
+static widget_instance *get_widget_instance P_ ((Widget, Boolean));
+static widget_instance *find_instance P_ ((LWLIB_ID, Widget, Boolean));
+static Boolean safe_strcmp P_ ((char *, char *));
+static Widget name_to_widget P_ ((widget_instance *, char *));
+static void set_one_value P_ ((widget_instance *, widget_value *, Boolean));
+static void update_one_widget_instance P_ ((widget_instance *, Boolean));
+static void update_all_widget_values P_ ((widget_info *, Boolean));
+static void initialize_widget_instance P_ ((widget_instance *));
+static widget_creation_function find_in_table P_ ((char *, widget_creation_entry *));
+static Boolean dialog_spec_p P_ ((char *));
+static void instantiate_widget_instance P_ ((widget_instance *));
+static void destroy_one_instance P_ ((widget_instance *));
+static void lw_pop_all_widgets P_ ((LWLIB_ID, Boolean));
+static Boolean get_one_value P_ ((widget_instance *, widget_value *));
+static void show_one_widget_busy P_ ((Widget, Boolean));
+     
 void
 lwlib_memset (address, value, length)
      char *address;
@@ -104,7 +142,7 @@ lwlib_bcopy (from, to, length)
 /* utility functions for widget_instance and widget_info */
 char *
 safe_strdup (s)
-     char *s;
+     const char *s;
 {
   char *result;
   if (! s) return 0;
@@ -199,8 +237,9 @@ free_widget_value_tree (wv)
   if (wv->name) free (wv->name);
   if (wv->value) free (wv->value);
   if (wv->key) free (wv->key);
+  if (wv->help) free (wv->help);
 
-  wv->name = wv->value = wv->key = (char *) 0xDEADBEEF;
+  wv->name = wv->value = wv->key = wv->help = (char *) 0xDEADBEEF;
 
   if (wv->toolkit_data && wv->free_toolkit_data)
     {
@@ -237,7 +276,9 @@ copy_widget_value_tree (val, change)
   copy->name = safe_strdup (val->name);
   copy->value = safe_strdup (val->value);
   copy->key = safe_strdup (val->key);
+  copy->help = safe_strdup (val->help);
   copy->enabled = val->enabled;
+  copy->button_type = val->button_type;
   copy->selected = val->selected;
   copy->edited = False;
   copy->change = change;
@@ -251,7 +292,8 @@ copy_widget_value_tree (val, change)
 }
 
 static widget_info *
-allocate_widget_info (type, name, id, val, pre_activate_cb, selection_cb, post_activate_cb)
+allocate_widget_info (type, name, id, val, pre_activate_cb,
+		      selection_cb, post_activate_cb, highlight_cb)
      char* type;
      char* name;
      LWLIB_ID id;
@@ -259,6 +301,7 @@ allocate_widget_info (type, name, id, val, pre_activate_cb, selection_cb, post_a
      lw_callback pre_activate_cb;
      lw_callback selection_cb;
      lw_callback post_activate_cb;
+     lw_callback highlight_cb;
 {
   widget_info* info = (widget_info*)malloc (sizeof (widget_info));
   info->type = safe_strdup (type);
@@ -269,6 +312,7 @@ allocate_widget_info (type, name, id, val, pre_activate_cb, selection_cb, post_a
   info->pre_activate_cb = pre_activate_cb;
   info->selection_cb = selection_cb;
   info->post_activate_cb = post_activate_cb;
+  info->highlight_cb = highlight_cb;
   info->instances = NULL;
 
   info->next = all_widget_info;
@@ -309,6 +353,7 @@ allocate_widget_instance (info, parent, pop_up_p)
 {
   widget_instance* instance =
     (widget_instance*)malloc (sizeof (widget_instance));
+  bzero (instance, sizeof *instance);
   instance->parent = parent;
   instance->pop_up_p = pop_up_p;
   instance->info = info;
@@ -389,6 +434,16 @@ get_widget_instance (widget, remove_p)
   return (widget_instance *) 0;
 }
 
+/* Value is a pointer to the widget_instance corresponding to
+   WIDGET, or null if WIDGET is not a lwlib widget.  */
+
+widget_instance *
+lw_get_widget_instance (widget)
+     Widget widget;
+{
+  return get_widget_instance (widget, False);
+}
+
 static widget_instance*
 find_instance (id, parent, pop_up_p)
      LWLIB_ID id;
@@ -438,10 +493,11 @@ safe_strcmp (s1, s2)
 
 
 static widget_value *
-merge_widget_value (val1, val2, level)
+merge_widget_value (val1, val2, level, change_p)
      widget_value* val1;
      widget_value* val2;
      int level;
+     int *change_p;
 {
   change_type change, this_one_change;
   widget_value* merged_next;
@@ -450,12 +506,16 @@ merge_widget_value (val1, val2, level)
   if (!val1)
     {
       if (val2)
-	return copy_widget_value_tree (val2, STRUCTURAL_CHANGE);
+	{
+	  *change_p = 1;
+	  return copy_widget_value_tree (val2, STRUCTURAL_CHANGE);
+	}
       else
 	return NULL;
     }
   if (!val2)
     {
+      *change_p = 1;
       free_widget_value_tree (val1);
       return NULL;
     }
@@ -486,12 +546,27 @@ merge_widget_value (val1, val2, level)
       safe_free_str (val1->key);
       val1->key = safe_strdup (val2->key);
     }
+  if (safe_strcmp (val1->help, val2->help))
+    {
+      EXPLAIN (val1->name, change, VISIBLE_CHANGE, "help change",
+	       val1->help, val2->help);
+      change = max (change, VISIBLE_CHANGE);
+      safe_free_str (val1->help);
+      val1->help = safe_strdup (val2->help);
+    }
   if (val1->enabled != val2->enabled)
     {
       EXPLAIN (val1->name, change, VISIBLE_CHANGE, "enablement change",
 	       val1->enabled, val2->enabled);
       change = max (change, VISIBLE_CHANGE);
       val1->enabled = val2->enabled;
+    }
+  if (val1->button_type != val2->button_type)
+    {
+      EXPLAIN (val1->name, change, VISIBLE_CHANGE, "button type change",
+	       val1->button_type, val2->button_type);
+      change = max (change, VISIBLE_CHANGE);
+      val1->button_type = val2->button_type;
     }
   if (val1->selected != val2->selected)
     {
@@ -511,7 +586,8 @@ merge_widget_value (val1, val2, level)
   if (level > 0)
     {
       merged_contents =
-	merge_widget_value (val1->contents, val2->contents, level - 1);
+	merge_widget_value (val1->contents, val2->contents, level - 1,
+			    change_p);
       
       if (val1->contents && !merged_contents)
 	{
@@ -541,7 +617,7 @@ merge_widget_value (val1, val2, level)
 
   this_one_change = change;
 
-  merged_next = merge_widget_value (val1->next, val2->next, level);
+  merged_next = merge_widget_value (val1->next, val2->next, level, change_p);
 
   if (val1->next && !merged_next)
     {
@@ -564,6 +640,7 @@ merge_widget_value (val1, val2, level)
   
   if (change > NO_CHANGE && val1->toolkit_data)
     {
+      *change_p = 1;
       if (val1->free_toolkit_data)
 	XtFree (val1->toolkit_data);
       val1->toolkit_data = NULL;
@@ -660,7 +737,7 @@ update_all_widget_values (info, deep_p)
     val->change = NO_CHANGE;
 }
 
-void
+int
 lw_modify_all_widgets (id, val, deep_p)
      LWLIB_ID id;
      widget_value* val;
@@ -673,9 +750,10 @@ lw_modify_all_widgets (id, val, deep_p)
   widget_value* prev;
   widget_value* next;
   int		found;
+  int change_p = 0;
 
   if (!info)
-    return;
+    return 0;
 
   for (new_val = val; new_val; new_val = new_val->next)
     {
@@ -688,7 +766,8 @@ lw_modify_all_widgets (id, val, deep_p)
 	    found = True;
 	    next = cur->next;
 	    cur->next = NULL;
-	    cur = merge_widget_value (cur, new_val, deep_p ? 1000 : 1);
+	    cur = merge_widget_value (cur, new_val, deep_p ? 1000 : 1,
+				      &change_p);
 	    if (prev)
 	      prev->next = cur ? cur : next;
 	    else
@@ -704,11 +783,13 @@ lw_modify_all_widgets (id, val, deep_p)
 	    prev->next = copy_widget_value_tree (new_val, STRUCTURAL_CHANGE);
 	  else
 	    info->val = copy_widget_value_tree (new_val, STRUCTURAL_CHANGE);
+	  change_p = 1;
 	}
       new_val->next = next_new_val;
     }
 
   update_all_widget_values (info, deep_p);
+  return change_p;
 }
 
 
@@ -836,7 +917,8 @@ instantiate_widget_instance (instance)
 }
 
 void 
-lw_register_widget (type, name, id, val, pre_activate_cb, selection_cb, post_activate_cb)
+lw_register_widget (type, name, id, val, pre_activate_cb,
+		    selection_cb, post_activate_cb, highlight_cb)
      char* type;
      char* name;
      LWLIB_ID id;
@@ -844,10 +926,11 @@ lw_register_widget (type, name, id, val, pre_activate_cb, selection_cb, post_act
      lw_callback pre_activate_cb;
      lw_callback selection_cb;
      lw_callback post_activate_cb;
+     lw_callback highlight_cb;
 {
   if (!get_widget_info (id, False))
     allocate_widget_info (type, name, id, val, pre_activate_cb, selection_cb,
-			  post_activate_cb);
+			  post_activate_cb, highlight_cb);
 }
 
 Widget
@@ -886,7 +969,8 @@ lw_make_widget (id, parent, pop_up_p)
 }
 
 Widget
-lw_create_widget (type, name, id, val, parent, pop_up_p, pre_activate_cb, selection_cb, post_activate_cb)
+lw_create_widget (type, name, id, val, parent, pop_up_p, pre_activate_cb,
+		  selection_cb, post_activate_cb, highlight_cb)
      char* type;
      char* name;
      LWLIB_ID id;
@@ -896,9 +980,10 @@ lw_create_widget (type, name, id, val, parent, pop_up_p, pre_activate_cb, select
      lw_callback pre_activate_cb;
      lw_callback selection_cb;
      lw_callback post_activate_cb;
+     lw_callback highlight_cb;
 {
   lw_register_widget (type, name, id, val, pre_activate_cb, selection_cb,
-		      post_activate_cb);
+		      post_activate_cb, highlight_cb);
   return lw_make_widget (id, parent, pop_up_p);
 }
 		  
@@ -1298,11 +1383,11 @@ show_one_widget_busy (w, flag)
   XtVaGetValues (widget_to_invert,
 		 XtNforeground, &foreground,
 		 XtNbackground, &background,
-		 0);
+		 NULL);
   XtVaSetValues (widget_to_invert,
 		 XtNforeground, background,
 		 XtNbackground, foreground,
-		 0);
+		 NULL);
 }
 
 void
@@ -1387,3 +1472,119 @@ lw_allow_resizing (w, flag)
   xm_manage_resizing (w, flag);
 #endif
 }
+
+
+/* Value is non-zero if LABEL is a menu separator.  If it is, *TYPE is
+   set to an appropriate enumerator of type enum menu_separator.
+   MOTIF_P non-zero means map separator types not supported by Motif
+   to similar ones that are supported.  */
+
+int
+lw_separator_p (label, type, motif_p)
+     char *label;
+     enum menu_separator *type;
+     int motif_p;
+{
+  int separator_p = 0;
+
+  if (strlen (label) >= 3
+      && bcmp (label, "--:", 3) == 0)
+    {
+      static struct separator_table
+      {
+	char *name;
+	enum menu_separator type;
+      }
+      separator_names[] =
+      {
+	"space",		     SEPARATOR_NO_LINE,
+	"noLine",		     SEPARATOR_NO_LINE,
+	"singleLine",		     SEPARATOR_SINGLE_LINE,
+	"doubleLine",		     SEPARATOR_DOUBLE_LINE,
+	"singleDashedLine",	     SEPARATOR_SINGLE_DASHED_LINE,
+	"doubleDashedLine",	     SEPARATOR_DOUBLE_DASHED_LINE,
+	"shadowEtchedIn",	     SEPARATOR_SHADOW_ETCHED_IN,
+	"shadowEtchedOut",	     SEPARATOR_SHADOW_ETCHED_OUT,
+	"shadowEtchedInDash",	     SEPARATOR_SHADOW_ETCHED_IN_DASH,
+	"shadowEtchedOutDash",	     SEPARATOR_SHADOW_ETCHED_OUT_DASH,
+	"shadowDoubleEtchedIn",	     SEPARATOR_SHADOW_DOUBLE_ETCHED_IN,
+	"shadowDoubleEtchedOut",     SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT,
+	"shadowDoubleEtchedInDash",  SEPARATOR_SHADOW_DOUBLE_ETCHED_IN_DASH,
+	"shadowDoubleEtchedOutDash", SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT_DASH,
+	0
+      };
+
+      int i;
+
+      label += 3;
+      for (i = 0; separator_names[i].name; ++i)
+	if (strcmp (label, separator_names[i].name) == 0)
+	  {
+	    separator_p = 1;
+	    *type = separator_names[i].type;
+
+	    /* If separator type is not supported under Motif,
+	       use a similar one.  */
+	    if (motif_p && *type >= SEPARATOR_SHADOW_DOUBLE_ETCHED_IN)
+	      *type -= 4;
+	    break;
+	  }
+    }
+  else if (strlen (label) > 3
+	   && bcmp (label, "--", 2) == 0
+	   && label[2] != '-')
+    {
+      /* Alternative, more Emacs-style names.  */
+      static struct separator_table
+      {
+	char *name;
+	enum menu_separator type;
+      }
+      separator_names[] =
+      {
+	"space",			SEPARATOR_NO_LINE,
+	"no-line",			SEPARATOR_NO_LINE,
+	"single-line",			SEPARATOR_SINGLE_LINE,
+	"double-line",			SEPARATOR_DOUBLE_LINE,
+	"single-dashed-line",		SEPARATOR_SINGLE_DASHED_LINE,
+	"double-dashed-line",		SEPARATOR_DOUBLE_DASHED_LINE,
+	"shadow-etched-in",		SEPARATOR_SHADOW_ETCHED_IN,
+	"shadow-etched-out",		SEPARATOR_SHADOW_ETCHED_OUT,
+	"shadow-etched-in-dash",	SEPARATOR_SHADOW_ETCHED_IN_DASH,
+	"shadow-etched-out-dash",	SEPARATOR_SHADOW_ETCHED_OUT_DASH,
+	"shadow-double-etched-in",	SEPARATOR_SHADOW_DOUBLE_ETCHED_IN,
+	"shadow-double-etched-out",     SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT,
+	"shadow-double-etched-in-dash", SEPARATOR_SHADOW_DOUBLE_ETCHED_IN_DASH,
+	"shadow-double-etched-out-dash",SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT_DASH,
+	0
+      };
+
+      int i;
+
+      label += 2;
+      for (i = 0; separator_names[i].name; ++i)
+	if (strcmp (label, separator_names[i].name) == 0)
+	  {
+	    separator_p = 1;
+	    *type = separator_names[i].type;
+
+	    /* If separator type is not supported under Motif,
+	       use a similar one.  */
+	    if (motif_p && *type >= SEPARATOR_SHADOW_DOUBLE_ETCHED_IN)
+	      *type -= 4;
+	    break;
+	  }
+    }
+  else
+    {
+      /* Old-style separator, maybe.  It's a separator if it contains
+	 only dashes.  */
+      while (*label == '-')
+	++label;
+      separator_p = *label == 0;
+      *type = SEPARATOR_SHADOW_ETCHED_IN;
+    }
+
+  return separator_p;
+}
+

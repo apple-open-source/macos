@@ -1,5 +1,6 @@
 /* Source-language-related definitions for GDB.
-   Copyright 1991, 1992, 2000 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994, 1995, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    Contributed by the Department of Computer Science at the State University
    of New York at Buffalo.
 
@@ -288,7 +289,8 @@ language_mode;
 /* FIXME -- should be a setting in language_defn */
 #define CAST_IS_CONVERSION (current_language->la_language == language_c  || \
 			    current_language->la_language == language_cplus || \
-			    current_language->la_language == language_objc)
+			    current_language->la_language == language_objc || \
+			    current_language->la_language == language_objcplus)
 
 extern void language_info (int);
 
@@ -440,11 +442,9 @@ extern void op_error (char *fmt, enum exp_opcode, int);
 #define range_op_error(f,o) \
    op_error((f),(o),range_check==range_check_on ? 1 : 0)
 
-extern void type_error (char *, ...) ATTR_FORMAT (printf, 1, 2);
+extern void type_error (const char *, ...) ATTR_FORMAT (printf, 1, 2);
 
-void
-range_error (char *, ...)
-ATTR_FORMAT (printf, 1, 2);
+extern void range_error (const char *, ...) ATTR_FORMAT (printf, 1, 2);
 
 /* Data:  Does this value represent "truth" to the current language?  */
 

@@ -53,7 +53,7 @@
 #undef _KERNEL
 #endif
 
-#import "nfs_prot.h"
+#import <nfs_prot.h>
 
 #ifndef __APPLE__
 #define NFSCLIENT

@@ -1,0 +1,3672 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		0007B625016E594E00DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServices.h;
+			path = APIFramework/DirServices.h;
+			refType = 4;
+		};
+		0007B626016E594F00DD2B59 = {
+			fileRef = 0007B625016E594E00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0007D71400BEC42100DD2B59 = {
+			fileRef = 009E45A600AC9BCA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0007D71500BEC42100DD2B59 = {
+			fileRef = 009E45A700AC9BCA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0007D71600BEC42100DD2B59 = {
+			fileRef = 009E45A800AC9BCA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		000E7C370174DDC300DD2B59 = {
+			children = (
+				000E7C380174DDC300DD2B59,
+				000E7C390174DDC300DD2B59,
+			);
+			isa = PBXGroup;
+			name = Proxy;
+			path = "";
+			refType = 4;
+		};
+		000E7C380174DDC300DD2B59 = {
+			children = (
+				69CDD7AB01CEA0F60ADD2B8D,
+				0089BC3001763DD200DD2B59,
+				00465D79017F86AE00DD2B59,
+				000E7C450174E03B00DD2B59,
+				000E7C460174E03B00DD2B59,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+		};
+		000E7C390174DDC300DD2B59 = {
+			children = (
+				69CDD7AC01CEA0F60ADD2B8D,
+				0089BC3101763DD200DD2B59,
+				00465D7A017F86AE00DD2B59,
+				000E7C490174E03B00DD2B59,
+				000E7C4A0174E03B00DD2B59,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		000E7C450174E03B00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSTCPEndpoint.cpp;
+			path = Proxy/DSTCPEndpoint.cpp;
+			refType = 4;
+		};
+		000E7C460174E03B00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSTCPListener.cpp;
+			path = Proxy/DSTCPListener.cpp;
+			refType = 4;
+		};
+		000E7C490174E03B00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSTCPEndpoint.h;
+			path = Proxy/DSTCPEndpoint.h;
+			refType = 4;
+		};
+		000E7C4A0174E03B00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSTCPListener.h;
+			path = Proxy/DSTCPListener.h;
+			refType = 4;
+		};
+		000E7C4D0176044900DD2B59 = {
+			fileRef = 000E7C490174E03B00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		000E7C4E0176044900DD2B59 = {
+			fileRef = 000E7C4A0174E03B00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		000E7C510176044900DD2B59 = {
+			fileRef = 000E7C450174E03B00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		000E7C520176044900DD2B59 = {
+			fileRef = 000E7C460174E03B00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		000ED2F7029558D500DD2B5A = {
+			isa = PBXFrameworkReference;
+			name = TimClient.framework;
+			path = /System/Library/PrivateFrameworks/TimClient.framework;
+			refType = 0;
+		};
+		000ED2FE029558D500DD2B5A = {
+			fileRef = 000ED2F7029558D500DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0033335902D6E42E00DD2B92 = {
+			isa = PBXFileReference;
+			name = CPluginConfig.cpp;
+			path = Server/CPluginConfig.cpp;
+			refType = 4;
+		};
+		0033335A02D6E42E00DD2B92 = {
+			isa = PBXFileReference;
+			name = CPluginConfig.h;
+			path = Server/CPluginConfig.h;
+			refType = 4;
+		};
+		0033335B02D6E42E00DD2B92 = {
+			fileRef = 0033335902D6E42E00DD2B92;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0033335C02D6E42E00DD2B92 = {
+			fileRef = 0033335A02D6E42E00DD2B92;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DA8B00AB410A00DD2B59 = {
+			buildStyles = (
+				0061873100AC6A3B00DD2B59,
+				0061873200AC6A3B00DD2B59,
+			);
+			isa = PBXProject;
+			mainGroup = 0035DA8C00AB410A00DD2B59;
+			productRefGroup = 0035DB1400AB596200DD2B59;
+			projectDirPath = "";
+			targets = (
+				0035DB1C00AB596200DD2B59,
+				009E459E00AC9B4200DD2B59,
+				0035DB2C00AB596200DD2B59,
+				0035DB2500AB596200DD2B59,
+				0035DB5900AC460E00DD2B59,
+				0035DB4100AB596200DD2B59,
+				0035DB4800AB596200DD2B59,
+				007A862200B5EE9B00DD2B59,
+			);
+		};
+		0035DA8C00AB410A00DD2B59 = {
+			children = (
+				0035DA8D00AB418900DD2B59,
+				009E453600AC996C00DD2B59,
+				0035DA8F00AB418900DD2B59,
+				0035DA9400AB418900DD2B59,
+				000E7C370174DDC300DD2B59,
+				007ACA9202B6EEB300DD2B5A,
+				004C967B00B0949D00DD2B59,
+				0035DB1400AB596200DD2B59,
+				0035DBFB00AC584500DD2B59,
+				009E45C500AC9C8800DD2B59,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		0035DA8D00AB418900DD2B59 = {
+			children = (
+				0035DA9500AB52B200DD2B59,
+				0035DA9C00AB52B200DD2B59,
+				00905E5700C59CDA00DD2B59,
+			);
+			isa = PBXGroup;
+			name = "API Framework";
+			refType = 4;
+		};
+		0035DA8F00AB418900DD2B59 = {
+			children = (
+				009E459900AC9B0900DD2B59,
+				0035DA9100AB418900DD2B59,
+				0035DA9200AB418900DD2B59,
+			);
+			isa = PBXGroup;
+			name = PlugIns;
+			refType = 4;
+		};
+		0035DA9100AB418900DD2B59 = {
+			children = (
+				0035DAB300AB52B200DD2B59,
+				0035DABA00AB52B200DD2B59,
+				0035DAC300AB52B200DD2B59,
+			);
+			isa = PBXGroup;
+			name = NetInfo;
+			refType = 4;
+		};
+		0035DA9200AB418900DD2B59 = {
+			children = (
+				0035DAC600AB52B200DD2B59,
+				0035DACA00AB52B200DD2B59,
+				0035DACE00AB52B200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Search;
+			refType = 4;
+		};
+		0035DA9400AB418900DD2B59 = {
+			children = (
+				0035DAEC00AB52B200DD2B59,
+				0035DAED00AB52B200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Server;
+			refType = 4;
+		};
+		0035DA9500AB52B200DD2B59 = {
+			children = (
+				0035DA9600AB52B200DD2B59,
+				00AB682F0184BFDD00DD2B59,
+				00B4A5FD011B10C000DD2B59,
+				0035DA9700AB52B200DD2B59,
+				0035DA9800AB52B200DD2B59,
+				0035DA9900AB52B200DD2B59,
+				0035DA9A00AB52B200DD2B59,
+				0035DA9B00AB52B200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+		};
+		0035DA9600AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CClientEndPoint.cpp;
+			path = APIFramework/CClientEndPoint.cpp;
+			refType = 4;
+		};
+		0035DA9700AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CMessaging.cpp;
+			path = APIFramework/CMessaging.cpp;
+			refType = 4;
+		};
+		0035DA9800AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServices.cpp;
+			path = APIFramework/DirServices.cpp;
+			refType = 4;
+		};
+		0035DA9900AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServicesCustom.cpp;
+			path = APIFramework/DirServicesCustom.cpp;
+			refType = 4;
+		};
+		0035DA9A00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServicesPriv.cpp;
+			path = APIFramework/DirServicesPriv.cpp;
+			refType = 4;
+		};
+		0035DA9B00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServicesUtils.cpp;
+			path = APIFramework/DirServicesUtils.cpp;
+			refType = 4;
+		};
+		0035DA9C00AB52B200DD2B59 = {
+			children = (
+				0035DA9D00AB52B200DD2B59,
+				00AB68300184BFDD00DD2B59,
+				00B4A5FE011B10C000DD2B59,
+				0035DA9E00AB52B200DD2B59,
+				0007B625016E594E00DD2B59,
+				0035DAA000AB52B200DD2B59,
+				0035DAA100AB52B200DD2B59,
+				0035DAA200AB52B200DD2B59,
+				0035DAA300AB52B200DD2B59,
+				0035DAA400AB52B200DD2B59,
+				0035DAA500AB52B200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		0035DA9D00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CClientEndPoint.h;
+			path = APIFramework/CClientEndPoint.h;
+			refType = 4;
+		};
+		0035DA9E00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CMessaging.h;
+			path = APIFramework/CMessaging.h;
+			refType = 4;
+		};
+		0035DAA000AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServicesConst.h;
+			path = APIFramework/DirServicesConst.h;
+			refType = 4;
+		};
+		0035DAA100AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServicesCustom.h;
+			path = APIFramework/DirServicesCustom.h;
+			refType = 4;
+		};
+		0035DAA200AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServicesPriv.h;
+			path = APIFramework/DirServicesPriv.h;
+			refType = 4;
+		};
+		0035DAA300AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServicesTypes.h;
+			path = APIFramework/DirServicesTypes.h;
+			refType = 4;
+		};
+		0035DAA400AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServicesTypesPriv.h;
+			path = APIFramework/DirServicesTypesPriv.h;
+			refType = 4;
+		};
+		0035DAA500AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServicesUtils.h;
+			path = APIFramework/DirServicesUtils.h;
+			refType = 4;
+		};
+		0035DAB300AB52B200DD2B59 = {
+			children = (
+				0035DAB400AB52B200DD2B59,
+				0035DAB500AB52B200DD2B59,
+				0035DAB600AB52B200DD2B59,
+				0035DAB700AB52B200DD2B59,
+				0035DAB800AB52B200DD2B59,
+				0035DAB900AB52B200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+		};
+		0035DAB400AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CNetInfoPI.cpp;
+			path = PlugIns/NetInfo/CNetInfoPI.cpp;
+			refType = 4;
+		};
+		0035DAB500AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CNiNodeList.cpp;
+			path = PlugIns/NetInfo/CNiNodeList.cpp;
+			refType = 4;
+		};
+		0035DAB600AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CNiPlugIn.cpp;
+			path = PlugIns/NetInfo/CNiPlugIn.cpp;
+			refType = 4;
+		};
+		0035DAB700AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CNodeRegister.cpp;
+			path = PlugIns/NetInfo/CNodeRegister.cpp;
+			refType = 4;
+		};
+		0035DAB800AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = NiLib2.cpp;
+			path = PlugIns/NetInfo/NiLib2.cpp;
+			refType = 4;
+		};
+		0035DAB900AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = NiLib3.cpp;
+			path = PlugIns/NetInfo/NiLib3.cpp;
+			refType = 4;
+		};
+		0035DABA00AB52B200DD2B59 = {
+			children = (
+				0035DABB00AB52B200DD2B59,
+				0035DABC00AB52B200DD2B59,
+				0035DABD00AB52B200DD2B59,
+				0035DABE00AB52B200DD2B59,
+				0035DAC000AB52B200DD2B59,
+				0035DAC100AB52B200DD2B59,
+				0035DAC200AB52B200DD2B59,
+				00873A240263815600DD2B8D,
+				00873A270263815600DD2B8D,
+				F54C5BD802B6D41301DD2B8D,
+				00F958B802B8F59B00DD2B5A,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		0035DABB00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CNetInfoPI.h;
+			path = PlugIns/NetInfo/CNetInfoPI.h;
+			refType = 4;
+		};
+		0035DABC00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CNiNodeList.h;
+			path = PlugIns/NetInfo/CNiNodeList.h;
+			refType = 4;
+		};
+		0035DABD00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CNiPlugIn.h;
+			path = PlugIns/NetInfo/CNiPlugIn.h;
+			refType = 4;
+		};
+		0035DABE00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CNodeRegister.h;
+			path = PlugIns/NetInfo/CNodeRegister.h;
+			refType = 4;
+		};
+		0035DAC000AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = my_ni_pwdomain.h;
+			path = PlugIns/NetInfo/my_ni_pwdomain.h;
+			refType = 4;
+		};
+		0035DAC100AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = NiLib2.h;
+			path = PlugIns/NetInfo/NiLib2.h;
+			refType = 4;
+		};
+		0035DAC200AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = NiLib3.h;
+			path = PlugIns/NetInfo/NiLib3.h;
+			refType = 4;
+		};
+		0035DAC300AB52B200DD2B59 = {
+			children = (
+				0035DAC500AB52B200DD2B59,
+				00873A250263815600DD2B8D,
+				00873A260263815600DD2B8D,
+				00F958B602B8F33C00DD2B5A,
+			);
+			isa = PBXGroup;
+			name = "Other Sources";
+			refType = 4;
+		};
+		0035DAC500AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = nibind_glue.c;
+			path = PlugIns/NetInfo/nibind_glue.c;
+			refType = 4;
+		};
+		0035DAC600AB52B200DD2B59 = {
+			children = (
+				0035DAC700AB52B200DD2B59,
+				0035DAC800AB52B200DD2B59,
+				0035DAC900AB52B200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+		};
+		0035DAC700AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CAliases.cpp;
+			path = PlugIns/Search/CAliases.cpp;
+			refType = 4;
+		};
+		0035DAC800AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CConfigs.cpp;
+			path = PlugIns/Search/CConfigs.cpp;
+			refType = 4;
+		};
+		0035DAC900AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CSearchNode.cpp;
+			path = PlugIns/Search/CSearchNode.cpp;
+			refType = 4;
+		};
+		0035DACA00AB52B200DD2B59 = {
+			children = (
+				0035DACB00AB52B200DD2B59,
+				0035DACC00AB52B200DD2B59,
+				0035DACD00AB52B200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		0035DACB00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CAliases.h;
+			path = PlugIns/Search/CAliases.h;
+			refType = 4;
+		};
+		0035DACC00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CConfigs.h;
+			path = PlugIns/Search/CConfigs.h;
+			refType = 4;
+		};
+		0035DACD00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = CSearchNode.h;
+			path = PlugIns/Search/CSearchNode.h;
+			refType = 4;
+		};
+		0035DACE00AB52B200DD2B59 = {
+			children = (
+				0035DACF00AB52B200DD2B59,
+				0035DAD000AB52B200DD2B59,
+			);
+			isa = PBXGroup;
+			name = "Supporting Files";
+			refType = 4;
+		};
+		0035DACF00AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = SearchNodeConfig.plist;
+			path = PlugIns/Search/SearchNodeConfig.plist;
+			refType = 4;
+		};
+		0035DAD000AB52B200DD2B59 = {
+			isa = PBXFileReference;
+			name = ContactsNodeConfig.plist;
+			path = PlugIns/Search/ContactsNodeConfig.plist;
+			refType = 4;
+		};
+		0035DAEC00AB52B200DD2B59 = {
+			children = (
+				00DA327F00BC573300DD2B59,
+				0035DAF200AB584900DD2B59,
+				0035DAF300AB584900DD2B59,
+				0035DAF400AB584900DD2B59,
+				0035DAF700AB584900DD2B59,
+				0035DAF800AB584900DD2B59,
+				0033335902D6E42E00DD2B92,
+				0035DAFA00AB584900DD2B59,
+				0035DAFB00AB584900DD2B59,
+				0035DAFC00AB584900DD2B59,
+				0035DAFD00AB584900DD2B59,
+				0035DAFE00AB584900DD2B59,
+				0035DAFF00AB584900DD2B59,
+				0035DB0000AB584900DD2B59,
+				0035DB0100AB584900DD2B59,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+		};
+		0035DAED00AB52B200DD2B59 = {
+			children = (
+				00DA328000BC573300DD2B59,
+				0035DB0400AB584900DD2B59,
+				0035DB0500AB584900DD2B59,
+				0035DB0600AB584900DD2B59,
+				0035DB0900AB584900DD2B59,
+				0035DB0A00AB584900DD2B59,
+				0033335A02D6E42E00DD2B92,
+				0035DB0C00AB584900DD2B59,
+				0035DB0D00AB584900DD2B59,
+				0035DB0E00AB584900DD2B59,
+				0035DB0F00AB584900DD2B59,
+				0035DB1000AB584900DD2B59,
+				0035DB1100AB584900DD2B59,
+				0035DB1200AB584900DD2B59,
+				0035DB1300AB584900DD2B59,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		0035DAF200AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CHandlers.cpp;
+			path = Server/CHandlers.cpp;
+			refType = 4;
+		};
+		0035DAF300AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CLauncher.cpp;
+			path = Server/CLauncher.cpp;
+			refType = 4;
+		};
+		0035DAF400AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CListener.cpp;
+			path = Server/CListener.cpp;
+			refType = 4;
+		};
+		0035DAF700AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CMsgQueue.cpp;
+			path = Server/CMsgQueue.cpp;
+			refType = 4;
+		};
+		0035DAF800AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CNodeList.cpp;
+			path = Server/CNodeList.cpp;
+			refType = 4;
+		};
+		0035DAFA00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CPluginHandler.cpp;
+			path = Server/CPluginHandler.cpp;
+			refType = 4;
+		};
+		0035DAFB00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CPlugInList.cpp;
+			path = Server/CPlugInList.cpp;
+			refType = 4;
+		};
+		0035DAFC00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CRefTable.cpp;
+			path = Server/CRefTable.cpp;
+			refType = 4;
+		};
+		0035DAFD00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CServerPlugin.cpp;
+			path = Server/CServerPlugin.cpp;
+			refType = 4;
+		};
+		0035DAFE00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CSrvrEndPoint.cpp;
+			path = Server/CSrvrEndPoint.cpp;
+			refType = 4;
+		};
+		0035DAFF00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CSrvrMessaging.cpp;
+			path = Server/CSrvrMessaging.cpp;
+			refType = 4;
+		};
+		0035DB0000AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServiceMain.cpp;
+			path = Server/DirServiceMain.cpp;
+			refType = 4;
+		};
+		0035DB0100AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = ServerControl.cpp;
+			path = Server/ServerControl.cpp;
+			refType = 4;
+		};
+		0035DB0400AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CHandlers.h;
+			path = Server/CHandlers.h;
+			refType = 4;
+		};
+		0035DB0500AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CLauncher.h;
+			path = Server/CLauncher.h;
+			refType = 4;
+		};
+		0035DB0600AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CListener.h;
+			path = Server/CListener.h;
+			refType = 4;
+		};
+		0035DB0900AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CMsgQueue.h;
+			path = Server/CMsgQueue.h;
+			refType = 4;
+		};
+		0035DB0A00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CNodeList.h;
+			path = Server/CNodeList.h;
+			refType = 4;
+		};
+		0035DB0C00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CPluginHandler.h;
+			path = Server/CPluginHandler.h;
+			refType = 4;
+		};
+		0035DB0D00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CPlugInList.h;
+			path = Server/CPlugInList.h;
+			refType = 4;
+		};
+		0035DB0E00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CRefTable.h;
+			path = Server/CRefTable.h;
+			refType = 4;
+		};
+		0035DB0F00AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CServerPlugin.h;
+			path = Server/CServerPlugin.h;
+			refType = 4;
+		};
+		0035DB1000AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CSrvrEndPoint.h;
+			path = Server/CSrvrEndPoint.h;
+			refType = 4;
+		};
+		0035DB1100AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = CSrvrMessaging.h;
+			path = Server/CSrvrMessaging.h;
+			refType = 4;
+		};
+		0035DB1200AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = DirServiceMain.h;
+			path = Server/DirServiceMain.h;
+			refType = 4;
+		};
+		0035DB1300AB584900DD2B59 = {
+			isa = PBXFileReference;
+			name = ServerControl.h;
+			path = Server/ServerControl.h;
+			refType = 4;
+		};
+		0035DB1400AB596200DD2B59 = {
+			children = (
+				0035DB1600AB596200DD2B59,
+				0035DB1800AB596200DD2B59,
+				0035DB1900AB596200DD2B59,
+				0035DB1A00AB596200DD2B59,
+				0035DB5700AC460E00DD2B59,
+				009E459C00AC9B4200DD2B59,
+				007A862000B5EE9B00DD2B59,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		0035DB1600AB596200DD2B59 = {
+			isa = PBXBundleReference;
+			path = NetInfo.dsplug;
+			refType = 3;
+		};
+		0035DB1800AB596200DD2B59 = {
+			isa = PBXBundleReference;
+			path = Search.dsplug;
+			refType = 3;
+		};
+		0035DB1900AB596200DD2B59 = {
+			isa = PBXFrameworkReference;
+			path = DirectoryService.framework;
+			refType = 3;
+		};
+		0035DB1A00AB596200DD2B59 = {
+			isa = PBXFrameworkReference;
+			path = DirectoryServiceCore.framework;
+			refType = 3;
+		};
+		0035DB1C00AB596200DD2B59 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Directory Service";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				004540FB00BAD05A00DD2B59,
+				0035DB2B00AB596200DD2B59,
+				0035DB2400AB596200DD2B59,
+				0035DB5800AC460E00DD2B59,
+				0035DB4000AB596200DD2B59,
+				0035DB4700AB596200DD2B59,
+				007A862100B5EE9B00DD2B59,
+			);
+			isa = PBXAggregateTarget;
+			name = "Directory Service";
+			productName = "Directory Service";
+			shouldUseHeadermap = 0;
+		};
+		0035DB2400AB596200DD2B59 = {
+			isa = PBXTargetDependency;
+			target = 0035DB2500AB596200DD2B59;
+		};
+		0035DB2500AB596200DD2B59 = {
+			buildPhases = (
+				0035DB2600AB596200DD2B59,
+				0035DB2700AB596200DD2B59,
+				0035DB2800AB596200DD2B59,
+				0035DB2900AB596200DD2B59,
+				0035DB2A00AB596200DD2B59,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_VERSION = A;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = DirectoryServiceCore;
+				SECTORDER_FLAGS = "";
+				USE_GCC3 = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+			);
+			isa = PBXFrameworkTarget;
+			name = "Core Framework";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+			productName = "Core Framework";
+			productReference = 0035DB1A00AB596200DD2B59;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>DirectoryServiceCore</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DirectoryServiceCore.Framework</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DirectoryServiceCoreFramework</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.5</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		0035DB2600AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				009E456B00AC9A6200DD2B59,
+				009E456C00AC9A6200DD2B59,
+				009E456D00AC9A6200DD2B59,
+				009E456E00AC9A6200DD2B59,
+				009E456F00AC9A6200DD2B59,
+				009E457000AC9A6200DD2B59,
+				009E457300AC9A6200DD2B59,
+				009E457700AC9A6200DD2B59,
+				009E457800AC9A6200DD2B59,
+				009E457900AC9A6200DD2B59,
+				009E457A00AC9A6200DD2B59,
+				009E457B00AC9A6200DD2B59,
+				009E457D00AC9A6200DD2B59,
+				009E457E00AC9A6200DD2B59,
+				009E457F00AC9A6200DD2B59,
+				009E458000AC9A6200DD2B59,
+				009E458100AC9A6200DD2B59,
+				0059651000B1D7F300DD2B59,
+				0059651100B1D7F300DD2B59,
+				0059651200B1D7F300DD2B59,
+				0059651300B1D7F300DD2B59,
+				0059651400B1D7F300DD2B59,
+				0007D71400BEC42100DD2B59,
+				0007D71500BEC42100DD2B59,
+				0007D71600BEC42100DD2B59,
+				00A5FAF002144DC700DD2B5A,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB2700AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB2800AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				009E458400AC9A6200DD2B59,
+				009E458500AC9A6200DD2B59,
+				009E458600AC9A6200DD2B59,
+				009E458700AC9A6200DD2B59,
+				009E458800AC9A6200DD2B59,
+				009E458900AC9A6200DD2B59,
+				009E458C00AC9A6200DD2B59,
+				009E459000AC9A6200DD2B59,
+				009E459100AC9A6200DD2B59,
+				009E459300AC9A6200DD2B59,
+				009E459400AC9A6200DD2B59,
+				009E459500AC9A6200DD2B59,
+				004540EF00BACB8D00DD2B59,
+				004540F000BACB8D00DD2B59,
+				004540F100BACB8D00DD2B59,
+				004540F200BACB8D00DD2B59,
+				004540F300BACB8D00DD2B59,
+				00A5FAF102144DC700DD2B5A,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB2900AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				009E45CA00AC9E9E00DD2B59,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB2A00AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB2B00AB596200DD2B59 = {
+			isa = PBXTargetDependency;
+			target = 0035DB2C00AB596200DD2B59;
+		};
+		0035DB2C00AB596200DD2B59 = {
+			buildPhases = (
+				0035DB2D00AB596200DD2B59,
+				0035DB2E00AB596200DD2B59,
+				0035DB2F00AB596200DD2B59,
+				0035DB3000AB596200DD2B59,
+				0035DB3100AB596200DD2B59,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = APIFramework/DirectoryService.exp;
+				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_VERSION = A;
+				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers\"";
+				INSTALL_PATH = "$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = DirectoryService;
+				SECTORDER_FLAGS = "";
+				USE_GCC3 = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+			);
+			isa = PBXFrameworkTarget;
+			name = "API Framework";
+			productInstallPath = "$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
+			productName = "API Framework";
+			productReference = 0035DB1900AB596200DD2B59;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>DirectoryService</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DirectoryService.Framework</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DirectoryServiceFramework</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.5</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		0035DB2D00AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				0035DB8100AC505200DD2B59,
+				0035DB8200AC505200DD2B59,
+				0035DB8400AC505200DD2B59,
+				0035DB8500AC505200DD2B59,
+				0035DB8600AC505200DD2B59,
+				0035DB8700AC505200DD2B59,
+				0035DB8800AC505200DD2B59,
+				0035DB8900AC505200DD2B59,
+				004540E500BACB8D00DD2B59,
+				004540E600BACB8D00DD2B59,
+				004540E700BACB8D00DD2B59,
+				004540E800BACB8D00DD2B59,
+				004540E900BACB8D00DD2B59,
+				00EE946D011EFAD300DD2B59,
+				00EE9487011F190700DD2B59,
+				0007B626016E594F00DD2B59,
+				00AB68310184BFDD00DD2B59,
+				00A138800186367000DD2B59,
+				00A13884018636DB00DD2B59,
+				00A5FB0A0214535100DD2B5A,
+				007ACA9602B6EF0C00DD2B5A,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB2E00AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB2F00AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				0035DB8A00AC505200DD2B59,
+				0035DB8B00AC505200DD2B59,
+				0035DB8C00AC505200DD2B59,
+				0035DB8D00AC505200DD2B59,
+				0035DB8E00AC505200DD2B59,
+				0035DB8F00AC505200DD2B59,
+				004540EA00BACB8D00DD2B59,
+				004540EB00BACB8D00DD2B59,
+				004540EC00BACB8D00DD2B59,
+				004540ED00BACB8D00DD2B59,
+				004540EE00BACB8D00DD2B59,
+				00905E5800C59CDA00DD2B59,
+				00EE946E011EFAD300DD2B59,
+				00EE9488011F190700DD2B59,
+				00AB68320184BFDD00DD2B59,
+				00A138810186367000DD2B59,
+				00A13887018636DB00DD2B59,
+				69113CFD01E7F4000ADD2B8D,
+				00A5FB0B0214535100DD2B5A,
+				007ACA9902B6EF2300DD2B5A,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB3000AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				007ACA9B02B6EF7800DD2B5A,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB3100AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB4000AB596200DD2B59 = {
+			isa = PBXTargetDependency;
+			target = 0035DB4100AB596200DD2B59;
+		};
+		0035DB4100AB596200DD2B59 = {
+			buildPhases = (
+				0035DB4200AB596200DD2B59,
+				0035DB4300AB596200DD2B59,
+				0035DB4400AB596200DD2B59,
+				0035DB4500AB596200DD2B59,
+				0035DB4600AB596200DD2B59,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = ./;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace -bundle_loader \"${SYMROOT}/DirectoryServiceDaemon\"";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = NetInfo;
+				SECTORDER_FLAGS = "";
+				USE_GCC3 = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = dsplug;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "NetInfo PlugIn";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+			productName = "NetInfo PlugIn";
+			productReference = 0035DB1600AB596200DD2B59;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleConfigFile</key>
+	<string>NetInfo</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>NetInfo</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DirectoryService.NetInfoPlugin</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DirectoryServiceNetInfoPlugIn</string>
+	<key>CFBundlePackageSignature</key>
+	<string>adss</string>
+	<key>CFBundlePackageType</key>
+	<string>dspi</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.5</string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>6DA765AC-87A1-1226-8037-000502C1C736</key>
+		<string>ModuleFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>697B5D6C-87A1-1226-89CA-000502C1C736</key>
+		<array>
+			<string>6DA765AC-87A1-1226-8037-000502C1C736</string>
+		</array>
+	</dict>
+	<key>CFPluginNameString</key>
+	<string>NetInfo</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		0035DB4200AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				0035DBB600AC505200DD2B59,
+				0035DBB700AC505200DD2B59,
+				0035DBB800AC505200DD2B59,
+				0035DBB900AC505200DD2B59,
+				0035DBBB00AC505200DD2B59,
+				0035DBBC00AC505200DD2B59,
+				0035DBBD00AC505200DD2B59,
+				00873A280263815600DD2B8D,
+				00873A2B0263815600DD2B8D,
+				F54C5BD902B6D41301DD2B8D,
+				00F958B902B8F59B00DD2B5A,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB4300AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB4400AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				0035DBBE00AC505200DD2B59,
+				0035DBBF00AC505200DD2B59,
+				0035DBC000AC505200DD2B59,
+				0035DBC100AC505200DD2B59,
+				0035DBC200AC505200DD2B59,
+				0035DBC300AC505200DD2B59,
+				0035DBC500AC505200DD2B59,
+				00873A290263815600DD2B8D,
+				00873A2A0263815600DD2B8D,
+				00F958B702B8F33C00DD2B5A,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB4500AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				004540FD00BAD0DD00DD2B59,
+				004EF8F90119B09C00DD2B59,
+				00D4E46A0209E53E00DD2B5A,
+				000ED2FE029558D500DD2B5A,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB4600AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB4700AB596200DD2B59 = {
+			isa = PBXTargetDependency;
+			target = 0035DB4800AB596200DD2B59;
+		};
+		0035DB4800AB596200DD2B59 = {
+			buildPhases = (
+				0035DB4900AB596200DD2B59,
+				0035DB4A00AB596200DD2B59,
+				0035DB4B00AB596200DD2B59,
+				0035DB4C00AB596200DD2B59,
+				0035DB4D00AB596200DD2B59,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace   -bundle_loader \"${SYMROOT}/DirectoryServiceDaemon\"";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Search;
+				SECTORDER_FLAGS = "";
+				USE_GCC3 = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = dsplug;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = "Search PlugIn";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
+			productName = "Search PlugIn";
+			productReference = 0035DB1800AB596200DD2B59;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleConfigFile</key>
+	<string>Search</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>Search</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DirectoryService.SearchPlugIn</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DirectoryServiceSearchPlugIn</string>
+	<key>CFBundlePackageSignature</key>
+	<string>adss</string>
+	<key>CFBundlePackageType</key>
+	<string>dspi</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.5</string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>96E1ABD6-AEA6-1226-A610-000502C1C736</key>
+		<string>ModuleFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>697B5D6C-87A1-1226-89CA-000502C1C736</key>
+		<array>
+			<string>96E1ABD6-AEA6-1226-A610-000502C1C736</string>
+		</array>
+	</dict>
+	<key>CFPluginNameString</key>
+	<string>Search</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		0035DB4900AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				0035DBC600AC505200DD2B59,
+				0035DBC700AC505200DD2B59,
+				0035DBC800AC505200DD2B59,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB4A00AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				0035DBC900AC505200DD2B59,
+				0035DBCA00AC505200DD2B59,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB4B00AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				0035DBCB00AC505200DD2B59,
+				0035DBCC00AC505200DD2B59,
+				0035DBCD00AC505200DD2B59,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB4C00AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				0059650E00B1D58400DD2B59,
+				00ACC8C700B98E0900DD2B59,
+				004540FE00BAD1AC00DD2B59,
+				004EF8FB0119B09C00DD2B59,
+				698A469F02D95B4E0ADD2B92,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB4D00AB596200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB5700AC460E00DD2B59 = {
+			isa = PBXExecutableFileReference;
+			path = DirectoryServiceDaemon;
+			refType = 3;
+		};
+		0035DB5800AC460E00DD2B59 = {
+			isa = PBXTargetDependency;
+			target = 0035DB5900AC460E00DD2B59;
+		};
+		0035DB5900AC460E00DD2B59 = {
+			buildPhases = (
+				0035DB5A00AC460E00DD2B59,
+				0035DB5B00AC460E00DD2B59,
+				0035DB5C00AC460E00DD2B59,
+				0035DB5D00AC460E00DD2B59,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers\"";
+				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "-DDSSERVERTCP -DSERVERINTERNAL";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DirectoryServiceDaemon;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				STRIPFLAGS = "-S";
+				USE_GCC3 = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = Server;
+			productInstallPath = /usr/sbin;
+			productName = Server;
+			productReference = 0035DB5700AC460E00DD2B59;
+			shouldUseHeadermap = 0;
+		};
+		0035DB5A00AC460E00DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				0035DB9200AC505200DD2B59,
+				0035DB9300AC505200DD2B59,
+				0035DB9400AC505200DD2B59,
+				0035DB9700AC505200DD2B59,
+				0035DB9800AC505200DD2B59,
+				0035DB9A00AC505200DD2B59,
+				0035DB9B00AC505200DD2B59,
+				0035DB9C00AC505200DD2B59,
+				0035DB9D00AC505200DD2B59,
+				0035DB9E00AC505200DD2B59,
+				0035DB9F00AC505200DD2B59,
+				0035DBA000AC505200DD2B59,
+				0035DBA100AC505200DD2B59,
+				00DA328100BC573300DD2B59,
+				000E7C4D0176044900DD2B59,
+				000E7C4E0176044900DD2B59,
+				0089BC3201763E5C00DD2B59,
+				00465D7B017F86C700DD2B59,
+				69CDD7AD01CEA0F60ADD2B8D,
+				F6F1B7CC02A4198B01DD292F,
+				F6F1B7CD02A4198B01DD292F,
+				F6F1B7CE02A4198C01DD292F,
+				F6F1B7CF02A4198D01DD292F,
+				F6F1B7D002A4198D01DD292F,
+				F6F1B7D102A4198E01DD292F,
+				F6F1B7D202A4198F01DD292F,
+				F6F1B7D302A4199001DD292F,
+				F6F1B7D402A4199001DD292F,
+				F6F1B7D502A4199101DD292F,
+				007ACA9702B6EF1300DD2B5A,
+				0033335C02D6E42E00DD2B92,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB5B00AC460E00DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				0035DBA400AC505200DD2B59,
+				0035DBA500AC505200DD2B59,
+				0035DBA600AC505200DD2B59,
+				0035DBA900AC505200DD2B59,
+				0035DBAA00AC505200DD2B59,
+				0035DBAC00AC505200DD2B59,
+				0035DBAD00AC505200DD2B59,
+				0035DBAE00AC505200DD2B59,
+				0035DBAF00AC505200DD2B59,
+				0035DBB000AC505200DD2B59,
+				0035DBB100AC505200DD2B59,
+				0035DBB200AC505200DD2B59,
+				0035DBB300AC505200DD2B59,
+				00DA328200BC573300DD2B59,
+				000E7C510176044900DD2B59,
+				000E7C520176044900DD2B59,
+				0089BC3301763E5C00DD2B59,
+				00465D7C017F86C700DD2B59,
+				69CDD7AE01CEA0F60ADD2B8D,
+				F6F1B7C402A4198401DD292F,
+				F6F1B7C502A4198501DD292F,
+				F6F1B7C602A4198501DD292F,
+				F6F1B7C702A4198601DD292F,
+				F6F1B7C802A4198601DD292F,
+				F6F1B7C902A4198801DD292F,
+				F6F1B7CA02A4198901DD292F,
+				F6F1B7D602A4199201DD292F,
+				007ACA9A02B6EF2500DD2B5A,
+				0033335B02D6E42E00DD2B92,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB5C00AC460E00DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				00CB9FEA00B065BB00DD2B59,
+				009924B000B5E32A00DD2B59,
+				004540E100BAC2AA00DD2B59,
+				00C0099200E8F71100DD2B59,
+				004EF8F70119B09C00DD2B59,
+				004EF8F80119B09C00DD2B59,
+				00D4E4690209E4B400DD2B5A,
+				6910549302EE3F5E0ADD2B8D,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB5D00AC460E00DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0035DB8100AC505200DD2B59 = {
+			fileRef = 0035DA9D00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0035DB8200AC505200DD2B59 = {
+			fileRef = 0035DA9E00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0035DB8400AC505200DD2B59 = {
+			fileRef = 0035DAA000AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0035DB8500AC505200DD2B59 = {
+			fileRef = 0035DAA100AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0035DB8600AC505200DD2B59 = {
+			fileRef = 0035DAA200AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0035DB8700AC505200DD2B59 = {
+			fileRef = 0035DAA300AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0035DB8800AC505200DD2B59 = {
+			fileRef = 0035DAA400AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		0035DB8900AC505200DD2B59 = {
+			fileRef = 0035DAA500AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0035DB8A00AC505200DD2B59 = {
+			fileRef = 0035DA9600AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB8B00AC505200DD2B59 = {
+			fileRef = 0035DA9700AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB8C00AC505200DD2B59 = {
+			fileRef = 0035DA9800AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB8D00AC505200DD2B59 = {
+			fileRef = 0035DA9900AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB8E00AC505200DD2B59 = {
+			fileRef = 0035DA9A00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB8F00AC505200DD2B59 = {
+			fileRef = 0035DA9B00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9200AC505200DD2B59 = {
+			fileRef = 0035DB0400AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9300AC505200DD2B59 = {
+			fileRef = 0035DB0500AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9400AC505200DD2B59 = {
+			fileRef = 0035DB0600AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9700AC505200DD2B59 = {
+			fileRef = 0035DB0900AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9800AC505200DD2B59 = {
+			fileRef = 0035DB0A00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9A00AC505200DD2B59 = {
+			fileRef = 0035DB0C00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9B00AC505200DD2B59 = {
+			fileRef = 0035DB0D00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9C00AC505200DD2B59 = {
+			fileRef = 0035DB0E00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9D00AC505200DD2B59 = {
+			fileRef = 0035DB0F00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9E00AC505200DD2B59 = {
+			fileRef = 0035DB1000AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DB9F00AC505200DD2B59 = {
+			fileRef = 0035DB1100AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBA000AC505200DD2B59 = {
+			fileRef = 0035DB1200AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBA100AC505200DD2B59 = {
+			fileRef = 0035DB1300AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBA400AC505200DD2B59 = {
+			fileRef = 0035DAF200AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBA500AC505200DD2B59 = {
+			fileRef = 0035DAF300AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBA600AC505200DD2B59 = {
+			fileRef = 0035DAF400AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBA900AC505200DD2B59 = {
+			fileRef = 0035DAF700AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBAA00AC505200DD2B59 = {
+			fileRef = 0035DAF800AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBAC00AC505200DD2B59 = {
+			fileRef = 0035DAFA00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBAD00AC505200DD2B59 = {
+			fileRef = 0035DAFB00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBAE00AC505200DD2B59 = {
+			fileRef = 0035DAFC00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBAF00AC505200DD2B59 = {
+			fileRef = 0035DAFD00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBB000AC505200DD2B59 = {
+			fileRef = 0035DAFE00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBB100AC505200DD2B59 = {
+			fileRef = 0035DAFF00AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBB200AC505200DD2B59 = {
+			fileRef = 0035DB0000AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBB300AC505200DD2B59 = {
+			fileRef = 0035DB0100AB584900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBB600AC505200DD2B59 = {
+			fileRef = 0035DABB00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBB700AC505200DD2B59 = {
+			fileRef = 0035DABC00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBB800AC505200DD2B59 = {
+			fileRef = 0035DABD00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBB900AC505200DD2B59 = {
+			fileRef = 0035DABE00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBBB00AC505200DD2B59 = {
+			fileRef = 0035DAC000AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBBC00AC505200DD2B59 = {
+			fileRef = 0035DAC100AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBBD00AC505200DD2B59 = {
+			fileRef = 0035DAC200AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBBE00AC505200DD2B59 = {
+			fileRef = 0035DAB400AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBBF00AC505200DD2B59 = {
+			fileRef = 0035DAB500AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBC000AC505200DD2B59 = {
+			fileRef = 0035DAB600AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBC100AC505200DD2B59 = {
+			fileRef = 0035DAB700AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBC200AC505200DD2B59 = {
+			fileRef = 0035DAB800AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBC300AC505200DD2B59 = {
+			fileRef = 0035DAB900AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBC500AC505200DD2B59 = {
+			fileRef = 0035DAC500AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBC600AC505200DD2B59 = {
+			fileRef = 0035DACB00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBC700AC505200DD2B59 = {
+			fileRef = 0035DACC00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBC800AC505200DD2B59 = {
+			fileRef = 0035DACD00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBC900AC505200DD2B59 = {
+			fileRef = 0035DACF00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBCA00AC505200DD2B59 = {
+			fileRef = 0035DAD000AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBCB00AC505200DD2B59 = {
+			fileRef = 0035DAC700AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBCC00AC505200DD2B59 = {
+			fileRef = 0035DAC800AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBCD00AC505200DD2B59 = {
+			fileRef = 0035DAC900AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0035DBFB00AC584500DD2B59 = {
+			children = (
+				0035DBFC00AC584500DD2B59,
+				00CB9FE900B065BB00DD2B59,
+				6910548D02EE3F5E0ADD2B8D,
+				0059650C00B1D58400DD2B59,
+				00C0099100E8F71100DD2B59,
+				000ED2F7029558D500DD2B5A,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks";
+			refType = 4;
+		};
+		0035DBFC00AC584500DD2B59 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		004540E100BAC2AA00DD2B59 = {
+			fileRef = 0035DBFC00AC584500DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540E500BACB8D00DD2B59 = {
+			fileRef = 004C968300B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540E600BACB8D00DD2B59 = {
+			fileRef = 004C968400B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540E700BACB8D00DD2B59 = {
+			fileRef = 004C968500B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540E800BACB8D00DD2B59 = {
+			fileRef = 004C968600B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540E900BACB8D00DD2B59 = {
+			fileRef = 004C968700B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540EA00BACB8D00DD2B59 = {
+			fileRef = 004C967D00B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540EB00BACB8D00DD2B59 = {
+			fileRef = 004C967E00B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540EC00BACB8D00DD2B59 = {
+			fileRef = 004C967F00B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540ED00BACB8D00DD2B59 = {
+			fileRef = 004C968000B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540EE00BACB8D00DD2B59 = {
+			fileRef = 004C968100B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540EF00BACB8D00DD2B59 = {
+			fileRef = 004C967D00B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540F000BACB8D00DD2B59 = {
+			fileRef = 004C967E00B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540F100BACB8D00DD2B59 = {
+			fileRef = 004C967F00B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540F200BACB8D00DD2B59 = {
+			fileRef = 004C968000B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540F300BACB8D00DD2B59 = {
+			fileRef = 004C968100B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540FB00BAD05A00DD2B59 = {
+			isa = PBXTargetDependency;
+			target = 009E459E00AC9B4200DD2B59;
+		};
+		004540FD00BAD0DD00DD2B59 = {
+			fileRef = 0035DBFC00AC584500DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004540FE00BAD1AC00DD2B59 = {
+			fileRef = 0035DBFC00AC584500DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00465D79017F86AE00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSTCPConnection.cpp;
+			path = Proxy/DSTCPConnection.cpp;
+			refType = 4;
+		};
+		00465D7A017F86AE00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSTCPConnection.h;
+			path = Proxy/DSTCPConnection.h;
+			refType = 4;
+		};
+		00465D7B017F86C700DD2B59 = {
+			fileRef = 00465D7A017F86AE00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00465D7C017F86C700DD2B59 = {
+			fileRef = 00465D79017F86AE00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004C967B00B0949D00DD2B59 = {
+			children = (
+				004C967C00B0949D00DD2B59,
+				004C968200B0949D00DD2B59,
+			);
+			isa = PBXGroup;
+			name = Threads;
+			refType = 4;
+		};
+		004C967C00B0949D00DD2B59 = {
+			children = (
+				004C967D00B0949D00DD2B59,
+				004C967E00B0949D00DD2B59,
+				004C967F00B0949D00DD2B59,
+				004C968000B0949D00DD2B59,
+				004C968100B0949D00DD2B59,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+		};
+		004C967D00B0949D00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSCThread.cpp;
+			path = Threads/DSCThread.cpp;
+			refType = 4;
+		};
+		004C967E00B0949D00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSLThread.cpp;
+			path = Threads/DSLThread.cpp;
+			refType = 4;
+		};
+		004C967F00B0949D00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSEventSemaphore.cpp;
+			path = Threads/DSEventSemaphore.cpp;
+			refType = 4;
+		};
+		004C968000B0949D00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSMutexSemaphore.cpp;
+			path = Threads/DSMutexSemaphore.cpp;
+			refType = 4;
+		};
+		004C968100B0949D00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSSemaphore.cpp;
+			path = Threads/DSSemaphore.cpp;
+			refType = 4;
+		};
+		004C968200B0949D00DD2B59 = {
+			children = (
+				004C968300B0949D00DD2B59,
+				004C968400B0949D00DD2B59,
+				004C968500B0949D00DD2B59,
+				004C968600B0949D00DD2B59,
+				004C968700B0949D00DD2B59,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		004C968300B0949D00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSCThread.h;
+			path = Threads/DSCThread.h;
+			refType = 4;
+		};
+		004C968400B0949D00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSLThread.h;
+			path = Threads/DSLThread.h;
+			refType = 4;
+		};
+		004C968500B0949D00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSEventSemaphore.h;
+			path = Threads/DSEventSemaphore.h;
+			refType = 4;
+		};
+		004C968600B0949D00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSMutexSemaphore.h;
+			path = Threads/DSMutexSemaphore.h;
+			refType = 4;
+		};
+		004C968700B0949D00DD2B59 = {
+			isa = PBXFileReference;
+			name = DSSemaphore.h;
+			path = Threads/DSSemaphore.h;
+			refType = 4;
+		};
+		004EF8F70119B09C00DD2B59 = {
+			fileRef = 0035DB1900AB596200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004EF8F80119B09C00DD2B59 = {
+			fileRef = 0035DB1A00AB596200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004EF8F90119B09C00DD2B59 = {
+			fileRef = 0035DB1A00AB596200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		004EF8FB0119B09C00DD2B59 = {
+			fileRef = 0035DB1A00AB596200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0059650C00B1D58400DD2B59 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		0059650E00B1D58400DD2B59 = {
+			fileRef = 0059650C00B1D58400DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0059651000B1D7F300DD2B59 = {
+			fileRef = 004C968300B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0059651100B1D7F300DD2B59 = {
+			fileRef = 004C968400B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0059651200B1D7F300DD2B59 = {
+			fileRef = 004C968500B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0059651300B1D7F300DD2B59 = {
+			fileRef = 004C968600B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0059651400B1D7F300DD2B59 = {
+			fileRef = 004C968700B0949D00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0061873100AC6A3B00DD2B59 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0 -gfull";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		0061873200AC6A3B00DD2B59 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		007A862000B5EE9B00DD2B59 = {
+			isa = PBXBundleReference;
+			path = ShellScript.bundle;
+			refType = 3;
+		};
+		007A862100B5EE9B00DD2B59 = {
+			isa = PBXTargetDependency;
+			target = 007A862200B5EE9B00DD2B59;
+		};
+		007A862200B5EE9B00DD2B59 = {
+			buildPhases = (
+				007A862300B5EE9B00DD2B59,
+				007A862400B5EE9B00DD2B59,
+				007A862800B5EEC200DD2B59,
+				007A862500B5EE9B00DD2B59,
+				007A862600B5EE9B00DD2B59,
+				007A862700B5EE9B00DD2B59,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -undefined suppress";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ShellScript;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = ShellScript;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = ShellScript;
+			productReference = 007A862000B5EE9B00DD2B59;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string></string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string></string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string></string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 0;
+		};
+		007A862300B5EE9B00DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		007A862400B5EE9B00DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		007A862500B5EE9B00DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		007A862600B5EE9B00DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		007A862700B5EE9B00DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		007A862800B5EEC200DD2B59 = {
+			buildActionMask = 8;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "#moving from temp filename to final\n#due to product name comflicts in PB\nmv \"${DSTROOT}/usr/sbin/DirectoryServiceDaemon\" \"${DSTROOT}/usr/sbin/DirectoryService\"\nchown root.wheel \"${DSTROOT}/usr/sbin/DirectoryService\"\nchmod 4555 \"${DSTROOT}/usr/sbin/DirectoryService\"";
+		};
+		007ACA9202B6EEB300DD2B5A = {
+			children = (
+				007ACA9402B6EEE600DD2B5A,
+				007ACA9302B6EED500DD2B5A,
+			);
+			isa = PBXGroup;
+			name = CDSA;
+			refType = 4;
+		};
+		007ACA9302B6EED500DD2B5A = {
+			children = (
+				007ACA9802B6EF2300DD2B5A,
+			);
+			isa = PBXGroup;
+			name = "Other Source";
+			refType = 4;
+		};
+		007ACA9402B6EEE600DD2B5A = {
+			children = (
+				007ACA9502B6EF0C00DD2B5A,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		007ACA9502B6EF0C00DD2B5A = {
+			isa = PBXFileReference;
+			name = libCdsaCrypt.h;
+			path = CDSA/libCdsaCrypt.h;
+			refType = 4;
+		};
+		007ACA9602B6EF0C00DD2B5A = {
+			fileRef = 007ACA9502B6EF0C00DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		007ACA9702B6EF1300DD2B5A = {
+			fileRef = 007ACA9502B6EF0C00DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		007ACA9802B6EF2300DD2B5A = {
+			isa = PBXFileReference;
+			name = libCdsaCrypt.cpp;
+			path = CDSA/libCdsaCrypt.cpp;
+			refType = 4;
+		};
+		007ACA9902B6EF2300DD2B5A = {
+			fileRef = 007ACA9802B6EF2300DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		007ACA9A02B6EF2500DD2B5A = {
+			fileRef = 007ACA9802B6EF2300DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		007ACA9B02B6EF7800DD2B5A = {
+			fileRef = 0059650C00B1D58400DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00873A240263815600DD2B8D = {
+			isa = PBXFileReference;
+			name = md4.h;
+			path = PlugIns/NetInfo/md4.h;
+			refType = 4;
+		};
+		00873A250263815600DD2B8D = {
+			isa = PBXFileReference;
+			name = md4c.c;
+			path = PlugIns/NetInfo/md4c.c;
+			refType = 4;
+		};
+		00873A260263815600DD2B8D = {
+			isa = PBXFileReference;
+			name = SMBAuth.c;
+			path = PlugIns/NetInfo/SMBAuth.c;
+			refType = 4;
+		};
+		00873A270263815600DD2B8D = {
+			isa = PBXFileReference;
+			name = SMBAuth.h;
+			path = PlugIns/NetInfo/SMBAuth.h;
+			refType = 4;
+		};
+		00873A280263815600DD2B8D = {
+			fileRef = 00873A240263815600DD2B8D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00873A290263815600DD2B8D = {
+			fileRef = 00873A250263815600DD2B8D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00873A2A0263815600DD2B8D = {
+			fileRef = 00873A260263815600DD2B8D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00873A2B0263815600DD2B8D = {
+			fileRef = 00873A270263815600DD2B8D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0089BC3001763DD200DD2B59 = {
+			isa = PBXFileReference;
+			name = DSNetworkUtilities.cpp;
+			path = Proxy/DSNetworkUtilities.cpp;
+			refType = 4;
+		};
+		0089BC3101763DD200DD2B59 = {
+			isa = PBXFileReference;
+			name = DSNetworkUtilities.h;
+			path = Proxy/DSNetworkUtilities.h;
+			refType = 4;
+		};
+		0089BC3201763E5C00DD2B59 = {
+			fileRef = 0089BC3101763DD200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0089BC3301763E5C00DD2B59 = {
+			fileRef = 0089BC3001763DD200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00905E5700C59CDA00DD2B59 = {
+			isa = PBXFileReference;
+			name = DirectoryService.exp;
+			path = APIFramework/DirectoryService.exp;
+			refType = 4;
+		};
+		00905E5800C59CDA00DD2B59 = {
+			fileRef = 00905E5700C59CDA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009924B000B5E32A00DD2B59 = {
+			fileRef = 0059650C00B1D58400DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E453600AC996C00DD2B59 = {
+			children = (
+				009E453700AC996C00DD2B59,
+				009E453A00AC996C00DD2B59,
+			);
+			isa = PBXGroup;
+			name = "Core Framework";
+			refType = 4;
+		};
+		009E453700AC996C00DD2B59 = {
+			children = (
+				009E453800AC996C00DD2B59,
+				009E453900AC996C00DD2B59,
+			);
+			isa = PBXGroup;
+			name = Private;
+			refType = 4;
+		};
+		009E453800AC996C00DD2B59 = {
+			children = (
+				009E453D00AC9A6200DD2B59,
+				009E453E00AC9A6200DD2B59,
+				009E453F00AC9A6200DD2B59,
+				009E454000AC9A6200DD2B59,
+				009E454100AC9A6200DD2B59,
+				009E454200AC9A6200DD2B59,
+				00A5FAEE02144DC700DD2B5A,
+				009E454500AC9A6200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+		};
+		009E453900AC996C00DD2B59 = {
+			children = (
+				009E454900AC9A6200DD2B59,
+				009E454A00AC9A6200DD2B59,
+				009E454B00AC9A6200DD2B59,
+				009E454C00AC9A6200DD2B59,
+				009E454D00AC9A6200DD2B59,
+				009E454E00AC9A6200DD2B59,
+				00A5FAEF02144DC700DD2B5A,
+				009E455100AC9A6200DD2B59,
+				009E455500AC9A6200DD2B59,
+				009E455600AC9A6200DD2B59,
+				009E455700AC9A6200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		009E453A00AC996C00DD2B59 = {
+			children = (
+				009E453B00AC996C00DD2B59,
+				009E453C00AC996C00DD2B59,
+			);
+			isa = PBXGroup;
+			name = Public;
+			refType = 4;
+		};
+		009E453B00AC996C00DD2B59 = {
+			children = (
+				009E455800AC9A6200DD2B59,
+				009E455900AC9A6200DD2B59,
+				009E455B00AC9A6200DD2B59,
+				009E455C00AC9A6200DD2B59,
+				009E455D00AC9A6200DD2B59,
+				009E455E00AC9A6200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+		};
+		009E453C00AC996C00DD2B59 = {
+			children = (
+				009E456100AC9A6200DD2B59,
+				009E456200AC9A6200DD2B59,
+				009E456400AC9A6200DD2B59,
+				009E456500AC9A6200DD2B59,
+				009E456600AC9A6200DD2B59,
+				009E456700AC9A6200DD2B59,
+				009E456800AC9A6200DD2B59,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		009E453D00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CBuff.cpp;
+			path = CoreFramework/Private/CBuff.cpp;
+			refType = 4;
+		};
+		009E453E00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CDataBuff.cpp;
+			path = CoreFramework/Private/CDataBuff.cpp;
+			refType = 4;
+		};
+		009E453F00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CFile.cpp;
+			path = CoreFramework/Private/CFile.cpp;
+			refType = 4;
+		};
+		009E454000AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CLog.cpp;
+			path = CoreFramework/Private/CLog.cpp;
+			refType = 4;
+		};
+		009E454100AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = COSUtils.cpp;
+			path = CoreFramework/Private/COSUtils.cpp;
+			refType = 4;
+		};
+		009E454200AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CString.cpp;
+			path = CoreFramework/Private/CString.cpp;
+			refType = 4;
+		};
+		009E454500AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = DSUtils.cpp;
+			path = CoreFramework/Private/DSUtils.cpp;
+			refType = 4;
+		};
+		009E454900AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CBuff.h;
+			path = CoreFramework/Private/CBuff.h;
+			refType = 4;
+		};
+		009E454A00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CDataBuff.h;
+			path = CoreFramework/Private/CDataBuff.h;
+			refType = 4;
+		};
+		009E454B00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CFile.h;
+			path = CoreFramework/Private/CFile.h;
+			refType = 4;
+		};
+		009E454C00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CLog.h;
+			path = CoreFramework/Private/CLog.h;
+			refType = 4;
+		};
+		009E454D00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = COSUtils.h;
+			path = CoreFramework/Private/COSUtils.h;
+			refType = 4;
+		};
+		009E454E00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CString.h;
+			path = CoreFramework/Private/CString.h;
+			refType = 4;
+		};
+		009E455100AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = DSUtils.h;
+			path = CoreFramework/Private/DSUtils.h;
+			refType = 4;
+		};
+		009E455500AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = PrivateTypes.h;
+			path = CoreFramework/Private/PrivateTypes.h;
+			refType = 4;
+		};
+		009E455600AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = SharedConsts.h;
+			path = CoreFramework/Private/SharedConsts.h;
+			refType = 4;
+		};
+		009E455700AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = DSLogException.h;
+			path = CoreFramework/Private/DSLogException.h;
+			refType = 4;
+		};
+		009E455800AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CAttributeList.cpp;
+			path = CoreFramework/Public/CAttributeList.cpp;
+			refType = 4;
+		};
+		009E455900AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CContinue.cpp;
+			path = CoreFramework/Public/CContinue.cpp;
+			refType = 4;
+		};
+		009E455B00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CPlugInRef.cpp;
+			path = CoreFramework/Public/CPlugInRef.cpp;
+			refType = 4;
+		};
+		009E455C00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CRecNameList.cpp;
+			path = CoreFramework/Public/CRecNameList.cpp;
+			refType = 4;
+		};
+		009E455D00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CRecTypeList.cpp;
+			path = CoreFramework/Public/CRecTypeList.cpp;
+			refType = 4;
+		};
+		009E455E00AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CSharedData.cpp;
+			path = CoreFramework/Public/CSharedData.cpp;
+			refType = 4;
+		};
+		009E456100AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CAttributeList.h;
+			path = CoreFramework/Public/CAttributeList.h;
+			refType = 4;
+		};
+		009E456200AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CContinue.h;
+			path = CoreFramework/Public/CContinue.h;
+			refType = 4;
+		};
+		009E456400AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CPlugInRef.h;
+			path = CoreFramework/Public/CPlugInRef.h;
+			refType = 4;
+		};
+		009E456500AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CRecNameList.h;
+			path = CoreFramework/Public/CRecNameList.h;
+			refType = 4;
+		};
+		009E456600AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CRecTypeList.h;
+			path = CoreFramework/Public/CRecTypeList.h;
+			refType = 4;
+		};
+		009E456700AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = CSharedData.h;
+			path = CoreFramework/Public/CSharedData.h;
+			refType = 4;
+		};
+		009E456800AC9A6200DD2B59 = {
+			isa = PBXFileReference;
+			name = PluginData.h;
+			path = CoreFramework/Public/PluginData.h;
+			refType = 4;
+		};
+		009E456B00AC9A6200DD2B59 = {
+			fileRef = 009E454900AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E456C00AC9A6200DD2B59 = {
+			fileRef = 009E454A00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E456D00AC9A6200DD2B59 = {
+			fileRef = 009E454B00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E456E00AC9A6200DD2B59 = {
+			fileRef = 009E454C00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E456F00AC9A6200DD2B59 = {
+			fileRef = 009E454D00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E457000AC9A6200DD2B59 = {
+			fileRef = 009E454E00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E457300AC9A6200DD2B59 = {
+			fileRef = 009E455100AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E457700AC9A6200DD2B59 = {
+			fileRef = 009E455500AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E457800AC9A6200DD2B59 = {
+			fileRef = 009E455600AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E457900AC9A6200DD2B59 = {
+			fileRef = 009E455700AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E457A00AC9A6200DD2B59 = {
+			fileRef = 009E456100AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E457B00AC9A6200DD2B59 = {
+			fileRef = 009E456200AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E457D00AC9A6200DD2B59 = {
+			fileRef = 009E456400AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E457E00AC9A6200DD2B59 = {
+			fileRef = 009E456500AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E457F00AC9A6200DD2B59 = {
+			fileRef = 009E456600AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E458000AC9A6200DD2B59 = {
+			fileRef = 009E456700AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E458100AC9A6200DD2B59 = {
+			fileRef = 009E456800AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E458400AC9A6200DD2B59 = {
+			fileRef = 009E453D00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E458500AC9A6200DD2B59 = {
+			fileRef = 009E453E00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E458600AC9A6200DD2B59 = {
+			fileRef = 009E453F00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E458700AC9A6200DD2B59 = {
+			fileRef = 009E454000AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E458800AC9A6200DD2B59 = {
+			fileRef = 009E454100AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E458900AC9A6200DD2B59 = {
+			fileRef = 009E454200AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E458C00AC9A6200DD2B59 = {
+			fileRef = 009E454500AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E459000AC9A6200DD2B59 = {
+			fileRef = 009E455800AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E459100AC9A6200DD2B59 = {
+			fileRef = 009E455900AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E459300AC9A6200DD2B59 = {
+			fileRef = 009E455B00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E459400AC9A6200DD2B59 = {
+			fileRef = 009E455C00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E459500AC9A6200DD2B59 = {
+			fileRef = 009E455D00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E459900AC9B0900DD2B59 = {
+			children = (
+				009E459A00AC9B0900DD2B59,
+				009E459B00AC9B0900DD2B59,
+			);
+			isa = PBXGroup;
+			name = Common;
+			refType = 4;
+		};
+		009E459A00AC9B0900DD2B59 = {
+			children = (
+				009E45A300AC9BCA00DD2B59,
+				009E45A400AC9BCA00DD2B59,
+				009E45A500AC9BCA00DD2B59,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			refType = 4;
+		};
+		009E459B00AC9B0900DD2B59 = {
+			children = (
+				009E45A600AC9BCA00DD2B59,
+				009E45A700AC9BCA00DD2B59,
+				009E45A800AC9BCA00DD2B59,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+		};
+		009E459C00AC9B4200DD2B59 = {
+			isa = PBXLibraryReference;
+			path = libDSPlugInCommon.a;
+			refType = 3;
+		};
+		009E459E00AC9B4200DD2B59 = {
+			buildPhases = (
+				009E459F00AC9B4200DD2B59,
+				009E45A000AC9B4200DD2B59,
+				009E45A100AC9B4200DD2B59,
+				009E45A200AC9B4200DD2B59,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /AppleInternal/Developer/libs;
+				LIBRARY_STYLE = STATIC;
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libDSPlugInCommon.a;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				USE_GCC3 = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = PlugInCommon;
+			productInstallPath = /AppleInternal/Developer/libs;
+			productName = PlugInCommon;
+			productReference = 009E459C00AC9B4200DD2B59;
+			shouldUseHeadermap = 0;
+		};
+		009E459F00AC9B4200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				009E45AA00AC9BCA00DD2B59,
+				009E45AB00AC9BCA00DD2B59,
+				009E45AC00AC9BCA00DD2B59,
+				00A899C300E271A700DD2B59,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		009E45A000AC9B4200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+				009E45AD00AC9BCA00DD2B59,
+				009E45AE00AC9BCA00DD2B59,
+				009E45AF00AC9BCA00DD2B59,
+				00A899C400E271C700DD2B59,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		009E45A100AC9B4200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		009E45A200AC9B4200DD2B59 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		009E45A300AC9BCA00DD2B59 = {
+			isa = PBXFileReference;
+			name = CDSServerModule.cpp;
+			path = PlugIns/Common/CDSServerModule.cpp;
+			refType = 4;
+		};
+		009E45A400AC9BCA00DD2B59 = {
+			isa = PBXFileReference;
+			name = ServerModule.cpp;
+			path = PlugIns/Common/ServerModule.cpp;
+			refType = 4;
+		};
+		009E45A500AC9BCA00DD2B59 = {
+			isa = PBXFileReference;
+			name = ServerModuleLib.cpp;
+			path = PlugIns/Common/ServerModuleLib.cpp;
+			refType = 4;
+		};
+		009E45A600AC9BCA00DD2B59 = {
+			isa = PBXFileReference;
+			name = CDSServerModule.h;
+			path = PlugIns/Common/CDSServerModule.h;
+			refType = 4;
+		};
+		009E45A700AC9BCA00DD2B59 = {
+			isa = PBXFileReference;
+			name = ServerModule.h;
+			path = PlugIns/Common/ServerModule.h;
+			refType = 4;
+		};
+		009E45A800AC9BCA00DD2B59 = {
+			isa = PBXFileReference;
+			name = ServerModuleLib.h;
+			path = PlugIns/Common/ServerModuleLib.h;
+			refType = 4;
+		};
+		009E45AA00AC9BCA00DD2B59 = {
+			fileRef = 009E45A600AC9BCA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E45AB00AC9BCA00DD2B59 = {
+			fileRef = 009E45A700AC9BCA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E45AC00AC9BCA00DD2B59 = {
+			fileRef = 009E45A800AC9BCA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		009E45AD00AC9BCA00DD2B59 = {
+			fileRef = 009E45A300AC9BCA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E45AE00AC9BCA00DD2B59 = {
+			fileRef = 009E45A400AC9BCA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E45AF00AC9BCA00DD2B59 = {
+			fileRef = 009E45A500AC9BCA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		009E45C500AC9C8800DD2B59 = {
+			children = (
+				00ACC8C200B98E0900DD2B59,
+			);
+			isa = PBXGroup;
+			name = Libraries;
+			refType = 4;
+		};
+		009E45CA00AC9E9E00DD2B59 = {
+			fileRef = 0035DBFC00AC584500DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00A138800186367000DD2B59 = {
+			fileRef = 000E7C490174E03B00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00A138810186367000DD2B59 = {
+			fileRef = 000E7C450174E03B00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00A13884018636DB00DD2B59 = {
+			fileRef = 0089BC3101763DD200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00A13887018636DB00DD2B59 = {
+			fileRef = 0089BC3001763DD200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00A5FAEE02144DC700DD2B5A = {
+			isa = PBXFileReference;
+			name = CRCCalc.cpp;
+			path = CoreFramework/Private/CRCCalc.cpp;
+			refType = 4;
+		};
+		00A5FAEF02144DC700DD2B5A = {
+			isa = PBXFileReference;
+			name = CRCCalc.h;
+			path = CoreFramework/Private/CRCCalc.h;
+			refType = 4;
+		};
+		00A5FAF002144DC700DD2B5A = {
+			fileRef = 00A5FAEF02144DC700DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		00A5FAF102144DC700DD2B5A = {
+			fileRef = 00A5FAEE02144DC700DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00A5FB0A0214535100DD2B5A = {
+			fileRef = 00A5FAEF02144DC700DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00A5FB0B0214535100DD2B5A = {
+			fileRef = 00A5FAEE02144DC700DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00A899C300E271A700DD2B59 = {
+			fileRef = 009E456700AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00A899C400E271C700DD2B59 = {
+			fileRef = 009E455E00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00AB682F0184BFDD00DD2B59 = {
+			isa = PBXFileReference;
+			name = CDSRefMap.cpp;
+			path = APIFramework/CDSRefMap.cpp;
+			refType = 4;
+		};
+		00AB68300184BFDD00DD2B59 = {
+			isa = PBXFileReference;
+			name = CDSRefMap.h;
+			path = APIFramework/CDSRefMap.h;
+			refType = 4;
+		};
+		00AB68310184BFDD00DD2B59 = {
+			fileRef = 00AB68300184BFDD00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00AB68320184BFDD00DD2B59 = {
+			fileRef = 00AB682F0184BFDD00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00ACC8C200B98E0900DD2B59 = {
+			isa = PBXFileReference;
+			path = libDSPlugInCommon.a;
+			refType = 3;
+		};
+		00ACC8C700B98E0900DD2B59 = {
+			fileRef = 00ACC8C200B98E0900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00B4A5FD011B10C000DD2B59 = {
+			isa = PBXFileReference;
+			name = CDSRefTable.cpp;
+			path = APIFramework/CDSRefTable.cpp;
+			refType = 4;
+		};
+		00B4A5FE011B10C000DD2B59 = {
+			isa = PBXFileReference;
+			name = CDSRefTable.h;
+			path = APIFramework/CDSRefTable.h;
+			refType = 4;
+		};
+		00C0099100E8F71100DD2B59 = {
+			isa = PBXFrameworkReference;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+		};
+		00C0099200E8F71100DD2B59 = {
+			fileRef = 00C0099100E8F71100DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00CB9FE900B065BB00DD2B59 = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		00CB9FEA00B065BB00DD2B59 = {
+			fileRef = 00CB9FE900B065BB00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00D4E4690209E4B400DD2B5A = {
+			fileRef = 009E459C00AC9B4200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00D4E46A0209E53E00DD2B5A = {
+			fileRef = 00ACC8C200B98E0900DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00DA327F00BC573300DD2B59 = {
+			isa = PBXFileReference;
+			name = CConfigurePlugin.cpp;
+			path = Server/CConfigurePlugin.cpp;
+			refType = 4;
+		};
+		00DA328000BC573300DD2B59 = {
+			isa = PBXFileReference;
+			name = CConfigurePlugin.h;
+			path = Server/CConfigurePlugin.h;
+			refType = 4;
+		};
+		00DA328100BC573300DD2B59 = {
+			fileRef = 00DA328000BC573300DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00DA328200BC573300DD2B59 = {
+			fileRef = 00DA327F00BC573300DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00EE946D011EFAD300DD2B59 = {
+			fileRef = 009E454900AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00EE946E011EFAD300DD2B59 = {
+			fileRef = 009E453D00AC9A6200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00EE9487011F190700DD2B59 = {
+			fileRef = 00B4A5FE011B10C000DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00EE9488011F190700DD2B59 = {
+			fileRef = 00B4A5FD011B10C000DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00F958B602B8F33C00DD2B5A = {
+			isa = PBXFileReference;
+			name = my_ni_pwdomain.c;
+			path = PlugIns/NetInfo/my_ni_pwdomain.c;
+			refType = 4;
+		};
+		00F958B702B8F33C00DD2B5A = {
+			fileRef = 00F958B602B8F33C00DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		00F958B802B8F59B00DD2B5A = {
+			isa = PBXFileReference;
+			name = nibind_glue.h;
+			path = PlugIns/NetInfo/nibind_glue.h;
+			refType = 4;
+		};
+		00F958B902B8F59B00DD2B5A = {
+			fileRef = 00F958B802B8F59B00DD2B5A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//000
+//001
+//002
+//003
+//004
+//690
+//691
+//692
+//693
+//694
+		6910548D02EE3F5E0ADD2B8D = {
+			isa = PBXFrameworkReference;
+			name = LDAP.framework;
+			path = /System/Library/Frameworks/LDAP.framework;
+			refType = 0;
+		};
+		6910549302EE3F5E0ADD2B8D = {
+			fileRef = 6910548D02EE3F5E0ADD2B8D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		69113CFD01E7F4000ADD2B8D = {
+			fileRef = 69CDD7AB01CEA0F60ADD2B8D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		698A469F02D95B4E0ADD2B92 = {
+			fileRef = 00C0099100E8F71100DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		69CDD7AB01CEA0F60ADD2B8D = {
+			isa = PBXFileReference;
+			name = DSEncryptedEndpoint.cpp;
+			path = Proxy/DSEncryptedEndpoint.cpp;
+			refType = 4;
+		};
+		69CDD7AC01CEA0F60ADD2B8D = {
+			isa = PBXFileReference;
+			name = DSEncryptedEndpoint.h;
+			path = Proxy/DSEncryptedEndpoint.h;
+			refType = 4;
+		};
+		69CDD7AD01CEA0F60ADD2B8D = {
+			fileRef = 69CDD7AC01CEA0F60ADD2B8D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		69CDD7AE01CEA0F60ADD2B8D = {
+			fileRef = 69CDD7AB01CEA0F60ADD2B8D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//690
+//691
+//692
+//693
+//694
+//F50
+//F51
+//F52
+//F53
+//F54
+		F54C5BD802B6D41301DD2B8D = {
+			isa = PBXFileReference;
+			name = TimConditional.h;
+			path = PlugIns/NetInfo/TimConditional.h;
+			refType = 4;
+		};
+		F54C5BD902B6D41301DD2B8D = {
+			fileRef = F54C5BD802B6D41301DD2B8D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//F50
+//F51
+//F52
+//F53
+//F54
+//F60
+//F61
+//F62
+//F63
+//F64
+		F6F1B7C402A4198401DD292F = {
+			fileRef = 00AB682F0184BFDD00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7C502A4198501DD292F = {
+			fileRef = 00B4A5FD011B10C000DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7C602A4198501DD292F = {
+			fileRef = 0035DA9700AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7C702A4198601DD292F = {
+			fileRef = 0035DA9800AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7C802A4198601DD292F = {
+			fileRef = 0035DA9900AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7C902A4198801DD292F = {
+			fileRef = 0035DA9A00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7CA02A4198901DD292F = {
+			fileRef = 0035DA9B00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7CC02A4198B01DD292F = {
+			fileRef = 00AB68300184BFDD00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7CD02A4198B01DD292F = {
+			fileRef = 00B4A5FE011B10C000DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7CE02A4198C01DD292F = {
+			fileRef = 0035DA9E00AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7CF02A4198D01DD292F = {
+			fileRef = 0007B625016E594E00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7D002A4198D01DD292F = {
+			fileRef = 0035DAA000AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7D102A4198E01DD292F = {
+			fileRef = 0035DAA100AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7D202A4198F01DD292F = {
+			fileRef = 0035DAA200AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7D302A4199001DD292F = {
+			fileRef = 0035DAA300AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7D402A4199001DD292F = {
+			fileRef = 0035DAA400AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7D502A4199101DD292F = {
+			fileRef = 0035DAA500AB52B200DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F6F1B7D602A4199201DD292F = {
+			fileRef = 00905E5700C59CDA00DD2B59;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 0035DA8B00AB410A00DD2B59;
+}

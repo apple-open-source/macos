@@ -85,7 +85,7 @@ The order of arguments differs from that of open2().
 # ported to Win32 by Ron Schmidt, Merrill Lynch almost ended my career
 # fixed for autovivving FHs, tchrist again
 #
-# $Id: Open3.pm,v 1.1.1.4 2000/03/31 05:11:57 wsanchez Exp $
+# $Id: Open3.pm,v 1.2 2002/03/14 08:58:38 zarzycki Exp $
 #
 # usage: $pid = open3('wtr', 'rdr', 'err' 'some cmd and args', 'optarg', ...);
 #

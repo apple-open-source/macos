@@ -6,9 +6,9 @@
 #           we implement only class methods
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2000/12/28 23:07:49 $
+# Last Updated: $Date: 2001/11/30 22:43:17 $
 # 
-# Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
+# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
 # subject to the Apple Public Source License Version 1.1 (the "License").
 # You may not use this file except in compliance with the License.  Please
@@ -24,6 +24,15 @@
 # License.
 #
 ######################################################################
+
+## 
+## This module is slated to be removed in future releases. It was used 
+## for special purpose dumps of the documentation, and is no longer needed.   
+## If you rely on this module, please send a note to matt@apple.com and
+## we can reconsider its future.
+## 
+
+
 package HeaderDoc::DBLookup;
 
 use strict;

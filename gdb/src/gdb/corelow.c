@@ -1,5 +1,6 @@
 /* Core dump and executable file functions below target vector, for GDB.
-   Copyright 1986, 87, 89, 91, 92, 93, 94, 95, 96, 97, 1998, 2000
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
+   1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -24,6 +25,9 @@
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
+#ifdef HAVE_SYS_FILE_H
+#include <sys/file.h>		/* needed for F_OK and friends */
+#endif
 #include "frame.h"		/* required by inferior.h */
 #include "inferior.h"
 #include "symtab.h"
@@ -32,6 +36,8 @@
 #include "target.h"
 #include "gdbcore.h"
 #include "gdbthread.h"
+#include "regcache.h"
+#include "symfile.h"
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -72,9 +78,7 @@ static void add_to_thread_list (bfd *, asection *, PTR);
 
 static int ignore (CORE_ADDR, char *);
 
-static char *core_file_to_sym_file (char *);
-
-static int core_file_thread_alive (int tid);
+static int core_file_thread_alive (ptid_t tid);
 
 static void init_core_ops (void);
 
@@ -165,10 +169,10 @@ gdb_check_format (bfd *abfd)
     {
       if (cf->check_format (abfd))
 	{
-	  return (true);
+	  return (1);
 	}
     }
-  return (false);
+  return (0);
 }
 
 /* Discard all vestiges of any previous core file and mark data and stack
@@ -182,7 +186,7 @@ core_close (int quitting)
 
   if (core_bfd)
     {
-      inferior_pid = 0;		/* Avoid confusion from thread stuff */
+      inferior_ptid = null_ptid;	/* Avoid confusion from thread stuff */
 
       /* Clear out solib state while the bfd is still open. See
          comments in clear_solib in solib.c. */
@@ -194,11 +198,11 @@ core_close (int quitting)
       if (!bfd_close (core_bfd))
 	warning ("cannot close \"%s\": %s",
 		 name, bfd_errmsg (bfd_get_error ()));
-      free (name);
+      xfree (name);
       core_bfd = NULL;
       if (core_ops.to_sections)
 	{
-	  free ((PTR) core_ops.to_sections);
+	  xfree (core_ops.to_sections);
 	  core_ops.to_sections = NULL;
 	  core_ops.to_sections_end = NULL;
 	}
@@ -219,7 +223,7 @@ core_close_cleanup (void *ignore)
 static int
 solib_add_stub (PTR from_ttyp)
 {
-  SOLIB_ADD (NULL, *(int *) from_ttyp, &current_target);
+  SOLIB_ADD (NULL, *(int *) from_ttyp, &current_target, auto_solib_add);
   re_enable_breakpoints_in_shlibs (0);
   return 0;
 }
@@ -239,13 +243,13 @@ add_to_thread_list (bfd *abfd, asection *asect, PTR reg_sect_arg)
 
   thread_id = atoi (bfd_section_name (abfd, asect) + 5);
 
-  add_thread (thread_id);
+  add_thread (pid_to_ptid (thread_id));
 
 /* Warning, Will Robinson, looking at BFD private data! */
 
   if (reg_sect != NULL
       && asect->filepos == reg_sect->filepos)	/* Did we find .reg? */
-    inferior_pid = thread_id;	/* Yes, make it current */
+    inferior_ptid = pid_to_ptid (thread_id);	/* Yes, make it current */
 }
 
 /* This routine opens and sets up the core file bfd.  */
@@ -273,11 +277,11 @@ core_open (char *filename, int from_tty)
   if (filename[0] != '/')
     {
       temp = concat (current_directory, "/", filename, NULL);
-      free (filename);
+      xfree (filename);
       filename = temp;
     }
 
-  old_chain = make_cleanup (free, filename);
+  old_chain = make_cleanup (xfree, filename);
 
   scratch_chan = open (filename, O_BINARY | ( write_files ? O_RDWR : O_RDONLY ), 0);
   if (scratch_chan < 0)
@@ -381,10 +385,10 @@ core_detach (char *args, int from_tty)
    them to core_vec->core_read_registers, as the register set numbered
    WHICH.
 
-   If inferior_pid is zero, do the single-threaded thing: look for a
-   section named NAME.  If inferior_pid is non-zero, do the
+   If inferior_ptid is zero, do the single-threaded thing: look for a
+   section named NAME.  If inferior_ptid is non-zero, do the
    multi-threaded thing: look for a section named "NAME/PID", where
-   PID is the shortest ASCII decimal representation of inferior_pid.
+   PID is the shortest ASCII decimal representation of inferior_ptid.
 
    HUMAN_NAME is a human-readable name for the kind of registers the
    NAME section contains, for use in error messages.
@@ -403,8 +407,8 @@ get_core_register_section (char *name,
   bfd_size_type size;
   char *contents;
 
-  if (inferior_pid)
-    sprintf (section_name, "%s/%d", name, inferior_pid);
+  if (PIDGET (inferior_ptid))
+    sprintf (section_name, "%s/%d", name, PIDGET (inferior_ptid));
   else
     strcpy (section_name, name);
 
@@ -459,68 +463,6 @@ get_core_registers (int regno)
   registers_fetched ();
 }
 
-static char *
-core_file_to_sym_file (char *core)
-{
-  CONST char *failing_command;
-  char *p;
-  char *temp;
-  bfd *temp_bfd;
-  int scratch_chan;
-
-  if (!core)
-    error ("No core file specified.");
-
-  core = tilde_expand (core);
-  if (core[0] != '/')
-    {
-      temp = concat (current_directory, "/", core, NULL);
-      core = temp;
-    }
-
-  scratch_chan = open (core, write_files ? O_RDWR : O_RDONLY, 0);
-  if (scratch_chan < 0)
-    perror_with_name (core);
-
-  temp_bfd = bfd_fdopenr (core, gnutarget, scratch_chan);
-  if (temp_bfd == NULL)
-    perror_with_name (core);
-
-  if (!bfd_check_format (temp_bfd, bfd_core))
-    {
-      /* Do it after the err msg */
-      /* FIXME: should be checking for errors from bfd_close (for one thing,
-         on error it does not free all the storage associated with the
-         bfd).  */
-      make_cleanup_bfd_close (temp_bfd);
-      error ("\"%s\" is not a core dump: %s",
-	     core, bfd_errmsg (bfd_get_error ()));
-    }
-
-  /* Find the data section */
-  if (build_section_table (temp_bfd, &core_ops.to_sections,
-			   &core_ops.to_sections_end))
-    error ("\"%s\": Can't find sections: %s",
-	   bfd_get_filename (temp_bfd), bfd_errmsg (bfd_get_error ()));
-
-  failing_command = bfd_core_file_failing_command (temp_bfd);
-
-  bfd_close (temp_bfd);
-
-  /* If we found a filename, remember that it is probably saved
-     relative to the executable that created it.  If working directory
-     isn't there now, we may not be able to find the executable.  Rather
-     than trying to be sauve about finding it, just check if the file
-     exists where we are now.  If not, then punt and tell our client
-     we couldn't find the sym file.
-   */
-  p = (char *) failing_command;
-  if ((p != NULL) && (access (p, F_OK) != 0))
-    p = NULL;
-
-  return p;
-}
-
 static void
 core_files_info (struct target_ops *t)
 {
@@ -544,7 +486,7 @@ ignore (CORE_ADDR addr, char *contents)
    behaviour.
  */
 static int
-core_file_thread_alive (int tid)
+core_file_thread_alive (ptid_t tid)
 {
   return 1;
 }
@@ -572,7 +514,6 @@ init_core_ops (void)
   core_ops.to_create_inferior = find_default_create_inferior;
   core_ops.to_clone_and_follow_inferior = find_default_clone_and_follow_inferior;
   core_ops.to_thread_alive = core_file_thread_alive;
-  core_ops.to_core_file_to_sym_file = core_file_to_sym_file;
   core_ops.to_stratum = core_stratum;
   core_ops.to_has_memory = 1;
   core_ops.to_has_stack = 1;

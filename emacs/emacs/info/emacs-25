@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,1135 +11,1043 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
-File: emacs,  Node: Borders X,  Next: Title X,  Prev: Window Size X,  Up: Command Arguments
+File: emacs,  Node: Changing an Option,  Next: Face Customization,  Prev: Customization Groups,  Up: Easy Customization
 
-Internal and External Borders
-=============================
+Changing an Option
+..................
 
-   An Emacs frame has an internal border and an external border.  The
-internal border is an extra strip of the background color around all
-four edges of the frame.  Emacs itself adds the internal border.  The
-external border is added by the window manager outside the internal
-border; it may contain various boxes you can click on to move or iconify
-the window.
+   Here is an example of what a user option looks like in the
+customization buffer:
 
-`-ib WIDTH'
-`--internal-border=WIDTH'
-     Specify WIDTH as the width of the internal border.
+     Kill Ring Max: [Hide] 60
+        [State]: this option is unchanged from its standard setting.
+     Maximum length of kill ring before oldest elements are thrown away.
 
-`-bw WIDTH'
-`--border-width=WIDTH'
-     Specify WIDTH as the width of the main border.
+   The text following `[Hide]', `60' in this case, indicates the
+current value of the option.  If you see `[Show]' instead of `[Hide]',
+it means that the value is hidden; the customization buffer initially
+hides values that take up several lines.  Invoke `[Show]' to show the
+value.
 
-   When you specify the size of the frame, that does not count the
-borders.  The frame's position is measured from the outside edge of the
-external border.
+   The line after the option name indicates the "customization state"
+of the option: in the example above, it says you have not changed the
+option yet.  The word `[State]' at the beginning of this line is
+active; you can get a menu of various operations by invoking it with
+`Mouse-1' or <RET>.  These operations are essential for customizing the
+variable.
 
-   Use the `-ib N' option to specify an internal border N pixels wide.
-The default is 1.  Use `-bw N' to specify the width of the external
-border (though the window manager may not pay attention to what you
-specify).  The default width of the external border is 2.
+   The line after the `[State]' line displays the beginning of the
+option's documentation string.  If there are more lines of
+documentation, this line ends with `[More]'; invoke this to show the
+full documentation string.
+
+   To enter a new value for `Kill Ring Max', move point to the value
+and edit it textually.  For example, you can type `M-d', then insert
+another number.
+
+   When you begin to alter the text, you will see the `[State]' line
+change to say that you have edited the value:
+
+     [State]: you have edited the value as text, but not set the option.
+
+   Editing the value does not actually set the option variable.  To do
+that, you must "set" the option.  To do this, invoke the word `[State]'
+and choose `Set for Current Session'.
+
+   The state of the option changes visibly when you set it:
+
+     [State]: you have set this option, but not saved it for future sessions.
+
+   You don't have to worry about specifying a value that is not valid;
+setting the option checks for validity and will not really install an
+unacceptable value.
+
+   While editing a value or field that is a file name, directory name,
+command name, or anything else for which completion is defined, you can
+type `M-<TAB>' (`widget-complete') to do completion.
+
+   Some options have a small fixed set of possible legitimate values.
+These options don't let you edit the value textually.  Instead, an
+active field `[Value Menu]' appears before the value; invoke this field
+to edit the value.  For a boolean "on or off" value, the active field
+says `[Toggle]', and it changes to the other value.  `[Value Menu]' and
+`[Toggle]' edit the buffer; the changes take effect when you use the
+`Set for Current Session' operation.
+
+   Some options have values with complex structure.  For example, the
+value of `file-coding-system-alist' is an association list.  Here is
+how it appears in the customization buffer:
+
+     File Coding System Alist: [Hide]
+     [INS] [DEL] File regexp: \.elc\'
+                 Choice: [Value Menu] Encoding/decoding pair:
+                 Decoding: emacs-mule
+                 Encoding: emacs-mule
+     [INS] [DEL] File regexp: \(\`\|/\)loaddefs.el\'
+                 Choice: [Value Menu] Encoding/decoding pair:
+                 Decoding: raw-text
+                 Encoding: raw-text-unix
+     [INS] [DEL] File regexp: \.tar\'
+                 Choice: [Value Menu] Encoding/decoding pair:
+                 Decoding: no-conversion
+                 Encoding: no-conversion
+     [INS] [DEL] File regexp:
+                 Choice: [Value Menu] Encoding/decoding pair:
+                 Decoding: undecided
+                 Encoding: nil
+     [INS]
+        [State]: this option is unchanged from its standard setting.
+     Alist to decide a coding system to use for a file I/O operation. [Hide]
+     The format is ((PATTERN . VAL) ...),
+     where PATTERN is a regular expression matching a file name,
+     [...more lines of documentation...]
+
+Each association in the list appears on four lines, with several
+editable or "active" fields.  You can edit the regexps and coding
+systems using ordinary editing commands.  You can also invoke `[Value
+Menu]' to switch to a kind of value--for instance, to specify a
+function instead of a pair of coding systems.
+
+   To delete an association from the list, invoke the `[DEL]' button
+for that item.  To add an association, invoke `[INS]' at the position
+where you want to add it.  There is an `[INS]' button between each pair
+of association, another at the beginning and another at the end, so you
+can add the new association at any position in the list.
+
+   Two special commands, <TAB> and `S-<TAB>', are useful for moving
+through the customization buffer.  <TAB> (`widget-forward') moves
+forward to the next active or editable field; `S-<TAB>'
+(`widget-backward') moves backward to the previous active or editable
+field.
+
+   Typing <RET> on an editable field also moves forward, just like
+<TAB>.  We set it up this way because people often type <RET> when they
+are finished editing a field.  To insert a newline within an editable
+field, use `C-o' or `C-q C-j'.
+
+   Setting the option changes its value in the current Emacs session;
+"saving" the value changes it for future sessions as well.  This works
+by writing code into your `~/.emacs' file so as to set the option
+variable again each time you start Emacs.  To save the option, invoke
+`[State]' and select the `Save for Future Sessions' operation.
+
+   If Emacs was invoked with the `-q' or `--no-init-file' options
+(*note Initial Options::), it will not let you save your customizations
+in your `~/.emacs' init file.  This is because saving customizations
+from such a session would wipe out all the other customizations you
+might have on your init file.
+
+   You can also restore the option to its standard value by invoking
+`[State]' and selecting the `Erase Customization' operation.  There are
+actually three reset operations:
+
+`Reset'
+     If you have made some modifications and not yet set the option,
+     this restores the text in the customization buffer to match the
+     actual value.
+
+`Reset to Saved'
+     This restores the value of the option to the last saved value, and
+     updates the text accordingly.
+
+`Erase Customization'
+     This sets the option to its standard value, and updates the text
+     accordingly.  This also eliminates any saved value for the option,
+     so that you will get the standard value in future Emacs sessions.
+
+   Sometimes it is useful to record a comment about a specific
+customization.  Use the `Add Comment' item from the `[State]' menu to
+create a field for entering the comment.  The comment you enter will be
+saved, and displayed again if you again view the same option in a
+customization buffer, even in another session.
+
+   The state of a group indicates whether anything in that group has
+been edited, set or saved.  You can select `Set for Current Session',
+`Save for Future Sessions' and the various kinds of `Reset' operation
+for the group; these operations on the group apply to all options in
+the group and its subgroups.
+
+   Near the top of the customization buffer there are two lines
+containing several active fields:
+
+      [Set for Current Session] [Save for Future Sessions]
+      [Reset] [Reset to Saved] [Erase Customization]   [Finish]
+
+Invoking `[Finish]' either buries or kills this customization buffer
+according to the setting of the option `custom-buffer-done-function';
+the default is to bury the buffer.  Each of the other fields performs
+an operation--set, save or reset--on each of the items in the buffer
+that could meaningfully be set, saved or reset.
 
 
-File: emacs,  Node: Title X,  Next: Icons X,  Prev: Borders X,  Up: Command Arguments
+File: emacs,  Node: Face Customization,  Next: Specific Customization,  Prev: Changing an Option,  Up: Easy Customization
 
-Frame Titles
-============
+Customizing Faces
+.................
 
-   An Emacs frame may or may not have a specified title.  The frame
-title, if specified, appears in window decorations and icons as the name
-of the frame.  If an Emacs frame has no specified title, the default
-title is the name of the executable program (if there is only one frame)
-or the selected window's buffer name (if there is more than one frame).
+   In addition to user options, some customization groups also include
+faces.  When you show the contents of a group, both the user options and
+the faces in the group appear in the customization buffer.  Here is an
+example of how a face looks:
 
-   You can specify a title for the initial Emacs frame with a command
-line option:
+     Custom Changed Face: (sample) [Hide]
+        [State]: this face is unchanged from its standard setting.
+     Parent groups: [Custom Magic Faces]
+     Attributes: [ ] Font family: [Value Menu] *
+                 [ ] Width: [Value Menu] *
+                 [ ] Height: [Value Menu] *
+                 [ ] Weight: [Value Menu] *
+                 [ ] Slant: [Value Menu] *
+                 [ ] Underline: [Value Menu] *
+                 [ ] Overline: [Value Menu] *
+                 [ ] Strike-through: [Value Menu] *
+                 [ ] Box around text: [Value Menu] *
+                 [ ] Inverse-video: [Value Menu] *
+                 [X] Foreground: [Value Menu] Color: white       (sample)
+                 [X] Background: [Value Menu] Color: blue        (sample)
+                 [ ] Stipple: [Value Menu] *
+                 [ ] Inherit:
 
-`-title TITLE'
-`--title=TITLE'
-`-T TITLE'
-     Specify TITLE as the title for the initial Emacs frame.
+   Each face attribute has its own line.  The `[X]' field before the
+attribute name indicates whether the attribute is "enabled"; `X' means
+that it is.  You can enable or disable the attribute by invoking that
+field.  When the attribute is enabled, you can change the attribute
+value in the usual ways.
 
-   The `--name' option (*note Resources X::) also specifies the title
-for the initial Emacs frame.
+   On a black-and-white display, the colors you can use for the
+background are `black', `white', `gray', `gray1', and `gray3'.  Emacs
+supports these shades of gray by using background stipple patterns
+instead of a color.
 
-
-File: emacs,  Node: Icons X,  Next: Resources X,  Prev: Title X,  Up: Command Arguments
+   Setting, saving and resetting a face work like the same operations
+for options (*note Changing an Option::).
 
-Icons
-=====
+   A face can specify different appearances for different types of
+display.  For example, a face can make text red on a color display, but
+use a bold font on a monochrome display.  To specify multiple
+appearances for a face, select `Show all display specs' in the menu you
+get from invoking `[State]'.
 
-   Most window managers allow the user to "iconify" a frame, removing
-it from sight, and leaving a small, distinctive "icon" window in its
-place.  Clicking on the icon window makes the frame itself appear again.
-If you have many clients running at once, you can avoid cluttering up
-the screen by iconifying most of the clients.
-
-`-i'
-`--icon-type'
-     Use a picture of a gnu as the Emacs icon.
-
-`-iconic'
-`--iconic'
-     Start Emacs in iconified state.
-
-   The `-i' or `--icon-type' option tells Emacs to use an icon window
-containing a picture of the GNU gnu.  If omitted, Emacs lets the window
-manager choose what sort of icon to use--usually just a small rectangle
-containing the frame's title.
-
-   The `-iconic' option tells Emacs to begin running as an icon, rather
-than opening a frame right away.  In this situation, the icon window
-provides only indication that Emacs has started; the usual text frame
-doesn't appear until you deiconify it.
-
-
-File: emacs,  Node: Resources X,  Next: Lucid Resources,  Prev: Icons X,  Up: Command Arguments
-
-X Resources
-===========
-
-   Programs running under the X Window System organize their user
-options under a hierarchy of classes and resources.  You can specify
-default values for these options in your X resources file, usually named
-`~/.Xdefaults'.
-
-   Each line in the file specifies a value for one option or for a
-collection of related options, for one program or for several programs
-(optionally even for all programs).
-
-   Programs define named resources with particular meanings.  They also
-define how to group resources into named classes.  For instance, in
-Emacs, the `internalBorder' resource controls the width of the internal
-border, and the `borderWidth' resource controls the width of the
-external border.  Both of these resources are part of the `BorderWidth'
-class.  Case distinctions are significant in these names.
-
-   In `~/.Xdefaults', you can specify a value for a single resource on
-one line, like this:
-
-     emacs.borderWidth: 2
-
-Or you can use a class name to specify the same value for all resources
-in that class.  Here's an example:
-
-     emacs.BorderWidth: 2
-
-   If you specify a value for a class, it becomes the default for all
-resources in that class.  You can specify values for individual
-resources as well; these override the class value, for those particular
-resources.  Thus, this example specifies 2 as the default width for all
-borders, but overrides this value with 4 for the external border:
-
-     emacs.Borderwidth: 2
-     emacs.borderwidth: 4
-
-   The order in which the lines appear in the file does not matter.
-Also, command-line options always override the X resources file.
-
-   The string `emacs' in the examples above is also a resource name.
-It actually represents the name of the executable file that you invoke
-to run Emacs.  If Emacs is installed under a different name, it looks
-for resources under that name instead of `emacs'.
-
-`-name NAME'
-`--name=NAME'
-     Use NAME as the resource name (and the title) for the initial
-     Emacs frame.  This option does not affect subsequent frames, but
-     Lisp programs can specify frame names when they create frames.
-
-     If you don't specify this option, the default is to use the Emacs
-     executable's name as the resource name.
-
-`-xrm RESOURCE-VALUES'
-`--xrm=RESOURCE-VALUES'
-     Specify X resource values for this Emacs job (see below).
-
-   For consistency, `-name' also specifies the name to use for other
-resource values that do not belong to any particular frame.
-
-   The resources that name Emacs invocations also belong to a class; its
-name is `Emacs'.  If you write `Emacs' instead of `emacs', the resource
-applies to all frames in all Emacs jobs, regardless of frame titles and
-regardless of the name of the executable file.  Here is an example:
-
-     Emacs.BorderWidth: 2
-     Emacs.borderWidth: 4
-
-   You can specify a string of additional resource values for Emacs to
-use with the command line option `-xrm RESOURCES'.  The text RESOURCES
-should have the same format that you would use inside a file of X
-resources.  To include multiple resource specifications in DATA, put a
-newline between them, just as you would in a file.  You can also use
-`#include "FILENAME"' to include a file full of resource
-specifications.  Resource values specified with `-xrm' take precedence
-over all other resource specifications.
-
-   The following table lists the resource names that designate options
-for Emacs, each with the class that it belongs to:
-
-`background' (class `Background')
-     Background color name.
-
-`bitmapIcon' (class `BitmapIcon')
-     Use a bitmap icon (a picture of a gnu) if `on', let the window
-     manager choose an icon if `off'.
-
-`borderColor' (class `BorderColor')
-     Color name for the external border.
-
-`borderWidth' (class `BorderWidth')
-     Width in pixels of the external border.
-
-`cursorColor' (class `Foreground')
-     Color name for text cursor (point).
-
-`font' (class `Font')
-     Font name for text (or fontset name, *note Fontsets::).
-
-`foreground' (class `Foreground')
-     Color name for text.
-
-`geometry' (class `Geometry')
-     Window size and position.  Be careful not to specify this resource
-     as `emacs*geometry', because that may affect individual menus as
-     well as the Emacs frame itself.
-
-     If this resource specifies a position, that position applies only
-     to the initial Emacs frame (or, in the case of a resource for a
-     specific frame name, only that frame).  However, the size if
-     specified here applies to all frames.
-
-`iconName' (class `Title')
-     Name to display in the icon.
-
-`internalBorder' (class `BorderWidth')
-     Width in pixels of the internal border.
-
-`menuBar' (class `MenuBar')
-     Give frames menu bars if `on'; don't have menu bars if `off'.
-
-`minibuffer' (class `Minibuffer')
-     If `none', don't make a minibuffer in this frame.  It will use a
-     separate minibuffer frame instead.
-
-`paneFont' (class `Font')
-     Font name for menu pane titles, in non-toolkit versions of Emacs.
-
-`pointerColor' (class `Foreground')
-     Color of the mouse cursor.
-
-`reverseVideo' (class `ReverseVideo')
-     Switch foreground and background default colors if `on', use
-     colors as specified if `off'.
-
-`verticalScrollBars' (class `ScrollBars')
-     Give frames scroll bars if `on'; don't have scroll bars if `off'.
-
-`selectionFont' (class `Font')
-     Font name for pop-up menu items, in non-toolkit versions of Emacs.
-     (For toolkit versions, see *Note Lucid Resources::, also see
-     *Note Motif Resources::.)
-
-`title' (class `Title')
-     Name to display in the title bar of the initial Emacs frame.
-
-   Here are resources for controlling the appearance of particular faces
-(*note Faces::):
-
-`FACE.attributeFont'
-     Font for face FACE.
-
-`FACE.attributeForeground'
-     Foreground color for face FACE.
-
-`FACE.attributeBackground'
-     Background color for face FACE.
-
-`FACE.attributeUnderline'
-     Underline flag for face FACE.  Use `on' or `true' for yes.
+   Another more basic way to set the attributes of a specific face is
+with `M-x modify-face'.  This command reads the name of a face, then
+reads the attributes one by one.  For the color and stipple attributes,
+the attribute's current value is the default--type just <RET> if you
+don't want to change that attribute.  Type `none' if you want to clear
+out the attribute.
 
 
-File: emacs,  Node: Lucid Resources,  Next: Motif Resources,  Prev: Resources X,  Up: Command Arguments
+File: emacs,  Node: Specific Customization,  Prev: Face Customization,  Up: Easy Customization
 
-Lucid Menu X Resources
-======================
+Customizing Specific Items
+..........................
 
-   If the Emacs installed at your site was built to use the X toolkit
-with the Lucid menu widgets, then the menu bar is a separate widget and
-has its own resources.  The resource names contain `pane.menubar'
-(following, as always, the name of the Emacs invocation or `Emacs'
-which stands for all Emacs invocations).  Specify them like this:
+   Instead of finding the options you want to change by moving down
+through the structure of groups, you can specify the particular option,
+face or group that you want to customize.
 
-     Emacs.pane.menubar.RESOURCE:  VALUE
+`M-x customize-option <RET> OPTION <RET>'
+     Set up a customization buffer with just one option, OPTION.
 
-For example, to specify the font `8x16' for the menu-bar items, write
-this:
+`M-x customize-face <RET> FACE <RET>'
+     Set up a customization buffer with just one face, FACE.
 
-     Emacs.pane.menubar.font:  8x16
+`M-x customize-group <RET> GROUP <RET>'
+     Set up a customization buffer with just one group, GROUP.
 
-Resources for _non-menubar_ toolkit pop-up menus have `menu*', in like
-fashion.  For example, to specify the font `8x16' for the pop-up menu
-items, write this:
+`M-x customize-apropos <RET> REGEXP <RET>'
+     Set up a customization buffer with all the options, faces and
+     groups that match REGEXP.
 
-     Emacs.menu*.font:	8x16
+`M-x customize-changed-options <RET> VERSION <RET>'
+     Set up a customization buffer with all the options, faces and
+     groups whose meaning has changed since Emacs version VERSION.
 
-For dialog boxes, use `dialog' instead of `menu':
+`M-x customize-saved'
+     Set up a customization buffer containing all options and faces
+     that you have saved with customization buffers.
 
-     Emacs.dialog*.font:	8x16
+`M-x customize-customized'
+     Set up a customization buffer containing all options and faces
+     that you have customized but not saved.
 
-Experience shows that on some systems you may need to add `shell.'
-before the `pane.menubar' or `menu*'.  On some other systems, you must
-not add `shell.'.
+   If you want to alter a particular user option variable with the
+customization buffer, and you know its name, you can use the command
+`M-x customize-option' and specify the option name.  This sets up the
+customization buffer with just one option--the one that you asked for.
+Editing, setting and saving the value work as described above, but only
+for the specified option.
 
-   Here is a list of the specific resources for menu bars and pop-up
-menus:
+   Likewise, you can modify a specific face, chosen by name, using `M-x
+customize-face'.
 
-`font'
-     Font for menu item text.
+   You can also set up the customization buffer with a specific group,
+using `M-x customize-group'.  The immediate contents of the chosen
+group, including option variables, faces, and other groups, all appear
+as well.  However, these subgroups' own contents start out hidden.  You
+can show their contents in the usual way, by invoking `[Show]'.
 
-`foreground'
-     Color of the foreground.
+   To control more precisely what to customize, you can use `M-x
+customize-apropos'.  You specify a regular expression as argument; then
+all options, faces and groups whose names match this regular expression
+are set up in the customization buffer.  If you specify an empty regular
+expression, this includes _all_ groups, options and faces in the
+customization buffer (but that takes a long time).
 
-`background'
-     Color of the background.
+   When you upgrade to a new Emacs version, you might want to customize
+new options and options whose meanings or default values have changed.
+To do this, use `M-x customize-changed-options' and specify a previous
+Emacs version number using the minibuffer.  It creates a customization
+buffer which shows all the options (and groups) whose definitions have
+been changed since the specified version.
 
-`buttonForeground'
-     In the menu bar, the color of the foreground for a selected item.
-
-`horizontalSpacing'
-     Horizontal spacing in pixels between items.  Default is 3.
-
-`verticalSpacing'
-     Vertical spacing in pixels between items.  Default is 1.
-
-`arrowSpacing'
-     Horizontal spacing between the arrow (which indicates a submenu)
-     and the associated text.  Default is 10.
-
-`shadowThickness'
-     Thickness of shadow line around the widget.
-
-
-File: emacs,  Node: Motif Resources,  Prev: Lucid Resources,  Up: Command Arguments
-
-Motif Menu X Resources
-======================
-
-   If the Emacs installed at your site was built to use the X toolkit
-with the Motif widgets, then the menu bar is a separate widget and has
-its own resources.  The resource names contain `pane.menubar'
-(following, as always, the name of the Emacs invocation or `Emacs'
-which stands for all Emacs invocations).  Specify them like this:
-
-     Emacs.pane.menubar.SUBWIDGET.RESOURCE:  VALUE
-
-   Each individual string in the menu bar is a subwidget; the
-subwidget's name is the same as the menu item string.  For example, the
-word `Files' in the menu bar is part of a subwidget named
-`emacs.pane.menubar.Files'.  Most likely, you want to specify the same
-resources for the whole menu bar.  To do this, use `*' instead of a
-specific subwidget name.  For example, to specify the font `8x16' for
-the menu-bar items, write this:
-
-     Emacs.pane.menubar.*.fontList:  8x16
-
-This also specifies the resource value for submenus.
-
-   Each item in a submenu in the menu bar also has its own name for X
-resources; for example, the `Files' submenu has an item named `Save
-Buffer'.  A resource specification for a submenu item looks like this:
-
-     Emacs.pane.menubar.popup_*.MENU.ITEM.RESOURCE: VALUE
-
-For example, here's how to specify the font for the `Save Buffer' item:
-
-     Emacs.pane.menubar.popup_*.Files.Save Buffer.fontList: 8x16
-
-For an item in a second-level submenu, such as `Check Message' under
-`Spell' under `Edit', the resource fits this template:
-
-     Emacs.pane.menubar.popup_*.popup_*.MENU.RESOURCE: VALUE
-
-For example,
-
-     Emacs.pane.menubar.popup_*.popup_*.Spell.Check Message: VALUE
-
-   It's impossible to specify a resource for all the menu-bar items
-without also specifying it for the submenus as well.  So if you want the
-submenu items to look different from the menu bar itself, you must ask
-for that in two steps.  First, specify the resource for all of them;
-then, override the value for submenus alone.  Here is an example:
-
-     Emacs.pane.menubar.*.fontList:  8x16
-     Emacs.pane.menubar.popup_*.fontList: 8x16
-
-For toolkit pop-up menus, use `menu*' instead of `pane.menubar'.  For
-example, to specify the font `8x16' for the pop-up menu items, write
-this:
-
-     Emacs.menu*.fontList:  8x16
-
-   Here is a list of the specific resources for menu bars and pop-up
-menus:
-
-`armColor'
-     The color to show in an armed button.
-
-`fontList'
-     The font to use.
-
-`marginBottom'
-`marginHeight'
-`marginLeft'
-`marginRight'
-`marginTop'
-`marginWidth'
-     Amount of space to leave around the item, within the border.
-
-`borderWidth'
-     The width of border around the menu item, on all sides.
-
-`shadowThickness'
-     The width of the border shadow.
-
-`bottomShadowColor'
-     The color for the border shadow, on the bottom and the right.
-
-`topShadowColor'
-     The color for the border shadow, on the top and the left.
+   If you change option values and then decide the change was a mistake,
+you can use two special commands to revisit your previous changes.  Use
+`M-x customize-saved' to look at the options and faces that you have
+saved.  Use `M-x customize-customized' to look at the options and faces
+that you have set but not saved.
 
 
-File: emacs,  Node: Antinews,  Next: MS-DOS,  Prev: Command Arguments,  Up: Top
+File: emacs,  Node: Hooks,  Next: Locals,  Prev: Easy Customization,  Up: Variables
 
-Emacs 19 Antinews
-*****************
+Hooks
+-----
 
-   For those users who live backwards in time, here is information about
-downgrading to Emacs version 19.  We hope you will enjoy the greater
-simplicity that results from the absence of certain Emacs 20 features.
+   "Hooks" are an important mechanism for customization of Emacs.  A
+hook is a Lisp variable which holds a list of functions, to be called on
+some well-defined occasion.  (This is called "running the hook".)  The
+individual functions in the list are called the "hook functions" of the
+hook.  With rare exceptions, hooks in Emacs are empty when Emacs starts
+up, so the only hook functions in any given hook are the ones you
+explicitly put there as customization.
 
-   * The multibyte character and end-of-line conversion support have
-     been eliminated entirely.  (Some users consider this a tremendous
-     improvement.)  Character codes are limited to the range 0 through
-     255 and files imported onto Unix-like systems may have a ^M at the
-     end of each line to remind you to control MS-DOG type files.
+   Most major modes run one or more "mode hooks" as the last step of
+initialization.  This makes it easy for you to customize the behavior of
+the mode, by setting up a hook function to override the local variable
+assignments already made by the mode.  But hooks are also used in other
+contexts.  For example, the hook `suspend-hook' runs just before Emacs
+suspends itself (*note Exiting::).
 
-   * Fontsets, coding systems and input methods have been eliminated as
-     well.
+   Most Emacs hooks are "normal hooks".  This means that running the
+hook operates by calling all the hook functions, unconditionally, with
+no arguments.  We have made an effort to keep most hooks normal so that
+you can use them in a uniform way.  Every variable in Emacs whose name
+ends in `-hook' is a normal hook.
 
-   * The mode line normally displays the string `Emacs', in case you
-     forget what editor you are using.
+   There are also a few "abnormal hooks".  These variables' names end
+in `-hooks' or `-functions', instead of `-hook'.  What makes these
+hooks abnormal is that there is something peculiar about the way its
+functions are called--perhaps they are given arguments, or perhaps the
+values they return are used in some way.  For example,
+`find-file-not-found-hooks' (*note Visiting::) is abnormal because as
+soon as one hook function returns a non-`nil' value, the rest are not
+called at all.  The documentation of each abnormal hook variable
+explains in detail what is peculiar about it.
 
-   * Scroll bars always appear on the right-hand side of the window.
-     This clearly separates them from the text in the window.
+   The recommended way to add a hook function to a hook (either normal
+or abnormal) is by calling `add-hook'.  You can use any valid Lisp
+function as the hook function, provided it can handle the proper number
+of arguments (zero arguments, in the case of a normal hook).  Of course,
+not every Lisp function is _useful_ in any particular hook.
 
-   * The `M-x customize' feature has been replaced with a very simple
-     feature, `M-x edit-options'.  This shows you _all_ the user
-     options right from the start, so you don't have to hunt for the
-     ones you want.  It also provides a few commands, such as `s' and
-     `x', to set a user option.
+   For example, here's how to set up a hook to turn on Auto Fill mode
+when entering Text mode and other modes based on Text mode:
 
-   * The <DELETE> key does nothing special in Emacs 19 when you use it
-     after selecting a region with the mouse.  It does exactly the same
-     thing in that situation as it does at all other times: delete one
-     character backwards.
+     (add-hook 'text-mode-hook 'turn-on-auto-fill)
 
-   * `C-x C-w' no longer changes the major mode according to the new
-     file name.  If you want to change the mode, use `M-x normal-mode'.
+   The next example shows how to use a hook to customize the indentation
+of C code.  (People often have strong personal preferences for one
+format compared to another.)  Here the hook function is an anonymous
+lambda expression.
 
-   * In Transient Mark mode, each window displays highlighting for the
-     region as it exists in that window.
+     (setq my-c-style
+       '((c-comment-only-line-offset . 4)
+         (c-cleanup-list . (scope-operator
+     		       empty-defun-braces
+     		       defun-close-semi))
+         (c-offsets-alist . ((arglist-close . c-lineup-arglist)
+     			(substatement-open . 0)))))
+     
+     (add-hook 'c-mode-common-hook
+       '(lambda ()
+          (c-add-style "my-style" my-c-style t)))
 
-   * Outline mode doesn't use overlay properties; instead, it hides a
-     line by converting the preceding newline into code 015.
-     Magically, however, if you save the file, the 015 character
-     appears in the file as a newline.
-
-   * There is now a clever way you can activate the minibuffer
-     recursively even if `enable-recursive-minibuffers' is `nil'.  All
-     you have to do is _switch windows_ to a non-minibuffer window, and
-     then use a minibuffer command.  You can pile up any number of
-     minibuffer levels this way, but `M-x top-level' will get you out
-     of all of them.
-
-   * We have removed the limit on the length of minibuffer history
-     lists; they now contain all the minibuffer arguments you have used
-     since the beginning of the session.
-
-   * Dynamic abbrev expansion now handles case conversion in a very
-     simple and straightforward way.  If you have requested preserving
-     case, it always converts the entire expansion to the case pattern
-     of the abbrev that you have typed in.
-
-   * The `compose-mail' command does not exist; `C-x m' now runs `mail'
-     directly.
-
-   * There is no way to quote a file name with special characters in it.
-     What you see is what you get: if the name looks remote, it is
-     remote.
-
-   * `M-x grep-find' has been eliminated, because `grep' has never been
-     lost.
-
-   * Some Dired commands have been rearranged: two-character sequences
-     have been replaced with quick single-character commands:
-
-        * For `dired-mark-executables', type `*'.
-
-        * For `dired-mark-directories', type `/'.
-
-        * For `dired-mark-symlinks', type `@'.
-
-        * For `dired-change-marks', type `c'.
-
-        * For `dired-unmark-all-files', type `C-M-?'.
-
-        * For `dired-unmark-all-marks', type `C-M-? <RET>'.
-
-     But if you want to use `dired-flag-garbage-files', `&', you'll
-     just have to stop living in the past.
-
-   * In C mode, you can now specify your preferred style for block
-     comments.  If you want to use the style
-
-          /*
-          blah
-          blah
-          */
-
-     then you should set the variable `c-block-comments-indent-p' to
-     `t'.
-
-   * To customize faces used by Font Lock mode, use the variable
-     `font-lock-face-attributes'.  See its documentation string for
-     details.
-
-   * For efficiency, Font Lock mode now uses by default the minimum
-     supported level of decoration for the selected major mode.
-
-   * If you kill a buffer, any registers holding saved positions in that
-     buffer are changed to point into limbo.
-
-   * The function `set-frame-font' has been renamed to
-     `set-default-font'.
-
-   * The variable `tex-main-file' doesn't exist.  Of course, you can
-     create the variable by setting it, but that won't do anything
-     special.
-
-   * The `scroll-preserve-screen-position' variable has been eliminated;
-     and so has the feature that it controls.
-
-   * We have eliminated the functions `add-untranslated-filesystem' and
-     `remove-untranslated-filesystem', and replaced them with a simpler
-     function, `using-unix-filesystems'.
-
-   * To keep up with decreasing computer memory capacity, many other
-     functions and files have been eliminated in Emacs 19.  There's no
-     need to mention them all here.  If you try to use one of them,
-     you'll get an error message to tell you that it is undefined or
-     unbound.
+   It is best to design your hook functions so that the order in which
+they are executed does not matter.  Any dependence on the order is
+"asking for trouble."  However, the order is predictable: the most
+recently added hook functions are executed first.
 
 
-File: emacs,  Node: MS-DOS,  Next: Manifesto,  Prev: Antinews,  Up: Top
+File: emacs,  Node: Locals,  Next: File Variables,  Prev: Hooks,  Up: Variables
 
-Emacs and MS-DOS
-****************
+Local Variables
+---------------
 
-   This section briefly describes the peculiarities of using Emacs under
-the MS-DOS "operating system" (also known as "MS-DOG").  If you build
-Emacs for MS-DOS, the binary will also run on Windows 3.X, Windows NT,
-Windows 9X, or OS/2 as a DOS application; the information in this
-chapter applies for all of those systems, if you use an Emacs that was
-built for MS-DOS.
+`M-x make-local-variable <RET> VAR <RET>'
+     Make variable VAR have a local value in the current buffer.
 
-   Note that it is possible to build Emacs specifically for Windows NT
-or Windows 9X.  If you do that, most of this chapter does not apply;
-instead, you get behavior much closer to what is documented in the rest
-of the manual, including support for long file names, multiple frames,
-scroll bars, mouse menus, and subprocesses.  However, the section on
-text files and binary files does still apply.  There are also two
-sections at the end of this chapter which apply specifically for Windows
-NT and 9X.
+`M-x kill-local-variable <RET> VAR <RET>'
+     Make variable VAR use its global value in the current buffer.
+
+`M-x make-variable-buffer-local <RET> VAR <RET>'
+     Mark variable VAR so that setting it will make it local to the
+     buffer that is current at that time.
+
+   Almost any variable can be made "local" to a specific Emacs buffer.
+This means that its value in that buffer is independent of its value in
+other buffers.  A few variables are always local in every buffer.
+Every other Emacs variable has a "global" value which is in effect in
+all buffers that have not made the variable local.
+
+   `M-x make-local-variable' reads the name of a variable and makes it
+local to the current buffer.  Further changes in this buffer will not
+affect others, and further changes in the global value will not affect
+this buffer.
+
+   `M-x make-variable-buffer-local' reads the name of a variable and
+changes the future behavior of the variable so that it will become local
+automatically when it is set.  More precisely, once a variable has been
+marked in this way, the usual ways of setting the variable automatically
+do `make-local-variable' first.  We call such variables "per-buffer"
+variables.
+
+   Major modes (*note Major Modes::) always make variables local to the
+buffer before setting the variables.  This is why changing major modes
+in one buffer has no effect on other buffers.  Minor modes also work by
+setting variables--normally, each minor mode has one controlling
+variable which is non-`nil' when the mode is enabled (*note Minor
+Modes::).  For most minor modes, the controlling variable is per buffer.
+
+   Emacs contains a number of variables that are always per-buffer.
+These include `abbrev-mode', `auto-fill-function', `case-fold-search',
+`comment-column', `ctl-arrow', `fill-column', `fill-prefix',
+`indent-tabs-mode', `left-margin', `mode-line-format', `overwrite-mode',
+`selective-display-ellipses', `selective-display', `tab-width', and
+`truncate-lines'.  Some other variables are always local in every
+buffer, but they are used for internal purposes.
+
+   A few variables cannot be local to a buffer because they are always
+local to each display instead (*note Multiple Displays::).  If you try
+to make one of these variables buffer-local, you'll get an error
+message.
+
+   `M-x kill-local-variable' reads the name of a variable and makes it
+cease to be local to the current buffer.  The global value of the
+variable henceforth is in effect in this buffer.  Setting the major mode
+kills all the local variables of the buffer except for a few variables
+specially marked as "permanent locals".
+
+   To set the global value of a variable, regardless of whether the
+variable has a local value in the current buffer, you can use the Lisp
+construct `setq-default'.  This construct is used just like `setq', but
+it sets variables' global values instead of their local values (if
+any).  When the current buffer does have a local value, the new global
+value may not be visible until you switch to another buffer.  Here is
+an example:
+
+     (setq-default fill-column 75)
+
+`setq-default' is the only way to set the global value of a variable
+that has been marked with `make-variable-buffer-local'.
+
+   Lisp programs can use `default-value' to look at a variable's
+default value.  This function takes a symbol as argument and returns its
+default value.  The argument is evaluated; usually you must quote it
+explicitly.  For example, here's how to obtain the default value of
+`fill-column':
+
+     (default-value 'fill-column)
+
+
+File: emacs,  Node: File Variables,  Prev: Locals,  Up: Variables
+
+Local Variables in Files
+------------------------
+
+   A file can specify local variable values for use when you edit the
+file with Emacs.  Visiting the file checks for local variable
+specifications; it automatically makes these variables local to the
+buffer, and sets them to the values specified in the file.
+
+   There are two ways to specify local variable values: in the first
+line, or with a local variables list.  Here's how to specify them in the
+first line:
+
+     -*- mode: MODENAME; VAR: VALUE; ... -*-
+
+You can specify any number of variables/value pairs in this way, each
+pair with a colon and semicolon as shown above.  `mode: MODENAME;'
+specifies the major mode; this should come first in the line.  The
+VALUEs are not evaluated; they are used literally.  Here is an example
+that specifies Lisp mode and sets two variables with numeric values:
+
+     ;; -*- mode: Lisp; fill-column: 75; comment-column: 50; -*-
+
+   You can also specify the coding system for a file in this way: just
+specify a value for the "variable" named `coding'.  The "value" must be
+a coding system name that Emacs recognizes.  *Note Coding Systems::.
+
+   The `eval' pseudo-variable, described below, can be specified in the
+first line as well.
+
+   In shell scripts, the first line is used to identify the script
+interpreter, so you cannot put any local variables there.  To
+accommodate for this, when Emacs visits a shell script, it looks for
+local variable specifications in the _second_ line.
+
+   A "local variables list" goes near the end of the file, in the last
+page.  (It is often best to put it on a page by itself.)  The local
+variables list starts with a line containing the string `Local
+Variables:', and ends with a line containing the string `End:'.  In
+between come the variable names and values, one set per line, as
+`VARIABLE: VALUE'.  The VALUEs are not evaluated; they are used
+literally.  If a file has both a local variables list and a `-*-' line,
+Emacs processes _everything_ in the `-*-' line first, and _everything_
+in the local variables list afterward.
+
+   Here is an example of a local variables list:
+
+     ;;; Local Variables: ***
+     ;;; mode:lisp ***
+     ;;; comment-column:0 ***
+     ;;; comment-start: ";;; "  ***
+     ;;; comment-end:"***" ***
+     ;;; End: ***
+
+   As you see, each line starts with the prefix `;;; ' and each line
+ends with the suffix ` ***'.  Emacs recognizes these as the prefix and
+suffix based on the first line of the list, by finding them surrounding
+the magic string `Local Variables:'; then it automatically discards
+them from the other lines of the list.
+
+   The usual reason for using a prefix and/or suffix is to embed the
+local variables list in a comment, so it won't confuse other programs
+that the file is intended as input for.  The example above is for a
+language where comment lines start with `;;; ' and end with `***'; the
+local values for `comment-start' and `comment-end' customize the rest
+of Emacs for this unusual syntax.  Don't use a prefix (or a suffix) if
+you don't need one.
+
+   Two "variable names" have special meanings in a local variables
+list: a value for the variable `mode' really sets the major mode, and a
+value for the variable `eval' is simply evaluated as an expression and
+the value is ignored.  `mode' and `eval' are not real variables;
+setting variables named `mode' and `eval' in any other context has no
+special meaning.  _If `mode' is used to set a major mode, it should be
+the first "variable" in the list._  Otherwise, the entries that precede
+it in the list of the local variables are likely to be ignored, since
+most modes kill all local variables as part of their initialization.
+
+   You can use the `mode' "variable" to set minor modes as well as
+major modes; in fact, you can use it more than once, first to set the
+major mode and then to set minor modes which are specific to particular
+buffers.  But most minor modes should not be specified in the file in
+any fashion, because they represent user preferences.
+
+   For example, you may be tempted to try to turn on Auto Fill mode with
+a local variable list.  That is a mistake.  The choice of Auto Fill mode
+or not is a matter of individual taste, not a matter of the contents of
+particular files.  If you want to use Auto Fill, set up major mode hooks
+with your `.emacs' file to turn it on (when appropriate) for you alone
+(*note Init File::).  Don't use a local variable list to impose your
+taste on everyone.
+
+   The start of the local variables list must be no more than 3000
+characters from the end of the file, and must be in the last page if the
+file is divided into pages.  Otherwise, Emacs will not notice it is
+there.  The purpose of this rule is so that a stray `Local Variables:'
+not in the last page does not confuse Emacs, and so that visiting a
+long file that is all one page and has no local variables list need not
+take the time to search the whole file.
+
+   Use the command `normal-mode' to reset the local variables and major
+mode of a buffer according to the file name and contents, including the
+local variables list if any.  *Note Choosing Modes::.
+
+   The variable `enable-local-variables' controls whether to process
+local variables in files, and thus gives you a chance to override them.
+Its default value is `t', which means do process local variables in
+files.  If you set the value to `nil', Emacs simply ignores local
+variables in files.  Any other value says to query you about each file
+that has local variables, showing you the local variable specifications
+so you can judge.
+
+   The `eval' "variable," and certain actual variables, create a
+special risk; when you visit someone else's file, local variable
+specifications for these could affect your Emacs in arbitrary ways.
+Therefore, the option `enable-local-eval' controls whether Emacs
+processes `eval' variables, as well variables with names that end in
+`-hook', `-hooks', `-function' or `-functions', and certain other
+variables.  The three possibilities for the option's value are `t',
+`nil', and anything else, just as for `enable-local-variables'.  The
+default is `maybe', which is neither `t' nor `nil', so normally Emacs
+does ask for confirmation about file settings for these variables.
+
+
+File: emacs,  Node: Keyboard Macros,  Next: Key Bindings,  Prev: Variables,  Up: Customization
+
+Keyboard Macros
+===============
+
+   A "keyboard macro" is a command defined by the user to stand for
+another sequence of keys.  For example, if you discover that you are
+about to type `C-n C-d' forty times, you can speed your work by
+defining a keyboard macro to do `C-n C-d' and calling it with a repeat
+count of forty.
+
+`C-x ('
+     Start defining a keyboard macro (`start-kbd-macro').
+
+`C-x )'
+     End the definition of a keyboard macro (`end-kbd-macro').
+
+`C-x e'
+     Execute the most recent keyboard macro (`call-last-kbd-macro').
+
+`C-u C-x ('
+     Re-execute last keyboard macro, then add more keys to its
+     definition.
+
+`C-x q'
+     When this point is reached during macro execution, ask for
+     confirmation (`kbd-macro-query').
+
+`M-x name-last-kbd-macro'
+     Give a command name (for the duration of the session) to the most
+     recently defined keyboard macro.
+
+`M-x insert-kbd-macro'
+     Insert in the buffer a keyboard macro's definition, as Lisp code.
+
+`C-x C-k'
+     Edit a previously defined keyboard macro (`edit-kbd-macro').
+
+`M-x apply-macro-to-region-lines'
+     Run the last keyboard macro on each complete line in the region.
+
+   Keyboard macros differ from ordinary Emacs commands in that they are
+written in the Emacs command language rather than in Lisp.  This makes
+it easier for the novice to write them, and makes them more convenient
+as temporary hacks.  However, the Emacs command language is not powerful
+enough as a programming language to be useful for writing anything
+intelligent or general.  For such things, Lisp must be used.
+
+   You define a keyboard macro while executing the commands which are
+the definition.  Put differently, as you define a keyboard macro, the
+definition is being executed for the first time.  This way, you can see
+what the effects of your commands are, so that you don't have to figure
+them out in your head.  When you are finished, the keyboard macro is
+defined and also has been, in effect, executed once.  You can then do
+the whole thing over again by invoking the macro.
 
 * Menu:
 
-* Input: MS-DOS Input.         Keyboard and mouse usage on MS-DOS.
-* Display: MS-DOS Display.     Fonts, frames and display size on MS-DOS.
-* Files: MS-DOS File Names.    File name conventions on MS-DOS.
-* Text and Binary::            Text files on MS-DOS use CRLF to separate lines.
-* Printing: MS-DOS Printing.   How to specify the printer on MS-DOS.
-* I18N: MS-DOS and MULE.       Support for internationalization on MS-DOS.
-* Processes: MS-DOS Processes. Running subprocesses on MS-DOS.
-* Windows Processes::          Running subprocesses on Windows.
-* Windows System Menu::        Controlling what the ALT key does.
+* Basic Kbd Macro::     Defining and running keyboard macros.
+* Save Kbd Macro::      Giving keyboard macros names; saving them in files.
+* Kbd Macro Query::     Making keyboard macros do different things each time.
 
 
-File: emacs,  Node: MS-DOS Input,  Next: MS-DOS Display,  Up: MS-DOS
+File: emacs,  Node: Basic Kbd Macro,  Next: Save Kbd Macro,  Up: Keyboard Macros
 
-Keyboard and Mouse on MS-DOS
-============================
+Basic Use
+---------
 
-   The PC keyboard maps use the left <ALT> key as the <META> key.  You
-have two choices for emulating the <SUPER> and <HYPER> keys: choose
-either the right <CTRL> key or the right <ALT> key by setting the
-variables `dos-hyper-key' and `dos-super-key' to 1 or 2 respectively.
-If neither `dos-super-key' nor `dos-hyper-key' is 1, then by default
-the right <ALT> key is also mapped to the <META> key.  However, if the
-MS-DOS international keyboard support program `KEYB.COM' is installed,
-Emacs will _not_ map the right <ALT> to <META>, since it is used for
-accessing characters like `~' and `@' on non-US keyboard layouts; in
-this case, you may only use the left <ALT> as <META> key.
+   To start defining a keyboard macro, type the `C-x (' command
+(`start-kbd-macro').  From then on, your keys continue to be executed,
+but also become part of the definition of the macro.  `Def' appears in
+the mode line to remind you of what is going on.  When you are
+finished, the `C-x )' command (`end-kbd-macro') terminates the
+definition (without becoming part of it!).  For example,
 
-   The variable `dos-keypad-mode' is a flag variable that controls what
-key codes are returned by keys in the numeric keypad.  You can also
-define the keypad <ENTER> key to act like `C-j', by putting the
-following line into your `_emacs' file:
+     C-x ( M-f foo C-x )
 
-     ;; Make the Enter key from the Numeric keypad act as C-j.
-     (define-key function-key-map [kp-enter] [?\C-j])
+defines a macro to move forward a word and then insert `foo'.
 
-   The key that is called <DEL> in Emacs (because that's how it is
-designated on most workstations) is known as <BS> (backspace) on a PC.
-That is why the PC-specific terminal initialization remaps the <BS> key
-to act as <DEL>; the <DEL> key is remapped to act as `C-d' for the same
-reasons.
+   The macro thus defined can be invoked again with the `C-x e' command
+(`call-last-kbd-macro'), which may be given a repeat count as a numeric
+argument to execute the macro many times.  `C-x )' can also be given a
+repeat count as an argument, in which case it repeats the macro that
+many times right after defining it, but defining the macro counts as
+the first repetition (since it is executed as you define it).
+Therefore, giving `C-x )' an argument of 4 executes the macro
+immediately 3 additional times.  An argument of zero to `C-x e' or `C-x
+)' means repeat the macro indefinitely (until it gets an error or you
+type `C-g' or, on MS-DOS, `C-<BREAK>').
 
-   Emacs built for MS-DOS recognizes `C-<BREAK>' as a quit character,
-just like `C-g'.  This is because Emacs cannot detect that you have
-typed `C-g' until it is ready for more input.  As a consequence, you
-cannot use `C-g' to stop a running command (*note Quitting::).  By
-contrast, `C-<BREAK>' _is_ detected as soon as you type it (as `C-g' is
-on other systems), so it can be used to stop a running command and for
-emergency escape (*note Emergency Escape::).
+   If you wish to repeat an operation at regularly spaced places in the
+text, define a macro and include as part of the macro the commands to
+move to the next place you want to use it.  For example, if you want to
+change each line, you should position point at the start of a line, and
+define a macro to change that line and leave point at the start of the
+next line.  Then repeating the macro will operate on successive lines.
 
-   Emacs on MS-DOS supports a mouse (on the default terminal only).
-The mouse commands work as documented, including those that use menus
-and the menu bar (*note Menu Bar::).  Scroll bars don't work in MS-DOS
-Emacs.  PC mice usually have only two buttons; these act as `Mouse-1'
-and `Mouse-2', but if you press both of them together, that has the
-effect of `Mouse-3'.
+   When a command reads an argument with the minibuffer, your
+minibuffer input becomes part of the macro along with the command.  So
+when you replay the macro, the command gets the same argument as when
+you entered the macro.  For example,
 
-   Emacs built for MS-DOS supports clipboard operations when it runs on
-Windows.  Commands that put text on the kill ring, or yank text from the
-ring, check the Windows clipboard first, just as Emacs does on X Windows
-(*note Mouse Commands::).  Only the primary selection and the cut buffer
-are supported by MS-DOS Emacs on Windows; the secondary selection always
-appears as empty.
+     C-x ( C-a C-<SPC> C-n M-w C-x b f o o <RET> C-y C-x b <RET> C-x )
 
-   Due to the way clipboard access is implemented by Windows, the
-length of text you can put into the clipboard is limited by the amount
-of free DOS memory that is available to Emacs.  Usually, up to 620KB of
-text can be put into the clipboard, but this limit depends on the system
-configuration and is lower if you run Emacs as a subprocess of another
-program.  If the killed text does not fit, Emacs prints a message
-saying so, and does not put the text into the clipboard.
+defines a macro that copies the current line into the buffer `foo',
+then returns to the original buffer.
 
-   Null characters also cannot be put into the Windows clipboard.  If
-the killed text includes null characters, Emacs does not put such text
-into the clipboard, and prints in the echo area a message to that
-effect.
+   You can use function keys in a keyboard macro, just like keyboard
+keys.  You can even use mouse events, but be careful about that: when
+the macro replays the mouse event, it uses the original mouse position
+of that event, the position that the mouse had while you were defining
+the macro.  The effect of this may be hard to predict.  (Using the
+current mouse position would be even less predictable.)
 
-   The variable `dos-display-scancodes', when non-`nil', directs Emacs
-to display the ASCII value and the keyboard scan code of each
-keystroke; this feature serves as a complement to the `view-lossage'
-command, for debugging.
+   One thing that doesn't always work well in a keyboard macro is the
+command `C-M-c' (`exit-recursive-edit').  When this command exits a
+recursive edit that started within the macro, it works as you'd expect.
+But if it exits a recursive edit that started before you invoked the
+keyboard macro, it also necessarily exits the keyboard macro as part of
+the process.
 
-
-File: emacs,  Node: MS-DOS Display,  Next: MS-DOS File Names,  Prev: MS-DOS Input,  Up: MS-DOS
+   After you have terminated the definition of a keyboard macro, you
+can add to the end of its definition by typing `C-u C-x ('.  This is
+equivalent to plain `C-x (' followed by retyping the whole definition
+so far.  As a consequence it re-executes the macro as previously
+defined.
 
-Display on MS-DOS
-=================
+   You can edit a keyboard macro already defined by typing `C-x C-k'
+(`edit-kbd-macro').  Follow that with the keyboard input that you would
+use to invoke the macro--`C-x e' or `M-x NAME' or some other key
+sequence.  This formats the macro definition in a buffer and enters a
+specialized major mode for editing it.  Type `C-h m' once in that
+buffer to display details of how to edit the macro.  When you are
+finished editing, type `C-c C-c'.
 
-   Display on MS-DOS cannot use font variants, like bold or italic, but
-it does support multiple faces, each of which can specify a foreground
-and a background color.  Therefore, you can get the full functionality
-of Emacs packages that use fonts (such as `font-lock', Enriched Text
-mode, and others) by defining the relevant faces to use different
-colors.  Use the `list-colors-display' command (*note Frame
-Parameters::) and the `list-faces-display' command (*note Faces::) to
-see what colors and faces are available and what they look like.
-
-   The section *Note MS-DOS and MULE::, later in this chapter, describes
-how Emacs displays glyphs and characters which aren't supported by the
-native font built into the DOS display.
-
-   Multiple frames (*note Frames::) are supported on MS-DOS, but they
-all overlap, so you only see a single frame at any given moment.  That
-single visible frame occupies the entire screen.  When you run Emacs
-from MS-Windows DOS box, you can make the visible frame smaller than
-the full screen, but Emacs still cannot display more than a single
-frame at a time.
-
-   The `mode4350' command switches the display to 43 or 50 lines,
-depending on your hardware; the `mode25' command switches to the
-default 80x25 screen size.
-
-   By default, Emacs only knows how to set screen sizes of 80 columns by
-25, 28, 35, 40, 43 or 50 rows.  However, if your video adapter has
-special video modes that will switch the display to other sizes, you can
-have Emacs support those too.  When you ask Emacs to switch the frame to
-N rows by M columns dimensions, it checks if there is a variable called
-`screen-dimensions-NxM', and if so, uses its value (which must be an
-integer) as the video mode to switch to.  (Emacs switches to that video
-mode by calling the BIOS `Set Video Mode' function with the value of
-`screen-dimensions-NxM' in the `AL' register.)  For example, suppose
-your adapter will switch to 66x80 dimensions when put into video mode
-85.  Then you can make Emacs support this screen size by putting the
-following into your `_emacs' file:
-
-     (setq screen-dimensions-66x80 85)
-
-   Since Emacs on MS-DOS can only set the frame size to specific
-supported dimensions, it cannot honor every possible frame resizing
-request.  When an unsupported size is requested, Emacs chooses the next
-larger supported size beyond the specified size.  For example, if you
-ask for 36x80 frame, you will get 40x80 instead.
-
-   The variables `screen-dimensions-NxM' are used only when they
-exactly match the specified size; the search for the next larger
-supported size ignores them.  In the above example, even if your VGA
-supports 38x80 dimensions and you define a variable
-`screen-dimensions-38x80' with a suitable value, you will still get
-40x80 screen when you ask for a 36x80 frame.  If you want to get the
-38x80 size in this case, you can do it by setting the variable named
-`screen-dimensions-36x80' with the same video mode value as
-`screen-dimensions-38x80'.
-
-   Changing frame dimensions on MS-DOS has the effect of changing all
-the other frames to the new dimensions.
+   The command `M-x apply-macro-to-region-lines' repeats the last
+defined keyboard macro on each complete line within the current region.
+It does this line by line, by moving point to the beginning of the line
+and then executing the macro.
 
 
-File: emacs,  Node: MS-DOS File Names,  Next: Text and Binary,  Prev: MS-DOS Display,  Up: MS-DOS
+File: emacs,  Node: Save Kbd Macro,  Next: Kbd Macro Query,  Prev: Basic Kbd Macro,  Up: Keyboard Macros
 
-File Names on MS-DOS
-====================
+Naming and Saving Keyboard Macros
+---------------------------------
 
-   MS-DOS normally uses a backslash, `\', to separate name units within
-a file name, instead of the slash used on other systems.  Emacs on
-MS-DOS permits use of either slash or backslash, and also knows about
-drive letters in file names.
+   If you wish to save a keyboard macro for longer than until you
+define the next one, you must give it a name using `M-x
+name-last-kbd-macro'.  This reads a name as an argument using the
+minibuffer and defines that name to execute the macro.  The macro name
+is a Lisp symbol, and defining it in this way makes it a valid command
+name for calling with `M-x' or for binding a key to with
+`global-set-key' (*note Keymaps::).  If you specify a name that has a
+prior definition other than another keyboard macro, an error message is
+shown and nothing is changed.
 
-   On MS-DOS, file names are case-insensitive and limited to eight
-characters, plus optionally a period and three more characters.  Emacs
-knows enough about these limitations to handle file names that were
-meant for other operating systems.  For instance, leading dots `.' in
-file names are invalid in MS-DOS, so Emacs transparently converts them
-to underscores `_'; thus your default init file (*note Init File::) is
-called `_emacs' on MS-DOS.  Excess characters before or after the
-period are generally ignored by MS-DOS itself; thus, if you visit the
-file `LongFileName.EvenLongerExtension', you will silently get
-`longfile.eve', but Emacs will still display the long file name on the
-mode line.  Other than that, it's up to you to specify file names which
-are valid under MS-DOS; the transparent conversion as described above
-only works on file names built into Emacs.
+   Once a macro has a command name, you can save its definition in a
+file.  Then it can be used in another editing session.  First, visit
+the file you want to save the definition in.  Then use this command:
 
-   The above restrictions on the file names on MS-DOS make it almost
-impossible to construct the name of a backup file (*note Backup
-Names::) without losing some of the original file name characters.  For
-example, the name of a backup file for `docs.txt' is `docs.tx~' even if
-single backup is used.
+     M-x insert-kbd-macro <RET> MACRONAME <RET>
 
-   If you run Emacs as a DOS application under Windows 9X, you can turn
-on support for long file names.  If you do that, Emacs doesn't truncate
-file names or convert them to lower case; instead, it uses the file
-names that you specify, verbatim.  To enable long file name support,
-set the environment variable `LFN' to `y' before starting Emacs.
-Unfortunately, Windows NT doesn't allow DOS programs to access long
-file names, so Emacs built for MS-DOS will only see their short 8+3
-aliases.
+This inserts some Lisp code that, when executed later, will define the
+same macro with the same definition it has now.  (You need not
+understand Lisp code to do this, because `insert-kbd-macro' writes the
+Lisp code for you.)  Then save the file.  You can load the file later
+with `load-file' (*note Lisp Libraries::).  If the file you save in is
+your init file `~/.emacs' (*note Init File::) then the macro will be
+defined each time you run Emacs.
 
-   MS-DOS has no notion of home directory, so Emacs on MS-DOS pretends
-that the directory where it is installed is the value of `HOME'
-environment variable.  That is, if your Emacs binary, `emacs.exe', is
-in the directory `c:/utils/emacs/bin', then Emacs acts as if `HOME'
-were set to `c:/utils/emacs'.  In particular, that is where Emacs looks
-for the init file `_emacs'.  With this in mind, you can use `~' in file
-names as an alias for the home directory, as you would in Unix.  You
-can also set `HOME' variable in the environment before starting Emacs;
-its value will then override the above default behavior.
-
-   Emacs on MS-DOS handles the directory name `/dev' specially, because
-of a feature in the emulator libraries of DJGPP that pretends I/O
-devices have names in that directory.  We recommend that you avoid
-using an actual directory named `/dev' on any disk.
+   If you give `insert-kbd-macro' a numeric argument, it makes
+additional Lisp code to record the keys (if any) that you have bound to
+the keyboard macro, so that the macro will be reassigned the same keys
+when you load the file.
 
 
-File: emacs,  Node: Text and Binary,  Next: MS-DOS Printing,  Prev: MS-DOS File Names,  Up: MS-DOS
+File: emacs,  Node: Kbd Macro Query,  Prev: Save Kbd Macro,  Up: Keyboard Macros
 
-Text Files and Binary Files
-===========================
+Executing Macros with Variations
+--------------------------------
 
-   GNU Emacs uses newline characters to separate text lines.  This is
-the convention used on Unix, on which GNU Emacs was developed, and on
-GNU systems since they are modeled on Unix.
+   Using `C-x q' (`kbd-macro-query'), you can get an effect similar to
+that of `query-replace', where the macro asks you each time around
+whether to make a change.  While defining the macro, type `C-x q' at
+the point where you want the query to occur.  During macro definition,
+the `C-x q' does nothing, but when you run the macro later, `C-x q'
+asks you interactively whether to continue.
 
-   MS-DOS and MS-Windows normally use carriage-return linefeed, a
-two-character sequence, to separate text lines.  (Linefeed is the same
-character as newline.)  Therefore, convenient editing of typical files
-with Emacs requires conversion of these end-of-line (EOL) sequences.
-And that is what Emacs normally does: it converts carriage-return
-linefeed into newline when reading files, and converts newline into
-carriage-return linefeed when writing files.  The same mechanism that
-handles conversion of international character codes does this conversion
-also (*note Coding Systems::).
+   The valid responses when `C-x q' asks are <SPC> (or `y'), <DEL> (or
+`n'), <RET> (or `q'), `C-l' and `C-r'.  The answers are the same as in
+`query-replace', though not all of the `query-replace' options are
+meaningful.
 
-   One consequence of this special format-conversion of most files is
-that character positions as reported by Emacs (*note Position Info::) do
-not agree with the file size information known to the operating system.
+   These responses include <SPC> to continue, and <DEL> to skip the
+remainder of this repetition of the macro and start right away with the
+next repetition.  <RET> means to skip the remainder of this repetition
+and cancel further repetitions.  `C-l' redraws the screen and asks you
+again for a character to say what to do.
 
-   Some kinds of files should not be converted, because their contents
-are not really text.  Therefore, Emacs on MS-DOS distinguishes certain
-files as "binary files", and reads and writes them verbatim.  (This
-distinction is not part of MS-DOS; it is made by Emacs only.)  These
-include executable programs, compressed archives, etc.  Emacs uses the
-file name to decide whether to treat a file as binary: the variable
-`file-name-buffer-file-type-alist' defines the file-name patterns that
-indicate binary files.  Note that if a file name matches one of the
-patterns for binary files in `file-name-buffer-file-type-alist', Emacs
-uses the `no-conversion' coding system (*note Coding Systems::) which
-turns off _all_ coding-system conversions, not only the EOL conversion.
+   `C-r' enters a recursive editing level, in which you can perform
+editing which is not part of the macro.  When you exit the recursive
+edit using `C-M-c', you are asked again how to continue with the
+keyboard macro.  If you type a <SPC> at this time, the rest of the
+macro definition is executed.  It is up to you to leave point and the
+text in a state such that the rest of the macro will do what you want.
 
-   In addition, if Emacs recognizes from a file's contents that it uses
-newline rather than carriage-return linefeed as its line separator, it
-does not perform conversion when reading or writing that file.  Thus,
-you can read and edit files from Unix or GNU systems on MS-DOS with no
-special effort, and they will be left with their Unix-style EOLs.
+   `C-u C-x q', which is `C-x q' with a numeric argument, performs a
+completely different function.  It enters a recursive edit reading
+input from the keyboard, both when you type it during the definition of
+the macro, and when it is executed from the macro.  During definition,
+the editing you do inside the recursive edit does not become part of
+the macro.  During macro execution, the recursive edit gives you a
+chance to do some particularized editing on each repetition.  *Note
+Recursive Edit::.
 
-   You can visit a file and specify whether to treat a file as text or
-binary using the commands `find-file-text' and `find-file-binary'.
-End-of-line conversion is part of the general coding system conversion
-mechanism, so another way to control whether to treat a file as text or
-binary is with the commands for specifying a coding system (*note
-Specify Coding::).  For example, `C-x <RET> c undecided-unix <RET> C-x
-C-f foobar.txt' visits the file `foobar.txt' without converting the
-EOLs.
-
-   The mode line indicates whether end-of-line translation was used for
-the current buffer.  Normally a colon appears after the coding system
-letter near the beginning of the mode line.  If MS-DOS end-of-line
-translation is in use for the buffer, this character changes to a
-backslash.
-
-   When you use NFS or Samba to access file systems that reside on
-computers using Unix or GNU systems, Emacs should not perform
-end-of-line translation on any files in these file systems-not even
-when you create a new file.  To request this, designate these file
-systems as "untranslated" file systems by calling the function
-`add-untranslated-filesystem'.  It takes one argument: the file system
-name, including a drive letter and optionally a directory.  For example,
-
-     (add-untranslated-filesystem "Z:")
-
-designates drive Z as an untranslated file system, and
-
-     (add-untranslated-filesystem "Z:\\foo")
-
-designates directory `\foo' on drive Z as an untranslated file system.
-
-   Most often you would use `add-untranslated-filesystem' in your
-`_emacs' file, or in `site-start.el' so that all the users at your site
-get the benefit of it.
-
-   To countermand the effect of `add-untranslated-filesystem', use the
-function `remove-untranslated-filesystem'.  This function takes one
-argument, which should be a string just like the one that was used
-previously with `add-untranslated-filesystem'.
+   Another way to vary the behavior of a keyboard macro is to use a
+register as a counter, incrementing it on each repetition of the macro.
+*Note RegNumbers::.
 
 
-File: emacs,  Node: MS-DOS Printing,  Next: MS-DOS and MULE,  Prev: Text and Binary,  Up: MS-DOS
+File: emacs,  Node: Key Bindings,  Next: Keyboard Translations,  Prev: Keyboard Macros,  Up: Customization
 
-Printing and MS-DOS
-===================
+Customizing Key Bindings
+========================
 
-   Printing commands, such as `lpr-buffer' (*note Hardcopy::) and
-`ps-print-buffer' (*note Postscript::) can work in MS-DOS and
-MS-Windows by sending the output to one of the printer ports, if a
-Unix-style `lpr' program is unavailable.  This behaviour is controlled
-by the same variables that control printing with `lpr' on Unix (*note
-Hardcopy::, *note Postscript Variables::), but the defaults for these
-variables on MS-DOS and MS-Windows are not the same as the defaults on
-Unix.
+   This section describes "key bindings", which map keys to commands,
+and "keymaps", which record key bindings.  It also explains how to
+customize key bindings.
 
-   If you want to use your local printer, printing on it in the usual
-DOS manner, then set the Lisp variable `lpr-command' to `""' (its
-default value) and `printer-name' to the name of the printer port--for
-example, `"PRN"', the usual local printer port (that's the default), or
-`"LPT2"', or `"COM1"' for a serial printer.  You can also set
-`printer-name' to a file name, in which case "printed" output is
-actually appended to that file.  If you set `printer-name' to `"NUL"',
-printed output is silently discarded (sent to the system null device).
+   Recall that a command is a Lisp function whose definition provides
+for interactive use.  Like every Lisp function, a command has a function
+name which usually consists of lower-case letters and hyphens.
 
-   On MS-Windows, when the Windows network software is installed, you
-can also use a printer shared by another machine by setting
-`printer-name' to the UNC share name for that printer-for example,
-`"//joes_pc/hp4si"'.  (It doesn't matter whether you use forward
-slashes or backslashes here.)  To find out the names of shared printers,
-run the command `net view' at a DOS command prompt to obtain a list of
-servers, and `net view SERVER-NAME' to see the names of printers (and
-directories) shared by that server.
+* Menu:
 
-   If you set `printer-name' to a file name, it's best to use an
-absolute file name.  Emacs changes the working directory according to
-the default directory of the current buffer, so if the file name in
-`printer-name' is relative, you will end up with several such files,
-each one in the directory of the buffer from which the printing was
-done.
-
-   The commands `print-buffer' and `print-region' call the `pr'
-program, or use special switches to the `lpr' program, to produce
-headers on each printed page.  MS-DOS and MS-Windows don't normally
-have these programs, so by default, the variable `lpr-headers-switches'
-is set so that the requests to print page headers are silently ignored.
-Thus, `print-buffer' and `print-region' produce the same output as
-`lpr-buffer' and `lpr-region', respectively.  If you do have a suitable
-`pr' program (for example, from GNU Textutils), set
-`lpr-headers-switches' to `nil'; Emacs will then call `pr' to produce
-the page headers, and print the resulting output as specified by
-`printer-name'.
-
-   Finally, if you do have an `lpr' work-alike, you can set the
-variable `lpr-command' to `"lpr"'.  Then Emacs will use `lpr' for
-printing, as on other systems.  (If the name of the program isn't
-`lpr', set `lpr-command' to specify where to find it.)  The variable
-`lpr-switches' has its standard meaning when `lpr-command' is not `""'.
-If the variable `printer-name' has a string value, it is used as the
-value for the `-P' option to `lpr', as on Unix.
-
-   A parallel set of variables, `ps-lpr-command', `ps-lpr-switches',
-and `ps-printer-name' (*note Postscript Variables::), defines how
-PostScript files should be printed.  These variables are used in the
-same way as the corresponding variables described above for
-non-PostScript printing.  Thus, the value of `ps-printer-name' is used
-as the name of the device (or file) to which PostScript output is sent,
-just as `printer-name' is used for non-PostScript printing.  (There are
-two distinct sets of variables in case you have two printers attached
-to two different ports, and only one of them is a PostScript printer.)
-
-   The default value of the variable `ps-lpr-command' is `""', which
-causes PostScript output to be sent to the printer port specified by
-`ps-printer-name', but `ps-lpr-command' can also be set to the name of
-a program which will accept PostScript files.  Thus, if you have a
-non-PostScript printer, you can set this variable to the name of a
-PostScript interpreter program (such as Ghostscript).  Any switches
-that need to be passed to the interpreter program are specified using
-`ps-lpr-switches'.  (If the value of `ps-printer-name' is a string, it
-will be added to the list of switches as the value for the `-P' option.
-This is probably only useful if you are using `lpr', so when using an
-interpreter typically you would set `ps-printer-name' to something
-other than a string so it is ignored.)
-
-   For example, to use Ghostscript for printing on an Epson printer
-connected to the `LPT2' port, put this in your `_emacs' file:
-
-     (setq ps-printer-name t)  ; Ghostscript doesn't understand -P
-     (setq ps-lpr-command "c:/gs/gs386")
-     (setq ps-lpr-switches '("-q" "-dNOPAUSE"
-     			"-sDEVICE=epson"
-     			"-r240x72"
-     			"-sOutputFile=LPT2"
-     			"-Ic:/gs"))
-
-(This assumes that Ghostscript is installed in the `"c:/gs"' directory.)
-
-   For backwards compatibility, the value of `dos-printer'
-(`dos-ps-printer'), if it has a value, overrides the value of
-`printer-name' (`ps-printer-name'), on MS-DOS and MS-Windows only.
+* Keymaps::             Generalities.  The global keymap.
+* Prefix Keymaps::      Keymaps for prefix keys.
+* Local Keymaps::       Major and minor modes have their own keymaps.
+* Minibuffer Maps::     The minibuffer uses its own local keymaps.
+* Rebinding::           How to redefine one key's meaning conveniently.
+* Init Rebinding::      Rebinding keys with your init file, `.emacs'.
+* Function Keys::       Rebinding terminal function keys.
+* Named ASCII Chars::   Distinguishing <TAB> from C-i, and so on.
+* Non-ASCII Rebinding:: Rebinding non-ASCII characters such as Latin-1.
+* Mouse Buttons::       Rebinding mouse buttons in Emacs.
+* Disabling::           Disabling a command means confirmation is required
+                          before it can be executed.  This is done to protect
+                          beginners from surprises.
 
 
-File: emacs,  Node: MS-DOS and MULE,  Next: MS-DOS Processes,  Prev: MS-DOS Printing,  Up: MS-DOS
+File: emacs,  Node: Keymaps,  Next: Prefix Keymaps,  Up: Key Bindings
 
-International Support on MS-DOS
-===============================
+Keymaps
+-------
 
-   Emacs on MS-DOS supports the same international character sets as it
-does on Unix and other platforms (*note International::), including
-coding systems for converting between the different character sets.
-However, due to incompatibilities between MS-DOS/MS-Windows and Unix,
-there are several DOS-specific aspects of this support that users should
-be aware of.  This section describes these aspects.
+   The bindings between key sequences and command functions are recorded
+in data structures called "keymaps".  Emacs has many of these, each
+used on particular occasions.
 
-`M-x dos-codepage-setup'
-     Set up Emacs display and coding systems as appropriate for the
-     current DOS codepage.
+   Recall that a "key sequence" ("key", for short) is a sequence of
+"input events" that have a meaning as a unit.  Input events include
+characters, function keys and mouse buttons--all the inputs that you
+can send to the computer with your terminal.  A key sequence gets its
+meaning from its "binding", which says what command it runs.  The
+function of keymaps is to record these bindings.
 
-`M-x codepage-setup'
-     Create a coding system for a certain DOS codepage.
+   The "global" keymap is the most important keymap because it is
+always in effect.  The global keymap defines keys for Fundamental mode;
+most of these definitions are common to most or all major modes.  Each
+major or minor mode can have its own keymap which overrides the global
+definitions of some keys.
 
-   MS-DOS is designed to support one character set of 256 characters at
-any given time, but gives you a variety of character sets to choose
-from.  The alternative character sets are known as "DOS codepages".
-Each codepage includes all 128 ASCII characters, but the other 128
-characters (codes 128 through 255) vary from one codepage to another.
-Each DOS codepage is identified by a 3-digit number, such as 850, 862,
-etc.
+   For example, a self-inserting character such as `g' is
+self-inserting because the global keymap binds it to the command
+`self-insert-command'.  The standard Emacs editing characters such as
+`C-a' also get their standard meanings from the global keymap.
+Commands to rebind keys, such as `M-x global-set-key', actually work by
+storing the new binding in the proper place in the global map.  *Note
+Rebinding::.
 
-   In contrast to X Windows, which lets you use several fonts at the
-same time, MS-DOS doesn't allow use of several codepages in a single
-session.  Instead, MS-DOS loads a single codepage at system startup,
-and you must reboot MS-DOS to change it(1).  Much the same limitation
-applies when you run DOS executables on other systems such as
-MS-Windows.
+   Meta characters work differently; Emacs translates each Meta
+character into a pair of characters starting with <ESC>.  When you type
+the character `M-a' in a key sequence, Emacs replaces it with `<ESC>
+a'.  A meta key comes in as a single input event, but becomes two
+events for purposes of key bindings.  The reason for this is
+historical, and we might change it someday.
 
-   If you invoke Emacs on MS-DOS with the `--unibyte' option (*note
-Initial Options::), Emacs does not perform any conversion of non-ASCII
-characters.  Instead, it reads and writes any non-ASCII characters
-verbatim, and sends their 8-bit codes to the display verbatim.  Thus,
-unibyte Emacs on MS-DOS supports the current codepage, whatever it may
-be, but cannot even represent any other characters.
+   Most modern keyboards have function keys as well as character keys.
+Function keys send input events just as character keys do, and keymaps
+can have bindings for them.
 
-   For multibyte operation on MS-DOS, Emacs needs to know which
-characters the chosen DOS codepage can display.  So it queries the
-system shortly after startup to get the chosen codepage number, and
-stores the number in the variable `dos-codepage'.  Some systems return
-the default value 437 for the current codepage, even though the actual
-codepage is different.  (This typically happens when you use the
-codepage built into the display hardware.)  You can specify a different
-codepage for Emacs to use by setting the variable `dos-codepage' in
-your init file.
+   On many terminals, typing a function key actually sends the computer
+a sequence of characters; the precise details of the sequence depends on
+which function key and on the model of terminal you are using.  (Often
+the sequence starts with `<ESC> ['.)  If Emacs understands your
+terminal type properly, it recognizes the character sequences forming
+function keys wherever they occur in a key sequence (not just at the
+beginning).  Thus, for most purposes, you can pretend the function keys
+reach Emacs directly and ignore their encoding as character sequences.
 
-   Multibyte Emacs supports only certain DOS codepages: those which can
-display Far-Eastern scripts, like the Japanese codepage 932, and those
-that encode a single ISO 8859 character set.
+   Mouse buttons also produce input events.  These events come with
+other data--the window and position where you pressed or released the
+button, and a time stamp.  But only the choice of button matters for key
+bindings; the other data matters only if a command looks at it.
+(Commands designed for mouse invocation usually do look at the other
+data.)
 
-   The Far-Eastern codepages can directly display one of the MULE
-character sets for these countries, so Emacs simply sets up to use the
-appropriate terminal coding system that is supported by the codepage.
-The special features described in the rest of this section mostly
-pertain to codepages that encode ISO 8859 character sets.
+   A keymap records definitions for single events.  Interpreting a key
+sequence of multiple events involves a chain of keymaps.  The first
+keymap gives a definition for the first event; this definition is
+another keymap, which is used to look up the second event in the
+sequence, and so on.
 
-   For the codepages which correspond to one of the ISO character sets,
-Emacs knows the character set name based on the codepage number.  Emacs
-automatically creates a coding system to support reading and writing
-files that use the current codepage, and uses this coding system by
-default.  The name of this coding system is `cpNNN', where NNN is the
-codepage number.(2)
+   Key sequences can mix function keys and characters.  For example,
+`C-x <SELECT>' is meaningful.  If you make <SELECT> a prefix key, then
+`<SELECT> C-n' makes sense.  You can even mix mouse events with
+keyboard events, but we recommend against it, because such key
+sequences are inconvenient to use.
 
-   All the `cpNNN' coding systems use the letter `D' (for "DOS") as
-their mode-line mnemonic.  Since both the terminal coding system and
-the default coding system for file I/O are set to the proper `cpNNN'
-coding system at startup, it is normal for the mode line on MS-DOS to
-begin with `-DD\-'.  *Note Mode Line::.  Far-Eastern DOS terminals do
-not use the `cpNNN' coding systems, and thus their initial mode line
-looks like on Unix.
-
-   Since the codepage number also indicates which script you are using,
-Emacs automatically runs `set-language-environment' to select the
-language environment for that script (*note Language Environments::).
-
-   If a buffer contains a character belonging to some other ISO 8859
-character set, not the one that the chosen DOS codepage supports, Emacs
-displays it using a sequence of ASCII characters.  For example, if the
-current codepage doesn't have a glyph for the letter `o`' (small `o'
-with a grave accent), it is displayed as `{`o}', where the braces serve
-as a visual indication that this is a single character.  (This may look
-awkward for some non-Latin characters, such as those from Greek or
-Hebrew alphabets, but it is still readable by a person who knows the
-language.)  Even though the character may occupy several columns on the
-screen, it is really still just a single character, and all Emacs
-commands treat it as one.
-
-   Not all characters in DOS codepages correspond to ISO 8859
-characters--some are used for other purposes, such as box-drawing
-characters and other graphics.  Emacs cannot represent these characters
-internally, so when you read a file that uses these characters, they are
-converted into a particular character code, specified by the variable
-`dos-unsupported-character-glyph'.
-
-   Emacs supports many other characters sets aside from ISO 8859, but it
-cannot display them on MS-DOS.  So if one of these multibyte characters
-appears in a buffer, Emacs on MS-DOS displays them as specified by the
-`dos-unsupported-character-glyph' variable; by default, this glyph is
-an empty triangle.  Use the `C-u C-x =' command to display the actual
-code and character set of such characters.  *Note Position Info::.
-
-   By default, Emacs defines a coding system to support the current
-codepage.  To define a coding system for some other codepage (e.g., to
-visit a file written on a DOS machine in another country), use the `M-x
-codepage-setup' command.  It prompts for the 3-digit code of the
-codepage, with completion, then creates the coding system for the
-specified codepage.  You can then use the new coding system to read and
-write files, but you must specify it explicitly for the file command
-when you want to use it (*note Specify Coding::).
-
-   These coding systems are also useful for visiting a file encoded
-using a DOS codepage, using Emacs running on some other operating
-system.
-
-   ---------- Footnotes ----------
-
-   (1) Normally, one particular codepage is burnt into the display
-memory, while other codepages can be installed by modifying system
-configuration files, such as `CONFIG.SYS', and rebooting.
-
-   (2) The standard Emacs coding systems for ISO 8859 are not quite
-right for the purpose, because typically the DOS codepage does not
-match the standard ISO character codes.  For example, the letter `c,'
-(`c' with cedilla) has code 231 in the standard Latin-1 character set,
-but the corresponding DOS codepage 850 uses code 135 for this glyph.
+   As a user, you can redefine any key; but it is usually best to stick
+to key sequences that consist of `C-c' followed by a letter.  These
+keys are "reserved for users," so they won't conflict with any properly
+designed Emacs extension.  The function keys <F5> through <F9> are also
+reserved for users.  If you redefine some other key, your definition
+may be overridden by certain extensions or major modes which redefine
+the same key.
 
 
-File: emacs,  Node: MS-DOS Processes,  Next: Windows Processes,  Prev: MS-DOS and MULE,  Up: MS-DOS
+File: emacs,  Node: Prefix Keymaps,  Next: Local Keymaps,  Prev: Keymaps,  Up: Key Bindings
 
-Subprocesses on MS-DOS
-======================
+Prefix Keymaps
+--------------
 
-   Because MS-DOS is a single-process "operating system," asynchronous
-subprocesses are not available.  In particular, Shell mode and its
-variants do not work.  Most Emacs features that use asynchronous
-subprocesses also don't work on MS-DOS, including spelling correction
-and GUD.  When in doubt, try and see; commands that don't work print an
-error message saying that asynchronous processes aren't supported.
+   A prefix key such as `C-x' or <ESC> has its own keymap, which holds
+the definition for the event that immediately follows that prefix.
 
-   Compilation under Emacs with `M-x compile', searching files with
-`M-x grep' and displaying differences between files with `M-x diff' do
-work, by running the inferior processes synchronously.  This means you
-cannot do any more editing until the inferior process finishes.
+   The definition of a prefix key is usually the keymap to use for
+looking up the following event.  The definition can also be a Lisp
+symbol whose function definition is the following keymap; the effect is
+the same, but it provides a command name for the prefix key that can be
+used as a description of what the prefix key is for.  Thus, the binding
+of `C-x' is the symbol `Ctl-X-Prefix', whose function definition is the
+keymap for `C-x' commands.  The definitions of `C-c', `C-x', `C-h' and
+<ESC> as prefix keys appear in the global map, so these prefix keys are
+always available.
 
-   By contrast, Emacs compiled as native Windows application *does*
-support asynchronous subprocesses.  *Note Windows Processes::.
+   Aside from ordinary prefix keys, there is a fictitious "prefix key"
+which represents the menu bar; see *Note Menu Bar: (elisp)Menu Bar, for
+special information about menu bar key bindings.  Mouse button events
+that invoke pop-up menus are also prefix keys; see *Note Menu Keymaps:
+(elisp)Menu Keymaps, for more details.
 
-   Printing commands, such as `lpr-buffer' (*note Hardcopy::) and
-`ps-print-buffer' (*note Postscript::), work in MS-DOS by sending the
-output to one of the printer ports.  *Note MS-DOS Printing::.
+   Some prefix keymaps are stored in variables with names:
 
-   When you run a subprocess synchronously on MS-DOS, make sure the
-program terminates and does not try to read keyboard input.  If the
-program does not terminate on its own, you will be unable to terminate
-it, because MS-DOS provides no general way to terminate a process.
-Pressing `C-c' or `C-<BREAK>' might sometimes help in these cases.
+   * `ctl-x-map' is the variable name for the map used for characters
+     that follow `C-x'.
 
-   Accessing files on other machines is not supported on MS-DOS.  Other
-network-oriented commands such as sending mail, Web browsing, remote
-login, etc., don't work either, unless network access is built into
-MS-DOS with some network redirector.
+   * `help-map' is for characters that follow `C-h'.
 
-   Dired on MS-DOS uses the `ls-lisp' package where other platforms use
-the system `ls' command.  Therefore, Dired on MS-DOS supports only some
-of the possible options you can mention in the `dired-listing-switches'
-variable.  The options that work are `-A', `-a', `-c', `-i', `-r', `-S',
-`-s', `-t', and `-u'.
+   * `esc-map' is for characters that follow <ESC>.  Thus, all Meta
+     characters are actually defined by this map.
+
+   * `ctl-x-4-map' is for characters that follow `C-x 4'.
+
+   * `mode-specific-map' is for characters that follow `C-c'.
+
+
+File: emacs,  Node: Local Keymaps,  Next: Minibuffer Maps,  Prev: Prefix Keymaps,  Up: Key Bindings
+
+Local Keymaps
+-------------
+
+   So far we have explained the ins and outs of the global map.  Major
+modes customize Emacs by providing their own key bindings in "local
+keymaps".  For example, C mode overrides <TAB> to make it indent the
+current line for C code.  Portions of text in the buffer can specify
+their own keymaps to substitute for the keymap of the buffer's major
+mode.
+
+   Minor modes can also have local keymaps.  Whenever a minor mode is
+in effect, the definitions in its keymap override both the major mode's
+local keymap and the global keymap.
+
+   The local keymaps for Lisp mode and several other major modes always
+exist even when not in use.  These are kept in variables named
+`lisp-mode-map' and so on.  For major modes less often used, the local
+keymap is normally constructed only when the mode is used for the first
+time in a session.  This is to save space.  If you wish to change one
+of these keymaps, you must use the major mode's "mode hook"--see below.
+
+   All minor mode keymaps are created in advance.  There is no way to
+defer their creation until the first time the minor mode is enabled.
+
+   A local keymap can locally redefine a key as a prefix key by defining
+it as a prefix keymap.  If the key is also defined globally as a prefix,
+then its local and global definitions (both keymaps) effectively
+combine: both of them are used to look up the event that follows the
+prefix key.  Thus, if the mode's local keymap defines `C-c' as another
+keymap, and that keymap defines `C-z' as a command, this provides a
+local meaning for `C-c C-z'.  This does not affect other sequences that
+start with `C-c'; if those sequences don't have their own local
+bindings, their global bindings remain in effect.
+
+   Another way to think of this is that Emacs handles a multi-event key
+sequence by looking in several keymaps, one by one, for a binding of the
+whole key sequence.  First it checks the minor mode keymaps for minor
+modes that are enabled, then it checks the major mode's keymap, and then
+it checks the global keymap.  This is not precisely how key lookup
+works, but it's good enough for understanding ordinary circumstances.
+
+   To change the local bindings of a major mode, you must change the
+mode's local keymap.  Normally you must wait until the first time the
+mode is used, because most major modes don't create their keymaps until
+then.  If you want to specify something in your `~/.emacs' file to
+change a major mode's bindings, you must use the mode's mode hook to
+delay the change until the mode is first used.
+
+   For example, the command `texinfo-mode' to select Texinfo mode runs
+the hook `texinfo-mode-hook'.  Here's how you can use the hook to add
+local bindings (not very useful, we admit) for `C-c n' and `C-c p' in
+Texinfo mode:
+
+     (add-hook 'texinfo-mode-hook
+               '(lambda ()
+                  (define-key texinfo-mode-map "\C-cp"
+                              'backward-paragraph)
+                  (define-key texinfo-mode-map "\C-cn"
+                              'forward-paragraph)))
+
+   *Note Hooks::.
+
+
+File: emacs,  Node: Minibuffer Maps,  Next: Rebinding,  Prev: Local Keymaps,  Up: Key Bindings
+
+Minibuffer Keymaps
+------------------
+
+   The minibuffer has its own set of local keymaps; they contain various
+completion and exit commands.
+
+   * `minibuffer-local-map' is used for ordinary input (no completion).
+
+   * `minibuffer-local-ns-map' is similar, except that <SPC> exits just
+     like <RET>.  This is used mainly for Mocklisp compatibility.
+
+   * `minibuffer-local-completion-map' is for permissive completion.
+
+   * `minibuffer-local-must-match-map' is for strict completion and for
+     cautious completion.
 

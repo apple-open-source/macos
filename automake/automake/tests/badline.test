@@ -1,0 +1,17 @@
+#! /bin/sh
+
+# Test to make sure that line number and file name in error message
+# referring to variable is always correct.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_SUBST(TEXINFOS)
+END
+
+: > Makefile.am
+
+$ACLOCAL || exit 1
+$AUTOMAKE > out 2>&1 && exit 1
+grep Makefile out && exit 1
+exit 0

@@ -11,7 +11,9 @@
             alias_ftp.c, 
             alias_irc.c, 
             alias_nbt.c, 
+            alias_pptp.c, 
             alias_proxy.c, 
+            alias_smedia.c, 
             alias_util.c
         ); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 

@@ -1,27 +1,29 @@
 /**
  * StartupItems.h - Startup Item management routines
  * Wilfredo Sanchez | wsanchez@opensource.apple.com
+ * Kevin Van Vechten | kevinvv@uclink4.berkeley.edu
  * $Apple$
  **
- * Copyright (c) 1999-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  **/
@@ -34,10 +36,24 @@
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFDictionary.h>
 
+#include "SystemStarter.h"
+
 /*
  * Find all available startup items in NSDomains specified by aMask.
  */
-CFMutableArrayRef StartupItemListCreateMutable (NSSearchPathDomainMask aMask);
+CFMutableArrayRef StartupItemListCreateWithMask (NSSearchPathDomainMask aMask);
+
+/*
+ * Returns the item responsible for providing aService.
+ */
+CFMutableDictionaryRef StartupItemListGetProvider (CFArrayRef anItemList, CFStringRef aService);
+
+/*
+ * Creates a list of items in anItemList which depend on anItem, given anAction.
+ */
+CFMutableArrayRef StartupItemListCreateDependentsList (CFMutableArrayRef anItemList,
+						       CFStringRef       aService  ,
+						       Action            anAction  );
 
 /*
  * Given aWaitingList of startup items, and aStatusDict describing the
@@ -49,16 +65,33 @@ CFMutableArrayRef StartupItemListCreateMutable (NSSearchPathDomainMask aMask);
  * startup item with the same priority is ready to run, which item gets
  * returned is not specified.
  */
-CFDictionaryRef StartupItemListGetNext (CFArrayRef      aWaitingList,
-                                        CFDictionaryRef aStatusDict);
+CFMutableDictionaryRef StartupItemListGetNext (CFArrayRef      aWaitingList,
+                                               CFDictionaryRef aStatusDict ,
+					       Action          anAction    );
+
+CFMutableDictionaryRef StartupItemWithPID (CFArrayRef anItemList, pid_t aPID);
+pid_t StartupItemGetPID(CFDictionaryRef anItem);
+
+CFStringRef StartupItemGetDescription(CFMutableDictionaryRef anItem);
+
+/*
+ * Returns a list of currently executing startup items.
+ */
+CFArrayRef StartupItemListGetRunning(CFArrayRef anItemList);
+
+/*
+ * Returns the total number of "Provides" entries of all loaded items.
+ */
+CFIndex StartupItemListCountServices (CFArrayRef anItemList);
 
 /*
  * Run the startup item.
  */
-#define kRunSuccess CFSTR("success")
-#define kRunFailure CFSTR("failure")
+void StartupItemRun  (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef anItem, Action  anAction);
+void StartupItemExit (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef anItem, Boolean aSuccess);		     
+void StartupItemSetStatus(CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef anItem, CFStringRef aServiceName, Boolean aSuccess, Boolean aReplaceFlag);
 
-void StartupItemRun (CFDictionaryRef anItem, CFMutableDictionaryRef aStatusDict);
 CFStringRef StartupItemCreateLocalizedString (CFDictionaryRef anItem, CFStringRef aString);
+CFStringRef StartupItemCreateLocalizedStringWithPath (CFStringRef aBundlePath, CFStringRef aString);
 
 #endif /* _StartupItems_H_ */

@@ -1,1 +1,5 @@
-Targets='AppleADBKeyboard'
+if [ "${Target}" = "AppleADBKeyboard" ]; then
+	Targets='AppleADBKeyboard'
+else
+	Targets='AppleADBKeyboard'
+fi

@@ -1,5 +1,7 @@
 /* Definitions to target GDB to GNU/Linux on 386.
-   Copyright 1992, 1993, 2000 Free Software Foundation, Inc.
+
+   Copyright 1992, 1993, 1995, 1996, 1998, 1999, 2000, 2001, 2002 Free
+   Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -30,37 +32,45 @@
 #include "i386/tm-i386.h"
 #include "tm-linux.h"
 
+/* Register number for the "orig_eax" pseudo-register.  If this
+   pseudo-register contains a value >= 0 it is interpreted as the
+   system call number that the kernel is supposed to restart.  */
+#define I386_LINUX_ORIG_EAX_REGNUM (NUM_GREGS + NUM_FREGS + NUM_SSE_REGS)
+
+/* Adjust a few macros to deal with this extra register.  */
+
+#undef NUM_REGS
+#define NUM_REGS (NUM_GREGS + NUM_FREGS + NUM_SSE_REGS + 1)
+
+#undef MAX_NUM_REGS
+#define MAX_NUM_REGS (16 + 16 + 9 + 1)
+
+#undef REGISTER_BYTES
+#define REGISTER_BYTES \
+  (SIZEOF_GREGS + SIZEOF_FPU_REGS + SIZEOF_FPU_CTRL_REGS + SIZEOF_SSE_REGS + 4)
+
+#undef REGISTER_NAME
+#define REGISTER_NAME(reg) i386_linux_register_name ((reg))
+extern char *i386_linux_register_name (int reg);
+
+#undef REGISTER_BYTE
+#define REGISTER_BYTE(reg) i386_linux_register_byte ((reg))
+extern int i386_linux_register_byte (int reg);
+
+#undef REGISTER_RAW_SIZE
+#define REGISTER_RAW_SIZE(reg) i386_linux_register_raw_size ((reg))
+extern int i386_linux_register_raw_size (int reg);
+
+/* GNU/Linux ELF uses stabs-in-ELF with the DWARF register numbering
+   scheme by default, so we must redefine STAB_REG_TO_REGNUM.  This
+   messes up the floating-point registers for a.out, but there is not
+   much we can do about that.  */
+#undef STAB_REG_TO_REGNUM
+#define STAB_REG_TO_REGNUM(reg) i386_dwarf_reg_to_regnum ((reg))
+
 /* Use target_specific function to define link map offsets.  */
 extern struct link_map_offsets *i386_linux_svr4_fetch_link_map_offsets (void);
 #define SVR4_FETCH_LINK_MAP_OFFSETS() i386_linux_svr4_fetch_link_map_offsets ()
-
-/* FIXME: kettenis/2000-03-26: We should get rid of this last piece of
-   Linux-specific `long double'-support code, probably by adding code
-   to valprint.c:print_floating() to recognize various extended
-   floating-point formats.  */
-
-#if defined(HAVE_LONG_DOUBLE) && defined(HOST_I386)
-/* The host and target are i386 machines and the compiler supports
-   long doubles. Long doubles on the host therefore have the same
-   layout as a 387 FPU stack register. */
-
-#define TARGET_ANALYZE_FLOATING					\
-  do								\
-    {								\
-      unsigned expon;						\
-								\
-      low = extract_unsigned_integer (valaddr, 4);		\
-      high = extract_unsigned_integer (valaddr + 4, 4);		\
-      expon = extract_unsigned_integer (valaddr + 8, 2);	\
-								\
-      nonnegative = ((expon & 0x8000) == 0);			\
-      is_nan = ((expon & 0x7fff) == 0x7fff)			\
-	&& ((high & 0x80000000) == 0x80000000)			\
-	&& (((high & 0x7fffffff) | low) != 0);			\
-    }								\
-  while (0)
-
-#endif
 
 /* The following works around a problem with /usr/include/sys/procfs.h  */
 #define sys_quotactl 1
@@ -73,61 +83,20 @@ extern struct link_map_offsets *i386_linux_svr4_fetch_link_map_offsets (void);
 #define IN_SIGTRAMP(pc, name) i386_linux_in_sigtramp (pc, name)
 extern int i386_linux_in_sigtramp (CORE_ADDR, char *);
 
-/* We need our own version of sigtramp_saved_pc to get the saved PC in
-   a sigtramp routine.  */
-
-#define sigtramp_saved_pc i386_linux_sigtramp_saved_pc
-extern CORE_ADDR i386_linux_sigtramp_saved_pc (struct frame_info *);
-
-/* Signal trampolines don't have a meaningful frame.  As in tm-i386.h,
-   the frame pointer value we use is actually the frame pointer of the
-   calling frame--that is, the frame which was in progress when the
-   signal trampoline was entered.  gdb mostly treats this frame
-   pointer value as a magic cookie.  We detect the case of a signal
-   trampoline by looking at the SIGNAL_HANDLER_CALLER field, which is
-   set based on IN_SIGTRAMP.
-
-   When a signal trampoline is invoked from a frameless function, we
-   essentially have two frameless functions in a row.  In this case,
-   we use the same magic cookie for three frames in a row.  We detect
-   this case by seeing whether the next frame has
-   SIGNAL_HANDLER_CALLER set, and, if it does, checking whether the
-   current frame is actually frameless.  In this case, we need to get
-   the PC by looking at the SP register value stored in the signal
-   context.
-
-   This should work in most cases except in horrible situations where
-   a signal occurs just as we enter a function but before the frame
-   has been set up.  */
-
-#define FRAMELESS_SIGNAL(FRAME)					\
-  ((FRAME)->next != NULL					\
-   && (FRAME)->next->signal_handler_caller			\
-   && frameless_look_for_prologue (FRAME))
-
 #undef FRAME_CHAIN
-#define FRAME_CHAIN(FRAME)					\
-  ((FRAME)->signal_handler_caller				\
-   ? (FRAME)->frame						\
-    : (FRAMELESS_SIGNAL (FRAME)					\
-       ? (FRAME)->frame						\
-       : (!inside_entry_file ((FRAME)->pc)			\
-	  ? read_memory_integer ((FRAME)->frame, 4)		\
-	  : 0)))
+#define FRAME_CHAIN(frame) i386_linux_frame_chain (frame)
+extern CORE_ADDR i386_linux_frame_chain (struct frame_info *frame);
 
 #undef FRAME_SAVED_PC
-#define FRAME_SAVED_PC(FRAME)					\
-  ((FRAME)->signal_handler_caller				\
-   ? sigtramp_saved_pc (FRAME)					\
-   : (FRAMELESS_SIGNAL (FRAME)					\
-      ? read_memory_integer (i386_linux_sigtramp_saved_sp ((FRAME)->next), 4) \
-      : read_memory_integer ((FRAME)->frame + 4, 4)))
-
-extern CORE_ADDR i386_linux_sigtramp_saved_sp (struct frame_info *);
+#define FRAME_SAVED_PC(frame) i386_linux_frame_saved_pc (frame)
+extern CORE_ADDR i386_linux_frame_saved_pc (struct frame_info *frame);
 
 #undef SAVED_PC_AFTER_CALL
 #define SAVED_PC_AFTER_CALL(frame) i386_linux_saved_pc_after_call (frame)
 extern CORE_ADDR i386_linux_saved_pc_after_call (struct frame_info *);
+
+#define TARGET_WRITE_PC(pc, ptid) i386_linux_write_pc (pc, ptid)
+extern void i386_linux_write_pc (CORE_ADDR pc, ptid_t ptid);
 
 /* When we call a function in a shared library, and the PLT sends us
    into the dynamic linker to find the function's real address, we

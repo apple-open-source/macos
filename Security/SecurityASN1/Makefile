@@ -4,16 +4,18 @@
 ASN1_SRC= sm_vdatypes.asn sm_x501ud.asn  sm_x411ub.asn sm_x411mtsas.asn \
 			sm_x501if.asn  sm_x520sa.asn sm_x509cmn.asn sm_x509af.asn \
 			sm_x509ce.asn  pkcs1oids.asn pkcs9oids.asn sm_cms.asn sm_ess.asn \
-			pkcs7.asn pkcs8.asn appleoids.asn
+			pkcs7.asn pkcs8.asn appleoids.asn pkcs10.asn
 
 SNACC_SRC= $(SRCROOT)/..
 
 GEN_SRC= $(ASN1_SRC:%.asn=%.cpp)
 GEN_HDR= $(ASN1_SRC:%.asn=%.h)
 
-ASN_SRC_DIR= $(SRCROOT)/asn
-GEN_SRC_DIR= $(SRCROOT)/c++
-GEN_HDR_DIR= $(SRCROOT)/inc
+PKCS_HOME=$(shell echo `pwd`)
+
+ASN_SRC_DIR= $(PKCS_HOME)/asn
+GEN_SRC_DIR= $(PKCS_HOME)/c++
+GEN_HDR_DIR= $(PKCS_HOME)/inc
 
 VPATH= $(ASN_SRC_DIR)
 
@@ -31,7 +33,7 @@ ASN_USEFUL= asn-useful.asn1
 # local build directory, 
 #
 #LOCAL_BUILD= /Data_and_Apps/dmitchBuild
-LOCAL_BUILD= $(SYMROOT)
+LOCAL_BUILD= $(BUILT_PRODUCTS_DIR)
 
 CFLAGS= -g  $(HDR_INCPATH) -DVDADER_RULES
 LDFLAGS= -lstdc++ -lsnacc++ -L$(LOCAL_BUILD)
@@ -42,7 +44,7 @@ SNACC_FLAGS= -C -D -u $(ASN_USEFUL)
 
 first:	$(GEN_SRC) move_genfiles
 
-$(GEN_SRC):	$(ASN1_SRC)
+$(GEN_SRC):
 	(cd $(ASN_SRC_DIR); $(SNACC) $(SNACC_FLAGS) $(ASN1_SRC))
 
 move_genfiles:	clean_genfiles

@@ -104,7 +104,10 @@ struct kboard
        ends before this.  This is not the same as kbd_macro_ptr, because
        we advance this to kbd_macro_ptr when a key's command is complete.
        This way, the keystrokes for "end-kbd-macro" are not included in the
-       macro.  */
+       macro.  This also allows us to throw away the events added to the
+       macro by the last command: all the events between kbd_macro_end and
+       kbd_macro_ptr belong to the last command; see
+       cancel-kbd-macro-events.  */
     Lisp_Object *kbd_macro_end;
 
     /* Allocated size of kbd_macro_buffer.  */
@@ -189,9 +192,6 @@ extern int num_nonmacro_input_events;
 /* Nonzero means polling for input is temporarily suppressed.  */
 extern int poll_suppress_count;
 
-/* Nonzero if polling_for_input is actually being used.  */
-extern int polling_for_input;
-
 /* Keymap mapping ASCII function key sequences onto their preferred forms.
    Initialized by the terminal-specific lisp files.  */
 extern Lisp_Object Vfunction_key_map;
@@ -248,22 +248,27 @@ extern Lisp_Object item_properties;
 /* Extract the head from an event.
    This works on composite and simple events.  */
 #define EVENT_HEAD(event) \
-  (EVENT_HAS_PARAMETERS (event) ? XCONS (event)->car : (event))
+  (EVENT_HAS_PARAMETERS (event) ? XCAR (event) : (event))
 
 /* Extract the starting and ending positions from a composite event.  */
-#define EVENT_START(event) (XCONS (XCONS (event)->cdr)->car)
-#define EVENT_END(event) (XCONS (XCONS (XCONS (event)->cdr)->cdr)->car)
+#define EVENT_START(event) (XCAR (XCDR (event)))
+#define EVENT_END(event) (XCAR (XCDR (XCDR (event))))
 
 /* Extract the click count from a multi-click event.  */
 #define EVENT_CLICK_COUNT(event) (Fnth ((event), make_number (2)))
 
 /* Extract the fields of a position.  */
-#define POSN_WINDOW(posn) (XCONS (posn)->car)
-#define POSN_BUFFER_POSN(posn) (XCONS (XCONS (posn)->cdr)->car)
-#define POSN_WINDOW_POSN(posn) (XCONS (XCONS (XCONS (posn)->cdr)->cdr)->car)
+#define POSN_WINDOW(posn) (XCAR (posn))
+#define POSN_BUFFER_POSN(posn) (XCAR (XCDR (posn)))
+#define POSN_WINDOW_POSN(posn) (XCAR (XCDR (XCDR (posn))))
 #define POSN_TIMESTAMP(posn) \
-  (XCONS (XCONS (XCONS (XCONS (posn)->cdr)->cdr)->cdr)->car)
+  (XCAR (XCDR (XCDR (XCDR (posn)))))
 #define POSN_SCROLLBAR_PART(posn)	(Fnth ((posn), make_number (4)))
+
+/* A cons (STRING . STRING-CHARPOS), or nil in mouse-click events.
+   It's a cons if the click is over a string in the mode line.  */
+
+#define POSN_STRING(POSN) Fnth (make_number (4), (POSN))
 
 /* Some of the event heads.  */
 extern Lisp_Object Qswitch_frame;
@@ -284,13 +289,11 @@ extern Lisp_Object Qscroll_bar_movement;
   (Fget ((event_head), Qevent_kind))
 
 /* Symbols to use for non-text mouse positions.  */
-extern Lisp_Object Qmode_line, Qvertical_line;
+extern Lisp_Object Qmode_line, Qvertical_line, Qheader_line;
 
 /* Forward declaration for prototypes.  */
 struct input_event;
 
-extern Lisp_Object get_keymap_1 P_ ((Lisp_Object, int, int));
-EXFUN (Fkeymapp, 1);
 extern Lisp_Object parse_modifiers P_ ((Lisp_Object));
 extern Lisp_Object reorder_modifiers P_ ((Lisp_Object));
 extern Lisp_Object read_char P_ ((int, int, Lisp_Object *, Lisp_Object, int *));
@@ -323,9 +326,19 @@ extern void stuff_buffered_input P_ ((Lisp_Object));
 extern void clear_waiting_for_input P_ ((void));
 extern void swallow_events P_ ((int));
 extern int help_char_p P_ ((Lisp_Object));
-extern void quit_throw_to_read_char P_ ((void));
+extern void quit_throw_to_read_char P_ ((void)) NO_RETURN;
 extern void cmd_error_internal P_ ((Lisp_Object, char *));
 extern void timer_start_idle P_ ((void));
 extern void timer_stop_idle P_ ((void));
 extern int lucid_event_type_list_p P_ ((Lisp_Object));
 extern void kbd_buffer_store_event P_ ((struct input_event *));
+#ifdef POLL_FOR_INPUT
+extern void poll_for_input_1 P_ ((void));
+#endif
+extern void show_help_echo P_ ((Lisp_Object, Lisp_Object, Lisp_Object,
+				Lisp_Object, int));
+extern int gen_help_event P_ ((struct input_event *, int, Lisp_Object,
+			       Lisp_Object, Lisp_Object, Lisp_Object, int));
+extern void kbd_buffer_store_help_event P_ ((Lisp_Object, Lisp_Object));
+extern Lisp_Object menu_item_eval_property P_ ((Lisp_Object));
+extern int  kbd_buffer_events_waiting P_ ((int));

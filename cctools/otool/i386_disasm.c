@@ -469,7 +469,7 @@ static const struct instable op0FBA[8] = {
 /*
  * Decode table for 0x0F opcodes
  */
-static const struct instable op0F[13][16] = {
+static const struct instable op0F[16][16] = {
 /*  [00]  */ {  {"",op0F00,TERM,0},	{"",op0F01,TERM,0},
 		{"lar",TERM,MR,0},	{"lsl",TERM,MR,0},
 /*  [04]  */	INVALID,		INVALID,
@@ -495,21 +495,21 @@ static const struct instable op0F[13][16] = {
 /*  [2C]  */	INVALID,		INVALID,
 		INVALID,		INVALID },
 /*  [30]  */ {  {"wrmsr",TERM,GO_ON,0},	{"rdtsc",TERM,GO_ON,0},
-		{"rdmsr",TERM,GO_ON,0},	INVALID,
+		{"rdmsr",TERM,GO_ON,0},	{"rdpmc",TERM,GO_ON,0},
 /*  [34]  */	INVALID,		INVALID,
 		INVALID,		INVALID,
 /*  [38]  */	INVALID,		INVALID,
 		INVALID,		INVALID,
 /*  [3C]  */	INVALID,		INVALID,
 		INVALID,		INVALID },
-/*  [40]  */ {  INVALID,		INVALID,
-		INVALID,		INVALID,
-/*  [44]  */	INVALID,		INVALID,
-		INVALID,		INVALID,
-/*  [48]  */	INVALID,		INVALID,
-		INVALID,		INVALID,
-/*  [4C]  */	INVALID,		INVALID,
-		INVALID,		INVALID },
+/*  [40]  */ {  {"cmovo",TERM,MRw,1},	{"cmovno",TERM,MRw,1},
+		{"cmovb",TERM,MRw,1},	{"cmovae",TERM,MRw,1},
+/*  [44]  */	{"cmove",TERM,MRw,1},	{"cmovne",TERM,MRw,1},
+		{"cmovbe",TERM,MRw,1},	{"cmova",TERM,MRw,1},
+/*  [48]  */	{"cmovs",TERM,MRw,1},	{"cmovns",TERM,MRw,1},
+		{"cmovp",TERM,MRw,1},	{"cmovnp",TERM,MRw,1},
+/*  [4C]  */	{"cmovl",TERM,MRw,1},	{"cmovge",TERM,MRw,1},
+		{"cmovle",TERM,MRw,1},	{"cmovg",TERM,MRw,1} },
 /*  [50]  */ {  INVALID,		INVALID,
 		INVALID,		INVALID,
 /*  [54]  */	INVALID,		INVALID,
@@ -574,6 +574,30 @@ static const struct instable op0F[13][16] = {
 		{"bswap",TERM,BSWAP,0},	{"bswap",TERM,BSWAP,0},
 /*  [CC]  */	{"bswap",TERM,BSWAP,0},	{"bswap",TERM,BSWAP,0},
 		{"bswap",TERM,BSWAP,0},	{"bswap",TERM,BSWAP,0} },
+/*  [D0]  */ {  INVALID,		INVALID,
+		INVALID,		INVALID,
+/*  [D4]  */	INVALID,		INVALID,
+		INVALID,		INVALID,
+/*  [D8]  */	INVALID,		INVALID,
+		INVALID,		INVALID,
+/*  [DC]  */	INVALID,		INVALID,
+		INVALID,		INVALID },
+/*  [E0]  */ {  INVALID,		INVALID,
+		INVALID,		INVALID,
+/*  [E4]  */	INVALID,		INVALID,
+		INVALID,		INVALID,
+/*  [E8]  */	INVALID,		INVALID,
+		INVALID,		INVALID,
+/*  [EC]  */	INVALID,		INVALID,
+		INVALID,		INVALID },
+/*  [F0]  */ {  INVALID,		INVALID,
+		INVALID,		INVALID,
+/*  [F4]  */	INVALID,		INVALID,
+		INVALID,		INVALID,
+/*  [F8]  */	INVALID,		INVALID,
+		INVALID,		INVALID,
+/*  [FC]  */	INVALID,		INVALID,
+		INVALID,		{"ud2",TERM,GO_ON,0} },
 };
 
 /*
@@ -764,14 +788,14 @@ static const struct instable opFP3[8][8] = {
 		{"fnop",TERM,GO_ON,0},	{"fstp",TERM,F,0},
 /*  [1,4]  */	INVALID,		INVALID,
 		INVALID,		INVALID },
-/*  [2,0]  */ { INVALID,		INVALID,
-		INVALID,		INVALID,
+/*  [2,0]  */ { {"fcmovb",TERM,FF,0},	{"fcmove",TERM,FF,0},
+		{"fcmovbe",TERM,FF,0},	{"fcmovu",TERM,FF,0},
 /*  [2,4]  */	INVALID,		{"fucompp",TERM,GO_ON,0},
 		INVALID,		INVALID },
-/*  [3,0]  */ { INVALID,		INVALID,
-		INVALID,		INVALID,
-/*  [3,4]  */	INVALID,		INVALID,
-		INVALID,		INVALID },
+/*  [3,0]  */ { {"fcmovnb",TERM,FF,0},	{"fcmovne",TERM,FF,0},
+		{"fcmovnbe",TERM,FF,0},	{"fcmovnu",TERM,FF,0},
+/*  [3,4]  */	INVALID,		{"fucomi",TERM,FF,0},
+		{"fcomi",TERM,FF,0},	INVALID },
 /*  [4,0]  */ { {"fadd",TERM,FF,0},	{"fmul",TERM,FF,0},
 		{"fcom",TERM,F,0},	{"fcomp",TERM,F,0},
 /*  [4,4]  */	{"fsub",TERM,FF,0},	{"fsubr",TERM,FF,0},
@@ -786,8 +810,8 @@ static const struct instable opFP3[8][8] = {
 		{"fdivp",TERM,FF,0},	{"fdivrp",TERM,FF,0} },
 /*  [7,0]  */ { {"ffree",TERM,F,0},	{"fxch",TERM,F,0},
 		{"fstp",TERM,F,0},	{"fstp",TERM,F,0},
-/*  [7,4]  */	{"fnstsw",TERM,M,1},	INVALID,
-		INVALID,		INVALID },
+/*  [7,4]  */	{"fnstsw",TERM,M,1},	{"fucomip",TERM,FF,0},
+		{"fcomip",TERM,FF,0},	INVALID },
 };
 
 static const struct instable opFP4[4][8] = {
@@ -1067,12 +1091,6 @@ enum bool verbose)
 	    byte = get_value(sizeof(char), sect, &length, &left);
 	    opcode4 = byte >> 4 & 0xf;
 	    opcode5 = byte & 0xf;
-	    if(opcode4 > 12)  {
-		printf(".byte 0x%01x%01x, 0x%01x%01x #bad opcode\n",
-		       (unsigned int)opcode1, (unsigned int)opcode2,
-		       (unsigned int)opcode4, (unsigned int)opcode5);
-		return(length);
-	    }
 	    dp = &op0F[opcode4][opcode5];
 	}
 
@@ -1092,7 +1110,7 @@ enum bool verbose)
 		/* instruction form 5 */
 		if(opcode2 == 0xB && mode == 0x3 && opcode3 == 4)
 		    dp = &opFP5[r_m];
-		else if(opcode2 == 0xB && mode == 0x3 && opcode3 > 4){
+		else if(opcode2 == 0xB && mode == 0x3 && opcode3 > 6){
 		    printf(".byte 0x%01x%01x, 0x%01x%01x 0x%02x #bad opcode\n",
 			   (unsigned int)opcode1, (unsigned int)opcode2,
 			   (unsigned int)opcode4, (unsigned int)opcode5,
@@ -1775,7 +1793,7 @@ enum bool verbose)
 	/* float reg to float reg, with ret bit present */
 	case FF:
 	    /* return result bit for 287 instructions */
-	    if((opcode2 >> 2) & 0x1)
+	    if(((opcode2 >> 2) & 0x1) == 0x1 && opcode2 != 0xf)
 		printf("%s\t%%st,%%st(%1.1lu)\n", mnemonic, r_m);
 	    else
 		printf("%s\t%%st(%1.1lu),%%st\n", mnemonic, r_m);

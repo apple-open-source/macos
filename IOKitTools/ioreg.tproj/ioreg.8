@@ -18,6 +18,7 @@
 .Op Fl p Ar plane
 .Op Fl s
 .Op Fl w Ar width
+.Op Fl x
 .Sh DESCRIPTION
 .Nm
 displays the I/O Kit registry.
@@ -59,3 +60,6 @@ Show the object state (busy state, retain count).
 Clip the output to the specified line
 .Ar width .
 The default width value is the current screen size.  A value of 0 specifies an unlimited line width.
+.Pp
+.It Fl x
+Print numeric property values in hexadecimal.

@@ -67,7 +67,7 @@
 #define _YPDB_H_
 
 #ifndef _DB_H_
-#include <bsd/db.h>
+#include <db.h>
 #endif
 
 #define YPDB_SUFFIX	".db"

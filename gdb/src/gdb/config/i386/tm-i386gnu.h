@@ -1,5 +1,5 @@
 /* Macro definitions for i386 running the GNU Hurd.
-   Copyright (C) 1992, 1999 Free Software Foundation, Inc.
+   Copyright 1992, 1999, 2000 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -41,6 +41,11 @@
 
 #define HAVE_I387_REGS
 #include "i386/tm-i386.h"
+
+/* We use stabs-in-ELF with the DWARF register numbering scheme.  */
+
+#undef STAB_REG_TO_REGNUM
+#define STAB_REG_TO_REGNUM(reg) i386_dwarf_reg_to_regnum ((reg))
 
 /* Offset to saved PC in sigcontext.  */
 #define SIGCONTEXT_PC_OFFSET 68

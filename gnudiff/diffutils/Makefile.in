@@ -149,7 +149,7 @@ install: all installdirs
 	for p in $(PROGRAMS); do \
 	  $(INSTALL_PROGRAM) $$p $(bindir)/`echo $$p | $(edit_program_name)`; \
 	done
-	{ test -f diff.info || cd $(srcdir); } && \
+	#{ test -f diff.info || cd $(srcdir); } && \
 	#for f in diff.info*; do \
 	#  $(INSTALL_DATA) $$f $(infodir)/$$f; \
 	#done

@@ -35,6 +35,13 @@
 
 #define DAV_FS_COPY_BLOCKSIZE	16384	/* copy 16k at a time */
 
+/* is this an "out-of-space" error? */
+#ifdef EDQUOT
+#define OUT_OF_SPACE(e) ((e) == EDQUOT || (e) == ENOSPC)
+#else
+#define OUT_OF_SPACE(e) ((e) == ENOSPC)
+#endif
+
 /* context needed to identify a resource */
 struct dav_resource_private {
     pool *pool;             /* memory storage pool associated with request */
@@ -137,6 +144,7 @@ struct dav_stream {
     pool *p;
     int fd;
     const char *pathname;	/* we may need to remove it at close time */
+    const char *alt_path;       /* path to temp copy in .DAV/ */
 };
 
 /* forward declaration for internal treewalkers */
@@ -315,7 +323,7 @@ static dav_error * dav_fs_copymove_file(
 				     "inconsistent state.");
 	    }
 
-	    if (save_errno == ENOSPC) {
+	    if (OUT_OF_SPACE(save_errno)) {
 		return dav_new_error(p, HTTP_INSUFFICIENT_STORAGE, 0,
 				     "There is not enough storage to write to "
 				     "this resource.");
@@ -731,6 +739,11 @@ static dav_error * dav_fs_open_stream(const dav_resource *resource,
     pool *p = resource->info->pool;
     dav_stream *ds = ap_palloc(p, sizeof(*ds));
     int flags;
+    const char *path = resource->info->pathname;
+
+    ds->p = p;
+    ds->pathname = path;
+    ds->alt_path = NULL;
 
     switch (mode) {
     case DAV_MODE_READ:
@@ -740,16 +753,59 @@ static dav_error * dav_fs_open_stream(const dav_resource *resource,
 	break;
 
     case DAV_MODE_WRITE_TRUNC:
-	flags = O_WRONLY | O_CREAT | O_TRUNC | O_BINARY;
+    {
+        const char *dirname;
+        const char *fname;
+        char pidstr[10];
+
+        /* When uploading a new file, put it into a temporary file first.
+           When the file is closed and "committed", then we will move it
+           into the "real" space.
+
+           If an error occurs while writing the file, then we will remove
+           the file at close and "abort" time. */
+
+        /* Note that on platforms where getpid() is the same for all requests
+           (such as Windows), this implies that two clients will be stomping
+           on each others' files as they upload. This is better than the
+           prior behavior, where they stomped on each other AND the file that
+           people were reading from.
+
+           We could attempt to open O_EXCL to watch out for this case, but
+           that would suck if a turd was left for some reason. Then nobody
+           could upload a file until an admin cleared the turd. For now,
+           we just zap whatever might be there.
+
+           The use of the pid will at least help for some platforms for the
+           case where two people are uploading simultaneously. Note that the
+           last one wins (they should have LOCKed it :-). */
+
+        flags = O_WRONLY | O_CREAT | O_TRUNC | O_BINARY;
+
+        /* Ensure the temp area is around, compute the pathname for the temp
+           area, and stash the new pathname away. */
+        dav_fs_dir_file_name(resource, &dirname, &fname);
+        dav_fs_ensure_state_dir(p, dirname);
+        ap_snprintf(pidstr, sizeof(pidstr), "%d", (int)getpid());
+
+        /* ### for now: disable the alternate file usage. this changes the
+           ### inode of the file, which breaks the lock database. we have
+           ### no easy way to reach the lock database and give it the old
+           ### and new inode; thus, we have no easy way to repair the lock.
+           ### sigh... damn modularity :-) */
+#if 0
+        path = ap_pstrcat(p, dirname, "/" DAV_FS_STATE_DIR "/", fname,
+                          ".", pidstr, NULL);
+        ds->alt_path = path;
+#endif
 	break;
+    }
     case DAV_MODE_WRITE_SEEKABLE:
 	flags = O_WRONLY | O_CREAT | O_BINARY;
 	break;
     }
 
-    ds->p = p;
-    ds->pathname = resource->info->pathname;
-    ds->fd = open(ds->pathname, flags, DAV_FS_MODE_FILE);
+    ds->fd = open(path, flags, DAV_FS_MODE_FILE);
     if (ds->fd == -1) {
 	/* ### use something besides 500? */
 	return dav_new_error(p, HTTP_INTERNAL_SERVER_ERROR, 0,
@@ -767,13 +823,35 @@ static dav_error * dav_fs_close_stream(dav_stream *stream, int commit)
     close(stream->fd);
 
     if (!commit) {
-	if (remove(stream->pathname) != 0) {
+        const char *path;
+
+        /* remove the temp file or the normal file, depending on where we
+           were writing. */
+        path = stream->alt_path ? stream->alt_path : stream->pathname;
+	if (remove(path) != 0) {
 	    /* ### use a better description? */
             return dav_new_error(stream->p, HTTP_INTERNAL_SERVER_ERROR, 0,
 				 "There was a problem removing (rolling "
 				 "back) the resource "
 				 "when it was being closed.");
 	}
+    }
+    else if (stream->alt_path != NULL) {
+        /* we were storing to an alternative area. move it to the real area
+           (blowing away anything that might be there) */
+        if (rename(stream->alt_path, stream->pathname) != 0) {
+            int save_errno = errno;
+            dav_error *err;
+
+            /* whoops. get rid of the temp file before returning an error. */
+            (void) remove(stream->alt_path);
+
+            /* ### should have a better error than this. */
+            err = dav_new_error(stream->p, HTTP_INTERNAL_SERVER_ERROR, 0,
+                                "Could not commit resource.");
+            err->save_errno = save_errno;
+            return err;
+        }
     }
 
     return NULL;
@@ -799,7 +877,7 @@ static dav_error * dav_fs_write_stream(dav_stream *stream,
 				       const void *buf, size_t bufsize)
 {
     if (dav_sync_write(stream->fd, buf, bufsize) != 0) {
-	if (errno == ENOSPC) {
+	if (OUT_OF_SPACE(errno)) {
 	    return dav_new_error(stream->p, HTTP_INSUFFICIENT_STORAGE, 0,
 				 "There is not enough storage to write to "
 				 "this resource.");
@@ -872,7 +950,7 @@ static dav_error * dav_fs_create_collection(pool *p, dav_resource *resource)
     dav_resource_private *ctx = resource->info;
 
     if (mkdir(ctx->pathname, DAV_FS_MODE_DIR) != 0) {
-	if (errno == ENOSPC) 
+	if (OUT_OF_SPACE(errno)) 
 	    return dav_new_error(p, HTTP_INSUFFICIENT_STORAGE, 0,
 				 "There is not enough storage to create "
 				 "this collection.");
@@ -1255,7 +1333,7 @@ dav_error * dav_fs_walker(dav_fs_walker_context *fsctx, int depth)
 	return err;
     }
 
-    if (depth == 0 || !isdir) {
+    if (!isdir) {
 	return NULL;
     }
 
@@ -1309,6 +1387,11 @@ dav_error * dav_fs_walker(dav_fs_walker_context *fsctx, int depth)
 	    && !strcmp(ep->d_name, DAV_FS_STATE_DIR)) {
 	    continue;
 	}
+
+        /* For depth 0, do not walk anything but the state directory */
+        if (depth == 0 && strcmp(ep->d_name, DAV_FS_STATE_DIR)) {
+            continue;
+        }
 
 	/* append this file onto the path buffer (copy null term) */
 	dav_buffer_place_mem(wctx->pool,
@@ -1389,7 +1472,8 @@ dav_error * dav_fs_walker(dav_fs_walker_context *fsctx, int depth)
     if (err != NULL)
 	return err;
 
-    if (wctx->walk_type & DAV_WALKTYPE_LOCKNULL) {
+    /* don't walk lock null resources for depth 0 */
+    if (depth != 0 && wctx->walk_type & DAV_WALKTYPE_LOCKNULL) {
 	size_t offset = 0;
 
 	/* null terminate the directory name */
@@ -1659,6 +1743,7 @@ static dav_prop_insert dav_fs_insert_prop(const dav_resource *resource,
     pool *p = resource->info->pool;
     const dav_fs_liveprop_name *scan;
     int ns;
+    const char *attribs = "";
 
     /* an HTTP-date can be 29 chars plus a null term */
     /* a 64-bit size can be 20 chars plus a null term */
@@ -1693,6 +1778,11 @@ static dav_prop_insert dav_fs_insert_prop(const dav_resource *resource,
                         resource->info->finfo.st_ctime,
                         buf);
 	value = buf;
+	/* this extra attribute is needed to get Web Folders to
+	 * recognize the date. */
+        /* ### would be nice to shift this xmlns to the outermost elem */
+	attribs = " xmlns:b=\"urn:uuid:c2f41010-65b3-11d1-a29f-00aa00c14882/\""
+	    " b:dt=\"dateTime.tz\"";
 	break;
 
     case DAV_PROPID_FS_getcontentlength:
@@ -1714,6 +1804,11 @@ static dav_prop_insert dav_fs_insert_prop(const dav_resource *resource,
                         resource->info->finfo.st_mtime,
                         buf);
 	value = buf;
+	/* this extra attribute is needed to get Web Folders to
+	 * recognize the date. */
+        /* ### would be nice to shift this xmlns to the outermost elem */
+	attribs = " xmlns:b=\"urn:uuid:c2f41010-65b3-11d1-a29f-00aa00c14882/\""
+	    " b:dt=\"dateTime.rfc1123\"";
 	break;
 
     case DAV_PROPID_FS_executable:
@@ -1757,13 +1852,13 @@ static dav_prop_insert dav_fs_insert_prop(const dav_resource *resource,
 
     if (insvalue) {
 	/* use D: prefix to refer to the DAV: namespace URI */
-	s = ap_psprintf(p, "<lp%d:%s>%s</lp%d:%s>" DEBUG_CR,
-			ns, scan->name, value, ns, scan->name);
+	s = ap_psprintf(p, "<lp%d:%s%s>%s</lp%d:%s>" DEBUG_CR,
+			ns, scan->name, attribs, value, ns, scan->name);
 	which = DAV_PROP_INSERT_VALUE;
     }
     else {
 	/* use D: prefix to refer to the DAV: namespace URI */
-	s = ap_psprintf(p, "<lp%d:%s/>" DEBUG_CR, ns, scan->name);
+	s = ap_psprintf(p, "<lp%d:%s%s/>" DEBUG_CR, ns, scan->name, attribs);
 	which = DAV_PROP_INSERT_NAME;
     }
     dav_text_append(p, phdr, s);

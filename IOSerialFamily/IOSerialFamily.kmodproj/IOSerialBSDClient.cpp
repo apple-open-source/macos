@@ -69,8 +69,6 @@ __END_DECLS
 
 OSDefineMetaClassAndStructors(IOSerialBSDClient, IOService)
 
-#define fProvider ((IOSerialStreamSync *) getProvider())
-
 /* Macros to clear/set/test flags. */
 #define	SET(t, f)	(t) |= (f)
 #define	CLR(t, f)	(t) &= ~(f)
@@ -619,7 +617,8 @@ start(IOService *provider)
     if (!sBSDGlobals.isValid())
         return false;
 
-    if (!OSDynamicCast(IOSerialStreamSync, provider))
+    fProvider = OSDynamicCast(IOSerialStreamSync, provider);
+    if (!fProvider)
         return false;
 
     /*
@@ -878,7 +877,7 @@ iossclose(dev_t dev, int flags, int devtype, struct proc *p)
 
     // Remember this is the last close so we may have to delete ourselves
     // This reference is held just before we opened the line discipline
-    // in clientOpen above.
+    // in open().
     me->release();
 
     return 0;
@@ -962,8 +961,9 @@ rs232totio(int bits)
 {
     u_long out_b = bits;
 
-    out_b &= ( PD_RS232_S_DTR | PD_RS232_S_RFR | PD_RS232_S_CTS
-	     | PD_RS232_S_CAR | PD_RS232_S_RNG | PD_RS232_S_BRK );
+    out_b &= ( PD_RS232_S_DTR | PD_RS232_S_DSR
+             | PD_RS232_S_RFR | PD_RS232_S_CTS
+             | PD_RS232_S_BRK | PD_RS232_S_CAR  | PD_RS232_S_RNG);
     return out_b;
 }
 
@@ -1415,7 +1415,7 @@ checkBusy:
         goto exitOpen;
     }
 
-    // Can't call startConnectTransition as we need to make sure that
+    // Can't call startConnectTransit as we need to make sure that
     // the device hasn't been hot unplugged while we were waiting.
     if (!imPreempting && fConnectTransit) {
         tsleep((caddr_t) this, TTIPRI, "ttyopn", 0);
@@ -1550,28 +1550,40 @@ checkAndWaitForIdle:
         IOReturn rtn;
         UInt32 pd_state;
 
-        // Clear up the transit while we are waiting for carrier
-        endConnectTransit();
-
         /* Track DCD Transistion to high */
         fInOpensPending++;
         pd_state = PD_RS232_S_CAR;
+
+        // Clear up the transit while we are waiting for carrier
+        endConnectTransit();
         rtn = sessionWatchState(sp, &pd_state, PD_RS232_S_CAR);
+        startConnectTransit(); 
+
         fInOpensPending--; wakeup(&fInOpensPending);
 
-        if (kIOReturnIPCError == rtn) {
-            fActiveSession = 0;
-            return EINTR;	// No transition to clean up
+        // Check for an interrupt or a revoke
+        if (kIOReturnIPCError == rtn || kIOReturnIOError == rtn) {
+            if (!fInOpensPending) {
+                fProvider->releasePort();
+                fActiveSession = 0;
+            }
+
+            // End the connect transit lock and return error
+            endConnectTransit();
+            
+            return EINTR;
         }
+        
+        // End non-preemptible code
 
         // Wait for the connection (open()/close()) engine to stabilise
         if (sp->fErrno) {
             sp->fErrno = 0;	// We have been pre-empted;
+            endConnectTransit();
             goto checkBusy;
         }
 
         // Re-establish the connection transition state.
-        startConnectTransit();
         (*linesw[tp->t_line].l_modem)(tp, 1);	// To be here we must have DCD
     }
 
@@ -1613,6 +1625,15 @@ close(dev_t dev, int flags, int devtype, struct proc *p)
 
     sp = &fSessions[IS_TTY_OUTWARD(dev)];
     tp = &sp->ftty;
+
+    if (!tp->t_dev && fInOpensPending) {
+	retain();	// Hold a reference until the port is closed
+        (void) fProvider->executeEvent(PD_E_ACTIVE, false);
+        endConnectTransit();
+        while (fInOpensPending)
+            tsleep((caddr_t) &fInOpensPending, TTIPRI, "ttyrev", 0);
+        return;
+    }
 
     /* We are closing, it doesn't matter now about holding back ... */
     CLR(tp->t_state, TS_TTSTOP);
@@ -1667,7 +1688,6 @@ close(dev_t dev, int flags, int devtype, struct proc *p)
     }
 
     sp->fErrno = 0;	/* Clear the error condition on last close */
-
     endConnectTransit();
 }
 
@@ -1775,7 +1795,6 @@ preemptActive()
     struct tty *tp = &sp->ftty;
 
     sp->fErrno = EBUSY;
-    fActiveSession = 0;
     fKillThreads = true;
 
     // This flag gets reset once we actually take over the session
@@ -1797,6 +1816,7 @@ preemptActive()
     while (fInOpensPending)
         tsleep((caddr_t) &fInOpensPending, TTIPRI, "ttypre", 0);
 
+    fActiveSession = 0;
     fProvider->releasePort();	// Release the old session
 }
 

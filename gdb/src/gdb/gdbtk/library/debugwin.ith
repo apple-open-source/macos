@@ -79,7 +79,6 @@ class DebugWinDOpts {
     variable _classes
     method build_win {}
     method _all {}
-    method _apply {}
+    method _apply {done}
   }
-
 }

@@ -35,10 +35,10 @@ extern "C" {
 #endif
 
 /*
- * This flags functional changes, within SSLRef3 source, made to
- * accomodate the Apple SecureTransport library.
+ * general Keychain functionality.
  */
-#define _APPLE_CDSA_					1
+ 
+#define ST_KEYCHAIN_ENABLE				1
 
 /*
  * Work around the Netscape Server Key Exchange bug. When this is 
@@ -48,7 +48,7 @@ extern "C" {
  *   -- an export-grade ciphersuite has been negotiated, and
  *   -- an encryptPrivKey is present in the context
  */
-#define SSL_SERVER_KEYEXCH_HACK			1
+#define SSL_SERVER_KEYEXCH_HACK			0
 
 /*
  * RSA functions which use a public key to do encryption force 
@@ -65,6 +65,35 @@ extern "C" {
  * rework needed if it's not. 
  */
 #define APPLE_DOMESTIC_CSP_REQUIRED		1
+
+/*
+ * CSSM_KEYs obtained from Keychain require a SecKeychainRef to be freed/released.
+ * True on 9, false on X.
+ */
+#define ST_KC_KEYS_NEED_REF			0
+
+/*
+ * Initial bringup of server/keychain on X: the certRefs argument of 
+ * SSLSetCertificate() contains one DLDBHandle, not a number of 
+ * SecIdentityRefs. The DLDB contains exactly one private key, and a
+ * cert with PrintName which matches that key. Public key is obtained
+ * from the cert. We have to manually attach to the CSPDL in this case.
+ */
+#define ST_FAKE_KEYCHAIN			0
+
+/*
+ * Flags need for manually attaching to CSPDL for configuration which
+ * does not contain a working SecKeychainGetCSPHandle().
+ */
+#define ST_FAKE_GET_CSPDL_HANDLE	0
+
+/* 
+ * We manage trusted certs and pass them to the TP. 
+ *  -- OS 9 - true
+ *  -- OS 10, 10.1 - false
+ *  -- Jaguar - TBD. SSLSetNewRootKC and SSLSetTrustedRootCertKC deleted for now.
+ */
+#define ST_MANAGES_TRUSTED_ROOTS	0
 
 /* debugging flags */
 #ifdef	NDEBUG

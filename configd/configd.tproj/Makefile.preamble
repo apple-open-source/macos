@@ -136,6 +136,7 @@ OTHER_GENERATED_OFILES = $(VERS_OFILE)
 # and "" on other systems.
 # DSTROOT = $(HOME)
 
-# Additional flags (MiG generated files)
+# Additional flags (for MiG generated files)
+ALL_MIGFLAGS = -F$(SYMROOT)
 OTHER_OFILES = configServer.o
 

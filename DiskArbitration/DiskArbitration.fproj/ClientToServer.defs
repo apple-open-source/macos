@@ -180,23 +180,6 @@ simpleroutine DiskArbClientHandlesUninitializedDisks_rpc (
 			in	pid: int;
 			in	flag: int);
 
-/* -- Printer Arbitration -- */
-
-simpleroutine DiskArbPrinter_Request_rpc (
-				dest: mach_port_t;
-			in	pid: int;
-			in	locationID: int);
-
-simpleroutine DiskArbPrinter_Response_rpc (
-				dest: mach_port_t;
-			in	pid: int;
-			in	locationID: int;
-			in	answer: int);
-
-simpleroutine DiskArbPrinter_Release_rpc (
-				dest: mach_port_t;
-			in	locationID: int);
-
 /* -- Backing Store/Device Arbitration -- */
 
 simpleroutine DiskArbIsDeviceReservedForClient_rpc (
@@ -235,18 +218,20 @@ simpleroutine DiskArbClientWillHandleUnrecognizedDisk_rpc (
 			in	clientPid: int;
 			in	status: int);
 
+/* -- Recognized Disk Notifications (should the disk mount at all?) -- */
+
+simpleroutine DiskArbDiskApprovedAck_rpc (
+				dest: mach_port_t;
+			in	diskIdentifier: DiskArbDiskIdentifier;
+			in	clientPid: int;
+			in	status: int);  
+
+/* 0 for no, 1 for yes, 2 for yes, but needs authentication */
+
+
 /* -- security authorization -- */
 
 simpleroutine DiskArbSetSecuritySettingsForClient_rpc (
 				dest: mach_port_t;
 			in	clientPid: int;
 			in	token: DiskArbSecurityToken);
-
-/* -- open vacant drive doors -- */
-
-simpleroutine DiskArbOpenVacantDriveDoors_rpc (
-				dest: mach_port_t);
-
-
-simpleroutine DiskArbEjectKeyPressed_rpc (
-				dest: mach_port_t);

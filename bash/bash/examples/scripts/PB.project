@@ -1,0 +1,16 @@
+{
+    FILESTABLE = {
+        Documentation = (); 
+        Headers = (); 
+        Resources = (adventure.sh, bcsh.sh); 
+        SUBPROJECTS = (); 
+        Sources = (); 
+    }; 
+    LANGUAGE = English; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = scripts; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

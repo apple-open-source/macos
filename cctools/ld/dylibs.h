@@ -42,6 +42,8 @@ struct merged_dylib {
     enum bool output_id;	/* This is the output file's LC_ID_DYLIB */
 				/*  command others get turned into */
 				/*  LD_LOAD_DYLIB commands */
+    struct dynamic_library	/* The dynamic_library struct for this */
+	*dynamic_library;	/*  dynamic library shared library */
     struct merged_dylib *next;	/* The next in the list, NULL otherwise */
 };
 /* the pointer to the head of the dynamicly linked shared library commands */

@@ -1,0 +1,28 @@
+#! /bin/sh
+
+# Test to make sure that suffix rules chain.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CXX
+END
+
+cat > Makefile.am << 'END'
+SUFFIXES = .zoo
+.zoo.cc:
+	convert-zoo whatever
+bin_PROGRAMS = foo
+foo_SOURCES = foo.zoo
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+# The foo.cc intermediate step is implicit, it's a mistake if
+# Automake requires this file somewhere.
+fgrep foo.cc Makefile.in && exit 1
+# However Automake must figure that foo.zoo is eventually
+# transformed into foo.o, and use this latter file (to link foo).
+fgrep 'foo.$(OBJEXT)' Makefile.in || exit 1
+exit 0

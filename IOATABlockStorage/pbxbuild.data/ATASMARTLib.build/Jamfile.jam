@@ -1,0 +1,84 @@
+# Jamfile for target "ATASMARTLib" of project "IOATABlockStorage"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOATABlockStorage ;
+export deferred SRCROOT = /Volumes/Projects/IOATABlockStorage ;
+
+# User-defined project-wide settings for project
+
+# Target "ATASMARTLib"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ATASMARTLib.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ATASMARTLib.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ATASMARTLib.build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "ATASMARTLib"
+export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred SKIP_INSTALL = YES ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = ATASMARTLib ;
+
+# User-defined build settings for target "ATASMARTLib"
+export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = ATASMARTLib ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+export deferred WRAPPER_EXTENSION = plugin ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred ATA_BLOCK_STORAGE_DEVICE_DEBUGGING_LEVEL = 0 ;
+	export deferred ATA_BLOCK_STORAGE_DRIVER_DEBUGGING_LEVEL = 0 ;
+	export deferred ATA_BLOCK_STORAGE_DRIVER_PM_DEBUGGING_LEVEL = 0 ;
+	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginBundle "<ATASMARTLib>ATASMARTLib.plugin" ;
+
+# Headers
+HEADERS =
+	UserClientLib/ATASMARTLib.h
+	UserClientLib/ATASMARTLibPriv.h
+	UserClientLib/ATASMARTClient.h
+	IOATAStorageDefines.h ;
+ProcessHeaders "<ATASMARTLib>ATASMARTLib.plugin" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Resources
+RESOURCES = ;
+ProcessResources "<ATASMARTLib>ATASMARTLib.plugin" : "$(RESOURCES)" : BPTag000 : BPTag001 ;
+
+# Sources
+SOURCES = UserClientLib/ATASMARTClient.cpp ;
+ProcessSources "<ATASMARTLib>ATASMARTLib.plugin" : "$(SOURCES)" : BPTag001 : BPTag002 ;
+
+# Frameworks & Libraries
+/System/Library/Frameworks/CoreFoundation.framework_ATTRIBUTES = AbsolutePath ;
+/System/Library/Frameworks/IOKit.framework_ATTRIBUTES = AbsolutePath ;
+FRAMEWORKS_AND_LIBRARIES =
+	/System/Library/Frameworks/CoreFoundation.framework
+	/System/Library/Frameworks/IOKit.framework ;
+ProcessFrameworksAndLibraries "<ATASMARTLib>ATASMARTLib.plugin" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag002 : BPTag003 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<ATASMARTLib>ATASMARTLib.plugin" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
+
+EndBundle "<ATASMARTLib>ATASMARTLib.plugin" ;
+

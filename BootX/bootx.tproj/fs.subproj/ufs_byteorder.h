@@ -33,20 +33,20 @@
 /*
  *  ufs_byteorder.h - Externs for endian swapping UFS disk structures.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
 
-#include <bsd/sys/param.h>
-#include <bsd/sys/types.h>
-#include <bsd/sys/disktab.h>
-#include <bsd/sys/vnode.h>
-#include <bsd/sys/buf.h>
-#include <bsd/dev/disk.h>
-#include <bsd/ufs/ufs/quota.h>
-#include <bsd/ufs/ufs/inode.h>
-#include <bsd/ufs/ffs/fs.h>
+#include <sys/param.h>
+#include <sys/types.h>
+#include <sys/disktab.h>
+#include <sys/vnode.h>
+#include <sys/buf.h>
+#include <dev/disk.h>
+#include <ufs/ufs/quota.h>
+#include <ufs/ufs/inode.h>
+#include <ufs/ffs/fs.h>
 
 void byte_swap_ints(int *array, int count);
 void byte_swap_shorts(short *array, int count);

@@ -28,6 +28,7 @@
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
 #include "IOHIDKeys.h"
 
+class  IOHIDPointing;
 class  IOHIDElement;
 class  IOHIDEventQueue;
 struct IOHIDReportHandler;
@@ -66,10 +67,20 @@ private:
     UInt32                      _maxOutputReportSize;
     UInt32                      _maxFeatureReportSize;
 
-    struct ExpansionData { };
+    struct ExpansionData { 
+        IOHIDPointing *		pointingNub;
+        OSSet *                 clientSet;
+        IOService *		displayManager;
+        IONotifier *		publishNotify;
+    };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
     ExpansionData * _reserved;
+    
+    #define _clientSet		_reserved->clientSet
+    #define _pointingNub	_reserved->pointingNub
+    #define _displayManager	_reserved->displayManager
+    #define _publishNotify	_reserved->publishNotify
 
     // HID report descriptor parsing support.
 
@@ -106,6 +117,10 @@ private:
 
     IOBufferMemoryDescriptor * createMemoryForElementValues();
 
+    
+    static bool publishNotificationHandler( void * target, 
+				void * ref, IOService * newService );
+
 protected:
 
 /*! @function free
@@ -114,6 +129,43 @@ protected:
     then call super::free() to propagate the call to our superclass. */
 
     virtual void free();
+
+/*! @function handleOpen
+    @abstract Handle a client open on the interface.
+    @discussion This method is called by IOService::open() with the
+    arbitration lock held, and must return true to accept the client open.
+    This method will in turn call handleClientOpen() to qualify the client
+    requesting the open.
+    @param client The client object that requested the open.
+    @param options Options passed to IOService::open().
+    @param argument Argument passed to IOService::open().
+    @result true to accept the client open, false otherwise. */
+
+    virtual bool handleOpen(IOService *  client,
+                            IOOptionBits options,
+                            void *       argument);
+
+/*! @function handleClose
+    @abstract Handle a client close on the interface.
+    @discussion This method is called by IOService::close() with the
+    arbitration lock held. This method will in turn call handleClientClose()
+    to notify interested subclasses about the client close. If this represents
+    the last close, then the interface will also close the controller before
+    this method returns. The controllerWillClose() method will be called before
+    closing the controller. Subclasses should not override this method.
+    @param client The client object that requested the close.
+    @param options Options passed to IOService::close(). */
+
+    virtual void handleClose(IOService * client, IOOptionBits options);
+
+/*! @function handleIsOpen
+    @abstract Query whether a client has an open on the interface.
+    @discussion This method is always called by IOService with the
+    arbitration lock held. Subclasses should not override this method.
+    @result true if the specified client, or any client if none (0) is
+    specified, presently has an open on this object. */
+
+    virtual bool handleIsOpen(const IOService * client) const;
 
 /*! @function handleStart
     @abstract Prepare the hardware and driver to support I/O operations.
@@ -206,6 +258,15 @@ public:
     @param provider The provider that the driver was started on. */
 
     virtual void stop( IOService * provider );
+    
+/*! @function matchPropertyTable
+    @abstract Called by the provider during a match
+    @discussion Compare the properties in the supplied table to this 
+    object's properties.
+    @param table The property table that this device will match against
+*/
+
+    virtual bool matchPropertyTable(OSDictionary * table, SInt32 * score);    
 
 /*! @function newTransportString
     @abstract Returns a string object that describes the transport
@@ -255,7 +316,10 @@ public:
 
     virtual OSNumber * newVersionNumber() const;
 
-/*! @function newSerialNumber
+/*! 
+    *** THIS HAS BEEN DEPRECATED.  PLEASE USE newSerialNumberString ***
+
+    @function newSerialNumber
     @abstract Returns a number object that describes the serial number
     of the HID device.
     @result A number object. The caller must decrement the retain count
@@ -313,7 +377,8 @@ public:
     @param report A memory descriptor that describes the memory to store
     the report read from the HID device.
     @param reportType The report type.
-    @param options Options to specify the request.
+    @param options The lower 8 bits will represent the Report ID.  The
+    other 24 bits are options to specify the request.
     @result kIOReturnSuccess on success, or an error return otherwise. */
 
     virtual IOReturn getReport( IOMemoryDescriptor * report,
@@ -326,7 +391,8 @@ public:
     @param report A memory descriptor that describes the report to send
     to the HID device.
     @param reportType The report type.
-    @param options Options to specify the request.
+    @param options The lower 8 bits will represent the Report ID.  The
+    other 24 bits are options to specify the request.
     @result kIOReturnSuccess on success, or an error return otherwise. */
 
     virtual IOReturn setReport( IOMemoryDescriptor * report,
@@ -424,10 +490,42 @@ public:
                                          IOHIDElementCookie cookie,
                                          bool *             isActive );
 
-    OSMetaClassDeclareReservedUnused(IOHIDDevice,  0);
-    OSMetaClassDeclareReservedUnused(IOHIDDevice,  1);
-    OSMetaClassDeclareReservedUnused(IOHIDDevice,  2);
-    OSMetaClassDeclareReservedUnused(IOHIDDevice,  3);
+/*! @function updateElementValues
+    @abstract Updates element values from a HID device via getReport.
+    @discussion A completion parameter may be added in the future.
+    @param cookies A list of element cookies who's values need to be
+    set on the device.
+    @param cookieCount The number of element cookies.
+    @result kIOReturnSuccess on success, or an error return otherwise. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice,  0);
+    virtual IOReturn updateElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount = 1);
+    
+/*! @function postElementValues
+    @abstract Posts element values to a HID device via setReport.
+    @discussion A completion parameter may be added in the future.
+    @param cookies A list of element cookies who's values need to be
+    set on the device.
+    @param cookieCount The number of element cookies.
+    @result kIOReturnSuccess on success, or an error return otherwise. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice,  1);
+    virtual IOReturn postElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount = 1);
+
+/*! @function newSerialNumberString
+    @abstract Returns a string object that describes the serial number
+    of the HID device.
+    @result A number object. The caller must decrement the retain count
+    on the object returned. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice,  2);
+    virtual OSString * newSerialNumberString() const;
+    
+/*! @function newLocationIDNumber
+    @abstract Returns a number object that describes the location ID
+    of the HID device.
+    @result A number object. The caller must decrement the retain count
+    on the object returned. */    
+    OSMetaClassDeclareReservedUsed(IOHIDDevice,  3);
+    virtual OSNumber * newLocationIDNumber() const;
+    
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  4);
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  5);
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  6);

@@ -21,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <string.h>
 #import <mach-o/sparc/swap.h>
 #import <architecture/nrw/reg_help.h>
 

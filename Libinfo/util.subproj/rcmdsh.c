@@ -140,7 +140,6 @@ rcmdsh(ahost, rport, locuser, remuser, cmd, rshprog)
 		(void) close(sp[1]);
 		/* Reap child. */
 		(void) wait(NULL);
-		return(sp[0]);
 	}
-	/* NOTREACHED */
+	return(sp[0]);
 }

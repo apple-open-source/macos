@@ -1,7 +1,7 @@
 Package: fetchmail
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
 Vendor: Eric Raymond
-Version: 5.8.17
+Version: 5.9.11
 URL: http://www.tuxedo.org/~esr/fetchmail
 Build-Depends: build-base, flex, libinfo-hdrs, yacc, gnudiff
 Description: Mail retrieval and forwarding utility

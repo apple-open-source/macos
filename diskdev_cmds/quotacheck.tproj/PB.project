@@ -3,10 +3,10 @@
     FILESTABLE = {
         CLASSES = (); 
         FRAMEWORKS = (); 
-        H_FILES = (ufs_byte_order.h); 
+        H_FILES = (quotacheck.h, ufs_byte_order.h); 
         M_FILES = (); 
         OTHER_LIBS = (disk); 
-        OTHER_LINKED = (quotacheck.c, ufs_byte_order.c); 
+        OTHER_LINKED = (quotacheck.c, ufs_quotacheck.c, ufs_byte_order.c, hfs_quotacheck.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, Makefile.dist, quotacheck.8); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 

@@ -1,36 +1,57 @@
 {
-    DYNAMIC_CODE_GEN = YES; 
+    "DYNAMIC_CODE_GEN" = YES; 
     FILESTABLE = {
-        H_FILES = (CFAdditions.h, KEXTDefs.h, KEXTPrivate.h, KEXTManager.h, vers_rsrc.h); 
-        OTHER_LINKED = (
-            CFAdditions.c, 
-            KEXTBundle.c, 
-            KEXTLib.c, 
-            KEXTManager.c, 
-            KEXTModule.c, 
-            KEXTPersonality.c, 
-            vers_rsrc.c
+        "H_FILES" = (
+            "KXKextManager.h", 
+            "KXKextRepository.h", 
+            "KXKext.h", 
+            "KXKextManager_private.h", 
+            "KXKextRepository_private.h", 
+            "KXKext_private.h", 
+            "dgraph.h", 
+            "kld_patch.h", 
+            "load.h", 
+            "paths.h", 
+            "printPList.h", 
+            "vers_rsrc.h", 
+            "KextManager.h", 
+            "KextManagerPriv.h", 
+            "kextmanager_types.h", 
+            "c++rem3.h"
         ); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile); 
-        PRECOMPILED_HEADERS = (); 
-        PROJECT_HEADERS = (KEXTDefs.h, CFAdditions.h, KEXTPrivate.h, KEXTManager.h); 
-        PUBLIC_HEADERS = (KEXTManager.h); 
+        "OTHER_LINKED" = (
+            "KXKextManager.c", 
+            "KXKextRepository.c", 
+            "KXKext.c", 
+            "dgraph.c", 
+            "kld_patch.c", 
+            "load.c", 
+            "paths.c", 
+            "printPList.c", 
+            "vers_rsrc.c", 
+            "KextManager.c", 
+            "c++rem3.c"
+        ); 
+        "OTHER_SOURCES" = ("Makefile.preamble", Makefile, "Makefile.postamble", "kextmanager_mig.defs"); 
+        "PRECOMPILED_HEADERS" = (); 
+        "PROJECT_HEADERS" = ("KXKextManager.h", "KXKextRepository.h", "KXKext.h", "kextmanager_types.h"); 
+        "PUBLIC_HEADERS" = ("KextManager.h"); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
-    NEXTSTEP_BUILDDIR = "/$(USER)/build/$(NAME)"; 
-    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
-    NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/Frameworks"; 
-    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
-    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
-    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
-    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
-    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    "NEXTSTEP_BUILDDIR" = "/$(USER)/build/$(NAME)"; 
+    "NEXTSTEP_BUILDTOOL" = "/usr/bin/gnumake"; 
+    "NEXTSTEP_INSTALLDIR" = "$(SYSTEM_LIBRARY_DIR)/Frameworks"; 
+    "NEXTSTEP_JAVA_COMPILER" = "/usr/bin/javac"; 
+    "NEXTSTEP_OBJCPLUS_COMPILER" = "/usr/bin/cc"; 
+    "PDO_UNIX_BUILDTOOL" = "$NEXT_ROOT/Developer/bin/make"; 
+    "PDO_UNIX_JAVA_COMPILER" = "$(JDKBINDIR)/javac"; 
+    "PDO_UNIX_OBJCPLUS_COMPILER" = "$(NEXTDEV_BIN)/gcc"; 
     PROJECTNAME = kext; 
     PROJECTTYPE = Component; 
-    PROJECTVERSION = 2.8; 
-    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
-    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
-    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+    PROJECTVERSION = "2.8"; 
+    "WINDOWS_BUILDTOOL" = "$NEXT_ROOT/Developer/Executables/make"; 
+    "WINDOWS_JAVA_COMPILER" = "$(JDKBINDIR)/javac.exe"; 
+    "WINDOWS_OBJCPLUS_COMPILER" = "$(DEVDIR)/gcc"; 
 }

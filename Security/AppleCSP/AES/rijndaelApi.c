@@ -80,6 +80,7 @@ int makeKey(
 	key->columns = blockLen / 32;
 	
 	/* initialize key schedule */ 
+#if		!GLADMAN_AES_128_ENABLE
 	if(enable128Opt && 
 			(keyLen == MIN_AES_KEY_BITS) && 
 			(blockLen == MIN_AES_BLOCK_BITS)) {
@@ -93,7 +94,10 @@ int makeKey(
 		rijndaelKeySched128 (k, key->keySched);	
 		memset(k, 0, 4 * KC_128_OPT);
 	}
-	else {
+	else 
+#endif	/* !GLADMAN_AES_128_ENABLE */
+	{
+
 		/* general case */
 		word8 k[4][MAXKC];
 
@@ -188,6 +192,7 @@ int rijndaelBlockDecrypt(
 	return key->blockLen;
 }
 
+#if		!GLADMAN_AES_128_ENABLE
 /*
  * Optimized routines for 128 bit block and 128 bit key.
  */
@@ -265,4 +270,5 @@ int rijndaelBlockDecrypt128(
 	memset(localBlock, 0, 4*BC_128_OPT);
 	return MIN_AES_BLOCK_BITS;
 }
+#endif		/* !GLADMAN_AES_128_ENABLE */
 

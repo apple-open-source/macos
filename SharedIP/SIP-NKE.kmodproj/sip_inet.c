@@ -70,7 +70,6 @@
 #include <net/dlil.h>
 #include <net/ethernet.h>
 #include <net/netisr.h>
-#include <net/ppp_defs.h>
 #include <netinet/in_systm.h>
 #include <netinet/in.h>
 #include <netinet/in_var.h>
@@ -386,6 +385,7 @@ int  ipv4_eth_infltr(caddr_t cookie,
 		 struct ifnet  **ifnet_ptr)
 {
     struct blueCtlBlock *ifb = (struct blueCtlBlock *)cookie;
+	int	headerLength = (*ifnet_ptr)->if_hdrlen;
     
     if (ifb->filter[BFS_IP].BF_flags) {
         struct ether_header* header = (struct ether_header *)*etherheader;
@@ -398,12 +398,21 @@ int  ipv4_eth_infltr(caddr_t cookie,
             /* Get the ARP header, only ethernet arp replies should go to both. */
             if (do_pullup(m_orig, sizeof(struct arphdr)) == 0) {
                 ah = mtod(*m_orig, struct arphdr*);
+                if (do_pullup(m_orig, sizeof(struct arphdr) + ah->ar_hln * 2 + ah->ar_pln * 2) == 0) {
+                    /* Get the source address, if it matches blue's, ignore this arp */
+                    unsigned long senderIPAddr = *(unsigned long*)(mtod(*m_orig, char*) +
+                        sizeof(struct arphdr) + ah->ar_hln);
                 if ((ah->ar_pro == ETHERTYPE_IP) &&
-                    (ah->ar_op == ARPOP_REPLY))
+                        (ah->ar_op == ARPOP_REPLY) &&
+                        (senderIPAddr != ifb->filter[BFS_IP].BF_address))
                     destination = IPDEST_X | IPDEST_BLUE;
                 else
                     destination = IPDEST_X;
-            } else
+                }
+                else
+                    destination = IPDEST_RUNTERR;
+            }
+            else
                 destination = IPDEST_RUNTERR;
         } else if (header->ether_type == ETHERTYPE_IP) {
             if (**etherheader & 0x01) /* Destination is multicast/broadcast */
@@ -418,8 +427,18 @@ int  ipv4_eth_infltr(caddr_t cookie,
          * Include the ethernet header before we send the packet to blue,
          * dupe it to be sent to blue, or hold it to be sent later.
          */
-         if (*m_orig != NULL)
-            MDATA_INCLUDE_HEADER(*m_orig, sizeof(struct ether_header));
+		if (*m_orig != NULL) {
+			if ((*m_orig)->m_data == *etherheader + headerLength) {
+				MDATA_INCLUDE_HEADER(*m_orig, headerLength);
+			} else {
+				M_PREPEND(*m_orig, headerLength, M_NOWAIT);
+				if (*m_orig != NULL) {
+					bcopy(*etherheader, (*m_orig)->m_hdr.mh_data, headerLength);
+				} else {
+					destination = IPDEST_RUNTERR;
+				}
+			}
+		}
         if (destination < 0) {
             if (destination == IPDEST_FRAGERR) {
                 /*
@@ -441,9 +460,9 @@ int  ipv4_eth_infltr(caddr_t cookie,
                 m0 = m_dup(*m_orig, M_NOWAIT);
             /* let the firewall take a crack at stuff for classic */
             if (m0 && header->ether_type == ETHERTYPE_IP) {
-                MDATA_REMOVE_HEADER(m0, sizeof(struct ether_header));
+                MDATA_REMOVE_HEADER(m0, headerLength);
                 if(process_firewall_in(&m0) == FIREWALL_ACCEPTED)
-                    MDATA_INCLUDE_HEADER(m0, sizeof(struct ether_header));
+                    MDATA_INCLUDE_HEADER(m0, headerLength);
             }
             if (m0)
                 blue_inject(ifb, m0);
@@ -451,7 +470,7 @@ int  ipv4_eth_infltr(caddr_t cookie,
         
         /* Remove the ethernet header we included above before returning. */
         if (*m_orig != NULL)
-            MDATA_REMOVE_HEADER(*m_orig, sizeof(struct ether_header));
+            m_adj(*m_orig, headerLength);
     }
     /* If we didn't consume the packet (send it to blue), return 0 */
     return *m_orig != NULL ? 0 : EJUSTRETURN;
@@ -598,14 +617,34 @@ si_send_eth_ipv4(register struct mbuf **m_orig, struct blueCtlBlock *ifb,
                 destination = IPDEST_INTERFACE;
             else if (enetHeader->ether_type == ETHERTYPE_IP) {
                 MDATA_REMOVE_HEADER(*m_orig, sizeof(struct ether_header));
-                destination = find_ip_dest(m_orig, IPSRC_BLUE, ifb,
-                                ndrv_get_ifp(ifb->ifb_so->so_pcb));
-                if (*m_orig != 0) {
+                /* Verify packet length is valid */
+                if (do_pullup(m_orig, sizeof(struct ip)) == 0)
+                    {
+                    struct ip *ipHeader = NULL;
+                    int nLength = 0;
+                    struct mbuf *m_temp = NULL;
+                    for (m_temp = *m_orig; m_temp != NULL; m_temp = m_temp->m_next)
+                        nLength += m_temp->m_len;
+                    ipHeader = mtod(*m_orig, struct ip*);
+                    if (ipHeader->ip_len != nLength)
+                        {
+                        // packet is wrong size
+                        log(LOG_WARNING, "SharedIP received truncated or oversized IP packet\n");
+                        m_freem(*m_orig);
+                        *m_orig = NULL;
+                        }
+                    else
+                        {
+                        destination = find_ip_dest(m_orig, IPSRC_BLUE, ifb,
+                                        ndrv_get_ifp(ifb->ifb_so->so_pcb));
+                        }
+                    }
+                if (*m_orig != NULL) {
                     /* Let the firewall have a crack at it. */
                     if (process_firewall_out(m_orig, ifp) != 0)
                         destination = IPDEST_FIREWALLERR;
                     else
-                MDATA_INCLUDE_HEADER(*m_orig, sizeof(struct ether_header));
+						MDATA_INCLUDE_HEADER(*m_orig, sizeof(struct ether_header));
                 }
             } else
                 destination = IPDEST_UNKNOWN;
@@ -647,8 +686,26 @@ si_send_ppp_ipv4(register struct mbuf **m_orig, struct blueCtlBlock *ifb,
         int destination = IPDEST_UNKNOWN;
         struct mbuf* m1 = NULL;
                 
-        destination = find_ip_dest(m_orig, IPSRC_BLUE, ifb,
-                        ndrv_get_ifp(ifb->ifb_so->so_pcb));
+        if (do_pullup(m_orig, sizeof(struct ether_header)) == 0)
+            {
+            struct ip *ipHeader = NULL;
+            int nLength = 0;
+            struct mbuf *m_temp = NULL;
+            for (m_temp = *m_orig; m_temp != NULL; m_temp = m_temp->m_next)
+                nLength += m_temp->m_len;
+            ipHeader = mtod(*m_orig, struct ip*);
+            if (ipHeader->ip_len != nLength)
+                {
+                log(LOG_WARNING, "SharedIP received truncated or oversized IP packet\n");
+                m_freem(*m_orig);
+                *m_orig = NULL;
+                }
+            else
+                {
+                destination = find_ip_dest(m_orig, IPSRC_BLUE, ifb,
+                                ndrv_get_ifp(ifb->ifb_so->so_pcb));
+                }
+            }
         if (*m_orig != NULL) {
             if(process_firewall_out(m_orig, ifp) != FIREWALL_ACCEPTED)
                 destination = IPDEST_FIREWALLERR;

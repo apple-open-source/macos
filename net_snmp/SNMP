@@ -1,0 +1,13 @@
+#!/bin/sh
+
+##
+# Start net-snmp
+##
+
+. /etc/rc.common
+
+if [ "${SNMPSERVER:=-NO-}" = "-YES-" ]; then
+    ConsoleMessage "Starting SNMP server"
+
+    /usr/sbin/snmpd
+fi

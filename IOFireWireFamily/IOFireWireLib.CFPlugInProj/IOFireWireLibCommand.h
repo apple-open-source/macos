@@ -28,444 +28,385 @@
  *
  */
 
-#ifndef _IOKIT_IOFireWireLibCommand_H_
-#define _IOKIT_IOFireWireLibCommand_H_
+#import <CoreFoundation/CoreFoundation.h>
+#import "IOFireWireLib.h"
+#import "IOFireWireLibPriv.h"
 
-#include <CoreFoundation/CoreFoundation.h>
+namespace IOFireWireLib {
 
-#include "IOFireWireLib.h"
-#include "IOFireWireLibPriv.h"
+	typedef ::IOFireWireLibCommandCallback	CommandCallback ;
 
+	class Cmd: public IOFireWireIUnknown
+	{		
+		public:
+			typedef ::FWUserCommandSubmitResult		SubmitResult ;
+		
+		public:
+									Cmd(
+											IUnknownVTbl*					vtable,
+											Device& 						userClient, 
+											io_object_t 					device, 
+											const FWAddress& 				inAddr, 
+											CommandCallback				 	inCallback, 
+											const bool 						inFailOnReset, 
+											const UInt32 					inGeneration, 
+											void* 							inRefCon,
+											FWUserCommandSubmitParams*		params ) ;
+			virtual					~Cmd() ;
+			
+			virtual HRESULT 		QueryInterface(
+											REFIID 						iid, 
+											LPVOID* 					ppv) ;
+			virtual void			SetTarget(
+											const FWAddress&	addr) ;
+			virtual void			SetGeneration(
+											UInt32				generation) ;
+			virtual void			SetCallback(
+											CommandCallback		inCallback) ;
+			virtual IOReturn		Submit() = 0 ;
+			virtual IOReturn		Submit(
+											FWUserCommandSubmitParams*	params,
+											mach_msg_type_number_t		paramsSize,
+											SubmitResult*				ioResult,
+											mach_msg_type_number_t*		ioResultSize ) ;
+			virtual IOReturn		SubmitWithRefconAndCallback(
+											void*				refCon,
+											CommandCallback		inCallback) ;
+			virtual IOReturn		Cancel(
+											IOReturn			reason) ;
+			virtual void			SetBuffer(
+											UInt32				size,
+											void*				buf) ;
+			virtual void			GetBuffer(
+											UInt32*				outSize,
+											void**				outBuf) ;
+			virtual IOReturn		SetMaxPacket(
+											IOByteCount				inMaxBytes) ;
+			virtual void			SetFlags( UInt32 inFlags ) ;
+			static void				CommandCompletionHandler(
+											void*				refcon,
+											IOReturn			result,
+											IOByteCount			bytesTransferred) ;									
 
-class IOFireWireLibCommandImp: public IOFireWireIUnknown
-{
-	// ==================================
-	// COM members
-	// ==================================
+			// --- getters -----------------------
+			static IOReturn			SGetStatus(
+										IOFireWireLibCommandRef	self) ;
+			static UInt32			SGetTransferredBytes(
+										IOFireWireLibCommandRef	self) ;
+			static void				SGetTargetAddress(
+										IOFireWireLibCommandRef	self,
+										FWAddress*				outAddr) ;
+			// --- setters -----------------------
+			static void				SSetTarget(
+											IOFireWireLibCommandRef	self,
+											const FWAddress*	addr) ;
+			static void				SSetGeneration(
+											IOFireWireLibCommandRef	self,
+											UInt32					generation) ;
+			static void				SSetCallback(
+											IOFireWireLibCommandRef	self,
+											CommandCallback	inCallback) ;
+			static void				SSetRefCon(
+											IOFireWireLibCommandRef	self,
+											void*					refCon) ;
+		
+			static const Boolean	SIsExecuting(
+											IOFireWireLibCommandRef	self) ;
+			static IOReturn			SSubmit(
+											IOFireWireLibCommandRef	self) ;
+			static IOReturn			SSubmitWithRefconAndCallback(
+											IOFireWireLibCommandRef	self,
+											void*	refCon,
+											CommandCallback	inCallback) ;
+			static IOReturn			SCancel(
+											IOFireWireLibCommandRef self,
+											IOReturn				reason) ;
+			static void				SSetBuffer(
+											IOFireWireLibCommandRef self,
+											UInt32					size,
+											void*					buf) ;
+			static void				SGetBuffer(
+											IOFireWireLibCommandRef	self,
+											UInt32*					outSize,
+											void**					outBuf) ;
+			static IOReturn			SSetMaxPacket(
+											IOFireWireLibCommandRef self,
+											IOByteCount				inMaxBytes) ;
+			static void				SSetFlags(
+											IOFireWireLibCommandRef	self,
+											UInt32					inFlags) ;
+
+		protected:
+			static IOFireWireCommandInterface	sInterface ;
 	
-	struct InterfaceMap 
-	{
-		IUnknownVTbl*				pseudoVTable ;
-		IOFireWireLibCommandImp*	obj ;
+		protected:
+			Device&	mUserClient ;
+			io_object_t						mDevice ;
+			io_async_ref_t					mAsyncRef ;
+			IOByteCount						mBytesTransferred ;	
+			Boolean							mIsExecuting ;
+			IOReturn						mStatus ;
+			void*							mRefCon ;
+			CommandCallback	mCallback ;
+			
+			FWUserCommandSubmitParams* 		mParams ;
 	} ;
 
-	static IOFireWireCommandInterface	sInterface ;
-	InterfaceMap						mInterface ;
+#pragma mark -
+	class ReadCmd: public Cmd
+	{
+		protected:
+			typedef ::IOFireWireReadCommandInterface	Interface ;
+			typedef ::IOFireWireLibReadCommandRef		CmdRef ;
+		
+		public:
+									ReadCmd(
+											Device& 						userclient,
+											io_object_t 					device,
+											const FWAddress& 				addr,
+											void* 							buf,
+											UInt32 							size, 
+											CommandCallback 	callback, 
+											bool							failOnReset, 
+											UInt32 							generation,
+											void* 							inRefCon ) ;
+			virtual					~ReadCmd()										{}
+			virtual HRESULT 		QueryInterface(REFIID iid, LPVOID* ppv) ;	
+			inline ReadCmd*		 	GetThis(CmdRef	self)		{ return IOFireWireIUnknown::InterfaceMap<ReadCmd>::GetThis(self) ; }
+			static IUnknownVTbl**	Alloc(
+											Device& 						userclient,
+											io_object_t						device,
+											const FWAddress&				addr,
+											void*							buf,
+											UInt32							size,
+											CommandCallback 	callback,
+											bool							failOnReset,
+											UInt32							generation,
+											void*							inRefCon) ;
 
-	virtual HRESULT QueryInterface(REFIID iid, LPVOID* ppv) ;
- 
-	// GetThis()
-	inline static IOFireWireLibCommandImp* GetThis(IOFireWireLibCommandRef	self)
-		{ return ((InterfaceMap*)self)->obj; }
+			virtual IOReturn		Submit() ;
 
- public:
-	// --- getters -----------------------
-	static IOReturn			SGetStatus(
-								IOFireWireLibCommandRef	self) ;
-	static UInt32			SGetTransferredBytes(
-								IOFireWireLibCommandRef	self) ;
-	static void				SGetTargetAddress(
-								IOFireWireLibCommandRef	self,
-								FWAddress*				outAddr) ;
-	// --- setters -----------------------
-	static void				SSetTarget(
-									IOFireWireLibCommandRef	self,
-									const FWAddress*	addr) ;
-	static void				SSetGeneration(
-									IOFireWireLibCommandRef	self,
-									UInt32					generation) ;
-	static void				SSetCallback(
-									IOFireWireLibCommandRef	self,
-									IOFireWireLibCommandCallback	inCallback) ;
-	static void				SSetRefCon(
-									IOFireWireLibCommandRef	self,
-									void*					refCon) ;
-
-	static const Boolean	SIsExecuting(
-									IOFireWireLibCommandRef	self) ;
-	static IOReturn			SSubmit(
-									IOFireWireLibCommandRef	self) ;
-	static IOReturn			SSubmitWithRefconAndCallback(
-									IOFireWireLibCommandRef	self,
-									void*	refCon,
-									IOFireWireLibCommandCallback	inCallback) ;
-	static IOReturn			SCancel(
-									IOFireWireLibCommandRef self,
-									IOReturn				reason) ;
-	static void				SSetBuffer(
-									IOFireWireLibCommandRef self,
-									UInt32					size,
-									void*					buf) ;
-	static void				SGetBuffer(
-									IOFireWireLibCommandRef	self,
-									UInt32*					outSize,
-									void**					outBuf) ;
-	static IOReturn			SSetMaxPacket(
-									IOFireWireLibCommandRef self,
-									IOByteCount				inMaxBytes) ;
-	static void				SSetFlags(
-									IOFireWireLibCommandRef	self,
-									UInt32					inFlags) ;
-
-	// ==================================
-	// virtual members
-	// ==================================
-
-	// --- ctor/dtor ---------------------
-							IOFireWireLibCommandImp(
-									IOFireWireDeviceInterfaceImp&	userClient,
-									io_object_t						inDevice) ;
-	virtual					~IOFireWireLibCommandImp() ;
+		private:
+			static Interface 	sInterface ;
 	
-	virtual Boolean			Init(	
-									const FWAddress&				inAddr,
-									IOFireWireLibCommandCallback	inCallback,
-									const Boolean					inFailOnReset,
-									const UInt32					inGeneration,
-									void*							inRefCon) ;
+	} ;
+
+#pragma mark -
+	class ReadQuadCmd: public Cmd
+	{	
+		protected:
+			typedef ::IOFireWireReadQuadletCommandInterface		Interface ;
+			typedef ::IOFireWireLibReadQuadletCommandRef		CmdRef ;
+
+		public:
+										ReadQuadCmd(
+												Device& 						userclient,
+												io_object_t						device,
+												const FWAddress &				addr,
+												UInt32							quads[],
+												UInt32							numQuads,
+												CommandCallback 	callback,
+												Boolean							failOnReset,
+												UInt32							generation,
+												void*							refcon) ;
+			virtual						~ReadQuadCmd() {}
+
+			virtual HRESULT 			QueryInterface( REFIID iid, LPVOID* ppv ) ;
+			inline static ReadQuadCmd*	GetThis( CmdRef self )		{ return IOFireWireIUnknown::InterfaceMap<ReadQuadCmd>::GetThis(self) ; }
+										
+			virtual void				SetFlags( UInt32 inFlags ) ;
+			virtual void				SetQuads( UInt32 quads[], UInt32 numQuads) ;
+			virtual IOReturn			Submit() ;		
+
+			// static
+			static IUnknownVTbl**		Alloc(
+												Device& inUserClient,
+												io_object_t			device,
+												const FWAddress &	addr,
+												UInt32				quads[],
+												UInt32				numQuads,
+												CommandCallback callback,
+												Boolean				failOnReset,
+												UInt32				generation,
+												void*				inRefCon) ;
+			static void					SSetQuads(
+											IOFireWireLibReadQuadletCommandRef self,
+											UInt32					inQuads[],
+											UInt32					inNumQuads) ;
+			static void				CommandCompletionHandler(
+											void*					refcon,
+											IOReturn				result,
+											void*					quads[],
+											UInt32					numQuads) ;		
+		protected:
+			static Interface	sInterface ;
+			unsigned int		mNumQuads ;
+	} ;
+
+#pragma mark -
+	class WriteCmd: public Cmd
+	{
+		protected:
+			typedef ::IOFireWireWriteCommandInterface 	Interface ;
 	
-	// --- getters -----------------------
-	virtual const IOReturn	GetCompletionStatus() const ;
-	virtual const UInt32	GetTransferredBytes() const ;
-	virtual const FWAddress& GetTargetAddress() const ;
-
-	// --- setters -----------------------
-	virtual void			SetTarget(
-									const FWAddress&	addr) ;
-	virtual void			SetGeneration(
-									UInt32				generation) ;
-	virtual void			SetCallback(
-									IOFireWireLibCommandCallback inCallback) ;
-	virtual void			SetRefCon(
-									void*				refCon) ;
-	virtual const Boolean	IsExecuting() const ;
-	virtual IOReturn		Submit() = 0 ;
-	virtual IOReturn		Submit(
-									FWUserCommandSubmitParams*	params,
-									mach_msg_type_number_t		paramsSize,
-									FWUserCommandSubmitResult*	ioResult,
-									mach_msg_type_number_t*		ioResultSize ) ;
-	virtual IOReturn		SubmitWithRefconAndCallback(
-									void*				refCon,
-									IOFireWireLibCommandCallback inCallback) ;
-	virtual IOReturn		Cancel(
-									IOReturn			reason) ;
-	virtual void			SetBuffer(
-									UInt32				size,
-									void*				buf) ;
-	virtual void			GetBuffer(
-									UInt32*				outSize,
-									void**				outBuf) ;
-	virtual IOReturn		SetMaxPacket(
-									IOByteCount				inMaxBytes) ;
-	virtual void			SetFlags(
-									UInt32					inFlags) ;
-	static void				CommandCompletionHandler(
-									void*				refcon,
-									IOReturn			result,
-									IOByteCount			bytesTransferred) ;									
- protected:
-	IOFireWireDeviceInterfaceImp&	mUserClient ;
-	io_object_t						mDevice ;
-	io_async_ref_t					mAsyncRef ;
-	IOByteCount						mBytesTransferred ;	
- 	Boolean							mIsExecuting ;
-	IOReturn						mStatus ;
-	void*							mRefCon ;
-	IOFireWireLibCommandCallback	mCallback ;
+		public:
+/*			virtual Boolean			Init(	
+											const FWAddress&	inAddr,
+											void*				buf,
+											UInt32				size,
+											CommandCallback	inCallback,
+											const Boolean		inFailOnReset,
+											const UInt32		inGeneration,
+											void*				inRefCon ) ;*/
+									WriteCmd(
+											Device& 			userclient, 
+											io_object_t 		device, 
+											const FWAddress& 	addr, 
+											void* 				buf, 
+											UInt32 				size, 
+											CommandCallback callback, 
+											bool 				failOnReset, 
+											UInt32 				generation, 
+											void* 				inRefCon ) ;
+			virtual					~WriteCmd() {}
+			static IUnknownVTbl**	Alloc(
+											Device& inUserClient,
+											io_object_t			device,
+											const FWAddress &	addr,
+											void*				buf,
+											UInt32				size,
+											CommandCallback callback,
+											bool				failOnReset,
+											UInt32				generation,
+											void*				inRefCon) ;
+			virtual HRESULT 		QueryInterface(REFIID iid, LPVOID* ppv) ;
+			inline static WriteCmd* GetThis(IOFireWireLibWriteCommandRef self)		{ return IOFireWireIUnknown::InterfaceMap<WriteCmd>::GetThis(self) ; }
 	
-	FWUserCommandSubmitParams* 		mParams ;
-} ;
+			// required Submit() method
+			virtual IOReturn		Submit() ;		
 
-class IOFireWireLibReadCommandImp: public IOFireWireLibCommandImp
-{
-	struct InterfaceMap
-	{
-		IUnknownVTbl*					pseudoVTable ;
-		IOFireWireLibReadCommandImp*	obj ;
+		protected:
+			static Interface		sInterface ;
 	} ;
 
-	static IOFireWireReadCommandInterface 	sInterface ;
-	InterfaceMap							mInterface ;
-
-	virtual HRESULT QueryInterface(REFIID iid, LPVOID* ppv) ;
-
-	// GetThis()
-	inline static IOFireWireLibReadCommandImp* GetThis(IOFireWireLibReadCommandRef	self)
-		{ return ((InterfaceMap*)self)->obj; }
-
- public:
-	virtual Boolean			Init(	
-									const FWAddress&				inAddr,
-									void*							buf,
-									UInt32							size,
-									IOFireWireLibCommandCallback	inCallback,
-									const Boolean					inFailOnReset,
-									const UInt32					inGeneration,
-									void*							inRefCon) ;
-	static IUnknownVTbl**	Alloc(
-									IOFireWireDeviceInterfaceImp& inUserClient,
-									io_object_t			device,
-									const FWAddress&	addr,
-									void*				buf,
-									UInt32				size,
-									IOFireWireLibCommandCallback callback,
-									Boolean				failOnReset,
-									UInt32				generation,
-									void*				inRefCon) ;
-
-	// --- ctor/dtor ----------------
-							IOFireWireLibReadCommandImp(
-									IOFireWireDeviceInterfaceImp& inUserClient,
-									io_object_t			device,
-									const FWAddress&	addr,
-									void*				buf,
-									UInt32				size,
-									IOFireWireLibCommandCallback callback,
-									Boolean				failOnReset,
-									UInt32				generation,
-									void*				inRefCon) ;
-	virtual					~IOFireWireLibReadCommandImp() {}
-
-	// required Submit() method
-	virtual IOReturn		Submit() ;
-
- protected:
-//	void*			mBuffer ;
-//	IOByteCount		mSize ;
-} ;
-
-class IOFireWireLibReadQuadletCommandImp: public IOFireWireLibCommandImp
-{
-	struct InterfaceMap
+#pragma mark -
+	class WriteQuadCmd: public Cmd
 	{
-		IUnknownVTbl*					pseudoVTable ;
-		IOFireWireLibReadQuadletCommandImp*	obj ;
+		protected:
+			typedef ::IOFireWireWriteQuadletCommandInterface	Interface ;
+			typedef ::IOFireWireLibWriteQuadletCommandRef		CmdRef ;
+		public:
+										WriteQuadCmd(
+												Device& 			userclient, 
+												io_object_t 		device, 
+												const FWAddress& 	addr, 
+												UInt32 				quads[], 
+												UInt32 				numQuads,
+												CommandCallback 	callback, 
+												bool 				failOnReset, 
+												UInt32 				generation, 
+												void* 				inRefCon ) ;
+			virtual						~WriteQuadCmd() ;
+			static IUnknownVTbl**	Alloc( Device& userclient, io_object_t device, const FWAddress& addr, 
+												UInt32 quads[], UInt32 numQuads, CommandCallback callback, 
+												bool failOnReset, UInt32 generation, void* refcon) ;
+		
+
+			virtual HRESULT 			QueryInterface(REFIID iid, LPVOID* ppv) ;
+			inline static WriteQuadCmd*	GetThis(CmdRef self)	{ return IOFireWireIUnknown::InterfaceMap<WriteQuadCmd>::GetThis(self) ; }
+
+			virtual void				SetFlags( UInt32 inFlags ) ;
+			virtual void				SetQuads( UInt32 inQuads[], UInt32 inNumQuads) ;
+			virtual IOReturn 			Submit() ;
+
+			// static
+			static void					SSetQuads(
+											CmdRef		 self,
+											UInt32				inQuads[],
+											UInt32				inNumQuads) ;
+		
+		protected:
+			static Interface	sInterface ;
+			UInt8*											mParamsExtra ;
 	} ;
 
-	static IOFireWireReadQuadletCommandInterface	sInterface ;
-	InterfaceMap									mInterface ;
-
-	virtual HRESULT QueryInterface(REFIID iid, LPVOID* ppv) ;
-
-	// GetThis()
-	inline static IOFireWireLibReadQuadletCommandImp* GetThis(IOFireWireLibReadQuadletCommandRef self)
-		{ return ((InterfaceMap*)self)->obj; }
-
- public:
-	virtual Boolean			Init(	
-									const FWAddress &	addr,
-									UInt32				quads[],
-									UInt32				numQuads,
-									IOFireWireLibCommandCallback callback,
-									Boolean				failOnReset,
-									UInt32				generation,
-									void*				inRefCon) ;
-	static IUnknownVTbl**	Alloc(
-									IOFireWireDeviceInterfaceImp& inUserClient,
-									io_object_t			device,
-									const FWAddress &	addr,
-									UInt32				quads[],
-									UInt32				numQuads,
-									IOFireWireLibCommandCallback callback,
-									Boolean				failOnReset,
-									UInt32				generation,
-									void*				inRefCon) ;
-
-	static void				SSetQuads(
-									IOFireWireLibReadQuadletCommandRef self,
-									UInt32				inQuads[],
-									UInt32				inNumQuads) ;
-	// --- ctor/dtor ----------------
-
-							IOFireWireLibReadQuadletCommandImp(
-									IOFireWireDeviceInterfaceImp& inUserClient,
-									io_object_t			device) ;
-	virtual					~IOFireWireLibReadQuadletCommandImp() {}
-							
-	virtual void			SetQuads(
-									UInt32				quads[],
-									UInt32				numQuads) ;
-	// required Submit() method
-	virtual IOReturn		Submit() ;
-
-	static void				CommandCompletionHandler(
-									void*				refcon,
-									IOReturn			result,
-									void*				quads[],
-									UInt32				numQuads) ;
-
- protected:
-//	UInt32	mQuads[] ;
-	UInt32	mNumQuads ;
-} ;
-
-class IOFireWireLibWriteCommandImp: public IOFireWireLibCommandImp
-{
-	struct InterfaceMap
+#pragma mark -
+	class CompareSwapCmd: public Cmd
 	{
-		IUnknownVTbl*					pseudoVTable ;
-		IOFireWireLibWriteCommandImp*	obj ;
-	} ;
-
-	virtual HRESULT QueryInterface(REFIID iid, LPVOID* ppv) ;
-
-	static IOFireWireWriteCommandInterface		sInterface ;
-	InterfaceMap								mInterface ;
-
-	// GetThis()
-	inline static IOFireWireLibWriteCommandImp* GetThis(IOFireWireLibWriteCommandRef self)
-		{ return ((InterfaceMap*)self)->obj; }
-
- public:
-	virtual Boolean			Init(	
-									const FWAddress&	inAddr,
-									 void*				buf,
-									UInt32				size,
-									IOFireWireLibCommandCallback	inCallback,
-									const Boolean		inFailOnReset,
-									const UInt32		inGeneration,
-									void*				inRefCon) ;
-	static IUnknownVTbl**	Alloc(
-									IOFireWireDeviceInterfaceImp& inUserClient,
-									io_object_t			device,
-									const FWAddress &	addr,
-									 void*				buf,
-									UInt32				size,
-									IOFireWireLibCommandCallback callback,
-									Boolean				failOnReset,
-									UInt32				generation,
-									void*				inRefCon) ;
-	// --- ctor/dtor ----------------
-
-							IOFireWireLibWriteCommandImp(
-									IOFireWireDeviceInterfaceImp& inUserClient,
-									io_object_t			device) ;
-	virtual					~IOFireWireLibWriteCommandImp() {}
-							
-	// required Submit() method
-	virtual IOReturn		Submit() ;
-
- protected:
-//	void*		mBuffer ;
-//	IOByteCount		mSize ;
+		protected:
+			typedef ::IOFireWireLibCompareSwapCommandRef 		CmdRef ;
+			typedef ::IOFireWireCompareSwapCommandInterface		Interface ;
 	
-} ;
-
-class IOFireWireLibWriteQuadletCommandImp: public IOFireWireLibCommandImp
-{
- protected:
-	struct InterfaceMap
-	{
-		IUnknownVTbl*							pseudoVTable ;
-		IOFireWireLibWriteQuadletCommandImp*	obj ;
-	} ;
-
-	static IOFireWireWriteQuadletCommandInterface	sInterface ;
-	InterfaceMap									mInterface ;
-
-	virtual HRESULT QueryInterface(REFIID iid, LPVOID* ppv) ;
-
-	// GetThis()
-	inline static IOFireWireLibWriteQuadletCommandImp* GetThis(IOFireWireLibWriteQuadletCommandRef self)
-		{ return ((InterfaceMap*)self)->obj; }
-
- public:
-	virtual Boolean			Init(	
-									const FWAddress&				inAddr,
-									UInt32							quads[],
-									UInt32							numQuads,
-									IOFireWireLibCommandCallback	inCallback,
-									const Boolean					inFailOnReset,
-									const UInt32					inGeneration,
-									void*							inRefCon) ;
- 	static IUnknownVTbl**	Alloc(
-									IOFireWireDeviceInterfaceImp& inUserClient,									
-									io_object_t			device,
-									const FWAddress &	addr,
-									UInt32				quads[],
-									UInt32				numQuads,
-									IOFireWireLibCommandCallback callback,
-									Boolean				failOnReset,
-									UInt32				generation,
-									void*				inRefCon) ;
-
-	static void				SSetQuads(
-									IOFireWireLibWriteQuadletCommandRef self,
-									UInt32				inQuads[],
-									UInt32				inNumQuads) ;
-	// --- ctor/dtor ----------------
-
-							IOFireWireLibWriteQuadletCommandImp(
-									IOFireWireDeviceInterfaceImp& inUserClient,									
-									io_object_t			device) ;
-	virtual					~IOFireWireLibWriteQuadletCommandImp() ;
-							
-	virtual void			SetQuads(
-									UInt32				inQuads[],
-									UInt32				inNumQuads) ;
-	virtual IOReturn 		Submit() ;
-
- protected:
-	UInt8*	mParamsExtra ;
-} ;
-
-class IOFireWireLibCompareSwapCommandImp: public IOFireWireLibCommandImp
-{
-	struct InterfaceMap
-	{
-		IUnknownVTbl*						pseudoVTable ;
-		IOFireWireLibCompareSwapCommandImp*	obj ;
-	} ;
-
-	static IOFireWireCompareSwapCommandInterface	sInterface ;
-	InterfaceMap									mInterface ;
-
-	virtual HRESULT QueryInterface(REFIID iid, LPVOID* ppv) ;
-
-	// GetThis()
-	inline static IOFireWireLibCompareSwapCommandImp* GetThis(IOFireWireLibCompareSwapCommandRef self)
-		{ return ((InterfaceMap*)self)->obj; }
-
- public:
-	virtual Boolean			Init(	
-									const FWAddress &	addr,
-									UInt32				cmpVal,
-									UInt32				newVal,
-									IOFireWireLibCommandCallback callback,
-									Boolean				failOnReset,
-									UInt32				generation,
-									void*				inRefCon) ;
-	static IUnknownVTbl**	Alloc(
-									IOFireWireDeviceInterfaceImp& inUserClient,
-									io_object_t			device,
-									const FWAddress &	addr,
-									UInt32				cmpVal,
-									UInt32				newVal,
-									IOFireWireLibCommandCallback callback,
-									Boolean				failOnReset,
-									UInt32				generation,
-									void*				inRefCon) ;
-
-	static void				SSetValues(
-									IOFireWireLibCompareSwapCommandRef self,
-									UInt32				cmpVal,
-									UInt32				newVal) ;
+			// --- ctor/dtor ----------------
+											CompareSwapCmd(	
+													Device& 						inUserClient, 
+													io_object_t 					device, 
+													const FWAddress & 				addr, 
+													UInt64 							cmpVal, 
+													UInt64 							newVal,
+													unsigned int					quads,
+													CommandCallback				 	callback, 
+													bool							failOnReset, 
+													UInt32 							generation, 
+													void* 							inRefCon) ;
+			virtual							~CompareSwapCmd() ;	
+			virtual HRESULT 				QueryInterface(REFIID iid, LPVOID* ppv) ;
+			inline static CompareSwapCmd* 	GetThis(IOFireWireLibCompareSwapCommandRef self)		{ return IOFireWireIUnknown::InterfaceMap<CompareSwapCmd>::GetThis(self) ; }
 									
-	// --- ctor/dtor ----------------
-							IOFireWireLibCompareSwapCommandImp(
-									IOFireWireDeviceInterfaceImp& inUserClient,
-									io_object_t			device) ;
-	virtual					~IOFireWireLibCompareSwapCommandImp() ;
-							
-	virtual void			SetValues(
-									UInt32				cmpVal,
-									UInt32				newVal) ;
-	virtual IOReturn 		Submit() ;
+			virtual void					SetFlags( UInt32 inFlags ) ;
+			void							SetValues( UInt32 cmpVal, UInt32 newVal) ;
+			virtual IOReturn				SetMaxPacket(
+													IOByteCount				inMaxBytes) ;
+			virtual IOReturn 				Submit() ;
+	
+		// --- v2 ---
+			void							SetValues( UInt64 cmpVal, UInt64 newVal) ;
+			Boolean							DidLock() ;
+			IOReturn 						Locked( UInt32* oldValue) ;
+			IOReturn 						Locked( UInt64* oldValue) ;
 
- protected:
-	UInt8*		mParamsExtra ;
-} ;
-
-#endif //_IOKIT_IOFireWireLibCommand_H_
-
+		//
+		// static interface
+		//
+		public:
+			static IUnknownVTbl**	Alloc(
+											Device& 			userclient,
+											io_object_t			device,
+											const FWAddress &	addr,
+											UInt64				cmpVal,
+											UInt64				newVal,
+											unsigned int		quads,
+											CommandCallback		callback,
+											bool				failOnReset,
+											UInt32				generation,
+											void*				inRefCon) ;
+			static void				SSetValues(
+											IOFireWireLibCompareSwapCommandRef self,
+											UInt32				cmpVal,
+											UInt32				newVal) ;
+			static void				SSetValues64(
+											CmdRef			 	self, 
+											UInt64 				cmpVal, 
+											UInt64 				newVal) ;
+			static Boolean			SDidLock(
+											CmdRef				self) ;
+			static IOReturn			SLocked(
+											CmdRef 				self, 
+											UInt32* 			oldValue) ;
+			static IOReturn			SLocked64(
+											CmdRef				self, 
+											UInt64* 			oldValue) ;
+			static void				SSetFlags( CmdRef self, UInt32 inFlags) ;
+			static void				CommandCompletionHandler(
+											void*				refcon,
+											IOReturn			result,
+											void*				quads[],
+											UInt32				numQuads) ;
+											
+		
+		protected:
+			static Interface				sInterface ;
+			UInt8*							mParamsExtra ;
+			FWUserCompareSwapSubmitResult	mSubmitResult ;
+	} ;
+}

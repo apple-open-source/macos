@@ -1,0 +1,26 @@
+#! /bin/sh
+
+# Test for PR 211.
+
+required=libtoolize
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(Makefile.am)
+AM_INIT_AUTOMAKE(hello,0.23)
+AC_PROG_CC
+AC_PROG_LIBTOOL
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = helldl
+lib_LTLIBRARIES = libfoo.la
+helldl_SOURCES = foo.c
+libfoo_la_SOURCES = foo.c
+END
+
+libtoolize || exit 1
+$ACLOCAL || exit 1
+$AUTOMAKE -a && exit 1
+exit 0

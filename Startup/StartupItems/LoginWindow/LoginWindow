@@ -1,0 +1,8 @@
+#!/bin/sh
+
+##
+# This startup item does nothing; it exists only to denote
+# when the system is prepared to bring up loginwindow.
+##
+
+true

@@ -111,3 +111,5 @@ OTHER_HELP_DIRS =
 # $(NAME).%d[.%d][.%d] and the following line must be uncommented.
 OTHER_GENERATED_OFILES = $(VERS_OFILE)
 -include ../Makefile.include
+
+AFTER_INSTALL = after_install

@@ -13,14 +13,15 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
 HFILES = DiskArbitrationServerMain.h DiskArbitrationTypes.h DiskVolume.h\
-         GetRegistry.h FSParticular.h Configuration.h
+         GetRegistry.h FSParticular.h Configuration.h FSTableLookup.h
 
 CFILES = autodiskmount.c DiskArbitrationServer.c\
          DiskArbitrationServerMain.c DiskVolume.c GetRegistry.c\
-         FSParticular.c vsdbutil.c Configuration.c
+         FSParticular.c vsdbutil.c Configuration.c FSTableLookup.c\
+         fstab.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
-            ClientToServer.defs ServerToClient.defs
+            ClientToServer.defs ServerToClient.defs autodiskmount.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 1992, 1993, 1994, 1997 Free Software Foundation, Inc.
 
-;; Keywords: emulations
+;; Keywords: emulations obsolete
 
 ;; This file is part of GNU Emacs.
 
@@ -20,6 +20,8 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
 
 ;;; Code:
 
@@ -47,6 +49,7 @@
 	  (cons (cons 'current-menubar lucid-menubar-map)
 		minor-mode-map-alist)))
 
+;; XEmacs compatibility
 (defun set-menubar-dirty-flag ()
   (force-mode-line-update)
   (setq lucid-menu-bar-dirty-flag t))
@@ -124,115 +127,7 @@
       (setq menu-items (cdr menu-items)))
     menu))
 
-;; The value of the cache-symbol for a menu
-;; is
-;;   unbound  --  nothing computed
-;;   (ORIG . TRANSL)
-;;		  ORIG is the original menu spec list
-;;		  and TRANSL is its translation.
-
-(defmacro popup-menu (arg)
-  "Pop up the given menu.
-A menu is a list of menu items, strings, and submenus.
-
-The first element of a menu must be a string, which is the name of the
-menu.  This is the string that will be displayed in the parent menu, if
-any.  For toplevel menus, it is ignored.  This string is not displayed
-in the menu itself.
-
-A menu item is a vector containing:
-
- - the name of the menu item (a string);
- - the `callback' of that item;
- - a list of keywords with associated values:
-   - :active active-p	a form specifying whether this item is selectable;
-   - :suffix suffix	a string to be appended to the name as an `argument'
-			to the command, like `Kill Buffer NAME';
-   - :keys command-keys	a string, suitable for `substitute-command-keys',
-			to specify the keyboard equivalent of a command
-			when the callback is a form (this is not necessary
-			when the callback is a symbol, as the keyboard
-			equivalent is computed automatically in that case);
-   - :style style	a symbol: nil for a normal menu item, `toggle' for
-			a toggle button (a single option that can be turned
-			on or off), or `radio' for a radio button (one of a
-			group of mutually exclusive options);
-   - :selected form	for `toggle' or `radio' style, a form that specifies
-			whether the button will be in the selected state.
-
-Alternately, the vector may contain exactly 3 or 4 elements, with the third
-element specifying `active-p' and the fourth specifying `suffix'.
-
-If the `callback' of a menu item is a symbol, then it must name a command.
-It will be invoked with `call-interactively'.  If it is a list, then it is
-evaluated with `eval'.
-
-If an element of a menu is a string, then that string will be presented in
-the menu as unselectable text.
-
-If an element of a menu is a string consisting solely of hyphens, then that
-item will be presented as a solid horizontal line.
-
-If an element of a menu is a list, it is treated as a submenu.  The name of
-that submenu (the first element in the list) will be used as the name of the
-item representing this menu on the parent.
-
-The syntax, more precisely:
-
-   form		:=  <something to pass to `eval'>
-   command	:=  <a symbol or string, to pass to `call-interactively'>
-   callback 	:=  command | form
-   active-p	:=  <t or nil, whether this thing is selectable>
-   text		:=  <string, non selectable>
-   name		:=  <string>
-   suffix	:=  <string>
-   command-keys	:=  <string>
-   object-style	:=  'nil' | 'toggle' | 'radio'
-   keyword	:=  ':active' active-p
-		 |  ':suffix' suffix
-		 |  ':keys' command-keys
-		 |  ':style' object-style
-		 |  ':selected' form
-   menu-item	:=  '['  name callback active-p [ suffix ]  ']'
-		 |  '['  name callback [ keyword ]+  ']'
-   menu		:=  '(' name [ menu-item | menu | text ]+ ')'"
-  (if (not (symbolp arg))
-      `(popup-menu-internal ,arg nil)
-    `(popup-menu-internal ,arg
-			  ',(intern (concat "popup-menu-" (symbol-name arg))))))
-
-(defun popup-menu-internal (menu cache-symbol)
-  (if (null cache-symbol)
-      ;; If no cache symbol, translate the menu afresh each time.
-      (popup-menu-popup (make-lucid-menu-keymap (car menu) (cdr menu)))
-    ;; We have a cache symbol.  See if the cache is valid
-    ;; for the same menu we have now.
-    (or (and (boundp cache-symbol)
-	     (consp (symbol-value cache-symbol))
-	     (equal (car (symbol-value cache-symbol))
-		    menu))
-	;; If not, update it.
-	(set cache-symbol
-	     (cons menu (make-lucid-menu-keymap (car menu) (cdr menu)))))
-    ;; Use the menu in the cache.
-    (popup-menu-popup (cdr (symbol-value cache-symbol)))))
-
-;; Pop up MENU-KEYMAP which was made by make-lucid-menu-keymap.
-(defun popup-menu-popup (menu-keymap)
-  (let ((pos (mouse-pixel-position))
-	answer cmd)
-    (while (and menu-keymap
-		(setq answer (x-popup-menu (list (list (nth 1 pos)
-						       (nthcdr 2 pos))
-						 (car pos))
-					   menu-keymap)))
-      (setq cmd (lookup-key menu-keymap (apply 'vector answer)))
-      (setq menu-keymap nil)
-      (and cmd
-	   (if (keymapp cmd)
-	       (setq menu-keymap cmd)
-	     (call-interactively cmd))))))
-
+;; XEmacs compatibility function
 (defun popup-dialog-box (data)
   "Pop up a dialog box.
 A dialog box description is a list.
@@ -287,11 +182,13 @@ The syntax, more precisely:
 ;; It would not make sense to duplicate them here.
 (defconst default-menubar nil)
 
+;; XEmacs compatibility
 (defun set-menubar (menubar)
   "Set the default menubar to be menubar."
   (setq-default current-menubar (copy-sequence menubar))
   (set-menubar-dirty-flag))
 
+;; XEmacs compatibility
 (defun set-buffer-menubar (menubar)
   "Set the buffer-local menubar to be menubar."
   (make-local-variable 'current-menubar)
@@ -301,6 +198,7 @@ The syntax, more precisely:
 
 ;;; menu manipulation functions
 
+;; XEmacs compatibility
 (defun find-menu-item (menubar item-path-list &optional parent)
   "Searches MENUBAR for item given by ITEM-PATH-LIST.
 Returns (ITEM . PARENT), where PARENT is the immediate parent of
@@ -330,6 +228,7 @@ Signals an error if the item is not found."
 	(cons result parent)))))
 
 
+;; XEmacs compatibility
 (defun disable-menu-item (path)
   "Make the named menu item be unselectable.
 PATH is a list of strings which identify the position of the menu item in
@@ -349,6 +248,7 @@ menu item called \"Item\" under the \"Foo\" submenu of \"Menu\"."
     item))
 
 
+;; XEmacs compatibility
 (defun enable-menu-item (path)
   "Make the named menu item be selectable.
 PATH is a list of strings which identify the position of the menu item in
@@ -430,6 +330,7 @@ menu item called \"Item\" under the \"Foo\" submenu of \"Menu\"."
     (set-menubar-dirty-flag)
     item))
 
+;; XEmacs compatibility
 (defun add-menu-item (menu-path item-name function enabled-p &optional before)
   "Add a menu item to some menu, creating the menu first if necessary.
 If the named item exists already, it is changed.
@@ -450,6 +351,7 @@ BEFORE, if provided, is the name of a menu item before which this item should
   (add-menu-item-1 t menu-path item-name function enabled-p before))
 
 
+;; XEmacs compatibility
 (defun delete-menu-item (path)
   "Remove the named menu item from the menu hierarchy.
 PATH is a list of strings which identify the position of the menu item in
@@ -471,6 +373,7 @@ menu item called \"Item\" under the \"Foo\" submenu of \"Menu\"."
       item)))
 
 
+;; XEmacs compatibility
 (defun relabel-menu-item (path new-name)
   "Change the string of the specified menu item.
 PATH is a list of strings which identify the position of the menu item in
@@ -494,6 +397,7 @@ NEW-NAME is the string that the menu item will be printed as from now on."
     (set-menubar-dirty-flag)
     item))
 
+;; XEmacs compatibility
 (defun add-menu (menu-path menu-name menu-items &optional before)
   "Add a menu to the menubar or one of its submenus.
 If the named menu exists already, it is changed.

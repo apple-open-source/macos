@@ -1,7 +1,7 @@
 /*
  * NETBIOS protocol formats
  *
- * @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/netbios.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $
+ * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/netbios.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $
  */
 
 struct p8022Hdr {

@@ -1,5 +1,5 @@
-# Watch window for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Watch window for Insight.
+# Copyright 1997, 1998, 1999, 2001, 2002 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -39,7 +39,7 @@ class WatchWin {
   # ------------------------------------------------------------------
   method build_win {f} {
     global tcl_platform
-    #debug "WatchWin::build_win $f"
+    #debug "$f"
 
     set Menu [build_menu_helper Watch]
     $Menu add command -label Remove -underline 0 \
@@ -51,7 +51,7 @@ class WatchWin {
     set treeFrame  [frame $f.top]
     set entryFrame [frame $f.expr]
     VariableWin::build_win $treeFrame
-    set Entry [entry $entryFrame.ent -font src-font]
+    set Entry [entry $entryFrame.ent -font global/fixed]
     button $entryFrame.but -text "Add Watch" -command [code $this validateEntry]
     pack $f -fill both -expand yes
     grid $entryFrame.ent -row 0 -column 0 -sticky news -padx 2
@@ -125,7 +125,7 @@ class WatchWin {
   }
 
   method postMenu {X Y} {
-#    debug "WatchWin::postMenu $x $y"
+#    debug "$x $y"
 
     set entry [getEntry $X $Y]
     
@@ -178,7 +178,7 @@ class WatchWin {
   # (or use deleteTree)
   # ------------------------------------------------------------------
   method getVariablesBlankPath {} {
-#    debug "WatchWin::getVariablesBlankPath"
+#    debug
     set list {}
 
     set variables [displayedVariables {}]
@@ -197,11 +197,11 @@ class WatchWin {
     return $list
   }
 
-  method update {} {
+  method update {event} {
     global Update Display
     debug "START WATCH UPDATE CALLBACK"
     catch {populate {}} msg
-    catch {VariableWin::update} msg
+    catch {VariableWin::update dummy} msg
     debug "Did VariableWin::update with return \"$msg\""
 
     # Make sure all variables are marked as _not_ Openable?
@@ -255,7 +255,7 @@ class WatchWin {
 	  set var [gdb_variable create -expr $name]
 	  set ::Update($this,$var) 1
 	  lappend Watched $var
-	  update
+	  update dummy
 	  return 1
       }
     }

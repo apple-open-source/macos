@@ -1,0 +1,16 @@
+{
+    FILESTABLE = {
+        Documentation = (ChangeLog); 
+        Headers = (fnmatch.h, glob.h, ndir.h); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (doc); 
+        Sources = (glob.c, fnmatch.c); 
+    }; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = glob; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

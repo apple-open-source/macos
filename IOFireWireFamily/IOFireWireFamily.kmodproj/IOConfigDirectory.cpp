@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,6 +25,7 @@
 #include <IOConfigDirectory.h>
 #include <IOFireWireDevice.h>
 
+#include "FWDebugging.h"
 #include "IORemoteConfigDirectory.h"
 
 static int findIndex(const UInt32* base, int size, int key,
@@ -36,16 +37,14 @@ class IOConfigDirectoryIterator : public OSIterator
     OSDeclareDefaultStructors(IOConfigDirectoryIterator)
 
 protected:
-    IOConfigDirectory *	fCurrent;
-    IOConfigDirectory *	fOwner;
-    int			fPos;
-    UInt32		fTestVal;
-    UInt32		fTestMask;
-    
+    OSSet *	fDirectorySet;
+    OSIterator * fDirectoryIterator;
+	
     virtual void free();
 
 public:
-    virtual bool init(IOConfigDirectory *owner, UInt32 testVal, UInt32 testMask);
+    virtual IOReturn init(IOConfigDirectory *owner, UInt32 testVal, UInt32 testMask);
+    
     virtual void reset();
 
     virtual bool isValid();
@@ -55,30 +54,71 @@ public:
 
 OSDefineMetaClassAndStructors(IOConfigDirectoryIterator, OSIterator)
 
-bool IOConfigDirectoryIterator::init(IOConfigDirectory *owner,
-                                  UInt32 testVal, UInt32 testMask)
+IOReturn IOConfigDirectoryIterator::init(IOConfigDirectory *owner,
+                                  		 UInt32 testVal, UInt32 testMask)
 {
-    if(!OSIterator::init())
-        return false;
-    fTestVal = testVal;
-    fTestMask = testMask;
-    fOwner = owner;
-    fOwner->retain();
-
-    return true;
+	IOReturn status = kIOReturnSuccess;
+	
+    if( !OSIterator::init() )
+        status = kIOReturnError;
+	
+	if( status == kIOReturnSuccess )
+	{
+		fDirectorySet = OSSet::withCapacity(2);
+		if( fDirectorySet == NULL )
+			status = kIOReturnNoMemory;
+	}
+	
+	int position = 0;
+	while( status == kIOReturnSuccess && position < owner->getNumEntries() ) 
+	{
+		UInt32 value;
+		IOConfigDirectory * next;
+		
+		status = owner->getIndexEntry( position, value );
+		if( status == kIOReturnSuccess && (value & testMask) == testVal ) 
+		{
+			status = owner->getIndexValue( position, next );
+			if( status == kIOReturnSuccess )
+			{
+				fDirectorySet->setObject( next );
+				next->release();
+			}
+		}
+		
+		position++;
+	}
+    
+	if( status == kIOReturnSuccess )
+	{
+		fDirectoryIterator = OSCollectionIterator::withCollection( fDirectorySet );
+		if( fDirectoryIterator == NULL )
+			status = kIOReturnNoMemory;
+	}
+	
+    return status;
 }
 
 void IOConfigDirectoryIterator::free()
 {
-    fOwner->release();
-    if(fCurrent)
-        fCurrent->release();
+	if( fDirectoryIterator != NULL )
+	{
+		fDirectoryIterator->release();
+		fDirectoryIterator = NULL;
+	}
+	
+	if( fDirectorySet != NULL )
+	{
+		fDirectorySet->release();
+		fDirectorySet = NULL;
+	}
+		
     OSIterator::free();
 }
 
 void IOConfigDirectoryIterator::reset()
 {
-    fPos = 0;
+    fDirectoryIterator->reset();
 }
 
 bool IOConfigDirectoryIterator::isValid()
@@ -88,21 +128,7 @@ bool IOConfigDirectoryIterator::isValid()
 
 OSObject *IOConfigDirectoryIterator::getNextObject()
 {
-    IOConfigDirectory *next = NULL;
-    if(fCurrent)
-        fCurrent->release();
-
-    while(fPos < fOwner->getNumEntries()) {
-        UInt32 value;
-        fOwner->getIndexEntry(fPos, value);
-        if( (value & fTestMask) == fTestVal) {
-            fOwner->getIndexValue(fPos++, next);
-            break;
-        }
-        fPos++;
-    }
-    fCurrent = next;
-    return next;
+	return fDirectoryIterator->getNextObject();
 }
 
 int findIndex(const UInt32* base, int size, int key, UInt32 type)
@@ -141,340 +167,706 @@ OSMetaClassDefineReservedUnused(IOConfigDirectory, 6);
 OSMetaClassDefineReservedUnused(IOConfigDirectory, 7);
 OSMetaClassDefineReservedUnused(IOConfigDirectory, 8);
 
-bool
-IOConfigDirectory::initWithOffset(int start, int type)
+// initWithOffset
+//
+//
+
+bool IOConfigDirectory::initWithOffset(int start, int type)
 {
-    IOReturn err;
+    IOReturn status = kIOReturnSuccess;
     const UInt32 *data;
-    if(!OSObject::init())
-        return false;
-
-    fStart = start;
-    fType = type;
-    err = update(start, data);
-    if(kIOReturnSuccess != err)
-        return false;
-    fNumEntries = (data[start] & kConfigLeafDirLength) >>
-        kConfigLeafDirLengthPhase;
-    err = update(start+fNumEntries, data);
-    if(kIOReturnSuccess != err)
-        return false;
-    return true;
+	
+    if( !OSObject::init() )
+	{
+        status = kIOReturnError;
+	}
+    
+	if( status == kIOReturnSuccess )
+	{
+		fStart = start;
+		fType = type;
+    
+		status = updateROMCache( start, 1 );
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		data = lockData();
+		fNumEntries = (data[start] & kConfigLeafDirLength) >> kConfigLeafDirLengthPhase;
+		unlockData();
+	
+	//	FWKLOG(( "IOConfigDirectory::initWithOffset updateROMCache( %d, %d )\n", start, fNumEntries ));
+		status = updateROMCache(start + 1, fNumEntries);
+	}
+	
+	if( status != kIOReturnSuccess )
+	{
+		fNumEntries = 0;
+	}
+	
+	return true;
 }
 
-IOReturn IOConfigDirectory::createIterator(UInt32 testVal, UInt32 testMask,
-                                        OSIterator *&iterator)
+// createIterator
+//
+//
+
+IOReturn IOConfigDirectory::createIterator(UInt32 testVal, UInt32 testMask, OSIterator *&iterator)
 {
+	IOReturn status = kIOReturnSuccess;
+	
     IOConfigDirectoryIterator *iter = NULL;
-    iter = new IOConfigDirectoryIterator;
-    if(!iter)
-        return kIOReturnNoMemory;
-
-    if(!iter->init(this, testVal, testMask)) {
-        iter->release();
-        return kIOReturnNoMemory;
-    }
-    iterator = iter;
-    return kIOReturnSuccess;
+	
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		iter = new IOConfigDirectoryIterator;
+		if( iter == NULL )
+			status = kIOReturnNoMemory;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = iter->init( this, testVal, testMask );
+		if( status == kIOReturnSuccess )
+		{
+			iterator = iter;
+		}
+		else
+		{
+			iter->release();
+			iter = NULL;
+		}
+	}
+	
+	return status;
 }
+
+// getKeyType
+//
+//
 
 IOReturn IOConfigDirectory::getKeyType(int key, IOConfigKeyType &type)
 {
+	IOReturn status = kIOReturnSuccess;
     int index;
-    index = findIndex(getBase(), fNumEntries, key);
-    if(index < 0)
-        return kIOConfigNoEntry;
     
-    return getIndexType(index, type);
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData() + fStart + 1;
+		index = findIndex(data, fNumEntries, key);
+		unlockData();
+
+		if( index < 0 )
+			status = kIOConfigNoEntry;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = getIndexType(index, type);
+	}
+	
+    return status;
 }
+
+// getKeyValue
+//
+//
 
 IOReturn IOConfigDirectory::getKeyValue(int key, UInt32 &value, OSString** text)
 {
+	IOReturn status = kIOReturnSuccess;
     int index;
-    IOReturn err;
-    index = findIndex(getBase(), fNumEntries, key);
-    if(index < 0)
-        return kIOConfigNoEntry;
-
-    err = getIndexValue(index, value);
-    if(kIOReturnSuccess == err && text) {
-        *text = NULL;
-        getIndexValue(index+1, *text);
+ 
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData() + fStart + 1;
+		index = findIndex(data, fNumEntries, key);
+		unlockData();
+	
+		if( index < 0 )
+        	status = kIOConfigNoEntry;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = getIndexValue(index, value);
     }
-    return err;
+	
+	if( status == kIOReturnSuccess && text ) 
+	{
+		// textual descriptor is optional
+        *text = NULL;
+        status = getIndexValue(index+1, *text);
+		if( status != kIOFireWireConfigROMInvalid )
+			status = kIOReturnSuccess;
+    }
+	
+    return status;
 }
+
+// getKeyValue
+//
+//
 
 IOReturn IOConfigDirectory::getKeyValue(int key, OSData *&value, OSString** text)
 {
+	IOReturn status = kIOReturnSuccess;
     int index;
-    IOReturn err;
-    index = findIndex(getBase(), fNumEntries, key, kConfigLeafKeyType);
-    if(index < 0)
-        return kIOConfigNoEntry;
 
-    err = getIndexValue(index, value);
-    if(kIOReturnSuccess == err && text) {
-        *text = NULL;
-        getIndexValue(index+1, *text);
+	status = checkROMState();
+
+	if( status == kIOReturnSuccess )
+	{    
+		const UInt32 * data = lockData() + fStart + 1;
+		index = findIndex(data, fNumEntries, key, kConfigLeafKeyType);
+		unlockData();
+		
+		if( index < 0 )
+		{
+			status = kIOConfigNoEntry;
+		}
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = getIndexValue(index, value);
     }
-    return err;
+	
+	if( status == kIOReturnSuccess && text ) 
+	{
+		// textual descriptor is optional
+        *text = NULL;
+        status = getIndexValue(index+1, *text);
+		if( status != kIOFireWireConfigROMInvalid )
+			status = kIOReturnSuccess;
+    }
+	
+    return status;
 }
+
+// getKeyValue
+//
+//
 
 IOReturn IOConfigDirectory::getKeyValue(int key, IOConfigDirectory *&value,
                                                         OSString** text)
 {
+	IOReturn status = kIOReturnSuccess;
     int index;
-    IOReturn err;
-    index = findIndex(getBase(), fNumEntries, key, kConfigDirectoryKeyType);
-    if(index < 0)
-        return kIOConfigNoEntry;
-
-    err = getIndexValue(index, value);
-    if(kIOReturnSuccess == err && text) {
-        *text = NULL;
-        getIndexValue(index+1, *text);
+    
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData() + fStart + 1;
+		index = findIndex(data, fNumEntries, key, kConfigDirectoryKeyType);
+		unlockData();
+		
+		if( index < 0 )
+		{
+			status = kIOConfigNoEntry;
+		}
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = getIndexValue(index, value);
     }
-    return err;
+	
+	if( status == kIOReturnSuccess && text ) 
+	{
+		// textual descriptor is optional
+        *text = NULL;
+        status = getIndexValue(index+1, *text);
+		if( status != kIOFireWireConfigROMInvalid )
+			status = kIOReturnSuccess;
+    }
+	
+    return status;
 }
+
+// getKeyOffset
+//
+//
 
 IOReturn IOConfigDirectory::getKeyOffset(int key, FWAddress &value, OSString** text)
 {
+	IOReturn status = kIOReturnSuccess;
     int index;
-    IOReturn err;
-    index = findIndex(getBase(), fNumEntries, key, kConfigOffsetKeyType);
-//	IOLog("IOConfigDirectory::getKeyOffset: this=0x%08X, fNumEntries=%u, index=%u\n", this, fNumEntries, index) ;
-    if(index < 0)
-        return kIOConfigNoEntry;
-
-    err = getIndexOffset(index, value);
-//	IOLog("IOConfigDirectory::getKeyOffset: value=%04X:%08lX\n", value.addressHi, value.addressLo) ;
-    if(kIOReturnSuccess == err && text) {
-        *text = NULL;
-        getIndexValue(index+1, *text);
+    
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData() + fStart + 1;
+		index = findIndex(data, fNumEntries, key, kConfigOffsetKeyType);
+		unlockData();
+	
+		if( index < 0 )
+        	status = kIOConfigNoEntry;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = getIndexOffset(index, value);
     }
-    return err;
+	
+	if( status == kIOReturnSuccess && text) 
+	{
+		// textual descriptor is optional
+        *text = NULL;
+        status = getIndexValue(index+1, *text);
+		if( status != kIOFireWireConfigROMInvalid )
+			status = kIOReturnSuccess;
+	}
+    
+	return status;
 }
+
+// getKeySubdirectories
+//
+//
 
 IOReturn IOConfigDirectory::getKeySubdirectories(int key, OSIterator *&iterator)
 {
-    IOReturn result = createIterator((key << kConfigEntryKeyValuePhase) |
+    IOReturn status = createIterator((key << kConfigEntryKeyValuePhase) |
 							(kConfigDirectoryKeyType << kConfigEntryKeyTypePhase),
 								kConfigEntryKeyType | kConfigEntryKeyValue, iterator);
 	
-	return result;
+	return status;
 }
+
+// getType
+//
+//
+
+int IOConfigDirectory::getType() const 
+{
+	return fType;
+}
+
+// getNumEntries
+//
+//
+
+int IOConfigDirectory::getNumEntries() const 
+{
+	return fNumEntries;
+}
+
+// getIndexType
+//
+//
 
 IOReturn IOConfigDirectory::getIndexType(int index, IOConfigKeyType &type)
 {
+	IOReturn status = kIOReturnSuccess;
     UInt32 entry;
-    if(index < 0 || index >= fNumEntries)
-        return kIOReturnBadArgument;
-    
-    entry = getBase()[index];
-    type = (IOConfigKeyType)((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase);
-    return kIOReturnSuccess;
+
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( index < 0 || index >= fNumEntries )
+			status = kIOReturnBadArgument;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData();
+		entry = data[fStart + 1 + index];
+		unlockData();
+	
+		type = (IOConfigKeyType)((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase);
+    }
+	
+	return status;
 }
+
+// getIndexKey
+//
+//
 
 IOReturn IOConfigDirectory::getIndexKey(int index, int &key)
 {
+	IOReturn status = kIOReturnSuccess;
     UInt32 entry;
-    if(index < 0 || index >= fNumEntries)
-        return kIOReturnBadArgument;
 
-    entry = getBase()[index];
-    key = (IOConfigKeyType)((entry & kConfigEntryKeyValue) >> kConfigEntryKeyValuePhase);
-    return kIOReturnSuccess;
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( index < 0 || index >= fNumEntries )
+			status = kIOReturnBadArgument;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData();	
+		entry = data[fStart + 1 + index];
+		unlockData();
+	
+		key = (IOConfigKeyType)((entry & kConfigEntryKeyValue) >> kConfigEntryKeyValuePhase);
+	}
+	
+    return status;
 }
 
+// getIndexValue
+//
+//
 
 IOReturn IOConfigDirectory::getIndexValue(int index, UInt32 &value)
 {
+	IOReturn status = kIOReturnSuccess;
     UInt32 entry;
-    if(index < 0 || index >= fNumEntries)
-        return kIOReturnBadArgument;
 
-    entry = getBase()[index];
-    // Return the value as an integer, whatever it really is.
-    value = entry & kConfigEntryValue;
-    return kIOReturnSuccess;
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( index < 0 || index >= fNumEntries )
+			status = kIOReturnBadArgument;
+	}
+
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData();	
+		entry = data[fStart + 1 + index];
+		unlockData();
+	
+		// Return the value as an integer, whatever it really is.
+		value = entry & kConfigEntryValue;
+    }
+	
+	return status;
 }
+
+// getIndexValue
+//
+//
 
 IOReturn IOConfigDirectory::getIndexValue(int index, OSData *&value)
 {
+	IOReturn status = kIOReturnSuccess;    
     UInt32 entry;
-    IOReturn err;
     const UInt32 *data;
     UInt32 offset;
-    int len;
+    int len = 0;
 
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( index < 0 || index >= fNumEntries )
+			status = kIOReturnBadArgument;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		data = lockData();	
+		entry = data[fStart + 1 + index];
+		unlockData();
+	
+		if( ((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) != kConfigLeafKeyType)
+			status = kIOReturnBadArgument;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = getIndexOffset( index, offset );
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = updateROMCache( offset, 1 );
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		data = lockData();
+		len = (data[offset] & kConfigLeafDirLength) >> kConfigLeafDirLengthPhase;
+		unlockData();
 
-    if(index < 0 || index >= fNumEntries)
-        return kIOReturnBadArgument;
-
-    entry = getBase()[index];
-    if( ((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) !=
-        kConfigLeafKeyType)
-        return kIOReturnBadArgument;
-
-    err = getIndexOffset(index, offset);
-    if(kIOReturnSuccess != err)
-        return err;
-
-    err = update(offset, data);
-    if(kIOReturnSuccess != err)
-        return err;
-
-    len = (data[offset] & kConfigLeafDirLength) >> kConfigLeafDirLengthPhase;
-    err = update(offset+len, data);
-    if(kIOReturnSuccess != err)
-        return err;
-
-    value = OSData::withBytes(data+offset+1, len*sizeof(UInt32));
-    	
-    return value ? kIOReturnSuccess : kIOReturnNoMemory;
+	//	FWKLOG(( "IOConfigDirectory::getIndexValue(OSData) updateROMCache( %ld, %d )\n", offset, len ));
+		
+		status = updateROMCache( offset + 1, len );
+    }
+	
+	if( status == kIOReturnSuccess )
+	{
+		data = lockData();
+		value = OSData::withBytes(data+offset+1, len*sizeof(UInt32));
+		unlockData();
+		
+		if( value == NULL)
+			status = kIOReturnNoMemory;
+	}
+	
+    return status;
 }
+
+// getIndexValue
+//
+//
 
 IOReturn IOConfigDirectory::getIndexValue(int index, OSString *&value)
 {
+	IOReturn status = kIOReturnSuccess;
     UInt32 entry;
-    IOReturn err;
     const UInt32 *data;
     UInt32 offset;
     int len;
     
-    if(index < 0 || index >= fNumEntries)
-        return kIOReturnBadArgument;
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( index < 0 || index >= fNumEntries )
+			status = kIOReturnBadArgument;
+	}
 
-    entry = getBase()[index];
-    if( ((entry & kConfigEntryKeyValue) >> kConfigEntryKeyValuePhase) !=
-                                            kConfigTextualDescriptorKey)
-        return kIOReturnBadArgument;
-
-    if( ((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) !=
-        kConfigLeafKeyType)
-        return kIOReturnBadArgument;
-
+	if( status == kIOReturnSuccess )
+	{
+		data = lockData();
+		entry = data[fStart + 1 + index];
+		unlockData();
+	
+		if( ((entry & kConfigEntryKeyValue) >> kConfigEntryKeyValuePhase) != kConfigTextualDescriptorKey )
+        	status = kIOReturnBadArgument;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( ((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) != kConfigLeafKeyType )
+			status = kIOReturnBadArgument;
+	}
     
-    err = getIndexOffset(index, offset);
-    if(kIOReturnSuccess != err)
-        return err;
+	if( status == kIOReturnSuccess )
+	{
+		status = getIndexOffset(index, offset);
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = updateROMCache(offset, 1);
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		data = lockData();
+		len = (data[offset] & kConfigLeafDirLength) >> kConfigLeafDirLengthPhase;
+		unlockData();
+	
+		// Check for silly length, people are careless with string data!
+		if( len > 256 ) 
+        	status = kIOReturnBadArgument;
+	}
 
-
-    err = update(offset, data);
-    if(kIOReturnSuccess != err)
-        return err;
-
-    len = (data[offset] & kConfigLeafDirLength) >> kConfigLeafDirLengthPhase;
-
-    // Check for silly length, people are careless with string data!
-    if(len > 256) {
-        return kIOReturnBadArgument;
-    }
+	if( status == kIOReturnSuccess )
+	{
+		FWKLOG(( "IOConfigDirectory::getIndexValue(OSString) updateROMCache( %ld, %d )\n", offset, len ));
     
-    err = update(offset+len, data);
-    if(kIOReturnSuccess != err)
-        return err;
-
-    // Skip over length, CRC, spec_type, specifier_ID, language_ID
-    char *text = (char *)(&data[offset+3]);
-    len -= 2;	// skip spec_type, specifier_ID, language_ID
-    len *= sizeof(UInt32);	// Convert from Quads to chars
-    // Now skip over leading zeros in string
-    while(len && !*text) {
-        len--;
-        text++;
-    }
-    if(len) {
-        char saved = text[len];
-        text[len] = 0;
-        value = OSString::withCString(text);
-        text[len] = saved;
-    }
-    else
-        value = OSString::withCString("");
-    return value ? kIOReturnSuccess : kIOReturnNoMemory;
+    	status = updateROMCache(offset + 1,len);
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		data = lockData();
+    
+		// Skip over length, CRC, spec_type, specifier_ID, language_ID
+		char *text = (char *)(&data[offset+3]);
+		len -= 2;	// skip spec_type, specifier_ID, language_ID
+		len *= sizeof(UInt32);	// Convert from Quads to chars
+		// Now skip over leading zeros in string
+		while(len && !*text) {
+			len--;
+			text++;
+		}
+		if(len) {
+			char saved = text[len];
+			text[len] = 0;
+			value = OSString::withCString(text);
+			text[len] = saved;
+		}
+		else
+			value = OSString::withCString("");
+		
+		unlockData();
+	
+		if( value == NULL )
+			status = kIOReturnNoMemory;
+	}
+	
+    return status;
 }
+
+// getIndexValue
+//
+//
 
 IOReturn IOConfigDirectory::getIndexValue(int index, IOConfigDirectory *&value)
 {
+	IOReturn status = kIOReturnSuccess;
     UInt32 entry;
-    IOReturn err;
     UInt32 offset;
 
-    if(index < 0 || index >= fNumEntries)
-        return kIOReturnBadArgument;
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( index < 0 || index >= fNumEntries )
+			status = kIOReturnBadArgument;
+	}
 
-    entry = getBase()[index];
-    if( ((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) !=
-                                                kConfigDirectoryKeyType)
-        return kIOReturnBadArgument;
-
-    err = getIndexOffset(index, offset);
-    if(kIOReturnSuccess != err)
-        return err;
-
-    value = getSubDir(offset,
-                (entry & kConfigEntryKeyValue) >> kConfigEntryKeyValuePhase);
-    return value ? kIOReturnSuccess : kIOReturnNoMemory;
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData();
+		entry = data[fStart + 1 + index];
+		unlockData();
+	
+		if( ((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) != kConfigDirectoryKeyType)
+			status = kIOReturnBadArgument;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		status = getIndexOffset(index, offset);
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		value = getSubDir( offset, (entry & kConfigEntryKeyValue) >> kConfigEntryKeyValuePhase );
+		if( value == NULL )
+			status = kIOReturnNoMemory;
+	}
+    
+	return status;
 }
+
+// getIndexOffset
+//
+//
 
 IOReturn IOConfigDirectory::getIndexOffset(int index, FWAddress &value)
 {
-	//IOLog("IOConfigDirectory::getIndexOffset: this=0x%08X, fNumEntries=%u, index=%u\n", this, fNumEntries, index) ;
-
+	IOReturn status = kIOReturnSuccess;
     UInt32 entry;
     UInt32 offset;
-    if(index < 0 || index >= fNumEntries)
-        return kIOReturnBadArgument;
 
-    entry = getBase()[index];
-    if(((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) ==
-					kConfigImmediateKeyType)
-        return kIOReturnBadArgument;
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( index < 0 || index >= fNumEntries )
+			status = kIOReturnBadArgument;
+	}
 
-    value.addressHi = kCSRRegisterSpaceBaseAddressHi;
-    offset = entry & kConfigEntryValue;
-    if(((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) ==
-       kConfigOffsetKeyType) {
-        value.addressLo = kCSRCoreRegistersBaseAddress + offset*sizeof(UInt32);
-    }
-    else {
-        offset += fStart + 1 + index;
-        value.addressLo = kConfigROMBaseAddress + offset*sizeof(UInt32);
-    }
-
-    return kIOReturnSuccess;
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData();
+		entry = data[fStart + 1 + index];
+		unlockData();
+	
+		if(((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) == kConfigImmediateKeyType)
+        	status = kIOReturnBadArgument;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		value.addressHi = kCSRRegisterSpaceBaseAddressHi;
+		offset = entry & kConfigEntryValue;
+		if(((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) == kConfigOffsetKeyType) 
+		{
+			value.addressLo = kCSRCoreRegistersBaseAddress + offset*sizeof(UInt32);
+		}
+		else 
+		{
+			offset += fStart + 1 + index;
+			value.addressLo = kConfigROMBaseAddress + offset*sizeof(UInt32);
+		}
+	}
+	
+    return status;
 }
+
+// getIndexOffset
+//
+//
 
 IOReturn IOConfigDirectory::getIndexOffset(int index, UInt32 &value)
 {
+	IOReturn status = kIOReturnSuccess;
     UInt32 entry;
-    if(index < 0 || index >= fNumEntries)
-        return kIOReturnBadArgument;
 
-    entry = getBase()[index];
-    if(((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) ==
-                                        kConfigImmediateKeyType)
-        return kIOReturnBadArgument;
-    else if(((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) ==
-       kConfigOffsetKeyType) {
-        return kIOReturnBadArgument;
-    }
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( index < 0 || index >= fNumEntries )
+			status = kIOReturnBadArgument;
+	}
 
-    value = entry & kConfigEntryValue;
-    value += fStart + 1 + index;
-
-    return kIOReturnSuccess;
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData();
+		entry = data[fStart + 1 + index];
+		unlockData();
+		
+		if(((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) == kConfigImmediateKeyType)
+		{
+			status = kIOReturnBadArgument;
+		}
+		else if(((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase) == kConfigOffsetKeyType) 
+		{
+			status = kIOReturnBadArgument;
+		}
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		value = entry & kConfigEntryValue;
+		value += fStart + 1 + index;
+	}
+	
+    return status;
 }
+
+// getIndexEntry
+//
+//
 
 IOReturn IOConfigDirectory::getIndexEntry(int index, UInt32 &value)
 {
-    if(index < 0 || index >= fNumEntries)
-        return kIOReturnBadArgument;
-
-    value = getBase()[index];
-    return kIOReturnSuccess;
+	IOReturn status = kIOReturnSuccess;
+	
+	status = checkROMState();
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( index < 0 || index >= fNumEntries )
+			status = kIOReturnBadArgument;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		const UInt32 * data = lockData();
+		value = data[fStart + 1 + index];
+		unlockData();
+	}
+	
+    return status;
 }
+
+// getSubdirectories
+//
+//
 
 IOReturn IOConfigDirectory::getSubdirectories(OSIterator *&iterator)
 {
@@ -491,19 +883,19 @@ OSMetaClassDefineReservedUnused(IORemoteConfigDirectory, 2);
 
 
 bool
-IORemoteConfigDirectory::initWithOwnerOffset(IOFireWireDevice *owner, OSData *rom,
+IORemoteConfigDirectory::initWithOwnerOffset( IOFireWireROMCache *rom,
                          int start, int type)
 {
 
     // Do this first so that init can load ROM
-    fOwner = owner;
-    fOwner->retain();
     fROM = rom;
     fROM->retain();
 
-    if(!IOConfigDirectory::initWithOffset(start, type)) {
-        fOwner->release();
-        fOwner = NULL;
+    if( !IOConfigDirectory::initWithOffset(start, type) ) 
+	{
+		fROM->release();
+		fROM = NULL;
+		
         return false;       
     }
 
@@ -513,24 +905,23 @@ IORemoteConfigDirectory::initWithOwnerOffset(IOFireWireDevice *owner, OSData *ro
 void
 IORemoteConfigDirectory::free()
 {
-    if(fOwner)
-        fOwner->release();
     if(fROM)
         fROM->release();
     IOConfigDirectory::free();
 }
 
 IOConfigDirectory *
-IORemoteConfigDirectory::withOwnerOffset(IOFireWireDevice *owner, OSData *rom,
+IORemoteConfigDirectory::withOwnerOffset( IOFireWireROMCache *rom,
                                            int start, int type)
 {
     IORemoteConfigDirectory *dir;
 
     dir = new IORemoteConfigDirectory;
-    if(!dir)
+    if( !dir )
         return NULL;
 
-    if(!dir->initWithOwnerOffset(owner, rom, start, type)) {
+    if( !dir->initWithOwnerOffset(rom, start, type) ) 
+	{
         dir->release();
         dir = NULL;
     }
@@ -544,12 +935,50 @@ const UInt32 *IORemoteConfigDirectory::getBase()
 
 IOReturn IORemoteConfigDirectory::update(UInt32 offset, const UInt32 *&romBase)
 {
-    return fOwner->cacheROM(fROM, offset, romBase);
+	// unsupported
+	
+	return kIOReturnError;
 }
 
 IOConfigDirectory *
 IORemoteConfigDirectory::getSubDir(int start, int type)
 {
-    return withOwnerOffset(fOwner, fROM, start, type);
+    return withOwnerOffset(fROM, start, type);
 }
 
+// lockData
+//
+//
+
+const UInt32 * IORemoteConfigDirectory::lockData( void )
+{
+	fROM->lock();
+	return (UInt32 *)fROM->getBytesNoCopy();
+}
+
+// unlockData
+//
+//
+
+void IORemoteConfigDirectory::unlockData( void )
+{
+	fROM->unlock();
+}
+
+// updateROMCache
+//
+//
+
+IOReturn IORemoteConfigDirectory::updateROMCache( UInt32 offset, UInt32 length )
+{
+	return fROM->updateROMCache( offset, length );
+}
+
+// checkROMState
+//
+//
+
+IOReturn IORemoteConfigDirectory::checkROMState( void )
+{
+	return fROM->checkROMState();
+}

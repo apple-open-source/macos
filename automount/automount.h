@@ -24,7 +24,11 @@
 #ifndef __AUTOMOUNT_H__
 #define __AUTOMOUNT_H__
 
+#import <sys/types.h>
 #import <objc/Object.h>
+#import <sys/queue.h>
+
+@class Vnode;
 
 extern id controller;
 extern id dot;
@@ -40,5 +44,20 @@ extern int debug_select;
 extern int debug_options;
 
 extern int osType;
+
+struct MountProgressRecord {
+	LIST_ENTRY(MountProgressRecord) mpr_link;
+	pid_t mpr_mountpid;
+	Vnode *mpr_vp;
+};
+typedef LIST_HEAD(MountProgressRecord_List, MountProgressRecord) MountProgressRecord_List;
+
+extern MountProgressRecord_List gMountsInProgress;
+
+extern BOOL gForkedMountInProgress;
+extern BOOL gForkedMount;
+extern BOOL gBlockedMountDependency;
+extern unsigned long gBlockingMountTransactionID;
+extern int gMountResult;
 
 #endif __AUTOMOUNT_H__

@@ -1,5 +1,6 @@
 /* Call a Lisp function interactively.
-   Copyright (C) 1985, 86, 93, 94, 95, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1985, 86, 93, 94, 95, 1997, 2000
+   Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -27,7 +28,9 @@ Boston, MA 02111-1307, USA.  */
 #include "window.h"
 #include "mocklisp.h"
 
-extern char *index ();
+#ifdef HAVE_INDEX
+extern char *index P_ ((const char *, int));
+#endif
 
 extern Lisp_Object Qcursor_in_echo_area;
 
@@ -148,11 +151,11 @@ quotify_args (exp)
      Lisp_Object exp;
 {
   register Lisp_Object tail;
-  register struct Lisp_Cons *ptr;
-  for (tail = exp; CONSP (tail); tail = ptr->cdr)
+  Lisp_Object next;
+  for (tail = exp; CONSP (tail); tail = next)
     {
-      ptr = XCONS (tail);
-      ptr->car = quotify_arg (ptr->car);
+      next = XCDR (tail);
+      XCAR (tail) = quotify_arg (XCAR (tail));
     }
   return exp;
 }
@@ -183,7 +186,9 @@ See `interactive'.\n\
 \n\
 Optional second arg RECORD-FLAG non-nil\n\
 means unconditionally put this command in the command-history.\n\
-Otherwise, this is done only if an arg is read using the minibuffer.")
+Otherwise, this is done only if an arg is read using the minibuffer.\n\
+Optional third arg KEYS, if given, specifies the sequence of events to\n\
+supply if the command inquires which events were used to invoke it.")
   (function, record_flag, keys)
      Lisp_Object function, record_flag, keys;
 {
@@ -232,6 +237,8 @@ Otherwise, this is done only if an arg is read using the minibuffer.")
 
   if (SYMBOLP (function))
     enable = Fget (function, Qenable_recursive_minibuffers);
+  else
+    enable = Qnil;
 
   fun = indirect_function (function);
 
@@ -314,17 +321,17 @@ Otherwise, this is done only if an arg is read using the minibuffer.")
 	     instead of the present values.  */
 	  if (CONSP (input))
 	    {
-	      car = XCONS (input)->car;
+	      car = XCAR (input);
 	      /* Skip through certain special forms.  */
 	      while (EQ (car, Qlet) || EQ (car, Qletx)
 		     || EQ (car, Qsave_excursion))
 		{
-		  while (CONSP (XCONS (input)->cdr))
-		    input = XCONS (input)->cdr;
-		  input = XCONS (input)->car;
+		  while (CONSP (XCDR (input)))
+		    input = XCDR (input);
+		  input = XCAR (input);
 		  if (!CONSP (input))
 		    break;
-		  car = XCONS (input)->car;
+		  car = XCAR (input);
 		}
 	      if (EQ (car, Qlist))
 		{
@@ -353,7 +360,7 @@ Otherwise, this is done only if an arg is read using the minibuffer.")
 	    {
 	      teml = Fnthcdr (Vhistory_length, Vcommand_history);
 	      if (CONSP (teml))
-		XCONS (teml)->cdr = Qnil;
+		XCDR (teml) = Qnil;
 	    }
 	}
       single_kboard_state ();
@@ -388,9 +395,9 @@ Otherwise, this is done only if an arg is read using the minibuffer.")
 
 	  event = XVECTOR (keys)->contents[next_event];
 	  if (EVENT_HAS_PARAMETERS (event)
-	      && (event = XCONS (event)->cdr, CONSP (event))
-	      && (event = XCONS (event)->car, CONSP (event))
-	      && (event = XCONS (event)->car, WINDOWP (event)))
+	      && (event = XCDR (event), CONSP (event))
+	      && (event = XCAR (event), CONSP (event))
+	      && (event = XCAR (event), WINDOWP (event)))
 	    {
 	      if (MINI_WINDOW_P (XWINDOW (event))
 		  && ! (minibuf_level > 0 && EQ (event, minibuf_window)))
@@ -447,7 +454,7 @@ Otherwise, this is done only if an arg is read using the minibuffer.")
     {
       strncpy (prompt1, tem + 1, sizeof prompt1 - 1);
       prompt1[sizeof prompt1 - 1] = 0;
-      tem1 = index (prompt1, '\n');
+      tem1 = (char *) index (prompt1, '\n');
       if (tem1) *tem1 = 0;
       /* Fill argstrings with a vector of C strings
 	 corresponding to the Lisp strings in visargs.  */
@@ -554,7 +561,7 @@ Otherwise, this is done only if an arg is read using the minibuffer.")
 	       discard the following up-event.  */
 	    teml = Faref (args[i], make_number (XINT (Flength (args[i])) - 1));
 	    if (CONSP (teml))
-	      teml = XCONS (teml)->car;
+	      teml = XCAR (teml);
 	    if (SYMBOLP (teml))
 	      {
 		Lisp_Object tem2;
@@ -582,7 +589,7 @@ Otherwise, this is done only if an arg is read using the minibuffer.")
 	       discard the following up-event.  */
 	    teml = Faref (args[i], make_number (XINT (Flength (args[i])) - 1));
 	    if (CONSP (teml))
-	      teml = XCONS (teml)->car;
+	      teml = XCAR (teml);
 	    if (SYMBOLP (teml))
 	      {
 		Lisp_Object tem2;
@@ -771,7 +778,7 @@ Otherwise, this is done only if an arg is read using the minibuffer.")
 	{
 	  teml = Fnthcdr (Vhistory_length, Vcommand_history);
 	  if (CONSP (teml))
-	    XCONS (teml)->cdr = Qnil;
+	    XCDR (teml) = Qnil;
 	}
     }
 
@@ -807,8 +814,8 @@ Its numeric meaning is what you would get from `(interactive \"p\")'.")
     XSETFASTINT (val, 1);
   else if (EQ (raw, Qminus))
     XSETINT (val, -1);
-  else if (CONSP (raw) && INTEGERP (XCONS (raw)->car))
-    XSETINT (val, XINT (XCONS (raw)->car));
+  else if (CONSP (raw) && INTEGERP (XCAR (raw)))
+    XSETINT (val, XINT (XCAR (raw)));
   else if (INTEGERP (raw))
     val = raw;
   else

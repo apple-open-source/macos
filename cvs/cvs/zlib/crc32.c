@@ -3,7 +3,7 @@
  * For conditions of distribution and use, see copyright notice in zlib.h 
  */
 
-/* $Id: crc32.c,v 1.1.1.3 1999/09/02 04:55:25 wsanchez Exp $ */
+/* $Id: crc32.c,v 1.2 2002/03/01 00:33:24 zarzycki Exp $ */
 
 #include "zlib.h"
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -19,11 +19,10 @@
 //
 // Schema.h
 //
-#ifndef _H_SCHEMA
-#define _H_SCHEMA
+#ifndef _SECURITY_SCHEMA_H_
+#define _SECURITY_SCHEMA_H_
 
-//#include <Security/dlclient.h>
-#include <Security/SecKeychainAPI.h>
+#include <Security/SecKeychainItem.h>
 
 namespace Security {
 
@@ -46,11 +45,35 @@ extern const CSSM_DB_ATTRIBUTE_INFO IndexType;
 
 extern const CSSM_DBINFO DBInfo;
 
+// Certificate attributes and schema
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CertificateCertType;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CertificateCertEncoding;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CertificatePrintName;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CertificateAlias;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CertificateSubject;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CertificateIssuer;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CertificateSerialNumber;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CertificateSubjectKeyIdentifier;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CertificatePublicKeyHash;
+
+extern const CSSM_DB_SCHEMA_ATTRIBUTE_INFO X509CertificateSchemaAttributeList[];
+extern const CSSM_DB_SCHEMA_INDEX_INFO X509CertificateSchemaIndexList[];
+extern const uint32 X509CertificateSchemaAttributeCount;
+extern const uint32 X509CertificateSchemaIndexCount;
+
+// UserTrust records attributes and schema
+extern const CSSM_DB_ATTRIBUTE_INFO kUserTrustTrustedCertificate;
+extern const CSSM_DB_ATTRIBUTE_INFO kUserTrustTrustedPolicy;
+
+extern const CSSM_DB_SCHEMA_ATTRIBUTE_INFO UserTrustSchemaAttributeList[];
+extern const CSSM_DB_SCHEMA_INDEX_INFO UserTrustSchemaIndexList[];
+extern const uint32 UserTrustSchemaAttributeCount;
+extern const uint32 UserTrustSchemaIndexCount;
+
 } // end namespace Schema
 
 } // end namespace KeychainCore
 
 } // end namespace Security
 
-#endif // _H_SCHEMA
-
+#endif // !_SECURITY_SCHEMA_H_

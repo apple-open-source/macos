@@ -52,6 +52,7 @@ struct file_handle
 	Server *server;
 	String *vfsType;
 	String *urlString;
+	BOOL mountInProgress;
 	BOOL mounted;
 	BOOL mountPathCreated;
 	BOOL fake;
@@ -69,6 +70,8 @@ struct file_handle
 	unsigned int forcedNFSVersion;
 	unsigned int forcedProtocol;
 	unsigned int nfsStatus;
+	struct MountProgressRecord mountInfo;
+	unsigned long transactionID;
 }
 
 - (String *)path;
@@ -98,6 +101,7 @@ struct file_handle
 - (void)setAttributes:(struct fattr)a;
 
 - (void)resetTime;
+- (void)resetAllTimes;
 - (void)resetMountTime;
 
 - (ftype)type;
@@ -122,6 +126,9 @@ struct file_handle
 - (BOOL)mounted;
 - (void)setMounted:(BOOL)m;
 
+- (BOOL)mountInProgress;
+- (void)setMountInProgress:(BOOL)newMountInProgressState;
+
 - (BOOL)fakeMount;
 - (void)setFakeMount:(BOOL)m;
 
@@ -131,12 +138,19 @@ struct file_handle
 - (BOOL)mountPathCreated;
 - (void)setMountPathCreated:(BOOL)m;
 
+- (unsigned long)transactionID;
+- (void)setTransactionID:(unsigned long)xid;
+
 - (unsigned int)nfsStatus;
 - (void)setNfsStatus:(unsigned int)s;
+
+- (struct MountProgressRecord *)mountInfo;
 
 - (void)getFileHandle:(nfs_fh *)fh;
 
 - (Vnode *)lookup:(String *)name;
+
+- (int)symlinkWithName:(char *)from to:(char *)to attributes:(struct nfsv2_sattr *)attributes;
 
 - (Vnode *)parent;
 - (void)setParent:(Vnode *)p;
@@ -146,6 +160,8 @@ struct file_handle
 - (void)removeChild:(Vnode *)child;
 
 - (Array *)dirlist;
+
+- (void)invalidateRecursively:(BOOL)invalidateDescendants;
 
 @end
 

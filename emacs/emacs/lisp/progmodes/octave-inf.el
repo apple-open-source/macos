@@ -24,6 +24,8 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
 (require 'octave-mod)
@@ -52,7 +54,7 @@ startup."
 		 file)
   :group 'octave-inferior)
 
-(defcustom inferior-octave-startup-args '("-i")
+(defcustom inferior-octave-startup-args nil
   "*List of command line arguments for the inferior Octave process.
 For example, for suppressing the startup message and using `traditional'
 mode, set this to (\"-q\" \"--traditional\")."
@@ -92,6 +94,17 @@ mode, set this to (\"-q\" \"--traditional\")."
    (cons inferior-octave-prompt 'font-lock-type-face))
   ;; Could certainly do more font locking in inferior Octave ...
   "Additional expressions to highlight in Inferior Octave mode.")
+
+
+;;; Compatibility functions
+(if (not (fboundp 'comint-line-beginning-position))
+    ;; comint-line-beginning-position is defined in Emacs 21
+    (defun comint-line-beginning-position ()
+      "Returns the buffer position of the beginning of the line, after any prompt.
+The prompt is assumed to be any text at the beginning of the line matching
+the regular expression `comint-prompt-regexp', a buffer local variable."
+      (save-excursion (comint-bol nil) (point))))
+
 
 (defvar inferior-octave-output-list nil)
 (defvar inferior-octave-output-string nil)
@@ -182,7 +195,8 @@ startup file, `~/.emacs-octave'."
 	       (substring inferior-octave-buffer 1 -1)
 	       inferior-octave-buffer
 	       inferior-octave-program
-	       inferior-octave-startup-args)))
+	       (append (list "-i" "--no-line-editing")
+		       inferior-octave-startup-args))))
     (set-process-filter proc 'inferior-octave-output-digest)
     (setq comint-ptyp process-connection-type
 	  inferior-octave-process proc
@@ -242,11 +256,10 @@ This is implemented using the Octave command `completion_matches' which
 is NOT available with versions of Octave prior to 2.0."
   (interactive)
   (let* ((end (point))
-	 (command (save-excursion
-		    (skip-syntax-backward "w_")
-		    (and (looking-at comint-prompt-regexp)
-			 (goto-char (match-end 0)))
-		    (buffer-substring-no-properties (point) end)))
+	 (command
+	  (save-excursion
+	    (skip-syntax-backward "w_" (comint-line-beginning-position))
+	    (buffer-substring-no-properties (point) end)))
 	 (proc (get-buffer-process inferior-octave-buffer))
 	 (filter (process-filter proc)))
     (cond (inferior-octave-complete-impossible

@@ -31,7 +31,8 @@
 #include <Security/cssmacl.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <Security/cssmdb.h>
-
+#include <Security/trackingallocator.h>
+#include <Security/SecCFTypes.h>
 
 using namespace KeychainCore;
 using namespace CssmClient;
@@ -71,7 +72,8 @@ KeychainSchemaImpl::KeychainSchemaImpl(const Db &db)
 		RelationInfoMap &rim = mDatabaseInfoMap[relationID];
 		while (attributes->next(&attributeRecord, NULL, uniqueId))
 		{
-			if(CSSM_DB_ATTRIBUTE_FORMAT(attributeRecord.at(2))==CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER)
+			// @@@ this if statement was blocking tags of different naming conventions
+			//if(CSSM_DB_ATTRIBUTE_FORMAT(attributeRecord.at(2))==CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER)
 				rim[attributeRecord.at(1)] = attributeRecord.at(0);
 		}
 		
@@ -104,60 +106,64 @@ KeychainSchemaImpl::~KeychainSchemaImpl()
 	for_each_map_delete(mPrimaryKeyInfoMap.begin(), mPrimaryKeyInfoMap.end());
 }
 
-CSSM_DB_ATTRIBUTE_FORMAT 
-KeychainSchemaImpl::attributeFormatFor(CSSM_DB_RECORDTYPE recordType, uint32 attributeId) const
+const KeychainSchemaImpl::RelationInfoMap &
+KeychainSchemaImpl::relationInfoMapFor(CSSM_DB_RECORDTYPE recordType) const
 {
-
 	DatabaseInfoMap::const_iterator dit = mDatabaseInfoMap.find(recordType);
 	if (dit == mDatabaseInfoMap.end())
 		MacOSError::throwMe(errSecNoSuchClass);
-	RelationInfoMap::const_iterator rit = dit->second.find(attributeId);
-	if (dit == dit->second.end())
+	return dit->second;
+}
+
+bool
+KeychainSchemaImpl::hasAttribute(CSSM_DB_RECORDTYPE recordType, uint32 attributeId) const
+{
+	const RelationInfoMap &rmap = relationInfoMapFor(recordType);
+	RelationInfoMap::const_iterator rit = rmap.find(attributeId);
+	return rit != rmap.end();
+}
+
+CSSM_DB_ATTRIBUTE_FORMAT 
+KeychainSchemaImpl::attributeFormatFor(CSSM_DB_RECORDTYPE recordType, uint32 attributeId) const
+{
+	const RelationInfoMap &rmap = relationInfoMapFor(recordType);
+	RelationInfoMap::const_iterator rit = rmap.find(attributeId);
+	if (rit == rmap.end())
 		MacOSError::throwMe(errSecNoSuchAttr);
 
 	return rit->second;
 }
 
 CssmDbAttributeInfo
-KeychainSchemaImpl::attributeInfoForTag(UInt32 tag)
+KeychainSchemaImpl::attributeInfoFor(CSSM_DB_RECORDTYPE recordType, uint32 attributeId) const
 {
 	CSSM_DB_ATTRIBUTE_INFO info;
+	info.AttributeFormat = attributeFormatFor(recordType, attributeId);
+	info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER;
+	info.Label.AttributeID = attributeId;
 
-	for(DatabaseInfoMap::const_iterator dit = mDatabaseInfoMap.begin(); dit != mDatabaseInfoMap.end(); ++dit)
-	{
-		for(RelationInfoMap::const_iterator rit = dit->second.begin(); rit != dit->second.end(); ++rit)
-		{
-			if(rit->first==tag)
-			{
-				info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER;
-				info.Label.AttributeID = rit->first;
-				info.AttributeFormat = rit->second;
-				return info;
-			}
-		}
-	}
 	return info;
 }
 
 void
-KeychainSchemaImpl::getAttributeInfoForRecordType(CSSM_DB_RECORDTYPE recordType, SecKeychainAttributeInfo **Info)
+KeychainSchemaImpl::getAttributeInfoForRecordType(CSSM_DB_RECORDTYPE recordType, SecKeychainAttributeInfo **Info) const
 {
-	DatabaseInfoMap::const_iterator dit = mDatabaseInfoMap.find(recordType);
-	if (dit == mDatabaseInfoMap.end())
-		MacOSError::throwMe(errSecNoSuchClass);
+	const RelationInfoMap &rmap = relationInfoMapFor(recordType);
 
 	SecKeychainAttributeInfo *theList=reinterpret_cast<SecKeychainAttributeInfo *>(malloc(sizeof(SecKeychainAttributeInfo)));
 	
-	UInt32 capacity=32;
+	UInt32 capacity=rmap.size();
 	UInt32 *tagBuf=reinterpret_cast<UInt32 *>(malloc(capacity*sizeof(UInt32)));
 	UInt32 *formatBuf=reinterpret_cast<UInt32 *>(malloc(capacity*sizeof(UInt32)));
 	UInt32 i=0;
 	
-	for(RelationInfoMap::const_iterator rit = dit->second.begin(); rit != dit->second.end(); ++rit)
+	
+	for (RelationInfoMap::const_iterator rit = rmap.begin(); rit != rmap.end(); ++rit)
 	{
-		if(i>=capacity)
+		if (i>=capacity)
 		{
-			capacity*=2;
+			capacity *= 2;
+			if (capacity <= i) capacity = i + 1;
 			tagBuf=reinterpret_cast<UInt32 *>(realloc(tagBuf, (capacity*sizeof(UInt32))));
 			formatBuf=reinterpret_cast<UInt32 *>(realloc(tagBuf, (capacity*sizeof(UInt32))));
 		}
@@ -173,13 +179,10 @@ KeychainSchemaImpl::getAttributeInfoForRecordType(CSSM_DB_RECORDTYPE recordType,
 
 
 const CssmAutoDbRecordAttributeInfo &
-KeychainSchemaImpl::primaryKeyInfosFor(CSSM_DB_RECORDTYPE recordType)
+KeychainSchemaImpl::primaryKeyInfosFor(CSSM_DB_RECORDTYPE recordType) const
 {
-	PrimaryKeyInfoMap::iterator it;
+	PrimaryKeyInfoMap::const_iterator it;
 	it = mPrimaryKeyInfoMap.find(recordType);
-	
-	// if the primary key attributes have already been determined,
-	// return the cached results
 	
 	if (it == mPrimaryKeyInfoMap.end())
 		MacOSError::throwMe(errSecNoSuchClass); // @@@ Not really but whatever.
@@ -212,16 +215,26 @@ KeychainImpl::~KeychainImpl()
 {
 }
 
+bool
+KeychainImpl::operator ==(const KeychainImpl &keychain) const
+{
+	return dLDbIdentifier() == keychain.dLDbIdentifier();
+}
+
 KCCursor
 KeychainImpl::createCursor(SecItemClass itemClass, const SecKeychainAttributeList *attrList)
 {
-	return KCCursor(DbCursor(mDb), itemClass, attrList);
+	StorageManager::KeychainList keychains;
+	keychains.push_back(Keychain(this));
+	return KCCursor(keychains, itemClass, attrList);
 }
 
 KCCursor
 KeychainImpl::createCursor(const SecKeychainAttributeList *attrList)
 {
-	return KCCursor(DbCursor(mDb), attrList);
+	StorageManager::KeychainList keychains;
+	keychains.push_back(Keychain(this));
+	return KCCursor(keychains, attrList);
 }
 
 void
@@ -234,13 +247,13 @@ KeychainImpl::create(UInt32 passwordLength, const void *inPassword)
 	}
 
 	CssmAllocator &alloc = CssmAllocator::standard();
+        
 	// @@@ Share this instance
-	KeychainAclFactory aclFactory(alloc);
 
-	// @@@ This leaks the returned credentials
 	const CssmData password(const_cast<void *>(inPassword), passwordLength);
-	const AccessCredentials *cred = aclFactory.passwordChangeCredentials(password);
-
+        AclFactory::PasswordChangeCredentials pCreds (password, alloc);
+        const AccessCredentials* aa = pCreds;
+        
 	// @@@ Create a nice wrapper for building the default AclEntryPrototype. 
 	TypedList subject(alloc, CSSM_ACL_SUBJECT_TYPE_ANY);
 	AclEntryPrototype protoType(subject);
@@ -249,7 +262,7 @@ KeychainImpl::create(UInt32 passwordLength, const void *inPassword)
 	authGroup.NumberOfAuthTags = 1;
 	authGroup.AuthTags = &tag;
 
-	const ResourceControlContext rcc(protoType, const_cast<AccessCredentials *>(cred));
+	const ResourceControlContext rcc(protoType, const_cast<AccessCredentials *>(aa));
 	create(&rcc);
 }
 
@@ -266,10 +279,14 @@ KeychainImpl::create()
 {
 	CssmAllocator &alloc = CssmAllocator::standard();
 	// @@@ Share this instance
+#ifdef OBSOLETE
 	KeychainAclFactory aclFactory(alloc);
 
 	const AccessCredentials *cred = aclFactory.keychainPromptUnlockCredentials();
-
+#endif
+        AclFactory aclFactor;
+        const AccessCredentials *cred = aclFactor.unlockCred ();
+        
 	// @@@ Create a nice wrapper for building the default AclEntryPrototype.
 	TypedList subject(alloc, CSSM_ACL_SUBJECT_TYPE_ANY);
 	AclEntryPrototype protoType(subject);
@@ -422,7 +439,7 @@ KeychainImpl::status() const
 {
 	// @@@ We should figure out the read/write status though a DL passthrough or some other way.
 	// @@@ Also should locked be unlocked read only or just read-only?
-	return (mDb->isLocked() ? 0 : kSecUnlockStateStatus | kSecWrPermStatus) | kSecRdPermStatus;
+	return (mDb->isLocked() ? 0 : kSecUnlockStateStatus | kSecWritePermStatus) | kSecReadPermStatus;
 }
 
 bool
@@ -453,11 +470,11 @@ KeychainImpl::isActive() const
 void
 KeychainImpl::add(Item &inItem)
 {
-	PrimaryKey primaryKey = inItem->add(this);
+	Keychain keychain(this);
+	PrimaryKey primaryKey = inItem->add(keychain);
 	{
 		StLock<Mutex> _(mDbItemMapLock);
-		// Use &* to get the item's Impl.
-		mDbItemMap[primaryKey] = &*inItem;
+		mDbItemMap[primaryKey] = inItem.get();
 	}
 
     KCEventNotifier::PostKeychainEvent(kSecAddEvent, this, inItem);
@@ -498,6 +515,17 @@ KeychainImpl::deleteItem(Item &inoutItem)
     // Post the notification for the item deletion with
 	// the primaryKey obtained when the item still existed
 	KCEventNotifier::PostKeychainEvent(kSecDeleteEvent, dLDbIdentifier(), primaryKey);
+}
+
+
+CssmClient::CSP
+KeychainImpl::csp()
+{
+	if (!mDb->dl()->subserviceMask() & CSSM_SERVICE_CSP)
+		MacOSError::throwMe(errSecInvalidKeychain);
+
+	SSDb ssDb(safe_cast<SSDbImpl *>(&(*mDb)));
+	return ssDb->csp();
 }
 
 PrimaryKey
@@ -615,9 +643,9 @@ KeychainImpl::freeAttributeInfo(SecKeychainAttributeInfo *Info)
 }
 
 CssmDbAttributeInfo
-KeychainImpl::attributeInfoForTag(UInt32 tag)
+KeychainImpl::attributeInfoFor(CSSM_DB_RECORDTYPE recordType, UInt32 tag)
 {
-	return keychainSchema()->attributeInfoForTag(tag);
+	return keychainSchema()->attributeInfoFor(recordType, tag);
 
 }
 
@@ -625,7 +653,7 @@ Keychain
 Keychain::optional(SecKeychainRef handle)
 {
 	if (handle)
-		return KeychainRef::required(handle);
+		return gTypes().keychain.required(handle);
 	else
 		return globals().defaultKeychain;
 }

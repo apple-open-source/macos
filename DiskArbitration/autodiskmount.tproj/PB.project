@@ -15,7 +15,8 @@
             DiskVolume.h, 
             GetRegistry.h, 
             FSParticular.h, 
-            Configuration.h
+            Configuration.h, 
+            FSTableLookup.h
         ); 
         OTHER_LINKED = (
             autodiskmount.c, 
@@ -25,14 +26,17 @@
             GetRegistry.c, 
             FSParticular.c, 
             vsdbutil.c, 
-            Configuration.c
+            Configuration.c, 
+            FSTableLookup.c, 
+            fstab.c
         ); 
         OTHER_SOURCES = (
             Makefile.preamble, 
             Makefile, 
             Makefile.postamble, 
             ClientToServer.defs, 
-            ServerToClient.defs
+            ServerToClient.defs, 
+            autodiskmount.8
         ); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 

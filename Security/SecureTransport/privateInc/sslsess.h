@@ -44,17 +44,17 @@
 
 #define SSL_SESSION_ID_LEN  16      /* 16 <= SSL_SESSION_ID_LEN <= 32 */
 
-SSLErr SSLAddSessionID(const SSLContext *ctx);
-SSLErr SSLGetSessionID(SSLBuffer *sessionData, const SSLContext *ctx);
-SSLErr SSLDeleteSessionID(const SSLContext *ctx);
-SSLErr SSLRetrieveSessionIDIdentifier(
+SSLErr SSLAddSessionData(const SSLContext *ctx);
+SSLErr SSLGetSessionData(SSLBuffer *sessionData, const SSLContext *ctx);
+SSLErr SSLDeleteSessionData(const SSLContext *ctx);
+SSLErr SSLRetrieveSessionID(
 	const SSLBuffer sessionData, 
 	SSLBuffer *identifier, 
 	const SSLContext *ctx);
-SSLErr SSLRetrieveSessionIDProtocolVersion(
-	const SSLBuffer sessionID, 
+SSLErr SSLRetrieveSessionProtocolVersion(
+	const SSLBuffer sessionData, 
 	SSLProtocolVersion *version, 
 	const SSLContext *ctx);
-SSLErr SSLInstallSessionID(const SSLBuffer sessionData, SSLContext *ctx);
+SSLErr SSLInstallSessionFromData(const SSLBuffer sessionData, SSLContext *ctx);
 
 #endif /* _SSLSESS_H_ */

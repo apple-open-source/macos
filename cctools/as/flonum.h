@@ -1,3 +1,5 @@
+#ifndef _FLONUM_H_
+#define _FLONUM_H_
 /* flonum.h - Floating point package
    Copyright (C) 1987 Free Software Foundation, Inc.
 
@@ -119,3 +121,4 @@ extern int atof_generic(
 \***********************************************************************/
 
 #define ERROR_EXPONENT_OVERFLOW (2)
+#endif /* _FLONUM_H_ */

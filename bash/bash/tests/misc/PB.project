@@ -1,0 +1,24 @@
+{
+    FILESTABLE = {
+        Documentation = ("test-minus-e.2", "test-minus-e.1"); 
+        Headers = (); 
+        Resources = (
+            sigint.t4.sh, 
+            sigint.t3.sh, 
+            sigint.t2.sh, 
+            sigint.t1.sh, 
+            run.r2.sh, 
+            redir.t2.sh
+        ); 
+        SUBPROJECTS = (); 
+        Sources = (); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = misc; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

@@ -1,115 +1,160 @@
 \initial {A}
-\entry {\code {add-style (c-)}}{22}
+\entry {\code {add-style (c-)}}{29}
+\entry {\code {auto-fill-mode}}{15}
 \initial {B}
-\entry {\code {backward-conditional (c-)}}{15}
-\entry {\code {backward-delete-char-untabify}}{12}
-\entry {\code {backward-into-nomenclature (c-)}}{16}
-\entry {\code {beginning-of-defun}}{37}
-\entry {\code {beginning-of-statement (c-)}}{15}
+\entry {\code {backslash-region (c-)}}{21}
+\entry {\code {backward-conditional (c-)}}{20}
+\entry {\code {backward-delete-char-untabify}}{13}
+\entry {\code {backward-into-nomenclature (c-)}}{21}
+\entry {\code {beginning-of-defun}}{19, 54}
+\entry {\code {beginning-of-defun (c-)}}{19}
+\entry {\code {beginning-of-statement (c-)}}{20}
 \initial {C}
-\entry {\code {c-add-style}}{22}
-\entry {\code {c-backward-conditional}}{15}
-\entry {\code {c-backward-into-nomenclature}}{16}
-\entry {\code {c-beginning-of-statement}}{15}
-\entry {\code {c-electric-backspace}}{12}
+\entry {\code {c-add-style}}{29}
+\entry {\code {c-backslash-region}}{21}
+\entry {\code {c-backward-conditional}}{20}
+\entry {\code {c-backward-into-nomenclature}}{21}
+\entry {\code {c-beginning-of-defun}}{19}
+\entry {\code {c-beginning-of-statement}}{20}
+\entry {\code {c-context-line-break}}{17}
+\entry {\code {c-down-conditional}}{20}
+\entry {\code {c-down-conditional-with-else}}{20}
+\entry {\code {c-electric-backspace}}{13}
 \entry {\code {c-electric-brace}}{8}
-\entry {\code {c-electric-delete}}{12}
+\entry {\code {c-electric-delete}}{13}
 \entry {\code {c-electric-lt-gt}}{10}
-\entry {\code {c-electric-pound}}{9}
-\entry {\code {c-electric-slash}}{9}
-\entry {\code {c-electric-star}}{9}
-\entry {\code {c-end-of-statement}}{15}
-\entry {\code {c-forward-conditional}}{15}
-\entry {\code {c-forward-into-nomenclature}}{16}
-\entry {\code {c-hanging-braces-alist}}{14}
-\entry {\code {c-indent-command}}{14}
-\entry {\code {c-indent-defun}}{14, 19}
-\entry {\code {c-indent-exp}}{14}
-\entry {\code {c-lineup-arglist}}{24}
-\entry {\code {c-lineup-arglist-close-under-paren}}{25}
-\entry {\code {c-lineup-arglist-intro-after-paren}}{24}
-\entry {\code {c-lineup-C-comments}}{25}
-\entry {\code {c-lineup-comment}}{25}
-\entry {\code {c-lineup-math}}{25}
-\entry {\code {c-lineup-multi-inher}}{25}
-\entry {\code {c-lineup-ObjC-method-args}}{25}
-\entry {\code {c-lineup-ObjC-method-args-2}}{25}
-\entry {\code {c-lineup-ObjC-method-call}}{25}
-\entry {\code {c-lineup-runin-statements}}{25}
-\entry {\code {c-lineup-streamop}}{24, 25}
-\entry {\code {c-mark-function}}{15}
+\entry {\code {c-electric-paren}}{10}
+\entry {\code {c-electric-pound}}{10}
+\entry {\code {c-electric-slash}}{10}
+\entry {\code {c-electric-star}}{10}
+\entry {\code {c-end-of-defun}}{19}
+\entry {\code {c-end-of-statement}}{20}
+\entry {\code {c-fill-paragraph}}{17}
+\entry {\code {c-forward-conditional}}{20}
+\entry {\code {c-forward-into-nomenclature}}{21}
+\entry {\code {c-indent-command}}{18}
+\entry {\code {c-indent-defun}}{18}
+\entry {\code {c-indent-exp}}{18, 56}
+\entry {\code {c-indent-multi-line-block}}{50}
+\entry {\code {c-indent-new-comment-line}}{17}
+\entry {\code {c-indent-one-line-block}}{50}
+\entry {\code {c-lineup-arglist}}{48}
+\entry {\code {c-lineup-arglist-close-under-paren}}{48}
+\entry {\code {c-lineup-arglist-intro-after-paren}}{48}
+\entry {\code {c-lineup-C-comments}}{51}
+\entry {\code {c-lineup-close-paren}}{48}
+\entry {\code {c-lineup-comment}}{51}
+\entry {\code {c-lineup-dont-change}}{53}
+\entry {\code {c-lineup-inexpr-block}}{53}
+\entry {\code {c-lineup-java-inher}}{49}
+\entry {\code {c-lineup-java-throws}}{49}
+\entry {\code {c-lineup-math}}{52}
+\entry {\code {c-lineup-multi-inher}}{49}
+\entry {\code {c-lineup-ObjC-method-args}}{52}
+\entry {\code {c-lineup-ObjC-method-args-2}}{52}
+\entry {\code {c-lineup-ObjC-method-call}}{52}
+\entry {\code {c-lineup-runin-statements}}{52}
+\entry {\code {c-lineup-streamop}}{31, 48}
+\entry {\code {c-lineup-template-args}}{52}
+\entry {\code {c-lineup-whitesmith-in-block}}{53}
+\entry {\code {c-mark-function}}{18}
 \entry {\code {c-mode}}{1}
-\entry {\code {c-scope-operator}}{16}
-\entry {\code {c-set-offset}}{19, 22}
-\entry {\code {c-set-style}}{21}
+\entry {\code {c-scope-operator}}{21}
+\entry {\code {c-semi&comma-inside-parenlist}}{33}
+\entry {\code {c-semi&comma-no-newlines-before-nonblanks}}{33}
+\entry {\code {c-semi&comma-no-newlines-for-oneline-inliners}}{33}
+\entry {\code {c-set-offset}}{22}
+\entry {\code {c-set-style}}{29}
+\entry {\code {c-setup-filladapt}}{16}
 \entry {\code {c-show-syntactic-information}}{3}
-\entry {\code {c-snug-do-while}}{25}
-\entry {\code {c-submit-bug-report}}{43}
+\entry {\code {c-snug-do-while}}{32}
+\entry {\code {c-submit-bug-report}}{60}
 \entry {\code {c-toggle-auto-hungry-state}}{7}
 \entry {\code {c-toggle-auto-state}}{7}
 \entry {\code {c-toggle-hungry-state}}{7}
-\entry {\code {c-up-conditional}}{15}
+\entry {\code {c-up-conditional}}{20}
+\entry {\code {c-up-conditional-with-else}}{20}
 \entry {\code {c-version}}{2}
 \entry {\code {c++-mode}}{1}
+\entry {\code {context-line-break (c-)}}{17}
 \initial {D}
-\entry {\code {defun-prompt-regexp}}{37}
-\entry {\code {delete-char}}{12}
+\entry {\code {defun-prompt-regexp}}{54}
+\entry {\code {delete-char}}{13}
+\entry {\code {down-conditional (c-)}}{20}
+\entry {\code {down-conditional-with-else (c-)}}{20}
 \initial {E}
-\entry {\code {electric-backspace (c-)}}{12}
+\entry {\code {electric-backspace (c-)}}{13}
 \entry {\code {electric-brace (c-)}}{8}
-\entry {\code {electric-delete (c-)}}{12}
+\entry {\code {electric-delete (c-)}}{13}
 \entry {\code {electric-lt-gt (c-)}}{10}
-\entry {\code {electric-pound (c-)}}{9}
-\entry {\code {electric-slash (c-)}}{9}
-\entry {\code {electric-star (c-)}}{9}
-\entry {\code {end-of-statement (c-)}}{15}
+\entry {\code {electric-paren (c-)}}{10}
+\entry {\code {electric-pound (c-)}}{10}
+\entry {\code {electric-slash (c-)}}{10}
+\entry {\code {electric-star (c-)}}{10}
+\entry {\code {end-of-defun}}{19}
+\entry {\code {end-of-defun (c-)}}{19}
+\entry {\code {end-of-statement (c-)}}{20}
 \initial {F}
-\entry {\code {fill-paragraph}}{16}
-\entry {\code {forward-conditional (c-)}}{15}
-\entry {\code {forward-into-nomenclature (c-)}}{16}
-\initial {H}
-\entry {\code {hanging-braces-alist (c-)}}{14}
+\entry {\code {fill-paragraph (c-)}}{17}
+\entry {\code {filladapt-mode}}{16}
+\entry {\code {forward-conditional (c-)}}{20}
+\entry {\code {forward-into-nomenclature (c-)}}{21}
 \initial {I}
 \entry {\code {idl-mode}}{1}
-\entry {\code {indent-command (c-)}}{14}
-\entry {\code {indent-defun (c-)}}{14, 19}
-\entry {\code {indent-exp (c-)}}{14}
-\entry {\code {indent-for-comment}}{27}
-\entry {\code {indent-region}}{14}
+\entry {\code {indent-command (c-)}}{18}
+\entry {\code {indent-defun (c-)}}{18}
+\entry {\code {indent-exp (c-)}}{18, 56}
+\entry {\code {indent-for-comment}}{33}
+\entry {\code {indent-multi-line-block (c-)}}{50}
+\entry {\code {indent-new-comment-line (c-)}}{17}
+\entry {\code {indent-one-line-block (c-)}}{50}
+\entry {\code {indent-region}}{18}
 \initial {J}
-\entry {\code {java-mode}}{1}
+\entry {\code {java-mode}}{1, 28}
 \initial {L}
-\entry {\code {lineup-arglist (c-)}}{24}
-\entry {\code {lineup-arglist-close-under-paren (c-)}}{25}
-\entry {\code {lineup-arglist-intro-after-paren (c-)}}{24}
-\entry {\code {lineup-C-comments (c-)}}{25}
-\entry {\code {lineup-comment (c-)}}{25}
-\entry {\code {lineup-math (c-)}}{25}
-\entry {\code {lineup-multi-inher (c-)}}{25}
-\entry {\code {lineup-ObjC-method-args (c-)}}{25}
-\entry {\code {lineup-ObjC-method-args-2 (c-)}}{25}
-\entry {\code {lineup-ObjC-method-call (c-)}}{25}
-\entry {\code {lineup-runin-statements (c-)}}{25}
-\entry {\code {lineup-streamop (c-)}}{24, 25}
+\entry {\code {lineup-arglist (c-)}}{48}
+\entry {\code {lineup-arglist-close-under-paren (c-)}}{48}
+\entry {\code {lineup-arglist-intro-after-paren (c-)}}{48}
+\entry {\code {lineup-C-comments (c-)}}{51}
+\entry {\code {lineup-close-paren (c-)}}{48}
+\entry {\code {lineup-comment (c-)}}{51}
+\entry {\code {lineup-dont-change (c-)}}{53}
+\entry {\code {lineup-inexpr-block (c-)}}{53}
+\entry {\code {lineup-java-inher (c-)}}{49}
+\entry {\code {lineup-java-throws (c-)}}{49}
+\entry {\code {lineup-math (c-)}}{52}
+\entry {\code {lineup-multi-inher (c-)}}{49}
+\entry {\code {lineup-ObjC-method-args (c-)}}{52}
+\entry {\code {lineup-ObjC-method-args-2 (c-)}}{52}
+\entry {\code {lineup-ObjC-method-call (c-)}}{52}
+\entry {\code {lineup-runin-statements (c-)}}{52}
+\entry {\code {lineup-streamop (c-)}}{31, 48}
+\entry {\code {lineup-template-args (c-)}}{52}
+\entry {\code {lineup-whitesmith-in-block (c-)}}{53}
 \initial {M}
-\entry {\code {mark-function (c-)}}{15}
-\initial {N}
-\entry {\code {newline-and-indent}}{39}
+\entry {\code {mark-function (c-)}}{18}
 \initial {O}
 \entry {\code {objc-mode}}{1}
+\initial {P}
+\entry {\code {pike-mode}}{1}
 \initial {S}
-\entry {\code {scope-operator (c-)}}{16}
-\entry {\code {set-offset (c-)}}{19, 22}
-\entry {\code {set-style (c-)}}{21}
+\entry {\code {scope-operator (c-)}}{21}
+\entry {\code {semi&comma-inside-parenlist (c-)}}{33}
+\entry {\code {semi&comma-no-newlines-before-nonblanks (c-)}}{33}
+\entry {\code {semi&comma-no-newlines-for-oneline-inliners (c-)}}{33}
+\entry {\code {set-offset (c-)}}{22}
+\entry {\code {set-style (c-)}}{29}
+\entry {\code {setup-filladapt (c-)}}{16}
 \entry {\code {show-syntactic-information (c-)}}{3}
-\entry {\code {snug-do-while (c-)}}{25}
-\entry {\code {submit-bug-report (c-)}}{43}
+\entry {\code {snug-do-while (c-)}}{32}
+\entry {\code {submit-bug-report (c-)}}{60}
 \initial {T}
-\entry {\code {tab-to-tab-stop}}{14}
+\entry {\code {tab-to-tab-stop}}{19}
 \entry {\code {toggle-auto-hungry-state (c-)}}{7}
 \entry {\code {toggle-auto-state (c-)}}{7}
 \entry {\code {toggle-hungry-state (c-)}}{7}
 \initial {U}
-\entry {\code {up-conditional (c-)}}{15}
+\entry {\code {up-conditional (c-)}}{20}
+\entry {\code {up-conditional-with-else (c-)}}{20}
 \initial {V}
 \entry {\code {version (c-)}}{2}

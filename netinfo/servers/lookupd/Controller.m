@@ -44,14 +44,10 @@
 #import "MachRPC.h"
 #import "LUServer.h"
 #import "CacheAgent.h"
-#import "NIAgent.h"
 #import "DNSAgent.h"
-#import "FFAgent.h"
-#import "YPAgent.h"
-#import "LDAPAgent.h"
-#import "DSAgent.h"
 #import "NILAgent.h"
 #import <NetInfo/dsutil.h>
+#import <NetInfo/ni_shared.h>
 #import "sys.h"
 #import <sys/types.h>
 #import <sys/param.h>
@@ -64,31 +60,10 @@
 extern int gethostname(char *, int);
 extern sys_port_type server_port;
 extern sys_port_type _lookupd_port(sys_port_type);
-#ifdef _SHADOW_
-extern sys_port_type _lookupd_port1(sys_port_type);
-extern sys_port_type server_port_privileged;
-extern sys_port_type server_port_unprivileged;
-#endif
-
 extern int _lookup_link();
 
 @implementation Controller
-
-- (void)serviceRequest:(lookup_request_msg *)request
-{
-	Thread *worker;
-
-	/*
-	 * Deal with the client's request
-	 */
-	worker = [[Thread alloc] init];
-	[worker setName:"Work Thread"];
-	[worker setData:(void *)request];
-	[worker setState:ThreadStateActive];
-	[worker shouldTerminate:YES];
-	[worker run:@selector(process) context:machRPC];
-}
-
+	
 /*
  * Server runs in this loop to answer requests
  */
@@ -96,7 +71,7 @@ extern int _lookup_link();
 {
 	kern_return_t status;
 	lookup_request_msg *request;
-	Thread *t;
+	Thread *t, *x;
 
 	t = [Thread currentThread];
 
@@ -111,12 +86,40 @@ extern int _lookup_link();
 		if (shutting_down) break;
 		if (status != KERN_SUCCESS)
 		{
-			system_log(LOG_ERR, "Server status = %s (%d)", sys_strerror(status), status);
-				continue;
+			system_log(LOG_NOTICE, "Server status = %s (%d)", sys_strerror(status), status);
+			continue;
 		}
 		
-		/* request is now owned by the thread, which needs to free it when done */
-		[self serviceRequest:request];
+		syslock_lock(threadCountLock);
+		idleThreads--;
+		if ((idleThreads == 0) && (threadCount < maxThreads))
+		{
+			x = [[Thread alloc] init];
+			[x setName:"IPC Server"];
+			[x shouldTerminate:YES];
+			[x run:@selector(serverLoop) context:self];
+			threadCount++;
+			idleThreads++;
+		}
+		syslock_unlock(threadCountLock);
+
+		/* request is owned by the thread, which needs to free it when done */
+		[t setData:(void *)request];
+		[machRPC process];
+
+		/* check idle threads */
+		syslock_lock(threadCountLock);
+		idleThreads++;
+		if ((idleThreads > maxIdleThreads) && ([t shouldTerminate]))
+		{
+			idleThreads--;
+			threadCount--;
+			syslock_unlock(threadCountLock);
+			system_log(LOG_DEBUG, "serverloop terminated thread (%d idle, max %d)", idleThreads, maxIdleThreads);
+			[t terminateSelf];
+		}
+		syslock_unlock(threadCountLock);
+
 		if (shutting_down) break;
 	}
 }
@@ -151,13 +154,15 @@ extern int _lookup_link();
 	LUDictionary *global;
 	char *logFileName;
 	char *logFacilityName;
-	time_t now;
-	char str[64];
 	FILE *fp;
 	int pri;
+	time_t now;
+	char str[64];
 
 	configurationArray = [configManager config];
 	global = [configManager configGlobal:configurationArray];
+
+	statistics_enabled = [configManager boolForKey:"StatisticsEnabled" dict:global default:statistics_enabled];
 
 	logFileName = [configManager stringForKey:"LogFile" dict:global default:NULL];
 	fp = fopen(logFileName, "a");
@@ -174,8 +179,8 @@ extern int _lookup_link();
 	str[strlen(str) - 1] = '\0';
 	system_log(LOG_NOTICE, str);
 
-	maxThreads = [configManager intForKey:"MaxThreads" dict:global default:16];
-	maxIdleThreads = [configManager intForKey:"MaxIdleThreads" dict:global default:16];
+	maxThreads = [configManager intForKey:"MaxThreads" dict:global default:64];
+	maxIdleThreads = [configManager intForKey:"MaxIdleThreads" dict:global default:2];
 	maxIdleServers = [configManager intForKey:"MaxIdleServers" dict:global default:16];
 
 	pri = [configManager intForKey:"LogPriority" dict:global default:system_log_max_priority()];
@@ -204,6 +209,9 @@ extern int _lookup_link();
 	if (![self registerPort:portName]) return nil;
 
 	serverLock = syslock_new(1);
+	threadCountLock = syslock_new(0);
+	threadCount = 1;
+	idleThreads = 1;
 
 	serverList = [[LUArray alloc] init];
 	[serverList setBanner:"Controller server list"];
@@ -216,11 +224,6 @@ extern int _lookup_link();
 
 	[self newAgent:[CacheAgent class] name:"CacheAgent"];
 	[self newAgent:[DNSAgent class] name:"DNSAgent"];
-	[self newAgent:[NIAgent class] name:"NIAgent"];
-	[self newAgent:[FFAgent class] name:"FFAgent"];
-	[self newAgent:[YPAgent class] name:"YPAgent"];
-	[self newAgent:[LDAPAgent class] name:"LDAPAgent"];
-	[self newAgent:[DSAgent class] name:"DSAgent"];
 	[self newAgent:[NILAgent class] name:"NILAgent"];
 
 	[self initConfig];
@@ -267,15 +270,12 @@ extern int _lookup_link();
 	}
 	portName = NULL;
 
-#ifdef _SHADOW_
-	sys_port_free(server_port_privileged);
-	sys_port_free(server_port_unprivileged);
-#endif
 	sys_port_free(server_port);
 
 	if (loginUser != nil) [loginUser release];
 
 	syslock_free(serverLock);
+	syslock_free(threadCountLock);
 
 	if (statistics != nil) [statistics release];
 	freeList(agentNames);
@@ -288,98 +288,16 @@ extern int _lookup_link();
 - (BOOL)registerPort:(char *)name
 {
 	kern_return_t status;
+	int restart;
 
 	if (portName == NULL) return YES;
 
+	restart = 0;
 	system_log(LOG_DEBUG, "Registering service \"%s\"", portName);
 
-	if (streq(name, DefaultName))
-	{
-		/*
-		 * If server_port is already set, this is a restart.
-		 */
-		if (server_port != SYS_PORT_NULL) return YES;
+	if (streq(name, DefaultName)) restart = 1;
 
-#ifdef _SHADOW_
-		status = sys_port_alloc(&server_port_unprivileged);
-		if (status != KERN_SUCCESS)
-		{
-			system_log(LOG_ERR, "Can't allocate unprivileged server port!");
-		}
-
-		status = sys_port_alloc(&server_port_privileged);
-		if (status != KERN_SUCCESS)
-		{
-			system_log(LOG_ERR, "Can't allocate privileged server port!");
-			return NO;
-		}
-
-		status = port_set_allocate(task_self(), &server_port);
-		if (status != KERN_SUCCESS)
-		{
-			system_log(LOG_ERR, "Can't allocate server port set!");
-			return NO;
-		}
-
-		status = port_set_add(task_self(), server_port, server_port_unprivileged);
-		if (status != KERN_SUCCESS)
-		{
-			system_log(LOG_ERR, "Can't add unprivileged port to port set!");
-			return NO;
-		}
-
-		status = port_set_add(task_self(), server_port, server_port_privileged);
-		if (status != KERN_SUCCESS)
-		{
-			system_log(LOG_ERR, "Can't add privileged port to port set!");
-			return NO;
-		}
-#else
-		if (sys_port_alloc(&server_port) != KERN_SUCCESS)
-		{
-			system_log(LOG_ERR, "Can't allocate server port!");
-			return NO;
-		}
-#endif
-
-#ifdef _OS_VERSION_MACOS_X_
-		status = mach_port_insert_right(mach_task_self(), server_port, server_port, MACH_MSG_TYPE_MAKE_SEND);
-		if (status != KERN_SUCCESS)
-		{
-			system_log(LOG_ERR, "Can't insert send right for server port!");
-			return NO;
-		}
-#endif
-
-#ifdef _SHADOW_
-		/*
-		 * _lookupd_port(p) registers the unprivileged lookupd port p.
-		 * _lookupd_port1(q) registers the privileged lookupd port q.
-		 * Clients get ports with _lookup_port(0) and _lookup_port1(0).
-		 */
-
-		if (_lookupd_port(server_port_unprivileged) != server_port_unprivileged)
-		{
-			system_log(LOG_ERR, "Can't check in unprivileged server port!");
-			return NO;
-		}
-
-		if (_lookupd_port1(server_port_privileged) != server_port_privileged)
-		{
-			system_log(LOG_ERR, "Can't check in privileged server port!");
-		}
-#else
-		/* _lookupd_port(p) registers the lookupd port p. */
-		if (_lookupd_port(server_port) != server_port)
-		{
-			system_log(LOG_ERR, "Can't check in server port!");
-			return NO;
-		}
-#endif
-		return YES;
-	}
-
-	status = sys_create_service(name, &server_port);
+	status = sys_create_service(name, &server_port, restart);
 	if (status == KERN_SUCCESS) return YES;
 
 	system_log(LOG_ERR, "Can't create service! (error %d)", status);
@@ -397,7 +315,9 @@ extern int _lookup_link();
 	 */
 	t = [[Thread alloc] init];
 	[t setName:"IPC Server"];
+	[t shouldTerminate:YES];
 	[t run:@selector(serverLoop) context:self];
+	idleThreads = 1;
 
 	syslock_unlock(serverLock);
 
@@ -420,13 +340,6 @@ extern int _lookup_link();
 		if ([[serverList objectAtIndex:i] isIdle])
 		{
 			server = [serverList objectAtIndex:i];
-			if ([server isStale]) 
-			{
-				[serverList removeObject:server];
-				server = nil;
-				continue;
-			}
-
 			[server setIsIdle:NO];
 			break;
 		}
@@ -463,7 +376,7 @@ extern int _lookup_link();
 		if ([[serverList objectAtIndex:i] isIdle]) idleServerCount++;
 	}
 
-	if ((idleServerCount > maxIdleServers) || ([server isStale]))
+	if (idleServerCount > maxIdleServers)
 	{
 		[serverList removeObject:server];
 	}
@@ -490,7 +403,8 @@ extern int _lookup_link();
 
 	if (loginUser != nil)
 	{
-		[cacheAgent addObject:loginUser];
+		[cacheAgent addObject:loginUser key:"name" category:LUCategoryUser];
+		[cacheAgent addObject:loginUser key:"uid" category:LUCategoryUser];
 		[loginUser setTimeToLive:(time_t)-1];
 		sprintf(scratch, "%s (console user)", [loginUser banner]);
 		[loginUser setBanner:scratch];
@@ -500,26 +414,6 @@ extern int _lookup_link();
 - (void)flushCache
 {
 	[cacheAgent flushCache];
-}
-
-- (void)reset
-{
-	LUServer *server;
-	int i;
-
-	syslock_lock(serverLock);
-
-	[configManager reset];
-	[cacheAgent reset];
-
-	for (i = [serverList count] - 1; i >= 0; i--)
-	{
-		server = [serverList objectAtIndex:i];
-		if ([server isIdle] && [server isStale]) 
-			[serverList removeObject:server];
-	}
-
-	syslock_unlock(serverLock);
 }
 
 - (void)suspend
@@ -541,6 +435,41 @@ extern int _lookup_link();
 	status = _lookup_link(s, "_getstatistics", &proc);
 
 	[[Thread currentThread] terminateSelf];
+}
+
+- (unsigned int)memorySize
+{
+	unsigned int size, i;
+
+	size = [super memorySize];
+
+	size += 60;
+	if (serverLock != NULL) size += sizeof(syslock);
+
+	size += (NCATEGORIES * 4);
+
+	if (agentNames != NULL)
+	{
+		for (i = 0; agentNames[i] != NULL; i++)
+		{
+			size += 4;
+			size += (strlen(agentNames[i]) + 1);
+		}
+	}
+	if (dnsSearchList != NULL)
+	{
+		for (i = 0; dnsSearchList[i] != NULL; i++)
+		{
+			size += 4;
+			size += (strlen(dnsSearchList[i]) + 1);
+		}
+	}
+
+	if (portName != NULL) size += (strlen(portName) + 1);
+
+	size += (agentCount * 4);
+
+	return size;
 }
 
 @end

@@ -1,3 +1,6 @@
+
+#ifndef _S_TS_LOG_H
+#define _S_TS_LOG_H
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -24,6 +27,8 @@
  * ts_log.h
  * - thread safe syslog()
  */
-#import <syslog.h>
+#include <syslog.h>
 void ts_log_init(int verbose);
 void ts_log(int priority, const char * message, ...);
+
+#endif _S_TS_LOG_H

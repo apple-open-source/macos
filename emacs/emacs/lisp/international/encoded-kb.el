@@ -1,4 +1,4 @@
-;;; encoded-kb.el --- Handler to input multibyte characters encoded somehow
+;;; encoded-kb.el --- handler to input multibyte characters encoded somehow
 
 ;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
 ;; Licensed to the Free Software Foundation.
@@ -19,6 +19,10 @@
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
+
+;;; Commentary:
+
+;;; Code:
 
 (defvar encoded-kbd-mode nil
   "Non-nil if in Encoded-kbd minor mode.")
@@ -70,11 +74,13 @@
 
 (defvar encoded-kbd-iso2022-designation-map
   (let ((map (make-sparse-keymap))
-	(l charset-list))
+	(l charset-list)
+	final-char)
     (while l
-      (define-key map
-	(char-to-string (charset-iso-final-char (car l)))
-	'encoded-kbd-iso2022-designation)
+      (setq final-char (charset-iso-final-char (car l)))
+      (if (> final-char 0)
+	  (define-key map (char-to-string final-char)
+	    'encoded-kbd-iso2022-designation))
       (setq l (cdr l)))
     map)
   "Keymap for handling ISO2022 designation sequence in Encoded-kbd mode.")
@@ -235,10 +241,14 @@ The following key sequence may cause multilingual text insertion."
 (defun encoded-kbd-self-insert-ccl ()
   (interactive)
   (let ((str (char-to-string last-command-char))
-	(coding (keyboard-coding-system)))
-    (setq str (decode-coding-string str coding))
+	(ccl (car (aref (coding-system-spec (keyboard-coding-system)) 4)))
+	(vec [nil nil nil nil nil nil nil nil nil])
+	result)
+    (while (= (length (setq result (ccl-execute-on-string ccl vec str t))) 0)
+      (dotimes (i 9) (aset vec i nil))
+      (setq str (format "%s%c" str (read-char-exclusive))))
     (setq unread-command-events
-	  (append (string-to-list str) unread-command-events))))
+	  (append result unread-command-events))))
 
 (defun encoded-kbd-setup-keymap (coding)
   ;; At first, reset the keymap.
@@ -275,7 +285,7 @@ The following key sequence may cause multilingual text insertion."
 
    ((eq encoded-kbd-coding 'ccl)
     (let ((valid-codes (or (coding-system-get coding 'valid-codes)
-			   '((128 255))))
+			   '((128 . 255))))
 	  elt from to)
       (while valid-codes
 	(setq elt (car valid-codes) valid-codes (cdr valid-codes))

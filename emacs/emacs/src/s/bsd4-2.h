@@ -102,10 +102,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define CLASH_DETECTION
 
-/* We use the Berkeley (and usg5.2.2) interface to nlist.  */
-
-#define NLIST_STRUCT
-
 /* The file containing the kernel's symbol table is called /vmunix.  */
 
 #define KERNEL_FILE "/vmunix"
@@ -118,10 +114,6 @@ Boston, MA 02111-1307, USA.  */
 /* Send signals to subprocesses by "typing" special chars at them.  */
 
 #define SIGNALS_VIA_CHARACTERS
-
-/* We do have vfork.  */
-
-#define HAVE_VFORK
 
 /* Process groups work in the traditional BSD manner.  */
 

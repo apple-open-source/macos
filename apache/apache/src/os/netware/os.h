@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -125,6 +125,11 @@ typedef int tid_t;
 #define strncasecmp(s1, s2, n) strnicmp(s1, s2, n)
 #define mktemp(s) tmpnam(s)
 #define _getch getch
+
+/* Watcom reports that ERANGE is returned properly for any out of bounds
+ * conditions, with a MIN/MAX_LONG value.  This should be safe.
+ */
+#define ap_strtol strtol
 
 #define opendir_411(p) os_opendir(p)
 #define opendir(p) os_opendir(p)

@@ -42,6 +42,9 @@ mmalloc_setkey (md, keynum, key)
   struct mdesc *mdp = (struct mdesc *) md;
   int result = 0;
 
+  if (mdp->child != NULL)
+    return mmalloc_setkey (mdp->child, keynum, key);
+
   if ((mdp != NULL) && (keynum >= 0) && (keynum < MMALLOC_KEYS))
     {
       mdp -> keys [keynum] = key;
@@ -57,6 +60,9 @@ mmalloc_getkey (md, keynum)
 {
   struct mdesc *mdp = (struct mdesc *) md;
   PTR keyval = NULL;
+
+  if (mdp->child != NULL)
+    return mmalloc_getkey (mdp->child, keynum);
 
   if ((mdp != NULL) && (keynum >= 0) && (keynum < MMALLOC_KEYS))
     {

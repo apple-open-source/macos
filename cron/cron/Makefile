@@ -4,7 +4,7 @@ PROG=	cron
 SRCS=	cron.c database.c do_command.c job.c user.c popen.c
 #CFLAGS+=-DLOGIN_CAP
 DPADD=	${LIBCRON} 
-LDADD=	${LIBCRON}
+LDADD=	${LIBCRON} -framework IOKit -framework CoreFoundation
 MAN8=	cron.8
 BINDIR=/usr/sbin
 

@@ -69,8 +69,8 @@
 extern int debug;
 extern int close(int);
 
-static struct timeval timeout = { 2, 0 };
-static struct timeval tottimeout = { 10, 0 };
+static struct timeval timeout = { 1, 333333 };
+static struct timeval tottimeout = { 8, 0 };
 
 /*
  * Find the mapped port for program,version.

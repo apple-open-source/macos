@@ -51,6 +51,7 @@ __RCSID("$NetBSD: unexpand.c,v 1.6 1997/10/20 02:20:41 lukem Exp $");
  */
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 char	genbuf[BUFSIZ];
 char	linebuf[BUFSIZ];

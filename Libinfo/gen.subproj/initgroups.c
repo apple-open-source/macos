@@ -61,6 +61,8 @@ static char sccsid[] = "@(#)initgroups.c	8.1 (Berkeley) 6/4/93";
 #include <sys/param.h>
 
 #include <stdio.h>
+#include <unistd.h>
+#include <err.h>
 
 int
 initgroups(uname, agroup)

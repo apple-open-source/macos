@@ -1,0 +1,35 @@
+#! /bin/sh
+
+# Check for LDFLAGS in conditional.
+# PR 77.
+required=libtool
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(no, 0)
+AC_PROG_CC
+AC_PROG_LIBTOOL
+AC_OUTPUT(Makefile)
+LTLIBOBJS="$LTLIBOBJS q.o"
+LIBOBJS="$LIBOBJS q.o"
+AC_SUBST(LTLIBOBJS)
+AM_CONDITIONAL(USE_SWIG, :)
+END
+
+cat > Makefile.am << 'END'
+if USE_SWIG
+lib_LTLIBRARIES = libtu.la
+libtu_la_SOURCES = foo.c
+libtu_la_LDFLAGS = -module
+endif
+END
+
+: > ltconfig
+: > ltmain.sh
+: > config.guess
+: > config.sub
+: > q.c
+
+$ACLOCAL || exit 1
+$AUTOMAKE

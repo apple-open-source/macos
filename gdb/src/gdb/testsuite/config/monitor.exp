@@ -1,5 +1,6 @@
 # Test Framework Driver for GDB driving a ROM monitor (via monitor.c).
-#   Copyright 1995, 1997 Free Software Foundation, Inc.
+#   Copyright 1995, 1996, 1997, 1998, 1999, 2000
+#   Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,7 +17,61 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
 load_lib gdb.exp
-puts "***** DID USE MONITOR ******"
+# puts "***** DID USE MONITOR ******"
+
+#
+# gdb_target_cmd
+# Send gdb the "target" command
+#
+proc gdb_target_cmd { targetname serialport } {
+    global gdb_prompt
+
+    for {set i 1} {$i <= 3} {incr i} {
+	send_gdb "target $targetname $serialport\n"
+	gdb_expect 60 {
+	    -re "A program is being debugged already.*ill it.*y or n. $" {
+		send_gdb "y\n";
+		exp_continue;
+	    }
+	    -re "Couldn't establish connection to remote.*$gdb_prompt" {
+		verbose "Connection failed";
+	    }
+	    -re "Remote MIPS debugging.*$gdb_prompt" {
+		verbose "Set target to $targetname";
+		return 0;
+	    }
+	    -re "Remote debugging using .*$serialport.*$gdb_prompt" {
+		verbose "Set target to $targetname";
+		return 0;
+	    }
+	    -re "Remote target $targetname connected to.*$gdb_prompt" {
+		verbose "Set target to $targetname";
+		return 0;
+	    }
+	    -re "Connected to.*$gdb_prompt" { 
+		verbose "Set target to $targetname";
+		return 0;
+	    }
+	    -re "Ending remote.*$gdb_prompt" { }
+	    -re "Connection refused.*$gdb_prompt" {
+		verbose "Connection refused by remote target.  Pausing, and trying again."
+		sleep 30
+		continue
+	    }
+	    -re "Timeout reading from remote system.*$gdb_prompt" {
+		verbose "Got timeout error from gdb.";
+	    }
+	    timeout {
+		send_gdb "";
+		break
+	    }
+	}
+    }
+    return 1
+}
+
+
+
 #
 # gdb_target_monitor
 # Set gdb to target the monitor
@@ -55,47 +110,7 @@ proc gdb_target_monitor { exec_file } {
     for {set j 1} {$j <= 2} {incr j} {
 	if [gdb_file_cmd $exec_file] { return -1; }
 
-	for {set i 1} {$i <= 3} {incr i} {
-    	    send_gdb "target $targetname $serialport\n"
-	    gdb_expect 60 {
-		-re "A program is being debugged already.*ill it.*y or n. $" {
-		    send_gdb "y\n";
-		    exp_continue;
-		}
-		-re "Couldn't establish connection to remote.*$gdb_prompt" {
-		    verbose "Connection failed";
-		}
-		-re "Remote MIPS debugging.*$gdb_prompt" {
-		    verbose "Set target to $targetname";
-		    return 0;
-		}
-		-re "Remote debugging using .*$serialport.*$gdb_prompt" {
-		    verbose "Set target to $targetname";
-		    return 0;
-		}
-		-re "Remote target $targetname connected to.*$gdb_prompt" {
-		    verbose "Set target to $targetname";
-		    return 0;
-		}
-		-re "Connected to.*$gdb_prompt" { 
-		    verbose "Set target to $targetname";
-		    return 0;
-		}
-		-re "Ending remote.*$gdb_prompt" { }
-		-re "Connection refused.*$gdb_prompt" {
-		    verbose "Connection refused by remote target.  Pausing, and trying again."
-		    sleep 30
-		    continue
-		}
-		-re "Timeout reading from remote system.*$gdb_prompt" {
-		    verbose "Got timeout error from gdb.";
-		}
-		timeout {
-		    send_gdb "";
-		    break
-		}
-	    }
-	}
+	if ![gdb_target_cmd $targetname $serialport] { return 0; }
 
 	gdb_target_exec;
 
@@ -124,6 +139,17 @@ proc gdb_load { arg } {
     global gdb_prompt
     global timeout
     global last_gdb_file;
+
+    if [target_info exists gdb_download_size] {
+	send_gdb "set download-write-size [target_info gdb_download_size]\n";
+	gdb_expect 30 {
+	    -re "$gdb_prompt $" { }
+	    default {
+		perror "Setting download-write-size for target failed";
+		return -1;
+	    }
+	}
+    }
 
     if { $arg == "" } {
 	if [info exists last_gdb_file] {
@@ -206,8 +232,14 @@ proc gdb_load { arg } {
 	    } else {
 		set command "load $farg\n";
 	    }
+	    if [target_info exists gdb_load_timeout] {
+		set loadtimeout [target_info gdb_load_timeout]
+	    } else {
+		set loadtimeout 1600
+	    }
+
 	    send_gdb $command;
-	    gdb_expect 1600 {
+	    gdb_expect $loadtimeout {
 		-re "\[Ff\]ailed.*$gdb_prompt $" {
 		    verbose "load failed";
 		}

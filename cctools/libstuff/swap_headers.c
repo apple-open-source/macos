@@ -65,6 +65,7 @@ struct load_command *load_commands)
     struct dylinker_command *dyld;
     struct routines_command *rc;
     struct twolevel_hints_command *hints;
+    struct prebind_cksum_command *cs;
     unsigned long flavor, count, nflavor;
     char *p, *state;
 
@@ -155,12 +156,14 @@ struct load_command *load_commands)
 
 	    case LC_ID_DYLIB:
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 		dl = (struct dylib_command *)lc;
 		if(dl->cmdsize < sizeof(struct dylib_command)){
 		    error("in swap_object_headers(): malformed load commands "
 			  "(%s command %lu has too small cmdsize field)",
 			  dl->cmd == LC_ID_DYLIB ? "LC_ID_DYLIB" :
-			  "LC_LOAD_DYLIB", i);
+			  (dl->cmd == LC_LOAD_DYLIB ? "LC_LOAD_DYLIB" :
+			  "LC_LOAD_WEAK_DYLIB"), i);
 		    return(FALSE);
 		}
 		if(dl->dylib.name.offset >= dl->cmdsize){
@@ -168,7 +171,8 @@ struct load_command *load_commands)
 			  "load commands (name.offset field of %s command %lu "
 			  "extends past the end of all load commands)",
 			  dl->cmd == LC_ID_DYLIB ? "LC_ID_DYLIB" :
-			  "LC_LOAD_DYLIB", i);
+			  (dl->cmd == LC_LOAD_DYLIB ? "LC_LOAD_DYLIB" :
+			  "LC_LOAD_WEAK_DYLIB"), i);
 		    return(FALSE);
 		}
 		break;
@@ -782,6 +786,16 @@ struct load_command *load_commands)
 		}
 		break;
 
+	    case LC_PREBIND_CKSUM:
+		cs = (struct prebind_cksum_command *)lc;
+		if(cs->cmdsize != sizeof(struct prebind_cksum_command)){
+		    error("in swap_object_headers(): malformed load commands "
+			  "(LC_PREBIND_CKSUM command %lu has incorrect cmdsize",
+			  i);
+		    return(FALSE);
+		}
+		break;
+
 	    default:
 		error("in swap_object_headers(): malformed load commands "
 		      "(unknown load command %lu)", i);
@@ -844,6 +858,7 @@ struct load_command *load_commands)
 
 	    case LC_ID_DYLIB:
 	    case LC_LOAD_DYLIB:
+	    case LC_LOAD_WEAK_DYLIB:
 		dl = (struct dylib_command *)lc;
 		swap_dylib_command(dl, target_byte_sex);
 		break;
@@ -1127,6 +1142,11 @@ struct load_command *load_commands)
 	    case LC_TWOLEVEL_HINTS:
 		hints = (struct twolevel_hints_command *)lc;
 		swap_twolevel_hints_command(hints, target_byte_sex);
+		break;
+
+	    case LC_PREBIND_CKSUM:
+		cs = (struct prebind_cksum_command *)lc;
+		swap_prebind_cksum_command(cs, target_byte_sex);
 		break;
 	    }
 

@@ -1,0 +1,15 @@
+#! /bin/sh
+
+# Test leading space on macro assignment.
+
+. $srcdir/defs || exit 1
+
+echo AC_PROG_CC >> configure.in
+
+cat > Makefile.am << 'END'
+    bin_PROGRAMS = foo
+foo_SOURCES = foo.c
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE

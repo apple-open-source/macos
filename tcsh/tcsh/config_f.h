@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/config_f.h,v 1.1.1.2 2001/06/28 23:10:46 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/config_f.h,v 1.1.1.2 2001/06/28 23:10:46 bbraun Exp $ */
 /*
  * config_f.h -- configure various defines for tcsh
  *

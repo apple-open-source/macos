@@ -59,10 +59,13 @@
 #define FIX_IPV4 0x08
 #define FIX_IPV6 0x10
 
+#define MAX_QTYPE 10
+
 #define RFC_2782
 
 extern char *nettoa(unsigned long);
 
+static const char hexchar[] = "0123456789abcdef";
 #ifdef _OS_NEXT_
 int
 inet_aton(char *a, struct in_addr *s)
@@ -125,7 +128,7 @@ reverse_ipv4(char *v4)
 	
 	ab.a = ntohl(s.s_addr);
 
-	sprintf(name, "%u.%u.%u.%u.in-addr.arpa",
+	sprintf(name, "%u.%u.%u.%u.in-addr.arpa.",
 		ab.b[3], ab.b[2], ab.b[1], ab.b[0]);
 
 	p = copyString(name);
@@ -135,42 +138,30 @@ reverse_ipv4(char *v4)
 static char *
 reverse_ipv6(char *v6)
 {
-	char x[64], *p, str[5];
-	int i, j, n;
+	char x[65], *p;
+	int i, j;
+	u_int8_t d, hi, lo;
+        struct in6_addr a6;
 
 	if (v6 == NULL) return NULL;
+	if (inet_pton(AF_INET6, v6, &a6) == 0) return NULL;
 
-	for (i = 0; i < 32; i++)
+	x[64] = '\0';
+	j = 63;
+	for (i = 0; i < 16; i++)
 	{
-		x[i * 2] = '0';
-		x[(i * 2) + 1] = '.';
+		d = a6.__u6_addr.__u6_addr8[i];
+		lo = d & 0x0f;
+		hi = d >> 4;
+		x[j--] = '.';
+		x[j--] = hexchar[hi];
+		x[j--] = '.';
+		x[j--] = hexchar[lo];
 	}
 
-	p = v6;
-	for (i = 0; i < 8; i++)
-	{
-		if (p == NULL) return NULL;
-		
-		n = sscanf(p, "%[^:]", str);
-		if (n == 1)
-		{
-			n = strlen(str);
-			for (j = 4 - n; j < 4; j++)
-			{
-				x[(31 - (i * 4 + j)) * 2] = *p;
-				p++;
-			}	
-		}
-
-		if (p != NULL) p = strchr(p, ':');
-		if (p != NULL) p++;
-	}
-
-	x[63] = '\0';
-
-	p = malloc(72);
+	p = calloc(1, 72);
 	memmove(p, x, 64);
-	strcat(p, ".ip6.int");
+	strcat(p, "ip6.int");
 
 	return p;
 }
@@ -419,34 +410,37 @@ precsize_ntoa(u_int8_t prec)
 
 	config = [configManager configForAgent:"DNSAgent" fromConfig:configurationArray];
 	t.tv_sec = [configManager intForKey:"Timeout" dict:config default:t.tv_sec];
+
 	dn = [configManager stringForKey:"Domain" dict:config default:NULL];
 	r = [configManager intForKey:"Retries" dict:config default:2];
 	allHostsEnabled =  [configManager boolForKey:"AllHostsEnabled" dict:config default:NO];
+	qualifyLocal =  [configManager boolForKey:"QualifyLocalDomain" dict:config default:NO];
 
 	syslock_lock(rpcLock);
-	dns = NULL;
-	if (arg == NULL) dns = dns_open(dn);
-	else dns = dns_open(arg);
+	/* SDNS API */
+	dns = sdns_open();
 	syslock_unlock(rpcLock);
 
 	freeString(dn);
-	dns_open_log(dns, "DNSAgent", DNS_LOG_CALLBACK, NULL, 0, 0, msg_callback);
+
 	if (dns == NULL)
 	{
-		[self dealloc];
+		[self release];
 		return nil;
 	}
 
-	
-	dns_set_server_retries(dns, r);
-
 	if (t.tv_sec == 0) t.tv_sec = 1;
+
+	/* SDNS API */
+	sdns_open_log(dns, "DNSAgent", DNS_LOG_CALLBACK, NULL, 0, 0, msg_callback);
+	sprintf(str, "DNSAgent");
+
+#ifdef NOTDEF
+/* XXX NO SDNS SUPPORT XXX */
+	dns_set_server_retries(dns, r);
 	dns_set_timeout(dns, &t);
+#endif
 
-	stats = nil;
-	[self resetStatistics];
-
-	sprintf(str, "DNSAgent (%s)", dns->domain);
 	[self setBanner:str];
 
 	return self;
@@ -465,48 +459,10 @@ precsize_ntoa(u_int8_t prec)
 - (void)dealloc
 {
 	if (stats != nil) [stats release];
-	dns_free(dns);
+	/* SDNS API */
+	sdns_free(dns);
 	system_log(LOG_DEBUG, "Deallocated DNSAgent 0x%08x\n", (int)self);
 	[super dealloc];
-}
-
-- (LUDictionary *)statistics
-{
-	return stats;
-}
-
-- (void)resetStatistics
-{
-	int i;
-	char str[32];
-
-	if (stats != nil) [stats release];
-	stats = [[LUDictionary alloc] init];
-	[stats setBanner:"DNSAgent statistics"];
-	[stats setValue:"Domain_Name_System" forKey:"information_system"];
-	[stats setValue:dns->domain forKey:"domain_name"];
-	for (i = 0; i < dns->server_count; i++)
-		[stats mergeValue:inet_ntoa(dns->server[i].sin_addr) forKey:"nameserver"];
-
-#ifdef _UNIX_BSD_43_
-	sprintf(str, "%lu+%lu", dns->timeout.tv_sec, dns->timeout.tv_usec);
-#else
-	sprintf(str, "%u+%u", dns->timeout.tv_sec, dns->timeout.tv_usec);
-#endif
-	[stats setValue:str forKey:"timeout"];
-
-#ifdef _UNIX_BSD_43_
-	sprintf(str, "%lu+%lu", dns->server_timeout.tv_sec, dns->server_timeout.tv_usec);
-#else
-	sprintf(str, "%u+%u", dns->server_timeout.tv_sec, dns->server_timeout.tv_usec);
-#endif
-
-	[stats setValue:str forKey:"server_timeout"];
-
-	sprintf(str, "%u", dns->server_retries);
-	[stats setValue:str forKey:"server_retries"];
-
-	[stats setValue:dns->domain forKey:"domain_name"];
 }
 
 - (BOOL)isValid:(LUDictionary *)item
@@ -515,7 +471,6 @@ precsize_ntoa(u_int8_t prec)
 	time_t bestBefore;
 
 	if (item == nil) return NO;
-	if ([self isStale]) return NO;
 
 	bestBefore = [item unsignedLongForKey:"_lookup_DNS_timestamp"];
 	ttl = [item unsignedLongForKey:"_lookup_DNS_time_to_live"];
@@ -530,7 +485,7 @@ precsize_ntoa(u_int8_t prec)
 {
 	if (item == nil) return nil;
 
-	[item setAgent:self];
+	[item setValue:(char *)[self serviceName] forKey:"_lookup_agent"];
 	[item setValue:"DNS" forKey:"_lookup_info_system"];
 	return item;
 }
@@ -539,6 +494,7 @@ precsize_ntoa(u_int8_t prec)
 {
 	LUDictionary *item;
 	char str[32];
+	int i;
 
 	if (r == NULL) return nil;
 
@@ -615,7 +571,10 @@ precsize_ntoa(u_int8_t prec)
 			
 		case DNS_TYPE_TXT:
 			[item setValue:r->name forKey:"name"];
-			[item setValue:r->data.TXT->string forKey:"text"];
+			for (i=0; i<r->data.TXT->string_count; i++)
+			{
+				[item addValue:r->data.TXT->strings[i] forKey:"text"];
+			}
 			break;
 
 		case DNS_TYPE_RP:
@@ -703,7 +662,7 @@ precsize_ntoa(u_int8_t prec)
 	char *longName = NULL;
 	char *shortName = NULL;
 	char *domainName = NULL;
-	int i, got_data;
+	int i, got_data, ttl;
 	time_t now;
 	char scratch[32];
 	int alias;
@@ -716,20 +675,18 @@ precsize_ntoa(u_int8_t prec)
 	if (r->header->ancount == 0) return nil;
 
  	host = [[LUDictionary alloc] init];
-	sprintf(scratch, "%u", r->answer[0]->ttl);
-	[host setValue:scratch forKey:"_lookup_DNS_time_to_live"];
-	now = time(0);
-	sprintf(scratch, "%lu", now);
-	[host setValue:scratch forKey:"_lookup_DNS_timestamp"];
-
 	[host setValue:inet_ntoa(r->server) forKey:"_lookup_DNS_server"];
 
 	alias = 0;
 	got_data = 0;
 	longName = lowerCase(r->answer[0]->name);
-	
+
+	ttl = r->answer[0]->ttl;
+
 	for (i = 0; i < r->header->ancount; i++)
 	{
+		if (r->answer[i]->ttl < ttl) ttl = r->answer[i]->ttl;
+
 		if (r->answer[i]->type == DNS_TYPE_A)
 		{
 			got_data++;
@@ -776,6 +733,12 @@ precsize_ntoa(u_int8_t prec)
 		return nil;
 	}
 
+	sprintf(scratch, "%u", ttl);
+	[host setValue:scratch forKey:"_lookup_DNS_time_to_live"];
+	now = time(0);
+	sprintf(scratch, "%lu", now);
+	[host setValue:scratch forKey:"_lookup_DNS_timestamp"];
+
 	[host mergeValue:longName forKey:"name"];
 
 	shortName = prefix(longName, '.');
@@ -784,8 +747,11 @@ precsize_ntoa(u_int8_t prec)
 	if (domainName != NULL)
 	{
 		[host setValue:domainName forKey:"_lookup_DNS_domain"];
+#ifdef NOTDEF
+/* XXX NO SDNS SUPPORT XXX */
 		if (strcmp(domainName, dns->domain) == 0)
 			[host mergeValue:shortName forKey:"name"];
+#endif
 	}
 	
 	freeString(longName);
@@ -813,7 +779,8 @@ precsize_ntoa(u_int8_t prec)
 	q.type = t;
 	q.name = k;
 
-	r = dns_query(dns, &q);
+	/* SDNS API */
+	r = sdns_query(dns, &q);
 	host = [self dictForDNSReply:r];
 	dns_free_reply(r);
 
@@ -834,50 +801,21 @@ precsize_ntoa(u_int8_t prec)
 
 	ab.a = addr->s_addr;
 
-	sprintf(name, "%u.%u.%u.%u.in-addr.arpa",
+	sprintf(name, "%u.%u.%u.%u.in-addr.arpa.",
 		ab.b[3], ab.b[2], ab.b[1], ab.b[0]);
 
 	q.class = DNS_CLASS_IN;	
 	q.type = DNS_TYPE_PTR;
 	q.name = name;
 
-	r = dns_query(dns, &q);
+	/* SDNS API */
+	r = sdns_query(dns, &q);
 	host = [self dictForDNSReply:r];
 	dns_free_reply(r);
 
 	if (host != nil) [host mergeValue:inet_ntoa(*addr) forKey:"ip_address"];
 
 	return [self stamp:host];
-}
-
-/* All hosts in my domain */
-- (LUArray *)allHosts
-{
-	LUArray *all;
-	LUDictionary *host;
-	dns_reply_list_t *l;
-	int i;
-	char scratch[1024];
-
-	if (!allHostsEnabled) return nil;
-
-	l = dns_zone_transfer(dns, DNS_CLASS_IN);
-	if (l == NULL) return nil;
-
-	all = [[LUArray alloc] init];
-	sprintf(scratch, "DNSAgent: all %s", [LUAgent categoryName:LUCategoryHost]);
-	[all setBanner:scratch];
-
-	for (i = 0; i < l->count; i++)
-	{
-		host = [self dictForDNSReply:l->reply[i]];
-		if (host != nil) [all addObject:host];
-		[host release];
-	}
-
-	dns_free_reply_list(l);
-
-	return all;
 }
 
 - (LUDictionary *)networkWithName:(char *)name
@@ -893,7 +831,8 @@ precsize_ntoa(u_int8_t prec)
 	q.type = DNS_TYPE_PTR;
 	q.name = name;
 
-	r = dns_query(dns, &q);
+	/* SDNS API */
+	r = sdns_query(dns, &q);
 	net = [self dictForDNSReply:r];
 	dns_free_reply(r);
 
@@ -948,14 +887,15 @@ precsize_ntoa(u_int8_t prec)
 
 	ab.a = addr->s_addr;
 
-	sprintf(name, "%u.%u.%u.%u.in-addr.arpa",
+	sprintf(name, "%u.%u.%u.%u.in-addr.arpa.",
 		ab.b[3], ab.b[2], ab.b[1], ab.b[0]);
 
 	q.class = DNS_CLASS_IN;	
 	q.type = DNS_TYPE_PTR;
 	q.name = name;
 
-	r = dns_query(dns, &q);
+	/* SDNS API */
+	r = sdns_query(dns, &q);
 	net = [self dictForDNSReply:r];
 	dns_free_reply(r);
 
@@ -971,20 +911,23 @@ precsize_ntoa(u_int8_t prec)
 {
 	char **l, *dn, *s, *p;
 	int i;
+	dns_handle_t *h;
 
-	if (dns == NULL) return NULL;
+	h = dns_open(NULL);
+	if (h == NULL) return NULL;
 
 	l = NULL;
 
-	if (dns->search_count > 0)
+	if (h->search_count > 0)
 	{
-		for (i = 0; i < dns->search_count; i++)
-			l = appendString(dns->search[i], l);
+		for (i = 0; i < h->search_count; i++)
+			l = appendString(h->search[i], l);
+		dns_free(h);
 		return l;
 	}
 
-	dn = copyString(dns->domain);
-	l = appendString(dns->domain, l);
+	dn = copyString(h->domain);
+	l = appendString(h->domain, l);
 
 	s = strchr(dn, '.');
 	if (s != NULL)
@@ -1000,6 +943,7 @@ precsize_ntoa(u_int8_t prec)
 	}
 
 	freeString(dn);
+	dns_free(h);
 	return l;
 }
 
@@ -1008,8 +952,9 @@ precsize_ntoa(u_int8_t prec)
 	category:(LUCategory)cat
 {
 	struct in_addr ip;
-	char *str;
-	LUDictionary *item;
+	char *str, scratch[32];
+	LUDictionary *item, *item2;
+	unsigned long ttl1, ttl2;
 
 	if (key == NULL) return nil;
 	if (val == NULL) return nil;
@@ -1019,9 +964,32 @@ precsize_ntoa(u_int8_t prec)
 		case LUCategoryHost:
 			if (streq(key, "name"))
 			{
-				return [self hostWithKey:val dnstype:DNS_TYPE_A];
+				item = [self hostWithKey:val dnstype:DNS_TYPE_A];
+				if (item != nil) [item mergeValue:val forKey:"name"];
+				return item;
 			}
+			if (streq(key, "namev6"))
+			{
+				item = [self hostWithKey:val dnstype:DNS_TYPE_A];
+				[item mergeValue:val forKey:"name"];
+				ttl1 = [item unsignedLongForKey:"_lookup_DNS_time_to_live"];
 
+				item2 = [self hostWithKey:val dnstype:DNS_TYPE_AAAA];
+				if (item2 != nil)
+				{
+					[item mergeKey:"name" from:item2];
+					[item mergeKey:"ipv6_address" from:item2];
+					ttl2 = [item2 unsignedLongForKey:"_lookup_DNS_time_to_live"];
+					[item2 release];
+
+					if (ttl2 < ttl1)
+					{
+						sprintf(scratch, "%lu", ttl2);
+						[item setValue:scratch forKey:"_lookup_DNS_time_to_live"];
+					}
+				}
+				return item;
+			}
 			if (streq(key, "ip_address"))
 			{
 				str = reverse_ipv4(val);
@@ -1056,26 +1024,20 @@ precsize_ntoa(u_int8_t prec)
 	return nil;
 }
 
-- (LUArray *)allItemsWithCategory:(LUCategory)cat
-{
-	if (cat == LUCategoryHost) return [self allHosts];
-	return nil;
-}
-
 - (LUArray *)query:(LUDictionary *)pattern category:(LUCategory)cat
 {
-	LUArray *list, *all;
+	LUArray *list, *all, *sub;
 	LUDictionary *item;
 	dns_reply_t *r;
 	dns_question_t q;
 	char *name, *service, *protocol, *ip, *ipv6, *qname, *origname;
-	int fixup, i, len;
+	int fixup, i, j, len;
+	int qtype[MAX_QTYPE], qtype_count;
 
 	if (cat != LUCategoryHost) return nil;
 	if (pattern == nil) return nil;
 	
 	q.class = DNS_CLASS_IN;	
-	q.type = DNS_TYPE_ANY;
 
 	/*
 	 * search will be based on one of the following keys
@@ -1086,11 +1048,30 @@ precsize_ntoa(u_int8_t prec)
 	 *     ip_address
 	 *     ipv6_address
 	 */
+	qtype_count = 0;
+	qtype[qtype_count++] = DNS_TYPE_CNAME;
+
 	name = [pattern valueForKey:"name"];
+	if (name != NULL)
+	{
+		qtype[qtype_count++] = DNS_TYPE_A;
+		qtype[qtype_count++] = DNS_TYPE_AAAA;
+	}
+
 	service = [pattern valueForKey:"service"];
 	protocol = [pattern valueForKey:"protocol"];
+	if ((service != NULL) || (protocol != NULL))
+	{
+		qtype[qtype_count++] = DNS_TYPE_SRV;
+		qtype[qtype_count++] = DNS_TYPE_MX;
+	}
+
 	ip = [pattern valueForKey:"ip_address"];
 	ipv6 = [pattern valueForKey:"ipv6_address"];
+	if ((ip != NULL) || (ipv6 != NULL))
+	{
+		qtype[qtype_count++] = DNS_TYPE_PTR;
+	}
 
 	qname = NULL;
 	origname = NULL;
@@ -1137,15 +1118,33 @@ precsize_ntoa(u_int8_t prec)
 
 	q.name = qname;
 
-	r = dns_query(dns, &q);
-	all = [self arrayForDNSReply:r];
+	all = [[LUArray alloc] init];
 
-	dns_free_reply(r);
+	for (i = 0; i < qtype_count; i++)
+	{
+		q.type = qtype[i];
+
+		/* SDNS API */
+		r = sdns_query(dns, &q);
+		sub = [self arrayForDNSReply:r];
+
+		dns_free_reply(r);
+
+		if (sub == nil) continue;
+
+		len = [sub count];
+		for (j = 0; j < len; j++)
+		{
+			item = [sub objectAtIndex:j];
+			[all addObject:item];
+		}
+
+		[sub release];
+	}
 
 	free(qname);
 
-	len = 0;
-	if (all != nil) len = [all count];
+	len = [all count];
 
 	for (i = 0; i < len; i++)
 	{

@@ -1,0 +1,28 @@
+#! /bin/sh
+
+# Test to make sure Automake include libtool objects resulting
+# from user-defined implicit rules.
+# Based on a report from Arkadiusz Miskiewicz <misiek@pld.ORG.PL>.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_LIBTOOL
+END
+
+cat > Makefile.am << 'END'
+.k.lo:
+	echo $< > $@
+
+noinst_LTLIBRARIES = libfoo.la
+libfoo_la_SOURCES = foo.k
+END
+
+: > ltmain.sh
+: > config.guess
+: > config.sub
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+grep '_OBJECTS.*foo.lo' Makefile.in || exit 1
+exit 0

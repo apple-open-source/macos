@@ -1,0 +1,25 @@
+#! /bin/sh
+
+# Another test of conditional include statements.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AM_CONDITIONAL(TOBE, false)
+END
+
+cat > Makefile.am << 'END'
+if TOBE
+include adjunct
+endif
+END
+
+cat > adjunct << 'END'
+target: dependency
+	rule
+endif
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE && exit 1
+exit 0

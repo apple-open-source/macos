@@ -21,6 +21,8 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
 (provide 'ediff-diff)
@@ -44,6 +46,55 @@
   :prefix "ediff-"
   :group 'ediff)
 
+;; these two must be here to prevent ediff-test-utility from barking
+(defcustom ediff-diff-program "diff"
+  "*Program to use for generating the differential of the two files."
+  :type 'string
+  :group 'ediff-diff)
+(defcustom ediff-diff3-program "diff3"
+  "*Program to be used for three-way comparison.
+Must produce output compatible with Unix's diff3 program."
+  :type 'string
+  :group 'ediff-diff)
+
+
+;; The following functions must precede all defcustom-defined variables.
+
+;; The following functions needed for setting diff/diff3 options
+;; test if diff supports the --binary option
+(defsubst ediff-test-utility (diff-util option &optional files)
+  (zerop (apply 'call-process
+		(append (list diff-util nil nil nil option) files))))
+
+(defun ediff-diff-mandatory-option (diff-util)
+  (let ((file (if (boundp 'null-device) null-device "/dev/null")))
+    (cond  ((not (memq system-type '(ms-dos windows-nt windows-95)))
+	    "")
+	   ((and (string= diff-util ediff-diff-program)
+		 (ediff-test-utility
+		  ediff-diff-program "--binary" (list file file)))
+	    "--binary")
+	   ((and (string= diff-util ediff-diff3-program)
+		 (ediff-test-utility
+		  ediff-diff3-program "--binary" (list file file file)))
+	    "--binary")
+	   (t ""))))
+
+;; make sure that mandatory options are added even if the user changes
+;; ediff-diff-options or ediff-diff3-options in the customization widget
+(defun ediff-reset-diff-options (symb val)
+  (let* ((diff-program 
+	  (if (eq symb 'ediff-diff-options) 
+	      ediff-diff-program
+	    ediff-diff3-program))
+	 (mandatory-option (ediff-diff-mandatory-option diff-program))
+	 (spacer (if (string-equal mandatory-option "") "" " ")))
+    (set symb 
+	 (if (string-match mandatory-option val)
+	     val
+	   (concat mandatory-option spacer val)))
+    ))
+
 
 (defcustom ediff-shell
   (cond ((eq system-type 'emx) "cmd") ; OS/2
@@ -65,15 +116,19 @@ It must return code 0, if its arguments are identical files."
   :type 'string
   :group 'ediff-diff)
 
-(defcustom ediff-diff-program "diff"
-  "*Program to use for generating the differential of the two files."
-  :type 'string
+(defcustom ediff-cmp-options nil
+  "*Options to pass to `ediff-cmp-program'.  If GNUS diff is used as
+`ediff-cmp-program', then the most useful options are `-I' RE, to
+ignore changes whose lines all match RE."
+  :type '(repeat string)
   :group 'ediff-diff)
-(defcustom ediff-diff-options ""  
+
+(defcustom ediff-diff-options ""
   "*Options to pass to `ediff-diff-program'. 
 If diff\(1\) is used as `ediff-diff-program', then the most useful options are
 `-w', to ignore space, and `-i', to ignore case of letters.
 At present, the option `-c' is not allowed."
+  :set 'ediff-reset-diff-options
   :type 'string
   :group 'ediff-diff)
 
@@ -89,15 +144,11 @@ This output is not used by Ediff internally."
 
 ;;; Support for diff3
 
-(defvar ediff-match-diff3-line "^====\\(.?\\)$"
+(defvar ediff-match-diff3-line "^====\\(.?\\)\C-m?$"
   "Pattern to match lines produced by diff3 that describe differences.")
-(defcustom ediff-diff3-program "diff3"
-  "*Program to be used for three-way comparison.
-Must produce output compatible with Unix's diff3 program."
-  :type 'string
-  :group 'ediff-diff)
 (defcustom ediff-diff3-options ""  
   "*Options to pass to `ediff-diff3-program'."
+  :set 'ediff-reset-diff-options
   :type 'string
   :group 'ediff-diff)
 (defcustom ediff-diff3-ok-lines-regexp
@@ -187,6 +238,7 @@ one optional arguments, diff-number to refine.")
 
 ;; Run the diff program on FILE1 and FILE2 and put the output in DIFF-BUFFER
 ;; Return the size of DIFF-BUFFER
+;; The return code isn't used in the program at present.
 (defun ediff-make-diff2-buffer (diff-buffer file1 file2)
   (let ((file1-size (ediff-file-size file1))
 	(file2-size (ediff-file-size file2)))
@@ -200,19 +252,6 @@ one optional arguments, diff-number to refine.")
 	   (message "Can't find file: %s"
 		    (ediff-abbreviate-file-name file2))
 	   (sit-for 2)
-	   ;; 1 is an error exit code
-	   1)
-	  ((< file1-size 0)
-	   (message "Can't diff remote files: %s"
-		    (ediff-abbreviate-file-name file1))
-	   (sit-for 2)
-	   ;; 1 is an error exit code
-	   1)
-	  ((< file2-size 0)
-	   (message "Can't diff remote file: %s"
-		    (ediff-abbreviate-file-name file2))
-	   (sit-for 2)
-	   (message "")
 	   ;; 1 is an error exit code
 	   1)
 	  (t (message "Computing differences between %s and %s ..."
@@ -270,19 +309,19 @@ one optional arguments, diff-number to refine.")
     ;; fixup diff-list
     (if diff3-job
 	(cond ((not file-A)
-	       (mapcar (function (lambda (elt)
-				   (aset elt 0 nil)
-				   (aset elt 1 nil)))
+	       (mapcar (lambda (elt)
+			 (aset elt 0 nil)
+			 (aset elt 1 nil))
 		       (cdr diff-list)))
 	      ((not file-B)
-	       (mapcar (function (lambda (elt)
-				   (aset elt 2 nil)
-				   (aset elt 3 nil)))
+	       (mapcar (lambda (elt)
+			 (aset elt 2 nil)
+			 (aset elt 3 nil))
 		       (cdr diff-list)))
 	      ((not file-C)
-	       (mapcar (function (lambda (elt)
-				   (aset elt 4 nil)
-				   (aset elt 5 nil)))
+	       (mapcar (lambda (elt)
+			 (aset elt 4 nil)
+			 (aset elt 5 nil))
 		       (cdr diff-list)))
 	  ))
     
@@ -475,13 +514,14 @@ one optional arguments, diff-number to refine.")
   (if ediff-merge-job
       (setq ediff-state-of-merge
 	    (vconcat
-	     (mapcar (function
-		      (lambda (elt)
-			(let ((state-of-merge (aref elt 9))
-			      (state-of-ancestor (aref elt 10)))
-			  (vector
-			   (if state-of-merge (format "%S" state-of-merge))
-			   state-of-ancestor))))
+	     (mapcar (lambda (elt)
+		       (let ((state-of-merge (aref elt 9))
+			     (state-of-ancestor (aref elt 10)))
+			 (vector
+			  ;; state of merge: prefers/default-A/B or combined
+			  (if state-of-merge (format "%S" state-of-merge))
+			  ;; whether the ancestor region is empty
+			  state-of-ancestor)))
 		     ;; the first elt designates type of list
 		     (cdr diff-list))
 	     )))
@@ -554,9 +594,11 @@ one optional arguments, diff-number to refine.")
       (if (= 0 (mod current-diff 10))
 	  (message "Buffer %S: Processing difference region %d of %d"
 		   buf-type current-diff total-diffs))
-      ;; record all overlays for this difference
-      ;; the second elt, nil, is a place holder for the fine diff vector.
-      ;; the third elt, nil, is a place holder for no-fine-diffs flag.
+      ;; Record all overlays for this difference.
+      ;; The 2-d elt, nil, is a place holder for the fine diff vector.
+      ;; The 3-d elt, nil, is a place holder for no-fine-diffs flag.
+      ;; The 4-th elt says which diff region is different from the other two
+      ;; (3-way jobs only).
       (setq diff-overlay-list
 	    (nconc
 	     diff-overlay-list
@@ -646,7 +688,7 @@ one optional arguments, diff-number to refine.")
 	       (or (ediff-get-fine-diff-vector n 'A)
 		   (memq ediff-auto-refine '(off nix))
 		   (ediff-message-if-verbose
-		    "Region %d exceeds auto-refine limit. Type `%s' to refine"
+		    "Region %d exceeds the auto-refinement limit. Type `%s' to refine"
 		    (1+ n)
 		    (substitute-command-keys
 		     "\\[ediff-make-or-kill-fine-diffs]")
@@ -784,26 +826,29 @@ one optional arguments, diff-number to refine.")
 			       ediff-current-diff-overlay-alist))
 			     'priority)
 			    0)))))
-    (mapcar
-     (function (lambda (overl)
-		 (ediff-set-overlay-face overl face)
-		 (ediff-overlay-put overl 'priority priority)))
-     fine-diff-vector)))
+    (mapcar (lambda (overl)
+	      (ediff-set-overlay-face overl face)
+	      (ediff-overlay-put overl 'priority priority))
+	    fine-diff-vector)))
      
-;; This assumes buffer C and that the region looks like a combination of
-;; regions in buffer A and C.
+;; Set overlays over the regions that denote delimiters
 (defun ediff-set-fine-overlays-for-combined-merge (diff-list reg-num)
-  (let (overlay1 overlay2 overlay3)
-    (setq overlay1 (ediff-make-bullet-proof-overlay (nth 0 diff-list)
-						    (nth 1 diff-list)
-						    ediff-buffer-C)
-	  overlay2 (ediff-make-bullet-proof-overlay (nth 2 diff-list)
-						    (nth 3 diff-list)
-						    ediff-buffer-C)
-	  overlay3 (ediff-make-bullet-proof-overlay (nth 4 diff-list)
-						    (nth 5 diff-list)
-						    ediff-buffer-C))
-    (ediff-set-fine-diff-vector reg-num 'C (vector overlay1 overlay2 overlay3))
+  (let (overlay overlay-list)
+    (while diff-list
+      (condition-case nil
+	  (setq overlay
+		(ediff-make-bullet-proof-overlay
+		 (nth 0 diff-list) (nth 1 diff-list) ediff-buffer-C))
+	(error ""))
+      (setq overlay-list (cons overlay overlay-list))
+      (if (> (length diff-list) 1)
+	  (setq diff-list (cdr (cdr diff-list)))
+	(error "ediff-set-fine-overlays-for-combined-merge: corrupt list of
+delimiter regions"))
+      )
+    (setq overlay-list (reverse overlay-list))
+    (ediff-set-fine-diff-vector
+     reg-num 'C (apply 'vector overlay-list))
     ))
 	
     
@@ -864,7 +909,7 @@ one optional arguments, diff-number to refine.")
   ;; can produce the groups in the order 1, 2, 3 or 1, 3, 2.
   (save-excursion
     (re-search-forward
-     (concat "^" file ":\\([0-9]+\\)\\(,\\([0-9]+\\)\\)?\\([ac]\\)$"))
+     (concat "^" file ":\\([0-9]+\\)\\(,\\([0-9]+\\)\\)?\\([ac]\\)\C-m?$"))
     (beginning-of-line 2)
     ;; treatment depends on whether it is an "a" group or a "c" group
     (if (string-equal (buffer-substring (match-beginning 4) (match-end 4)) "c")
@@ -1079,16 +1124,18 @@ one optional arguments, diff-number to refine.")
 ;; args.
 (defun ediff-exec-process (program buffer synch options &rest files)
   (let ((data (match-data))
+	(coding-system-for-read ediff-coding-system-for-read)
 	args)
     (setq args (append (split-string options) files))
     (setq args (delete "" (delq nil args))) ; delete nil and "" from arguments
+    ;; the --binary option, if present, should be used only for buffer jobs
+    ;; or for refining the differences
+    (or (string-match "buffer" (symbol-name ediff-job-name))
+	(eq buffer ediff-fine-diff-buffer)
+	(setq args (delete "--binary" args)))
     (unwind-protect
-	(let* ((directory default-directory)
-	       (job-name (symbol-name ediff-job-name))
-	       (buf-job (string-match "buffer" job-name))
-	       (coding-system-for-read
-		(if buf-job 'no-conversion coding-system-for-read))
-	       proc)
+	(let ((directory default-directory)
+	      proc)
 	  (save-excursion
 	    (set-buffer buffer)
 	    (erase-buffer)
@@ -1104,15 +1151,7 @@ one optional arguments, diff-number to refine.")
 		;; Similarly for Windows-*
 		;; In DOS, must synchronize because DOS doesn't have
 		;; asynchronous processes.
-		(progn
-		  (if (and buf-job
-			   (memq system-type '(ms-dos windows-nt windows-95))
-			   ;; FIXME: diff3 doesn't accept --binary, so 3-way
-			   ;; comparisons on DOS/Windows might fail for
-			   ;; buffers with non-ASCII text.
-			   (not (string-match "buffers3" job-name)))
-		      (setq args (append args '("--binary"))))
-		  (apply 'call-process program nil buffer nil args))
+		(apply 'call-process program nil buffer nil args)
 	      ;; On other systems, do it asynchronously.
 	      (setq proc (get-buffer-process buffer))
 	      (if proc (kill-process proc))
@@ -1171,7 +1210,6 @@ Used for splitting difference regions into individual words.")
   "*Characters constituting white space.
 These characters are ignored when differing regions are split into words.")
 
-;;(defvar ediff-word-1 "a-zA-Z---_`'.?!:"
 (defvar ediff-word-1 "a-zA-Z---_"
   "*Characters that constitute words of type 1.
 More precisely, [ediff-word-1] is a regexp that matches type 1 words.
@@ -1199,33 +1237,46 @@ See `ediff-forward-word' for more details.")
   "Move point one word forward.
 There are four types of words, each of which consists entirely of
 characters in `ediff-word-1', `ediff-word-2', `ediff-word-3', or
-`ediff-word-4'.  Words are recognized by passing these in turn as the
-argument to `skip-chars-forward'."
-  (or (> (skip-chars-forward ediff-word-1) 0)
+`ediff-word-4'.  Words are recognized by passing these one after another as
+arguments to `skip-chars-forward'."
+  (or (> (+ (skip-chars-forward ediff-word-1)
+	    (skip-syntax-forward "w"))
+	 0)
       (> (skip-chars-forward ediff-word-2) 0)
       (> (skip-chars-forward ediff-word-3) 0)
       (> (skip-chars-forward ediff-word-4) 0)
       ))
 
+
 (defun ediff-wordify (beg end in-buffer out-buffer &optional control-buf)
-  (let (sv-point string)
+  (let (inbuf-syntax-tbl sv-point diff-string)
     (save-excursion
      (set-buffer in-buffer)
-     (setq string (buffer-substring-no-properties beg end))
+     (setq inbuf-syntax-tbl
+	   (if control-buf
+	       (ediff-with-current-buffer control-buf
+		 ediff-syntax-table)
+	     (syntax-table)))
+     (setq diff-string (buffer-substring-no-properties beg end))
 
      (set-buffer out-buffer)
+     ;; Make sure that temp buff syntax table is the same a the original buf
+     ;; syntax tbl, because we use ediff-forward-word in both and
+     ;; ediff-forward-word depends on the syntax classes of characters.
+     (set-syntax-table inbuf-syntax-tbl)
      (erase-buffer)
-     (insert string)
+     (insert diff-string)
      (goto-char (point-min))
      (skip-chars-forward ediff-whitespace)
      (delete-region (point-min) (point))
      
      (while (not (eobp))
-       ;; eval incontrol buf to let user create local versions for
+       ;; eval in control buf to let user create local versions for
        ;; different invocations
        (if control-buf
 	   (funcall 
-	    (ediff-with-current-buffer control-buf ediff-forward-word-function))
+	    (ediff-with-current-buffer control-buf
+	      ediff-forward-word-function))
 	 (funcall ediff-forward-word-function))
        (setq sv-point (point))
        (skip-chars-forward ediff-whitespace)
@@ -1246,16 +1297,17 @@ argument to `skip-chars-forward'."
 
 
 ;; goto word #n starting at current position in buffer `buf'
-;; For ediff, a word is either a string of a-z,A-Z, incl `-' and `_';
-;; or a string of other non-blanks. A blank is a \n\t\f
+;; For ediff, a word is determined by ediff-forward-word-function
 ;; If `flag' is non-nil, goto the end of the n-th word.
 (defun ediff-goto-word (n buf &optional flag)
   ;; remember val ediff-forward-word-function has in ctl buf
-  (let ((fwd-word-fun ediff-forward-word-function))
+  (let ((fwd-word-fun ediff-forward-word-function)
+	(syntax-tbl ediff-syntax-table))
     (ediff-with-current-buffer buf
       (skip-chars-forward ediff-whitespace)
       (while (> n 1)
-	(funcall fwd-word-fun)
+	(ediff-with-syntax-table syntax-tbl
+	    (funcall fwd-word-fun))
 	(skip-chars-forward ediff-whitespace)
 	(setq n (1- n)))
       (if (and flag (> n 0))
@@ -1264,7 +1316,9 @@ argument to `skip-chars-forward'."
 
 (defun ediff-same-file-contents (f1 f2)
   "T if F1 and F2 have identical contents."
-  (let ((res (call-process ediff-cmp-program nil nil nil f1 f2)))
+  (let ((res 
+	 (apply 'call-process ediff-cmp-program nil nil nil
+ 		(append ediff-cmp-options (list f1 f2)))))
     (and (numberp res) (eq res 0))))
 
 
@@ -1275,4 +1329,4 @@ argument to `skip-chars-forward'."
 ;;; End:
 
 
-;; ediff-diff.el ends here
+;;; ediff-diff.el ends here

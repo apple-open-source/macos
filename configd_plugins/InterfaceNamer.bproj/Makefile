@@ -31,7 +31,7 @@ BUNDLE_EXTENSION = bundle
 
 
 FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
-NEXTSTEP_PB_CFLAGS = -DUSE_SYSTEMCONFIGURATION_PUBLIC_APIS
+NEXTSTEP_PB_CFLAGS = -Wall
 FRAMEWORKS = -framework CoreFoundation -framework IOKit\
              -framework SystemConfiguration
 

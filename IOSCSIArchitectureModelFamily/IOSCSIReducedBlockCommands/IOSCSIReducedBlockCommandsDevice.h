@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,10 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 #ifndef _IOKIT_IO_SCSI_REDUCED_BLOCK_COMMANDS_DEVICE_H_
 #define _IOKIT_IO_SCSI_REDUCED_BLOCK_COMMANDS_DEVICE_H_
 
 #if defined(KERNEL) && defined(__cplusplus)
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // General IOKit headers
 #include <IOKit/IOLib.h>
@@ -32,9 +38,15 @@
 // Generic IOKit storage related headers
 #include <IOKit/storage/IOStorage.h>
 
-// SCSI Command set related IOKit headers
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSIReducedBlockCommands.h>
 #include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 
 // RBC power states as defined in T10:1240D SCSI Reduced Block Commands (RBC)
 // Revision 10a, August 18, 1999, page 13.
@@ -48,49 +60,75 @@ enum
 	kRBCNumPowerStates			= 5
 };
 
+enum
+{
+	kMediaStateUnlocked	= 0,
+	kMediaStateLocked 	= 1
+};
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
 class IOSCSIReducedBlockCommandsDevice : public IOSCSIPrimaryCommandsDevice
 {
 	
 	OSDeclareAbstractStructors ( IOSCSIReducedBlockCommandsDevice );
 	
 private:
+	
     SCSIReducedBlockCommands *		fSCSIReducedBlockCommandObject;
     SCSIReducedBlockCommands *		GetSCSIReducedBlockCommandObject ( void );
-
+	
 	static void			AsyncReadWriteComplete ( SCSITaskIdentifier completedTask );
-
+	
 protected:
+    
     // Reserve space for future expansion.
     struct IOSCSIReducedBlockCommandsDeviceExpansionData
 	{
 		IONotifier *	fPowerDownNotifier;
+        bool			fMediumRemovalPrevented;
+        bool			fKnownManualEject;
+        UInt32			fPollingMode;
 	};
     IOSCSIReducedBlockCommandsDeviceExpansionData * fIOSCSIReducedBlockCommandsDeviceReserved;
 	
-	#define fPowerDownNotifier	fIOSCSIReducedBlockCommandsDeviceReserved->fPowerDownNotifier
+	#define fPowerDownNotifier		fIOSCSIReducedBlockCommandsDeviceReserved->fPowerDownNotifier
+	#define fMediumRemovalPrevented	fIOSCSIReducedBlockCommandsDeviceReserved->fMediumRemovalPrevented
+	#define fKnownManualEject		fIOSCSIReducedBlockCommandsDeviceReserved->fKnownManualEject
+	#define fPollingMode			fIOSCSIReducedBlockCommandsDeviceReserved->fPollingMode
 	
 	bool				fMediaChanged;
 	bool				fMediaPresent;
-
+	
 	// The byte count of each physical block on the media.
 	UInt32				fMediaBlockSize;
-
+	
 	// The total number of blocks of mediaBlockSize on the media.
 	UInt32				fMediaBlockCount;
-
+	
 	// Flags used to indicate device feature
 	bool				fMediaIsRemovable;
 	bool				fMediaIsWriteProtected;
-
+	
 	thread_call_t		fPollingThread;
-
+	
+	enum
+	{
+		kPollingMode_Suspended		= 0,
+		kPollingMode_NewMedia 		= 1,
+		kPollingMode_MediaRemoval	= 2
+	};
+	
 	virtual void 		CreateStorageServiceNub ( void );
 	virtual bool		DetermineDeviceCharacteristics ( void );	
 	virtual void		PollForMedia ( void );
 	virtual void		EnablePolling ( void );
 	virtual void		DisablePolling ( void );
 	virtual void		CheckWriteProtection ( void );
-    virtual void		SetMediaCharacteristics ( UInt32 blockSize, UInt32 blockCount );
+	virtual void		SetMediaCharacteristics ( UInt32 blockSize, UInt32 blockCount );
  	virtual void		ResetMediaCharacteristics ( void );
 	virtual bool		ClearNotReadyStatus ( void );
 	
@@ -116,13 +154,13 @@ protected:
 	// the class.  For subclasses, this will be overridden using a
 	// dynamic cast on the subclasses base command set object.
 	virtual SCSIPrimaryCommands *	GetSCSIPrimaryCommandObject ( void );
-
+	
 	// ----- Power Management Support ------
 		
 	// We override this method to set our power states and register ourselves
 	// as a power policy maker.
 	virtual void 		InitializePowerManagement ( IOService * provider );
-
+	
 	// We override this method so that when we register for power management,
 	// we go to our active power state (which the drive is definitely in
 	// at startup time).
@@ -137,24 +175,24 @@ protected:
 	// The TicklePowerManager method is called to tell the power manager that the
 	// device needs to be in a certain power state to handle requests.
 	virtual void		TicklePowerManager ( void );
-
+	
 	// The HandlePowerChange method is the state machine for power management.
 	// It is guaranteed to be on its own thread of execution (different from
 	// the power manager thread AND the workloop thread. This routine can
 	// send sync or async calls to the drive without worrying about threading
 	// issues.
 	virtual void		HandlePowerChange ( void );
-
+	
 	// The HandleCheckPowerState (void) method is on the serialized side of the command
 	// gate and can change member variables safely without multi-threading issues.
 	// It's main purpose is to call the superclass' HandleCheckPowerState ( UInt32 maxPowerState )
 	// with the max power state the class registered with.
 	virtual void		HandleCheckPowerState ( void );
-
+	
 	// The CheckMediaPresence method is called to see if the media which we
 	// anticipated being there is still there.
 	virtual bool		CheckMediaPresence ( void );
-
+	
 	virtual bool		InitializeDeviceSupport ( void );
 	virtual void		StartDeviceSupport ( void );
 	virtual void		SuspendDeviceSupport ( void );
@@ -165,7 +203,7 @@ protected:
 	virtual void		FreeCommandSetObjects ( void );
 	
 public:
-
+	
 	virtual IOReturn	SyncReadWrite ( 	IOMemoryDescriptor *	buffer,
 											UInt64					startBlock,
 											UInt64					blockCount );
@@ -174,7 +212,7 @@ public:
 											UInt64					block,
 											UInt64					nblks,
 											void *					clientData );
-
+	
 	
 	virtual IOReturn	EjectTheMedia ( void );	
 	virtual IOReturn	FormatMedia ( UInt64 byteCapacity );
@@ -195,14 +233,18 @@ public:
 	virtual IOReturn	ReportMediaState ( 	bool * mediaPresent,
 											bool * changed );
 	virtual IOReturn	ReportRemovability ( bool * isRemovable );
-	virtual IOReturn	ReportWriteProtection( bool * isWriteProtected );
+	virtual IOReturn	ReportWriteProtection ( bool * isWriteProtected );
 	
-	static 	void		sPollForMedia( void * pdtDriver, void * refCon );
+	static 	void		sPollForMedia ( void * pdtDriver, void * refCon );
+	
+	
+protected:
+	
 	
 	// The FORMAT_UNIT command as defined in section 5.1
-    virtual bool FORMAT_UNIT(
+	virtual bool FORMAT_UNIT (
 							SCSITaskIdentifier			request,
-			    			SCSICmdField1Bit			IMMED,
+							SCSICmdField1Bit			IMMED,
 	   						SCSICmdField1Bit			PROGRESS,
 	   						SCSICmdField1Bit			PERCENT_TIME,
 	   						SCSICmdField1Bit			INCREMENT );
@@ -210,78 +252,78 @@ public:
 	// The INQUIRY command as defined in SPC-2 w/o CONTROL byte
 	virtual bool INQUIRY (
 							SCSITaskIdentifier			request,
-    						IOMemoryDescriptor *		dataBuffer,
-    						SCSICmdField1Bit			CMDDT,
-	    					SCSICmdField1Bit			EVPD,
-	    					SCSICmdField1Byte			PAGE_OR_OPERATION_CODE,
-	    					SCSICmdField1Byte			ALLOCATION_LENGTH );
+							IOMemoryDescriptor *		dataBuffer,
+							SCSICmdField1Bit			CMDDT,
+							SCSICmdField1Bit			EVPD,
+							SCSICmdField1Byte			PAGE_OR_OPERATION_CODE,
+							SCSICmdField1Byte			ALLOCATION_LENGTH );
 	
 	// The MODE_SELECT(6) command as defined in SPC-2 w/o CONTROL byte
-	virtual bool MODE_SELECT_6(
+	virtual bool MODE_SELECT_6 (
 							SCSITaskIdentifier			request,
-	    					IOMemoryDescriptor *		dataBuffer,
-	    					SCSICmdField1Bit 			PF,
-	    					SCSICmdField1Bit 			SP,
-	    					SCSICmdField1Byte 			PARAMETER_LIST_LENGTH );
+							IOMemoryDescriptor *		dataBuffer,
+							SCSICmdField1Bit 			PF,
+							SCSICmdField1Bit 			SP,
+							SCSICmdField1Byte 			PARAMETER_LIST_LENGTH );
 	
 	// The MODE_SENSE(6) command as defined in SPC-2 w/o CONTROL byte
-	virtual bool MODE_SENSE_6(
+	virtual bool MODE_SENSE_6 (
 							SCSITaskIdentifier			request,
-	    					IOMemoryDescriptor *		dataBuffer,
-	    					SCSICmdField1Bit 			DBD,
+							IOMemoryDescriptor *		dataBuffer,
+							SCSICmdField1Bit 			DBD,
 		   					SCSICmdField2Bit 			PC,
 		   					SCSICmdField6Bit 			PAGE_CODE,
 		   					SCSICmdField1Byte 			ALLOCATION_LENGTH );
 	
 	// The PERSISTENT_RESERVE_IN command as defined in SPC-2 w/o CONTROL byte
-	virtual bool PERSISTENT_RESERVE_IN(
+	virtual bool PERSISTENT_RESERVE_IN (
 							SCSITaskIdentifier			request,
-	    					IOMemoryDescriptor *		dataBuffer,
+							IOMemoryDescriptor *		dataBuffer,
 		   					SCSICmdField5Bit 			SERVICE_ACTION,
 		   					SCSICmdField2Byte 			ALLOCATION_LENGTH );
 	
 	// The PERSISTENT_RESERVE_OUT command as defined in SPC-2 w/o CONTROL byte
-	virtual bool PERSISTENT_RESERVE_OUT(
+	virtual bool PERSISTENT_RESERVE_OUT (
 							SCSITaskIdentifier			request,
-	    					IOMemoryDescriptor *		dataBuffer,
+							IOMemoryDescriptor *		dataBuffer,
 		   					SCSICmdField5Bit			SERVICE_ACTION,
 		   					SCSICmdField4Bit			SCOPE,
 		   					SCSICmdField4Bit			TYPE );
 	
 	// The PREVENT_ALLOW_MEDIUM_REMOVAL command as defined in SPC-2 w/o CONTROL byte
-	virtual bool PREVENT_ALLOW_MEDIUM_REMOVAL( 
+	virtual bool PREVENT_ALLOW_MEDIUM_REMOVAL ( 
 							SCSITaskIdentifier			request,
-     						SCSICmdField2Bit			PREVENT );
+	 						SCSICmdField2Bit			PREVENT );
 	
    	// The READ_10 command as defined in section 5.2
-	virtual bool READ_10(
+	virtual bool READ_10 (
 							SCSITaskIdentifier			request,
-	    					IOMemoryDescriptor *		dataBuffer,
-				    		UInt32						blockSize,
+							IOMemoryDescriptor *		dataBuffer,
+							UInt32						blockSize,
 							SCSICmdField4Byte			LOGICAL_BLOCK_ADDRESS,
 							SCSICmdField2Byte			TRANSFER_LENGTH );
 	
 	// The READ_CAPACITY command as defined in section 5.3
-	virtual bool READ_CAPACITY(
+	virtual bool READ_CAPACITY (
 							SCSITaskIdentifier			request,
-	    					IOMemoryDescriptor *		dataBuffer );
+							IOMemoryDescriptor *		dataBuffer );
 	
 	// The RELEASE(6) command as defined in SPC-2 w/o CONTROL byte
-	virtual bool RELEASE_6(								
+	virtual bool RELEASE_6 (								
 							SCSITaskIdentifier			request );
 	
 	// The REQUEST_SENSE command as defined in SPC-2 w/o CONTROL byte
-	virtual bool REQUEST_SENSE(
+	virtual bool REQUEST_SENSE (
 							SCSITaskIdentifier			request,
-    						IOMemoryDescriptor *		dataBuffer,
-	    					SCSICmdField1Byte 			ALLOCATION_LENGTH );
+							IOMemoryDescriptor *		dataBuffer,
+							SCSICmdField1Byte 			ALLOCATION_LENGTH );
 	
 	// The RESERVE(6) command as defined in SPC-2 w/o CONTROL byte
-	virtual bool RESERVE_6(	
+	virtual bool RESERVE_6 (	
 							SCSITaskIdentifier			request );
 	
 	// The START_STOP_UNIT command as defined in section 5.4
-	virtual bool START_STOP_UNIT(
+	virtual bool START_STOP_UNIT (
 							SCSITaskIdentifier			request,
 							SCSICmdField1Bit			IMMED,
 							SCSICmdField4Bit			POWER_CONDITIONS,
@@ -289,63 +331,74 @@ public:
 							SCSICmdField1Bit			START );
 	
 	// The SYNCRONIZE_CACHE command as defined in section 5.5
-	virtual bool SYNCHRONIZE_CACHE(
+	virtual bool SYNCHRONIZE_CACHE (
 							SCSITaskIdentifier			request );
 	
 	// The TEST_UNIT_READY command as defined in SPC-2 w/o CONTROL byte
-	virtual bool TEST_UNIT_READY(
+	virtual bool TEST_UNIT_READY (
 							SCSITaskIdentifier			request );
 	
 	// The VERIFY command as defined in section 5.7
-	virtual bool VERIFY(
+	virtual bool VERIFY (
 							SCSITaskIdentifier			request,
 							SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
 							SCSICmdField2Byte 			VERIFICATION_LENGTH );
 	
 	// The WRITE_10 command	as defined in section 5.6
-	virtual bool WRITE_10(
+	virtual bool WRITE_10 (
 							SCSITaskIdentifier			request,
-	    					IOMemoryDescriptor *		dataBuffer,
-				    		UInt32						blockSize,
-							SCSICmdField1Bit        	FUA,
+							IOMemoryDescriptor *		dataBuffer,
+							UInt32						blockSize,
+							SCSICmdField1Bit			FUA,
 							SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS,
 							SCSICmdField2Byte 			TRANSFER_LENGTH );
 	
 	// The WRITE_BUFFER command as defined in SPC-2 w/o CONTROL byte
-	virtual bool WRITE_BUFFER( 
+	virtual bool WRITE_BUFFER ( 
 							SCSITaskIdentifier			request,
-	    					IOMemoryDescriptor *		dataBuffer,
+							IOMemoryDescriptor *		dataBuffer,
 							SCSICmdField4Bit 			MODE,
 							SCSICmdField1Byte 			BUFFER_ID,
 							SCSICmdField3Byte 			BUFFER_OFFSET,
 							SCSICmdField3Byte 			PARAMETER_LIST_LENGTH );
 	
-	OSMetaClassDeclareReservedUsed( IOSCSIReducedBlockCommandsDevice, 1 );
 	
-	virtual IOReturn	PowerDownHandler(	void * 			refCon,
+	OSMetaClassDeclareReservedUsed ( IOSCSIReducedBlockCommandsDevice, 1 );
+	
+public:
+	
+	virtual IOReturn	PowerDownHandler (	void * 			refCon,
 											UInt32 			messageType,
 											IOService * 	provider,
 											void * 			messageArgument,
 											vm_size_t 		argSize );
 	
 	
+	OSMetaClassDeclareReservedUsed ( IOSCSIReducedBlockCommandsDevice, 2 );
+	
+protected:
+	
+	virtual	void		SetMediaIcon ( void );
+	
+	
 private:
+	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 2 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 3 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 4 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 5 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 6 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 7 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 8 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 9 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 10 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 11 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 12 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 13 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 14 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 15 );
-    OSMetaClassDeclareReservedUnused( IOSCSIReducedBlockCommandsDevice, 16 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  3 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  4 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  5 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  6 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  7 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  8 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice,  9 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice, 10 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice, 11 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice, 12 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice, 13 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice, 14 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice, 15 );
+	OSMetaClassDeclareReservedUnused ( IOSCSIReducedBlockCommandsDevice, 16 );
+	
 };
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */

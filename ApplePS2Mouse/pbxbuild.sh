@@ -15,9 +15,11 @@ BuildStyle=
 Actions=
 Assignments=
 
+# We change into the directory that contains the pbxbuild.sh script.
+cd "`dirname -- "$0"`"
+
 IFS='
 '
-cd $(dirname $0)
 
 while [ $# -gt 0 ] ; do
 	case ${1} in
@@ -79,11 +81,9 @@ for Action in ${Actions}; do
 		TargetPath="${DataPath}/${Target}.build"
 		echo
 		echo "*** ${Action} ${Target} ***"
-		echo jam -d2 ${Action} JAMFILE=\"${TargetPath}/Jamfile.jam\" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME=\"${Target}\" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT=\"`pwd`\" OBJROOT=\"`pwd`/obj\" SYMROOT=\"`pwd`/sym\" DSTROOT=\"`pwd`
-/dst\" ${Assignments}
-		jam -d2 ${Action} JAMFILE="${TargetPath}/Jamfile.jam" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME="${Target}" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT="`pwd`" OBJROOT="`pwd`/obj" SYMROOT="`pwd`/sym" DSTROOT="`pwd`/dst" ${Assignme
-nts}
-                [ $? != 0 ] && exit 1
+		echo jam -d2 ${Action} JAMFILE=\"${TargetPath}/Jamfile.jam\" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME=\"${Target}\" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT=\"`pwd`\" OBJROOT=\"`pwd`/obj\" SYMROOT=\"`pwd`/sym\" DSTROOT=\"`pwd`/dst\" ${Assignments}
+		jam -d2 ${Action} JAMFILE="${TargetPath}/Jamfile.jam" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME="${Target}" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT="`pwd`" OBJROOT="`pwd`/obj" SYMROOT="`pwd`/sym" DSTROOT="`pwd`/dst" ${Assignments}
+		[ $? != 0 ] && exit 1
 	done
 done
 

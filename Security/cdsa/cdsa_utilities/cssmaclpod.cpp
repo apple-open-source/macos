@@ -27,11 +27,17 @@
 #include <Security/cssmwalkers.h>
 
 
-AuthorizationGroup::AuthorizationGroup(const AclAuthorizationSet &auths, CssmAllocator &alloc)
+AuthorizationGroup::AuthorizationGroup(const AclAuthorizationSet &auths,
+	CssmAllocator &alloc)
 {
 	NumberOfAuthTags = auths.size();
 	AuthTags = alloc.alloc<CSSM_ACL_AUTHORIZATION_TAG>(NumberOfAuthTags);
 	copy(auths.begin(), auths.end(), AuthTags);	// happens to be sorted
+}
+
+void AuthorizationGroup::destroy(CssmAllocator &alloc)
+{
+	alloc.free(AuthTags);
 }
 
 bool AuthorizationGroup::contains(CSSM_ACL_AUTHORIZATION_TAG tag) const
@@ -50,8 +56,26 @@ AclEntryPrototype::AclEntryPrototype(const AclOwnerPrototype &proto)
 	memset(this, 0, sizeof(*this));
 	TypedSubject = proto.subject(); Delegate = proto.delegate();
 	//@@@ set authorization to "is owner" pseudo-auth? See cssmacl.h
-}		
+}
 
+void AclEntryPrototype::tag(const char *tagString)
+{
+	if (tagString == NULL)
+		EntryTag[0] = '\0';
+	else if (strlen(tagString) > CSSM_MODULE_STRING_SIZE)
+		CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_ENTRY_TAG);
+	strcpy(EntryTag, tagString);
+}
+
+
+AclOwnerPrototype *AutoAclOwnerPrototype::make()
+{
+	if (!mAclOwnerPrototype) {
+		mAclOwnerPrototype = new AclOwnerPrototype; 
+		mAclOwnerPrototype->clearPod();
+	}
+	return mAclOwnerPrototype;
+}
 
 AutoAclOwnerPrototype::~AutoAclOwnerPrototype()
 {

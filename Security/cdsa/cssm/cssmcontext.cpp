@@ -114,7 +114,6 @@ void HandleContext::mergeAttributes(const CSSM_CONTEXT_ATTRIBUTE *attributes, ui
 						walk(copier, *slot);
 						if (CSSM_RETURN err = validateChange(CSSM_CONTEXT_EVENT_UPDATE)) {
 							*slot = oldSlot;
-							attachment.free(data);
 							CssmError::throwMe(err);
 						}
 					} catch (...) {

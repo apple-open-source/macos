@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.
 #include "lisp.h"  /* for VALMASK */
 
 #undef RVA_TO_PTR
-#define RVA_TO_PTR(rva) ((DWORD)(rva) + (DWORD)GetModuleHandle (NULL))
+#define RVA_TO_PTR(rva) ((unsigned char *)((DWORD)(rva) + (DWORD)GetModuleHandle (NULL)))
 
 /* This gives us the page size and the size of the allocation unit on NT.  */
 SYSTEM_INFO sysinfo_cache;
@@ -47,6 +47,7 @@ int etext;
 /* The major and minor versions of NT.  */
 int w32_major_version;
 int w32_minor_version;
+int w32_build_number;
 
 /* Distinguish between Windows NT and Windows 95.  */
 int os_subtype;
@@ -83,6 +84,10 @@ cache_system_info (void)
   /* Cache os info.  */
   osinfo_cache.dwOSVersionInfoSize = sizeof (OSVERSIONINFO);
   GetVersionEx (&osinfo_cache);
+
+  w32_build_number = osinfo_cache.dwBuildNumber;
+  if (os_subtype == OS_WIN95)
+    w32_build_number &= 0xffff;
 }
 
 /* Emulate getpagesize.  */
@@ -275,7 +280,7 @@ round_heap (unsigned long align)
     sbrk (need_to_alloc);
 }
 
-#if (_MSC_VER >= 1000)
+#if (_MSC_VER >= 1000 && !defined(USE_CRT_DLL))
 
 /* MSVC 4.2 invokes these functions from mainCRTStartup to initialize
    a heap via HeapCreate.  They are normally defined by the runtime,

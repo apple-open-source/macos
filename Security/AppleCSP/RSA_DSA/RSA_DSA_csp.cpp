@@ -24,8 +24,8 @@
 #include "RSA_DSA_signature.h"					/* raw signer */
 #include <MiscCSPAlgs/SHA1_MD5_Object.h>		/* raw digest */
 #include <AppleCSP/SignatureContext.h>
-#include <AppleCSP/NullDigest.h>
-#include "RSA_DSA_Keys.h"
+#include <Security/digestobject.h>
+#include "RSA_DSA_keys.h"
 #include "RSA_asymmetric.h"
 #include <MiscCSPAlgs/MD2Object.h>
 #include <Security/cssmapple.h>

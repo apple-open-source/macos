@@ -11,7 +11,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: exec.test,v 1.1.1.4 2000/12/06 23:04:06 wsanchez Exp $
+# RCS: @(#) $Id: exec.test,v 1.1.1.5 2002/04/05 16:13:51 jevans Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -228,7 +228,9 @@ test exec-4.5 {redirecting output and stderr to file} {execCommandExists stdio} 
 
 # I/O redirection: input from file.
 
+if { [set ::tcltest::testConstraints(execCommandExists)] } {
 exec $::tcltest::tcltest echo "Just a few thoughts" > gorp.file
+}
 test exec-5.1 {redirecting input from file} {execCommandExists stdio} {
     exec $::tcltest::tcltest cat < gorp.file
 } {Just a few thoughts}
@@ -432,7 +434,9 @@ test exec-11.5 {commands in background} {execCommandExists stdio} {
 # Make sure that background commands are properly reaped when
 # they eventually die.
 
+if { [set ::tcltest::testConstraints(execCommandExists)] } {
 exec $::tcltest::tcltest sleep 3
+}
 test exec-12.1 {reaping background processes} \
 	{execCommandExists stdio unixOnly nonPortable} {
     for {set i 0} {$i < 20} {incr i} {

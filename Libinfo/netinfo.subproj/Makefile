@@ -18,7 +18,7 @@ CFILES = multi_call.c ni_error.c ni_glue.c ni_pwdomain.c ni_useful.c\
          ni_util.c sys_interfaces.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble nibind_prot.x\
-            ni_prot.x
+            ni_prot.x netinfo.3 netinfo.5
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

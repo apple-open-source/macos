@@ -1,10 +1,18 @@
+# Copyright 1999, 2001 Red Hat, Inc.
 #
-# Check if we have a display
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License (GPL) as published by
+# the Free Software Foundation; either version 2 of the License, or (at
+# your option) any later version.
 #
-if {![info exists ::env(DISPLAY)]} {
-  untested "No DISPLAY -- skipping test"
-} else {
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 
+load_lib insight-support.exp
+
+if {[gdbtk_initialize_display]} {
   if {$tracelevel} {
     strace $tracelevel
   }
@@ -30,5 +38,5 @@ if {![info exists ::env(DISPLAY)]} {
   set results [split $results \n]
 
   # Analyze results
-  gdbtk_analyze_results $results
+  gdbtk_done $results
 }

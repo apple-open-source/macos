@@ -100,6 +100,7 @@
 %token  syValueOf
 
 %token	syCString
+%token	sySecToken
 %token	syUserSecToken
 %token	syServerSecToken
 
@@ -142,12 +143,13 @@
 %type   <identifier> TypePhrase
 %type	<symtype> PrimIPCType IPCType
 %type	<routine> RoutineDecl Routine SimpleRoutine
-%type	<direction> Direction TrExplKeyword TrImplKeyword
+%type	<direction> Direction TrImplKeyword
 %type	<argument> Argument Trailer Arguments ArgumentList
 %type	<flag> IPCFlags
 
 %{
 
+#include <stdio.h>
 #include "lexxer.h"
 #include "strdefs.h"
 #include "type.h"
@@ -655,20 +657,12 @@ Argument		:	Direction syIdentifier ArgumentType IPCFlags
 }
 			;
 
-Trailer			:	TrExplKeyword syIdentifier ArgumentType	
+Trailer			:	TrImplKeyword syIdentifier ArgumentType	
 {
     $$ = argAlloc();
     $$->argKind = $1;
     $$->argName = $2;
     $$->argType = $3;
-}
-			|	TrImplKeyword syIdentifier ArgumentType syComma syIdentifier
-{
-    $$ = argAlloc();
-    $$->argKind = $1;
-    $$->argName = $2;
-    $$->argType = $3;
-    $$->argMsgField = $5;
 }
 			;
 
@@ -684,16 +678,18 @@ Direction		:	/* empty */	{ $$ = akNone; }
 			|	syWaitTime	{ $$ = akWaitTime; }
 			|	sySendTime 	{ $$ = akSendTime; }
 			|	syMsgOption	{ $$ = akMsgOption; }
+			|	sySecToken		{ $$ = akSecToken; }	
+			|	syServerSecToken	{ $$ = akServerSecToken; }	
+			|	syUserSecToken		{ $$ = akUserSecToken; }
+			|	syMsgSeqno	{ $$ = akMsgSeqno; }
 			;
+
+
 
 TrImplKeyword		:	syServerImpl	{ $$ = akServerImpl; }	
 			|	syUserImpl	{ $$ = akUserImpl; }
 			;
 
-TrExplKeyword		:	syServerSecToken	{ $$ = akServerSecToken; }	
-			|	syUserSecToken		{ $$ = akUserSecToken; }	
-			|	syMsgSeqno	{ $$ = akMsgSeqno; }
-			;
 
 ArgumentType		:	syColon syIdentifier
 {

@@ -25,6 +25,7 @@
 #include "securityserver.h"
 #include "acls.h"
 #include "dbcrypto.h"
+#include "notifications.h"
 #include <Security/utilities.h>
 #include <Security/handleobject.h>
 #include <Security/cssmdb.h>
@@ -46,8 +47,13 @@ using MachPlusPlus::MachServer;
 // access.
 //
 class Database : public HandleObject, public SecurityServerAcl {
-	class Common; friend class Common;
+    static const Listener::Event lockedEvent = Listener::lockedEvent;
+    static const Listener::Event unlockedEvent = Listener::unlockedEvent;
+    static const Listener::Event passphraseChangedEvent = Listener::passphraseChangedEvent;
+    
 public:
+	class Common; friend class Common;
+    
 	Database(const DLDbIdentifier &id, const DBParameters &params, Process &proc,
         const AccessCredentials *cred, const AclEntryPrototype *owner);
 	virtual ~Database();
@@ -65,7 +71,8 @@ public:
         : mIdent(id), mSig(sig) { }
         
         operator const DLDbIdentifier &() const { return mIdent; }
-        operator const Signature &() const { return mSig; }
+        operator const Signature &() const	{ return mSig; }
+        const char *dbName() const			{ return mIdent.dbName(); }
         
         bool operator < (const DbIdentifier &id) const	// simple lexicographic
         {
@@ -105,6 +112,8 @@ public:
         
         DbBlob *encode(Database &db);
         void setupKeys(const AccessCredentials *cred);
+        
+        void notify(Listener::Event event);
 		
 	protected:
 		void action();				// timer queue action to lock keychain
@@ -140,6 +149,7 @@ public:
 	void unlock();											// full-feature unlock
 	void unlock(const CssmData &passphrase);				// unlock with passphrase
 	bool decode(const CssmData &passphrase);				// try unlock/don't fail
+	bool validatePassphrase(const CssmData &passphrase) const; // validate passphrase (no status change)
 	bool isLocked() const { return common->isLocked(); }	// lock status
     
     void activity() const { common->activity(); }			// reset timeout clock
@@ -159,6 +169,9 @@ public:
 	void instantiateAcl();
 	void noticeAclChange();
 	const Database *relatedDatabase() const; // "self", for SecurityServerAcl's sake
+    
+    // notifications
+    void notify(Listener::Event event) { common->notify(event); }
 
     // debugging
     IFDUMP(void debugDump(const char *msg));

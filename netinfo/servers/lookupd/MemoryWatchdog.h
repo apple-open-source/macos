@@ -49,6 +49,7 @@
 - (void)printObject:(int)where file:(FILE *)f;
 - (void)addObject:(id)anObject;
 - (void)removeObject:(id)anObject;
+- (unsigned int)totalMemory;
 
 @end
 

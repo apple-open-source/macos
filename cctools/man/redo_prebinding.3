@@ -1,7 +1,6 @@
-.TH REDO_PREBINDING 3 "March 12, 2001" "Apple Computer, Inc."
+.TH REDO_PREBINDING 3 "May 22, 2002" "Apple Computer, Inc."
 .SH NAME
-dependent_libs, redo_prebinding, needs_redo_prebinding
-\- redo_prebinding library functions
+redo_prebinding library functions
 .SH SYNOPSIS
 .nf
 .PP
@@ -13,24 +12,43 @@ extern char ** dependent_libs(
 	const char *program_name,
 	char **error_message);
 .sp .5
-extern int redo_prebinding(
+extern enum redo_prebinding_retval redo_prebinding(
 	const char *file_name,
 	const char *executable_path,
 	const char *root_dir,
 	const char *output_file,
 	const char *program_name,
 	char **error_message,
-	unsigned long slide_to_address /* not yet supported parameter */ );
+	unsigned long slide_to_address,
+	int only_if_needed,
+	int zero_out_prebind_checksum,
+	cpu_type_t allow_missing_architectures,
+	unsigned long *throttle);
 .sp .5
 extern enum needs_redo_prebinding_retval needs_redo_prebinding(
 	const char *file_name,
 	const char *executable_path,
 	const char *root_dir,
 	const char *program_name,
+	char **error_message,
+	unsigned long expected_address,
+	cpu_type_t allow_missing_architectures);
+.sp .5
+extern enum object_file_type_retval object_file_type(
+	const char *file_name,
+	const char *program_name,
+	char **error_message);
+.sp .5
+extern int get_prebind_cksums(
+	const char *file_name,
+	struct prebind_cksum_arch **cksums,
+	unsigned long *ncksums,
+	const char *program_name,
 	char **error_message);
 .SH DESCRIPTION
 These functions are intended for use by
-.IR update_prebinding (1).
+.IR update_prebinding (1)
+and Mac OS X Build and Integration tools.
 .PP
 For all of these functions in the parameters
 .I program_name
@@ -107,21 +125,77 @@ the update file is written to
 if not it is written to
 .I file_name.
 If
-.I redo_prebinding()
-is successful it returns 0 otherwise it returns 1.  If not all architectures
-can be updated it is not successful and nothing is done.
-The not yet supported
+.IR redo_prebinding ()
+is successful it returns
+.SM REDO_PREBINDING_SUCCESS
+otherwise it returns
+.SM REDO_PREBINDING_FAILURE.
+If the 
 .I slide_to_address
-parameter should be passed a value of zero. When supported a non-zero value
-will be the address a dynamic library is to be relocated to as its preferred
-address.
+parameter is non-zero and the binary is a dynamic library it is relocated to
+have that has its prefered address.
+If the parameter
+.I allow_missing_architectures
+is zero and not all architectures can be updated it is not successful and
+nothing is done and this returns
+.SM REDO_PREBINDING_FAILURE.
+If the parameter
+.I allow_missing_architectures
+is non-zero then only problems with missing architectures for the architecure
+of the cputype specified by 
+.I allow_missing_architectures
+will cause this call to fail.  Other architectures that could not be prebound
+due to missing architectures in depending libraries will not have their
+prebinding updated but will not cause the call to fail.
+If the parameter
+.I only_if_needed
+is non-zero the prebinding is checked first and only done if needed.  The
+checking includes checking the prefered address against the
+.I slide_to_address
+value if it is non-zero.  If
+.I only_if_needed
+is non-zero and the prebinding does not have to be redone
+.SM REDO_PREBINDING_NOT_NEEDED
+is returned, if the binary is not prebound
+.SM REDO_PREBINDING_NOT_PREBOUND
+is returned and if the new load commands do not fit in the binary and it needs
+to be rebuilt
+.SM REDO_PREBINDING_NEEDS_REBUILDING
+is returned.  If
+.I zero_out_prebind_checksum
+is non-zero then the cksum field of the
+.SM LC_PREBIND_CKSUM
+load command (if any) is set to zero on output (this should always be set by B&I
+tools and never set by the
+.IR update_prebinding (1)
+command).
+If
+.I throttle 
+is non-NULL it points to a value of the maximum bytes per second to use for
+writting the output.  If the value is ULONG_MAX then the actual bytes per
+second is returned indirectly through *throttle.
 .PP
 .IR needs_redo_prebinding()
 takes a
 .I file_name
 and determines if it is a binary and if its prebinding is uptodate.  It returns
 one of the return values below depending on the state of the binary and
-libraries.  The value returned is based on the first architecture for fat files.
+libraries.  If the parameter
+.I allow_missing_architectures
+is zero then the value returned is based on the first architecture for fat
+files.  If the parameter
+.I allow_missing_architectures
+is non-zero then the value returned is based on the cputype specified by
+.I allow_missing_architectures.
+If that architecture is not present then
+.SM PREBINDING_UPTODATE
+is returned.  If the parameter
+.I expected_address
+is not zero and the binary is a dynamic library then the library is checked to
+see if it is at the expected_address if not the prebinding is assumed to be out
+of date and
+.SM PREBINDING_OUTOFDATE
+is returned.
 .PP
 Return values for
 .I needs_redo_prebinding():
@@ -136,11 +210,81 @@ a binary who's prebinding is out of date.
 a binary, but not built prebound.
 .TP
 .B NOT_PREBINDABLE
-not a binary, prebinding does not apply.
+not a binary or statically linked, prebinding does not apply.
 .TP
 .B PREBINDING_UNKNOWN
 a binary who's prebinding can't be determined because it is malformed, a
 library it depends on is missing, etc.
+.PP
+.IR object_file_type ()
+takes a file_name and determines what type of object file it is and returns
+on the the values below.
+.TP
+.B OFT_EXECUTABLE,
+the file is an Mach-O executable.
+.TP
+.B OFT_DYLIB,
+the file is an Mach-O dyanmic library.
+.TP
+.B OFT_BUNDLE,
+the file is an Mach-O bundle.
+.TP
+.B OFT_ARCHIVE,
+the file is an archive.
+.TP
+.B OFT_OTHER,
+the file is something other than the above files.
+.TP
+.B OFT_INCONSISTENT,
+the file is a fat file and the architectures are not of the same type.
+.TP
+.B OFT_FILE_ERROR
+The file can't be opened, read or malformed
+.PP
+.IR get_prebind_cksums ()
+takes a file_name that is a Mach-O file or fat file containing Mach-O files and
+returns a
+.IR malloc (3)'ed
+array of
+.I prebind_cksum_arch
+structures indirectly through the
+.I cksums
+parameter. The number of
+.I prebind_cksum_arch
+structures is returned indirectly through the
+.I ncksums
+parameter.  If successful it returns zero else it returns non-zero.
+.PP
+The structure
+.I prebind_cksum_arch
+is defined in
+.I <mach-o/redo_prebinding.h>
+as follows:
+.nf
+	struct prebind_cksum_arch {
+		cpu_type_t cputype;
+		cpu_subtype_t cpusubtype;
+		unsigned long has_cksum;
+		unsigned long cksum;
+	};
+.fi
+.PP
+The
+.I cputype
+and
+.I cpusubtype
+are filled in with the cpu specifier and the machine specifier for the
+architecture of the Mach-O file (or zero if not a Mach-O file).
+The field
+.I has_cksum
+is set to one if the architecture as an
+.SM LC_PREBIND_CKSUM
+load command and zero otherwise.
+The field
+.I cksum
+is set to the value of the cksum in
+.SM LC_PREBIND_CKSUM
+load command (or zero if it does not have one).
 .SH "SEE ALSO"
 .IR redo_prebinding (1),
 .IR update_prebinding (1)

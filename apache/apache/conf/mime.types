@@ -48,7 +48,7 @@ application/news-message-id
 application/news-transmission
 application/ocsp-request
 application/ocsp-response
-application/octet-stream	bin dms lha lzh exe class so dll
+application/octet-stream	bin dms lha lzh exe class so dll dmg
 application/oda			oda
 application/parityfec
 application/pdf			pdf
@@ -295,6 +295,7 @@ application/x-gtar		gtar
 application/x-gzip
 application/x-hdf		hdf
 application/x-javascript	js
+application/x-java-jnlp-file	jnlp
 application/x-koan		skp skd skt skm
 application/x-latex		latex
 application/x-netcdf		nc cdf
@@ -315,6 +316,7 @@ application/x-troff-ms		ms
 application/x-ustar		ustar
 application/x-wais-source	src
 application/x400-bp
+application/xhtml+xml		xhtml xht
 application/xml
 application/xml-dtd
 application/xml-external-parsed-entity
@@ -360,11 +362,13 @@ image/gif			gif
 image/ief			ief
 image/jpeg			jpeg jpg jpe
 image/naplps
+image/pict			pict pic pct
 image/png			png
 image/prs.btif
 image/prs.pti
 image/tiff			tiff tif
 image/vnd.cns.inf2
+image/vnd.djvu			djvu djv
 image/vnd.dwg
 image/vnd.dxf
 image/vnd.fastbidsheet
@@ -378,10 +382,12 @@ image/vnd.svf
 image/vnd.wap.wbmp		wbmp
 image/vnd.xiff
 image/x-cmu-raster		ras
+image/x-macpaint		pntg pnt mac
 image/x-portable-anymap		pnm
 image/x-portable-bitmap		pbm
 image/x-portable-graymap	pgm
 image/x-portable-pixmap		ppm
+image/x-quicktime		qtif qti
 image/x-rgb			rgb
 image/x-xbitmap			xbm
 image/x-xpixmap			xpm
@@ -452,6 +458,7 @@ text/vnd.wap.wmlscript		wmls
 text/x-setext			etx
 text/xml			xml xsl
 text/xml-external-parsed-entity
+video/mp4			mp4
 video/mp4v-es
 video/mpeg			mpeg mpg mpe
 video/parityfec
@@ -464,6 +471,7 @@ video/vnd.mpegurl		mxu
 video/vnd.mts
 video/vnd.nokia.interleaved-multimedia
 video/vnd.vivo
+video/x-dv			dv dif
 video/x-msvideo			avi
 video/x-sgi-movie		movie
 x-conference/x-cooltalk		ice

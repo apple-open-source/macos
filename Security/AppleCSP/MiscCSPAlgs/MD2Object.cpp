@@ -48,6 +48,12 @@ void MD2Object::digestFinal(
 	setIsDone(true);
 }
 
+/* use default memberwise init */
+DigestObject *MD2Object::digestClone() const
+{
+	return new MD2Object(*this);
+}
+
 UInt32 MD2Object::digestSizeInBytes() const
 {
 	return MD2_DIGEST_LENGTH;

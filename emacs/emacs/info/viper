@@ -1,7 +1,6 @@
-This is Info file ../info/viper, produced by Makeinfo version 1.68 from
-the input file viper.texi.
+This is ../info/viper, produced by makeinfo version 4.0 from viper.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * VIPER: (viper).       The newest Emacs VI-emulation mode.
                           (also, A VI Plan for Emacs Rescue
@@ -11,84 +10,88 @@ END-INFO-DIR-ENTRY
 Distribution
 ************
 
-Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.
+Copyright (C) 1995, 1996, 1997, 2001 Free Software Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided that
-the entire resulting derived work is distributed under the terms of a
-permission notice identical to this one.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the same conditions as for modified
-versions.
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
 
 
 Indirect:
-viper-1: 989
-viper-2: 50405
-viper-3: 90740
-viper-4: 140511
-viper-5: 183605
+viper-1: 1310
+viper-2: 48658
+viper-3: 92810
+viper-4: 140495
+viper-5: 187302
 
 Tag Table:
 (Indirect)
-Node: Top989
-Node: Overview3386
-Node: Emacs Preliminaries4394
-Node: Loading Viper9744
-Node: States in Viper11906
-Node: Emacs State16972
-Node: Vi State18527
-Node: Insert State25359
-Node: Replace State28225
-Node: The Minibuffer29880
-Node: Multiple Files in Viper31532
-Node: Unimplemented Features34906
-Node: Improvements over Vi35656
-Node: Basics36741
-Node: Undo and Backups39192
-Node: History40360
-Node: Macros and Registers41961
-Node: Completion43640
-Node: Improved Search44063
-Node: Abbreviation Facilities46383
-Node: Movement and Markers47358
-Node: New Commands50405
-Node: Useful Packages56226
-Node: Customization58281
-Node: Rudimentary Changes59893
-Node: Keybindings75584
-Node: Packages that Change Keymaps85353
-Node: Viper Specials90740
-Node: Vi Macros108084
-Node: Commands121416
-Node: Groundwork122154
-Node: Text Handling128439
-Node: Move Commands128993
-Node: Marking132724
-Node: Appending Text133686
-Node: Editing in Insert State136012
-Node: Deleting Text136589
-Node: Changing Text137922
-Node: Search and Replace140511
-Node: Yanking142476
-Node: Undoing143385
-Node: Display143716
-Node: File and Buffer Handling145020
-Node: Mapping148858
-Node: Shell Commands150548
-Node: Options152088
-Node: Emacs Related Commands154283
-Node: Mouse-bound Commands155851
-Node: Acknowledgments156713
-Node: Key Index159247
-Node: Function Index171509
-Node: Variable Index178769
-Node: Package Index183068
-Node: Concept Index183605
+Node: Top1310
+Node: Overview3708
+Node: Emacs Preliminaries5431
+Node: Loading Viper10781
+Node: States in Viper13213
+Node: Emacs State18270
+Node: Vi State19824
+Node: Insert State26658
+Node: Replace State29526
+Node: The Minibuffer31181
+Node: Multiple Files in Viper32833
+Node: Unimplemented Features36207
+Node: Improvements over Vi36957
+Node: Basics38042
+Node: Undo and Backups40488
+Node: History41656
+Node: Macros and Registers43257
+Node: Completion44936
+Node: Improved Search45365
+Node: Abbreviation Facilities47683
+Node: Movement and Markers48658
+Node: New Commands51705
+Node: Useful Packages57530
+Node: Customization59585
+Node: Rudimentary Changes61197
+Node: Key Bindings77647
+Node: Packages that Change Keymaps87424
+Node: Viper Specials92810
+Node: Vi Macros110224
+Node: Commands123562
+Node: Groundwork124298
+Node: Text Handling130745
+Node: Move Commands131299
+Node: Marking135030
+Node: Appending Text136259
+Node: Editing in Insert State138585
+Node: Deleting Text139162
+Node: Changing Text140495
+Node: Search and Replace143084
+Node: Yanking145049
+Node: Undoing145958
+Node: Display146289
+Node: File and Buffer Handling147593
+Node: Mapping151948
+Node: Shell Commands153638
+Node: Options155469
+Node: Emacs Related Commands157664
+Node: Mouse-bound Commands159232
+Node: Acknowledgments160091
+Node: Key Index162885
+Node: Function Index175197
+Node: Variable Index182456
+Node: Package Index186765
+Node: Concept Index187302
 
 End Tag Table

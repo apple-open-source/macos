@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		020A611800D0331911CA28DF = {
 			buildActionMask = 8;
@@ -26,7 +26,7 @@
 				020B426400D037AA11CA28DF,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		020B424A00D037AA11CA28DF = {
 			fileRef = B91BF3FA00CFEA6808CA29FD;
@@ -128,7 +128,7 @@
 				B90BDEB500D03C2B08CA29FD,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 //020
 //021
@@ -147,9 +147,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -179,9 +179,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -236,7 +236,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.1;
+				MODULE_VERSION = 1.2;
 				OTHER_CFLAGS = "-fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -254,15 +254,15 @@
 			productName = IONetworkingFamily;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IONetworkingFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Version 1.1, Copyright 2000-2001 Apple Computer, Inc.</string>
+	<string>Version 1.2, Copyright 2000-2001 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -274,45 +274,13 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
-		<key>IOKernelDebuggerDriver</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IONetworkingFamily</string>
-			<key>IOClass</key>
-			<string>IOKDP</string>
-			<key>IODriverMatchI386</key>
-			<dict/>
-			<key>IODriverMatchPPC</key>
-			<dict>
-				<key>IOClass</key>
-				<array>
-					<string>BMacEnet</string>
-					<string>UniNEnet</string>
-					<string>MaceEnet</string>
-				</array>
-			</dict>
-			<key>IODriverNubMatchI386</key>
-			<dict/>
-			<key>IODriverNubMatchPPC</key>
-			<dict>
-				<key>built-in</key>
-				<data>
-				</data>
-			</dict>
-			<key>IOEnableKDP</key>
-			<true/>
-			<key>IOMatchCategory</key>
-			<string>IOKDP</string>
-			<key>IOProviderClass</key>
-			<string>IOKernelDebugger</string>
-		</dict>
 		<key>IONetworkStack</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -326,12 +294,34 @@
 			<key>IOResourceMatch</key>
 			<string>IOBSD</string>
 		</dict>
+		<key>Kernel Debugging Driver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IONetworkingFamily</string>
+			<key>IOClass</key>
+			<string>IOKDP</string>
+			<key>IOMatchCategory</key>
+			<string>IOKDP</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>IOPrimaryDebugPort</key>
+				<true/>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOKernelDebugger</string>
+		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel</key>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
 		<string>1.1</string>
 	</dict>
 	<key>OSBundleRequired</key>
@@ -361,9 +351,10 @@
 				B91BF41900CFEA6808CA29FD,
 				B91BF41A00CFEA6808CA29FD,
 				B91BF41B00CFEA6808CA29FD,
+				B93FC6B1023527E308CA29FD,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -371,7 +362,7 @@
 				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -390,21 +381,21 @@
 				B91BF3F900CFE9D308CA29FD,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -491,6 +482,7 @@
 				B91BF3FD00CFEA6808CA29FD,
 				B91BF3E500CFE9D308CA29FD,
 				B91BF3FE00CFEA6808CA29FD,
+				B93FC6B0023527E308CA29FD,
 				B91BF3E600CFE9D308CA29FD,
 				B91BF3FF00CFEA6808CA29FD,
 				B91BF3E700CFE9D308CA29FD,
@@ -903,6 +895,17 @@
 			settings = {
 			};
 		};
+		B93FC6B0023527E308CA29FD = {
+			isa = PBXFileReference;
+			path = IONetworkControllerPrivate.h;
+			refType = 4;
+		};
+		B93FC6B1023527E308CA29FD = {
+			fileRef = B93FC6B0023527E308CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		B9B7C75000CFEC3008CA29FD = {
 			isa = PBXExecutableFileReference;
 			path = "IONetworkingFamily Headers";
@@ -942,28 +945,28 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9B7C75300CFEC3008CA29FD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9B7C75400CFEC3008CA29FD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9B7C75500CFEC3008CA29FD = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

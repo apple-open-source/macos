@@ -87,6 +87,7 @@
 #endif
 
 #include <string.h>
+#include <assert.h>
 
 SSLErr
 SSLEncodeCertificate(SSLRecord *certificate, SSLContext *ctx)
@@ -109,7 +110,9 @@ SSLEncodeCertificate(SSLRecord *certificate, SSLContext *ctx)
     }
     
     certificate->contentType = SSL_handshake;
-    certificate->protocolVersion = SSL_Version_3_0;
+	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+		   (ctx->negProtocolVersion == TLS_Version_1_0));
+    certificate->protocolVersion = ctx->negProtocolVersion;
     if ((err = SSLAllocBuffer(&certificate->contents, totalLength + 7, &ctx->sysCtx)) != 0)
         return err;
     
@@ -140,9 +143,6 @@ SSLErr
 SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
 {   SSLErr          err;
     UInt32          listLen, certLen;
-	#ifndef	__APPLE__
-    SSLBuffer       buf;
-	#endif
     UInt8           *p;
     SSLCertificate  *cert;
     
@@ -161,7 +161,6 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
     		errorLog0("SSLProcessCertificate: length decode error 2\n");
             return SSLProtocolErr;
         }
-		#ifdef	__APPLE__
 		cert = (SSLCertificate *)sslMalloc(sizeof(SSLCertificate));
 		if(cert == NULL) {
 			return SSLMemoryErr;
@@ -170,24 +169,10 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
         {   sslFree(cert);
             return err;
         }
-		#else
-        if ((err = SSLAllocBuffer(&buf, sizeof(SSLCertificate), &ctx->sysCtx)) != 0)
-            return err;
-        cert = (SSLCertificate*)buf.data;
-        if ((err = SSLAllocBuffer(&cert->derCert, certLen, &ctx->sysCtx)) != 0)
-        {   SSLFreeBuffer(&buf, &ctx->sysCtx);
-            return err;
-        }
-		#endif
         memcpy(cert->derCert.data, p, certLen);
         p += certLen;
         cert->next = ctx->peerCert;     /* Insert backwards; root cert will be first in linked list */
         ctx->peerCert = cert;
-        #ifndef	_APPLE_CDSA_
-        /* we don't parse this, the CL does */
-        if ((err = ASNParseX509Certificate(cert->derCert, &cert->cert, ctx)) != 0)
-            return err;        
-        #endif
         listLen -= 3+certLen;
     }
     CASSERT(p == message.data + message.length && listLen == 0);
@@ -195,55 +180,20 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
     if (ctx->peerCert == 0)
         return X509CertChainInvalidErr;
     
-    #ifdef	_APPLE_CDSA_
     if((err = sslVerifyCertChain(ctx, ctx->peerCert)) != 0) 
-    #else
-    if ((err = X509VerifyCertChain(ctx->peerCert, ctx)) != 0)
-	#endif
         return err;
 
-/* Server's certificate is the last one in the chain */
+	/* Server's certificate is the last one in the chain */
     cert = ctx->peerCert;
     while (cert->next != 0)
         cert = cert->next;
-/* Convert its public key to RSAREF format */
-    #ifdef	_APPLE_CDSA_
+	/* Convert its public key to CDSA format */
     if ((err = sslPubKeyFromCert(ctx, 
     	&cert->derCert, 
     	&ctx->peerPubKey,
     	&ctx->peerPubKeyCsp)) != 0)
-    #else
-    if ((err = X509ExtractPublicKey(&cert->cert.pubKey, &ctx->peerKey)) != 0)
-    #endif
         return err;
-    
-    #ifndef	_APPLE_CDSA_
-    /*
-     * This appears to be redundant with the cert check above; 
-     * it's here for additional cert checking by clients of SSLRef. 
-     */
-    if (ctx->certCtx.checkCertFunc != 0)
-    {   SSLBuffer       certList, *certs;
-        int             i,certCount;
-        SSLCertificate  *c;
         
-        if ((err = SSLGetPeerCertificateChainLength(ctx, &certCount)) != 0)
-            return err;
-        if ((err = SSLAllocBuffer(&certList, certCount * sizeof(SSLBuffer), &ctx->sysCtx)) != 0)
-            return err;
-        certs = (SSLBuffer *)certList.data;
-        c = ctx->peerCert;
-        for (i = 0; i < certCount; i++, c = c->next)
-            certs[i] = c->derCert;
-        
-        if ((err = ctx->certCtx.checkCertFunc(certCount, certs, ctx->certCtx.checkCertRef)) != 0)
-        {   SSLFreeBuffer(&certList, &ctx->sysCtx);
-            return err;
-        }
-        SSLFreeBuffer(&certList, &ctx->sysCtx);
-    }
-    #endif	/* _APPLE_CDSA_ */
-    
     return SSLNoErr;
 }
 
@@ -273,7 +223,9 @@ SSLEncodeCertificateRequest(SSLRecord *request, SSLContext *ctx)
     msgLen = 1 + 1 + 2 + dnListLen;
     
     request->contentType = SSL_handshake;
-    request->protocolVersion = SSL_Version_3_0;
+	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+		   (ctx->negProtocolVersion == TLS_Version_1_0));
+    request->protocolVersion = ctx->negProtocolVersion;
     if ((err = SSLAllocBuffer(&request->contents, msgLen + 4, &ctx->sysCtx)) != 0)
         return err;
     
@@ -377,75 +329,36 @@ SSLEncodeCertificateVerify(SSLRecord *certVerify, SSLContext *ctx)
         goto fail;
     if (ERR(err = CloneHashState(&SSLHashMD5, ctx->md5State, &md5MsgState, ctx)) != 0)
         goto fail;
-    if (ERR(err = SSLCalculateFinishedMessage(hashData, shaMsgState, md5MsgState, 0, ctx)) != 0)
+	assert(ctx->sslTslCalls != NULL);
+    if (ERR(err = ctx->sslTslCalls->computeCertVfyMac(ctx,
+			hashData, shaMsgState, md5MsgState)) != 0)
         goto fail;
     
-#if RSAREF
-    len = (ctx->localKey.bits + 7)/8;
-#elif BSAFE
-    {   A_RSA_KEY   *keyInfo;
-        int         rsaResult;
-        
-        if ((rsaResult = B_GetKeyInfo((POINTER*)&keyInfo, ctx->localKey, KI_RSAPublic)) != 0)
-            return ERR(SSLUnknownErr);
-        len = keyInfo->modulus.len;
-    }
-#elif	_APPLE_CDSA_
 	CASSERT(ctx->signingPrivKey != NULL);
 	len = sslKeyLengthInBytes(ctx->signingPrivKey);
-#else
-#error No asymmetric crypto specified
-#endif /* RSAREF / BSAFE */
     
     certVerify->contentType = SSL_handshake;
-    certVerify->protocolVersion = SSL_Version_3_0;
+	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+		   (ctx->negProtocolVersion == TLS_Version_1_0));
+    certVerify->protocolVersion = ctx->negProtocolVersion;
     if (ERR(err = SSLAllocBuffer(&certVerify->contents, len + 6, &ctx->sysCtx)) != 0)
         goto fail;
     
     certVerify->contents.data[0] = SSL_certificate_verify;
     SSLEncodeInt(certVerify->contents.data+1, len+2, 3);
     SSLEncodeInt(certVerify->contents.data+4, len, 2);
-#if RSAREF
-    if (RSAPrivateEncrypt(certVerify->contents.data+6, &outputLen,
-                    signedHashData, 36, &ctx->localKey) != 0)   /* Sign the structure */
-    {   err = ERR(SSLUnknownErr);
-        goto fail;
-    }
-#elif BSAFE
-    {   B_ALGORITHM_OBJ     rsa;
-        B_ALGORITHM_METHOD  *chooser[] = { &AM_RSA_CRT_ENCRYPT, 0 };
-        int                 rsaResult;
-        
-        if (ERR(rsaResult = B_CreateAlgorithmObject(&rsa)) != 0)
-            return SSLUnknownErr;
-        if (ERR(rsaResult = B_SetAlgorithmInfo(rsa, AI_PKCS_RSAPrivate, 0)) != 0)
-            return SSLUnknownErr;
-        if (ERR(rsaResult = B_EncryptInit(rsa, ctx->localKey, chooser, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        if (ERR(rsaResult = B_EncryptUpdate(rsa, certVerify->contents.data+6,
-                    &outputLen, len, signedHashData, 36, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        if (ERR(rsaResult = B_EncryptFinal(rsa, certVerify->contents.data+6+outputLen,
-                    &outputLen, len-outputLen, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        B_DestroyAlgorithmObject(&rsa);
-    }
-#elif	_APPLE_CDSA_
 
-		err = sslRsaRawSign(ctx,
-			ctx->signingPrivKey,
-			ctx->signingKeyCsp,
-			signedHashData,
-			36,				// MD5 size + SHA1 size
-			certVerify->contents.data+6,
-			len,			// we mallocd len+6
-			&outputLen);
-		if(err) {
-			goto fail;
-		}
-#else
-#error No asymmetric crypto specified
-#endif /* RSAREF / BSAFE */
+	err = sslRsaRawSign(ctx,
+		ctx->signingPrivKey,
+		ctx->signingKeyCsp,
+		signedHashData,
+		36,				// MD5 size + SHA1 size
+		certVerify->contents.data+6,
+		len,			// we mallocd len+6
+		&outputLen);
+	if(err) {
+		goto fail;
+	}
     
     CASSERT(outputLen == len);
     
@@ -464,9 +377,6 @@ SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
     UInt8           signedHashData[36];
     UInt16          signatureLen;
     SSLBuffer       hashData, shaMsgState, md5MsgState, outputData;
-    #if	defined(BSAFE) || defined(RSAREF)
-    unsigned int    outputLen;
-    #endif
     unsigned int    publicModulusLen;
     
     shaMsgState.data = 0;
@@ -484,22 +394,8 @@ SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
         return ERR(SSLProtocolErr);
     }
     
-#if RSAREF
-    publicModulusLen = (ctx->peerKey.bits + 7)/8;
-#elif BSAFE
-    {   A_RSA_KEY   *keyInfo;
-        int         rsaResult;
-        
-        if ((rsaResult = B_GetKeyInfo((POINTER*)&keyInfo, ctx->peerKey, KI_RSAPublic)) != 0)
-            return SSLUnknownErr;
-        publicModulusLen = keyInfo->modulus.len;
-    }
-#elif	_APPLE_CDSA_
 	CASSERT(ctx->peerPubKey != NULL);
 	publicModulusLen = sslKeyLengthInBytes(ctx->peerPubKey);
-#else
-#error No asymmetric crypto specified
-#endif /* RSAREF / BSAFE */
     
     if (signatureLen != publicModulusLen) {
     	errorLog0("SSLProcessCertificateVerify: sig len error 2\n");
@@ -513,41 +409,14 @@ SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
         goto fail;
     if (ERR(err = CloneHashState(&SSLHashMD5, ctx->md5State, &md5MsgState, ctx)) != 0)
         goto fail;
-    if (ERR(err = SSLCalculateFinishedMessage(hashData, shaMsgState, md5MsgState, 0, ctx)) != 0)
+	assert(ctx->sslTslCalls != NULL);
+    if (ERR(err = ctx->sslTslCalls->computeCertVfyMac(ctx, hashData, 
+			shaMsgState, md5MsgState)) != 0)
         goto fail;
     
     if (ERR(err = SSLAllocBuffer(&outputData, publicModulusLen, &ctx->sysCtx)) != 0)
         goto fail;
     
-#if RSAREF
-    if (RSAPublicDecrypt(outputData.data, &outputLen,
-        message.data + 2, signatureLen, &ctx->peerKey) != 0)
-    {   ERR(err = SSLUnknownErr);
-        goto fail;
-    }
-#elif BSAFE
-    {   B_ALGORITHM_OBJ     rsa;
-        B_ALGORITHM_METHOD  *chooser[] = { &AM_MD2, &AM_MD5, &AM_RSA_DECRYPT, 0 };
-        int                 rsaResult;
-        unsigned int        decryptLen;
-        
-        if ((rsaResult = B_CreateAlgorithmObject(&rsa)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_SetAlgorithmInfo(rsa, AI_PKCS_RSAPublic, 0)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_DecryptInit(rsa, ctx->peerKey, chooser, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        if ((rsaResult = B_DecryptUpdate(rsa, outputData.data, &decryptLen, 36,
-                    message.data + 2, signatureLen, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen = decryptLen;
-        if ((rsaResult = B_DecryptFinal(rsa, outputData.data+outputLen,
-                    &decryptLen, 36-outputLen, 0, NO_SURR)) != 0)
-            return SSLUnknownErr;
-        outputLen += decryptLen;
-        B_DestroyAlgorithmObject(&rsa);
-    }
-#elif	_APPLE_CDSA_
 	/* 
 	 * The CSP does the decrypt & compare for us in one shot
 	 */
@@ -561,28 +430,6 @@ SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
 	if(err) {
 		goto fail;
 	}
-		
-#endif /* RSAREF / BSAFE */
-    
-#if	!_APPLE_CDSA_
-	/* we don't have to do the compare */
-    if (outputLen != 36)
-    {   
-    	ERR(err = SSLProtocolErr);
-        goto fail;
-    }
-    outputData.length = outputLen;
-    
-    DUMP_BUFFER_NAME("Finished got   ", outputData);
-    DUMP_BUFFER_NAME("Finished wanted", hashData);
-    
-    if (memcmp(outputData.data, signedHashData, 36) != 0)
-    {   
-    	ERR(err = SSLProtocolErr);
-        goto fail;
-    }
-#endif	/* BSAFE, RSAREF only */
-
     err = SSLNoErr;
     
 fail:

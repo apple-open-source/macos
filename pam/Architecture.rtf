@@ -1,0 +1,117 @@
+{\rtf1\mac\ansicpg10000\cocoartf100
+{\fonttbl\f0\fswiss\fcharset77 Helvetica-Bold;\f1\fswiss\fcharset77 Helvetica;\f2\fmodern\fcharset77 Courier;
+\f3\fmodern\fcharset77 Courier-Bold;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww15460\viewh15880\viewkind0
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
+
+\f0\b\fs72 \cf0 PAM on OS X
+\fs24 \
+
+\f1\b0 \
+A quick look at how PAM fits together on Darwin and OS X. Current as of August, 2001.\
+\
+You need to get the following directories;\
+\
+
+\f2 $ 
+\f3\b setenv CVSROOT :ext:yourname@anoncvs.opensource.apple.com:/cvs/Darwin
+\f2\b0 \
+$ 
+\f3\b cvs -z3 co Libraries/Other/pam Libraries/Other/pam_checkpw \\\
+ Libraries/Other/pam_loginwindow Libraries/Other/pam_modules \\\
+ Libraries/Other/pam_wrappers\
+
+\f2\b0 $ 
+\f3\b cvs -z3 co -r lukeh-PAM Commands/NeXT/system_cmds/passwd.tproj \\\
+ Commands/NeXT/system_cmds/login.tproj Commands/NeXT/system_cmds/chkpasswd.tproj \\\
+ Commands/NeXT/network_cmds/ftpd.tproj Commands/NeXT/network_cmds/rlogind.tproj \\\
+ Commands/NeXT/network_cmds/rshd.tproj Commands/NeXT/network_cmds/popper.tproj \\\
+ Commands/BSD/shell_cmds/su\
+
+\f1\b0 \
+1. The core PAM library is Linux-PAM 0.75 with enhancements from FreeBSD-current. We are tracking FreeBSD-current as time permits. The library has been enhanced to permit retrieval of passwords from keychains; any PAM module that uses the pam_get_pass() function gets this "for free".\
+\
+2. The core modules are from FreeBSD-current. The Linux-PAM modules are ignored. We use various FreeBSD extensions, such as pam_get_pass() and pam_std_option().\
+\
+3. The system utilities have been enhanced to use PAM, where possible using FreeBSD sources. These include passwd, login, chkpasswd, ftpd, and su. rlogind can use PAM for rhosts authentication but we no longer build an module for reading ~/.rhosts. You should be using ssh anyway, which supports PAM.\
+\
+4. PADL have contributed several PAM modules to the Darwin repository. These are discussed below. Also, our pam_ldap module compiles out of the box on Darwin; this is available from ftp.padl.com. Modules are installed in /System/Library/Security; PAM also looks in /Library/Security. Modules are Mach-O objects of type MH_BUNDLE, but they need not be in a bundle wrapper (both with and without wrappers is supported). Most of the custom modules that use proprietary Apple APIs have not been tested thoroughly, if at all.\
+\
+4.1. 
+\f0\b pam_deny
+\f1\b0 . Deny everything.\
+\
+4.2. 
+\f0\b pam_directoryservice
+\f1\b0 . This module will authenticate a user against DirectoryService daemon using Mach IPC.\
+\
+4.3. 
+\f0\b pam_keychain
+\f1\b0 . This calls the keychain login APIs to unlock a user's keychain. \
+\
+4.4. 
+\f0\b pam_krb5
+\f1\b0 . This module is from FreeBSD (we should return to using the SourceForge module that Nicolas Williams maintains, however) and does the usual things one would expect of a Kerberos V PAM module.\
+\
+4.5. 
+\f0\b pam_netinfo
+\f1\b0 . This module will change a user's NetInfo password.\
+\
+4.6. 
+\f0\b pam_nis
+\f1\b0 . This module will change a user's NIS password.\
+\
+4.7. 
+\f0\b pam_permit
+\f1\b0 . Permit everything\
+\
+4.8. 
+\f0\b pam_rootok
+\f1\b0 . Authentication OK if you are root; used by su.\
+\
+4.9. 
+\f0\b pam_securityserver
+\f1\b0 . This module calls the security server's authorization APIs to check that a user is allowed to login and to do various things to setup their login context that would otherwise only be done for windowserver logins.\
+\
+4.10. 
+\f0\b pam_tim
+\f1\b0 . This module authenticates and updates passwords against the TIM authentication server.\
+\
+4.11. 
+\f0\b pam_unix
+\f1\b0 . This pam_unix module is the FreeBSD module. It supports the session management SPI to make configuration a little easier.\
+\
+4.12. 
+\f0\b pam_wheel
+\f1\b0 . From FreeBSD, this module authorizes use if you belong to the wheel group; used by su.\
+\
+5. Configuration is in /etc/pam.conf. Reasonable defaults are there, may need some tweaking.\
+\
+6. The pam_wrappers/pamObjC directory contains an Objective-C wrapper around the PAM API which is useful for Cocoa developers, and even more useful for 7 (below).\
+\
+7. The pam_loginwindow directory contains an authenticator bundle for loginwindow that supports PAM authentication. It presently does not work due to a bug in loginwindow.\
+\
+8. The pam_checkpw directory contains a framework that replaces the CheckPassword.framework in your frameworks directory. Any applications that uses CheckPassword can take advantage of PAM transparently.\
+\
+9. The pam_wrappers/Tests/PAMTool contains a Cocoa app that will exercise the pertinent parts of the PAM subsystem. This verifies that the bulk of the loginwindow authenticator should work.\
+\
+10. I have been using PAM (with the stock pam_unix modules) on my OS X box for a year now with no problems. I use PAMTool login, ftpd, su regularly. I do not use the loginwindow authenticator nor the custom PAM modules I wrote for Apple's proprietary APIs, as I presently have no need to use them.\
+\
+11. How should it all fit together? IMHO:\
+\
+11.1. loginwindow should be modified to include the PAM authenticator code, and use PAM.\
+\
+11.2. Instead of calling SecurityServer and DirectoryService directly for authorization and authentication (respectively), loginwindow should utilise PAM.\
+\
+11.3. Other applications should be moved off checkpw() and onto PAM. The password changing plugin for Preferences should use PAM.framework.\
+\
+11.4. All system utilities that use crypt(3) passwords should be modified to use PAM. This is largely already done.\
+\
+\
+\
+--\
+Luke Howard\
+PADL Software\
+dev@padl.com\
+}

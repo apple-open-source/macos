@@ -37,7 +37,10 @@ const OSSymbol *gCommand_Set_Revision_Symbol = NULL;
 const OSSymbol *gIOUnit_Symbol = NULL;
 const OSSymbol *gFirmware_Revision_Symbol = NULL;
 const OSSymbol *gDevice_Type_Symbol = NULL;
-
+const OSSymbol *gGUID_Symbol = NULL;
+const OSSymbol *gUnit_Characteristics_Symbol = NULL;
+const OSSymbol *gManagement_Agent_Offset_Symbol = NULL;
+		
 OSDefineMetaClassAndStructors(IOFireWireSBP2Target, IOService);
 
 OSMetaClassDefineReservedUnused(IOFireWireSBP2Target, 0);
@@ -60,9 +63,14 @@ bool IOFireWireSBP2Target::start( IOService *provider )
     if (fProviderUnit == NULL)
         return false;
 
+	fControl = fProviderUnit->getController();
+	
+	// assume safe mode
+	fFlags = kIOFWSBP2FailsOnBusResetsDuringIO;
+	
     fOpenFromTarget = false;
     fOpenFromLUNCount = 0;
-	
+		
 	//
 	// create symbols
 	//
@@ -88,8 +96,56 @@ bool IOFireWireSBP2Target::start( IOService *provider )
 	if( gDevice_Type_Symbol == NULL )
 		gDevice_Type_Symbol = OSSymbol::withCString("Device_Type");
 
+	if( gGUID_Symbol == NULL )
+		gGUID_Symbol = OSSymbol::withCString("GUID");
+
+	if( gUnit_Characteristics_Symbol == NULL )
+		gUnit_Characteristics_Symbol = OSSymbol::withCString("Unit_Characteristics");
+	
+	if( gManagement_Agent_Offset_Symbol == NULL )
+		gManagement_Agent_Offset_Symbol = OSSymbol::withCString("Management_Agent_Offset");
+		
     if (IOService::start(provider))
     {
+		IOFireWireController * 	controller = fProviderUnit->getController();
+        IOFireWireLink * 		fwim = controller->getLink();
+		OSObject *				prop = NULL;
+		UInt32					byteCount1, byteCount2;
+		
+		//
+		// read receive properties from registry		
+		//
+		
+		byteCount1 = 0;
+		prop = fwim->getProperty( "FWMaxAsyncReceiveBytes" );
+		if( prop )
+		{
+			byteCount1 = ((OSNumber*)prop)->unsigned32BitValue();
+			if( byteCount1 != 0 )
+			{
+				// minus 32 bytes for status block
+				byteCount1 -= 32; 
+			}
+		}
+		
+		byteCount2 = 0;
+		prop = fwim->getProperty( "FWMaxAsyncReceivePackets" );
+		if( prop )
+		{
+			UInt32 packetCount = ((OSNumber*)prop)->unsigned32BitValue();
+			if( packetCount != 0 )
+			{
+				// minus 1 for the status block
+				byteCount2 = (packetCount - 1) * 512; // 512 bytes is minimum packet size
+			}
+		}
+			
+		// publish min byte size
+		UInt32 size = byteCount1 < byteCount2 ? byteCount1 : byteCount2;
+		if( size != 0)
+			setProperty( "SBP2ReceiveBufferByteCount", size, 32 );
+		
+		// start scanning for LUNs
         scanForLUNs();
     }
     else
@@ -305,8 +361,10 @@ void IOFireWireSBP2Target::scanForLUNs( void )
 	UInt32			firmwareRev 		= 0;
 	UInt32			lun					= 0;
 	UInt32			devType				= 0;
+	UInt32 			unitCharacteristics = 0;
+	UInt32 			offset 				= 0;
 	
-    //
+	//
     // get root directory
     //
 
@@ -359,6 +417,37 @@ void IOFireWireSBP2Target::scanForLUNs( void )
     if( status == kIOReturnSuccess )
         status = directory->getKeyValue( kCmdSetKey, cmdSet );
 
+	//
+	// find unit characteristics
+	//
+	
+	if( status == kIOReturnSuccess )
+        status = directory->getKeyValue( kUnitCharacteristicsKey, unitCharacteristics );
+
+	//
+	// find management agent offset
+    // and add ourselves to the DeviceTree with that location
+    // for OpenFirmware boot path generation.
+	//
+    
+    status = directory->getKeyValue( kManagementAgentOffsetKey, offset );
+    if( status == kIOReturnSuccess )
+    {
+        IOService *parent = this;
+        while(parent) {
+            if(parent->inPlane(gIODTPlane))
+                break;
+            parent = parent->getProvider();
+        }
+        if(parent) {
+            char location[9];
+            sprintf(location, "%lx", offset);
+            attachToParent(parent, gIODTPlane);
+            setLocation(location, gIODTPlane);
+            setName("sbp-2", gIODTPlane);
+        }
+    }
+ 
     // failure to find one of the following is not fatal, hence the use of tempStatus
     
 	//
@@ -378,31 +467,6 @@ void IOFireWireSBP2Target::scanForLUNs( void )
      FWKLOG( ( "IOFireWireSBP2Target : status = %d, cmdSpecID = %d, cmdSet = %d, vendorID = %d, softwareRev = %d, firmwareRev = %d\n",
                              status, cmdSpecID, cmdSet, vendorID, softwareRev, firmwareRev ) );
 
-    //
-	// find management agent offset
-    // and add ourselves to the DeviceTree with that location
-    // for OpenFirmware boot path generation.
-	//
-    
-	UInt32 offset;
-    status = directory->getKeyValue( kManagementAgentOffsetKey, offset );
-    if( status == kIOReturnSuccess )
-    {
-        IOService *parent = this;
-        while(parent) {
-            if(parent->inPlane(gIODTPlane))
-                break;
-            parent = parent->getProvider();
-        }
-        if(parent) {
-            char location[9];
-            sprintf(location, "%lx", offset);
-            attachToParent(parent, gIODTPlane);
-            setLocation(location, gIODTPlane);
-            setName("sbp-2", gIODTPlane);
-        }
-    }
- 
     //
     // look for luns implemented as immediate values
     //
@@ -432,11 +496,13 @@ void IOFireWireSBP2Target::scanForLUNs( void )
                              cmdSpecID, cmdSet, vendorID, softwareRev ) );
                     FWKLOG( ( "IOFireWireSBP2Target : firmwareRev = %d, lun = %d, devType = %d\n",
                              firmwareRev, lun, devType ) );
+					FWKLOG( ( "IOFireWireSBP2Target : unitCharacteristics = %d, managementOffset = %d,\n",
+                             unitCharacteristics, offset ) );
 
                     // force vendors to use real values, (0, 0) is not legal
                     if( (cmdSpecID & 0x00ffffff) || (cmdSet & 0x00ffffff) )
                     {
-                        createLUN( cmdSpecID, cmdSet, vendorID, softwareRev, firmwareRev, lun, devType );
+                        createLUN( cmdSpecID, cmdSet, vendorID, softwareRev, firmwareRev, lun, devType, unitCharacteristics, offset );
                     }
                 }
             }
@@ -474,7 +540,7 @@ void IOFireWireSBP2Target::scanForLUNs( void )
                 // force vendors to use real values, (0, 0) is not legal
                 if( (cmdSpecID & 0x00ffffff) || (cmdSet & 0x00ffffff) )
                 {
-                    createLUN( cmdSpecID, cmdSet, vendorID, softwareRev, firmwareRev, lun, devType );
+                    createLUN( cmdSpecID, cmdSet, vendorID, softwareRev, firmwareRev, lun, devType, unitCharacteristics, offset );
                 }
             }
         }
@@ -517,12 +583,17 @@ void IOFireWireSBP2Target::scanForLUNs( void )
         setProperty( gDevice_Type_Symbol, prop );
         prop->release();
 
+        prop = fProviderUnit->getProperty(gGUID_Symbol);
+        if( prop )
+            setProperty( gGUID_Symbol, prop );
+        
         registerService();
     }
 }
 
 IOReturn IOFireWireSBP2Target::createLUN( UInt32 cmdSpecID, UInt32 cmdSet, UInt32 vendorID, UInt32 softwareRev,
-                                          UInt32 firmwareRev, UInt32 lun, UInt32 devType )
+                                          UInt32 firmwareRev, UInt32 lun, UInt32 devType, UInt32 unitCharacteristics,
+										  UInt32 managementOffset  )
 
 {
     IOReturn	status = kIOReturnSuccess;
@@ -590,6 +661,18 @@ IOReturn IOFireWireSBP2Target::createLUN( UInt32 cmdSpecID, UInt32 cmdSet, UInt3
         propTable->setObject( gDevice_Type_Symbol, prop );
         prop->release();
  
+		prop = OSNumber::withNumber( unitCharacteristics, 32 );
+        propTable->setObject( gUnit_Characteristics_Symbol, prop );
+        prop->release();
+		
+		prop = OSNumber::withNumber( managementOffset, 32 );
+        propTable->setObject( gManagement_Agent_Offset_Symbol, prop );
+        prop->release();
+		
+        prop = fProviderUnit->getProperty(gGUID_Symbol);
+        if( prop )
+            propTable->setObject( gGUID_Symbol, prop );
+        
 		//
         // create lun
         //
@@ -647,16 +730,26 @@ bool IOFireWireSBP2Target::matchPropertyTable(OSDictionary * table)
 				compareProperty(table, gModule_Vendor_ID_Symbol) &&
 				compareProperty(table, gCommand_Set_Revision_Symbol) &&
 				compareProperty(table, gFirmware_Revision_Symbol) &&
-				compareProperty(table, gDevice_Type_Symbol);
+				compareProperty(table, gDevice_Type_Symbol) &&
+                compareProperty(table, gGUID_Symbol);
 				
     return res;
 }
 
 void IOFireWireSBP2Target::setTargetFlags( UInt32 flags )
 {
-    fFlags = flags;
+	fFlags |= flags;
     
-    // IOLog( "IOFireWireSBP2Target::setTargetFlags 0x%08lx\n", fFlags );
+	FWKLOG(( "IOFireWireSBP2Target::setTargetFlags 0x%08lx\n", fFlags ));
+    
+    configurePhysicalFilter();
+}
+
+void IOFireWireSBP2Target::clearTargetFlags( UInt32 flags )
+{
+	fFlags &= ~flags;
+    
+	FWKLOG(( "IOFireWireSBP2Target::clearTargetFlags 0x%08lx\n", fFlags ));
     
     configurePhysicalFilter();
 }
@@ -716,14 +809,48 @@ void IOFireWireSBP2Target::configurePhysicalFilter( void )
     if( disablePhysicalAccess )
     {
 		FWKLOG(( "IOFireWireSBP2Target::configurePhysicalFilter disabling physical access for unit 0x%08lx\n", fProviderUnit ));
-        UInt32 flags = fProviderUnit->getNodeFlags();
-        fProviderUnit->setNodeFlags( flags | kIOFWDisableAllPhysicalAccess );
+        fProviderUnit->setNodeFlags( kIOFWDisableAllPhysicalAccess );
     }
     else
     {
 		FWKLOG(( "IOFireWireSBP2Target::configurePhysicalFilter enabling physical access for unit 0x%08lx\n", fProviderUnit ));
-        UInt32 flags = fProviderUnit->getNodeFlags();
-        fProviderUnit->setNodeFlags( flags & (~kIOFWDisableAllPhysicalAccess) );
+        fProviderUnit->clearNodeFlags( kIOFWDisableAllPhysicalAccess );
     }
     
+}
+
+// beginIOCriticalSection
+//
+//
+
+IOReturn IOFireWireSBP2Target::beginIOCriticalSection( void )
+{
+	IOReturn status = kIOReturnSuccess;
+
+	FWKLOG(( "IOFireWireSBP2Target::beginIOCriticalSection\n" ));
+	
+	if( fFlags & kIOFWSBP2FailsOnBusResetsDuringIO )
+	{
+		FWKLOG(( "IOFireWireSBP2Target::beginIOCriticalSection fControl->disableSoftwareBusResets()\n" ));
+		status = fControl->disableSoftwareBusResets();
+	}
+
+	FWKLOG(( "IOFireWireSBP2Target::beginIOCriticalSection status = 0x%08lx\n", (UInt32)status ));
+	
+	return status;
+}
+
+// endIOCriticalSection
+//
+//
+
+void IOFireWireSBP2Target::endIOCriticalSection( void )
+{
+	FWKLOG(( "IOFireWireSBP2Target::endIOCriticalSection\n" ));
+
+	if( fFlags & kIOFWSBP2FailsOnBusResetsDuringIO )
+	{
+		FWKLOG(( "IOFireWireSBP2Target::endIOCriticalSection fControl->enableSoftwareBusResets()\n" ));
+		fControl->enableSoftwareBusResets();
+	}
 }

@@ -80,13 +80,13 @@ Key::Key(Database *db, const CssmKey &newKey, uint32 moreAttributes,
     mValidUID = false;
 	setup(newKey, moreAttributes);
 	
-	// establish initial ACL
-	if (owner)
-		cssmSetInitial(*owner);
+	// establish initial ACL; reinterpret empty (null-list) owner as NULL for resilence's sake
+	if (owner && !owner->subject().empty())
+		cssmSetInitial(*owner);					// specified
 	else
-		cssmSetInitial(new AnyAclSubject());
-    debug("SSkey", "%p created from key alg=%ld use=0x%lx attr=0x%lx",
-        this, mKey.algorithm(), mKey.usage(), mAttributes);
+		cssmSetInitial(new AnyAclSubject());	// defaulted
+    debug("SSkey", "%p created from key alg=%ld use=0x%lx attr=0x%lx db=%p",
+        this, mKey.algorithm(), mKey.usage(), mAttributes, db);
 }
 
 
@@ -110,8 +110,8 @@ void Key::setup(const CssmKey &newKey, uint32 moreAttributes)
     // verify internal/external attribute separation
     assert(!(header.attributes() & managedAttributes));
 
-	// copy key data field @@@ crud - replace after MM reorg
-	mKey.KeyData = CssmData(memcpy(malloc(newKey.length()), newKey.data(), newKey.length()), newKey.length());
+	// copy key data field, using the CSP's allocator (so the release operation works later)
+	mKey.KeyData = CssmAutoData(Server::csp().allocator(), newKey).release();
 }
 
 
@@ -121,6 +121,24 @@ Key::~Key()
     if (mValidKey)
         Server::csp()->freeKey(mKey);
     debug("SSkey", "%p destroyed", this);
+}
+
+
+//
+// Form a KeySpec with checking and masking
+//
+Key::KeySpec::KeySpec(uint32 usage, uint32 attrs)
+	: CssmClient::KeySpec(usage, attrs & ~managedAttributes)
+{
+	if (attrs & generatedAttributes)
+		CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
+}
+
+Key::KeySpec::KeySpec(uint32 usage, uint32 attrs, const CssmData &label)
+	: CssmClient::KeySpec(usage, attrs & ~managedAttributes, label)
+{
+	if (attrs & generatedAttributes)
+		CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
 }
 
 

@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: search.c,v 1.1.1.1 1999/04/15 17:45:14 wsanchez Exp $";
+static char rcsid[] = "$Id: search.c,v 1.2 2002/01/03 22:16:42 jevans Exp $";
 #endif
 /*
  * Program:	Searching routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: search.c,v 1.1.1.1 1999/04/15 17:45:14 wsanchez Exp 
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -137,10 +137,6 @@ forwsearch(f, n)
 
     /* ask the user for the text of a pattern */
     while(1){
-	wkeyhelp("GC0000000000","Get Help,Cancel");
-	if(Pmaster == NULL)
-	  sgarbk = TRUE;
-
 	if ((status = readpattern("Search")) == TRUE){
 	    break;
 	}
@@ -156,6 +152,16 @@ forwsearch(f, n)
 		refresh(FALSE, 1);
 		update();
 		break;
+	      case  (CTRL|'V'):
+		gotoeob(0, 1);
+		mlerase();
+		curwp->w_flag |= WFMODE;
+		return(TRUE);
+	      case (CTRL|'Y'):
+		gotobob(0, 1);
+		mlerase();
+		curwp->w_flag |= WFMODE;
+		return(TRUE);
 	      default:
 		curwp->w_flag |= WFMODE;
 		if(status == ABORT)
@@ -168,26 +174,6 @@ forwsearch(f, n)
     }
 
     curwp->w_flag |= WFMODE;
-
-    /*
-     * This was added late in the game and is kind of a hack.
-     * What is wanted is an easy way to move immediately to the top or
-     * bottom of the buffer.  This makes it not-too-obvious, but saves
-     * key commands.
-     */
-    if(pat[0] == '\\'){
-	if(!strcmp(&pat[1], "top")){
-	    gotobob(0, 1);
-	    mlerase();
-	    return(1);
-	}
-
-	if(!strcmp(&pat[1], "bottom")){
-	    gotoeob(0, 1);
-	    mlerase();
-	    return(1);
-	}
-    }
 
     /*
      * This code is kind of dumb.  What I want is successive C-W 's to 
@@ -244,7 +230,14 @@ readpattern(prompt)
 char *prompt;
 {
 	register int s;
-	char tpat[NPAT+20];
+	char	     tpat[NPAT+20];
+	KEYMENU	     menu_pat[3];
+
+	menu_pat[0].name  = "^Y";
+	menu_pat[0].label = "FirstLine";
+	menu_pat[1].name  = "^V";
+	menu_pat[1].label = "LastLine";
+	menu_pat[2].name  = NULL;
 
 	strcpy(tpat, prompt);	/* copy prompt to output string */
         if(pat[0] != '\0'){
@@ -254,7 +247,7 @@ char *prompt;
         }
 	strcat(tpat, " : ");
 
-	s = mlreplyd(tpat, tpat, NPAT, QNORML);	 /* Read pattern */
+	s = mlreplyd(tpat, tpat, NPAT, QNORML|QPAGE, menu_pat);
 
 	if (s == TRUE)				/* Specified */
 		strcpy(pat, tpat);

@@ -1,6 +1,6 @@
-;;; doctor.el --- psychological help for frustrated users.
+;;; doctor.el --- psychological help for frustrated users
 
-;; Copyright (C) 1985, 1987, 1994, 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1987, 1994, 1996, 2000 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: games
@@ -947,7 +947,7 @@ Otherwise call the Doctor to parse preceding sentence."
 (defun doctor-correct-spelling (sent)
   "Correct the spelling and expand each word in sentence."
   (if sent
-      (apply 'append (mapcar '(lambda (word)
+      (apply 'append (mapcar (lambda (word)
 				(if (memq word typos)
 				    (get (get word 'doctor-correction) 'doctor-expansion)
 				  (list word)))
@@ -1595,7 +1595,9 @@ Hack on previous word, setting global variable OWNER to correct result."
 	 (doctor-type '(If you are really suicidal, you might
 			   want to contact the Samaritans via
 			   E-mail: jo@samaritans.org or, at your option,
-			   anonymous E-mail: samaritans@anon.penet.fi\ \.
+			   anonymous E-mail: samaritans@anon.twwells.com\ \.
+                           or find a Befrienders crisis center at
+			   http://www.befrienders.org/\ \.
 			   ($ please) ($ continue) \.)))
 	(t (doctor-type ($ deathlst)))))
 

@@ -8,16 +8,15 @@
 
 #if defined(REFCLOCK) && defined(CLOCK_TPRO)
 
-#include <stdio.h>
-#include <ctype.h>
-#include <sys/time.h>
-
 #include "ntpd.h"
 #include "ntp_io.h"
 #include "ntp_refclock.h"
 #include "ntp_unixtime.h"
 #include "sys/tpro.h"
 #include "ntp_stdlib.h"
+
+#include <stdio.h>
+#include <ctype.h>
 
 /*
  * This driver supports the KSI/Odetecs TPRO-S IRIG-B reader and TPRO-
@@ -104,8 +103,7 @@ tpro_start(
 	 * Initialize miscellaneous peer variables
 	 */
 	peer->precision = PRECISION;
-	peer->flags |= FLAG_BURST;
-	peer->burst = pp->nstages;
+	peer->burst = NSTAGE;
 	pp->clockdesc = DESCRIPTION;
 	memcpy((char *)&pp->refid, REFID, 4);
 	return (1);
@@ -186,19 +184,23 @@ tpro_poll(
 		refclock_report(peer, CEVNT_BADTIME);
 		return;
 	}
-	if (!refclock_process(pp)) {
-		refclock_report(peer, CEVNT_BADTIME);
-		peer->burst = 0;
-		return;
-	}
-	if (peer->burst > 0)
-		return;
-	record_clock_stats(&peer->srcadr, pp->a_lastcode);
 	if (!tp->status & 0x3)
 		pp->leap = LEAP_NOTINSYNC;
 	else
 		pp->leap = LEAP_NOWARNING;
+	if (!refclock_process(pp)) {
+		refclock_report(peer, CEVNT_BADTIME);
+		return;
+	}
+	if (peer->burst > 0)
+		return;
+	if (pp->coderecv == pp->codeproc) {
+		refclock_report(peer, CEVNT_TIMEOUT);
+		return;
+	}
+	record_clock_stats(&peer->srcadr, pp->a_lastcode);
 	refclock_receive(peer);
+	peer->burst = NSTAGE;
 }
 
 #else

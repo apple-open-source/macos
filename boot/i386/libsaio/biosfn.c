@@ -27,8 +27,6 @@
  */
 
 #include "libsaio.h"
-#include "memory.h"
-#include "kernBootStruct.h"
 
 static biosBuf_t bb;
 unsigned char uses_ebios[8] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -47,9 +45,9 @@ int readKeyboardStatus(void)
     bb.eax.r.h = 0x01;
     bios(&bb);
     if (bb.flags.zf) {
-	return 0;
+        return 0;
     } else {
-	return bb.eax.rr;
+        return bb.eax.rr;
     }
 }
 
@@ -64,11 +62,11 @@ int readKeyboardShiftFlags(void)
 unsigned int time18(void)
 {
     union {
-	struct {
-	    unsigned int low:16;
-	    unsigned int high:16;
-	} s;
-	unsigned int i;
+        struct {
+            unsigned int low:16;
+            unsigned int high:16;
+        } s;
+        unsigned int i;
     } time;
     
     bb.intno = 0x1a;
@@ -119,26 +117,26 @@ int biosread(int dev, int cyl, int head, int sec, int num)
     int i;
 
     bb.intno = 0x13;
-    sec += 1;			/* sector numbers start at 1 */
+    sec += 1;  /* sector numbers start at 1 */
     
     for (i=0;;) {
-	bb.ecx.r.h = cyl;
-	bb.ecx.r.l = ((cyl & 0x300) >> 2) | (sec & 0x3F);
-	bb.edx.r.h = head;
-	bb.edx.r.l = dev;
-	bb.eax.r.l = num;
-	bb.ebx.rr = ptov(BIOS_ADDR);
-	bb.es = ((unsigned long)&i & 0xffff0000) >> 4;
-    
-	bb.eax.r.h = 0x02;
-	bios(&bb);
+        bb.ecx.r.h = cyl;
+        bb.ecx.r.l = ((cyl & 0x300) >> 2) | (sec & 0x3F);
+        bb.edx.r.h = head;
+        bb.edx.r.l = dev;
+        bb.eax.r.l = num;
+        bb.ebx.rr  = OFFSET(ptov(BIOS_ADDR));
+        bb.es      = SEGMENT(ptov(BIOS_ADDR));
 
-	if ((bb.eax.r.h == 0x00) || (i++ >= 5))
-	    break;
+        bb.eax.r.h = 0x02;
+        bios(&bb);
 
-	/* reset disk subsystem and try again */
-	bb.eax.r.h = 0x00;
-	bios(&bb);
+        if ((bb.eax.r.h == 0x00) || (i++ >= 5))
+            break;
+
+        /* reset disk subsystem and try again */
+        bb.eax.r.h = 0x00;
+        bios(&bb);
     }
     return bb.eax.r.h;
 }
@@ -146,24 +144,28 @@ int biosread(int dev, int cyl, int head, int sec, int num)
 int ebiosread(int dev, long sec, int count)
 {
     int i;
-    struct {
-        unsigned char size;
-        unsigned char reserved;
-        unsigned char numblocks;
-        unsigned char reserved2;
-        unsigned int buffer;
-        unsigned long long startblock;
+    static struct {
+        unsigned char  size;
+        unsigned char  reserved;
+        unsigned char  numblocks;
+        unsigned char  reserved2;
+        unsigned short bufferOffset;
+        unsigned short bufferSegment;
+        unsigned long  long startblock;
     } addrpacket = {0};
     addrpacket.size = sizeof(addrpacket);
 
     for (i=0;;) {
-        bb.intno = 0x13;
+        bb.intno   = 0x13;
         bb.eax.r.h = 0x42;
         bb.edx.r.l = dev;
-        bb.esi.rr = ((unsigned)&addrpacket & 0xffff);
-        addrpacket.numblocks = count;
-        addrpacket.buffer = ptov(BIOS_ADDR);
-        addrpacket.startblock = sec;
+        bb.esi.rr  = OFFSET((unsigned)&addrpacket);
+        bb.ds      = SEGMENT((unsigned)&addrpacket);
+        addrpacket.reserved = addrpacket.reserved2 = 0;
+        addrpacket.numblocks     = count;
+        addrpacket.bufferOffset  = OFFSET(ptov(BIOS_ADDR));
+        addrpacket.bufferSegment = SEGMENT(ptov(BIOS_ADDR));
+        addrpacket.startblock    = sec;
         bios(&bb);
         if ((bb.eax.r.h == 0x00) || (i++ >= 5))
             break;
@@ -178,16 +180,27 @@ int ebiosread(int dev, long sec, int count)
 void putc(int ch)
 {
     bb.intno = 0x10;
-    bb.ebx.r.h = 0x00;		/* background black */
-    bb.ebx.r.l = 0x0F;		/* foreground white */
+    bb.ebx.r.h = 0x00;  /* background black */
+    bb.ebx.r.l = 0x0F;  /* foreground white */
     bb.eax.r.h = 0x0e;
     bb.eax.r.l = ch;
     bios(&bb);
 }
 
+void putca(int ch, int attr, int repeat)
+{
+    bb.intno   = 0x10;
+    bb.ebx.r.h = 0x00;   /* page number */
+    bb.ebx.r.l = attr;   /* attribute   */
+    bb.eax.r.h = 0x9;
+    bb.eax.r.l = ch;
+    bb.ecx.rx  = repeat; /* repeat count */ 
+    bios(&bb);
+}
+
 unsigned int get_diskinfo(int drive)
 {
-    struct {
+    static struct {
         unsigned short size;
         unsigned short flags;
         unsigned long cylinders;
@@ -200,23 +213,23 @@ unsigned int get_diskinfo(int drive)
     unsigned char useEbios = 0;
 
     union {
-	compact_diskinfo_t di;
-	unsigned int ui;
+        compact_diskinfo_t di;
+        unsigned int ui;
     } ret;
     static int maxhd = 0;
 
     ret.ui = 0;
     if (maxhd == 0) {
-	bb.intno = 0x13;
-	bb.eax.r.h = 0x08;
-	bb.edx.r.l = 0x80;
-	bios(&bb);
-	if (bb.flags.cf == 0)
-	    maxhd = 0x7f + bb.edx.r.l;
+        bb.intno = 0x13;
+        bb.eax.r.h = 0x08;
+        bb.edx.r.l = 0x80;
+        bios(&bb);
+        if (bb.flags.cf == 0)
+            maxhd = 0x7f + bb.edx.r.l;
     };
 
     if (drive > maxhd)
-	return 0;
+        return 0;
 
     /* Check drive for EBIOS support. */
     bb.intno = 0x13;
@@ -225,16 +238,21 @@ unsigned int get_diskinfo(int drive)
     bb.ebx.rr = 0x55aa;
     bios(&bb);
     if(bb.ebx.rr == 0xaa55 && bb.flags.cf == 0) {
+        /* Get flags for supported operations. */
+        useEbios = bb.ecx.r.l;
+    }
 
+    if (useEbios & EBIOS_ENHANCED_DRIVE_INFO) {
         /* Get EBIOS drive info. */
         ebios.size = 26;
         bb.intno = 0x13;
         bb.eax.r.h = 0x48;
         bb.edx.r.l = drive;
-        bb.esi.rr = ((unsigned)&ebios & 0xffff);
+        bb.esi.rr = OFFSET((unsigned)&ebios);
+        bb.ds     = SEGMENT((unsigned)&ebios);
         bios(&bb);
-        if(bb.flags.cf == 0 && ebios.cylinders != 0) {
-            useEbios = 1;
+        if(bb.flags.cf != 0) {
+            useEbios = 0;
         }
     }
 
@@ -249,7 +267,7 @@ unsigned int get_diskinfo(int drive)
 
         hds = bb.edx.r.h;
         sec = bb.ecx.r.l & 0x3F;
-        if(useEbios) {
+        if(useEbios & EBIOS_ENHANCED_DRIVE_INFO) {
             cyl = (ebios.total_sectors / ((hds + 1) * sec)) - 1;
         }
         else {
@@ -263,17 +281,74 @@ unsigned int get_diskinfo(int drive)
     return ret.ui;
 }
 
-void setCursorPosition(int x, int y)
+void setCursorPosition(int x, int y, int page)
 {
     bb.intno = 0x10;
     bb.eax.r.h = 0x02;
-    bb.ebx.r.h = 0x00;		/* page 0 for graphics */
+    bb.ebx.r.h = page;  /* page 0 for graphics */
     bb.edx.r.l = x;
     bb.edx.r.h = y;
     bios(&bb);
 }
 
+void setCursorType(int type)
+{
+    bb.intno   = 0x10;
+    bb.eax.r.h = 0x01;
+    bb.ecx.rr  = type;
+    bios(&bb);
+}
+
+void getCursorPositionAndType(int * x, int * y, int * type)
+{
+    bb.intno   = 0x10;
+    bb.eax.r.h = 0x03;
+    bios(&bb);
+    *x = bb.edx.r.l;
+    *y = bb.edx.r.h;
+    *type = bb.ecx.rr;
+}
+
+void scollPage(int x1, int y1, int x2, int y2, int attr, int rows, int dir)
+{
+    bb.intno   = 0x10;
+    bb.eax.r.h = (dir > 0) ? 0x06 : 0x07;
+    bb.eax.r.l = rows;
+    bb.ebx.r.h = attr;
+    bb.ecx.r.h = y1;
+    bb.ecx.r.l = x1;
+    bb.edx.r.h = y2;
+    bb.edx.r.l = x2;
+    bios(&bb);
+}
+
+void clearScreenRows( int y1, int y2 )
+{
+    scollPage( 0, y1, 80 - 1, y2, 0x07, y2 - y1 + 1, 1 );
+}
+
+void setActiveDisplayPage( int page )
+{
+    bb.intno   = 0x10;
+    bb.eax.r.h = 5;
+    bb.eax.r.l = page;
+    bios(&bb);
+}
+
 #if DEBUG
+
+int terminateDiskEmulation()
+{
+    static char cd_spec[0x12];
+
+    bb.intno   = 0x13;
+    bb.eax.r.h = 0x4b;
+    bb.eax.r.l = 0;     // subfunc: terminate emulation    
+    bb.esi.rr  = OFFSET((unsigned)&cd_spec);
+    bb.ds      = SEGMENT((unsigned)&cd_spec);
+    bios(&bb);
+    return bb.eax.r.h;
+}
 
 int readDriveParameters(int drive, struct driveParameters *dp)
 {
@@ -282,20 +357,20 @@ int readDriveParameters(int drive, struct driveParameters *dp)
     bb.eax.r.h = 0x08;
     bios(&bb);
     if (bb.eax.r.h == 0) {
-	dp->heads = bb.edx.r.h;
-	dp->sectors = bb.ecx.r.l & 0x3F;
-	dp->cylinders = bb.ecx.r.h | ((bb.ecx.r.l & 0xC0) << 2);
-	dp->totalDrives = bb.edx.r.l;
+        dp->heads = bb.edx.r.h;
+        dp->sectors = bb.ecx.r.l & 0x3F;
+        dp->cylinders = bb.ecx.r.h | ((bb.ecx.r.l & 0xC0) << 2);
+        dp->totalDrives = bb.edx.r.l;
     } else {
-	bzero(dp, sizeof(*dp));
+        bzero(dp, sizeof(*dp));
     }
     return bb.eax.r.h;
 
 }
 #endif
 
-#define APM_INTNO	0x15
-#define APM_INTCODE	0x53
+#define APM_INTNO   0x15
+#define APM_INTCODE 0x53
 
 int
 APMPresent(void)
@@ -308,13 +383,13 @@ APMPresent(void)
     bb.ebx.rr = 0x0000;
     bios(&bb);
     if ((bb.flags.cf == 0) &&
-	(bb.ebx.r.h == 'P') &&
-	(bb.ebx.r.l == 'M')) {
-	    /* Success */
-	    kbp->apmConfig.major_vers = bb.eax.r.h;
-	    kbp->apmConfig.minor_vers = bb.eax.r.l;
-	    kbp->apmConfig.flags.data = bb.ecx.rr;
-	    return 1;
+        (bb.ebx.r.h == 'P') &&
+        (bb.ebx.r.l == 'M')) {
+        /* Success */
+        kbp->apmConfig.major_vers = bb.eax.r.h;
+        kbp->apmConfig.minor_vers = bb.eax.r.l;
+        kbp->apmConfig.flags.data = bb.ecx.rr;
+        return 1;
     }
     return 0;
 }
@@ -330,39 +405,39 @@ APMConnect32(void)
     bb.ebx.rr = 0x0000;
     bios(&bb);
     if (bb.flags.cf == 0) {
-	/* Success */
-	kbp->apmConfig.cs32_base = (bb.eax.rr) << 4;
-	kbp->apmConfig.entry_offset = bb.ebx.rx;
-	kbp->apmConfig.cs16_base = (bb.ecx.rr) << 4;
-	kbp->apmConfig.ds_base = (bb.edx.rr) << 4;
-	if (kbp->apmConfig.major_vers >= 1 &&
-	    kbp->apmConfig.minor_vers >= 1) {
-		kbp->apmConfig.cs_length = bb.esi.rr;
-		kbp->apmConfig.ds_length = bb.edi.rr;
-	} else {
-		kbp->apmConfig.cs_length = 
-		    kbp->apmConfig.ds_length = 64 * 1024;
-	}
-	kbp->apmConfig.connected = 1;
-	return 1;
+        /* Success */
+        kbp->apmConfig.cs32_base = (bb.eax.rr) << 4;
+        kbp->apmConfig.entry_offset = bb.ebx.rx;
+        kbp->apmConfig.cs16_base = (bb.ecx.rr) << 4;
+        kbp->apmConfig.ds_base = (bb.edx.rr) << 4;
+        if (kbp->apmConfig.major_vers >= 1 &&
+            kbp->apmConfig.minor_vers >= 1) {
+            kbp->apmConfig.cs_length = bb.esi.rr;
+            kbp->apmConfig.ds_length = bb.edi.rr;
+        } else {
+            kbp->apmConfig.cs_length = 
+                kbp->apmConfig.ds_length = 64 * 1024;
+        }
+        kbp->apmConfig.connected = 1;
+        return 1;
     }
     return 0;
 }
 
-#ifdef EISA_SUPPORT  // turn off for now since there isn't enough room
+#ifdef EISA_SUPPORT
 BOOL
 eisa_present(
     void
 )
 {
-    static BOOL	checked;
-    static BOOL	isEISA;
+    static BOOL checked;
+    static BOOL isEISA;
 
     if (!checked) {
-	if (strncmp((char *)0xfffd9, "EISA", 4) == 0)
-	    isEISA = TRUE;
-	    
-	checked = TRUE;
+        if (strncmp((char *)0xfffd9, "EISA", 4) == 0)
+            isEISA = TRUE;
+
+        checked = TRUE;
     }
     
     return (isEISA);
@@ -372,20 +447,20 @@ int
 ReadEISASlotInfo(EISA_slot_info_t *ep, int slot)
 {
     union {
-	struct {
-	    unsigned char	char2h	:2;
-	    unsigned char	char1	:5;
-	    unsigned char	char3	:5;
-	    unsigned char	char2l	:3;
-	    unsigned char	d2	:4;
-	    unsigned char	d1	:4;
-	    unsigned char	d4	:4;
-	    unsigned char	d3	:4;
-	} s;
-	unsigned char data[4];
+        struct {
+            unsigned char char2h :2;
+            unsigned char char1  :5;
+            unsigned char char3  :5;
+            unsigned char char2l :3;
+            unsigned char d2     :4;
+            unsigned char d1     :4;
+            unsigned char d4     :4;
+            unsigned char d3     :4;
+        } s;
+        unsigned char data[4];
     } u;
     static char hex[0x10] = "0123456789ABCDEF";
-	
+
     
     bb.intno = 0x15;
     bb.eax.r.h = 0xd8;
@@ -393,7 +468,7 @@ ReadEISASlotInfo(EISA_slot_info_t *ep, int slot)
     bb.ecx.r.l = slot;
     bios(&bb);
     if (bb.flags.cf)
-	return bb.eax.r.h;
+        return bb.eax.r.h;
     ep->u_ID.d = bb.eax.r.l;
     ep->configMajor = bb.ebx.r.h;
     ep->configMinor = bb.ebx.r.l;
@@ -430,12 +505,12 @@ ReadEISAFuncInfo(EISA_func_info_t *ep, int slot, int function)
     bb.esi.rr = (unsigned int)ep->data;
     bios(&bb);
     if (bb.eax.r.h == 0) {
-	ep->slot = slot;
-	ep->function = function;
+        ep->slot = slot;
+        ep->function = function;
     }
     return bb.eax.r.h;
 }
-#endif
+#endif /* EISA_SUPPORT */
 
 #define PCI_SIGNATURE 0x20494350  /* "PCI " */
 
@@ -447,12 +522,12 @@ ReadPCIBusInfo(PCI_bus_info_t *pp)
     bb.eax.r.l = 0x01;
     bios(&bb);
     if ((bb.eax.r.h == 0) && (bb.edx.rx == PCI_SIGNATURE)) {
-	pp->BIOSPresent = 1;
-	pp->u_bus.d = bb.eax.r.l;
-	pp->majorVersion = bb.ebx.r.h;
-	pp->minorVersion = bb.ebx.r.l;
-	pp->maxBusNum = bb.ecx.r.l;
-	return 0;
+        pp->BIOSPresent = 1;
+        pp->u_bus.d = bb.eax.r.l;
+        pp->majorVersion = bb.ebx.r.h;
+        pp->minorVersion = bb.ebx.r.l;
+        pp->maxBusNum = bb.ecx.r.l;
+        return 0;
     }
     return -1;
 }

@@ -1,0 +1,63 @@
+{
+    FILESTABLE = {
+        Documentation = (README, COPYING, ChangeLog); 
+        Headers = (
+            chardefs.h, 
+            histlib.h, 
+            ansi_stdlib.h, 
+            keymaps.h, 
+            posixdir.h, 
+            posixstat.h, 
+            tcap.h, 
+            rltty.h, 
+            readline.h, 
+            rlconf.h, 
+            rldefs.h, 
+            history.h, 
+            tilde.h, 
+            posixjmp.h
+        ); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (doc, examples); 
+        Sources = (
+            funmap.c, 
+            histsearch.c, 
+            shell.c, 
+            histfile.c, 
+            bind.c, 
+            callback.c, 
+            complete.c, 
+            display.c, 
+            input.c, 
+            kill.c, 
+            history.c, 
+            emacs_keymap.c, 
+            histexpand.c, 
+            readline.c, 
+            isearch.c, 
+            keymaps.c, 
+            parens.c, 
+            vi_mode.c, 
+            undo.c, 
+            rltty.c, 
+            search.c, 
+            macro.c, 
+            util.c, 
+            signals.c, 
+            nls.c, 
+            terminal.c, 
+            tilde.c, 
+            xmalloc.c, 
+            vi_keymap.c
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = readline; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

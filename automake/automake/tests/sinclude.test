@@ -1,0 +1,19 @@
+#! /bin/sh
+
+# Test to see if `sinclude' works.
+
+. $srcdir/defs || exit 1
+
+mkdir sub
+cat > sub/p.m4 << 'END'
+AC_SUBST(MAGICALPIG)
+END
+
+: > Makefile.am
+
+$ACLOCAL || exit 1
+echo 'sinclude(sub/p.m4)' >> aclocal.m4
+
+$AUTOMAKE --Wno-error || exit 1
+
+grep MAGICALPIG Makefile.in

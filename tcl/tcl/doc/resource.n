@@ -3,7 +3,7 @@
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
-'\" RCS: @(#) $Id: resource.n,v 1.1.1.3 2000/04/12 02:02:03 wsanchez Exp $
+'\" RCS: @(#) $Id: resource.n,v 1.1.1.4 2002/04/05 16:13:06 jevans Exp $
 '\" 
 .so man.macros
 .TH resource n 8.0 Tcl "Tcl Built-In Commands"
@@ -149,7 +149,7 @@ numbers if the name is NULL.
 The resource command is only available on Macintosh.
 
 .SH "SEE ALSO"
-open
+open(n)
 
 .SH KEYWORDS
 open, resource

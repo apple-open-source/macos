@@ -4,7 +4,7 @@
         HEADERSEARCH = (); 
         H_FILES = (); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, TODO, NOTES.rtf); 
-        SUBPROJECTS = (SystemStarter, StartupItems, "init-rc");
+        SUBPROJECTS = (SystemStarter, StartupItems, "init-rc", ConsoleMessage); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

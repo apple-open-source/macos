@@ -1,0 +1,37 @@
+#! /bin/sh
+
+# Test to make sure .c.o rule is only included once.
+required=libtoolize
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_LIBTOOL
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = no-dependencies
+lib_LTLIBRARIES = libltdl.la
+libltdl_la_SOURCES = ltdl.c ltdl.h
+END
+
+: > ltdl.c
+: > ltdl.h
+
+# Create all the files created libtoolize so we don't run libtoolize.
+# We don't want the user to need libtool to run this test.
+: > ltconfig
+: > ltmain.sh
+: > config.guess
+: > config.sub
+
+set -e
+
+$ACLOCAL -I $aclocaldir || exit 1
+$AUTOMAKE -a
+
+grep -c '^\.c\.o:' Makefile.in   | grep '^1$'
+grep -c '^\.c\.obj:' Makefile.in | grep '^1$'
+
+exit 0

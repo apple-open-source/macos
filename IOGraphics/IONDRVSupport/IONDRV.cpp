@@ -19,17 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1997 Apple Computer, Inc.
- *
- *
- * HISTORY
- *
- * sdouglas  22 Oct 97 - first checked in.
- * sdouglas  21 Jul 98 - start IOKit
- * sdouglas  14 Dec 98 - start cpp.
- */
-
 
 
 #include <IOKit/IOLib.h>
@@ -40,63 +29,60 @@ extern "C" {
 };
 
 #include "IONDRV.h"
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+OSDefineMetaClassAndAbstractStructors(IONDRV, OSObject)
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#if __ppc__
+
 #include "IOPEFLoader.h"
 
 #define LOG		if(1) kprintf
 
-#define USE_TREE_NDRVS	1
-#define USE_ROM_NDRVS	1
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-#define super OSObject
-
-OSDefineMetaClassAndStructors(IONDRV, OSObject)
+#define super IONDRV
+OSDefineMetaClassAndStructors(IOPEFNDRV, IONDRV)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-IONDRV * IONDRV::instantiate( IORegistryEntry * regEntry,
+IONDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
                               IOLogicalAddress container,
                               IOByteCount containerSize,
                               IONDRVUndefinedSymbolHandler undefHandler,
                               void * self )
 {
     OSStatus	err = 1;
-    IONDRV *	inst;
+    IOPEFNDRV *	inst;
 
-    inst = new IONDRV;
+    inst = new IOPEFNDRV;
 
     if( inst) do {
 	if( false == inst->init())
 	    continue;
 
-        err = PCodeOpen( (void *)container, containerSize, &inst->pcInst );
+        err = PCodeOpen( (void *)container, containerSize, &inst->fPEFInst );
         if( err)
 	    continue;
 
-        err = PCodeInstantiate( inst->pcInst, undefHandler, self );
+        err = PCodeInstantiate( inst->fPEFInst, undefHandler, self );
         if( err)
 	    continue;
 
-	inst->getSymbol( "DoDriverIO",
-				(IOLogicalAddress *) &inst->fDoDriverIO );
+	inst->getSymbol( "DoDriverIO", (IOLogicalAddress *) &inst->fDoDriverIO );
 	if( kIOReturnSuccess == inst->getSymbol( "TheDriverDescription", 
-				(IOLogicalAddress *) &inst->theDriverDesc )) {
+				(IOLogicalAddress *) &inst->fDriverDesc )) {
 
             char * 	name;
             IOByteCount	plen;
 
-            name = (char *) inst->theDriverDesc->driverOSRuntimeInfo.driverName;
+            name = (char *) inst->fDriverDesc->driverOSRuntimeInfo.driverName;
             plen = name[ 0 ];
-            if( plen >= sizeof(inst->theDriverDesc->driverOSRuntimeInfo.driverName))
-                plen = sizeof(inst->theDriverDesc->driverOSRuntimeInfo.driverName) - 1;
-
+            if( plen >= sizeof(inst->fDriverDesc->driverOSRuntimeInfo.driverName))
+                plen = sizeof(inst->fDriverDesc->driverOSRuntimeInfo.driverName) - 1;
             strncpy( inst->fName, name + 1, plen);
-            sprintf( inst->fName + plen, "-%08lx", *((UInt32 *) &inst->theDriverDesc->driverType.version));
-
-            regEntry->setProperty("IONDRVDescription", inst->theDriverDesc,
-                        sizeof(struct DriverDescription));
+            sprintf( inst->fName + plen, "-%08lx", *((UInt32 *) &inst->fDriverDesc->driverType.version));
 	}
 
     } while( false);
@@ -109,19 +95,19 @@ IONDRV * IONDRV::instantiate( IORegistryEntry * regEntry,
     return( inst );
 }
 
-void IONDRV::free( void )
+void IOPEFNDRV::free( void )
 {
-    if( pcInst)
-        PCodeClose( pcInst );
+    if( fPEFInst)
+        PCodeClose( fPEFInst );
     super::free();
 }
 
-IOReturn IONDRV::getSymbol( const char * symbolName,
+IOReturn IOPEFNDRV::getSymbol( const char * symbolName,
 				IOLogicalAddress * address )
 {
     OSStatus            err;
 
-    err = PCodeFindExport( pcInst, symbolName,
+    err = PCodeFindExport( fPEFInst, symbolName,
 				(LogicalAddress *)address, NULL );
     if( err)
 	*address = 0;
@@ -129,100 +115,66 @@ IOReturn IONDRV::getSymbol( const char * symbolName,
     return( err);
 }
 
-#if 0
-            if(	(err = NDRVGetShimClass( ioDevice, instance, 0, classNames ))
-            ) continue;
-            err = [propTable createProperty:"AAPL,dk_Driver Name" flags:0
-                        value:classNames length:strlen( classNames) ];
-            err = [propTable createProperty:"AAPL,dk_Server Name" flags:0
-                        value:classNames length:strlen( classNames) ];
+IOReturn _IONDRVLibrariesInitialize( IOService * provider );
+// osfmk/ppc/mappings.h
+extern "C" void ignore_zero_fault(boolean_t);
 
-OSStatus    NDRVGetShimClass( id ioDevice, NDRVInstance instance, UInt32 serviceIndex, char * className )
-{
-    NDRVInstanceVars  * 	ndrvInst = (NDRVInstanceVars *) instance;
-    OSStatus            	err;
-    static const char *		driverDescProperty = "TheDriverDescription";
-    static const char *		frameBufferShim = "IONDRVFramebuffer";
-    DriverDescription * 	desc;
-    UInt32			serviceType;
-
-    className[ 0 ] = 0;
-    do {
-	err = PCodeFindExport( ndrvInst->pcInst, driverDescProperty, (IOLogicalAddress *)&desc, NULL );
-        if( err) continue;
-
-	if( desc->driverDescSignature != kTheDescriptionSignature) {
-	    err = -1;
-	    continue;
-	}
-	if( serviceIndex >= desc->driverServices.nServices) {
-	    err = -1;
-	    continue;
-	}
-
-	serviceType = desc->driverServices.service[ serviceIndex ].serviceType;
-	switch( desc->driverServices.service[ serviceIndex ].serviceCategory) {
-
-	    case kServiceCategoryNdrvDriver:
-		if( serviceType == kNdrvTypeIsVideo) {
-                    strcpy( className, frameBufferShim);
-		    break;
-		}
-	    default:
-		err = -1;
-	}
-    } while( false);
-
-    return( err);
-}
-#endif
-
-
-
-IOReturn IONDRV::doDriverIO( UInt32 commandID, void * contents,
+IOReturn IOPEFNDRV::doDriverIO( UInt32 commandID, void * contents,
 				UInt32 commandCode, UInt32 commandKind )
 {
-    OSStatus            	err;
+    OSStatus			err = kIOReturnSuccess;
+    struct DriverInitInfo	initInfo;
+    CntrlParam *         	pb;
 
     if( 0 == fDoDriverIO)
 	return( kIOReturnUnsupported );
 
-    err = CallTVector( /*AddressSpaceID*/ 0, (void *)commandID, contents,
-		(void *)commandCode, (void *)commandKind, /*p6*/ 0,
-		fDoDriverIO );
+    switch( commandCode )
+    {
+        case kIONDRVInitializeCommand:
+            err = _IONDRVLibrariesInitialize( (IOService *) contents );
+            if( kIOReturnSuccess != err)
+                break;
+            /* fall thru */
 
-#if 0
-    if( err) {
-	UInt32 i;
-	static const char * commands[] = 
-		{ "kOpenCommand", "kCloseCommand",
-		"kReadCommand", "kWriteCommand",
-		"kControlCommand", "kStatusCommand", "kKillIOCommand",
-		"kInitializeCommand", "kFinalizeCommand",
-		"kReplaceCommand", "kSupersededCommand" };
+        case kIONDRVFinalizeCommand:
+        case kIONDRVReplaceCommand:
+        case kIONDRVSupersededCommand:
+            initInfo.refNum = 0xffff & ((UInt32) this);
+            MAKE_REG_ENTRY(initInfo.deviceEntry, contents)
+            contents = &initInfo;
+            break;
 
-	LOG("Driver failed (%d) on %s : ", err, commands[ commandCode ] );
+        case kIONDRVControlCommand:
+        case kIONDRVStatusCommand:
+        case kIONDRVOpenCommand:
+        case kIONDRVCloseCommand:
+        case kIONDRVReadCommand:
+        case kIONDRVWriteCommand:
+        case kIONDRVKillIOCommand:
 
-	switch( commandCode) {
-	    case kControlCommand:
-	    case kStatusCommand:
-		LOG("%d : ", ((UInt16 *)contents)[ 0x1a / 2 ]);
-		contents = ((void **)contents)[ 0x1c / 4 ];
-		for( i = 0; i<5; i++ )
-		    LOG("%08x, ", ((UInt32 *)contents)[i] );
-		break;
-	}
-	LOG("\n");
+            pb = (CntrlParam *) contents;
+            pb->qLink = 0;
+            pb->ioCRefNum = 0xffff & ((UInt32) this);
+            break;
     }
-#endif
+
+    if( kIOReturnSuccess == err) {
+        commandCode -= kIONDRVOpenCommand - kOpenCommand;
+
+        ignore_zero_fault( true );
+        err = CallTVector( /*AddressSpaceID*/ 0, (void *)commandID, contents,
+                    (void *)commandCode, (void *)commandKind, /*p6*/ 0,
+                    fDoDriverIO );
+        ignore_zero_fault( false );
+    }
 
     return( err);
 }
 
-
-IONDRV * IONDRV::fromRegistryEntry( IORegistryEntry * regEntry,
-                                    IONDRVUndefinedSymbolHandler handler,
-                                    void * self )
+IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
+                                        IONDRVUndefinedSymbolHandler handler,
+                                        void * self )
 {
     IOLogicalAddress	pef = 0;
     IOByteCount		propSize = 0;
@@ -236,78 +188,14 @@ IONDRV * IONDRV::fromRegistryEntry( IORegistryEntry * regEntry,
     }
 
     prop = (OSData *) regEntry->getProperty( "driver,AAPL,MacOS,PowerPC" );
-    if( USE_TREE_NDRVS && prop) {
+    if( prop) {
         pef = (IOLogicalAddress) prop->getBytesNoCopy();
 	propSize = prop->getLength();
     }
 
-    // God awful hack:
-    // Some onboard devices don't have the ndrv in the tree. The booter
-    // can load & match PEF's but only from disk, not network boots.
-
-#if USE_ROM_NDRVS
-    if( !pef && (0 == strcmp( regEntry->getName(), "ATY,mach64_3DU")) ) {
-
-        int * patch;
-
-        patch = (int *) 0xffe88140;
-        propSize = 0x10a80;
-
-	// Check ati PEF exists there
-        if( patch[ 0x1f0 / 4 ] == 'ATIU') {
-
-            pef = (IOLogicalAddress) IOMalloc( propSize );
-            bcopy( (void *) patch, (void *) pef, propSize );
-        }
-    }
-
-    if( !pef && (0 == strcmp( regEntry->getName(), "ATY,mach64_3DUPro")) ) {
-
-        int * patch;
-
-        patch = (int *) 0xffe99510;
-        propSize = 0x12008;
-	// Check ati PEF exists there
-        if( patch[ 0x1fc / 4 ] != 'ATIU') {
-
-            // silk version
-            patch = (int *) 0xffe99550;
-            propSize = 0x12058;
-            if( patch[ 0x1fc / 4 ] != 'ATIU')
-		propSize = 0;
-	}
-
-	if( propSize) {
-            pef = (IOLogicalAddress) IOMalloc( propSize );
-            bcopy( (void *) patch, (void *) pef, propSize );
-        }
-    }
-
-    if( !pef && (0 == strcmp( regEntry->getName(), "control")) ) {
-
-#define ins(i,d,a,simm) ((i<<26)+(d<<21)+(a<<16)+simm)
-        int * patch;
-
-        patch = (int *) 0xffe6bd50;
-        propSize = 0xac10;
-
-	// Check control PEF exists there
-        if( patch[ 0x41ac / 4 ] == ins( 32, 3, 0, 0x544)) { // lwz r3,0x544(0)
-
-            pef = (IOLogicalAddress) IOMalloc( propSize );
-            bcopy( (void *) patch, (void *) pef, propSize );
-            patch = (int *) pef;
-	    // patch out low mem accesses
-            patch[ 0x8680 / 4 ] = ins( 14, 12, 0, 0);	  // addi r12,0,0x0
-            patch[ 0x41ac / 4 ] = ins( 14, 3, 0, 0x544);  // addi r3,0,0x544;
-            patch[ 0x8fa0 / 4 ] = ins( 14, 3, 0, 0x648);  // addi r3,0,0x648;
-        }
-    }
-#endif
-
     if( pef) {
         kprintf( "pef = %08x, %08x\n", pef, propSize );
-	inst = IONDRV::instantiate( regEntry, pef, propSize, handler, self );
+	inst = IOPEFNDRV::instantiate( regEntry, pef, propSize, handler, self );
 	if( inst )
             regEntry->setProperty( "AAPL,ndrvInst", inst);
 
@@ -317,9 +205,20 @@ IONDRV * IONDRV::fromRegistryEntry( IORegistryEntry * regEntry,
     return( inst );
 }
 
-const char * IONDRV::driverName( void )
+const char * IOPEFNDRV::driverName( void )
 {
     return( fName );
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#else  /* __ppc__ */
+
+IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
+                                        IONDRVUndefinedSymbolHandler handler,
+                                        void * self )
+{
+    return( 0 );
+}
+
+#endif /* !__ppc__ */

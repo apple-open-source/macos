@@ -1,5 +1,5 @@
 /* ia64-gen.c -- Generate a shrunk set of opcode tables
-   Copyright (c) 1999 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
    Written by Bob Manson, Cygnus Solutions, <manson@cygnus.com>
 
    This file is part of GDB, GAS, and the GNU binutils.
@@ -41,6 +41,7 @@
 
 #include "ansidecl.h"
 #include "libiberty.h"
+#include "safe-ctype.h"
 #include "sysdep.h"
 #include "getopt.h"
 #include "ia64-opc.h"
@@ -288,14 +289,14 @@ insert_deplist(int count, unsigned short *deps)
   for (i=0;i < count;i++)
     set[deps[i]] = 1;
   count = 0;
-  for (i=0;i < sizeof(set);i++)
+  for (i=0;i < (int)sizeof(set);i++)
     if (set[i])
       ++count;
 
   list = tmalloc(struct deplist);
   list->len = count;
-  list->deps = (unsigned short *) xmalloc (sizeof(unsigned short) * count);
-  for (i=0, count=0;i < sizeof(set);i++)
+  list->deps = (unsigned short *) malloc (sizeof(unsigned short) * count);
+  for (i=0, count=0;i < (int)sizeof(set);i++)
     {
       if (set[i])
         {
@@ -406,9 +407,21 @@ fetch_insn_class(const char *full_name, int create)
   if ((comment = strchr(name, '[')) != NULL)
     is_class = 1;
   if ((notestr = strchr(name, '+')) != NULL)
+    is_class = 1;
+
+  /* If it is a composite class, then ignore comments and notes that come after
+     the '\\', since they don't apply to the part we are decoding now.  */
+  if (xsect)
+    {
+      if (comment > xsect)
+	comment = 0;
+      if (notestr > xsect)
+	notestr = 0;
+    }
+
+  if (notestr)
     {
       char *nextnotestr;
-      is_class = 1;
       note = atoi (notestr + 1);
       if ((nextnotestr = strchr (notestr + 1, '+')) != NULL)
         {
@@ -420,8 +433,9 @@ fetch_insn_class(const char *full_name, int create)
         }
     }
 
-  /* if it's a composite class, leave the notes and comments in place so that
-     we have a unique name for the composite class */
+  /* If it's a composite class, leave the notes and comments in place so that
+     we have a unique name for the composite class.  Otherwise, we remove
+     them.  */
   if (!xsect)
     {
       if (notestr)
@@ -537,7 +551,7 @@ load_insn_classes()
       if (fgets (buf, sizeof(buf), fp) == NULL)
         break;
       
-      while (isspace(buf[strlen(buf)-1]))
+      while (ISSPACE (buf[strlen(buf)-1]))
         buf[strlen(buf)-1] = '\0';
 
       name = tmp = buf;
@@ -565,7 +579,7 @@ load_insn_classes()
           char *subname;
           int sub;
 
-          while (*tmp && isspace(*tmp))
+          while (*tmp && ISSPACE (*tmp))
             {
               ++tmp;
               if (tmp == buf + sizeof(buf))
@@ -627,7 +641,7 @@ parse_resource_users(ref, usersp, nusersp, notesp)
       int create = 0;
       char *name;
       
-      while (isspace(*tmp))
+      while (ISSPACE (*tmp))
         ++tmp;
       name = tmp;
       while (*tmp && *tmp != ',')
@@ -748,7 +762,7 @@ load_depfile (const char *filename, enum ia64_dependency_mode mode)
       if (fgets (buf, sizeof(buf), fp) == NULL)
         break;
 
-      while (isspace(buf[strlen(buf)-1]))
+      while (ISSPACE (buf[strlen(buf)-1]))
         buf[strlen(buf)-1] = '\0';
 
       name = tmp = buf;
@@ -756,21 +770,21 @@ load_depfile (const char *filename, enum ia64_dependency_mode mode)
         ++tmp;
       *tmp++ = '\0';
       
-      while (isspace (*tmp))
+      while (ISSPACE (*tmp))
         ++tmp;
       regp = tmp;
       tmp = strchr (tmp, ';');
       if (!tmp)
         abort ();
       *tmp++ = 0;
-      while (isspace (*tmp))
+      while (ISSPACE (*tmp))
         ++tmp;
       chkp = tmp;
       tmp = strchr (tmp, ';');
       if (!tmp)
         abort ();
       *tmp++ = 0;
-      while (isspace (*tmp))
+      while (ISSPACE (*tmp))
         ++tmp;
       semantics = parse_semantics (tmp);
       extra = semantics == IA64_DVS_OTHER ? xstrdup (tmp) : NULL;
@@ -1062,6 +1076,9 @@ in_iclass(struct ia64_opcode *idesc, struct iclass *ic,
             resolved = idesc->operands[0] == IA64_OPND_B2;
           else if (strcmp (ic->name, "invala") == 0)
             resolved = strcmp (idesc->name, ic->name) == 0;
+	  else if (strncmp (idesc->name, "st", 2) == 0
+		   && strstr (format, "M5") != NULL)
+	    resolved = idesc->flags & IA64_OPCODE_POSTINC;
           else
             resolved = 0;
         }
@@ -1466,6 +1483,8 @@ print_dependency_table ()
               (int)rdeps[i]->mode, (int)rdeps[i]->semantics, regindex);
       if (rdeps[i]->semantics == IA64_DVS_OTHER)
         printf ("\"%s\", ", rdeps[i]->extra);
+      else
+	printf ("NULL, ");
       printf("},\n");
     }
   printf ("};\n\n");
@@ -2402,7 +2421,7 @@ collapse_redundant_completers ()
 int
 insert_opcode_dependencies (opc, cmp)
      struct ia64_opcode *opc;
-     struct completer_entry *cmp;
+     struct completer_entry *cmp ATTRIBUTE_UNUSED;
 {
   /* note all resources which point to this opcode.  rfi has the most chks
      (79) and cmpxchng has the most regs (54) so 100 here should be enough */
@@ -2708,12 +2727,14 @@ print_main_table ()
   printf ("static const struct ia64_main_table\nmain_table[] = {\n");
   while (ptr != NULL)
     {
-      printf ("  { %d, %d, %d, 0x%llxull, 0x%llxull, { %d, %d, %d, %d, %d }, 0x%x, %d, },\n",
+      printf ("  { %d, %d, %d, 0x",
 	      ptr->name->num,
 	      ptr->opcode->type,
-	      ptr->opcode->num_outputs,
-	      ptr->opcode->opcode,
-	      ptr->opcode->mask,
+	      ptr->opcode->num_outputs);
+      fprintf_vma (stdout, ptr->opcode->opcode);
+      printf ("ull, 0x");
+      fprintf_vma (stdout, ptr->opcode->mask);
+      printf ("ull, { %d, %d, %d, %d, %d }, 0x%x, %d, },\n",
 	      ptr->opcode->operands[0],
 	      ptr->opcode->operands[1],
 	      ptr->opcode->operands[2],
@@ -2772,7 +2793,9 @@ usage (stream, status)
 }
 
 int
-main (int argc, char **argv)
+main (argc, argv)
+     int argc;
+     char **argv ATTRIBUTE_UNUSED;
 {
   int c;
   

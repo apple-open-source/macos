@@ -2,6 +2,7 @@
 
 ;; Copyright (C) 1985, 1986, 1987, 1992 Free Software Foundation, Inc.
 
+;; Maintainer: FSF
 ;; Keywords: abbrev convenience
 
 ;; This file is part of GNU Emacs.
@@ -35,7 +36,7 @@ define global abbrevs instead."
   :group 'abbrev-mode
   :group 'convenience)
 
-(defun abbrev-mode (arg)
+(defun abbrev-mode (&optional arg)
   "Toggle abbrev mode.
 With argument ARG, turn abbrev mode on iff ARG is positive.
 In abbrev mode, inserting an abbreviation causes it to expand
@@ -86,23 +87,37 @@ Mark is set after the inserted text."
 	(setq tables (cdr tables))))
     (point))))
 
-(defun list-abbrevs ()
-  "Display a list of all defined abbrevs."
-  (interactive)
-  (display-buffer (prepare-abbrev-list-buffer)))
+(defun list-abbrevs (&optional local)
+  "Display a list of defined abbrevs.
+If LOCAL is non-nil, interactively when invoked with a
+prefix arg, display only local, i.e. mode-specific, abbrevs.
+Otherwise display all abbrevs."
+  (interactive "P")
+  (display-buffer (prepare-abbrev-list-buffer local)))
 
-(defun prepare-abbrev-list-buffer ()
+(defun abbrev-table-name (table)
+  "Value is the name of abbrev table TABLE."
+  (let ((tables abbrev-table-name-list)
+	found)
+    (while (and (not found) tables)
+      (when (eq (symbol-value (car tables)) table)
+	(setq found (car tables)))
+      (setq tables (cdr tables)))
+    found))
+    
+(defun prepare-abbrev-list-buffer (&optional local)
   (save-excursion
-    (set-buffer (get-buffer-create "*Abbrevs*"))
-    (erase-buffer)
-    (let ((tables abbrev-table-name-list))
-      (while tables
-	(insert-abbrev-table-description (car tables) t)
-	(setq tables (cdr tables))))
-    (goto-char (point-min))
-    (set-buffer-modified-p nil)
-    (edit-abbrevs-mode))
-  (get-buffer-create "*Abbrevs*"))
+    (let ((table local-abbrev-table))
+      (set-buffer (get-buffer-create "*Abbrevs*"))
+      (erase-buffer)
+      (if local
+	  (insert-abbrev-table-description (abbrev-table-name table) t)
+	(dolist (table abbrev-table-name-list)
+	  (insert-abbrev-table-description table t)))
+      (goto-char (point-min))
+      (set-buffer-modified-p nil)
+      (edit-abbrevs-mode)
+      (current-buffer))))
 
 (defun edit-abbrevs-mode ()
   "Major mode for editing the list of abbrev definitions.
@@ -225,7 +240,7 @@ Don't use this function in a Lisp program; use `define-abbrev' instead."
 
 (defun add-abbrev (table type arg)
   (let ((exp (and (>= arg 0)
-		  (buffer-substring
+		  (buffer-substring-no-properties
 		   (point)
 		   (if (= arg 0) (mark)
 		     (save-excursion (forward-word (- arg)) (point))))))
@@ -263,22 +278,23 @@ Expands the abbreviation after defining it."
   (inverse-add-abbrev global-abbrev-table "Global" arg))
 
 (defun inverse-add-abbrev (table type arg)
-  (let (name nameloc exp)
+  (let (name exp start end)
     (save-excursion
-     (forward-word (- arg))
-     (setq name (buffer-substring (point) (progn (forward-word 1)
-					       (setq nameloc (point))))))
-    (set-text-properties 0 (length name) nil name)
-    (setq exp (read-string (format "%s expansion for \"%s\": "
-				   type name) nil nil nil t))
-    (if (or (not (abbrev-expansion name table))
-	    (y-or-n-p (format "%s expands to \"%s\"; redefine? "
-			      name (abbrev-expansion name table))))
-	(progn
-	 (define-abbrev table (downcase name) exp)
-	 (save-excursion
-	  (goto-char nameloc)
-	  (expand-abbrev))))))
+      (forward-word (1+ (- arg)))
+      (setq end (point))
+      (backward-word 1)
+      (setq start (point)
+	    name (buffer-substring-no-properties start end)))
+
+    (setq exp (read-string (format "%s expansion for \"%s\": " type name)
+			   nil nil nil t))
+    (when (or (not (abbrev-expansion name table))
+	      (y-or-n-p (format "%s expands to \"%s\"; redefine? "
+				name (abbrev-expansion name table))))
+      (define-abbrev table (downcase name) exp)
+      (save-excursion
+	(goto-char end)
+	(expand-abbrev)))))
 
 (defun abbrev-prefix-mark (&optional arg)
   "Mark current point as the beginning of an abbrev.
@@ -306,7 +322,7 @@ If called from a Lisp program, arguments are START END &optional NOQUERY."
 			 (<= (setq pnt (point)) (- (point-max) lim))))
 	(if (abbrev-expansion
 	     (setq string
-		   (buffer-substring
+		   (buffer-substring-no-properties
 		    (save-excursion (forward-word -1) (point))
 		    pnt)))
 	    (if (or noquery (y-or-n-p (format "Expand `%s'? " string)))

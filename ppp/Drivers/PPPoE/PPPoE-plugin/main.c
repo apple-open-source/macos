@@ -69,9 +69,9 @@
 #include "../../../Family/if_ppp.h"
 #include "../../../Family/ppp_domain.h"
 #include "../PPPoE-extension/PPPoE.h"
-#include "../../../ppp/pppd/pppd.h"
-#include "../../../ppp/pppd/fsm.h"
-#include "../../../ppp/pppd/lcp.h"
+#include "../../../Helpers/pppd/pppd.h"
+#include "../../../Helpers/pppd/fsm.h"
+#include "../../../Helpers/pppd/lcp.h"
 
 
 /* -----------------------------------------------------------------------------
@@ -84,12 +84,19 @@
 
 #define PPPOE_NKE	"PPPoE.kext"
 
+// PPPoE error codes (bits 8..15 of last cause key)
+#define EXIT_PPPoE_NOSERVER  		1
+#define EXIT_PPPoE_NOSERVICE  		2
+#define EXIT_PPPoE_NOAC 		3
+#define EXIT_PPPoE_NOACSERVICE 		4
+#define EXIT_PPPoE_CONNREFUSED 		5
+
 /* -----------------------------------------------------------------------------
  Forward declarations
 ----------------------------------------------------------------------------- */
 void pppoe_device_check();
 void pppoe_check_options();
-int pppoe_connect();
+int pppoe_connect(int *errorcode);
 void pppoe_disconnect();
 void pppoe_close_fds();
 void pppoe_cleanup();
@@ -116,7 +123,6 @@ static bool 	loopback = 0;			/* loop back mode */
 static bool 	noload = 0;			/* don't load the kernel extension */
 static char	*service = NULL; 		/* service selection to use */
 static char	*access_concentrator = NULL; 	/* access concentrator to connect to */
-static char	*interface = "en0"; 		/* ethernet interface to use */
 static int	retrytimer = 0; 		/* retry timer (default is 3 seconds) */
 static int	connecttimer = 65; 		/* bump the connection timer from 20 to 65 seconds */
 
@@ -134,8 +140,6 @@ option_t pppoe_options[] = {
       "Don't try to load the PPPoE kernel extension", 1 },
     { "pppoemode", o_string, &mode,
       "Configure configuration mode [connect, listen, answer]" },
-    { "pppoeinterface", o_string, &interface,
-      "Ethernet interface to use" },
     { "pppoeconnecttimer", o_int, &connecttimer,
       "Connect timer for outgoing call (default 65 seconds)" },
     { "pppoeretrytimer", o_int, &retrytimer,
@@ -178,14 +182,17 @@ void pppoe_device_check()
     int 		len, s;
     struct ifreq 	ifr;
 
+    if (!device)
+        device = "en0";
+        
     s = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
     if (s >= 0) {
         
-        len = strlen(interface);
+        len = strlen(device);
         if (len <= sizeof(ifr.ifr_name)) {
 
             bzero(&ifr, sizeof(ifr));
-            bcopy(interface, ifr.ifr_name, len);
+            bcopy(device, ifr.ifr_name, len);
             if (ioctl(s, SIOCGIFFLAGS, (caddr_t) &ifr) >= 0) {
                 // ensure that the device is UP
                 ifr.ifr_flags |= IFF_UP;
@@ -234,7 +241,7 @@ void pppoe_wait_input()
 get the socket ready to start doing PPP.
 That is, open the socket and run the connector
 ----------------------------------------------------------------------------- */
-int pppoe_connect()
+int pppoe_connect(int *errorcode)
 {
     char 	dev[32], name[MAXPATHLEN]; 
     int 	err = 0;  
@@ -301,7 +308,7 @@ int pppoe_connect()
         }
     }
 
-    if (setsockopt(sockfd, PPPPROTO_PPPOE, PPPOE_OPT_INTERFACE, interface, strlen(interface))) {
+    if (setsockopt(sockfd, PPPPROTO_PPPOE, PPPOE_OPT_INTERFACE, device, strlen(device))) {
         error("PPPoE can't specify interface...\n");
         return errno;
     }
@@ -319,7 +326,11 @@ int pppoe_connect()
         fatal("PPPoE incorrect mode : '%s'", mode ? mode : "");
 
     if (err) {
-        status = EXIT_CONNECT_FAILED;
+        if (err != -2) {
+            if (err != -1)
+                devstatus = err;
+            status = EXIT_CONNECT_FAILED;
+        }
         return -1;
     }
     
@@ -427,8 +438,31 @@ int pppoe_dial()
     if (service)
         strncpy(addr.pppoe_service, service, sizeof(addr.pppoe_service));
     if (connect(sockfd, (struct sockaddr *)&addr, sizeof(struct sockaddr_pppoe)) < 0) {
+        if (errno == EINTR)
+            return -2; // user cancelled
         error("PPPoE connection failed, %m");
-        return errno;
+        switch (errno) {
+            case EHOSTUNREACH:
+                if ((service && service[0]) && (access_concentrator && access_concentrator[0]))
+                    return EXIT_PPPoE_NOACSERVICE;
+                else if (service && service[0])
+                    return EXIT_PPPoE_NOSERVICE;
+                else if (access_concentrator && access_concentrator[0])
+                    return EXIT_PPPoE_NOAC;
+                return EXIT_PPPoE_NOSERVER;
+                
+            case ECONNREFUSED:
+                return EXIT_PPPoE_CONNREFUSED;
+
+            case ENXIO:
+                // Ethernet interface is detached
+                // fake a cancel to get a consistent
+                // error message with the HANGUP case
+                status = EXIT_HANGUP;
+                return -2; 
+
+        }
+        return -1;
     }
 
     info("PPPoE connection established.");
@@ -457,19 +491,19 @@ int pppoe_listen()
         strncpy(addr.pppoe_service, service, sizeof(addr.pppoe_service));
     if (bind(sockfd, (struct sockaddr *)&addr, sizeof(struct sockaddr_pppoe)) < 0) {
         error("PPPoE bind failed, %m");
-        return errno;
+        return -1;
     }
 
     if (listen(sockfd, 10) < 0) {
         printf("PPPoE listen failed, %m");
-        return errno;
+        return -1;
     }
 
     len = sizeof(addr);
     fd = accept(sockfd, (struct sockaddr *) &addr, &len);
     if (fd < 0) {
         error("PPPoE accept failed, %m");
-        return errno;
+        return -1;
     }
     
     close(sockfd);	// close the socket used for listening

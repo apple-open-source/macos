@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
  *
  * HISTORY
  * 27 May 99 wgulland created.
@@ -89,7 +89,8 @@ bool IOFWCommand::initWithController(IOFireWireController *control)
 IOReturn IOFWCommand::submit(bool queue)
 {
     IOReturn res;
-    IOWorkLoop * workLoop = fControl->getWorkLoop();
+    
+	IOWorkLoop * workLoop = fControl->getWorkLoop();
     if(workLoop->onThread() && fSync) {
         IOLog("Potential FireWire workloop deadlock!\n");
         IOLog("Naughty cmd is a %s\n", getMetaClass()->getClassName());
@@ -100,7 +101,13 @@ IOReturn IOFWCommand::submit(bool queue)
         if(!fSyncWakeup)
             return kIOReturnNoMemory;
     }
-    fControl->closeGate();
+    
+	// on an error path startExecution may release this 
+	// command so we will retain it here
+	
+	retain();
+	
+	fControl->closeGate();
     if(queue) {
         IOFWCmdQ &pendingQ = fControl->getPendingQ();
         IOFWCommand *prev = pendingQ.fTail;
@@ -131,6 +138,9 @@ IOReturn IOFWCommand::submit(bool queue)
 			fSyncWakeup = NULL;
 		}
 	}
+	
+	release();
+	
     return res;
 }
 
@@ -246,10 +256,20 @@ void IOFWCommand::updateTimer()
 IOReturn IOFWCommand::cancel(IOReturn reason)
 {
     IOReturn result = kIOReturnSuccess;
-    fControl->closeGate();
-    result = complete(reason);
-    fControl->openGate();
-    return result;
+	
+	// complete may release this command so we retain it here
+	
+	retain();
+    
+	fControl->closeGate();
+    
+	result = complete(reason);
+    
+	fControl->openGate();
+    
+	release();
+	
+	return result;
 }
 
 void IOFWCommand::setHead(IOFWCmdQ &queue)
@@ -350,7 +370,7 @@ IOReturn IOFWBusCommand::complete(IOReturn state)
     if(fSync)
         fSyncWakeup->signal(state);
     else if(fComplete)
-	(*fComplete)(fRefCon, state, fControl, this);
+		(*fComplete)(fRefCon, state, fControl, this);
     return state;
 }
 
@@ -460,8 +480,9 @@ IOReturn IOFWAsyncCommand::reinit(FWAddress devAddress, IOMemoryDescriptor *host
 
     fComplete = completion;
     fRefCon = refcon;
-    if(hostMem)
-        fSize = hostMem->getLength();
+    fMemDesc=hostMem;
+    if(fMemDesc)
+        fSize=fMemDesc->getLength();
     fBytesTransferred = 0;
     fSync = completion == NULL;
     fTrans = NULL;
@@ -487,8 +508,9 @@ IOReturn IOFWAsyncCommand::reinit(UInt32 generation, FWAddress devAddress, IOMem
         return kIOReturnBadArgument;
     fComplete = completion;
     fRefCon = refcon;
-    if(hostMem)
-        fSize = hostMem->getLength();
+    fMemDesc=hostMem;
+    if(fMemDesc)
+        fSize=fMemDesc->getLength();
     fBytesTransferred = 0;
     fSync = completion == NULL;
     fTrans = NULL;
@@ -537,9 +559,16 @@ IOReturn IOFWAsyncCommand::complete(IOReturn status)
     // If we're in the middle of processing a bus reset and
     // the command should be retried after a bus reset, put it on the
     // 'after reset queue'
-    if((status == kIOFireWireBusReset) && !fFailOnReset && fControl->scanningBus()) {
-        setHead(fControl->getAfterResetHandledQ());
-        return fStatus = kIOFireWirePending;	// On a queue waiting to execute
+    // If we aren't still scanning the bus, and we're supposed to retry after bus resets, turn it into device offline 
+    if((status == kIOFireWireBusReset) && !fFailOnReset) {
+        if(fControl->scanningBus()) {
+            setHead(fControl->getAfterResetHandledQ());
+            return fStatus = kIOFireWirePending;	// On a queue waiting to execute
+        }
+        else if(fDevice) {
+            IOLog("Command for device %p that's gone away\n", fDevice);
+            status = kIOReturnOffline;	// device must have gone.
+        }
     }
     // First check for retriable error
     if(status == kIOReturnTimeout) {
@@ -557,7 +586,15 @@ IOReturn IOFWAsyncCommand::complete(IOReturn status)
                     tryAgain = kIOReturnSuccess == fControl->handleAsyncTimeout(this);
             }
             if(tryAgain) {
-                return fStatus = startExecution();
+				IOReturn result;
+				
+				// startExecution() may release this command so retain it
+				retain();
+				fStatus = startExecution();
+				result = fStatus;
+				release();
+				
+				return result;
             }
         }
     }
@@ -565,7 +602,7 @@ IOReturn IOFWAsyncCommand::complete(IOReturn status)
     if(fSync)
         fSyncWakeup->signal(status);
     else if(fComplete)
-	(*fComplete)(fRefCon, status, fDevice, this);
+		(*fComplete)(fRefCon, status, fDevice, this);
 
     return status;
 }
@@ -573,30 +610,33 @@ IOReturn IOFWAsyncCommand::complete(IOReturn status)
 void IOFWAsyncCommand::gotAck(int ackCode)
 {
     int rcode;
-    switch (ackCode) {
-    case kFWAckPending:
-        // This shouldn't happen.
-        IOLog("Command 0x%p received Ack code %d\n", this, ackCode);
-        return;
-    case kFWAckComplete:
-	rcode = kFWResponseComplete;
-        break;
+    switch (ackCode) 
+	{
+		case kFWAckPending:
+			// This shouldn't happen.
+			IOLog("Command 0x%p received Ack code %d\n", this, ackCode);
+			return;
+    
+		case kFWAckComplete:
+			rcode = kFWResponseComplete;
+			break;
 
-    // Device is still busy after several hardware retries
-    // Stash away that fact to use when the command times out.
-    case kFWAckBusyX:
-    case kFWAckBusyA:
-    case kFWAckBusyB:
-        fStatus = kIOFireWireResponseBase+kFWResponseConflictError;
-        return;	// Retry after command times out
-        
-    // Device isn't acking at all
-    case kFWAckTimeout:
-        return;	// Retry after command times out
-
-    default:
-        rcode = kFWResponseTypeError;	// Block transfers will try quad now
+		// Device is still busy after several hardware retries
+		// Stash away that fact to use when the command times out.
+		case kFWAckBusyX:
+		case kFWAckBusyA:
+		case kFWAckBusyB:
+			fStatus = kIOFireWireResponseBase+kFWResponseConflictError;
+			return;	// Retry after command times out
+			
+		// Device isn't acking at all
+		case kFWAckTimeout:
+			return;	// Retry after command times out
+	
+		default:
+			rcode = kFWResponseTypeError;	// Block transfers will try quad now
     }
+
     gotPacket(rcode, NULL, 0);
 }
 
@@ -696,9 +736,16 @@ IOReturn IOFWReadCommand::execute()
         result = kIOReturnInternalError;
     }
 
+	// complete could release us so protect fStatus with retain and release
+	IOReturn status = fStatus;	
     if(result != kIOReturnSuccess)
+	{
+		retain();
         complete(result);
-    return (fStatus);
+		status = fStatus;
+		release();
+	}	
+	return status;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -826,9 +873,16 @@ IOReturn IOFWReadQuadCommand::execute()
         result = kIOReturnInternalError;
     }
 
+	// complete could release us so protect fStatus with retain and release
+	IOReturn status = fStatus;	
     if(result != kIOReturnSuccess)
+	{
+		retain();
         complete(result);
-    return (fStatus);
+		status = fStatus;
+		release();
+	}
+	return status;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -920,9 +974,16 @@ IOReturn IOFWWriteCommand::execute()
         result = kIOReturnInternalError;
     }
 
+	// complete could release us so protect fStatus with retain and release
+	IOReturn status = fStatus;	
     if(result != kIOReturnSuccess)
+	{
+		retain();
         complete(result);
-    return (fStatus);
+		status = fStatus;
+		release();
+	}
+	return status;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1061,10 +1122,16 @@ IOReturn IOFWWriteQuadCommand::execute()
         result = kIOReturnInternalError;
     }
 
+	// complete could release us so protect fStatus with retain and release
+	IOReturn status = fStatus;	
     if(result != kIOReturnSuccess)
+	{
+		retain();
         complete(result);
-		
-    return (fStatus);
+		status = fStatus;
+		release();
+	}
+	return status;
 }
 
 
@@ -1182,12 +1249,21 @@ IOReturn IOFWCompareAndSwapCommand::execute()
         result = kIOReturnInternalError;
     }
 
+	// complete could release us so protect fStatus with retain and release
+	IOReturn status = fStatus;	
     if(result != kIOReturnSuccess)
+	{
+		retain();
         complete(result);
+		status = fStatus;
+		release();
+	}
 	else
+	{
 		fBytesTransferred = fSize ;
-
-    return (fStatus);
+	}
+	
+	return status;
 }
 
 bool IOFWCompareAndSwapCommand::locked(UInt32 *oldVal)

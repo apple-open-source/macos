@@ -43,7 +43,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Forward declarations/prototypes for local functions */
 
-static struct mdesc *reuse PARAMS ((int));
+static struct mdesc *reuse PARAMS ((int, int));
 
 /* Initialize access to a mmalloc managed region.
 
@@ -77,9 +77,10 @@ static struct mdesc *reuse PARAMS ((int));
    On failure returns NULL. */
 
 PTR
-mmalloc_attach (fd, baseaddr)
+mmalloc_attach (fd, baseaddr, flags)
   int fd;
   PTR baseaddr;
+  int flags;
 {
   struct mdesc mtemp;
   struct mdesc *mdp;
@@ -101,7 +102,7 @@ mmalloc_attach (fd, baseaddr)
 	}
       else if (sbuf.st_size > 0)
 	{
-	  return ((PTR) reuse (fd));
+	  return ((PTR) reuse (fd, flags));
 	}
     }
 
@@ -143,9 +144,13 @@ mmalloc_attach (fd, baseaddr)
       else
 	{
 	  mdp -> flags |= MMALLOC_DEVZERO;
+	  mdp -> flags |= MMALLOC_SHARED;
 	}
 #endif
     }
+
+  if (flags & MMALLOC_SHARED)
+    mdp -> flags |= MMALLOC_SHARED;
 
   /*  Now try to map in the first page, copy the malloc descriptor structure
       there, and arrange to return a pointer to this new copy.  If the mapping
@@ -156,6 +161,8 @@ mmalloc_attach (fd, baseaddr)
     {
       memcpy (mbase, mdp, sizeof (mtemp));
       mdp = (struct mdesc *) mbase;
+      if (flags & MMALLOC_SHARED)
+	mdp -> flags |= MMALLOC_SHARED;
     }
   else
     {
@@ -193,8 +200,9 @@ mmalloc_attach (fd, baseaddr)
    unsuccessful for some reason. */
 
 static struct mdesc *
-reuse (fd)
+reuse (fd, flags)
   int fd;
+  int flags;
 {
   struct mdesc mtemp;
   struct mdesc *mdp = NULL;
@@ -211,15 +219,16 @@ reuse (fd)
     return NULL;
 
   mtemp.fd = fd;
+  if (flags & MMALLOC_SHARED)
+    mtemp.flags |= MMALLOC_SHARED;
+
   if (__mmalloc_remap_core (&mtemp) == mtemp.base)
     {
       mdp = (struct mdesc *) mtemp.base;
       mdp -> fd = fd;
       mdp -> morecore = __mmalloc_mmap_morecore;
-      if (mdp -> mfree_hook != NULL)
-	{
-	  mmcheckf ((PTR) mdp, (void (*) PARAMS ((void))) NULL, 1);
-	}
+      if (flags & MMALLOC_SHARED)
+	mdp -> flags |= MMALLOC_SHARED;
     }
 
   return (mdp);

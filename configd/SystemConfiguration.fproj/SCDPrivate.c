@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,6 +37,106 @@
 #include <mach/notify.h>
 #include <mach/mach_error.h>
 #include <pthread.h>
+
+Boolean
+_SCSerialize(CFPropertyListRef		obj,
+	     CFDataRef			*xml,
+	     void			**dataRef,
+	     CFIndex			*dataLen)
+{
+	CFDataRef	myXml;
+
+	if (!obj) {
+		/* if no object to serialize */
+		return FALSE;
+	}
+
+	if (!xml && !(dataRef && dataLen)) {
+		/* if not keeping track of allocated space */
+		return FALSE;
+	}
+
+	myXml = CFPropertyListCreateXMLData(NULL, obj);
+	if (!myXml) {
+		SCLog(TRUE, LOG_ERR, CFSTR("CFPropertyListCreateXMLData() failed"));
+		if (xml)	*xml     = NULL;
+		if (dataRef)	*dataRef = NULL;
+		if (dataLen)	*dataLen = 0;
+		return FALSE;
+	}
+
+	if (xml) {
+		*xml = myXml;
+		if (dataRef) {
+			*dataRef = (void *)CFDataGetBytePtr(myXml);
+		}
+		if (dataLen) {
+			*dataLen = CFDataGetLength(myXml);
+		}
+	} else {
+		kern_return_t	status;
+
+		*dataLen = CFDataGetLength(myXml);
+		status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
+		if (status != KERN_SUCCESS) {
+			SCLog(TRUE,
+			      LOG_ERR,
+			      CFSTR("vm_allocate(): %s"),
+			      mach_error_string(status));
+			CFRelease(myXml);
+			*dataRef = NULL;
+			*dataLen = 0;
+			return FALSE;
+		}
+
+		bcopy((char *)CFDataGetBytePtr(myXml), *dataRef, *dataLen);
+		CFRelease(myXml);
+	}
+
+	return TRUE;
+}
+
+
+Boolean
+_SCUnserialize(CFPropertyListRef	*obj,
+	       void			*dataRef,
+	       CFIndex			dataLen)
+{
+	kern_return_t		status;
+	CFDataRef		xml;
+	CFStringRef		xmlError;
+
+	if (!obj) {
+		return FALSE;
+	}
+
+	xml = CFDataCreate(NULL, (void *)dataRef, dataLen);
+	status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
+	if (status != KERN_SUCCESS) {
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+		/* non-fatal???, proceed */
+	}
+	*obj = CFPropertyListCreateFromXMLData(NULL,
+					       xml,
+					       kCFPropertyListImmutable,
+					       &xmlError);
+	CFRelease(xml);
+
+	if (!obj) {
+		if (xmlError) {
+			SCLog(TRUE,
+			      LOG_ERR,
+			      CFSTR("CFPropertyListCreateFromXMLData() failed: %@"),
+			      xmlError);
+			CFRelease(xmlError);
+		}
+		_SCErrorSet(kSCStatusFailed);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 
 void
 __showMachPortStatus()

@@ -1,5 +1,6 @@
 ;;; gnus-logic.el --- advanced scoring code for Gnus
-;; Copyright (C) 1996,97,98 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 1997, 1998, 1999, 2000
+;;        Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news
@@ -24,8 +25,6 @@
 ;;; Commentary:
 
 ;;; Code:
-
-(eval-when-compile (require 'cl))
 
 (eval-when-compile (require 'cl))
 
@@ -146,7 +145,7 @@
   (let* ((type (or type 's))
 	 (case-fold-search (not (eq (downcase (symbol-name type))
 				    (symbol-name type))))
-	 (header (aref gnus-advanced-headers index)))
+	 (header (or (aref gnus-advanced-headers index) "")))
     (cond
      ((memq type '(r R regexp Regexp))
       (string-match match header))
@@ -173,9 +172,9 @@
      ((eq type 'at)
       (equal date match))
      ((eq type 'before)
-      (gnus-time-less match date))
+      (time-less-p match date))
      ((eq type 'after)
-      (gnus-time-less date match))
+      (time-less-p date match))
      (t
       (error "No such date score type: %s" type)))))
 
@@ -220,7 +219,7 @@
 		      ((memq type '(s S string String))
 		       'search-forward)
 		      (t
-		       (error "Illegal match type: %s" type)))))
+		       (error "Invalid match type: %s" type)))))
 	  (goto-char (point-min))
 	  (prog1
 	      (funcall search-func match nil t)
@@ -228,4 +227,4 @@
 
 (provide 'gnus-logic)
 
-;;; gnus-logic.el ends here.
+;;; gnus-logic.el ends here

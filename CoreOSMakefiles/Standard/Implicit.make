@@ -36,7 +36,7 @@ ifeq ($(DEBUG),YES)
 CC_Optimize = 
 LD_Prebind  = 
 else
-CC_Optimize = -O3
+CC_Optimize = -Os
 endif
 CC_Other    = -pipe
 

@@ -57,7 +57,8 @@ private:
   IOFixed               _resolution;                // (dots per inch)
   PS2MouseId            _type;
 
-  virtual void   dispatchRelativePointerEventWithPacket(UInt8 * packet);
+  virtual void   dispatchRelativePointerEventWithPacket(UInt8 * packet,
+                                                        UInt32  packetSize);
   virtual UInt8  getMouseID();
   virtual UInt32 getMouseInformation();
   virtual void   setCommandByte(UInt8 setBits, UInt8 clearBits);

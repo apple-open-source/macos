@@ -31,7 +31,6 @@
  */
 /*
  * HISTORY
- * $Log: machine.h,v $
  * Revision 1.1.1.1  1997/09/03 20:53:37  roland
  * Initial checkin of SGS release 244
  *

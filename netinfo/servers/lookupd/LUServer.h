@@ -50,10 +50,7 @@
 	char *currentCall;
 	Thread *myThread;
 	BOOL idle;
-	char *ooBuffer;
 	unsigned long state;
-	unsigned long ooBufferSize;
-	unsigned long ooBufferOffset;
 }
 
 - (BOOL)isIdle;
@@ -63,9 +60,7 @@
 - (LUAgent *)currentAgent;
 - (char *)currentCall;
 
-- (void)copyToOOBuffer:(char *)src size:(unsigned long)src_size;	
-- (char *)ooBuffer;
-- (int)ooBufferLength;
+- (LUAgent *)agentNamed:(char *)name;
 
 - (BOOL)isNetwareEnabled;
 - (BOOL)isSecurityEnabledForOption:(char *)option;

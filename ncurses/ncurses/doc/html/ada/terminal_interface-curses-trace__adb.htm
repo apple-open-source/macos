@@ -1,0 +1,82 @@
+<HTML><HEAD><TITLE>terminal_interface-curses-trace.adb</TITLE></HEAD>
+<BODY>
+<HR><DIV ALIGN="center"><H1> File : terminal_interface-curses-trace.adb </H1></DIV><HR>
+<PRE>
+<FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
+<FONT COLOR=green><EM>--                                                                          --</EM></FONT>
+<FONT COLOR=green><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></FONT>
+<FONT COLOR=green><EM>--                                                                          --</EM></FONT>
+<FONT COLOR=green><EM>--                      Terminal_Interface.Curses.Trace                     --</EM></FONT>
+<FONT COLOR=green><EM>--                                                                          --</EM></FONT>
+<FONT COLOR=green><EM>--                                 B O D Y                                  --</EM></FONT>
+<FONT COLOR=green><EM>--                                                                          --</EM></FONT>
+<FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
+<FONT COLOR=green><EM>-- Copyright (c) 2000 Free Software Foundation, Inc.                        --</EM></FONT>
+<FONT COLOR=green><EM>--                                                                          --</EM></FONT>
+<FONT COLOR=green><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></FONT>
+<FONT COLOR=green><EM>-- copy of this software and associated documentation files (the            --</EM></FONT>
+<FONT COLOR=green><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></FONT>
+<FONT COLOR=green><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></FONT>
+<FONT COLOR=green><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></FONT>
+<FONT COLOR=green><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></FONT>
+<FONT COLOR=green><EM>-- furnished to do so, subject to the following conditions:                 --</EM></FONT>
+<FONT COLOR=green><EM>--                                                                          --</EM></FONT>
+<FONT COLOR=green><EM>-- The above copyright notice and this permission notice shall be included  --</EM></FONT>
+<FONT COLOR=green><EM>-- in all copies or substantial portions of the Software.                   --</EM></FONT>
+<FONT COLOR=green><EM>--                                                                          --</EM></FONT>
+<FONT COLOR=green><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></FONT>
+<FONT COLOR=green><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></FONT>
+<FONT COLOR=green><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></FONT>
+<FONT COLOR=green><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></FONT>
+<FONT COLOR=green><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></FONT>
+<FONT COLOR=green><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></FONT>
+<FONT COLOR=green><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></FONT>
+<FONT COLOR=green><EM>--                                                                          --</EM></FONT>
+<FONT COLOR=green><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></FONT>
+<FONT COLOR=green><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></FONT>
+<FONT COLOR=green><EM>-- sale, use or other dealings in this Software without prior written       --</EM></FONT>
+<FONT COLOR=green><EM>-- authorization.                                                           --</EM></FONT>
+<FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
+<FONT COLOR=green><EM>--  Author: Eugene V. Melaragno &lt;aldomel@ix.netcom.com&gt; 2000</EM></FONT>
+<FONT COLOR=green><EM>--  Version Control:</EM></FONT>
+<FONT COLOR=green><EM>--  @Revision: 1.1 @</EM></FONT>
+<FONT COLOR=green><EM>--  Binding Version 01.00</EM></FONT>
+<FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
+<b>with</b> <A HREF="interfac__ads.htm#23_9">Interfaces</A>.C; <b>use</b> <A HREF="interfac__ads.htm#23_9">Interfaces</A>.C;
+<b>with</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#50_35">Aux</A>; <b>use</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#50_35">Aux</A>;
+<b>with</b> Ada.Unchecked_Conversion;
+
+<b>package</b> <b>body</b> Terminal_Interface.Curses.<A HREF="terminal_interface-curses-trace__ads.htm#42_35">Trace</A><FONT COLOR=red><A NAME="45_40"></A></FONT> <b>is</b>
+
+   <b>type</b> <FONT COLOR=red><A NAME="47_9">C_TraceType</A></FONT> <b>is</b> <b>new</b> <A HREF="terminal_interface-curses-aux__ads.htm#59_12">C_UInt</A>;
+
+   <b>function</b> <FONT COLOR=red><A NAME="49_13">TraceAda_To_TraceC</A></FONT> <b>is</b> <b>new</b>
+     Ada.Unchecked_Conversion (Source =&gt; <A HREF="terminal_interface-curses-trace__ads.htm#46_9">Trace_Attribute_Set</A>,
+                               Target =&gt; <A HREF="terminal_interface-curses-trace__adb.htm#47_9">C_TraceType</A>);
+
+   <b>procedure</b> <A HREF="terminal_interface-curses-trace__ads.htm#103_14">Trace_On</A><FONT COLOR=red><A NAME="53_14"></A></FONT> (<A HREF="terminal_interface-curses-trace__ads.htm#103_24">x</A> : <A HREF="terminal_interface-curses-trace__ads.htm#46_9">Trace_Attribute_Set</A>) <b>is</b>
+      <b>procedure</b> <FONT COLOR=red><A NAME="54_17">traceC</A></FONT> (<FONT COLOR=red><A NAME="54_25">y</A></FONT> : <A HREF="terminal_interface-curses-trace__adb.htm#47_9">C_TraceType</A>);
+      <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-trace__adb.htm#54_17">traceC</A>, "trace");
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-trace__adb.htm#54_17">traceC</A> (<A HREF="terminal_interface-curses-trace__adb.htm#49_13">TraceAda_To_TraceC</A> (<A HREF="terminal_interface-curses-trace__ads.htm#103_24">x</A>));
+   <b>end</b> Trace_On;
+
+   <FONT COLOR=green><EM>--  75. (12) A C function that takes a variable number of arguments can</EM></FONT>
+   <FONT COLOR=green><EM>--      correspond to several Ada subprograms, taking various specific</EM></FONT>
+   <FONT COLOR=green><EM>--      numbers and types of parameters.</EM></FONT>
+
+   <b>procedure</b> <A HREF="terminal_interface-curses-trace__ads.htm#107_14">Trace_Put</A><FONT COLOR=red><A NAME="64_14"></A></FONT> (<A HREF="terminal_interface-curses-trace__ads.htm#107_25">str</A> : String) <b>is</b>
+      <b>procedure</b> <FONT COLOR=red><A NAME="65_17">tracef</A></FONT> (<FONT COLOR=red><A NAME="65_25">format</A></FONT> : char_array; <FONT COLOR=red><A NAME="65_46">s</A></FONT> : char_array);
+      <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-trace__adb.htm#65_17">tracef</A>, "_tracef");
+      <FONT COLOR=red><A NAME="67_7">Txt</A></FONT>    : char_array (0 .. <A HREF="terminal_interface-curses-trace__ads.htm#107_25">str</A>'Length);
+      <FONT COLOR=red><A NAME="68_7">Length</A></FONT> : size_t;
+      <FONT COLOR=red><A NAME="69_7">formatstr</A></FONT> : <b>constant</b> String := "%s" &  ASCII.Nul;
+      <FONT COLOR=red><A NAME="70_7">formattxt</A></FONT> : char_array (0 .. <A HREF="terminal_interface-curses-trace__adb.htm#69_7">formatstr</A>'Length);
+   <b>begin</b>
+      To_C (<A HREF="terminal_interface-curses-trace__adb.htm#69_7">formatstr</A>, <A HREF="terminal_interface-curses-trace__adb.htm#70_7">formattxt</A>, <A HREF="terminal_interface-curses-trace__adb.htm#68_7">Length</A>);
+      To_C (<A HREF="terminal_interface-curses-trace__ads.htm#107_25">str</A>, <A HREF="terminal_interface-curses-trace__adb.htm#67_7">Txt</A>, <A HREF="terminal_interface-curses-trace__adb.htm#68_7">Length</A>);
+      <A HREF="terminal_interface-curses-trace__adb.htm#65_17">tracef</A> (<A HREF="terminal_interface-curses-trace__adb.htm#70_7">formattxt</A>, <A HREF="terminal_interface-curses-trace__adb.htm#67_7">Txt</A>);
+   <b>end</b> Trace_Put;
+
+<b>end</b> Terminal_Interface.Curses.Trace;
+</PRE></BODY></HTML>

@@ -2,21 +2,21 @@
 {
 	015488CC00BAFF6C11CA2A5F = {
 		activeBuildStyle = 221BC4E200BB069A11CA2A5F;
-		activeTarget = 015488D300BB003811CA2A5F;
+		activeTarget = 015488CE00BAFFCA11CA2A5F;
 		addToTargets = (
-			015488D300BB003811CA2A5F,
+			015488DB00BB003811CA2A5F,
 		);
 		perUserDictionary = {
 			PBXWorkspaceConfiguration = {
-				ContentSize = "{1259, 893}";
+				ContentSize = "{882, 779}";
 				LeftSlideOut = {
 					ActiveTab = 3;
-					Frame = "{{0, 23}, {1259, 870}}";
+					Frame = "{{0, 23}, {882, 756}}";
 					Split0 = {
 						ActiveTab = 2;
-						Frame = "{{225, 0}, {1034, 870}}";
+						Frame = "{{225, 0}, {657, 756}}";
 						Split0 = {
-							Frame = "{{0, 126}, {1034, 744}}";
+							Frame = "{{0, 126}, {657, 630}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
@@ -52,9 +52,9 @@
 							};
 						};
 						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {1036, 69}}";
-							BuildTranscriptFrame = "{{0, 78}, {1036, 25}}";
-							Frame = "{{0, 0}, {1034, 101}}";
+							BuildMessageFrame = "{{0, 0}, {659, 69}}";
+							BuildTranscriptFrame = "{{0, 78}, {659, 25}}";
+							Frame = "{{0, 0}, {657, 101}}";
 						};
 						Tab3 = {
 							Frame = "{{0, 0}, {612, 295}}";
@@ -63,7 +63,7 @@
 					};
 					SplitCount = 1;
 					Tab0 = {
-						Frame = "{{0, 0}, {264, 876}}";
+						Frame = "{{0, 0}, {264, 758}}";
 					};
 					Tab1 = {
 						ClassesFrame = "{{0, 0}, {202, 56}}";
@@ -75,12 +75,12 @@
 						Frame = "{{0, 0}, {200, 100}}";
 					};
 					Tab3 = {
-						Frame = "{{0, 0}, {200, 870}}";
+						Frame = "{{0, 0}, {200, 756}}";
 						Split0 = {
-							Frame = "{{0, 0}, {200, 420}}";
+							Frame = "{{0, 0}, {200, 362}}";
 						};
 						Split1 = {
-							Frame = "{{0, 429}, {200, 441}}";
+							Frame = "{{0, 371}, {200, 385}}";
 						};
 						SplitCount = 2;
 					};
@@ -107,6 +107,21 @@
 	015488DB00BB003811CA2A5F = {
 		activeExec = 0;
 		customExecs = {
+		};
+	};
+	015488E400BB00FE11CA2A5F = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{476, 187}, {755, 898}}";
+		};
+	};
+	0154891C00BB054811CA2A5F = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{93, 234}, {747, 806}}";
+		};
+	};
+	221BC4EE00BB072011CA2A5F = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{608, 110}, {789, 963}}";
 		};
 	};
 	221BC5A900BC8D3D11CA2A5F = {

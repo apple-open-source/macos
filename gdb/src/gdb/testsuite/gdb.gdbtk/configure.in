@@ -11,4 +11,8 @@ CC=${CC-cc}
 AC_SUBST(CC)
 AC_CONFIG_AUX_DIR(`cd $srcdir;pwd`/../../..)
 AC_CANONICAL_SYSTEM
+
+dnl Check for exe extension set on certain hosts (e.g. Win32)
+AC_EXEEXT
+
 AC_OUTPUT(Makefile)

@@ -135,3 +135,4 @@
 # standard locations.  NEXT_ROOT defaults to "C:/Apple" on Windows systems
 # and "" on other systems.
 DSTROOT = $(HOME)
+AFTER_INSTALL = install_extra

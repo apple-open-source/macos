@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -22,13 +22,6 @@
 	Contains:	Code that communicates with processes that install a callback
                 with the Keychain Manager to receive keychain events.
 
-	Written by:	Sari Harrison, Craig Mortensen
-
-	Copyright:	© 1998-2000 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-	To Do:
 */
 
 #include "CCallbackMgr.h"
@@ -39,12 +32,10 @@
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include "Globals.h"
 #include <Security/DLDBListCFPref.h>
+#include <Security/SecCFTypes.h>
 
-//using namespace std;
 using namespace KeychainCore;
 using namespace CssmClient;
-
-static const UInt32 kTicksBetweenIdleEvents = 5L;
 
 #pragma mark ÑÑÑÑ CallbackInfo ÑÑÑÑ
 
@@ -52,8 +43,9 @@ CallbackInfo::CallbackInfo() : mCallback(NULL),mEventMask(0),mContext(NULL)
 {
 }
 
-CallbackInfo::CallbackInfo(SecKeychainCallbackProcPtr inCallbackFunction,SecKeychainEventMask inEventMask,void *inContext)
-	 : mCallback(inCallbackFunction),mEventMask(inEventMask),mContext(inContext)
+CallbackInfo::CallbackInfo(SecKeychainCallback inCallbackFunction,
+	SecKeychainEventMask inEventMask, void *inContext)
+	: mCallback(inCallbackFunction), mEventMask(inEventMask), mContext(inContext)
 {
 }
 
@@ -78,7 +70,7 @@ CCallbackMgr *CCallbackMgr::mCCallbackMgr;
 
 CCallbackMgr::CCallbackMgr() :
     // register for receiving Keychain events via CF
-    Observer( kSecEventNotificationName, NULL, CFNotificationSuspensionBehaviorDeliverImmediately )
+    Observer(kSecEventNotificationName, NULL, CFNotificationSuspensionBehaviorDeliverImmediately)
 {
 }
 
@@ -94,7 +86,7 @@ CCallbackMgr& CCallbackMgr::Instance()
 	return *mCCallbackMgr;
 }
 
-void CCallbackMgr::AddCallback( SecKeychainCallbackProcPtr inCallbackFunction, 
+void CCallbackMgr::AddCallback( SecKeychainCallback inCallbackFunction, 
                              SecKeychainEventMask 	inEventMask,
                              void* 			inContext)
 
@@ -118,54 +110,16 @@ void CCallbackMgr::AddCallback( SecKeychainCallbackProcPtr inCallbackFunction,
 	CCallbackMgr::Instance().mEventCallbacks.push_back(info);
 }
 
-#if 0
-void CCallbackMgr::AddCallbackUPP(KCCallbackUPP 	inCallbackFunction,
-                               KCEventMask 		inEventMask,
-                               void*			inContext)
-{
-	CallbackInfo info( reinterpret_cast<SecKeychainCallbackProcPtr>(inCallbackFunction), inEventMask, inContext );
-	CallbackInfo existingInfo;
-
-#if TARGET_API_MAC_OS8
-    OSErr err = noErr;
-	err = ::GetCurrentProcess( &info.mProcessID );
-	KCThrowIf_( err );
-#endif
-
-    CallbackInfoListIterator ix = find( CCallbackMgr::Instance().mEventCallbacks.begin(),
-                                        CCallbackMgr::Instance().mEventCallbacks.end(), info );
-	
-	// make sure it is not already there
-	if ( ix!=CCallbackMgr::Instance().mEventCallbacks.end() )
-    {
-        // It's already there. This could mean that the old process died unexpectedly,
-        // so we need to validate the process ID of the existing callback.
-#if TARGET_API_MAC_OS8
-		if (ValidProcess(ix->mProcessID))	// existing callback is OK, so don't add this one.
-			MacOSError::throwMe(errKCDuplicateCallback);
-
-		// Process is gone, so remove the old entry
-		CCallbackMgr::Instance().mEventCallbacks.erase(ix);
-#else
-        // On Mac OS X this list is per process so this is always a duplicate
-		MacOSError::throwMe(errKCDuplicateCallback);
-#endif
-	}
-	
-	CCallbackMgr::Instance().mEventCallbacks.push_back(info);
-}
-#endif
-
 
 class Predicate
 {
-	SecKeychainCallbackProcPtr mCallbackFunction;
+	SecKeychainCallback mCallbackFunction;
 public:
-	Predicate(SecKeychainCallbackProcPtr inCallbackFunction) : mCallbackFunction(inCallbackFunction) {}
+	Predicate(SecKeychainCallback inCallbackFunction) : mCallbackFunction(inCallbackFunction) {}
 	bool operator()(const CallbackInfo &cbInfo) { return cbInfo.mCallback == mCallbackFunction; }
 };
 
-void CCallbackMgr::RemoveCallback(SecKeychainCallbackProcPtr inCallbackFunction)
+void CCallbackMgr::RemoveCallback(SecKeychainCallback inCallbackFunction)
 {
 	size_t oldSize = CCallbackMgr::Instance().mEventCallbacks.size();
 	Predicate predicate(inCallbackFunction);
@@ -175,60 +129,10 @@ void CCallbackMgr::RemoveCallback(SecKeychainCallbackProcPtr inCallbackFunction)
 		MacOSError::throwMe(errSecInvalidCallback);
 }
 
-#if 0
-void CCallbackMgr::RemoveCallbackUPP(KCCallbackUPP inCallbackFunction)
-{
-	size_t oldSize = CCallbackMgr::Instance().mEventCallbacks.size();
-	Predicate predicate(reinterpret_cast<SecKeychainCallbackProcPtr>(inCallbackFunction));
-	CCallbackMgr::Instance().mEventCallbacks.remove_if(predicate);
-
-	if (oldSize == CCallbackMgr::Instance().mEventCallbacks.size())
-		MacOSError::throwMe(errKCInvalidCallback);
-}
-#endif
-
-bool CCallbackMgr::ThisProcessUsesSystemEvtCallback()
-{
-	const SecKeychainEventMask theMask = 1 << kSecSystemEvent;
-
-
-	for ( CallbackInfoListIterator ix = CCallbackMgr::Instance().mEventCallbacks.begin();
-		  ix!=CCallbackMgr::Instance().mEventCallbacks.end(); ++ix )
-	{
-        if ( ix->mEventMask & theMask)
-            return true;
-	}
-	return false;
-}
-
-//%%% jch move this function to SecurityHI
-bool CCallbackMgr::ThisProcessCanDisplayUI()
-{
-    return true;
-}
-
-#if 0
-void CCallbackMgr::Idle()
-{
-	static unsigned long lastTickCount = 0;
-	unsigned long tickCount = ::TickCount( );
-	
-	if (tickCount > lastTickCount+kTicksBetweenIdleEvents)
-	{
-    	lastTickCount = tickCount;
-	}
-}
-#endif
-
-void CCallbackMgr::AlertClients(SecKeychainEvent inEvent, bool inOKToAllocateMemory)
-{
-    AlertClients(inEvent, Keychain(), Item(), inOKToAllocateMemory);
-}
-
 void CCallbackMgr::AlertClients(SecKeychainEvent inEvent,
+								pid_t inPid,
                                 const Keychain &inKeychain,
-                                const Item &inItem,
-                                bool inOKToAllocateMemory)
+                                const Item &inItem)
 {
     // Deal with events that we care about ourselves first.
     if (inEvent == kSecDefaultChangedEvent)
@@ -247,20 +151,11 @@ void CCallbackMgr::AlertClients(SecKeychainEvent inEvent,
 
 		SecKeychainCallbackInfo	cbInfo;
 		cbInfo.version = 0; // @@@ kKeychainAPIVersion;
-		cbInfo.item = inItem ? ItemRef::handle(inItem) : 0;
-		cbInfo.keychain = inKeychain ? KeychainRef::handle(inKeychain) : 0;
+		cbInfo.item = inItem ? gTypes().item.handle(*inItem) : 0;
+		cbInfo.keychain = inKeychain ? gTypes().keychain.handle(*inKeychain) : 0;
+		cbInfo.pid = inPid;
 
-#if 0
-        //%%%cpm- need to change keychaincore.i so we don't to the reinterpret_cast
-        // we need a carbon-version of the callbackmgr to register for events
-        // and call the "C" real callback mgr (use the ix->mCallback when this is ready)
-        
-        // until then, we rely on CarbonCore for the UPP stuff
-        InvokeKCCallbackUPP(inEvent,reinterpret_cast<KCCallbackInfo*>(&cbInfo),ix->mContext,
-                            reinterpret_cast<KCCallbackUPP>(ix->mCallback));
-#else
-		ix->mCallback(inEvent,&cbInfo,ix->mContext);
-#endif
+		ix->mCallback(inEvent, &cbInfo, ix->mContext);
 	}
 }
 
@@ -289,6 +184,14 @@ void CCallbackMgr::Event(CFNotificationCenterRef center,
 
 	thisEvent = sint32( event );
 
+    CFNumberRef pid = reinterpret_cast<CFNumberRef>
+                            (CFDictionaryGetValue(userInfo, kSecEventPidKey));
+    pid_t thisPid;
+    if (!pid || !CFNumberGetValue(pid, kCFNumberSInt32Type, &thisPid))
+	{
+		thisPid = 0;
+    }
+
     CFDictionaryRef kc = reinterpret_cast<CFDictionaryRef>
                             (CFDictionaryGetValue(userInfo, kSecEventKeychainKey));
     Keychain thisKeychain;
@@ -309,5 +212,5 @@ void CCallbackMgr::Event(CFNotificationCenterRef center,
     }
 
     // Notify our process of this event.
-	CCallbackMgr::AlertClients(thisEvent, thisKeychain, thisItem);
+	CCallbackMgr::AlertClients(thisEvent, thisPid, thisKeychain, thisItem);
 }

@@ -1,6 +1,6 @@
 /* Target-dependent code for the IA-64 for GDB, the GNU debugger.
-   Copyright 1999, 2000
-   Free Software Foundation, Inc.
+
+   Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -25,6 +25,9 @@
 #include "gdbcore.h"
 #include "arch-utils.h"
 #include "floatformat.h"
+#include "regcache.h"
+#include "doublest.h"
+#include "value.h"
 
 #include "objfiles.h"
 #include "elf/common.h"		/* for DT_PLTGOT value */
@@ -76,9 +79,9 @@ typedef enum instruction_type
 
 #define BUNDLE_LEN 16
 
-extern void _initialize_ia64_tdep (void);
-
+/* FIXME: These extern declarations should go in ia64-tdep.h.  */
 extern CORE_ADDR ia64_linux_sigcontext_register_address (CORE_ADDR, int);
+extern CORE_ADDR ia64_aix_sigcontext_register_address (CORE_ADDR, int);
 
 static gdbarch_init_ftype ia64_gdbarch_init;
 
@@ -226,7 +229,7 @@ struct frame_extra_info
 struct gdbarch_tdep
   {
     int os_ident;	/* From the ELF header, one of the ELFOSABI_
-                           constants: ELFOSABI_LINUX, ELFOSABI_MONTEREY,
+                           constants: ELFOSABI_LINUX, ELFOSABI_AIX,
 			   etc. */
     CORE_ADDR (*sigcontext_register_address) (CORE_ADDR, int);
     			/* OS specific function which, given a frame address
@@ -324,20 +327,21 @@ read_sigcontext_register (struct frame_info *frame, int regnum)
   CORE_ADDR regaddr;
 
   if (frame == NULL)
-    internal_error ("read_sigcontext_register: NULL frame");
+    internal_error (__FILE__, __LINE__,
+		    "read_sigcontext_register: NULL frame");
   if (!frame->signal_handler_caller)
-    internal_error (
-      "read_sigcontext_register: frame not a signal_handler_caller");
+    internal_error (__FILE__, __LINE__,
+		    "read_sigcontext_register: frame not a signal_handler_caller");
   if (SIGCONTEXT_REGISTER_ADDRESS == 0)
-    internal_error (
-      "read_sigcontext_register: SIGCONTEXT_REGISTER_ADDRESS is 0");
+    internal_error (__FILE__, __LINE__,
+		    "read_sigcontext_register: SIGCONTEXT_REGISTER_ADDRESS is 0");
 
   regaddr = SIGCONTEXT_REGISTER_ADDRESS (frame->frame, regnum);
   if (regaddr)
     return read_memory_integer (regaddr, REGISTER_RAW_SIZE (regnum));
   else
-    internal_error (
-      "read_sigcontext_register: Register %d not in struct sigcontext", regnum);
+    internal_error (__FILE__, __LINE__,
+		    "read_sigcontext_register: Register %d not in struct sigcontext", regnum);
 }
 
 /* Extract ``len'' bits from an instruction bundle starting at
@@ -430,7 +434,7 @@ replace_bit_field (char *bundle, long long val, int from, int len)
    and instruction bundle */
 
 static long long
-slotN_contents (unsigned char *bundle, int slotnum)
+slotN_contents (char *bundle, int slotnum)
 {
   return extract_bit_field (bundle, 5+41*slotnum, 41);
 }
@@ -438,7 +442,7 @@ slotN_contents (unsigned char *bundle, int slotnum)
 /* Store an instruction in an instruction bundle */
 
 static void
-replace_slotN_contents (unsigned char *bundle, long long instr, int slotnum)
+replace_slotN_contents (char *bundle, long long instr, int slotnum)
 {
   replace_bit_field (bundle, instr, 5+41*slotnum, 41);
 }
@@ -490,8 +494,25 @@ fetch_instruction (CORE_ADDR addr, instruction_type *it, long long *instr)
   long long template;
   int val;
 
+  /* Warn about slot numbers greater than 2.  We used to generate
+     an error here on the assumption that the user entered an invalid
+     address.  But, sometimes GDB itself requests an invalid address.
+     This can (easily) happen when execution stops in a function for
+     which there are no symbols.  The prologue scanner will attempt to
+     find the beginning of the function - if the nearest symbol
+     happens to not be aligned on a bundle boundary (16 bytes), the
+     resulting starting address will cause GDB to think that the slot
+     number is too large.
+
+     So we warn about it and set the slot number to zero.  It is
+     not necessarily a fatal condition, particularly if debugging
+     at the assembly language level.  */
   if (slotnum > 2)
-    error("Can't fetch instructions for slot numbers greater than 2.");
+    {
+      warning ("Can't fetch instructions for slot numbers greater than 2.\n"
+	       "Using slot 0 instead");
+      slotnum = 0;
+    }
 
   addr &= ~0x0f;
 
@@ -593,27 +614,27 @@ ia64_breakpoint_from_pc (CORE_ADDR *pcptr, int *lenptr)
 }
 
 CORE_ADDR
-ia64_read_pc (int pid)
+ia64_read_pc (ptid_t ptid)
 {
-  CORE_ADDR psr_value = read_register_pid (IA64_PSR_REGNUM, pid);
-  CORE_ADDR pc_value   = read_register_pid (IA64_IP_REGNUM, pid);
+  CORE_ADDR psr_value = read_register_pid (IA64_PSR_REGNUM, ptid);
+  CORE_ADDR pc_value   = read_register_pid (IA64_IP_REGNUM, ptid);
   int slot_num = (psr_value >> 41) & 3;
 
   return pc_value | (slot_num * SLOT_MULTIPLIER);
 }
 
 void
-ia64_write_pc (CORE_ADDR new_pc, int pid)
+ia64_write_pc (CORE_ADDR new_pc, ptid_t ptid)
 {
   int slot_num = (int) (new_pc & 0xf) / SLOT_MULTIPLIER;
-  CORE_ADDR psr_value = read_register_pid (IA64_PSR_REGNUM, pid);
+  CORE_ADDR psr_value = read_register_pid (IA64_PSR_REGNUM, ptid);
   psr_value &= ~(3LL << 41);
   psr_value |= (CORE_ADDR)(slot_num & 0x3) << 41;
 
   new_pc &= ~0xfLL;
 
-  write_register_pid (IA64_PSR_REGNUM, psr_value, pid);
-  write_register_pid (IA64_IP_REGNUM, new_pc, pid);
+  write_register_pid (IA64_PSR_REGNUM, psr_value, ptid);
+  write_register_pid (IA64_IP_REGNUM, new_pc, ptid);
 }
 
 #define IS_NaT_COLLECTION_ADDR(addr) ((((addr) >> 3) & 0x3f) == 0x3f)
@@ -646,10 +667,9 @@ rse_address_add(CORE_ADDR addr, int nslots)
    even really hard to compute the frame chain, but it can be
    computationally expensive.  So, instead of making life difficult
    (and slow), we pick a more convenient representation of the frame
-   chain, knowing that we'll have to make some small adjustments
-   in other places.  (E.g, note that read_fp() and write_fp() are
-   actually read_sp() and write_sp() below in ia64_gdbarch_init()
-   below.) 
+   chain, knowing that we'll have to make some small adjustments in
+   other places.  (E.g, note that read_fp() is actually read_sp() in
+   ia64_gdbarch_init() below.)
 
    Okay, so what is the frame chain exactly?  It'll be the SP value
    at the time that the function in question was entered.
@@ -698,6 +718,69 @@ ia64_frame_saved_pc (struct frame_info *frame)
     }
 }
 
+/* Limit the number of skipped non-prologue instructions since examining
+   of the prologue is expensive.  */
+static int max_skip_non_prologue_insns = 10;
+
+/* Given PC representing the starting address of a function, and
+   LIM_PC which is the (sloppy) limit to which to scan when looking
+   for a prologue, attempt to further refine this limit by using
+   the line data in the symbol table.  If successful, a better guess
+   on where the prologue ends is returned, otherwise the previous
+   value of lim_pc is returned.  TRUST_LIMIT is a pointer to a flag
+   which will be set to indicate whether the returned limit may be
+   used with no further scanning in the event that the function is
+   frameless.  */
+
+static CORE_ADDR
+refine_prologue_limit (CORE_ADDR pc, CORE_ADDR lim_pc, int *trust_limit)
+{
+  struct symtab_and_line prologue_sal;
+  CORE_ADDR start_pc = pc;
+
+  /* Start off not trusting the limit.  */
+  *trust_limit = 0;
+
+  prologue_sal = find_pc_line (pc, 0);
+  if (prologue_sal.line != 0)
+    {
+      int i;
+      CORE_ADDR addr = prologue_sal.end;
+
+      /* Handle the case in which compiler's optimizer/scheduler
+         has moved instructions into the prologue.  We scan ahead
+	 in the function looking for address ranges whose corresponding
+	 line number is less than or equal to the first one that we
+	 found for the function.  (It can be less than when the
+	 scheduler puts a body instruction before the first prologue
+	 instruction.)  */
+      for (i = 2 * max_skip_non_prologue_insns; 
+           i > 0 && (lim_pc == 0 || addr < lim_pc);
+	   i--)
+        {
+	  struct symtab_and_line sal;
+
+	  sal = find_pc_line (addr, 0);
+	  if (sal.line == 0)
+	    break;
+	  if (sal.line <= prologue_sal.line 
+	      && sal.symtab == prologue_sal.symtab)
+	    {
+	      prologue_sal = sal;
+	    }
+	  addr = sal.end;
+	}
+
+      if (lim_pc == 0 || prologue_sal.end < lim_pc)
+	{
+	  lim_pc = prologue_sal.end;
+	  if (start_pc == get_pc_function_start (lim_pc))
+	    *trust_limit = 1;
+	}
+    }
+  return lim_pc;
+}
+
 #define isScratch(_regnum_) ((_regnum_) == 2 || (_regnum_) == 3 \
   || (8 <= (_regnum_) && (_regnum_) <= 11) \
   || (14 <= (_regnum_) && (_regnum_) <= 31))
@@ -725,6 +808,7 @@ examine_prologue (CORE_ADDR pc, CORE_ADDR lim_pc, struct frame_info *frame)
   CORE_ADDR spill_addr = 0;
   char instores[8];
   char infpstores[8];
+  int trust_limit;
 
   memset (instores, 0, sizeof instores);
   memset (infpstores, 0, sizeof infpstores);
@@ -740,6 +824,8 @@ examine_prologue (CORE_ADDR pc, CORE_ADDR lim_pc, struct frame_info *frame)
       && frame->extra_info->after_prologue != 0
       && frame->extra_info->after_prologue <= lim_pc)
     return frame->extra_info->after_prologue;
+
+  lim_pc = refine_prologue_limit (pc, lim_pc, &trust_limit);
 
   /* Must start with an alloc instruction */
   next_pc = fetch_instruction (pc, &it, &instr);
@@ -760,7 +846,11 @@ examine_prologue (CORE_ADDR pc, CORE_ADDR lim_pc, struct frame_info *frame)
       pc = next_pc;
     }
   else
-    pc = lim_pc;	/* We're done early */
+    {
+      pc = lim_pc;	/* Frameless: We're done early.  */
+      if (trust_limit)
+	last_prologue_pc = lim_pc;
+    }
 
   /* Loop, looking for prologue instructions, keeping track of
      where preserved registers were spilled. */
@@ -770,10 +860,11 @@ examine_prologue (CORE_ADDR pc, CORE_ADDR lim_pc, struct frame_info *frame)
       if (next_pc == 0)
 	break;
 
-      if (it == B || ((instr & 0x3fLL) != 0LL))
+      if ((it == B && ((instr & 0x1e1f800003f) != 0x04000000000))
+          || ((instr & 0x3fLL) != 0LL))
 	{
-	  /* Exit loop upon hitting a branch instruction or a predicated
-	     instruction. */
+	  /* Exit loop upon hitting a non-nop branch instruction 
+	     or a predicated instruction. */
 	  break;
 	}
       else if (it == I && ((instr & 0x1eff8000000LL) == 0x00188000000LL))
@@ -1146,7 +1237,7 @@ ia64_get_saved_register (char *raw_buffer,
     }
   else if (IA64_PR0_REGNUM <= regnum && regnum <= IA64_PR63_REGNUM)
     {
-      char pr_raw_buffer[MAX_REGISTER_RAW_SIZE];
+      char *pr_raw_buffer = alloca (MAX_REGISTER_RAW_SIZE);
       int  pr_optim;
       enum lval_type pr_lval;
       CORE_ADDR pr_addr;
@@ -1169,7 +1260,7 @@ ia64_get_saved_register (char *raw_buffer,
     }
   else if (IA64_NAT0_REGNUM <= regnum && regnum <= IA64_NAT31_REGNUM)
     {
-      char unat_raw_buffer[MAX_REGISTER_RAW_SIZE];
+      char *unat_raw_buffer = alloca (MAX_REGISTER_RAW_SIZE);
       int  unat_optim;
       enum lval_type unat_lval;
       CORE_ADDR unat_addr;
@@ -1340,8 +1431,8 @@ ia64_store_struct_return (CORE_ADDR addr, CORE_ADDR sp)
 int
 ia64_frameless_function_invocation (struct frame_info *frame)
 {
-  /* FIXME: Implement */
-  return 0;
+  FRAME_INIT_SAVED_REGS (frame);
+  return (frame->extra_info->mem_stack_frame_size == 0);
 }
 
 CORE_ADDR
@@ -1445,14 +1536,17 @@ is_float_or_hfa_type_recurse (struct type *t, struct type **etp)
 	}
       break;
     case TYPE_CODE_ARRAY:
-      return is_float_or_hfa_type_recurse (TYPE_TARGET_TYPE (t), etp);
+      return
+	is_float_or_hfa_type_recurse (check_typedef (TYPE_TARGET_TYPE (t)),
+				      etp);
       break;
     case TYPE_CODE_STRUCT:
       {
 	int i;
 
 	for (i = 0; i < TYPE_NFIELDS (t); i++)
-	  if (!is_float_or_hfa_type_recurse (TYPE_FIELD_TYPE (t, i), etp))
+	  if (!is_float_or_hfa_type_recurse
+	      (check_typedef (TYPE_FIELD_TYPE (t, i)), etp))
 	    return 0;
 	return 1;
       }
@@ -1475,6 +1569,40 @@ is_float_or_hfa_type (struct type *t)
   return is_float_or_hfa_type_recurse (t, &et) ? et : 0;
 }
 
+
+/* Return 1 if the alignment of T is such that the next even slot
+   should be used.  Return 0, if the next available slot should
+   be used.  (See section 8.5.1 of the IA-64 Software Conventions
+   and Runtime manual.)  */
+
+static int
+slot_alignment_is_next_even (struct type *t)
+{
+  switch (TYPE_CODE (t))
+    {
+    case TYPE_CODE_INT:
+    case TYPE_CODE_FLT:
+      if (TYPE_LENGTH (t) > 8)
+	return 1;
+      else
+	return 0;
+    case TYPE_CODE_ARRAY:
+      return
+	slot_alignment_is_next_even (check_typedef (TYPE_TARGET_TYPE (t)));
+    case TYPE_CODE_STRUCT:
+      {
+	int i;
+
+	for (i = 0; i < TYPE_NFIELDS (t); i++)
+	  if (slot_alignment_is_next_even
+	      (check_typedef (TYPE_FIELD_TYPE (t, i))))
+	    return 1;
+	return 0;
+      }
+    default:
+      return 0;
+    }
+}
 
 /* Attempt to find (and return) the global pointer for the given
    function.
@@ -1623,11 +1751,11 @@ find_func_descr (CORE_ADDR faddr, CORE_ADDR *fdaptr)
 }
 
 CORE_ADDR
-ia64_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
+ia64_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 		    int struct_return, CORE_ADDR struct_addr)
 {
   int argno;
-  value_ptr arg;
+  struct value *arg;
   struct type *type;
   int len, argoffset;
   int nslots, rseslots, memslots, slotnum, nfuncargs;
@@ -1643,9 +1771,7 @@ ia64_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
       type = check_typedef (VALUE_TYPE (arg));
       len = TYPE_LENGTH (type);
 
-      /* FIXME: This is crude and it is wrong (IMO), but it matches
-         what gcc does, I think. */
-      if (len > 8 && (nslots & 1))
+      if ((nslots & 1) && slot_alignment_is_next_even (type))
 	nslots++;
 
       if (TYPE_CODE (type) == TYPE_CODE_FUNC)
@@ -1720,8 +1846,11 @@ ia64_push_arguments (int nargs, value_ptr *args, CORE_ADDR sp,
 	}
 
       /* Normal slots */
-      if (len > 8 && (slotnum & 1))
+
+      /* Skip odd slot if necessary...  */
+      if ((slotnum & 1) && slot_alignment_is_next_even (type))
 	slotnum++;
+
       argoffset = 0;
       while (len > 0)
 	{
@@ -1860,7 +1989,7 @@ ia64_pop_frame_regular (struct frame_info *frame)
      size of the frame and the size of the locals (both wrt the
      frame that we're going back to).  This seems kind of strange,
      especially since it seems like we ought to be subtracting the
-     size of the locals... and we should; but the linux kernel
+     size of the locals... and we should; but the Linux kernel
      wants bsp to be set at the end of all used registers.  It's
      likely that this code will need to be revised to accomodate
      other operating systems. */
@@ -1922,8 +2051,8 @@ process_note_abi_tag_sections (bfd *abfd, asection *sect, void *obj)
 	      *os_ident_ptr = ELFOSABI_SOLARIS;
 	      break;
 	    default :
-	      internal_error (
-		"process_note_abi_sections: unknown OS number %d", os_number);
+	      internal_error (__FILE__, __LINE__,
+			      "process_note_abi_sections: unknown OS number %d", os_number);
 	      break;
 	    }
 	}
@@ -1942,10 +2071,11 @@ ia64_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     {
       os_ident = elf_elfheader (info.abfd)->e_ident[EI_OSABI];
 
-      /* If os_ident is 0, it is not necessarily the case that we're on a
-         SYSV system.  (ELFOSABI_NONE is defined to be 0.) GNU/Linux uses
-	 a note section to record OS/ABI info, but leaves e_ident[EI_OSABI]
-	 zero.  So we have to check for note sections too. */
+      /* If os_ident is 0, it is not necessarily the case that we're
+         on a SYSV system.  (ELFOSABI_NONE is defined to be 0.)
+         GNU/Linux uses a note section to record OS/ABI info, but
+         leaves e_ident[EI_OSABI] zero.  So we have to check for note
+         sections too. */
       if (os_ident == 0)
 	{
 	  bfd_map_over_sections (info.abfd,
@@ -1960,26 +2090,35 @@ ia64_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
        arches != NULL;
        arches = gdbarch_list_lookup_by_info (arches->next, &info))
     {
-      if (gdbarch_tdep (current_gdbarch)->os_ident != os_ident)
-	continue;
-      return arches->gdbarch;
+      tdep = gdbarch_tdep (arches->gdbarch);
+      if (tdep &&tdep->os_ident == os_ident)
+	return arches->gdbarch;
     }
 
   tdep = xmalloc (sizeof (struct gdbarch_tdep));
   gdbarch = gdbarch_alloc (&info, tdep);
   tdep->os_ident = os_ident;
 
+
+  /* Set the method of obtaining the sigcontext addresses at which
+     registers are saved.  The method of checking to see if
+     native_find_global_pointer is nonzero to indicate that we're
+     on AIX is kind of hokey, but I can't think of a better way
+     to do it.  */
   if (os_ident == ELFOSABI_LINUX)
     tdep->sigcontext_register_address = ia64_linux_sigcontext_register_address;
+  else if (native_find_global_pointer != 0)
+    tdep->sigcontext_register_address = ia64_aix_sigcontext_register_address;
   else
     tdep->sigcontext_register_address = 0;
 
-  /* We know that Linux won't have to resort to the native_find_global_pointer
-     hackery.  But that's the only one we know about so far, so if
-     native_find_global_pointer is set to something non-zero, then use
-     it.  Otherwise fall back to using generic_elf_find_global_pointer.  
-     This arrangement should (in theory) allow us to cross debug Linux
-     binaries from an AIX machine.  */
+  /* We know that GNU/Linux won't have to resort to the
+     native_find_global_pointer hackery.  But that's the only one we
+     know about so far, so if native_find_global_pointer is set to
+     something non-zero, then use it.  Otherwise fall back to using
+     generic_elf_find_global_pointer.  This arrangement should (in
+     theory) allow us to cross debug GNU/Linux binaries from an AIX
+     machine.  */
   if (os_ident == ELFOSABI_LINUX)
     tdep->find_global_pointer = generic_elf_find_global_pointer;
   else if (native_find_global_pointer != 0)
@@ -2064,7 +2203,6 @@ ia64_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
      is all read_fp() is used for), simply use the stack pointer value
      instead.  */
   set_gdbarch_read_fp (gdbarch, generic_target_read_sp);
-  set_gdbarch_write_fp (gdbarch, generic_target_write_sp);
 
   /* Settings that should be unnecessary.  */
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
@@ -2083,6 +2221,7 @@ ia64_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   set_gdbarch_decr_pc_after_break (gdbarch, 0);
   set_gdbarch_function_start_offset (gdbarch, 0);
+  set_gdbarch_frame_args_skip (gdbarch, 0);
 
   set_gdbarch_remote_translate_xfer_address (
     gdbarch, ia64_remote_translate_xfer_address);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,6 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 #ifndef _IOKIT_SCSI_TASK_H_
 #define _IOKIT_SCSI_TASK_H_
 
@@ -29,26 +30,44 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
-// SCSI Service Repsonse values
-typedef enum SCSIServiceResponse
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants used inside the kernel and user space
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// The usage of these should be as follows:
+// - if the identifier can either be that of an initiator or a target,
+//	SCSIDeviceIdentifier should be used.
+// - if the identifier is for a target only and not an initiator, then
+// 	SCSITargetIdentifier should be used.
+// - if the identifier is for an initiator only and not a target, then
+//	SCSIInitiatorIdentifier should be used.
+
+typedef UInt64 					SCSIDeviceIdentifier;
+typedef SCSIDeviceIdentifier 	SCSITargetIdentifier;
+typedef SCSIDeviceIdentifier 	SCSIInitiatorIdentifier;
+
+typedef UInt64 					SCSILogicalUnitNumber;
+
+
+/* Tagged Task Identifier
+ * The Tagged Task Identifier is used when a Task has a Task Attribute other
+ * than SIMPLE.  The SCSI Application Layer client that controls the Logical
+ * Unit for which a Task is intended is required to guarantee that the Task
+ * Tag Identifier is unique.  Zero cannot be used a a Tag value as this is used
+ * to when a Tagged Task Identifier value is needed for a Task with a SIMPLE 
+ * attribute.
+ */ 
+typedef UInt64 SCSITaggedTaskIdentifier;
+
+/* Untagged Task Identifier
+ * The Untagged Task Identifier is used when asked a Tag value is required for
+ * a Task with a simple attribute.
+ */
+enum
 {
-	// This is not one of the standard service responses defined by
-	// SAM, but is necessary for asynchronous commands that are not 
-	// yet completed.
-	kSCSIServiceResponse_Request_In_Process					= 0,
-
-	// General Service Response
-	kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE	= 1,
-
-	// Service Responses for Execute Command
-	kSCSIServiceResponse_TASK_COMPLETE 						= 2,
-	kSCSIServiceResponse_LINK_COMMAND_COMPLETE				= 3,
-	
-	// Service Responses used for Task Management Functions
-	kSCSIServiceResponse_FUNCTION_COMPLETE					= 4,
-	kSCSIServiceResponse_FUNCTION_REJECTED					= 5
-} SCSIServiceResponse;
-
+	kSCSIUntaggedTaskIdentifier = 0
+};
 
 /* Task Attribute and constants
  * The Task Attribute defines how this task should be managed
@@ -84,12 +103,37 @@ typedef enum SCSITaskState
 	kSCSITaskState_ENDED		= 4
 } SCSITaskState;
 
+/* Service Response
+ * The Service Response represents the execution status of a service request
+ * made to a Protocol Services Driver.  
+ 
+ * The Service Response can only be modified by the SCSI Protocol Layer.  The 
+ * SCSI Application Layer can only read the state.
+ */ 
+typedef enum SCSIServiceResponse
+{
+	// This is not one of the standard service responses defined by
+	// SAM, but is necessary for asynchronous commands that are not 
+	// yet completed.
+	kSCSIServiceResponse_Request_In_Process					= 0,
+
+	// General Service Response
+	kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE	= 1,
+
+	// Service Responses for Execute Command
+	kSCSIServiceResponse_TASK_COMPLETE 						= 2,
+	kSCSIServiceResponse_LINK_COMMAND_COMPLETE				= 3,
+	
+	// Service Responses used for Task Management Functions
+	kSCSIServiceResponse_FUNCTION_COMPLETE					= 4,
+	kSCSIServiceResponse_FUNCTION_REJECTED					= 5
+} SCSIServiceResponse;
+
 
 /* Task Status Constants
  * The Task Status represents the completion status of the task. Only when a 
  * task completes with a service response of either TASK_COMPLETED or 
- * LINK_COMMAND_COMPLETE,
- * the status will be considered valid.
+ * LINK_COMMAND_COMPLETE, will the status be considered valid.
  * 
  * The Task Status can only be modified by the SCSI Protocol Layer.  The SCSI
  * Application Layer can only read the status.
@@ -140,15 +184,25 @@ enum
 #if defined(KERNEL) && defined(__cplusplus)
 
 
-// Basic MacOS X Headers
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// Libkern includes
 #include <libkern/c++/OSObject.h>
 
-// IOKit Headers
+// Generic IOKit related headers
 #include <IOKit/IOCommand.h>
 #include <IOKit/IOReturn.h>
 #include <IOKit/IOMemoryDescriptor.h>
 
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICmds_REQUEST_SENSE_Defs.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Constants used inside the kernel only
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 /* The SCSI Task mode is used by the SCSI Protocol Layer to 
  * indicate what mode the task is executing, the command or
@@ -169,6 +223,11 @@ typedef enum SCSITaskMode
 typedef OSObject *	SCSITaskIdentifier;
 
 typedef void ( *SCSITaskCompletion )( SCSITaskIdentifier completedTask );
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class SCSITask : public IOCommand
 {
@@ -202,25 +261,27 @@ private:
 	// complete.  A zero value indicates that the task should be given the
 	// longest duration possible by the Protocol Services Driver to complete.
     UInt32						fTimeoutDuration;
-
+	
 	SCSIServiceResponse			fServiceResponse;    
     
     SCSITaskCompletion			fCompletionCallback;
-
+	
     // Autosense related members
     // This member indicates whether the client wants the SCSI Protocol
     // Layer to request autosense data if the command completes with a
     // CHECK_CONDITION status.
     bool						fAutosenseDataRequested;
-
+	
     SCSICommandDescriptorBlock	fAutosenseCDB;
     UInt8						fAutosenseCDBSize;
-
+	
     bool						fAutoSenseDataIsValid;
-    SCSI_Sense_Data				fAutoSenseData;
+    SCSI_Sense_Data *			fAutoSenseData;
+    UInt8						fAutoSenseDataSize;
     UInt64						fAutoSenseRealizedByteCountOfTransfer;
-
+	
 	IOMemoryDescriptor *		fAutosenseDescriptor;
+	task_t						fAutosenseTaskMap;
 	
     // Reference members for each layer.  Since these may contain a memory address, they
     // are declared as void * so that they will scale to a 64-bit system.
@@ -230,7 +291,7 @@ private:
     // Pointer to the next SCSI Task in the queue.  This can only be used by the SCSI
     // Protocol Layer
     SCSITask *					fNextTaskInQueue;
-
+	
 	// The Task Execution mode is only used by the SCSI Protocol Layer for 
 	// indicating whether the command currently being executed is the client's
 	// command or the AutoSense RequestSense command.
@@ -239,29 +300,29 @@ private:
     // Reserve space for future expansion.
     struct SCSITaskExpansionData { };
     SCSITaskExpansionData *		fSCSITaskReserved;
-
+	
 public:
-    virtual bool		init( void );
-	virtual void		free( void );
-
-
+    
+    virtual bool		init ( void );
+	virtual void		free ( void );
+	
 	// Utility methods for setting and retreiving the Object that owns the
 	// instantiation of the SCSI Task
-	bool				SetTaskOwner( OSObject	*taskOwner );
-	OSObject *			GetTaskOwner( void );
+	bool				SetTaskOwner ( OSObject	* taskOwner );
+	OSObject *			GetTaskOwner ( void );
 	
     // Utility method to reset the object so that it may be used for a new
 	// Task.  This method will return true if the reset was successful
 	// and false if it failed because it represents an active task.
-	bool				ResetForNewTask( void );
+	bool				ResetForNewTask ( void );
 	
 	// Utility method to check if this task represents an active.
-	bool				IsTaskActive( void );
-
+	bool				IsTaskActive ( void );
+	
 	// Utility Methods for managing the Logical Unit Number for which this Task 
 	// is intended.
-	bool				SetLogicalUnitNumber( UInt8 newLUN );
-	UInt8				GetLogicalUnitNumber( void );
+	bool				SetLogicalUnitNumber ( UInt8 newLUN );
+	UInt8				GetLogicalUnitNumber ( void );
 	
 	// The following methods are used to set and to get the value of the
 	// task's attributes.  The set methods all return a bool which indicates
@@ -273,16 +334,16 @@ public:
 	// The get methods will always return the current value of the attribute
 	// regardless of whether it has been previously set and regardless of
 	// whether or not the task is active.	
-	bool				SetTaskAttribute( 
+	bool				SetTaskAttribute ( 
 							SCSITaskAttribute newAttributeValue );
-	SCSITaskAttribute	GetTaskAttribute( void );
-
-	bool				SetTaskState( SCSITaskState newTaskState );
-	SCSITaskState		GetTaskState( void );
-
+	SCSITaskAttribute	GetTaskAttribute ( void );
+	
+	bool				SetTaskState ( SCSITaskState newTaskState );
+	SCSITaskState		GetTaskState ( void );
+	
 	// Accessor methods for getting and setting that status of the Task.	
-	bool				SetTaskStatus( SCSITaskStatus newTaskStatus );
-	SCSITaskStatus		GetTaskStatus( void );
+	bool				SetTaskStatus ( SCSITaskStatus newTaskStatus );
+	SCSITaskStatus		GetTaskStatus ( void );
 	
     // Accessor functions for setting the properties of the Task
     
@@ -290,16 +351,16 @@ public:
     // are used instead of having a single method so that the CDB size is
     // automatically known.
 	// Populate the 6 Byte Command Descriptor Block
-	bool 	SetCommandDescriptorBlock( 
+	bool 	SetCommandDescriptorBlock ( 
 							UInt8			cdbByte0,
 							UInt8			cdbByte1,
 							UInt8			cdbByte2,
 							UInt8			cdbByte3,
 							UInt8			cdbByte4,
 							UInt8			cdbByte5 );
-
+	
 	// Populate the 10 Byte Command Descriptor Block
-	bool 	SetCommandDescriptorBlock( 
+	bool 	SetCommandDescriptorBlock ( 
 							UInt8			cdbByte0,
 							UInt8			cdbByte1,
 							UInt8			cdbByte2,
@@ -310,9 +371,9 @@ public:
 							UInt8			cdbByte7,
 							UInt8			cdbByte8,
 							UInt8			cdbByte9 );
-
+	
 	// Populate the 12 Byte Command Descriptor Block
-	bool 	SetCommandDescriptorBlock( 
+	bool 	SetCommandDescriptorBlock ( 
 							UInt8			cdbByte0,
 							UInt8			cdbByte1,
 							UInt8			cdbByte2,
@@ -325,9 +386,9 @@ public:
 							UInt8			cdbByte9,
 							UInt8			cdbByte10,
 							UInt8			cdbByte11 );
-
+	
 	// Populate the 16 Byte Command Descriptor Block
-	bool 	SetCommandDescriptorBlock( 
+	bool 	SetCommandDescriptorBlock ( 
 							UInt8			cdbByte0,
 							UInt8			cdbByte1,
 							UInt8			cdbByte2,
@@ -344,41 +405,41 @@ public:
 							UInt8			cdbByte13,
 							UInt8			cdbByte14,
 							UInt8			cdbByte15 );
-
-	UInt8	GetCommandDescriptorBlockSize( void );
-
+	
+	UInt8	GetCommandDescriptorBlockSize ( void );
+	
 	// This will always return a 16 Byte CDB.  If the Protocol Layer driver
 	// does not support 16 Byte CDBs, it will have to create a local 
 	// SCSICommandDescriptorBlock variable to get the CDB data and then
 	// transfer the needed bytes from there.
-	bool	GetCommandDescriptorBlock( 
-        					SCSICommandDescriptorBlock * cdbData);
+	bool	GetCommandDescriptorBlock ( 
+        					SCSICommandDescriptorBlock * cdbData );
 	
 	// Set up the control information for the transfer, including
 	// the transfer direction and the number of bytes to transfer.
-	bool	SetDataTransferDirection( UInt8 newDataTransferDirection );
-	UInt8	GetDataTransferDirection( void );
-
-	bool	SetRequestedDataTransferCount( UInt64 requestedTransferCountInBytes );
-	UInt64	GetRequestedDataTransferCount( void );
-
-	bool	SetRealizedDataTransferCount( UInt64 realizedTransferCountInBytes );
-	UInt64	GetRealizedDataTransferCount( void );
-
-	bool	SetDataBuffer( IOMemoryDescriptor * newDataBuffer);
-	IOMemoryDescriptor * GetDataBuffer( void );
-
-	bool	SetDataBufferOffset( UInt64 newDataBufferOffset );
-	UInt64	GetDataBufferOffset( void );
-
-	bool	SetTimeoutDuration( UInt32 timeoutValue );
-	UInt32	GetTimeoutDuration( void );
-
-	bool	SetTaskCompletionCallback( SCSITaskCompletion newCallback );
+	bool	SetDataTransferDirection ( UInt8 newDataTransferDirection );
+	UInt8	GetDataTransferDirection ( void );
+	
+	bool	SetRequestedDataTransferCount ( UInt64 requestedTransferCountInBytes );
+	UInt64	GetRequestedDataTransferCount ( void );
+	
+	bool	SetRealizedDataTransferCount ( UInt64 realizedTransferCountInBytes );
+	UInt64	GetRealizedDataTransferCount ( void );
+	
+	bool	SetDataBuffer ( IOMemoryDescriptor * newDataBuffer );
+	IOMemoryDescriptor * GetDataBuffer ( void );
+	
+	bool	SetDataBufferOffset ( UInt64 newDataBufferOffset );
+	UInt64	GetDataBufferOffset ( void );
+	
+	bool	SetTimeoutDuration ( UInt32 timeoutValue );
+	UInt32	GetTimeoutDuration ( void );
+	
+	bool	SetTaskCompletionCallback ( SCSITaskCompletion newCallback );
 	void	TaskCompletedNotification ( void );
-
-	bool	SetServiceResponse( SCSIServiceResponse serviceResponse );
-	SCSIServiceResponse GetServiceResponse( void );
+	
+	bool	SetServiceResponse ( SCSIServiceResponse serviceResponse );
+	SCSIServiceResponse GetServiceResponse ( void );
 	
 	// Set the auto sense data that was returned for the SCSI Task.  According
 	// to the SAM-2 rev 13 specification section 5.6.4.1 "Autosense", if the
@@ -387,7 +448,11 @@ public:
 	// CONDITION status.
 	// A return value of true indicates that the data was copied to the member 
 	// sense data structure, false indicates that the data could not be saved.
-	bool	SetAutoSenseData( SCSI_Sense_Data * senseData );
+	bool	SetAutoSenseData ( SCSI_Sense_Data * senseData, UInt8 senseDataSize );
+	
+	bool	SetAutoSenseDataBuffer ( SCSI_Sense_Data *	senseData,
+									 UInt8				senseDataSize,
+									 task_t				task );
 	
 	// Get the auto sense data that was returned for the SCSI Task.  A return 
 	// value of true indicates that valid auto sense data has been returned in 
@@ -400,57 +465,58 @@ public:
 	// kSCSITaskStatus_CHECK_CONDITION.
 	// If the receivingBuffer is NULL, this routine will return whether the 
 	// autosense data is valid without copying it to the receivingBuffer.
-	bool	GetAutoSenseData( SCSI_Sense_Data * receivingBuffer );
+	bool	GetAutoSenseData ( SCSI_Sense_Data * receivingBuffer, UInt8 senseDataSize );
+	UInt8	GetAutoSenseDataSize ( void );
 	
 	// These are used by the SCSI Protocol Layer object for storing and
 	// retrieving a reference number that is specific to that protocol such
 	// as a Task Tag.
-	bool	SetProtocolLayerReference( void * newReferenceValue );
-	void 	*GetProtocolLayerReference( void );
-
+	bool	SetProtocolLayerReference ( void * newReferenceValue );
+	void *	GetProtocolLayerReference ( void );
+	
 	// These are used by the SCSI Application Layer object for storing and
 	// retrieving a reference number that is specific to that client.
-	bool	SetApplicationLayerReference( void * newReferenceValue );
-	void	*GetApplicationLayerReference( void );
+	bool	SetApplicationLayerReference ( void * newReferenceValue );
+	void *	GetApplicationLayerReference ( void );
 	
 	// These methods are only for the SCSI Protocol Layer to set the command
 	// execution mode of the command.  There currently are two modes, standard
 	// command execution for executing the command for which the task was 
 	// created, and the autosense command execution mode for executing the 
 	// Request Sense command for retrieving sense data.
-	bool				SetTaskExecutionMode( SCSITaskMode newTaskMode );
-	SCSITaskMode		GetTaskExecutionMode( void );
-
-	bool				IsAutosenseRequested( void );
-
+	bool				SetTaskExecutionMode ( SCSITaskMode newTaskMode );
+	SCSITaskMode		GetTaskExecutionMode ( void );
+	
+	bool				IsAutosenseRequested ( void );
+	
 	// This method is used only by the SCSI Protocol Layer to set the
 	// state of the auto sense data when the REQUEST SENSE command is
 	// explicitly sent to the device.	
-	bool				SetAutosenseIsValid( bool newAutosenseState );
+	bool				SetAutosenseIsValid ( bool newAutosenseState );
 	
-	UInt8				GetAutosenseCommandDescriptorBlockSize( void );
-
-	bool				GetAutosenseCommandDescriptorBlock( 
-        					SCSICommandDescriptorBlock * cdbData);
+	UInt8				GetAutosenseCommandDescriptorBlockSize ( void );
 	
-	UInt8				GetAutosenseDataTransferDirection( void );
-        					
-	UInt64				GetAutosenseRequestedDataTransferCount( void );
-
-	bool				SetAutosenseRealizedDataCount( 
+	bool				GetAutosenseCommandDescriptorBlock ( 
+        					SCSICommandDescriptorBlock * cdbData );
+	
+	UInt8				GetAutosenseDataTransferDirection ( void );
+	
+	UInt64				GetAutosenseRequestedDataTransferCount ( void );
+	
+	bool				SetAutosenseRealizedDataCount ( 
 							UInt64 realizedTransferCountInBytes );
-	UInt64				GetAutosenseRealizedDataCount( void );
+	UInt64				GetAutosenseRealizedDataCount ( void );
 	
-	IOMemoryDescriptor	*GetAutosenseDataBuffer( void );
-
-	bool				SetAutosenseCommand(
+	IOMemoryDescriptor *	GetAutosenseDataBuffer ( void );
+	
+	bool				SetAutosenseCommand (
 							UInt8			cdbByte0,
 							UInt8			cdbByte1,
 							UInt8			cdbByte2,
 							UInt8			cdbByte3,
 							UInt8			cdbByte4,
 							UInt8			cdbByte5 );
-							
+	
 	// These are the methods used for adding and removing the SCSI Task object
 	// to a queue.  These are mainly for use by the SCSI Protocol Layer, but can
 	// be used by the SCSI Application Layer if the task is currently not active
@@ -458,36 +524,38 @@ public:
 	// or kSCSITaskState_ENDED).
 	
 	// This method queues the specified Task after this one
-	void	EnqueueFollowingSCSITask( SCSITask * followingTask );
-
+	void	EnqueueFollowingSCSITask ( SCSITask * followingTask );
+	
 	// Returns the pointer to the SCSI Task that is queued after
 	// this one.  Returns NULL if one is not currently queued.
-	SCSITask * GetFollowingSCSITask( void );
-
+	SCSITask * GetFollowingSCSITask ( void );
+	
 	// Returns the pointer to the SCSI Task that is queued after
 	// this one and removes it from the queue.  Returns NULL if 
 	// one is not currently queued.
-	SCSITask * DequeueFollowingSCSITask( void );
-
+	SCSITask * DequeueFollowingSCSITask ( void );
+	
 	// Returns the pointer to the SCSI Task that is queued after
 	// this one and removes it from the queue.  Returns NULL if 
 	// one is not currently queued.  After dequeueing the following
 	// Task, the specified newFollowingTask will be enqueued after this
 	// task.
-	SCSITask * ReplaceFollowingSCSITask( SCSITask * newFollowingTask );
-
+	SCSITask * ReplaceFollowingSCSITask ( SCSITask * newFollowingTask );
+	
 private:
+	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( SCSITask, 1 );
-    OSMetaClassDeclareReservedUnused( SCSITask, 2 );
-    OSMetaClassDeclareReservedUnused( SCSITask, 3 );
-    OSMetaClassDeclareReservedUnused( SCSITask, 4 );
-    OSMetaClassDeclareReservedUnused( SCSITask, 5 );
-    OSMetaClassDeclareReservedUnused( SCSITask, 6 );
-    OSMetaClassDeclareReservedUnused( SCSITask, 7 );
-    OSMetaClassDeclareReservedUnused( SCSITask, 8 );
-
+    OSMetaClassDeclareReservedUnused ( SCSITask, 1 );
+    OSMetaClassDeclareReservedUnused ( SCSITask, 2 );
+    OSMetaClassDeclareReservedUnused ( SCSITask, 3 );
+    OSMetaClassDeclareReservedUnused ( SCSITask, 4 );
+    OSMetaClassDeclareReservedUnused ( SCSITask, 5 );
+    OSMetaClassDeclareReservedUnused ( SCSITask, 6 );
+    OSMetaClassDeclareReservedUnused ( SCSITask, 7 );
+    OSMetaClassDeclareReservedUnused ( SCSITask, 8 );
+	
 };
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */
 
+#endif /* _IOKIT_SCSI_TASK_H_ */

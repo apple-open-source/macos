@@ -1,5 +1,5 @@
 /* Simple built-in editing commands.
-   Copyright (C) 1985, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1985, 93, 94, 95, 96, 97, 1998, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -117,7 +117,6 @@ With positive N, a non-empty line at the end counts as one line\n\
   int opoint = PT, opoint_byte = PT_BYTE;
   int pos, pos_byte;
   int count, shortage;
-  int temp;
 
   if (NILP (n))
     count = 1;
@@ -150,12 +149,19 @@ With positive N, a non-empty line at the end counts as one line\n\
   return make_number (count <= 0 ? - shortage : shortage);
 }
 
-DEFUN ("beginning-of-line", Fbeginning_of_line, Sbeginning_of_line,
-  0, 1, "p",
-  "Move point to beginning of current line.\n\
+DEFUN ("beginning-of-line", Fbeginning_of_line, Sbeginning_of_line, 0, 1, "p",
+       "Move point to beginning of current line.\n\
 With argument N not nil or 1, move forward N - 1 lines first.\n\
-If scan reaches end of buffer, stop there without error.")
-  (n)
+If point reaches the beginning or end of buffer, it stops there.\n\
+\n\
+This command does not move point across a field boundary unless doing so\n\
+would move beyond there to a different line; If N is nil or 1, and point\n\
+starts at a field boundary, point does not move.  To ignore field\n\
+boundaries, either bind `inhibit-field-text-motion' to t, or use the\n\
+`forward-line' function instead.  For instance, `(forward-line 0)' does\n\
+the same thing as `(beginning-of-line)', except that it ignores field\n\
+boundaries.") 
+     (n)
      Lisp_Object n;
 {
   if (NILP (n))
@@ -164,20 +170,22 @@ If scan reaches end of buffer, stop there without error.")
     CHECK_NUMBER (n, 0);
 
   SET_PT (XINT (Fline_beginning_position (n)));
+  
   return Qnil;
 }
 
-DEFUN ("end-of-line", Fend_of_line, Send_of_line,
-  0, 1, "p",
-  "Move point to end of current line.\n\
+DEFUN ("end-of-line", Fend_of_line, Send_of_line, 0, 1, "p",
+       "Move point to end of current line.\n\
 With argument N not nil or 1, move forward N - 1 lines first.\n\
-If scan reaches end of buffer, stop there without error.")
-  (n)
+If point reaches the beginning or end of buffer, it stops there.\n\
+\n\
+This command does not move point across a field boundary unless doing so\n\
+would move beyond there to a different line; if N is nil or 1, and\n\
+point starts at a field boundary, point does not move.  To ignore field\n\
+boundaries bind `inhibit-field-text-motion' to t.")
+     (n)
      Lisp_Object n;
 {
-  register int pos;
-  register int stop;
-
   if (NILP (n))
     XSETFASTINT (n, 1);
   else
@@ -340,20 +348,19 @@ internal_self_insert (c, noautofill)
   /* Length of multi-byte form of C.  */
   int len;
   /* Working buffer and pointer for multi-byte form of C.  */
-  unsigned char workbuf[4], *str;
+  unsigned char str[MAX_MULTIBYTE_LENGTH];
   int chars_to_delete = 0;
   int spaces_to_insert = 0;
 
   overwrite = current_buffer->overwrite_mode;
-  if (!NILP (Vbefore_change_function) || !NILP (Vafter_change_function)
-      || !NILP (Vbefore_change_functions) || !NILP (Vafter_change_functions))
+  if (!NILP (Vbefore_change_functions) || !NILP (Vafter_change_functions))
     hairy = 1;
 
   /* At first, get multi-byte form of C in STR.  */
   if (!NILP (current_buffer->enable_multibyte_characters))
     {
       c = unibyte_char_to_multibyte (c);
-      len = CHAR_STRING (c, workbuf, str);
+      len = CHAR_STRING (c, str);
       if (len == 1)
 	/* If C has modifier bits, this makes C an appropriate
            one-byte char.  */
@@ -361,10 +368,9 @@ internal_self_insert (c, noautofill)
     }
   else
     {
-      workbuf[0] = (SINGLE_BYTE_CHAR_P (c)
-		    ? c
-		    : multibyte_char_to_unibyte (c, Qnil));
-      str = workbuf;
+      str[0] = (SINGLE_BYTE_CHAR_P (c)
+		? c
+		: multibyte_char_to_unibyte (c, Qnil));
       len = 1;
     }
   if (!NILP (overwrite)
@@ -440,7 +446,7 @@ internal_self_insert (c, noautofill)
 
       sym = Fexpand_abbrev ();
 
-      /* If we expanded an abbrev which has only a hook,
+      /* If we expanded an abbrev which has a hook,
 	 and the hook has a non-nil `no-self-insert' property,
 	 return right away--don't really self-insert.  */
       if (! NILP (sym) && ! NILP (XSYMBOL (sym)->function)
@@ -492,7 +498,6 @@ internal_self_insert (c, noautofill)
 	hairy = 2;
     }
 
-#ifdef HAVE_FACES
   /* If previous command specified a face to use, use it.  */
   if (!NILP (Vself_insert_face)
       && EQ (current_kboard->Vlast_command, Vself_insert_face_command))
@@ -501,7 +506,6 @@ internal_self_insert (c, noautofill)
 			  Qface, Vself_insert_face, Qnil);
       Vself_insert_face = Qnil;
     }
-#endif
 
   synt = SYNTAX (c);
   if ((synt == Sclose || synt == Smath)

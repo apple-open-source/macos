@@ -11,7 +11,7 @@
  * that running config_h.SH again will wipe out any changes you've made.
  * For a more permanent change edit config.sh and rerun config_h.SH.
  *
- * $Id: config_H,v 1.1.1.2 2000/03/31 05:11:05 wsanchez Exp $
+ * $Id: config_H,v 1.2 2002/03/14 08:55:07 zarzycki Exp $
  */
 
 /*

@@ -1,3 +1,7 @@
+
+#ifndef _S_SERVER_H
+#define _S_SERVER_H
+
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -22,3 +26,5 @@
 
 extern boolean_t 	server_active();
 extern void 		server_init();
+
+#endif _S_SERVER_H

@@ -29,7 +29,11 @@
 #include "stuff/allocate.h"
 #include "stuff/errors.h"
 #include "stuff/round.h"
+#include "stuff/crc32.h"
 
+static void cksum_object(
+    struct arch *arch,
+    enum bool calculate_input_prebind_cksum);
 static struct arch *new_arch(
     struct arch **archs,
     unsigned long *narchs);
@@ -41,7 +45,8 @@ struct ofile *
 breakout(
 char *filename,
 struct arch **archs,
-unsigned long *narchs)
+unsigned long *narchs,
+enum bool calculate_input_prebind_cksum)
 {
     struct ofile *ofile;
     struct arch *arch;
@@ -50,6 +55,8 @@ unsigned long *narchs)
     enum bool flag;
     struct ar_hdr *ar_hdr;
 
+	*archs = NULL;
+	*narchs = 0;
 	ofile = allocate(sizeof(struct ofile));
 	/*
 	 * Rely on the ofile_*() routines to do all the checking and only
@@ -161,6 +168,7 @@ unsigned long *narchs)
 		    arch->object->object_byte_sex = ofile->object_byte_sex;
 		    arch->object->mh = ofile->mh;
 		    arch->object->load_commands = ofile->load_commands;
+		    cksum_object(arch, calculate_input_prebind_cksum);
 		}
 		else{ /* ofile->arch_type == OFILE_UNKNOWN */
 		    arch->unknown_addr = ofile->file_addr +
@@ -257,6 +265,7 @@ unsigned long *narchs)
 	    arch->object->object_byte_sex = ofile->object_byte_sex;
 	    arch->object->mh = ofile->mh;
 	    arch->object->load_commands = ofile->load_commands;
+	    cksum_object(arch, calculate_input_prebind_cksum);
 	}
 	else if(errors == 0){ /* ofile->file_type == OFILE_UNKNOWN */
 	    arch = new_arch(archs, narchs);
@@ -272,6 +281,73 @@ unsigned long *narchs)
 	return(ofile);
 }
 
+/*
+ * cksum_object() is called to set the pointer to the LC_PREBIND_CKSUM load
+ * command in the object struct for the specified arch.  If the parameter
+ * calculate_input_prebind_cksum is TRUE then calculate the value
+ * of the check sum for the input object if needed, set that into the
+ * the calculated_input_prebind_cksum field of the object struct for the
+ * specified arch.  This is needed for prebound files where the original
+ * checksum (or zero) is recorded in the LC_PREBIND_CKSUM load command.
+ * Only redo_prebinding operations sets the value of the cksum field to
+ * non-zero and only if previously zero.  All other operations will set this
+ * field to zero indicating a new original prebound file.
+ */
+static
+void
+cksum_object(
+struct arch *arch,
+enum bool calculate_input_prebind_cksum)
+{
+    unsigned long i, buf_size;
+    struct load_command *lc;
+    enum byte_sex host_byte_sex;
+    char *buf;
+
+	arch->object->cs = NULL;
+	lc = arch->object->load_commands;
+	for(i = 0;
+	    i < arch->object->mh->ncmds && arch->object->cs == NULL;
+	    i++){
+	    if(lc->cmd == LC_PREBIND_CKSUM)
+		arch->object->cs = (struct prebind_cksum_command *)lc;
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+
+	/*
+	 * If we don't want to calculate the input check sum, or there is no
+	 * LC_PREBIND_CKSUM load command or there is one and the check sum is
+	 * not zero then return.
+	 */
+	if(calculate_input_prebind_cksum == FALSE ||
+	   arch->object->cs == NULL ||
+	   arch->object->cs->cksum != 0)
+	    return;
+
+
+	host_byte_sex = get_host_byte_sex();
+	buf_size = 0;
+	buf = NULL;
+	if(arch->object->object_byte_sex != host_byte_sex){
+	    buf_size = sizeof(struct mach_header) +
+		       arch->object->mh->sizeofcmds;
+	    buf = allocate(buf_size);
+	    memcpy(buf, arch->object->mh, buf_size);
+	    if(swap_object_headers(arch->object->mh,
+				   arch->object->load_commands) == FALSE)
+		return;
+	}
+
+	arch->object->calculated_input_prebind_cksum =
+	    crc32(arch->object->object_addr, arch->object->object_size);
+
+	if(arch->object->object_byte_sex != host_byte_sex){
+	    memcpy(arch->object->mh, buf, buf_size);
+	    free(buf);
+	}
+}
+
+__private_extern__
 void
 free_archs(
 struct arch *archs,

@@ -1,0 +1,12 @@
+#! /bin/sh
+
+# Test to make sure a clean target depends on previous one.
+
+. $srcdir/defs || exit 1
+
+: > Makefile.am
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '^clean-am:.*mostlyclean-am' Makefile.in

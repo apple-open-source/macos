@@ -1,17 +1,54 @@
-This is Info file ../info/ediff, produced by Makeinfo version 1.68 from
-the input file ediff.texi.
+This is ../info/ediff, produced by makeinfo version 4.0 from ediff.texi.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Ediff: (ediff).       A visual interface for comparing and merging programs.
 END-INFO-DIR-ENTRY
 
-   This file documents Ediff, a comprehensive visual interface to Unix
-diff and patch utilities.
+   This file documents Ediff, a comprehensive visual interface to diff
+and patch utilities.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software
+Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being "A GNU Manual",
+and with the Back-Cover Texts as in (a) below.  A copy of the license
+is included in the section entitled "GNU Free Documentation License" in
+the Emacs manual.
+
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
+
+   This document is part of a collection distributed under the GNU Free
+Documentation License.  If you want to distribute this document
+separately from the collection, you can do so by adding a copy of the
+license to the document, as described in section 6 of the license.
+
+
+File: ediff,  Node: Quick Help Customization,  Next: Window and Frame Configuration,  Prev: Hooks,  Up: Customization
+
+Quick Help Customization
+========================
+
+   Ediff provides quick help using its control panel window.  Since
+this window takes a fair share of the screen real estate, you can
+toggle it off by typing `?'.  The control window will then shrink to
+just one line and a mode line, displaying a short help message.
+
+   The variable `ediff-use-long-help-message' tells Ediff whether you
+use the short message or the long one.  By default, it is set to `nil',
+meaning that the short message is used.  Set this to `t', if you want
+Ediff to use the long message by default.  This property can always be
+changed interactively, by typing `?' into Ediff Control Buffer.
+
+   If you want to change the appearance of the help message on a
+per-buffer basis, you must use `ediff-startup-hook' to change the value
+of the variable `ediff-help-message', which is local to
+`ediff-control-buffer'.
 
 
 File: ediff,  Node: Window and Frame Configuration,  Next: Selective Browsing,  Prev: Quick Help Customization,  Up: Customization
@@ -93,8 +130,9 @@ by `ediff-make-frame-position' and for related customization.
 
      To start Ediff with an iconified Control Panel, you should set this
      variable to `t' and `ediff-prefer-long-help-message' to `nil'
-     (*note Quick Help Customization::.).  This behavior is useful only
-     if the window manager is TWM or a derivative.
+     (*note Quick Help Customization::).  This behavior is useful only
+     if icons are allowed to accept keybord input (which depend on the
+     window manager and other factors).
 
    To make more creative changes in the way Ediff sets up windows, you
 can rewrite the function `ediff-setup-windows'.  However, we believe
@@ -244,7 +282,7 @@ regions:
      Ediff uses these faces to highlight current differences on devices
      where Emacs can display faces.  These and subsequently described
      faces can be set either in `.emacs' or in `.Xdefaults'.  The X
-     resource for Ediff is `Ediff', *not* `emacs'.  Please refer to
+     resource for Ediff is `Ediff', _not_ `emacs'.  Please refer to
      Emacs manual for the information on how to set X resources.
 
 `ediff-fine-diff-face-A'
@@ -311,23 +349,22 @@ would use the pre-defined fase `bold-italic' to highlight the current
 difference region in buffer A (this face is not a good choice, by the
 way).
 
-   If you are unhappy with just *some* of the aspects of the default
+   If you are unhappy with just _some_ of the aspects of the default
 faces, you can modify them when Ediff is being loaded using
 `ediff-load-hook'.  For instance:
 
      (add-hook 'ediff-load-hook
-               (function (lambda ()
-                           (set-face-foreground
-                             ediff-current-diff-face-B "blue")
-                           (set-face-background
-                             ediff-current-diff-face-B "red")
-                           (make-face-italic
-                             ediff-current-diff-face-B))))
+               (lambda ()
+                 (set-face-foreground
+                   ediff-current-diff-face-B "blue")
+                 (set-face-background
+                   ediff-current-diff-face-B "red")
+                 (make-face-italic
+                   ediff-current-diff-face-B)))
 
-   *Note:* it is not recommended to use `internal-get-face' when
-defining Ediff's faces, since this may cause problems when there are
-several frames with different font sizes.  Instead, use `copy-face' or
-`set/make-face-...' as shown above.
+   *Note:* To set Ediff's faces, use only `copy-face' or
+`set/make-face-...' as shown above. Emacs' low-level face-manipulation
+functions should be avoided.
 
 
 File: ediff,  Node: Narrowing,  Next: Refinement of Difference Regions,  Prev: Highlighting Difference Regions,  Up: Customization
@@ -450,6 +487,15 @@ used for applying patches and for computing the main difference regions
      not let you use the option `-c', as it doesn't recognize this
      format yet.
 
+`ediff-coding-system-for-read'
+     This variable specifies the coding system to use when reading the
+     output that the programs `diff3' and `diff' send to Emacs. The
+     default is `raw-text', and this should work fine on GNU, Unix, and
+     in most cases under Windows NT/95/98/2000.  There are `diff'
+     programs for which the default option doesn't work under Windows.
+     In such cases, `raw-text-dos' might work. If not, you will have to
+     experiment with other coding systems or use GNU diff.
+
 `ediff-patch-program'
      The program to use to apply patches.  Since there are certain
      incompatibilities between the different versions of the patch
@@ -547,17 +593,37 @@ Ediff chooses the region according to the value of the variable
 is chosen.  If it is `default-B' then B's region is chosen.  If it is
 `combined' then the region in buffer C will look like this:
 
-     #ifdef NEW  /* variant A */
-     difference region from buffer A
-     #else  /* variant B */
-     difference region from buffer B
-     #endif  /* NEW */
+     <<<<<<< variant A
+     the difference region from buffer A
+     >>>>>>> variant B
+     the difference region from buffer B
+     ####### Ancestor
+     the difference region from the ancestor buffer, if available
+     ======= end
 
-   The actual strings that separate the regions copied from buffer A
-and B are controlled by the variable `ediff-combination-pattern'.  Its
-value should be a list of three strings.  The first is inserted before
-the difference region of buffer A; the second string goes between the
-regions; the third goes after region B, as shown in the above example.
+   The above is the default template for the combined region. The user
+can customize this template using the variable
+`ediff-combination-pattern'.
+
+   The variable `ediff-combination-pattern' specifies the template that
+determines how the combined merged region looks like.  The template is
+represented as a list of the form `(STRING1 Symbol1 STRING2 Symbol2
+STRING3 Symbol3 STRING4)'. The symbols here must be atoms of the form
+`A', `B', or `Ancestor'. They determine the order in which the
+corresponding difference regions (from buffers A, B, and the ancestor
+buffer) are displayed in the merged region of buffer C.  The strings in
+the template determine the text that separates the aforesaid regions.
+The default template is
+
+     ("<<<<<<< variant A" A ">>>>>>> variant B" B
+        "####### Ancestor" Ancestor "======= end")
+
+(this is one long line) and the corresponding combined region is shown
+above. The order in which the regions are shown (and the separator
+strings) can be changed by changing the above template. It is even
+possible to add or delete region specifiers in this template (although
+the only possibly useful such modification seems to be the deletion of
+the ancestor).
 
    In addition to the state of the difference, Ediff displays the state
 of the merge for each region.  If a difference came from buffer A by
@@ -577,10 +643,10 @@ the difference regions in buffers A and B as explained above.
    In addition to the state of merge and state of difference
 indicators, while merging with an ancestor file or buffer, Ediff
 informs the user when the current difference region in the (normally
-invisible) ancestor buffer is empty via the *AncestorEmpty* indicator.
+invisible) ancestor buffer is empty via the _AncestorEmpty_ indicator.
 This helps determine if the changes made to the original in variants A
 and B represent pure insertion or deletion of text: if the mode line
-shows *AncestorEmpty* and the corresponding region in buffers A or B is
+shows _AncestorEmpty_ and the corresponding region in buffers A or B is
 not empty, this means that new text was inserted.  If this indicator is
 not present and the difference regions in buffers A or B are non-empty,
 this means that text was modified.  Otherwise, the original text was
@@ -659,7 +725,7 @@ slightly shorter.  This change also persistent.
 buffers A and B disagrees with the ancestor.  To do this, set the
 variable `ediff-show-clashes-only' to non-`nil'.
 
-   You can toggle this feature interactively by typing `$'.
+   You can toggle this feature interactively by typing `$$'.
 
    Note that this variable affects only the show next/previous
 difference commands.  You can still jump directly to any difference
@@ -671,7 +737,7 @@ merge buffer when Ediff quits.  If the value is `nil', nothing is done
 to the merge buffer--it will be the user's responsibility to save it.
 If the value is `t', the user will be asked where to save the buffer
 and whether to delete it afterwards.  It the value is neither `nil' nor
-`t', the merge buffer is saved *only* if this merge session was invoked
+`t', the merge buffer is saved _only_ if this merge session was invoked
 from a group of related Ediff session, such as those that result from
 `ediff-merge-directories', `ediff-merge-directory-revisions', etc.
 *Note Session Groups::.  This behavior is implemented in the function
@@ -682,6 +748,11 @@ necessary.
    The variable `ediff-autostore-merges' is buffer-local, so it can be
 set in a per-buffer manner.  Therefore, use `setq-default' to globally
 change this variable.
+
+   When merge buffers are saved automatically as directed by
+`ediff-autostore-merges', Ediff attaches a prefix to each file, as
+specified by the variable `ediff-merge-filename-prefix'. The default is
+`merge_', but this can be changed by the user.
 
 
 File: ediff,  Node: Support for Version Control,  Next: Customizing the Mode Line,  Prev: Merging and diff3,  Up: Customization
@@ -706,9 +777,10 @@ feature is controlled by the following variables:
           (setq ediff-version-control-package 'rcs)
 
      Apart from the standard `vc.el', Ediff supports three other
-     interfaces to version control: `rcs.el', `pcl-cvs.el', and
-     `generic-sc.el'.  The package `rcs.el' is written by Sebastian
-     Kremer <sk@thp.Uni-Koeln.DE> and is available as
+     interfaces to version control: `rcs.el', `pcl-cvs.el' (recently
+     renamed pcvs.el), and `generic-sc.el'.  The package `rcs.el' is
+     written by Sebastian Kremer <sk@thp.Uni-Koeln.DE> and is available
+     as
           `ftp.cs.buffalo.edu:pub/Emacs/rcs.tar.Z'
           `ftp.uni-koeln.de:/pub/gnu/emacs/rcs.tar.Z'
 
@@ -921,13 +993,14 @@ to highlight fine differences in Ediff buffers.  Alastair Burt
 <burt@dfki.uni-kl.de> ported Ediff to XEmacs, Eric Freudenthal
 <freudent@jan.ultra.nyu.edu> made it work with VC, Marc Paquette
 <marcpa@cam.org> wrote the toolbar support package for Ediff, and
-Hrvoje Niksic <hniksic@srce.hr> adapted it to the Emacs customization
-package.
+Hrvoje Niksic <hniksic@xemacs.org> adapted it to the Emacs
+customization package.
 
    Many people provided help with bug reports, patches, and advice.
 Without them, Ediff would not be nearly as useful as it is today.  Here
 is a full list of contributors (I hope I didn't miss anyone):
 
+     Adrian Aichner (aichner@ecf.teradyne.com),
      Steve Baur (steve@xemacs.org),
      Neal Becker (neal@ctd.comsat.com),
      E. Jay Berkenbilt (ejb@ql.org),
@@ -942,6 +1015,7 @@ is a full list of contributors (I hope I didn't miss anyone):
      Albert Dvornik (bert@mit.edu),
      Eric Eide (eeide@asylum.cs.utah.edu),
      Paul Eggert (eggert@twinsun.com),
+     Urban Engberg (ue@cci.dk),
      Kevin Esler (esler@ch.hp.com),
      Robert Estes (estes@ece.ucdavis.edu),
      Jay Finger (jayf@microsoft.com),
@@ -950,8 +1024,10 @@ is a full list of contributors (I hope I didn't miss anyone):
      Job Ganzevoort (Job.Ganzevoort@cwi.nl),
      Boris Goldowsky (boris@cs.rochester.edu),
      Allan Gottlieb (gottlieb@allan.ultra.nyu.edu),
+     Aaron Gross (aaron@bfr.co.il),
      Thorbjoern Hansen (thorbjoern.hansen@mchp.siemens.de),
      Xiaoli Huang (hxl@epic.com),
+     Andreas Jaeger (aj@suse.de),
      Lars Magne Ingebrigtsen (larsi@ifi.uio.no),
      Larry Gouge (larry@itginc.com),
      Karl Heuer (kwzh@gnu.org),
@@ -959,23 +1035,28 @@ is a full list of contributors (I hope I didn't miss anyone):
      (jaffe@chipmunk.cita.utoronto.ca),
      David Karr (dkarr@nmo.gtegsc.com),
      Norbert Kiesel (norbert@i3.informatik.rwth-aachen.de),
+     Sam Steingold (sds@goems.com),
      Leigh L Klotz (klotz@adoc.xerox.com),
      Fritz Knabe (Fritz.Knabe@ecrc.de),
      Heinz Knutzen (hk@informatik.uni-kiel.d400.de),
      Andrew Koenig (ark@research.att.com),
+     Hannu Koivisto (azure@iki.fi),
      Ken Laprade (laprade@dw3f.ess.harris.com),
      Will C Lauer (wcl@cadre.com),
      Richard Levitte (levitte@e.kth.se),
      Mike Long (mike.long@analog.com),
      Martin Maechler (maechler@stat.math.ethz.ch),
      Simon Marshall (simon@gnu.org),
+     Paul C. Meuse (pmeuse@delcomsys.com),
      Richard Mlynarik (mly@adoc.xerox.com),
+     Stefan Monnier (monnier@cs.yale.edu),
      Chris Murphy (murphycm@sun.aston.ac.uk),
      Erik Naggum (erik@naggum.no),
      Eyvind Ness (Eyvind.Ness@hrp.no),
      Ray Nickson (nickson@cs.uq.oz.au),
      David Petchey (petchey_david@jpmorgan.com),
      Benjamin Pierce (benjamin.pierce@cl.cam.ac.uk),
+     Francois Pinard (pinard@iro.umontreal.ca),
      Tibor Polgar (tlp00@spg.amdahl.com),
      David Prince (dave0d@fegs.co.uk),
      Paul Raines (raines@slac.stanford.edu),
@@ -986,6 +1067,7 @@ is a full list of contributors (I hope I didn't miss anyone):
      Heribert Schuetz (schuetz@ecrc.de),
      Andy Scott (ascott@pcocd2.intel.com),
      Axel Seibert (axel@tumbolia.ppp.informatik.uni-muenchen.de),
+     Vin Shelton (acs@xemacs.org),
      Scott O. Sherman (Scott.Sherman@mci.com),
      Richard Stallman (rms@gnu.org),
      Richard Stanton (stanton@haas.berkeley.edu),
@@ -996,9 +1078,12 @@ is a full list of contributors (I hope I didn't miss anyone):
      Ray Tomlinson (tomlinso@bbn.com),
      Raymond Toy (toy@rtp.ericsson.se),
      Jan Vroonhof (vroonhof@math.ethz.ch),
+     Colin Walters (walters@cis.ohio-state.edu),
      Philippe Waroquiers (philippe.waroquiers@eurocontrol.be),
      Klaus Weber (gizmo@zork.north.de),
-     Ben Wing (wing@666.com),
+     Ben Wing (ben@xemacs.org),
+     Tom Wurgler (twurgler@goodyear.com),
+     Steve Youngs (youngs@xemacs.org),
      Ilya Zakharevich (ilya@math.ohio-state.edu),
      Eli Zaretskii (eliz@is.elta.co.il)
 

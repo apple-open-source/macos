@@ -1,0 +1,34 @@
+#! /bin/sh
+
+# Test to make sure mdate-sh run correctly.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_CONFIG_AUX_DIR(foo)
+END
+
+cat > Makefile.am << 'END'
+info_TEXINFOS = textutils.texi
+END
+
+cat > textutils.texi << 'END'
+@include version.texi
+@setfilename textutils.info
+END
+
+mkdir foo
+
+# Required when using Texinfo.
+: > foo/texinfo.tex
+: > foo/mdate-sh
+mv install-sh foo
+mv missing foo
+mv mkinstalldirs foo
+mv depcomp foo
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep '[^/]mdate-sh' Makefile.in && exit 1
+exit 0

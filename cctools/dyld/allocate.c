@@ -51,6 +51,7 @@ link_edit_error(DYLD_WARNING, 0, NULL);
 		system_error(errnum, "can't create NXZone (for internal data "
 		    "structures)");
 		link_edit_error(DYLD_UNIX_RESOURCE, errnum, NULL);
+		halt();
 		exit(DYLD_EXIT_FAILURE_BASE + DYLD_UNIX_RESOURCE);
 	    }
 	    NXNameZone(zone, "dyld");
@@ -60,6 +61,7 @@ link_edit_error(DYLD_WARNING, 0, NULL);
 	    system_error(errnum, "can't allocate memory (for internal data "
 		"structures)");
 	    link_edit_error(DYLD_UNIX_RESOURCE, errnum, NULL);
+	    halt();
 	    exit(DYLD_EXIT_FAILURE_BASE + DYLD_UNIX_RESOURCE);
 	}
 	return(p);
@@ -105,6 +107,7 @@ void)
 	system_error(errnum, "can't protect allocated memory (for internal "
 	    "data structures");
 	link_edit_error(DYLD_UNIX_RESOURCE, errnum, NULL);
+	halt();
 	exit(DYLD_EXIT_FAILURE_BASE + DYLD_UNIX_RESOURCE);
 #endif
 }
@@ -128,6 +131,7 @@ void)
 	system_error(errnum, "can't unprotect allocated memory (for internal "
 	    "data structures");
 	link_edit_error(DYLD_UNIX_RESOURCE, errnum, NULL);
+	halt();
 	exit(DYLD_EXIT_FAILURE_BASE + DYLD_UNIX_RESOURCE);
 #endif
 }

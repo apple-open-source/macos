@@ -27,6 +27,7 @@
 #include "CertBuilder.h"
 #include <Security/cssmerr.h>
 #include <Security/utilities.h>
+#include "cldebugging.h"
 
 #define BUF_ENC_EXTRA	64
 
@@ -106,8 +107,14 @@ void NameBuilder::addATDV(
 	abuf.Init(buf, bufLen);
 	abuf.ResetInWriteRvsMode();
 	AsnLen bytesEnc;
+	#if 	SNACC_ENABLE_PDU
 	dirStr.BEncPdu(abuf, bytesEnc);
-	if(bytesEnc > bufLen) {
+	if(bytesEnc > bufLen) 
+	#else
+	bytesEnc = dirStr.BEnc(abuf);
+	if(abuf.WriteError() || (bytesEnc > bufLen)) 
+	#endif	/* SNACC_ENABLE_PDU */
+	{
 		#ifndef NDEBUG
 		printf("Whoops! Buffer overflow\n");
 		#endif
@@ -118,6 +125,56 @@ void NameBuilder::addATDV(
 	atdv->value.value = new CSM_Buffer(abuf.DataPtr(), abuf.DataLen());
 	free(buf);
 }
+
+void NameBuilder::addX509Name  (
+	const CSSM_X509_NAME *x509Name)
+{
+	/*
+	 * The main job here is extracting attr/value pairs in CSSM format 
+	 * from x509Name, and converting them into arguments for addATDV.
+	 * Note that we're taking the default for primaryDistinguished,
+	 * because the CDSA CSSM_X509_TYPE_VALUE_PAIR struct doesn't allow for
+	 * it. 
+	 */
+	for(unsigned rdnDex=0; rdnDex<x509Name->numberOfRDNs; rdnDex++) {
+		CSSM_X509_RDN_PTR rdn = &x509Name->RelativeDistinguishedName[rdnDex];
+		if(rdn->numberOfPairs != 1) {
+			errorLog0("setField_RDN: only one a/v pair per RDN supported\n");
+			CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
+		}
+
+		CSSM_X509_TYPE_VALUE_PAIR_PTR atv = rdn->AttributeTypeAndValue;
+		AsnOid oid;
+		oid.Set(reinterpret_cast<char *>(atv->type.Data), atv->type.Length);
+		
+		DirectoryString::ChoiceIdEnum stringType;
+		switch(atv->valueType) {
+			case BER_TAG_T61_STRING:
+				stringType = DirectoryString::teletexStringCid;
+				break;
+			case BER_TAG_PRINTABLE_STRING:
+				stringType = DirectoryString::printableStringCid;
+				break;
+			case BER_TAG_PKIX_UNIVERSAL_STRING:
+				stringType = DirectoryString::universalStringCid;
+				break;
+			case BER_TAG_PKIX_BMP_STRING:
+				stringType = DirectoryString::bmpStringCid;
+				break;
+			case BER_TAG_PKIX_UTF8_STRING:
+				stringType = DirectoryString::utf8StringCid;
+				break;
+			default:
+				errorLog1("setField_RDN: illegal tag(%d)\n", atv->valueType);
+				CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
+		}
+		addATDV(oid,
+			reinterpret_cast<char *>(atv->value.Data),
+			atv->value.Length,
+			stringType);
+	}
+}
+
 
 /*
  * Custom AsnOid, used for converting CssmOid to AsnOid. The Snacc class

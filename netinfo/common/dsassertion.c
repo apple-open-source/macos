@@ -91,7 +91,7 @@ dsassertion_test(dsassertion *t, dsrecord *r)
 		case DSA_LESS:
 			for (i = 0; i < a->count; i++)
 			{
-				if ((ttype != DataTypeAny) && (a->value[i]->type != ttype))
+				if (ComparableDataTypes(a->value[i]->type, ttype) == 0)
 					continue;
 				if (dsdata_compare(a->value[i], t->value) < 0)
 				{
@@ -106,7 +106,7 @@ dsassertion_test(dsassertion *t, dsrecord *r)
 		case DSA_LESS_OR_EQUAL:
 			for (i = 0; i < a->count; i++)
 			{
-				if ((ttype != DataTypeAny) && (a->value[i]->type != ttype))
+				if (ComparableDataTypes(a->value[i]->type, ttype) == 0)
 					continue;
 				if (dsdata_compare(a->value[i], t->value) <= 0)
 				{
@@ -122,7 +122,7 @@ dsassertion_test(dsassertion *t, dsrecord *r)
 		case DSA_APPROX:
 			for (i = 0; i < a->count; i++)
 			{
-				if ((ttype != DataTypeAny) && (a->value[i]->type != ttype))
+				if (ComparableDataTypes(a->value[i]->type, ttype) == 0)
 					continue;
 				if (dsdata_compare(a->value[i], t->value) == 0)
 				{
@@ -137,7 +137,7 @@ dsassertion_test(dsassertion *t, dsrecord *r)
 		case DSA_GREATER_OR_EQUAL:
 			for (i = 0; i < a->count; i++)
 			{
-				if ((ttype != DataTypeAny) && (a->value[i]->type != ttype))
+				if (ComparableDataTypes(a->value[i]->type, ttype) == 0)
 					continue;
 				if (dsdata_compare(a->value[i], t->value) >= 0)
 				{
@@ -152,7 +152,7 @@ dsassertion_test(dsassertion *t, dsrecord *r)
 		case DSA_GREATER:
 			for (i = 0; i < a->count; i++)
 			{
-				if ((ttype != DataTypeAny) && (a->value[i]->type != ttype))
+				if (ComparableDataTypes(a->value[i]->type, ttype) == 0)
 					continue;
 				if (dsdata_compare(a->value[i], t->value) > 0)
 				{
@@ -178,7 +178,7 @@ dsassertion_test(dsassertion *t, dsrecord *r)
 			len = t->value->length;
 			for (i = 0; i < a->count; i++)
 			{
-				if ((ttype != DataTypeAny) && (a->value[i]->type != ttype))
+				if (ComparableDataTypes(a->value[i]->type, ttype) == 0)
 					continue;
 				if (a->value[i]->length < len) continue;
 				if (dsdata_compare_sub(a->value[i], t->value, 0, len) == 0)
@@ -195,7 +195,7 @@ dsassertion_test(dsassertion *t, dsrecord *r)
 			len = t->value->length;
 			for (i = 0; i < a->count; i++)
 			{
-				if ((ttype != DataTypeAny) && (a->value[i]->type != ttype))
+				if (ComparableDataTypes(a->value[i]->type, ttype) == 0)
 					continue;
 				if (a->value[i]->length < len) continue;
 				n = a->value[i]->length - len;
@@ -216,7 +216,7 @@ dsassertion_test(dsassertion *t, dsrecord *r)
 			len = t->value->length;
 			for (i = 0; i < a->count; i++)
 			{
-				if ((ttype != DataTypeAny) && (a->value[i]->type != ttype))
+				if (ComparableDataTypes(a->value[i]->type, ttype) == 0)
 					continue;
 				if (a->value[i]->length < len) continue;
 				start = a->value[i]->length - len;

@@ -1,12 +1,11 @@
 ;;; elp.el --- Emacs Lisp Profiler
 
-;; Copyright (C) 1994,1995,1997,1998 Free Software Foundation, Inc.
+;; Copyright (C) 1994,1995,1997,1998, 2001 Free Software Foundation, Inc.
 
-;; Author:        1994-1998 Barry A. Warsaw
-;; Maintainer:    tools-help@python.org
-;; Created:       26-Feb-1994
-;; Version:       3.2
-;; Keywords:      debugging lisp tools
+;; Author: Barry A. Warsaw
+;; Maintainer: FSF
+;; Created: 26-Feb-1994
+;; Keywords: debugging lisp tools
 
 ;; This file is part of GNU Emacs.
 
@@ -94,7 +93,6 @@
 ;;   elp-set-master
 ;;   elp-unset-master
 ;;   elp-results
-;;   elp-submit-bug-report
 
 ;; Note that there are plenty of factors that could make the times
 ;; reported unreliable, including the accuracy and granularity of your
@@ -190,12 +188,6 @@ In other words, a new unique buffer is create every time you run
 ;; end of user configuration variables
 
 
-(defconst elp-version "3.2"
-  "ELP version number.")
-
-(defconst elp-help-address "tools-help@python.org"
-  "Address accepting submissions of bug reports and questions.")
-
 (defvar elp-results-buffer "*ELP Profiling Results*"
   "Buffer name for outputting profiling results.")
 
@@ -274,17 +266,23 @@ FUNSYM must be a symbol of a defined function."
     ;; put the info vector on the property list
     (put funsym elp-timer-info-property infovec)
 
-    ;; set the symbol's new profiling function definition to run
-    ;; elp-wrapper
-    (fset funsym newguts)
+    ;; Set the symbol's new profiling function definition to run
+    ;; elp-wrapper.
+    (let ((advice-info (get funsym 'ad-advice-info)))
+      (if advice-info
+	  (progn
+	    ;; If function is advised, don't let Advice change
+	    ;; its definition from under us during the `fset'.
+	    (put funsym 'ad-advice-info nil)
+	    (fset funsym newguts)
+	    (put funsym 'ad-advice-info advice-info))
+	(fset funsym newguts)))
 
     ;; add this function to the instrumentation list
     (or (memq funsym elp-all-instrumented-list)
 	(setq elp-all-instrumented-list
-	      (cons funsym elp-all-instrumented-list)))
-    ))
+	      (cons funsym elp-all-instrumented-list)))))
 
-;;;###autoload
 (defun elp-restore-function (funsym)
   "Restore an instrumented function to its original definition.
 Argument FUNSYM is the symbol of a defined function."
@@ -313,7 +311,7 @@ Argument FUNSYM is the symbol of a defined function."
     ;; the case that a lisp function can be compiled instrumented?
     (and info
 	 (functionp funsym)
-	 (not (compiled-function-p (symbol-function funsym)))
+	 (not (byte-code-function-p (symbol-function funsym)))
 	 (assq 'elp-wrapper (symbol-function funsym))
 	 (fset funsym (aref info 2)))))
 
@@ -332,6 +330,8 @@ For example, to instrument all ELP functions, do the following:
 
     \\[elp-instrument-package] RET elp- RET"
   (interactive "sPrefix of package to instrument: ")
+  (if (zerop (length prefix))
+      (error "Instrumenting all Emacs functions would render Emacs unusable"))
   (elp-instrument-list
    (mapcar
     'intern
@@ -362,7 +362,7 @@ Use optional LIST if provided instead."
   (interactive "aFunction to reset: ")
   (let ((info (get funsym elp-timer-info-property)))
     (or info
-	(error "%s is not instrumented for profiling." funsym))
+	(error "%s is not instrumented for profiling" funsym))
     (aset info 0 0)			;reset call counter
     (aset info 1 0.0)			;reset total time
     ;; don't muck with aref 2 as that is the old symbol definition
@@ -417,7 +417,7 @@ original definition, use \\[elp-restore-function] or \\[elp-restore-all]."
 	 (func (aref info 2))
 	 result)
     (or func
-	(error "%s is not instrumented for profiling." funsym))
+	(error "%s is not instrumented for profiling" funsym))
     (if (not elp-record-p)
 	;; when not recording, just call the original function symbol
 	;; and return the results.
@@ -586,23 +586,9 @@ displayed."
     (and elp-reset-after-results
 	 (elp-reset-all))))
 
-
-(eval-when-compile
- (require 'reporter))
-
-;;;###autoload
-(defun elp-submit-bug-report ()
-  "Submit via mail, a bug report on elp."
-  (interactive)
-  (and
-   (y-or-n-p "Do you want to submit a report on elp? ")
-   (require 'reporter)
-   (reporter-submit-bug-report
-    elp-help-address (concat "elp " elp-version)
-    '(elp-report-limit
-      elp-reset-after-results
-      elp-sort-by-function))))
+(defun elp-unload-hook ()
+  (elp-restore-all))
 
 (provide 'elp)
 
-;; elp.el ends here
+;;; elp.el ends here

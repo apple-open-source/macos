@@ -66,6 +66,14 @@ struct hints_info {
 __private_extern__ struct hints_info output_hints_info;
 
 /*
+ * The output file's prebind_cksum load command.
+ */
+struct cksum_info {
+    struct prebind_cksum_command prebind_cksum_command;
+};
+__private_extern__ struct cksum_info output_cksum_info;
+
+/*
  * The output file's thread load command and the machine specific information
  * for it.
  */

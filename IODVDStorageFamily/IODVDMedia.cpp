@@ -47,6 +47,16 @@ IOReturn IODVDMedia::reportKey( IOMemoryDescriptor * buffer,
                                 const UInt8          grantID,
                                 const DVDKeyFormat   format )
 {
+    if (isInactive())
+    {
+        return kIOReturnNoMedia;
+    }
+
+    if (buffer == 0 && format != kDVDKeyFormatAGID_Invalidate)
+    {
+        return kIOReturnBadArgument;
+    }
+
     return getProvider()->reportKey( /* buffer   */ buffer,
                                      /* keyClass */ keyClass,
                                      /* address  */ address,
@@ -63,6 +73,16 @@ IOReturn IODVDMedia::sendKey( IOMemoryDescriptor * buffer,
                               const UInt8          grantID,
                               const DVDKeyFormat   format )
 {
+    if (isInactive())
+    {
+        return kIOReturnNoMedia;
+    }
+
+    if (buffer == 0 && format != kDVDKeyFormatAGID_Invalidate)
+    {
+        return kIOReturnBadArgument;
+    }
+
     return getProvider()->sendKey( /* buffer   */ buffer,
                                    /* keyClass */ keyClass,
                                    /* grantID  */ grantID,
@@ -79,6 +99,16 @@ IOReturn IODVDMedia::readStructure( IOMemoryDescriptor *     buffer,
                                     const UInt8              layer,
                                     const UInt8              grantID )
 {
+    if (isInactive())
+    {
+        return kIOReturnNoMedia;
+    }
+
+    if (buffer == 0)
+    {
+        return kIOReturnBadArgument;
+    }
+
     return getProvider()->readStructure( /* buffer  */ buffer,
                                          /* format  */ format,
                                          /* address */ address,
@@ -92,6 +122,11 @@ OSMetaClassDefineReservedUsed(IODVDMedia, 2);
 
 IOReturn IODVDMedia::getSpeed(UInt16 * kilobytesPerSecond)
 {
+    if (isInactive())
+    {
+        return kIOReturnNoMedia;
+    }
+
     return getProvider()->getSpeed(kilobytesPerSecond);
 }
 
@@ -101,6 +136,11 @@ OSMetaClassDefineReservedUsed(IODVDMedia, 3);
 
 IOReturn IODVDMedia::setSpeed(UInt16 kilobytesPerSecond)
 {
+    if (isInactive())
+    {
+        return kIOReturnNoMedia;
+    }
+
     return getProvider()->setSpeed(kilobytesPerSecond);
 }
 
@@ -108,11 +148,58 @@ OSMetaClassDefineReservedUsed(IODVDMedia, 4);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IODVDMedia,  5);
+IOReturn IODVDMedia::readDiscInfo( IOMemoryDescriptor * buffer,
+                                   UInt16 *             actualByteCount )
+{
+    if (isInactive())
+    {
+        if (actualByteCount)  *actualByteCount = 0;
+
+        return kIOReturnNoMedia;
+    }
+
+    if (buffer == 0)
+    {
+        if (actualByteCount)  *actualByteCount = 0;
+
+        return kIOReturnBadArgument;
+    }
+
+    return getProvider()->readDiscInfo( /* buffer          */ buffer,
+                                        /* actualByteCount */ actualByteCount );
+}
+
+OSMetaClassDefineReservedUsed(IODVDMedia, 5);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IODVDMedia,  6);
+IOReturn IODVDMedia::readRZoneInfo( IOMemoryDescriptor *    buffer,
+                                    UInt32                  address,
+                                    DVDRZoneInfoAddressType addressType,
+                                    UInt16 *                actualByteCount )
+{
+    if (isInactive())
+    {
+        if (actualByteCount)  *actualByteCount = 0;
+
+        return kIOReturnNoMedia;
+    }
+
+    if (buffer == 0)
+    {
+        if (actualByteCount)  *actualByteCount = 0;
+
+        return kIOReturnBadArgument;
+    }
+
+    return getProvider()->readTrackInfo(
+                                        /* buffer          */ buffer,
+                                        /* address         */ address,
+                                        /* addressType     */ addressType,
+                                        /* actualByteCount */ actualByteCount );
+}
+
+OSMetaClassDefineReservedUsed(IODVDMedia, 6);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

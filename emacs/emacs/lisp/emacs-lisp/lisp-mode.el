@@ -1,6 +1,6 @@
-;;; lisp-mode.el --- Lisp mode, and its idiosyncratic commands.
+;;; lisp-mode.el --- Lisp mode, and its idiosyncratic commands
 
-;; Copyright (C) 1985, 1986 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1986, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: lisp, languages
@@ -25,77 +25,72 @@
 ;;; Commentary:
 
 ;; The base major mode for editing Lisp code (used also for Emacs Lisp).
-;; This mode is documented in the Emacs manual
+;; This mode is documented in the Emacs manual.
 
 ;;; Code:
 
-(defvar lisp-mode-syntax-table nil "")
-(defvar emacs-lisp-mode-syntax-table nil "")
-(defvar lisp-mode-abbrev-table nil "")
+(defvar lisp-mode-abbrev-table nil)
 
-(if (not emacs-lisp-mode-syntax-table)
+(defvar emacs-lisp-mode-syntax-table
+  (let ((table (make-syntax-table)))
     (let ((i 0))
-      (setq emacs-lisp-mode-syntax-table (make-syntax-table))
       (while (< i ?0)
-	(modify-syntax-entry i "_   " emacs-lisp-mode-syntax-table)
+	(modify-syntax-entry i "_   " table)
 	(setq i (1+ i)))
       (setq i (1+ ?9))
       (while (< i ?A)
-	(modify-syntax-entry i "_   " emacs-lisp-mode-syntax-table)
+	(modify-syntax-entry i "_   " table)
 	(setq i (1+ i)))
       (setq i (1+ ?Z))
       (while (< i ?a)
-	(modify-syntax-entry i "_   " emacs-lisp-mode-syntax-table)
+	(modify-syntax-entry i "_   " table)
 	(setq i (1+ i)))
       (setq i (1+ ?z))
       (while (< i 128)
-	(modify-syntax-entry i "_   " emacs-lisp-mode-syntax-table)
+	(modify-syntax-entry i "_   " table)
 	(setq i (1+ i)))
-      (modify-syntax-entry ?  "    " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?\t "    " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?\f "    " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?\n ">   " emacs-lisp-mode-syntax-table)
+      (modify-syntax-entry ?  "    " table)
+      (modify-syntax-entry ?\t "    " table)
+      (modify-syntax-entry ?\f "    " table)
+      (modify-syntax-entry ?\n ">   " table)
       ;; Give CR the same syntax as newline, for selective-display.
-      (modify-syntax-entry ?\^m ">   " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?\; "<   " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?` "'   " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?' "'   " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?, "'   " emacs-lisp-mode-syntax-table)
+      (modify-syntax-entry ?\^m ">   " table)
+      (modify-syntax-entry ?\; "<   " table)
+      (modify-syntax-entry ?` "'   " table)
+      (modify-syntax-entry ?' "'   " table)
+      (modify-syntax-entry ?, "'   " table)
       ;; Used to be singlequote; changed for flonums.
-      (modify-syntax-entry ?. "_   " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?# "'   " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?\" "\"    " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?\\ "\\   " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?\( "()  " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?\) ")(  " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?\[ "(]  " emacs-lisp-mode-syntax-table)
-      (modify-syntax-entry ?\] ")[  " emacs-lisp-mode-syntax-table)
-      ;; All non-word multibyte characters should be `symbol'.
-      (map-char-table
-       (function (lambda (key val) 
-		   (and (>= key 256)
-			(/= (char-syntax key) ?w)
-			(modify-syntax-entry key "_   " 
-					     emacs-lisp-mode-syntax-table))))
-       (standard-syntax-table))))
+      (modify-syntax-entry ?. "_   " table)
+      (modify-syntax-entry ?# "'   " table)
+      (modify-syntax-entry ?\" "\"    " table)
+      (modify-syntax-entry ?\\ "\\   " table)
+      (modify-syntax-entry ?\( "()  " table)
+      (modify-syntax-entry ?\) ")(  " table)
+      (modify-syntax-entry ?\[ "(]  " table)
+      (modify-syntax-entry ?\] ")[  " table))
+    table))
 
-(if (not lisp-mode-syntax-table)
-    (progn (setq lisp-mode-syntax-table
-		 (copy-syntax-table emacs-lisp-mode-syntax-table))
-	   (modify-syntax-entry ?\| "\"   " lisp-mode-syntax-table)
-	   (modify-syntax-entry ?\[ "_   " lisp-mode-syntax-table)
-	   (modify-syntax-entry ?\] "_   " lisp-mode-syntax-table)))
+(defvar lisp-mode-syntax-table
+  (let ((table (copy-syntax-table emacs-lisp-mode-syntax-table)))
+    (modify-syntax-entry ?\[ "_   " table)
+    (modify-syntax-entry ?\] "_   " table)
+    (modify-syntax-entry ?# "' 14bn" table)
+    (modify-syntax-entry ?| "\" 23b" table)
+    table))
 
 (define-abbrev-table 'lisp-mode-abbrev-table ())
 
 (defvar lisp-imenu-generic-expression
-      '(
-	(nil 
-	 "^\\s-*(def\\(un\\|subst\\|macro\\|advice\\|ine-skeleton\\)\\s-+\\([-A-Za-z0-9+*|:/]+\\)" 2)
-	("Variables" 
-	 "^\\s-*(def\\(var\\|const\\|custom\\)\\s-+\\([-A-Za-z0-9+*|:/]+\\)" 2)
-	("Types" 
-	 "^\\s-*(def\\(group\\|type\\|struct\\|class\\|ine-condition\\)\\s-+\\([-A-Za-z0-9+*|:/]+\\)" 
+  (list
+   (list nil
+	 (purecopy "^\\s-*(def\\(un\\*?\\|subst\\|macro\\|advice\\|\
+ine-skeleton\\|ine-minor-mode\\)\\s-+\\(\\sw\\(\\sw\\|\\s_\\)+\\)") 2)
+   (list (purecopy "Variables")
+	 (purecopy "^\\s-*(def\\(var\\|const\\|custom\\)\\s-+\
+\\(\\sw\\(\\sw\\|\\s_\\)+\\)") 2)
+   (list (purecopy "Types")
+	 (purecopy "^\\s-*(def\\(group\\|type\\|struct\\|class\\|\
+ine-condition\\|ine-widget\\|face\\)\\s-+'?\\(\\sw\\(\\sw\\|\\s_\\)+\\)")
 	 2))
 
   "Imenu generic expression for Lisp mode.  See `imenu-generic-expression'.")
@@ -126,38 +121,60 @@
   (make-local-variable 'parse-sexp-ignore-comments)
   (setq parse-sexp-ignore-comments t)
   (make-local-variable 'outline-regexp)
-  (setq outline-regexp ";;; \\|(....")
+  (setq outline-regexp ";;;;* \\|(")
+  (make-local-variable 'outline-level)
+  (setq outline-level 'lisp-outline-level)
   (make-local-variable 'comment-start)
   (setq comment-start ";")
   (make-local-variable 'comment-start-skip)
   ;; Look within the line for a ; following an even number of backslashes
   ;; after either a non-backslash or the line beginning.
   (setq comment-start-skip "\\(\\(^\\|[^\\\\\n]\\)\\(\\\\\\\\\\)*\\);+ *")
+  (make-local-variable 'comment-add)
+  (setq comment-add 1)			;default to `;;' in comment-region
   (make-local-variable 'comment-column)
   (setq comment-column 40)
   (make-local-variable 'comment-indent-function)
   (setq comment-indent-function 'lisp-comment-indent)
   (make-local-variable 'imenu-generic-expression)
-  (setq imenu-generic-expression lisp-imenu-generic-expression))
-
-(defvar shared-lisp-mode-map ()
-  "Keymap for commands shared by all sorts of Lisp modes.")
+  (setq imenu-generic-expression lisp-imenu-generic-expression)
+  (make-local-variable 'multibyte-syntax-as-symbol)
+  (setq multibyte-syntax-as-symbol t)
+  (setq font-lock-defaults
+	'((lisp-font-lock-keywords
+	   lisp-font-lock-keywords-1 lisp-font-lock-keywords-2)
+	  nil nil (("+-*/.<>=!?$%_&~^:" . "w")) beginning-of-defun
+	  (font-lock-mark-block-function . mark-defun))))
 
-(if shared-lisp-mode-map
-    ()
-   (setq shared-lisp-mode-map (make-sparse-keymap))
-   (define-key shared-lisp-mode-map "\e\C-q" 'indent-sexp)
-   (define-key shared-lisp-mode-map "\177" 'backward-delete-char-untabify))
+(defun lisp-outline-level ()
+  "Lisp mode `outline-level' function."
+  (if (looking-at "(")
+      1000
+    (looking-at outline-regexp)
+    (- (match-end 0) (match-beginning 0))))
+
+
+(defvar lisp-mode-shared-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\t" 'lisp-indent-line)
+    (define-key map "\e\C-q" 'indent-sexp)
+    (define-key map "\177" 'backward-delete-char-untabify)
+    ;; This gets in the way when viewing a Lisp file in view-mode.  As
+    ;; long as [backspace] is mapped into DEL via the
+    ;; function-key-map, this should remain disabled!!
+    ;;;(define-key map [backspace] 'backward-delete-char-untabify)
+    map)
+  "Keymap for commands shared by all sorts of Lisp modes.")
 
 (defvar emacs-lisp-mode-map ()
   "Keymap for Emacs Lisp mode.
-All commands in `shared-lisp-mode-map' are inherited by this map.")
+All commands in `lisp-mode-shared-map' are inherited by this map.")
 
 (if emacs-lisp-mode-map
     ()
   (let ((map (make-sparse-keymap "Emacs-Lisp")))
     (setq emacs-lisp-mode-map (make-sparse-keymap))
-    (set-keymap-parent emacs-lisp-mode-map shared-lisp-mode-map)
+    (set-keymap-parent emacs-lisp-mode-map lisp-mode-shared-map)
     (define-key emacs-lisp-mode-map "\e\t" 'lisp-complete-symbol)
     (define-key emacs-lisp-mode-map "\e\C-x" 'eval-defun)
     (define-key emacs-lisp-mode-map [menu-bar] (make-sparse-keymap))
@@ -198,14 +215,32 @@ All commands in `shared-lisp-mode-map' are inherited by this map.")
   (require 'bytecomp)
   ;; Recompile if file or buffer has changed since last compilation.
   (if (and (buffer-modified-p)
-	   (y-or-n-p (format "save buffer %s first? " (buffer-name))))
+	   (y-or-n-p (format "Save buffer %s first? " (buffer-name))))
       (save-buffer))
   (let ((compiled-file-name (byte-compile-dest-file buffer-file-name)))
     (if (file-newer-than-file-p compiled-file-name buffer-file-name)
 	(load-file compiled-file-name)
       (byte-compile-file buffer-file-name t))))
 
-(defun emacs-lisp-mode ()
+(defcustom emacs-lisp-mode-hook nil
+  "Hook run when entering Emacs Lisp mode."
+  :options '(turn-on-eldoc-mode imenu-add-menubar-index checkdoc-minor-mode)
+  :type 'hook
+  :group 'lisp)
+
+(defcustom lisp-mode-hook nil
+  "Hook run when entering Lisp mode."
+  :options '(imenu-add-menubar-index)
+  :type 'hook
+  :group 'lisp)
+
+(defcustom lisp-interaction-mode-hook nil
+  "Hook run when entering Lisp Interaction mode."
+  :options '(turn-on-eldoc-mode)
+  :type 'hook
+  :group 'lisp)
+
+(define-derived-mode emacs-lisp-mode nil "Emacs-Lisp"
   "Major mode for editing Lisp code to run in Emacs.
 Commands:
 Delete converts tabs to spaces as it moves back.
@@ -213,28 +248,19 @@ Blank lines separate paragraphs.  Semicolons start comments.
 \\{emacs-lisp-mode-map}
 Entry to this mode calls the value of `emacs-lisp-mode-hook'
 if that value is non-nil."
-  (interactive)
-  (kill-all-local-variables)
-  (use-local-map emacs-lisp-mode-map)
-  (set-syntax-table emacs-lisp-mode-syntax-table)
-  (setq major-mode 'emacs-lisp-mode)
-  (setq mode-name "Emacs-Lisp")
   (lisp-mode-variables nil)
-  (setq imenu-case-fold-search nil)
-  (run-hooks 'emacs-lisp-mode-hook))
+  (setq imenu-case-fold-search nil))
 
-(defvar lisp-mode-map ()
+(defvar lisp-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map lisp-mode-shared-map)
+    (define-key map "\e\C-x" 'lisp-eval-defun)
+    (define-key map "\C-c\C-z" 'run-lisp)
+    map)
   "Keymap for ordinary Lisp mode.
-All commands in `shared-lisp-mode-map' are inherited by this map.")
+All commands in `lisp-mode-shared-map' are inherited by this map.")
 
-(if lisp-mode-map
-    ()
-  (setq lisp-mode-map (make-sparse-keymap))
-  (set-keymap-parent lisp-mode-map shared-lisp-mode-map)
-  (define-key lisp-mode-map "\e\C-x" 'lisp-eval-defun)
-  (define-key lisp-mode-map "\C-c\C-z" 'run-lisp))
-
-(defun lisp-mode ()
+(define-derived-mode lisp-mode nil "Lisp"
   "Major mode for editing Lisp code for Lisps other than GNU Emacs Lisp.
 Commands:
 Delete converts tabs to spaces as it moves back.
@@ -245,38 +271,33 @@ or to switch back to an existing one.
 
 Entry to this mode calls the value of `lisp-mode-hook'
 if that value is non-nil."
-  (interactive)
-  (kill-all-local-variables)
-  (use-local-map lisp-mode-map)
-  (setq major-mode 'lisp-mode)
-  (setq mode-name "Lisp")
   (lisp-mode-variables t)
-  (setq imenu-case-fold-search t)
-  (set-syntax-table lisp-mode-syntax-table)
-  (run-hooks 'lisp-mode-hook))
+  (make-local-variable 'font-lock-keywords-case-fold-search)
+  (setq font-lock-keywords-case-fold-search t)
+  (setq imenu-case-fold-search t))
 
-;; This will do unless shell.el is loaded.
-(defun lisp-eval-defun nil
+;; This will do unless inf-lisp.el is loaded.
+(defun lisp-eval-defun (&optional and-go)
   "Send the current defun to the Lisp process made by \\[run-lisp]."
   (interactive)
   (error "Process lisp does not exist"))
 
-(defvar lisp-interaction-mode-map ()
+(defvar lisp-interaction-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map lisp-mode-shared-map)
+    (define-key map "\e\C-x" 'eval-defun)
+    (define-key map "\e\t" 'lisp-complete-symbol)
+    (define-key map "\n" 'eval-print-last-sexp)
+    map)
   "Keymap for Lisp Interaction mode.
-All commands in `shared-lisp-mode-map' are inherited by this map.")
+All commands in `lisp-mode-shared-map' are inherited by this map.")
 
-(if lisp-interaction-mode-map
-    ()
-  (setq lisp-interaction-mode-map (make-sparse-keymap))
-  (set-keymap-parent lisp-interaction-mode-map shared-lisp-mode-map)
-  (define-key lisp-interaction-mode-map "\e\C-x" 'eval-defun)
-  (define-key lisp-interaction-mode-map "\e\t" 'lisp-complete-symbol)
-  (define-key lisp-interaction-mode-map "\n" 'eval-print-last-sexp))
-
-(defun lisp-interaction-mode ()
+(define-derived-mode lisp-interaction-mode emacs-lisp-mode "Lisp Interaction"
   "Major mode for typing and evaluating Lisp forms.
 Like Lisp mode except that \\[eval-print-last-sexp] evals the Lisp expression
 before point, and prints its value into the buffer, advancing point.
+Note that printing is controled by `eval-expression-print-length'
+and `eval-expression-print-level'.
 
 Commands:
 Delete converts tabs to spaces as it moves back.
@@ -284,30 +305,64 @@ Paragraphs are separated only by blank lines.
 Semicolons start comments.
 \\{lisp-interaction-mode-map}
 Entry to this mode calls the value of `lisp-interaction-mode-hook'
-if that value is non-nil."
-  (interactive)
-  (kill-all-local-variables)
-  (use-local-map lisp-interaction-mode-map)
-  (setq major-mode 'lisp-interaction-mode)
-  (setq mode-name "Lisp Interaction")
-  (set-syntax-table emacs-lisp-mode-syntax-table)
-  (lisp-mode-variables nil)
-  (run-hooks 'lisp-interaction-mode-hook))
+if that value is non-nil.")
 
 (defun eval-print-last-sexp ()
-  "Evaluate sexp before point; print value into current buffer."
+  "Evaluate sexp before point; print value into current buffer.
+
+Note that printing the result is controlled by the variables
+`eval-expression-print-length' and `eval-expression-print-level',
+which see."
   (interactive)
   (let ((standard-output (current-buffer)))
     (terpri)
     (eval-last-sexp t)
     (terpri)))
-
-(defun eval-last-sexp (eval-last-sexp-arg-internal)
+
+
+(defun last-sexp-setup-props (beg end value alt1 alt2)
+  "Set up text properties for the output of `eval-last-sexp-1'.
+BEG and END are the start and end of the output in current-buffer.
+VALUE is the Lisp value printed, ALT1 and ALT2 are strings for the 
+alternative printed representations that can be displayed."
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-m" 'last-sexp-toggle-display)
+    (define-key map [down-mouse-2] 'mouse-set-point)
+    (define-key map [mouse-2] 'last-sexp-toggle-display)
+    (add-text-properties
+     beg end 
+     `(printed-value (,value ,alt1 ,alt2)
+		     mouse-face highlight 
+		     keymap ,map
+		     help-echo "RET, mouse-2: toggle abbreviated display"
+		     rear-nonsticky (mouse-face keymap help-echo
+						printed-value)))))
+
+
+(defun last-sexp-toggle-display ()
+  "Toggle between abbreviated and unabbreviated printed representations."
+  (interactive)
+  (let ((value (get-text-property (point) 'printed-value)))
+    (when value
+      (let ((beg (previous-single-property-change (point) 'printed-value))
+	    (end (next-single-char-property-change (point) 'printed-value))
+	    (standard-output (current-buffer))
+	    (point (point)))
+	(delete-region beg end)
+	(insert (nth 1 value))
+	(last-sexp-setup-props beg (point) 
+			       (nth 0 value)
+			       (nth 2 value)
+			       (nth 1 value))
+	(goto-char (min (point-max) point))))))
+
+
+(defun eval-last-sexp-1 (eval-last-sexp-arg-internal)
   "Evaluate sexp before point; print value in minibuffer.
 With argument, print output into current buffer."
-  (interactive "P")
   (let ((standard-output (if eval-last-sexp-arg-internal (current-buffer) t)))
-    (prin1 (eval (let ((stab (syntax-table))
+    (let ((value
+	   (eval (let ((stab (syntax-table))
 		       (opoint (point))
 		       ignore-quotes
 		       expr)
@@ -320,10 +375,26 @@ With argument, print output into current buffer."
 			       (or (eq (following-char) ?\')
 				   (eq (preceding-char) ?\')))
 			 (forward-sexp -1)
+			 ;; If we were after `?\e' (or similar case),
+			 ;; use the whole thing, not just the `e'.
+			 (when (eq (preceding-char) ?\\)
+			   (forward-char -1)
+			   (when (eq (preceding-char) ??)
+			     (forward-char -1)))
+
+			 ;; Skip over `#N='s.
+			 (when (eq (preceding-char) ?=)
+			   (let (labeled-p)
+			     (save-excursion
+			       (skip-chars-backward "0-9#=")
+			       (setq labeled-p (looking-at "\\(#[0-9]+=\\)+")))
+			     (when labeled-p
+			       (forward-sexp -1))))
+
 			 (save-restriction
 			   ;; vladimir@cs.ualberta.ca 30-Jul-1997: skip ` in
 			   ;; `variable' so that the value is returned, not the
-			   ;; name 
+			   ;; name
 			   (if (and ignore-quotes
 				    (eq (following-char) ?`))
 			       (forward-char))
@@ -342,9 +413,61 @@ With argument, print output into current buffer."
 							expr
 							'args)))))
 			   expr))
-		     (set-syntax-table stab)))))))
+		     (set-syntax-table stab))))))
+      (let ((unabbreviated (let ((print-length nil) (print-level nil))
+			     (prin1-to-string value)))
+	    (print-length eval-expression-print-length)
+	    (print-level eval-expression-print-level)
+	    (beg (point))
+	    end)
+	(prin1 value)
+	(setq end (point))
+	(when (and (bufferp standard-output)
+		   (or (not (null print-length))
+		       (not (null print-level)))
+		   (not (string= unabbreviated
+				 (buffer-substring-no-properties beg end))))
+	  (last-sexp-setup-props beg end value 
+				 unabbreviated
+				 (buffer-substring-no-properties beg end))
+	  )))))
 
-(defun eval-defun (eval-defun-arg-internal)
+
+(defun eval-last-sexp (eval-last-sexp-arg-internal)
+  "Evaluate sexp before point; print value in minibuffer.
+Interactively, with prefix argument, print output into current buffer."
+  (interactive "P")
+  (if (null eval-expression-debug-on-error)
+      (eval-last-sexp-1 eval-last-sexp-arg-internal)
+    (let ((old-value (make-symbol "t")) new-value value)
+      (let ((debug-on-error old-value))
+	(setq value (eval-last-sexp-1 eval-last-sexp-arg-internal))
+	(setq new-value debug-on-error))
+      (unless (eq old-value new-value)
+	(setq debug-on-error new-value))
+      value)))
+
+(defun eval-defun-1 (form)
+  "Change defvar into defconst within FORM.
+Likewise for other constructs as necessary."
+  ;; The code in edebug-defun should be consistent with this, but not
+  ;; the same, since this gets a macroexpended form.
+  (cond ((and (eq (car form) 'defvar)
+	      (cdr-safe (cdr-safe form)))
+	 ;; Force variable to be bound.
+	 (cons 'defconst (cdr form)))
+	;; `defcustom' is now macroexpanded to
+	;; `custom-declare-variable' with a quoted value arg.
+	((and (eq (car form) 'custom-declare-variable)
+	      (default-boundp (eval (nth 1 form))))
+	 ;; Force variable to be bound.
+	 (set-default (eval (nth 1 form)) (eval (nth 1 (nth 2 form))))
+	 form)
+	((eq (car form) 'progn)
+	 (cons 'progn (mapcar 'eval-defun-1 (cdr form))))
+	(t form)))
+
+(defun eval-defun-2 ()
   "Evaluate defun that point is in or before.
 The value is displayed in the minibuffer.
 If the current defun is actually a call to `defvar',
@@ -356,37 +479,70 @@ if it already has a value.\)
 With argument, insert value in current buffer after the defun.
 Return the result of evaluation."
   (interactive "P")
-  (let ((standard-output (if eval-defun-arg-internal (current-buffer) t))
-	 beg end form)
-    ;; Read the form from the buffer, and record where it ends.
+  (let ((debug-on-error eval-expression-debug-on-error)
+	(print-length eval-expression-print-length)
+	(print-level eval-expression-print-level))
     (save-excursion
-      (end-of-defun)
-      (beginning-of-defun)
-      (setq beg (point))
-      (setq form (read (current-buffer)))
-      (setq end (point)))
-    ;; Alter the form if necessary.
-    (cond ((and (eq (car form) 'defvar)
-		(cdr-safe (cdr-safe form)))
-	   ;; Force variable to be bound.
-	   (setq form (cons 'defconst (cdr form))))
-	  ((and (eq (car form) 'defcustom)
-		(default-boundp (nth 1 form)))
-	   ;; Force variable to be bound.
-	   (set-default (nth 1 form) (eval (nth 2 form)))))
-    ;; Now arrange for eval-region to "read" the (possibly) altered form.
-    ;; eval-region handles recording which file defines a function or variable.
-    (save-excursion
-      (eval-region beg end standard-output
-		   #'(lambda (ignore)
-		       ;; Skipping to the end of the specified region
-		       ;; will make eval-region return.
-		       (goto-char end)
-		       form))
-      ;; The result of evaluation has been put onto VALUES.
-      ;; So return it.
-      (car values))))
-
+      ;; Arrange for eval-region to "read" the (possibly) altered form.
+      ;; eval-region handles recording which file defines a function or
+      ;; variable.  Re-written using `apply' to avoid capturing
+      ;; variables like `end'.
+      (apply
+       #'eval-region
+       (let ((standard-output t)
+	     beg end form)
+	 ;; Read the form from the buffer, and record where it ends.
+	 (save-excursion
+	   (end-of-defun)
+	   (beginning-of-defun)
+	   (setq beg (point))
+	   (setq form (read (current-buffer)))
+	   (setq end (point)))
+	 ;; Alter the form if necessary, changing defvar into defconst, etc.
+	 (setq form (eval-defun-1 (macroexpand form)))
+	 (list beg end standard-output
+	       `(lambda (ignore)
+		 ;; Skipping to the end of the specified region
+		 ;; will make eval-region return.
+		 (goto-char ,end)
+		 ',form))))))
+  ;; The result of evaluation has been put onto VALUES.  So return it.
+  (car values))
+
+(defun eval-defun (edebug-it)
+  "Evaluate the top-level form containing point, or after point.
+
+If the current defun is actually a call to `defvar', then reset the
+variable using its initial value expression even if the variable
+already has some other value.  (Normally `defvar' does not change the
+variable's value if it already has a value.)
+
+With a prefix argument, instrument the code for Edebug.
+
+If acting on a `defun' for FUNCTION, and the function was
+instrumented, `Edebug: FUNCTION' is printed in the minibuffer.  If not
+instrumented, just FUNCTION is printed.
+
+If not acting on a `defun', the result of evaluation is displayed in
+the minibuffer.  This display is controlled by the variables
+`eval-expression-print-length' and `eval-expression-print-level',
+which see."
+  (interactive "P")
+  (cond (edebug-it
+	 (require 'edebug)
+	 (eval-defun (not edebug-all-defs)))
+	(t
+	 (if (null eval-expression-debug-on-error)
+	     (eval-defun-2)
+	   (let ((old-value (make-symbol "t")) new-value value)
+	     (let ((debug-on-error old-value))
+	       (setq value (eval-defun-2))
+	       (setq new-value debug-on-error))
+	     (unless (eq old-value new-value)
+	       (setq debug-on-error new-value))
+	     value)))))
+
+
 (defun lisp-comment-indent ()
   (if (looking-at "\\s<\\s<\\s<")
       (current-column)
@@ -408,8 +564,9 @@ Return the result of evaluation."
 	(let ((comment-start nil) (comment-start-skip nil))
 	  (do-auto-fill)))))
 
-(defvar lisp-indent-offset nil "")
-(defvar lisp-indent-function 'lisp-indent-function "")
+(defvar lisp-indent-offset nil
+  "If non-nil, indent second line of expressions that many more columns.")
+(defvar lisp-indent-function 'lisp-indent-function)
 
 (defun lisp-indent-line (&optional whole-exp)
   "Indent current line as Lisp code.
@@ -525,7 +682,7 @@ is the buffer position of the start of the containing expression."
 		 (backward-prefix-chars))
 		(t
 		 ;; Indent beneath first sexp on same line as
-		 ;; calculate-lisp-indent-last-sexp.  Again, it's
+		 ;; `calculate-lisp-indent-last-sexp'.  Again, it's
 		 ;; almost certainly a function call.
 		 (goto-char calculate-lisp-indent-last-sexp)
 		 (beginning-of-line)
@@ -644,7 +801,7 @@ is the buffer position of the start of the containing expression."
 	(goto-char (car (cdr state)))
 	(+ lisp-body-indent (current-column)))))
 
-
+
 ;; (put 'progn 'lisp-indent-function 0), say, causes progn to be indented
 ;; like defun if the first form is placed on the next line, otherwise
 ;; it is indented like any other form (i.e. forms line up under first).
@@ -666,6 +823,7 @@ is the buffer position of the start of the containing expression."
 (put 'with-temp-file 'lisp-indent-function 1)
 (put 'with-temp-buffer 'lisp-indent-function 0)
 (put 'with-temp-message 'lisp-indent-function 1)
+(put 'with-syntax-table 'lisp-indent-function 1)
 (put 'let 'lisp-indent-function 1)
 (put 'let* 'lisp-indent-function 1)
 (put 'while 'lisp-indent-function 1)
@@ -675,6 +833,10 @@ is the buffer position of the start of the containing expression."
 (put 'unwind-protect 'lisp-indent-function 1)
 (put 'with-output-to-temp-buffer 'lisp-indent-function 1)
 (put 'eval-after-load 'lisp-indent-function 1)
+(put 'dolist 'lisp-indent-function 1)
+(put 'dotimes 'lisp-indent-function 1)
+(put 'when 'lisp-indent-function 1)
+(put 'unless 'lisp-indent-function 1)
 
 (defun indent-sexp (&optional endpos)
   "Indent each line of the list starting just after point.
@@ -730,8 +892,8 @@ ENDPOS is encountered."
 	(and endpos
 	     (<= next-depth 0)
 	     (progn
-	       (setq indent-stack (append indent-stack
-					  (make-list (- next-depth) nil))
+	       (setq indent-stack (nconc indent-stack
+					 (make-list (- next-depth) nil))
 		     last-depth (- last-depth next-depth)
 		     next-depth 0)))
 	(or outer-loop-done endpos
@@ -773,8 +935,8 @@ ENDPOS is encountered."
 	    (setq outer-loop-done (= (point) last-point))
 	    (setq last-point (point)))))))
 
-;; Indent every line whose first char is between START and END inclusive.
 (defun lisp-indent-region (start end)
+  "Indent every line whose first char is between START and END inclusive."
   (save-excursion
     (let ((endmark (copy-marker end)))
       (goto-char start)
@@ -782,7 +944,7 @@ ENDPOS is encountered."
 	   (lisp-indent-line))
       (indent-sexp endmark)
       (set-marker endmark nil))))
-
+
 ;;;; Lisp paragraph filling commands.
 
 (defun lisp-fill-paragraph (&optional justify)
@@ -892,7 +1054,7 @@ and initial semicolons."
 					  (re-search-forward comment-start-skip)
 					  (point))))))))
     t))
-
+
 (defun indent-code-rigidly (start end arg &optional nochange-regexp)
   "Indent all lines of code, starting in the region, sideways by ARG columns.
 Does not affect lines starting inside comments or strings, assuming that

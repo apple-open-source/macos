@@ -110,7 +110,7 @@ void	(*func)();
 	if( DEBUG_BINDSCAN )
 	    printf( "scan directory %s\n", dir );
 
-	while( dirent = readdir( d ) )
+	while( (dirent = readdir( d )) != NULL )
 	{
 # ifdef old_sinix
 	    /* Broken structure definition on sinix. */

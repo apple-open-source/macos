@@ -1,8 +1,9 @@
 ;;; cc-menus.el --- imenu support for CC Mode
 
-;; Copyright (C) 1985,87,92,93,94,95,96,97,98 Free Software Foundation, Inc.
+;; Copyright (C) 1985,1987,1992-2001 Free Software Foundation, Inc.
 
-;; Authors:    1998 Barry A. Warsaw and Martin Stjernholm
+;; Authors:    2000- Martin Stjernholm
+;;	       1998-1999 Barry A. Warsaw and Martin Stjernholm
 ;;             1992-1997 Barry A. Warsaw
 ;;             1987 Dave Detlefs and Stewart Clamen
 ;;             1985 Richard M. Stallman
@@ -24,15 +25,31 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+;; along with this program; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
-;; Pull in Imenu when compiling, if it exists
+;;; Commentary:
+
+;;; Code:
+
 (eval-when-compile
-  (condition-case nil
-      (require 'imenu)
-    (error nil)))
+  (let ((load-path
+	 (if (and (boundp 'byte-compile-dest-file)
+		  (stringp byte-compile-dest-file))
+	     (cons (file-name-directory byte-compile-dest-file) load-path)
+	   load-path)))
+    (require 'cc-bytecomp)))
+
+;; Try to pull in imenu if it exists.
+(condition-case nil
+    (require 'imenu)
+  (error nil))
+
+;; The things referenced in imenu, which we don't require.
+(cc-bytecomp-defvar imenu-case-fold-search)
+(cc-bytecomp-defvar imenu-generic-expression)
+(cc-bytecomp-defun imenu-progress-message)
 
 
 ;; imenu integration
@@ -52,14 +69,12 @@ For example:
 A sample value might look like: `\\(_P\\|_PROTO\\)'.")
 
 (defvar cc-imenu-c++-generic-expression
-  (` 
-   (
+  `(
     ;; Try to match ::operator definitions first. Otherwise `X::operator new ()'
     ;; will be incorrectly recognised as function `new ()' because the regexps
     ;; work by backtracking from the end of the definition.
     (nil
-     (, 
-      (concat
+     ,(concat
        "^\\<.*"
        "[^a-zA-Z0-9_:<>~]"                    ; match any non-identifier char
                                               ; (note: this can be `\n')
@@ -77,37 +92,35 @@ A sample value might look like: `\\(_P\\|_PROTO\\)'.")
                                               ; the parentheses surrounding
                                               ; the parameters.  e.g.:
                                               ; `int foo(int a=bar()) {...}'
-       )) 1)
+       ) 1)
     ;; Special case to match a line like `main() {}'
     ;; e.g. no return type, not even on the previous line.
     (nil
-     (, 
-      (concat
+     ,(concat
        "^"
        "\\([a-zA-Z_][a-zA-Z0-9_:<>~]*\\)"     ; match function name
        "[ \t]*("			      ; see above, BUT
        "[ \t]*\\([^ \t(*][^)]*\\)?)"          ; the arg list must not start
        "[ \t]*[^ \t;(]"                       ; with an asterisk or parentheses
-       )) 1)
+       ) 1)
     ;; General function name regexp
     (nil
-     (, 
-      (concat
-       "^\\<.*"                               ; line MUST start with word char
+     ,(concat
+       "^\\<"                                 ; line MUST start with word char
+       "[^()]*"                               ; no parentheses before
        "[^a-zA-Z0-9_:<>~]"                    ; match any non-identifier char
        "\\([a-zA-Z_][a-zA-Z0-9_:<>~]*\\)"     ; match function name
        "[ \t]*("			      ; see above, BUT
        "[ \t]*\\([^ \t(*][^)]*\\)?)"          ; the arg list must not start
        "[ \t]*[^ \t;(]"                       ; with an asterisk or parentheses
-       )) 1)
+       ) 1)
     ;; Special case for definitions using phony prototype macros like:
     ;; `int main _PROTO( (int argc,char *argv[]) )'.
     ;; This case is only included if cc-imenu-c-prototype-macro-regexp is set.
     ;; Only supported in c-code, so no `:<>~' chars in function name!
-    (,@ (if cc-imenu-c-prototype-macro-regexp
-            (` ((nil
-                 (,
-                  (concat
+    ,@(if cc-imenu-c-prototype-macro-regexp
+            `((nil
+                 ,(concat
                    "^\\<.*"                   ; line MUST start with word char
                    "[^a-zA-Z0-9_]"            ; match any non-identifier char
                    "\\([a-zA-Z_][a-zA-Z0-9_]*\\)"       ; match function name
@@ -115,19 +128,19 @@ A sample value might look like: `\\(_P\\|_PROTO\\)'.")
                    cc-imenu-c-prototype-macro-regexp
                    "[ \t]*("                  ; ws followed by first paren.
                    "[ \t]*([^)]*)[ \t]*)[ \t]*[^ \t;]" ; see above
-                   )) 1)))))
+                   ) 1)))
     ;; Class definitions
     ("Class" 
-     (, (concat 
+     ,(concat
          "^"                                  ; beginning of line is required
          "\\(template[ \t]*<[^>]+>[ \t]*\\)?" ; there may be a `template <...>'
-         "class[ \t]+"
+         "\\(class\\|struct\\)[ \t]+"
          "\\("                                ; the string we want to get
          "[a-zA-Z0-9_]+"                      ; class name
-         "\\(<[^>]+>\\)?"                     ; possibly explicitely specialized
+         "\\(<[^>]+>\\)?"                     ; possibly explicitly specialized
          "\\)"
-         "[ \t]*[:{]"
-         )) 2)))
+         "[ \t\n]*[:{]"
+         ) 3))
   "Imenu generic expression for C++ mode.  See `imenu-generic-expression'.")
  
 (defvar cc-imenu-c-generic-expression
@@ -135,22 +148,20 @@ A sample value might look like: `\\(_P\\|_PROTO\\)'.")
   "Imenu generic expression for C mode.  See `imenu-generic-expression'.")
 
 (defvar cc-imenu-java-generic-expression
-  (`
-   ((nil
-     (,
-      (concat
+  `((nil
+     ,(concat
        "^\\([ \t]\\)*"
-       "\\([A-Za-z0-9_-]+[ \t]+\\)?"	      ; type specs; there can be
-        "\\([A-Za-z0-9_-]+[ \t]+\\)?"	      ; more than 3 tokens, right?
-       "\\([A-Za-z0-9_-]+[ \t]*[[]?[]]?\\)"
+       "\\([.A-Za-z0-9_-]+[ \t]+\\)?"	      ; type specs; there can be
+       "\\([.A-Za-z0-9_-]+[ \t]+\\)?"	      ; more than 3 tokens, right?
+       "\\([.A-Za-z0-9_-]+[ \t]*[[]?[]]?\\)"
        "\\([ \t]\\)"
        "\\([A-Za-z0-9_-]+\\)"		      ; the string we want to get
        "\\([ \t]*\\)+("
-       "[][a-zA-Z,_1-9\n \t]*"   ; arguments
+       "[][a-zA-Z,_1-9\n \t]*"		      ; arguments
        ")[ \t]*"
 ;       "[^;(]"
        "[,a-zA-Z_1-9\n \t]*{"               
-       )) 6)))
+       ) 6))
   "Imenu generic expression for Java mode.  See `imenu-generic-expression'.")
 
 ;;                        *Warning for cc-mode developers* 
@@ -398,6 +409,11 @@ Example:
 ;  ())
 ; FIXME: Please contribute one!
 
+(defun cc-imenu-init (mode-generic-expression)
+  (setq imenu-generic-expression mode-generic-expression
+	imenu-case-fold-search nil))
+
 
-(provide 'cc-menus)
+(cc-provide 'cc-menus)
+
 ;;; cc-menus.el ends here

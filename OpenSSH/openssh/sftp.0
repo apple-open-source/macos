@@ -34,10 +34,10 @@ DESCRIPTION
              rename, ln, rm, mkdir, chdir, lchdir and lmkdir.
 
      -o ssh_option
-             Can be used to pass options to ssh in the format used in the
-             ssh(1) configuration file. This is useful for specifying options
-             for which there is no separate sftp command-line flag.  For examM--
-             ple, to specify an alternate port use: sftp -oPort=24.
+             Can be used to pass options to ssh in the format used in
+             ssh_config(5).  This is useful for specifying options for which
+             there is no separate sftp command-line flag.  For example, to
+             specify an alternate port use: sftp -oPort=24.
 
      -s subsystem | sftp_server
              Specifies the SSH2 subsystem or the path for an sftp server on
@@ -160,7 +160,8 @@ AUTHORS
      Damien Miller <djm@mindrot.org>
 
 SEE ALSO
-     scp(1), ssh(1), ssh-add(1), ssh-keygen(1), sftp-server(8), sshd(8)
+     scp(1), ssh(1), ssh-add(1), ssh-keygen(1), ssh_config(5), sftp-server(8),
+     sshd(8)
 
      T. Ylonen and S. Lehtinen, SSH File Transfer Protocol, draft-ietf-secsh-
      filexfer-00.txt, January 2001, work in progress material.

@@ -51,6 +51,7 @@ __RCSID("$NetBSD: mknod.c,v 1.15 1998/09/11 07:22:13 mycroft Exp $");
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 int main __P((int, char *[]));
 static void usage __P((void));

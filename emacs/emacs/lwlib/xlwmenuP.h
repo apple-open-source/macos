@@ -13,6 +13,9 @@ typedef struct _window_state
   Dimension	width;
   Dimension	height;
   Dimension	label_width;
+
+  /* Width of toggle buttons or radio buttons.  */
+  Dimension     button_width;
 } window_state;
 
 
@@ -34,9 +37,13 @@ typedef struct _XlwMenu_part
   Pixmap	bottom_shadow_pixmap;
   Cursor	cursor_shape;
   XtCallbackList	open;
-  XtCallbackList	select;
+  XtCallbackList	select, highlight;
   widget_value*	contents;
   int		horizontal;
+
+  /* True means top_shadow_color and/or bottom_shadow_color must be freed.  */
+  unsigned free_top_shadow_color_p : 1;
+  unsigned free_bottom_shadow_color_p : 1;
   
   /* State of the XlwMenu */
   int			old_depth;

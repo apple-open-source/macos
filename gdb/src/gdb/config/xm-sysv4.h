@@ -1,5 +1,5 @@
 /* Definitions for running gdb on a host machine running any flavor of SVR4.
-   Copyright 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1995, 1998 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support (fnf@cygnus.com).
 
    This file is part of GDB.
@@ -27,14 +27,3 @@
 /* SVR4 is a derivative of System V Release 3 (USG) */
 
 #define USG
-
-/* Use setpgid(0,0) to run inferior in a separate process group */
-
-#define NEED_POSIX_SETPGID
-
-/* SVR4 has sigsetjmp and siglongjmp */
-#define HAVE_SIGSETJMP
-
-/* We have to include these files now, so that GDB will not make
-   competing definitions in defs.h.  */
-#include <limits.h>

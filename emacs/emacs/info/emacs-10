@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,1091 +11,1083 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
-File: emacs,  Node: Speedbar,  Next: Creating Frames,  Prev: Mode Line Mouse,  Up: Frames
-
-Making and Using a Speedbar Frame
-=================================
-
-   An Emacs frame can have a "speedbar", which is a vertical window
-that serves as a scrollable menu of files you could visit and tags
-within those files.  To create a speedbar, type `M-x speedbar'; this
-creates a speedbar window for the selected frame.  From then on, you can
-click on a file name in the speedbar to visit that file in the
-corresponding Emacs frame, or click on a tag name to jump to that tag in
-the Emacs frame.
-
-   Initially the speedbar lists the immediate contents of the current
-directory, one file per line.  Each line also has a box, `[+]' or
-`<+>', that you can click on with `Mouse-2' to "open up" the contents
-of that item.  If the line names a directory, opening it adds the
-contents of that directory to the speedbar display, underneath the
-directory's own line.  If the line lists an ordinary file, opening it up
-adds a list of the tags in that file to the speedbar display.  When a
-file is opened up, the `[+]' changes to `[-]'; you can click on that
-box to "close up" that file (hide its contents).
-
-   Some major modes, including Rmail mode, Info, and GUD, have
-specialized ways of putting useful items into the speedbar for you to
-select.  For example, in Rmail mode, the speedbar shows a list of Rmail
-files, and lets you move the current message to another Rmail file by
-clicking on its `<M>' box.
-
-   A speedbar belongs to one Emacs frame, and always operates on that
-frame.  If you use multiple frames, you can make a speedbar for some or
-all of the frames; type `M-x speedbar' in any given frame to make a
-speedbar for it.
-
-
-File: emacs,  Node: Multiple Displays,  Next: Special Buffer Frames,  Prev: Creating Frames,  Up: Frames
-
-Multiple Displays
-=================
-
-   A single Emacs can talk to more than one X Windows display.
-Initially, Emacs uses just one display--the one specified with the
-`DISPLAY' environment variable or with the `--display' option (*note
-Initial Options::).  To connect to another display, use the command
-`make-frame-on-display':
-
-`M-x make-frame-on-display <RET> DISPLAY <RET>'
-     Create a new frame on display DISPLAY.
-
-   A single X server can handle more than one screen.  When you open
-frames on two screens belonging to one server, Emacs knows they share a
-single keyboard, and it treats all the commands arriving from these
-screens as a single stream of input.
-
-   When you open frames on different X servers, Emacs makes a separate
-input stream for each server.  This way, two users can type
-simultaneously on the two displays, and Emacs will not garble their
-input.  Each server also has its own selected frame.  The commands you
-enter with a particular X server apply to that server's selected frame.
-
-   Despite these features, people using the same Emacs job from
-different displays can still interfere with each other if they are not
-careful.  For example, if any one types `C-x C-c', that exits the Emacs
-job for all of them!
-
-
-File: emacs,  Node: Special Buffer Frames,  Next: Frame Parameters,  Prev: Multiple Displays,  Up: Frames
-
-Special Buffer Frames
-=====================
-
-   You can make certain chosen buffers, for which Emacs normally creates
-a second window when you have just one window, appear in special frames
-of their own.  To do this, set the variable
-`special-display-buffer-names' to a list of buffer names; any buffer
-whose name is in that list automatically gets a special frame, when an
-Emacs command wants to display it "in another window."
-
-   For example, if you set the variable this way,
-
-     (setq special-display-buffer-names
-           '("*Completions*" "*grep*" "*tex-shell*"))
-
-then completion lists, `grep' output and the TeX mode shell buffer get
-individual frames of their own.  These frames, and the windows in them,
-are never automatically split or reused for any other buffers.  They
-continue to show the buffers they were created for, unless you alter
-them by hand.  Killing the special buffer deletes its frame
-automatically.
-
-   More generally, you can set `special-display-regexps' to a list of
-regular expressions; then a buffer gets its own frame if its name
-matches any of those regular expressions.  (Once again, this applies
-only to buffers that normally get displayed for you in a separate
-window.)
-
-   The variable `special-display-frame-alist' specifies the frame
-parameters for these frames.  It has a default value, so you don't need
-to set it.
-
-   For those who know Lisp, an element of
-`special-display-buffer-names' or `special-display-regexps' can also be
-a list.  Then the first element is the buffer name or regular
-expression; the rest of the list specifies how to create the frame.  It
-can be an association list specifying frame parameter values; these
-values take precedence over parameter values specified in
-`special-display-frame-alist'.  Alternatively, it can have this form:
-
-     (FUNCTION ARGS...)
-
-where FUNCTION is a symbol.  Then the frame is constructed by calling
-FUNCTION; its first argument is the buffer, and its remaining arguments
-are ARGS.
-
-   An analogous feature lets you specify buffers which should be
-displayed in the selected window.  *Note Force Same Window::.  The
-same-window feature takes precedence over the special-frame feature;
-therefore, if you add a buffer name to `special-display-buffer-names'
-and it has no effect, check to see whether that feature is also in use
-for the same buffer name.
-
-
-File: emacs,  Node: Frame Parameters,  Next: Scroll Bars,  Prev: Special Buffer Frames,  Up: Frames
-
-Setting Frame Parameters
-========================
-
-   This section describes commands for altering the display style and
-window management behavior of the selected frame.
-
-`M-x set-foreground-color <RET> COLOR <RET>'
-     Specify color COLOR for the foreground of the selected frame.
-
-`M-x set-background-color <RET> COLOR <RET>'
-     Specify color COLOR for the background of the selected frame.
-     This changes the foreground color of the `modeline' face also, so
-     that it remains in inverse video compared with the default.
-
-`M-x set-cursor-color <RET> COLOR <RET>'
-     Specify color COLOR for the cursor of the selected frame.
-
-`M-x set-mouse-color <RET> COLOR <RET>'
-     Specify color COLOR for the mouse cursor when it is over the
-     selected frame.
-
-`M-x set-border-color <RET> COLOR <RET>'
-     Specify color COLOR for the border of the selected frame.
-
-`M-x list-colors-display'
-     Display the defined color names and show what the colors look like.
-     This command is somewhat slow.
-
-`M-x auto-raise-mode'
-     Toggle whether or not the selected frame should auto-raise.
-     Auto-raise means that every time you move the mouse onto the
-     frame, it raises the frame.
-
-     Note that this auto-raise feature is implemented by Emacs itself.
-     Some window managers also implement auto-raise.  If you enable
-     auto-raise for Emacs frames in your X window manager, it should
-     work, but it is beyond Emacs's control and therefore
-     `auto-raise-mode' has no effect on it.
-
-`M-x auto-lower-mode'
-     Toggle whether or not the selected frame should auto-lower.
-     Auto-lower means that every time you move the mouse off the frame,
-     the frame moves to the bottom of the stack of X windows.
-
-     The command `auto-lower-mode' has no effect on auto-lower
-     implemented by the X window manager.  To control that, you must use
-     the appropriate window manager features.
-
-`M-x set-frame-font <RET> FONT <RET>'
-     Specify font FONT as the principal font for the selected frame.
-     The principal font is used for all text displayed in the frame,
-     except when a face (*note Faces::) specifies a different font to
-     use for certain text.  *Note Font X::, for ways to list the
-     available fonts on your system.
-
-     You can also set a frame's principal font through a pop-up menu.
-     Press `S-Mouse-1' to activate this menu.
-
-   In Emacs versions that use an X toolkit, the color-setting and
-font-setting functions don't affect menus and the menu bar, since they
-are displayed by their own widget classes.  To change the appearance of
-the menus and menu bar, you must use X resources (*note Resources X::).
-*Note Colors X::, regarding colors.  *Note Font X::, regarding choice of
-font.
-
-   For information on frame parameters and customization, see *Note
-Frame Parameters: (elisp)Frame Parameters.
-
-
-File: emacs,  Node: Scroll Bars,  Next: Menu Bars,  Prev: Frame Parameters,  Up: Frames
-
-Scroll Bars
-===========
-
-   When using X, Emacs normally makes a "scroll bar" at the left of
-each Emacs window.  The scroll bar runs the height of the window, and
-shows a moving rectangular inner box which represents the portion of the
-buffer currently displayed.  The entire height of the scroll bar
-represents the entire length of the buffer.
-
-   You can use `Mouse-2' (normally, the middle button) in the scroll
-bar to move or drag the inner box up and down.  If you move it to the
-top of the scroll bar, you see the top of the buffer.  If you move it to
-the bottom of the scroll bar, you see the bottom of the buffer.
-
-   The left and right buttons in the scroll bar scroll by controlled
-increments.  `Mouse-1' (normally, the left button) moves the line at
-the level where you click up to the top of the window.  `Mouse-3'
-(normally, the right button) moves the line at the top of the window
-down to the level where you click.  By clicking repeatedly in the same
-place, you can scroll by the same distance over and over.
-
-   Aside from scrolling, you can also click `C-Mouse-2' in the scroll
-bar to split a window vertically.  The split occurs on the line where
-you click.
-
-   You can enable or disable Scroll Bar mode with the command `M-x
-scroll-bar-mode'.  With no argument, it toggles the use of scroll bars.
-With an argument, it turns use of scroll bars on if and only if the
-argument is positive.  This command applies to all frames, including
-frames yet to be created.  You can use the X resource
-`verticalScrollBars' to control the initial setting of Scroll Bar mode.
-*Note Resources X::.
-
-   To enable or disable scroll bars for just the selected frame, use the
-`M-x toggle-scroll-bar' command.
-
-
-File: emacs,  Node: Menu Bars,  Next: Faces,  Prev: Scroll Bars,  Up: Frames
-
-Menu Bars
-=========
-
-   You can turn display of menu bars on or off with `M-x
-menu-bar-mode'.  With no argument, this command toggles Menu Bar mode, a
-minor mode.  With an argument, the command turns Menu Bar mode on if the
-argument is positive, off if the argument is not positive.  You can use
-the X resource `menuBarLines' to control the initial setting of Menu
-Bar mode.  *Note Resources X::.  Expert users often turn off the menu
-bar, especially on text-only terminals, where this makes one additional
-line available for text.
-
-   *Note Menu Bar::, for information on how to invoke commands with the
-menu bar.
-
-
-File: emacs,  Node: Faces,  Next: Font Lock,  Prev: Menu Bars,  Up: Frames
-
-Using Multiple Typefaces
-========================
-
-   When using Emacs with X, you can set up multiple styles of displaying
-characters.  The aspects of style that you can control are the type
-font, the foreground color, the background color, and whether to
-underline.  Emacs on MS-DOS supports faces partially by letting you
-control the foreground and background colors of each face (*note
-MS-DOS::).
-
-   The way you control display style is by defining named "faces".
-Each face can specify a type font, a foreground color, a background
-color, and an underline flag; but it does not have to specify all of
-them.  Then by specifying the face or faces to use for a given part of
-the text in the buffer, you control how that text appears.
-
-   The style of display used for a given character in the text is
-determined by combining several faces.  Any aspect of the display style
-that isn't specified by overlays or text properties comes from the frame
-itself.
-
-   Enriched mode, the mode for editing formatted text, includes several
-commands and menus for specifying faces.  *Note Format Faces::, for how
-to specify the font for text in the buffer.  *Note Format Colors::, for
-how to specify the foreground and background color.
-
-   To alter the appearance of a face, use the customization buffer.
-*Note Face Customization::.  You can also use X resources to specify
-attributes of particular faces (*note Resources X::).
-
-   To see what faces are currently defined, and what they look like,
-type `M-x list-faces-display'.  It's possible for a given face to look
-different in different frames; this command shows the appearance in the
-frame in which you type it.  Here's a list of the standardly defined
-faces:
-
-`default'
-     This face is used for ordinary text that doesn't specify any other
-     face.
-
-`modeline'
-     This face is used for mode lines.  By default, it's set up as the
-     inverse of the default face.  *Note Display Vars::.
-
-`highlight'
-     This face is used for highlighting portions of text, in various
-     modes.
-
-`region'
-     This face is used for displaying a selected region (when Transient
-     Mark mode is enabled--see below).
-
-`secondary-selection'
-     This face is used for displaying a secondary selection (*note
-     Secondary Selection::).
-
-`bold'
-     This face uses a bold variant of the default font, if it has one.
-
-`italic'
-     This face uses an italic variant of the default font, if it has
-     one.
-
-`bold-italic'
-     This face uses a bold italic variant of the default font, if it
-     has one.
-
-`underline'
-     This face underlines text.
-
-   When Transient Mark mode is enabled, the text of the region is
-highlighted when the mark is active.  This uses the face named
-`region'; you can control the style of highlighting by changing the
-style of this face (*note Face Customization::).  *Note Transient
-Mark::, for more information about Transient Mark mode and activation
-and deactivation of the mark.
-
-   One easy way to use faces is to turn on Font Lock mode.  This minor
-mode, which is always local to a particular buffer, arranges to choose
-faces according to the syntax of the text you are editing.  It can
-recognize comments and strings in most languages; in several languages,
-it can also recognize and properly highlight various other important
-constructs.  *Note Font Lock::, for more information about Font Lock
-mode and syntactic highlighting.
-
-   You can print out the buffer with the highlighting that appears on
-your screen using the command `ps-print-buffer-with-faces'.  *Note
-Postscript::.
-
-
-File: emacs,  Node: Font Lock,  Next: Support Modes,  Prev: Faces,  Up: Frames
-
-Font Lock mode
-==============
-
-   Font Lock mode is a minor mode, always local to a particular buffer,
-which highlights (or "fontifies") using various faces according to the
-syntax of the text you are editing.  It can recognize comments and
-strings in most languages; in several languages, it can also recognize
-and properly highlight various other important constructs--for example,
-names of functions being defined or reserved keywords.
-
-   The command `M-x font-lock-mode' turns Font Lock mode on or off
-according to the argument, and toggles the mode when it has no argument.
-The function `turn-on-font-lock' unconditionally enables Font Lock
-mode.  This is useful in mode-hook functions.  For example, to enable
-Font Lock mode whenever you edit a C file, you can do this:
-
-     (add-hook 'c-mode-hook 'turn-on-font-lock)
-
-   To turn on Font Lock mode automatically in all modes which support
-it, use the function `global-font-lock-mode', like this:
-
-     (global-font-lock-mode 1)
-
-   In Font Lock mode, when you edit the text, the highlighting updates
-automatically in the line that you changed.  Most changes don't affect
-the highlighting of subsequent lines, but occasionally they do.  To
-rehighlight a range of lines, use the command `M-g M-g'
-(`font-lock-fontify-block').
-
-   In certain major modes, `M-g M-g' refontifies the entire current
-function.  (The variable `font-lock-mark-block-function' controls how
-to find the current function.)  In other major modes, `M-g M-g'
-refontifies 16 lines above and below point.
-
-   With a prefix argument N, `M-g M-g' refontifies N lines above and
-below point, regardless of the mode.
-
-   To get the full benefit of Font Lock mode, you need to choose a
-default font which has bold, italic, and bold-italic variants; or else
-you need to have a color or gray-scale screen.
-
-   The variable `font-lock-maximum-decoration' specifies the preferred
-level of fontification, for modes that provide multiple levels.  Level
-1 is the least amount of fontification; some modes support levels as
-high as 3.  The normal default is "as high as possible."  You can
-specify an integer, which applies to all modes, or you can specify
-different numbers for particular major modes; for example, to use level
-1 for C/C++ modes, and the default level otherwise, use this:
-
-     (setq font-lock-maximum-decoration
-           '((c-mode . 1) (c++-mode . 1)))
-
-   Fontification can be too slow for large buffers, so you can suppress
-it.  The variable `font-lock-maximum-size' specifies a buffer size,
-beyond which buffer fontification is suppressed.
-
-   Comment and string fontification (or "syntactic" fontification)
-relies on analysis of the syntactic structure of the buffer text.  For
-the purposes of speed, some modes including C mode and Lisp mode rely on
-a special convention: an open-parenthesis in the leftmost column always
-defines the beginning of a defun, and is thus always outside any string
-or comment.  (*Note Defuns::.)  If you don't follow this convention,
-then Font Lock mode can misfontify the text after an open-parenthesis in
-the leftmost column that is inside a string or comment.
-
-   The variable `font-lock-beginning-of-syntax-function' (always
-buffer-local) specifies how Font Lock mode can find a position
-guaranteed to be outside any comment or string.  In modes which use the
-leftmost column parenthesis convention, the default value of the
-variable is `beginning-of-defun'--that tells Font Lock mode to use the
-convention.  If you set this variable to `nil', Font Lock no longer
-relies on the convention.  This avoids incorrect results, but the price
-is that, in some cases, fontification for a changed text must rescan
-buffer text from the beginning of the buffer.
-
-   Font Lock highlighting patterns already exist for many modes, but you
-may want to fontify additional patterns.  You can use the function
-`font-lock-add-keywords', to add your own highlighting patterns for a
-particular mode.  For example, to highlight `FIXME:' words in C
-comments, use this:
-
-     (font-lock-add-keywords
-      'c-mode
-      '(("\\<\\(FIXME\\):" 1 font-lock-warning-face t)))
-
-
-File: emacs,  Node: Support Modes,  Next: Highlight Changes,  Prev: Font Lock,  Up: Frames
-
-Font Lock Support Modes
-=======================
-
-   Font Lock support modes make Font Lock mode faster for large buffers.
-There are two support modes: Fast Lock mode and Lazy Lock mode.  They
-use two different methods of speeding up Font Lock mode.
+File: emacs,  Node: Snapshots,  Next: Miscellaneous VC,  Prev: Remote Repositories,  Up: Version Control
+
+Snapshots
+---------
+
+   A "snapshot" is a named set of file versions (one for each
+registered file) that you can treat as a unit.  One important kind of
+snapshot is a "release", a (theoretically) stable version of the system
+that is ready for distribution to users.
 
 * Menu:
 
-* Fast Lock Mode::      Saving font information in files.
-* Lazy Lock Mode::      Fontifying only text that is actually displayed.
-* Fast or Lazy::        Which support mode is best for you?
+* Making Snapshots::		The snapshot facilities.
+* Snapshot Caveats::		Things to be careful of when using snapshots.
 
 
-File: emacs,  Node: Fast Lock Mode,  Next: Lazy Lock Mode,  Up: Support Modes
+File: emacs,  Node: Making Snapshots,  Next: Snapshot Caveats,  Up: Snapshots
 
-Fast Lock Mode
---------------
+Making and Using Snapshots
+..........................
 
-   To make Font Lock mode faster for buffers visiting large files, you
-can use Fast Lock mode.  Fast Lock mode saves the font information for
-each file in a separate cache file; each time you visit the file, it
-rereads the font information from the cache file instead of refontifying
-the text from scratch.
+   There are two basic commands for snapshots; one makes a snapshot
+with a given name, the other retrieves a named snapshot.
 
-   The command `M-x fast-lock-mode' turns Fast Lock mode on or off,
-according to the argument (with no argument, it toggles).  You can also
-arrange to enable Fast Lock mode whenever you use Font Lock mode, like
-this:
+`C-x v s NAME <RET>'
+     Define the last saved versions of every registered file in or
+     under the current directory as a snapshot named NAME
+     (`vc-create-snapshot').
 
-     (setq font-lock-support-mode 'fast-lock-mode)
+`C-x v r NAME <RET>'
+     For all registered files at or below the current directory level,
+     select whatever versions correspond to the snapshot NAME
+     (`vc-retrieve-snapshot').
 
-   It is not worth writing a cache file for small buffers.  Therefore,
-the variable `fast-lock-minimum-size' specifies a minimum file size for
-caching font information.
+     This command reports an error if any files are locked at or below
+     the current directory, without changing anything; this is to avoid
+     overwriting work in progress.
 
-   The variable `fast-lock-cache-directories' specifies where to put
-the cache files.  Its value is a list of directories to try; `"."'
-means the same directory as the file being edited.  The default value is
-`("." "~/.emacs-flc")', which means to use the same directory if
-possible, and otherwise the directory `~/.emacs-flc'.
+   A snapshot uses a very small amount of resources--just enough to
+record the list of file names and which version belongs to the
+snapshot.  Thus, you need not hesitate to create snapshots whenever
+they are useful.
 
-   The variable `fast-lock-save-others' specifies whether Fast Lock
-mode should save cache files for files that you do not own.  A
-non-`nil' value means yes (and that is the default).
-
-
-File: emacs,  Node: Lazy Lock Mode,  Next: Fast or Lazy,  Prev: Fast Lock Mode,  Up: Support Modes
-
-Lazy Lock Mode
---------------
-
-   To make Font Lock mode faster for large buffers, you can use Lazy
-Lock mode to reduce the amount of text that is fontified.  In Lazy Lock
-mode, buffer fontification is demand-driven; it happens to portions of
-the buffer that are about to be displayed.  And fontification of your
-changes is deferred; it happens only when Emacs has been idle for a
-certain short period of time.
-
-   The command `M-x lazy-lock-mode' turns Lazy Lock mode on or off,
-according to the argument (with no argument, it toggles).  You can also
-arrange to enable Lazy Lock mode whenever you use Font Lock mode, like
-this:
-
-     (setq font-lock-support-mode 'lazy-lock-mode)
-
-   It is not worth avoiding buffer fontification for small buffers.
-Therefore, the variable `lazy-lock-minimum-size' specifies a minimum
-buffer size for demand-driven buffer fontification.  Buffers smaller
-than that are fontified all at once, as in plain Font Lock mode.
-
-   When you alter the buffer, Lazy Lock mode defers fontification of the
-text you changed.  The variable `lazy-lock-defer-time' specifies how
-many seconds Emacs must be idle before it starts fontifying your
-changes.  If the value is 0, then changes are fontified immediately, as
-in plain Font Lock mode.
-
-   Lazy Lock mode normally fontifies newly visible portions of the
-buffer before they are first displayed.  However, if the value of
-`lazy-lock-defer-on-scrolling' is non-`nil', newly visible text is
-fontified only when Emacs is idle for `lazy-lock-defer-time' seconds.
-
-   In some modes, including C mode and Emacs Lisp mode, changes in one
-line's contents can alter the context for subsequent lines, and thus
-change how they ought to be fontified.  Ordinarily, you must type `M-g
-M-g' to refontify the subsequent lines.  However, if you set the
-variable `lazy-lock-defer-contextually' to non-`nil', Lazy Lock mode
-does this automatically, after `lazy-lock-defer-time' seconds.
-
-   When Emacs is idle for a long time, Lazy Lock fontifies additional
-portions of the buffer, not yet displayed, in case you will display them
-later.  This is called "stealth fontification".
-
-   The variable `lazy-lock-stealth-time' specifies how many seconds
-Emacs has to be idle before stealth fontification starts.  A value of
-`nil' means no stealth fontification.  The variables
-`lazy-lock-stealth-lines' and `lazy-lock-stealth-verbose' specify the
-granularity and verbosity of stealth fontification.
+   You can give a snapshot name as an argument to `C-x v =' or `C-x v
+~' (*note Old Versions::).  Thus, you can use it to compare a snapshot
+against the current files, or two snapshots against each other, or a
+snapshot against a named version.
 
 
-File: emacs,  Node: Fast or Lazy,  Prev: Lazy Lock Mode,  Up: Support Modes
+File: emacs,  Node: Snapshot Caveats,  Prev: Making Snapshots,  Up: Snapshots
 
-Fast Lock or Lazy Lock?
------------------------
+Snapshot Caveats
+................
 
-   Here is a simple guide to help you choose one of the Font Lock
-support modes.
+   VC's snapshot facilities are modeled on RCS's named-configuration
+support.  They use RCS's native facilities for this, so under VC
+snapshots made using RCS are visible even when you bypass VC.
 
-   * Fast Lock mode intervenes only during file visiting and buffer
-     killing (and related events); therefore buffer editing and window
-     scrolling are no faster or slower than in plain Font Lock mode.
+   For SCCS, VC implements snapshots itself.  The files it uses contain
+name/file/version-number triples.  These snapshots are visible only
+through VC.
 
-   * Fast Lock mode is slower at reading a cache file than Lazy Lock
-     mode is at fontifying a window; therefore Fast Lock mode is slower
-     at visiting a file than Lazy Lock mode.
+   A snapshot is a set of checked-in versions.  So make sure that all
+the files are checked in and not locked when you make a snapshot.
 
-   * Lazy Lock mode intervenes during window scrolling to fontify text
-     that scrolls onto the screen; therefore, scrolling is slower than
-     in plain Font Lock mode.
+   File renaming and deletion can create some difficulties with
+snapshots.  This is not a VC-specific problem, but a general design
+issue in version control systems that no one has solved very well yet.
 
-   * Lazy Lock mode doesn't fontify during buffer editing (it defers
-     fontification of changes); therefore, editing is faster than in
-     plain Font Lock mode.
+   If you rename a registered file, you need to rename its master along
+with it (the command `vc-rename-file' does this automatically).  If you
+are using SCCS, you must also update the records of the snapshot, to
+mention the file by its new name (`vc-rename-file' does this, too).  An
+old snapshot that refers to a master file that no longer exists under
+the recorded name is invalid; VC can no longer retrieve it.  It would
+be beyond the scope of this manual to explain enough about RCS and SCCS
+to explain how to update the snapshots by hand.
 
-   * Fast Lock mode can be fooled by a file that is kept under version
-     control software; therefore buffer fontification may occur even
-     when a cache file exists for the file.
-
-   * Fast Lock mode only works with a buffer visiting a file; Lazy Lock
-     mode works with any buffer.
-
-   * Fast Lock mode generates cache files; Lazy Lock mode does not.
-
-   The variable `font-lock-support-mode' specifies which of these
-support modes to use; for example, to specify that Fast Lock mode is
-used for C/C++ modes, and Lazy Lock mode otherwise, set the variable
-like this:
-
-     (setq font-lock-support-mode
-           '((c-mode . fast-lock-mode) (c++-mode . fast-lock-mode)
-             (t . lazy-lock-mode)))
+   Using `vc-rename-file' makes the snapshot remain valid for
+retrieval, but it does not solve all problems.  For example, some of the
+files in your program probably refer to others by name.  At the very
+least, the makefile probably mentions the file that you renamed.  If you
+retrieve an old snapshot, the renamed file is retrieved under its new
+name, which is not the name that the makefile expects.  So the program
+won't really work as retrieved.
 
 
-File: emacs,  Node: Highlight Changes,  Next: Misc X,  Prev: Support Modes,  Up: Frames
+File: emacs,  Node: Miscellaneous VC,  Next: Customizing VC,  Prev: Snapshots,  Up: Version Control
 
-Highlight Changes Mode
-======================
+Miscellaneous Commands and Features of VC
+-----------------------------------------
 
-   Use `M-x highlight-changes-mode' to enable a minor mode that uses
-faces (colors, typically) to indicate which parts of the buffer were
-changed most recently.
-
-
-File: emacs,  Node: Misc X,  Next: Non-Window Terminals,  Prev: Highlight Changes,  Up: Frames
-
-Miscellaneous X Window Features
-===============================
-
-   The following commands let you create, delete and operate on frames:
-
-`C-z'
-     Iconify the selected Emacs frame (`iconify-or-deiconify-frame').
-     The normal meaning of `C-z', to suspend Emacs, is not useful under
-     a window system, so it has a different binding in that case.
-
-     If you type this command on an Emacs frame's icon, it deiconifies
-     the frame.
-
-`C-x 5 0'
-     Delete the selected frame (`delete-frame').  This is not allowed if
-     there is only one frame.
-
-`C-x 5 o'
-     Select another frame, raise it, and warp the mouse to it so that it
-     stays selected.  If you repeat this command, it cycles through all
-     the frames on your terminal.
-
-
-File: emacs,  Node: Non-Window Terminals,  Prev: Misc X,  Up: Frames
-
-Non-Window Terminals
-====================
-
-   If your terminal does not have a window system that Emacs supports,
-then it can display only one Emacs frame at a time.  However, you can
-still create multiple Emacs frames, and switch between them.  Switching
-frames on these terminals is much like switching between different
-window configurations.
-
-   Use `C-x 5 2' to create a new frame and switch to it; use `C-x 5 o'
-to cycle through the existing frames; use `C-x 5 0' to delete the
-current frame.
-
-   Each frame has a number to distinguish it.  If your terminal can
-display only one frame at a time, the selected frame's number N appears
-near the beginning of the mode line, in the form `FN'.
-
-   `FN' is actually the frame's name.  You can also specify a different
-name if you wish, and you can select a frame by its name.  Use the
-command `M-x set-frame-name <RET> NAME <RET>' to specify a new name for
-the selected frame, and use `M-x select-frame-by-name <RET> NAME <RET>'
-to select a frame according to its name.  The name you specify appears
-in the mode line when the frame is selected.
-
-
-File: emacs,  Node: International,  Next: Major Modes,  Prev: Frames,  Up: Top
-
-International Character Set Support
-***********************************
-
-   Emacs supports a wide variety of international character sets,
-including European variants of the Latin alphabet, as well as Chinese,
-Devanagari (Hindi and Marathi), Ethiopian, Greek, IPA, Japanese, Korean,
-Lao, Russian, Thai, Tibetan, and Vietnamese scripts.  These features
-have been merged from the modified version of Emacs known as MULE (for
-"MULti-lingual Enhancement to GNU Emacs")
+   This section explains the less-frequently-used features of VC.
 
 * Menu:
 
-* International Intro::     Basic concepts of multibyte characters.
-* Enabling Multibyte::      Controlling whether to use multibyte characters.
-* Language Environments::   Setting things up for the language you use.
-* Input Methods::           Entering text characters not on your keyboard.
-* Select Input Method::     Specifying your choice of input methods.
-* Multibyte Conversion::    How single-byte characters convert to multibyte.
-* Coding Systems::          Character set conversion when you read and
-                              write files, and so on.
-* Recognize Coding::        How Emacs figures out which conversion to use.
-* Specify Coding::          Various ways to choose which conversion to use.
-* Fontsets::                Fontsets are collections of fonts
-                              that cover the whole spectrum of characters.
-* Defining Fontsets::       Defining a new fontset.
-* Single-Byte European Support::
-                            You can pick one European character set
-                            to use without multibyte characters.
+* Change Logs and VC::  Generating a change log file from log entries.
+* Renaming and VC::     A command to rename both the source and master
+                          file correctly.
+* Version Headers::     Inserting version control headers into working files.
 
 
-File: emacs,  Node: International Intro,  Next: Enabling Multibyte,  Up: International
+File: emacs,  Node: Change Logs and VC,  Next: Renaming and VC,  Up: Miscellaneous VC
 
-Introduction to International Character Sets
-============================================
+Change Logs and VC
+..................
 
-   The users of these scripts have established many more-or-less
-standard coding systems for storing files.  Emacs internally uses a
-single multibyte character encoding, so that it can intermix characters
-from all these scripts in a single buffer or string.  This encoding
-represents each non-ASCII character as a sequence of bytes in the range
-0200 through 0377.  Emacs translates between the multibyte character
-encoding and various other coding systems when reading and writing
-files, when exchanging data with subprocesses, and (in some cases) in
-the `C-q' command (*note Multibyte Conversion::).
+   If you use RCS or CVS for a program and also maintain a change log
+file for it (*note Change Log::), you can generate change log entries
+automatically from the version control log entries:
 
-   The command `C-h h' (`view-hello-file') displays the file
-`etc/HELLO', which shows how to say "hello" in many languages.  This
-illustrates various scripts.
+`C-x v a'
+     Visit the current directory's change log file and, for registered
+     files in that directory, create new entries for versions checked
+     in since the most recent entry in the change log file.
+     (`vc-update-change-log').
 
-   Keyboards, even in the countries where these character sets are used,
-generally don't have keys for all the characters in them.  So Emacs
-supports various "input methods", typically one for each script or
-language, to make it convenient to type them.
+     This command works with RCS or CVS only, not with SCCS.
 
-   The prefix key `C-x <RET>' is used for commands that pertain to
-multibyte characters, coding systems, and input methods.
+`C-u C-x v a'
+     As above, but only find entries for the current buffer's file.
+
+`M-1 C-x v a'
+     As above, but find entries for all the currently visited files
+     that are maintained with version control.  This works only with
+     RCS, and it puts all entries in the log for the default directory,
+     which may not be appropriate.
+
+   For example, suppose the first line of `ChangeLog' is dated
+1999-04-10, and that the only check-in since then was by Nathaniel
+Bowditch to `rcs2log' on 1999-05-22 with log text `Ignore log messages
+that start with `#'.'.  Then `C-x v a' visits `ChangeLog' and inserts
+text like this:
+
+     1999-05-22  Nathaniel Bowditch  <nat@apn.org>
+     
+             * rcs2log: Ignore log messages that start with `#'.
+
+You can then edit the new change log entry further as you wish.
+
+   Some of the new change log entries may duplicate what's already in
+ChangeLog.  You will have to remove these duplicates by hand.
+
+   Normally, the log entry for file `foo' is displayed as `* foo: TEXT
+OF LOG ENTRY'.  The `:' after `foo' is omitted if the text of the log
+entry starts with `(FUNCTIONNAME): '.  For example, if the log entry
+for `vc.el' is `(vc-do-command): Check call-process status.', then the
+text in `ChangeLog' looks like this:
+
+     1999-05-06  Nathaniel Bowditch  <nat@apn.org>
+     
+             * vc.el (vc-do-command): Check call-process status.
+
+   When `C-x v a' adds several change log entries at once, it groups
+related log entries together if they all are checked in by the same
+author at nearly the same time.  If the log entries for several such
+files all have the same text, it coalesces them into a single entry.
+For example, suppose the most recent check-ins have the following log
+entries:
+
+* For `vc.texinfo': `Fix expansion typos.'
+* For `vc.el': `Don't call expand-file-name.'
+* For `vc-hooks.el': `Don't call expand-file-name.'
+
+They appear like this in `ChangeLog':
+
+     1999-04-01  Nathaniel Bowditch  <nat@apn.org>
+     
+             * vc.texinfo: Fix expansion typos.
+     
+             * vc.el, vc-hooks.el: Don't call expand-file-name.
+
+   Normally, `C-x v a' separates log entries by a blank line, but you
+can mark several related log entries to be clumped together (without an
+intervening blank line) by starting the text of each related log entry
+with a label of the form `{CLUMPNAME} '.  The label itself is not
+copied to `ChangeLog'.  For example, suppose the log entries are:
+
+* For `vc.texinfo': `{expand} Fix expansion typos.'
+* For `vc.el': `{expand} Don't call expand-file-name.'
+* For `vc-hooks.el': `{expand} Don't call expand-file-name.'
+
+Then the text in `ChangeLog' looks like this:
+
+     1999-04-01  Nathaniel Bowditch  <nat@apn.org>
+     
+             * vc.texinfo: Fix expansion typos.
+             * vc.el, vc-hooks.el: Don't call expand-file-name.
+
+   A log entry whose text begins with `#' is not copied to `ChangeLog'.
+For example, if you merely fix some misspellings in comments, you can
+log the change with an entry beginning with `#' to avoid putting such
+trivia into `ChangeLog'.
 
 
-File: emacs,  Node: Enabling Multibyte,  Next: Language Environments,  Prev: International Intro,  Up: International
+File: emacs,  Node: Renaming and VC,  Next: Version Headers,  Prev: Change Logs and VC,  Up: Miscellaneous VC
 
-Enabling Multibyte Characters
+Renaming VC Work Files and Master Files
+.......................................
+
+   When you rename a registered file, you must also rename its master
+file correspondingly to get proper results.  Use `vc-rename-file' to
+rename the source file as you specify, and rename its master file
+accordingly.  It also updates any snapshots (*note Snapshots::) that
+mention the file, so that they use the new name; despite this, the
+snapshot thus modified may not completely work (*note Snapshot
+Caveats::).
+
+   You cannot use `vc-rename-file' on a file that is locked by someone
+else.
+
+
+File: emacs,  Node: Version Headers,  Prev: Renaming and VC,  Up: Miscellaneous VC
+
+Inserting Version Control Headers
+.................................
+
+   Sometimes it is convenient to put version identification strings
+directly into working files.  Certain special strings called "version
+headers" are replaced in each successive version by the number of that
+version.
+
+   If you are using RCS, and version headers are present in your working
+files, Emacs can use them to determine the current version and the
+locking state of the files.  This is more reliable than referring to the
+master files, which is done when there are no version headers.  Note
+that in a multi-branch environment, version headers are necessary to
+make VC behave correctly (*note Multi-User Branching::).
+
+   Searching for version headers is controlled by the variable
+`vc-consult-headers'.  If it is non-`nil' (the default), Emacs searches
+for headers to determine the version number you are editing.  Setting
+it to `nil' disables this feature.
+
+   You can use the `C-x v h' command (`vc-insert-headers') to insert a
+suitable header string.
+
+`C-x v h'
+     Insert headers in a file for use with your version-control system.
+
+   The default header string is `$Id: emacs-10,v 1.1.1.4 2001/10/31 18:00:31 jevans Exp $' for RCS and `%W%' for SCCS.  You
+can specify other headers to insert by setting the variable
+`vc-header-alist'.  Its value is a list of elements of the form
+`(PROGRAM . STRING)' where PROGRAM is `RCS' or `SCCS' and STRING is the
+string to use.
+
+   Instead of a single string, you can specify a list of strings; then
+each string in the list is inserted as a separate header on a line of
+its own.
+
+   It is often necessary to use "superfluous" backslashes when writing
+the strings that you put in this variable.  For instance, you might
+write `"$Id\$"' rather than `"$Id: emacs-10,v 1.1.1.4 2001/10/31 18:00:31 jevans Exp $"'.  The extra backslash prevents the
+string constant from being interpreted as a header, if the Emacs Lisp
+file containing it is maintained with version control.
+
+   Each header is inserted surrounded by tabs, inside comment
+delimiters, on a new line at point.  Normally the ordinary comment
+start and comment end strings of the current mode are used, but for
+certain modes, there are special comment delimiters for this purpose;
+the variable `vc-comment-alist' specifies them.  Each element of this
+list has the form `(MODE STARTER ENDER)'.
+
+   The variable `vc-static-header-alist' specifies further strings to
+add based on the name of the buffer.  Its value should be a list of
+elements of the form `(REGEXP . FORMAT)'.  Whenever REGEXP matches the
+buffer name, FORMAT is inserted as part of the header.  A header line
+is inserted for each element that matches the buffer name, and for each
+string specified by `vc-header-alist'.  The header line is made by
+processing the string from `vc-header-alist' with the format taken from
+the element.  The default value for `vc-static-header-alist' is as
+follows:
+
+     (("\\.c$" .
+       "\n#ifndef lint\nstatic char vcid[] = \"\%s\";\n\
+     #endif /* lint */\n"))
+
+It specifies insertion of text of this form:
+
+
+     #ifndef lint
+     static char vcid[] = "STRING";
+     #endif /* lint */
+
+Note that the text above starts with a blank line.
+
+   If you use more than one version header in a file, put them close
+together in the file.  The mechanism in `revert-buffer' that preserves
+markers may not handle markers positioned between two version headers.
+
+
+File: emacs,  Node: Customizing VC,  Prev: Miscellaneous VC,  Up: Version Control
+
+Customizing VC
+--------------
+
+   The variable `vc-handled-backends' determines which version control
+systems VC should handle.  The default value is `(RCS CVS SCCS)', so it
+contains all three version systems that are currently supported.  If
+you want VC to ignore one or more of these systems, exclude its name
+from the list.
+
+   The order of systems in the list is significant: when you visit a
+file registered in more than one system (*note Local Version Control::),
+VC uses the system that comes first in `vc-handled-backends' by
+default.  The order is also significant when you register a file for
+the first time, *note Registering:: for details.
+
+* Menu:
+
+* General VC Options::  Options that apply to multiple back ends.
+* RCS and SCCS::        Options for RCS and SCCS.
+* CVS Options::         Options for CVS.
+
+
+File: emacs,  Node: General VC Options,  Next: RCS and SCCS,  Up: Customizing VC
+
+General Options
+...............
+
+   Emacs normally does not save backup files for source files that are
+maintained with version control.  If you want to make backup files even
+for files that use version control, set the variable
+`vc-make-backup-files' to a non-`nil' value.
+
+   Normally the work file exists all the time, whether it is locked or
+not.  If you set `vc-keep-workfiles' to `nil', then checking in a new
+version with `C-x C-q' deletes the work file; but any attempt to visit
+the file with Emacs creates it again.  (With CVS, work files are always
+kept.)
+
+   Editing a version-controlled file through a symbolic link can be
+dangerous.  It bypasses the version control system--you can edit the
+file without locking it, and fail to check your changes in.  Also, your
+changes might overwrite those of another user.  To protect against
+this, VC checks each symbolic link that you visit, to see if it points
+to a file under version control.
+
+   The variable `vc-follow-symlinks' controls what to do when a
+symbolic link points to a version-controlled file.  If it is `nil', VC
+only displays a warning message.  If it is `t', VC automatically
+follows the link, and visits the real file instead, telling you about
+this in the echo area.  If the value is `ask' (the default), VC asks
+you each time whether to follow the link.
+
+   If `vc-suppress-confirm' is non-`nil', then `C-x C-q' and `C-x v i'
+can save the current buffer without asking, and `C-x v u' also operates
+without asking for confirmation.  (This variable does not affect `C-x v
+c'; that operation is so drastic that it should always ask for
+confirmation.)
+
+   VC mode does much of its work by running the shell commands for RCS,
+CVS and SCCS.  If `vc-command-messages' is non-`nil', VC displays
+messages to indicate which shell commands it runs, and additional
+messages when the commands finish.
+
+   You can specify additional directories to search for version control
+programs by setting the variable `vc-path'.  These directories are
+searched before the usual search path.  It is rarely necessary to set
+this variable, because VC normally finds the proper files automatically.
+
+
+File: emacs,  Node: RCS and SCCS,  Next: CVS Options,  Prev: General VC Options,  Up: Customizing VC
+
+Options for RCS and SCCS
+........................
+
+   By default, RCS uses locking to coordinate the activities of several
+users, but there is a mode called "non-strict locking" in which you can
+check-in changes without locking the file first.  Use `rcs -U' to
+switch to non-strict locking for a particular file, see the `rcs'
+manual page for details.
+
+   When deducing the version control state of an RCS file, VC first
+looks for an RCS version header string in the file (*note Version
+Headers::).  If there is no header string, VC normally looks at the
+file permissions of the work file; this is fast.  But there might be
+situations when the file permissions cannot be trusted.  In this case
+the master file has to be consulted, which is rather expensive.  Also
+the master file can only tell you _if_ there's any lock on the file,
+but not whether your work file really contains that locked version.
+
+   You can tell VC not to use version headers to determine the file
+status by setting `vc-consult-headers' to `nil'.  VC then always uses
+the file permissions (if it is supposed to trust them), or else checks
+the master file.
+
+   You can specify the criterion for whether to trust the file
+permissions by setting the variable `vc-mistrust-permissions'.  Its
+value can be `t' (always mistrust the file permissions and check the
+master file), `nil' (always trust the file permissions), or a function
+of one argument which makes the decision.  The argument is the
+directory name of the `RCS' subdirectory.  A non-`nil' value from the
+function says to mistrust the file permissions.  If you find that the
+file permissions of work files are changed erroneously, set
+`vc-mistrust-permissions' to `t'.  Then VC always checks the master
+file to determine the file's status.
+
+   VC determines the version control state of files under SCCS much as
+with RCS.  It does not consider SCCS version headers, though.  Thus,
+the variable `vc-mistrust-permissions' affects SCCS use, but
+`vc-consult-headers' does not.
+
+
+File: emacs,  Node: CVS Options,  Prev: RCS and SCCS,  Up: Customizing VC
+
+Options specific for CVS
+........................
+
+   By default, CVS does not use locking to coordinate the activities of
+several users; anyone can change a work file at any time.  However,
+there are ways to restrict this, resulting in behavior that resembles
+locking.
+
+   For one thing, you can set the `CVSREAD' environment variable (the
+value you use makes no difference).  If this variable is defined, CVS
+makes your work files read-only by default.  In Emacs, you must type
+`C-x C-q' to make the file writable, so that editing works in fact
+similar as if locking was used.  Note however, that no actual locking
+is performed, so several users can make their files writable at the
+same time.  When setting `CVSREAD' for the first time, make sure to
+check out all your modules anew, so that the file protections are set
+correctly.
+
+   Another way to achieve something similar to locking is to use the
+"watch" feature of CVS.  If a file is being watched, CVS makes it
+read-only by default, and you must also use `C-x C-q' in Emacs to make
+it writable.  VC calls `cvs edit' to make the file writable, and CVS
+takes care to notify other developers of the fact that you intend to
+change the file.  See the CVS documentation for details on using the
+watch feature.
+
+   When a file's repository is on a remote machine, VC tries to keep
+network interactions to a minimum.  This is controlled by the variable
+`vc-cvs-stay-local'.  If it is `t' (the default), then VC uses only the
+entry in the local CVS subdirectory to determine the file's state (and
+possibly information returned by previous CVS commands).  One
+consequence of this is that when you have modified a file, and somebody
+else has already checked in other changes to the file, you are not
+notified of it until you actually try to commit.  (But you can try to
+pick up any recent changes from the repository first, using `C-x v m
+<RET>', *note Merging::).
+
+   When `vc-cvs-stay-local' is `t', VC also makes local version
+backups, so that simple diff and revert operations are completely local
+(*note Version Backups::).
+
+   On the other hand, if you set `vc-cvs-stay-local' to `nil', then VC
+queries the remote repository _before_ it decides what to do in
+`vc-next-action' (`C-x v v'), just as it does for local repositories.
+It also does not make any version backups.
+
+   You can also set `vc-cvs-stay-local' to a regular expression that is
+matched against the repository host name; VC then stays local only for
+repositories from hosts that match the pattern.
+
+
+File: emacs,  Node: Directories,  Next: Comparing Files,  Prev: Version Control,  Up: Files
+
+File Directories
+================
+
+   The file system groups files into "directories".  A "directory
+listing" is a list of all the files in a directory.  Emacs provides
+commands to create and delete directories, and to make directory
+listings in brief format (file names only) and verbose format (sizes,
+dates, and authors included).  There is also a directory browser called
+Dired; see *Note Dired::.
+
+`C-x C-d DIR-OR-PATTERN <RET>'
+     Display a brief directory listing (`list-directory').
+
+`C-u C-x C-d DIR-OR-PATTERN <RET>'
+     Display a verbose directory listing.
+
+`M-x make-directory <RET> DIRNAME <RET>'
+     Create a new directory named DIRNAME.
+
+`M-x delete-directory <RET> DIRNAME <RET>'
+     Delete the directory named DIRNAME.  It must be empty, or you get
+     an error.
+
+   The command to display a directory listing is `C-x C-d'
+(`list-directory').  It reads using the minibuffer a file name which is
+either a directory to be listed or a wildcard-containing pattern for
+the files to be listed.  For example,
+
+     C-x C-d /u2/emacs/etc <RET>
+
+lists all the files in directory `/u2/emacs/etc'.  Here is an example
+of specifying a file name pattern:
+
+     C-x C-d /u2/emacs/src/*.c <RET>
+
+   Normally, `C-x C-d' displays a brief directory listing containing
+just file names.  A numeric argument (regardless of value) tells it to
+make a verbose listing including sizes, dates, and owners (like `ls
+-l').
+
+   The text of a directory listing is obtained by running `ls' in an
+inferior process.  Two Emacs variables control the switches passed to
+`ls': `list-directory-brief-switches' is a string giving the switches
+to use in brief listings (`"-CF"' by default), and
+`list-directory-verbose-switches' is a string giving the switches to
+use in a verbose listing (`"-l"' by default).
+
+
+File: emacs,  Node: Comparing Files,  Next: Misc File Ops,  Prev: Directories,  Up: Files
+
+Comparing Files
+===============
+
+   The command `M-x diff' compares two files, displaying the
+differences in an Emacs buffer named `*diff*'.  It works by running the
+`diff' program, using options taken from the variable `diff-switches'.
+The value of `diff-switches' should be a string; the default is `"-c"'
+to specify a context diff.
+
+   The buffer `*diff*' has Compilation mode as its major mode, so you
+can use `C-x `' to visit successive changed locations in the two source
+files.  You can also move to a particular hunk of changes and type
+<RET> or `C-c C-c', or click `Mouse-2' on it, to move to the
+corresponding source location.  You can also use the other special
+commands of Compilation mode: <SPC> and <DEL> for scrolling, and `M-p'
+and `M-n' for cursor motion.  *Note Compilation::.
+
+   The command `M-x diff-backup' compares a specified file with its most
+recent backup.  If you specify the name of a backup file, `diff-backup'
+compares it with the source file that it is a backup of.
+
+   The command `M-x compare-windows' compares the text in the current
+window with that in the next window.  Comparison starts at point in each
+window, and each starting position is pushed on the mark ring in its
+respective buffer.  Then point moves forward in each window, a character
+at a time, until a mismatch between the two windows is reached.  Then
+the command is finished.  For more information about windows in Emacs,
+*Note Windows::.
+
+   With a numeric argument, `compare-windows' ignores changes in
+whitespace.  If the variable `compare-ignore-case' is non-`nil', it
+ignores differences in case as well.
+
+   Differences between versions of files are often distributed as
+"patches", which are the output from `diff' or a version control system
+that uses `diff'.  `M-x diff-mode' turns on Diff mode, a major mode for
+viewing and editing patches, either as "unified diffs" or "context
+diffs."
+
+   You can use `M-x smerge-mode' to turn on Smerge mode, a minor mode
+for editing output from the `diff3' program.  This is typically the
+result of a failed merge from a version control system "update" outside
+VC, due to conflicting changes to a file.  Smerge mode provides
+commands to resolve conflicts by selecting specific changes.
+
+   See also *Note Emerge::, and *Note Top: (ediff)Top, for convenient
+facilities for merging two similar files.
+
+
+File: emacs,  Node: Misc File Ops,  Next: Compressed Files,  Prev: Comparing Files,  Up: Files
+
+Miscellaneous File Operations
 =============================
 
-   You can enable or disable multibyte character support, either for
-Emacs as a whole, or for a single buffer.  When multibyte characters are
-disabled in a buffer, then each byte in that buffer represents a
-character, even codes 0200 through 0377.  The old features for
-supporting the European character sets, ISO Latin-1 and ISO Latin-2,
-work as they did in Emacs 19 and also work for the other ISO 8859
-character sets.
+   Emacs has commands for performing many other operations on files.
+All operate on one file; they do not accept wildcard file names.
 
-   However, there is no need to turn off multibyte character support to
-use ISO Latin; the Emacs multibyte character set includes all the
-characters in these character sets, and Emacs can translate
-automatically to and from the ISO codes.
+   `M-x view-file' allows you to scan or read a file by sequential
+screenfuls.  It reads a file name argument using the minibuffer.  After
+reading the file into an Emacs buffer, `view-file' displays the
+beginning.  You can then type <SPC> to scroll forward one windowful, or
+<DEL> to scroll backward.  Various other commands are provided for
+moving around in the file, but none for changing it; type `?' while
+viewing for a list of them.  They are mostly the same as normal Emacs
+cursor motion commands.  To exit from viewing, type `q'.  The commands
+for viewing are defined by a special major mode called View mode.
 
-   To edit a particular file in unibyte representation, visit it using
-`find-file-literally'.  *Note Visiting::.  To convert a buffer in
-multibyte representation into a single-byte representation of the same
-characters, the easiest way is to save the contents in a file, kill the
-buffer, and find the file again with `find-file-literally'.  You can
-also use `C-x <RET> c' (`universal-coding-system-argument') and specify
-`raw-text' as the coding system with which to find or save a file.
-*Note Specify Coding::.  Finding a file as `raw-text' doesn't disable
-format conversion, uncompression and auto mode selection as
-`find-file-literally' does.
+   A related command, `M-x view-buffer', views a buffer already present
+in Emacs.  *Note Misc Buffer::.
 
-   To turn off multibyte character support by default, start Emacs with
-the `--unibyte' option (*note Initial Options::), or set the
-environment variable `EMACS_UNIBYTE'.  You can also customize
-`enable-multibyte-characters' or, equivalently, directly set the
-variable `default-enable-multibyte-characters' in your init file to
-have basically the same effect as `--unibyte'.
+   `M-x insert-file' (also `C-x i') inserts a copy of the contents of
+the specified file into the current buffer at point, leaving point
+unchanged before the contents and the mark after them.
 
-   Multibyte strings are not created during initialization from the
-values of environment variables, `/etc/passwd' entries etc. that
-contain non-ASCII 8-bit characters.  However, the initialization file is
-normally read as multibyte--like Lisp files in general--even with
-`--unibyte'.  To avoid multibyte strings being generated by non-ASCII
-characters in it, put `-*-unibyte: t;-*-' in a comment on the first
-line.  Do the same for initialization files for packages like Gnus.
+   `M-x write-region' is the inverse of `M-x insert-file'; it copies
+the contents of the region into the specified file.  `M-x
+append-to-file' adds the text of the region to the end of the specified
+file.  *Note Accumulating Text::.
 
-   The mode line indicates whether multibyte character support is
-enabled in the current buffer.  If it is, there are two or more
-characters (most often two dashes) before the colon near the beginning
-of the mode line.  When multibyte characters are not enabled, just one
-dash precedes the colon.
+   `M-x delete-file' deletes the specified file, like the `rm' command
+in the shell.  If you are deleting many files in one directory, it may
+be more convenient to use Dired (*note Dired::).
 
-
-File: emacs,  Node: Language Environments,  Next: Input Methods,  Prev: Enabling Multibyte,  Up: International
+   `M-x rename-file' reads two file names OLD and NEW using the
+minibuffer, then renames file OLD as NEW.  If the file name NEW already
+exists, you must confirm with `yes' or renaming is not done; this is
+because renaming causes the old meaning of the name NEW to be lost.  If
+OLD and NEW are on different file systems, the file OLD is copied and
+deleted.
 
-Language Environments
-=====================
+   The similar command `M-x add-name-to-file' is used to add an
+additional name to an existing file without removing its old name.  The
+new name is created as a "hard link" to the existing file.  The new
+name must belong on the same file system that the file is on.  On
+Windows, this command works only if the file resides in an NTFS file
+system.  On MS-DOS, it works by copying the file.
 
-   All supported character sets are supported in Emacs buffers whenever
-multibyte characters are enabled; there is no need to select a
-particular language in order to display its characters in an Emacs
-buffer.  However, it is important to select a "language environment" in
-order to set various defaults.  The language environment really
-represents a choice of preferred script (more or less) rather than a
-choice of language.
+   `M-x copy-file' reads the file OLD and writes a new file named NEW
+with the same contents.  Confirmation is required if a file named NEW
+already exists, because copying has the consequence of overwriting the
+old contents of the file NEW.
 
-   The language environment controls which coding systems to recognize
-when reading text (*note Recognize Coding::).  This applies to files,
-incoming mail, netnews, and any other text you read into Emacs.  It may
-also specify the default coding system to use when you create a file.
-Each language environment also specifies a default input method.
+   `M-x make-symbolic-link' reads two file names TARGET and LINKNAME,
+then creates a symbolic link named LINKNAME, which points at TARGET.
+The effect is that future attempts to open file LINKNAME will refer to
+whatever file is named TARGET at the time the opening is done, or will
+get an error if the name TARGET is not in use at that time.  This
+command does not expand the argument TARGET, so that it allows you to
+specify a relative name as the target of the link.
 
-   The way to select a language environment is with the command `M-x
-set-language-environment'.  It makes no difference which buffer is
-current when you use this command, because the effects apply globally to
-the Emacs session.  The supported language environments include:
-
-     Chinese-BIG5, Chinese-CNS, Chinese-GB, Cyrillic-Alternativnyj,
-     Cyrillic-ISO, Cyrillic-KOI8, Devanagari, English, Ethiopic, Greek,
-     Hebrew, Japanese, Korean, Lao, Latin-1, Latin-2, Latin-3, Latin-4,
-     Latin-5, Thai, Tibetan, and Vietnamese.
-
-   Some operating systems let you specify the language you are using by
-setting locale environment variables.  Emacs handles one common special
-case of this: if your locale name for character types contains the
-string `8859-N', Emacs automatically selects the corresponding language
-environment.
-
-   To display information about the effects of a certain language
-environment LANG-ENV, use the command `C-h L LANG-ENV <RET>'
-(`describe-language-environment').  This tells you which languages this
-language environment is useful for, and lists the character sets,
-coding systems, and input methods that go with it.  It also shows some
-sample text to illustrate scripts used in this language environment.
-By default, this command describes the chosen language environment.
-
-   You can customize any language environment with the normal hook
-`set-language-environment-hook'.  The command
-`set-language-environment' runs that hook after setting up the new
-language environment.  The hook functions can test for a specific
-language environment by checking the variable
-`current-language-environment'.
-
-   Before it starts to set up the new language environment,
-`set-language-environment' first runs the hook
-`exit-language-environment-hook'.  This hook is useful for undoing
-customizations that were made with `set-language-environment-hook'.
-For instance, if you set up a special key binding in a specific language
-environment using `set-language-environment-hook', you should set up
-`exit-language-environment-hook' to restore the normal binding for that
-key.
+   Confirmation is required when creating the link if LINKNAME is in
+use.  Note that not all systems support symbolic links; on systems that
+don't support them, this command is not defined.
 
 
-File: emacs,  Node: Input Methods,  Next: Select Input Method,  Prev: Language Environments,  Up: International
+File: emacs,  Node: Compressed Files,  Next: File Archives,  Prev: Misc File Ops,  Up: Files
 
-Input Methods
+Accessing Compressed Files
+==========================
+
+   Emacs comes with a library that can automatically uncompress
+compressed files when you visit them, and automatically recompress them
+if you alter them and save them.  To enable this feature, type the
+command `M-x auto-compression-mode'.  You can enable it permanently by
+customizing the option `auto-compression-mode'.
+
+   When automatic compression (which implies automatic uncompression as
+well) is enabled, Emacs recognizes compressed files by their file names.
+File names ending in `.gz' indicate a file compressed with `gzip'.
+Other endings indicate other compression programs.
+
+   Automatic uncompression and compression apply to all the operations
+in which Emacs uses the contents of a file.  This includes visiting it,
+saving it, inserting its contents into a buffer, loading it, and byte
+compiling it.
+
+
+File: emacs,  Node: File Archives,  Next: Remote Files,  Prev: Compressed Files,  Up: Files
+
+File Archives
 =============
 
-   An "input method" is a kind of character conversion designed
-specifically for interactive input.  In Emacs, typically each language
-has its own input method; sometimes several languages which use the same
-characters can share one input method.  A few languages support several
-input methods.
+   A file whose name ends in `.tar' is normally an "archive" made by
+the `tar' program.  Emacs views these files in a special mode called
+Tar mode which provides a Dired-like list of the contents (*note
+Dired::).  You can move around through the list just as you would in
+Dired, and visit the subfiles contained in the archive.  However, not
+all Dired commands are available in Tar mode.
 
-   The simplest kind of input method works by mapping ASCII letters into
-another alphabet.  This is how the Greek and Russian input methods work.
+   If you enable Auto Compression mode (*note Compressed Files::), then
+Tar mode is used also for compressed archives--files with extensions
+`.tgz', `.tar.Z' and `.tar.gz'.
 
-   A more powerful technique is composition: converting sequences of
-characters into one letter.  Many European input methods use composition
-to produce a single non-ASCII letter from a sequence that consists of a
-letter followed by accent characters (or vice versa).  For example, some
-methods convert the sequence `a'' into a single accented letter.  These
-input methods have no special commands of their own; all they do is
-compose sequences of printing characters.
+   The keys `e', `f' and <RET> all extract a component file into its
+own buffer.  You can edit it there and when you save the buffer the
+edited version will replace the version in the Tar buffer.  `v'
+extracts a file into a buffer in View mode.  `o' extracts the file and
+displays it in another window, so you could edit the file and operate
+on the archive simultaneously.  `d' marks a file for deletion when you
+later use `x', and `u' unmarks a file, as in Dired.  `C' copies a file
+from the archive to disk and `R' renames a file.  `g' reverts the
+buffer from the archive on disk.
 
-   The input methods for syllabic scripts typically use mapping followed
-by composition.  The input methods for Thai and Korean work this way.
-First, letters are mapped into symbols for particular sounds or tone
-marks; then, sequences of these which make up a whole syllable are
-mapped into one syllable sign.
+   The keys `M', `G', and `O' change the file's permission bits, group,
+and owner, respectively.
 
-   Chinese and Japanese require more complex methods.  In Chinese input
-methods, first you enter the phonetic spelling of a Chinese word (in
-input method `chinese-py', among others), or a sequence of portions of
-the character (input methods `chinese-4corner' and `chinese-sw', and
-others).  Since one phonetic spelling typically corresponds to many
-different Chinese characters, you must select one of the alternatives
-using special Emacs commands.  Keys such as `C-f', `C-b', `C-n', `C-p',
-and digits have special definitions in this situation, used for
-selecting among the alternatives.  <TAB> displays a buffer showing all
-the possibilities.
+   If your display supports colors and the mouse, moving the mouse
+pointer across a file name highlights that file name, indicating that
+you can click on it.  Clicking `Mouse-2' on the highlighted file name
+extracts the file into a buffer and displays that buffer.
 
-   In Japanese input methods, first you input a whole word using
-phonetic spelling; then, after the word is in the buffer, Emacs converts
-it into one or more characters using a large dictionary.  One phonetic
-spelling corresponds to many differently written Japanese words, so you
-must select one of them; use `C-n' and `C-p' to cycle through the
-alternatives.
+   Saving the Tar buffer writes a new version of the archive to disk
+with the changes you made to the components.
 
-   Sometimes it is useful to cut off input method processing so that the
-characters you have just entered will not combine with subsequent
-characters.  For example, in input method `latin-1-postfix', the
-sequence `e '' combines to form an `e' with an accent.  What if you
-want to enter them as separate characters?
+   You don't need the `tar' program to use Tar mode--Emacs reads the
+archives directly.  However, accessing compressed archives requires the
+appropriate uncompression program.
 
-   One way is to type the accent twice; that is a special feature for
-entering the separate letter and accent.  For example, `e ' '' gives
-you the two characters `e''.  Another way is to type another letter
-after the `e'--something that won't combine with that--and immediately
-delete it.  For example, you could type `e e <DEL> '' to get separate
-`e' and `''.
+   A separate but similar Archive mode is used for archives produced by
+the programs `arc', `jar', `lzh', `zip', and `zoo', which have
+extensions corresponding to the program names.
 
-   Another method, more general but not quite as easy to type, is to use
-`C-\ C-\' between two characters to stop them from combining.  This is
-the command `C-\' (`toggle-input-method') used twice.  *Note Select
-Input Method::.
+   The key bindings of Archive mode are similar to those in Tar mode,
+with the addition of the `m' key which marks a file for subsequent
+operations, and `M-<DEL>' which unmarks all the marked files.  Also,
+the `a' key toggles the display of detailed file information, for those
+archive types where it won't fit in a single line.  Operations such as
+renaming a subfile, or changing its mode or owner, are supported only
+for some of the archive formats.
 
-   `C-\ C-\' is especially useful inside an incremental search, because
-it stops waiting for more characters to combine, and starts searching
-for what you have already entered.
-
-   The variables `input-method-highlight-flag' and
-`input-method-verbose-flag' control how input methods explain what is
-happening.  If `input-method-highlight-flag' is non-`nil', the partial
-sequence is highlighted in the buffer.  If `input-method-verbose-flag'
-is non-`nil', the list of possible characters to type next is displayed
-in the echo area (but not when you are in the minibuffer).
+   Unlike Tar mode, Archive mode runs the archiving program to unpack
+and repack archives.  Details of the program names and their options
+can be set in the `Archive' Customize group.  However, you don't need
+these programs to look at the archive table of contents, only to
+extract or manipulate the subfiles in the archive.
 
 
-File: emacs,  Node: Select Input Method,  Next: Multibyte Conversion,  Prev: Input Methods,  Up: International
+File: emacs,  Node: Remote Files,  Next: Quoted File Names,  Prev: File Archives,  Up: Files
 
-Selecting an Input Method
-=========================
+Remote Files
+============
 
-`C-\'
-     Enable or disable use of the selected input method.
+   You can refer to files on other machines using a special file name
+syntax:
 
-`C-x <RET> C-\ METHOD <RET>'
-     Select a new input method for the current buffer.
+     /HOST:FILENAME
+     /USER@HOST:FILENAME
+     /USER@HOST#PORT:FILENAME
 
-`C-h I METHOD <RET>'
-`C-h C-\ METHOD <RET>'
-     Describe the input method METHOD (`describe-input-method').  By
-     default, it describes the current input method (if any).  This
-     description should give you the full details of how to use any
-     particular input method.
+When you do this, Emacs uses the FTP program to read and write files on
+the specified host.  It logs in through FTP using your user name or the
+name USER.  It may ask you for a password from time to time; this is
+used for logging in on HOST.  The form using PORT allows you to access
+servers running on a non-default TCP port.
 
-`M-x list-input-methods'
-     Display a list of all the supported input methods.
+   If you want to disable backups for remote files, set the variable
+`ange-ftp-make-backup-files' to `nil'.
 
-   To choose an input method for the current buffer, use `C-x <RET>
-C-\' (`set-input-method').  This command reads the input method name
-with the minibuffer; the name normally starts with the language
-environment that it is meant to be used with.  The variable
-`current-input-method' records which input method is selected.
+   Normally, if you do not specify a user name in a remote file name,
+that means to use your own user name.  But if you set the variable
+`ange-ftp-default-user' to a string, that string is used instead.  (The
+Emacs package that implements FTP file access is called `ange-ftp'.)
 
-   Input methods use various sequences of ASCII characters to stand for
-non-ASCII characters.  Sometimes it is useful to turn off the input
-method temporarily.  To do this, type `C-\' (`toggle-input-method').
-To reenable the input method, type `C-\' again.
+   To visit files accessible by anonymous FTP, you use special user
+names `anonymous' or `ftp'.  Passwords for these user names are handled
+specially.  The variable `ange-ftp-generate-anonymous-password'
+controls what happens: if the value of this variable is a string, then
+that string is used as the password; if non-`nil' (the default), then
+the value of `user-mail-address' is used; if `nil', the user is prompted
+for a password as normal.
 
-   If you type `C-\' and you have not yet selected an input method, it
-prompts for you to specify one.  This has the same effect as using `C-x
-<RET> C-\' to specify an input method.
+   Sometimes you may be unable to access files on a remote machine
+because a "firewall" in between blocks the connection for security
+reasons.  If you can log in on a "gateway" machine from which the
+target files _are_ accessible, and whose FTP server supports gatewaying
+features, you can still use remote file names; all you have to do is
+specify the name of the gateway machine by setting the variable
+`ange-ftp-gateway-host', and set `ange-ftp-smart-gateway' to `t'.
+Otherwise you may be able to make remote file names work, but the
+procedure is complex.  You can read the instructions by typing `M-x
+finder-commentary <RET> ange-ftp <RET>'.
 
-   Selecting a language environment specifies a default input method for
-use in various buffers.  When you have a default input method, you can
-select it in the current buffer by typing `C-\'.  The variable
-`default-input-method' specifies the default input method (`nil' means
-there is none).
-
-   Some input methods for alphabetic scripts work by (in effect)
-remapping the keyboard to emulate various keyboard layouts commonly used
-for those scripts.  How to do this remapping properly depends on your
-actual keyboard layout.  To specify which layout your keyboard has, use
-the command `M-x quail-set-keyboard-layout'.
-
-   To display a list of all the supported input methods, type `M-x
-list-input-methods'.  The list gives information about each input
-method, including the string that stands for it in the mode line.
-
-
-File: emacs,  Node: Multibyte Conversion,  Next: Coding Systems,  Prev: Select Input Method,  Up: International
-
-Unibyte and Multibyte Non-ASCII characters
-==========================================
-
-   When multibyte characters are enabled, character codes 0240 (octal)
-through 0377 (octal) are not really legitimate in the buffer.  The valid
-non-ASCII printing characters have codes that start from 0400.
-
-   If you type a self-inserting character in the invalid range 0240
-through 0377, Emacs assumes you intended to use one of the ISO Latin-N
-character sets, and converts it to the Emacs code representing that
-Latin-N character.  You select _which_ ISO Latin character set to use
-through your choice of language environment (*note Language
-Environments::).  If you do not specify a choice, the default is
-Latin-1.
-
-   The same thing happens when you use `C-q' to enter an octal code in
-this range.
+   You can entirely turn off the FTP file name feature by removing the
+entries `ange-ftp-completion-hook-function' and
+`ange-ftp-hook-function' from the variable `file-name-handler-alist'.
+You can turn off the feature in individual cases by quoting the file
+name with `/:' (*note Quoted File Names::).
 
 
-File: emacs,  Node: Coding Systems,  Next: Recognize Coding,  Prev: Multibyte Conversion,  Up: International
+File: emacs,  Node: Quoted File Names,  Next: File Name Cache,  Prev: Remote Files,  Up: Files
 
-Coding Systems
-==============
+Quoted File Names
+=================
 
-   Users of various languages have established many more-or-less
-standard coding systems for representing them.  Emacs does not use
-these coding systems internally; instead, it converts from various
-coding systems to its own system when reading data, and converts the
-internal coding system to other coding systems when writing data.
-Conversion is possible in reading or writing files, in sending or
-receiving from the terminal, and in exchanging data with subprocesses.
+   You can "quote" an absolute file name to prevent special characters
+and syntax in it from having their special effects.  The way to do this
+is to add `/:' at the beginning.
 
-   Emacs assigns a name to each coding system.  Most coding systems are
-used for one language, and the name of the coding system starts with the
-language name.  Some coding systems are used for several languages;
-their names usually start with `iso'.  There are also special coding
-systems `no-conversion', `raw-text' and `emacs-mule' which do not
-convert printing characters at all.
+   For example, you can quote a local file name which appears remote, to
+prevent it from being treated as a remote file name.  Thus, if you have
+a directory named `/foo:' and a file named `bar' in it, you can refer
+to that file in Emacs as `/:/foo:/bar'.
 
-   In addition to converting various representations of non-ASCII
-characters, a coding system can perform end-of-line conversion.  Emacs
-handles three different conventions for how to separate lines in a file:
-newline, carriage-return linefeed, and just carriage-return.
+   `/:' can also prevent `~' from being treated as a special character
+for a user's home directory.  For example, `/:/tmp/~hack' refers to a
+file whose name is `~hack' in directory `/tmp'.
 
-`C-h C CODING <RET>'
-     Describe coding system CODING.
+   Likewise, quoting with `/:' is one way to enter in the minibuffer a
+file name that contains `$'.  However, the `/:' must be at the
+beginning of the minibuffer in order to quote `$'.
 
-`C-h C <RET>'
-     Describe the coding systems currently in use.
+   You can also quote wildcard characters with `/:', for visiting.  For
+example, `/:/tmp/foo*bar' visits the file `/tmp/foo*bar'.  However, in
+most cases you can simply type the wildcard characters for themselves.
+For example, if the only file name in `/tmp' that starts with `foo' and
+ends with `bar' is `foo*bar', then specifying `/tmp/foo*bar' will visit
+just `/tmp/foo*bar'.  Another way is to specify `/tmp/foo[*]bar'.
 
-`M-x list-coding-systems'
-     Display a list of all the supported coding systems.
+
+File: emacs,  Node: File Name Cache,  Next: File Conveniences,  Prev: Quoted File Names,  Up: Files
 
-   The command `C-h C' (`describe-coding-system') displays information
-about particular coding systems.  You can specify a coding system name
-as argument; alternatively, with an empty argument, it describes the
-coding systems currently selected for various purposes, both in the
-current buffer and as the defaults, and the priority list for
-recognizing coding systems (*note Recognize Coding::).
+File Name Cache
+===============
 
-   To display a list of all the supported coding systems, type `M-x
-list-coding-systems'.  The list gives information about each coding
-system, including the letter that stands for it in the mode line (*note
-Mode Line::).
+   You can use the "file name cache" to make it easy to locate a file
+by name, without having to remember exactly where it is located.  When
+typing a file name in the minibuffer, `C-<tab>'
+(`file-cache-minibuffer-complete') completes it using the file name
+cache.  If you repeat `C-<tab>', that cycles through the possible
+completions of what you had originally typed.  Note that the `C-<tab>'
+character cannot be typed on most text-only terminals.
 
-   Each of the coding systems that appear in this list--except for
-`no-conversion', which means no conversion of any kind--specifies how
-and whether to convert printing characters, but leaves the choice of
-end-of-line conversion to be decided based on the contents of each file.
-For example, if the file appears to use the sequence carriage-return
-linefeed to separate lines, DOS end-of-line conversion will be used.
+   The file name cache does not fill up automatically.  Instead, you
+load file names into the cache using these commands:
 
-   Each of the listed coding systems has three variants which specify
-exactly what to do for end-of-line conversion:
+`M-x file-cache-add-directory <RET> DIRECTORY <RET>'
+     Add each file name in DIRECTORY to the file name cache.
 
-`...-unix'
-     Don't do any end-of-line conversion; assume the file uses newline
-     to separate lines.  (This is the convention normally used on Unix
-     and GNU systems.)
+`M-x file-cache-add-directory-using-find <RET> DIRECTORY <RET>'
+     Add each file name in DIRECTORY and all of its nested
+     subdirectories to the file name cache.
 
-`...-dos'
-     Assume the file uses carriage-return linefeed to separate lines,
-     and do the appropriate conversion.  (This is the convention
-     normally used on Microsoft systems.(1))
+`M-x file-cache-add-directory-using-locate <RET> DIRECTORY <RET>'
+     Add each file name in DIRECTORY and all of its nested
+     subdirectories to the file name cache, using `locate' to find them
+     all.
 
-`...-mac'
-     Assume the file uses carriage-return to separate lines, and do the
-     appropriate conversion.  (This is the convention normally used on
-     the Macintosh system.)
+`M-x file-cache-add-directory-list <RET> VARIABLE <RET>'
+     Add each file name in each directory listed in VARIABLE to the
+     file name cache.  VARIABLE should be a Lisp variable such as
+     `load-path' or `exec-path', whose value is a list of directory
+     names.
 
-   These variant coding systems are omitted from the
-`list-coding-systems' display for brevity, since they are entirely
-predictable.  For example, the coding system `iso-latin-1' has variants
-`iso-latin-1-unix', `iso-latin-1-dos' and `iso-latin-1-mac'.
+`M-x file-cache-clear-cache <RET>'
+     Clear the cache; that is, remove all file names from it.
 
-   The coding system `raw-text' is good for a file which is mainly
-ASCII text, but may contain byte values above 127 which are not meant to
-encode non-ASCII characters.  With `raw-text', Emacs copies those byte
-values unchanged, and sets `enable-multibyte-characters' to `nil' in
-the current buffer so that they will be interpreted properly.
-`raw-text' handles end-of-line conversion in the usual way, based on
-the data encountered, and has the usual three variants to specify the
-kind of end-of-line conversion to use.
+
+File: emacs,  Node: File Conveniences,  Prev: File Name Cache,  Up: Files
 
-   In contrast, the coding system `no-conversion' specifies no
-character code conversion at all--none for non-ASCII byte values and
-none for end of line.  This is useful for reading or writing binary
-files, tar files, and other files that must be examined verbatim.  It,
-too, sets `enable-multibyte-characters' to `nil'.
+Convenience Features for Finding Files
+======================================
 
-   The easiest way to edit a file with no conversion of any kind is with
-the `M-x find-file-literally' command.  This uses `no-conversion', and
-also suppresses other Emacs features that might convert the file
-contents before you see them.  *Note Visiting::.
+   If you enable Recentf mode, with `M-x recentf-mode', the `File' menu
+includes a submenu containing a list of recently opened files.  `M-x
+recentf-save-list' saves the current `recent-file-list' to a file, and
+`M-x recentf-edit-list' edits it.
 
-   The coding system `emacs-mule' means that the file contains
-non-ASCII characters stored with the internal Emacs encoding.  It
-handles end-of-line conversion based on the data encountered, and has
-the usual three variants to specify the kind of end-of-line conversion.
+   When Auto-image-file minor mode is enabled, visiting an image file
+displays it as an image, not as text.  Likewise, inserting an image
+file into a buffer inserts it as an image.  This works only when Emacs
+can display the relevant image type.  The variables
+`image-file-name-extensions' or `image-file-name-regexps' control which
+file names are recognized as containing images.
 
-   ---------- Footnotes ----------
+   The `M-x ffap' command generalizes `find-file' with more powerful
+heuristic defaults (*note FFAP::), often based on the text at point.
+Partial Completion mode offers other features extending `find-file',
+which can be used with `ffap'.  *Note Completion Options::.
 
-   (1) It is also specified for MIME `text/*' bodies and in other
-network transport contexts.  It is different from the SGML reference
-syntax record-start/record-end format which Emacs doesn't support
-directly.
+
+File: emacs,  Node: Buffers,  Next: Windows,  Prev: Files,  Up: Top
+
+Using Multiple Buffers
+**********************
+
+   The text you are editing in Emacs resides in an object called a
+"buffer".  Each time you visit a file, a buffer is created to hold the
+file's text.  Each time you invoke Dired, a buffer is created to hold
+the directory listing.  If you send a message with `C-x m', a buffer
+named `*mail*' is used to hold the text of the message.  When you ask
+for a command's documentation, that appears in a buffer called `*Help*'.
+
+   At any time, one and only one buffer is "current".  It is also
+called the "selected buffer".  Often we say that a command operates on
+"the buffer" as if there were only one; but really this means that the
+command operates on the current buffer (most commands do).
+
+   When Emacs has multiple windows, each window has its own chosen
+buffer and displays it; at any time, only one of the windows is
+selected, and its chosen buffer is the current buffer.  Each window's
+mode line normally displays the name of the window's chosen buffer
+(*note Windows::).
+
+   Each buffer has a name, which can be of any length, and you can
+select any buffer by giving its name.  Most buffers are made by
+visiting files, and their names are derived from the files' names.  But
+you can also create an empty buffer with any name you want.  A newly
+started Emacs has a buffer named `*scratch*' which can be used for
+evaluating Lisp expressions in Emacs.  The distinction between upper
+and lower case matters in buffer names.
+
+   Each buffer records individually what file it is visiting, whether
+it is modified, and what major mode and minor modes are in effect in it
+(*note Major Modes::).  Any Emacs variable can be made "local to" a
+particular buffer, meaning its value in that buffer can be different
+from the value in other buffers.  *Note Locals::.
+
+   A buffer's size cannot be larger than some maximum, which is defined
+by the largest buffer position representable by the "Emacs integer"
+data type.  This is because Emacs tracks buffer positions using that
+data type.  For 32-bit machines, the largest buffer size is 128
+megabytes.
+
+* Menu:
+
+* Select Buffer::       Creating a new buffer or reselecting an old one.
+* List Buffers::        Getting a list of buffers that exist.
+* Misc Buffer::	        Renaming; changing read-onlyness; copying text.
+* Kill Buffer::	        Killing buffers you no longer need.
+* Several Buffers::     How to go through the list of all buffers
+			  and operate variously on several of them.
+* Indirect Buffers::    An indirect buffer shares the text of another buffer.
+* Buffer Convenience::  Convenience and customization features for
+                          buffer handling.
+
+
+File: emacs,  Node: Select Buffer,  Next: List Buffers,  Up: Buffers
+
+Creating and Selecting Buffers
+==============================
+
+`C-x b BUFFER <RET>'
+     Select or create a buffer named BUFFER (`switch-to-buffer').
+
+`C-x 4 b BUFFER <RET>'
+     Similar, but select BUFFER in another window
+     (`switch-to-buffer-other-window').
+
+`C-x 5 b BUFFER <RET>'
+     Similar, but select BUFFER in a separate frame
+     (`switch-to-buffer-other-frame').
+
+   To select the buffer named BUFNAME, type `C-x b BUFNAME <RET>'.
+This runs the command `switch-to-buffer' with argument BUFNAME.  You
+can use completion on an abbreviation for the buffer name you want
+(*note Completion::).  An empty argument to `C-x b' specifies the
+buffer that was current most recently among those not now displayed in
+any window.
+
+   To select a buffer in a window other than the current one, type `C-x
+4 b BUFNAME <RET>'.  This runs the command
+`switch-to-buffer-other-window' which displays the buffer BUFNAME in
+another window.  By default, if displaying the buffer causes two
+vertically adjacent windows to be displayed, the heights of those
+windows are evened out; to countermand that and preserve the window
+configuration, set the variable `even-window-heights' to `nil'.
+
+   Similarly, `C-x 5 b BUFFER <RET>' runs the command
+`switch-to-buffer-other-frame' which selects a buffer in another frame.
+
+   You can control how certain buffers are handled by these commands by
+customizing the variables `special-display-buffer-names',
+`special-display-regexps', `same-window-buffer-names', and
+`same-window-regexps'.  See *Note Force Same Window::, and *Note
+Special Buffer Frames::, for more about these variables.  In addition,
+if the value of `display-buffer-reuse-frames' is non-`nil', and the
+buffer you want to switch to is already displayed in some frame, Emacs
+will raise that frame.
+
+   Most buffers are created by visiting files, or by Emacs commands that
+want to display some text, but you can also create a buffer explicitly
+by typing `C-x b BUFNAME <RET>'.  This makes a new, empty buffer that
+is not visiting any file, and selects it for editing.  Such buffers are
+used for making notes to yourself.  If you try to save one, you are
+asked for the file name to use.  The new buffer's major mode is
+determined by the value of `default-major-mode' (*note Major Modes::).
+
+   Note that `C-x C-f', and any other command for visiting a file, can
+also be used to switch to an existing file-visiting buffer.  *Note
+Visiting::.
+
+   Emacs uses buffer names that start with a space for internal
+purposes.  It treats these buffers specially in minor ways--for
+example, by default they do not record undo information.  It is best to
+avoid using such buffer names yourself.
+
+
+File: emacs,  Node: List Buffers,  Next: Misc Buffer,  Prev: Select Buffer,  Up: Buffers
+
+Listing Existing Buffers
+========================
+
+`C-x C-b'
+     List the existing buffers (`list-buffers').
+
+   To display a list of all the buffers that exist, type `C-x C-b'.
+Each line in the list shows one buffer's name, major mode and visited
+file.  The buffers are listed in the order that they were current; the
+buffers that were current most recently come first.
+
+   `*' at the beginning of a line indicates the buffer is "modified."
+If several buffers are modified, it may be time to save some with `C-x
+s' (*note Saving::).  `%' indicates a read-only buffer.  `.' marks the
+current buffer.  Here is an example of a buffer list:
+
+      MR Buffer         Size  Mode           File
+      -- ------         ----  ----           ----
+     .*  emacs.tex      383402 Texinfo       /u2/emacs/man/emacs.tex
+         *Help*         1287  Fundamental
+         files.el       23076 Emacs-Lisp     /u2/emacs/lisp/files.el
+       % RMAIL          64042 RMAIL          /u/rms/RMAIL
+      *% man            747   Dired          /u2/emacs/man/
+         net.emacs      343885 Fundamental   /u/rms/net.emacs
+         fileio.c       27691 C              /u2/emacs/src/fileio.c
+         NEWS           67340 Text           /u2/emacs/etc/NEWS
+         *scratch*	   0	 Lisp Interaction
+
+Note that the buffer `*Help*' was made by a help request; it is not
+visiting any file.  The buffer `man' was made by Dired on the directory
+`/u2/emacs/man/'.  You can list only buffers that are visiting files by
+giving the command a prefix; for instance, by typing `C-u C-x C-b'.
+
+
+File: emacs,  Node: Misc Buffer,  Next: Kill Buffer,  Prev: List Buffers,  Up: Buffers
+
+Miscellaneous Buffer Operations
+===============================
+
+`C-x C-q'
+     Toggle read-only status of buffer (`vc-toggle-read-only').
+
+`M-x rename-buffer <RET> NAME <RET>'
+     Change the name of the current buffer.
+
+`M-x rename-uniquely'
+     Rename the current buffer by adding `<NUMBER>' to the end.
+
+`M-x view-buffer <RET> BUFFER <RET>'
+     Scroll through buffer BUFFER.
+
+   A buffer can be "read-only", which means that commands to change its
+contents are not allowed.  The mode line indicates read-only buffers
+with `%%' or `%*' near the left margin.  Read-only buffers are usually
+made by subsystems such as Dired and Rmail that have special commands
+to operate on the text; also by visiting a file whose access control
+says you cannot write it.
+
+   If you wish to make changes in a read-only buffer, use the command
+`C-x C-q' (`vc-toggle-read-only').  It makes a read-only buffer
+writable, and makes a writable buffer read-only.  In most cases, this
+works by setting the variable `buffer-read-only', which has a local
+value in each buffer and makes the buffer read-only if its value is
+non-`nil'.  If the file is maintained with version control, `C-x C-q'
+works through the version control system to change the read-only status
+of the file as well as the buffer.  *Note Version Control::.
+
+   `M-x rename-buffer' changes the name of the current buffer.  Specify
+the new name as a minibuffer argument.  There is no default.  If you
+specify a name that is in use for some other buffer, an error happens
+and no renaming is done.
+
+   `M-x rename-uniquely' renames the current buffer to a similar name
+with a numeric suffix added to make it both different and unique.  This
+command does not need an argument.  It is useful for creating multiple
+shell buffers: if you rename the `*Shell*' buffer, then do `M-x shell'
+again, it makes a new shell buffer named `*Shell*'; meanwhile, the old
+shell buffer continues to exist under its new name.  This method is
+also good for mail buffers, compilation buffers, and most Emacs
+features that create special buffers with particular names.
+
+   `M-x view-buffer' is much like `M-x view-file' (*note Misc File
+Ops::) except that it examines an already existing Emacs buffer.  View
+mode provides commands for scrolling through the buffer conveniently
+but not for changing it.  When you exit View mode with `q', that
+switches back to the buffer (and the position) which was previously
+displayed in the window.  Alternatively, if you exit View mode with
+`e', the buffer and the value of point that resulted from your perusal
+remain in effect.
+
+   The commands `M-x append-to-buffer' and `M-x insert-buffer' can be
+used to copy text from one buffer to another.  *Note Accumulating
+Text::.
 

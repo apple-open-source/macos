@@ -1,0 +1,144 @@
+This is GNU Libtool, a generic library support script.  Libtool hides
+the complexity of using shared libraries behind a consistent, portable
+interface.
+
+IMPORTANT:
+==========
+
+** Until the next release of automake, you should apply the patch at **
+** the end of this file to your installed automake script if you     **
+** intend to use it in conjunction with this release of libtool.     **
+
+
+To use libtool, add the new generic library building commands to your
+Makefile, Makefile.in, or Makefile.am.  See the documentation for
+details.
+
+Libtool supports building static libraries on all platforms.
+
+Shared library support has been implemented for these platforms:
+  AIX 3.x, 4.x (*-*-aix3*, *-*-aix4*)
+  BeOS (*-*-beos*)
+  BSD/OS 2.1, 3.x, 4.x (*-*-bsdi2.1, *-*-bsdi3*, *-*-bsdi4*)
+  Digital/UNIX 3.x, 4.x, a.k.a. OSF/1 (*-*-osf3*, *-*-osf4*)
+  DG/UX R4.11, R4.12, R4.20 (*-*-dguxR411*, *-*-dguxR412*, *-*-dguxR420*)
+  FreeBSD 2.x, 3.x, 4.x (*-*-freebsd2*, *-*-freebsd3*, *-*-freebsd4*)
+  GNU Hurd (*-*-gnu*)
+  GNU/Linux ELF (*-*-linux-gnu*, except aout, coff, and oldld)
+  HP-UX 9.x, 10.x, 11.x (*-*-hpux9*, *-*-hpux10*, *-*-hpux11*) [see note]
+  IRIX 5.x, 6.x (*-*-irix5*, *-*-irix6*)
+  NCR MP-RAS 3.x (*-ncr-sysv4.3*) [see note]
+  NEWS-OS Release 6 (*-*-newsos6)
+  Motorola System V 4 (mk88-motorola-sysv4) [see note]
+  NetBSD 1.x (*-*-netbsd*)
+  OpenBSD 2.x (*-*-openbsd*)
+  OS/2 using EMX (*-*-os2*)
+  Reliant Unix (*-sni-sysv4) [see note]
+  SCO OpenServer 5.x (*-*-sco3.2v5*)
+  SCO UnixWare 7.x (*-*-sysv5*)
+  Solaris 2.x (*-*-solaris2*)
+  SunOS 4.x, a.k.a. Solaris 1.x  (*-*-sunos4*)
+  UnixWare 2.x (*-*-sysv4.2uw2*)
+  UTS 4.x (*-*-uts4*)
+  All ELF targets that use both the GNU C compiler (gcc) and GNU ld
+
+NOTE: Some HP-UX sed programs are horribly broken, and cannot handle
+libtool's requirements, so users may report unusual problems.  There
+is no workaround except to install a working sed (such as GNU sed) on
+these systems.
+
+NOTE: The vendor-distributed NCR MP-RAS cc programs emits copyright
+on standard error that confuse tests on size of conftest.err.  The
+workaround is to specify CC when run configure with CC='cc -Hnocopyr'.
+
+NOTE: Due to a bug in autoconf cc isn't supported on Motorola System V 4.
+You can only use gcc. This bug will hopefully be fixed in autoconf 2.14.
+
+NOTE: Any earlier DG/UX system with ELF executables, such as R3.10 or
+R4.10, is also likely to work, but hasn't been explicitly tested.
+
+NOTE: Libtool has only been tested with the Siemens C-compiler and
+an old version of gcc provided by Marco Walther you can find on
+ftp://ftp.mch.sni.de/sni/mr/pd/gnu/gcc/gcc.2.7.2.3 on Reliant Unix.  
+
+Libtool's home page is:
+
+  http://www.gnu.org/software/libtool/libtool.html
+
+See the file NEWS for a description of recent changes to libtool.
+
+See the file INSTALL for instructions on how to build and install
+libtool.
+
+See the info node (libtool)Tested Platforms. (or the file
+doc/PLATFORMS) for a list of platforms that libtool shared library
+support was tested on.
+
+If you have any suggestions or bug reports, or you wish to port
+libtool to a new platform, please send electronic mail to the libtool
+mailing list <libtool@gnu.org> or bug reports to <bug-libtool@gnu.org>.
+Don't forget to mention the version of libtool that you are currently
+using (by typing `libtool --version').
+
+People have complained that they find the version numbering scheme
+under which libtool is released confusing... it works like this:
+
+	<major-number>.<minor-number>
+
+Releases with a <major-number> less than 1 were not yet feature
+complete.  If libtool ever undergoes a major rewrite or substantial
+restructuring, the <major-number> will be incremented again.  In the
+mean time, whenever we make a stable release it will have its 
+<minor-number> incremented with respect to the previous stable
+release.
+
+So that alpha releases can be distinguished from stable releases,
+we append a letter to them, starting with `a' and continuing
+alphabetically:
+
+	<major-number>.<minor-number><alpha> 
+
+Since alpha releases are start with the code of a previous stable
+release, the <major-number> and <minor-number> are the same as the
+stable release they started with.  So release `1.3a' is the first
+alpha release after stable release `1.3', and so on.
+
+To complicate matters slightly we always increment the letter in the
+repository before *and* after making a release tarball.  This means
+that "odd" letters (a,c,e,g...) only exist in the repository, and
+"even" letters are used instantaneously for an alpha release.  For
+example, you can tell that libtool-1.3c is an alpha release that is a
+snapshot of the repository taken between official alpha releases
+1.3b and 1.3d.  Since the odd lettered alpha release number potentially
+cover many states of the tree, we somtimes qualify such releases by
+adding the cvs version of the ChangeLog:
+
+	$ libtool --version
+	ltmain.sh (GNU libtool) 1.3c (1.666 2000/01/14 13:50:21)
+
+Finally, if we need to make a patch release to fix bugs in a stable
+release, and the development on the trunk has made the tree unstable,
+we use a third number, so:
+
+	<major-number>.<minor-number>.<patch number>
+
+	$ libtool --version
+	ltconfig (GNU libtool) 1.3.4 (1.385.2.196 1999/12/07 21:47:57)
+
+There might be several patch releases to the last stable release,
+and all happening concurrently with alpha releases.  For example,
+libtool-1.3.4 and libtool-1.3b might be available at the same time:
+`1.3.4' is the fourth patch release after stable release `1.3';
+`1.3b' is the first alpha release after stable release `1.3'.
+
+--- /usr/bin/automake	Sat Mar 11 09:25:33 2000
++++ automake	Thu Sep  7 22:08:33 2000
+@@ -187,7 +187,7 @@ $seen_libtool = 0;
+ $libtool_line = 0;
+ 
+ # Files installed by libtoolize.
+-@libtoolize_files = ('ltconfig', 'ltmain.sh', 'config.guess', 'config.sub');
++@libtoolize_files = ('ltmain.sh', 'config.guess', 'config.sub');
+ 
+ # TRUE if we've seen AM_MAINTAINER_MODE.
+ $seen_maint_mode = 0;

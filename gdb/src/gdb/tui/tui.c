@@ -1,296 +1,313 @@
-/*
-   ** tui.c
-   **         General functions for the WDB TUI
- */
+/* General functions for the WDB TUI.
 
-#define USE_OLD_TTY
+   Copyright 1998, 1999, 2000, 2001, 2002 Free Software Foundation,
+   Inc.
+
+   Contributed by Hewlett-Packard Company.
+
+   This file is part of GDB.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
+
+/* FIXME: cagney/2002-02-28: The GDB coding standard indicates that
+   "defs.h" should be included first.  Unfortunatly some systems
+   (currently Debian GNU/Linux) include the <stdbool.h> via <curses.h>
+   and they clash with "bfd.h"'s definiton of true/false.  The correct
+   fix is to remove true/false from "bfd.h", however, until that
+   happens, hack around it by including "config.h" and <curses.h>
+   first.  */
+
+#include "config.h"
+#ifdef HAVE_NCURSES_H       
+#include <ncurses.h>
+#else
+#ifdef HAVE_CURSES_H
+#include <curses.h>
+#endif
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <curses.h>
+#include <malloc.h>
 #ifdef HAVE_TERM_H
 #include <term.h>
 #endif
 #include <signal.h>
 #include <fcntl.h>
+#include <termio.h>
 #include <setjmp.h>
-#include <sys/ioctl.h>
-#include <sys/termios.h>
 #include "defs.h"
 #include "gdbcmd.h"
 #include "tui.h"
-#include "tui-file.h"
 #include "tuiData.h"
 #include "tuiLayout.h"
 #include "tuiIO.h"
 #include "tuiRegs.h"
+#include "tuiStack.h"
 #include "tuiWin.h"
+#include "tuiSourceWin.h"
+#include "readline/readline.h"
+#include "target.h"
+#include "frame.h"
+#include "breakpoint.h"
+#include "inferior.h"
 
-void keypad () { }; 
-void rl_reset () { }; 
-void pa_do_strcat_registers_info () { }; 
-void read_relative_register_raw_bytes_for_frame () { }; 
+/* Tells whether the TUI is active or not.  */
+int tui_active = 0;
+static int tui_finish_init = 1;
 
-char *term_cursor_move = NULL;
-
-int term_memory_lock = 0;
-int term_memory_unlock = 0;
-int term_mm = 0;
-int term_mo = 0;
-int term_scroll_region = 0;
-int term_se = 0;
-int visible_bell = 0;
-
-/* The Solaris header files seem to provide no declaration for this at
-   all when __STDC__ is defined.  This shouldn't conflict with
-   anything.  */
-extern char *tgoto ();
-
-/***********************
-** Local Definitions
-************************/
-#define FILEDES         2
-/* Solaris <sys/termios.h> defines CTRL. */
-#ifndef CTRL
-#define CTRL(x)         (x & ~0140)
-#endif
-#define CHK(val, dft)   (val<=0 ? dft : val)
-
-#define TOGGLE_USAGE "Usage:toggle breakpoints"
-#define TUI_TOGGLE_USAGE "Usage:\ttoggle $fregs\n\ttoggle breakpoints"
-
-/*****************************
-** Local static forward decls
-******************************/
-static void _tuiReset (void);
-static void _toggle_command (char *, int);
-static void _tui_vToggle_command (va_list);
-static Opaque _tui_vDo (TuiOpaqueFuncPtr, va_list);
-
-
-
-/***********************
-** Public Functions
-************************/
-
-/*
-   ** tuiInit().
- */
-void
-#ifdef __STDC__
-tuiInit (char *argv0)
-#else
-tuiInit (argv0)
-     char *argv0;
-#endif
+/* Switch the output mode between TUI/standard gdb.  */
+static int
+tui_switch_mode (void)
 {
-  extern void init_page_info ();
-  extern void initialize_tui_files (void);
-
-  /* initialize_tui_files (); */
-  initializeStaticData ();
-  initscr ();
-  refresh ();
-  setTermHeightTo (LINES);
-  setTermWidthTo (COLS);
-  tuiInitWindows ();
-  wrefresh (cmdWin->generic.handle);
-  init_page_info ();
-  /* Don't hook debugger output if doing command-window
-     * the XDB way. However, one thing we do want to do in
-     * XDB style is set up the scrolling region to be
-     * the bottom of the screen (tuiTermUnsetup()).
-   */
-  fputs_unfiltered_hook = NULL;
-  rl_initialize ();		/* need readline initialization to
-				   * create termcap sequences
-				 */
-
-  tuiTermUnsetup (1, cmdWin->detail.commandInfo.curch);
-
-  return;
-}				/* tuiInit */
-
-
-/*
-   ** tuiInitWindows().
- */
-void
-#ifdef __STDC__
-tuiInitWindows (void)
-#else
-tuiInitWindows ()
-#endif
-{
-  TuiWinType type;
-
-  tuiSetLocatorContent (0);
-  showLayout (SRC_COMMAND);
-  keypad (cmdWin->generic.handle, TRUE);
-  echo ();
-  crmode ();
-  nl ();
-  tuiSetWinFocusTo (srcWin);
-
-  return;
-}				/* tuiInitWindows */
-
-
-/*
-   ** tuiCleanUp().
-   **        Kill signal handler and cleanup termination method
- */
-void
-#ifdef __STDC__
-tuiResetScreen (void)
-#else
-tuiResetScreen ()
-#endif
-{
-  TuiWinType type = SRC_WIN;
-
-  keypad (cmdWin->generic.handle, FALSE);
-  for (; type < MAX_MAJOR_WINDOWS; type++)
+  if (tui_active)
     {
-      if (m_winPtrNotNull (winList[type]) &&
-	  winList[type]->generic.type != UNDEFINED_WIN &&
-	  !winList[type]->generic.isVisible)
-	tuiDelWindow (winList[type]);
+      tui_disable ();
+      rl_prep_terminal (0);
+
+      printf_filtered ("Left the TUI mode\n");
     }
-  endwin ();
-  initscr ();
-  refresh ();
-  echo ();
-  crmode ();
-  nl ();
-
-  return;
-}				/* tuiResetScreen */
-
-
-/*
-   ** tuiCleanUp().
-   **        Kill signal handler and cleanup termination method
- */
-void
-#ifdef __STDC__
-tuiCleanUp (void)
-#else
-tuiCleanUp ()
-#endif
-{
-  char *buffer;
-  extern char *term_cursor_move;
-
-  signal (SIGINT, SIG_IGN);
-  tuiTermSetup (0);		/* Restore scrolling region to whole screen */
-  keypad (cmdWin->generic.handle, FALSE);
-  freeAllWindows ();
-  endwin ();
-  buffer = tgoto (term_cursor_move, 0, termHeight ());
-  tputs (buffer, 1, putchar);
-  _tuiReset ();
-
-  return;
-}				/* tuiCleanUp */
-
-
-/*
-   ** tuiError().
- */
-void
-#ifdef __STDC__
-tuiError (
-	   char *string,
-	   int exitGdb)
-#else
-tuiError (string, exitGdb)
-     char *string;
-     int exitGdb;
-#endif
-{
-  puts_unfiltered (string);
-  if (exitGdb)
+  else
     {
-      tuiCleanUp ();
-      exit (-1);
+      rl_deprep_terminal ();
+      tui_enable ();
+      printf_filtered ("Entered the TUI mode\n");
     }
 
-  return;
-}				/* tuiError */
+  /* Clear the readline in case switching occurred in middle of something.  */
+  if (rl_end)
+    rl_kill_text (0, rl_end);
 
+  /* Since we left the curses mode, the terminal mode is restored to
+     some previous state.  That state may not be suitable for readline
+     to work correctly (it may be restored in line mode).  We force an
+     exit of the current readline so that readline is re-entered and it
+     will be able to setup the terminal for its needs.  By re-entering
+     in readline, we also redisplay its prompt in the non-curses mode.  */
+  rl_newline (1, '\n');
 
-/*
-   ** tui_vError()
-   **        tuiError with args in a va_list.
- */
-void
-#ifdef __STDC__
-tui_vError (
-	     va_list args)
-#else
-tui_vError (args)
-     va_list args;
-#endif
+  /* Make sure the \n we are returning does not repeat the last command.  */
+  dont_repeat ();
+  return 0;
+}
+
+/* Change the TUI layout to show a next layout.
+   This function is bound to CTRL-X 2.  It is intended to provide
+   a functionality close to the Emacs split-window command.  We always
+   show two windows (src+asm), (src+regs) or (asm+regs).  */
+static int
+tui_change_windows (void)
 {
-  char *string;
-  int exitGdb;
+  if (!tui_active)
+    tui_switch_mode ();
 
-  string = va_arg (args, char *);
-  exitGdb = va_arg (args, int);
+  if (tui_active)
+    {
+      TuiLayoutType new_layout;
+      TuiRegisterDisplayType regs_type = TUI_UNDEFINED_REGS;
 
-  tuiError (string, exitGdb);
+      new_layout = currentLayout ();
 
-  return;
-}				/* tui_vError */
+      /* Select a new layout to have a rolling layout behavior
+	 with always two windows (except when undefined).  */
+      switch (new_layout)
+	{
+	case SRC_COMMAND:
+	  new_layout = SRC_DISASSEM_COMMAND;
+	  break;
+
+	case DISASSEM_COMMAND:
+	  new_layout = SRC_DISASSEM_COMMAND;
+	  break;
+
+	case SRC_DATA_COMMAND:
+	  new_layout = SRC_DISASSEM_COMMAND;
+	  break;
+
+	case SRC_DISASSEM_COMMAND:
+	  new_layout = DISASSEM_DATA_COMMAND;
+	  break;
+	  
+	case DISASSEM_DATA_COMMAND:
+	  new_layout = SRC_DATA_COMMAND;
+	  break;
+
+	default:
+	  new_layout = SRC_COMMAND;
+	  break;
+	}
+      tuiSetLayout (new_layout, regs_type);
+    }
+  return 0;
+}
 
 
-/*
-   ** tuiFree()
-   **    Wrapper on top of free() to ensure that input address is greater than 0x0
- */
+/* Delete the second TUI window to only show one.  */
+static int
+tui_delete_other_windows (void)
+{
+  if (!tui_active)
+    tui_switch_mode ();
+
+  if (tui_active)
+    {
+      TuiLayoutType new_layout;
+      TuiRegisterDisplayType regs_type = TUI_UNDEFINED_REGS;
+
+      new_layout = currentLayout ();
+
+      /* Kill one window.  */
+      switch (new_layout)
+	{
+	case SRC_COMMAND:
+	case SRC_DATA_COMMAND:
+	case SRC_DISASSEM_COMMAND:
+	default:
+	  new_layout = SRC_COMMAND;
+	  break;
+
+	case DISASSEM_COMMAND:
+	case DISASSEM_DATA_COMMAND:
+	  new_layout = DISASSEM_COMMAND;
+	  break;
+	}
+      tuiSetLayout (new_layout, regs_type);
+    }
+  return 0;
+}
+
+/* Initialize readline and configure the keymap for the switching
+   key shortcut.  */
 void
-#ifdef __STDC__
-tuiFree (
-	  char *ptr)
-#else
-tuiFree (ptr)
-     char *ptr;
-#endif
+tui_initialize_readline ()
+{
+  rl_initialize ();
+
+  rl_add_defun ("tui-switch-mode", tui_switch_mode, -1);
+  rl_bind_key_in_map ('a', tui_switch_mode, emacs_ctlx_keymap);
+  rl_bind_key_in_map ('A', tui_switch_mode, emacs_ctlx_keymap);
+  rl_bind_key_in_map (CTRL ('A'), tui_switch_mode, emacs_ctlx_keymap);
+  rl_bind_key_in_map ('1', tui_delete_other_windows, emacs_ctlx_keymap);
+  rl_bind_key_in_map ('2', tui_change_windows, emacs_ctlx_keymap);
+}
+
+/* Enter in the tui mode (curses).
+   When in normal mode, it installs the tui hooks in gdb, redirects
+   the gdb output, configures the readline to work in tui mode.
+   When in curses mode, it does nothing.  */
+void
+tui_enable (void)
+{
+  if (tui_active)
+    return;
+
+  /* To avoid to initialize curses when gdb starts, there is a defered
+     curses initialization.  This initialization is made only once
+     and the first time the curses mode is entered.  */
+  if (tui_finish_init)
+    {
+      WINDOW *w;
+
+      w = initscr ();
+  
+      cbreak ();
+      noecho ();
+      /*timeout (1);*/
+      nodelay(w, FALSE);
+      nl();
+      keypad (w, TRUE);
+      rl_initialize ();
+      setTermHeightTo (LINES);
+      setTermWidthTo (COLS);
+      def_prog_mode ();
+
+      tuiSetLocatorContent (0);
+      showLayout (SRC_COMMAND);
+      tuiSetWinFocusTo (srcWin);
+      keypad (cmdWin->generic.handle, TRUE);
+      wrefresh (cmdWin->generic.handle);
+      tui_finish_init = 0;
+    }
+  else
+    {
+     /* Save the current gdb setting of the terminal.
+        Curses will restore this state when endwin() is called.  */
+     def_shell_mode ();
+     clearok (stdscr, TRUE);
+   }
+
+  /* Install the TUI specific hooks.  */
+  tui_install_hooks ();
+
+  tui_update_variables ();
+  
+  tui_setup_io (1);
+
+  tui_version = 1;
+  tui_active = 1;
+  refresh ();
+}
+
+/* Leave the tui mode.
+   Remove the tui hooks and configure the gdb output and readline
+   back to their original state.  The curses mode is left so that
+   the terminal setting is restored to the point when we entered.  */
+void
+tui_disable (void)
+{
+  if (!tui_active)
+    return;
+
+  /* Remove TUI hooks.  */
+  tui_remove_hooks ();
+
+  /* Leave curses and restore previous gdb terminal setting.  */
+  endwin ();
+
+  /* gdb terminal has changed, update gdb internal copy of it
+     so that terminal management with the inferior works.  */
+  tui_setup_io (0);
+
+  tui_version = 0;
+  tui_active = 0;
+}
+
+/* Wrapper on top of free() to ensure that input address
+   is greater than 0x0.  */
+void
+tuiFree (char *ptr)
 {
   if (ptr != (char *) NULL)
     {
-      free (ptr);
+      xfree (ptr);
     }
+}
 
-  return;
-}				/* tuiFree */
-
-
-/* tuiGetLowDisassemblyAddress().
-   **        Determine what the low address will be to display in the TUI's
-   **        disassembly window.  This may or may not be the same as the
-   **        low address input.
- */
-Opaque
-#ifdef __STDC__
-tuiGetLowDisassemblyAddress (
-			      Opaque low,
-			      Opaque pc)
-#else
-tuiGetLowDisassemblyAddress (low, pc)
-     Opaque low;
-     Opaque pc;
-#endif
+/* Determine what the low address will be to display in the TUI's
+   disassembly window.  This may or may not be the same as the
+   low address input.  */
+CORE_ADDR
+tuiGetLowDisassemblyAddress (CORE_ADDR low, CORE_ADDR pc)
 {
   int line;
-  Opaque newLow;
+  CORE_ADDR newLow;
 
-  /*
-     ** Determine where to start the disassembly so that the pc is about in the
-     ** middle of the viewport.
-   */
+  /* Determine where to start the disassembly so that the pc is about in the
+     middle of the viewport.  */
   for (line = 0, newLow = pc;
        (newLow > low &&
 	line < (tuiDefaultWinViewportHeight (DISASSEM_WIN,
@@ -303,319 +320,10 @@ tuiGetLowDisassemblyAddress (low, pc)
     }
 
   return newLow;
-}				/* tuiGetLowDisassemblyAddress */
-
-
-/* tui_vGetLowDisassemblyAddress().
-   **        Determine what the low address will be to display in the TUI's
-   **        disassembly window with args in a va_list.
- */
-Opaque
-#ifdef __STDC__
-tui_vGetLowDisassemblyAddress (
-				va_list args)
-#else
-tui_vGetLowDisassemblyAddress (args)
-     va_list args;
-#endif
-{
-  int line;
-  Opaque newLow;
-  Opaque low;
-  Opaque pc;
-
-  low = va_arg (args, Opaque);
-  pc = va_arg (args, Opaque);
-
-  return (tuiGetLowDisassemblyAddress (low, pc));
-
-}				/* tui_vGetLowDisassemblyAddress */
-
-
-/*
-   ** tuiDo().
-   **        General purpose function to execute a tui function.  Transitions
-   **        between curses and the are handled here.  This function is called
-   **        by non-tui gdb functions.
-   **
-   **        Errors are caught here.
-   **        If there is no error, the value returned by 'func' is returned.
-   **        If there is an error, then zero is returned.
-   **
-   **       Must not be called with immediate_quit in effect (bad things might
-   **       happen, say we got a signal in the middle of a memcpy to catch_return).
-   **       This is an OK restriction; with very few exceptions immediate_quit can
-   **       be replaced by judicious use of QUIT.
- */
-Opaque
-#ifdef __STDC__
-tuiDo (
-	TuiOpaqueFuncPtr func,...)
-#else
-tuiDo (func, va_alist)
-     TuiOpaqueFuncPtr func;
-     va_dcl
-#endif
-{
-  extern int terminal_is_ours;
-
-  Opaque ret = (Opaque) NULL;
-
-  /* It is an error to be tuiDo'ing if we
-     * don't own the terminal.
-   */
-  if (!terminal_is_ours)
-    return ret;
-
-  if (tui_version)
-    {
-      va_list args;
-
-#ifdef __STDC__
-      va_start (args, func);
-#else
-      va_start (args);
-#endif
-      ret = _tui_vDo (func, args);
-      va_end (args);
-    }
-
-  return ret;
-}				/* tuiDo */
-
-
-/*
-   ** tuiDoAndReturnToTop().
-   **        General purpose function to execute a tui function.  Transitions
-   **        between curses and the are handled here.  This function is called
-   **        by non-tui gdb functions who wish to reset gdb to the top level.
-   **        After the tuiDo is performed, a return to the top level occurs.
-   **
-   **        Errors are caught here.
-   **        If there is no error, the value returned by 'func' is returned.
-   **        If there is an error, then zero is returned.
-   **
-   **       Must not be called with immediate_quit in effect (bad things might
-   **       happen, say we got a signal in the middle of a memcpy to catch_return).
-   **       This is an OK restriction; with very few exceptions immediate_quit can
-   **       be replaced by judicious use of QUIT.
-   **
- */
-Opaque
-#ifdef __STDC__
-tuiDoAndReturnToTop (
-		      TuiOpaqueFuncPtr func,...)
-#else
-tuiDoAndReturnToTop (func, va_alist)
-     TuiOpaqueFuncPtr func;
-     va_dcl
-#endif
-{
-  extern int terminal_is_ours;
-
-  Opaque ret = (Opaque) NULL;
-
-  /* It is an error to be tuiDo'ing if we
-     * don't own the terminal.
-   */
-  if (!terminal_is_ours)
-    return ret;
-
-  if (tui_version)
-    {
-      va_list args;
-
-#ifdef __STDC__
-      va_start (args, func);
-#else
-      va_start (args);
-#endif
-      ret = _tui_vDo (func, args);
-
-      /* force a return to the top level */
-      return_to_top_level (RETURN_ERROR);
-    }
-
-  return ret;
-}				/* tuiDoAndReturnToTop */
-
-
-void
-#ifdef __STDC__
-tui_vSelectSourceSymtab (
-			  va_list args)
-#else
-tui_vSelectSourceSymtab (args)
-     va_list args;
-#endif
-{
-  struct symtab *s = va_arg (args, struct symtab *);
-
-  select_source_symtab (s);
-  return;
-}				/* tui_vSelectSourceSymtab */
-
-
-/*
-   ** _initialize_tui().
-   **      Function to initialize gdb commands, for tui window manipulation.
- */
-void
-_initialize_tui (void)
-{
-#if 0
-  if (tui_version)
-    {
-      add_com ("toggle", class_tui, _toggle_command,
-	       "Toggle Terminal UI Features\n\
-Usage: Toggle $fregs\n\
-\tToggles between single and double precision floating point registers.\n");
-    }
-#endif
-  char *helpStr;
-
-  if (tui_version)
-    helpStr = "Toggle Specified Features\n\
-Usage:\ttoggle $fregs\n\ttoggle breakpoints";
-  else
-    helpStr = "Toggle Specified Features\nUsage:toggle breakpoints";
-  add_abbrev_prefix_cmd ("toggle",
-			 class_tui,
-			 _toggle_command,
-			 helpStr,
-			 &togglelist,
-			 "toggle ",
-			 1,
-			 &cmdlist);
-}				/* _initialize_tui */
-
-#define HAVE_SIGSETJMP
-
-/* One should use catch_errors rather than manipulating these
-   directly.  */
-
-#if defined(HAVE_SIGSETJMP)
-#define SIGJMP_BUF		sigjmp_buf
-#define SIGSETJMP(buf)		sigsetjmp(buf, 1)
-#define SIGLONGJMP(buf,val)	siglongjmp(buf,val)
-#else
-#define SIGJMP_BUF		jmp_buf
-#define SIGSETJMP(buf)		setjmp(buf)
-#define SIGLONGJMP(buf,val)	longjmp(buf,val)
-#endif
-
-extern SIGJMP_BUF *catch_return;
-
-/*
-   ** va_catch_errors().
-   **       General purpose function to execute a function, catching errors.
-   **       If there is no error, the value returned by 'func' is returned.
-   **       If there is error, then zero is returned.
-   **       Note that 'func' must take a variable argument list as well.
-   **
-   **       Must not be called with immediate_quit in effect (bad things might
-   **       happen, say we got a signal in the middle of a memcpy to catch_return).
-   **       This is an OK restriction; with very few exceptions immediate_quit can
-   **       be replaced by judicious use of QUIT.
- */
-Opaque
-#ifdef __STDC__
-va_catch_errors (
-		  TuiOpaqueFuncPtr func,
-		  va_list args)
-#else
-va_catch_errors (func, args)
-     TuiOpaqueFuncPtr func;
-     va_list args;
-#endif
-{
-  Opaque ret = (Opaque) NULL;
-
-  /*
-     ** We could have used catch_errors(), but it doesn't handle variable args.
-     ** Also, for the tui, we always want to catch all errors, so we don't
-     ** need to pass a mask, or an error string.
-   */
-  SIGJMP_BUF saved_catch;
-  SIGJMP_BUF tmp_jmp;
-  struct cleanup *saved_cleanup_chain;
-  char *saved_error_pre_print;
-  char *saved_quit_pre_print;
-
-  saved_cleanup_chain = save_cleanups ();
-  saved_error_pre_print = error_pre_print;
-  saved_quit_pre_print = quit_pre_print;
-
-  memcpy ((char *) saved_catch, (char *) catch_return, sizeof (SIGJMP_BUF));
-  error_pre_print = "";
-  quit_pre_print = "";
-
-  if (setjmp (tmp_jmp) == 0)
-    {
-      va_list argList = args;
-      memcpy (catch_return, tmp_jmp, sizeof (SIGJMP_BUF));
-      ret = func (argList);
-    }
-  restore_cleanups (saved_cleanup_chain);
-  memcpy (catch_return, saved_catch, sizeof (SIGJMP_BUF));
-  error_pre_print = saved_error_pre_print;
-  quit_pre_print = saved_quit_pre_print;
-
-  return ret;
 }
 
-/*
-   ** vcatch_errors().
-   **        Catch errors occurring in tui or non tui function, handling
-   **        variable param lists. Note that 'func' must take a variable
-   **        argument list as well.
- */
-Opaque
-#ifdef __STDC__
-vcatch_errors (
-		OpaqueFuncPtr func,...)
-#else
-vcatch_errors (va_alist)
-     va_dcl
-/*
-   vcatch_errors(func, va_alist)
-   OpaqueFuncPtr    func;
-   va_dcl
- */
-#endif
-{
-  Opaque ret = (Opaque) NULL;
-  va_list args;
-#ifdef __STDC__
-  va_start (args, func);
-/*
-   va_arg(args, OpaqueFuncPtr);
- */
-#else
-  OpaqueFuncPtr func;
-
-  va_start (args);
-  func = va_arg (args, OpaqueFuncPtr);
-#endif
-  ret = va_catch_errors (func, args);
-  va_end (args);
-
-  return ret;
-}
-
-
 void
-#ifdef __STDC__
-strcat_to_buf (
-		char *buf,
-		int buflen,
-		char *itemToAdd)
-#else
-strcat_to_buf (buf, buflen, itemToAdd)
-     char *buf;
-     int buflen;
-     char *itemToAdd;
-#endif
+strcat_to_buf (char *buf, int buflen, char *itemToAdd)
 {
   if (itemToAdd != (char *) NULL && buf != (char *) NULL)
     {
@@ -624,174 +332,21 @@ strcat_to_buf (buf, buflen, itemToAdd)
       else
 	strncat (buf, itemToAdd, (buflen - strlen (buf)));
     }
-
-  return;
-}				/* strcat_to_buf */
-
-/* VARARGS */
-void
-#ifdef ANSI_PROTOTYPES
-strcat_to_buf_with_fmt (
-			 char *buf,
-			 int bufLen,
-			 char *format,...)
-#else
-strcat_to_buf_with_fmt (va_alist)
-     va_dcl
-#endif
-{
-  char *linebuffer;
-  struct cleanup *old_cleanups;
-  va_list args;
-#ifdef ANSI_PROTOTYPES
-  va_start (args, format);
-#else
-  char *buf;
-  int bufLen;
-  char *format;
-
-  va_start (args);
-  buf = va_arg (args, char *);
-  bufLen = va_arg (args, int);
-  format = va_arg (args, char *);
-#endif
-  vasprintf (&linebuffer, format, args);
-  old_cleanups = make_cleanup (free, linebuffer);
-  strcat_to_buf (buf, bufLen, linebuffer);
-  do_cleanups (old_cleanups);
-  va_end (args);
 }
 
-
-
-
-
-/***********************
-** Static Functions
-************************/
-
-
-/*
-   ** _tui_vDo().
-   **        General purpose function to execute a tui function.  Transitions
-   **        between curses and the are handled here.  This function is called
-   **        by non-tui gdb functions.
-   **
-   **        Errors are caught here.
-   **        If there is no error, the value returned by 'func' is returned.
-   **        If there is an error, then zero is returned.
-   **
-   **       Must not be called with immediate_quit in effect (bad things might
-   **       happen, say we got a signal in the middle of a memcpy to catch_return).
-   **       This is an OK restriction; with very few exceptions immediate_quit can
-   **       be replaced by judicious use of QUIT.
- */
-static Opaque
-#ifdef __STDC__
-_tui_vDo (
-	   TuiOpaqueFuncPtr func,
-	   va_list args)
-#else
-_tui_vDo (func, args)
-     TuiOpaqueFuncPtr func;
-     va_list args;
+#if 0
+/* Solaris <sys/termios.h> defines CTRL. */
+#ifndef CTRL
+#define CTRL(x)         (x & ~0140)
 #endif
-{
-  extern int terminal_is_ours;
 
-  Opaque ret = (Opaque) NULL;
-
-  /* It is an error to be tuiDo'ing if we
-     * don't own the terminal.
-   */
-  if (!terminal_is_ours)
-    return ret;
-
-  if (tui_version)
-    {
-      /* If doing command window the "XDB way" (command window
-         * is unmanaged by curses...
-       */
-      /* Set up terminal for TUI */
-      tuiTermSetup (1);
-
-      ret = va_catch_errors (func, args);
-
-      /* Set up terminal for command window */
-      tuiTermUnsetup (1, cmdWin->detail.commandInfo.curch);
-    }
-
-  return ret;
-}				/* _tui_vDo */
-
+#define FILEDES         2
+#define CHK(val, dft)   (val<=0 ? dft : val)
 
 static void
-#ifdef __STDC__
-_toggle_command (
-		  char *arg,
-		  int fromTTY)
-#else
-_toggle_command (arg, fromTTY)
-     char *arg;
-     int fromTTY;
-#endif
-{
-  printf_filtered ("Specify feature to toggle.\n%s\n",
-		   (tui_version) ? TUI_TOGGLE_USAGE : TOGGLE_USAGE);
-/*
-   tuiDo((TuiOpaqueFuncPtr)_Toggle_command, arg, fromTTY);
- */
-}
-
-/*
-   ** _tui_vToggle_command().
- */
-static void
-#ifdef __STDC__
-_tui_vToggle_command (
-		       va_list args)
-#else
-_tui_vToggle_command (args)
-     va_list args;
-#endif
-{
-  char *arg;
-  int fromTTY;
-
-  arg = va_arg (args, char *);
-
-  if (arg == (char *) NULL)
-    printf_filtered (TOGGLE_USAGE);
-  else
-    {
-      char *ptr = (char *) tuiStrDup (arg);
-      int i;
-
-      for (i = 0; (ptr[i]); i++)
-	ptr[i] = toupper (arg[i]);
-
-      if (subset_compare (ptr, TUI_FLOAT_REGS_NAME))
-	tuiToggleFloatRegs ();
-/*        else if (subset_compare(ptr, "ANOTHER TOGGLE OPTION"))
-   ...
- */
-      else
-	printf_filtered (TOGGLE_USAGE);
-      tuiFree (ptr);
-    }
-
-  return;
-}				/* _tuiToggle_command */
-
-
-static void
-#ifdef __STDC__
 _tuiReset (void)
-#else
-_tuiReset ()
-#endif
 {
-  struct sgttyb mode;
+  struct termio mode;
 
   /*
      ** reset the teletype mode bits to a sensible state.
@@ -856,3 +411,46 @@ _tuiReset ()
 
   return;
 }				/* _tuiReset */
+#endif
+
+void
+tui_show_source (const char *file, int line)
+{
+  /* make sure that the source window is displayed */
+  tuiAddWinToLayout (SRC_WIN);
+
+  tuiUpdateSourceWindowsWithLine (current_source_symtab, line);
+  tuiUpdateLocatorFilename (file);
+}
+
+void
+tui_show_assembly (CORE_ADDR addr)
+{
+  tuiAddWinToLayout (DISASSEM_WIN);
+  tuiUpdateSourceWindowsWithAddr (addr);
+}
+
+int
+tui_is_window_visible (TuiWinType type)
+{
+  if (tui_version == 0)
+    return 0;
+
+  if (winList[type] == 0)
+    return 0;
+  
+  return winList[type]->generic.isVisible;
+}
+
+int
+tui_get_command_dimension (int *width, int *height)
+{
+  if (!tui_version || !m_winPtrNotNull (cmdWin))
+    {
+      return 0;
+    }
+  
+  *width = cmdWin->generic.width;
+  *height = cmdWin->generic.height;
+  return 1;
+}

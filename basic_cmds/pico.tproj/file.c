@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: file.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $";
+static char rcsid[] = "$Id: file.c,v 1.2 2002/01/03 22:16:39 jevans Exp $";
 #endif
 /*
  * Program:	High level file input and output routines
@@ -15,7 +15,7 @@ static char rcsid[] = "$Id: file.c,v 1.1.1.1 1999/04/15 17:45:12 wsanchez Exp $"
  *
  * Please address all bugs and comments to "pine-bugs@cac.washington.edu"
  *
- * Copyright 1991-1993  University of Washington
+ * Copyright 1991-1994  University of Washington
  *
  *  Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee to the University of
@@ -74,12 +74,17 @@ int f, n;
         register int    s;
         char fname[NFILEN];
 
-        if ((s=mlreply("Read file: ", fname, NFILEN, QFFILE)) != TRUE)
+        if ((s=mlreply("Read file: ", fname, NFILEN, QNORML, NULL)) != TRUE)
                 return(s);
 
 	if(gmode&MDSCUR){
 	    emlwrite("File reading disabled in secure mode",NULL);
 	    return(0);
+	}
+
+	if (strlen(fname) == 0) {
+	  emlwrite("No file name entered",NULL);
+	  return(0);
 	}
 
         return(readin(fname, TRUE));
@@ -128,30 +133,36 @@ int f, n;
         register int    s;
         char fname[NFILEN], dir[NFILEN];
         int	retval, bye = 0;
-        char	*prompt = "Insert file: ";
+        char	*prompt;
+	char     pbuf[40];
         register int	availen;
+	KEYMENU menu_ins[2];
 
+	prompt = pbuf;
+	strcat(strcat(strcpy(prompt, "Insert file from "),
+				    gmode&MDCURDIR ? "current" : "home"),
+				    " directory: ");
         availen = term.t_ncol - strlen(prompt);
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
 
         fname[0] = '\0';
+	menu_ins[0].name  = "^T";
+	menu_ins[0].label = "To Files";
+	menu_ins[1].name  = NULL;
         while(!bye){
-            wkeyhelp("GC00000T0000","Get Help,Cancel,To Files");
-
-	    if(Pmaster == NULL)
-	      sgarbk = TRUE;
-
-            if ((s=mlreplyd(prompt,fname,NFILEN,QDEFLT|QFFILE)) != TRUE){
+	    s = mlreplyd(prompt, fname, NFILEN, QDEFLT, menu_ins);
+            if (s != TRUE){
 		switch(s){
 		  case (CTRL|'T'):
 		    if(*fname && isdir(fname, NULL))
 		      strcpy(dir, fname);
 		    else
-		      strcpy(dir, gethomedir(NULL));
+		      strcpy(dir, gmode&MDCURDIR ? "." : gethomedir(NULL));
 
-		    if((s = FileBrowse(dir, fname, NULL)) == 1){
+		    fname[0] = '\0';
+		    if((s = FileBrowse(dir, fname, NULL, FB_READ)) == 1){
 			if(gmode&MDSCUR){
 			    emlwrite("Can't insert file in restricted mode",
 				     NULL);
@@ -212,8 +223,7 @@ int f, n;
  * by both the read and find commands. Return the final
  * status of the read. Also called by the mainline,
  * to read in a file specified on the command line as
- * an argument. If the filename ends in a ".c", CMODE is
- * set for the current buffer.
+ * an argument.
  */
 readin(fname, lockfl)
 char    fname[];	/* name of file to read */
@@ -313,20 +323,21 @@ int f, n;
         register WINDOW *wp;
         register int    s;
         char            fname[NFILEN];
-	char	shows[128], *bufp;
-	long	l;		/* length returned from fexist() */
+	char		shows[128], *bufp;
+	long		l;		/* length returned from fexist() */
+	KEYMENU		menu_write[2];
 
 	if(curbp->b_fname[0] != 0)
 	  strcpy(fname, curbp->b_fname);
 	else
 	  fname[0] = '\0';
 
+	menu_write[0].name  = "^T";
+	menu_write[0].label = "To Files";
+	menu_write[1].name  = NULL;
 	for(;;){
-
-	    wkeyhelp("GC00000T0000","Get Help,Cancel,To Files");
-	    sgarbk = TRUE;
-
-	    s=mlreplyd("File Name to write : ", fname, NFILEN, QDEFLT|QFFILE);
+	    s = mlreplyd("File Name to write : ", fname, NFILEN,
+			 QDEFLT|QFFILE, menu_write);
 
 	    fixpath(fname, NFILEN);		/*  fixup ~ in file name  */
 
@@ -337,14 +348,32 @@ int f, n;
 	      case TRUE:
 		break;
 	      case (CTRL|'T'):
-		if(*fname && isdir(fname, NULL)){
-		    strcpy(shows, fname);
-		    fname[0] = '\0';
+		/* If we have a file name, break up into path and file name.*/
+		*shows = 0;
+		if(*fname) {
+		    if (isdir (fname, NULL)) {
+			/* fname is a directory. */
+			strcpy (shows, fname);
+			*fname = '\0';
+		    }
+		    else {
+			/* Find right most seperator. */
+			bufp = strrchr (fname, C_FILESEP);
+			if (bufp != NULL) {
+			    /* Copy directory part to 'shows', and file
+			     * name part to front of 'fname'. */
+			    *bufp = '\0';
+			    strcpy (shows, fname);
+			    memcpy (fname, bufp+1, strlen (bufp+1) + 1);
+			}
+		    }
 		}
-		else
+
+		/* If we did not end up with a valid directory, use home. */
+		if (!isdir (shows, NULL))
 		  strcpy(shows, gethomedir(NULL));
 
-		s = FileBrowse(shows, fname, NULL);
+		s = FileBrowse(shows, fname, NULL, FB_SAVE);
 		strcat(shows, S_FILESEP);
 		strcat(shows, fname);
 		strcpy(fname, shows);
@@ -373,7 +402,7 @@ int f, n;
 
 		sprintf(shows, "File \"%s\" exists, OVERWRITE", fname);
 		if((s=mlyesno(shows, FALSE)) != TRUE){
-		    if((bufp = strrchr(fname,'/')) == NULL)
+		    if((bufp = strrchr(fname,C_FILESEP)) == NULL)
 		      fname[0] = '\0';
 		    else
 		      *++bufp = '\0';
@@ -515,7 +544,10 @@ int f, n;
         if ((s=ffwopen(fn)) != FIOSUC)          /* Open writes message. */
                 return(NULL);
 
-	chmod(fn, 0600);			/* fix access rights */
+#ifndef _WINDOWS	/* For some reason, in windows changing the mode */
+			/* _always_ causes the file close to fail. */
+	chmod(fn, MODE_READONLY);		/* fix access rights */
+#endif
 
         lp = lforw(curbp->b_linep);             /* First line.          */
         nline = 0;                              /* Number of lines.     */
@@ -537,39 +569,6 @@ int f, n;
         return(fn);
 }
 
-
-/*
- * The command allows the user
- * to modify the file name associated with
- * the current buffer. It is like the "f" command
- * in UNIX "ed". The operation is simple; just zap
- * the name in the BUFFER structure, and mark the windows
- * as needing an update. You can type a blank line at the
- * prompt if you wish.
- */
-filename(f, n)
-int f, n;
-{
-        register WINDOW *wp;
-        register int    s;
-        char            fname[NFILEN];
-
-        if ((s=mlreply("Name: ", fname, NFILEN, QFFILE)) == ABORT)
-                return (s);
-        if (s == FALSE)
-                strcpy(curbp->b_fname, "");
-        else
-                strcpy(curbp->b_fname, fname);
-        wp = wheadp;                            /* Update mode lines.   */
-        while (wp != NULL) {
-                if (wp->w_bufp == curbp)
-		  if(Pmaster == NULL)
-                        wp->w_flag |= WFMODE;
-                wp = wp->w_wndp;
-        }
-	curbp->b_mode &= ~MDVIEW;	/* no longer read only mode */
-        return (TRUE);
-}
 
 /*
  * Insert file "fname" into the current

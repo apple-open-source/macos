@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -81,9 +81,7 @@ _configopen(mach_port_t			server,
 {
 	kern_return_t 		status;
 	serverSessionRef	mySession, newSession;
-	CFDataRef		xmlName;	/* name (XML serialized) */
 	CFStringRef		name;		/* name (un-serialized) */
-	CFStringRef		xmlError;
 	mach_port_t		oldNotify;
 	CFStringRef		sessionKey;
 	CFDictionaryRef		info;
@@ -94,28 +92,12 @@ _configopen(mach_port_t			server,
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
 
 	/* un-serialize the name */
-	xmlName = CFDataCreate(NULL, nameRef, nameLen);
-	status = vm_deallocate(mach_task_self(), (vm_address_t)nameRef, nameLen);
-	if (status != KERN_SUCCESS) {
-		CFRelease(xmlName);
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
-		/* non-fatal???, proceed */
-	}
-	name = CFPropertyListCreateFromXMLData(NULL,
-					       xmlName,
-					       kCFPropertyListImmutable,
-					       &xmlError);
-	CFRelease(xmlName);
-	if (!name) {
-		if (xmlError) {
-			SCLog(_configd_verbose, LOG_DEBUG,
-			       CFSTR("CFPropertyListCreateFromXMLData() name: %@"),
-			       xmlError);
-			CFRelease(xmlError);
-		}
+	if (!_SCUnserialize((CFPropertyListRef *)&name, (void *)nameRef, nameLen)) {
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
-	} else if (!isA_CFString(name)) {
+	}
+
+	if (!isA_CFString(name)) {
 		CFRelease(name);
 		*sc_status = kSCStatusInvalidArgument;
 		return KERN_SUCCESS;

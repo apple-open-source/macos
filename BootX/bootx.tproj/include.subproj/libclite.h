@@ -24,7 +24,7 @@
  *
  *  Ported from i386's libsa and libsaio
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -32,7 +32,7 @@
 #ifndef _BOOTX_LIBCLITE_H_
 #define _BOOTX_LIBCLITE_H_
 
-#include <bsd/sys/types.h>
+#include <sys/types.h>
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -41,7 +41,7 @@
 extern void  putchar(int ch);
 
 // prf.c
-extern void prf(char *fmt, unsigned int *adx, void (*putfn_p)(),
+extern void prf(const char *fmt, unsigned int *adx, void (*putfn_p)(),
 		void *putfn_arg);
 
 // printf.c

@@ -1,5 +1,5 @@
 /* Definitions file for GNU Emacs running on AT&T's System V Release 4
-   Copyright (C) 1987, 1990 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1990, 1999, 2000 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -33,7 +33,8 @@ Boston, MA 02111-1307, USA.  */
 
 #undef NOMULTIPLEJOBS
 
-#define LIBS_SYSTEM -lsocket -lnsl -lelf
+/* Motif needs -lgen.  */
+#define LIBS_SYSTEM -lsocket -lnsl -lelf -lgen
 #define ORDINARY_LINK
 
 #if 0
@@ -95,17 +96,14 @@ Boston, MA 02111-1307, USA.  */
 #include <sys/stream.h>
 #include <sys/stropts.h>
 #include <sys/termios.h>
-#undef SIGIO
+#define BROKEN_SIGIO
 #endif
 
 /* Some SVr4s don't define NSIG in sys/signal.h for ANSI environments;
  * instead, there's a system variable _sys_nsig.  Unfortunately, we need the
  * constant to dimension an array.  So wire in the appropriate value here.
  */
-
-#ifndef NSIG
-#define NSIG	32
-#endif
+#define NSIG_MINIMUM 32
 
 /* We need bss_end from emacs.c for undumping */
 
@@ -162,12 +160,12 @@ Boston, MA 02111-1307, USA.  */
 							\
     sighold (SIGCLD);					\
     if (grantpt (fd) == -1)				\
-      { close (fd); return -1; }			\
+      { emacs_close (fd); return -1; }			\
     sigrelse (SIGCLD);					\
     if (unlockpt (fd) == -1)				\
-      { close (fd); return -1; }			\
+      { emacs_close (fd); return -1; }			\
     if (!(ptyname = ptsname (fd)))			\
-      { close (fd); return -1; }			\
+      { emacs_close (fd); return -1; }			\
     strncpy (pty_name, ptyname, sizeof (pty_name));	\
     pty_name[sizeof (pty_name) - 1] = 0;		\
   }
@@ -200,11 +198,9 @@ Boston, MA 02111-1307, USA.  */
    So give it a try.  */
 #define HAVE_SOCKETS
 
-#ifndef IRIX6
 #define bcopy(src,dst,n)	memmove (dst,src,n)
 #define bcmp(src,dst,n)		memcmp (src,dst,n)
 #define bzero(s,n)		memset (s,0,n)
-#endif
 
 /* Markus Weiand <weiand@khof.com> says this is needed for Motif on
    SINIX.  */

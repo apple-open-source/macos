@@ -1,16 +1,30 @@
 #!/bin/sh
 
+##
+# Apple File Protocol
+##
+
 . /etc/rc.common
 
-##
-# Start the AFP Server
-##
-if [ "${AFPSERVER:=-NO-}" = "-YES-" ]; then
-    CheckForNetwork 
+StartService ()
+{
+    if [ "${AFPSERVER:=-NO-}" = "-YES-" ]; then
+	CheckForNetwork 
+	if [ "${NETWORKUP}" = "-NO-" ]; then exit; fi
 
-    if [ "${NETWORKUP}" = "-NO-" ]; then exit; fi
+	ConsoleMessage "Starting Apple File Service"
+	AppleFileServer &
+    fi
+}
 
-    ConsoleMessage "Starting Apple File Service"
+StopService ()
+{
+    return 0
+}
 
-    AppleFileServer &
-fi
+RestartService ()
+{
+    return 0
+}
+
+RunService "$1"

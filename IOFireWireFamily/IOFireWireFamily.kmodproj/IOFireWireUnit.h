@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,8 @@
 #include <IOKit/firewire/IOFireWireNub.h>
 class IOFireWireDevice;
 
+/*! @class IOFireWireUnit
+*/
 class IOFireWireUnit : public IOFireWireNub
 {
     OSDeclareDefaultStructors(IOFireWireUnit)
@@ -78,7 +80,10 @@ public:
     virtual void handleClose(   IOService *	  forClient,
                                 IOOptionBits	  options );
     
-    
+    virtual void setNodeFlags( UInt32 flags );
+	virtual void clearNodeFlags( UInt32 flags );
+    virtual UInt32 getNodeFlags( void );
+	    
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireUnit, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireUnit, 1);

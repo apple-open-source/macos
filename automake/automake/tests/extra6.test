@@ -1,0 +1,46 @@
+#! /bin/sh
+
+# Check to make sure EXTRA_DIST can contain a directory or
+# a subdirectory, in $(builddir) or $(srcdir).
+
+. $srcdir/defs || exit 1
+
+# 'make distdir' + VPATH does not work with Solaris make.
+$needs_gnu_make
+
+set -e
+
+echo AC_OUTPUT >> configure.in
+
+cat > Makefile.am << 'END'
+EXTRA_DIST=foo/bar baz foo2/bar2 baz2
+
+check: distdir
+	test -f $(distdir)/foo/bar/baz
+	test -f $(distdir)/baz/foo
+	test -f $(distdir)/foo2/bar2/baz2
+	test -f $(distdir)/baz2/foo2
+END
+
+# Create some files in $(srcdir)
+mkdir foo
+mkdir foo/bar
+touch foo/bar/baz
+mkdir baz
+touch baz/foo
+
+$ACLOCAL
+$AUTOMAKE
+$AUTOCONF
+mkdir build
+cd build
+../configure
+
+# Create some files in $(builddir)
+mkdir foo2
+mkdir foo2/bar2
+touch foo2/bar2/baz2
+mkdir baz2
+touch baz2/foo2
+
+$MAKE check

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -84,8 +84,6 @@ __BEGIN_DECLS
 	@param session The SCPreferencesRef handle that should be used to
 	 communicate with the APIs.
 	@param prefix A string that represents the parent path.
-	@param newPath A pointer to memory that will be filled with a
-		string representing the new child path.
 	@result A string representing the new (unique) child path; NULL
 		if the specified path does not exist.
  */

@@ -1,0 +1,1241 @@
+This is screen.info, produced by makeinfo version 4.0 from
+./screen.texinfo.
+
+START-INFO-DIR-ENTRY
+* Screen: (screen).             Full-screen window manager.
+END-INFO-DIR-ENTRY
+
+   This file documents the `Screen' virtual terminal manager.
+
+   Copyright (c) 1993-1995 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+
+File: screen.info,  Node: Session Management,  Next: Regions,  Prev: Selecting,  Up: Top
+
+Session Management Commands
+***************************
+
+   Perhaps the most useful feature of `screen' is the way it allows the
+user to move a session between terminals, by detaching and reattaching.
+This also makes life easier for modem users who have to deal with
+unexpected loss of carrier.
+
+* Menu:
+
+* Detach::                      Disconnect `screen' from your terminal.
+* Power Detach::                Detach and log out.
+* Lock::                        Lock your terminal temporarily.
+* Multiuser Session::		Changing number of allowed users.
+* Session Name::                Rename your session for later reattachment.
+* Suspend::                     Suspend your session.
+* Quit::                        Terminate your session.
+
+
+File: screen.info,  Node: Detach,  Next: Power Detach,  Up: Session Management
+
+Detach
+======
+
+ - Command: autodetach state
+     (none)
+     Sets whether `screen' will automatically detach upon hangup, which
+     saves all your running programs until they are resumed with a
+     `screen -r' command.  When turned off, a hangup signal will
+     terminate `screen' and all the processes it contains. Autodetach is
+     on by default.
+
+ - Command: detach
+     (`C-a d', `C-a C-d')
+     Detach the `screen' session (disconnect it from the terminal and
+     put it into the background).  A detached `screen' can be resumed by
+     invoking `screen' with the `-r' option. (*note Invoking Screen::)
+
+ - Command: password [crypted_pw]
+     (none)
+     Present a crypted password in your `.screenrc' file and screen will
+     ask for it, whenever someone attempts to resume a detached
+     session. This is useful, if you have privileged programs running
+     under `screen' and you want to protect your session from reattach
+     attempts by users that managed to assume your uid. (I.e. any
+     superuser.)  If no crypted password is specified, screen prompts
+     twice a password and places its encryption in the paste buffer.
+     Default is `none', which disables password checking.
+
+
+File: screen.info,  Node: Power Detach,  Next: Lock,  Prev: Detach,  Up: Session Management
+
+Power Detach
+============
+
+ - Command: pow_detach
+     (`C-a D')
+     Mainly the same as `detach', but also sends a HANGUP signal to the
+     parent process of `screen'.
+     _Caution_: This will result in a logout if `screen' was started
+     from your login shell.
+
+ - Command: pow_detach_msg [message]
+     (none)
+     The MESSAGE specified here is output whenever a power detach is
+     performed. It may be used as a replacement for a logout message or
+     to reset baud rate, etc.  Without parameter, the current message
+     is shown.
+
+
+File: screen.info,  Node: Lock,  Next: Multiuser Session,  Prev: Power Detach,  Up: Session Management
+
+Lock
+====
+
+ - Command: lockscreen
+     (`C-a x', `C-a C-x')
+     Call a screenlock program (`/local/bin/lck' or `/usr/bin/lock' or
+     a builtin, if no other is available). Screen does not accept any
+     command keys until this program terminates. Meanwhile processes in
+     the windows may continue, as the windows are in the detached state.
+     The screenlock program may be changed through the environment
+     variable `$LOCKPRG' (which must be set in the shell from which
+     `screen' is started) and is executed with the user's uid and gid.
+
+     Warning: When you leave other shells unlocked and have no password
+     set on `screen', the lock is void: One could easily re-attach from
+     an unlocked shell. This feature should rather be called
+     `lockterminal'.
+
+
+File: screen.info,  Node: Multiuser Session,  Next: Session Name,  Prev: Lock,  Up: Session Management
+
+Multiuser Session
+=================
+
+   These commands allow other users to gain access to one single
+`screen' session. When attaching to a multiuser `screen' the
+sessionname is specified as `username/sessionname' to the `-S' command
+line option.  `Screen' must be compiled with multiuser support to
+enable features described here.
+
+* Menu:
+
+* Multiuser::			Enable / Disable multiuser mode.
+* Acladd::			Enable a specific user.
+* Aclchg::                      Change a users permissions.
+* Acldel::			Disable a specific user.
+* Aclgrp::			Grant a user permissions to other users.
+* Displays::			List all active users at their displays.
+* Umask::			Predefine access to new windows.
+* Wall::                        Write a message to all users.
+* Writelock::                   Grant exclusive window access.
+* Su::                          Substitute user.
+
+
+File: screen.info,  Node: Multiuser,  Next: Acladd,  Up: Multiuser Session
+
+Multiuser
+---------
+
+ - Command: multiuser STATE
+     (none)
+     Switch between single-user and multi-user mode. Standard screen
+     operation is single-user. In multi-user mode the commands
+     `acladd', `aclchg' and `acldel' can be used to enable (and
+     disable) other users accessing this `screen'.
+
+
+File: screen.info,  Node: Acladd,  Next: Aclchg,  Prev: Multiuser,  Up: Multiuser Session
+
+Acladd
+------
+
+ - Command: acladd USERNAMES
+ - Command: addacl USERNAMES
+     (none)
+     Enable users to fully access this screen session. USERNAMES can be
+     one user or a comma separated list of users. This command enables
+     to attach to the `screen' session and performs the equivalent of
+     `aclchg USERNAMES +rwx "#?"'. To add a user with restricted access,
+     use the `aclchg' command below.  `Addacl' is a synonym to `acladd'.
+     Multi-user mode only.
+
+
+File: screen.info,  Node: Aclchg,  Next: Acldel,  Prev: Acladd,  Up: Multiuser Session
+
+Aclchg
+------
+
+ - Command: aclchg USERNAMES PERMBITS LIST
+ - Command: chacl USERNAMES PERMBITS LIST
+     (none)
+     Change permissions for a comma separated list of users.
+     Permission bits are represented as `r', `w' and `x'.  Prefixing
+     `+' grants the permission, `-' removes it. The third parameter is
+     a comma separated list of commands or windows (specified either by
+     number or title). The special list `#' refers to all windows, `?'
+     to all commands. If USERNAMES consists of a single `*', all known
+     users is affected.  A command can be executed when the user has
+     the `x' bit for it. The user can type input to a window when he
+     has its `w' bit set and no other user obtains a writelock for this
+     window. Other bits are currently ignored.  To withdraw the
+     writelock from another user in e.g. window 2: `aclchg USERNAME
+     -w+w 2'. To allow read-only access to the session: `aclchg
+     USERNAME -w "#"'. As soon as a user's name is known to screen, he
+     can attach to the session and (per default) has full permissions
+     for all command and windows. Execution permission for the acl
+     commands, `at' and others should also be removed or the user may
+     be able to regain write permission.  `Chacl' is a synonym to
+     `aclchg'.  Multi-user mode only.
+
+
+File: screen.info,  Node: Acldel,  Next: Aclgrp,  Prev: Aclchg,  Up: Multiuser Session
+
+Acldel
+------
+
+ - Command: acldel USERNAME
+     (none)
+     Remove a user from screen's access control list. If currently
+     attached, all the user's displays are detached from the session.
+     He cannot attach again.  Multi-user mode only.
+
+
+File: screen.info,  Node: Aclgrp,  Next: Displays,  Prev: Acldel,  Up: Multiuser Session
+
+Aclgrp
+------
+
+ - Command: aclgrp USERNAME [GROUPNAME]
+     (none)
+     Creates groups of users that share common access rights. The name
+     of the group is the username of the group leader. Each member of
+     the  group  inherits  the  permissions  that  are granted  to the
+     group leader. That means, if a user fails an access check, another
+     check is made for the group leader.  A user is removed from all
+     groups the special value `none' is used for GROUPNAME. If the
+     second parameter is omitted all groups the user is in are listed.
+
+
+File: screen.info,  Node: Displays,  Next: Umask,  Prev: Aclgrp,  Up: Multiuser Session
+
+Displays
+--------
+
+ - Command: displays
+     (`C-a *')
+     Shows a tabular listing  of  all  currently  connected  user
+     front-ends  (displays).   This  is most useful for multiuser
+     sessions.
+
+
+File: screen.info,  Node: Umask,  Next: Wall,  Prev: Displays,  Up: Multiuser Session
+
+aclumask
+--------
+
+ - Command: aclumask [[USERS]+BITS |[USERS]-BITS .... ]
+ - Command: umask [[USERS]+BITS |[USERS]-BITS .... ]
+     (none)
+     This specifies the access other users have to  windows  that will
+     be  created  by  the caller of the command. USERS may be no, one
+     or a comma separated list of known usernames.  If  no  users  are
+     specified,  a  list of all currently known users is assumed.  BITS
+     is any  combination  of  access  control  bits  allowed defined
+     with the `aclchg' command. The special username `?' predefines the
+     access that  not  yet  known  users  will  be granted  to any
+     window initially.  The special username `??' predefines the access
+     that not yet known users  are  granted to any command. Rights of
+     the special username nobody cannot be changed (see the `su'
+     command).  `Umask' is a synonym to `aclumask'.
+
+
+File: screen.info,  Node: Wall,  Next: Writelock,  Prev: Umask,  Up: Multiuser Session
+
+Wall
+----
+
+ - Command: wall MESSAGE
+     (none)
+     Write a message to all displays. The message will appear in the
+     terminal's status line.
+
+
+File: screen.info,  Node: Writelock,  Next: Su,  Prev: Wall,  Up: Multiuser Session
+
+Writelock
+---------
+
+ - Command: writelock ON|OFF|AUTO
+     (none)
+     In addition to access control lists, not all users may be able to
+     write to the same window at once. Per default, writelock is in
+     `auto' mode and grants exclusive input permission to the user who
+     is the first to switch to the particular window. When he leaves
+     the window, other users may obtain the writelock (automatically).
+     The writelock of the current window is disabled by the command
+     `writelock off'. If the user issues the command `writelock on' he
+     keeps the exclusive write permission while switching to other
+     windows.
+
+ - Command: defwritelock ON|OFF|AUTO
+     (none)
+     Sets the default writelock behavior for new windows. Initially all
+     windows will be created with no writelocks.
+
+
+File: screen.info,  Node: Su,  Prev: Writelock,  Up: Multiuser Session
+
+Su
+--
+
+ - Command: su [USERNAME [PASSWORD [PASSWORD2]]]
+     (none)
+     Substitute the user of a display. The  command  prompts  for all
+     parameters that are omitted. If passwords are specified as
+     parameters, they have  to  be  specified  un-crypted.  The first
+     password  is matched against the systems passwd database, the
+     second password  is  matched  against  the `screen' password  as
+     set  with the commands `acladd' or `password'.  `Su' may be useful
+     for the `screen' administrator to test multiuser  setups.  When
+     the  identification  fails,  the  user has access to the commands
+     available for user `nobody'. These are `detach', `license',
+     `version', `help' and `displays'.
+
+
+File: screen.info,  Node: Session Name,  Next: Suspend,  Prev: Multiuser Session,  Up: Session Management
+
+Session Name
+============
+
+ - Command: sessionname [NAME]
+     (none)
+     Rename the current session. Note that for `screen -list' the name
+     shows up with the process-id prepended. If the argument NAME is
+     omitted, the name of this session is displayed.
+     _Caution_: The `$STY' environment variable still reflects the old
+     name. This may result in confusion.  The default is constructed
+     from the tty and host names.
+
+
+File: screen.info,  Node: Suspend,  Next: Quit,  Prev: Session Name,  Up: Session Management
+
+Suspend
+=======
+
+ - Command: suspend
+     (`C-a z', `C-a C-z')
+     Suspend `screen'.  The windows are in the detached state while
+     `screen' is suspended.  This feature relies on the parent shell
+     being able to do job control.
+
+
+File: screen.info,  Node: Quit,  Prev: Suspend,  Up: Session Management
+
+Quit
+====
+
+ - Command: quit
+     (`C-a C-\')
+     Kill all windows and terminate `screen'.  Note that on VT100-style
+     terminals the keys `C-4' and `C-\' are identical.  So be careful
+     not to type `C-a C-4' when selecting window no. 4.  Use the empty
+     bind command (as in `bind "^\"') to remove a key binding (*note
+     Key Binding::).
+
+
+File: screen.info,  Node: Regions,  Next: Window Settings,  Prev: Session Management,  Up: Top
+
+Regions
+*******
+
+   Screen has the ability to display more than one window on the user's
+display. This is done by splitting the screen in regions, which can
+contain different windows.
+
+* Menu:
+
+* Split::			Split a region into two
+* Focus::			Change to the next region
+* Only::			Delete all other regions
+* Remove::			Delete the current region
+* Resize::			Grow or shrink a region
+* Caption::			Control the window's caption
+* Fit::				Resize a window to fit the region
+
+
+File: screen.info,  Node: Split,  Next: Focus,  Up: Regions
+
+Split
+=====
+
+ - Command: split
+     (`C-a S')
+     Split the current region into two new ones. All regions on the
+     display are resized to make room for the new region. The blank
+     window is displayed on the new region.
+
+
+File: screen.info,  Node: Focus,  Next: Only,  Prev: Split,  Up: Regions
+
+Focus
+=====
+
+ - Command: focus
+     (`C-a <Tab>')
+     Move the input focus to the next region. This is done in a cyclic
+     way so that the top region is selected after the bottom one. If no
+     subcommand is given it defaults to `down'. `up' cycles in the
+     opposite order, `top' and `bottom' go to the top and bottom region
+     respectively. Useful bindings are (j and k as in vi)
+          bind j focus down
+          bind k focus up
+          bind t focus top
+          bind b focus bottom
+
+
+File: screen.info,  Node: Only,  Next: Remove,  Prev: Focus,  Up: Regions
+
+Only
+====
+
+ - Command: only
+     (`C-a Q')
+     Kill all regions but the current one.
+
+
+File: screen.info,  Node: Remove,  Next: Resize,  Prev: Only,  Up: Regions
+
+Remove
+======
+
+ - Command: remove
+     (`C-a X')
+     Kill the current region. This is a no-op if there is only one
+     region.
+
+
+File: screen.info,  Node: Resize,  Next: Caption,  Prev: Remove,  Up: Regions
+
+Resize
+======
+
+ - Command: resize [(+/-)LINES]
+     (none)
+     Resize the current region. The space will be removed from or added
+     to the region below or if there's not enough space from the region
+     above.
+          resize +N       increase current region height by N
+          resize -N       decrease current region height by N
+          resize  N       set current region height to N
+          resize  =       make all windows equally high
+          resize  max     maximize current region height
+          resize  min     minimize current region height
+
+
+File: screen.info,  Node: Caption,  Next: Fit,  Prev: Resize,  Up: Regions
+
+Caption
+=======
+
+ - Command: caption `always'|`splitonly' [string]
+ - Command: caption `string' [string]
+     (none)
+     This command controls the display of the window captions. Normally
+     a caption is only used if more than one window is shown on the
+     display (split screen mode). But if the type is set to `always',
+     `screen' shows a caption even if only one window is displayed. The
+     default is `splitonly'.
+
+     The second form changes the text used for the caption. You can use
+     all string escapes (*note String Escapes::). `Screen' uses a
+     default of `%3n %t'.
+
+     You can mix both forms by providing the string as an additional
+     argument.
+
+
+File: screen.info,  Node: Fit,  Prev: Caption,  Up: Regions
+
+Fit
+===
+
+ - Command: fit
+     (`C-a F')
+     Change the window size to the size of the current region. This
+     command is needed because screen doesn't adapt the window size
+     automatically if the window is displayed more than once.
+
+
+File: screen.info,  Node: Window Settings,  Next: Virtual Terminal,  Prev: Regions,  Up: Top
+
+Window Settings
+***************
+
+   These commands control the way `screen' treats individual windows in
+a session.  *Note Virtual Terminal::, for commands to control the
+terminal emulation itself.
+
+* Menu:
+
+* Naming Windows::		Control the name of the window
+* Console::			See the host's console messages
+* Kill::                        Destroy an unwanted window
+* Login::                       Control `/etc/utmp' logging
+* Mode::                        Control the file mode of the pty
+* Monitor::                     Watch for activity in a window
+* Windows::			List the active windows
+* Hardstatus::			Set a window's hardstatus line
+
+
+File: screen.info,  Node: Naming Windows,  Next: Console,  Up: Window Settings
+
+Naming Windows (Titles)
+=======================
+
+   You can customize each window's name in the window display (viewed
+with the `windows' command (*note Windows::) by setting it with one of
+the title commands.  Normally the name displayed is the actual command
+name of the program created in the window.  However, it is sometimes
+useful to distinguish various programs of the same name or to change
+the name on-the-fly to reflect the current state of the window.
+
+   The default name for all shell windows can be set with the
+`shelltitle' command (*note Shell::).  You can specify the name you
+want for a window with the `-t' option to the `screen' command when the
+window is created (*note Screen Command::).  To change the name after
+the window has been created you can use the title-string escape-sequence
+(`<ESC> k NAME <ESC> \') and the `title' command (C-a A).  The former
+can be output from an application to control the window's name under
+software control, and the latter will prompt for a name when typed.
+You can also bind predefined names to keys with the `title' command to
+set things quickly without prompting.
+
+* Menu:
+
+* Title Command::                 The `title' command.
+* Dynamic Titles::                Make shell windows change titles dynamically.
+* Title Prompts::                 Set up your shell prompt for dynamic Titles.
+* Title Screenrc::                Set up Titles in your `.screenrc'.
+
+
+File: screen.info,  Node: Title Command,  Next: Dynamic Titles,  Up: Naming Windows
+
+Title Command
+-------------
+
+ - Command: title [windowtitle]
+     (`C-a A')
+     Set the name of the current window to WINDOWALIAS. If no name is
+     specified, screen prompts for one.
+
+
+File: screen.info,  Node: Dynamic Titles,  Next: Title Prompts,  Prev: Title Command,  Up: Naming Windows
+
+Dynamic Titles
+--------------
+
+   `screen' has a shell-specific heuristic that is enabled by setting
+the window's name to SEARCH|NAME and arranging to have a null title
+escape-sequence output as a part of your prompt.  The SEARCH portion
+specifies an end-of-prompt search string, while the NAME portion
+specifies the default shell name for the window.  If the NAME ends in a
+`:' `screen' will add what it believes to be the current command
+running in the window to the end of the specified name (e.g. NAME:CMD).
+Otherwise the current command name supersedes the shell name while it
+is running.
+
+   Here's how it works: you must modify your shell prompt to output a
+null title-escape-sequence (<ESC> k <ESC> \) as a part of your prompt.
+The last part of your prompt must be the same as the string you
+specified for the SEARCH portion of the title.  Once this is set up,
+`screen' will use the title-escape-sequence to clear the previous
+command name and get ready for the next command.  Then, when a newline
+is received from the shell, a search is made for the end of the prompt.
+If found, it will grab the first word after the matched string and use
+it as the command name.  If the command name begins with `!', `%', or
+`^', `screen' will use the first word on the following line (if found)
+in preference to the just-found name.  This helps csh users get more
+accurate titles when using job control or history recall commands.
+
+
+File: screen.info,  Node: Title Prompts,  Next: Title Screenrc,  Prev: Dynamic Titles,  Up: Naming Windows
+
+Setting up your prompt for shell titles
+---------------------------------------
+
+   One thing to keep in mind when adding a null title-escape-sequence
+to your prompt is that some shells (like the csh) count all the
+non-control characters as part of the prompt's length.  If these
+invisible characters aren't a multiple of 8 then backspacing over a tab
+will result in an incorrect display.  One way to get around this is to
+use a prompt like this:
+
+     set prompt='[0000mk\% '
+
+   The escape-sequence `[0000m' not only normalizes the character
+attributes, but all the zeros round the length of the invisible
+characters up to 8.
+
+   Tcsh handles escape codes in the prompt more intelligently, so you
+can specify your prompt like this:
+
+     set prompt="%{\ek\e\\%}\% "
+
+   Bash users will probably want to echo the escape sequence in the
+PROMPT_COMMAND:
+
+     PROMPT_COMMAND='echo -n -e "\033k\033\134"'
+
+   (I used `\134' to output a `\' because of a bug in v1.04).
+
+
+File: screen.info,  Node: Title Screenrc,  Prev: Title Prompts,  Up: Naming Windows
+
+Setting up shell titles in your `.screenrc'
+-------------------------------------------
+
+   Here are some .screenrc examples:
+
+     screen -t top 2 nice top
+
+   Adding this line to your .screenrc would start a niced version of the
+`top' command in window 2 named `top' rather than `nice'.
+
+     shelltitle '> |csh'
+     screen 1
+
+   This file would start a shell using the given shelltitle.  The title
+specified is an auto-title that would expect the prompt and the typed
+command to look something like the following:
+
+     /usr/joe/src/dir> trn
+
+   (it looks after the '> ' for the command name).  The window status
+would show the name `trn' while the command was running, and revert to
+`csh' upon completion.
+
+     bind R screen -t '% |root:' su
+
+   Having this command in your .screenrc would bind the key sequence
+`C-a R' to the `su' command and give it an auto-title name of `root:'.
+For this auto-title to work, the screen could look something like this:
+
+     % !em
+     emacs file.c
+
+   Here the user typed the csh history command `!em' which ran the
+previously entered `emacs' command.  The window status would show
+`root:emacs' during the execution of the command, and revert to simply
+`root:' at its completion.
+
+     bind o title
+     bind E title ""
+     bind u title (unknown)
+
+   The first binding doesn't have any arguments, so it would prompt you
+for a title when you type `C-a o'.  The second binding would clear an
+auto-titles current setting (C-a E).  The third binding would set the
+current window's title to `(unknown)' (C-a u).
+
+
+File: screen.info,  Node: Console,  Next: Kill,  Prev: Naming Windows,  Up: Window Settings
+
+Console
+=======
+
+ - Command: console [STATE]
+     (none)
+     Grabs or un-grabs the machines console output to a window. When
+     the argument is omitted the current state is displayed.  _Note_:
+     Only the owner of `/dev/console' can grab the console output. This
+     command is only available if the host supports the ioctl
+     `TIOCCONS'.
+
+
+File: screen.info,  Node: Kill,  Next: Login,  Prev: Console,  Up: Window Settings
+
+Kill
+====
+
+ - Command: kill
+     (`C-a k', `C-a C-k')
+     Kill the current window.
+     If there is an `exec' command running (*note Exec::) then it is
+     killed.  Otherwise the process (e.g. shell) running in the window
+     receives a `HANGUP' condition, the window structure is removed and
+     screen (your display) switches to another window. When the last
+     window is destroyed, `screen' exits.  After a kill screen switches
+     to the previously displayed window.
+     _Caution_: `emacs' users may find themselves killing their `emacs'
+     session when trying to delete the current line.  For this reason,
+     it is probably wise to use a different command character (*note
+     Command Character::) or rebind `kill' to another key sequence,
+     such as `C-a K' (*note Key Binding::).
+
+
+File: screen.info,  Node: Login,  Next: Mode,  Prev: Kill,  Up: Window Settings
+
+Login
+=====
+
+ - Command: deflogin state
+     (none)
+     Same as the `login' command except that the default setting for new
+     windows is changed.  This defaults to `on' unless otherwise
+     specified at compile time (*note Installation::). Both commands
+     are only present when `screen' has been compiled with utmp support.
+
+ - Command: login [state]
+     (`C-a L')
+     Adds or removes the entry in `/etc/utmp' for the current window.
+     This controls whether or not the window is "logged in".  In
+     addition to this toggle, it is convenient to have "log in" and
+     "log out" keys.  For instance, `bind I login on' and `bind O login
+     off' will map these keys to be `C-a I' and `C-a O' (*note Key
+     Binding::).
+
+
+File: screen.info,  Node: Mode,  Next: Monitor,  Prev: Login,  Up: Window Settings
+
+Mode
+====
+
+ - Command: defmode mode
+     (none)
+     The mode of each newly allocated pseudo-tty is set to MODE.  MODE
+     is an octal number as used by chmod(1).  Defaults to 0622 for
+     windows which are logged in, 0600 for others (e.g. when `-ln' was
+     specified for creation, *note Screen Command::).
+
+
+File: screen.info,  Node: Monitor,  Next: Windows,  Prev: Mode,  Up: Window Settings
+
+Monitoring
+==========
+
+ - Command: activity message
+     (none)
+     When any activity occurs in a background window that is being
+     monitored, `screen' displays a notification in the message line.
+     The notification message can be redefined by means of the
+     `activity' command.  Each occurrence of `%' in MESSAGE is replaced
+     by the number of the window in which activity has occurred, and
+     each occurrence of `^G' is replaced by the definition for bell in
+     your termcap (usually an audible bell).  The default message is
+
+          'Activity in window %n'
+
+     Note that monitoring is off for all windows by default, but can be
+     altered by use of the `monitor' command (`C-a M').
+
+ - Command: defmonitor state
+     (none)
+     Same as the `monitor' command except that the default setting for
+     new windows is changed.  Initial setting is `off'.
+
+ - Command: monitor [state]
+     (`C-a M')
+     Toggles monitoring of the current window.  When monitoring is
+     turned on and the affected window is switched into the background,
+     the activity notification message will be displayed in the status
+     line at the first sign of output, and the window will also be
+     marked with an `@' in the window-status display (*note Windows::).
+     Monitoring defaults to `off' for all windows.
+
+
+File: screen.info,  Node: Windows,  Next: Hardstatus,  Prev: Monitor,  Up: Window Settings
+
+Windows
+=======
+
+ - Command: windows
+     (`C-a w', `C-a C-w')
+     Uses the message line to display a list of all the windows.  Each
+     window is listed by number with the name of the program running in
+     the window (or its title).
+
+     The current window is marked with a `*'; the previous window is
+     marked with a `-'; all the windows that are logged in are marked
+     with a `$' (*note Login::); a background window that has received
+     a bell is marked with a `!'; a background window that is being
+     monitored and has had activity occur is marked with an `@' (*note
+     Monitor::); a window which has output logging turned on is marked
+     with `(L)'; windows occupied by other users are marked with `&' or
+     `&&' if the window is shared by other users; windows in the zombie
+     state are marked with `Z'.
+
+     If this list is too long to fit on the terminal's status line only
+     the portion around the current window is displayed.
+
+
+File: screen.info,  Node: Hardstatus,  Prev: Windows,  Up: Window Settings
+
+Hardstatus
+==========
+
+   `Screen' maintains a hardstatus line for every window. If a window
+gets selected, the display's hardstatus will be updated to match the
+window's hardstatus line.  The hardstatus line can be changed with the
+ANSI Application Program Command (APC): `ESC_<string>ESC\'. As a
+convenience for xterm users the sequence `ESC]0..2;<string>^G' is also
+accepted.
+
+ - Command: defhstatus [status]
+     (none)
+     The hardstatus line that all new windows will get is set to STATUS.
+     This command is useful to make the hardstatus of every window
+     display the window number or title or the like.  STATUS may
+     contain the same directives as in the window messages, but the
+     directive escape character is `^E' (octal 005) instead of `%'.
+     This was done to make a misinterpretation of program generated
+     hardstatus lines impossible.  If the parameter STATUS is omitted,
+     the current default string is displayed.  Per default the
+     hardstatus line of new windows is empty.
+
+ - Command: hstatus status
+     (none)
+     Changes the current window's hardstatus line to STATUS.
+
+
+File: screen.info,  Node: Virtual Terminal,  Next: Copy and Paste,  Prev: Window Settings,  Up: Top
+
+Virtual Terminal
+****************
+
+   Each window in a `screen' session emulates a VT100 terminal, with
+some extra functions added. The VT100 emulator is hard-coded, no other
+terminal types can be emulated.  The commands described here modify the
+terminal emulation.
+
+* Menu:
+
+* Control Sequences::           Details of the internal VT100 emulation.
+* Input Translation::           How keystrokes are remapped.
+* Digraph::			Entering digraph sequences.
+* Bell::                        Getting your attention.
+* Clear::                       Clear the window display.
+* Info::                        Terminal emulation statistics.
+* Redisplay::                   When the display gets confusing.
+* Wrap::                        Automatic margins.
+* Reset::                       Recovering from ill-behaved applications.
+* Window Size::                 Changing the size of your terminal.
+* Character Processing::	Change the effect of special characters.
+
+
+File: screen.info,  Node: Control Sequences,  Next: Input Translation,  Up: Virtual Terminal
+
+Control Sequences
+=================
+
+   The following is a list of control sequences recognized by `screen'.
+`(V)' and `(A)' indicate VT100-specific and ANSI- or ISO-specific
+functions, respectively.
+
+     ESC E                           Next Line
+     ESC D                           Index
+     ESC M                           Reverse Index
+     ESC H                           Horizontal Tab Set
+     ESC Z                           Send VT100 Identification String
+     ESC 7                   (V)     Save Cursor and Attributes
+     ESC 8                   (V)     Restore Cursor and Attributes
+     ESC [s                  (A)     Save Cursor and Attributes
+     ESC [u                  (A)     Restore Cursor and Attributes
+     ESC c                           Reset to Initial State
+     ESC g                           Visual Bell
+     ESC Pn p                        Cursor Visibility (97801)
+         Pn = 6                      Invisible
+              7                      Visible
+     ESC =                   (V)     Application Keypad Mode
+     ESC >                   (V)     Numeric Keypad Mode
+     ESC # 8                 (V)     Fill Screen with E's
+     ESC \                   (A)     String Terminator
+     ESC ^                   (A)     Privacy Message String (Message Line)
+     ESC !                           Global Message String (Message Line)
+     ESC k                           Title Definition String
+     ESC P                   (A)     Device Control String
+                                     Outputs a string directly to the host
+                                     terminal without interpretation.
+     ESC _                   (A)     Application Program Command (Hardstatus)
+     ESC ] 0 ; string ^G     (A)     Operating System Command (Hardstatus, xterm
+                                     title hack)
+     ESC ] 83 ; cmd ^G       (A)     Execute screen command. This only works if
+                                     multi-user support is compiled into screen.
+                                     The pseudo-user ":window:" is used to check
+                                     the access control list. Use "addacl :window:
+                                     -rwx #?" to create a user with no rights and
+                                     allow only the needed commands.
+     Control-N               (A)     Lock Shift G1 (SO)
+     Control-O               (A)     Lock Shift G0 (SI)
+     ESC n                   (A)     Lock Shift G2
+     ESC o                   (A)     Lock Shift G3
+     ESC N                   (A)     Single Shift G2
+     ESC O                   (A)     Single Shift G3
+     ESC ( Pcs               (A)     Designate character set as G0
+     ESC ) Pcs               (A)     Designate character set as G1
+     ESC * Pcs               (A)     Designate character set as G2
+     ESC + Pcs               (A)     Designate character set as G3
+     ESC [ Pn ; Pn H                 Direct Cursor Addressing
+     ESC [ Pn ; Pn f                 same as above
+     ESC [ Pn J                      Erase in Display
+           Pn = None or 0            From Cursor to End of Screen
+                1                    From Beginning of Screen to Cursor
+                2                    Entire Screen
+     ESC [ Pn K                      Erase in Line
+           Pn = None or 0            From Cursor to End of Line
+                1                    From Beginning of Line to Cursor
+                2                    Entire Line
+     ESC [ Pn X                      Erase character
+     ESC [ Pn A                      Cursor Up
+     ESC [ Pn B                      Cursor Down
+     ESC [ Pn C                      Cursor Right
+     ESC [ Pn D                      Cursor Left
+     ESC [ Pn E                      Cursor next line
+     ESC [ Pn F                      Cursor previous line
+     ESC [ Pn G                      Cursor horizontal position
+     ESC [ Pn `                      same as above
+     ESC [ Pn d                      Cursor vertical position
+     ESC [ Ps ;...; Ps m             Select Graphic Rendition
+           Ps = None or 0            Default Rendition
+                1                    Bold
+                2            (A)     Faint
+                3            (A)     Standout Mode (ANSI: Italicized)
+                4                    Underlined
+                5                    Blinking
+                7                    Negative Image
+                22           (A)     Normal Intensity
+                23           (A)     Standout Mode off (ANSI: Italicized off)
+                24           (A)     Not Underlined
+                25           (A)     Not Blinking
+                27           (A)     Positive Image
+                30           (A)     Foreground Black
+                31           (A)     Foreground Red
+                32           (A)     Foreground Green
+                33           (A)     Foreground Yellow
+                34           (A)     Foreground Blue
+                35           (A)     Foreground Magenta
+                36           (A)     Foreground Cyan
+                37           (A)     Foreground White
+                39           (A)     Foreground Default
+                40           (A)     Background Black
+                ...                  ...
+                49           (A)     Background Default
+     ESC [ Pn g                      Tab Clear
+           Pn = None or 0            Clear Tab at Current Position
+                3                    Clear All Tabs
+     ESC [ Pn ; Pn r         (V)     Set Scrolling Region
+     ESC [ Pn I              (A)     Horizontal Tab
+     ESC [ Pn Z              (A)     Backward Tab
+     ESC [ Pn L              (A)     Insert Line
+     ESC [ Pn M              (A)     Delete Line
+     ESC [ Pn @              (A)     Insert Character
+     ESC [ Pn P              (A)     Delete Character
+     ESC [ Pn S                      Scroll Scrolling Region Up
+     ESC [ Pn T                      Scroll Scrolling Region Down
+     ESC [ Pn ^                      same as above
+     ESC [ Ps ;...; Ps h             Set Mode
+     ESC [ Ps ;...; Ps l             Reset Mode
+           Ps = 4            (A)     Insert Mode
+                20           (A)     `Automatic Linefeed' Mode.
+                34                   Normal Cursor Visibility
+                ?1           (V)     Application Cursor Keys
+                ?3           (V)     Change Terminal Width to 132 columns
+                ?5           (V)     Reverse Video
+                ?6           (V)     `Origin' Mode
+                ?7           (V)     `Wrap' Mode
+                ?9                   X10 mouse tracking
+                ?25          (V)     Visible Cursor
+                ?1000        (V)     VT200 mouse tracking
+     ESC [ 5 i               (A)     Start relay to printer (ANSI Media Copy)
+     ESC [ 4 i               (A)     Stop relay to printer (ANSI Media Copy)
+     ESC [ 8 ; Ph ; Pw t             Resize the window to `Ph' lines and
+                                     `Pw' columns (SunView special)
+     ESC [ c                         Send VT100 Identification String
+     ESC [ x                 (V)     Send Terminal Parameter Report
+     ESC [ > c                       Send Secondary Device Attributes String
+     ESC [ 6 n                       Send Cursor Position Report
+
+
+File: screen.info,  Node: Input Translation,  Next: Digraph,  Prev: Control Sequences,  Up: Virtual Terminal
+
+Input Translation
+=================
+
+   In order to do a full VT100 emulation `screen' has to detect that a
+sequence of characters in the input stream was generated by a keypress
+on the user's keyboard and insert the VT100 style escape sequence.
+`Screen' has a very flexible way of doing this by making it possible to
+map arbitrary commands on arbitrary sequences of characters. For
+standard VT100 emulation the command will always insert a string in the
+input buffer of the window (see also command `stuff', *note Paste::).
+Because the sequences generated by a keypress can change after a
+reattach from a different terminal type, it is possible to bind
+commands to the termcap name of the keys.  `Screen' will insert the
+correct binding after each reattach. See *Note Bindkey:: for further
+details on the syntax and examples.
+
+   Here is the table of the default key bindings. (A) means that the
+command is executed if the keyboard is switched into application mode.
+
+     Key name        Termcap name    Command
+     -----------------------------------------------------
+     Cursor up            ku         stuff \033[A
+                                     stuff \033OA      (A)
+     Cursor down          kd         stuff \033[B
+                                     stuff \033OB      (A)
+     Cursor right         kr         stuff \033[C
+                                     stuff \033OC      (A)
+     Cursor left          kl         stuff \033[D
+                                     stuff \033OD      (A)
+     Function key 0       k0         stuff \033[10~
+     Function key 1       k1         stuff \033OP
+     Function key 2       k2         stuff \033OQ
+     Function key 3       k3         stuff \033OR
+     Function key 4       k4         stuff \033OS
+     Function key 5       k5         stuff \033[15~
+     Function key 6       k6         stuff \033[17~
+     Function key 7       k7         stuff \033[18~
+     Function key 8       k8         stuff \033[19~
+     Function key 9       k9         stuff \033[20~
+     Function key 10      k;         stuff \033[21~
+     Function key 11      F1         stuff \033[22~
+     Function key 12      F2         stuff \033[23~
+     Backspace            kb         stuff \010
+     Home                 kh         stuff \033[1~
+     End                  kH         stuff \033[4~
+     Insert               kI         stuff \033[2~
+     Delete               kD         stuff \033[3~
+     Page up              kP         stuff \033[5~
+     Page down            kN         stuff \033[6~
+     Keypad 0             f0         stuff 0
+                                     stuff \033Op      (A)
+     Keypad 1             f1         stuff 1
+                                     stuff \033Oq      (A)
+     Keypad 2             f2         stuff 2
+                                     stuff \033Or      (A)
+     Keypad 3             f3         stuff 3
+                                     stuff \033Os      (A)
+     Keypad 4             f4         stuff 4
+                                     stuff \033Ot      (A)
+     Keypad 5             f5         stuff 5
+                                     stuff \033Ou      (A)
+     Keypad 6             f6         stuff 6
+                                     stuff \033Ov      (A)
+     Keypad 7             f7         stuff 7
+                                     stuff \033Ow      (A)
+     Keypad 8             f8         stuff 8
+                                     stuff \033Ox      (A)
+     Keypad 9             f9         stuff 9
+                                     stuff \033Oy      (A)
+     Keypad +             f+         stuff +
+                                     stuff \033Ok      (A)
+     Keypad -             f-         stuff -
+                                     stuff \033Om      (A)
+     Keypad *             f*         stuff *
+                                     stuff \033Oj      (A)
+     Keypad /             f/         stuff /
+                                     stuff \033Oo      (A)
+     Keypad =             fq         stuff =
+                                     stuff \033OX      (A)
+     Keypad .             f.         stuff .
+                                     stuff \033On      (A)
+     Keypad ,             f,         stuff ,
+                                     stuff \033Ol      (A)
+     Keypad enter         fe         stuff \015
+                                     stuff \033OM      (A)
+
+
+File: screen.info,  Node: Digraph,  Next: Bell,  Prev: Input Translation,  Up: Virtual Terminal
+
+Digraph
+=======
+
+ - Command: digraph [preset]
+     (none)
+     This command prompts the user for a digraph sequence. The next two
+     characters typed are looked up in a builtin table and the
+     resulting character is inserted in the input stream. For example,
+     if the user enters `a"', an a-umlaut will be inserted. If the
+     first character entered is a 0 (zero), `screen' will treat the
+     following characters (up to three) as an octal number instead.
+     The optional argument PRESET is treated as user input, thus one
+     can create an "umlaut" key.  For example the command `bindkey ^K
+     digraph '"'' enables the user to generate an a-umlaut by typing
+     `CTRL-K a'.
+
+
+File: screen.info,  Node: Bell,  Next: Clear,  Prev: Digraph,  Up: Virtual Terminal
+
+Bell
+====
+
+ - Command: bell_msg [message]
+     (none)
+     When a bell character is sent to a background window, `screen'
+     displays a notification in the message line.  The notification
+     message can be re-defined by this command.  Each occurrence of `%'
+     in MESSAGE is replaced by the number of the window to which a bell
+     has been sent, and each occurrence of `^G' is replaced by the
+     definition for bell in your termcap (usually an audible bell).
+     The default message is
+
+          'Bell in window %n'
+
+     An empty message can be supplied to the `bell_msg' command to
+     suppress output of a message line (`bell_msg ""').  Without
+     parameter, the current message is shown.
+
+ - Command: vbell [state]
+     (`C-a C-g')
+     Sets or toggles the visual bell setting for the current window. If
+     `vbell' is switched to `on', but your terminal does not support a
+     visual bell, the visual bell message is displayed in the status
+     line when the bell character is received.  Visual bell support of
+     a terminal is defined by the termcap variable `vb'. *Note Visual
+     Bell: (termcap)Bell, for more information on visual bells.  The
+     equivalent terminfo capability is `flash'.
+
+     Per  default, `vbell' is `off', thus the audible bell is used.
+
+ - Command: vbell_msg [message]
+     (none)
+     Sets the visual bell message. MESSAGE is printed to the status
+     line if the window receives a bell character (^G), `vbell' is set
+     to `on' and the terminal does not support a visual bell.  The
+     default message is `Wuff, Wuff!!'.  Without parameter, the current
+     message is shown.
+
+ - Command: vbellwait sec
+     (none)
+     Define a delay in seconds after each display of `screen' 's visual
+     bell message. The default is 1 second.
+
+
+File: screen.info,  Node: Clear,  Next: Info,  Prev: Bell,  Up: Virtual Terminal
+
+Clear
+=====
+
+ - Command: clear
+     (`C-a C')
+     Clears the screen and saves its contents to the scrollback buffer.
+
+
+File: screen.info,  Node: Info,  Next: Redisplay,  Prev: Clear,  Up: Virtual Terminal
+
+Info
+====
+
+ - Command: info
+     (`C-a i', `C-a C-i')
+     Uses the message line to display some information about the current
+     window: the cursor position in the form `(COLUMN,ROW)' starting
+     with `(1,1)', the terminal width and height plus the size of the
+     scrollback buffer in lines, like in `(80,24)+50', the current
+     state of window XON/XOFF flow control is shown like this (*note
+     Flow Control::):
+            +flow     automatic flow control, currently on.
+            -flow     automatic flow control, currently off.
+            +(+)flow  flow control enabled. Agrees with automatic control.
+            -(+)flow  flow control disabled. Disagrees with automatic control.
+            +(-)flow  flow control enabled. Disagrees with automatic control.
+            -(-)flow  flow control disabled. Agrees with automatic control.
+
+     The current line wrap setting (`+wrap' indicates enabled, `-wrap'
+     not) is also shown. The flags `ins', `org', `app', `log', `mon'
+     and `nored' are displayed when the window is in insert mode,
+     origin mode, application-keypad mode, has output logging, insert
+     mode, origin mode, application-keypad mode, output logging,
+     activity monitoring or partial redraw enabled.
+
+     The currently active character set (`G0', `G1', `G2', or `G3'),
+     and in square brackets the terminal character sets that are
+     currently designated as `G0' through `G3'.  If the window is in
+     UTF-8 mode, the string `UTF-8' is shown instead.  Additional modes
+     depending on the type of the window are displayed at the end of
+     the status line (*note Window Types::).
+
+     If the state machine of the terminal emulator is in a non-default
+     state, the info line is started with a string identifying the
+     current state.
+
+     For system information use `time'.
+
+ - Command: dinfo
+     (none)
+     Show what screen thinks about your terminal. Useful if you want to
+     know why features like color or the alternate charset don't work.
+
+
+File: screen.info,  Node: Redisplay,  Next: Wrap,  Prev: Info,  Up: Virtual Terminal
+
+Redisplay
+=========
+
+ - Command: allpartial state
+     (none)
+     If set to on, only the current cursor line is refreshed on window
+     change.  This affects all windows and is useful for slow terminal
+     lines. The previous setting of full/partial refresh for each
+     window is restored with `allpartial off'. This is a global flag
+     that immediately takes effect on all windows overriding the
+     `partial' settings. It does not change the default redraw behavior
+     of newly created windows.
+
+ - Command: partial state
+     (none)
+     Defines whether the display should be refreshed (as with
+     `redisplay') after switching to the current window. This command
+     only affects the current window.  To immediately affect all
+     windows use the `allpartial' command.  Default is `off', of
+     course.  This default is fixed, as there is currently no
+     `defpartial' command.
+
+ - Command: redisplay
+     (`C-a l', `C-a C-l')
+     Redisplay the current window.  Needed to get a full redisplay in
+     partial redraw mode.
+
+
+File: screen.info,  Node: Wrap,  Next: Reset,  Prev: Redisplay,  Up: Virtual Terminal
+
+Wrap
+====
+
+ - Command: wrap state
+     (`C-a r', `C-a C-r')
+     Sets the line-wrap setting for the current window.  When line-wrap
+     is on, the second consecutive printable character output at the
+     last column of a line will wrap to the start of the following
+     line.  As an added feature, backspace (^H) will also wrap through
+     the left margin to the previous line.  Default is `on'.
+
+ - Command: defwrap state
+     (none)
+     Same as the `wrap' command except that the default setting for new
+     windows is changed. Initially line-wrap is on and can be toggled
+     with the `wrap' command (`C-a r') or by means of "C-a : wrap
+     on|off".
+
+
+File: screen.info,  Node: Reset,  Next: Window Size,  Prev: Wrap,  Up: Virtual Terminal
+
+Reset
+=====
+
+ - Command: reset
+     (`C-a Z')
+     Reset the virtual terminal to its "power-on" values. Useful when
+     strange settings (like scroll regions or graphics character set)
+     are left over from an application.
+

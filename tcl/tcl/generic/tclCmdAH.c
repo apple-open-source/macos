@@ -11,11 +11,14 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclCmdAH.c,v 1.1.1.3 2000/04/12 02:01:24 wsanchez Exp $
+ * RCS: @(#) $Id: tclCmdAH.c,v 1.1.1.4 2002/04/05 16:13:16 jevans Exp $
  */
 
 #include "tclInt.h"
 #include "tclPort.h"
+#ifdef MAC_TCL
+#include "tclMacInt.h"
+#endif
 #include <locale.h>
 
 typedef int (StatProc)_ANSI_ARGS_((CONST char *path, struct stat *buf));
@@ -842,6 +845,10 @@ Tcl_FileObjCmd(dummy, interp, objc, objv)
 		}
 		tval.actime = buf.st_atime;
 		tval.modtime = buf.st_mtime;
+#ifdef MAC_TCL
+		tval.actime += TclpGetGMTOffset();
+		tval.modtime += TclpGetGMTOffset();
+#endif
 		fileName = Tcl_GetString(objv[2]);
 		if (utime(fileName, &tval) != 0) {
 		    Tcl_AppendStringsToObj(resultPtr,
@@ -1029,6 +1036,10 @@ Tcl_FileObjCmd(dummy, interp, objc, objv)
 		}
 		tval.actime = buf.st_atime;
 		tval.modtime = buf.st_mtime;
+#ifdef MAC_TCL
+		tval.actime += TclpGetGMTOffset();
+		tval.modtime += TclpGetGMTOffset();
+#endif
 		fileName = Tcl_GetString(objv[2]);
 		if (utime(fileName, &tval) != 0) {
 		    Tcl_AppendStringsToObj(resultPtr,
@@ -1930,7 +1941,7 @@ Tcl_FormatObjCmd(dummy, interp, objc, objv)
     int size;			/* Number of bytes needed for result of
 				 * conversion, based on type of conversion
 				 * ("e", "s", etc.), width, and precision. */
-    int intValue;		/* Used to hold value to pass to sprintf, if
+    long intValue;		/* Used to hold value to pass to sprintf, if
 				 * it's a one-word integer or char value */
     char *ptrValue = NULL;	/* Used to hold value to pass to sprintf, if
 				 * it's a one-word value. */
@@ -2166,9 +2177,18 @@ Tcl_FormatObjCmd(dummy, interp, objc, objv)
 	    case 'u':
 	    case 'x':
 	    case 'X':
-		if (Tcl_GetIntFromObj(interp,	/* INTL: Tcl source. */
+		if (Tcl_GetLongFromObj(interp,	/* INTL: Tcl source. */
 			objv[objIndex], &intValue) != TCL_OK) {
 		    goto fmtError;
+		}
+		if ((unsigned long) intValue > UINT_MAX) {
+		    /*
+		     * Add the 'l' for long format type.
+		     */
+		    newPtr++;
+		    *newPtr = 0;
+		    newPtr[-1] = newPtr[-2];
+		    newPtr[-2] = 'l';
 		}
 		whichValue = INT_VALUE;
 		size = 40 + precision;
@@ -2193,7 +2213,7 @@ Tcl_FormatObjCmd(dummy, interp, objc, objv)
 		}
 		break;
 	    case 'c':
-		if (Tcl_GetIntFromObj(interp,	/* INTL: Tcl source. */
+		if (Tcl_GetLongFromObj(interp,	/* INTL: Tcl source. */
 			objv[objIndex], &intValue) != TCL_OK) {
 		    goto fmtError;
 		}

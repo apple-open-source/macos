@@ -1,5 +1,6 @@
 /* Buffer insertion/deletion and gap motion for GNU Emacs.
-   Copyright (C) 1985, 86, 93, 94, 95, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1985, 86,93,94,95,97,98, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -33,15 +34,16 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
+#define max(x, y) ((x) > (y) ? (x) : (y))
 
 static void insert_from_string_1 P_ ((Lisp_Object, int, int, int, int, int, int));
 static void insert_from_buffer_1 ();
 static void gap_left P_ ((int, int, int));
 static void gap_right P_ ((int, int));
 static void adjust_markers_gap_motion P_ ((int, int, int));
-static void adjust_markers_for_insert P_ ((int, int, int, int, int, int, int));
-void adjust_markers_for_delete P_ ((int, int, int, int));
-static void adjust_markers_for_record_delete P_ ((int, int, int, int));
+static void adjust_markers_for_insert P_ ((int, int, int, int, int));
+void        adjust_markers_for_delete P_ ((int, int, int, int));
+static void adjust_markers_for_replace P_ ((int, int, int, int, int, int));
 static void adjust_point P_ ((int, int));
 
 Lisp_Object Fcombine_after_change_execute ();
@@ -64,6 +66,9 @@ Lisp_Object combine_after_change_list;
 
 /* Buffer which combine_after_change_list is about.  */
 Lisp_Object combine_after_change_buffer;
+
+Lisp_Object Qinhibit_modification_hooks;
+
 
 /* Check all markers in the current buffer, looking for something invalid.  */
 
@@ -77,12 +82,12 @@ static int check_markers_debug_flag;
 void
 check_markers ()
 {
-  register Lisp_Object tail, prev, next;
+  register Lisp_Object tail;
   int multibyte = ! NILP (current_buffer->enable_multibyte_characters);
 
   tail = BUF_MARKERS (current_buffer);
 
-  while (XSYMBOL (tail) != XSYMBOL (Qnil))
+  while (! NILP (tail))
     {
       if (XMARKER (tail)->buffer->text != current_buffer->text)
 	abort ();
@@ -135,21 +140,7 @@ gap_left (charpos, bytepos, newgap)
   int new_s1;
 
   if (!newgap)
-    {
-      if (unchanged_modified == MODIFF
-	  && overlay_unchanged_modified == OVERLAY_MODIFF)
-	{
-	  beg_unchanged = charpos - BEG;
-	  end_unchanged = Z - charpos;
-	}
-      else
-	{
-	  if (Z - GPT < end_unchanged)
-	    end_unchanged = Z - GPT;
-	  if (charpos < beg_unchanged)
-	    beg_unchanged = charpos - BEG;
-	}
-    }
+    BUF_COMPUTE_UNCHANGED (current_buffer, charpos, GPT);
 
   i = GPT_BYTE;
   to = GAP_END_ADDR;
@@ -224,19 +215,7 @@ gap_right (charpos, bytepos)
   register int i;
   int new_s1;
 
-  if (unchanged_modified == MODIFF
-      && overlay_unchanged_modified == OVERLAY_MODIFF)
-    {
-      beg_unchanged = charpos - BEG;
-      end_unchanged = Z - charpos;
-    }
-  else
-    {
-      if (Z - charpos - 1 < end_unchanged)
-	end_unchanged = Z - charpos;
-      if (GPT - BEG < beg_unchanged)
-	beg_unchanged = GPT - BEG;
-    }
+  BUF_COMPUTE_UNCHANGED (current_buffer, charpos, GPT);
 
   i = GPT_BYTE;
   from = GAP_END_ADDR;
@@ -391,13 +370,32 @@ adjust_markers_for_delete (from, from_byte, to, to_byte)
 	  m->charpos -= to - from;
 	  m->bytepos -= to_byte - from_byte;
 	}
-
       /* Here's the case where a marker is inside text being deleted.  */
       else if (charpos > from)
 	{
-	  record_marker_adjustment (marker, from - charpos);
+	  if (! m->insertion_type)
+	    /* Normal markers will end up at the beginning of the
+	       re-inserted text after undoing a deletion, and must be
+	       adjusted to move them to the correct place.  */ 
+	    record_marker_adjustment (marker, from - charpos);
+	  else if (charpos < to)
+	    /* Before-insertion markers will automatically move forward
+	       upon re-inserting the deleted text, so we have to arrange
+	       for them to move backward to the correct position.  */
+	    record_marker_adjustment (marker, charpos - to);
+
 	  m->charpos = from;
 	  m->bytepos = from_byte;
+	}
+      /* Here's the case where a before-insertion marker is immediately
+	 before the deleted region.  */
+      else if (charpos == from && m->insertion_type)
+	{
+	  /* Undoing the change uses normal insertion, which will
+	     incorrectly make MARKER move forward, so we arrange for it
+	     to then move backward to the correct place at the beginning
+	     of the deleted region.  */
+	  record_marker_adjustment (marker, to - from);
 	}
 
       marker = m->chain;
@@ -405,56 +403,18 @@ adjust_markers_for_delete (from, from_byte, to, to_byte)
 }
 
 
-/* Adjust all markers for calling record_delete for combining bytes.
-   whose range in bytes is FROM_BYTE to TO_BYTE.
-   The range in charpos is FROM to TO.  */
-
-static void
-adjust_markers_for_record_delete (from, from_byte, to, to_byte)
-     register int from, from_byte, to, to_byte;
-{
-  Lisp_Object marker;
-  register struct Lisp_Marker *m;
-  register int charpos;
-
-  marker = BUF_MARKERS (current_buffer);
-
-  while (!NILP (marker))
-    {
-      m = XMARKER (marker);
-      charpos = m->charpos;
-
-      /* If the marker is after the deletion,
-	 relocate by number of chars / bytes deleted.  */
-      if (charpos > to)
-	;
-      /* Here's the case where a marker is inside text being deleted.  */
-      else if (charpos > from)
-	record_marker_adjustment (marker, from - charpos);
-
-      marker = m->chain;
-    }
-}
-
 /* Adjust markers for an insertion that stretches from FROM / FROM_BYTE
    to TO / TO_BYTE.  We have to relocate the charpos of every marker
    that points after the insertion (but not their bytepos).
-
-   COMBINED_BEFORE_BYTES is the number of bytes at the start of the insertion
-   that combine into one character with the text before the insertion.
-   COMBINED_AFTER_BYTES is the number of bytes after the insertion
-   that combine into one character with the last inserted bytes.
 
    When a marker points at the insertion point,
    we advance it if either its insertion-type is t
    or BEFORE_MARKERS is true.  */
 
 static void
-adjust_markers_for_insert (from, from_byte, to, to_byte,
-			   combined_before_bytes, combined_after_bytes,
-			   before_markers)
+adjust_markers_for_insert (from, from_byte, to, to_byte, before_markers)
      register int from, from_byte, to, to_byte;
-     int combined_before_bytes, combined_after_bytes, before_markers;
+     int before_markers;
 {
   Lisp_Object marker;
   int adjusted = 0;
@@ -467,10 +427,8 @@ adjust_markers_for_insert (from, from_byte, to, to_byte,
     {
       register struct Lisp_Marker *m = XMARKER (marker);
 
-      /* In a single-byte buffer, a marker's two positions must be equal.
-	 (If this insertion is going to combine characters, Z will
-	 become different from Z_BYTE, but they might be the same now.
-	 If so, the two OLD positions of the marker should be equal.)  */
+      /* In a single-byte buffer, a marker's two positions must be
+	 equal.  */
       if (Z == Z_BYTE)
 	{
 	  if (m->charpos != m->bytepos)
@@ -481,45 +439,16 @@ adjust_markers_for_insert (from, from_byte, to, to_byte,
 	{
 	  if (m->insertion_type || before_markers)
 	    {
-	      m->bytepos = to_byte + combined_after_bytes;
-	      m->charpos = to - combined_before_bytes;
-	      /* Point the marker before the combined character,
-		 so that undoing the insertion puts it back where it was.  */
-	      if (combined_after_bytes)
-		DEC_BOTH (m->charpos, m->bytepos);
+	      m->bytepos = to_byte;
+	      m->charpos = to;
 	      if (m->insertion_type)
 		adjusted = 1;
 	    }
-	  else if (combined_before_bytes)
-	    {
-	      /* This marker doesn't "need relocation",
-		 but don't leave it pointing in the middle of a character.
-		 Point the marker after the combined character,
-		 so that undoing the insertion puts it back where it was.  */
-	      m->bytepos += combined_before_bytes;
-	      if (combined_before_bytes == nbytes)
-		/* All new bytes plus combined_after_bytes (if any)
-		   are combined.  */
-		m->bytepos += combined_after_bytes;
-	    }
-	}
-      /* If a marker was pointing into the combining bytes
-	 after the insertion, don't leave it there
-	 in the middle of a character.  */
-      else if (combined_after_bytes && m->bytepos >= from_byte
-	       && m->bytepos < from_byte + combined_after_bytes)
-	{
-	  /* Put it after the combining bytes.  */
-	  m->bytepos = to_byte + combined_after_bytes;
-	  m->charpos = to - combined_before_bytes;
-	  /* Now move it back before the combined character,
-	     so that undoing the insertion will put it where it was.  */
-	  DEC_BOTH (m->charpos, m->bytepos);
 	}
       else if (m->bytepos > from_byte)
 	{
 	  m->bytepos += nbytes;
-	  m->charpos += nchars - combined_after_bytes - combined_before_bytes;
+	  m->charpos += nchars;
 	}
 
       marker = m->chain;
@@ -556,56 +485,32 @@ adjust_point (nchars, nbytes)
 
 /* Adjust markers for a replacement of a text at FROM (FROM_BYTE) of
    length OLD_CHARS (OLD_BYTES) to a new text of length NEW_CHARS
-   (NEW_BYTES).
-
-   See the comment of adjust_markers_for_insert for the args
-   COMBINED_BEFORE_BYTES and COMBINED_AFTER_BYTES.  */
+   (NEW_BYTES).  It is assumed that OLD_CHARS > 0, i.e., this is not
+   an insertion.  */
 
 static void
 adjust_markers_for_replace (from, from_byte, old_chars, old_bytes,
-			    new_chars, new_bytes,
-			    combined_before_bytes, combined_after_bytes)
+			    new_chars, new_bytes)
      int from, from_byte, old_chars, old_bytes, new_chars, new_bytes;
-     int combined_before_bytes, combined_after_bytes;
 {
   Lisp_Object marker = BUF_MARKERS (current_buffer);
   int prev_to_byte = from_byte + old_bytes;
-  int diff_chars
-    = (new_chars - combined_before_bytes) - (old_chars + combined_after_bytes);
+  int diff_chars = new_chars - old_chars;
   int diff_bytes = new_bytes - old_bytes;
 
   while (!NILP (marker))
     {
       register struct Lisp_Marker *m = XMARKER (marker);
 
-      if (m->bytepos >= prev_to_byte
-	  && (old_bytes != 0
-	      /* If this is an insertion (replacing 0 chars),
-		 reject the case of a marker that is at the
-		 insertion point and should stay before the insertion.  */
-	      || m->bytepos > from_byte || m->insertion_type))
+      if (m->bytepos >= prev_to_byte)
 	{
-	  if (m->bytepos < prev_to_byte + combined_after_bytes)
-	    {
-	      /* Put it after the combining bytes.  */
-	      m->bytepos = from_byte + new_bytes + combined_after_bytes;
-	      m->charpos = from + new_chars - combined_before_bytes;
-	    }
-	  else
-	    {
-	      m->charpos += diff_chars;
-	      m->bytepos += diff_bytes;
-	    }
+	  m->charpos += diff_chars;
+	  m->bytepos += diff_bytes;
 	}
-      else if (m->bytepos >= from_byte)
+      else if (m->bytepos > from_byte)
 	{
 	  m->charpos = from;
-	  m->bytepos = from_byte + combined_before_bytes;
-	  /* If all new bytes are combined in addition to that there
-             are after combining bytes, we must set byte position of
-             the marker after the after combining bytes.  */
-	  if (combined_before_bytes == new_bytes)
-	    m->bytepos += combined_after_bytes;
+	  m->bytepos = from_byte;
 	}
 
       marker = m->chain;
@@ -621,7 +526,6 @@ void
 make_gap (nbytes_added)
      int nbytes_added;
 {
-  unsigned char *result;
   Lisp_Object tem;
   int real_gap_loc;
   int real_gap_loc_byte;
@@ -638,20 +542,7 @@ make_gap (nbytes_added)
       >= ((unsigned) 1 << (min (BITS_PER_INT, VALBITS) - 1)))
     error ("Buffer exceeds maximum size");
 
-  BLOCK_INPUT;
-  /* We allocate extra 1-byte `\0' at the tail for anchoring a search.  */
-  result = BUFFER_REALLOC (BEG_ADDR, (Z_BYTE - BEG_BYTE
-				      + GAP_SIZE + nbytes_added + 1));
-
-  if (result == 0)
-    {
-      UNBLOCK_INPUT;
-      memory_full ();
-    }
-
-  /* We can't unblock until the new address is properly stored.  */
-  BEG_ADDR = result;
-  UNBLOCK_INPUT;
+  enlarge_buffer_text (current_buffer, nbytes_added);
 
   /* Prevent quitting in move_gap.  */
   tem = Vinhibit_quit;
@@ -705,7 +596,7 @@ copy_text (from_addr, to_addr, nbytes,
     {
       int nchars = 0;
       int bytes_left = nbytes;
-      Lisp_Object tbl = Qnil, temp;
+      Lisp_Object tbl = Qnil;
 
       /* We set the variable tbl to the reverse table of
          Vnonascii_translation_table in advance.  */
@@ -720,8 +611,8 @@ copy_text (from_addr, to_addr, nbytes,
       /* Convert multibyte to single byte.  */
       while (bytes_left > 0)
 	{
-	  int thislen, c, c_save;
-	  c = c_save = STRING_CHAR_AND_LENGTH (from_addr, bytes_left, thislen);
+	  int thislen, c;
+	  c = STRING_CHAR_AND_LENGTH (from_addr, bytes_left, thislen);
 	  if (!SINGLE_BYTE_CHAR_P (c))
 	    c = multibyte_char_to_unibyte (c, tbl);
 	  *to_addr++ = c;
@@ -739,17 +630,11 @@ copy_text (from_addr, to_addr, nbytes,
       while (nbytes > 0)
 	{
 	  int c = *from_addr++;
-	  unsigned char workbuf[4], *str;
-	  int len;
 
-	  if (c < 0400
-	      && (c >= 0240
-		  || (c >= 0200 && !NILP (Vnonascii_translation_table))))
+	  if (c >= 0200)
 	    {
 	      c = unibyte_char_to_multibyte (c);
-	      len = CHAR_STRING (c, workbuf, str);
-	      bcopy (str, to_addr, len);
-	      to_addr += len;
+	      to_addr += CHAR_STRING (c, to_addr);
 	      nbytes--;
 	    }
 	  else
@@ -776,7 +661,7 @@ count_size_as_multibyte (ptr, nbytes)
     {
       unsigned int c = *ptr++;
 
-      if (c < 0200 || (c < 0240 && NILP (Vnonascii_translation_table)))
+      if (c < 0200)
 	outgoing_nbytes++;
       else
 	{
@@ -806,6 +691,7 @@ insert (string, nbytes)
       int opoint = PT;
       insert_1 (string, nbytes, 0, 1, 0);
       signal_after_change (opoint, 0, PT - opoint);
+      update_compositions (opoint, PT, CHECK_BORDER);
     }
 }
 
@@ -821,6 +707,7 @@ insert_and_inherit (string, nbytes)
       int opoint = PT;
       insert_1 (string, nbytes, 1, 1, 0);
       signal_after_change (opoint, 0, PT - opoint);
+      update_compositions (opoint, PT, CHECK_BORDER);
     }
 }
 
@@ -830,16 +717,15 @@ void
 insert_char (c)
      int c;
 {
-  unsigned char workbuf[4], *str;
+  unsigned char str[MAX_MULTIBYTE_LENGTH];
   int len;
 
   if (! NILP (current_buffer->enable_multibyte_characters))
-    len = CHAR_STRING (c, workbuf, str);
+    len = CHAR_STRING (c, str);
   else
     {
       len = 1;
-      workbuf[0] = c;
-      str = workbuf;
+      str[0] = c;
     }
 
   insert (str, len);
@@ -870,6 +756,7 @@ insert_before_markers (string, nbytes)
 
       insert_1 (string, nbytes, 0, 1, 1);
       signal_after_change (opoint, 0, PT - opoint);
+      update_compositions (opoint, PT, CHECK_BORDER);
     }
 }
 
@@ -886,6 +773,7 @@ insert_before_markers_and_inherit (string, nbytes)
 
       insert_1 (string, nbytes, 1, 1, 1);
       signal_after_change (opoint, 0, PT - opoint);
+      update_compositions (opoint, PT, CHECK_BORDER);
     }
 }
 
@@ -900,7 +788,10 @@ insert_1 (string, nbytes, inherit, prepare, before_markers)
   insert_1_both (string, chars_in_text (string, nbytes), nbytes,
 		 inherit, prepare, before_markers);
 }
+
 
+#ifdef BYTE_COMBINING_DEBUG
+
 /* See if the bytes before POS/POS_BYTE combine with bytes
    at the start of STRING to form a single character.
    If so, return the number of bytes at the start of STRING
@@ -912,30 +803,40 @@ count_combining_before (string, length, pos, pos_byte)
      int length;
      int pos, pos_byte;
 {
-  int opos = pos, opos_byte = pos_byte;
-  int c;
-  unsigned char *p = string;
+  int len, combining_bytes;
+  unsigned char *p;
 
   if (NILP (current_buffer->enable_multibyte_characters))
     return 0;
-  if (length == 0 || CHAR_HEAD_P (*string))
+
+  /* At first, we can exclude the following cases:
+	(1) STRING[0] can't be a following byte of multibyte sequence.
+	(2) POS is the start of the current buffer.
+	(3) A character before POS is not a multibyte character.  */
+  if (length == 0 || CHAR_HEAD_P (*string)) /* case (1) */
     return 0;
-  if (pos == BEG)
+  if (pos_byte == BEG_BYTE)	/* case (2) */
     return 0;
-  c = FETCH_BYTE (pos_byte - 1);
-  if (ASCII_BYTE_P (c))
-    return 0;
-  DEC_BOTH (pos, pos_byte);
-  c = FETCH_BYTE (pos_byte);
-  if (! BASE_LEADING_CODE_P (c))
+  len = 1;
+  p = BYTE_POS_ADDR (pos_byte - 1);
+  while (! CHAR_HEAD_P (*p)) p--, len++;
+  if (! BASE_LEADING_CODE_P (*p)) /* case (3) */
     return 0;
 
-  /* We have a combination situation.
-     Count the bytes at STRING that will combine.  */
+  combining_bytes = BYTES_BY_CHAR_HEAD (*p) - len;
+  if (combining_bytes <= 0)
+    /* The character preceding POS is, complete and no room for
+       combining bytes (combining_bytes == 0), or an independent 8-bit
+       character (combining_bytes < 0).  */
+    return 0;
+
+  /* We have a combination situation.  Count the bytes at STRING that
+     may combine.  */
+  p = string + 1;
   while (!CHAR_HEAD_P (*p) && p < string + length)
     p++;
 
-  return p - string;
+  return (combining_bytes < p - string ? combining_bytes : p - string);
 }
 
 /* See if the bytes after POS/POS_BYTE combine with bytes
@@ -949,14 +850,27 @@ count_combining_after (string, length, pos, pos_byte)
      int length;
      int pos, pos_byte;
 {
-  int opos = pos, opos_byte = pos_byte;
+  int opos_byte = pos_byte;
   int i;
-  int c;
+  int bytes;
+  unsigned char *bufp;
 
   if (NILP (current_buffer->enable_multibyte_characters))
     return 0;
-  if (length > 0 && ASCII_BYTE_P (string[length - 1]))
+
+  /* At first, we can exclude the following cases:
+	(1) The last byte of STRING is an ASCII.
+	(2) POS is the last of the current buffer.
+	(3) A character at POS can't be a following byte of multibyte
+	    character.  */
+  if (length > 0 && ASCII_BYTE_P (string[length - 1])) /* case (1) */
     return 0;
+  if (pos_byte == Z_BYTE)	/* case (2) */
+    return 0;
+  bufp = BYTE_POS_ADDR (pos_byte);
+  if (CHAR_HEAD_P (*bufp))	/* case (3) */
+    return 0;
+
   i = length - 1;
   while (i >= 0 && ! CHAR_HEAD_P (string[i]))
     {
@@ -964,92 +878,32 @@ count_combining_after (string, length, pos, pos_byte)
     }
   if (i < 0)
     {
-      /* All characters in `string' are not character head.
-	 We must check also preceding bytes at POS.
-	 We are sure that the gap is at POS.  */
-      string = BEG_ADDR;
+      /* All characters in STRING are not character head.  We must
+	 check also preceding bytes at POS.  We are sure that the gap
+	 is at POS.  */
+      unsigned char *p = BEG_ADDR;
       i = pos_byte - 2;
-      while (i >= 0 && ! CHAR_HEAD_P (string[i]))
+      while (i >= 0 && ! CHAR_HEAD_P (p[i]))
 	i--;
-      if (i < 0 || !BASE_LEADING_CODE_P (string[i]))
+      if (i < 0 || !BASE_LEADING_CODE_P (p[i]))
 	return 0;
+
+      bytes = BYTES_BY_CHAR_HEAD (p[i]);
+      return (bytes <= pos_byte - 1 - i + length
+	      ? 0
+	      : bytes - (pos_byte - 1 - i + length));
     }
-  else if (!BASE_LEADING_CODE_P (string[i]))
+  if (!BASE_LEADING_CODE_P (string[i]))
     return 0;
 
-  if (pos == Z)
-    return 0;
-  c = FETCH_BYTE (pos_byte);
-  if (CHAR_HEAD_P (c))
-    return 0;
-  while (pos_byte < Z_BYTE)
-    {
-      c = FETCH_BYTE (pos_byte);
-      if (CHAR_HEAD_P (c))
-	break;
-      pos_byte++;
-    }
+  bytes = BYTES_BY_CHAR_HEAD (string[i]) - (length - i);
+  bufp++, pos_byte++;
+  while (!CHAR_HEAD_P (*bufp)) bufp++, pos_byte++;
 
-  return pos_byte - opos_byte;
+  return (bytes <= pos_byte - opos_byte ? bytes : pos_byte - opos_byte);
 }
 
-/* Adjust the position TARGET/TARGET_BYTE for the combining of NBYTES
-   following the position POS/POS_BYTE to the character preceding POS.
-   If TARGET is after POS+NBYTES, we only have to adjust the character
-   position TARGET, else, if TARGET is after POS, we have to adjust
-   both the character position TARGET and the byte position
-   TARGET_BYTE, else we don't have to do any adjustment.  */
-
-#define ADJUST_CHAR_POS(target, target_byte)	\
-  do {						\
-    if (target > pos + nbytes)			\
-      target -= nbytes;				\
-    else if (target >= pos)			\
-      {						\
-	target = pos;				\
-	target_byte = pos_byte + nbytes;	\
-      }						\
-  } while (0)
-
-/* Combine NBYTES stray trailing-codes, which were formerly separate
-   characters, with the preceding character.  These bytes
-   are located after position POS / POS_BYTE, and the preceding character
-   is located just before that position.
-
-   This function does not adjust markers for byte combining.  That
-   should be done in advance by the functions
-   adjust_markers_for_insert or adjust_markers_for_replace.  */
-
-static void
-combine_bytes (pos, pos_byte, nbytes)
-     int pos, pos_byte, nbytes;
-{
-  adjust_overlays_for_delete (pos, nbytes);
-
-  ADJUST_CHAR_POS (BUF_PT (current_buffer), BUF_PT_BYTE (current_buffer));
-  ADJUST_CHAR_POS (GPT, GPT_BYTE);
-  ADJUST_CHAR_POS (Z, Z_BYTE);
-  ADJUST_CHAR_POS (ZV, ZV_BYTE);
-
-  if (BUF_INTERVALS (current_buffer) != 0)
-    /* Only defined if Emacs is compiled with USE_TEXT_PROPERTIES.  */
-    offset_intervals (current_buffer, pos, - nbytes);
-}
-
-void
-byte_combining_error ()
-{
-  error ("Byte combining across boundary of accessible buffer text inhibitted");
-}
-
-/* If we are going to combine bytes at POS which is at a narrowed
-   region boundary, signal an error.  */
-#define CHECK_BYTE_COMBINING_FOR_INSERT(pos)				\
-  do {									\
-    if (combined_before_bytes && pos == BEGV				\
-	|| combined_after_bytes && pos == ZV)				\
-      byte_combining_error ();	\
-  } while (0)
+#endif
 
 
 /* Insert a sequence of NCHARS chars which occupy NBYTES bytes
@@ -1062,9 +916,6 @@ insert_1_both (string, nchars, nbytes, inherit, prepare, before_markers)
      register int nchars, nbytes;
      int inherit, prepare, before_markers;
 {
-  register Lisp_Object temp;
-  int combined_before_bytes, combined_after_bytes;
-
   if (NILP (current_buffer->enable_multibyte_characters))
     nchars = nbytes;
 
@@ -1079,59 +930,21 @@ insert_1_both (string, nchars, nbytes, inherit, prepare, before_markers)
   if (GAP_SIZE < nbytes)
     make_gap (nbytes - GAP_SIZE);
 
-  combined_before_bytes
-    = count_combining_before (string, nbytes, PT, PT_BYTE);
-  combined_after_bytes
-    = count_combining_after (string, nbytes, PT, PT_BYTE);
-  CHECK_BYTE_COMBINING_FOR_INSERT (PT);
+#ifdef BYTE_COMBINING_DEBUG
+  if (count_combining_before (string, nbytes, PT, PT_BYTE)
+      || count_combining_after (string, nbytes, PT, PT_BYTE))
+    abort ();
+#endif
 
   /* Record deletion of the surrounding text that combines with
      the insertion.  This, together with recording the insertion,
-     will add up to the right stuff in the undo list.
-
-     But there is no need to actually delete the combining bytes
-     from the buffer and reinsert them.  */
-
-  if (combined_after_bytes)
-    {
-      Lisp_Object deletion;
-      deletion = Qnil;
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	deletion = make_buffer_string_both (PT, PT_BYTE,
-					    PT + combined_after_bytes,
-					    PT_BYTE + combined_after_bytes, 1);
-
-      adjust_markers_for_record_delete (PT, PT_BYTE,
-					PT + combined_after_bytes,
-					PT_BYTE + combined_after_bytes);
-      if (! EQ (current_buffer->undo_list, Qt))
-	record_delete (PT, deletion);
-    }
-
-  if (combined_before_bytes)
-    {
-      Lisp_Object deletion;
-      deletion = Qnil;
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	deletion = make_buffer_string_both (PT - 1, CHAR_TO_BYTE (PT - 1),
-					    PT, PT_BYTE, 1);
-      adjust_markers_for_record_delete (PT - 1, CHAR_TO_BYTE (PT - 1),
-					PT, PT_BYTE);
-      if (! EQ (current_buffer->undo_list, Qt))
-	record_delete (PT - 1, deletion);
-    }
-
-  record_insert (PT - !!combined_before_bytes,
-		 nchars - combined_before_bytes + !!combined_before_bytes);
+     will add up to the right stuff in the undo list.  */
+  record_insert (PT, nchars);
   MODIFF++;
 
   bcopy (string, GPT_ADDR, nbytes);
 
   GAP_SIZE -= nbytes;
-  /* When we have combining at the end of the insertion,
-     this is the character position before the combined character.  */
   GPT += nchars;
   ZV += nchars;
   Z += nchars;
@@ -1140,43 +953,22 @@ insert_1_both (string, nchars, nbytes, inherit, prepare, before_markers)
   Z_BYTE += nbytes;
   if (GAP_SIZE > 0) *(GPT_ADDR) = 0; /* Put an anchor.  */
 
-  if (combined_after_bytes)
-    move_gap_both (GPT + combined_after_bytes,
-		   GPT_BYTE + combined_after_bytes);
-
   if (GPT_BYTE < GPT)
     abort ();
 
   adjust_overlays_for_insert (PT, nchars);
   adjust_markers_for_insert (PT, PT_BYTE,
 			     PT + nchars, PT_BYTE + nbytes,
-			     combined_before_bytes, combined_after_bytes,
 			     before_markers);
 
-#ifdef USE_TEXT_PROPERTIES
   if (BUF_INTERVALS (current_buffer) != 0)
-    /* Only defined if Emacs is compiled with USE_TEXT_PROPERTIES.  */
     offset_intervals (current_buffer, PT, nchars);
 
   if (!inherit && BUF_INTERVALS (current_buffer) != 0)
-    Fset_text_properties (make_number (PT), make_number (PT + nchars),
-			  Qnil, Qnil);
-#endif
+    set_text_properties (make_number (PT), make_number (PT + nchars),
+			 Qnil, Qnil, Qnil);
 
-  {
-    int pos = PT, pos_byte = PT_BYTE;
-
-    adjust_point (nchars + combined_after_bytes,
-		  nbytes + combined_after_bytes);
-
-    if (combined_after_bytes)
-      combine_bytes (pos + nchars, pos_byte + nbytes, combined_after_bytes);
-
-    if (combined_before_bytes)
-      combine_bytes (pos, pos_byte, combined_before_bytes);
-
-    register_composite_chars_region (pos, pos_byte, PT, PT_BYTE);
-  }
+  adjust_point (nchars, nbytes);
 
   CHECK_MARKERS ();
 }
@@ -1200,6 +992,7 @@ insert_from_string (string, pos, pos_byte, length, length_byte, inherit)
   insert_from_string_1 (string, pos, pos_byte, length, length_byte,
 			inherit, 0);
   signal_after_change (opoint, 0, PT - opoint);
+  update_compositions (opoint, PT, CHECK_BORDER);
 }
 
 /* Like `insert_from_string' except that all markers pointing
@@ -1216,6 +1009,7 @@ insert_from_string_before_markers (string, pos, pos_byte,
   insert_from_string_1 (string, pos, pos_byte, length, length_byte,
 			inherit, 1);
   signal_after_change (opoint, 0, PT - opoint);
+  update_compositions (opoint, PT, CHECK_BORDER);
 }
 
 /* Subroutine of the insertion functions above.  */
@@ -1227,11 +1021,8 @@ insert_from_string_1 (string, pos, pos_byte, nchars, nbytes,
      register int pos, pos_byte, nchars, nbytes;
      int inherit, before_markers;
 {
-  register Lisp_Object temp;
   struct gcpro gcpro1;
   int outgoing_nbytes = nbytes;
-  int combined_before_bytes, combined_after_bytes;
-  int adjusted_nchars;
   INTERVAL intervals;
 
   /* Make OUTGOING_NBYTES describe the text
@@ -1262,63 +1053,18 @@ insert_from_string_1 (string, pos, pos_byte, nchars, nbytes,
 	     STRING_MULTIBYTE (string),
 	     ! NILP (current_buffer->enable_multibyte_characters));
 
+#ifdef BYTE_COMBINING_DEBUG
   /* We have copied text into the gap, but we have not altered
      PT or PT_BYTE yet.  So we can pass PT and PT_BYTE
      to these functions and get the same results as we would
      have got earlier on.  Meanwhile, PT_ADDR does point to
      the text that has been stored by copy_text.  */
+  if (count_combining_before (GPT_ADDR, outgoing_nbytes, PT, PT_BYTE)
+      || count_combining_after (GPT_ADDR, outgoing_nbytes, PT, PT_BYTE))
+    abort ();
+#endif
 
-  combined_before_bytes
-    = count_combining_before (GPT_ADDR, outgoing_nbytes, PT, PT_BYTE);
-  combined_after_bytes
-    = count_combining_after (GPT_ADDR, outgoing_nbytes, PT, PT_BYTE);
-  {
-    unsigned char save = *(GPT_ADDR);
-    *(GPT_ADDR) = 0;
-    CHECK_BYTE_COMBINING_FOR_INSERT (PT);
-    *(GPT_ADDR) = save;
-  }
-
-  /* Record deletion of the surrounding text that combines with
-     the insertion.  This, together with recording the insertion,
-     will add up to the right stuff in the undo list.
-
-     But there is no need to actually delete the combining bytes
-     from the buffer and reinsert them.  */
-
-  if (combined_after_bytes)
-    {
-      Lisp_Object deletion;
-      deletion = Qnil;
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	deletion = make_buffer_string_both (PT, PT_BYTE,
-					    PT + combined_after_bytes,
-					    PT_BYTE + combined_after_bytes, 1);
-
-      adjust_markers_for_record_delete (PT, PT_BYTE,
-					PT + combined_after_bytes,
-					PT_BYTE + combined_after_bytes);
-      if (! EQ (current_buffer->undo_list, Qt))
-	record_delete (PT, deletion);
-    }
-
-  if (combined_before_bytes)
-    {
-      Lisp_Object deletion;
-      deletion = Qnil;
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	deletion = make_buffer_string_both (PT - 1, CHAR_TO_BYTE (PT - 1),
-					    PT, PT_BYTE, 1);
-      adjust_markers_for_record_delete (PT - 1, CHAR_TO_BYTE (PT - 1),
-					PT, PT_BYTE);
-      if (! EQ (current_buffer->undo_list, Qt))
-	record_delete (PT - 1, deletion);
-    }
-
-  record_insert (PT - !!combined_before_bytes,
-		 nchars - combined_before_bytes + !!combined_before_bytes);
+  record_insert (PT, nchars);
   MODIFF++;
 
   GAP_SIZE -= outgoing_nbytes;
@@ -1330,25 +1076,18 @@ insert_from_string_1 (string, pos, pos_byte, nchars, nbytes,
   Z_BYTE += outgoing_nbytes;
   if (GAP_SIZE > 0) *(GPT_ADDR) = 0; /* Put an anchor.  */
 
-  if (combined_after_bytes)
-    move_gap_both (GPT + combined_after_bytes,
-		   GPT_BYTE + combined_after_bytes);
-
   if (GPT_BYTE < GPT)
     abort ();
 
   adjust_overlays_for_insert (PT, nchars);
   adjust_markers_for_insert (PT, PT_BYTE, PT + nchars,
 			     PT_BYTE + outgoing_nbytes,
-			     combined_before_bytes, combined_after_bytes,
 			     before_markers);
 
-  /* Only defined if Emacs is compiled with USE_TEXT_PROPERTIES */
   offset_intervals (current_buffer, PT, nchars);
 
   intervals = XSTRING (string)->intervals;
-  /* Get the intervals for the part of the string we are inserting--
-     not including the combined-before bytes.  */
+  /* Get the intervals for the part of the string we are inserting.  */
   if (nbytes < STRING_BYTES (XSTRING (string)))
     intervals = copy_intervals (intervals, pos, nchars);
 			       
@@ -1356,19 +1095,7 @@ insert_from_string_1 (string, pos, pos_byte, nchars, nbytes,
   graft_intervals_into_buffer (intervals, PT, nchars,
 			       current_buffer, inherit);
 
-  {
-    int pos = PT, pos_byte = PT_BYTE;
-
-    adjust_point (nchars + combined_after_bytes,
-		  outgoing_nbytes + combined_after_bytes);
-
-    if (combined_after_bytes)
-      combine_bytes (pos + nchars, pos_byte + outgoing_nbytes,
-		     combined_after_bytes);
-
-    if (combined_before_bytes)
-      combine_bytes (pos, pos_byte, combined_before_bytes);
-  }
+  adjust_point (nchars, outgoing_nbytes);
 }
 
 /* Insert text from BUF, NCHARS characters starting at CHARPOS, into the
@@ -1388,6 +1115,7 @@ insert_from_buffer (buf, charpos, nchars, inherit)
 
   insert_from_buffer_1 (buf, charpos, nchars, inherit);
   signal_after_change (opoint, 0, PT - opoint);
+  update_compositions (opoint, PT, CHECK_BORDER);
 }
 
 static void
@@ -1402,8 +1130,6 @@ insert_from_buffer_1 (buf, from, nchars, inherit)
   int to_byte = buf_charpos_to_bytepos (buf, from + nchars);
   int incoming_nbytes = to_byte - from_byte;
   int outgoing_nbytes = incoming_nbytes;
-  int combined_before_bytes, combined_after_bytes;
-  int adjusted_nchars;
   INTERVAL intervals;
 
   /* Make OUTGOING_NBYTES describe the text
@@ -1474,62 +1200,18 @@ insert_from_buffer_1 (buf, from, nchars, inherit)
 	       ! NILP (buf->enable_multibyte_characters),
 	       ! NILP (current_buffer->enable_multibyte_characters));
 
+#ifdef BYTE_COMBINING_DEBUG
   /* We have copied text into the gap, but we have not altered
      PT or PT_BYTE yet.  So we can pass PT and PT_BYTE
      to these functions and get the same results as we would
      have got earlier on.  Meanwhile, GPT_ADDR does point to
      the text that has been stored by copy_text.  */
-  combined_before_bytes
-    = count_combining_before (GPT_ADDR, outgoing_nbytes, PT, PT_BYTE);
-  combined_after_bytes
-    = count_combining_after (GPT_ADDR, outgoing_nbytes, PT, PT_BYTE);
-  {
-    unsigned char save = *(GPT_ADDR);
-    *(GPT_ADDR) = 0;
-    CHECK_BYTE_COMBINING_FOR_INSERT (PT);
-    *(GPT_ADDR) = save;
-  }
+  if (count_combining_before (GPT_ADDR, outgoing_nbytes, PT, PT_BYTE)
+      || count_combining_after (GPT_ADDR, outgoing_nbytes, PT, PT_BYTE))
+    abort ();
+#endif
 
-  /* Record deletion of the surrounding text that combines with
-     the insertion.  This, together with recording the insertion,
-     will add up to the right stuff in the undo list.
-
-     But there is no need to actually delete the combining bytes
-     from the buffer and reinsert them.  */
-
-  if (combined_after_bytes)
-    {
-      Lisp_Object deletion;
-      deletion = Qnil;
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	deletion = make_buffer_string_both (PT, PT_BYTE,
-					    PT + combined_after_bytes,
-					    PT_BYTE + combined_after_bytes, 1);
-
-      adjust_markers_for_record_delete (PT, PT_BYTE,
-					PT + combined_after_bytes,
-					PT_BYTE + combined_after_bytes);
-      if (! EQ (current_buffer->undo_list, Qt))
-	record_delete (PT, deletion);
-    }
-
-  if (combined_before_bytes)
-    {
-      Lisp_Object deletion;
-      deletion = Qnil;
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	deletion = make_buffer_string_both (PT - 1, CHAR_TO_BYTE (PT - 1),
-					    PT, PT_BYTE, 1);
-      adjust_markers_for_record_delete (PT - 1, CHAR_TO_BYTE (PT - 1),
-					PT, PT_BYTE);
-      if (! EQ (current_buffer->undo_list, Qt))
-	record_delete (PT - 1, deletion);
-    }
-
-  record_insert (PT - !!combined_before_bytes,
-		 nchars - combined_before_bytes + !!combined_before_bytes);
+  record_insert (PT, nchars);
   MODIFF++;
 
   GAP_SIZE -= outgoing_nbytes;
@@ -1541,25 +1223,18 @@ insert_from_buffer_1 (buf, from, nchars, inherit)
   Z_BYTE += outgoing_nbytes;
   if (GAP_SIZE > 0) *(GPT_ADDR) = 0; /* Put an anchor.  */
 
-  if (combined_after_bytes)
-    move_gap_both (GPT + combined_after_bytes,
-		   GPT_BYTE + combined_after_bytes);
-
   if (GPT_BYTE < GPT)
     abort ();
 
   adjust_overlays_for_insert (PT, nchars);
   adjust_markers_for_insert (PT, PT_BYTE, PT + nchars,
 			     PT_BYTE + outgoing_nbytes,
-			     combined_before_bytes, combined_after_bytes, 0);
+			     0);
 
-#ifdef USE_TEXT_PROPERTIES
   if (BUF_INTERVALS (current_buffer) != 0)
     offset_intervals (current_buffer, PT, nchars);
-#endif
 
-  /* Get the intervals for the part of the string we are inserting--
-     not including the combined-before bytes.  */
+  /* Get the intervals for the part of the string we are inserting.  */
   intervals = BUF_INTERVALS (buf);
   if (outgoing_nbytes < BUF_Z_BYTE (buf) - BUF_BEG_BYTE (buf))
     {
@@ -1571,45 +1246,9 @@ insert_from_buffer_1 (buf, from, nchars, inherit)
   /* Insert those intervals.  */
   graft_intervals_into_buffer (intervals, PT, nchars, current_buffer, inherit);
 
-  {
-    int pos = PT, pos_byte = PT_BYTE;
-
-    adjust_point (nchars + combined_after_bytes,
-		  outgoing_nbytes + combined_after_bytes);
-
-    if (combined_after_bytes)
-      combine_bytes (pos + nchars, pos_byte + outgoing_nbytes,
-		     combined_after_bytes);
-
-    if (combined_before_bytes)
-      combine_bytes (pos, pos_byte, combined_before_bytes);
-  }
+  adjust_point (nchars, outgoing_nbytes);
 }
 
-/* This function should be called after moving gap to FROM and before
-   altering text between FROM and TO.  This adjusts various position
-   keepers and markers as if the text is deleted.  Don't forget to
-   call adjust_after_replace after you actually alter the text.  */
-
-void
-adjust_before_replace (from, from_byte, to, to_byte)
-     int from, from_byte, to, to_byte;
-{
-  Lisp_Object deletion;
-
-  if (! EQ (current_buffer->undo_list, Qt))
-    deletion = make_buffer_string_both (from, from_byte, to, to_byte, 1);
-
-  CHECK_MARKERS ();
-
-  adjust_markers_for_delete (from, from_byte, to, to_byte);
-
-  if (! EQ (current_buffer->undo_list, Qt))
-    record_delete (from, deletion);
-
-  adjust_overlays_for_delete (from, to - from);
-}
-
 /* Record undo information and adjust markers and position keepers for
    a replacement of a text PREV_TEXT at FROM to a new text of LEN
    chars (LEN_BYTE bytes) which resides in the gap just after
@@ -1622,65 +1261,18 @@ adjust_after_replace (from, from_byte, prev_text, len, len_byte)
      int from, from_byte, len, len_byte;
      Lisp_Object prev_text;
 {
-  int combined_before_bytes
-    = count_combining_before (GPT_ADDR, len_byte, from, from_byte);
-  int combined_after_bytes
-    = count_combining_after (GPT_ADDR, len_byte, from, from_byte);
-  /* This flag tells if we combine some bytes with a character before
-     FROM.  This happens even if combined_before_bytes is zero.  */
-  int combine_before = (combined_before_bytes
-			|| (len == 0 && combined_after_bytes));
-
   int nchars_del = 0, nbytes_del = 0;
+
+#ifdef BYTE_COMBINING_DEBUG
+  if (count_combining_before (GPT_ADDR, len_byte, from, from_byte)
+      || count_combining_after (GPT_ADDR, len_byte, from, from_byte))
+    abort ();
+#endif
 
   if (STRINGP (prev_text))
     {
       nchars_del = XSTRING (prev_text)->size;
       nbytes_del = STRING_BYTES (XSTRING (prev_text));
-    }
-
-  if (combine_before && from == BEGV
-      || combined_after_bytes && from == ZV)
-    {
-      /* We can't combine bytes nor signal an error here.  So, let's
-	 pretend that the new text is just a single space.  */
-      len = len_byte = 1;
-      combined_before_bytes = combined_after_bytes = 0;
-      *(GPT_ADDR) = ' ';
-    }
-
-  if (combined_after_bytes)
-    {
-      Lisp_Object deletion;
-      deletion = Qnil;
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	deletion = make_buffer_string_both (from, from_byte,
-					    from + combined_after_bytes,
-					    from_byte + combined_after_bytes,
-					    1);
-
-      adjust_markers_for_record_delete (from, from_byte,
-					from + combined_after_bytes,
-					from_byte + combined_after_bytes);
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	record_delete (from + nchars_del, deletion);
-    }
-
-  if (combined_before_bytes
-      || len_byte == 0 && combined_after_bytes > 0)
-    {
-      Lisp_Object deletion;
-      deletion = Qnil;
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	deletion = make_buffer_string_both (from - 1, CHAR_TO_BYTE (from - 1),
-					    from, from_byte, 1);
-      adjust_markers_for_record_delete (from - 1, CHAR_TO_BYTE (from - 1),
-					from, from_byte);
-      if (! EQ (current_buffer->undo_list, Qt))
-	record_delete (from - 1, deletion);
     }
 
   /* Update various buffer positions for the new text.  */
@@ -1690,60 +1282,35 @@ adjust_after_replace (from, from_byte, prev_text, len, len_byte)
   GPT += len; GPT_BYTE += len_byte;
   if (GAP_SIZE > 0) *(GPT_ADDR) = 0; /* Put an anchor. */
 
-  /* The gap should be at character boundary.  */
-  if (combined_after_bytes)
-    move_gap_both (GPT + combined_after_bytes,
-		   GPT_BYTE + combined_after_bytes);
+  if (nchars_del > 0)
+    adjust_markers_for_replace (from, from_byte, nchars_del, nbytes_del,
+				len, len_byte);
+  else
+    adjust_markers_for_insert (from, from_byte,
+			       from + len, from_byte + len_byte, 0);
 
-  adjust_markers_for_replace (from, from_byte, nchars_del, nbytes_del,
-			      len, len_byte,
-			      combined_before_bytes, combined_after_bytes);
   if (! EQ (current_buffer->undo_list, Qt))
     {
       if (nchars_del > 0)
-	record_delete (from - combine_before, prev_text);
-      if (combine_before)
-	record_insert (from - 1, len - combined_before_bytes + 1);
-      else
-	record_insert (from, len);
+	record_delete (from, prev_text);
+      record_insert (from, len);
     }
 
   if (len > nchars_del)
     adjust_overlays_for_insert (from, len - nchars_del);
   else if (len < nchars_del)
     adjust_overlays_for_delete (from, nchars_del - len);
-#ifdef USE_TEXT_PROPERTIES
   if (BUF_INTERVALS (current_buffer) != 0)
     {
       offset_intervals (current_buffer, from, len - nchars_del);
     }
-#endif
 
-  {
-    int pos = PT, pos_byte = PT_BYTE;
-
-    if (from < PT)
-      adjust_point (len - nchars_del, len_byte - nbytes_del);
-
-    if (combined_after_bytes)
-      {
-	if (combined_before_bytes == len_byte)
-	  /* This is the case that all new bytes are combined.  */
-	  combined_before_bytes += combined_after_bytes;
-	else
-	  combine_bytes (from + len, from_byte + len_byte,
-			 combined_after_bytes);
-      }
-    if (combined_before_bytes)
-      combine_bytes (from, from_byte, combined_before_bytes);
-
-    register_composite_chars_region (from, from_byte,
-				     from + len, from_byte + len_byte);
-  }
+  if (from < PT)
+    adjust_point (len - nchars_del, len_byte - nbytes_del);
 
   /* As byte combining will decrease Z, we must check this again. */
-  if (Z - GPT < end_unchanged)
-    end_unchanged = Z - GPT;
+  if (Z - GPT < END_UNCHANGED)
+    END_UNCHANGED = Z - GPT;
 
   CHECK_MARKERS ();
 
@@ -1795,8 +1362,6 @@ replace_range (from, to, new, prepare, inherit, markers)
   int nbytes_del, nchars_del;
   register Lisp_Object temp;
   struct gcpro gcpro1;
-  int combined_before_bytes, combined_after_bytes;
-  int adjusted_inschars;
   INTERVAL intervals;
   int outgoing_insbytes = insbytes;
   Lisp_Object deletion;
@@ -1804,6 +1369,7 @@ replace_range (from, to, new, prepare, inherit, markers)
   CHECK_MARKERS ();
 
   GCPRO1 (new);
+  deletion = Qnil;
 
   if (prepare)
     {
@@ -1854,7 +1420,8 @@ replace_range (from, to, new, prepare, inherit, markers)
   /* Even if we don't record for undo, we must keep the original text
      because we may have to recover it because of inappropriate byte
      combining.  */
-  deletion = make_buffer_string_both (from, from_byte, to, to_byte, 1);
+  if (! EQ (current_buffer->undo_list, Qt))
+    deletion = make_buffer_string_both (from, from_byte, to, to_byte, 1);
 
   if (markers)
     /* Relocate all markers pointing into the new, larger gap
@@ -1875,10 +1442,10 @@ replace_range (from, to, new, prepare, inherit, markers)
   if (GPT_BYTE < GPT)
     abort ();
 
-  if (GPT - BEG < beg_unchanged)
-    beg_unchanged = GPT - BEG;
-  if (Z - GPT < end_unchanged)
-    end_unchanged = Z - GPT;
+  if (GPT - BEG < BEG_UNCHANGED)
+    BEG_UNCHANGED = GPT - BEG;
+  if (Z - GPT < END_UNCHANGED)
+    END_UNCHANGED = Z - GPT;
 
   if (GAP_SIZE < insbytes)
     make_gap (insbytes - GAP_SIZE);
@@ -1889,84 +1456,21 @@ replace_range (from, to, new, prepare, inherit, markers)
 	     STRING_MULTIBYTE (new),
 	     ! NILP (current_buffer->enable_multibyte_characters));
 
+#ifdef BYTE_COMBINING_DEBUG
   /* We have copied text into the gap, but we have not marked
      it as part of the buffer.  So we can use the old FROM and FROM_BYTE
      here, for both the previous text and the following text.
      Meanwhile, GPT_ADDR does point to
      the text that has been stored by copy_text.  */
-
-  combined_before_bytes
-    = count_combining_before (GPT_ADDR, outgoing_insbytes, from, from_byte);
-  combined_after_bytes
-    = count_combining_after (GPT_ADDR, outgoing_insbytes, from, from_byte);
-
-  if (combined_before_bytes && from == BEGV
-      || combined_after_bytes && from == ZV)
-    {
-      /* Bytes are being combined across the region boundary.  We
-         should avoid it.  We recover the original contents before
-         signaling an error.  */
-      bcopy (XSTRING (deletion)->data, GPT_ADDR, nbytes_del);
-      GAP_SIZE -= nbytes_del;
-      ZV += nchars_del;
-      Z += nchars_del;
-      ZV_BYTE += nbytes_del;
-      Z_BYTE += nbytes_del;
-      GPT = from + nchars_del;
-      GPT_BYTE = from_byte + nbytes_del;
-      *(GPT_ADDR) = 0;		/* Put an anchor.  */
-      if (markers)
-	adjust_markers_for_insert (from, from_byte, to, to_byte, 0, 0, 0);
-      UNGCPRO;
-      byte_combining_error ();
-      GCPRO1 (new);
-    }
-
-  /* Record deletion of the surrounding text that combines with
-     the insertion.  This, together with recording the insertion,
-     will add up to the right stuff in the undo list.
-
-     But there is no need to actually delete the combining bytes
-     from the buffer and reinsert them.  */
-
-  if (combined_after_bytes)
-    {
-      Lisp_Object deletion;
-      deletion = Qnil;
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	deletion = make_buffer_string_both (from, from_byte,
-					    from + combined_after_bytes,
-					    from_byte + combined_after_bytes,
-					    1);
-
-      adjust_markers_for_record_delete (from, from_byte,
-					from + combined_after_bytes,
-					from_byte + combined_after_bytes);
-      if (! EQ (current_buffer->undo_list, Qt))
-	record_delete (from + nchars_del, deletion);
-    }
-
-  if (combined_before_bytes)
-    {
-      Lisp_Object deletion;
-      deletion = Qnil;
-
-      if (! EQ (current_buffer->undo_list, Qt))
-	deletion = make_buffer_string_both (from - 1, CHAR_TO_BYTE (from - 1),
-					    from, from_byte, 1);
-      adjust_markers_for_record_delete (from - 1, CHAR_TO_BYTE (from - 1),
-					from, from_byte);
-      if (! EQ (current_buffer->undo_list, Qt))
-	record_delete (from - 1, deletion);
-    }
+  if (count_combining_before (GPT_ADDR, outgoing_insbytes, from, from_byte)
+      || count_combining_after (GPT_ADDR, outgoing_insbytes, from, from_byte))
+    abort ();
+#endif
 
   if (! EQ (current_buffer->undo_list, Qt))
     {
-      record_delete (from - !!combined_before_bytes, deletion);
-      record_insert (from - !!combined_before_bytes,
-		     (inschars - combined_before_bytes
-		      + !!combined_before_bytes));
+      record_delete (from, deletion);
+      record_insert (from, inschars);
     }
 
   GAP_SIZE -= outgoing_insbytes;
@@ -1978,10 +1482,6 @@ replace_range (from, to, new, prepare, inherit, markers)
   Z_BYTE += outgoing_insbytes;
   if (GAP_SIZE > 0) *(GPT_ADDR) = 0; /* Put an anchor.  */
 
-  if (combined_after_bytes)
-    move_gap_both (GPT + combined_after_bytes,
-		   GPT_BYTE + combined_after_bytes);
-
   if (GPT_BYTE < GPT)
     abort ();
 
@@ -1992,9 +1492,8 @@ replace_range (from, to, new, prepare, inherit, markers)
   if (markers)
     adjust_markers_for_insert (from, from_byte,
 			       from + inschars, from_byte + outgoing_insbytes,
-			       combined_before_bytes, combined_after_bytes, 0);
+			       0);
 
-#ifdef USE_TEXT_PROPERTIES
   offset_intervals (current_buffer, from, inschars - nchars_del);
 
   /* Get the intervals for the part of the string we are inserting--
@@ -2003,29 +1502,12 @@ replace_range (from, to, new, prepare, inherit, markers)
   /* Insert those intervals.  */
   graft_intervals_into_buffer (intervals, from, inschars,
 			       current_buffer, inherit);
-#endif
 
   /* Relocate point as if it were a marker.  */
   if (from < PT)
     adjust_point ((from + inschars - (PT < to ? PT : to)),
 		  (from_byte + outgoing_insbytes
 		   - (PT_BYTE < to_byte ? PT_BYTE : to_byte)));
-
-  if (combined_after_bytes)
-    {
-      if (combined_before_bytes == outgoing_insbytes)
-	/* This is the case that all new bytes are combined.  */
-	combined_before_bytes += combined_after_bytes;
-      else
-	combine_bytes (from + inschars, from_byte + outgoing_insbytes,
-		       combined_after_bytes);
-    }
-  if (combined_before_bytes)
-    combine_bytes (from, from_byte, combined_before_bytes);
-
-  /* As byte combining will decrease Z, we must check this again. */
-  if (Z - GPT < end_unchanged)
-    end_unchanged = Z - GPT;
 
   if (outgoing_insbytes == 0)
     evaporate_overlays (from);
@@ -2036,6 +1518,7 @@ replace_range (from, to, new, prepare, inherit, markers)
   UNGCPRO;
 
   signal_after_change (from, nchars_del, GPT - from);
+  update_compositions (from, GPT, CHECK_BORDER);
 }
 
 /* Delete characters in current buffer
@@ -2046,16 +1529,19 @@ void
 del_range (from, to)
      register int from, to;
 {
-  del_range_1 (from, to, 1);
+  del_range_1 (from, to, 1, 0);
 }
 
-/* Like del_range; PREPARE says whether to call prepare_to_modify_buffer.  */
+/* Like del_range; PREPARE says whether to call prepare_to_modify_buffer.
+   RET_STRING says to return the deleted text. */
 
-void
-del_range_1 (from, to, prepare)
-     int from, to, prepare;
+Lisp_Object
+del_range_1 (from, to, prepare, ret_string)
+     int from, to, prepare, ret_string;
 {
   int from_byte, to_byte;
+  Lisp_Object deletion;
+  struct gcpro gcpro1;
 
   /* Make args be valid */
   if (from < BEGV)
@@ -2064,20 +1550,24 @@ del_range_1 (from, to, prepare)
     to = ZV;
 
   if (to <= from)
-    return;
+    return Qnil;
 
   if (prepare)
     {
       int range_length = to - from;
       prepare_to_modify_buffer (from, to, &from);
-      to = from + range_length;
+      to = min (ZV, from + range_length);
     }
 
   from_byte = CHAR_TO_BYTE (from);
   to_byte = CHAR_TO_BYTE (to);
 
-  del_range_2 (from, from_byte, to, to_byte);
+  deletion = del_range_2 (from, from_byte, to, to_byte, ret_string);
+  GCPRO1(deletion);
   signal_after_change (from, to - from, 0);
+  update_compositions (from, from, CHECK_HEAD);
+  UNGCPRO;
+  return deletion;
 }
 
 /* Like del_range_1 but args are byte positions, not char positions.  */
@@ -2109,12 +1599,18 @@ del_range_byte (from_byte, to_byte, prepare)
 
       if (old_from != from)
 	from_byte = CHAR_TO_BYTE (from);
-      if (old_to == Z - to)
+      if (to > ZV)
+	{
+	  to = ZV;
+	  to_byte = ZV_BYTE;
+	}
+      else if (old_to == Z - to)
 	to_byte = CHAR_TO_BYTE (to);
     }
 
-  del_range_2 (from, from_byte, to, to_byte);
+  del_range_2 (from, from_byte, to, to_byte, 0);
   signal_after_change (from, to - from, 0);
+  update_compositions (from, from, CHECK_HEAD);
 }
 
 /* Like del_range_1, but positions are specified both as charpos
@@ -2147,26 +1643,31 @@ del_range_both (from, from_byte, to, to_byte, prepare)
 
       if (old_from != from)
 	from_byte = CHAR_TO_BYTE (from);
-      if (old_to == Z - to)
+      if (to > ZV)
+	{
+	  to = ZV;
+	  to_byte = ZV_BYTE;
+	}
+      else if (old_to == Z - to)
 	to_byte = CHAR_TO_BYTE (to);
     }
 
-  del_range_2 (from, from_byte, to, to_byte);
+  del_range_2 (from, from_byte, to, to_byte, 0);
   signal_after_change (from, to - from, 0);
+  update_compositions (from, from, CHECK_HEAD);
 }
 
 /* Delete a range of text, specified both as character positions
    and byte positions.  FROM and TO are character positions,
-   while FROM_BYTE and TO_BYTE are byte positions.  */
+   while FROM_BYTE and TO_BYTE are byte positions.
+   If RET_STRING is true, the deleted area is returned as a string. */
 
-void
-del_range_2 (from, from_byte, to, to_byte)
-     int from, from_byte, to, to_byte;
+Lisp_Object
+del_range_2 (from, from_byte, to, to_byte, ret_string)
+     int from, from_byte, to, to_byte, ret_string;
 {
   register int nbytes_del, nchars_del;
-  int combined_after_bytes;
   Lisp_Object deletion;
-  int from_byte_1;
 
   CHECK_MARKERS ();
 
@@ -2179,53 +1680,25 @@ del_range_2 (from, from_byte, to, to_byte)
   if (to < GPT)
     gap_left (to, to_byte, 0);
 
-  combined_after_bytes
-    = count_combining_before (BUF_BYTE_ADDRESS (current_buffer, to_byte),
-			      Z_BYTE - to_byte, from, from_byte);
-  if (combined_after_bytes)
-    {
-      if (from == BEGV || to == ZV)
-	byte_combining_error ();
-      from_byte_1 = from_byte;
-      DEC_POS (from_byte_1);
-    }
-  else
-    from_byte_1 = from_byte;
+#ifdef BYTE_COMBINING_DEBUG
+  if (count_combining_before (BUF_BYTE_ADDRESS (current_buffer, to_byte),
+			      Z_BYTE - to_byte, from, from_byte))
+    abort ();
+#endif
 
-  if (! EQ (current_buffer->undo_list, Qt))
-    deletion
-      = make_buffer_string_both (from - !!combined_after_bytes,
-				 from_byte_1,
-				 to + combined_after_bytes,
-				 to_byte + combined_after_bytes, 1);
-  if (combined_after_bytes)
-    /* COMBINED_AFTER_BYTES nonzero means that the above code moved
-       the gap.  We must move the gap again to a proper place.  */
-    move_gap_both (from, from_byte);
+  if (ret_string || ! EQ (current_buffer->undo_list, Qt))
+    deletion = make_buffer_string_both (from, from_byte, to, to_byte, 1);
+  else
+    deletion = Qnil;
 
   /* Relocate all markers pointing into the new, larger gap
      to point at the end of the text before the gap.
      Do this before recording the deletion,
      so that undo handles this after reinserting the text.  */
   adjust_markers_for_delete (from, from_byte, to, to_byte);
-  if (combined_after_bytes)
-    {
-      /* Adjust markers for the phony deletion
-	 that we are about to call record_undo for.  */
 
-      /* Here we delete the markers that formerly
-	 pointed at TO ... TO + COMBINED_AFTER_BYTES.
-	 But because of the call to adjust_markers_for_delete, above,
-	 they now point at FROM ... FROM + COMBINED_AFTER_BYTES.  */
-      adjust_markers_for_record_delete (from, from_byte,
-					from + combined_after_bytes,
-					from_byte + combined_after_bytes);
-
-      adjust_markers_for_record_delete (from - 1, from_byte_1,
-					from, from_byte);
-    }
   if (! EQ (current_buffer->undo_list, Qt))
-    record_delete (from - !!combined_after_bytes, deletion);
+    record_delete (from, deletion);
   MODIFF++;
 
   /* Relocate point as if it were a marker.  */
@@ -2233,7 +1706,6 @@ del_range_2 (from, from_byte, to, to_byte)
     adjust_point (from - (PT < to ? PT : to),
 		  from_byte - (PT_BYTE < to_byte ? PT_BYTE : to_byte));
 
-  /* Only defined if Emacs is compiled with USE_TEXT_PROPERTIES */
   offset_intervals (current_buffer, from, - nchars_del);
 
   /* Adjust the overlay center as needed.  This must be done after
@@ -2247,39 +1719,21 @@ del_range_2 (from, from_byte, to, to_byte)
   Z -= nchars_del;
   GPT = from;
   GPT_BYTE = from_byte;
-
-  if (combined_after_bytes)
-    move_gap_both (GPT + combined_after_bytes,
-		   GPT_BYTE + combined_after_bytes);
-
   *(GPT_ADDR) = 0;		/* Put an anchor.  */
 
   if (GPT_BYTE < GPT)
     abort ();
 
-  if (GPT - BEG < beg_unchanged)
-    beg_unchanged = GPT - BEG;
-  if (Z - GPT < end_unchanged)
-    end_unchanged = Z - GPT;
-
-  if (combined_after_bytes)
-    {
-      /* Adjust markers for byte combining.  As we have already
-         adjuted markers without concerning byte combining, here we
-         must concern only byte combining.  */
-      adjust_markers_for_replace (from, from_byte, 0, 0, 0, 0,
-				  0, combined_after_bytes);
-      combine_bytes (from, from_byte, combined_after_bytes);
-
-      record_insert (GPT - 1, 1);
-
-      if (Z - GPT < end_unchanged)
-	end_unchanged = Z - GPT;
-    }
+  if (GPT - BEG < BEG_UNCHANGED)
+    BEG_UNCHANGED = GPT - BEG;
+  if (Z - GPT < END_UNCHANGED)
+    END_UNCHANGED = Z - GPT;
 
   CHECK_MARKERS ();
 
   evaporate_overlays (from);
+
+  return deletion;
 }
 
 /* Call this if you're about to change the region of BUFFER from
@@ -2300,14 +1754,7 @@ modify_region (buffer, start, end)
 
   prepare_to_modify_buffer (start, end, NULL);
 
-  if (start - 1 < beg_unchanged
-      || (unchanged_modified == MODIFF
-	  && overlay_unchanged_modified == OVERLAY_MODIFF))
-    beg_unchanged = start - 1;
-  if (Z - end < end_unchanged
-      || (unchanged_modified == MODIFF
-	  && overlay_unchanged_modified == OVERLAY_MODIFF))
-    end_unchanged = Z - end;
+  BUF_COMPUTE_UNCHANGED (buffer, start - 1, end);
 
   if (MODIFF <= SAVE_MODIFF)
     record_first_change ();
@@ -2337,7 +1784,11 @@ prepare_to_modify_buffer (start, end, preserve_ptr)
   if (!NILP (current_buffer->read_only))
     Fbarf_if_buffer_read_only ();
 
-  /* Only defined if Emacs is compiled with USE_TEXT_PROPERTIES */
+  /* Let redisplay consider other windows than selected_window
+     if modifying another buffer.  */
+  if (XBUFFER (XWINDOW (selected_window)->buffer) != current_buffer)
+    ++windows_or_buffers_changed;
+
   if (BUF_INTERVALS (current_buffer) != 0)
     {
       if (preserve_ptr)
@@ -2447,16 +1898,6 @@ signal_before_change (start_int, end_int, preserve_ptr)
       call1 (Vrun_hooks, Qfirst_change_hook);
     }
 
-  /* Run the before-change-function if any.
-     We don't bother "binding" this variable to nil
-     because it is obsolete anyway and new code should not use it.  */
-  if (!NILP (Vbefore_change_function))
-    {
-      PRESERVE_VALUE;
-      PRESERVE_START_END;
-      call2 (Vbefore_change_function, FETCH_START, FETCH_END);
-    }
-
   /* Now run the before-change-functions if any.  */
   if (!NILP (Vbefore_change_functions))
     {
@@ -2464,6 +1905,8 @@ signal_before_change (start_int, end_int, preserve_ptr)
       Lisp_Object before_change_functions;
       Lisp_Object after_change_functions;
       struct gcpro gcpro1, gcpro2;
+      struct buffer *old = current_buffer;
+      struct buffer *new;
 
       PRESERVE_VALUE;
       PRESERVE_START_END;
@@ -2483,9 +1926,21 @@ signal_before_change (start_int, end_int, preserve_ptr)
       args[2] = FETCH_END;
       run_hook_list_with_args (before_change_functions, 3, args);
 
-      /* "Unbind" the variables we "bound" to nil.  */
-      Vbefore_change_functions = before_change_functions;
-      Vafter_change_functions = after_change_functions;
+      /* "Unbind" the variables we "bound" to nil.  Beware a
+	 buffer-local hook which changes the buffer when run (e.g. W3).  */
+      if (old != current_buffer)
+	{
+	  new = current_buffer;
+	  set_buffer_internal (old);
+	  Vbefore_change_functions = before_change_functions;
+	  Vafter_change_functions = after_change_functions;
+	  set_buffer_internal (new);
+	}
+      else
+	{
+	  Vbefore_change_functions = before_change_functions;
+	  Vafter_change_functions = after_change_functions;
+	}
       UNGCPRO;
     }
 
@@ -2523,7 +1978,7 @@ signal_after_change (charpos, lendel, lenins)
      and there are no before-change functions,
      just record the args that we were going to use.  */
   if (! NILP (Vcombine_after_change_calls)
-      && NILP (Vbefore_change_function) && NILP (Vbefore_change_functions)
+      && NILP (Vbefore_change_functions)
       && NILP (current_buffer->overlays_before)
       && NILP (current_buffer->overlays_after))
     {
@@ -2546,19 +2001,13 @@ signal_after_change (charpos, lendel, lenins)
   if (!NILP (combine_after_change_list)) 
     Fcombine_after_change_execute ();
 
-  /* Run the after-change-function if any.
-     We don't bother "binding" this variable to nil
-     because it is obsolete anyway and new code should not use it.  */
-  if (!NILP (Vafter_change_function))
-    call3 (Vafter_change_function,
-	   make_number (charpos), make_number (charpos + lenins),
-	   make_number (lendel));
-
   if (!NILP (Vafter_change_functions))
     {
       Lisp_Object args[4];
       Lisp_Object before_change_functions;
       Lisp_Object after_change_functions;
+      struct buffer *old = current_buffer;
+      struct buffer *new;
       struct gcpro gcpro1, gcpro2;
 
       /* "Bind" before-change-functions and after-change-functions
@@ -2578,9 +2027,21 @@ signal_after_change (charpos, lendel, lenins)
       run_hook_list_with_args (after_change_functions,
 			       4, args);
 
-      /* "Unbind" the variables we "bound" to nil.  */
-      Vbefore_change_functions = before_change_functions;
-      Vafter_change_functions = after_change_functions;
+      /* "Unbind" the variables we "bound" to nil.  Beware a
+	 buffer-local hook which changes the buffer when run (e.g. W3).  */
+      if (old != current_buffer)
+	{
+	  new = current_buffer;
+	  set_buffer_internal (old);
+	  Vbefore_change_functions = before_change_functions;
+	  Vafter_change_functions = after_change_functions;
+	  set_buffer_internal (new);
+	}
+      else
+	{
+	  Vbefore_change_functions = before_change_functions;
+	  Vafter_change_functions = after_change_functions;
+	}
       UNGCPRO;
     }
 
@@ -2635,26 +2096,26 @@ DEFUN ("combine-after-change-execute", Fcombine_after_change_execute,
   /* Scan the various individual changes,
      accumulating the range info in BEG, END and CHANGE.  */
   for (tail = combine_after_change_list; CONSP (tail);
-       tail = XCONS (tail)->cdr)
+       tail = XCDR (tail))
     {
       Lisp_Object elt;
       int thisbeg, thisend, thischange;
 
       /* Extract the info from the next element.  */
-      elt = XCONS (tail)->car;
+      elt = XCAR (tail);
       if (! CONSP (elt))
 	continue;
-      thisbeg = XINT (XCONS (elt)->car);
+      thisbeg = XINT (XCAR (elt));
 
-      elt = XCONS (elt)->cdr;
+      elt = XCDR (elt);
       if (! CONSP (elt))
 	continue;
-      thisend = XINT (XCONS (elt)->car);
+      thisend = XINT (XCAR (elt));
 
-      elt = XCONS (elt)->cdr;
+      elt = XCDR (elt);
       if (! CONSP (elt))
 	continue;
-      thischange = XINT (XCONS (elt)->car);
+      thischange = XINT (XCAR (elt));
 
       /* Merge this range into the accumulated range.  */
       change += thischange;
@@ -2677,6 +2138,7 @@ DEFUN ("combine-after-change-execute", Fcombine_after_change_execute,
   record_unwind_protect (Fcombine_after_change_execute_1,
 			 Vcombine_after_change_calls);
   signal_after_change (begpos, endpos - begpos - change, endpos - begpos);
+  update_compositions (begpos, endpos, CHECK_ALL);
 
   return unbind_to (count, Qnil);
 }
@@ -2694,6 +2156,14 @@ syms_of_insdel ()
   DEFVAR_LISP ("combine-after-change-calls", &Vcombine_after_change_calls,
     "Used internally by the `combine-after-change-calls' macro.");
   Vcombine_after_change_calls = Qnil;
+
+  DEFVAR_BOOL ("inhibit-modification-hooks", &inhibit_modification_hooks,
+    "Non-nil means don't run any of the hooks that respond to buffer changes.\n\
+This affects `before-change-functions' and `after-change-functions',\n\
+as well as hooks attached to text properties and overlays.");
+  inhibit_modification_hooks = 0;
+  Qinhibit_modification_hooks = intern ("inhibit-modification-hooks");
+  staticpro (&Qinhibit_modification_hooks);
 
   defsubr (&Scombine_after_change_execute);
 }

@@ -52,7 +52,7 @@ void to64frombits(unsigned char *out, const unsigned char *in, int inlen)
     *out = '\0';
 }
 
-int from64tobits(char *out, const char *in)
+int from64tobits(char *out, const char *in, int maxlen)
 /* base 64 to raw bytes in quasi-big-endian order, returning count of bytes */
 {
     int len = 0;
@@ -77,8 +77,10 @@ int from64tobits(char *out, const char *in)
 	if (digit4 != '=' && DECODE64(digit4) == BAD)
 	    return(-1);
 	in += 4;
-	*out++ = (DECODE64(digit1) << 2) | (DECODE64(digit2) >> 4);
 	++len;
+	if (len && len >= maxlen)	/* prevent buffer overflow */
+	    return(-1);
+	*out++ = (DECODE64(digit1) << 2) | (DECODE64(digit2) >> 4);
 	if (digit3 != '=')
 	{
 	    *out++ = ((DECODE64(digit2) << 4) & 0xf0) | (DECODE64(digit3) >> 2);

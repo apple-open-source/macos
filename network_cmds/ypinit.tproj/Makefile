@@ -1,7 +1,7 @@
 #
 # RC Makefile for ypinit scripts on Rhapsody.
 #
-# $Id: Makefile,v 1.1.1.1 1999/05/02 03:59:01 wsanchez Exp $
+# $Id: Makefile,v 1.2 2002/03/13 02:08:08 bbraun Exp $
 #
 
 VARYP=$(DSTROOT)/private/var/yp
@@ -24,7 +24,7 @@ build_init:
 
 installsrc:
 	-mkdir -p $(SRCROOT)$(SRCPATH)
-	cp Makefile Makefile.yp Makefile.main ypinit.sh $(SRCROOT)$(SRCPATH)
+	cp Makefile Makefile.yp Makefile.main ypinit.sh ypinit.8 $(SRCROOT)$(SRCPATH)
 
 installhdrs:
 
@@ -43,4 +43,6 @@ install_binaries:
 	-mkdir -p $(USRSBIN)
 	install -c -m 755 ypinit.sh $(USRSBIN)
 	-chown root.wheel $(USRSBIN)/ypinit
+	-mkdir -p "$(DSTROOT)/usr/share/man/man8"
+	install -c -m 644 ypinit.8 "$(DSTROOT)/usr/share/man/man8/ypinit.sh.8"
 

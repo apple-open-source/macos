@@ -4,22 +4,10 @@
 
 #define OSF1
 
-/* Define _BSD to tell the include files we're running under
-   the BSD universe and not the SYSV universe.  */
-
 #define C_SWITCH_SYSTEM	-D_BSD
 #define LIBS_SYSTEM	-lbsd
 
 #define GETPGRP_NO_ARG
-
-#define read sys_read
-#define write sys_write
-#define open sys_open
-#define close sys_close
-
-#define INTERRUPTIBLE_OPEN
-#define INTERRUPTIBLE_CLOSE
-#define INTERRUPTIBLE_IO
 
 #define SYSV_SYSTEM_DIR
 
@@ -35,5 +23,24 @@
 
 #define HAVE_TERMIOS
 
-/* Specify the type that the 3rd arg of `accept' points to.  */
-#define SOCKLEN_TYPE int
+#ifndef __GNUC__
+/* Optimize, inaccurate debugging.  */
+#define C_DEBUG_SWITCH -g3
+#endif
+
+#ifndef NOT_C_CODE
+#ifndef OSF5			/* fixed in 5.0 */
+/* Hack alert!  For reasons unknown to mankind the string.h file insists
+   on defining bcopy etc. as taking char pointers as arguments.  With
+   Emacs this produces an endless amount of warning which are harmless,
+   but tends to flood the real errors.  This hack works around this problem
+   by not prototyping.  */
+#define bcopy string_h_bcopy
+#define bzero string_h_bzero
+#define bcmp  string_h_bcmp
+#include <string.h>
+#undef bcopy
+#undef bzero
+#undef bcmp
+#endif
+#endif

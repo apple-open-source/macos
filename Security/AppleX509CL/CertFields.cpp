@@ -268,17 +268,16 @@ static bool getField_RDN (
 			AsnTag 					tag;
 			AsnLen 					elmtLen;
 			ENV_TYPE 				env;
-			int						val;
 			char					*valData;
 			int						valLength;
 			DirectoryString			*dirStr = NULL;
 			
 			buf.InstallData(cbuf->Access(), len);
-			if ((val = setjmp (env)) == 0) {
+			try {
 				tag = BDecTag (buf, len, env);
 				elmtLen = BDecLen (buf, len, env);
 			}
-			else {
+			catch(...) {
 				errorLog0("getField_RDN: malformed DirectoryString (1)\n");
 				/* FIXME - throw? Discard the whole cert? What? */
 				rdn->GoNext();
@@ -300,10 +299,10 @@ static bool getField_RDN (
 				/* from sm_x520sa.h */
 				AsnLen dec;
 				dirStr = new DirectoryString;
-				if((val = setjmp (env)) == 0) {
+				try {
 					dirStr->BDecContent(buf, tag, elmtLen, dec, env);
 				}
-				else {
+				catch(...) {
 					errorLog0("getField_RDN: malformed DirectoryString (1)\n");
 					/* FIXME - throw? Discard the whole cert? What? */
 					rdn->GoNext();
@@ -355,58 +354,6 @@ static bool getField_RDN (
 	}	/* for each rdn in rdns */
 	numFields = 1;
 	return true;
-}
-
-static void setField_RDN  (
-	NameBuilder			&name,
-	const CssmData		&fieldValue)
-{
-	/*
-	 * The main job here is extracting attr/value pairs in CSSM format 
-	 * from fieldData, and converting them into arguments for NameBuilder.addATDV.
-	 * Note that we're taking the default for primaryDistinguished,
-	 * because the CDSA CSSM_X509_TYPE_VALUE_PAIR struct doesn't allow for
-	 * it. 
-	 */
-	CSSM_X509_NAME_PTR x509Name = (CSSM_X509_NAME_PTR)fieldValue.data();
-	for(unsigned rdnDex=0; rdnDex<x509Name->numberOfRDNs; rdnDex++) {
-		CSSM_X509_RDN_PTR rdn = &x509Name->RelativeDistinguishedName[rdnDex];
-		if(rdn->numberOfPairs != 1) {
-			errorLog0("setField_RDN: only one a/v pair per RDN supported\n");
-			CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
-		}
-
-		CSSM_X509_TYPE_VALUE_PAIR_PTR atv = rdn->AttributeTypeAndValue;
-		AsnOid oid;
-		oid.Set(reinterpret_cast<char *>(atv->type.Data), atv->type.Length);
-		
-		DirectoryString::ChoiceIdEnum stringType;
-		switch(atv->valueType) {
-			case BER_TAG_T61_STRING:
-				stringType = DirectoryString::teletexStringCid;
-				break;
-			case BER_TAG_PRINTABLE_STRING:
-				stringType = DirectoryString::printableStringCid;
-				break;
-			case BER_TAG_PKIX_UNIVERSAL_STRING:
-				stringType = DirectoryString::universalStringCid;
-				break;
-			case BER_TAG_PKIX_BMP_STRING:
-				stringType = DirectoryString::bmpStringCid;
-				break;
-			case BER_TAG_PKIX_UTF8_STRING:
-				stringType = DirectoryString::utf8StringCid;
-				break;
-			default:
-				errorLog1("setField_RDN: illegal tag(%d)\n", atv->valueType);
-				CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
-		}
-		name.addATDV(oid,
-			reinterpret_cast<char *>(atv->value.Data),
-			atv->value.Length,
-			stringType);
-
-	}
 }
 
 /* common for issuer and subject */
@@ -468,7 +415,8 @@ static void setField_Issuer  (
 		"IssuerName");
 	NameBuilder *issuer = new NameBuilder;
 	cert.certificateToSign->issuer = issuer;
-	setField_RDN(*issuer, fieldValue);
+	const CSSM_X509_NAME *x509Name = (const CSSM_X509_NAME *)fieldValue.Data;
+	issuer->addX509Name(x509Name);
 }
 
 /*** subject ***/
@@ -500,7 +448,8 @@ static void setField_Subject  (
 		"SubjectName");
 	NameBuilder *subject = new NameBuilder;
 	cert.certificateToSign->subject = subject;
-	setField_RDN(*subject, fieldValue);
+	const CSSM_X509_NAME *x509Name = (const CSSM_X509_NAME *)fieldValue.Data;
+	subject->addX509Name(x509Name);
 }
 
 /***
@@ -918,7 +867,7 @@ static void setField_PublicKeyInfo (
 	/* actual public key blob - AsnBits */
 	snaccKeyInfo->subjectPublicKey.Set(reinterpret_cast<char *>
 		(cssmKeyInfo->subjectPublicKey.Data), 
-		cssmKeyInfo->subjectPublicKey.Length);
+		cssmKeyInfo->subjectPublicKey.Length * 8);
 
 }
 static void freeField_PublicKeyInfo (
@@ -979,7 +928,10 @@ static void setField_PublicKeyStruct (
 	
 	/* actual public key blob - AsnBits */
 	/***
-	 *** TBD FIXME if this key is a ref key, null wrap it to a raw key
+	 *** Note: ideally we'd like to just convert an incoming ref key to a raw
+	 ***       key here if necessary, but this occurs during CertCreateTemplate,
+	 ***       when we don't have a CSP handle. This conversion is the caller's
+	 ***       responsibility. 
 	 ***/
 	if(cssmKey->KeyHeader.BlobType != CSSM_KEYBLOB_RAW) {
 			errorLog0("CL SetField: must specify RAW key blob\n");
@@ -993,7 +945,7 @@ static void freeField_PublicKeyStruct (
 	CssmOwnedData		&fieldValue)
 {
 	CSSM_KEY_PTR cssmKey = (CSSM_KEY_PTR)fieldValue.data();
-	DecodedCert::freeCSSMKey(cssmKey, fieldValue.allocator, false);
+	CL_freeCSSMKey(cssmKey, fieldValue.allocator, false);
 }
 
 /***
@@ -1210,7 +1162,7 @@ void DecodedCert::getAllParsedCertFields(
 {
 	/* this is the max - some might be missing */
 	uint32 maxFields = NUM_STD_CERT_FIELDS + mNumExtensions;
-	CSSM_FIELD_PTR outFields = (CSSM_FIELD_PTR)malloc(maxFields * sizeof(CSSM_FIELD));
+	CSSM_FIELD_PTR outFields = (CSSM_FIELD_PTR)alloc.malloc(maxFields * sizeof(CSSM_FIELD));
 	
 	/*
 	 * We'll be copying oids and values for fields we find into

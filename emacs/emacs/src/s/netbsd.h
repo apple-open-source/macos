@@ -12,7 +12,7 @@
 
 #undef KERNEL_FILE
 #undef LDAV_SYMBOL
-#define HAVE_GETLOADAVG
+#define HAVE_GETLOADAVG 1
 
 #define HAVE_UNION_WAIT
 
@@ -57,12 +57,18 @@
 #define N_BSSADDR(x) (N_ALIGN(x, N_DATADDR(x)+x.a_data))
 #define N_TRELOFF(x) N_RELOFF(x)
 #endif
-#endif /* not NO_SHARED_LIBS */
+#endif /* not NO_SHARED_LIBS and not ELF */
+
+#if !defined (NO_SHARED_LIBS) && defined (__ELF__)
+#define START_FILES pre-crt0.o /usr/lib/crt0.o /usr/lib/crtbegin.o
+#define UNEXEC unexelf.o
+#define LIB_STANDARD -lgcc -lc -lgcc /usr/lib/crtend.o
+#undef LIB_GCC
+#define LIB_GCC
+#endif
 
 #define HAVE_WAIT_HEADER
 #define WAIT_USE_INT
-
-#define NO_MATHERR
 
 #define AMPERSAND_FULL_NAME
 
@@ -70,7 +76,16 @@
 /* Here is how to find X Windows.  LD_SWITCH_X_SITE_AUX gives an -R option
    says where to find X windows at run time.  We convert it to a -rpath option
    which is what OSF1 uses.  */
-#define LD_SWITCH_SYSTEM `echo LD_SWITCH_X_SITE_AUX | sed -e 's/-R/-Wl,-rpath,/'`
+#define LD_SWITCH_SYSTEM_tmp `echo LD_SWITCH_X_SITE_AUX | sed -e 's/-R/-Wl,-rpath,/'`
+#define LD_SWITCH_SYSTEM LD_SWITCH_SYSTEM_tmp -L/usr/pkg/lib -L/usr/local/lib
+
+/* The following is needed to make `configure' find Xpm, Xaw3d and
+   image include and library files if using /usr/bin/gcc.  That
+   compiler seems to be modified to not find headers in
+   /usr/local/include or libs in /usr/local/lib by default.  */
+
+#define C_SWITCH_SYSTEM -I/usr/X11R6/include -I/usr/pkg/include -I/usr/local/include -L/usr/pkg/lib -L/usr/local/lib
+
 #endif /* __ELF__ */
 
 /* On post 1.3 releases of NetBSD, gcc -nostdlib also clears
@@ -79,3 +94,32 @@
    this problem, and will also work on earlier NetBSD releases */
 
 #define LINKER $(CC) -nostartfiles
+
+#define NARROWPROTO 1
+
+#define DEFAULT_SOUND_DEVICE "/dev/audio"
+
+/* Greg A. Woods <woods@weird.com> says we must include signal.h
+   before syssignal.h is included, to work around interface conflicts
+   that are handled with CPP __RENAME() macro in signal.h.  */
+
+#ifndef NOT_C_CODE
+#include <signal.h>
+#endif
+
+/* Don't close pty in process.c to make it as controlling terminal.
+   It is already a controlling terminal of subprocess, because we did
+   ioctl TIOCSCTTY.  */
+
+#define DONT_REOPEN_PTY
+ 
+/* Tell that garbage collector that setjmp is known to save all
+   registers relevant for conservative garbage collection in the
+   jmp_buf.  */
+
+#define GC_SETJMP_WORKS 1
+ 
+/* Use the GC_MAKE_GCPROS_NOOPS (see lisp.h) method.  */
+
+#define GC_MARK_STACK	GC_MAKE_GCPROS_NOOPS
+

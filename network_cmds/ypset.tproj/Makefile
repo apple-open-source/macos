@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = ypset.c
 
-OTHERSRCS = Makefile.dist Makefile.preamble
+OTHERSRCS = Makefile.dist Makefile.preamble Makefile.postamble ypset.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

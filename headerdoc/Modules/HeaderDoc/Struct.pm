@@ -4,9 +4,9 @@
 # Synopsis: Holds struct info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/06/06 18:02:45 $
+# Last Updated: $Date: 2001/11/30 22:43:18 $
 # 
-# Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
+# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
 # subject to the Apple Public Source License Version 1.1 (the "License").
 # You may not use this file except in compliance with the License.  Please
@@ -24,7 +24,7 @@
 ######################################################################
 package HeaderDoc::Struct;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
 use HeaderDoc::APIOwner;
@@ -43,14 +43,14 @@ sub new {
     my $self = {};
     
     bless($self, $class);
-    $self->SUPER::_initialize();
     $self->_initialize();
     return($self);
 }
 
 sub _initialize {
     my($self) = shift;
-    $self->{FIELDS} = [];
+    $self->SUPER::_initialize();
+    $self->{FIELDS} = ();
 }
 
 sub fields {
@@ -58,7 +58,7 @@ sub fields {
     if (@_) { 
         @{ $self->{FIELDS} } = @_;
     }
-    return @{ $self->{FIELDS} };
+    ($self->{FIELDS}) ? return @{ $self->{FIELDS} } : return ();
 }
 
 sub addField {

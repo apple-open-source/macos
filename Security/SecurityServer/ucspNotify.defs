@@ -1,0 +1,25 @@
+//
+// ucsp_callbacks: MIG definition of SecurityServer's callback services
+//
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem ucsp_notify 10000;
+serverprefix ucsp_notify_receiver_;
+userprefix ucsp_notify_sender_;
+
+import "securityserver.h";
+import "ucsp_types.h";
+
+
+//
+// Data types
+//
+type Data = array [] of char;
+type uint32 = unsigned32;
+
+
+simpleroutine notify(requestport receiver: mach_port_t;
+    msgoption options: mach_msg_options_t; waittime timeout: natural_t;
+    in domain: uint32; in event: uint32; in data: Data;
+    in sender: uint32);

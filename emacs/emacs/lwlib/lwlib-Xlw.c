@@ -18,6 +18,10 @@ along with GNU Emacs; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "lwlib-Xlw.h"
 #include <X11/StringDefs.h>
 #include <X11/IntrinsicP.h>
@@ -26,7 +30,55 @@ Boston, MA 02111-1307, USA.  */
 #include <X11/Shell.h>
 #include "xlwmenu.h"
 
+#if 0
+
+#include <stdio.h>
+
+/* Print the complete X resource name of widget WIDGET to stderr.
+   This is sometimes handy to have available.  */
+
+void
+x_print_complete_resource_name (widget)
+     Widget widget;
+{
+  int i;
+  String names[100];
+
+  for (i = 0; i < 100 && widget != NULL; ++i)
+    {
+      names[i] = XtName (widget);
+      widget = XtParent (widget);
+    }
+
+  for (--i; i >= 1; --i)
+    fprintf (stderr, "%s.", names[i]);
+  fprintf (stderr, "%s\n", names[0]);
+}
+
+#endif /* 0 */
+
+
 /* Menu callbacks */
+
+/* Callback XtNhighlightCallback for Lucid menus.  W is the menu
+   widget, CLIENT_DATA contains a pointer to the widget_instance
+   for the menu, CALL_DATA contains a pointer to the widget_value
+   structure for the highlighted menu item.  The latter may be null
+   if there isn't any highlighted menu item.  */
+
+static void
+highlight_hook (w, client_data, call_data)
+     Widget w;
+     XtPointer client_data;
+     XtPointer call_data;
+{
+  widget_instance *instance = (widget_instance *) client_data;
+
+  if (instance->info->highlight_cb
+      && !w->core.being_destroyed)
+    instance->info->highlight_cb (w, instance->info->id, call_data);
+}
+
 static void
 pre_hook (w, client_data, call_data)
      Widget w;
@@ -96,6 +148,8 @@ xlw_create_menubar (instance)
 
   XtAddCallback (widget, XtNopen, pre_hook, (XtPointer)instance);
   XtAddCallback (widget, XtNselect, pick_hook, (XtPointer)instance);
+  XtAddCallback (widget, XtNhighlightCallback, highlight_hook,
+		 (XtPointer)instance);
   return widget;
 }
 
@@ -121,7 +175,8 @@ xlw_create_popup_menu (instance)
 			     popup_shell, al, ac);
 
   XtAddCallback (widget, XtNselect, pick_hook, (XtPointer)instance);
-
+  XtAddCallback (widget, XtNhighlightCallback, highlight_hook,
+		 (XtPointer)instance);
   return popup_shell;
 }
 
@@ -199,7 +254,7 @@ xlw_popup_menu (widget, event)
   mw = (XlwMenuWidget)((CompositeWidget)widget)->composite.children [0];
 
   if (event)
-    pop_up_menu (mw, event);
+    pop_up_menu (mw, (XButtonPressedEvent*) event);
   else
     {
       dummy.type = ButtonPress;

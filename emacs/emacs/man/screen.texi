@@ -1,5 +1,5 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985, 86, 87, 93, 94, 95, 1997 Free Software Foundation, Inc.
+@c Copyright (C) 1985,86,87,93,94,95,1997,2001 Free Software Foundation, Inc.
 @c See file emacs.texi for copying conditions.
 @node Screen, User Input, Acknowledgments, Top
 @chapter The Organization of the Screen
@@ -14,11 +14,14 @@ window used by Emacs.  Emacs uses both kinds of frames in the same way
 to display your editing.  Emacs normally starts out with just one frame,
 but you can create additional frames if you wish.  @xref{Frames}.
 
-  When you start Emacs, the entire frame except for the first and last
-lines is devoted to the text you are editing.  This area is called the
-@dfn{window}.  The first line is a @dfn{menu bar}, and the last line is
-a special @dfn{echo area} or @dfn{minibuffer window} where prompts
-appear and where you can enter responses.  See below for more
+  When you start Emacs, the entire frame except for the top and bottom
+is devoted to the text you are editing.  This area is called the
+@dfn{window}.  At the top there is normally a @dfn{menu bar} where you
+can access a series of menus; then there may be a @dfn{tool bar}, a
+row of icons that perform editing commands if you click on them.
+Below this, the window begins.  The last line is a special @dfn{echo
+area} or @dfn{minibuffer window}, where prompts appear and where you
+can enter information when Emacs asks for it.  See below for more
 information about these special lines.
 
   You can subdivide the large text window horizontally or vertically
@@ -34,12 +37,13 @@ windows display text for reference only, unless/until you select them.
 If you use multiple frames under the X Window System, then giving the
 input focus to a particular frame selects a window in that frame.
 
-  Each window's last line is a @dfn{mode line}, which describes what is
-going on in that window.  It appears in inverse video, if the terminal
-supports that, and its contents begin with @w{@samp{--:-- @ *scratch*}}
-when Emacs starts.  The mode line displays status information such as
-what buffer is being displayed above it in the window, what major and
-minor modes are in use, and whether the buffer contains unsaved changes.
+  Each window's last line is a @dfn{mode line}, which describes what
+is going on in that window.  It appears in inverse video, if the
+terminal supports that; its contents normally begin with
+@w{@samp{--:-- @ *scratch*}} when Emacs starts.  The mode line
+displays status information such as what buffer is being displayed
+above it in the window, what major and minor modes are in use, and
+whether the buffer contains unsaved changes.
 
 @menu
 * Point::	        The place in the text where editing commands operate.
@@ -71,29 +75,30 @@ the @samp{b}, as before.
   Sometimes people speak of ``the cursor'' when they mean ``point,'' or
 speak of commands that move point as ``cursor motion'' commands.
 
-  Terminals have only one cursor, and when output is in progress it must
-appear where the typing is being done.  This does not mean that point is
-moving.  It is only that Emacs has no way to show you the location of point
-except when the terminal is idle.
+  Text-only terminals have only one cursor, and when output is in
+progress it must appear where the output is being displayed.  This
+does not mean that point is moving.  It is only that Emacs has no way
+to show you the location of point except when the terminal is idle.
 
   If you are editing several files in Emacs, each in its own buffer,
 each buffer has its own point location.  A buffer that is not currently
 displayed remembers where point is in case you display it again later.
 
-  When there are multiple windows in a frame, each window has its own
-point location.  The cursor shows the location of point in the selected
-window.  This also is how you can tell which window is selected.  If the
-same buffer appears in more than one window, each window has its own
-position for point in that buffer.
+  When Emacs displays multiple windows, each window has its own point
+location.  On text-only terminals, the cursor shows the location of
+point in the selected window.  On graphical terminals, Emacs shows a
+cursor in each window; the selected window's cursor is solid, and the
+other cursors are hollow.  Either way, the cursor or cursors tell you
+which window is selected.  If the same buffer appears in more than one
+window, each window has its own position for point in that buffer, and
+(when possible) its own cursor.
 
-  When there are multiple frames, each frame can display one cursor.
-The cursor in the selected frame is solid; the cursor in other frames is
-a hollow box, and appears in the window that would be selected if you
-give the input focus to that frame.
+  @xref{Cursor Display}, for customization options that control display
+of the cursor or cursors.
 
-  The term `point' comes from the character @samp{.}, which was the
+  The term ``point'' comes from the character @samp{.}, which was the
 command in TECO (the language in which the original Emacs was written)
-for accessing the value now called `point'.
+for accessing the value now called ``point.''
 
 @node Echo Area
 @section The Echo Area
@@ -116,21 +121,21 @@ rest of the command.  Once echoing has started, the rest of the command
 echoes immediately as you type it.  This behavior is designed to give
 confident users fast response, while giving hesitant users maximum
 feedback.  You can change this behavior by setting a variable
-(@pxref{Display Vars}).
+(@pxref{Display Custom}).
 
 @cindex error message in the echo area
-  If a command cannot be executed, it may print an @dfn{error message} in
-the echo area.  Error messages are accompanied by a beep or by flashing the
-screen.  Also, any input you have typed ahead is thrown away when an error
-happens.
+  If a command cannot be executed, it may display an @dfn{error message}
+in the echo area.  Error messages are accompanied by beeping or by
+flashing the screen.  The error also discards any input you have typed
+ahead.
 
-  Some commands print informative messages in the echo area.  These
+  Some commands display informative messages in the echo area.  These
 messages look much like error messages, but they are not announced with
 a beep and do not throw away input.  Sometimes the message tells you
 what the command has done, when this is not obvious from looking at the
-text being edited.  Sometimes the sole purpose of a command is to print
-a message giving you specific information---for example, @kbd{C-x =}
-prints a message describing the character position of point in the text
+text being edited.  Sometimes the sole purpose of a command is to show
+you a message giving you specific information---for example, @kbd{C-x =}
+displays a message describing the character position of point in the text
 and its current column in the window.  Commands that take a long time
 often display messages ending in @samp{...} while they are working, and
 add @samp{done} at the end when they are finished.
@@ -165,11 +170,13 @@ minibuffer by typing @kbd{C-g}.  @xref{Minibuffer}.
 @cindex top level
 @c
 
-  Each text window's last line is a @dfn{mode line}, which describes what
-is going on in that window.  When there is only one text window, the
-mode line appears right above the echo area; it is the next-to-last line
-on the frame.  The mode line is in inverse video if the terminal
-supports that, and it starts and ends with dashes.
+  Each text window's last line is a @dfn{mode line}, which describes
+what is going on in that window.  When there is only one text window,
+the mode line appears right above the echo area; it is the
+next-to-last line in the frame.  The mode line starts and ends with
+dashes.  On a text-mode display, the mode line is in inverse video if
+the terminal supports that; on a graphics display, the mode line has a
+3D box appearance to help it stand out.
 
   Normally, the mode line looks like this:
 
@@ -192,9 +199,9 @@ is modified, and @samp{%%} otherwise.
 this is the same as the name of a file you are editing.  @xref{Buffers}.
 
   The buffer displayed in the selected window (the window that the
-cursor is in) is also Emacs's selected buffer, the one that editing
+cursor is in) is also Emacs's current buffer, the one that editing
 takes place in.  When we speak of what some command does to ``the
-buffer,'' we are talking about the currently selected buffer.
+buffer,'' we are talking about the current buffer.
 
   @var{line} is @samp{L} followed by the current line number of point.
 This is present when Line Number mode is enabled (which it normally is).
@@ -266,7 +273,7 @@ all.  @xref{Enabling Multibyte}.
 
 @cindex end-of-line conversion, mode-line indication
   The colon after @var{cs} can change to another string in certain
-circumstances.  Emacs uses newline to separate lines in the buffer.
+circumstances.  Emacs uses newline characters to separate lines in the buffer.
 Some files use different conventions for separating lines: either
 carriage-return linefeed (the MS-DOS convention) or just carriage-return
 (the Macintosh convention).  If the buffer's file uses carriage-return
@@ -285,11 +292,15 @@ separate lines.
 formats by setting each of the variables @code{eol-mnemonic-unix},
 @code{eol-mnemonic-dos}, @code{eol-mnemonic-mac}, and
 @code{eol-mnemonic-undecided} to any string you find appropriate.
-@xref{Variables}, for an explanation how to set variables.
+@xref{Variables}, for an explanation of how to set variables.
 
   @xref{Optional Mode Line}, for features that add other handy
 information to the mode line, such as the current column number of
 point, the current time, and whether new mail for you has arrived.
+
+The mode line is mouse-sensitive; when you move the mouse across
+various parts of it, Emacs displays help text to say what a click in
+that place will do.  @xref{Mode Line Mouse}.
 
 @node Menu Bar
 @section The Menu Bar

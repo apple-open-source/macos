@@ -8,7 +8,7 @@ USRBIN = $(DSTROOT)/usr/bin
 INSTALLDIR = $(DSTROOT)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/standalone
 
 DEBUG = -O
-CFLAGS	= $(DEBUG) $(MORECPP) $(RC_CFLAGS) -g -Wmost -Wno-precomp -traditional-cpp
+CFLAGS	= $(DEBUG) $(MORECPP) $(RC_CFLAGS) -g -Wmost -Werror
 DEFINES=
 CONFIG = hd
 INC = -I. -I$(SYMROOT) -I$(UTILDIR) -I$(LIBSADIR)

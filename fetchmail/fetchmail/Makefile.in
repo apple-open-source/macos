@@ -4,7 +4,7 @@
 # So just uncomment all the lines marked QNX.
 
 PACKAGE = fetchmail
-VERSION = 5.8.17
+VERSION = 5.9.11
 
 # Ultrix 2.2 make doesn't expand the value of VPATH.
 srcdir = @srcdir@
@@ -49,9 +49,9 @@ extras = @LIBOBJS@
 
 # Extra sources/objects for library functions not provided on the host system.
 EXTRASRC = @EXTRASRC@
-# EXTRASRC = $(srcdir)/strcasecmp.c $(srcdir)/getopt.c $(srcdir)/getopt1.c $(srcdir)/alloca.c	# QNX
+# EXTRASRC = $(srcdir)/strcasecmp.c $(srcdir)/alloca.c	# QNX
 EXTRAOBJ = @EXTRAOBJ@ @INTLOBJS@
-# EXTRAOBJ = strcasecmp.o getopt.o getopt1.o alloca.o
+# EXTRAOBJ = strcasecmp.o alloca.o getopt.o getopt1.o
 
 DESTDIR = 
 
@@ -96,7 +96,7 @@ protobjs = rcfile_y.o rcfile_l.o socket.o getpass.o pop2.o pop3.o imap.o \
        etrn.o odmr.o fetchmail.o idle.o env.o options.o daemon.o driver.o \
        transact.o sink.o rfc822.o smtp.o xmalloc.o uid.o mxget.o md5ify.o \
        cram.o kerberos.o gssapi.o opie.o rpa.o interface.o netrc.o base64.o \
-       error.o unmime.o conf.o checkalias.o smbdes.o smbencrypt.o smbmd4.o \
+       report.o unmime.o conf.o checkalias.o smbdes.o smbencrypt.o smbmd4.o \
        smbutil.o ipv6-connect.o lock.o
 
 objs = $(protobjs) $(extras) $(EXTRAOBJ)
@@ -110,7 +110,7 @@ srcs = $(srcdir)/socket.c $(srcdir)/getpass.c $(srcdir)/pop2.c 		\
        $(srcdir)/uid.c $(srcdir)/mxget.c $(srcdir)/md5ify.c   		\
        $(srcdir)/cram.c $(srcdir)/kerberos.c $(srcdir)/gssapi.c 	\
        $(srcdir)/opie.c $(srcdir)/rpa.c $(srcdir)/interface.c 		\
-       $(srcdir)/netrc.c $(srcdir)/base64.c $(srcdir)/error.c 		\
+       $(srcdir)/netrc.c $(srcdir)/base64.c $(srcdir)/report.c 		\
        $(srcdir)/unmime.c $(srcdir)/conf.c $(srcdir)/checkalias.c 	\
        $(srcdir)/smbdes.c $(srcdir)/smbencrypt.c $(srcdir)/smbmd4.c 	\
        $(srcdir)/smbutil.c $(srcdir)/ipv6-connect.c $(srcdir)/lock.c
@@ -140,12 +140,12 @@ rfc822: rfc822.c
 	gcc -DTESTMAIN -g rfc822.c -o rfc822
 
 # Stand-alone MIME decoder
-unmime: unmime.c base64.c rfc822.c xmalloc.c error.c
+unmime: unmime.c base64.c rfc822.c xmalloc.c report.c
 	$(CC) -DSTANDALONE -DHAVE_CONFIG_H -I. -g -o $@ $^
 
 
 # Stand-alone netrc tester
-netrc: netrc.c xmalloc.o error.o
+netrc: netrc.c xmalloc.o report.o
 	$(CC) -DSTANDALONE -DHAVE_CONFIG_H -I. -g -o $@ $^
 
 .c.o:
@@ -189,20 +189,20 @@ uninstall:
 .PHONY: clean realclean distclean mostlyclean
 clean: 
 	-cd intl; $(MAKE) clean
-	#work around braindamage in GNU gettext
-	-rm -f $(top_builddir)/libintl.h
+	-rm -f $(top_builddir)/intl/libintl.h # work around GNU gettext brain-damage
 	-cd po; $(MAKE) clean
 	-rm -f fetchmail *.o core fetchmail.dvi \
 	       rcfile_l.c rcfile_y.h rcfile_y.c \
 	       fetchmail.tar fetchmail.tar.gz \
 	       netrc rfc822 unmime fetchmail-man.html
 
+# This target would also normally invoke the following line, but doing so
+# messes up the RPM build, so the line was disabled.
+# -rm -f config.h config.cache config.status config.log stamp-config
 distclean: clean 
 	-cd intl; $(MAKE) distclean
 	-cd po; $(MAKE) distclean
 	-rm -f TAGS tags
-	# Can't do these, it messes up RPM build
-	#-rm -f config.h config.cache config.status config.log stamp-config
 
 realclean: distclean
 	-rm -f FAQ FEATURES NOTES MANIFEST 
@@ -215,28 +215,6 @@ mostlyclean: clean
 # except that Harry McGavran says the autoheader call in the third
 # one below is unnecessary and causes problems with cross-platform builds.
 
-${srcdir}/configure: configure.in aclocal.m4
-	cd ${srcdir} && @AUTOCONF@
-     
-# autoheader might not change config.h.in, so touch a stamp file.
-config.h.in: stamp-h.in
-
-stamp-h.in: configure.in aclocal.m4 acconfig.h # config.h.top config.h.bot
-	cd ${srcdir} # && @AUTOHEADER@
-	echo timestamp> stamp-h.in
-     
-config.h: stamp-h
-stamp-h: config.h.in config.status
-	./config.status
-     
-Makefile: Makefile.in config.status
-	./config.status
-     
-config.status: configure
-	./config.status --recheck
-
-$(srcdir)/aclocal.m4: configure.in
-	cd $(srcdir) && @ACLOCAL@
 
 # This tells versions [3.59,3.63) of GNU make not to export all variables.
 .NOEXPORT:
@@ -259,14 +237,13 @@ rcfile_y.o: rcfile_y.c config.h fetchmail.h
 
 parser = $(srcdir)/rcfile_l.l $(srcdir)/rcfile_y.y
 headers = $(srcdir)/fetchmail.h $(srcdir)/socket.h $(srcdir)/smtp.h \
-	$(srcdir)/mx.h $(srcdir)/md5.h $(srcdir)/md5global.h \
+	$(srcdir)/mx.h $(srcdir)/md5.h \
 	$(srcdir)/netrc.h $(srcdir)/tunable.h $(srcdir)/i18n.h \
 	$(srcdir)/ntlm.h $(srcdir)/smb.h $(srcdir)/kerberos.h \
 	$(srcdir)/smbbyteorder.h $(srcdir)/smbdes.h $(srcdir)/smbencrypt.h \
 	$(srcdir)/smbmd4.h
-extra = $(srcdir)/alloca.c $(srcdir)/getopt.[ch] $(srcdir)/getopt1.c \
-	$(srcdir)/strcasecmp.c $(srcdir)/strstr.c $(srcdir)/memmove.c \
-	$(srcdir)/md5c.c
+extra = $(srcdir)/alloca.c $(srcdir)/strcasecmp.c $(srcdir)/strstr.c \
+	$(srcdir)/memmove.c $(srcdir)/md5c.c $(srcdir)/getopt.[ch] $(srcdir)/getopt1.c 
 docs = $(srcdir)/COPYING $(srcdir)/FEATURES $(srcdir)/fetchmail-features.html \
 	$(srcdir)/design-notes.html $(srcdir)/NOTES \
 	$(srcdir)/todo.html $(srcdir)/TODO \
@@ -277,7 +254,7 @@ config = $(srcdir)/Makefile.in $(srcdir)/configure.in $(srcdir)/configure \
 	$(srcdir)/config.guess $(srcdir)/config.h.in $(srcdir)/config.sub \
 	$(srcdir)/acconfig.h $(srcdir)/aclocal.m4
 scripts = $(srcdir)/install-sh $(srcdir)/missing $(srcdir)/mkinstalldirs \
-	$(srcdir)/specgen.sh $(srcdir)/lsmgen.sh $(srcdir)/fetchmailconf
+	$(srcdir)/specgen.sh $(srcdir)/lsmgen.py $(srcdir)/fetchmailconf
 all = $(docs) $(config) $(srcs) $(parser) $(headers) $(extra) $(scripts) \
 	$(srcdir)/rh-config/* $(srcdir)/contrib/*[A-Za-uw-z] \
 	$(srcdir)/po/* $(srcdir)/intl $(srcdir)/beos/* ABOUT-NLS $(srcdir)/MANIFEST
@@ -315,8 +292,9 @@ fetchmail-man.html: fetchmail.man
 dist: distclean MANIFEST Makefile.in distdocs
 	touch fetchmail.lsm
 	make fetchmail-$(VERSION).tar.gz 
-	lsmgen.sh $(VERSION) `wc -c fetchmail-$(VERSION).tar.gz` >fetchmail.lsm
+	lsmgen.py $(VERSION) `wc -c fetchmail-$(VERSION).tar.gz` >fetchmail.lsm
 	make fetchmail-$(VERSION).tar.gz
+	#-cd po; make update-po
 	ls -l fetchmail-$(VERSION).tar.gz
 	@echo "Don't forget to build RPMs from root!"
 

@@ -532,19 +532,15 @@ started(k, ve)
 	char buf[100];
 
 	v = ve->var;
-	if (!k->ki_u.u_valid) {
-		(void)printf("%-*s", v->width, "-");
-		return;
-	}
 
-	then = k->ki_u.u_start.tv_sec;
+	then = KI_PROC(k)->p_starttime.tv_sec;
 	tp = localtime(&then);
 	if (!now)
 		(void)time(&now);
-	if (now - k->ki_u.u_start.tv_sec < 24 * 3600) {
+	if (now - KI_PROC(k)->p_starttime.tv_sec < 24 * 3600) {
 		static char fmt[] = "%l:%M%p";
 		(void)strftime(buf, sizeof(buf) - 1, fmt, tp);
-	} else if (now - k->ki_u.u_start.tv_sec < 7 * 86400) {
+	} else if (now - KI_PROC(k)->p_starttime.tv_sec < 7 * 86400) {
 		static char fmt[] = "%a%I%p";
 		(void)strftime(buf, sizeof(buf) - 1, fmt, tp);
 	} else
@@ -562,11 +558,7 @@ lstarted(k, ve)
 	char buf[100];
 
 	v = ve->var;
-	if (!k->ki_u.u_valid) {
-		(void)printf("%-*s", v->width, "-");
-		return;
-	}
-	then = k->ki_u.u_start.tv_sec;
+	then = KI_PROC(k)->p_starttime.tv_sec;
 	(void)strftime(buf, sizeof(buf) -1, "%c", localtime(&then));
 	(void)printf("%-*s", v->width, buf);
 }

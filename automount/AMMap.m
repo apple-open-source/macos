@@ -34,6 +34,7 @@
 #import <stdlib.h>
 
 extern int innetgr(char *, char *, char *, char *);
+extern int doing_timeout;
 
 @implementation Map
 
@@ -53,6 +54,11 @@ extern int innetgr(char *, char *, char *, char *);
 	[controller registerVnode:root];
 	
 	return self;
+}
+
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds
+{
+	return [self initWithParent:p directory:dir];
 }
 
 - (void)setName:(String *)n
@@ -101,28 +107,35 @@ extern int innetgr(char *, char *, char *, char *);
 
 - (unsigned int)mount:(Vnode *)v withUid:(int)uid
 {
-	unsigned int i, len, status, substatus, fail;
+	unsigned int i, len, status = 0, substatus, fail;
 	Array *kids;
 
 	sys_msg(debug_mount, LOG_DEBUG, "Mount triggered at %s", [[v path] value]);
-	status = [controller nfsmount:v withUid:uid];
-	if (status != 0)
-	{
-		sys_msg(debug_mount, LOG_ERR, "Mount %s status %d",
-			[[v path] value], status);
-		return status;
-	}
-
-	sys_msg(debug_mount, LOG_DEBUG, "Mount %s status NFS_OK",
-		[[v path] value]);
-
+	if ([v server]) {
+		status = [controller nfsmount:v withUid:uid];
+		if (status != 0)
+		{
+			sys_msg(debug_mount, LOG_ERR, "Mount %s status %d",
+				[[v path] value], status);
+			return status;
+		}
+	
+		sys_msg(debug_mount, LOG_DEBUG, "Mount %s status NFS_OK",
+			[[v path] value]);
+	};
+	
+	/* if there's a mount in progress in another process, leave subnodes for that child process to handle: */
+	if (gForkedMountInProgress || gBlockedMountDependency) return status;
+	
 	fail = 0;
 	kids = [v children];
 	len = 0;
 	if (kids != nil) len = [kids count];
 	for (i = 0; i < len; i++)
 	{
-		substatus = [self mount:[kids objectAtIndex:i] withUid:uid];
+		Vnode *submountpoint = [kids objectAtIndex:i];
+		substatus = 0;
+		if (![submountpoint mounted]) substatus = [self mount:submountpoint withUid:uid];
 		if (substatus != 0) fail++;
 	}
 
@@ -145,7 +158,10 @@ extern int innetgr(char *, char *, char *, char *);
 
 	if (v == nil) return 0;
 
-	if (([v mounted]) && ([v server] != nil) && (![[v server] isLocalHost]))
+	if (([v mounted]) &&
+		([v server] != nil) &&
+		!(doing_timeout && [v vfsType] && strcasecmp([[v vfsType] value], "url") == 0) &&
+		(![[v server] isLocalHost]))
 	{
 		if ([v mountTimeToLive] == 0) return 1;
 
@@ -223,7 +239,7 @@ extern int innetgr(char *, char *, char *, char *);
 	n = v;
 	while (s != NULL)
 	{
-		if (s[0] == '/')
+		while (s[0] == '/')
 		{
 			p++;
 			s++;
@@ -273,7 +289,7 @@ extern int innetgr(char *, char *, char *, char *);
 	n = v;
 	while (s != NULL)
 	{
-		if (s[0] == '/')
+		while (s[0] == '/')
 		{
 			p++;
 			s++;
@@ -336,7 +352,7 @@ extern int innetgr(char *, char *, char *, char *);
 
 	[n setLink:l];
 	[n setType:NFLNK];
-	[n setMode:00777 | NFSMODE_LNK];
+	[n setMode:00755 | NFSMODE_LNK];
 	[n setMounted:YES];
 	[n setFakeMount:YES];
 

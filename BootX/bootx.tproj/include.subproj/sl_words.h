@@ -41,7 +41,7 @@ extern CICell SLWordsIH;
 // 1 - OF stdout only
 // 2 - SLW's emit and cr.
 // 3 - ???
-extern long InitSLWords(long ofVers);
+extern long InitSLWords(void);
 
 
 //  Suported words.
@@ -68,11 +68,12 @@ extern char *InitKeyMap(CICell keyboardIH);
 extern void UpdateKeyMap(void);
 
 // slw_spin_init ( screenIH cursorAddr cursorX cursorY cursorW cursorH --)
-// slw_spin_init2 ( screenIH cursorAddr cursorX cursorY cursorW cursorH --)
 //    Sets up the wait cursor.
-extern void SpinInit(long spinType, CICell screenIH, char *cursorAddr,
-		     long cursorX, long cursorY, long cursorW, long cursorH,
-		     long pixelSize);
+extern void SpinInit(CICell screenIH, char *cursorAddr,
+		     long cursorX, long cursorY,
+		     long cursorW, long cursorH,
+		     long frames, long fps,
+		     long pixelSize, long spare);
 
 // slw_spin ( -- )
 //    Spins the wait cursor.

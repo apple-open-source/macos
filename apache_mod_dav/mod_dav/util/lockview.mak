@@ -8,7 +8,7 @@ APACHE=\apache-1.3
 
 !IF "$(CFG)" == ""
 CFG=release
-!MESSAGE No configuration specified. Defaulting to release build.
+!MESSAGE No configuration specified, defaulting to release build.
 !ENDIF 
 
 !IF "$(CFG)" != "release" && "$(CFG)" != "debug"
@@ -57,7 +57,7 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "$(APACHE)\src\lib\expat-lite" /I "$(APACHE)\src\include" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /Fp"$(INTDIR)\lockview.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "$(APACHE)\src\lib\expat-lite" /I "$(APACHE)\src\os\win32" /I "$(APACHE)\src\include" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /Fp"$(INTDIR)\lockview.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
 BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)\lockview.bsc" 
 BSC32_SBRS= \
@@ -94,7 +94,7 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP_PROJ=/nologo /MDd /W3 /GX /Z7 /Od /I "$(APACHE)\src\lib\expat-lite" /I "$(APACHE)\src\include" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /Fp"$(INTDIR)\lockview.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
+CPP_PROJ=/nologo /MDd /W3 /GX /Z7 /Od /I "$(APACHE)\src\lib\expat-lite" /I "$(APACHE)\src\os\win32" /I "$(APACHE)\src\include" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /Fp"$(INTDIR)\lockview.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
 BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)\lockview.bsc" 
 BSC32_SBRS= \
@@ -142,21 +142,12 @@ LINK32_OBJS= \
 <<
 
 
-!IF "$(NO_EXTERNAL_DEPS)" != "1"
-!IF EXISTS("lockview.dep")
-!INCLUDE "lockview.dep"
-!ELSE 
-!MESSAGE Warning: cannot find "lockview.dep"
-!ENDIF 
-!ENDIF 
-
-
 !IF "$(CFG)" == "release" || "$(CFG)" == "debug"
 SOURCE=.\lockview.c
 
 !IF  "$(CFG)" == "release"
 
-CPP_SWITCHES=/nologo /MD /W3 /GX /O2 /I "$(APACHE)\src\lib\expat-lite" /I "$(APACHE)\src\include" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /Fp"$(INTDIR)\lockview.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+CPP_SWITCHES=/nologo /MD /W3 /GX /O2 /I "$(APACHE)\src\lib\expat-lite" /I "$(APACHE)\src\os\win32" /I "$(APACHE)\src\include" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /Fp"$(INTDIR)\lockview.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
 
 "$(INTDIR)\lockview.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) @<<

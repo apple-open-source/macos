@@ -25,6 +25,7 @@
 #include <NetInfo/dsrecord.h>
 #include <NetInfo/dsutil.h>
 #include <NetInfo/dsx500.h>
+#include <NetInfo/utf-8.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -364,6 +365,149 @@ dsutil_parse_netinfo_string_path(char *path)
 	return p;
 }
 
+/*
+ * Escape characters in an RDN.
+ */
+char *
+escape_rdn(dsdata *dsrdn)
+{
+	char *p, *q;
+	u_int32_t escapes = 0;
+	char *rdn;
+	char *escaped;
+
+	if (dsrdn == NULL) return copyString("");
+	if (dsrdn->length == 0) return copyString("");
+
+	rdn = dsrdn->data;
+	if (IsStringDataType(dsrdn->type) == 0) return copyString("");
+
+	for (p = rdn; *p != '\0'; DSUTIL_UTF8_INCR(p))
+	{
+		if (NeedEscapeAVA(*p)) escapes++;
+	}
+
+	if (escapes == 0) return copyString(rdn);
+
+	escaped = (char *)malloc(escapes + dsrdn->length);
+	q = escaped;
+
+	for (p = rdn; *p != '\0'; p++)
+	{
+		if (NeedEscapeAVA(*p)) *q++ = '\\';
+		*q++ = *p;
+	}
+	*q = '\0';
+
+	return escaped;
+}
+
+dsstatus
+unescape_rdn(char *rdn, dsdata **key, dsdata **value)
+{
+	char *p, *q;
+	u_int32_t in_escape = 0;
+	dsstatus status = DSStatusOK;
+	enum { RDNKey, RDNValue } sel;
+	u_int32_t len, offset;
+
+	sel = RDNKey;
+	len = strlen(rdn);
+
+	*key = dsdata_alloc(len + 1);
+	if ((*key == NULL) || ((*key)->data == NULL))
+	{
+		return DSStatusFailed;
+	}
+
+	(*key)->type = DataTypeCaseUTF8Str;
+	(*key)->retain = 1;
+
+	*value = dsdata_alloc(len + 1);
+	if ((*value == NULL) || ((*value)->data == NULL))
+	{
+		dsdata_release(*key);
+		return DSStatusFailed;
+	}
+
+	(*value)->type = DataTypeCaseUTF8Str;
+	(*value)->retain = 1;
+
+	q = (*key)->data;
+	p = rdn;
+	offset = 0;
+	len = 0;
+
+	do
+	{
+		p += offset;
+		offset = 1;
+
+		if (p[0] == '\\' && p[1] != '\0')
+		{
+			in_escape = 1;
+		}
+		else
+		{
+			if (in_escape == 0)
+			{
+				if (*p == '+')
+				{
+					/*
+					 * Unescaped '+' signs signify multi-
+					 * valued RDNs which are unsupported.
+					 */
+					status = DSStatusInvalidPath;
+					break;
+				}
+				else if ((*p == '=') && (sel == RDNKey))
+				{
+					/*
+					 * An unescaped '=' sign means move onto
+					 * the RHS of the RDN (the value).
+					 */
+					(*key)->length = len + 1;
+					*q = '\0';
+					len = 0;
+
+					sel = RDNValue;
+					q = (*value)->data;
+					p++; /* over equals */
+				}
+			}
+			else
+			{
+				/*
+				 * Do not unescape unrecognised escape sequences.
+				 */
+				if (NeedEscapeAVA(*p) == 0)
+				{
+					*q++ = '\\';
+					len++;
+				}
+				in_escape = 0;
+			}
+			*q++ = *p;
+			len++;
+		}
+	} while (*p != '\0');
+
+	(*value)->length = len;
+	*q = '\0';
+
+	if (status != DSStatusOK)
+	{
+		dsdata_release(*value);
+		dsdata_release(*key);
+	}
+
+	return status;
+}
+
+/*
+ * Parse a distinguished name into a hierarchical name.
+ * Multi-valued RDNs are not supported.
+ */
 dsrecord *
 dsutil_parse_x500_string_path(char *path)
 {
@@ -371,8 +515,7 @@ dsutil_parse_x500_string_path(char *path)
 	char **exploded;
 	u_int32_t	max;
 	int i;
-	char *k, *v;
-	dsdata *_k, *_v;
+	dsdata *rdnKey, *rdnValue;
 	dsattribute *a;
 
 	if (path == NULL) return NULL;
@@ -386,33 +529,17 @@ dsutil_parse_x500_string_path(char *path)
 
 	for (i = max; i >= 0; --i)
 	{
-		k = dsx500_rdn_attr_type(exploded[i]);
-		_k = cstring_to_dsdata(k);
-		free(k);
-
-		if (_k == NULL)
+		if (unescape_rdn(exploded[i], &rdnKey, &rdnValue) != DSStatusOK)
 		{
 			freeList(exploded);
 			dsrecord_release(r);
 			return NULL;
 		}
 
-		v = dsx500_rdn_attr_value(exploded[i]);
-		_v = cstring_to_dsdata(v);
-		free(v);
-
-		if (_v == NULL)
-		{
-			freeList(exploded);
-			dsdata_release(_k);
-			dsrecord_release(r);
-			return NULL;
-		}
-
-		a = dsattribute_new(_k);
-		dsattribute_append(a, _v);
-		dsdata_release(_k);
-		dsdata_release(_v);
+		a = dsattribute_new(rdnKey);
+		dsattribute_append(a, rdnValue);
+		dsdata_release(rdnKey);
+		dsdata_release(rdnValue);
 
 		dsrecord_append_attribute(r, a, SELECT_ATTRIBUTE);
 		dsattribute_release(a);
@@ -467,4 +594,97 @@ dsattribute_append_cstring_value(dsattribute *a, char *v)
 	d = cstring_to_dsdata(v);
 	dsattribute_append(a, d);
 	dsdata_release(d);
+}
+
+void
+dsattribute_merge_cstring_value(dsattribute *a, char *v)
+{
+	dsdata *d;
+
+	if (a == NULL) return;
+	if (v == NULL) return;
+
+	d = cstring_to_dsdata(v);
+	dsattribute_merge(a, d);
+	dsdata_release(d);
+}
+
+void
+dsattribute_remove_cstring_value(dsattribute *a, char *v)
+{
+	dsdata *d;
+	u_int32_t i;
+
+	if (a == NULL) return;
+	if (v == NULL) return;
+
+	d = cstring_to_dsdata(v);
+	i = dsattribute_index(a, d);
+	if (i != IndexNull) dsattribute_remove(a, i);
+	dsdata_release(d);
+}
+
+dsattribute *
+dsrecord_cstring_attribute(dsrecord *r, char *k)
+{
+	dsdata *d;
+	dsattribute *a;
+
+	if (r == NULL) return NULL;
+	if (k == NULL) return NULL;
+
+	d = cstring_to_dsdata(k);
+	a = dsrecord_attribute(r, d, SELECT_ATTRIBUTE);
+	dsdata_release(d);
+	return a;
+}
+
+dsattribute *
+dsrecord_cstring_meta_attribute(dsrecord *r, char *k)
+{
+	dsdata *d;
+	dsattribute *a;
+
+	if (r == NULL) return NULL;
+	if (k == NULL) return NULL;
+
+	d = cstring_to_dsdata(k);
+	a = dsrecord_attribute(r, d, SELECT_META_ATTRIBUTE);
+	dsdata_release(d);
+	return a;
+}
+
+void
+dsrecord_merge_cstring_attribute(dsrecord *r, char *k, ...)
+{
+	dsdata *d;
+	dsattribute *a;
+	char *s;
+	va_list ap;
+
+	if (r == NULL) return;
+	if (k == NULL) return;
+
+	d = cstring_to_dsdata(k);
+	a = dsrecord_attribute(r, d, SELECT_ATTRIBUTE);
+	if (a == NULL)
+	{
+		a = dsattribute_new(d);
+		dsrecord_append_attribute(r, a, SELECT_ATTRIBUTE);
+	}
+
+	dsdata_release(d);
+
+	va_start(ap, k);
+
+	while (NULL != (s = va_arg(ap, char *)))
+	{
+		d = cstring_to_dsdata(s);
+		dsattribute_merge(a, d);
+		dsdata_release(d);
+	}
+
+	va_end(ap);
+
+	dsattribute_release(a);
 }

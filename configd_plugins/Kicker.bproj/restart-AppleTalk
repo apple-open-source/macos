@@ -18,7 +18,6 @@ scutil << __END_OF_SCUTIL_COMMAND 2>/dev/null	| \
 	sed -n -e 's/.* = /remove /p'	>> ${scutil_Commands}
 open
 list ^State:/Network/Global/AppleTalk\$ regex
-list ^State:/Network/Interface/[^/]+/AppleTalk\$ regex
 close
 quit
 __END_OF_SCUTIL_COMMAND
@@ -122,25 +121,9 @@ fi
 
 
 #
-# Update status of all AppleTalk interfaces
+# Update computer name
 #
-appletalk -n 2>/dev/null | awk '
-/AppleTalk interface.............. / {
-	ifName=substr($0, 36);
-	printf "d.init\n";
-}
-/Network Number .................. / {
-	printf "d.add NetworkID # %d\n", $4;
-}
-/Node ID ......................... / {
-	printf "d.add NodeID    # %d\n", $4;
-}
-/Current Zone .................... / {
-	printf "d.add Zone        \"%s\"\n", substr($0, 36);
-	printf "add State:/Network/Interface/%s/AppleTalk\n", ifName;
-}
-'		>> ${scutil_Commands}
-
+echo "d.init"							>> ${scutil_Commands}
 echo "get Setup:/Network/Global/AppleTalk"			>> ${scutil_Commands}
 if [ -z "${ATO}" ]; then
 	echo "d.add ComputerName `uname -n`"			>> ${scutil_Commands}

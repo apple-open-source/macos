@@ -2,7 +2,7 @@
 #	Makefile for i386 boot program
 #	define FLOPPY and SMALL using DEFINES macro as necessary
 
-CFLAGS	= -O $(MORECPP) -arch i386 -g -mi386:unaligned-text -static
+CFLAGS	= -O $(MORECPP) -arch i386 -g -static
 DEFINES=
 CONFIG = hd
 LIBDIR = libsa

@@ -58,11 +58,17 @@ struct merged_symbol {
     struct nlist nlist;		/* the nlist structure of this merged symbol */
     struct object_file		/* pointer to the object file this symbol is */
 	*definition_object;	/*  defined in */
+    struct dynamic_library	/* pointer to the dynamic library this symbol */
+	*definition_library;	/*  is defined in, if defined_in_dylib==TRUE */
+    struct object_file		/* pointer to the object file this symbol is */
+	*non_dylib_referenced_obj; /* first referenced in, */
+				   /* if referenced_in_non_dylib == TRUE */
     unsigned long
 	error_flagged_for_dylib:1, /* symbol reported as an error in dylib */
 	defined_in_dylib:1,	   /* symbol defined in dylib */
 	coalesced_defined_in_dylib:1, /* symbol defined in dylib that is a */
 				      /*  coalesced symbol */
+	weak_def_in_dylib:1,	   /* a weak definition in a dylib */
 	referenced_in_non_dylib:1, /* symbol referenced in loaded objects and */
 				   /*  will be in output file */
 	flagged_read_only_reloc:1, /* symbol reported as an external reloc */
@@ -71,8 +77,9 @@ struct merged_symbol {
 				   /*  are not in the merged symbol table but */
 				   /*  only in the undefined list as a two- */
 				   /*  level namespace reference from a dylib.*/
-	reserved:2,
-	output_index:24;	/* the symbol table index this symbol will */
+	weak_reference_mismatch:1, /* seen both a weak and non-weak reference */
+	reserved:1,
+	output_index:23;	/* the symbol table index this symbol will */
 				/*  have in the output file. */
     int undef_order;		/* if the symbol was undefined the order it */
 				/*  was seen. */
@@ -379,12 +386,13 @@ __private_extern__ void remove_merged_symbols(
     void);
 #endif RLD
 
+__private_extern__ struct section *get_output_section(
+    unsigned long sect);
+
 #ifdef DEBUG
 __private_extern__ void print_symbol_list(
     char *string,
     enum bool input_based);
-__private_extern__ struct section *get_output_section(
-    unsigned long sect);
 __private_extern__ void print_undefined_list(
     void);
 #endif DEBUG

@@ -27,7 +27,6 @@
 #include "manager.h"
 #include "cssmcontext.h"
 
-
 //
 // Construct an Attachment object.
 // This constructor does almost all the work: it initializes the Attachment

@@ -1,0 +1,41 @@
+#! /bin/sh
+
+# Test for bug in conditionals.  From Richard Boulton.
+# This checks that, if LDADD is set from a conditional variable
+# and an AC_SUBST, the _DEPENDENCIES variable is set correctly.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(Makefile.am)
+AM_INIT_AUTOMAKE(foo,0.0)
+AC_PROG_CC
+AM_CONDITIONAL(USE_A,[test x = x])
+AC_OUTPUT(Makefile)
+AC_SUBST(SUBSTVAR)
+END
+
+cat > Makefile.am << 'END'
+
+if USE_A
+foolibs=faz.la
+else
+foolibs=
+endif
+
+noinst_PROGRAMS = foo
+foo_SOURCES = foo.c
+LDADD = $(SUBSTVAR) $(foolibs)
+END
+
+: > config.guess
+: > config.sub
+: > compile
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+#Should be two dependency setting lines
+count=`grep 'foo_DEPENDENCIES =' Makefile.in | wc -l|sed 's/ //g'`
+test "x$count" = "x2" &&
+  grep '^.USE_A_TRUE.foo_DEPENDENCIES =' Makefile.in

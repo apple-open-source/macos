@@ -1,4 +1,5 @@
-# Copyright (C) 1992, 1994, 1995, 1997, 1999 Free Software Foundation, Inc.
+# Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+# Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -61,6 +62,16 @@ verbose "using GDBFLAGS = $GDBFLAGS" 2
 global gdb_prompt
 if ![info exists gdb_prompt] then {
     set gdb_prompt "\[(\]gdb\[)\]"
+}
+
+# Needed for some tests under Cygwin.
+global EXEEXT
+global env
+
+if ![info exists env(EXEEXT)] {
+    set EXEEXT ""
+} else {
+    set EXEEXT $env(EXEEXT)
 }
 
 ### Only procedures should come after this point.
@@ -360,7 +371,8 @@ proc gdb_continue_to_breakpoint {name} {
 
 
 
-# gdb_test COMMAND PATTERN MESSAGE -- send a command to gdb; test the result.
+# gdb_test COMMAND PATTERN MESSAGE QUESTION RESPONSE
+# Send a command to gdb; test the result.
 #
 # COMMAND is the command to execute, send to GDB with send_gdb.  If
 #   this is the null string no command is sent.
@@ -370,6 +382,9 @@ proc gdb_continue_to_breakpoint {name} {
 #   omitted, then the pass/fail messages use the command string as the
 #   message.  (If this is the empty string, then sometimes we don't
 #   call pass or fail at all; I don't understand this at all.)
+# QUESTION is a question GDB may ask in response to COMMAND, like
+#   "are you sure?"
+# RESPONSE is the response to send if QUESTION appears.
 #
 # Returns:
 #    1 if the test failed,
@@ -425,9 +440,9 @@ proc gdb_test { args } {
 		# we need to set -notransfer expect option so that
 		# command output is not lost for pattern matching
 		# - guo
-		gdb_expect -notransfer 2 {
-		    -re "\[\r\n\]" { }
-		    timeout { }
+		gdb_expect 2 {
+		    -notransfer -re "\[\r\n\]" { verbose "partial: match" 3 }
+		    timeout { verbose "partial: timeout" 3 }
 		}
 		set string [string range "$string" [expr $foo + 1] end];
 	    } else {
@@ -447,14 +462,18 @@ proc gdb_test { args } {
 	}
     }
 
-    if [info exists timeout] {
-	set tmt $timeout;
+    if [target_info exists gdb,timeout] {
+	set tmt [target_info gdb,timeout];
     } else {
-	global timeout;
 	if [info exists timeout] {
 	    set tmt $timeout;
 	} else {
-	    set tmt 60;
+	    global timeout;
+	    if [info exists timeout] {
+		set tmt $timeout;
+	    } else {
+		set tmt 60;
+	    }
 	}
     }
     gdb_expect $tmt {
@@ -522,11 +541,11 @@ proc gdb_test { args } {
 	    perror "Window too small."
             fail "$message"
 	}
-	 -re "Create a core file containing the current state of GDB? \\(y or n\\) " {
-	    send_gdb "y\n"
-	    perror "Internal GDB error (core dumped)."
+        -re "Create a core file containing the current state of GDB? \\(y or n\\) " {
+           send_gdb "y\n"
+           perror "Internal GDB error (core dumped)."
             fail "$message"
-	}
+        }
 	 -re "\\(y or n\\) " {
 	    send_gdb "n\n"
 	    perror "Got interactive prompt."
@@ -1118,20 +1137,6 @@ proc send_gdb { string } {
 #
 
 proc gdb_expect { args } {
-    # allow -notransfer expect flag specification,
-    # used by gdb_test routine for multi-line commands.
-    # packed with gtimeout when fed to remote_expect routine,
-    # which is a hack but due to what looks like a res and orig
-    # parsing problem in remote_expect routine (dejagnu/lib/remote.exp):
-    # what's fed into res is not removed from orig.
-    # - guo
-    if { [lindex $args 0] == "-notransfer" } {
-	set notransfer -notransfer;
-	set args [lrange $args 1 end];
-    } else {
-	set notransfer "";
-    }
-
     if { [llength $args] == 2  && [lindex $args 0] != "-re" } {
 	set gtimeout [lindex $args 0];
 	set expcode [list [lindex $args 1]];
@@ -1172,7 +1177,7 @@ proc gdb_expect { args } {
 	}
     }
     set code [catch \
-	{uplevel remote_expect host "$gtimeout $notransfer" $expcode} string];
+	{uplevel remote_expect host $gtimeout $expcode} string];
     if [info exists old_val] {
 	set remote_suppress_flag $old_val;
     } else {
@@ -1403,22 +1408,32 @@ proc get_debug_format { } {
     }
 }
 
+# Return true if FORMAT matches the debug format the current test was
+# compiled with.  FORMAT is a shell-style globbing pattern; it can use
+# `*', `[...]', and so on.
+#
+# This function depends on variables set by `get_debug_format', above.
+
+proc test_debug_format {format} {
+    global debug_format
+
+    return [expr [string match $format $debug_format] != 0]
+}
+
 # Like setup_xfail, but takes the name of a debug format (DWARF 1,
 # COFF, stabs, etc).  If that format matches the format that the
 # current test was compiled with, then the next test is expected to
 # fail for any target.  Returns 1 if the next test or set of tests is
 # expected to fail, 0 otherwise (or if it is unknown).  Must have
 # previously called get_debug_format.
-
 proc setup_xfail_format { format } {
-    global debug_format
+    set ret [test_debug_format $format];
 
-    if [string match $debug_format $format] then {
+    if {$ret} then {
 	setup_xfail "*-*-*"
-	return 1;
     }
-    return 0
-}    
+    return $ret;
+}
 
 proc gdb_step_for_stub { } {
     global gdb_prompt;
@@ -1585,108 +1600,6 @@ proc rerun_to_main {} {
       -re "$gdb_prompt $"\
 	      {fail "rerun to main" ; return 0}
       timeout {fail "(timeout) rerun to main" ; return 0}
-    }
-  }
-}
-
-# From dejagnu:
-# srcdir = testsuite src dir (e.g., devo/gdb/testsuite)
-# objdir = testsuite obj dir (e.g., gdb/testsuite)
-# subdir = subdir of testsuite (e.g., gdb.gdbtk)
-#
-# To gdbtk:
-# env(DEFS)=the "defs" files (e.g., devo/gdb/testsuite/gdb.gdbtk/defs)
-# env(SRCDIR)=directory containing the test code (e.g., *.test)
-# env(OBJDIR)=directory which contains any executables
-#            (e.g., gdb/testsuite/gdb.gdbtk)
-proc gdbtk_start {test} {
-  global verbose
-  global GDB
-  global GDBFLAGS
-  global env srcdir subdir objdir
-
-  gdb_stop_suppressing_tests;
-
-  verbose "Starting $GDB -nx -q --tclcommand=$test"
-
-  set real_test [which $test]
-  if {$real_test == 0} {
-    perror "$test is not found"
-    exit 1
-  }
-
-  if {![is_remote host]} {
-    if { [which $GDB] == 0 } {
-      perror "$GDB does not exist."
-      exit 1
-    }
-  }
-
-  set wd [pwd]
-  cd [file join $srcdir .. gdbtk library]
-  set env(GDBTK_LIBRARY) [pwd]
-  cd [file join $srcdir .. .. tcl library]
-  set env(TCL_LIBRARY) [pwd]
-  cd [file join $srcdir .. .. tk library]
-  set env(TK_LIBRARY) [pwd]
-  cd [file join $srcdir .. .. tix library]
-  set env(TIX_LIBRARY) [pwd]
-  cd [file join $srcdir .. .. itcl itcl library]
-  set env(ITCL_LIBRARY) [pwd]
-  cd [file join .. $srcdir .. .. libgui library]
-  set env(CYGNUS_GUI_LIBRARY) [pwd]
-  cd $wd
-  cd [file join $srcdir $subdir]
-  set env(DEFS) [file join [pwd] defs]
-  cd $wd
-  cd [file join $objdir $subdir]
-  set env(OBJDIR) [pwd]
-  cd $wd
-  cd $srcdir
-  set env(SRCDIR) [pwd]
-  cd $wd
-  set env(GDBTK_VERBOSE) 1
-  set env(GDBTK_LOGFILE) [file join $objdir gdb.log]
-  set env(GDBTK_TEST_RUNNING) 1
-  set err [catch {exec $GDB -nx -q --tclcommand=$test} res]
-  if { $err } {
-    perror "Execing $GDB failed: $res"
-    exit 1;
-  }
-  return $res
-}
-
-# gdbtk tests call this function to print out the results of the
-# tests. The argument is a proper list of lists of the form:
-# {status name description msg}. All of these things typically
-# come from the testsuite harness.
-proc gdbtk_analyze_results {results} {
-  foreach test $results {
-    set status [lindex $test 0]
-    set name [lindex $test 1]
-    set description [lindex $test 2]
-    set msg [lindex $test 3]
-
-    switch $status {
-      PASS {
-	pass "$description ($name)"
-      }
-
-      FAIL {
-	fail "$description ($name)"
-      }
-
-      ERROR {
-	perror "$name"
-      }
-
-      XFAIL {
-	xfail "$description ($name)"
-      }
-
-      XPASS {
-	xpass "$description ($name)"
-      }
     }
   }
 }

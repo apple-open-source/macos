@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
  *
  * HISTORY
  *
@@ -111,6 +111,12 @@ IOReturn IOFWIsochChannel::updateBandwidth(bool claim)
         // Check we aren't being asked to reclaim in the same generation we originally allocated
         if(claim && fGeneration == generation)
             return kIOReturnSuccess;
+		if (!claim && fGeneration != generation)
+		{
+			fChannel = 64 ;
+			fBandwidth = 0 ;
+			return kIOReturnSuccess ;
+		}
         addr.nodeID = irm;
         if(fBandwidth != 0) {
             fReadCmd->reinit(generation, addr, &oldVal, 1);
@@ -194,25 +200,143 @@ IOReturn IOFWIsochChannel::updateBandwidth(bool claim)
     return result;
 }
 
+
+
+IOReturn
+IOFWIsochChannel::allocateChannelBegin(
+	IOFWSpeed		inSpeed,			// to calculate bandwidth number
+	UInt64			inAllowedChans,
+	UInt32&			outChannel )
+{
+	UInt32 			generation ;
+	UInt32 			newVal ;
+	FWAddress 		addr(kCSRRegisterSpaceBaseAddressHi, kCSRBandwidthAvailable) ;
+	UInt32 			oldIRM[3] ;
+	UInt32 			channel ;
+	IOReturn		err = kIOReturnSuccess ;
+	
+	// reserve bandwidth:
+	if(fDoIRM)
+	{
+		// bandwidth is in units of quads at 1600 Mbs
+		UInt32			bandwidth = (fPacketSize/4 + 3) * 16 / (1 << inSpeed);
+
+		// get IRM nodeID into addr.nodeID
+		fControl->getIRMNodeID(generation, addr.nodeID);
+		
+		// read IRM into oldIRM[3] (up to 5 retries) ;
+		fReadCmd->reinit(generation, addr, oldIRM, 3);
+		fReadCmd->setMaxPacket(4);		// many cameras don't like block reads to IRM registers, eg. Canon GL-1
+		err = fReadCmd->submit();
+
+		// Claim bandwidth from IRM
+		if ( !err && (oldIRM[0] < bandwidth) )
+			err = kIOReturnNoSpace;
+
+		if (!err)
+		{
+			newVal = oldIRM[0] - bandwidth;
+			fLockCmd->reinit(generation, addr, &oldIRM[0], &newVal, 1);
+
+			err = fLockCmd->submit();
+			if ( !err && !fLockCmd->locked(& oldIRM[0]) )
+				err = kIOReturnCannotLock ;	
+			
+			if (!err)
+				fBandwidth = bandwidth;
+		}
+	}
+	
+	if ( !err && fDoIRM )
+	{
+		// mask inAllowedChans by channels IRM has available
+		inAllowedChans &= (UInt64)(oldIRM[2]) | ((UInt64)oldIRM[1] << 32);
+	}
+	
+	// if we have an error here, the bandwidth wasn't allocated
+	if (!err)
+	{
+		for(channel=0; channel<64; channel++)
+		{
+			if( inAllowedChans & ((UInt64)1 << ( 63 - channel )) )
+				break;
+		}
+
+		if(channel == 64)
+			err = kIOReturnNoResources;
+	}
+	
+	if (!err && fDoIRM)
+	{
+		UInt32*		oldPtr;
+
+		// Claim channel
+		if(channel < 32)
+		{
+			addr.addressLo = kCSRChannelsAvailable31_0;
+			oldPtr = &oldIRM[1];
+			newVal = *oldPtr & ~(1<<(31 - channel));
+		}
+		else
+		{
+				addr.addressLo = kCSRChannelsAvailable63_32;
+				oldPtr = &oldIRM[2];
+				newVal = *oldPtr & ~( (UInt64)1 << (63 - channel) );
+		}
+		
+		fLockCmd->reinit(generation, addr, oldPtr, &newVal, 1);
+		err = fLockCmd->submit();
+		if (!err && !fLockCmd->locked(oldPtr))
+			err = kIOReturnCannotLock ;
+	}
+
+	if (!err)
+		outChannel = channel;
+
+	if(!err && fDoIRM)
+	{
+		fGeneration = generation;
+		fControl->addAllocatedChannel(this);
+
+		// we used to allocate the hardware resources for each port by calling AllocatePort()
+		// on each one here, but that code has moved...
+		// It now happens (after this function ends) in user space or kernel space depending 
+		// on where the end client lives.
+		// we had to do this to avoid deadlocking user apps
+	}
+	
+    return err ;
+}
+
+IOReturn
+IOFWIsochChannel::releaseChannelComplete()
+{
+    // release bandwidth and channel
+
+	if(fDoIRM) {
+		//
+		// Tell the controller that we don't need to know about
+		// bus resets before doing anything else, since a bus reset
+		// sets us into the state we want (no allocated bandwidth).
+		//
+		fControl->removeAllocatedChannel(this);
+		updateBandwidth(false);
+	}
+		
+    return kIOReturnSuccess;
+}
+
 IOReturn IOFWIsochChannel::allocateChannel()
 {
-    UInt64 portChans;
-    UInt64 allowedChans, savedChans;
-    UInt16 irm;
-    UInt32 generation;
-    UInt32 newVal;
-    FWAddress addr(kCSRRegisterSpaceBaseAddressHi, kCSRBandwidthAvailable);
-    OSIterator *listenIterator = NULL;
-    IOFWIsochPort *listen;
-    IOFWSpeed portSpeed;
-    UInt32 old[3];
-    UInt32 bandwidth;
-    UInt32 channel;
-    bool tryAgain;	// For locks.
-    IOReturn result = kIOReturnSuccess;
+	UInt64 				portChans;
+	UInt64 				allowedChans ;
+	IOFWIsochPort*		listen;
+	IOFWSpeed 			portSpeed;
+	OSIterator *		listenIterator 		= NULL;
+	IOReturn 			result 				= kIOReturnSuccess;
 
     // Get best speed, minimum of requested speed and paths from talker to each listener
-    fSpeed = fPrefSpeed;
+	fSpeed = fPrefSpeed;
 
     do {
         // reduce speed to minimum of so far and what all ports can do,
@@ -235,83 +359,13 @@ IOReturn IOFWIsochChannel::allocateChannel()
         }
 
         // reserve bandwidth, allocate a channel
-        if(fDoIRM) {
-            fControl->getIRMNodeID(generation, irm);
-            savedChans = allowedChans; // In case we have to try a few times
-            // bandwidth is in units of quads at 1600 Mbs
-            bandwidth = (fPacketSize/4 + 3) * 16 / (1 << fSpeed);
-            addr.nodeID = irm;
-            fReadCmd->reinit(generation, addr, old, 3);
-            // many camera don't like block reads to IRM registers, eg. Canon GL-1
-            fReadCmd->setMaxPacket(4);
-            result = fReadCmd->submit();
-            if(kIOReturnSuccess != result) {
-                break;
-            }
-            
-			allowedChans &= (UInt64)(old[2]) | ((UInt64)old[1] << 32);
+		do {
+			result = allocateChannelBegin( fSpeed, allowedChans, fChannel ) ;
+		} while ( result == kIOFireWireBusReset || result == kIOReturnCannotLock ) ;
+		
+		if ( kIOReturnSuccess != result )
+			break ;
 
-            // Claim bandwidth
-            tryAgain = false;
-            do {
-                if(old[0] < bandwidth) {
-                    result = kIOReturnNoSpace;
-                    break;
-                }
-                newVal = old[0] - bandwidth;
-                fLockCmd->reinit(generation, addr, &old[0], &newVal, 1);
-                result = fLockCmd->submit();
-                if(kIOReturnSuccess != result)
-                    IOLog("bandwidth update result 0x%x\n", result);
-                tryAgain = !fLockCmd->locked(&old[0]);
-            } while (tryAgain);
-            if(kIOReturnSuccess != result)
-                break;
-            fBandwidth = bandwidth;
-        }
-
-        tryAgain = false;
-        do {
-            for(channel=0; channel<64; channel++) {
-                if(allowedChans & (1<<(63-channel))) {
-                     break;
-                }
-            }
-            if(channel == 64) {
-                result = kIOReturnNoResources;
-                break;
-            }
-
-            // Allocate a channel
-            if(fDoIRM) {
-                UInt32 *oldPtr;
-                // Claim channel
-                if(channel < 32) {
-                    addr.addressLo = kCSRChannelsAvailable31_0;
-                    oldPtr = &old[1];
-                    newVal = *oldPtr & ~(1<<(31-channel));
-                }
-                else {
-                    addr.addressLo = kCSRChannelsAvailable63_32;
-                    oldPtr = &old[2];
-                    newVal = *oldPtr & ~(1<<(63-channel));
-                }
-                fLockCmd->reinit(generation, addr, oldPtr, &newVal, 1);
-                result = fLockCmd->submit();
-                if(kIOReturnSuccess != result)
-                    IOLog("channel update result 0x%x\n", result);
-                tryAgain = !fLockCmd->locked(oldPtr);
-            }
-            else
-                tryAgain = false;
-        } while (tryAgain);
-        if(kIOReturnSuccess != result)
-            break;
-        fChannel = channel;
-        if(fDoIRM) {
-            fGeneration = generation;
-            fControl->addAllocatedChannel(this);
-        }
         // allocate hardware resources for each port
         if(listenIterator) {
             listenIterator->reset();
@@ -351,17 +405,18 @@ IOReturn IOFWIsochChannel::releaseChannel()
         listenIterator->release();
     }
 
-    // release bandwidth and channel
+/*	// release bandwidth and channel
     if(fDoIRM) {
-        /*
-         * Tell the controller that we don't need to know about
-         * bus resets before doing anything else, since a bus reset
-         * sets us into the state we want (no allocated bandwidth).
-         */
+
+		//	Tell the controller that we don't need to know about
+		//	bus resets before doing anything else, since a bus reset
+		//	sets us into the state we want (no allocated bandwidth).
+
         fControl->removeAllocatedChannel(this);
         updateBandwidth(false);
-    }
-    return kIOReturnSuccess;
+    } */
+
+    return releaseChannelComplete() ;
 }
 
 void IOFWIsochChannel::reallocBandwidth()

@@ -1,5 +1,8 @@
 /* Memory-access and commands for remote VxWorks processes, for GDB.
-   Copyright (C) 1990-95, 1997-98, 1999 Free Software Foundation, Inc.
+
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1997, 1998, 1999,
+   2000, 2001, 2002 Free Software Foundation, Inc.
+
    Contributed by Wind River Systems and Cygnus Support.
 
    This file is part of GDB.
@@ -22,7 +25,6 @@
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
-#include "gdb_wait.h"
 #include "target.h"
 #include "gdbcore.h"
 #include "command.h"
@@ -30,9 +32,10 @@
 #include "complaints.h"
 #include "gdbcmd.h"
 #include "bfd.h"		/* Required by objfiles.h.  */
-#include "symfile.h"		/* Required by objfiles.h.  */
+#include "symfile.h"
 #include "objfiles.h"
 #include "gdb-stabs.h"
+#include "regcache.h"
 
 #include "gdb_string.h"
 #include <errno.h>
@@ -162,7 +165,7 @@ net_break (int addr, u_long procnum)
   break_status = 0;
 
   ptrace_in.addr = addr;
-  ptrace_in.pid = inferior_pid;
+  ptrace_in.pid = PIDGET (inferior_ptid);
 
   status = net_clnt_call (procnum, xdr_rptrace, &ptrace_in, xdr_int,
 			  &break_status);
@@ -191,7 +194,7 @@ vx_remove_breakpoint (int addr)
   return net_break (addr, VX_BREAK_DELETE);
 }
 
-/* Start an inferior process and sets inferior_pid to its pid.
+/* Start an inferior process and sets inferior_ptid to its pid.
    EXEC_FILE is the file to run.
    ALLARGS is a string containing the arguments to the program.
    ENV is the environment vector to pass.
@@ -226,7 +229,7 @@ vx_create_inferior (char *exec_file, char *args, char **env)
 			   strlen (passArgs.arg_array_val[0]));
 
   push_target (&vx_run_ops);
-  inferior_pid = taskStart.pid;
+  inferior_ptid = pid_to_ptid (taskStart.pid);
 
   /* We will get a trace trap after one instruction.
      Insert breakpoints and continue.  */
@@ -337,7 +340,7 @@ net_wait (RDB_EVENT *pEvent)
 
   memset ((char *) pEvent, '\0', sizeof (RDB_EVENT));
 
-  pid = inferior_pid;
+  pid = PIDGET (inferior_ptid);
   status = net_clnt_call (PROCESS_WAIT, xdr_int, &pid, xdr_RDB_EVENT,
 			  pEvent);
 
@@ -364,7 +367,7 @@ net_quit (void)
 
   /* don't let rdbTask suspend itself by passing a pid of 0 */
 
-  if ((pid = inferior_pid) == 0)
+  if ((pid = PIDGET (inferior_ptid)) == 0)
     return -1;
 
   status = net_clnt_call (VX_TASK_SUSPEND, xdr_int, &pid, xdr_int,
@@ -389,7 +392,7 @@ net_read_registers (char *reg_buf, int len, u_long procnum)
 
   /* Initialize RPC input argument structure.  */
 
-  ptrace_in.pid = inferior_pid;
+  ptrace_in.pid = PIDGET (inferior_ptid);
   ptrace_in.info.ttype = NOINFO;
 
   /* Initialize RPC return value structure.  */
@@ -437,7 +440,7 @@ net_write_registers (char *reg_buf, int len, u_long procnum)
   in_data.bytes = reg_buf;
   in_data.len = len;
 
-  ptrace_in.pid = inferior_pid;
+  ptrace_in.pid = PIDGET (inferior_ptid);
   ptrace_in.info.ttype = DATA;
   ptrace_in.info.more_data = (caddr_t) & in_data;
 
@@ -476,7 +479,7 @@ vx_prepare_to_store (void)
 
 static int
 vx_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
-		struct target_ops *target)
+		struct mem_attrib *attrib, struct target_ops *target)
 {
   int status;
   Rptrace ptrace_in;
@@ -488,7 +491,7 @@ vx_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
   memset ((char *) &ptrace_in, '\0', sizeof (ptrace_in));
   memset ((char *) &ptrace_out, '\0', sizeof (ptrace_out));
 
-  ptrace_in.pid = inferior_pid;	/* XXX pid unnecessary for READDATA */
+  ptrace_in.pid = PIDGET (inferior_ptid); /* XXX pid unnecessary for READDATA */
   ptrace_in.addr = (int) memaddr;	/* Where from */
   ptrace_in.data = len;		/* How many bytes */
 
@@ -563,22 +566,22 @@ vx_run_files_info (void)
 {
   printf_unfiltered ("\tRunning %s VxWorks process %s",
 		     vx_running ? "child" : "attached",
-		     local_hex_string (inferior_pid));
+		     local_hex_string (PIDGET (inferior_ptid)));
   if (vx_running)
     printf_unfiltered (", function `%s'", vx_running);
   printf_unfiltered (".\n");
 }
 
 static void
-vx_resume (int pid, int step, enum target_signal siggnal)
+vx_resume (ptid_t ptid, int step, enum target_signal siggnal)
 {
   int status;
   Rptrace ptrace_in;
   Ptrace_return ptrace_out;
   CORE_ADDR cont_addr;
 
-  if (pid == -1)
-    pid = inferior_pid;
+  if (ptid_equal (ptid, minus_one_ptid))
+    ptid = inferior_ptid;
 
   if (siggnal != 0 && siggnal != stop_signal)
     error ("Cannot send signals to VxWorks processes");
@@ -598,7 +601,7 @@ vx_resume (int pid, int step, enum target_signal siggnal)
   memset ((char *) &ptrace_in, '\0', sizeof (ptrace_in));
   memset ((char *) &ptrace_out, '\0', sizeof (ptrace_out));
 
-  ptrace_in.pid = pid;
+  ptrace_in.pid = PIDGET (ptid);
   ptrace_in.addr = cont_addr;	/* Target side insists on this, or it panics.  */
 
   if (step)
@@ -700,14 +703,14 @@ vx_load_command (char *arg_string, int from_tty)
     error ("The load command takes a file name");
 
   arg_string = tilde_expand (arg_string);
-  make_cleanup (free, arg_string);
+  make_cleanup (xfree, arg_string);
 
   dont_repeat ();
 
   /* Refuse to load the module if a debugged task is running.  Doing so
      can have a number of unpleasant consequences to the running task.  */
 
-  if (inferior_pid != 0 && target_has_execution)
+  if (PIDGET (inferior_ptid) != 0 && target_has_execution)
     {
       if (query ("You may not load a module while the target task is running.\n\
 Kill the target task? "))
@@ -740,7 +743,7 @@ net_step (void)
   int step_status;
   SOURCE_STEP source_step;
 
-  source_step.taskId = inferior_pid;
+  source_step.taskId = PIDGET (inferior_ptid);
 
   if (step_range_end)
     {
@@ -928,8 +931,8 @@ sleep_ms (long ms)
     perror_with_name ("select");
 }
 
-static int
-vx_wait (int pid_to_wait_for, struct target_waitstatus *status)
+static ptid_t
+vx_wait (ptid_t ptid_to_wait_for, struct target_waitstatus *status)
 {
   register int pid;
   RDB_EVENT rdbEvent;
@@ -975,8 +978,9 @@ vx_wait (int pid_to_wait_for, struct target_waitstatus *status)
 	{
 	  sleep_ms (200);	/* FIXME Don't kill the network too badly */
 	}
-      else if (pid != inferior_pid)
-	internal_error ("Bad pid for debugged task: %s\n",
+      else if (pid != PIDGET (inferior_ptid))
+	internal_error (__FILE__, __LINE__,
+			"Bad pid for debugged task: %s\n",
 			local_hex_string ((unsigned long) pid));
     }
   while (pid == 0);
@@ -1032,13 +1036,13 @@ vx_wait (int pid_to_wait_for, struct target_waitstatus *status)
 #endif
       break;
     }				/* switch */
-  return pid;
+  return pid_to_ptid (pid);
 }
 
 static int
 symbol_stub (char *arg)
 {
-  symbol_file_command (arg, 0);
+  symbol_file_add_main (arg, 0);
   return 1;
 }
 
@@ -1205,11 +1209,11 @@ vx_attach (char *args, int from_tty)
 
   /* It worked... */
 
-  inferior_pid = pid;
+  inferior_ptid = pid_to_ptid (pid);
   push_target (&vx_run_ops);
 
   if (vx_running)
-    free (vx_running);
+    xfree (vx_running);
   vx_running = 0;
 }
 
@@ -1235,14 +1239,15 @@ vx_detach (char *args, int from_tty)
 
   if (from_tty)
     printf_unfiltered ("Detaching pid %s.\n",
-		       local_hex_string ((unsigned long) inferior_pid));
+		       local_hex_string (
+		         (unsigned long) PIDGET (inferior_ptid)));
 
   if (args)			/* FIXME, should be possible to leave suspended */
     signal = atoi (args);
 
   memset ((char *) &ptrace_in, '\0', sizeof (ptrace_in));
   memset ((char *) &ptrace_out, '\0', sizeof (ptrace_out));
-  ptrace_in.pid = inferior_pid;
+  ptrace_in.pid = PIDGET (inferior_ptid);
 
   status = net_ptrace_clnt_call (PTRACE_DETACH, &ptrace_in, &ptrace_out);
   if (status == -1)
@@ -1253,7 +1258,7 @@ vx_detach (char *args, int from_tty)
       perror_with_name ("Detaching VxWorks process");
     }
 
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
   pop_target ();		/* go back to non-executing VxWorks connection */
 }
 
@@ -1266,11 +1271,11 @@ vx_kill (void)
   Ptrace_return ptrace_out;
   int status;
 
-  printf_unfiltered ("Killing pid %s.\n", local_hex_string ((unsigned long) inferior_pid));
+  printf_unfiltered ("Killing pid %s.\n", local_hex_string ((unsigned long) PIDGET (inferior_ptid)));
 
   memset ((char *) &ptrace_in, '\0', sizeof (ptrace_in));
   memset ((char *) &ptrace_out, '\0', sizeof (ptrace_out));
-  ptrace_in.pid = inferior_pid;
+  ptrace_in.pid = PIDGET (inferior_ptid);
 
   status = net_ptrace_clnt_call (PTRACE_KILL, &ptrace_in, &ptrace_out);
   if (status == -1)
@@ -1283,7 +1288,7 @@ vx_kill (void)
 
   /* If it gives good status, the process is *gone*, no events remain.
      If the kill failed, assume the process is gone anyhow.  */
-  inferior_pid = 0;
+  inferior_ptid = null_ptid;
   pop_target ();		/* go back to non-executing VxWorks connection */
 }
 
@@ -1292,9 +1297,9 @@ vx_kill (void)
 static void
 vx_proc_close (int quitting)
 {
-  inferior_pid = 0;		/* No longer have a process.  */
+  inferior_ptid = null_ptid;	/* No longer have a process.  */
   if (vx_running)
-    free (vx_running);
+    xfree (vx_running);
   vx_running = 0;
 }
 
@@ -1325,7 +1330,7 @@ vx_close (int quitting)
   pClient = 0;
 
   if (vx_host)
-    free (vx_host);		/* The hostname */
+    xfree (vx_host);		/* The hostname */
   vx_host = 0;
 }
 

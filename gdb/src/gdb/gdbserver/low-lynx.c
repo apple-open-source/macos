@@ -1,5 +1,6 @@
 /* Low level interface to ptrace, for the remote server for GDB.
-   Copyright (C) 1986, 1987, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1993, 1994, 1995, 1999, 2000, 2001, 2002
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -84,6 +85,13 @@ create_inferior (char *program, char **allargs)
     }
 
   return pid;
+}
+
+/* Attaching is not supported.  */
+int
+myattach (int pid)
+{
+  return -1;
 }
 
 /* Kill the inferior process.  Make us have no inferior.  */
@@ -656,7 +664,7 @@ read_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (int);
+  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (int);
   /* Round ending address up; get number of longwords that makes.  */
   register int count
   = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
@@ -683,7 +691,7 @@ write_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len)
 {
   register int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (int);
+  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (int);
   /* Round ending address up; get number of longwords that makes.  */
   register int count
   = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);

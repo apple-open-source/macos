@@ -1,0 +1,23 @@
+#! /bin/sh
+
+# Test for bug reported in PR 2.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_OUTPUT(README.foo:templ/README.foo.in Makefile)
+END
+
+: > Makefile.am
+
+mkdir templ
+: > templ/README.foo.in
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+# Look for mkinstalldirs invocation for the templ directory.
+# We use the `[^/]' to avoid matching `templ/README.foo.in'.
+egrep 'mkinstalldirs.*templ([^/]|$)' Makefile.in

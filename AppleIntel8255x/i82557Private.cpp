@@ -382,7 +382,6 @@ bool Intel82557::_initRfdList(bool enable = false)
 	for (i = 0; i < NUM_RECEIVE_FRAMES; i++) {
 		if (rfdList_p[i]._rbd._mbuf) {
 			freePacket(rfdList_p[i]._rbd._mbuf);
-//			rfdList_p[i]._rbd._mbuf = 0;
 		}
 	}
 
@@ -449,11 +448,11 @@ bool Intel82557::_resetRfdList()
 		IOPhysicalAddress rbd_paddr;
 	} * cache_p = (struct _cache *) KDB_buf_p;
 
-	if ((sizeof(struct _cache) * NUM_RECEIVE_FRAMES) > ETHERMAXPACKET) {
+	if ((sizeof(struct _cache) * NUM_RECEIVE_FRAMES) > kIOEthernetMaxPacketSize) {
 		IOLog("%s: no space for cache data\n", getName());
 		return false;
 	}
-	
+
     /* cache allocated packet buffers */
 	for (i = 0; i < NUM_RECEIVE_FRAMES; i++) {
 		cache_p[i].rbd_mbuf   = rfdList_p[i]._rbd._mbuf;
@@ -1048,7 +1047,7 @@ void Intel82557::_freeMemPage(pageBlock_t * p)
 // Purpose:
 //   Reset/configure the chip, detect the PHY.
 
-bool Intel82557::hwInit()
+bool Intel82557::hwInit( bool resetOnly )
 {
 	disableAdapterInterrupts();
 	_resetChip();
@@ -1056,6 +1055,12 @@ bool Intel82557::hwInit()
 
     /* Command unit is idle after a chip reset */
     cuIsIdle = true;
+
+    /* If only a chip reset is requested, then we're done. */
+    if ( resetOnly )
+    {
+        return true;
+    }
 
 	/* disable early RX interrupt */
 	OSWriteLE8(&CSR_p->earlyRxInterrupt, 0);
@@ -1215,7 +1220,7 @@ bool Intel82557::coldInit()
     }
 	OSWriteLE32(&KDB_tcb_p->tbdAddr, paddr);
 	
-    KDB_buf_p = _memAllocFrom(&shared, ETHERMAXPACKET, DWORD_ALIGNMENT);
+    KDB_buf_p = _memAllocFrom(&shared, kIOEthernetMaxPacketSize, DWORD_ALIGNMENT);
 	if (!KDB_buf_p)
 		return false;
     result = IOPhysicalFromVirtual((vm_address_t) KDB_buf_p,  &KDB_buf_paddr);
@@ -1288,7 +1293,7 @@ bool Intel82557::receiveInterruptOccurred()
 #endif
 
 		if ((!(OSReadLE16(&headRfd->status) & RFD_STATUS_OK)) ||
-			(rxCount < (ETHERMINPACKET - ETHERCRC)) ||
+			(rxCount < (kIOEthernetMinPacketSize - kIOEthernetCRCSize)) ||
 			!enabledForNetif) {
 			; /* bad or unwanted packet */
 		}
@@ -1380,14 +1385,16 @@ void Intel82557::interruptOccurred(IOInterruptEventSource * src, int /*count*/)
 	bool          flushInputQ = false;
 	bool          doService   = false;
 
-	reserveDebuggerLock();
-
-	if (interruptEnabled == false) {
-		_intrACK(CSR_p);
-		releaseDebuggerLock();
-		IOLog("%s: unexpected interrupt\n", getName());
+	if (interruptEnabled == false)
+    {
+        // This can occur when interrupts are shared. Each interrupt event
+        // connected to the same interrupt line will get called when there
+        // is an interrupt. Use a filter interrupt event source to avoid
+        // work loop scheduling cost.
 		return;
 	}
+
+	reserveDebuggerLock();
 
 	/*
 	 * Loop until the interrupt line becomes deasserted.
@@ -1610,7 +1617,7 @@ bool Intel82557::_receivePacket(void * pkt, UInt * len, UInt timeout)
 			// Pass up good frames.
 			//
 			*len = CSR_VALUE(RBD_COUNT, OSReadLE32(&headRfd->_rbd.count));
-			*len = MIN(*len, ETHERMAXPACKET);
+			*len = MIN(*len, kIOEthernetMaxPacketSize - kIOEthernetCRCSize);
 			bcopy(mtod(headRfd->_rbd._mbuf, void *), pkt, *len);
 			ret = true;
 		}
@@ -1688,8 +1695,8 @@ bool Intel82557::_sendPacket(void * pkt, UInt len)
 
 	// Copy the debugger packet to the pre-allocated buffer area.
 	//
-    len = MIN(len, ETHERMAXPACKET);
-    len = MAX(len, ETHERMINPACKET);
+    len = MIN(len, kIOEthernetMaxPacketSize - kIOEthernetCRCSize);
+    len = MAX(len, kIOEthernetMinPacketSize);
     bcopy(pkt, KDB_buf_p, len);
 
 	// Update the TBD.

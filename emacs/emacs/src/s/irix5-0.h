@@ -86,10 +86,6 @@ char *_getpty();
    throughout. */
 #define POSIX_SIGNALS  
 
-/* jpff@maths.bath.ac.uk reports `struct exception' is not defined
-   on this system, so inhibit use of matherr.  */
-#define NO_MATHERR
-
 /* Info from simon@lia.di.epfl.ch (Simon Leinen) suggests this is needed.  */
 #define GETPGRP_NO_ARG
 
@@ -113,8 +109,10 @@ char *_getpty();
 #endif
 #endif
 
-/* -g does not work on Irix, and since gcc warns if you use it,
-   turn off the warning.  */
+/* -g used not to work on Irix unless you used gas, and since gcc
+   warns if you use it, turn off the warning.  */
+/* -g does now work, at least on recent Irix 6 versions with gcc 2.95;
+    I'm not sure about Irix 5 -- fx  */
 #ifdef __GNUC__
 #define C_DEBUG_SWITCH
 #endif
@@ -122,3 +120,7 @@ char *_getpty();
 /* Prevent the variable ospeed from being defined by -lcurses
    because it defines it with too few bytes.  */
 #define ospeed ospeed_
+
+#define NARROWPROTO 1
+
+#define USE_MMAP_FOR_BUFFERS 1

@@ -1,0 +1,29 @@
+#! /bin/sh
+
+# Test for bug in conditionals.  From Raja R Harinath.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT(Makefile.am)
+AM_INIT_AUTOMAKE(foo,0.0)
+AM_CONDITIONAL(WRONG, [test x = y])
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+if WRONG
+this=
+else
+this=is_something_interesting
+endif
+
+echo-something:
+	echo '$(this)'
+END
+
+$ACLOCAL \
+  && $AUTOCONF \
+  && $AUTOMAKE -a \
+  && ./configure \
+  && $MAKE echo-something | grep interesting > /dev/null

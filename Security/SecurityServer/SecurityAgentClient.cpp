@@ -45,6 +45,8 @@
 #include <sys/wait.h>
 #include <sys/syslimits.h>
 #include <time.h>
+#include <signal.h>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 // @@@ Should be in <time.h> but it isn't as of Puma5F22
 extern "C" int nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
@@ -55,6 +57,12 @@ namespace SecurityAgent {
 
 using namespace Security;
 using namespace MachPlusPlus;
+
+
+// pass structured arguments in/out of IPC calls. See "data walkers" for details
+#define COPY(copy)			copy, copy.length(), copy
+#define COPY_OUT(copy)		&copy, &copy##Length, &copy##Base
+#define COPY_OUT_DECL(type,name) type *name, *name##Base; mach_msg_type_number_t name##Length
 
 
 //
@@ -150,8 +158,23 @@ static void getNoSA(char *buffer, size_t bufferSize, const char *fmt, ...)
 //
 // Initialize our CSSM interface
 //
-Client::Client() : mActive(false), mKeepAlive(false), stage(mainStage)
+Client::Client() : mActive(false), mUsePBS(true), mKeepAlive(false), stage(mainStage)
 {
+}
+
+/*
+ * The new, preferred way to activate the Security Agent.  The Security
+ * Server will take advantage of this interface; the old constructor is
+ * kept around for compatibility with the only other client, DiskCopy.
+ * DiskCopy needs to be fixed to use the Security Server itself rather
+ * than this library.
+ */
+Client::Client(uid_t clientUID, Bootstrap clientBootstrap) :
+    mActive(false), desktopUid(clientUID), mUsePBS(false),
+    mClientBootstrap(clientBootstrap), mKeepAlive(false), stage(mainStage)
+{
+	setClientGroupID();
+	debug("SAclnt", "Desktop: uid %d, gid %d", desktopUid, desktopGid);
 }
 
 Client::~Client()
@@ -232,18 +255,26 @@ void Client::cancel()
 //
 void Client::establishServer(const char *name)
 {
-    locateDesktop();
+    /*
+     * Once we wean ourselves off PBS we can eliminate "bootstrap" and use
+     * mClientBootstrap directly.  
+     */
+    if (mUsePBS)
+	locateDesktop();
+    else
+	pbsBootstrap = mClientBootstrap;
 
     // If the userids don't match, that means you can't do user interaction
+    // @@@ Check session so we don't pop up UI in a non-UI context
     // @@@ Expose this to caller so it can implement its own idea of getuid()!
     if (desktopUid != getuid() && getuid() != 0)
         CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
-        
+
     // if the server is already running, we're done
     Bootstrap bootstrap(pbsBootstrap);
     if (mServerPort = bootstrap.lookupOptional(name))
-        return;
-
+	return;
+    
 #if defined(AGENTNAME) && defined(AGENTPATH)
     // switch the bootstrap port to that of the logged-in user
     StBootstrap bootSaver(pbsBootstrap);
@@ -264,6 +295,15 @@ void Client::establishServer(const char *name)
 		// to call seteuid(0) successfully.
         setuid(desktopUid);	// switch to login-user uid
 
+        // close down any files that might have been open at this point
+        int maxDescriptors = getdtablesize ();
+        int i;
+        
+        for (i = 3; i < maxDescriptors; ++i)
+        {
+            close (i);
+        }
+        
         // construct path to SecurityAgent
         char agentExecutable[PATH_MAX + 1];
         const char *path = getenv("SECURITYAGENT");
@@ -454,25 +494,36 @@ void Client::retryNewPassphrase(Reason reason, char passphrase[maxPassphraseLeng
 // This is used by the keychain-style ACL subject type (only).
 //
 void Client::queryKeychainAccess(const OSXCode *requestor, pid_t requestPid,
-    const char *database, const char *itemName, AclAuthorization action,
-    Client::KeychainChoice &choice)
+	const char *database, const char *itemName, AclAuthorization action,
+	bool needPassphrase, KeychainChoice &choice)
 {
 	Requestor req(requestor);
 
 #if defined(NOSA)
 	if (getenv("NOSA")) {
-		char answer[10];
-		getNoSA(answer, sizeof(answer), "Allow [someone] to do %d on %s in %s? ",
+		char answer[maxPassphraseLength+10];
+		getNoSA(answer, sizeof(answer), "Allow [someone] to do %d on %s in %s? [yn][g]%s ",
 			int(action), (itemName ? itemName : "[NULL item]"),
-			(database ? database : "[NULL database]"));
+			(database ? database : "[NULL database]"),
+			needPassphrase ? ":passphrase" : "");
+		// turn passphrase (no ':') into y:passphrase
+		if (needPassphrase && !strchr(answer, ':')) {
+			memmove(answer+2, answer, strlen(answer)+1);
+			memcpy(answer, "y:", 2);
+		}
 		choice.allowAccess = answer[0] == 'y';
 		choice.continueGrantingToCaller = answer[1] == 'g';
+		if (const char *colon = strchr(answer, ':'))
+			strncpy(choice.passphrase, colon+1, maxPassphraseLength);
+		else
+			choice.passphrase[0] = '\0';
 		return;
 	}
 #endif
 	activate();
 	check(secagent_client_queryKeychainAccess(mServerPort, mClientPort,
-		&status, req, requestPid, (database ? database : ""), itemName, action, &choice));
+		&status, req, requestPid, (database ? database : ""), itemName, action, 
+		needPassphrase, &choice));
     terminate();
 }
 
@@ -618,6 +669,91 @@ bool Client::retryAuthorizationAuthenticate(Reason reason, char user[maxUsername
 	return status == noErr;
 }
 
+//
+// invokeMechanism old style
+//
+bool Client::invokeMechanism(const string &inPluginId, const string &inMechanismId, const AuthorizationValueVector *inArguments, const AuthorizationItemSet *inHints, const AuthorizationItemSet *inContext, AuthorizationResult *outResult, AuthorizationItemSet *&outHintsPtr, AuthorizationItemSet *&outContextPtr)
+{
+    Copier<AuthorizationValueVector> inArgumentVector(inArguments);
+    Copier<AuthorizationItemSet> inHintsSet(inHints);
+    Copier<AuthorizationItemSet> inContextSet(inContext);
+
+    COPY_OUT_DECL(AuthorizationItemSet, outHintsSet);
+    COPY_OUT_DECL(AuthorizationItemSet, outContextSet);
+
+    activate();
+
+    // either noErr (user cancel, allow) or throws authInternal
+    check(secagent_client_invokeMechanism(mServerPort, mClientPort,
+                                            &status, &mStagePort.port(),
+                                        inPluginId.c_str(),
+                                        inMechanismId.c_str(),
+                                            COPY(inArgumentVector),
+                                            COPY(inHintsSet),
+                                            COPY(inContextSet),
+                                            outResult,
+                                            COPY_OUT(outHintsSet),
+                                            COPY_OUT(outContextSet)));
+
+    if (status != errAuthorizationDenied)
+    {
+        relocate(outHintsSet, outHintsSetBase);
+        Copier<AuthorizationItemSet> copyHints(outHintsSet);
+        // the auth engine releases this when done
+        outHintsPtr = copyHints.keep();
+        relocate(outContextSet, outContextSetBase);
+        Copier<AuthorizationItemSet> copyContext(outContextSet);
+        // the auth engine releases this when done
+        outContextPtr = copyContext.keep();
+    }
+
+    return (status == noErr);
+}
+
+
+void Client::terminateAgent()
+{
+    if (mUsePBS)
+        // find the right place to look
+        locateDesktop();
+
+    // make sure we're doing this for the right user
+    // @@@ Check session as well!
+    if (desktopUid != getuid() && getuid() != 0)
+        CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
+    
+    // if the server is already running, it's time to kill it
+    bool agentRunning = false;
+    if (mUsePBS)
+    {
+        Bootstrap bootstrap(pbsBootstrap);
+        if (mServerPort = bootstrap.lookupOptional("SecurityAgent"))
+            agentRunning = true;
+    }
+    else
+    {
+	if (mServerPort = mClientBootstrap.lookupOptional("SecurityAgent"))
+	    agentRunning = true;
+    }
+    if (agentRunning)
+    {
+        activate();
+        check(secagent_client_terminate(mServerPort, mClientPort));
+    }
+}
+
+#include <sys/types.h>
+#include <grp.h>
+
+void Client::setClientGroupID(const char *grpName)
+{
+    /*
+     * desktopGid is unsigned so the compiler warns about the conversion
+     * of -2.  
+     */
+    struct group *grent = getgrnam(grpName ? grpName : "nobody");
+    desktopGid = grent ? grent->gr_gid : -2;
+}
 
 //
 // Locate and identify the current desktop.

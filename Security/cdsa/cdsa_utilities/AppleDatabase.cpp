@@ -24,6 +24,7 @@
 #include <Security/DbContext.h>
 #include <Security/cssmdb.h>
 #include <Security/cssmapple.h>
+#include <Security/trackingallocator.h>
 #include <fcntl.h>
 #include <memory>
 
@@ -903,6 +904,12 @@ DbVersion::open()
 				uint32 aRelationId = aRecordData[0];
 
 				// Skip the schema relations for the meta tables themselves.
+				// FIXME: this hard-wires the meta-table relation IDs to be
+				// within {CSSM_DB_RECORDTYPE_SCHEMA_START...
+				// CSSM_DB_RECORDTYPE_SCHEMA_END} (which is {0..4}). 
+				// Bogus - the MDS schema relation IDs start at 
+				// CSSM_DB_RELATIONID_MDS_START which is 0x40000000.
+				// Ref. Radar 2817921.
 				if (CSSM_DB_RECORDTYPE_SCHEMA_START <= aRelationId && aRelationId < CSSM_DB_RECORDTYPE_SCHEMA_END)
 					continue;
 
@@ -1330,6 +1337,12 @@ void DbModifier::deleteDatabase()
 	rollback(); // XXX Requires write lock.  Also if autoCommit was disabled
 	// this will incorrectly cause the performDelete to throw CSSMERR_DB_DOES_NOT_EXIST.
 	StLock<Mutex> _(mDbVersionLock);
+
+	// Clean up mModifiedTableMap in case this object gets reused again for
+	// a new create.
+	for_each_map_delete(mModifiedTableMap.begin(), mModifiedTableMap.end());
+	mModifiedTableMap.clear();
+
 	mDbVersion = NULL;
     mAtomicFile.performDelete();
 }
@@ -1503,7 +1516,7 @@ DbModifier::commit()
         return;
     try
     {
-		WriteSection aHeaderSection(CssmAllocator::standard(), HeaderSize);
+		WriteSection aHeaderSection(CssmAllocator::standard(), size_t(HeaderSize));
 		// Set aHeaderSection to the correct size.
 		aHeaderSection.size(HeaderSize);
 
@@ -2085,7 +2098,7 @@ AppleDatabase::dataGetFirst(DbContext &inDbContext,
 	if (!aCursor->next(aTableId, inoutAttributes, inoutData,
 					   inDbContext.mDatabaseSession, aRecordId))
 		// return a NULL handle, and implicitly delete the cursor
-		return NULL;
+		return CSSM_INVALID_HANDLE;
 
 	outUniqueRecord = createUniqueRecord(inDbContext, aTableId, aRecordId);
 	return aCursor.release()->handle(); // We didn't throw so keep the Cursor around.

@@ -533,11 +533,14 @@ void meshSCSIController::executeCommand( IOSCSIParallelCommand *scsiCommand )
         *fMsgOutPtr++ = kSCSIMsgExtended;
         *fMsgOutPtr++ = 3;
         *fMsgOutPtr++ = kSCSIMsgSyncXferReq;
+		
         if( targetParms.transferPeriodpS < 100000 )
         	*fMsgOutPtr++ = 100000 / 4000;
         else
         	*fMsgOutPtr++ = targetParms.transferPeriodpS / 4000;
+
         *fMsgOutPtr++ = targetParms.transferOffset;
+		
     }
 
 

@@ -137,5 +137,11 @@
 # DSTROOT = $(HOME)
 
 DEFSFILES = ClientToServer.defs ServerToClient.defs
+OTHER_CFLAGS = \
+	-Dsetfsent=autodiskmount_setfsent \
+	-Dendfsent=autodiskmount_endfsent \
+	-Dgetfsent=autodiskmount_getfsent \
+	-Dgetfsfile=autodiskmount_getfsfile \
+	-Dgetfsspec=autodiskmount_getfsspec
 OTHER_OFILES = ClientToServerServer.o ServerToClientUser.o 
-
+AFTER_INSTALL = install_extra

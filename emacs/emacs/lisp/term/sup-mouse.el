@@ -26,6 +26,8 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
 ;;;  User customization option:
@@ -191,18 +193,7 @@ X and Y are 0-based character positions in the window."
 (defun sup-pos-to-window (x y)
   "Find window corresponding to frame coordinates.
 X and Y are 0-based character positions on the frame."
-  (let ((edges (window-edges))
-	(window nil))
-    (while (and (not (eq window (selected-window)))
-		(or (<  y (nth 1 edges))
-		    (>= y (nth 3 edges))
-		    (<  x (nth 0 edges))
-		    (>= x (nth 2 edges))))
-      (setq window (next-window window))
-      (setq edges (window-edges window))
-      )
-    (or window (selected-window))
-    )
-  )
+  (get-window-with-predicate (lambda (w)
+			       (coordinates-in-window-p (cons x y) w))))
 
 ;;; sup-mouse.el ends here

@@ -1,3 +1,5 @@
+#ifndef _HASH_H_
+#define _HASH_H_
 /* hash.h - for hash.c
    Copyright (C) 1987 Free Software Foundation, Inc.
 
@@ -58,3 +60,4 @@ extern char *hash_jam(			/* error text (internal)  */
     struct hash_control *handle,
     char *string,
     char *value);
+#endif /* _HASH_H_ */

@@ -1,0 +1,21 @@
+#! /bin/sh
+
+# Make sure ":" works with files automake generates.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_OUTPUT(Makefile:zardoz.in)
+END
+
+: > zardoz.am
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+# We actually check several things here.
+test -f zardoz.in || exit 1
+grep '^zardoz:' zardoz.in && exit 1
+exit 0

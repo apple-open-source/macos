@@ -1,7 +1,7 @@
 @c This is part of the Emacs manual.
 @c Copyright (C) 1985, 86, 87, 93, 94, 95, 1997 Free Software Foundation, Inc.
 @c See file emacs.texi for copying conditions.
-@node Abbrevs, Picture, Building, Top
+@node Abbrevs, Picture, Maintaining, Top
 @chapter Abbrevs
 @cindex abbrevs
 @cindex expansion (of abbrevs)
@@ -18,6 +18,10 @@ expansion}.  You use dynamic abbrev expansion with an explicit command
 to expand the letters in the buffer before point by looking for other
 words in the buffer that start with those letters.  @xref{Dynamic
 Abbrevs}.
+
+``Hippie'' expansion generalizes abbreviation expansion.  @xref{Hippie
+Expand, , Hippie Expansion, autotype, Features for Automatic
+Typing}.
 
 @menu
 * Abbrev Concepts::   Fundamentals of defined abbrevs.
@@ -119,7 +123,7 @@ read with the minibuffer).
 
   To change the definition of an abbrev, just define a new definition.
 When the abbrev has a prior definition, the abbrev definition commands
-ask for confirmation for replacing it.
+ask for confirmation before replacing it.
 
   To remove an abbrev definition, give a negative argument to the abbrev
 definition command: @kbd{C-u - C-x a g} or @kbd{C-u - C-x a l}.  The
@@ -208,7 +212,8 @@ once.  This command is effective even if Abbrev mode is not enabled.
 
 @table @kbd
 @item M-x list-abbrevs
-Display a list of all abbrev definitions.
+Display a list of all abbrev definitions.  With a numeric argument, list
+only local abbrevs.
 @item M-x edit-abbrevs
 Edit a list of abbrevs; you can add, alter or remove definitions.
 @end table
@@ -344,6 +349,12 @@ in the buffer to search for an expansion.
 buffers, unless you have set @code{dabbrev-check-all-buffers} to
 @code{nil}.
 
+@vindex dabbrev-ignored-buffer-regexps
+  For finer control over which buffers to scan, customize the variable
+@code{dabbrev-ignored-buffer-regexps}.  Its value is a list of regular
+expressions.  If a buffer's name matches any of these regular
+expressions, dynamic abbrev expansion skips that buffer.
+
   A negative argument to @kbd{M-/}, as in @kbd{C-u - M-/}, says to
 search first for expansions after point, and second for expansions
 before point.  If you repeat the @kbd{M-/} to look for another
@@ -376,8 +387,8 @@ you are expanding.
 @vindex dabbrev-case-fold-search
   This feature is controlled by the variable
 @code{dabbrev-case-fold-search}.  If it is @code{t}, case is ignored in
-this search; if @code{nil}, the word and the expansion must match in
-case.  If the value of @code{dabbrev-case-fold-search} is
+this search; if it is @code{nil}, the word and the expansion must match
+in case.  If the value of @code{dabbrev-case-fold-search} is
 @code{case-fold-search}, which is true by default, then the variable
 @code{case-fold-search} controls whether to ignore case while searching
 for expansions.
@@ -390,7 +401,7 @@ pattern.
 @vindex dabbrev-case-fold-search
   The variable @code{dabbrev-case-replace} controls whether to preserve
 the case pattern of the abbrev.  If it is @code{t}, the abbrev's case
-pattern is preserved in most cases; if @code{nil}, the expansion is
+pattern is preserved in most cases; if it is @code{nil}, the expansion is
 always copied verbatim.  If the value of @code{dabbrev-case-replace} is
 @code{case-replace}, which is true by default, then the variable
 @code{case-replace} controls whether to copy the expansion verbatim.

@@ -166,7 +166,11 @@ get_token_1()
 			if ((quote == 1) && (c == '"')) run = 0;
 		}
 		escape = 0;
-		if (c == '\\') escape = 1;
+		if (c == '\\')
+		{
+			escape = 1;
+			continue;
+		}
 
 		t->value[len++] = c;
 		t->value = realloc(t->value, len + 1);

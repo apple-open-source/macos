@@ -52,6 +52,7 @@
 
 UInt32  SSLDecodeInt(const unsigned char *p, int length);
 unsigned char *SSLEncodeInt(unsigned char *p, UInt32 value, int length);
+UInt8*	SSLEncodeUInt64(UInt8 *p, sslUint64 value);
 void    IncrementUInt64(sslUint64 *v);
 
 UInt32 SSLGetCertificateChainLength(const SSLCertificate *c);

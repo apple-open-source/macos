@@ -3,6 +3,25 @@ TODO:
   stuff).
 - Add multi-arch support for findcalls() and make work better (use disasm).
 
+Changes for the 5.10 release (the cctools-421 release):
+- Changed new_sample_set() in gprof.c to not read the samples one at a time
+  but to allocate a buffer for the samples and read them all at once.  This
+  makes running gprof faster.  Radar bug #2876478.
+
+Changes for the 5.10 release (the cctools-400 release):
+- Changed the Makefile back to again use the -dependency-file with gcc.
+
+Changes for the 5.10 release (the cctools-396 release):
+- Changed the Makefile to not use the -dependency-file with gcc as well as
+  mwccppc.
+
+Changes for the 5.10 release (the cctools-385 release):
+- Fixed a bug in creating the gprof(1) -S order file in not picking up the
+  file names for symbols.  Changed count_N_SO_stabs() and load_files() in
+  getnfile.c to ignore the N_SO stabs for directory names that end in '/'.
+  These stabs were created by the compiler starting after DP4 (from Cheetah on).
+  Radar bug #2748170.
+
 Changes for the 5.9 release (the cctools-373 release):
 - Maded the nl variable in gprof.c into a __private_extern__ to avoid the
   warning about "unused multiple definitions" when building with

@@ -30,6 +30,19 @@
 
 /*
  * Definitions
+ *
+ * ioctl                        description
+ * ---------------------------- ------------------------------------------------
+ * DKIOCDVDREADSTRUCTURE        see IODVDMedia::readStructure()  in IODVDMedia.h
+ *
+ * DKIOCDVDREADDISCINFO         see IODVDMedia::readDiscInfo()   in IODVDMedia.h
+ * DKIOCDVDREADRZONEINFO        see IODVDMedia::readRZoneInfo()  in IODVDMedia.h
+ *
+ * DKIOCDVDREPORTKEY            see IODVDMedia::reportKey()      in IODVDMedia.h
+ * DKIOCDVDSENDKEY              see IODVDMedia::sendKey()        in IODVDMedia.h
+ *
+ * DKIOCDVDGETSPEED             see IODVDMedia::getSpeed()       in IODVDMedia.h
+ * DKIOCDVDSETSPEED             see IODVDMedia::setSpeed()       in IODVDMedia.h
  */
 
 typedef struct
@@ -77,6 +90,27 @@ typedef struct
     void *    buffer;
 } dk_dvd_send_key_t;
 
+typedef struct
+{
+    u_int8_t  reserved0000[10];                    /* reserved, clear to zero */
+
+    u_int16_t bufferLength;                        /* actual length on return */
+    void *    buffer;
+} dk_dvd_read_disc_info_t;
+
+typedef struct
+{
+    u_int8_t  reserved0000[4];                     /* reserved, clear to zero */
+
+    u_int32_t address;
+    u_int8_t  addressType;
+
+    u_int8_t  reserved0072[1];                     /* reserved, clear to zero */
+
+    u_int16_t bufferLength;                        /* actual length on return */
+    void *    buffer;
+} dk_dvd_read_rzone_info_t;
+
 #define DKIOCDVDREADSTRUCTURE _IOW('d', 128, dk_dvd_read_structure_t)
 #define DKIOCDVDREPORTKEY     _IOW('d', 129, dk_dvd_report_key_t)
 #define DKIOCDVDSENDKEY       _IOW('d', 130, dk_dvd_send_key_t)
@@ -84,11 +118,15 @@ typedef struct
 #define DKIOCDVDGETSPEED      _IOR('d', 131, u_int16_t)
 #define DKIOCDVDSETSPEED      _IOW('d', 131, u_int16_t)
 
+#define DKIOCDVDREADDISCINFO  _IOWR('d', 132, dk_dvd_read_disc_info_t)
+#define DKIOCDVDREADRZONEINFO _IOWR('d', 133, dk_dvd_read_rzone_info_t)
+
+#ifdef KERNEL
+#ifdef __cplusplus
+
 /*
  * Kernel
  */
-
-#if defined(KERNEL) && defined(__cplusplus)
 
 #include <IOKit/storage/IODVDMedia.h>
 #include <IOKit/storage/IOMediaBSDClient.h>
@@ -132,6 +170,6 @@ public:
     OSMetaClassDeclareReservedUnused(IODVDMediaBSDClient, 7);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IODVDMEDIABSDCLIENT_H */

@@ -24,9 +24,6 @@
 
 /*
  * MachRPC.h
- *
- * Custom procedure calls (using XDR!) on top of Mach IPC for lookupd
- * libc uses this goofy idea to talk to lookupd
  * 
  * Copyright (c) 1995, NeXT Computer Inc.
  * All rights reserved.
@@ -49,22 +46,22 @@
 #define PROC_GETHOSTENT 11
 #define PROC_GETHOSTBYNAME 12
 #define PROC_GETHOSTBYADDR 13
-#define PROC_GETNETENT 14
-#define PROC_GETNETBYNAME 15
-#define PROC_GETNETBYADDR 16
-#define PROC_GETSERVENT 17
-#define PROC_GETSERVBYNAME 18
-#define PROC_GETSERVBYPORT 19
-#define PROC_GETPROTOENT 20
-#define PROC_GETPROTOBYNAME 21
-#define PROC_GETPROTOBYNUMBER 22
-#define PROC_GETRPCENT 23
-#define PROC_GETRPCBYNAME 24
-#define PROC_GETRPCBYNUMBER 25
-#define PROC_GETFSENT 26
-#define PROC_GETFSBYNAME 27
-#define PROC_GETMNTENT 28
-#define PROC_GETMNTBYNAME 29
+#define PROC_GETIPV6NODEBYNAME 14
+#define PROC_GETIPV6NODEBYADDR 15
+#define PROC_GETNETENT 16
+#define PROC_GETNETBYNAME 17
+#define PROC_GETNETBYADDR 18
+#define PROC_GETSERVENT 19
+#define PROC_GETSERVBYNAME 20
+#define PROC_GETSERVBYPORT 21
+#define PROC_GETPROTOENT 22
+#define PROC_GETPROTOBYNAME 23
+#define PROC_GETPROTOBYNUMBER 24
+#define PROC_GETRPCENT 25
+#define PROC_GETRPCBYNAME 26
+#define PROC_GETRPCBYNUMBER 27
+#define PROC_GETFSENT 28
+#define PROC_GETFSBYNAME 29
 #define PROC_PRDB_GET 30
 #define PROC_PRDB_GETBYNAME 31
 #define PROC_BOOTPARAMS_GETENT 32
@@ -90,8 +87,8 @@
 #import "LUDictionary.h"
 #import "LUArray.h"
 #import "Controller.h"
-#import "XDRSerializer.h"
 #import "LUGlobal.h"
+#import "lu_xdr.h"
 
 #define nonStandardProc  0
 #define standardDictionaryProc 1
@@ -108,7 +105,6 @@ typedef struct
 
 @interface MachRPC : Root
 {
-	XDRSerializer *xdr;
 	proc_helper_t proc_helper[NPROCS];
 }
 
@@ -135,7 +131,27 @@ typedef struct
 	buffer:(char **)data
 	length:(int *)len;
 
-- (BOOL)xdrInitgroups:(LUArray *)list buffer:(char **)data length:(int *)len;
+- (BOOL)xdrInitgroups:(LUDictionary *)item buffer:(char **)data length:(int *)len;
 - (BOOL)xdrNetgroup:(LUDictionary *)item buffer:(char **)data length:(int *)len server:(LUServer *)server;
+
+- (void)encodeAttribute:(char *)key 
+	from:(LUDictionary *)item
+	intoXdr:(lu_xdr_t *)xdrs
+	count:(unsigned long)n;
+
+- (char *)decodeString:(char *)buf length:(int)len;
+- (char *)decodeInt:(char *)buf length:(int)len;
+- (char *)decodeIPV6Addr:(char *)buf length:(int)len;
+- (char *)decodeIPAddr:(char *)buf length:(int)len;
+- (char *)decodeIPNet:(char *)buf length:(int)len;
+- (char *)decodeENAddr:(char *)buf length:(int)len;
+
+- (int)intFromBuffer:(char *)buf length:(int)len;
+- (char **)twoStringsFromBuffer:(char *)buf length:(int)len;
+- (char **)threeStringsFromBuffer:(char *)buf length:(int)len;
+- (char **)intAndStringFromBuffer:(char *)buf length:(int)len;
+- (char **)inNetgroupArgsFromBuffer:(char *)buf length:(int)len;
+
+- (LUDictionary *)dictionaryFromBuffer:(char *)buf length:(int)len;
 
 @end

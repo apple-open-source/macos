@@ -329,9 +329,9 @@ makekey(key,name,domain)
 	register char *name;
 	register char *domain;
 {
-	while (*key++ = *name++)
+	while ((*key++ = *name++))
 		;
 	*(key-1) = '.';
-	while (*key++ = *domain++)
+	while ((*key++ = *domain++))
 		;
 }	

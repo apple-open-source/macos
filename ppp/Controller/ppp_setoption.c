@@ -35,13 +35,7 @@ includes
 #include <sys/sockio.h>
 #include <net/if.h>
 #include <CoreFoundation/CoreFoundation.h>
-
-#ifdef	USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>
-#else	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
-#include <SystemConfiguration/v1Compatibility.h>
-#include <SystemConfiguration/SCSchemaDefinitions.h>
-#endif	/* USE_SYSTEMCONFIGURATION_PUBLIC_APIS */
 
 #include "ppp_msg.h"
 #include "ppp_privmsg.h"
@@ -95,12 +89,12 @@ id must be a valid client
 ----------------------------------------------------------------------------- */
 u_long ppp_setoption (struct client *client, struct msg *msg)
 {
-    struct ppp_opt 	*opt = (struct ppp_opt *)&msg->data[0];
+    struct ppp_opt 	*opt = (struct ppp_opt *)&msg->data[MSG_DATAOFF(msg)];
     struct options	*opts;
     u_long		err = 0, len = msg->hdr.m_len - sizeof(struct ppp_opt_hdr);
     u_long		speed;
-    struct ppp 		*ppp = ppp_findbyref(msg->hdr.m_link);
-    
+    struct ppp 		*ppp = ppp_find(msg);
+
     if (!ppp) {
         msg->hdr.m_result = ENODEV;
         msg->hdr.m_len = 0;
@@ -108,10 +102,10 @@ u_long ppp_setoption (struct client *client, struct msg *msg)
     }
 
     // not connected, set the client options that will be used.
-    opts = client_findoptset(client, msg->hdr.m_link);
+    opts = client_findoptset(client, ppp_makeref(ppp));
     if (!opts) {
         // first option used by client, create private set
-        opts = client_newoptset(client, msg->hdr.m_link);
+        opts = client_newoptset(client, ppp_makeref(ppp));
         if (!opts) {
             msg->hdr.m_result = ENOMEM;
             msg->hdr.m_len = 0;
@@ -140,6 +134,10 @@ u_long ppp_setoption (struct client *client, struct msg *msg)
             break;
         case PPP_OPT_DEV_CONNECTSCRIPT:
             err = set_str_opt(&opts->dev.connectscript, &opt->o_data[0], len);
+            break;
+        case PPP_OPT_DEV_DIALMODE:
+	    err = set_long_opt(&opts->dev.dialmode, *(u_long *)(&opt->o_data[0]), 
+                    PPP_DEV_WAITFORDIALTONE, PPP_DEV_MANUALDIAL, 0);
             break;
         case PPP_OPT_COMM_TERMINALMODE:
 	    err = set_long_opt(&opts->comm.terminalmode, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
@@ -207,15 +205,14 @@ u_long ppp_setoption (struct client *client, struct msg *msg)
             break;
             // MISC options
         case PPP_OPT_LOGFILE:
-           err = set_str_opt(&opts->misc.logfile, &opt->o_data[0], len);
+            err = EOPNOTSUPP;
+            //err = set_str_opt(&opts->misc.logfile, &opt->o_data[0], len);
             break;
         case PPP_OPT_COMM_REMINDERTIMER:
             err = set_long_opt(&opts->comm.remindertimer, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
             break;
         case PPP_OPT_ALERTENABLE:
-            //err = set_long_opt(&opts->misc.alertenable, *(u_long *)(&opt->o_data[0]), 0, 1, 1);
-            // this option has immediate effect, at least on alert/dialogs
-            ppp->alertenable = *(u_long *)(&opt->o_data[0]);
+            err = set_long_opt(&opts->misc.alertenable, *(u_long *)(&opt->o_data[0]), 0, 0xFFFFFFFF, 1);
             break;
         default:
             err = EOPNOTSUPP;

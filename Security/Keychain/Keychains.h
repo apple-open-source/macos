@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -15,27 +15,20 @@
  * specific language governing rights and limitations under the License.
  */
 
+//
+// Keychains.h - The Keychain class
+//
+#ifndef _SECURITY_KEYCHAINS_H_
+#define _SECURITY_KEYCHAINS_H_
 
-/*
-	File:		Keychains.h
-
-	Contains:	The keychain class
-
-	Copyright:	2000 by Apple Computer, Inc., all rights reserved.
-
-	To Do:
-*/
-
-#ifndef _H_KEYCHAINS_
-#define _H_KEYCHAINS_
-
+#include <Security/cspclient.h>
 #include <Security/dlclient.h>
 #include <Security/refcount.h>
 #include <Security/utilities.h>
 #include <Security/DLDBListCFPref.h>
-#include <Security/Refs.h>
-#include <Security/SecKeychainAPI.h>
-#include <Security/SecKeychainAPIPriv.h>
+#include <Security/SecRuntime.h>
+#include <Security/SecKeychain.h>
+#include <Security/SecKeychainItem.h>
 #include <memory>
 
 namespace Security
@@ -46,26 +39,29 @@ namespace KeychainCore
 
 class KCCursor;
 class Item;
-class ItemImpl;
-class Keychain;
 class PrimaryKey;
 class StorageManager;
 
 
-class KeychainSchemaImpl : public ReferencedObject
+class KeychainSchemaImpl : public RefCount
 {
+	NOCOPY(KeychainSchemaImpl)
 public:
+	friend class KeychainSchema;
+protected:
     KeychainSchemaImpl(const CssmClient::Db &db);
+public:
     ~KeychainSchemaImpl();
 
 	CSSM_DB_ATTRIBUTE_FORMAT attributeFormatFor(CSSM_DB_RECORDTYPE recordType, uint32 attributeId) const;
-	const CssmAutoDbRecordAttributeInfo &primaryKeyInfosFor(CSSM_DB_RECORDTYPE recordType);
+	const CssmAutoDbRecordAttributeInfo &primaryKeyInfosFor(CSSM_DB_RECORDTYPE recordType) const;
 	
 	bool operator <(const KeychainSchemaImpl &other) const;
 	bool operator ==(const KeychainSchemaImpl &other) const;
 
-	void getAttributeInfoForRecordType(CSSM_DB_RECORDTYPE recordType, SecKeychainAttributeInfo **Info);
-	CssmDbAttributeInfo attributeInfoForTag(UInt32 tag);
+	void getAttributeInfoForRecordType(CSSM_DB_RECORDTYPE recordType, SecKeychainAttributeInfo **Info) const;
+	CssmDbAttributeInfo attributeInfoFor(CSSM_DB_RECORDTYPE recordType, uint32 attributeId) const;
+	bool hasAttribute(CSSM_DB_RECORDTYPE recordType, uint32 attributeId) const;
 
 private:
 	typedef map<CSSM_DB_RECORDTYPE, CssmAutoDbRecordAttributeInfo *> PrimaryKeyInfoMap;
@@ -74,8 +70,8 @@ private:
 	typedef map<uint32, CSSM_DB_ATTRIBUTE_FORMAT> RelationInfoMap;
 	typedef map<CSSM_DB_RECORDTYPE, RelationInfoMap> DatabaseInfoMap;
 	DatabaseInfoMap mDatabaseInfoMap;
-
-	
+private:
+	const RelationInfoMap &relationInfoMapFor(CSSM_DB_RECORDTYPE recordType) const;
 };
 
 
@@ -96,22 +92,24 @@ private:
 };
 
 
-class KeychainImpl : public ReferencedObject
+class KeychainImpl : public SecCFObject
 {
     NOCOPY(KeychainImpl)
+public:
 	friend class Keychain;
+	friend class ItemImpl;
 protected:
     KeychainImpl(const CssmClient::Db &db);
 
 protected:
 	// Methods called by ItemImpl;
-	friend class ItemImpl;
-
 	void didUpdate(ItemImpl *inItemImpl, PrimaryKey &oldPK,
 						PrimaryKey &newPK);
 
 public:
     virtual ~KeychainImpl();
+
+	bool operator ==(const KeychainImpl &) const;
 
     // Item calls
     void add(Item &item); // item must not be persistant.  Item will change.
@@ -152,6 +150,8 @@ public:
 	CssmClient::Db database() { return mDb; }
 	DLDbIdentifier dLDbIdentifier() const { return mDb->dlDbIdentifier(); }
 
+	CssmClient::CSP csp();
+
 	PrimaryKey makePrimaryKey(CSSM_DB_RECORDTYPE recordType, CssmClient::DbUniqueRecord &uniqueId);
 	void gatherPrimaryKeyAttributes(CssmClient::DbAttributes& primaryKeyAttrs);
 	
@@ -160,12 +160,12 @@ public:
     Item item(const PrimaryKey& primaryKey);
     Item item(CSSM_DB_RECORDTYPE recordType, CssmClient::DbUniqueRecord &uniqueId);
 	
-	CssmDbAttributeInfo attributeInfoForTag(UInt32 tag);
+	CssmDbAttributeInfo attributeInfoFor(CSSM_DB_RECORDTYPE recordType, UInt32 tag);
 	void getAttributeInfoForItemID(CSSM_DB_RECORDTYPE itemID, SecKeychainAttributeInfo **Info);
-static	void freeAttributeInfo(SecKeychainAttributeInfo *Info);
+	static void freeAttributeInfo(SecKeychainAttributeInfo *Info);
+	KeychainSchema keychainSchema();
 
 private:
-	KeychainSchema keychainSchema();
 	void addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl);
 	void removeItem(const PrimaryKey &primaryKey, const ItemImpl *inItemImpl); 
 
@@ -195,11 +195,8 @@ private:
 };
 
 
-typedef Ref<Keychain, KeychainImpl, SecKeychainRef, errSecInvalidKeychain> KeychainRef;
-
 } // end namespace KeychainCore
 
 } // end namespace Security
 
-#endif /* _H_KEYCHAINS_ */
-
+#endif // !_SECURITY_KEYCHAINS_H_

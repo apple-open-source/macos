@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/Commands/Other/tcsh/tcsh/sh.print.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
+/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.print.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
 /*
  * sh.print.c: Primitive Output routines.
  */

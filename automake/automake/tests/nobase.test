@@ -1,0 +1,25 @@
+#! /bin/sh
+# Test to make sure nobase_*_HEADERS work.
+
+. $srcdir/defs || exit 1
+
+cat >> configure.in <<'EOF'
+AC_OUTPUT
+EOF
+
+cat > Makefile.am << 'EOF'
+foodir = $(prefix)/foo
+nobase_foo_HEADERS = bar/baz.h
+EOF
+
+mkdir bar
+: > bar/baz.h
+
+set -e
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+./configure --prefix `pwd`/install
+$MAKE install-data
+test -f install/foo/bar/baz.h

@@ -30,6 +30,7 @@
 #include <Security/cssmtype.h>
 #include "rootCerts.h"
 
+#if		TP_ROOT_CERT_ENABLE 
 
 /***********************
 Cert File Name: Class1_PCA_G2_v2.cer
@@ -1424,3 +1425,5 @@ const tpRootCert sslRootCerts[] =
 };
 
 const unsigned numSslRootCerts = sizeof(sslRootCerts) / sizeof(tpRootCert);
+
+#endif	/* TP_ROOT_CERT_ENABLE */

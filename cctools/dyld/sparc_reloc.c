@@ -294,6 +294,7 @@ char *module_name)
 			      get_primary_image(image, symbols +
 						       relocs[i].r_symbolnum),
 			      get_hint(image, symbols + relocs[i].r_symbolnum),
+			      get_weak(symbols + relocs[i].r_symbolnum),
 			      &defined_symbol, &defined_module,
 			      &defined_image, &defined_library_image, NULL);
 	    }
@@ -512,6 +513,7 @@ char *module_name)
 						       relocs[i].r_symbolnum),
 				  get_hint(image, symbols +
 						       relocs[i].r_symbolnum),
+				  get_weak(symbols + relocs[i].r_symbolnum),
 				  &defined_symbol, &defined_module,
 				  &defined_image, &defined_library_image, NULL);
 		}

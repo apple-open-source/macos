@@ -42,6 +42,10 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "varray.h"
 
+#ifdef OBJCPLUS
+#include "objc-act.h"
+#endif
+
 /* The type of functions taking a tree, and some additional data, and
    returning an int.  */
 typedef int (*tree_fn_t) PROTO((tree, void*));
@@ -6871,6 +6875,20 @@ tsubst_copy (t, args, complain, in_decl)
 	   tsubst_copy (TREE_OPERAND (t, 2), args, complain, in_decl),
 	   NULL_TREE);
       }
+
+#ifdef OBJCPLUS
+    case MESSAGE_SEND_EXPR:
+      return build_nt
+	(MESSAGE_SEND_EXPR, 
+	 tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl),
+	 TREE_OPERAND (t, 1),  /* Do not mess with the selector!  */
+	 tsubst_copy (TREE_OPERAND (t, 2), args, complain, in_decl));
+
+    case CLASS_REFERENCE_EXPR:
+      return build_nt
+	(CLASS_REFERENCE_EXPR, 
+	 tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl));
+#endif
 
     case BIND_EXPR:
     case COND_EXPR:

@@ -1,9 +1,9 @@
 This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
 
-   This is the thirteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 20.7.
+   This is the Fourteenth edition of the `GNU Emacs Manual', updated
+for Emacs version 21.1.
 
-INFO-DIR-SECTION Editors
+INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
 * Emacs: (emacs).	The extensible self-documenting text editor.
 END-INFO-DIR-ENTRY
@@ -11,1265 +11,1132 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-1999    Free Software Foundation, Inc.
+   Copyright (C) 1985,
+1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
+Foundation, Inc.
 
-   Permission is granted to make and distribute verbatim copies of this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "The GNU Manifesto", "Distribution" and "GNU
+GENERAL PUBLIC LICENSE", with the Front-Cover texts being "A GNU
+Manual," and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License."
 
-   Permission is granted to copy and distribute modified versions of
-this manual under the conditions for verbatim copying, provided also
-that the sections entitled "The GNU Manifesto", "Distribution" and "GNU
-General Public License" are included exactly as in the original, and
-provided that the entire resulting derived work is distributed under the
-terms of a permission notice identical to this one.
-
-   Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for modified
-versions, except that the sections entitled "The GNU Manifesto",
-"Distribution" and "GNU General Public License" may be included in a
-translation approved by the Free Software Foundation instead of in the
-original English.
+   (a) The FSF's Back-Cover Text is: "You have freedom to copy and
+modify this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development."
 
 
-File: emacs,  Node: State of Difference,  Next: Merge Commands,  Prev: Submodes of Emerge,  Up: Emerge
+File: emacs,  Node: TeX Print,  Next: TeX Misc,  Prev: LaTeX Editing,  Up: TeX Mode
 
-State of a Difference
+TeX Printing Commands
 ---------------------
 
-   In the merge buffer, a difference is marked with lines of `v' and
-`^' characters.  Each difference has one of these seven states:
-
-A
-     The difference is showing the A version.  The `a' command always
-     produces this state; the mode line indicates it with `A'.
-
-B
-     The difference is showing the B version.  The `b' command always
-     produces this state; the mode line indicates it with `B'.
-
-default-A
-default-B
-     The difference is showing the A or the B state by default, because
-     you haven't made a choice.  All differences start in the default-A
-     state (and thus the merge buffer is a copy of the A buffer),
-     except those for which one alternative is "preferred" (see below).
-
-     When you select a difference, its state changes from default-A or
-     default-B to plain A or B.  Thus, the selected difference never has
-     state default-A or default-B, and these states are never displayed
-     in the mode line.
-
-     The command `d a' chooses default-A as the default state, and `d
-     b' chooses default-B.  This chosen default applies to all
-     differences which you haven't ever selected and for which no
-     alternative is preferred.  If you are moving through the merge
-     sequentially, the differences you haven't selected are those
-     following the selected one.  Thus, while moving sequentially, you
-     can effectively make the A version the default for some sections
-     of the merge buffer and the B version the default for others by
-     using `d a' and `d b' between sections.
-
-prefer-A
-prefer-B
-     The difference is showing the A or B state because it is
-     "preferred".  This means that you haven't made an explicit choice,
-     but one alternative seems likely to be right because the other
-     alternative agrees with the common ancestor.  Thus, where the A
-     buffer agrees with the common ancestor, the B version is
-     preferred, because chances are it is the one that was actually
-     changed.
-
-     These two states are displayed in the mode line as `A*' and `B*'.
-
-combined
-     The difference is showing a combination of the A and B states, as a
-     result of the `x c' or `x C' commands.
-
-     Once a difference is in this state, the `a' and `b' commands don't
-     do anything to it unless you give them a numeric argument.
-
-     The mode line displays this state as `comb'.
-
-
-File: emacs,  Node: Merge Commands,  Next: Exiting Emerge,  Prev: State of Difference,  Up: Emerge
-
-Merge Commands
---------------
-
-   Here are the Merge commands for Fast mode; in Edit mode, precede them
-with `C-c C-c':
-
-`p'
-     Select the previous difference.
-
-`n'
-     Select the next difference.
-
-`a'
-     Choose the A version of this difference.
-
-`b'
-     Choose the B version of this difference.
-
-`C-u N j'
-     Select difference number N.
-
-`.'
-     Select the difference containing point.  You can use this command
-     in the merge buffer or in the A or B buffer.
-
-`q'
-     Quit--finish the merge.
-
-`C-]'
-     Abort--exit merging and do not save the output.
-
-`f'
-     Go into Fast mode.  (In Edit mode, this is actually `C-c C-c f'.)
-
-`e'
-     Go into Edit mode.
-
-`l'
-     Recenter (like `C-l') all three windows.
-
-`-'
-     Specify part of a prefix numeric argument.
-
-`DIGIT'
-     Also specify part of a prefix numeric argument.
-
-`d a'
-     Choose the A version as the default from here down in the merge
-     buffer.
-
-`d b'
-     Choose the B version as the default from here down in the merge
-     buffer.
-
-`c a'
-     Copy the A version of this difference into the kill ring.
-
-`c b'
-     Copy the B version of this difference into the kill ring.
-
-`i a'
-     Insert the A version of this difference at point.
-
-`i b'
-     Insert the B version of this difference at point.
-
-`m'
-     Put point and mark around the difference.
-
-`^'
-     Scroll all three windows down (like `M-v').
-
-`v'
-     Scroll all three windows up (like `C-v').
-
-`<'
-     Scroll all three windows left (like `C-x <').
-
-`>'
-     Scroll all three windows right (like `C-x >').
-
-`|'
-     Reset horizontal scroll on all three windows.
-
-`x 1'
-     Shrink the merge window to one line.  (Use `C-u l' to restore it
-     to full size.)
-
-`x c'
-     Combine the two versions of this difference (*note Combining in
-     Emerge::).
-
-`x f'
-     Show the names of the files/buffers Emerge is operating on, in a
-     Help window.  (Use `C-u l' to restore windows.)
-
-`x j'
-     Join this difference with the following one.  (`C-u x j' joins
-     this difference with the previous one.)
-
-`x s'
-     Split this difference into two differences.  Before you use this
-     command, position point in each of the three buffers at the place
-     where you want to split the difference.
-
-`x t'
-     Trim identical lines off the top and bottom of the difference.
-     Such lines occur when the A and B versions are identical but
-     differ from the ancestor version.
-
-
-File: emacs,  Node: Exiting Emerge,  Next: Combining in Emerge,  Prev: Merge Commands,  Up: Emerge
-
-Exiting Emerge
---------------
-
-   The `q' command (`emerge-quit') finishes the merge, storing the
-results into the output file if you specified one.  It restores the A
-and B buffers to their proper contents, or kills them if they were
-created by Emerge and you haven't changed them.  It also disables the
-Emerge commands in the merge buffer, since executing them later could
-damage the contents of the various buffers.
-
-   `C-]' aborts the merge.  This means exiting without writing the
-output file.  If you didn't specify an output file, then there is no
-real difference between aborting and finishing the merge.
-
-   If the Emerge command was called from another Lisp program, then its
-return value is `t' for successful completion, or `nil' if you abort.
-
-
-File: emacs,  Node: Combining in Emerge,  Next: Fine Points of Emerge,  Prev: Exiting Emerge,  Up: Emerge
-
-Combining the Two Versions
---------------------------
-
-   Sometimes you want to keep _both_ alternatives for a particular
-difference.  To do this, use `x c', which edits the merge buffer like
-this:
-
-     #ifdef NEW
-     VERSION FROM A BUFFER
-     #else /* not NEW */
-     VERSION FROM B BUFFER
-     #endif /* not NEW */
-
-While this example shows C preprocessor conditionals delimiting the two
-alternative versions, you can specify the strings to use by setting the
-variable `emerge-combine-versions-template' to a string of your choice.
-In the string, `%a' says where to put version A, and `%b' says where
-to put version B.  The default setting, which produces the results
-shown above, looks like this:
-
-     "#ifdef NEW\n%a#else /* not NEW */\n%b#endif /* not NEW */\n"
-
-
-File: emacs,  Node: Fine Points of Emerge,  Prev: Combining in Emerge,  Up: Emerge
-
-Fine Points of Emerge
----------------------
-
-   During the merge, you mustn't try to edit the A and B buffers
-yourself.  Emerge modifies them temporarily, but ultimately puts them
-back the way they were.
-
-   You can have any number of merges going at once--just don't use any
-one buffer as input to more than one merge at once, since the temporary
-changes made in these buffers would get in each other's way.
-
-   Starting Emerge can take a long time because it needs to compare the
-files fully.  Emacs can't do anything else until `diff' finishes.
-Perhaps in the future someone will change Emerge to do the comparison in
-the background when the input files are large--then you could keep on
-doing other things with Emacs until Emerge is ready to accept commands.
-
-   After setting up the merge, Emerge runs the hook
-`emerge-startup-hook' (*note Hooks::).
-
-
-File: emacs,  Node: C Modes,  Next: Fortran,  Prev: Emerge,  Up: Programs
-
-C and Related Modes
-===================
-
-   This section describes special features available in C, C++,
-Objective-C, Java, CORBA IDL, and Pike modes.  When we say "C mode and
-related modes," those are the modes we mean.
-
-* Menu:
-
-* Motion in C::
-* Electric C::
-* Hungry Delete::
-* Other C Commands::
-* Comments in C::
-
-
-File: emacs,  Node: Motion in C,  Next: Electric C,  Up: C Modes
-
-C Mode Motion Commands
-----------------------
-
-   This section describes commands for moving point, in C mode and
-related modes.
-
-`C-c C-u'
-     Move point back to the containing preprocessor conditional,
-     leaving the mark behind.  A prefix argument acts as a repeat
-     count.  With a negative argument, move point forward to the end of
-     the containing preprocessor conditional.  When going backwards,
-     `#elif' is treated like `#else' followed by `#if'.  When going
-     forwards, `#elif' is ignored.
-
-`C-c C-p'
-     Move point back over a preprocessor conditional, leaving the mark
-     behind.  A prefix argument acts as a repeat count.  With a negative
-     argument, move forward.
-
-`C-c C-n'
-     Move point forward across a preprocessor conditional, leaving the
-     mark behind.  A prefix argument acts as a repeat count.  With a
-     negative argument, move backward.
-
-`M-a'
-     Move point to the beginning of the innermost C statement
-     (`c-beginning-of-statement').  If point is already at the beginning
-     of a statement, move to the beginning of the preceding statement.
-     With prefix argument N, move back N - 1 statements.
-
-     If point is within a string or comment, or next to a comment (only
-     whitespace between them), this command moves by sentences instead
-     of statements.
-
-     When called from a program, this function takes three optional
-     arguments: the numeric prefix argument, a buffer position limit
-     (don't move back before that place), and a flag that controls
-     whether to do sentence motion when inside of a comment.
-
-`M-e'
-     Move point to the end of the innermost C statement; like `M-a'
-     except that it moves in the other direction (`c-end-of-statement').
-
-`M-x c-backward-into-nomenclature'
-     Move point backward to beginning of a C++ nomenclature section or
-     word.  With prefix argument N, move N times.  If N is negative,
-     move forward.  C++ nomenclature means a symbol name in the style
-     of NamingSymbolsWithMixedCaseAndNoUnderlines; each capital letter
-     begins a section or word.
-
-     In the GNU project, we recommend using underscores to separate
-     words within an identifier in C or C++, rather than using case
-     distinctions.
-
-`M-x c-forward-into-nomenclature'
-     Move point forward to end of a C++ nomenclature section or word.
-     With prefix argument N, move N times.
-
-
-File: emacs,  Node: Electric C,  Next: Hungry Delete,  Prev: Motion in C,  Up: C Modes
-
-Electric C Characters
----------------------
-
-   In C mode and related modes, certain printing characters are
-"electric"--in addition to inserting themselves, they also reindent the
-current line and may insert newlines.  This feature is controlled by
-the variable `c-auto-newline'.  The "electric" characters are `{', `}',
-`:', `#', `;', `,', `<', `>', `/', `*', `(', and `)'.
-
-   Electric characters insert newlines only when the "auto-newline"
-feature is enabled (indicated by `/a' in the mode line after the mode
-name).  This feature is controlled by the variable `c-auto-newline'.
-You can turn this feature on or off with the command `C-c C-a':
-
-`C-c C-a'
-     Toggle the auto-newline feature (`c-toggle-auto-state').  With a
-     prefix argument, this command turns the auto-newline feature on if
-     the argument is positive, and off if it is negative.
-
-   The colon character is electric because that is appropriate for a
-single colon.  But when you want to insert a double colon in C++, the
-electric behavior of colon is inconvenient.  You can insert a double
-colon with no reindentation or newlines by typing `C-c :':
-
-`C-c :'
-     Insert a double colon scope operator at point, without reindenting
-     the line or adding any newlines (`c-scope-operator').
-
-   The electric `#' key reindents the line if it appears to be the
-beginning of a preprocessor directive.  This happens when the value of
-`c-electric-pound-behavior' is `(alignleft)'.  You can turn this
-feature off by setting `c-electric-pound-behavior' to `nil'.
-
-   The variable `c-hanging-braces-alist' controls the insertion of
-newlines before and after inserted braces.  It is an association list
-with elements of the following form: `(SYNTACTIC-SYMBOL . NL-LIST)'.
-Most of the syntactic symbols that appear in `c-offsets-alist' are
-meaningful here as well.
-
-   The list NL-LIST may contain either of the symbols `before' or
-`after', or both; or it may be `nil'.  When a brace is inserted, the
-syntactic context it defines is looked up in `c-hanging-braces-alist';
-if it is found, the NL-LIST is used to determine where newlines are
-inserted: either before the brace, after, or both.  If not found, the
-default is to insert a newline both before and after braces.
-
-   The variable `c-hanging-colons-alist' controls the insertion of
-newlines before and after inserted colons.  It is an association list
-with elements of the following form: `(SYNTACTIC-SYMBOL . NL-LIST)'.
-The list NL-LIST may contain either of the symbols `before' or `after',
-or both; or it may be `nil'.
-
-   When a colon is inserted, the syntactic symbol it defines is looked
-up in this list, and if found, the NL-LIST is used to determine where
-newlines are inserted: either before the brace, after, or both.  If the
-syntactic symbol is not found in this list, no newlines are inserted.
-
-   Electric characters can also delete newlines automatically when the
-auto-newline feature is enabled.  This feature makes auto-newline more
-acceptable, by deleting the newlines in the most common cases where you
-do not want them.  Emacs can recognize several cases in which deleting a
-newline might be desirable; by setting the variable `c-cleanup-list',
-you can specify _which_ of these cases that should happen.  The
-variable's value is a list of symbols, each describing one case for
-possible deletion of a newline.  Here are the meaningful symbols, and
-their meanings:
-
-`brace-catch-brace'
-     Clean up `} catch (CONDITION) {' constructs by placing the entire
-     construct on a single line.  The clean-up occurs when you type the
-     `{', if there is nothing between the braces aside from `catch' and
-     CONDITION.
-
-`brace-else-brace'
-     Clean up `} else {' constructs by placing the entire construct on
-     a single line.  The clean-up occurs when you type the `{' after
-     the `else', but only if there is nothing but white space between
-     the braces and the `else'.
-
-`brace-elseif-brace'
-     Clean up `} else if (...) {' constructs by placing the entire
-     construct on a single line.  The clean-up occurs when you type the
-     `{', if there is nothing but white space between the `}' and `{'
-     aside from the keywords and the `if'-condition.
-
-`empty-defun-braces'
-     Clean up empty defun braces by placing the braces on the same
-     line.  Clean-up occurs when you type the closing brace.
-
-`defun-close-semi'
-     Clean up the semicolon after a `struct' or similar type
-     declaration, by placing the semicolon on the same line as the
-     closing brace.  Clean-up occurs when you type the semicolon.
-
-`list-close-comma'
-     Clean up commas following braces in array and aggregate
-     initializers.  Clean-up occurs when you type the comma.
-
-`scope-operator'
-     Clean up double colons which may designate a C++ scope operator, by
-     placing the colons together.  Clean-up occurs when you type the
-     second colon, but only when the two colons are separated by
-     nothing but whitespace.
-
-
-File: emacs,  Node: Hungry Delete,  Next: Other C Commands,  Prev: Electric C,  Up: C Modes
-
-Hungry Delete Feature in C
---------------------------
-
-   When the "hungry-delete" feature is enabled (indicated by `/h' or
-`/ah' in the mode line after the mode name), a single <DEL> command
-deletes all preceding whitespace, not just one space.  To turn this
-feature on or off, use `C-c C-d':
-
-`C-c C-d'
-     Toggle the hungry-delete feature (`c-toggle-hungry-state').  With a
-     prefix argument, this command turns the hungry-delete feature on
-     if the argument is positive, and off if it is negative.
-
-`C-c C-t'
-     Toggle the auto-newline and hungry-delete features, both at once
-     (`c-toggle-auto-hungry-state').
-
-   The variable `c-hungry-delete-key' controls whether the
-hungry-delete feature is enabled.
-
-
-File: emacs,  Node: Other C Commands,  Next: Comments in C,  Prev: Hungry Delete,  Up: C Modes
-
-Other Commands for C Mode
--------------------------
-
-`C-M-h'
-     Put mark at the end of a function definition, and put point at the
-     beginning (`c-mark-function').
-
-`M-q'
-     Fill a paragraph, handling C and C++ comments (`c-fill-paragraph').
-     If any part of the current line is a comment or within a comment,
-     this command fills the comment or the paragraph of it that point
-     is in, preserving the comment indentation and comment delimiters.
-
-`C-c C-e'
-     Run the C preprocessor on the text in the region, and show the
-     result, which includes the expansion of all the macro calls
-     (`c-macro-expand').  The buffer text before the region is also
-     included in preprocessing, for the sake of macros defined there,
-     but the output from this part isn't shown.
-
-     When you are debugging C code that uses macros, sometimes it is
-     hard to figure out precisely how the macros expand.  With this
-     command, you don't have to figure it out; you can see the
-     expansions.
-
-`C-c C-\'
-     Insert or align `\' characters at the ends of the lines of the
-     region (`c-backslash-region').  This is useful after writing or
-     editing a C macro definition.
-
-     If a line already ends in `\', this command adjusts the amount of
-     whitespace before it.  Otherwise, it inserts a new `\'.  However,
-     the last line in the region is treated specially; no `\' is
-     inserted on that line, and any `\' there is deleted.
-
-`M-x cpp-highlight-buffer'
-     Highlight parts of the text according to its preprocessor
-     conditionals.  This command displays another buffer named `*CPP
-     Edit*', which serves as a graphic menu for selecting how to
-     display particular kinds of conditionals and their contents.
-     After changing various settings, click on `[A]pply these settings'
-     (or go to that buffer and type `a') to rehighlight the C mode
-     buffer accordingly.
-
-`C-c C-s'
-     Display the syntactic information about the current source line
-     (`c-show-syntactic-information').  This is the information that
-     directs how the line is indented.
-
-
-File: emacs,  Node: Comments in C,  Prev: Other C Commands,  Up: C Modes
-
-Comments in C Modes
--------------------
-
-   C mode and related modes use a number of variables for controlling
-comment format.
-
-`c-comment-only-line-offset'
-     Extra offset for line which contains only the start of a comment.
-     It can be either an integer or a cons cell of the form
-     `(NON-ANCHORED-OFFSET . ANCHORED-OFFSET)', where
-     NON-ANCHORED-OFFSET is the amount of offset given to
-     non-column-zero anchored comment-only lines, and ANCHORED-OFFSET
-     is the amount of offset to give column-zero anchored comment-only
-     lines.  Just an integer as value is equivalent to `(VAL . 0)'.
-
-`c-comment-start-regexp'
-     This buffer-local variable specifies how to recognize the start of
-     a comment.
-
-`c-hanging-comment-ender-p'
-     If this variable is `nil', `c-fill-paragraph' leaves the comment
-     terminator of a block comment on a line by itself.  The default
-     value is `t', which puts the comment-end delimiter `*/' at the end
-     of the last line of the comment text.
-
-`c-hanging-comment-starter-p'
-     If this variable is `nil', `c-fill-paragraph' leaves the starting
-     delimiter of a block comment on a line by itself.  The default
-     value is `t', which puts the comment-start delimiter `/*' at the
-     beginning of the first line of the comment text.
-
-
-File: emacs,  Node: Fortran,  Next: Asm Mode,  Prev: C Modes,  Up: Programs
-
-Fortran Mode
-============
-
-   Fortran mode provides special motion commands for Fortran statements
-and subprograms, and indentation commands that understand Fortran
-conventions of nesting, line numbers and continuation statements.
-Fortran mode has its own Auto Fill mode that breaks long lines into
-proper Fortran continuation lines.
-
-   Special commands for comments are provided because Fortran comments
-are unlike those of other languages.  Built-in abbrevs optionally save
-typing when you insert Fortran keywords.
-
-   Use `M-x fortran-mode' to switch to this major mode.  This command
-runs the hook `fortran-mode-hook' (*note Hooks::).
-
-* Menu:
-
-* Motion: Fortran Motion.	 Moving point by statements or subprograms.
-* Indent: Fortran Indent.	 Indentation commands for Fortran.
-* Comments: Fortran Comments.	 Inserting and aligning comments.
-* Autofill: Fortran Autofill.	 Auto fill minor mode for Fortran.
-* Columns: Fortran Columns.	 Measuring columns for valid Fortran.
-* Abbrev: Fortran Abbrev.	 Built-in abbrevs for Fortran keywords.
-* Misc: Fortran Misc.            Other Fortran mode features.
-
-
-File: emacs,  Node: Fortran Motion,  Next: Fortran Indent,  Up: Fortran
-
-Motion Commands
----------------
-
-   Fortran mode provides special commands to move by subprograms
-(functions and subroutines) and by statements.  There is also a command
-to put the region around one subprogram, convenient for killing it or
-moving it.
-
-`C-M-a'
-     Move to beginning of subprogram
-     (`beginning-of-fortran-subprogram').
-
-`C-M-e'
-     Move to end of subprogram (`end-of-fortran-subprogram').
-
-`C-M-h'
-     Put point at beginning of subprogram and mark at end
-     (`mark-fortran-subprogram').
-
-`C-c C-n'
-     Move to beginning of current or next statement
-     (`fortran-next-statement').
-
-`C-c C-p'
-     Move to beginning of current or previous statement
-     (`fortran-previous-statement').
-
-
-File: emacs,  Node: Fortran Indent,  Next: Fortran Comments,  Prev: Fortran Motion,  Up: Fortran
-
-Fortran Indentation
--------------------
-
-   Special commands and features are needed for indenting Fortran code
-in order to make sure various syntactic entities (line numbers, comment
-line indicators and continuation line flags) appear in the columns that
-are required for standard Fortran.
-
-* Menu:
-
-* Commands: ForIndent Commands.  Commands for indenting Fortran.
-* Contline: ForIndent Cont.      How continuation lines indent.
-* Numbers:  ForIndent Num.       How line numbers auto-indent.
-* Conv:     ForIndent Conv.      Conventions you must obey to avoid trouble.
-* Vars:     ForIndent Vars.      Variables controlling Fortran indent style.
-
-
-File: emacs,  Node: ForIndent Commands,  Next: ForIndent Cont,  Up: Fortran Indent
-
-Fortran Indentation Commands
-............................
-
-`<TAB>'
-     Indent the current line (`fortran-indent-line').
-
-`C-j'
-     Indent the current and start a new indented line
-     (`fortran-indent-new-line').
-
-`C-M-j'
-     Break the current line and set up a continuation line.
-
-`M-^'
-     Join this line to the previous line.
-
-`C-M-q'
-     Indent all the lines of the subprogram point is in
-     (`fortran-indent-subprogram').
-
-   Fortran mode redefines <TAB> to reindent the current line for
-Fortran (`fortran-indent-line').  This command indents line numbers and
-continuation markers to their required columns, and independently
-indents the body of the statement based on its nesting in the program.
-
-   The key `C-j' runs the command `fortran-indent-new-line', which
-reindents the current line then makes and indents a new line.  This
-command is useful to reindent the closing statement of `do' loops and
-other blocks before starting a new line.
-
-   The key `C-M-q' runs `fortran-indent-subprogram', a command to
-reindent all the lines of the Fortran subprogram (function or
-subroutine) containing point.
-
-   The key `C-M-j' runs `fortran-split-line', which splits a line in
-the appropriate fashion for Fortran.  In a non-comment line, the second
-half becomes a continuation line and is indented accordingly.  In a
-comment line, both halves become separate comment lines.
-
-   `M-^' runs the command `fortran-join-line', which is more or less
-the inverse of `fortran-split-line'.  It joins the current line to the
-previous line in a suitable way for Fortran code.
-
-
-File: emacs,  Node: ForIndent Cont,  Next: ForIndent Num,  Prev: ForIndent Commands,  Up: Fortran Indent
-
-Continuation Lines
-..................
-
-   Most modern Fortran compilers allow two ways of writing continuation
-lines.  If the first non-space character on a line is in column 5, then
-that line is a continuation of the previous line.  We call this "fixed
-format".  (In GNU Emacs we always count columns from 0.)  The variable
-`fortran-continuation-string' specifies what character to put on column
-5.  A line that starts with a tab character followed by any digit
-except `0' is also a continuation line.  We call this style of
-continuation "tab format".
-
-   Fortran mode can make either style of continuation line, but you
-must specify which one you prefer.  The value of the variable
-`indent-tabs-mode' controls the choice: `nil' for fixed format, and
-non-`nil' for tab format.  You can tell which style is presently in
-effect by the presence or absence of the string `Tab' in the mode line.
-
-   If the text on a line starts with the conventional Fortran
-continuation marker `$', or if it begins with any non-whitespace
-character in column 5, Fortran mode treats it as a continuation line.
-When you indent a continuation line with <TAB>, it converts the line to
-the current continuation style.  When you split a Fortran statement
-with `C-M-j', the continuation marker on the newline is created
-according to the continuation style.
-
-   The setting of continuation style affects several other aspects of
-editing in Fortran mode.  In fixed format mode, the minimum column
-number for the body of a statement is 6.  Lines inside of Fortran
-blocks that are indented to larger column numbers always use only the
-space character for whitespace.  In tab format mode, the minimum column
-number for the statement body is 8, and the whitespace before column 8
-must always consist of one tab character.
-
-   When you enter Fortran mode for an existing file, it tries to deduce
-the proper continuation style automatically from the file contents.
-The first line that begins with either a tab character or six spaces
-determines the choice.  The variable `fortran-analyze-depth' specifies
-how many lines to consider (at the beginning of the file); if none of
-those lines indicates a style, then the variable
-`fortran-tab-mode-default' specifies the style.  If it is `nil', that
-specifies fixed format, and non-`nil' specifies tab format.
-
-
-File: emacs,  Node: ForIndent Num,  Next: ForIndent Conv,  Prev: ForIndent Cont,  Up: Fortran Indent
-
-Line Numbers
-............
-
-   If a number is the first non-whitespace in the line, Fortran
-indentation assumes it is a line number and moves it to columns 0
-through 4.  (Columns always count from 0 in GNU Emacs.)
-
-   Line numbers of four digits or less are normally indented one space.
-The variable `fortran-line-number-indent' controls this; it specifies
-the maximum indentation a line number can have.  Line numbers are
-indented to right-justify them to end in column 4 unless that would
-require more than this maximum indentation.  The default value of the
-variable is 1.
-
-   Simply inserting a line number is enough to indent it according to
-these rules.  As each digit is inserted, the indentation is recomputed.
-To turn off this feature, set the variable
-`fortran-electric-line-number' to `nil'.  Then inserting line numbers
-is like inserting anything else.
-
-
-File: emacs,  Node: ForIndent Conv,  Next: ForIndent Vars,  Prev: ForIndent Num,  Up: Fortran Indent
-
-Syntactic Conventions
-.....................
-
-   Fortran mode assumes that you follow certain conventions that
-simplify the task of understanding a Fortran program well enough to
-indent it properly:
-
-   * Two nested `do' loops never share a `continue' statement.
-
-   * Fortran keywords such as `if', `else', `then', `do' and others are
-     written without embedded whitespace or line breaks.
-
-     Fortran compilers generally ignore whitespace outside of string
-     constants, but Fortran mode does not recognize these keywords if
-     they are not contiguous.  Constructs such as `else if' or `end do'
-     are acceptable, but the second word should be on the same line as
-     the first and not on a continuation line.
-
-If you fail to follow these conventions, the indentation commands may
-indent some lines unaesthetically.  However, a correct Fortran program
-retains its meaning when reindented even if the conventions are not
-followed.
-
-
-File: emacs,  Node: ForIndent Vars,  Prev: ForIndent Conv,  Up: Fortran Indent
-
-Variables for Fortran Indentation
-.................................
-
-   Several additional variables control how Fortran indentation works:
-
-`fortran-do-indent'
-     Extra indentation within each level of `do' statement (default 3).
-
-`fortran-if-indent'
-     Extra indentation within each level of `if' statement (default 3).
-     This value is also used for extra indentation within each level of
-     the Fortran 90 `where' statement.
-
-`fortran-structure-indent'
-     Extra indentation within each level of `structure', `union', or
-     `map' statements (default 3).
-
-`fortran-continuation-indent'
-     Extra indentation for bodies of continuation lines (default 5).
-
-`fortran-check-all-num-for-matching-do'
-     If this is `nil', indentation assumes that each `do' statement
-     ends on a `continue' statement.  Therefore, when computing
-     indentation for a statement other than `continue', it can save time
-     by not checking for a `do' statement ending there.  If this is
-     non-`nil', indenting any numbered statement must check for a `do'
-     that ends there.  The default is `nil'.
-
-`fortran-blink-matching-if'
-     If this is `t', indenting an `endif' statement moves the cursor
-     momentarily to the matching `if' statement to show where it is.
-     The default is `nil'.
-
-`fortran-minimum-statement-indent-fixed'
-     Minimum indentation for fortran statements when using fixed format
-     continuation line style.  Statement bodies are never indented less
-     than this much.  The default is 6.
-
-`fortran-minimum-statement-indent-tab'
-     Minimum indentation for fortran statements for tab format
-     continuation line style.  Statement bodies are never indented less
-     than this much.  The default is 8.
-
-
-File: emacs,  Node: Fortran Comments,  Next: Fortran Autofill,  Prev: Fortran Indent,  Up: Fortran
-
-Fortran Comments
-----------------
-
-   The usual Emacs comment commands assume that a comment can follow a
-line of code.  In Fortran, the standard comment syntax requires an
-entire line to be just a comment.  Therefore, Fortran mode replaces the
-standard Emacs comment commands and defines some new variables.
-
-   Fortran mode can also handle a nonstandard comment syntax where
-comments start with `!' and can follow other text.  Because only some
-Fortran compilers accept this syntax, Fortran mode will not insert such
-comments unless you have said in advance to do so.  To do this, set the
-variable `comment-start' to `"!"' (*note Variables::).
-
-`M-;'
-     Align comment or insert new comment (`fortran-comment-indent').
-
-`C-x ;'
-     Applies to nonstandard `!' comments only.
-
-`C-c ;'
-     Turn all lines of the region into comments, or (with argument)
-     turn them back into real code (`fortran-comment-region').
-
-   `M-;' in Fortran mode is redefined as the command
-`fortran-comment-indent'.  Like the usual `M-;' command, this
-recognizes any kind of existing comment and aligns its text
-appropriately; if there is no existing comment, a comment is inserted
-and aligned.  But inserting and aligning comments are not the same in
-Fortran mode as in other modes.
-
-   When a new comment must be inserted, if the current line is blank, a
-full-line comment is inserted.  On a non-blank line, a nonstandard `!'
-comment is inserted if you have said you want to use them.  Otherwise a
-full-line comment is inserted on a new line before the current line.
-
-   Nonstandard `!' comments are aligned like comments in other
-languages, but full-line comments are different.  In a standard
-full-line comment, the comment delimiter itself must always appear in
-column zero.  What can be aligned is the text within the comment.  You
-can choose from three styles of alignment by setting the variable
-`fortran-comment-indent-style' to one of these values:
-
-`fixed'
-     Align the text at a fixed column, which is the sum of
-     `fortran-comment-line-extra-indent' and the minimum statement
-     indentation.  This is the default.
-
-     The minimum statement indentation is
-     `fortran-minimum-statement-indent-fixed' for fixed format
-     continuation line style and `fortran-minimum-statement-indent-tab'
-     for tab format style.
-
-`relative'
-     Align the text as if it were a line of code, but with an additional
-     `fortran-comment-line-extra-indent' columns of indentation.
-
-`nil'
-     Don't move text in full-line comments automatically at all.
-
-   In addition, you can specify the character to be used to indent
-within full-line comments by setting the variable
-`fortran-comment-indent-char' to the single-character string you want
-to use.
-
-   Fortran mode introduces two variables `comment-line-start' and
-`comment-line-start-skip', which play for full-line comments the same
-roles played by `comment-start' and `comment-start-skip' for ordinary
-text-following comments.  Normally these are set properly by Fortran
-mode, so you do not need to change them.
-
-   The normal Emacs comment command `C-x ;' has not been redefined.  If
-you use `!' comments, this command can be used with them.  Otherwise it
-is useless in Fortran mode.
-
-   The command `C-c ;' (`fortran-comment-region') turns all the lines
-of the region into comments by inserting the string `C$$$' at the front
-of each one.  With a numeric argument, it turns the region back into
-live code by deleting `C$$$' from the front of each line in it.  The
-string used for these comments can be controlled by setting the
-variable `fortran-comment-region'.  Note that here we have an example
-of a command and a variable with the same name; these two uses of the
-name never conflict because in Lisp and in Emacs it is always clear
-from the context which one is meant.
-
-
-File: emacs,  Node: Fortran Autofill,  Next: Fortran Columns,  Prev: Fortran Comments,  Up: Fortran
-
-Fortran Auto Fill Mode
-----------------------
-
-   Fortran Auto Fill mode is a minor mode which automatically splits
-Fortran statements as you insert them when they become too wide.
-Splitting a statement involves making continuation lines using
-`fortran-continuation-string' (*note ForIndent Cont::).  This splitting
-happens when you type <SPC>, <RET>, or <TAB>, and also in the Fortran
-indentation commands.
-
-   `M-x fortran-auto-fill-mode' turns Fortran Auto Fill mode on if it
-was off, or off if it was on.  This command works the same as `M-x
-auto-fill-mode' does for normal Auto Fill mode (*note Filling::).  A
-positive numeric argument turns Fortran Auto Fill mode on, and a
-negative argument turns it off.  You can see when Fortran Auto Fill mode
-is in effect by the presence of the word `Fill' in the mode line,
-inside the parentheses.  Fortran Auto Fill mode is a minor mode, turned
-on or off for each buffer individually.  *Note Minor Modes::.
-
-   Fortran Auto Fill mode breaks lines at spaces or delimiters when the
-lines get longer than the desired width (the value of `fill-column').
-The delimiters that Fortran Auto Fill mode may break at are `,', `'',
-`+', `-', `/', `*', `=', and `)'.  The line break comes after the
-delimiter if the variable `fortran-break-before-delimiters' is `nil'.
-Otherwise (and by default), the break comes before the delimiter.
-
-   By default, Fortran Auto Fill mode is not enabled.  If you want this
-feature turned on permanently, add a hook function to
-`fortran-mode-hook' to execute `(fortran-auto-fill-mode 1)'.  *Note
-Hooks::.
-
-
-File: emacs,  Node: Fortran Columns,  Next: Fortran Abbrev,  Prev: Fortran Autofill,  Up: Fortran
-
-Checking Columns in Fortran
----------------------------
+   You can invoke TeX as an inferior of Emacs on either the entire
+contents of the buffer or just a region at a time.  Running TeX in this
+way on just one chapter is a good way to see what your changes look
+like without taking the time to format the entire file.
 
 `C-c C-r'
-     Display a "column ruler" momentarily above the current line
-     (`fortran-column-ruler').
+     Invoke TeX on the current region, together with the buffer's header
+     (`tex-region').
 
-`C-c C-w'
-     Split the current window horizontally temporarily so that it is 72
-     columns wide.  This may help you avoid making lines longer than the
-     72-character limit that some Fortran compilers impose
-     (`fortran-window-create-momentarily').
+`C-c C-b'
+     Invoke TeX on the entire current buffer (`tex-buffer').
 
-   The command `C-c C-r' (`fortran-column-ruler') shows a column ruler
-momentarily above the current line.  The comment ruler is two lines of
-text that show you the locations of columns with special significance in
-Fortran programs.  Square brackets show the limits of the columns for
-line numbers, and curly brackets show the limits of the columns for the
-statement body.  Column numbers appear above them.
+`C-c <TAB>'
+     Invoke BibTeX on the current file (`tex-bibtex-file').
 
-   Note that the column numbers count from zero, as always in GNU Emacs.
-As a result, the numbers may be one less than those you are familiar
-with; but the positions they indicate in the line are standard for
-Fortran.
+`C-c C-f'
+     Invoke TeX on the current file (`tex-file').
 
-   The text used to display the column ruler depends on the value of
-the variable `indent-tabs-mode'.  If `indent-tabs-mode' is `nil', then
-the value of the variable `fortran-column-ruler-fixed' is used as the
-column ruler.  Otherwise, the variable `fortran-column-ruler-tab' is
-displayed.  By changing these variables, you can change the column
-ruler display.
+`C-c C-l'
+     Recenter the window showing output from the inferior TeX so that
+     the last line can be seen (`tex-recenter-output-buffer').
 
-   For even more help, use `C-c C-w' (`fortran-window-create'), a
-command which splits the current window horizontally, making a window 72
-columns wide.  By editing in this window you can immediately see when
-you make a line too wide to be correct Fortran.
+`C-c C-k'
+     Kill the TeX subprocess (`tex-kill-job').
+
+`C-c C-p'
+     Print the output from the last `C-c C-r', `C-c C-b', or `C-c C-f'
+     command (`tex-print').
+
+`C-c C-v'
+     Preview the output from the last `C-c C-r', `C-c C-b', or `C-c
+     C-f' command (`tex-view').
+
+`C-c C-q'
+     Show the printer queue (`tex-show-print-queue').
+
+   You can pass the current buffer through an inferior TeX by means of
+`C-c C-b' (`tex-buffer').  The formatted output appears in a temporary
+file; to print it, type `C-c C-p' (`tex-print').  Afterward, you can
+use `C-c C-q' (`tex-show-print-queue') to view the progress of your
+output towards being printed.  If your terminal has the ability to
+display TeX output files, you can preview the output on the terminal
+with `C-c C-v' (`tex-view').
+
+   You can specify the directory to use for running TeX by setting the
+variable `tex-directory'.  `"."' is the default value.  If your
+environment variable `TEXINPUTS' contains relative directory names, or
+if your files contains `\input' commands with relative file names, then
+`tex-directory' _must_ be `"."' or you will get the wrong results.
+Otherwise, it is safe to specify some other directory, such as `"/tmp"'.
+
+   If you want to specify which shell commands are used in the inferior
+TeX, you can do so by setting the values of the variables
+`tex-run-command', `latex-run-command', `slitex-run-command',
+`tex-dvi-print-command', `tex-dvi-view-command', and
+`tex-show-queue-command'.  You _must_ set the value of
+`tex-dvi-view-command' for your particular terminal; this variable has
+no default value.  The other variables have default values that may (or
+may not) be appropriate for your system.
+
+   Normally, the file name given to these commands comes at the end of
+the command string; for example, `latex FILENAME'.  In some cases,
+however, the file name needs to be embedded in the command; an example
+is when you need to provide the file name as an argument to one command
+whose output is piped to another.  You can specify where to put the
+file name with `*' in the command string.  For example,
+
+     (setq tex-dvi-print-command "dvips -f * | lpr")
+
+   The terminal output from TeX, including any error messages, appears
+in a buffer called `*tex-shell*'.  If TeX gets an error, you can switch
+to this buffer and feed it input (this works as in Shell mode; *note
+Interactive Shell::).  Without switching to this buffer you can scroll
+it so that its last line is visible by typing `C-c C-l'.
+
+   Type `C-c C-k' (`tex-kill-job') to kill the TeX process if you see
+that its output is no longer useful.  Using `C-c C-b' or `C-c C-r' also
+kills any TeX process still running.
+
+   You can also pass an arbitrary region through an inferior TeX by
+typing `C-c C-r' (`tex-region').  This is tricky, however, because most
+files of TeX input contain commands at the beginning to set parameters
+and define macros, without which no later part of the file will format
+correctly.  To solve this problem, `C-c C-r' allows you to designate a
+part of the file as containing essential commands; it is included before
+the specified region as part of the input to TeX.  The designated part
+of the file is called the "header".
+
+   To indicate the bounds of the header in Plain TeX mode, you insert
+two special strings in the file.  Insert `%**start of header' before the
+header, and `%**end of header' after it.  Each string must appear
+entirely on one line, but there may be other text on the line before or
+after.  The lines containing the two strings are included in the header.
+If `%**start of header' does not appear within the first 100 lines of
+the buffer, `C-c C-r' assumes that there is no header.
+
+   In LaTeX mode, the header begins with `\documentclass' or
+`\documentstyle' and ends with `\begin{document}'.  These are commands
+that LaTeX requires you to use in any case, so nothing special needs to
+be done to identify the header.
+
+   The commands (`tex-buffer') and (`tex-region') do all of their work
+in a temporary directory, and do not have available any of the auxiliary
+files needed by TeX for cross-references; these commands are generally
+not suitable for running the final copy in which all of the
+cross-references need to be correct.
+
+   When you want the auxiliary files for cross references, use `C-c
+C-f' (`tex-file') which runs TeX on the current buffer's file, in that
+file's directory.  Before running TeX, it offers to save any modified
+buffers.  Generally, you need to use (`tex-file') twice to get the
+cross-references right.
+
+   The value of the variable `tex-start-options-string' specifies
+options for the TeX run.  The default value causes TeX to run in
+nonstop mode.  To run TeX interactively, set the variable to `""'.
+
+   Large TeX documents are often split into several files--one main
+file, plus subfiles.  Running TeX on a subfile typically does not work;
+you have to run it on the main file.  In order to make `tex-file'
+useful when you are editing a subfile, you can set the variable
+`tex-main-file' to the name of the main file.  Then `tex-file' runs TeX
+on that file.
+
+   The most convenient way to use `tex-main-file' is to specify it in a
+local variable list in each of the subfiles.  *Note File Variables::.
+
+   For LaTeX files, you can use BibTeX to process the auxiliary file
+for the current buffer's file.  BibTeX looks up bibliographic citations
+in a data base and prepares the cited references for the bibliography
+section.  The command `C-c TAB' (`tex-bibtex-file') runs the shell
+command (`tex-bibtex-command') to produce a `.bbl' file for the current
+buffer's file.  Generally, you need to do `C-c C-f' (`tex-file') once
+to generate the `.aux' file, then do `C-c TAB' (`tex-bibtex-file'), and
+then repeat `C-c C-f' (`tex-file') twice more to get the
+cross-references correct.
 
 
-File: emacs,  Node: Fortran Abbrev,  Next: Fortran Misc,  Prev: Fortran Columns,  Up: Fortran
+File: emacs,  Node: TeX Misc,  Prev: TeX Print,  Up: TeX Mode
 
-Fortran Keyword Abbrevs
------------------------
+TeX Mode Miscellany
+-------------------
 
-   Fortran mode provides many built-in abbrevs for common keywords and
-declarations.  These are the same sort of abbrev that you can define
-yourself.  To use them, you must turn on Abbrev mode.  *Note Abbrevs::.
+   Entering any variant of TeX mode runs the hooks `text-mode-hook' and
+`tex-mode-hook'.  Then it runs either `plain-tex-mode-hook',
+`latex-mode-hook', or `slitex-mode-hook', whichever is appropriate.
+Starting the TeX shell runs the hook `tex-shell-hook'.  *Note Hooks::.
 
-   The built-in abbrevs are unusual in one way: they all start with a
-semicolon.  You cannot normally use semicolon in an abbrev, but Fortran
-mode makes this possible by changing the syntax of semicolon to "word
-constituent."
+   TeX encoding   The commands `M-x iso-iso2tex', `M-x iso-tex2iso',
+`M-x iso-iso2gtex' and `M-x iso-gtex2iso' can be used to convert
+between Latin-1 encoded files and TeX-encoded equivalents.
 
-   For example, one built-in Fortran abbrev is `;c' for `continue'.  If
-you insert `;c' and then insert a punctuation character such as a space
-or a newline, the `;c' expands automatically to `continue', provided
-Abbrev mode is enabled.
-
-   Type `;?' or `;C-h' to display a list of all the built-in Fortran
-abbrevs and what they stand for.
+   For managing all kinds of references for LaTeX, you can use RefTeX.
+*Note RefTeX: (reftex)Top.
 
 
-File: emacs,  Node: Fortran Misc,  Prev: Fortran Abbrev,  Up: Fortran
+File: emacs,  Node: Nroff Mode,  Next: Formatted Text,  Prev: TeX Mode,  Up: Text
 
-Other Fortran Mode Commands
----------------------------
+Nroff Mode
+==========
 
-`C-x n d'
-     Narrow to the current Fortran subprogram.
+   Nroff mode is a mode like Text mode but modified to handle nroff
+commands present in the text.  Invoke `M-x nroff-mode' to enter this
+mode.  It differs from Text mode in only a few ways.  All nroff command
+lines are considered paragraph separators, so that filling will never
+garble the nroff commands.  Pages are separated by `.bp' commands.
+Comments start with backslash-doublequote.  Also, three special
+commands are provided that are not in Text mode:
 
-   Fortran mode redefines the key `C-x n d' to run the command
-`fortran-narrow-to-subprogram', which is the Fortran analogue of the
-key's usual definition.  It narrows the buffer to the subprogram
-containing point.
+`M-n'
+     Move to the beginning of the next line that isn't an nroff command
+     (`forward-text-line').  An argument is a repeat count.
+
+`M-p'
+     Like `M-n' but move up (`backward-text-line').
+
+`M-?'
+     Displays in the echo area the number of text lines (lines that are
+     not nroff commands) in the region (`count-text-lines').
+
+   The other feature of Nroff mode is that you can turn on Electric
+Nroff mode.  This is a minor mode that you can turn on or off with `M-x
+electric-nroff-mode' (*note Minor Modes::).  When the mode is on, each
+time you use <RET> to end a line that contains an nroff command that
+opens a kind of grouping, the matching nroff command to close that
+grouping is automatically inserted on the following line.  For example,
+if you are at the beginning of a line and type `. ( b <RET>', this
+inserts the matching command `.)b' on a new line following point.
+
+   If you use Outline minor mode with Nroff mode (*note Outline Mode::),
+heading lines are lines of the form `.H' followed by a number (the
+header level).
+
+   Entering Nroff mode runs the hook `text-mode-hook', followed by the
+hook `nroff-mode-hook' (*note Hooks::).
 
 
-File: emacs,  Node: Asm Mode,  Prev: Fortran,  Up: Programs
+File: emacs,  Node: Formatted Text,  Prev: Nroff Mode,  Up: Text
 
-Asm Mode
-========
+Editing Formatted Text
+======================
 
-   Asm mode is a major mode for editing files of assembler code.  It
-defines these commands:
+   "Enriched mode" is a minor mode for editing files that contain
+formatted text in WYSIWYG fashion, as in a word processor.  Currently,
+formatted text in Enriched mode can specify fonts, colors, underlining,
+margins, and types of filling and justification.  In the future, we plan
+to implement other formatting features as well.
 
-`<TAB>'
-     `tab-to-tab-stop'.
+   Enriched mode is a minor mode (*note Minor Modes::).  It is
+typically used in conjunction with Text mode (*note Text Mode::), but
+you can also use it with other major modes such as Outline mode and
+Paragraph-Indent Text mode.
 
-`C-j'
-     Insert a newline and then indent using `tab-to-tab-stop'.
+   Potentially, Emacs can store formatted text files in various file
+formats.  Currently, only one format is implemented: "text/enriched"
+format, which is defined by the MIME protocol.  *Note Format
+Conversion: (elisp)Format Conversion, for details of how Emacs
+recognizes and converts file formats.
 
-`:'
-     Insert a colon and then remove the indentation from before the
-     label preceding colon.  Then do `tab-to-tab-stop'.
-
-`;'
-     Insert or align a comment.
-
-   The variable `asm-comment-char' specifies which character starts
-comments in assembler syntax.
-
-
-File: emacs,  Node: Building,  Next: Abbrevs,  Prev: Programs,  Up: Top
-
-Compiling and Testing Programs
-******************************
-
-   The previous chapter discusses the Emacs commands that are useful for
-making changes in programs.  This chapter deals with commands that
-assist in the larger process of developing and maintaining programs.
+   The Emacs distribution contains a formatted text file that can serve
+as an example.  Its name is `etc/enriched.doc'.  It contains samples
+illustrating all the features described in this section.  It also
+contains a list of ideas for future enhancements.
 
 * Menu:
 
-* Compilation::         Compiling programs in languages other
-                          than Lisp (C, Pascal, etc.).
-* Grep Searching::      Running grep as if it were a compiler.
-* Compilation Mode::    The mode for visiting compiler errors.
-* Compilation Shell::   Customizing your shell properly
-                          for use in the compilation buffer.
-* Debuggers::	        Running symbolic debuggers for non-Lisp programs.
-* Executing Lisp::      Various modes for editing Lisp programs,
-                          with different facilities for running
-                          the Lisp programs.
-* Libraries: Lisp Libraries.      Creating Lisp programs to run in Emacs.
-* Interaction: Lisp Interaction.  Executing Lisp in an Emacs buffer.
-* Eval: Lisp Eval.      Executing a single Lisp expression in Emacs.
-* External Lisp::         Communicating through Emacs with a separate Lisp.
+* Requesting Formatted Text::   Entering and exiting Enriched mode.
+* Hard and Soft Newlines::      There are two different kinds of newlines.
+* Editing Format Info::         How to edit text properties.
+* Faces: Format Faces.          Bold, italic, underline, etc.
+* Color: Format Colors.         Changing the color of text.
+* Indent: Format Indentation.   Changing the left and right margins.
+* Justification: Format Justification.
+                                Centering, setting text flush with the
+                                  left or right margin, etc.
+* Other: Format Properties.     The "special" text properties submenu.
+* Forcing Enriched Mode::       How to force use of Enriched mode.
 
 
-File: emacs,  Node: Compilation,  Next: Grep Searching,  Up: Building
+File: emacs,  Node: Requesting Formatted Text,  Next: Hard and Soft Newlines,  Up: Formatted Text
 
-Running Compilations under Emacs
+Requesting to Edit Formatted Text
+---------------------------------
+
+   Whenever you visit a file that Emacs saved in the text/enriched
+format, Emacs automatically converts the formatting information in the
+file into Emacs's own internal format (text properties), and turns on
+Enriched mode.
+
+   To create a new file of formatted text, first visit the nonexistent
+file, then type `M-x enriched-mode' before you start inserting text.
+This command turns on Enriched mode.  Do this before you begin inserting
+text, to ensure that the text you insert is handled properly.
+
+   More generally, the command `enriched-mode' turns Enriched mode on
+if it was off, and off if it was on.  With a prefix argument, this
+command turns Enriched mode on if the argument is positive, and turns
+the mode off otherwise.
+
+   When you save a buffer while Enriched mode is enabled in it, Emacs
+automatically converts the text to text/enriched format while writing it
+into the file.  When you visit the file again, Emacs will automatically
+recognize the format, reconvert the text, and turn on Enriched mode
+again.
+
+   Normally, after visiting a file in text/enriched format, Emacs
+refills each paragraph to fit the specified right margin.  You can turn
+off this refilling, to save time, by setting the variable
+`enriched-fill-after-visiting' to `nil' or to `ask'.
+
+   However, when visiting a file that was saved from Enriched mode,
+there is no need for refilling, because Emacs saves the right margin
+settings along with the text.
+
+   You can add annotations for saving additional text properties, which
+Emacs normally does not save, by adding to `enriched-translations'.
+Note that the text/enriched standard requires any non-standard
+annotations to have names starting with `x-', as in `x-read-only'.
+This ensures that they will not conflict with standard annotations that
+may be added later.
+
+
+File: emacs,  Node: Hard and Soft Newlines,  Next: Editing Format Info,  Prev: Requesting Formatted Text,  Up: Formatted Text
+
+Hard and Soft Newlines
+----------------------
+
+   In formatted text, Emacs distinguishes between two different kinds of
+newlines, "hard" newlines and "soft" newlines.
+
+   Hard newlines are used to separate paragraphs, or items in a list, or
+anywhere that there should always be a line break regardless of the
+margins.  The <RET> command (`newline') and `C-o' (`open-line') insert
+hard newlines.
+
+   Soft newlines are used to make text fit between the margins.  All the
+fill commands, including Auto Fill, insert soft newlines--and they
+delete only soft newlines.
+
+   Although hard and soft newlines look the same, it is important to
+bear the difference in mind.  Do not use <RET> to break lines in the
+middle of filled paragraphs, or else you will get hard newlines that are
+barriers to further filling.  Instead, let Auto Fill mode break lines,
+so that if the text or the margins change, Emacs can refill the lines
+properly.  *Note Auto Fill::.
+
+   On the other hand, in tables and lists, where the lines should always
+remain as you type them, you can use <RET> to end lines.  For these
+lines, you may also want to set the justification style to `unfilled'.
+*Note Format Justification::.
+
+
+File: emacs,  Node: Editing Format Info,  Next: Format Faces,  Prev: Hard and Soft Newlines,  Up: Formatted Text
+
+Editing Format Information
+--------------------------
+
+   There are two ways to alter the formatting information for a
+formatted text file: with keyboard commands, and with the mouse.
+
+   The easiest way to add properties to your document is by using the
+Text Properties menu.  You can get to this menu in two ways: from the
+Edit menu in the menu bar, or with `C-Mouse-2' (hold the <CTRL> key and
+press the middle mouse button).
+
+   Most of the items in the Text Properties menu lead to other submenus.
+These are described in the sections that follow.  Some items run
+commands directly:
+
+`Remove Properties'
+     Delete from the region all the text properties that the Text
+     Properties menu works with (`facemenu-remove-props').
+
+`Remove All'
+     Delete _all_ text properties from the region
+     (`facemenu-remove-all').
+
+`List Properties'
+     List all the text properties of the character following point
+     (`list-text-properties-at').
+
+`Display Faces'
+     Display a list of all the defined faces.
+
+`Display Colors'
+     Display a list of all the defined colors.
+
+
+File: emacs,  Node: Format Faces,  Next: Format Colors,  Prev: Editing Format Info,  Up: Formatted Text
+
+Faces in Formatted Text
+-----------------------
+
+   The Faces submenu lists various Emacs faces including `bold',
+`italic', and `underline'.  Selecting one of these adds the chosen face
+to the region.  *Note Faces::.  You can also specify a face with these
+keyboard commands:
+
+`M-g d'
+     Set the region, or the next inserted character, to the `default'
+     face (`facemenu-set-default').
+
+`M-g b'
+     Set the region, or the next inserted character, to the `bold' face
+     (`facemenu-set-bold').
+
+`M-g i'
+     Set the region, or the next inserted character, to the `italic'
+     face (`facemenu-set-italic').
+
+`M-g l'
+     Set the region, or the next inserted character, to the
+     `bold-italic' face (`facemenu-set-bold-italic').
+
+`M-g u'
+     Set the region, or the next inserted character, to the `underline'
+     face (`facemenu-set-underline').
+
+`M-g o FACE <RET>'
+     Set the region, or the next inserted character, to the face FACE
+     (`facemenu-set-face').
+
+   If you use these commands with a prefix argument--or, in Transient
+Mark mode, if the region is not active--then these commands specify a
+face to use for your next self-inserting input.  *Note Transient
+Mark::.  This applies to both the keyboard commands and the menu
+commands.
+
+   Enriched mode defines two additional faces: `excerpt' and `fixed'.
+These correspond to codes used in the text/enriched file format.
+
+   The `excerpt' face is intended for quotations.  This face is the
+same as `italic' unless you customize it (*note Face Customization::).
+
+   The `fixed' face means, "Use a fixed-width font for this part of the
+text."  This makes a visible difference only if you have specified a
+variable-width font in the default face; however, even if the default
+font is fixed-width, applying the `fixed' face to a part of the text
+will cause that part of the text to appear in a fixed-width font, if
+the file is ever displayed with a variable-width default font.  This
+applies to Emacs and to other systems that display text/enriched
+format.  So if you specifically want a certain part of the text to use
+a fixed-width font, you should specify the `fixed' face for that part.
+
+   The `fixed' face is normally set up to use a different font from the
+default, even if the default face is also fixed-width.  Different
+systems have different fonts installed, so you may need to customize
+this.  *Note Face Customization::.
+
+   If your terminal cannot display different faces, you will not be
+able to see them, but you can still edit documents containing faces,
+and even add faces and colors to documents.  The faces you specify will
+be visible when the file is viewed on a terminal that can display them.
+
+
+File: emacs,  Node: Format Colors,  Next: Format Indentation,  Prev: Format Faces,  Up: Formatted Text
+
+Colors in Formatted Text
+------------------------
+
+   You can specify foreground and background colors for portions of the
+text.  There is a menu for specifying the foreground color and a menu
+for specifying the background color.  Each color menu lists all the
+colors that you have used in Enriched mode in the current Emacs session.
+
+   If you specify a color with a prefix argument--or, in Transient Mark
+mode, if the region is not active--then it applies to your next
+self-inserting input.  *Note Transient Mark::.  Otherwise, the command
+applies to the region.
+
+   Each color menu contains one additional item: `Other'.  You can use
+this item to specify a color that is not listed in the menu; it reads
+the color name with the minibuffer.  To display list of available colors
+and their names, use the `Display Colors' menu item in the Text
+Properties menu (*note Editing Format Info::).
+
+   Any color that you specify in this way, or that is mentioned in a
+formatted text file that you read in, is added to both color menus for
+the duration of the Emacs session.
+
+   There are no key bindings for specifying colors, but you can do so
+with the extended commands `M-x facemenu-set-foreground' and `M-x
+facemenu-set-background'.  Both of these commands read the name of the
+color with the minibuffer.
+
+
+File: emacs,  Node: Format Indentation,  Next: Format Justification,  Prev: Format Colors,  Up: Formatted Text
+
+Indentation in Formatted Text
+-----------------------------
+
+   When editing formatted text, you can specify different amounts of
+indentation for the right or left margin of an entire paragraph or a
+part of a paragraph.  The margins you specify automatically affect the
+Emacs fill commands (*note Filling::) and line-breaking commands.
+
+   The Indentation submenu provides a convenient interface for
+specifying these properties.  The submenu contains four items:
+
+`Indent More'
+     Indent the region by 4 columns (`increase-left-margin').  In
+     Enriched mode, this command is also available on `C-x <TAB>'; if
+     you supply a numeric argument, that says how many columns to add
+     to the margin (a negative argument reduces the number of columns).
+
+`Indent Less'
+     Remove 4 columns of indentation from the region.
+
+`Indent Right More'
+     Make the text narrower by indenting 4 columns at the right margin.
+
+`Indent Right Less'
+     Remove 4 columns of indentation from the right margin.
+
+   You can use these commands repeatedly to increase or decrease the
+indentation.
+
+   The most common way to use these commands is to change the
+indentation of an entire paragraph.  However, that is not the only use.
+You can change the margins at any point; the new values take effect at
+the end of the line (for right margins) or the beginning of the next
+line (for left margins).
+
+   This makes it possible to format paragraphs with "hanging indents",
+which means that the first line is indented less than subsequent lines.
+To set up a hanging indent, increase the indentation of the region
+starting after the first word of the paragraph and running until the end
+of the paragraph.
+
+   Indenting the first line of a paragraph is easier.  Set the margin
+for the whole paragraph where you want it to be for the body of the
+paragraph, then indent the first line by inserting extra spaces or tabs.
+
+   Sometimes, as a result of editing, the filling of a paragraph becomes
+messed up--parts of the paragraph may extend past the left or right
+margins.  When this happens, use `M-q' (`fill-paragraph') to refill the
+paragraph.
+
+   The variable `standard-indent' specifies how many columns these
+commands should add to or subtract from the indentation.  The default
+value is 4.  The overall default right margin for Enriched mode is
+controlled by the variable `fill-column', as usual.
+
+   The fill prefix, if any, works in addition to the specified paragraph
+indentation: `C-x .' does not include the specified indentation's
+whitespace in the new value for the fill prefix, and the fill commands
+look for the fill prefix after the indentation on each line.  *Note
+Fill Prefix::.
+
+
+File: emacs,  Node: Format Justification,  Next: Format Properties,  Prev: Format Indentation,  Up: Formatted Text
+
+Justification in Formatted Text
+-------------------------------
+
+   When editing formatted text, you can specify various styles of
+justification for a paragraph.  The style you specify automatically
+affects the Emacs fill commands.
+
+   The Justification submenu provides a convenient interface for
+specifying the style.  The submenu contains five items:
+
+`Flush Left'
+     This is the most common style of justification (at least for
+     English).  Lines are aligned at the left margin but left uneven at
+     the right.
+
+`Flush Right'
+     This aligns each line with the right margin.  Spaces and tabs are
+     added on the left, if necessary, to make lines line up on the
+     right.
+
+`Full'
+     This justifies the text, aligning both edges of each line.
+     Justified text looks very nice in a printed book, where the spaces
+     can all be adjusted equally, but it does not look as nice with a
+     fixed-width font on the screen.  Perhaps a future version of Emacs
+     will be able to adjust the width of spaces in a line to achieve
+     elegant justification.
+
+`Center'
+     This centers every line between the current margins.
+
+`None'
+     This turns off filling entirely.  Each line will remain as you
+     wrote it; the fill and auto-fill functions will have no effect on
+     text which has this setting.  You can, however, still indent the
+     left margin.  In unfilled regions, all newlines are treated as
+     hard newlines (*note Hard and Soft Newlines::) .
+
+   In Enriched mode, you can also specify justification from the
+keyboard using the `M-j' prefix character:
+
+`M-j l'
+     Make the region left-filled (`set-justification-left').
+
+`M-j r'
+     Make the region right-filled (`set-justification-right').
+
+`M-j f'
+     Make the region fully-justified (`set-justification-full').
+
+`M-j c'
+`M-S'
+     Make the region centered (`set-justification-center').
+
+`M-j u'
+     Make the region unfilled (`set-justification-none').
+
+   Justification styles apply to entire paragraphs.  All the
+justification-changing commands operate on the paragraph containing
+point, or, if the region is active, on all paragraphs which overlap the
+region.
+
+   The default justification style is specified by the variable
+`default-justification'.  Its value should be one of the symbols
+`left', `right', `full', `center', or `none'.
+
+
+File: emacs,  Node: Format Properties,  Next: Forcing Enriched Mode,  Prev: Format Justification,  Up: Formatted Text
+
+Setting Other Text Properties
+-----------------------------
+
+   The Other Properties menu lets you add or remove three other useful
+text properties: `read-only', `invisible' and `intangible'.  The
+`intangible' property disallows moving point within the text, the
+`invisible' text property hides text from display, and the `read-only'
+property disallows alteration of the text.
+
+   Each of these special properties has a menu item to add it to the
+region.  The last menu item, `Remove Special', removes all of these
+special properties from the text in the region.
+
+   Currently, the `invisible' and `intangible' properties are _not_
+saved in the text/enriched format.  The `read-only' property is saved,
+but it is not a standard part of the text/enriched format, so other
+editors may not respect it.
+
+
+File: emacs,  Node: Forcing Enriched Mode,  Prev: Format Properties,  Up: Formatted Text
+
+Forcing Enriched Mode
+---------------------
+
+   Normally, Emacs knows when you are editing formatted text because it
+recognizes the special annotations used in the file that you visited.
+However, there are situations in which you must take special actions to
+convert file contents or turn on Enriched mode:
+
+   * When you visit a file that was created with some other editor,
+     Emacs may not recognize the file as being in the text/enriched
+     format.  In this case, when you visit the file you will see the
+     formatting commands rather than the formatted text.  Type `M-x
+     format-decode-buffer' to translate it.
+
+   * When you _insert_ a file into a buffer, rather than visiting it.
+     Emacs does the necessary conversions on the text which you insert,
+     but it does not enable Enriched mode.  If you wish to do that,
+     type `M-x enriched-mode'.
+
+   The command `format-decode-buffer' translates text in various
+formats into Emacs's internal format.  It asks you to specify the format
+to translate from; however, normally you can type just <RET>, which
+tells Emacs to guess the format.
+
+   If you wish to look at text/enriched file in its raw form, as a
+sequence of characters rather than as formatted text, use the `M-x
+find-file-literally' command.  This visits a file, like `find-file',
+but does not do format conversion.  It also inhibits character code
+conversion (*note Coding Systems::) and automatic uncompression (*note
+Compressed Files::).  To disable format conversion but allow character
+code conversion and/or automatic uncompression if appropriate, use
+`format-find-file' with suitable arguments.
+
+
+File: emacs,  Node: Programs,  Next: Building,  Prev: Text,  Up: Top
+
+Editing Programs
+****************
+
+   Emacs provides many features to facilitate editing programs.  Some
+of these features can
+
+   * Find or move over top-level definitions (*note Defuns::).
+
+   * Apply the usual indentation conventions of the language (*note
+     Program Indent::).
+
+   * Insert, kill or align comments (*note Comments::).
+
+   * Balance parentheses (*note Parentheses::).
+
+   * Highlight program syntax (*note Font Lock::).
+
+   This chapter describes these features and many more.
+
+* Menu:
+
+* Program Modes::       Major modes for editing programs.
+* Defuns::              Commands to operate on major top-level parts
+                          of a program.
+* Program Indent::      Adjusting indentation to show the nesting.
+* Comments::	        Inserting, killing, and aligning comments.
+* Parentheses::         Commands that operate on parentheses.
+* Documentation::       Getting documentation of functions you plan to call.
+* Hideshow::            Displaying blocks selectively.
+* Symbol Completion::   Completion on symbol names of your program or language.
+* Glasses::             Making identifiersLikeThis more readable.
+* Misc for Programs::   Other Emacs features useful for editing programs.
+* C Modes::             Special commands of C, C++, Objective-C,
+                          Java, and Pike modes.
+* Fortran::             Fortran mode and its special features.
+* Asm Mode::            Asm mode and its special features.
+
+
+File: emacs,  Node: Program Modes,  Next: Defuns,  Up: Programs
+
+Major Modes for Programming Languages
+=====================================
+
+   Emacs has specialized major modes for various programming languages.
+*Note Major Modes::.  A programming language major mode typically
+specifies the syntax of expressions, the customary rules for
+indentation, how to do syntax highlighting for the language, and how to
+find the beginning of a function definition.  It often customizes or
+provides facilities for compiling and debugging programs as well.
+
+   Ideally, Emacs should provide a major mode for each programming
+language that you might want to edit; if it doesn't have a mode for
+your favorite language, you can contribute one.  But often the mode for
+one language can serve for other syntactically similar languages.  The
+major mode for language L is called `L-mode', and you can select it by
+typing `M-x L-mode <RET>'.  *Note Choosing Modes::.
+
+   The existing programming language major modes include Lisp, Scheme (a
+variant of Lisp) and the Scheme-based DSSSL expression language, Ada,
+Awk, C, C++, Delphi (Object Pascal), Fortran (free format and fixed
+format), Icon, IDL (CORBA), IDLWAVE, Java, Metafont (TeX's companion
+for font creation), Modula2, Objective-C, Octave, Pascal, Perl, Pike,
+PostScript, Prolog, Simula, Tcl, and VHDL.  There is also a major mode
+for makefiles, called Makefile mode.  An alternative mode for Perl is
+called CPerl mode.  Modes are available for the scripting languages of
+the common GNU and Unix shells, VMS DCL, and MS-DOS/MS-Windows `BAT'
+files.  There are also major modes for editing various sorts of
+configuration files.
+
+   In most programming languages, indentation should vary from line to
+line to illustrate the structure of the program.  So the major modes
+for programming languages arrange for <TAB> to update the indentation
+of the current line.  They also rebind <DEL> to treat a tab as if it
+were the equivalent number of spaces; this lets you delete one column
+of indentation without worrying whether the whitespace consists of
+spaces or tabs.  Use `C-b C-d' to delete a tab character before point,
+in these modes.
+
+   Separate manuals are available for the modes for Ada (*note Ada
+Mode: (ada-mode)Top.), C/C++/Objective C/Java/Corba IDL (*note CC Mode:
+(ccmode)Top.) and the IDLWAVE modes (*note IDLWAVE: (idlwave)Top.).
+
+   Turning on a major mode runs a normal hook called the "mode hook",
+which is the value of a Lisp variable.  Each major mode has a mode
+hook, and the hook's name is always made from the mode command's name
+by adding `-hook'.  For example, turning on C mode runs the hook
+`c-mode-hook', while turning on Lisp mode runs the hook
+`lisp-mode-hook'.  The purpose of the mode hook is to give you a place
+to set up customizations for that major mode.  *Note Hooks::.
+
+
+File: emacs,  Node: Defuns,  Next: Program Indent,  Prev: Program Modes,  Up: Programs
+
+Top-Level Definitions, or Defuns
 ================================
 
-   Emacs can run compilers for noninteractive languages such as C and
-Fortran as inferior processes, feeding the error log into an Emacs
-buffer.  It can also parse the error messages and show you the source
-lines where compilation errors occurred.
+   In Emacs, a major definition at the top level in the buffer is
+called a "defun".  The name comes from Lisp, but in Emacs we use it for
+all languages.
 
-`M-x compile'
-     Run a compiler asynchronously under Emacs, with error messages to
-     `*compilation*' buffer.
+   In most programming language modes, Emacs assumes that a defun is
+any pair of parentheses (or braces, if the language uses braces this
+way) that starts at the left margin.  For example, in C, the body of a
+function definition is normally a defun, because the open-brace that
+begins it is normally at the left margin.  A variable's initializer can
+also count as a defun, if the open-brace that begins the initializer is
+at the left margin.
 
-`M-x grep'
-     Run `grep' asynchronously under Emacs, with matching lines listed
-     in the buffer named `*grep*'.
+   However, some language modes provide their own code for recognizing
+defuns in a way that suits the language syntax and conventions better.
 
-`M-x grep-find'
-     Run `grep' via `find', with user-specified arguments, and collect
-     output in the buffer named `*grep*'.
+* Menu:
 
-`M-x kill-compilation'
-`M-x kill-grep'
-     Kill the running compilation or `grep' subprocess.
-
-   To run `make' or another compilation command, do `M-x compile'.
-This command reads a shell command line using the minibuffer, and then
-executes the command in an inferior shell, putting output in the buffer
-named `*compilation*'.  The current buffer's default directory is used
-as the working directory for the execution of the command; normally,
-therefore, the compilation happens in this directory.
-
-   When the shell command line is read, the minibuffer appears
-containing a default command line, which is the command you used the
-last time you did `M-x compile'.  If you type just <RET>, the same
-command line is used again.  For the first `M-x compile', the default is
-`make -k'.  The default compilation command comes from the variable
-`compile-command'; if the appropriate compilation command for a file is
-something other than `make -k', it can be useful for the file to
-specify a local value for `compile-command' (*note File Variables::).
-
-   Starting a compilation displays the buffer `*compilation*' in
-another window but does not select it.  The buffer's mode line tells you
-whether compilation is finished, with the word `run' or `exit' inside
-the parentheses.  You do not have to keep this buffer visible;
-compilation continues in any case.  While a compilation is going on, the
-string `Compiling' appears in the mode lines of all windows.  When this
-string disappears, the compilation is finished.
-
-   If you want to watch the compilation transcript as it appears, switch
-to the `*compilation*' buffer and move point to the end of the buffer.
-When point is at the end, new compilation output is inserted above
-point, which remains at the end.  If point is not at the end of the
-buffer, it remains fixed while more compilation output is added at the
-end of the buffer.
-
-   If you set the variable `compilation-scroll-output' to a non-`nil'
-value, then the compilation buffer always scrolls to follow output as
-it comes in.
-
-   To kill the compilation process, do `M-x kill-compilation'.  When
-the compiler process terminates, the mode line of the `*compilation*'
-buffer changes to say `signal' instead of `run'.  Starting a new
-compilation also kills any running compilation, as only one can exist
-at any time.  However, `M-x compile' asks for confirmation before
-actually killing a compilation that is running.
+* Left Margin Paren::   An open-paren or similar opening delimiter
+                          starts a defun if it is at the left margin.
+* Moving by Defuns::    Commands to move over or mark a major definition.
+* Imenu::               Making buffer indexes as menus.
+* Which Function::      Which Function mode shows which function you are in.
 
 
-File: emacs,  Node: Grep Searching,  Next: Compilation Mode,  Prev: Compilation,  Up: Building
+File: emacs,  Node: Left Margin Paren,  Next: Moving by Defuns,  Up: Defuns
 
-Searching with Grep under Emacs
-===============================
+Left Margin Convention
+----------------------
 
-   Just as you can run a compiler from Emacs and then visit the lines
-where there were compilation errors, you can also run `grep' and then
-visit the lines on which matches were found.  This works by treating
-the matches reported by `grep' as if they were "errors."
+   In most major modes, Emacs assumes that any opening delimiter found
+at the left margin is the start of a top-level definition, or defun.
+Therefore, *never put an opening delimiter at the left margin unless it
+should have that significance.*  For instance, never put an
+open-parenthesis at the left margin in a Lisp file unless it is the
+start of a top-level list.  Never put an open-brace or other opening
+delimiter at the beginning of a line of C code unless it is at top
+level.
 
-   To do this, type `M-x grep', then enter a command line that
-specifies how to run `grep'.  Use the same arguments you would give
-`grep' when running it normally: a `grep'-style regexp (usually in
-single-quotes to quote the shell's special characters) followed by file
-names, which may use wildcards.  The output from `grep' goes in the
-`*grep*' buffer.  You can find the corresponding lines in the original
-files using `C-x `' and <RET>, as with compilation errors.
+   If you don't follow this convention, not only will you have trouble
+when you explicitly use the commands for motion by defuns; other
+features that use them will also give you trouble.  This includes the
+indentation commands (*note Program Indent::) and Font Lock mode (*note
+Font Lock::).
 
-   If you specify a prefix argument for `M-x grep', it figures out the
-tag (*note Tags::) around point, and puts that into the default `grep'
-command.
+   The most likely problem case is when you want an opening delimiter
+at the start of a line inside a string.  To avoid trouble, put an
+escape character (`\', in C and Emacs Lisp, `/' in some other Lisp
+dialects) before the opening delimiter.  This will not affect the
+contents of the string, but will prevent that opening delimiter from
+starting a defun.  Here's an example:
 
-   The command `M-x grep-find' is similar to `M-x grep', but it
-supplies a different initial default for the command--one that runs
-both `find' and `grep', so as to search every file in a directory tree.
-See also the `find-grep-dired' command, in *Note Dired and Find::.
+       (insert "Foo:
+     \(bar)
+     ")
 
-
-File: emacs,  Node: Compilation Mode,  Next: Compilation Shell,  Prev: Grep Searching,  Up: Building
-
-Compilation Mode
-================
-
-   The `*compilation*' buffer uses a special major mode, Compilation
-mode, whose main feature is to provide a convenient way to look at the
-source line where the error happened.
-
-`C-x `'
-     Visit the locus of the next compiler error message or `grep' match.
-
-`<RET>'
-     Visit the locus of the error message that point is on.  This
-     command is used in the compilation buffer.
-
-`Mouse-2'
-     Visit the locus of the error message that you click on.
-
-   You can visit the source for any particular error message by moving
-point in `*compilation*' to that error message and typing <RET>
-(`compile-goto-error').  Or click `Mouse-2' on the error message; you
-need not switch to the `*compilation*' buffer first.
-
-   To parse the compiler error messages sequentially, type `C-x `'
-(`next-error').  The character following the `C-x' is the backquote or
-"grave accent," not the single-quote.  This command is available in all
-buffers, not just in `*compilation*'; it displays the next error
-message at the top of one window and source location of the error in
-another window.
-
-   The first time `C-x `' is used after the start of a compilation, it
-moves to the first error's location.  Subsequent uses of `C-x `'
-advance down to subsequent errors.  If you visit a specific error
-message with <RET> or `Mouse-2', subsequent `C-x `' commands advance
-from there.  When `C-x `' gets to the end of the buffer and finds no
-more error messages to visit, it fails and signals an Emacs error.
-
-   `C-u C-x `' starts scanning from the beginning of the compilation
-buffer.  This is one way to process the same set of errors again.
-
-   Compilation mode also redefines the keys <SPC> and <DEL> to scroll
-by screenfuls, and `M-n' and `M-p' to move to the next or previous
-error message.  You can also use `M-{' and `M-}' to move up or down to
-an error message for a different source file.
-
-   The features of Compilation mode are also available in a minor mode
-called Compilation Minor mode.  This lets you parse error messages in
-any buffer, not just a normal compilation output buffer.  Type `M-x
-compilation-minor-mode' to enable the minor mode.  This defines the keys
-<RET> and `Mouse-2', as in the Compilation major mode.
-
-   Compilation minor mode works in any buffer, as long as the contents
-are in a format that it understands.  In an Rlogin buffer (*note Remote
-Host::), Compilation minor mode automatically accesses remote source
-files by FTP (*note File Names::).
+   In the earliest days, the original Emacs found defuns by moving
+upward a level of parentheses or braces until there were no more levels
+to go up.  This always required scanning all the way back to the
+beginning of the buffer, even for a small function.  To speed up the
+operation, we changed Emacs to assume that any opening delimiter at the
+left margin is the start of a defun.  This heuristic is nearly always
+right, and avoids the need to scan back to the beginning of the buffer.
+However, it mandates following the convention described above.
 
 
-File: emacs,  Node: Compilation Shell,  Next: Debuggers,  Prev: Compilation Mode,  Up: Building
+File: emacs,  Node: Moving by Defuns,  Next: Imenu,  Prev: Left Margin Paren,  Up: Defuns
 
-Subshells for Compilation
-=========================
+Moving by Defuns
+----------------
 
-   Emacs uses a shell to run the compilation command, but specifies the
-option for a noninteractive shell.  This means, in particular, that the
-shell should start with no prompt.  If you find your usual shell prompt
-making an unsightly appearance in the `*compilation*' buffer, it means
-you have made a mistake in your shell's init file by setting the prompt
-unconditionally.  (This init file's name may be `.bashrc', `.profile',
-`.cshrc', `.shrc', or various other things, depending on the shell you
-use.)  The shell init file should set the prompt only if there already
-is a prompt.  In csh, here is how to do it:
+   These commands move point or set up the region based on top-level
+major definitions, also called "defuns".
 
-     if ($?prompt) set prompt = ...
+`C-M-a'
+     Move to beginning of current or preceding defun
+     (`beginning-of-defun').
 
-And here's how to do it in bash:
+`C-M-e'
+     Move to end of current or following defun (`end-of-defun').
 
-     if [ "${PS1+set}" = set ]
-     then PS1=...
-     fi
+`C-M-h'
+     Put region around whole current or following defun (`mark-defun').
 
-   There may well be other things that your shell's init file ought to
-do only for an interactive shell.  You can use the same method to
-conditionalize them.
+   The commands to move to the beginning and end of the current defun
+are `C-M-a' (`beginning-of-defun') and `C-M-e' (`end-of-defun').  If
+you repeat one of these commands, or use a positive numeric argument,
+each repetition moves to the next defun in the direction of motion.
 
-   The MS-DOS "operating system" does not support asynchronous
-subprocesses; to work around this lack, `M-x compile' runs the
-compilation command synchronously on MS-DOS.  As a consequence, you must
-wait until the command finishes before you can do anything else in
-Emacs.  *Note MS-DOS::.
+   `C-M-a' with a negative argument -N moves forward N times to the
+next beginning of a defun.  This is not exactly the same place that
+`C-M-e' with argument N would move to; the end of this defun is not
+usually exactly the same place as the beginning of the following defun.
+(Whitespace, comments, and perhaps declarations can separate them.)
+Likewise, `C-M-e' with a negative argument moves back to an end of a
+defun, which is not quite the same as `C-M-a' with a positive argument.
+
+   To operate on the current defun, use `C-M-h' (`mark-defun') which
+puts point at the beginning and mark at the end of the current defun.
+This is the easiest way to get ready to kill the defun in order to move
+it to a different place in the file.  If you use the command while
+point is between defuns, it uses the following defun.
+
+   In C mode, `C-M-h' runs the function `c-mark-function', which is
+almost the same as `mark-defun'; the difference is that it backs up
+over the argument declarations, function name and returned data type so
+that the entire C function is inside the region.  This is an example of
+how major modes adjust the standard key bindings so that they do their
+standard jobs in a way better fitting a particular language.  Other
+major modes may replace any or all of these key bindings for that
+purpose.
+
+
+File: emacs,  Node: Imenu,  Next: Which Function,  Prev: Moving by Defuns,  Up: Defuns
+
+Imenu
+-----
+
+   The Imenu facility offers a way to find the the major definitions in
+a file by name.  It is also useful in text formatter major modes, where
+it treats each chapter, section, etc., as a definition.  (*Note Tags::,
+for a more powerful feature that handles multiple files together.)
+
+   If you type `M-x imenu', it reads the name of a definition using the
+minibuffer, then moves point to that definition.  You can use
+completion to specify the name; the command always displays the whole
+list of valid names.
+
+   Alternatively, you can bind the command `imenu' to a mouse click.
+Then it displays mouse menus for you to select a definition name.  You
+can also add the buffer's index to the menu bar by calling
+`imenu-add-menubar-index'.  If you want to have this menu bar item
+available for all buffers in a certain major mode, you can do this by
+adding `imenu-add-menubar-index' to its mode hook.  But if you have
+done that, you will have to wait each time you visit a file in that
+mode, while Emacs finds all the definitions in that buffer.
+
+   When you change the contents of a buffer, if you add or delete
+definitions, you can update the buffer's index based on the new
+contents by invoking the `*Rescan*' item in the menu.  Rescanning
+happens automatically if you set `imenu-auto-rescan' to a non-`nil'
+value.  There is no need to rescan because of small changes in the text.
+
+   You can customize the way the menus are sorted by setting the
+variable `imenu-sort-function'.  By default, names are ordered as they
+occur in the buffer; if you want alphabetic sorting, use the symbol
+`imenu--sort-by-name' as the value.  You can also define your own
+comparison function by writing Lisp code.
+
+   Imenu provides the information to guide Which Function mode (*note
+Which Function::).  The Speedbar can also use it (*note Speedbar::).
+
+
+File: emacs,  Node: Which Function,  Prev: Imenu,  Up: Defuns
+
+Which Function Mode
+-------------------
+
+   Which Function mode is a minor mode that displays the current
+function name in the mode line, updating it as you move around in a
+buffer.
+
+   To enable (or disable) Which Function mode, use the command `M-x
+which-function-mode'.  This command is global; it applies to all
+buffers, both existing ones and those yet to be created.  However, it
+only takes effect in certain major modes, those listed in the value of
+`which-func-modes'.  If the value is `t', then Which Function mode
+applies to all major modes that know how to support it--in other words,
+all the major modes that support Imenu.
+
+
+File: emacs,  Node: Program Indent,  Next: Comments,  Prev: Defuns,  Up: Programs
+
+Indentation for Programs
+========================
+
+   The best way to keep a program properly indented is to use Emacs to
+reindent it as you change it.  Emacs has commands to indent properly
+either a single line, a specified number of lines, or all of the lines
+inside a single parenthetical grouping.
+
+* Menu:
+
+* Basic Indent::	Indenting a single line.
+* Multi-line Indent::   Commands to reindent many lines at once.
+* Lisp Indent::		Specifying how each Lisp function should be indented.
+* C Indent::		Extra features for indenting C and related modes.
+* Custom C Indent::	Controlling indentation style for C and related modes.
+
+   Emacs also provides a Lisp pretty-printer in the library `pp'.  This
+program reformats a Lisp object with indentation chosen to look nice.
+
+
+File: emacs,  Node: Basic Indent,  Next: Multi-line Indent,  Up: Program Indent
+
+Basic Program Indentation Commands
+----------------------------------
+
+   The basic indentation commands indent a single line according to the
+usual conventions of the language you are editing.
+
+`<TAB>'
+     Adjust indentation of current line.
+
+`C-j'
+     Equivalent to <RET> followed by <TAB> (`newline-and-indent').
+
+`<LINEFEED>'
+     This key, if the keyboard has it, is another way to enter `C-j'.
+
+   The basic indentation command is <TAB>, which gives the current line
+the correct indentation as determined from the previous lines.  The
+function that <TAB> runs depends on the major mode; it is
+`indent-for-tab-command' in Lisp mode, `c-indent-command' in C mode,
+etc.  These functions understand the syntax and conventions of
+different languages, but they all do conceptually the same job: <TAB>
+in any programming-language major mode inserts or deletes whitespace at
+the beginning of the current line, independent of where point is in the
+line.  If point was inside the whitespace at the beginning of the line,
+<TAB> puts it at the end of that whitespace; otherwise, <TAB> keeps
+point fixed with respect to the characters around it.
+
+   Use `C-q <TAB>' to insert a tab at point.
+
+   When entering lines of new code, use `C-j' (`newline-and-indent'),
+which is equivalent to a <RET> followed by a <TAB>.  `C-j' at the end
+of a line creates a blank line and then gives it the appropriate
+indentation.
+
+   <TAB> indents lines that start within a parenthetical grouping each
+under the preceding line (or the text after the parenthesis).
+Therefore, if you manually give one of these lines a nonstandard
+indentation, the lines below will tend to follow it.  This behavior is
+convenient in cases where you have overridden the standard result of
+<TAB> because you find it unaesthetic for a particular line.
+
+   Remember that an open-parenthesis, open-brace or other opening
+delimiter at the left margin is assumed by Emacs (including the
+indentation routines) to be the start of a function.  Therefore, you
+must never have an opening delimiter in column zero that is not the
+beginning of a function, not even inside a string.  This restriction is
+vital for making the indentation commands fast; you must simply accept
+it.  *Note Left Margin Paren::, for more information on this.
+
+   Normally, lines are indented with tabs and spaces.  If you want Emacs
+to use spaces only, see *Note Just Spaces::.
+
+
+File: emacs,  Node: Multi-line Indent,  Next: Lisp Indent,  Prev: Basic Indent,  Up: Program Indent
+
+Indenting Several Lines
+-----------------------
+
+   When you wish to reindent several lines of code which have been
+altered or moved to a different level in the parenthesis structure, you
+have several commands available.
+
+`C-M-q'
+     Reindent all the lines within one parenthetical
+     grouping(`indent-sexp').
+
+`C-M-\'
+     Reindent all lines in the region (`indent-region').
+
+`C-u <TAB>'
+     Shift an entire parenthetical grouping rigidly sideways so that its
+     first line is properly indented.
+
+`M-x indent-code-rigidly'
+     Shift all the lines in the region rigidly sideways, but do not
+     alter lines that start inside comments and strings.
+
+   You can reindent the contents of a single parenthetical grouping by
+positioning point before the beginning of it and typing `C-M-q'
+(`indent-sexp' in Lisp mode, `c-indent-exp' in C mode; also bound to
+other suitable commands in other modes).  The indentation of the line
+where the grouping starts is not changed; therefore, this changes only
+the relative indentation within the grouping, not its overall
+indentation.  To correct that as well, type <TAB> first.
+
+   Another way to specify the range to be reindented is with the
+region.  The command `C-M-\' (`indent-region') applies <TAB> to every
+line whose first character is between point and mark.
+
+   If you like the relative indentation within a grouping, but not the
+indentation of its first line, you can type `C-u <TAB>' to reindent the
+whole grouping as a rigid unit.  (This works in Lisp modes and C and
+related modes.)  <TAB> with a numeric argument reindents the current
+line as usual, then reindents by the same amount all the lines in the
+parenthetical grouping starting on the current line.  It is clever,
+though, and does not alter lines that start inside strings, or C
+preprocessor lines when in C mode.
+
+   You can also perform this operation on the region, using the command
+`M-x indent-code-rigidly'.  It rigidly shifts all the lines in the
+region sideways, like `indent-rigidly' does (*note Indentation
+Commands::).  It doesn't alter the indentation of lines that start
+inside a comment or a string, unless the region starts inside that
+comment or string.
+
+
+File: emacs,  Node: Lisp Indent,  Next: C Indent,  Prev: Multi-line Indent,  Up: Program Indent
+
+Customizing Lisp Indentation
+----------------------------
+
+   The indentation pattern for a Lisp expression can depend on the
+function called by the expression.  For each Lisp function, you can
+choose among several predefined patterns of indentation, or define an
+arbitrary one with a Lisp program.
+
+   The standard pattern of indentation is as follows: the second line
+of the expression is indented under the first argument, if that is on
+the same line as the beginning of the expression; otherwise, the second
+line is indented underneath the function name.  Each following line is
+indented under the previous line whose nesting depth is the same.
+
+   If the variable `lisp-indent-offset' is non-`nil', it overrides the
+usual indentation pattern for the second line of an expression, so that
+such lines are always indented `lisp-indent-offset' more columns than
+the containing list.
+
+   Certain functions override the standard pattern.  Functions whose
+names start with `def' treat the the second lines as the start of a
+"body", by indenting the second line `lisp-body-indent' additional
+columns beyond the open-parenthesis that starts the expression.
+
+   You can override the standard pattern in various ways for individual
+functions, according to the `lisp-indent-function' property of the
+function name.  There are four possibilities for this property:
+
+`nil'
+     This is the same as no property--use the standard indentation
+     pattern.
+
+`defun'
+     Handle this function like a `def' construct: treat the second line
+     as the start of a "body".
+
+a number, NUMBER
+     The first NUMBER arguments of the function are "distinguished"
+     arguments; the rest are considered the body of the expression.  A
+     line in the expression is indented according to whether the first
+     argument on it is distinguished or not.  If the argument is part
+     of the body, the line is indented `lisp-body-indent' more columns
+     than the open-parenthesis starting the containing expression.  If
+     the argument is distinguished and is either the first or second
+     argument, it is indented _twice_ that many extra columns.  If the
+     argument is distinguished and not the first or second argument,
+     the line uses the standard pattern.
+
+a symbol, SYMBOL
+     SYMBOL should be a function name; that function is called to
+     calculate the indentation of a line within this expression.  The
+     function receives two arguments:
+    STATE
+          The value returned by `parse-partial-sexp' (a Lisp primitive
+          for indentation and nesting computation) when it parses up to
+          the beginning of this line.
+
+    POS
+          The position at which the line being indented begins.
+
+     It should return either a number, which is the number of columns of
+     indentation for that line, or a list whose car is such a number.
+     The difference between returning a number and returning a list is
+     that a number says that all following lines at the same nesting
+     level should be indented just like this one; a list says that
+     following lines might call for different indentations.  This makes
+     a difference when the indentation is being computed by `C-M-q'; if
+     the value is a number, `C-M-q' need not recalculate indentation
+     for the following lines until the end of the list.
 

@@ -6,6 +6,7 @@
 
 Since 5.0:
 
+     * ESMTP AUTH (RFC 2554) is supported.
      * Has  the  capability  of  adding trace information to the Received
        header  to  faciliate  mail  filtering  by  mailserver  and remote
        account.

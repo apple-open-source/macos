@@ -25,6 +25,9 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "lisp.h"
 #include "charset.h"
+#include "keyboard.h"
+#include "frame.h"
+#include "dispextern.h"
 #include "fontset.h"
 #include "blockinput.h"
 #include "w32gui.h"
@@ -34,28 +37,35 @@ Boston, MA 02111-1307, USA.  */
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
-/* Portion of GDI Objects which the font cache is allowed to use. This
-   can be quite high, since the font cache is the only part of Emacs
-   that uses a large number of GDI objects, but there should still be
-   some GDI objects reserved for other uses.  */
-#define CACHE_GDI_ALLOWANCE 9 / 10
+/* 10 planes */
+#define BDF_CODEPOINT_HEAP_INITIAL_SIZE (96 * 10)
+/* about 96 characters */
+#define BDF_BITMAP_HEAP_INITIAL_SIZE    (64 * 96)
+
+HANDLE hbdf_cp_heap = INVALID_HANDLE_VALUE;
+HANDLE hbdf_bmp_heap = INVALID_HANDLE_VALUE;
 
 void w32_free_bdf_font(bdffont *fontp);
 bdffont *w32_init_bdf_font(char *filename);
 
+cache_bitmap cached_bitmap_slots[BDF_FONT_CACHE_SIZE];
+cache_bitmap *pcached_bitmap_latest = cached_bitmap_slots;
+
+#define FONT_CACHE_SLOT_OVER_P(p) ((p) >= cached_bitmap_slots + BDF_FONT_CACHE_SIZE)
+
 static int 
 search_file_line(char *key, char *start, int len, char **val, char **next)
 {
-  int linelen;
-  unsigned char *p, *q;
+  unsigned int linelen;
+  unsigned char *p;
 
   p = memchr(start, '\n', len);
   if (!p) return -1;
-  for (;start < p;start++)
+  for (;(unsigned char *)start < p;start++)
     {
-      if ((*start != ' ') || (*start != '\t')) break;
+      if ((*start != ' ') && (*start != '\t')) break;
     }
-  linelen = p - start + 1;
+  linelen = (char *) p - start + 1;
   *next = p + 1;
   if (strncmp(start, key, min(strlen(key), linelen)) == 0)
     {
@@ -80,18 +90,16 @@ proceed_file_line(char *key, char *start, int *len, char **val, char **next)
   if (flag == -1) return 0;
   return 1;
 }
-   
+
 char*
 get_quoted_string(char *start, char *end)
 {
   char *p, *q, *result;
 
   p = memchr(start, '\"', end - start);
-  q = 0;
-
   if (!p) return NULL;
   p++;
-  q = memchr(p, '\"', end - q);
+  q = memchr(p, '\"', end - p);
   if (!q) return NULL;
 
   result = (char*) xmalloc(q - p + 1);
@@ -116,20 +124,22 @@ set_bdf_font_info(bdffont *fontp)
   fontp->yoffset = 0;
   fontp->relative_compose = 0;
   fontp->default_ascent = 0;
+
   fontp->registry = NULL;
   fontp->encoding = NULL;
   fontp->slant = NULL;
 /*  fontp->width = NULL; */
 
-  flag = proceed_file_line("FONTBOUNDINGBOX", start, &len, &p, &q);
+  flag = proceed_file_line("FONTBOUNDINGBOX", start, &len,
+			   (char **)&p, (char **)&q);
   if (!flag) return 0;
-  bbw = strtol(p, &start, 10);
+  bbw = strtol(p, (char **)&start, 10);
   p = start;
-  bbh = strtol(p, &start, 10);
+  bbh = strtol(p, (char **)&start, 10);
   p = start;
-  bbx = strtol(p, &start, 10);
+  bbx = strtol(p, (char **)&start, 10);
   p = start;
-  bby = strtol(p, &start, 10);
+  bby = strtol(p, (char **)&start, 10);
 
   fontp->llx = bbx;
   fontp->lly = bby;
@@ -138,71 +148,84 @@ set_bdf_font_info(bdffont *fontp)
   fontp->width = bbw;
   fontp->height = bbh;
   start = q;
-  flag = proceed_file_line("STARTPROPERTIES", start, &len, &p, &q);
+  flag = proceed_file_line("STARTPROPERTIES", start, &len,
+			   (char **)&p, (char **)&q);
   if (!flag) return 1;
 
   flag = 0;
 
   do {
     start = q;
-    if (search_file_line("PIXEL_SIZE", start, len, &p, &q) == 1)
+    if (search_file_line("PIXEL_SIZE", start, len,
+			 (char **)&p, (char **)&q) == 1)
       {
 	val1 = atoi(p);
         fontp->pixsz = val1;
       }
-    else if (search_file_line("FONT_ASCENT", start, len, &p, &q) == 1)
+    else if (search_file_line("FONT_ASCENT", start, len,
+			      (char **)&p, (char **)&q) == 1)
       {
 	val1 = atoi(p);
 	fontp->ury = val1;
       }
-    else if (search_file_line("FONT_DESCENT", start, len, &p, &q) == 1)
+    else if (search_file_line("FONT_DESCENT", start, len,
+			      (char **)&p, (char **)&q) == 1)
       {
 	val1 = atoi(p);
 	fontp->lly = -val1;
       }
-    else if (search_file_line("_MULE_BASELINE_OFFSET", start, len, &p, &q) == 1)
+    else if (search_file_line("_MULE_BASELINE_OFFSET", start, len,
+			      (char **)&p, (char **)&q) == 1)
       {
 	val1 = atoi(p);
-	fontp->yoffset = val1;
+	fontp->yoffset = -val1;
       }
-    else if (search_file_line("_MULE_RELATIVE_COMPOSE", start, len, &p, &q) == 1)
+    else if (search_file_line("_MULE_RELATIVE_COMPOSE", start, len,
+			      (char **)&p, (char **)&q) == 1)
       {
 	val1 = atoi(p);
 	fontp->relative_compose = val1;
       }
-    else if (search_file_line("_MULE_DEFAULT_ASCENT", start, len, &p, &q) == 1)
+    else if (search_file_line("_MULE_DEFAULT_ASCENT", start, len,
+			      (char **)&p, (char **)&q) == 1)
       {
 	val1 = atoi(p);
 	fontp->default_ascent = val1;
       }
-    else if (search_file_line("CHARSET_REGISTRY", start, len, &p, &q) == 1)
+    else if (search_file_line("CHARSET_REGISTRY", start, len,
+			      (char **)&p, (char **)&q) == 1)
       {
         fontp->registry = get_quoted_string(p, q);
       }
-    else if (search_file_line("CHARSET_ENCODING", start, len, &p, &q) == 1)
+    else if (search_file_line("CHARSET_ENCODING", start, len,
+			      (char **)&p, (char **)&q) == 1)
       {
         fontp->encoding = get_quoted_string(p, q);
       }
-    else if (search_file_line("SLANT", start, len, &p, &q) == 1)
+    else if (search_file_line("SLANT", start, len,
+			      (char **)&p, (char **)&q) == 1)
       {
         fontp->slant = get_quoted_string(p, q);
       }
 /*
-    else if (search_file_line("SETWIDTH_NAME", start, len, &p, &q) == 1)
+    else if (search_file_line("SETWIDTH_NAME", start, len,
+    			      (char **)&p, (char **)&q) == 1)
       {
         fontp->width = get_quoted_string(p, q);
       }
 */
     else
       {
-	flag = search_file_line("ENDPROPERTIES", start, len, &p, &q);
+	flag = search_file_line("ENDPROPERTIES", start, len,
+				(char **)&p, (char **)&q);
       }
     if (flag == -1) return 0;
     len -= (q - start);
   }while(flag == 0);
   start = q;
-  flag = proceed_file_line("CHARS", start, &len, &p, &q);
+  flag = proceed_file_line("CHARS", start, &len, (char **)&p, (char **)&q);
   if (!flag) return 0;
+  fontp->nchars = atoi(p);
   fontp->seeked = q;
 
   return 1;
@@ -216,6 +239,14 @@ w32_init_bdf_font(char *filename)
   unsigned char *font;
   BY_HANDLE_FILE_INFORMATION fileinfo;
   int i;
+
+  if (hbdf_cp_heap == INVALID_HANDLE_VALUE)
+    hbdf_cp_heap = HeapCreate(0, BDF_CODEPOINT_HEAP_INITIAL_SIZE, 0);
+  if (hbdf_bmp_heap == INVALID_HANDLE_VALUE)
+    hbdf_bmp_heap = HeapCreate(0, BDF_BITMAP_HEAP_INITIAL_SIZE, 0);
+
+  if (!hbdf_cp_heap || !hbdf_bmp_heap)
+    error("Fail to create heap for BDF.");
 
   hfile = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
 		     OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -287,9 +318,14 @@ w32_free_bdf_font(bdffont *fontp)
 	  for (j = 0;j < BDF_SECOND_OFFSET_TABLE;j++)
 	    {
 	      pcb = pch[j].pcbmp;
-	      if (pcb) pcb->psrc = NULL;
+ 	      if (pcb)
+ 		{
+		  if (pcb->pbmp)
+		    HeapFree(hbdf_bmp_heap, 0, pcb->pbmp);
+ 		  pcb->psrc = NULL;
 	    }
-	  xfree(pch);
+	    }
+	  HeapFree(hbdf_cp_heap, 0, pch);
         }
     }
   xfree(fontp);
@@ -299,14 +335,14 @@ static font_char*
 get_cached_font_char(bdffont *fontp, int index)
 {
   font_char *pch, *result;
-  int i;
 
-  if (index > 0xffff)
+  if (!BDF_CODEPOINT_RANGE_COVER_P(index))
     return NULL;
 
   pch = fontp->chtbl[BDF_FIRST_OFFSET(index)];
   if (!pch)
     return NULL;
+
   result = &pch[BDF_SECOND_OFFSET(index)];
 
   if (!result->offset) return NULL;
@@ -318,18 +354,20 @@ static font_char*
 cache_char_offset(bdffont *fontp, int index, unsigned char *offset)
 {
   font_char *pch, *result;
-  int i;
 
-  if (index > 0xffff)
+  if (!BDF_CODEPOINT_RANGE_COVER_P(index))
     return NULL;
 
   pch = fontp->chtbl[BDF_FIRST_OFFSET(index)];
   if (!pch)
     {
       pch = fontp->chtbl[BDF_FIRST_OFFSET(index)] =
-	(font_char*) xmalloc(sizeof(font_char) *
-				   BDF_SECOND_OFFSET_TABLE);
-      memset(pch, 0, sizeof(font_char) * BDF_SECOND_OFFSET_TABLE);
+	(font_char*) HeapAlloc(hbdf_cp_heap,
+			       HEAP_ZERO_MEMORY, 
+			       sizeof(font_char) *
+                               BDF_SECOND_OFFSET_TABLE);
+      if (!pch) return NULL;
+      /* memset(pch, 0, sizeof(font_char) * BDF_SECOND_OFFSET_TABLE); */
     }
 
   result = &pch[BDF_SECOND_OFFSET(index)];
@@ -351,7 +389,8 @@ seek_char(bdffont *fontp, int index)
   len = fontp->size - (start - fontp->font);
 
   do {
-    flag = proceed_file_line("ENCODING", start, &len, &p, &q);
+    flag = proceed_file_line("ENCODING", start, &len,
+			     (char **)&p, (char **)&q);
     if (!flag)
       {
 	fontp->seeked = NULL;
@@ -368,9 +407,31 @@ seek_char(bdffont *fontp, int index)
   return result;
 }
 
+static void
+clear_cached_bitmap_slots()
+{
+  int i;
+  cache_bitmap *p;
+
+  p = pcached_bitmap_latest;
+  for (i = 0;i < BDF_FONT_CLEAR_SIZE;i++)
+    {
+      if (p->psrc)
+	{
+	  if (p->pbmp)
+	    HeapFree(hbdf_bmp_heap, 0, p->pbmp);
+	  p->psrc->pcbmp = NULL;
+	  p->psrc = NULL;
+	}
+      p++;
+      if (FONT_CACHE_SLOT_OVER_P(p))
+	p = cached_bitmap_slots;
+    }
+}
+
 #define GET_HEX_VAL(x) ((isdigit(x)) ? ((x) - '0') : \
-			(((x) >= 'A') && ((x) <= 'Z')) ? ((x) - 'A' + 10) : \
-			(((x) >= 'a') && ((x) <= 'z')) ? ((x) - 'a' + 10) : \
+			(((x) >= 'A') && ((x) <= 'F')) ? ((x) - 'A' + 10) : \
+			(((x) >= 'a') && ((x) <= 'f')) ? ((x) - 'a' + 10) : \
 			(-1))
 
 int
@@ -378,8 +439,9 @@ w32_get_bdf_glyph(bdffont *fontp, int index, int size, glyph_struct *glyph)
 {
   font_char *pch;
   unsigned char *start, *p, *q, *bitmapp;
-  unsigned char val1, val2;
-  int i, j, len, flag;
+  unsigned char val, val1, val2;
+  int i, j, len, flag, consumed;
+  int align, rowbytes;
 
   pch = get_cached_font_char(fontp, index);
   if (!pch)
@@ -399,76 +461,81 @@ w32_get_bdf_glyph(bdffont *fontp, int index, int size, glyph_struct *glyph)
 
   len = fontp->size - (start - fontp->font);
 
-  flag = proceed_file_line("DWIDTH", start, &len, &p, &q);
+  flag = proceed_file_line("DWIDTH", start, &len, (char **)&p, (char **)&q);
   if (!flag)
     return 0;
   glyph->metric.dwidth = atoi(p);
 
   start = q;
-  flag = proceed_file_line("BBX", start, &len, &p, &q);
+  flag = proceed_file_line("BBX", start, &len, (char **)&p, (char **)&q);
   if (!flag)
     return 0;
-  glyph->metric.bbw = strtol(p, &start, 10);
+  glyph->metric.bbw = strtol(p, (char **)&start, 10);
   p = start;
-  glyph->metric.bbh = strtol(p, &start, 10);
+  glyph->metric.bbh = strtol(p, (char **)&start, 10);
   p = start;
-  glyph->metric.bbox = strtol(p, &start, 10);
+  glyph->metric.bbox = strtol(p, (char **)&start, 10);
   p = start;
-  glyph->metric.bboy = strtol(p, &start, 10);
+  glyph->metric.bboy = strtol(p, (char **)&start, 10);
 
   if (size == 0) return 1;
 
   start = q;
-  flag = proceed_file_line("BITMAP", start, &len, &p, &q);
+  flag = proceed_file_line("BITMAP", start, &len, (char **)&p, (char **)&q);
   if (!flag)
     return 0;
 
+  consumed = 0;
+  flag = 0;
   p = q;
   bitmapp = glyph->bitmap;
+  rowbytes = (glyph->metric.bbw + 7) / 8;
+  /* DIB requires DWORD alignment.  */
+  align = sizeof(DWORD) - rowbytes % sizeof(DWORD);
+  consumed = glyph->metric.bbh * (rowbytes + align);
+  glyph->bitmap_size = consumed;
+  glyph->row_byte_size = rowbytes;
+  if (size < consumed) return 0;
+
   for(i = 0;i < glyph->metric.bbh;i++)
     {
       q = memchr(p, '\n', len);
       if (!q) return 0;
-      for(j = 0;((q > p) && (j < ((glyph->metric.bbw + 7) / 8 )));j++)
+      for(j = 0;((q > p) && (j < rowbytes));j++)
 	{
-	  val1 = GET_HEX_VAL(*p);
-	  if (val1 == -1) return 0;
+	  int ival = GET_HEX_VAL(*p);
+
+	  if (ival == -1) return 0;
+	  val1 = ival;
 	  p++;
-	  val2 = GET_HEX_VAL(*p);
-	  if (val2 == -1) return 0;
+	  ival = GET_HEX_VAL(*p);
+	  if (ival == -1) return 0;
+	  val2 = ival;
 	  p++;
-	  size--;
-	  if (size <= 0) return 0;
-	  /* NAND Operation.  */
-	  *bitmapp++ = (unsigned char)~((val1 << 4) | val2);
+	  val = (unsigned char)((val1 << 4) | val2);
+	  if (val) flag = 1;
+	  *bitmapp++ = val;
 	}
-      /* CreateBitmap requires WORD alignment.  */
-      if (j % 2)
-	{
-	  *bitmapp++ = 0xff;
-	}
+      for(j = 0;j < align;j++)
+	*bitmapp++ = 0x00;
       p = q + 1;
     }
 
-  return 1;
-}
+  /* If this glyph is white space, return -1. */
+  if (flag == 0) return -1;
 
-#define NEXT_CACHE_SLOT(n) (((n) + 1 >= BDF_FONT_CACHE_SIZE) ? 0 : ((n) + 1))
+  return consumed;
+}
 
 static
 cache_bitmap*
 get_bitmap_with_cache(bdffont *fontp, int index)
 {
-  int bitmap_size;
+  int bitmap_size, bitmap_real_size;
   font_char *pch;
   cache_bitmap* pcb;
-  HBITMAP hbmp;
+  unsigned char *pbmp;
   glyph_struct glyph;
-  static cache_bitmap cached_bitmap_slots[BDF_FONT_CACHE_SIZE];
-  static int cache_in_slot = 0;		/* the next slot to use */
-  static int cache_out_slot = 0;	/* the last slot allocated */
-  static int cache_occupancy = 0;	/* current cache occupancy */
-  static int cache_limit = BDF_FONT_CACHE_SIZE; /* allowed maximum occupancy */
 
   pch = get_cached_font_char(fontp, index);
   if (pch)
@@ -477,88 +544,116 @@ get_bitmap_with_cache(bdffont *fontp, int index)
       if (pcb) return pcb;
     }
 
-  bitmap_size = ((fontp->urx - fontp->llx) / 8 + 2) * (fontp->ury - fontp->lly)
+  bitmap_size = ((fontp->urx - fontp->llx) / 8 + 3) * (fontp->ury - fontp->lly)
     + 256;
   glyph.bitmap = (unsigned char*) alloca(sizeof(unsigned char) * bitmap_size);
 
-  if (!w32_get_bdf_glyph(fontp, index, bitmap_size, &glyph))
+  bitmap_real_size = w32_get_bdf_glyph(fontp, index, bitmap_size, &glyph);
+
+  if (bitmap_real_size == 0)
     return NULL;
 
   pch = get_cached_font_char(fontp, index);
   if (!pch) return NULL;
 
-  hbmp = CreateBitmap(glyph.metric.bbw, glyph.metric.bbh, 1, 1, glyph.bitmap);
-
-  /* if bitmap allocation fails reduce the limit of the occupancy so
-     that we can hope it will not happen again.  */
-  if (hbmp == NULL)
-    cache_limit = cache_occupancy * CACHE_GDI_ALLOWANCE;
-
-  /* if cache occupancy reaches at the limit release some cache slots */
-  if (cache_occupancy >= cache_limit)
+  if (bitmap_real_size > 0)
     {
-      register int size_to_clear = cache_limit * BDF_FONT_CLEAR_SIZE
-                                   / BDF_FONT_CACHE_SIZE;
-      for (; size_to_clear; size_to_clear--,
-                            cache_out_slot = NEXT_CACHE_SLOT(cache_out_slot))
-        {
-          register cache_bitmap *p = &cached_bitmap_slots[cache_out_slot];
-          if (p->psrc)
-            {
-              DeleteObject(p->hbmp);
-              p->psrc->pcbmp = NULL;
-              p->psrc = NULL;
-              cache_occupancy--;
-            }
-        }
+       pbmp = (unsigned char*) HeapAlloc(hbdf_bmp_heap, 0,
+					 bitmap_real_size);
+       if (!pbmp) return NULL;
+       memcpy(pbmp, glyph.bitmap, bitmap_real_size);
     }
+  else
+    pbmp = NULL; /* white space character */
 
-  if (hbmp == NULL)
-    hbmp = CreateBitmap (glyph.metric.bbw, glyph.metric.bbh,
-                         1, 1, glyph.bitmap);
-
-  pcb = &cached_bitmap_slots[cache_in_slot];
+  pcb = pcached_bitmap_latest;
+  if (pcb->psrc)
+    clear_cached_bitmap_slots();
 
   pcb->psrc = pch;
   pcb->metric = glyph.metric;
-  pcb->hbmp = hbmp;
+  pcb->pbmp = pbmp;
+  pcb->bitmap_size = glyph.bitmap_size;
+  pcb->row_byte_size = glyph.row_byte_size;
 
   pch->pcbmp = pcb;
   
-  cache_in_slot = NEXT_CACHE_SLOT(cache_in_slot);
-  cache_occupancy++;
+  pcached_bitmap_latest++;
+  if (FONT_CACHE_SLOT_OVER_P(pcached_bitmap_latest))
+    pcached_bitmap_latest = cached_bitmap_slots;
 
   return pcb;
 }
 
+static HBITMAP
+create_offscreen_bitmap(HDC hdc, int width, int height, unsigned char **bitsp)
+{
+  struct {
+    BITMAPINFOHEADER h;
+    RGBQUAD c[2];
+  } info;
+
+  memset(&info, 0, sizeof(info));
+  info.h.biSize = sizeof(BITMAPINFOHEADER);
+  info.h.biWidth = width;
+  info.h.biHeight = -height;
+  info.h.biPlanes = 1;
+  info.h.biBitCount = 1;
+  info.h.biCompression = BI_RGB;
+  info.c[1].rgbRed = info.c[1].rgbGreen = info.c[1].rgbBlue = 255;
+
+  return CreateDIBSection(hdc, (LPBITMAPINFO)&info,
+			  DIB_RGB_COLORS, bitsp, NULL, 0);
+}
+
+glyph_metric *
+w32_BDF_TextMetric(bdffont *fontp, unsigned char *text, int dim)
+{
+  int index;
+  cache_bitmap *pcb;
+
+  if (dim == 1)
+    index = *text;
+  else
+    index = MAKELENDSHORT(text[1], text[0]);
+
+  pcb = get_bitmap_with_cache(fontp, index);
+  if (!pcb)
+    return NULL;
+
+  return &(pcb->metric);
+}
+
 int
 w32_BDF_TextOut(bdffont *fontp, HDC hdc, int left,
-		 int top, unsigned char *text, int dim, int char_len,
+		 int top, unsigned char *text, int dim, int bytelen,
 		 int fixed_pitch_size)
 {
   int index, btop;
   unsigned char *textp;
-  HDC hCompatDC = 0;
   cache_bitmap *pcb;
-  HBITMAP hBMP;
   HBRUSH hFgBrush, hOrgBrush;
-  HANDLE horgobj = 0;
+  HANDLE horgobj;
   UINT textalign;
-  int flag = 0;
-  int bytelen = char_len * dim;
+  int width, height;
+  HDC hCompatDC;
+  int ret = 1;
+  static HBITMAP hBMP = 0;
+  static HDC DIBsection_hdc = 0;
+  static int DIBsection_width, DIBsection_height;
+  static unsigned char *bits;
 
   hCompatDC = CreateCompatibleDC(hdc);
+  if (!hCompatDC)
+    return 0;
 
   textalign = GetTextAlign(hdc);
   
-  SaveDC(hdc);
-
   hFgBrush = CreateSolidBrush(GetTextColor(hdc));
   hOrgBrush = SelectObject(hdc, hFgBrush);
-  SetTextColor(hdc, RGB(0, 0, 0));
-  SetBkColor(hdc, RGB(0xff, 0xff, 0xff));
 
   textp = text;
+
   while(bytelen > 0)
     {
       if (dim == 1)
@@ -570,21 +665,34 @@ w32_BDF_TextOut(bdffont *fontp, HDC hdc, int left,
 	{
 	  bytelen -= 2;
 	  if (bytelen < 0) break;
-	  index = MAKELENDSHORT(textp[1], textp[0]);
+	  index = MAKELENDSHORT(textp[0], textp[1]);
 	  textp += 2;
 	}
       pcb = get_bitmap_with_cache(fontp, index);
       if (!pcb)
 	{
-	  if (horgobj)
-	    {
-	      SelectObject(hCompatDC, horgobj);
-	      DeleteObject(hBMP);
+	  ret = 0;
+	  break;
 	    }
-	  DeleteDC(hCompatDC);
-	  return 0;
+      if (pcb->pbmp)
+	{
+	  width = pcb->metric.bbw;
+	  height = pcb->metric.bbh;
+	  
+	  if (!(hBMP
+		&& (DIBsection_hdc == hdc)
+		&& (DIBsection_width == width)
+		&& (DIBsection_height == height)))
+	    {
+	      if (hBMP) DeleteObject(hBMP);
+	      hBMP = create_offscreen_bitmap(hdc, width, height, &bits);
+	      DIBsection_hdc = hdc;
+	      DIBsection_width = width;
+	      DIBsection_height = height;
+	      if (!hBMP) return 0;
 	}
-      hBMP = pcb->hbmp;
+
+	  memcpy(bits, pcb->pbmp, pcb->bitmap_size);
 
       if (textalign & TA_BASELINE)
 	  btop = top - (pcb->metric.bbh + pcb->metric.bboy);
@@ -593,27 +701,23 @@ w32_BDF_TextOut(bdffont *fontp, HDC hdc, int left,
       else
 	  btop = top;
 
-      if (horgobj)
-	  SelectObject(hCompatDC, hBMP);
-      else
 	  horgobj = SelectObject(hCompatDC, hBMP);
-#if 0
-      BitBlt(hdc, left, btop, pcb->metric.bbw, pcb->metric.bbh, hCompatDC, 0, 0, SRCCOPY);
-#else
-      BitBlt(hdc, left, btop, pcb->metric.bbw, pcb->metric.bbh, hCompatDC, 0, 0, 0xB8074A);
-#endif
+	  BitBlt(hdc, left, btop, width, height, hCompatDC, 0, 0, 0xE20746);
+	  SelectObject(hCompatDC, horgobj);
+	}
+
       if (fixed_pitch_size)
 	left += fixed_pitch_size;
       else
 	left += pcb->metric.dwidth;
     }
-  SelectObject(hCompatDC, horgobj);
+
+  DeleteDC(hCompatDC);
+
   SelectObject(hdc, hOrgBrush);
   DeleteObject(hFgBrush);
-  DeleteDC(hCompatDC);
-  RestoreDC(hdc, -1);
 
-  return 1;
+  return ret;
 }
 
 struct font_info *w32_load_bdf_font (struct frame *f, char *fontname,
@@ -629,9 +733,16 @@ struct font_info *w32_load_bdf_font (struct frame *f, char *fontname,
   if (!bdf_font) return NULL;
 
   font = (XFontStruct *) xmalloc (sizeof (XFontStruct));
+  bzero (font, sizeof (*font));
 
   font->bdf = bdf_font;
   font->hfont = 0;
+
+  /* NTEMACS_TODO: Better way of determining if a font is double byte
+     or not. */
+  font->double_byte_p = bdf_font->nchars > 255 ? 1 : 0;
+
+  w32_cache_char_metrics (font);
 
   /* Do we need to create the table?  */
   if (dpyinfo->font_table_size == 0)
@@ -688,7 +799,7 @@ int w32_BDF_to_x_font (char *file, char* xstr, int len)
 {
   HANDLE hfile, hfilemap;
   BY_HANDLE_FILE_INFORMATION fileinfo;
-  unsigned char *font, *start, *p, *q;
+  char *font, *start, *p, *q;
   int flag, size, retval = 0;
 
   hfile = CreateFile (file, GENERIC_READ, FILE_SHARE_READ, NULL,

@@ -24,11 +24,15 @@
  *
  */
 
-#if !defined(__AuthorizationEngine__)
-#define __AuthorizationEngine__ 1
+#ifndef _H_AUTHORIZATIONENGINE
+#define _H_AUTHORIZATIONENGINE  1
 
 #include <Security/Authorization.h>
+#include <Security/AuthorizationPlugin.h>
+#include "AuthorizationData.h"
+
 #include <Security/refcount.h>
+#include <Security/threading.h>
 #include <Security/osxsigning.h>
 #include "agentquery.h"
 
@@ -51,9 +55,9 @@ protected:
     Error(int err);
 public:
     const int error;
-    virtual CSSM_RETURN cssmError() const;
-    virtual OSStatus osStatus() const;
-    virtual const char *what () const;
+    virtual CSSM_RETURN cssmError() const throw();
+    virtual OSStatus osStatus() const throw();
+    virtual const char *what () const throw();
 	// @@@ Default value should be internal error.
     static void throwMe(int err = -1) __attribute((noreturn));
 };
@@ -124,98 +128,6 @@ public:
 };
 
 
-class MutableRightSet;
-class RightSet;
-
-class Right : protected AuthorizationItem
-{
-	friend MutableRightSet;
-	friend RightSet;
-public:
-	static Right &overlay(AuthorizationItem &item);
-	static Right *overlay(AuthorizationItem *item);
-	Right();
-	Right(AuthorizationString name, size_t valueLength, const void *value);
-	~Right();
-
-	bool operator < (const Right &other) const;
-	AuthorizationString rightName() const { return name; }
-	size_t argumentLength() const { return valueLength; }
-	const void *argument() const { return value; }
-};
-
-
-/* A RightSet is a Container and a Back Insertion Sequence, but it is not a Sequence.  Also it only
-   implements the const members of Container and Back Insertion Sequence. */
-class RightSet
-{
-	friend class MutableRightSet;
-public:
-	// Container required memebers
-	typedef Right value_type;
-	typedef const Right &const_reference;
-	typedef const Right *const_pointer;
-	typedef const_pointer const_iterator;
-	typedef ptrdiff_t difference_type;
-	typedef size_t size_type;
-
-	RightSet(const AuthorizationRights *rights = NULL);
-	RightSet(const RightSet &other);
-	~RightSet();
-
-	size_type size() const { return mRights->count; }
-	size_type max_size() const { return INT_MAX; }
-	const_iterator begin() const { return static_cast<const_pointer>(mRights->items); }
-	const_iterator end() const { return static_cast<const_pointer>(&mRights->items[mRights->count]); }
-	bool empty() const { return size() == 0; }
-
-	// Back Insertion Sequence required memebers
-	const_reference back() const;
-
-	// Other convenience members
-	operator const AuthorizationRights *() const { return mRights; }
-private:
-	RightSet &operator = (const RightSet &other);
-
-protected:
-	static const AuthorizationRights gEmptyRights;
-	AuthorizationRights *mRights;
-};
-
-
-/* A MutableRightSet is a Container and a Back Insertion Sequence, but it is not a Sequence. */
-class MutableRightSet : public RightSet
-{
-public:
-	// Container required memebers
-	typedef Right &reference;
-	typedef Right *pointer;
-	typedef pointer iterator;
-
-	MutableRightSet(size_t count = 0, const Right &element = Right());
-	MutableRightSet(const RightSet &other);
-	~MutableRightSet();
-
-	MutableRightSet &operator = (const RightSet &other);
-
-	iterator begin() { return static_cast<pointer>(mRights->items); }
-	iterator end() { return static_cast<pointer>(&mRights->items[mRights->count]); }
-	void swap(MutableRightSet &other);
-
-	// Back Insertion Sequence required memebers
-	reference back();
-	void push_back(const_reference right);
-	void pop_back();
-
-	// Other convenience members
-	size_type capacity() const { return mCapacity; }
-private:
-	void grow(size_type min_capacity);
-
-	size_type mCapacity;
-};
-
-
 typedef set<Credential> CredentialSet;
 
 
@@ -231,7 +143,7 @@ public:
 	OSStatus evaluate(const Right &inRight, const AuthorizationEnvironment *environment,
 		AuthorizationFlags flags, CFAbsoluteTime now,
 		const CredentialSet *inCredentials, CredentialSet &credentials,
-		const AuthorizationToken &auth);
+		AuthorizationToken &auth);
 
 private:
 	OSStatus evaluate(const Right &inRight, const AuthorizationEnvironment *environment,
@@ -239,18 +151,22 @@ private:
 	OSStatus obtainCredential(QueryAuthorizeByGroup &client, const Right &inRight,
 		const AuthorizationEnvironment *environment, const char *usernameHint,
 		Credential &outCredential, SecurityAgent::Reason reason);
+    OSStatus evaluateMechanism(const AuthorizationEnvironment *environment, AuthorizationToken &auth, CredentialSet &outCredentials);
+
 
 	enum Type
 	{
 		kDeny,
 		kAllow,
-		kUserInGroup
+		kUserInGroup,
+        kEvalMech
 	} mType;
 
 	string mGroupName;
 	CFTimeInterval mMaxCredentialAge;
 	bool mShared;
 	bool mAllowRoot;
+	string mEvalDef;
 
 	static CFStringRef kUserInGroupID;
 	static CFStringRef kTimeoutID;
@@ -258,6 +174,8 @@ private:
 	static CFStringRef kAllowRootID;
 	static CFStringRef kDenyID;
 	static CFStringRef kAllowID;
+	static CFStringRef kEvalMechID;
+
 };
 
 
@@ -287,7 +205,7 @@ public:
 
 	OSStatus authorize(const RightSet &inRights, const AuthorizationEnvironment *environment,
 		AuthorizationFlags flags, const CredentialSet *inCredentials, CredentialSet *outCredentials,
-		MutableRightSet *outRights, const AuthorizationToken &auth);
+		MutableRightSet *outRights, AuthorizationToken &auth);
 private:
 	void updateRules(CFAbsoluteTime now);
 	void readRules();
@@ -301,12 +219,12 @@ private:
 	CFAbsoluteTime mLastChecked;
 	struct timespec mRulesFileMtimespec;
 
-	typedef map<Right, Rule> RightMap;
 	typedef map<string, Rule> RuleMap;
 
 	RuleMap mRules;
+    mutable Mutex mLock;
 };
 
 }; // namespace Authorization
 
-#endif /* ! __AuthorizationEngine__ */
+#endif /* ! _H_AUTHORIZATIONENGINE */

@@ -31,8 +31,8 @@
  */
 
 #include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 CFStringRef
 SCDynamicStoreKeyCreateConsoleUser(CFAllocatorRef allocator)
@@ -53,21 +53,22 @@ SCDynamicStoreCopyConsoleUser(SCDynamicStoreRef	store,
 	CFStringRef		consoleUser	= NULL;
 	CFDictionaryRef		dict		= NULL;
 	CFStringRef		key;
-	SCDynamicStoreRef	mySession	= store;
+	Boolean			tempSession	= FALSE;
 
 	if (!store) {
-		mySession = SCDynamicStoreCreate(NULL,
-						 CFSTR("SCDynamicStoreCopyConsoleUser"),
-						 NULL,
-						 NULL);
-		if (!mySession) {
+		store = SCDynamicStoreCreate(NULL,
+					     CFSTR("SCDynamicStoreCopyConsoleUser"),
+					     NULL,
+					     NULL);
+		if (!store) {
 			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
 			return NULL;
 		}
+		tempSession = TRUE;
 	}
 
 	key  = SCDynamicStoreKeyCreateConsoleUser(NULL);
-	dict = SCDynamicStoreCopyValue(mySession, key);
+	dict = SCDynamicStoreCopyValue(store, key);
 	CFRelease(key);
 	if (!isA_CFDictionary(dict)) {
 		_SCErrorSet(kSCStatusNoKey);
@@ -109,8 +110,8 @@ SCDynamicStoreCopyConsoleUser(SCDynamicStoreRef	store,
 
     done :
 
-	if (!store && mySession)	CFRelease(mySession);
-	if (dict)			CFRelease(dict);
+	if (tempSession)	CFRelease(store);
+	if (dict)		CFRelease(dict);
 	return consoleUser;
 
 }
@@ -125,23 +126,24 @@ SCDynamicStoreSetConsoleUser(SCDynamicStoreRef	store,
 	CFStringRef		consoleUser;
 	CFMutableDictionaryRef	dict		= NULL;
 	CFStringRef		key		= SCDynamicStoreKeyCreateConsoleUser(NULL);
-	SCDynamicStoreRef	mySession	= store;
 	CFNumberRef		num;
 	Boolean			ok		= TRUE;
+	Boolean			tempSession	= FALSE;
 
 	if (!store) {
-		mySession = SCDynamicStoreCreate(NULL,
-						 CFSTR("SCDynamicStoreSetConsoleUser"),
-						 NULL,
-						 NULL);
-		if (!mySession) {
+		store = SCDynamicStoreCreate(NULL,
+					     CFSTR("SCDynamicStoreSetConsoleUser"),
+					     NULL,
+					     NULL);
+		if (!store) {
 			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
 			return FALSE;
 		}
+		tempSession = TRUE;
 	}
 
 	if (user == NULL) {
-		ok = SCDynamicStoreRemoveValue(mySession, key);
+		ok = SCDynamicStoreRemoveValue(store, key);
 		goto done;
 	}
 
@@ -162,12 +164,12 @@ SCDynamicStoreSetConsoleUser(SCDynamicStoreRef	store,
 	CFDictionarySetValue(dict, kSCPropUsersConsoleUserGID, num);
 	CFRelease(num);
 
-	ok = SCDynamicStoreSetValue(mySession, key, dict);
+	ok = SCDynamicStoreSetValue(store, key, dict);
 
     done :
 
-	if (dict)			CFRelease(dict);
-	if (key)			CFRelease(key);
-	if (!store && mySession)	CFRelease(mySession);
+	if (dict)		CFRelease(dict);
+	if (key)		CFRelease(key);
+	if (tempSession)	CFRelease(store);
 	return ok;
 }

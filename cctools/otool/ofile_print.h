@@ -70,6 +70,7 @@ extern void print_libraries(
     struct mach_header *mh,
     struct load_command *load_commands,
     enum byte_sex load_commands_byte_sex,
+    enum bool just_id,
     enum bool verbose);
 
 extern void print_reloc(
@@ -226,6 +227,9 @@ extern void print_routines_command(
 extern void print_twolevel_hints_command(
     struct twolevel_hints_command *hints,
     unsigned long object_size);
+
+extern void print_prebind_cksum_command(
+    struct prebind_cksum_command *cksum);
 
 extern void print_thread_states(
     char *begin, 

@@ -38,7 +38,7 @@
 #import <rpc/clnt.h>
 #import <rpc/svc.h>
 #import <errno.h>
-#import "nfs_prot.h"
+#import <nfs_prot.h>
 #import "automount.h"
 #import "log.h"
 #import "mount.h"
@@ -218,6 +218,7 @@ rpcerr2errno(int r, int e)
 - (Server *)initWithName:(String *)servername
 {
 	char hn[1024];
+	char *p;
 
 	[super init];
 
@@ -233,19 +234,20 @@ rpcerr2errno(int r, int e)
 
 	gethostname(hn, 1024);
 	isLocalHost = NO;
-	if ((!strcmp(hn, [servername value]))
-		|| (!strcmp("localhost", [servername value])))
+	if (!strcmp("localhost", [servername value])) isLocalHost = YES;
+	if ((!isLocalHost) && (!strcmp(hn, [servername value]))) isLocalHost = YES;
+	if (!isLocalHost)
 	{
-		isLocalHost = YES;
-		myname = [servername retain];
-		address = htonl(INADDR_LOOPBACK);
-		[self reset];
-
-		return self;
+		p = strchr(hn, '.');
+		if (p != NULL)
+		{
+			*p = '\0';
+			if (!strcmp(hn, [servername value])) isLocalHost = YES;
+		}
 	}
+	if (isLocalHost) address = htonl(INADDR_LOOPBACK);
 
 	myname = [servername retain];
-	
 	[self reset];
 
 	return self;
@@ -429,7 +431,7 @@ rpcerr2errno(int r, int e)
 	unsigned int mount_status;
 	CLIENT *cl;
 	struct rpc_err rpcerr;
-
+	
 	if (!((v == 2) || (v == 3))) return ERPCMISMATCH;
 
 	status = [self getNFSPort:p version:v protocol:proto];

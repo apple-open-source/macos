@@ -4,8 +4,7 @@
 #include <IOKit/audio/IOAudioTypes.h>
 #include <IOKit/audio/IOAudioDebug.h>
 
-
-
+#include "iSubTypes.h"	// aml 3.1.02
 
 //	floating point types
 typedef	float				Float32;
@@ -28,6 +27,13 @@ typedef double				Float64;
 
 const UInt32 kNumChannels = 2;
 
+// aml 6.17.02
+typedef enum {							
+    e_Mode_Disabled = 0,
+    e_Mode_CopyLeftToRight,
+    e_Mode_CopyRightToLeft
+} DualMonoModeType;
+
 typedef struct _sPreviousValues {
     Float32	xl_1;
     Float32	xr_1;
@@ -48,6 +54,40 @@ typedef struct _sPreviousValues1stOrder {
     Float32	yr_1;
 } PreviousValues1stOrder;
 
+// aml 4.30.02
+// -24 dB to +24 dB in 1 dB steps
+const UInt16 kZeroGaindBConvTableOffset = 24;
+const UInt16 kMaxZeroGain = 24;
+const UInt16 kMinZeroGain = 24;
+static float zeroGaindBConvTable[] = {
+    0.0631,  0.0708,  0.0794,  0.0891,  0.1000,  0.1122,  0.1259, 
+    0.1413,  0.1585,  0.1778,  0.1995,  0.2239,  0.2512,  0.2818,
+    0.3162,  0.3548,  0.3981,  0.4467,  0.5012,  0.5623,  0.6310, 
+    0.7079,  0.7943,  0.8913,  1.0000,  1.1220,  1.2589,  1.4125, 
+    1.5849,  1.7783,  1.9953,  2.2387,  2.5119,  2.8184,  3.1623, 
+    3.5481,  3.9811,  4.4668,  5.0119,  5.6234,  6.3096,  7.0795, 
+    7.9433,  8.9125, 10.0000, 11.2202, 12.5893, 14.1254, 15.8489
+};
+
+// aml 5.13.02
+// -12 dB to +12 dB in 0.5 dB steps
+const UInt16 kInputGaindBConvTableOffset = 24;
+static float inputGaindBConvTable[] = {
+	0.251189,	0.266073,	0.281838,	0.298538,
+	0.316228,	0.334965,	0.354813,	0.375837,
+	0.398107,	0.421697,	0.446684,	0.473151,
+	0.501187,	0.530884,	0.562341,	0.595662,
+	0.630957,	0.668344,	0.707946,	0.749894,
+	0.794328,	0.841395,	0.891251,	0.944061,
+	1.000000,	1.059254,	1.122018,	1.188502,
+	1.258925,	1.333521,	1.412538,	1.496236,
+	1.584893,	1.678804,	1.778279,	1.883649,
+	1.995262,	2.113489,	2.238721,	2.371374,
+	2.511886,	2.660725,	2.818383,	2.985383,
+	3.162278,	3.349654,	3.548134,	3.758374,
+	3.981072
+};
+
 #if FLOATLIB
 void CoeffsFilterOrder2 (Float32 *Coeff, Float32 CutOffFreq, Float32 AttAtCutOffFreq , Float64 SamplingRate);
 #else
@@ -65,6 +105,79 @@ void StereoFilter4thOrderPhaseComp (Float32 *in, Float32 *low, Float32 *high, UI
 
 UInt32 CalculateOffset (UInt64 nanoseconds, UInt32 sampleRate) {
 	return ((double)sampleRate / 1000000000.0) * nanoseconds;
+}
+
+void dBfixed2float(UInt32 indBfixed, float* ioGainPtr) {
+    float out, temp, frac;
+    // get integer part
+    int index = (SInt16)(indBfixed >> 16);		
+    // if we're out of bounds, saturate both integer and fraction		
+    if (index >= kMaxZeroGain) {
+        index = kMaxZeroGain;
+        indBfixed = 0;
+    } else if (index <= -kMinZeroGain) {
+        index = -kMinZeroGain;
+        indBfixed = 0;
+    }    
+#ifdef _AML_LOG_INPUT_GAIN // aml XXX testing
+    IOLog("dBfixed2float - table index 0 = %d\n", index+kZeroGaindBConvTableOffset);    
+#endif                    
+
+    // get fractional part
+    frac = ((float)((UInt32)(indBfixed & 0x0000FFFF)))/65535.0;		
+#ifdef _AML_LOG_INPUT_GAIN // aml XXX testing
+    IOLog("dBfixed2float - frac*32767 = %ld\n", (long)(frac*32767));    
+#endif                    
+
+    // get the base dB converted value
+    out = zeroGaindBConvTable[index + kZeroGaindBConvTableOffset];
+    // if we have a fractional part, do linear interpolation on our table
+    // this is accurate to about 2 decimal places, which is okay but not great
+    if (frac > 0) {
+        if (index >= 0) {
+#ifdef _AML_LOG_INPUT_GAIN // aml XXX testing
+            IOLog("dBfixed2float - table index 1 = %d\n", index+kZeroGaindBConvTableOffset+1);    
+#endif                    
+            temp = zeroGaindBConvTable[index + kZeroGaindBConvTableOffset + 1];
+            out = out + frac*(temp - out);		// out*(1-frac) + temp*frac;
+        } else {
+#ifdef _AML_LOG_INPUT_GAIN // aml XXX testing
+            IOLog("dBfixed2float - table index 1 = %d\n", index+kZeroGaindBConvTableOffset-1);    
+#endif                    
+            temp = zeroGaindBConvTable[index + kZeroGaindBConvTableOffset - 1];
+            out = out + frac*(temp - out);
+        }
+    }
+#ifdef _AML_LOG_INPUT_GAIN // aml XXX testing
+    IOLog("dBfixed2float, zero-gain*32767 = %ld\n\n", (long)(out*32767));    
+#endif                    
+
+    *ioGainPtr = out;
+    
+    return;
+}
+
+void inputGainConverter(UInt32 inGainIndex, float* ioGainPtr) {
+    float out = 1.0;
+    // check bounds		
+    if (inGainIndex > (2*kInputGaindBConvTableOffset)) {
+        inGainIndex = 2*kInputGaindBConvTableOffset;
+    }
+
+#ifdef _AML_LOG_INPUT_GAIN 	
+//    IOLog("inputGainConverter, inGainIndex = %d\n", inGainIndex);    
+#endif                    
+
+    // get the base dB converted value
+    out = inputGaindBConvTable[inGainIndex];
+
+#ifdef _AML_LOG_INPUT_GAIN 	
+//    IOLog("inputGainConverter, gain*32767 = %ld\n\n", (UInt32)(out*32767));    
+#endif                    
+
+    *ioGainPtr = out;
+    
+    return;
 }
 
 IOReturn clipAppleDBDMAToOutputStream(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
@@ -128,45 +241,45 @@ IOReturn clipAppleDBDMAToOutputStream(const void *mixBuf, void *sampleBuf, UInt3
 		
 	}
         
-         switch (straglers)
-        {
-            case 3:
-            {
-                float tempFloat;
-		tempFloat = *(++inFloatBufferPtr);
+	switch (straglers)
+	{
+		case 3:
+		{
+			float tempFloat;
+			tempFloat = *(++inFloatBufferPtr);
+			
+			if(tempFloat > kMaxFloatMinusLSBSInt16)
+				tempFloat = kMaxFloatMinusLSBSInt16;
+			else if(tempFloat < -1.0)
+				tempFloat = -1.0;
 		
-		if(tempFloat > kMaxFloatMinusLSBSInt16)
-			tempFloat = kMaxFloatMinusLSBSInt16;
-		else if(tempFloat < -1.0)
-			tempFloat = -1.0;
+			*(++outSInt16BufferPtr) = (short)(tempFloat*kMaxSInt16ValueInFloat);
+		}
+		case 2:
+		{	
+			float tempFloat;
+			tempFloat = *(++inFloatBufferPtr);
 		
-		*(++outSInt16BufferPtr) = (short)(tempFloat*kMaxSInt16ValueInFloat);
-            }
-            case 2:
-            {	
-                float tempFloat;
-		tempFloat = *(++inFloatBufferPtr);
+			if(tempFloat > kMaxFloatMinusLSBSInt16)
+				tempFloat = kMaxFloatMinusLSBSInt16;
+			else if(tempFloat < -1.0)
+				tempFloat = -1.0;
 		
-		if(tempFloat > kMaxFloatMinusLSBSInt16)
-			tempFloat = kMaxFloatMinusLSBSInt16;
-		else if(tempFloat < -1.0)
-			tempFloat = -1.0;
+			*(++outSInt16BufferPtr) = (short)(tempFloat*kMaxSInt16ValueInFloat);
+		}
+		case 1:
+		{
+			float tempFloat;
+			tempFloat = *(++inFloatBufferPtr);
 		
-		*(++outSInt16BufferPtr) = (short)(tempFloat*kMaxSInt16ValueInFloat);
-            }
-            case 1:
-            {
-                float tempFloat;
-		tempFloat = *(++inFloatBufferPtr);
+			if(tempFloat > kMaxFloatMinusLSBSInt16)
+				tempFloat = kMaxFloatMinusLSBSInt16;
+			else if(tempFloat < -1.0)
+				tempFloat = -1.0;
 		
-		if(tempFloat > kMaxFloatMinusLSBSInt16)
-			tempFloat = kMaxFloatMinusLSBSInt16;
-		else if(tempFloat < -1.0)
-			tempFloat = -1.0;
-		
-		*(++outSInt16BufferPtr) = (short)(tempFloat*kMaxSInt16ValueInFloat);
-            }
-        }        
+			*(++outSInt16BufferPtr) = (short)(tempFloat*kMaxSInt16ValueInFloat);
+		}
+	}        
 
     
 //    floatMixBuf = (float *)mixBuf;
@@ -225,15 +338,7 @@ IOReturn clipAppleDBDMAToOutputStreamInvertRightChannel(const void *mixBuf, void
             inSample = -1.0;
         }
         
-        
-        if (inSample >= 0) 
-        {
-            outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
-        } 
-        else 
-        {
-            outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
-        }
+        outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
             
         // if right channel invert it
         if (isTwoChannel && sampleIndex % 2)
@@ -263,7 +368,7 @@ IOReturn clipAppleDBDMAToOutputStreamMixRightChannel(const void *mixBuf, void *s
         float inSample;
         
 		// Mix the left sample with the right sample
-        inSample = floatMixBuf[sampleIndex] + floatMixBuf[sampleIndex + 1];
+        inSample = (floatMixBuf[sampleIndex] + floatMixBuf[sampleIndex + 1]) * 0.5;
 		
         if (inSample > 1.0) 
         {
@@ -274,14 +379,7 @@ IOReturn clipAppleDBDMAToOutputStreamMixRightChannel(const void *mixBuf, void *s
             inSample = -1.0;
         }
         
-		if (inSample >= 0) 
-		{
-			outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
-		} 
-		else 
-		{
-			outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
-		}
+		outputBuf[sampleIndex] = (SInt16) (inSample * 32767.0);
 
 		// Mute the right channel
 		outputBuf[sampleIndex + 1] = 0;
@@ -291,69 +389,145 @@ IOReturn clipAppleDBDMAToOutputStreamMixRightChannel(const void *mixBuf, void *s
 }
 // aml 2.14.02 added second filter state for 4th order filter
 // aml 2.18.02 added more filter state for phase compensator
-IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen)
+// aml 3.5.02 added src phase parameter
+IOReturn clipAppleDBDMAToOutputStreamiSub(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState)
 {
     UInt32 sampleIndex, maxSampleIndex;
-    float *floatMixBuf;
-    SInt16 *outputBuf;
-	float highSample;
-	Float32	iSubSampleFloat;
-	SInt16	iSubSampleInt;
+    float *	floatMixBuf;
+    SInt16 *	outputBuf;
+    float 	highSample;
+    Float32	iSubSampleFloat;
+    SInt16	iSubSampleInt;
+    // aml 3.6.02 storage for src
+    float 	x0, x1, temp;
+
+    // aml 3.6.02 src variables - should calculate phaseInc somewhere else, change only if the SR changes
+    float 	phaseInc = ((float)sampleRate)/((float)(iSubFormat->outputSampleRate));		// phase increment = Fs_in/Fs_out
+    float 	phase = *srcPhase;								// current phase location
 
     floatMixBuf = (float *)mixBuf;
     outputBuf = (SInt16 *)sampleBuf;
  
     maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
 
-	// Filter out the highs and lows for use with the iSub
-	if (1 == streamFormat->fNumChannels) {
-		MonoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate);
-	} else if (2 == streamFormat->fNumChannels) {
-		// aml 2.15.02 changed to 4th order version
-		// aml 2.18.02 changed to 4th order version with phase compensation
-                StereoFilter4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
-	}
+    // Filter out the highs and lows for use with the iSub
+    if (1 == streamFormat->fNumChannels) {
+            MonoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate);
+    } else if (2 == streamFormat->fNumChannels) {
+            // aml 2.15.02 changed to 4th order version
+            // aml 2.18.02 changed to 4th order version with phase compensation
+            StereoFilter4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
+    }
+    //
+    // high side loop 
+    //
+    for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
+        highSample = high[sampleIndex];
+        if (highSample > 1.0) {
+            highSample = 1.0;
+        } else if (highSample < -1.0) {
+            highSample = -1.0;
+        }
 
-	for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
-		highSample = high[sampleIndex];
-		if (highSample > 1.0) {
-			highSample = 1.0;
-		} else if (highSample < -1.0) {
-			highSample = -1.0;
+		outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
+    }
+    
+    // aml 2.28.02 added new loop for mixing iSub data to mono
+    // increment by two, mix each pair of samples
+    // aml 3.1.02 added iSub format check
+    //
+    // low side loops - currently only handles stereo->stereo, mono->mono, and stereo->mono
+    //
+    // aml XXX: should move this into an inline function - there's too much code copying!
+    if ((iSubFormat->numChannels == 1) && (streamFormat->fNumChannels == 2)) {
+        // aml 3.6.02 linear interpolation src (takes the edge of the zoh version, without wasting too many 
+        // cycles since we have a 4th order lp in front of us, down -90 dB at Nyquist for 6kHz sample rate)
+        // STEREO->MONO
+        sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
+        while (sampleIndex < maxSampleIndex) {
+                    
+            if (phase >= 1.0) {	
+                phase -= 1.0;
+                sampleIndex+=2;
+            } else {   
+                // check for beginning of frame case, use saved last sample if needed
+                if (sampleIndex == (firstSampleFrame * streamFormat->fNumChannels)) { 
+                    x0 = *srcState;
+                } else {
+                    // mix x[n-1] to mono
+                    x0 = low[sampleIndex-2];
+                    temp = low[sampleIndex-1];
+                    x0 = 0.5*(x0 + temp);
+                }
+                
+                // mix x[n] to mono
+                x1 = low[sampleIndex];
+                temp = low[sampleIndex+1];
+                x1 = 0.5*(x1 + temp);
+                                
+                // linearly interpolate between x0 and x1
+                iSubSampleFloat = x0 + phase*(x1 - x0);
+                
+                // clip
+                if (iSubSampleFloat > 1.0) {
+                    iSubSampleFloat = 1.0;
+                } else if (iSubSampleFloat < -1.0) {
+                    iSubSampleFloat = -1.0;
+                }
+                
+                // convert to fixed
+                iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
+                
+                // check for end of buffer condition
+                if (*iSubBufferOffset >= (SInt32)iSubBufferLen) {
+                    *iSubBufferOffset = 0;
+                    (*loopCount)++;
+                }
+                
+                // byteswap to USB format and copy to iSub buffer
+                iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
+
+                // increment phase and update input buffer pointer
+                phase += phaseInc;		
+            }
 		}
+        if (phase < 1) {
+            // mix and save last sample in buffer to mono if it will be needed for the next loop
+            x1 = low[maxSampleIndex-2];
+            temp = low[maxSampleIndex-1];
+            *srcState = 0.5*(x1 + temp);
+        } else {
+            *srcState = 0;
+        }
+        // cache current phase for use next time we enter the clip loop
+       *srcPhase = phase;
+    } else {
+        // STEREO->STEREO, MONO->MONO
+        for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
+                    
+            iSubSampleFloat = low[sampleIndex];
+            if (iSubSampleFloat > 1.0) {
+				iSubSampleFloat = 1.0;
+            } else if (iSubSampleFloat < -1.0) {
+				iSubSampleFloat = -1.0;
+            }
 
-		if (highSample >= 0) { 
-			outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
-		} else {
-			outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
-		}
+            iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
 
-		iSubSampleFloat = low[sampleIndex];
-		if (iSubSampleFloat > 1.0) {
-			iSubSampleFloat = 1.0;
-		} else if (iSubSampleFloat < -1.0) {
-			iSubSampleFloat = -1.0;
-		}
+            if (*iSubBufferOffset >= iSubBufferLen) {
+				*iSubBufferOffset = 0;
+				(*loopCount)++;
+            }
 
-		if (iSubSampleFloat >= 0) {
-			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
-		} else {
-			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
-		}
-
-		if (*iSubBufferOffset >= iSubBufferLen) {
-			*iSubBufferOffset = 0;
-			(*loopCount)++;
-		}
-
-		iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
-	}
-
+            iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
+        }
+    }
     return kIOReturnSuccess;
 }
 // aml 2.14.02 added second filter state for 4th order filter
 // aml 2.18.02 changed to 4th order version with phase compensation
-IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen)
+// aml 3.5.02 added src phase parameter
+IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState)
 {
     UInt32 sampleIndex, maxSampleIndex;
     float *floatMixBuf;
@@ -362,160 +536,453 @@ IOReturn clipAppleDBDMAToOutputStreamiSubInvertRightChannel(const void *mixBuf, 
 	Float32	iSubSampleFloat;
 	SInt16	iSubSampleInt;
     register Boolean isTwoChannel;
+    // aml 3.6.02 storage for src
+    float 	x0, x1, temp;
+
+    // aml 3.6.02 src variables - should calculate phaseInc somewhere else, change only if the SR changes
+    float 	phaseInc = ((float)sampleRate)/((float)(iSubFormat->outputSampleRate));		// phase increment = Fs_in/Fs_out
+    float 	phase = *srcPhase;								// current phase location
+
     floatMixBuf = (float *)mixBuf;
     outputBuf = (SInt16 *)sampleBuf;
     
     isTwoChannel = (2 == streamFormat->fNumChannels); // save a register indirection in a tight loop
     
-	maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
+    maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
 
-	// Filter out the highs and lows for use with the iSub
-	if (1 == streamFormat->fNumChannels) {
-		MonoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate);
-	} else if (2 == streamFormat->fNumChannels) {
-		// aml 2.15.02 changed to 4th order version
-                // aml 2.18.02 changed to 4th order version with phase compensation
-                StereoFilter4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
-	}
+    // Filter out the highs and lows for use with the iSub
+    if (1 == streamFormat->fNumChannels) {
+            MonoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate);
+    } else if (2 == streamFormat->fNumChannels) {
+            // aml 2.15.02 changed to 4th order version
+            // aml 2.18.02 changed to 4th order version with phase compensation
+            StereoFilter4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
+    }
+    //
+    // high side loop
+    //
+    for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
+        highSample = high[sampleIndex];
+        if (highSample > 1.0) {
+            highSample = 1.0;
+        } else if (highSample < -1.0) {
+            highSample = -1.0;
+        }
 
-	for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
-		highSample = high[sampleIndex];
-		if (highSample > 1.0) {
-			highSample = 1.0;
-		} else if (highSample < -1.0) {
-			highSample = -1.0;
-		}
-
-		if (highSample >= 0) { 
-			outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
-		} else {
-			outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
-		}
-        
+        outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
+    
         // if right channel then invert it
         if (isTwoChannel && sampleIndex % 2)
         {
-             outputBuf[sampleIndex] ^= (SInt16)0xFFFFFFFF;
+            outputBuf[sampleIndex] ^= (SInt16)0xFFFFFFFF;
         }
+    }
+    
+    // aml 2.28.02 added new loop for mixing iSub data to mono
+    // increment by two, mix each pair of samples
+    // aml 3.1.02 added iSub format check
+    //
+    // low side loops - currently only handles stereo->stereo, mono->mono, and stereo->mono
+    //
+    // aml XXX: should move this into an inline function - there's too much code copying!
+    if ((iSubFormat->numChannels == 1) && (streamFormat->fNumChannels == 2)) {
+        // aml 3.6.02 linear interpolation src (takes the edge of the zoh version, without wasting too many 
+        // cycles since we have a 4th order lp in front of us, down -90 dB at Nyquist for 6kHz sample rate)
+        // STEREO->MONO
+        sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
+        while (sampleIndex < maxSampleIndex) {
+                    
+            if (phase >= 1.0) {	
+                phase -= 1.0;
+                sampleIndex+=2;
+            } else {   
+                // check for beginning of frame case, use saved last sample if needed
+                if (sampleIndex == (firstSampleFrame * streamFormat->fNumChannels)) { 
+                    x0 = *srcState;
+                } else {
+                    // mix x[n-1] to mono
+                    x0 = low[sampleIndex-2];
+                    temp = low[sampleIndex-1];
+                    x0 = 0.5*(x0 + temp);
+                }
+                
+                // mix x[n] to mono
+                x1 = low[sampleIndex];
+                temp = low[sampleIndex+1];
+                x1 = 0.5*(x1 + temp);
+                                
+                // linearly interpolate between x0 and x1
+                iSubSampleFloat = x0 + phase*(x1 - x0);
+                
+                // clip
+                if (iSubSampleFloat > 1.0) {
+                    iSubSampleFloat = 1.0;
+                } else if (iSubSampleFloat < -1.0) {
+                    iSubSampleFloat = -1.0;
+                }
+                
+                // convert to fixed
+                iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
+                
+                // check for end of buffer condition
+                if (*iSubBufferOffset >= (SInt32)iSubBufferLen) {
+                        *iSubBufferOffset = 0;
+                        (*loopCount)++;
+                }
+                
+                // byteswap to USB format and copy to iSub buffer
+                iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
 
-		iSubSampleFloat = low[sampleIndex];
-		if (iSubSampleFloat > 1.0) {
-			iSubSampleFloat = 1.0;
-		} else if (iSubSampleFloat < -1.0) {
-			iSubSampleFloat = -1.0;
+                // increment phase and update input buffer pointer
+                phase += phaseInc;		
+            }
 		}
+        if (phase < 1) {
+            // mix and save last sample in buffer to mono if it will be needed for the next loop
+            x1 = low[maxSampleIndex-2];
+            temp = low[maxSampleIndex-1];
+            *srcState = 0.5*(x1 + temp);
+        } else {
+            *srcState = 0;
+        }
+        // cache current phase for use next time we enter the clip loop
+       *srcPhase = phase;
+    } else {
+        // STEREO->STEREO, MONO->MONO
+        for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
+                    
+            iSubSampleFloat = low[sampleIndex];
+            if (iSubSampleFloat > 1.0) {
+                    iSubSampleFloat = 1.0;
+            } else if (iSubSampleFloat < -1.0) {
+                    iSubSampleFloat = -1.0;
+            }
 
-		if (iSubSampleFloat >= 0) {
-			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
-		} else {
-			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
-		}
+            iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
 
-		if (*iSubBufferOffset >= iSubBufferLen) {
-			*iSubBufferOffset = 0;
-			(*loopCount)++;
-		}
+            if (*iSubBufferOffset >= iSubBufferLen) {
+                    *iSubBufferOffset = 0;
+                    (*loopCount)++;
+            }
 
-		iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
-	}
-
+            iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
+        }
+    }
     return kIOReturnSuccess;
 }
 // aml 2.14.02 added second filter state for 4th order filter
 // aml 2.18.02 changed to 4th order version with phase compensation
-IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen)
+// aml 3.5.02 added src phase parameter
+IOReturn clipAppleDBDMAToOutputStreamiSubMixRightChannel(const void *mixBuf, void *sampleBuf, PreviousValues * filterState, PreviousValues * filterState2, PreviousValues * phaseCompState, Float32 *low, Float32 *high, UInt32 firstSampleFrame, UInt32 numSampleFrames, UInt32 sampleRate, const IOAudioStreamFormat *streamFormat, SInt16 *iSubBufferMemory, UInt32 *loopCount, SInt32 *iSubBufferOffset, UInt32 iSubBufferLen, iSubAudioFormatType* iSubFormat, float* srcPhase, float* srcState)
 {
     UInt32 sampleIndex, maxSampleIndex;
     float *floatMixBuf;
     SInt16 *outputBuf;
-	float highSample;
-	Float32	iSubSampleFloat;
-	SInt16	iSubSampleInt;
+    float highSample;
+    Float32	iSubSampleFloat;
+    SInt16	iSubSampleInt;
+    // aml 3.6.02 storage for src
+    float 	x0, x1, temp;
+
+    // aml 3.6.02 src variables - should calculate phaseInc somewhere else, change only if the SR changes
+    float 	phaseInc = ((float)sampleRate)/((float)(iSubFormat->outputSampleRate));		// phase increment = Fs_in/Fs_out
+    float 	phase = *srcPhase;								// current phase location
+
     floatMixBuf = (float *)mixBuf;
     outputBuf = (SInt16 *)sampleBuf;
     
-	maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
+    maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
 
-	// Filter out the highs and lows for use with the iSub
-	if (1 == streamFormat->fNumChannels) {
-		MonoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate);
-	} else if (2 == streamFormat->fNumChannels) {
-		// aml 2.15.02 changed to 4th order version
-                // aml 2.18.02 changed to 4th order version with phase compensation
-                StereoFilter4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
-	}
+    // Filter out the highs and lows for use with the iSub
+    if (1 == streamFormat->fNumChannels) {
+        MonoFilter (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate);
+    } else if (2 == streamFormat->fNumChannels) {
+        // aml 2.15.02 changed to 4th order version
+        // aml 2.18.02 changed to 4th order version with phase compensation
+        StereoFilter4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], &high[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
+    }
+    //
+    // high side loop
+    //
+    for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
+        // Mix the left and right channels together
+        highSample = (high[sampleIndex] + high[sampleIndex + 1]) * 0.5;
+        if (highSample > 1.0) {
+            highSample = 1.0;
+        } else if (highSample < -1.0) {
+            highSample = -1.0;
+        }
 
-	for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
-		// Mix the left and right channels together
-		highSample = high[sampleIndex] + high[sampleIndex + 1];
-		if (highSample > 1.0) {
-			highSample = 1.0;
-		} else if (highSample < -1.0) {
-			highSample = -1.0;
-		}
-
-		// Mute right channel
+        // Mute right channel
         if (sampleIndex % 2) {
-			outputBuf[sampleIndex] = 0;
-		} else {
-			if (highSample >= 0) { 
-				outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
-			} else {
-				outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
-			}
-		}
-        
-		iSubSampleFloat = low[sampleIndex];
-		if (iSubSampleFloat > 1.0) {
-			iSubSampleFloat = 1.0;
-		} else if (iSubSampleFloat < -1.0) {
-			iSubSampleFloat = -1.0;
-		}
+            outputBuf[sampleIndex] = 0;
+        } else {
+			outputBuf[sampleIndex] = (SInt16) (highSample * 32767.0);
+        }
+    }
+       
+    // aml 2.28.02 added new loop for mixing iSub data to mono
+    // increment by two, mix each pair of samples
+    // aml 3.1.02 added iSub format check
+    //
+    // low side loops - currently only handles stereo->stereo, mono->mono, and stereo->mono
+    //
+    // aml XXX: should move this into an inline function - there's too much code copying!
+    if ((iSubFormat->numChannels == 1) && (streamFormat->fNumChannels == 2)) {
+        // aml 3.6.02 linear interpolation src (takes the edge of the zoh version, without wasting too many 
+        // cycles since we have a 4th order lp in front of us, down -90 dB at Nyquist for 6kHz sample rate)
+        // STEREO->MONO
+        sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
+        while (sampleIndex < maxSampleIndex) {
+                    
+            if (phase >= 1.0) {	
+                phase -= 1.0;
+                sampleIndex+=2;
+            } else {   
+                // check for beginning of frame case, use saved last sample if needed
+                if (sampleIndex == (firstSampleFrame * streamFormat->fNumChannels)) { 
+                    x0 = *srcState;
+                } else {
+                    // mix x[n-1] to mono
+                    x0 = low[sampleIndex-2];
+                    temp = low[sampleIndex-1];
+                    x0 = 0.5*(x0 + temp);
+                }
+                
+                // mix x[n] to mono
+                x1 = low[sampleIndex];
+                temp = low[sampleIndex+1];
+                x1 = 0.5*(x1 + temp);
+                                
+                // linearly interpolate between x0 and x1
+                iSubSampleFloat = x0 + phase*(x1 - x0);
+                
+                // clip
+                if (iSubSampleFloat > 1.0) {
+                    iSubSampleFloat = 1.0;
+                } else if (iSubSampleFloat < -1.0) {
+                    iSubSampleFloat = -1.0;
+                }
+                
+                // convert to fixed
+                iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
+                
+                // check for end of buffer condition
+                if (*iSubBufferOffset >= (SInt32)iSubBufferLen) {
+                    *iSubBufferOffset = 0;
+                    (*loopCount)++;
+                }
+                
+                // byteswap to USB format and copy to iSub buffer
+                iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
 
-		if (iSubSampleFloat >= 0) {
-			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
-		} else {
-			iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
+                // increment phase and update input buffer pointer
+                phase += phaseInc;		
+            }
 		}
+        if (phase < 1) {
+            // mix and save last sample in buffer to mono if it will be needed for the next loop
+            x1 = low[maxSampleIndex-2];
+            temp = low[maxSampleIndex-1];
+            *srcState = 0.5*(x1 + temp);
+        } else {
+            *srcState = 0;
+        }
+        // cache current phase for use next time we enter the clip loop
+       *srcPhase = phase;
+    } else {
+        // STEREO->STEREO, MONO->MONO
+        for (sampleIndex = (firstSampleFrame * streamFormat->fNumChannels); sampleIndex < maxSampleIndex; sampleIndex++) {
+                    
+            iSubSampleFloat = low[sampleIndex];
+            if (iSubSampleFloat > 1.0) {
+                iSubSampleFloat = 1.0;
+            } else if (iSubSampleFloat < -1.0) {
+				iSubSampleFloat = -1.0;
+            }
 
-		if (*iSubBufferOffset >= iSubBufferLen) {
-			*iSubBufferOffset = 0;
-			(*loopCount)++;
-		}
+            iSubSampleInt = (SInt16) (iSubSampleFloat * 32767.0);
 
-		iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
-	}
-
+            if (*iSubBufferOffset >= iSubBufferLen) {
+                *iSubBufferOffset = 0;
+                (*loopCount)++;
+            }
+            iSubBufferMemory[(*iSubBufferOffset)++] = ((((UInt16)iSubSampleInt) << 8) & 0xFF00) | ((((UInt16)iSubSampleInt) >> 8) & 0x00FF);
+        }
+    }
     return kIOReturnSuccess;
 }
 
-IOReturn convertAppleDBDMAFromInputStream(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+// aml 5.10.02, added function
+// aml 6.17.02, added dual mono, cleaned up a bit
+IOReturn convertAppleDBDMAFromInputStreamWithGain(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, float* inGainLPtr, float* inGainRPtr, DualMonoModeType inDualMonoMode)
 {
     UInt32 numSamplesLeft;
     float *floatDestBuf;
     SInt16 *inputBuf;
-        
+	float temp, gainL, gainR;
+	
+	temp = 0.0;    
+	gainL = 1.0;
+	gainR = 1.0;
+
+	if (inGainLPtr)
+		gainL = *inGainLPtr;
+	if (inGainRPtr)
+		gainR = *inGainRPtr;
+    
     floatDestBuf = (float *)destBuf;
     inputBuf = &(((SInt16 *)sampleBuf)[firstSampleFrame * streamFormat->fNumChannels]);
     
     numSamplesLeft = numSampleFrames * streamFormat->fNumChannels;
     
-    while (numSamplesLeft > 0) {
-        SInt16 inputSample;
+	if (streamFormat->fNumChannels == 1) {
+		//
+		// Mono
+		//
+		while (numSamplesLeft > 0) {
+			
+			temp = (*inputBuf) / 32767.0;
+			*floatDestBuf = gainL*temp;
+				
+			++inputBuf;
+			++floatDestBuf;
+			--numSamplesLeft;
+		}
+	} else {
+		if (inDualMonoMode == e_Mode_Disabled) {
+			//
+			// Stereo
+			//
+			while (numSamplesLeft > 0) {
+
+				// convert left sample
+				temp = (*inputBuf) / 32767.0;
+				*floatDestBuf = gainL * temp;
+					
+				++inputBuf;
+				++floatDestBuf;
+
+				// convert right sample
+				temp = (*inputBuf) / 32767.0;
+				*floatDestBuf = gainR*temp;
+					
+				++inputBuf;
+				++floatDestBuf;
+				numSamplesLeft -= 2;
+			}
+		} else {
+			if (inDualMonoMode == e_Mode_CopyLeftToRight) {
+				//
+				// Dual Mono - Left to Right
+				//
+				while (numSamplesLeft > 0) {
+
+					// convert left sample
+					temp = (*inputBuf) / 32767.0;
+					*floatDestBuf = gainL * temp;
+						
+					// skip right sample
+					++inputBuf;
+
+					*(++floatDestBuf) = gainR * temp;
+						
+					++inputBuf;
+					++floatDestBuf;
+					numSamplesLeft -= 2;
+				}
+			} else if (inDualMonoMode == e_Mode_CopyRightToLeft) {
+				//
+				// Dual Mono - Right to Left
+				//
+				while (numSamplesLeft > 0) {
+					
+					// skip left sample
+					++inputBuf;
+
+					// convert right sample
+					temp = (*inputBuf) / 32767.0;
+					*floatDestBuf = gainL * temp;
+					*(++floatDestBuf) = gainR * temp;
+						
+					++inputBuf;
+					++floatDestBuf;
+					numSamplesLeft -= 2;
+				}
+			}	
+		}	
+	}
         
-        inputSample = *inputBuf;
+    return kIOReturnSuccess;
+}
+
+// aml 6.17.02, added dual mono, cleaned up a bit
+IOReturn convertAppleDBDMAFromInputStream(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, DualMonoModeType inDualMonoMode)
+{
+    UInt32 numSamplesLeft;
+    float *floatDestBuf;
+    SInt16 *inputBuf;
+	Float32 temp;
+	
+    temp = 0;    
+    floatDestBuf = (float *)destBuf;
+    inputBuf = &(((SInt16 *)sampleBuf)[firstSampleFrame * streamFormat->fNumChannels]);
     
-        if (inputSample >= 0) {
-            *floatDestBuf = inputSample / 32767.0;
-        } else {
-            *floatDestBuf = inputSample / 32767.0;
-        }
-                
-        ++inputBuf;
-        ++floatDestBuf;
-        --numSamplesLeft;
-    }
-        
+    numSamplesLeft = numSampleFrames * streamFormat->fNumChannels;
+
+	if ((streamFormat->fNumChannels == 2) && (inDualMonoMode != e_Mode_Disabled)) {
+		//
+		// Dual Mono Mode
+		//
+		if (inDualMonoMode == e_Mode_CopyLeftToRight) {
+			//
+			// Dual Mono - Left to Right
+			//
+			while (numSamplesLeft > 0) {
+
+				// convert left sample
+				temp = (*inputBuf) / 32767.0;
+				*floatDestBuf = temp;
+					
+				// skip right sample
+				++inputBuf;
+
+				*(++floatDestBuf) = temp;
+					
+				++inputBuf;
+				++floatDestBuf;
+				numSamplesLeft -= 2;
+			}
+		} else if (inDualMonoMode == e_Mode_CopyRightToLeft) {
+			//
+			// Dual Mono - Right to Left
+			//
+			while (numSamplesLeft > 0) {
+				
+				// skip left sample
+				++inputBuf;
+
+				// convert right sample
+				temp = (*inputBuf) / 32767.0;
+				*floatDestBuf = temp;
+				*(++floatDestBuf) = temp;
+					
+				++inputBuf;
+				++floatDestBuf;
+				numSamplesLeft -= 2;
+			}
+		}	
+    } else {
+		while (numSamplesLeft > 0) {
+			
+			*floatDestBuf = (*inputBuf) / 32767.0;
+				
+			++inputBuf;
+			++floatDestBuf;
+			--numSamplesLeft;
+		}
+	}
+	
     return kIOReturnSuccess;
 }
 

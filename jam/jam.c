@@ -125,6 +125,7 @@ struct globs globs = {
 	1,			/* jobs */
 	0,			/* ignore */
 #ifdef APPLE_EXTENSIONS
+	0,                      /* apple_jam_extensions */
 	0,			/* parsable_output */
 	NULL,			/* cmdline_defines */
 #endif
@@ -290,13 +291,17 @@ char	**argv;
 	    globs.jobs = atoi( s );
 
 #ifdef APPLE_EXTENSIONS
-	if( getenv( "ENABLE_APPLE_JAM_EXTENSIONS" ) != NULL )
+	if( getenv( "NATIVE_ARCH" ) != NULL ) {
+	    globs.apple_jam_extensions = 1;
+	}
+	if( getenv( "ENABLE_APPLE_JAM_OUTPUT_ANNOTATION" ) != NULL ) {
 	    globs.parsable_output = 1;
+	}
 #endif
 
 	/* Turn on/off debugging */
 
-	for( n = 0; s = getoptval( optv, 'd', n ); n++ )
+	for( n = 0; (s = getoptval( optv, 'd', n )) != NULL; n++ )
 	{
 	    int i;
 
@@ -347,7 +352,7 @@ char	**argv;
 	/* Load up variables set on command line. */
 
 	globs.cmdline_defines = (const char **)malloc(sizeof(char *) * (realArgc + 1));
-	for( n = 0; s = getoptval( optv, 's', n ); n++ )
+	for( n = 0; (s = getoptval( optv, 's', n )) != NULL; n++ )
 	{
 	    char *symv[2];
 	    symv[0] = s;
@@ -365,7 +370,7 @@ char	**argv;
 
 	/* Parse ruleset */
 
-	for( n = 0; s = getoptval( optv, 'f', n ); n++ )
+	for( n = 0; (s = getoptval( optv, 'f', n )) != NULL; n++ )
 	    parse_file( s );
 
 	if( !n )
@@ -375,7 +380,7 @@ char	**argv;
 
 	/* Manually touch -t targets */
 
-	for( n = 0; s = getoptval( optv, 't', n ); n++ )
+	for( n = 0; (s = getoptval( optv, 't', n )) != NULL; n++ )
 	    touchtarget( s );
 
 	/* Now make target */

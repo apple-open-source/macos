@@ -73,6 +73,7 @@
 #define kPortConnectionPropName 	"port-connection"
 #define kPortTypePropName       	"port-type"
 #define kNameIDPropName         	"name-id"
+#define kZeroGainPropName         	"zero-gain"	// aml 4.26.02
 
 #define kOutputPortObjName			"OutputPort"
 #define kOutputEQPortObjName		"OutputEQPort"
@@ -105,6 +106,10 @@
 #define kSourceMapPropName      	"source-map"
 #define kSourceMapCountPropName 	"source-map-count"
 
+#ifndef	kDeviceFamilySpeaker
+#define	kDeviceFamilySpeaker		1
+#endif
+
 // Machine layout constants. All NewWorld machines have a device-id property
 // matching one of these layout constants for specifying the sound hardware layout.
 enum {
@@ -135,7 +140,8 @@ enum {
 	layoutP92					=	25,
 	layoutP59					=	26,
 	layoutP57b					=	27,
-	layoutP73					=	28
+	layoutP73					=	28,
+	layoutP79					=	29
 };
 
 // Hardware type 
@@ -161,9 +167,8 @@ enum {
     kSndHWModemRingDetect	=	0x00000100,		// modem ring detect
     kSndHWModemLineCurrent	=	0x00000200,		// modem line current
     kSndHWModemESquared		=	0x00000400,		// modem E squared
-	kSndHWLineInput			=	0x00000800,		//	line input device present
-	kSndHWLineOutput		=	0x00001000,		//	line output device present
-
+	kSndHWLineInput				=	0x00000800,		// line input device present
+	kSndHWLineOutput			=	0x00001000,		// line output device present
     kSndHWInputDevices		=	0x000000B0,		// mask to get input devices (excluding modems)
     kSndHWAllDevices		=	0xFFFFFFFF		// all available devices
     
@@ -178,9 +183,8 @@ enum {
     kSndHWTypeUSB				=	0x00000004,		// USB codec on a wire...
     kSndHWTypeDaca				= 	0x00000005,		// DAC3550A
     kSndHWTypeDigitalSnd		=	0x00000006,		// DigitalSnd virtual HW
-    kSndHWTypeTumbler			=	0x00000007,		// Tumbler I2S with Equalizer & Dallas ID thing...
+    kSndHWTypeTumbler			=	0x00000007,		// Texas I2S with Equalizer & Dallas ID thing...
 	kSndHWTypeTexas2			=	0x00000008,		// Texas2 I2s with Equalizer & Dallas ID thing...
-
     kSndHWManfUnknown			=	0x00000000,		// unknown manufacturer (error during read)
     kSndHWManfCrystal			=	0x00000001,		// manufactured by crystal
     kSndHWManfNational			=	0x00000002,		// manufactured by national
@@ -196,7 +200,6 @@ enum {
 	kSndHWOutput3				=	3,				// output 3
 	kSndHWOutput4				=	4,				// output 4
 	kSndHWOutput5				=	5,				// output 5
-	
 	kSndHWOutputNone			=	0				// no output
 };
 
@@ -242,8 +245,9 @@ enum GpioAddressSelector {
 	kSpeakerDetectSel			=	'dlas',
 	kCodecResetSel				=	'rset',
 	kLineInDetectSel			=	'ldet',
-	kLineOutMuteRefSel			=	'lmut',
-	kLineOutDetectSel			=	'lcon'
+	kLineOutMuteSel				=	'lmut',
+	kLineOutDetectSel			=	'lcon',
+	kMasterMuteSel				=	'mstr'
 };
 
 

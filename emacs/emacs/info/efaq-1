@@ -1,0 +1,1311 @@
+This is ../info/efaq, produced by makeinfo version 4.0 from faq.texi.
+
+INFO-DIR-SECTION Emacs
+START-INFO-DIR-ENTRY
+* Emacs FAQ: (efaq).	Frequently Asked Questions about Emacs.
+END-INFO-DIR-ENTRY
+
+   Copyright 1994,1995,1996,1997,1998,1999,2000 Reuven M. Lerner
+Copyright 1992,1993 Steven Byrnes
+Copyright 1990,1991,1992 Joseph Brian Wells
+This list of frequently asked questions about GNU Emacs with answers
+("FAQ") may be translated into other languages, transformed into other
+formats (e.g. Texinfo, Info, WWW, WAIS), and updated with new
+information.
+
+   The same conditions apply to any derivative of the FAQ as apply to
+the FAQ itself.  Every copy of the FAQ must include this notice or an
+approved translation, information on who is currently maintaining the
+FAQ and how to contact them (including their e-mail address), and
+information on where the latest version of the FAQ is archived
+(including FTP information).
+
+   The FAQ may be copied and redistributed under these conditions,
+except that the FAQ may not be embedded in a larger literary work
+unless that work itself allows free copying and redistribution.
+
+   [This version has been somewhat edited from the last-posted version
+(as of August 1999) for inclusion in the Emacs distribution.]
+
+
+File: efaq,  Node: Top,  Next: FAQ notation,  Prev: (dir),  Up: (dir)
+
+   This is the GNU Emacs FAQ, last updated on 5 October 2001.
+
+   The FAQ is maintained as a Texinfo document, allowing us to create
+HTML, Info, and TeX documents from a single source file, and is slowly
+but surely being improved.  Please bear with us as we improve on this
+format.  If you have any suggestions or questions, please contact the
+FAQ maintainers <emacs-faq@lerner.co.il>.
+
+* Menu:
+
+* FAQ notation::
+* General questions::
+* Getting help::
+* Status of Emacs::
+* Common requests::
+* Bugs and problems::
+* Compiling and installing Emacs::
+* Finding Emacs and related packages::
+* Major packages and programs::
+* Key bindings::
+* Alternate character sets::
+* Mail and news::
+* Concept index::
+
+
+File: efaq,  Node: FAQ notation,  Next: General questions,  Prev: Top,  Up: Top
+
+FAQ notation
+************
+
+   This chapter describes notation used in the GNU Emacs FAQ, as well
+as in the Emacs documentation.  Consult this section if this is the
+first time you are reading the FAQ, or if you are confused by notation
+or terms used in the FAQ.
+
+* Menu:
+
+* Basic keys::
+* Extended commands::
+* On-line manual::
+* File-name conventions::
+* Common acronyms::
+
+
+File: efaq,  Node: Basic keys,  Next: Extended commands,  Prev: FAQ notation,  Up: FAQ notation
+
+What do these mean: `C-h', `M-C-a', <RET>, `<ESC> a', etc.?
+===========================================================
+
+   * `C-x': press the <x> key while holding down the <Control> key
+
+   * `M-x': press the <x> key while holding down the <Meta> key (if
+     your computer doesn't have a <Meta> key, *note No Meta key::)
+
+   * `M-C-x': press the <x> key while holding down both <Control> and
+     <Meta>
+
+   * `C-M-x': a synonym for the above
+
+   * <LFD>: Linefeed or Newline; same as `C-j'
+
+   * <RET>: <Return>, sometimes marked <Enter>; same as `C-m'
+
+   * <DEL>: <Delete>, usually *not* the same as <Backspace>; same as
+     `C-?' (see *Note Backspace invokes help::, if deleting invokes
+     Emacs help)
+
+   * <ESC>: Escape; same as `C-['
+
+   * <TAB>: Tab; same as `C-i'
+
+   * <SPC>: Space bar
+
+
+   Key sequences longer than one key (and some single-key sequences) are
+written inside quotes or on lines by themselves, like this:
+
+       M-x frobnicate-while-foo RET
+
+Any real spaces in such a key sequence should be ignored; only <SPC>
+really means press the space key.
+
+   The ASCII code sent by `C-x' (except for `C-?') is the value that
+would be sent by pressing just <x> minus 96 (or 64 for upper-case <X>)
+and will be from 0 to 31.  On Unix and GNU/Linux terminals, the ASCII
+code sent by `M-x' is the sum of 128 and the ASCII code that would be
+sent by pressing just <x>.  Essentially, <Control> turns off bits 5 and
+6 and <Meta> turns on bit 7(1).
+
+   `C-?' (aka <DEL>) is ASCII code 127.  It is a misnomer to call `C-?'
+a "control" key, since 127 has both bits 5 and 6 turned ON.  Also, on
+very few keyboards does `C-?' generate ASCII code 127.
+
+   *note Text Characters: (emacs)Text Characters, and *note Keys:
+(emacs)Keys, for more information.  (*Note On-line manual::, for more
+information about Info.)
+
+   ---------- Footnotes ----------
+
+   (1) DOS and Windows terminals don't set bit 7 when the <Meta> key is
+pressed.
+
+
+File: efaq,  Node: Extended commands,  Next: On-line manual,  Prev: Basic keys,  Up: FAQ notation
+
+What does `M-x COMMAND' mean?
+=============================
+
+   `M-x COMMAND' means type `M-x', then type the name of the command,
+then type <RET>.  (*Note Basic keys::, if you're not sure what `M-x'
+and <RET> mean.)
+
+   `M-x' (by default) invokes the command `execute-extended-command'.
+This command allows you to run any Emacs command if you can remember
+the command's name.  If you can't remember the command's name, you can
+type <TAB> and <SPC> for completion, <?> for a list of possibilities,
+and `M-p' and `M-n' (or up-arrow and down-arrow on terminals that have
+these editing keys) to see previous commands entered.  An Emacs
+"command" is an "interactive" Emacs function.
+
+   Your system administrator may have bound other key sequences to
+invoke `execute-extended-command'.  A function key labeled `Do' is a
+good candidate for this, on keyboards that have such a key.
+
+   If you need to run non-interactive Emacs functions, see *Note
+Evaluating Emacs Lisp code::.
+
+
+File: efaq,  Node: On-line manual,  Next: File-name conventions,  Prev: Extended commands,  Up: FAQ notation
+
+How do I read topic XXX in the on-line manual?
+==============================================
+
+   When we refer you to some TOPIC in the on-line manual, you can read
+this manual node inside Emacs (assuming nothing is broken) by typing
+`C-h i m emacs <RET> m TOPIC <RET>'.
+
+   This invokes Info, the GNU hypertext documentation browser.  If you
+don't already know how to use Info, type <?> from within Info.
+
+   If we refer to TOPIC:SUBTOPIC, type `C-h i m emacs <RET> m TOPIC
+<RET> m SUBTOPIC <RET>'.
+
+   If these commands don't work as expected, your system administrator
+may not have installed the Info files, or may have installed them
+improperly.  In this case you should complain.
+
+   *Note Getting a printed manual::, if you would like a paper copy of
+the Emacs manual.
+
+
+File: efaq,  Node: File-name conventions,  Next: Common acronyms,  Prev: On-line manual,  Up: FAQ notation
+
+What are `etc/SERVICE', `src/config.h', and `lisp/default.el'?
+==============================================================
+
+   These are files that come with Emacs.  The Emacs distribution is
+divided into subdirectories; the important ones are `etc', `lisp', and
+`src'.
+
+   If you use Emacs, but don't know where it is kept on your system,
+start Emacs, then type `C-h v data-directory <RET>'.  The directory
+name displayed by this will be the full pathname of the installed `etc'
+directory.  (This full path is recorded in the Emacs variable
+`data-directory', and `C-h v' displays the value and the documentation
+of a variable.)
+
+   The location of your Info directory (i.e., where on-line
+documentation is stored) is kept in the variable
+`Info-default-directory-list'.  Use `C-h v Info-default-directory-list
+<RET>' to see the value of this variable, which will be a list of
+directory names.  The last directory in that list is probably where
+most Info files are stored.  By default, Info documentation is placed
+in `/usr/local/info'.
+
+   Some of these files are available individually via FTP or e-mail; see
+*Note Informational files for Emacs::.  They all are available in the
+source distribution.  Many of the files in the `etc' directory are also
+available via the Emacs `Help' menu, or by typing `C-h ?' (`M-x
+help-for-help').
+
+   Your system administrator may have removed the `src' directory and
+many files from the `etc' directory.
+
+
+File: efaq,  Node: Common acronyms,  Prev: File-name conventions,  Up: FAQ notation
+
+What are FSF, LPF, OSF, GNU, RMS, FTP, and GPL?
+===============================================
+
+FSF
+     Free Software Foundation
+
+LPF
+     League for Programming Freedom
+
+OSF
+     Open Software Foundation
+
+GNU
+     GNU's Not Unix
+
+RMS
+     Richard Matthew Stallman
+
+FTP
+     File Transfer Protocol
+
+GPL
+     GNU General Public License
+
+   Avoid confusing the FSF, the LPF, and the OSF.  The LPF opposes
+look-and-feel copyrights and software patents.  The FSF aims to make
+high quality free software available for everyone.  The OSF is a
+consortium of computer vendors which develops commercial software for
+Unix systems.
+
+   The word "free" in the title of the Free Software Foundation refers
+to "freedom," not "zero dollars."  Anyone can charge any price for
+GPL-covered software that they want to.  However, in practice, the
+freedom enforced by the GPL leads to low prices, because you can always
+get the software for less money from someone else, since everyone has
+the right to resell or give away GPL-covered software.
+
+
+File: efaq,  Node: General questions,  Next: Getting help,  Prev: FAQ notation,  Up: Top
+
+General questions
+*****************
+
+   This chapter contains general questions having to do with Emacs, the
+Free Software Foundation, and related organizations.
+
+* Menu:
+
+* The LPF::
+* Real meaning of copyleft::
+* Guidelines for newsgroup postings::
+* Newsgroup archives::
+* Reporting bugs::
+* Unsubscribing from Emacs lists::
+* Contacting the FSF::
+
+
+File: efaq,  Node: The LPF,  Next: Real meaning of copyleft,  Prev: General questions,  Up: General questions
+
+What is the LPF?
+================
+
+   The LPF opposes the expanding danger of software patents and
+look-and-feel copyrights.  To get more information, feel free to contact
+the LPF via e-mail or otherwise.  You may also contact Joe Wells
+<jbw@cs.bu.edu>; he will be happy to talk to you about the LPF.
+
+   You can find more information about the LPF in the file `etc/LPF'.
+More papers describing the LPF's views are available on the Internet and
+also from the LPF home page (http://lpf.ai.mit.edu/).
+
+
+File: efaq,  Node: Real meaning of copyleft,  Next: Guidelines for newsgroup postings,  Prev: The LPF,  Up: General questions
+
+What is the real legal meaning of the GNU copyleft?
+===================================================
+
+   The real legal meaning of the GNU General Public License (copyleft)
+will only be known if and when a judge rules on its validity and scope.
+There has never been a copyright infringement case involving the GPL to
+set any precedents.  Please take any discussion regarding this issue to
+the newsgroup `news:gnu.misc.discuss', which was created to hold the
+extensive flame wars on the subject.
+
+   RMS writes:
+
+     The legal meaning of the GNU copyleft is less important than the
+     spirit, which is that Emacs is a free software project and that
+     work pertaining to Emacs should also be free software.  "Free"
+     means that all users have the freedom to study, share, change and
+     improve Emacs.  To make sure everyone has this freedom, pass along
+     source code when you distribute any version of Emacs or a related
+     program, and give the recipients the same freedom that you enjoyed.
+
+
+File: efaq,  Node: Guidelines for newsgroup postings,  Next: Newsgroup archives,  Prev: Real meaning of copyleft,  Up: General questions
+
+What are appropriate messages for `news:gnu.emacs.help', `news:gnu.emacs.bug', `news:comp.emacs', etc.?
+=======================================================================================================
+
+   The file `etc/MAILINGLISTS' describes the purpose of each GNU
+mailing list.  (*Note Informational files for Emacs::, if you want a
+copy of the file.)  For those lists which are gatewayed with
+newsgroups, it lists both the newsgroup name and the mailing list
+address.
+
+   The newsgroup `news:comp.emacs' is for discussion of Emacs programs
+in general.  This includes Emacs along with various other
+implementations, such as XEmacs, JOVE, MicroEmacs, Freemacs, MG,
+Unipress, CCA, and Epsilon.
+
+   Many people post Emacs questions to `news:comp.emacs' because they
+don't receive any of the `gnu.*' newsgroups.  Arguments have been made
+both for and against posting GNU-Emacs-specific material to
+`news:comp.emacs'.  You have to decide for yourself.
+
+   Messages advocating "non-free" software are considered unacceptable
+on any of the `gnu.*' newsgroups except for `news:gnu.misc.discuss',
+which was created to hold the extensive flame-wars on the subject.
+"Non-free" software includes any software for which the end user can't
+freely modify the source code and exchange enhancements.  Be careful to
+remove the `gnu.*' groups from the `Newsgroups:' line when posting a
+followup that recommends such software.
+
+   `news:gnu.emacs.bug' is a place where bug reports appear, but avoid
+posting bug reports to this newsgroup directly (*note Reporting bugs::).
+
+
+File: efaq,  Node: Newsgroup archives,  Next: Reporting bugs,  Prev: Guidelines for newsgroup postings,  Up: General questions
+
+Where can I get old postings to `news:gnu.emacs.help' and other GNU groups?
+===========================================================================
+
+   The FSF has maintained archives of all of the GNU mailing lists for
+many years, although there may be some unintentional gaps in coverage.
+The archive is not particularly well organized or easy to retrieve
+individual postings from, but pretty much everything is there.
+
+   The archive is at `ftp://ftp-mailing-list-archives.gnu.org'.
+
+   As of this writing, the archives are not yet working.
+
+   Web-based Usenet search services, such as DejaNews
+(http://www.dejanews.com), also archive the `gnu.*' groups.
+
+
+File: efaq,  Node: Reporting bugs,  Next: Unsubscribing from Emacs lists,  Prev: Newsgroup archives,  Up: General questions
+
+Where should I report bugs and other problems with Emacs?
+=========================================================
+
+   The correct way to report Emacs bugs is by e-mail to
+<bug-gnu-emacs@gnu.org>.  Anything sent here also appears in the
+newsgroup `news:gnu.emacs.bug', but please use e-mail instead of news
+to submit the bug report.  This ensures a reliable return address so
+you can be contacted for further details.
+
+   Be sure to read the "Bugs" section of the Emacs manual before
+reporting a bug to bug-gnu-emacs!  The manual describes in detail how
+to submit a useful bug report.  (*Note On-line manual::, if you don't
+know how to read the manual.)
+
+   RMS says:
+
+     Sending bug reports to <help-gnu-emacs@gnu.org> (which has the
+     effect of posting on `news:gnu.emacs.help') is undesirable because
+     it takes the time of an unnecessarily large group of people, most
+     of whom are just users and have no idea how to fix these problem.
+     <bug-gnu-emacs@gnu.org> reaches a much smaller group of people who
+     are more likely to know what to do and have expressed a wish to
+     receive more messages about Emacs than the others.
+
+   RMS says it is sometimes fine to post to `news:gnu.emacs.help':
+
+     If you have reported a bug and you don't hear about a possible fix,
+     then after a suitable delay (such as a week) it is okay to post on
+     `gnu.emacs.help' asking if anyone can help you.
+
+   If you are unsure whether you have found a bug, consider the
+following non-exhaustive list, courtesy of RMS:
+
+     If Emacs crashes, that is a bug.  If Emacs gets compilation errors
+     while building, that is a bug.  If Emacs crashes while building,
+     that is a bug.  If Lisp code does not do what the documentation
+     says it does, that is a bug.
+
+
+File: efaq,  Node: Unsubscribing from Emacs lists,  Next: Contacting the FSF,  Prev: Reporting bugs,  Up: General questions
+
+How do I unsubscribe from this mailing list?
+============================================
+
+   If you are receiving a GNU mailing list named LIST, you might be
+able to unsubscribe from it by sending a request to the address
+<LIST-request@gnu.org>.  However, this will not work if you are not
+listed on the main mailing list, but instead receive the mail from a
+distribution point.  In that case, you will have to track down at which
+distribution point you are listed.  Inspecting the `Received' headers
+on the mail messages may help, along with liberal use of the `EXPN' or
+`VRFY' sendmail commands through `telnet SITE-ADDRESS smtp'.  Ask your
+postmaster for help, if you cannot figure out these details.
+
+
+File: efaq,  Node: Contacting the FSF,  Prev: Unsubscribing from Emacs lists,  Up: General questions
+
+What is the current address of the FSF?
+=======================================
+
+E-mail
+     gnu@gnu.org
+
+Telephone
+     +1-617-542-5942
+
+Fax
+     +1-617-542-2652
+
+World Wide Web
+     `http://www.gnu.org/'
+
+Postal address
+     Free Software Foundation
+     59 Temple Place - Suite 330
+     Boston, MA 02111-1307
+     USA
+   For details on how to order items directly from the FSF, see the GNU
+Web site (http://www.gnu.org/order/order.html), and also the files
+`etc/ORDERS', `ORDERS.EUROPE', and `ORDERS.JAPAN'.
+
+
+File: efaq,  Node: Getting help,  Next: Status of Emacs,  Prev: General questions,  Up: Top
+
+Getting help
+************
+
+   This chapter tells you how to get help with Emacs
+
+* Menu:
+
+* Basic editing::
+* Learning how to do something::
+* Getting a printed manual::
+* Emacs Lisp documentation::
+* Installing Texinfo documentation::
+* Printing a Texinfo file::
+* Viewing Info files outside of Emacs::
+* Informational files for Emacs::
+* Help installing Emacs::
+* Obtaining the FAQ::
+
+
+File: efaq,  Node: Basic editing,  Next: Learning how to do something,  Prev: Getting help,  Up: Getting help
+
+I'm just starting Emacs; how do I do basic editing?
+===================================================
+
+   Type `C-h t' to invoke the self-paced tutorial.  Just typing `C-h'
+enters the help system.
+
+   Your system administrator may have changed `C-h' to act like <DEL>
+to deal with local keyboards.  You can use `M-x help-for-help' instead
+to invoke help.  To discover what key (if any) invokes help on your
+system, type `M-x where-is <RET> help-for-help <RET>'.  This will print
+a comma-separated list of key sequences in the echo area.  Ignore the
+last character in each key sequence listed.  Each of the resulting key
+sequences invokes help.
+
+   Emacs help works best if it is invoked by a single key whose value
+should be stored in the variable `help-char'.
+
+   There is also a WWW-based tutorial for Emacs 18, much of which is
+also relevant for later versions of Emacs, available at
+
+   `http://kufacts.cc.ukans.edu/cwis/writeups/misc/emacsguide.html'
+
+
+File: efaq,  Node: Learning how to do something,  Next: Getting a printed manual,  Prev: Basic editing,  Up: Getting help
+
+How do I find out how to do something in Emacs?
+===============================================
+
+   There are several methods for finding out how to do things in Emacs.
+
+   * The complete text of the Emacs manual is available on-line via the
+     Info hypertext reader.  Type `C-h i' to invoke Info.  Typing <h>
+     immediately after entering Info will provide a short tutorial on
+     how to use it.
+
+   * To quickly locate the section of the manual which discusses a
+     certain issue, or describes a command or a variable, type `C-h i m
+     emacs <RET> i TOPIC <RET>', where TOPIC is the name of the topic,
+     the command, or the variable which you are looking for.  If this
+     does not land you on the right place in the manual, press `,'
+     (comma) repeatedly until you find what you need.  (The `i' and `,'
+     keys invoke the index-searching functions, which look for the
+     TOPIC you type in all the indices of the Emacs manual.)
+
+   * You can list all of the commands whose names contain a certain word
+     (actually which match a regular expression) using `C-h a' (`M-x
+     command-apropos').
+
+   * The command `C-h C-f' (`Info-goto-emacs-command-node') prompts for
+     the name of a command, and then attempts to find the section in the
+     Emacs manual where that command is described.
+
+   * You can list all of the functions and variables whose names
+     contain a certain word using `M-x apropos'.
+
+   * You can list all of the functions and variables whose documentation
+     matches a regular expression or a string, using `M-x
+     apropos-documentation'.
+
+   * You can order a hardcopy of the manual from the FSF.  *Note
+     Getting a printed manual::.
+
+   * You can get a printed reference card listing commands and keys to
+     invoke them.  You can order one from the FSF for $1 (or 10 for $5),
+     or you can print your own from the `etc/refcard.tex' or
+     `etc/refcard.ps' files in the Emacs distribution.  Beginning with
+     version 21.1, the Emacs distribution comes with translations of the
+     reference card into several languages; look for files named
+     `etc/LANG-refcard.*', where LANG is a two-letter code of the
+     language.  For example, the German version of the reference card
+     is in the files `etc/de-refcard.tex' and `etc/de-refcard.ps'.
+
+   * There are many other commands in Emacs for getting help and
+     information.  To get a list of these commands, type `?' after
+     `C-h'.
+
+
+
+File: efaq,  Node: Getting a printed manual,  Next: Emacs Lisp documentation,  Prev: Learning how to do something,  Up: Getting help
+
+How do I get a printed copy of the Emacs manual?
+================================================
+
+   You can order a printed copy of the Emacs manual from the FSF.  For
+details see the GNU Web site (http://www.gnu.org/order/order.html) and
+the file `etc/ORDERS'.
+
+   The full Texinfo source for the manual also comes in the `man'
+directory of the Emacs distribution, if you're daring enough to try to
+print out this 620-page manual yourself (*note Printing a Texinfo
+file::).
+
+   If you absolutely have to print your own copy, and you don't have
+TeX, you can get a PostScript version from
+
+   `http://www.gnu.org/manual/emacs/ps/emacs.ps.gz'
+
+   An HTML version of the manual is at
+
+   `www.gnu.org/manual/emacs/index.html'
+
+   *Note Learning how to do something::, for how to view the manual
+on-line.
+
+
+File: efaq,  Node: Emacs Lisp documentation,  Next: Installing Texinfo documentation,  Prev: Getting a printed manual,  Up: Getting help
+
+Where can I get documentation on Emacs Lisp?
+============================================
+
+   Within Emacs, you can type `C-h f' to get the documentation for a
+function, `C-h v' for a variable.
+
+   For more information, obtain the Emacs Lisp Reference Manual.
+Details on ordering it from FSF are on the GNU Web site
+(http://www.gnu.org/order/order.html) and in the file `etc/ORDERS'.
+
+   The Emacs Lisp Reference Manual is also available on-line, in Info
+format.  Texinfo source for the manual (along with pregenerated Info
+files) is available at
+
+   `ftp://ftp.gnu.org/pub/gnu/emacs/elisp-manual-21-2.6.tar.gz'
+
+   and all mirrors of `ftp.gnu.org' (for a list, *note Current GNU
+distributions::).  *Note Installing Texinfo documentation::, if you want
+to install the Info files, or *Note Printing a Texinfo file::, if you
+want to use the Texinfo source to print the manual yourself.
+
+   An HTML version of the Emacs Lisp Reference Manual is available at
+
+   `http://www.gnu.org/manual/elisp-manual-21-2.6/elisp.html'
+
+
+File: efaq,  Node: Installing Texinfo documentation,  Next: Printing a Texinfo file,  Prev: Emacs Lisp documentation,  Up: Getting help
+
+How do I install a piece of Texinfo documentation?
+==================================================
+
+   First, you must turn the Texinfo files into Info files.  You may do
+this using the stand-alone `makeinfo' program, available as part of the
+latest Texinfo package at
+
+   `ftp://ftp.gnu.org/pub/gnu/texinfo/texinfo-4.0.tar.gz'
+
+   and all mirrors of `ftp.gnu.org' (for a list, *note Current GNU
+distributions::).
+
+   For information about the Texinfo format, read the Texinfo manual
+which comes with the Texinfo package.  This manual also comes installed
+in Info format, so you can read it on-line; type `C-h i m texinfo
+<RET>'.
+
+   Alternatively, you could use the Emacs command `M-x
+texinfo-format-buffer', after visiting the Texinfo source file of the
+manual you want to convert.
+
+   Neither `texinfo-format-buffer' nor `makeinfo' installs the
+resulting Info files in Emacs's Info tree.  To install Info files,
+perform these steps:
+
+  1. Move the files to the `info' directory in the installed Emacs
+     distribution.  *Note File-name conventions::, if you don't know
+     where that is.
+
+  2. Run the `install-info' command, which is part of the Texinfo
+     distribution, to update the main Info directory menu, like this:
+
+           install-info --info-dir=DIR-PATH DIR-PATH/FILE
+
+     where DIR-PATH is the full path to the directory where you copied
+     the produced Info file(s), and FILE is the name of the Info file
+     you produced and want to install.
+
+     If you don't have the `install-info' command installed, you can
+     edit the file `info/dir' in the installed Emacs distribution, and
+     add a line for the top level node in the Info package that you are
+     installing.  Follow the examples already in this file.  The format
+     is:
+
+          * Topic: (relative-pathname).  Short description of topic.
+
+
+   If you want to install Info files and you don't have the necessary
+privileges, you have several options:
+
+   * Info files don't actually need to be installed before being used.
+     You can feed a file name to the `Info-goto-node' command (invoked
+     by pressing <g> in Info mode) by typing the name of the file in
+     parentheses.  This goes to the node named "Top" in that file.  For
+     example, to view a Info file named `INFO-FILE' in your home
+     directory, you can type this:
+
+          C-h i g (~/INFO-FILE) <RET>
+
+   * You can create your own Info directory.  You can tell Emacs where
+     that Info directory is by adding its pathname to the value of the
+     variable `Info-default-directory-list'.  For example, to use a
+     private Info directory which is a subdirectory of your home
+     directory named `Info', you could put this in your `.emacs' file:
+
+          (setq Info-default-directory-list
+                (cons "~/Info" Info-default-directory-list))
+
+     You will need a top-level Info file named `dir' in this directory
+     which has everything the system `dir' file has in it, except it
+     should list only entries for Info files in that directory.  You
+     might not need it if all files in this directory were referenced
+     by other `dir' files.  The node lists from all `dir' files in
+     `Info-default-directory-list' are merged by the Info system.
+
+
+
+File: efaq,  Node: Printing a Texinfo file,  Next: Viewing Info files outside of Emacs,  Prev: Installing Texinfo documentation,  Up: Getting help
+
+How do I print a Texinfo file?
+==============================
+
+   You can't get nicely printed output from Info files; you must still
+have the original Texinfo source file for the manual you want to print.
+
+   Assuming you have TeX installed on your system, follow these steps:
+
+  1. Make sure the first line of the Texinfo file looks like this:
+
+          \input texinfo
+
+     You may need to change `texinfo' to the full pathname of the
+     `texinfo.tex' file, which comes with Emacs as `man/texinfo.tex'
+     (or copy or link it into the current directory).
+
+  2. Type `texi2dvi TEXINFO-SOURCE', where TEXINFO-SOURCE is the name
+     of the Texinfo source file for which you want to produce a printed
+     copy.
+
+     The `texi2dvi' script is part of the GNU Texinfo distribution
+     (*note Installing Texinfo documentation::).
+
+  3. Print the DVI file `TEXINFO-SOURCE.dvi' in the normal way for
+     printing DVI files at your site.  For example, if you have a
+     PostScript printer, run the `dvips' program to print the DVI file
+     on that printer.
+
+
+   To get more general instructions, retrieve the latest Texinfo package
+(*note Installing Texinfo documentation::).
+
+
+File: efaq,  Node: Viewing Info files outside of Emacs,  Next: Informational files for Emacs,  Prev: Printing a Texinfo file,  Up: Getting help
+
+Can I view Info files without using Emacs?
+==========================================
+
+   Yes.  Here are some alternative programs:
+
+   * `info', a stand-alone version of the Info program, comes as part of
+     the Texinfo package.  *Note Installing Texinfo documentation::, for
+     details.
+
+   * Xinfo, a stand-alone version of the Info program that runs under X
+     Window system.  You can get it at
+     `ftp://ftp.gnu.org/pub/gnu/xinfo/xinfo-1.01.01.tar.gz' and all
+     mirrors of `ftp.gnu.org' (see *Note Current GNU distributions::,
+     for a list of mirrors).
+
+   * Tkinfo, an Info viewer that runs under X Window system and uses
+     Tcl/Tk.  You can get Tkinfo at
+     `http://math-www.uni-paderborn.de/~axel/tkinfo/'.
+
+
+
+File: efaq,  Node: Informational files for Emacs,  Next: Help installing Emacs,  Prev: Viewing Info files outside of Emacs,  Up: Getting help
+
+What informational files are available for Emacs?
+=================================================
+
+   This isn't a frequently asked question, but it should be!  A variety
+of informational files about Emacs and relevant aspects of the GNU
+project are available for you to read.
+
+   The following files are available in the `etc' directory of the
+Emacs distribution (see *Note File-name conventions::, if you're not
+sure where that is).
+
+`COPYING'
+     Emacs General Public License
+
+`DISTRIB'
+     Emacs Availability Information, including the popular "Free
+     Software Foundation Order Form"
+
+`FTP'
+     How to get GNU Software by Internet FTP or by UUCP
+
+`GNU'
+     The GNU Manifesto
+
+`INTERVIEW'
+     Richard Stallman discusses his public-domain UNIX-compatible
+     software system with BYTE editors
+
+`LPF'
+     Why you should join the League for Programming Freedom
+
+`MACHINES'
+     Status of Emacs on Various Machines and Systems
+
+`MAILINGLISTS'
+     GNU Project Electronic Mailing Lists
+
+`NEWS'
+     Emacs news, a history of recent user-visible changes
+
+`SERVICE'
+     GNU Service Directory
+
+`SUN-SUPPORT'
+     including "Using Emacstool with GNU Emacs"
+
+   Latest versions of the above files also available at
+
+   `ftp://ftp.gnu.org/pub/gnu/GNUinfo/'
+
+   More GNU information, including back issues of the `GNU's Bulletin',
+are at
+
+   `http://www.gnu.org/bulletins/bulletins.html' and
+
+   `http://www.cs.pdx.edu/~trent/gnu/gnu.html'
+
+
+File: efaq,  Node: Help installing Emacs,  Next: Obtaining the FAQ,  Prev: Informational files for Emacs,  Up: Getting help
+
+Where can I get help in installing Emacs?
+=========================================
+
+   *Note Installing Emacs::, for some basic installation hints, and see
+*Note Problems building Emacs::, or *Note Linking with -lX11 fails::,
+if you have problems with the installation.
+
+   The file `etc/SERVICE' (see *Note File-name conventions::, if you're
+not sure where that is) lists companies and individuals willing to sell
+you help in installing or using Emacs.  An up-to-date version this file
+is available on `ftp.gnu.org' (*note Informational files for Emacs::).
+
+
+File: efaq,  Node: Obtaining the FAQ,  Prev: Help installing Emacs,  Up: Getting help
+
+Where can I get the latest version of this FAQ?
+===============================================
+
+   The Emacs FAQ is available in several ways:
+
+   * Inside of Emacs itself.  You can get it from selecting the `Emacs
+     FAQ' option from the `Help' menu of the Emacs menu bar at the top
+     of any Emacs frame, or by typing `C-h F' (`M-x view-emacs-FAQ').
+
+   * Via USENET.  If you can read news, the FAQ should be available in
+     your news spool, in both the `news:gnu.emacs.help' and
+     `news:comp.emacs' newsgroups.  Every news reader should allow you
+     to read any news article that is still in the news spool, even if
+     you have read the article before.  You may need to read the
+     instructions for your news reader to discover how to do this.  In
+     `rn', this command will do this for you at the article selection
+     level:
+
+          ?GNU Emacs Frequently Asked Questions?rc:m
+
+     In Gnus, you should type `C-u C-x C-s' from the `*Summary*' buffer
+     or `C-u <SPC>' from the `*Newsgroup*' buffer to view all articles
+     in a newsgroup.
+
+     If the FAQ articles have expired and have been deleted from your
+     news spool, it might (or might not) do some good to complain to
+     your news administrator, because the most recent FAQ should not
+     expire for a while.
+
+   * Via HTTP or FTP.  You can always fetch the latest FAQ from
+
+     `http://www.lerner.co.il/emacs/' and
+
+     `ftp://ftp.lerner.co.il/pub/emacs/'
+
+   * In the Emacs distribution.  Since Emacs 18.56, the FAQ at the time
+     of release has been part of the Emacs distribution as either
+     `etc/FAQ' or `man/faq.texi' (*note File-name conventions::).
+
+   * Via the World Wide Web.  A hypertext version is available at
+
+     `http://www.lerner.co.il/emacs/'
+
+   * Via anonymous ftp and e-mail from `rtfm.mit.edu' (and its mirror in
+     Europe), the main repository for FAQs and other items posted to
+     news.answers.  The Emacs FAQs are available at
+
+     `ftp://rtfm.mit.edu/pub/usenet/comp.emacs/' and
+
+     `ftp://ftp.uni-paderborn.de/pub/doc/FAQ/comp/emacs/'
+
+     If you do not have access to anonymous FTP, you can access the
+     archives using the `rtfm.mit.edu' mail server.  The Emacs FAQ can
+     be retrieved by sending mail to <mail-server@rtfm.mit.edu> with a
+     blank subject and containing
+
+          send usenet/news.answers/GNU-Emacs-FAQ/diffs
+          send usenet/news.answers/GNU-Emacs-FAQ/part1
+          send usenet/news.answers/GNU-Emacs-FAQ/part2
+          send usenet/news.answers/GNU-Emacs-FAQ/part3
+          send usenet/news.answers/GNU-Emacs-FAQ/part4
+          send usenet/news.answers/GNU-Emacs-FAQ/part5
+
+     For more information, send email to <mail-server@rtfm.mit.edu>
+     with "help" and "index" in the body on separate lines.
+
+   * As the very last resort, you can e-mail a request to
+     <emacs-faq@lerner.co.il>.  Don't do this unless you have made a
+     good-faith effort to obtain the FAQ list via one of the methods
+     listed above.
+
+
+
+File: efaq,  Node: Status of Emacs,  Next: Common requests,  Prev: Getting help,  Up: Top
+
+Status of Emacs
+***************
+
+   This chapter gives you basic information about Emacs, including its
+latest version status.
+
+* Menu:
+
+* Origin of the term Emacs::
+* Latest version of Emacs::
+* New in Emacs 20::
+* New in Emacs 21::
+
+
+File: efaq,  Node: Origin of the term Emacs,  Next: Latest version of Emacs,  Prev: Status of Emacs,  Up: Status of Emacs
+
+Where does the name "Emacs" come from?
+======================================
+
+   Emacs originally was an acronym for Editor MACroS.  RMS says he
+"picked the name Emacs because <E> was not in use as an abbreviation on
+ITS at the time."  The first Emacs was a set of macros written in 1976
+at MIT by RMS for the editor TECO (Text Editor and COrrector,
+originally Tape Editor and COrrector) under ITS on a PDP-10.  RMS had
+already extended TECO with a "real-time" full-screen mode with
+reprogrammable keys.  Emacs was started by Guy Steele
+<gls@east.sun.com> as a project to unify the many divergent TECO
+command sets and key bindings at MIT, and completed by RMS.
+
+   Many people have said that TECO code looks a lot like line noise; you
+can read more at `news:alt.lang.teco'.  Someone has written a TECO
+implementation in Emacs Lisp (to find it, see *Note Packages that do
+not come with Emacs::); it would be an interesting project to run the
+original TECO Emacs inside of Emacs.
+
+   For some not-so-serious alternative reasons for Emacs to have that
+name, check out the file `etc/JOKES' (*note File-name conventions::).
+
+
+File: efaq,  Node: Latest version of Emacs,  Next: New in Emacs 20,  Prev: Origin of the term Emacs,  Up: Status of Emacs
+
+What is the latest version of Emacs?
+====================================
+
+   Emacs 21.1 is the current version as of this writing.
+
+
+File: efaq,  Node: New in Emacs 20,  Next: New in Emacs 21,  Prev: Latest version of Emacs,  Up: Status of Emacs
+
+What is different about Emacs 20?
+=================================
+
+   To find out what has changed in recent versions, type `C-h n' (`M-x
+view-emacs-news').  The oldest changes are at the bottom of the file,
+so you might want to read it starting there, rather than at the top.
+
+   The differences between Emacs versions 18 and 19 was rather dramatic;
+the introduction of frames, faces, and colors on windowing systems was
+obvious to even the most casual user.
+
+   There are differences between Emacs versions 19 and 20 as well, but
+many are more subtle or harder to find.  Among the changes are the
+inclusion of MULE code for languages that use non-Latin characters and
+for mixing several languages in the same document; the "Customize"
+facility for modifying variables without having to use Lisp; and
+automatic conversion of files from Macintosh, Microsoft, and Unix
+platforms.
+
+   A number of older Lisp packages, such as Gnus, Supercite and the
+calendar/diary, have been updated and enhanced to work with Emacs 20,
+and are now included with the standard distribution.
+
+
+File: efaq,  Node: New in Emacs 21,  Prev: New in Emacs 20,  Up: Status of Emacs
+
+What is different about Emacs 21?
+=================================
+
+   Emacs 21 features a thorough rewrite of the display engine.  The new
+display engine supports variable-size fonts, images, and can play sounds
+on platforms which support that.  As a result, the visual appearence of
+Emacs, when it runs on a windowed display, is much more reminiscent of
+modern GUI programs, and includes 3D widgets (used for the mode line and
+the scroll bars), a configurable and extensible toolbar, tooltips
+(a.k.a. balloon help), and other niceties.
+
+   In addition, Emacs 21 supports faces on text-only terminals.  This
+means that you can now have colors when you run Emacs on a GNU/Linux
+console and on `xterm' with `emacs -nw'.
+
+
+File: efaq,  Node: Common requests,  Next: Bugs and problems,  Prev: Status of Emacs,  Up: Top
+
+Common requests
+***************
+
+* Menu:
+
+* Setting up a customization file::
+* Debugging a customization file::
+* Colors on a TTY::
+* Displaying the current line or column::
+* Displaying the current file name in the titlebar::
+* Turning on abbrevs by default::
+* Turning on auto-fill by default::
+* Associating modes with files::
+* Working with unprintable characters::
+* Highlighting a region::
+* Controlling case sensitivity::
+* Wrapping words automatically::
+* Spell-checkers::
+* Checking TeX and *roff documents::
+* Changing load-path::
+* Using an already running Emacs process::
+* Compiler error messages::
+* Indenting switch statements::
+* Customizing C and C++ indentation::
+* Horizontal scrolling::
+* Overwrite mode::
+* Turning off beeping::
+* Turning the volume down::
+* Automatic indentation::
+* Matching parentheses::
+* Hiding #ifdef lines::
+* Repeating commands::
+* Valid X resources::
+* Evaluating Emacs Lisp code::
+* Changing the length of a Tab::
+* Inserting > at the beginning of each line::
+* Underlining paragraphs::
+* Repeating a command as many times as possible::
+* Forcing the cursor to remain in the same column::
+* Forcing Emacs to iconify itself::
+* Using regular expressions::
+* Replacing text across multiple files::
+* Documentation for etags::
+* Disabling backups::
+* Disabling auto-save-mode::
+* Going to a line by number::
+* Modifying pull-down menus::
+* Deleting menus and menu options::
+* Turning on syntax highlighting::
+* Scrolling only one line::
+* Replacing highlighted text::
+* Editing MS-DOS files::
+* Filling paragraphs with a single space::
+* Escape sequences in shell output::
+
+
+File: efaq,  Node: Setting up a customization file,  Next: Colors on a TTY,  Prev: Common requests,  Up: Common requests
+
+How do I set up a `.emacs' file properly?
+=========================================
+
+   *note Init File: (emacs)Init File
+
+   In general, new Emacs users should not have `.emacs' files, because
+it causes confusing non-standard behavior.  Then they send questions to
+<help-gnu-emacs@gnu.org> asking why Emacs isn't behaving as documented.
+
+   Beginning with version 20.1, Emacs includes the new Customize
+facility, which can be invoked using `M-x customize <RET>'.  This
+allows users who are unfamiliar with Emacs Lisp to modify their
+`.emacs' files in a relatively straightforward way, using menus rather
+than Lisp code.  Not all packages support Customize as of this writing,
+but the number is growing fairly steadily.
+
+   While Customize might indeed make it easier to configure Emacs,
+consider taking a bit of time to learn Emacs Lisp and modifying your
+`.emacs' directly.  Simple configuration options are described rather
+completely in *note Init File: (emacs)Init File, for users interested
+in performing frequently requested, basic tasks.
+
+
+File: efaq,  Node: Colors on a TTY,  Next: Debugging a customization file,  Prev: Setting up a customization file,  Up: Common requests
+
+How do I get colors and syntax highlighting on a TTY?
+=====================================================
+
+   As of Emacs 21.1, colors and faces are supported in non-windowed
+mode, i.e. on Unix and GNU/Linux text-only terminals and consoles, and
+when invoked as `emacs -nw' on X and MS-Windows.  (Colors and faces were
+supported in the MS-DOS port since Emacs 19.29.)  Emacs automatically
+detects color support at startup and uses it if available.  If you think
+that your terminal supports colors, but Emacs won't use them, check the
+`termcap' entry for your display type for color-related capabilities.
+
+   The command `M-x list-colors-display' pops up a window which
+exhibits all the colors Emacs knows about on the current display.
+
+   Syntax highlighting is usually turned off by default; see *Note
+Turning on syntax highlighting::, for instructions how to turn it on.
+
+
+File: efaq,  Node: Debugging a customization file,  Next: Displaying the current line or column,  Prev: Colors on a TTY,  Up: Common requests
+
+How do I debug a `.emacs' file?
+===============================
+
+   Start Emacs with the `-debug-init' command-line option.  This
+enables the Emacs Lisp debugger before evaluating your `.emacs' file,
+and places you in the debugger if something goes wrong.  The top line
+in the `trace-back' buffer will be the error message, and the second or
+third line of that buffer will display the Lisp code from your `.emacs'
+file that caused the problem.
+
+   You can also evaluate an individual function or argument to a
+function in your `.emacs' file by moving the cursor to the end of the
+function or argument and typing `C-x C-e' (`M-x eval-last-sexp').
+
+   Use `C-h v' (`M-x describe-variable') to check the value of
+variables which you are trying to set or use.
+
+
+File: efaq,  Node: Displaying the current line or column,  Next: Displaying the current file name in the titlebar,  Prev: Debugging a customization file,  Up: Common requests
+
+How do I make Emacs display the current line (or column) number?
+================================================================
+
+   To have Emacs automatically display the current line number of the
+point in the mode line, do `M-x line-number-mode'.  You can also put the
+form
+
+     (setq line-number-mode t)
+
+in your `.emacs' file to achieve this whenever you start Emacs.  (Line
+number display is on by default, unless your site-specific
+initialization disables it.) Note that Emacs will not display the line
+number if the buffer's size in bytes is larger than the value of the
+variable `line-number-display-limit'.
+
+   As of Emacs 20, you can similarly display the current column with
+`M-x column-number-mode', or by putting the form
+
+     (setq column-number-mode t)
+
+in your `.emacs' file.
+
+   The `"%c"' format specifier in the variable `mode-line-format' will
+insert the current column's value into the mode line.  See the
+documentation for `mode-line-format' (using `C-h v mode-line-format
+<RET>') for more information on how to set and use this variable.
+
+   Users of all Emacs versions can display the current column using the
+`column' package written by Per Abrahamsen <abraham@dina.kvl.dk>.
+*Note Packages that do not come with Emacs::, for instructions on how
+to get it.
+
+   None of the `vi' emulation modes provide the "set number" capability
+of `vi' (as far as we know).
+
+
+File: efaq,  Node: Displaying the current file name in the titlebar,  Next: Turning on abbrevs by default,  Prev: Displaying the current line or column,  Up: Common requests
+
+How can I modify the titlebar to contain the current file name?
+===============================================================
+
+   The contents of an Emacs frame's titlebar is controlled by the
+variable `frame-title-format', which has the same structure as the
+variable `mode-line-format'.  (Use `C-h v' or `M-x describe-variable'
+to get information about one or both of these variables.)
+
+   By default, the titlebar for a frame does contain the name of the
+buffer currently being visited, except if there is a single frame.  In
+such a case, the titlebar contains Emacs invocation name and the name
+of the machine at which Emacs was invoked.  This is done by setting
+`frame-title-format' to the default value of
+
+     (multiple-frames "%b" ("" invocation-name "@" system-name))
+
+   To modify the behavior such that frame titlebars contain the buffer's
+name regardless of the number of existing frames, include the following
+in your `.emacs':
+
+     (setq frame-title-format "%b")
+
+
+File: efaq,  Node: Turning on abbrevs by default,  Next: Turning on auto-fill by default,  Prev: Displaying the current file name in the titlebar,  Up: Common requests
+
+How do I turn on abbrevs by default just in mode MYMODE?
+========================================================
+
+   Put this in your `.emacs' file:
+
+     (condition-case ()
+        (quietly-read-abbrev-file)
+       (file-error nil))
+     
+     (add-hook 'MYMODE-mode-hook
+               (lambda ()
+                (setq abbrev-mode t)))
+
+
+File: efaq,  Node: Turning on auto-fill by default,  Next: Associating modes with files,  Prev: Turning on abbrevs by default,  Up: Common requests
+
+How do I turn on `auto-fill-mode' by default?
+=============================================
+
+   To turn on `auto-fill-mode' just once for one buffer, use `M-x
+auto-fill-mode'.
+
+   To turn it on for every buffer in a certain mode, you must use the
+hook for that mode.  For example, to turn on `auto-fill' mode for all
+text buffers, including the following in your `.emacs' file:
+
+     (add-hook 'text-mode-hook 'turn-on-auto-fill)
+
+   If you want `auto-fill' mode on in all major modes, do this:
+
+     (setq-default auto-fill-function 'do-auto-fill)
+
+
+File: efaq,  Node: Associating modes with files,  Next: Working with unprintable characters,  Prev: Turning on auto-fill by default,  Up: Common requests
+
+How do I make Emacs use a certain major mode for certain files?
+===============================================================
+
+   If you want to use a certain mode FOO for all files whose names end
+with the extension `.BAR', this will do it for you:
+
+     (setq auto-mode-alist (cons '("\\.BAR\\'" . FOO-mode) auto-mode-alist))
+
+   Otherwise put this somewhere in the first line of any file you want
+to edit in the mode FOO (in the second line, if the first line begins
+with `#!'):
+
+     -*- FOO -*-
+
+   Beginning with Emacs 19, the variable `interpreter-mode-alist'
+specifies which mode to use when loading a shell script.  (Emacs
+determines which interpreter you're using by examining the first line of
+the script.)  This feature only applies when the file name doesn't
+indicate which mode to use.  Use `C-h v' (or `M-x describe-variable')
+on `interpreter-mode-alist' to learn more.
+
+
+File: efaq,  Node: Working with unprintable characters,  Next: Highlighting a region,  Prev: Associating modes with files,  Up: Common requests
+
+How do I search for, delete, or replace unprintable (eight-bit or control) characters?
+======================================================================================
+
+   To search for a single character that appears in the buffer as, for
+example, `\237', you can type `C-s C-q 2 3 7'.  (This assumes the value
+of `search-quote-char' is 17 (i.e., `C-q').)  Searching for *all*
+unprintable characters is best done with a regular expression
+("regexp") search.  The easiest regexp to use for the unprintable chars
+is the complement of the regexp for the printable chars.
+
+   * Regexp for the printable chars: `[\t\n\r\f -~]'
+
+   * Regexp for the unprintable chars: `[^\t\n\r\f -~]'
+
+
+   To type these special characters in an interactive argument to
+`isearch-forward-regexp' or `re-search-forward', you need to use `C-q'.
+(`\t', `\n', `\r', and `\f' stand respectively for <TAB>, <LFD>,
+<RET>, and `C-l'.)  So, to search for unprintable characters using
+`re-search-forward':
+
+   `M-x re-search-forward <RET> [^ <TAB> C-q <LFD> C-q <RET> C-q C-l
+<SPC> -~] <RET>'
+
+   Using `isearch-forward-regexp':
+
+   `M-C-s [^ <TAB> <LFD> C-q <RET> C-q C-l <SPC> -~]'
+
+   To delete all unprintable characters, simply use replace-regexp:
+
+   `M-x replace-regexp <RET> [^ <TAB> C-q <LFD> C-q <RET> C-q C-l <SPC>
+-~] <RET> <RET>'
+
+   Replacing is similar to the above.  To replace all unprintable
+characters with a colon, use:
+
+   M-x replace-regexp <RET> [^ <TAB> C-q <LFD> C-q <RET> C-q C-l <SPC>
+-~] <RET> : <RET>
+
+   * You don't need to quote <TAB> with either isearch or typing
+     something in the minibuffer.
+
+
+
+File: efaq,  Node: Highlighting a region,  Next: Controlling case sensitivity,  Prev: Working with unprintable characters,  Up: Common requests
+
+How can I highlight a region of text in Emacs?
+==============================================
+
+   You can cause the region to be highlighted when the mark is active by
+including
+
+     (transient-mark-mode t)
+
+in your `.emacs' file.  (Also see *Note Turning on syntax
+highlighting::.)
+
+
+File: efaq,  Node: Controlling case sensitivity,  Next: Wrapping words automatically,  Prev: Highlighting a region,  Up: Common requests
+
+How do I control Emacs's case-sensitivity when searching/replacing?
+===================================================================
+
+   For searching, the value of the variable `case-fold-search'
+determines whether they are case sensitive:
+
+     (setq case-fold-search nil) ; make searches case sensitive
+     (setq case-fold-search t)   ; make searches case insensitive
+
+   Similarly, for replacing, the variable `case-replace' determines
+whether replacements preserve case.
+
+   To change the case sensitivity just for one major mode, use the major
+mode's hook.  For example:
+
+     (add-hook 'FOO-mode-hook
+               (lambda ()
+                (setq case-fold-search nil)))
+

@@ -71,6 +71,7 @@
 #include "sslDebug.h"
 #endif
 
+#include <assert.h>
 #include <string.h>
 
 SSLErr
@@ -83,7 +84,9 @@ SSLEncodeChangeCipherSpec(SSLRecord *rec, SSLContext *ctx)
     dprintf0("===Sending changeCipherSpec msg\n");
     #endif
     rec->contentType = SSL_change_cipher_spec;
-    rec->protocolVersion = SSL_Version_3_0;
+	assert((ctx->negProtocolVersion == SSL_Version_3_0) ||
+		   (ctx->negProtocolVersion == TLS_Version_1_0));
+    rec->protocolVersion = ctx->negProtocolVersion;
     rec->contents.length = 1;
     if ((err = SSLAllocBuffer(&rec->contents, 1, &ctx->sysCtx)) != 0)
         return err;
@@ -130,11 +133,15 @@ SSLErr
 SSLDisposeCipherSuite(CipherContext *cipher, SSLContext *ctx)
 {   SSLErr      err;
     
+	/* symmetric key */
     if (cipher->symKey)
     {   if ((err = cipher->symCipher->finish(cipher, ctx)) != 0)
             return err;
         cipher->symKey = 0;
     }
     
+	/* per-record hash/hmac context */
+	ctx->sslTslCalls->freeMac(cipher);
+	
     return SSLNoErr;
 }

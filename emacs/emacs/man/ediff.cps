@@ -1,23 +1,78 @@
+\initial {!}
+\entry {!}{8}
+\initial {#}
+\entry {##}{9}
+\entry {#f}{9}
+\entry {#h}{9}
+\initial {$}
+\entry {$$}{10}
+\entry {$*}{10}
+\initial {%}
+\entry {%}{10}
+\initial {&}
+\entry {&}{11}
+\initial {*}
+\entry {*}{8}
+\initial {/}
+\entry {/}{11}
+\initial {=}
+\entry {=}{11}
+\initial {?}
+\entry {?}{6}
+\initial {@}
+\entry {@}{8}
+\initial {{\tt\char 124}}
+\entry {|}{8}
+\initial {{\tt\char 126}}
+\entry {~}{9}
+\initial {{\tt\char 43}}
+\entry {+}{11}
+\initial {{\tt\gtr}}
+\entry {>}{6}
+\initial {{\tt\less}}
+\entry {<}{6}
+\initial {A}
+\entry {a}{7}
+\entry {A}{9}
+\entry {ab}{7}
+\entry {ac}{7}
+\initial {B}
+\entry {b}{7}
+\entry {B}{9}
+\entry {ba}{7}
+\entry {bc}{7}
 \initial {C}
+\entry {C}{9}
+\entry {C-l}{10}
+\entry {ca}{7}
+\entry {cb}{7}
 \entry {Comparing files and buffers}{1}
+\initial {D}
+\entry {D}{9}
+\entry {DEL}{7}
 \initial {E}
+\entry {E}{6}
 \entry {ediff}{2}
-\entry {ediff-after-flag-eol}{24}
-\entry {ediff-after-flag-mol}{24}
+\entry {ediff-after-flag-eol}{23}
+\entry {ediff-after-flag-mol}{23}
+\entry {ediff-after-session-group-setup-hook}{20}
 \entry {ediff-after-setup-control-frame-hook}{19}
 \entry {ediff-after-setup-windows-hook}{18}
 \entry {ediff-auto-refine}{26}
 \entry {ediff-auto-refine-limit}{26}
 \entry {ediff-autostore-merges}{15, 19, 30}
-\entry {ediff-before-flag-bol}{24}
-\entry {ediff-before-flag-mol}{24}
+\entry {ediff-before-flag-bol}{23}
+\entry {ediff-before-flag-mol}{23}
+\entry {ediff-before-session-group-setup-hook}{20}
 \entry {ediff-before-setup-control-frame-hook}{19}
+\entry {ediff-before-setup-hook}{18}
 \entry {ediff-before-setup-windows-hook}{18}
-\entry {ediff-brief-help-message-function}{33}
+\entry {ediff-brief-help-message-function}{34}
 \entry {ediff-buffers}{2}
 \entry {ediff-buffers3}{2}
 \entry {ediff-cleanup-hook}{19}
-\entry {ediff-combination-pattern}{29}
+\entry {ediff-coding-system-for-read}{27}
+\entry {ediff-combination-pattern}{28}
 \entry {ediff-control-buffer}{20}
 \entry {ediff-control-frame-parameters}{21}
 \entry {ediff-control-frame-position-function}{21}
@@ -53,29 +108,30 @@
 \entry {ediff-highlight-all-diffs}{24}
 \entry {ediff-ignore-similar-regions}{23}
 \entry {ediff-janitor}{19}
-\entry {ediff-job-name}{33}
+\entry {ediff-job-name}{34}
 \entry {\code {ediff-keep-variants}}{33}
 \entry {ediff-keymap-setup-hook}{18}
 \entry {ediff-load-hook}{18}
-\entry {ediff-long-help-message-function}{33}
-\entry {ediff-make-buffers-readonly-at-startup}{32}
+\entry {ediff-long-help-message-function}{34}
+\entry {ediff-make-buffers-readonly-at-startup}{33}
 \entry {ediff-make-frame-position}{21}
 \entry {ediff-make-wide-display-function}{32}
 \entry {ediff-maybe-save-and-delete-merge}{19, 30}
 \entry {ediff-merge}{3}
-\entry {ediff-merge-buffers}{3}
-\entry {ediff-merge-buffers-with-ancestor}{3}
-\entry {ediff-merge-directories}{3}
+\entry {ediff-merge-buffers}{4}
+\entry {ediff-merge-buffers-with-ancestor}{4}
+\entry {ediff-merge-directories}{4}
 \entry {ediff-merge-directories-with-ancestor}{4}
 \entry {ediff-merge-directory-revisions}{2}
 \entry {ediff-merge-directory-revisions-with-ancestor}{2}
+\entry {ediff-merge-filename-prefix}{31}
 \entry {ediff-merge-files}{3}
-\entry {ediff-merge-files-with-ancestor}{3}
+\entry {ediff-merge-files-with-ancestor}{4}
 \entry {ediff-merge-revisions}{4}
 \entry {ediff-merge-revisions-with-ancestor}{4}
 \entry {ediff-merge-split-window-function}{32}
 \entry {ediff-merge-window-share}{30}
-\entry {ediff-merge-with-ancestor}{3}
+\entry {ediff-merge-with-ancestor}{4}
 \entry {ediff-meta-buffer-keymap-setup-hook}{20}
 \entry {ediff-meta-buffer-map}{20}
 \entry {ediff-mode-hook}{19}
@@ -91,38 +147,35 @@
 \entry {ediff-patch-options}{27}
 \entry {ediff-patch-program}{27}
 \entry {ediff-prefer-iconified-control-frame}{21}
-\entry {ediff-prepare-buffer-hook}{19, 31}
+\entry {ediff-prepare-buffer-hook}{19, 32}
 \entry {ediff-profile}{13}
 \entry {ediff-quit-hook}{18}
 \entry {ediff-quit-merge-hook}{19, 30}
 \entry {ediff-quit-session-group-hook}{20}
-\entry {ediff-quit-widened}{26}
-\entry {ediff-regions-linewise}{2}
-\entry {ediff-regions-wordwise}{2}
+\entry {ediff-quit-widened}{25}
+\entry {ediff-regions-linewise}{3}
+\entry {ediff-regions-wordwise}{3}
 \entry {ediff-registry-setup-hook}{19}
-\entry {ediff-revert-buffers-then-recompute-diffs}{13}
+\entry {ediff-revert-buffers-then-recompute-diffs}{12}
 \entry {ediff-revision}{3}
 \entry {ediff-save-buffer}{28}
 \entry {ediff-select-hook}{19}
-\entry {ediff-session-group-setup-hook}{20}
-\entry {ediff-setup}{33}
+\entry {ediff-setup}{34}
 \entry {ediff-setup-windows}{21}
 \entry {ediff-setup-windows-multiframe}{22}
 \entry {ediff-setup-windows-plain}{22}
 \entry {ediff-show-clashes-only}{30}
 \entry {ediff-show-registry}{12}
 \entry {ediff-split-window-function}{32}
-\entry {ediff-start-narrowed}{26}
-\entry {ediff-startup-hook}{19, 20, 33}
+\entry {ediff-start-narrowed}{25}
+\entry {ediff-startup-hook}{19, 20, 34}
 \entry {ediff-suspend-hook}{18}
 \entry {ediff-toggle-multiframe}{12, 22}
 \entry {ediff-toggle-read-only-function}{32}
-\entry {ediff-toggle-use-toolbar}{12}
 \entry {ediff-unselect-hook}{19}
 \entry {\code {ediff-use-last-dir}}{4}
 \entry {ediff-use-last-dir}{32}
 \entry {ediff-use-long-help-message}{20}
-\entry {ediff-use-toolbar-p}{12}
 \entry {ediff-version-control-package}{31}
 \entry {ediff-wide-control-frame-rightward-shift}{21}
 \entry {ediff-window-setup-function}{22}
@@ -132,13 +185,13 @@
 \entry {ediff-word-2}{26}
 \entry {ediff-word-3}{26}
 \entry {ediff-word-4}{26}
-\entry {ediff-word-mode}{33}
+\entry {ediff-word-mode}{34}
 \entry {ediff3}{2}
 \entry {edir-merge-revisions}{2}
 \entry {edir-merge-revisions-with-ancestor}{2}
 \entry {edir-revisions}{2}
 \entry {edirs}{2}
-\entry {edirs-merge}{3}
+\entry {edirs-merge}{4}
 \entry {edirs-merge-with-ancestor}{4}
 \entry {edirs3}{2}
 \entry {epatch}{3}
@@ -147,17 +200,51 @@
 \initial {F}
 \entry {Finding differences}{1}
 \initial {G}
+\entry {G}{6}
+\entry {ga}{7}
+\entry {gb}{8}
+\entry {gc}{8}
 \entry {\file {generic-sc.el}}{31}
+\initial {H}
+\entry {h}{8}
+\initial {I}
+\entry {i}{9}
+\initial {J}
+\entry {j}{7}
 \initial {M}
+\entry {m}{8}
+\entry {M}{10}
 \entry {Merging files and buffers}{1}
-\entry {\file {mode-line.el}}{31}
+\entry {\file {mode-line.el}}{32}
 \entry {Multi-file patches}{15}
+\initial {N}
+\entry {n}{7}
 \initial {P}
+\entry {p}{7}
 \entry {Patching files and buffers}{1}
 \entry {\file {pcl-cvs.el}}{31}
+\initial {Q}
+\entry {q}{10}
 \initial {R}
+\entry {r}{8}
+\entry {R}{10}
+\entry {ra}{9}
+\entry {rb}{9}
+\entry {rc}{9}
 \entry {\file {rcs.el}}{31}
+\initial {S}
+\entry {s}{11}
+\entry {SPC}{7}
 \initial {U}
-\entry {\file {uniquify.el}}{31}
+\entry {\file {uniquify.el}}{32}
 \initial {V}
+\entry {v}{6}
+\entry {V}{6}
 \entry {\file {vc.el}}{31}
+\initial {W}
+\entry {wa}{6}
+\entry {wb}{6}
+\entry {wc}{6}
+\entry {wd}{6}
+\initial {Z}
+\entry {z}{10}

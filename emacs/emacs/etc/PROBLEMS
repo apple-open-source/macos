@@ -1,10 +1,1051 @@
 This file describes various problems that have been encountered
 in compiling, installing and running GNU Emacs.
 
-* Segfauls on startup on AIX 4.
+* Building Emacs with GCC 2.9x fails in the `src' directory.
 
-When Emacs segfaults on startup, and you've built it with the IBM xlc
-compiler or GCC, please try to compile it with `cc' instead.
+This may happen if you use a development version of GNU `cpp' from one
+of the GCC snapshots between Oct 2000 and Feb 2001, or from a released
+version of GCC newer than 2.95.2 which was prepared around those
+dates; similar problems were reported with some snapshots of GCC 3.1
+around Sep 30 2001.  The preprocessor in those versions is
+incompatible with a traditional Unix cpp (e.g., it expands ".." into
+". .", which breaks relative file names that reference the parent
+directory; or inserts TAB characters before lines that set Make
+variables).
+
+The solution is to make sure the preprocessor is run with the
+`-traditional' option.  The `configure' script does that automatically
+when it detects the known problems in your cpp, but you might hit some
+unknown ones.  To force the `configure' script to use `-traditional',
+run the script like this:
+
+  CPP='gcc -E -traditional" ./configure ...
+
+(replace the ellipsis "..." with any additional arguments you pass to
+the script).
+
+Note that this problem does not pertain to the MS-Windows port of
+Emacs, since it doesn't use the preprocessor to generate Makefiles.
+
+* Building the MS-Windows port with Cygwin GCC can fail.
+
+Emacs may not build using recent Cygwin builds of GCC, such as Cygwin
+version 1.1.8, using the default configure settings.  It appears to be
+necessary to specify the -mwin32 flag when compiling, and define
+__MSVCRT__, like so:
+
+  configure --with-gcc --cflags -mwin32 --cflags -D__MSVCRT__
+
+* Building the MS-Windows port with Leim fails in the `leim' directory.
+
+The error message might be something like this:
+
+ Converting d:/emacs-21.1/leim/CXTERM-DIC/4Corner.tit to quail-package...
+ Invalid ENCODE: value in TIT dictionary
+ NMAKE : fatal error U1077: '"../src/obj-spd/i386/emacs.exe"' : return code
+       '0xffffffff'
+ Stop.
+
+This can happen if the Leim distribution is unpacked with a program
+which converts the `*.tit' files to DOS-style CR-LF text format.  The
+`*.tit' files in the leim/CXTERM-DIC directory require Unix-style line
+endings to compile properly, because Emacs reads them without any code
+or EOL conversions.
+
+The solution is to make sure the program used to unpack Leim does not
+change the files' line endings behind your back.  The GNU FTP site has
+in the `/gnu/emacs/windows' directory a program called `djtarnt.exe'
+which can be used to unpack `.tar.gz' and `.zip' archives without
+mangling them.
+
+* Emacs crashes when dumping itself on Mac PPC running Yellow Dog GNU/Linux.
+
+The crashes happen inside the function Fmake_symbol; here's a typical
+C backtrace printed by GDB:
+
+  0x190c0c0 in Fmake_symbol ()
+  (gdb) where
+  #0  0x190c0c0 in Fmake_symbol ()
+  #1  0x1942ca4 in init_obarray ()
+  #2  0x18b3500 in main ()
+  #3  0x114371c in __libc_start_main (argc=5, argv=0x7ffff5b4, envp=0x7ffff5cc,
+
+This could happen because GCC version 2.95 and later changed the base
+of the load address to 0x10000000.  Emacs needs to be told about this,
+but we currently cannot do that automatically, because that breaks
+other versions of GNU/Linux on the MacPPC.  Until we find a way to
+distinguish between the Yellow Dog and the other varieties of
+GNU/Linux systems on the PPC, you will have to manually uncomment the
+following section near the end of the file src/m/macppc.h in the Emacs
+distribution:
+
+  #if 0  /* This breaks things on PPC GNU/Linux ecept for Yellowdog,
+	    even with identical GCC, as, ld.  Let's take it out until we
+	    know what's really going on here.  */
+  /* GCC 2.95 and newer on GNU/Linux PPC changed the load address to
+     0x10000000.  */
+  #if defined __linux__
+  #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
+  #define DATA_SEG_BITS  0x10000000
+  #endif
+  #endif
+  #endif /* 0 */
+
+Remove the "#if 0" and "#endif" directives which surround this, save
+the file, and then reconfigure and rebuild Emacs.  The dumping process
+should now succeed.
+
+* JPEG images aren't displayed.
+
+This has been reported when Emacs is built with jpeg-6a library.
+Upgrading to jpeg-6b solves the problem.
+
+* Building `ctags' for MS-Windows with the MinGW port of GCC fails.
+
+This might happen due to a bug in the MinGW header assert.h, which
+defines the `assert' macro with a trailing semi-colon.  The following
+patch to assert.h should solve this:
+
+*** include/assert.h.orig	Sun Nov  7 02:41:36 1999
+--- include/assert.h	Mon Jan 29 11:49:10 2001
+***************
+*** 41,47 ****
+  /*
+   * If not debugging, assert does nothing.
+   */
+! #define assert(x)	((void)0);
+  
+  #else /* debugging enabled */
+  
+--- 41,47 ----
+  /*
+   * If not debugging, assert does nothing.
+   */
+! #define assert(x)	((void)0)
+  
+  #else /* debugging enabled */
+  
+
+
+* Improving performance with slow X connections
+
+If you don't need X Input Methods (XIM) for entering text in some
+language you use, you can improve performance on WAN links by
+configuring Emacs with option `--without-xim'.  Configuring Emacs
+without XIM does not affect the use of Emacs' own input methods, which
+are part of the Leim package.
+
+If the connection is very slow, you might also want to consider
+switching off scroll bars, menu bar, and tool bar.
+
+* Getting a Meta key on the FreeBSD console
+
+By default, neither Alt nor any other key acts as a Meta key on
+FreeBSD, but this can be changed using kbdcontrol(1).  Dump the
+current keymap to a file with the command
+
+  $ kbdcontrol -d >emacs.kbd
+
+Edit emacs.kbd, and give the key you want to be the Meta key the
+definition `meta'.  For instance, if your keyboard has a ``Windows''
+key with scan code 105, change the line for scan code 105 in emacs.kbd
+to look like this
+
+  105   meta   meta   meta   meta   meta   meta   meta   meta    O
+
+to make the Windows key the Meta key.  Load the new keymap with
+
+  $ kbdcontrol -l emacs.kbd
+
+* Emacs' xterm-mouse-mode doesn't work on the Gnome terminal.
+
+A symptom of this bug is that double-clicks insert a control sequence
+into the buffer.  The reason this happens is an apparent
+incompatibility of the Gnome terminal with Xterm, which also affects
+other programs using the Xterm mouse interface.  A problem report has
+been filed.
+
+* Emacs pauses for several seconds when changing the default font
+
+This has been reported for fvwm 2.2.5 and the window manager of KDE
+2.1.  The reason for the pause is Xt waiting for a ConfigureNotify
+event from the window manager, which the window manager doesn't send.
+Xt stops waiting after a default timeout of usually 5 seconds.
+
+A workaround for this is to add something like
+
+emacs.waitForWM: false
+
+to your X resources.  Alternatively, add `(wait-for-wm . nil)' to a
+frame's parameter list, like this:
+
+   (modify-frame-parameters nil '((wait-for-wm . nil)))
+
+(this should go into your `.emacs' file).
+
+* Underlines appear at the wrong position.
+
+This is caused by fonts having a wrong UNDERLINE_POSITION property.
+Examples are the font 7x13 on XFree prior to version 4.1, or the jmk
+neep font from the Debian xfonts-jmk package.  To circumvent this
+problem, set x-use-underline-position-properties to nil in your
+`.emacs'.
+
+To see what is the value of UNDERLINE_POSITION defined by the font,
+type `xlsfonts -lll FONT' and look at the font's UNDERLINE_POSITION
+property.
+
+* When using Xaw3d scroll bars without arrows, the very first mouse
+click in a scroll bar might be ignored by the scroll bar widget.  This
+is probably a bug in Xaw3d; when Xaw3d is compiled with arrows, the
+problem disappears.
+
+* Clicking C-mouse-2 in the scroll bar doesn't split the window.
+
+This currently doesn't work with scroll-bar widgets (and we don't know
+a good way of implementing it with widgets).  If Emacs is configured
+--without-toolkit-scroll-bars, C-mouse-2 on the scroll bar does work.
+
+* Colors are not available on a tty or in xterm.
+
+Emacs 21 supports colors on character terminals and terminal
+emulators, but this support relies on the terminfo or termcap database
+entry to specify that the display supports color.  Emacs looks at the
+"Co" capability for the terminal to find out how many colors are
+supported; it should be non-zero to activate the color support within
+Emacs.  (Most color terminals support 8 or 16 colors.)  If your system
+uses terminfo, the name of the capability equivalent to "Co" is
+"colors".
+
+In addition to the "Co" capability, Emacs needs the "op" (for
+``original pair'') capability, which tells how to switch the terminal
+back to the default foreground and background colors.  Emacs will not
+use colors if this capability is not defined.  If your terminal entry
+doesn't provide such a capability, try using the ANSI standard escape
+sequence \E[00m (that is, define a new termcap/terminfo entry and make
+it use your current terminal's entry plus \E[00m for the "op"
+capability).
+
+Finally, the "NC" capability (terminfo name: "ncv") tells Emacs which
+attributes cannot be used with colors.  Setting this capability
+incorrectly might have the effect of disabling colors; try setting
+this capability to `0' (zero) and see if that helps.
+
+Emacs uses the database entry for the terminal whose name is the value
+of the environment variable TERM.  With `xterm', a common terminal
+entry that supports color is `xterm-color', so setting TERM's value to
+`xterm-color' might activate the color support on an xterm-compatible
+emulator.
+
+Some modes do not use colors unless you turn on the Font-lock mode.
+Some people have long ago set their `~/.emacs' files to turn on
+Font-lock on X only, so they won't see colors on a tty.  The
+recommended way of turning on Font-lock is by typing "M-x
+global-font-lock-mode RET" or by customizing the variable
+`global-font-lock-mode'.
+
+* Problems in Emacs built with LessTif.
+
+The problems seem to depend on the version of LessTif and the Motif
+emulation for which it is set up.
+
+Only the Motif 1.2 emulation seems to be stable enough in LessTif.
+Lesstif 0.92-17's Motif 1.2 emulation seems to work okay on FreeBSD.
+On GNU/Linux systems, lesstif-0.92.6 configured with "./configure
+--enable-build-12 --enable-default-12" is reported to be the most
+successful.  The binary GNU/Linux package
+lesstif-devel-0.92.0-1.i386.rpm was reported to have problems with
+menu placement.
+
+On some systems, even with Motif 1.2 emulation, Emacs occasionally
+locks up, grabbing all mouse and keyboard events.  We still don't know
+what causes these problems; they are not reproducible by Emacs
+developers.
+
+* Known problems with the MS-Windows port of Emacs 21.1.
+
+Emacs 21.1 built for MS-Windows doesn't support images, the tool bar,
+and tooltips.  Support for these will be added in future versions.
+
+Help text that is displayed in a tooltip on other window systems, on
+Windows is printed in the echo area, since tooltips are not yet
+available.  Help text for menu items is not displayed at all.
+
+There are problems with display if the variable `redisplay-dont-pause'
+is set to nil (w32-win.el sets it to t by default, to avoid these
+problems).  The problems include:
+
+  . No redisplay as long as help echo is displayed in the echo area,
+    e.g. if the mouse is on a mouse-sensitive part of the mode line.
+
+  . When the mode line is dragged with the mouse, multiple copies of the
+    mode line are left behind, until the mouse button is released and
+    the next input event occurs.
+
+  . Window contents are not updated when text is selected by dragging
+    the mouse, and the mouse is dragged below the bottom line of the
+    window.  When the mouse button is released, the window display is
+    correctly updated.
+
+Again, these problems only occur if `redisplay-dont-pause' is nil.
+
+Emacs can sometimes abort when non-ASCII text, possibly with null
+characters, is copied and pasted into a buffer.
+
+An inactive cursor remains in an active window after the Windows
+Manager driven switch of the focus, until a key is pressed.
+
+Windows 2000 input methods are not recognized by Emacs (as of v21.1).
+These input methods cause the keyboard to send characters encoded in
+the appropriate coding system (e.g., ISO 8859-1 for Latin-1
+characters, ISO 8859-8 for Hebrew characters, etc.).  To make this
+work, set the keyboard coding system to the appropriate value after
+you activate the Windows input method.  For example, if you activate
+the Hebrew input method, type "C-x RET k iso-8859-8 RET".  (Emacs
+ought to recognize the Windows language-change event and set up the
+appropriate keyboard encoding automatically, but it doesn't do that
+yet.)
+
+Multilingual text put into the Windows 2000 clipboard by Windows
+applications cannot be safely pasted into Emacs (as of v21.1).  This
+is because Windows 2000 uses Unicode to represent multilingual text,
+but Emacs does not yet support Unicode well enough to decode it.  This
+means that Emacs can only interchange non-ASCII text with other
+Windows 2000 programs if the characters are in the system codepage.
+Reportedly, a partial solution is to install the Mule-UCS package and
+set selection-coding-system to utf-16-le-dos.
+
+* The `configure' script doesn't find the jpeg library.
+
+This can happen because the linker by default only looks for shared
+libraries, but jpeg distribution by default doesn't build and doesn't
+install a shared version of the library, `libjpeg.so'.  One system
+where this is known to happen is Compaq OSF/1 (`Tru64'), but it
+probably isn't limited to that system.
+
+You can configure the jpeg library with the `--enable-shared' option
+and then rebuild libjpeg.  This produces a shared version of libjpeg,
+which you need to install.  Finally, rerun the Emacs configure script,
+which should now find the jpeg library.  Alternatively, modify the
+generated src/Makefile to link the .a file explicitly.
+
+(If you need the static version of the jpeg library as well, configure
+libjpeg with both `--enable-static' and `--enable-shared' options.)
+
+* Building Emacs over NFS fails with ``Text file busy''.
+
+This was reported to happen when building Emacs on a GNU/Linux system
+(RedHat Linux 6.2) using a build directory automounted from Solaris
+(SunOS 5.6) file server, but it might not be limited to that
+configuration alone.  Presumably, the NFS server doesn't commit the
+files' data to disk quickly enough, and the Emacs executable file is
+left ``busy'' for several seconds after Emacs has finished dumping
+itself.  This causes the subsequent commands which invoke the dumped
+Emacs excutable to fail with the above message.
+
+In some of these cases, a time skew between the NFS server and the
+machine where Emacs is built is detected and reported by GNU Make
+(it says that some of the files have modification time in the future).
+This might be a symptom of NFS-related problems.
+
+If the NFS server runs on Solaris, apply the Solaris patch 105379-05
+(Sunos 5.6: /kernel/misc/nfssrv patch).  If that doesn't work, or if
+you have a different version of the OS or the NFS server, you can
+force the NFS server to use 1KB blocks, which was reported to fix the
+problem albeit at a price of slowing down file I/O.  You can force 1KB
+blocks by specifying the "-o  rsize=1024,wsize=1024" options to the
+`mount' command, or by adding ",rsize=1024,wsize=1024" to the mount
+options in the appropriate system configuration file, such as
+`/etc/auto.home'.
+
+Alternatively, when Make fails due to this problem, you could wait for
+a few seconds and then invoke Make again.  In one particular case,
+waiting for 10 or more seconds between the two Make invocations seemed
+to work around the problem.
+
+Similar problems can happen if your machine NFS-mounts a directory
+onto itself.  Suppose the Emacs sources live in `/usr/local/src' and
+you are working on the host called `marvin'.  Then an entry in the
+`/etc/fstab' file like the following is asking for trouble:
+
+    marvin:/usr/local/src /usr/local/src ...options.omitted...
+
+The solution is to remove this line from `etc/fstab'.
+
+* Accented ISO-8859-1 characters are displayed as | or _.
+
+Try other font set sizes (S-mouse-1).  If the problem persists with
+other sizes as well, your text is corrupted, probably through software
+that is not 8-bit clean.  If the problem goes away with another font
+size, it's probably because some fonts pretend to be ISO-8859-1 fonts
+when they are really ASCII fonts. In particular the schumacher-clean
+fonts have this bug in some versions of X.
+
+To see what glyphs are included in a font, use `xfd', like this:
+
+  xfd -fn -schumacher-clean-medium-r-normal--12-120-75-75-c-60-iso8859-1
+
+If this shows only ASCII glyphs, the font is indeed the source of the
+problem.
+
+The solution is to remove the corresponding lines from the appropriate
+`fonts.alias' file, then run `mkfontdir' in that directory, and then run
+`xset fp rehash'.
+
+* Large file support is disabled on HP-UX.  See the comments in
+src/s/hpux10.h.
+
+* Crashes when displaying uncompressed GIFs with version
+libungif-4.1.0 are resolved by using version libungif-4.1.0b1.
+
+* Font Lock displays portions of the bufefr in incorrect faces.
+
+By far the most frequent cause of this is a parenthesis `(' or a brace
+`{' in column zero.  Font Lock assumes that such a paren is outside of
+any comment or string.  This is of course not true in general, but the
+vast majority of well-formatted program source files don't have such
+parens, and therefore this assumption is used to allow optimizations
+in Font Lock's syntactical analysis.  These optimizations avoid some
+patological cases where jit-lock, the Just-in-Time fontification
+introduced with Emacs 21.1, could significantly slow down scrolling
+through the buffer, especially scrolling backwards, and also jumping
+to the end of a very large buffer.
+
+If you don't use large buffers, or have a very fast machine which
+makes the delays insignificant, you can avoid the incorrect
+fontification by setting the variable
+`font-lock-beginning-of-syntax-function' to a nil value.  (This must
+be done _after_ turning on Font Lock.)
+
+Another alternative is to avoid a paren in column zero.  For example,
+in a Lisp string you could precede the paren with a backslash.
+
+* Interrupting Cygwin port of Bash from Emacs doesn't work.
+
+Cygwin 1.x builds of the ported Bash cannot be interrupted from the
+MS-Windows version of Emacs.  This is due to some change in the Bash
+port or in the Cygwin library which apparently make Bash ignore the
+keyboard interrupt event sent by Emacs to Bash.  (Older Cygwin ports
+of Bash, up to b20.1, did receive SIGINT from Emacs.)
+
+* Accessing remote files with ange-ftp hangs the MS-Windows version of Emacs.
+
+If the FTP client is the Cygwin port of GNU `ftp', this appears to be
+due to some bug in the Cygwin DLL or some incompatibility between it
+and the implementation of asynchronous subprocesses in the Windows
+port of Emacs.  Specifically, some parts of the FTP server responses
+are not flushed out, apparently due to buffering issues, which
+confuses ange-ftp.
+
+The solution is to downgrade to an older version of the Cygwin DLL
+(version 1.3.2 was reported to solve the problem), or use the stock
+Windows FTP client, usually found in the `C:\WINDOWS' directory.  To
+force ange-ftp use the stock Windows client, set the variable
+`ange-ftp-ftp-program-name' to the absolute file name of the client's
+executable.  For example:
+
+ (setq ange-ftp-ftp-program-name "c:/windows/ftp.exe")
+
+If you want to stick with the Cygwin FTP client, you can work around
+this problem by putting this in your `.emacs' file:
+
+ (setq ange-ftp-ftp-program-args '("-i" "-n" "-g" "-v" "--prompt" "")
+
+
+* The latest released version of the W3 package doesn't run properly
+with Emacs 21 and needs work.  However, these problems are already
+fixed in W3's CVS.  The patch below is reported to make w3-4.0pre.46
+work.
+
+Some users report they are unable to byte-compile W3 with Emacs 21.
+If the patches below don't help to resolve your problems, install the
+CVS version of W3, which should be compatible with Emacs 21.
+
+diff -aur --new-file w3-4.0pre.46-orig/lisp/w3-display.el w3-4.0pre.46-new/lisp/w3-display.el
+--- w3-4.0pre.46-orig/lisp/w3-display.el	Sun Nov 14 22:00:12 1999
++++ w3-4.0pre.46-new/lisp/w3-display.el	Thu Dec 14 14:59:15 2000
+@@ -181,7 +181,8 @@
+ 		(dispatch-event (next-command-event)))
+ 	    (error nil))))
+      (t
+-      (if (and (not (sit-for 0)) (input-pending-p))
++      ;; modified for GNU Emacs 21 by bob@rattlesnake.com on 2000 Dec 14
++      (if  (and (not (sit-for 0)) nil)
+ 	  (condition-case ()
+ 	      (progn
+ 		(setq w3-pause-keystroke
+diff -aur --new-file w3-4.0pre.46-orig/lisp/w3-e21.el w3-4.0pre.46-new/lisp/w3-e21.el
+--- w3-4.0pre.46-orig/lisp/w3-e21.el	Thu Jan  1 00:00:00 1970
++++ w3-4.0pre.46-new/lisp/w3-e21.el	Thu Dec 14 14:54:58 2000
+@@ -0,0 +1,5 @@
++;;; w3-e21.el ---   ** required for GNU Emacs 21 **
++;; Added by bob@rattlesnake.com on 2000 Dec 14
++
++(require 'w3-e19)
++(provide 'w3-e21)
+
+* On AIX, if linking fails because libXbsd isn't found, check if you
+are compiling with the system's `cc' and CFLAGS containing `-O5'.  If
+so, you have hit a compiler bug.  Please make sure to re-configure
+Emacs so that it isn't compiled with `-O5'.
+
+* The PSGML package uses the obsolete variables
+`before-change-function' and `after-change-function', which are no
+longer used by Emacs.  These changes to PSGML 1.2.2 fix that.
+
+--- psgml-edit.el	2001/03/03 00:23:31	1.1
++++ psgml-edit.el	2001/03/03 00:24:22
+@@ -264,4 +264,4 @@
+ 					; inhibit-read-only
+-	(before-change-function nil)
+-	(after-change-function nil))
++	(before-change-functions nil)
++	(after-change-functions nil))
+     (setq selective-display t)
+@@ -1544,3 +1544,3 @@
+ 	(buffer-read-only nil)
+-	(before-change-function nil)
++	(before-change-functions nil)
+ 	(markup-index			; match-data index in tag regexp
+@@ -1596,3 +1596,3 @@
+ (defun sgml-expand-shortref-to-text (name)
+-  (let (before-change-function
++  (let (before-change-functions
+ 	(entity (sgml-lookup-entity name (sgml-dtd-entities sgml-dtd-info))))
+@@ -1613,3 +1613,3 @@
+ 	(re-found nil)
+-	before-change-function)
++	before-change-functions)
+     (goto-char sgml-markup-start)
+@@ -1646,3 +1646,3 @@
+     (goto-char (sgml-element-end element)) 
+-    (let ((before-change-function nil))
++    (let ((before-change-functions nil))
+       (sgml-normalize-content element only-one)))
+--- psgml-other.el	2001/03/03 00:23:42	1.1
++++ psgml-other.el	2001/03/03 00:30:05
+@@ -32,2 +32,3 @@
+ (require 'easymenu)
++(eval-when-compile (require 'cl))
+ 
+@@ -61,4 +62,9 @@
+ 		   (let ((submenu
+-			  (subseq entries 0 (min (length entries)
+-						 sgml-max-menu-size))))
++;;; 			  (subseq entries 0 (min (length entries)
++;;; 						 sgml-max-menu-size))
++			  (let ((new (copy-sequence entries)))
++			    (setcdr (nthcdr (1- (min (length entries)
++						     sgml-max-menu-size))
++					    new) nil)
++			    new)))
+ 		     (setq entries (nthcdr sgml-max-menu-size entries))
+@@ -113,9 +119,10 @@
+       (let ((inhibit-read-only t)
+-	    (after-change-function nil)	; obsolete variable
+-	    (before-change-function nil) ; obsolete variable
+ 	    (after-change-functions nil)
+-	    (before-change-functions nil))
++	    (before-change-functions nil)
++	    (modified (buffer-modified-p))
++	    (buffer-undo-list t)
++	    deactivate-mark)
+ 	(put-text-property start end 'face face)
+-        (when (< start end)
+-          (put-text-property (1- end) end 'rear-nonsticky '(face)))))
++	(when (and (not modified) (buffer-modified-p))
++	  (set-buffer-modified-p nil))))
+      (t
+--- psgml-parse.el	2001/03/03 00:23:57	1.1
++++ psgml-parse.el	2001/03/03 00:29:56
+@@ -40,2 +40,4 @@
+ 
++(eval-when-compile (require 'cl))
++
+ 
+@@ -2493,8 +2495,8 @@
+       (setq sgml-scratch-buffer nil))
+-    (when after-change-function		;***
+-      (message "OOPS: after-change-function not NIL in scratch buffer %s: %s"
++    (when after-change-functions		;***
++      (message "OOPS: after-change-functions not NIL in scratch buffer %s: %S"
+ 	       (current-buffer)
+-	       after-change-function)
+-      (setq before-change-function nil
+-	    after-change-function nil))
++	       after-change-functions)
++      (setq before-change-functions nil
++	    after-change-functions nil))
+     (setq sgml-last-entity-buffer (current-buffer))
+@@ -2878,6 +2880,5 @@
+   "Set initial state of parsing"
+-  (make-local-variable 'before-change-function)
+-  (setq before-change-function 'sgml-note-change-at)
+-  (make-local-variable 'after-change-function)
+-  (setq after-change-function 'sgml-set-face-after-change)
++  (set (make-local-variable 'before-change-functions) '(sgml-note-change-at))
++  (set (make-local-variable 'after-change-functions)
++       '(sgml-set-face-after-change))
+   (sgml-set-active-dtd-indicator (sgml-dtd-doctype dtd))
+@@ -3925,7 +3926,7 @@
+   (sgml-need-dtd)
+-  (unless before-change-function
+-    (message "WARN: before-change-function has been lost, restoring (%s)"
++  (unless before-change-functions
++    (message "WARN: before-change-functions has been lost, restoring (%s)"
+ 	     (current-buffer))
+-    (setq before-change-function 'sgml-note-change-at)
+-    (setq after-change-function 'sgml-set-face-after-change))
++    (setq before-change-functions '(sgml-note-change-at))
++    (setq after-change-functions '(sgml-set-face-after-change)))
+   (sgml-with-parser-syntax-ro
+
+* The Calc package fails to build and signals errors with Emacs 21.
+
+Apply the following patches which reportedly fix several problems:
+
+--- calc-ext.el.~1~	Sun Apr  3 02:26:34 1994
++++ calc-ext.el	Wed Sep 18 17:35:01 1996
+@@ -1354,6 +1354,25 @@
+   (calc-fancy-prefix 'calc-inverse-flag "Inverse..." n)
+ )
+ 
++(defconst calc-fancy-prefix-map
++  (let ((map (make-sparse-keymap)))
++    (define-key map [t] 'calc-fancy-prefix-other-key)
++    (define-key map (vector meta-prefix-char t) 'calc-fancy-prefix-other-key)
++    (define-key map [switch-frame] nil)
++    (define-key map [?\C-u] 'universal-argument)
++    (define-key map [?0] 'digit-argument)
++    (define-key map [?1] 'digit-argument)
++    (define-key map [?2] 'digit-argument)
++    (define-key map [?3] 'digit-argument)
++    (define-key map [?4] 'digit-argument)
++    (define-key map [?5] 'digit-argument)
++    (define-key map [?6] 'digit-argument)
++    (define-key map [?7] 'digit-argument)
++    (define-key map [?8] 'digit-argument)
++    (define-key map [?9] 'digit-argument)
++    map)
++  "Keymap used while processing calc-fancy-prefix.")
++
+ (defun calc-fancy-prefix (flag msg n)
+   (let (prefix)
+     (calc-wrapper
+@@ -1364,6 +1383,8 @@
+      (message (if prefix msg "")))
+     (and prefix
+ 	 (not calc-is-keypad-press)
++	 (if (boundp 'overriding-terminal-local-map)
++	     (setq overriding-terminal-local-map calc-fancy-prefix-map)
+ 	 (let ((event (calc-read-key t)))
+ 	   (if (eq (setq last-command-char (car event)) ?\C-u)
+ 	       (universal-argument)
+@@ -1376,9 +1397,18 @@
+ 	     (if (or (not (integerp last-command-char))
+ 		     (eq last-command-char ?-))
+ 		 (calc-unread-command)
+-	       (digit-argument n))))))
++	       (digit-argument n)))))))
+ )
+ (setq calc-is-keypad-press nil)
++
++(defun calc-fancy-prefix-other-key (arg)
++  (interactive "P")
++  (if (or (not (integerp last-command-char))
++	  (and (>= last-command-char 0) (< last-command-char ? )
++	       (not (eq last-command-char meta-prefix-char))))
++      (calc-wrapper))  ; clear flags if not a Calc command.
++  (calc-unread-command)
++  (setq overriding-terminal-local-map nil))
+ 
+ (defun calc-invert-func ()
+   (save-excursion
+
+--- Makefile.~1~	Sun Dec 15 23:50:45 1996
++++ Makefile	Thu Nov 30 15:09:45 2000
+@@ -41,7 +41,7 @@
+ 
+ # Other macros.
+ EFLAGS   = -batch
+-MAINT	 = -l calc-maint.elc
++MAINT	 = -l calc-maint.el
+ 
+ # Control whether intermediate files are kept.
+ PURGE	 = -rm -f
+@@ -154,10 +154,7 @@
+ 
+ 
+ # All this because "-l calc-maint" doesn't work.
+-maint: calc-maint.elc
+-calc-maint.elc: calc-maint.el
+-	cp calc-maint.el calc-maint.elc
+-
++maint: calc-maint.el
+ 
+ # Create an Emacs TAGS file
+ tags: TAGS
+
+--- calc-aent.el.~1~	Sun Dec 15 23:50:36 1996
++++ calc-aent.el	Tue Nov 21 18:34:33 2000
+@@ -385,7 +385,7 @@
+ 	  (calc-minibuffer-contains
+ 	   "\\`\\([^\"]*\"[^\"]*\"\\)*[^\"]*\"[^\"]*\\'"))
+       (insert "`")
+-    (setq alg-exp (buffer-string))
++    (setq alg-exp (field-string))
+     (and (> (length alg-exp) 0) (setq calc-previous-alg-entry alg-exp))
+     (exit-minibuffer))
+ )
+@@ -393,14 +393,14 @@
+ 
+ (defun calcAlg-enter ()
+   (interactive)
+-  (let* ((str (buffer-string))
++  (let* ((str (field-string))
+ 	 (exp (and (> (length str) 0)
+ 		   (save-excursion
+ 		     (set-buffer calc-buffer)
+ 		     (math-read-exprs str)))))
+     (if (eq (car-safe exp) 'error)
+ 	(progn
+-	  (goto-char (point-min))
++	  (goto-char (field-beginning))
+ 	  (forward-char (nth 1 exp))
+ 	  (beep)
+ 	  (calc-temp-minibuffer-message
+@@ -455,14 +455,14 @@
+   (interactive)
+   (if (calc-minibuffer-contains ".*[@oh] *[^'m ]+[^'m]*\\'")
+       (calcDigit-key)
+-    (setq calc-digit-value (buffer-string))
++    (setq calc-digit-value (field-string))
+     (exit-minibuffer))
+ )
+ 
+ (defun calcDigit-edit ()
+   (interactive)
+   (calc-unread-command)
+-  (setq calc-digit-value (buffer-string))
++  (setq calc-digit-value (field-string))
+   (exit-minibuffer)
+ )
+ 
+--- calc.el.~1~	Sun Dec 15 23:50:47 1996
++++ calc.el	Wed Nov 22 13:08:49 2000
+@@ -2051,11 +2051,11 @@
+   ;; Exercise for the reader:  Figure out why this is a good precaution!
+   (or (boundp 'calc-buffer)
+       (use-local-map minibuffer-local-map))
+-  (let ((str (buffer-string)))
++  (let ((str (field-string)))
+     (setq calc-digit-value (save-excursion
+ 			     (set-buffer calc-buffer)
+ 			     (math-read-number str))))
+-  (if (and (null calc-digit-value) (> (buffer-size) 0))
++  (if (and (null calc-digit-value) (> (field-end) (field-beginning)))
+       (progn
+ 	(beep)
+ 	(calc-temp-minibuffer-message " [Bad format]"))
+@@ -2071,7 +2071,7 @@
+ 
+ (defun calc-minibuffer-contains (rex)
+   (save-excursion
+-    (goto-char (point-min))
++    (goto-char (field-end (point-min)))
+     (looking-at rex))
+ )
+ 
+@@ -2158,10 +2158,8 @@
+ 					  (upcase last-command-char))))
+ 				(and dig
+ 				     (< dig radix)))))))
+-	      (save-excursion
+-		(goto-char (point-min))
+-         	(looking-at
+-		 "[-+]?\\(.*\\+/- *\\|.*mod *\\)?\\([0-9]+\\.?0*[@oh] *\\)?\\([0-9]+\\.?0*['m] *\\)?[0-9]*\\(\\.?[0-9]*\\(e[-+]?[0-3]?[0-9]?[0-9]?[0-9]?[0-9]?[0-9]?[0-9]?\\)?\\|[0-9]:\\([0-9]+:\\)?[0-9]*\\)?[\"s]?\\'")))
++	      (calc-minibuffer-contains
++		 "[-+]?\\(.*\\+/- *\\|.*mod *\\)?\\([0-9]+\\.?0*[@oh] *\\)?\\([0-9]+\\.?0*['m] *\\)?[0-9]*\\(\\.?[0-9]*\\(e[-+]?[0-3]?[0-9]?[0-9]?[0-9]?[0-9]?[0-9]?[0-9]?\\)?\\|[0-9]:\\([0-9]+:\\)?[0-9]*\\)?[\"s]?\\'"))
+ 	  (if (and (memq last-command-char '(?@ ?o ?h ?\' ?m))
+ 		   (string-match " " calc-hms-format))
+ 	      (insert " "))
+@@ -2190,7 +2188,7 @@
+ 	((eq last-command 'calcDigit-start)
+ 	 (erase-buffer))
+ 	(t (backward-delete-char 1)))
+-  (if (= (buffer-size) 0)
++  (if (= (field-beginning) (field-end))
+       (progn
+ 	(setq last-command-char 13)
+ 	(calcDigit-nondigit)))
+
+* TeX'ing the Calc manual fails.
+
+The following patches allow to build the Calc manual using texinfo.tex
+from Emacs 19.34 distribution:
+
+*** calc-maint.e~0	Mon Dec 16 07:11:26 1996
+--- calc-maint.el	Sun Dec 10 14:32:38 2000
+***************
+*** 308,314 ****
+      (insert "@tex\n"
+  	    "\\global\\advance\\appendixno2\n"
+  	    "\\gdef\\xref#1.{See ``#1.''}\n")
+!     (setq midpos (point))
+      (insert "@end tex\n")
+      (insert-buffer-substring srcbuf sumpos endpos)
+      (insert "@bye\n")
+--- 308,314 ----
+      (insert "@tex\n"
+  	    "\\global\\advance\\appendixno2\n"
+  	    "\\gdef\\xref#1.{See ``#1.''}\n")
+!     (setq midpos (point-marker))
+      (insert "@end tex\n")
+      (insert-buffer-substring srcbuf sumpos endpos)
+      (insert "@bye\n")
+*** Makefile.~0	Mon Dec 16 07:11:24 1996
+--- Makefile	Sun Dec 10 14:44:00 2000
+***************
+*** 98,106 ****
+  # Format the Calc manual as one printable volume using TeX.
+  tex:
+  	$(REMOVE) calc.aux
+! 	$(TEX) calc.texinfo
+  	$(TEXINDEX) calc.[cfkptv]?
+! 	$(TEX) calc.texinfo
+  	$(PURGE) calc.cp calc.fn calc.pg calc.tp calc.vr
+  	$(PURGE) calc.cps calc.fns calc.kys calc.pgs calc.tps calc.vrs
+  	$(PURGE) calc.toc
+--- 98,106 ----
+  # Format the Calc manual as one printable volume using TeX.
+  tex:
+  	$(REMOVE) calc.aux
+! 	-$(TEX) calc.texinfo
+  	$(TEXINDEX) calc.[cfkptv]?
+! 	-$(TEX) calc.texinfo
+  	$(PURGE) calc.cp calc.fn calc.pg calc.tp calc.vr
+  	$(PURGE) calc.cps calc.fns calc.kys calc.pgs calc.tps calc.vrs
+  	$(PURGE) calc.toc
+*** calc.texinfo.~1~	Thu Oct 10 18:18:56 1996
+--- calc.texinfo	Mon Dec 11 08:25:00 2000
+***************
+*** 12,17 ****
+--- 12,19 ----
+  % Because makeinfo.c exists, we can't just define new commands.
+  % So instead, we take over little-used existing commands.
+  %
++ % Suggested by Karl Berry <karl@@freefriends.org>
++ \gdef\!{\mskip-\thinmuskip}
+  % Redefine @cite{text} to act like $text$ in regular TeX.
+  % Info will typeset this same as @samp{text}.
+  \gdef\goodtex{\tex \let\rm\goodrm \let\t\ttfont \turnoffactive}
+***************
+*** 23686,23692 ****
+  a vector of the actual parameter values, written as equations:
+  @cite{[a = 3, b = 2]}, in case you'd rather read them in a list
+  than pick them out of the formula.  (You can type @kbd{t y}
+! to move this vector to the stack; @pxref{Trail Commands}.)
+  
+  Specifying a different independent variable name will affect the
+  resulting formula: @kbd{a F 1 k RET} produces @kbd{3 + 2 k}.
+--- 23689,23695 ----
+  a vector of the actual parameter values, written as equations:
+  @cite{[a = 3, b = 2]}, in case you'd rather read them in a list
+  than pick them out of the formula.  (You can type @kbd{t y}
+! to move this vector to the stack; see @ref{Trail Commands}.)
+  
+  Specifying a different independent variable name will affect the
+  resulting formula: @kbd{a F 1 k RET} produces @kbd{3 + 2 k}.
+
+* Unicode characters are not unified with other Mule charsets.
+
+As of v21.1, Emacs charsets are still not unified.  This means that
+characters which belong to charsets such as Latin-2, Greek, Hebrew,
+etc. and the same characters in the `mule-unicode-*' charsets are
+different characters, as far as Emacs is concerned.  For example, text
+which includes Unicode characters from the Latin-2 locale cannot be
+encoded by Emacs with ISO 8859-2 coding system; and if you yank Greek
+text from a buffer whose buffer-file-coding-system is greek-iso-8bit
+into a mule-unicode-0100-24ff buffer, Emacs won't be able to save that
+buffer neither as ISO 8859-7 nor as UTF-8.
+
+To work around this, install some add-on package such as Mule-UCS.
+
+* The `oc-unicode' package doesn't work with Emacs 21.
+
+This package tries to define more private charsets than there are free
+slots now.  If the built-in Unicode/UTF-8 support is insufficient,
+e.g. if you need more CJK coverage, use the current Mule-UCS package.
+Any files encoded as emacs-mule using oc-unicode won't be read
+correctly by Emacs 21.
+
+* Using epop3.el package causes Emacs to signal an error.
+
+The error message might be something like this:
+
+  "Lisp nesting exceeds max-lisp-eval-depth"
+
+This happens because epop3 redefines the function gethash, which is a
+built-in primitive beginning with Emacs 21.1.  We don't have a patch
+for epop3 that fixes this, but perhaps a newer version of epop3
+corrects that.
+
+* On systems with shared libraries you might encounter run-time errors
+from the dynamic linker telling you that it is unable to find some
+shared libraries, for instance those for Xaw3d or image support.
+These errors mean Emacs has been linked with a library whose shared
+library is not in the default search path of the dynamic linker.
+
+On many systems, it is possible to set LD_LIBRARY_PATH in your
+environment to specify additional directories where shared libraries
+can be found.
+
+Other systems allow to set LD_RUN_PATH in a similar way, but before
+Emacs is linked.  With LD_RUN_PATH set, the linker will include a
+specified run-time search path in the executable.
+
+Please refer to the documentation of your dynamic linker for details.
+
+* On Solaris 2.7, building Emacs with WorkShop Compilers 5.0 98/12/15
+C 5.0 failed, apparently with non-default CFLAGS, most probably due to
+compiler bugs.  Using Sun Solaris 2.7 Sun WorkShop 6 update 1 C
+release was reported to work without problems.  It worked OK on
+another system with Solaris 8 using apparently the same 5.0 compiler
+and the default CFLAGS.
+
+* Compiling syntax.c with the OPENSTEP 4.2 compiler gcc 2.7.2.1 fails.
+
+The compiler was reported to crash while compiling syntax.c with the
+following message:
+
+   cc: Internal compiler error: program cc1obj got fatal signal 11
+
+To work around this, replace the macros UPDATE_SYNTAX_TABLE_FORWARD,
+INC_BOTH, and INC_FROM with functions.  To this end, first define 3
+functions, one each for every macro.  Here's an example:
+
+    static int update_syntax_table_forward(int from)
+    {
+        return(UPDATE_SYNTAX_TABLE_FORWARD(from));
+    }/*update_syntax_table_forward*/
+
+Then replace all references to UPDATE_SYNTAX_TABLE_FORWARD in syntax.c
+with a call to the function update_syntax_table_forward.
+
+* Emacs fails to start, complaining about missing fonts.
+
+A typical error message might be something like
+
+  No fonts match `-*-fixed-medium-r-*--6-*-*-*-*-*-iso8859-1'
+
+This happens because some X resource specifies a bad font family for
+Emacs to use.  The possible places where this specification might be
+are:
+
+  - in your ~/.Xdefaults file
+
+  - client-side X resource file, such as  ~/Emacs or
+    /usr/X11R6/lib/app-defaults/Emacs or
+    /usr/X11R6/lib/X11/app-defaults/Emacs
+
+One of these files might have bad or malformed specification of a
+fontset that Emacs should use.  To fix the problem, you need to find
+the problematic line(s) and correct them.
+
+* Emacs 20 and later fails to load Lisp files at startup.
+
+The typical error message might be like this:
+
+  "Cannot open load file: fontset"
+
+This could happen if you compress the file lisp/subdirs.el.  That file
+tells Emacs what are the directories where it should look for Lisp
+files.  Emacs cannot work with subdirs.el compressed, since the
+Auto-compress mode it needs for this will not be loaded until later,
+when your .emacs file is processed.  (The package `fontset.el' is
+required to set up fonts used to display text on window systems, and
+its loaded very early in the startup procedure.)
+
+Similarly, any other .el file for which there's no corresponding .elc
+file could fail to load if it is compressed.
+
+The solution is to uncompress all .el files which don't have a .elc
+file.
+
+* Attempting to visit remote files via ange-ftp fails.
+
+If the error message is "ange-ftp-file-modtime: Specified time is not
+representable", then this could happen when `lukemftp' is used as the
+ftp client.  This was reported to happen on Debian GNU/Linux 2.4.3
+with `lukemftp' 1.5-5, but might happen on other systems as well.  To
+avoid this problem, switch to using the standard ftp client.  On a
+Debian system, type
+
+  update-alternatives --config ftpd
+
+and then choose /usr/bin/netkit-ftp.
+
+* Antivirus software interacts badly with the MS-Windows version of Emacs.
+
+The usual manifestation of these problems is that subprocesses don't
+work or even wedge the entire system.  In particular, "M-x shell RET"
+was reported to fail to work.  But other commands also sometimes don't
+work when an antivirus package is installed.
+
+The solution is to switch the antivirus software to a less aggressive
+mode (e.g., disable the ``auto-protect'' feature), or even uninstall
+or disable it entirely.
+
+* On Windows 95/98/ME, subprocesses do not terminate properly.
+
+This is a limitation of the Operating System, and can cause problems
+when shutting down Windows. Ensure that all subprocesses are exited
+cleanly before exiting Emacs. For more details, see the FAQ at
+ftp://ftp.gnu.org/gnu/windows/emacs/doc/index.html
+
+* Mail sent through Microsoft Exchange in some encodings appears to be
+mangled and is not seen correctly in Rmail or Gnus.  We don't know
+exactly what happens, but it isn't an Emacs problem in cases we've
+seen.
+
+* After upgrading to a newer version of Emacs, the Meta key stops working.
+
+This was reported to happen on a GNU/Linux system distributed by
+Mandrake.  The reason is that the previous version of Emacs was
+modified by Mandrake to make the Alt key act as the Meta key, on a
+keyboard where the Windows key is the one which produces the Meta
+modifier.  A user who started using a newer version of Emacs, which
+was not hacked by Mandrake, expected the Alt key to continue to act as
+Meta, and was astonished when that didn't happen.
+
+The solution is to find out what key on your keyboard produces the Meta
+modifier, and use that key instead.  Try all of the keys to the left
+and to the right of the space bar, together with the `x' key, and see
+which combination produces "M-x" in the echo area.  You can also use
+the `xmodmap' utility to show all the keys which produce a Meta
+modifier:
+
+         xmodmap -pk | egrep -i "meta|alt"
+
+A more convenient way of finding out which keys produce a Meta modifier
+is to use the `xkbprint' utility, if it's available on your system:
+
+         xkbprint 0:0 /tmp/k.ps
+
+This produces a PostScript file `/tmp/k.ps' with a picture of your
+keyboard; printing that file on a PostScript printer will show what
+keys can serve as Meta.
+
+The `xkeycaps' also shows a visual representation of the current
+keyboard settings.  It also allows to modify them.
+
+* On OSF/Dec Unix/Tru64/<whatever it is this year> under X locally or
+remotely, M-SPC acts as a `compose' key with strange results.  See
+keyboard(5).
+
+Changing Alt_L to Meta_L fixes it:
+% xmodmap -e 'keysym Alt_L = Meta_L Alt_L'
+% xmodmap -e 'keysym Alt_R = Meta_R Alt_R'  
 
 * Error "conflicting types for `initstate'" compiling with GCC on Irix 6.
 
@@ -13,6 +1054,25 @@ It is possible that this problem results from upgrading the operating
 system without reinstalling GCC; so you could also try reinstalling
 the same version of GCC, and telling us whether that fixes the problem.
 
+* Emacs dumps core on Solaris in function IMCheckWindow.
+
+This was reported to happen when Emacs runs with more than one frame,
+and one of them is closed, either with "C-x 5 0" or from the window
+manager.
+
+This bug was reported to Sun as
+
+    Gtk apps dump core in ximlocal.so.2:IMCheckIMWindow()
+    Bug Reports: 4463537
+
+Installing Solaris 8 patch 108773-12 for Sparc and 108774-12 for x86
+reportedly fixes the bug, which appears to be inside the shared
+library xiiimp.so.
+
+Alternatively, you can configure Emacs with `--with-xim=no' to prevent
+the core dump, but will loose X input method support, of course.  (You
+can use Emacs's own input methods instead, if you install Leim.)
+
 * On Solaris 7, Emacs gets a segmentation fault when starting up using X.
 
 This results from Sun patch 107058-01 (SunOS 5.7: Patch for
@@ -20,14 +1080,6 @@ assembler) if you use GCC version 2.7 or later.
 To work around it, either install patch 106950-03 or later,
 or uninstall patch 107058-01, or install the GNU Binutils.
 Then recompile Emacs, and it should work.
-
-* With some fonts--especially Courier fonts--lines sometimes appear
-"too tall".
-
-Emacs calculates line height based on the maximum bounds of the font,
-if that is bigger than the font's recommended height.  The reason is
-to ensure there is no overlap between one line and the next.  It does
-not look quite as good, but it works reliably.
 
 * With X11R6.4, public-patch-3, Emacs crashes at startup.
 
@@ -76,6 +1128,17 @@ This seems to be fixed in GCC 2.95.
 This problem is fixed in Patch 3175 for Irix 5.3.
 It is also fixed in Irix versions 6.2 and up.
 
+* The S-C-t key combination doesn't get passed to Emacs on X.
+
+This happens because some X configurations assign the Ctrl-Shift-t
+combination the same meaning as the Multi_key.  The offending
+definition is in the file `...lib/X11/locale/iso8859-1/Compose'; there
+might be other similar combinations which are grabbed by X for similar
+purposes.
+
+We think that this can be countermanded with the `xmodmap' utility, if
+you want to be able to bind one of these key sequences within Emacs.
+
 * On Solaris, CTRL-t is ignored by Emacs when you use
 the fr.ISO-8859-15 locale (and maybe other related locales).
 
@@ -123,12 +1186,6 @@ gives the appearance of "double spacing".
 
 To prevent this,  turn off the Exceed's "automatic font substitution"
 feature (in the font part of the configuration window).
-
-* On Solaris 7 or later, the compiler complains about the struct member `_ptr'.
-
-This suggests that you are trying to build Emacs in 64 bit mode
-(e.g. with cc -xarch=v9).  Emacs does not yet support this on Solaris.
-Build Emacs in the default 32 bit mode instead.
 
 * Failure in unexec while dumping emacs on Digital Unix 4.0
 
@@ -192,7 +1249,12 @@ earlier versions.
       ((consp (sgml-entity-text entity)) ; external id?
        (let* ((extid (sgml-entity-text entity))
 
-* Running TeX from AUXTeX package with Emacs 20.3 gives a Lisp error
+* Emacs 21 freezes when visiting a TeX file with AUC TeX installed.
+
+Emacs 21 needs version 10 or later of AUC TeX; upgrading should solve
+these problems.
+
+* Running TeX from AUC TeX package with Emacs 20.3 gives a Lisp error
 about a read-only tex output buffer.
 
 This problem appeared for AUC TeX version 9.9j and some earlier
@@ -261,6 +1323,18 @@ add mod2 = Mode_switch
 EOF
 --------------------------------
 
+* Emacs hangs on KDE when a large portion of text is killed.
+
+This is caused by a bug in the KDE applet `klipper' which periodically
+requests the X clipboard contents from applications.  Early versions
+of klipper don't implement the ICCM protocol for large selections,
+which leads to Emacs being flooded with selection requests.  After a
+while, Emacs will print a message:
+
+  Timed out waiting for property-notify event
+
+A workaround is to not use `klipper'.
+
 * Emacs compiled with DJGPP for MS-DOS/MS-Windows cannot access files
 in the directory with the special name `dev' under the root of any
 drive, e.g. `c:/dev'.
@@ -295,13 +1369,32 @@ in Emacs.
 
 * When you run Ispell from Emacs, it reports a "misalignment" error.
 
-This can happen if you compiled Ispell to use ASCII characters only
-and then try to use it from Emacs with non-ASCII characters,
-specifically Latin-1.  The solution is to recompile Ispell with
-Latin-1 support.
+This can happen if you compiled the Ispell program to use ASCII
+characters only and then try to use it from Emacs with non-ASCII
+characters, like Latin-1.  The solution is to recompile Ispell with
+support for 8-bit characters.
 
-This can also happen if the version of Ispell installed on your
-machine is old.
+To see whether your Ispell program supports 8-bit characters, type
+this at your shell's prompt:
+
+     ispell -vv
+
+and look in the output for the string "NO8BIT".  If Ispell says
+"!NO8BIT (8BIT)", your speller supports 8-bit characters; otherwise it
+does not.
+
+To rebuild Ispell with 8-bit character support, edit the local.h file
+in the Ispell distribution and make sure it does _not_ define NO8BIT.
+Then rebuild the speller.
+
+Another possible cause for "misalignment" error messages is that the
+version of Ispell installed on your machine is old.  Upgrade.
+
+Yet another possibility is that you are trying to spell-check a word
+in a language that doesn't fit the dictionary you choose for use by
+Ispell.  (Ispell can only spell-check one language at a time, because
+it uses a single dictionary.)  Make sure that the text you are
+spelling and the dictionary used by Ispell conform to each other.
 
 * On Linux-based GNU systems using libc versions 5.4.19 through
 5.4.22, Emacs crashes at startup with a segmentation fault.
@@ -433,6 +1526,12 @@ You can remedy the problem by installing additional fonts.
 
 The intlfonts distribution includes a full spectrum of fonts that can
 display all the characters Emacs supports.
+
+Another cause of this for specific characters is fonts which have a
+missing glyph and no default character.  This is known ot occur for
+character number 160 (no-break space) in some fonts, such as Lucida
+but Emacs sets the display table for the unibyte and Latin-1 version
+of this character to display a space.
 
 * Under X11, some characters appear improperly aligned in their lines.
 
@@ -639,6 +1738,14 @@ subdirectory: `is_exec.c' and `sigaction.c'.  Compile them and link
 them into the Emacs executable `temacs'; then they will replace the
 incorrect library functions.
 
+* When compiling with DJGPP on Windows NT, "config msdos" fails.
+
+If the error message is "VDM has been already loaded", this is because
+Windows has a program called `redir.exe' that is incompatible with a
+program by the same name supplied with DJGPP, which is used by
+config.bat.  To resolve this, move the DJGPP's `bin' subdirectory to
+the front of your PATH environment variable.
+
 * When compiling with DJGPP on Windows 95, Make fails for some targets
 like make-docfile.
 
@@ -649,10 +1756,15 @@ the explanation of how to avoid this problem.
 
 * Emacs compiled for MSDOS cannot find some Lisp files, or other
 run-time support files, when long filename support is enabled.
-(Usually, this problem will manifest itself when Emacs exits
+
+Usually, this problem will manifest itself when Emacs exits
 immediately after flashing the startup screen, because it cannot find
 the Lisp files it needs to load at startup.  Redirect Emacs stdout
-and stderr to a file to see the error message printed by Emacs.)
+and stderr to a file to see the error message printed by Emacs.
+
+Another manifestation of this problem is that Emacs is unable to load
+the support for editing program sources in languages such as C and
+Lisp.
 
 This can happen if the Emacs distribution was unzipped without LFN
 support, thus causing long filenames to be truncated to the first 6
@@ -661,6 +1773,14 @@ You should unzip the files again with a utility that supports long
 filenames (such as djtar from DJGPP or InfoZip's UnZip program
 compiled with DJGPP v2).  The MSDOG section of the file INSTALL
 explains this issue in more detail.
+
+Another possible reason for such failures is that Emacs compiled for
+MSDOS is used on Windows NT, where long file names are not supported
+by this version of Emacs, but the distribution was unpacked by an
+unzip program that preserved the long file names instead of truncating
+them to DOS 8+3 limits.  To be useful on NT, the MSDOS port of Emacs
+must be unzipped by a DOS utility, so that long file names are
+properly truncated.
 
 * Emacs compiled with DJGPP complains at startup:
 

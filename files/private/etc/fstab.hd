@@ -1,3 +1,4 @@
+# This file is obsolete
 /dev/hd0a	/	ufs	rw		1  1
 /dev/hd0e	/var	ufs	rw		1  2
 /dev/hd0f	/usr	ufs	rw		1  2

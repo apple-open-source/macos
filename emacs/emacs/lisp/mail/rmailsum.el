@@ -1,6 +1,7 @@
 ;;; rmailsum.el --- make summary buffers for the mail reader
 
-;; Copyright (C) 1985, 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1993, 1994, 1995, 1996, 2000, 2001
+;;   Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: mail
@@ -50,7 +51,7 @@
     ("^....-.*" . font-lock-type-face)				; Unread.
     ;; Neither of the below will be highlighted if either of the above are:
     ("^....[^D-] \\(......\\)" 1 font-lock-keyword-face)	; Date.
-    ("{ \\([^}]+\\),}" 1 font-lock-comment-face))		; Labels.
+    ("{ \\([^\n}]+\\),}" 1 font-lock-comment-face))		; Labels.
   "Additional expressions to highlight in Rmail Summary mode.")
 
 ;; Entry points for making a summary buffer.
@@ -104,7 +105,7 @@ Emacs will list the header line in the RMAIL-summary."
   (interactive "sRegexp to summarize by: ")
   (if (string= regexp "")
       (setq regexp (or rmail-last-regexp
-			 (error "No regexp specified."))))
+			 (error "No regexp specified"))))
   (setq rmail-last-regexp regexp)
   (rmail-new-summary (concat "regexp " regexp)
 		     (list 'rmail-summary-by-regexp regexp)
@@ -137,7 +138,10 @@ SUBJECT is a string of regexps separated by commas."
      (progn (search-forward (if whole-message "\^_" "\n\n")) (point)))
     (goto-char (point-min))
     (if whole-message (re-search-forward subject nil t)
-      (string-match subject (or (mail-fetch-field "Subject") "")) )))
+      (string-match subject (let ((subj (mail-fetch-field "Subject")))
+			      (if subj
+				  (funcall rmail-summary-line-decoder subj)
+				""))))))
 
 ;;;###autoload
 (defun rmail-summary-by-senders (senders)
@@ -172,9 +176,8 @@ nil for FUNCTION means all messages."
     (save-excursion
       ;; Go to the Rmail buffer.
       (if (eq major-mode 'rmail-summary-mode)
-	  (progn
-	    (setq was-in-summary t)
-	    (set-buffer rmail-buffer)))
+	  (setq was-in-summary t))
+      (set-buffer rmail-buffer)
       ;; Find its summary buffer, or make one.
       (setq sumbuf
 	    (if (and rmail-summary-buffer
@@ -206,6 +209,9 @@ nil for FUNCTION means all messages."
 	;; Temporarily, while summary buffer is unfinished,
 	;; we "don't have" a summary.
 	(setq rmail-summary-buffer nil)
+	(if rmail-enable-mime
+	    (with-current-buffer rmail-view-buffer
+	      (setq rmail-summary-buffer nil)))
 	(save-excursion
 	  (let ((rbuf (current-buffer))
 		(vbuf rmail-view-buffer)
@@ -339,6 +345,24 @@ By default, `identity' is set."
 			   (substring line (1+ pos)))))
     ))
 
+;;;###autoload
+(defcustom rmail-user-mail-address-regexp nil
+  "*Regexp matching user mail addresses.
+If non-nil, this variable is used to identify the correspondent
+when receiving new mail.  If it matches the address of the sender,
+the recipient is taken as correspondent of a mail.
+If nil \(default value\), your `user-login-name' and `user-mail-address'
+are used to exclude yourself as correspondent.
+
+Usually you don't have to set this variable, except if you collect mails
+sent by you under different user names.
+Then it should be a regexp matching your mail adresses.
+
+Setting this variable has an effect only before reading a mail."
+  :type '(choice (const :tag "None" nil) regexp)
+  :group 'rmail-retrieve
+  :version "21.1")
+
 (defun rmail-make-basic-summary-line ()
   (goto-char (point-min))
   (concat (save-excursion
@@ -388,19 +412,21 @@ By default, `identity' is set."
 			       (skip-chars-backward " \t")
 			       (point)))))
                      len mch lo)
-		(if (string-match (concat "^\\("
-					  (regexp-quote (user-login-name))
-					  "\\($\\|@\\)\\|"
-					  (regexp-quote
-					   ;; Don't lose if run from init file
-					   ;; where user-mail-address is not
-					   ;; set yet.
-					   (or user-mail-address
-					       (concat (user-login-name) "@"
-						       (or mail-host-address
-							   (system-name)))))
-					  "\\>\\)")
-				  from)
+		(if (string-match 
+		     (or rmail-user-mail-address-regexp 
+			 (concat "^\\("
+				 (regexp-quote (user-login-name))
+				 "\\($\\|@\\)\\|"
+				 (regexp-quote
+				  ;; Don't lose if run from init file
+				  ;; where user-mail-address is not
+				  ;; set yet.
+				  (or user-mail-address
+				      (concat (user-login-name) "@"
+					      (or mail-host-address
+						  (system-name)))))
+				 "\\>\\)"))
+		     from)
 		    (save-excursion
 		      (goto-char (point-min))
 		      (if (not (re-search-forward "^To:[ \t]*" nil t))
@@ -646,9 +672,13 @@ Optional prefix ARG means undelete ARG previous messages."
       (cond ((re-search-backward "\\(^ *[0-9]*\\)\\(D\\)" nil t)
 	     (replace-match "\\1 ")
 	     (rmail-summary-goto-msg)
-	     (pop-to-buffer rmail-buffer)
+	     (if rmail-enable-mime
+		 (set-buffer rmail-buffer)
+	       (pop-to-buffer rmail-buffer))
 	     (and (rmail-message-deleted-p rmail-current-message)
 		  (rmail-undelete-previous-message))
+	     (if rmail-enable-mime
+		 (pop-to-buffer rmail-view-buffer))
 	     (pop-to-buffer rmail-summary-buffer))
 	    (t (goto-char opoint))))))
 
@@ -702,7 +732,7 @@ Commands for sorting the summary:
 \\[rmail-summary-sort-by-recipient] Sort by recipient.
 \\[rmail-summary-sort-by-correspondent] Sort by correspondent.
 \\[rmail-summary-sort-by-lines] Sort by lines.
-\\[rmail-summary-sort-by-keywords] Sort by keywords."
+\\[rmail-summary-sort-by-labels] Sort by labels."
   (interactive)
   (kill-all-local-variables)
   (setq major-mode 'rmail-summary-mode)
@@ -823,6 +853,7 @@ Search, the `unseen' attribute is restored.")
   (define-key rmail-summary-mode-map "h"      'rmail-summary)
   (define-key rmail-summary-mode-map "i"      'rmail-summary-input)
   (define-key rmail-summary-mode-map "j"      'rmail-summary-goto-msg)
+  (define-key rmail-summary-mode-map "\C-m"   'rmail-summary-goto-msg)
   (define-key rmail-summary-mode-map "k"      'rmail-summary-kill-label)
   (define-key rmail-summary-mode-map "l"      'rmail-summary-by-labels)
   (define-key rmail-summary-mode-map "\e\C-h" 'rmail-summary)
@@ -871,7 +902,7 @@ Search, the `unseen' attribute is restored.")
   (define-key rmail-summary-mode-map "\C-c\C-s\C-l"
     'rmail-summary-sort-by-lines)
   (define-key rmail-summary-mode-map "\C-c\C-s\C-k"
-    'rmail-summary-sort-by-keywords)
+    'rmail-summary-sort-by-labels)
   )
 
 ;;; Menu bar bindings.
@@ -1118,7 +1149,7 @@ move to the previous message."
   (interactive "P")
   (if (eq dist '-)
       (rmail-summary-scroll-msg-up nil)
-    (let ((rmail-buffer-window (get-buffer-window rmail-buffer)))
+    (let ((rmail-buffer-window (get-buffer-window rmail-view-buffer)))
       (if rmail-buffer-window
 	  (if (let ((rmail-summary-window (selected-window)))
 		(select-window rmail-buffer-window)
@@ -1132,7 +1163,7 @@ move to the previous message."
 	      (if (not rmail-summary-scroll-between-messages)
 		  (error "Beginning of buffer")
 		(rmail-summary-previous-msg (or dist 1)))
-	    (let ((other-window-scroll-buffer rmail-buffer))
+	    (let ((other-window-scroll-buffer rmail-view-buffer))
 	      (scroll-other-window-down dist)))
 	;; If it isn't visible at all, show the beginning.
 	(rmail-summary-beginning-of-message)))))
@@ -1142,15 +1173,15 @@ move to the previous message."
   (interactive)
   (if (and (one-window-p) (not pop-up-frames))
       ;; If there is just one window, put the summary on the top.
-      (let ((buffer rmail-buffer))
+      (let ((buffer rmail-view-buffer))
 	(split-window (selected-window) rmail-summary-window-size)
 	(select-window (frame-first-window))
-	(pop-to-buffer rmail-buffer)
+	(pop-to-buffer rmail-view-buffer)
 	;; If pop-to-buffer did not use that window, delete that
 	;; window.  (This can happen if it uses another frame.)
 	(or (eq buffer (window-buffer (next-window (frame-first-window))))
 	    (delete-other-windows)))
-    (pop-to-buffer rmail-buffer))
+    (pop-to-buffer rmail-view-buffer))
   (beginning-of-buffer)
   (pop-to-buffer rmail-summary-buffer))
 
@@ -1175,7 +1206,7 @@ move to the previous message."
   "Kill and wipe away Rmail summary, remaining within Rmail."
   (interactive)
   (save-excursion (set-buffer rmail-buffer) (setq rmail-summary-buffer nil))
-  (let ((local-rmail-buffer rmail-buffer))
+  (let ((local-rmail-buffer rmail-view-buffer))
     (kill-buffer (current-buffer))
     ;; Delete window if not only one.
     (if (not (eq (selected-window) (next-window nil 'no-minibuf)))
@@ -1188,7 +1219,8 @@ move to the previous message."
   (interactive)
   (save-excursion
     (set-buffer rmail-buffer)
-    (rmail-only-expunge))
+    (when (rmail-expunge-confirmed)
+      (rmail-only-expunge)))
   (rmail-update-summary))
 
 (defun rmail-summary-expunge-and-save ()
@@ -1196,7 +1228,8 @@ move to the previous message."
   (interactive)
   (save-excursion
     (set-buffer rmail-buffer)
-    (rmail-only-expunge))
+    (when (rmail-expunge-confirmed)
+      (rmail-only-expunge)))
   (rmail-update-summary)
   (save-excursion
     (set-buffer rmail-buffer)
@@ -1334,12 +1367,12 @@ Interactively, empty argument means use same regexp used last time."
 (defun rmail-summary-toggle-header ()
   "Show original message header if pruned header currently shown, or vice versa."
   (interactive)
-  (save-excursion
+  (save-window-excursion
     (set-buffer rmail-buffer)
     (rmail-toggle-header))
   ;; Inside save-excursion, some changes to point in the RMAIL buffer are lost.
   ;; Set point to point-min in the RMAIL buffer, if it is visible.
-  (let ((window (get-buffer-window rmail-buffer)))
+  (let ((window (get-buffer-window rmail-view-buffer)))
     (if window
         ;; Using save-window-excursion would lose the new value of point.
         (let ((owin (selected-window)))
@@ -1372,6 +1405,12 @@ Completion is performed over known labels when reading."
 
 ;;;; *** Rmail Summary Mailing Commands ***
 
+(defun rmail-summary-override-mail-send-and-exit ()
+  "Replace bindings to 'mail-send-and-exit with 'rmail-summary-send-and-exit"
+  (use-local-map (copy-keymap (current-local-map)))
+  (dolist (key (where-is-internal 'mail-send-and-exit))
+    (define-key (current-local-map) key 'rmail-summary-send-and-exit)))
+
 (defun rmail-summary-mail ()
   "Send mail in another window.
 While composing the message, use \\[mail-yank-original] to yank the
@@ -1382,9 +1421,7 @@ original message into it."
 	(select-window window)
       (set-buffer rmail-buffer)))
   (rmail-start-mail nil nil nil nil nil (current-buffer))
-  (use-local-map (copy-keymap (current-local-map)))
-  (define-key (current-local-map)
-    "\C-c\C-c" 'rmail-summary-send-and-exit))
+  (rmail-summary-override-mail-send-and-exit))
 
 (defun rmail-summary-continue ()
   "Continue composing outgoing message previously being composed."
@@ -1401,14 +1438,12 @@ Normally include CC: to all other recipients of original message;
 prefix argument means ignore them.  While composing the reply,
 use \\[mail-yank-original] to yank the original message into it."
   (interactive "P")
-  (let ((window (get-buffer-window rmail-buffer)))
+  (let ((window (get-buffer-window rmail-view-buffer)))
     (if window
 	(select-window window)
-      (set-buffer rmail-buffer)))
+      (set-buffer rmail-view-buffer)))
   (rmail-reply just-sender)
-  (use-local-map (copy-keymap (current-local-map)))
-  (define-key (current-local-map)
-    "\C-c\C-c" 'rmail-summary-send-and-exit))
+  (rmail-summary-override-mail-send-and-exit))
 
 (defun rmail-summary-retry-failure ()
   "Edit a mail message which is based on the contents of the current message.
@@ -1420,9 +1455,7 @@ the body of the original message; otherwise copy the current message."
 	(select-window window)
       (set-buffer rmail-buffer)))
   (rmail-retry-failure)
-  (use-local-map (copy-keymap (current-local-map)))
-  (define-key (current-local-map)
-    "\C-c\C-c" 'rmail-summary-send-and-exit))
+  (rmail-summary-override-mail-send-and-exit))
 
 (defun rmail-summary-send-and-exit ()
   "Send mail reply and return to summary buffer."
@@ -1440,9 +1473,7 @@ see the documentation of `rmail-resend'."
 	  (select-window window)
 	(set-buffer rmail-buffer)))
     (rmail-forward resend)
-    (use-local-map (copy-keymap (current-local-map)))
-    (define-key (current-local-map)
-      "\C-c\C-c" 'rmail-summary-send-and-exit)))
+    (rmail-summary-override-mail-send-and-exit)))
 
 (defun rmail-summary-resend ()
   "Resend current message using 'rmail-resend'."
@@ -1588,14 +1619,14 @@ If prefix argument REVERSE is non-nil, sort them in reverse order."
   (interactive "P")
   (rmail-sort-from-summary (function rmail-sort-by-lines) reverse))
 
-(defun rmail-summary-sort-by-keywords (reverse labels)
-  "Sort messages of current Rmail summary by keywords.
+(defun rmail-summary-sort-by-labels (reverse labels)
+  "Sort messages of current Rmail summary by labels.
 If prefix argument REVERSE is non-nil, sort them in reverse order.
 KEYWORDS is a comma-separated list of labels."
   (interactive "P\nsSort by labels: ")
   (rmail-sort-from-summary
    (function (lambda (reverse)
-	       (rmail-sort-by-keywords reverse labels)))
+	       (rmail-sort-by-labels reverse labels)))
    reverse))
 
 (defun rmail-sort-from-summary (sortfun reverse)
@@ -1606,5 +1637,7 @@ KEYWORDS is a comma-separated list of labels."
 	(progn (pop-to-buffer rmail-buffer)
 	       (funcall sortfun reverse))
       (select-window selwin))))
+
+(provide 'rmailsum)
 
 ;;; rmailsum.el ends here

@@ -285,7 +285,7 @@ again:	if (--tcp_debx < 0)
 			continue;
 		ntime = ntohl(td->td_time);
 		tcp_trace(td->td_act, td->td_ostate, td->td_tcb, &td->td_cb,
-		    &td->td_th, td->td_req);
+		    &td->td_ti.ti_t, td->td_req);
 		if (i == tcp_debx)
 			goto done;
 	}
@@ -295,7 +295,7 @@ again:	if (--tcp_debx < 0)
 			continue;
 		ntime = ntohl(td->td_time);
 		tcp_trace(td->td_act, td->td_ostate, td->td_tcb, &td->td_cb,
-		    &td->td_th, td->td_req);
+		    &td->td_ti.ti_t, td->td_req);
 	}
 done:	if (follow) {
 		prev_debx = tcp_debx + 1;

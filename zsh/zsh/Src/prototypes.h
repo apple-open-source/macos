@@ -3,7 +3,7 @@
  *
  * This file is part of zsh, the Z shell.
  *
- * Copyright (c) 1992-1996 Paul Falstad
+ * Copyright (c) 1992-1997 Paul Falstad
  * All rights reserved.
  *
  * Permission is hereby granted, without written agreement and without
@@ -27,51 +27,13 @@
  *
  */
 
-#include "builtin.pro"
-#include "compat.pro"
-#include "cond.pro"
-#include "exec.pro"
-#include "glob.pro"
-#include "hashtable.pro"
-#include "hist.pro"
-#include "init.pro"
-#include "input.pro"
-#include "jobs.pro"
-#include "lex.pro"
-#include "linklist.pro"
-#include "loop.pro"
-#include "math.pro"
-#include "mem.pro"
-#include "params.pro"
-#include "parse.pro"
-#include "signals.pro"
-#include "subst.pro"
-#include "text.pro"
-#include "utils.pro"
-#include "watch.pro"
-#include "zle_hist.pro"
-#include "zle_main.pro"
-#include "zle_misc.pro"
-#include "zle_move.pro"
-#include "zle_refresh.pro"
-#include "zle_tricky.pro"
-#include "zle_utils.pro"
-#include "zle_vi.pro"
-#include "zle_word.pro"
-
-/* memory allocation routines - changed with permalloc()/heapalloc() */
- 
-/* real things in mem.c */
-extern void *(*alloc) _((size_t));
-extern void *(*ncalloc) _((size_t));
- 
 #ifndef HAVE_STDLIB_H
 char *malloc _((size_t));
 char *realloc _((void *, size_t));
 char *calloc _((size_t, size_t));
 #endif
 
-#ifndef HAVE_TERMCAP_H
+#if !(defined(USES_TERMCAP_H) || defined(USES_TERM_H))
 extern int tgetent _((char *bp, char *name));
 extern int tgetnum _((char *id));
 extern int tgetflag _((char *id));
@@ -89,7 +51,7 @@ extern int tputs _((char *cp, int affcnt, int (*outc) (int)));
 # define WRITE_ARG_2_T char *
 #endif
 
-#if defined(__hpux) && defined(_HPUX_SOURCE)
+#if defined(__hpux) && defined(_HPUX_SOURCE) && !defined(_XPG4_EXTENDED)
 # define SELECT_ARG_2_T int *
 #else
 # define SELECT_ARG_2_T fd_set *
@@ -116,7 +78,7 @@ int select _((int nfds, fd_set * readfds, fd_set * writefds, fd_set * exceptfds,
 extern int getrlimit _((int resource, struct rlimit *rlp));
 extern int setrlimit _((int resource, const struct rlimit *rlp));
 extern int getrusage _((int who, struct rusage *rusage));
-extern int gettimeofday _((struct timeval *time_value, struct timezone *time_zone));
+extern int gettimeofday _((struct timeval *tv, struct timezone *tz));
 extern int wait3 _((union wait *wait_status, int options, struct rusage *rusage));
 extern int getdomainname _((char *name, int maxlength));
 extern int select _((int nfds, fd_set * readfds, fd_set * writefds, fd_set * exceptfds, struct timeval *timeout));
@@ -137,11 +99,11 @@ extern char *strstr _((const char *s, const char *t));
 #endif
 
 #ifndef HAVE_GETHOSTNAME
-extern int gethostname _((char *name, int namelen));
+extern int gethostname _((char *name, size_t namelen));
 #endif
 
 #ifndef HAVE_GETTIMEOFDAY
-extern void gettimeofday _((struct timeval *tv, struct timezone *tz));
+extern int gettimeofday _((struct timeval *tv, struct timezone *tz));
 #endif
 
 #ifndef HAVE_DIFFTIME
@@ -155,3 +117,6 @@ extern char *strerror _((int errnum));
 /*** end of prototypes for functions in compat.c ***/
 /***************************************************/
 
+#ifndef HAVE_MEMMOVE
+extern void bcopy _((const void *, void *, int));
+#endif

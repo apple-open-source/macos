@@ -792,6 +792,7 @@ dir_mastercreate(char *domain)
 	if (l->count == 0)
 	{
 		status = NI_SYSTEMERR;
+		sys_interfaces_release(l);
 		goto cleanup;
 	}
 
@@ -805,6 +806,8 @@ dir_mastercreate(char *domain)
 		ni_namelist_insert(&prop.nip_val, inet_ntoa(l->interface[i].addr), NI_INDEX_NULL);
 	}
 	
+	sys_interfaces_release(l);
+
 	ni_proplist_insert(&props, prop, NI_INDEX_NULL);
 	ni_prop_free(&prop);
 

@@ -22,10 +22,18 @@
 
 
 #import <AppKit/NSTextView.h>
+#import <Carbon/CarbonPriv.h>
+#import <Carbon/Carbon.h>
 
 #import "MiniTerm.h"
 
 #import "../../Controller/ppp_privmsg.h"
+#include <sys/types.h>
+#include <bsd/unistd.h>
+#include <sys/socket.h>          /* struct msghdr */
+#include <sys/uio.h>	/* struct iovec */
+#include <sys/un.h>
+#include <sys/syslog.h>
 
 
 @implementation PromptChat
@@ -40,16 +48,76 @@ enum {
     MATCH_COMPLETE
 };
 
+NSFileHandle	*file_tty, *pppd_socket;
+
+/* -----------------------------------------------------------------------------
+ Receive a file descriptor from another process (a server).
+ We have a 2-byte protocol for receiving the fd from send_fd().
+----------------------------------------------------------------------------- */
+int recv_fd(int servfd)
+{
+    struct cmsg {
+        struct cmsghdr 	hdr;
+        int		fd;
+    } cmsg;
+    int			newfd, nread, status;
+    char		*ptr, buf[2]; /* send_fd()/recv_fd() 2-byte protocol */
+    struct iovec	iov[1];
+    struct msghdr	msg;
+
+    status = -1;
+    for ( ; ; ) {
+        iov[0].iov_base = buf;
+        iov[0].iov_len = sizeof(buf);
+        msg.msg_iov = iov;
+        msg.msg_iovlen = 1;
+        msg.msg_name = NULL;
+        msg.msg_namelen = 0;
+        msg.msg_control = (caddr_t) &cmsg;
+        msg.msg_controllen = sizeof(struct cmsg);
+
+        if ( (nread = recvmsg(servfd, &msg, 0)) < 0)
+            ;//err_sys("recvmsg error");
+        else if (nread == 0) {
+            ;//err_ret("connection closed by server");
+            return -1;
+        }
+	/* See if this is the final data with null & status.
+	Null must be next to last byte of buffer, status
+	byte is last byte.  Zero status means there must
+	be a file descriptor to receive. */
+        for (ptr = buf; ptr < &buf[nread]; ) {
+            if (*ptr++ == 0) {
+                if (ptr != &buf[nread-1])
+                    ;//err_dump("message format error");
+                status = *ptr & 255;
+                if (status == 0) {
+                    if (msg.msg_controllen != sizeof(struct cmsg))
+                        ;//err_dump("status = 0 but no fd");
+                    newfd = cmsg.fd; /* new descriptor */
+                } 
+                else
+                    newfd = -status;
+                nread -= 2;
+            }
+        }
+        if (status >= 0)        /* final data has arrived */
+                return newfd;  /* descriptor, or -status */
+    }
+}
+
 /* ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------ */
 - (void)awakeFromNib {
 
     NSRange 	range;
+    int 	err, ttyfd, sockfd;
+    struct sockaddr_un	adr;
 
     // init vars
     fromline = 0;
     match = MATCH_NONE;
-
+    
     // affect self as delegate to intercept input
     range.location = 0;
     range.length = 0;
@@ -61,14 +129,41 @@ enum {
     [NSApp activateIgnoringOtherApps:YES];
     [[text window] center];
     [[text window] makeKeyAndOrderFront:self];
+    [[text window] setLevel:NSFloatingWindowLevel];
 
-    // install notification and read asynchronously on stdin
+    // enable only roman keyboard
+    KeyScript(smKeyEnableRomanOnly);
+
+    // contact pppd to get serial descriptor and exit code communication channel
+    sockfd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        exit(0);	// should probably display an alert
+    }
+
+    bzero(&adr, sizeof(adr));
+    adr.sun_family = AF_LOCAL;
+    strcpy(adr.sun_path, "/var/run/pppd-miniterm");
+
+    if (err = connect(sockfd, (struct sockaddr *)&adr, sizeof(adr)) < 0) {
+        exit(0);	// should probably display an alert
+    }
+    
+    ttyfd = recv_fd(sockfd);
+    
+    // install notification and read asynchronously on file_tty
     [[NSNotificationCenter defaultCenter] addObserver:self
         selector:@selector(input:) 
         name:NSFileHandleReadCompletionNotification 
         object:nil];    
     
-    [[NSFileHandle fileHandleWithStandardInput] readInBackgroundAndNotify];
+    file_tty = [[NSFileHandle alloc] initWithFileDescriptor: ttyfd];
+    [file_tty readInBackgroundAndNotify];    
+    
+    // there is nothing to read on pppd_socket fd
+    // but we need to catch when pipe is closed
+    pppd_socket = [[NSFileHandle alloc] initWithFileDescriptor: sockfd];
+    [pppd_socket readInBackgroundAndNotify];    
+
 }
 
 /* ------------------------------------------------------------------------------------------
@@ -78,13 +173,13 @@ enum {
 
     u_char 		c, *p;
     int 		i, len = [replacementString length];
-    NSFileHandle	*file = [NSFileHandle fileHandleWithStandardOutput];
     NSMutableData 	*data;
     
     // are we inserting the incoming char from the line ?
     // could be a critical section here... not sure about messaging system
-    if (fromline) 
+    if (fromline) {
         return YES;
+    }
     
     data = [NSMutableData alloc]; 
     if (data) {
@@ -95,17 +190,18 @@ enum {
             [data initWithBytes: &c length: 1]; 
         }
         else {
-            [data initWithBytes: [replacementString cString] length: len];     
+            [data initWithData:[replacementString dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:YES]];
+            // can the len change during conversion ?
+            len = [data length];
             // replace 10 by 13 in the string
-            c = 13;
             p = [data mutableBytes];
             for (i = 0; i < len; i++)
                 if (p[i] == 10)
                     p[i] = 13;
         }
 
-        // write the data to stdout
-        [file writeData: data];
+        // write the data to the output file
+        [file_tty writeData: data];
         [data release];
     }
     
@@ -114,11 +210,13 @@ enum {
 
 /* ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------ */
+#if 0
 - (NSRange)textView:(NSTextView *)textView willChangeSelectionFromCharacterRange:(NSRange)oldSelectedCharRange toCharacterRange:(NSRange)newSelectedCharRange
 {
     // Don't allow the selection to change
     return NSMakeRange([[textView string] length], 0);
 }
+#endif
 
 /* ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------ */
@@ -128,7 +226,7 @@ enum {
     NSString *str;
     
     if (length) {
-    	str = [[NSString alloc] initWithCString:data length:length];
+    	str = (NSString *)CFStringCreateWithBytes(NULL, data, length, kCFStringEncodingASCII, NO);
         if (str) {
             fromline = 1;
             [text insertText:str];
@@ -145,7 +243,7 @@ enum {
     NSData 	*data;
     u_char	*p, *p0;
     u_long	len;
-        
+            
     // move the selection to the end
     [text setSelectedRange: NSMakeRange([[text string] length], 0)];
     
@@ -154,6 +252,11 @@ enum {
     p0 = p = (u_char *)[data bytes];
     len = [data length];
 
+    if (len == 0) {
+        // pipe has been closed (happens when pppd quits)
+        exit(0);
+    }
+    
     while (len) {
 
         // look for ppp frame
@@ -207,22 +310,40 @@ enum {
     [self display:p0 length:p - p0];
     
     // post an other read
-    [[NSFileHandle fileHandleWithStandardInput] readInBackgroundAndNotify];
+    [file_tty readInBackgroundAndNotify];    
 }
 
 /* ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------ */
 - (IBAction)cancelchat:(id)sender
 {
-
-    exit(cclErr_ScriptCancelled);
+    u_char 	c = (unsigned char)cclErr_ScriptCancelled;
+    NSData 	*data;
+    
+    data = [NSData dataWithBytes: &c length: 1]; 
+    if (data) {
+        [pppd_socket writeData: data];
+        [data release];
+    }
+    
+    // time to quit
+    exit(0);
 }
 
 /* ------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------ */
 - (IBAction)continuechat:(id)sender
 {
-
+    u_char 	c = 0;
+    NSData 	*data;
+    
+    data = [NSData dataWithBytes: &c length: 1]; 
+    if (data) {
+        [pppd_socket writeData: data];
+        [data release];
+    }
+    
+    // time to quit
     exit(0);
 }
 

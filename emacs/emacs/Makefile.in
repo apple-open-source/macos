@@ -2,6 +2,26 @@
 # DIST: make most of the changes to this file you might want, so try
 # DIST: that first.
 
+# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+#  2000, 2001 Free Software Foundation, Inc.
+
+# This file is part of GNU Emacs.
+
+# GNU Emacs is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# GNU Emacs is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with GNU Emacs; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+
 # make all	to compile and build Emacs.
 # make install	to install it.
 # make TAGS	to update tags tables.
@@ -188,7 +208,8 @@ EMACS = emacs
 # Subdirectories to make recursively.  `lisp' is not included
 # because the compiled lisp files are part of the distribution
 # and you cannot remake them without installing Emacs first.
-SUBDIR = lib-src src leim
+# leim is not included because it needs special handling.
+SUBDIR = lib-src src
 
 # The makefiles of the directories in $SUBDIR.
 SUBDIR_MAKEFILES = lib-src/Makefile man/Makefile src/Makefile oldXMenu/Makefile lwlib/Makefile leim/Makefile
@@ -202,7 +223,7 @@ SUBDIR_MAKEFILES = lib-src/Makefile man/Makefile src/Makefile oldXMenu/Makefile 
 COPYDIR = ${srcdir}/etc ${srcdir}/lisp
 COPYDESTS = ${etcdir} ${lispdir}
 
-all: ${SUBDIR}
+all: ${SUBDIR} leim
 
 removenullpaths=sed -e 's/^://g' -e 's/:$$//g' -e 's/::/:/g'
 
@@ -223,13 +244,19 @@ epaths-force: FRC
 	${srcdir}/move-if-change epaths.h.$$$$ src/epaths.h
 
 # For parallel make, src should be build before leim.
-leim:   src
+# "export PARALLEL=0" is for SGI's Make, to prevent it from
+# running more than 1 process in the leim directory, especially for
+# the $TIT files there.
+leim:   src ${SUBDIR_MAKEFILES} FRC
+	(export PARALLEL; PARALLEL=0; cd $@; $(MAKE) all $(MFLAGS) \
+	  CC='${CC}' CFLAGS='${CFLAGS}' CPPFLAGS='${CPPFLAGS}' \
+	  LDFLAGS='${LDFLAGS}' MAKE='${MAKE}')
 
 src:	lib-src FRC
 
 lib-src: FRC src/config.stamp
 
-.RECURSIVE: ${SUBDIR}
+.RECURSIVE: ${SUBDIR} leim
 
 ${SUBDIR}: ${SUBDIR_MAKEFILES} FRC
 	cd $@; $(MAKE) all $(MFLAGS) \
@@ -242,6 +269,12 @@ blessmail: ${SUBDIR_MAKEFILES} src FRC
 
 Makefile: $(srcdir)/Makefile.in config.status
 	./config.status
+
+config.status: ${srcdir}/configure
+	./config.status --recheck
+
+${srcdir}/configure: configure.in aclocal.m4
+	cd ${srcdir} && autoconf
 
 src/Makefile: $(srcdir)/src/Makefile.in config.status
 	./config.status
@@ -296,11 +329,13 @@ install-arch-dep: mkdir
 	    libexecdir=${libexecdir} archlibdir=${archlibdir} \
 	    INSTALL_STRIP=${INSTALL_STRIP})
 	${INSTALL_PROGRAM} $(INSTALL_STRIP) src/emacs ${bindir}/emacs-${version}
-	-chmod 1755  ${bindir}/emacs-${version}
 	rm -f ${bindir}/$(EMACS)
 	-ln ${bindir}/emacs-${version} ${bindir}/$(EMACS)
+	-unset CDPATH; \
 	for f in `cd lib-src && echo fns-*.el`; do \
-	  ${INSTALL_DATA} lib-src/$$f ${archlibdir}/$$f; \
+	  if test -r lib-src/$$f ; then \
+	    ${INSTALL_DATA} lib-src/$$f ${archlibdir}/$$f; \
+	  else true; fi ; \
 	done
 
 ### Install the files that are machine-independent.
@@ -310,8 +345,9 @@ install-arch-dep: mkdir
 
 ## Note that we copy DOC* and then delete DOC
 ## as a workaround for a bug in tar on Ultrix 4.2.
-install-arch-indep: mkdir
+install-arch-indep: mkdir info
 	-set ${COPYDESTS} ; \
+	unset CDPATH; \
 	for dir in ${COPYDIR} ; do \
 	  if [ `(cd $$1 && /bin/pwd)` != `(cd $${dir} && /bin/pwd)` ] ; then \
 	    rm -rf $$1 ; \
@@ -321,17 +357,20 @@ install-arch-indep: mkdir
 	-set ${COPYDESTS} ; \
 	mkdir ${COPYDESTS} ; \
 	chmod ugo+rx ${COPYDESTS} ; \
+	unset CDPATH; \
 	for dir in ${COPYDIR} ; do \
 	  dest=$$1 ; shift ; \
 	  [ -d $${dir} ] \
 	  && [ `(cd $${dir} && /bin/pwd)` != `(cd $${dest} && /bin/pwd)` ] \
 	  && (echo "Copying $${dir} to $${dest}..." ; \
 	      (cd $${dir}; tar -cf - . ) \
-		|(cd $${dest};umask 022; tar -xvf - && cat > /dev/null); \
-	      for subdir in `find $${dest} -type d ! -name RCS -print` ; do \
+		| (cd $${dest}; umask 022; \
+                   tar -xvf - && cat > /dev/null) || exit 1; \
+	      for subdir in `find $${dest} -type d ! -name RCS ! -name CVS -print` ; do \
 		chmod a+rx $${subdir} ; \
 		rm -rf $${subdir}/RCS ; \
 		rm -rf $${subdir}/CVS ; \
+		rm -f  $${subdir}/.cvsignore ; \
 		rm -f  $${subdir}/\#* ; \
 		rm -f  $${subdir}/.\#* ; \
 		rm -f  $${subdir}/*~ ; \
@@ -359,13 +398,15 @@ install-arch-indep: mkdir
 	    > ${datadir}/emacs/site-lisp/subdirs.el; \
 	fi
 	-chmod a+r ${datadir}/emacs/site-lisp/subdirs.el
+	-unset CDPATH; \
 	if [ `(cd ./etc; /bin/pwd)` != `(cd ${docdir}; /bin/pwd)` ]; \
 	then \
 	   echo "Copying etc/DOC-* to ${docdir} ..." ; \
 	   (cd ./etc; tar -cf - DOC*) \
-	     |(cd ${docdir}; umask 0; tar -xvf - && cat > /dev/null); \
+	     |(cd ${docdir}; umask 0; tar -xvf - && cat > /dev/null) || exit 1; \
 	   (cd $(docdir); chmod a+r DOC*; rm DOC); \
 	else true; fi
+	-unset CDPATH; \
 	if [ -r ./lisp ] \
 	   && [ -r ./lisp/simple.el ] \
 	   && [ x`(cd ./lisp; /bin/pwd)` != x`(cd ${lispdir}; /bin/pwd)` ] \
@@ -373,8 +414,9 @@ install-arch-indep: mkdir
 	then \
 	   echo "Copying lisp/*.el and lisp/*.elc to ${lispdir} ..." ; \
 	   (cd lisp; tar -cf - *.el *.elc) \
-	     |(cd ${lispdir}; umask 0; tar -xvf - && cat > /dev/null); \
+	     |(cd ${lispdir}; umask 0; tar -xvf - && cat > /dev/null) || exit 1; \
 	else true; fi
+	-unset CDPATH; \
 	thisdir=`/bin/pwd`; \
 	if [ `(cd ${srcdir}/info && /bin/pwd)` != `(cd ${infodir} && /bin/pwd)` ]; \
 	then \
@@ -386,24 +428,25 @@ install-arch-indep: mkdir
 	      chmod a+r ${infodir}/dir); \
 	   fi; \
 	   cd ${srcdir}/info ; \
-	   for f in ccmode* cl* dired-x* ediff* emacs* forms* gnus* info* message* mh-e* reftex* sc* vip* widget*; do \
+	   for f in ada-mode* autotype* ccmode* cl* dired-x* ebrowse* ediff* efaq* emacs* eshell* eudc* forms* gnus* idlwave* info* message* mh-e* pcl-cvs* reftex* sc* speedbar* vip* widget* woman*; do \
 	     (cd $${thisdir}; \
 	      ${INSTALL_DATA} ${srcdir}/info/$$f ${infodir}/$$f; \
 	      chmod a+r ${infodir}/$$f); \
 	   done); \
 	else true; fi
-	-thisdir=`/bin/pwd`; \
+	-unset CDPATH; \
+	thisdir=`/bin/pwd`; \
 	if [ `(cd ${srcdir}/info && /bin/pwd)` != `(cd ${infodir} && /bin/pwd)` ]; \
 	then \
-	  for f in ccmode cl dired-x ediff emacs forms gnus info message mh-e reftex sc vip viper widget; do \
+	  for f in ada-mode autotype ccmode cl dired-x ebrowse ediff efaq emacs emacs-mime eshell eudc forms gnus idlwave info message mh-e pcl-cvs reftex sc speedbar vip viper widget woman; do \
 	    (cd $${thisdir}; \
-	     ${INSTALL_INFO} --dir-file=${infodir}/dir --info-file=${infodir}/$$f); \
+	     ${INSTALL_INFO} --info-dir=${infodir} ${infodir}/$$f); \
 	  done; \
 	else true; fi
 	-chmod -R a+r ${datadir}/emacs ${COPYDESTS} ${infodir}
 	thisdir=`/bin/pwd`; \
 	cd ${srcdir}/etc; \
-	for page in emacs etags ; do \
+	for page in emacs etags gfdl ; do \
 	  (cd $${thisdir}; \
 	   ${INSTALL_DATA} ${srcdir}/etc/$${page}.1 ${man1dir}/$${page}${manext}; \
 	   chmod a+r ${man1dir}/$${page}${manext}); \
@@ -445,6 +488,7 @@ uninstall:
 	 $(MAKE) $(MFLAGS) uninstall			\
 	    prefix=${prefix} exec_prefix=${exec_prefix}	\
 	    bindir=${bindir} libexecdir=${libexecdir} archlibdir=${archlibdir})
+	-unset CDPATH; \
 	for dir in ${lispdir} ${etcdir} ; do 		\
 	  if [ -d $${dir} ]; then			\
 	    case `(cd $${dir} ; /bin/pwd)` in		\
@@ -458,8 +502,10 @@ uninstall:
 	    esac ;					\
 	  fi ;						\
 	done
-	(cd ${infodir} && rm -f cl* dired-x* ediff* emacs* forms* gnus* info* mh-e* sc* vip*)
-	(cd ${man1dir}  && rm -f emacs.1 etags.1)
+	(cd ${archlibdir} && rm -f fns-*)
+	-rm -rf ${libexecdir}/emacs/${version}
+	(cd ${infodir} && rm -f cl* ada-mode* autotype* ccmode* ebrowse* efaq* eshell* eudc* idlwave* message* pcl-cvs* reftex* speedbar* widget* woman* dired-x* ediff* emacs* forms* gnus* info* mh-e* sc* vip*)
+	(cd ${man1dir}  && rm -f emacs.1 etags.1 ctags.1)
 	(cd ${bindir}  && rm -f emacs-${version} $(EMACS))
 
 
@@ -515,6 +561,7 @@ distclean: FRC
 	(cd lib-src;  $(MAKE) $(MFLAGS) distclean)
 	(cd man &&    $(MAKE) $(MFLAGS) distclean)
 	(cd leim;     $(MAKE) $(MFLAGS) distclean)
+	(cd lisp;     $(MAKE) $(MFLAGS) distclean)
 	${top_distclean}
 
 ### `maintainer-clean'
@@ -542,9 +589,9 @@ maintainer-clean: FRC
 ### the coding standards seem to come from.  It's like distclean, but
 ### it deletes backup and autosave files too.
 extraclean:
-	for i in ${SUBDIR}; do (cd $$i; $(MAKE) $(MFLAGS) extraclean); done
+	for i in ${SUBDIR} leim; do (cd $$i; $(MAKE) $(MFLAGS) extraclean); done
 	${top_distclean}
-	-rm config-tmp-*
+	-rm -f config-tmp-*
 	-rm -f *~ \#*
 
 ### Unlocking and relocking.  The idea of these productions is to reduce
@@ -586,23 +633,46 @@ relock:
 	(cd lwlib; chmod u+w *.[ch] Makefile README)
 	(cd src; $(MAKE) $(MFLAGS) relock)
 
-TAGS tags:	lib-src src
-	# The src subdir knows how to do the right thing
-	# even when the build directory and source dir are different.
+# The src subdir knows how to do the right thing
+# even when the build directory and source dir are different.
+TAGS tags: lib-src src
 	cd src; $(MAKE) tags
 
 check:
 	@echo "We don't have any tests for GNU Emacs yet."
 
 dist:
-	cd ${srcdir}; make-dist
+	cd ${srcdir}; ./make-dist
 
-.PHONY: info dvi dist check
+.PHONY: info dvi dist check html
 force-info:
+# Note that man/Makefile knows how to
+# put the info files in $(srcdir),
+# so we can do ok running make in the build dir.
 info: force-info
-	# Note that man/Makefile knows how to
-	# put the info files in $(srcdir),
-	# so we can do ok running make in the build dir.
 	(cd man; $(MAKE) $(MFLAGS) info)
 dvi:
 	(cd man; $(MAKE) $(MFLAGS) dvi)
+
+#### Bootstrapping.
+
+### This is meant for Emacs maintainers only.  It first cleans the
+### lisp subdirectory, removing all compiled Lisp files.  Then a
+### special emacs executable is built from Lisp sources, which is then
+### used to compile Lisp files.  The last step is a "normal" make.
+
+.PHONY: bootstrap bootstrap-lisp-1 boostrap-src bootstrap-lisp bootstrap-clean
+
+bootstrap: clean bootstrap-lisp-1 bootstrap-src bootstrap-lisp bootstrap-clean all info
+
+bootstrap-lisp-1:
+	(cd lisp; $(MAKE) $(MFLAGS) bootstrap-clean)
+
+bootstrap-lisp:
+	-(cd lisp; $(MAKE) $(MFLAGS) bootstrap EMACS=../src/bootstrap-emacs)
+
+bootstrap-src:
+	(cd src; $(MAKE) $(MFLAGS) bootstrap)
+
+bootstrap-clean:
+	(cd src; $(MAKE) $(MFLAGS) clean)

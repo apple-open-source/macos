@@ -1,5 +1,5 @@
 /* HPPA PA-RISC machine native support for BSD, for GDB.
-   Copyright 1991, 1992 Free Software Foundation, Inc. 
+   Copyright 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -19,6 +19,7 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "somsolib.h"
+#include "regcache.h"
 
 #define U_REGS_OFFSET 0
 

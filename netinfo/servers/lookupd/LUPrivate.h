@@ -24,9 +24,6 @@
 
 #import <objc/objc.h>
 
-/* The number of caches maintained by the CacheAgent */
-#define NCACHE 23
-
 /* The controller */
 extern id controller;
 

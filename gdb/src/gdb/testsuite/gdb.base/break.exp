@@ -1,4 +1,5 @@
-#   Copyright (C) 1988, 1990, 1991, 1992, 1994, 1997, 1998
+#   Copyright 1988, 1990, 1991, 1992, 1994, 1995, 1996, 1997, 1998, 1999,
+#   2000
 #   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -121,6 +122,18 @@ gdb_test "break $srcfile:85" \
 
 
 #
+# Test putting a break at the start of a multi-line if conditional.
+# Verify the breakpoint was put at the start of the conditional.
+#
+gdb_test "break multi_line_if_conditional" \
+    "Breakpoint.*at.* file .*$srcfile, line 109\\." \
+    "breakpoint at start of multi line if conditional"
+
+gdb_test "break multi_line_while_conditional" \
+    "Breakpoint.*at.* file .*$srcfile, line 124\\." \
+    "breakpoint at start of multi line while conditional"
+
+#
 # check to see what breakpoints are set
 #
 if [target_info exists gdb_stub] {
@@ -140,7 +153,9 @@ gdb_test "info break" \
 \[0-9\]+\[\t \]+breakpoint     keep y.* in factorial$proto at .*$srcfile:96.*
 \[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:79.*
 \[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:79.*
-\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:85" \
+\[0-9\]+\[\t \]+breakpoint     keep y.* in main at .*$srcfile:85.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in multi_line_if_conditional at .*$srcfile:109.*
+\[0-9\]+\[\t \]+breakpoint     keep y.* in multi_line_while_conditional at .*$srcfile:124" \
     "breakpoint info"
 
 
@@ -520,6 +535,15 @@ gdb_expect {
   timeout {fail "(timeout) clear current line has no breakpoint disallowed"}
 }
 
+# Verify that we can set and clear multiple breakpoints.
+#
+# We don't test that it deletes the correct breakpoints.  We do at
+# least test that it deletes more than one breakpoint.
+#
+gdb_test "break marker3" "Breakpoint.*at.*" "break marker3 #1"
+gdb_test "break marker3" "Breakpoint.*at.*" "break marker3 #2"
+gdb_test "clear marker3" {Deleted breakpoints [0-9]+ [0-9]+.*}
+
 # Verify that a breakpoint can be set via a convenience variable.
 #
 send_gdb "set \$foo=81\n"
@@ -577,31 +601,35 @@ gdb_expect {
 # As long as we're stopped (breakpointed) in a called function,
 # verify that we can successfully backtrace & such from here.
 #
-
-if [istarget "hppa*-*-hpux*"] then {
-  send_gdb "bt\n"
-  gdb_expect {
-      -re "#0\[ \t\]*$hex in marker2.*:4\[49\]\r\n#1.*_sr4export.*$gdb_prompt $"\
+# In this and the following test, the _sr4export check apparently is needed
+# for hppa*-*-hpux.
+#
+send_gdb "bt\n"
+gdb_expect {
+    -re "#0\[ \t\]*($hex in )?marker2.*:4\[49\]\r\n#1.*_sr4export.*$gdb_prompt $"\
             {pass "backtrace while in called function"}
-      -re "#0\[ \t\]*$hex in marker2.*:4\[49\]\r\n#1.*function called from gdb.*$gdb_prompt $"\
-
-            {pass "backtrace while in called function"}
+    -re "#0\[ \t\]*($hex in )?marker2.*:4\[49\]\r\n#1.*function called from gdb.*$gdb_prompt $"\
+	    {pass "backtrace while in called function"}
     -re "$gdb_prompt $"\
             {fail "backtrace while in called function"}
     timeout {fail "(timeout) backtrace while in called function"}
-  }
-  send_gdb "finish\n"
-  gdb_expect {
-      -re "Run till exit from .*marker2.* at .*4\[49\]\r\n.* in _sr4export.*$gdb_prompt $"\
+}
+
+# Return from the called function.  For remote targets, it's important to do
+# this before runto_main, which otherwise may silently stop on the dummy
+# breakpoint inserted by GDB at the program's entry point.
+#
+send_gdb "finish\n"
+gdb_expect {
+    -re "Run till exit from .*marker2.* at .*4\[49\]\r\n.* in _sr4export.*$gdb_prompt $"\
             {pass "finish from called function"}
-      -re "Run till exit from .*marker2.* at .*4\[49\]\r\n.*function called from gdb.*$gdb_prompt $"\
+    -re "Run till exit from .*marker2.* at .*4\[49\]\r\n.*function called from gdb.*$gdb_prompt $"\
             {pass "finish from called function"}
-      -re "Run till exit from .*marker2.* at .*4\[49\]\r\n.*Value returned.*$gdb_prompt $"\
+    -re "Run till exit from .*marker2.* at .*4\[49\]\r\n.*Value returned.*$gdb_prompt $"\
             {pass "finish from called function"}
     -re "$gdb_prompt $"\
             {fail "finish from called function"}
     timeout {fail "(timeout) finish from called function"}
-  }
 }
 
 # Verify that GDB responds gracefully to a "finish" command with
@@ -702,15 +730,6 @@ if [istarget "hppa*-*-hpux*"] then {
 #********
 
 
-proc test_clear_command {} {
-    gdb_test "break main" "Breakpoint.*at.*" "break main #1"
-    gdb_test "break main" "Breakpoint.*at.*" "break main #2"
-
-    # We don't test that it deletes the correct breakpoints.  We do at
-    # least test that it deletes more than one breakpoint.
-    gdb_test "clear main" {Deleted breakpoints [0-9]+ [0-9]+.*}
-}
-
 #
 # Test "next" over recursive function call.
 #
@@ -778,9 +797,19 @@ proc test_next_with_recursion {} {
 
     if [istarget "mips*tx39-*"] {
 	set timeout 60
-    } else {
-	set timeout 20
     }
+    # We used to set timeout here for all other targets as well.  This
+    # is almost certainly wrong.  The proper timeout depends on the
+    # target system in use, and how we communicate with it, so there
+    # is no single value appropriate for all targets.  The timeout
+    # should be established by the Dejagnu config file(s) for the
+    # board, and respected by the test suite.
+    #
+    # For example, if I'm running GDB over an SSH tunnel talking to a
+    # portmaster in California talking to an ancient 68k board running
+    # a crummy ROM monitor (a situation I can only wish were
+    # hypothetical), then I need a large timeout.  But that's not the
+    # kind of knowledge that belongs in this file.
 
     gdb_test next "\[0-9\]*\[\t \]+return \\(value\\);.*" \
 	    "next over recursive call"
@@ -798,7 +827,6 @@ proc test_next_with_recursion {} {
    gdb_stop_suppressing_tests;
 }
 
-test_clear_command
 test_next_with_recursion
 
 

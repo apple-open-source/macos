@@ -1,4 +1,4 @@
-@(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/INSTALL,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
+@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/INSTALL,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
 
 If you have not built libpcap, do so first.  See the README
 file in this directory for the ftp location.

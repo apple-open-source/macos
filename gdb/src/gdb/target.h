@@ -1,5 +1,6 @@
 /* Interface between GDB and target environments, including files and processes
-   Copyright 1990-1994, 1999, 2000 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Cygnus Support.  Written by John Gilmore.
 
    This file is part of GDB.
@@ -44,6 +45,7 @@
 #include "bfd.h"
 #include "symtab.h"
 #include "dcache.h"
+#include "memattr.h"
 
 enum strata
   {
@@ -122,147 +124,6 @@ enum target_waitkind
     TARGET_WAITKIND_IGNORE
   };
 
-/* The numbering of these signals is chosen to match traditional unix
-   signals (insofar as various unices use the same numbers, anyway).
-   It is also the numbering of the GDB remote protocol.  Other remote
-   protocols, if they use a different numbering, should make sure to
-   translate appropriately.
-
-   Since these numbers have actually made it out into other software
-   (stubs, etc.), you mustn't disturb the assigned numbering.  If you
-   need to add new signals here, add them to the end of the explicitly
-   numbered signals.
-
-   This is based strongly on Unix/POSIX signals for several reasons:
-   (1) This set of signals represents a widely-accepted attempt to
-   represent events of this sort in a portable fashion, (2) we want a
-   signal to make it from wait to child_wait to the user intact, (3) many
-   remote protocols use a similar encoding.  However, it is
-   recognized that this set of signals has limitations (such as not
-   distinguishing between various kinds of SIGSEGV, or not
-   distinguishing hitting a breakpoint from finishing a single step).
-   So in the future we may get around this either by adding additional
-   signals for breakpoint, single-step, etc., or by adding signal
-   codes; the latter seems more in the spirit of what BSD, System V,
-   etc. are doing to address these issues.  */
-
-/* For an explanation of what each signal means, see
-   target_signal_to_string.  */
-
-enum target_signal
-  {
-    /* Used some places (e.g. stop_signal) to record the concept that
-       there is no signal.  */
-    TARGET_SIGNAL_0 = 0,
-    TARGET_SIGNAL_FIRST = 0,
-    TARGET_SIGNAL_HUP = 1,
-    TARGET_SIGNAL_INT = 2,
-    TARGET_SIGNAL_QUIT = 3,
-    TARGET_SIGNAL_ILL = 4,
-    TARGET_SIGNAL_TRAP = 5,
-    TARGET_SIGNAL_ABRT = 6,
-    TARGET_SIGNAL_EMT = 7,
-    TARGET_SIGNAL_FPE = 8,
-    TARGET_SIGNAL_KILL = 9,
-    TARGET_SIGNAL_BUS = 10,
-    TARGET_SIGNAL_SEGV = 11,
-    TARGET_SIGNAL_SYS = 12,
-    TARGET_SIGNAL_PIPE = 13,
-    TARGET_SIGNAL_ALRM = 14,
-    TARGET_SIGNAL_TERM = 15,
-    TARGET_SIGNAL_URG = 16,
-    TARGET_SIGNAL_STOP = 17,
-    TARGET_SIGNAL_TSTP = 18,
-    TARGET_SIGNAL_CONT = 19,
-    TARGET_SIGNAL_CHLD = 20,
-    TARGET_SIGNAL_TTIN = 21,
-    TARGET_SIGNAL_TTOU = 22,
-    TARGET_SIGNAL_IO = 23,
-    TARGET_SIGNAL_XCPU = 24,
-    TARGET_SIGNAL_XFSZ = 25,
-    TARGET_SIGNAL_VTALRM = 26,
-    TARGET_SIGNAL_PROF = 27,
-    TARGET_SIGNAL_WINCH = 28,
-    TARGET_SIGNAL_LOST = 29,
-    TARGET_SIGNAL_USR1 = 30,
-    TARGET_SIGNAL_USR2 = 31,
-    TARGET_SIGNAL_PWR = 32,
-    /* Similar to SIGIO.  Perhaps they should have the same number.  */
-    TARGET_SIGNAL_POLL = 33,
-    TARGET_SIGNAL_WIND = 34,
-    TARGET_SIGNAL_PHONE = 35,
-    TARGET_SIGNAL_WAITING = 36,
-    TARGET_SIGNAL_LWP = 37,
-    TARGET_SIGNAL_DANGER = 38,
-    TARGET_SIGNAL_GRANT = 39,
-    TARGET_SIGNAL_RETRACT = 40,
-    TARGET_SIGNAL_MSG = 41,
-    TARGET_SIGNAL_SOUND = 42,
-    TARGET_SIGNAL_SAK = 43,
-    TARGET_SIGNAL_PRIO = 44,
-    TARGET_SIGNAL_REALTIME_33 = 45,
-    TARGET_SIGNAL_REALTIME_34 = 46,
-    TARGET_SIGNAL_REALTIME_35 = 47,
-    TARGET_SIGNAL_REALTIME_36 = 48,
-    TARGET_SIGNAL_REALTIME_37 = 49,
-    TARGET_SIGNAL_REALTIME_38 = 50,
-    TARGET_SIGNAL_REALTIME_39 = 51,
-    TARGET_SIGNAL_REALTIME_40 = 52,
-    TARGET_SIGNAL_REALTIME_41 = 53,
-    TARGET_SIGNAL_REALTIME_42 = 54,
-    TARGET_SIGNAL_REALTIME_43 = 55,
-    TARGET_SIGNAL_REALTIME_44 = 56,
-    TARGET_SIGNAL_REALTIME_45 = 57,
-    TARGET_SIGNAL_REALTIME_46 = 58,
-    TARGET_SIGNAL_REALTIME_47 = 59,
-    TARGET_SIGNAL_REALTIME_48 = 60,
-    TARGET_SIGNAL_REALTIME_49 = 61,
-    TARGET_SIGNAL_REALTIME_50 = 62,
-    TARGET_SIGNAL_REALTIME_51 = 63,
-    TARGET_SIGNAL_REALTIME_52 = 64,
-    TARGET_SIGNAL_REALTIME_53 = 65,
-    TARGET_SIGNAL_REALTIME_54 = 66,
-    TARGET_SIGNAL_REALTIME_55 = 67,
-    TARGET_SIGNAL_REALTIME_56 = 68,
-    TARGET_SIGNAL_REALTIME_57 = 69,
-    TARGET_SIGNAL_REALTIME_58 = 70,
-    TARGET_SIGNAL_REALTIME_59 = 71,
-    TARGET_SIGNAL_REALTIME_60 = 72,
-    TARGET_SIGNAL_REALTIME_61 = 73,
-    TARGET_SIGNAL_REALTIME_62 = 74,
-    TARGET_SIGNAL_REALTIME_63 = 75,
-
-    /* Used internally by Solaris threads.  See signal(5) on Solaris.  */
-    TARGET_SIGNAL_CANCEL = 76,
-
-    /* Yes, this pains me, too.  But LynxOS didn't have SIG32, and now
-       Linux does, and we can't disturb the numbering, since it's part
-       of the protocol.  Note that in some GDB's TARGET_SIGNAL_REALTIME_32
-       is number 76.  */
-    TARGET_SIGNAL_REALTIME_32,
-
-#if defined(MACH) || defined(__MACH__)
-    /* Mach exceptions */
-    TARGET_EXC_BAD_ACCESS,
-    TARGET_EXC_BAD_INSTRUCTION,
-    TARGET_EXC_ARITHMETIC,
-    TARGET_EXC_EMULATION,
-    TARGET_EXC_SOFTWARE,
-    TARGET_EXC_BREAKPOINT,
-#endif
-    TARGET_SIGNAL_INFO,
-
-    /* Some signal we don't know about.  */
-    TARGET_SIGNAL_UNKNOWN,
-
-    /* Use whatever signal we use when one is not specifically specified
-       (for passing to proceed and so on).  */
-    TARGET_SIGNAL_DEFAULT,
-
-    /* Last and unused enum value, for sizing arrays, etc.  */
-    TARGET_SIGNAL_LAST
-  };
-
 struct target_waitstatus
   {
     enum target_waitkind kind;
@@ -335,9 +196,9 @@ struct target_ops
     void (*to_require_attach) (char *, int);
     void (*to_detach) (char *, int);
     void (*to_require_detach) (int, char *, int);
-    void (*to_resume) (int, int, enum target_signal);
-    int (*to_wait) (int, struct target_waitstatus *);
-    void (*to_post_wait) (int, int);
+    void (*to_resume) (ptid_t, int, enum target_signal);
+    ptid_t (*to_wait) (ptid_t, struct target_waitstatus *, gdb_client_data client_data);
+    void (*to_post_wait) (ptid_t, int);
     void (*to_fetch_registers) (int);
     void (*to_store_registers) (int);
     void (*to_prepare_to_store) (void);
@@ -361,7 +222,9 @@ struct target_ops
        something at MEMADDR + N.  */
 
     int (*to_xfer_memory) (CORE_ADDR memaddr, char *myaddr,
-			   int len, int write, struct target_ops * target);
+			   int len, int write, 
+			   struct mem_attrib *attrib,
+			   struct target_ops *target);
 
 #if 0
     /* Enable this after 4.12.  */
@@ -398,7 +261,7 @@ struct target_ops
     void (*to_load) (char *, int);
     int (*to_lookup_symbol) (char *, CORE_ADDR *);
     void (*to_create_inferior) (char *, char *, char **);
-    void (*to_post_startup_inferior) (int);
+    void (*to_post_startup_inferior) (ptid_t);
     void (*to_acknowledge_created_inferior) (int);
     void (*to_clone_and_follow_inferior) (int, int *);
     void (*to_post_follow_inferior_by_clone) (void);
@@ -418,10 +281,10 @@ struct target_ops
     int (*to_has_exited) (int, int, int *);
     void (*to_mourn_inferior) (void);
     int (*to_can_run) (void);
-    void (*to_notice_signals) (int pid);
-    int (*to_thread_alive) (int pid);
+    void (*to_notice_signals) (ptid_t ptid);
+    int (*to_thread_alive) (ptid_t ptid);
     void (*to_find_new_threads) (void);
-    char *(*to_pid_to_str) (int);
+    char *(*to_pid_to_str) (ptid_t);
     char *(*to_extra_thread_info) (struct thread_info *);
     void (*to_stop) (void);
     int (*to_query) (int /*char */ , char *, char *, int *);
@@ -431,7 +294,6 @@ struct target_ops
 							     int);
     struct exception_event_record *(*to_get_current_exception_event) (void);
     char *(*to_pid_to_exec_file) (int pid);
-    char *(*to_core_file_to_sym_file) (char *);
     enum strata to_stratum;
     struct target_ops
      *DONT_USE;			/* formerly to_next */
@@ -451,6 +313,13 @@ struct target_ops
     void (*to_async) (void (*cb) (enum inferior_event_type, void *context),
 		      void *context);
     int to_async_mask_value;
+    int (*to_find_memory_regions) (int (*) (CORE_ADDR, 
+					    unsigned long, 
+					    int, int, int, 
+					    void *), 
+				   void *);
+    char * (*to_make_corefile_notes) (bfd *, int *);
+    int (*to_bind_function) (char *);
     int to_magic;
     /* Need sub-structure for target machine related rather than comm related?
      */
@@ -559,27 +428,27 @@ extern void target_detach (char *, int);
 #define target_require_detach(pid, args, from_tty)	\
      (*current_target.to_require_detach) (pid, args, from_tty)
 
-/* Resume execution of the target process PID.  STEP says whether to
+/* Resume execution of the target process PTID.  STEP says whether to
    single-step or to run free; SIGGNAL is the signal to be given to
    the target, or TARGET_SIGNAL_0 for no signal.  The caller may not
    pass TARGET_SIGNAL_DEFAULT.  */
 
-#define	target_resume(pid, step, siggnal)				\
+#define	target_resume(ptid, step, siggnal)				\
   do {									\
     dcache_invalidate(target_dcache);					\
-    (*current_target.to_resume) (pid, step, siggnal);			\
+    (*current_target.to_resume) (ptid, step, siggnal);			\
   } while (0)
 
-/* Wait for process pid to do something.  Pid = -1 to wait for any pid
-   to do something.  Return pid of child, or -1 in case of error;
+/* Wait for process pid to do something.  PTID = -1 to wait for any
+   pid to do something.  Return pid of child, or -1 in case of error;
    store status through argument pointer STATUS.  Note that it is
-   *not* OK to return_to_top_level out of target_wait without popping
+   _NOT_ OK to throw_exception() out of target_wait() without popping
    the debugging target from the stack; GDB isn't prepared to get back
    to the prompt with a debugging target but without the frame cache,
    stop_pc, etc., set up.  */
 
-#define	target_wait(pid, status)		\
-     (*current_target.to_wait) (pid, status)
+#define	target_wait(ptid, status, client_data)		\
+     (*current_target.to_wait) (ptid, status, client_data)
 
 /* The target_wait operation waits for a process event to occur, and
    thereby stop the process.
@@ -591,10 +460,10 @@ extern void target_detach (char *, int);
    This operation provides a target-specific hook that allows the
    necessary bookkeeping to be performed to track such sequences.  */
 
-#define target_post_wait(pid, status) \
-     (*current_target.to_post_wait) (pid, status)
+#define target_post_wait(ptid, status) \
+     (*current_target.to_post_wait) (ptid, status)
 
-/* Fetch register REGNO, or all regs if regno == -1.  No result.  */
+/* Fetch at least register REGNO, or all regs if regno == -1.  No result.  */
 
 #define	target_fetch_registers(regno)	\
      (*current_target.to_fetch_registers) (regno)
@@ -617,7 +486,8 @@ extern void target_detach (char *, int);
 
 extern DCACHE *target_dcache;
 
-extern int do_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write);
+extern int do_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
+			   struct mem_attrib *attrib);
 
 extern int target_read_string (CORE_ADDR, char **, int, int *);
 
@@ -625,10 +495,11 @@ extern int target_read_memory (CORE_ADDR memaddr, char *myaddr, int len);
 
 extern int target_write_memory (CORE_ADDR memaddr, char *myaddr, int len);
 
-extern int xfer_memory (CORE_ADDR, char *, int, int, struct target_ops *);
+extern int xfer_memory (CORE_ADDR, char *, int, int, 
+			struct mem_attrib *, struct target_ops *);
 
-extern int
-child_xfer_memory (CORE_ADDR, char *, int, int, struct target_ops *);
+extern int child_xfer_memory (CORE_ADDR, char *, int, int, 
+			      struct mem_attrib *, struct target_ops *);
 
 /* Make a single attempt at transfering LEN bytes.  On a successful
    transfer, the number of bytes actually transfered is returned and
@@ -650,9 +521,9 @@ extern char *child_core_file_to_sym_file (char *);
 extern void child_post_attach (int);
 #endif
 
-extern void child_post_wait (int, int);
+extern void child_post_wait (ptid_t, int);
 
-extern void child_post_startup_inferior (int);
+extern void child_post_startup_inferior (ptid_t);
 
 extern void child_acknowledge_created_inferior (int);
 
@@ -690,11 +561,12 @@ extern int child_has_syscall_event (int, enum target_waitkind *, int *);
 
 extern int child_has_exited (int, int, int *);
 
-extern int child_thread_alive (int);
+extern int child_thread_alive (ptid_t);
 
 /* From exec.c */
 
 extern void print_section_info (struct target_ops *, bfd *);
+extern void print_section_info_objfile (struct objfile *o);
 
 /* Print a line about the current target.  */
 
@@ -776,7 +648,7 @@ extern void target_load (char *arg, int from_tty);
 #define target_lookup_symbol(name, addrp) \
      (*current_target.to_lookup_symbol) (name, addrp)
 
-/* Start an inferior process and set inferior_pid to its pid.
+/* Start an inferior process and set inferior_ptid to its pid.
    EXEC_FILE is the file to run.
    ALLARGS is a string containing the arguments to the program.
    ENV is the environment vector to pass.  Errors reported with error().
@@ -796,8 +668,8 @@ extern void target_load (char *arg, int from_tty);
 
    Such targets will supply an appropriate definition for this function.  */
 
-#define target_post_startup_inferior(pid) \
-     (*current_target.to_post_startup_inferior) (pid)
+#define target_post_startup_inferior(ptid) \
+     (*current_target.to_post_startup_inferior) (ptid)
 
 /* On some targets, the sequence of starting up an inferior requires
    some synchronization between gdb and the new inferior process, PID.  */
@@ -939,13 +811,13 @@ extern void target_load (char *arg, int from_tty);
 
 /* post process changes to signal handling in the inferior.  */
 
-#define target_notice_signals(pid) \
-     (*current_target.to_notice_signals) (pid)
+#define target_notice_signals(ptid) \
+     (*current_target.to_notice_signals) (ptid)
 
 /* Check to see if a thread is still alive.  */
 
-#define target_thread_alive(pid) \
-     (*current_target.to_thread_alive) (pid)
+#define target_thread_alive(ptid) \
+     (*current_target.to_thread_alive) (ptid)
 
 /* Query for new threads and add them to the thread list.  */
 
@@ -1088,7 +960,7 @@ extern void target_link (char *, CORE_ADDR *);
 #ifndef target_tid_to_str
 #define target_tid_to_str(PID) \
      target_pid_to_str (PID)
-extern char *normal_pid_to_str (int pid);
+extern char *normal_pid_to_str (ptid_t ptid);
 #endif
 
 /* Return a short string describing extra information about PID,
@@ -1143,6 +1015,30 @@ extern void (*target_new_objfile_hook) (struct objfile *);
 #define target_pid_to_exec_file(pid) \
      (current_target.to_pid_to_exec_file) (pid)
 
+/*
+ * Iterator function for target memory regions.
+ * Calls a callback function once for each memory region 'mapped'
+ * in the child process.  Defined as a simple macro rather than
+ * as a function macro so that it can be tested for nullity.  
+ */
+
+#define target_find_memory_regions(FUNC, DATA) \
+     (current_target.to_find_memory_regions) (FUNC, DATA)
+
+/*
+ * Compose corefile .note section.
+ */
+
+#define target_make_corefile_notes(BFD, SIZE_P) \
+     (current_target.to_make_corefile_notes) (BFD, SIZE_P)
+
+/*
+ * Bind function NAME into the target process
+ */
+
+#define target_bind_function(NAME) \
+     (current_target.to_bind_function) (NAME)
+
 /* Hook to call target-dependent code after reading in a new symbol table.  */
 
 #ifndef TARGET_SYMFILE_POSTREAD
@@ -1190,20 +1086,8 @@ extern void (*target_new_objfile_hook) (struct objfile *);
 
 #if !defined(TARGET_REGION_SIZE_OK_FOR_HW_WATCHPOINT)
 #define TARGET_REGION_SIZE_OK_FOR_HW_WATCHPOINT(byte_count) \
-     (LONGEST)(byte_count) <= REGISTER_SIZE
+     ((LONGEST)(byte_count) <= REGISTER_SIZE)
 #endif
-
-/* However, some addresses may not be profitable to use hardware to watch,
-   or may be difficult to understand when the addressed object is out of
-   scope, and hence should be unwatched.  On some targets, this may have
-   severe performance penalties, such that we might as well use regular
-   watchpoints, and save (possibly precious) hardware watchpoints for other
-   locations.  */
-
-#if !defined(TARGET_RANGE_PROFITABLE_FOR_HW_WATCHPOINT)
-#define TARGET_RANGE_PROFITABLE_FOR_HW_WATCHPOINT(pid,start,len) 0
-#endif
-
 
 /* Set/clear a hardware watchpoint starting at ADDR, for LEN bytes.  TYPE is 0
    for write, 1 for read, and 2 for read/write accesses.  Returns 0 for
@@ -1394,21 +1278,11 @@ extern void push_remote_target (char *name, int from_tty);
 
 /* Imported from machine dependent code */
 
-#ifndef SOFTWARE_SINGLE_STEP_P
-#define SOFTWARE_SINGLE_STEP_P 0
-#define SOFTWARE_SINGLE_STEP(sig,bp_p)	\
-     (internal_error ("SOFTWARE_SINGLE_STEP"), 0)
-#endif /* SOFTWARE_SINGLE_STEP_P */
-
 /* Blank target vector entries are initialized to target_ignore. */
 void target_ignore (void);
 
-/* Macro for getting target's idea of a frame pointer.
-   FIXME: GDB's whole scheme for dealing with "frames" and
-   "frame pointers" needs a serious shakedown.  */
-#ifndef TARGET_VIRTUAL_FRAME_POINTER
-#define TARGET_VIRTUAL_FRAME_POINTER(ADDR, REGP, OFFP) \
-   do { *(REGP) = FP_REGNUM; *(OFFP) =  0; } while (0)
-#endif /* TARGET_VIRTUAL_FRAME_POINTER */
+void update_current_target (void);
+
+void cleanup_target (struct target_ops *);
 
 #endif /* !defined (TARGET_H) */

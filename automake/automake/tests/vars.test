@@ -1,0 +1,16 @@
+#! /bin/sh
+
+# Test various variable definitions that include an '=' sign
+# From Raja R Harinath
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+MY_FLAGS_1=-DABC=345
+MY_FLAGS_2= -DABC=345
+MY_FLAGS_3 =-DABC=345
+MY_FLAGS_4 = -DABC=345
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE

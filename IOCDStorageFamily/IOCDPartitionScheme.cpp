@@ -217,9 +217,7 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
     // Obtain the table of contents.
 
     toc = media->getTOC();
-    if ( toc == 0 )  goto scanErr;
-
-    tocCount = CDTOCGetDescriptorCount(toc);
+    if ( toc )  tocCount = CDTOCGetDescriptorCount(toc);
 
     // Allocate a list large enough to hold information about each session.
 
@@ -254,7 +252,7 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
 
             // Record the relevant information about this track.
 
-            track->block      = CDConvertMSFToLBA(descriptor->p);
+            track->block      = CDConvertMSFToClippedLBA(descriptor->p);
             track->descriptor = descriptor;
             track->session    = descriptor->session;
 
@@ -283,7 +281,7 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
 
             // Record whether the session has "form 1" or "form 2" tracks.
 
-            session->formed = (descriptor->p.second) ? true : false;
+            session->formed = ( descriptor->p.second ) ? true : false;
         }
 
         // Determine whether this is a lead-out (A2) descriptor.
@@ -296,16 +294,11 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
 
             // Record the position of the session lead-out.
 
-            session->leadOut = CDConvertMSFToLBA(descriptor->p);
+            session->leadOut = CDConvertMSFToClippedLBA(descriptor->p);
 
             sessionMinIndex = min(descriptor->session, sessionMinIndex);
             sessionMaxIndex = max(descriptor->session, sessionMaxIndex);
         }
-    }
-
-    if ( sessionMinIndex > kCDSessionMaxIndex )                // (no sessions?)
-    {
-        goto scanErr;
     }
 
     // Pre-scan the ordered list of tracks.
@@ -329,12 +322,7 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
 
             // Read a whole sector from the data track into our buffer.
 
-///m:2333367:workaround:commented:start
-//          status = media->read( /* client    */ this,
-///m:2333367:workaround:commented:stop
-///m:2333367:workaround:added:start
-            status = media->IOStorage::read( /* client    */ this,
-///m:2333367:workaround:added:stop
+            status = media->read( /* client    */ this,
                                   /* byteStart */ track->block * mediaBlockSize,
                                   /* buffer    */ buffer );
 
@@ -366,7 +354,7 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
 
                             // Determine whether this is a linked data track.
 
-                            if ( track->block && memcmp(sector + 24, "ER", 2) )
+                            if ( memcmp(sector + 24, "ER", 2) )
                             {
                                 trackMaxLinked = track;
                             }
@@ -388,6 +376,10 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
                     trackMaxLinked = track;
                 }
             }
+            else
+            {
+                trackMaxLinked = track;
+            }
         }
     }
 
@@ -404,7 +396,7 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
         CDSectorType    trackBlockType;
         UInt64          trackSize;
 
-        descriptor.session        = sessionMinIndex;
+        descriptor.session        = 0x01;
         descriptor.control        = 0x04;
         descriptor.adr            = 0x01;
         descriptor.tno            = 0x00;
@@ -417,18 +409,76 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
 
         if ( trackMinIndex > kCDTrackMaxIndex )                  // (no tracks?)
         {
-            descriptor.session = sessionMaxIndex;
+            if ( sessionMinIndex > kCDSessionMaxIndex )        // (no sessions?)
+            {
+                if ( media->isWritable() == false )  goto scanErr;
+            }
+            else
+            {
+                descriptor.session = sessionMaxIndex;
+            }
 
-            trackBlockNext = sessions[sessionMaxIndex].leadOut;
-            trackBlockSize = kCDSectorSizeMode2Form1;
-            trackBlockType = kCDSectorTypeMode2Form1;
+            if ( media->isWritable() )                   // (is still writable?)
+            {
+                CDPMA * pma      = (CDPMA *) buffer->getBytesNoCopy();
+                UInt32  pmaCount = 0;
+                UInt16  pmaSize  = 0;
+
+                trackBlockNext = media->getSize() / mediaBlockSize;
+                trackBlockSize = kCDSectorSizeMode2Form1;
+                trackBlockType = kCDSectorTypeMode2Form1;
+
+                // Determine whether this is a "mode 1" data track.
+
+                media->readTOC( /* buffer               */ buffer,
+                                /* format               */ kCDTOCFormatPMA,
+                                /* formatAsTime         */ true,
+                                /* trackOrSessionNumber */ 0,
+                                /* actualByteCount      */ &pmaSize );
+
+                pmaSize  = ( pmaSize <= sizeof(CDPMA) )
+                               ? pmaSize
+                               : min( pmaSize, 
+                                      OSSwapBigToHostInt16(pma->dataLength) +
+                                                    sizeof(pma->dataLength) );
+                pmaCount = ( pmaSize <= sizeof(CDPMA) )
+                               ? 0
+                               : ( pmaSize - sizeof(CDPMA) ) / 
+                                             sizeof(CDPMADescriptor);
+
+                for ( unsigned index = 0; index < pmaCount; index++ )
+                {
+                    if ( pma->descriptors[index].adr == 0x2 )
+                    {
+                        if ( pma->descriptors[index].p.second == 0x00 )
+                        {
+                            trackBlockSize = kCDSectorSizeMode1;
+                            trackBlockType = kCDSectorTypeMode1;
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                trackBlockNext = sessions[sessionMaxIndex].leadOut;
+                trackBlockSize = kCDSectorSizeMode2Form1;
+                trackBlockType = kCDSectorTypeMode2Form1;
+            }
         }
         else if ( trackMaxLinked )                           // (linked tracks?)
         {
             descriptor.session = sessionMaxIndex;
             descriptor.control = trackMaxLinked->descriptor->control;
 
-            trackBlockNext = sessions[sessionMaxIndex].leadOut;
+            if ( media->isWritable() )                   // (is still writable?)
+            {
+                trackBlockNext = media->getSize() / mediaBlockSize;
+            }
+            else
+            {
+                trackBlockNext = sessions[sessionMaxIndex].leadOut;
+            }
 
             if ( trackMaxLinked->blockType == kCDSectorTypeMode1 )
             {
@@ -445,18 +495,15 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
         {
             IOReturn status;
 
+            descriptor.session = sessionMinIndex;
+
             trackBlockNext = tracks[trackMinIndex].block;
             trackBlockSize = kCDSectorSizeMode1;
             trackBlockType = kCDSectorTypeMode1;
 
             // Read a whole sector from the hidden track into our buffer.
 
-///m:2333367:workaround:commented:start
-//          status = media->read( /* client    */ this,
-///m:2333367:workaround:commented:stop
-///m:2333367:workaround:added:start
-            status = media->IOStorage::read( /* client    */ this,
-///m:2333367:workaround:added:stop
+            status = media->read( /* client    */ this,
                                   /* byteStart */ 0,
                                   /* buffer    */ buffer );
 
@@ -638,12 +685,8 @@ bool IOCDPartitionScheme::isPartitionInvalid(
     // Compute the relative byte position and size of the new partition,
     // relative to the provider media's natural blocking factor of 2352.
 
-    partitionBase = CDConvertMSFToLBA(partition->p) * mediaBlockSize;
+    partitionBase = CDConvertMSFToClippedLBA(partition->p) * mediaBlockSize;
     partitionSize = (partitionSize / partitionBlockSize) * mediaBlockSize;
-
-    // Determine whether the partition begins before the 00:02:00 mark.
-
-    if ( partition->p.minute == 0 && partition->p.second < 2 )  return true;
 
     // Determine whether the partition leaves the confines of the container.
 
@@ -665,9 +708,10 @@ IOMedia * IOCDPartitionScheme::instantiateMediaObject(
     // Instantiate a new media object to represent the given partition.
     //
 
-    IOMedia * media         = getProvider();
-    UInt64    partitionBase = 0;
-    char *    partitionHint = 0;
+    IOMedia * media               = getProvider();
+    UInt64    partitionBase       = 0;
+    char *    partitionHint       = 0;
+    bool      partitionIsWritable = media->isWritable();
 
     // Compute the relative byte position of the new partition and encode it
     // into the designated "logical space", given the partition's block type.
@@ -679,7 +723,8 @@ IOMedia * IOCDPartitionScheme::instantiateMediaObject(
     // 0x0400000000 through 0x04FFFFFFFF is the "mode 2 form 1" space.
     // 0x0500000000 through 0x05FFFFFFFF is the "mode 2 form 2" space.
 
-    partitionBase  = CDConvertMSFToLBA(partition->p) * partitionBlockSize;
+    partitionBase  = CDConvertMSFToClippedLBA(partition->p);
+    partitionBase *= partitionBlockSize;
     partitionBase += ((UInt64) partitionBlockType) << 32;
 
     // Look up a type for the new partition.
@@ -700,6 +745,10 @@ IOMedia * IOCDPartitionScheme::instantiateMediaObject(
         if ( hintValue ) partitionHint = (char *) hintValue->getCStringNoCopy();
     }
 
+    // Determine whether the new partition is read-only.
+
+    if ( partition->point )  partitionIsWritable = false;
+
     // Create the new media object.
 
     IOMedia * newMedia = instantiateDesiredMediaObject(
@@ -715,9 +764,9 @@ IOMedia * IOCDPartitionScheme::instantiateMediaObject(
                 /* base               */ partitionBase,
                 /* size               */ partitionSize,
                 /* preferredBlockSize */ partitionBlockSize,
-                /* isEjectable        */ media->isEjectable(),
+                /* attributes         */ media->getAttributes(),
                 /* isWhole            */ false,
-                /* isWritable         */ media->isWritable(),
+                /* isWritable         */ partitionIsWritable,
                 /* contentHint        */ partitionHint ) )
         {
             // Set a name for this partition.
@@ -790,6 +839,32 @@ void IOCDPartitionScheme::read( IOService *          client,
                            /* sectorArea */ (CDSectorArea) kCDSectorAreaUser,
                            /* sectorType */ (CDSectorType) (byteStart >> 32),
                            /* completion */ completion );
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void IOCDPartitionScheme::write( IOService *          client,
+                                 UInt64               byteStart,
+                                 IOMemoryDescriptor * buffer,
+                                 IOStorageCompletion  completion )
+{
+    //
+    // Write data into the storage object at the specified byte offset from the
+    // specified buffer, asynchronously.   When the write completes, the caller
+    // will be notified via the specified completion action.
+    //
+    // The buffer will be retained for the duration of the write.
+    //
+    // For the CD partition scheme, we convert the write from a partition
+    // object into the appropriate writeCD command to our provider media.
+    //
+
+    getProvider()->writeCD( /* client     */ this,
+                            /* byteStart  */ (byteStart & 0xFFFFFFFF),
+                            /* buffer     */ buffer,
+                            /* sectorArea */ (CDSectorArea) kCDSectorAreaUser,
+                            /* sectorType */ (CDSectorType) (byteStart >> 32),
+                            /* completion */ completion );
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

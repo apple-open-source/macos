@@ -1,0 +1,36 @@
+#! /bin/sh
+
+# Test for multiple replacement functions.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE(nonesuch, nonesuch)
+AC_PROG_CC
+AC_PROG_RANLIB
+AC_REPLACE_FUNCS(basename dirname strsignal)
+AC_OUTPUT(Makefile)
+END
+
+cat > Makefile.am << 'END'
+noinst_LIBRARIES = libtu.a
+libtu_a_SOURCES =
+libtu_a_LIBADD = @LIBOBJS@
+END
+
+: > basename.c
+: > dirname.c
+: > strsignal.c
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+sed -n -e ': again
+  /^DIST_COMMON.*[^\]$/ p
+  /^DIST_COMMON/ {
+     s/^DIST_COMMON//p
+     n
+     s/^/DIST_COMMON/
+     b again
+  }' < Makefile.in | fgrep dirname.c

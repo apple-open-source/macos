@@ -142,13 +142,17 @@ IOCreatePlugInInterfaceForService(io_service_t service,
 
     kr = IOFindPlugIns( service, pluginType,
                         &factories, &plists );
-    if( KERN_SUCCESS != kr)
+    if( KERN_SUCCESS != kr) {
+        if (factories) CFRelease(factories);
+        if (plists) CFRelease(plists);
         return( kr );
-
+    }
     if ((KERN_SUCCESS != kr)
         || (factories == NULL)
         || (0 == CFArrayGetCount(factories))) {
 //        printf("No factories for type\n");
+        if (factories) CFRelease(factories);
+        if (plists) CFRelease(plists);
         return( kIOReturnUnsupported );
     }
     candidates = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
@@ -219,6 +223,8 @@ IOCreatePlugInInterfaceForService(io_service_t service,
             (*interface)->Release(interface);
     }
 
+    if (factories)
+        CFRelease(factories);
     if (plists)
         CFRelease(plists);
     if (candidates)

@@ -1,6 +1,6 @@
 #include "copyright.h"
 
-/* $Header: /cvs/Darwin/Commands/GNU/emacs/emacs/oldXMenu/AddSel.c,v 1.1.1.2 2000/06/30 17:54:20 wsanchez Exp $ */
+/* $Header: /cvs/Darwin/src/live/emacs/emacs/oldXMenu/AddSel.c,v 1.1.1.3 2001/10/31 17:59:52 jevans Exp $ */
 /* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
@@ -17,13 +17,14 @@
 #include "XMenuInt.h"
 
 int
-XMenuAddSelection(display, menu, p_num, data, label, active)
+XMenuAddSelection(display, menu, p_num, data, label, active, help)
     Display *display;
     register XMenu *menu;	/* Menu object to be modified. */
     register int p_num;		/* Pane number to be modified. */
     char *data;			/* Data value. */
     char *label;		/* Selection label. */
     int active;			/* Make selection active? */
+    char *help;			/* Help string */
 {
     register XMPane *pane;	/* Pane containing the new selection. */
     register XMSelect *select;	/* Newly created selection. */
@@ -79,6 +80,7 @@ XMenuAddSelection(display, menu, p_num, data, label, active)
     select->label_length = label_length;
     select->data = data;
     select->parent_p = pane;
+    select->help_string = help;
     
     /*
      * Insert the selection at the end of the selection list.

@@ -1,5 +1,5 @@
 /* syssignal.h - System-dependent definitions for signals.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -78,11 +78,17 @@ sigset_t sys_sigsetmask P_ ((sigset_t new_mask));
 #else /* ! defined (POSIX_SIGNALS) */
 #ifdef USG5_4
 
+extern SIGMASKTYPE sigprocmask_set;
+
 #ifndef sigblock
-#define sigblock(sig) (sigprocmask (SIG_BLOCK, SIGEMPTYMASK | sig, NULL))
+#define sigblock(sig)					\
+     (sigprocmask_set = SIGEMPTYMASK | (sig),		\
+      sigprocmask (SIG_BLOCK, &sigprocmask_set, NULL))
 #endif
 
-#define sigunblock(sig) (sigprocmask (SIG_SETMASK, SIGFULLMASK & ~(sig), NULL))
+#define sigunblock(sig)						\
+     (sigprocmask_set = SIGFULLMASK & ~(sig),			\
+      sigprocmask (SIG_SETMASK, &sigprocmask_set, NULL))
 
 #else
 #ifdef USG
@@ -123,6 +129,36 @@ sigset_t sys_sigsetmask P_ ((sigset_t new_mask));
 #define sigfree() sigsetmask (SIGEMPTYMASK)
 #endif /* not BSD4_1 */
 
+#if defined (SIGINFO) && defined (BROKEN_SIGINFO)
+#undef SIGINFO
+#endif
+#if defined (SIGIO) && defined (BROKEN_SIGIO)
+#undef SIGIO
+#endif
+#if defined (SIGPOLL) && defined (BROKEN_SIGPOLL)
+#undef SIGPOLL
+#endif
+#if defined (SIGTSTP) && defined (BROKEN_SIGTSTP)
+#undef SIGTSTP
+#endif
+#if defined (SIGURG) && defined (BROKEN_SIGURG)
+#undef SIGURG
+#endif
+#if defined (SIGAIO) && defined (BROKEN_SIGAIO)
+#undef SIGAIO
+#endif
+#if defined (SIGPTY) && defined (BROKEN_SIGPTY)
+#undef SIGPTY
+#endif
+
+
+#if NSIG < NSIG_MINIMUM
+# ifdef NSIG
+#  undef NSIG
+# endif
+# define NSIG NSIG_MINIMUM
+#endif
+
 #ifdef BSD4_1
 #define SIGIO SIGTINT
 /* sigfree is in sysdep.c */
@@ -149,3 +185,8 @@ sigset_t sys_sigsetmask P_ ((sigset_t new_mask));
 #endif /* SIGCHLD */
 #endif /* ! defined (SIGCLD) */
 #endif /* VMS */
+
+#ifndef HAVE_STRSIGNAL
+/* strsignal is in sysdep.c */
+char *strsignal ();
+#endif

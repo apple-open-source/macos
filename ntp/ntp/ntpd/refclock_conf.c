@@ -24,7 +24,7 @@ extern	struct refclock	refclock_local;
 #define	refclock_local	refclock_none
 #endif
 
-#ifdef CLOCK_TRAK
+#if defined(CLOCK_TRAK) && defined(PPS)
 extern	struct refclock	refclock_trak;
 #else
 #define	refclock_trak	refclock_none
@@ -42,7 +42,13 @@ extern	struct refclock	refclock_chu;
 #define	refclock_chu	refclock_none
 #endif
 
-#ifdef CLOCK_WWVB
+#ifdef CLOCK_WWV
+extern  struct refclock refclock_wwv;
+#else
+#define refclock_wwv    refclock_none
+#endif
+
+#ifdef CLOCK_SPECTRACOM
 extern	struct refclock	refclock_wwvb;
 #else
 #define	refclock_wwvb	refclock_none
@@ -54,7 +60,7 @@ extern	struct refclock	refclock_parse;
 #define	refclock_parse	refclock_none
 #endif
 
-#if defined(CLOCK_MX4200) && defined(PPS)
+#if defined(CLOCK_MX4200) && defined(HAVE_PPSAPI)
 extern	struct refclock	refclock_mx4200;
 #else
 #define	refclock_mx4200	refclock_none
@@ -168,7 +174,7 @@ extern	struct refclock refclock_arc;
 #define refclock_arc refclock_none
 #endif
 
-#ifdef SHM
+#ifdef CLOCK_SHM
 extern	struct refclock refclock_shm;
 #else
 #define refclock_shm refclock_none
@@ -180,7 +186,7 @@ extern  struct refclock refclock_palisade;
 #define refclock_palisade refclock_none
 #endif
 
-#ifdef CLOCK_ONCORE
+#if defined(CLOCK_ONCORE) && defined(HAVE_PPSAPI)
 extern	struct refclock refclock_oncore;
 #else
 #define refclock_oncore refclock_none
@@ -204,6 +210,42 @@ extern struct refclock refclock_dumbclock;
 #define refclock_dumbclock refclock_none
 #endif
 
+#ifdef CLOCK_ULINK
+extern	struct refclock	refclock_ulink;
+#else
+#define	refclock_ulink	refclock_none
+#endif
+
+#ifdef CLOCK_PCF
+extern	struct refclock	refclock_pcf;
+#else
+#define	refclock_pcf	refclock_none
+#endif
+
+#ifdef CLOCK_FG
+extern	struct refclock	refclock_fg;
+#else
+#define	refclock_fg	refclock_none
+#endif
+
+#ifdef CLOCK_HOPF_SERIAL
+extern	struct refclock	refclock_hopfser;
+#else
+#define	refclock_hopfser refclock_none
+#endif
+
+#ifdef CLOCK_HOPF_PCI
+extern	struct refclock	refclock_hopfpci;
+#else
+#define	refclock_hopfpci refclock_none
+#endif
+
+#ifdef CLOCK_JJY
+extern	struct refclock	refclock_jjy;
+#else
+#define	refclock_jjy refclock_none
+#endif
+
 /*
  * Order is clock_start(), clock_shutdown(), clock_poll(),
  * clock_control(), clock_init(), clock_buginfo, clock_flags;
@@ -215,10 +257,10 @@ struct refclock *refclock_conf[] = {
 	&refclock_local,	/* 1 REFCLK_LOCAL */
 	&refclock_trak,		/* 2 REFCLK_GPS_TRAK */
 	&refclock_pst,		/* 3 REFCLK_WWV_PST */
-	&refclock_wwvb, 	/* 4 REFCLK_WWVB_SPECTRACOM */
+	&refclock_wwvb, 	/* 4 REFCLK_SPECTRACOM */
 	&refclock_true,		/* 5 REFCLK_TRUETIME */
 	&refclock_irig,		/* 6 REFCLK_IRIG_AUDIO */
-	&refclock_chu,		/* 7 REFCLK_CHU */
+	&refclock_chu,		/* 7 REFCLK_CHU_AUDIO */
 	&refclock_parse,	/* 8 REFCLK_PARSE */
 	&refclock_mx4200,	/* 9 REFCLK_GPS_MX4200 */
 	&refclock_as2201,	/* 10 REFCLK_GPS_AS2201 */
@@ -245,6 +287,13 @@ struct refclock *refclock_conf[] = {
 	&refclock_jupiter,	/* 31 REFCLK_GPS_JUPITER */
 	&refclock_chronolog,	/* 32 REFCLK_CHRONOLOG */
 	&refclock_dumbclock,	/* 33 REFCLK_DUMBCLOCK */
+	&refclock_ulink,        /* 34 REFCLOCK_ULINK */
+	&refclock_pcf,          /* 35 REFCLOCK_PCF */
+	&refclock_wwv,		/* 36 REFCLOCK_WWV_AUDIO */
+	&refclock_fg,		/* 37 REFCLOCK_FG */
+	&refclock_hopfser,	/* 38 REFCLK_HOPF_SERIAL */
+	&refclock_hopfpci,	/* 39 REFCLK_HOPF_PCI */
+	&refclock_jjy		/* 40 REFCLK_JJY */
 };
 
 u_char num_refclock_conf = sizeof(refclock_conf)/sizeof(struct refclock *);

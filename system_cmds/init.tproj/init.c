@@ -884,7 +884,7 @@ runcom()
 		{
 		    argv[1] = _PATH_RUNCOM_BOOT;
 		    argv[2] = requested_transition == single_user
-		    	    ? "singleuser" : 0;
+		    	    ? "singleuser" : "multiuser";
 		}
 		else /* runcom_mode != BOOT_SCRIPT */
 		{

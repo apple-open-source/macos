@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/Commands/Other/tcpdump/tcpdump/ip6.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL) */
+/* @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/ip6.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL) */
 /*	$NetBSD: ip6.h,v 1.9 2000/07/13 05:34:21 itojun Exp $	*/
 /*	$KAME: ip6.h,v 1.9 2000/07/02 21:01:32 itojun Exp $	*/
 

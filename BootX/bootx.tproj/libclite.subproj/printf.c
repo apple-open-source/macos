@@ -22,7 +22,7 @@
 /*
  *  printf.c - printf
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2002 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -33,7 +33,7 @@ int printf(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    prf(format, ap, putchar, 0);
+    prf(format, (unsigned int *)ap, putchar, 0);
     va_end(ap);
     return 0;
 }

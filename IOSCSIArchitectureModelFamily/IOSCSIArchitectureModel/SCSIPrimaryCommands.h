@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,18 +20,46 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <IOKit/IOLib.h>
+
+/*
+ * ABOUT THIS FILE
+ *		This file contains the definition for the command object that 
+ * 		represents the SCSI Primary Commands specification.  
+ *
+ * NOTES
+ *		Some commands have been changed between versions of the specification.
+ *		These changes may include adding fields to a command, obsoleting fields
+ * 		in a command or obsoleting of an entire commmand.  Methods that 
+ *		implement the previous version are bracketted with the tag "LEGACY
+ *		COMMAND SUPPORT".
+ *
+ */
+
 
 #ifndef _IOKIT_SCSI_PRIMARY_COMMANDS_H_
 #define _IOKIT_SCSI_PRIMARY_COMMANDS_H_
 
 #if defined(KERNEL) && defined(__cplusplus)
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+// Libkern includes
 #include <libkern/c++/OSObject.h>
 
-// Includes for IOKit SCSI Command support definitions
+// General IOKit headers
+#include <IOKit/IOLib.h>
+
+// SCSI Architecture Model Family includes
 #include <IOKit/scsi-commands/SCSICommandDefinitions.h>
 #include <IOKit/scsi-commands/SCSITask.h>
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Class Declaration
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class SCSIPrimaryCommands : public OSObject
 {
@@ -39,28 +67,28 @@ class SCSIPrimaryCommands : public OSObject
 	OSDeclareDefaultStructors ( SCSIPrimaryCommands )
 	
 protected:
-
+	
 	// Utility methods used by all SCSI Command Set objects
 	
 	// isParameterValid are used to validate that the parameter passed into
 	// the command methods are of the correct value.
 	
 	// Validate Parameter used for 1 bit to 1 byte paramaters
-    inline bool 	IsParameterValid ( 
+    bool 	IsParameterValid ( 
 							SCSICmdField1Byte 			param,
 							SCSICmdField1Byte 			mask );
 	
 	// Validate Parameter used for 9 bit to 2 byte paramaters
-	inline bool 	IsParameterValid ( 
+	bool 	IsParameterValid ( 
 							SCSICmdField2Byte 			param,
 							SCSICmdField2Byte 			mask );
 	
 	// Validate Parameter used for 17 bit to 4 byte paramaters
-	inline bool 	IsParameterValid ( 
+	bool 	IsParameterValid ( 
 							SCSICmdField4Byte 			param,
 							SCSICmdField4Byte 			mask );
 	
-	inline bool 	IsBufferAndCapacityValid (
+	bool 	IsBufferAndCapacityValid (
 							IOMemoryDescriptor *		dataBuffer,
 							UInt32 						requiredSize );
 	
@@ -74,7 +102,7 @@ protected:
 							UInt8						cdbByte3,
 							UInt8						cdbByte4,
 							UInt8						cdbByte5 );
-
+	
 	// Populate the 10 Byte Command Descriptor Block
 	bool 	SetCommandDescriptorBlock (
 							SCSITask *					request,
@@ -88,7 +116,7 @@ protected:
 							UInt8						cdbByte7,
 							UInt8						cdbByte8,
 							UInt8						cdbByte9 );
-
+	
 	// Populate the 12 Byte Command Descriptor Block
 	bool 	SetCommandDescriptorBlock (
 							SCSITask *					request,
@@ -104,7 +132,7 @@ protected:
 							UInt8						cdbByte9,
 							UInt8						cdbByte10,
 							UInt8						cdbByte11 );
-
+	
 	// Populate the 16 Byte Command Descriptor Block
 	bool 	SetCommandDescriptorBlock (
 							SCSITask *					request,
@@ -124,7 +152,7 @@ protected:
 							UInt8						cdbByte13,
 							UInt8						cdbByte14,
 							UInt8						cdbByte15 );
-
+	
 	// Set up the control information for the transfer, including
 	// the transfer direction and the number of bytes to transfer.
 	// Need to add new version of method and remove the default values
@@ -135,15 +163,15 @@ protected:
 							UInt8						dataTransferDirection,
 							IOMemoryDescriptor *		dataBuffer = NULL,
 							UInt64						transferCountInBytes = 0 );
-
+	
 public:
-
+	
 	// static factory method
 	static SCSIPrimaryCommands * CreateSCSIPrimaryCommandObject ( void );
 	
 	// SCSI Primary Commands as defined in T10:1236D SPC-2 , Revision 18,
    	// dated 21 May 2000
-
+	
 	/*********************** LEGACY COMMAND SUPPORT ***********************/
   	// The CHANGE_DEFINITION command as defined in SPC revision 11a, section 
   	// 7.1.  SPC-2 obsoleted this command.
@@ -197,7 +225,7 @@ public:
     						SCSICmdField1Byte 			PAGE_OR_OPERATION_CODE,
     						SCSICmdField1Byte 			ALLOCATION_LENGTH,
     						SCSICmdField1Byte 			CONTROL );
-
+	
   	// The LOG_SELECT command as defined in section 7.7.
     virtual bool	LOG_SELECT (
 							SCSITask *					request,
@@ -207,7 +235,7 @@ public:
     						SCSICmdField2Bit 			PC,
     						SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
     						SCSICmdField1Byte 			CONTROL );  
-
+	
   	// The LOG_SENSE command as defined in section 7.8.
     virtual bool	LOG_SENSE (
 							SCSITask *					request,
@@ -219,7 +247,7 @@ public:
     						SCSICmdField2Byte 			PARAMETER_POINTER,
     						SCSICmdField2Byte 			ALLOCATION_LENGTH,
     						SCSICmdField1Byte 			CONTROL );  
-
+	
   	// The MODE_SELECT(6) command as defined in section 7.9.
     virtual bool	MODE_SELECT_6 (
 							SCSITask *					request,
@@ -228,7 +256,7 @@ public:
     						SCSICmdField1Bit 			SP,
     						SCSICmdField1Byte 			PARAMETER_LIST_LENGTH,
     						SCSICmdField1Byte 			CONTROL );  
-
+	
    	// The MODE_SELECT(10) command as defined in section 7.10.
    	virtual bool	MODE_SELECT_10 (
 							SCSITask *					request,
@@ -237,7 +265,7 @@ public:
     						SCSICmdField1Bit 			SP,
     						SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
     						SCSICmdField1Byte 			CONTROL );  
-
+	
    	// The MODE_SENSE(6) command as defined in section 7.11.
    	virtual bool	MODE_SENSE_6 (
 							SCSITask *					request,
@@ -247,7 +275,7 @@ public:
    							SCSICmdField6Bit 			PAGE_CODE,
    							SCSICmdField1Byte 			ALLOCATION_LENGTH,
     						SCSICmdField1Byte 			CONTROL );
-
+	
    	// The MODE_SENSE(10) command as defined in section 7.12.
    	virtual bool	MODE_SENSE_10 (
 							SCSITask *					request,
@@ -258,7 +286,7 @@ public:
    							SCSICmdField6Bit 			PAGE_CODE,
    							SCSICmdField2Byte 			ALLOCATION_LENGTH,
     						SCSICmdField1Byte 			CONTROL );
-
+	
    	// The PERSISTENT_RESERVE_IN command as defined in section 7.13.
   	virtual bool	PERSISTENT_RESERVE_IN (
 							SCSITask *					request,
@@ -266,7 +294,7 @@ public:
    							SCSICmdField5Bit 			SERVICE_ACTION,
    							SCSICmdField2Byte 			ALLOCATION_LENGTH,
     						SCSICmdField1Byte 			CONTROL );
-
+	
    	// The PERSISTENT_RESERVE_OUT command as defined in section 7.14.
    	// There is no PARAMETER_LIST_LENGTH parameter as this value is always
    	// 0x18 for the SPC version of this command.  The buffer for the data must 
@@ -278,13 +306,13 @@ public:
    							SCSICmdField4Bit 			SCOPE,
    							SCSICmdField4Bit 			TYPE,
     						SCSICmdField1Byte 			CONTROL );
-
+	
    	// The PREVENT_ALLOW_MEDIUM_REMOVAL command as defined in section 7.15.
     virtual bool	PREVENT_ALLOW_MEDIUM_REMOVAL ( 
 							SCSITask *					request,
      						SCSICmdField2Bit 			PREVENT,
     						SCSICmdField1Byte 			CONTROL );
-
+	
    	// The READ_BUFFER command as defined in section 7.16.
 	virtual bool	READ_BUFFER ( 
 							SCSITask *					request,
@@ -294,14 +322,14 @@ public:
 							SCSICmdField3Byte 			BUFFER_OFFSET,
 							SCSICmdField3Byte 			ALLOCATION_LENGTH,
     						SCSICmdField1Byte 			CONTROL );
-
+	
    	// The RECEIVE command as defined in section 9.2.
 	virtual bool	RECEIVE ( 
 							SCSITask *					request,
   							IOMemoryDescriptor *		dataBuffer,
 	 						SCSICmdField3Byte 			TRANSFER_LENGTH,
     						SCSICmdField1Byte 			CONTROL );
-
+	
    	// The RECEIVE_COPY_RESULTS command as defined in section 7.17.
 	virtual bool	RECEIVE_COPY_RESULTS ( 
 							SCSITask *					request,
@@ -310,7 +338,7 @@ public:
 	 						SCSICmdField1Byte			LIST_IDENTIFIER,
 	 						SCSICmdField4Byte 			ALLOCATION_LENGTH,
     						SCSICmdField1Byte 			CONTROL );
-
+	
    	// The RECEIVE_DIAGNOSTICS_RESULTS command as defined in section 7.18.
 	virtual bool	RECEIVE_DIAGNOSTICS_RESULTS ( 
 							SCSITask *					request,
@@ -319,7 +347,7 @@ public:
 	 						SCSICmdField1Byte			PAGE_CODE,
 	 						SCSICmdField2Byte 			ALLOCATION_LENGTH,
     						SCSICmdField1Byte 			CONTROL );
-
+	
    	// The RELEASE(10) command as defined in section 7.19.
 	virtual bool	RELEASE_10 ( 
 							SCSITask *					request,
@@ -329,7 +357,7 @@ public:
 							SCSICmdField1Byte 			THIRD_PARTY_DEVICE_ID,
 							SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
 							SCSICmdField1Byte 			CONTROL );
-
+	
 	/*********************** LEGACY COMMAND SUPPORT ***********************/
    	// The RELEASE(10) command as defined in SPC revision 11a, section 7.17.  
    	// The SPC-2 specification obsoleted the EXTENT and 
@@ -345,7 +373,7 @@ public:
 							SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
 							SCSICmdField1Byte 			CONTROL );
 	/*********************** END LEGACY COMMAND SUPPORT *******************/
-
+	
    	// The RELEASE(6) command as defined in section 7.20.
 	virtual bool	RELEASE_6 ( 
 							SCSITask *					request,
@@ -361,7 +389,7 @@ public:
 							SCSICmdField1Byte 			RESERVATION_IDENTIFICATION,
 							SCSICmdField1Byte 			CONTROL );
 	/*********************** END LEGACY COMMAND SUPPORT *******************/
-
+	
    	// The REPORT_DEVICE_IDENTIFIER command as defined in section 7.21.
    	// There is no SERVICE_ACTION parameter as the value for this field
    	// for the SPC version of this command is defined to always be 0x05.
@@ -370,7 +398,7 @@ public:
   							IOMemoryDescriptor *		dataBuffer,
 							SCSICmdField4Byte 			ALLOCATION_LENGTH,
 							SCSICmdField1Byte 			CONTROL );
-
+	
    	// The REPORT_LUNS command as defined in section 7.22.
    	virtual bool	REPORT_LUNS ( 
 							SCSITask *					request,
@@ -394,7 +422,7 @@ public:
 							SCSICmdField1Byte 			THIRD_PARTY_DEVICE_ID,
 							SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
 							SCSICmdField1Byte 			CONTROL );
-
+	
 	/*********************** LEGACY COMMAND SUPPORT ***********************/
    	// The RESERVE(10) command as defined in SPC revision 11a, section 7.17.
     // The SPC-2 specification obsoleted the EXTENT and 
@@ -410,12 +438,12 @@ public:
 							SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
 							SCSICmdField1Byte 			CONTROL );
 	/*********************** END LEGACY COMMAND SUPPORT *******************/
-
+	
    	// The RESERVE(6) command as defined in section 7.25.
  	virtual bool	RESERVE_6 ( 
 							SCSITask *					request,
 							SCSICmdField1Byte 			CONTROL );
-
+	
 	/*********************** LEGACY COMMAND SUPPORT ***********************/
    	// The RESERVE(6) command as defined in SPC revision 11a, section 7.17.
     // The SPC-2 specification obsoleted the THRDPTY, THIRD_PARTY_DEVICE_ID, 
@@ -428,7 +456,7 @@ public:
 							SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
 							SCSICmdField1Byte 			CONTROL );
 	/*********************** END LEGACY COMMAND SUPPORT *******************/
-
+	
    	// The SEND command as defined in section 9.3.
 	virtual bool	SEND ( 
 							SCSITask *					request,
@@ -436,7 +464,7 @@ public:
 							SCSICmdField1Bit			AER,
 	 						SCSICmdField3Byte 			TRANSFER_LENGTH,
     						SCSICmdField1Byte 			CONTROL );
-
+	
    	// The SEND_DIAGNOSTICS command as defined in section 7.26.
 	virtual bool	SEND_DIAGNOSTICS ( 
 							SCSITask *					request,
@@ -448,7 +476,7 @@ public:
 			  		 		SCSICmdField1Bit 			UNITOFFL,
 			  	 			SCSICmdField2Byte 			PARAMETER_LIST_LENGTH,
 			  	 			SCSICmdField1Byte 			CONTROL );
-
+	
    	// The SET_DEVICE_IDENTIFIER command as defined in section 7.27.
 	virtual bool	SET_DEVICE_IDENTIFIER ( 
 							SCSITask *					request,
@@ -461,7 +489,7 @@ public:
 	virtual bool	TEST_UNIT_READY (  
 							SCSITask *					request,
     						SCSICmdField1Byte 			CONTROL );
- 
+ 	
    	// The WRITE_BUFFER command as defined in section 7.29.
 	virtual bool	WRITE_BUFFER ( 
 							SCSITask *					request,
@@ -471,6 +499,7 @@ public:
 							SCSICmdField3Byte 			BUFFER_OFFSET,
 							SCSICmdField3Byte 			PARAMETER_LIST_LENGTH,
 							SCSICmdField1Byte 			CONTROL );
+	
 };
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */

@@ -1,5 +1,6 @@
 /* Execution of byte code produced by bytecomp.el.
-   Copyright (C) 1985, 1986, 1987, 1988, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1987, 1988, 1993, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -38,6 +39,11 @@ by Hallvard:
 #include "buffer.h"
 #include "charset.h"
 #include "syntax.h"
+
+#ifdef CHECK_FRAME_FONT
+#include "frame.h"
+#include "xterm.h"
+#endif
 
 /*
  * define BYTE_CODE_SAFE to enable some minor sanity checking (useful for 
@@ -224,34 +230,147 @@ Lisp_Object Qbytecode;
 
 #define Bconstant 0300
 #define CONSTANTLIM 0100
+
+
+/* Structure describing a value stack used during byte-code execution
+   in Fbyte_code.  */
+
+struct byte_stack
+{
+  /* Program counter.  This points into the byte_string below
+     and is relocated when that string is relocated.  */
+  unsigned char *pc;
+
+  /* Top and bottom of stack.  The bottom points to an area of memory
+     allocated with alloca in Fbyte_code.  */
+  Lisp_Object *top, *bottom;
+
+  /* The string containing the byte-code, and its current address.
+     Storing this here protects it from GC because mark_byte_stack
+     marks it.  */
+  Lisp_Object byte_string;
+  unsigned char *byte_string_start;
+
+  /* The vector of constants used during byte-code execution.  Storing
+     this here protects it from GC because mark_byte_stack marks it.  */
+  Lisp_Object constants;
+
+  /* Next entry in byte_stack_list.  */
+  struct byte_stack *next;
+};
+
+/* A list of currently active byte-code execution value stacks.
+   Fbyte_code adds an entry to the head of this list before it starts
+   processing byte-code, and it removed the entry again when it is
+   done.  Signalling an error truncates the list analoguous to
+   gcprolist.  */
+
+struct byte_stack *byte_stack_list;
+
+
+/* Mark objects on byte_stack_list.  Called during GC.  */
+
+void
+mark_byte_stack ()
+{
+  struct byte_stack *stack;
+  Lisp_Object *obj;
+
+  for (stack = byte_stack_list; stack; stack = stack->next)
+    {
+      /* If STACK->top is null here, this means there's an opcode in
+	 Fbyte_code that wasn't expected to GC, but did.  To find out
+	 which opcode this is, record the value of `stack', and walk
+	 up the stack in a debugger, stopping in frames of Fbyte_code.
+	 The culprit is found in the frame of Fbyte_code where the
+	 address of its local variable `stack' is equal to the
+	 recorded value of `stack' here.  */
+      if (!stack->top)
+	abort ();
+      
+      for (obj = stack->bottom; obj <= stack->top; ++obj)
+	if (!XMARKBIT (*obj))
+	  {
+	    mark_object (obj);
+	    XMARK (*obj);
+	  }
+
+      if (!XMARKBIT (stack->byte_string))
+	{
+          mark_object (&stack->byte_string);
+	  XMARK (stack->byte_string);
+	}
+
+      if (!XMARKBIT (stack->constants))
+	{
+	  mark_object (&stack->constants);
+	  XMARK (stack->constants);
+	}
+    }
+}
+
+
+/* Unmark objects in the stacks on byte_stack_list.  Relocate program
+   counters.  Called when GC has completed.  */
+
+void 
+unmark_byte_stack ()
+{
+  struct byte_stack *stack;
+  Lisp_Object *obj;
+
+  for (stack = byte_stack_list; stack; stack = stack->next)
+    {
+      for (obj = stack->bottom; obj <= stack->top; ++obj)
+	XUNMARK (*obj);
+
+      XUNMARK (stack->byte_string);
+      XUNMARK (stack->constants);
+
+      if (stack->byte_string_start != XSTRING (stack->byte_string)->data)
+	{
+	  int offset = stack->pc - stack->byte_string_start;
+	  stack->byte_string_start = XSTRING (stack->byte_string)->data;
+	  stack->pc = stack->byte_string_start + offset;
+	}
+    }
+}
+
 
 /* Fetch the next byte from the bytecode stream */
 
-#define FETCH *pc++
+#define FETCH *stack.pc++
 
-/* Fetch two bytes from the bytecode stream
- and make a 16-bit number out of them */
+/* Fetch two bytes from the bytecode stream and make a 16-bit number
+   out of them */
 
 #define FETCH2 (op = FETCH, op + (FETCH << 8))
 
-/* Push x onto the execution stack. */
+/* Push x onto the execution stack.  This used to be #define PUSH(x)
+   (*++stackp = (x)) This oddity is necessary because Alliant can't be
+   bothered to compile the preincrement operator properly, as of 4/91.
+   -JimB */
 
-/* This used to be #define PUSH(x) (*++stackp = (x))
-   This oddity is necessary because Alliant can't be bothered to
-   compile the preincrement operator properly, as of 4/91.  -JimB  */
-#define PUSH(x) (stackp++, *stackp = (x))
+#define PUSH(x) (top++, *top = (x))
 
 /* Pop a value off the execution stack.  */
 
-#define POP (*stackp--)
+#define POP (*top--)
 
 /* Discard n values from the execution stack.  */
 
-#define DISCARD(n) (stackp -= (n))
+#define DISCARD(n) (top -= (n))
 
-/* Get the value which is at the top of the execution stack, but don't pop it. */
+/* Get the value which is at the top of the execution stack, but don't
+   pop it. */
 
-#define TOP (*stackp)
+#define TOP (*top)
+
+/* Actions that must be performed before and after calling a function
+   that might GC.  */
+
+#define BEFORE_POTENTIAL_GC()	stack.top = top
+#define AFTER_POTENTIAL_GC()	stack.top = NULL
 
 /* Garbage collect if we have consed enough since the last time.
    We do this at every branch, to avoid loops that never GC.  */
@@ -259,23 +378,38 @@ Lisp_Object Qbytecode;
 #define MAYBE_GC()				\
   if (consing_since_gc > gc_cons_threshold)	\
     {						\
+      BEFORE_POTENTIAL_GC ();			\
       Fgarbage_collect ();			\
-      HANDLE_RELOCATION ();			\
+      AFTER_POTENTIAL_GC ();			\
     }						\
   else
 
-/* Relocate BYTESTR if there has been a GC recently.  */
-#define HANDLE_RELOCATION()						\
-  if (! EQ (string_saved, bytestr))					\
-    {									\
-      pc = pc - XSTRING (string_saved)->data + XSTRING (bytestr)->data;	\
-      string_saved = bytestr;						\
-    }									\
-  else
-
 /* Check for jumping out of range.  */
-#define CHECK_RANGE(ARG)			\
+
+#ifdef BYTE_CODE_SAFE
+
+#define CHECK_RANGE(ARG) \
   if (ARG >= bytestr_length) abort ()
+
+#else /* not BYTE_CODE_SAFE */
+
+#define CHECK_RANGE(ARG)
+
+#endif /* not BYTE_CODE_SAFE */
+
+/* A version of the QUIT macro which makes sure that the stack top is
+   set before signaling `quit'.  */
+
+#define BYTE_CODE_QUIT					\
+  do {							\
+    if (!NILP (Vquit_flag) && NILP (Vinhibit_quit))	\
+      {							\
+	Vquit_flag = Qnil;				\
+        BEFORE_POTENTIAL_GC ();				\
+	Fsignal (Qquit, Qnil);				\
+      }							\
+  } while (0)
+
 
 DEFUN ("byte-code", Fbyte_code, Sbyte_code, 3, 3, 0,
   "Function used internally in byte-compiled code.\n\
@@ -286,108 +420,242 @@ If the third argument is incorrect, Emacs may crash.")
   (bytestr, vector, maxdepth)
      Lisp_Object bytestr, vector, maxdepth;
 {
-  struct gcpro gcpro1, gcpro2, gcpro3;
   int count = specpdl_ptr - specpdl;
 #ifdef BYTE_CODE_METER
   int this_op = 0;
   int prev_op;
 #endif
-  register int op;
-  unsigned char *pc;
-  Lisp_Object *stack;
-  register Lisp_Object *stackp;
-  Lisp_Object *stacke;
-  register Lisp_Object v1, v2;
-  register Lisp_Object *vectorp = XVECTOR (vector)->contents;
+  int op;
+  /* Lisp_Object v1, v2; */
+  Lisp_Object *vectorp;
 #ifdef BYTE_CODE_SAFE
-  register int const_length = XVECTOR (vector)->size;
+  int const_length = XVECTOR (vector)->size;
+  Lisp_Object *stacke;
 #endif
-  /* Copy of BYTESTR, saved so we can tell if BYTESTR was relocated.  */
-  Lisp_Object string_saved;
-  /* Cached address of beginning of string,
-     valid if BYTESTR equals STRING_SAVED.  */
-  register unsigned char *strbeg;
-  int bytestr_length = STRING_BYTES (XSTRING (bytestr));
+  int bytestr_length;
+  struct byte_stack stack;
+  Lisp_Object *top;
+  Lisp_Object result;
+
+#ifdef CHECK_FRAME_FONT
+ {
+   struct frame *f = SELECTED_FRAME ();
+   if (FRAME_X_P (f)
+       && FRAME_FONT (f)->direction != 0
+       && FRAME_FONT (f)->direction != 1)
+     abort ();
+ }
+#endif
 
   CHECK_STRING (bytestr, 0);
   if (!VECTORP (vector))
     vector = wrong_type_argument (Qvectorp, vector);
   CHECK_NUMBER (maxdepth, 2);
 
-  stackp = (Lisp_Object *) alloca (XFASTINT (maxdepth) * sizeof (Lisp_Object));
-  bzero (stackp, XFASTINT (maxdepth) * sizeof (Lisp_Object));
-  GCPRO3 (bytestr, vector, *stackp);
-  gcpro3.nvars = XFASTINT (maxdepth);
+  if (STRING_MULTIBYTE (bytestr))
+    /* BYTESTR must have been produced by Emacs 20.2 or the earlier
+       because they produced a raw 8-bit string for byte-code and now
+       such a byte-code string is loaded as multibyte while raw 8-bit
+       characters converted to multibyte form.  Thus, now we must
+       convert them back to the original unibyte form.  */
+    bytestr = Fstring_as_unibyte (bytestr);
 
-  --stackp;
-  stack = stackp;
-  stacke = stackp + XFASTINT (maxdepth);
+  bytestr_length = STRING_BYTES (XSTRING (bytestr));
+  vectorp = XVECTOR (vector)->contents;
 
-  /* Initialize the saved pc-pointer for fetching from the string.  */
-  string_saved = bytestr;
-  pc = XSTRING (string_saved)->data;
+  stack.byte_string = bytestr;
+  stack.pc = stack.byte_string_start = XSTRING (bytestr)->data;
+  stack.constants = vector;
+  stack.bottom = (Lisp_Object *) alloca (XFASTINT (maxdepth) 
+                                         * sizeof (Lisp_Object));
+  top = stack.bottom - 1;
+  stack.top = NULL;
+  stack.next = byte_stack_list;
+  byte_stack_list = &stack;
 
+#ifdef BYTE_CODE_SAFE
+  stacke = stack.bottom - 1 + XFASTINT (maxdepth);
+#endif
+  
   while (1)
     {
 #ifdef BYTE_CODE_SAFE
-      if (stackp > stacke)
-	error ("Byte code stack overflow (byte compiler bug), pc %d, depth %d",
-	       pc - XSTRING (string_saved)->data, stacke - stackp);
-      if (stackp < stack)
-	error ("Byte code stack underflow (byte compiler bug), pc %d",
-	       pc - XSTRING (string_saved)->data);
+      if (top > stacke)
+	abort ();
+      else if (top < stack.bottom - 1)
+	abort ();
 #endif
-
-      /* Update BYTESTR if we had a garbage collection.  */
-      HANDLE_RELOCATION ();
 
 #ifdef BYTE_CODE_METER
       prev_op = this_op;
       this_op = op = FETCH;
       METER_CODE (prev_op, op);
-      switch (op)
 #else
-      switch (op = FETCH)
+      op = FETCH;
 #endif
-	{
-	case Bvarref+6:
-	  op = FETCH;
-	  goto varref;
 
-	case Bvarref+7:
+      switch (op)
+	{
+	case Bvarref + 7:
 	  op = FETCH2;
 	  goto varref;
 
-	case Bvarref: case Bvarref+1: case Bvarref+2: case Bvarref+3:
-	case Bvarref+4: case Bvarref+5:
+	case Bvarref: 
+	case Bvarref + 1: 
+	case Bvarref + 2: 
+	case Bvarref + 3:
+	case Bvarref + 4: 
+	case Bvarref + 5:
 	  op = op - Bvarref;
+	  goto varref;
+
+	/* This seems to be the most frequently executed byte-code
+	   among the Bvarref's, so avoid a goto here.  */
+	case Bvarref+6:
+	  op = FETCH;
 	varref:
-	  v1 = vectorp[op];
-	  if (!SYMBOLP (v1))
-	    v2 = Fsymbol_value (v1);
-	  else
-	    {
-	      v2 = XSYMBOL (v1)->value;
-	      if (MISCP (v2) || EQ (v2, Qunbound))
+	  {
+	    Lisp_Object v1, v2;
+
+	    v1 = vectorp[op];
+	    if (SYMBOLP (v1))
+	      {
+		v2 = XSYMBOL (v1)->value;
+		if (MISCP (v2) || EQ (v2, Qunbound))
+		  {
+		    BEFORE_POTENTIAL_GC ();
+		    v2 = Fsymbol_value (v1);
+		    AFTER_POTENTIAL_GC ();
+		  }
+	      }
+	    else
+	      {
+		BEFORE_POTENTIAL_GC ();
 		v2 = Fsymbol_value (v1);
+		AFTER_POTENTIAL_GC ();
+	      }
+	    PUSH (v2);
+	    break;
+	  }
+
+	case Bgotoifnil:
+	  MAYBE_GC ();
+	  op = FETCH2;
+	  if (NILP (POP))
+	    {
+	      BYTE_CODE_QUIT;
+	      CHECK_RANGE (op);
+	      stack.pc = stack.byte_string_start + op;
 	    }
-	  PUSH (v2);
 	  break;
 
-	case Bvarset+6:
-	  op = FETCH;
+	case Bcar:
+	  {
+	    Lisp_Object v1;
+	    v1 = TOP;
+	    if (CONSP (v1))
+	      TOP = XCAR (v1);
+	    else if (NILP (v1))
+	      TOP = Qnil;
+	    else
+	      {
+		BEFORE_POTENTIAL_GC ();
+		Fcar (wrong_type_argument (Qlistp, v1));
+		AFTER_POTENTIAL_GC ();
+	      }
+	    break;
+	  }
+
+	case Beq:
+	  {
+	    Lisp_Object v1;
+	    v1 = POP;
+	    TOP = EQ (v1, TOP) ? Qt : Qnil;
+	    break;
+	  }
+
+	case Bmemq:
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fmemq (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
+
+	case Bcdr:
+	  {
+	    Lisp_Object v1;
+	    v1 = TOP;
+	    if (CONSP (v1))
+	      TOP = XCDR (v1);
+	    else if (NILP (v1))
+	      TOP = Qnil;
+	    else
+	      {
+		BEFORE_POTENTIAL_GC ();
+		Fcdr (wrong_type_argument (Qlistp, v1));
+		AFTER_POTENTIAL_GC ();
+	      }
+	    break;
+	  }
+
+	case Bvarset:
+	case Bvarset+1:
+	case Bvarset+2:
+	case Bvarset+3:
+	case Bvarset+4:
+	case Bvarset+5:
+	  op -= Bvarset;
 	  goto varset;
 
 	case Bvarset+7:
 	  op = FETCH2;
 	  goto varset;
 
-	case Bvarset: case Bvarset+1: case Bvarset+2: case Bvarset+3:
-	case Bvarset+4: case Bvarset+5:
-	  op -= Bvarset;
+	case Bvarset+6:
+	  op = FETCH;
 	varset:
-	  Fset (vectorp[op], POP);
+	  {
+	    Lisp_Object sym, val;
+	      
+	    sym = vectorp[op];
+	    val = TOP;
+
+	    /* Inline the most common case.  */
+	    if (SYMBOLP (sym)
+		&& !EQ (val, Qunbound)
+		&& !MISCP (XSYMBOL (sym)->value)
+		/* I think this should either be checked in the byte
+		   compiler, or there should be a flag indicating that
+		   a symbol might be constant in Lisp_Symbol, instead
+		   of checking this here over and over again. --gerd.  */
+		&& !EQ (sym, Qnil)
+		&& !EQ (sym, Qt)
+		&& !(XSYMBOL (sym)->name->data[0] == ':'
+		     && EQ (XSYMBOL (sym)->obarray, initial_obarray)
+		     && !EQ (val, sym)))
+	      XSYMBOL (sym)->value = val;
+	    else
+	      {
+		BEFORE_POTENTIAL_GC ();
+		set_internal (sym, val, current_buffer, 0);
+		AFTER_POTENTIAL_GC ();
+	      }
+	  }
+	  POP;
 	  break;
+
+	case Bdup:
+	  {
+	    Lisp_Object v1;
+	    v1 = TOP;
+	    PUSH (v1);
+	    break;
+	  }
+
+	/* ------------------ */
 
 	case Bvarbind+6:
 	  op = FETCH;
@@ -397,11 +665,18 @@ If the third argument is incorrect, Emacs may crash.")
 	  op = FETCH2;
 	  goto varbind;
 
-	case Bvarbind: case Bvarbind+1: case Bvarbind+2: case Bvarbind+3:
-	case Bvarbind+4: case Bvarbind+5:
+	case Bvarbind:
+	case Bvarbind+1:
+	case Bvarbind+2:
+	case Bvarbind+3:
+	case Bvarbind+4:
+	case Bvarbind+5:
 	  op -= Bvarbind;
 	varbind:
+	  /* Specbind can signal and thus GC.  */
+	  BEFORE_POTENTIAL_GC ();
 	  specbind (vectorp[op], POP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bcall+6:
@@ -412,26 +687,36 @@ If the third argument is incorrect, Emacs may crash.")
 	  op = FETCH2;
 	  goto docall;
 
-	case Bcall: case Bcall+1: case Bcall+2: case Bcall+3:
-	case Bcall+4: case Bcall+5:
+	case Bcall:
+	case Bcall+1:
+	case Bcall+2:
+	case Bcall+3:
+	case Bcall+4:
+	case Bcall+5:
 	  op -= Bcall;
 	docall:
-	  DISCARD (op);
+	  {
+	    BEFORE_POTENTIAL_GC ();
+	    DISCARD (op);
 #ifdef BYTE_CODE_METER
-	  if (byte_metering_on && SYMBOLP (TOP))
-	    {
-	      v1 = TOP;
-	      v2 = Fget (v1, Qbyte_code_meter);
-	      if (INTEGERP (v2)
-		  && XINT (v2) != ((1<<VALBITS)-1))
-		{
-		  XSETINT (v2, XINT (v2) + 1);
-		  Fput (v1, Qbyte_code_meter, v2);
-		}
-	    }
+	    if (byte_metering_on && SYMBOLP (TOP))
+	      {
+		Lisp_Object v1, v2;
+
+		v1 = TOP;
+		v2 = Fget (v1, Qbyte_code_meter);
+		if (INTEGERP (v2)
+		    && XINT (v2) != ((1<<VALBITS)-1))
+		  {
+		    XSETINT (v2, XINT (v2) + 1);
+		    Fput (v1, Qbyte_code_meter, v2);
+		  }
+	      }
 #endif
-	  TOP = Ffuncall (op + 1, &TOP);
-	  break;
+	    TOP = Ffuncall (op + 1, &TOP);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bunbind+6:
 	  op = FETCH;
@@ -441,36 +726,33 @@ If the third argument is incorrect, Emacs may crash.")
 	  op = FETCH2;
 	  goto dounbind;
 
-	case Bunbind: case Bunbind+1: case Bunbind+2: case Bunbind+3:
-	case Bunbind+4: case Bunbind+5:
+	case Bunbind:
+	case Bunbind+1:
+	case Bunbind+2:
+	case Bunbind+3:
+	case Bunbind+4:
+	case Bunbind+5:
 	  op -= Bunbind;
 	dounbind:
+	  BEFORE_POTENTIAL_GC ();
 	  unbind_to (specpdl_ptr - specpdl - op, Qnil);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bunbind_all:
 	  /* To unbind back to the beginning of this frame.  Not used yet,
 	     but will be needed for tail-recursion elimination.  */
+	  BEFORE_POTENTIAL_GC ();
 	  unbind_to (count, Qnil);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bgoto:
 	  MAYBE_GC ();
-	  QUIT;
+	  BYTE_CODE_QUIT;
 	  op = FETCH2;    /* pc = FETCH2 loses since FETCH2 contains pc++ */
 	  CHECK_RANGE (op);
-	  pc = XSTRING (string_saved)->data + op;
-	  break;
-
-	case Bgotoifnil:
-	  MAYBE_GC ();
-	  op = FETCH2;
-	  if (NILP (POP))
-	    {
-	      QUIT;
-	      CHECK_RANGE (op);
-	      pc = XSTRING (string_saved)->data + op;
-	    }
+	  stack.pc = stack.byte_string_start + op;
 	  break;
 
 	case Bgotoifnonnil:
@@ -478,9 +760,9 @@ If the third argument is incorrect, Emacs may crash.")
 	  op = FETCH2;
 	  if (!NILP (POP))
 	    {
-	      QUIT;
+	      BYTE_CODE_QUIT;
 	      CHECK_RANGE (op);
-	      pc = XSTRING (string_saved)->data + op;
+	      stack.pc = stack.byte_string_start + op;
 	    }
 	  break;
 
@@ -489,9 +771,9 @@ If the third argument is incorrect, Emacs may crash.")
 	  op = FETCH2;
 	  if (NILP (TOP))
 	    {
-	      QUIT;
+	      BYTE_CODE_QUIT;
 	      CHECK_RANGE (op);
-	      pc = XSTRING (string_saved)->data + op;
+	      stack.pc = stack.byte_string_start + op;
 	    }
 	  else DISCARD (1);
 	  break;
@@ -501,72 +783,67 @@ If the third argument is incorrect, Emacs may crash.")
 	  op = FETCH2;
 	  if (!NILP (TOP))
 	    {
-	      QUIT;
+	      BYTE_CODE_QUIT;
 	      CHECK_RANGE (op);
-	      pc = XSTRING (string_saved)->data + op;
+	      stack.pc = stack.byte_string_start + op;
 	    }
 	  else DISCARD (1);
 	  break;
 
 	case BRgoto:
 	  MAYBE_GC ();
-	  QUIT;
-	  pc += (int) *pc - 127;
+	  BYTE_CODE_QUIT;
+	  stack.pc += (int) *stack.pc - 127;
 	  break;
 
 	case BRgotoifnil:
 	  MAYBE_GC ();
 	  if (NILP (POP))
 	    {
-	      QUIT;
-	      pc += (int) *pc - 128;
+	      BYTE_CODE_QUIT;
+	      stack.pc += (int) *stack.pc - 128;
 	    }
-	  pc++;
+	  stack.pc++;
 	  break;
 
 	case BRgotoifnonnil:
 	  MAYBE_GC ();
 	  if (!NILP (POP))
 	    {
-	      QUIT;
-	      pc += (int) *pc - 128;
+	      BYTE_CODE_QUIT;
+	      stack.pc += (int) *stack.pc - 128;
 	    }
-	  pc++;
+	  stack.pc++;
 	  break;
 
 	case BRgotoifnilelsepop:
 	  MAYBE_GC ();
-	  op = *pc++;
+	  op = *stack.pc++;
 	  if (NILP (TOP))
 	    {
-	      QUIT;
-	      pc += op - 128;
+	      BYTE_CODE_QUIT;
+	      stack.pc += op - 128;
 	    }
 	  else DISCARD (1);
 	  break;
 
 	case BRgotoifnonnilelsepop:
 	  MAYBE_GC ();
-	  op = *pc++;
+	  op = *stack.pc++;
 	  if (!NILP (TOP))
 	    {
-	      QUIT;
-	      pc += op - 128;
+	      BYTE_CODE_QUIT;
+	      stack.pc += op - 128;
 	    }
 	  else DISCARD (1);
 	  break;
 
 	case Breturn:
-	  v1 = POP;
+	  result = POP;
 	  goto exit;
 
 	case Bdiscard:
 	  DISCARD (1);
-	  break;
-
-	case Bdup:
-	  v1 = TOP;
-	  PUSH (v1);
 	  break;
 
 	case Bconstant2:
@@ -574,7 +851,8 @@ If the third argument is incorrect, Emacs may crash.")
 	  break;
 
 	case Bsave_excursion:
-	  record_unwind_protect (save_excursion_restore, save_excursion_save ());
+	  record_unwind_protect (save_excursion_restore,
+				 save_excursion_save ());
 	  break;
 
 	case Bsave_current_buffer:
@@ -583,63 +861,103 @@ If the third argument is incorrect, Emacs may crash.")
 	  break;
 
 	case Bsave_window_excursion:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fsave_window_excursion (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bsave_restriction:
-	  record_unwind_protect (save_restriction_restore, save_restriction_save ());
+	  record_unwind_protect (save_restriction_restore,
+				 save_restriction_save ());
 	  break;
 
 	case Bcatch:
-	  v1 = POP;
-	  TOP = internal_catch (TOP, Feval, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = internal_catch (TOP, Feval, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bunwind_protect:
+	  /* The function record_unwind_protect can GC.  */
+	  BEFORE_POTENTIAL_GC ();
 	  record_unwind_protect (0, POP);
+	  AFTER_POTENTIAL_GC ();
 	  (specpdl_ptr - 1)->symbol = Qnil;
 	  break;
 
 	case Bcondition_case:
-	  v1 = POP;
-	  v1 = Fcons (POP, v1);
-	  TOP = Fcondition_case (Fcons (TOP, v1));
-	  break;
+	  {
+	    Lisp_Object v1;
+	    v1 = POP;
+	    v1 = Fcons (POP, v1);
+	    BEFORE_POTENTIAL_GC ();
+	    TOP = Fcondition_case (Fcons (TOP, v1));
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Btemp_output_buffer_setup:
+	  BEFORE_POTENTIAL_GC ();
+	  CHECK_STRING (TOP, 0);
 	  temp_output_buffer_setup (XSTRING (TOP)->data);
+	  AFTER_POTENTIAL_GC ();
 	  TOP = Vstandard_output;
 	  break;
 
 	case Btemp_output_buffer_show:
-	  v1 = POP;
-	  temp_output_buffer_show (TOP);
-	  TOP = v1;
-	  /* pop binding of standard-output */
-	  unbind_to (specpdl_ptr - specpdl - 1, Qnil);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    temp_output_buffer_show (TOP);
+	    TOP = v1;
+	    /* pop binding of standard-output */
+	    unbind_to (specpdl_ptr - specpdl - 1, Qnil);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bnth:
-	  v1 = POP;
-	  v2 = TOP;
-	nth_entry:
-	  CHECK_NUMBER (v2, 0);
-	  op = XINT (v2);
-	  immediate_quit = 1;
-	  while (--op >= 0)
-	    {
-	      if (CONSP (v1))
-		v1 = XCONS (v1)->cdr;
-	      else if (!NILP (v1))
-		{
-		  immediate_quit = 0;
-		  v1 = wrong_type_argument (Qlistp, v1);
-		  immediate_quit = 1;
-		  op++;
-		}
-	    }
-	  immediate_quit = 0;
-	  goto docar;
+	  {
+	    Lisp_Object v1, v2;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    v2 = TOP;
+	    CHECK_NUMBER (v2, 0);
+	    AFTER_POTENTIAL_GC ();
+	    op = XINT (v2);
+	    immediate_quit = 1;
+	    while (--op >= 0)
+	      {
+		if (CONSP (v1))
+		  v1 = XCDR (v1);
+		else if (!NILP (v1))
+		  {
+		    immediate_quit = 0;
+		    BEFORE_POTENTIAL_GC ();
+		    v1 = wrong_type_argument (Qlistp, v1);
+		    AFTER_POTENTIAL_GC ();
+		    immediate_quit = 1;
+		    op++;
+		  }
+	      }
+	    immediate_quit = 0;
+	    if (CONSP (v1))
+	      TOP = XCAR (v1);
+	    else if (NILP (v1))
+	      TOP = Qnil;
+	    else
+	      {
+		BEFORE_POTENTIAL_GC ();
+		Fcar (wrong_type_argument (Qlistp, v1));
+		AFTER_POTENTIAL_GC ();
+	      }
+	    break;
+	  }
 
 	case Bsymbolp:
 	  TOP = SYMBOLP (TOP) ? Qt : Qnil;
@@ -657,48 +975,29 @@ If the third argument is incorrect, Emacs may crash.")
 	  TOP = CONSP (TOP) || NILP (TOP) ? Qt : Qnil;
 	  break;
 
-	case Beq:
-	  v1 = POP;
-	  TOP = EQ (v1, TOP) ? Qt : Qnil;
-	  break;
-
-	case Bmemq:
-	  v1 = POP;
-	  TOP = Fmemq (TOP, v1);
-	  break;
-
 	case Bnot:
 	  TOP = NILP (TOP) ? Qt : Qnil;
 	  break;
 
-	case Bcar:
-	  v1 = TOP;
-	docar:
-	  if (CONSP (v1)) TOP = XCONS (v1)->car;
-	  else if (NILP (v1)) TOP = Qnil;
-	  else Fcar (wrong_type_argument (Qlistp, v1));
-	  break;
-
-	case Bcdr:
-	  v1 = TOP;
-	  if (CONSP (v1)) TOP = XCONS (v1)->cdr;
-	  else if (NILP (v1)) TOP = Qnil;
-	  else Fcdr (wrong_type_argument (Qlistp, v1));
-	  break;
-
 	case Bcons:
-	  v1 = POP;
-	  TOP = Fcons (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    v1 = POP;
+	    TOP = Fcons (TOP, v1);
+	    break;
+	  }
 
 	case Blist1:
 	  TOP = Fcons (TOP, Qnil);
 	  break;
 
 	case Blist2:
-	  v1 = POP;
-	  TOP = Fcons (TOP, Fcons (v1, Qnil));
-	  break;
+	  {
+	    Lisp_Object v1;
+	    v1 = POP;
+	    TOP = Fcons (TOP, Fcons (v1, Qnil));
+	    break;
+	  }
 
 	case Blist3:
 	  DISCARD (2);
@@ -717,224 +1016,359 @@ If the third argument is incorrect, Emacs may crash.")
 	  break;
 
 	case Blength:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Flength (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Baref:
-    	  v1 = POP;
-	  TOP = Faref (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Faref (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Baset:
-	  v2 = POP; v1 = POP;
-	  TOP = Faset (TOP, v1, v2);
-	  break;
+	  {
+	    Lisp_Object v1, v2;
+	    BEFORE_POTENTIAL_GC ();
+	    v2 = POP; v1 = POP;
+	    TOP = Faset (TOP, v1, v2);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bsymbol_value:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fsymbol_value (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bsymbol_function:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fsymbol_function (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bset:
-	  v1 = POP;
-	  TOP = Fset (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fset (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bfset:
-	  v1 = POP;
-	  TOP = Ffset (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Ffset (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bget:
-	  v1 = POP;
-	  TOP = Fget (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fget (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bsubstring:
-	  v2 = POP; v1 = POP;
-	  TOP = Fsubstring (TOP, v1, v2);
-	  break;
+	  {
+	    Lisp_Object v1, v2;
+	    BEFORE_POTENTIAL_GC ();
+	    v2 = POP; v1 = POP;
+	    TOP = Fsubstring (TOP, v1, v2);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bconcat2:
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (1);
 	  TOP = Fconcat (2, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bconcat3:
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (2);
 	  TOP = Fconcat (3, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bconcat4:
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (3);
 	  TOP = Fconcat (4, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case BconcatN:
 	  op = FETCH;
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (op - 1);
 	  TOP = Fconcat (op, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bsub1:
-	  v1 = TOP;
-	  if (INTEGERP (v1))
-	    {
-	      XSETINT (v1, XINT (v1) - 1);
-	      TOP = v1;
-	    }
-	  else
-	    TOP = Fsub1 (v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    v1 = TOP;
+	    if (INTEGERP (v1))
+	      {
+		XSETINT (v1, XINT (v1) - 1);
+		TOP = v1;
+	      }
+	    else
+	      TOP = Fsub1 (v1);
+	    break;
+	  }
 
 	case Badd1:
-	  v1 = TOP;
-	  if (INTEGERP (v1))
-	    {
-	      XSETINT (v1, XINT (v1) + 1);
-	      TOP = v1;
-	    }
-	  else
-	    TOP = Fadd1 (v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    v1 = TOP;
+	    if (INTEGERP (v1))
+	      {
+		XSETINT (v1, XINT (v1) + 1);
+		TOP = v1;
+	      }
+	    else
+	      {
+		BEFORE_POTENTIAL_GC ();
+		TOP = Fadd1 (v1);
+		AFTER_POTENTIAL_GC ();
+	      }
+	    break;
+	  }
 
 	case Beqlsign:
-	  v2 = POP; v1 = TOP;
-	  CHECK_NUMBER_OR_FLOAT_COERCE_MARKER (v1, 0);
-	  CHECK_NUMBER_OR_FLOAT_COERCE_MARKER (v2, 0);
-#ifdef LISP_FLOAT_TYPE
-	  if (FLOATP (v1) || FLOATP (v2))
-	    {
-	      double f1, f2;
+	  {
+	    Lisp_Object v1, v2;
+	    BEFORE_POTENTIAL_GC ();
+	    v2 = POP; v1 = TOP;
+	    CHECK_NUMBER_OR_FLOAT_COERCE_MARKER (v1, 0);
+	    CHECK_NUMBER_OR_FLOAT_COERCE_MARKER (v2, 0);
+	    AFTER_POTENTIAL_GC ();
+	    if (FLOATP (v1) || FLOATP (v2))
+	      {
+		double f1, f2;
 
-	      f1 = (FLOATP (v1) ? XFLOAT (v1)->data : XINT (v1));
-	      f2 = (FLOATP (v2) ? XFLOAT (v2)->data : XINT (v2));
-	      TOP = (f1 == f2 ? Qt : Qnil);
-	    }
-	  else
-#endif
-	    TOP = (XINT (v1) == XINT (v2) ? Qt : Qnil);
-	  break;
+		f1 = (FLOATP (v1) ? XFLOAT_DATA (v1) : XINT (v1));
+		f2 = (FLOATP (v2) ? XFLOAT_DATA (v2) : XINT (v2));
+		TOP = (f1 == f2 ? Qt : Qnil);
+	      }
+	    else
+	      TOP = (XINT (v1) == XINT (v2) ? Qt : Qnil);
+	    break;
+	  }
 
 	case Bgtr:
-	  v1 = POP;
-	  TOP = Fgtr (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fgtr (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Blss:
-	  v1 = POP;
-	  TOP = Flss (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Flss (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bleq:
-	  v1 = POP;
-	  TOP = Fleq (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fleq (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bgeq:
-	  v1 = POP;
-	  TOP = Fgeq (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fgeq (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bdiff:
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (1);
 	  TOP = Fminus (2, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bnegate:
-	  v1 = TOP;
-	  if (INTEGERP (v1))
-	    {
-	      XSETINT (v1, - XINT (v1));
-	      TOP = v1;
-	    }
-	  else
-	    TOP = Fminus (1, &TOP);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    v1 = TOP;
+	    if (INTEGERP (v1))
+	      {
+		XSETINT (v1, - XINT (v1));
+		TOP = v1;
+	      }
+	    else
+	      {
+		BEFORE_POTENTIAL_GC ();
+		TOP = Fminus (1, &TOP);
+		AFTER_POTENTIAL_GC ();
+	      }
+	    break;
+	  }
 
 	case Bplus:
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (1);
 	  TOP = Fplus (2, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bmax:
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (1);
 	  TOP = Fmax (2, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bmin:
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (1);
 	  TOP = Fmin (2, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bmult:
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (1);
 	  TOP = Ftimes (2, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bquo:
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (1);
 	  TOP = Fquo (2, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Brem:
-	  v1 = POP;
-	  TOP = Frem (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Frem (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bpoint:
-	  XSETFASTINT (v1, PT);
-	  PUSH (v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    XSETFASTINT (v1, PT);
+	    PUSH (v1);
+	    break;
+	  }
 
 	case Bgoto_char:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fgoto_char (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Binsert:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Finsert (1, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case BinsertN:
 	  op = FETCH;
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (op - 1);
 	  TOP = Finsert (op, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bpoint_max:
-	  XSETFASTINT (v1, ZV);
-	  PUSH (v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    XSETFASTINT (v1, ZV);
+	    PUSH (v1);
+	    break;
+	  }
 
 	case Bpoint_min:
-	  XSETFASTINT (v1, BEGV);
-	  PUSH (v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    XSETFASTINT (v1, BEGV);
+	    PUSH (v1);
+	    break;
+	  }
 
 	case Bchar_after:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fchar_after (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bfollowing_char:
-	  v1 = Ffollowing_char ();
-	  PUSH (v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = Ffollowing_char ();
+	    AFTER_POTENTIAL_GC ();
+	    PUSH (v1);
+	    break;
+	  }
 
 	case Bpreceding_char:
-	  v1 = Fprevious_char ();
-	  PUSH (v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = Fprevious_char ();
+	    AFTER_POTENTIAL_GC ();
+	    PUSH (v1);
+	    break;
+	  }
 
 	case Bcurrent_column:
-	  XSETFASTINT (v1, current_column ());
-	  PUSH (v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    XSETFASTINT (v1, current_column ());
+	    AFTER_POTENTIAL_GC ();
+	    PUSH (v1);
+	    break;
+	  }
 
 	case Bindent_to:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Findent_to (TOP, Qnil);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Beolp:
@@ -958,7 +1392,9 @@ If the third argument is incorrect, Emacs may crash.")
 	  break;
 
 	case Bset_buffer:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fset_buffer (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Binteractive_p:
@@ -966,153 +1402,287 @@ If the third argument is incorrect, Emacs may crash.")
 	  break;
 
 	case Bforward_char:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fforward_char (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bforward_word:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fforward_word (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bskip_chars_forward:
-	  v1 = POP;
-	  TOP = Fskip_chars_forward (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fskip_chars_forward (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bskip_chars_backward:
-	  v1 = POP;
-	  TOP = Fskip_chars_backward (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fskip_chars_backward (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bforward_line:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fforward_line (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bchar_syntax:
+	  BEFORE_POTENTIAL_GC ();
 	  CHECK_NUMBER (TOP, 0);
-	  XSETFASTINT (TOP,
-		       syntax_code_spec[(int) SYNTAX (XINT (TOP))]);
+	  AFTER_POTENTIAL_GC ();
+	  XSETFASTINT (TOP, syntax_code_spec[(int) SYNTAX (XINT (TOP))]);
 	  break;
 
 	case Bbuffer_substring:
-	  v1 = POP;
-	  TOP = Fbuffer_substring (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fbuffer_substring (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bdelete_region:
-	  v1 = POP;
-	  TOP = Fdelete_region (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fdelete_region (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bnarrow_to_region:
-	  v1 = POP;
-	  TOP = Fnarrow_to_region (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fnarrow_to_region (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bwiden:
+	  BEFORE_POTENTIAL_GC ();
 	  PUSH (Fwiden ());
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bend_of_line:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fend_of_line (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bset_marker:
-	  v1 = POP;
-	  v2 = POP;
-	  TOP = Fset_marker (TOP, v2, v1);
-	  break;
+	  {
+	    Lisp_Object v1, v2;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    v2 = POP;
+	    TOP = Fset_marker (TOP, v2, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bmatch_beginning:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fmatch_beginning (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bmatch_end:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fmatch_end (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bupcase:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fupcase (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bdowncase:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fdowncase (TOP);
+	  AFTER_POTENTIAL_GC ();
 	break;
 
 	case Bstringeqlsign:
-	  v1 = POP;
-	  TOP = Fstring_equal (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fstring_equal (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bstringlss:
-	  v1 = POP;
-	  TOP = Fstring_lessp (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fstring_lessp (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bequal:
-	  v1 = POP;
-	  TOP = Fequal (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    v1 = POP;
+	    TOP = Fequal (TOP, v1);
+	    break;
+	  }
 
 	case Bnthcdr:
-	  v1 = POP;
-	  TOP = Fnthcdr (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fnthcdr (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Belt:
-	  if (CONSP (TOP))
-	    {
-	      /* Exchange args and then do nth.  */
-	      v2 = POP;
-	      v1 = TOP;
-	      goto nth_entry;
-	    }
-	  v1 = POP;
-	  TOP = Felt (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1, v2;
+	    if (CONSP (TOP))
+	      {
+		/* Exchange args and then do nth.  */
+		BEFORE_POTENTIAL_GC ();
+		v2 = POP;
+		v1 = TOP;
+		CHECK_NUMBER (v2, 0);
+		AFTER_POTENTIAL_GC ();
+		op = XINT (v2);
+		immediate_quit = 1;
+		while (--op >= 0)
+		  {
+		    if (CONSP (v1))
+		      v1 = XCDR (v1);
+		    else if (!NILP (v1))
+		      {
+			immediate_quit = 0;
+			BEFORE_POTENTIAL_GC ();
+			v1 = wrong_type_argument (Qlistp, v1);
+			AFTER_POTENTIAL_GC ();
+			immediate_quit = 1;
+			op++;
+		      }
+		  }
+		immediate_quit = 0;
+		if (CONSP (v1))
+		  TOP = XCAR (v1);
+		else if (NILP (v1))
+		  TOP = Qnil;
+		else
+		  {
+		    BEFORE_POTENTIAL_GC ();
+		    Fcar (wrong_type_argument (Qlistp, v1));
+		    AFTER_POTENTIAL_GC ();
+		  }
+	      }
+	    else
+	      {
+		BEFORE_POTENTIAL_GC ();
+		v1 = POP;
+		TOP = Felt (TOP, v1);
+		AFTER_POTENTIAL_GC ();
+	      }
+	    break;
+	  }
 
 	case Bmember:
-	  v1 = POP;
-	  TOP = Fmember (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fmember (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bassq:
-	  v1 = POP;
-	  TOP = Fassq (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fassq (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bnreverse:
+	  BEFORE_POTENTIAL_GC ();
 	  TOP = Fnreverse (TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bsetcar:
-	  v1 = POP;
-	  TOP = Fsetcar (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fsetcar (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bsetcdr:
-	  v1 = POP;
-	  TOP = Fsetcdr (TOP, v1);
-	  break;
+	  {
+	    Lisp_Object v1;
+	    BEFORE_POTENTIAL_GC ();
+	    v1 = POP;
+	    TOP = Fsetcdr (TOP, v1);
+	    AFTER_POTENTIAL_GC ();
+	    break;
+	  }
 
 	case Bcar_safe:
-	  v1 = TOP;
-	  if (CONSP (v1))
-	    TOP = XCONS (v1)->car;
-	  else
-	    TOP = Qnil;
-	  break;
+	  {
+	    Lisp_Object v1;
+	    v1 = TOP;
+	    if (CONSP (v1))
+	      TOP = XCAR (v1);
+	    else
+	      TOP = Qnil;
+	    break;
+	  }
 
 	case Bcdr_safe:
-	  v1 = TOP;
-	  if (CONSP (v1))
-	    TOP = XCONS (v1)->cdr;
-	  else
-	    TOP = Qnil;
-	  break;
+	  {
+	    Lisp_Object v1;
+	    v1 = TOP;
+	    if (CONSP (v1))
+	      TOP = XCDR (v1);
+	    else
+	      TOP = Qnil;
+	    break;
+	  }
 
 	case Bnconc:
+	  BEFORE_POTENTIAL_GC ();
 	  DISCARD (1);
 	  TOP = Fnconc (2, &TOP);
+	  AFTER_POTENTIAL_GC ();
 	  break;
 
 	case Bnumberp:
@@ -1125,19 +1695,31 @@ If the third argument is incorrect, Emacs may crash.")
 
 #ifdef BYTE_CODE_SAFE
 	case Bset_mark:
+	  BEFORE_POTENTIAL_GC ();
 	  error ("set-mark is an obsolete bytecode");
+	  AFTER_POTENTIAL_GC ();
 	  break;
 	case Bscan_buffer:
+	  BEFORE_POTENTIAL_GC ();
 	  error ("scan-buffer is an obsolete bytecode");
+	  AFTER_POTENTIAL_GC ();
 	  break;
 #endif
 
+	case 0:
+	  abort ();
+
+	case 255:
 	default:
 #ifdef BYTE_CODE_SAFE
 	  if (op < Bconstant)
-	    error ("unknown bytecode %d (byte compiler bug)", op);
+	    {
+	      abort ();
+	    }
 	  if ((op -= Bconstant) >= const_length)
-	    error ("no constant number %d (byte compiler bug)", op);
+	    {
+	      abort ();
+	    }
 	  PUSH (vectorp[op]);
 #else
 	  PUSH (vectorp[op - Bconstant]);
@@ -1146,7 +1728,9 @@ If the third argument is incorrect, Emacs may crash.")
     }
 
  exit:
-  UNGCPRO;
+
+  byte_stack_list = byte_stack_list->next;
+
   /* Binds and unbinds are supposed to be compiled balanced.  */
   if (specpdl_ptr - specpdl != count)
 #ifdef BYTE_CODE_SAFE
@@ -1154,7 +1738,8 @@ If the third argument is incorrect, Emacs may crash.")
 #else
     abort ();
 #endif
-  return v1;
+  
+  return result;
 }
 
 void

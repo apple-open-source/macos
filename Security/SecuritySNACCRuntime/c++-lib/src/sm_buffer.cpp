@@ -41,7 +41,9 @@ static char SccsId[ ] = "@(#) sm_buffer.cpp 1.17 5/7/98 16:36:20";
 #endif
 
 #include "sm_vdasnacc.h"
+#ifndef	NDEBUG
 #include <iomanip>
+#endif
 
 #if	defined(macintosh) || defined(__APPLE__)
 

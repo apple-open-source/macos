@@ -37,7 +37,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: packet.c,v 1.90 2002/02/27 21:23:13 stevesk Exp $");
+RCSID("$OpenBSD: packet.c,v 1.96 2002/06/23 21:10:02 deraadt Exp $");
 
 #include "xmalloc.h"
 #include "buffer.h"
@@ -60,6 +60,7 @@ RCSID("$OpenBSD: packet.c,v 1.90 2002/02/27 21:23:13 stevesk Exp $");
 #include "log.h"
 #include "canohost.h"
 #include "misc.h"
+#include "ssh.h"
 
 #ifdef PACKET_DEBUG
 #define DBG(x) x
@@ -86,10 +87,10 @@ static CipherContext receive_context;
 static CipherContext send_context;
 
 /* Buffer for raw input data from the socket. */
-static Buffer input;
+Buffer input;
 
 /* Buffer for raw output data going to the socket. */
-static Buffer output;
+Buffer output;
 
 /* Buffer for the partial outgoing packet being constructed. */
 static Buffer outgoing_packet;
@@ -115,6 +116,12 @@ static int interactive_mode = 0;
 
 /* Session key information for Encryption and MAC */
 Newkeys *newkeys[MODE_MAX];
+static u_int32_t read_seqnr = 0;
+static u_int32_t send_seqnr = 0;
+
+/* Session key for protocol v1 */
+static u_char ssh1_key[SSH_SESSION_KEY_LENGTH];
+static u_int ssh1_keylen;
 
 /* roundup current message to extra_pad bytes */
 static u_char extra_pad = 0;
@@ -171,6 +178,99 @@ packet_connection_is_on_socket(void)
 	return 1;
 }
 
+/*
+ * Exports an IV from the CipherContext required to export the key
+ * state back from the unprivileged child to the privileged parent
+ * process.
+ */
+
+void
+packet_get_keyiv(int mode, u_char *iv, u_int len)
+{
+	CipherContext *cc;
+
+	if (mode == MODE_OUT)
+		cc = &send_context;
+	else
+		cc = &receive_context;
+
+	cipher_get_keyiv(cc, iv, len);
+}
+
+int
+packet_get_keycontext(int mode, u_char *dat)
+{
+	CipherContext *cc;
+
+	if (mode == MODE_OUT)
+		cc = &send_context;
+	else
+		cc = &receive_context;
+
+	return (cipher_get_keycontext(cc, dat));
+}
+
+void
+packet_set_keycontext(int mode, u_char *dat)
+{
+	CipherContext *cc;
+
+	if (mode == MODE_OUT)
+		cc = &send_context;
+	else
+		cc = &receive_context;
+
+	cipher_set_keycontext(cc, dat);
+}
+
+int
+packet_get_keyiv_len(int mode)
+{
+	CipherContext *cc;
+
+	if (mode == MODE_OUT)
+		cc = &send_context;
+	else
+		cc = &receive_context;
+
+	return (cipher_get_keyiv_len(cc));
+}
+void
+packet_set_iv(int mode, u_char *dat)
+{
+	CipherContext *cc;
+
+	if (mode == MODE_OUT)
+		cc = &send_context;
+	else
+		cc = &receive_context;
+
+	cipher_set_keyiv(cc, dat);
+}
+int
+packet_get_ssh1_cipher()
+{
+	return (cipher_get_number(receive_context.cipher));
+}
+
+
+u_int32_t
+packet_get_seqnr(int mode)
+{
+	return (mode == MODE_IN ? read_seqnr : send_seqnr);
+}
+
+void
+packet_set_seqnr(int mode, u_int32_t seqnr)
+{
+	if (mode == MODE_IN)
+		read_seqnr = seqnr;
+	else if (mode == MODE_OUT)
+		send_seqnr = seqnr;
+	else
+		fatal("packet_set_seqnr: bad mode %d", mode);
+}
+
 /* returns 1 if connection is via ipv4 */
 
 int
@@ -182,9 +282,14 @@ packet_connection_is_ipv4(void)
 	memset(&to, 0, sizeof(to));
 	if (getsockname(connection_out, (struct sockaddr *)&to, &tolen) < 0)
 		return 0;
-	if (to.ss_family != AF_INET)
-		return 0;
-	return 1;
+	if (to.ss_family == AF_INET)
+		return 1;
+#ifdef IPV4_IN_IPV6
+	if (to.ss_family == AF_INET6 && 
+	    IN6_IS_ADDR_V4MAPPED(&((struct sockaddr_in6 *)&to)->sin6_addr))
+		return 1;
+#endif
+	return 0;
 }
 
 /* Sets the connection into non-blocking mode. */
@@ -291,6 +396,7 @@ packet_start_compression(int level)
  * key is used for both sending and reception.  However, both directions are
  * encrypted independently of each other.
  */
+
 void
 packet_set_encryption_key(const u_char *key, u_int keylen,
     int number)
@@ -300,8 +406,21 @@ packet_set_encryption_key(const u_char *key, u_int keylen,
 		fatal("packet_set_encryption_key: unknown cipher number %d", number);
 	if (keylen < 20)
 		fatal("packet_set_encryption_key: keylen too small: %d", keylen);
+	if (keylen > SSH_SESSION_KEY_LENGTH)
+		fatal("packet_set_encryption_key: keylen too big: %d", keylen);
+	memcpy(ssh1_key, key, keylen);
+	ssh1_keylen = keylen;
 	cipher_init(&send_context, cipher, key, keylen, NULL, 0, CIPHER_ENCRYPT);
 	cipher_init(&receive_context, cipher, key, keylen, NULL, 0, CIPHER_DECRYPT);
+}
+
+u_int
+packet_get_encryption_key(u_char *key)
+{
+	if (key == NULL)
+		return (ssh1_keylen);
+	memcpy(key, ssh1_key, ssh1_keylen);
+	return (ssh1_keylen);
 }
 
 /* Start constructing a packet to send. */
@@ -433,7 +552,7 @@ packet_send1(void)
 	 */
 }
 
-static void
+void
 set_newkeys(int mode)
 {
 	Enc *enc;
@@ -477,8 +596,9 @@ set_newkeys(int mode)
 	DBG(debug("cipher_init_context: %d", mode));
 	cipher_init(cc, enc->cipher, enc->key, enc->key_len,
 	    enc->iv, enc->block_size, encrypt);
-	memset(enc->iv,  0, enc->block_size);
-	memset(enc->key, 0, enc->key_len);
+	/* Deleting the keys does not gain extra security */
+	/* memset(enc->iv,  0, enc->block_size);
+	   memset(enc->key, 0, enc->key_len); */
 	if (comp->type != 0 && comp->enabled == 0) {
 		packet_init_compression();
 		if (mode == MODE_OUT)
@@ -495,7 +615,6 @@ set_newkeys(int mode)
 static void
 packet_send2(void)
 {
-	static u_int32_t seqnr = 0;
 	u_char type, *cp, *macbuf = NULL;
 	u_char padlen, pad;
 	u_int packet_length = 0;
@@ -549,7 +668,7 @@ packet_send2(void)
 		/* will wrap if extra_pad+padlen > 255 */
 		extra_pad  = roundup(extra_pad, block_size);
 		pad = extra_pad - ((len + padlen) % extra_pad);
-		debug("packet_send2: adding %d (len %d padlen %d extra_pad %d)",
+		debug3("packet_send2: adding %d (len %d padlen %d extra_pad %d)",
 		    pad, len, padlen, extra_pad);
 		padlen += pad;
 		extra_pad = 0;
@@ -576,10 +695,10 @@ packet_send2(void)
 
 	/* compute MAC over seqnr and packet(length fields, payload, padding) */
 	if (mac && mac->enabled) {
-		macbuf = mac_compute(mac, seqnr,
+		macbuf = mac_compute(mac, send_seqnr,
 		    buffer_ptr(&outgoing_packet),
 		    buffer_len(&outgoing_packet));
-		DBG(debug("done calc MAC out #%d", seqnr));
+		DBG(debug("done calc MAC out #%d", send_seqnr));
 	}
 	/* encrypt packet and append to output buffer. */
 	cp = buffer_append_space(&output, buffer_len(&outgoing_packet));
@@ -593,7 +712,7 @@ packet_send2(void)
 	buffer_dump(&output);
 #endif
 	/* increment sequence number for outgoing packets */
-	if (++seqnr == 0)
+	if (++send_seqnr == 0)
 		log("outgoing seqnr wraps around");
 	buffer_clear(&outgoing_packet);
 
@@ -783,7 +902,6 @@ packet_read_poll1(void)
 static int
 packet_read_poll2(u_int32_t *seqnr_p)
 {
-	static u_int32_t seqnr = 0;
 	static u_int packet_length = 0;
 	u_int padlen, need;
 	u_char *macbuf, *cp, type;
@@ -845,17 +963,17 @@ packet_read_poll2(u_int32_t *seqnr_p)
 	 * increment sequence number for incoming packet
 	 */
 	if (mac && mac->enabled) {
-		macbuf = mac_compute(mac, seqnr,
+		macbuf = mac_compute(mac, read_seqnr,
 		    buffer_ptr(&incoming_packet),
 		    buffer_len(&incoming_packet));
 		if (memcmp(macbuf, buffer_ptr(&input), mac->mac_len) != 0)
 			packet_disconnect("Corrupted MAC on input.");
-		DBG(debug("MAC #%d ok", seqnr));
+		DBG(debug("MAC #%d ok", read_seqnr));
 		buffer_consume(&input, mac->mac_len);
 	}
 	if (seqnr_p != NULL)
-		*seqnr_p = seqnr;
-	if (++seqnr == 0)
+		*seqnr_p = read_seqnr;
+	if (++read_seqnr == 0)
 		log("incoming seqnr wraps around");
 
 	/* get padlen */
@@ -897,7 +1015,7 @@ packet_read_poll2(u_int32_t *seqnr_p)
 int
 packet_read_poll_seqnr(u_int32_t *seqnr_p)
 {
-	int reason, seqnr;
+	u_int reason, seqnr;
 	u_char type;
 	char *msg;
 
@@ -920,14 +1038,15 @@ packet_read_poll_seqnr(u_int32_t *seqnr_p)
 			case SSH2_MSG_DISCONNECT:
 				reason = packet_get_int();
 				msg = packet_get_string(NULL);
-				log("Received disconnect from %s: %d: %.400s", get_remote_ipaddr(),
-					reason, msg);
+				log("Received disconnect from %s: %u: %.400s",
+				    get_remote_ipaddr(), reason, msg);
 				xfree(msg);
 				fatal_cleanup();
 				break;
 			case SSH2_MSG_UNIMPLEMENTED:
 				seqnr = packet_get_int();
-				debug("Received SSH2_MSG_UNIMPLEMENTED for %d", seqnr);
+				debug("Received SSH2_MSG_UNIMPLEMENTED for %u",
+				    seqnr);
 				break;
 			default:
 				return type;
@@ -945,8 +1064,8 @@ packet_read_poll_seqnr(u_int32_t *seqnr_p)
 				break;
 			case SSH_MSG_DISCONNECT:
 				msg = packet_get_string(NULL);
-				log("Received disconnect from %s: %.400s", get_remote_ipaddr(),
-					msg);
+				log("Received disconnect from %s: %.400s",
+				    get_remote_ipaddr(), msg);
 				fatal_cleanup();
 				xfree(msg);
 				break;

@@ -1,6 +1,6 @@
-;;; rmailedit.el --- "RMAIL edit mode"  Edit the current message.
+;;; rmailedit.el --- "RMAIL edit mode"  Edit the current message
 
-;; Copyright (C) 1985, 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1994, 2001 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: mail
@@ -22,9 +22,17 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
+;;; Commentary:
+
 ;;; Code:
 
 (require 'rmail)
+
+(defcustom rmail-edit-mode-hook nil
+  "List of functions to call when editing an RMAIL message."
+  :type 'hook
+  :version "21.1"
+  :group 'rmail-edit)
 
 (defvar rmail-old-text)
 
@@ -44,9 +52,10 @@
   "Major mode for editing the contents of an RMAIL message.
 The editing commands are the same as in Text mode, together with two commands
 to return to regular RMAIL:
-  *  rmail-abort-edit cancels the changes
+  *  \\[rmail-abort-edit] cancels the changes
      you have made and returns to RMAIL
-  *  rmail-cease-edit makes them permanent.
+  *  \\[rmail-cease-edit] makes them permanent.
+This functions runs the normal hook `rmail-edit-mode-hook'.
 \\{rmail-edit-map}"
   (text-mode)
   (use-local-map rmail-edit-map)

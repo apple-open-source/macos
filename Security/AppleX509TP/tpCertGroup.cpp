@@ -27,8 +27,9 @@
 #include "TPCertInfo.h"
 #include "tpPolicies.h"
 #include "tpdebugging.h"
+#include "rootCerts.h"
 #include <Security/oidsalg.h>
-
+#include <Security/cssmapple.h>
 
 /*-----------------------------------------------------------------------------
  * CertGroupConstruct
@@ -92,6 +93,7 @@ void AppleTPSession::CertGroupConstruct(CSSM_CL_HANDLE clHand,
 		ConstructParams,
 		CertGroupFrag,
 		CSSM_FALSE,			// allowExpired
+		NULL,				// cssmTimeStr
 		tpCertGroup);
 	CertGroup = tpCertGroup->buildCssmCertGroup();
 	delete tpCertGroup;	
@@ -115,6 +117,7 @@ void AppleTPSession::CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
 		const void *ConstructParams,
 		const CSSM_CERTGROUP &CertGroupFrag,
 		CSSM_BOOL allowExpired,
+		const char *cssmTimeStr,					// May be NULL
 		TPCertGroup *&CertGroup)
 {
 	TPCertGroup			*inCertGroup;				// unordered input certs
@@ -144,7 +147,7 @@ void AppleTPSession::CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
 		CssmError::throwMe(CSSMERR_TP_INVALID_CL_HANDLE);
 	}
 	if( (CertGroupFrag.NumCerts == 0) ||				// list is empty
-	    (CertGroupFrag.CertGroupType != CSSM_CERTGROUP_ENCODED_CERT) ||
+	    (CertGroupFrag.CertGroupType != CSSM_CERTGROUP_DATA) ||
 	    (CertGroupFrag.GroupList.CertList[0].Data == NULL) ||	// first cert empty
 	    (CertGroupFrag.GroupList.CertList[0].Length == 0)) {		// first cert empty
 		CssmError::throwMe(CSSMERR_CL_INVALID_CERTGROUP_POINTER);
@@ -178,9 +181,11 @@ void AppleTPSession::CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
 	try {
 		certInfo = new TPCertInfo(
 			&CertGroupFrag.GroupList.CertList[0],
-			clHand);
+			clHand,
+			cssmTimeStr);
+		certInfo->index(0);
 	}
-	catch(CssmError cerr) {
+	catch(const CssmError &cerr) {
 		outErr = CSSMERR_TP_INVALID_CERTIFICATE;
 		goto abort;
 	}
@@ -189,14 +194,16 @@ void AppleTPSession::CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
 		throw;
 	}
 	
+	/* Add to outCertGroup even if it's not current */
+	outCertGroup->appendCert(certInfo);
+	
+	#if 	TP_CERT_CURRENT_CHECK_INLINE
 	/* verify this first one is current */
 	outErr = certInfo->isCurrent(allowExpired);
 	if(outErr) {
 		goto abort;
 	}
-	
-	/* Add to outCertGroup */
-	outCertGroup->appendCert(certInfo);
+	#endif
 	
 	/* this'll be the first subject cert in the main loop */
 	subjectCert = certInfo;
@@ -208,12 +215,14 @@ void AppleTPSession::CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
 	for(certDex=1; certDex<CertGroupFrag.NumCerts; certDex++) {
 		try {
 			certInfo = new TPCertInfo(&CertGroupFrag.GroupList.CertList[certDex],
-				clHand);
+				clHand,
+				cssmTimeStr);
 		}
 		catch (...) {
 			/* just ignore this cert */
 			continue;
 		}
+		certInfo->index(certDex);
 		inCertGroup->appendCert(certInfo);
 	}
 	
@@ -278,6 +287,8 @@ void AppleTPSession::CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
 					case CSSMERR_TP_CERT_EXPIRED:
 						/* special case - abort immediateley (note the cert
 						 * sig verify succeeded.) */
+						/*** for now we include this in the evidence ***/
+						outCertGroup->appendCert(subjectCert);
 						outErr = crtn;
 						goto abort;
 					default:
@@ -292,32 +303,19 @@ issuerLoopEnd:
 		#if	TP_DL_ENABLE
 		if(issuerCert == NULL) {
 			/* Issuer not in incoming cert group. Search DBList. */
-			CSSM_DATA_PTR foundCert;
-			
-			foundCert = tpFindIssuer(tpHand,
+			CSSM_BOOL subjectExpired = CSSM_FALSE;
+			issuerCert = tpFindIssuer(*this,
 				clHand,
 				cspHand,
-				subjectCert->certData(),
+				subjectCert,
 				subjectCert->issuerName(),
-				DBList,
+				&DBList,
+				cssmTimeStr,
 				&subjectExpired);
 			if(subjectExpired) {
 				/* special case - abort immediately */
 				outErr = subjectExpired;
 				goto abort;
-			}
-			if(foundCert != NULL) {
-				/* set issuerCert for this found cert */
-				issuerCert = new TPCertInfo(foundCert,
-					clHand,
-					true);				// *do* copy
-				/* 
-				 * free cert data obtained from DB 
-				 * FIXME: this assumes that OUR session allocators are the 
-				 * same ones used by the DL to malloc this cert!
-				 * FIXME: handle exception here 
-				 */
-				tpFreeCssmData(*this, foundCert, CSSM_TRUE);
 			}
 		}	/*  Issuer not in incoming cert group */
 		#endif	/* TP_DL_ENABLE */
@@ -415,14 +413,20 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 	TPCertInfo				*lastCert;
 	CSSM_BOOL				verifiedToRoot = CSSM_FALSE;
 	TPPolicy				policy;
-	CSSM_RETURN				outErr = CSSM_OK;
+	CSSM_RETURN				constructReturn = CSSM_OK;
+	CSSM_RETURN				policyReturn = CSSM_OK;
 	CSSM_RETURN				crtn;
 	const CSSM_TP_CALLERAUTH_CONTEXT *cred;
 	CSSM_OID_PTR 			oid = NULL;
-	CSSM_BOOL				allowExpired = CSSM_FALSE;
 	TPCertGroup 			*tpCertGroup = NULL;	// created by
 													//   CertGroupConstructPriv
 	TPCertInfo 				*certInfo = NULL;
+	CSSM_BOOL				allowExpired = CSSM_FALSE;
+	/* declare volatile as compiler workaround to avoid caching in CR4 */
+	const CSSM_APPLE_TP_ACTION_DATA * volatile actionData = NULL;
+	const CSSM_APPLE_TP_SSL_OPTIONS *sslOpts = NULL;
+	const CSSM_DATA 		*fieldVal;
+	CSSM_TIMESTRING			cssmTimeStr;
 	
 	/* verify input args, skipping the ones checked by CertGroupConstruct */
 	if((VerifyContext == NULL) || (VerifyContext->Cred == NULL)) {
@@ -430,11 +434,6 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 			CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
 	}
 	cred = VerifyContext->Cred;
-	
-	/* allow cert expiration errors? */
-	if(cred->Policy.PolicyControl == CSSM_TP_ALLOW_EXPIRE) {
-		allowExpired = CSSM_TRUE;
-	}
 	
 	/* Check out requested policies */
 	switch(cred->Policy.NumberOfPolicyIds) {
@@ -446,23 +445,40 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 	    	if(cred->Policy.PolicyIds == NULL) {
 				CssmError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
 	    	}
-			
-			/*
-			 * none of the supported policies allow any additional params 
-			 */
-			if((cred->Policy.PolicyIds->FieldValue.Data != NULL) ||
-				(cred->Policy.PolicyIds->FieldValue.Length != 0)) {
-				CssmError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
-			}
-			oid = &cred->Policy.PolicyIds->FieldOid;
+			fieldVal = &cred->Policy.PolicyIds->FieldValue;
+			oid      = &cred->Policy.PolicyIds->FieldOid;
 	    	if(tpCompareOids(oid, &CSSMOID_APPLE_ISIGN)) {
 				policy = kTPiSign;
+				/* no options */
+				if(fieldVal->Data != NULL) {
+					CssmError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
+				}
 	    	}
 	    	else if(tpCompareOids(oid, &CSSMOID_APPLE_X509_BASIC)) {
 				policy = kTPx509Basic;
+				/* no options */
+				if(fieldVal->Data != NULL) {
+					CssmError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
+				}
 	    	}
 	    	else if(tpCompareOids(oid, &CSSMOID_APPLE_TP_SSL)) {
 				policy = kTP_SSL;
+				/* SSL-specific options */
+				sslOpts = (CSSM_APPLE_TP_SSL_OPTIONS *)fieldVal->Data;
+				if(sslOpts != NULL) {
+					switch(sslOpts->Version) {
+						case CSSM_APPLE_TP_SSL_OPTS_VERSION:
+							if(fieldVal->Length != 
+									sizeof(CSSM_APPLE_TP_SSL_OPTIONS)) {
+								CssmError::throwMe(
+									CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
+							}
+							break;
+						/* handle backwards compatibility here if necessary */
+						default:
+							CssmError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
+					}
+				}
 	    	}
 	    	else {
 	    		/* unknown TP OID */
@@ -473,6 +489,28 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 			/* only zero or one allowed */
 			CssmError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
 	} 
+	
+	/* Optional ActionData affecting all policies */
+	actionData = (CSSM_APPLE_TP_ACTION_DATA * volatile)VerifyContext->ActionData.Data;
+	if(actionData != NULL) {
+		switch(actionData->Version) {
+			case CSSM_APPLE_TP_ACTION_VERSION:
+				if(VerifyContext->ActionData.Length !=
+						sizeof(CSSM_APPLE_TP_ACTION_DATA)) {
+					CssmError::throwMe(CSSMERR_TP_INVALID_ACTION_DATA);
+				}
+				break;
+			/* handle backwards versions here if we ever go byond version 0 */
+			default:
+				CssmError::throwMe(CSSMERR_TP_INVALID_ACTION_DATA);
+		}
+		if(actionData->ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED) {
+			allowExpired = CSSM_TRUE;
+		}
+	}
+	
+	/* optional, may be NULL */
+	cssmTimeStr = cred->VerifyTime;
 	
 	/* now the args we can't deal with */
 	if(cred->CallerCredentials != NULL) {
@@ -490,11 +528,16 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 			NULL,
 			CertGroupToBeVerified,
 			allowExpired,
+			cssmTimeStr,
 			tpCertGroup);
 	}
-	catch(CssmError cerr) {
-		outErr = cerr.cssmError();
-		goto out;
+	catch(const CssmError &cerr) {
+		constructReturn = cerr.cssmError();
+		/* abort if no certs found */
+		if((tpCertGroup == NULL) || (tpCertGroup->numCerts() == 0)) {
+			CssmError::throwMe(constructReturn);
+		}
+		/* else press on, collecting as much info as we can */
 	}
 	/* others are way fatal */
 	CASSERT(tpCertGroup != NULL);
@@ -516,25 +559,29 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 		for(i=0; i<cred->NumberOfAnchorCerts; i++) {
 			if(tp_CompareCerts(lastCert->certData(), &cred->AnchorCerts[i])) {
 				/* one fully successful return */
-				outErr = CSSM_OK;
 				goto out;
 			}
 		}
 		
 		/* verified to a root cert which is not an anchor */
-		outErr = CSSMERR_TP_INVALID_ANCHOR_CERT;
+		constructReturn = CSSMERR_TP_INVALID_ANCHOR_CERT;
 		goto out;
 	}
 
 	/* try to validate lastCert with anchor certs */
-	/* note we're skipping the subject/issuer check...OK? */
 	for(i=0; i<cred->NumberOfAnchorCerts; i++) {
 		try {
 			certInfo = new TPCertInfo(&cred->AnchorCerts[i],
-				clHand);
+				clHand,
+				cssmTimeStr);
 		}
 		catch(...) {
 			/* bad anchor cert - ignore it */
+			continue;
+		}
+		if(!tpIsSameName(lastCert->issuerName(), certInfo->subjectName())) {
+			/* not this anchor */
+			delete certInfo;
 			continue;
 		}
 		crtn = tp_VerifyCert(clHand, 
@@ -546,7 +593,6 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 		switch(crtn) {
 			case CSSM_OK:
 				/*  The other normal fully successful return. */
-				outErr = CSSM_OK;
 				if(certInfo->isSelfSigned()) {
 					verifiedToRoot = CSSM_TRUE;	
 				}
@@ -556,21 +602,26 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 				 */
 				try {
 					tpCertGroup->appendCert(certInfo);
+					certInfo->isAnchor(true);
+					certInfo->index(i);
 				}
 				catch(...) {
 					/* shoot - must be memory error */
 					verifiedToRoot = CSSM_FALSE;
 					delete certInfo;
-					outErr = CSSMERR_TP_MEMORY_ERROR;
+					constructReturn = CSSMERR_TP_MEMORY_ERROR;
 				}
 				goto out;
 				
+			#if 	TP_CERT_CURRENT_CHECK_INLINE
 			case CSSMERR_TP_CERT_NOT_VALID_YET:
 			case CSSMERR_TP_CERT_EXPIRED:
 				/* special case - abort immediateley */
 				delete certInfo;
-				outErr = crtn;
+				constructReturn = crtn;
 				goto out;
+			#endif	/* TP_CERT_CURRENT_CHECK_INLINE */
+			
 			default:
 				/* continue to next anchor */
 				delete certInfo;
@@ -579,7 +630,7 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 	}	/* for each anchor */
 	
 	/* partial chain, no root, not verifiable by anchor */
-	outErr = CSSMERR_TP_NOT_TRUSTED;
+	constructReturn = CSSMERR_TP_NOT_TRUSTED;
 
 	/* common exit - error or success */
 out:
@@ -589,7 +640,11 @@ out:
 	 * SSL: CSSMERR_TP_NOT_TRUSTED and CSSMERR_TP_INVALID_ANCHOR_CERT
 	 * are both special cases which can result in full success. 
 	 */
-	if((policy == kTP_SSL) && (outErr == CSSMERR_TP_NOT_TRUSTED)) {
+	#if 	TP_ROOT_CERT_ENABLE
+	if((policy == kTP_SSL) && 
+	   (constructReturn == CSSMERR_TP_NOT_TRUSTED) &&
+	   (actionData != NULL) &&
+	   (actionData->ActionFlags & 0x80000000)) {// The secret "enable root cert check" flag
 		/* see if last cert can be verified by an embedded SSL root */
 		certInfo = tpCertGroup->lastCert();
 		CSSM_BOOL brtn = tp_verifyWithSslRoots(clHand, 
@@ -599,43 +654,65 @@ out:
 			/* SSL success with no incoming root */
 			/* note unknown incoming root (INVALID_ANCHOR_CERT) is handled
 			 * below, after tp_policyVerify */
-			outErr = CSSM_OK;
+			constructReturn = CSSM_OK;
 		}
 	}
-	if((outErr == CSSM_OK) ||							// full success so far 
-	   (outErr == CSSMERR_TP_INVALID_ANCHOR_CERT)) {	// OK, but root not an anchor
-		
-		CSSM_RETURN crtn = tp_policyVerify(policy,
+	#endif	/* TP_ROOT_CERT_ENABLE */
+	if(tpCertGroup->numCerts() != 0) {
+		/* policy check if we saw even one cert */
+		policyReturn = tp_policyVerify(policy,
 			*this,
 			clHand,
 			cspHand,
 			tpCertGroup,
-			verifiedToRoot);
-		if(crtn) {
-			/* don't override existing INVALID_ANCHOR_CERT on policy success */
-			outErr = crtn;
-		}
-		else if((outErr == CSSMERR_TP_INVALID_ANCHOR_CERT) && (policy == kTP_SSL)) {
+			verifiedToRoot,
+			actionData,
+			sslOpts,
+			cred->Policy.PolicyControl);		// not currently used
+		#if TP_ROOT_CERT_ENABLE
+		if((policyReturn == CSSM_OK) &&
+		   (constructReturn == CSSMERR_TP_INVALID_ANCHOR_CERT) && 
+		   (policy == kTP_SSL) &&
+		   (actionData != NULL) &&
+		   (actionData->ActionFlags & 0x80000000)) {
+			/* The secret "enable root cert check" flag... */
 			/* SSL - found a good anchor, move to full success */
-			outErr = CSSM_OK;
+			constructReturn = CSSM_OK;
 		}
+		#endif
 	}
 
 	/* return evidence - i.e., current chain - if asked to */
 	if(VerifyContextResult != NULL) {
-		/* The spec is utterly bogus. We're going to punt and use
-		 * CSSM_EVIDENCE_FORM_UNSPECIFIC to mean just a pointer to
-		 * a CSSM_CERTGROUP. How's that!?
+		/*
+		 * VerifyContextResult->Evidence[0] : CSSM_TP_APPLE_EVIDENCE_HEADER
+		 * VerifyContextResult->Evidence[1] : CSSM_CERTGROUP
+		 * VerifyContextResult->Evidence[2] : CSSM_TP_APPLE_EVIDENCE_INFO
 		 */
-		VerifyContextResult->NumberOfEvidences = 1;
+		VerifyContextResult->NumberOfEvidences = 3;
 		VerifyContextResult->Evidence = 
-			(CSSM_EVIDENCE_PTR)malloc(sizeof(CSSM_EVIDENCE));
-		VerifyContextResult->Evidence->EvidenceForm = CSSM_EVIDENCE_FORM_UNSPECIFIC;
-		VerifyContextResult->Evidence->Evidence = 
-			tpCertGroup->buildCssmCertGroup();
+			(CSSM_EVIDENCE_PTR)calloc(3, sizeof(CSSM_EVIDENCE));
+
+		CSSM_TP_APPLE_EVIDENCE_HEADER *hdr = 
+			(CSSM_TP_APPLE_EVIDENCE_HEADER *)malloc(sizeof(CSSM_TP_APPLE_EVIDENCE_HEADER));
+		hdr->Version = CSSM_TP_APPLE_EVIDENCE_VERSION;
+		CSSM_EVIDENCE_PTR ev = &VerifyContextResult->Evidence[0];
+		ev->EvidenceForm = CSSM_EVIDENCE_FORM_APPLE_HEADER;
+		ev->Evidence = hdr;
+		
+		ev = &VerifyContextResult->Evidence[1];
+		ev->EvidenceForm = CSSM_EVIDENCE_FORM_APPLE_CERTGROUP;
+		ev->Evidence = tpCertGroup->buildCssmCertGroup();
+		
+		ev = &VerifyContextResult->Evidence[2];
+		ev->EvidenceForm = CSSM_EVIDENCE_FORM_APPLE_CERT_INFO;
+		ev->Evidence = tpCertGroup->buildCssmEvidenceInfo();
+
 	}
-	
-	/* delete (internaluse only) TPCertGroup */
+	CSSM_RETURN outErr = tpCertGroup->getReturnCode(constructReturn,
+		allowExpired, policyReturn);
+		
+	/* delete (internal use only) TPCertGroup */
 	delete tpCertGroup;
 	if(outErr) {
 		CssmError::throwMe(outErr);

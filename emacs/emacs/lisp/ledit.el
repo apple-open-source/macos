@@ -3,7 +3,7 @@
 ;; Copyright (C) 1985 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
-;; Keyword: languages
+;; Keywords: languages
 
 ;; This file is part of GNU Emacs.
 
@@ -33,12 +33,14 @@
 
 (defvar ledit-mode-map nil)
 
-(defconst ledit-zap-file (concat "/tmp/" (user-login-name) ".l1")
+(defconst ledit-zap-file
+  (expand-file-name (concat (user-login-name) ".l1") temporary-file-directory)
   "File name for data sent to Lisp by Ledit.")
-(defconst ledit-read-file (concat "/tmp/" (user-login-name) ".l2")
+(defconst ledit-read-file
+  (expand-file-name (concat (user-login-name) ".l2") temporary-file-directory)
   "File name for data sent to Ledit by Lisp.")
-(defconst ledit-compile-file 
-  (concat "/tmp/" (user-login-name) ".l4")
+(defconst ledit-compile-file
+  (expand-file-name (concat (user-login-name) ".l4") temporary-file-directory)
   "File name for data sent to Lisp compiler by Ledit.")
 (defconst ledit-buffer "*LEDIT*"
   "Name of buffer in which Ledit accumulates data to send to Lisp.")
@@ -118,9 +120,9 @@
 
 (defun ledit-setup ()
   "Set up key bindings for the Lisp/Emacs interface."
-  (if (not ledit-mode-map)
-      (progn (setq ledit-mode-map (nconc (make-sparse-keymap) 
-					 shared-lisp-mode-map))))
+  (unless ledit-mode-map
+    (setq ledit-mode-map (make-sparse-keymap))
+    (set-keymap-parent ledit-mode-map lisp-mode-shared-map))
   (define-key ledit-mode-map "\e\^d" 'ledit-save-defun)
   (define-key ledit-mode-map "\e\^r" 'ledit-save-region)
   (define-key ledit-mode-map "\^xz" 'ledit-go-to-lisp)

@@ -35,199 +35,200 @@
 
 #ifdef _SCDYNAMICSTORE_H // use the new APIS
 
-static int getBoolSettingForKey(CFStringRef key)
+static int 
+getBoolSettingForKey(CFStringRef key)
 {
-        SCPreferencesRef   session;
-        CFTypeRef       value;
-        int 		retVal = -1;
+	SCPreferencesRef session;
+	CFTypeRef       value;
+	int             retVal = -1;
 
-        session = SCPreferencesCreate(NULL,
-                         	CFSTR("autodiskmount"),
-                         	CFSTR("autodiskmount.xml"));
-        if (!session) {
-                retVal = -1;
-        } else {
-                value = SCPreferencesGetValue(session, key);
+	session = SCPreferencesCreate(NULL,
+				      CFSTR("autodiskmount"),
+				      CFSTR("autodiskmount.xml"));
+	if (!session) {
+		retVal = -1;
+	} else {
+		value = SCPreferencesGetValue(session, key);
 
-                if (!value) {
-                        retVal = -1;
-                } else {
-                    // set the check box
-                    if (CFEqual(value, kCFBooleanTrue)) {
-                            retVal = 1;
-                    } else {
-                            retVal = 0;
-                    }
-                }
+		if (!value) {
+			retVal = -1;
+		} else {
+			//set the check box
+				if (CFEqual(value, kCFBooleanTrue)) {
+				retVal = 1;
+			} else {
+				retVal = 0;
+			}
+		}
 
-                CFRelease(session);
-        }
+		CFRelease(session);
+	}
 
-        return retVal;
+	return retVal;
 }
 
-#else // old API's  (Pre Puma)
+#else	/* // old API's  (Pre Puma) */
 
-static int getBoolSettingForKey(CFStringRef key)
+static int 
+getBoolSettingForKey(CFStringRef key)
 {
-        SCPSessionRef   session;
-        SCPStatus       status;
-        CFTypeRef       value;
-        int 		retVal = -1;
+	SCPSessionRef   session;
+	SCPStatus       status;
+	CFTypeRef       value;
+	int             retVal = -1;
 
-        status = SCPOpen(&session,
-                                CFSTR("autodiskmount"),
-                                CFSTR("autodiskmount.xml"),
-                                0);
-        if (status != SCP_OK) {
-                retVal = -1;
-        } else {
-                status = SCPGet(session, key, &value);
+	status = SCPOpen(&session,
+			 CFSTR("autodiskmount"),
+			 CFSTR("autodiskmount.xml"),
+			 0);
+	if (status != SCP_OK) {
+		retVal = -1;
+	} else {
+		status = SCPGet(session, key, &value);
 
-                if (status == SCP_NOKEY) {
-                        retVal = -1;
-                } else {
-                    // set the check box
-                    if (CFEqual(value, kCFBooleanTrue)) {
-                            retVal = 1;
-                    } else {
-                            retVal = 0;
-                    }
-                }
+		if (status == SCP_NOKEY) {
+			retVal = -1;
+		} else {
+			//set the check box
+				if (CFEqual(value, kCFBooleanTrue)) {
+				retVal = 1;
+			} else {
+				retVal = 0;
+			}
+		}
 
-                status = SCPClose(&session);
-        }
+		status = SCPClose(&session);
+	}
 
-        return retVal;
+	return retVal;
 }
 
 
 #endif
 
-int mountWithoutConsoleUser(void)
+int 
+mountWithoutConsoleUser(void)
 {
-        int setting = getBoolSettingForKey(CFSTR("AutomountDisksWithoutUserLogin"));
+	int             setting = getBoolSettingForKey(CFSTR("AutomountDisksWithoutUserLogin"));
 
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
-
-        return FALSE;
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return FALSE;
 }
 
-int canMountRemovableDisks(void)
+int 
+canMountRemovableDisks(void)
 {
-        int setting = getBoolSettingForKey(CFSTR("AutomountDisks"));
+	int             setting = getBoolSettingForKey(CFSTR("AutomountDisks"));
 
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
-
-        return FALSE;
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return FALSE;
 }
 
-int consoleDevicesAreOwnedByMountingUser(void)
+int 
+consoleDevicesAreOwnedByMountingUser(void)
 {
-        int setting = getBoolSettingForKey(CFSTR("ModifyDevEntriesForRemovable"));
+	int             setting = getBoolSettingForKey(CFSTR("ModifyDevEntriesForRemovable"));
 
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
-
-        return TRUE;
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return TRUE;
 }
 
-int shouldFsckReadOnlyMedia(void)
+int 
+shouldFsckReadOnlyMedia(void)
 {
-        int setting = getBoolSettingForKey(CFSTR("ShouldFsckReadOnlyMedia"));
+	int             setting = getBoolSettingForKey(CFSTR("ShouldFsckReadOnlyMedia"));
 
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
-
-        return FALSE;
-
-}
-
-int strictRemovableMediaSettings(void)
-{
-        int setting = getBoolSettingForKey(CFSTR("StrictRemovableMediaPermissions"));
-
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
-
-        return FALSE;
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return FALSE;
 
 }
 
-int attemptMountRemovableMediaSuid(void)
+int 
+strictRemovableMediaSettings(void)
 {
-        int setting = getBoolSettingForKey(CFSTR("AttemptToMountRemovableMediaSuid"));
+	int             setting = getBoolSettingForKey(CFSTR("StrictRemovableMediaPermissions"));
 
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
-
-        return FALSE;
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return FALSE;
 
 }
 
-int attemptMountFixedMediaSuid(void)
+int 
+attemptMountRemovableMediaSuid(void)
 {
-        int setting = getBoolSettingForKey(CFSTR("AttemptToMountFixedMediaSuid"));
+	int             setting = getBoolSettingForKey(CFSTR("AttemptToMountRemovableMediaSuid"));
 
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
-
-        return FALSE;
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return FALSE;
 
 }
 
-int attemptMountRemovableMediaDev(void)
+int 
+attemptMountFixedMediaSuid(void)
 {
-        int setting = getBoolSettingForKey(CFSTR("AttemptToMountRemovableMediaDev"));
+	int             setting = getBoolSettingForKey(CFSTR("AttemptToMountFixedMediaSuid"));
 
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
-
-        return FALSE;
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return FALSE;
 
 }
 
-int attemptMountFixedMediaDev(void)
+int 
+attemptMountRemovableMediaDev(void)
 {
-        int setting = getBoolSettingForKey(CFSTR("AttemptToMountFixedMediaDev"));
+	int             setting = getBoolSettingForKey(CFSTR("AttemptToMountRemovableMediaDev"));
 
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
-
-        return FALSE;
-
-}
-int attemptMountRemovableMediaExe(void)
-{
-        int setting = getBoolSettingForKey(CFSTR("AttemptToMountRemovableMediaExe"));
-
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
-
-        return TRUE;
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return FALSE;
 
 }
 
-int attemptMountFixedMediaExe(void)
+int 
+attemptMountFixedMediaDev(void)
 {
-        int setting = getBoolSettingForKey(CFSTR("AttemptToMountFixedMediaExe"));
+	int             setting = getBoolSettingForKey(CFSTR("AttemptToMountFixedMediaDev"));
 
-        if (setting == 1 || setting == 0) {
-                return setting;
-        }
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return FALSE;
 
-        return TRUE;
+}
+int 
+attemptMountRemovableMediaExe(void)
+{
+	int             setting = getBoolSettingForKey(CFSTR("AttemptToMountRemovableMediaExe"));
 
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return TRUE;
+
+}
+
+int 
+attemptMountFixedMediaExe(void)
+{
+	int             setting = getBoolSettingForKey(CFSTR("AttemptToMountFixedMediaExe"));
+
+	if (setting == 1 || setting == 0) {
+		return setting;
+	}
+	return TRUE;
 }

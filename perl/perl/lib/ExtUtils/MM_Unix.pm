@@ -8,8 +8,8 @@ use strict;
 use vars qw($VERSION $Is_Mac $Is_OS2 $Is_VMS $Is_Win32 $Is_Dos $Is_PERL_OBJECT
 	    $Verbose %pm %static $Xsubpp_Version);
 
-$VERSION = substr q$Revision: 1.1.1.5 $, 10;
-# $Id: MM_Unix.pm,v 1.1.1.5 2000/03/31 05:11:53 wsanchez Exp $
+$VERSION = substr q$Revision: 1.2 $, 10;
+# $Id: MM_Unix.pm,v 1.2 2002/03/14 08:58:21 zarzycki Exp $
 
 Exporter::import('ExtUtils::MakeMaker', qw($Verbose &neatvalue));
 

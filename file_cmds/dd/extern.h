@@ -1,5 +1,3 @@
-/*	$NetBSD: extern.h,v 1.8 1997/07/20 21:58:40 christos Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -37,31 +35,32 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.3 (Berkeley) 4/2/94
+ * $FreeBSD: src/bin/dd/extern.h,v 1.12 2002/02/02 06:24:12 imp Exp $
  */
 
 #include <sys/cdefs.h>
 
-void block __P((void));
-void block_close __P((void));
-void dd_out __P((int));
-void def __P((void));
-void def_close __P((void));
-void jcl __P((char **));
-void pos_in __P((void));
-void pos_out __P((void));
-void summary __P((void));
-void summaryx __P((int));
-void terminate __P((int));
-void unblock __P((void));
-void unblock_close __P((void));
+void block(void);
+void block_close(void);
+void dd_out(int);
+void def(void);
+void def_close(void);
+void jcl(char **);
+void pos_in(void);
+void pos_out(void);
+void summary(void);
+void summaryx(int);
+void terminate(int);
+void unblock(void);
+void unblock_close(void);
 
 extern IO in, out;
 extern STAT st;
-extern void (*cfunc) __P((void));
-extern u_long cpy_cnt;
-extern u_int cbsz;
+extern void (*cfunc)(void);
+extern quad_t cpy_cnt;
+extern size_t cbsz;
 extern u_int ddflags;
-extern u_int files_cnt;
+extern quad_t files_cnt;
 extern const u_char *ctab;
 extern const u_char a2e_32V[], a2e_POSIX[];
 extern const u_char e2a_32V[], e2a_POSIX[];

@@ -49,6 +49,7 @@
 #if		DEBUG_ENABLE || ERROR_LOG_ENABLE
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #if		!LOG_VIA_PRINTF
 

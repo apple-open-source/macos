@@ -230,6 +230,7 @@ public:
 	bool isActive() const				{ return mActive; }
 	void lock()							{ if(!mActive) { (me.*_lock)(); mActive = true; }}
 	void unlock()						{ if(mActive) { (me.*_unlock)(); mActive = false; }}
+	void release()						{ assert(mActive); mActive = false; }
 
 	operator const Lock &() const		{ return me; }
 	
@@ -303,16 +304,10 @@ public:
 class Thread {
     NOCOPY(Thread)
 public:
-    Thread() { }				// constructor
-    virtual ~Thread();	 		// virtual destructor
-    void run();					// begin running the thread
-    
-public:
-	static void yield();		// unstructured short-term processor yield
-    
-public:
     class Identity {
         friend class Thread;
+        
+        Identity(pthread_t id) : mIdent(id) { }
     public:
         Identity() { }
         
@@ -331,10 +326,16 @@ public:
     
     private:
         pthread_t mIdent;
-        
-        Identity(pthread_t id) : mIdent(id) { }
     };
 
+public:
+    Thread() { }				// constructor
+    virtual ~Thread();	 		// virtual destructor
+    void run();					// begin running the thread
+    
+public:
+	static void yield();		// unstructured short-term processor yield
+    
 protected:
     virtual void action() = 0; 	// the action to be performed
 
@@ -369,6 +370,9 @@ public:
     private:
         Identity() { }
     };
+	
+public:
+	void yield() { assert(false); }
 
 protected:
     virtual void action() = 0;	// implement action of thread

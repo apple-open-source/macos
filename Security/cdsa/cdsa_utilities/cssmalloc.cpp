@@ -24,6 +24,7 @@
 #include <Security/cssmalloc.h>
 #include <Security/memutils.h>
 #include <Security/globalizer.h>
+#include <Security/trackingallocator.h>
 #include <stdlib.h>
 #include <errno.h>
 
@@ -31,11 +32,13 @@ using LowLevelMemoryUtilities::alignof;
 using LowLevelMemoryUtilities::increment;
 using LowLevelMemoryUtilities::alignUp;
 
+extern "C" size_t malloc_size(void *);
+
 
 //
 // Features of the CssmAllocator root class
 //
-bool CssmAllocator::operator == (const CssmAllocator &alloc) const
+bool CssmAllocator::operator == (const CssmAllocator &alloc) const throw()
 {
 	return this == &alloc;
 }
@@ -52,36 +55,67 @@ CssmAllocator::~CssmAllocator()
 // pool). This is trivially achieved here by using singletons.
 //
 struct DefaultCssmAllocator : public CssmAllocator {
-	void *malloc(size_t size);
-	void free(void *addr);
-	void *realloc(void *addr, size_t size);
+	void *malloc(size_t size) throw(std::bad_alloc);
+	void free(void *addr) throw();
+	void *realloc(void *addr, size_t size) throw(std::bad_alloc);
 };
 
-static ModuleNexus<DefaultCssmAllocator> defaultAllocator;
+struct SensitiveCssmAllocator : public DefaultCssmAllocator {
+    void free(void *addr) throw();
+    void *realloc(void *addr, size_t size) throw(std::bad_alloc);
+};
+
+struct DefaultAllocators {
+    DefaultCssmAllocator standard;
+    SensitiveCssmAllocator sensitive;
+};
+
+static ModuleNexus<DefaultAllocators> defaultAllocators;
 
 
-CssmAllocator &CssmAllocator::standard(uint32)
+CssmAllocator &CssmAllocator::standard(uint32 request)
 {
-	return defaultAllocator();
+    switch (request) {
+    case normal:
+        return defaultAllocators().standard;
+    case sensitive:
+        return defaultAllocators().sensitive;
+    default:
+        CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR);
+    }
 }
 
-void *DefaultCssmAllocator::malloc(size_t size)
+void *DefaultCssmAllocator::malloc(size_t size) throw(std::bad_alloc)
 {
 	if (void *result = ::malloc(size))
 		return result;
 	throw std::bad_alloc();
 }
 
-void DefaultCssmAllocator::free(void *addr)
+void DefaultCssmAllocator::free(void *addr) throw()
 {
 	::free(addr);
 }
 
-void *DefaultCssmAllocator::realloc(void *addr, size_t newSize)
+void *DefaultCssmAllocator::realloc(void *addr, size_t newSize) throw(std::bad_alloc)
 {
 	if (void *result = ::realloc(addr, newSize))
 		return result;
 	throw std::bad_alloc();
+}
+
+void SensitiveCssmAllocator::free(void *addr) throw()
+{
+    memset(addr, 0, malloc_size(addr));
+    DefaultCssmAllocator::free(addr);
+}
+
+void *SensitiveCssmAllocator::realloc(void *addr, size_t newSize) throw(std::bad_alloc)
+{
+    size_t oldSize = malloc_size(addr);
+    if (newSize < oldSize)
+        memset(increment(addr, newSize), 0, oldSize - newSize);
+    return DefaultCssmAllocator::realloc(addr, newSize);
 }
 
 TrackingAllocator::~TrackingAllocator()
@@ -94,13 +128,13 @@ TrackingAllocator::~TrackingAllocator()
 //
 // CssmMemoryFunctionsAllocators
 //
-void *CssmMemoryFunctionsAllocator::malloc(size_t size)
+void *CssmMemoryFunctionsAllocator::malloc(size_t size) throw(std::bad_alloc)
 { return functions.malloc(size); }
 
-void CssmMemoryFunctionsAllocator::free(void *addr)
+void CssmMemoryFunctionsAllocator::free(void *addr) throw()
 { return functions.free(addr); }
 
-void *CssmMemoryFunctionsAllocator::realloc(void *addr, size_t size)
+void *CssmMemoryFunctionsAllocator::realloc(void *addr, size_t size) throw(std::bad_alloc)
 { return functions.realloc(addr, size); }
 
 
@@ -116,16 +150,16 @@ CssmAllocatorMemoryFunctions::CssmAllocatorMemoryFunctions(CssmAllocator &alloc)
 	calloc_func = relayCalloc;
 }
 
-void *CssmAllocatorMemoryFunctions::relayMalloc(size_t size, void *ref)
+void *CssmAllocatorMemoryFunctions::relayMalloc(size_t size, void *ref) throw(std::bad_alloc)
 { return allocator(ref).malloc(size); }
 
-void CssmAllocatorMemoryFunctions::relayFree(void *mem, void *ref)
+void CssmAllocatorMemoryFunctions::relayFree(void *mem, void *ref) throw()
 { allocator(ref).free(mem); }
 
-void *CssmAllocatorMemoryFunctions::relayRealloc(void *mem, size_t size, void *ref)
+void *CssmAllocatorMemoryFunctions::relayRealloc(void *mem, size_t size, void *ref) throw(std::bad_alloc)
 { return allocator(ref).realloc(mem, size); }
 
-void *CssmAllocatorMemoryFunctions::relayCalloc(uint32 count, size_t size, void *ref)
+void *CssmAllocatorMemoryFunctions::relayCalloc(uint32 count, size_t size, void *ref) throw(std::bad_alloc)
 {
 	// CssmAllocator doesn't have a calloc() method
 	void *mem = allocator(ref).malloc(size * count);
@@ -141,7 +175,7 @@ void *CssmAllocatorMemoryFunctions::relayCalloc(uint32 count, size_t size, void 
 // functions to safely free our (hidden) pointer without knowing about it.
 // An allocator argument of NULL is interpreted as the standard allocator.
 //
-void *CssmHeap::operator new (size_t size, CssmAllocator *alloc)
+void *CssmHeap::operator new (size_t size, CssmAllocator *alloc) throw(std::bad_alloc)
 {
 	if (alloc == NULL)
 		alloc = &CssmAllocator::standard();
@@ -152,13 +186,18 @@ void *CssmHeap::operator new (size_t size, CssmAllocator *alloc)
 	return addr;
 }
 
-void CssmHeap::operator delete (void *addr, size_t size, CssmAllocator *alloc)
+void CssmHeap::operator delete (void *addr, size_t size, CssmAllocator *alloc) throw()
 {
 	alloc->free(addr);	// as per C++ std, called (only) if construction fails
 }
 
-void CssmHeap::operator delete (void *addr, size_t size)
+void CssmHeap::operator delete (void *addr, size_t size) throw()
 {
 	void *end = increment(addr, alignUp(size, alignof<CssmAllocator *>()));
 	(*(CssmAllocator **)end)->free(addr);
 }
+
+
+//
+// CssmVector
+//

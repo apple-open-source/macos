@@ -16,7 +16,7 @@ command (usually), a part of a command (in the case of
 @code{query-replace}), or several consecutive self-inserting characters.
 Consecutive repetitions of @kbd{C-_} or @kbd{C-x u} undo earlier and
 earlier changes, back to the limit of the undo information available.
-@xref{Undo}, for for more information.
+@xref{Undo}, for more information.
 
 @menu
 * Kill Errors:: Commands to kill a batch of recently entered text.
@@ -81,34 +81,36 @@ given at the end of a line, rather than transposing the last character of
 the line with the newline, which would be useless, @kbd{C-t} transposes the
 last two characters on the line.  So, if you catch your transposition error
 right away, you can fix it with just a @kbd{C-t}.  If you don't catch it so
-fast, you must move the cursor back to between the two transposed
-characters.  If you transposed a space with the last character of the word
-before it, the word motion commands are a good way of getting there.
-Otherwise, a reverse search (@kbd{C-r}) is often the best way.
-@xref{Search}.
-
+fast, you must move the cursor back between the two transposed
+characters before you type @kbd{C-t}.  If you transposed a space with
+the last character of the word before it, the word motion commands are
+a good way of getting there.  Otherwise, a reverse search (@kbd{C-r})
+is often the best way.  @xref{Search}.
 
 @kindex C-x C-t
 @findex transpose-lines
 @kindex M-t
 @findex transpose-words
-@kindex C-M-t
-@findex transpose-sexps
-  @kbd{M-t} (@code{transpose-words}) transposes the word before point
-with the word after point.  It moves point forward over a word, dragging
-the word preceding or containing point forward as well.  The punctuation
-characters between the words do not move.  For example, @w{@samp{FOO, BAR}}
-transposes into @w{@samp{BAR, FOO}} rather than @samp{@w{BAR FOO,}}.
+@c Don't index C-M-t and transpose-sexps here, they are indexed in
+@c programs.texi, in the "List Commands" node.
+@c @kindex C-M-t
+@c @findex transpose-sexps
+  @kbd{M-t} transposes the word before point with the word after point
+(@code{transpose-words}).  It moves point forward over a word,
+dragging the word preceding or containing point forward as well.  The
+punctuation characters between the words do not move.  For example,
+@w{@samp{FOO, BAR}} transposes into @w{@samp{BAR, FOO}} rather than
+@samp{@w{BAR FOO,}}.
 
-  @kbd{C-M-t} (@code{transpose-sexps}) is a similar command for transposing
-two expressions (@pxref{Lists}), and @kbd{C-x C-t} (@code{transpose-lines})
-exchanges lines.  They work like @kbd{M-t} except in determining the
-division of the text into syntactic units.
+  @kbd{C-M-t} (@code{transpose-sexps}) is a similar command for
+transposing two expressions (@pxref{Expressions}), and @kbd{C-x C-t}
+(@code{transpose-lines}) exchanges lines.  They work like @kbd{M-t}
+except as regards what units of text they transpose.
 
   A numeric argument to a transpose command serves as a repeat count: it
-tells the transpose command to move the character (word, sexp, line)
+tells the transpose command to move the character (word, expression, line)
 before or containing point across several other characters (words,
-sexps, lines).  For example, @kbd{C-u 3 C-t} moves the character before
+expressions, lines).  For example, @kbd{C-u 3 C-t} moves the character before
 point forward across three other characters.  It would change
 @samp{f@point{}oobar} into @samp{oobf@point{}ar}.  This is equivalent to
 repeating @kbd{C-t} three times.  @kbd{C-u - 4 M-t} moves the word
@@ -117,8 +119,8 @@ the effect of plain @kbd{C-M-t}.@refill
 
   A numeric argument of zero is assigned a special meaning (because
 otherwise a command with a repeat count of zero would do nothing): to
-transpose the character (word, sexp, line) ending after point with the
-one ending after the mark.
+transpose the character (word, expression, line) ending after point
+with the one ending after the mark.
 
 @node Fixing Case
 @section Case Conversion
@@ -162,6 +164,8 @@ Check and correct spelling of the word at point (@code{ispell-word}).
 @item M-@key{TAB}
 Complete the word before point based on the spelling dictionary
 (@code{ispell-complete-word}).
+@item M-x ispell
+Spell-check the active region or the current buffer.
 @item M-x ispell-buffer
 Check and correct spelling of each word in the buffer.
 @item M-x ispell-region
@@ -206,13 +210,20 @@ you various alternatives for what to do about it.
   To check the entire current buffer, use @kbd{M-x ispell-buffer}.  Use
 @kbd{M-x ispell-region} to check just the current region.  To check
 spelling in an email message you are writing, use @kbd{M-x
-ispell-message}; that checks the whole buffer, but does not check
+ispell-message}; that command checks the whole buffer, except for
 material that is indented or appears to be cited from other messages.
+
+@findex ispell
+@cindex spell-checking the active region
+  The @kbd{M-x ispell} command spell-checks the active region if the
+Transient Mark mode is on (@pxref{Transient Mark}), otherwise it
+spell-checks the current buffer.
 
   Each time these commands encounter an incorrect word, they ask you
 what to do.  They display a list of alternatives, usually including
 several ``near-misses''---words that are close to the word being
-checked.  Then you must type a character.  Here are the valid responses:
+checked.  Then you must type a single-character response.  Here are
+the valid responses:
 
 @table @kbd
 @item @key{SPC}
@@ -241,10 +252,10 @@ editing session and for this buffer.
 
 @item i
 Insert this word in your private dictionary file so that Ispell will
-consider it correct it from now on, even in future sessions.
+consider it correct from now on, even in future sessions.
 
 @item u
-Insert the lower-case version of this word in your private dictionary
+Insert the lower-case version of this word in your private dic@-tion@-ary
 file.
 
 @item m
@@ -253,8 +264,8 @@ information.
 
 @item l @var{word} @key{RET}
 Look in the dictionary for words that match @var{word}.  These words
-become the new list of ``near-misses''; you can select one of them to
-replace with by typing a digit.  You can use @samp{*} in @var{word} as a
+become the new list of ``near-misses''; you can select one of them as
+the replacement by typing a digit.  You can use @samp{*} in @var{word} as a
 wildcard.
 
 @item C-g

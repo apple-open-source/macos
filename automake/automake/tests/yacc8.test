@@ -1,0 +1,70 @@
+#! /bin/sh
+
+# Test for subdir parsers.
+
+required="gcc bison"
+
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_CONFIG_AUX_DIR([.])
+AC_PROG_CC
+AM_PROG_CC_C_O
+AC_PROG_YACC
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = subdir-objects
+bin_PROGRAMS = foo/foo
+foo_foo_SOURCES = foo/parse.y
+END
+
+mkdir foo
+
+cat > foo/parse.y << 'END'
+%{
+int yylex () {return 0;}
+void yyerror (char *s) {}
+%}
+%%
+foobar : 'f' 'o' 'o' 'b' 'a' 'r' {};
+END
+
+# We are not checking Autoconf, so we pick $YACC for it.
+YACC="bison -y"
+export YACC
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+mkdir sub
+cd sub
+
+../configure
+$MAKE foo/parse.o
+test -f foo/parse.c
+test -f foo/parse.o
+
+# Now, adds another parser to test ylwrap.
+
+cd ..
+cp foo/parse.y foo/parse2.y
+cat >> Makefile.am << 'END'
+EXTRA_foo_foo_SOURCES = foo/parse2.y
+END
+
+$AUTOMAKE -a
+test -f ./ylwrap || exit 1
+
+cd sub
+# Regenerate Makefile (automatic in GNU Make, but not in other Makes)
+./config.status
+$MAKE foo/parse2.o
+test -f foo/parse2.c
+test -f foo/parse2.o
+
+exit 0

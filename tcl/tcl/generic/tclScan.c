@@ -8,7 +8,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclScan.c,v 1.1.1.2 2000/04/12 02:01:35 wsanchez Exp $
+ * RCS: @(#) $Id: tclScan.c,v 1.1.1.3 2002/04/05 16:13:26 jevans Exp $
  */
 
 #include "tclInt.h"
@@ -539,7 +539,8 @@ Tcl_ScanObjCmd(dummy, interp, objc, objv)
 {
     char *format;
     int numVars, nconversions, totalVars = -1;
-    int objIndex, offset, i, value, result, code;
+    int objIndex, offset, i, result, code;
+    long value;
     char *string, *end, *baseString;
     char op = 0;
     int base = 0;
@@ -644,7 +645,7 @@ Tcl_ScanObjCmd(dummy, interp, objc, objv)
 	    if (*end == '$') {
 		format = end+1;
 		format += Tcl_UtfToUniChar(format, &ch);
-		objIndex = value - 1;
+		objIndex = (int) value - 1;
 	    }
 	}
 
@@ -694,12 +695,12 @@ Tcl_ScanObjCmd(dummy, interp, objc, objv)
 	    case 'o':
 		op = 'i';
 		base = 8;
-		fn = (long (*)())strtol;
+		fn = (long (*)())strtoul;
 		break;
 	    case 'x':
 		op = 'i';
 		base = 16;
-		fn = (long (*)())strtol;
+		fn = (long (*)())strtoul;
 		break;
 	    case 'u':
 		op = 'i';
@@ -954,12 +955,16 @@ Tcl_ScanObjCmd(dummy, interp, objc, objv)
 
 		if (!(flags & SCAN_SUPPRESS)) {
 		    *end = '\0';
-		    value = (int) (*fn)(buf, NULL, base);
+		    value = (long) (*fn)(buf, NULL, base);
 		    if ((flags & SCAN_UNSIGNED) && (value < 0)) {
-			sprintf(buf, "%u", value); /* INTL: ISO digit */
+			sprintf(buf, "%lu", value); /* INTL: ISO digit */
 			objPtr = Tcl_NewStringObj(buf, -1);
 		    } else {
-			objPtr = Tcl_NewIntObj(value);
+			if ((unsigned long) value > UINT_MAX) {
+			    objPtr = Tcl_NewLongObj(value);
+			} else {
+			    objPtr = Tcl_NewIntObj(value);
+			}
 		    }
 		    Tcl_IncrRefCount(objPtr);
 		    objs[objIndex++] = objPtr;

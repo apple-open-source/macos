@@ -1,5 +1,5 @@
 /* sendmail-like interface to /bin/mail for system V,
-   Copyright (C) 1985, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1994, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -46,13 +46,6 @@ main ()
 
 #ifdef static
 #undef static
-#endif
-
-#ifdef read
-#undef read
-#undef write
-#undef open
-#undef close
 #endif
 
 #ifdef WINDOWSNT
@@ -231,7 +224,7 @@ readline (linebuffer, stream)
       if (p == end)
 	{
 	  linebuffer->size *= 2;
-	  buffer = ((char *) xrealloc (buffer, linebuffer->size));
+	  buffer = ((char *) xrealloc ((long *)buffer, linebuffer->size));
 	  p = buffer + (p - linebuffer->buffer);
 	  end = buffer + linebuffer->size;
 	  linebuffer->buffer = buffer;
@@ -260,18 +253,18 @@ get_keyword (field, rest)
 {
   static char keyword[KEYWORD_SIZE];
   register char *ptr;
-  register char c;
+  register int c;
 
   ptr = &keyword[0];
-  c = *field++;
+  c = (unsigned char) *field++;
   if (isspace (c) || c == ':')
     return ((char *) NULL);
   *ptr++ = (islower (c) ? toupper (c) : c);
-  while (((c = *field++) != ':') && ! isspace (c))
+  while (((c = (unsigned char) *field++) != ':') && ! isspace (c))
     *ptr++ = (islower (c) ? toupper (c) : c);
   *ptr++ = '\0';
   while (isspace (c))
-    c = *field++;
+    c = (unsigned char) *field++;
   if (c != ':')
     return ((char *) NULL);
   *rest = field;

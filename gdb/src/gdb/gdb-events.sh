@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # User Interface Events.
-# Copyright 1999-2000 Free Software Foundation, Inc.
+# Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 #
 # Contributed by Cygnus Solutions.
 #
@@ -61,6 +61,10 @@ function_list ()
 f:void:breakpoint_create:int b:b
 f:void:breakpoint_delete:int b:b
 f:void:breakpoint_modify:int b:b
+f:void:tracepoint_create:int number:number
+f:void:tracepoint_delete:int number:number
+f:void:tracepoint_modify:int number:number
+f:void:architecture_changed:void
 #*:void:annotate_starting_hook:void
 #*:void:annotate_stopped_hook:void
 #*:void:annotate_signalled_hook:void
@@ -109,7 +113,8 @@ copyright ()
 {
   cat <<EOF
 /* User Interface Events.
-   Copyright 1999 Free Software Foundation, Inc.
+
+   Copyright 1999, 2001, 2002 Free Software Foundation, Inc.
 
    Contributed by Cygnus Solutions.
 
@@ -274,12 +279,15 @@ echo ""
 echo "#endif"
 exec 1>&2
 #../move-if-change new-gdb-events.h gdb-events.h
-if ! test -r gdb-events.h
+if test -r gdb-events.h
 then
+  diff -c gdb-events.h new-gdb-events.h
+  if [ $? = 1 ]
+  then
+    echo "gdb-events.h changed? cp new-gdb-events.h gdb-events.h" 1>&2
+  fi
+else
   echo "File missing? mv new-gdb-events.h gdb-events.h" 1>&2
-elif ! diff -c gdb-events.h new-gdb-events.h
-then
-  echo "gdb-events.h changed? cp new-gdb-events.h gdb-events.h" 1>&2
 fi
 
 
@@ -295,9 +303,6 @@ cat <<EOF
 #include "defs.h"
 #include "gdb-events.h"
 #include "gdbcmd.h"
-
-#undef XMALLOC
-#define XMALLOC(TYPE) ((TYPE*) xmalloc (sizeof (TYPE)))
 
 #if WITH_GDB_EVENTS
 static struct gdb_events null_event_hooks;
@@ -327,30 +332,34 @@ do
   case "${class}" in
     "*" ) continue ;;
     "?" )
-	echo ""
-	echo "int"
-	echo "${function}_event_p (${formal})"
-	echo "{"
-	echo "  return current_event_hooks->${function};"
-	echo "}"
-	echo ""
-	echo "${returntype}"
-	echo "${function}_event (${formal})"
-	echo "{"
-	echo "  return current_events->${function} (${actual});"
-	echo "}"
+cat <<EOF
+
+int
+${function}_event_p (${formal})
+{
+  return current_event_hooks->${function};
+}
+
+${returntype}
+${function}_event (${formal})
+{
+  return current_events->${function} (${actual});
+}
+EOF
 	;;
      "f" )
-	echo ""
-	echo "void"
-	echo "${function}_event (${formal})"
-	echo "{"
-	echo "  if (gdb_events_debug)"
-	echo "    fprintf_unfiltered (gdb_stdlog, \"${function}_event\\n\");"
-	echo "  if (!current_event_hooks->${function})"
-	echo "    return;"
-	echo "  current_event_hooks->${function} (${actual});"
-	echo "}"
+cat <<EOF
+
+void
+${function}_event (${formal})
+{
+  if (gdb_events_debug)
+    fprintf_unfiltered (gdb_stdlog, "${function}_event\n");
+  if (!current_event_hooks->${function})
+    return;
+  current_event_hooks->${function} (${actual});
+}
+EOF
 	;;
   esac
 done
@@ -409,11 +418,14 @@ function_list | while eval read $read
 do
   case "${class}" in
     "f" )
-      echo "struct ${function}"
-      echo "  {"
-      echo "    `echo ${formal} | tr '[,]' '[;]'`;"
-      echo "  };"
-      echo ""
+      if test ${actual}
+      then
+        echo "struct ${function}"
+        echo "  {"
+        echo "    `echo ${formal} | tr '[,]' '[;]'`;"
+        echo "  };"
+        echo ""
+      fi
       ;;
   esac
 done
@@ -431,7 +443,10 @@ function_list | while eval read $read
 do
   case "${class}" in
     "f" )
-      echo "        struct ${function} ${function};"
+      if test ${actual}
+      then
+        echo "        struct ${function} ${function};"
+      fi
       ;;
   esac
 done
@@ -468,7 +483,7 @@ do
       echo "{"
       echo "  struct event *event = XMALLOC (struct event);"
       echo "  event->type = ${function};"
-      for arg in `echo ${actual} | tr '[,]' '[ ]'`; do
+      for arg in `echo ${actual} | tr '[,]' '[:]' | tr -d '[ ]'`; do
         echo "  event->data.${function}.${arg} = ${arg};"
       done
       echo "  append (event);"
@@ -488,7 +503,7 @@ gdb_events_deliver (struct gdb_events *vector)
     {
       struct event *event = delivering_events;
       delivering_events = event->next;
-      free (event);
+      xfree (event);
     }
   /* Process any pending events.  Because one of the deliveries could
      bail out we move everything off of the pending queue onto an
@@ -507,15 +522,20 @@ do
   case "${class}" in
     "f" )
       echo "        case ${function}:"
-      echo "          vector->${function}"
-      sep="            ("
-      ass=""
-      for arg in `echo ${actual} | tr '[,]' '[ ]'`; do
-        ass="${ass}${sep}event->data.${function}.${arg}"
-	sep=",
-             "
-      done
-      echo "${ass});"
+      if test ${actual}
+      then
+        echo "          vector->${function}"
+        sep="            ("
+        ass=""
+        for arg in `echo ${actual} | tr '[,]' '[:]' | tr -d '[ ]'`; do
+          ass="${ass}${sep}event->data.${function}.${arg}"
+	  sep=",
+               "
+        done
+        echo "${ass});"
+      else
+        echo "          vector->${function} ();"
+      fi
       echo "          break;"
       ;;
   esac
@@ -523,7 +543,7 @@ done
 cat <<EOF
         }
       delivering_events = event->next;
-      free (event);
+      xfree (event);
     }
 }
 EOF
@@ -573,10 +593,13 @@ sed < new-gdb-events.c > tmp-gdb-events.c \
     -e 's/\(	\)*        /\1	/g'
 mv tmp-gdb-events.c new-gdb-events.c
 # Move if changed?
-if ! test -r gdb-events.c
+if test -r gdb-events.c
 then
+  diff -c gdb-events.c new-gdb-events.c
+  if [ $? = 1 ]
+  then
+    echo "gdb-events.c changed? cp new-gdb-events.c gdb-events.c" 1>&2
+  fi
+else
   echo "File missing? mv new-gdb-events.c gdb-events.c" 1>&2
-elif ! diff -c gdb-events.c new-gdb-events.c
-then
-  echo "gdb-events.c changed? cp new-gdb-events.c gdb-events.c" 1>&2
 fi

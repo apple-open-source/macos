@@ -1,8 +1,7 @@
 ##
 # Common setup for startup scripts.
 ##
-# Wilfredo Sanchez | wsanchez@opensource.apple.com
-# Copyright 1998-2001 Apple Computer, Inc.
+# Copyright 1998-2002 Apple Computer, Inc.
 ##
 
 #######################
@@ -20,8 +19,6 @@ set -u
 ##
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/libexec:/System/Library/CoreServices; export PATH
 
-ARCH=$(uname -p)
-
 ##
 # Set the terminal mode
 ##
@@ -34,16 +31,6 @@ ARCH=$(uname -p)
 ####################
 
 ##
-# Print a message to the console and display it in the startup screen
-##
-ConsoleMessage()
-{
-    local Message="$*"
-
-    echo "${Message}"
-}
-
-##
 # Determine if the network is up by looking for any non-loopback
 # internet network interfaces.
 ##
@@ -52,12 +39,79 @@ CheckForNetwork()
     local test
 
     if [ -z "${NETWORKUP:=}" ]; then
-	test=$(ifconfig -a | sed -e '/127.0.0.1/d' | sed -e '/0.0.0.0/d' | sed -n '/inet/p' | wc -l)
+	test=$(ifconfig -a inet 2>/dev/null | sed -n -e '/127.0.0.1/d' -e '/0.0.0.0/d' -e '/inet/p' | wc -l)
 	if [ "${test}" -gt 0 ]; then
 	    NETWORKUP="-YES-"
 	else
 	    NETWORKUP="-NO-"
 	fi
+    fi
+}
+
+##
+# Process management
+##
+GetPID ()
+{
+    local program="$1"
+    local pidfile="${PIDFILE:=/var/run/${program}.pid}"
+    local     pid=""
+
+    if [ -f "${pidfile}" ]; then
+	pid=$(head -1 "${pidfile}")
+	if ! kill -0 "${pid}" 2> /dev/null; then
+	    echo "Bad pid file $pidfile; deleting."
+	    pid=""
+	    rm -f "${pidfile}"
+	fi
+    fi
+
+    if [ -n "${pid}" ]; then
+	echo "${pid}"
+	return 0
+    else
+	return 1
+    fi
+}
+
+##
+# Generic action handler
+##
+RunService ()
+{
+    case $1 in 
+      start  ) StartService   ;;
+      stop   ) StopService    ;;
+      restart) RestartService ;;
+      *      ) echo "$0: unknown argument: $1";;
+    esac
+}
+
+
+##
+# purgedir - delete contents of directory, but leave directory structure alone
+##
+purgedir() {
+    local dir file
+
+    if [ $# -eq 0 ]; then
+        purgedir .
+    else
+        for dir
+        do
+        (
+            cd "$dir" && for file in .* *
+            do
+                [ ."$file" = .. -o ."$file" = ... ] && continue
+                if [ -d "$file" -a ! -L "$file" ]
+                then
+                    purgedir "$file"
+                else
+                    rm -f -- "$file"
+                fi
+            done
+        )
+        done
     fi
 }
 

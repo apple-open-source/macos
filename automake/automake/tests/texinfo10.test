@@ -1,0 +1,26 @@
+#! /bin/sh
+
+# Make sure dvi target recurses into subdir.
+# Reported by Pavel Roskin
+
+. $srcdir/defs || exit 1
+
+cat > Makefile.am << 'END'
+SUBDIRS = sub
+END
+
+mkdir sub
+cat > sub/Makefile.am << 'END'
+info_TEXINFOS = maude.texi
+END
+
+echo '@setfilename maude.info' > sub/maude.texi
+: > sub/texinfo.tex
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep dvi-recursive Makefile.in
+grep '[^-]info-recursive' Makefile.in
+grep '[^n]install-info-recursive' Makefile.in
+grep uninstall-info-recursive Makefile.in

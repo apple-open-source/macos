@@ -156,7 +156,7 @@ void IOAudioPort::stop(IOService *provider)
     super::stop(provider);
 }
 
-void IOAudioPort::registerService(IOOptionBits options = 0)
+void IOAudioPort::registerService(IOOptionBits options)
 {
     super::registerService(options);
 

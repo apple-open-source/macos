@@ -2,22 +2,25 @@
  * AFPUsers.c
  * - create/maintain AFP logins
  */
-#import <unistd.h>
-#import <stdlib.h>
-#import <stdio.h>
-#import <syslog.h>
-#import <mach/boolean.h>
-#import <sys/errno.h>
-#import <limits.h>
-#import <sys/types.h>
-#import <pwd.h>
-#import <grp.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <syslog.h>
+#include <mach/boolean.h>
+#include <sys/errno.h>
+#include <limits.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <grp.h>
 
-#import "netinfo.h"
-#import "NICache.h"
-#import "NICachePrivate.h"
-#import "AFPUsers.h"
-#import "NetBootServer.h"
+#include "netinfo.h"
+#include "NICache.h"
+#include "NICachePrivate.h"
+#include "AFPUsers.h"
+#include "NetBootServer.h"
+
+extern void
+my_log(int priority, const char *message, ...);
 
 
 #define	BSDPD_CREATOR		"bsdpd"
@@ -76,7 +79,7 @@ S_commit_mods(void * handle, PLCacheEntry_t * entry)
 	break;
     }
     if (status != NI_OK) {
-	syslog(LOG_ERR, "AFPUsers: ni_write failed (attempts %d), %s",
+	my_log(LOG_ERR, "AFPUsers: ni_write failed (attempts %d), %s",
 	       i + 1, ni_error(status));
 	return (FALSE);
     }
@@ -115,7 +118,7 @@ AFPUsers_init(AFPUsers_t * users, NIDomain_t * domain)
     status = ni_pathsearch(NIDomain_handle(domain), &users->dir,
 			   NIDIR_USERS);
     if (status != NI_OK) {
-	syslog(LOG_INFO, "bsdp: netinfo dir '%s', %s",
+	my_log(LOG_INFO, "bsdp: netinfo dir '%s', %s",
 	       NIDIR_USERS, ni_error(status));
 	goto failed;
     }
@@ -188,7 +191,7 @@ AFPUsers_create(AFPUsers_t * users, gid_t gid,
     status = ni_list(NIDomain_handle(users->domain), &users->dir,
 		     NIPROP_UID, &id_list);
     if (status != NI_OK) {
-	syslog(LOG_INFO, "bsdp: couldn't get list of user ids, %s",
+	my_log(LOG_INFO, "bsdp: couldn't get list of user ids, %s",
 	       ni_error(status));
 	goto failed;
     }
@@ -226,7 +229,7 @@ AFPUsers_create(AFPUsers_t * users, gid_t gid,
 	    }
 	}
 	if (status != NI_OK) {
-	    syslog(LOG_INFO, "AFPUsers_create: create %s failed, %s",
+	    my_log(LOG_INFO, "AFPUsers_create: create %s failed, %s",
 		   user, ni_error(status));
 	    goto failed;
 	}

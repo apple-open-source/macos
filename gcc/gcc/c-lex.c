@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "toplev.h"
 #include "intl.h"
+#include "genindex.h"
 
 /* MULTIBYTE_CHARS support only works for native compilers.
    ??? Ideally what we want is to model widechar support after
@@ -811,6 +812,12 @@ linenum:
 	      p->next = input_file_stack;
 	      p->name = input_filename;
 	      p->indent_level = indent_level;
+
+	      /* Find out if index is already generated or not.
+	         If generated than turn off index generation for this file.  */
+	      if (flag_gen_index_original)
+	        process_header_indexing (p->name, PB_INDEX_BEGIN);
+
 	      input_file_stack = p;
 	      input_file_stack_tick++;
 	      debug_start_source_file (input_filename);
@@ -831,9 +838,14 @@ linenum:
 			 indent_level > p->indent_level ? '}' : '{');
 		    }
 		  input_file_stack = p->next;
-		  free (p);
+
 		  input_file_stack_tick++;
 		  debug_end_source_file (input_file_stack->line);
+
+	          if (flag_gen_index_original)
+	            process_header_indexing (p->name, PB_INDEX_END);
+
+		  free (p);
 		}
 	      else
 		error ("#-lines for entering and leaving files don't match");

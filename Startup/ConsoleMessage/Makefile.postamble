@@ -1,0 +1,5 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+after_install:
+	mkdir -p $(DSTROOT)/usr/share/man/man8
+	install -c -m 0644 ConsoleMessage.8 $(DSTROOT)/usr/share/man/man8

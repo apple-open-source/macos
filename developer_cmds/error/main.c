@@ -63,9 +63,6 @@ char    **names_ignored;
 
 int	nerrors = 0;
 Eptr	er_head;
-#ifdef __APPLE__
-__private_extern__
-#endif
 Eptr	*errors;
 
 int	nfiles = 0;

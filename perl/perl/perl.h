@@ -442,7 +442,7 @@ register struct op *Perl_op asm(stringify(OP_IN_REGISTER));
 #ifdef USE_NEXT_CTYPE
 
 #if NX_CURRENT_COMPILER_RELEASE >= 500
-#  include <bsd/ctypes.h>
+#  include <ctypes.h>
 #else
 #  if NX_CURRENT_COMPILER_RELEASE >= 400
 #    include <objc/NXCType.h>

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		0560FF97008B94F111CA2AA4 = {
 			isa = PBXFileReference;
@@ -220,7 +220,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -232,6 +231,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
+				USE_GCC3 = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -252,7 +252,6 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
 			shellPath = /bin/sh;
@@ -309,7 +308,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.1.2;
+				MODULE_VERSION = 1.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -327,15 +326,15 @@
 			productName = IOStorageFamily;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>IOStorageFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1.2, Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>1.2, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -347,11 +346,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2</string>
+	<string>1.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOApplePartitionScheme</key>
@@ -390,6 +389,8 @@
 			<dict>
 				<key>Content Hint</key>
 				<string>CD_ROM_Mode_1</string>
+				<key>Writable</key>
+				<false/>
 			</dict>
 			<key>IOProviderClass</key>
 			<string>IOMedia</string>
@@ -410,6 +411,8 @@
 			<dict>
 				<key>Content Hint</key>
 				<string>CD_ROM_Mode_2_Form_1</string>
+				<key>Writable</key>
+				<false/>
 			</dict>
 			<key>IOProviderClass</key>
 			<string>IOMedia</string>
@@ -600,6 +603,8 @@
 			<dict>
 				<key>Content Hint</key>
 				<string>CD_ROM_Mode_1</string>
+				<key>Writable</key>
+				<false/>
 			</dict>
 			<key>IOProviderClass</key>
 			<string>IOMedia</string>
@@ -637,7 +642,7 @@
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
@@ -670,15 +675,16 @@
 				0560FFBA008B961F11CA2AA4,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 				089C1680FE841241C02AAC07,
+				126DFF8601BFAE8903A87B01,
+				126DFF8701BFAE8903A87B01,
+				126DFF8801BFAE8903A87B01,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -694,25 +700,25 @@
 				0560FFA6008B94F111CA2AA4,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
 				089C167DFE841241C02AAC07,
+				126DFF8301BFAE8903A87B01,
+				126DFF8401BFAE8903A87B01,
+				126DFF8501BFAE8903A87B01,
 			);
 			isa = PBXGroup;
 			name = Resources;
@@ -781,6 +787,7 @@
 				0FDE4B65008D0D1711CA2AA4,
 				0FDE4B66008D0D9511CA2AA4,
 				0FDE4B67008D0D9511CA2AA4,
+				12F1D73C01AC1B8203A87B01,
 			);
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -807,28 +814,24 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
 		};
 		0FDE4B63008D0D1711CA2AA4 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
 		};
 		0FDE4B64008D0D1711CA2AA4 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
 		};
 		0FDE4B65008D0D1711CA2AA4 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
 		};
 		0FDE4B66008D0D9511CA2AA4 = {
 			buildActionMask = 8;
@@ -846,7 +849,6 @@
 				0FDE4B78008D0EC011CA2AA4,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		0FDE4B67008D0D9511CA2AA4 = {
 			buildActionMask = 8;
@@ -854,6 +856,7 @@
 			dstSubfolderSpec = 0;
 			files = (
 				0FDE4B69008D0E0311CA2AA4,
+				122F5F6B01B286C003A87B01,
 				0FDE4B6A008D0E0311CA2AA4,
 				0FDE4B6B008D0E0311CA2AA4,
 				0FDE4B6C008D0E0311CA2AA4,
@@ -863,7 +866,6 @@
 				0FDE4B6F008D0E1611CA2AA4,
 			);
 			isa = PBXCopyFilesBuildPhase;
-			name = "Copy Files";
 		};
 		0FDE4B69008D0E0311CA2AA4 = {
 			fileRef = 0560FFA9008B961F11CA2AA4;
@@ -971,11 +973,62 @@
 //122
 //123
 //124
+		122F5F6B01B286C003A87B01 = {
+			fileRef = 0560FFAA008B961F11CA2AA4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		126DFF8301BFAE8903A87B01 = {
+			isa = PBXFileReference;
+			path = External.icns;
+			refType = 4;
+		};
+		126DFF8401BFAE8903A87B01 = {
+			isa = PBXFileReference;
+			path = Internal.icns;
+			refType = 4;
+		};
+		126DFF8501BFAE8903A87B01 = {
+			isa = PBXFileReference;
+			path = Removable.icns;
+			refType = 4;
+		};
+		126DFF8601BFAE8903A87B01 = {
+			fileRef = 126DFF8301BFAE8903A87B01;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		126DFF8701BFAE8903A87B01 = {
+			fileRef = 126DFF8401BFAE8903A87B01;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		126DFF8801BFAE8903A87B01 = {
+			fileRef = 126DFF8501BFAE8903A87B01;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		12C47A0300E939AE03CA2AA4 = {
 			fileRef = 0560FFAE008B961F11CA2AA4;
 			isa = PBXBuildFile;
 			settings = {
 			};
+		};
+		12F1D73C01AC1B8203A87B01 = {
+			buildActionMask = 8;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			shellPath = /bin/sh;
+			shellScript = "headers=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/storage/*.h\";\nfor header in ${headers}; do\n    unifdef -UKERNEL \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone";
 		};
 //120
 //121

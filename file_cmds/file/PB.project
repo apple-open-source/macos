@@ -1,0 +1,41 @@
+{
+    DYNAMIC_CODE_GEN = YES; 
+    FILESTABLE = {
+        FRAMEWORKS = (); 
+        H_FILES = (file.h, names.h, patchlevel.h, readelf.h, tar.h); 
+        OTHER_LINKED = (
+            apprentice.c, 
+            ascmagic.c, 
+            compress.c, 
+            file.c, 
+            fsmagic.c, 
+            internat.c, 
+            is_tar.c, 
+            print.c, 
+            readelf.c, 
+            softmagic.c
+        ); 
+        OTHER_SOURCES = (
+            Makefile, 
+            Makefile.preamble, 
+            Makefile.postamble, 
+            file.1, 
+            LEGAL.NOTICE, 
+            magic.5, 
+            MAINT, 
+            PORTING, 
+            README
+        ); 
+    }; 
+    LANGUAGE = English; 
+    LOCALIZABLE_FILES = {}; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDDIR = /tmp/developer_cmds/Build; 
+    NEXTSTEP_BUILDTOOL = /bin/gnumake; 
+    NEXTSTEP_INSTALLDIR = /usr/bin; 
+    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
+    PROJECTNAME = file; 
+    PROJECTTYPE = Tool; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
+}

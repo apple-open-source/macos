@@ -22,7 +22,7 @@ MANDIR = ${DSTROOT}/usr/share/man
 #####
 # Directories under MANDIR (and in the man_proj directory this makefile is in)
 #
-SUBDIRS = man1 man2 man3 man4 man5 man6 man7 man8
+SUBDIRS = man3 man5 man8
 
 #####
 # Ownership and group of the files and directories installed under MANDIR

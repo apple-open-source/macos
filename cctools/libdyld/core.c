@@ -3,6 +3,7 @@
 #include <libc.h>
 #include <errno.h>
 #include <mach/mach.h>
+#include "stuff/bool.h"
 #include <mach-o/dyld.h>
 #include <mach-o/dyld_debug.h>
 #include "ofi.h"

@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)svc_udp.c 1.24 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)svc_udp.c	2.2 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: svc_udp.c,v 1.2 1999/10/14 21:56:54 wsanchez Exp $";
+static char *rcsid = "$Id: svc_udp.c,v 1.3 2002/02/19 20:36:25 epeyton Exp $";
 #endif
 
 /*
@@ -66,13 +66,15 @@ static char *rcsid = "$Id: svc_udp.c,v 1.2 1999/10/14 21:56:54 wsanchez Exp $";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <rpc/rpc.h>
 #include <sys/socket.h>
 #include <errno.h>
 
+extern int		bindresvport();
 
 #define rpc_buffer(xprt) ((xprt)->xp_p1)
-#define MAX(a, b)     ((a > b) ? a : b)
 
 static bool_t		svcudp_recv();
 static bool_t		svcudp_reply();
@@ -361,6 +363,7 @@ struct udp_cache {
  * Enable use of the cache. 
  * Note: there is no disable.
  */
+int
 svcudp_enablecache(transp, size)
 	SVCXPRT *transp;
 	u_long size;
@@ -464,7 +467,7 @@ cache_set(xprt, replylen)
  * Try to get an entry from the cache
  * return 1 if found, 0 if not found
  */
-static
+static int
 cache_get(xprt, msg, replyp, replylenp)
 	SVCXPRT *xprt;
 	struct rpc_msg *msg;

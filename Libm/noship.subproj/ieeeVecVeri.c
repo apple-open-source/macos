@@ -1,0 +1,25 @@
+/*
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+#include	<stdio.h>#include	<fp.h>typedef union	{	unsigned long int word[2];	double dbl;	} DblInHex;typedef union	{	unsigned long int word[4];	double dbl[2];	long double ldbl;	} LdbDblInHex;static DblInHex coshArg[5] = 		{ { 0xbe100000, 0x00000000 },		  { 0xfff81fe0, 0x00000000 },		  { 0x3e000000, 0x00000000 },		  { 0x3e100000, 0x00000000 },		  { 0xbef00000, 0x00000000 } };static DblInHex log10Arg[5] = 		{ { 0x40000000, 0x00000000 },		  { 0x40900000, 0x00000000 },		  { 0x46300000, 0x00000000 },		  { 0x3fe00000, 0x00000000 },		  { 0x3f500000, 0x00000000 } };static DblInHex expm1Arg[1] = 		{ { 0x00100000, 0x00000000 } };main()	{	LdbDblInHex longArg[5], longResult[5];	DblInHex    result[5], resultLDtoD[5];	long int i;	printf ( "cosh:\n\n" );			for ( i = 0; i < 5; i++ )		{		longArg[i].ldbl = ( long double ) coshArg[i].dbl;		result[i].dbl = cosh ( coshArg[i].dbl );		longResult[i].ldbl = coshl ( longArg[i].ldbl );		resultLDtoD[i].dbl = ( double ) longResult[i].ldbl;			printf ( "coshArg[%d]     = %8.8x, %8.8x %23.15e\n", i, coshArg[i].word[0], coshArg[i].word[1], coshArg[i].dbl );		printf ( "result[%d]      = %8.8x, %8.8x %23.15e\n", i, result[i].word[0], result[i].word[1], result[i].dbl );				printf ( "resultLDtoD[%d] = %8.8x, %8.8x %23.15e\n", i, resultLDtoD[i].word[0], resultLDtoD[i].word[1], resultLDtoD[i].dbl );			printf ( "longArg[%d]     = %8.8x, %8.8x, %8.8x, %8.8x %39.32e\n", i, longArg[i].word[0], longArg[i].word[1], longArg[i].word[2], longArg[i].word[3], longArg[i].ldbl );		printf ( "longResult[%d]  = %8.8x, %8.8x, %8.8x, %8.8x %39.32e\n\n", i, longResult[i].word[0], longResult[i].word[1], longResult[i].word[2], longResult[i].word[3], longResult[i].ldbl );		}		printf ( "\nlog10:\n\n" );			for ( i = 0; i < 5; i++ )		{		longArg[i].ldbl = ( long double ) log10Arg[i].dbl;		result[i].dbl = log10 ( log10Arg[i].dbl );		longResult[i].ldbl = log10l ( longArg[i].ldbl );		resultLDtoD[i].dbl = ( double ) longResult[i].ldbl;			printf ( "log10Arg[%d]    = %8.8x, %8.8x %23.15e\n", i, log10Arg[i].word[0], log10Arg[i].word[1], log10Arg[i].dbl );		printf ( "result[%d]      = %8.8x, %8.8x %23.15e\n", i, result[i].word[0], result[i].word[1], result[i].dbl );				printf ( "resultLDtoD[%d] = %8.8x, %8.8x %23.15e\n", i, resultLDtoD[i].word[0], resultLDtoD[i].word[1], resultLDtoD[i].dbl );			printf ( "longArg[%d]     = %8.8x, %8.8x, %8.8x, %8.8x %39.32e\n", i, longArg[i].word[0], longArg[i].word[1], longArg[i].word[2], longArg[i].word[3], longArg[i].ldbl );		printf ( "longResult[%d]  = %8.8x, %8.8x, %8.8x, %8.8x %39.32e\n\n", i, longResult[i].word[0], longResult[i].word[1], longResult[i].word[2], longResult[i].word[3], longResult[i].ldbl );		}	printf ( "\nexpm1:\n\n" );			for ( i = 0; i < 1; i++ )		{		longArg[i].ldbl = ( long double ) expm1Arg[i].dbl;		result[i].dbl = expm1 ( expm1Arg[i].dbl );		longResult[i].ldbl = expm1l ( longArg[i].ldbl );		resultLDtoD[i].dbl = ( double ) longResult[i].ldbl;			printf ( "log10Arg[%d]    = %8.8x, %8.8x %23.15e\n", i, expm1Arg[i].word[0], expm1Arg[i].word[1], expm1Arg[i].dbl );		printf ( "result[%d]      = %8.8x, %8.8x %23.15e\n", i, result[i].word[0], result[i].word[1], result[i].dbl );				printf ( "resultLDtoD[%d] = %8.8x, %8.8x %23.15e\n", i, resultLDtoD[i].word[0], resultLDtoD[i].word[1], resultLDtoD[i].dbl );			printf ( "longArg[%d]     = %8.8x, %8.8x, %8.8x, %8.8x %39.32e\n", i, longArg[i].word[0], longArg[i].word[1], longArg[i].word[2], longArg[i].word[3], longArg[i].ldbl );		printf ( "longResult[%d]  = %8.8x, %8.8x, %8.8x, %8.8x %39.32e\n\n", i, longResult[i].word[0], longResult[i].word[1], longResult[i].word[2], longResult[i].word[3], longResult[i].ldbl );		}	return 0;		}

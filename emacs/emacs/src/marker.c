@@ -32,6 +32,8 @@ static int cached_bytepos;
 static struct buffer *cached_buffer;
 static int cached_modiff;
 
+static void byte_char_debug_check P_ ((struct buffer *, int, int));
+
 /* Nonzero means enable debugging checks on byte/char correspondences.  */
 
 static int byte_debug_flag;
@@ -97,7 +99,7 @@ clear_charpos_cache (b)
     }									\
 }
 
-int
+static void
 byte_char_debug_check (b, charpos, bytepos)
      struct buffer *b;
      int charpos, bytepos;
@@ -168,7 +170,7 @@ buf_charpos_to_bytepos (b, charpos)
     CONSIDER (cached_charpos, cached_bytepos);
 
   tail = BUF_MARKERS (b);
-  while (XSYMBOL (tail) != XSYMBOL (Qnil))
+  while (! NILP (tail))
     {
       CONSIDER (XMARKER (tail)->charpos, XMARKER (tail)->bytepos);
 
@@ -336,7 +338,7 @@ buf_bytepos_to_charpos (b, bytepos)
     CONSIDER (cached_bytepos, cached_charpos);
 
   tail = BUF_MARKERS (b);
-  while (XSYMBOL (tail) != XSYMBOL (Qnil))
+  while (! NILP (tail))
     {
       CONSIDER (XMARKER (tail)->bytepos, XMARKER (tail)->charpos);
 
@@ -448,10 +450,6 @@ DEFUN ("marker-position", Fmarker_position, Smarker_position, 1, 1, 0,
   (marker)
      Lisp_Object marker;
 {
-  register Lisp_Object pos;
-  register int i;
-  register struct buffer *buf;
-
   CHECK_MARKER (marker, 0);
   if (XMARKER (marker)->buffer)
     return make_number (XMARKER (marker)->charpos);
@@ -747,7 +745,7 @@ unchain_marker (marker)
 
   tail = BUF_MARKERS (b);
   prev = Qnil;
-  while (XSYMBOL (tail) != XSYMBOL (Qnil))
+  while (! GC_NILP (tail))
     {
       next = XMARKER (tail)->chain;
       XUNMARK (next);
@@ -845,7 +843,6 @@ nil means the marker stays before text inserted there.")
   (marker)
      register Lisp_Object marker;
 {
-  register Lisp_Object buf;
   CHECK_MARKER (marker, 0);
   return XMARKER (marker)->insertion_type ? Qt : Qnil;
 }

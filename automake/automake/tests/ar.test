@@ -1,0 +1,25 @@
+#! /bin/sh
+
+# Test for setting AR in configure.in.
+
+. $srcdir/defs || exit 1
+
+cat > configure.in << 'END'
+AC_INIT
+AM_INIT_AUTOMAKE($me, 1.0)
+AC_PROG_CC
+AC_PROG_RANLIB
+AC_PATH_PROG(AR, arppc)
+AC_CONFIG_FILES(Makefile)
+END
+
+cat > Makefile.am << 'END'
+lib_LIBRARIES = libfoo.a
+libfoo_a_SOURCES = maude.c
+END
+
+$ACLOCAL || exit 1
+$AUTOMAKE || exit 1
+
+grep 'AR = ar' Makefile.in && exit 1
+exit 0

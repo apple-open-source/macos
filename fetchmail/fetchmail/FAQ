@@ -1,6 +1,6 @@
    (This document was generated from fetchmail-FAQ.html)
 
-   Back to Fetchmail Home Page To Site Map $Date: 2001/08/10 16:06:54 $
+   Back to Fetchmail Home Page To Site Map $Date: 2002/05/22 23:44:04 $
      _________________________________________________________________
 
                   Frequently Asked Questions About Fetchmail
@@ -66,6 +66,7 @@
    T4. How can I use fetchmail with smail?
    T5. How can I use fetchmail with SCO's MMDF?
    T6. How can I use fetchmail with Lotus Notes?
+   T7. How can I use fetchmail with Courier IMAP?
 
                How to make fetchmail work with various servers:
 
@@ -83,6 +84,7 @@
    S12. How can I use fetchmail with MailMax?
    S13. How can I use fetchmail with Novell GroupWise?
    S14. How can I use fetchmail with InterChange?
+   S15. How can I use fetchmail with GMX?
 
          How to set up well-known security and authentication methods:
 
@@ -100,15 +102,20 @@
    R3. Fetchmail dumps core when given an invalid rc file.
    R4. Fetchmail dumps core in -V mode, but operates normally otherwise.
    R5. Running fetchmail in daemon mode doesn't work.
-   R6. Fetchmail hangs when used with pppd.
-   R7. Fetchmail randomly dies with socket errors.
-   R8. Fetchmail running as root stopped working after an OS upgrade
-   R9. Fetchmail is timing out after fetching certain messages but before
+   R6. Fetchmail randomly dies with socket errors.
+   R7. Fetchmail running as root stopped working after an OS upgrade
+   R8. Fetchmail is timing out after fetching certain messages but before
    deleting them
-   R10. Fetchmail is timing out during message fetches
-   R11. Fetchmail is dying with SIGPIPE.
+   R9. Fetchmail is timing out during message fetches
+   R10. Fetchmail is dying with SIGPIPE.
 
-                               Disappearing mail
+                              Hangs and lockups:
+
+   H1. Fetchmail hangs when used with pppd.
+   H2. Fetchmail hangs during the MAIL FROM exchange.
+   H3. Fetchmail hangs while fetching mail.
+
+                              Disappearing mail:
 
    D1.  I  think I've set up fetchmail correctly, but I'm not getting any
    mail.
@@ -139,6 +146,7 @@
    X5. Using POP3, retrievals seems to be fetching too much!
    X6. My mail attachments are being dropped or mangled.
    X7. Some mail attachments are hanging fetchmail.
+   X8. A spurious ) is being appended to my messages.
 
                                 Other problems:
 
@@ -208,7 +216,7 @@ G3. I think I've found a bug. Will you fix it?
    include the following:
     1. Your operating system.
     2. Your  compiler  version,  if you built from source; otherwise, the
-       name and origin ogf the RPM or other binary package you installed.
+       name and origin of the RPM or other binary package you installed.
     3. A copy of your POP or IMAP server's greeting line.
     4. The  name  and  version  of  the  SMTP  listener  or  MDA  you are
        forwarding to.
@@ -330,13 +338,15 @@ G4. I have this idea for a neat feature. Will you add it?
 
 G5. Is there a mailing list for exchanging tips?
 
-   There is a fetchmail-friends list for people who want to discuss fixes
-   and  improvements  in fetchmail and help co-develop it. It's a MailMan
-   list,  which  you can sign up for at fetchmail-friends@lists.ccil.org.
-   There is also an announcements-only list,
-   fetchmail-announce@lists.ccil.org.
+   There  is  a fetchmail-friends list (fetchmail-friends@lists.ccil.org)
+   for people who want to discuss fixes and improvements in fetchmail and
+   help  co-develop it. It's a MailMan list, which you can sign up for at
+   http://lists.ccil.org/mailman/listinfo/fetchmail-friends.   There   is
+   also  an  announcements-only  list, fetchmail-announce@lists.ccil.org,
+   which you can sign up for at
+   http://lists.ccil.org/mailman/listinfo/fetchmail-announce.
      _________________________________________________________________
-   
+
 G6. So, what's this I hear about a fetchmail paper?
 
    The  fetchmail  development  was  also  a  sociological experiment, an
@@ -1219,6 +1229,10 @@ T4. How can I use fetchmail with smail?
    to  be the case when fetchmail is in the picture. According to RFC1123
    an  SMTP  listener  must  allow this mismatch, so smail's new behavior
    (introduced sometime between 3.2.0.90 and 3.2.0.95) is a bug.
+
+   You  may  also need to say -smtp_hello_broken_allow=127.0.0.1 in order
+   for smail to accept the "localhost" that fetchmail normally appends to
+   recipient addresses.
      _________________________________________________________________
 
 T5. How can I use fetchmail with SCO's MMDF?
@@ -1233,7 +1247,10 @@ T6. How can I use fetchmail with Lotus Notes?
 
    The Lotus Notes SMTP gateway tries to deduce when it should convert \n
    to  \r\n,  but  its rules are not the intuitive and correct-for-RFC822
-   ones. Use `forcecr'.
+   ones. Use `forcecr'. T7. How can I use fetchmail with Courier IMAP?
+
+   The   courier   mta   doesn't  like  RCPT  addresses  that  look  like
+   someone@localhost. Work around this with an smtphost or smtpaddress.
      _________________________________________________________________
 
 S1. How can I use fetchmail with qpopper?
@@ -1280,8 +1297,8 @@ S2. How can I use fetchmail with Microsoft Exchange?
    that  looks  like `user@domain': the part to the left of the @ will be
    passed as the username and the part to the right as the NTLM domain.
 
-   M$  Exchange  violates the POP3 RFCs. Its LIST command does not reveal
-   the  real  sizes  of  mail  in  the  pop mailbox, but the sizes of the
+   M$ Exchange violates the POP3 and IMAP RFCs. Its LIST command does not
+   reveal the real sizes of mail in the pop mailbox, but the sizes of the
    compressed  versions in the exchange mail database (thanks to Arjan De
    Vet and Guido Van Rooij for alerting us to this problem).
 
@@ -1426,18 +1443,17 @@ poll pop3.demon.co.uk with protocol POP3:
    Demon  Internet's  SDPS  service  is  an  implementation  of POP3. All
    messages  have  a Received: header added when they enter the maildrop,
    like this:
-   Received: from punt-1.mail.demon.net by mailstore.com for fred@xyz.demon.co.
-uk
+   Received: from punt-1.mail.demon.net by mailstore for fred@xyz.demon.co.uk
              id 899963657:10:27896:0; Thu, 09 Jul 98 05:54:17 GMT
 
-   To   enable   multi-drop   mode   you  need  to  tell  fetchmail  that
-   'mailstore.com'  is  the name of the host which accepted the mail, and
-   let it know the hostname part(s) of your E-mail address. The following
-   example  assumes  that  your hostname is xyz.demon.co.uk, and that you
-   have also bought "mail forwarding" for the domain my-company.co.uk (in
-   which  case  your  MTA  must also be configured to accept mail sent to
+   To  enable multi-drop mode you need to tell fetchmail that 'mailstore'
+   is  the  name of the host which accepted the mail, and let it know the
+   hostname part(s) of your E-mail address. The following example assumes
+   that  your  hostname is xyz.demon.co.uk, and that you have also bought
+   "mail  forwarding" for the domain my-company.co.uk (in which case your
+   MTA    must    also   be   configured   to   accept   mail   sent   to
    user@my-company.co.uk)
-     poll pop3.demon.co.uk proto pop3 aka mailstore.com no dns:
+     poll pop3.demon.co.uk proto pop3 aka mailstore no dns:
        localdomains xyz.demon.co.uk my-company.co.uk
        user xyz is * fetchall
 
@@ -1487,6 +1503,10 @@ S5. How can I use fetchmail with usa.net's servers?
    Fetchmail  normally  uses  TOP for message retrieval in order to avoid
    marking messages seen, but `fetchall' forces it to use RETR instead.
 
+   Also,  we're told USA.NET adds a ton of hops to your messages. You may
+   need  to  raise the MaxHopCount parameter in your sendmail.cf to avoid
+   having fetched mail rejected.
+
    (Note:  Other  failure  modes have been reported on usa.net's servers.
    They  seem  to  be  chronically  flaky.  We  recommend finding another
    provider.)
@@ -1503,6 +1523,10 @@ S6. How can I use fetchmail with HP OpenMail?
    As  with M$ Exchange, the only real fix for these problems is to get a
    POP  (or  preferably  IMAP)  server  that isn't brain-dead. OpenMail's
    project manager claims these bugs have been fixed in 6.0.
+
+   We've  had  a  more recent report (December 2001) that the TOP command
+   fails,  returning  only  one  line  regrardless  of  its  argument, on
+   something identifying itself as "OpenMail POP3 interface".
      _________________________________________________________________
 
 S7. How can I use fetchmail with geocities POP3 servers?
@@ -1593,7 +1617,12 @@ S14. How can I use fetchmail with InterChange?
 
    On  Jan  9  2001, the people at InfiniteMail sent me mail informing me
    that  their  new  3.61.08 release of InterChange fixes this problem. I
-   don't have any reports one way or the other yet.
+   don't  have  any  reports one way or the other yet. S15. How can I use
+   fetchmail with GMX?
+
+   Use  IMAP.  The GMX StreamProxy server behaves badly on authentication
+   failures, sending back a non-conformant error message (missing an -ERR
+   tag) that confuses fetchmail.
      _________________________________________________________________
 
 K1. How can I use fetchmail with SOCKS?
@@ -1703,6 +1732,11 @@ K5. How can I use fetchmail with SSL?
    installed  in  a non-default location, you'll need to specify it as an
    argument to --with-ssl after an equal sign.
 
+   Note that there is a known bug in the implementation of SSL_peek under
+   OpenSSL  versions  0.9.5 and older that fetchmail occasionally tripped
+   over,  causing  hangs.  It  is  recommended  that you install 0.9.6 or
+   later.
+
    Fetchmail  binaries  built  this  way support ssl, sslkey, and sslcert
    options  that  control  SSL  encryption.  You  will  need  to  have an
    SSL-enabled  mailserver  to use these options. See the manual page for
@@ -1718,7 +1752,7 @@ K5. How can I use fetchmail with SSL?
    .  An  interactive program could seed the random number generator from
    keystroke  timings or some other form of user input. Because fetchmail
    is  primarily  designed  to  run  forever as a background daemon, that
-   option option is not available in this case.
+   option is not available in this case.
      _________________________________________________________________
 
 R1. Fetchmail isn't working, and -v shows `SMTP connect failed' messages.
@@ -1863,14 +1897,7 @@ R5. Running fetchmail in daemon mode doesn't work.
    that!
      _________________________________________________________________
 
-R6. Fetchmail hangs when used with pppd.
-
-   Your problem may be with pppd's `demand' option. We have a report that
-   fetchmail  doesn't  play well with it, but works with pppd if `demand'
-   is turned off. We have no idea why this is.
-     _________________________________________________________________
-
-R7. Fetchmail randomly dies with socket errors.
+R6. Fetchmail randomly dies with socket errors.
 
    Check  the MTU value in your PPP interface reported by /sbin/ifconfig.
    If   it's   over   600,   change   it   in   your  PPP  options  file.
@@ -1887,7 +1914,7 @@ R7. Fetchmail randomly dies with socket errors.
    address.
      _________________________________________________________________
 
-R8. Fetchmail running as root stopped working after an OS upgrade
+R7. Fetchmail running as root stopped working after an OS upgrade
 
    In  RH  6.0,  the HOME value in the boot-time root environment changed
    from  /root  to  /  as  the  result  of  a  change  in init. Move your
@@ -1895,7 +1922,7 @@ R8. Fetchmail running as root stopped working after an OS upgrade
    (Oddly, a similar problem has been reported from Debian systems.)
      _________________________________________________________________
 
-R9. Fetchmail is timing out after fetching certain messages but before deleting
+R8. Fetchmail is timing out after fetching certain messages but before deleting
 them
 
    There's a TCP/IP stalling problem under Redhat 6.0 (and possibly other
@@ -1919,12 +1946,67 @@ them
      blocking.
      _________________________________________________________________
 
-R10. Fetchmail is timing out during message fetches
+R9. Fetchmail is timing out during message fetches
 
    This  is probably a general networking issue. Sending a "RETR" command
    will  cause  the  server to start sending large amounts of data, which
    means    large    packets.    If   your   networking   layer   has   a
    packet-fragmentation problem, that's where you'll see it.
+     _________________________________________________________________
+
+R10. Fetchmail is dying with SIGPIPE.
+
+   This probably means you have an mda option. Your MDA is croaking while
+   being  passed a message. Best fix is to remove the mda option and pass
+   mail to your port 25 SMTP listener.
+     _________________________________________________________________
+
+H1. Fetchmail hangs when used with pppd.
+
+   Your problem may be with pppd's `demand' option. We have a report that
+   fetchmail  doesn't  play well with it, but works with pppd if `demand'
+   is turned off. We have no idea why this is.
+     _________________________________________________________________
+
+H2. Fetchmail hangs during the MAIL FROM exchange.
+
+   The  symptom:  'fetchmail -v' retrieves mail fine, but appears to hang
+   after sending the MAIL FROM command
+SMTP> MAIL FROM:
+
+   The  hang  is  actually  occuring  when  sendmail  looks up a sender's
+   address   in   DNS.   The  problem  isn't  in  fetchmail  but  in  the
+   configuration   of   sendmail.   You   must  enable  the  'nodns'  and
+   'nocanonify' features of sendmail.
+
+   Here was my fix for RedHat 7.2:
+    1. # cd /etc/mail
+    2. # cp sendmail.mc sendmail-mine.mc
+    3. Edit sendmail-mine.mc and add lines:
+   FEATURE(nodns)
+   FEATURE(nocanonify)
+    4. Build a new sendmail.cf
+   # m4 sendmail-mine.cf > /etc/sendmail.cf
+    5. Restart sendmail.
+
+   For more details consult the file /usr/share/sendmail-cf/README.
+     _________________________________________________________________
+
+H3. Fetchmail hangs while fetching mail.
+
+   The  symption:  'fetchmail  -v'  retrieves the first few messages, but
+   hangs returning:
+ fetchmail: SMTP< 550 5.0.0 Access denied
+ fetchmail: SMTP> RSET
+ fetchmail: SMTP< 250 2.0.0 Reset state
+ .......fetchmail:  flushed
+ fetchmail: POP3> DELE 1
+ fetchmail: POP3< +OK marked deleted
+
+   Check  and  see  if  you're  allowing sendmail connections through TCP
+   wrappers.
+
+   Adding 'sendmail : ALL' to /etc/hosts.allow could solve this problem.
      _________________________________________________________________
 
 D1. I think I've set up fetchmail correctly, but I'm not getting any mail.
@@ -1938,13 +2020,6 @@ D1. I think I've set up fetchmail correctly, but I'm not getting any mail.
 
    Or  you  may  not be connecting to the SMTP listener. Run fetchmail -v
    and see R1.
-     _________________________________________________________________
-
-R11. Fetchmail is dying with SIGPIPE.
-
-   This probably means you have an mda option. Your MDA is croaking while
-   being  passed a message. Best fix is to remove the mda option and pass
-   mail to your port 25 SMTP listener.
      _________________________________________________________________
 
 D2. All my mail seems to disappear after a dropped connection.
@@ -1981,8 +2056,9 @@ been vanished.
 
    Fetchmail  only  sends a delete mail request to the server when either
    (a) it gets a positive delivery acknowledgment from the SMTP listener,
-   or (b) it gets an error 571 (the spam-filter error) from the listener.
-   No interrupt can cause it to lose mail.
+   or  (b)  it gets one of the spam-filter errors (see the description of
+   the  antispam> option) from the listener. No interrupt can cause it to
+   lose mail.
 
    However,  IMAP2bis  has  a  design  problem  in  that its normal fetch
    command  marks a message `seen' as soon as the fetch command to get it
@@ -2202,8 +2278,8 @@ M8. Users are getting multiple copies of messages.
 
    I  could  eliminate  this problem by keeping a list of all message-IDs
    received  during a poll so far and dropping any message that matches a
-   seen  mail  ID.  The  touble is that this is an O(N**2) operation that
-   might significantly slow down the retriweval of large mail batches.
+   seen  mail  ID.  The trouble is that this is an O(N**2) operation that
+   might significantly slow down the retrieval of large mail batches.
      _________________________________________________________________
 
 X1. Spurious blank lines are appearing in the headers of fetched mail.
@@ -2485,6 +2561,45 @@ X7. Some mail attachments are hanging fetchmail.
    may be because the attachment contains the Hayes mode escape "+++".
      _________________________________________________________________
 
+X8. A spurious ) is being appended to my messages.
+
+   Blame  it  on  that  rancid  pile  of  dung and offal called Microsoft
+   Exchange.  Due  to  the  problem  described in S2, the IMAP support in
+   fetchmail  cannot  follow  the IMAP protocol 100%. Most of the time it
+   doesn't matter, but if you combine it with an SMTP server that behaves
+   unusually, you'll get a spurious ) at message end.
+
+   One  piece  of  software that can trigger this is the Interchange mail
+   server, as used by, e.g., mailandnews.com. Here's what happens:
+
+   1.  Someone  sends  mail to your account. The last line of the message
+   contains  text.  So  at  the  SMTP  level, the message ends with, e.g.
+   "blahblah\r\n.\r\n"
+
+   2.  The SMTP handler sees the final "\r\n.\r\n" and recognizes the end
+   of  the  message. However, instead of doing the normal thing, which is
+   tossing  out  the  ".\r\n" and leaving the first '\r\n' as part of the
+   email  body,  Interchange throws out the whole "\r\n.\r\n", and leaves
+   the  email  body  without any line terminator at the end of it. RFC821
+   does not forbid this, though it probably should.
+
+   3.  Fetchmail,  or  some other IMAP client, asks for the message. IMAP
+   returns  it,  but  it's  enclosed inside parentheses, according to the
+   protocol.  The  message  size  in  bytes  is also present. Because the
+   message  doesn't  end  with  a  line terminator, the IMAP client sees:
+   ....blahblah)... where the ')' is from IMAP.
+
+   4.  Fetchmail  only  deals  with  complete  lines, and can't trust the
+   stated message size because Microsoft Exchange fscks it up.
+
+   5.  As  a result, fetchmail takes the final 'blahblah)' and puts it at
+   the  end  of  the  message  it  forwards on. If you have verbosity on,
+   you'll get a message about actual != expected.
+
+   There is no fix for this. The nuke mentioned in S2 looks more tempting
+   all the time.
+     _________________________________________________________________
+
 O1. The --logfile option doesn't work if the logfile doesn't exist.
 
    This  is  a  feature, not a bug. It's in line with normal practice for
@@ -2678,7 +2793,7 @@ O10. Why is the received date on all my messages the same?
    received date from the last Received header.
      _________________________________________________________________
 
-   Back to Fetchmail Home Page To Site Map $Date: 2001/08/10 16:06:54 $
+   Back to Fetchmail Home Page To Site Map $Date: 2002/05/22 23:44:04 $
 
 
     Eric S. Raymond <esr@thyrsus.com>

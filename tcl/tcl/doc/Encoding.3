@@ -4,7 +4,7 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: Encoding.3,v 1.1.1.2 2000/04/12 02:01:53 wsanchez Exp $
+'\" RCS: @(#) $Id: Encoding.3,v 1.1.1.3 2002/04/05 16:12:56 jevans Exp $
 '\" 
 .so man.macros
 .TH Tcl_GetEncoding 3 "8.1" Tcl "Tcl Library Procedures"
@@ -14,6 +14,7 @@ Tcl_GetEncoding, Tcl_FreeEncoding, Tcl_ExternalToUtfDString, Tcl_ExternalToUtf, 
 .SH SYNOPSIS
 .nf
 \fB#include <tcl.h>\fR
+\fB#include <tclPlatDecls.h>\fR \fI/* Tcl_Win* functions only */\fR
 .sp
 Tcl_Encoding
 \fBTcl_GetEncoding\fR(\fIinterp, name\fR)

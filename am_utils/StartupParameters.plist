@@ -1,0 +1,11 @@
+{
+  Description     = "AMD server";
+  Provides        = ("AMD");
+  Requires        = ("Resolver");
+  OrderPreference = "None";
+  Messages =
+  {
+    start = "Starting AMD server";
+    stop  = "Stopping AMD server";
+  };
+}

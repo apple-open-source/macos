@@ -1,5 +1,5 @@
-# Download class definition for GDBtk.
-# Copyright 1999 Cygnus Solutions
+# Download class definition for Insight
+# Copyright 1999, 2001 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -20,6 +20,8 @@ class Download {
     common section
     common bytes
     common num_sections
+    common num_steps 100
+
     proc dont_remember_size {} { return 1}
   }
   public {
