@@ -1475,11 +1475,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 </dict>
 </plist>
 ";
@@ -1848,7 +1848,7 @@
 				MODULE_NAME = com.apple.nke.ppp;
 				MODULE_START = ppp_module_start;
 				MODULE_STOP = ppp_module_stop;
-				MODULE_VERSION = 1.0;
+				MODULE_VERSION = 1.0.1;
 				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
@@ -1888,13 +1888,18 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.0.7</string>
+	</dict>
 </dict>
 </plist>
 ";
@@ -2112,7 +2117,7 @@
 				MODULE_NAME = com.apple.nke.pppoe;
 				MODULE_START = pppoe_domain_module_start;
 				MODULE_STOP = pppoe_domain_module_stop;
-				MODULE_VERSION = 1.0;
+				MODULE_VERSION = 1.0.1;
 				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
@@ -2152,13 +2157,18 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.bsd</key>
+		<string>1.0.7</string>
+	</dict>
 </dict>
 </plist>
 ";
@@ -2329,7 +2339,7 @@
 				MODULE_NAME = com.apple.nke.pppserial;
 				MODULE_START = pppserial_module_start;
 				MODULE_STOP = pppserial_module_stop;
-				MODULE_VERSION = 1.0;
+				MODULE_VERSION = 1.0.1;
 				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
@@ -2369,11 +2379,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>1.0.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 </dict>

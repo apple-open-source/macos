@@ -1,7 +1,7 @@
 Package: openssh
 Maintainer: Wilfredo Sanchez <wsanchez@apple.com>
 Vendor: OpenSSH Project
-Version: 2.3.0p1
+Version: 2.5.2p2
 URL: http://www.openssh.com/portable.html
 Build-Depends: build-base, openssl, zlib, perl
 Description: Secure Shell

@@ -15,23 +15,23 @@
  * Adapted from shadow-19990607 by Tudor Bosman, tudorb@jm.nu
  */
 
-#include "config.h"
+#include "includes.h"
+
+RCSID("$Id: md5crypt.c,v 1.1.1.3 2001/02/25 20:54:16 zarzycki Exp $");
 
 #if defined(HAVE_MD5_PASSWORDS) && !defined(HAVE_MD5_CRYPT)
 
-#include <unistd.h>
-#include <string.h>
 #include <openssl/md5.h>
 
 static unsigned char itoa64[] =		/* 0 ... 63 => ascii - 64 */
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 static char	*magic = "$1$";	/*
-                                 * This string is magic for
-                                 * this algorithm.  Having
-                                 * it this way, we can get
-                                 * get better later on
-                                 */
+				 * This string is magic for
+				 * this algorithm.  Having
+				 * it this way, we can get
+				 * get better later on
+				 */
 
 static void
 to64(char *s, unsigned long v, int n)
@@ -45,7 +45,7 @@ to64(char *s, unsigned long v, int n)
 int
 is_md5_salt(const char *salt)
 {
-        return (!strncmp(salt, magic, strlen(magic)));
+	return (!strncmp(salt, magic, strlen(magic)));
 }
 
 /*

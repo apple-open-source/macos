@@ -38,12 +38,12 @@ DESCRIPTION
              about their progress.  This is helpful in debugging connection,
              authentication, and configuration problems.
 
-     -B      Selects batch mode (prevents asking for passwords or passphras-
+     -B      Selects batch mode (prevents asking for passwords or passphrasM--
              es).
 
      -q      Disables the progress meter.
 
-     -C      Compression enable.  Passes the -C flag to ssh(1) to enable com-
+     -C      Compression enable.  Passes the -C flag to ssh(1) to enable comM--
              pression.
 
      -P port
@@ -71,6 +71,7 @@ HISTORY
      the University of California.
 
 SEE ALSO
-     rcp(1),  ssh(1),  ssh-add(1),  ssh-agent(1),  ssh-keygen(1),  sshd(8)
+     rcp(1),  sftp(1),  ssh(1),  ssh-add(1),  ssh-agent(1),  ssh-keygen(1),
+     sshd(8)
 
 BSD Experimental              September 25, 1999                             2

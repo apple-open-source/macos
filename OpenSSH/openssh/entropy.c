@@ -24,18 +24,23 @@
 
 #include "includes.h"
 
-#include "ssh.h"
-#include "xmalloc.h"
-
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include <openssl/crypto.h>
 
 /* SunOS 4.4.4 needs this */
 #ifdef HAVE_FLOATINGPOINT_H
 # include <floatingpoint.h>
 #endif /* HAVE_FLOATINGPOINT_H */
 
-RCSID("$Id: entropy.c,v 1.1.1.4 2000/12/06 21:56:26 wsanchez Exp $");
+#include "ssh.h"
+#include "misc.h"
+#include "xmalloc.h"
+#include "atomicio.h"
+#include "pathnames.h"
+#include "log.h"
+
+RCSID("$Id: entropy.c,v 1.1.1.6 2001/04/05 01:06:16 zarzycki Exp $");
 
 #ifndef offsetof
 # define offsetof(type, member) ((size_t) &((type *)0)->member)
@@ -59,100 +64,159 @@ RCSID("$Id: entropy.c,v 1.1.1.4 2000/12/06 21:56:26 wsanchez Exp $");
 # define RUSAGE_CHILDREN 0
 #endif
 
-#if defined(EGD_SOCKET) || defined(RANDOM_POOL)
+#if defined(_POSIX_SAVED_IDS) && !defined(BROKEN_SAVED_UIDS)
+# define SAVED_IDS_WORK_WITH_SETEUID
+#endif
 
-#ifdef EGD_SOCKET
-/* Collect entropy from EGD */
-int get_random_bytes(unsigned char *buf, int len)
+void
+check_openssl_version(void) 
+{
+	if (SSLeay() != OPENSSL_VERSION_NUMBER)
+		fatal("OpenSSL version mismatch. Built against %lx, you "
+		    "have %lx", OPENSSL_VERSION_NUMBER, SSLeay());
+}
+
+#if defined(PRNGD_SOCKET) || defined(PRNGD_PORT)
+# define USE_PRNGD
+#endif
+
+#if defined(USE_PRNGD) || defined(RANDOM_POOL)
+
+#ifdef USE_PRNGD
+/* Collect entropy from PRNGD/EGD */
+int
+get_random_bytes(unsigned char *buf, int len)
 {
 	int fd;
 	char msg[2];
+#ifdef PRNGD_PORT
+	struct sockaddr_in addr;
+#else
 	struct sockaddr_un addr;
-	int addr_len;
-
-	/* Sanity checks */
-	if (sizeof(EGD_SOCKET) > sizeof(addr.sun_path))
-		fatal("Random pool path is too long");
-	if (len > 255)
-		fatal("Too many bytes to read from EGD");
+#endif
+	int addr_len, rval, errors;
+	mysig_t old_sigpipe;
 
 	memset(&addr, '\0', sizeof(addr));
+
+#ifdef PRNGD_PORT
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	addr.sin_port = htons(PRNGD_PORT);
+	addr_len = sizeof(struct sockaddr_in);
+#else /* use IP socket PRNGD_SOCKET instead */
+	/* Sanity checks */
+	if (sizeof(PRNGD_SOCKET) > sizeof(addr.sun_path))
+		fatal("Random pool path is too long");
+	if (len > 255)
+		fatal("Too many bytes to read from PRNGD");
+
 	addr.sun_family = AF_UNIX;
-	strlcpy(addr.sun_path, EGD_SOCKET, sizeof(addr.sun_path));
-	addr_len = offsetof(struct sockaddr_un, sun_path) + sizeof(EGD_SOCKET);
-	
-	fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	strlcpy(addr.sun_path, PRNGD_SOCKET, sizeof(addr.sun_path));
+	addr_len = offsetof(struct sockaddr_un, sun_path) +
+	    sizeof(PRNGD_SOCKET);
+#endif
+
+	old_sigpipe = mysignal(SIGPIPE, SIG_IGN);
+
+	errors = rval = 0;
+reopen:
+#ifdef PRNGD_PORT
+	fd = socket(addr.sin_family, SOCK_STREAM, 0);
+	if (fd == -1) {
+		error("Couldn't create AF_INET socket: %s", strerror(errno));
+		goto done;
+	}
+#else
+	fd = socket(addr.sun_family, SOCK_STREAM, 0);
 	if (fd == -1) {
 		error("Couldn't create AF_UNIX socket: %s", strerror(errno));
-		return(0);
+		goto done;
 	}
+#endif
 
 	if (connect(fd, (struct sockaddr*)&addr, addr_len) == -1) {
-		error("Couldn't connect to EGD socket \"%s\": %s", 
-			addr.sun_path, strerror(errno));
-		close(fd);
-		return(0);
+#ifdef PRNGD_PORT
+		error("Couldn't connect to PRNGD port %d: %s",
+		    PRNGD_PORT, strerror(errno));
+#else
+		error("Couldn't connect to PRNGD socket \"%s\": %s",
+		    addr.sun_path, strerror(errno));
+#endif
+		goto done;
 	}
 
-	/* Send blocking read request to EGD */
+	/* Send blocking read request to PRNGD */
 	msg[0] = 0x02;
 	msg[1] = len;
 
 	if (atomicio(write, fd, msg, sizeof(msg)) != sizeof(msg)) {
-		error("Couldn't write to EGD socket \"%s\": %s", 
-			EGD_SOCKET, strerror(errno));
-		close(fd);
-		return(0);
+		if (errno == EPIPE && errors < 10) {
+			close(fd);
+			errors++;
+			goto reopen;
+		}
+		error("Couldn't write to PRNGD socket: %s",
+		    strerror(errno));
+		goto done;
 	}
 
 	if (atomicio(read, fd, buf, len) != len) {
-		error("Couldn't read from EGD socket \"%s\": %s", 
-			EGD_SOCKET, strerror(errno));
-		close(fd);
-		return(0);
+		if (errno == EPIPE && errors < 10) {
+			close(fd);
+			errors++;
+			goto reopen;
+		}
+		error("Couldn't read from PRNGD socket: %s",
+		    strerror(errno));
+		goto done;
 	}
-	
-	close(fd);
-	
-	return(1);
+
+	rval = 1;
+done:
+	mysignal(SIGPIPE, old_sigpipe);
+	if (fd != -1)
+		close(fd);
+	return(rval);
 }
-#else /* !EGD_SOCKET */
+#else /* !USE_PRNGD */
 #ifdef RANDOM_POOL
 /* Collect entropy from /dev/urandom or pipe */
-int get_random_bytes(unsigned char *buf, int len)
+int
+get_random_bytes(unsigned char *buf, int len)
 {
 	int random_pool;
 
 	random_pool = open(RANDOM_POOL, O_RDONLY);
 	if (random_pool == -1) {
-		error("Couldn't open random pool \"%s\": %s", 
+		error("Couldn't open random pool \"%s\": %s",
 			RANDOM_POOL, strerror(errno));
 		return(0);
 	}
-	
+
 	if (atomicio(read, random_pool, buf, len) != len) {
-		error("Couldn't read from random pool \"%s\": %s", 
+		error("Couldn't read from random pool \"%s\": %s",
 			RANDOM_POOL, strerror(errno));
 		close(random_pool);
 		return(0);
 	}
-	
+
 	close(random_pool);
-	
+
 	return(1);
 }
 #endif /* RANDOM_POOL */
-#endif /* EGD_SOCKET */
+#endif /* USE_PRNGD */
 
 /*
  * Seed OpenSSL's random number pool from Kernel random number generator
- * or EGD
+ * or PRNGD/EGD
  */
 void
 seed_rng(void)
 {
-	char buf[32];
-	
+	unsigned char buf[32];
+
 	debug("Seeding random number generator");
 
 	if (!get_random_bytes(buf, sizeof(buf))) {
@@ -161,16 +225,19 @@ seed_rng(void)
 	} else {
 		RAND_add(buf, sizeof(buf), sizeof(buf));
 	}
-	
+
 	memset(buf, '\0', sizeof(buf));
 }
 
-/* No-op */
-void init_rng(void) {}
+void
+init_rng(void) 
+{
+	check_openssl_version();
+}
 
-#else /* defined(EGD_SOCKET) || defined(RANDOM_POOL) */
+#else /* defined(USE_PRNGD) || defined(RANDOM_POOL) */
 
-/* 
+/*
  * FIXME: proper entropy estimations. All current values are guesses
  * FIXME: (ATL) do estimates at compile time?
  * FIXME: More entropy sources
@@ -210,18 +277,18 @@ double hash_output_from_command(entropy_source_t *src, char *hash);
 /* this is initialised from a file, by prng_read_commands() */
 entropy_source_t *entropy_sources = NULL;
 
-double 
+double
 stir_from_system(void)
 {
 	double total_entropy_estimate;
 	long int i;
-	
+
 	total_entropy_estimate = 0;
-	
+
 	i = getpid();
 	RAND_add(&i, sizeof(i), 0.5);
 	total_entropy_estimate += 0.1;
-	
+
 	i = getppid();
 	RAND_add(&i, sizeof(i), 0.5);
 	total_entropy_estimate += 0.1;
@@ -238,7 +305,7 @@ stir_from_system(void)
 	return(total_entropy_estimate);
 }
 
-double 
+double
 stir_from_programs(void)
 {
 	int i;
@@ -258,18 +325,18 @@ stir_from_programs(void)
 
 				/* Scale back entropy estimate according to command's rate */
 				entropy_estimate *= entropy_sources[c].rate;
- 
+
 				/* Upper bound of entropy estimate is SHA_DIGEST_LENGTH */
 				if (entropy_estimate > SHA_DIGEST_LENGTH)
 					entropy_estimate = SHA_DIGEST_LENGTH;
 
-	 			/* Scale back estimates for subsequent passes through list */
+				/* Scale back estimates for subsequent passes through list */
 				entropy_estimate /= SCALE_PER_RUN * (i + 1.0);
-			
+
 				/* Stir it in */
 				RAND_add(hash, sizeof(hash), entropy_estimate);
 
-				debug3("Got %0.2f bytes of entropy from '%s'", entropy_estimate, 
+				debug3("Got %0.2f bytes of entropy from '%s'", entropy_estimate,
 					entropy_sources[c].cmdstring);
 
 				total_entropy_estimate += entropy_estimate;
@@ -290,7 +357,7 @@ stir_from_programs(void)
 			c++;
 		}
 	}
-	
+
 	return(total_entropy_estimate);
 }
 
@@ -298,12 +365,12 @@ double
 stir_gettimeofday(double entropy_estimate)
 {
 	struct timeval tv;
-	
+
 	if (gettimeofday(&tv, NULL) == -1)
 		fatal("Couldn't gettimeofday: %s", strerror(errno));
 
 	RAND_add(&tv, sizeof(tv), entropy_estimate);
-	
+
 	return(entropy_estimate);
 }
 
@@ -312,10 +379,10 @@ stir_clock(double entropy_estimate)
 {
 #ifdef HAVE_CLOCK
 	clock_t c;
-	
+
 	c = clock();
 	RAND_add(&c, sizeof(c), entropy_estimate);
-	
+
 	return(entropy_estimate);
 #else /* _HAVE_CLOCK */
 	return(0);
@@ -327,7 +394,7 @@ stir_rusage(int who, double entropy_estimate)
 {
 #ifdef HAVE_GETRUSAGE
 	struct rusage ru;
-	
+
 	if (getrusage(who, &ru) == -1)
 		return(0);
 
@@ -340,8 +407,7 @@ stir_rusage(int who, double entropy_estimate)
 }
 
 
-static
-int
+static int
 _get_timeval_msec_difference(struct timeval *t1, struct timeval *t2) {
 	int secdiff, usecdiff;
 
@@ -365,7 +431,7 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 	int bytes_read;
 	int total_bytes_read;
 	SHA_CTX sha;
-	
+
 	debug3("Reading output from \'%s\'", src->cmdstring);
 
 	if (devnull == -1) {
@@ -373,7 +439,7 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 		if (devnull == -1)
 			fatal("Couldn't open /dev/null: %s", strerror(errno));
 	}
-	
+
 	if (pipe(p) == -1)
 		fatal("Couldn't open pipe: %s", strerror(errno));
 
@@ -466,7 +532,7 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 	close(p[0]);
 
 	debug3("Time elapsed: %d msec", msec_elapsed);
-	
+
 	if (waitpid(pid, &status, 0) == -1) {
 	       error("Couldn't wait for child '%s' completion: %s", src->cmdstring,
 		     strerror(errno));
@@ -489,13 +555,13 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 		if (WEXITSTATUS(status)==0) {
 			return(total_bytes_read);
 		} else {
-			debug2("Command '%s' exit status was %d", src->cmdstring, 
+			debug2("Command '%s' exit status was %d", src->cmdstring,
 				WEXITSTATUS(status));
 			src->badness = src->sticky_badness = 128;
 			return (0.0);
 		}
 	} else if (WIFSIGNALED(status)) {
-		debug2("Command '%s' returned on uncaught signal %d !", src->cmdstring, 
+		debug2("Command '%s' returned on uncaught signal %d !", src->cmdstring,
 			status);
 		src->badness = src->sticky_badness = 128;
 		return(0.0);
@@ -516,7 +582,7 @@ prng_check_seedfile(char *filename) {
 	if (lstat(filename, &st) == -1) {
 		/* Give up on hard errors */
 		if (errno != ENOENT)
-			debug("WARNING: Couldn't stat random seed file \"%s\": %s", 
+			debug("WARNING: Couldn't stat random seed file \"%s\": %s",
 			   filename, strerror(errno));
 
 		return(0);
@@ -532,7 +598,7 @@ prng_check_seedfile(char *filename) {
 			 filename, getuid());
 		return(0);
 	}
-	
+
 	return(1);
 }
 
@@ -546,22 +612,22 @@ prng_write_seedfile(void) {
 	/* Don't bother if we have already saved a seed */
 	if (prng_seed_saved)
 		return;
-	
+
 	setuid(original_uid);
-	
+
 	prng_seed_saved = 1;
-	
+
 	pw = getpwuid(original_uid);
 	if (pw == NULL)
-		fatal("Couldn't get password entry for current user (%i): %s", 
+		fatal("Couldn't get password entry for current user (%i): %s",
 			original_uid, strerror(errno));
-				
+
 	/* Try to ensure that the parent directory is there */
-	snprintf(filename, sizeof(filename), "%.512s/%s", pw->pw_dir, 
-		SSH_USER_DIR);
+	snprintf(filename, sizeof(filename), "%.512s/%s", pw->pw_dir,
+		_PATH_SSH_USER_DIR);
 	mkdir(filename, 0700);
 
-	snprintf(filename, sizeof(filename), "%.512s/%s", pw->pw_dir, 
+	snprintf(filename, sizeof(filename), "%.512s/%s", pw->pw_dir,
 		SSH_PRNG_SEED_FILE);
 
 	debug("writing PRNG seed to file %.100s", filename);
@@ -570,13 +636,13 @@ prng_write_seedfile(void) {
 
 	/* Don't care if the seed doesn't exist */
 	prng_check_seedfile(filename);
-	
+
 	if ((fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0600)) == -1) {
-		debug("WARNING: couldn't access PRNG seedfile %.100s (%.100s)", 
+		debug("WARNING: couldn't access PRNG seedfile %.100s (%.100s)",
 		   filename, strerror(errno));
-	} else {	
+	} else {
 		if (atomicio(write, fd, &seed, sizeof(seed)) != sizeof(seed))
-			fatal("problem writing PRNG seedfile %.100s (%.100s)", filename, 
+			fatal("problem writing PRNG seedfile %.100s (%.100s)", filename,
 				 strerror(errno));
 
 		close(fd);
@@ -589,31 +655,26 @@ prng_read_seedfile(void) {
 	char seed[1024];
 	char filename[1024];
 	struct passwd *pw;
-	
+
 	pw = getpwuid(original_uid);
 	if (pw == NULL)
-		fatal("Couldn't get password entry for current user (%i): %s", 
+		fatal("Couldn't get password entry for current user (%i): %s",
 			original_uid, strerror(errno));
-			
-	snprintf(filename, sizeof(filename), "%.512s/%s", pw->pw_dir, 
+
+	snprintf(filename, sizeof(filename), "%.512s/%s", pw->pw_dir,
 		SSH_PRNG_SEED_FILE);
 
 	debug("loading PRNG seed from file %.100s", filename);
 
 	if (!prng_check_seedfile(filename)) {
-		verbose("Random seed file not found, creating new");
-		prng_write_seedfile();
-		
-		/* Reseed immediatly */
-		(void)stir_from_system();
-		(void)stir_from_programs();
+		verbose("Random seed file not found or not valid, ignoring.");
 		return;
 	}
 
 	/* open the file and read in the seed */
 	fd = open(filename, O_RDONLY);
 	if (fd == -1)
-		fatal("could not open PRNG seedfile %.100s (%.100s)", filename, 
+		fatal("could not open PRNG seedfile %.100s (%.100s)", filename,
 			strerror(errno));
 
 	if (atomicio(read, fd, &seed, sizeof(seed)) != sizeof(seed)) {
@@ -673,7 +734,7 @@ prng_read_commands(char *cmdfilename)
 			error("bad entropy command, %.100s line %d", cmdfilename,
 			     linenum);
 			continue;
-		}		
+		}
 
 		/* first token, command args (incl. argv[0]) in double quotes */
 		cp = strtok(cp, "\"");
@@ -683,7 +744,7 @@ prng_read_commands(char *cmdfilename)
 			continue;
 		}
 		strlcpy(cmd, cp, sizeof(cmd));
-		
+
 		/* second token, full command path */
 		if ((cp = strtok(NULL, WHITESPACE)) == NULL) {
 			error("missing command path, %.100s line %d -- ignored",
@@ -695,7 +756,7 @@ prng_read_commands(char *cmdfilename)
 		if (strncmp("undef", cp, 5) == 0)
 			continue;
 
-		strlcpy(path, cp, sizeof(path));			
+		strlcpy(path, cp, sizeof(path));
 
 		/* third token, entropy rate estimate for this command */
 		if ((cp = strtok(NULL, WHITESPACE)) == NULL) {
@@ -707,14 +768,14 @@ prng_read_commands(char *cmdfilename)
 
 		/* end of line */
 		if ((cp = strtok(NULL, WHITESPACE)) != NULL) {
-			error("garbage at end of line %d in %.100s -- ignored", linenum, 
+			error("garbage at end of line %d in %.100s -- ignored", linenum,
 				cmdfilename);
 			continue;
 		}
 
 		/* save the command for debug messages */
 		entcmd[cur_cmd].cmdstring = xstrdup(cmd);
-			
+
 		/* split the command args */
 		cp = strtok(cmd, WHITESPACE);
 		arg = 0;
@@ -725,7 +786,7 @@ prng_read_commands(char *cmdfilename)
 			entcmd[cur_cmd].args[arg] = s;
 			arg++;
 		} while ((arg < 5) && (cp = strtok(NULL, WHITESPACE)));
-		
+
 		if (strtok(NULL, WHITESPACE))
 			error("ignored extra command elements (max 5), %.100s line %d",
 			      cmdfilename, linenum);
@@ -761,7 +822,7 @@ prng_read_commands(char *cmdfilename)
 
 /*
  * Write a keyfile at exit
- */ 
+ */
 void
 prng_seed_cleanup(void *junk)
 {
@@ -775,42 +836,80 @@ prng_seed_cleanup(void *junk)
 void
 seed_rng(void)
 {
-	void *old_sigchld_handler;
+	mysig_t old_sigchld_handler;
 
 	if (!prng_initialised)
 		fatal("RNG not initialised");
-	
+
 	/* Make sure some other sigchld handler doesn't reap our entropy */
 	/* commands */
-	old_sigchld_handler = signal(SIGCHLD, SIG_DFL);
+	old_sigchld_handler = mysignal(SIGCHLD, SIG_DFL);
 
-	debug("Seeded RNG with %i bytes from programs", (int)stir_from_programs());
-	debug("Seeded RNG with %i bytes from system calls", (int)stir_from_system());
+	debug("Seeded RNG with %i bytes from programs", 
+	    (int)stir_from_programs());
+	debug("Seeded RNG with %i bytes from system calls", 
+	    (int)stir_from_system());
 
 	if (!RAND_status())
 		fatal("Not enough entropy in RNG");
 
-	signal(SIGCHLD, old_sigchld_handler);
+	mysignal(SIGCHLD, old_sigchld_handler);
 
 	if (!RAND_status())
 		fatal("Couldn't initialise builtin random number generator -- exiting.");
 }
 
-void init_rng(void) 
+void
+init_rng(void)
 {
+	int original_euid;
+
+	check_openssl_version();
+
 	original_uid = getuid();
+	original_euid = geteuid();
 
 	/* Read in collection commands */
 	if (!prng_read_commands(SSH_PRNG_COMMAND_FILE))
 		fatal("PRNG initialisation failed -- exiting.");
 
 	/* Set ourselves up to save a seed upon exit */
-	prng_seed_saved = 0;		
+	prng_seed_saved = 0;
+
+	/* Give up privs while reading seed file */
+#ifdef SAVED_IDS_WORK_WITH_SETEUID
+	if ((original_uid != original_euid) && (seteuid(original_uid) == -1))
+		fatal("Couldn't give up privileges");
+#else /* SAVED_IDS_WORK_WITH_SETEUID */
+	/*
+	 * Propagate the privileged uid to all of our uids.
+	 * Set the effective uid to the given (unprivileged) uid. 
+	 */
+	if (original_uid != original_euid && (setuid(original_euid) == -1 || 
+	    seteuid(original_uid) == -1))
+		fatal("Couldn't give up privileges");
+#endif /* SAVED_IDS_WORK_WITH_SETEUID */
+
 	prng_read_seedfile();
+
+#ifdef SAVED_IDS_WORK_WITH_SETEUID
+	if ((original_uid != original_euid) && (seteuid(original_euid) == -1))
+		fatal("Couldn't restore privileges");
+#else /* SAVED_IDS_WORK_WITH_SETEUID */
+	/*
+	 * We are unable to restore the real uid to its unprivileged value.
+	 * Propagate the real uid (usually more privileged) to effective uid
+	 * as well.
+	 */
+	if (original_uid != original_euid && (seteuid(original_euid) == -1 || 
+	    setuid(original_uid) == -1))
+		fatal("Couldn't restore privileges");
+#endif /* SAVED_IDS_WORK_WITH_SETEUID */
+
 	fatal_add_cleanup(prng_seed_cleanup, NULL);
 	atexit(prng_write_seedfile);
 
 	prng_initialised = 1;
 }
 
-#endif /* defined(EGD_SOCKET) || defined(RANDOM_POOL) */
+#endif /* defined(USE_PRNGD) || defined(RANDOM_POOL) */

@@ -15,21 +15,69 @@
 # source function library
 . /etc/rc.d/init.d/functions
 
+[ -f /etc/sysconfig/sshd ] && . /etc/sysconfig/sshd
+
 RETVAL=0
 
 # Some functions to make the below more readable
 KEYGEN=/usr/bin/ssh-keygen
-RSA_KEY=/etc/ssh/ssh_host_key
+RSA1_KEY=/etc/ssh/ssh_host_key
+RSA_KEY=/etc/ssh/ssh_host_rsa_key
 DSA_KEY=/etc/ssh/ssh_host_dsa_key
 PID_FILE=/var/run/sshd.pid
-do_rsa_keygen() {
-	if $KEYGEN -R && ! test -f $RSA_KEY ; then
-		echo -n "Generating SSH RSA host key: "
-		if $KEYGEN -q -b 1024 -f $RSA_KEY -C '' -N '' >&/dev/null; then
-			success "RSA key generation"
+my_success() {
+  local msg
+  if [ $# -gt 1 ]; then
+    msg="$2"
+  else
+    msg="done"
+  fi
+  case "`type -type success`" in
+    function)
+      success "$1"
+    ;;
+    *)
+      echo -n "${msg}"
+    ;;
+  esac
+}
+my_failure() {
+  local msg
+  if [ $# -gt 1 ]; then
+    msg="$2"
+  else
+    msg="FAILED"
+  fi
+  case "`type -type failure`" in
+    function)
+      failure "$1"
+    ;;
+    *)
+      echo -n "${msg}"
+    ;;
+  esac
+}
+do_rsa1_keygen() {
+	if ! test -f $RSA1_KEY ; then
+		echo -n "Generating SSH1 RSA host key: "
+		if $KEYGEN -q -t rsa1 -f $RSA1_KEY -C '' -N '' >&/dev/null; then
+			my_success "RSA1 key generation"
 			echo
 		else
-			failure "RSA key generation"
+			my_failure "RSA1 key generation"
+			echo
+			exit 1
+		fi
+	fi
+}
+do_rsa_keygen() {
+	if ! test -f $RSA_KEY ; then
+		echo -n "Generating SSH2 RSA host key: "
+		if $KEYGEN -q -t rsa -f $RSA_KEY -C '' -N '' >&/dev/null; then
+			my_success "RSA key generation"
+			echo
+		else
+			my_failure "RSA key generation"
 			echo
 			exit 1
 		fi
@@ -37,12 +85,12 @@ do_rsa_keygen() {
 }
 do_dsa_keygen() {
 	if ! test -f $DSA_KEY ; then
-		echo -n "Generating SSH DSA host key: "
-		if $KEYGEN -q -d -b 1024 -f $DSA_KEY -C '' -N '' >&/dev/null; then
-			success "DSA key generation"
+		echo -n "Generating SSH2 DSA host key: "
+		if $KEYGEN -q -t dsa -f $DSA_KEY -C '' -N '' >&/dev/null; then
+			my_success "DSA key generation"
 			echo
 		else
-			failure "DSA key generation"
+			my_failure "DSA key generation"
 			echo
 			exit 1
 		fi
@@ -52,18 +100,19 @@ do_dsa_keygen() {
 case "$1" in
 	start)
 		# Create keys if necessary
+		do_rsa1_keygen;
 		do_rsa_keygen;
 		do_dsa_keygen;
 		
 		echo -n "Starting sshd: "
 		if [ ! -f $PID_FILE ] ; then
-			sshd
+			sshd $OPTIONS
 			RETVAL=$?
 			if [ "$RETVAL" = "0" ] ; then
-				success "sshd startup"
+				my_success "sshd startup" "sshd"
 				touch /var/lock/subsys/sshd
 			else
-				failure "sshd startup"
+				my_failure "sshd startup" ""
 			fi
 		fi
 		echo
@@ -72,6 +121,7 @@ case "$1" in
 		echo -n "Shutting down sshd: "
 		if [ -f $PID_FILE ] ; then
 			killproc sshd
+			RETVAL=$?
 			[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/sshd
 		fi
 		echo

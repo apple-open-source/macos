@@ -22,6 +22,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* $Id: entropy.h,v 1.1.1.4 2001/02/25 20:54:13 zarzycki Exp $ */
+
 #ifndef _RANDOMS_H
 #define _RANDOMS_H
 

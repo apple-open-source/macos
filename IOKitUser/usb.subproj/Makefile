@@ -12,8 +12,6 @@ NAME = usb
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = IOUSBLib.h
-
 CFILES = IOUSBLib.c
 
 OTHERSRCS = Makefile.preamble Makefile USBTest.cpp
@@ -27,10 +25,6 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-
-PUBLIC_HEADERS = IOUSBLib.h
-
-PROJECT_HEADERS = IOUSBLib.h
 
 
 

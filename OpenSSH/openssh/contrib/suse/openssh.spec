@@ -1,6 +1,6 @@
 Summary: OpenSSH, a free Secure Shell (SSH) implementation
 Name: openssh
-Version: 2.2.0p1
+Version: 2.9p1
 URL: http://www.openssh.com/
 Release: 1
 Source0: openssh-%{version}.tar.gz
@@ -88,8 +88,13 @@ passphrase dialog.
 
 %build
 CFLAGS="$RPM_OPT_FLAGS" \
-./configure --prefix=/usr --sysconfdir=/etc/ssh --with-gnome-askpass \
-            --with-tcp-wrappers --with-ipv4-default --libexecdir=/usr/lib/ssh
+./configure	--prefix=/usr \
+				--sysconfdir=/etc/ssh \
+				--with-pam \
+				--with-gnome-askpass \
+            --with-tcp-wrappers \
+				--with-ipv4-default \
+				--libexecdir=/usr/lib/ssh
 make
 
 cd contrib
@@ -161,11 +166,12 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc COPYING.Ylonen ChangeLog OVERVIEW README* 
+%doc ChangeLog OVERVIEW README* 
 %doc RFC.nroff TODO CREDITS LICENSE
 %attr(0755,root,root) %dir /etc/ssh
 %attr(0644,root,root) %config /etc/ssh/ssh_config
 %attr(0600,root,root) %config /etc/ssh/sshd_config
+%attr(0600,root,root) %config /etc/ssh/primes
 %attr(0644,root,root) %config /etc/pam.d/sshd
 %attr(0755,root,root) %config /sbin/init.d/sshd
 %attr(0755,root,root) /usr/bin/ssh-keygen
@@ -174,6 +180,8 @@ fi
 %attr(-,root,root) /usr/bin/slogin
 %attr(0755,root,root) /usr/bin/ssh-agent
 %attr(0755,root,root) /usr/bin/ssh-add
+%attr(0755,root,root) /usr/bin/ssh-keyscan
+%attr(0755,root,root) /usr/bin/sftp
 %attr(0755,root,root) /usr/sbin/sshd
 %attr(-,root,root) /usr/sbin/rcsshd
 %attr(0755,root,root) %dir /usr/lib/ssh

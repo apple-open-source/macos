@@ -37,10 +37,10 @@
 #include <net/if.h>
 #include <netat/appletalk.h>
 
-#define SIP_DEBUG_FLOW	0	/* potentially lots of printfs */
-#define SIP_DEBUG	0	/* important printfs only */
-#define SIP_DEBUG_ERR	1	/* Important error printfs only */
-#define SIP_DEBUG_INFO 0	/* Interesting printfs only */
+#define SIP_DEBUG_FLOW  0	/* potentially lots of printfs */
+#define SIP_DEBU        0	/* important printfs only */
+#define SIP_DEBUG_ERR   1	/* Important error printfs only */
+#define SIP_DEBUG_INFO 	0	/* Interesting printfs only */
 
 #define DO_LOG	0
 
@@ -64,75 +64,63 @@
  * This is used to attempt binary compatibility during testing
  */
 
-struct BlueFilter
-{
-#define	IFNAMSIZ	16
-	char	ifr_name[IFNAMSIZ];		/* if name, e.g. "en0" */
-	short BF_flags;
+/* Eventually, this should probably use socket address structures
+ * instead of an unsigned long and an unsigned char
+ */
+struct BlueFilter {
 	unsigned long  BF_address;	/* IP address or Atalk Network # */
 	unsigned char  BF_node;		/* Atalk node # */
-//        struct ifnet *BF_if;            /* Destination of "passed" pkts */
+	short BF_flags;
 };
-
-#define BF_ALLOC	0x01	/* Entry in use */
-#define BF_DEALLOC	0x02	/* Clear matching entry */
-#define BF_VALID	0x04	/* Address is valid */
-#define BF_ATALK	0x08	/* Appletalk capture turned on (w. address) */
-#define BF_IP		0x10	/* IP capture turned on (no address) */
 
 /*
  * Control block for support of Blue/Classic networking
  * TODO:
  *  clean up filter data structures
  */
-struct blueCtlBlock
-{	struct blueCtlBlock *bcb_link; /* Chain `em up */
-	struct socket *ifb_so;
-	struct BlueFilter filter[2];	/* Only need to check IP, A/talk */
-	struct sockaddr_at XAtalkAddr;	/* Atalk addr from X stack */
-	int ClosePending;	/* 1 -> timer function should just free ifb */
-	/* Media info - should be in ndrv_cb */
-	unsigned char *dev_media_addr;	/* Media address for attached device */
-	int media_addr_size;		/* Size (bytes) of media address */
-	/* For port sharing */
-	unsigned char udp_blue_owned;	/* Client UDP port ownership sig */
-	unsigned char tcp_blue_owned;	/* Client TCP port ownership sig */
-	unsigned long atalk_proto_filter_id;	/* AppleTalk DLIL filter */
-	unsigned long ipv4_proto_filter_id;	/* IPv4 DLIL filter id */
-	unsigned long lo_proto_filter_id;	/* Loopback filter id */
-	/* For IP fragment handling */
-	TAILQ_HEAD(fraglist, fraghead) fraglist;
-	int fraglist_timer_on;	/* Flag for timing out frags */
-	/* Stats */
-	int pkts_up;
-	int pkts_out;
-	int pkts_looped_r2b;
-	int pkts_looped_b2r;
-	int no_bufs1;		/* Input NKE got null mbuf */
-	int no_bufs2;		/* ndrv_output couldn't dup mbuf */
-	int full_sockbuf;
-};
 
 /* Preallocate slots in blue_if to simplify filtering */
-#define BFS_ATALK	0x0	/* The Atalk filter */
-#define BFS_IP		0x1	/* The IP filter */
+#define BFS_ATALK	0	/* The Atalk filter */
+#define BFS_IP		1	/* The IP filter */
+#define BFS_COUNT	2	/* number of BlueFilters per blue control block */
 
-#define SIOCSSPLITTER	_IOW('i', 123, struct ifreq)	/* set 'splitter' */
-#define SIOCGSPLITTER	_IOR('i', 122, struct ifreq)	/* get 'splitter' */
-#define SIOCGSPLTSTAT	_IOWR('i', 121, struct Ystats)
-#define SIOCSSPLTFILT	_IOW('i', 120, struct BlueFilter)
-#define SIOCZSPLTSTAT	_IO('i', 119)		/* Clear stats */
-
-/*
- * Config structure for  - NYI
- */
-struct if_splitter
-{	char ifs_on;		/* 1=>on */
-	char ifs_qmax;		/* !0 => maxqlen */
-	short ifs_wait;		/* Time to wait for signal */
-	short ifs_sig;		/* Signal to send */
-	short ifs_pad;		/* Extra space */
+struct blueCtlBlock {
+    struct blueCtlBlock *bcb_link; /* Chain `em up */
+    struct socket *ifb_so;
+    struct BlueFilter filter[BFS_COUNT];	/* Only need to check IP, A/talk */
+    struct sockaddr_at XAtalkAddr;	/* Atalk addr from X stack */
+    int ClosePending;	/* 1 -> timer function should just free ifb */
+    /* Media info - should be in ndrv_cb */
+    unsigned char *dev_media_addr;	/* Media address for attached device (MAC address) */
+    int media_addr_size;		/* Size (bytes) of media address */
+    /* For port sharing */
+    unsigned char udp_blue_owned;	/* Client UDP port ownership sig */
+    unsigned char tcp_blue_owned;	/* Client TCP port ownership sig */
+    unsigned long atalk_proto_filter_id;	/* AppleTalk DLIL filter */
+    unsigned long ipv4_proto_filter_id;	/* IPv4 DLIL filter id */
+    unsigned long lo_proto_filter_id;	/* Loopback filter id */
+    /* For IP fragment handling */
+    TAILQ_HEAD(fraglist, fraghead) fraglist;
+    int fraglist_timer_on;	/* Flag for timing out frags */
+    /* Stats */
+    int pkts_up;
+    int pkts_out;
+    int pkts_looped_r2b;
+    int pkts_looped_b2r;
+    int no_bufs1;		/* Input NKE got null mbuf */
+    int no_bufs2;		/* ndrv_output couldn't dup mbuf */
+    int full_sockbuf;
 };
+
+#define MDATA_INCLUDE_HEADER(_m, _size) { \
+            (_m)->m_data -= _size; \
+            (_m)->m_len += _size; \
+            (_m)->m_pkthdr.len += _size; }
+
+#define MDATA_REMOVE_HEADER(_m, _size) { \
+            (_m)->m_data += _size; \
+            (_m)->m_len -= _size; \
+            (_m)->m_pkthdr.len -= _size; }
 
 #define MDATA_ETHER_START(m) {				\
     (m)->m_data -= sizeof(struct ether_header);		\
@@ -145,6 +133,8 @@ struct if_splitter
     (m)->m_len -= sizeof (struct ether_header);		\
     (m)->m_pkthdr.len -= sizeof(struct ether_header);	\
 }
+
+#define mtodAtOffset(_m, _offset, _type) ((_type)(mtod(_m, unsigned char*) + _offset))
 
 #ifdef KERNEL
 extern int enable_atalk(struct BlueFilter *, void *, struct blueCtlBlock *);
@@ -165,6 +155,8 @@ extern int si_send_eth_atalk(struct mbuf **, struct blueCtlBlock *);
 extern int si_send_eth_ipv4(struct mbuf **, struct blueCtlBlock *);
 extern int si_send_ppp_ipv4(struct mbuf **, struct blueCtlBlock *);
 extern void init_ipv4(struct socket *, struct kextcb *);
-extern void timeout(timeout_fcn_t, void *, int);     
+extern void timeout(timeout_fcn_t, void *, int);
+
+extern int do_pullup(struct mbuf**, unsigned int);
 #endif /* KERNEL */
 #endif /* _NET_SIP_H */

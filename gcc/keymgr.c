@@ -80,7 +80,12 @@ extern void *__keymgr_global[3] ; /*also from system framework*/
 #define KEYMGR_CREATE_THREAD_DATA_KEY(thread_key) \
 		((pthread_key_create(&thread_key,NULL) != 0) ?  \
 				(abort(),0) : 0) 
-										 
+
+/* Version of the above which specifies free () as the destructor.  */
+#define KEYMGR_CREATE_MALLOCED_THREAD_DATA_KEY(thread_key) \
+		((pthread_key_create(&thread_key, free) != 0) ?  \
+				(abort(),0) : 0) 
+
 #define KEYMGR_SET_THREAD_DATA(key,data)	\
 		 ((pthread_setspecific((key), (data)) != 0) ? \
 				(abort(),0) : 0)
@@ -471,7 +476,14 @@ static void _keymgr_init_per_thread_data(unsigned int key) {
     
     pthread_key = (pthread_key_t) keyArray->ptr ;
     if (pthread_key == NULL) {
-    	KEYMGR_CREATE_THREAD_DATA_KEY(pthread_key) ;
+	    switch (key) {
+			case KEYMGR_EH_CONTEXT_KEY:
+				KEYMGR_CREATE_MALLOCED_THREAD_DATA_KEY (pthread_key);
+				break;
+			default:
+				KEYMGR_CREATE_THREAD_DATA_KEY(pthread_key) ;
+				break;
+			}
 		_keymgr_set_and_unlock_key(key,(void *) pthread_key, NODE_THREAD_SPECIFIC_DATA) ;
 		}
 

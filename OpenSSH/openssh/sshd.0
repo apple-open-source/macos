@@ -2,47 +2,47 @@
 SSHD(8)                     System Manager's Manual                    SSHD(8)
 
 NAME
-     sshd - secure shell daemon
+     sshd - OpenSSH SSH daemon
 
 SYNOPSIS
-     sshd [-diqQ46] [-b bits] [-f config_file] [-g login_grace_time] [-h
+     sshd [-deiqD46] [-b bits] [-f config_file] [-g login_grace_time] [-h
           host_key_file] [-k key_gen_time] [-p port] [-u len] [-V
           client_protocol_id]
 
 DESCRIPTION
-     sshd (Secure Shell Daemon) is the daemon program for ssh(1).  Together
-     these programs replace rlogin and rsh, and provide secure encrypted com-
-     munications between two untrusted hosts over an insecure network.  The
-     programs are intended to be as easy to install and use as possible.
+     sshd (SSH Daemon) is the daemon program for ssh(1).  Together these proM--
+     grams replace rlogin and rsh, and provide secure encrypted communications
+     between two untrusted hosts over an insecure network.  The programs are
+     intended to be as easy to install and use as possible.
 
-     sshd is the daemon that listens for connections from clients.  It is nor-
-     mally started at boot from /etc/rc. It forks a new daemon for each incom-
-     ing connection.  The forked daemons handle key exchange, encryption, au-
+     sshd is the daemon that listens for connections from clients.  It is norM--
+     mally started at boot from /etc/rc. It forks a new daemon for each incomM--
+     ing connection.  The forked daemons handle key exchange, encryption, auM--
      thentication, command execution, and data exchange.  This implementation
      of sshd supports both SSH protocol version 1 and 2 simultaneously.  sshd
      works as follows.
 
    SSH protocol version 1
 
-     Each host has a host-specific RSA key (normally 1024 bits) used to iden-
+     Each host has a host-specific RSA key (normally 1024 bits) used to idenM--
      tify the host.  Additionally, when the daemon starts, it generates a
-     server RSA key (normally 768 bits).  This key is normally regenerated ev-
+     server RSA key (normally 768 bits).  This key is normally regenerated evM--
      ery hour if it has been used, and is never stored on disk.
 
      Whenever a client connects the daemon responds with its public host and
      server keys.  The client compares the RSA host key against its own
      database to verify that it has not changed.  The client then generates a
      256 bit random number.  It encrypts this random number using both the
-     host key and the server key, and sends the encrypted number to the serv-
+     host key and the server key, and sends the encrypted number to the servM--
      er.  Both sides then use this random number as a session key which is
      used to encrypt all further communications in the session.  The rest of
      the session is encrypted using a conventional cipher, currently Blowfish
-     or 3DES, with 3DES being used by default.  The client selects the encryp-
+     or 3DES, with 3DES being used by default.  The client selects the encrypM--
      tion algorithm to use from those offered by the server.
 
      Next, the server and the client enter an authentication dialog.  The
      client tries to authenticate itself using .rhosts authentication, .rhosts
-     authentication combined with RSA host authentication, RSA challenge-re-
+     authentication combined with RSA host authentication, RSA challenge-reM--
      sponse authentication, or password based authentication.
 
      Rhosts authentication is normally disabled because it is fundamentally
@@ -56,16 +56,18 @@ DESCRIPTION
      Version 2 works similarly: Each host has a host-specific DSA key used to
      identify the host.  However, when the daemon starts, it does not generate
      a server key.  Forward security is provided through a Diffie-Hellman key
-     agreement.  This key agreement results in a shared session key.  The rest
-     of the session is encrypted using a symmetric cipher, currently Blowfish,
-     3DES or CAST128 in CBC mode or Arcfour.  The client selects the encryp-
-     tion algorithm to use from those offered by the server.  Additionally,
-     session integrity is provided through a cryptographic message authentica-
-     tion code (hmac-sha1 or hmac-md5).
+     agreement.  This key agreement results in a shared session key.
 
+     The rest of the session is encrypted using a symmetric cipher, currently
+     128 bit AES, Blowfish, 3DES, CAST128, Arcfour, 192 bit AES, or 256 bit
+     AES.  The client selects the encryption algorithm to use from those ofM--
+     fered by the server.  Additionally, session integrity is provided through
+     a cryptographic message authentication code (hmac-sha1 or hmac-md5).
 
-     Protocol version 2 provides a public key based user authentication method
-     (DSAAuthentication) and conventional password authentication.
+     Protocol version 2 provides a public key based user (PubkeyAuthenticaM--
+     tion) or client host (HostbasedAuthentication) authentication method,
+     conventional password authentication and challenge response based methM--
+     ods.
 
    Command execution and data forwarding
 
@@ -80,93 +82,94 @@ DESCRIPTION
      data at any time, and such data is forwarded to/from the shell or command
      on the server side, and the user terminal in the client side.
 
-     When the user program terminates and all forwarded X11 and other connec-
+     When the user program terminates and all forwarded X11 and other connecM--
      tions have been closed, the server sends command exit status to the
      client, and both sides exit.
 
      sshd can be configured using command-line options or a configuration
-     file.  Command-line options override values specified in the configura-
+     file.  Command-line options override values specified in the configuraM--
      tion file.
 
      sshd rereads its configuration file when it receives a hangup signal,
-     SIGHUP.
+     SIGHUP, by executing itself with the name it was started as, ie.
+     /usr/sbin/sshd.
 
      The options are as follows:
 
      -b bits
-             Specifies the number of bits in the server key (default 768).
+             Specifies the number of bits in the ephemeral protocol version 1
+             server key (default 768).
 
      -d      Debug mode.  The server sends verbose debug output to the system
              log, and does not put itself in the background.  The server also
              will not fork and will only process one connection.  This option
-             is only intended for debugging for the server.  Multiple -d op-
-             tions increases the debugging level.  Maximum is 3.
+             is only intended for debugging for the server.  Multiple -d opM--
+             tions increase the debugging level.  Maximum is 3.
+
+     -e      When this option is specified, sshd will send the output to the
+             standard error instead of the system log.
 
      -f configuration_file
              Specifies the name of the configuration file.  The default is
-             /etc/sshd_config. sshd refuses to start if there is no configura-
+             /etc/sshd_config. sshd refuses to start if there is no configuraM--
              tion file.
 
      -g login_grace_time
-             Gives the grace time for clients to authenticate themselves (de-
-             fault 300 seconds).  If the client fails to authenticate the user
+             Gives the grace time for clients to authenticate themselves (deM--
+             fault 600 seconds).  If the client fails to authenticate the user
              within this many seconds, the server disconnects and exits.  A
              value of zero indicates no limit.
 
      -h host_key_file
-             Specifies the file from which the RSA host key is read (default
+             Specifies the file from which the host key is read (default
              /etc/ssh_host_key). This option must be given if sshd is not run
-             as root (as the normal host file is normally not readable by any-
-             one but root).
+             as root (as the normal host file is normally not readable by anyM--
+             one but root).  It is possible to have multiple host key files
+             for the different protocol versions and host key algorithms.
 
      -i      Specifies that sshd is being run from inetd.  sshd is normally
              not run from inetd because it needs to generate the server key
              before it can respond to the client, and this may take tens of
-             seconds.  Clients would have to wait too long if the key was re-
+             seconds.  Clients would have to wait too long if the key was reM--
              generated every time.  However, with small key sizes (e.g., 512)
              using sshd from inetd may be feasible.
 
      -k key_gen_time
-             Specifies how often the server key is regenerated (default 3600
-             seconds, or one hour).  The motivation for regenerating the key
-             fairly often is that the key is not stored anywhere, and after
-             about an hour, it becomes impossible to recover the key for de-
-             crypting intercepted communications even if the machine is
-             cracked into or physically seized.  A value of zero indicates
-             that the key will never be regenerated.
+             Specifies how often the ephemeral protocol version 1 server key
+             is regenerated (default 3600 seconds, or one hour).  The motivaM--
+             tion for regenerating the key fairly often is that the key is not
+             stored anywhere, and after about an hour, it becomes impossible
+             to recover the key for decrypting intercepted communications even
+             if the machine is cracked into or physically seized.  A value of
+             zero indicates that the key will never be regenerated.
 
      -p port
              Specifies the port on which the server listens for connections
              (default 22).
 
-     -q      Quiet mode.  Nothing is sent to the system log.  Normally the be-
+     -q      Quiet mode.  Nothing is sent to the system log.  Normally the beM--
              ginning, authentication, and termination of each connection is
              logged.
 
      -u len  This option is used to specify the size of the field in the utmp
              structure that holds the remote host name.  If the resolved host
              name is longer than len, the dotted decimal value will be used
-             instead.  This allows hosts with very long host names that over-
+             instead.  This allows hosts with very long host names that overM--
              flow this field to still be uniquely identified.  Specifying -u0
              indicates that only dotted decimal addresses should be put into
              the utmp file.
 
-     -Q      Do not print an error message if RSA support is missing.
-
-     -V client_protocol_id
-             SSH-2 compatibility mode.  When this option is specified sshd as-
-             sumes the client has sent the supplied version string and skips
-             the Protocol Version Identification Exchange.  This option is not
-             intended to be called directly.
+     -D      When this option is specified sshd will not detach and does not
+             become a daemon.  This allows easy monitoring of sshd.
 
      -4      Forces sshd to use IPv4 addresses only.
 
      -6      Forces sshd to use IPv6 addresses only.
 
 CONFIGURATION FILE
-     sshd reads configuration data from /etc/sshd_config (or the file speci-
+     sshd reads configuration data from /etc/sshd_config (or the file speciM--
      fied with -f on the command line).  The file contains keyword-value
-     pairs, one per line.  Lines starting with `#' and empty lines are inter-
+     pairs, one per line.  Lines starting with `#' and empty lines are interM--
      preted as comments.
 
      The following keywords are possible.
@@ -176,88 +179,125 @@ CONFIGURATION FILE
              Default is ``yes''.
 
      AllowGroups
-             This keyword can be followed by a number of group names, separat-
-             ed by spaces.  If specified, login is allowed only for users
-             whose primary group matches one of the patterns.  `*' and `?' can
-             be used as wildcards in the patterns.  Only group names are
-             valid; a numerical group ID isn't recognized.  By default login
-             is allowed regardless of the primary group.
+             This keyword can be followed by a list of group names, separated
+             by spaces.  If specified, login is allowed only for users whose
+             primary group or supplementary group list matches one of the patM--
+             terns.  `*' and `?' can be used as wildcards in the patterns.
+             Only group names are valid; a numerical group ID isn't recogM--
+             nized.  By default login is allowed regardless of the group list.
 
      AllowTcpForwarding
              Specifies whether TCP forwarding is permitted.  The default is
-             ``yes''. Note that disabling TCP forwarding does not improve se-
-             curity unless users are also denied shell access, as they can al-
+             ``yes''. Note that disabling TCP forwarding does not improve seM--
+             curity unless users are also denied shell access, as they can alM--
              ways install their own forwarders.
 
      AllowUsers
-             This keyword can be followed by a number of user names, separated
+             This keyword can be followed by a list of user names, separated
              by spaces.  If specified, login is allowed only for users names
-             that match one of the patterns.  `*' and `?' can be used as wild-
+             that match one of the patterns.  `*' and `?' can be used as wildM--
              cards in the patterns.  Only user names are valid; a numerical
              user ID isn't recognized.  By default login is allowed regardless
              of the user name.
 
+     Banner  In some jurisdictions, sending a warning message before authentiM--
+             cation may be relevant for getting legal protection.  The conM--
+             tents of the specified file are sent to the remote user before
+             authentication is allowed.  This option is only available for
+             protocol version 2.
+
+     ChallengeResponseAuthentication
+             Specifies whether challenge response authentication is allowed.
+             Currently there is only support for skey(1) authentication.  The
+             default is ``yes''.
+
      Ciphers
              Specifies the ciphers allowed for protocol version 2.  Multiple
-             ciphers must be comma-separated.  The default is ``3des-
-             cbc,blowfish-cbc,arcfour,cast128-cbc''.
+             ciphers must be comma-separated.  The default is
+             ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour.''
 
      CheckMail
              Specifies whether sshd should check for new mail for interactive
              logins.  The default is ``no''.
 
+     ClientAliveInterval
+             Sets a timeout interval in seconds after which if no data has
+             been received from the client, sshd will send a message through
+             the encrypted channel to request a response from the client.  The
+             default is 0, indicating that these messages will not be sent to
+             the client.  This option applies to protocol version 2 only.
+
+     ClientAliveCountMax
+             Sets the number of client alive messages (see above) which may be
+             sent without sshd receiving any messages back from the client. If
+             this threshold is reached while client alive messages are being
+             sent, sshd will disconnect the client, terminating the session.
+             It is important to note that the use of client alive messages is
+             very different from Keepalive (below). The client alive messages
+             are sent through the encrypted channel and therefore will not be
+             spoofable. The TCP keepalive option enabled by Keepalive is
+             spoofable. You want to use the client alive mechanism when you
+             are basing something important on clients having an active conM--
+             nection to the server.
+
+             The default value is 3. If you set ClientAliveInterval (above) to
+             15, and leave this value at the default, unresponsive ssh clients
+             will be disconnected after approximately 45 seconds.
+
      DenyGroups
-             This keyword can be followed by a number of group names, separat-
-             ed by spaces.  Users whose primary group matches one of the pat-
-             terns aren't allowed to log in.  `*' and `?' can be used as wild-
-             cards in the patterns.  Only group names are valid; a numerical
-             group ID isn't recognized.  By default login is allowed regard-
-             less of the primary group.
+             This keyword can be followed by a number of group names, separatM--
+             ed by spaces.  Users whose primary group or supplementary group
+             list matches one of the patterns aren't allowed to log in.  `*'
+             and `?' can be used as wildcards in the patterns.  Only group
+             names are valid; a numerical group ID isn't recognized.  By deM--
+             fault login is allowed regardless of the group list.
 
      DenyUsers
              This keyword can be followed by a number of user names, separated
              by spaces.  Login is disallowed for user names that match one of
-             the patterns.  `*' and `?' can be used as wildcards in the pat-
-             terns.  Only user names are valid; a numerical user ID isn't rec-
+             the patterns.  `*' and `?' can be used as wildcards in the patM--
+             terns.  Only user names are valid; a numerical user ID isn't recM--
              ognized.  By default login is allowed regardless of the user
              name.
-
-     DSAAuthentication
-             Specifies whether DSA authentication is allowed.  The default is
-             ``yes''. Note that this option applies to protocol version 2 on-
-             ly.
 
      GatewayPorts
              Specifies whether remote hosts are allowed to connect to ports
              forwarded for the client.  The argument must be ``yes'' or
              ``no''. The default is ``no''.
 
-     HostDSAKey
-             Specifies the file containing the private DSA host key (default
-             /etc/ssh_host_dsa_key) used by SSH protocol 2.0.  Note that sshd
-             disables protocol 2.0 if this file is group/world-accessible.
+     HostbasedAuthentication
+             Specifies whether rhosts or /etc/hosts.equiv authentication toM--
+             gether with successful public key client host authentication is
+             allowed (hostbased authentication).  This option is similar to
+             RhostsRSAAuthentication and applies to protocol version 2 only.
+             The default is ``no''.
 
      HostKey
-             Specifies the file containing the private RSA host key (default
-             /etc/ssh_host_key) used by SSH protocols 1.3 and 1.5.  Note that
-             sshd disables protocols 1.3 and 1.5 if this file is group/world-
-             accessible.
+             Specifies the file containing the private host keys (default
+             /etc/ssh_host_key) used by SSH protocol versions 1 and 2.  Note
+             that sshd will refuse to use a file if it is group/world-accessiM--
+             ble.  It is possible to have multiple host key files.  ``rsa1''
+             keys are used for version 1 and ``dsa'' or ``rsa'' are used for
+             version 2 of the SSH protocol.
 
      IgnoreRhosts
-             Specifies that .rhosts and .shosts files will not be used in au-
-             thentication.  /etc/hosts.equiv and /etc/shosts.equiv are still
-             used.  The default is ``yes''.
+             Specifies that .rhosts and .shosts files will not be used in
+             RhostsAuthentication, RhostsRSAAuthentication or
+             HostbasedAuthentication.
+
+             /etc/hosts.equiv and /etc/shosts.equiv are still used.  The deM--
+             fault is ``yes''.
 
      IgnoreUserKnownHosts
              Specifies whether sshd should ignore the user's
-             $HOME/.ssh/known_hosts during RhostsRSAAuthentication. The de-
-             fault is ``no''.
+             $HOME/.ssh/known_hosts during RhostsRSAAuthentication or
+             HostbasedAuthentication. The default is ``no''.
 
      KeepAlive
              Specifies whether the system should send keepalive messages to
              the other side.  If they are sent, death of the connection or
              crash of one of the machines will be properly noticed.  However,
-             this means that connections will die if the route is down tem-
+             this means that connections will die if the route is down temM--
              porarily, and some people find it annoying.  On the other hand,
              if keepalives are not sent, sessions may hang indefinitely on the
              server, leaving ``ghost'' users and consuming server resources.
@@ -274,7 +314,7 @@ CONFIGURATION FILE
              be in the form of a Kerberos ticket, or if PasswordAuthentication
              is yes, the password provided by the user will be validated
              through the Kerberos KDC.  To use this option, the server needs a
-             Kerberos servtab which allows the verification of the KDC's iden-
+             Kerberos servtab which allows the verification of the KDC's idenM--
              tity.  Default is ``yes''.
 
      KerberosOrLocalPasswd
@@ -285,6 +325,8 @@ CONFIGURATION FILE
      KerberosTgtPassing
              Specifies whether a Kerberos TGT may be forwarded to the server.
              Default is ``no'', as this only works when the Kerberos KDC is
+
+
              actually an AFS kaserver.
 
      KerberosTicketCleanup
@@ -292,48 +334,71 @@ CONFIGURATION FILE
              cache file on logout.  Default is ``yes''.
 
      KeyRegenerationInterval
-             The server key is automatically regenerated after this many sec-
-             onds (if it has been used).  The purpose of regeneration is to
-             prevent decrypting captured sessions by later breaking into the
-             machine and stealing the keys.  The key is never stored anywhere.
-             If the value is 0, the key is never regenerated.  The default is
-             3600 (seconds).
+             In protocol version 1, the ephemeral server key is automatically
+             regenerated after this many seconds (if it has been used).  The
+             purpose of regeneration is to prevent decrypting captured sesM--
+             sions by later breaking into the machine and stealing the keys.
+             The key is never stored anywhere.  If the value is 0, the key is
+             never regenerated.  The default is 3600 (seconds).
 
      ListenAddress
-             Specifies what local address sshd should listen on.  The default
-             is to listen to all local addresses.  Multiple options of this
-             type are permitted.  Additionally, the Ports options must precede
-             this option.
+             Specifies the local addresses sshd should listen on.  The followM--
+             ing forms may be used:
+
+                   ListenAddress host|IPv4_addr|IPv6_addr
+                   ListenAddress host|IPv4_addr:port
+                   ListenAddress [host|IPv6_addr]:port
+
+             If port is not specified, sshd will listen on the address and all
+             prior Port options specified. The default is to listen on all loM--
+             cal addresses.  Multiple ListenAddress options are permitted. AdM--
+             ditionally, any Port options must precede this option for non
+             port qualified addresses.
 
      LoginGraceTime
-             The server disconnects after this time if the user has not suc-
+             The server disconnects after this time if the user has not sucM--
              cessfully logged in.  If the value is 0, there is no time limit.
              The default is 600 (seconds).
 
      LogLevel
              Gives the verbosity level that is used when logging messages from
              sshd. The possible values are: QUIET, FATAL, ERROR, INFO, VERBOSE
-             and DEBUG.  The default is INFO.  Logging with level DEBUG vio-
+             and DEBUG.  The default is INFO.  Logging with level DEBUG vioM--
              lates the privacy of users and is not recommended.
 
+     MACs    Specifies the available MAC (message authentication code) algoM--
+             rithms.  The MAC algorithm is used in protocol version 2 for data
+             integrity protection.  Multiple algorithms must be comma-separatM--
+             ed.  The default is
+
+               ``hmac-md5,hmac-sha1,hmac-ripemd160,hmac-ripemd160@openssh.com,
+                 hmac-sha1-96,hmac-md5-96''
+
      MaxStartups
-             Specifies the maximum number of concurrent unauthenticated con-
+             Specifies the maximum number of concurrent unauthenticated conM--
              nections to the sshd daemon.  Additional connections will be
-             dropped until authentication succeeds or the LoginGraceTime ex-
+             dropped until authentication succeeds or the LoginGraceTime exM--
              pires for a connection.  The default is 10.
 
              Alternatively, random early drop can be enabled by specifying the
              three colon separated values ``start:rate:full'' (e.g.,
-             "10:30:60").  sshd will refuse connection attempts with a proba-
-             billity of ``rate/100'' (30%) if there are currently ``start''
-             (10) unauthenticated connections.  The probabillity increases
-             linearly and all connection attempts are refused if the number of
+             "10:30:60").  sshd will refuse connection attempts with a probaM--
+             bility of ``rate/100'' (30%) if there are currently ``start''
+             (10) unauthenticated connections.  The probability increases linM--
+             early and all connection attempts are refused if the number of
              unauthenticated connections reaches ``full'' (60).
 
+     PAMAuthenticationViaKbdInt
+             Specifies whether PAM challenge response authentication is alM--
+             lowed. This allows the use of most PAM challenge response authenM--
+             tication modules, but it will allow password authentication reM--
+             gardless of whether PasswordAuthentication is disabled.  The deM--
+
+             fault is ``no''.
+
      PasswordAuthentication
-             Specifies whether password authentication is allowed.  The de-
-             fault is ``yes''. Note that this option applies to both protocol
-             versions 1 and 2.
+             Specifies whether password authentication is allowed.  The deM--
+             fault is ``yes''.
 
      PermitEmptyPasswords
              When password authentication is allowed, it specifies whether the
@@ -341,22 +406,32 @@ CONFIGURATION FILE
              default is ``no''.
 
      PermitRootLogin
-             Specifies whether the root can log in using ssh(1).  The argument
-             must be ``yes'', ``without-password'' or ``no''. The default is
-             ``yes''. If this options is set to ``without-password'' only
-             password authentication is disabled for root.
+             Specifies whether root can login using ssh(1).  The argument must
+             be ``yes'', ``without-password'', ``forced-commands-only'' or
+             ``no''. The default is ``yes''.
 
-             Root login with RSA authentication when the command option has
-             been specified will be allowed regardless of the value of this
-             setting (which may be useful for taking remote backups even if
-             root login is normally not allowed).
+             If this option is set to ``without-password'' password authentiM--
+             cation is disabled for root.
+
+             If this option is set to ``forced-commands-only'' root login with
+             public key authentication will be allowed, but only if the
+             command option has been specified (which may be useful for taking
+             remote backups even if root login is normally not allowed). All
+             other authentication methods are disabled for root.
+
+             If this option is set to ``no'' root is not allowed to login.
 
      PidFile
              Specifies the file that contains the process identifier of the
              sshd daemon.  The default is /var/run/sshd.pid.
 
      Port    Specifies the port number that sshd listens on.  The default is
-             22.  Multiple options of this type are permitted.
+             22.  Multiple options of this type are permitted.  See also
+             ListenAddress.
+
+     PrintLastLog
+             Specifies whether sshd should print the date and time when the
+             user last logged in.  The default is ``yes''.
 
      PrintMotd
              Specifies whether sshd should print /etc/motd when a user logs in
@@ -364,41 +439,42 @@ CONFIGURATION FILE
              /etc/profile, or equivalent.)  The default is ``yes''.
 
      Protocol
-             Specifies the protocol versions sshd should support.  The possi-
+             Specifies the protocol versions sshd should support.  The possiM--
              ble values are ``1'' and ``2''. Multiple versions must be comma-
-             separated.  The default is ``1''.
+             separated.  The default is ``2,1''.
 
-     RandomSeed
-             Obsolete.  Random number generation uses other techniques.
+     PubkeyAuthentication
+             Specifies whether public key authentication is allowed.  The deM--
+             fault is ``yes''. Note that this option applies to protocol verM--
+             sion 2 only.
+
+     ReverseMappingCheck
+             Specifies whether sshd should try to verify the remote host name
+             and check that the resolved host name for the remote IP address
+             maps back to the very same IP address.  The default is ``no''.
 
      RhostsAuthentication
              Specifies whether authentication using rhosts or /etc/hosts.equiv
-             files is sufficient.  Normally, this method should not be permit-
+             files is sufficient.  Normally, this method should not be permitM--
              ted because it is insecure.  RhostsRSAAuthentication should be
              used instead, because it performs RSA-based host authentication
              in addition to normal rhosts or /etc/hosts.equiv authentication.
-             The default is ``no''.
+             The default is ``no''. This option applies to protocol version 1
+             only.
 
      RhostsRSAAuthentication
-             Specifies whether rhosts or /etc/hosts.equiv authentication to-
+             Specifies whether rhosts or /etc/hosts.equiv authentication toM--
              gether with successful RSA host authentication is allowed.  The
-             default is ``no''.
+             default is ``no''. This option applies to protocol version 1 onM--
+             ly.
 
      RSAAuthentication
-             Specifies whether pure RSA authentication is allowed.  The de-
-             fault is ``yes''. Note that this option applies to protocol ver-
-             sion 1 only.
+             Specifies whether pure RSA authentication is allowed.  The deM--
+             fault is ``yes''. This option applies to protocol version 1 only.
 
      ServerKeyBits
-             Defines the number of bits in the server key.  The minimum value
-
-
-             is 512, and the default is 768.
-
-     SkeyAuthentication
-             Specifies whether skey(1) authentication is allowed.  The default
-             is ``yes''. Note that s/key authentication is enabled only if
-             PasswordAuthentication is allowed, too.
+             Defines the number of bits in the ephemeral protocol version 1
+             server key.  The minimum value is 512, and the default is 768.
 
      StrictModes
              Specifies whether sshd should check file modes and ownership of
@@ -409,32 +485,32 @@ CONFIGURATION FILE
 
      Subsystem
              Configures an external subsystem (e.g., file transfer daemon).
-             Arguments should be a subsystem name and a command to execute up-
+             Arguments should be a subsystem name and a command to execute upM--
              on subsystem request.  The command sftp-server(8) implements the
              ``sftp'' file transfer subsystem.  By default no subsystems are
-             defined.  Note that this option applies to protocol version 2 on-
+             defined.  Note that this option applies to protocol version 2 onM--
              ly.
 
      SyslogFacility
              Gives the facility code that is used when logging messages from
-             sshd. The possible values are: DAEMON, USER, AUTH, LOCAL0, LO-
-             CAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.  The de-
+             sshd. The possible values are: DAEMON, USER, AUTH, LOCAL0, LOM--
+             CAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7.  The deM--
              fault is AUTH.
 
      UseLogin
-             Specifies whether login(1) is used for interactive login ses-
-             sions.  Note that login(1) is never used for remote command exe-
+             Specifies whether login(1) is used for interactive login sesM--
+             sions.  Note that login(1) is never used for remote command exeM--
              cution.  The default is ``no''.
 
      X11DisplayOffset
-             Specifies the first display number available for sshd's X11 for-
+             Specifies the first display number available for sshd's X11 forM--
              warding.  This prevents sshd from interfering with real X11
              servers.  The default is 10.
 
      X11Forwarding
              Specifies whether X11 forwarding is permitted.  The default is
-             ``no''. Note that disabling X11 forwarding does not improve secu-
-             rity in any way, as users can always install their own for-
+             ``no''. Note that disabling X11 forwarding does not improve secuM--
+             rity in any way, as users can always install their own forM--
              warders.
 
      XAuthLocation
@@ -446,7 +522,9 @@ LOGIN PROCESS
 
            1.   If the login is on a tty, and no command has been specified,
                 prints last login time and /etc/motd (unless prevented in the
-                configuration file or by $HOME/.hushlogin; see the FILES sec-
+                configuration file or by $HOME/.hushlogin; see the FILES secM--
+
+
                 tion).
 
            2.   If the login is on a tty, records login time.
@@ -457,7 +535,6 @@ LOGIN PROCESS
            4.   Changes to run with normal user privileges.
 
            5.   Sets up basic environment.
-
 
            6.   Reads $HOME/.ssh/environment if it exists.
 
@@ -471,24 +548,30 @@ LOGIN PROCESS
 
 AUTHORIZED_KEYS FILE FORMAT
      The $HOME/.ssh/authorized_keys file lists the RSA keys that are permitted
-     for RSA authentication in SSH protocols 1.3 and 1.5 Similarly, the
-     $HOME/.ssh/authorized_keys2 file lists the DSA keys that are permitted
-     for DSA authentication in SSH protocol 2.0.  Each line of the file con-
-     tains one key (empty lines and lines starting with a `#' are ignored as
-     comments).  Each line consists of the following fields, separated by
-     spaces: options, bits, exponent, modulus, comment.  The options field is
-     optional; its presence is determined by whether the line starts with a
-     number or not (the option field never starts with a number).  The bits,
-     exponent, modulus and comment fields give the RSA key; the comment field
-     is not used for anything (but may be convenient for the user to identify
-     the key).
+     for RSA authentication in protocol version 1 Similarly, the
+     $HOME/.ssh/authorized_keys2 file lists the DSA and RSA keys that are perM--
+     mitted for public key authentication (PubkeyAuthentication) in protocol
+     version 2.
 
-     Note that lines in this file are usually several hundred bytes long (be-
+     Each line of the file contains one key (empty lines and lines starting
+     with a `#' are ignored as comments).  Each RSA public key consists of the
+     following fields, separated by spaces: options, bits, exponent, modulus,
+     comment.  Each protocol version 2 public key consists of: options, keyM--
+     type, base64 encoded key, comment.  The options fields are optional; its
+     presence is determined by whether the line starts with a number or not
+     (the option field never starts with a number).  The bits, exponent, moduM--
+     lus and comment fields give the RSA key for protocol version 1; the comM--
+     ment field is not used for anything (but may be convenient for the user
+     to identify the key).  For protocol version 2 the keytype is ``ssh-dss''
+     or ``ssh-rsa''.
+
+     Note that lines in this file are usually several hundred bytes long (beM--
      cause of the size of the RSA key modulus).  You don't want to type them
-     in; instead, copy the identity.pub file and edit it.
+     in; instead, copy the identity.pub, id_dsa.pub or the id_rsa.pub file and
+     edit it.
 
-     The options (if present) consist of comma-separated option specifica-
-     tions.  No spaces are permitted, except within double quotes.  The fol-
+     The options (if present) consist of comma-separated option specificaM--
+     tions.  No spaces are permitted, except within double quotes.  The folM--
      lowing option specifications are supported:
 
      from="pattern-list"
@@ -496,8 +579,8 @@ AUTHORIZED_KEYS FILE FORMAT
              name of the remote host must be present in the comma-separated
              list of patterns (`*' and `?' serve as wildcards).  The list may
              also contain patterns negated by prefixing them with `!'; if the
-             canonical host name matches a negated pattern, the key is not ac-
-             cepted.  The purpose of this option is to optionally increase se-
+             canonical host name matches a negated pattern, the key is not acM--
+             cepted.  The purpose of this option is to optionally increase seM--
              curity: RSA authentication by itself does not trust the network
              or name servers or anything (but the key); however, if somebody
              somehow steals the key, the key permits an intruder to log in
@@ -509,13 +592,14 @@ AUTHORIZED_KEYS FILE FORMAT
              Specifies that the command is executed whenever this key is used
              for authentication.  The command supplied by the user (if any) is
              ignored.  The command is run on a pty if the connection requests
-             a pty; otherwise it is run without a tty.  A quote may be includ-
-             ed in the command by quoting it with a backslash.  This option
-             might be useful to restrict certain RSA keys to perform just a
-             specific operation.  An example might be a key that permits re-
-             mote backups but nothing else.  Note that the client may specify
-             TCP/IP and/or X11 forwarding unless they are explicitly prohibit-
-             ed.
+             a pty; otherwise it is run without a tty.  Note that if you want
+             a 8-bit clean channel, you must not request a pty or should specM--
+             ify no-pty. A quote may be included in the command by quoting it
+             with a backslash.  This option might be useful to restrict cerM--
+             tain RSA keys to perform just a specific operation.  An example
+             might be a key that permits remote backups but nothing else.
+             Note that the client may specify TCP/IP and/or X11 forwarding unM--
+             less they are explicitly prohibited.
 
      environment="NAME=value"
              Specifies that the string is to be added to the environment when
@@ -524,8 +608,8 @@ AUTHORIZED_KEYS FILE FORMAT
              this type are permitted.
 
      no-port-forwarding
-             Forbids TCP/IP forwarding when this key is used for authentica-
-             tion.  Any port forward requests by the client will return an er-
+             Forbids TCP/IP forwarding when this key is used for authenticaM--
+             tion.  Any port forward requests by the client will return an erM--
              ror.  This might be used, e.g., in connection with the command
              option.
 
@@ -539,42 +623,52 @@ AUTHORIZED_KEYS FILE FORMAT
 
      no-pty  Prevents tty allocation (a request to allocate a pty will fail).
 
+     permitopen="host:port"
+             Limit local ``ssh -L'' port forwarding such that it may only conM--
+             nect to the specified host and port. Multiple permitopen options
+             may be applied separated by commas. No pattern matching is perM--
+             formed on the specified hostnames, they must be literal domains
+             or addresses.
+
    Examples
      1024 33 12121...312314325 ylo@foo.bar
 
      from="*.niksula.hut.fi,!pc.niksula.hut.fi" 1024 35 23...2334 ylo@niksula
 
-     command="dump /home",no-pty,no-port-forwarding 1024 33 23...2323 back-
+     command="dump /home",no-pty,no-port-forwarding 1024 33 23...2323 backM--
      up.hut.fi
+
+     permitopen="10.2.1.55:80",permitopen="10.2.1.56:25" 1024 33 23...2323
 
 SSH_KNOWN_HOSTS FILE FORMAT
      The /etc/ssh_known_hosts, /etc/ssh_known_hosts2, $HOME/.ssh/known_hosts,
      and $HOME/.ssh/known_hosts2 files contain host public keys for all known
-     hosts.  The global file should be prepared by the administrator (option-
+     hosts.  The global file should be prepared by the administrator (optionM--
      al), and the per-user file is maintained automatically: whenever the user
      connects from an unknown host its key is added to the per-user file.
 
      Each line in these files contains the following fields: hostnames, bits,
      exponent, modulus, comment.  The fields are separated by spaces.
 
-     Hostnames is a comma-separated list of patterns ('*' and '?' act as wild-
+     Hostnames is a comma-separated list of patterns ('*' and '?' act as wildM--
      cards); each pattern in turn is matched against the canonical host name
      (when authenticating a client) or against the user-supplied name (when
-     authenticating a server).  A pattern may also be preceded by `!' to indi-
-     cate negation: if the host name matches a negated pattern, it is not ac-
+     authenticating a server).  A pattern may also be preceded by `!' to indiM--
+     cate negation: if the host name matches a negated pattern, it is not acM--
      cepted (by that line) even if it matched another pattern on the line.
 
+
      Bits, exponent, and modulus are taken directly from the RSA host key;
-     they can be obtained, e.g., from /etc/ssh_host_key.pub. The optional com-
+     they can be obtained, e.g., from /etc/ssh_host_key.pub. The optional comM--
      ment field continues to the end of the line, and is not used.
 
      Lines starting with `#' and empty lines are ignored as comments.
 
      When performing host authentication, authentication is accepted if any
-     matching line has the proper key.  It is thus permissible (but not recom-
+     matching line has the proper key.  It is thus permissible (but not recomM--
      mended) to have several lines or different host keys for the same names.
      This will inevitably happen when short forms of host names from different
-     domains are put in the file.  It is possible that the files contain con-
+     domains are put in the file.  It is possible that the files contain conM--
      flicting information; authentication is accepted if valid information can
      be found from either file.
 
@@ -584,62 +678,77 @@ SSH_KNOWN_HOSTS FILE FORMAT
      adding the host names at the front.
 
    Examples
-     closenet,closenet.hut.fi,...,130.233.208.41 1024 37 159...93
-     closenet.hut.fi
+
+     closenet,...,130.233.208.41 1024 37 159...93 closenet.hut.fi
+     cvs.openbsd.org,199.185.137.3 ssh-rsa AAAA1234.....=
 
 FILES
      /etc/sshd_config
              Contains configuration data for sshd. This file should be
-             writable by root only, but it is recommended (though not neces-
-
+             writable by root only, but it is recommended (though not necesM--
              sary) that it be world-readable.
 
-     /etc/ssh_host_key
-             Contains the private part of the host key.  This file should only
-             be owned by root, readable only by root, and not accessible to
-             others.  Note that sshd does not start if this file is
-             group/world-accessible.
+     /etc/ssh_host_key, /etc/ssh_host_dsa_key, /etc/ssh_host_rsa_key
+             These three files contain the private parts of the host keys.
+             These files should only be owned by root, readable only by root,
+             and not accessible to others.  Note that sshd does not start if
+             this file is group/world-accessible.
 
-     /etc/ssh_host_key.pub
-             Contains the public part of the host key.  This file should be
-             world-readable but writable only by root.  Its contents should
-             match the private part.  This file is not really used for any-
-             thing; it is only provided for the convenience of the user so its
-             contents can be copied to known hosts files.  These two files are
-             created using ssh-keygen(1).
+     /etc/ssh_host_key.pub, /etc/ssh_host_dsa_key.pub,
+             /etc/ssh_host_rsa_key.pub
+             These three files contain the public parts of the host keys.
+             These files should be world-readable but writable only by root.
+             Their contents should match the respective private parts.  These
+             files are not really used for anything; they are provided for the
+             convenience of the user so their contents can be copied to known
+             hosts files.  These files are created using ssh-keygen(1).
+
+     /etc/primes
+             Contains Diffie-Hellman groups used for the "Diffie-Hellman Group
+             Exchange".
 
      /var/run/sshd.pid
              Contains the process ID of the sshd listening for connections (if
              there are several daemons running concurrently for different
-             ports, this contains the pid of the one started last).  The con-
+             ports, this contains the pid of the one started last).  The conM--
              tent of this file is not sensitive; it can be world-readable.
 
      $HOME/.ssh/authorized_keys
-             Lists the RSA keys that can be used to log into the user's ac-
-             count.  This file must be readable by root (which may on some ma-
+             Lists the RSA keys that can be used to log into the user's acM--
+             count.  This file must be readable by root (which may on some maM--
              chines imply it being world-readable if the user's home directory
-             resides on an NFS volume).  It is recommended that it not be ac-
+             resides on an NFS volume).  It is recommended that it not be acM--
              cessible by others.  The format of this file is described above.
              Users will place the contents of their identity.pub files into
              this file, as described in ssh-keygen(1).
 
      $HOME/.ssh/authorized_keys2
-             Lists the DSA keys that can be used to log into the user's ac-
-             count.  This file must be readable by root (which may on some ma-
-             chines imply it being world-readable if the user's home directory
-             resides on an NFS volume).  It is recommended that it not be ac-
-             cessible by others.  The format of this file is described above.
-             Users will place the contents of their id_dsa.pub files into this
-             file, as described in ssh-keygen(1).
+             Lists the public keys (RSA or DSA) that can be used to log into
+             the user's account.  This file must be readable by root (which
+             may on some machines imply it being world-readable if the user's
+             home directory resides on an NFS volume).  It is recommended that
+             it not be accessible by others.  The format of this file is deM--
+             scribed above.  Users will place the contents of their id_dsa.pub
+             and/or id_rsa.pub files into this file, as described in ssh-
+             keygen(1).
 
      /etc/ssh_known_hosts and $HOME/.ssh/known_hosts
-             These files are consulted when using rhosts with RSA host authen-
+             These files are consulted when using rhosts with RSA host authenM--
              tication to check the public key of the host.  The key must be
              listed in one of these files to be accepted.  The client uses the
-             same files to verify that the remote host is the one it intended
-             to connect.  These files should be writable only by root/the own-
-             er.  /etc/ssh_known_hosts should be world-readable, and
+             same files to verify that it is connecting to the correct remote
+             host.  These files should be writable only by root/the owner.
+             /etc/ssh_known_hosts should be world-readable, and
              $HOME/.ssh/known_hosts can but need not be world-readable.
+
+     /etc/ssh_known_hosts2 and $HOME/.ssh/known_hosts2
+             These files are consulted when using protocol version 2 hostbased
+             authentication to check the public key of the host.  The key must
+             be listed in one of these files to be accepted.  The client uses
+             the same files to verify that it is connecting to the correct reM--
+             mote host.  These files should be writable only by root/the ownM--
+             er.  /etc/ssh_known_hosts2 should be world-readable, and
+             $HOME/.ssh/known_hosts2 can but need not be world-readable.
 
      /etc/nologin
              If this file exists, sshd refuses to let anyone except root log
@@ -655,7 +764,7 @@ FILES
              This file contains host-username pairs, separated by a space, one
              per line.  The given user on the corresponding host is permitted
              to log in without password.  The same file is used by rlogind and
-             rshd.  The file must be writable only by the user; it is recom-
+             rshd.  The file must be writable only by the user; it is recomM--
              mended that it not be accessible by others.
 
              If is also possible to use netgroups in the file.  Either host or
@@ -674,19 +783,19 @@ FILES
              they have the same user name on both machines.  The host name may
              also be followed by a user name; such users are permitted to log
              in as any user on this machine (except root).  Additionally, the
-             syntax ``+@group'' can be used to specify netgroups.  Negated en-
+             syntax ``+@group'' can be used to specify netgroups.  Negated enM--
              tries start with `-'.
 
-             If the client host/user is successfully matched in this file, lo-
-             gin is automatically permitted provided the client and server us-
-             er names are the same.  Additionally, successful RSA host authen-
+             If the client host/user is successfully matched in this file, loM--
+             gin is automatically permitted provided the client and server usM--
+             er names are the same.  Additionally, successful RSA host authenM--
              tication is normally required.  This file must be writable only
              by root; it is recommended that it be world-readable.
 
              Warning: It is almost never a good idea to use user names in
              hosts.equiv. Beware that it really means that the named user(s)
              can log in as anybody, which includes bin, daemon, adm, and other
-             accounts that own critical binaries and directories.  Using a us-
+             accounts that own critical binaries and directories.  Using a usM--
              er name practically grants the user root access.  The only valid
              use for user names that I can think of is in negative entries.
 
@@ -705,24 +814,26 @@ FILES
              anyone else.
 
      $HOME/.ssh/rc
-             If this file exists, it is run with /bin/sh after reading the en-
+             If this file exists, it is run with /bin/sh after reading the enM--
              vironment files but before starting the user's shell or command.
              If X11 spoofing is in use, this will receive the "proto cookie"
              pair in standard input (and DISPLAY in environment).  This must
              call xauth(1) in that case.
 
              The primary purpose of this file is to run any initialization
-             routines which may be needed before the user's home directory be-
-             comes accessible; AFS is a particular example of such an environ-
+             routines which may be needed before the user's home directory beM--
+             comes accessible; AFS is a particular example of such an environM--
              ment.
 
              This file will probably contain some initialization code followed
-             by something similar to: "if read proto cookie; then echo add
-             $DISPLAY $proto $cookie | xauth -q -; fi".
+             by something similar to:
+
+                     if read proto cookie; then
+                             echo add $DISPLAY $proto $cookie | xauth -q -
+                     fi
 
              If this file does not exist, /etc/sshrc is run, and if that does
              not exist either, xauth is used to store the cookie.
-
 
              This file should be writable only by the user, and need not be
              readable by anyone else.
@@ -732,33 +843,24 @@ FILES
              login-time initializations globally.  This file should be
              writable only by root, and should be world-readable.
 
-AUTHOR
-     OpenSSH is a derivative of the original (free) ssh 1.2.12 release by Tatu
-     Ylonen, but with bugs removed and newer features re-added.  Rapidly after
-     the 1.2.12 release, newer versions of the original ssh bore successively
-     more restrictive licenses, and thus demand for a free version was born.
-
-     This version of OpenSSH
-
-     o   has all components of a restrictive nature (i.e., patents, see
-         crypto(3))  directly removed from the source code; any licensed or
-         patented components are chosen from external libraries.
-
-     o   has been updated to support SSH protocol 1.5 and 2, making it compat-
-         ible with all other SSH clients and servers.
-
-     o   contains added support for kerberos(8) authentication and ticket
-         passing.
-
-     o   supports one-time password authentication with skey(1).
-
-     OpenSSH has been created by Aaron Campbell, Bob Beck, Markus Friedl,
-     Niels Provos, Theo de Raadt, and Dug Song.
-
-     The support for SSH protocol 2 was written by Markus Friedl.
+AUTHORS
+     OpenSSH is a derivative of the original and free ssh 1.2.12 release by
+     Tatu Ylonen.  Aaron Campbell, Bob Beck, Markus Friedl, Niels Provos, Theo
+     de Raadt and Dug Song removed many bugs, re-added newer features and creM--
+     ated OpenSSH.  Markus Friedl contributed the support for SSH protocol
+     versions 1.5 and 2.0.
 
 SEE ALSO
-     scp(1),  sftp-server(8),  ssh(1),  ssh-add(1),  ssh-agent(1),  ssh-
-     keygen(1),  crypto(3),  rlogin(1),  rsh(1)
+     scp(1),  sftp(1),  sftp-server(8),  ssh(1),  ssh-add(1),  ssh-agent(1),
+     ssh-keygen(1),  rlogin(1),  rsh(1)
 
-BSD Experimental              September 25, 1999                            12
+
+     T. Ylonen, T. Kivinen, M. Saarinen, T. Rinne, and S. Lehtinen, SSH
+     Protocol Architecture, draft-ietf-secsh-architecture-07.txt, January
+     2001, work in progress material.
+
+     M. Friedl, N. Provos, and W. A. Simpson, Diffie-Hellman Group Exchange
+     for the SSH Transport Layer Protocol, draft-ietf-secsh-dh-group-
+     exchange-00.txt, January 2001, work in progress material.
+
+BSD Experimental              September 25, 1999                            14

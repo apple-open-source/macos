@@ -1,6 +1,8 @@
 #ifndef _DEFINES_H
 #define _DEFINES_H
 
+/* $Id: defines.h,v 1.1.1.7 2001/05/03 16:51:04 zarzycki Exp $ */
+
 /* Some platforms need this for the _r() functions */
 #if !defined(_REENTRANT) && !defined(SNI)
 # define _REENTRANT 1
@@ -10,7 +12,7 @@
 
 #include <sys/types.h> /* For [u]intxx_t */
 #include <sys/socket.h> /* For SHUT_XXXX */
-#include <sys/param.h> /* For MAXPATHLEN */
+#include <sys/param.h> /* For MAXPATHLEN and roundup() */
 #include <netinet/in_systm.h> /* For typedefs */
 #include <netinet/in.h> /* For IPv6 macros */
 #include <netinet/ip.h> /* For IPTOS macros */
@@ -19,13 +21,13 @@
 #endif
 #ifdef HAVE_SYS_BITYPES_H
 # include <sys/bitypes.h> /* For u_intXX_t */
-#endif 
+#endif
 #ifdef HAVE_PATHS_H
 # include <paths.h> /* For _PATH_XXX */
-#endif 
+#endif
 #ifdef HAVE_LIMITS_H
 # include <limits.h> /* For PATH_MAX */
-#endif 
+#endif
 #ifdef HAVE_SYS_TIME_H
 # include <sys/time.h> /* For timersub */
 #endif
@@ -34,7 +36,7 @@
 #endif
 #ifdef HAVE_SYS_CDEFS_H
 # include <sys/cdefs.h> /* For __P() */
-#endif 
+#endif
 #ifdef HAVE_SYS_SYSMACROS_H
 # include <sys/sysmacros.h> /* For MIN, MAX, etc */
 #endif
@@ -47,6 +49,7 @@
 
 #include <unistd.h> /* For STDIN_FILENO, etc */
 #include <termios.h> /* Struct winsize */
+#include <fcntl.h> /* For O_NONBLOCK */
 
 /* Constants */
 
@@ -78,20 +81,35 @@ enum
 # endif /* PATH_MAX */
 #endif /* MAXPATHLEN */
 
-#ifndef STDIN_FILENO     
+#ifndef STDIN_FILENO
 # define STDIN_FILENO    0
-#endif                   
-#ifndef STDOUT_FILENO    
+#endif
+#ifndef STDOUT_FILENO
 # define STDOUT_FILENO   1
-#endif                   
-#ifndef STDERR_FILENO    
+#endif
+#ifndef STDERR_FILENO
 # define STDERR_FILENO   2
-#endif                   
+#endif
 
-#ifndef S_ISREG
+#ifndef NGROUPS_MAX	/* Disable groupaccess if NGROUP_MAX is not set */
+#define NGROUPS_MAX 0
+#endif
+
+#ifndef O_NONBLOCK	/* Non Blocking Open */
+# define O_NONBLOCK      00004
+#endif
+
+#ifndef S_ISDIR
 # define S_ISDIR(mode)	(((mode) & (_S_IFMT)) == (_S_IFDIR))
+#endif /* S_ISDIR */
+
+#ifndef S_ISREG 
 # define S_ISREG(mode)	(((mode) & (_S_IFMT)) == (_S_IFREG))
 #endif /* S_ISREG */
+
+#ifndef S_ISLNK
+# define S_ISLNK(mode)	(((mode) & S_IFMT) == S_IFLNK)
+#endif /* S_ISLNK */
 
 #ifndef S_IXUSR
 # define S_IXUSR			0000100	/* execute/search permission, */
@@ -114,6 +132,7 @@ enum
 /* If sys/types.h does not supply intXX_t, supply them ourselves */
 /* (or die trying) */
 
+
 #ifndef HAVE_U_INT
 typedef unsigned int u_int;
 #endif
@@ -127,12 +146,20 @@ typedef char int8_t;
 # if (SIZEOF_SHORT_INT == 2)
 typedef short int int16_t;
 # else
-#  error "16 bit int type not found."
+#  ifdef _CRAY
+typedef long  int16_t;
+#  else
+#   error "16 bit int type not found."
+#  endif /* _CRAY */
 # endif
 # if (SIZEOF_INT == 4)
 typedef int int32_t;
 # else
-#  error "32 bit int type not found."
+#  ifdef _CRAY
+typedef long  int32_t;
+#  else
+#   error "32 bit int type not found."
+#  endif /* _CRAY */
 # endif
 #endif
 
@@ -152,12 +179,20 @@ typedef unsigned char u_int8_t;
 #  if (SIZEOF_SHORT_INT == 2)
 typedef unsigned short int u_int16_t;
 #  else
-#   error "16 bit int type not found."
+#   ifdef _CRAY
+typedef unsigned long  u_int16_t;
+#   else
+#    error "16 bit int type not found."
+#   endif
 #  endif
 #  if (SIZEOF_INT == 4)
 typedef unsigned int u_int32_t;
 #  else
-#   error "32 bit int type not found."
+#   ifdef _CRAY
+typedef unsigned long  u_int32_t;
+#   else
+#    error "32 bit int type not found."
+#   endif
 #  endif
 # endif
 #endif
@@ -166,24 +201,23 @@ typedef unsigned int u_int32_t;
 #ifndef HAVE_INT64_T
 # if (SIZEOF_LONG_INT == 8)
 typedef long int int64_t;
+#   define HAVE_INT64_T 1
 # else
 #  if (SIZEOF_LONG_LONG_INT == 8)
 typedef long long int int64_t;
-#   define HAVE_INTXX_T 1
-#  else
-#   error "64 bit int type not found."
+#   define HAVE_INT64_T 1
+#   define HAVE_LONG_LONG_INT
 #  endif
 # endif
 #endif
 #ifndef HAVE_U_INT64_T
 # if (SIZEOF_LONG_INT == 8)
 typedef unsigned long int u_int64_t;
+#   define HAVE_U_INT64_T 1
 # else
 #  if (SIZEOF_LONG_LONG_INT == 8)
 typedef unsigned long long int u_int64_t;
-#   define HAVE_U_INTXX_T 1
-#  else
-#   error "64 bit int type not found."
+#   define HAVE_U_INT64_T 1
 #  endif
 # endif
 #endif
@@ -202,6 +236,11 @@ typedef unsigned int size_t;
 typedef int ssize_t;
 # define HAVE_SSIZE_T
 #endif /* HAVE_SSIZE_T */
+
+#ifndef HAVE_CLOCK_T
+typedef long clock_t;
+# define HAVE_CLOCK_T
+#endif /* HAVE_CLOCK_T */
 
 #ifndef HAVE_SA_FAMILY_T
 typedef int sa_family_t;
@@ -243,6 +282,12 @@ struct winsize {
 
 #ifndef _PATH_BSHELL
 # define _PATH_BSHELL "/bin/sh"
+#endif
+#ifndef _PATH_CSHELL
+# define _PATH_CSHELL "/bin/csh"
+#endif
+#ifndef _PATH_SHELLS
+# define _PATH_SHELLS "/etc/shells"
 #endif
 
 #ifdef USER_PATH
@@ -289,6 +334,10 @@ struct winsize {
 #define XAUTH_PATH "/usr/X11R6/bin/xauth"
 #endif /* XAUTH_PATH */
 
+#ifndef _PATH_TTY
+# define _PATH_TTY "/dev/tty"
+#endif
+
 /* Macros */
 
 #if defined(HAVE_LOGIN_GETCAPBOOL) && defined(HAVE_LOGIN_CAP_H)
@@ -300,15 +349,19 @@ struct winsize {
 # define MIN(a,b) (((a)<(b))?(a):(b))
 #endif
 
+#ifndef roundup
+# define roundup(x, y)   ((((x)+((y)-1))/(y))*(y))
+#endif
+
 #ifndef timersub
-#define timersub(a, b, result)										  \
-   do {																		  \
-      (result)->tv_sec = (a)->tv_sec - (b)->tv_sec;           \
-      (result)->tv_usec = (a)->tv_usec - (b)->tv_usec;        \
-      if ((result)->tv_usec < 0) {                            \
-         --(result)->tv_sec;                                  \
-         (result)->tv_usec += 1000000;                        \
-      }                                                       \
+#define timersub(a, b, result)					\
+   do {								\
+      (result)->tv_sec = (a)->tv_sec - (b)->tv_sec;		\
+      (result)->tv_usec = (a)->tv_usec - (b)->tv_usec;		\
+      if ((result)->tv_usec < 0) {				\
+	 --(result)->tv_sec;					\
+	 (result)->tv_usec += 1000000;				\
+      }								\
    } while (0)
 #endif
 
@@ -326,13 +379,9 @@ struct winsize {
 # define __attribute__(x)
 #endif /* !defined(__GNUC__) || (__GNUC__ < 2) */
 
-#if defined(HAVE_SECURITY_PAM_APPL_H) && !defined(DISABLE_PAM)
-# define USE_PAM
-#endif /* defined(HAVE_SECURITY_PAM_APPL_H) && !defined(DISABLE_PAM) */
-
 #ifndef SUN_LEN
 #define SUN_LEN(su) \
-        (sizeof(*(su)) - sizeof((su)->sun_path) + strlen((su)->sun_path))
+	(sizeof(*(su)) - sizeof((su)->sun_path) + strlen((su)->sun_path))
 #endif /* SUN_LEN */
 
 /* Function replacement / compatibility hacks */
@@ -344,9 +393,21 @@ struct winsize {
 # define PAM_STRERROR(a,b) pam_strerror((a),(b))
 #endif
 
+#ifdef PAM_SUN_CODEBASE
+# define PAM_MSG_MEMBER(msg, n, member) ((*(msg))[(n)].member)
+#else
+# define PAM_MSG_MEMBER(msg, n, member) ((msg)[(n)]->member)
+#endif
+
 #if defined(BROKEN_GETADDRINFO) && defined(HAVE_GETADDRINFO)
 # undef HAVE_GETADDRINFO
-#endif /* defined(BROKEN_GETADDRINFO) && defined(HAVE_GETADDRINFO) */
+#endif
+#if defined(BROKEN_GETADDRINFO) && defined(HAVE_FREEADDRINFO)
+# undef HAVE_FREEADDRINFO
+#endif
+#if defined(BROKEN_GETADDRINFO) && defined(HAVE_GAI_STRERROR)
+# undef HAVE_GAI_STRERROR
+#endif
 
 #if !defined(HAVE_MEMMOVE) && defined(HAVE_BCOPY)
 # define memmove(s1, s2, n) bcopy((s2), (s1), (n))
@@ -360,9 +421,9 @@ struct winsize {
 # endif /* defined(HAVE_XATEXIT) */
 #endif /* !defined(HAVE_ATEXIT) && defined(HAVE_ON_EXIT) */
 
-#if defined(HAVE_VHANGUP) && !defined(BROKEN_VHANGUP)
+#if defined(HAVE_VHANGUP) && !defined(HAVE_DEV_PTMX)
 #  define USE_VHANGUP
-#endif /* defined(HAVE_VHANGUP) && !defined(BROKEN_VHANGUP) */
+#endif /* defined(HAVE_VHANGUP) && !defined(HAVE_DEV_PTMX) */
 
 #ifndef GETPGRP_VOID
 # define getpgrp() getpgrp(0)

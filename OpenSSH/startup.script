@@ -11,12 +11,16 @@ if [ "${SSHSERVER:=-NO-}" = "-YES-" ]; then
     ConsoleMessage "Starting Secure Login Server"
 
     if [ ! -f /etc/ssh_host_key ]; then
+	echo "Generating ssh host RSA1 key..."
+	ssh-keygen -t rsa1 -f /etc/ssh_host_key -N "" -C "$(hostname)"
+    fi
+    if [ ! -f /etc/ssh_host_rsa_key ]; then
 	echo "Generating ssh host RSA key..."
-	ssh-keygen -f /etc/ssh_host_key -N "" -C "$(hostname)"
+	ssh-keygen -t rsa -f /etc/ssh_host_rsa_key -N "" -C "$(hostname)"
     fi
     if [ ! -f /etc/ssh_host_dsa_key ]; then
 	echo "Generating ssh host DSA key..."
-	ssh-keygen -d -f /etc/ssh_host_dsa_key -N "" -C "$(hostname)"
+	ssh-keygen -t dsa -f /etc/ssh_host_dsa_key -N "" -C "$(hostname)"
     fi
 
     /usr/sbin/sshd &

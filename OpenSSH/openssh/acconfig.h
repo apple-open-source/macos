@@ -1,3 +1,5 @@
+/* $Id: acconfig.h,v 1.1.1.8 2001/05/03 16:50:58 zarzycki Exp $ */
+
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
@@ -12,6 +14,7 @@
 
 /* SCO workaround */
 #undef BROKEN_SYS_TERMIO_H
+#undef HAVE_BOGUS_SYS_QUEUE_H
 
 /* Define if you have SCO protected password database */
 #undef HAVE_SCO_PROTECTED_PW
@@ -22,9 +25,6 @@
 
 /* Define if your password has a pw_class field */
 #undef HAVE_PW_CLASS_IN_PASSWD
-
-/* Define if your socketpair() has bugs */
-#undef USE_PIPES
 
 /* Define if your system's struct sockaddr_un has a sun_len member */
 #undef HAVE_SUN_LEN_IN_SOCKADDR_UN
@@ -68,8 +68,8 @@
 /* Define if you are on NEWS-OS */
 #undef HAVE_NEWS4
 
-/* Define if you want to disable PAM support */
-#undef DISABLE_PAM
+/* Define if you want to enable PAM support */
+#undef USE_PAM
 
 /* Define if you want to enable AIX4's authenticate function */
 #undef WITH_AIXAUTHENTICATE
@@ -83,11 +83,17 @@
 /* Define if you want IRIX audit trails */
 #undef WITH_IRIX_AUDIT
 
+/* Define if you want IRIX kernel jobs */
+#undef WITH_IRIX_JOBS
+
 /* Location of random number pool  */
 #undef RANDOM_POOL
 
-/* Location of EGD random number socket */
-#undef EGD_SOCKET
+/* Location of PRNGD/EGD random number socket */
+#undef PRNGD_SOCKET
+
+/* Port number of PRNGD/EGD random number socket */
+#undef PRNGD_PORT
 
 /* Builtin PRNG command timeout */
 #undef ENTROPY_TIMEOUT_MSEC
@@ -101,6 +107,9 @@
 /* Define if you are linking against RSAref.  Used only to print the right
  * message at run-time. */
 #undef RSAREF
+
+/* struct timeval */
+#undef HAVE_STRUCT_TIMEVAL
 
 /* struct utmp and struct utmpx fields */
 #undef HAVE_HOST_IN_UTMP
@@ -218,6 +227,10 @@
 /* to pam_strerror */
 #undef HAVE_OLD_PAM
 
+/* Define if you are using Solaris-derived PAM which passes pam_messages  */
+/* to the conversation function with an extra level of indirection */
+#undef PAM_SUN_CODEBASE
+
 /* Set this to your mail directory if you don't have maillock.h */
 #undef MAIL_DIRECTORY
 
@@ -231,6 +244,7 @@
 #undef HAVE_SOCKLEN_T
 #undef HAVE_SIZE_T
 #undef HAVE_SSIZE_T
+#undef HAVE_CLOCK_T
 #undef HAVE_MODE_T
 #undef HAVE_PID_T
 #undef HAVE_SA_FAMILY_T
@@ -242,6 +256,9 @@
 /* Fields in struct sockaddr_storage */
 #undef HAVE_SS_FAMILY_IN_SS
 #undef HAVE___SS_FAMILY_IN_SS
+
+/* Define if you have a regcomp() function */
+#undef HAVE_REGCOMP
 
 /* Define if you have /dev/ptmx */
 #undef HAVE_DEV_PTMX
@@ -256,7 +273,7 @@
 #undef USER_PATH
 
 /* Specify location of ssh.pid */
-#undef PIDDIR
+#undef _PATH_SSH_PIDDIR
 
 /* Use IPv4 for connection by default, IPv6 can still if explicity asked */
 #undef IPV4_DEFAULT
@@ -267,14 +284,29 @@
 /* getaddrinfo is broken (if present) */
 #undef BROKEN_GETADDRINFO
 
-/* vhangup is broken (if present) */
-#undef BROKEN_VHANGUP
-
 /* Workaround more Linux IPv6 quirks */
 #undef DONT_TRY_OTHER_AF
 
 /* Detect IPv4 in IPv6 mapped addresses and treat as IPv4 */
 #undef IPV4_IN_IPV6
+
+/* Define if you have BSD auth support */
+#undef BSD_AUTH
+
+/* Define if X11 doesn't support AF_UNIX sockets on that system */
+#undef NO_X11_UNIX_SOCKETS
+
+/* Needed for SCO and NeXT */
+#undef BROKEN_SAVED_UIDS
+
+/* Define if your system glob() function has the GLOB_ALTDIRFUNC extension */
+#undef GLOB_HAS_ALTDIRFUNC
+
+/* Define if your system glob() function has gl_matchc options in glob_t */
+#undef GLOB_HAS_GL_MATCHC
+
+/* Define in your struct dirent expects you to allocate extra space for d_name */
+#undef BROKEN_ONE_BYTE_DIRENT_D_NAME
 
 @BOTTOM@
 

@@ -1,7 +1,7 @@
 Package: sudo
 Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
 Vendor: Todd Miller
-Version: 1.6.3p5
+Version: 1.6.3p7
 URL: http://www.courtesan.com/sudo/
 Build-Depends: build-base
 Description: Superuser do
