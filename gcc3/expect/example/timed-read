@@ -1,0 +1,6 @@
+#!../expect -f
+# read a complete line from stdin
+# aborting after the number of seconds (given as an argument)
+# - Don Libes
+set timeout $argv
+expect -re \n {send_user $expect_out(buffer)}

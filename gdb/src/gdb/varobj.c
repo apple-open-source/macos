@@ -1370,8 +1370,6 @@ create_child (struct varobj *parent, int index, char *name)
   /* name is allocated by make_name_of_child */
   child->name = name;
   child->index = index;
-  if ((!CPLUS_FAKE_CHILD(child) && child->value == NULL) || parent->error)
-    child->error = 1;
   child->parent = parent;
   child->root = parent->root;
   childs_name =
@@ -1401,6 +1399,8 @@ create_child (struct varobj *parent, int index, char *name)
   /* Note the type of this child */
   child->type = type_of_child (child);
   child->value = value_of_child (parent, index);
+  if ((!CPLUS_FAKE_CHILD(child) && child->value == NULL) || parent->error)
+    child->error = 1;
 
   return child;
 }

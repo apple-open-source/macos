@@ -141,8 +141,8 @@ connection_s *conn_new( struct service *sp )
    if ( cp == CONN_NULL )
    {
       out_of_memory( func ) ;
-      CONN_CLEANUP( &new_conn ) ;
       conn_free( &new_conn, 0 ) ;
+      CLEAR( new_conn ) ;
       return( CONN_NULL ) ;
    }
    memcpy(cp, &new_conn, sizeof(connection_s));
@@ -164,16 +164,18 @@ void conn_free( connection_s *cp, int release_mem )
       if( debug.on )
          msg( LOG_INFO, "conn_free", "freeing connection") ;
 
-   drain( cp->co_descriptor ) ;
+   if( (SVC_SOCKET_TYPE( sp ) == SOCK_DGRAM) && (SVC_IS_ACTIVE( sp )) )
+      drain( cp->co_descriptor ) ;
 
    if ( SVC_RELE( sp ) == 0 )
       pset_remove( SERVICES( ps ), sp ) ;
+   cp->co_sp = NULL;
 
-   conn_close( cp ) ;
+   CONN_CLOSE( cp ) ;
 
+   CLEAR( *cp ) ;
    if (release_mem) {
       FREE_CONN( cp ) ;
-      cp = NULL;
    }
 }
 

@@ -92,6 +92,11 @@ const struct name_value syslog_facilities[] =
       { "authpriv",       LOG_AUTHPRIV    },
 #endif
       { "user",           LOG_USER        },
+      { "mail",           LOG_MAIL        },
+      { "lpr",            LOG_LPR         },
+      { "news",           LOG_NEWS        },
+      { "uucp",           LOG_UUCP        },
+      { "ftp",            LOG_FTP         },
       { "local0",         LOG_LOCAL0      },
       { "local1",         LOG_LOCAL1      },
       { "local2",         LOG_LOCAL2      },

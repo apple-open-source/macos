@@ -1512,7 +1512,7 @@ bool AppleUSBCDCDriver::getFunctionalDescriptors( PortInfo_t *port )
                     if (!(port->CMCapabilities & CM_ManagementOnData))
                     {
                         ELG( 0, 0, 'gFC-', "AppleUSBCDCDriver::getFunctionalDescriptors - Interface doesn't support Call Management on Data Interface" );
-                        configok = false;
+                       //  configok = false;
                     }
                     break;
                 case ACM_FunctionalDescriptor:

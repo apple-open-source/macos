@@ -313,7 +313,7 @@ struct query *ctl;	/* option record to be initialized */
 	    break;
 	case 'L':
 	case LA_LOGFILE:
-	    rctl->logfile = optarg;
+	    rctl->logfile = prependdir (optarg, currentwd);
 	    break;
 	case LA_INVISIBLE:
 	    rctl->invisible = TRUE;
@@ -323,11 +323,11 @@ struct query *ctl;	/* option record to be initialized */
 	    break;
 	case 'f':
 	case LA_RCFILE:
-	    rcfile = (char *) xstrdup(optarg);
+	    rcfile = prependdir (optarg, currentwd);
 	    break;
 	case 'i':
 	case LA_IDFILE:
-	    rctl->idfile = (char *) xstrdup(optarg);
+	    rctl->idfile = prependdir (optarg, currentwd);
 	    break;
 	case LA_POSTMASTER:
 	    rctl->postmaster = (char *) xstrdup(optarg);
@@ -408,6 +408,8 @@ struct query *ctl;	/* option record to be initialized */
 	    else if (strcmp(optarg, "ssh") == 0)
 		ctl->server.authenticate = A_SSH;
 	    else if (strcmp(optarg, "otp") == 0)
+		ctl->server.authenticate = A_OTP;
+	    else if (strcmp(optarg, "opie") == 0)
 		ctl->server.authenticate = A_OTP;
 	    else if (strcmp(optarg, "ntlm") == 0)
 		ctl->server.authenticate = A_NTLM;
@@ -538,7 +540,7 @@ struct query *ctl;	/* option record to be initialized */
 	    ocount++;
 	    break;
 	case LA_BSMTP:
-	    ctl->bsmtp = xstrdup(optarg);
+	    ctl->bsmtp = prependdir (optarg, currentwd);
 	    ocount++;
 	    break;
 	case LA_LMTP:
@@ -578,11 +580,11 @@ struct query *ctl;	/* option record to be initialized */
 	    break;
 
 	case LA_SSLKEY:
-	    ctl->sslkey = xstrdup(optarg);
+	    ctl->sslkey = prependdir (optarg, currentwd);
 	    break;
 
 	case LA_SSLCERT:
-	    ctl->sslcert = xstrdup(optarg);
+	    ctl->sslcert = prependdir (optarg, currentwd);
 	    break;
 
 	case LA_SSLPROTO:
@@ -594,7 +596,7 @@ struct query *ctl;	/* option record to be initialized */
 	    break;
 
 	case LA_SSLCERTPATH:
-	    ctl->sslcertpath = xstrdup(optarg);
+	    ctl->sslcertpath = prependdir(optarg, currentwd);
 	    break;
 
 	case LA_SSLFINGERPRINT:
@@ -677,7 +679,7 @@ struct query *ctl;	/* option record to be initialized */
 	P(GT_("  -p, --protocol    specify retrieval protocol (see man page)\n"));
 	P(GT_("  -U, --uidl        force the use of UIDLs (pop3 only)\n"));
 	P(GT_("  -P, --port        TCP/IP service port to connect to\n"));
-	P(GT_("      --auth        authentication type (password/kerberos/ssh)\n"));
+	P(GT_("      --auth        authentication type (password/kerberos/ssh/otp)\n"));
 	P(GT_("  -t, --timeout     server nonresponse timeout\n"));
 	P(GT_("  -E, --envelope    envelope address header\n"));
 	P(GT_("  -Q, --qvirtual    prefix to remove from local user id\n"));

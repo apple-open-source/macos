@@ -323,7 +323,7 @@ ItemImpl::add(Keychain &keychain)
 }
 
 Item
-ItemImpl::copyTo(const Keychain &keychain, Access *newAccess = NULL)
+ItemImpl::copyTo(const Keychain &keychain, Access *newAccess /* = NULL */)
 {
 	Item item(*this);
 	if (newAccess)
@@ -637,10 +637,12 @@ ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList
 	}
     
     // inform anyone interested that we are doing this
+#if SENDACCESSNOTIFICATIONS
     if (outData)
     {
         KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
     }
+#endif
 }
 
 void
@@ -759,7 +761,9 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 		*length=itemData.length();
 		itemData.Length=0;
 				
+#if SENDACCESSNOTIFICATIONS
 		KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
+#endif
 	}
 	
 }
@@ -919,15 +923,17 @@ ItemImpl::getData(CssmDataContainer& outData)
 
     getContent(NULL, &outData);
 
+#if SENDACCESSNOTIFICATIONS
 	//%%%<might> be done elsewhere, but here is good for now
 	KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
+#endif
 }
 
 SSGroup
 ItemImpl::group()
 {
 	SSGroup group;
-	if (&*mUniqueId)
+	if (!!mUniqueId)
 	{
 		Db db(mKeychain->database());
 		if (useSecureStorage(db))

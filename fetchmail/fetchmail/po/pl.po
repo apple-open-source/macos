@@ -120,7 +120,7 @@ msgstr "krb5_sendauth: %s [serwer odpowiedzia³ '%*s'] \n"
 
 #: driver.c:1424
 #, fuzzy, c-format
-msgid "\t%d msg %d octets long skipped by fetchmail.\r\n"
+msgid "\t%d msg %d octets long skipped by fetchmail.\n"
 msgstr "\tlist %d o d³ugo¶ci %d zosta³ pominiêty.\n"
 
 #: driver.c:1491
@@ -154,7 +154,7 @@ msgid "timeout after %d seconds.\n"
 msgstr "przekroczony czas oczekiwania po %d sekundach.\n"
 
 #: driver.c:1527
-msgid "Subject: fetchmail sees repeated timeouts\r\n"
+msgid "Subject: fetchmail sees repeated timeouts\n"
 msgstr ""
 "Subject: fetchmail zg³asza wielokrotne przekroczenie czasu oczekiwania\n"
 
@@ -162,17 +162,17 @@ msgstr ""
 #, fuzzy, c-format
 msgid ""
 "Fetchmail saw more than %d timeouts while attempting to get mail from "
-"%s@%s.\r\n"
+"%s@%s.\n"
 msgstr "Po %d timeoutach fetchmail nie móg³ pobraæ poczty z %s@%s.\n"
 
 #: driver.c:1534
 msgid ""
-"This could mean that your mailserver is stuck, or that your SMTP\r\n"
-"server is wedged, or that your mailbox file on the server has been\r\n"
-"corrupted by a server error.  You can run `fetchmail -v -v' to\r\n"
-"diagnose the problem.\r\n"
-"\r\n"
-"Fetchmail won't poll this mailbox again until you restart it.\r\n"
+"This could mean that your mailserver is stuck, or that your SMTP\n"
+"server is wedged, or that your mailbox file on the server has been\n"
+"corrupted by a server error.  You can run `fetchmail -v -v' to\n"
+"diagnose the problem.\n"
+"\n"
+"Fetchmail won't poll this mailbox again until you restart it.\n"
 msgstr ""
 
 #: driver.c:1568
@@ -225,20 +225,20 @@ msgid "Authorization failure on %s@%s\n"
 msgstr "B³±d autoryzacji dla %s@%s\n"
 
 #: driver.c:1733
-msgid "Subject: fetchmail authentication failed\r\n"
+msgid "Subject: fetchmail authentication failed\n"
 msgstr "Subject: b³±d autoryzacji fetchmaila\n"
 
 #: driver.c:1735
 #, fuzzy, c-format
-msgid "Fetchmail could not get mail from %s@%s.\r\n"
+msgid "Fetchmail could not get mail from %s@%s.\n"
 msgstr "Fetchmail nie móg³ pobraæ poczty z %s@%s.\n"
 
 #: driver.c:1739
 msgid ""
-"The attempt to get authorization failed.\r\n"
-"This probably means your password is invalid, but POP3 servers have\r\n"
-"other failure modes that fetchmail cannot distinguish from this\r\n"
-"because they don't send useful error messages on login failure.\r\n"
+"The attempt to get authorization failed.\n"
+"This probably means your password is invalid, but POP3 servers have\n"
+"other failure modes that fetchmail cannot distinguish from this\n"
+"because they don't send useful error messages on login failure.\n"
 msgstr ""
 
 #: driver.c:1748

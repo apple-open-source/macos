@@ -1,3 +1,4 @@
+#define __PRINT__ // Print headers don't compile for some reason
 #include <Carbon/Carbon.h>
 #include <QuickTime/QuickTime.h>
 
@@ -23,6 +24,9 @@ static IDHNotificationID notificationID;
 static int frameSize = 120000;	// NTSC 144000 PAL
 static char *sFile;
 static int sSDL;
+static UInt64 sGUID = 0;
+static int sDVCPro50;
+
 
 static char diskBuffer[PAGE_SIZE];
 static int diskBufferEnd;
@@ -535,7 +539,9 @@ static void OpenDV()
                 printf("Unknown standard: %d\n", deviceStatus.inputStandard);
             if(sSDL)
                 frameSize /= 2;
-                
+            else if(sDVCPro50)
+                frameSize *= 2;
+			
             // find the isoch characteristics for this device
             isochAtom = QTFindChildByIndex( deviceList, deviceAtom, kIDHIsochServiceAtomType, 1, nil);
             if( isochAtom == nil)
@@ -578,7 +584,8 @@ static void OpenDV()
                     printf("\n");
             }
             printf("-----\n");
-
+            if(sGUID == (((UInt64)test[0]) << 32) + test[1])
+                break;
     }
 
     if( videoConfig.atom == nil)	// no good configs found
@@ -592,7 +599,7 @@ static void OpenDV()
 
     err = IDHGetFormat( theInst, &format);
     printf("IDHGetFormat returned err %d, format %d\n", err, format);
-    
+
 #ifdef TWO
     err = IDHSetDeviceConfiguration( theInst2, &videoConfig);
     if( err != noErr)
@@ -644,10 +651,17 @@ int main(int argc, char **argv)
             
     sFile = "/tmp/dump.dv";
     sSDL = 0;
+	sDVCPro50 = 0;
     
     while(argc > pos) {
         if(strcmp(argv[pos], "-sdl") == 0)
             sSDL = 1;
+        else if(strcmp(argv[pos], "-guid") == 0 && argc > pos + 1) {
+            pos++;
+            sGUID = strtoq(argv[pos], NULL, 0);
+        }
+		else if (strcmp(argv[pos], "-DVCPro50") == 0)
+            sDVCPro50 = 1;
         else
             sFile = argv[pos];
         pos++;

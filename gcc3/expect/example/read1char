@@ -1,0 +1,8 @@
+#!../expect --
+
+# read a single character
+# Author: Don Libes, NIST
+
+stty raw
+expect ?
+send_user $expect_out(buffer)

@@ -28,7 +28,7 @@
 */
 
 #include "ssl.h"
-#include "sslalloc.h"
+#include "sslMemory.h"
 #include "sslDebug.h"
 #include "sslBER.h"
 
@@ -93,16 +93,16 @@ static void dataToSnaccInt(
  *		publicExponent INTEGER -- e }
  */
  
-SSLErr sslDecodeRsaBlob(
+OSStatus sslDecodeRsaBlob(
 	const SSLBuffer	*blob,			/* PKCS-1 encoded */
 	SSLBuffer		*modulus,		/* data mallocd and RETURNED */
 	SSLBuffer		*exponent)		/* data mallocd and RETURNED */
 {
-	SSLErr				srtn;
+	OSStatus srtn;
 
-	CASSERT(blob != NULL);
-	CASSERT(modulus != NULL);
-	CASSERT(exponent != NULL);
+	assert(blob != NULL);
+	assert(modulus != NULL);
+	assert(exponent != NULL);
 	
 	/* DER-decode the blob */
 	RSAPublicKey snaccPubKey;
@@ -111,34 +111,34 @@ SSLErr sslDecodeRsaBlob(
 		SC_decodeAsnObj(cssmBlob, snaccPubKey);
 	}
 	catch(...) {
-		return SSLBadCert;
+		return errSSLBadCert;
 	}
 	
 	/* malloc & convert components */
-	srtn = SSLAllocBuffer(modulus, snaccPubKey.modulus.Len(), NULL);
+	srtn = SSLAllocBuffer(*modulus, snaccPubKey.modulus.Len(), NULL);
 	if(srtn) {
 		return srtn;
 	}
 	snaccIntToData(snaccPubKey.modulus, modulus);
-	srtn = SSLAllocBuffer(exponent, snaccPubKey.publicExponent.Len(), 
+	srtn = SSLAllocBuffer(*exponent, snaccPubKey.publicExponent.Len(), 
 		NULL);
 	if(srtn) {
 		return srtn;
 	}
 	snaccIntToData(snaccPubKey.publicExponent, exponent);
-	return SSLNoErr;
+	return noErr;
 }
 
 /*
  * Given a raw modulus and exponent, cook up a
  * BER-encoded RSA public key blob.
  */
-SSLErr sslEncodeRsaBlob(
+OSStatus sslEncodeRsaBlob(
 	const SSLBuffer	*modulus,		
 	const SSLBuffer	*exponent,		
 	SSLBuffer		*blob)			/* data mallocd and RETURNED */
 {
-	CASSERT((modulus != NULL) && (exponent != NULL));
+	assert((modulus != NULL) && (exponent != NULL));
 	blob->data = NULL;
 	blob->length = 0;
 
@@ -156,15 +156,15 @@ SSLErr sslEncodeRsaBlob(
 	}
 	catch(...) {
 		/* right...? */
-		return SSLMemoryErr;
+		return memFullErr;
 	}
 	
 	/* copy to caller's SSLBuffer */
-	SSLErr srtn = SSLAllocBuffer(blob, cblob.length(), NULL);
+	OSStatus srtn = SSLAllocBuffer(*blob, cblob.length(), NULL);
 	if(srtn) {
 		return srtn;
 	}
 	memmove(blob->data, cblob.data(), cblob.length());
-	return SSLNoErr;
+	return noErr;
 }
 

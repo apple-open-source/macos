@@ -34,11 +34,6 @@
 			path = UniNEnet.h;
 			refType = 4;
 		};
-		016FA202FFB1F76211CA2B4D = {
-			isa = PBXFileReference;
-			path = UniNEnetHW.cpp;
-			refType = 4;
-		};
 		016FA203FFB1F76211CA2B4D = {
 			isa = PBXFileReference;
 			path = UniNEnetMII.cpp;
@@ -149,7 +144,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.AppleGMACEthernet;
-				MODULE_VERSION = 1.2.1b6;
+				MODULE_VERSION = 1.2.4b3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -184,11 +179,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2b2</string>
+	<string>1.2.4b3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PCI Matching</key>
@@ -378,7 +373,6 @@
 			children = (
 				016FA200FFB1F76211CA2B4D,
 				016FA201FFB1F76211CA2B4D,
-				016FA202FFB1F76211CA2B4D,
 				016FA203FFB1F76211CA2B4D,
 				016FA204FFB1F76211CA2B4D,
 				016FA207FFB1F76211CA2B4D,

@@ -60,11 +60,22 @@ public:
 	};
 
 public:
+	// make default forms
     Access(const string &description);
     Access(const string &description, const ACL::ApplicationList &trusted);
+    Access(const string &description, const ACL::ApplicationList &trusted,
+		const AclAuthorizationSet &limitedRights, const AclAuthorizationSet &freeRights);
+	
+	// make a completely open Access (anyone can do anything)
+	Access();
+	
+	// retrieve from an existing AclBearer
 	Access(AclBearer &source);
+	
+	// make from CSSM layer information (presumably retrieved by caller)
 	Access(const CSSM_ACL_OWNER_PROTOTYPE &owner,
 		uint32 aclCount, const CSSM_ACL_ENTRY_INFO *acls);
+
     virtual ~Access();
 
 public:
@@ -76,7 +87,7 @@ public:
 	
 	void setAccess(AclBearer &target, bool update = false);
 	void setAccess(AclBearer &target, Maker &maker);
-	
+
 	template <class Container>
 	void findAclsForRight(AclAuthorization right, Container &cont)
 	{
@@ -86,10 +97,14 @@ public:
 				cont.push_back(it->second);
 	}
 	
+	std::string promptDescription() const;	// from any one of the ACLs contained
+	
 	void addApplicationToRight(AclAuthorization right, TrustedApplication *app);
 	
 protected:
-    void makeStandard(const string &description, const ACL::ApplicationList &trusted);
+    void makeStandard(const string &description, const ACL::ApplicationList &trusted,
+		const AclAuthorizationSet &limitedRights = AclAuthorizationSet(),
+		const AclAuthorizationSet &freeRights = AclAuthorizationSet());
     void compile(const CSSM_ACL_OWNER_PROTOTYPE &owner,
         uint32 aclCount, const CSSM_ACL_ENTRY_INFO *acls);
 	

@@ -29,7 +29,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/compiler/back-ends/c++-gen/gen-vals.h,v 1.3 2001/06/25 21:51:10 dmitch Exp $
+ * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/back-ends/c++-gen/gen-vals.h,v 1.3 2001/06/25 21:51:10 dmitch Exp $
  * $Log: gen-vals.h,v $
  * Revision 1.3  2001/06/25 21:51:10  dmitch
  * Avoid instantiating AsnInt constants; use #define instead. Partial fix for Radar 2664258.

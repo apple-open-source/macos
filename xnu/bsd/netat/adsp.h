@@ -473,7 +473,7 @@ typedef struct {
 } DDP_FRAME;
 
 #define DDPS_FRAME_LEN     5
-#endif NOT_USED
+#endif /* NOT_USED */
 
 typedef struct {
   ua_short   ddpx_length;            /* length and hop count        */
@@ -591,7 +591,7 @@ typedef struct
    u_char  ResponderLink;
    u_char  data[1];
 } RESPONDER_FRAME;
-#endif NOT_USED
+#endif /* NOT_USED */
 
 /*
  * ADSP Frame

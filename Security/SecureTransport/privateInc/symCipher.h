@@ -21,7 +21,7 @@
 
 	Contains:	CDSA-based symmetric cipher module
 
-	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
+	Written by:	Doug Mitchell
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -30,36 +30,38 @@
 #ifndef	_SYM_CIPHER_H_
 #define _SYM_CIPHER_H_
 
-#ifndef _SSLCTX_H_
-#include "sslctx.h"
-#endif
-
-#ifndef _CRYPTTYPE_H_
+#include "sslContext.h"
 #include "cryptType.h"
-#endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * All symmetric cipher logic goes thru these same four routines, on the 
  * way down to CDSA
  */
-SSLErr CDSASymmInit(
+OSStatus CDSASymmInit(
 	uint8 *key, 
 	uint8* iv, 
 	CipherContext *cipherCtx, 
 	SSLContext *ctx);
-SSLErr CDSASymmEncrypt(
+OSStatus CDSASymmEncrypt(
 	SSLBuffer src, 
 	SSLBuffer dest, 
 	CipherContext *cipherCtx, 
 	SSLContext *ctx);
-SSLErr CDSASymmDecrypt(
+OSStatus CDSASymmDecrypt(
 	SSLBuffer src, 
 	SSLBuffer dest, 
 	CipherContext *cipherCtx, 
 	SSLContext *ctx);
-SSLErr CDSASymmFinish(
+OSStatus CDSASymmFinish(
 	CipherContext *cipherCtx, 
 	SSLContext *ctx);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* _SYM_CIPHER_H_ */

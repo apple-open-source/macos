@@ -1041,22 +1041,6 @@ IOUSBDeviceUserClient::stop(IOService * provider)
     
     USBLog(7, "+%s[%p]::stop(%p)", getName(), this, provider);
 
-    if (fGate)
-    {
-	if (fWorkLoop)
-	{
-	    fWorkLoop->removeEventSource(fGate);
-            fWorkLoop->release();
-            fWorkLoop = NULL;
-	}
-	else
-	{
-	    USBError(1, "%s[%p]::free - have gate, but no valid workloop!", getName(), this);
-	}
-	fGate->release();
-	fGate = NULL;
-    }
-    
     super::stop(provider);
 
     USBLog(7, "-%s[%p]::stop(%p)", getName(), this, provider);

@@ -43,6 +43,9 @@ enum IOHIDLibUserClientMemoryTypes {
 enum IOHIDLibUserClientAsyncCommandCodes {
     kIOHIDLibUserClientSetAsyncPort,   		// kIOUCScalarIScalarO, 0, 0
     kIOHIDLibUserClientSetQueueAsyncPort,	// kIOUCScalarIScalarO, 1, 0
+    kIOHIDLibUserClientAsyncGetReport,		// kIOUCScalarIScalarO, 5, 0
+    kIOHIDLibUserClientAsyncSetReport,		// kIOUCScalarIScalarO, 5, 0
+
     kIOHIDLibUserClientNumAsyncCommands
 };
 
@@ -58,6 +61,10 @@ enum IOHIDLibUserClientCommandCodes {
     kIOHIDLibUserClientStopQueue, 		// kIOUCScalarIScalarO, 1, 0
     kIOHIDLibUserClientUpdateElementValue, 	// kIOUCScalarIScalarO, 1, 0
     kIOHIDLibUserClientPostElementValue,	// kIOUCStructIStructO, 0xffffffff, 0
+    kIOHIDLibUserClientGetReport,		// kIOUCScalarIStructO, 2, 0xffffffff
+    kIOHIDLibUserClientGetReportOOL,		// kIOUCStructIStructO, 
+    kIOHIDLibUserClientSetReport,		// kIOUCScalarIScalarO, 2, 0xffffffff
+    kIOHIDLibUserClientSetReportOOL,		// kIOUCStructIStructO,
 
     kIOHIDLibUserClientNumCommands
 };
@@ -83,6 +90,14 @@ struct IOHIDElementValue
     AbsoluteTime       timestamp;
     UInt32             generation;
     UInt32             value[1];
+};
+
+struct IOHIDReportReq
+{
+    IOHIDReportType	reportType;
+    UInt32		reportID;
+    void 		*reportBuffer;
+    UInt32		reportBufferSize;
 };
 
 #if KERNEL
@@ -189,11 +204,45 @@ protected:
     // Post element value
     virtual IOReturn postElementValue (void *cookie, void *, void *,
                                                 void *, void *, void *);
+                                                
+    virtual IOReturn getReport (IOHIDReportType reportType, 
+                                UInt32 reportID, 
+                                void *reportBuffer, 
+                                UInt32 *reportBufferSize);
+                                
+    virtual IOReturn getReportOOL(  IOHIDReportReq *reqIn, 
+                                    UInt32 *sizeOut, 
+                                    IOByteCount inCount, 
+                                    IOByteCount *outCount);
+
+    virtual IOReturn setReport (IOHIDReportType reportType, 
+                                UInt32 reportID, 
+                                void *reportBuffer, 
+                                UInt32 reportBufferSize);
+                                
+    virtual IOReturn setReportOOL (IOHIDReportReq *req, IOByteCount inCount);
+
+
+    virtual IOReturn asyncGetReport (OSAsyncReference asyncRef, 
+                                    IOHIDReportType reportType, 
+                                    UInt32 reportID, 
+                                    void *reportBuffer,
+                                    UInt32 reportBufferSize, 
+                                    UInt32 completionTimeOutMS);
+                                
+    virtual IOReturn asyncSetReport (OSAsyncReference asyncRef, 
+                                    IOHIDReportType reportType, 
+                                    UInt32 reportID, 
+                                    void *reportBuffer,
+                                    UInt32 reportBufferSize, 
+                                    UInt32 completionTimeOutMS);
 
 protected:
     // used 'cause C++ is a pain in the backside
     static IOReturn closeAction
         (OSObject *self, void *, void *, void *, void *);
+
+    static void ReqComplete(void *obj, void *param, IOReturn status, UInt32 remaining);
 };
 
 #endif /* KERNEL */

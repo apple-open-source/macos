@@ -29,6 +29,9 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.h,v $
+	Revision 1.2  2002/10/18 23:29:44  collin
+	fix includes, fix cast which fails on new compiler
+	
 	Revision 1.1  2002/09/25 00:27:22  niels
 	flip your world upside-down
 	
@@ -40,10 +43,14 @@
 #ifndef __IOFWUserClientPsduAddrSpace_H__
 #define __IOFWUserClientPsduAddrSpace_H__
 
-#import "IOFireWireFamilyCommon.h"
-#import "IOFWAddressSpace.h"
+// public
+#import <IOKit/firewire/IOFireWireFamilyCommon.h>
+#import <IOKit/firewire/IOFWAddressSpace.h>
+
+// private
 #import "IOFireWireLibPriv.h"
 
+// system
 #import <IOKit/OSMessageNotification.h>
 #import <IOKit/IOLocks.h>
 

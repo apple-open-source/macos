@@ -32,6 +32,7 @@
 #include <Security/cssmacl.h>
 #include <Security/context.h>
 #include <Security/globalizer.h>
+#include <Security/unix++.h>
 #include <Security/mach++.h>
 #include <Security/cssmdb.h>
 #include <Security/osxsigning.h>
@@ -274,7 +275,7 @@ public:
         const void *data, size_t dataLength, void *context);
     OSStatus dispatchNotification(const mach_msg_header_t *message,
         ConsumeNotification *consumer, void *context);
-        	
+
 private:
 	void getAcl(AclKind kind, KeyHandle key, const char *tag,
 		uint32 &count, AclEntryInfo * &info, CssmAllocator &alloc);
@@ -285,6 +286,8 @@ private:
 		const AclOwnerPrototype &edit);
 
 private:
+	static UnixPlusPlus::StaticForkMonitor mHasForked;	// global fork indicator
+
 	struct Thread {
 		Thread() : registered(false) { }
 		operator bool() const { return registered; }

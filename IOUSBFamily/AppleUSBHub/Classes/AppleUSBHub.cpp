@@ -1685,7 +1685,7 @@ AppleUSBHub::CheckForDeadHubEntry(OSObject *target)
     
     if (!me)
         return;
-        
+     
     me->CheckForDeadHub();
     me->DecrementOutstandingIO();
 }
@@ -1696,8 +1696,6 @@ void
 AppleUSBHub::CheckForDeadHub()
 {
     IOReturn			err = kIOReturnSuccess;
-    
-    IncrementOutstandingIO();
     
     // Are we still connected?
     //
@@ -1710,7 +1708,9 @@ AppleUSBHub::CheckForDeadHub()
             _hubIsDead = TRUE;
             USBLog(3, "%s[%p]: Detected an kIONotResponding error but still connected.  Resetting port", getName(), this);
             
+            retain();
             ResetMyPort();
+            release();
             
         }
         else
@@ -1723,7 +1723,6 @@ AppleUSBHub::CheckForDeadHub()
         }
     }
 
-    DecrementOutstandingIO();
 }
 
 //=============================================================================================

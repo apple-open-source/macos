@@ -23,15 +23,15 @@
 #ifndef _IOKIT_IOFIRELOGPRIV_H
 #define _IOKIT_IOFIRELOGPRIV_H
 
-#include "IOFireLog.h"
+#include <IOKit/firewire/IOFireLog.h>
 
 #if FIRELOG
 
 #include <libkern/c++/OSObject.h>
 #include <IOKit/system.h>
 
-#import "IOFireWireController.h"
-#import "IOLocalConfigDirectory.h"
+#import <IOKit/firewire/IOFireWireController.h>
+#import <IOKit/firewire/IOLocalConfigDirectory.h>
 
 #include <IOKit/IOBufferMemoryDescriptor.h>
 

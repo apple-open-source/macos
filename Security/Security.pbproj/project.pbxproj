@@ -121,7 +121,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 54.1;
+				DYLIB_CURRENT_VERSION = 54.1.3;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/BSafe.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/BSafe.framework/Headers\" \"$(SRCROOT)/AppleCSP\" \"$(SRCROOT)/AppleCSP/open_ssl\"";
 				LIBRARY_STYLE = STATIC;
@@ -239,6 +239,7 @@
 				9D291891026B8BBD00003D05,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880D0005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
@@ -366,18 +367,21 @@
 				9D291890026B8BBD00003D05,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880D1005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880D2005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880D4005EAE4D11CD283A = {
 			buildPhases = (
@@ -388,7 +392,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 54.1;
+				DYLIB_CURRENT_VERSION = 54.1.3;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "-DVDADER_RULES";
@@ -425,6 +429,7 @@
 				0148812E005EB04411CD283A,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880D6005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
@@ -441,18 +446,21 @@
 				327DDDF500D707D805CD296C,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880D7005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880D8005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880DA005EAE4D11CD283A = {
 			buildPhases = (
@@ -463,7 +471,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 54.1;
+				DYLIB_CURRENT_VERSION = 54.1.3;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -491,6 +499,7 @@
 				01488139005EB04411CD283A,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880DC005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
@@ -498,18 +507,21 @@
 				0148813A005EB04411CD283A,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880DD005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880DE005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880E0005EAE4D11CD283A = {
 			buildPhases = (
@@ -520,7 +532,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 54.1;
+				DYLIB_CURRENT_VERSION = 54.1.3;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "-DVDADER_RULES";
@@ -557,6 +569,7 @@
 				01488144005EB04411CD283A,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880E2005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
@@ -577,18 +590,21 @@
 				F540EDC3027A41BF01CA2E66,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880E3005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880E4005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880E6005EAE4D11CD283A = {
 			buildPhases = (
@@ -599,7 +615,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 54.1;
+				DYLIB_CURRENT_VERSION = 54.1.3;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "-DVDADER_RULES";
@@ -634,6 +650,7 @@
 				01488159005EB04411CD283A,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880E8005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
@@ -650,18 +667,21 @@
 				9D9AEFBB02B6BC6C00003D05,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880E9005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880EA005EAE4D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		014880EC005EB04411CD283A = {
 			fileRef = 07A0F5EE005DAEE111CD283A;
@@ -3356,18 +3376,14 @@
 		01FA8126FFF2B54C11CD283A = {
 			children = (
 				01FA8127FFF2B54C11CD283A,
-				01FA8128FFF2B54C11CD283A,
 				01FA8129FFF2B54C11CD283A,
 				01FA812AFFF2B54C11CD283A,
-				01FA812BFFF2B54C11CD283A,
 				01FA812CFFF2B54C11CD283A,
 				01FA812DFFF2B54C11CD283A,
 				01FA812EFFF2B54C11CD283A,
 				01FA812FFFF2B54C11CD283A,
 				01FA8130FFF2B54C11CD283A,
 				01FA8131FFF2B54C11CD283A,
-				01FA8132FFF2B54C11CD283A,
-				01FA8133FFF2B54C11CD283A,
 				01FA8135FFF2B54C11CD283A,
 				01FA8136FFF2B54C11CD283A,
 				01FA8137FFF2B54C11CD283A,
@@ -3401,12 +3417,7 @@
 		};
 		01FA8127FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = appleCdsa.c;
-			refType = 4;
-		};
-		01FA8128FFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = appleGlue.c;
+			path = appleCdsa.cpp;
 			refType = 4;
 		};
 		01FA8129FFF2B54C11CD283A = {
@@ -3416,52 +3427,37 @@
 		};
 		01FA812AFFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = cipherSpecs.c;
-			refType = 4;
-		};
-		01FA812BFFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = cppUtils.cpp;
+			path = cipherSpecs.cpp;
 			refType = 4;
 		};
 		01FA812CFFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = digests.c;
+			path = sslDigests.cpp;
 			refType = 4;
 		};
 		01FA812DFFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = hdskcert.c;
+			path = sslCert.cpp;
 			refType = 4;
 		};
 		01FA812EFFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = hdskchgc.c;
+			path = sslChangeCipher.cpp;
 			refType = 4;
 		};
 		01FA812FFFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = hdskfini.c;
+			path = sslHandshakeFinish.cpp;
 			refType = 4;
 		};
 		01FA8130FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = hdskhelo.c;
+			path = sslHandshakeHello.cpp;
 			refType = 4;
 		};
 		01FA8131FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = hdskkeys.c;
-			refType = 4;
-		};
-		01FA8132FFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = hdskkyex.c;
-			refType = 4;
-		};
-		01FA8133FFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = LICENSE.txt;
+			path = sslKeyExchange.cpp;
 			refType = 4;
 		};
 		01FA8135FFF2B54C11CD283A = {
@@ -3476,36 +3472,34 @@
 		};
 		01FA8137FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = nullciph.c;
+			path = sslNullCipher.cpp;
 			refType = 4;
 		};
 		01FA8138FFF2B54C11CD283A = {
 			children = (
 				01FA8139FFF2B54C11CD283A,
-				01FA813AFFF2B54C11CD283A,
 				01FA813BFFF2B54C11CD283A,
 				01FA813CFFF2B54C11CD283A,
 				01FA813DFFF2B54C11CD283A,
-				01FA813EFFF2B54C11CD283A,
 				01FA8141FFF2B54C11CD283A,
 				01FA8142FFF2B54C11CD283A,
-				01FA8143FFF2B54C11CD283A,
-				01FA8144FFF2B54C11CD283A,
 				01FA8145FFF2B54C11CD283A,
 				01FA8146FFF2B54C11CD283A,
-				01FA8147FFF2B54C11CD283A,
 				01FA8148FFF2B54C11CD283A,
-				01FA8149FFF2B54C11CD283A,
-				01FA814AFFF2B54C11CD283A,
 				01FA814BFFF2B54C11CD283A,
 				01FA814CFFF2B54C11CD283A,
-				01FA814DFFF2B54C11CD283A,
-				01FA814EFFF2B54C11CD283A,
-				01FA814FFFF2B54C11CD283A,
-				01FA8150FFF2B54C11CD283A,
 				01FA8151FFF2B54C11CD283A,
 				9D78BC7201EBB3F900003D05,
 				9D78BC7601EBBBED00003D05,
+				9D98FF0C0371DDE400003D05,
+				9D98FF0D0371DDE400003D05,
+				9D98FF0E0371DDE400003D05,
+				9D98FF0F0371DDE400003D05,
+				9D98FF100371DDE400003D05,
+				9D98FF110371DDE400003D05,
+				9D98FF120371DDE400003D05,
+				9D98FF130371DDE400003D05,
+				9D98FF140371DDE400003D05,
 			);
 			isa = PBXGroup;
 			path = privateInc;
@@ -3514,11 +3508,6 @@
 		01FA8139FFF2B54C11CD283A = {
 			isa = PBXFileReference;
 			path = appleCdsa.h;
-			refType = 4;
-		};
-		01FA813AFFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = appleGlue.h;
 			refType = 4;
 		};
 		01FA813BFFF2B54C11CD283A = {
@@ -3536,11 +3525,6 @@
 			path = cryptType.h;
 			refType = 4;
 		};
-		01FA813EFFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = digests.h;
-			refType = 4;
-		};
 		01FA8141FFF2B54C11CD283A = {
 			isa = PBXFileReference;
 			path = ssl.h;
@@ -3549,16 +3533,6 @@
 		01FA8142FFF2B54C11CD283A = {
 			isa = PBXFileReference;
 			path = ssl2.h;
-			refType = 4;
-		};
-		01FA8143FFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = sslalert.h;
-			refType = 4;
-		};
-		01FA8144FFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = sslalloc.h;
 			refType = 4;
 		};
 		01FA8145FFF2B54C11CD283A = {
@@ -3571,24 +3545,9 @@
 			path = sslBuildFlags.h;
 			refType = 4;
 		};
-		01FA8147FFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = sslctx.h;
-			refType = 4;
-		};
 		01FA8148FFF2B54C11CD283A = {
 			isa = PBXFileReference;
 			path = sslDebug.h;
-			refType = 4;
-		};
-		01FA8149FFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = sslerrs.h;
-			refType = 4;
-		};
-		01FA814AFFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = sslhdshk.h;
 			refType = 4;
 		};
 		01FA814BFFF2B54C11CD283A = {
@@ -3599,26 +3558,6 @@
 		01FA814CFFF2B54C11CD283A = {
 			isa = PBXFileReference;
 			path = sslPriv.h;
-			refType = 4;
-		};
-		01FA814DFFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = sslrec.h;
-			refType = 4;
-		};
-		01FA814EFFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = sslsess.h;
-			refType = 4;
-		};
-		01FA814FFFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = ssltrspt.h;
-			refType = 4;
-		};
-		01FA8150FFF2B54C11CD283A = {
-			isa = PBXFileReference;
-			path = sslutil.h;
 			refType = 4;
 		};
 		01FA8151FFF2B54C11CD283A = {
@@ -3657,32 +3596,32 @@
 		};
 		01FA8158FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = ssl2map.c;
+			path = ssl2CipherMap.cpp;
 			refType = 4;
 		};
 		01FA8159FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = ssl2mesg.c;
+			path = ssl2Message.cpp;
 			refType = 4;
 		};
 		01FA815AFFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = ssl2prot.c;
+			path = ssl2Protocol.cpp;
 			refType = 4;
 		};
 		01FA815BFFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = ssl2rec.c;
+			path = ssl2Record.cpp;
 			refType = 4;
 		};
 		01FA815CFFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = sslalert.c;
+			path = sslAlertMessage.cpp;
 			refType = 4;
 		};
 		01FA815DFFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = sslalloc.c;
+			path = sslMemory.cpp;
 			refType = 4;
 		};
 		01FA815EFFF2B54C11CD283A = {
@@ -3692,42 +3631,42 @@
 		};
 		01FA815FFFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = sslctx.c;
+			path = sslContext.cpp;
 			refType = 4;
 		};
 		01FA8161FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = sslhdshk.c;
+			path = sslHandshake.cpp;
 			refType = 4;
 		};
 		01FA8162FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = sslKeychain.c;
+			path = sslKeychain.cpp;
 			refType = 4;
 		};
 		01FA8163FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = sslrec.c;
+			path = sslRecord.cpp;
 			refType = 4;
 		};
 		01FA8164FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = sslsess.c;
+			path = sslSession.cpp;
 			refType = 4;
 		};
 		01FA8165FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = ssltrspt.c;
+			path = sslTransport.cpp;
 			refType = 4;
 		};
 		01FA8166FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = sslutil.c;
+			path = sslUtils.cpp;
 			refType = 4;
 		};
 		01FA8167FFF2B54C11CD283A = {
 			isa = PBXFileReference;
-			path = symCipher.c;
+			path = symCipher.cpp;
 			refType = 4;
 		};
 		01FA8168FFF2B54C11CD283A = {
@@ -5752,12 +5691,6 @@
 			settings = {
 			};
 		};
-		01FA8519FFF2B54C11CD283A = {
-			fileRef = 01FA813AFFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		01FA851AFFF2B54C11CD283A = {
 			fileRef = 01FA813BFFF2B54C11CD283A;
 			isa = PBXBuildFile;
@@ -5776,12 +5709,6 @@
 			settings = {
 			};
 		};
-		01FA851DFFF2B54C11CD283A = {
-			fileRef = 01FA813EFFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		01FA8520FFF2B54C11CD283A = {
 			fileRef = 01FA8141FFF2B54C11CD283A;
 			isa = PBXBuildFile;
@@ -5790,18 +5717,6 @@
 		};
 		01FA8521FFF2B54C11CD283A = {
 			fileRef = 01FA8142FFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01FA8522FFF2B54C11CD283A = {
-			fileRef = 01FA8143FFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01FA8523FFF2B54C11CD283A = {
-			fileRef = 01FA8144FFF2B54C11CD283A;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -5818,26 +5733,8 @@
 			settings = {
 			};
 		};
-		01FA8526FFF2B54C11CD283A = {
-			fileRef = 01FA8147FFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		01FA8527FFF2B54C11CD283A = {
 			fileRef = 01FA8148FFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01FA8528FFF2B54C11CD283A = {
-			fileRef = 01FA8149FFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01FA8529FFF2B54C11CD283A = {
-			fileRef = 01FA814AFFF2B54C11CD283A;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -5850,30 +5747,6 @@
 		};
 		01FA852BFFF2B54C11CD283A = {
 			fileRef = 01FA814CFFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01FA852CFFF2B54C11CD283A = {
-			fileRef = 01FA814DFFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01FA852DFFF2B54C11CD283A = {
-			fileRef = 01FA814EFFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01FA852EFFF2B54C11CD283A = {
-			fileRef = 01FA814FFFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01FA852FFFF2B54C11CD283A = {
-			fileRef = 01FA8150FFF2B54C11CD283A;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -6961,14 +6834,6 @@
 				);
 			};
 		};
-		01FA8750FFF2B54C11CD283A = {
-			fileRef = 01FA8128FFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
 		01FA8751FFF2B54C11CD283A = {
 			fileRef = 01FA8129FFF2B54C11CD283A;
 			isa = PBXBuildFile;
@@ -6979,14 +6844,6 @@
 		};
 		01FA8752FFF2B54C11CD283A = {
 			fileRef = 01FA812AFFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		01FA8753FFF2B54C11CD283A = {
-			fileRef = 01FA812BFFF2B54C11CD283A;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -7035,14 +6892,6 @@
 		};
 		01FA8759FFF2B54C11CD283A = {
 			fileRef = 01FA8131FFF2B54C11CD283A;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		01FA875AFFF2B54C11CD283A = {
-			fileRef = 01FA8132FFF2B54C11CD283A;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -7560,7 +7409,7 @@
 				01FA8900FFF2BC5611CD283A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 54.1;
+				CURRENT_PROJECT_VERSION = 54.1.3;
 				INSTALL_PATH = "$(SYSTEM_CORE_SERVICES_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
@@ -7570,7 +7419,6 @@
 				PRODUCT_NAME = SecurityServer;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "-sectorder __TEXT __text \"$(SRCROOT)/SecurityServer/SecurityServer.order\" -e start";
-				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
@@ -7610,6 +7458,7 @@
 				F5A7F720023D974F01CA2E64,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		01FA88FEFFF2BC5611CD283A = {
 			buildActionMask = 2147483647;
@@ -7637,6 +7486,7 @@
 				F5A7F71F023D974E01CA2E64,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		01FA88FFFFF2BC5611CD283A = {
 			buildActionMask = 2147483647;
@@ -7645,12 +7495,14 @@
 				3949557400CC6A4511CD283A,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		01FA8900FFF2BC5611CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		01FA8901FFF2BCA811CD283A = {
 			isa = PBXExecutableFileReference;
@@ -7673,7 +7525,7 @@
 				01FA890AFFF2BCA811CD283A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 54.1;
+				CURRENT_PROJECT_VERSION = 54.1.3;
 				INSTALL_PATH = "$(SYSTEM_CORE_SERVICES_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
@@ -7682,7 +7534,6 @@
 				PRODUCT_NAME = AuthorizationTrampoline;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
@@ -7699,6 +7550,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		01FA8906FFF2BCA811CD283A = {
 			buildActionMask = 2147483647;
@@ -7706,6 +7558,7 @@
 				01FA8907FFF2BCA811CD283A,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		01FA8907FFF2BCA811CD283A = {
 			fileRef = 01FA81ACFFF2B54C11CD283A;
@@ -7721,12 +7574,14 @@
 				1BA451B30097605B7F000001,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		01FA890AFFF2BCA811CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		01FA890DFFF2BD9911CD283A = {
 			children = (
@@ -8019,7 +7874,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 54.1;
+				DYLIB_CURRENT_VERSION = 54.1.3;
 				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
@@ -8047,6 +7902,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		030701E6FFF96F8511CD283A = {
 			buildActionMask = 2147483647;
@@ -8055,18 +7911,21 @@
 				030701EAFFF96F9911CD283A,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		030701E7FFF96F8511CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		030701E8FFF96F8511CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		030701E9FFF96F9911CD283A = {
 			fileRef = 01FA821CFFF2B54C11CD283A;
@@ -9330,9 +9189,9 @@
 				F5DDE3AE00B3358F01CD283A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 54.1;
+				CURRENT_PROJECT_VERSION = 54.1.3;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 54.1;
+				DYLIB_CURRENT_VERSION = 54.1.3;
 				FRAMEWORK_SEARCH_PATHS = "";
 				FRAMEWORK_VERSION = A;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\" \"$(BUILT_PRODUCTS_DIR)/derived_src\"";
@@ -9344,7 +9203,6 @@
 				PREBINDING = YES;
 				PRODUCT_NAME = Security;
 				SECTORDER_FLAGS = "-sectorder __TEXT __text \"$(APPLE_INTERNAL_DIR)/OrderFiles/Security.order\" -seg_addr_table \"$(APPLE_INTERNAL_DEVELOPER_DIR)/seg_addr_table\"";
-				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = Sec;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = framework;
@@ -9379,11 +9237,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>54.1</string>
+	<string>54.1.3</string>
 </dict>
 </plist>
 ";
@@ -9505,27 +9363,16 @@
 				01FA84FFFFF2B54C11CD283A,
 				01FA8517FFF2B54C11CD283A,
 				01FA8518FFF2B54C11CD283A,
-				01FA8519FFF2B54C11CD283A,
 				01FA851AFFF2B54C11CD283A,
 				01FA851BFFF2B54C11CD283A,
 				01FA851CFFF2B54C11CD283A,
-				01FA851DFFF2B54C11CD283A,
 				01FA8520FFF2B54C11CD283A,
 				01FA8521FFF2B54C11CD283A,
-				01FA8522FFF2B54C11CD283A,
-				01FA8523FFF2B54C11CD283A,
 				01FA8524FFF2B54C11CD283A,
 				01FA8525FFF2B54C11CD283A,
-				01FA8526FFF2B54C11CD283A,
 				01FA8527FFF2B54C11CD283A,
-				01FA8528FFF2B54C11CD283A,
-				01FA8529FFF2B54C11CD283A,
 				01FA852AFFF2B54C11CD283A,
 				01FA852BFFF2B54C11CD283A,
-				01FA852CFFF2B54C11CD283A,
-				01FA852DFFF2B54C11CD283A,
-				01FA852EFFF2B54C11CD283A,
-				01FA852FFFF2B54C11CD283A,
 				01FA8530FFF2B54C11CD283A,
 				01FA8531FFF2B54C11CD283A,
 				01FA8532FFF2B54C11CD283A,
@@ -9689,8 +9536,19 @@
 				F5394A1C0279082901CA2E64,
 				F540EDC8027A43A501CA2E66,
 				3206D1FE029996FC05CA2E77,
+				9D98FF150371DDE400003D05,
+				9D98FF160371DDE400003D05,
+				9D98FF170371DDE400003D05,
+				9D98FF180371DDE400003D05,
+				9D98FF190371DDE400003D05,
+				9D98FF1A0371DDE400003D05,
+				9D98FF1B0371DDE400003D05,
+				9D98FF1C0371DDE400003D05,
+				9D98FF1D0371DDE400003D05,
+				F500ED3C037CD0E101CA2E64,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0867D69EFE84028FC02AAC07 = {
 			buildActionMask = 2147483647;
@@ -9714,6 +9572,7 @@
 				9DA13D0501B4638200003D05,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0867D69FFE84028FC02AAC07 = {
 			buildActionMask = 2147483647;
@@ -9799,17 +9658,14 @@
 				01FA872FFFF2B54C11CD283A,
 				01FA8730FFF2B54C11CD283A,
 				01FA874FFFF2B54C11CD283A,
-				01FA8750FFF2B54C11CD283A,
 				01FA8751FFF2B54C11CD283A,
 				01FA8752FFF2B54C11CD283A,
-				01FA8753FFF2B54C11CD283A,
 				01FA8754FFF2B54C11CD283A,
 				01FA8755FFF2B54C11CD283A,
 				01FA8756FFF2B54C11CD283A,
 				01FA8757FFF2B54C11CD283A,
 				01FA8758FFF2B54C11CD283A,
 				01FA8759FFF2B54C11CD283A,
-				01FA875AFFF2B54C11CD283A,
 				01FA875CFFF2B54C11CD283A,
 				01FA875DFFF2B54C11CD283A,
 				01FA8760FFF2B54C11CD283A,
@@ -9966,6 +9822,7 @@
 				3206D1FD029996FC05CA2E77,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0867D6A0FE84028FC02AAC07 = {
 			buildActionMask = 2147483647;
@@ -9979,12 +9836,14 @@
 				327DDDFB00D7E81F05CD296C,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0867D6A2FE84028FC02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 //080
 //081
@@ -10479,7 +10338,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 54.1;
+				DYLIB_CURRENT_VERSION = 54.1.3;
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/include\"";
 				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
@@ -10509,6 +10368,7 @@
 				125E8606FFF3DB3E11CD283A,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		125E85D7FFF3D67D11CD283A = {
 			buildActionMask = 2147483647;
@@ -10516,6 +10376,7 @@
 				125E85D8FFF3D67D11CD283A,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		125E85D8FFF3D67D11CD283A = {
 			fileRef = 01FA8917FFF2BE3511CD283A;
@@ -10530,12 +10391,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		125E85DAFFF3D67D11CD283A = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		125E85DCFFF3D76D11CD283A = {
 			isa = PBXTargetDependency;
@@ -12245,7 +12108,7 @@
 				325EAA2800D6B08805CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 54.1;
+				CURRENT_PROJECT_VERSION = 54.1.3;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -12253,7 +12116,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleCSP;
 				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -12285,11 +12147,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>54.1</string>
+	<string>54.1.3</string>
 </dict>
 </plist>
 ";
@@ -12304,12 +12166,14 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		325EAA2500D6B08805CD296C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		325EAA2600D6B08805CD296C = {
 			buildActionMask = 2147483647;
@@ -12317,6 +12181,7 @@
 				325EAA3800D6B47505CD296C,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		325EAA2700D6B08805CD296C = {
 			buildActionMask = 2147483647;
@@ -12327,12 +12192,14 @@
 				3290381400D6B78A05CD296C,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		325EAA2800D6B08805CD296C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		325EAA2900D6B23F05CD296C = {
 			children = (
@@ -12794,7 +12661,7 @@
 				3290382100D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 54.1;
+				CURRENT_PROJECT_VERSION = 54.1.3;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -12802,7 +12669,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleDL;
 				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -12835,11 +12701,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>54.1</string>
+	<string>54.1.3</string>
 </dict>
 </plist>
 ";
@@ -12850,12 +12716,14 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290381B00D6BA5905CD296C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290381C00D6BA5905CD296C = {
 			buildActionMask = 2147483647;
@@ -12863,6 +12731,7 @@
 				3290383C00D6BB3705CD296C,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290381D00D6BA5905CD296C = {
 			buildActionMask = 2147483647;
@@ -12871,6 +12740,7 @@
 				3290382000D6BA5905CD296C,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290381E00D6BA5905CD296C = {
 			fileRef = 1BA451B10097605B7F000001;
@@ -12889,6 +12759,7 @@
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382200D6BA5905CD296C = {
 			buildPhases = (
@@ -12899,7 +12770,7 @@
 				3290382700D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 54.1;
+				CURRENT_PROJECT_VERSION = 54.1.3;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -12907,7 +12778,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleCSPDL;
 				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -12940,11 +12810,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>54.1</string>
+	<string>54.1.3</string>
 </dict>
 </plist>
 ";
@@ -12955,12 +12825,14 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382400D6BA5905CD296C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382500D6BA5905CD296C = {
 			buildActionMask = 2147483647;
@@ -12968,6 +12840,7 @@
 				327DDDE800D6FC1B05CD296C,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382600D6BA5905CD296C = {
 			buildActionMask = 2147483647;
@@ -12976,12 +12849,14 @@
 				3290384100D6BB3705CD296C,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382700D6BA5905CD296C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382800D6BA5905CD296C = {
 			buildPhases = (
@@ -12992,7 +12867,7 @@
 				3290382D00D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 54.1;
+				CURRENT_PROJECT_VERSION = 54.1.3;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -13000,7 +12875,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleX509CL;
 				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -13033,11 +12907,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>54.1</string>
+	<string>54.1.3</string>
 </dict>
 </plist>
 ";
@@ -13048,12 +12922,14 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382A00D6BA5905CD296C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382B00D6BA5905CD296C = {
 			buildActionMask = 2147483647;
@@ -13061,6 +12937,7 @@
 				3290384500D6BB3705CD296C,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382C00D6BA5905CD296C = {
 			buildActionMask = 2147483647;
@@ -13069,12 +12946,14 @@
 				3290384700D6BB3705CD296C,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382D00D6BA5905CD296C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290382E00D6BA5905CD296C = {
 			buildPhases = (
@@ -13085,14 +12964,13 @@
 				3290383300D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 54.1;
+				CURRENT_PROJECT_VERSION = 54.1.3;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_LDFLAGS = "-bundle -undefined error";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleX509TP;
 				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -13124,11 +13002,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>54.1</string>
+	<string>54.1.3</string>
 </dict>
 </plist>
 ";
@@ -13139,6 +13017,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290383000D6BA5905CD296C = {
 			buildActionMask = 2147483647;
@@ -13147,6 +13026,7 @@
 				9D103FA001AC72C200003D05,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290383100D6BA5905CD296C = {
 			buildActionMask = 2147483647;
@@ -13154,6 +13034,7 @@
 				3290384B00D6BB3705CD296C,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290383200D6BA5905CD296C = {
 			buildActionMask = 2147483647;
@@ -13162,12 +13043,14 @@
 				3290384D00D6BB3705CD296C,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290383300D6BA5905CD296C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3290383500D6BB3705CD296C = {
 			isa = PBXFileReference;
@@ -14959,7 +14842,7 @@
 		};
 		9D78BC7401EBB71A00003D05 = {
 			isa = PBXFileReference;
-			path = tls_hmac.c;
+			path = tls_hmac.cpp;
 			refType = 4;
 		};
 		9D78BC7501EBB71A00003D05 = {
@@ -14981,7 +14864,7 @@
 		};
 		9D78BC7801EBCA2300003D05 = {
 			isa = PBXFileReference;
-			path = ssl3Callouts.c;
+			path = ssl3Callouts.cpp;
 			refType = 4;
 		};
 		9D78BC7901EBCA2400003D05 = {
@@ -14992,7 +14875,7 @@
 		};
 		9D78BC7A01ECA79D00003D05 = {
 			isa = PBXFileReference;
-			path = tls1Callouts.c;
+			path = tls1Callouts.cpp;
 			refType = 4;
 		};
 		9D78BC7B01ECA79D00003D05 = {
@@ -15050,6 +14933,108 @@
 		};
 		9D8F0D2B01C815A600003D05 = {
 			fileRef = 9D8F0D1E01C80C0C00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9D98FF0C0371DDE400003D05 = {
+			isa = PBXFileReference;
+			path = SecureTransportPriv.h;
+			refType = 4;
+		};
+		9D98FF0D0371DDE400003D05 = {
+			isa = PBXFileReference;
+			path = sslAlertMessage.h;
+			refType = 4;
+		};
+		9D98FF0E0371DDE400003D05 = {
+			isa = PBXFileReference;
+			path = sslContext.h;
+			refType = 4;
+		};
+		9D98FF0F0371DDE400003D05 = {
+			isa = PBXFileReference;
+			path = sslDigests.h;
+			refType = 4;
+		};
+		9D98FF100371DDE400003D05 = {
+			isa = PBXFileReference;
+			path = sslHandshake.h;
+			refType = 4;
+		};
+		9D98FF110371DDE400003D05 = {
+			isa = PBXFileReference;
+			path = sslMemory.h;
+			refType = 4;
+		};
+		9D98FF120371DDE400003D05 = {
+			isa = PBXFileReference;
+			path = sslRecord.h;
+			refType = 4;
+		};
+		9D98FF130371DDE400003D05 = {
+			isa = PBXFileReference;
+			path = sslSession.h;
+			refType = 4;
+		};
+		9D98FF140371DDE400003D05 = {
+			isa = PBXFileReference;
+			path = sslUtils.h;
+			refType = 4;
+		};
+		9D98FF150371DDE400003D05 = {
+			fileRef = 9D98FF0C0371DDE400003D05;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		9D98FF160371DDE400003D05 = {
+			fileRef = 9D98FF0D0371DDE400003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9D98FF170371DDE400003D05 = {
+			fileRef = 9D98FF0E0371DDE400003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9D98FF180371DDE400003D05 = {
+			fileRef = 9D98FF0F0371DDE400003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9D98FF190371DDE400003D05 = {
+			fileRef = 9D98FF100371DDE400003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9D98FF1A0371DDE400003D05 = {
+			fileRef = 9D98FF110371DDE400003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9D98FF1B0371DDE400003D05 = {
+			fileRef = 9D98FF120371DDE400003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9D98FF1C0371DDE400003D05 = {
+			fileRef = 9D98FF130371DDE400003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9D98FF1D0371DDE400003D05 = {
+			fileRef = 9D98FF140371DDE400003D05;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -15240,6 +15225,7 @@
 				9DC1DF1B0299BDEB00003D05,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9DC1DEF00299BBCD00003D05 = {
 			buildActionMask = 2147483647;
@@ -15255,6 +15241,7 @@
 				9DC1DF1A0299BDEA00003D05,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9DC1DEF10299BBCD00003D05 = {
 			buildActionMask = 2147483647;
@@ -15263,12 +15250,14 @@
 				9DC1DF110299BD8C00003D05,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9DC1DEF20299BBCD00003D05 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9DC1DEF30299BBCD00003D05 = {
 			buildPhases = (
@@ -15533,6 +15522,20 @@
 //F52
 //F53
 //F54
+		F500ED3B037CD0E101CA2E64 = {
+			isa = PBXFileReference;
+			path = SecKeyPriv.h;
+			refType = 4;
+		};
+		F500ED3C037CD0E101CA2E64 = {
+			fileRef = F500ED3B037CD0E101CA2E64;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
 		F5394A1C0279082901CA2E64 = {
 			fileRef = 07A0F691005DAEE111CD283A;
 			isa = PBXBuildFile;
@@ -15873,6 +15876,7 @@
 				F578617B022EDE3F01CA2E64,
 				F57861C3022EEF3401CA2E64,
 				F57861C9022F0D0A01CA2E64,
+				F500ED3B037CD0E101CA2E64,
 				F5786173022EDDFB01CA2E64,
 				F5786175022EDE0501CA2E64,
 				F5786177022EDE1701CA2E64,
@@ -16483,6 +16487,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "${SRCROOT}/symbol_strip.sh ${SRCROOT}/Security.exp";
 		};

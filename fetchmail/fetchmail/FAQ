@@ -1,6 +1,6 @@
    (This document was generated from fetchmail-FAQ.html)
 
-   Back to Fetchmail Home Page To Site Map $Date: 2002/05/22 23:44:04 $
+   Back to Fetchmail Home Page To Site Map $Date: 2002/11/08 02:15:22 $
      _________________________________________________________________
 
                   Frequently Asked Questions About Fetchmail
@@ -19,23 +19,25 @@
    G2. Where do I find the latest FAQ and fetchmail sources?
    G3. I think I've found a bug. Will you fix it?
    G4. I have this idea for a neat feature. Will you add it?
-   G5. Is there a mailing list for exchanging tips?
-   G6. So, what's this I hear about a fetchmail paper?
-   G7. What is the best server to use with fetchmail?
-   G8. What is the best mail program to use with fetchmail?
-   G9. How can I avoid sending my password en clair?
-   G10. Is any special configuration needed to use a dynamic IP address?
-   G11. Is any special configuration needed to use firewalls?
-   G12. Is any special configuration needed to send mail?
-   G13. Is fetchmail Y2K-compliant?
-   G14. Is there a way in fetchmail to support disconnected IMAP mode?
-   G15. How will fetchmail perform under heavy loads?
+   G5. I want to make fetchmail behave like Outlook Express.
+   G6. Is there a mailing list for exchanging tips?
+   G7. So, what's this I hear about a fetchmail paper?
+   G8. What is the best server to use with fetchmail?
+   G9. What is the best mail program to use with fetchmail?
+   G10. How can I avoid sending my password en clair?
+   G11. Is any special configuration needed to use a dynamic IP address?
+   G12. Is any special configuration needed to use firewalls?
+   G13. Is any special configuration needed to send mail?
+   G14. Is fetchmail Y2K-compliant?
+   G15. Is there a way in fetchmail to support disconnected IMAP mode?
+   G16. How will fetchmail perform under heavy loads?
 
                              Build-time problems:
 
    B1. Make coughs and dies when building on FreeBSD.
    B2. Lex bombs out while building the fetchmail lexer.
    B3. I get link failures when I try to build fetchmail.
+   B4. I get build failures in the intl directory.
 
                 Fetchmail configuration file grammar questions:
 
@@ -67,6 +69,7 @@
    T5. How can I use fetchmail with SCO's MMDF?
    T6. How can I use fetchmail with Lotus Notes?
    T7. How can I use fetchmail with Courier IMAP?
+   T8. How can I use fetchmail with vbmailshield?
 
                How to make fetchmail work with various servers:
 
@@ -84,7 +87,7 @@
    S12. How can I use fetchmail with MailMax?
    S13. How can I use fetchmail with Novell GroupWise?
    S14. How can I use fetchmail with InterChange?
-   S15. How can I use fetchmail with GMX?
+   S15. How can I use fetchmail with www.gmx.de?
 
          How to set up well-known security and authentication methods:
 
@@ -108,6 +111,7 @@
    deleting them
    R9. Fetchmail is timing out during message fetches
    R10. Fetchmail is dying with SIGPIPE.
+   R11. My server is hanging or emitting errors on CAPA.
 
                               Hangs and lockups:
 
@@ -165,6 +169,7 @@
    O9.  Why  does  fetchmail  keep  retrieving the same messages over and
    over?
    O10. Why is the received date on all my messages the same?
+   O11. I keep getting messages that say "Repoll immediately" in my logs.
 
                                    Answers:
      _________________________________________________________________
@@ -274,7 +279,7 @@ G3. I think I've found a bug. Will you fix it?
    important  that the transcript include your POP/IMAP server's greeting
    line, so I can identify it in case of server problems. This transcript
    will  not  reveal  your  passwords,  which  are  specially  masked out
-   precisely so the transcript can be passed around.
+   precisely so transcripts can be passed around.
 
    If you upgraded your fetchmail and something broke, you should include
    session  transcripts  with  -v  -v  of  both  the  working and failing
@@ -285,11 +290,9 @@ G3. I think I've found a bug. Will you fix it?
    have.  (Bear  in  mind  that  you can attach gdb to a running but hung
    process  by giving the process ID as a second argument.) You will need
    to reconfigure with:
-
 CFLAGS=-g LDFLAGS=" " ./configure
 
-   and  then  rebuild  in  order  to  generate  a  version  that  can  be
-   gdb-traced.
+   Then rebuild in order to generate a version that can be gdb-traced.
 
    Best of all is a mail file which, when fetched, will reproduce the bug
    under the latest (current) version.
@@ -336,7 +339,21 @@ G4. I have this idea for a neat feature. Will you add it?
    on me. I'm very accommodating about good ideas.
      _________________________________________________________________
 
-G5. Is there a mailing list for exchanging tips?
+G5. I want to make fetchmail behave like Outlook Express.
+
+   The  second-most-requested  feature for fetchmail, after content-based
+   filtering,  is  the ability to have it remove messages from a maildrop
+   after  N  days, typically to be used with the keep option as a sort of
+   poor  man's  newsgroup  facility. Microsoft's Outlook Express supports
+   this.
+
+   This  feature  won't be added either. Repeat after me: fetchmail's job
+   is  transport,  not  policy.  If you want this, write a Perl or Python
+   script,  to be run from a cron job, that deletes old messages off your
+   maildrop. Send it to me and I'll put it in the contrib directory.
+     _________________________________________________________________
+
+G6. Is there a mailing list for exchanging tips?
 
    There  is  a fetchmail-friends list (fetchmail-friends@lists.ccil.org)
    for people who want to discuss fixes and improvements in fetchmail and
@@ -347,7 +364,7 @@ G5. Is there a mailing list for exchanging tips?
    http://lists.ccil.org/mailman/listinfo/fetchmail-announce.
      _________________________________________________________________
 
-G6. So, what's this I hear about a fetchmail paper?
+G7. So, what's this I hear about a fetchmail paper?
 
    The  fetchmail  development  was  also  a  sociological experiment, an
    extended  test  to see if my theory about the critical features of the
@@ -365,7 +382,7 @@ G6. So, what's this I hear about a fetchmail paper?
    on the Web with a search for that title.
      _________________________________________________________________
 
-G7. What is the best server to use with fetchmail?
+G8. What is the best server to use with fetchmail?
 
    The short answer: IMAP 2000 running over Unix.
 
@@ -392,7 +409,7 @@ G7. What is the best server to use with fetchmail?
    IMAP  2000  is particularly nice, as it supports CRAM-MD5 so you don't
    have  to  ship  your  mail  password  over the net en clair (fetchmail
    autodetects  this  capability).  Older versions had support for GSSAPI
-   giving a similar effect, .
+   giving a similar effect.
 
    Don't  be  fooled by NT/Exchange propaganda. M$ Exchange is just plain
    broken  (see  item  S2)  and  NT cannot handle the sustained load of a
@@ -407,7 +424,7 @@ G7. What is the best server to use with fetchmail?
    open-source license of previous versions.
      _________________________________________________________________
 
-G8. What is the best mail program to use with fetchmail?
+G9. What is the best mail program to use with fetchmail?
 
    Fetchmail  will work with all popular mail transport programs. It also
    doesn't  care  which user agent you use, and user agents are as a rule
@@ -424,7 +441,7 @@ G8. What is the best mail program to use with fetchmail?
    fetchmail's is better :-).
      _________________________________________________________________
 
-G9. How can I avoid sending my password en clair?
+G10. How can I avoid sending my password en clair?
 
    Depending  on  what  your  mail server you are talking to, this ranges
    from trivial to impossible. It may even be next to useless.
@@ -516,7 +533,7 @@ G9. How can I avoid sending my password en clair?
    have an SSL-enabled mailserver.
      _________________________________________________________________
 
-G10. Is any special configuration needed to use a dynamic IP address?
+G11. Is any special configuration needed to use a dynamic IP address?
 
    Yes.  In  order  to  avoid  giving  indigestion  to certain picky MTAs
    (notably  exim),  fetchmail  always makes the RCPT TO address it feeds
@@ -574,7 +591,6 @@ G10. Is any special configuration needed to use a dynamic IP address?
 DMsmarthost.here
 
    in your sendmail.cf will work, or you can set
-
 MASQUERADE_AS(smarthost.here)
 
    in  the m4 configuration and do a reconfigure. (In both cases, replace
@@ -582,7 +598,7 @@ MASQUERADE_AS(smarthost.here)
    sendmail FAQ for more details.
      _________________________________________________________________
 
-G11. Is any special configuration needed to use firewalls?
+G12. Is any special configuration needed to use firewalls?
 
    No.   You  can  use  fetchmail  with  SOCKS,  the  standard  tool  for
    indirecting  TCP/IP  through a firewall. You can find out about SOCKS,
@@ -592,7 +608,7 @@ G11. Is any special configuration needed to use firewalls?
    The specific recipe for using fetchmail with a firewall is at K1
      _________________________________________________________________
 
-G12. Is any special configuration needed to send mail?
+G13. Is any special configuration needed to send mail?
 
    A user asks: but how do we send mail out to the POP3 server? Do I need
    to implement another tool or will fetchmail do this too?
@@ -610,7 +626,7 @@ G12. Is any special configuration needed to send mail?
    connection, this will ensure that the mail gets out.
      _________________________________________________________________
 
-G13. Is fetchmail Y2K-compliant?
+G14. Is fetchmail Y2K-compliant?
 
    Fetchmail is fully Y2K-compliant.
 
@@ -620,7 +636,7 @@ G13. Is fetchmail Y2K-compliant?
    64-bit machine by then, you'll deserve to lose.
      _________________________________________________________________
 
-G14. Is there a way in fetchmail to support disconnected IMAP mode?
+G15. Is there a way in fetchmail to support disconnected IMAP mode?
 
    No. Fetchmail is a mail transport agent, best understood as a protocol
    gateway  between  POP3/IMAP  servers  and SMTP. Disconnected operation
@@ -628,7 +644,7 @@ G14. Is there a way in fetchmail to support disconnected IMAP mode?
    problem.
      _________________________________________________________________
 
-G15. How will fetchmail perform under heavy loads?
+G16. How will fetchmail perform under heavy loads?
 
    Fetchmail  streams  message bodies line-by-line; the most core it ever
    requires  per  message is enough memory to hold the RFC822 header, and
@@ -669,7 +685,6 @@ B2. Lex bombs out while building the fetchmail lexer.
 B3. I get link failures when I try to build fetchmail.
 
    If you get errors resembling these
-
 mxget.o(.text+0x35): undefined referenceto `__res_search'
 mxget.o(.text+0x99): undefined reference to`__dn_skipname'
 mxget.o(.text+0x11c): undefined reference to`__dn_expand'
@@ -691,6 +706,15 @@ rcfile_y.o(.text+0xdf9): more undefined references to `dcgettext__' follow
 
    reconfigure  with  configure  --with-included-gettext.  This is due to
    some brain-damage in the GNU internationalization libraries.
+     _________________________________________________________________
+
+B4. I get build failures in the intl directory.
+
+   Reconfigure with --disable-nls and recompile.
+
+   GNU  gettext  is  an  overengineered,  fragile  pile  of  crap. I have
+   teetered  on  the  brink  of  removing support for it entirely several
+   times.
      _________________________________________________________________
 
 F1. Why does my old .fetchmailrc file no longer work?
@@ -750,9 +774,10 @@ F1. Why does my old .fetchmailrc file no longer work?
 
    Rather  than  add more options or crock the code, I re-thought it. The
    redesign simplified the code and made the options more orthogonal, but
-   may  have  broken some complex multidrop configurations. Any multidrop
-   configurations  that  depended  on  the  name just after the `poll' or
-   `skip'   keyword   being   still   interpreted   as  a  DNS  name  for
+   may have broken some complex multidrop configurations.
+
+   Any  multidrop configurations that depended on the name just after the
+   `poll'  or  `skip'  keyword  being still interpreted as a DNS name for
    address-matching  purposes,  even  in  the presence of a `via' option,
    will break.
 
@@ -771,12 +796,13 @@ F1. Why does my old .fetchmailrc file no longer work?
 
    It  could be because you're using a .fetchmailrc that's written in the
    old  popclient  syntax  without an explicit `username' keyword leading
-   the  first  user  entry  attached to a server entry. This error can be
-   triggered  by having a user option such as `keep' or `fetchall' before
-   the first explicit username. For example, if you write
+   the first user entry attached to a server entry.
 
+   This  error can be triggered by having a user option such as `keep' or
+   `fetchall'  before  the  first  explicit username. For example, if you
+   write
 poll openmail protocol pop3
-        keep user "Hal DeVore" there is hdevore here
+    keep user "Hal DeVore" there is hdevore here
 
    the  `keep' option will generate an entire user entry with the default
    username (the name of fetchmail's invoking user).
@@ -792,8 +818,7 @@ poll openmail protocol pop3
    and logfile options. Now they're per-server options, like `protocol'.
 
    If you had something like
-
-        set interface = "sl0/10.0.2.15"
+    set interface = "sl0/10.0.2.15"
 
    in  your  .fetchmailrc  file,  simply  delete  that  line  and  insert
    `interface   sl0/10.0.2.15'   in  the  server  options  part  of  your
@@ -844,14 +869,12 @@ C1. Why do I need a .fetchmailrc when running as root on my own machine?
 
    On  the  machine where I'm the only real user, I run fetchmail as root
    from a cron job, like this:
-
     fetchmail -u "itz" -p POP3 -s bolero.rahul.net
 
    This  used  to  work  as  is (with no .fetchmailrc file in root's home
    directory) with the last version I had (1.7 or 1.8, I don't remember).
    But  with  2.0,  it  RECPs  all  mail to the local root user, unless I
    create a .fetchmailrc in root's home directory containing:
-
      skip bolero.rahul.net proto POP3
           user itz is itz
 
@@ -928,7 +951,6 @@ C3. How do I know what interface and address to use with --interface?
    secure link.
 
    To determine the device:
-
     1. If you're using a SLIP link, the correct device is probably sl0.
     2. If you're using a PPP link, the correct device is probably ppp0.
     3. If  you're  using a direct connection over a local network such as
@@ -938,7 +960,6 @@ C3. How do I know what interface and address to use with --interface?
        The device name will be in the rightmost column.
 
    To determine the address and netmask:
-
     1. If  you're  talking  to  slirp,  the  correct  address is probably
        10.0.2.15,  with no netmask specified. (It's possible to configure
        slirp to present other addresses, but that's the default.)
@@ -957,13 +978,11 @@ C3. How do I know what interface and address to use with --interface?
    hooked  up  via  SLIP  and your IP provider tells you that the dynamic
    address   pool   is   255  addresses  ranging  from  205.164.136.1  to
    205.164.136.255. Then
-
-        interface "sl0/205.164.136.0/255.255.255.0"
+    interface "sl0/205.164.136.0/255.255.255.0"
 
    would  work.  To  range  over  any value of the last two octets (65536
    addresses) you would use
-
-        interface "sl0/205.164.0.0/255.255.0.0"
+    interface "sl0/205.164.0.0/255.255.0.0"
      _________________________________________________________________
 
 C4. How can I set up support for sendmail's anti-spam features?
@@ -986,6 +1005,7 @@ cyberspammer.com        REJECT
    (or  any host within the cyberspammer.com domain), and any host on the
    192.168.212.* network. (This feature can be used to do other things as
    well; see the sendmail documentation for details)
+
    To actually set up the database, run
 makemap hash deny <deny
 
@@ -1008,7 +1028,6 @@ C5. How can I poll some of my mailboxes more/less often than others?
    often. For example, if you do a poll every 5 minutes, and want to poll
    some  mailboxes  every  5  minutes  and  some  every  30  minutes, use
    something like this:
-
 poll mainsite.example.com  proto pop3 user ....
 poll secondary.example.com proto pop3 interval 6 user ...
 
@@ -1066,7 +1085,6 @@ T1. How can I use fetchmail with sendmail?
 
    If  you want to support multidrop mode, and you can get access to your
    mailserver's sendmail.cf file, it's a good idea to add this rule:
-
 H?l?Delivered-To: $h
 
    This  will  cause  the  mailserver's  sendmail  to  reliably write the
@@ -1079,13 +1097,12 @@ H?l?Delivered-To: $h
    be  sent if a message is BCC addressed to multiple users at your site.
    To  fix  even  that problem, you might want to try the following hack,
    which is however untested and quite experimental:
-
 H?J?Delivered-To: $u
 
 Mmdrop, P=/usr/bin/procmail, F=lsDFMqSPfhnu9J,
-        S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP/HdrToSMTP,
-        T=DNS/RFC822/X-Unix,
-        A=procmail -Y -a $u -d $h
+    S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP/HdrToSMTP,
+    T=DNS/RFC822/X-Unix,
+    A=procmail -Y -a $u -d $h
 
    For  both hacks, you have to declare `envelope "Delivered-To:"' on the
    fetchmail  side,  to  put  the virtual domain (e.g. `domain.com') with
@@ -1102,6 +1119,12 @@ Mmdrop, P=/usr/bin/procmail, F=lsDFMqSPfhnu9J,
    Feel  free  to  try  Martijn Lievaart's detailed recipe in the contrib
    subdirectory  of  the  fetchmail  source  distribution, it attempts to
    realize multidrop mailboxes with an external script.
+
+   If  for  some  reason  you  are  invoking  sendmail via the mda option
+   (rather  than delivering to port 25 via smtp), don't forget to include
+   the -i switch. Otherwise you will occasionally get mysterious delivery
+   failures  with a SIGPIPE as the sendmail instance dies. The problem is
+   messages with a single dot at start of a text line.
      _________________________________________________________________
 
 T2. How can I use fetchmail with qmail?
@@ -1127,7 +1150,6 @@ T2. How can I use fetchmail with qmail?
    it will add a prefix to all mail addresses for this site. This results
    in   mail   sent   to   'username@userhost.userdom.dom.com'  having  a
    'Delivered-To:' line of the form:
-
        Delivered-To: mbox-userstr-username@userhost.userdom.dom.com
 
    A single host maildrop will be slightly simpler:
@@ -1137,7 +1159,6 @@ T2. How can I use fetchmail with qmail?
    string matching the user host name is likely.
 
    To use this line you must:
-
     1. Ensure  the  option  `envelope  Delivered-To:' is in the fetchmail
        config file.
     2. Ensure  you  have  a  localdomains containing 'userdom.dom.com' or
@@ -1149,7 +1170,6 @@ T2. How can I use fetchmail with qmail?
    setting up an alias within the qmail MTA on each local machine. Simply
    create  a  dot-qmail  file called '.qmail-mbox-userstr-default' in the
    alias directory (normally /var/qmail/alias) with the contents:
-
       | ../bin/qmail-inject -a -f"$SENDER" "${LOCAL#mbox-userstr-}@$HOST"
 
    Note this does require a modern /bin/sh.
@@ -1182,7 +1202,6 @@ T3. How can I use fetchmail with exim?
    In  exim.conf,  add  `localhost'  to your local_domains declaration if
    it's   not   already  present.  For  example,  the  author's  site  at
    thyrsus.com would have a line reading:
-
        local_domains = thyrsus.com:localhost
 
    If you have rewrite off:
@@ -1202,7 +1221,6 @@ T3. How can I use fetchmail with exim?
    If  you  must  run  with  rewrite  off,  there  is  a switch in exim's
    configuration  files  that  allows  it  to accept domainless MAIL FROM
    addresses; you will have to flip it by putting the line
-
         sender_unqualified_hosts = localhost
 
    in  the  main  section  of the exim configuration file. Note that this
@@ -1247,10 +1265,19 @@ T6. How can I use fetchmail with Lotus Notes?
 
    The Lotus Notes SMTP gateway tries to deduce when it should convert \n
    to  \r\n,  but  its rules are not the intuitive and correct-for-RFC822
-   ones. Use `forcecr'. T7. How can I use fetchmail with Courier IMAP?
+   ones. Use `forcecr'.
+
+T7. How can I use fetchmail with Courier IMAP?
 
    The   courier   mta   doesn't  like  RCPT  addresses  that  look  like
    someone@localhost. Work around this with an smtphost or smtpaddress.
+     _________________________________________________________________
+
+T8. How can I use fetchmail with vbmailshield?
+
+   vbmailshield's SMTP interpreter is broken. It doesn't understand RSET.
+
+   As a workaround, you can set batchlimit to 1 so RSET is never used.
      _________________________________________________________________
 
 S1. How can I use fetchmail with qpopper?
@@ -1289,7 +1316,9 @@ S2. How can I use fetchmail with Microsoft Exchange?
    no  terminating  newline  added. This will hang fetchmail or any other
    RFC-compliant server. IMAP is alleged to work OK, though.
 
-   Older versions of Exchange are semi-usable.
+   Older  versions  of  Exchange  are  semi-usable.  They  randomly  drop
+   atttachments  on  the  floor, though. Microsoft acknowledges this as a
+   known bug and apparently has no plans to fix it.
 
    Fetchmail  using  IMAP supports the proprietary NTLM mode used with M$
    Exchange  servers.  To  enable  this,  configure  fetchmail  with  the
@@ -1312,7 +1341,6 @@ S2. How can I use fetchmail with Microsoft Exchange?
 
    Somewhat  belatedly,  I've  learned  that  there's  supposed  to  be a
    registry bit that can fix this breakage:
-
 HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\MsExchangeIs\Parameters
 System\Pop3 Compatibility
 
@@ -1342,7 +1370,6 @@ System\Pop3 Compatibility
           Allow spaces in the argument to the USER command.
 
    There's another one that may be useful to know about:
-
 KEY_LOCAL_MACHINE\System\CurrentControlSet\Services\MsExchangeIs\Parameters
 System\Pop3 Performance
 
@@ -1363,11 +1390,13 @@ System\Pop3 Performance
 
    Another specific problem we have seen with Exchange servers has as its
    symptom  a  response  to  LOGIN  that says "NO Ambiguous Alias". Grant
-   Edwards  writes: This means that Exchange Server is too f*&#ing stupid
-   to  figure  out  which  mailbox  belongs  to  you. Instead of actually
-   keeping  track  of  which  inbox  belongs  to which user, it uses some
-   half-witted, guess-o-matic heuristic to try to guess your mailbox name
-   from your username.
+   Edwards writes:
+
+   This  means  that  Exchange Server is too f*&#ing stupid to figure out
+   which  mailbox  belongs  to  you. Instead of actually keeping track of
+   which   inbox  belongs  to  which  user,  it  uses  some  half-witted,
+   guess-o-matic  heuristic  to  try to guess your mailbox name from your
+   username.
 
    In  your  case it doesn't work because your username maps to more than
    one  mailbox.  For  some people it doesn't work because their username
@@ -1433,7 +1462,6 @@ S4. How can I use fetchmail with Demon Internet's SDPS?
    For example, to download email for the user
    <philh@vision25.demon.co.uk>, you could use the following .fetchmailrc
    file:
-
 set postmaster "philh"
 poll pop3.demon.co.uk with protocol POP3:
     user "philh@vision25" is philh
@@ -1455,15 +1483,7 @@ poll pop3.demon.co.uk with protocol POP3:
    user@my-company.co.uk)
      poll pop3.demon.co.uk proto pop3 aka mailstore no dns:
        localdomains xyz.demon.co.uk my-company.co.uk
-       user xyz is * fetchall
-
-   The  `fetchall'  command  ensures  that all mail is downloaded. If you
-   want to leave mail on the server use `uidl' and `keep'; Demon does not
-   implement  the  obsolete `top' command, because SDPS combines messages
-   residing on two separate punt clusters into a single POP3 maildrop. If
-   you  do use UIDL, be aware that the "user@host" form for fetching mail
-   from  a  particular Demon host will confuse fetchmail's UIDL code; use
-   user+host.
+       user xyz is *
 
    Note  that  Demon  may delete mail on the server which is more than 30
    days old; see their POP3 page for details.
@@ -1540,9 +1560,11 @@ S7. How can I use fetchmail with geocities POP3 servers?
    Workaround is to use "mda" keyword or "-mda" switch:
 mda "sed -e '1s/^\t/Received: /' | formail | /usr/bin/procmail -d <user>"
 
-   Replace  \t  with  exactly  one  tabulation character. You should also
-   consider  using "fetchall" option because Geocities' servers sometimes
-   think that the first 45 messages have already been read.
+   Replace \t with exactly one tabulation character.
+
+   You  should  also  consider using "fetchall" option because Geocities'
+   servers  sometimes  think that the first 45 messages have already been
+   read.
 
    Fix:  Get  an  email  provider  that  doesn't  suck. The pop-up ads on
    Geocities are lame, you should boycott them anyway.
@@ -1550,7 +1572,7 @@ mda "sed -e '1s/^\t/Received: /' | formail | /usr/bin/procmail -d <user>"
 
 S8. How can I use fetchmail with Hotmail?
 
-   You can't, yet. But gotmail might be what you need.
+   You can't, yet. But gotmail or HotWayDaemon might be what you need.
      _________________________________________________________________
 
 S9. How can I use fetchmail with MSN?
@@ -1617,12 +1639,13 @@ S14. How can I use fetchmail with InterChange?
 
    On  Jan  9  2001, the people at InfiniteMail sent me mail informing me
    that  their  new  3.61.08 release of InterChange fixes this problem. I
-   don't  have  any  reports one way or the other yet. S15. How can I use
-   fetchmail with GMX?
+   don't have any reports one way or the other yet.
 
-   Use  IMAP.  The GMX StreamProxy server behaves badly on authentication
-   failures, sending back a non-conformant error message (missing an -ERR
-   tag) that confuses fetchmail.
+S15. How can I use fetchmail with www.gmx.de?
+
+   You  can't,  not  reliably  anyway. The GMX StreamProxy server behaves
+   badly  on authentication failures, sending back a non-conformant error
+   message (missing an -ERR tag) that confuses fetchmail.
      _________________________________________________________________
 
 K1. How can I use fetchmail with SOCKS?
@@ -1669,8 +1692,8 @@ K2. How can I use fetchmail with IPv6 and IPsec?
 
 K3. How can I get fetchmail to work with ssh?
 
-   Use  the  plugin option. This is dead simple with IMAP: plugin "ssh %h
-   /usr/sbin/imapd"
+   Use the plugin option. This is dead simple with IMAP:
+    plugin "ssh %h /usr/sbin/imapd"
 
    You  may  have  to  use  a  different  absolute pathname, whatever the
    location  of  imapd on your mailserver is. This option tells fetchmail
@@ -1679,7 +1702,7 @@ K3. How can I get fetchmail to work with ssh?
    and  run  imapd,  using the more secure ssh authentication (as well as
    getting  ssh's  end-to-end  encryption). Most IMAP daemons will detect
    that  they've  been  called  from  the  command  line  and  assume the
-   connection is peauthenticated.
+   connection is preauthenticated.
 
    POP3  daemons  aren't  quite  as  smart.  They  won't  know  they  are
    preauthenticated  in  this  mode, so you'll actually have to ship your
@@ -1701,11 +1724,9 @@ K4. What do I have to do to use the IMAP-GSS protocol?
    since   it   requires  libraries  from  the  Kerberos  V  distribution
    (available  via  FTP  at  athena-dist.mit.edu).  If  you  have  these,
    compiling in GSS support is simple: add a
---with-gssapi=[/path/to/krb5/root]
-
-   option  to  configure.  For  instance,  I  have  all  of my Kerberos V
-   libraries installed under /usr/krb5 so I run
-configure --with-gssapi=/usr/krb5
+   --with-gssapi=[/path/to/krb5/root]  option to configure. For instance,
+   I  have  all of my Kerberos V libraries installed under /usr/krb5 so I
+   run configure --with-gssapi=/usr/krb5
 
    Setting  up  Kerberos V authentication is beyond the scope of this FAQ
    (you  may  find  Jim Rome's paper How to Kerberize your site helpful),
@@ -1728,9 +1749,9 @@ K5. How can I use fetchmail with SSL?
 
    You'll  need  to  have the OpenSSL libraries installed. Configure with
    --with-ssl. If you have the OpenSSL libraries installed in the default
-   location   (/usr/local/ssl)  this  will  suffice.  If  you  have  them
-   installed  in  a non-default location, you'll need to specify it as an
-   argument to --with-ssl after an equal sign.
+   location (/usr/local/ssl) ths will suffice. If you have them installed
+   in a non-default location, you'll need to specify it as an argument to
+   --with-ssl after an equal sign.
 
    Note that there is a known bug in the implementation of SSL_peek under
    OpenSSL  versions  0.9.5 and older that fetchmail occasionally tripped
@@ -1749,10 +1770,15 @@ K5. How can I use fetchmail with SSL?
    normally  these  come from the /dev/urandom, and this message probably
    means your OS doesn't have that device.
 
-   .  An  interactive program could seed the random number generator from
+   An  interactive  program  could  seed the random number generator from
    keystroke  timings or some other form of user input. Because fetchmail
    is  primarily  designed  to  run  forever as a background daemon, that
    option is not available in this case.
+
+   If  you  don't  have  the libraries installed, but do have the OpenSSL
+   utility toolkit, something like this may work:
+poll MYSERVER port 993 plugin "openssl s_client -connect %h:%p"
+        protocol imap username MYUSERNAME password MYPASSWORD
      _________________________________________________________________
 
 R1. Fetchmail isn't working, and -v shows `SMTP connect failed' messages.
@@ -1766,7 +1792,7 @@ R1. Fetchmail isn't working, and -v shows `SMTP connect failed' messages.
    line  from  the  listener.  If  the  SMTP  host is inaccessible or the
    listener is down, fix that first.
 
-   In  Red  Hat  Linux 6.9, SMTP is disabled by default. To fix this, set
+   In  Red  Hat  Linux 6.x, SMTP is disabled by default. To fix this, set
    "DAEMON=yes"   in  your  /etc/sysconfig/sendmail  file,  then  restart
    sendmail by running "/sbin/service sendmail restart".
 
@@ -1800,7 +1826,7 @@ R1. Fetchmail isn't working, and -v shows `SMTP connect failed' messages.
 
    It's  also  possible  that  your  DNS  configuration  isn't looking at
    /etc/hosts at all. If you're using libc5, look at /etc/resolv.conf; it
-   should say something like
+   should say something like:
         order hosts,bind
 
    so your /etc/hosts file is checked first. If you're running GNU libc6,
@@ -1886,7 +1912,6 @@ R5. Running fetchmail in daemon mode doesn't work.
 
    As  a  workaround, you can start fetchmail with -N and an ampersand to
    background it. A Sun user recommends this:
-
 (fetchmail --nodetach <other params> &)
 
    The  extra  pair  of  parens is significant --- it makes sure that the
@@ -1902,7 +1927,6 @@ R6. Fetchmail randomly dies with socket errors.
    Check  the MTU value in your PPP interface reported by /sbin/ifconfig.
    If   it's   over   600,   change   it   in   your  PPP  options  file.
    (/etc/ppp/options on my box). Here are option values that work:
-
   mtu 552
   mru 552
 
@@ -1959,6 +1983,18 @@ R10. Fetchmail is dying with SIGPIPE.
    This probably means you have an mda option. Your MDA is croaking while
    being  passed a message. Best fix is to remove the mda option and pass
    mail to your port 25 SMTP listener.
+
+   If  for  some  reason  you  are  invoking  sendmail via the mda option
+   (rather  than delivering to port 25 via smtp), don't forget to include
+   the -i switch. Otherwise you will occasionally get mysterious delivery
+   failures  with a SIGPIPE as the sendmail instance dies. The problem is
+   messages with a single dot at start of a text line.
+     _________________________________________________________________
+
+R11. My server is hanging or emitting errors on CAPA.
+
+   Your  POP3  server  is  broken.  You  can  work  around  this with the
+   declaration auth password in your .fetchmailrc.
      _________________________________________________________________
 
 H1. Fetchmail hangs when used with pppd.
@@ -1972,7 +2008,7 @@ H2. Fetchmail hangs during the MAIL FROM exchange.
 
    The  symptom:  'fetchmail -v' retrieves mail fine, but appears to hang
    after sending the MAIL FROM command
-SMTP> MAIL FROM:
+SMTP> MAIL FROM: <someone@somewhere>
 
    The  hang  is  actually  occuring  when  sendmail  looks up a sender's
    address   in   DNS.   The  problem  isn't  in  fetchmail  but  in  the
@@ -2006,7 +2042,8 @@ H3. Fetchmail hangs while fetching mail.
    Check  and  see  if  you're  allowing sendmail connections through TCP
    wrappers.
 
-   Adding 'sendmail : ALL' to /etc/hosts.allow could solve this problem.
+   Adding  'sendmail  :  127.0.0.1'  to /etc/hosts.allow could solve this
+   problem.
      _________________________________________________________________
 
 D1. I think I've set up fetchmail correctly, but I'm not getting any mail.
@@ -2020,6 +2057,11 @@ D1. I think I've set up fetchmail correctly, but I'm not getting any mail.
 
    Or  you  may  not be connecting to the SMTP listener. Run fetchmail -v
    and see R1.
+
+   Or you may have your local user set incorrectly. In the following line
+        user 'remoteuser' there with password '*' is 'localuser' here
+
+   make sure that 'localuser' does exist and can receive mail.
      _________________________________________________________________
 
 D2. All my mail seems to disappear after a dropped connection.
@@ -2437,22 +2479,34 @@ X5. Using POP3, retrievals seems to be fetching too much!
 
 X6. My mail attachments are being dropped or mangled.
 
-   This isn't fetchmail's doing -- fetchmail never drops lines in message
-   bodies  or  attachments.  It  may be your POP server, or it may be the
-   sender's mail user agent (or a bad combination of both).
+   Fetchmail doesn't discard attachments; fetchmail doesn't have any idea
+   that  attachments are there. Fetchmail treats the body of each message
+   as  an  uninterpreted  byte  stream  and  passes  it  through  without
+   alteration. If you are not receiving attachments through fetchmail, it
+   is because your mailserver is not sending them to you.
+
+   The fix for this is to replace your mailserver with one that works. If
+   its  operating  system  makes  this  difficult, you should replace its
+   operating  system  with  one  that  works.  Windows-  and NT-based POP
+   servers  seem  especially  prone  to  mangle  attachments.  If you are
+   running  one  of  these,  replacing your server with a Unix machine is
+   probably the only effective solution.
+
+   We've  had  sporadic  reports  of problems with Microsoft Exchange and
+   Outlook  servers. These sometimes randomly fail to ship attachments to
+   your client. This is a known bug, acknowledged by Microsft.
+
+   They  may also mangle the attachments they do pass through. If you see
+   unreadable  attachments  with  a  ContentType of "application/x-tnef",
+   you're having this problem. The TNEF utility may help.
 
    The  Mail  Max  POP3 server and the InterChange and Imail IMAP servers
-   are  known  to  simply  drop MIME attachments when uploading messages.
-   We've  had  sporadic  reports  of problems with Microsoft Exchange and
-   Outlook  servers.  Windows-  and  NT-based POP servers seem especially
-   prone  to  mangle  attachments.  If  you  are  running  one  of these,
-   replacing  your  server  with  a  Unix  machine  is  probably the only
-   effective solution.
+   are known to simply drop MIME attachments when uploading messages.
 
    We've  also  had  a report that Lotus Notes sometimes trashes the MIME
-   type  of  messages.  In  particular,  it  seems to modify MIME headers
-   introducing    type    application/pdf,    mangling    the   type   to
-   application/octet-stream. It may corrupt other MIME types as well.
+   type  of  messages.  In particular, it seems to modify MIME headers of
+   type  application/pdf,  mangling the type to application/octet-stream.
+   It may corrupt other MIME types as well.
 
    The  IMAP  service  of  Lotus  Domino  has  a  known bug in the way it
    generates MIME Content-type headers (observed on Lotus Domino 5.0.2b).
@@ -2465,11 +2519,6 @@ X6. My mail attachments are being dropped or mangled.
    doesn't  work.  (I have heard a rumor that this bug is scheduled to be
    fixed   in   Domino   release   6;   you  can  find  a  workaround  at
    contrib/domino.)
-
-   Another  rich  source of attachment problems is Microsoft Exchange and
-   Microsoft   Outlook.   If   you  see  unreadable  attachments  with  a
-   ContentType  of  "application/x-tnef", you're having this problem. The
-   TNEF utility may help.
 
    Rob  Funk  explains:  Unfortunately  there  also remain many mail user
    agents that don't write correct MIME messages. One big offender is Sun
@@ -2586,8 +2635,11 @@ X8. A spurious ) is being appended to my messages.
    3.  Fetchmail,  or  some other IMAP client, asks for the message. IMAP
    returns  it,  but  it's  enclosed inside parentheses, according to the
    protocol.  The  message  size  in  bytes  is also present. Because the
-   message  doesn't  end  with  a  line terminator, the IMAP client sees:
-   ....blahblah)... where the ')' is from IMAP.
+   message doesn't end with a line terminator, the IMAP client sees:
+
+ ....blahblah)...
+
+   where the ')' is from IMAP.
 
    4.  Fetchmail  only  deals  with  complete  lines, and can't trust the
    stated message size because Microsoft Exchange fscks it up.
@@ -2793,7 +2845,17 @@ O10. Why is the received date on all my messages the same?
    received date from the last Received header.
      _________________________________________________________________
 
-   Back to Fetchmail Home Page To Site Map $Date: 2002/05/22 23:44:04 $
+   O11. I keep getting messages that say "Repoll immediately" in my logs.
+
+   This is your server barfing on the CAPA probe that fetchmail sends.
+   If  you  run fetchmail in daemon mode (say "set daemon 600"), you will
+   get the message only once per run.
+
+   If  you  set  an  authentication  method  explicitly  (say,  with auth
+   password), you will never get the message.
+     _________________________________________________________________
+
+   Back to Fetchmail Home Page To Site Map $Date: 2002/11/08 02:15:22 $
 
 
     Eric S. Raymond <esr@thyrsus.com>

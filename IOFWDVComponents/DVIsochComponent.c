@@ -158,6 +158,9 @@ FWDVICodecComponentDispatch(ComponentParameters *params, char ** storage);
 static pascal ComponentResult
 FWDVIDHCloseDevice(IsochComponentInstancePtr ih);
 
+static OSStatus doAVCTransaction(DeviceDescriptionPtr deviceDescriptionPtr,
+                DVCTransactionParams* inTransaction);
+                
 /* Globals */
 static IsochComponentGlobals globals;
 
@@ -231,6 +234,7 @@ static void RecordEventLogger(UInt32 a, UInt32 b, UInt32 c, UInt32 d)
 #define kKernelTraceDisable	(1 << 1 )
 #define kIOFWDVTrace 0x08001000
 
+#if 0
 static int pKGSysCall_Start (int code, int param1, int param2, int param3, int param4, int param5, int param6 )
 {
 	return syscall ( SYS_kdebug_trace, code | kKernelTraceEnable, param1, param2, param3, param4, param5, param6 );
@@ -240,6 +244,7 @@ static int pKGSysCall_End (int code, int param1, int param2, int param3, int par
 {
 	return syscall ( SYS_kdebug_trace, code | kKernelTraceDisable, param1, param2, param3, param4, param5, param6 );
 }
+#endif
 
 static int pKGSysCall_Insert (int code, int param1, int param2, int param3, int param4, int param5, int param6 )
 {
@@ -906,7 +911,34 @@ static OSStatus enableRead(DeviceDescription *deviceDescriptionPtr)
 
     deviceDescriptionPtr->fNumOutputFrames = 4;
     deviceDescriptionPtr->fRead = DVAllocRead(deviceDescriptionPtr->fDevice, globals.fDVThread);
-    result = DVReadAllocFrames(deviceDescriptionPtr->fRead, deviceDescriptionPtr->fNumOutputFrames, 
+
+	// Get the current device's output-signal mode, and set the signal mode approprietely
+	{
+		OSStatus err;
+		DVCTransactionParams transaction;
+		UInt8 out[8];
+		UInt8 in[8];
+
+		out[0] = kAVCStatusInquiryCommand;
+		out[1] = kAVCUnitAddress;
+		out[2] = kAVCOutputPlugSignalFormatOpcode;
+		out[3] = 0;	// Plug
+		out[4] = out[5] = out[6] = out[7] = 0xff;
+		transaction.commandBufferPtr = out;
+		transaction.commandLength = sizeof(out);
+		transaction.responseBufferPtr = in;
+		transaction.responseBufferSize = sizeof(in);
+		transaction.responseHandler = NULL;
+
+		err = doAVCTransaction(deviceDescriptionPtr, &transaction);
+		if(err == noErr && in[0] == 0xc)
+		{
+			// Set the mode based on the response from this command
+			result = DVReadSetSignalMode(deviceDescriptionPtr->fRead, in[5]);
+		}
+	}
+	
+	result = DVReadAllocFrames(deviceDescriptionPtr->fRead, deviceDescriptionPtr->fNumOutputFrames, 
         &deviceDescriptionPtr->fReadSharedVars, deviceDescriptionPtr->bufMem);
     if(result == noErr)
         result = DVReadStart(deviceDescriptionPtr->fRead);
@@ -945,6 +977,9 @@ static OSStatus enableWrite(DeviceDescription *deviceDescriptionPtr)
                                     kNTSCCompressedBufferSize:kPALCompressedBufferSize;
     if((deviceDescriptionPtr->fOutputMode & 0x7c) == 4)
         deviceDescriptionPtr->fBufSize /= 2;	// SDL
+	else if((deviceDescriptionPtr->fOutputMode & 0x7c) == 0x74)
+        deviceDescriptionPtr->fBufSize *= 2;	// DVCPro50
+
     deviceDescriptionPtr->fOldWriteTimeStamps =
         (UInt32 *)NewPtr(deviceDescriptionPtr->fSharedWriteVars->fNumGroups*sizeof(UInt32));
     for(i=0; i<deviceDescriptionPtr->fSharedWriteVars->fNumGroups; i++) {
@@ -979,7 +1014,7 @@ static void disableWrite(DeviceDescription *deviceDescriptionPtr)
 
 static OSStatus sendMsg(IsochComponentInstancePtr ih, RequestFunc request, void *params)
 {
-    return DVRequest(globals.fDVThread, request, ih, params);
+    return DVRequest(globals.fDVThread, request, ih, (UInt32)params);
 }
 
 static OSStatus doAVCTransaction(DeviceDescriptionPtr deviceDescriptionPtr,
@@ -1143,7 +1178,12 @@ static void deviceArrived(void *refcon, DVDevice *device, UInt32 index, UInt32 r
                      deviceDescriptionPtr->fDevice->standard);
                     if( result != noErr)break;
             }
-        }
+
+			// Set output signal mode, default to standard DV
+			deviceDescriptionPtr->fOutputMode = 0;
+			if(deviceDescriptionPtr->fDevice->standard != ntscIn)
+				deviceDescriptionPtr->fOutputMode |= 0x80;
+		}
     } while(false);
 
     postEvent(g, (IDHDeviceID)deviceDescriptionPtr, kIDHEventDeviceAdded);
@@ -1217,7 +1257,7 @@ static int fillDCLGroup(DeviceDescription *deviceDescriptionPtr, IsochComponentI
     int i;
     int start;
     // If we're waiting for a new frame, restore the current DCL pointer
-    if(deviceDescriptionPtr->fDCLSavedWritePos != NULL) {
+	if(deviceDescriptionPtr->fDCLSavedWritePos != NULL) {
         dclPtr = deviceDescriptionPtr->fDCLSavedWritePos;
         dataPtr = getNextFrame(deviceDescriptionPtr, client, slack, true);
         //syslog(LOG_INFO, "Waiting for next frame, new frame = 0x%x\n", dataPtr);
@@ -1926,12 +1966,7 @@ FWDVIDHSetDeviceConfiguration(IsochComponentInstancePtr ih,
                 ih->hasDeviceControl = false;
         }
     }
-    
-    // Set output signal mode, default to standard DV
-    deviceDescriptionPtr->fOutputMode = 0;
-    if(deviceDescriptionPtr->fDevice->standard != ntscIn)
-        deviceDescriptionPtr->fOutputMode |= 0x80;
-        
+            
 Exit:
     RecordEventLogger( 'isoc', 'set ', 'Exit', ih);
     return result;

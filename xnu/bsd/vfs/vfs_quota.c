@@ -87,6 +87,11 @@ u_long dqhash;
 TAILQ_HEAD(dqfreelist, dquot) dqfreelist;
 long numdquot, desireddquot = DQUOTINC;
 
+/*
+ * Dquot dirty orphans list.
+ */
+TAILQ_HEAD(dqdirtylist, dquot) dqdirtylist;
+
 
 static int dqlookup(struct quotafile *, u_long, struct	dqblk *, u_int32_t *);
 
@@ -100,6 +105,7 @@ dqinit()
 
 	dqhashtbl = hashinit(desiredvnodes, M_DQUOT, &dqhash);
 	TAILQ_INIT(&dqfreelist);
+	TAILQ_INIT(&dqdirtylist);
 }
 
 
@@ -236,8 +242,12 @@ dqget(vp, id, qfp, type, dqp)
 		 * Cache hit with no references.  Take
 		 * the structure off the free list.
 		 */
-		if (dq->dq_cnt == 0)
-			TAILQ_REMOVE(&dqfreelist, dq, dq_freelist);
+		if (dq->dq_cnt == 0) {
+			if (dq->dq_flags & DQ_MOD)
+				TAILQ_REMOVE(&dqdirtylist, dq, dq_freelist);
+			else
+				TAILQ_REMOVE(&dqfreelist, dq, dq_freelist);
+		}
 		DQREF(dq);
 		*dqp = dq;
 		return (0);
@@ -423,6 +433,57 @@ dqrele(vp, dq)
 	if (--dq->dq_cnt > 0)
 		return;
 	TAILQ_INSERT_TAIL(&dqfreelist, dq, dq_freelist);
+}
+
+/*
+ * Release a reference to a dquot but don't do any I/O.
+ */
+void
+dqreclaim(vp, dq)
+	struct vnode *vp;
+	register struct dquot *dq;
+{
+	if (dq == NODQUOT)
+		return;
+
+	if (--dq->dq_cnt > 0)
+		return;
+
+	if (dq->dq_flags & DQ_MOD)
+		TAILQ_INSERT_TAIL(&dqdirtylist, dq, dq_freelist);
+	else
+		TAILQ_INSERT_TAIL(&dqfreelist, dq, dq_freelist);
+}
+
+/*
+ * Update a quota file's orphaned disk quotas.
+ */
+void
+dqsync_orphans(qfp)
+	struct quotafile *qfp;
+{
+	struct dquot *dq;
+
+  loop:
+	TAILQ_FOREACH(dq, &dqdirtylist, dq_freelist) {
+		if ((dq->dq_flags & DQ_MOD) == 0)
+			panic("dqsync_orphans: dirty dquot isn't");
+		if (dq->dq_cnt != 0)
+			panic("dqsync_orphans: dquot in use");
+
+		if (dq->dq_qfile == qfp) {
+			TAILQ_REMOVE(&dqdirtylist, dq, dq_freelist);
+
+			dq->dq_cnt++;
+			(void) dqsync(NULLVP, dq);
+			dq->dq_cnt--;
+
+			if ((dq->dq_cnt == 0) && (dq->dq_flags & DQ_MOD) == 0)
+				TAILQ_INSERT_TAIL(&dqfreelist, dq, dq_freelist);
+
+			goto loop;
+		}
+	}
 }
 
 /*

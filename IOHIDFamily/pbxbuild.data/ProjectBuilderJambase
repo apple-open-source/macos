@@ -4956,11 +4956,10 @@ rule CompileCplusplus
         local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
         #!!!:cmolick:20020228 different default flags for gcc3 kext builds
         if $(USE_GCC3) = YES {
-            KERNEL_COMPILE_OPTIONS = -fno-builtin -x c++ -fno-rtti -fno-exceptions -fcheck-new ;
-            KERNEL_COMPILE_OPTIONS += -fapple-kext ;
+            KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -fno-rtti -fno-exceptions -fcheck-new -msoft-float -fapple-kext ;
         }
         else {
-            KERNEL_COMPILE_OPTIONS = -fno-builtin -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks ;
+            KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -msoft-float ;
             if $(MODULE_IOKIT) = YES {
                 KERNEL_COMPILE_OPTIONS += -findirect-virtual-calls ;
             }

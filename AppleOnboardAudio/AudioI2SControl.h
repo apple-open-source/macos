@@ -34,13 +34,6 @@
 #include "AudioHardwareUtilities.h"
 #include "AppleOnboardAudio.h"
 
-// In debug mode we may wish to step trough the INLINEd methods, so:
-#ifdef DEBUGMODE
-#define INLINE
-#else
-#define INLINE	inline
-#endif
-
 // Sound Formats:
 typedef enum SoundFormat 
 {
@@ -70,99 +63,84 @@ typedef enum ClockSource
 // being created into the create and init methods.
 typedef struct _s_AudioI2SInfo 
 {
-    SoundFormat i2sSerialFormat;
-    IOMemoryMap *map ;
+    UInt32			i2sSerialFormat;
+    IOMemoryMap		*map ;
 } AudioI2SInfo ;
 
 // AudioI2SControl is essentially a class for setting the state of the I2S registers
 class AudioI2SControl : public OSObject 
 {
-    OSDeclareDefaultStructors(AudioI2SControl);
+	OSDeclareDefaultStructors(AudioI2SControl);
 private:
-    // holds the current frame rate settings:
-    ClockSource dacaClockSource;
-    UInt32      dacaMclkDivisor;
-    UInt32      dacaSclkDivisor;
-    SoundFormat dacaSerialFormat;
+	// holds the current frame rate settings:
+	ClockSource			clockSource;
+	UInt32      		mclkDivisor;
+	UInt32      		sclkDivisor;
+	UInt32				serialFormat;
+	UInt32				dataFormat;
+	IODeviceMemory *	ioBaseAddressMemory;
+	IODeviceMemory *	ioI2SBaseAddressMemory;
 
-    bool setSampleParameters( UInt32 sampleRate, UInt32 mclkToFsRatio) ;
-    void setSerialFormatRegister( ClockSource clockSource, UInt32 mclkDivisor, UInt32 sclkDivisor, SoundFormat serialFormat) ;
+//	bool dependentSetup(void) ;
 
-    bool dependentSetup(void) ;
+	UInt32 ReadWordLittleEndian(void *address,UInt32 offset);
+	void WriteWordLittleEndian(void *address, UInt32 offset, UInt32 value);
 
-    UInt32 ReadWordLittleEndian(void *address,UInt32 offset);
-    void WriteWordLittleEndian(void *address, UInt32 offset, UInt32 value);
+	void	*soundConfigSpace;					//	address of sound config space
+    void	*ioBaseAddress;						// base address of our I/O controller
+	void	*i2sBaseAddress;					//	base address of I2S I/O Module
+//	void	*ioClockBaseAddress;				//	base address for the clock						[3060321]
+//	void	*ioStatusRegister_GPIO12;			//	the register with the input detection			[3060321]
+	void	*ioConfigurationBaseAddress;		//	base address for the configuration registers
 
-    void *soundConfigSpace;        // address of sound config space
-    void *ioBaseAddress;           // base address of our I/O controller
-    void *ioClockBaseAddress;	   // base address for the clock
-    void *ioStatusRegister_GPIO12; // the register with the input detection
+	// Recalls which i2s interface we are attached to:
+	UInt8 i2SInterfaceNumber;
 
-    // Recalls which i2s interface we are attached to:
-    UInt8 i2SInterfaceNumber;
-    
 public:
+	bool setSampleParameters(UInt32 sampleRate, UInt32 mclkToFsRatio, ClockSource *pClockSource, UInt32 *pMclkDivisor, UInt32 *pSclkDivisor, UInt32 newSerialFormat);
+	void setSerialFormatRegister( ClockSource clockSource, UInt32 mclkDivisor, UInt32 sclkDivisor, SoundFormat serialFormat, UInt32 newDataFormat) ;
 
-    // Access to all the I2S registers:
-    // -------------------------------
-    UInt32 I2S0_GetIntCtlReg();
-    UInt32 I2S1_GetIntCtlReg();
-    void   I2S0_SetIntCtlReg(UInt32 value);
-    void   I2S1_SetIntCtlReg(UInt32 value);
-    UInt32 I2S0_GetSerialFormatReg();
-    UInt32 I2S1_GetSerialFormatReg();
-    void   I2S0_SetSerialFormatReg(UInt32 value);
-    void   I2S1_SetSerialFormatReg(UInt32 value);
-    UInt32 I2S0_GetCodecMsgOutReg();
-    UInt32 I2S1_GetCodecMsgOutReg();
-    void   I2S0_SetCodecMsgOutReg(UInt32 value);
-    void   I2S1_SetCodecMsgOutReg(UInt32 value);
-    UInt32 I2S0_GetCodecMsgInReg();
-    UInt32 I2S1_GetCodecMsgInReg();
-    void   I2S0_SetCodecMsgInReg(UInt32 value);
-    void   I2S1_SetCodecMsgInReg(UInt32 value);
-    UInt32 I2S0_GetFrameCountReg();
-    UInt32 I2S1_GetFrameCountReg();
-    void   I2S0_SetFrameCountReg(UInt32 value);
-    void   I2S1_SetFrameCountReg(UInt32 value);
-    UInt32 I2S0_GetFrameMatchReg();
-    UInt32 I2S1_GetFrameMatchReg();
-    void   I2S0_SetFrameMatchReg(UInt32 value);
-    void   I2S1_SetFrameMatchReg(UInt32 value);
-    UInt32 I2S0_GetDataWordSizesReg();
-    UInt32 I2S1_GetDataWordSizesReg();
-    void   I2S0_SetDataWordSizesReg(UInt32 value);
-    void   I2S1_SetDataWordSizesReg(UInt32 value);
-    UInt32 I2S0_GetPeakLevelSelReg();
-    UInt32 I2S1_GetPeakLevelSelReg();
-    void   I2S0_SetPeakLevelSelReg(UInt32 value);
-    void   I2S1_SetPeakLevelSelReg(UInt32 value);
-    UInt32 I2S0_GetPeakLevelIn0Reg();
-    UInt32 I2S1_GetPeakLevelIn0Reg();
-    void   I2S0_SetPeakLevelIn0Reg(UInt32 value);
-    void   I2S1_SetPeakLevelIn0Reg(UInt32 value);
-    UInt32 I2S0_GetPeakLevelIn1Reg();
-    UInt32 I2S1_GetPeakLevelIn1Reg();
-    void   I2S0_SetPeakLevelIn1Reg(UInt32 value);
-    void   I2S1_SetPeakLevelIn1Reg(UInt32 value);
-    UInt32 I2S0_GetCounterReg();
-    UInt32 I2S1_GetCounterReg();
+	// Access to all the I2S registers:
+	// -------------------------------
+	UInt32 GetIntCtlReg(void);
+	void   SetIntCtlReg(UInt32 value);
+	UInt32 GetSerialFormatReg(void);
+	void   SetSerialFormatReg(UInt32 value);
+	UInt32 GetCodecMsgOutReg(void);
+	void   SetCodecMsgOutReg(UInt32 value);
+	UInt32 GetCodecMsgInReg(void);
+	void   SetCodecMsgInReg(UInt32 value);
+	UInt32 GetFrameCountReg(void);
+	void   SetFrameCountReg(UInt32 value);
+	UInt32 GetFrameMatchReg(void);
+	void   SetFrameMatchReg(UInt32 value);
+	UInt32 GetDataWordSizesReg(void);
+	void   SetDataWordSizesReg(UInt32 value);
+	UInt32 GetPeakLevelSelReg(void);
+	void   SetPeakLevelSelReg(UInt32 value);
+	UInt32 GetPeakLevelIn0Reg(void);
+	void   SetPeakLevelIn0Reg(UInt32 value);
+	UInt32 GetPeakLevelIn1Reg(void);
+	void   SetPeakLevelIn1Reg(UInt32 value);
+	UInt32 GetCounterReg(void);
 
-    // starts and stops the clock count:
-    void   KLSetRegister(void *klRegister, UInt32 value);
-    UInt32   KLGetRegister(void *klRegister);
-    
-    static AudioI2SControl *create(AudioI2SInfo *theInfo) ;
-    inline void *getIOStatusRegister_GPIO12(void) { return (ioStatusRegister_GPIO12); } ;
+	UInt32	FCR1GetReg(void);
+	void		Fcr1SetReg(UInt32 value);
+	UInt32	FCR3GetReg(void);
+	void		Fcr3SetReg(UInt32 value);
+
+	// starts and stops the clock count:
+	void   KLSetRegister(void *klRegister, UInt32 value);
+	UInt32   KLGetRegister(void *klRegister);
+
+	static AudioI2SControl *create(AudioI2SInfo *theInfo) ;
+//	void *getIOStatusRegister_GPIO12(void) { return (ioStatusRegister_GPIO12); } ;			[3060321]
 
 protected:
     bool init(AudioI2SInfo *theInfo) ;
     void free(void) ;
     bool clockRun(bool start) ;    
     UInt32 frameRate(UInt32 index) ;
-} ;
+};
 
 #endif
-
-
-

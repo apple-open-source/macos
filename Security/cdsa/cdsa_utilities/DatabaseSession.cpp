@@ -263,6 +263,7 @@ DatabaseSession::DataInsert(CSSM_DB_HANDLE inDbHandle,
                             const CssmData *inData,
                             CSSM_DB_UNIQUE_RECORD_PTR &outUniqueId)
 {
+	debug("dbsession", "%p DataInsert(%lx,%lx)", this, inDbHandle, inRecordType);
     DbContext &aDbContext = findDbContext(inDbHandle);
     outUniqueId = aDbContext.mDatabase.dataInsert(aDbContext, inRecordType, inAttributes, inData);
 }
@@ -272,6 +273,7 @@ void
 DatabaseSession::DataDelete(CSSM_DB_HANDLE inDbHandle,
                             const CSSM_DB_UNIQUE_RECORD &inUniqueRecordIdentifier)
 {
+	debug("dbsession", "%p DataDelete(%lx)", this, inDbHandle);
     DbContext &aDbContext = findDbContext(inDbHandle);
     aDbContext.mDatabase.dataDelete(aDbContext, inUniqueRecordIdentifier);
 }
@@ -285,6 +287,7 @@ DatabaseSession::DataModify(CSSM_DB_HANDLE inDbHandle,
                             const CssmData *inDataToBeModified,
                             CSSM_DB_MODIFY_MODE inModifyMode)
 {
+	debug("dbsession", "%p DataModify(%lx,%lx)", this, inDbHandle, inRecordType);
     DbContext &aDbContext = findDbContext(inDbHandle);
     aDbContext.mDatabase.dataModify(aDbContext, inRecordType, inoutUniqueRecordIdentifier,
                                      inAttributesToBeModified, inDataToBeModified, inModifyMode);
@@ -297,6 +300,7 @@ DatabaseSession::DataGetFirst(CSSM_DB_HANDLE inDbHandle,
                               CssmData *inoutData,
                               CSSM_DB_UNIQUE_RECORD_PTR &outUniqueId)
 {
+	debug("dbsession", "%p DataGetFirst(%lx)", this, inDbHandle);
     DbContext &aDbContext = findDbContext(inDbHandle);
 	
 	return aDbContext.mDatabase.dataGetFirst(aDbContext, inQuery,
@@ -310,6 +314,7 @@ DatabaseSession::DataGetNext(CSSM_DB_HANDLE inDbHandle,
                              CssmData *inoutData,
                              CSSM_DB_UNIQUE_RECORD_PTR &outUniqueRecord)
 {
+	debug("dbsession", "%p DataGetNext(%lx)", this, inDbHandle);
     DbContext &aDbContext = findDbContext(inDbHandle);
 
 	return aDbContext.mDatabase.dataGetNext(aDbContext, inResultsHandle, inoutAttributes,
@@ -320,6 +325,7 @@ void
 DatabaseSession::DataAbortQuery(CSSM_DB_HANDLE inDbHandle,
                                 CSSM_HANDLE inResultsHandle)
 {
+	debug("dbsession", "%p DataAbortQuery(%lx)", this, inDbHandle);
     DbContext &aDbContext = findDbContext(inDbHandle);
     aDbContext.mDatabase.dataAbortQuery(aDbContext, inResultsHandle);
 }
@@ -330,6 +336,7 @@ DatabaseSession::DataGetFromUniqueRecordId(CSSM_DB_HANDLE inDbHandle,
                                            CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR inoutAttributes,
                                            CssmData *inoutData)
 {
+	debug("dbsession", "%p DataGetFromUniqueId(%lx)", this, inDbHandle);
     DbContext &aDbContext = findDbContext(inDbHandle);
     aDbContext.mDatabase.dataGetFromUniqueRecordId(aDbContext, inUniqueRecord,
                                                    inoutAttributes, inoutData);

@@ -83,4 +83,4 @@ typedef int32_t			dhcp_lease_t;     /* relative time */
 
 #define DHCP_FLAGS_BROADCAST	((u_short)0x0001)
 
-#endif _NETINET_DHCP_H
+#endif /* _NETINET_DHCP_H */

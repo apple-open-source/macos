@@ -151,9 +151,9 @@
 	To Do:
 */
 
-#define DVVersion 						3
+#define DVVersion 						4
 #define DVRevision 						0
 #define DVBuildStage 					developStage
-#define DVBuildNumber 					4		// every time this file is changed, increment this
-#define DVShortVersionString 			"3.0d3e1"
-#define DVLongVersionString 			"3.0d3e1, © Apple Computer, Inc. 1998-2001"
+#define DVBuildNumber 					5		// every time this file is changed, increment this
+#define DVShortVersionString 			"4.0d3e1"
+#define DVLongVersionString 			"4.0d3e1, © Apple Computer, Inc. 1998-2001"

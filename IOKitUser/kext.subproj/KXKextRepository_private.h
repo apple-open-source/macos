@@ -85,6 +85,9 @@ void _KXKextRepositoryClearLoadFailures(KXKextRepositoryRef aRepository);
 CFDictionaryRef _KXKextRepositoryCopyCacheDictionary(
     KXKextRepositoryRef aRepository);
 
+Boolean _KXKextRepositoryInvalidateCaches(
+    KXKextRepositoryRef aRepository);
+
 #if 0
 
 // Unpacks the mkext archive into a temporary directory and

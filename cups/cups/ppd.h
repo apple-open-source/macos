@@ -1,5 +1,5 @@
 /*
- * "$Id: ppd.h,v 1.3 2002/06/10 23:47:28 jlovell Exp $"
+ * "$Id: ppd.h,v 1.3.2.1 2002/10/22 17:43:04 gelphman Exp $"
  *
  *   PostScript Printer Description definitions for the Common UNIX Printing
  *   System (CUPS).
@@ -237,6 +237,8 @@ extern int		ppdCollect(ppd_file_t *ppd, ppd_section_t section,
 extern int		ppdConflicts(ppd_file_t *ppd);
 extern int		ppdEmit(ppd_file_t *ppd, FILE *fp,
 			        ppd_section_t section);
+extern int		ppdEmitAfterOrder(ppd_file_t *ppd, FILE *fp,
+			        ppd_section_t section, int restrict, float minOrder);
 extern int		ppdEmitFd(ppd_file_t *ppd, int fd,
 			          ppd_section_t section);
 extern int		ppdEmitJCL(ppd_file_t *ppd, FILE *fp, int job_id,
@@ -266,5 +268,5 @@ extern float		ppdPageWidth(ppd_file_t *ppd, const char *name);
 #endif /* !_CUPS_PPD_H_ */
 
 /*
- * End of "$Id: ppd.h,v 1.3 2002/06/10 23:47:28 jlovell Exp $".
+ * End of "$Id: ppd.h,v 1.3.2.1 2002/10/22 17:43:04 gelphman Exp $".
  */

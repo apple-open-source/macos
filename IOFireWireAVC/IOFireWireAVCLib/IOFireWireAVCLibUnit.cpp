@@ -712,6 +712,16 @@ void consumerPlugDestroyed( void * self, IOFireWireAVCLibConsumer * consumer )
     pthread_mutex_unlock( &me->fACObjectArrayLock );    
 }
 
+static IOReturn updateAVCCommandTimeout( void * self )
+{
+    AVCUnit *me = AVCUnit_getThis(self);
+	if( !me->fConnection )		    
+        return kIOReturnNotOpen; 
+		
+	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientUpdateAVCCommandTimeout, 0, 0);
+}
+
+
 //
 // static interface table for IOCFPlugInInterface
 //
@@ -738,7 +748,7 @@ static IOFireWireAVCLibUnitInterface sUnitInterface =
 	&queryInterface,
 	&addRef,
 	&release,
-	2, 0, // version/revision
+	3, 0, // version/revision
 	&open,
 	&openWithSessionRef,
 	&getSessionRef,
@@ -751,7 +761,8 @@ static IOFireWireAVCLibUnitInterface sUnitInterface =
     &GetAncestorInterface,
     &GetProtocolInterface,
 	&getAsyncConnectionPlugCounts,
-	&createConsumerPlug
+	&createConsumerPlug,
+    &updateAVCCommandTimeout
 };
 
 // IOFireWireAVCLibUnitFactory

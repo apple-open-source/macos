@@ -21,17 +21,13 @@
 
 	Contains:	Session storage module, Apple CDSA version. 
 
-	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
+	Written by:	Doug Mitchell
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
 */
 
 /* 
- * This file replaces the caller-specified SSLAddSessionFunc,
- * SSLGetSessionFunc, and SSLDeleteSessionFunc callbacks in the 
- * original SSLRef 3.0.
- *
  * The current implementation stores sessions in a deque<>, a member of a 
  * SessionCache object for which we keep a ModuleNexus-ized instance. It is 
  * expected that at a given time, only a small number of sessions will be 
@@ -56,9 +52,7 @@
  */
  
 #include "ssl.h"
-//#include "sslctx.h"
-#include "sslalloc.h"
-#include "appleGlue.h"
+#include "sslMemory.h"
 #include "sslDebug.h"
 #include "appleSession.h"
 
@@ -80,7 +74,6 @@
 
 #define CACHE_PRINT			0
 #if		CACHE_PRINT
-#define cprintf(s)			printf s
 #define DUMP_ALL_CACHE		0
 
 static void cachePrint(
@@ -102,7 +95,6 @@ static void cachePrint(
 	}
 }
 #else	/* !CACHE_PRINT */
-#define cprintf(s)
 #define cachePrint(k, d)
 #define DUMP_ALL_CACHE	0
 #endif	/* CACHE_PRINT */
@@ -140,7 +132,7 @@ public:
 	SSLBuffer		&sessionData()	{ return mSessionData; }
 	
 	/* replace existing mSessionData */
-	SSLErr			sessionData(const SSLBuffer &data);
+	OSStatus			sessionData(const SSLBuffer &data);
 	
 private:
 	SSLBuffer		mKey;
@@ -161,25 +153,25 @@ SessionCacheEntry::SessionCacheEntry(
 	const Time::Absolute &expirationTime)
 		: mExpiration(expirationTime)
 {
-	SSLErr serr;
+	OSStatus serr;
 	
-	serr = SSLCopyBuffer(&key, &mKey);
+	serr = SSLCopyBuffer(key, mKey);
 	if(serr) {
 		throw runtime_error("memory error");
 	}
-	serr = SSLCopyBuffer(&sessionData, &mSessionData);
+	serr = SSLCopyBuffer(sessionData, mSessionData);
 	if(serr) {
 		throw runtime_error("memory error");
 	}
-	cprintf(("SessionCacheEntry(buf,buf) this %p\n", this));
+	sslLogSessCacheDebug("SessionCacheEntry(buf,buf) this %p", this);
 	mExpiration += Time::Interval(SESSION_CACHE_TTL);
 }
 
 SessionCacheEntry::~SessionCacheEntry()
 {
-	cprintf(("~SessionCacheEntry() this %p\n", this));
-	SSLFreeBuffer(&mKey, NULL);		// no SystemContext
-	SSLFreeBuffer(&mSessionData, NULL);
+	sslLogSessCacheDebug("~SessionCacheEntry() this %p", this);
+	SSLFreeBuffer(mKey, NULL);		// no SSLContext
+	SSLFreeBuffer(mSessionData, NULL);
 }
 
 /* basic lookup/match function */
@@ -211,11 +203,11 @@ bool SessionCacheEntry::isStale(const Time::Absolute &now)
 }
 
 /* replace existing mSessionData */
-SSLErr SessionCacheEntry::sessionData(
+OSStatus SessionCacheEntry::sessionData(
 	const SSLBuffer &data)
 {
-	SSLFreeBuffer(&mSessionData, NULL);
-	return SSLCopyBuffer(&data, &mSessionData);
+	SSLFreeBuffer(mSessionData, NULL);
+	return SSLCopyBuffer(data, mSessionData);
 }
 
 /* Types for the actual deque and its iterator */
@@ -233,13 +225,13 @@ public:
 	~SessionCache();
 	
 	/* these correspond to the C functions exported by this file */
-	SSLErr addEntry(
+	OSStatus addEntry(
 		const SSLBuffer sessionKey, 
 		const SSLBuffer sessionData);
-	SSLErr lookupEntry(
+	OSStatus lookupEntry(
 		const SSLBuffer sessionKey, 
 		SSLBuffer *sessionData); 
-	SSLErr deleteEntry(
+	OSStatus deleteEntry(
 		const SSLBuffer sessionKey);
 		
 	/* cleanup, delete stale entries */
@@ -268,7 +260,7 @@ SessionCache::~SessionCache()
 }
 
 /* these three correspond to the C functions exported by this file */
-SSLErr SessionCache::addEntry(
+OSStatus SessionCache::addEntry(
 	const SSLBuffer sessionKey, 
 	const SSLBuffer sessionData)
 {
@@ -286,11 +278,13 @@ SSLErr SessionCache::addEntry(
 			 * These usually match, and a memcmp is a lot cheaper than 
 			 * a malloc and a free, hence this quick optimization.....
 			 */
-			cprintf(("SessionCache::addEntry CACHE HIT entry = %p\n", existEntry));
-			return SSLNoErr;
+			sslLogSessCacheDebug("SessionCache::addEntry CACHE HIT "
+				"entry = %p", existEntry);
+			return noErr;
 		}
 		else {
-			cprintf(("SessionCache::addEntry CACHE REPLACE entry = %p\n", existEntry));
+			sslLogSessCacheDebug("SessionCache::addEntry CACHE REPLACE "
+				"entry = %p", existEntry);
 			return existEntry->sessionData(sessionData);
 		}
 	}
@@ -300,17 +294,17 @@ SSLErr SessionCache::addEntry(
 		sessionData,
 		Time::now() + mTimeToLive);
 
-	cprintf(("SessionCache::addEntry %p\n", entry));
+	sslLogSessCacheDebug("SessionCache::addEntry %p", entry);
 	cachePrint(&sessionKey, &sessionData);
 	dumpAllCache();
 
 	/* add to head of queue for LIFO caching */
 	mSessionCache.push_front(entry);
-	CASSERT(lookupPriv(&sessionKey) != mSessionCache.end());
-	return SSLNoErr;
+	assert(lookupPriv(&sessionKey) != mSessionCache.end());
+	return noErr;
 }
 
-SSLErr SessionCache::lookupEntry(
+OSStatus SessionCache::lookupEntry(
 	const SSLBuffer sessionKey, 
 	SSLBuffer *sessionData)
 {
@@ -318,25 +312,26 @@ SSLErr SessionCache::lookupEntry(
 	
 	SessionCacheIter existIter = lookupPriv(&sessionKey);
 	if(existIter == mSessionCache.end()) {
-		return SSLSessionNotFoundErr;
+		return errSSLSessionNotFound;
 	}
 	SessionCacheEntry *entry = *existIter;
 	if(entry->isStale()) {
-		cprintf(("SessionCache::lookupEntry %p: STALE entry, deleting\n", entry));
+		sslLogSessCacheDebug("SessionCache::lookupEntry %p: STALE "
+			"entry, deleting", entry);
 		cachePrint(&sessionKey, &entry->sessionData());
 		deletePriv(existIter);
-		return SSLSessionNotFoundErr;
+		return errSSLSessionNotFound;
 	}
 	/* alloc/copy sessionData from existing entry (caller must free) */
-	return SSLCopyBuffer(&entry->sessionData(), sessionData);
+	return SSLCopyBuffer(entry->sessionData(), *sessionData);
 }
 
-SSLErr SessionCache::deleteEntry(
+OSStatus SessionCache::deleteEntry(
 	const SSLBuffer sessionKey)
 {
 	StLock<Mutex> _(mSessionLock);
 	deletePriv(&sessionKey);
-	return SSLNoErr;
+	return noErr;
 }
 	
 /* cleanup, delete stale entries */
@@ -350,11 +345,10 @@ bool SessionCache::cleanup()
 	for(iter = mSessionCache.begin(); iter != mSessionCache.end(); ) {
 		SessionCacheEntry *entry = *iter;
 		if(entry->isStale(rightNow)) {
-			#if CACHE_PRINT
-			SSLBuffer *key = &entry->key();
-			cprintf(("...SessionCache::cleanup: deleting cached session (%p)\n", 
-				entry));
-			cachePrint(key, &entry->sessionData());
+			#ifndef	DEBUG
+			sslLogSessCacheDebug("...SessionCache::cleanup: deleting "
+				"cached session (%p)", entry);
+			cachePrint(&entry->key(), &entry->sessionData());
 			#endif
 			iter = deletePriv(iter);
 		}
@@ -395,20 +389,20 @@ void SessionCache::deletePriv(
 		 */
 		#if	CACHE_PRINT
 		SessionCacheEntry *entry = *iter;
-		cprintf(("SessionCache::deletePriv %p\n", entry));
+		sslLogSessCacheDebug("SessionCache::deletePriv %p", entry);
 		cachePrint(sessionKey, &entry->sessionData());
 		dumpAllCache();
 		#endif
 		deletePriv(iter);
 	}
-	CASSERT(lookupPriv(sessionKey) == mSessionCache.end());
+	assert(lookupPriv(sessionKey) == mSessionCache.end());
 }
 
 /* common erase, given a SessionCacheIter; returns next iter */
 SessionCacheIter SessionCache::deletePriv(
 	SessionCacheIter iter)
 {
-	CASSERT(iter != mSessionCache.end());
+	assert(iter != mSessionCache.end());
 	SessionCacheEntry *entry = *iter;
 	SessionCacheIter nextIter = mSessionCache.erase(iter);
 	delete entry;
@@ -435,16 +429,16 @@ static void dumpAllCache()
 /*
  * Store opaque sessionData, associated with opaque sessionKey.
  */
-SSLErr sslAddSession (
+OSStatus sslAddSession (
 	const SSLBuffer sessionKey, 
 	const SSLBuffer sessionData)
 {
-	SSLErr serr;
+	OSStatus serr;
 	try {
 		serr = gSessionCache().addEntry(sessionKey, sessionData);
 	}
 	catch(...) {
-		serr = SSLUnsupportedErr;
+		serr = unimpErr;
 	}
 	dumpAllCache();
 	return serr;
@@ -453,20 +447,21 @@ SSLErr sslAddSession (
 /*
  * Given an opaque sessionKey, alloc & retrieve associated sessionData.
  */
-SSLErr sslGetSession (
+OSStatus sslGetSession (
 	const SSLBuffer sessionKey, 
 	SSLBuffer *sessionData)
 {
-	SSLErr serr;
+	OSStatus serr;
 	try {
 		serr = gSessionCache().lookupEntry(sessionKey, sessionData);
 	}
 	catch(...) {
-		serr = SSLSessionNotFoundErr;
+		serr = errSSLSessionNotFound;
 	}
-	cprintf(("\nsslGetSession(%d, %p): %d\n", (int)sessionKey.length, sessionKey.data,
-		serr));
-	if(serr == SSLNoErr) {
+	sslLogSessCacheDebug("sslGetSession(%d, %p): %ld", 
+		(int)sessionKey.length, sessionKey.data,
+		serr);
+	if(serr == noErr) {
 		cachePrint(&sessionKey, sessionData);
 	}
 	else {
@@ -476,29 +471,29 @@ SSLErr sslGetSession (
 	return serr;
 }
 
-SSLErr sslDeleteSession (
+OSStatus sslDeleteSession (
 	const SSLBuffer sessionKey)
 {
-	SSLErr serr;
+	OSStatus serr;
 	try {
 		serr = gSessionCache().deleteEntry(sessionKey);
 	}
 	catch(...) {
-		serr = SSLSessionNotFoundErr;
+		serr = errSSLSessionNotFound;
 	}
 	return serr;
 }
 
 /* cleanup up session cache, deleting stale entries. */
-SSLErr sslCleanupSession ()
+OSStatus sslCleanupSession ()
 {
-	SSLErr serr = SSLNoErr;
+	OSStatus serr = noErr;
 	bool moreToGo = false;
 	try {
 		moreToGo = gSessionCache().cleanup();
 	}
 	catch(...) {
-		serr = SSLSessionNotFoundErr;
+		serr = errSSLSessionNotFound;
 	}
 	/* Possible TBD: if moreToGo, schedule a timed callback to this function */
 	return serr;

@@ -127,12 +127,10 @@ CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPacketSize)
             USBError(1, "IOUSBController: CheckForDisjointDescriptor - no segPtr at offset %d, length = %d, segLength = %d, total length = %d, buf = %p", (int)offset, (int)length, (int)segLength, (int)command->GetReqCount(), buf);
             return kIOReturnBadArgument;
         }
-        if (segLength > length)
-        {
-            USBError(1, "IOUSBController: CheckForDisjointDescriptor - invalid segLength!");
-            return kIOReturnBadArgument;
-        }
-        if (segLength == length)
+	
+	// 3036056 since length might be less than the length of the descriptor, we are OK if the physical
+	// segment is longer than we need
+        if (segLength >= length)
             return kIOReturnSuccess;		// this is the last segment, so we are OK
             
         // so the segment is less than the rest of the length - we need to check against maxPacketSize

@@ -29,6 +29,22 @@ using namespace KeychainCore;
 
 
 //
+// Create a completely open Access (anyone can do anything)
+// Note that this means anyone can *change* the ACL at will, too.
+// These ACL entries contain no descriptor names.
+//
+Access::Access()
+{
+	RefPointer<ACL> owner = new ACL(*this);
+	owner->setAuthorization(CSSM_ACL_AUTHORIZATION_CHANGE_ACL);
+	addOwner(owner);
+	
+	RefPointer<ACL> any = new ACL(*this);
+	add(any);
+}
+
+
+//
 // Create a default Access object.
 // This construct an Access with "default form", whatever that happens to be
 // in this release.
@@ -45,24 +61,44 @@ Access::Access(const string &descriptor)
 	makeStandard(descriptor, trusted);
 }
 
-void Access::makeStandard(const string &descriptor, const ACL::ApplicationList &trusted)
+Access::Access(const string &descriptor, const ACL::ApplicationList &trusted,
+	const AclAuthorizationSet &limitedRights, const AclAuthorizationSet &freeRights)
+{
+	makeStandard(descriptor, trusted, limitedRights, freeRights);
+}
+
+void Access::makeStandard(const string &descriptor, const ACL::ApplicationList &trusted,
+	const AclAuthorizationSet &limitedRights, const AclAuthorizationSet &freeRights)
 {
 	// owner "entry"
 	RefPointer<ACL> owner = new ACL(*this, descriptor, ACL::defaultSelector);
 	owner->setAuthorization(CSSM_ACL_AUTHORIZATION_CHANGE_ACL);
 	addOwner(owner);
 
-	// encrypt entry
-	RefPointer<ACL> encrypt = new ACL(*this, descriptor, ACL::defaultSelector);
-	encrypt->setAuthorization(CSSM_ACL_AUTHORIZATION_ENCRYPT);
-	encrypt->form(ACL::allowAllForm);
-	add(encrypt);
+	// unlimited entry
+	RefPointer<ACL> unlimited = new ACL(*this, descriptor, ACL::defaultSelector);
+	if (freeRights.empty()) {
+		unlimited->authorizations().clear();
+		unlimited->authorizations().insert(CSSM_ACL_AUTHORIZATION_ENCRYPT);
+	} else
+		unlimited->authorizations() = freeRights;
+	unlimited->form(ACL::allowAllForm);
+	add(unlimited);
 
-	// decrypt entry
-	RefPointer<ACL> decrypt = new ACL(*this, descriptor, ACL::defaultSelector);
-	decrypt->setAuthorization(CSSM_ACL_AUTHORIZATION_DECRYPT);
-	decrypt->applications() = trusted;
-	add(decrypt);
+	// limited entry
+	RefPointer<ACL> limited = new ACL(*this, descriptor, ACL::defaultSelector);
+	if (limitedRights.empty()) {
+		limited->authorizations().clear();
+		limited->authorizations().insert(CSSM_ACL_AUTHORIZATION_DECRYPT);
+		limited->authorizations().insert(CSSM_ACL_AUTHORIZATION_SIGN);
+		limited->authorizations().insert(CSSM_ACL_AUTHORIZATION_MAC);
+		limited->authorizations().insert(CSSM_ACL_AUTHORIZATION_DERIVE);
+		limited->authorizations().insert(CSSM_ACL_AUTHORIZATION_EXPORT_CLEAR);
+		limited->authorizations().insert(CSSM_ACL_AUTHORIZATION_EXPORT_WRAPPED);
+	} else
+		limited->authorizations() = limitedRights;
+	limited->applications() = trusted;
+	add(limited);
 }
 
 
@@ -108,7 +144,7 @@ CFArrayRef Access::copySecACLs(CSSM_ACL_AUTHORIZATION_TAG action) const
 {
 	list<ACL *> choices;
 	for (Map::const_iterator it = mAcls.begin(); it != mAcls.end(); it++)
-		if (it->second->authorizations().find(action) != it->second->authorizations().end())
+		if (it->second->authorizes(action))
 			choices.push_back(it->second);
 	return choices.empty() ? NULL : makeCFArray(gTypes().acl, choices);
 }
@@ -119,7 +155,7 @@ CFArrayRef Access::copySecACLs(CSSM_ACL_AUTHORIZATION_TAG action) const
 // If update, skip any part marked unchanged. (If not update, skip
 // any part marked deleted.)
 //
-void Access::setAccess(AclBearer &target, bool update = false)
+void Access::setAccess(AclBearer &target, bool update /* = false */)
 {
 	AclFactory factory;
 	editAccess(target, update, factory.promptCred());
@@ -161,6 +197,32 @@ void Access::addApplicationToRight(AclAuthorization right, TrustedApplication *a
 	if (acls.size() != 1)
 		MacOSError::throwMe(errSecACLNotSimple);	// let's not guess here...
 	(*acls.begin())->addApplication(app);
+}
+
+
+//
+// Retrieve the description from a randomly chosen ACL within this Access.
+// In the conventional case where all ACLs have the same descriptor, this
+// is deterministic. But you have been warned.
+//
+string Access::promptDescription() const
+{
+	for (Map::const_iterator it = mAcls.begin(); it != mAcls.end(); it++) {
+		ACL *acl = it->second;
+		switch (acl->form()) {
+		case ACL::allowAllForm:
+		case ACL::appListForm:
+			{
+				string descr = acl->promptDescription();
+				if (!descr.empty())
+					return descr;
+			}
+		default:
+			break;
+		}
+	}
+	// couldn't find suitable ACL (no description anywhere)
+	CssmError::throwMe(errSecACLNotSimple);
 }
 
 

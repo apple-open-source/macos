@@ -24,6 +24,7 @@ int prc_lineno = 1;
 %o 7000
 %a 4000
 %p 3000
+%option nounput
 
 %s NAME AUTH
 
@@ -91,6 +92,7 @@ kerberos(_v)?4	{ SETSTATE(0); yylval.proto = A_KERBEROS_V4; return AUTHTYPE;}
 kerberos(_v)?5	{ SETSTATE(0); yylval.proto = A_KERBEROS_V5; return AUTHTYPE;}
 kerberos	{ SETSTATE(0); yylval.proto = A_KERBEROS_V4; return AUTHTYPE;}
 ssh		{ SETSTATE(0); yylval.proto = A_SSH; return AUTHTYPE;}
+(otp|opie)	{ SETSTATE(0); yylval.proto = A_OTP; return AUTHTYPE;}
 cram(-md5)?	{ SETSTATE(0); yylval.proto = A_CRAM_MD5; return AUTHTYPE;}
 ntlm		{ SETSTATE(0); yylval.proto = A_NTLM; return AUTHTYPE;}
 <AUTH>password	{ SETSTATE(0); yylval.proto = A_PASSWORD; return AUTHTYPE;}

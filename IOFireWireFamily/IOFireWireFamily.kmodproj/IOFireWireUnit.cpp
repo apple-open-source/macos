@@ -64,7 +64,7 @@ bool IOFireWireUnit::attach(IOService *provider)
     if( !IOFireWireNub::attach(provider))
         return (false);
     fControl = fDevice->getController();
-
+    fControl->retain();
     fDevice->getNodeIDGeneration(fGeneration, fNodeID, fLocalNodeID);
     
     return(true);

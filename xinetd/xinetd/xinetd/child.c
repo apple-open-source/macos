@@ -269,7 +269,8 @@ void child_process( struct server *serp )
    struct service          *sp  = SERVER_SERVICE( serp ) ;
    connection_s            *cp  = SERVER_CONNECTION( serp ) ;
    struct service_config   *scp = SVC_CONF( sp ) ;
-   const char *func = "child_process" ;
+   const char              *func = "child_process" ;
+   int                      i;
 
    signal_default_state();
 
@@ -281,6 +282,17 @@ void child_process( struct server *serp )
    }
    signals_pending[0] = -1;
    signals_pending[1] = -1;
+
+   for( i = 0; i < pset_count( SERVICES( ps ) ); i++ ) {
+      struct service *tmpser = pset_pointer( SERVICES( ps ), i );
+      if( SVC_FD( tmpser ) != SVC_FD( sp ) ) {
+          svc_release( tmpser );
+      }
+   }
+   close(0);
+   close(1);
+   close(2);
+
 
 #ifdef DEBUG_SERVER
    if ( debug.on )

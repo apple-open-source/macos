@@ -28,18 +28,11 @@
 #ifndef _SECURITY_SECURETRANSPORT_H_
 #define _SECURITY_SECURETRANSPORT_H_
 
-/* Current capabilities */
-#define ST_SERVER_MODE_ENABLE		1
-#define ST_CLIENT_AUTHENTICATION	0
-
 /*
  * This file describes the public API for an implementation of the 
  * Secure Socket Layer, V. 3.0, and Transport Layer Security, V. 1.0.
- * This implementation is based on Netscape's SSLRef 3.0, modified 
- * for Apple use. (Appropriate copyrights and acknowledgements are 
- * found elsewhere, and in all files containing Netscape code.)
  *
- * As in SSLRef 3.0, there no transport layer dependencies in this library;
+ * There no transport layer dependencies in this library;
  * it can be used with sockets, Open Transport, etc. Applications using
  * this library provide callback functions which do the actual I/O
  * on underlying network connections. Applications are also responsible
@@ -105,6 +98,29 @@ typedef enum {
 } SSLSessionState;
 
 /* 
+ * Status of client certificate exchange (which is optional
+ * for both server and client).
+ */
+typedef enum {
+	/* Server hasn't asked for a cert. Client hasn't sent one. */
+	kSSLClientCertNone, 
+	/* Server has asked for a cert, but client didn't send it. */
+	kSSLClientCertRequested,
+	/*
+	 * Server side: We asked for a cert, client sent one, we validated 
+	 *				it OK. App can inspect the cert via 
+	 *				SSLGetPeerCertificates().
+	 * Client side: server asked for one, we sent it.
+	 */
+	kSSLClientCertSent,
+	/*
+	 * Client sent a cert but failed validation. Server side only.
+	 * Server app can inspect the cert via SSLGetPeerCertificates().
+	 */
+	kSSLClientCertRejected
+} SSLClientCertificateState;
+
+/* 
  * R/W functions. The application using this library provides
  * these functions via SSLSetIOFuncs().
  *
@@ -115,7 +131,7 @@ typedef enum {
  *
  * The application may configure the underlying connection to operate
  * in a non-blocking manner; in such a case, a read operation may
- * well return SSLWouldBlockErr, indicating "I transferred less data than
+ * well return errSSLWouldBlock, indicating "I transferred less data than
  * you requested (maybe even zero bytes), nothing is wrong, except 
  * requested I/O hasn't completed". This will be returned back up to 
  * the application as a return from SSLRead(), SSLWrite(), SSLHandshake(),
@@ -217,8 +233,6 @@ OSStatus
 SSLGetProtocolVersion		(SSLContextRef		context,
 							 SSLProtocol		*protocol);		/* RETURNED */
 
-#if		(ST_SERVER_MODE_ENABLE || ST_CLIENT_AUTHENTICATION)
-
 /*
  * Specify this connection's certificate(s). This is mandatory for
  * server connections, optional for clients. Specifying a certificate
@@ -246,8 +260,6 @@ SSLGetProtocolVersion		(SSLContextRef		context,
 OSStatus
 SSLSetCertificate			(SSLContextRef		context,
 							 CFArrayRef			certRefs);
-
-#endif	/* (ST_SERVER_MODE_ENABLE || ST_CLIENT_AUTHENTICATION) */
 
 /*
  * Specify I/O connection - a socket, endpoint, etc., which is
@@ -341,6 +353,21 @@ SSLGetEnabledCiphers		(SSLContextRef			context,
 							 SSLCipherSuite			*ciphers,		/* RETURNED */
 							 size_t					*numCiphers);	/* IN/OUT */
 
+/*
+ * Enable/disable peer certificate chain validation. Default is enabled.
+ * If caller disables, it is the caller's responsibility to call 
+ * SSLGetPeerCertificates() upon successful completion of the handshake
+ * and then to perform external validation of the peer certificate
+ * chain before proceeding with data transfer.
+ */
+OSStatus
+SSLSetEnableCertVerify		(SSLContextRef 			context,
+							 Boolean				enableVerify);
+							 
+OSStatus
+SSLGetEnableCertVerify		(SSLContextRef 			context,
+							 Boolean				*enableVerify);	/* RETURNED */
+
 
 /*
  * Specify the option of ignoring certificates' "expired" times. 
@@ -357,6 +384,20 @@ SSLSetAllowsExpiredCerts	(SSLContextRef		context,
  */
 OSStatus
 SSLGetAllowsExpiredCerts	(SSLContextRef		context,
+							 Boolean			*allowsExpired); /* RETURNED */
+
+/*
+ * Similar to SSLSetAllowsExpiredCerts(), this function allows the 
+ * option of ignoring "expired" status for root certificates only.
+ * Default is false, i.e., expired root certs result in an 
+ * errSSLCertExpired error.
+ */
+OSStatus 
+SSLSetAllowsExpiredRoots	(SSLContextRef		context,
+							 Boolean			allowsExpired);
+							 
+OSStatus
+SSLGetAllowsExpiredRoots	(SSLContextRef		context,
 							 Boolean			*allowsExpired); /* RETURNED */
 
 /*
@@ -384,6 +425,32 @@ SSLSetAllowsAnyRoot			(SSLContextRef		context,
 OSStatus
 SSLGetAllowsAnyRoot			(SSLContextRef		context,
 							 Boolean			*anyRoot); /* RETURNED */
+
+/*
+ * Augment or replace the system's default trusted root certificate set
+ * for this session. If replaceExisting is true, the specified roots will
+ * be the only roots which are trusted during this session. If replaceExisting
+ * is false, the specified roots will be added to the current set of trusted
+ * root certs. If this function has never been called, the current trusted
+ * root set is the same as the system's default trusted root set.
+ * Successive calls with replaceExisting false result in accumulation
+ * of additional root certs.
+ *
+ * The trustedRoots array contains SecCertificateRefs.
+ */ 
+OSStatus 
+SSLSetTrustedRoots			(SSLContextRef 		context,
+							 CFArrayRef 		trustedRoots,
+							 Boolean 			replaceExisting); 
+
+/*
+ * Obtain an array of SecCertificateRefs representing the current
+ * set of trusted roots. If SSLSetTrustedRoots() has never been called
+ * for this session, this returns the system's default root set.
+ */
+OSStatus 
+SSLGetTrustedRoots			(SSLContextRef 		context,
+							 CFArrayRef 		*trustedRoots);	/* RETURNED */
 
 /*
  * Request peer certificates. Valid anytime, subsequent to
@@ -441,7 +508,6 @@ SSLGetNegotiatedCipher		(SSLContextRef 		context,
  *** Session context configuration, server side only. ***
  ********************************************************/
 				 
-#if		ST_SERVER_MODE_ENABLE
 /*
  * Specify this connection's encryption certificate(s). This is
  * used in one of the following cases:
@@ -495,7 +561,24 @@ OSStatus
 SSLSetClientSideAuthenticate 	(SSLContextRef		context,
 								 SSLAuthenticate	auth);
 		
-#endif	/* ST_SERVER_MODE_ENABLE */
+/*
+ * Add a DER-encoded dinstiguished name to list of acceptable names
+ * to be specified in requests for client certificates. 
+ */
+OSStatus			
+SSLAddDistinguishedName		(SSLContextRef 		context, 
+							 const void 		*derDN,
+							 size_t 			derDNLen);
+
+/*
+ * Obtain client certificate exhange status. Can be called 
+ * any time. Reflects the *last* client certificate state change;
+ * subsequent to a renegotiation attempt by either peer, the state
+ * is reset to kSSLClientCertNone.
+ */
+OSStatus 
+SSLGetClientCertificateState	(SSLContextRef				context,
+								 SSLClientCertificateState	*clientState);
 
 /*******************************
  ******** I/O Functions ********
@@ -503,7 +586,7 @@ SSLSetClientSideAuthenticate 	(SSLContextRef		context,
  
 /*
  * Note: depending on the configuration of the underlying I/O 
- * connection, all SSL I/O functions can return SSLWouldBlockErr,
+ * connection, all SSL I/O functions can return errSSLWouldBlock,
  * indicating "not complete, nothing is wrong, except required
  * I/O hasn't completed". Caller may need to repeat I/Os as necessary
  * if the underlying connection has been configured to behave in 

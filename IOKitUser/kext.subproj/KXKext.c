@@ -2391,6 +2391,14 @@ KXKextManagerError _KXKextMakeSecure(KXKextRef aKext)
         goto finish;
     }
 
+   /* Touch the kext's enclosing folder to make sure the cache gets rebuilt.
+    */
+    if (!_KXKextRepositoryInvalidateCaches(aKext->repository)) {
+        (_KMErrLog(aKext->manager))("can't invalidate caches for %s",
+            path);
+        // don't bail on this; keep working on the kext
+    }
+
     // drill down into kext and make each URL secure
     ftscursor = fts_open(paths, (FTS_NOCHDIR | FTS_PHYSICAL),
         NULL);

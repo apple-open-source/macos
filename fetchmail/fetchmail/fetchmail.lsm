@@ -1,21 +1,24 @@
 Begin3
 Title:		fetchmail
-Version:	5.9.11
-Entered-date:	2002APR01
-Description:	Full-featured IMAP/POP2/POP3/APOP/RPOP/KPOP/ETRN/ODMR client 
-	        with GUI configuration, daemon mode, forwarding via SMTP or 
-		local MDA, reply address rewrites, support for multidrop
-		mailboxes. Supports SASL authentication, Kerbereros, GSSAPI, 
-		OTP. Not a mail user agent, rather a pipe-fitting that 
-		forwards fetched mail to your local delivery system. 
-		Your one-stop solution for intermittent email connections.
-		Home page and FAQ at http://www.tuxedo.org/~esr/fetchmail.
-Keywords:	mail, client, POP, POP2, POP3, APOP, RPOP, KPOP, IMAP, ETRN,
-    		ODMR, SMTP, ESMTP, GSSAPI, RPA, NTLM, CRAM-MD5, SASL.
+Version:	6.1.0
+Entered-date:	2002-10-27
+Description:	Fetchmail is a remote mail retrieval and forwarding utility
+                intended for use over on-demand TCP/IP links, like SLIP or
+                PPP connections.  Fetchmail supports every remote-mail protocol
+                currently in use on the Internet (POP2, POP3, RPOP, APOP, KPOP,
+                all IMAPs, ESMTP ETRN, IPv6, and IPSEC) for retrieval. Then
+                Fetchmail forwards the mail through SMTP so you can read it
+                through your favorite mail client.
+                
+                Install fetchmail if you need to retrieve mail over SLIP or
+                PPP connections.
+Keywords:       mail, client, POP, POP2, POP3, APOP, RPOP, KPOP, IMAP, ETRN, ODMR, SMTP, ESMTP, GSSAPI, RPA, NTLM, CRAM-MD5, SASL
 Author: 	esr@snark.thyrsus.com (Eric S. Raymond)
-Primary-site:	locke.ccil.org /pub/esr/fetchmail
-		950K fetchmail-5.9.11.tar.gz
-Platforms:	All
+Maintained-by:	Eric S. Raymond <esr@thyrsus.com>
+Primary-site:	http://www.tuxedo.org/~esr/fetchmail/
+		1056	fetchmail-6.1.0.tar.gz
+		384	fetchmail-6.1.0-1.i386.rpm
+		1068	fetchmail-6.1.0-1.src.rpm
+Platforms:      All
 Copying-policy:	GPL
 End
-

@@ -101,6 +101,7 @@
 				4A9504CCFFE6A4B311CA0CBA,
 				4A9504CDFFE6A4B311CA0CBA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 29B97314FDCFA39411CA2CEA;
 			projectDirPath = "";
@@ -184,8 +185,8 @@
 			productName = "Port Attempt";
 			productReference = 17587328FF379C6511CA2CBB;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
@@ -227,12 +228,12 @@
 				F545462C02768FE401000166,
 				F556D5EE0290C947015A0A51,
 				F590B5310291B86301CE14C9,
-				F5ACABAD02E737E401000164,
 				F5ACABB102E7380E01000164,
 				F5ACABB702E7383101000164,
 				F5ACABB902E7383101000164,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		29B97328FDCFA39411CA2CEA = {
 			buildActionMask = 2147483647;
@@ -244,6 +245,7 @@
 				F5ACABC002E7389801000164,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		29B9732BFDCFA39411CA2CEA = {
 			buildActionMask = 2147483647;
@@ -261,6 +263,7 @@
 				F5ACABBC02E7386201000164,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		29B9732DFDCFA39411CA2CEA = {
 			buildActionMask = 2147483647;
@@ -271,6 +274,7 @@
 				F51D9D3F0277D17401000166,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 //290
 //291
@@ -346,11 +350,13 @@
 			refType = 4;
 		};
 		F545462A02768FE401000166 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = BusProbeClass.h;
 			refType = 4;
 		};
 		F545462B02768FE401000166 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = BusProbeClass.m;
 			refType = 4;
@@ -389,11 +395,13 @@
 			};
 		};
 		F556C3DC0207251E01CE14C9 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = USBClass.h;
 			refType = 4;
 		};
 		F556C3DD0207251E01CE14C9 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = USBClass.m;
 			refType = 4;
@@ -425,11 +433,13 @@
 			refType = 4;
 		};
 		F556D5EC0290C947015A0A51 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DecodeHIDReport.h;
 			refType = 4;
 		};
 		F556D5ED0290C947015A0A51 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = DecodeHIDReport.m;
 			refType = 4;
@@ -489,6 +499,7 @@
 			refType = 4;
 		};
 		F57E2920026F512701000166 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = English.lproj/LaunchTime.strings;
@@ -501,11 +512,13 @@
 			};
 		};
 		F590B52F0291B86301CE14C9 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = NodeOutput.h;
 			refType = 4;
 		};
 		F590B5300291B86301CE14C9 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = NodeOutput.m;
 			refType = 4;
@@ -535,11 +548,13 @@
 			refType = 0;
 		};
 		F59C786C0206714901000166 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Node.h;
 			refType = 4;
 		};
 		F59C786D0206714901000166 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Node.m;
 			refType = 4;
@@ -557,20 +572,16 @@
 			};
 		};
 		F5ACABAB02E737E401000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MainController.h;
 			refType = 4;
 		};
 		F5ACABAC02E737E401000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = MainController.m;
 			refType = 4;
-		};
-		F5ACABAD02E737E401000164 = {
-			fileRef = F5ACABAB02E737E401000164;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		F5ACABAE02E737E401000164 = {
 			fileRef = F5ACABAC02E737E401000164;
@@ -579,11 +590,13 @@
 			};
 		};
 		F5ACABAF02E7380E01000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = USBLoggerClass.h;
 			refType = 4;
 		};
 		F5ACABB002E7380E01000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = USBLoggerClass.m;
 			refType = 4;
@@ -601,21 +614,25 @@
 			};
 		};
 		F5ACABB302E7383101000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Authorization.h;
 			refType = 4;
 		};
 		F5ACABB402E7383101000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Authorization.m;
 			refType = 4;
 		};
 		F5ACABB502E7383101000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = SystemCommands.h;
 			refType = 4;
 		};
 		F5ACABB602E7383101000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = SystemCommands.m;
 			refType = 4;
@@ -645,6 +662,7 @@
 			};
 		};
 		F5ACABBB02E7386201000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Main.m;
 			refType = 4;
@@ -661,6 +679,7 @@
 			refType = 4;
 		};
 		F5ACABBE02E7389801000164 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = USBVendors.txt;
 			refType = 4;
@@ -678,6 +697,7 @@
 			};
 		};
 		F5B6DE960271655201000166 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IORegistryClass.m;
 			refType = 4;
@@ -689,6 +709,7 @@
 			};
 		};
 		F5B6DE980271657401000166 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IORegistryClass.h;
 			refType = 4;

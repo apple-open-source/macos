@@ -29,6 +29,9 @@
  */
 /*
 	$Log: IOFireWireLibPriv.cpp,v $
+	Revision 1.38  2002/10/18 23:29:49  collin
+	fix includes, fix cast which fails on new compiler
+	
 	Revision 1.37  2002/10/11 23:12:22  collin
 	fix broken headerdoc, fix compiler warnings
 	
@@ -40,6 +43,7 @@
 	
 */
 
+// private
 #import "IOFireWireLibPriv.h"
 #import "IOFireWireLibCommand.h"
 #import "IOFireWireLibUnitDirectory.h"
@@ -50,6 +54,7 @@
 #import "IOFireWireLibIsochPort.h"
 #import "IOFireWireLibDCLCommandPool.h"
 
+// system
 #import <mach/mach.h>
 #import <IOKit/IOKitLib.h>
 #import <IOKit/iokitmig.h>

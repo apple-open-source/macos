@@ -164,6 +164,7 @@ public:
 	void getAttributeInfoForItemID(CSSM_DB_RECORDTYPE itemID, SecKeychainAttributeInfo **Info);
 	static void freeAttributeInfo(SecKeychainAttributeInfo *Info);
 	KeychainSchema keychainSchema();
+	void didDeleteItem(const ItemImpl *inItemImpl);
 
 private:
 	void addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl);

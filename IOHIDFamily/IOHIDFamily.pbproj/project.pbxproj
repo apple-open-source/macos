@@ -227,8 +227,6 @@
 				019D7CB5FFE829CD11CA2CF6,
 				019D7CB6FFE829CD11CA2CF6,
 				019D7CB9FFE82BC211CA2CF6,
-				0694E370FFF1489011CA29FD,
-				5801C60402400F4E04CA2A11,
 				019D7CBBFFE82BC211CA2CF6,
 				586366BD02B147590400010D,
 				F59AD17A02ADDD010193FF54,
@@ -304,6 +302,8 @@
 			dstSubfolderSpec = 0;
 			files = (
 				019D7CBAFFE82BC211CA2CF6,
+				0694E371FFF1489011CA29FD,
+				58F8CD6003532238040001C9,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 1;
@@ -319,7 +319,9 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/hid";
 			dstSubfolderSpec = 0;
 			files = (
+				5801C60502400F4E04CA2A11,
 				019D7CBCFFE82BC211CA2CF6,
+				5806B71A032587E304CA2A11,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 1;
@@ -477,16 +479,6 @@
 //062
 //063
 //064
-		0694E370FFF1489011CA29FD = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/hid";
-			dstSubfolderSpec = 0;
-			files = (
-				0694E371FFF1489011CA29FD,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		0694E371FFF1489011CA29FD = {
 			fileRef = 014D176BFFE1C65511CA2CF6;
 			isa = PBXBuildFile;
@@ -594,7 +586,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDFamily;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.2.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -634,11 +626,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOHIDLibUserClient</key>
@@ -862,11 +854,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -1037,18 +1029,14 @@
 //582
 //583
 //584
-		5801C60402400F4E04CA2A11 = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/hid";
-			dstSubfolderSpec = 0;
-			files = (
-				5801C60502400F4E04CA2A11,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		5801C60502400F4E04CA2A11 = {
 			fileRef = 03314B2DFFEFB07611CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5806B71A032587E304CA2A11 = {
+			fileRef = F5AB66D302ADD67601FF6135;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -1149,6 +1137,12 @@
 		};
 		58F1B85C023ECA5404CA2A11 = {
 			fileRef = 03314B2DFFEFB07611CA29FD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58F8CD6003532238040001C9 = {
+			fileRef = F5AB66D302ADD67601FF6135;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -1508,7 +1502,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDSystem;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.2.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1533,7 +1527,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOHIDSystem</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.2.1, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1545,11 +1539,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOBSDConsole</key>

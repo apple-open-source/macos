@@ -408,12 +408,14 @@ wait_queue_link_noalloc(
 	 */
 	s = splsched();
 	wait_queue_lock(wq);
+	wqs_lock(wq_set);
 	q = &wq->wq_queue;
 	wq_element = (wait_queue_element_t) queue_first(q);
 	while (!queue_end(q, (queue_entry_t)wq_element)) {
 		WAIT_QUEUE_ELEMENT_CHECK(wq, wq_element);
 		if (wq_element->wqe_type == WAIT_QUEUE_LINK &&
 		    ((wait_queue_link_t)wq_element)->wql_setqueue == wq_set) {
+			wqs_unlock(wq_set);
 			wait_queue_unlock(wq);
 			splx(s);
 			return KERN_ALREADY_IN_SET;
@@ -425,7 +427,6 @@ wait_queue_link_noalloc(
 	/*
 	 * Not already a member, so we can add it.
 	 */
-	wqs_lock(wq_set);
 
 	WAIT_QUEUE_SET_CHECK(wq_set);
 

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOFireWireFamily ;
-export deferred SRCROOT = /Users/cpieper/Desktop/fwproject/build/Projects/IOFireWireFamily ;
+export deferred SRCROOT = /Users/cpieper/Desktop/xbstemp/projects/IOFireWireFamily ;
 
 # User-defined project-wide settings for project
 
@@ -32,7 +32,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.iokit.IOFireWireFamily ;
-export deferred MODULE_VERSION = 1.2.2 ;
+export deferred MODULE_VERSION = 1.2.3 ;
 export deferred OTHER_CFLAGS = -DFIREWIREPRIVATE ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -154,7 +154,8 @@ HEADERS =
 	IOFireWireFamily.kmodproj/IOFWQEventSource.h
 	IOFireWireFamily.kmodproj/IOFWUtils.h
 	IOFireWireFamily.kmodproj/IOFWPseudoAddressSpace.h
-	IOFireWireFamily.kmodproj/IOFWPhysicalAddressSpace.h ;
+	IOFireWireFamily.kmodproj/IOFWPhysicalAddressSpace.h
+	IOFireWireFamily.kmodproj/IOFireWireIRM.h ;
 ProcessHeaders "<IOFireWireFamily>IOFireWireFamily.kext" : "$(HEADERS)" : BPTag003 : BPTag004 ;
 
 # Resources
@@ -209,7 +210,8 @@ SOURCES =
 	IOFireWireFamily.kmodproj/IOFireWireMagicMatchingNub.cpp
 	IOFireWireFamily.kmodproj/IOFWQEventSource.cpp
 	IOFireWireFamily.kmodproj/IOFWPseudoAddressSpace.cpp
-	IOFireWireFamily.kmodproj/IOFWPhysicalAddressSpace.cpp ;
+	IOFireWireFamily.kmodproj/IOFWPhysicalAddressSpace.cpp
+	IOFireWireFamily.kmodproj/IOFireWireIRM.cpp ;
 ProcessSources "<IOFireWireFamily>IOFireWireFamily.kext" : "$(SOURCES)" : BPTag005 : BPTag006 ;
 
 # Frameworks & Libraries

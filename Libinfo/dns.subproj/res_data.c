@@ -38,6 +38,7 @@
 /* From res_init.c */
 
 struct __res_state _res = {0};
+__private_extern__ struct __res_state _res_shadow = {0};
 
 /* From getnetent.c */
 

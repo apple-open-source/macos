@@ -96,6 +96,8 @@ struct scc_tty scc_tty[NSCC_LINE];
 #define scc_dev_no(chan) ((chan)^0x01)
 #define scc_chan(dev_no) ((dev_no)^0x01)
 
+extern unsigned int disableSerialOuput;
+
 int	serial_initted = 0;
 unsigned int scc_parm_done = 0;				/* (TEST/DEBUG) */
 
@@ -396,10 +398,14 @@ int
 scc_putc(int unit, int line, int c)
 {
 	scc_regmap_t	regs;
-	spl_t            s = splhigh();
+	spl_t            s;
 	unsigned char	 value;
 	DECL_FUNNEL_VARS
 
+	if (disableSerialOuput)
+		return 0;
+
+	s = splhigh();
 	FUNNEL_ENTER(&SCC_FUNNEL);
 	simple_lock(&scc_stomp);				/* (TEST/DEBUG) */
 

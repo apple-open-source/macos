@@ -28,6 +28,18 @@
 */
 /*
 	$Log: IOFireWireUserClient.cpp,v $
+	Revision 1.60  2002/11/20 00:34:27  niels
+	fix minor bug in getAsyncTargetAndMethodForIndex
+	
+	Revision 1.59  2002/10/18 23:29:45  collin
+	fix includes, fix cast which fails on new compiler
+	
+	Revision 1.58  2002/10/17 00:29:44  collin
+	reenable FireLog
+	
+	Revision 1.57  2002/10/16 21:42:00  niels
+	no longer panic trying to get config directory on local node.. still can't get the directory, however
+	
 	Revision 1.56  2002/09/25 00:27:25  niels
 	flip your world upside-down
 	
@@ -41,21 +53,28 @@
 
 #import <sys/proc.h>
 
-#import "IOFireWireUserClient.h"
+// public
+#import <IOKit/firewire/IOFireWireFamilyCommon.h>
+#import <IOKit/firewire/IOFireWireNub.h>
+#import <IOKit/firewire/IOLocalConfigDirectory.h>
+#import <IOKit/firewire/IOFireWireController.h>
+#import <IOKit/firewire/IOFireWireDevice.h>
+#import <IOKit/firewire/IOFireLog.h>
 
-#import "IOFireWireFamilyCommon.h"
+// protected
+#import <IOKit/firewire/IOFireWireLink.h>
+
+// private
+#import "IOFireWireUserClient.h"
 #import "IOFWUserPseudoAddressSpace.h"
 #import "IOFWUserPhysicalAddressSpace.h"
 #import "IOFWUserIsochChannel.h"
 #import "IOFWUserIsochPort.h"
-#import "IOFireWireNub.h"
-#import "IOLocalConfigDirectory.h"
-#import "IOFireWireController.h"
 #import "IOFireWireLibPriv.h"
-#import "IOFireWireDevice.h"
-#import "IOFireWireLink.h"
+#import "IOFireWireLocalNode.h"
 #import "IOFWUserCommand.h"
 
+// system
 #import <IOKit/IOMessage.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -961,7 +980,7 @@ IOFireWireUserClient::getAsyncTargetAndMethodForIndex(IOService **target, UInt32
 	return NULL;
 else
 {
-	*target = fMethods[index].object ;
+	*target = fAsyncMethods[index].object ;
 	return &fAsyncMethods[index];
 }
 	return NULL;
@@ -1915,15 +1934,15 @@ IOFireWireUserClient::clientCommandIsComplete(
 #pragma mark
 #pragma mark --config directories
 IOReturn
-IOFireWireUserClient::configDirectoryCreate(
-	KernConfigDirectoryRef*	outDirRef)
+IOFireWireUserClient::configDirectoryCreate( KernConfigDirectoryRef * outDirRef )
 {
-	IOReturn error = fOwner->getConfigDirectory(*outDirRef);
-	if (not error && outDirRef)
-	{
-		(*outDirRef)->retain() ;
+	if ( OSDynamicCast( IOFireWireLocalNode, fOwner ) )
+		return kIOReturnUnsupported ;
+
+	IOReturn error = fOwner->getConfigDirectoryRef(*outDirRef);
+
+	if (not error && *outDirRef)
 		addObjectToSet( *outDirRef, fUserRemoteConfigDirectories ) ;
-	}
 	
 	return error ;
 }

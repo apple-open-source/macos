@@ -101,6 +101,10 @@ typedef void (*IOFWAVCPCRCallback)(void *refcon, UInt32 generation, UInt16 nodeI
 
 typedef struct
  {
+/* headerdoc parse workaround	
+class IOFireWireAVCLibUnitInterface: public IUnknown {
+public:
+*/
 	IUNKNOWN_C_GUTS;
 
 	UInt16	version;						
@@ -269,8 +273,15 @@ typedef struct
 	/*
 	*/
     IUnknownVTbl ** (*createConsumerPlug)( void *self, UInt8 plugNumber, REFIID iid );
-        
-        
+
+    /*!
+        @function updateAVCCommandTimeout
+        @abstract AVCCommands will timeout after 10 seconds unless this function is called
+        (from another thread) to update the command's timeout back to 10 seconds.
+        This function is only available if the interface version is > 2
+    */
+    IOReturn (*updateAVCCommandTimeout)(void * self);
+    
 } IOFireWireAVCLibUnitInterface;
 
 /*!
@@ -282,6 +293,10 @@ typedef struct
 
 typedef struct
  {
+/* headerdoc parse workaround	
+class IOFireWireAVCLibProtocolInterface: public IUnknown {
+public:
+*/
 	IUNKNOWN_C_GUTS;
 
 	UInt16	version;						
@@ -447,6 +462,10 @@ typedef void (*IOFireWireAVCFrameStatusHandler)( void * refcon, UInt32 mode, UIn
 
 typedef struct
  {
+/* headerdoc parse workaround	
+class IOFireWireAVCLibACConsumerInterface: public IUnknown {
+public:
+*/
 	IUNKNOWN_C_GUTS;
 
 	UInt16	version;						

@@ -1,0 +1,48 @@
+# This is a list of toolchains that are supported on this board.
+set_board_info target_install  {d10v-elf}
+
+# Load the generic configuration for this board. This will define any
+# routines needed to communicate with the board.
+load_generic_config "sim";
+
+# basic-sim.exp is a basic description for the standard Cygnus simulator.
+load_base_board_description "basic-sim"
+
+# The name of the simulator directory is "d10v".
+setup_sim d10v
+
+# No multilib options needed by default.
+process_multilib_options "";
+
+# The compiler used to build for this board. This has *nothing* to do
+# with what compiler is tested if we're testing gcc.
+set_board_info compiler  "[find_gcc]"
+
+# We only support newlib on this target. We assume that all multilib
+# options have been specified before we get here.
+set_board_info cflags  "[newlib_include_flags]"
+set_board_info ldflags  "[libgloss_link_flags] [newlib_link_flags]"
+# No linker script needed.
+set_board_info ldscript "";
+
+# Can't pass arguments to programs on this target..
+set_board_info noargs  1
+# And there's no support for signals.
+set_board_info gdb,nosignals  1
+
+# Used by a few gcc.c-torture testcases to delimit how large the stack can
+# be.
+set_board_info gcc,stack_size  5000
+
+# Used by a few gcc.c-torture testcases when trampolines are used.
+set_board_info gcc,no_trampolines  1
+
+# Used by a few gcc.c-torture testcases when labels as values are used.
+set_board_info gcc,no_label_values  1
+
+# Torture test gcc.c-torture/execute/920501-6.c takes > 5 minutes on a
+# 90 Mhz Pentium, so up the time limit.
+set board_info($board,sim_time_limit) 600
+
+# sizeof int != sizeof long.
+set_board_info gdb,short_int 1

@@ -28,9 +28,12 @@
 *
 */
 
+// public
+#import <IOKit/firewire/IOFireWireLibIsoch.h>
+#import <IOKit/firewire/IOFireWireFamilyCommon.h>
+
+// private
 #import "IOFireWireLibPriv.h"
-#import "IOFireWireLibIsoch.h"
-#import "IOFireWireFamilyCommon.h"
 
 namespace IOFireWireLib {
 

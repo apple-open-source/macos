@@ -207,6 +207,8 @@ public:
 
     virtual UInt32					contains(FWAddress addr);
 
+	static IOFWPseudoAddressSpace * simpleRWFixed( IOFireWireBus *control, FWAddress addr, UInt32 len, const void *data );
+
 protected:
 	
 	virtual IOFWAddressSpaceAux * createAuxiliary( void );

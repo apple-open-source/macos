@@ -1,6 +1,5 @@
-The code in the fetchmail distribution is Copyright 1997 by Eric S. Raymond.
-Portions were also copyrighted by Carl E. Harris, 1993 and 1995.  Copyright
-retained for the purpose of protecting open-source redistribution.
+This collective work is Copyright (C)2002 by Eric S. Raymond.
+Portions are copyrighted by Carl E. Harris and George M. Sipe.
 
 The support for SMB authentication is copyright by Andrew Tridgell and
 is under GPL version 2.  Tridge has granted a specific exemption for
@@ -11,7 +10,7 @@ The following files are public-domain: acconfig.h, alloca.c, md5c.c, md5.h.
 
 The following file is under a variant of the InnerNet Version 2 license
 (with the advertising clause removed for GPL compatibility) supplied
-by its author: ipv6_connect.c.
+by its author, Craig Metz: ipv6_connect.c.
 
 The following files are explicitly GPL-licensed: getopt1.c, getopt.c, getopt.h.
 

@@ -26,7 +26,7 @@
 #else
 #include <Kernel/libsa/mkext.h>
 #include <stdlib.h>
-#endif KERNEL
+#endif /* KERNEL */
 
 
 __private_extern__ u_int32_t

@@ -1,5 +1,5 @@
 /*
- * "$Id: mark.c,v 1.2 2002/07/11 22:06:34 gelphman Exp $"
+ * "$Id: mark.c,v 1.2.2.1 2002/10/22 17:46:04 gelphman Exp $"
  *
  *   Option marking routines for the Common UNIX Printing System (CUPS).
  *
@@ -396,22 +396,29 @@ ppdMarkOption(ppd_file_t *ppd,		/* I - PPD file record */
     else if (strcasecmp(option, "InputSlot") == 0)
     {
      /*
-      * Unmark ManualFeed option...
+      * Mark ManualFeed option to false
       */
 
       if ((o = ppdFindOption(ppd, "ManualFeed")) != NULL)
-	for (i = 0; i < o->num_choices; i ++)
+	for (i = 0; i < o->num_choices; i ++){
           o->choices[i].marked = 0;
+          // mark manual feed false on
+          if(strcasecmp(o->choices[i].choice, "False") == 0)
+            o->choices[i].marked = 1;
+        }
     }
     else if (strcasecmp(option, "ManualFeed") == 0)
     {
      /*
       * Unmark InputSlot option...
+      
+        Only unmark input slot if manual feed is set to True
       */
-
-      if ((o = ppdFindOption(ppd, "InputSlot")) != NULL)
-	for (i = 0; i < o->num_choices; i ++)
-          o->choices[i].marked = 0;
+        if(strcasecmp(choice, "True") == 0){
+            if ((o = ppdFindOption(ppd, "InputSlot")) != NULL)
+                for (i = 0; i < o->num_choices; i ++)
+                o->choices[i].marked = 0;
+        }
     }
   }
 
@@ -445,5 +452,5 @@ ppd_defaults(ppd_file_t  *ppd,	/* I - PPD file */
 
 
 /*
- * End of "$Id: mark.c,v 1.2 2002/07/11 22:06:34 gelphman Exp $".
+ * End of "$Id: mark.c,v 1.2.2.1 2002/10/22 17:46:04 gelphman Exp $".
  */

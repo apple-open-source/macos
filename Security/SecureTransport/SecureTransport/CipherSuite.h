@@ -69,9 +69,13 @@ enum
     SSL_DH_anon_WITH_3DES_EDE_CBC_SHA =         0x001B,
     SSL_FORTEZZA_DMS_WITH_NULL_SHA =            0x001C,
     SSL_FORTEZZA_DMS_WITH_FORTEZZA_CBC_SHA =    0x001D,
-    SSL_RSA_WITH_RC2_CBC_MD5 =                  0xFF80,     /* These are included to provide tags for */
-    SSL_RSA_WITH_IDEA_CBC_MD5 =                 0xFF81,     /*  SSL 2 cipher kinds which are not specified */
-    SSL_RSA_WITH_DES_CBC_MD5 =                  0xFF82,     /*  for SSL 3 */
+	/*
+	 * Tags for SSL 2 cipher kinds which are not specified 
+	 * for SSL 3. 
+	 */
+    SSL_RSA_WITH_RC2_CBC_MD5 =                  0xFF80,     
+    SSL_RSA_WITH_IDEA_CBC_MD5 =                 0xFF81,     
+    SSL_RSA_WITH_DES_CBC_MD5 =                  0xFF82,     
     SSL_RSA_WITH_3DES_EDE_CBC_MD5 =             0xFF83,
     SSL_NO_SUCH_CIPHERSUITE =                   0xFFFF
 };

@@ -221,12 +221,6 @@ bool IOFireWireDevice::init(OSDictionary *propTable, const IOFWNodeScan *info)
     return fROMLock != NULL;
 }
 
-void IOFireWireDevice::readROMDirGlue(void *refcon, IOReturn status,
-                        IOFireWireNub *nub, IOFWCommand *fwCmd)
-{
-	// unused
-}
-
 void IOFireWireDevice::terminateDevice(void *refcon)
 {
     IOFireWireDevice *me = (IOFireWireDevice *)refcon;
@@ -289,6 +283,7 @@ bool IOFireWireDevice::attach(IOService *provider)
     if( !IOFireWireNub::attach(provider))
         return (false);
     fControl = (IOFireWireController *)provider;
+    fControl->retain();
 
     sprintf(location, "%lx%08lx", (UInt32)(fUniqueID >> 32), (UInt32)(fUniqueID & 0xffffffff));
     setLocation(location);
@@ -309,6 +304,9 @@ bool IOFireWireDevice::attach(IOService *provider)
 
 bool IOFireWireDevice::finalize( IOOptionBits options )
 {
+    // mark the ROM as invalid
+    if(fDeviceROM)
+        fDeviceROM->setROMState( IOFireWireROMCache::kROMStateInvalid );
     /*
      * fDirectory has a retain() on this, which it won't release until it is
      * free()ed. So get rid of our retain() on it so eventually both can go.
@@ -323,14 +321,7 @@ bool IOFireWireDevice::finalize( IOOptionBits options )
     return IOFireWireNub::finalize(options);
 }
 
-// setNeedsRegisterServiceState
-//
-//
-
-void IOFireWireDevice::setRegistrationState( RegistrationState state )
-{
-	fRegistrationState = state;
-}
+#pragma mark -
 
 // setNodeROM
 //
@@ -491,6 +482,7 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
 		{
 			romScan->fROMGeneration = fROMGeneration;
 			romScan->fDevice = this;
+            retain();	// retain ourself for the thread to use.
 			IOCreateThread( readROMThreadFunc, romScan );
 		}
 	}
@@ -510,6 +502,12 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
 	FWKLOG(( "IOFireWireDevice@0x%08lx::setNodeROM exited\n", (UInt32)this ));	
 }
 
+void IOFireWireDevice::readROMDirGlue(void *refcon, IOReturn status,
+                        IOFireWireNub *nub, IOFWCommand *fwCmd)
+{
+	// unused
+}
+
 // readROMThreadFunc
 //
 //
@@ -519,7 +517,7 @@ void IOFireWireDevice::readROMThreadFunc( void *refcon )
     RomScan * 				romScan = (RomScan *)refcon;
     IOFireWireDevice * 		device = romScan->fDevice;
 	
-//	IOLog( "IOFireWireDevice::readROMThreadFunc entered\n" );
+	//IOLog( "IOFireWireDevice::readROMThreadFunc %p entered\n", romScan );
 	
 	// Make sure there's only one of these threads running at a time
     IORecursiveLockLock(device->fROMLock);
@@ -528,8 +526,8 @@ void IOFireWireDevice::readROMThreadFunc( void *refcon )
 	
 	IORecursiveLockUnlock(device->fROMLock);
 	IOFree(romScan, sizeof(RomScan));
-
-//	IOLog( "IOFireWireDevice::readROMThreadFunc exited\n" );
+    device->release();
+	//IOLog( "IOFireWireDevice::readROMThreadFunc %p exited\n", romScan );
 }
 
 // processROM
@@ -1115,6 +1113,38 @@ const UInt32 * IOFireWireDevice::getROMBase()
     return (const UInt32 *)fDeviceROM->getBytesNoCopy();
 }
 
+// setNeedsRegisterServiceState
+//
+//
+
+void IOFireWireDevice::setRegistrationState( RegistrationState state )
+{
+	fRegistrationState = state;
+}
+
+// matchPropertyTable
+//
+//
+
+bool IOFireWireDevice::matchPropertyTable(OSDictionary * table)
+{
+    //
+    // If the service object wishes to compare some of its properties in its
+    // property table against the supplied matching dictionary,
+    // it should do so in this method and return truth on success.
+    //
+    if (!IOFireWireNub::matchPropertyTable(table))  return false;
+
+    // We return success if the following expression is true -- individual
+    // comparisions evaluate to truth if the named property is not present
+    // in the supplied matching dictionary.
+
+    return compareProperty(table, gFireWireVendor_ID) &&
+        compareProperty(table, gFireWire_GUID);
+}
+
+#pragma mark -
+
 IOReturn IOFireWireDevice::message( UInt32 mess, IOService * provider,
                                     void * argument )
 {
@@ -1253,26 +1283,6 @@ bool IOFireWireDevice::handleIsOpen( const IOService * forClient ) const
     
     // we're not open
     return false;
-}
-
-/**
- ** Matching methods
- **/
-bool IOFireWireDevice::matchPropertyTable(OSDictionary * table)
-{
-    //
-    // If the service object wishes to compare some of its properties in its
-    // property table against the supplied matching dictionary,
-    // it should do so in this method and return truth on success.
-    //
-    if (!IOFireWireNub::matchPropertyTable(table))  return false;
-
-    // We return success if the following expression is true -- individual
-    // comparisions evaluate to truth if the named property is not present
-    // in the supplied matching dictionary.
-
-    return compareProperty(table, gFireWireVendor_ID) &&
-        compareProperty(table, gFireWire_GUID);
 }
 
 #pragma mark -

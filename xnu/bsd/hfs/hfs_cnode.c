@@ -145,8 +145,7 @@ hfs_inactive(ap)
 		if (error) goto out;
 
 #if QUOTA
-		if (!hfs_getinoquota(cp))
-			(void)hfs_chkiq(cp, -1, NOCRED, 0);
+		(void)hfs_chkiq(cp, -1, NOCRED, 0);
 #endif /* QUOTA */
 
 		cp->c_mode = 0;
@@ -265,7 +264,7 @@ hfs_reclaim(ap)
 #if QUOTA
 		for (i = 0; i < MAXQUOTAS; i++) {
 			if (cp->c_dquot[i] != NODQUOT) {
-				dqrele(vp, cp->c_dquot[i]);
+				dqreclaim(vp, cp->c_dquot[i]);
 				cp->c_dquot[i] = NODQUOT;
 			}
 		}

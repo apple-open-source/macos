@@ -117,6 +117,7 @@ protected:
     IOUSBRootHubDevice *	_rootHubDevice;
     UInt32			_devZeroLock;
     static UInt32		_busCount;
+    static bool			gUsedBusIDs[16];
     
     struct ExpansionData 
     {
@@ -1012,7 +1013,7 @@ public:
                                                         IOMemoryDescriptor *	pBuffer,
                                                         UInt32			frameCount,
                                                         IOUSBLowLatencyIsocFrame *pFrames,
-                                                        UInt32			updateFrequency) = 0;
+                                                        UInt32			updateFrequency);
 
 
     OSMetaClassDeclareReservedUnused(IOUSBController,  17);

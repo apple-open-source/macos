@@ -30,9 +30,14 @@
 #ifndef _IOKIT_IOFIREWIREUSERCLIENT_H
 #define _IOKIT_IOFIREWIREUSERCLIENT_H
 
-#import <IOKit/IOUserClient.h>
-#import "IOFWCommand.h"
+// public
+#import <IOKit/firewire/IOFWCommand.h>
+
+// private
 #import "IOFireWireLibPriv.h"
+
+// system
+#import <IOKit/IOUserClient.h>
 
 #if IOFIREWIREUSERCLIENTDEBUG > 0
 	#define IOFireWireUserClientLog_(x...) IOLog(x)

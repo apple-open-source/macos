@@ -2,19 +2,20 @@
 
      _________________________________________________________________
 
-                           Fetchmail Feature List
+                            Fetchmail Feature List
 
 Since 5.0:
 
+     * STARTTLS is supportrf in both POP and IMAP.
      * ESMTP AUTH (RFC 2554) is supported.
      * Has  the  capability  of  adding trace information to the Received
        header  to  faciliate  mail  filtering  by  mailserver  and remote
        account.
      * Fetchmail now has options to handle SSL certificate validation.
-     * Fetchmail  now  falls back to delivering via local MDA if it can't
-       open port 25.
+     * Fetchmail  can  be  told  to  fall  back  to  delivering via local
+       sendmail if it can't open port 25.
      * Support for AUTH=CRAM-MD5 under POP3, a la RFC2195.
-     * Support for ODMR (On-Demand Mail Relay), RFC 2645 (untested).
+     * Support for ODMR (On-Demand Mail Relay), RFC 2645.
      * It's now easy to deliver mail to a local LMTP socket.
      * The  interface  option  now checks both local and remote interface
        IPs.

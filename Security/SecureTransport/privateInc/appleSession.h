@@ -21,41 +21,33 @@
 
 	Contains:	Session storage module, Apple CDSA version. 
 
-	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
+	Written by:	Doug Mitchell
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
 */
 
-/* 
- * This file replaces the caller-specified SSLAddSessionFunc,
- * SSLGetSessionFunc, and SSLDeleteSessionFunc callbacks in the 
- * original SSLRef 3.0.
- */
- 
 #ifndef	_APPLE_SESSION_H_
 #define _APPLE_SESSION_H_
 
-#ifndef	_SSL_H_
 #include "ssl.h"
-#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern SSLErr sslAddSession (
+extern OSStatus sslAddSession (
 	const SSLBuffer sessionKey, 
 	const SSLBuffer sessionData);
 
-extern SSLErr sslGetSession (
+extern OSStatus sslGetSession (
 	const SSLBuffer sessionKey, 
 	SSLBuffer *sessionData);
 
-extern SSLErr sslDeleteSession (
+extern OSStatus sslDeleteSession (
 	const SSLBuffer sessionKey);
 
-extern SSLErr sslCleanupSession();
+extern OSStatus sslCleanupSession();
 
 #ifdef __cplusplus
 }

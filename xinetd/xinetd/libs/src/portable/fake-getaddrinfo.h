@@ -18,6 +18,14 @@
 # define NI_NUMERICSERV    8
 #endif
 
+#ifndef EAI_NODATA
+#define EAI_NODATA        -5
+#endif
+
+#ifndef EAI_MEMORY
+#define EAI_MEMORY       -10
+#endif
+
 #ifndef HAVE_STRUCT_ADDRINFO
 struct addrinfo {
 	int	ai_flags;	/* AI_PASSIVE, AI_CANONNAME */

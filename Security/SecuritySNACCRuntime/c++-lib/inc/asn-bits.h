@@ -32,7 +32,7 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/inc/asn-bits.h,v 1.2 2001/06/28 23:36:11 dmitch Exp $
+// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/inc/asn-bits.h,v 1.2 2001/06/28 23:36:11 dmitch Exp $
 // $Log: asn-bits.h,v $
 // Revision 1.2  2001/06/28 23:36:11  dmitch
 // Removed SccsId statics. numToHexCharTblG table now const. Radar 2705410.

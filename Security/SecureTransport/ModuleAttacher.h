@@ -40,14 +40,7 @@ extern "C" {
 extern CSSM_RETURN attachToModules(
 	CSSM_CSP_HANDLE		*cspHand,
 	CSSM_CL_HANDLE		*clHand,
-	CSSM_TP_HANDLE		*tpHand
-	#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
-	,
-	/* manually attach to secure CSP/DL; eventually we get this from 
-	 * SecKeychainAPI */
-	CSSM_CSP_HANDLE		*cspDlHandle
-	#endif
-	);
+	CSSM_TP_HANDLE		*tpHand);
 
 #ifdef	__cplusplus
 }

@@ -1,6 +1,6 @@
 /* config.h.  Generated automatically by configure.  */
 /*
- * "$Id: config.h,v 1.20 2002/06/10 23:47:22 jlovell Exp $"
+ * "$Id: config.h,v 1.20.2.1 2002/12/13 22:54:07 jlovell Exp $"
  *
  *   Configuration file for the Common UNIX Printing System (CUPS).
  *
@@ -29,7 +29,7 @@
  * Version of software...
  */
 
-#define CUPS_SVERSION	"CUPS v1.1.15"
+#define CUPS_SVERSION	"CUPS v1.1.15-2"
 
 
 /*
@@ -236,5 +236,5 @@
 
 
 /*
- * End of "$Id: config.h,v 1.20 2002/06/10 23:47:22 jlovell Exp $".
+ * End of "$Id: config.h,v 1.20.2.1 2002/12/13 22:54:07 jlovell Exp $".
  */

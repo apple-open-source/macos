@@ -176,7 +176,7 @@ void AudioHardwareOutput::deviceIntService( UInt32 currentDevices ) {
     }
 
 	// For [2926907]
-	if (NULL != pluginRef->headphoneConnection && oKind == kIOAudioOutputPortSubTypeHeadphones) {
+	if (NULL != pluginRef->headphoneConnection && (oKind == kIOAudioOutputPortSubTypeHeadphones || oKind == kIOAudioOutputPortSubTypeExternalSpeaker || oKind == kIOAudioOutputPortSubTypeLine)) {
 		OSNumber *			headphoneState;
 		headphoneState = OSNumber::withNumber ((long long unsigned int)active, 32);
 		(void)pluginRef->headphoneConnection->hardwareValueChanged (headphoneState);

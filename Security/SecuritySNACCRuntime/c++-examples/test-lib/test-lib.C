@@ -18,7 +18,7 @@
 
 // c++_examples/test_lib/test_lib.C
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-examples/test-lib/test-lib.C,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
+// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-examples/test-lib/test-lib.C,v 1.1.1.1 2001/05/18 23:14:05 mb Exp $
 // $Log: test-lib.C,v $
 // Revision 1.1.1.1  2001/05/18 23:14:05  mb
 // Move from private repository to open source repository

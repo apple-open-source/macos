@@ -87,7 +87,7 @@ static UInt8	kBassRegValues[] = {
 };
 #endif
 
-//#define kUSE_DRC		//	when defined, enable DRC at -30.0 dB
+//#define kUSE_DRC		/*	when defined, enable DRC at -30.0 dB	*/
 
 static UInt32	volumeTable[] = {					// db = 20 LOG(x) but we just use table. from 0.0 to -70 db
 	0x00000000,														// -infinity
@@ -467,7 +467,6 @@ enum {
 #define kVideoPropertyEntry			"video"
 #define kSerialPropertyEntry		"headphone-serial"
 
-#define kGPIODTEntry				"gpio"
 #define kI2CDTEntry					"i2c"
 #define kDigitalEQDTEntry			"deq"
 #define kSoundEntry					"sound"
@@ -475,7 +474,6 @@ enum {
 #define kNumInputs					"#-inputs"
 #define kDeviceID					"device-id"
 #define kCompatible					"compatible"
-#define kAAPLAddress				"AAPL,address"
 #define kI2CAddress					"i2c-address"
 #define kAudioGPIO					"audio-gpio"
 #define kAudioGPIOActiveState		"audio-gpio-active-state"
@@ -626,7 +624,7 @@ struct EQPrefs {
 	UInt32					genreType;				//	'jazz', 'clas', etc...
 	UInt32					eqCount;				//	number of eq[n] array elements
 	UInt32					nameID;					//	resource id of STR identifying the filter genre
-	EQPrefsElement			eq[8];					//	'n' sized based on number of devicID/speakerID/layoutID combinations...
+	EQPrefsElement			eq[9];					//	'n' sized based on number of devicID/speakerID/layoutID combinations...
 };
 typedef EQPrefs *EQPrefsPtr;
 

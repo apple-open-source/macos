@@ -30,8 +30,11 @@
 #define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
 #define DEBUGLOG IOLog
 
+// protected
+#import <IOKit/firewire/IOFWWorkLoop.h>
+
+// system
 #import <IOKit/IOWorkLoop.h>
-#import "IOFWWorkLoop.h"
 
 OSDefineMetaClassAndStructors( IOFWWorkLoop, IOWorkLoop )
 

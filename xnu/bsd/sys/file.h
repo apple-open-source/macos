@@ -63,6 +63,7 @@
 #include <sys/unistd.h>
 
 #ifdef KERNEL
+#include <sys/errno.h>
 #include <sys/queue.h>
 #include <sys/cdefs.h>
 
@@ -100,7 +101,7 @@ struct file {
 		int	(*fo_close)	__P((struct file *fp, struct proc *p));
 	} *f_ops;
 	off_t	f_offset;
-	caddr_t	f_data;		/* vnode or socket */
+	caddr_t	f_data;		/* vnode or socket or SHM or semaphore */
 };
 
 #ifdef __APPLE_API_PRIVATE
@@ -130,7 +131,8 @@ fo_read(struct file *fp, struct uio *uio, struct ucred *cred, int flags, struct 
 {
 	int error;
 
-	fref(fp);
+	if ((error = fref(fp)) == -1)
+		return (EBADF);
 	error = (*fp->f_ops->fo_read)(fp, uio, cred, flags, p);
 	frele(fp);
 	return (error);
@@ -141,7 +143,8 @@ fo_write(struct file *fp, struct uio *uio, struct ucred *cred, int flags, struct
 {
 	int error;
 
-	fref(fp);
+	if ((error = fref(fp)) == -1)
+		return (EBADF);
 	error = (*fp->f_ops->fo_write)(fp, uio, cred, flags, p);
 	frele(fp);
 	return (error);
@@ -152,7 +155,8 @@ fo_ioctl(struct file *fp, u_long com, caddr_t data, struct proc *p)
 {
 	int error;   
 
-	fref(fp);
+	if ((error = fref(fp)) == -1)
+		return (EBADF);
 	error = (*fp->f_ops->fo_ioctl)(fp, com, data, p);
 	frele(fp);
 	return (error);

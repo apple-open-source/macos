@@ -865,15 +865,17 @@ fsinvoths:	cmplwi	cr1,r14,0						; Do we possibly have some context to load?
 fsenable:	lwz		r8,savesrr1(r25)				; Get the msr of the interrupted guy
 			rlwinm	r5,r25,0,0,19					; Get the page address of the savearea 
 			ori		r8,r8,MASK(MSR_FP)				; Enable the floating point feature
-			lwz		r10,ACT_MACT_SPF(r17)			; Get the special flags
+			lwz		r10,ACT_MACT_SPF(r17)			; Get the act special flags
+			lwz		r11,spcFlags(r26)				; Get per_proc spec flags cause not in sync with act
 			lwz		r5,SACvrswap(r5)				; Get Virtual to Real translation 
 			oris	r10,r10,hi16(floatUsed|floatCng)	; Set that we used floating point
+			oris	r11,r11,hi16(floatUsed|floatCng)	; Set that we used floating point
 			rlwinm.	r0,r8,0,MSR_PR_BIT,MSR_PR_BIT	; See if we are doing this for user state
 			stw		r8,savesrr1(r25)				; Set the msr of the interrupted guy
 			xor		r3,r25,r5						; Get the real address of the savearea
 			beq-	fsnuser							; We are not user state...
 			stw		r10,ACT_MACT_SPF(r17)			; Set the activation copy
-			stw		r10,spcFlags(r26)				; Set per_proc copy
+			stw		r11,spcFlags(r26)				; Set per_proc copy
 
 fsnuser:
 #if FPVECDBG
@@ -2291,15 +2293,17 @@ lnovr31:	mr		r3,r14							; Get the old savearea (we popped it before)
 vrenable:	lwz		r8,savesrr1(r25)				; Get the msr of the interrupted guy
 			rlwinm	r5,r25,0,0,19					; Get the page address of the savearea 
 			oris	r8,r8,hi16(MASK(MSR_VEC))		; Enable the vector facility
-			lwz		r10,ACT_MACT_SPF(r17)			; Get the special flags
+			lwz		r10,ACT_MACT_SPF(r17)			; Get the act special flags
+			lwz		r11,spcFlags(r26)				; Get per_proc spec flags cause not in sync with act
 			lwz		r5,SACvrswap(r5)				; Get Virtual to Real translation 
 			oris	r10,r10,hi16(vectorUsed|vectorCng)	; Set that we used vectors
+			oris	r11,r11,hi16(vectorUsed|vectorCng)	; Set that we used vectors
 			rlwinm.	r0,r8,0,MSR_PR_BIT,MSR_PR_BIT	; See if we are doing this for user state
 			stw		r8,savesrr1(r25)				; Set the msr of the interrupted guy
 			xor		r3,r25,r5						; Get the real address of the savearea
 			beq-	vrnuser							; We are not user state...
 			stw		r10,ACT_MACT_SPF(r17)			; Set the activation copy
-			stw		r10,spcFlags(r26)				; Set per_proc copy
+			stw		r11,spcFlags(r26)				; Set per_proc copy
 
 vrnuser:
 #if FPVECDBG

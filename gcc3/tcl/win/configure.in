@@ -1,0 +1,106 @@
+dnl	The file is CYGNUS LOCAL.  It is used for cygwin.
+
+dnl	This file is an input file used by the GNU "autoconf" program to
+dnl	generate the file "configure", which is run during Tcl installation
+dnl	to configure the system for the local environment.
+
+AC_PREREQ(2.5)
+
+AC_INIT(../generic/tcl.h)
+
+if test "${prefix}" = "NONE"; then
+    prefix=/usr/local
+fi
+if test "${exec_prefix}" = "NONE"; then
+    exec_prefix=$prefix
+fi
+
+AC_CANONICAL_HOST
+
+AC_PROG_CC
+AC_OBJEXT
+AC_CHECK_TOOL(NM, nm, nm)
+AC_SUBST(NM)
+AC_CHECK_TOOL(AS, as, as)
+AC_SUBST(AS)
+AC_CHECK_TOOL(LD, ld, ld)
+AC_SUBST(LD)
+AC_PROG_RANLIB
+AC_CHECK_TOOL(DLLTOOL, dlltool, dlltool)
+AC_SUBST(DLLTOOL)
+AC_CHECK_TOOL(WINDRES, windres, windres)
+AC_SUBST(WINDRES)
+AC_PROG_INSTALL
+
+# needed for the subtle differences between cygwin and mingw32
+case "${host}" in
+*-*-cygwin*)
+	TCL_ALLOC_OBJ=
+	DLL_LDLIBS=-lcygwin
+	DLL_LDFLAGS='-nostartfiles -Wl,--dll'
+	;;
+*-*-mingw32*)
+	TCL_ALLOC_OBJ='$(TMPDIR)/tclAlloc.o'
+	DLL_LDLIBS=
+	DLL_LDFLAGS='-mdll'
+	;;
+esac
+
+AC_SUBST(TCL_ALLOC_OBJ)
+AC_SUBST(DLL_LDFLAGS)
+AC_SUBST(DLL_LDLIBS)
+
+# The following variables are just for tclConfig.sh, not for Makefile. 
+LIBOBJS=
+AC_SUBST(LIBOBJS)
+TCL_VERSION=8.0
+TCL_MAJOR_VERSION=8
+TCL_MINOR_VERSION=0
+TCL_PATCH_LEVEL=p2
+VERSION=${TCL_VERSION}
+DL_LIBS=
+MATH_LIBS=-lm
+SHLIB_CFLAGS=
+SHLIB_LD=
+SHLIB_LD_LIBS=
+SHLIB_SUFFIX=
+LD_FLAGS=
+TCL_LD_SEARCH_FLAGS=
+TCL_BUILD_LIB_SPEC="-L`pwd` -ltcl`echo ${VERSION} | tr -d .`"
+TCL_LIB_SPEC="-L${exec_prefix}/lib -ltcl`echo ${VERSION} | tr -d .`"
+TCL_LIB_VERSIONS_OK=nodots
+TCL_SHARED_LIB_SUFFIX=
+TCL_UNSHARED_LIB_SUFFIX="`echo ${VERSION} | tr -d .`.a"
+eval "TCL_LIB_FILE=libtcl${TCL_UNSHARED_LIB_SUFFIX}"
+TCL_SRC_DIR=`cd $srcdir/..; pwd`
+if test "$prefix" != "$exec_prefix"; then
+    TCL_PACKAGE_PATH="${exec_prefix}/lib ${prefix}/lib"
+else
+    TCL_PACKAGE_PATH="${prefix}/lib"
+fi
+TCL_BIN_DIR=`pwd`
+
+AC_SUBST(DL_LIBS)
+AC_SUBST(LD_FLAGS)
+AC_SUBST(MATH_LIBS)
+AC_SUBST(SHLIB_CFLAGS)
+AC_SUBST(SHLIB_LD)
+AC_SUBST(SHLIB_LD_LIBS)
+AC_SUBST(SHLIB_SUFFIX)
+AC_SUBST(TCL_BUILD_LIB_SPEC)
+AC_SUBST(TCL_LD_SEARCH_FLAGS)
+AC_SUBST(TCL_LIB_FILE)
+AC_SUBST(TCL_LIB_SPEC)
+AC_SUBST(TCL_LIB_VERSIONS_OK)
+AC_SUBST(TCL_MAJOR_VERSION)
+AC_SUBST(TCL_MINOR_VERSION)
+AC_SUBST(TCL_PACKAGE_PATH)
+AC_SUBST(TCL_PATCH_LEVEL)
+AC_SUBST(TCL_SHARED_LIB_SUFFIX)
+AC_SUBST(TCL_SHLIB_CFLAGS)
+AC_SUBST(TCL_SRC_DIR)
+AC_SUBST(TCL_UNSHARED_LIB_SUFFIX)
+AC_SUBST(TCL_VERSION)
+AC_SUBST(TCL_BIN_DIR)
+
+AC_OUTPUT(Makefile ../unix/tclConfig.sh)

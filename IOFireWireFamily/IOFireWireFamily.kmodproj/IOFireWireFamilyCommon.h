@@ -29,6 +29,9 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
+	Revision 1.38  2002/11/01 20:45:57  collin
+	add enhanced IRM with support for the BROADCAST_CHANNEL register
+	
 	Revision 1.37  2002/10/01 02:40:27  collin
 	security mode support
 	
@@ -428,6 +431,8 @@ enum
 	kCSRBandwidthAvailable					= kCSRRegisterSpaceBaseAddressLo + 0x0220,
 	kCSRChannelsAvailable31_0				= kCSRRegisterSpaceBaseAddressLo + 0x0224,
 	kCSRChannelsAvailable63_32				= kCSRRegisterSpaceBaseAddressLo + 0x0228,
+	kCSRBroadcastChannel					= kCSRRegisterSpaceBaseAddressLo + 0x0234,
+	
 	kConfigROMBaseAddress					= kCSRRegisterSpaceBaseAddressLo + 0x0400,
 	kConfigBIBHeaderAddress					= kConfigROMBaseAddress,
 	kConfigBIBBusNameAddress				= kConfigROMBaseAddress + 4,
@@ -437,6 +442,9 @@ enum
 	kFCPResponseAddress						= kCSRRegisterSpaceBaseAddressLo + 0xd00
 };
 
+// from figure 10-7 of 1394a
+#define kBroadcastChannelInitialValues 	0x8000001f
+#define kBroadcastChannelValidMask 		0x40000000
 
 // CSR defined 64 bit unique ID.
 

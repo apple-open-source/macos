@@ -252,8 +252,10 @@ nottyDetach:
     return(PS_IOERR);
   }
 
+#ifdef HAVE_GETCWD
   /* move to root directory, so we don't prevent filesystem unmounts */
   chdir("/");
+#endif
 
   /* set our umask to something reasonable (we hope) */
 #if defined(DEF_UMASK)

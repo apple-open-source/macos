@@ -247,6 +247,8 @@ export VPATH	 	= $(VPATH_GEN)$(VPATH_IMPORT)$(VPATH_EXTERN)$(VPATH_MAKEFILE)
 # install flags for header files
 # 
 INSTALL_FLAGS = -c -m 0444
+FILE_INSTALL_FLAGS = -c -m 0644
+DATA_INSTALL_FLAGS = -c -m 0644
 
 #
 # Header file destinations

@@ -764,6 +764,7 @@ bool CLDAPv3PlugIn::ParseNextDHCPLDAPServerString ( char **inServer, char **inSe
 		}
 		else
 		{
+			syslog(LOG_INFO,"DSLDAPv3PlugIn: DHCP option 95 error since obtained [%s] LDAP server prefix is not of the correct format.", aToken);
 			if ( tmpBuff != nil )
 			{
 				free(tmpBuff);
@@ -788,6 +789,7 @@ bool CLDAPv3PlugIn::ParseNextDHCPLDAPServerString ( char **inServer, char **inSe
 		}
 		else
 		{
+			syslog(LOG_INFO,"DSLDAPv3PlugIn: DHCP option 95 error since can't extract LDAP server name from URL.");
 			if ( tmpBuff != nil )
 			{
 				free(tmpBuff);
@@ -1884,8 +1886,8 @@ sInt32 CLDAPv3PlugIn::GetAllRecords (	char			   *inRecType,
             // host handle, search base, search scope(LDAP_SCOPE_SUBTREE for all), search filter,
             // attribute list (NULL for all), return attrs values flag
             // This returns us the message ID which is used to query the server for the results
-			int numRetries = 1;
-			do
+			int numRetries = 2;
+			while (true)
 			{
 				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
@@ -1900,18 +1902,21 @@ sInt32 CLDAPv3PlugIn::GetAllRecords (	char			   *inRecType,
 				if (searchResult == eDSRecordNotFound) throw( (sInt32)eDSNoErr );
 				if (searchResult == eDSCannotAccessSession)
 				{
-					RebindLDAPSession(inContext, fLDAPSessionMgr);
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
 					}
 					else
 					{
+						RebindLDAPSession(inContext, fLDAPSessionMgr);
 						numRetries--;
-						continue;
 					}
 				}
-			} while (false);
+				else
+				{
+					break;
+				}
+			}
 			
             inContinue->msgId = ldapMsgId;
         } // msgId == 0
@@ -3708,8 +3713,8 @@ sInt32 CLDAPv3PlugIn::GetTheseRecords (	char			   *inConstRecName,
             // host handle, search base, search scope(LDAP_SCOPE_SUBTREE for all), search filter,
             // attribute list (NULL for all), return attrs values flag
             // This returns us the message ID which is used to query the server for the results
-			int numRetries = 1;
-			do
+			int numRetries = 2;
+			while (true)
 			{
 				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
@@ -3724,18 +3729,21 @@ sInt32 CLDAPv3PlugIn::GetTheseRecords (	char			   *inConstRecName,
 				if (searchResult == eDSRecordNotFound) throw( (sInt32)eDSNoErr );
 				if (searchResult == eDSCannotAccessSession)
 				{
-					RebindLDAPSession(inContext, fLDAPSessionMgr);
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
 					}
 					else
 					{
+						RebindLDAPSession(inContext, fLDAPSessionMgr);
 						numRetries--;
-						continue;
 					}
 				}
-			} while (false);
+				else
+				{
+					break;
+				}
+			}
 			
             inContinue->msgId = ldapMsgId;
         } // msgId == 0
@@ -4913,8 +4921,8 @@ sInt32 CLDAPv3PlugIn::OpenRecord ( sOpenRecord *inData )
 	        // attribute list (NULL for all), return attrs values flag
 	        // Note: asynchronous call is made so that a MsgId can be used for future calls
 	        // This returns us the message ID which is used to query the server for the results
-			int numRetries = 1;
-			do
+			int numRetries = 2;
+			while (true)
 			{
 				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
@@ -4929,26 +4937,27 @@ sInt32 CLDAPv3PlugIn::OpenRecord ( sOpenRecord *inData )
 				if (searchResult == eDSRecordNotFound)
 				{
 					bResultFound = false;
+					break;
 				}
 				else if (searchResult == eDSCannotAccessSession)
 				{
 					bResultFound = false;
-					RebindLDAPSession(pContext, fLDAPSessionMgr);
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
 					}
 					else
 					{
+						RebindLDAPSession(pContext, fLDAPSessionMgr);
 						numRetries--;
-						continue;
 					}
 				}
 				else
 				{
 					bResultFound = true;
+					break;
 				}
-			} while (false);
+			}
 			
 	        if (bResultFound)
 	        {
@@ -7550,8 +7559,8 @@ sInt32 CLDAPv3PlugIn::FindAllRecords (	char			   *inConstAttrName,
             // host handle, search base, search scope(LDAP_SCOPE_SUBTREE for all), search filter,
             // attribute list (NULL for all), return attrs values flag
             // This returns us the message ID which is used to query the server for the results
-			int numRetries = 1;
-			do
+			int numRetries = 2;
+			while (true)
 			{
 				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
@@ -7566,18 +7575,21 @@ sInt32 CLDAPv3PlugIn::FindAllRecords (	char			   *inConstAttrName,
 				if (searchResult == eDSRecordNotFound) throw( (sInt32)eDSNoErr );
 				if (searchResult == eDSCannotAccessSession)
 				{
-					RebindLDAPSession(inContext, fLDAPSessionMgr);
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
 					}
 					else
 					{
+						RebindLDAPSession(inContext, fLDAPSessionMgr);
 						numRetries--;
-						continue;
 					}
 				}
-			} while (false);
+				else
+				{
+					break;
+				}
+			}
 			
             inContinue->msgId = ldapMsgId;
         } // msgId == 0
@@ -7856,8 +7868,8 @@ sInt32 CLDAPv3PlugIn::FindTheseRecords (	char			   *inConstAttrType,
             // host handle, search base, search scope(LDAP_SCOPE_SUBTREE for all), search filter,
             // attribute list (NULL for all), return attrs values flag
             // This returns us the message ID which is used to query the server for the results
-			int numRetries = 1;
-			do
+			int numRetries = 2;
+			while (true)
 			{
 				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
@@ -7872,18 +7884,21 @@ sInt32 CLDAPv3PlugIn::FindTheseRecords (	char			   *inConstAttrType,
 				if (searchResult == eDSRecordNotFound) throw( (sInt32)eDSNoErr );
 				if (searchResult == eDSCannotAccessSession)
 				{
-					RebindLDAPSession(inContext, fLDAPSessionMgr);
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
 					}
 					else
 					{
+						RebindLDAPSession(inContext, fLDAPSessionMgr);
 						numRetries--;
-						continue;
 					}
 				}
-			} while (false);
+				else
+				{
+					break;
+				}
+			}
 			
             inContinue->msgId = ldapMsgId;
         } // msgId == 0
@@ -9379,8 +9394,8 @@ sInt32 CLDAPv3PlugIn::GetAuthAuthority ( sLDAPContextData *inContext, tDataBuffe
 	        // attribute list (NULL for all), return attrs values flag
 	        // Note: asynchronous call is made so that a MsgId can be used for future calls
 	        // This returns us the message ID which is used to query the server for the results
-			int numRetries = 1;
-			do
+			int numRetries = 2;
+			while (true)
 			{
 				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	inLDAPSessionMgr,
@@ -9395,26 +9410,27 @@ sInt32 CLDAPv3PlugIn::GetAuthAuthority ( sLDAPContextData *inContext, tDataBuffe
 				if (searchResult == eDSRecordNotFound)
 				{
 					bResultFound = false;
+					break;
 				}
 				else if (searchResult == eDSCannotAccessSession)
 				{
 					bResultFound = false;
-					RebindLDAPSession(inContext, inLDAPSessionMgr);
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
 					}
 					else
 					{
+						RebindLDAPSession(inContext, inLDAPSessionMgr);
 						numRetries--;
-						continue;
 					}
 				}
 				else
 				{
 					bResultFound = true;
+					break;
 				}
-			} while (false);
+			}
 			
 	        if ( bResultFound )
 	        {
@@ -9730,8 +9746,8 @@ sInt32 CLDAPv3PlugIn::DoUnixCryptAuth ( sLDAPContextData *inContext, tDataBuffer
 	        // attribute list (NULL for all), return attrs values flag
 	        // Note: asynchronous call is made so that a MsgId can be used for future calls
 	        // This returns us the message ID which is used to query the server for the results
-			int numRetries = 1;
-			do
+			int numRetries = 2;
+			while (true)
 			{
 				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	inLDAPSessionMgr,
@@ -9746,26 +9762,27 @@ sInt32 CLDAPv3PlugIn::DoUnixCryptAuth ( sLDAPContextData *inContext, tDataBuffer
 				if (searchResult == eDSRecordNotFound)
 				{
 					bResultFound = false;
+					break;
 				}
 				else if (searchResult == eDSCannotAccessSession)
 				{
 					bResultFound = false;
-					RebindLDAPSession(inContext, inLDAPSessionMgr);
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
 					}
 					else
 					{
+						RebindLDAPSession(inContext, inLDAPSessionMgr);
 						numRetries--;
-						continue;
 					}
 				}
 				else
 				{
 					bResultFound = true;
+					break;
 				}
-			} while (false);
+			}
 			
 	        if ( bResultFound )
 	        {
@@ -10160,8 +10177,8 @@ char* CLDAPv3PlugIn::GetDNForRecordName ( char* inRecName, sLDAPContextData *inC
 	        // attribute list (NULL for all), return attrs values flag
 	        // Note: asynchronous call is made so that a MsgId can be used for future calls
 	        // This returns us the message ID which is used to query the server for the results
-			int numRetries = 1;
-			do
+			int numRetries = 2;
+			while (true)
 			{
 				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	inLDAPSessionMgr,
@@ -10176,26 +10193,27 @@ char* CLDAPv3PlugIn::GetDNForRecordName ( char* inRecName, sLDAPContextData *inC
 				if (searchResult == eDSRecordNotFound)
 				{
 					bResultFound = false;
+					break;
 				}
 				else if (searchResult == eDSCannotAccessSession)
 				{
 					bResultFound = false;
-					RebindLDAPSession(inContext, inLDAPSessionMgr);
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
 					}
 					else
 					{
+						RebindLDAPSession(inContext, inLDAPSessionMgr);
 						numRetries--;
-						continue;
 					}
 				}
 				else
 				{
 					bResultFound = true;
+					break;
 				}
-			} while (false);
+			}
 			
 	        if ( bResultFound )
 	        {
@@ -10373,6 +10391,7 @@ sInt32 CLDAPv3PlugIn::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					if ( inData->fOutRequestResponse->fBufferSize < sizeof( CFIndex ) ) throw( (sInt32)eDSInvalidBuffFormat );
 					if (pConfigFromXML)
 					{
+						pConfigFromXML->XMLConfigLock();
 						// need four bytes for size
 						xmlData = pConfigFromXML->GetXMLConfig();
 						if (xmlData != 0)
@@ -10383,6 +10402,7 @@ sInt32 CLDAPv3PlugIn::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 							CFRelease(xmlData);
 							xmlData = 0;
 						}
+						pConfigFromXML->XMLConfigUnlock();
 					}
 					break;
 					
@@ -10394,6 +10414,7 @@ sInt32 CLDAPv3PlugIn::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					if ( inData->fOutRequestResponse->fBufferData == nil ) throw( (sInt32)eDSEmptyBuffer );
 					if (pConfigFromXML)
 					{
+						pConfigFromXML->XMLConfigLock();
 						xmlData = pConfigFromXML->GetXMLConfig();
 						if (xmlData != 0)
 						{
@@ -10406,6 +10427,7 @@ sInt32 CLDAPv3PlugIn::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 							CFRelease(xmlData);
 							xmlData = 0;
 						}
+						pConfigFromXML->XMLConfigUnlock();
 					}
 					break;
 					
@@ -10419,8 +10441,10 @@ sInt32 CLDAPv3PlugIn::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					if (pConfigFromXML)
 					{
 						// refresh registered nodes
+						pConfigFromXML->XMLConfigLock();
 						siResult = pConfigFromXML->SetXMLConfig(xmlData);
 						siResult = pConfigFromXML->WriteXMLConfig();
+						pConfigFromXML->XMLConfigUnlock();
 						Initialize();
 					}
 					CFRelease(xmlData);
@@ -10608,8 +10632,8 @@ sInt32 CLDAPv3PlugIn::GetRecRefLDAPMessage ( sLDAPContextData *inRecContext, LDA
 	        // attribute list (NULL for all), return attrs values flag
 	        // Note: asynchronous call is made so that a MsgId can be used for future calls
 	        // This returns us the message ID which is used to query the server for the results
-			int numRetries = 1;
-			do
+			int numRetries = 2;
+			while (true)
 			{
 				sInt32 searchResult = eDSNoErr;
 				searchResult = DSSearchLDAP(	fLDAPSessionMgr,
@@ -10624,26 +10648,27 @@ sInt32 CLDAPv3PlugIn::GetRecRefLDAPMessage ( sLDAPContextData *inRecContext, LDA
 				if (searchResult == eDSRecordNotFound)
 				{
 					bResultFound = false;
+					break;
 				}
 				else if (searchResult == eDSCannotAccessSession)
 				{
 					bResultFound = false;
-					RebindLDAPSession(inRecContext, fLDAPSessionMgr);
 					if (numRetries == 0)
 					{
 						throw( (sInt32)eDSCannotAccessSession );
 					}
 					else
 					{
+						RebindLDAPSession(inRecContext, fLDAPSessionMgr);
 						numRetries--;
-						continue;
 					}
 				}
 				else
 				{
 					bResultFound = true;
+					break;
 				}
-			} while (false);
+			}
 			
 	        if ( bResultFound )
 	        {

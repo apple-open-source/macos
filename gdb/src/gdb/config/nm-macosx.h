@@ -92,8 +92,8 @@ char **macosx_process_completer (char *text, char *word);
 #define TARGET_CAN_USE_HARDWARE_WATCHPOINT(type, cnt, ot) \
 macosx_can_use_hw_watchpoint(type, cnt, ot)
 
-#define TARGET_RANGE_PROFITABLE_FOR_HW_WATCHPOINT(pid, start, len) \
-macosx_range_profitable_for_hw_watchpoint (pid, start, len)
+#define TARGET_REGION_OK_FOR_HW_WATCHPOINT(start, len) \
+macosx_region_ok_for_hw_watchpoint (start, len)
 
 #define STOPPED_BY_WATCHPOINT(w) \
 macosx_stopped_by_watchpoint (&w, stop_signal, stepped_after_stopped_by_watchpoint)

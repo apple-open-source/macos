@@ -1,102 +1,90 @@
-<!DOCTYPE HTML public "-//W3O//DTD W3 HTML 4.0//EN">
-<HTML>
-<HEAD>
-<link rev=made href="mailto:esr@snark.thyrsus.com">
-<meta name="description" content="Known bugs and to-do items in fetchmail">
-<meta name="keywords" content="fetchmail, POP3, IMAP, bugs"> 
-<TITLE>Fetchmail Bugs and To-Do Items</TITLE>
-</HEAD>
-<BODY>
-<table width="100%" cellpadding=0><tr>
-<td width="30%">Back to <a href="/~esr">Eric's Home Page</a>
-<td width="30%" align=center>Up to <a href="/~esr/sitemap.html">Site Map</a>
-<td width="30%" align=right>$Date: 2002/03/26 00:56:06 $
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<link rev="made" href="mailto:esr@snark.thyrsus.com" />
+<meta name="description"
+content="Known bugs and to-do items in fetchmail" />
+<meta name="keywords" content="fetchmail, POP3, IMAP, bugs" />
+<title>Fetchmail Bugs and To-Do Items</title>
+<style type="text/css">
+/*<![CDATA[*/
+ h1.c1 {text-align: center}
+/*]]>*/
+</style>
+</head>
+<body>
+<table width="100%" cellpadding="0" summary="Canned page header">
+<tr>
+<td width="30%">Back to <a href="/~esr">Eric's Home Page</a></td>
+<td width="30%" align="center">Up to <a href="/~esr/sitemap.html">Site Map</a></td>
+<td width="30%" align="right">$Date: 2002/11/08 02:15:35 $</td>
+</tr>
 </table>
-<HR>
-<H1 ALIGN=CENTER>Fetchmail Bugs and To-Do Items</H1>
 
-<p>I try to respond to urgent bug reports in a timely way.  But fetchmail
-is now pretty mature and I have many other projects, so I don't
-personally chase obscure or marginal problems.  Help with any of these
-will be cheerfully accepted.
+<hr />
+<h1 class="c1">Fetchmail Bugs and To-Do Items</h1>
 
-<p>Matthias Andree writes: I believe fetchmail should not iterate over
-protocols when we have a DNS failure.
+<p>I try to respond to urgent bug reports in a timely way. But
+fetchmail is now pretty mature and I have many other projects, so I
+don't personally chase obscure or marginal problems. Help with any
+of these will be cheerfully accepted.</p>
 
-<listing>
-> BTW, I found a bug in 5.9.7:
-> ./fetchmail -Nvd0 jads.asdkjaldsf.com
-> Enter password for emma@jads.asdkjaldsf.com: 
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol auto) at Mit 20
-> Feb 2002 06:35:07 CET: poll started
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol IMAP) at Mit 20
-> Feb 2002 06:35:07 CET: poll started
-> fetchmail: couldn't find canonical DNS name of jads.asdkjaldsf.com
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol IMAP) at Mit 20
-> Feb 2002 06:35:08 CET: poll completed
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol POP3) at Mit 20
-> Feb 2002 06:35:08 CET: poll started
-> fetchmail: couldn't find canonical DNS name of jads.asdkjaldsf.com
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol POP3) at Mit 20
-> Feb 2002 06:35:08 CET: poll completed
-> fetchmail: 5.9.7 querying jads.asdkjaldsf.com (protocol auto) at Mit 20
-> Feb 2002 06:35:08 CET: poll completed
-> fetchmail: Query status=11 (DNS)
-> fetchmail: normal termination, status 11
-</listing>
-
-<p>IDLE is not fully implemented.  Fetchmail does not time out the idle connection
-every 30 minutes or less as required by RFC2177.  Some servers (including UW IMAPD
-compiled without the MICROSOFT_BRAIN_DAMAGE option, as is the default) will drop
-the connection after 30 minutes, resulting in a spurious socket error in your logs
-and no mail being picked up until the next poll cycle.
-
-<p>The UIDL code seems rather broken.  It's a nasty swamp.  Somebody who
-actually uses it should fix it -- every time I try I seem to make
-things worse....
+<p>IDLE is not fully implemented. Fetchmail does not time out the
+idle connection every 30 minutes or less as required by RFC2177.
+Some servers (including UW IMAPD compiled without the
+MICROSOFT_BRAIN_DAMAGE option, as is the default) will drop the
+connection after 30 minutes, resulting in a spurious socket error
+in your logs and no mail being picked up until the next poll
+cycle.</p>
 
 <p>POP3 can't presently distinguish a wedged or down server from an
-authentication failure.  Possible fix: after issuing a PASS
-command. wait 300 (xx) seconds for a "-ERR" or a "+OK" . If nothing
-comes back, retry at the next poll event and generate no errors. If we
-get an -ERR then log an authentication failure.
+authentication failure. Possible fix: after issuing a PASS command.
+wait 300 (xx) seconds for a "-ERR" or a "+OK" . If nothing comes
+back, retry at the next poll event and generate no errors. If we
+get an -ERR then log an authentication failure.</p>
 
-<p>It has been reported that multidrop name matching fails when the name
-to be matched contains a Latin-1 umlaut.  Dollars to doughnuts this is
-some kind of character sign-extension problem.  Trouble is, it's very
-likely in the BIND libraries.  Someone should go in with a debugger 
-and check this.
+<p>It has been reported that multidrop name matching fails when the
+name to be matched contains a Latin-1 umlaut. Dollars to doughnuts
+this is some kind of character sign-extension problem. Trouble is,
+it's very likely in the BIND libraries. Someone should go in with a
+debugger and check this.</p>
 
-<p>In the SSL support, add authentication of Certifying Authority (Is this
-a Certifying Authority we recognize?).
+<p>In the SSL support, add authentication of Certifying Authority
+(Is this a Certifying Authority we recognize?).</p>
 
-<p>Laszlo Vecsey writes: "I believe qmail uses a technique of writing
-temporary files to nfs, and then moving them into place to ensure that
-they're written. Actually a hardlink is made to the temporary file and
-the destination name in a new directory, then the first one is
-unlinked.. maybe a combination of this will help with the fetchmail
-lock file."
+<p>Laszlo Vecsey writes: "I believe qmail uses a technique of
+writing temporary files to nfs, and then moving them into place to
+ensure that they're written. Actually a hardlink is made to the
+temporary file and the destination name in a new directory, then
+the first one is unlinked.. maybe a combination of this will help
+with the fetchmail lock file."</p>
 
-<p>Move everything to using service strings rather that port numbers, so we
-can get rid of ENABLE_INET6 everywhere but in SockOpen (this will get
-rid of the kluge in rcfile_y.y).
+<p>Move everything to using service strings rather that port
+numbers, so we can get rid of ENABLE_INET6 everywhere but in
+SockOpen (this will get rid of the kluge in rcfile_y.y).</p>
 
-<p>John Summerfield suggests that specifying a localname containing @
-ought to be treated as an smtpname option, with the domain part
-removed for other purposes such as local-address matching.
+<p>John Summerfield suggests that specifying a localname containing
+@ ought to be treated as an smtpname option, with the domain part
+removed for other purposes such as local-address matching.</p>
 
 <p>The <a
-href="http://bugs.debian.org/cgi-bin/pkgreport.cgi?pkg=fetchmail&archive=no">Debian
-bug-tracking page for fetchmail</a> lists other bug reports.
+href="http://bugs.debian.org/cgi-bin/pkgreport.cgi?pkg=fetchmail&amp;archive=no">
+Debian bug-tracking page for fetchmail</a> lists other bug
+reports.</p>
 
-<HR>
-<table width="100%" cellpadding=0><tr>
-<td width="30%">Back to <a href="/~esr">Eric's Home Page</a>
-<td width="30%" align=center>Up to <a href="/~esr/sitemap.html">Site Map</a>
-<td width="30%" align=right>$Date: 2002/03/26 00:56:06 $
+<hr />
+<table width="100%" cellpadding="0" summary="Canned page footer">
+<tr>
+<td width="30%">Back to <a href="/~esr">Eric's Home Page</a></td>
+<td width="30%" align="center">Up to <a href="/~esr/sitemap.html">Site Map</a></td>
+<td width="30%" align="right">$Date: 2002/11/08 02:15:35 $</td>
+</tr>
 </table>
 
-<P><ADDRESS>Eric S. Raymond <A HREF="mailto:esr@thyrsus.com">&lt;esr@thyrsus.com&gt;</A></ADDRESS>
-</BODY>
-</HTML>
+<br clear="left" />
+<address>Eric S. Raymond <a href="mailto:esr@thyrsus.com">&lt;esr@thyrsus.com&gt;</a></address>
+</body>
+</html>
 

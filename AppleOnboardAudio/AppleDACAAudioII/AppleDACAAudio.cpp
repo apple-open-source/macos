@@ -41,17 +41,8 @@
 
 #include "AudioI2SControl.h"
 
-// In debug mode we may wish to step trough the INLINEd methods, so:
-#ifdef DEBUGMODE
-#define INLINE
-#else
-#define INLINE	inline
-#endif
-
-
 #define super AppleOnboardAudio
 OSDefineMetaClassAndStructors(AppleDACAAudio, AppleOnboardAudio)
-
 
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
@@ -83,6 +74,7 @@ void AppleDACAAudio::free()
 {
     DEBUG_IOLOG("+ AppleDACAAudio::free\n");
     
+	CLEAN_RELEASE(ioBaseAddressMemory);		//	[3060321]
     // free myAudioI2SControl
     CLEAN_RELEASE(myAudioI2SControl) ;
 
@@ -92,6 +84,7 @@ void AppleDACAAudio::free()
     DEBUG_IOLOG("- AppleDACAAudio::free\n");
 }
 
+//====================================================================================================
 // ::probe
 // called at load time, to see if this driver really does match with a device.  In our
 // case we check the registry to ensure we are loading on the appropriate hardware.
@@ -110,9 +103,7 @@ IOService* AppleDACAAudio::probe(IOService *provider, SInt32 *score)
          
     if(sound) 
     {
-        OSData *tmpData;
-        
-        tmpData = OSDynamicCast(OSData, sound->getProperty(kModelPropName));
+        OSData *tmpData = OSDynamicCast(OSData, sound->getProperty(kModelPropName));
         if(tmpData) 
         {
             if(tmpData->isEqualTo(kDacaModelName, sizeof(kDacaModelName) -1) ) 
@@ -128,6 +119,7 @@ IOService* AppleDACAAudio::probe(IOService *provider, SInt32 *score)
     return (0);
 }
 
+//====================================================================================================
 // ::initHardware
 // Don't do a whole lot in here, but do call the inherited inithardware method.
 // in turn this is going to call sndHWInitialize to perform initialization.  All
@@ -177,7 +169,7 @@ void AppleDACAAudio::timerCallback(OSObject *target, IOAudioDevice *device)
 // Method: checkStatus
 //
 // Purpose:
-//       poll the detects, note this should prolly be done with interrupts rather
+//       poll the detects, note this should probably be done with interrupts rather
 //       than by polling.
 
 void AppleDACAAudio::checkStatus(bool force)
@@ -185,21 +177,18 @@ void AppleDACAAudio::checkStatus(bool force)
 // probably don't want this on since we will get called a lot...
 //    DEBUG_IOLOG("+ AppleDACAAudio::checkStatus\n");
 
-    static UInt32 		lastStatus = 0L;
+    static UInt32		lastStatus = 0L;
     UInt32				extdevices;
-    AudioHardwareDetect 	*theDetect;
+    AudioHardwareDetect	*theDetect;
     OSArray 			*AudioDetects;
-    void			*statusRegisterAddr ;
-    UInt8 			currentStatusRegister ;
-    UInt32 			i ;
-    bool			cachedHeadphonesInserted ;
+    UInt8 				currentStatusRegister = 0;
+    UInt32 				i ;
+    bool				cachedHeadphonesInserted ;
 
-    // get the address of the current status register
-    statusRegisterAddr = myAudioI2SControl->getIOStatusRegister_GPIO12() ;
-    
     // get the value from the register
-    currentStatusRegister = *(UInt8*)statusRegisterAddr ;
-    
+
+	currentStatusRegister = ioConfigurationBaseAddress[kEXTINT_GPIO12];		//	[3060321]
+	
     // cache the value of fHeadphonesInserted
     cachedHeadphonesInserted = fHeadphonesInserted ;
 
@@ -212,9 +201,8 @@ void AppleDACAAudio::checkStatus(bool force)
 
     if (lastStatus != currentStatusRegister || force)  
     {
+		// debug2IOLog ( "AppleDACAAudio::checkStatus currentStatusRegister UPDATED to %X\n", currentStatusRegister );
         lastStatus = currentStatusRegister;
-
-        DEBUG2_IOLOG("AppleDACAAudio::checkStatus New Status = 0x%02x\n", currentStatusRegister);     
 
         AudioDetects = super::getDetectArray();
 		extdevices = 0;
@@ -230,6 +218,8 @@ void AppleDACAAudio::checkStatus(bool force)
             }
             if(i==0) DEBUG_IOLOG("AudioDetects->getCount() returned zero\n") ;
             super::setCurrentDevices(extdevices);
+			//	Opportunity to omit Balance controls if on the internal mono speaker.	[3046950]
+			AdjustControls ();
         } 
         else 
         {
@@ -250,8 +240,6 @@ void AppleDACAAudio::checkStatus(bool force)
     }
 // probably don't want this on since we will get called a lot...
 //    DEBUG_IOLOG("- AppleDACAAudio::checkStatus\n");
-
-
 }
 
 /*************************** sndHWXXXX functions******************************/
@@ -270,17 +258,75 @@ void AppleDACAAudio::checkStatus(bool force)
 // ::sndHWInitialize
 // hardware specific initialization needs to be in here, together with the code
 // required to start audio on the device.
+//
+//	There are three sections of memory mapped I/O that are directly accessed by the AppleOnboardAudio.  These
+//	include the GPIOs, I2S DMA Channel Registers and I2S control registers.  They fall within the memory map 
+//	as follows:
+//	~                              ~
+//	|______________________________|
+//	|                              |
+//	|         I2S Control          |
+//	|______________________________|	<-	soundConfigSpace = ioBase + i2s0BaseOffset ...OR... ioBase + i2s1BaseOffset
+//	|                              |
+//	~                              ~
+//	~                              ~
+//	|______________________________|
+//	|                              |
+//	|       I2S DMA Channel        |
+//	|______________________________|	<-	i2sDMA = ioBase + i2s0_DMA ...OR... ioBase + i2s1_DMA
+//	|                              |
+//	~                              ~
+//	~                              ~
+//	|______________________________|
+//	|            FCRs              |
+//	|            GPIO              |	<-	gpio = ioBase + gpioOffsetAddress
+//	|         ExtIntGPIO           |	<-	fcr = ioBase + fcrOffsetAddress
+//	|______________________________|	<-	ioConfigurationBaseAddress
+//	|                              |
+//	~                              ~
+//
+//	The I2S DMA Channel is mapped in by the AppleDBDMAAudioDMAEngine.  Only the I2S control registers are 
+//	mapped in by the AudioI2SControl.  The Apple I/O Configuration Space (i.e. FCRs, GPIOs and ExtIntGPIOs)
+//	are mapped in by the subclass of AppleOnboardAudio.  The FCRs must also be mapped in by the AudioI2SControl
+//	object as the init method must enable the I2S I/O Module for which the AudioI2SControl object is
+//	being instantiated for.
+//
 void 	AppleDACAAudio::sndHWInitialize(IOService *provider)
 {
     DEBUG_IOLOG("+ AppleDACAAudio::sndHWInitialize\n");
 
-    IOMemoryMap 		*map;
-    OSObject 			*t = 0;
-    IORegistryEntry		*theEntry ;
-    IORegistryEntry		*tmpReg ;
-    IORegistryIterator 		*theIterator;	// used to iterate the registry to find video things
-    UInt32 			myFrameRate  = 0 ;
+    IOMemoryMap 			*map;
+    OSObject 				*t = 0;
+    IORegistryEntry			*theEntry;
+    IORegistryEntry			*tmpReg;
+    IORegistryIterator		*theIterator;					// used to iterate the registry to find video things
     
+	//	[3060321]	begin {		Obtain the address of the headphone detect GPIO.  Then map it for later use.
+	//	NOTE:	The original iBook does not have an 'AAPL,address' property.  It is
+	//			necessary to derive the address of the memory mapped I/O register from
+	//			the base address of the GPIO node which has an 'AAPL,address' property.
+    // get the video jack information
+	map = provider->mapDeviceMemoryWithIndex ( AppleDBDMAAudioDMAEngine::kDBDMADeviceIndex );
+	if ( map ) {
+		soundConfigSpace = (UInt8*)map->getPhysicalAddress();
+		if ((((UInt32)soundConfigSpace ^ kI2S0BaseOffset) & 0x0001FFFF) == 0) 
+		{
+			ioBaseAddress = (void *)((UInt32)soundConfigSpace - kI2S0BaseOffset);
+		}
+		else if ((((UInt32)soundConfigSpace ^ kI2S1BaseOffset) & 0x0001FFFF) == 0) 
+		{
+			ioBaseAddress = (void *)((UInt32)soundConfigSpace - kI2S1BaseOffset);
+		}
+		if ( ioBaseAddress ) {
+			ioBaseAddressMemory = IODeviceMemory::withRange ((IOPhysicalAddress)((UInt8 *)ioBaseAddress), 256);
+			ioConfigurationBaseAddress = (UInt8*)ioBaseAddressMemory->map()->getVirtualAddress();
+		}
+	}
+	//	[3060321]	} end
+	
+	minVolume = kDACA_MINIMUM_HW_VOLUME;				// [3046950] minimum hardware volume setting
+	maxVolume = kDACA_MAXIMUM_HW_VOLUME;				// [3046950] maximum hardware volume setting]
+
     // get the video jack information
     theEntry = 0;
     theIterator = IORegistryIterator::iterateOver(gIODTPlane, kIORegistryIterateRecursively);
@@ -288,20 +334,20 @@ void 	AppleDACAAudio::sndHWInitialize(IOService *provider)
     {
         while (!theEntry && (tmpReg = OSDynamicCast (IORegistryEntry, theIterator->getNextObject ())) != 0) 
         {
-                if(tmpReg->compareName(OSString::withCString("extint-gpio12"))) 
-                    theEntry = tmpReg;
+			if( tmpReg->compareName(OSString::withCString("extint-gpio12")) ) 
+				theEntry = tmpReg;
         }
         theIterator->release();
     } 
-    
-    if(theEntry) {
-        t = theEntry->getProperty("video");
-        if(t) 
-            fAppleAudioVideoJackStateKey = OSSymbol::withCStringNoCopy ("AppleAudioVideoJackState");
-        else 
-            fAppleAudioVideoJackStateKey = 0;
-    }
 
+	if ( theEntry ) {
+		t = theEntry->getProperty("video");
+		if(t) 
+			fAppleAudioVideoJackStateKey = OSSymbol::withCStringNoCopy ("AppleAudioVideoJackState");
+		else 
+			fAppleAudioVideoJackStateKey = 0;
+	}
+    
     map = provider->mapDeviceMemoryWithIndex(AppleDBDMAAudioDMAEngine::kDBDMADeviceIndex);
     if(!map)  
     {
@@ -311,9 +357,9 @@ void 	AppleDACAAudio::sndHWInitialize(IOService *provider)
     
 
     // the i2s stuff is in a separate class.  make an instance of the class and store
-    AudioI2SInfo tempInfo ;
-    tempInfo.map = map ;
-    tempInfo.i2sSerialFormat = kSndIOFormatI2SSony ;
+    AudioI2SInfo tempInfo;
+    tempInfo.map = map;
+    tempInfo.i2sSerialFormat = kSerialFormatSony;				//	[3060321]	rbm	2 Oct 2002
     
     // create an object, this will get inited.
     myAudioI2SControl = AudioI2SControl::create(&tempInfo) ;
@@ -323,11 +369,20 @@ void 	AppleDACAAudio::sndHWInitialize(IOService *provider)
         DEBUG_IOLOG("AppleDACAAudio::sndHWInitialize ERROR: unable to i2s control object\n");
         goto error_exit ;
     }
-    myAudioI2SControl->retain() ;
+    myAudioI2SControl->retain();
     
     // set the sample rate for the part
-    myFrameRate = frameRate(0) ;
-    setDACASampleRate(myFrameRate) ;
+	dataFormat = ( ( 0 << kNumChannelsInShift ) | kDataIn16 | ( 2 << kNumChannelsOutShift ) | kDataOut16 );	//	[3060321]	rbm	2 Oct 2002
+
+	myAudioI2SControl->setSampleParameters(kDACA_FRAME_RATE, 0, &clockSource, &mclkDivisor, &sclkDivisor, kSndIOFormatI2S32x);
+	//	[3060321]	The data word format register and serial format register require that the I2S clocks be stopped and
+	//				restarted before the register value is applied to operation of the I2S IOM.  We now pass the data
+	//				word format to setSerialFormatRegister as that method stops the clocks when applying the value
+	//				to the serial format register.  That method now also sets the data word format register while
+	//				the clocks are stopped.		rbm	2 Oct 2002
+	myAudioI2SControl->setSerialFormatRegister(clockSource, mclkDivisor, sclkDivisor, kSndIOFormatI2S32x, dataFormat);
+    
+	setDACASampleRate(kDACA_FRAME_RATE);
     
     // build a connection to the i2c bus
     if (!findAndAttachI2C(provider)) 
@@ -363,6 +418,7 @@ error_exit:
     return ;
 }
 
+//====================================================================================================
 void AppleDACAAudio::sndHWPostDMAEngineInit (IOService *provider) {
     AbsoluteTime		timerInterval;
 
@@ -372,8 +428,17 @@ void AppleDACAAudio::sndHWPostDMAEngineInit (IOService *provider) {
 
 	nanoseconds_to_absolutetime(NSEC_PER_SEC, &timerInterval);
 	addTimerEvent(this, &AppleDACAAudio::timerCallback, timerInterval);
+
+	if (NULL == outVolRight && NULL != outVolLeft) {
+		// If they are running mono at boot time, set the right channel's last value to an illegal value
+		// so it will come up in stereo and center balanced if they plug in speakers or headphones later.
+		lastRightVol = kDACA_OUT_OF_BOUNDS_HW_VOLUME;
+		lastLeftVol = outVolLeft->getIntValue ();
+	}
+
 }
 
+//====================================================================================================
 UInt32 	AppleDACAAudio::sndHWGetInSenseBits(void)
 {
     DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetInSenseBits\n");
@@ -381,6 +446,7 @@ UInt32 	AppleDACAAudio::sndHWGetInSenseBits(void)
     return 0;     
 }
 
+//====================================================================================================
 // we can't read the registers back, so return the value in the shadow reg.
 UInt32 	AppleDACAAudio::sndHWGetRegister(UInt32 regNum)
 {
@@ -410,6 +476,7 @@ UInt32 	AppleDACAAudio::sndHWGetRegister(UInt32 regNum)
      return returnValue;
 }
 
+//====================================================================================================
 // set the reg over i2c and make sure the value is cached in the shadow reg so we can "get it back"
 IOReturn  AppleDACAAudio::sndHWSetRegister(UInt32 regNum, UInt32 val)
 {
@@ -479,7 +546,6 @@ IOReturn  AppleDACAAudio::sndHWSetRegister(UInt32 regNum, UInt32 val)
         DEBUG_IOLOG("sndHWSetRegister: something went wrong\n") ;
     }
     
-        
     DEBUG_IOLOG("- AppleDACAAudio::sndHWSetRegister\n");
     return(myReturn);
 }
@@ -501,6 +567,7 @@ UInt32	AppleDACAAudio::sndHWGetActiveOutputExclusive(void)
     return 0;
 }
 
+//====================================================================================================
 IOReturn   AppleDACAAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
 {
     IOReturn			myReturn;
@@ -518,11 +585,19 @@ IOReturn   AppleDACAAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
             fHeadphonesInserted = false ;   
             tmpConfigReg = setBitsGCFGShadowReg(kInvertRightAmpGCFG, kInvertRightAmpGCFG) ;
             myReturn = sndHWSetRegister(i2cBusSubaddrGCFG, tmpConfigReg);
+			if (NULL != driverDMAEngine) {
+				driverDMAEngine->setRightChanMixed (TRUE);
+				useMasterVolumeControl = TRUE;
+			}
             break;
         case kSndHWOutput2:		// stereo headphones
             fHeadphonesInserted = true ;                        
             tmpConfigReg = setBitsGCFGShadowReg(!kInvertRightAmpGCFG, kInvertRightAmpGCFG) ;
             myReturn = sndHWSetRegister(i2cBusSubaddrGCFG, tmpConfigReg);
+			if (NULL != driverDMAEngine) {
+				driverDMAEngine->setRightChanMixed (FALSE);
+				useMasterVolumeControl = FALSE;
+			}
             break;
         default:
             DEBUG_IOLOG("Invalid set output active request\n");
@@ -533,6 +608,7 @@ IOReturn   AppleDACAAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
     return(myReturn);
 }
 
+//====================================================================================================
 UInt32 	AppleDACAAudio::sndHWGetActiveInputExclusive(void)
 {
     DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetActiveInputExclusive\n");
@@ -540,6 +616,7 @@ UInt32 	AppleDACAAudio::sndHWGetActiveInputExclusive(void)
     return fActiveInput;
 }
 
+//====================================================================================================
 IOReturn   AppleDACAAudio::sndHWSetActiveInputExclusive(UInt32 input )
 {
     IOReturn 	myReturn = kIOReturnBadArgument;
@@ -574,6 +651,156 @@ IOReturn   AppleDACAAudio::sndHWSetActiveInputExclusive(UInt32 input )
     return(myReturn);
 }
 
+// --------------------------------------------------------------------------
+// You either have only a master volume control, or you have both volume controls.
+IOReturn AppleDACAAudio::AdjustControls (void) {
+	IOFixed							mindBVol;
+	IOFixed							maxdBVol;
+	Boolean							mustUpdate;
+
+	debugIOLog ("+ AdjustControls()\n");
+	FailIf (NULL == driverDMAEngine, Exit);
+	mustUpdate = FALSE;
+
+	mindBVol = kDACA_MIN_VOLUME;
+	maxdBVol = kDACA_MAX_VOLUME;
+
+	//	Must update if any of the following conditions exist:
+	//	1.	No master volume control exists AND the master volume is the target
+	//	2.	The master volume control exists AND the master volume is not the target
+	//	3.	the minimum or maximum dB volume setting for the left volume control changes
+	//	4.	the minimum or maximum dB volume setting for the right volume control changes
+	
+	if ((NULL == outVolMaster && TRUE == useMasterVolumeControl) ||
+		(NULL != outVolMaster && FALSE == useMasterVolumeControl) ||
+		(NULL != outVolLeft && outVolLeft->getMinValue () != minVolume) ||
+		(NULL != outVolLeft && outVolLeft->getMaxValue () != maxVolume) ||
+		(NULL != outVolRight && outVolRight->getMinValue () != minVolume) ||
+		(NULL != outVolRight && outVolRight->getMaxValue () != maxVolume)) {
+		mustUpdate = TRUE;
+	}
+
+	if (TRUE == mustUpdate) {
+		debug5IOLog ("AdjustControls: mindBVol = %d.0x%x, maxdBVol = %d.0x%x\n", 
+			0 != mindBVol & 0x80000000 ? (unsigned int)(( mindBVol >> 16 ) | 0xFFFF0000) : (unsigned int)(mindBVol >> 16), (unsigned int)(mindBVol << 16), 
+			0 != maxdBVol & 0x80000000 ? (unsigned int)(( maxdBVol >> 16 ) | 0xFFFF0000) : (unsigned int)(maxdBVol >> 16), (unsigned int)(maxdBVol << 16) );
+	
+		driverDMAEngine->pauseAudioEngine ();
+		driverDMAEngine->beginConfigurationChange ();
+	
+		if (TRUE == useMasterVolumeControl) {
+			// We have only the master volume control (possibly not created yet) and have to remove the other volume controls (possibly don't exist)
+			if (NULL == outVolMaster) {
+				debugIOLog ("AdjustControls: deleteing descrete channel controls and creating master control\n");
+				// remove the existing left and right volume controls
+				if (NULL != outVolLeft) {
+					lastLeftVol = outVolLeft->getIntValue ();
+					driverDMAEngine->removeDefaultAudioControl (outVolLeft);
+					outVolLeft = NULL;
+				} 
+		
+				if (NULL != outVolRight) {
+					lastRightVol = outVolRight->getIntValue ();
+					driverDMAEngine->removeDefaultAudioControl (outVolRight);
+					outVolRight = NULL;
+				}
+	
+				// Create the master control
+				outVolMaster = IOAudioLevelControl::createVolumeControl((lastLeftVol + lastRightVol) / 2, minVolume, maxVolume, mindBVol, maxdBVol,
+													kIOAudioControlChannelIDAll,
+													kIOAudioControlChannelNameAll,
+													kOutVolMaster, 
+													kIOAudioControlUsageOutput);
+	
+				if (NULL != outVolMaster) {
+					driverDMAEngine->addDefaultAudioControl(outVolMaster);
+					outVolMaster->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)outputControlChangeHandler, this);
+					outVolMaster->flushValue ();
+				}
+			}
+		} else {
+			// or we have both controls (possibly not created yet) and we have to remove the master volume control (possibly doesn't exist)
+			if (NULL == outVolLeft) {
+				debugIOLog ("AdjustControls: deleteing master control and creating descrete channel controls\n");
+				// Have to create the control again...
+				if (lastLeftVol > kDACA_MAXIMUM_HW_VOLUME && NULL != outVolMaster) {
+					lastLeftVol = outVolMaster->getIntValue ();
+				}
+				outVolLeft = IOAudioLevelControl::createVolumeControl (lastLeftVol, kDACA_MINIMUM_HW_VOLUME, kDACA_MAXIMUM_HW_VOLUME, mindBVol, maxdBVol,
+													kIOAudioControlChannelIDDefaultLeft,
+													kIOAudioControlChannelNameLeft,
+													kOutVolLeft,
+													kIOAudioControlUsageOutput);
+				if (NULL != outVolLeft) {
+					driverDMAEngine->addDefaultAudioControl (outVolLeft);
+					outVolLeft->setValueChangeHandler ((IOAudioControl::IntValueChangeHandler)outputControlChangeHandler, this);
+				}
+			}
+			
+			if (NULL == outVolRight) {
+				// Have to create the control again...
+				if (lastRightVol > kDACA_MAXIMUM_HW_VOLUME && NULL != outVolMaster) {
+					lastRightVol = outVolMaster->getIntValue ();
+				}
+				outVolRight = IOAudioLevelControl::createVolumeControl (lastRightVol, kDACA_MINIMUM_HW_VOLUME, kDACA_MAXIMUM_HW_VOLUME, mindBVol, maxdBVol,
+													kIOAudioControlChannelIDDefaultRight,
+													kIOAudioControlChannelNameRight,
+													kOutVolRight,
+													kIOAudioControlUsageOutput);
+				if (NULL != outVolRight) {
+					driverDMAEngine->addDefaultAudioControl (outVolRight);
+					outVolRight->setValueChangeHandler ((IOAudioControl::IntValueChangeHandler)outputControlChangeHandler, this);
+				}
+			}
+	
+			if (NULL != outVolMaster) {
+				driverDMAEngine->removeDefaultAudioControl (outVolMaster);
+				outVolMaster = NULL;
+			}
+		}
+	
+		if (NULL != outVolMaster) {
+			outVolMaster->setMinValue (minVolume);
+			outVolMaster->setMinDB (mindBVol);
+			outVolMaster->setMaxValue (maxVolume);
+			outVolMaster->setMaxDB (maxdBVol);
+			if (outVolMaster->getIntValue () > maxVolume) {
+				outVolMaster->setValue (maxVolume);
+			}
+			outVolMaster->flushValue ();
+		}
+	
+		if (NULL != outVolLeft) {
+			outVolLeft->setMinValue (minVolume);
+			outVolLeft->setMinDB (mindBVol);
+			outVolLeft->setMaxValue (maxVolume);
+			outVolLeft->setMaxDB (maxdBVol);
+			if (outVolLeft->getIntValue () > maxVolume) {
+				outVolLeft->setValue (maxVolume);
+			}
+			outVolLeft->flushValue ();
+		}
+	
+		if (NULL != outVolRight) {
+			outVolRight->setMinValue (minVolume);
+			outVolRight->setMinDB (mindBVol);
+			outVolRight->setMaxValue (maxVolume);
+			outVolRight->setMaxDB (maxdBVol);
+			if (outVolRight->getIntValue () > maxVolume) {
+				outVolRight->setValue (maxVolume);
+			}
+			outVolRight->flushValue ();
+		}
+	
+		driverDMAEngine->completeConfigurationChange ();
+		driverDMAEngine->resumeAudioEngine ();
+	}
+
+Exit:
+	debugIOLog ("- AdjustControls()\n");
+	return kIOReturnSuccess;
+}
+
 #pragma mark +CONTROL FUNCTIONS
 // control function
 bool AppleDACAAudio::sndHWGetSystemMute(void)
@@ -583,6 +810,7 @@ bool AppleDACAAudio::sndHWGetSystemMute(void)
 	return gIsMute;
 }
 
+//====================================================================================================
 // mute the part.  Something here is odd.  We seem to get called twice to mute the part.
 // Just having a chached value for the avol reg won't work: you get called once, so you
 // cache the avol reg in the cached value.  You call through to set the avol reg to zero,
@@ -614,6 +842,7 @@ IOReturn AppleDACAAudio::sndHWSetSystemMute(bool mutestate)
     return(retval);
 }
 
+//====================================================================================================
 bool AppleDACAAudio::sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume)
 {
 
@@ -635,6 +864,7 @@ bool AppleDACAAudio::sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume)
     return (retval==kIOReturnSuccess);
 }
 
+//====================================================================================================
 IOReturn AppleDACAAudio::sndHWSetSystemVolume(UInt32 value)
 {
     DEBUG2_IOLOG("+ AppleDACAAudio::sndHWSetSystemVolume (vol: %ld)\n", value);
@@ -651,6 +881,7 @@ IOReturn AppleDACAAudio::sndHWSetSystemVolume(UInt32 value)
     return(myReturn);
 }
 
+//====================================================================================================
 IOReturn AppleDACAAudio::sndHWSetPlayThrough(bool playthroughState)
 {
 	IOReturn myReturn;
@@ -686,6 +917,7 @@ IOReturn AppleDACAAudio::sndHWSetPlayThrough(bool playthroughState)
     return(myReturn);
 }
 
+//====================================================================================================
 IOReturn AppleDACAAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain) 
 {
     DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetSystemInputGain\n");
@@ -699,6 +931,7 @@ IOReturn AppleDACAAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGa
 
 #pragma mark +INDENTIFICATION
 
+//====================================================================================================
 // ::sndHWGetType
 //Identification - the only thing this driver supports is the DACA3550 part, return that.
 UInt32 AppleDACAAudio::sndHWGetType( void )
@@ -712,6 +945,7 @@ UInt32 AppleDACAAudio::sndHWGetType( void )
     return returnValue ;
 }
 
+//====================================================================================================
 // ::sndHWGetManufactuer
 // return the detected part's manufacturer.  I think Daca is a single sourced part
 // from Micronas Intermetall.  Always return just that.
@@ -727,6 +961,7 @@ UInt32 AppleDACAAudio::sndHWGetManufacturer( void )
 
 
 #pragma mark +DETECT ACTIVATION & DEACTIVATION
+//====================================================================================================
 // ::setDeviceDetectionActive
 // turn on detection, TODO move to superclass?? 
 void AppleDACAAudio::setDeviceDetectionActive(void)
@@ -738,6 +973,7 @@ void AppleDACAAudio::setDeviceDetectionActive(void)
     return ;
 }
 
+//====================================================================================================
 // ::setDeviceDetectionInActive
 // turn off detection, TODO move to superclass?? 
 void AppleDACAAudio::setDeviceDetectionInActive(void)
@@ -750,22 +986,30 @@ void AppleDACAAudio::setDeviceDetectionInActive(void)
 }
 
 #pragma mark +POWER MANAGEMENT
+//====================================================================================================
 // Power Management
 IOReturn AppleDACAAudio::sndHWSetPowerState(IOAudioDevicePowerState theState)
 {
-    IOReturn 	myReturn  ;
-    UInt16	tmpAnalogVolReg ;
-    UInt8	tmpConfigReg ;
-    
+    IOReturn		myReturn;
+    UInt16			tmpAnalogVolReg;
+    UInt8			tmpConfigReg;
+	IOService		*keyLargo;
+	UInt32			temp;
     
     DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetPowerState\n");
     
     myReturn = kIOReturnSuccess;
 
+	//	[power support]	rbm	10 Oct 2002		added I2S clock management across sleep / wake via KeyLargo
+	keyLargo = NULL;
+	keyLargo = IOService::waitForService ( IOService::serviceMatching ( "KeyLargo" ) );
+
     switch(theState)
     {
         case kIOAudioDeviceSleep :	// When sleeping
         case kIOAudioDeviceIdle	:	// When no audio engines running
+			temp = myAudioI2SControl->GetSerialFormatReg();
+			temp = myAudioI2SControl->GetDataWordSizesReg();
             // mute the part
             tmpAnalogVolReg = 0x00 ;
             
@@ -781,10 +1025,28 @@ IOReturn AppleDACAAudio::sndHWSetPowerState(IOAudioDevicePowerState theState)
                 // Closes the bus so others can access to it:
                 closeI2C();
             }
+			if ( NULL != keyLargo ) {
+				//	Turn OFF the I2S clocks
+				IODelay ( 100 );
+				keyLargo->callPlatformFunction ( OSSymbol::withCString ( "keyLargo_powerI2S" ), false, (void*)false, (void*)0, 0, 0 );
+			}
+			temp = myAudioI2SControl->GetSerialFormatReg();
+			temp = myAudioI2SControl->GetDataWordSizesReg();
             break ;
        
         case kIOAudioDeviceActive :	// audio engines running
-
+			temp = myAudioI2SControl->GetSerialFormatReg();
+			temp = myAudioI2SControl->GetDataWordSizesReg();
+			if ( NULL != keyLargo ) {
+				//	Turn ON the I2S clocks
+				keyLargo->callPlatformFunction ( OSSymbol::withCString ( "keyLargo_powerI2S" ), false, (void*)true, (void*)0, 0, 0 );
+				IODelay ( 100 );
+			}
+			//	Restore I2S registers	(rbm 11 Oct 2002)
+			myAudioI2SControl->setSampleParameters(kDACA_FRAME_RATE, 0, &clockSource, &mclkDivisor, &sclkDivisor, kSndIOFormatI2S32x);
+			myAudioI2SControl->setSerialFormatRegister(clockSource, mclkDivisor, sclkDivisor, kSndIOFormatI2S32x, dataFormat);
+			setDACASampleRate(kDACA_FRAME_RATE);
+			
             // Open the interface and reset all values
             if (openI2C()) 
             {
@@ -796,6 +1058,8 @@ IOReturn AppleDACAAudio::sndHWSetPowerState(IOAudioDevicePowerState theState)
                 // Closes the bus so others can access to it:
                 closeI2C();
             }
+			temp = myAudioI2SControl->GetSerialFormatReg();
+			temp = myAudioI2SControl->GetDataWordSizesReg();
             break ;
         default:
             DEBUG_IOLOG("AppleDACAAudio::sndHWSetPowerState unknown power state\n");
@@ -808,6 +1072,7 @@ IOReturn AppleDACAAudio::sndHWSetPowerState(IOAudioDevicePowerState theState)
     return(myReturn);
 }
     
+//====================================================================================================
 // ::sndHWGetConnectedDevices
 // TODO: Move to superclass
 UInt32 AppleDACAAudio::sndHWGetConnectedDevices(void)
@@ -819,6 +1084,7 @@ UInt32 AppleDACAAudio::sndHWGetConnectedDevices(void)
     return returnValue ;
 }
 
+//====================================================================================================
 UInt32 AppleDACAAudio::sndHWGetProgOutput(void)
 {
     DEBUG_IOLOG("+ AppleDACAAudio::sndHWGetProgOutput\n");
@@ -826,6 +1092,7 @@ UInt32 AppleDACAAudio::sndHWGetProgOutput(void)
     return 0;
 }
 
+//====================================================================================================
 IOReturn AppleDACAAudio::sndHWSetProgOutput(UInt32 outputBits)
 {
     DEBUG_IOLOG("+ AppleDACAAudio::sndHWSetProgOutput\n");
@@ -993,18 +1260,35 @@ UInt32 AppleDACAAudio::frameRate(UInt32 index)
 //        with the adac register. The function returns false if it fails.
 bool AppleDACAAudio::setDACASampleRate(UInt rate)
 {
-    UInt32 dacRate = 0;
+    UInt32 dacRate;
     
-    switch (rate) 
-    {
-        case 44100: 				// 32 kHz - 48 kHz
-            dacRate = kSRC_48SR_REG;
-            break;
-            
-        default:
-            break;
-    }
-    return(sndHWSetRegister(i2cBusSubAddrSR_REG, setBitsSR_REGShadowReg(dacRate, kSampleRateControlMask)));
+    dacRate = 44100 == rate ? kSRC_48SR_REG : 0;
+    return ( sndHWSetRegister ( i2cBusSubAddrSR_REG, setBitsSR_REGShadowReg(dacRate, kSampleRateControlMask ) ) );
+}
+
+// --------------------------------------------------------------------------
+IORegistryEntry * AppleDACAAudio::FindEntryByProperty (const IORegistryEntry * start, const char * key, const char * value) {
+	OSIterator				*iterator;
+	IORegistryEntry			*theEntry;
+	IORegistryEntry			*tmpReg;
+	OSData					*tmpData;
+
+	theEntry = NULL;
+	iterator = start->getChildIterator (gIODTPlane);
+	FailIf (NULL == iterator, Exit);
+
+	while (NULL == theEntry && (tmpReg = OSDynamicCast (IORegistryEntry, iterator->getNextObject ())) != NULL) {
+		tmpData = OSDynamicCast (OSData, tmpReg->getProperty (key));
+		if (NULL != tmpData && tmpData->isEqualTo (value, strlen (value))) {
+			theEntry = tmpReg;
+		}
+	}
+
+Exit:
+	if (NULL != iterator) {
+		iterator->release ();
+	}
+	return theEntry;
 }
 
 

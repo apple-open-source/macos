@@ -27,7 +27,7 @@
 #include "addr.h"
 #include "includedir.h"
 #include "main.h"
-
+#include "sio.h"
 
 #ifndef NAME_MAX
 #define NAME_MAX 255
@@ -142,9 +142,7 @@ static void get_service_entry( int fd, pset_h, char *,
 static void fill_attribute( unsigned attr_id, struct service_config *scp, 
         struct service_config *def );
 static entry_e  find_next_entry(int , char **) ;
-static status_e parse_entry(entry_e, int, struct service_config *,
-	struct service_config *) ;
-
+static status_e parse_entry(entry_e, int, struct service_config *) ;
 
 /*
  * Given the id, return the name (only the service attributes are searched)
@@ -226,34 +224,35 @@ void parse_conf_file( int fd, struct configuration *confp )
          parsemsg( LOG_DEBUG,func,
             "Reading included configuration file: %s",service_name);
          parse_conf_file(incfd, confp);
-         close(incfd);
+         Sclose(incfd);
          break;
       case INCLUDEDIR_ENTRY:
          handle_includedir(service_name, confp);
          break;
-         case SERVICE_ENTRY:
-            get_service_entry( fd, sconfs, service_name, default_config ) ;
-            break ;
+      case SERVICE_ENTRY:
+         get_service_entry( fd, sconfs, service_name, default_config ) ; 
+         break ;
 
-         case DEFAULTS_ENTRY:
-            if ( found_defaults == YES )
-            {
-               parsemsg( LOG_ERR, func,
-             "only 1 defaults entry is allowed. This entry will be ignored" ) ;
-               skip_entry( fd ) ;
-            }
-            else if ( parse_entry( DEFAULTS_ENTRY, fd,
-                              default_config, &default_default_config ) == OK )
-               found_defaults = YES ;
-            break ;
-         
-         case BAD_ENTRY:
+      case DEFAULTS_ENTRY:
+         if ( found_defaults == YES )
+         {
+            parsemsg( LOG_ERR, func,
+            "only 1 defaults entry is allowed. This entry will be ignored" ) ;
             skip_entry( fd ) ;
-            break ;
+         }
+         else if ( parse_entry( DEFAULTS_ENTRY, fd,
+                           default_config ) == OK )
+            found_defaults = YES ;
+         break ;
+         
+      case BAD_ENTRY:
+         skip_entry( fd ) ;
+         break ;
 
-         case NO_ENTRY:
-            return ;
+      case NO_ENTRY:
+         return ;
       }
+      free(service_name);
    }
 }
 
@@ -381,7 +380,6 @@ static void get_service_entry( int fd,
    scp = sc_alloc( name ) ;
    if ( scp == NULL )
    {
-      free( name ) ;
       skip_entry( fd ) ;
       return ;
    }
@@ -403,9 +401,8 @@ static void get_service_entry( int fd,
       ! SC_IS_PRESENT( scp, A_PASSENV ) )
       fill_attribute( A_PASSENV, scp, defaults ) ;
   
-   if ( parse_entry( SERVICE_ENTRY, fd, scp, defaults ) == FAILED )
+   if ( parse_entry( SERVICE_ENTRY, fd, scp ) == FAILED )
    {
-      free( name );
       sc_free( scp ) ;
       skip_entry( fd ) ;
       return ;
@@ -420,7 +417,6 @@ static void get_service_entry( int fd,
       else
       {
          out_of_memory( func ) ;
-         free( name );
          sc_free( scp ) ;
          return ;
       }
@@ -432,6 +428,7 @@ static void get_service_entry( int fd,
       sc_free( scp ) ;
       return ;
    }
+
 }
 
 
@@ -590,10 +587,9 @@ static void identify_attribute( entry_e entry_type,
  */
 static status_e parse_entry( entry_e entry_type, 
                               int fd, 
-                              struct service_config *scp, 
-                              struct service_config *defaults )
+                              struct service_config *scp )
 {
-   static pset_h      attr_values ;
+   static pset_h      attr_values = NULL;
    char               *line ;
    char               *attr_name ;
    enum assign_op      op ;

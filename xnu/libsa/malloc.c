@@ -68,7 +68,7 @@ typedef struct malloc_block {
     malloc_region * region;
 #ifdef CLIENT_DEBUG
     size_t         request_size;
-#endif CLIENT_DEBUG
+#endif /* CLIENT_DEBUG */
     size_t         block_size;  // total size w/ all bookeeping info
 
     // the client's memory block
@@ -135,7 +135,7 @@ static long int num_regions = 0;
 static size_t   current_block_total = 0;
 static double   peak_usage = 0.0;
 static double   min_usage = 100.0;
-#endif CLIENT_DEBUG
+#endif /* CLIENT_DEBUG */
 
 
 /*********************************************************************
@@ -226,7 +226,7 @@ void * malloc(size_t size) {
 
         client_block->request_size = size;
     }
-#endif CLIENT_DEBUG
+#endif /* CLIENT_DEBUG */
 
     return client_buffer;
 
@@ -280,7 +280,7 @@ void free(void * address) {
 
 #ifdef CLIENT_DEBUG
     current_block_total -= found_block->block_size;
-#endif CLIENT_DEBUG
+#endif /* CLIENT_DEBUG */
 
     return;
 
@@ -356,7 +356,7 @@ void * realloc(void * address, size_t new_client_size) {
         if (new_client_size > found_block->request_size) {
             found_block->request_size = new_client_size;
         }
-#endif CLIENT_DEBUG
+#endif /* CLIENT_DEBUG */
         return address;
     }
 
@@ -456,7 +456,7 @@ malloc_region * malloc_create_region(vm_size_t block_size) {
 #ifdef CLIENT_DEBUG
     malloc_hiwater_mark += region_size;
     num_regions++;
-#endif CLIENT_DEBUG
+#endif /* CLIENT_DEBUG */
 
     return new_region;
 
@@ -477,7 +477,7 @@ kern_return_t malloc_free_region(malloc_region * region) {
 
 #ifdef CLIENT_DEBUG
     num_regions--;
-#endif CLIENT_DEBUG
+#endif /* CLIENT_DEBUG */
     return KERN_SUCCESS;
 
 } /* malloc_free_region() */

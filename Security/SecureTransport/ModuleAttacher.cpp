@@ -40,9 +40,6 @@ public:
 		mCspHand(CSSM_INVALID_HANDLE),
 		mClHand(CSSM_INVALID_HANDLE),
 		mTpHand(CSSM_INVALID_HANDLE),
-		#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
-		mCspDlHand(CSSM_INVALID_HANDLE),
-		#endif
 		mCssmInitd(false)
 			{ }
 	~ModuleAttacher();
@@ -52,12 +49,7 @@ public:
 	CSSM_RETURN				loadAllModules(
 								CSSM_CSP_HANDLE &cspHand,
 								CSSM_CL_HANDLE	&clHand,
-								CSSM_TP_HANDLE	&tpHand
-								#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
-								,
-								CSSM_CSP_HANDLE	&cspDlHand
-								#endif
-								);
+								CSSM_TP_HANDLE	&tpHand);
 
 private:
 	/* on all private member functions, mLock held on entry and exit */
@@ -74,9 +66,6 @@ private:
 	CSSM_CSP_HANDLE			mCspHand;
 	CSSM_TP_HANDLE			mClHand;
 	CSSM_TP_HANDLE			mTpHand;
-	#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
-	CSSM_CSP_HANDLE			mCspDlHand;
-	#endif
 	bool					mCssmInitd;
 	Mutex					mLock;
 };
@@ -110,11 +99,6 @@ ModuleAttacher::~ModuleAttacher()
 	if(mClHand != CSSM_INVALID_HANDLE) {
 		unloadModule(mClHand, &gGuidAppleX509CL);
 	}
-	#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
-	if(mCspDlHand != CSSM_INVALID_HANDLE) {
-		unloadModule(mCspDlHand, &gGuidAppleCSPDL);
-	}
-	#endif
 }
 
 static const CSSM_VERSION cssmVers = {2, 0};
@@ -135,7 +119,9 @@ bool ModuleAttacher::initCssm()
 		&pvcPolicy,
 		NULL /* reserved */);
 	if(crtn != CSSM_OK) {
-		errorLog1("CSSM_Init returned %s", stCssmErrToStr(crtn));
+		#ifndef NDEBUG
+		sslErrorLog("CSSM_Init returned %s", stCssmErrToStr(crtn));
+		#endif
 		return false;
 	}
 	else {
@@ -160,8 +146,10 @@ CSSM_HANDLE ModuleAttacher::loadModule(
 		NULL,			// eventHandler
 		NULL);			// AppNotifyCallbackCtx
 	if(crtn) {
-		errorLog2("ModuleAttacher::loadModule: error (%s) loading %s\n",
+		#ifndef NDEBUG		
+		sslErrorLog("ModuleAttacher::loadModule: error (%s) loading %s\n",
 			stCssmErrToStr(crtn), modName);
+		#endif
 		return CSSM_INVALID_HANDLE;
 	}
 	crtn = CSSM_ModuleAttach (guid,
@@ -176,8 +164,10 @@ CSSM_HANDLE ModuleAttacher::loadModule(
 		NULL,					// reserved
 		&hand);
 	if(crtn) {
-		errorLog2("ModuleAttacher::loadModule: error (%s) attaching to %s\n",
+		#ifndef NDEBUG		
+		sslErrorLog("ModuleAttacher::loadModule: error (%s) attaching to %s\n",
 			stCssmErrToStr(crtn), modName);
+		#endif
 		return CSSM_INVALID_HANDLE;
 	}
 	return hand;
@@ -230,12 +220,7 @@ CSSM_TP_HANDLE ModuleAttacher::getTpHand()
 CSSM_RETURN ModuleAttacher::loadAllModules(
 	CSSM_CSP_HANDLE &cspHand,
 	CSSM_CL_HANDLE	&clHand,
-	CSSM_TP_HANDLE	&tpHand
-	#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
-	,
-	CSSM_CSP_HANDLE	&cspDlHand
-	#endif
-	)
+	CSSM_TP_HANDLE	&tpHand)
 {
 	StLock<Mutex> 	_(mLock);
 	
@@ -257,15 +242,6 @@ CSSM_RETURN ModuleAttacher::loadAllModules(
 			return CSSMERR_CSSM_ADDIN_LOAD_FAILED;
 		}
 	}
-	#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
-	if(mCspDlHand == CSSM_INVALID_HANDLE) {
-		mCspDlHand = loadModule(CSSM_SERVICE_CSP, &gGuidAppleCSPDL, "AppleCSPDL");
-		if(mCspDlHand == CSSM_INVALID_HANDLE) {
-			return CSSMERR_CSSM_ADDIN_LOAD_FAILED;
-		}
-	}
-	cspDlHand = mCspDlHand;
-	#endif
 	cspHand = mCspHand;
 	clHand  = mClHand;
 	tpHand  = mTpHand;
@@ -276,18 +252,8 @@ CSSM_RETURN ModuleAttacher::loadAllModules(
 CSSM_RETURN attachToModules(
 	CSSM_CSP_HANDLE		*cspHand,
 	CSSM_CL_HANDLE		*clHand,
-	CSSM_TP_HANDLE		*tpHand
-	#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE
-	,
-	CSSM_CSP_HANDLE		*cspDlHand
-	#endif
-	)
+	CSSM_TP_HANDLE		*tpHand)
 {
-	return moduleAttacher().loadAllModules(*cspHand, *clHand, *tpHand
-		#if ST_FAKE_KEYCHAIN || ST_FAKE_GET_CSPDL_HANDLE 
-		,
-		*cspDlHand
-		#endif
-		);
+	return moduleAttacher().loadAllModules(*cspHand, *clHand, *tpHand);
 }
 

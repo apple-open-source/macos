@@ -42,7 +42,7 @@
 				02B2D15FFFFD621E11CE2050,
 			);
 			isa = PBXGroup;
-			name = Lib;
+			name = lib;
 			refType = 4;
 		};
 		01190FFF00CC4E527F000001 = {
@@ -944,7 +944,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.2, Copyright Apple Computer, Inc. 2002</string>
+	<string>1.2.3, Copyright Apple Computer, Inc. 2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -956,11 +956,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2</string>
+	<string>1.2.3</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>A1478010-F197-11D4-A28B-000502072F80</key>
@@ -1446,6 +1446,7 @@
 			children = (
 				01C27ABDFFE6EE5311CE206C,
 				0212CDE7FFE5AB2E11CE206C,
+				4DAC0E94035DF1A600CE20D6,
 				010986490030C65511CE2124,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
@@ -1478,7 +1479,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 1.2.2;
+				MODULE_VERSION = 1.2.3;
 				OTHER_CFLAGS = "-DFIREWIREPRIVATE";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1505,7 +1506,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.2, Copyright Apple Computer, Inc. 2002</string>
+	<string>1.2.3, Copyright Apple Computer, Inc. 2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1517,11 +1518,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2</string>
+	<string>1.2.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireUserClient</key>
@@ -1604,6 +1605,7 @@
 				4DF89E76033ABAB200CE20D6,
 				F56DE49C0344560C012C70AC,
 				F56DE4A003445631012C70AC,
+				F5DEB73A03720B5F0190C386,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1650,6 +1652,7 @@
 				F51AB1A403380D9301CE230E,
 				F56DE49D0344560C012C70AC,
 				F56DE4A103445631012C70AC,
+				F5DEB73803720B510190C386,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1722,20 +1725,14 @@
 //244
 		247142CAFF3F8F9811CA285C = {
 			children = (
-				0212CDAEFFE5A54911CE206C,
-				0119100000CC4E527F000001,
-				03610215000A549811CE2050,
-				080C09540017B84F7F000001,
 				0162E5A8001FB51211CE2124,
-				013163AE00CC49117F000001,
-				013163AF00CC49117F000001,
-				013163B000CC49117F000001,
-				F53D5F0A02B6D57E01CE230E,
 				F51AB19A03380D9301CE230E,
 				F52DF93602878C0101845C1A,
+				F53D5F0A02B6D57E01CE230E,
 				0212CDA1FFE5A54911CE206C,
 				0212CDC2FFE5A54911CE206C,
 				0212CDA3FFE5A54911CE206C,
+				F5DEB73703720B510190C386,
 				0212CDA5FFE5A54911CE206C,
 				0212CDA7FFE5A54911CE206C,
 				0160F3000010FFF211CE237E,
@@ -1781,14 +1778,18 @@
 			settings = {
 			};
 		};
-		4DE4B7A3033A777600CE20D6 = {
+		4DAC0E94035DF1A600CE20D6 = {
 			children = (
-				F537AEC502B6E1B601CE230E,
-				F52DF93802878C0101845C1A,
-				F53D5F0B02B6D57E01CE230E,
-				F51AB19B03380D9301CE230E,
-				F51AB19F03380D9301CE230E,
-				F51AB19D03380D9301CE230E,
+				4DAC0E95035DF1CB00CE20D6,
+				4DAC0E96035DF1E000CE20D6,
+			);
+			isa = PBXGroup;
+			name = "user client";
+			path = "";
+			refType = 4;
+		};
+		4DAC0E95035DF1CB00CE20D6 = {
+			children = (
 				0212CDAFFFE5A54911CE206C,
 				03610213000A548E11CE2050,
 				080C09530017B84F7F000001,
@@ -1797,6 +1798,34 @@
 				013163AC00CC49117F000001,
 				013163AD00CC49117F000001,
 				01190FFF00CC4E527F000001,
+			);
+			isa = PBXGroup;
+			name = private;
+			refType = 4;
+		};
+		4DAC0E96035DF1E000CE20D6 = {
+			children = (
+				0212CDAEFFE5A54911CE206C,
+				0119100000CC4E527F000001,
+				03610215000A549811CE2050,
+				080C09540017B84F7F000001,
+				013163AE00CC49117F000001,
+				013163AF00CC49117F000001,
+				013163B000CC49117F000001,
+			);
+			isa = PBXGroup;
+			name = sources;
+			refType = 4;
+		};
+		4DE4B7A3033A777600CE20D6 = {
+			children = (
+				F537AEC502B6E1B601CE230E,
+				F52DF93802878C0101845C1A,
+				F53D5F0B02B6D57E01CE230E,
+				F5DEB73903720B5F0190C386,
+				F51AB19B03380D9301CE230E,
+				F51AB19F03380D9301CE230E,
+				F51AB19D03380D9301CE230E,
 			);
 			isa = PBXGroup;
 			name = private;
@@ -2264,6 +2293,30 @@
 		};
 		F56DE4A403445CB7012C70AC = {
 			fileRef = F56DE49E03445631012C70AC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5DEB73703720B510190C386 = {
+			isa = PBXFileReference;
+			name = IOFireWireIRM.cpp;
+			path = IOFireWireFamily.kmodproj/IOFireWireIRM.cpp;
+			refType = 4;
+		};
+		F5DEB73803720B510190C386 = {
+			fileRef = F5DEB73703720B510190C386;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5DEB73903720B5F0190C386 = {
+			isa = PBXFileReference;
+			name = IOFireWireIRM.h;
+			path = IOFireWireFamily.kmodproj/IOFireWireIRM.h;
+			refType = 4;
+		};
+		F5DEB73A03720B5F0190C386 = {
+			fileRef = F5DEB73903720B5F0190C386;
 			isa = PBXBuildFile;
 			settings = {
 			};

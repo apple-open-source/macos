@@ -28,13 +28,17 @@
 *
 */
 
+// public
+#import <IOKit/firewire/IOFireWireLib.h>
+
+// private
+#import "IOFireWireLibPriv.h"
+#import "IOFireWireLibCommand.h"
+
+// system
 #import <assert.h>
 #import <IOKit/IOKitLib.h>
 #import <IOKit/iokitmig.h>
-
-#import "IOFireWireLib.h"
-#import "IOFireWireLibPriv.h"
-#import "IOFireWireLibCommand.h"
 
 #define IOFIREWIRELIBCOMMANDIMP_INTERFACE \
 	& Cmd::SGetStatus,	\

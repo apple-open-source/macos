@@ -69,6 +69,7 @@ struct pmap {
 #define pmapBatIVal 0x0F000000
 #define pmapFlags   0x00FF0000
 #define pmapSubord  0x00800000
+#define pmapVMhost  0x00400000
 #define pmapAltSeg	0x0000FFFF
 	unsigned int	spaceNum;		/* Space number */
 /*	PPC line boundary here - 020 */

@@ -1,5 +1,5 @@
 /*
- * "$Id: client.c,v 1.7.2.2 2002/09/10 05:56:37 jlovell Exp $"
+ * "$Id: client.c,v 1.7.2.3 2002/12/13 22:54:13 jlovell Exp $"
  *
  *   Client routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -32,6 +32,7 @@
  *   SendError()           - Send an error message via HTTP.
  *   SendFile()            - Send a file via HTTP.
  *   SendHeader()          - Send an HTTP request.
+ *   ShutdownClient()      - Shutdown the receiving end of a connection.
  *   WriteClient()         - Write data to a client as needed.
  *   check_if_modified()   - Decode an "If-Modified-Since" line.
  *   decode_auth()         - Decode an authorization string.
@@ -66,6 +67,7 @@ static char		*get_file(client_t *con, struct stat *filestats);
 static http_status_t	install_conf_file(client_t *con);
 static int		pipe_command(client_t *con, int infile, int *outfile,
 			             char *command, char *options);
+static void	ShutdownClient(client_t *con);
 
 
 /*
@@ -76,6 +78,7 @@ void
 AcceptClient(listener_t *lis)	/* I - Listener socket */
 {
   int			i;	/* Looping var */
+  int			count;	/* Count of connections on a host */
   int			val;	/* Parameter value */
   client_t		*con;	/* New client pointer */
   unsigned		address;/* Address of client */
@@ -118,6 +121,33 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
   con->http.hostaddr.sin_port = lis->address.sin_port;
 
  /*
+  * Check the number of clients on the same address...
+  */
+
+  for (i = 0, count = 0; i < NumClients; i ++)
+    if (memcmp(&(Clients[i].http.hostaddr), &(con->http.hostaddr),
+               sizeof(con->http.hostaddr)) == 0)
+    {
+      count ++;
+      if (count >= MaxClientsPerHost)
+        break;
+    }
+
+  if (count >= MaxClientsPerHost)
+  {
+    LogMessage(L_WARN, "Possible DoS attack - more than %d clients connecting from %s!",
+               MaxClientsPerHost, Clients[i].http.hostname);
+
+#ifdef WIN32
+    closesocket(con->http.fd);
+#else
+    close(con->http.fd);
+#endif /* WIN32 */
+
+    return;
+  }
+
+ /*
   * Get the hostname or format the IP address as needed...
   */
 
@@ -134,7 +164,15 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
   else
     host = NULL;
 
-  if (con->http.hostaddr.sin_addr.s_addr == ServerAddr.sin_addr.s_addr)
+  if (address == 0x7f000001)
+  {
+   /*
+    * Map accesses from the loopback interface to "localhost"...
+    */
+
+    strlcpy(con->http.hostname, "localhost", sizeof(con->http.hostname));
+  }
+  else if (con->http.hostaddr.sin_addr.s_addr == ServerAddr.sin_addr.s_addr)
   {
    /*
     * Map accesses from the same host to the server name.
@@ -291,10 +329,11 @@ CloseAllClients(void)
 void
 CloseClient(client_t *con)	/* I - Client to close */
 {
-  int	status;			/* Exit status of pipe command */
+  int		status;		/* Exit status of pipe command */
 #ifdef HAVE_LIBSSL
   SSL_CTX	*context;	/* Context for encryption */
   SSL		*conn;		/* Connection for encryption */
+  unsigned long	error;		/* Error code */
 #endif /* HAVE_LIBSSL */
 
 
@@ -310,7 +349,19 @@ CloseClient(client_t *con)	/* I - Client to close */
     conn    = (SSL *)(con->http.tls);
     context = SSL_get_SSL_CTX(conn);
 
-    SSL_shutdown(conn);
+    switch (SSL_shutdown(conn))
+    {
+      case 1 :
+          LogMessage(L_INFO, "CloseClient: SSL shutdown successful!");
+	  break;
+      case -1 :
+          LogMessage(L_ERROR, "CloseClient: Fatal error during SSL shutdown!");
+      default :
+	  while ((error = ERR_get_error()) != 0)
+	    LogMessage(L_ERROR, "CloseClient: %s", ERR_error_string(error, NULL));
+          break;
+    }
+
     SSL_CTX_free(context);
     SSL_free(conn);
 
@@ -467,6 +518,15 @@ ReadClient(client_t *con)	/* I - Client to read from */
 
   status = HTTP_CONTINUE;
 
+  LogMessage(L_DEBUG2, "ReadClient() %d, used=%d", con->http.fd,
+             con->http.used);
+
+  if (con->http.error)
+  {
+    CloseClient(con);
+    return (0);
+  }
+
   switch (con->http.state)
   {
     case HTTP_WAITING :
@@ -520,18 +580,20 @@ ReadClient(client_t *con)	/* I - Client to read from */
         switch (sscanf(line, "%63s%1023s%63s", operation, con->uri, version))
 	{
 	  case 1 :
+	      LogMessage(L_ERROR, "Bad request line \"%s\"!", line);
 	      SendError(con, HTTP_BAD_REQUEST);
-	      CloseClient(con);
-	      return (0);
+	      ShutdownClient(con);
+	      return (1);
 	  case 2 :
 	      con->http.version = HTTP_0_9;
 	      break;
 	  case 3 :
 	      if (sscanf(version, "HTTP/%d.%d", &major, &minor) != 2)
 	      {
+		LogMessage(L_ERROR, "Bad request line \"%s\"!", line);
 		SendError(con, HTTP_BAD_REQUEST);
-		CloseClient(con);
-		return (0);
+		ShutdownClient(con);
+		return (1);
 	      }
 
 	      if (major < 2)
@@ -545,8 +607,8 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      else
 	      {
 	        SendError(con, HTTP_NOT_SUPPORTED);
-	        CloseClient(con);
-	        return (0);
+	        ShutdownClient(con);
+	        return (1);
 	      }
 	      break;
 	}
@@ -571,9 +633,10 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	  con->http.state = HTTP_HEAD;
 	else
 	{
+	  LogMessage(L_ERROR, "Bad operation \"%s\"!", operation);
 	  SendError(con, HTTP_BAD_REQUEST);
-	  CloseClient(con);
-	  return (0);
+	  ShutdownClient(con);
+	  return (1);
 	}
 
         con->start     = time(NULL);
@@ -601,8 +664,8 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	if (status != HTTP_OK && status != HTTP_CONTINUE)
 	{
 	  SendError(con, HTTP_BAD_REQUEST);
-	  CloseClient(con);
-	  return (0);
+	  ShutdownClient(con);
+	  return (1);
 	}
 	break;
 
@@ -749,9 +812,11 @@ ReadClient(client_t *con)	/* I - Client to read from */
 
       if ((status = IsAuthorized(con)) != HTTP_OK)
       {
+        LogMessage(L_DEBUG2, "ReadClient: Unauthorized request for %s...\n",
+	           con->uri);
 	SendError(con, status);
-	CloseClient(con);
-	return (0);
+        ShutdownClient(con);
+	return (1);
       }
 
       switch (con->http.state)
@@ -914,6 +979,20 @@ ReadClient(client_t *con)	/* I - Client to read from */
 
 	      break;
             }
+	    else if (atoi(con->http.fields[HTTP_FIELD_CONTENT_LENGTH]) < 0)
+	    {
+	     /*
+	      * Negative content lengths are invalid!
+	      */
+
+              if (!SendError(con, HTTP_BAD_REQUEST))
+	      {
+		CloseClient(con);
+		return (0);
+	      }
+
+	      break;
+	    }
 
            /*
 	    * See what kind of POST request this is; for IPP requests the
@@ -1047,8 +1126,8 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	case HTTP_DELETE :
 	case HTTP_TRACE :
             SendError(con, HTTP_NOT_IMPLEMENTED);
-            CloseClient(con);
-	    return (0);
+            ShutdownClient(con);
+	    return (1);
 
 	case HTTP_HEAD :
             if (strncmp(con->uri, "/printers/", 10) == 0 &&
@@ -1542,7 +1621,8 @@ SendError(client_t      *con,	/* I - Connection */
     return (0);
 #endif /* HAVE_LIBSSL */
 
-  if (con->http.version >= HTTP_1_1 && !con->http.keep_alive)
+  if ((con->http.version >= HTTP_1_1 && !con->http.keep_alive) ||
+      (code >= HTTP_BAD_REQUEST && code != HTTP_UPGRADE_REQUIRED))
   {
     if (httpPrintf(HTTP(con), "Connection: close\r\n") < 0)
       return (0);
@@ -1563,7 +1643,8 @@ SendError(client_t      *con,	/* I - Connection */
 
     if (httpPrintf(HTTP(con), "Content-Type: text/html\r\n") < 0)
       return (0);
-    if (httpPrintf(HTTP(con), "Content-Length: %d\r\n", strlen(message)) < 0)
+    if (httpPrintf(HTTP(con), "Content-Length: %d\r\n",
+                   (int)strlen(message)) < 0)
       return (0);
     if (httpPrintf(HTTP(con), "\r\n") < 0)
       return (0);
@@ -1686,6 +1767,28 @@ SendHeader(client_t    *con,	/* I - Client to send to */
       return (0);
 
   return (1);
+}
+
+
+/*
+ * 'ShutdownClient()' - Shutdown the receiving end of a connection.
+ */
+
+void
+ShutdownClient(client_t *con)		/* I - Client connection */
+{
+ /*
+  * Shutdown the receiving end of the socket, since the client
+  * still needs to read the error message...
+  */
+
+  shutdown(con->http.fd, 0);
+  con->http.used = 0;
+
+  LogMessage(L_DEBUG2, "ShutdownClient: Removing fd %d from InputSet...",
+             con->http.fd);
+
+  FD_CLR(con->http.fd, &InputSet);
 }
 
 
@@ -2215,40 +2318,41 @@ install_conf_file(client_t *con)	/* I - Connection */
  * 'pipe_command()' - Pipe the output of a command to the remote client.
  */
 
-static int			/* O - Process ID */
-pipe_command(client_t *con,	/* I - Client connection */
-             int      infile,	/* I - Standard input for command */
-             int      *outfile,	/* O - Standard output for command */
-	     char     *command,	/* I - Command to run */
-	     char     *options)	/* I - Options for command */
+static int				/* O - Process ID */
+pipe_command(client_t *con,		/* I - Client connection */
+             int      infile,		/* I - Standard input for command */
+             int      *outfile,		/* O - Standard output for command */
+	     char     *command,		/* I - Command to run */
+	     char     *options)		/* I - Options for command */
 {
-  int	pid;			/* Process ID */
-  char	*commptr;		/* Command string pointer */
-  int	fd;			/* Looping var */
-  int	fds[2];			/* Pipe FDs */
-  int	argc;			/* Number of arguments */
-  int	envc;			/* Number of environment variables */
-  char	argbuf[10240],		/* Argument buffer */
-	*argv[100],		/* Argument strings */
-	*envp[100];		/* Environment variables */
-  char	lang[1024],		/* LANG env variable */
-	content_length[1024],	/* CONTENT_LENGTH env variable */
-	content_type[1024],	/* CONTENT_TYPE env variable */
-	ipp_port[1024],		/* Default listen port */
-	server_port[1024],	/* Default server port */
-	server_name[1024],	/* Default listen hostname */
-	remote_host[1024],	/* REMOTE_HOST env variable */
-	remote_user[1024],	/* REMOTE_USER env variable */
-	tmpdir[1024],		/* TMPDIR environment variable */
-	ldpath[1024],		/* LD_LIBRARY_PATH environment variable */
-	nlspath[1024],		/* NLSPATH environment variable */
-	datadir[1024],		/* CUPS_DATADIR environment variable */
-	root[1024],		/* CUPS_SERVERROOT environment variable */
-	query_string[10240];	/* QUERY_STRING env variable */
+  int		i;			/* Looping var */
+  int		pid;			/* Process ID */
+  char		*commptr;		/* Command string pointer */
+  int		fd;			/* Looping var */
+  int		fds[2];			/* Pipe FDs */
+  int		argc;			/* Number of arguments */
+  int		envc;			/* Number of environment variables */
+  char		argbuf[10240],		/* Argument buffer */
+		*argv[100],		/* Argument strings */
+		*envp[100];		/* Environment variables */
+  char		lang[1024],		/* LANG env variable */
+		content_length[1024],	/* CONTENT_LENGTH env variable */
+		content_type[1024],	/* CONTENT_TYPE env variable */
+		ipp_port[1024],		/* Default listen port */
+		server_port[1024],	/* Default server port */
+		server_name[1024],	/* Default listen hostname */
+		remote_host[1024],	/* REMOTE_HOST env variable */
+		remote_user[1024],	/* REMOTE_USER env variable */
+		tmpdir[1024],		/* TMPDIR environment variable */
+		ldpath[1024],		/* LD_LIBRARY_PATH environment variable */
+		nlspath[1024],		/* NLSPATH environment variable */
+		datadir[1024],		/* CUPS_DATADIR environment variable */
+		root[1024],		/* CUPS_SERVERROOT environment variable */
+		query_string[10240];	/* QUERY_STRING env variable */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   sigset_t	oldmask,		/* POSIX signal masks */
 		newmask;
-  struct sigaction	action;		/* Actions for POSIX signals */
+  struct sigaction action;		/* POSIX signal handler */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
 
 
@@ -2311,7 +2415,10 @@ pipe_command(client_t *con,	/* I - Client connection */
            con->language ? con->language->language : "C");
   sprintf(ipp_port, "IPP_PORT=%d", ntohs(con->http.hostaddr.sin_port));
   sprintf(server_port, "SERVER_PORT=%d", ntohs(con->http.hostaddr.sin_port));
-  snprintf(server_name, sizeof(server_name), "SERVER_NAME=%s", ServerName);
+  if (strcmp(con->http.hostname, "localhost") == 0)
+    strlcpy(server_name, "SERVER_NAME=localhost", sizeof(server_name));
+  else
+    snprintf(server_name, sizeof(server_name), "SERVER_NAME=%s", ServerName);
   snprintf(remote_host, sizeof(remote_host), "REMOTE_HOST=%s", con->http.hostname);
   snprintf(remote_user, sizeof(remote_user), "REMOTE_USER=%s", con->username);
   snprintf(tmpdir, sizeof(tmpdir), "TMPDIR=%s", TempDir);
@@ -2324,6 +2431,9 @@ pipe_command(client_t *con,	/* I - Client connection */
   else if (getenv("DYLD_LIBRARY_PATH") != NULL)
     snprintf(ldpath, sizeof(ldpath), "DYLD_LIBRARY_PATH=%s",
              getenv("DYLD_LIBRARY_PATH"));
+  else if (getenv("SHLIB_PATH") != NULL)
+    snprintf(ldpath, sizeof(ldpath), "SHLIB_PATH=%s",
+             getenv("SHLIB_PATH"));
   else
     ldpath[0] = '\0';
 
@@ -2394,6 +2504,12 @@ pipe_command(client_t *con,	/* I - Client connection */
 
   envp[envc] = NULL;
 
+  if (LogLevel == L_DEBUG2)
+  {
+    for (i = 0; i < envc; i ++)
+      LogMessage(L_DEBUG2, "envp[%d] = \"%s\"", i, envp[i]);
+  }
+
  /*
   * Create a pipe for the output...
   */
@@ -2426,35 +2542,6 @@ pipe_command(client_t *con,	/* I - Client connection */
   if ((pid = fork()) == 0)
   {
    /*
-    * Reset signal handlers
-    */
-
-#ifdef HAVE_SIGSET /* Use System V signals over POSIX to avoid bugs */
-    sigset(SIGCHLD, SIG_DFL);
-    sigset(SIGTERM, SIG_DFL);
-
-    sigrelse(SIGTERM);
-    sigrelse(SIGCHLD);
-#elif defined(HAVE_SIGACTION)
-    memset(&action, 0, sizeof(action));
-    
-    sigemptyset(&action.sa_mask);
-    sigaddset(&action.sa_mask, SIGCHLD);
-    action.sa_handler = SIG_DFL;
-    sigaction(SIGCHLD, &action, NULL);
-    
-    sigemptyset(&action.sa_mask);
-    sigaddset(&action.sa_mask, SIGTERM);
-    action.sa_handler = SIG_DFL;
-    sigaction(SIGTERM, &action, NULL);
-
-    sigprocmask(SIG_SETMASK, &oldmask, NULL);
-#else
-    signal(SIGCHLD, SIG_DFL);
-    signal(SIGTERM, SIG_DFL);
-#endif /* HAVE_SIGSET */
-    
-    /* 
     * Child comes here...  Close stdin if necessary and dup the pipe to stdout.
     */
 
@@ -2509,6 +2596,32 @@ pipe_command(client_t *con,	/* I - Client connection */
     umask(077);
 
    /*
+    * Unblock signals before doing the exec...
+    */
+
+#ifdef HAVE_SIGSET
+    sigset(SIGTERM, SIG_DFL);
+    sigset(SIGCHLD, SIG_DFL);
+
+    sigrelse(SIGTERM);
+    sigrelse(SIGCHLD);
+#elif defined(HAVE_SIGACTION)
+    memset(&action, 0, sizeof(action));
+
+    sigemptyset(&action.sa_mask);
+    action.sa_handler = SIG_DFL;
+
+    sigaction(SIGTERM, &action, NULL);
+    sigaction(SIGCHLD, &action, NULL);
+
+    sigprocmask(SIG_SETMASK, &oldmask, NULL);
+#else
+    signal(SIGTERM, SIG_DFL);
+    signal(SIGCHLD, SIG_DFL);
+#endif /* HAVE_SIGSET */
+
+
+   /*
     * Execute the pipe program; if an error occurs, exit with status 1...
     */
 
@@ -2555,5 +2668,5 @@ pipe_command(client_t *con,	/* I - Client connection */
 
 
 /*
- * End of "$Id: client.c,v 1.7.2.2 2002/09/10 05:56:37 jlovell Exp $".
+ * End of "$Id: client.c,v 1.7.2.3 2002/12/13 22:54:13 jlovell Exp $".
  */

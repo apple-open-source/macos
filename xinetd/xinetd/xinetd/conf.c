@@ -32,6 +32,8 @@ void cnf_free( struct configuration *confp )
    pset_destroy( sconfs ) ;
    if ( confp->cnf_defaults )
       sc_free( confp->cnf_defaults ) ;
+
+   CLEAR(*confp);
 }
 
 
@@ -130,6 +132,7 @@ static void destroy_service( struct service *sp )
 {
    svc_deactivate( sp ) ;
    svc_free( sp ) ;
+   sp = NULL;
 }
 
 
@@ -152,12 +155,14 @@ unsigned cnf_start_services( struct configuration *confp )
       if ( ( sp = svc_new( scp ) ) == NULL )
       {
          sc_free( scp ) ;
+         scp = NULL;
          continue ;
       }
 
       if ( svc_activate( sp ) == FAILED )
       {
          svc_free( sp ) ;
+         scp = NULL;
          continue ;
       }
 

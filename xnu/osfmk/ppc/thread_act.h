@@ -111,6 +111,8 @@ typedef struct MachineThrAct {
 #define userProtKeybit			8
 #define trapUnalignbit			9
 #define notifyUnalignbit		10
+#define FamVMenabit			11
+#define FamVMmodebit			12
 /*	NOTE: Do not move or assign bit 31 without changing exception vector ultra fast path code */
 #define bbThreadbit				28
 #define bbNoMachSCbit	 		29
@@ -127,6 +129,8 @@ typedef struct MachineThrAct {
 #define userProtKey			(1<<(31-userProtKeybit))
 #define trapUnalign			(1<<(31-trapUnalignbit))
 #define notifyUnalign		(1<<(31-notifyUnalignbit))
+#define	FamVMena			(1<<(31-FamVMenabit))
+#define	FamVMmode			(1<<(31-FamVMmodebit))
 #define bbThread			(1<<(31-bbThreadbit))
 #define bbNoMachSC			(1<<(31-bbNoMachSCbit))
 #define bbPreemptive		(1<<(31-bbPreemptivebit))

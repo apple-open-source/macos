@@ -174,6 +174,39 @@ IOFWPseudoAddressSpace::simpleReadFixed(IOFireWireBus *control,
     return me;
 }
 
+// simpleReadFixed
+//
+//
+
+IOFWPseudoAddressSpace *
+IOFWPseudoAddressSpace::simpleRWFixed(IOFireWireBus *control,
+                                      FWAddress addr, UInt32 len, const void *data)
+{
+    IOFWPseudoAddressSpace * me = new IOFWPseudoAddressSpace;
+    do 
+	{
+        if(!me)
+            break;
+        
+		if(!me->initFixed(control, addr, len, simpleReader, simpleWriter, (void *)me)) 
+		{
+            me->release();
+            me = NULL;
+            break;
+        }
+        
+		me->fDesc = IOMemoryDescriptor::withAddress((void *)data, len, kIODirectionOut);
+        if(!me->fDesc) 
+		{
+            me->release();
+            me = NULL;
+        }
+		
+    } while(false);
+
+    return me;
+}
+
 
 // simpleRW
 //

@@ -611,7 +611,7 @@ This file describes the changes to xinetd. The base version is 2.0.0.
 		dust along the way, since the event loop hasn't started
 		by the time the conf parser started.  It was never built
 		anyway, so not a big loss.
-	Made xinetd unlink it's pidfile properly.
+	Made xinetd unlink its pidfile properly.
 		- Solar Designer
 	Enabled loadavg support for Darwin.
 	Remove the exit when user or group is specified and xinetd is not root.
@@ -698,11 +698,105 @@ This file describes the changes to xinetd. The base version is 2.0.0.
 		no services running. 
 	Update the access_times parser to disable service if there is a parse 
 		error. Also corrected ti_add too. -Steve Grubb
-        Updated all parsers to propogate errors so service will be 
+        Updated all parsers to propagate errors so service will be 
 		disabled. -Steve Grubb
 	Updated internal services to check the signal pipe 
 		periodically. -Steve Grubb
 	Updated sendsig to wait for termed children so zombies aren't created
 		and ports are clear to rebind to on hard_reconfig. -Steve Grubb
         Included a patch from Hendrik Visage for a problem with ident.
-
+2.3.6
+	Updated only_from to 'and' both the remote address and the specified
+		portion if a network mask type address is used. -Steve Grubb
+	Updated explicit_mask to chose NUMERIC_ADDR if mask is 32. -Steve Grubb
+	Many parser updates. -Steve Grubb
+	Propogate default attributes even if not specified. log_on_success, 
+		log_on_failure, passenv were the main items affected by this 
+		problem. only_from and no_access now conform to this new
+		propogation technique. -Steve Grubb
+	Xremove now uses domain names in addition to ip addresses. -Steve Grubb
+	Moved sensor code into its own file and changed it to use timer
+		facility. -Steve Grubb
+	Reworked remote_addr check & addrlist_match to not cache IP addresses 
+		and corrected several algorithmic problems. -Steve Grubb
+	Off-by-one error corrected in pset_delete. -Steve Grubb
+	Updated attrfill to use IPv4 addresses if bind specified. -Steve Grubb
+	Fixed bug in libwrap code to check server better for NULL -Steve Grubb
+	Added better testing of configuration if NAMEINARGS flag 
+		is set. -Steve Grubb
+	Updated config.guess & config.sub. -Thomas Seyrat
+	Added an rpm spec file. -Steve Grubb
+	Removed sio/suite directory. It appears that key files have been 
+		deleted in the past so it no longer works. -Steve Grubb
+        Make the file descriptor buffer allocation dynamic.  This substantially
+                reduces xinetd's normal memory footprint (~760KB). -Rob Braun
+        Work around bugs in Mac OS X's getrlimit/setrlimit which causes them
+                to be almost unusable. -Rob Braun
+2.3.7
+	Added fixes or workarounds for issues introduced after 2.3.3
+		including the signal pipe leak into child processes (a
+		security hole). -Solar Designer
+	Made xinetd unlink its pidfile when there turns out to be no
+		services configured on reload. -Solar Designer
+2.3.8
+	Reworked redirect to better detect problems in its configuration. Also,
+		redirect now allows service names for port numbers. -Steve Grubb
+	Reworked attribute checking in confparse & updated attr.h. -Steve Grubb
+	Ensure that children have the default signal handlers installed.
+	Added support for DNS service registration ala Rendezvous.
+	Fixed some compile errors on Mac OS X, FreeBSD, and OpenBSD.
+	Added preliminary support for tcpmux -Philip Armstrong
+	Update the xinetd man page to document the -version option.
+	Now ignores the --with-inet6 compile option.
+		Services will default to IPv4 unless configured otherwise.
+	Bring back the inetd.conf parser in a different form.  Parse all
+		the xinetd config files first, then parse /etc/inetd.conf,
+		and add services from there (if it exists).
+		Use the -inetd_compat option to read inetd.conf.
+	IPv6 updates for bind_parser, only_from, and no_access. -Steve Grubb
+2.3.9
+	Fixed bug uncovered by IPv6 updates for bind parser. In the id_parser,
+		a test was being performed for uniqueness. It relied on the
+		address already being given.  However, the address may not be
+		known if more than one record came back from the getaddrinfo 
+		function call. -Steve Grubb
+	Added code to service_fill to resolve port if unspecified. -Steve Grubb
+	Consolidated duplicate services tests into check_entry. -Steve Grubb
+	Fixed a bug with access control & internal services.
+	Make sure we byteswap the value returned by time services.
+	Fix an omission with the tcpmux integration.
+	Fixed a race when there's 1 service configured and it is a wait service.
+devel
+	Close the service descriptors on fork.  This only matters for internal
+		forking services, since anything that calls exec() will get
+		those closed automagically.  This will help reduce the file
+		discriptors used by the daemon when using some internal services
+	Fix a numbering bug with xinetd's internal flag representation that
+		was manifesting its self as all services being disabled upon
+		recieving a SIGUSR2 (hard reconfig)
+	Don't pass a hostname to dns registration calls, it'll pick a hostname
+		automagically.
+	Remove CLEANUP and other dead code.
+	Make sure tcp internal non-forking services close their filedescriptors.
+	Added syslog facilities for the xinetd log configuration to match SUS.
+		- Steve Grubb
+	Start reporting the Per Source value when dumping debugging output
+		- Steve Grubb
+	Correct the fake-getnameinfo.h to include appropriate macros.
+		- Steve Grubb
+	Up the default CPS value to 50 from 10.
+	Document the default CPS values in the xinetd.conf man page.
+	Fix a closing of the connection when there's an error handling the 
+		service.  - Steve Grubb
+	Fixed a bug in the includedir path where a reference was kept to
+		free()'d memory.
+	Fixed a bug in the consistency check mechanism where it would
+		report the signal pipe as a problem.
+	Clear memory before freeing it.  This isn't strictly necissary,
+		but aids in debugging.
+	Add the pid to debugging messages.
+	Remove access control calls for special services.  The access control
+		functions must always allow these services anyway.
+	Fixed a bug with reconfiguring services using the interface attribute.
+		-- Adam Lukosek
+	Fixed a bug with deallocating dns registrations.

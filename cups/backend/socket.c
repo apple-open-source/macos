@@ -1,5 +1,5 @@
 /*
- * "$Id: socket.c,v 1.9 2002/04/09 00:14:31 jlovell Exp $"
+ * "$Id: socket.c,v 1.9.2.2 2002/12/05 22:56:05 jlovell Exp $"
  *
  *   AppSocket backend for the Common UNIX Printing System (CUPS).
  *
@@ -25,7 +25,11 @@
  *
  * Contents:
  *
- *   main() - Send a file to the printer or server.
+ *   main()		- Send a file to the printer or server.
+ *   printFile()	- Print a file to a socket.
+ *   getSocketOptions()	- Parse command line options.
+ *   sendUrgentReset()	- Send a byte of urgent data to reset device.
+ *   sighup_handler()	- Signal handler.
  */
 
 /*
@@ -35,6 +39,7 @@
 #include <cups/cups.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdarg.h>
 #include <cups/string.h>
 #include <errno.h>
@@ -53,6 +58,16 @@
 #  include <netdb.h>
 #endif /* WIN32 */
 
+static int printFile(int fdin, int fileOut, int socket);
+static void getSocketOptions(const char *uri, int *bidiP);
+static int sendUrgentReset(int socket);
+static void sighup_handler(int sig);
+
+/* This global holds the socket used to send data to the printer.
+ * The global is read by the SIGHUP handler in order to send
+ * a reset signal to the printer.
+ */
+static int gSocketOut = -1;
 
 /*
  * 'main()' - Send a file to the printer or server.
@@ -78,13 +93,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   int		error;		/* Error code (if any) */
   struct sockaddr_in addr;	/* Socket address */
   struct hostent *hostaddr;	/* Host address */
-  int		wbytes;		/* Number of bytes written */
-  size_t	nbytes,		/* Number of bytes read */
-		tbytes;		/* Total number of bytes written */
-  char		buffer[8192],	/* Output buffer */
-		*bufptr;	/* Pointer into buffer */
-  struct timeval timeout;	/* Timeout for select() */
-  fd_set	input;		/* Input set for select() */
+  int           bidi;		/* If true send the backchannel data to stdout else stderr. */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;	/* Actions for POSIX signals */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
@@ -95,6 +104,21 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   */
 
   setbuf(stderr, NULL);
+
+#ifdef HAVE_SIGSET /* Use System V signals over POSIX to avoid bugs */
+  sigset(SIGHUP, sighup_handler);
+
+#elif defined(HAVE_SIGACTION)
+  memset(&action, 0, sizeof(action));
+  sigemptyset(&action.sa_mask);
+  sigaddset(&action.sa_mask, SIGHUP);
+  action.sa_handler = sighup_handler;
+  sigaction(SIGHUP, &action, NULL);
+  
+#else
+  signal(SIGHUP, sighup_handler);
+#endif /* HAVE_SIGSET */
+
 
  /*
   * Check command-line...
@@ -237,97 +261,22 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 
     fputs("INFO: Connected to host, sending print job...\n", stderr);
 
-    tbytes = 0;
-    while ((nbytes = read(fp, buffer, sizeof(buffer))) > 0)
-    {
-     /*
-      * Write the print data to the printer...
-      */
+    /* Remember the socket file descriptor in a global so that our
+     * HUP signal handler can get to it.
+     */
+    gSocketOut = fd;
+    
+    getSocketOptions(argv[0], &bidi);
 
-      tbytes += nbytes;
-      bufptr = buffer;
+    if (bidi) fprintf(stderr, "DEBUG: socket bidirectional enabled.\n");
 
-      while (nbytes > 0)
-      {
-	if ((wbytes = send(fd, bufptr, nbytes, 0)) < 0)
-	{
-	  perror("ERROR: Unable to send print file to printer");
-	  break;
-	}
-
-	nbytes -= wbytes;
-	bufptr += wbytes;
-      }
-
-     /*
-      * Check for possible data coming back from the printer...
-      */
-
-      timeout.tv_sec  = 0;
-      timeout.tv_usec = 0;
-
-      FD_ZERO(&input);
-      FD_SET(fd, &input);
-#ifdef __hpux
-      if (select(fd + 1, (int *)&input, NULL, NULL, &timeout) > 0)
-#else
-      if (select(fd + 1, &input, NULL, NULL, &timeout) > 0)
-#endif /* __hpux */
-      {
-       /*
-	* Grab the data coming back and spit it out to stderr...
-	*/
-
-	if ((nbytes = recv(fd, buffer, sizeof(buffer), 0)) > 0)
-	  fprintf(stderr, "INFO: Received %lu bytes of back-channel data!\n",
-	          (unsigned long)nbytes);
-      }
-      else if (argc > 6)
-	fprintf(stderr, "INFO: Sending print file, %lu bytes...\n",
-	        (unsigned long)tbytes);
-    }
-
-   /*
-    * Shutdown the socket and wait for the other end to finish...
-    */
-
-    fputs("INFO: Print file sent, waiting for printer to finish...\n", stderr);
-
-    shutdown(fd, 1);
-
-    for (;;)
-    {
-     /*
-      * Wait a maximum of 90 seconds for backchannel data or a closed
-      * connection...
-      */
-
-      timeout.tv_sec  = 90;
-      timeout.tv_usec = 0;
-
-      FD_ZERO(&input);
-      FD_SET(fd, &input);
-
-#ifdef __hpux
-      if (select(fd + 1, (int *)&input, NULL, NULL, &timeout) > 0)
-#else
-      if (select(fd + 1, &input, NULL, NULL, &timeout) > 0)
-#endif /* __hpux */
-      {
-       /*
-	* Grab the data coming back and spit it out to stderr...
-	*/
-
-	if ((nbytes = recv(fd, buffer, sizeof(buffer), 0)) > 0)
-	  fprintf(stderr, "INFO: Received %lu bytes of back-channel data!\n",
-	          (unsigned long)nbytes);
-        else
-	  break;
-      }
-      else
-        break;
-    }
-
+    (void) printFile(fp, bidi ? STDOUT_FILENO : -1, fd);
+    
+    /* We're done with the socket so we'll clear the global
+     * used by the HUP signal handler.
+     */
+    gSocketOut = -1;
+    
    /*
     * Close the socket connection...
     */
@@ -347,7 +296,307 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   return (0);
 }
 
+static int printFile(int fdin, int fileOut, int socket)
+{
+  char fileBuffer[16 * 1024];
+  char socketReadBuffer[1 * 1024];
+  char *inFileBuffer = NULL;
+  fd_set readSet;
+  fd_set writeSet;
+  ssize_t bytesToSend = 0;
+  int val;
+  int fileEOFRead = false;
+  int maxfdp1 = 0;
+  struct timeval timeout90;
+  struct timeval *timeout = NULL;
+  int numReady = 0;
+  int jobFinished = false;
+  int err = 0;
+        
+  maxfdp1 = MAX(fdin, fileOut);
+  maxfdp1 = MAX(maxfdp1, socket);
+  ++maxfdp1;
+
+  /* Set non-blocking mode on both the file descriptor
+   * we will read the print file from and on the
+   * socket we will write to and read from.
+   */
+  val = fcntl(fdin, F_GETFL, 0);
+  fcntl(fdin, F_SETFL, val | O_NONBLOCK);
+        
+  val = fcntl(socket, F_GETFL, 0);
+  fcntl(socket, F_SETFL, val | O_NONBLOCK);
+
+  while (jobFinished == false && err == 0) {
+  
+    FD_ZERO(&readSet);
+    FD_ZERO(&writeSet);
+    
+    /* We're always interested if there are incoming bytes from
+     * the socket.
+     */
+    FD_SET(socket, &readSet);
+
+    /* If we still have bytes to send over the socket then
+     * we want to know when we can send more.
+     */
+    if (bytesToSend > 0)
+    {
+      FD_SET(socket, &writeSet);
+      timeout = NULL;
+    }
+    
+    /* If we have no bytes to send and there is still data coming
+     * to us on the file descriptor, then we'll want to know
+     * when more data can be read.
+     */
+    else if (!fileEOFRead)
+    {
+      FD_SET(fdin, &readSet);
+      timeout = NULL;
+    }
+    
+    /* If we're done reading from the file descriptor, then we've shutdown
+     * our half of the connection and want to set a timeout while waiting
+     * for the other end to shutdown.
+     */
+    else
+    {
+      timeout90.tv_sec  = 90;
+      timeout90.tv_usec = 0;
+      timeout = &timeout90;
+    }
+   
+    /* Wait here for something interesting to happen
+     */
+#ifdef __hpux
+    numReady = select(maxfdp1, (int *) &readSet, &writeSet, 0, timeout);
+#else
+    numReady = select(maxfdp1, &readSet, &writeSet, 0, timeout);
+#endif /* __hpux */
+    
+    if (numReady > 0)
+    {
+    
+      /* We have data to read from the file input stream.
+       */
+      if (FD_ISSET(fdin, &readSet))
+      {  
+        bytesToSend = read(fdin, fileBuffer, sizeof(fileBuffer));
+
+        if (bytesToSend > 0) {
+          inFileBuffer = fileBuffer;
+        } else if (bytesToSend == 0) {
+          fileEOFRead = true;
+          /*
+           * If we've sent the entire file then
+           * shutdown the socket and wait for the other end to finish...
+           */
+          fputs("INFO: Print file sent, waiting for printer to finish...\n", stderr);
+          shutdown(socket, 1);
+        } else {
+          perror("ERROR: socket reading from input steam");
+          err = errno;
+          break;
+        }
+      }
+    
+      /* The socket output stream is ready for more data.
+       */
+      else if (FD_ISSET(socket, &writeSet))
+      {
+          ssize_t bytesSent = write(socket, inFileBuffer, (size_t) bytesToSend);
+        
+          if (bytesSent >= 0) {
+            bytesToSend -= bytesSent;
+            inFileBuffer += bytesSent;
+         
+          } else if (bytesSent == EAGAIN) {
+            /* Do nothing, we'll try again later. */
+          } else {
+            perror("ERROR: socket failed socket write");
+            err = errno;
+            break;
+          }
+      }
+    
+      /* The socket has received data we need to handle.
+       */
+      if (FD_ISSET(socket, &readSet))
+      {
+        ssize_t receivedBytes = read(socket, socketReadBuffer, sizeof(socketReadBuffer));
+
+        /* Received data goes to the provided pipe or, if a valid pipe
+         * is not supplied, we simply log the data's arrival.
+         */
+        if (receivedBytes > 0)
+        {
+          if (fileOut >= 0) {
+            write(fileOut, socketReadBuffer, (size_t) receivedBytes);
+          } else {
+            fprintf(stderr, "DEBUG: Received (and ignored) %lu bytes of back-channel data!\n", (unsigned long) receivedBytes);
+          }
+        }
+        
+        /* The remote end shutdown their end of the socket so we're done.
+         */
+        else if (receivedBytes == 0)
+        {
+          jobFinished = true;
+          
+          /* The remote end shutdown before we were done sending.
+           */
+          if (!fileEOFRead) err = -1;
+          
+        /* There was an error reading the socket.
+         */
+        }
+        else
+        {
+          perror("DEBUG: failed to read socket back-channel");
+        }
+      }
+    }
+    
+    /* If the select timed out, then the remote did not shutdown the connection
+     * in a timely manner - but we're done so we'll exit this function.
+     */
+    else if (numReady == 0)
+    {
+      jobFinished = true;
+    }
+    
+    /* Otherwise select had an error.
+     */
+    else
+    {
+      /* We want to ignore an interrupt error, but
+       * we want to quit the loop with any other error.
+       */
+      if (errno != EINTR)
+      {
+        perror("ERROR: select");
+        err = errno;
+      }
+    }
+      
+  }
+
+  fprintf(stderr, "DEBUG: socket finished sending file, err = %d.\n", err);
+
+  return err;
+}
+
+static void getSocketOptions(const char *uri, int *bidiP)
+{
+  char method[255];	/* Method in URI */
+  char hostname[1024];	/* Hostname */
+  char username[255];	/* Username info (not used) */
+  char resource[1024];	/* Resource info (device and options) */
+  int port = 0;		/* Port number (not used) */
+  char *resourcePtr = NULL;
+  char *options = NULL;	/* Pointer to options */
+  char optionName[255];	/* Name of option */
+  char value[255];	/* Value of option */
+  char *ptr = NULL;     /* Pointer into name or value */
+  int bidi = false;
+
+  /* Extract the device name and options from the URI...
+   */
+  method[0] = username[0] = hostname[0] = resource[0] = '\0';
+        
+  httpSeparate(uri, method, username, hostname, &port, resource);
+
+  /*
+   * See if there are any parameters...
+   */
+  if ((options = strchr(resource, '?')) != NULL)
+  {
+
+    /*
+     * Yup, terminate the device name string and move to the first
+     * character of the options...
+     */
+    *options++ = '\0';        
+
+    while (*options != '\0')
+    {
+      /*
+      * Get the name...
+      */
+      for (ptr = optionName; *options && *options != '=';)
+        *ptr++ = *options++;
+
+      *ptr = '\0';
+                
+      if (*options == '=')
+      {
+        /*
+         * Get the value...
+         */
+        options ++;
+                        
+        for (ptr = value; *options && *options != '+';)
+          *ptr++ = *options++;
+
+        *ptr = '\0';
+                        
+        if (*options == '+')
+          options ++;
+          
+      }
+      else
+      {
+        value[0] = '\0';
+      }
+      
+      if (strcasecmp(optionName, "bidi") == 0)
+      {
+        bidi = true;
+      }
+    } 
+  }
+  
+  if (bidiP) *bidiP = bidi;
+  
+}
+
+static int sendUrgentReset(int socket)
+{
+    char resetByte = 0;
+    int err = 0;
+    
+    if (send(socket, &resetByte, sizeof(resetByte), MSG_OOB) < 0) {
+        err = errno;
+        perror("Failed to send socket reset");
+    }
+    
+    return err;
+}
 
 /*
- * End of "$Id: socket.c,v 1.9 2002/04/09 00:14:31 jlovell Exp $".
+ * 'sighup_handler()' - Handle 'hangup' signals to send a reset.
+ */
+
+static void sighup_handler(int sig)
+{
+  (void)sig;
+
+  /* If it looks like we have a valid socket then send the urgent data.
+   */
+  if (gSocketOut >= 0)
+  {
+    sendUrgentReset(gSocketOut);
+  }
+  
+#ifdef HAVE_SIGSET
+  sigset(SIGHUP, sighup_handler);
+#elif !defined(HAVE_SIGACTION)
+  signal(SIGHUP, sighup_handler);
+#endif /* HAVE_SIGSET */
+}
+
+
+/*
+ * End of "$Id: socket.c,v 1.9.2.2 2002/12/05 22:56:05 jlovell Exp $".
  */

@@ -42,4 +42,4 @@ __private_extern__ void * bsearch(
 extern long     strtol(const char *, char **, int);
 extern unsigned long strtoul(const char *, char **, int);
 
-#endif _LIBSA_STDLIB_H_
+#endif /* _LIBSA_STDLIB_H_ */

@@ -26,7 +26,8 @@ enum DallasFamilyID {
 enum DallasSpeakerID {
 	kDallasSpeakerRESERVED		=	0,
 	kSpeakerModel_P43			=	1,
-	kSpeakerModel_P74			=	2
+	kSpeakerModel_P74			=	2,
+	kSpeakerModel_Q5			=	3
 };
 
 enum DallasROMAddress {

@@ -82,7 +82,7 @@
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/privateInc\"";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				OPTIMIZATION_CFLAGS = "-O3";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-DNDEBUG";
 				OTHER_LDFLAGS = "-lstdc++";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -100,8 +100,8 @@
 			productName = SecureTransport;
 			productReference = 00E4CE36FF9B8CA8D0A17CE7;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
@@ -134,7 +134,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				00E4CE62FF9B8EABD0A17CE7,
-				00E4CE63FF9B8EABD0A17CE7,
 				00E4CE64FF9B8EABD0A17CE7,
 				00E4CE65FF9B8EABD0A17CE7,
 				00E4CE66FF9B8EABD0A17CE7,
@@ -147,13 +146,11 @@
 				00E4CE71FF9B8EABD0A17CE7,
 				00E4CE72FF9B8EABD0A17CE7,
 				00E4CE73FF9B8EABD0A17CE7,
-				00E4CE75FF9B8EABD0A17CE7,
 				00E4CE76FF9B8EABD0A17CE7,
 				00E4CE77FF9B8EABD0A17CE7,
 				00E4CE78FF9B8EABD0A17CE7,
 				00E4CE79FF9B8EABD0A17CE7,
 				00E4CE7AFF9B8EABD0A17CE7,
-				00E4CE7BFF9B8EABD0A17CE7,
 				00E4CE7CFF9B8EABD0A17CE7,
 				00E4CE7DFF9B8EABD0A17CE7,
 				00E4CEB7FF9B909FD0A17CE7,
@@ -162,8 +159,10 @@
 				9D1B441A01F5ED1200003D05,
 				9D1B441B01F5ED1200003D05,
 				9D1B441C01F5ED1200003D05,
+				9DD49D9A030C714000003D05,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00E4CE3AFF9B8CA8D0A17CE7 = {
 			buildActionMask = 2147483647;
@@ -174,12 +173,12 @@
 				9D1B442001F5ED1200003D05,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00E4CE3BFF9B8CA8D0A17CE7 = {
 			buildActionMask = 2147483647;
 			files = (
 				00E4CE82FF9B8F1DD0A17CE7,
-				00E4CE83FF9B8F1DD0A17CE7,
 				00E4CE85FF9B8F1DD0A17CE7,
 				00E4CE9BFF9B8FE5D0A17CE7,
 				00E4CE9EFF9B8FE5D0A17CE7,
@@ -195,7 +194,6 @@
 				00E4CEAAFF9B8FE5D0A17CE7,
 				00E4CEABFF9B8FE5D0A17CE7,
 				00E4CEACFF9B8FE5D0A17CE7,
-				00E4CEADFF9B8FE5D0A17CE7,
 				00E4CEAEFF9B8FE5D0A17CE7,
 				00E4CEAFFF9B8FE5D0A17CE7,
 				00E4CEB9FF9B909FD0A17CE7,
@@ -204,7 +202,6 @@
 				00E4CEBCFF9B909FD0A17CE7,
 				00E4CEBDFF9B909FD0A17CE7,
 				00E4CEC0FF9B9A4ED0A17CE7,
-				00E4CEC2FF9BA51FD0A17CE7,
 				0145E21EFFEED50A7F000001,
 				9D1B442601F5ED3000003D05,
 				9D1B442701F5ED3000003D05,
@@ -214,6 +211,7 @@
 				9D1B443101F5EE8D00003D05,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00E4CE3CFF9B8CA8D0A17CE7 = {
 			buildActionMask = 2147483647;
@@ -222,12 +220,14 @@
 				9D1B442C01F5ED9400003D05,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00E4CE3DFF9B8CA8D0A17CE7 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00E4CE3EFF9B8E08D0A17CE7 = {
 			children = (
@@ -260,7 +260,6 @@
 				00E4CE8BFF9B8FE5D0A17CE7,
 				00E4CE8CFF9B8FE5D0A17CE7,
 				00E4CE8DFF9B8FE5D0A17CE7,
-				00E4CE8EFF9B8FE5D0A17CE7,
 				00E4CE8FFF9B8FE5D0A17CE7,
 				00E4CE90FF9B8FE5D0A17CE7,
 			);
@@ -282,7 +281,6 @@
 		00E4CE42FF9B8EABD0A17CE7 = {
 			children = (
 				00E4CE43FF9B8EABD0A17CE7,
-				00E4CE44FF9B8EABD0A17CE7,
 				00E4CE45FF9B8EABD0A17CE7,
 				00E4CE46FF9B8EABD0A17CE7,
 				00E4CE47FF9B8EABD0A17CE7,
@@ -296,18 +294,17 @@
 				00E4CE52FF9B8EABD0A17CE7,
 				00E4CE53FF9B8EABD0A17CE7,
 				00E4CE54FF9B8EABD0A17CE7,
-				00E4CE56FF9B8EABD0A17CE7,
 				00E4CE57FF9B8EABD0A17CE7,
 				00E4CE58FF9B8EABD0A17CE7,
 				00E4CE59FF9B8EABD0A17CE7,
 				00E4CE5AFF9B8EABD0A17CE7,
 				00E4CE5BFF9B8EABD0A17CE7,
-				00E4CE5CFF9B8EABD0A17CE7,
 				00E4CE5DFF9B8EABD0A17CE7,
 				00E4CE5EFF9B8EABD0A17CE7,
 				9D1B441301F5ED1200003D05,
 				9D1B441801F5ED1200003D05,
 				9D1B441901F5ED1200003D05,
+				9DD49D99030C714000003D05,
 			);
 			isa = PBXGroup;
 			name = "Private Headers";
@@ -318,12 +315,6 @@
 			isa = PBXFileReference;
 			name = appleCdsa.h;
 			path = privateInc/appleCdsa.h;
-			refType = 4;
-		};
-		00E4CE44FF9B8EABD0A17CE7 = {
-			isa = PBXFileReference;
-			name = appleGlue.h;
-			path = privateInc/appleGlue.h;
 			refType = 4;
 		};
 		00E4CE45FF9B8EABD0A17CE7 = {
@@ -346,8 +337,8 @@
 		};
 		00E4CE48FF9B8EABD0A17CE7 = {
 			isa = PBXFileReference;
-			name = digests.h;
-			path = privateInc/digests.h;
+			name = sslDigests.h;
+			path = privateInc/sslDigests.h;
 			refType = 4;
 		};
 		00E4CE4DFF9B8EABD0A17CE7 = {
@@ -364,14 +355,14 @@
 		};
 		00E4CE4FFF9B8EABD0A17CE7 = {
 			isa = PBXFileReference;
-			name = sslalert.h;
-			path = privateInc/sslalert.h;
+			name = sslAlertMessage.h;
+			path = privateInc/sslAlertMessage.h;
 			refType = 4;
 		};
 		00E4CE50FF9B8EABD0A17CE7 = {
 			isa = PBXFileReference;
-			name = sslalloc.h;
-			path = privateInc/sslalloc.h;
+			name = sslMemory.h;
+			path = privateInc/sslMemory.h;
 			refType = 4;
 		};
 		00E4CE51FF9B8EABD0A17CE7 = {
@@ -388,8 +379,8 @@
 		};
 		00E4CE53FF9B8EABD0A17CE7 = {
 			isa = PBXFileReference;
-			name = sslctx.h;
-			path = privateInc/sslctx.h;
+			name = sslContext.h;
+			path = privateInc/sslContext.h;
 			refType = 4;
 		};
 		00E4CE54FF9B8EABD0A17CE7 = {
@@ -398,16 +389,10 @@
 			path = privateInc/sslDebug.h;
 			refType = 4;
 		};
-		00E4CE56FF9B8EABD0A17CE7 = {
-			isa = PBXFileReference;
-			name = sslerrs.h;
-			path = privateInc/sslerrs.h;
-			refType = 4;
-		};
 		00E4CE57FF9B8EABD0A17CE7 = {
 			isa = PBXFileReference;
-			name = sslhdshk.h;
-			path = privateInc/sslhdshk.h;
+			name = sslHandshake.h;
+			path = privateInc/sslHandshake.h;
 			refType = 4;
 		};
 		00E4CE58FF9B8EABD0A17CE7 = {
@@ -424,26 +409,20 @@
 		};
 		00E4CE5AFF9B8EABD0A17CE7 = {
 			isa = PBXFileReference;
-			name = sslrec.h;
-			path = privateInc/sslrec.h;
+			name = sslRecord.h;
+			path = privateInc/sslRecord.h;
 			refType = 4;
 		};
 		00E4CE5BFF9B8EABD0A17CE7 = {
 			isa = PBXFileReference;
-			name = sslsess.h;
-			path = privateInc/sslsess.h;
-			refType = 4;
-		};
-		00E4CE5CFF9B8EABD0A17CE7 = {
-			isa = PBXFileReference;
-			name = ssltrspt.h;
-			path = privateInc/ssltrspt.h;
+			name = sslSession.h;
+			path = privateInc/sslSession.h;
 			refType = 4;
 		};
 		00E4CE5DFF9B8EABD0A17CE7 = {
 			isa = PBXFileReference;
-			name = sslutil.h;
-			path = privateInc/sslutil.h;
+			name = sslUtils.h;
+			path = privateInc/sslUtils.h;
 			refType = 4;
 		};
 		00E4CE5EFF9B8EABD0A17CE7 = {
@@ -455,11 +434,9 @@
 		00E4CE5FFF9B8EABD0A17CE7 = {
 			children = (
 				00E4CE7EFF9B8F1DD0A17CE7,
-				00E4CE7FFF9B8F1DD0A17CE7,
 				00E4CE81FF9B8F1DD0A17CE7,
 				00E4CE91FF9B8FE5D0A17CE7,
 				00E4CE94FF9B8FE5D0A17CE7,
-				00E4CEC1FF9BA51FD0A17CE7,
 				0145E21BFFEED50A7F000001,
 				9D1B442101F5ED3000003D05,
 				9D1B442201F5ED3000003D05,
@@ -496,15 +473,6 @@
 		};
 		00E4CE62FF9B8EABD0A17CE7 = {
 			fileRef = 00E4CE43FF9B8EABD0A17CE7;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Private,
-				);
-			};
-		};
-		00E4CE63FF9B8EABD0A17CE7 = {
-			fileRef = 00E4CE44FF9B8EABD0A17CE7;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -620,15 +588,6 @@
 				);
 			};
 		};
-		00E4CE75FF9B8EABD0A17CE7 = {
-			fileRef = 00E4CE56FF9B8EABD0A17CE7;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Private,
-				);
-			};
-		};
 		00E4CE76FF9B8EABD0A17CE7 = {
 			fileRef = 00E4CE57FF9B8EABD0A17CE7;
 			isa = PBXBuildFile;
@@ -674,15 +633,6 @@
 				);
 			};
 		};
-		00E4CE7BFF9B8EABD0A17CE7 = {
-			fileRef = 00E4CE5CFF9B8EABD0A17CE7;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					Private,
-				);
-			};
-		};
 		00E4CE7CFF9B8EABD0A17CE7 = {
 			fileRef = 00E4CE5DFF9B8EABD0A17CE7;
 			isa = PBXBuildFile;
@@ -703,29 +653,16 @@
 		};
 		00E4CE7EFF9B8F1DD0A17CE7 = {
 			isa = PBXFileReference;
-			path = appleCdsa.c;
-			refType = 4;
-		};
-		00E4CE7FFF9B8F1DD0A17CE7 = {
-			isa = PBXFileReference;
-			path = appleGlue.c;
+			path = appleCdsa.cpp;
 			refType = 4;
 		};
 		00E4CE81FF9B8F1DD0A17CE7 = {
 			isa = PBXFileReference;
-			path = sslKeychain.c;
+			path = sslKeychain.cpp;
 			refType = 4;
 		};
 		00E4CE82FF9B8F1DD0A17CE7 = {
 			fileRef = 00E4CE7EFF9B8F1DD0A17CE7;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		00E4CE83FF9B8F1DD0A17CE7 = {
-			fileRef = 00E4CE7FFF9B8F1DD0A17CE7;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -742,87 +679,82 @@
 		};
 		00E4CE86FF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = ssl2map.c;
+			path = ssl2CipherMap.cpp;
 			refType = 4;
 		};
 		00E4CE87FF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = ssl2mesg.c;
+			path = ssl2Message.cpp;
 			refType = 4;
 		};
 		00E4CE88FF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = ssl2prot.c;
+			path = ssl2Protocol.cpp;
 			refType = 4;
 		};
 		00E4CE89FF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = ssl2rec.c;
+			path = ssl2Record.cpp;
 			refType = 4;
 		};
 		00E4CE8AFF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = hdskcert.c;
+			path = sslCert.cpp;
 			refType = 4;
 		};
 		00E4CE8BFF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = hdskchgc.c;
+			path = sslChangeCipher.cpp;
 			refType = 4;
 		};
 		00E4CE8CFF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = hdskfini.c;
+			path = sslHandshakeFinish.cpp;
 			refType = 4;
 		};
 		00E4CE8DFF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = hdskhelo.c;
-			refType = 4;
-		};
-		00E4CE8EFF9B8FE5D0A17CE7 = {
-			isa = PBXFileReference;
-			path = hdskkeys.c;
+			path = sslHandshakeHello.cpp;
 			refType = 4;
 		};
 		00E4CE8FFF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = hdskkyex.c;
+			path = sslKeyExchange.cpp;
 			refType = 4;
 		};
 		00E4CE90FF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = sslhdshk.c;
+			path = sslHandshake.cpp;
 			refType = 4;
 		};
 		00E4CE91FF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = cipherSpecs.c;
+			path = cipherSpecs.cpp;
 			refType = 4;
 		};
 		00E4CE94FF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = symCipher.c;
+			path = symCipher.cpp;
 			refType = 4;
 		};
 		00E4CE95FF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = digests.c;
+			path = sslDigests.cpp;
 			refType = 4;
 		};
 		00E4CE97FF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = nullciph.c;
+			path = sslNullCipher.cpp;
 			refType = 4;
 		};
 		00E4CE99FF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = sslalloc.c;
+			path = sslMemory.cpp;
 			refType = 4;
 		};
 		00E4CE9AFF9B8FE5D0A17CE7 = {
 			isa = PBXFileReference;
-			path = sslutil.c;
+			path = sslUtils.cpp;
 			refType = 4;
 		};
 		00E4CE9BFF9B8FE5D0A17CE7 = {
@@ -937,14 +869,6 @@
 				);
 			};
 		};
-		00E4CEADFF9B8FE5D0A17CE7 = {
-			fileRef = 00E4CE8EFF9B8FE5D0A17CE7;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
 		00E4CEAEFF9B8FE5D0A17CE7 = {
 			fileRef = 00E4CE8FFF9B8FE5D0A17CE7;
 			isa = PBXBuildFile;
@@ -963,27 +887,27 @@
 		};
 		00E4CEB0FF9B909FD0A17CE7 = {
 			isa = PBXFileReference;
-			path = sslalert.c;
+			path = sslAlertMessage.cpp;
 			refType = 4;
 		};
 		00E4CEB1FF9B909FD0A17CE7 = {
 			isa = PBXFileReference;
-			path = sslctx.c;
+			path = sslContext.cpp;
 			refType = 4;
 		};
 		00E4CEB2FF9B909FD0A17CE7 = {
 			isa = PBXFileReference;
-			path = sslrec.c;
+			path = sslRecord.cpp;
 			refType = 4;
 		};
 		00E4CEB3FF9B909FD0A17CE7 = {
 			isa = PBXFileReference;
-			path = sslsess.c;
+			path = sslSession.cpp;
 			refType = 4;
 		};
 		00E4CEB4FF9B909FD0A17CE7 = {
 			isa = PBXFileReference;
-			path = ssltrspt.c;
+			path = sslTransport.cpp;
 			refType = 4;
 		};
 		00E4CEB5FF9B909FD0A17CE7 = {
@@ -1067,19 +991,6 @@
 		};
 		00E4CEC0FF9B9A4ED0A17CE7 = {
 			fileRef = 00E4CEBFFF9B9A4ED0A17CE7;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		00E4CEC1FF9BA51FD0A17CE7 = {
-			isa = PBXFileReference;
-			path = cppUtils.cpp;
-			refType = 4;
-		};
-		00E4CEC2FF9BA51FD0A17CE7 = {
-			fileRef = 00E4CEC1FF9BA51FD0A17CE7;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -1293,17 +1204,17 @@
 		};
 		9D1B442301F5ED3000003D05 = {
 			isa = PBXFileReference;
-			path = ssl3Callouts.c;
+			path = ssl3Callouts.cpp;
 			refType = 4;
 		};
 		9D1B442401F5ED3000003D05 = {
 			isa = PBXFileReference;
-			path = tls_hmac.c;
+			path = tls_hmac.cpp;
 			refType = 4;
 		};
 		9D1B442501F5ED3000003D05 = {
 			isa = PBXFileReference;
-			path = tls1Callouts.c;
+			path = tls1Callouts.cpp;
 			refType = 4;
 		};
 		9D1B442601F5ED3000003D05 = {
@@ -1350,11 +1261,23 @@
 		};
 		9D1B443001F5EE8D00003D05 = {
 			isa = PBXFileReference;
-			path = sslBER_Dummy.c;
+			path = sslBER_Dummy.cpp;
 			refType = 4;
 		};
 		9D1B443101F5EE8D00003D05 = {
 			fileRef = 9D1B443001F5EE8D00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9DD49D99030C714000003D05 = {
+			isa = PBXFileReference;
+			name = SecureTransportPriv.h;
+			path = privateInc/SecureTransportPriv.h;
+			refType = 4;
+		};
+		9DD49D9A030C714000003D05 = {
+			fileRef = 9DD49D99030C714000003D05;
 			isa = PBXBuildFile;
 			settings = {
 			};

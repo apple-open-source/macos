@@ -22,6 +22,7 @@
 #include "AppleOnboardAudio.h"
 #include "texas_hw.h"
 #include "AppleDBDMAAudioDMAEngine.h"
+#include "AudioI2SControl.h"
 
 class IOInterruptEventSource;
 class IORegistryEntry;
@@ -30,16 +31,28 @@ struct awacs_regmap_t;
 struct IODBDMAChannelRegisters;
 struct IODBDMADescriptor;
 
-#define kInsertionDelayNanos		4000000000ULL
-#define kNotifyTimerDelay			60000	// in milliseconds =  60 seconds
-#define kUserLoginDelay				20000
-#define kSpeakerConnectError		"SpeakerConnectError"
+#if 0															//	[3063696]	begin {
+#define kInsertionDelayNanos			4000000000ULL
+#else
+#define kInsertionDelayNanos			1000000000ULL
+#endif															//	[3063696]	} end
+#define	kDeferInsertionDelayNanos		 250000000ULL
+#define kNotifyTimerDelay				60000	/* in milliseconds =  60 seconds	*/
+#define kUserLoginDelay					20000
+#define kSpeakerConnectError			"SpeakerConnectError"
 
+//	The normal volume range is from 0.0 dB to -70 dB.  A setting of -70.5 dB results in a muted state.
+//	A value of 0 represents -70.5 dB.  Volume increases 0.5 dB per step.  A value of 141 represents
+//	-70.5 dB + ( 0.5 dB X 141 ) = - 70.0 dB + 70.5 = 0.0 dB.  The absolute maximum available volume
+//	is +18.0 dB.  A value of 177 represents -70.5 dB + ( 0.5 X 177 ) = -70.5 dB + 88.5 dB.
 enum  {
 	kMaximumVolume = 141,
 	kMinimumVolume = 0,
 	kInitialVolume = 101
 };
+
+#define	kMAXIMUM_LEGAL_VOLUME_VALUE		( sizeof ( volumeTable ) / sizeof ( UInt32 ) )
+#define	kOUT_OF_BOUNDS_VOLUME_VALUE		( ( sizeof ( volumeTable ) / sizeof ( UInt32 ) ) + 1 )
 
 typedef Boolean GpioActiveState;
 typedef UInt8* GpioPtr;
@@ -50,6 +63,7 @@ enum {
 	kExternalSpeakersActive	= 4
 };
 
+#if 0
 // Characteristic constants:
 typedef enum TicksPerFrame {
 	k64TicksPerFrame		= 64,			// 64 ticks per frame
@@ -73,6 +87,7 @@ typedef enum SoundFormat {
 	// This says "we never decided for a sound format before"
 	kSndIOFormatUnknown
 } SoundFormat;
+#endif
 
 // declare a class for our driver.	This is based from AppleOnboardAudio
 class AppleTexasAudio : public AppleOnboardAudio
@@ -84,6 +99,7 @@ class AppleTexasAudio : public AppleOnboardAudio
 	friend class AudioHardwareMux;
 
 protected:
+    AudioI2SControl *		audioI2SControl;    						// this class is an abstraction for i2s services
 	SInt32					minVolume;
 	SInt32					maxVolume;
 	Boolean					gVolMuteActive;
@@ -100,8 +116,8 @@ protected:
 	GpioPtr					hwResetGpio;
 	GpioPtr					hdpnMuteGpio;
 	GpioPtr					ampMuteGpio;
-	UInt8*					headphoneExtIntGpio;
-	UInt8*					dallasExtIntGpio;
+	GpioPtr					headphoneExtIntGpio;
+	GpioPtr					dallasExtIntGpio;
 	GpioActiveState			hwResetActiveState;							//	indicates asserted state (i.e. '0' or '1')
 	GpioActiveState			hdpnActiveState;							//	indicates asserted state (i.e. '0' or '1')
 	GpioActiveState			ampActiveState;								//	indicates asserted state (i.e. '0' or '1')
@@ -118,6 +134,8 @@ protected:
 	IODeviceMemory			*hwResetRegMem;								// Have to free this in free()
 	IODeviceMemory			*headphoneExtIntGpioMem;					// Have to free this in free()
 	IODeviceMemory			*dallasExtIntGpioMem;						// Have to free this in free()
+	IODeviceMemory *		ioBaseAddressMemory;						// Have to free this in free()
+	IODeviceMemory *		ioClockBaseAddressMemory;					// Have to free this in free()
 	UInt32					i2sSerialFormat;
 	IOService				*headphoneIntProvider;
 	IOService				*dallasIntProvider;
@@ -125,6 +143,8 @@ protected:
 	AppleDallasDriver *		dallasDriver;
 	IONotifier *			dallasDriverNotifier;
     IOFilterInterruptEventSource* interruptEventSource;					// interrupt event source
+	IOTimerEventSource *	deferHeadphoneHandlerTimer;					//	[3103075]
+	IOTimerEventSource *	deferDallasHandlerTimer;					//	[3103075]
 	IOTimerEventSource *	dallasHandlerTimer;
 	IOTimerEventSource *	notifierHandlerTimer;
 	Boolean					doneWaiting;
@@ -140,11 +160,13 @@ protected:
 	Boolean					gModemSoundActive;
 	Boolean					dontReleaseHPMute;
 
+#if 0
 	// holds the current frame rate settings:
 	ClockSource				clockSource;
 	UInt32					mclkDivisor;
 	UInt32					sclkDivisor;
 	SoundFormat				serialFormat;
+#endif
 
 	// Hardware register manipulation
 	virtual void		sndHWInitialize (IOService *provider) ;
@@ -205,6 +227,7 @@ private:
 public:	
 	static void headphoneInterruptHandler(OSObject *owner, IOInterruptEventSource *source, int count);
 	void RealHeadphoneInterruptHandler (IOInterruptEventSource *source, int count);
+	static void deferHeadphoneHandler (OSObject *owner, IOTimerEventSource *sender);
 	void RealDallasInterruptHandler (IOInterruptEventSource *source, int count);
     static bool interruptFilter (OSObject *, IOFilterInterruptEventSource *);
     static void dallasInterruptHandler (OSObject *owner, IOInterruptEventSource *source, int count);
@@ -212,6 +235,7 @@ public:
 	static bool	DallasDriverPublished (AppleTexasAudio * appleTexasAudio, void * refCon, IOService * newService);
 	static void DisplaySpeakersNotFullyConnected (OSObject *owner, IOTimerEventSource *sender);
 	static IOReturn DeviceInterruptServiceAction (OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+	IOReturn	performPowerStateChange(IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState, UInt32 *microsecondsUntilComplete);
 
 
 	virtual IOReturn performDeviceIdleWake ();
@@ -252,6 +276,7 @@ protected:
 	UInt32			GetDeviceID (void);
 	Boolean			HasInput (void);
 
+
 	// This provides access to the Texas registers:
 	PPCI2CInterface *interface;
 
@@ -262,20 +287,21 @@ protected:
 	bool		findAndAttachI2C (IOService *provider);
 	bool		detachFromI2C (IOService* /*provider*/);
 
+	// Recalls which i2s interface we are attached to:
+	UInt8 i2SInterfaceNumber;
+
 	// *********************************
 	// * I 2 S	DATA & Member Function *
 	// *********************************
 	void *soundConfigSpace;		   // address of sound config space
 	void *ioBaseAddress;		   // base address of our I/O controller
+#if 0			//	{
 	void *ioClockBaseAddress;	   // base address for the clock
 
-	// Recalls which i2s interface we are attached to:
-	UInt8 i2SInterfaceNumber;
-
 	// starts and stops the clock count:
-	void   KLSetRegister(void *klRegister, UInt32 value);
-	UInt32	 KLGetRegister(void *klRegister);
-	bool clockRun(bool start);
+	void			KLSetRegister(void *klRegister, UInt32 value);
+	UInt32			KLGetRegister(void *klRegister);
+	bool			clockRun(bool start);
 
 	inline UInt32	ReadWordLittleEndian(void *address, UInt32 offset);
 	inline void		WriteWordLittleEndian(void *address, UInt32 offset, UInt32 value);
@@ -289,18 +315,23 @@ protected:
 	inline UInt32	I2S1GetSerialFormatReg(void);
 	inline void		I2S1SetDataWordSizeReg(UInt32 value);
 	inline UInt32	I2S1GetDataWordSizeReg(void);
+#endif			//	}
 
+#if 0			//	{
 	inline UInt32	FCR1GetReg(void);
 	inline void		Fcr1SetReg(UInt32 value);
 	inline UInt32	FCR3GetReg(void);
 	inline void		Fcr3SetReg(UInt32 value);
+#endif			//	}
 
+#if 0			//	{
 	inline UInt32 	I2SGetIntCtlReg();
 	inline UInt32 	I2S1GetIntCtlReg();
 	
 	bool			setSampleParameters(UInt32 sampleRate, UInt32 mclkToFsRatio);
 	void			setSerialFormatRegister(ClockSource clockSource, UInt32 mclkDivisor, UInt32 sclkDivisor, SoundFormat serialFormat);
 	bool			setHWSampleRate(UInt rate);
+#endif			//	}
 	UInt32			frameRate(UInt32 index);
 
 	UInt8 *			getGPIOAddress (UInt32 gpioSelector);

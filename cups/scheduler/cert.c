@@ -1,5 +1,5 @@
 /*
- * "$Id: cert.c,v 1.1.1.3 2002/06/06 22:13:14 jlovell Exp $"
+ * "$Id: cert.c,v 1.1.1.3.2.1 2002/12/13 22:54:13 jlovell Exp $"
  *
  *   Authentication certificate routines for the Common UNIX
  *   Printing System (CUPS).
@@ -50,12 +50,14 @@ AddCert(int        pid,			/* I - Process ID */
 {
   int		i;			/* Looping var */
   cert_t	*cert;			/* Current certificate */
-  FILE		*fp;			/* Certificate file */
+  int		fd;			/* Certificate file */
   char		filename[1024];		/* Certificate filename */
   struct group	*grp;			/* System group */
   static const char *hex = "0123456789ABCDEF";
 					/* Hex constants... */
 
+
+  LogMessage(L_DEBUG2, "AddCert: adding certificate for pid %d", pid);
 
  /*
   * Allocate memory for the certificate...
@@ -80,9 +82,12 @@ AddCert(int        pid,			/* I - Process ID */
   */
 
   snprintf(filename, sizeof(filename), "%s/certs/%d", ServerRoot, pid);
+  unlink(filename);
 
-  if ((fp = fopen(filename, "w")) == NULL)
+  if ((fd = open(filename, O_WRONLY | O_CREAT | O_EXCL, 0400)) < 0)
   {
+    LogMessage(L_ERROR, "AddCert: Unable to create certificate file %s - %s",
+               filename, strerror(errno));
     free(cert);
     return;
   }
@@ -93,12 +98,12 @@ AddCert(int        pid,			/* I - Process ID */
     * Root certificate...
     */
 
-    fchmod(fileno(fp), 0440);
+    fchmod(fd, 0440);
 
     if ((grp = getgrnam(SystemGroups[0])) == NULL)
-      fchown(fileno(fp), getuid(), 0);
+      fchown(fd, getuid(), 0);
     else
-      fchown(fileno(fp), getuid(), grp->gr_gid);
+      fchown(fd, getuid(), grp->gr_gid);
 
     endgrent();
 
@@ -110,12 +115,15 @@ AddCert(int        pid,			/* I - Process ID */
     * CGI certificate...
     */
 
-    fchmod(fileno(fp), 0400);
-    fchown(fileno(fp), User, Group);
+    fchmod(fd, 0400);
+    fchown(fd, User, Group);
   }
 
-  fputs(cert->certificate, fp);
-  fclose(fp);
+  DEBUG_printf(("ADD pid=%d, username=%s, cert=%s\n", pid, username,
+                cert->certificate));
+
+  write(fd, cert->certificate, strlen(cert->certificate));
+  close(fd);
 
  /*
   * Insert the certificate at the front of the list...
@@ -145,6 +153,11 @@ DeleteCert(int pid)			/* I - Process ID */
       * Remove this certificate from the list...
       */
 
+      LogMessage(L_DEBUG2, "DeleteCert: removing certificate for pid %d", pid);
+
+      DEBUG_printf(("DELETE pid=%d, username=%s, cert=%s\n", cert->pid,
+                    cert->username, cert->certificate));
+
       if (prev == NULL)
         Certs = cert->next;
       else
@@ -157,7 +170,9 @@ DeleteCert(int pid)			/* I - Process ID */
       */
 
       snprintf(filename, sizeof(filename), "%s/certs/%d", ServerRoot, pid);
-      unlink(filename);
+      if (unlink(filename))
+	LogMessage(L_ERROR, "DeleteCert: Unable to remove %s!\n", filename);
+
       return;
     }
 }
@@ -186,7 +201,8 @@ DeleteAllCerts(void)
     */
 
     snprintf(filename, sizeof(filename), "%s/certs/%d", ServerRoot, cert->pid);
-    unlink(filename);
+    if (unlink(filename))
+      LogMessage(L_ERROR, "DeleteAllCerts: Unable to remove %s!\n", filename);
 
    /*
     * Free memory...
@@ -210,9 +226,15 @@ FindCert(const char *certificate)	/* I - Certificate */
   cert_t	*cert;			/* Current certificate */
 
 
+  DEBUG_printf(("FindCert(certificate=%s)\n", certificate));
   for (cert = Certs; cert != NULL; cert = cert->next)
     if (strcasecmp(certificate, cert->certificate) == 0)
+    {
+      DEBUG_printf(("    returning %s...\n", cert->username));
       return (cert->username);
+    }
+
+  DEBUG_puts("    certificate not found!");
 
   return (NULL);
 }
@@ -271,5 +293,5 @@ InitCerts(void)
 
 
 /*
- * End of "$Id: cert.c,v 1.1.1.3 2002/06/06 22:13:14 jlovell Exp $".
+ * End of "$Id: cert.c,v 1.1.1.3.2.1 2002/12/13 22:54:13 jlovell Exp $".
  */

@@ -238,7 +238,7 @@ static void consistency_check( enum check_type type )
     * Check if there are any descriptors set in socket_mask_copy
     */
    for ( fd = 0 ; fd < ps.ros.max_descriptors ; fd++ )
-      if ( FD_ISSET( fd, &socket_mask_copy ) )
+      if ( FD_ISSET( fd, &socket_mask_copy ) && ((fd != signals_pending[0]) && fd != signals_pending[1]))
       {
          msg( LOG_ERR, func,
             "descriptor %d set in socket mask but there is no service for it",

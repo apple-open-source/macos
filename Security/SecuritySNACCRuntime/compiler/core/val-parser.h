@@ -14,7 +14,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/compiler/core/val-parser.h,v 1.1 2001/06/20 21:27:59 dmitch Exp $
+ * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/core/val-parser.h,v 1.1 2001/06/20 21:27:59 dmitch Exp $
  * $Log: val-parser.h,v $
  * Revision 1.1  2001/06/20 21:27:59  dmitch
  * Adding missing snacc compiler files.

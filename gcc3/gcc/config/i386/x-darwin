@@ -1,0 +1,15 @@
+# APPLE LOCAL file darwin x86
+# The spiffy cpp-precomp chokes on some legitimate constructs in GCC
+# sources; use -no-cpp-precomp to get to GNU cpp. (This is another
+# peculiarity of Apple's GCC that we hope to get rid of.)
+
+CC = cc -no-cpp-precomp
+
+# APPLE LOCAL begin parsedir
+# Do not modify $(srcdir).
+parsedir = .
+# APPLE LOCAL end parsedir
+# APPLE LOCAL begin tradcifdir
+# Do not modify $(srcdir).
+tradcifdir = .
+# APPLE LOCAL end tradcifdir

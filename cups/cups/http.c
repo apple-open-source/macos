@@ -1,5 +1,5 @@
 /*
- * "$Id: http.c,v 1.12 2002/07/18 20:40:43 jlovell Exp $"
+ * "$Id: http.c,v 1.12.2.1 2002/12/13 22:54:09 jlovell Exp $"
  *
  *   HTTP routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -1166,11 +1166,16 @@ httpRead(http_t *http,			/* I - HTTP data */
     }
 
     http->data_remaining = strtol(len, NULL, 16);
+    if (http->data_remaining < 0)
+    {
+      DEBUG_puts("httpRead: Negative chunk length!");
+      return (0);
+    }
   }
 
   DEBUG_printf(("httpRead: data_remaining = %d\n", http->data_remaining));
 
-  if (http->data_remaining == 0)
+  if (http->data_remaining <= 0)
   {
    /*
     * A zero-length chunk ends a transfer; unless we are reading POST
@@ -1222,10 +1227,14 @@ httpRead(http_t *http,			/* I - HTTP data */
     {
 #ifdef WIN32
       http->error = WSAGetLastError();
-#else
-      http->error = errno;
-#endif /* WIN32 */
       return (-1);
+#else
+      if (errno != EINTR)
+      {
+        http->error = errno;
+        return (-1);
+      }
+#endif /* WIN32 */
     }
     else
       return (0);
@@ -1244,7 +1253,7 @@ httpRead(http_t *http,			/* I - HTTP data */
     http->used -= length;
 
     if (http->used > 0)
-      memcpy(http->buffer, http->buffer + length, http->used);
+      memmove(http->buffer, http->buffer + length, http->used);
   }
 #ifdef HAVE_LIBSSL
   else if (http->tls)
@@ -1260,11 +1269,16 @@ httpRead(http_t *http,			/* I - HTTP data */
   if (bytes > 0)
     http->data_remaining -= bytes;
   else if (bytes < 0)
+  {
 #ifdef WIN32
     http->error = WSAGetLastError();
 #else
-    http->error = errno;
+    if (errno == EINTR)
+      bytes = 0;
+    else
+      http->error = errno;
 #endif /* WIN32 */
+  }
 
   if (http->data_remaining == 0)
   {
@@ -1375,6 +1389,22 @@ httpWrite(http_t     *http,		/* I - HTTP data */
 
     if (bytes < 0)
     {
+#ifdef WIN32
+      if (WSAGetLastError() != http->error)
+      {
+        http->error = WSAGetLastError();
+	continue;
+      }
+#else
+      if (errno == EINTR)
+        continue;
+      else if (errno != http->error)
+      {
+        http->error = errno;
+	continue;
+      }
+#endif /* WIN32 */
+
       DEBUG_puts("httpWrite: error writing data...\n");
 
       return (-1);
@@ -1510,7 +1540,9 @@ httpGets(char   *line,			/* I - Line to read into */
 
         DEBUG_printf(("httpGets(): recv() error %d!\n", WSAGetLastError()));
 #else
-        if (errno != http->error)
+        if (errno == EINTR)
+	  continue;
+	else if (errno != http->error)
 	{
 	  http->error = errno;
 	  continue;
@@ -1535,6 +1567,7 @@ httpGets(char   *line,			/* I - Line to read into */
 
       http->used += bytes;
       bufend     += bytes;
+      bufptr     = bufend;
     }
   }
   while (bufptr >= bufend && http->used < HTTP_MAX_BUFFER);
@@ -1571,7 +1604,7 @@ httpGets(char   *line,			/* I - Line to read into */
 
     http->used -= bytes;
     if (http->used > 0)
-      memcpy(http->buffer, bufptr, http->used);
+      memmove(http->buffer, bufptr, http->used);
 
     DEBUG_printf(("httpGets(): Returning \"%s\"\n", line));
     return (line);
@@ -1616,12 +1649,31 @@ httpPrintf(http_t     *http,		/* I - HTTP data */
     nbytes = send(http->fd, bufptr, bytes - tbytes, 0);
 
     if (nbytes < 0)
+    {
+      nbytes = 0;
+
+#ifdef WIN32
+      if (WSAGetLastError() != http->error)
+      {
+        http->error = WSAGetLastError();
+	continue;
+      }
+#else
+      if (errno == EINTR)
+	continue;
+      else if (errno != http->error)
+      {
+        http->error = errno;
+	continue;
+      }
+#endif /* WIN32 */
+
       return (-1);
+    }
   }
 
   return (bytes);
 }
-
 
 /*
  * 'httpStatus()' - Return a short string describing a HTTP status code.
@@ -2272,5 +2324,5 @@ http_upgrade(http_t *http)	/* I - HTTP data */
 
 
 /*
- * End of "$Id: http.c,v 1.12 2002/07/18 20:40:43 jlovell Exp $".
+ * End of "$Id: http.c,v 1.12.2.1 2002/12/13 22:54:09 jlovell Exp $".
  */

@@ -1053,7 +1053,10 @@ void pmap_remove_some_phys(
 	pp = pmap_find_physentry(pa);				/* Get the physent for this page */
 	if (pp == PHYS_NULL) return;				/* Leave if not in physical RAM */
 
-	mapping_purge_pmap(pp, pmap);	
+	if (pmap->vflags & pmapVMhost)
+		mapping_purge(pp);
+	else
+		mapping_purge_pmap(pp, pmap);	
 
 	return;							/* Leave... */
 }

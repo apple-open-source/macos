@@ -51,7 +51,7 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/c++/hash.cpp,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
+// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/c++/hash.cpp,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
 // $Log: hash.cpp,v $
 // Revision 1.1.1.1  2001/05/18 23:14:06  mb
 // Move from private repository to open source repository

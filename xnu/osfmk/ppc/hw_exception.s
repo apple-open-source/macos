@@ -294,6 +294,15 @@ LEXT(shandler)										; System call handler
 svecoff:	lwz		r6,ACT_MACT_SPF(r13)			; Pick up activation special flags
 			mtcrf	0x41,r6							; Check special flags
 			crmove	cr6_eq,runningVMbit				; Remember if we are in VMM
+			bne		cr6,sVMchecked					; Not running VM
+			lwz		r18,spcFlags(r25)				; Load per_proc special flags
+			rlwinm. r18,r18,0,FamVMmodebit,FamVMmodebit	; Is FamVMmodebit set?
+			beq		sVMchecked						; Not in FAM
+			cmpwi	r0,0x6004						; Is it vmm_dispatch syscall:
+			bne		sVMchecked
+			lwz		r26,saver3(r4)					; Get the original syscall number
+			cmpwi	cr6,r26,kvmmExitToHost			; vmm_exit_to_host request
+sVMchecked:
 			bf+		bbNoMachSCbit,noassist			; Take branch if SCs are not redirected
 			lwz		r26,ACT_MACT_BEDA(r13)			; Pick up the pointer to the blue box exception area
 			b		EXT(atomic_switch_syscall)		; Go to the assist...

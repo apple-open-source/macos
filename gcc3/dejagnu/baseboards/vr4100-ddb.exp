@@ -1,0 +1,33 @@
+# This is a list of toolchains that are supported on this board.
+set_board_info target_install {mips64vr4100-elf mips64-elf}
+
+# It's a little-endian board.
+process_multilib_options "-EL -msoft-float"
+
+set_board_info startaddr "a0020000"
+set_board_info hex_startaddr "0xa0020000"
+
+# Load the generic configuration for this board. This will define a basic
+# set of routines needed by the tool to communicate with the board.
+load_generic_config "vr4100"
+
+# We only support newlib on this target. We assume that all multilib
+# options have been specified before we get here.
+set_board_info compiler "[find_gcc]"
+set_board_info cflags "[libgloss_include_flags] [newlib_include_flags]"
+set_board_info ldflags "[libgloss_link_flags] [newlib_link_flags]"
+# DDB linker script.
+set_board_info ldscript "-Wl,-Tpmon.ld"
+
+# GDB doesn't return exit statuses and we need to indicate this;
+# the standard GCC wrapper will work with this target.
+set_board_info needs_status_wrapper 1
+
+# The GDB protocol used with this board.
+set_board_info gdb_protocol "ddb"
+
+set_board_info reboot_delay 10
+
+# This board is unreliable. If a test times out, the board should be
+# rebooted and the test re-run.
+set_board_info unreliable 1

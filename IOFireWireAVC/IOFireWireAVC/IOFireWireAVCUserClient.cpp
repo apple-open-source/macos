@@ -72,7 +72,15 @@ IOExternalMethod IOFireWireAVCUserClient::sMethods[kIOFWAVCUserClientNumCommands
         kIOUCStructIStructO,
         0xffffffff,
         0xffffffff
+    },
+    { //    kIOFWAVCUserClientUpdateAVCCommandTimeout
+        0,
+        (IOMethod) &IOFireWireAVCUserClient::updateAVCCommandTimeout,
+        kIOUCScalarIScalarO,
+        0,
+        0
     }
+
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -326,4 +334,13 @@ IOReturn IOFireWireAVCUserClient::AVCCommandInGen(UInt8 * cmd, UInt8 * response,
     return res;
 }
 
+IOReturn IOFireWireAVCUserClient::updateAVCCommandTimeout
+	( void *, void *, void *, void *, void *, void * )
+{
+    //IOLog("IOFireWireAVCUserClient : updateAVCCommandTimeout\n");
+    
+    fUnit->updateAVCCommandTimeout();
+
+    return kIOReturnSuccess;
+}
 

@@ -199,7 +199,6 @@ bool UniNEnet::initRxRing()
 		/* Set the receive queue head to point to the first entry in the ring.	*/
 
     rxCommandHead = 0;
-	rxCommandTail = i - 4;     // rxCommandTail is not used anywhere
 
     return true;
 }/* end initRxRing */
@@ -813,19 +812,20 @@ void UniNEnet::restartReceiver()
 {
 	UInt16		i;
 	UInt16		u16;
+	UInt32		x;
 
 
 	ELG( 0, READ_REGISTER( StatusAlias ), 'Alas', "restartReceiver" );
-	ELG( READ_REGISTER( TxKick ), READ_REGISTER( TxCompletion ), 'TxKC', "restartReceiver" );
-	ELG( 0, READ_REGISTER( TxConfiguration ), 'TxCf', "restartReceiver" );
-	ELG( READ_REGISTER( TxFIFOShadowReadPointer ), READ_REGISTER( TxFIFOReadPointer ), 'TxRp', "restartReceiver" );
-	ELG( READ_REGISTER( TxFIFOSize ), READ_REGISTER( TxFIFOPacketCounter ), 'TxPc', "restartReceiver" );
+//	ELG( READ_REGISTER( TxKick ), READ_REGISTER( TxCompletion ), 'TxKC', "restartReceiver" );
+//	ELG( 0, READ_REGISTER( TxConfiguration ), 'TxCf', "restartReceiver" );
+//	ELG( READ_REGISTER( TxFIFOShadowReadPointer ), READ_REGISTER( TxFIFOReadPointer ), 'TxRp', "restartReceiver" );
+//	ELG( READ_REGISTER( TxFIFOSize ), READ_REGISTER( TxFIFOPacketCounter ), 'TxPc', "restartReceiver" );
 
 	ELG( READ_REGISTER( RxKick ), READ_REGISTER( RxCompletion ), 'RxKC', "restartReceiver" );
-	ELG( READ_REGISTER( RxStateMachine ), READ_REGISTER( RxConfiguration ), 'RxCf', "restartReceiver" );
+	ELG( READ_REGISTER( RxConfiguration ), READ_REGISTER( RxFIFOReadPointer ), 'RxCR', "restartReceiver" );
 	ELG( READ_REGISTER( RxFIFOShadowWritePointer ), READ_REGISTER( RxFIFOWritePointer ), 'RxWp', "restartReceiver" );
-	ELG( READ_REGISTER( RxFIFOPacketCounter ), READ_REGISTER( RxFIFOPacketCounter ), 'RxPC', "restartReceiver" );
-///	ELG( READ_REGISTER( xxxx ), READ_REGISTER( xxxx ), 'xxxx', "restartReceiver" );
+	ELG( 0, READ_REGISTER( RxFIFOPacketCounter ), 'RxPC', "restartReceiver" );
+	ELG( READ_REGISTER( RxStateMachine ), READ_REGISTER( StateMachine ), '=SMs', "restartReceiver" );
 
 		// Perform a software reset to the logic in the RX MAC.
 		// The MAC config register should be re-programmed following
@@ -851,7 +851,7 @@ void UniNEnet::restartReceiver()
 
 	    // Disable MAC before setting any other bits in the MAC config register.
 
-	WRITE_REGISTER( RxMACConfiguration, 0 );
+	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration & ~kRxMACConfiguration_Rx_Mac_Enable );
 
     for ( i = 0; i < 5000; i++ )
     {
@@ -868,6 +868,12 @@ void UniNEnet::restartReceiver()
 	u16 = OSSwapConstInt16( kGEMRxDescFrameSize_Own );
 	for ( i = 0; i < fRxRingElements; ++i )
 		fRxDescriptorRing[ i ].frameDataSize |= u16;
+
+	x = READ_REGISTER( RxCompletion );
+    rxCommandHead = x;
+	x += (fRxRingElements - 4);
+	x &= (fRxRingElements - 4);
+	WRITE_REGISTER( RxKick, x );
 
 	WRITE_REGISTER( MACControlConfiguration, fMACControlConfiguration );// Pause etc bits
 
@@ -946,9 +952,7 @@ bool UniNEnet::transmitPacket( struct mbuf *packet )
 
     txCommandTail = j;
 
-	OSSynchronizeIO();				// make sure ring updated before kicked.
 	WRITE_REGISTER( TxKick, j );
-///	j = READ_REGISTER( TxKick );	/// read it back to force it out.
     return true;          
 }/* end transmitPacket */
 
@@ -1145,18 +1149,6 @@ void UniNEnet::sendDummyPacket()
 }/* end sendDummyPacket */
 
 
-/*-------------------------------------------------------------------------
- *
- *
- *
- *-------------------------------------------------------------------------*/
-
-bool UniNEnet::receiveInterruptOccurred()
-{
-    return receivePackets( false );
-}/* end receiveInterruptOccurred */
-
-
 	/*-------------------------------------------------------------------------
 	 *
 	 *
@@ -1170,8 +1162,8 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 	int			receivedFrameSize = 0;
 	UInt16		dmaFlags;
 	UInt16		checksum;
-	UInt32		rxPktStatus = 0;
 	UInt32		rxCompletion;
+	UInt32		rxPktStatus = 0;
 	bool		passPacketUp;
 	bool		reusePkt;
 	bool		status;
@@ -1179,20 +1171,15 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 	bool		packetsQueued = false;
 	bool		replaced;
 
-   
+
     last			= (UInt32)-1;  
     i				= rxCommandHead;
 	rxCompletion	= READ_REGISTER( RxCompletion );
 //	ELG( rxCompletion, i, 'Rx I', "receivePackets" );
 
-///	for ( UInt32 loopLimit = fRxRingElements; loopLimit; --loopLimit )
-    while ( 1 )
+	for ( UInt32 loopLimit = fRxRingElements; loopLimit; --loopLimit )
     {
-        passPacketUp = false;
-        reusePkt     = false;
-
-		dmaFlags = OSReadLittleInt16( &fRxDescriptorRing[ i ].frameDataSize,     0 );
-		checksum = OSReadLittleInt16( &fRxDescriptorRing[ i ].tcpPseudoChecksum, 0 );
+		dmaFlags = OSReadLittleInt16( &fRxDescriptorRing[ i ].frameDataSize, 0 );
 
 			/*  If the current entry has not been written, then stop at this entry	*/
 
@@ -1206,6 +1193,8 @@ bool UniNEnet::receivePackets( bool debuggerParam )
             /* and the packet is a replacement requiring a new buffer		*/
             /* address, the new address can under the right circumstances	*/
             /* be overwritten by the now stale address from the DMA engine.	*/
+			/* The solution is to double check with the RxCompletion		*/
+			/* register to make sure we own the packet.						*/
 
         if ( i == rxCompletion )
         {		// Refresh the completion number only when needed:
@@ -1213,6 +1202,11 @@ bool UniNEnet::receivePackets( bool debuggerParam )
             if ( i == rxCompletion )			// If packet still not ours,
                 break;							// get it on the next interrupt.
         }
+
+        passPacketUp = false;
+        reusePkt     = false;
+
+		checksum = OSReadLittleInt16( &fRxDescriptorRing[ i ].tcpPseudoChecksum, 0 );
 
         receivedFrameSize	= dmaFlags & kGEMRxDescFrameSize_Mask;
 		rxPktStatus			= OSReadLittleInt32( &fRxDescriptorRing[ i ].flags, 0 );
@@ -1279,7 +1273,14 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 			{		// Can get here if Tx is spewing UDP packets and
 					// uses up the whole pool.
 				NETWORK_STAT_ADD( inputErrors );
-				ELG( 0, 0, 'Pkt-', "UniNEnet::receivePackets - no mBuf available." );
+				if ( packetsQueued )
+				{	 packetsQueued = 0;
+					 networkInterface->flushInputQueue();
+				}
+				IOSleep( 1 );					// Allow the stack to process packets.
+				loopLimit = fRxRingElements;	// Do a full ring since we just slept.
+			//	ELG( READ_REGISTER( RxCompletion ), i, 'Pkt-', "UniNEnet::receivePackets - no mBuf available." );
+				ELG( READ_REGISTER( RxFIFOPacketCounter ), READ_REGISTER( RxMACStatus ), 'Pkt-', "UniNEnet::receivePackets - no mBuf available." );
 			}
         }/* end IF reusePkt is false */
 
@@ -1295,9 +1296,9 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
 		if ( (i & 3) == 3 )		// only kick modulo 4
 		{
-			OSSynchronizeIO();      /// this is unnecessary - delete this line.
 			WRITE_REGISTER( RxKick, (i - 3) );
 		}
+
         last = i;	/* Keep track of the last receive descriptor processed	*/
 		i = (i + 1) & (fRxRingElements - 1);
 
@@ -1323,14 +1324,11 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 			networkInterface->inputPacket( packet, receivedFrameSize, true );
 			NETWORK_STAT_ADD( inputPackets );
 			packetsQueued = true;
-        }
-	}/* end WHILE */
+        }/* end IF packet to send up */
+	}/* end FOR loopLimit */
 
     if ( last != (UInt32)-1 )
-    {
-        rxCommandTail = last;	// rxCommandTail is not used anywhere
         rxCommandHead = i;
-    }
 
     return packetsQueued;
 }/* end receivePackets */
@@ -1452,20 +1450,13 @@ void UniNEnet::debugTransmitCleanup()
 
 bool UniNEnet::genRxDescriptor( UInt32 i )
 {
-	IOPhysicalSegment	segVector[ 2 ];
-	UInt32				segments;
+	UInt32				physAddr;
 
 
-    segments = mbufCursor->getPhysicalSegmentsWithCoalesce( fRxMbuf[i], segVector );
+	physAddr = (UInt32)mcl_to_paddr( mtod( fRxMbuf[i], char* ) );
+	OSWriteLittleInt32( &fRxDescriptorRing[i].bufferAddrLo,  0, physAddr );
 
-	if ( segments != 1 )
-	{
-		ALRT( fRxMbuf[i], segments, 'seg-', "UniNEnet::genRxDescriptor - segments != 1" );
-		return false;
-	}
-
-	OSWriteLittleInt32( &fRxDescriptorRing[i].bufferAddrLo,  0, segVector[0].location );
-	OSWriteLittleInt16( &fRxDescriptorRing[i].frameDataSize, 0, segVector[0].length | kGEMRxDescFrameSize_Own );
+	fRxDescriptorRing[i].frameDataSize = OSSwapHostToLittleConstInt16( NETWORK_BUFSIZE | kGEMRxDescFrameSize_Own );
 	fRxDescriptorRing[ i ].flags = 0;
 
 	return true;
@@ -1650,7 +1641,8 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 			}                    
 		}
 		else if ( ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID)		// 0x01410C2x
-			   || ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID_1) )	// 0x01410C6x
+			   || ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID_1)	// 0x01410C6x
+			   || ((phyType & MII_MARVELL_MASK) == MII_MARVELL_ID_2) )	// 0x01410CCx
 		{
 			miiReadWord( &linkStatus, MII_MARVELL_PHY_SPECIFIC_STATUS, phyId );
 

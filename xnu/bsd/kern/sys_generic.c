@@ -124,7 +124,8 @@ holdfp(fdp, fd, flag)
 		(fp->f_flag & flag) == 0) {
 			return (NULL);
 	}
-	fref(fp);
+	if (fref(fp) == -1)
+		return (NULL);
 	return (fp);   
 }
 

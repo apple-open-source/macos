@@ -54,6 +54,7 @@
 				014CEA520018CE5811CA2923,
 				014CEA530018CE5811CA2923,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 08FB7794FE84155DC02AAC07;
 			projectDirPath = "";

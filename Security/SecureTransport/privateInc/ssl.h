@@ -19,19 +19,21 @@
 /*
 	File:		ssl.h
 
-	Contains:	convenience header, including public and private parts
-				of original ssl.h
+	Contains:	convenience header
 
-	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
+	Written by:	Doug Mitchell
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
 */
 
-#ifndef	_SSL_H_
-#define _SSL_H_
+#ifndef	_SSL_SSL_H_
+#define _SSL_SSL_H_
 
 #include <Security/SecureTransport.h>
 #include "sslPriv.h"
 
-#endif	/* _SSL_H */
+/* and this system-wide kludge */
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+
+#endif	/* _SSL_SSL_H_ */

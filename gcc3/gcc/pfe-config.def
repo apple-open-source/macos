@@ -1,0 +1,81 @@
+/* APPLE LOCAL file PFE */
+/* Memory management allocation definitions.
+   Copyright (C) 2001
+   Free Software Foundation, Inc.
+   Contributed by Apple Computer Inc.
+
+This file is part of GNU CC.
+
+GNU CC is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU CC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU CC; see the file COPYING.  If not, write to
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
+
+/*
+DEF_PFE_ALLOC(sym, str)
+
+The sym is the enum name of the kind of allocator.
+
+The str is a string for identifing this kind of allocation when
+statistics are gathered or whatever.  Keep the string lengths < 30.
+*/
+
+/* These are for non-GC related allocations in PFE memory...					*/
+DEF_PFE_ALLOC (PFE_ALLOC_TARGET_ADDITIONS, "target additions")		/* config/...		*/
+DEF_PFE_ALLOC (PFE_ALLOC_FUNCTION_BASE, "function_base")		/* config/darwin.h		*/
+DEF_PFE_ALLOC (PFE_ALLOC_BINDING_LEVEL, "binding_level")		/* c-decl.c, cp/decl.c	*/
+DEF_PFE_ALLOC (PFE_ALLOC_SAVED_SCOPE, "c++ saved_scope")		/* cp/decl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_LANGUAGE_FUNCTION, "c++ language_function")	/* cp/decl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_CPP_BUFF, "_cpp_buff")				/* cpplex.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_REGNO_POINTER_ALIGN, "regno_pointer_align")	/* emit-rtl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_REGNO_REG_RTX, "x_regno_reg_rtx")		/* emit-rtl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_REGNO_DECL, "regno_decl")			/* emit-rtl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_SEQUENCE_STACK, "sequence_stack")		/* emit-rtl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_EMIT_STATUS, "emit_status")			/* emit-rtl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_EH_STATUS, "eh_status")			/* except.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_EH_REGION, "eh_region")			/* except.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_EH_REGION_ARRAY, "eh_region array")		/* except.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_CALL_SITE_RECORD, "call_site_record")		/* except.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_EXPR_STATUS, "expr_status")			/* expr.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_RTX_ARRAY, "rtx array")			/* function.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_GLOBALS, "ggc_globals")			/* ggc-page.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_HASH_TABLE, "hash_table")			/* hashtable.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_HASHNODE, "hashnode")				/* hashtable.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_OBSTACK_CHUNK, "obstack chunk")		/* hashtable.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_INITIAL_VALUE_STRUCT, "initial_value_struct")	/* integrate.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_INITIAL_VALUE_PAIR, "")			/* integrate.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_OBJC_HASH, "objc hash")			/* objc/objc-act.c	*/
+DEF_PFE_ALLOC (PFE_ALLOC_OBJC_HASH_ENTRY, "objc hashed_entry")		/* objc/objc-act.c	*/
+DEF_PFE_ALLOC (PFE_ALLOC_OBJC_ATTR, "objc hashed_attribute")		/* objc/objc-act.c	*/
+DEF_PFE_ALLOC (PFE_ALLOC_VARASM_STATUS, "varasm_status")		/* varasm.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_MACHINE_STATUS, "machine_status")		/* <arch-dependent>	*/
+DEF_PFE_ALLOC (PFE_ALLOC_CONSTANT_DESCRIPTOR, "const_rtx_hash_table")	/* varasm.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_RTX_SYM_HASH_TABLE, "const_rtx_sym_hash_table")/* varasm.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_VARRAY, "varray_data")				/* varray.c		*/
+  
+/* These are all GC related...									*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_LANG_DECL, "lang_decl (GC)")		/* c-decl.c, cp/lex.c	*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_LANG_TYPE, "c++ lang_type (GC)")		/* cp/lex.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_MEM_ATTRS, "mem_attrs (GC)")		/* emit-rtl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_TEMP_SLOT, "temp_slot (GC)")		/* function.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_VAR_REFS_QUEUE, "var_refs_queue (GC)")	/* function.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_FUNCTION, "struct function (GC)")		/* function.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_POOL_CONSTANT, "pool_constant (GC)")	/* varasm.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_PAGE_TABLE, "page_table (GC)")		/* ggc-page.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_PAGE_ENTRY, "page_entry array (GC)")	/* ggc-page.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_PAGE_GROUP, "page group allocation (GC)")	/* ggc-page.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_BIT_MAP, "save_in_use_p bitmap (GC)")	/* ggc-page.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_RTX, "rtx (GC)")				/* rtl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_RTVEC, "rtvec (GC)")			/* rtl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_TREE, "tree (GC)")				/* rtl.c		*/
+DEF_PFE_ALLOC (PFE_ALLOC_GGC_STRING, "string (GC)")			/* <currently not used>	*/

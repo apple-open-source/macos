@@ -56,6 +56,7 @@ AtomicFile::AtomicFile(const DbName &inDbName) :
     mWriteFile(nil),
     mWriteFilename(mReadFilename + ",") // XXX Do some more work here like resolving symlinks/aliases etc.
 {
+	debug("atomicfile", "%p construct name=%s", this, mReadFilename.c_str());
     // We only support databases with string names of non-zero length.
     if (inDbName.dbLocation() != nil || inDbName.dbName().length() == 0)
         CssmError::throwMe(CSSMERR_DL_INVALID_DB_LOCATION);
@@ -64,6 +65,7 @@ AtomicFile::AtomicFile(const DbName &inDbName) :
 AtomicFile::~AtomicFile()
 {
     // Assume there are no more running theads in this object.
+	debug("atomicfile", "%p destroyed", this);
 
     // Try hard to clean up as much as possible.
     try
@@ -93,6 +95,7 @@ AtomicFile::~AtomicFile()
 void
 AtomicFile::close()
 {
+	debug("atomicfile", "%p close", this);
     StLock<Mutex> _(mReadLock);
 
     // If we have no read file we have nothing to close.
@@ -432,6 +435,7 @@ AtomicFile::enterWrite(const uint8 *&outFileAddress, size_t &outLength, FileRef 
 AtomicFile::VersionId
 AtomicFile::commit()
 {
+	debug("atomicfile", "%p commit", this);
     StLock<Mutex> _(mReadLock);
     if (mWriteFile == nil)
         CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
@@ -459,6 +463,7 @@ AtomicFile::commit()
 
         // Close all unused files (in particular aOpenFile) and remove them from mOpenFileMap
         endWrite();
+		debug("atomicfile", "%p commit done", this);
         return aVersionId;
     }
     catch (...)
@@ -469,6 +474,7 @@ AtomicFile::commit()
             unlink(mWriteFilename);
         }catch(...) {}
         endWrite();
+		debug("atomicfile", "%p commit failed, rethrowing", this);
         throw;
     }
 }
@@ -476,6 +482,7 @@ AtomicFile::commit()
 void
 AtomicFile::rollback()
 {
+	debug("atomicfile", "%p rollback", this);
     StLock<Mutex> _(mReadLock);
     if (mWriteFile == nil)
         CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
@@ -491,6 +498,7 @@ AtomicFile::rollback()
         if (mCreating)
             unlink(mReadFilename);
         endWrite();
+		debug("atomicfile", "%p rollback complete", this);
     }
     catch(...)
     {
@@ -500,6 +508,7 @@ AtomicFile::rollback()
             unlink(mWriteFilename);
         }catch(...) {}
         endWrite();
+		debug("atomicfile", "%p rollback failed, rethrowing", this);
         throw;
     }
 }
@@ -642,11 +651,15 @@ AtomicFile::OpenFile::OpenFile(const string &inFilename, bool write, bool lock, 
         flags = O_RDONLY;
         mState = Read;
     }
+	debug("atomicfile", "%p openfile(%s,%s%s,%d,0x%x) -> flags=0x%x, state=%d",
+		this, inFilename.c_str(), write ? "write" : "read", lock ? ",lock" : "",
+		inVersionId, mode, flags, mState);
 
     mFileRef = ::open(inFilename.c_str(), flags, mode);
     if (mFileRef == -1)
     {
         int error = errno;
+		debug("atomicfile", "%p openfile open failed(errno=%d)", this, error);
 
 #if _USE_IO == _USE_IO_POSIX
         // Do the obvious error code translations here.
@@ -663,6 +676,8 @@ AtomicFile::OpenFile::OpenFile(const string &inFilename, bool write, bool lock, 
 
 				// Now try the open again.
 				mFileRef = ::open(inFilename.c_str(), flags, mode);
+				debug("atomicfile", "%p openfile reopen %s (%d)",
+					this, (mFileRef == -1) ? "failed" : "ok", errno);
 				error = mFileRef == -1 ? errno : 0;
 				if (error == ENOENT)
 					CssmError::throwMe(CSSM_ERRCODE_OS_ACCESS_DENIED);
@@ -776,13 +791,17 @@ AtomicFile::OpenFile::~OpenFile()
 void
 AtomicFile::OpenFile::close()
 {
+	IFDEBUG(if (mState != Closed) debug("atomicfile", "%p openfile closing(ref=%d)",
+		this, mFileRef));
     int error = 0;
     if (mAddress != NULL)
     {
 #if _USE_IO == _USE_IO_POSIX
+		debug("atomicfile", "%p openfile is unmapping %p:%ld", this, mAddress, mLength);
         if (::munmap(const_cast<uint8 *>(mAddress), mLength) == -1)
             error = errno;
 #else
+		debug("atomicfile", "%p openfile deleting %p", this, mAddress);
 		delete[] mAddress;
 #endif
 

@@ -108,6 +108,7 @@ enum
     kUsage_PageTelephonyDevice			= 0x0B,
     kUsage_PageConsumer					= 0x0C,
     kUsage_PageDigitizers				= 0x0D,
+    kUsage_PagePID				= 0x0F,
     kUsage_PageUnicode					= 0x10,
     kUsage_PageAlphanumericDisplay		= 0x14,
     kUsage_PageMonitor					= 0x80,

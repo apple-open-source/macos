@@ -33,8 +33,6 @@ extern "C" {
 
 #include "ssl.h"
 #include "sslPriv.h"
-//#include "sslctx.h"
-#include "sslerrs.h"
 
 /* forward declaration of HMAC object */
 struct 						HMACReference;
@@ -54,7 +52,7 @@ typedef enum {
 #define TLS_HMAC_MAX_SIZE		20
 
 /* Create an HMAC session */
-typedef SSLErr (*HMAC_AllocFcn) (
+typedef OSStatus (*HMAC_AllocFcn) (
 	const struct HMACReference	*hmac,
 	SSLContext 					*ctx,
 	const void					*keyPtr,
@@ -62,26 +60,26 @@ typedef SSLErr (*HMAC_AllocFcn) (
 	HMACContextRef				*hmacCtx);			// RETURNED
 	
 /* Free a session */
-typedef SSLErr (*HMAC_FreeFcn) (
+typedef OSStatus (*HMAC_FreeFcn) (
 	HMACContextRef	hmacCtx);	
 	
 /* Reusable init, using same key */
-typedef SSLErr (*HMAC_InitFcn) (
+typedef OSStatus (*HMAC_InitFcn) (
 	HMACContextRef	hmacCtx);
 	
 /* normal crypt ops */
-typedef SSLErr (*HMAC_UpdateFcn) (
+typedef OSStatus (*HMAC_UpdateFcn) (
 	HMACContextRef	hmacCtx,
 	const void		*data,
 	unsigned		dataLen);
 	
-typedef SSLErr (*HMAC_FinalFcn) (
+typedef OSStatus (*HMAC_FinalFcn) (
 	HMACContextRef	hmacCtx,
 	void			*hmac,			// mallocd by caller
 	unsigned		*hmacLen);		// IN/OUT
 	
 /* one-shot */
-typedef SSLErr (*HMAC_HmacFcn) (
+typedef OSStatus (*HMAC_HmacFcn) (
 	HMACContextRef	hmacCtx,
 	const void		*data,
 	unsigned		dataLen,

@@ -1,5 +1,5 @@
 /*
- * "$Id: conf.h,v 1.2 2002/06/14 22:43:03 jlovell Exp $"
+ * "$Id: conf.h,v 1.2.2.1 2002/12/13 22:54:13 jlovell Exp $"
  *
  *   Configuration file definitions for the Common UNIX Printing System (CUPS)
  *   scheduler.
@@ -110,6 +110,8 @@ VAR int			ClassifyOverride	VALUE(0),
 					/* Log level */
 			MaxClients		VALUE(0),
 					/* Maximum number of clients */
+			MaxClientsPerHost	VALUE(0),
+					/* Maximum number of clients per host */
 			MaxLogSize		VALUE(1024 * 1024),
 					/* Maximum size of log files */
 			MaxRequestSize		VALUE(0),
@@ -175,5 +177,5 @@ extern int	LogPage(job_t *job, const char *page);
 
 
 /*
- * End of "$Id: conf.h,v 1.2 2002/06/14 22:43:03 jlovell Exp $".
+ * End of "$Id: conf.h,v 1.2.2.1 2002/12/13 22:54:13 jlovell Exp $".
  */

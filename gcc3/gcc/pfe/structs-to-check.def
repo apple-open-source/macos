@@ -1,0 +1,167 @@
+/* APPLE LOCAL PFE */
+/* Persistent Front End (PFE) struct size validation structs
+   to be checked.
+   Copyright (C) 2001
+   Free Software Foundation, Inc.
+   Contributed by Apple Computer Inc.
+
+This file is part of GNU CC.
+
+GNU CC is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU CC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU CC; see the file COPYING.  If not, write to
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
+
+/*
+DEFCHECKSTRUCT(struct-name, size)
+
+The struct-name is the exact name of th struct to be checked.
+The size is it's assumed sizeof() size.   If you don't know
+it, put in anything.   When the check is done (using the 
+-fpfedbg=check-structs option) it will display what the size
+should be.
+
+Once the sizes are known the message showing the correct size
+will only be shown if some future merge with the fsf causes
+it to change.
+
+Place the new DEFCHECKSTRUCT's in the section where that struct
+is actually declared.  There are 3 categories:
+
+  1. Structs defined in accessible headers for common compiler
+     code.
+  
+  2. Structs defined privately in common compiler code.
+  
+  3. Language-specific structs defined privately or in accessible
+     headers.
+
+ Corrsponding to each of these DEFCHECKSTRUCT is a function that
+ specifically checks the size of the associated struct.  These
+ functions are created using the DEFINE_CHECK_STRUCT_FUNCTION
+ (defined in pfe-header.h).  Of course the ones that access structs
+ private to some file are placed in that file.  
+ 
+ Note, ALL the structs to be checked for all the languages currently
+ supported for pfe have a DEFCHECKSTRUCT specified this one file.  We
+ could have separate .def files but what's the point?  It only
+ complicates the build with more file dependencies and this is only
+ used after a fsf merge.  Of course macros are needed to control
+ which group of DEFCHECKSTRUCT's are used following the above
+ mentioned categories.  */
+
+/*-------------------------------------------------------------------*/
+
+#ifdef GCC_STRUCTS
+/* rtl.h */
+DEFCHECKSTRUCT (rtunion_def_union, 4)
+DEFCHECKSTRUCT (rtx_def, 8)
+DEFCHECKSTRUCT (rtvec_def, 8)
+
+/* tree.h */
+DEFCHECKSTRUCT (tree_node_union, 112)
+DEFCHECKSTRUCT (tree_common, 12)
+DEFCHECKSTRUCT (tree_int_cst, 24)
+DEFCHECKSTRUCT (tree_real_cst, 36)
+DEFCHECKSTRUCT (tree_string, 24)
+DEFCHECKSTRUCT (tree_complex, 24)
+DEFCHECKSTRUCT (tree_vector, 20)
+DEFCHECKSTRUCT (tree_identifier, 20)
+DEFCHECKSTRUCT (tree_decl, 112)
+DEFCHECKSTRUCT (tree_type, 88)
+DEFCHECKSTRUCT (tree_list, 20)
+DEFCHECKSTRUCT (tree_vec, 20)
+DEFCHECKSTRUCT (tree_exp, 20)
+DEFCHECKSTRUCT (tree_block, 40)
+
+/* varray.h */
+DEFCHECKSTRUCT (varray_data_union, 8)
+DEFCHECKSTRUCT (varray_head_tag, 24)
+
+/* cpplib.h */
+DEFCHECKSTRUCT (cpp_token, 16)
+DEFCHECKSTRUCT (cpp_hashnode, 20)
+
+/* cpplib.c */
+DEFCHECKSTRUCT (answer, 24)
+
+/* c-common.h */
+DEFCHECKSTRUCT (language_function, 20)
+DEFCHECKSTRUCT (stmt_tree_s, 16)
+
+/* cppmacro.c */
+DEFCHECKSTRUCT (cpp_macro, 24)
+
+/* except.c */
+DEFCHECKSTRUCT (eh_status, 80)
+DEFCHECKSTRUCT (eh_region, 56)
+
+/* function.c */
+DEFCHECKSTRUCT (function, 264)
+DEFCHECKSTRUCT (expr_status, 28)
+DEFCHECKSTRUCT (emit_status, 52)
+DEFCHECKSTRUCT (sequence_stack, 16)
+DEFCHECKSTRUCT (temp_slot, 48)
+DEFCHECKSTRUCT (var_refs_queue, 16)
+
+/* ggc-page.c */
+DEFCHECKSTRUCT (page_entry, 32)
+DEFCHECKSTRUCT (page_group, 16)
+DEFCHECKSTRUCT (page_table_chain, 1024)
+DEFCHECKSTRUCT (globals, 1332)
+
+/* integrate.c */
+DEFCHECKSTRUCT (initial_value_struct, 12)
+DEFCHECKSTRUCT (initial_value_pair, 8)
+
+/* varasm.c */
+DEFCHECKSTRUCT (pool_constant, 36)
+DEFCHECKSTRUCT (varasm_status, 28)
+DEFCHECKSTRUCT (constant_descriptor, 20)
+DEFCHECKSTRUCT (rtx_const, 132)
+
+#endif /* GCC_STRUCTS */
+/*-------------------------------------------------------------------*/
+#ifdef GCC_C_STRUCTS
+
+/* c-decl.c */
+DEFCHECKSTRUCT (c_language_function, 52)
+DEFCHECKSTRUCT (binding_level, 40)
+
+#endif /* GCC_C_STRUCTS */
+/*-------------------------------------------------------------------*/
+#ifdef GCC_CP_STRUCTS
+
+/* pfe/cp-freeze-thaw.c */
+DEFCHECKSTRUCT (cp_language_function, 92)
+DEFCHECKSTRUCT (saved_scope, 100)
+DEFCHECKSTRUCT (operator_name_info_t, 12)
+
+/* cp/decl.c */
+DEFCHECKSTRUCT (binding_level, 52)
+DEFCHECKSTRUCT (named_label_use_list, 24)
+DEFCHECKSTRUCT (named_label_list, 28)
+
+/* cp/spew.c */
+DEFCHECKSTRUCT (unparsed_text, 28)
+
+#endif /* GCC_CP_STRUCTS */
+/*-------------------------------------------------------------------*/
+#ifdef GCC_OBJC_STRUCTS
+
+/* objc-act.h */
+DEFCHECKSTRUCT (hashed_attribute, 8)
+DEFCHECKSTRUCT (hashed_entry, 12)
+
+#endif /* GCC_OBJC_STRUCTS */
+/*-------------------------------------------------------------------*/

@@ -136,7 +136,7 @@
  */
 #define	SIOCPROTOATTACH	_IOWR('i', 80, struct ifreq)	/* attach proto to interface */
 #define	SIOCPROTODETACH	_IOWR('i', 81, struct ifreq)	/* detach proto from interface */
-#endif KERNEL_PRIVATE
+#endif /* KERNEL_PRIVATE */
 
 #define	SIOCGIFASYNCMAP _IOWR('i', 124, struct ifreq)	/* get ppp asyncmap */
 #define	SIOCSIFASYNCMAP _IOW('i', 125, struct ifreq)	/* set ppp asyncmap */

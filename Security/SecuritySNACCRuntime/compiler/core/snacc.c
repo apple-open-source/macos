@@ -36,7 +36,7 @@
  *
  * INSERT_VDA_COMMENTS
  *
- * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/compiler/core/snacc.c,v 1.1 2001/06/20 21:27:59 dmitch Exp $
+ * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/core/snacc.c,v 1.1 2001/06/20 21:27:59 dmitch Exp $
  * $Log: snacc.c,v $
  * Revision 1.1  2001/06/20 21:27:59  dmitch
  * Adding missing snacc compiler files.

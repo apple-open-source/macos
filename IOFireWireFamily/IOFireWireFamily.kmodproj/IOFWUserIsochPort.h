@@ -31,9 +31,12 @@
 #ifndef _IOKIT_IOFWUserIsochPortProxy_H
 #define _IOKIT_IOFWUserIsochPortProxy_H
 
+// public
+#import <IOKit/firewire/IOFireWireBus.h>
+#import <IOKit/firewire/IOFWIsochPort.h>
+
+// private
 #import "IOFWUserIsochPort.h"
-#import "IOFWIsochPort.h"
-#import "IOFireWireBus.h"
 #import "IOFireWireUserClient.h"
 
 class IOFWUserIsochPort: public IOFWIsochPort

@@ -195,4 +195,4 @@ boolean_t		dhcpol_parse_vendor(dhcpol_t * vendor,
 					    unsigned char * err);
 void			dhcpol_print(dhcpol_t * list);
 #endif /* __APPLE_API_PRIVATE */
-#endif _NETINET_DHCP_OPTIONS_H
+#endif /* _NETINET_DHCP_OPTIONS_H */

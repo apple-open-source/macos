@@ -23,6 +23,7 @@
 #define _H_SSDATABASE_
 
 #include <Security/dlclient.h>
+#include <Security/unix++.h>
 #include <Security/SecurityServerClient.h>
 
 class SSCSPDLSession;
@@ -71,7 +72,10 @@ private:
 		kDefaultIdleTimeout		= 5 * 60, // 5 minute default autolock time
 		kDefaultLockOnSleep		= true
 	};
-
+	
+	DLDbIdentifier mIdentifier;
+	UnixPlusPlus::ForkMonitor mForked;
+	
 	SecurityServer::ClientSession &mClientSession;
 	SecurityServer::DbHandle mSSDbHandle;
 	CssmClient::DbUniqueRecord mDbBlobId;

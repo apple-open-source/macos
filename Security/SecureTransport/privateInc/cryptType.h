@@ -21,42 +21,18 @@
 
 	Contains:	Crypto structures and routines
 
-	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
+	Written by:	Doug Mitchell
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
 */
-/*  *********************************************************************
-    File: cryptype.h
-
-    SSLRef 3.0 Final -- 11/19/96
-
-    Copyright (c)1996 by Netscape Communications Corp.
-
-    By retrieving this software you are bound by the licensing terms
-    disclosed in the file "LICENSE.txt". Please read it, and if you don't
-    accept the terms, delete this software.
-
-    SSLRef 3.0 was developed by Netscape Communications Corp. of Mountain
-    View, California <http://home.netscape.com/> and Consensus Development
-    Corporation of Berkeley, California <http://www.consensus.com/>.
-
-    *********************************************************************
-
-    File: cryptype.h   Crypto structures and routines
-
-    Types associated with cryptographic functionality, including hashes,
-    symmetric ciphers, and cipher specs.
-
-    ****************************************************************** */
 
 #ifndef _CRYPTTYPE_H_
 #define _CRYPTTYPE_H_ 1
 
-#include "sslerrs.h"
 #include <Security/CipherSuite.h>
 #include "sslPriv.h"
-#include "sslctx.h"
+#include "sslContext.h"
 #include "tls_hmac.h"
 
 #ifdef __cplusplus
@@ -78,12 +54,12 @@ typedef struct
     SSLCipherSuite     	cipherSuite;
 } SSLCipherMapping;
 
-typedef SSLErr (*HashInit)(SSLBuffer digestCtx, SSLContext *sslCtx);
-typedef SSLErr (*HashUpdate)(SSLBuffer digestCtx, SSLBuffer data);
+typedef OSStatus (*HashInit)(SSLBuffer &digestCtx, SSLContext *sslCtx);
+typedef OSStatus (*HashUpdate)(SSLBuffer &digestCtx, const SSLBuffer &data);
 /* HashFinal also does HashClose */
-typedef SSLErr (*HashFinal)(SSLBuffer digestCtx, SSLBuffer digest);	
-typedef SSLErr (*HashClose)(SSLBuffer digestCtx, SSLContext *sslCtx);
-typedef SSLErr (*HashClone)(SSLBuffer src, SSLBuffer dest);
+typedef OSStatus (*HashFinal)(SSLBuffer &digestCtx, SSLBuffer &digest);	
+typedef OSStatus (*HashClose)(SSLBuffer &digestCtx, SSLContext *sslCtx);
+typedef OSStatus (*HashClone)(const SSLBuffer &src, SSLBuffer &dest);
 typedef struct
 {   UInt32      contextSize;
     UInt32      digestSize;
@@ -96,10 +72,10 @@ typedef struct
 } HashReference;
 
 /*
- * TLS extension: 
- *		-- new struct HashHmacReference
- *		-- structs which used to use HashReference now use HashHmacReference
- *		-- new union HashHmacContext, used in CipherContext.
+ * TLS addenda: 
+ *	-- new struct HashHmacReference
+ *	-- structs which used to use HashReference now use HashHmacReference
+ *	-- new union HashHmacContext, used in CipherContext.
  */
 typedef struct {
 	const HashReference	*hash;
@@ -122,24 +98,22 @@ extern const HashHmacReference HashHmacSHA1;
 struct _SslTlsCallouts;
 
 /*
- * All symmetric ciphers go thru CDSA, but we'll keep these callouts for
- * now. The major change here from SSLRef3 is the inclusion of the CipherContext
- * arg, for alg/mode and key storage. 
+ * All symmetric ciphers go thru CDSA, via these callouts.  
  */
 struct CipherContext;
 typedef struct CipherContext CipherContext;
 
-typedef SSLErr (*SSLKeyFunc)(
+typedef OSStatus (*SSLKeyFunc)(
 	UInt8 *key, 
 	UInt8 *iv, 
 	CipherContext *cipherCtx, 
 	SSLContext *ctx);
-typedef SSLErr (*SSLCryptFunc)(
+typedef OSStatus (*SSLCryptFunc)(
 	SSLBuffer src, 
 	SSLBuffer dest, 
 	CipherContext *cipherCtx, 
 	SSLContext *ctx);
-typedef SSLErr (*SSLFinishFunc)(
+typedef OSStatus (*SSLFinishFunc)(
 	CipherContext *cipherCtx, 
 	SSLContext *ctx);
 
@@ -166,25 +140,14 @@ typedef struct {
     SSLFinishFunc   	finish;
 } SSLSymmetricCipher;
 
-#define MAX_DIGEST_SIZE 20          /* SHA digest size = 160 bits */
-#define MAX_MAC_PADDING 48          /* MD5 MAC padding size = 48 bytes */
-#define MASTER_SECRET_LEN 48        /* master secret = 3 x MD5 hashes concatenated */
+#define MAX_MAC_PADDING 	48	/* MD5 MAC padding size = 48 bytes */
+#define MASTER_SECRET_LEN 	48	/* master secret = 3 x MD5 hashes concatenated */
 
 /* SSL V2 - mac secret is the size of symmetric key, not digest */
 #define MAX_SYMKEY_SIZE		24
 
 typedef enum
 {   SSL_NULL_auth,
-	/*
-	 * FIXME: I have no idea what the difference is between
-	 * e.g. SSL_RSA and SS_RSA_EXPORT. These don't go over the 
-	 * wire. 
-	 * The few times the SSLRef code behaves differently between
-	 * these two look wrong. See SSLDecodeRSAKeyExchange(),
-	 * SSLAdvanceHandshake(). 
-	 *
-	 * UPDATE: see comments for SSL_SERVER_KEYEXCH_HACK hack. 
-	 */
     SSL_RSA,
     SSL_RSA_EXPORT,
     SSL_DH_DSS,
@@ -209,8 +172,7 @@ typedef struct {
 } SSLCipherSpec;
 
 extern const SSLCipherMapping SSL2CipherMap[];
-extern const int SSL2CipherMapCount;
-extern UInt8 SSLMACPad1[], SSLMACPad2[];
+extern const unsigned SSL2CipherMapCount;
 
 #ifdef __cplusplus
 }

@@ -34,8 +34,12 @@
 /*
  * Status register:
  */
-#define		kGPio12			0x00064
-#define		kHeadphoneBit		0x02
+#define		kGPIO_BASE				0x00000050
+#define		kEXTINT_GPIO12			0x00000064
+
+#define		kHeadphoneBit			0x02
+
+#define		kDACA_FRAME_RATE		44100
 
 enum {
     // 12c bus address for the chip and sub-addresses for registers
@@ -47,13 +51,13 @@ enum {
     // Sample Rate Control, 8 bit register
     kPowerOnDefaultSR_REG	= 0x00,
 
-    kLeftLRSelSR_REG		= 0x00,			// left channel default
-    kRightLRSelSR_REG		= 0x10,		  	// right channel
-    kLRSelSR_REGMask		= 0x10,
+    kLeftLRSelSR_REG		= ( 0 << 4 ),	// left channel default
+    kRightLRSelSR_REG		= ( 1 << 4 ),	// right channel
+    kLRSelSR_REGMask		= ( 1 << 4 ),
 
-    kNoDelaySPSelSR_REG		= 0x00,			// default
-    k1BitDelaySPSelSR_REG	= 0x08,
-    kDelaySPSelSR_REGMask	= 0x08,
+    kNoDelaySPSelSR_REG		= ( 0 << 3 ),	// default
+    k1BitDelaySPSelSR_REG	= ( 1 << 3 ),
+    kDelaySPSelSR_REGMask	= ( 1 << 3 ),
 
     kSRC_48SR_REG			= 0x00,		    // 32 - 48 KHz default
     kSRC_32SR_REG			= 0x01,		    // 26 - 32 KHz
@@ -89,6 +93,13 @@ enum {
 
     kNoChangeMask			= 0x00
 };
+
+#define	kDACA_MIN_VOLUME				( -75 << 16 )						/*	[3046950]									*/
+#define	kDACA_MAX_VOLUME				(   0 << 16 )						/*	[3046950]									*/
+#define	kDACA_VOL_HW_BIT_WIDTH			6									/*	[3046950]									*/
+#define	kDACA_MINIMUM_HW_VOLUME			0									/*	[3046950]									*/
+#define	kDACA_OUT_OF_BOUNDS_HW_VOLUME	(0x2D)								/*	[3046950][3072949] illegal volume > 0.0 dB	*/
+#define	kDACA_MAXIMUM_HW_VOLUME			(0x2C)								/*	[3046950][3072949] max volume is 0.0 dB		*/
 
 #endif // _DACA_HW_H
 

@@ -2,7 +2,7 @@
 --
 -- snacced example, simple types module
 --
--- $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/tcl-example/edex0.asn1,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
+-- $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/tcl-example/edex0.asn1,v 1.1.1.1 2001/05/18 23:14:10 mb Exp $
 -- $Log: edex0.asn1,v $
 -- Revision 1.1.1.1  2001/05/18 23:14:10  mb
 -- Move from private repository to open source repository

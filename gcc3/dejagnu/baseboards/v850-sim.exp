@@ -1,0 +1,31 @@
+# This is a list of toolchains that are supported on this board.
+set_board_info target_install {v850-elf}
+
+# Load the generic configuration for this board. This will define any
+# routines needed by the tool to communicate with the board.
+load_generic_config "sim"
+
+# We need this for find_gcc and *_include_flags/*_link_flags.
+load_base_board_description "basic-sim"
+
+# No multilib flags needed for this target.
+process_multilib_options ""
+
+setup_sim v850
+
+# We only support newlib on this target. We assume that all multilib
+# options have been specified before we get here.
+set_board_info compiler  "[find_gcc]"
+set_board_info cflags  "[libgloss_include_flags] [newlib_include_flags]"
+set_board_info ldflags  "[libgloss_link_flags] [newlib_link_flags]"
+# DDB linker script.
+set_board_info ldscript "";
+
+# The simulator doesn't return exit statuses and we need to indicate this;
+# the standard GCC wrapper will work with this target.
+set_board_info needs_status_wrapper 1
+# We can't pass arguments to programs.
+set_board_info noargs 1
+
+# And we don't support signals.
+set_board_info gdb,nosignals 1

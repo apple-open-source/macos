@@ -176,9 +176,7 @@ IOUSBMassStorageClass::CBIProtocolTransferData(
 					GetDataBuffer( cbiRequestBlock->request ), 
 					GetTimeoutDuration( cbiRequestBlock->request ),  // Use the client's timeout for both
 					GetTimeoutDuration( cbiRequestBlock->request ),
-#if 0
 					GetRequestedDataTransferCount( cbiRequestBlock->request ),
-#endif
 					&cbiRequestBlock->cbiCompletion );
 	}
 	else if (GetDataTransferDirection(cbiRequestBlock->request) == kSCSIDataTransfer_FromInitiatorToTarget)
@@ -187,9 +185,7 @@ IOUSBMassStorageClass::CBIProtocolTransferData(
 					GetDataBuffer( cbiRequestBlock->request ), 
 					GetTimeoutDuration( cbiRequestBlock->request ),  // Use the client's timeout for both
 					GetTimeoutDuration( cbiRequestBlock->request ),
-#if 0
 					GetRequestedDataTransferCount( cbiRequestBlock->request ),
-#endif
 					&cbiRequestBlock->cbiCompletion );
 	}
 

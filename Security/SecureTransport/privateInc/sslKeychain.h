@@ -21,7 +21,7 @@
 
 	Contains:	Apple Keychain routines
 
-	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
+	Written by:	Doug Mitchell
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
@@ -31,15 +31,12 @@
 #define _SSL_KEYCHAIN_H_
 
 
-#ifndef	_SSLCTX_H_
-#include "sslctx.h"
-#endif
+#include "sslContext.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#if	(ST_SERVER_MODE_ENABLE || ST_CLIENT_AUTHENTICATION)
 /*
  * Given an array of certs (as KCItemRefs) and a destination
  * SSLCertificate:
@@ -65,8 +62,6 @@ parseIncomingCerts(
 	);
 	#endif			ST_KC_KEYS_NEED_REF
 	
-#endif	/* (ST_SERVER_MODE_ENABLE || ST_CLIENT_AUTHENTICATION) */
-
 /*
  * Add Apple built-in root certs to ctx->trustedCerts.
  */
@@ -74,7 +69,7 @@ OSStatus
 addBuiltInCerts	(
 	SSLContextRef	ctx);
 
-#if		ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS
+#if		ST_MANAGES_TRUSTED_ROOTS
 
 /*
  * Given an open Keychain:
@@ -94,12 +89,12 @@ parseTrustedKeychain(
  * add it to newRootCertKc if the user so allows, and if so, add it to 
  * trustedCerts.
  */
-SSLErr
+OSStatus
 sslAddNewRoot(
 	SSLContext			*ctx, 
 	const CSSM_DATA_PTR	rootCert);
 
-#endif	/* ST_KEYCHAIN_ENABLE && ST_MANAGES_TRUSTED_ROOTS */
+#endif	/* ST_MANAGES_TRUSTED_ROOTS */
 
 #ifdef __cplusplus
 }

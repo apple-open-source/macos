@@ -1261,6 +1261,39 @@ hfs_relnamehints(struct cnode *dcp)
 }
 
 
+/*
+ * Perform a case-insensitive compare of two UTF-8 filenames.
+ *
+ * Returns 0 if the strings match.
+ */
+__private_extern__
+int
+hfs_namecmp(const char *str1, size_t len1, const char *str2, size_t len2)
+{
+	u_int16_t *ustr1, *ustr2;
+	size_t ulen1, ulen2;
+	size_t maxbytes;
+	int cmp = -1;
+
+	if (len1 != len2)
+		return (cmp);
+
+	maxbytes = kHFSPlusMaxFileNameChars << 1;
+	MALLOC(ustr1, u_int16_t *, maxbytes << 1, M_TEMP, M_WAITOK);
+	ustr2 = ustr1 + (maxbytes >> 1);
+
+	if (utf8_decodestr(str1, len1, ustr1, &ulen1, maxbytes, ':', 0) != 0)
+		goto out;
+	if (utf8_decodestr(str2, len2, ustr2, &ulen2, maxbytes, ':', 0) != 0)
+		goto out;
+	
+	cmp = FastUnicodeCompare(ustr1, ulen1>>1, ustr2, ulen2>>1);
+out:
+	FREE(ustr1, M_TEMP);
+	return (cmp);
+}
+
+
 __private_extern__
 int
 hfs_early_journal_init(struct hfsmount *hfsmp, HFSPlusVolumeHeader *vhp,

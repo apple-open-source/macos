@@ -20,6 +20,9 @@
 #ifdef HAVE_NET_SELECT_H /* AIX needs this */
 #include <net/select.h>
 #endif
+#ifdef HAVE_SYS_SELECT_H /* AIX 4.1, at least, needs this */
+#include  <sys/select.h>
+#endif
 #include  <netdb.h>
 #include  <errno.h>
 #include  <unistd.h>
@@ -45,6 +48,7 @@ static int odmr_getrange(int sock, struct query *ctl, const char *id,
 /* send ODMR and then run a reverse SMTP session */
 {
     int ok, opts, smtp_sock;
+    int doing_smtp_data = 0;   /* Are we in SMTP DATA state? */
     char buf [MSGBUFSIZE+1];
     struct idlist *qnp;		/* pointer to Q names */
 
@@ -162,7 +166,7 @@ static int odmr_getrange(int sock, struct query *ctl, const char *id,
 		    break;
 
 		SockWrite(smtp_sock, buf, n);
-		if (outlevel >= O_MONITOR)
+		if (outlevel >= O_MONITOR && !doing_smtp_data)
 		    report(stdout, "ODMR< %s", buf);
 	    }
 	    if (FD_ISSET(smtp_sock, &readfds))
@@ -174,6 +178,16 @@ static int odmr_getrange(int sock, struct query *ctl, const char *id,
 		SockWrite(sock, buf, n);
 		if (outlevel >= O_MONITOR)
 		    report(stdout, "ODMR> %s", buf);
+
+               /* We are about to receive message data if the local MTA
+                * sends 354 (after receiving DATA) */
+               if (!doing_smtp_data && !strncmp(buf, "354", 3))
+               {
+                   doing_smtp_data = 1;
+                   report(stdout, "receiving message data\n");
+               }
+               else if (doing_smtp_data)
+                   doing_smtp_data = 0;
 	    }
 	}
 	SockClose(smtp_sock);

@@ -2,6 +2,104 @@
 
 (The `lines' figures total .c, .h, .l, and .y files under version control.)
 
+fetchmail-6.1.2 (Thu Oct 31 11:41:02 EST 2002), 22135 lines:
+
+* Jan Klaverstijn's verbosity-lowering patch.
+* Updated Turkish, German, Catalan, and Danish translation files.
+* Fix processing of POP3 messages with missing bodies.
+* Minor fixes by Sunil Shetye: fix generation of auth fail note, handle
+  unexpected SIGALRM, plug memory leak, handle lines beginning with '\0',
+  try to bulletproof error handling against read failures.
+
+There are 535 people on fetchmail-friends and 696 on fetchmail-announce.
+
+fetchmail-6.1.1 (Fri Oct 18 14:53:51 EDT 2002), 22087 lines:
+
+* OTP fix patches from Stanislav Brabec <utx@penguin.cz>
+* fix patch for writing antispam capability correctly in conf.c.
+* Fix patches for Debian bugs #162571, #156592.
+* Correction to manpage re -b and qmail.
+* Patch to disable use of STLS if auth passwd is specified.
+* Fix specfile generation to handle SSL correctly.
+* New Danish, Turkish, and Catalan translation files.
+* Improved ODMR debug messages.
+* IMAP efficiency hack; don't fetch sizes unless needed.
+* Detect and rewrite invalid return paths beginning with @.
+* Fix for subtle freeing bug that suppressed information in some bounce msgs.
+* Newline fix patches for internationalization files.
+* Fix reversed test guarding authentication-failure warnings.
+* Fix POP3 breakage starting at 5.9.14.
+
+There are 529 people on fetchmail-friends and 693 on fetchmail-announce.
+
+fetchmail-6.1.0 (Sun Sep 22 18:31:23 EDT 2002), 21999 lines:
+
+* Updated French translation.
+* Stefan Esser's fix for potential remote vulnerability in multidrop mode.
+  This is an important security fix!
+
+There are 519 people on fetchmail-friends and 680 on fetchmail-announce.
+
+fetchmail-6.0.0 (Tue Sep 17 19:48:25 EDT 2002), 21972 lines:
+
+* Applied Matt Kraai's fix for minor Debian bug #144539.
+* Nerijus Baliunas's patch to support STARTTLS over IMAP.
+* More cleanups and minor bugfixes from Sunil Shetye.
+* Default antispam-response list is now empty.
+* Updated de and po translations,
+
+There are 520 people on fetchmail-friends and 683 on fetchmail-announce.
+
+fetchmail-5.9.14 (Fri Sep  6 05:03:25 EDT 2002), 21932 lines:
+
+* Sunil Shetye's patch to eliminate multiple bounces.
+* Moritz Jodeit <moritz@jodeit.org>'s patch for re-exec with no args.
+* Sunil Shetye's patch to solve the re-exec problem with relative files.
+* Cygwin portability patch (use ROOT_UID) from Jason Tishler.
+* Workaround for the CAPA error problem is documented in the FAQ.
+* Updated Polish, Danish, and Catalan translations.
+* Sunil Shetye's patch to improve CAPA error handling.
+* Sunil Shetye's patch to improve handling of unreadable boxes in POP3.
+* Berkeley port fix for Kerberos IV.
+
+There are 518 people on fetchmail-friends and 680 on fetchmail-announce.
+
+fetchmail-5.9.13 (Sat Jun 22 17:53:00 EDT 2002), 21791 lines:
+
+* Cygwin port fixes for socket.c.
+* Matthias Andree's patches to: 
+  (a) clean up xmalloc types,
+  (b) improve distclean,
+  (c) use sendmail -i in configure.in and dump the fallback configuration,
+  (d) turn fallback off by default.
+* Scott Gifford's dotted-quad patch.
+* Updated Danish translation.
+* RPM now built with SSL and IPv6 support, reflecting what's in RH 7.3.
+* Sunil Shetye's patches to send CAPA during POP3 sessions and improve
+  the PS_RETAINED behavior slightly.
+* Yann Droneaud's fix to eliminate a socket leak on error.
+
+There are 506 people on fetchmail-friends and 669 on fetchmail-announce.
+
+fetchmail-5.9.12 (Tue Jun  4 14:57:47 EDT 2002), 21669 lines:
+
+* Brian Grayson's patch enabling compilation under AIX 4.1.
+* Federico G. Schwindt's patch to support BSD ELF systems.
+* Fix to Sunil Shetye's attributes patch.
+* Scott Bronson's patch to reap zombies after an MDA core dump.
+* New Japanese translation file.
+* Catalan support integrated.
+* Danish support updated.
+* Nalin Dahyabai's patch to prevent a malicious server from crashing
+  fetchmail on a 64-bit machine.
+* Cygwin port patch from Jason Tishler.
+* Sunil Shetye's fix for password shrouding.
+* Various Debian fixes from HMH.
+* Arun A. Tharuvai's patch to avoid speaking KPOP to an IMAP server.
+* Added Richard Harris's PopDel.py utility to the contrib directory.
+
+There are 505 people on fetchmail-friends and 670 on fetchmail-announce.
+
 fetchmail-5.9.11 (Mon Apr  1 17:09:13 EST 2002), 21597 lines:
 
 * Updated Turkish and Japanese translations.
@@ -24,6 +122,7 @@ fetchmail-5.9.11 (Mon Apr  1 17:09:13 EST 2002), 21597 lines:
 8. Byrial Jensen <byrial@image.dk> i18n fixes
 * Sunil Shetye's attribute patch.
 * HMH's revised but untested SMTP authentication patch.
+* Added GPL license exemption to COPYING for linking with OpenSSL.
 
 There are 489 people on fetchmail-friends and 654 on fetchmail-announce.
 
@@ -51,7 +150,7 @@ fetchmail-5.9.8 (Thu Feb 14 23:47:31 EST 2002), 21358 lines:
 * Added de translation catalog; updated da and tr catalogs.
 * vsprintf underflow fixes by Sunil Shetye.
 * Added warning about IMS POP3 server.
-* Mattyhias Andree's fix for a longstanding SSL hang bug.
+* Matthias Andree's fix for a longstanding SSL hang bug.
 * Fix yacc syntax bug when building with SSL.
 * Sunil Shetye's patch for idle timeout during poll.
 * Applied HMH's fix for the "message delimiter found in headers" code path
@@ -170,7 +269,6 @@ fetchmail-5.9.0 (Sun Aug 12 23:52:16 EDT 2001), 21062 lines:
 * Matthias Andree's patch to correct parsing of spaces in quoted usernames.
 
 There are 371 people on fetchmail-friends and 610 on fetchmail-announce.
-% Release 5.9.0
 
 fetchmail-5.8.17 (Tue Aug  7 20:05:36 EDT 2001), 21056 lines:
 

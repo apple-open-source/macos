@@ -33,6 +33,12 @@
 #define FWKLOG(x) do {} while (0)
 #endif
 
+#if FWLOCALLOGGING
+#define FWLOCALKLOG(x) IOLog x
+#else
+#define FWLOCALKLOG(x) do {} while (0)
+#endif
+
 #if FWASSERTS
 #define FWKLOGASSERT(a) { if(!(a)) { IOLog( "File "__FILE__", line %d: assertion '%s' failed.\n", __LINE__, #a); } }
 #else
@@ -43,4 +49,10 @@
 #define FWPANICASSERT(a) { if(!(a)) { panic( "File "__FILE__", line %d: assertion '%s' failed.\n", __LINE__, #a); } }
 #else
 #define FWPANICASSERT(a) do {} while (0)
+#endif
+
+#if FWASSERTS
+#define FWASSERTINGATE(a) { if(!((a)->inGate())) { IOLog( "File "__FILE__", line %d: warning - workloop lock is not held.\n", __LINE__); } }
+#else
+#define FWASSERTINGATE(a) do {} while (0)
 #endif

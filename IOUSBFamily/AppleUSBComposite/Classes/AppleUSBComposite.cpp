@@ -109,11 +109,25 @@ bool
 AppleUSBComposite::ConfigureDevice()
 {
     IOReturn	err = kIOReturnSuccess;
-
+    UInt8	prefConfigValue;
+    OSNumber *	prefConfig = NULL;
+    
     do {
         USBLog(3,"%s[%p]: USB Generic Composite @ %d", getName(), this, _device->GetAddress());
 
-        // Find the first config/interface
+        // Find if we have a Preferred Configuration
+        //
+        prefConfig = (OSNumber *) getProperty("Preferred Configuration");
+        if ( prefConfig )
+        {
+            prefConfigValue = prefConfig->unsigned32BitValue();
+            USBLog(3, "%s[%p](%s) found a preferred configuration (%d)", getName(), this, _device->getName(), prefConfigValue );
+            // Now, figure out if we have enough power for this config
+            //
+        }
+
+        // No preferred configuration so, find the first config/interface
+        //
         if (_device->GetNumConfigurations() < 1)
         {
             USBError(1, "%s[%p](%s) Could not get any configurations", getName(), this, _device->getName() );
@@ -121,25 +135,39 @@ AppleUSBComposite::ConfigureDevice()
             continue;
         }
 
-	// set the configuration to the first config
-	const IOUSBConfigurationDescriptor *cd = _device->GetFullConfigurationDescriptor(0);
-	if (!cd)
-	{
+        // set the configuration to the first config
+        //
+        const IOUSBConfigurationDescriptor *cd = _device->GetFullConfigurationDescriptor(0);
+        if (!cd)
+        {
             USBError(1, "%s[%p](%s) GetFullConfigDescriptor(0) returned NULL", getName(), this, _device->getName() );
             break;
-	}
+        }
+            
 	
 	if (!_device->open(this))
 	{
             USBError(1, "%s[%p](%s) Could not open device", getName(), this, _device->getName() );
 	    break;
 	}
-	err = _device->SetConfiguration(this, cd->bConfigurationValue, true);
+	err = _device->SetConfiguration(this, (prefConfig ? prefConfigValue : cd->bConfigurationValue), true);
 	if (err)
 	{
-            USBError(1, "%s[%p](%s) SetConfiguration returned 0x%x", getName(), this, _device->getName(), err );
-	    _device->close(this);
-	    break;
+            USBError(1, "%s[%p](%s) SetConfiguration (%d) returned 0x%x", getName(), this, _device->getName(), (prefConfig ? prefConfigValue : cd->bConfigurationValue), err );
+            
+            // If we used a "Preferred Configuration" then attempt to set the configuration to the default one:
+            //
+            if ( prefConfig )
+            {
+                err = _device->SetConfiguration(this, cd->bConfigurationValue, true);
+                USBError(1, "%s[%p](%s) SetConfiguration (%d) returned 0x%x", getName(), this, _device->getName(), cd->bConfigurationValue, err );
+            }
+            
+            if ( err )
+            {
+                _device->close(this);
+                break;
+            }
 	}
         
         // Set the remote wakeup feature if it's supported

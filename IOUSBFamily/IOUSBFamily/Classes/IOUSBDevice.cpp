@@ -236,7 +236,7 @@ IOUSBDevice::init(USBDeviceAddress deviceAddress, UInt32 powerAvailable, UInt8 s
     _portHasBeenReset = false;
     _deviceterminating = false;
     
-    USBLog(5,"%s @ %d (%ldmA available, %s speed)", getName(), _address,_busPowerAvailable*2, (_speed == kUSBDeviceSpeedLow) ? "low" : "full");
+    USBLog(5,"%s @ %d (%ldmA available, %s speed)", getName(), _address,_busPowerAvailable*2, (_speed == kUSBDeviceSpeedLow) ? "low" : ((_speed == kUSBDeviceSpeedFull) ? "full" : "high") );
     
     return true;
 }
@@ -251,6 +251,7 @@ IOUSBDevice::finalize(IOOptionBits options)
     if(_pipeZero) 
     {
         _pipeZero->Abort();
+	_pipeZero->ClosePipe();
         _pipeZero->release();
         _pipeZero = NULL;
     }
@@ -858,7 +859,7 @@ IOUSBDevice::GetDeviceDescriptor(IOUSBDeviceDescriptor *desc, UInt32 size)
 {
     IOUSBDevRequest	request;
 
-    USBLog(5,"********** GET DEVICE DESCRIPTOR (%d)**********", (int)size);
+    USBLog(5, "%s[%p]::GetDeviceDescriptor (size %d)", getName(), this, size);
 
     if (!desc)
         return  kIOReturnBadArgument;
@@ -886,7 +887,7 @@ IOUSBDevice::GetConfigDescriptor(UInt8 configIndex, void *desc, UInt32 len)
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevRequest	request;
 
-    USBLog(5, "********** GET CONFIG DESCRIPTOR (%d)**********", (int)len);
+    USBLog(5, "%s[%p]::GetConfigDescriptor (length: %d)", getName(), this, len);
 
     /*
      * with config descriptors, the device will send back all descriptors,
@@ -1129,7 +1130,7 @@ IOUSBDevice::SetFeature(UInt8 feature)
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevRequest	request;
 
-    USBLog(5, "********** SET FEATURE %d **********", feature);
+    USBLog(5, "%s[%p]::SetFeature (%d)", getName(), this, feature);
 
     request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqSetFeature;
@@ -1474,7 +1475,7 @@ IOUSBDevice::GetConfiguration(UInt8 *configNumber)
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevRequest	request;
  
-    USBLog(5, "************ GET CONFIGURATION *************");
+    USBLog(5, "%s[%p]::GetConfiguration", getName(), this);
 
     request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqGetConfig;
@@ -1501,7 +1502,7 @@ IOUSBDevice::GetDeviceStatus(USBStatus *status)
     IOReturn		err = kIOReturnSuccess;
     IOUSBDevRequest	request;
 
-    USBLog(5, "*********** GET DEVICE STATUS ***********");
+    USBLog(5, "%s[%p]::GetDeviceStatus", getName(), this);
 
     request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     request.bRequest = kUSBRqGetStatus;
@@ -1943,6 +1944,7 @@ IOUSBDevice::ProcessPortReset()
     if( _pipeZero) 
     {
         _pipeZero->Abort();
+	_pipeZero->ClosePipe();
         _pipeZero->release();
         _pipeZero = NULL;
     }
@@ -2018,6 +2020,7 @@ IOUSBDevice::ProcessPortReEnumerate(UInt32 options)
     if( _pipeZero) 
     {
         _pipeZero->Abort();
+	_pipeZero->ClosePipe();
         _pipeZero->release();
         _pipeZero = NULL;
     }

@@ -279,8 +279,18 @@ bool AppleScreamerAudio::initHardware(IOService *provider)
 }
 
 void AppleScreamerAudio::sndHWPostDMAEngineInit (IOService *provider) {
-	if (NULL != driverDMAEngine)
+	if (NULL != driverDMAEngine) {
 		driverDMAEngine->setSampleLatencies (kScreamerSampleLatency, kScreamerSampleLatency);
+	}
+
+	//	rbm	30 Sept 2002					[3042658]	begin {
+	if (NULL == outVolRight && NULL != outVolLeft) {
+		// If they are running mono at boot time, set the right channel's last value to an illegal value
+		// so it will come up in stereo and center balanced if they plug in speakers or headphones later.
+		lastRightVol = kSCREAMER_OUT_OF_BOUNDS_HW_VOLUME;
+		lastLeftVol = outVolLeft->getIntValue ();
+	}
+	//	rbm	30 Sept 2002					[3042658]	} end
 }
 
 void AppleScreamerAudio::setDeviceDetectionActive(){
@@ -297,12 +307,18 @@ void AppleScreamerAudio::sndHWInitialize(IOService *provider)
     IOMemoryMap *map;
     
     DEBUG_IOLOG("+ AppleScreamerAudio::sndHWInitialize\n");
+	ourProvider = provider;
     map = provider->mapDeviceMemoryWithIndex(AppleDBDMAAudioDMAEngine::kDBDMADeviceIndex);
     
     ioBase = (awacs_regmap_t *)map->getVirtualAddress();
     
+	layoutID = GetDeviceID();							//	[3042658]	rbm	30 Sept 2002
+	
     codecStatus = Screamer_ReadStatusRegisters( ioBase );
             
+	minVolume = kSCREAMER_MINIMUM_HW_VOLUME;			//	[3042658]	minimum hardware volume setting
+	maxVolume = kSCREAMER_MAXIMUM_HW_VOLUME;			//	[3042658]	maximum hardware volume setting
+
 	// fill the chip info
     chipInformation.partType = sndHWGetType();
     chipInformation.awacsVersion = (codecStatus & kAWACsRevisionNumberMask) >> kAWACsRevisionShift;
@@ -372,33 +388,49 @@ void AppleScreamerAudio::checkStatus(bool force) {
     OSArray *AudioDetects;
 
 	// DEBUG_IOLOG("+ AppleScreamerAudio::checkStatus\n");        
-    if(false == gCanPollStatus)
-        return;
     
-    newCodecStatus = Screamer_ReadStatusRegisters(ioBase);
-
-    if (((codecStatus & kAWACsStatusInSenseMask) != (newCodecStatus &kAWACsStatusInSenseMask)) || force)   {
-        UInt32 i;
-
-        inSense = 0;
-        codecStatus = newCodecStatus;
-        extdevices = 0;
-        inSense = sndHWGetInSenseBits();
-
-        AudioDetects = getDetectArray();
-        if(AudioDetects) {
-            for(i = 0; i < AudioDetects->getCount(); i++) {
-                theDetect = OSDynamicCast(AudioHardwareDetect, AudioDetects->getObject(i));
-                if (theDetect) {
-					extdevices |= theDetect->refreshDevices(inSense);
+	if ( gCanPollStatus ) {
+		newCodecStatus = Screamer_ReadStatusRegisters(ioBase);
+	
+		if (((codecStatus & kAWACsStatusInSenseMask) != (newCodecStatus &kAWACsStatusInSenseMask)) || force)   {
+			UInt32 i;
+	
+			inSense = 0;
+			codecStatus = newCodecStatus;
+			extdevices = 0;
+			inSense = sndHWGetInSenseBits();
+	
+			AudioDetects = getDetectArray();
+			if(AudioDetects) {
+				for(i = 0; i < AudioDetects->getCount(); i++) {
+					theDetect = OSDynamicCast(AudioHardwareDetect, AudioDetects->getObject(i));
+					if (theDetect) {
+						extdevices |= theDetect->refreshDevices(inSense);
+					}
 				}
-            }
-            setCurrentDevices(extdevices);
-        } else {
-            DEBUG_IOLOG("I didn't get the array\n");
-        }
-        
+				setCurrentDevices(extdevices);
+				
+				//	Opportunity to omit Balance controls if on the internal mono speaker...	[3042658]	begin {
+				useMasterVolumeControl = FALSE;
+				if (NULL != driverDMAEngine) {
+					if ( layoutSawtooth == layoutID  ) {
+						//	Sawtooth's headphone detect is active high:
+						//		"detect bit-mask 2 bit-match 2 device 2 index 0 model InSenseBitsDetect"
+						//	The master control should be used when headphones are NOT present.
+						if ( kSndHWInSense1 != ( inSense & kSndHWInSense1 ) ) {
+							useMasterVolumeControl = TRUE;
+						}
+					}
+				}
+				debug2IOLog ( "... useMasterVolumeControl %d\n", useMasterVolumeControl );
+				AdjustControls ();					//	rbm	30 Sept 2002					[3042658]	} end
+			} else {
+				DEBUG_IOLOG("... didn't get the array\n");
+			}
+		} else {
+			debug2IOLog("... newCodecStatus %d\n", (unsigned int)newCodecStatus );
 		}
+	}
 	// DEBUG_IOLOG("- AppleScreamerAudio::checkStatus\n");
 }
 
@@ -583,6 +615,158 @@ IOReturn AppleScreamerAudio::sndHWSetActiveInputExclusive(UInt32 input ){
 
 EXIT:
     return(result);
+}
+
+// --------------------------------------------------------------------------
+// You either have only a master volume control, or you have both volume controls.
+IOReturn AppleScreamerAudio::AdjustControls (void) {
+	IOFixed							mindBVol;
+	IOFixed							maxdBVol;
+	Boolean							mustUpdate;
+
+	debugIOLog ("+ AdjustControls()\n");
+	FailIf (NULL == driverDMAEngine, Exit);
+	mustUpdate = FALSE;
+
+	mindBVol = kSCREAMER_MIN_VOLUME;
+	maxdBVol = kSCREAMER_MAX_VOLUME;
+
+	//	Must update if any of the following conditions exist:
+	//	1.	No master volume control exists AND the master volume is the target
+	//	2.	The master volume control exists AND the master volume is not the target
+	//	3.	the minimum or maximum dB volume setting for the left volume control changes
+	//	4.	the minimum or maximum dB volume setting for the right volume control changes
+	
+	if ((NULL == outVolMaster && TRUE == useMasterVolumeControl) ||
+		(NULL != outVolMaster && FALSE == useMasterVolumeControl) ||
+		(NULL != outVolLeft && outVolLeft->getMinValue () != minVolume) ||
+		(NULL != outVolLeft && outVolLeft->getMaxValue () != maxVolume) ||
+		(NULL != outVolRight && outVolRight->getMinValue () != minVolume) ||
+		(NULL != outVolRight && outVolRight->getMaxValue () != maxVolume)) {
+		mustUpdate = TRUE;
+	}
+
+	if (TRUE == mustUpdate) {
+		debug5IOLog ("AdjustControls: mindBVol = %d.0x%x, maxdBVol = %d.0x%x\n", 
+			(unsigned int)( 0 != mindBVol & 0x80000000 ? ( mindBVol >> 16 ) | 0xFFFF0000 : mindBVol >> 16 ), 
+			(unsigned int)( mindBVol << 16 ), 
+			(unsigned int)( 0 != maxdBVol & 0x80000000 ? ( maxdBVol >> 16 ) | 0xFFFF0000 : maxdBVol >> 16 ), 
+			(unsigned int)( maxdBVol << 16 ) );
+	
+		driverDMAEngine->pauseAudioEngine ();
+		driverDMAEngine->beginConfigurationChange ();
+	
+		if (TRUE == useMasterVolumeControl) {
+			// We have only the master volume control (possibly not created yet) and have to remove the other volume controls (possibly don't exist)
+			if (NULL == outVolMaster) {
+				debugIOLog ("AdjustControls: deleteing descrete channel controls and creating master control\n");
+				// remove the existing left and right volume controls
+				if (NULL != outVolLeft) {
+					lastLeftVol = outVolLeft->getIntValue ();
+					driverDMAEngine->removeDefaultAudioControl (outVolLeft);
+					outVolLeft = NULL;
+				} 
+		
+				if (NULL != outVolRight) {
+					lastRightVol = outVolRight->getIntValue ();
+					driverDMAEngine->removeDefaultAudioControl (outVolRight);
+					outVolRight = NULL;
+				}
+	
+				// Create the master control
+				outVolMaster = IOAudioLevelControl::createVolumeControl((lastLeftVol + lastRightVol) / 2, minVolume, maxVolume, mindBVol, maxdBVol,
+													kIOAudioControlChannelIDAll,
+													kIOAudioControlChannelNameAll,
+													kOutVolMaster, 
+													kIOAudioControlUsageOutput);
+	
+				if (NULL != outVolMaster) {
+					driverDMAEngine->addDefaultAudioControl(outVolMaster);
+					outVolMaster->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)outputControlChangeHandler, this);
+					outVolMaster->flushValue ();
+				}
+			}
+		} else {
+			// or we have both controls (possibly not created yet) and we have to remove the master volume control (possibly doesn't exist)
+			if (NULL == outVolLeft) {
+				debugIOLog ("AdjustControls: deleteing master control and creating descrete channel controls\n");
+				// Have to create the control again...
+				if (lastLeftVol > kSCREAMER_MAXIMUM_HW_VOLUME && NULL != outVolMaster) {
+					lastLeftVol = outVolMaster->getIntValue ();
+				}
+				outVolLeft = IOAudioLevelControl::createVolumeControl (lastLeftVol, kSCREAMER_MINIMUM_HW_VOLUME, kSCREAMER_MAXIMUM_HW_VOLUME, mindBVol, maxdBVol,
+													kIOAudioControlChannelIDDefaultLeft,
+													kIOAudioControlChannelNameLeft,
+													kOutVolLeft,
+													kIOAudioControlUsageOutput);
+				if (NULL != outVolLeft) {
+					driverDMAEngine->addDefaultAudioControl (outVolLeft);
+					outVolLeft->setValueChangeHandler ((IOAudioControl::IntValueChangeHandler)outputControlChangeHandler, this);
+				}
+			}
+			
+			if (NULL == outVolRight) {
+				// Have to create the control again...
+				if (lastRightVol > kSCREAMER_MAXIMUM_HW_VOLUME && NULL != outVolMaster) {
+					lastRightVol = outVolMaster->getIntValue ();
+				}
+				outVolRight = IOAudioLevelControl::createVolumeControl (lastRightVol, kSCREAMER_MINIMUM_HW_VOLUME, kSCREAMER_MAXIMUM_HW_VOLUME, mindBVol, maxdBVol,
+													kIOAudioControlChannelIDDefaultRight,
+													kIOAudioControlChannelNameRight,
+													kOutVolRight,
+													kIOAudioControlUsageOutput);
+				if (NULL != outVolRight) {
+					driverDMAEngine->addDefaultAudioControl (outVolRight);
+					outVolRight->setValueChangeHandler ((IOAudioControl::IntValueChangeHandler)outputControlChangeHandler, this);
+				}
+			}
+	
+			if (NULL != outVolMaster) {
+				driverDMAEngine->removeDefaultAudioControl (outVolMaster);
+				outVolMaster = NULL;
+			}
+		}
+	
+		if (NULL != outVolMaster) {
+			outVolMaster->setMinValue (minVolume);
+			outVolMaster->setMinDB (mindBVol);
+			outVolMaster->setMaxValue (maxVolume);
+			outVolMaster->setMaxDB (maxdBVol);
+			if (outVolMaster->getIntValue () > maxVolume) {
+				outVolMaster->setValue (maxVolume);
+			}
+			outVolMaster->flushValue ();
+		}
+	
+		if (NULL != outVolLeft) {
+			outVolLeft->setMinValue (minVolume);
+			outVolLeft->setMinDB (mindBVol);
+			outVolLeft->setMaxValue (maxVolume);
+			outVolLeft->setMaxDB (maxdBVol);
+			if (outVolLeft->getIntValue () > maxVolume) {
+				outVolLeft->setValue (maxVolume);
+			}
+			outVolLeft->flushValue ();
+		}
+	
+		if (NULL != outVolRight) {
+			outVolRight->setMinValue (minVolume);
+			outVolRight->setMinDB (mindBVol);
+			outVolRight->setMaxValue (maxVolume);
+			outVolRight->setMaxDB (maxdBVol);
+			if (outVolRight->getIntValue () > maxVolume) {
+				outVolRight->setValue (maxVolume);
+			}
+			outVolRight->flushValue ();
+		}
+	
+		driverDMAEngine->completeConfigurationChange ();
+		driverDMAEngine->resumeAudioEngine ();
+	}
+
+Exit:
+	debugIOLog ("- AdjustControls()\n");
+	return kIOReturnSuccess;
 }
 
 UInt32  AppleScreamerAudio::sndHWGetProgOutput(void ){
@@ -1105,3 +1289,30 @@ void AppleScreamerAudio::SetStateBits( UInt32 stateBits, UInt32 delay )
 
 	return;
 }
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+UInt32 AppleScreamerAudio::GetDeviceID (void) {
+	IORegistryEntry			*sound;
+	OSData					*tmpData;
+	UInt32					*deviceID;
+	UInt32					theDeviceID;
+
+	theDeviceID = 0;
+
+	sound = ourProvider->childFromPath (kSoundEntryName, gIODTPlane);
+	FailIf (!sound, Exit);
+
+	tmpData = OSDynamicCast (OSData, sound->getProperty (kDeviceIDPropName));
+	FailIf (!tmpData, Exit);
+	deviceID = (UInt32*)tmpData->getBytesNoCopy ();
+	if (NULL != deviceID) {
+		debug2IOLog ("deviceID = %ld\n", *deviceID);
+		theDeviceID = *deviceID;
+	} else {
+		debugIOLog ("deviceID = NULL!\n");
+	}
+
+Exit:
+	return theDeviceID;
+}
+

@@ -163,6 +163,8 @@ public:
 												CFDataRef inMappings );
 	CFDataRef			ReadServerMappings	(	LDAP *serverHost,
 												CFDataRef inMappings );
+	void				XMLConfigLock		(	void );
+	void				XMLConfigUnlock		(	void );
 
 protected:
 	CFDataRef			RetrieveServerMappings
@@ -234,6 +236,7 @@ private:
         sMapTuple	   *pStdRecordMapTuple;
 		uInt32			fConfigTableLen;
 		CFDataRef		fXMLData;
+		DSMutexSemaphore	*pXMLConfigLock;
 
 
 };

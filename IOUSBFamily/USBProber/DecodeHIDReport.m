@@ -193,12 +193,12 @@
                             case kUsage_PageLED: sprintf((char *)tempbufvalue, "LED"); break;
                             case kUsage_PageButton: sprintf((char *)tempbufvalue, "Button"); break;
                             case kUsage_PageOrdinal: sprintf((char *)tempbufvalue, "Ordinal"); break;
-                            case kUsage_PageTelephonyDevice: sprintf((char *)tempbufvalue, "Telephany Device"); break;
+                            case kUsage_PageTelephonyDevice: sprintf((char *)tempbufvalue, "Telephony Device"); break;
                             case kUsage_PageConsumer: sprintf((char *)tempbufvalue, "Consumer"); break;
                             case kUsage_PageDigitizers: sprintf((char *)tempbufvalue, "Digitizer"); break;
+                            case kUsage_PagePID: sprintf((char *)tempbufvalue, "PID"); break;
                             case kUsage_PageUnicode: sprintf((char *)tempbufvalue, "Unicode"); break;
                             case kUsage_PageAlphanumericDisplay: sprintf((char *)tempbufvalue, "Alphanumeric Display"); break;
-
                             case kUsage_PageMonitor: sprintf((char *)tempbufvalue, "Monitor"); break;
                             case kUsage_PageMonitorEnumeratedValues: sprintf((char *)tempbufvalue, "Monitor Enumerated Values"); break;
                             case kUsage_PageMonitorVirtualControl: sprintf((char *)tempbufvalue, "VESA Virtual Controls"); break;
@@ -207,6 +207,7 @@
                             case kUsage_PageBatterySystem: sprintf((char *)tempbufvalue, "Battery System"); break;
                             case kUsage_PowerClassReserved: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
                             case kUsage_PowerClassReserved2: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
+                            case 0xff: sprintf((char *)tempbufvalue, "Vendor Defined"); break;
 
                             default: sprintf((char *)tempbufvalue, "%ld", usagePage); break;
                         }
@@ -292,11 +293,128 @@
                             }
                             strcat((char *)tempbuf, (char *)")");
                         }
-                            else
+                        else if (usagePage == kUsage_PagePID)
+                        {
+                            strcat((char *)buf, (char *)"(");
+                            switch (value)
                             {
-                                sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value);
+                                case 1: sprintf((char *)tempbuf, "Physical Interface Device"); break;
+                                case 0x20: sprintf((char *)tempbuf, "Normal"); break;
+                                case 0x21: sprintf((char *)tempbuf, "Set Effect Report"); break;
+                                case 0x22: sprintf((char *)tempbuf, "Effect Block Index"); break;
+                                case 0x23: sprintf((char *)tempbuf, "Parameter Block Offset"); break;
+                                case 0x24: sprintf((char *)tempbuf, "ROM Flag"); break;
+                                case 0x25: sprintf((char *)tempbuf, "Effect Type"); break;
+                                case 0x26: sprintf((char *)tempbuf, "ET Constant Force"); break;
+                                case 0x27: sprintf((char *)tempbuf, "ET Ramp"); break;
+                                case 0x28: sprintf((char *)tempbuf, "ET Custom Force Data"); break;
+                                case 0x30: sprintf((char *)tempbuf, "ET Square"); break;
+                                case 0x31: sprintf((char *)tempbuf, "ET Sine"); break;
+                                case 0x32: sprintf((char *)tempbuf, "ET Triangle"); break;
+                                case 0x33: sprintf((char *)tempbuf, "ET Sawtooth Up"); break;
+                                case 0x34: sprintf((char *)tempbuf, "ET Sawtooth Down"); break;
+                                case 0x40: sprintf((char *)tempbuf, "ET Spring"); break;
+                                case 0x41: sprintf((char *)tempbuf, "ET Damper"); break;
+                                case 0x42: sprintf((char *)tempbuf, "ET Inertia"); break;
+                                case 0x43: sprintf((char *)tempbuf, "ET Friction"); break;
+                                case 0x50: sprintf((char *)tempbuf, "Duration"); break;
+                                case 0x51: sprintf((char *)tempbuf, "Sample Period"); break;
+                                case 0x52: sprintf((char *)tempbuf, "Gain"); break;
+                                case 0x53: sprintf((char *)tempbuf, "Trigger Button"); break;
+                                case 0x54: sprintf((char *)tempbuf, "Trigger Repeat Interval"); break;
+                                case 0x55: sprintf((char *)tempbuf, "Axes Enable"); break;
+                                case 0x56: sprintf((char *)tempbuf, "Direction Enable"); break;
+                                case 0x57: sprintf((char *)tempbuf, "Direction"); break;
+                                case 0x58: sprintf((char *)tempbuf, "Type Specific Block Offset"); break;
+                                case 0x59: sprintf((char *)tempbuf, "Block Type"); break;
+                                case 0x5a: sprintf((char *)tempbuf, "Set Envelope Report"); break;
+                                case 0x5b: sprintf((char *)tempbuf, "Attack Level"); break;
+                                case 0x5c: sprintf((char *)tempbuf, "Attack Time"); break;
+                                case 0x5d: sprintf((char *)tempbuf, "Fade Level"); break;
+                                case 0x5e: sprintf((char *)tempbuf, "Fade Time"); break;
+                                case 0x5f: sprintf((char *)tempbuf, "Set Condition Report"); break;
+                                case 0x60: sprintf((char *)tempbuf, "CP Offset"); break;
+                                case 0x61: sprintf((char *)tempbuf, "Positive Coefficient"); break;
+                                case 0x62: sprintf((char *)tempbuf, "Negative Coefficient"); break;
+                                case 0x63: sprintf((char *)tempbuf, "Positive Saturation"); break;
+                                case 0x64: sprintf((char *)tempbuf, "Negative Saturation"); break;
+                                case 0x65: sprintf((char *)tempbuf, "Dead Band"); break;
+                                case 0x66: sprintf((char *)tempbuf, "Download Force Data Report"); break;
+                                case 0x67: sprintf((char *)tempbuf, "Isoch Custom Force Enable"); break;
+                                case 0x68: sprintf((char *)tempbuf, "Custom Force Data Report"); break;
+                                case 0x69: sprintf((char *)tempbuf, "Custom Force Data"); break;
+                                case 0x6a: sprintf((char *)tempbuf, "Custom Force Vendor Defined Data"); break;
+                                case 0x6b: sprintf((char *)tempbuf, "Set Custom Force Report"); break;
+                                case 0x6c: sprintf((char *)tempbuf, "Custom Force Data Offset"); break;
+                                case 0x6d: sprintf((char *)tempbuf, "Sample Count"); break;
+                                case 0x6e: sprintf((char *)tempbuf, "Set Periodic Report"); break;
+                                case 0x6f: sprintf((char *)tempbuf, "Offset"); break;
+                                case 0x70: sprintf((char *)tempbuf, "Magnitude"); break;
+                                case 0x71: sprintf((char *)tempbuf, "Phase"); break;
+                                case 0x72: sprintf((char *)tempbuf, "Period"); break;
+                                case 0x73: sprintf((char *)tempbuf, "Set Constant Force Report"); break;
+                                case 0x74: sprintf((char *)tempbuf, "Set Constant Force"); break;
+                                case 0x75: sprintf((char *)tempbuf, "Ramp Start"); break;
+                                case 0x76: sprintf((char *)tempbuf, "Ramp End"); break;
+                                case 0x77: sprintf((char *)tempbuf, "Effect Operation Report"); break;
+                                case 0x78: sprintf((char *)tempbuf, "Effect Operation"); break;
+                                case 0x79: sprintf((char *)tempbuf, "Op Effect Start"); break;
+                                case 0x7a: sprintf((char *)tempbuf, "Op Effect Start Solo"); break;
+                                case 0x7b: sprintf((char *)tempbuf, "Op Effect Stop"); break;
+                                case 0x7c: sprintf((char *)tempbuf, "Loop Count"); break;
+                                case 0x7d: sprintf((char *)tempbuf, "Gain Report"); break;
+                                case 0x7e: sprintf((char *)tempbuf, "Gain"); break;
+                                case 0x7f: sprintf((char *)tempbuf, "PID Pool Report"); break;
+                                case 0x80: sprintf((char *)tempbuf, "RAM Pool Size"); break;
+                                case 0x81: sprintf((char *)tempbuf, "ROM Pool Size"); break;
+                                case 0x82: sprintf((char *)tempbuf, "ROM Effect Block Count"); break;
+                                case 0x83: sprintf((char *)tempbuf, "Simultaneous Effects Max"); break;
+                                case 0x84: sprintf((char *)tempbuf, "Pool Alignment"); break;
+                                case 0x85: sprintf((char *)tempbuf, "PID Pool Move Report"); break;
+                                case 0x86: sprintf((char *)tempbuf, "Move Source"); break;
+                                case 0x87: sprintf((char *)tempbuf, "Move Destination"); break;
+                                case 0x88: sprintf((char *)tempbuf, "Move Length"); break;
+                                case 0x89: sprintf((char *)tempbuf, "PID Block Load Report"); break;
+                                case 0x8b: sprintf((char *)tempbuf, "Block Load Status"); break;
+                                case 0x8c: sprintf((char *)tempbuf, "Block Load Success"); break;
+                                case 0x8d: sprintf((char *)tempbuf, "Block Load Full"); break;
+                                case 0x8e: sprintf((char *)tempbuf, "Block Load Error"); break;
+                                case 0x8f: sprintf((char *)tempbuf, "Block Handle"); break;
+                                case 0x90: sprintf((char *)tempbuf, "PID Block Free Report"); break;
+                                case 0x91: sprintf((char *)tempbuf, "Type Specific Block Handle"); break;
+                                case 0x92: sprintf((char *)tempbuf, "PID State Report"); break;
+                                case 0x94: sprintf((char *)tempbuf, "Effect Playing"); break;
+                                case 0x95: sprintf((char *)tempbuf, "PID Device Control Report"); break;
+                                case 0x96: sprintf((char *)tempbuf, "PID Device Control"); break;
+                                case 0x97: sprintf((char *)tempbuf, "DC Enable Actuators"); break;
+                                case 0x98: sprintf((char *)tempbuf, "DC Disable Actuators"); break;
+                                case 0x99: sprintf((char *)tempbuf, "DC Stoop All Effects"); break;
+                                case 0x9a: sprintf((char *)tempbuf, "DC Device Reset"); break;
+                                case 0x9b: sprintf((char *)tempbuf, "DC Device Pause"); break;
+                                case 0x9c: sprintf((char *)tempbuf, "DC Device Continue"); break;
+                                case 0x9f: sprintf((char *)tempbuf, "Device Paused"); break;
+                                case 0xa0: sprintf((char *)tempbuf, "Actuators Enabled"); break;
+                                case 0xa4: sprintf((char *)tempbuf, "Safety Switch"); break;
+                                case 0xa5: sprintf((char *)tempbuf, "Actuator Override Switch"); break;
+                                case 0xa6: sprintf((char *)tempbuf, "Actuator Power"); break;
+                                case 0xa7: sprintf((char *)tempbuf, "Start Delay"); break;
+                                case 0xa8: sprintf((char *)tempbuf, "Parameter Block Size"); break;
+                                case 0xa9: sprintf((char *)tempbuf, "Device Managed Pool"); break;
+                                case 0xaa: sprintf((char *)tempbuf, "Shared parameter blocks"); break;
+                                case 0xab: sprintf((char *)tempbuf, "Create New Effect Report"); break;
+                                case 0xac: sprintf((char *)tempbuf, "RAM Pool Available"); break;
+
+
+                                default: sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value); break;
                             }
-                            strcat((char *)buf, (char *)tempbuf);
+                            strcat((char *)tempbuf, (char *)")");
+                        } 
+                        else
+                        {
+                            sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value);
+                        }
+                        
+                        strcat((char *)buf, (char *)tempbuf);
                         tempbuf[0] = 0;	// we don't want to add this again outside the switch
                         tempbufvalue[0] = 0;
                         datahandled = true;

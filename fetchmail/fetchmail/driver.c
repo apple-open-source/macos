@@ -25,6 +25,9 @@
 #endif
 #include  <sys/time.h>
 #include  <signal.h>
+#ifdef HAVE_SYS_WAIT_H
+#include <sys/wait.h>
+#endif
 
 #ifdef HAVE_NET_SOCKET_H
 #include <net/socket.h>
@@ -64,7 +67,7 @@ int stage;		/* where are we? */
 int phase;		/* where are we, for error-logging purposes? */
 int batchcount;		/* count of messages sent in current batch */
 flag peek_capable;	/* can we peek for better error recovery? */
-int mailserver_socket_temp;	/* socket to free if connect timeout */ 
+int mailserver_socket_temp = -1;	/* socket to free if connect timeout */ 
 
 static int timeoutcount;		/* count consecutive timeouts */
 
@@ -320,8 +323,8 @@ static void send_size_warnings(struct query *ctl)
     if (open_warning_by_mail(ctl, (struct msgblk *)NULL))
 	return;
     stuff_warning(ctl,
-	   GT_("Subject: Fetchmail oversized-messages warning.\r\n"
-	     "\r\n"
+	   GT_("Subject: Fetchmail oversized-messages warning.\n"
+	     "\n"
 	     "The following oversized messages remain on the mail server %s:"),
 		  ctl->server.pollname);
  
@@ -338,7 +341,7 @@ static void send_size_warnings(struct query *ctl)
 	    nbr = current->val.status.mark;
 	    size = atoi(current->id);
 	    stuff_warning(ctl, 
-		    GT_("\t%d msg %d octets long skipped by fetchmail.\r\n"),
+		    GT_("\t%d msg %d octets long skipped by fetchmail.\n"),
 		    nbr, size);
 	}
 	current->val.status.num++;
@@ -419,7 +422,16 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	{
 	    if ((msgcodes[num-1] == MSGLEN_TOOLARGE) && !check_only)
 		mark_oversized(ctl, num, msgsizes[num-1]);
-	    if (outlevel > O_SILENT)
+  		/* To avoid flooding the syslog when using --keep,
+  		 * report "Skipped message" only when:
+  		 *  1) --verbose is on, or
+  		 *  2) fetchmail does not use syslog, or
+  		 *  3) the message was skipped for some other
+  		 *     reason than being old.
+  		 */
+	    if (   (outlevel >= O_VERBOSE) ||
+	           (outlevel > O_SILENT && (!run.use_syslog || msgcodes[num-1] != MSGLEN_OLD))
+	       )
 	    {
 		report_build(stdout, 
 			     GT_("skipping message %s@%s:%d (%d octets)"),
@@ -441,9 +453,7 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		    report_build(stdout, GT_(" (length -1)"));
 		    break;
 		case MSGLEN_TOOLARGE:
-		    report_build(stdout, 
-				 GT_(" (oversized, %d octets)"),
-				 msgsizes[num-1]);
+		    report_build(stdout, GT_(" (oversized)"));
 		    break;
 		}
 	    }
@@ -456,8 +466,8 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    err = (ctl->server.base_protocol->fetch_headers)(mailserver_socket,ctl,num, &len);
 	    if (err == PS_TRANSIENT)    /* server is probably Exchange */
 	    {
-		report_build(stdout,
-			     GT_("couldn't fetch headers, message %s@%s:%d (%d octets)"),
+		report(stdout,
+			     GT_("couldn't fetch headers, message %s@%s:%d (%d octets)\n"),
 			     ctl->remotename, ctl->server.truename, num,
 			     msgsizes[num-1]);
 		continue;
@@ -494,28 +504,33 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    err = readheaders(mailserver_socket, len, msgsizes[num-1],
 			     ctl, num);
 	    if (err == PS_RETAINED)
-		suppress_forward = retained = TRUE;
+	    {
+		suppress_forward = suppress_delete = retained = TRUE;
+		/* do not read the body only if the underlying protocol
+		 * allows the body to be fetched separately */
+		if (ctl->server.base_protocol->fetch_body)
+		    suppress_readbody = TRUE;
+	    }
 	    else if (err == PS_TRANSIENT)
+	    {
 		suppress_delete = suppress_forward = TRUE;
+		if (ctl->server.base_protocol->fetch_body)
+		    suppress_readbody = TRUE;
+	    }
 	    else if (err == PS_REFUSED)
+	    {
 		suppress_forward = TRUE;
-#if 0
-	    /* 
-	     * readheaders does not read the body when it
-	     * hits a non-header. It has been recently
-	     * fixed to return PS_TRUNCATED (properly) when
-	     * that happens, but apparently fixing that bug
-	     * opened this one here (which looks like an 
-	     * inproper fix from some ancient thinko)
-	     */
+		if (ctl->server.base_protocol->fetch_body)
+		    suppress_readbody = TRUE;
+	    }
 	    else if (err == PS_TRUNCATED)
-		suppress_readbody = TRUE;
+	    {
+		if (ctl->server.base_protocol->fetch_body)
+		    suppress_readbody = TRUE;
+		len = 0;	/* suppress body processing */
+	    }
 	    else if (err)
 		return(err);
-#else
-	    else if (err && err != PS_TRUNCATED)
-		return(err);
-#endif
 
 	    /* 
 	     * If we're using IMAP4 or something else that
@@ -630,7 +645,8 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		ctl->errcount++;
 		suppress_delete = TRUE;
 	    }
-	    (*fetches)++;
+	    if (!retained)
+		(*fetches)++;
 	}
 
 	/*
@@ -683,7 +699,16 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    delete_str(&ctl->newsaved, num);
 #endif /* POP3_ENABLE */
 	}
-	else if (outlevel > O_SILENT)
+	else if (   (outlevel >= O_VERBOSE) ||
+         		/* To avoid flooding the syslog when using --keep,
+         		 * report "Skipped message" only when:
+         		 *  1) --verbose is on, or
+         		 *  2) fetchmail does not use syslog, or
+         		 *  3) the message was skipped for some other
+         		 *     reason than just being old.
+         		 */
+	           (outlevel > O_SILENT && (!run.use_syslog || msgcodes[num-1] != MSGLEN_OLD))
+	       )
 	    report_complete(stdout, GT_(" not flushed\n"));
 
 	/* perhaps this as many as we're ready to handle */
@@ -745,18 +770,12 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	sigprocmask(SIG_UNBLOCK, &allsigs, NULL);
 #endif /* HAVE_SIGPROCMASK */
 	
-	/* If there was a connect timeout, the socket should be closed.
-	 * mailserver_socket_temp contains the socket to close.
-	 */
-	mailserver_socket = mailserver_socket_temp;
-	
 	if (js == THROW_SIGPIPE)
 	{
 	    signal(SIGPIPE, SIG_IGN);
 	    report(stdout,
 		   GT_("SIGPIPE thrown from an MDA or a stream socket error\n"));
-	    err = PS_SOCKET;
-	    goto cleanUp;
+	    wait(0);
 	}
 	else if (js == THROW_TIMEOUT)
 	{
@@ -790,32 +809,25 @@ const int maxfetch;		/* maximum number of messages to fetch */
 		&& !open_warning_by_mail(ctl, (struct msgblk *)NULL))
 	    {
 		stuff_warning(ctl,
-			      GT_("Subject: fetchmail sees repeated timeouts\r\n"));
+			      GT_("Subject: fetchmail sees repeated timeouts\n"));
 		stuff_warning(ctl,
-			      GT_("Fetchmail saw more than %d timeouts while attempting to get mail from %s@%s.\r\n"), 
+			      GT_("Fetchmail saw more than %d timeouts while attempting to get mail from %s@%s.\n"), 
 			      MAX_TIMEOUTS,
 			      ctl->remotename,
 			      ctl->server.truename);
 		stuff_warning(ctl, 
-    GT_("This could mean that your mailserver is stuck, or that your SMTP\r\n" \
-    "server is wedged, or that your mailbox file on the server has been\r\n" \
-    "corrupted by a server error.  You can run `fetchmail -v -v' to\r\n" \
-    "diagnose the problem.\r\n\r\n" \
-    "Fetchmail won't poll this mailbox again until you restart it.\r\n"));
+    GT_("This could mean that your mailserver is stuck, or that your SMTP\n" \
+    "server is wedged, or that your mailbox file on the server has been\n" \
+    "corrupted by a server error.  You can run `fetchmail -v -v' to\n" \
+    "diagnose the problem.\n\n" \
+    "Fetchmail won't poll this mailbox again until you restart it.\n"));
 		close_warning_by_mail(ctl, (struct msgblk *)NULL);
 		ctl->wedged = TRUE;
 	    }
-
-	    err = PS_ERROR;
 	}
 
-	/* try to clean up all streams */
-	release_sink(ctl);
-	smtp_close(ctl, 0);
-	if (mailserver_socket != -1) {
-	    cleanupSockClose(mailserver_socket);
-	    mailserver_socket = -1;
-	}
+	err = PS_SOCKET;
+	goto cleanUp;
     }
     else
     {
@@ -996,8 +1008,8 @@ const int maxfetch;		/* maximum number of messages to fetch */
 		if (open_warning_by_mail(ctl, (struct msgblk *)NULL) == 0)
 		{
 		    stuff_warning(ctl,
-			 GT_("Subject: Fetchmail unreachable-server warning.\r\n"
-			   "\r\n"
+			 GT_("Subject: Fetchmail unreachable-server warning.\n"
+			   "\n"
 			   "Fetchmail could not reach the mail server %s:")
 				  ctl->server.pollname);
 		    stuff_warning(ctl, errbuf, ctl->server.pollname);
@@ -1041,7 +1053,7 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	set_timeout(0);
 	phase = oldphase;
 #ifdef KERBEROS_V4
-	if (ctl->server.authenticate == A_KERBEROS_V4)
+	if (ctl->server.authenticate == A_KERBEROS_V4 && (strcasecmp(proto->name,"IMAP") != 0))
 	{
 	    set_timeout(mytimeout);
 	    err = kerberos_auth(mailserver_socket, ctl->server.truename,
@@ -1103,46 +1115,53 @@ const int maxfetch;		/* maximum number of messages to fetch */
 		     * we let the user know service is restored.
 		     */
 		    if (run.poll_interval
-			&& ctl->wehavesentauthnote
-			&& ((ctl->wehaveauthed && ++ctl->authfailcount == 10)
-			    || ++ctl->authfailcount == 3)
+			&& !ctl->wehavesentauthnote
+			&& ((ctl->wehaveauthed && ++ctl->authfailcount >= 10)
+			    || (!ctl->wehaveauthed && ++ctl->authfailcount >= 3))
 			&& !open_warning_by_mail(ctl, (struct msgblk *)NULL))
 		    {
 			ctl->wehavesentauthnote = 1;
 			stuff_warning(ctl,
-				      GT_("Subject: fetchmail authentication failed on %s@%s\r\n"),
+				      GT_("Subject: fetchmail authentication failed on %s@%s\n"),
 			    ctl->remotename, ctl->server.truename);
 			stuff_warning(ctl,
-				      GT_("Fetchmail could not get mail from %s@%s.\r\n"), 
+				      GT_("Fetchmail could not get mail from %s@%s.\n"), 
 				      ctl->remotename,
 				      ctl->server.truename);
 			if (ctl->wehaveauthed)
 			    stuff_warning(ctl, GT_("\
-The attempt to get authorization failed.\r\n\
-Since we have already succeeded in getting authorization for this\r\n\
-connection, this is probably another failure mode (such as busy server)\r\n\
-that fetchmail cannot distinguish because the server didn't send a useful\r\n\
-error message.\r\n\
-\r\n\
-However, if you HAVE changed you account details since starting the\r\n\
-fetchmail daemon, you need to stop the daemon, change your configuration\r\n\
-of fetchmail, and then restart the daemon.\r\n\
-\r\n\
-The fetchmail daemon will continue running and attempt to connect\r\n\
-at each cycle.  No future notifications will be sent until service\r\n\
+The attempt to get authorization failed.\n\
+Since we have already succeeded in getting authorization for this\n\
+connection, this is probably another failure mode (such as busy server)\n\
+that fetchmail cannot distinguish because the server didn't send a useful\n\
+error message.\n\
+\n\
+However, if you HAVE changed your account details since starting the\n\
+fetchmail daemon, you need to stop the daemon, change your configuration\n\
+of fetchmail, and then restart the daemon.\n\
+\n\
+The fetchmail daemon will continue running and attempt to connect\n\
+at each cycle.  No future notifications will be sent until service\n\
 is restored."));
 			else
 			    stuff_warning(ctl, GT_("\
-The attempt to get authorization failed.\r\n\
-This probably means your password is invalid, but some servers have\r\n\
-other failure modes that fetchmail cannot distinguish from this\r\n\
-because they don't send useful error messages on login failure.\r\n\
-\r\n\
-The fetchmail daemon will continue running and attempt to connect\r\n\
-at each cycle.  No future notifications will be sent until service\r\n\
+The attempt to get authorization failed.\n\
+This probably means your password is invalid, but some servers have\n\
+other failure modes that fetchmail cannot distinguish from this\n\
+because they don't send useful error messages on login failure.\n\
+\n\
+The fetchmail daemon will continue running and attempt to connect\n\
+at each cycle.  No future notifications will be sent until service\n\
 is restored."));
 			close_warning_by_mail(ctl, (struct msgblk *)NULL);
 		    }
+		}
+		else if (err == PS_REPOLL)
+		{
+		  if (outlevel >= O_VERBOSE)
+		    report(stderr, GT_("Repoll immediately on %s@%s\n"),
+			   ctl->remotename,
+			   ctl->server.truename);
 		}
 		else
 		    report(stderr, GT_("Unknown login or authentication error on %s@%s\n"),
@@ -1175,14 +1194,14 @@ is restored."));
 		    if (!open_warning_by_mail(ctl, (struct msgblk *)NULL))
 		    {
 			stuff_warning(ctl,
-			      GT_("Subject: fetchmail authentication OK on %s@%s\r\n"),
+			      GT_("Subject: fetchmail authentication OK on %s@%s\n"),
 				      ctl->remotename, ctl->server.truename);
 			stuff_warning(ctl,
-			      GT_("Fetchmail was able to log into %s@%s.\r\n"), 
+			      GT_("Fetchmail was able to log into %s@%s.\n"), 
 				      ctl->remotename,
 				      ctl->server.truename);
 			stuff_warning(ctl, 
-				      GT_("Service has been restored.\r\n"));
+				      GT_("Service has been restored.\n"));
 			close_warning_by_mail(ctl, (struct msgblk *)NULL);
 		    
 		    }
@@ -1335,8 +1354,10 @@ is restored."));
 		    /* OK, we're going to gather size info next */
 		    xalloca(msgsizes, int *, sizeof(int) * count);
 		    xalloca(msgcodes, int *, sizeof(int) * count);
-		    for (i = 0; i < count; i++)
+		    for (i = 0; i < count; i++) {
+			msgsizes[i] = 0;
 			msgcodes[i] = MSGLEN_UNKNOWN;
+		    }
 
 		    /* 
 		     * We need the size of each message before it's
@@ -1414,12 +1435,26 @@ is restored."));
 
     cleanUp:
 	/* we only get here on error */
-	if (err != 0 && err != PS_SOCKET)
+	if (err != 0 && err != PS_SOCKET && err != PS_REPOLL)
 	{
 	    stage = STAGE_LOGOUT;
 	    (ctl->server.base_protocol->logout_cmd)(mailserver_socket, ctl);
 	}
-	cleanupSockClose(mailserver_socket);
+
+	/* try to clean up all streams */
+	release_sink(ctl);
+	smtp_close(ctl, 0);
+	if (mailserver_socket != -1) {
+	    cleanupSockClose(mailserver_socket);
+	    mailserver_socket = -1;
+	}
+	/* If there was a connect timeout, the socket should be closed.
+	 * mailserver_socket_temp contains the socket to close.
+	 */
+	if (mailserver_socket_temp != -1) {
+	    cleanupSockClose(mailserver_socket_temp);
+	    mailserver_socket_temp = -1;
+	}
     }
 
     msg = (const char *)NULL;	/* sacrifice to -Wall */
@@ -1476,6 +1511,7 @@ closeUp:
 	    err = PS_SYNTAX;
     }
 
+    set_timeout(0); /* cancel any pending alarm */
     signal(SIGALRM, alrmsave);
     signal(SIGPIPE, pipesave);
     return(err);

@@ -305,12 +305,12 @@ fcntl(p, uap, retval)
 			return (0);
 		}
 		if ((long)uap->arg <= 0) {
-			uap->arg = (void *)(-(long)(uap->arg));
+			uap->arg = (int)(-(long)(uap->arg));
 		} else {
 			struct proc *p1 = pfind((long)uap->arg);
 			if (p1 == 0)
 				return (ESRCH);
-			uap->arg = (void *)(long)p1->p_pgrp->pg_id;
+			uap->arg = (int)p1->p_pgrp->pg_id;
 		}
 		return (fo_ioctl(fp, (int)TIOCSPGRP, (caddr_t)&uap->arg, p));
 
@@ -505,7 +505,7 @@ fcntl(p, uap, retval)
 		if (error = copyin((caddr_t)uap->arg,
 					(caddr_t)&ra_struct, sizeof (ra_struct)))
 			return(error);
-		return (VOP_IOCTL(vp, 1, &ra_struct, 0, fp->f_cred, p));
+		return (VOP_IOCTL(vp, 1, (caddr_t)&ra_struct, 0, fp->f_cred, p));
 
 	case F_READBOOTSTRAP:
 	case F_WRITEBOOTSTRAP:
@@ -535,7 +535,7 @@ fcntl(p, uap, retval)
 			if (error)
 				return (error);
 			error = VOP_IOCTL(vp, (uap->cmd == F_WRITEBOOTSTRAP) ? 3 : 2,
-					&fbt_struct, 0, fp->f_cred, p);
+					(caddr_t)&fbt_struct, 0, fp->f_cred, p);
 			VOP_UNLOCK(vp,0,p);
 		}
 		return(error);
@@ -953,9 +953,10 @@ ffree(fp)
 		crfree(cred);
 	}
 
-	fp->f_count = 0;
-
 	nfiles--;
+	memset(fp, 0xff, sizeof *fp);
+	fp->f_count = (short)0xffff;
+
 	FREE_ZONE(fp, sizeof *fp, M_FILE);
 }
 
@@ -1301,6 +1302,8 @@ dupfdopen(fdp, indx, dfd, mode, error)
 int
 fref(struct file *fp)
 {
+	if (fp->f_count == (short)0xffff)
+		return (-1);
 	if (++fp->f_count <= 0)
 		panic("fref: f_count");
 	return ((int)fp->f_count);
@@ -1309,6 +1312,8 @@ fref(struct file *fp)
 static int 
 frele_internal(struct file *fp)
 {
+	if (fp->f_count == (short)0xffff)
+		panic("frele: stale");
 	if (--fp->f_count < 0)
 		panic("frele: count < 0");
 	return ((int)fp->f_count);
@@ -1344,6 +1349,8 @@ frele(struct file *fp)
 int
 fcount(struct file *fp)
 {
+	if (fp->f_count == (short)0xffff)
+		panic("fcount: stale");
 	return ((int)fp->f_count);
 }
 

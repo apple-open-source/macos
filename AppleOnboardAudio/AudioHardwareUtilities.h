@@ -33,6 +33,7 @@
 
 // Debugging help
 #ifdef DEBUGLOG
+// #define IOSleep(x) ;
 #define debugIOLog( message ) \
 	{IOLog( message ); IOSleep(20);}
 #define debug2IOLog( message, arg2 ) \

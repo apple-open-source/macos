@@ -28,13 +28,19 @@
 *
 */
 
-#import "IOFireWireDevice.h"
-#import "IOFireWireController.h"
-#import "IOFireWireLink.h"
+// public
+#import <IOKit/firewire/IOFireWireDevice.h>
+#import <IOKit/firewire/IOFireWireController.h>
+#import <IOKit/firewire/IOFWLocalIsochPort.h>
+
+// protected
+#import <IOKit/firewire/IOFireWireLink.h>
+
+// private
 #import "IOFireWireUserClient.h"
 #import "IOFWUserIsochPort.h"
-#import "IOFWLocalIsochPort.h"
 
+// system
 #include <IOKit/IOMemoryDescriptor.h>
 
 /****************************************************************/
@@ -1004,7 +1010,7 @@ IOFWUserLocalIsochPortProxy::convertToKernelDCL(
 							inUserToKernelDCLLookupTable, 
 							inTableLength,
 							inOutHint,
-							& (DCLCommand*)inDCLCommand->pJumpDCLLabel))
+							(DCLCommand**) &inDCLCommand->pJumpDCLLabel))
 		result = kIOReturnError ;
 
 	IOFireWireUserClientLogIfErr_( result, "couldn't convert jump DCL (inDCLCommand=0x%08lX, inDCLCommand->pJumpDCLLabel=0x%08lX)\n", (UInt32)inDCLCommand, (UInt32)inDCLCommand->pJumpDCLLabel) ;
@@ -1259,7 +1265,7 @@ IOFWUserLocalIsochPortProxy::modifyJumpDCL( UInt32 inJumpDCLCompilerData, UInt32
 		return kIOReturnSuccess ;
 
 	if (fPort)
-		return ((IOFWLocalIsochPort*)fPort)->notify(kFWDCLModifyNotification, & (DCLCommand*)pJumpDCL, 1) ;
+		return ((IOFWLocalIsochPort*)fPort)->notify(kFWDCLModifyNotification, (DCLCommand**) &pJumpDCL, 1) ;
 
 	return kIOReturnSuccess ;
 }
@@ -1280,7 +1286,7 @@ IOFWUserLocalIsochPortProxy::modifyJumpDCLSize( UInt32 dclCompilerData, IOByteCo
 	DCLTransferPacket*	dcl = (DCLTransferPacket*)( fUserToKernelDCLLookupTable[ dclCompilerData ] ) ;
 	
 	if (fPort)
-		return ((IOFWLocalIsochPort*)fPort)->notify(kFWDCLModifyNotification, &(DCLCommand*)dcl, 1) ;
+		return ((IOFWLocalIsochPort*)fPort)->notify(kFWDCLModifyNotification, (DCLCommand**)&dcl, 1) ;
 
 	return kIOReturnSuccess ;
 }

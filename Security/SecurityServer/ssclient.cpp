@@ -35,6 +35,7 @@ namespace SecurityServer {
 //
 // The process-global object
 //
+UnixPlusPlus::StaticForkMonitor ClientSession::mHasForked;
 ModuleNexus<ClientSession::Global> ClientSession::mGlobal;
 bool ClientSession::mSetupSession;
 
@@ -60,6 +61,15 @@ ClientSession::~ClientSession()
 //
 void ClientSession::activate()
 {
+	// Guard against fork-without-exec. If we are the child of a fork
+	// (that has not exec'ed), our apparent connection to SecurityServer
+	// is just a mirage, and we better reset it.
+	if (mHasForked()) {
+		debug("SSclnt", "process has forked (now pid=%d) - resetting connection object", getpid());
+		mGlobal.reset();
+	}
+		
+	// now pick up the (new or existing) connection state
 	Global &global = mGlobal();
     Thread &thread = global.thread();
     if (!thread) {

@@ -57,17 +57,16 @@ int SMTP_helo(int sock,const char *host)
   return ok;
 }
 
+static void SMTP_auth_error(int sock, char *msg)
+{
+    SockPrintf(sock, "*\r\n");
+    SockRead(sock, smtp_response, sizeof(smtp_response) - 1);
+    if (outlevel >= O_MONITOR) report(stdout, msg);
+}
+
 static void SMTP_auth(int sock, char *username, char *password, char *buf)
 /* ESMTP Authentication support for fetchmail by Wojciech Polak */
-{
-
-	static void SMTP_auth_error(int sock, char *msg)
-	{
-		SockPrintf(sock, "*\r\n");
-		SockRead(sock, smtp_response, sizeof(smtp_response) - 1);
-		if (outlevel >= O_MONITOR) report(stdout, msg);
-	}
-	
+{	
 	int c;
 	char *p = 0;
 	char b64buf[512];
@@ -344,6 +343,8 @@ int SMTP_ok(int sock)
 	else if (smtp_response[3] != '-')
 	    return SM_ERROR;
     }
+    if (outlevel >= O_MONITOR)
+	report(stderr, GT_("smtp listener protocol error"));
     return SM_UNRECOVERABLE;
 }
 

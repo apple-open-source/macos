@@ -1,0 +1,5 @@
+# lnews linker script.
+set_board_info ldscript "-Wl,-Tlnews.ld"
+
+# Otherwise, it's the same as the standard mips simulator.
+load_base_board_description "mips-sim";

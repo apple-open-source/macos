@@ -103,14 +103,11 @@ enum FCR3_FieldWidth {
  * I2S registers:
  */
 
-#define		kI2S0BaseOffset			0x10000
-#define		kI2S1BaseOffset			0x11000
+#define		kAPPLE_IO_CONFIGURATION_SIZE	256
+#define		kI2S_IO_CONFIGURATION_SIZE		256
 
-#define		kI2SClockOffset			0x0003C						//	FCR1 offset
-#define		kI2S0ClockEnable 		(UInt32)( 1 << kI2S0ClkEnBit )
-#define		kI2S1ClockEnable 		(UInt32)( 1 << kI2S1ClkEnBit )
-#define		kI2S0InterfaceEnable 	(UInt32)( 1 << kI2S0Enable )
-#define		kI2S1InterfaceEnable 	(UInt32)( 1 << kI2S1Enable )
+#define		kI2S0BaseOffset			0x10000							/*	mapped by AudioI2SControl	*/
+#define		kI2S1BaseOffset			0x11000							/*	mapped by AudioI2SControl	*/
 
 #define		kI2SIntCtlOffset		0x0000
 #define		kI2SSerialFormatOffset	0x0010
@@ -122,6 +119,12 @@ enum FCR3_FieldWidth {
 #define		kI2SPeakLevelSelOffset	0x0070
 #define		kI2SPeakLevelIn0Offset	0x0080
 #define		kI2SPeakLevelIn1Offset	0x0090
+
+#define		kI2SClockOffset			0x0003C							/*	FCR1 offset (not mapped by AudioI2SControl)	*/
+#define		kI2S0ClockEnable 		(UInt32)( 1 << kI2S0ClkEnBit )
+#define		kI2S1ClockEnable 		(UInt32)( 1 << kI2S1ClkEnBit )
+#define		kI2S0InterfaceEnable 	(UInt32)( 1 << kI2S0Enable )
+#define		kI2S1InterfaceEnable 	(UInt32)( 1 << kI2S1Enable )
 
 enum i2sReference {
 	kUseI2SCell0			=	0,

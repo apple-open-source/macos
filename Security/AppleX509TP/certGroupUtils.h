@@ -110,6 +110,17 @@ CSSM_ALGORITHMS tpOidToAldId(
 	const CSSM_OID *oid,
 	CSSM_ALGORITHMS *keyAlg);			// RETURNED
 
+void tpToLower(
+	char *str,
+	unsigned strLen);
+
+CSSM_BOOL tpCompareHostNames(
+	const char	 	*hostName,			// spec'd by app, tpToLower'd
+	uint32			hostNameLen,
+	char			*serverName,		// from cert, we tpToLower
+	uint32			serverNameLen);
+
+
 #ifdef	__cplusplus
 }
 #endif

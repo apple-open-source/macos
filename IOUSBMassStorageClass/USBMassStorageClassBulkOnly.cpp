@@ -269,9 +269,7 @@ IOUSBMassStorageClass::BulkOnlyTransferData(
 					GetDataBuffer( boRequestBlock->request ), 
 					GetTimeoutDuration( boRequestBlock->request ),  // Use the client's timeout for both
 					GetTimeoutDuration( boRequestBlock->request ),
-#if 0
 					GetRequestedDataTransferCount( boRequestBlock->request ),
-#endif
 					&boRequestBlock->boCompletion );
 	}
 	else if (GetDataTransferDirection(boRequestBlock->request) == kSCSIDataTransfer_FromInitiatorToTarget)
@@ -280,9 +278,7 @@ IOUSBMassStorageClass::BulkOnlyTransferData(
 					GetDataBuffer( boRequestBlock->request ), 
 					GetTimeoutDuration( boRequestBlock->request ),  // Use the client's timeout for both
 					GetTimeoutDuration( boRequestBlock->request ),
-#if 0
 					GetRequestedDataTransferCount( boRequestBlock->request ),
-#endif
 					&boRequestBlock->boCompletion );
 	}
 

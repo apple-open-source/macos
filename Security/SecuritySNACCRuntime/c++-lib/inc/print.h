@@ -32,7 +32,7 @@
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/inc/print.h,v 1.3 2001/06/27 23:57:51 dmitch Exp $
+// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/inc/print.h,v 1.3 2001/06/27 23:57:51 dmitch Exp $
 // $Log: print.h,v $
 // Revision 1.3  2001/06/27 23:57:51  dmitch
 // Reimplement partial fix for Radar 2664258: Print() routines are now empty stubs in NDEBUG config.

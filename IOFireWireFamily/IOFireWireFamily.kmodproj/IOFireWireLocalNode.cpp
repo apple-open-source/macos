@@ -25,15 +25,24 @@
  */
 /*
 	$Log: IOFireWireLocalNode.cpp,v $
+	Revision 1.4  2002/10/31 18:53:13  wgulland
+	Fix kernel panic when unloading family while reading ROMs
+	
+	Revision 1.3  2002/10/18 23:29:44  collin
+	fix includes, fix cast which fails on new compiler
+	
 	Revision 1.2  2002/09/25 00:27:24  niels
 	flip your world upside-down
 	
 */
 
-#import "IOFireWireLocalNode.h"
-#import "IOFireWireBus.h"
-#import "IOFireWireController.h"
+// public
+#import <IOKit/firewire/IOFireWireBus.h>
+#import <IOKit/firewire/IOFireWireController.h>
+
+// private
 #import "IOFireWireMagicMatchingNub.h"
+#import "IOFireWireLocalNode.h"
 
 OSDefineMetaClassAndStructors(IOFireWireLocalNode, IOFireWireNub)
 
@@ -53,6 +62,7 @@ bool IOFireWireLocalNode::attach(IOService * provider )
     if( !IOFireWireNub::attach(provider))
         return (false);
     fControl = (IOFireWireController *)provider;
+    fControl->retain();
 
     return(true);
 }

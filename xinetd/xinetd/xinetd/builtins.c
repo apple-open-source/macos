@@ -288,8 +288,7 @@ static void stream_daytime( const struct server *serp )
    }
    daytime_protocol( time_buf, &buflen ) ;
    (void) write_buf( descriptor, time_buf, buflen ) ;
-   if( SVC_WAITS( svc ) )
-      close(descriptor);
+   close(descriptor);
 }
 
 
@@ -353,8 +352,7 @@ static void stream_time( const struct server *serp )
    time_protocol( time_buf ) ;
    (void) write_buf( descriptor, (char *) time_buf, 4 ) ;
 
-   if( SVC_WAITS( svc ) )
-      close(descriptor);
+   close(descriptor);
 }
 
 
@@ -643,7 +641,7 @@ static void tcpmux_handler( const struct server *serp )
 
    server.svr_sp = sp;
    server.svr_conn = serp->svr_conn;
-   nserp = server_alloc(&server, SERVERS(ps));
+   nserp = server_alloc(&server);
    if( SC_IS_INTERNAL( scp ) ) {
       SC_INTERNAL(scp, nserp);
    } else {

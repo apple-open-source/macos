@@ -1,0 +1,263 @@
+This file describes the changes from Expect 4 to Expect 5.
+
+The changes that people will find most interesting or annoying are as
+follows.  Some of them may seem rather arbitrary but fix inconsistencies
+leading to much cleaner coding both internally and externally.
+
+
+-- Expect version 5.20 and above is designed to work with Tcl 7.5 and
+Tk 4.1.  Expect 5.20 and above will not work with earlier versions.
+
+-- Glob-style patterns do longest-possible matches (from the earliest
+possible position) just like regexps.  Previously, they matched the
+shortest-possible strings.  However, the documentation didn't actually
+say this (it didn't say anything)
+
+-- Exact patterns are now supported from expect.  Use the "-ex" flag.
+Exact patterns work just like those in interact.  No special handling
+is made of *, ^, etc.
+
+-- The new command "expect_background" registers patterns that are to
+be tested against spawned process output whenever it appears (i.e.,
+asynchronously).  This only works in the Tk environment.  The
+arguments are the same as the expect command.
+
+-- expect_before and expect_after now handle their arguments like
+expect_background.  Previously, a command such as "expect_before"
+with no arguments deleted patterns for all spawn ids.  Now, it only
+deletes patterns for the current spawn id.  Similarly with the "-i"
+form.
+
+-- expect_background/before/after support an -info flag to query what
+the current patterns are.  The results are returned in such a way that
+they can be re-used by a new expect command.
+
+The -info flag must be the first flag in the command.  With no other
+arguments, it returns the setting for the current spawn id.  With a -i
+descriptor, information is returned for that spawn id.  The argument
+-noindirect may be used to suppress indirects which also match a
+direct spawn id.  Only a single -i specification may be given with
+-info.  With the argument "-all", all spawn id specifications are
+reported.
+
+-- There is now a sleep command.  It understands decimal values such as
+
+	sleep .5
+
+Interrupts and other asynchronous events are processed while Expect sleeps.
+
+-- Traps now use Tcl's "Async" support.  This has advantages and
+disadvantages.  One advantage is that traps have no chance of screwing
+up the Tcl internals.  One disadvantage is that trap handlers are
+delayed at certain specific times and places.  For example, a handler
+cannot occur inside another handler.  While one handler is running,
+all other handlers are blocked.  This is probably the most noticable
+place where handlers are blocked.  Others are generally small windows,
+so you shouldn't notice the delay in executing the handlers.
+
+Several traps are initially defined:
+
+	trap exit {SIGINT SIGTERM}
+
+If you use the -D flag to start the debugger, the following trap is
+defined:
+
+	trap {exp_debug 1} SIGINT
+
+You can, of course, override these.  In particular, if you have your
+own "trap exit SIGINT", this will override the debugger trap.  Because
+SIGINT is tied to exit (see above) by default anyway, you should
+remove your own "trap exit SIGINT" unless you specifically do not want
+to be able to get to the debugger by ^C.
+
+If you want to define your own trap on SIGINT but still trap to the
+debugger when it is running, use:
+
+	if ![exp_debug] {trap mystuff SIGINT}
+
+Alternatively, you can trap to the debugger using some other signal.
+
+The ONEXIT trap is no longer available.  Instead, say "exit -onexit ..."
+
+Traps are now deleted by using the empty ({}) handler.  The current
+handler is returned if no action is supplied.  With no arguments, trap
+returns the signal number of the trap command currently being executed.
+
+-- The wait command now returns a four element list if a valid child
+was waited on.
+Element 1: pid
+Element 2: spawn id
+Element 3: 0 (or -1 if there was an OS error)
+Element 4: status (or errno if element 3 == -1)
+
+-- expect and interact notes:
+
+The timeout and eof patterns were initially named "-timeout" and
+"-eof" but have been renamed "timeout" and "eof" to match those of
+expect.  The ability to define default timeout/eof actions has been
+removed.  (You can do this more easily by grouping spawn ids.)
+
+expect and interact now support a "null" keyword to match an ASCII 0.
+send supports -null and -break keywords.
+
+Since a large number of special keywords have been added to interact,
+a new keyword "-ex" for "exact" was added descriptive of its default
+treatment of patterns.  This protects the next token from being
+misinterpreted as a keyword.  The expect command provides "-gl" for
+"glob" for analogous reasons.
+
+Any string starting with "-" should be protected by the "-ex" or "-gl"
+flag, even those that are not keywords currently.  (All strings
+starting with "-" are reserved for future options.)
+
+String start/end indices are no longer written to expect_out and
+interact_out unless the -indices flag is given.
+
+expect_out(spawn_id) is set to the spawn id associated with the spawn
+id that produced the last output in an expect command.  For example,
+you can use this to delete files that have closed, by removing this
+element from an indirect spawn ids spec.  The same effect is
+reproducable with interact (and interact_out(spawn_id)) but for
+efficiency reasons, it requires the -iwrite flag before each pattern.
+
+Expect's -i and interact's -i, -u, -input, and -output flags can now
+describe a list of spawn ids.  So you can say things like:
+
+	interact -input "$id1 $id2 $id3" .... -output "$id1 $id2" ...
+
+In this case, id1, 2, 3 would be sent to id1, and 2.
+
+The spawn id may be given as a global variable name (called an
+"indirect spawn id specification"), in which case, the variable
+contains the list of spawn ids.  Whenever the variable is changed, the
+new list of spawn ids is automatically used.  This is particularly
+useful with any long running expect command such as expect_before,
+expect_after, expect_background, and interact.
+
+The -update flag was removed.  Use indirect spawn ids (see previous
+paragraph).
+
+-- interact notes:
+
+Interact now support -input and -output flags that provide very
+flexible means of moving data from/to multiple spawn ids in complex
+ways (but very quickly).  It is possible to write most expect loops
+using a simple interact statement.  For instance, the three way
+interaction inside kibitz (between two users and a process) is written
+this way:
+
+	interact {
+		-output $shell
+		-input $userin eof { . . . } -output $shell
+		-input $shell -output "$user_spawn_id $userout"
+	}
+
+-- send command notes:
+
+It is possible to send a break by using the "-break" flag.
+
+Any string starting with "-" should be protected by preceding it with
+the "--" flag, even those that are not keywords currently.  (All
+strings starting "-" are reserved for future options.)
+
+-- The spawn command now takes an "-open" flag which in turns takes a
+Tcl file as an argument.  This lets you treat raw devices, files, and
+pipelines as spawned processes without using a pty.
+
+This was actually in Expect 4, but I forgot to document it.  Oops!
+
+-- The old "debug" command (which describes what Expect is doing
+internally) was renamed "exp_internal".  "debug" (and "exp_debug") now
+invoke the interactive debugger.
+
+-- The new command "stty" now takes over the job of "system stty".  It
+works much better, allowing POSIX-style redirection to affect other
+ttys.  It otherwise takes arguments as "system stty" did.
+
+-- The "-tcl" option to "return" has gone away.  (This was dangerous
+to anyone that actually happened to return the value "-tcl".)
+Instead, use inter_return.
+
+-- Added exp_timestamp command to produce very fast timestamps.
+
+-- Added exp_pid command to return pid of given spawn id.
+
+-- The close command now takes an argument of "-onexec" with a following
+0 or non-zero value.  For example, the follow command stops the
+current spawn id from being closed when another process is exec'd or
+spawn'd.
+
+	close -onexec 0
+
+While "-onexec 1" returns it to the default condition where it will be
+closed upon exec or spawn.
+
+-- log_user now returns previous value.  It is acceptable to call now,
+without arguments just to get the value.
+
+-- The following forms are deprecated.  They will be allowed
+indefinitely but not advertised or supported if they break.
+
+	-eof, -timeout in interact (reason: didn't match expect.
+		Instead, use eof or timeout.)
+
+	-- in expect or interact (reason: no easier to read.
+		Instead, use -gl in expect or -ex in interact.)
+
+	continue -expect (reason: when mixing in extensions, you have
+		to use exp_continue, so -expect becomes irrelevant.
+		Instead, use exp_continue.)
+
+	getpid (reason: Tcl now supplies same functionality as "pid".
+		Instead, use pid.)
+
+	expect_version and expect_library (reason: the name implies
+		they have something to do with the expect command,
+		which they doesn't.
+		Instead, use exp_version and exp_library.)
+
+	-timestamp for obtaining tm and ctime in expect and interact
+		(reason: separate command now exists for this purpose.
+		Instead, use exp_timestamp.)
+
+	system stty (reason: bad interaction with redirection.
+		Instead, use stty.)
+
+-- New examples have been added:
+
+"dislocate" lets you disconnect and reconnect to processes.
+
+"tkpasswd" illustrates passwd embedded in a GUI.
+
+They may not be overwhelmingly useful, but run them once to see what
+they do.  If you ever need to do anything similar, you can look back
+at them.
+
+"tknewsbiff" pops up a window or plays a audio clip when you have
+unread news.
+
+-- Changes to the Expect libraries:
+
+The expect-tcl library (libexpectcl.a) has been integrated with the
+expect library (libexpect.a).  So references to libexpectcl.a should
+be removed.
+
+The Expect C library now supports buffering, multiplexing, null
+matching, full buffer matching.  Basically, all of the features in
+Expect are now in the library.
+
+Buffering and multiplexing has caused the biggest change to the
+library.  Previously, exp_match contained the entire buffer that
+matched.  Now exp_match just points to where in the buffer the match
+started.  exp_buffer points to the beginning of the buffer.
+Previously, the previous buffer was thrown away at the beginning of
+each expect function call.  Now, previously unmatched characters are
+eligible for matching.
+
+To match on different file descriptors, exp_match, exp_match_end,
+exp_buffer_end must be restored to their previous values.  Initially,
+they should be zero.
+
+The meaning of timeout == 0 in the Expect library has been changed.
+See the man page for more info.
+

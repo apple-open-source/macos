@@ -392,7 +392,7 @@ bool UniNEnet::hardwareResetPHY()
 
 		// Clear Powerdown and reset:
 	miiWriteWord( MII_CONTROL_RESET, MII_CONTROL, kPHYAddr0 );
-	IOSleep( 1 );
+	IOSleep( 10 );
 	return true;	/// return value not used.
 }/* end hardwareResetPHY */
 

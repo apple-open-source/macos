@@ -28,7 +28,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/compiler/back-ends/cond.c,v 1.1.1.1 2001/05/18 23:14:08 mb Exp $
+ * $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/compiler/back-ends/cond.c,v 1.1.1.1 2001/05/18 23:14:08 mb Exp $
  * $Log: cond.c,v $
  * Revision 1.1.1.1  2001/05/18 23:14:08  mb
  * Move from private repository to open source repository

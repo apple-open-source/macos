@@ -19,100 +19,76 @@
 /*
 	File:		ssl2.h
 
-	Written by:	Doug Mitchell, based on Netscape SSLRef 3.0
+	Written by:	Doug Mitchell
 
 	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
 
 */
-/*  *********************************************************************
-    File: ssl2.h
-
-    SSLRef 3.0 Final -- 11/19/96
-
-    Copyright (c)1996 by Netscape Communications Corp.
-
-    By retrieving this software you are bound by the licensing terms
-    disclosed in the file "LICENSE.txt". Please read it, and if you don't
-    accept the terms, delete this software.
-
-    SSLRef 3.0 was developed by Netscape Communications Corp. of Mountain
-    View, California <http://home.netscape.com/> and Consensus Development
-    Corporation of Berkeley, California <http://www.consensus.com/>.
-
-    *********************************************************************
-
-    File: ssl2.h       SSL 2 functionality header
-
-    This file contains function prototypes and equate values for SSL2.
-    The relevant functions are contained in files whose names match
-    ssl2*.c
-
-    ****************************************************************** */
 
 #ifndef _SSL2_H_
 #define _SSL2_H_
 
-#ifndef _SECURE_TRANSPORT_H_
 #include "SecureTransport.h"
-#endif
-
-#ifndef	_SSL_PRIV_H_
 #include "sslPriv.h"
+#include "sslRecord.h"
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#ifndef _SSLREC_H_
-#include "sslrec.h"
-#endif
-
-typedef enum
-{   ssl2_mt_error = 0,
-    ssl2_mt_client_hello = 1,
-    ssl2_mt_client_master_key = 2,
-    ssl2_mt_client_finished = 3,
-    ssl2_mt_server_hello = 4,
-    ssl2_mt_server_verify = 5,
-    ssl2_mt_server_finished = 6,
-    ssl2_mt_request_certificate = 7,
-    ssl2_mt_client_certificate = 8,
-    ssl2_mt_kickstart_handshake = 99
+typedef enum {   
+	SSL2_MsgError = 0,
+    SSL2_MsgClientHello = 1,
+    SSL2_MsgClientMasterKey = 2,
+    SSL2_MsgClientFinished = 3,
+    SSL2_MsgServerHello = 4,
+    SSL2_MsgServerVerify = 5,
+    SSL2_MsgServerFinished = 6,
+    SSL2_MsgRequestCert = 7,
+    SSL2_MsgClientCert = 8,
+    SSL2_MsgKickstart = 99
 } SSL2MessageType;
 
-typedef enum
-{   ssl2_pe_no_cipher = 1,
-    ssl2_pe_no_certificate = 2,
-    ssl2_pe_bad_certificate = 4,
-    ssl2_pe_unsupported_certificate_type = 6
+typedef enum {   
+	SSL2_ErrNoCipher = 1,
+    SSL2_ErrNoCert = 2,
+    SSL2_ErrBadCert = 4,
+    SSL2_ErrUnsupportedCert = 6
 } SSL2ErrorCode;
 
-typedef enum
-{   ssl2_ct_x509_certificate = 1
+typedef enum{   
+	SSL2_CertTypeX509 = 1
 } SSL2CertTypeCode;
 
 #define SSL2_CONNECTION_ID_LENGTH   16
 
-typedef SSLErr (*EncodeSSL2MessageFunc)(SSLBuffer *msg, SSLContext *ctx);
-SSLErr SSL2ReadRecord(SSLRecord *rec, SSLContext *ctx);
-SSLErr SSL2WriteRecord(SSLRecord rec, SSLContext *ctx);
-SSLErr SSL2ProcessMessage(SSLRecord rec, SSLContext *ctx);
-SSLErr SSL2SendError(SSL2ErrorCode error, SSLContext *ctx);
-SSLErr SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx);
-SSLErr SSL2PrepareAndQueueMessage(EncodeSSL2MessageFunc encodeFunc, SSLContext *ctx);
-SSLErr SSL2CompareSessionIDs(SSLContext *ctx);
-SSLErr SSL2InstallSessionKey(SSLContext *ctx);
-SSLErr SSL2GenerateSessionID(SSLContext *ctx);
-SSLErr SSL2InitCiphers(SSLContext *ctx);
+typedef OSStatus (*EncodeSSL2MessageFunc)(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2ReadRecord(SSLRecord &rec, SSLContext *ctx);
+OSStatus SSL2WriteRecord(SSLRecord &rec, SSLContext *ctx);
+OSStatus SSL2ProcessMessage(SSLRecord &rec, SSLContext *ctx);
+OSStatus SSL2SendError(SSL2ErrorCode error, SSLContext *ctx);
+OSStatus SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx);
+OSStatus SSL2PrepareAndQueueMessage(EncodeSSL2MessageFunc encodeFunc, SSLContext *ctx);
+OSStatus SSL2CompareSessionIDs(SSLContext *ctx);
+OSStatus SSL2InstallSessionKey(SSLContext *ctx);
+OSStatus SSL2GenerateSessionID(SSLContext *ctx);
+OSStatus SSL2InitCiphers(SSLContext *ctx);
 
-SSLErr SSL2ProcessClientHello(SSLBuffer msgContents, SSLContext *ctx);
-SSLErr SSL2EncodeClientHello(SSLBuffer *msg, SSLContext *ctx);
-SSLErr SSL2ProcessClientMasterKey(SSLBuffer msgContents, SSLContext *ctx);
-SSLErr SSL2EncodeClientMasterKey(SSLBuffer *msg, SSLContext *ctx);
-SSLErr SSL2ProcessClientFinished(SSLBuffer msgContents, SSLContext *ctx);
-SSLErr SSL2EncodeClientFinished(SSLBuffer *msg, SSLContext *ctx);
-SSLErr SSL2ProcessServerHello(SSLBuffer msgContents, SSLContext *ctx);
-SSLErr SSL2EncodeServerHello(SSLBuffer *msg, SSLContext *ctx);
-SSLErr SSL2ProcessServerVerify(SSLBuffer msgContents, SSLContext *ctx);
-SSLErr SSL2EncodeServerVerify(SSLBuffer *msg, SSLContext *ctx);
-SSLErr SSL2ProcessServerFinished(SSLBuffer msgContents, SSLContext *ctx);
-SSLErr SSL2EncodeServerFinished(SSLBuffer *msg, SSLContext *ctx);
+OSStatus SSL2ProcessClientHello(SSLBuffer msgContents, SSLContext *ctx);
+OSStatus SSL2EncodeClientHello(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2ProcessClientMasterKey(SSLBuffer msgContents, SSLContext *ctx);
+OSStatus SSL2EncodeClientMasterKey(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2ProcessClientFinished(SSLBuffer msgContents, SSLContext *ctx);
+OSStatus SSL2EncodeClientFinished(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2ProcessServerHello(SSLBuffer msgContents, SSLContext *ctx);
+OSStatus SSL2EncodeServerHello(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2ProcessServerVerify(SSLBuffer msgContents, SSLContext *ctx);
+OSStatus SSL2EncodeServerVerify(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2ProcessServerFinished(SSLBuffer msgContents, SSLContext *ctx);
+OSStatus SSL2EncodeServerFinished(SSLBuffer &msg, SSLContext *ctx);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

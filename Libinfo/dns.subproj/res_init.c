@@ -78,7 +78,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)res_init.c	8.1 (Berkeley) 6/7/93";
-static char rcsid[] = "$Id: res_init.c,v 1.5 2002/03/26 20:12:06 ajn Exp $";
+static char rcsid[] = "$Id: res_init.c,v 1.5.88.1 2002/11/06 17:30:17 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
@@ -152,6 +152,7 @@ static u_int32_t net_mask __P((struct in_addr));
 extern
 #endif /* NeXT */
 struct __res_state _res;
+extern struct __res_state _res_shadow;
 
 /*
  * Set up default settings.  If the configuration file exist, the values
@@ -446,6 +447,7 @@ res_init()
 	if ((cp = getenv("RES_OPTIONS")) != NULL)
 		res_setoptions(cp, "env");
 	_res.options |= RES_INIT;
+	_res_shadow = _res;
 	return (0);
 }
 

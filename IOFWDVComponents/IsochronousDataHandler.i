@@ -6,6 +6,9 @@
 	Copyright:	© 1997-2001 by Apple Computer, Inc., all rights reserved.
 
 		$Log: IsochronousDataHandler.i,v $
+		Revision 1.7  2002/10/15 19:05:39  ayanowit
+		Merged in changes to support DVCPro50.
+		
 		Revision 1.6  2002/03/21 01:55:44  wgulland
 		Use IOFireWireFamily isoc user client instead of DV kext
 		
@@ -222,7 +225,9 @@ enum
     kIDHDV_SD					= 0,
     kIDHDV_SDL					= 1,
     kIDHDV_HD					= 2,
-    kIDHDVCPro_25				= 0x1e
+    kIDHDVCPro_25				= 0x1e,
+    kIDHDVCPro_50				= 0x1d
+
 };
 
 //

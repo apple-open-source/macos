@@ -400,13 +400,13 @@ IOUSBInterfaceUserClient::start( IOService * provider )
 
     if (!fOwner)
     {
- 	USBError(1, "%s[%p]::start - provider is NULL!", getName(), this);
-	goto ErrorExit;
+        USBError(1, "%s[%p]::start - provider is NULL!", getName(), this);
+        goto ErrorExit;
     }
     
     if(!super::start(provider))
     {
- 	USBError(1, "%s[%p]::start - super::start returned false!", getName(), this);
+        USBError(1, "%s[%p]::start - super::start returned false!", getName(), this);
         goto ErrorExit;
     }
 
@@ -414,29 +414,34 @@ IOUSBInterfaceUserClient::start( IOService * provider )
 
     if(!fGate)
     {
-	USBError(1, "%s[%p]::start - unable to create command gate", getName(), this);
-	goto ErrorExit;
+        USBError(1, "%s[%p]::start - unable to create command gate", getName(), this);
+        goto ErrorExit;
     }
 
     fWorkLoop = getWorkLoop();
     if (!fWorkLoop)
     {
-	USBError(1, "%s[%p]::start - unable to find my workloop", getName(), this);
-	goto ErrorExit;
+        USBError(1, "%s[%p]::start - unable to find my workloop", getName(), this);
+        goto ErrorExit;
     }
     fWorkLoop->retain();
     
     if (fWorkLoop->addEventSource(fGate) != kIOReturnSuccess)
     {
-	USBError(1, "%s[%p]::start - unable to add gate to work loop", getName(), this);
-	goto ErrorExit;
+        USBError(1, "%s[%p]::start - unable to add gate to work loop", getName(), this);
+        goto ErrorExit;
     }
 
     fFreeUSBLowLatencyCommandPool = IOCommandPool::withWorkLoop(fWorkLoop);
     if (!fFreeUSBLowLatencyCommandPool)
     {
         USBError(1,"%s[%p]::start - unable to create free command pool", getName(), this);
-	goto ErrorExit;
+        
+        // Remove the event source we added above
+        //
+        fWorkLoop->removeEventSource(fGate);
+        
+        goto ErrorExit;
     }
 
     DecrementOutstandingIO();
@@ -491,7 +496,7 @@ IOUSBInterfaceUserClient::close()
 {
     IOReturn 	ret = kIOReturnSuccess;
     
-    USBLog(5, "+%s[%p]::close", getName(), this);
+    USBLog(7, "+%s[%p]::close", getName(), this);
     IncrementOutstandingIO();
     
     if (fOwner && !isInactive())
@@ -515,7 +520,7 @@ IOUSBInterfaceUserClient::close()
 	ret = kIOReturnNotAttached;
  
     DecrementOutstandingIO();
-    USBLog(5, "-%s[%p]::close - returning %x", getName(), this, ret);
+    USBLog(7, "-%s[%p]::close - returning %x", getName(), this, ret);
     return ret;
 }
 
@@ -528,10 +533,7 @@ IOUSBInterfaceUserClient::close()
 IOReturn 
 IOUSBInterfaceUserClient::clientClose( void )
 {
-    LowLatencyUserClientBufferInfo *	kernelDataBuffer;
-    LowLatencyUserClientBufferInfo *	nextBuffer;
-
-    USBLog(5, "+%s[%p]::clientClose(%p)", getName(), this, fUserClientBufferInfoListHead);
+    USBLog(7, "+%s[%p]::clientClose(%p)", getName(), this, fUserClientBufferInfoListHead);
 
     // Sleep for 1 ms to allow other threads that are pending to run
     //
@@ -541,49 +543,14 @@ IOUSBInterfaceUserClient::clientClose( void )
     //
     if (fUserClientBufferInfoListHead != NULL)
     {
-        nextBuffer = fUserClientBufferInfoListHead;
-        kernelDataBuffer = fUserClientBufferInfoListHead;
-        
-        // Traverse the list and release memory
-        //
-        while ( nextBuffer != NULL )
-        {
-            nextBuffer = kernelDataBuffer->nextBuffer;
-            
-            // Now, need to complete/release/free the objects we allocated in our prepare
-            //
-            if ( kernelDataBuffer->frameListMap )
-                kernelDataBuffer->frameListMap->release();
-                
-            if ( kernelDataBuffer->frameListDescriptor )
-            {
-                kernelDataBuffer->frameListDescriptor->release();
-            }
-            
-            if ( kernelDataBuffer->bufferDescriptor )
-            {
-                // We call prepare on the bufferDescriptor, so we need to call complete on it 
-                //
-                kernelDataBuffer->bufferDescriptor->complete();
-                kernelDataBuffer->bufferDescriptor->release();
-            }
-            
-            // Finally, deallocate our kernelDataBuffer
-            //
-            IOFree(kernelDataBuffer, sizeof(LowLatencyUserClientBufferInfo));
-            
-            kernelDataBuffer = nextBuffer;
-        }
-        
-        fUserClientBufferInfoListHead = NULL;
+        ReleasePreparedDescriptors();
     }
-
 
     fTask = NULL;
     
     terminate();
 
-    USBLog(5, "-%s[%p]::clientClose(%p)", getName(), this, fUserClientBufferInfoListHead);
+    USBLog(7, "-%s[%p]::clientClose(%p)", getName(), this, fUserClientBufferInfoListHead);
 
     return kIOReturnSuccess;			// DONT call super::clientClose, which just returns notSupported
 }
@@ -594,12 +561,12 @@ IOUSBInterfaceUserClient::clientDied( void )
 {
     IOReturn ret;
 
-    USBLog(3, "+%s[%p]::clientDied()", getName(), this);
+    USBLog(5, "+%s[%p]::clientDied()", getName(), this);
 
     fDead = true;				// don't send any mach messages in this case
     ret = super::clientDied();
 
-    USBLog(3, "-%s[%p]::clientDied()", getName(), this);
+    USBLog(5, "-%s[%p]::clientDied()", getName(), this);
 
     return ret;
 }
@@ -1504,11 +1471,11 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
         kernelDataBuffer = ( LowLatencyUserClientBufferInfo *) IOMalloc( sizeof(LowLatencyUserClientBufferInfo) );
         if (kernelDataBuffer == NULL )
         {
-            USBLog(3,"%s[%p]::LowLatencyPrepareBuffer  Could not malloc buffer (size = %d)!", getName(), this, sizeof(LowLatencyUserClientBufferInfo) );
+            USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not malloc buffer info (size = %d)!", getName(), this, sizeof(LowLatencyUserClientBufferInfo) );
             return kIOReturnNoMemory;
         }
         
-	bzero(kernelDataBuffer, sizeof(LowLatencyUserClientBufferInfo));
+        bzero(kernelDataBuffer, sizeof(LowLatencyUserClientBufferInfo));
         
         // Cool, we have a good buffer, add it to our list
         //
@@ -1529,6 +1496,7 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
             aDescriptor = IOMemoryDescriptor::withAddress((vm_address_t)bufferData->bufferAddress, bufferData->bufferSize, direction, fTask);
             if(!aDescriptor) 
             {
+                USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not create a data buffer memory descriptor (addr: %p, size %d)!", getName(), this, bufferData->bufferAddress, bufferData->bufferSize );
                 ret = kIOReturnNoMemory;
                 goto ErrorExit;
             }
@@ -1536,6 +1504,7 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
             ret = aDescriptor->prepare();
             if (ret != kIOReturnSuccess)
             {
+                USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not prepare the data buffer memory descriptor!", getName(), this );
                 goto ErrorExit;
             }
 
@@ -1553,28 +1522,33 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
         {
             // We have a frame list that we need to map to the kernel's memory space
             //
-            // Create a buffer memory descriptor for our frame list and prepare it (pages it in if necesary and prepares it).  A buffer memory
-            // descriptor allows us to get the pointer to the data
+            // Create a memory descriptor for our frame list and prepare it (pages it in if necesary and prepares it). 
             //
             aDescriptor = IOMemoryDescriptor::withAddress((vm_address_t)bufferData->bufferAddress, bufferData->bufferSize, kIODirectionOutIn, fTask);
             if(!aDescriptor) 
             {
+                USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not create a frame list memory descriptor (addr: %p, size %d)!", getName(), this, bufferData->bufferAddress, bufferData->bufferSize );
                 ret = kIOReturnNoMemory;
                 goto ErrorExit;
             }
             
-            // еее Do we need to prepare this descriptor?
-            //
-            // ret = aDescriptor->prepare();
-            //if (ret != kIOReturnSuccess)
-            //    break;
+            ret = aDescriptor->prepare();
+            if (ret != kIOReturnSuccess)
+            {
+                USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not prepare the frame list memory descriptor!", getName(), this );
+                ret = kIOReturnNoMemory;
+                goto ErrorExit;
+            }
+            
 
             // Map it into the kernel
             //
             frameListMap = aDescriptor->map();
-            if(!frameListMap) 
+            if (!frameListMap) 
             {
+                USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not prepare the frame list memory descriptor!", getName(), this );
                 ret = kIOReturnNoMemory;
+                aDescriptor->complete();
                 goto ErrorExit;
             }
 
@@ -1600,7 +1574,7 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
 ErrorExit:
 
     if (ret)
-	USBLog(3, "%s[%p]::LowLatencyPrepareBuffer - returning err %x", getName(), this, ret);
+        USBLog(3, "%s[%p]::LowLatencyPrepareBuffer - returning err %x", getName(), this, ret);
 
     DecrementOutstandingIO();
     
@@ -1627,6 +1601,7 @@ IOUSBInterfaceUserClient::LowLatencyReleaseBuffer(LowLatencyUserBufferInfo *data
         kernelDataBuffer = FindBufferCookieInList( dataBuffer->cookie );
         if ( kernelDataBuffer == NULL )
         {
+            USBLog(3, "+%s[%p]::LowLatencyReleaseBuffer cookie: %ld, could not find buffer in list", getName(), this, dataBuffer->cookie);
             ret = kIOReturnBadArgument;
             goto ErrorExit;
         }
@@ -1636,6 +1611,7 @@ IOUSBInterfaceUserClient::LowLatencyReleaseBuffer(LowLatencyUserBufferInfo *data
         found = RemoveDataBufferFromList( kernelDataBuffer );
         if ( !found )
         {
+            USBLog(3, "+%s[%p]::LowLatencyReleaseBuffer cookie: %ld, could not remove buffer (%p) from list", getName(), this, dataBuffer->cookie);
             ret = kIOReturnBadArgument;
             goto ErrorExit;
         }
@@ -1646,8 +1622,11 @@ IOUSBInterfaceUserClient::LowLatencyReleaseBuffer(LowLatencyUserBufferInfo *data
             kernelDataBuffer->frameListMap->release();
             
         if ( kernelDataBuffer->frameListDescriptor )
+        {
+            kernelDataBuffer->frameListDescriptor->complete();
             kernelDataBuffer->frameListDescriptor->release();
-
+        }
+        
         if ( kernelDataBuffer->bufferDescriptor )
         {
             kernelDataBuffer->bufferDescriptor->complete();
@@ -1666,7 +1645,7 @@ IOUSBInterfaceUserClient::LowLatencyReleaseBuffer(LowLatencyUserBufferInfo *data
 ErrorExit:
 
     if (ret)
-	USBLog(3, "%s[%p]::LowLatencyReleaseBuffer - returning err %x", getName(), this, ret);
+        USBLog(3, "%s[%p]::LowLatencyReleaseBuffer - returning err %x", getName(), this, ret);
 
     DecrementOutstandingIO();
     return ret;
@@ -2369,20 +2348,11 @@ IOUSBInterfaceUserClient::stop(IOService * provider)
     
     USBLog(7, "+%s[%p]::stop(%p)", getName(), this, provider);
 
-    if (fGate)
+    // If we have any kernelDataBuffer pointers, then release them now
+    //
+    if (fUserClientBufferInfoListHead != NULL)
     {
-	if (fWorkLoop)
-	{
-	    fWorkLoop->removeEventSource(fGate);
-            fWorkLoop->release();
-            fWorkLoop = NULL;
-	}
-	else
-	{
-	    USBError(1, "%s[%p]::free - have gate, but no valid workloop (%p)!", getName(), this, fWorkLoop);
-	}
-	fGate->release();
-	fGate = NULL;
+        ReleasePreparedDescriptors();
     }
 
     super::stop(provider);
@@ -2394,23 +2364,33 @@ IOUSBInterfaceUserClient::stop(IOService * provider)
 void 
 IOUSBInterfaceUserClient::free()
 {
+    IOReturn ret;
+
+    // USBLog(7, "+%s[%p]::free", getName(), this);
     
+    if ( fFreeUSBLowLatencyCommandPool )
+    {
+       //  USBLog(5, "+%s[%p]::free releasing fFreeUSBLowLatencyCommandPool", getName(), this);
+        fFreeUSBLowLatencyCommandPool->release();
+    }
+
     if (fGate)
     {
-	if (fWorkLoop)
-	{
-	    fWorkLoop->removeEventSource(fGate);
+        if (fWorkLoop)
+        {
+            ret = fWorkLoop->removeEventSource(fGate);
+            // USBLog(5, "+%s[%p]::free releasing fWorkLoop", getName(), this);
             fWorkLoop->release();
             fWorkLoop = NULL;
-	}
-	else
-	{
-	    USBError(1, "%s[%p]::free - have gate, but no valid workloop (%p)!", getName(), this, fWorkLoop);
-	}
-	fGate->release();
-	fGate = NULL;
+        }
+        else
+        {
+            USBError(1, "%s[%p]::free - have gate, but no valid workloop (%p)!", getName(), this, fWorkLoop);
+        }
+        fGate->release();
+        fGate = NULL;
     }
-    
+        
     super::free();
 }
 
@@ -2563,6 +2543,57 @@ IOUSBInterfaceUserClient::IncreaseCommandPool(void)
     
     fCurrentSizeOfCommandPool += kSizeToIncrementLowLatencyCommandPool;
 
+}
+
+void
+IOUSBInterfaceUserClient::ReleasePreparedDescriptors(void)
+{
+    LowLatencyUserClientBufferInfo *	kernelDataBuffer;
+    LowLatencyUserClientBufferInfo *	nextBuffer;
+
+    // If we have any kernelDataBuffer pointers, then release them now
+    //
+    if (fUserClientBufferInfoListHead != NULL)
+    {
+        USBLog(5, "+%s[%p]::stop: fUserClientBufferInfoListHead NOT NULL (%p) ", getName(), this, fUserClientBufferInfoListHead);
+    
+        nextBuffer = fUserClientBufferInfoListHead;
+        kernelDataBuffer = fUserClientBufferInfoListHead;
+        
+        // Traverse the list and release memory
+        //
+        while ( nextBuffer != NULL )
+        {
+            nextBuffer = kernelDataBuffer->nextBuffer;
+            
+            // Now, need to complete/release/free the objects we allocated in our prepare
+            //
+            if ( kernelDataBuffer->frameListMap )
+                kernelDataBuffer->frameListMap->release();
+                
+            if ( kernelDataBuffer->frameListDescriptor )
+            {
+                kernelDataBuffer->frameListDescriptor->complete();
+                kernelDataBuffer->frameListDescriptor->release();
+            }
+
+            if ( kernelDataBuffer->bufferDescriptor )
+            {
+                // We call prepare on the bufferDescriptor, so we need to call complete on it 
+                //
+                kernelDataBuffer->bufferDescriptor->complete();
+                kernelDataBuffer->bufferDescriptor->release();
+            }
+            
+            // Finally, deallocate our kernelDataBuffer
+            //
+            IOFree(kernelDataBuffer, sizeof(LowLatencyUserClientBufferInfo));
+            
+            kernelDataBuffer = nextBuffer;
+        }
+        
+        fUserClientBufferInfoListHead = NULL;
+    }
 }
 
 IOUSBLowLatencyCommand *

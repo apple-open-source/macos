@@ -26,12 +26,13 @@
 #define kIOFireWireAVCLibConnection 13
 
 enum IOFWAVCUserClientCommandCodes {
-    kIOFWAVCUserClientOpen,					// kIOUCScalarIScalarO 0,0
-    kIOFWAVCUserClientClose,				// kIOUCScalarIScalarO 0,0
-    kIOFWAVCUserClientOpenWithSessionRef,	// kIOUCScalarIScalarO 1,0
-	kIOFWAVCUserClientGetSessionRef,		// kIOUCScalarIScalarO 0,1
-    kIOFWAVCUserClientAVCCommand,			// kIOUCStructIStructO -1,-1
-    kIOFWAVCUserClientAVCCommandInGen,		// kIOUCStructIStructO -1,-1
+    kIOFWAVCUserClientOpen,						// kIOUCScalarIScalarO 0,0
+    kIOFWAVCUserClientClose,					// kIOUCScalarIScalarO 0,0
+    kIOFWAVCUserClientOpenWithSessionRef,		// kIOUCScalarIScalarO 1,0
+	kIOFWAVCUserClientGetSessionRef,			// kIOUCScalarIScalarO 0,1
+    kIOFWAVCUserClientAVCCommand,				// kIOUCStructIStructO -1,-1
+    kIOFWAVCUserClientAVCCommandInGen,			// kIOUCStructIStructO -1,-1
+    kIOFWAVCUserClientUpdateAVCCommandTimeout,	// kIOUCScalarIScalarO 0,0
     kIOFWAVCUserClientNumCommands
 };
 

@@ -25,12 +25,15 @@
  */
 /*
 	$Log: IOFireWireLocalNode.h,v $
+	Revision 1.3  2002/10/18 23:29:44  collin
+	fix includes, fix cast which fails on new compiler
+	
 	Revision 1.2  2002/09/25 00:27:24  niels
 	flip your world upside-down
 	
 */
 
-#import "IOFireWireNub.h"
+#import <IOKit/firewire/IOFireWireNub.h>
 
 class IOFireWireLocalNode : public IOFireWireNub
 {

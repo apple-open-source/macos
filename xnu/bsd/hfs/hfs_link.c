@@ -294,7 +294,9 @@ hfs_link(ap)
 	if (hfsmp->jnl) {
 	    if (journal_start_transaction(hfsmp->jnl) != 0) {
 			hfs_global_shared_lock_release(hfsmp);
-			return EINVAL;
+			VOP_ABORTOP(tdvp, cnp);
+			error = EINVAL;  /* cannot link to a special file */
+			goto out1;
 	    }
 	}
 

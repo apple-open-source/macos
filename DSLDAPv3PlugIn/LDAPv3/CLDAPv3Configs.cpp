@@ -42,6 +42,7 @@ CLDAPv3Configs::CLDAPv3Configs ( void )
     //pStdRecordMapTuple		= nil;
 	fConfigTableLen			= 0;
 	fXMLData				= nil;
+	pXMLConfigLock			= new DSMutexSemaphore();
 } // CLDAPv3Configs
 
 
@@ -78,6 +79,12 @@ CLDAPv3Configs::~CLDAPv3Configs ( void )
         delete ( pConfigTable );
         pConfigTable = nil;
     }
+	
+	if (pXMLConfigLock != nil)
+	{
+		delete(pXMLConfigLock);
+		pXMLConfigLock = nil;
+	}
 	
 	if (fXMLData != nil)
 	{
@@ -126,6 +133,7 @@ sInt32 CLDAPv3Configs::Init ( CPlugInRef *inConfigTable, uInt32 &inConfigTableLe
 			fConfigTableLen++;
 	}
 
+	XMLConfigLock();
 	//read the XML Config file
 	if (fXMLData != nil)
 	{
@@ -133,6 +141,7 @@ sInt32 CLDAPv3Configs::Init ( CPlugInRef *inConfigTable, uInt32 &inConfigTableLe
 		fXMLData = nil;
 	}
 	siResult = ReadXMLConfig();
+	XMLConfigUnlock();
 	
 	//check if XML file was read
 	if (siResult == eDSNoErr)
@@ -154,7 +163,9 @@ sInt32 CLDAPv3Configs::Init ( CPlugInRef *inConfigTable, uInt32 &inConfigTableLe
 		}
 	
 		//set up the config table
+		XMLConfigLock();
 		siResult = ConfigLDAPServers();
+		XMLConfigUnlock();
 	}
 	
 	//set/update the number of configs in the table
@@ -1873,7 +1884,11 @@ void CLDAPv3Configs::ConfigDHCPObtainedLDAPServer ( char *inServer, char *inMapS
 			ourXMLData = newXMLData;
 			newXMLData = nil;
 		}
-		siResult = AddDefaultLDAPServer(ourXMLData); //don't check return
+		siResult = AddDefaultLDAPServer(ourXMLData);
+		if (siResult != eDSNoErr)
+		{
+			syslog(LOG_INFO,"DSLDAPv3PlugIn: DHCP option 95 obtained [%s] LDAP server not added to search policy due to server mappings format error.", inServer);
+		}
 
 		//set/update the number of configs in the table
 		inConfigTableLen = fConfigTableLen;
@@ -2904,7 +2919,11 @@ sInt32 CLDAPv3Configs::AddDefaultLDAPServer( CFDataRef inXMLData )
 					//config data version
 					configVersion = GetVersion(serverConfigDict);
 					//TODO KW check for correct version? not necessary really since backward compatible?
-					if ( configVersion == nil ) throw( (sInt32)eDSVersionMismatch ); //KW need eDSPlugInConfigFileError
+					if ( configVersion == nil )
+					{
+						syslog(LOG_INFO,"DSLDAPv3PlugIn: DHCP option 95 obtained LDAP server mappings is missing the version string.");
+						throw( (sInt32)eDSVersionMismatch ); //KW need eDSPlugInConfigFileError
+					}
 					if (configVersion != nil)
 					{
 					
@@ -2914,7 +2933,11 @@ sInt32 CLDAPv3Configs::AddDefaultLDAPServer( CFDataRef inXMLData )
                         if (strcmp(configVersion,"DSLDAPv3PlugIn Version 1.5") == 0)
                         {
 							siResult = MakeLDAPConfig(serverConfigDict, fConfigTableLen);
-                        }                        
+                        }
+						else
+						{
+							syslog(LOG_INFO,"DSLDAPv3PlugIn: DHCP option 95 obtained LDAP server mappings contains incorrect version string [%s] instead of [DSLDAPv3PlugIn Version 1.5].", configVersion);
+						}
 						delete(configVersion);
 						
 					}//if (configVersion != nil)
@@ -4744,3 +4767,18 @@ int CLDAPv3Configs::AttrMapFromArrayCount( CFStringRef inAttrTypeRef, CFArrayRef
 } // AttrMapFromArrayCount
 
 
+void CLDAPv3Configs::XMLConfigLock( void )
+{
+	if (pXMLConfigLock != nil)
+	{
+		pXMLConfigLock->Wait();
+	}
+}
+
+void CLDAPv3Configs::XMLConfigUnlock( void )
+{
+	if (pXMLConfigLock != nil)
+	{
+		pXMLConfigLock->Signal();
+	}
+}

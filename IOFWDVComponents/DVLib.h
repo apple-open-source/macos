@@ -190,6 +190,7 @@ extern void DVWriteFreeFrames(DVGlobalOutPtr globs);
 extern void DVWriteFree(DVGlobalOutPtr globs);
 
 extern DVGlobalInPtr DVAllocRead(DVDevice *device, DVThread *thread);
+extern IOReturn DVReadSetSignalMode(DVGlobalInPtr globs, UInt8 mode);
 extern IOReturn DVReadAllocFrames(DVGlobalInPtr globs, UInt32 numFrames, 
         DVFrameVars **frameVars, UInt8 **frames);
 extern IOReturn DVReadStart(DVGlobalInPtr globs);

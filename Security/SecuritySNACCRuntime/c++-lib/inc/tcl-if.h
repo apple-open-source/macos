@@ -18,7 +18,7 @@
 
 // file: .../c++-lib/inc/tcl-if.h
 //
-// $Header: /cvs/Darwin/Security/SecuritySNACCRuntime/c++-lib/inc/tcl-if.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
+// $Header: /cvs/Darwin/src/live/Security/SecuritySNACCRuntime/c++-lib/inc/tcl-if.h,v 1.1.1.1 2001/05/18 23:14:06 mb Exp $
 // $Log: tcl-if.h,v $
 // Revision 1.1.1.1  2001/05/18 23:14:06  mb
 // Move from private repository to open source repository

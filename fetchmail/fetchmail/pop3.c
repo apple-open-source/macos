@@ -70,7 +70,9 @@ static int pop3_ok (int sock, char *argbuf)
 	}
 	else if (strncmp(buf,"-ERR", 4) == 0)
 	{
-	    if (stage > STAGE_GETAUTH) 
+	    if (stage == STAGE_FETCH)
+		ok = PS_TRANSIENT;
+	    else if (stage > STAGE_GETAUTH)
 		ok = PS_PROTOCOL;
 	    /*
 	     * We're checking for "lock busy", "unable to lock", 
@@ -190,66 +192,76 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	 * latches the server's authentication type, so that in daemon mode
 	 * the CAPA check only needs to be done once at start of run.
 	 *
-	 * APOP was introduced in RFC 1450, and CAPA not until
-	 * RFC2449. So the < check is an easy way to prevent CAPA from
-	 * being sent to the more primitive POP3 servers dating from
-	 * RFC 1081 and RFC 1225, which seem more likely to choke on
-	 * it.  This certainly catches IMAP-2000's POP3 gateway.
-	 * 
+	 * If CAPA fails, then force the authentication method to PASSORD
+	 * and repoll immediately.
+	 *
 	 * These authentication methods are blessed by RFC1734,
 	 * describing the POP3 AUTHentication command.
 	 */
-	if (ctl->server.authenticate == A_ANY 
-	    && strchr(greeting, '<') 
-	    && gen_transact(sock, "CAPA") == 0)
+	if (ctl->server.authenticate == A_ANY)
 	{
-	    char buffer[64];
-
-	    /* determine what authentication methods we have available */
-	    while ((ok = gen_recv(sock, buffer, sizeof(buffer))) == 0)
+	    ok = gen_transact(sock, "CAPA");
+	    if (ok == PS_SUCCESS)
 	    {
-		if (DOTLINE(buffer))
-		    break;
+		char buffer[64];
+
+		/* determine what authentication methods we have available */
+		while ((ok = gen_recv(sock, buffer, sizeof(buffer))) == 0)
+		{
+		    if (DOTLINE(buffer))
+			break;
 #ifdef SSL_ENABLE
-               if (strstr(buffer, "STLS"))
-                   has_ssl = TRUE;
+		    if (strstr(buffer, "STLS"))
+			has_ssl = TRUE;
 #endif /* SSL_ENABLE */
 #if defined(GSSAPI)
-		if (strstr(buffer, "GSSAPI"))
-		    has_gssapi = TRUE;
+		    if (strstr(buffer, "GSSAPI"))
+			has_gssapi = TRUE;
 #endif /* defined(GSSAPI) */
 #if defined(KERBEROS_V4)
-		if (strstr(buffer, "KERBEROS_V4"))
-		    has_kerberos = TRUE;
+		    if (strstr(buffer, "KERBEROS_V4"))
+			has_kerberos = TRUE;
 #endif /* defined(KERBEROS_V4)  */
 #ifdef OPIE_ENABLE
-		if (strstr(buffer, "X-OTP"))
-		    has_otp = TRUE;
+		    if (strstr(buffer, "X-OTP"))
+			has_otp = TRUE;
 #endif /* OPIE_ENABLE */
-		if (strstr(buffer, "CRAM-MD5"))
-		    has_cram = TRUE;
+		    if (strstr(buffer, "CRAM-MD5"))
+			has_cram = TRUE;
+		}
+	    }
+	    /* we are in STAGE_GETAUTH! */
+	    else if (ok == PS_AUTHFAIL ||
+		/* Some servers directly close the socket. However, if we
+		 * have already authenticated before, then a previous CAPA
+		 * must have succeeded. In that case, treat this as a
+		 * genuine socket error and do not change the auth method.
+		 */
+		(ok == PS_SOCKET && !ctl->wehaveauthed))
+	    {
+		ctl->server.authenticate = A_PASSWORD;
+		/* repoll immediately */
+		ok = PS_REPOLL;
+		break;
 	    }
 	}
 
 #ifdef SSL_ENABLE
-       if (has_ssl &&
-#if INET6_ENABLE
-           ctl->server.service && (strcmp(ctl->server.service, "pop3s"))
-#else /* INET6_ENABLE */
-           ctl->server.port != 995
-#endif /* INET6_ENABLE */
-           )
-       {
-           char *realhost;
+	if (has_ssl
+	    && !ctl->use_ssl
+	    && (ctl->server.authenticate == A_ANY))
+	{
+	    char *realhost;
 
-           realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;           gen_transact(sock, "STLS");
-           if (SSLOpen(sock,ctl->sslcert,ctl->sslkey,ctl->sslproto,ctl->sslcertck, ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1)
-           {
-               report(stderr,
-                      GT_("SSL connection failed.\n"));
-               return(PS_AUTHFAIL);
-           }
-       }
+	   realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
+           gen_transact(sock, "STLS");
+	   if (SSLOpen(sock,ctl->sslcert,ctl->sslkey,ctl->sslproto,ctl->sslcertck, ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1)
+	   {
+	       report(stderr,
+		       GT_("SSL connection failed.\n"));
+		return(PS_AUTHFAIL);
+	    }
+	}
 #endif /* SSL_ENABLE */
 
 	/*
@@ -309,6 +321,32 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 
 	/* ordinary validation, no one-time password or RPA */ 
 	gen_transact(sock, "USER %s", ctl->remotename);
+
+#if OPIE_ENABLE
+	/* see RFC1938: A One-Time Password System */
+	if (challenge = strstr(lastok, "otp-")) {
+	  char response[OPIE_RESPONSE_MAX+1];
+	  int i;
+
+	  i = opiegenerator(challenge, !strcmp(ctl->password, "opie") ? "" : ctl->password, response);
+	  if ((i == -2) && !run.poll_interval) {
+	    char secret[OPIE_SECRET_MAX+1];
+	    fprintf(stderr, GT_("Secret pass phrase: "));
+	    if (opiereadpass(secret, sizeof(secret), 0))
+	      i = opiegenerator(challenge,  secret, response);
+	    memset(secret, 0, sizeof(secret));
+	  };
+
+	  if (i) {
+	    ok = PS_ERROR;
+	    break;
+	  };
+
+	  ok = gen_transact(sock, "PASS %s", response);
+	  break;
+	}
+#endif /* OPIE_ENABLE */
+
 	strcpy(shroud, ctl->password);
 	ok = gen_transact(sock, "PASS %s", ctl->password);
 	shroud[0] = '\0';

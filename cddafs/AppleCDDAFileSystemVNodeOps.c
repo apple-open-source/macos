@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -87,6 +90,9 @@ extern int		atoi __P		( ( const char * ) );								// Kernel already includes a 
 
 static SInt32
 AddDirectoryEntry ( UInt32 nodeID, UInt8 type, const char * name, struct uio * uio );
+
+static void
+CDDA_IODone ( struct buf * bufferPtr );
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -2039,20 +2045,20 @@ struct vop_strategy_args {
 	if ( bufferPtr->b_lblkno == 0 )
 	{
 		
-		kern_return_t		kret		= 0;
-		vm_offset_t			vmOffsetPtr	= 0;
-				
+		kern_return_t		kret			= 0;
+		vm_offset_t			vmOffsetPtr		= 0;
+		struct buf *		newBufferPtr	= NULL;
+		
 		// Map the physical page into the kernel address space
 		kret = kernel_upl_map ( kernel_map, bufferPtr->b_pagelist, &vmOffsetPtr );
 		
 		// If we got an error or the vmOffsetPtr is zero, panic for now
-		if ( kret != KERN_SUCCESS || vmOffsetPtr == 0 )
+		if ( ( kret != KERN_SUCCESS ) || ( vmOffsetPtr == 0 ) )
 		{
-		
+			
 			panic ( "CDDA_Strategy: error mapping buffer into kernel space!" );
-		
+			
 		}
-		
 		
 		// Copy the header data
 		bcopy ( &cddaNodePtr->u.file.aiffHeader.u.alignedHeader.filler,
@@ -2065,47 +2071,99 @@ struct vop_strategy_args {
 		// If we got an error, panic for now
 		if ( kret != KERN_SUCCESS )
 		{
-		
+			
 			panic ( "CDDA_Strategy: error unmapping buffer from kernel space!" );
-		
+			
 		}
 		
+		// Make our own buf.
+		MALLOC ( newBufferPtr, struct buf *, sizeof ( struct buf ), M_TEMP, M_WAITOK );
+		
+		// Copy over the contents of the original buf
+		bcopy ( bufferPtr, newBufferPtr, sizeof ( struct buf ) );
+		
 		// adjust the count since we just moved some data into the page
-		bufferPtr->b_bcount 	-= headerSize;
+		newBufferPtr->b_bcount 	-= headerSize;
 		
 		// Set ioVectorPtr to the address of the first vector
-		ioVectorPtr 			= ( struct iovec * ) bufferPtr->b_vectorlist;
+		ioVectorPtr 			= ( struct iovec * ) newBufferPtr->b_vectorlist;
 		ioVectorPtr->iov_base	+= headerSize;	// Adjust the base pointer
 		ioVectorPtr->iov_len	-= headerSize;	// Adjust the length of the buffer
-
+		
+		// Set the completion routine
+		newBufferPtr->b_iodone = ( void * ) CDDA_IODone;
+		
+		// Make sure to set the B_CALL and B_ASYNC flags
+		newBufferPtr->b_flags |= (B_CALL | B_ASYNC);
+		
+		// Set the original bp in the real_bp field
+		newBufferPtr->b_real_bp = bufferPtr;
+		
+		// Get the block device
+		vNodePtr 				= cddaNodePtr->blockDeviceVNodePtr;
+		newBufferPtr->b_dev 	= vNodePtr->v_specinfo->si_rdev;	
+		
+		// Use the new buffer for the I/O
+		strategyArgsPtr->a_bp = newBufferPtr;
+		
 	}
 	
 	else
 	{
-	
+		
 		// If we get here, they weren't lookin at the first logical block (PAGE_SIZE), so we know that
 		// we've already handled the header. Adjust the physical block to account for the
 		// header's size (the first few physical blocks were faked by the AIFF-C header)
 		bufferPtr->b_blkno -= headerSize / kAppleCDDABlockSize;
-	
+		
+		// Get the block device
+		vNodePtr 			= cddaNodePtr->blockDeviceVNodePtr;
+		bufferPtr->b_dev 	= vNodePtr->v_specinfo->si_rdev;
+		
 	}
 	
 	// At this point, we've either moved the header data and need to fill the rest of one
 	// page, or we haven't moved any data, but we've adjusted the physical block number so
 	// that we grab the correct physical block from the disc. Whichever is the case, all
 	// we do is pass it along to the device's strategy routine to fill whatever data needs
-	// to be filled in the page.
+	// to be filled in the page.	
 	
-	// Get the block device
-	vNodePtr 			= cddaNodePtr->blockDeviceVNodePtr;
-	bufferPtr->b_dev 	= vNodePtr->v_specinfo->si_rdev;	
-		
 	// Call the strategy routine on the block device
 	error = VOCALL ( vNodePtr->v_op, VOFFSET ( vop_strategy ), strategyArgsPtr );
 	
 	DebugLog ( ( "CDDA_Strategy: exiting with error = %d.\n", error ) );
 	
 	return error;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	CDDA_IODone - I/O completion routine
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+static void
+CDDA_IODone ( struct buf * bufferPtr )
+{
+	
+	struct buf * 	originalBufferPtr 	= NULL;
+	
+	originalBufferPtr = bufferPtr->b_real_bp;
+	
+	if ( bufferPtr->b_flags & B_ERROR )
+	{
+		
+		originalBufferPtr->b_error	= bufferPtr->b_error;
+		originalBufferPtr->b_flags	|= B_ERROR;
+		
+	}
+	
+	originalBufferPtr->b_resid = bufferPtr->b_resid;
+	
+	biodone ( originalBufferPtr );
+		
+	// Free our own buf.
+	FREE ( bufferPtr, M_TEMP );
 	
 }
 

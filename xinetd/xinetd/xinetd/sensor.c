@@ -176,7 +176,7 @@ static void scrub_global_access_list( void )
 	 if (stored_time == -1)   /* never let them off   */
 	    continue;
 
-	 if (difftime(nowtime, (time_t)stored_time) > 0.0)
+	 if (difftime(nowtime, (time_t)stored_time) >= 0.0)
 	 {
 	    __pset_pointer ptr;
 

@@ -34,8 +34,8 @@ extern "C" {
 
 #include "ssl.h"
 #include "sslPriv.h"
-#include "sslctx.h"
-#include "sslrec.h"
+#include "sslContext.h"
+#include "sslRecord.h"
 #include "cryptType.h"
 
 /***
@@ -43,28 +43,28 @@ extern "C" {
  ***/
 
 /* unpack, decrypt, validate one record */
-typedef SSLErr (*decryptRecordFcn) (
+typedef OSStatus (*decryptRecordFcn) (
 	UInt8 type, 
 	SSLBuffer *payload, 
 	SSLContext *ctx);
 	
 /* pack, encrypt, mac, queue one outgoing record */
-typedef SSLErr (*writeRecordFcn) (
+typedef OSStatus (*writeRecordFcn) (
 	SSLRecord rec, 
 	SSLContext *ctx);
 	
 /* initialize a per-CipherContext HashHmacContext for use in MACing each record */
-typedef SSLErr (*initMacFcn) (
+typedef OSStatus (*initMacFcn) (
 	CipherContext *cipherCtx,		// macRef, macSecret valid on entry
 									// macCtx valid on return
 	SSLContext *ctx);
 	
 /* free per-CipherContext HashHmacContext */
-typedef SSLErr (*freeMacFcn) (
+typedef OSStatus (*freeMacFcn) (
 	CipherContext *cipherCtx);
 	
 /* compute MAC on one record */
-typedef SSLErr (*computeMacFcn) (
+typedef OSStatus (*computeMacFcn) (
 	UInt8 type, 
 	SSLBuffer data, 			
 	SSLBuffer mac, 					// caller mallocs data
@@ -72,12 +72,12 @@ typedef SSLErr (*computeMacFcn) (
 	sslUint64 seqNo, 
 	SSLContext *ctx);
 	
-typedef SSLErr (*generateKeyMaterialFcn) (
+typedef OSStatus (*generateKeyMaterialFcn) (
 	SSLBuffer key, 					// caller mallocs and specifies length of
 									//   required key material here
 	SSLContext *ctx);
 
-typedef SSLErr (*generateExportKeyAndIvFcn) (
+typedef OSStatus (*generateExportKeyAndIvFcn) (
 	SSLContext *ctx,				// clientRandom, serverRandom valid
 	const SSLBuffer clientWriteKey,
 	const SSLBuffer serverWriteKey,
@@ -90,17 +90,17 @@ typedef SSLErr (*generateExportKeyAndIvFcn) (
  * On entry: clientRandom, serverRandom, preMasterSecret valid
  * On return: masterSecret valid
  */
-typedef SSLErr (*generateMasterSecretFcn) (
+typedef OSStatus (*generateMasterSecretFcn) (
 	SSLContext *ctx);
 	
-typedef SSLErr (*computeFinishedMacFcn) (
+typedef OSStatus (*computeFinishedMacFcn) (
 	SSLContext *ctx,
 	SSLBuffer finished, 		// output - mallocd by caller 
 	SSLBuffer shaMsgState,		// clone of running digest of all handshake msgs
 	SSLBuffer md5MsgState, 		// ditto
 	Boolean isServer);
 
-typedef SSLErr (*computeCertVfyMacFcn) (
+typedef OSStatus (*computeCertVfyMacFcn) (
 	SSLContext *ctx,
 	SSLBuffer finished, 		// output - mallocd by caller 
 	SSLBuffer shaMsgState,		// clone of running digest of all handshake msgs
@@ -124,7 +124,7 @@ extern const SslTlsCallouts	Ssl3Callouts;
 extern const SslTlsCallouts	Tls1Callouts;
 
 /* one callout routine used in common (for now) */
-SSLErr ssl3WriteRecord(
+OSStatus ssl3WriteRecord(
 	SSLRecord rec, 
 	SSLContext *ctx);
 

@@ -120,18 +120,18 @@ msgstr "krb5_sendauth: %s [server øíká '%*s'] \n"
 #: driver.c:1510
 #, c-format
 msgid ""
-"Subject: Fetchmail oversized-messages warning.\r\n"
-"\r\n"
+"Subject: Fetchmail oversized-messages warning.\n"
+"\n"
 "The following oversized messages remain on the mail server %s:"
 msgstr ""
-"Subject: fetchmail: varování kvùli pøíli¹ veliké zprávì\r\n"
-"\r\n"
+"Subject: fetchmail: varování kvùli pøíli¹ veliké zprávì\n"
+"\n"
 "Následující zprávy zùstanou kvùli pøíli¹né velikosti na serveru %s:"
 
 #: driver.c:1528
 #, c-format
-msgid "\t%d msg %d octets long skipped by fetchmail.\r\n"
-msgstr "\t%d. zpráva o délce %d v bajtech byla fetchmailem pøeskoèena.\r\n"
+msgid "\t%d msg %d octets long skipped by fetchmail.\n"
+msgstr "\t%d. zpráva o délce %d v bajtech byla fetchmailem pøeskoèena.\n"
 
 #: driver.c:1595
 msgid "SIGPIPE thrown from an MDA or a stream socket error\n"
@@ -163,30 +163,30 @@ msgid "timeout after %d seconds.\n"
 msgstr "Vypr¹el èas (poèet vteøin: %d).\n"
 
 #: driver.c:1631
-msgid "Subject: fetchmail sees repeated timeouts\r\n"
-msgstr "Vìc: opakovanì vypr¹el èas\r\n"
+msgid "Subject: fetchmail sees repeated timeouts\n"
+msgstr "Vìc: opakovanì vypr¹el èas\n"
 
 #: driver.c:1633
 #, c-format
 msgid ""
 "Fetchmail saw more than %d timeouts while attempting to get mail from "
-"%s@%s.\r\n"
-msgstr "Více ne¾ %d. vypr¹el èas pøi pokusu stáhnout po¹tu z %s@%s.\r\n"
+"%s@%s.\n"
+msgstr "Více ne¾ %d. vypr¹el èas pøi pokusu stáhnout po¹tu z %s@%s.\n"
 
 #: driver.c:1638
 msgid ""
-"This could mean that your mailserver is stuck, or that your SMTP\r\n"
-"server is wedged, or that your mailbox file on the server has been\r\n"
-"corrupted by a server error.  You can run `fetchmail -v -v' to\r\n"
-"diagnose the problem.\r\n"
-"\r\n"
-"Fetchmail won't poll this mailbox again until you restart it.\r\n"
+"This could mean that your mailserver is stuck, or that your SMTP\n"
+"server is wedged, or that your mailbox file on the server has been\n"
+"corrupted by a server error.  You can run `fetchmail -v -v' to\n"
+"diagnose the problem.\n"
+"\n"
+"Fetchmail won't poll this mailbox again until you restart it.\n"
 msgstr ""
-"To mù¾e znamenat, ¾e vá¹ po¹tovní server je mimo provoz, nebo SMTP démon\r\n"
-"je nedostupný, nebo schránka na serveru byla po¹kozena\r\n"
-"chybou serveru. Problém mù¾ete identifikovat pøíkazem `fetchmail -v -v'.\r\n"
-"\r\n"
-"Fetchmail ji¾ nebude vybírat z této schránky, dokud jej znovu nespustíte.\r\n"
+"To mù¾e znamenat, ¾e vá¹ po¹tovní server je mimo provoz, nebo SMTP démon\n"
+"je nedostupný, nebo schránka na serveru byla po¹kozena\n"
+"chybou serveru. Problém mù¾ete identifikovat pøíkazem `fetchmail -v -v'.\n"
+"\n"
+"Fetchmail ji¾ nebude vybírat z této schránky, dokud jej znovu nespustíte.\n"
 
 #: driver.c:1672
 #, c-format
@@ -226,12 +226,12 @@ msgstr "neznámá chyba DNS %d"
 #: driver.c:1750
 #, c-format
 msgid ""
-"Subject: Fetchmail unreachable-server warning.\r\n"
-"\r\n"
+"Subject: Fetchmail unreachable-server warning.\n"
+"\n"
 "Fetchmail could not reach the mail server %s:"
 msgstr ""
-"Subject: fetchmail: varování kvùli nedostupnosti serveru\r\n"
-"\r\n"
+"Subject: fetchmail: varování kvùli nedostupnosti serveru\n"
+"\n"
 "Nepodaøilo se navázat spojení se serverem %s:"
 
 #: driver.c:1774
@@ -254,58 +254,58 @@ msgid "Authorization failure on %s@%s%s\n"
 msgstr "Chyba autorizace pro %s@%s%s\n"
 
 #: driver.c:1849
-msgid "Subject: fetchmail authentication failed\r\n"
-msgstr "Vìc: autentizace fetchmailu se nezdaøila\r\n"
+msgid "Subject: fetchmail authentication failed\n"
+msgstr "Vìc: autentizace fetchmailu se nezdaøila\n"
 
 #: driver.c:1851
 #, c-format
-msgid "Fetchmail could not get mail from %s@%s.\r\n"
-msgstr "Fetchmail nemohl stáhnout po¹tu z %s@%s.\r\n"
+msgid "Fetchmail could not get mail from %s@%s.\n"
+msgstr "Fetchmail nemohl stáhnout po¹tu z %s@%s.\n"
 
 #: driver.c:1855
 msgid ""
-"The attempt to get authorization failed.\r\n"
-"Since we have already succeeded in getting authorization for this\r\n"
-"connection, this is probably another failure mode (such as busy server)\r\n"
-"that fetchmail cannot distinguish because the server didn't send a useful\r\n"
-"error message.\r\n"
-"\r\n"
-"However, if you HAVE changed you account details since starting the\r\n"
-"fetchmail daemon, you need to stop the daemon, change your configuration\r\n"
-"of fetchmail, and then restart the daemon.\r\n"
-"\r\n"
-"The fetchmail daemon will continue running and attempt to connect\r\n"
-"at each cycle.  No future notifications will be sent until service\r\n"
+"The attempt to get authorization failed.\n"
+"Since we have already succeeded in getting authorization for this\n"
+"connection, this is probably another failure mode (such as busy server)\n"
+"that fetchmail cannot distinguish because the server didn't send a useful\n"
+"error message.\n"
+"\n"
+"However, if you HAVE changed you account details since starting the\n"
+"fetchmail daemon, you need to stop the daemon, change your configuration\n"
+"of fetchmail, and then restart the daemon.\n"
+"\n"
+"The fetchmail daemon will continue running and attempt to connect\n"
+"at each cycle.  No future notifications will be sent until service\n"
 "is restored."
 msgstr ""
-"Autorizace se nezdaøila.\r\n"
-"Jeliko¾ toto spojení ji¾ bylo jednou úspì¹nì autorizováno, tak se zøejmì\r\n"
-"jedná o jinou chybu (napø. mù¾e být zaneprázdnìn server), kterou fetchmail\r\n"
-"nemù¾e identifikovat, proto¾e server nezaslal jednoznaèné chybové hlá¹ení.\r\n"
-"Pokud jste v¹ak po spu¹tìní fetchmail démona zmìnil nastavení va¹eho úètu,\r\n"
-"pak musíte zmìnit konfigurace fetchmailu a poté jej restartovat.\r\n"
-"Fetchmail démon bude pokraèovat v èinnosti a v ka¾dém cyklu se pokusí navázat\r\n"
-"spojení se serverem. ®ádná dal¹í upozornìní nebudou do obnovení slu¾by\r\n"
+"Autorizace se nezdaøila.\n"
+"Jeliko¾ toto spojení ji¾ bylo jednou úspì¹nì autorizováno, tak se zøejmì\n"
+"jedná o jinou chybu (napø. mù¾e být zaneprázdnìn server), kterou fetchmail\n"
+"nemù¾e identifikovat, proto¾e server nezaslal jednoznaèné chybové hlá¹ení.\n"
+"Pokud jste v¹ak po spu¹tìní fetchmail démona zmìnil nastavení va¹eho úètu,\n"
+"pak musíte zmìnit konfigurace fetchmailu a poté jej restartovat.\n"
+"Fetchmail démon bude pokraèovat v èinnosti a v ka¾dém cyklu se pokusí navázat\n"
+"spojení se serverem. ®ádná dal¹í upozornìní nebudou do obnovení slu¾by\n"
 "zasílána."
 
 #: driver.c:1870
 msgid ""
-"The attempt to get authorization failed.\r\n"
-"This probably means your password is invalid, but some servers have\r\n"
-"other failure modes that fetchmail cannot distinguish from this\r\n"
-"because they don't send useful error messages on login failure.\r\n"
-"\r\n"
-"The fetchmail daemon will continue running and attempt to connect\r\n"
-"at each cycle.  No future notifications will be sent until service\r\n"
+"The attempt to get authorization failed.\n"
+"This probably means your password is invalid, but some servers have\n"
+"other failure modes that fetchmail cannot distinguish from this\n"
+"because they don't send useful error messages on login failure.\n"
+"\n"
+"The fetchmail daemon will continue running and attempt to connect\n"
+"at each cycle.  No future notifications will be sent until service\n"
 "is restored."
 msgstr ""
-"Autorizace se nezdaøila.\r\n"
-"To pravdìpodobnì znamená, ¾e va¹e heslo je nesprávné, ale mù¾e se jednat\r\n"
+"Autorizace se nezdaøila.\n"
+"To pravdìpodobnì znamená, ¾e va¹e heslo je nesprávné, ale mù¾e se jednat\n"
 "i o jinou chybu, nebo» nìkteré servery nezasílají jednoznaèná chybová "
-"hlá¹ení.\r\n"
+"hlá¹ení.\n"
 "Fetchmail démon bude pokraèovat v èinnosti a v ka¾dém cyklu se pokusí "
-"navázat\r\n"
-"spojení se serverem. ®ádná dal¹í upozornìní nebudou do obnovení slu¾by\r\n"
+"navázat\n"
+"spojení se serverem. ®ádná dal¹í upozornìní nebudou do obnovení slu¾by\n"
 "zasílána."
 
 #: driver.c:1883
@@ -319,17 +319,17 @@ msgid "Authorization OK on %s@%s\n"
 msgstr "Úspì¹ná autorizace pro %s@%s\n"
 
 #: driver.c:1913
-msgid "Subject: fetchmail authentication OK\r\n"
-msgstr "Vìc: úspì¹ná autentizace fetchmailu\r\n"
+msgid "Subject: fetchmail authentication OK\n"
+msgstr "Vìc: úspì¹ná autentizace fetchmailu\n"
 
 #: driver.c:1915
 #, c-format
-msgid "Fetchmail was able to log into %s@%s.\r\n"
-msgstr "Fetchmail se úspì¹nì pøihlásil k %s@%s.\r\n"
+msgid "Fetchmail was able to log into %s@%s.\n"
+msgstr "Fetchmail se úspì¹nì pøihlásil k %s@%s.\n"
 
 #: driver.c:1919
-msgid "Service has been restored.\r\n"
-msgstr "Slu¾ba byla obnovena.\r\n"
+msgid "Service has been restored.\n"
+msgstr "Slu¾ba byla obnovena.\n"
 
 #: driver.c:1950
 #, c-format
@@ -2209,11 +2209,11 @@ msgstr "Na LMTP pøíkaz EOM neoèekávanì pøi¹la jiná odpovìï (%s) ne¾ 503\n"
 
 #: sink.c:1161
 msgid ""
-"--\r\n"
-"\t\t\t\tThe Fetchmail Daemon\r\n"
+"--\n"
+"\t\t\t\tThe Fetchmail Daemon\n"
 msgstr ""
-"--\r\n"
-"\t\t\t\tFetchmail démon\r\n"
+"--\n"
+"\t\t\t\tFetchmail démon\n"
 
 #: socket.c:99 socket.c:125
 msgid "fetchmail: malloc failed\n"
