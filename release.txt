@@ -1,4 +1,4 @@
-# Mac OS X 10.1 5G64
+# Mac OS X 10.1.1 5M45
 AppleADBButtons	2.2	Other
 AppleADBDisplay	1.1	Other
 AppleADBKeyboard	2.3	Other
@@ -12,13 +12,13 @@ AppleHeathrow	1.1d1	Other
 AppleI2C	1.0.1d3.A	Other
 AppleI386PCI	1	Other
 AppleIntel8255x	2	Other
-AppleKeyLargo	1.1d5	Other
-AppleMESH	1.3	Other
+AppleKeyLargo	1.1.1d2	Other
+AppleMESH	1.6	Other
 AppleMPIC	1.1	Other
 AppleMacRISC2PE	1_1d7	Other
 AppleMacRiscPCI	1	Other
 AppleMediaBay	1.0.0d6.A	Other
-AppleOnboardAudio	1.5f8	Other
+AppleOnboardAudio	1.5.2	Other
 ApplePS2Controller	2	Other
 ApplePS2Keyboard	3	Other
 ApplePS2Mouse	3	Other
@@ -38,18 +38,18 @@ IOATAPIProtocolTransport	28	Other
 IOAudioFamily	1.1fc9	Other
 IOCDStorageFamily	10	Other
 IODVDStorageFamily	4	Other
-IOFWDVComponents	22	Other
-IOFireWireFamily	37	Other
-IOFireWireSBP2	1.21	Other
+IOFWDVComponents	25	Other
+IOFireWireFamily	40	Other
+IOFireWireSBP2	23	Other
 IOFireWireSerialBusProtocolTransport	30	Other
-IOGraphics	16	Other
+IOGraphics	16.1	Other
 IOHIDFamily	8.3	Other
 IOKitTools	21	Other
 IOKitUser	67	Other
 IONetworkingFamily	4	Other
 IOPCCardFamily	16	Other
 IOPCIFamily	3	Other
-IOSCSIArchitectureModelFamily	1.1_35	Other
+IOSCSIArchitectureModelFamily	1.1_40	Other
 IOSerialFamily	11	Other
 IOStorageFamily	10	Other
 IOUSBMassStorageClass	1.1_12	Other
@@ -67,10 +67,10 @@ Liby	10	Other
 NKEMgr	5.3	Other
 OpenSSH	12	Other
 OpenSSL	7.1	Other
-Security	28	Other
+Security	29	Other
 SharedIP	27	Other
 Startup	78	Other
-SystemKEXT	8	Other
+SystemKEXT	9	Other
 UserNotification	11	Other
 adv_cmds	36	Other
 apache	647	Other
@@ -108,7 +108,7 @@ enscript	7	Other
 extenTools	17.3	Other
 fetchmail	4.1	Other
 file_cmds	46	Other
-files	370	Other
+files	371	Other
 flex	7	Other
 gcc	932.1	Other
 gdb	200	Other
@@ -141,7 +141,7 @@ pb_makefiles	114.4	Other
 pbx_jamfiles	71	Other
 perl	17.1	Other
 portmap	3	Other
-ppp	57	Other
+ppp	57.2	Other
 procmail	2	Other
 project_makefiles	124.4	Other
 rcs	10	Other
@@ -160,7 +160,7 @@ usertemplate	8	Other
 usrtemplate	10	Other
 vi	5.1	Other
 volfs	23	Other
-xnu	201	Other
+xnu	201.5	Other
 yacc	4	Other
 zlib	5	Other
 zsh	28	Other

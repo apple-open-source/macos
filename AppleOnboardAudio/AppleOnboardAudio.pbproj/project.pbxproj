@@ -385,7 +385,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleTexasAudio;
-				MODULE_VERSION = 1.5f4;
+				MODULE_VERSION = 1.5.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -410,7 +410,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleTexasAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleTexasAudio version 1.5, Copyright 2000 Apple Computer, Inc.</string>
+	<string>AppleTexasAudio version 1.5.1, Copyright 2000-2001 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -422,11 +422,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.5f4</string>
+	<string>1.5.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleTexasAudio</key>
@@ -2749,7 +2749,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleOnboardAudio;
-				MODULE_VERSION = 1.5f8;
+				MODULE_VERSION = 1.5.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2783,7 +2783,7 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleOnboardAudio</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleOnboardAudio 1.5, Copyright 2000 Apple Computer, Inc.</string>
+	<string>AppleOnboardAudio 1.5.1, Copyright 2000-2001 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2795,11 +2795,11 @@ AppleOnboardAudio version 1.0, Copyright 2000 Apple Computer, Inc.</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>aaud</string>
 	<key>CFBundleVersion</key>
-	<string>1.5f8</string>
+	<string>1.5.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>

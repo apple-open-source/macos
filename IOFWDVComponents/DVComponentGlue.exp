@@ -21,3 +21,5 @@ _IDHCancelPendingIO
 _IDHGetDeviceControl
 _IDHUpdateDeviceList
 _IDHGetDeviceTime
+_IDHSetFormat
+_IDHGetFormat

@@ -381,7 +381,7 @@ IOReturn
 IOSCSIPrimaryCommandsDevice::setAggressiveness ( UInt32 type, UInt32 minutes )
 {
 	
-	UInt32		numStateTransitions = 0;
+	UInt32	numStateTransitions = 0;
 		
 	STATUS_LOG ( ( "IOSCSIPrimaryCommandsDevice::setAggressiveness called\n" ) );
 	
@@ -390,7 +390,22 @@ IOSCSIPrimaryCommandsDevice::setAggressiveness ( UInt32 type, UInt32 minutes )
 		
 		STATUS_LOG ( ( "IOSCSIPrimaryCommandsDevice: setting idle timer to %ld min\n", minutes ) );
 		numStateTransitions = GetNumberOfPowerStateTransitions ( );
-				setIdleTimerPeriod ( minutes * ( kSecondsInAMinute / numStateTransitions ) );
+		if ( numStateTransitions != 0 )
+		{
+			
+			// Set the idle timer based on number of power state transitions
+			setIdleTimerPeriod ( minutes * ( kSecondsInAMinute / numStateTransitions ) );
+			
+		}
+		
+		else
+		{
+			
+			// The device has requested no transitions, don't do any
+			// (except System Sleep, which is unavoidable).
+			setIdleTimerPeriod ( 0 );
+			
+		}
 		
 	}
 	

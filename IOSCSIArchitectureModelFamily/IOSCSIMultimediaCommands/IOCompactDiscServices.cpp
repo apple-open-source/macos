@@ -70,12 +70,15 @@
 // plus 4 retries.
 #define kNumberRetries		4
 
+#define	super IOCDBlockStorageDevice
+OSDefineMetaClassAndStructors ( IOCompactDiscServices, IOCDBlockStorageDevice );
+
 // Structure for the asynch client data
 struct BlockServicesClientData
 {
 	// The object that owns the copy of this structure.
 	IOCompactDiscServices *		owner;
-
+	
 	// The request parameters provided by the client.
 	IOStorageCompletion			completionData;
 	IOMemoryDescriptor * 		clientBuffer;
@@ -97,10 +100,6 @@ struct BlockServicesClientData
 #endif	
 };
 typedef struct BlockServicesClientData	BlockServicesClientData;
-
-
-#define	super IOCDBlockStorageDevice
-OSDefineMetaClassAndStructors ( IOCompactDiscServices, IOCDBlockStorageDevice );
 
 
 bool
@@ -308,19 +307,22 @@ IOCompactDiscServices::AsyncReadWriteComplete ( void * 			clientData,
 	returnData 	= bsClientData->completionData;
 	owner 		= bsClientData->owner;
 	
-	if ((( status != kIOReturnNotAttached ) && ( status != kIOReturnOffline ) &&
-		( status != kIOReturnSuccess )) && ( bsClientData->retriesLeft > 0 ))
+	if ( ( ( status != kIOReturnNotAttached ) && ( status != kIOReturnOffline ) &&
+		 ( status != kIOReturnUnsupportedMode ) && ( status != kIOReturnSuccess ) ) &&
+		 ( bsClientData->retriesLeft > 0 ) )
 	{
+		
 		IOReturn 	requestStatus;
-
-		STATUS_LOG(("IOBlockStorageServices: AsyncReadWriteComplete; retry command\n"));
+		
+		STATUS_LOG ( ( "IOBlockStorageServices: AsyncReadWriteComplete; retry command\n" ) );
 		// An error occurred, but it is one on which the command should be retried.  Decrement
 		// the retry counter and try again.
 		bsClientData->retriesLeft--;
 		if ( bsClientData->clientReadCDCall == true )
 		{
+		
 #if (_USE_DATA_CACHING_)
-			requestStatus = owner->fProvider->AsyncReadCD( 
+			requestStatus = owner->fProvider->AsyncReadCD ( 
 											bsClientData->transferSegDesc,
 											bsClientData->transferStart,
 											bsClientData->transferCount,
@@ -328,7 +330,7 @@ IOCompactDiscServices::AsyncReadWriteComplete ( void * 			clientData,
 											bsClientData->clientSectorType,
 											clientData );
 #else
-			requestStatus = owner->fProvider->AsyncReadCD( 
+			requestStatus = owner->fProvider->AsyncReadCD (
 											bsClientData->clientBuffer, 
 											bsClientData->clientStartingBlock, 
 											bsClientData->clientRequestedBlockCount, 
@@ -337,28 +339,35 @@ IOCompactDiscServices::AsyncReadWriteComplete ( void * 			clientData,
 											clientData );
 #endif
 		}
+		
 		else
 		{
-			requestStatus = owner->fProvider->AsyncReadWrite( 
+			
+			requestStatus = owner->fProvider->AsyncReadWrite (
 											bsClientData->clientBuffer, 
 											bsClientData->clientStartingBlock, 
 											bsClientData->clientRequestedBlockCount, 
 											clientData );
+			
 		}
-
+		
 		if ( requestStatus != kIOReturnSuccess )
 		{
 			commandComplete = true;
 		}
+		
 		else
 		{
 			commandComplete = false;
 		}
+		
 	}
-
+	
 	if ( commandComplete == true )
 	{		
+
 #if (_USE_DATA_CACHING_)
+		
 		// Check to see if there was a temporary transfer buffer
 		if ( bsClientData->transferSegBuffer != NULL )
 		{
@@ -383,15 +392,16 @@ IOCompactDiscServices::AsyncReadWriteComplete ( void * 			clientData,
 			// Since the buffer is the entire size of the client's requested transfer ( not just the amount transferred), 
 			// make sure to release the whole allocation.
 			IOFree ( bsClientData->transferSegBuffer, ( bsClientData->clientRequestedBlockCount * _CACHE_BLOCK_SIZE_ ) );
+			
 		}
-
+		
 		// Make sure that the transfer completed successfully.
 		if ( status == kIOReturnSuccess )
 		{
 			
 			// Check to see if this was a Read CD call for a CDDA sector and if so,
 			// store cache data.
-			if (( bsClientData->clientReadCDCall == true ) && ( bsClientData->clientSectorType == kCDSectorTypeCDDA ))
+			if ( ( bsClientData->clientReadCDCall == true ) && ( bsClientData->clientSectorType == kCDSectorTypeCDDA ) )
 			{
 				
 				// Save the last blocks into the data cache
@@ -403,7 +413,7 @@ IOCompactDiscServices::AsyncReadWriteComplete ( void * 			clientData,
 				{
 					
 					UInt32	offset;
-						
+					
 					// Calculate the beginning of data to copy into cache.
 					offset = ( ( bsClientData->clientRequestedBlockCount - _CACHE_BLOCK_COUNT_ ) * _CACHE_BLOCK_SIZE_ );
 					( bsClientData->clientBuffer )->readBytes ( offset, owner->fDataCacheStorage, 
@@ -415,10 +425,12 @@ IOCompactDiscServices::AsyncReadWriteComplete ( void * 			clientData,
 				}
 				
 				IOSimpleLockUnlock ( owner->fDataCacheLock );
+			
 			}
+		
 		}
 #endif
-
+		
 		IOFree ( clientData, sizeof ( BlockServicesClientData ) );
 		
 		// Release the retain for this command.	
@@ -426,7 +438,9 @@ IOCompactDiscServices::AsyncReadWriteComplete ( void * 			clientData,
 		owner->release ( );
 		
 		IOStorage::complete ( returnData, status, actualByteCount );
+		
 	}
+	
 }
 
 

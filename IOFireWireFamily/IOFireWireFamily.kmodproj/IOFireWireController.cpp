@@ -367,8 +367,13 @@ IOReturn IOFireWireController::setPowerState( unsigned long powerStateOrdinal,
     
     // Reset bus if we're waking, not if we're starting up.
     if(powerStateOrdinal == 1 && res == IOPMAckImplied && fROMHeader[1] == kFWBIBBusName)
+	{
+		if ( kIOReturnSuccess != UpdateROM() )
+			IOLog(" %s %u: UpdateROM() got error\n", __FILE__, __LINE__ ) ;
+	
         fFWIM->resetBus();	// Don't do this on startup until Config ROM built.
-        
+	}
+	
     // Update power state, keep gate closed while we sleep.
     if(powerStateOrdinal == 0) {
         // Pretend we had a bus reset - we'll have a real one when we wake up.
@@ -527,7 +532,7 @@ void IOFireWireController::stop( IOService * provider )
 
     // Fake up disappearance of entire bus
     processBusReset();
-    
+        
     PMstop();
 
     if(fBusState == kAsleep) {
@@ -553,6 +558,29 @@ bool IOFireWireController::finalize( IOOptionBits options )
     res = IOService::finalize(options);
     return res;
 }
+
+// Override requestTerminate()
+// to send our custom kIOFWMessageServiceIsRequestingClose to clients
+bool IOFireWireController::requestTerminate( IOService * provider, IOOptionBits options )
+{
+    IOLog("IOFWControl::requestTerminate(%p, 0x%x)\n",
+        provider, options);
+    OSIterator *childIterator;
+    childIterator = getClientIterator();
+    if( childIterator) {
+        OSObject *child;
+        while( (child = childIterator->getNextObject())) {
+            IOFireWireDevice * found = OSDynamicCast(IOFireWireDevice, child);
+            if(found && !found->isInactive() && found->isOpen()) {
+                IOLog( "IOFireWireController : message request close device object %p\n", found);
+                // send our custom requesting close message
+                messageClient( kIOFWMessageServiceIsRequestingClose, found );
+            }
+        }
+    }
+    return IOService::requestTerminate(provider, options);
+}
+
 
 IOWorkLoop *IOFireWireController::getWorkLoop() const
 {
@@ -888,6 +916,12 @@ for(i=0; i<numOwnIDs; i++)
             return;
         }
     }
+    
+    // Store selfIDs
+    OSObject * prop = OSData::withBytes( fSelfIDs, (fRootNodeID+1) * sizeof(UInt32));
+    setProperty(gFireWireSelfIDs, prop);
+    prop->release();
+    
     buildTopology(false);
 
 #if (DEBUGGING_LEVEL > 0)
@@ -1045,10 +1079,12 @@ void IOFireWireController::finishedBusScan()
     }
 
 
-    fBusState = kWaitingPrune; 	// Indicate end of bus scan
-    fDelayedStateChangeCmd->reinit(1000 * kDevicePruneDelay, delayedStateChange, NULL); // One second
-    fDelayedStateChangeCmd->submit();
-
+    // Don't change to the waiting prune state if we're about to bus reset again anyway.
+    if(fBusState == kScanning) {
+        fBusState = kWaitingPrune; 	// Indicate end of bus scan
+        fDelayedStateChangeCmd->reinit(1000 * kDevicePruneDelay, delayedStateChange, NULL); // One second
+        fDelayedStateChangeCmd->submit();
+    }
     // Run all the commands that are waiting for reset processing to end
     IOFWCmdQ &resetQ(getAfterResetHandledQ());
     resetQ.executeQueue(true);
@@ -1503,16 +1539,22 @@ kprintf("Received packet 0x%x size %d\n", data, size);
 
 IOReturn IOFireWireController::getCycleTime(UInt32 &cycleTime)
 {
-    // No need to take workloop lock. What about if the hardware is sleeping?
-    return fFWIM->getCycleTime(cycleTime);
+    // Have to take workloop lock, in case the hardware is sleeping.
+    IOReturn res;
+    fPendingQ.fSource->closeGate();
+    res = fFWIM->getCycleTime(cycleTime);
+    fPendingQ.fSource->openGate();
+    return res;
 }
 
 IOReturn IOFireWireController::getBusCycleTime(UInt32 &busTime, UInt32 &cycleTime)
 {
-    // No need to take workloop lock, but need to do some work to fix wrap
+    // Have to take workloop lock, in case the hardware is sleeping.
     IOReturn res;
     UInt32 cycleSecs;
+    fPendingQ.fSource->closeGate();
     res = fFWIM->getBusCycleTime(busTime, cycleTime);
+    fPendingQ.fSource->openGate();
     if(res == kIOReturnSuccess) {
         // Bottom 7 bits of busTime should be same as top 7 bits of cycle time.
         // However, link only updates bus time every few seconds,
@@ -1940,7 +1982,7 @@ IOReturn IOFireWireController::resetBus()
         if(milliDelay < 2000) {
             if(fBusState == kWaitingPrune || fBusState == kWaitingScan)
                 fDelayedStateChangeCmd->cancel(kIOReturnAborted);
-
+                
             fBusState = kPendingReset;
             fDelayedStateChangeCmd->reinit(1000 * (2000-milliDelay), delayedStateChange, NULL);
             res = fDelayedStateChangeCmd->submit();

@@ -1,32 +1,40 @@
 /*
 	File:		IsochronousDataHandler.i
 
-	Contains:	The defines the client API to an Isochronous Data Handler, which is
-				a Component Manager based item.
-				
-				
-	Version:	xxx put version here xxx
+	Contains:	Component Manager based Isochronous Data Handler
+					
+	Copyright:	© 1997-2001 by Apple Computer, Inc., all rights reserved.
 
-	Copyright:	© 1997-1999 by Apple Computer, Inc., all rights reserved.
+		$Log: IsochronousDataHandler.i,v $
+		Revision 1.5  2001/10/05 16:46:32  wgulland
+		Add inputFormat to IDHDeviceStatus structure
+		
+		Revision 1.4  2001/09/27 00:43:29  wgulland
+		Keep retrying if starting write fails
+		
+		Revision 1.22  2001/04/26 21:20:26  kledzik
+		Switch to cvs style header comment
+		
 
-	File Ownership:
+	Old History:
 
-		DRI:				Sean Williams
-
-		Other Contact:		Richard Sepulveda
-
-		Technology:			Isochronous Data Handlers
-
-	Writers:
-
+		(ngk)	Nick Kledzik
+		(WG)	William Gulland
+		(dav)	Dave Chilson
 		(KW)	Kevin Williams
 		(jkl)	Jay Lloyd
 		(GDW)	George D. Wilson Jr.
 		(RS)	Richard Sepulveda
 		(SW)	Sean Williams
 
-	Change History (most recent first):
-
+		<21>	 4/17/01	WG		Remove incorrect exportset=IDHLib_10 for IDHGetDeviceTime
+		<20>	 4/17/01	ngk		Change uses of IDHNotificationProc to IDHNotificationUPP. Update
+									some usages of old syntax.
+		<19>	 4/17/01	WG		[2567324]  Added <nativeUPP,etc> for IDHNotificationProc Added
+									new X function IDHGetDeviceTime
+		<18>	12/20/00	dav		This is part of Quicktime, so the proper version set is
+									CarbonMultimedia_13
+		<17>	12/14/00	dav		[2567275]  Add CarbonMultimedia_13 export set
 		<16>	 12/7/99	RS		Added error code 'kIDHErrCallNotSupported' since all isoch calls
 									are not support in all implementations.
 		<15>	 12/7/99	jkl		Changed isocMediaType to isochMediaType. Added a default
@@ -57,7 +65,6 @@
 		 <1>	 6/11/99	SW		first checked in
 */
 
-
 %CPassThru "//";
 %CPassThru "// Check for Prior Inclusion of IsochronousDataHandler.r";
 %CPassThru "//	If this header is trying to be included via a Rez path, make it act";
@@ -75,15 +82,13 @@
 
 
 #include <MacTypes.i>
-#include <Dialogs.i>
 #include <MoviesFormat.i>
 #include <QuickTimeComponents.i>
 
 
  
  
-%TellEmitter "rez" "useNextEnum";
-enum
+enum <rez>
 {
 	kIDHComponentType				= 'ihlr',		// Component type
 	kIDHSubtypeDV					= 'dv  ',		// Subtype for DV (over FireWire)
@@ -94,8 +99,7 @@ enum
 //
 // Version of Isochronous Data Handler API
 //
-%TellEmitter "rez" "useNextEnum";
-enum
+enum <rez>
 {
 	kIDHInterfaceVersion1			= 0x0001,		// Initial relase (Summer '99)
 };
@@ -204,6 +208,15 @@ enum
 	kIDHDeviceIDEveryDevice		= 0xFFFFFFFF
 };
 
+//
+// Values for 5 bit STYPE part of CIP header
+enum
+{
+    kIDHDV_SD					= 0,
+    kIDHDV_SDL					= 1,
+    kIDHDV_HD					= 2,
+    kIDHDVCPro_25				= 0x1e
+};
 
 //
 //	Isoch Interval Atom Data
@@ -234,14 +247,14 @@ struct IDHDeviceStatus
 	PsuedoID		localNodeID;				//¥¥¥Êmay go in atoms 
 	SInt16			inputStandard;			// One of the QT input standards
 	Boolean			deviceActive;
+    UInt8			inputFormat;			// Expected STYPE of data from device
+    UInt32			outputFormats;			// Bitmask for supported STYPE values, if version > 0x200
 };
 
 //
 // Isochronous Data Handler Events
 //  
-
-typedef UInt32 IDHEvent;
-enum
+enum unsigned long IDHEvent
 {
 	kIDHEventInvalid			= 0,
 	
@@ -296,7 +309,7 @@ struct IDHGenericEvent
 struct IDHDeviceConnectionEvent
 {
 	IDHEventHeader	eventHeader;
-} ;
+};
 
 
 //
@@ -310,7 +323,10 @@ struct IDHDeviceIOEnableEvent
 };
 
 
-typedef extern OSStatus (*IDHNotificationProc)(IDHGenericEvent*	event, void* userData);
+typedef extern <nativeUPP, exportset=CarbonMultimedia_14>
+OSStatus (*IDHNotificationProcPtr)(IDHGenericEvent* event, void* userData);
+typedef IDHNotificationProcPtr IDHNotificationProc;	// old name
+#pragma UPPSuite emitUPPTypes
 
 struct IDHParameterBlock {
 	UInt32					reserved1;
@@ -318,7 +334,7 @@ struct IDHParameterBlock {
 	void*					buffer;
 	ByteCount				requestedCount;
 	ByteCount				actualCount;
-	IDHNotificationProc		completionProc;
+	IDHNotificationUPP		completionProc;
 	void*					refCon;
 	OSErr					result;
 };
@@ -333,62 +349,71 @@ struct IDHDimension {
 	Fixed 	y;
 };
 
+
 %TellEmitter "components" "prefix IDH";
 
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHGetDeviceList(ComponentInstance idh, QTAtomContainer* deviceList) = ComponentCall(1);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHGetDeviceConfiguration(ComponentInstance idh, QTAtomSpec* configurationID) = ComponentCall(2);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHSetDeviceConfiguration(ComponentInstance idh, const QTAtomSpec* configurationID) = ComponentCall(3);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHGetDeviceStatus(ComponentInstance idh, const QTAtomSpec* configurationID, IDHDeviceStatus* status) = ComponentCall(4);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHGetDeviceClock(ComponentInstance idh, Component* clock) = ComponentCall(5);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHOpenDevice(ComponentInstance idh, UInt32 permissions) = ComponentCall(6);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHCloseDevice(ComponentInstance idh) = ComponentCall(7);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHRead(ComponentInstance idh, IDHParameterBlock* pb) = ComponentCall(8);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHWrite(ComponentInstance idh, IDHParameterBlock* pb) = ComponentCall(9);
 
-pascal <exportset=IDHLib_10>
-ComponentResult IDHNewNotification(ComponentInstance idh, IDHDeviceID deviceID, IDHNotificationProc notificationProc, void* userData, IDHNotificationID* notificationID) = ComponentCall(10);
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
+ComponentResult IDHNewNotification(ComponentInstance idh, IDHDeviceID deviceID, IDHNotificationUPP notificationProc, void* userData, IDHNotificationID* notificationID) = ComponentCall(10);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHNotifyMeWhen(ComponentInstance idh, IDHNotificationID	notificationID, IDHEvent events) = ComponentCall(11);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHCancelNotification(ComponentInstance idh, IDHNotificationID notificationID)  = ComponentCall(12);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHDisposeNotification(ComponentInstance idh, IDHNotificationID notificationID) = ComponentCall(13);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHReleaseBuffer(ComponentInstance idh, IDHParameterBlock* pb) = ComponentCall(14);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHCancelPendingIO(ComponentInstance idh, IDHParameterBlock* pb) = ComponentCall(15);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHGetDeviceControl(ComponentInstance idh, ComponentInstance *deviceControl) = ComponentCall(16);										
-
-pascal <exportset=IDHLib_10>
+pascal <exportset=IDHLib_10, exportset=CarbonMultimedia_13>
 ComponentResult IDHUpdateDeviceList(ComponentInstance idh, QTAtomContainer* deviceList) = ComponentCall(17);
 
-pascal <exportset=IDHLib_10>
+pascal <exportset=CarbonMultimedia_14>
 ComponentResult IDHGetDeviceTime(ComponentInstance idh, TimeRecord* deviceTime) = ComponentCall(18);
+
+pascal <exportset=CarbonMultimedia_15>
+ComponentResult IDHSetFormat(ComponentInstance idh, UInt32 format) = ComponentCall(19);
+
+pascal <exportset=CarbonMultimedia_15>
+ComponentResult IDHGetFormat(ComponentInstance idh, UInt32 *format) = ComponentCall(20);
+
+
+#pragma UPPSuite emitAll
 
 %TellEmitter "components" "emitProcInfos";
 %TellEmitter "c" "emitComponentSelectors";

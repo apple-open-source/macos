@@ -523,6 +523,10 @@ private:
 	IOReturn	getHardwareMemoryMaps();
 	IOReturn	allocHdwAndChanMem();
 	IOReturn	doHBASelfTest();
+	IOReturn 	setPowerState(unsigned long powerStateOrdinal, IOService* whatDevice);
+	
+	void   		setSCSIActiveTermState(bool enableTermPower);
+	
 	void		initCP();
 
 	void 		interruptOccurred( IOInterruptEventSource *ies, int intCount );

@@ -21,6 +21,7 @@
  */
 
 #include <IOKit/IOMessage.h>
+#include <IOKit/firewire/IOFireWireLink.h>
 #include <IOKit/firewire/IOConfigDirectory.h>
 #include <IOKit/firewire/IOFireWireDevice.h>
 #include <IOKit/IODeviceTreeSupport.h>
@@ -117,9 +118,6 @@ IOReturn IOFireWireSBP2Target::message( UInt32 type, IOService *nub, void *arg )
 
     FWKLOG( ("IOFireWireSBP2Target : message 0x%x, arg 0x%08lx\n", type, arg) );
 
-	if( type != kIOMessageServiceIsTerminated )
-		messageClients( type, arg );
-
     res = IOService::message(type, nub, arg);
     if( kIOReturnUnsupported == res )
     {
@@ -137,6 +135,7 @@ IOReturn IOFireWireSBP2Target::message( UInt32 type, IOService *nub, void *arg )
 
             case kIOMessageServiceIsResumed:
                 FWKLOG( ( "IOFireWireSBP2Target : kIOMessageServiceIsResumed\n" ) );
+                configurePhysicalFilter();
                 res = kIOReturnSuccess;
                 break;
 
@@ -145,7 +144,8 @@ IOReturn IOFireWireSBP2Target::message( UInt32 type, IOService *nub, void *arg )
         }
     }
 
-    
+	if( type != kIOMessageServiceIsTerminated )
+		messageClients( type, arg );    
     
     return res;
 }
@@ -189,7 +189,7 @@ bool IOFireWireSBP2Target::handleOpen( IOService * forClient, IOOptionBits optio
             if( ok )
             {
                 fOpenFromLUNCount++;
-                ok = IOService::handleOpen( forClient, options, arg );
+                ok = IOService::handleOpen( this, options, arg );
                 FWKLOG(( "called open\n" ));
             }
         }
@@ -238,7 +238,7 @@ void IOFireWireSBP2Target::handleClose( IOService * forClient, IOOptionBits opti
 
             if( fOpenFromLUNCount == 0 ) // close if we're down to zero
             {
-                IOService::handleClose(forClient, options);
+                IOService::handleClose( this, options);
                 fProviderUnit->close(this, options);
                 FWKLOG(( "called close\n" ));
             }
@@ -650,4 +650,80 @@ bool IOFireWireSBP2Target::matchPropertyTable(OSDictionary * table)
 				compareProperty(table, gDevice_Type_Symbol);
 				
     return res;
+}
+
+void IOFireWireSBP2Target::setTargetFlags( UInt32 flags )
+{
+    fFlags = flags;
+    
+    // IOLog( "IOFireWireSBP2Target::setTargetFlags 0x%08lx\n", fFlags );
+    
+    configurePhysicalFilter();
+}
+
+UInt32 IOFireWireSBP2Target::getTargetFlags( void )
+{
+    return fFlags;
+}
+
+void IOFireWireSBP2Target::configurePhysicalFilter( void )
+{
+    bool disablePhysicalAccess = false;
+    
+    //
+    // determine if we should turn off physical access
+    //
+    
+    if( fFlags & kIOFWSBP2FailsOnAckBusy )
+    {
+        IOFireWireController * controller = fProviderUnit->getController();
+        IOFireWireLink * fwim = controller->getLink();
+ 
+        UInt32 deviceCount = 0;
+		
+        // get self id property
+        OSData * data = (OSData*)controller->getProperty( "FireWire Self IDs" );
+        
+        // get self id data
+        UInt32 	numIDs = data->getLength() / sizeof(UInt32);
+        UInt32 	*IDs = (UInt32*)data->getBytesNoCopy();
+        
+        // count nodes on bus
+        UInt32 	i;
+        for( i = 0; i < numIDs; i++ )
+        {
+            UInt32 current_id = IDs[i];
+            // count all type zero selfid with the linkon bit set
+            if( (current_id & kFWSelfIDPacketType) == 0 &&
+                (current_id & kFWSelfID0L) )
+            {
+                deviceCount++;
+            }
+        }
+        
+		// if PhysicalUnitBlocksOnReads and more than one device on the bus, 
+        // then turn off the physical unit for this node
+        if( (deviceCount > 2) && (fwim->getProperty( "PhysicalUnitBlocksOnReads" ) != NULL) )
+        {
+            disablePhysicalAccess = true;
+        }
+	}
+    
+    //
+    // turn on or off physical access
+    //
+    
+    if( disablePhysicalAccess )
+    {
+		FWKLOG(( "IOFireWireSBP2Target::configurePhysicalFilter disabling physical access for unit 0x%08lx\n", fProviderUnit ));
+        UInt32 flags = fProviderUnit->getNodeFlags();
+        fProviderUnit->setNodeFlags( flags | kIOFWDisableAllPhysicalAccess );
+    }
+    else
+    {
+		FWKLOG(( "IOFireWireSBP2Target::configurePhysicalFilter enabling physical access for unit 0x%08lx\n", fProviderUnit ));
+        UInt32 flags = fProviderUnit->getNodeFlags();
+        fProviderUnit->setNodeFlags( flags & (~kIOFWDisableAllPhysicalAccess) );
+    }
+    
 }

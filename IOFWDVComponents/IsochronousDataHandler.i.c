@@ -1,25 +1,21 @@
 /*
      File:       IsochronousDataHandler.i.c
  
-     Contains:   The defines the client API to an Isochronous Data Handler, which is
+     Contains:   Component Manager based Isochronous Data Handler
  
-     Version:    xxx put version here xxx
- 
-     DRI:        Sean Williams
- 
-     Copyright:  © 1997-2000 by Apple Computer, Inc., all rights reserved.
+     Copyright:  © 1997-2001 by Apple Computer, Inc., all rights reserved.
  
      Warning:    *** APPLE INTERNAL USE ONLY ***
                  This file may contain unreleased API's
  
      BuildInfo:  Built by:            wgulland
-                 On:                  Thu Sep 21 14:47:29 2000
-                 With Interfacer:     3.0d20e4 (Mac OS X for PowerPC)
+                 On:                  Wed Oct  3 13:29:45 2001
+                 With Interfacer:     3.0d35   (Mac OS X for PowerPC)
                  From:                IsochronousDataHandler.i
-                     Revision:        16
-                     Dated:           12/7/99
-                     Last change by:  RS
-                     Last comment:    Added error code 'kIDHErrCallNotSupported' since all isoch calls
+                     Revision:        1.4
+                     Dated:           2001/09/27 00:43:29
+                     Last change by:  wgulland
+                     Last comment:    Keep retrying if starting write fails
  
      Bugs:       Report bugs to Radar component "System Interfaces", "Latest"
                  List the version information (from above) in the Problem Description.
@@ -27,10 +23,7 @@
 */
 
 #include <Carbon/Carbon.h>
-
-//#include <MixedMode.h>
-//#include <Components.h>
-#include "IsochronousDataHandler.h"
+#include <IsochronousDataHandler.h>
 #if MP_SUPPORT
 	#include "MPMixedModeSupport.h"
 #endif
@@ -480,7 +473,7 @@ DEFINE_API( ComponentResult ) IDHWrite(ComponentInstance idh, IDHParameterBlock*
 
 
 #ifndef TRAPGLUE_NO_COMPONENT_CALL
-DEFINE_API( ComponentResult ) IDHNewNotification(ComponentInstance idh, IDHDeviceID deviceID, IDHNotificationProc notificationProc, void* userData, IDHNotificationID* notificationID)
+DEFINE_API( ComponentResult ) IDHNewNotification(ComponentInstance idh, IDHDeviceID deviceID, IDHNotificationUPP notificationProc, void* userData, IDHNotificationID* notificationID)
 {
 	#if PRAGMA_STRUCT_ALIGN
 	  #pragma options align=mac68k
@@ -495,7 +488,7 @@ DEFINE_API( ComponentResult ) IDHNewNotification(ComponentInstance idh, IDHDevic
 		short                          componentWhat;
 		IDHNotificationID*             notificationID;
 		void*                          userData;
-		IDHNotificationProc            notificationProc;
+		IDHNotificationUPP             notificationProc;
 		IDHDeviceID                    deviceID;
 		ComponentInstance              idh;
 	};
@@ -923,6 +916,104 @@ DEFINE_API( ComponentResult ) IDHGetDeviceTime(ComponentInstance idh, TimeRecord
 		return (ComponentResult)CallUniversalProc(CallComponentUPP, 0x000000F0, &myIDHGetDeviceTimeGluePB);
 	#else
 		return (ComponentResult)CallComponentDispatch( (ComponentParameters*)&myIDHGetDeviceTimeGluePB );
+	#endif
+}
+#endif
+
+
+#ifndef TRAPGLUE_NO_COMPONENT_CALL
+DEFINE_API( ComponentResult ) IDHSetFormat(ComponentInstance idh, UInt32 format)
+{
+	#if PRAGMA_STRUCT_ALIGN
+	  #pragma options align=mac68k
+	#elif PRAGMA_STRUCT_PACKPUSH
+	  #pragma pack(push, 2)
+	#elif PRAGMA_STRUCT_PACK
+	  #pragma pack(2)
+	#endif
+	struct IDHSetFormatGluePB {
+		unsigned char                  componentFlags;
+		unsigned char                  componentParamSize;
+		short                          componentWhat;
+		UInt32                         format;
+		ComponentInstance              idh;
+	};
+	#if PRAGMA_STRUCT_ALIGN
+	  #pragma options align=reset
+	#elif PRAGMA_STRUCT_PACKPUSH
+	  #pragma pack(pop)
+	#elif PRAGMA_STRUCT_PACK
+	  #pragma pack()
+	#endif
+
+	#if OLD_COMPONENT_GLUE
+	struct IDHSetFormatGluePB myIDHSetFormatGluePB = {
+		0,
+		4,
+		19
+	};
+
+	#else
+	struct IDHSetFormatGluePB myIDHSetFormatGluePB;
+	*((unsigned long*)&myIDHSetFormatGluePB) = 0x00040013;
+	#endif
+
+	myIDHSetFormatGluePB.format = format;
+	myIDHSetFormatGluePB.idh = idh;
+
+	#if TARGET_API_MAC_OS8
+		return (ComponentResult)CallUniversalProc(CallComponentUPP, 0x000000F0, &myIDHSetFormatGluePB);
+	#else
+		return (ComponentResult)CallComponentDispatch( (ComponentParameters*)&myIDHSetFormatGluePB );
+	#endif
+}
+#endif
+
+
+#ifndef TRAPGLUE_NO_COMPONENT_CALL
+DEFINE_API( ComponentResult ) IDHGetFormat(ComponentInstance idh, UInt32* format)
+{
+	#if PRAGMA_STRUCT_ALIGN
+	  #pragma options align=mac68k
+	#elif PRAGMA_STRUCT_PACKPUSH
+	  #pragma pack(push, 2)
+	#elif PRAGMA_STRUCT_PACK
+	  #pragma pack(2)
+	#endif
+	struct IDHGetFormatGluePB {
+		unsigned char                  componentFlags;
+		unsigned char                  componentParamSize;
+		short                          componentWhat;
+		UInt32*                        format;
+		ComponentInstance              idh;
+	};
+	#if PRAGMA_STRUCT_ALIGN
+	  #pragma options align=reset
+	#elif PRAGMA_STRUCT_PACKPUSH
+	  #pragma pack(pop)
+	#elif PRAGMA_STRUCT_PACK
+	  #pragma pack()
+	#endif
+
+	#if OLD_COMPONENT_GLUE
+	struct IDHGetFormatGluePB myIDHGetFormatGluePB = {
+		0,
+		4,
+		20
+	};
+
+	#else
+	struct IDHGetFormatGluePB myIDHGetFormatGluePB;
+	*((unsigned long*)&myIDHGetFormatGluePB) = 0x00040014;
+	#endif
+
+	myIDHGetFormatGluePB.format = format;
+	myIDHGetFormatGluePB.idh = idh;
+
+	#if TARGET_API_MAC_OS8
+		return (ComponentResult)CallUniversalProc(CallComponentUPP, 0x000000F0, &myIDHGetFormatGluePB);
+	#else
+		return (ComponentResult)CallComponentDispatch( (ComponentParameters*)&myIDHGetFormatGluePB );
 	#endif
 }
 #endif

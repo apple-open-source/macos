@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2001 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Josh de Cesare
  *
@@ -443,13 +443,14 @@ private:
   UInt8			keyLargoExtIntGPIO[kKeyLargoExtIntGPIOCount];
   UInt8			keyLargoGPIO[kKeyLargoGPIOCount];
   
-  // Remeber if the media bay needs to be turnedOn:
+  // Remember if the media bay needs to be turnedOn:
   bool		   	mediaIsOn;
   void			EnableSCC(bool state, UInt8 device, bool type);
   void			PowerModem(bool state);
   void 			ModemResetLow();
   void 			ModemResetHigh();
-
+  void			AdjustBusSpeeds ( void );
+  
   KeyLargoWatchDogTimer	*watchDogTimer;
 
   // callPlatformFunction symbols
@@ -765,7 +766,7 @@ public:
   virtual UInt32    readRegUInt32(unsigned long offset);
   virtual void      writeRegUInt32(unsigned long offset, UInt32 data);
   
-  // Remeber if the media bay needs to be turnedOn:
+  // Remember if the media bay needs to be turnedOn:
   virtual void      powerMediaBay(bool powerOn, UInt8 whichDevice);  
 
   // share register access:

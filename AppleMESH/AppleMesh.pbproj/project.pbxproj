@@ -134,7 +134,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMesh;
-				MODULE_VERSION = 1.1;
+				MODULE_VERSION = 1.1.1;
 				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
@@ -161,7 +161,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMesh</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMesh version 1.1, Copyright 2001 Apple Computer, Inc.</string>
+	<string>AppleMesh version 1.1.1, Copyright 2001 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -173,11 +173,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.1.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleMesh</key>
@@ -198,11 +198,11 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
+		<string>1.1.1</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
+		<string>1.1.1</string>
 		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
+		<string>1.1.1</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>

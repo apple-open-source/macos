@@ -325,10 +325,24 @@ int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *
             *lopt = lval + (lval1 << 1); 
             break;
         case PPP_OPT_LCP_MRU:
-            get_long(ppp, &opts->lcp.mru, kSCEntNetPPP, kSCPropNetPPPLCPMRU, lopt, pppdict, 1, OPT_LCP_MRU_DEF);
+            switch (ppp->subtype) {
+                case PPP_TYPE_PPPoE:
+                    lval = OPT_LCP_MRU_PPPoE_DEF;
+                    break;
+                default:
+                    lval = OPT_LCP_MRU_DEF;
+            }
+            get_long(ppp, &opts->lcp.mru, kSCEntNetPPP, kSCPropNetPPPLCPMRU, lopt, pppdict, 1, lval);
             break;
         case PPP_OPT_LCP_MTU:
-            get_long(ppp, &opts->lcp.mtu, kSCEntNetPPP, kSCPropNetPPPLCPMTU, lopt, pppdict, 1, OPT_LCP_MTU_DEF);
+            switch (ppp->subtype) {
+                case PPP_TYPE_PPPoE:
+                    lval = OPT_LCP_MTU_PPPoE_DEF;
+                    break;
+                default:
+                    lval = OPT_LCP_MTU_DEF;
+            }
+            get_long(ppp, &opts->lcp.mtu, kSCEntNetPPP, kSCPropNetPPPLCPMTU, lopt, pppdict, 1, lval);
             break;
         case PPP_OPT_LCP_RCACCM:
             get_long(ppp, &opts->lcp.rcaccm, kSCEntNetPPP, kSCPropNetPPPLCPReceiveACCM, lopt, pppdict, 1, OPT_LCP_RCACCM_DEF);

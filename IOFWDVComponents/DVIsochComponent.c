@@ -89,14 +89,14 @@ typedef struct DeviceDescription {
     ComponentInstance	deviceControlInstance;		// device control component instance
     Component		clock;				// FireWire clock component, clients get their own instance, not sure why
     UInt32 		standard; 			// device standard
+    UInt32 		fDVFormats; 		// DV formats supported by device
     QTAtomContainer	deviceContainer;		// contains device database
     SInt16		deviceControlCount;		// number of clients using device control
     SInt16		readLocks;			// num clients that have device open for reads
     SInt16		writeLocks;			// num clients that have device open for writes
     Boolean		active;				// device is currently online
-    Boolean		fHasSDL;			// true if device can do SDL (half data rate)
     UInt8		fOutputMode;		// AVC output signal mode - NTSC/SDL etc.
-    Boolean		fWaitingStartWrite;	// True if we're filling up buffers before starting to write
+    UInt8		fWaitingStartWrite;	// 1 = if we're filling up buffers before starting to write, 2 = need to retry start
     Boolean		fConnected;				// device is currently configured
 #ifdef DRAWRINGBUFFERGRAPH
 	Ptr		fScreenBaseAddr;
@@ -413,7 +413,7 @@ Exit:
         return result;
 }
 
-static OSErr setupVideoAtoms( QTAtomContainer container, QTAtom isocAtom, UInt32 standard, Boolean isSDL)
+static OSErr setupVideoAtoms( QTAtomContainer container, QTAtom isocAtom, UInt32 standard, Boolean isSDL, Boolean isDVCPro)
 {
     OSErr 					result = noErr;
     QTAtom 					configAtom;
@@ -442,6 +442,10 @@ static OSErr setupVideoAtoms( QTAtomContainer container, QTAtom isocAtom, UInt32
     if(isSDL) {
         result = QTInsertChild( container, configAtom, kIDHNameAtomType,
                         0, 0, 7, "\pDV-SDL", nil);
+    }
+    else if(isDVCPro) {
+        result = QTInsertChild( container, configAtom, kIDHNameAtomType,
+                        0, 0, 7, "\pDVCPro", nil);
     }
     else {
         result = QTInsertChild( container, configAtom, kIDHNameAtomType,
@@ -955,6 +959,8 @@ static OSStatus findBuffers(DeviceDescription *deviceDescriptionPtr)
 
     deviceDescriptionPtr->fBufSize = (deviceDescriptionPtr->standard == ntscIn)?
                                     kNTSCCompressedBufferSize:kPALCompressedBufferSize;
+    if((deviceDescriptionPtr->fOutputMode & 0x7c) == 4)
+        deviceDescriptionPtr->fBufSize /= 2;	// SDL
 
 Exit:
     return result;
@@ -995,11 +1001,11 @@ static OSStatus enableWrite(DeviceDescription *deviceDescriptionPtr)
     int				mode;
     
     findBuffers(deviceDescriptionPtr);
+        
     size = 0;
     mode = deviceDescriptionPtr->fOutputMode;
     result = io_connect_method_scalarI_scalarO(deviceDescriptionPtr->fConnection,
                                             kDVSetWriteSignalMode, &mode, 1, NULL, &size);
-
     {
         int i;
         
@@ -1018,7 +1024,7 @@ static OSStatus enableWrite(DeviceDescription *deviceDescriptionPtr)
         deviceDescriptionPtr->fFrameBufferPos = 0;
         deviceDescriptionPtr->fDCLSavedWritePos = NULL;
         deviceDescriptionPtr->fDCLSavedPacketNum = 0;
-
+            
         // Map the shared DCL program data buffer
         result = IOConnectMapMemory(deviceDescriptionPtr->fConnection,kDVNumOutputFrames+6,mach_task_self(),
                                     &deviceDescriptionPtr->fDCLBuffer,&shmemSize,kIOMapAnywhere);
@@ -1031,7 +1037,6 @@ static OSStatus enableWrite(DeviceDescription *deviceDescriptionPtr)
     deviceDescriptionPtr->fOldRead = deviceDescriptionPtr->fSharedVars->fReader;
     
 Exit:
-    syslog(LOG_INFO, "enable write, result %x\n", result);
     return result;
 }
 
@@ -1048,7 +1053,6 @@ static OSStatus disableWrite(DeviceDescription *deviceDescriptionPtr)
         DisposePtr((Ptr)deviceDescriptionPtr->fOldWriteTimeStamps);
         deviceDescriptionPtr->fOldWriteTimeStamps = NULL;
     }
-    syslog(LOG_INFO, "disable write\n");
     return result;
 }
 
@@ -1073,6 +1077,23 @@ static OSStatus sendMsg(IsochComponentInstancePtr ih, UInt32 request, void *para
 
 }
 
+static OSStatus doAVCTransaction(DeviceDescriptionPtr deviceDescriptionPtr,
+                DVCTransactionParams* inTransaction)
+{
+    IOReturn result = kIDHErrDeviceNotConfigured;
+    int size = inTransaction->responseBufferSize;
+    if(deviceDescriptionPtr->fConnected) {
+        result = io_connect_method_structureI_structureO(
+        deviceDescriptionPtr->fConnection, kAVCCommand,
+        inTransaction->commandBufferPtr, inTransaction->commandLength,
+        inTransaction->responseBufferPtr, &size);
+    }
+    if(noErr == result)
+        inTransaction->responseBufferSize = size;
+    return result;
+}
+
+
 static OSStatus addDevice(IsochComponentGlobalsPtr g, io_object_t obj, DeviceDescriptionPtr *deviceIDPtr)
 {
     OSErr 			result = noErr;
@@ -1080,7 +1101,7 @@ static OSStatus addDevice(IsochComponentGlobalsPtr g, io_object_t obj, DeviceDes
     DeviceDescriptionPtr	deviceDescriptionPtr;
     IDHDeviceStatus		deviceStatus;
     UInt32			standard;
-    Boolean			hasSDL;
+    Boolean			hasSDL, isDVCPro;
     UInt32			devIndex;
     UInt64			newGUID;
     ComponentDescription	clkDesc;
@@ -1089,6 +1110,7 @@ static OSStatus addDevice(IsochComponentGlobalsPtr g, io_object_t obj, DeviceDes
     CFNumberRef			dataDesc;
     CFBooleanRef		ntscDesc;
     CFBooleanRef		sdlDesc;
+    CFBooleanRef		dvcProDesc;
     
     RecordEventLogger( 'isoc', 'addv', (int)g, obj);
     //syslog(LOG_INFO,"addDevice: service 0x%x\n", obj);
@@ -1116,6 +1138,12 @@ static OSStatus addDevice(IsochComponentGlobalsPtr g, io_object_t obj, DeviceDes
     if(sdlDesc && CFBooleanGetValue(sdlDesc)) {
         hasSDL = true;
     }
+
+    dvcProDesc = (CFBooleanRef)CFDictionaryGetValue(properties, CFSTR("DVCPro"));
+    isDVCPro = false;
+    if(dvcProDesc && CFBooleanGetValue(dvcProDesc)) {
+        isDVCPro = true;
+    }
     CFRelease(properties);
 
     // look for existing device
@@ -1128,8 +1156,6 @@ static OSStatus addDevice(IsochComponentGlobalsPtr g, io_object_t obj, DeviceDes
             
             // Get device back to old state
             if(deviceDescriptionPtr->fConnected) {
-                int numFrames;
-                unsigned int size;
                 result = IOServiceOpen(deviceDescriptionPtr->fID, mach_task_self(), 11,
                                     &deviceDescriptionPtr->fConnection);
                 if (result != kIOReturnSuccess) {
@@ -1138,10 +1164,15 @@ static OSStatus addDevice(IsochComponentGlobalsPtr g, io_object_t obj, DeviceDes
                 
 #if 0
                 // If not real-time, Set buffer size, 10 frames seems enough.
-                numFrames = 10;
-                size = 0;
-                io_connect_method_scalarI_scalarO(deviceDescriptionPtr->fConnection,
-                                kDVSetNumOutputFrames, &numFrames, 1, NULL, &size);
+                {
+                    int numFrames;
+                    unsigned int size;
+
+                    numFrames = 10;
+                    size = 0;
+                    io_connect_method_scalarI_scalarO(deviceDescriptionPtr->fConnection,
+                                    kDVSetNumOutputFrames, &numFrames, 1, NULL, &size);
+                }
 #endif                                
                 if(deviceDescriptionPtr->readLocks) {
                     enableRead(deviceDescriptionPtr);
@@ -1180,7 +1211,11 @@ static OSStatus addDevice(IsochComponentGlobalsPtr g, io_object_t obj, DeviceDes
         // add the device standard (PAL, NTSC)
         deviceDescriptionPtr->standard 				= standard;
         deviceDescriptionPtr->active 				= true;
-        deviceDescriptionPtr->fHasSDL				= hasSDL;
+        deviceDescriptionPtr->fDVFormats			= 1 << kIDHDV_SD;		// Assume everything can do DV-SD
+        if(hasSDL)
+            deviceDescriptionPtr->fDVFormats		|= 1 << kIDHDV_SDL;
+        if(isDVCPro)
+            deviceDescriptionPtr->fDVFormats		|= 1 << kIDHDVCPro_25;
         
         // find clock component
         // wouldn't it be better for us to open an instance on OpenDevice, set FWClockPrivLocalReference, etc.
@@ -1217,14 +1252,17 @@ static OSStatus addDevice(IsochComponentGlobalsPtr g, io_object_t obj, DeviceDes
         if( result != noErr)break;
 
         // create a device status structure and add it to the device atom
-        deviceStatus.version 		= 1;
+        deviceStatus.version 		= 0x200;
         deviceStatus.physicallyConnected 	= true;
         deviceStatus.readEnabled 		= false;
         deviceStatus.writeEnabled 		= false;
         deviceStatus.exclusiveAccess 	= false;
-        deviceStatus.currentBandwidth 	= 1;
+        deviceStatus.currentBandwidth 	= 0;
         deviceStatus.currentChannel 	= 0;
         deviceStatus.inputStandard		= standard;
+        deviceStatus.inputFormat		= kIDHDV_SD;
+
+        deviceStatus.outputFormats 		= deviceDescriptionPtr->fDVFormats;
         deviceStatus.deviceActive 		= false;
 
         result = QTInsertChild( deviceDescriptionPtr->deviceContainer, deviceAtom, kDVDeviceInfo,
@@ -1237,10 +1275,10 @@ static OSStatus addDevice(IsochComponentGlobalsPtr g, io_object_t obj, DeviceDes
         if( result != noErr)break;
 
         // add the configs to the isoc atom
-        result = setupVideoAtoms( deviceDescriptionPtr->deviceContainer, isocAtom, standard, false);
+        result = setupVideoAtoms( deviceDescriptionPtr->deviceContainer, isocAtom, standard, false, isDVCPro);
         if( result != noErr)break;
         if(hasSDL) {
-            result = setupVideoAtoms( deviceDescriptionPtr->deviceContainer, isocAtom, standard, true);
+            result = setupVideoAtoms( deviceDescriptionPtr->deviceContainer, isocAtom, standard, true, isDVCPro);
             if( result != noErr)break;
         }
         
@@ -1270,7 +1308,7 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
     IsochComponentGlobalsPtr 	ih = (IsochComponentGlobalsPtr)refcon;
     
     while(obj = IOIteratorNext(iterator)) {
-        OSErr result;
+        OSStatus result;
         DeviceDescriptionPtr deviceDescriptionPtr;
         result = addDevice(ih, obj, &deviceDescriptionPtr);
         if(result == noErr) {
@@ -1349,6 +1387,7 @@ static void watchdog_thread_start(IsochComponentGlobalsPtr g)
 
 #endif
 
+#if 0
 static void incrementWriteBuffer(DeviceDescription *deviceDescriptionPtr)
 {
     deviceDescriptionPtr->fSharedVars->fWriter += 1;   // release buffer
@@ -1359,6 +1398,7 @@ static void incrementWriteBuffer(DeviceDescription *deviceDescriptionPtr)
         deviceDescriptionPtr->fWaitingStartWrite = 0;
     }
 }
+#endif
 
 static void silenceFrame(DeviceDescription *deviceDescriptionPtr, UInt8* frame)
 {
@@ -1390,23 +1430,29 @@ static void silenceFrame(DeviceDescription *deviceDescriptionPtr, UInt8* frame)
 
 static UInt8 *getNextFrame(DeviceDescription *deviceDescriptionPtr, IsochComponentInstancePtr client, int slack, int waiting)
 {
-    ComponentResult err;
+    ComponentResult err = noErr;
     IDHParameterBlock *pb;
     
     pb = client->fActiveHead;
     if(pb && !waiting) {
         if(deviceDescriptionPtr->fWaitingStartWrite) {
+            IOReturn res;
             unsigned int size = 0;
-            io_connect_method_scalarI_scalarO(deviceDescriptionPtr->fConnection,
+            res = io_connect_method_scalarI_scalarO(deviceDescriptionPtr->fConnection,
                                                 kDVWriteStart, NULL, 0, NULL, &size);
-            deviceDescriptionPtr->fWaitingStartWrite = 0;
+            if(res == kIOReturnNoResources || res == kIOReturnNoSpace) {
+                err = kIDHErrDeviceCantWrite;
+                deviceDescriptionPtr->fWaitingStartWrite = 2;
+            }
+            else
+                deviceDescriptionPtr->fWaitingStartWrite = 0;
         }
 
         client->fActiveHead = (IDHParameterBlock *)pb->reserved1;
         if(client->fActiveHead == NULL)
             client->fActiveTail = NULL;
         pb->actualCount = deviceDescriptionPtr->fBufSize;
-        pb->result = noErr;
+        pb->result = err;
 
         //syslog(LOG_INFO, "write callback, buffer = %p\n", pb->buffer);
         //syslog(LOG_INFO, "pb %p = req %d actual %d\n",
@@ -1470,7 +1516,8 @@ static int fillDCLGroup(DeviceDescription *deviceDescriptionPtr, IsochComponentI
             return 0;	// No data, not running yet.
         }
         else {
-            bcopy(client->fActiveHead->buffer, (UInt8 *)deviceDescriptionPtr->bufMem[0], deviceDescriptionPtr->fBufSize);
+            bcopy(client->fActiveHead->buffer, (UInt8 *)deviceDescriptionPtr->bufMem[0],
+                                        deviceDescriptionPtr->fBufSize);
         }
     }
     dataPtr = (UInt8 *)deviceDescriptionPtr->bufMem[0];
@@ -1478,8 +1525,10 @@ static int fillDCLGroup(DeviceDescription *deviceDescriptionPtr, IsochComponentI
     dataPtr += deviceDescriptionPtr->fFrameBufferPos;
     
     for(i=start; i<deviceDescriptionPtr->fSharedWriteVars->fGroupSize; i++) {
+        int pageOffset;
         // check for buffer crossing page
-        if (((int) (dclPtr + packetSize) & 0x0fff) < packetSize) {
+        pageOffset = (int) (dclPtr + packetSize) & 0x0fff;
+        if (pageOffset < packetSize && pageOffset > 0) {
             // if it does, increment buffer pointer
             // and lop off page rollover to start at next page
             dclPtr += packetSize;
@@ -1518,7 +1567,19 @@ static void processWrites(DeviceDescription *deviceDescriptionPtr)
     changed = 0;
     
     client = deviceDescriptionPtr->fOpenClients[0];
-    
+
+    // If we failed to start writing last time through, reset to try again
+    if(deviceDescriptionPtr->fWaitingStartWrite == 2) {
+        for(i=0; i<deviceDescriptionPtr->fSharedWriteVars->fNumGroups; i++) {
+            deviceDescriptionPtr->fOldWriteTimeStamps[i] = deviceDescriptionPtr->fSharedWriteVars->fGroupData[i].fTimeStamp;
+        }
+        deviceDescriptionPtr->fDCLReadPos = 0;
+        deviceDescriptionPtr->fBufWritePos = 0;
+        deviceDescriptionPtr->fFrameBufferPos = 0;
+        deviceDescriptionPtr->fDCLSavedWritePos = NULL;
+        deviceDescriptionPtr->fDCLSavedPacketNum = 0;
+        deviceDescriptionPtr->fWaitingStartWrite = 1;
+    }
     // First find out where the hardware is
     pos = deviceDescriptionPtr->fDCLReadPos;
     for(i=pos; i< pos+numGroups; i++) {
@@ -2132,7 +2193,7 @@ static pascal ComponentResult
 FWDVComponentVersion(IsochComponentInstancePtr storage)
 {
     RecordEventLogger( 'isoc', 'vers', 0, 0);
-    return 0x10001;
+    return (DVVersion << 16) | DVRevision;
 }
 
 static pascal ComponentResult
@@ -2216,8 +2277,6 @@ FWDVIDHSetDeviceConfiguration(IsochComponentInstancePtr ih,
     DeviceDescription	*deviceDescriptionPtr;
     IsochComponentGlobalsPtr g = &globals;
     Boolean				isSDL;
-    int					numFrames;
-    unsigned int		size;
 
     RecordEventLogger( 'isoc', 'set ', 'conf', ih);
     
@@ -2266,10 +2325,15 @@ FWDVIDHSetDeviceConfiguration(IsochComponentInstancePtr ih,
         }
 #if 0
         // If not real time, Set buffer size, 10 frames seems enough.
-        numFrames = 10;
-        size = 0;
-        io_connect_method_scalarI_scalarO(deviceDescriptionPtr->fConnection,
-                        kDVSetNumOutputFrames, &numFrames, 1, NULL, &size);
+        {
+            int				numFrames;
+            unsigned int	size;
+
+            numFrames = 10;
+            size = 0;
+            io_connect_method_scalarI_scalarO(deviceDescriptionPtr->fConnection,
+                            kDVSetNumOutputFrames, &numFrames, 1, NULL, &size);
+        }
 #endif
         deviceDescriptionPtr->fConnected = 1;
     }
@@ -2297,6 +2361,8 @@ FWDVIDHSetDeviceConfiguration(IsochComponentInstancePtr ih,
     deviceDescriptionPtr->fOutputMode = 0;
     if(isSDL)
         deviceDescriptionPtr->fOutputMode |= 4;
+    else if(deviceDescriptionPtr->fDVFormats & (1 << kIDHDVCPro_25))
+        deviceDescriptionPtr->fOutputMode |= 0x78;
     if(deviceDescriptionPtr->standard != ntscIn)
         deviceDescriptionPtr->fOutputMode |= 0x80;
         
@@ -2312,17 +2378,24 @@ FWDVIDHOpenDevice(IsochComponentInstancePtr ih, UInt32 permissions)
     IsochComponentGlobalsPtr g = &globals;
 
     RecordEventLogger( 'open', ' dev', ih, permissions);
-
+    
     FailWithAction( permissions == 0, result = paramErr, Exit);
 
     FailWithAction( ih->deviceID == nil, result = kIDHErrDeviceNotConfigured, Exit);
 
-    ih->fSyncRequest = 0;
-    result = sendMsg(ih, kIDHOpenDeviceSelect, (void *)permissions);
-    waitSync(&ih->fSyncRequest);
+    if(globals.fWorkThread == pthread_self()) {
+        DeviceDescription *deviceDescriptionPtr;
+        result = findDeviceDescriptionforDevice( ih, ih->deviceID, &deviceDescriptionPtr);	// find the device
+        FailWithVal( result != noErr, Exit, result);
+        processOpen(ih, deviceDescriptionPtr, permissions);
+    }
+    else {
+        ih->fSyncRequest = 0;
+        result = sendMsg(ih, kIDHOpenDeviceSelect, (void *)permissions);
+        waitSync(&ih->fSyncRequest);
+    }
     result = ih->fSyncResult;
     FailWithVal( result != noErr, Exit, result);
-
     result = postEvent( g, ih->deviceID,
             (permissions & kIDHOpenForReadTransactions)?kIDHEventReadEnabled:kIDHEventWriteEnabled);
     FailWithVal( result != noErr, Exit, result);
@@ -2397,12 +2470,10 @@ FWDVIDHGetDeviceStatus(IsochComponentInstancePtr ih, const QTAtomSpec *devSpec, 
         IDHDeviceID		deviceID = nil;
         QTAtom			deviceInfoAtom, deviceAtom;
         QTAtomSpec		volatileAtomSpec;
-        long			size;
         DeviceDescription	*deviceDescriptionPtr;
         IsochComponentGlobalsPtr g = &globals;
-
+        UInt8			inputFormat = kIDHDV_SD;
         RecordEventLogger( 'isoc', 'get ', 'stat', ih);
-
         FailWithAction( devSpec == nil, result = paramErr, Exit);
         FailWithAction( status == nil, result = paramErr, Exit);
 
@@ -2425,15 +2496,30 @@ FWDVIDHGetDeviceStatus(IsochComponentInstancePtr ih, const QTAtomSpec *devSpec, 
         deviceInfoAtom = QTFindChildByIndex( deviceDescriptionPtr->deviceContainer, deviceAtom, kDVDeviceInfo, 1, nil);
         FailWithAction( deviceInfoAtom == nil, result = kIDHErrDeviceList, Exit);
 
-        QTLockContainer( deviceDescriptionPtr->deviceContainer);
-
-        // get the value of the mediaType atom
-        QTCopyAtomDataToPtr( deviceDescriptionPtr->deviceContainer, deviceInfoAtom, true, sizeof( IDHDeviceStatus),
-                status, &size);
-
-        QTUnlockContainer( deviceDescriptionPtr->deviceContainer);
-
-        status->version = 				100;
+        // Ask device what it's currently configured to transmit
+        {
+            OSStatus err;
+            DVCTransactionParams transaction;
+            UInt8 out[8];
+            UInt8 in[8];
+            
+            out[0] = 0x01; //kAVCStatusInquiryCommand
+            out[1] = 0xff;	// Unit
+            out[2] = 0x18; //kAVCOutputPlugSignalFormatOpcode
+            out[3] = 0;	// Plug
+            out[4] = out[5] = out[6] = out[7] = 0xff;
+            transaction.commandBufferPtr = out;
+            transaction.commandLength = sizeof(out);
+            transaction.responseBufferPtr = in;
+            transaction.responseBufferSize = sizeof(in);
+            transaction.responseHandler = NULL;
+            
+            err = doAVCTransaction(deviceDescriptionPtr, &transaction);
+            if(err == noErr && in[0] == 0xc) {
+                inputFormat = (in[5] >> 2) & 0x1f; // Fish out STYPE field
+            }
+        }
+        status->version = 				0x200;
         status->physicallyConnected =	true;
         status->readEnabled = 			deviceDescriptionPtr->readLocks;
         status->writeEnabled = 			deviceDescriptionPtr->writeLocks;
@@ -2444,6 +2530,8 @@ FWDVIDHGetDeviceStatus(IsochComponentInstancePtr ih, const QTAtomSpec *devSpec, 
         //еее need to make this work with camera tracking
         status->deviceActive = 			deviceDescriptionPtr->active;
         status->inputStandard =			deviceDescriptionPtr->standard;
+        status->inputFormat =			inputFormat;
+        //status->outputFormats = 		deviceDescriptionPtr->fDVFormats;
 // JKL *** what to to with this? does this mean deviceID, cameraFWClientID, or localNodeFWClientID
 // Think this is for clock to set the localFWReferenceID
         status->localNodeID	= 		(PsuedoID) deviceDescriptionPtr->fID;
@@ -2933,6 +3021,44 @@ Exit:
     return result;	
 }
 
+static pascal ComponentResult
+FWDVIDHSetFormat(IsochComponentInstancePtr ih, UInt32 format)
+{
+    OSErr 		result = noErr;
+    DeviceDescription	*deviceDescriptionPtr;
+
+    RecordEventLogger( 'isoc', 'setf', 'ormt', format);
+    FailWithAction( ih->deviceID == nil, result = kIDHErrDeviceNotConfigured, Exit);
+
+    result = findDeviceDescriptionforDevice( ih, ih->deviceID, &deviceDescriptionPtr);
+    FailWithVal( result != noErr, Exit, result);
+    
+    deviceDescriptionPtr->fOutputMode = format << 2;	// Get STYPE field into position
+    if(deviceDescriptionPtr->standard != ntscIn)
+        deviceDescriptionPtr->fOutputMode |= 0x80;	// PAL flag
+
+Exit:	
+    return result;	
+}
+
+static pascal ComponentResult
+FWDVIDHGetFormat(IsochComponentInstancePtr ih, UInt32 *format)
+{
+    OSErr 		result = noErr;
+    DeviceDescription	*deviceDescriptionPtr;
+
+    RecordEventLogger( 'isoc', 'getf', 'ormt', format);
+    FailWithAction( ih->deviceID == nil, result = kIDHErrDeviceNotConfigured, Exit);
+
+    result = findDeviceDescriptionforDevice( ih, ih->deviceID, &deviceDescriptionPtr);
+    FailWithVal( result != noErr, Exit, result);
+
+    *format = (deviceDescriptionPtr->fOutputMode >> 2) & 0x1f;	// Return just STYPE field, in bottom bits
+    
+Exit:	
+    return result;	
+}
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define DoCDispatchWS(x,p,s)		\
@@ -2986,7 +3112,8 @@ FWDVComponentCanDo(IsochComponentInstancePtr storage, short selector)
         case kIDHGetDeviceControlSelect:
         case kIDHUpdateDeviceListSelect:
         case kIDHGetDeviceTimeSelect:
-
+        case kIDHSetFormatSelect:
+        case kIDHGetFormatSelect:
             return(true);
 
         default:
@@ -3037,9 +3164,11 @@ FWDVICodecComponentDispatch(ComponentParameters *params, char ** storage)
         DoDispatchWS( IDHUpdateDeviceList, params, storage );
         DoDispatchWS( IDHGetDeviceTime, params, storage );
         DoDispatchWS( IDHNewNotification, params, storage );
-	DoDispatchWS( IDHNotifyMeWhen, params, storage );
-	DoDispatchWS( IDHCancelNotification, params, storage );
-	DoDispatchWS( IDHDisposeNotification, params, storage );
+        DoDispatchWS( IDHNotifyMeWhen, params, storage );
+        DoDispatchWS( IDHCancelNotification, params, storage );
+        DoDispatchWS( IDHDisposeNotification, params, storage );
+        DoDispatchWS( IDHSetFormat, params, storage );
+        DoDispatchWS( IDHGetFormat, params, storage );
                
     default:
         {

@@ -627,6 +627,12 @@ enum
 	kBit31						= (1 << 31)
 };
 
+enum
+{
+    kIOFWDisablePhysicalAccess = (1 << 0),
+	kIOFWDisableAllPhysicalAccess = (1 << 1)
+};
+
 #define BitRange(start, end)						\
 (													\
 	((((UInt32) 0xFFFFFFFF) << (31 - (end))) >>		\

@@ -9,9 +9,6 @@
  
      Copyright:  © 1999-2000 by Apple Computer, Inc., all rights reserved.
  
-     Warning:    *** APPLE INTERNAL USE ONLY ***
-                 This file may contain unreleased API's
- 
      BuildInfo:  Built by:            wgulland
                  On:                  Thu Sep 21 14:47:23 2000
                  With Interfacer:     3.0d20e4 (Mac OS X for PowerPC)

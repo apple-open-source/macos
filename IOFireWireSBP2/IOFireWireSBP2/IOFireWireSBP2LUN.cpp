@@ -248,10 +248,10 @@ IOReturn IOFireWireSBP2LUN::executeFlushAllMgmtORBs( void )
 	
 	if( fORBSetIterator )
 	{
-		IOFireWireSBP2ManagementORB * item = NULL;
-        fORBSetIterator->reset();		
+		IOFireWireSBP2ManagementORB * item = NULL;		
 		do
 		{
+            fORBSetIterator->reset();
 			item = (IOFireWireSBP2ManagementORB *)fORBSetIterator->getNextObject();
 			if( item )
 				item->release();

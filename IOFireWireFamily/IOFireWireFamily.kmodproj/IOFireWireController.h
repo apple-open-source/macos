@@ -76,15 +76,9 @@ protected:
 
 public:
     bool init(IOFireWireController *owner);
-#if 0 // Cheetah4F8-
-    inline void signalWorkAvailable()	{workLoop->signalWorkAvailable();};
-    inline void openGate()		{workLoop->openGate();};
-    inline void closeGate()		{workLoop->closeGate();};
-#else // Cheetah4G+
     inline void signalWorkAvailable()	{IOEventSource::signalWorkAvailable();};
     inline void openGate()		{IOEventSource::openGate();};
     inline void closeGate()		{IOEventSource::closeGate();};
-#endif
 };
 
 
@@ -235,6 +229,7 @@ public:
     virtual bool start(IOService *provider);
     virtual void stop( IOService * provider );
     virtual bool finalize( IOOptionBits options );
+    virtual bool requestTerminate( IOService * provider, IOOptionBits options );
 
     // Power management
     virtual IOReturn setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice );

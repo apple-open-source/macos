@@ -290,14 +290,17 @@ void HTTPProtocol::HTTPConnection::transit(Event event, char *input, size_t leng
                     }
                 }
                 // no transfer-encoding (or transfer-encoding: identity): big gulp mode
+                state = readWholeBody;
                 if (const char *lengthArg = headers().find("Content-Length")) {
                     size_t length = strtol(lengthArg, NULL, 10);
                     sink().setSize(length);
-                    mode(sink(), length);
-                } else {
+                    if (length > 0)
+                        mode(sink(), length);
+                    else	// null body, already done
+                        finish();
+                } else {	// read until EOI
                     mode(sink());
                 }
-                state = readWholeBody;
             }
             break;
         }
@@ -354,7 +357,7 @@ void HTTPProtocol::HTTPConnection::transit(Event event, char *input, size_t leng
         {
             // the only asynchronous event in idle mode is a connection drop
             debug("http",
-                "event %d while idle; destroying connection", event);
+                "%p event %d while idle; destroying connection", this, event);
             abort();
             state = dead;
         }
@@ -373,10 +376,11 @@ void HTTPProtocol::HTTPConnection::transitError(const CssmCommonError &error)
 
 void HTTPProtocol::HTTPConnection::finish()
 {
+    flushInput();			// clear excess garbage input (resynchronize)
     chooseRetain();			// shall we keep the Connection?
-    Connection::finish();	// finish this transfer
     mode(lineInput);		// ensure valid input mode
     state = idle;			// idle state
+    Connection::finish();	// finish this transfer
 }
 
 
@@ -476,8 +480,10 @@ Transfer::ResultClass HTTPProtocol::HTTPTransfer::resultClass() const
             if (mResultClass != unclassifiedFailure)
                 return mResultClass;	// preclassified
             unsigned int code = httpResponseCode();
-            if (code == 401 || code == 407)	// auth or proxy auth required
+            if (code == 401 || code == 407 || code == 305)	// auth or proxy auth required
                 return authorizationFailure;
+            else if (code / 100 == 3)			// redirect (interpreted as success)
+                return success;
             else if (code / 100 == 2)			// success codes
                 return success;
             else	// when in doubt, blame the remote end :-)

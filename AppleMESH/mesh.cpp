@@ -421,9 +421,54 @@ bool meshSCSIController::configure(	IOService			*provider,
 
 	controllerInfo->disableCancelCommands	= false;
 
+		/*power management code*/
+		
+	#define number_of_power_states 2
+
+    static IOPMPowerState ourPowerStates[number_of_power_states] = {
+    {1,0,0,0,0,0,0,0,0,0,0,0},
+    {1,IOPMDeviceUsable,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0}
+    };
+    	
+	PMinit();
+	registerPowerDriver(this,ourPowerStates,number_of_power_states);
+	getProvider()->joinPMtree(this);
 	return true;
 }/* end configure */
 
+
+	// Method: setPowerState
+
+IOReturn meshSCSIController::setPowerState(	unsigned long	powerStateOrdinal,
+									IOService		*whatDevice )
+{						 
+		if (powerStateOrdinal == 1)     	        	
+        	setSCSIActiveTermState(true);        	
+        else
+        	setSCSIActiveTermState(false);
+        	 
+        return IOPMAckImplied;
+}/* end setPowerState */
+
+
+void meshSCSIController:: setSCSIActiveTermState(bool enableTermPower)
+
+{
+    IOService *heathrow;
+    heathrow = waitForService(serviceMatching("Heathrow"));
+    if(heathrow) 
+    {
+	UInt32 heathrowFCROffset = 0x38;
+	UInt32 scsiEnMask = 1<<10;
+    	UInt32 heathrowIDOffset = 0x34;
+    	UInt32 scsiTermPowerMask = 1<<26;
+	       
+       heathrow->callPlatformFunction(OSSymbol::withCString("heathrow_safeWriteRegUInt32"),
+              false, (void *)heathrowFCROffset, (void *)scsiEnMask, enableTermPower ? (void *)scsiEnMask:0, 0);           
+       heathrow->callPlatformFunction(OSSymbol::withCString("heathrow_safeWriteRegUInt32"),
+              false, (void *)heathrowIDOffset, (void *)scsiTermPowerMask, enableTermPower ? 0 : (void *)scsiTermPowerMask, 0);           
+     }
+}
 
 void meshSCSIController::executeCommand( IOSCSIParallelCommand *scsiCommand )
 {
@@ -488,7 +533,10 @@ void meshSCSIController::executeCommand( IOSCSIParallelCommand *scsiCommand )
         *fMsgOutPtr++ = kSCSIMsgExtended;
         *fMsgOutPtr++ = 3;
         *fMsgOutPtr++ = kSCSIMsgSyncXferReq;
-        *fMsgOutPtr++ = targetParms.transferPeriodpS / 4000;
+        if( targetParms.transferPeriodpS < 100000 )
+        	*fMsgOutPtr++ = 100000 / 4000;
+        else
+        	*fMsgOutPtr++ = targetParms.transferPeriodpS / 4000;
         *fMsgOutPtr++ = targetParms.transferOffset;
     }
 

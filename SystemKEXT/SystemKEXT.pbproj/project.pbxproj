@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 32;
+	objectVersion = 34;
 	objects = {
 		01A633B5000CE54D11CA2A87 = {
 			isa = PBXTargetDependency;
@@ -82,8 +82,6 @@
 			buildSettings = {
 				PRODUCT_NAME = IOADBFamily;
 				WRAPPER_EXTENSION = kext;
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 			);
@@ -194,8 +192,6 @@
 				PRODUCT_NAME = BSDKernel;
 				WRAPPER_EXTENSION = kext;
 			};
-			conditionalBuildSettings = {
-			};
 			dependencies = (
 			);
 			isa = PBXBundleTarget;
@@ -210,7 +206,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>BSD Kernel Pseudoextension, Apple Computer Inc, 1.1</string>
+	<string>BSD Kernel Pseudoextension, Apple Computer Inc, 5.1</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -222,11 +218,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>5.1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.1</string>
 	<key>OSBundleRequired</key>
@@ -285,8 +281,6 @@
 				PRODUCT_NAME = Mach;
 				WRAPPER_EXTENSION = kext;
 			};
-			conditionalBuildSettings = {
-			};
 			dependencies = (
 			);
 			isa = PBXBundleTarget;
@@ -301,7 +295,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Mach Kernel Pseudoextension, Apple Computer Inc, 1.1</string>
+	<string>Mach Kernel Pseudoextension, Apple Computer Inc, 5.1</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -313,11 +307,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>5.1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -376,8 +370,6 @@
 				PRODUCT_NAME = IOKit;
 				WRAPPER_EXTENSION = kext;
 			};
-			conditionalBuildSettings = {
-			};
 			dependencies = (
 			);
 			isa = PBXBundleTarget;
@@ -392,7 +384,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>I/O Kit Pseudoextension, Apple Computer Inc, 1.1</string>
+	<string>I/O Kit Pseudoextension, Apple Computer Inc, 5.1</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -404,11 +396,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>5.1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -467,8 +459,6 @@
 				PRODUCT_NAME = Libkern;
 				WRAPPER_EXTENSION = kext;
 			};
-			conditionalBuildSettings = {
-			};
 			dependencies = (
 			);
 			isa = PBXBundleTarget;
@@ -483,7 +473,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Libkern Pseudoextension, Apple Computer Inc, 1.1</string>
+	<string>Libkern Pseudoextension, Apple Computer Inc, 5.1</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -495,11 +485,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>5.1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -562,8 +552,6 @@
 			buildSettings = {
 				PRODUCT_NAME = IOSystemManagement;
 				WRAPPER_EXTENSION = kext;
-			};
-			conditionalBuildSettings = {
 			};
 			dependencies = (
 			);
@@ -662,6 +650,16 @@
 			isa = PBXTargetDependency;
 			target = 01CA8CA1FFEFFEA711CA2A87;
 		};
+//010
+//011
+//012
+//013
+//014
+//050
+//051
+//052
+//053
+//054
 		053B12F5FFF048357F000001 = {
 			buildActionMask = 2147483647;
 			dstPath = "";
@@ -677,6 +675,16 @@
 			isa = PBXCopyFilesBuildPhase;
 			name = "Copy Files";
 		};
+//050
+//051
+//052
+//053
+//054
+//060
+//061
+//062
+//063
+//064
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
 			files = (
@@ -721,6 +729,16 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
 		089C1669FE841209C02AAC07 = {
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
@@ -765,8 +783,6 @@
 				PRODUCT_NAME = System;
 				WRAPPER_EXTENSION = kext;
 			};
-			conditionalBuildSettings = {
-			};
 			dependencies = (
 				01FD1976FFF048077F000001,
 				01FD1977FFF048077F000001,
@@ -787,7 +803,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>System Resource Pseudoextension, Apple Computer Inc, 1.4</string>
+	<string>System Resource Pseudoextension, Apple Computer Inc, 5.1</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -799,11 +815,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4</string>
+	<string>5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4</string>
+	<string>5.1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleRequired</key>
@@ -859,11 +875,31 @@
 			name = Resources;
 			refType = 4;
 		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
 		0B81C263FFB7832611CA28AA = {
 			isa = PBXBundleReference;
 			path = System.kext;
 			refType = 3;
 		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				0B81C263FFB7832611CA28AA,
@@ -878,6 +914,16 @@
 			name = Products;
 			refType = 4;
 		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
 		247142CAFF3F8F9811CA285C = {
 			children = (
 			);

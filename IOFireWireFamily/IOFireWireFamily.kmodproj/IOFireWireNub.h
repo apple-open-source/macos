@@ -64,6 +64,8 @@ protected:
     IOFireWireController *fControl;        
     IOConfigDirectory	*fDirectory;
 
+    UInt32		fNodeFlags;
+    
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
@@ -160,6 +162,9 @@ public:
      */
     virtual bool init(OSDictionary * propTable);
 
+    virtual void setNodeFlags( UInt32 flags );
+    virtual UInt32 getNodeFlags( void );
+    
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireNub, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireNub, 1);

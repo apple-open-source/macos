@@ -1848,10 +1848,11 @@ IOReturn
 IOSCSIMultimediaCommandsDevice::CheckForLowPowerPollingSupport ( void )
 {
 	
-	IOReturn			status 		= kIOReturnSuccess;
-	OSBoolean *			boolValue 	= NULL;
-	const OSSymbol * 	key			= OSSymbol::withCString ( kIOPropertyPhysicalInterconnectLocationKey );
-	OSDictionary *		dict		= NULL;
+	IOReturn			status 			= kIOReturnSuccess;
+	OSBoolean *			boolValue 		= NULL;
+	const OSSymbol * 	key				= OSSymbol::withCString ( kIOPropertyPhysicalInterconnectLocationKey );
+	OSDictionary *		dict			= NULL;
+	OSString *			internalString 	= NULL;
 	
 	
 	if ( fDeviceSupportsLowPowerPolling )
@@ -2277,7 +2278,8 @@ IOSCSIMultimediaCommandsDevice::CheckWriteProtection ( void )
 	// Assume it is write protected
 	fMediaIsWriteProtected = true;
 	
-	if ( fMediaType != kDVDMediaTypeRAM )
+	if ( ( fMediaType != kDVDMediaTypeRAM ) ||
+		 ( ( fSupportedDVDFeatures & kDVDFeaturesRandomWriteableMask ) == 0 ) )
 	{
 		return;
 		
@@ -2304,7 +2306,7 @@ IOSCSIMultimediaCommandsDevice::CheckWriteProtection ( void )
 	{
 		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckWriteProtection malformed command" ) );
 	}
-
+	
 	bufferDesc->release ( );
 	
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
@@ -2320,9 +2322,9 @@ IOSCSIMultimediaCommandsDevice::CheckWriteProtection ( void )
 			fMediaIsWriteProtected = false;
 			
 		}
-	
+		
 	}
-
+	
 	ReleaseSCSITask ( request );
 	
 }
@@ -2389,7 +2391,7 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete ( SCSITaskIdentifier requ
 	}
 	
 	// Extract the client data from the SCSITask	
-	clientData	= scsiRequest->GetApplicationLayerReference ( );
+	clientData = scsiRequest->GetApplicationLayerReference ( );
 	
 	if ( ( scsiRequest->GetServiceResponse ( ) == kSCSIServiceResponse_TASK_COMPLETE ) &&
 		 ( scsiRequest->GetTaskStatus ( ) == kSCSITaskStatus_GOOD ) )
@@ -2403,6 +2405,9 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete ( SCSITaskIdentifier requ
 	
 	else
 	{
+		
+		status = kIOReturnError;
+		
 		// Either the task never completed or we have a status other than GOOD,
 		// return an error.		
 		if ( scsiRequest->GetTaskStatus ( ) == kSCSITaskStatus_CHECK_CONDITION )
@@ -2434,11 +2439,17 @@ IOSCSIMultimediaCommandsDevice::AsyncReadWriteComplete ( SCSITaskIdentifier requ
 					
 				}
 				
+				if ( ( senseDataBuffer.ADDITIONAL_SENSE_CODE == 0x64 ) &&
+					 ( senseDataBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
+				{
+					
+					status = kIOReturnUnsupportedMode;
+					
+				}
+				
 			}
 			
 		}
-		
-		status = kIOReturnError;
 		
 	}
 		

@@ -605,6 +605,22 @@ SCSITaskUserClient::ObtainExclusiveAccess ( void )
 		// are competing for the same exclusive access at the exact
 		// same time.
 		status = fProtocolInterface->SetUserClientExclusivityState ( this, true );
+		if ( status == kIOReturnSuccess )
+		{
+			
+			if ( fProtocolInterface->IsPowerManagementIntialized ( ) )
+			{
+				
+				UInt32	minutes = 0;
+				
+				// Make sure the idle timer for the in-kernel driver is set to
+				// never change power state.
+				fProtocolInterface->getAggressiveness ( kPMMinutesToSpinDown, &minutes );
+				fProtocolInterface->setAggressiveness ( kPMMinutesToSpinDown, minutes );
+				
+			}
+			
+		}
 		
 	}
 	
@@ -635,6 +651,22 @@ SCSITaskUserClient::ReleaseExclusiveAccess ( void )
 		
 		// Release our exclusive connection.
 		status = fProtocolInterface->SetUserClientExclusivityState ( this, false );
+		if ( status == kIOReturnSuccess )
+		{
+			
+			if ( fProtocolInterface->IsPowerManagementIntialized ( ) )
+			{
+				
+				UInt32	minutes = 0;
+				
+				// Make sure the idle timer for the in-kernel driver is set to
+				// what the setting is now.
+				fProtocolInterface->getAggressiveness ( kPMMinutesToSpinDown, &minutes );
+				fProtocolInterface->setAggressiveness ( kPMMinutesToSpinDown, minutes );
+			
+			}
+			
+		}
 		
 	}
 	
@@ -643,6 +675,7 @@ SCSITaskUserClient::ReleaseExclusiveAccess ( void )
 	return status;
 	
 }
+
 
 IOReturn
 SCSITaskUserClient::CreateTask ( SCSITask ** outSCSITask, void *, void *, void *, void *, void * )

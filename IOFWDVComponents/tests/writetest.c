@@ -30,6 +30,8 @@ static     QTAtomSpec videoConfig;
 static int frameSize = 120000;	// NTSC 144000 PAL
 static char *sFile;
 static int sSDL;
+static int sDVCPro;
+static int sFormat = 0;	// DV
 
 static void printP(const char *s)
 {
@@ -226,6 +228,7 @@ static void OpenDV()
         nDVDevices = QTCountChildrenOfType( deviceList, kParentAtomIsContainer, kIDHDeviceAtomType);
         if(nDVDevices > 0)
             break;
+        printf("Waiting for a camera...\n");
         sleep(1);
     } while(true);
 
@@ -298,6 +301,7 @@ static void OpenDV()
             printf("currentChannel %d ", deviceStatus.currentChannel);
             printf("inputStandard %d ", deviceStatus.inputStandard);
             printf("deviceActive %d\n", deviceStatus.deviceActive);
+            printf("supported DV types %x\n", deviceStatus.outputFormats);
 
             // find the isoch characteristics for this device
             isochAtom = QTFindChildByIndex( deviceList, deviceAtom, kIDHIsochServiceAtomType, 1, nil);
@@ -342,10 +346,12 @@ static void OpenDV()
                         QTAtom frameSizeAtom;
                         frameSizeAtom = QTFindChildByIndex( deviceList, configAtom,
                             kIDHDataBufferSizeAtomType, 1, nil);
-                        printf("sSDL %d strcmp %d\n", sSDL, strcmp(cameraName+1, "DV-SDL"));
-                        if(sSDL == (strcmp(cameraName+1, "DV-SDL")==0)) {
+                        // ignore DV_SDL config
+                        if(strcmp(cameraName+1, "DV-SDL")) {
                             if(frameSizeAtom) {
                                 QTCopyAtomDataToPtr( deviceList, frameSizeAtom, true, sizeof( frameSize), &frameSize, &size);
+                                if(sSDL)
+                                    frameSize /= 2;
                                 printf("Config buffer size %d\n", frameSize);
                             }
                             videoConfig.container = deviceList;	// save this config
@@ -369,6 +375,8 @@ static void OpenDV()
     err = IDHSetDeviceConfiguration( theInst, &videoConfig);
     if( err != noErr)
             goto error;
+
+    IDHSetFormat( theInst, sFormat);
 
     err = doWriteTest(theInst);
 
@@ -405,13 +413,20 @@ int main(int argc, char **argv)
     while(argc > pos) {
         if(strcmp(argv[pos], "-sdl") == 0)
             sSDL = 1;
+        else if(strcmp(argv[pos], "-DVCPro") == 0)
+            sDVCPro = 1;
         else
             sFile = argv[pos];
         pos++;
     }
 
-    if(sSDL)
+    if(sSDL) {
         frameSize /= 2;
+        sFormat = kIDHDV_SDL;
+    }
+    else if(sDVCPro) {
+        sFormat = kIDHDVCPro_25;
+    }
     printf("Reading from %s\n", sFile);
 	printf("Component seed is %d\n", seed);
     desc.componentType = 'ihlr';				/* A unique 4-byte code indentifying the command set */

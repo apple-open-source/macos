@@ -1,25 +1,21 @@
 /*
      File:       IsochronousDataHandler.k.h
  
-     Contains:   The defines the client API to an Isochronous Data Handler, which is
+     Contains:   Component Manager based Isochronous Data Handler
  
-     Version:    xxx put version here xxx
- 
-     DRI:        Sean Williams
- 
-     Copyright:  © 1997-2000 by Apple Computer, Inc., all rights reserved.
+     Copyright:  © 1997-2001 by Apple Computer, Inc., all rights reserved.
  
      Warning:    *** APPLE INTERNAL USE ONLY ***
                  This file may contain unreleased API's
  
      BuildInfo:  Built by:            wgulland
-                 On:                  Thu Sep 21 14:47:32 2000
-                 With Interfacer:     3.0d20e4 (Mac OS X for PowerPC)
+                 On:                  Wed Oct  3 13:30:06 2001
+                 With Interfacer:     3.0d35   (Mac OS X for PowerPC)
                  From:                IsochronousDataHandler.i
-                     Revision:        16
-                     Dated:           12/7/99
-                     Last change by:  RS
-                     Last comment:    Added error code 'kIDHErrCallNotSupported' since all isoch calls
+                     Revision:        1.4
+                     Dated:           2001/09/27 00:43:29
+                     Last change by:  wgulland
+                     Last comment:    Keep retrying if starting write fails
  
      Bugs:       Report bugs to Radar component "System Interfaces", "Latest"
                  List the version information (from above) in the Problem Description.
@@ -68,7 +64,7 @@
 
 	EXTERN_API( ComponentResult  ) ADD_IDH_BASENAME(Write) (IDH_GLOBALS() ADD_IDH_COMMA IDHParameterBlock * pb);
 
-	EXTERN_API( ComponentResult  ) ADD_IDH_BASENAME(NewNotification) (IDH_GLOBALS() ADD_IDH_COMMA IDHDeviceID  deviceID, IDHNotificationProc  notificationProc, void * userData, IDHNotificationID * notificationID);
+	EXTERN_API( ComponentResult  ) ADD_IDH_BASENAME(NewNotification) (IDH_GLOBALS() ADD_IDH_COMMA IDHDeviceID  deviceID, IDHNotificationUPP  notificationProc, void * userData, IDHNotificationID * notificationID);
 
 	EXTERN_API( ComponentResult  ) ADD_IDH_BASENAME(NotifyMeWhen) (IDH_GLOBALS() ADD_IDH_COMMA IDHNotificationID  notificationID, IDHEvent  events);
 
@@ -85,6 +81,10 @@
 	EXTERN_API( ComponentResult  ) ADD_IDH_BASENAME(UpdateDeviceList) (IDH_GLOBALS() ADD_IDH_COMMA QTAtomContainer * deviceList);
 
 	EXTERN_API( ComponentResult  ) ADD_IDH_BASENAME(GetDeviceTime) (IDH_GLOBALS() ADD_IDH_COMMA TimeRecord * deviceTime);
+
+	EXTERN_API( ComponentResult  ) ADD_IDH_BASENAME(SetFormat) (IDH_GLOBALS() ADD_IDH_COMMA UInt32  format);
+
+	EXTERN_API( ComponentResult  ) ADD_IDH_BASENAME(GetFormat) (IDH_GLOBALS() ADD_IDH_COMMA UInt32 * format);
 
 
 	/* MixedMode ProcInfo constants for component calls */
@@ -106,7 +106,9 @@
 		uppIDHCancelPendingIOProcInfo = 0x000003F0,
 		uppIDHGetDeviceControlProcInfo = 0x000003F0,
 		uppIDHUpdateDeviceListProcInfo = 0x000003F0,
-		uppIDHGetDeviceTimeProcInfo = 0x000003F0
+		uppIDHGetDeviceTimeProcInfo = 0x000003F0,
+		uppIDHSetFormatProcInfo = 0x000003F0,
+		uppIDHGetFormatProcInfo = 0x000003F0
 	};
 
 #endif	/* IDH_BASENAME */

@@ -95,6 +95,8 @@ static void doControlTest(ComponentInstance theInst, QTAtomSpec *currentIsochCon
         result = IDHGetDeviceStatus( theInst, currentIsochConfig, &devStatus);
         if(result)
                 goto Exit;
+        printf("input format is 0x%x\n", devStatus.inputFormat);
+                
         //result = FWClockPrivSetFWReferenceID(clockInst, (FWReferenceID) devStatus.localNodeID );
         //if(result)
         //	goto Exit;
@@ -297,6 +299,7 @@ static void OpenDV()
     UInt32 cmpFlag;
     UInt32 isoversion;
     long size;
+    UInt32 format;
     OSErr err;
     
     theInst = OpenDefaultComponent('ihlr', 'dv  ');
@@ -402,6 +405,7 @@ static void OpenDV()
             printf("currentChannel %d ", deviceStatus.currentChannel);
             printf("inputStandard %d ", deviceStatus.inputStandard);
             printf("deviceActive %d\n", deviceStatus.deviceActive);
+            printf("supported DV types %x\n", deviceStatus.outputFormats);
 
             if(deviceStatus.inputStandard == ntscIn)
                 frameSize = 120000;
@@ -470,6 +474,9 @@ static void OpenDV()
     if( err != noErr)
             goto error;
 
+    err = IDHGetFormat( theInst, &format);
+    printf("IDHGetFormat returned err %d, format %d\n", err, format);
+    
 #ifdef TWO
     err = IDHSetDeviceConfiguration( theInst2, &videoConfig);
     if( err != noErr)
