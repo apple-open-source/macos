@@ -15,6 +15,8 @@
  * Adapted from shadow-19990607 by Tudor Bosman, tudorb@jm.nu
  */
 
+/* $Id: md5crypt.h,v 1.1.1.2 2001/02/25 20:54:16 zarzycki Exp $ */
+
 #ifndef _MD5CRYPT_H
 #define _MD5CRYPT_H
 

@@ -4,4 +4,4 @@ Vendor: Australian National University
 Version: 2.3.11
 URL: ftp://cs.anu.edu.au/pub/software/ppp/
 Description: Point-to-Point Protocol
-Build-Depends: build-base, extentools, perl, iokituser, corefoundation
+Build-Depends: build-base, extentools, perl, iokituser, corefoundation, carbonheaders, xnu, project-makefiles

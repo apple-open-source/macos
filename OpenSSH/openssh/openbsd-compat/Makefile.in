@@ -1,0 +1,39 @@
+# $Id: Makefile.in,v 1.1.1.3 2001/05/03 16:51:26 zarzycki Exp $
+
+sysconfdir=@sysconfdir@
+piddir=@piddir@
+srcdir=@srcdir@
+top_srcdir=@top_srcdir@
+
+VPATH=@srcdir@
+CC=@CC@
+LD=@LD@
+CFLAGS=@CFLAGS@
+CPPFLAGS=-I. -I.. -I$(srcdir) -I$(srcdir)/.. @CPPFLAGS@ @DEFS@
+LIBS=@LIBS@
+AR=@AR@
+RANLIB=@RANLIB@
+INSTALL=@INSTALL@
+LDFLAGS=-L. @LDFLAGS@
+
+OPENBSD=base64.o bindresvport.o daemon.o getcwd.o getgrouplist.o getusershell.o glob.o inet_aton.o inet_ntoa.o inet_ntop.o mktemp.o realpath.o rresvport.o setenv.o setproctitle.o sigact.o strlcat.o strlcpy.o strmode.o strsep.o strtok.o vis.o
+
+COMPAT=bsd-arc4random.o bsd-cygwin_util.o bsd-misc.o bsd-nextstep.o bsd-snprintf.o bsd-waitpid.o fake-getaddrinfo.o fake-getnameinfo.o
+
+.c.o:
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<
+
+all: libopenbsd-compat.a
+
+$(COMPAT): ../config.h
+$(OPENBSD): ../config.h
+
+libopenbsd-compat.a:  $(COMPAT) $(OPENBSD)
+	$(AR) rv $@ $(COMPAT) $(OPENBSD)
+	$(RANLIB) $@
+
+clean:
+	rm -f *.o *.a core 
+
+distclean: clean
+	rm -f Makefile *~

@@ -1,14 +1,35 @@
 # Version of OpenSSH
-%define oversion 2.3.0p1
+%define oversion 2.9p1
 
 # Version of ssh-askpass
-%define aversion 1.0.3
+%define aversion 1.2.0
 
 # Do we want to disable building of x11-askpass? (1=yes 0=no)
 %define no_x11_askpass 0
 
 # Do we want to disable building of gnome-askpass? (1=yes 0=no)
 %define no_gnome_askpass 0
+
+# Do we want to link against a static libcrypto? (1=yes 0=no)
+%define static_libcrypto 0
+
+# Use Redhat 7.0 pam control file
+%define redhat7 0
+
+# Reserve options to override askpass settings with:
+# rpm -ba|--rebuild --define 'skip_xxx 1'
+%{?skip_x11_askpass:%define no_x11_askpass 1}
+%{?skip_gnome_askpass:%define no_gnome_askpass 1}
+
+# Options for Redhat version:
+# rpm -ba|--rebuild --define "rh7 1"
+%{?rh7:%define redhat7 1}
+
+# Options for static OpenSSL link:
+# rpm -ba|--rebuild --define "static_openssl 1"
+%{?static_openssl:%define static_libcrypto 1}
+
+%define exact_openssl_version   %(rpm -q openssl | cut -d - -f 2)
 
 Summary: OpenSSH free Secure Shell (SSH) implementation
 Name: openssh
@@ -18,19 +39,24 @@ Packager: Damien Miller <djm@mindrot.org>
 URL: http://www.openssh.com/
 Source0: ftp://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-%{oversion}.tar.gz
 %if ! %{no_x11_askpass}
-Source1: http://www.ntrnet.net/~jmknoble/software/x11-ssh-askpass/x11-ssh-askpass-%{aversion}.tar.gz 
+Source1: http://www.jmknoble.cx/software/x11-ssh-askpass/x11-ssh-askpass-%{aversion}.tar.gz 
 %endif
 Copyright: BSD
 Group: Applications/Internet
-BuildRoot: /tmp/openssh-%{version}-buildroot
+BuildRoot: %{_tmppath}/%{name}-%{version}-buildroot
 Obsoletes: ssh
-PreReq: openssl >= 0.9.5a
-Requires: openssl >= 0.9.5a
 BuildPreReq: perl, openssl-devel, tcp_wrappers
-BuildPreReq: /bin/login, /usr/bin/rsh, /usr/include/security/pam_appl.h
+BuildPreReq: /bin/login, /usr/include/security/pam_appl.h
+BuildPreReq: rpm >= 3.0.5
 %if ! %{no_gnome_askpass}
 BuildPreReq: gnome-libs-devel
 %endif
+%if ! %{static_libcrypto}
+PreReq: openssl >= 0.9.5a
+PreReq: openssl = %{exact_openssl_version}
+Requires: openssl >= 0.9.5a
+%endif
+Requires: rpm >= 3.0.5
 
 %package clients
 Summary: OpenSSH Secure Shell protocol clients
@@ -43,7 +69,9 @@ Summary: OpenSSH Secure Shell protocol server (sshd)
 Group: System Environment/Daemons
 Obsoletes: ssh-server
 PreReq: openssh = %{version}-%{release}, chkconfig >= 0.9
-Requires: initscripts >= 4.16
+%if %{redhat7}
+Requires: /etc/pam.d/system-auth
+%endif
 
 %package askpass
 Summary: OpenSSH X11 passphrase dialog
@@ -112,7 +140,7 @@ OpenSSH is OpenBSD's rework of the last free version of SSH, bringing it
 up to date in terms of security and features, as well as removing all 
 patented algorithms to separate libraries (OpenSSL).
 
-This package contains Jim Knoble's <jmknoble@pobox.com> X11 passphrase 
+This package contains Jim Knoble's <jmknoble@jmknoble.cx> X11 passphrase 
 dialog.
 
 %description askpass-gnome
@@ -138,13 +166,19 @@ This package contains the GNOME passphrase dialog.
 
 %build
 
+%define _sysconfdir /etc/ssh
+
 %configure \
-	--sysconfdir=%{_sysconfdir}/ssh \
 	--libexecdir=%{_libexecdir}/openssh \
+	--with-pam \
 	--with-tcp-wrappers \
 	--with-ipv4-default \
 	--with-rsh=/usr/bin/rsh \
-	--with-default-path=/usr/local/bin:/bin:/usr/bin:/usr/X11R6/bin
+	--with-default-path=/bin:/usr/bin:/usr/local/bin:/usr/X11R6/bin
+
+%if %{static_libcrypto}
+perl -pi -e "s|-lcrypto|/usr/lib/libcrypto.a|g" Makefile
+%endif
 
 make
 
@@ -166,7 +200,6 @@ popd
 %install
 rm -rf $RPM_BUILD_ROOT
 %{makeinstall} \
-	sysconfdir=$RPM_BUILD_ROOT%{_sysconfdir}/ssh \
 	libexecdir=$RPM_BUILD_ROOT%{_libexecdir}/openssh \
 	DESTDIR=/ # Hack to disable key generation
 
@@ -174,16 +207,20 @@ rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT/etc/pam.d/
 install -d $RPM_BUILD_ROOT/etc/rc.d/init.d
 install -d $RPM_BUILD_ROOT%{_libexecdir}/openssh
+%if %{redhat7}
+install -m644 contrib/redhat/sshd.pam-7.x $RPM_BUILD_ROOT/etc/pam.d/sshd
+%else
 install -m644 contrib/redhat/sshd.pam $RPM_BUILD_ROOT/etc/pam.d/sshd
+%endif
 install -m755 contrib/redhat/sshd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/sshd
 
 %if ! %{no_x11_askpass}
-install -s x11-ssh-askpass-%{aversion}/x11-ssh-askpass $RPM_BUILD_ROOT/usr/libexec/openssh/x11-ssh-askpass
-ln -s /usr/libexec/openssh/x11-ssh-askpass $RPM_BUILD_ROOT/usr/libexec/openssh/ssh-askpass
+install -s x11-ssh-askpass-%{aversion}/x11-ssh-askpass $RPM_BUILD_ROOT%{_libexecdir}/openssh/x11-ssh-askpass
+ln -s /usr/libexec/openssh/x11-ssh-askpass $RPM_BUILD_ROOT%{_libexecdir}/openssh/ssh-askpass
 %endif
 
 %if ! %{no_gnome_askpass}
-install -s contrib/gnome-ssh-askpass $RPM_BUILD_ROOT/usr/libexec/openssh/gnome-ssh-askpass
+install -s contrib/gnome-ssh-askpass $RPM_BUILD_ROOT%{_libexecdir}/openssh/gnome-ssh-askpass
 %endif
 
 perl -pi -e "s|$RPM_BUILD_ROOT||g" $RPM_BUILD_ROOT%{_mandir}/man*/*
@@ -205,13 +242,16 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc ChangeLog OVERVIEW COPYING.Ylonen README* INSTALL 
+%doc ChangeLog OVERVIEW README* INSTALL 
 %doc CREDITS LICENCE
 %attr(0755,root,root) %{_bindir}/ssh-keygen
 %attr(0755,root,root) %{_bindir}/scp
+%attr(0755,root,root) %{_bindir}/ssh-keyscan
 %attr(0644,root,root) %{_mandir}/man1/ssh-keygen.1*
+%attr(0644,root,root) %{_mandir}/man1/ssh-keyscan.1*
 %attr(0644,root,root) %{_mandir}/man1/scp.1*
-%attr(0755,root,root) %dir %{_sysconfdir}/ssh
+%attr(0755,root,root) %dir %{_sysconfdir}
+%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/primes
 %attr(0755,root,root) %dir %{_libexecdir}/openssh
 
 %files clients
@@ -219,10 +259,14 @@ fi
 %attr(4755,root,root) %{_bindir}/ssh
 %attr(0755,root,root) %{_bindir}/ssh-agent
 %attr(0755,root,root) %{_bindir}/ssh-add
+%attr(0755,root,root) %{_bindir}/ssh-keyscan
+%attr(0755,root,root) %{_bindir}/sftp
 %attr(0644,root,root) %{_mandir}/man1/ssh.1*
 %attr(0644,root,root) %{_mandir}/man1/ssh-agent.1*
 %attr(0644,root,root) %{_mandir}/man1/ssh-add.1*
-%attr(0644,root,root) %config(noreplace) %{_sysconfdir}/ssh/ssh_config
+%attr(0644,root,root) %{_mandir}/man1/ssh-keyscan.1*
+%attr(0644,root,root) %{_mandir}/man1/sftp.1*
+%attr(0644,root,root) %config(noreplace) %{_sysconfdir}/ssh_config
 %attr(-,root,root) %{_bindir}/slogin
 %attr(-,root,root) %{_mandir}/man1/slogin.1*
 
@@ -232,7 +276,8 @@ fi
 %attr(0755,root,root) %{_libexecdir}/openssh/sftp-server
 %attr(0644,root,root) %{_mandir}/man8/sshd.8*
 %attr(0644,root,root) %{_mandir}/man8/sftp-server.8*
-%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/ssh/sshd_config
+#%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/sshd_config
+%attr(0600,root,root) %config %{_sysconfdir}/sshd_config
 %attr(0600,root,root) %config(noreplace) /etc/pam.d/sshd
 %attr(0755,root,root) %config /etc/rc.d/init.d/sshd
 

@@ -9,9 +9,9 @@ Project               = openssh
 ProjectName           = OpenSSH
 UserType              = Administrator
 ToolType              = Services
-Extra_CC_Flags        = -Wno-precomp -DBROKEN_GETADDRINFO -Dgetaddrinfo=fake_getaddrinfo -Dcrc32=crcsum32 # crc32() symbol conflicts with zlib (!)
-Extra_LD_Flags        = -L.
-Extra_Configure_Flags = --sysconfdir="/etc" --disable-suid-ssh
+Extra_CC_Flags        = -Wno-precomp -Dcrc32=crcsum32 # crc32() symbol conflicts with zlib (!)
+Extra_LD_Flags        = -L. -Lopenbsd-compat
+Extra_Configure_Flags = --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/local/include/openssl
 Extra_Install_Flags   = sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
 
 GnuAfterInstall = install-startup-item
@@ -22,7 +22,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Install_Target = install
 
 build::
-	$(_v) $(MAKE) -C $(BuildDirectory) $(Environment) manpages
+	$(_v) $(MAKE) -C $(BuildDirectory) $(Environment)
 
 StartupItemDir = $(NSLIBRARYDIR)/StartupItems/SSH
 

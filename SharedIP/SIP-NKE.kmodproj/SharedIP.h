@@ -81,25 +81,25 @@
  *  SO_REUSEADDR/SO_REUSEPORT), if needed)
  */
 
-struct sopt_shared_port_param
-{	struct in_addr	laddr;	/* Local IP address for psuedo bind op */
-	struct in_addr	faddr;	/* Foreign IP address if known */
-	unsigned int	lport;	/* Local port for psuedo bind op */
-	unsigned int	fport;	/* Foreign port if known */
-	unsigned int	proto;	/* IPPROTO_XXX (UDP, TCP) */
-	unsigned int	flags;	/* Modifiers */
-	unsigned int	cookie;	/* Cookie to return to user with */
-				/* incoming frames (in control component) */
+struct sopt_shared_port_param {
+    struct in_addr	laddr;	/* Local IP address for psuedo bind op */
+    struct in_addr	faddr;	/* Foreign IP address if known */
+    unsigned int	lport;	/* Local port for psuedo bind op */
+    unsigned int	fport;	/* Foreign port if known */
+    unsigned int	proto;	/* IPPROTO_XXX (UDP, TCP) */
+    unsigned int	flags;	/* Modifiers */
+    unsigned int	cookie;	/* Cookie to return to user with */
+                                /* incoming frames (in control component) */
 };
 
-struct sopt_proto_register
-{	unsigned int reg_flags;		/* See below */
-	struct sockaddr *reg_sa;	/* Address to filter on */
+struct sopt_proto_register {
+    unsigned int reg_flags;	/* See below */
+    struct sockaddr *reg_sa;	/* Address to filter on */
 };
 
 /*
  * Theory of operation:
- * For each supported protocol (IP, AppleTalk only), register interest.
+ * For each supported protocol (IP and AppleTalk only), register interest.
  * PF_NDRV processing won't recognize these, but they will be intercepted
  *  by the NKE.
  * RCV_ALL: all incoming traffic is passed to the user process

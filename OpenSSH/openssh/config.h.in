@@ -1,4 +1,6 @@
 /* config.h.in.  Generated automatically from configure.in by autoheader.  */
+/* $Id: config.h.in,v 1.1.1.8 2001/05/03 16:51:21 zarzycki Exp $ */
+
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
@@ -12,8 +14,15 @@
 /* Define if your struct stat has st_blksize.  */
 #undef HAVE_ST_BLKSIZE
 
+/* Define if you have the strftime function.  */
+#undef HAVE_STRFTIME
+
 /* Define as __inline if that's what the C compiler calls it.  */
 #undef inline
+
+/* Define if your processor stores words with the most significant
+   byte first (like Motorola and SPARC, unlike Intel and VAX).  */
+#undef WORDS_BIGENDIAN
 
 /* Define to a Set Process Title type if your system is */
 /* supported by bsd-setproctitle.c */
@@ -21,6 +30,7 @@
 
 /* SCO workaround */
 #undef BROKEN_SYS_TERMIO_H
+#undef HAVE_BOGUS_SYS_QUEUE_H
 
 /* Define if you have SCO protected password database */
 #undef HAVE_SCO_PROTECTED_PW
@@ -31,9 +41,6 @@
 
 /* Define if your password has a pw_class field */
 #undef HAVE_PW_CLASS_IN_PASSWD
-
-/* Define if your socketpair() has bugs */
-#undef USE_PIPES
 
 /* Define if your system's struct sockaddr_un has a sun_len member */
 #undef HAVE_SUN_LEN_IN_SOCKADDR_UN
@@ -77,8 +84,8 @@
 /* Define if you are on NEWS-OS */
 #undef HAVE_NEWS4
 
-/* Define if you want to disable PAM support */
-#undef DISABLE_PAM
+/* Define if you want to enable PAM support */
+#undef USE_PAM
 
 /* Define if you want to enable AIX4's authenticate function */
 #undef WITH_AIXAUTHENTICATE
@@ -92,17 +99,26 @@
 /* Define if you want IRIX audit trails */
 #undef WITH_IRIX_AUDIT
 
+/* Define if you want IRIX kernel jobs */
+#undef WITH_IRIX_JOBS
+
 /* Location of random number pool  */
 #undef RANDOM_POOL
 
-/* Location of EGD random number socket */
-#undef EGD_SOCKET
+/* Location of PRNGD/EGD random number socket */
+#undef PRNGD_SOCKET
+
+/* Port number of PRNGD/EGD random number socket */
+#undef PRNGD_PORT
 
 /* Builtin PRNG command timeout */
 #undef ENTROPY_TIMEOUT_MSEC
 
 /* Define if your ssl headers are included with #include <openssl/header.h>  */
 #undef HAVE_OPENSSL
+
+/* struct timeval */
+#undef HAVE_STRUCT_TIMEVAL
 
 /* struct utmp and struct utmpx fields */
 #undef HAVE_HOST_IN_UTMP
@@ -211,6 +227,10 @@
 /* to pam_strerror */
 #undef HAVE_OLD_PAM
 
+/* Define if you are using Solaris-derived PAM which passes pam_messages  */
+/* to the conversation function with an extra level of indirection */
+#undef PAM_SUN_CODEBASE
+
 /* Set this to your mail directory if you don't have maillock.h */
 #undef MAIL_DIRECTORY
 
@@ -224,6 +244,7 @@
 #undef HAVE_SOCKLEN_T
 #undef HAVE_SIZE_T
 #undef HAVE_SSIZE_T
+#undef HAVE_CLOCK_T
 #undef HAVE_MODE_T
 #undef HAVE_PID_T
 #undef HAVE_SA_FAMILY_T
@@ -235,6 +256,9 @@
 /* Fields in struct sockaddr_storage */
 #undef HAVE_SS_FAMILY_IN_SS
 #undef HAVE___SS_FAMILY_IN_SS
+
+/* Define if you have a regcomp() function */
+#undef HAVE_REGCOMP
 
 /* Define if you have /dev/ptmx */
 #undef HAVE_DEV_PTMX
@@ -249,7 +273,7 @@
 #undef USER_PATH
 
 /* Specify location of ssh.pid */
-#undef PIDDIR
+#undef _PATH_SSH_PIDDIR
 
 /* Use IPv4 for connection by default, IPv6 can still if explicity asked */
 #undef IPV4_DEFAULT
@@ -260,14 +284,29 @@
 /* getaddrinfo is broken (if present) */
 #undef BROKEN_GETADDRINFO
 
-/* vhangup is broken (if present) */
-#undef BROKEN_VHANGUP
-
 /* Workaround more Linux IPv6 quirks */
 #undef DONT_TRY_OTHER_AF
 
 /* Detect IPv4 in IPv6 mapped addresses and treat as IPv4 */
 #undef IPV4_IN_IPV6
+
+/* Define if you have BSD auth support */
+#undef BSD_AUTH
+
+/* Define if X11 doesn't support AF_UNIX sockets on that system */
+#undef NO_X11_UNIX_SOCKETS
+
+/* Needed for SCO and NeXT */
+#undef BROKEN_SAVED_UIDS
+
+/* Define if your system glob() function has the GLOB_ALTDIRFUNC extension */
+#undef GLOB_HAS_ALTDIRFUNC
+
+/* Define if your system glob() function has gl_matchc options in glob_t */
+#undef GLOB_HAS_GL_MATCHC
+
+/* Define in your struct dirent expects you to allocate extra space for d_name */
+#undef BROKEN_ONE_BYTE_DIRENT_D_NAME
 
 /* The number of bytes in a char.  */
 #undef SIZEOF_CHAR
@@ -302,20 +341,23 @@
 /* Define if you have the bcopy function.  */
 #undef HAVE_BCOPY
 
-/* Define if you have the bindresvport_af function.  */
-#undef HAVE_BINDRESVPORT_AF
+/* Define if you have the bindresvport_sa function.  */
+#undef HAVE_BINDRESVPORT_SA
 
 /* Define if you have the clock function.  */
 #undef HAVE_CLOCK
 
-/* Define if you have the entutent function.  */
-#undef HAVE_ENTUTENT
+/* Define if you have the endutent function.  */
+#undef HAVE_ENDUTENT
 
-/* Define if you have the entutxent function.  */
-#undef HAVE_ENTUTXENT
+/* Define if you have the endutxent function.  */
+#undef HAVE_ENDUTXENT
 
 /* Define if you have the fchmod function.  */
 #undef HAVE_FCHMOD
+
+/* Define if you have the fchown function.  */
+#undef HAVE_FCHOWN
 
 /* Define if you have the freeaddrinfo function.  */
 #undef HAVE_FREEADDRINFO
@@ -332,11 +374,20 @@
 /* Define if you have the getcwd function.  */
 #undef HAVE_GETCWD
 
+/* Define if you have the getgrouplist function.  */
+#undef HAVE_GETGROUPLIST
+
+/* Define if you have the getluid function.  */
+#undef HAVE_GETLUID
+
 /* Define if you have the getnameinfo function.  */
 #undef HAVE_GETNAMEINFO
 
 /* Define if you have the getpwanam function.  */
 #undef HAVE_GETPWANAM
+
+/* Define if you have the getrlimit function.  */
+#undef HAVE_GETRLIMIT
 
 /* Define if you have the getrusage function.  */
 #undef HAVE_GETRUSAGE
@@ -346,6 +397,9 @@
 
 /* Define if you have the getttyent function.  */
 #undef HAVE_GETTTYENT
+
+/* Define if you have the getusershell function.  */
+#undef HAVE_GETUSERSHELL
 
 /* Define if you have the getutent function.  */
 #undef HAVE_GETUTENT
@@ -365,11 +419,17 @@
 /* Define if you have the getutxline function.  */
 #undef HAVE_GETUTXLINE
 
+/* Define if you have the glob function.  */
+#undef HAVE_GLOB
+
 /* Define if you have the inet_aton function.  */
 #undef HAVE_INET_ATON
 
 /* Define if you have the inet_ntoa function.  */
 #undef HAVE_INET_NTOA
+
+/* Define if you have the inet_ntop function.  */
+#undef HAVE_INET_NTOP
 
 /* Define if you have the innetgr function.  */
 #undef HAVE_INNETGR
@@ -416,6 +476,12 @@
 /* Define if you have the rresvport_af function.  */
 #undef HAVE_RRESVPORT_AF
 
+/* Define if you have the setdtablesize function.  */
+#undef HAVE_SETDTABLESIZE
+
+/* Define if you have the setegid function.  */
+#undef HAVE_SETEGID
+
 /* Define if you have the setenv function.  */
 #undef HAVE_SETENV
 
@@ -425,8 +491,14 @@
 /* Define if you have the setlogin function.  */
 #undef HAVE_SETLOGIN
 
+/* Define if you have the setluid function.  */
+#undef HAVE_SETLUID
+
 /* Define if you have the setproctitle function.  */
 #undef HAVE_SETPROCTITLE
+
+/* Define if you have the setresgid function.  */
+#undef HAVE_SETRESGID
 
 /* Define if you have the setreuid function.  */
 #undef HAVE_SETREUID
@@ -461,17 +533,29 @@
 /* Define if you have the strlcpy function.  */
 #undef HAVE_STRLCPY
 
+/* Define if you have the strmode function.  */
+#undef HAVE_STRMODE
+
 /* Define if you have the strsep function.  */
 #undef HAVE_STRSEP
 
 /* Define if you have the strtok_r function.  */
 #undef HAVE_STRTOK_R
 
+/* Define if you have the sysconf function.  */
+#undef HAVE_SYSCONF
+
+/* Define if you have the tcgetpgrp function.  */
+#undef HAVE_TCGETPGRP
+
 /* Define if you have the time function.  */
 #undef HAVE_TIME
 
 /* Define if you have the updwtmp function.  */
 #undef HAVE_UPDWTMP
+
+/* Define if you have the utimes function.  */
+#undef HAVE_UTIMES
 
 /* Define if you have the utmpname function.  */
 #undef HAVE_UTMPNAME
@@ -494,6 +578,9 @@
 /* Define if you have the <bstring.h> header file.  */
 #undef HAVE_BSTRING_H
 
+/* Define if you have the <crypt.h> header file.  */
+#undef HAVE_CRYPT_H
+
 /* Define if you have the <endian.h> header file.  */
 #undef HAVE_ENDIAN_H
 
@@ -503,11 +590,17 @@
 /* Define if you have the <getopt.h> header file.  */
 #undef HAVE_GETOPT_H
 
+/* Define if you have the <glob.h> header file.  */
+#undef HAVE_GLOB_H
+
 /* Define if you have the <krb.h> header file.  */
 #undef HAVE_KRB_H
 
 /* Define if you have the <lastlog.h> header file.  */
 #undef HAVE_LASTLOG_H
+
+/* Define if you have the <libutil.h> header file.  */
+#undef HAVE_LIBUTIL_H
 
 /* Define if you have the <limits.h> header file.  */
 #undef HAVE_LIMITS_H
@@ -539,6 +632,9 @@
 /* Define if you have the <pty.h> header file.  */
 #undef HAVE_PTY_H
 
+/* Define if you have the <regex.h> header file.  */
+#undef HAVE_REGEX_H
+
 /* Define if you have the <security/pam_appl.h> header file.  */
 #undef HAVE_SECURITY_PAM_APPL_H
 
@@ -559,6 +655,9 @@
 
 /* Define if you have the <sys/poll.h> header file.  */
 #undef HAVE_SYS_POLL_H
+
+/* Define if you have the <sys/queue.h> header file.  */
+#undef HAVE_SYS_QUEUE_H
 
 /* Define if you have the <sys/select.h> header file.  */
 #undef HAVE_SYS_SELECT_H
@@ -593,6 +692,9 @@
 /* Define if you have the <util.h> header file.  */
 #undef HAVE_UTIL_H
 
+/* Define if you have the <utime.h> header file.  */
+#undef HAVE_UTIME_H
+
 /* Define if you have the <utmp.h> header file.  */
 #undef HAVE_UTMP_H
 
@@ -602,14 +704,26 @@
 /* Define if you have the <vis.h> header file.  */
 #undef HAVE_VIS_H
 
+/* Define if you have the des library (-ldes).  */
+#undef HAVE_LIBDES
+
+/* Define if you have the des425 library (-ldes425).  */
+#undef HAVE_LIBDES425
+
 /* Define if you have the dl library (-ldl).  */
 #undef HAVE_LIBDL
 
 /* Define if you have the krb library (-lkrb).  */
 #undef HAVE_LIBKRB
 
+/* Define if you have the krb4 library (-lkrb4).  */
+#undef HAVE_LIBKRB4
+
 /* Define if you have the nsl library (-lnsl).  */
 #undef HAVE_LIBNSL
+
+/* Define if you have the pam library (-lpam).  */
+#undef HAVE_LIBPAM
 
 /* Define if you have the resolv library (-lresolv).  */
 #undef HAVE_LIBRESOLV

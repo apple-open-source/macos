@@ -17,6 +17,7 @@
 #include <mach/kmod.h>
 #include <syslog.h>
 
+#include <CoreFoundation/CFPriv.h>              // for _CFRunLoopSetCurrent();
 
 #define TIMER_PERIOD_S 10
 #define LOOKAPPLENDRV 1
@@ -1514,6 +1515,14 @@ KEXTdaemon(nochdir, noclose)
     case -1:
             return (-1);
     case 0:
+           /*
+            * Under some circumstances a CFRunLoop could have been established
+            * in the parent process.  Since the mach ports associated with the
+            * run loop are not passed to the child process we need to start
+            * with a clean slate.
+            */
+            _CFRunLoopSetCurrent(NULL);
+
             break;
     default:
             KEXTdaemonWait();

@@ -1321,3 +1321,11 @@ Sudo 1.6.3p4 released.
 414) Do not write NUL when writing passwd prompt; hag@linnaean.org.
 
 Sudo 1.6.3p5 released.
+
+415) Fix word splitting bug that caused a segv for very long command line args.
+
+Sudo 1.6.3p6 released.
+
+416) Fix negation of path-type Defaults entries in a boolean context.
+
+Sudo 1.6.3p7 released.

@@ -10,35 +10,27 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth1.c,v 1.6 2000/10/11 20:27:23 markus Exp $");
-
-#ifdef HAVE_OSF_SIA
-# include <sia.h>
-# include <siad.h>
-#endif
+RCSID("$OpenBSD: auth1.c,v 1.22 2001/03/23 12:02:49 markus Exp $");
 
 #include "xmalloc.h"
 #include "rsa.h"
-#include "ssh.h"
+#include "ssh1.h"
 #include "packet.h"
 #include "buffer.h"
 #include "mpaux.h"
+#include "log.h"
 #include "servconf.h"
 #include "compat.h"
 #include "auth.h"
 #include "session.h"
+#include "misc.h"
 
 /* import */
 extern ServerOptions options;
-extern char *forced_command;
 
 #ifdef WITH_AIXAUTHENTICATE
 extern char *aixloginmsg;
 #endif /* WITH_AIXAUTHENTICATE */
-#ifdef HAVE_OSF_SIA
-extern int saved_argc;
-extern char **saved_argv;
-#endif /* HAVE_OSF_SIA */
 
 /*
  * convert ssh auth msg type into description
@@ -56,13 +48,12 @@ get_authname(int type)
 		return "rhosts-rsa";
 	case SSH_CMSG_AUTH_RHOSTS:
 		return "rhosts";
+	case SSH_CMSG_AUTH_TIS:
+	case SSH_CMSG_AUTH_TIS_RESPONSE:
+		return "challenge-response";
 #ifdef KRB4
 	case SSH_CMSG_AUTH_KERBEROS:
 		return "kerberos";
-#endif
-#ifdef SKEY
-	case SSH_CMSG_AUTH_TIS_RESPONSE:
-		return "s/key";
 #endif
 	}
 	snprintf(buf, sizeof buf, "bad-auth-msg-%d", type);
@@ -70,27 +61,42 @@ get_authname(int type)
 }
 
 /*
- * read packets and try to authenticate local user 'luser'.
- * return if authentication is successfull. not that pw == NULL
- * if the user does not exists or is not allowed to login.
- * each auth method has to 'fake' authentication for nonexisting
- * users.
+ * read packets, try to authenticate the user and
+ * return only if authentication is successful
  */
 void
-do_authloop(struct passwd * pw, char *luser)
+do_authloop(Authctxt *authctxt)
 {
 	int authenticated = 0;
-	int attempt = 0;
-	unsigned int bits;
+	u_int bits;
 	RSA *client_host_key;
 	BIGNUM *n;
 	char *client_user, *password;
-	char user[1024];
-	unsigned int dlen;
+	char info[1024];
+	u_int dlen;
 	int plen, nlen, elen;
-	unsigned int ulen;
+	u_int ulen;
 	int type = 0;
-	void (*authlog) (const char *fmt,...) = verbose;
+	struct passwd *pw = authctxt->pw;
+
+	debug("Attempting authentication for %s%.100s.",
+	     authctxt->valid ? "" : "illegal user ", authctxt->user);
+
+	/* If the user has no password, accept authentication immediately. */
+	if (options.password_authentication &&
+#ifdef KRB4
+	    (!options.kerberos_authentication || options.kerberos_or_local_passwd) &&
+#endif
+#ifdef USE_PAM
+	    auth_pam_password(pw, "")) {
+#elif defined(HAVE_OSF_SIA)
+	    0) {
+#else
+	    auth_password(authctxt, "")) {
+#endif
+		auth_log(authctxt, 1, "without authentication", "");
+		return;
+	}
 
 	/* Indicate that authentication is needed. */
 	packet_start(SSH_SMSG_FAILURE);
@@ -99,11 +105,11 @@ do_authloop(struct passwd * pw, char *luser)
 
 	client_user = NULL;
 
-	for (attempt = 1;; attempt++) {
+	for (;;) {
 		/* default to fail */
 		authenticated = 0;
 
-		strlcpy(user, "", sizeof user);
+		info[0] = '\0';
 
 		/* Get a packet from the client. */
 		type = packet_read(&plen);
@@ -120,7 +126,7 @@ do_authloop(struct passwd * pw, char *luser)
 				char *tgt = packet_get_string(&dlen);
 				packet_integrity_check(plen, 4 + dlen, type);
 				if (!auth_kerberos_tgt(pw, tgt))
-					verbose("Kerberos tgt REFUSED for %.100s", luser);
+					verbose("Kerberos tgt REFUSED for %.100s", authctxt->user);
 				xfree(tgt);
 			}
 			continue;
@@ -134,7 +140,7 @@ do_authloop(struct passwd * pw, char *luser)
 				char *token_string = packet_get_string(&dlen);
 				packet_integrity_check(plen, 4 + dlen, type);
 				if (!auth_afs_token(pw, token_string))
-					verbose("AFS token REFUSED for %.100s", luser);
+					verbose("AFS token REFUSED for %.100s", authctxt->user);
 				xfree(token_string);
 			}
 			continue;
@@ -142,27 +148,26 @@ do_authloop(struct passwd * pw, char *luser)
 #ifdef KRB4
 		case SSH_CMSG_AUTH_KERBEROS:
 			if (!options.kerberos_authentication) {
-				/* packet_get_all(); */
 				verbose("Kerberos authentication disabled.");
 				break;
 			} else {
 				/* Try Kerberos v4 authentication. */
 				KTEXT_ST auth;
 				char *tkt_user = NULL;
-				char *kdata = packet_get_string((unsigned int *) &auth.length);
+				char *kdata = packet_get_string((u_int *) &auth.length);
 				packet_integrity_check(plen, 4 + auth.length, type);
 
-				if (auth.length < MAX_KTXT_LEN)
-					memcpy(auth.dat, kdata, auth.length);
-				xfree(kdata);
-
-				if (pw != NULL) {
+				if (authctxt->valid) {
+					if (auth.length < MAX_KTXT_LEN)
+						memcpy(auth.dat, kdata, auth.length);
 					authenticated = auth_krb4(pw->pw_name, &auth, &tkt_user);
 					if (authenticated) {
-						snprintf(user, sizeof user, " tktuser %s", tkt_user);
+						snprintf(info, sizeof info,
+						    " tktuser %.100s", tkt_user);
 						xfree(tkt_user);
 					}
 				}
+				xfree(kdata);
 			}
 			break;
 #endif /* KRB4 */
@@ -184,7 +189,7 @@ do_authloop(struct passwd * pw, char *luser)
 			/* Try to authenticate using /etc/hosts.equiv and .rhosts. */
 			authenticated = auth_rhosts(pw, client_user);
 
-			snprintf(user, sizeof user, " ruser %s", client_user);
+			snprintf(info, sizeof info, " ruser %.100s", client_user);
 			break;
 
 		case SSH_CMSG_AUTH_RHOSTS_RSA:
@@ -219,7 +224,7 @@ do_authloop(struct passwd * pw, char *luser)
 			authenticated = auth_rhosts_rsa(pw, client_user, client_host_key);
 			RSA_free(client_host_key);
 
-			snprintf(user, sizeof user, " ruser %s", client_user);
+			snprintf(info, sizeof info, " ruser %.100s", client_user);
 			break;
 
 		case SSH_CMSG_AUTH_RSA:
@@ -253,36 +258,25 @@ do_authloop(struct passwd * pw, char *luser)
 			authenticated = auth_pam_password(pw, password);
 #elif defined(HAVE_OSF_SIA)
 			/* Do SIA auth with password */
-			if (sia_validate_user(NULL, saved_argc, saved_argv, 
-				get_canonical_hostname(), pw->pw_name, NULL, 0, 
-				NULL, password) == SIASUCCESS) {
-				authenticated = 1;
-			}
+			authenticated = auth_sia_password(authctxt->user, 
+			    password);
 #else /* !USE_PAM && !HAVE_OSF_SIA */
- 			/* Try authentication with the password. */
-			authenticated = auth_password(pw, password);
+			/* Try authentication with the password. */
+			authenticated = auth_password(authctxt, password);
 #endif /* USE_PAM */
 
 			memset(password, 0, strlen(password));
 			xfree(password);
 			break;
 
-#ifdef SKEY
 		case SSH_CMSG_AUTH_TIS:
 			debug("rcvd SSH_CMSG_AUTH_TIS");
-			if (options.skey_authentication == 1) {
-				char *skeyinfo = NULL;
-				if (pw != NULL)
-					skey_keyinfo(pw->pw_name);
-				if (skeyinfo == NULL) {
-					debug("generating fake skeyinfo for %.100s.", luser);
-					skeyinfo = skey_fake_keyinfo(luser);
-				}
-				if (skeyinfo != NULL) {
-					/* we send our s/key- in tis-challenge messages */
-					debug("sending challenge '%s'", skeyinfo);
+			if (options.challenge_reponse_authentication == 1) {
+				char *challenge = get_challenge(authctxt, authctxt->style);
+				if (challenge != NULL) {
+					debug("sending challenge '%s'", challenge);
 					packet_start(SSH_SMSG_AUTH_TIS_CHALLENGE);
-					packet_put_cstring(skeyinfo);
+					packet_put_cstring(challenge);
 					packet_send();
 					packet_write_wait();
 					continue;
@@ -291,22 +285,15 @@ do_authloop(struct passwd * pw, char *luser)
 			break;
 		case SSH_CMSG_AUTH_TIS_RESPONSE:
 			debug("rcvd SSH_CMSG_AUTH_TIS_RESPONSE");
-			if (options.skey_authentication == 1) {
+			if (options.challenge_reponse_authentication == 1) {
 				char *response = packet_get_string(&dlen);
-				debug("skey response == '%s'", response);
+				debug("got response '%s'", response);
 				packet_integrity_check(plen, 4 + dlen, type);
-				authenticated = (pw != NULL &&
-				    skey_haskey(pw->pw_name) == 0 &&
-				    skey_passcheck(pw->pw_name, response) != -1);
+				authenticated = verify_response(authctxt, response);
+				memset(response, 'r', dlen);
 				xfree(response);
 			}
 			break;
-#else
-		case SSH_CMSG_AUTH_TIS:
-			/* TIS Authentication is unsupported */
-			log("TIS authentication unsupported.");
-			break;
-#endif
 
 		default:
 			/*
@@ -316,52 +303,36 @@ do_authloop(struct passwd * pw, char *luser)
 			log("Unknown message during authentication: type %d", type);
 			break;
 		}
-		if (authenticated && pw == NULL)
-			fatal("internal error: authenticated for pw == NULL");
+#ifdef BSD_AUTH
+		if (authctxt->as) {
+			auth_close(authctxt->as);
+			authctxt->as = NULL;
+		}
+#endif
+		if (!authctxt->valid && authenticated)
+			fatal("INTERNAL ERROR: authenticated invalid user %s",
+			    authctxt->user);
 
 #ifdef HAVE_CYGWIN
-		if (authenticated && 
+		if (authenticated &&
 		    !check_nt_auth(type == SSH_CMSG_AUTH_PASSWORD,pw->pw_uid)) {
 			packet_disconnect("Authentication rejected for uid %d.",
 			(int)pw->pw_uid);
 			authenticated = 0;
 		}
+#else
+		/* Special handling for root */
+		if (authenticated && authctxt->pw->pw_uid == 0 &&
+		    !auth_root_allowed(get_authname(type)))
+			authenticated = 0;
 #endif
-
-		/*
-		 * Check if the user is logging in as root and root logins
-		 * are disallowed.
-		 * Note that root login is allowed for forced commands.
-		 */
-		if (authenticated && pw && pw->pw_uid == 0 && !options.permit_root_login) {
-			if (forced_command) {
-				log("Root login accepted for forced command.");
-			} else {
-				authenticated = 0;
-				log("ROOT LOGIN REFUSED FROM %.200s",
-				    get_canonical_hostname());
-			}
-		}
-
-		/* Raise logging level */
-		if (authenticated ||
-		    attempt == AUTH_FAIL_LOG ||
-		    type == SSH_CMSG_AUTH_PASSWORD)
-			authlog = log;
-
-		authlog("%s %s for %s%.100s from %.200s port %d%s",
-			authenticated ? "Accepted" : "Failed",
-			get_authname(type),
-			pw ? "" : "illegal user ",
-			pw && pw->pw_uid == 0 ? "ROOT" : luser,
-			get_remote_ipaddr(),
-			get_remote_port(),
-			user);
-
 #ifdef USE_PAM
 		if (authenticated && !do_pam_account(pw->pw_name, client_user))
 			authenticated = 0;
 #endif
+
+		/* Log before sending the reply */
+		auth_log(authctxt, authenticated, get_authname(type), info);
 
 		if (client_user != NULL) {
 			xfree(client_user);
@@ -371,14 +342,15 @@ do_authloop(struct passwd * pw, char *luser)
 		if (authenticated)
 			return;
 
-		if (attempt > AUTH_FAIL_MAX) {
-#ifdef WITH_AIXAUTHENTICATE 
-			loginfailed(user,get_canonical_hostname(),"ssh");
+		if (authctxt->failures++ > AUTH_FAIL_MAX) {
+#ifdef WITH_AIXAUTHENTICATE
+			loginfailed(authctxt->user,
+			    get_canonical_hostname(options.reverse_mapping_check),
+			    "ssh");
 #endif /* WITH_AIXAUTHENTICATE */
-			packet_disconnect(AUTH_FAIL_MSG, luser);
+			packet_disconnect(AUTH_FAIL_MSG, authctxt->user);
 		}
 
-		/* Send a message indicating that the authentication attempt failed. */
 		packet_start(SSH_SMSG_FAILURE);
 		packet_send();
 		packet_write_wait();
@@ -392,10 +364,11 @@ do_authloop(struct passwd * pw, char *luser)
 void
 do_authentication()
 {
-	struct passwd *pw, pwcopy;
+	Authctxt *authctxt;
+	struct passwd *pw;
 	int plen;
-	unsigned int ulen;
-	char *user;
+	u_int ulen;
+	char *user, *style = NULL;
 
 	/* Get the name of the user that we wish to log in as. */
 	packet_read_expect(&plen, SSH_CMSG_USER);
@@ -404,38 +377,29 @@ do_authentication()
 	user = packet_get_string(&ulen);
 	packet_integrity_check(plen, (4 + ulen), SSH_CMSG_USER);
 
-	setproctitle("%s", user);
+	if ((style = strchr(user, ':')) != NULL)
+		*style++ = 0;
 
-#ifdef AFS
-	/* If machine has AFS, set process authentication group. */
-	if (k_hasafs()) {
-		k_setpag();
-		k_unlog();
-	}
-#endif /* AFS */
+	authctxt = authctxt_new();
+	authctxt->user = user;
+	authctxt->style = style;
 
 	/* Verify that the user is a valid user. */
 	pw = getpwnam(user);
 	if (pw && allowed_user(pw)) {
-		/* Take a copy of the returned structure. */
-		memset(&pwcopy, 0, sizeof(pwcopy));
-		pwcopy.pw_name = xstrdup(pw->pw_name);
-		pwcopy.pw_passwd = xstrdup(pw->pw_passwd);
-		pwcopy.pw_uid = pw->pw_uid;
-		pwcopy.pw_gid = pw->pw_gid;
-#ifdef HAVE_PW_CLASS_IN_PASSWD
-		pwcopy.pw_class = xstrdup(pw->pw_class);
-#endif
-		pwcopy.pw_dir = xstrdup(pw->pw_dir);
-		pwcopy.pw_shell = xstrdup(pw->pw_shell);
-		pw = &pwcopy;
+		authctxt->valid = 1;
+		pw = pwcopy(pw);
 	} else {
+		debug("do_authentication: illegal user %s", user);
 		pw = NULL;
 	}
+	authctxt->pw = pw;
+
+	setproctitle("%s", pw ? user : "unknown");
 
 #ifdef USE_PAM
 	if (pw)
-		start_pam(pw);
+		start_pam(user);
 #endif
 
 	/*
@@ -447,33 +411,11 @@ do_authentication()
 		packet_disconnect("Cannot change user when server not running as root.");
 #endif
 
-	debug("Attempting authentication for %s%.100s.", pw ? "" : "illegal user ", user);
-
-	/* If the user has no password, accept authentication immediately. */
-	if (options.password_authentication &&
-#ifdef KRB4
-	    (!options.kerberos_authentication || options.kerberos_or_local_passwd) &&
-#endif /* KRB4 */
-#ifdef USE_PAM
-	    auth_pam_password(pw, "")) {
-#elif defined(HAVE_OSF_SIA)
-	    (sia_validate_user(NULL, saved_argc, saved_argv, 
-	    get_canonical_hostname(), pw->pw_name, NULL, 0, 
-		 NULL, "") == SIASUCCESS)) {
-#else /* !HAVE_OSF_SIA && !USE_PAM */
- 	    auth_password(pw, "")) {
-#endif /* USE_PAM */
-		/* Authentication with empty password succeeded. */
-		log("Login for user %s from %.100s, accepted without authentication.",
-		    user, get_remote_ipaddr());
-	} else {
-		/* Loop until the user has been authenticated or the
-		   connection is closed, do_authloop() returns only if
-		   authentication is successfull */
-		do_authloop(pw, user);
-	}
-	if (pw == NULL)
-		fatal("internal error, authentication successfull for user '%.100s'", user);
+	/*
+	 * Loop until the user has been authenticated or the connection is
+	 * closed, do_authloop() returns only if authentication is successful
+	 */
+	do_authloop(authctxt);
 
 	/* The user has been authenticated and accepted. */
 	packet_start(SSH_SMSG_SUCCESS);
@@ -482,10 +424,12 @@ do_authentication()
 
 #ifdef WITH_AIXAUTHENTICATE
 	/* We don't have a pty yet, so just label the line as "ssh" */
-	if (loginsuccess(user,get_canonical_hostname(),"ssh",&aixloginmsg) < 0)
+	if (loginsuccess(authctxt->user,
+	    get_canonical_hostname(options.reverse_mapping_check),
+	    "ssh", &aixloginmsg) < 0)
 		aixloginmsg = NULL;
 #endif /* WITH_AIXAUTHENTICATE */
 
 	/* Perform session preparation. */
-	do_authenticated(pw);
+	do_authenticated(authctxt);
 }

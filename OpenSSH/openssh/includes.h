@@ -1,3 +1,5 @@
+/*	$OpenBSD: includes.h,v 1.14 2001/01/29 01:58:16 niklas Exp $	*/
+
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -19,8 +21,7 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 
 #include "config.h"
 
-#include "next-posix.h"
-#include "news4-posix.h"
+#include "openbsd-compat/bsd-nextstep.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -28,11 +29,8 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #include <sys/wait.h>
 #include <sys/resource.h>
 
-#ifndef HAVE_CYGWIN
 #include <netinet/tcp.h>
-#endif
 #include <arpa/inet.h>
-#include <netdb.h>
 
 #include <stdio.h>
 #include <ctype.h>
@@ -47,19 +45,25 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #include <time.h>
 #include <dirent.h>
 
+#ifdef HAVE_LIMITS_H
+# include <limits.h>
+#endif
 #ifdef HAVE_GETOPT_H
-#include <getopt.h>
+# include <getopt.h>
 #endif
 #ifdef HAVE_BSTRING_H
 # include <bstring.h>
-#endif 
+#endif
+#if defined(HAVE_GLOB_H) && defined(GLOB_HAS_ALTDIRFUNC) && \
+    defined(GLOB_HAS_GL_MATCHC)
+# include <glob.h>
+#endif
 #ifdef HAVE_NETGROUP_H
 # include <netgroup.h>
-#endif 
-#if defined(HAVE_NETDB_H) && !defined(HAVE_NEXT)
-/* Next includes this as part of another header */
+#endif
+#if defined(HAVE_NETDB_H)
 # include <netdb.h>
-#endif 
+#endif
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif
@@ -88,12 +92,15 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #ifdef HAVE_SYS_SYSMACROS_H
 # include <sys/sysmacros.h>
 #endif
+#ifdef HAVE_UTIME_H
+# include <utime.h>
+#endif
 #ifdef HAVE_VIS_H
 # include <vis.h>
 #endif
 #include "version.h"
-#include "openbsd-compat.h"
-#include "cygwin_util.h"
+#include "openbsd-compat/openbsd-compat.h"
+#include "openbsd-compat/bsd-cygwin_util.h"
 #include "entropy.h"
 
 #endif /* INCLUDES_H */

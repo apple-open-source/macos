@@ -8,11 +8,12 @@ Alexandre Oliva <oliva@lsd.ic.unicamp.br> - AIX fixes
 Andre Lucas <andre.lucas@dial.pipex.com> - new login code, many fixes
 Andreas Steinmetz <ast@domdv.de> - Shadow password expiry support
 Andrew McGill <andrewm@datrix.co.za> - SCO fixes
+Andrew Morgan <morgan@transmeta.com> - PAM bugfixes
 Andrew Stribblehill <a.d.stribblehill@durham.ac.uk> - Bugfixes
 Andy Sloane <andy@guildsoftware.com> - bugfixes
 Aran Cox <acox@cv.telegroup.com> - SCO bugfixes
 Arkadiusz Miskiewicz <misiek@pld.org.pl> - IPv6 compat fixes
-Ben Lindstrom <mouring@pconline.com> - NeXT support
+Ben Lindstrom <mouring@eviladmin.org> - NeXT support
 Ben Taylor <bent@clark.net> - Solaris debugging and fixes
 Bratislav ILICH <bilic@zepter.ru> - Configure fix
 Charles Levert <charles@comm.polymtl.ca> - SunOS 4 & bug fixes
@@ -34,26 +35,27 @@ Garrick James <garrick@james.net> - configure fixes
 Gary E. Miller <gem@rellim.com> - SCO support
 Ged Lodder <lodder@yacc.com.au> - HPUX fixes and enhancements
 Gert Doering <gd@hilb1.medat.de> - bug and portability fixes
-HARUYAMA Seigo <haruyama@nt.phys.s.u-tokyo.ac.jp> - Translations & doc fixes
+HARUYAMA Seigo <haruyama@klab.org> - Translations & doc fixes
 Hideaki YOSHIFUJI <yoshfuji@ecei.tohoku.ac.jp> - IPv6 and bug fixes
 Hiroshi Takekawa <takekawa@sr3.t.u-tokyo.ac.jp> - Configure fixes
 Holger Trapp <Holger.Trapp@Informatik.TU-Chemnitz.DE> - KRB4/AFS config patch
 IWAMURO Motonori <iwa@mmp.fujitsu.co.jp> - bugfixes
 Jani Hakala <jahakala@cc.jyu.fi> - Patches
 Jarno Huuskonen <jhuuskon@hytti.uku.fi> - Bugfixes
-Jim Knoble <jmknoble@pobox.com> - Many patches
+Jim Knoble <jmknoble@jmknoble.cx> - Many patches
 Jonchen (email unknown) - the original author of PAM support of SSH
 Juergen Keil <jk@tools.de> - scp bugfixing
 KAMAHARA Junzo <kamahara@cc.kshosen.ac.jp> - Configure fixes
 Kees Cook <cook@cpoint.net> - scp fixes
 Kenji Miyake <kenji@miyake.org> - Configure fixes
 Kevin O'Connor <kevin_oconnor@standardandpoors.com> - RSAless operation
-Kevin Steves <stevesk@sweden.hp.com> - HP support, bugfixes, improvements
+Kevin Steves <stevesk@pobox.com> - HP support, bugfixes, improvements
 Kiyokazu SUTO <suto@ks-and-ks.ne.jp> - Bugfixes
 Larry Jones <larry.jones@sdrc.com> - Bugfixes
 Lutz Jaenicke <Lutz.Jaenicke@aet.TU-Cottbus.DE> - Bugfixes
 Marc G. Fournier <marc.fournier@acadiau.ca> - Solaris patches
 Martin Johansson <fatbob@acc.umu.se> - Linux fixes
+Mark D. Roth <roth+openssh@feep.net> - Features, bug fixes
 Mark Miller <markm@swoon.net> - Bugfixes
 Matt Richards <v2matt@btv.ibm.com> - AIX patches
 Michael Stone <mstone@cs.loyola.edu> - Irix enhancements
@@ -85,3 +87,6 @@ Zack Weinberg <zack@wolery.cumb.org> - GNOME askpass enhancement
 Apologies to anyone I have missed.
 
 Damien Miller <djm@mindrot.org>
+
+$Id: CREDITS,v 1.1.1.6 2001/05/03 16:50:57 zarzycki Exp $
+

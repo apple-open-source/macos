@@ -558,7 +558,9 @@ void fill_options(SCDSessionRef session, CFStringRef serviceID, CFDictionaryRef 
         && getNumber(service, kSCPropNetPPPLCPEchoInterval, &lval)
         && getNumber(service, kSCPropNetPPPLCPEchoFailure, &lval1))
         set_long_opt(&opts->lcp.echo, (lval << 16) + lval1 , 0, 0xFFFFFFFF, 0);
-        
+    else 
+      set_long_opt(&opts->lcp.echo, 0, 0, 0xFFFFFFFF, 0);    
+
     // ipcp options
     setFromLong(&opts->ipcp.hdrcomp, service, kSCPropNetPPPIPCPCompressionVJ, 0, 1, 1);
     dict = getEntity(session, serviceID, kSCEntNetIPv4);

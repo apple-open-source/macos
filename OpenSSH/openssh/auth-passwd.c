@@ -11,30 +11,7 @@
  * incompatible with the protocol description in the RFC file, it must be
  * called by a name other than "ssh" or "Secure Shell".
  *
- *
  * Copyright (c) 1999 Dug Song.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,15 +36,19 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth-passwd.c,v 1.18 2000/10/03 18:03:03 markus Exp $");
+RCSID("$OpenBSD: auth-passwd.c,v 1.22 2001/03/20 18:57:04 markus Exp $");
 
 #if !defined(USE_PAM) && !defined(HAVE_OSF_SIA)
 
 #include "packet.h"
-#include "ssh.h"
-#include "servconf.h"
 #include "xmalloc.h"
+#include "log.h"
+#include "servconf.h"
+#include "auth.h"
 
+#ifdef HAVE_CRYPT_H
+# include <crypt.h>
+#endif
 #ifdef WITH_AIXAUTHENTICATE
 # include <login.h>
 #endif
@@ -99,14 +80,17 @@ RCSID("$OpenBSD: auth-passwd.c,v 1.18 2000/10/03 18:03:03 markus Exp $");
 #define is_winnt       (GetVersion() < 0x80000000)
 #endif
 
+
+extern ServerOptions options;
+
 /*
  * Tries to authenticate the user using password.  Returns true if
  * authentication succeeds.
  */
 int
-auth_password(struct passwd * pw, const char *password)
+auth_password(Authctxt *authctxt, const char *password)
 {
-	extern ServerOptions options;
+	struct passwd * pw = authctxt->pw;
 	char *encrypted_password;
 	char *pw_password;
 	char *salt;
@@ -132,7 +116,7 @@ auth_password(struct passwd * pw, const char *password)
 	if (pw == NULL)
 		return 0;
 #ifndef HAVE_CYGWIN
-	if (pw->pw_uid == 0 && options.permit_root_login == 2)
+       if (pw->pw_uid == 0 && options.permit_root_login != PERMIT_YES)
 		return 0;
 #endif
 #ifdef HAVE_CYGWIN
@@ -140,10 +124,17 @@ auth_password(struct passwd * pw, const char *password)
 	 * Empty password is only possible on NT if the user has _really_
 	 * an empty password and authentication is done, though.
 	 */
-        if (!is_winnt) 
+	if (!is_winnt)
 #endif
 	if (*password == '\0' && options.permit_empty_passwd == 0)
 		return 0;
+#ifdef BSD_AUTH
+	if (auth_userokay(pw->pw_name, authctxt->style, "auth-ssh",
+	    (char *)password) == 0)
+		return 0;
+	else
+		return 1;
+#endif
 
 #ifdef HAVE_CYGWIN
 	if (is_winnt) {
@@ -153,15 +144,6 @@ auth_password(struct passwd * pw, const char *password)
 			return 0;
 		cygwin_set_impersonation_token(hToken);
 		return 1;
-	}
-#endif
-
-#ifdef SKEY_VIA_PASSWD_IS_DISABLED
-	if (options.skey_authentication == 1) {
-		int ret = auth_skey_password(pw, password);
-		if (ret == 1 || ret == 0)
-			return ret;
-		/* Fall back to ordinary passwd authentication. */
 	}
 #endif
 
@@ -186,13 +168,13 @@ auth_password(struct passwd * pw, const char *password)
 	 */
 #if defined(HAVE_SHADOW_H) && !defined(DISABLE_SHADOW)
 	spw = getspnam(pw->pw_name);
-	if (spw != NULL) 
+	if (spw != NULL)
 		pw_password = spw->sp_pwdp;
 #endif /* defined(HAVE_SHADOW_H) && !defined(DISABLE_SHADOW) */
 
 #ifdef HAVE_SCO_PROTECTED_PW
 	spw = getprpwnam(pw->pw_name);
-	if (spw != NULL) 
+	if (spw != NULL)
 		pw_password = spw->ufld.fd_encrypt;
 #endif /* HAVE_SCO_PROTECTED_PW */
 
@@ -220,7 +202,7 @@ auth_password(struct passwd * pw, const char *password)
 		encrypted_password = md5_crypt(password, salt);
 	else
 		encrypted_password = crypt(password, salt);
-#else /* HAVE_MD5_PASSWORDS */    
+#else /* HAVE_MD5_PASSWORDS */
 # ifdef __hpux
 	if (iscomsec())
 		encrypted_password = bigcrypt(password, salt);
@@ -229,7 +211,7 @@ auth_password(struct passwd * pw, const char *password)
 # else
 	encrypted_password = crypt(password, salt);
 # endif /* __hpux */
-#endif /* HAVE_MD5_PASSWORDS */    
+#endif /* HAVE_MD5_PASSWORDS */
 
 	/* Authentication is accepted if the encrypted passwords are identical. */
 	return (strcmp(encrypted_password, pw_password) == 0);

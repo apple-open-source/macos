@@ -1,20 +1,28 @@
 Other patches and addons for OpenSSH. Please send submissions to 
 djm@ibs.com.au
 
+Elsewhere
+---------
+
+http://www.imasy.or.jp/~gotoh/connect.c is a Unix and Windows 
+ProxyCommand which allows OpenSSH to make connections through a SOCKS5
+or http proxy which supports the CONNECT method (eg. Squid).
+
 In this directory
 -----------------
 
+SecurID.diff
+
+This patch from Theo Schlossnagle <jesus@omniti.com> adds SecurID support
+to portable OpenSSH. Please refer to the text at the start of the patch
+and to the author's homepage at http://www.omniti.com/~jesus/projects/ for
+more details.
+
 chroot.diff:
 
-Ricardo Cerqueira's <rmcc@clix.pt> patch to enable chrooting using the
+Ricardo Cerqueira <rmcc@novis.pt> patch to enable chrooting using the
 wu-ftpd style magic home directories (containing '/./'). More details in
 the head of the patch itself.
-
-make-ssh-known-hosts:
-
-Tero Kivinen's <Tero.Kivinen@hut.fi> PERL script to generate
-ssh_known_hosts files by trawling tjhrough the DNS. More details in the
-manpage.
 
 ssh-copy-id:
 
@@ -23,21 +31,29 @@ your public key to a remote machine's ~/.ssh/authorized_keys file.
 
 gnome-ssh-askpass:
 
-A GNOME passphrase requester of my own creation. Compilation instructions
-are in the top of the file.
+A GNOME passphrase requester from Damien Miller <djm@mindrot.org> with help
+from several others. Compilation instructions are in the top of the file.
 
 sshd.pam.generic:
 
 A generic PAM config file which may be useful on your system. YMMV
 
-sshd.pam.freebsd
+sshd.pam.freebsd:
 
 A PAM config file which works with FreeBSD's PAM port. Contributed by
 Dominik Brettnacher <domi@saargate.de>
 
-redhat:
+mdoc2man.pl:
 
-RPM spec file an scripts for building Redhat packages
+Converts mdoc formated manpages into normal manpages.  This can be used
+on Solaris machines to provide manpages that are not preformated. 
+Contributed by Mark D. Roth <roth@feep.net>
+
+redhat/
+
+Files useful for operation on Redhat Linux systems. NB. it is recommended
+that you use the prepackaged RPM versions on Redhat, as they have been 
+better tested.
 
 suse:
 
@@ -47,21 +63,10 @@ RPM spec file an scripts for building SuSE packages
 Externally maintained
 ---------------------
 
-liblogin:
-
-liblogin is Andre Lucas' cross platform login library. It handles all the 
-yucky details of wtmp, utmp and lastlog (which every OS vendor has
-seen fit to implement differently) in one clean library.
-
-OpenSSH will require liblogin in the near future, but for now it is 
-recommended for users with login logging problems or curiosity.
-
-http://dspace.dial.pipex.com/andre.lucas/liblogin.html
-
 X11 SSH Askpass:
 
 Jim Knoble <jmknoble@pobox.com> has written an excellent X11
 passphrase requester. This is highly recommended:
 
-http://www.ntrnet.net/~jmknoble/software/x11-ssh-askpass/index.html
+http://www.ntrnet.net/~jmknoble/software/x11-ssh-askpass/
 
