@@ -265,6 +265,8 @@
 
       <li><a href="mod_mime.html#forcetype">ForceType</a></li>
 
+      <li><a href="mod_log_forensic.html#forensiclog">ForensicLog</a></li>
+
       <li><a href="core.html#group">Group</a></li>
 
       <li><a href="mod_headers.html#header">Header</a></li>

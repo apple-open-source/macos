@@ -234,9 +234,6 @@
       <li><samp>Remote_Addr</samp> - the IP address of the client
       making the request</li>
 
-      <li><samp>Remote_User</samp> - the authenticated username (if
-      available)</li>
-
       <li><samp>Request_Method</samp> - the name of the method
       being used (<samp>GET</samp>, <samp>POST</samp>, <em>et
       cetera</em>)</li>

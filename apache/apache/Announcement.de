@@ -1,29 +1,38 @@
 
-                   Apache HTTP Server 1.3.29 freigegeben
+                   Apache HTTP Server 1.3.33 freigegeben
 
    Wir, die Apache Software Foundation und das Apache HTTP Server Projekt, 
-   freuen uns, die Freigabe der Version 1.3.29 des Apache HTTP Servers 
+   freuen uns, die Freigabe der Version 1.3.33 des Apache HTTP Servers 
    ("Apache") bekannt zu geben. Diese Ankündigung führt die wesentlichen 
-   Änderungen von 1.3.29 gegenüber 1.3.28 auf. Die Ankündigung ist auch in 
-   englischer Sprache unter http://www.apache.org/dist/httpd/Announcement.txt 
+   Änderungen von 1.3.33 gegenüber 1.3.31 (1.3.32 wurde nicht offiziell
+   freigegeben) auf. Die Ankündigung ist auch in englischer Sprache sowie
+   japanischer Übersetzung unter
+
+        http://www.apache.org/dist/httpd/Announcement.txt
+        http://www.apache.org/dist/httpd/Announcement.txt.ja
+
    verfügbar.
 
    Diese Version des Apache ist vornehmlich ein Bug-Fix- und Sicherheits-
    Update. Eine kurze Zusammenfassung der Bug-Fixes ist am Ende des Dokumentes
    aufgeführt. Die vollständige Liste der Änderungen ist in der CHANGES-
-   Datei zu finden. Apache 1.3.29 behebt insbesondere 1 Sicherheitslücke.
+   Datei zu finden. Apache 1.3.33 behebt insbesondere 2 mögliche
+   Sicherheitslücken:
 
-     o CAN-2003-0542 (cve.mitre.org)
-       Behebung von Pufferüberläufen in mod_alias und mod_rewrite, welche
-       auftraten, falls reguläre Ausdrücke mit mehr als 9 speichernden
-       Klammernpaaren angewendet wurden.
+     o CAN-2004-0940 (cve.mitre.org)
+       Behebung eines Pufferüberlaufs durch maskierte Zeichen in einem
+       SSI-Befehl.
+ 
+     o CAN-2004-0492 (cve.mitre.org)
+       Abweisen von Antworten eines entfernten Servers, wenn ein
+       ungültiger (negativer) Content-Length-Header gesendet wurde.
 
-   Wir betrachten den Apache 1.3.29 als die beste verfügbare Version des
+   Wir betrachten den Apache 1.3.33 als die beste verfügbare Version des
    Apache 1.3 und wir empfehlen Benutzern älterer Versionen, insbesondere
    der Familien 1.1.x und 1.2.x, umgehend die Aufrüstung. Für die 1.2.x-
    Familie werden keine weiteren Releases mehr erstellt.
 
-   Apache 1.3.29 steht unter folgender Adresse zum Download bereit:
+   Apache 1.3.33 steht unter folgender Adresse zum Download bereit:
 
        http://httpd.apache.org/download.cgi
 
@@ -76,40 +85,57 @@
    besseren Performance, Stabilität und Sicherheit auf den Apache 2.0 zu
    wechseln.
 
-               Wesentliche Änderungen des Apache 1.3.29
+               Wesentliche Änderungen des Apache 1.3.33
 
    Sicherheitslücken
 
-      o CAN-2003-0542 (cve.mitre.org)
-        Behebung von Pufferüberläufen in mod_alias und mod_rewrite, welche
-        auftraten, falls reguläre Ausdrücke mit mehr als 9 speichernden
-        Klammernpaaren angewendet wurden.
+     * CAN-2004-0940 (cve.mitre.org)
+       Behebung eines Pufferüberlaufs durch maskierte Zeichen in einem
+       SSI-Befehl.
+ 
+     * CAN-2004-0492 (cve.mitre.org)
+       Antworten eines entfernten Servers werden abgewiesen, wenn ein
+       ungültiger (negativer) Content-Length-Header gesendet wurde.
 
-   Neue Features
+   Neuerungen
 
-    Neue Features, die sich auf bestimmte Plattformen beziehen:
+    Neue Funktionen, die sich auf bestimmte Plattformen beziehen:
 
-      * Die ident-Funktionalität gemäß RFC1413 ist nun sowohl für
-        Windows- wie auch für NetWare-Plattformen verfügbar. Dies 
-        beinhaltet auch eine alternative Thread-sichere Implementation der
-        Socket-Timeout-Funktionalität bei der Abfrage des identd-Daemons.
+     * Win32: Verbesserte Fehlermeldung bei einem mißglückten Versuch, einen
+       Piped-Log- oder Rewrite-Map-Prozess zu starten. 
 
+    Neue Funktionen für alle Plattformen:
+
+     * Neues Kompilierungs-Flag: UCN_OFF_HONOR_PHYSICAL_PORT.
+       Es bestimmt, wie UseCanonicalName Off den Port ermittelt, wenn der
+       Client keinen im Host-Header übermittelt hat. Falls zur
+       Kompilierung angegeben, verwendet UseCanonicalName Off die physische
+       Portnummer, um den kanonischen Namen zu bilden. Wird das Flag nicht
+       gesetzt, werden zunächst der aktuelle Port und dann der Standardport
+       für das aktuelle Schema versucht.
+      
+            
    Behobene Fehler
 
-    Die folgenden nennenswerten Fehler wurden im Apache 1.3.28 (oder
-    früher) gefunden und im Apache 1.3.29 behoben:
+    Die folgenden nennenswerten Fehler wurden im Apache 1.3.31 (oder
+    früher) gefunden und im Apache 1.3.33 behoben:
 
-      * Innerhalb von ap_bclose() wird nun durchweg ap_pclosesocket() für
-        Sockets und sp_pclosef() für Dateien aufgerufen. Ebenso wird nun 
-        einheitlich closesocket() zum Schließen der (Dateideskriptoren von) 
-        Sockets verwendet. Das vorherige Durcheinander von Dateideskriptoren
-        für Sockets und Dateien würde bei einigen Applikationen Probleme 
-        verursachen, jetzt wo wir vorsorglich Dateideskriptoren schließen, 
-        um Lecks zu vermeiden. PR 22805.
+     * mod_rewrite: Die Query-String-Behandlung von Proxy-URLs wurde
+       korrigiert. PR 14518.
 
-      * Korrektur von mod_usertrack, um keine fälschlich zutreffenden
-        Übereinstimmungen mit dem Namen des user-tracking-Cookies zu
-        erhalten. PR 16661.
+     * mod_rewrite: Korrektur von 0-Bytes-Schreibzugriffen auf zufällige
+       Speicherpositionen. PR 31036.
 
-      * Die Bildung von Subprozess-Zombies bei der Verwendung von CGI-Wrappern
-        wie suEXEC und cgiwrap wird verhindert. PR 21737.
+     * mod_digest: Korrektur der Nonce-Berechnung (seit 1.3.31), die eine
+       Re-Authentisierung für jede Verbindung erforderte, wenn der 
+       AuthDigestRealmSeed nicht konfiguriert war.  PR 30920.
+
+     * Korrektur eines trivialen Fehlers in mod_log_forensic, der bei 
+       Kindprozessen zu Speicherzugriffsverletzungen führte, wenn bestimmte 
+       ungültige Anfragen an diesen geschickt wurden, während die forensische
+       Protokollierung aktiviert war. PR 29313.
+
+     * mod_dav, Frontpage und andere werden nicht mehr gestört. Korrektur
+       eines Patches in 1.3.31, welches die Löschung des Request-Bodies bei
+       Anfragen verhinderte, die für Keep-Alive vorgesehen waren, jedoch
+       während der Bearbeitung abgebrochen wurden. PR 29237.

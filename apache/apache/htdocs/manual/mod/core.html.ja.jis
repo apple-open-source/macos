@@ -1,12 +1,12 @@
+<?xml version="1.0" encoding="iso-2022-jp"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" lang="ja">
   <head>
 
     <title>Apache Core Features</title>
   </head>
-  <!-- English revision: 1.249 -->
+  <!-- English Revision: 1.262 -->
   <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
   <body bgcolor="#FFFFFF" text="#000000" link="#0000FF" vlink="#000080"
   alink="#FF0000">
@@ -43,9 +43,13 @@
 
       <li><a href="#authtype">AuthType</a></li>
 
+      <li><a href="#AuthDigestRealmSeed">AuthDigestRealmSeed</a></li>
+
       <li><a href="#bindaddress">BindAddress</a></li>
 
       <li><a href="#bs2000account">BS2000Account</a></li>
+
+      <li><a href="#cgicommandargs">CGICommandArgs</a></li>
 
       <li><a href="#clearmodulelist">ClearModuleList</a></li>
 
@@ -67,6 +71,8 @@
       href="#ebcdicconvertbytype">EBCDICConvertByType</a></li>
 
       <li><a href="#ebcdickludge">EBCDICKludge</a></li>
+
+      <li><a href="#enableexceptionhook">EnableExceptionHook</a></li>
 
       <li><a href="#errordocument">ErrorDocument</a></li>
 
@@ -97,6 +103,8 @@
       <li><a href="#limit">&lt;Limit&gt;</a></li>
 
       <li><a href="#limitexcept">&lt;LimitExcept&gt;</a></li>
+
+      <li><a href="#limitinternalrecursion">LimitInternalRecursion</a></li>
 
       <li><a href="#limitrequestbody">LimitRequestBody</a></li>
 
@@ -500,6 +508,7 @@
       href="mod_auth_dbm.html#authdbmuserfile">AuthDBMUserFile</a>,
       <a href="mod_auth.html#authgroupfile">AuthGroupFile</a>, <a
       href="#authname">AuthName</a>, <a
+      href="#AuthDigestRealmSeed">AuthDigestRealmSeed</a>, <a
       href="#authtype">AuthType</a>, <a
       href="mod_auth.html#authuserfile">AuthUserFile</a>, <a
       href="#require">Require</a> <em>など</em>)。</dd>
@@ -602,6 +611,40 @@
     href="../howto/auth.html">認証、承認、アクセス制御</a></p>
     <hr />
 
+    <h2><a id="AuthDigestRealmSeed" name="AuthDigestRealmSeed">AuthDigestRealmSeed
+    directive</a></h2>
+
+    <a href="directive-dict.html#Syntax"
+    rel="Help"><strong>構文:</strong></a> AuthDigestRealmSeed
+    <em>secret-real-string</em><br />
+     <a href="directive-dict.html#Context"
+    rel="Help"><strong>コンテキスト:</strong></a> ディレクトリ、
+    .htaccess<br />
+     <a href="directive-dict.html#Override"
+    rel="Help"><strong>上書き:</strong></a> AuthConfig<br />
+     <a href="directive-dict.html#Status"
+    rel="Help"><strong>ステータス:</strong></a> コア
+
+    <p>このディレクティブは認可領域ごとの秘密の一度きりの接頭辞を
+    設定します。これは Digest
+    交換の間に取得したユーザ名、パスワード、認可領域名文字列を、
+    他の場所で再利用できない様にします。</p>
+    <p>これは <a href="mod_digest.html">mod_digest.html</a> にしか適用されません。
+    実験的な
+    <a href="mod_auth_digest.html">mod_auth_digest.html</a>
+    は専用の再利用対策 (より進んだ、時間も考慮したもの) を実装しています。
+    </p>
+
+    <p>動作するためには <a href="#authtype">AuthType</a> に Digest のタイプ、
+    <a href="#require">Require</a> ディレクティブと
+    <a href="mod_auth.html#authuserfile">AuthUserFile</a> や <a
+    href="mod_auth.html#authgroupfile">AuthGroupFile</a>
+    ディレクティブが設定されていることが必要です。</p>
+
+    <p><strong>参照:</strong> <a
+    href="../howto/auth.html">認証、承認、アクセス制御</a></p>
+    <hr />
+
     <h2><a id="authtype" name="authtype">AuthType
     ディレクティブ</a></h2>
 
@@ -627,6 +670,8 @@
     href="mod_auth.html#authgroupfile">AuthGroupFile</a>
     などのディレクティブと一緒に利用する必要があります。</p>
 
+    <p>AuthDigest が使われると <a
+     href="#AuthDigestRealmSeed">AuthDigestRealmSeed</a> もセットされます。</p>
     <p><strong>参照:</strong> <a
     href="../howto/auth.html">認証、承認、アクセス制御</a></p>
     <hr />
@@ -710,6 +755,40 @@
     EBCDIC への移植版</a></p>
     <hr />
 
+    <h2><a id="cgicommandargs" name="cgicommandargs">CGICommandArgs
+    directive</a></h2>
+
+    <a href="directive-dict.html#Syntax"
+    rel="Help"><strong>構文:</strong></a> CGICommandArgs On|Off<br />
+     <a href="directive-dict.html#Default"
+    rel="Help"><strong>デフォルト:</strong></a> CGICommandArgs On<br />
+     <a href="directive-dict.html#Context"
+    rel="Help"><strong>コンテキスト:</strong></a> ディレクトリ、.htaccess<br />
+     <a href="directive-dict.html#Override"
+    rel="Help"><strong>上書き:</strong></a> Options<br />
+     <a href="directive-dict.html#Status"
+    rel="Help"><strong>ステータス:</strong></a> core<br />
+     <a href="directive-dict.html#Compatibility"
+    rel="Help"><strong>互換性:</strong></a> Apache
+     1.3.24 以降で使用可能。
+
+    <p>昔々、インターネットがより安全で純粋だったときには、
+    サーバが '=' 文字を含まないクエリー文字列を受け取って解析し、
+    CGI プログラムへコマンドラインの引数として渡すと便利なことがありました。
+    例えば、<code>&lt;IsIndex&gt;</code> により生成された検索はよく
+    そのように動作していました。このような動作は今日では一般に
+    安全でないと見なされていますが、Apache のデフォルトの動作は
+    後方互換性のためにこの振る舞いを維持しています。たいていの CGI
+    プログラムはコマンドラインの引数を受け付けませんが、引数を
+    受け付けるものの中では、ほとんどがこの引数の渡し方に気付いておらず、
+    悪意のあるクライアントがこの方法を使って安全でないものを渡す
+    ことに対する脆弱性があります。そのようなスクリプトを
+    Apache の機能をほぼ損なうことなく保護するために、
+    <code>CGICommandArgs Off</code> と設定することが推奨されています。
+    </p>
+
+    <hr />
+
     <h2><a id="clearmodulelist"
     name="clearmodulelist">ClearModuleList ディレクティブ</a></h2>
 
@@ -727,11 +806,12 @@
     このディレクティブはその一覧をクリアします。後で
     <a href="#addmodule">AddModule</a> ディレクティブを使って
     モジュールを一覧に再び加えることが期待されています。</p>
-    <hr />
 
     <p><strong>参照</strong>: <a
     href="#addmodule">AddModule</a> と <a
     href="mod_so.html#loadmodule">LoadModule</a></p>
+
+    <hr />
 
     <h2><a id="contentdigest" name="contentdigest">ContentDigest
     ディレクティブ</a></h2>
@@ -763,7 +843,7 @@
 
     <p><code>Content-MD5</code> ヘッダは、エンドツーエンドで
     エンティティボディーに含まれるメッセージの完全性チェック
-    (Message Integrity Check - MIC)を提供します。
+    (Message Integrity Check - MIC) を提供します。
     このヘッダを調べることで、プロキシやクライアントは、
     途中経路におけるエンティティボディの予期せぬ変更などを
     検出することができます。ヘッダの例:</p>
@@ -855,12 +935,13 @@
 
     <a href="directive-dict.html#Syntax"
     rel="Help"><strong>構文:</strong></a> &lt;Directory
-    <em>directory-path</em>&gt; ... &lt;/Directory&gt;<br />
+    <em>directory-path</em>|proxy:<em>url-path</em>&gt;
+    ... &lt;/Directory&gt; <br />
      <a href="directive-dict.html#Context"
     rel="Help"><strong>コンテキスト:</strong></a> サーバ設定ファイル、
      バーチャルホスト<br />
      <a href="directive-dict.html#Status"
-    rel="Help"><strong>ステータス:</strong></a> Core. 
+    rel="Help"><strong>ステータス:</strong></a> Core
 
     <p>指定されたディレクトリ配下にのみディレクティブを適用させるために、
     &lt;Directory&gt; 及び &lt;/Directory&gt;
@@ -967,13 +1048,32 @@
     ディレクトリに対して個別に設定すればよいでしょう。
     このあたりについては、<a href="../misc/security_tips.html"
     >セキュリティに関するコツ</a>を参照してください。</strong></p>
-    ディレクトリセクションは access.conf
-    ファイルに存在するのが一般的ですが、
-    どのような設定ファイル中にでも指定できます。
     &lt;Directory&gt; ディレクティブは入れ子にすることができず、
     <a href="#limit">&lt;Limit&gt;</a> や <a
     href="#limitexcept">&lt;LimitExcept&gt;</a>
     セクションの中にも記述できません。
+
+   <p><a href="mod_proxy.html">mod_proxy</a> が有効になっている場合、
+   <code>proxy:</code> 構文を使って、プロキシされているコンテンツに
+   対して適用させることができます。この構文は設定を適用したい
+   プロキシされている URL を指定するか、プロキシされているコンテンツすべてに
+   適用させるために <code>*</code> を指定する、というようになっています:</p>
+
+   <p>すべてのプロキシされているコンテンツに適用させるには:</p>
+
+   <pre>
+   &lt;Directory proxy:*&gt;
+     ... directives here ...
+   &lt;/Directory&gt;
+   </pre>
+
+   <p>プロキシされているコンテンツの一部分にのみ適用させるには:</p>
+
+   <pre>
+   &lt;Directory proxy:http://www.example.com/&gt;
+     ... directives here ...
+   &lt;/Directory&gt;
+   </pre>
 
     <p><strong>参照</strong>: リクエストを受けた際に、
     異なる複数のセクションがどのようにして組み合わされるのかについては
@@ -991,7 +1091,7 @@
      <a href="directive-dict.html#Context"
     rel="Help"><strong>コンテキスト:</strong></a> サーバ設定ファイル、バーチャルホスト<br />
      <a href="directive-dict.html#Status"
-    rel="Help"><strong>ステータス:</strong></a> Core.<br />
+    rel="Help"><strong>ステータス:</strong></a> Core<br />
      <a href="directive-dict.html#Compatibility"
     rel="Help"><strong>互換性:</strong></a> Apache 1.3 以降で使用可能
 
@@ -1231,6 +1331,29 @@
     href="../ebcdic.html#ebcdic">EBCDIC 変換関数の概要</a></p>
     <hr />
 
+    <h2><a id="enableexceptionhook" name="enableexceptionhook">
+    EnableExceptionHook directive</a></h2>
+
+    <a href="directive-dict.html#Syntax"
+    rel="Help"><strong>構文:</strong></a> EnableExceptionHook
+    on|off<br />
+     <a href="directive-dict.html#Default"
+    rel="Help"><strong>デフォルト:</strong></a> <code>EnableExceptionHook
+    off</code><br />
+     <a href="directive-dict.html#Context"
+    rel="Help"><strong>コンテキスト:</strong></a> サーバ設定ファイル<br />
+     <a href="directive-dict.html#Status"
+    rel="Help"><strong>ステータス:</strong></a> core<br />
+     <a href="directive-dict.html#Compatibility"
+    rel="Help"><strong>互換性:</strong></a> EnableExceptionHook
+    は Apache 1.3.30 以降で使用可能
+
+    <p><code>EnableExceptionHook</code> はモジュールに実装された
+    例外フックを子プロセスがクラッシュした後に呼ぶかどうかを制御します。
+    例外フックはモジュールがクラッシュの原因を決定するための診断情報を
+    ログ収集するできるようにします。</p>
+    <hr />
+
     <h2><a id="errordocument" name="errordocument">ErrorDocument
     ディレクティブ</a></h2>
 
@@ -1298,6 +1421,15 @@
     パスワードをユーザに入力要求しなければならないことがわかりません。
     従って、<strong>"ErrorDocument 401" というディレクティブを使う場合は、
     必ずローカルな文書を参照しなければなりません。</strong></p>
+
+    <p>サーバが生成したエラーメッセージが「小さすぎる」と
+    Microsoft Internet Explorer (MSIC) はデフォルトでそれを無視し、
+    「親切な」エラーメッセージで置き換えます。しきい値はエラーの
+    種類によって異りますが、通常、エラードキュメントを 512 バイトより
+    大きくすると、MSIE はサーバが生成したエラーを隠さずに表示します。
+    より詳しい情報は Microsoft Knowledgebase の記事 <a
+    href="http://support.microsoft.com/default.aspx?scid=kb;en-us;Q294807"
+    >Q294807</a> にあります。</p>
 
     <p>参照: <a href="../custom-error.html">レスポンスをカスタマイズする方法についての解説。</a>
     ステータスコードとその意味の完全なリストは <a
@@ -1464,7 +1596,7 @@
     は .htaccess ファイル内で利用することができます。
     これにより、ユーザがファイル毎にアクセスの制御を行なうことができるように
     なっています。
-    例えば、ディレクトリ内にある一つのファイルに対してパスワードによる保護を行うには、
+    例えば、ディレクトリ内にある一つのファイルに対してパスワードによる保護を行なうには、
     <code>.htaccess</code> に以下のような設定を追加すれば良いでしょう。</p>
 
     <pre>
@@ -1537,7 +1669,7 @@
 
       <dd>名前でグループを指定します。</dd>
 
-      <dt># を先頭にグループID</dt>
+      <dt># を先頭にグループ ID</dt>
 
       <dd>数字でグループを指定します。</dd>
     </dl>
@@ -1634,13 +1766,13 @@
     <p>このディレクティブは、クライアントマシン上で
     identd やそれに類似したデーモンが動作しているときに、
     それぞれの接続に対して RFC 1413
-    に準処したリモートユーザの名前のロギングを行うようにします。
+    に準処したリモートユーザの名前のロギングを行なうようにします。
     この情報は、アクセスログに収集されます。</p>
 
     <p>ここで得られた情報は簡単なユーザ追跡に使う以外は、
     全く信頼するべきではありません。</p>
 
-    <p>すべてのリクエストに対してルックアップが行われますので、
+    <p>すべてのリクエストに対してルックアップが行なわれますので、
     深刻な遅延の問題を起こすかもしれないことに注意してください。
     (訳注: 例えばクライアント側に) ファイアウォールがあると、
     ルックアップが失敗し、各リクエストに 30
@@ -1737,7 +1869,7 @@
       <li>!<em>module name</em></li>
     </ul>
 
-    <p>前者のケースでは、もし<em>module name</em>
+    <p>前者のケースでは、もし <em>module name</em>
     と名付けられたモジュールが Apache に組み込まれていれば
     (コンパイル済みのものと、<a
     href="mod_so.html#loadmodule">LoadModule</a>
@@ -1751,7 +1883,7 @@
     <code>mod_rewrite.c</code> といった形になります。</p>
 
     <p>&lt;IfModule&gt; セクションは入れ子にすることが可能であり、
-    複数のモジュールのテストを行うために使用できます。</p>
+    複数のモジュールのテストを行なうために使用できます。</p>
     <hr />
 
     <h2><a id="include" name="include">Include ディレクティブ</a></h2>
@@ -1763,7 +1895,8 @@
     rel="Help"><strong>ステータス:</strong></a> Core<br />
      <a href="directive-dict.html#Compatibility"
     rel="Help"><strong>互換性:</strong></a> Include は Apache 1.3
-    以降で利用可能です。
+    以降で利用可能です。ワイルドカードはバージョン 1.3.27
+    で導入されました。
 
     <p>このディレクティブにより、サーバの設定ファイルから
     他の設定ファイルをインクルードすることができます。</p>
@@ -1818,12 +1951,12 @@ Syntax OK
 
     <h2><a id="keepalive" name="keepalive">KeepAlive
     ディレクティブ</a></h2>
-    <strong>Syntax: (Apache 1.1)</strong> KeepAlive
+    <strong>構文: (Apache 1.1)</strong> KeepAlive
     <em>max-requests</em><br />
-     <strong>Default: (Apache 1.1)</strong> <code>KeepAlive
+     <strong>デフォルト: (Apache 1.1)</strong> <code>KeepAlive
     5</code><br />
-     <strong>Syntax: (Apache 1.2)</strong> KeepAlive on|off<br />
-     <strong>Default: (Apache 1.2)</strong> <code>KeepAlive
+     <strong>構文: (Apache 1.2)</strong> KeepAlive on|off<br />
+     <strong>デフォルト: (Apache 1.2)</strong> <code>KeepAlive
     On</code><br />
      <a href="directive-dict.html#Context"
     rel="Help"><strong>コンテキスト:</strong></a> サーバ設定ファイル<br />
@@ -1922,12 +2055,19 @@ Syntax OK
        Require valid-user<br />
        &lt;/Limit&gt;</code>
     </blockquote>
-    メソッドの名前には、GET, POST, PUT, DELETE, CONNECT, OPTIONS,
+    <p>メソッドの名前には、GET, POST, PUT, DELETE, CONNECT, OPTIONS,
     PATCH, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK
     の中から、一つ以上を列挙することができます。
     <strong>メソッドの名前は、大文字小文字を区別します。</strong>
     また、GET を指定すると HEAD に関しても制限がかかります。
-    TRACE メソッドを制限することはできません。
+    TRACE メソッドを制限することはできません。</p>
+
+    <p><strong>警告:</strong> アクセス制限を行なうときは <a
+    href="#limit">&lt;Limit&gt;</a> よりも <a
+    href="#limitexcept">&lt;LimitExcept&gt;</a> セクションを
+    使うようにしてください。<a href="#limitexcept">&lt;LimitExcept&gt;</a>
+    セクションは任意のメソッドに対する保護は行ないませんので。</p>
+
     <hr />
 
     <h2><a id="limitexcept" name="limitexcept">&lt;LimitExcept&gt;
@@ -1963,6 +2103,53 @@ Syntax OK
 
     <hr />
 
+    <h2><a id="limitinternalrecursion"
+    name="limitinternalrecursion">LimitInternalRecursion directive</a></h2>
+
+    <a href="directive-dict.html#Syntax"
+    rel="Help"><strong>構文:</strong></a> LimitInternalRecursion
+    <em>number</em> [<em>number</em>]<br />
+     <a href="directive-dict.html#Default"
+    rel="Help"><strong>デフォルト:</strong></a> <code>LimitInternalRecursion
+    20</code><br />
+     <a href="directive-dict.html#Context"
+    rel="Help"><strong>コンテキスト:</strong></a>
+    サーバ設定ファイル、バーチャルホスト<br />
+     <a href="directive-dict.html#Status"
+    rel="Help"><strong>ステータス:</strong></a> core<br />
+     <a href="directive-dict.html#Compatibility"
+    rel="Help"><strong>互換性:</strong></a> LimitInternalRecursion
+    is は Apache 1.3.28 以降でのみ使用可能です。
+
+    <p>内部リダイレクトは、例えば、オリジナルのリクエストを
+    CGI スクリプトに内部リダイレクトする <a
+    href="mod_actions.html#action">Action</a>
+    ディレクティブを使った場合に発生します。
+    サブリクエストはある URI
+    がリクエストされた場合に何が起きるのかを突き止めるための Apache
+    の方法です。例えば、<a href="mod_dir.html">mod_dir</a>
+    は <a
+    href="mod_dir.html#directoryindex">DirectoryIndex</a>
+    に挙げられているファイルを探すためにサブリクエストを使います。</p>
+
+    <p><code>LimitInternalRecursion</code> は内部リダイレクトや
+    サブリクエストが無限ループに陥った場合に
+    サーバがクラッシュするのを防ぎます。
+    このようなループは通常、設定ミスが原因で起こります。</p>
+
+    <p>このディレクティブは二つの異なる制限値を保存します。それぞれの値は、
+    リクエスト単位で評価されます。最初の <em>number</em> は後に続くことのできる
+    内部リダイレクトの上限を設定します。二つめの <em>number</em> は
+    サブリクエストの入れ子構造の深さを設定します。<em>Number</em> を
+    一つだけ指定した場合は、その値が両方の制限値に使用されます。
+    値 <code>0</code> は「無制限」を意味します。</p>
+
+    <p><strong>例</strong></p>
+    <pre>
+    LimitInternalRecursion 5
+    </pre>
+
+    <hr />
     <h2><a id="limitrequestbody"
     name="limitrequestbody">LimitRequestBody ディレクティブ</a></h2>
 
@@ -1982,9 +2169,7 @@ Syntax OK
 
     <p>このディレクティブは、リクエストボディにおいて許される 0
     (無制限を意味します) から 2147483647 (2GB)
-    までのバイト数、<em>bytes</em> を指定します。デフォルト値は、定数
-    <code>DEFAULT_LIMIT_REQUEST_BODY</code>
-    によりコンパイル時に定義されます (配布時には 0 と指定されています)。</p>
+    までのバイト数、<em>bytes</em> を指定します。</p>
 
     <p>LimitRequestBody ディレクティブは、指定されたコンテキスト
     (サーバ全体、ディレクトリ、ファイル、ロケーション) 内において
@@ -2480,6 +2665,11 @@ Syntax OK
     <p>例:</p>
 
     <pre>LogLevel notice</pre>
+
+    <p><strong>注:</strong> 通常のファイルに記録する場合レベル
+    <code>notice</code> のメッセージは抑制することができず、
+    常に記録されます。しかし、これは <code>syslog</code>
+    を使ってログ収集を行なう場合にはあてはまりません。</p>
 
     <hr />
 
@@ -3002,12 +3192,13 @@ Syntax OK
       </li>
       <li>file-owner
         <p>名前がファイルの所有者のシステムでの名前に合うユーザだけが
-        リソースをアクセスできます。<br>
-        [Apache 1.3.20 以降で使用可能]</br>
+        リソースをアクセスできます。<br />
+        [Apache 1.3.20 以降で使用可能]</p>
       </li>
       <li>file-group
         <p>ファイルの所有者のグループのシステムでの名前に合うグループのメンバだけが
-        リソースにアクセスできます。<br>[Apache 1.3.20 以降で使用可能]</p>
+        リソースにアクセスできます。<br />[Apache 1.3.20 以降で使用可能]</p>
+      </li>
     </ul>
 
     <p>Require は、正しく動作するためには <a

@@ -199,7 +199,7 @@
     rel="Help"><strong>D&eacute;faut :</strong></a>
     <code>AccceptFilter on</code><br />
      <a href="directive-dict.html#Context"
-    rel="Help"><strong>Contexte :</strong></a> server configt<br />
+    rel="Help"><strong>Contexte :</strong></a> server config<br />
      <a href="directive-dict.html#Status" rel="Help"><strong>Statut
     :</strong></a> core 
 

@@ -1,59 +1,16 @@
-/* ====================================================================
- * The Apache Software License, Version 1.1
+/* Copyright 1999-2004 The Apache Software Foundation
  *
- * Copyright (c) 2000-2003 The Apache Software Foundation.  All rights
- * reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution,
- *    if any, must include the following acknowledgment:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowledgment may appear in the software itself,
- *    if and wherever such third-party acknowledgments normally appear.
- *
- * 4. The names "Apache" and "Apache Software Foundation" must
- *    not be used to endorse or promote products derived from this
- *    software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache",
- *    nor may "Apache" appear in their name, without prior written
- *    permission of the Apache Software Foundation.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
- *
- * Portions of this software are based upon public domain software
- * originally written at the National Center for Supercomputing Applications,
- * University of Illinois, Urbana-Champaign.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 /*
@@ -67,11 +24,17 @@
 #include "scoreboard.h"
 #include "http_log.h"
 #include "http_conf_globals.h"
+#ifdef TPF41
 #ifdef __PIPE_
 #include <ipc.h>
 #include <shm.h>
 static TPF_FD_LIST *tpf_fds = NULL;
-#endif
+#endif /* __PIPE_ */
+#else
+#include <sys/ipc.h>  
+#include <sys/shm.h>
+static TPF_FD_LIST *tpf_fds = NULL;
+#endif /* TPF41 */
 
 void *tpf_shm_static_ptr = NULL;
 unsigned short zinet_model;
@@ -205,13 +168,10 @@ int ap_tpf_spawn_child(pool *p, int (*func) (void *, child_info *),
                        int out_fds[], int in_fds[], int err_fds[])
 
 {
-
-   int                      i, temp_out, temp_in, temp_err, save_errno, pid, result=0;
-   int                      fd_flags_out, fd_flags_in, fd_flags_err;
+   int                      i, temp_out=0, temp_in=0, temp_err=0, save_errno, pid, result=0;
+   int                      fd_flags_out=0, fd_flags_in=0, fd_flags_err=0;
    struct tpf_fork_input    fork_input;
    TPF_FORK_CHILD           *cld = (TPF_FORK_CHILD *) data;
-   array_header             *env_arr = ap_table_elts ((array_header *) cld->subprocess_env);
-   table_entry              *elts = (table_entry *) env_arr->elts;
 #ifdef TPF_FORK_EXTENDED
 #define WHITE " \t\n"
 #define MAXARGC 49
@@ -221,11 +181,13 @@ int ap_tpf_spawn_child(pool *p, int (*func) (void *, child_info *),
    pool                     *subpool = NULL;
 
 #include "util_script.h"
-
+#else
+   array_header             *env_arr = ap_table_elts ((array_header *) cld->subprocess_env);
+   table_entry              *elts = (table_entry *) env_arr->elts;
 #endif /* TPF_FORK_EXTENDED */ 
 
    if (func) {
-      if (result=func(data, NULL)) {
+      if ((result=func(data, NULL))) {
           return 0;                    /* error from child function */
       }
    }
@@ -516,10 +478,10 @@ void os_tpf_child(APACHE_TPF_INPUT *input_parms) {
     tpf_fds = input_parms->tpf_fds;
     tpf_shm_static_ptr = input_parms->shm_static_ptr;
     tpf_parent_pid = getppid();
-    sprintf(tpf_mutex_key, "%.*x", TPF_MUTEX_KEY_SIZE - 1, tpf_parent_pid);
+    sprintf(tpf_mutex_key, "%.*x", (int) TPF_MUTEX_KEY_SIZE - 1, tpf_parent_pid);
 }
 
-#ifndef __PIPE_
+#if defined(TPF41) && !defined(__PIPE_)
 
 int pipe(int fildes[2])
 {
@@ -548,7 +510,7 @@ static void *ap_tpf_get_shared_mem(size_t size)
 {
     key_t shmkey = IPC_PRIVATE;
     int shmid = -1;
-    void *result;
+    static void *result;
 
     if ((shmid = shmget(shmkey, size, IPC_CREAT | SHM_R | SHM_W)) == -1) {
         perror("shmget failed in ap_tpf_get_shared_mem function");
@@ -608,7 +570,7 @@ void ap_tpf_add_fd(pool *p, int fd, enum FILE_TYPE file_type, const char *fname)
         return; /* no kids allowed */
     }
     if (tpf_fds == NULL) {
-        /* get shared memory if necssary */
+        /* get shared memory if necessary */
         tpf_fds = ap_tpf_get_shared_mem((size_t)TPF_FD_LIST_SIZE);
         if (tpf_fds) {
             ap_register_cleanup(p, (void *)&tpf_fds,
@@ -679,7 +641,7 @@ API_EXPORT(piped_log *) ap_open_piped_log(pool *p, const char *program)
     return pl;
 }
 
-#endif /* __PIPE_ */
+#endif /* TPF41 && ndef __PIPE_ */
 
 /*   The following functions are used for the tpf specific module called
      mod_tpf_shm_static.  This module is a clone of Apache's mod_mmap_static.
@@ -811,7 +773,7 @@ int i;
    #error "is no longer supported."
    #error "Replace with USE_SHMGET_SCOREBOARD to use"
    #error "shared memory or remove entirely to use"
-   #error "scoreboard on file for pre-PUT10 systems"
+   #error "scoreboard on file for pre-TPF41 PUT10 systems"
 #endif
 
 #ifdef TPF_FORK_EXTENDED

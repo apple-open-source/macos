@@ -1,3 +1,43 @@
+=== WebCore-125.8.12 ===
+
+2004-11-19  Adele Amchan  <adele@apple.com>
+
+        Fixed by Maciej, merged by Darin for SUPanPlum <rdar://problem/3872586>.
+
+    2004-11-19  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+        <rdar://problem/3864151> REGRESSION (125-167): Chrysler.com never stops loading
+	
+        * khtml/xml/dom_docimpl.cpp:
+         (DocumentImpl::close): Don't fire the onload handler if there is a
+         redirect pending. This is a very long-standing bug that was masked
+         by our previously incorrect redirect logic. It used to be that an
+         older redirect would always win. Recently we changed things so
+         that a newer redirect would win, but a script that causes a
+         redirect would stop parsing once complete (so if there are two
+         redirects in the same script, the latter wins). However, we should
+         have also prevented onload in this case. Testing with other
+         browsers shows that onload handlers do not run at all when there
+         is a pending redirect.
+
+
+=== WebCore-125.8.11 ===
+
+2004-11-01  Chris Blumenberg  <cblu@apple.com>
+
+	Fixed: <rdar://problem/3860882> Safari URI status bar spoofing using a nested <a> links in a table
+
+	Rolled fix from TOT to 1.2 branch.
+
+        Reviewed by adele.
+
+        * khtml/rendering/render_layer.cpp:
+        (RenderLayer::nodeAtPoint): 
+	Make sure the URL element is the innermost one, by not setting it once
+        it's already set.
+
 === WebCore-125.8.10 ===
 
 2004-10-07  Adele Amchan  <adele@apple.com>

@@ -1,3 +1,18 @@
+/* Copyright 1999-2004 The Apache Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /* we need some of the portability definitions... for strchr */
 #include "httpd.h"
 
@@ -9,6 +24,7 @@
 #define T_OS_ESCAPE_PATH	(0x04)
 #define T_HTTP_TOKEN_STOP	(0x08)
 #define T_ESCAPE_LOGITEM	(0x10)
+#define T_ESCAPE_FORENSIC       (0x20)
 
 int main(int argc, char *argv[])
 {
@@ -22,21 +38,20 @@ int main(int argc, char *argv[])
 "#define T_OS_ESCAPE_PATH	0x%02x /* escape characters in a path or uri */\n"
 "#define T_HTTP_TOKEN_STOP	0x%02x /* find http tokens, as defined in RFC2616 */\n"
 "#define T_ESCAPE_LOGITEM	0x%02x /* filter what should go in the log file */\n"
+"#define T_ESCAPE_FORENSIC	0x%02x /* filter what should go in the forensic log */\n"
 "\n",
 	T_ESCAPE_SHELL_CMD,
 	T_ESCAPE_PATH_SEGMENT,
 	T_OS_ESCAPE_PATH,
 	T_HTTP_TOKEN_STOP,
-	T_ESCAPE_LOGITEM
+	T_ESCAPE_LOGITEM,
+	T_ESCAPE_FORENSIC
 	);
 
-    /* we explicitly dealt with NUL above
-     * in case some strchr() do bogosity with it */
-
     printf("static const unsigned char test_char_table[256] = {\n"
-	   "    0x00, ");    /* print initial item */
+	   "    ");
 
-    for (c = 1; c < 256; ++c) {
+    for (c = 0; c < 256; ++c) {
 	flags = 0;
 
 	/* escape_shell_cmd */
@@ -49,11 +64,11 @@ int main(int argc, char *argv[])
          * specific as well, to assure that cross-compiled unix 
          * applications behave similiarly when invoked on win32/os2.
          */
-        if (strchr("&;`'\"|*?~<>^()[]{}$\\\n\r%", c)) {
+        if (c && strchr("&;`'\"|*?~<>^()[]{}$\\\n\r%", c)) {
 	    flags |= T_ESCAPE_SHELL_CMD;
 	}
 #else
-        if (strchr("&;`'\"|*?~<>^()[]{}$\\\n", c)) {
+        if (c && strchr("&;`'\"|*?~<>^()[]{}$\\\n", c)) {
 	    flags |= T_ESCAPE_SHELL_CMD;
 	}
 #endif
@@ -67,7 +82,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* these are the "tspecials" from RFC2068 */
-	if (ap_iscntrl(c) || strchr(" \t()<>@,;:\\/[]?={}", c)) {
+	if (c && (ap_iscntrl(c) || strchr(" \t()<>@,;:\\/[]?={}", c))) {
 	    flags |= T_HTTP_TOKEN_STOP;
 	}
 
@@ -76,9 +91,18 @@ int main(int argc, char *argv[])
 	 * backslashes (because we use backslash for escaping)
 	 * and 8-bit chars with the high bit set
 	 */
-	if (!ap_isprint(c) || c == '"' || c == '\\' || ap_iscntrl(c)) {
+	if (c && (!ap_isprint(c) || c == '"' || c == '\\' || ap_iscntrl(c))) {
 	    flags |= T_ESCAPE_LOGITEM;
 	}
+
+        /* For forensic logging, escape all control characters, top bit set,
+         * :, | (used as delimiters) and % (used for escaping).
+         */
+        if (!ap_isprint(c) || c == ':' || c == '|' || c == '%'
+            || ap_iscntrl(c) || !c) {
+            flags |= T_ESCAPE_FORENSIC;
+        }
+
 	printf("0x%02x%s", flags, (c < 255) ? ", " : "  ");
 
 	if ((c % 8) == 7)

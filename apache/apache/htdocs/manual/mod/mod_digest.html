@@ -37,10 +37,12 @@
     <h2>Summary</h2>
 
     <p>This module implements an older version of the MD5 Digest
-    Authentication specification which will probably not work with
-    modern browsers. Please see <a
+    Authentication specification.  While suitable for most modern
+    browsers, mod_digest is known to not work with Microsoft
+    Internet Explorer. Please see <a
     href="mod_auth_digest.html">mod_auth_digest</a> for a module
-    which implements the most recent version of the standard.</p>
+    which implements the most recent version of the standard
+    and does not suffer from the same limitations as mod_digest.</p>
 
     <h2>Directives</h2>
 
@@ -53,16 +55,37 @@
     <p>Using MD5 Digest authentication is very simple. Simply set
     up authentication normally. However, use "AuthType Digest" and
     "AuthDigestFile" instead of the normal "AuthType Basic" and
-    "AuthUserFile". Everything else should remain the same.</p>
+    "AuthUserFile".</p>
+
+    <p>As to make sure that replay is not possible across
+    sections of the site, or across sites (assuming a realm,
+    userid and password are valid in that wider context) a
+    secret nonce prefix can be configured with the
+    core directive <a href="core.html#AuthDigestRealmSeed">AuthDigestRealmSeed</a>.
+    </p>
+    <p>If none if configured a sensible, but not particular
+    secure, default is used. When used in load balancing
+    situations the prefix should be shared across servers.
+    </p>
+    <p>The experimental <a href="mod_auth_digest.html">mod_auth_digest</a>
+    module offers a number of additinal protections against replay.
+    </p>
+
+    <p>Everything else should remain the same.</p>
 
     <p>MD5 authentication provides a more secure password system,
     but only works with supporting browsers. As of this writing
-    (January 2002), the only major browsers which support digest
-    authentication are <a href="http://www.opera.com/">Opera 4.0</a>,
-    <a href="http://www.microsoft.com/windows/ie/">MS Internet 
-    Explorer 5.0</a> and <a href="http://www.w3.org/Amaya/">Amaya</a>. 
-    Therefore, we do not recommend using this feature on a large 
-    Internet site. However, for personal and intra-net use, where 
+    (December 2003) most major browsers, including 
+    <a href="http://www.microsoft.com/windows/ie/">MS Internet Explorer</a>,
+    <a href="http://www.opera.com/">Opera</a>,
+    <a href="http://www.netscape.com/">Netscape</a>,
+    <a href="http://www.mozilla.org/">Mozilla</a>, and
+    <a href="http://www.w3.org/Amaya/">Amaya</a>,
+    support the Digest authentication scheme.  However, of this list
+    MS Internet Explorer is known to be incompatable with the
+    older digest authentication format supported by this module.
+    Therefore, we do not recommend using this module on a large
+    Internet site. However, for personal and intra-net use, where
     browser users can be controlled, it is ideal.</p>
 
     <p>See also <a href="mod_auth_digest.html">mod_auth_digest</a>,

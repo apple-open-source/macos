@@ -168,6 +168,10 @@
       <dd>User-configurable logging replacement for
       mod_log_common</dd>
 
+      <dt><a href="mod_log_forensic.html">mod_log_forensic</a></dt>
+
+      <dd>Forensic logging of requests made to the server</dd>
+
       <dt><a href="mod_log_referer.html">mod_log_referer</a></dt>
 
       <dd>Logging of document references</dd>

@@ -7,7 +7,7 @@
 
     <title>Apache HTTP サーバ バージョン 1.3 ドキュメント</title>
   </head>
-  <!-- English revision: 1.55 -->
+  <!-- English revision: 1.57 -->
   <body bgcolor="#ffffff" text="#000000" link="#0000ff"
   vlink="#000080" alink="#ff0000">
     <div align="center">
@@ -38,7 +38,7 @@
                 href="mod/"><strong>モジュール</strong></a> </td>
 
                 <td align="center" bgcolor="#bebebe"><a
-                href="http://www.apache.org/search.html"><strong>検索</strong></a>
+                href="http://search.apache.org/"><strong>検索</strong></a>
                 </td>
               </tr>
             </table>
@@ -63,12 +63,9 @@
         <tr>
           <td align="center">
             <form method="post" action="http://search.apache.org/">
-              <input type="hidden" name="what"
-              value="httpd.apache.org" /><input type="hidden"
-              name="results" value="20" /><input type="hidden"
-              name="version" value="2" /><input type="text"
-              name="keyword" size="20" /><input type="submit"
-              value="search" />
+              <input type="hidden" name="what" value="docs1" />
+              <input type="text" name="query" size="20" />
+              <input type="submit" value="Search" />
             </form>
           </td>
         </tr>

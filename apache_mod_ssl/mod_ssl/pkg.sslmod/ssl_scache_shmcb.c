@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 2000-2003 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 2000-2004 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -897,6 +897,10 @@ static void shmcb_cyclic_ntoc_memcpy(
     unsigned int dest_offset,
     unsigned char *src, unsigned int src_len)
 {
+    /* Cover the case that src_len > buf_size */
+    if (src_len > buf_size)
+        src_len = buf_size;
+
     /* Can it be copied all in one go? */
     if (dest_offset + src_len < buf_size)
         /* yes */
@@ -920,6 +924,10 @@ static void shmcb_cyclic_cton_memcpy(
     unsigned int src_offset,
     unsigned int src_len)
 {
+    /* Cover the case that src_len > buf_size */
+    if (src_len > buf_size)
+        src_len = buf_size;
+
     /* Can it be copied all in one go? */
     if (src_offset + src_len < buf_size)
         /* yes */

@@ -1,0 +1,116 @@
+diff -Naur --exclude=CVS ../../mod_ssl-2.8.22-1.3.33/configure ./configure
+--- ../../mod_ssl-2.8.22-1.3.33/configure	Tue May 11 11:46:02 2004
++++ ./configure	Thu Jul  1 16:29:29 2004
+@@ -355,11 +355,11 @@
+     echo "INCDIR=$APXS_INCLUDEDIR" >>$file
+     echo "OSDIR=\$(INCDIR)" >>$file
+     echo "CC=$APXS_CC" >>$file
+-    echo "CFLAGS=-I\$(INCDIR) $APXS_CFLAGS" >>$file
+-    echo "CFLAGS_SHLIB=$APXS_CFLAGS_SHLIB" >>$file
++    echo "CFLAGS=$CFLAGS -I\$(INCDIR) $APXS_CFLAGS" >>$file
++    echo "CFLAGS_SHLIB=$CFLAGS $APXS_CFLAGS_SHLIB" >>$file
+     echo "LD_SHLIB=$APXS_LD_SHLIB" >>$file
+-    echo "LDFLAGS=$APXS_LDFLAGS" >>$file
+-    echo "LDFLAGS_SHLIB=$APXS_LDFLAGS_SHLIB" >>$file
++    echo "LDFLAGS=$LDFLAGS $APXS_LDFLAGS" >>$file
++    echo "LDFLAGS_SHLIB=$LDFLAGS $APXS_LDFLAGS_SHLIB" >>$file
+     echo "LIBS_SHLIB=$APXS_LIBS_SHLIB" >>$file
+ 
+     #  define the package locations
+@@ -390,7 +390,7 @@
+     echo "all:" >>Makefile
+     echo "	-@cd pkg.sslmod; \$(MAKE)" >>Makefile
+     echo "install: all" >>Makefile
+-    echo "	-@cd pkg.sslmod; \$(APXS) -i -n ssl_module libssl.so" >>Makefile
++    echo "	-@cd pkg.sslmod; mkdir -p \`\$(APXS) -q LIBEXECDIR\` && \$(APXS) -i -n ssl_module libssl.so" >>Makefile
+     echo "clean:" >>Makefile
+     echo "	-@cd pkg.sslmod; \$(MAKE) clean" >>Makefile
+     echo "distclean:" >>Makefile
+diff -Naur --exclude=CVS ../../mod_ssl-2.8.22-1.3.33/pkg.sslmod/libssl.module ./pkg.sslmod/libssl.module
+--- ../../mod_ssl-2.8.22-1.3.33/pkg.sslmod/libssl.module	Tue May 11 11:38:56 2004
++++ ./pkg.sslmod/libssl.module	Thu Jul  1 16:29:29 2004
+@@ -389,13 +389,23 @@
+             fi
+         done
+         if [ ".$SSL_INCDIR" = . ]; then
+-            echo "Error: Cannot find SSL header files in any of the following dirs:" 1>&2
+-            echo "Error: . /usr/include /usr/include/ssl/ /usr/local/include /usr/local/include/ssl" 1>&2
+-            exit 1
++            for domain in System Local Network; do
++                if [ -f /$domain/Library/Frameworks/openssl.framework/Headers/ssl.h ]; then
++                    SSL_FRAMEWORK=openssl
++                fi
++            done
++            if [ ".$SSL_FRAMEWORK" = . ]; then
++                echo "Error: Cannot find SSL header files in any of the following dirs:" 1>&2
++                echo "Error: . /usr/include /usr/include/ssl/ /usr/local/include /usr/local/include/ssl" 1>&2
++                exit 1
++            fi
+         fi
+     else
+         if [ -f "$SSL_BASE/include/openssl/ssl.h" ]; then
+             SSL_INCDIR='$(SSL_BASE)/include'
++        elif [ -f "$SSL_BASE/Headers/ssl.h" ] && echo "$SSL_BASE" | grep \\.framework > /dev/null; then
++            SSL_FRAMEWORK=`basename $SSL_BASE`
++            SSL_FRAMEWORK=`basename $SSL_FRAMEWORK .framework`
+         else
+             echo "Error: Cannot find SSL header files under $SSL_BASE" 1>&2
+             exit 1
+@@ -411,16 +421,20 @@
+     if [ ".$SSL_BASE" = .SYSTEM ]; then
+         SSL_LIBDIR=""
+         for p in . /lib /usr/lib /usr/local/lib; do
+-            if [ -f "$p/libssl.a" -o -f "$p/libssl.so" ]; then
++            if [ -f "$p/libssl.a" -o -f "$p/libssl.so" -o -f "$p/libssl.dylib" ]; then
+                 SSL_LIBDIR="$p"
+                 my_real_ssl_libdir="$p"
+                 break
+             fi
+         done
+         if [ ".$SSL_LIBDIR" = . ]; then
+-            echo "Error: Cannot find SSL library files in any of the following dirs:" 1>&2
+-            echo "Error: . /lib /usr/lib /usr/local/lib" 1>&2
+-            exit 1
++            if [ ".$SSL_FRAMEWORK" != . ]; then
++                SSL_LDFLAGS="$SSL_LDFLAGS -framework openssl"
++            else
++                echo "Error: Cannot find SSL library files in any of the following dirs:" 1>&2
++                echo "Error: . /lib /usr/lib /usr/local/lib" 1>&2
++                exit 1
++            fi
+         fi
+     else
+         if [ -f "$SSL_BASE/libssl.a" -o -f "$SSL_BASE/libssl.so" ]; then
+@@ -429,13 +443,18 @@
+         elif [ -f "$SSL_BASE/lib/libssl.a" -o -f "$SSL_BASE/lib/libssl.so" ]; then
+             SSL_LIBDIR='$(SSL_BASE)/lib'
+             my_real_ssl_libdir="$SSL_BASE/lib"
++        elif [ ".$SSL_FRAMEWORK" != . ] && [ -f "$SSL_BASE/$SSL_FRAMEWORK" ]; then
++            SSL_LDFLAGS="$SSL_LDFLAGS -framework openssl"
+         else
++	    echo "No $SSL_BASE/$SSL_FRAMEWORK"
+             echo "Error: Cannot find SSL library files under $SSL_BASE" 1>&2
+             exit 1
+         fi
+     fi
+-    SSL_LDFLAGS="$SSL_LDFLAGS -L\$(SSL_LIBDIR)"
+-    SSL_LIBS="$SSL_LIBS -lssl -lcrypto"
++    if [ ".$SSL_LIBDIR" != . ]; then
++        SSL_LDFLAGS="$SSL_LDFLAGS -L\$(SSL_LIBDIR)"
++        SSL_LIBS="$SSL_LIBS -lssl -lcrypto"
++    fi
+ 
+     #
+     #   SSL installation type
+diff -Naur --exclude=CVS ../../mod_ssl-2.8.22-1.3.33/pkg.sslmod/ssl_engine_vars.c ./pkg.sslmod/ssl_engine_vars.c
+--- ../../mod_ssl-2.8.22-1.3.33/pkg.sslmod/ssl_engine_vars.c	Tue May 11 12:20:50 2004
++++ ./pkg.sslmod/ssl_engine_vars.c	Thu Jul  1 16:29:29 2004
+@@ -618,7 +618,7 @@
+         result = ap_psprintf(p, "mod_ssl/%s", MOD_SSL_VERSION);
+     }
+     else if (strEQ(var, "LIBRARY")) {
+-        result = ap_pstrdup(p, SSL_LIBRARY_TEXT);
++        result = ap_pstrdup(p, SSLeay_version(SSLEAY_VERSION));
+         if ((cp = strchr(result, ' ')) != NULL) {
+             *cp = '/';
+             if ((cp2 = strchr(cp, ' ')) != NULL)

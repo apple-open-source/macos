@@ -21,7 +21,7 @@
       [ <a href="#download">Download</a>
       | <a href="#compilation">Compilation</a>
       | <a href="#installation">Installation</a>
-      | <a href="#visualage">VisualAge</a>&nbsp;]
+      | <a href="#linkmap">Link Map</a>&nbsp;]
     </center>
     <hr />
 
@@ -539,8 +539,7 @@
       module will contain no link map data.<br />
 
        If you require a link map refer to the
-       <a href="#visualage">instructions below</a> on
-       creating one with VisualAge TPF.<br />
+       <a href="#linkmap">instructions below</a><br />
        &nbsp;</li>
 
       <li>Load (<tt>ZOLDR LOAD</tt>) and activate (<tt>ZOLDR
@@ -663,12 +662,70 @@
       &nbsp;&nbsp;&nbsp;(where <i>xx.xx.xx.xx</i> is your IP
       address)</li>
     </ol>
-    <a id="visualage" name="visualage"></a> 
+    <a id="linkmap" name="linkmap"></a> 
 
     <center>
-      <h2>Using VisualAge TPF</h2>
+      <h2>Generating an Apache Link Map</h2>
     </center>
-    VisualAge TPF can be used to generate link maps for Apache:
+    <p>Three different tools can be used to generate a link map for Apache:
+    TPF Build Tools, TPF Toolkit, and VisualAge TPF.</p>
+
+    <h3>TPF Build Tools on OS/390 UNIX</h3>
+    
+    <ol>
+       <li>Download and install the 
+           <a href="http://www.ibm.com/software/htp/tpf/download/bldtools.htm">TPF Build Tools</a> 
+	   if you have not already done so.</li>
+       <li>Follow the instructions to set up any necessary variables for your installation.</li>
+       <li>Create a shell script in your Apache <code>src</code> directory similar to this text:<br />
+           <code><br />
+           ld -M --dlm -O'&lt;your-dsd-dsn&gt;(CHTA&lt;vv&gt;)' \<br />
+           CSTRTD40 \<br />
+           CINET640 \<br />
+           buildmark.o \<br />
+           modules.o \<br />
+           ap/ap_base64.o \<br />
+           .<br />
+           .<br />
+           .<br />
+           regex/regexec.o \<br />
+           regex/regfree.o<br />
+           </code><br />
+           In your script...
+           <ul>
+              <li>Each line must end with a backwards slash (\) except for the last line.
+                  Be sure there are no trailing blanks after the backward slashes. </li>
+              <li>Replace the two items in angle brackets (&lt; &gt;) with your dataset name and program version.</li>
+              <li>Add any additional libraries prior to the first ".o" line.</li>
+              <li>Add a line for each .o to be linked into your configuration of Apache.</li>
+           </ul><br />
+       </li>
+       <li>Change the shell script's permission settings to executable using the <code>chmod</code> command.</li>
+       <li>Run the script.</li>
+    </ol>
+
+
+    <h3>TPF Toolkit</h3>
+    <ol>
+    <li>Copy the sample <tt>linkhttp.dlm</tt> file from the <tt>src/os/tpf/samples</tt>
+        directory to your Apache <tt>src</tt> directory on OS/390 UNIX.
+    </li>
+    <li>This sample file contains the components for the default
+        configuration of Apache.  Add and delete components (such as modules)
+        as necessary so it matches your configuration of Apache.
+        Basically, it should match your link JCL with the "<tt>.../apache/src</tt>"
+        portion of the filenames removed.
+    </li>
+    <li>Change items in angle brackets (&lt; &gt;) to also match your JCL.
+        Be sure to remove the angle brackets as well.
+    </li>
+    <li>In the TPF Toolkit create a project with your modified dlm file as its sole contents.
+    </li>
+    <li>Right click on the dlm file in your new project and choose "Build DLM".
+    </li>
+    </ol>
+
+    <h3>VisualAge TPF</h3>
     <ol>
     <li>Copy the sample <tt>linkhttp.dlm</tt> file from the <tt>src/os/tpf/samples</tt>
         directory to your Apache <tt>src</tt> directory on OS/390 UNIX.
@@ -694,7 +751,7 @@
       | <a href="#download">Download</a>
       | <a href="#compilation">Compilation</a>
       | <a href="#installation">Installation</a>
-      | <a href="#visualage">VisualAge</a>&nbsp;]
+      | <a href="#linkmap">Link Map</a>&nbsp;]
     </center>
   </body>
 </html>

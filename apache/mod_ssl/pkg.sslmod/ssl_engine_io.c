@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2003 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2004 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -682,7 +682,7 @@ static void ssl_io_data_dump(server_rec *srvr, const char *s, long len)
     }
     if (trunc > 0)
         ssl_log(srvr, SSL_LOG_DEBUG|SSL_NO_TIMESTAMP|SSL_NO_LEVELID,
-                "| %04x - <SPACES/NULS>", len + trunc);
+                "| %04lx - <SPACES/NULS>", len + trunc);
     ssl_log(srvr, SSL_LOG_DEBUG|SSL_NO_TIMESTAMP|SSL_NO_LEVELID,
             "+-------------------------------------------------------------------------+");
     return;
@@ -704,21 +704,21 @@ long ssl_io_data_cb(BIO *bio, int cmd, const char *argp, int argi, long argl, lo
         || cmd == (BIO_CB_READ |BIO_CB_RETURN) ) {
         if (rc >= 0) {
             ssl_log(s, SSL_LOG_DEBUG,
-                    "%s: %s %ld/%d bytes %s BIO#%08X [mem: %08lX] %s",
+                    "%s: %s %ld/%d bytes %s BIO#%08lX [mem: %08lX] %s",
                     SSL_LIBRARY_NAME,
                     (cmd == (BIO_CB_WRITE|BIO_CB_RETURN) ? "write" : "read"),
                     rc, argi, (cmd == (BIO_CB_WRITE|BIO_CB_RETURN) ? "to" : "from"),
-                    bio, argp,
+                    (long)bio, (long)argp,
                     (argp != NULL ? "(BIO dump follows)" : "(Ops, no memory buffer?)"));
             if (argp != NULL)
                 ssl_io_data_dump(s, argp, rc);
         }
         else {
             ssl_log(s, SSL_LOG_DEBUG,
-                    "%s: I/O error, %d bytes expected to %s on BIO#%08X [mem: %08lX]",
+                    "%s: I/O error, %d bytes expected to %s on BIO#%08lX [mem: %08lX]",
                     SSL_LIBRARY_NAME, argi,
                     (cmd == (BIO_CB_WRITE|BIO_CB_RETURN) ? "write" : "read"),
-                    bio, argp);
+                    (long)bio, (long)argp);
         }
     }
     return rc;

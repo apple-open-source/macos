@@ -7,7 +7,7 @@
     <title>Apache module mod_mime</title>
 
   </head>
-  <!-- English revision: 1.51 -->
+  <!-- English revision: 1.54 -->
   <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
   <body bgcolor="#ffffff" text="#000000" link="#0000ff"
   vlink="#000080" alink="#ff0000">
@@ -93,25 +93,22 @@
     <h2><a id="multipleext"
     name="multipleext">複数の拡張子のあるファイル</a></h2>
 
-    ファイルは複数の拡張子を持つことができ、拡張子の順番は<em
+    <p>ファイルは複数の拡張子を持つことができ、拡張子の順番は<em
     >通常は</em>関係ありません。たとえば、<code>welcome.html.fr</code>
-    ファイルがコンテントタイプは text/html
+    ファイルがコンテントタイプは <code>text/html</code>
     に、言語はフランス語にマップされる場合、<code>welcome.fr.html</code>
     もまったく同じ情報にマップされます。
-    唯一の例外は、与えられた拡張子の扱い方を Apache
-    が知らない場合です。その場合、Apache
-    は知らない拡張子の左にあるすべての拡張子を「忘れ」ます。
-    ですから、たとえば、拡張子 fr と html
-    が適切な言語とタイプにマップされているけれども、拡張子 xxx
-    は何にも割り当てられていないという場合には、<code
-    >welcome.fr.xxx.html</code> ファイルはコンテントタイプ text/html
-    に関連付けられますが、言語には関連付けられ<em>ません</em>。
-
-    <p>同じメタ情報にマップされる拡張子が複数あるときには、
+    同じメタ情報にマップされる拡張子が複数あるときには言語とコンテントエンコーディングを除いて、
     右側にあるものが使用されます。たとえば、".gif" が MIME タイプ
     image/gif にマップされ、".html" が MIME タイプ text/html
     にマップされる場合は、ファイル <code>welcome.gif.html</code> は
     MIME タイプ "text/html" に関連付けられます。</p>
+
+    <p>言語とコンテントエンコーディングはそれまでのものに追加して扱われます。
+    これは特定のリソースに対して一つ以上の言語やエンコーディングを
+    割り当てることができるからです。例えば、ファイル
+    <code>welcome.html.en.de</code> が <code>Content-Language: en, de</code>
+    で <code>Content-Type: text/html</code> といった具合です。</p>
 
     <p>複数の拡張子のあるファイルが MIME
     タイプとハンドラの両方に関連付けられているときは注意する必要があります。
@@ -315,7 +312,7 @@
 
 <pre>
     AddLanguage en .en
-    AddLanguage en-uk .en
+    AddLanguage en-gb .en
     AddLanguage en-us .en
 </pre>
 

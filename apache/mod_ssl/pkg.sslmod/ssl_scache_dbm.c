@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2003 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2004 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -208,7 +208,7 @@ SSL_SESSION *ssl_scache_dbm_retrieve(server_rec *s, UCHAR *id, int idlen)
     datum dbmkey;
     datum dbmval;
     SSL_SESSION *sess = NULL;
-    UCHAR *ucpData;
+    UCHAR *ucpData, *ucpDataTmp;
     int nData;
     time_t expiry;
     time_t now;
@@ -231,30 +231,39 @@ SSL_SESSION *ssl_scache_dbm_retrieve(server_rec *s, UCHAR *id, int idlen)
         return NULL;
     }
     dbmval = ssl_dbm_fetch(dbm, dbmkey);
-    ssl_dbm_close(dbm);
-    ssl_mutex_off(s);
 
     /* immediately return if not found */
-    if (dbmval.dptr == NULL || dbmval.dsize <= sizeof(time_t))
+    if (dbmval.dptr == NULL || dbmval.dsize <= sizeof(time_t)) {
+        ssl_dbm_close(dbm);
+        ssl_mutex_off(s);
         return NULL;
+    }
 
     /* parse resulting data */
     nData = dbmval.dsize-sizeof(time_t);
     ucpData = (UCHAR *)malloc(nData);
-    if (ucpData == NULL) 
+    if (ucpData == NULL) {
+        ssl_dbm_close(dbm);
+        ssl_mutex_off(s);
         return NULL;
+    }
     memcpy(ucpData, (char *)dbmval.dptr+sizeof(time_t), nData);
     memcpy(&expiry, dbmval.dptr, sizeof(time_t));
+    ssl_dbm_close(dbm);
+    ssl_mutex_off(s);
 
     /* make sure the stuff is still not expired */
     now = time(NULL);
     if (expiry <= now) {
         ssl_scache_dbm_remove(s, id, idlen);
+        free(ucpData);
         return NULL;
     }
 
     /* unstreamed SSL_SESSION */
-    sess = d2i_SSL_SESSION(NULL, &ucpData, nData);
+    ucpDataTmp = ucpData;
+    sess = d2i_SSL_SESSION(NULL, &ucpDataTmp, nData);
+    free(ucpData);
 
     return sess;
 }

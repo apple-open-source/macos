@@ -3,7 +3,7 @@
 #
 # This is the main Apache server configuration file.  It contains the
 # configuration directives that give the server its instructions.
-# See <URL:http://www.apache.org/docs/> for detailed information about
+# See <URL:http://httpd.apache.org/docs/> for detailed information about
 # the directives.
 #
 # Do NOT simply read the instructions in here without understanding
@@ -702,8 +702,8 @@ ServerSignature On
     # HeaderName is the name of a file which should be prepended to
     # directory indexes. 
     #
-    ReadmeName README
-    HeaderName HEADER
+    ReadmeName README.html
+    HeaderName HEADER.html
 
     #
     # IndexIgnore is a set of filenames which directory indexing should ignore

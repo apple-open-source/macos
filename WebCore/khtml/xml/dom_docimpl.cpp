@@ -1234,7 +1234,8 @@ HTMLElementImpl* DocumentImpl::body()
 void DocumentImpl::close()
 {
     // First fire the onload.
-    bool doload = !parsing() && m_tokenizer && !m_processingLoadEvent;
+    bool changingLocation = part() && (part()->d->m_scheduledRedirection == locationChangeScheduled || part()->d->m_scheduledRedirection == locationChangeScheduledDuringLoad);
+    bool doload = !parsing() && m_tokenizer && !m_processingLoadEvent && !changingLocation;
     
     bool wasNotRedirecting = !part() || part()->d->m_scheduledRedirection == noRedirectionScheduled || part()->d->m_scheduledRedirection == historyNavigationScheduled;
     

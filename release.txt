@@ -1,14 +1,14 @@
-# Mac OS X 10.3.6 SUPanNavy7R28
+# Mac OS X 10.3.7 SUPanPlum7S215
 adv_cmds	63	Other
 am_utils	8	Other
-apache	671	Other
-apache2	15	Other
+apache	678	Other
+apache2	17	Other
 apache_mod_dav	9	Other
 apache_mod_hfs_apple	5	Other
 apache_mod_perl	5	Other
 apache_mod_php	12	Other
 apache_mod_rendezvous_apple	8	Other
-apache_mod_ssl	15	Other
+apache_mod_ssl	678	Other
 Apple16X50Serial	16	Other
 Apple3Com3C90x	7	Other
 AppleADBButtons	250.0.1	Other
@@ -81,7 +81,7 @@ bsm	2.11	Other
 bzip2	3	Other
 cctools	495.8	Other
 cddafs	212.0.3	Other
-CF	299.32	Other
+CF	299.33	Other
 Chess	102.0.10	Other
 CMD646ATA	107.3.1	Other
 configd	84.6	Other
@@ -94,7 +94,7 @@ Csu	46	Other
 cups	62.3	Other
 curl	15	Other
 cvs	30	Other
-CyrusIMAP	125.5	Other
+CyrusIMAP	125.6	Other
 developer_cmds	28	Other
 diffstat	1	Other
 DirectoryService	257.1	Other
@@ -159,7 +159,7 @@ IOKitUser	182	Other
 IONetworkingFamily	15.3	Other
 IOPCCardFamily	38	Other
 IOPCIFamily	21	Other
-IOSCSIArchitectureModelFamily	137.3.5	Other
+IOSCSIArchitectureModelFamily	138.3.1	Other
 IOSCSIParallelFamily	137.3.2	Other
 IOSerialFamily	20	Other
 IOStorageFamily	44.4	Other
@@ -170,7 +170,7 @@ isoutil	28.1	Other
 jam	238	Other
 JavaScriptCore	125.6	Other
 JBoss	734	Other
-Kerberos	47.5	Other
+Kerberos	47.7	Other
 kext_tools	42	Other
 KeyLargoATA	110.3.1	Other
 keymgr	3	Other
@@ -202,7 +202,7 @@ MySQL	20	Other
 ncurses	8.1	Other
 net_snmp	10	Other
 netcat	4	Other
-netinfo	324.7	Other
+netinfo	324.9	Other
 network_cmds	176.3.5	Other
 NKEMgr	5.3	Other
 ntfs	8.1	Other
@@ -220,7 +220,7 @@ pb_makefiles	118	Other
 pbx_jamfiles	237	Other
 perl	25.2	Other
 portmap	10	Other
-postfix	132.1	Other
+postfix	132.2	Other
 PowerManagement	63.3	Other
 ppp	144.3	Other
 procmail	4	Other
@@ -258,11 +258,11 @@ UserNotification	15	Other
 usertemplate	40	Other
 vim	10	Other
 volfs	24	Other
-WebCore	125.8.10	Other
+WebCore	125.8.12	Other
 webdavfs	148.5	Other
 X11	0.30.4	Other
 xinetd	26.4	Other
-xnu	517.9.4	Other
+xnu	517.9.5	Other
 yacc	6	Other
 zlib	12	Other
 zsh	34	Other

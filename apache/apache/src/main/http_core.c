@@ -1,59 +1,16 @@
-/* ====================================================================
- * The Apache Software License, Version 1.1
+/* Copyright 1999-2004 The Apache Software Foundation
  *
- * Copyright (c) 2000-2003 The Apache Software Foundation.  All rights
- * reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution,
- *    if any, must include the following acknowledgment:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowledgment may appear in the software itself,
- *    if and wherever such third-party acknowledgments normally appear.
- *
- * 4. The names "Apache" and "Apache Software Foundation" must
- *    not be used to endorse or promote products derived from this
- *    software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache",
- *    nor may "Apache" appear in their name, without prior written
- *    permission of the Apache Software Foundation.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
- *
- * Portions of this software are based upon public domain software
- * originally written at the National Center for Supercomputing Applications,
- * University of Illinois, Urbana-Champaign.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #define CORE_PRIVATE
@@ -95,6 +52,15 @@
 #ifndef MMAP_LIMIT
 #define MMAP_LIMIT              (4*1024*1024)
 #endif
+
+typedef struct {
+    /* Custom response strings registered via ap_custom_response(),
+     * or NULL; check per-dir config if nothing found here
+     */
+    char **response_code_strings; /* from ap_custom_response(), not from
+                                   * ErrorDocument
+                                   */
+} core_request_config;
 
 /* Server core module... This module provides support for really basic
  * server operations, including options and commands which control the
@@ -235,6 +201,9 @@ static void *merge_core_dir_configs(pool *a, void *basev, void *newv)
     }
     if (new->ap_auth_name) {
         conf->ap_auth_name = new->ap_auth_name;
+    }
+    if (new->ap_auth_nonce) {
+        conf->ap_auth_nonce = new->ap_auth_nonce;
     }
     if (new->ap_requires) {
         conf->ap_requires = new->ap_requires;
@@ -577,6 +546,31 @@ API_EXPORT(const char *) ap_auth_name(request_rec *r)
     return conf->ap_auth_name;
 }
 
+API_EXPORT(const char *) ap_auth_nonce(request_rec *r)
+{
+    core_dir_config *conf;
+    conf = (core_dir_config *)ap_get_module_config(r->per_dir_config,
+                                                   &core_module);
+    if (conf->ap_auth_nonce)
+       return conf->ap_auth_nonce;
+
+    /* Ideally we'd want to mix in some per-directory style
+     * information; as we are likely to want to detect replay
+     * across those boundaries and some randomness. But that
+     * is harder due to the adhoc nature of .htaccess memory
+     * structures, restarts and forks.
+     *
+     * But then again - you should use AuthDigestRealmSeed in your config
+     * file if you care. So the adhoc value should do.
+     */
+    return ap_psprintf(r->pool,"%pI%pp%pp%pp%pp",
+           &r->connection->local_addr.sin_addr,
+           (void *)ap_user_name,
+           (void *)ap_listeners,
+           (void *)ap_server_argv0,
+           (void *)ap_pid_fname);
+}
+
 API_EXPORT(const char *) ap_default_type(request_rec *r)
 {
     core_dir_config *conf;
@@ -623,15 +617,30 @@ API_EXPORT(int) ap_satisfies(request_rec *r)
 
 API_EXPORT(char *) ap_response_code_string(request_rec *r, int error_index)
 {
-    core_dir_config *conf;
+    core_request_config *reqconf;
+    core_dir_config *dirconf;
 
-    conf = (core_dir_config *)ap_get_module_config(r->per_dir_config,
-						   &core_module); 
+    /* prefer per-request settings, which are created by calls to
+     * ap_custom_response()
+     */
+    reqconf = (core_request_config *)ap_get_module_config(r->request_config,
+                                                          &core_module); 
 
-    if (conf->response_code_strings == NULL) {
+    if (reqconf != NULL &&
+        reqconf->response_code_strings != NULL &&
+        reqconf->response_code_strings[error_index] != NULL) {
+        return reqconf->response_code_strings[error_index];
+    }
+
+    /* check for string specified via ErrorDocument */
+    dirconf = (core_dir_config *)ap_get_module_config(r->per_dir_config,
+                                                      &core_module);
+
+    if (dirconf->response_code_strings == NULL) {
 	return NULL;
     }
-    return conf->response_code_strings[error_index];
+
+    return dirconf->response_code_strings[error_index];
 }
 
 
@@ -826,16 +835,29 @@ API_EXPORT(const char *) ap_get_server_name(request_rec *r)
 API_EXPORT(unsigned) ap_get_server_port(const request_rec *r)
 {
     unsigned port;
+    unsigned cport = ntohs(r->connection->local_addr.sin_port);
     core_dir_config *d =
       (core_dir_config *)ap_get_module_config(r->per_dir_config, &core_module);
     
-    port = r->server->port ? r->server->port : ap_default_port(r);
-
     if (d->use_canonical_name == USE_CANONICAL_NAME_OFF
-	|| d->use_canonical_name == USE_CANONICAL_NAME_DNS) {
-        return r->hostname ? ntohs(r->connection->local_addr.sin_port)
-			   : port;
+        || d->use_canonical_name == USE_CANONICAL_NAME_DNS) {
+        
+        /* With UseCanonicalName Off Apache will form self-referential
+         * URLs using the hostname and port supplied by the client if
+         * any are supplied (otherwise it will use the canonical name).
+         */
+        port = r->parsed_uri.port_str ? r->parsed_uri.port : 
+#ifdef UCN_OFF_HONOR_PHYSICAL_PORT
+          cport ? cport :
+#endif
+            r->server->port ? r->server->port :
+              ap_default_port(r);
+    } else { /* d->use_canonical_name == USE_CANONICAL_NAME_ON */
+        port = r->server->port ? r->server->port : 
+          cport ? cport :
+            ap_default_port(r);
     }
+
     /* default */
     return port;
 }
@@ -1225,20 +1247,26 @@ static const char *set_document_root(cmd_parms *cmd, void *dummy, char *arg)
 
 API_EXPORT(void) ap_custom_response(request_rec *r, int status, char *string)
 {
-    core_dir_config *conf = 
-	ap_get_module_config(r->per_dir_config, &core_module);
+    core_request_config *reqconf =
+	ap_get_module_config(r->request_config, &core_module);
     int idx;
 
-    if(conf->response_code_strings == NULL) {
-        conf->response_code_strings = 
+    if (reqconf == NULL) {
+        reqconf = (core_request_config *)ap_pcalloc(r->pool,
+                                                    sizeof(core_request_config));
+        ap_set_module_config(r->request_config, &core_module, reqconf);
+    }
+    
+    if (reqconf->response_code_strings == NULL) {
+        reqconf->response_code_strings = 
 	    ap_pcalloc(r->pool,
-		    sizeof(*conf->response_code_strings) * 
-		    RESPONSE_CODES);
+                       sizeof(reqconf->response_code_strings) * 
+                       RESPONSE_CODES);
     }
 
     idx = ap_index_of_response(status);
 
-    conf->response_code_strings[idx] = 
+    reqconf->response_code_strings[idx] = 
        ((ap_is_url(string) || (*string == '/')) && (*string != '"')) ? 
        ap_pstrdup(r->pool, string) : ap_pstrcat(r->pool, "\"", string, NULL);
 }
@@ -1574,11 +1602,17 @@ static const char *dirsection(cmd_parms *cmd, void *dummy, const char *arg)
     cmd->override = OR_ALL|ACCESS_CONF;
 
     if (thiscmd->cmd_data) { /* <DirectoryMatch> */
-	r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED|USE_ICASE);
+        r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED|USE_ICASE);
+        if (!r) {
+            return "Regex could not be compiled";
+        }
     }
     else if (!strcmp(cmd->path, "~")) {
-	cmd->path = ap_getword_conf(cmd->pool, &arg);
-	r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED|USE_ICASE);
+        cmd->path = ap_getword_conf(cmd->pool, &arg);
+        r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED|USE_ICASE);
+        if (!r) {
+            return "Regex could not be compiled";
+        }
     }
 #if defined(HAVE_DRIVE_LETTERS) || defined(NETWARE)
     else if (strcmp(cmd->path, "/") == 0) {
@@ -1655,11 +1689,17 @@ static const char *urlsection(cmd_parms *cmd, void *dummy, const char *arg)
     cmd->override = OR_ALL|ACCESS_CONF;
 
     if (thiscmd->cmd_data) { /* <LocationMatch> */
-	r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED);
+        r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED);
+        if (!r) {
+            return "Regex could not be compiled";
+        }
     }
     else if (!strcmp(cmd->path, "~")) {
-	cmd->path = ap_getword_conf(cmd->pool, &arg);
-	r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED);
+        cmd->path = ap_getword_conf(cmd->pool, &arg);
+        r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED);
+        if (!r) {
+            return "Regex could not be compiled";
+        }
     }
 
     old_end_token = cmd->end_token;
@@ -1727,10 +1767,16 @@ static const char *filesection(cmd_parms *cmd, core_dir_config *c,
 
     if (thiscmd->cmd_data) { /* <FilesMatch> */
         r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED|USE_ICASE);
+        if (!r) {
+            return "Regex could not be compiled";
+        }
     }
     else if (!strcmp(cmd->path, "~")) {
-	cmd->path = ap_getword_conf(cmd->pool, &arg);
-	r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED|USE_ICASE);
+        cmd->path = ap_getword_conf(cmd->pool, &arg);
+        r = ap_pregcomp(cmd->pool, cmd->path, REG_EXTENDED|USE_ICASE);
+        if (!r) {
+            return "Regex could not be compiled";
+        }
     }
     else {
 	/* Ensure that the pathname is canonical */
@@ -2237,6 +2283,32 @@ static const char *set_keep_alive_max(cmd_parms *cmd, void *dummy, char *arg)
     return NULL;
 }
 
+#ifdef AP_ENABLE_EXCEPTION_HOOK
+static const char *set_exception_hook(cmd_parms *cmd, void *dummy, char *arg) 
+{
+    const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+    if (err != NULL) {
+        return err;
+    }
+
+    if (cmd->server->is_virtual) {
+	return "EnableExceptionHook directive not allowed in <VirtualHost>";
+    }
+
+    if (strcasecmp(arg, "on") == 0) {
+        ap_exception_hook_enabled = 1;
+    }
+    else if (strcasecmp(arg, "off") == 0) {
+        ap_exception_hook_enabled = 0;
+    }
+    else {
+        return "parameter must be 'on' or 'off'";
+    }
+
+    return NULL;
+}
+#endif /* AP_ENABLE_EXCEPTION_HOOK */
+
 static const char *set_pidfile(cmd_parms *cmd, void *dummy, char *arg) 
 {
     const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
@@ -2686,6 +2758,7 @@ static const char *set_coredumpdir (cmd_parms *cmd, void *dummy, char *arg)
 			  " does not exist or is not a directory", NULL);
     }
     ap_cpystrn(ap_coredump_dir, arg, sizeof(ap_coredump_dir));
+    ap_coredump_dir_configured = 1;
     return NULL;
 }
 
@@ -2785,6 +2858,28 @@ static const char *set_authname(cmd_parms *cmd, void *mconfig, char *word1)
     aconfig->ap_auth_name = ap_escape_quotes(cmd->pool, word1);
     return NULL;
 }
+
+/*
+ * Load an authorisation nonce into our location configuration, and
+ * force it to be in the 0-9/A-Z realm.
+ */
+static const char *set_authnonce (cmd_parms *cmd, void *mconfig, char *word1)
+{
+    core_dir_config *aconfig = (core_dir_config *)mconfig;
+    size_t i;
+
+    aconfig->ap_auth_nonce = ap_escape_quotes(cmd->pool, word1);
+
+    if (strlen(aconfig->ap_auth_nonce) > 510)
+       return "AuthDigestRealmSeed length limited to 510 chars for browser compatibility";
+
+    for(i=0;i<strlen(aconfig->ap_auth_nonce );i++)
+       if (!ap_isalnum(aconfig->ap_auth_nonce [i]))
+         return "AuthDigestRealmSeed limited to 0-9 and A-Z range for browser compatibility";
+
+    return NULL;
+}
+
 
 #ifdef _OSD_POSIX /* BS2000 Logon Passwd file */
 static const char *set_bs2000_account(cmd_parms *cmd, void *dummy, char *name)
@@ -3400,6 +3495,9 @@ static const command_rec core_cmds[] = {
   "An HTTP authorization type (e.g., \"Basic\")" },
 { "AuthName", set_authname, NULL, OR_AUTHCFG, TAKE1,
   "The authentication realm (e.g. \"Members Only\")" },
+{ "AuthDigestRealmSeed", set_authnonce, NULL, OR_AUTHCFG, TAKE1,
+  "An authentication token which should be different for each logical realm. "\
+  "A random value or the servers IP may be a good choise.\n" },
 { "Require", require, NULL, OR_AUTHCFG, RAW_ARGS,
   "Selects which authenticated users or groups may access a protected space" },
 { "Satisfy", satisfy, NULL, OR_AUTHCFG, TAKE1,
@@ -3617,6 +3715,10 @@ static const command_rec core_cmds[] = {
 #endif
     "are compiled in"
 },
+#ifdef AP_ENABLE_EXCEPTION_HOOK
+{ "EnableExceptionHook", set_exception_hook, NULL, RSRC_CONF, TAKE1,
+  "Controls whether exception hook may be called after a crash" },
+#endif
 
 /* EBCDIC Conversion directives: */
 #ifdef CHARSET_EBCDIC

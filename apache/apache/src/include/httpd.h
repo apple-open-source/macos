@@ -1,59 +1,16 @@
-/* ====================================================================
- * The Apache Software License, Version 1.1
+/* Copyright 1999-2004 The Apache Software Foundation
  *
- * Copyright (c) 2000-2003 The Apache Software Foundation.  All rights
- * reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution,
- *    if any, must include the following acknowledgment:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowledgment may appear in the software itself,
- *    if and wherever such third-party acknowledgments normally appear.
- *
- * 4. The names "Apache" and "Apache Software Foundation" must
- *    not be used to endorse or promote products derived from this
- *    software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache",
- *    nor may "Apache" appear in their name, without prior written
- *    permission of the Apache Software Foundation.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
- *
- * Portions of this software are based upon public domain software
- * originally written at the National Center for Supercomputing Applications,
- * University of Illinois, Urbana-Champaign.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #ifndef APACHE_HTTPD_H
@@ -431,7 +388,7 @@ extern "C" {
 
 #define SERVER_BASEVENDOR   "Apache Group"
 #define SERVER_BASEPRODUCT  "Apache"
-#define SERVER_BASEREVISION "1.3.29"
+#define SERVER_BASEREVISION "1.3.33"
 #define SERVER_BASEVERSION  SERVER_BASEPRODUCT "/" SERVER_BASEREVISION
 
 #define SERVER_PRODUCT  SERVER_BASEPRODUCT
@@ -452,7 +409,7 @@ API_EXPORT(const char *) ap_get_server_built(void);
  * Always increases along the same track as the source branch.
  * For example, Apache 1.4.2 would be '10402100', 2.5b7 would be '20500007'.
  */
-#define APACHE_RELEASE 10329100
+#define APACHE_RELEASE 10333100
 
 #define SERVER_PROTOCOL "HTTP/1.1"
 #ifndef SERVER_SUPPORT
@@ -1028,6 +985,8 @@ API_EXPORT(char *) ap_escape_html(pool *p, const char *s);
 API_EXPORT(char *) ap_construct_server(pool *p, const char *hostname,
 				    unsigned port, const request_rec *r);
 API_EXPORT(char *) ap_escape_logitem(pool *p, const char *str);
+API_EXPORT(size_t) ap_escape_errorlog_item(char *dest, const char *source,
+                                           size_t buflen);
 API_EXPORT(char *) ap_escape_shell_cmd(pool *p, const char *s);
 
 API_EXPORT(int) ap_count_dirs(const char *path);
@@ -1223,6 +1182,32 @@ API_EXPORT(extern const char *) ap_psignature(const char *prefix, request_rec *r
 #undef strtoul
 #endif
 #define strtoul strtoul_is_not_a_portable_function_use_strtol_instead
+
+#ifdef AP_ENABLE_EXCEPTION_HOOK
+/* The exception hook allows a module to run from the server's signal
+ * handler, and perform tasks such as logging the current request or
+ * getting a backtrace or performing other diagnostic functions.  All
+ * operating system requirements for running in a signal handler must
+ * be respected, or the process may not exit properly.
+ *
+ * AP_ENABLE_EXCEPTION_HOOK is already defined for platforms that have
+ * been tested.  It likely will work on other platforms.  In order to
+ * test, define AP_ENABLE_EXCEPTION_HOOK at configure time.
+ */
+typedef struct ap_exception_info_t {
+    int sig;
+    pid_t pid;
+} ap_exception_info_t;
+
+/* Register a function to be called after a fatal exception (on *X systems, a
+ * "synchronous signal" such as SIGSEGV, SIGILL, etc.).
+ *
+ * Returns 0 on success, non-zero on failure.
+ * If EnableExceptionHook directive is not set to "on", this function will
+ * report failure and no such hooks will be called.
+ */
+API_EXPORT(extern int) ap_add_fatal_exception_hook(void (*fn)(ap_exception_info_t *));
+#endif /* AP_ENABLE_EXCEPTION_HOOK */
 
 #ifdef __cplusplus
 }

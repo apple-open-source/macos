@@ -95,17 +95,23 @@
   &lt;/Location&gt;
 </pre>
 
-    <p><strong>Note:</strong> MD5 authentication provides a more
-    secure password system than Basic authentication, but only
-    works with supporting browsers. As of this writing (October
-    2001), the only major browsers which support digest
-    authentication are <a href="http://www.opera.com/">Opera
-    4.0</a>, <a href="http://www.microsoft.com/windows/ie/">MS
-    Internet Explorer 5.0</a> and <a
-    href="http://www.w3.org/Amaya/">Amaya</a>. Therefore, we do not
-    yet recommend using this feature on a large Internet site.
-    However, for personal and intra-net use, where browser users
-    can be controlled, it is ideal.</p>
+    <p><strong>Note:</strong> Digest authentication is more secure than
+    Basic authentication, but only works with supporting browsers. As of
+    September 2004, major browsers that support digest authentication
+    include <a href="http://www.w3.org/Amaya/">Amaya</a>, <a
+    href="http://konqueror.kde.org/">Konqueror</a>, <a
+    href="http://www.microsoft.com/windows/ie/">MS Internet Explorer</a>
+    for Mac OS X and Windows (although the Windows version fails when
+    used with a query string -- see "<a href="#msie" >Working with MS
+    Internet Explorer</a>" below for a workaround), <a
+    href="http://www.mozilla.org">Mozilla</a>, <a
+    href="http://channels.netscape.com/ns/browsers/download.jsp">
+    Netscape</a> 7, <a href="http://www.opera.com/">Opera</a>, and <a
+    href="http://www.apple.com/safari/">Safari</a>. <a
+    href="http://lynx.isc.org/">lynx</a> does <strong>not</strong>
+    support digest authentication. Since digest authentication is not as
+    widely implemented as basic authentication, you should use it only
+    in environments where all users will have supporting browsers.</p>
     <hr />
 
     <h2><a id="authdigestfile"

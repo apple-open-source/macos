@@ -5,7 +5,7 @@
 # Untar, build, create a binary distribution, install into /opt/apache2
 #
 PROJECT_NAME=httpd
-PROJECT_VERSION=2.0.50
+PROJECT_VERSION=2.0.52
 PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
 PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
 FINAL_DIR=/opt/apache2

@@ -237,6 +237,10 @@
       <dd>Trace configurable des acc&egrave;s. Remplace
       mod_log_common</dd>
 
+      <dt><a href="mod_log_forensic.html">mod_log_forensic</a></dt>
+
+      <dd>Forensic logging of requests made to the server</dd>
+
       <dt><a href="mod_log_agent.html">mod_log_agent</a></dt>
 
       <dd>Trace des User Agents</dd>

@@ -70,7 +70,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_init.c	8.1 (Berkeley) 6/7/93";
-static const char rcsid[] = "$Id: res_init.c,v 1.7 2003/07/28 21:44:43 majka Exp $";
+static const char rcsid[] = "$Id: res_init.c,v 1.7.90.1 2004/11/29 01:36:49 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #ifndef __APPLE__
@@ -632,7 +632,7 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 		 * and set statp->restrans which we (Apple) use to indicate
 		 * total time allowed for a query to be resolved.
 		 */
-		totaltimeout = statp->retrans * (statp->retry + 1) * statp->nscount;
+		totaltimeout = statp->retrans * statp->retry * statp->nscount;
 		statp->retrans = totaltimeout;
 	}
 #endif

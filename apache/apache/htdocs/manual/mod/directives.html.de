@@ -127,6 +127,7 @@ gibt.
 <LI><A HREF="core.html#files">&lt;Files&gt;</A>
 <LI><A HREF="core.html#filesmatch">&lt;FilesMatch&gt;</A>
 <LI><A HREF="mod_mime.html#forcetype">ForceType</A>
+<LI><A HREF="mod_log_forensic.html#forensiclog">ForensicLog</A>
 <LI><A HREF="core.html#group">Group</A>
 <LI><A HREF="mod_headers.html#header">Header</A>
 <LI><A HREF="mod_autoindex.html#headername">HeaderName</A>

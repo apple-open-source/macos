@@ -16,6 +16,37 @@ GnuAfterInstall       = strip
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
+# Automatic Extract & Patch
+
+# When upgrading mod_ssl, there are paremeters in the
+# apache makefile to update too.
+
+AEP            = YES
+AEP_Project    = $(Project)
+AEP_Version    = 2.8.22-1.3.33
+AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
+AEP_Filename   = $(AEP_ProjVers).tar.gz
+AEP_ExtractDir = $(AEP_ProjVers)
+AEP_Patches    = NLS_mod_ssl_curent.patch
+
+ifeq ($(suffix $(AEP_Filename)),.bz2)
+AEP_ExtractOption = j
+else
+AEP_ExtractOption = z
+endif
+
+# Extract the source.
+install_source::
+ifeq ($(AEP),YES)
+	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(RMDIR) $(SRCROOT)/$(AEP_Project)
+	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
+	for patchfile in $(AEP_Patches); do \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/mod_ssl_patches/$$patchfile; \
+	done
+endif
+
+
 # Well, not really.
 Environment    =
 Configure      = CFLAGS="$(CC_Archs)" LDFLAGS="$(CC_Archs)" $(BuildDirectory)/configure

@@ -1835,6 +1835,7 @@ ErrorExit:
 //	¥ DetermineMediumGeometry - Determines geometry of the medium.	[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
+
 void
 IOSCSIBlockCommandsDevice::DetermineMediumGeometry ( void )
 {
@@ -1848,8 +1849,9 @@ IOSCSIBlockCommandsDevice::DetermineMediumGeometry ( void )
 	UInt8						headerSize				= 0;
 	UInt8 *						buffer					= NULL;
 	bool						use10ByteModeSense		= true;
+
 	
-	require ( ( fMediaIsRemovable == false ), ErrorExit );
+	require_quiet ( ( fMediaIsRemovable == false ), ErrorExit );
 	
 	dict = OSDictionary::withCapacity ( 4 );
 	require_nonzero ( dict, ErrorExit );

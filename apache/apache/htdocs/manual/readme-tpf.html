@@ -37,20 +37,43 @@
     step-by-step installation instructions.&nbsp;</p>
 
     <p>This port builds upon the <a
-    href="http://httpd.apache.org/docs/ebcdic.html">EBCDIC
-    changes</a> previously made to Apache.&nbsp;<br />
+    href="http://httpd.apache.org/docs/ebcdic.html">EBCDIC changes</a>
+    previously made to Apache.&nbsp;<br />
      <a id="configuration_files"
     name="configuration_files"></a></p>
+
+    <p>If you would like to be notified when new versions of Apache 
+    are released consider joining the 
+    <a href="http://httpd.apache.org/lists.html">announcements list</a>.
+    </p>
 
     <center>
       <h2>Apache Configuration Files</h2>
     </center>
-    The distributed configuration files (httpd.conf-dist and
-    mime.types, both located in the conf subdirectory) work on TPF.
-    Performance considerations may dictate setting KeepAlive to
+    <p>The distributed configuration files (httpd.conf-dist and
+    mime.types, both located in the conf subdirectory) work on TPF
+    with the following caveats:</p>
+    <ul>
+
+    <li>Apache on TPF does not support listening on multiple ports.</li>
+
+    <li>Performance considerations may dictate setting KeepAlive to
     "Off" (the default is "On") or lowering the Timeout value from
     the default 300 seconds (5 minutes) in order to reduce the
-    number of active ECBs on your system.<br />
+    number of active ECBs on your system.</li>
+
+    <li>The default value of MaxRequestsPerChild is zero (infinity).
+    A non-zero value is recommended on TPF to control resource
+    utilization (such as heap storage) by the long running Apache
+    child ECBs.</li>
+
+    <li>Unlike on Unix systems, newly created Apache child processes
+    on TPF re-read the various configuration files (such as httpd.conf
+    and mime.types).  Be sure to stop and restart Apache after changing 
+    configuration files so that the Apache parent process and all child 
+    processes are in sync.</li>
+
+    </ul>
 
     <p>Apache on TPF does not support listening on multiple ports.</p>
 
